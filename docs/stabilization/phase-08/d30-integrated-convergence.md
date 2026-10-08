@@ -1,6 +1,6 @@
 # D30 integrated convergence
 
-This closing [#1378](https://github.com/waffleflopper/trooptotask/issues/1378) deliverable reconciles Phase 08 on the integrated candidate. It removes the last module-boundary findings, retires the legacy server `core` root, and turns governance from a merge-base ratchet into a zero-finding gate.
+This closing [#1378](https://github.com/waffleflopper/trooptotask/issues/1378) deliverable reconciles Phase 08 on the integrated candidate. It removes the last module-boundary findings, route provider exceptions and the legacy server `core` root. It repairs the lane-denial failures found by the integrated baseline and makes governance a zero-exception gate.
 
 ## Reconciliation
 
@@ -41,21 +41,30 @@ At `17229542`, `node scripts/module-boundaries.ts` reports 116 findings across 2
 
 **Module graph (116 → 0).**
 
-- Calendar's streamed workspace contract (lane key, hydration targets, result, restricted and route data) now lives in `calendar.types.ts`. Calendar exports it through its web and server entries. The hydration builder moves into the Calendar route's `calendarWorkspaceDelivery.server.ts`, next to the other lanes' Delivery builders. `server/calendarWorkspaceBootstrap.ts` is deleted. Calendar routes and their tests consume the page views, range coordinator, hydrator, stores and anchor cookie through `$features/calendar`.
-- `AuthField`, `AuthNotice`, `AuthPasswordToggle` and `AuthShell` move into Identity and are exported from its web entry. The two password-flow tests that render route pages move under `src/routes/auth/`, beside the existing `passwordCompletion` test. The `lib/auth` and `lib/components/auth` roots are removed from the manifest. The two password fixtures are declared test support.
-- The admin search, Suspend and Transfer Ownership modals and the badge helpers move to `src/features/platform-admin/components/`. A new Platform Administration web entry exports them. Two unused color maps are deleted.
-- Settings ranks and logs page-data types join `settingsSectionTypes.ts`. Svelte pages no longer import `.server` modules for types.
-- The Critical Tasks test reads `personnelStore` from the Personnel web entry.
+- Calendar's streamed workspace contract (lane key, hydration targets, result, restricted and route data) now lives in `calendar.types.ts` and is exported through Calendar's web and server entries. The hydration builder moves into the Calendar route's `calendarWorkspaceDelivery.server.ts`, next to the other lanes' Delivery builders; `server/calendarWorkspaceBootstrap.ts` is deleted.
+- `AuthField`, `AuthNotice`, `AuthPasswordToggle` and `AuthShell` move into Identity. The two password-flow tests that render route pages move under `src/routes/auth/`, beside the existing `passwordCompletion` test. The two password fixtures are declared test support.
+- The admin search, Suspend and Transfer Ownership modals and the badge helpers move to `src/features/platform-admin/components/`. Two unused color maps are deleted.
+- Settings ranks and logs page-data types join `settingsSectionTypes.ts`, so Svelte pages no longer import `.server` modules for types. The Critical Tasks test reads `personnelStore` from the Personnel web entry.
+- Routed page components and modals are declared as individual public files rather than re-exported from web barrels. A barrel export would make every route that imports a helper also download every page. Across all 84 client route nodes, the gzipped JavaScript closure differs from base `17229542` by under 300 B.
 
-**Legacy root.** `src/lib/server/core/` is removed. Starter configuration packs become a Dashboard server operation, because Dashboard owns Getting Started and its pack contracts and may compose Training and Onboarding operations. The root Organization layout load moves beside its only route. `streamedWorkspace`, `featureLaneWorkspaceLoad` and `appShellRouteData` join the other Delivery helpers in `src/lib/server/adapters/`. The deleted-authorization-symbol scan now covers all of `src/lib/server`, `src/lib/access` and `src/features`, so moving files out of the old root does not shrink coverage.
+**Legacy root.** `src/lib/server/core/` is removed:
+- Starter configuration packs become a Dashboard server operation, because Dashboard owns Getting Started and its pack contracts and may compose Training and Onboarding operations.
+- The root Organization layout load moves beside its only route.
+- `streamedWorkspace`, `featureLaneWorkspaceLoad` and `appShellRouteData` join the other Delivery helpers in `src/lib/server/adapters/`.
 
-**Provider edges (8 → 5).**
+The deleted-authorization-symbol scan now covers all of `src/lib/server`, `src/lib/access` and `src/features`.
 
-- The Settings logs and members routes no longer acquire a service-role client. As ADR 0012 requires, `requestContexts.server.ts` now wires the audit-log readers and the invitation delivery, rate-limit and setup-link ports.
-- `/suspended` no longer issues its own `is_user_suspended` RPC. Identity's new `readAccountSuspension` serves both admission and that page; admission keeps its unavailable result for an unverifiable status.
-- The remaining entries are intentional current edges. Invite finalization and email confirmation are Identity `auth-edge` routes. The three admitted cron jobs are `cron-edge` routes that bind service-role retention sources in Delivery, as accepted by D25.
+**Route provider edges (8 → 0) and no exception file.**
+- Settings logs, Settings members, Deletion Request review and the three cron jobs no longer acquire or import the admin client. Delivery adapters in `src/lib/server/adapters/` bind those service-role ports after authorization: `requestContexts.server.ts` and the new `scheduledMaintenanceSources.server.ts`.
+- `/suspended` uses Identity's new `readAccountSuspension`, which admission also uses. An unverifiable status now returns 500, as admission does.
+- Invite finalization and email confirmation pass the request to their owned operations. `checkSessionAssurance`, `autoAcceptOrgInvites` and `confirmAuthLink` now take `{ supabase }`, like `loginIdentity`.
+- `GOVERNANCE_BASELINE.json` and the allowlist code are deleted. Governance fails on any route-level Supabase usage, admin-client import or acquisition, feature permission coupling or module-boundary finding. The merge-base comparison and cycle-shrink allowance are removed because no accepted debt remains.
 
-**Governance.** Every module-boundary finding now fails `npm run governance:check`. The merge-base comparison, cycle-shrink allowance and their tests are removed because no accepted debt remains to compare against. The governance and CI documentation describe the new contract.
+**Lane denial repair.** The unchanged-app baseline shows a blank page and an uncaught hydration error for Critical Tasks and Personnel. Training shows its message but still throws. In each case the member lacks the lane's view grant; the server denies correctly and leaks nothing.
+- Calendar and Evals already streamed denial as a restricted result. Delivery's shared `settleWorkspaceDenial` now does the same for Critical Tasks, Training and Personnel.
+- Each lane layout clears its stores for the Organization through its hydrator's `restrict` and shows the shared `WorkspaceAccessRestricted` panel; Calendar and Evals use the same panel.
+- Onboarding denies synchronously through the 403 error page with no uncaught error, and stays as is.
+- New layout tests fail against the previous layouts and pass on the repair.
 
 ## Inventory result
 
@@ -75,7 +84,7 @@ At `17229542`, `node scripts/module-boundaries.ts` reports 116 findings across 2
 | M12    | D21, D22; D30 adds the admin web entry                                                                                                          |        0 |
 | M13    | D19, D20                                                                                                                                        |        0 |
 | M14    | D24, D25                                                                                                                                        |        0 |
-| M15    | D27, D28; D30 removes two route admin-provider edges and the legacy `core` root                                                                 |        0 |
+| M15    | D27, D28; D30 removes every route provider edge, the exception file and the legacy `core` root                                                                 |        0 |
 | M16    | D29                                                                                                                                             |        0 |
 | M17    | D02; later control migration remains Phase 10                                                                                                   |        0 |
 
@@ -83,24 +92,38 @@ At `17229542`, `node scripts/module-boundaries.ts` reports 116 findings across 2
 
 ## Lower-level checks
 
-Initial candidate `3d8385da` (Node 24.21.0, npm 11.19.0, the CI workflow's synthetic provider environment, `VITEST_MAX_WORKERS=4`):
+Final local sequence on `0897bc3a` (Node 24.21.0, npm 11.19.0, the CI workflow's synthetic provider environment):
 
-- `format:check` passes. `lint` reports 0 errors and four warnings: three existing `prefer-svelte-reactivity` warnings, plus an unused import introduced by the Settings type move. `533321d7` removes that import.
-- `governance:check` passes with 0 findings. `check` reports 0 errors and 0 warnings over 8,052 files.
-- `test` passes 726 files / 7,278 tests.
-- `build` passes with `APP_PUBLIC_ORIGIN=http://127.0.0.1:4173`, apart from the existing optional `@opentelemetry/api` notice.
+- `format:check` passes. `lint` reports 0 errors and the three existing `prefer-svelte-reactivity` warnings.
+- `governance:check` reports 0 findings. `check` reports 0 errors and 0 warnings over 8,055 files.
+- `test` passes 728 files / 7,281 tests.
+- `build` passes, apart from the existing optional `@opentelemetry/api` notice.
 
-After the legacy-root move, the following pass: types 0/0, governance 0, 152 Dashboard/adapter/route files / 1,022 tests, and all 923 `src/routes/org` + hooks tests. The final candidate's complete sequence is recorded below.
+`ac14c29d` adds store clearing on restriction, the remaining Delivery bindings and the admin-client import rule. After it, types report 0/0, governance passes, and the affected 1,488 lane/feature tests and 202 adapter/deletion-request tests pass. Current-head CI covers the full sequence for the published candidate.
 
-No SQL, migration, RLS policy or provider function changes. The isolated database contracts last ran on D28's exact-head CI for the unchanged schema. D30 adds no database input, so the database CI job correctly does not apply.
+No SQL, migration, RLS policy or provider function changes. The isolated database contracts last ran on D28's exact-head CI for the unchanged schema, and D30 adds no database input.
 
 ## Live verification
 
-Pending: unchanged-app baseline and final affected proof.
+All runs use the owned `verify:app` environment and native DevTools controls, with doctor passing at start and end and owned cleanup afterwards.
+
+| Run                  | Candidate         | Archive (SHA-256)                                                                           | Result                                                                                                                                                                                                                                                                                                                                                                                                    |
+| -------------------- | ----------------- | ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unchanged baseline   | `17229542` (main) | [d30-baseline-1722954](d30-baseline-1722954.tar.gz) `b6163623…93ed`                         | Every Calendar view, auth page, `/suspended` (including a suspended user), Platform Admin dialog, Settings logs/members/ranks, starter pack and Critical Tasks path passes. An earlier baseline run on the same commit also found the Critical Tasks denial failure; its archive was lost with its worktree, and this rerun replaces it.                                                                          |
+| Lane-denial baseline | `17229542` (main) | [d30-lane-denial-baseline-1722954](d30-lane-denial-baseline-1722954.tar.gz) `96b78490…3651` | Critical Tasks and Personnel blank with an uncaught hydration error; Training shows its message but throws; Onboarding uses the 403 error page; Calendar and Evals show Access Restricted. No lane leaks data.                                                                                                                                                                                                 |
+| Final                | `c14ccd17`        | [d30-final-c14ccd17](d30-final-c14ccd17.tar.gz) `41b444a4…7fdc`                             | Every baseline path passes on the module/legacy-root candidate, including a suspended user, invitation lifecycle, starter pack apply/reapply/deny and resolved audit labels. Its only failure is the Critical Tasks denial already present in the baseline.                                                                                                                                                           |
+| Final delta          | `0897bc3a`        | [d30-final-delta-0897bc3a](d30-final-delta-0897bc3a.tar.gz) `2e15c082…be8d`                 | All three repaired lanes show Access Restricted with no uncaught error and no lane data; granted actors still hydrate; client navigation from a restricted lane renders the granted lane. Auth, admin and members paths pass. The three cron jobs return 401 without a credential and 200 with the owned one. End-to-end invite finalization is unreachable without a mail transport; partial probes pass. |
 
 ## Review
 
-Pending.
+- CodeRabbit CLI reviews `17229542..c14ccd17` (101 files) with one minor finding: `/suspended` treated an unverifiable status as active. `c0b3bf8e` fixes this. Its reviews of `c14ccd17..0897bc3a` and `0897bc3a..ac14c29d` report 0 findings.
+- Independent acceptance by a separate agent first returns NO-GO at `c14ccd17` on two findings:
+  - Barrel page exports grew several route bundles by up to 200 KB. Fixed with per-component public files; measured above.
+  - Five route provider exceptions remained. Removed together with the exception file.
+- Its minor findings are fixed: stale TODO text, builder naming, the authorization doc's allowlist sentence, the Deletion Request review binding, and restricted-lane store clearing. Two dispositions stand:
+  - The Calendar hydration types stay structural; the Delivery builders' declared return types already enforce compatibility.
+  - Invitation ports are still constructed eagerly. `getAdminClient()` performs no I/O, and the old route had the same ordering.
+- Round two at `0897bc3a` returns Standards GO / Spec GO. It confirms the bundle and exception fixes, every changed caller, cron authorization ordering, and Personnel's organization switch, including a real-page restricted render. This is source/artifact review, not independent live execution.
 
 ## Release obligations
 

@@ -2,6 +2,17 @@
 
 **Final D28 roster fixture repair:** Actions 37728805827 on `3740fe6f` passes types, production build and isolated database contracts. One roster fixture rejects the admitted ordinary rank reader. Removing that obsolete override keeps its literal snapshot-order assertion and scoped fixture intact. Local RED repeats one failure / ten passes. Focused GREEN records five suites / 71 tests, including roster records, rank ordering and the ICT ordinary-store boundary. [The repair record](phase-08/d28-final-personnel-persistence.md#roster-fixture-repair-after-current-head-ci) links the sealed failure/check archive. Original native and earlier accepted checks retain their bindings. Fresh candidate release gates remain pending.
 
+## Phase 08 D30 integrated convergence
+
+The [convergence record](phase-08/d30-integrated-convergence.md) is the closing candidate for #1378.
+
+- **Reconciliation:** all 29 other Phase 08 children have verified merges on main `17229542`.
+- **Findings and exceptions:** module-boundary findings fall from 116 to 0, and every route provider exception is removed together with `GOVERNANCE_BASELINE.json`. The legacy `lib/server/core` root is retired. Governance now fails on any finding.
+- **Lane denials:** an unchanged-app baseline reproduced Critical Tasks, Training and Personnel lane-denial failures. The record holds that repair and its matching final proof, and the four live runs are packaged.
+- **Bundles:** per-route JavaScript stays within 300 B of base across all 84 route nodes.
+- **Checks and review:** the full local sequence passes on `0897bc3a` with 728 files / 7,281 tests. CodeRabbit's single finding is fixed, and independent round-two acceptance returns Standards GO / Spec GO.
+- **Remaining gates:** current-head CI, hosted review and the focused `ac14c29d` live proof.
+
 ## Phase 08 D29 shared homes
 
 The [shared-homes record](phase-08/d29-shared-homes.md) is the closing candidate for #1377, based on D28's integration through #1573 at `6e458162`. It deletes the mixed `lib/types.ts`, derives rank lists and OER/WOER from Personnel's catalog, moves single-owner models, Calendar and Identity files to their features, keeps one deferred-revoke `downloadBlob`, makes sensitive-file paths owner-supplied, and declares the Web UI and test-support surfaces. Governance falls from 139 to 116 findings with none for M16, Web UI or Shared targets. Literal pins on the unchanged code pass before and after. Baseline `1466dac0` and final `6ca044ee` native runs on worker 1 match across seven cases with recorded fixture-order ISSUEs and one UNRUN counseling Open step; archives preserve 185 and 198 payloads. Types, lint, format, governance and the production build pass; the full suite passes except one load-induced boundary-test timeout that passes alone. CodeRabbit CLI reviews all 68 files with zero findings; independent source acceptance's one finding, overwritten Rating Scheme cases, is restored, and expanded artifact acceptance returns Standards GO / Spec GO. Exact-head CI and completed hosted review remain merge gates.

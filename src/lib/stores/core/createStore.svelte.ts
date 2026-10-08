@@ -3,6 +3,7 @@ import { createReactiveCollection, createReactiveValue } from './reactiveState.s
 import { createMutationLog } from './mutationLog.svelte';
 import type { MutationLog } from './mutationLog.svelte';
 import { replay } from './replay';
+import type { MutationEntry } from './replay';
 import { createRestAdapter } from './ports';
 import type { ApiAdapter, BatchApiAdapter } from './ports';
 import type { BeforeAddHook } from './optimistic';
@@ -59,16 +60,19 @@ export function createStoreWithInternals<T extends { id: string }>(
 
 	let adapter: ApiAdapter<T> = config.adapter ?? createRestAdapter<T>(() => orgIdVal.value, config.resource);
 
-	function getDisplayItems(): T[] {
-		return replay(serverState.items, log.entries, config.beforeAdd);
-	}
+	let display: { server: T[]; entries: MutationEntry<T>[]; items: T[] } | null = null;
 
-	function getDisplaySnapshot(): T[] {
-		return replay(serverState.getSnapshot(), log.entries, config.beforeAdd);
+	function getDisplayItems(): T[] {
+		const server = serverState.items;
+		const entries = log.entries;
+		if (display?.server !== server || display.entries !== entries) {
+			display = { server, entries, items: replay(server, entries, config.beforeAdd) };
+		}
+		return display.items;
 	}
 
 	async function removeImpl(id: string): Promise<DeleteResult> {
-		const displayed = getDisplaySnapshot();
+		const displayed = getDisplayItems();
 		const original = displayed.find((item) => item.id === id);
 		if (!original) return 'error';
 
@@ -184,7 +188,7 @@ export function createStoreWithInternals<T extends { id: string }>(
 		},
 
 		async update(id: string, data: Partial<Omit<T, 'id'>>): Promise<boolean> {
-			const displayed = getDisplaySnapshot();
+			const displayed = getDisplayItems();
 			const original = displayed.find((item) => item.id === id);
 			if (!original) return false;
 
@@ -253,15 +257,15 @@ export function createStoreWithInternals<T extends { id: string }>(
 		},
 
 		getById(id: string) {
-			return getDisplaySnapshot().find((item) => item.id === id);
+			return getDisplayItems().find((item) => item.id === id);
 		},
 
 		filter(predicate: (item: T) => boolean) {
-			return getDisplaySnapshot().filter(predicate);
+			return getDisplayItems().filter(predicate);
 		},
 
 		find(predicate: (item: T) => boolean) {
-			return getDisplaySnapshot().find(predicate);
+			return getDisplayItems().find(predicate);
 		},
 
 		removeLocalWhere(predicate: (item: T) => boolean) {
@@ -281,7 +285,7 @@ export function createStoreWithInternals<T extends { id: string }>(
 		serverState,
 		log,
 		replay: () => getDisplayItems(),
-		snapshot: () => getDisplaySnapshot(),
+		snapshot: () => getDisplayItems(),
 		orgId: () => orgIdVal.value,
 		get adapter() {
 			return adapter;

@@ -4,7 +4,7 @@ import {
 	requireCalendarPolicy,
 	type CalendarCatalogPorts,
 	type CalendarCatalogDeletionPorts
-} from '$lib/server/core/useCases/calendarPolicy';
+} from './calendarPolicy.server';
 import { statusTypeCreateInput, statusTypeUpdateInput } from './calendarPersistenceMapping.server';
 
 const action = CALENDAR_POLICY_ACTIONS.configureStatusTypes;

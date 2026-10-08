@@ -297,6 +297,14 @@ function compareEntries(a: RankCatalogEntry, b: RankCatalogEntry): number {
 	);
 }
 
+/** Active built-in Army codes from lowest to highest, then Civilian. */
+export const BUILT_IN_ARMY_RANK_OPTIONS: readonly string[] = [
+	...BUILT_IN_RANK_CATALOG.filter((entry) => entry.service === 'army' && entry.state === 'active')
+		.map((entry) => entry.code)
+		.reverse(),
+	...BUILT_IN_RANK_CATALOG.filter((entry) => entry.service === 'civilian').map((entry) => entry.code)
+];
+
 export function resolveBuiltInRank(code: string): RankCatalogEntry | undefined {
 	const index = rankCatalogIndex(BUILT_IN_RANK_CATALOG);
 	return resolveRankFromIndex(index, code);

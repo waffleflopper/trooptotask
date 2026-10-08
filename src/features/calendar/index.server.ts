@@ -46,7 +46,7 @@ export {
 	type CalendarDateRange,
 	type CalendarRangeData
 } from './calendarQuery.server';
-export { fetchCalendarReportData } from './calendarReportQuery.server';
+export { fetchCalendarReportData, fetchCalendarStatusDaysReport } from './calendarReportQuery.server';
 
 export {
 	createCalendarWorkspaceHydration,
@@ -57,6 +57,6 @@ export {
 
 export { CALENDAR_ANCHOR_COOKIE, resolveCalendarAnchorDate } from './utils/calendarAnchorDate';
 export { createInitialCalendarBufferedRange } from './utils/calendarRange';
-export { withCalendarTiming } from '$lib/server/utils/calendarTiming';
+export { withCalendarTiming } from './calendarTiming.server';
 
 export { createSupabaseCalendarExportReader } from './calendarExportRead.server';

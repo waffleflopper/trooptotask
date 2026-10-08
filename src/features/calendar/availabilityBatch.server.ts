@@ -12,7 +12,7 @@ import {
 	requireCalendarPersonnelPolicy,
 	type CalendarAvailabilityPorts,
 	type CalendarAvailabilityRemovalPorts
-} from '$lib/server/core/useCases/calendarPolicy';
+} from './calendarPolicy.server';
 
 const AUDIT_RESOURCE = 'availability';
 const MAX_BATCH_SIZE = 500;

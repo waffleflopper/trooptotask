@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { makePublicAppUrl, resolvePublicAppOrigin } from './publicAppOrigin';
+import { makePublicAppUrl, resolvePublicAppOrigin } from './publicAppOrigin.server';
 
 describe('public app origin resolver', () => {
 	afterEach(() => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getRatingDueStatus, getDaysUntilDue, getReportTypeLabel } from './ratingScheme';
+import { getEvalTypeForRank, getRatingDueStatus, getDaysUntilDue, getReportTypeLabel } from './ratingScheme';
 
 describe('getRatingDueStatus', () => {
 	const today = new Date('2026-03-19T12:00:00');
@@ -49,5 +49,27 @@ describe('getReportTypeLabel', () => {
 
 	it('returns empty string for null report type', () => {
 		expect(getReportTypeLabel(null, 'OER')).toBe('');
+	});
+});
+
+describe('getEvalTypeForRank', () => {
+	it.each([
+		['2LT', 'OER'],
+		['CPT', 'OER'],
+		['GEN', 'OER'],
+		['WO1', 'WOER'],
+		['CW5', 'WOER'],
+		['SGT', 'NCOER'],
+		['CSM', 'NCOER'],
+		['PV1', 'NCOER'],
+		['SP4', 'NCOER'],
+		['CIV', 'NCOER'],
+		['ADM', 'NCOER'],
+		['CWO3', 'NCOER'],
+		['cpt', 'NCOER'],
+		[' CPT', 'NCOER'],
+		['', 'NCOER']
+	])('maps %j to %s', (rank, evalType) => {
+		expect(getEvalTypeForRank(rank)).toBe(evalType);
 	});
 });

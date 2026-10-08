@@ -11,7 +11,7 @@
 	import type { UpcomingLossRecord } from '$features/personnel/contracts';
 	import CalendarHeader from './CalendarHeader.svelte';
 	import CalendarRow from './CalendarRow.svelte';
-	import GroupHeader from '$lib/components/GroupHeader.svelte';
+	import GroupHeader from './GroupHeader.svelte';
 	import * as Empty from '$lib/components/ui/empty';
 	import { Button } from '$lib/components/ui/button';
 	import { buildCalendarRenderState } from '$features/calendar/utils/calendarRenderState';

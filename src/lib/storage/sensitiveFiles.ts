@@ -5,15 +5,13 @@ export const SENSITIVE_FILE_ACCEPT = 'application/pdf';
 export const SENSITIVE_FILE_MAX_BYTES = 10 * 1024 * 1024;
 const PDF_SIGNATURE_BYTE_LENGTH = 4;
 
-export type SensitiveFileScope = 'sign-in-rosters' | 'counseling-records';
-
 export function sanitizeSensitiveFilename(filename: string): string {
 	return filename.replace(/[^a-zA-Z0-9._-]/g, '_');
 }
 
 export function buildSensitiveFilePath(input: {
 	orgId: string;
-	scope: SensitiveFileScope;
+	scope: string;
 	recordId: string;
 	filename: string;
 }): string {

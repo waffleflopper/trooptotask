@@ -1,3 +1,9 @@
+import type {
+	OrganizationSettingsMembershipRow,
+	OrganizationSettingsInvitationRow,
+	OrganizationSettingsInvitationDeliveryRow,
+	OrganizationOwnershipCandidateMembershipRow
+} from '$features/organization/contracts';
 import type { OnboardingCatalogPersistence, OnboardingWorkflowPersistence } from '$features/onboarding/contracts';
 import type { TrainingCatalogPersistence, TrainingCompletionPersistence } from '$features/training/contracts';
 import { loadOrganizationMemberLabels, type OrganizationMemberLabelRow } from '$features/organization/index.server';
@@ -1252,13 +1258,64 @@ function unavailableNotificationStore(): NotificationStore {
 	};
 }
 
-/** Test delivery binding for Organization-owned scalar facts. */
 function createInMemoryOrganizationSettingsReader(store: DataStore): OrganizationSettingsReader {
 	async function findScalar(orgId: string, column: string) {
 		const row = await store.findOne<Record<string, number | null>>('organizations', orgId.toLowerCase(), {}, column);
 		return row?.[column];
 	}
 	return {
+		async findCriticalTasksDefaults(orgId) {
+			const row = await store.findOne<{
+				critical_tasks_default_expiration_months?: number | null;
+				critical_tasks_expiring_soon_warning_days?: number | null;
+			}>(
+				'organizations',
+				orgId.toLowerCase(),
+				{ id: orgId.toLowerCase() },
+				'critical_tasks_default_expiration_months, critical_tasks_expiring_soon_warning_days'
+			);
+			return row
+				? {
+						defaultExpirationMonths: row.critical_tasks_default_expiration_months,
+						expiringSoonWarningDays: row.critical_tasks_expiring_soon_warning_days
+					}
+				: null;
+		},
+		listMemberAccess: (orgId) =>
+			store.findMany<OrganizationSettingsMembershipRow>('organization_memberships', orgId.toLowerCase(), undefined, {
+				select:
+					'id, organization_id, user_id, email, role, created_at, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids',
+				orderBy: [{ column: 'id', ascending: true }]
+			}),
+		listInvitations: (orgId) =>
+			store.findMany<OrganizationSettingsInvitationRow>('organization_invitations', orgId.toLowerCase(), undefined, {
+				select:
+					'id, email, role, status, created_at, expires_at, accepted_at, declined_at, revoked_at, expired_at, blocked_at, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids',
+				orderBy: [
+					{ column: 'created_at', ascending: false },
+					{ column: 'id', ascending: true }
+				]
+			}),
+		listInvitationDeliveries: (orgId) =>
+			store.findMany<OrganizationSettingsInvitationDeliveryRow>(
+				'organization_invitation_email_outbox',
+				orgId.toLowerCase(),
+				undefined,
+				{
+					select: 'id, invitation_id, status, attempt_count, last_error, updated_at, sent_at',
+					orderBy: [
+						{ column: 'created_at', ascending: false },
+						{ column: 'id', ascending: true }
+					]
+				}
+			),
+		listOwnershipCandidateMemberships: (orgId) =>
+			store.findMany<OrganizationOwnershipCandidateMembershipRow>(
+				'organization_memberships',
+				orgId.toLowerCase(),
+				undefined,
+				{ select: 'id, user_id, email, role', orderBy: [{ column: 'id', ascending: true }] }
+			),
 		findMemberLabels: (orgId, userIds) =>
 			loadOrganizationMemberLabels(
 				{

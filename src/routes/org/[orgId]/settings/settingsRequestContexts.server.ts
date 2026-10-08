@@ -53,8 +53,8 @@ export function createSettingsMembersContext(request: AdmittedOrganizationReques
 		audit: AdmittedOrganizationRequest['audit'];
 	} {
 	return {
-		...createRequestWriteContext(request),
 		...createRequestGroupContext(request),
+		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase),
 		organizationInvitationSetupStateLookup: createSupabaseOrganizationInvitationSetupStateLookupPort(getAdminClient)
 	};
 }
@@ -71,7 +71,7 @@ export function createSettingsPoliciesContext(
 export function createSettingsDangerContext(
 	request: AdmittedOrganizationRequest
 ): Parameters<typeof loadDangerSettings>[0] {
-	return { auth: request.auth, store: request.store };
+	return { auth: request.auth, organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase) };
 }
 
 export function createSettingsApprovalsContext(request: AdmittedOrganizationRequest) {

@@ -10,7 +10,7 @@ interface CriticalTasksReadinessLane {
 	tone: 'good' | 'watch' | 'bad' | 'neutral';
 }
 interface CriticalTasksReadinessInput {
-	store: Parameters<typeof fetchCriticalTasksSettings>[0]['store'];
+	organizationSettings: Parameters<typeof fetchCriticalTasksSettings>[0]['organizationSettings'];
 	criticalTaskCompletions: Pick<CriticalTaskCompletionPersistence, 'listReadinessHistory'>;
 	criticalTaskLibrary: Pick<CriticalTaskLibraryPersistence, 'listCatalog'>;
 	orgId: string;
@@ -25,7 +25,7 @@ function plural(count: number, singular: string): string {
 
 /** Critical Tasks owns its source lookups and projection; delivery retains admission. */
 export async function loadCriticalTasksReadinessLane({
-	store,
+	organizationSettings,
 	criticalTaskLibrary,
 	criticalTaskCompletions,
 	orgId,
@@ -37,7 +37,7 @@ export async function loadCriticalTasksReadinessLane({
 	const [tasks, completions, settings] = await Promise.all([
 		criticalTaskLibrary.listCatalog(),
 		criticalTaskCompletions.listReadinessHistory(personnelId),
-		fetchCriticalTasksSettings({ auth: { orgId }, store })
+		fetchCriticalTasksSettings({ auth: { orgId }, organizationSettings })
 	]);
 	const readiness = buildCriticalTasksSoldierReadinessSummary({
 		person,

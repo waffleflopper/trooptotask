@@ -28,6 +28,8 @@ Preconditions: `doctor` passes; `$V fixture` identifies Organization A/B, Alpha/
 
 ## Gotchas
 
+- Members and ownership candidates load all pages in ascending membership ID order. Compare saved records by ID and full facts; require every eligible membership exactly once. A sparse native fixture does not establish large-page completeness.
+
 - Organization membership role and member preset are different fields. Only the owner can change governance role or transfer ownership; normal capability edits do not make a second owner.
 - Owner transfer requires an existing eligible member and sensitive-action assurance. If step-up is required, follow the visible verification path and record it; bypassing it does not prove the transfer.
 - Member removal is a separate action with a confirmation dialog and ends access while retaining Personnel/Calendar records. Exercise it only with an expendable synthetic member; do not remove the seeded owner, admin or cross-feature fixture.

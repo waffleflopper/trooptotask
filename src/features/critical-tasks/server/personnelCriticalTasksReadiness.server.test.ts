@@ -71,7 +71,7 @@ describe('Personnel Critical Tasks readiness', () => {
 
 		await expect(
 			loadCriticalTasksReadinessLane({
-				store: ctx.store,
+				organizationSettings: ctx.organizationSettings,
 				criticalTaskLibrary: ctx.criticalTaskLibrary,
 				criticalTaskCompletions: ctx.criticalTaskCompletions,
 				orgId: ctx.auth.orgId,
@@ -152,7 +152,7 @@ describe('Personnel Critical Tasks readiness', () => {
 
 		await expect(
 			loadCriticalTasksReadinessLane({
-				store: ctx.store,
+				organizationSettings: ctx.organizationSettings,
 				criticalTaskLibrary: ctx.criticalTaskLibrary,
 				criticalTaskCompletions: ctx.criticalTaskCompletions,
 				orgId: ctx.auth.orgId,
@@ -204,7 +204,7 @@ describe('Personnel Critical Tasks readiness', () => {
 
 		await expect(
 			loadCriticalTasksReadinessLane({
-				store: ctx.store,
+				organizationSettings: ctx.organizationSettings,
 				criticalTaskLibrary: ctx.criticalTaskLibrary,
 				criticalTaskCompletions: ctx.criticalTaskCompletions,
 				orgId: ctx.auth.orgId,

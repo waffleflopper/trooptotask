@@ -6,12 +6,9 @@ import {
 	type StoredMemberPreset
 } from '$lib/access/memberAccessShape';
 import { ACCOUNT_SETUP_RECOVERY_LINK_LABEL, type AccessRequestSetupState } from '$features/identity/index.server';
-import type { OrganizationInvitationSetupStateLookupPort } from './contracts';
-import {
-	buildSettingsInvitationAccessRow,
-	buildSettingsMemberAccessRow,
-	type SettingsAccessSourceRow
-} from './settingsMemberAccessReadModel.server';
+import type { SettingsAccessSourceRow, OrganizationSettingsInvitationDeliveryRow } from './organizationSettingsTypes';
+import type { OrganizationSettingsReader, OrganizationInvitationSetupStateLookupPort } from './contracts';
+import { buildSettingsInvitationAccessRow, buildSettingsMemberAccessRow } from './settingsMemberAccessReadModel.server';
 import type {
 	SettingsInvitationFunnelStatus,
 	SettingsInvitationHistoryRow,
@@ -64,7 +61,7 @@ export interface BuildMembersSettingsDataInput {
 	isAdmin: boolean;
 	members: SettingsAccessSourceRow[];
 	invitations: SettingsAccessSourceRow[];
-	invitationDeliveries?: SettingsInvitationDeliverySourceRow[];
+	invitationDeliveries?: OrganizationSettingsInvitationDeliveryRow[];
 	/** Platform Account Setup state per invitation id. Absent entries mean no Access Request exists. */
 	invitationSetupStates?: Map<string, AccessRequestSetupState>;
 	pendingApprovalSummary?: PendingApprovalSummary;
@@ -77,30 +74,12 @@ export interface PendingApprovalSummary {
 	oldestCreatedAt: string | null;
 }
 
-export interface SettingsInvitationDeliverySourceRow {
-	id: string;
-	invitation_id: string;
-	status: 'pending' | 'sent' | 'failed';
-	attempt_count: number;
-	last_error: string | null;
-	updated_at: string;
-	sent_at: string | null;
-}
-
 interface MembersSettingsLoadContext {
 	auth: { orgId: string; role: MembershipRole; canManageMembers: boolean };
-	store: {
-		findMany<T>(
-			table: string,
-			orgId: string,
-			filters: undefined,
-			options: {
-				select?: string;
-				orderBy?: Array<{ column: string; ascending: boolean }>;
-				inFilters?: Record<string, string[]>;
-			}
-		): Promise<T[]>;
-	};
+	organizationSettings: Pick<
+		OrganizationSettingsReader,
+		'listMemberAccess' | 'listInvitations' | 'listInvitationDeliveries'
+	>;
 	organizationInvitationSetupStateLookup?: OrganizationInvitationSetupStateLookupPort;
 }
 
@@ -109,24 +88,9 @@ export async function loadMembersSettings(
 	input: LoadMembersSettingsInput
 ): Promise<MembersSettingsData> {
 	const [membershipRows, invitationRows, invitationDeliveryRows, groups, pendingApprovalSummary] = await Promise.all([
-		ctx.store.findMany<SettingsAccessSourceRow>('organization_memberships', ctx.auth.orgId, undefined, {
-			select:
-				'id, organization_id, user_id, email, role, created_at, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids'
-		}),
-		ctx.store.findMany<SettingsAccessSourceRow>('organization_invitations', ctx.auth.orgId, undefined, {
-			select:
-				'id, email, role, status, created_at, expires_at, accepted_at, declined_at, revoked_at, expired_at, blocked_at, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids',
-			orderBy: [{ column: 'created_at', ascending: false }]
-		}),
-		ctx.store.findMany<SettingsInvitationDeliverySourceRow>(
-			'organization_invitation_email_outbox',
-			ctx.auth.orgId,
-			undefined,
-			{
-				select: 'id, invitation_id, status, attempt_count, last_error, updated_at, sent_at',
-				orderBy: [{ column: 'created_at', ascending: false }]
-			}
-		),
+		ctx.organizationSettings.listMemberAccess(ctx.auth.orgId),
+		ctx.organizationSettings.listInvitations(ctx.auth.orgId),
+		ctx.organizationSettings.listInvitationDeliveries(ctx.auth.orgId),
 		input.groups,
 		input.pendingApprovalSummary
 	]);
@@ -265,7 +229,7 @@ function shapeMemberRow(
 function shapeInvitationRow(
 	invitation: ReturnType<typeof buildSettingsInvitationAccessRow>,
 	groups: Array<{ id: string; name: string }>,
-	deliveryByInvitationId: Map<string, SettingsInvitationDeliverySourceRow>,
+	deliveryByInvitationId: Map<string, OrganizationSettingsInvitationDeliveryRow>,
 	now: Date
 ): SettingsInvitationRow {
 	const delivery = deliveryByInvitationId.get(invitation.id) ?? null;
@@ -360,9 +324,9 @@ const INVITATION_FUNNEL_COPY: Record<SettingsInvitationFunnelStatus, { label: st
 };
 
 function buildLatestDeliveryByInvitationId(
-	deliveries: SettingsInvitationDeliverySourceRow[]
-): Map<string, SettingsInvitationDeliverySourceRow> {
-	const latest = new Map<string, SettingsInvitationDeliverySourceRow>();
+	deliveries: OrganizationSettingsInvitationDeliveryRow[]
+): Map<string, OrganizationSettingsInvitationDeliveryRow> {
+	const latest = new Map<string, OrganizationSettingsInvitationDeliveryRow>();
 	for (const delivery of deliveries) {
 		if (!latest.has(delivery.invitation_id)) {
 			latest.set(delivery.invitation_id, delivery);

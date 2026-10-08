@@ -46,6 +46,13 @@ function request(criticalTasks: 'view' | 'none') {
 	];
 	const providerFetch = vi.fn(async (input: RequestInfo | URL) => {
 		const url = new URL(input instanceof Request ? input.url : input.toString());
+		if (url.pathname === '/rest/v1/organizations') {
+			expect(url.searchParams.get('id')).toBe(`eq.${ctx.auth.orgId}`);
+			return Response.json({
+				critical_tasks_default_expiration_months: 12,
+				critical_tasks_expiring_soon_warning_days: 60
+			});
+		}
 		if (url.pathname === '/rest/v1/personnel') {
 			expect(url.searchParams.get('organization_id')).toBe(`eq.${ctx.auth.orgId}`);
 			expect(url.searchParams.get('id')).toBe('eq.person-alpha');
@@ -93,7 +100,7 @@ function request(criticalTasks: 'view' | 'none') {
 function loadReadiness(input: ReturnType<typeof request>) {
 	const contexts = createRequestPersonnelDetailStreamsContext(input);
 	return loadCriticalTasksReadinessLane({
-		store: contexts.readinessStore,
+		organizationSettings: contexts.organizationSettings,
 		criticalTaskLibrary: contexts.criticalTaskLibrary,
 		criticalTaskCompletions: contexts.criticalTaskCompletions,
 		orgId: contexts.detail.auth.orgId,

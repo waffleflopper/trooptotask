@@ -154,6 +154,7 @@ export function createRequestCriticalTasksReadContext(
 		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId),
 		auth: request.auth,
 		store: request.store,
+		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase),
 		criticalTaskLibrary: createSupabaseCriticalTaskLibraryPersistence(request.supabase, request.auth.orgId),
 		criticalTaskCompletions: createSupabaseCriticalTaskCompletionPersistence(request.supabase, request.auth.orgId),
 		personnelCriticalTasksRoster: createSupabasePersonnelCriticalTasksRosterPort(getAdminClient),

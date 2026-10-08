@@ -1,3 +1,4 @@
+import type { OrganizationSettingsReader } from '$features/organization/contracts';
 import type {
 	CriticalTaskLibraryPersistence,
 	CriticalTasksReadModelPort,
@@ -12,9 +13,7 @@ import { fetchCriticalTasksSettings } from './criticalTasksSettingsRead.server';
 
 interface CriticalTasksWorkspaceQueryContext {
 	auth: PersonnelRosterActor;
-	store: {
-		findOne<T>(table: string, orgId: string, filters: Record<string, unknown>, select?: string): Promise<T | null>;
-	};
+	organizationSettings: Pick<OrganizationSettingsReader, 'findCriticalTasksDefaults'>;
 	groups: Pick<GroupPersistence, 'listCatalog'>;
 	personnelCriticalTasksRoster?: Pick<PersonnelCriticalTasksRosterPort, 'listActiveForReadiness'>;
 	criticalTasksReadModel: CriticalTasksReadModelPort;

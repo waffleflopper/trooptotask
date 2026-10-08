@@ -495,7 +495,7 @@ export function createRequestPersonnelDetailStreamsContext(request: AdmittedOrga
 		trainingCompletions: createSupabaseTrainingCompletionPersistence(request.supabase, request.auth.orgId),
 		trainingCatalog: createSupabaseTrainingCatalogPersistence(request.supabase, request.auth.orgId),
 		detail: createRequestPersonnelDetailContext(request),
-		readinessStore: request.store,
+		organizationSettings,
 		calendar: {
 			...createRequestAvailabilityContext(request),
 			calendarCatalogs: createSupabaseCalendarCatalogPersistence(request.supabase, request.auth.orgId)
@@ -720,6 +720,7 @@ export function createRequestDashboardSummaryContext(request: AdmittedOrganizati
 		trainingCompletions: createSupabaseTrainingCompletionPersistence(request.supabase, request.auth.orgId),
 		...createRequestDataContext(request),
 		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId),
+		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase),
 		criticalTasksReadModel: createSupabaseCriticalTasksReadModelAdapter(request.supabase),
 		criticalTaskLibrary: createSupabaseCriticalTaskLibraryPersistence(request.supabase, request.auth.orgId),
 		criticalTaskCompletions: createSupabaseCriticalTaskCompletionPersistence(request.supabase, request.auth.orgId),

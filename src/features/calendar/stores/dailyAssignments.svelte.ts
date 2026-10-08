@@ -17,6 +17,7 @@ import { defineStore } from '$lib/stores/core';
 import type { Store, StoreInternals } from '$lib/stores/core';
 import { toastStore } from '$lib/stores/toast.svelte';
 import type { AssignmentType, DailyAssignment } from '$features/calendar/contracts';
+import { assignmentSlotKey } from '$features/calendar/utils/calendarIndexes';
 
 export type { AssignmentType } from '$features/calendar/contracts';
 export type { DailyAssignment } from '$features/calendar/contracts';
@@ -53,17 +54,13 @@ interface AssignmentExtensions extends Record<string, unknown> {
 
 type AssignmentBatchRecord = { date: string; assignmentTypeId: string; assigneeId: string };
 
-function toAssignmentSlotKey(date: string, assignmentTypeId: string): string {
-	return `${date}::${assignmentTypeId}`;
-}
-
 function duplicateAssignmentBatchSlot(assignments: AssignmentBatchRecord[]): AssignmentBatchRecord | null {
 	// Local duplicate detection is not read by Svelte reactivity; avoid SvelteSet overhead here.
 	// eslint-disable-next-line svelte/prefer-svelte-reactivity
 	const seen = new Set<string>();
 
 	for (const assignment of assignments) {
-		const key = toAssignmentSlotKey(assignment.date, assignment.assignmentTypeId);
+		const key = assignmentSlotKey(assignment.date, assignment.assignmentTypeId);
 		if (seen.has(key)) return assignment;
 		seen.add(key);
 	}
@@ -242,25 +239,19 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 				return false;
 			}
 
-			const removeMutationIds: string[] = [];
 			const existingIds: string[] = [];
 			const tempIds: string[] = [];
 			const addData: Omit<DailyAssignment, 'id'>[] = [];
 			const existingBySlotKey = new Map(
 				getAssignmentSnapshot().map((assignment) => [
-					toAssignmentSlotKey(assignment.date, assignment.assignmentTypeId),
+					assignmentSlotKey(assignment.date, assignment.assignmentTypeId),
 					assignment
 				])
 			);
 
 			for (const a of normalizedAssignments) {
-				const existing = existingBySlotKey.get(toAssignmentSlotKey(a.date, a.assignmentTypeId));
-				if (existing) {
-					const rmId = crypto.randomUUID();
-					removeMutationIds.push(rmId);
-					existingIds.push(existing.id);
-					internals.log.push({ type: 'remove', mutationId: rmId, targetId: existing.id });
-				}
+				const existing = existingBySlotKey.get(assignmentSlotKey(a.date, a.assignmentTypeId));
+				if (existing) existingIds.push(existing.id);
 
 				if (a.assigneeId) {
 					tempIds.push(`temp-${crypto.randomUUID()}`);
@@ -270,6 +261,12 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 						assigneeId: a.assigneeId
 					});
 				}
+			}
+
+			let removeMutationId: string | null = null;
+			if (existingIds.length > 0) {
+				removeMutationId = crypto.randomUUID();
+				internals.log.push({ type: 'remove-batch', mutationId: removeMutationId, targetIds: existingIds });
 			}
 
 			let addMutationId: string | null = null;
@@ -299,11 +296,11 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 				}
 				internals.serverState.set([...current, ...inserted]);
 
-				for (const rmId of removeMutationIds) internals.log.resolve(rmId);
+				if (removeMutationId) internals.log.resolve(removeMutationId);
 				if (addMutationId) internals.log.resolve(addMutationId);
 				return true;
 			} catch (error) {
-				for (const rmId of removeMutationIds) internals.log.resolve(rmId);
+				if (removeMutationId) internals.log.resolve(removeMutationId);
 				if (addMutationId) internals.log.resolve(addMutationId);
 				toastStore.error(error instanceof Error ? error.message : 'Failed to batch update assignments');
 				return false;

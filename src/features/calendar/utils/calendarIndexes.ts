@@ -1,4 +1,4 @@
-import type { AvailabilityEntry, StatusType } from '$features/calendar/contracts';
+import type { AvailabilityEntry, DailyAssignment, StatusType } from '$features/calendar/contracts';
 import { formatDate, parseDate } from '$lib/utils/dates';
 
 interface AvailabilityStatusIndexInput {
@@ -51,4 +51,17 @@ export function buildAvailabilityStatusIndex({
 	return {
 		getStatus: (personnelId, dateKey) => statusByPersonnelDate.get(`${personnelId}:${dateKey}`)
 	};
+}
+
+export function assignmentSlotKey(date: string, assignmentTypeId: string): string {
+	return `${date}::${assignmentTypeId}`;
+}
+
+export function indexAssignmentsBySlot(assignments: readonly DailyAssignment[]): ReadonlyMap<string, DailyAssignment> {
+	const bySlot = new Map<string, DailyAssignment>();
+	for (const assignment of assignments) {
+		const slot = assignmentSlotKey(assignment.date, assignment.assignmentTypeId);
+		if (!bySlot.has(slot)) bySlot.set(slot, assignment);
+	}
+	return bySlot;
 }

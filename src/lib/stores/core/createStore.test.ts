@@ -54,6 +54,33 @@ describe('createStore', () => {
 			const store = makeStore();
 			expect(store.items).toEqual([]);
 		});
+
+		it('reuses displayed items until the loaded items or pending mutations change', async () => {
+			let resolveRemove!: (value: 'deleted') => void;
+			const store = makeStore({
+				adapterOverrides: { remove: () => new Promise((resolve) => (resolveRemove = resolve)) }
+			});
+			store.load(
+				[
+					{ id: '1', name: 'Alpha' },
+					{ id: '2', name: 'Bravo' }
+				],
+				'org-1'
+			);
+
+			const removal = store.remove('1');
+			const pending = store.rawItems;
+			expect(pending).toEqual([{ id: '2', name: 'Bravo' }]);
+			expect(store.rawItems).toBe(pending);
+
+			resolveRemove('deleted');
+			await removal;
+			expect(store.rawItems).not.toBe(pending);
+			expect(store.rawItems).toEqual([{ id: '2', name: 'Bravo' }]);
+
+			store.load([{ id: '3', name: 'Charlie' }], 'org-1');
+			expect(store.rawItems).toEqual([{ id: '3', name: 'Charlie' }]);
+		});
 	});
 
 	describe('loading', () => {

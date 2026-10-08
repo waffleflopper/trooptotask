@@ -3,6 +3,7 @@
 	import type { Personnel } from '$features/personnel/contracts';
 	import type { AssignmentType, DailyAssignment } from '$features/calendar/contracts';
 	import { formatDate, getMonthDates, getMonthName, isWeekend, addMonths } from '$lib/utils/dates';
+	import { assignmentSlotKey, indexAssignmentsBySlot } from '../utils/calendarIndexes';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Combobox from '$lib/components/ui/combobox';
@@ -66,11 +67,7 @@
 	);
 	const groupOptions = $derived(groups.map((group) => ({ value: group.id, label: group.name })));
 
-	// Get the current assignment for a date and type
-	function getAssignment(date: Date, typeId: string): DailyAssignment | undefined {
-		const dateStr = formatDate(date);
-		return assignments.find((a) => a.date === dateStr && a.assignmentTypeId === typeId);
-	}
+	const assignmentBySlot = $derived(indexAssignmentsBySlot(assignments));
 
 	async function handleChange(date: Date, typeId: string, value: string) {
 		if (rangeStatus !== 'ready') return;
@@ -306,7 +303,7 @@
 								<span class="text-muted-foreground font-mono text-xs uppercase">{dayName}</span>
 							</td>
 							{#each activeAssignmentTypes as type (type.id)}
-								{@const assignment = getAssignment(date, type.id)}
+								{@const assignment = assignmentBySlot.get(assignmentSlotKey(dateStr, type.id))}
 								<td class="px-2 py-1.5">
 									{#if type.assignTo === 'personnel'}
 										<Combobox.Root

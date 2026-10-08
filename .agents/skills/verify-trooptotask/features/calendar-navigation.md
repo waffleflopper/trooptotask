@@ -12,6 +12,7 @@ A member moves through the availability calendar, narrows the people shown, and 
 - `calendar-picker-keyboard`: ArrowLeft changes focused month and Escape dismisses the picker.
 - `calendar-workspace-reuse`: moving between Calendar, Assignments, Bulk Status and Settings keeps the loaded workspace and sends no page-data request.
 - `calendar-range-retry`: an additional-range failure shows a retry and a later successful load restores local data.
+- `calendar-stream-range`: pages wait for initial streamed data before loading additional ranges or accepting workspace actions.
 
 ## How to get to it (user POV)
 
@@ -29,6 +30,7 @@ Preconditions: doctor passes; `$V fixture` supplies fixed September/March record
 6. Open the `Month and year picker`; record the focused month, press `ArrowLeft` through `tool press_key`, confirm focus moves, then press `Escape` and confirm the dialog closes without changing the selected month. Capture before/after snapshots.
 7. On an uncovered long-range request, arm `$V network arm-fail $PAGE calendar-range`, then use `3-Month` or `Next 3 Months`. Capture `Additional calendar data is temporarily unavailable.` and `Retry calendar load`, plus `$V network state $PAGE` showing the synthetic `503`. Click `Retry calendar load`; expect a real `200`, local statuses and no foreign labels. Restore with `$V network restore $PAGE` even if the drive fails, and run doctor before continuing after an unexpected result.
 8. For workspace reuse, as `calendarConfigure` on a settled `/calendar`, clear resource timings, then use visible controls to visit `Planning` → `Assignment Planner`, the `Calendar` link, `Bulk Status` → `Add Bulk`, the `Calendar` link, and `Settings`. Read the page-data probe from the skill's Drive section after each stop: expect no `__data.json` entry. Then click `Reports` and expect one `calendar/reports/__data.json` whose Calendar layout digit is `0`. Separate `calendar-range` requests are range loads, not workspace reloads.
+9. For streamed workspace readiness, start `calendarOperate` on Personnel and arm `$V server-source arm availability_entries hold 1 120000` before choosing Calendar. Confirm `server-source state` reports the real bootstrap read held. Capture `Loading Calendar data`, absent workspace controls and no new `calendar-range` request while the source is held. Release with `$V server-source release`, wait for the workspace controls, then choose `3-Month` and capture the completed additional-range response. Switch back to month view, select September 2026 and confirm the saved Able, Baker and Unassigned statuses and closure from step 5, with a second visible read. Restore with `$V server-source restore`. This controls response order in the owned app; it does not simulate a production outage. Delivery tests gate each delayed stream and cover cancellation after denial; Calendar range tests cover authoritative replacement and empty results.
 
 ## Gotchas
 

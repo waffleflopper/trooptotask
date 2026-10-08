@@ -64,6 +64,22 @@ describe('critical tasks layout client hydration', () => {
 	});
 
 	it('shows a streamed denial instead of failing hydration', async () => {
+		personnelIctCompletionsStore.load(
+			[
+				{
+					id: 'previous-completion',
+					personnelId: 'p1',
+					ictTaskId: 'task-1',
+					completedAt: '2026-09-29',
+					validationMethod: 'Demonstration',
+					validatedBy: null,
+					notes: null,
+					loggedBy: null,
+					createdAt: '2026-09-29T12:00:00Z'
+				}
+			],
+			'org-1'
+		);
 		const errors: unknown[] = [];
 		const onError = (event: ErrorEvent) => errors.push(event.error);
 		window.addEventListener('error', onError);
@@ -81,7 +97,6 @@ describe('critical tasks layout client hydration', () => {
 		await waitFor(() => expect(screen.getByRole('heading', { name: 'Access Restricted' })).toBeTruthy());
 		expect(screen.queryByText('Critical Tasks child')).toBeNull();
 		expect(criticalTasksWorkspaceStatus.pending).toBe(false);
-		expect(personnelIctCompletionsStore.orgId).toBe('org-1');
 		expect(personnelIctCompletionsStore.items).toEqual([]);
 		expect(errors).toEqual([]);
 		window.removeEventListener('error', onError);

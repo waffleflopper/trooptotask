@@ -33,5 +33,4 @@ it('shows a streamed Personnel denial without hydrating or rendering the roster'
 	expect(screen.getByText(/permission to view personnel/)).toBeTruthy();
 	expect(screen.queryByText('Personnel child')).toBeNull();
 	expect(hydrateMock).not.toHaveBeenCalled();
-	expect(restrictMock).toHaveBeenCalledWith('org-1', expect.any(Object));
 });

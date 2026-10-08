@@ -3,44 +3,58 @@
 	import type { CalendarWorkspaceResult, CalendarWorkspaceRestricted } from '$features/calendar';
 	import { throwRenderError } from '$lib/utils/streamedRouteData';
 	import { hydrateStreamedWorkspace } from '$lib/utils/streamedWorkspaceHydrator';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 	import WorkspaceAccessRestricted from '../WorkspaceAccessRestricted.svelte';
 
 	let { children, data } = $props();
-	let hydrationError = $state<Error | null>(null);
-	let accessRestricted = $state(false);
+	const workspace = $derived(data.calendar?.data);
+	let settled = $state.raw<{ workspace: unknown; error: Error | null; accessRestricted: boolean } | null>(null);
+	const current = $derived(settled?.workspace === workspace ? settled : null);
 	const renderHydrationError = $derived.by(() => {
-		if (hydrationError) {
-			throwRenderError(hydrationError, 'Failed to hydrate calendar workspace');
+		if (current?.error) {
+			throwRenderError(current.error, 'Failed to hydrate calendar workspace');
 		}
 		return null;
 	});
 
 	$effect(() => {
-		hydrationError = null;
-		accessRestricted = false;
+		const requestedWorkspace = workspace;
+		let cancelled = false;
 
-		return hydrateStreamedWorkspace<CalendarWorkspaceResult | CalendarWorkspaceRestricted>({
-			streamedWorkspace: data.calendar,
+		const cancelObserver = hydrateStreamedWorkspace<CalendarWorkspaceResult | CalendarWorkspaceRestricted>({
+			streamedWorkspace: { data: requestedWorkspace },
 			fallbackMessage: 'Failed to hydrate calendar workspace',
-			hydrate: (calendar) => {
+			hydrate: async (calendar) => {
 				if ('access' in calendar) {
 					calendarWorkspaceHydrator.restrict();
-					accessRestricted = true;
-					return;
+				} else {
+					await calendarWorkspaceHydrator.hydrate(calendar.hydration);
 				}
-				return calendarWorkspaceHydrator.hydrate(calendar.hydration);
+				if (!cancelled) {
+					settled = { workspace: requestedWorkspace, error: null, accessRestricted: 'access' in calendar };
+				}
 			},
 			onReject: (error) => {
-				hydrationError = error;
+				if (!cancelled) settled = { workspace: requestedWorkspace, error, accessRestricted: false };
 			}
 		});
+		return () => {
+			cancelled = true;
+			cancelObserver();
+			calendarWorkspaceHydrator.reset();
+		};
 	});
 </script>
 
-{#if hydrationError}
+{#if current?.error}
 	{renderHydrationError}
-{:else if accessRestricted}
+{:else if current?.accessRestricted}
 	<WorkspaceAccessRestricted />
-{:else}
+{:else if current || workspace == null}
 	{@render children()}
+{:else}
+	<section role="status" aria-live="polite" aria-busy="true">
+		<p>Loading Calendar data</p>
+		<Skeleton class="h-24 w-full" aria-hidden="true" />
+	</section>
 {/if}

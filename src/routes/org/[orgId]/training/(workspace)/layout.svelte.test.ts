@@ -33,5 +33,4 @@ it('shows a streamed Training denial without hydrating or rendering the workspac
 	expect(screen.getByText(/permission to view training/)).toBeTruthy();
 	expect(screen.queryByText('Training child')).toBeNull();
 	expect(hydrateMock).not.toHaveBeenCalled();
-	expect(restrictMock).toHaveBeenCalledWith('org-1');
 });

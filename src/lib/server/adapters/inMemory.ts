@@ -1623,7 +1623,7 @@ function createTestPersonnelPersistence(
 	store: FixtureRowStore,
 	auth: OrganizationAccessGrant
 ) {
-	const rankCatalog = createTestRankCatalogPersistence(rawStore, auth.orgId);
+	const rankCatalog = createTestRankCatalogPersistence(store, auth.orgId);
 	const personnelSheets: PersonnelSheetPersistence = {
 		listSheetsForPerson: (personnelId) =>
 			rawStore.findMany('personnel_extended_info', auth.orgId, { personnel_id: personnelId }),

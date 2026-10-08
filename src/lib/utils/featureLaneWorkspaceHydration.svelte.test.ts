@@ -61,12 +61,68 @@ function createDescriptor(config: {
 		snapshotKey: config.snapshotKey,
 		items: config.items,
 		storeOrgId: () => config.target.orgId,
+		storeLoadVersion: () => config.target.loadCount,
 		startLoading: () => config.target.startLoading(),
 		apply: (items) => config.target.load(items as unknown[], config.orgId)
 	};
 }
 
 describe('Feature Lane workspace hydration mechanics', () => {
+	it("restores each allowed lane's roster after another lane replaces the shared store", async () => {
+		const target = createTarget();
+		const alpha = createFeatureLaneWorkspaceHydrator({ logTag: 'alpha' });
+		const bravo = createFeatureLaneWorkspaceHydrator({ logTag: 'bravo' });
+		const alphaSnapshot = createDescriptor({ target, orgId: 'org-1', snapshotKey: 'alpha', items: ['Able'] });
+		const bravoSnapshot = createDescriptor({ target, orgId: 'org-1', snapshotKey: 'bravo', items: ['Baker'] });
+
+		await alpha.applyDescriptors('org-1', [alphaSnapshot]);
+		await bravo.applyDescriptors('org-1', [bravoSnapshot]);
+		expect(target.items).toEqual(['Baker']);
+		await alpha.applyDescriptors('org-1', [alphaSnapshot]);
+		expect(target.items).toEqual(['Able']);
+	});
+
+	it.each([false, true])(
+		'discards a late stream after another lane clears the store (previously loaded: %s)',
+		async (previouslyLoaded) => {
+			const target = createTarget();
+			if (previouslyLoaded) target.load(['Able'], 'org-1');
+			const hydrator = createFeatureLaneWorkspaceHydrator({ logTag: 'test-hydration' });
+			const streamed = deferred<unknown[]>();
+			const pending = hydrator.applyDescriptors('org-1', [
+				createDescriptor({ target, orgId: 'org-1', snapshotKey: 'roster', items: streamed.promise })
+			]);
+			target.load([], '');
+			streamed.resolve(['Late row']);
+			await pending;
+			expect(target.items).toEqual([]);
+			expect(target.loading).toBe(false);
+
+			await hydrator.applyDescriptors('org-1', [
+				createDescriptor({ target, orgId: 'org-1', snapshotKey: 'roster', items: ['Able'] })
+			]);
+			expect(target.items).toEqual(['Able']);
+		}
+	);
+
+	it('does not let an older stream satisfy a restarted request with the same snapshot key', async () => {
+		const target = createTarget();
+		const hydrator = createFeatureLaneWorkspaceHydrator({ logTag: 'test-hydration' });
+		const oldStream = deferred<unknown[]>();
+		const newStream = deferred<unknown[]>();
+		const pending = (items: Promise<unknown[]>) =>
+			hydrator.applyDescriptors('org-1', [createDescriptor({ target, orgId: 'org-1', snapshotKey: 'roster', items })]);
+		const oldRequest = pending(oldStream.promise);
+		hydrator.reset();
+		const newRequest = pending(newStream.promise);
+		oldStream.resolve(['Old row']);
+		await oldRequest;
+		expect(target.items).toEqual([]);
+		newStream.resolve(['Able']);
+		await newRequest;
+		expect(target.items).toEqual(['Able']);
+	});
+
 	it('hydrates immediate targets, skips applied snapshots, and can reset the snapshot ledger', async () => {
 		const target = createTarget();
 		const hydrator = createFeatureLaneWorkspaceHydrator({ logTag: 'test-hydration' });

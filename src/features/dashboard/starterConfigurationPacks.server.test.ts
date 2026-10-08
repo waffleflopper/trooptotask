@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import { createTestContext } from '$features/onboarding/server/onboardingPersistence.test-support.server';
-import { applyStarterConfigurationPack, listStarterConfigurationPacks } from './starterConfigurationPacks';
+import { applyStarterConfigurationPack, listStarterConfigurationPacks } from './starterConfigurationPacks.server';
 
 const NO_TRAINING_CONFIGURE: CapabilityMap = {
 	calendar: 'configure',

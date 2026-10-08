@@ -2,8 +2,8 @@
 	import { goto } from '$app/navigation';
 	import type { MfaActionResponse } from './contracts';
 	import { onMount, tick } from 'svelte';
-	import AuthField from '$lib/components/auth/AuthField.svelte';
-	import AuthNotice from '$lib/components/auth/AuthNotice.svelte';
+	import AuthField from './AuthField.svelte';
+	import AuthNotice from './AuthNotice.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
 	let {

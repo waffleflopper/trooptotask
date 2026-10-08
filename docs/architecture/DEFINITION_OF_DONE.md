@@ -122,7 +122,7 @@ Measure server/query time, network time, HTML/data payload, actual transferred J
 - `docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md` is updated if authz or provider ownership changed.
 - `docs/architecture/DRIFT_LEDGER.md` is updated if drift was reduced or newly identified; stabilization does not authorize new drift.
 - [Domain language](../../CONTEXT.md#language) is updated if canonical terminology shifted.
-- `docs/architecture/GOVERNANCE_BASELINE.json` is updated when the slice eliminates an existing provider leak or permission coupling. Do not add exceptions or reclassify a remaining violation to pass governance.
+- Governance has no exception file. Do not add exceptions, allowlists or manifest declarations that reclassify a violation to pass governance.
 
 ## Required For Explicit Remediation Slices
 

@@ -12,7 +12,7 @@ Depot CI runs validation for this private, single-contributor repository. GitHub
 | Repository and application | Formats changed Markdown in check mode, validates local links/anchors across all tracked Markdown and checks whitespace. For executable changes: format check, lint, governance, Svelte/types, full Vitest and production build. Runs the small database-runner safety tests too. |
 | Database contracts         | Runs when Supabase, CI tooling/workflows, package manifests/lock or Node version changes, and on full manual runs. Fresh isolated migration replay, all SQL contracts, populated-upgrade regressions and SDK/provider probes.                                                     |
 
-The only lightweight exemption is Markdown under `docs/` and the root README/AGENTS/CLAUDE/CONTEXT files. Unknown paths run application validation. Files such as `docs/architecture/GOVERNANCE_BASELINE.json` remain executable inputs. Database inputs also run application checks, including the test that consumes `supabase/config.toml`. Unchanged SQL is not rerun solely for a UI change.
+The only lightweight exemption is Markdown under `docs/` and the root README/AGENTS/CLAUDE/CONTEXT files. Unknown paths run application validation. Non-Markdown files under `docs/` remain executable inputs. Database inputs also run application checks, including the test that consumes `supabase/config.toml`. Unchanged SQL is not rerun solely for a UI change.
 
 All three jobs use `depot-ubuntu-24.04`. The two substantial jobs become eligible independently after selection. Existing job timeouts are retained. npm downloads are cached; application dependencies use `npm ci`. Vitest keeps its complete suite with `VITEST_MAX_WORKERS=2`, restoring the earlier Depot worker setting. The Svelte/TypeScript step retains `NODE_OPTIONS=--max-old-space-size=2560` after the recorded automatic-heap failure. There is no browser suite, OS matrix, sharding or coverage quota. Change compute or worker counts only with measured evidence.
 
@@ -22,7 +22,7 @@ Use focused checks while editing. Full validation does not run automatically bef
 
 The [verification contract](architecture/DEFINITION_OF_DONE.md#required-commands) still defines acceptance. Format locally before submitting; CI checks formatting without rewriting the candidate. Passing CI for the exact candidate may be used directly rather than repeated locally. Pending checks are pending, never a claimed pass. A later source/configuration change requires affected verification again. Browser journey and populated-upgrade evidence remain required when their task calls for them; fresh database replay alone does not prove every upgrade.
 
-The governance job needs full Git history and `origin/main`; preserve that checkout behavior. It runs the canonical regression checker, which rejects new/completed-scope findings while reporting the owned Phase 08 debt. Do not replace it with the standalone inventory report or weaken any rule to make migration pass.
+The governance job runs the canonical checker, which fails on any module-boundary finding or undocumented route provider edge. Do not weaken any rule, exception list or scan path to make a change pass.
 
 ## Database isolation
 

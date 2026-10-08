@@ -67,6 +67,11 @@ vi.mock('$lib/server/adapters/httpAdapter', async () => {
 
 import { streamTrainingWorkspaceBootstrap } from './trainingWorkspace.server';
 
+function granted<T extends object>(workspace: T): Exclude<T, { access: 'restricted' }> {
+	if ('access' in workspace) throw new Error('Expected a granted workspace');
+	return workspace as Exclude<T, { access: 'restricted' }>;
+}
+
 describe('streamTrainingWorkspaceBootstrap', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -109,10 +114,10 @@ describe('streamTrainingWorkspaceBootstrap', () => {
 			cookies: {} as Cookies,
 			orgId: '1-11-bde'
 		});
-		let workspace: Awaited<typeof routeData.training.data> | undefined;
+		let workspace: ReturnType<typeof granted<Awaited<typeof routeData.training.data>>> | undefined;
 
 		void routeData.training.data.then((value) => {
-			workspace = value;
+			workspace = granted(value);
 		});
 
 		await new Promise((resolve) => setTimeout(resolve, 0));
@@ -192,7 +197,7 @@ describe('streamTrainingWorkspaceBootstrap', () => {
 			cookies: {} as Cookies,
 			orgId: '1-11-bde'
 		});
-		const workspace = await routeData.training.data;
+		const workspace = granted(await routeData.training.data);
 
 		await expect(workspace.data.personnel).resolves.toEqual(personnel);
 		await expect(workspace.data.groups).resolves.toEqual([
@@ -220,7 +225,7 @@ describe('streamTrainingWorkspaceBootstrap', () => {
 			cookies: {} as Cookies,
 			orgId: '1-11-bde'
 		});
-		const workspace = await routeData.training.data;
+		const workspace = granted(await routeData.training.data);
 
 		await expect(workspace.data.rankCatalog).resolves.toEqual([
 			expect.objectContaining({ code: 'DET-RET', state: 'retired' }),

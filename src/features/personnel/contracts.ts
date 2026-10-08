@@ -361,8 +361,13 @@ export interface PersonnelWorkspaceResult {
 	hydration: PersonnelWorkspaceHydration;
 }
 
+export interface PersonnelWorkspaceRestricted {
+	laneKey: typeof PERSONNEL_WORKSPACE_LANE_KEY;
+	access: 'restricted';
+}
+
 export interface PersonnelWorkspaceRouteData {
-	[PERSONNEL_WORKSPACE_LANE_KEY]: { data: Promise<PersonnelWorkspaceResult> };
+	[PERSONNEL_WORKSPACE_LANE_KEY]: { data: Promise<PersonnelWorkspaceResult | PersonnelWorkspaceRestricted> };
 }
 
 /** Detail delivery shares the parent identity and independent streamed lanes. */

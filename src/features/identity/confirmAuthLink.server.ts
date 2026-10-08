@@ -12,18 +12,20 @@ type ConfirmationResult =
 	  };
 
 /** Verify one explicit confirmation; only recovery and invite issue limited authority. */
-export async function confirmAuthLink(input: {
-	supabase: SupabaseClient;
-	tokenHash: string | null;
-	type: string | null;
-	next: string | null;
-}): Promise<ConfirmationResult> {
+export async function confirmAuthLink(
+	{ supabase }: { supabase: SupabaseClient },
+	input: {
+		tokenHash: string | null;
+		type: string | null;
+		next: string | null;
+	}
+): Promise<ConfirmationResult> {
 	const confirmation = getAuthConfirmState(input);
 	if (confirmation.status !== 'valid') return { status: 'invalid' };
 
-	let verified: Awaited<ReturnType<typeof input.supabase.auth.verifyOtp>>;
+	let verified: Awaited<ReturnType<typeof supabase.auth.verifyOtp>>;
 	try {
-		verified = await input.supabase.auth.verifyOtp({
+		verified = await supabase.auth.verifyOtp({
 			token_hash: confirmation.tokenHash,
 			type: confirmation.type
 		});

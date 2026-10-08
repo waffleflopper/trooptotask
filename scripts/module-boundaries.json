@@ -66,15 +66,12 @@
 				"src/lib/server/adapters/requestContexts.server.test.ts",
 				"src/lib/server/adapters/trainingRequestContext.server.test.ts",
 				"src/lib/server/adapters/requestContexts.server.ts",
+				"src/lib/server/adapters/scheduledMaintenanceSources.server.ts",
 				"src/lib/server/communicationsPagination.server.test.ts",
-				"src/lib/server/core/appShellRouteData.ts",
-				"src/lib/server/core/featureLaneWorkspaceLoad.ts",
-				"src/lib/server/core/streamedWorkspace.test.ts",
-				"src/lib/server/core/streamedWorkspace.ts",
-				"src/lib/server/core/useCases/createRootOrgLayoutLoad.test.ts",
-				"src/lib/server/core/useCases/createRootOrgLayoutLoad.ts",
-				"src/lib/server/core/useCases/starterConfigurationPacks.test.ts",
-				"src/lib/server/core/useCases/starterConfigurationPacks.ts",
+				"src/lib/server/adapters/appShellRouteData.ts",
+				"src/lib/server/adapters/featureLaneWorkspaceLoad.ts",
+				"src/lib/server/adapters/streamedWorkspace.test.ts",
+				"src/lib/server/adapters/streamedWorkspace.ts",
 				"src/lib/server/organizationProvisioningDelivery.test.ts",
 				"src/lib/server/organizationProvisioningDelivery.ts",
 				"src/lib/server/personnelArchiveBatchDelivery.test.ts",
@@ -94,7 +91,7 @@
 			"packet": "08-M13"
 		},
 		"identity": {
-			"roots": ["src/features/identity/", "src/lib/auth/", "src/lib/components/auth/"],
+			"roots": ["src/features/identity/"],
 			"files": ["src/tests/fixtures/passwordAttempt.ts", "src/tests/fixtures/passwordSession.ts"],
 			"packet": "08-M01"
 		},
@@ -119,7 +116,7 @@
 			"packet": "08-M04"
 		},
 		"platform-admin": {
-			"roots": ["src/features/platform-admin/", "src/lib/components/admin/"],
+			"roots": ["src/features/platform-admin/"],
 			"files": [],
 			"packet": "08-M12"
 		},
@@ -414,7 +411,14 @@
 		"calendar": [
 			"src/features/calendar/contracts.ts",
 			"src/features/calendar/index.ts",
-			"src/features/calendar/index.server.ts"
+			"src/features/calendar/index.server.ts",
+			"src/features/calendar/components/CalendarPageView.svelte",
+			"src/features/calendar/components/AssignmentPlannerPage.svelte",
+			"src/features/calendar/components/BulkStatusPage.svelte",
+			"src/features/calendar/components/reports/CalendarReports.svelte",
+			"src/features/calendar/components/CalendarSettingsPage.svelte",
+			"src/features/calendar/calendarWorkspaceHydration.svelte.ts",
+			"src/features/calendar/contexts/CalendarRangeCoordinator.svelte.ts"
 		],
 		"critical-tasks": [
 			"src/features/critical-tasks/contracts.ts",
@@ -471,7 +475,11 @@
 		"identity": [
 			"src/features/identity/index.ts",
 			"src/features/identity/index.server.ts",
-			"src/features/identity/contracts.ts"
+			"src/features/identity/contracts.ts",
+			"src/features/identity/AuthField.svelte",
+			"src/features/identity/AuthNotice.svelte",
+			"src/features/identity/AuthPasswordToggle.svelte",
+			"src/features/identity/AuthShell.svelte"
 		],
 		"notifications": [
 			"src/features/notifications/contracts.ts",
@@ -484,7 +492,14 @@
 			"src/features/feedback/index.ts",
 			"src/features/feedback/index.server.ts"
 		],
-		"platform-admin": ["src/features/platform-admin/index.server.ts", "src/features/platform-admin/contracts.ts"],
+		"platform-admin": [
+			"src/features/platform-admin/contracts.ts",
+			"src/features/platform-admin/index.server.ts",
+			"src/features/platform-admin/components/AdminSearch.svelte",
+			"src/features/platform-admin/components/SuspendModal.svelte",
+			"src/features/platform-admin/components/TransferOwnershipModal.svelte",
+			"src/features/platform-admin/components/adminTheme.ts"
+		],
 		"app-shell": [
 			"src/features/app-shell/contracts.ts",
 			"src/features/app-shell/index.ts",
@@ -495,6 +510,8 @@
 	},
 	"mixedFiles": {},
 	"testSupportFiles": [
+		"src/tests/fixtures/passwordAttempt.ts",
+		"src/tests/fixtures/passwordSession.ts",
 		"src/lib/test-stubs/VisibleStub.svelte",
 		"src/lib/test/chartLayout.ts",
 		"src/lib/server/adapters/inMemory.ts",

@@ -4,14 +4,16 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import {
 	createWorkspaceHydrationTarget,
+	settleWorkspaceDenial,
 	type DeferredData,
 	type HydrationItems
-} from '$lib/server/core/streamedWorkspace';
+} from '$lib/server/adapters/streamedWorkspace';
 import {
 	CRITICAL_TASKS_WORKSPACE_LANE_KEY,
 	type CriticalTasksWorkspaceData,
 	type CriticalTasksWorkspaceHydration,
 	type CriticalTasksWorkspaceHydrationTarget,
+	type CriticalTasksWorkspaceRestricted,
 	type CriticalTasksWorkspaceResult
 } from '$features/critical-tasks/contracts';
 import { fetchCriticalTasksBootstrap } from '$features/critical-tasks/index.server';
@@ -24,7 +26,7 @@ export interface CriticalTasksWorkspaceRequestContext {
 }
 
 export interface CriticalTasksWorkspaceRouteData {
-	criticalTasks: DeferredData<CriticalTasksWorkspaceResult>;
+	criticalTasks: DeferredData<CriticalTasksWorkspaceResult | CriticalTasksWorkspaceRestricted>;
 }
 
 function createCriticalTasksHydrationTarget<T>(items: HydrationItems<T>): CriticalTasksWorkspaceHydrationTarget<T> {
@@ -65,6 +67,6 @@ export async function streamCriticalTasksWorkspaceBootstrap(
 	});
 
 	return {
-		criticalTasks: deferred
+		criticalTasks: { data: settleWorkspaceDenial(deferred.data, CRITICAL_TASKS_WORKSPACE_LANE_KEY) }
 	};
 }

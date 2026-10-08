@@ -14,7 +14,7 @@ vi.mock('$app/stores', async () => {
 	};
 });
 
-vi.mock('$lib/components/admin/AdminSearch.svelte', () => ({
+vi.mock('$features/platform-admin/components/AdminSearch.svelte', () => ({
 	default: VisibleStub
 }));
 

@@ -4,7 +4,7 @@
 
 	type RanksPageProps = PageProps & {
 		data: PageProps['data'] & {
-			ranksSettings?: import('../settingsRanks.server').RanksSettingsData;
+			ranksSettings?: import('../settingsSectionTypes').RanksSettingsData;
 		};
 		form: { [key: string]: unknown; rankError?: string } | null;
 	};

@@ -61,7 +61,7 @@ export const POST: RequestHandler = async ({ locals, cookies }) => {
 
 	// Completion grants membership and clears the pending flow. Recheck the admitted
 	// token immediately before these effects, including when hook admission was stale.
-	const assurance = await checkSessionAssurance(locals.supabase, session);
+	const assurance = await checkSessionAssurance(locals, session);
 	if (assurance === 'unavailable')
 		return json(
 			{ error: 'Unable to verify authentication status. Please try again.', accepted: 0, activated: false },
@@ -94,7 +94,7 @@ export const POST: RequestHandler = async ({ locals, cookies }) => {
 		}
 
 		if (session.expires_at <= Date.now() / 1000) return inactiveSession();
-		const accepted = await autoAcceptOrgInvites(locals.supabase, user.email);
+		const accepted = await autoAcceptOrgInvites(locals, user.email);
 		if (session.expires_at <= Date.now() / 1000) return inactiveSession();
 		if (!setCompletedAuthFlowCookie(cookies, session, user)) {
 			cookies.delete(getPendingAuthFlowCookieName(), { path: '/' });

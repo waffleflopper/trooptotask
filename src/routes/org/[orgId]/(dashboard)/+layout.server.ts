@@ -2,7 +2,7 @@ import type { LayoutServerLoad } from './$types';
 import {
 	streamReadyFeatureLaneWorkspace,
 	type FeatureLaneWorkspaceRequestContext
-} from '$lib/server/core/featureLaneWorkspaceLoad';
+} from '$lib/server/adapters/featureLaneWorkspaceLoad';
 import { streamDashboardWorkspaceBootstrap, type DashboardWorkspaceRouteData } from './dashboardWorkspace.server';
 
 export interface DashboardLayoutLoadDeps {

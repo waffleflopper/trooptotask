@@ -1,13 +1,12 @@
 import { createRequestRatingSchemeWorkspaceContext } from '$lib/server/adapters/featureRequestContexts.server';
 import type { LayoutServerLoad } from './$types';
-import { isHttpError } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
-import { createWorkspaceHydrationTarget } from '$lib/server/core/streamedWorkspace';
+import { createWorkspaceHydrationTarget, settleWorkspaceDenial } from '$lib/server/adapters/streamedWorkspace';
 import {
 	streamReadyFeatureLaneWorkspace,
 	type FeatureLaneWorkspaceRequestContext
-} from '$lib/server/core/featureLaneWorkspaceLoad';
+} from '$lib/server/adapters/featureLaneWorkspaceLoad';
 import { loadRatingSchemeWorkspace } from '$features/rating-scheme/index.server';
 import {
 	RATING_SCHEME_WORKSPACE_LANE_KEY,
@@ -40,13 +39,7 @@ export async function _streamRatingSchemeWorkspace(
 		}
 	});
 	return {
-		ratingScheme: {
-			data: deferred.data.catch((cause: unknown) => {
-				if (isHttpError(cause, 403))
-					return { laneKey: RATING_SCHEME_WORKSPACE_LANE_KEY, access: 'restricted' } as const;
-				throw cause;
-			})
-		}
+		ratingScheme: { data: settleWorkspaceDenial(deferred.data, RATING_SCHEME_WORKSPACE_LANE_KEY) }
 	};
 }
 

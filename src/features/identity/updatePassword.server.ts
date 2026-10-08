@@ -198,7 +198,7 @@ function reconciliationResult(
 
 async function authorizeCompletion(locals: PasswordUpdateIdentity): Promise<PasswordUpdateResult | null> {
 	// Password proof uses its own AAL1 token; check the original admitted session.
-	const assurance = await checkSessionAssurance(locals.supabase, locals.session!);
+	const assurance = await checkSessionAssurance(locals, locals.session!);
 	if (assurance === 'unavailable') return { status: 'assurance-unavailable' };
 	if (assurance === 'expired') return { status: 'expired' };
 	if (assurance === 'mfa_required') return { status: 'mfa-required' };

@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { getAppShellContext } from '$features/app-shell';
 	const org = getAppShellContext();
-	import BulkStatusPage from '$features/calendar/components/BulkStatusPage.svelte';
 	import { Spinner } from '$lib/components/ui/spinner';
-	import type { CalendarWorkspaceResult } from '$features/calendar/server/calendarWorkspaceBootstrap';
+	import BulkStatusPage from '$features/calendar/components/BulkStatusPage.svelte';
+	import type { CalendarWorkspaceResult } from '$features/calendar';
 	import {
 		isPromiseLike,
 		materializeWorkspaceData,

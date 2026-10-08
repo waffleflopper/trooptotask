@@ -1,3 +1,12 @@
+import type { ApprovedDeletionEffects } from '$features/deletion-requests/index.server';
+import type { DeletionRequestResourceType } from '$features/deletion-requests/contracts';
+import { createSupabaseOrganizationInvitationSetupStateLookupPort } from '$features/organization/index.server';
+import {
+	archiveApprovedPersonnelRecord,
+	createSupabasePersonnelGovernanceDeletionPort
+} from '$features/personnel/index.server';
+import { createApprovedRatingSchemeDeletionPort } from '$features/rating-scheme/index.server';
+import { createSupabaseApprovedTrainingDeletionPort } from '$features/training/index.server';
 import { createSupabaseDashboardExportReader } from '$features/dashboard/index.server';
 import {
 	createSupabaseDataExportReader,
@@ -6,7 +15,8 @@ import {
 import {
 	createSupabaseTrainingExportReader,
 	createSupabaseTrainingCatalogPersistence,
-	createSupabaseTrainingCompletionPersistence
+	createSupabaseTrainingCompletionPersistence,
+	createSupabaseTrainingTypeNamesReader
 } from '$features/training/index.server';
 import {
 	createSupabaseCalendarExportReader,
@@ -14,7 +24,8 @@ import {
 	createSupabaseCalendarAvailabilityRemovalPort,
 	createSupabaseCalendarCatalogPersistence,
 	createSupabaseCalendarAvailabilityPersistence,
-	createSupabaseCalendarAssignmentReader
+	createSupabaseCalendarAssignmentReader,
+	createSupabaseStatusTypeNamesReader
 } from '$features/calendar/index.server';
 import {
 	createSupabaseCriticalTasksExportReader,
@@ -29,12 +40,16 @@ import {
 } from '$features/notifications/index.server';
 import {
 	createSupabaseOrganizationAdministratorRecipients,
+	createSupabaseOrganizationInvitationDeliveryPort,
+	createSupabaseOrganizationInvitationRateLimiter,
+	createSupabaseOrganizationMemberEmailsReader,
 	createSupabaseOrganizationPolicyWritePort,
 	createSupabaseOrganizationRawExportReader,
 	createSupabaseOrganizationSettingsReader
 } from '$features/organization/index.server';
 import {
 	createSupabasePersonnelExportReader,
+	createSupabasePersonnelNamesReader,
 	createSupabasePersonnelRosterReader,
 	createSupabasePersonnelRecordPersistence,
 	createSupabasePersonnelArtifactReadPersistence,
@@ -65,7 +80,13 @@ import {
 	createSupabaseSignInRosterFileWritePort
 } from '$features/sign-in-rosters/index.server';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
-import { createSupabaseAuditExportReader, createSupabaseAuditAdapter, getRequestInfo } from '$lib/audit/index.server';
+import {
+	createSupabaseAuditExportReader,
+	createSupabaseAuditAdapter,
+	createSupabaseOrganizationAuditStore,
+	getRequestInfo
+} from '$lib/audit/index.server';
+import { createSupabaseAccountSetupLinkIssuancePorts } from '$features/identity/index.server';
 import { getAdminClient } from '$lib/server/supabase';
 import { validateUUID } from '$lib/server/validation';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -272,6 +293,36 @@ export function createRequestNotificationDelivery() {
 
 export function createRequestActorContext(request: AdmittedOrganizationRequest) {
 	return { auth: request.auth, audit: request.audit };
+}
+
+/** Organization audit-log reads use service-role audit and label ports bound to the admitted Organization. */
+export function createRequestOrganizationAuditLogContext(request: AdmittedOrganizationRequest) {
+	const adminClient = getAdminClient();
+	const orgId = request.auth.orgId;
+	return {
+		auth: request.auth,
+		audit: request.audit,
+		auditStore: createSupabaseOrganizationAuditStore(adminClient),
+		auditLabels: {
+			personnelNames: createSupabasePersonnelNamesReader(adminClient, orgId),
+			trainingTypeNames: createSupabaseTrainingTypeNamesReader(adminClient, orgId),
+			statusTypeNames: createSupabaseStatusTypeNamesReader(adminClient, orgId),
+			actorEmails: createSupabaseOrganizationMemberEmailsReader(adminClient, orgId)
+		}
+	};
+}
+
+/** Member invitation delivery, limits and account-setup links require service-role provider access. */
+export function createOrganizationInvitationPorts() {
+	const adminClient = getAdminClient();
+	return {
+		invitationDelivery: createSupabaseOrganizationInvitationDeliveryPort(adminClient),
+		invitationRateLimiter: createSupabaseOrganizationInvitationRateLimiter(adminClient)
+	};
+}
+
+export function createAccountSetupLinkIssuancePorts() {
+	return createSupabaseAccountSetupLinkIssuancePorts(getAdminClient());
 }
 
 export function createRequestEmptyContext(_request: AdmittedOrganizationRequest) {
@@ -643,4 +694,32 @@ export function createRequestDashboardSummaryContext(request: AdmittedOrganizati
 		personnelCriticalTasksRoster: createSupabasePersonnelCriticalTasksRosterPort(getAdminClient),
 		personnelTrainingRoster: createSupabasePersonnelTrainingRosterPort(getAdminClient)
 	};
+}
+
+/** Approved Deletion Request effects; each source owner rechecks the pending request before its service-role delete. */
+export function createApprovedDeletionEffects(
+	ctx: ReturnType<typeof createRequestDeletionReviewContext>,
+	requirePending: (
+		orgId: string,
+		requestId: string,
+		resourceType: DeletionRequestResourceType,
+		resourceId: string
+	) => Promise<void>
+): ApprovedDeletionEffects {
+	const training = createSupabaseApprovedTrainingDeletionPort(getAdminClient, requirePending);
+	const rating = createApprovedRatingSchemeDeletionPort(ctx.ratingScheme, requirePending);
+	const counseling = createSupabasePersonnelGovernanceDeletionPort(getAdminClient, requirePending);
+	return {
+		archivePersonnel: (id) => archiveApprovedPersonnelRecord(ctx, id),
+		deleteTrainingType: (requestId, id) => training.deleteApprovedTrainingType(ctx.auth, requestId, id),
+		deleteTrainingRecord: (requestId, id) => training.deleteApprovedTrainingRecord(ctx.auth, requestId, id),
+		deleteRatingEntry: (requestId, id) => rating.deleteApprovedRatingSchemeEntry(ctx.auth, requestId, id),
+		approveCounseling: (requestId, id, reviewedAt) =>
+			counseling.deleteApprovedCounselingRecord(ctx.auth, requestId, id, reviewedAt)
+	};
+}
+
+/** Invitation setup state is read with service-role access only when the members page asks for it. */
+export function createOrganizationInvitationSetupStateLookup() {
+	return createSupabaseOrganizationInvitationSetupStateLookupPort(getAdminClient);
 }

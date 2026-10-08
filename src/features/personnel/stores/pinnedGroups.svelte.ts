@@ -13,9 +13,14 @@ export class PinnedGroupsStore {
 	#orgId = '';
 	#pendingMutations = 0;
 	#organizationVersion = 0;
+	#loadVersion = 0;
 
 	get list() {
 		return this.#pinnedGroups;
+	}
+
+	get loadVersion() {
+		return this.#loadVersion;
 	}
 
 	get orgId() {
@@ -27,6 +32,7 @@ export class PinnedGroupsStore {
 			this.#organizationVersion++;
 			this.#pendingMutations = 0;
 		} else if (this.#pendingMutations > 0) return;
+		this.#loadVersion++;
 		this.#pinnedGroups = pinnedGroups;
 		this.#orgId = orgId;
 	}
@@ -182,6 +188,9 @@ export const pinnedGroupsStore = {
 
 /** Workspace bootstraps supply the ordered pin snapshot without another request. */
 export const pinnedGroupsHydration = {
+	get loadVersion() {
+		return pinnedGroupManagementStore.loadVersion;
+	},
 	get orgId() {
 		return pinnedGroupManagementStore.orgId;
 	},

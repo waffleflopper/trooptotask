@@ -10,7 +10,7 @@
 	import * as PageShell from '$lib/components/ui/page-shell';
 	import * as Table from '$lib/components/ui/table';
 	import { formatDisplayDateTime } from '$lib/utils/dates';
-	import { adminBadgeVariant, formatAdminLabel } from '$lib/components/admin/adminTheme';
+	import { adminBadgeVariant, formatAdminLabel } from '$features/platform-admin/components/adminTheme';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 
 	let { data } = $props();

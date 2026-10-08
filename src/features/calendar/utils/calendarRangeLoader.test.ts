@@ -118,6 +118,19 @@ describe('calendarRangeLoader', () => {
 		expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/calendar-range?rangeStart=2026-03-01&rangeEnd=2026-06-30');
 	});
 
+	it('treats an empty authoritative range as removal of previously loaded rows', () => {
+		mergeCalendarRangeIntoStores('org-1', {
+			rangeStart: '2026-03-01',
+			rangeEnd: '2026-03-31',
+			availabilityEntries: [],
+			specialDays: [],
+			dailyAssignments: []
+		});
+		expect(availabilityStoreMock.items).toEqual([]);
+		expect(specialDaysStoreMock.items).toEqual([]);
+		expect(dailyAssignmentsStoreMock.assignments).toEqual([]);
+	});
+
 	it('replaces stale in-range calendar data while keeping existing out-of-range store state', () => {
 		availabilityStoreMock.items = [
 			{

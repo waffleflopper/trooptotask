@@ -42,3 +42,54 @@ export interface CalendarWorkspaceData {
 	/** Org-configured loss warning window in days (default: 180). */
 	lossWarningWindowDays?: number;
 }
+
+export const CALENDAR_WORKSPACE_LANE_KEY = 'calendar' as const;
+
+export type CalendarWorkspaceHydrationMode = 'replace' | 'merge' | 'preserve-client';
+
+export interface CalendarWorkspaceHydrationTarget<T> {
+	mode: CalendarWorkspaceHydrationMode;
+	deferred?: boolean;
+	snapshotKey: string;
+	items: T[] | Promise<T[]>;
+}
+
+export interface CalendarAssignmentsHydrationItems {
+	types: AssignmentType[];
+	assignments: DailyAssignment[];
+}
+
+export interface CalendarAssignmentsWorkspaceHydrationTarget {
+	mode: CalendarWorkspaceHydrationMode;
+	deferred?: boolean;
+	snapshotKey: string;
+	items: CalendarAssignmentsHydrationItems | Promise<CalendarAssignmentsHydrationItems>;
+	rangeStart?: string;
+	rangeEnd?: string;
+}
+
+export interface CalendarWorkspaceHydration {
+	orgId: string;
+	personnel: CalendarWorkspaceHydrationTarget<Personnel>;
+	groups: CalendarWorkspaceHydrationTarget<Group>;
+	statusTypes: CalendarWorkspaceHydrationTarget<StatusType>;
+	availabilityEntries: CalendarWorkspaceHydrationTarget<AvailabilityEntry>;
+	specialDays: CalendarWorkspaceHydrationTarget<SpecialDay>;
+	calendarAssignments: CalendarAssignmentsWorkspaceHydrationTarget;
+	pinnedGroups: CalendarWorkspaceHydrationTarget<string>;
+}
+
+export interface CalendarWorkspaceResult {
+	laneKey: typeof CALENDAR_WORKSPACE_LANE_KEY;
+	data: CalendarBootstrap;
+	hydration: CalendarWorkspaceHydration;
+}
+
+export interface CalendarWorkspaceRestricted {
+	laneKey: typeof CALENDAR_WORKSPACE_LANE_KEY;
+	access: 'restricted';
+}
+
+export interface CalendarWorkspaceRouteData {
+	[CALENDAR_WORKSPACE_LANE_KEY]: { data: Promise<CalendarWorkspaceResult | CalendarWorkspaceRestricted> };
+}

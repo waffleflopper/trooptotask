@@ -8,6 +8,7 @@ import type { RatingSchemeWorkspaceHydration, RatingSchemeWorkspaceHydrationTarg
 
 export interface RatingSchemeHydrationLoadable<T> {
 	readonly orgId: string;
+	readonly loadVersion?: number;
 	readonly items?: T[];
 	load(items: T[], orgId: string): void;
 	startLoading?(): void;
@@ -40,6 +41,7 @@ function createTargetDescriptor<T>(
 		snapshotKey: target.snapshotKey,
 		items: target.items,
 		storeOrgId: () => store.orgId,
+		storeLoadVersion: () => store.loadVersion,
 		startLoading: store.startLoading ? () => store.startLoading?.() : undefined,
 		apply: (items) => store.load(items as T[], orgId)
 	};

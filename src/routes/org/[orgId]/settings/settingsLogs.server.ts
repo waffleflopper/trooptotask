@@ -1,16 +1,7 @@
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { fetchAuditLogs, type AuditLabelReads, type OrganizationAuditStore } from '$lib/audit/index.server';
 import type { AuditLogQueryResult } from '$lib/audit/contracts';
-
-export interface LogsSettingsData {
-	sections: {
-		logs: SettingsLogsSectionData;
-	};
-}
-
-export interface SettingsLogsSectionData {
-	auditLogPage: AuditLogQueryResult;
-}
+import type { LogsSettingsData } from './settingsSectionTypes';
 
 export interface BuildLogsSettingsDataInput {
 	auditLogPage: AuditLogQueryResult;

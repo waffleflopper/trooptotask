@@ -60,6 +60,11 @@ vi.mock('$lib/server/adapters/httpAdapter', async () => {
 
 import { streamCriticalTasksWorkspaceBootstrap } from './criticalTasksWorkspace.server';
 
+function granted<T extends object>(workspace: T): Exclude<T, { access: 'restricted' }> {
+	if ('access' in workspace) throw new Error('Expected a granted workspace');
+	return workspace as Exclude<T, { access: 'restricted' }>;
+}
+
 describe('streamCriticalTasksWorkspaceBootstrap', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -99,10 +104,10 @@ describe('streamCriticalTasksWorkspaceBootstrap', () => {
 			cookies: {} as Cookies,
 			orgId: '1-11-bde'
 		});
-		let workspace: Awaited<typeof routeData.criticalTasks.data> | undefined;
+		let workspace: ReturnType<typeof granted<Awaited<typeof routeData.criticalTasks.data>>> | undefined;
 
 		void routeData.criticalTasks.data.then((value) => {
-			workspace = value;
+			workspace = granted(value);
 		});
 
 		await new Promise((resolve) => setTimeout(resolve, 0));
@@ -171,8 +176,8 @@ describe('streamCriticalTasksWorkspaceBootstrap', () => {
 			includeArchivedTasks: true
 		});
 
-		const defaultWorkspace = await defaultRouteData.criticalTasks.data;
-		const archivedWorkspace = await archivedRouteData.criticalTasks.data;
+		const defaultWorkspace = granted(await defaultRouteData.criticalTasks.data);
+		const archivedWorkspace = granted(await archivedRouteData.criticalTasks.data);
 
 		await expect(defaultWorkspace.data.ictTasks).resolves.toEqual([
 			expect.objectContaining({ id: 'task-active', archivedAt: null })

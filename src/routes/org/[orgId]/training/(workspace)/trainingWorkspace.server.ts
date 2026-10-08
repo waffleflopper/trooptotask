@@ -4,14 +4,16 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import {
 	createWorkspaceHydrationTarget,
+	settleWorkspaceDenial,
 	type DeferredData,
 	type HydrationItems
-} from '$lib/server/core/streamedWorkspace';
+} from '$lib/server/adapters/streamedWorkspace';
 import {
 	TRAINING_WORKSPACE_LANE_KEY,
 	type TrainingWorkspaceData,
 	type TrainingWorkspaceHydration,
 	type TrainingWorkspaceHydrationTarget,
+	type TrainingWorkspaceRestricted,
 	type TrainingWorkspaceResult
 } from '$features/training/contracts';
 import { fetchTrainingWorkspaceData } from '$features/training/index.server';
@@ -22,7 +24,7 @@ export interface TrainingWorkspaceRequestContext {
 	orgId: string;
 }
 export interface TrainingWorkspaceRouteData {
-	training: DeferredData<TrainingWorkspaceResult>;
+	training: DeferredData<TrainingWorkspaceResult | TrainingWorkspaceRestricted>;
 }
 
 function createTrainingHydrationTarget<T>(items: HydrationItems<T>): TrainingWorkspaceHydrationTarget<T> {
@@ -64,6 +66,6 @@ export async function streamTrainingWorkspaceBootstrap(
 	});
 
 	return {
-		training: deferred
+		training: { data: settleWorkspaceDenial(deferred.data, TRAINING_WORKSPACE_LANE_KEY) }
 	};
 }

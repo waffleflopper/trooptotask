@@ -21,6 +21,7 @@ export interface Store<T extends { id: string }> {
 	readonly items: T[];
 	readonly rawItems: T[];
 	readonly orgId: string;
+	readonly loadVersion: number;
 	readonly busy: boolean;
 	readonly loading: boolean;
 	load(items: T[], orgId: string): void;
@@ -57,6 +58,7 @@ export function createStoreWithInternals<T extends { id: string }>(
 	const loadingVal = createReactiveValue(true);
 	const log = createMutationLog<T>();
 	let organizationVersion = 0;
+	let loadVersion = 0;
 
 	let adapter: ApiAdapter<T> = config.adapter ?? createRestAdapter<T>(() => orgIdVal.value, config.resource);
 
@@ -112,6 +114,10 @@ export function createStoreWithInternals<T extends { id: string }>(
 			return orgIdVal.value;
 		},
 
+		get loadVersion() {
+			return loadVersion;
+		},
+
 		get busy() {
 			return log.pending > 0;
 		},
@@ -125,6 +131,7 @@ export function createStoreWithInternals<T extends { id: string }>(
 		},
 
 		load(newItems: T[], newOrgId: string) {
+			loadVersion++;
 			if (newOrgId !== orgIdVal.value) {
 				organizationVersion++;
 				log.clear();

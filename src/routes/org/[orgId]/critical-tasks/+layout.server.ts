@@ -1,6 +1,6 @@
 import type { LayoutServerLoad } from './$types';
 import { evaluatePolicyDecision, POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { streamReadyFeatureLaneWorkspace } from '$lib/server/core/featureLaneWorkspaceLoad';
+import { streamReadyFeatureLaneWorkspace } from '$lib/server/adapters/featureLaneWorkspaceLoad';
 import type { ReadyAppShell } from '$features/app-shell/contracts';
 import { streamCriticalTasksWorkspaceBootstrap } from './criticalTasksWorkspace.server';
 

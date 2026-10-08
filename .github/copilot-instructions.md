@@ -59,10 +59,9 @@ Use these repo-specific rules:
 - Treat `Organization` and `Group` as canonical v1 current-state terms.
 - Do not present v2 `Account` / `Unit` / `Element` terminology as if it already describes v1.
 - Keep current Supabase Auth, membership, identifiers, authorization, SQL/RLS and tenant guarantees authoritative while their owned boundaries are narrowed through the stabilization queue.
-- Use current `src/features/*` placement honestly. New cross-owner calls use declared public seams, and privileged feature operations use SvelteKit-recognized server-only files; the module checker enforces regressions while Phase 08 consumer migration debt remains open.
-- Do not add new direct `locals.supabase` business logic outside auth-provider edges, ports/adapters, or an explicitly approved remediation slice.
+- Use current `src/features/*` placement honestly. New cross-owner calls use declared public seams, and privileged feature operations use SvelteKit-recognized server-only files; the module checker fails on any boundary finding.
+- Route server files never use `locals.supabase` or an admin client directly; pass the request to an owned operation or bind service-role ports in a Delivery adapter.
 - Keep the six distinct current feature permission lanes; do not borrow another lane for new behavior. Critical Tasks' former Training coupling is resolved.
-- Use `docs/architecture/GOVERNANCE_BASELINE.json` and `npm run governance:check` for existing route-level provider exceptions and permission-coupling prevention. The module graph checker also rejects new boundary violations and reports existing Phase 08 debt.
-- If you touch a documented exception, reduce it with its consumers and update the affected records; do not expand exceptions. Do not silently normalize a legacy exception into precedent.
+- `npm run governance:check` has no exception file: route provider usage, permission couplings and module-boundary findings all fail. Do not add exceptions or manifest declarations to pass it.
 - Preserve compatibility with legacy clinic-era names, but prefer Army/military-oriented canonical terms in docs, UX copy, and new abstractions.
 - Do not deepen demo or sandbox behavior.

@@ -22,4 +22,4 @@ For genuinely open choices, present the smallest consequential decision with sup
 
 Update the affected source of truth when architecture defaults, authorization, provider ownership, terminology or drift status changes. [ADR guidance](ADR_GUIDANCE.md) determines when a lasting design decision needs an ADR; local fixes do not require a new architecture record.
 
-Follow [Definition of Done](DEFINITION_OF_DONE.md) for checks and evidence. Reduce resolved entries in `GOVERNANCE_BASELINE.json` with their consumers and update the related ledger. An observed issue, a passing governance check or an incomplete migration is not a completed cutover.
+Follow [Definition of Done](DEFINITION_OF_DONE.md) for checks and evidence. Remove replaced paths with their consumers and update the related ledger; governance has no exception file. An observed issue, a passing governance check or an incomplete migration is not a completed cutover.

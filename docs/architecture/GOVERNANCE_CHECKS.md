@@ -6,34 +6,21 @@ It is intentionally narrow. It does not prove the architecture is clean. It catc
 
 ## What It Checks Today
 
-- route-level Supabase usage under `src/routes/` stays inside an explicit allowlist, including
-  direct `locals.supabase` access and Supabase clients destructured or aliased from `locals`
-- route-level admin-provider wiring under `src/routes/` stays inside a separate allowlist, including
-  `getAdminClient()` calls, `ctx.adminClient` usage, `const { adminClient } = ctx` destructuring, and
-  service-role Supabase adapter creation
-- configured feature families are scanned for cross-feature permission-lane couplings by default, and known
-  exceptions remain explicit in the JSON baseline
+- route server files under `src/routes/` use no Supabase client directly, including `locals.supabase` access and
+  clients destructured or aliased from `locals`; routes pass the request to an owned operation instead
+- route server files acquire no admin provider, including `getAdminClient()` calls, `ctx.adminClient` usage,
+  `const { adminClient } = ctx` destructuring and service-role Supabase adapter creation; Delivery adapters bind
+  service-role ports after authorization
+- configured feature families are scanned for cross-feature permission-lane couplings; any coupling fails
 - every maintained `src` TS/JS/Svelte import is classified by one declared owner; private and undeclared cross-owner imports, source/owner cycles, and mixed-owner files are findings
 - each owner's `contracts.ts`, its only portable entrypoint, is checked transitively for Svelte, `$app`, browser globals, provider/Node imports, raw database-row types, UI and server code; web entrypoints are checked transitively for privileged imports (server-only files follow SvelteKit's `$lib/server` and `.server.` basename rules, plus route `+server` files), and feature `server/` files without SvelteKit-recognized placement are reported
 - portable global references use TypeScript symbol resolution to distinguish ECMAScript bindings and existing neutral parsing/encoding APIs from DOM/platform dependencies; DTO member names, imported bindings and local shadowing remain valid
 - portable `globalThis` access permits standard language globals and pure cross-runtime parsing/encoding utilities; unknown members and aliases fail closed, so new runtime facilities need an explicit rule review
 - every module-boundary finding fails the command; `node scripts/module-boundaries.ts` prints the same full report
 
-## Baseline Classifications
-
-Existing baseline entries use narrow classification labels to identify the route boundary they represent.
-These labels are inventory, not permission to add exceptions:
-
-- `auth-edge` means a route performs provider-specific auth/session/invite work at the Identity boundary.
-- `cron-edge` means an admitted scheduled maintenance route binds service-role cleanup stores, storage adapters,
-  or privileged RPC calls directly in the route.
-- `platform-admin-edge` means a Platform Admin route uses the admin context client or service-role
-  adapters for platform/org/user support operations at the route boundary. No current entry uses it.
-
 ## What It Does Not Claim
 
-- it does not prove a route is architecturally good just because it is allowlisted
-- it does not prove a privileged route/provider seam is clean just because it is recorded
+- it does not prove that an owned operation receiving the request's client uses it correctly
 - it does not prove the authz model is correct
 - it does not replace code review, ADRs or resolution of open product/design decisions
 - it does not yet cover every shallow module or every terminology problem
@@ -51,27 +38,18 @@ The canonical command runs the same rules over the current tree and fails on any
 
 External packages are classified at the import boundary; the checker does not crawl `node_modules`. Portable contracts may reach only packages declared in `package.json` `dependencies`: test and build tooling in `devDependencies` (including `svelte`, `vite`, `vitest`, `jsdom`, `happy-dom` and `@testing-library/*`) and undeclared transitive packages are rejected. Among runtime dependencies, portable contracts also reject the current web inventory, including subpaths: the Svelte packages `svelte-sonner`, `@lucide/svelte`, `bits-ui`, `layerchart` and `mode-watcher`; the stylesheet packages `@fontsource/*` and `tw-animate-css`; the Tailwind build packages `tailwindcss` and `@tailwindcss/*`; and the browser file-generation packages `exceljs`, `jspdf` and `jspdf-autotable`. They also reject the framework/provider scopes above, local `.svelte`, `.svelte.ts` and `.svelte.js` modules, local files other than script modules and JSON (such as stylesheets, SVG, HTML or Markdown assets), and external stylesheet paths matching the checker's `STYLESHEET` pattern, including query suffixes. Web consumers can still use these packages and stylesheets. Neutral runtime packages such as `zod`, `clsx` and `@internationalized/date`, and local JSON data, remain valid in portable contracts. Universal `src/hooks.ts` and `src/params/*` matchers are web entries for the server-privilege rule. Runtime dependency additions require review of the web inventory; this is not a proof of portability for arbitrary npm packages.
 
-## Baseline File
+## No exception file
 
-The allowlist lives in `docs/architecture/GOVERNANCE_BASELINE.json`.
+D30 removed the last route provider and module-boundary exceptions together with `GOVERNANCE_BASELINE.json`. Every check above fails on any occurrence:
 
-Treat that file as a temporary truth table for tolerated exceptions:
-
-- if you remove a documented exception, remove or update the baseline entry in the same slice
-- do not add exceptions, allowlists or permission couplings to accommodate new drift
+- do not add exceptions, allowlists, permission couplings or manifest declarations to accommodate new drift
 - record newly discovered debt as bounded work in [TODO](../stabilization/TODO.md), not as a passing-gate exemption
 - preserve guards, assertions, scan paths and budgets; do not weaken checks, skip tests or hide consumers to obtain green results
-
-For feature permission couplings, `featurePermissionCouplings` is an exception list, not the list of feature
-families to scan. The checker scans configured feature families even when this array is empty. Remove resolved
-entries and retain the scan; documenting a finding does not authorize a new permission coupling.
 
 ## Current-State Truth Versus Guardrail
 
 - Current-state truth:
-  - v1 retains five documented route-level provider edges: two Identity `auth-edge` routes and three admitted `cron-edge` jobs. The six current feature lanes are distinct and `featurePermissionCouplings` is empty; the checker detects configured foreign-lane couplings in the Critical Tasks and Rating Scheme families only (`FEATURE_PERMISSION_FAMILIES` in `scripts/check-governance.mjs`). It does not scan every feature for permission borrowing or prove policy correctness. Personnel's rank-catalog Training-view read is an intentional cross-owner read documented in the [ownership ledger](CURRENT_OWNERSHIP.md#persisted-and-operational-ownership-07-01b), not evidence of complete scanner coverage.
+  - no route server file uses a Supabase or admin provider client directly. The six current feature lanes are distinct; the checker detects configured foreign-lane couplings in the Critical Tasks and Rating Scheme families only (`FEATURE_PERMISSION_FAMILIES` in `scripts/check-governance.mjs`). It does not scan every feature for permission borrowing or prove policy correctness. Personnel's rank-catalog Training-view read is an intentional cross-owner read documented in the [ownership ledger](CURRENT_OWNERSHIP.md#persisted-and-operational-ownership-07-01b), not evidence of complete scanner coverage.
   - the D02 checker finds no cross-owner deep import, undeclared dependency, owner/source cycle, web-to-privileged import chain or misplaced feature `server/` file. That establishes the declared graph, not every semantic rule of the [chosen module and delivery contract](adrs/0013-v1-module-and-delivery-contract.md).
 - Intended guardrail:
   - no new leaks, privileged route/provider exceptions, boundary findings or permission borrowing should land
-- Queued remediation:
-  - finish provider and module cutovers through the stabilization queue, deleting replaced implementations and consumers in each owning task; documentation or a baseline entry cannot substitute for removal evidence

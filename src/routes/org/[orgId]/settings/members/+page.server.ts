@@ -5,9 +5,9 @@ import { parseMemberAccessEditFormData } from '$lib/access/memberAccessCommands'
 import { createRequestDeletionRequestStore, toActionFailure } from '$lib/server/adapters/httpAdapter';
 import {
 	buildRouteRequest,
-	createRequestAccountSetupLinkIssuancePorts,
+	createAccountSetupLinkIssuancePorts,
 	createRequestNotificationContext,
-	createRequestOrganizationInvitationPorts
+	createOrganizationInvitationPorts
 } from '$lib/server/adapters/requestContexts.server';
 import { listGroupCatalog } from '$features/personnel/index.server';
 import {
@@ -56,9 +56,9 @@ export const actions: Actions = {
 					notifications: ctx.notifications,
 
 					settings: createSupabaseOrgSettingsMemberManagementPort(locals),
-					...createRequestOrganizationInvitationPorts(),
+					...createOrganizationInvitationPorts(),
 					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer,
-					...createRequestAccountSetupLinkIssuancePorts()
+					...createAccountSetupLinkIssuancePorts()
 				},
 				{
 					email: (formData.get('email') as string) ?? '',
@@ -89,7 +89,7 @@ export const actions: Actions = {
 					notifications: ctx.notifications,
 
 					settings: createSupabaseOrgSettingsMemberManagementPort(locals),
-					...createRequestOrganizationInvitationPorts()
+					...createOrganizationInvitationPorts()
 				},
 				{
 					inviteId: (formData.get('inviteId') as string) ?? '',

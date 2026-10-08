@@ -304,7 +304,7 @@ export function createRequestOrganizationAuditLogContext(request: AdmittedOrgani
 }
 
 /** Member invitation delivery, limits and account-setup links require service-role provider access. */
-export function createRequestOrganizationInvitationPorts() {
+export function createOrganizationInvitationPorts() {
 	const adminClient = getAdminClient();
 	return {
 		invitationDelivery: createSupabaseOrganizationInvitationDeliveryPort(adminClient),
@@ -312,7 +312,7 @@ export function createRequestOrganizationInvitationPorts() {
 	};
 }
 
-export function createRequestAccountSetupLinkIssuancePorts() {
+export function createAccountSetupLinkIssuancePorts() {
 	return createSupabaseAccountSetupLinkIssuancePorts(getAdminClient());
 }
 

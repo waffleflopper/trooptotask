@@ -11,7 +11,7 @@ import {
 	type AuthEmailOutboxStore
 } from './authEmailOutbox.server';
 import { addUtcDays } from './accountSetupDates';
-import { makePublicAppUrl } from '$lib/server/publicAppOrigin';
+import { makePublicAppUrl } from './publicAppOrigin.server';
 import { getAdminClient } from '$lib/server/supabase';
 import { ACCESS_REQUEST_SETUP_RENEWAL_DAYS } from './contracts';
 

@@ -17,15 +17,7 @@
 		},
 		"calendar": {
 			"roots": ["src/features/calendar/", "src/lib/components/ui/calendar-status-badge/"],
-			"files": [
-				"src/lib/components/GroupHeader.svelte",
-				"src/lib/components/GroupHeader.test.ts",
-				"src/lib/server/calendarLayoutServer.test.ts",
-				"src/lib/server/core/useCases/calendarPolicy.ts",
-				"src/lib/server/core/useCases/calendarScope.ts",
-				"src/lib/server/utils/calendarTiming.test.ts",
-				"src/lib/server/utils/calendarTiming.ts"
-			],
+			"files": [],
 			"packet": "08-M05"
 		},
 		"critical-tasks": {
@@ -103,13 +95,7 @@
 		},
 		"identity": {
 			"roots": ["src/features/identity/", "src/lib/auth/", "src/lib/components/auth/"],
-			"files": [
-				"src/lib/server/publicAppOrigin.test.ts",
-				"src/lib/server/publicAppOrigin.ts",
-				"src/lib/server/userEmailIdentities.ts",
-				"src/tests/fixtures/passwordAttempt.ts",
-				"src/tests/fixtures/passwordSession.ts"
-			],
+			"files": ["src/tests/fixtures/passwordAttempt.ts", "src/tests/fixtures/passwordSession.ts"],
 			"packet": "08-M01"
 		},
 		"notifications": {

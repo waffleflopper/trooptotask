@@ -10,11 +10,7 @@
  */
 import { specialDayCreateInput, specialDayUpdateInput } from './calendarPersistenceMapping.server';
 import { getDefaultFederalHolidays } from './utils/federalHolidays';
-import {
-	CALENDAR_POLICY_ACTIONS,
-	requireCalendarPolicy,
-	type CalendarCatalogPorts
-} from '$lib/server/core/useCases/calendarPolicy';
+import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy, type CalendarCatalogPorts } from './calendarPolicy.server';
 import { error } from '@sveltejs/kit';
 
 const action = CALENDAR_POLICY_ACTIONS.configureSpecialDays;

@@ -1,5 +1,5 @@
 import type { EmailOtpType } from '@supabase/supabase-js';
-import { makePublicAppUrl } from '$lib/server/publicAppOrigin';
+import { makePublicAppUrl } from './publicAppOrigin.server';
 
 const authConfirmDestinations = {
 	email: ['/org/new', '/dashboard'],

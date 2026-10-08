@@ -1,8 +1,8 @@
 // Current server transport operations for request admission and logout.
 // Provider sessions stay at this Identity/delivery edge; they are not feature contracts.
 export { readIdentitySession } from './requestSession.server';
-export { makePublicAppUrl } from '$lib/server/publicAppOrigin';
-export { findUserEmailIdentityByEmail } from '$lib/server/userEmailIdentities';
+export { makePublicAppUrl } from './publicAppOrigin.server';
+export { findUserEmailIdentityByEmail } from './userEmailIdentities.server';
 export { findInvitationRecipientAccount, normalizeUserEmailIdentity } from './invitationRecipientAccount.server';
 export { signOutIdentity } from './signOut.server';
 export { loginIdentity } from './login.server';

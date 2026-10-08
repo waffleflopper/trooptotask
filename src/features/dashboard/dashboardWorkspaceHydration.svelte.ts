@@ -23,6 +23,7 @@ import type {
 
 export interface DashboardHydrationLoadable<T> {
 	readonly orgId: string;
+	readonly loadVersion?: number;
 	readonly items?: T[];
 	load(items: T[], orgId: string): void;
 	startLoading?(): void;
@@ -30,12 +31,14 @@ export interface DashboardHydrationLoadable<T> {
 
 export interface DashboardAssignmentsHydrationLoadable {
 	readonly orgId: string;
+	readonly loadVersion?: number;
 	load(types: AssignmentType[], assignments: DailyAssignment[], orgId: string): void;
 	startLoading?(): void;
 }
 
 export interface DashboardPinnedGroupsHydrationLoadable {
 	readonly orgId: string;
+	readonly loadVersion?: number;
 	load(items: string[], orgId: string): void;
 }
 
@@ -77,6 +80,7 @@ function createTargetDescriptor<T>(
 		snapshotKey: target.snapshotKey,
 		items: target.items,
 		storeOrgId: () => store.orgId,
+		storeLoadVersion: () => store.loadVersion,
 		startLoading: store.startLoading ? () => store.startLoading?.() : undefined,
 		apply: (items) => store.load(items as T[], orgId)
 	};
@@ -95,6 +99,7 @@ function createCalendarAssignmentsDescriptor(
 		snapshotKey: target.snapshotKey,
 		items: target.items,
 		storeOrgId: () => store.orgId,
+		storeLoadVersion: () => store.loadVersion,
 		startLoading: store.startLoading ? () => store.startLoading?.() : undefined,
 		apply: (items) => {
 			const { types, assignments } = items as { types: AssignmentType[]; assignments: DailyAssignment[] };
@@ -116,6 +121,7 @@ function createPinnedGroupsDescriptor(
 		snapshotKey: target.snapshotKey,
 		items: target.items,
 		storeOrgId: () => store.orgId,
+		storeLoadVersion: () => store.loadVersion,
 		apply: (items) => store.load(items as string[], orgId)
 	};
 }

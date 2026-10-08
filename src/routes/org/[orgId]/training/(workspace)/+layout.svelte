@@ -24,7 +24,7 @@
 			fallbackMessage: 'Failed to hydrate training workspace',
 			hydrate: (training) => {
 				if ('access' in training) {
-					trainingWorkspaceHydrator.restrict(data.shell.org.id);
+					trainingWorkspaceHydrator.restrict();
 					accessRestricted = true;
 					return;
 				}

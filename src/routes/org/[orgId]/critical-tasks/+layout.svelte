@@ -59,7 +59,7 @@
 				if ('access' in criticalTasks) {
 					accessRestricted = true;
 					resetCriticalTasksWorkspaceStatus();
-					if (orgId) criticalTasksWorkspaceHydrator.restrict(orgId);
+					if (orgId) criticalTasksWorkspaceHydrator.restrict();
 					return;
 				}
 				markCriticalTasksWorkspaceResolved(criticalTasks);

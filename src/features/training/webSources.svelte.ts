@@ -13,6 +13,9 @@ export const trainingTypeSource = {
 
 /** Apply route snapshots without exposing Training mutations to another feature. */
 export const trainingTypeHydration = {
+	get loadVersion() {
+		return trainingTypesStore.loadVersion;
+	},
 	get orgId() {
 		return trainingTypesStore.orgId;
 	},

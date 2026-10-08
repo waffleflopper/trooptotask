@@ -27,6 +27,7 @@ import type {
 
 export interface CalendarHydrationLoadable<T> {
 	readonly orgId: string;
+	readonly loadVersion?: number;
 	readonly items?: T[];
 	load(items: T[], orgId: string): void;
 	startLoading?(): void;
@@ -34,6 +35,7 @@ export interface CalendarHydrationLoadable<T> {
 
 export interface CalendarAssignmentsHydrationLoadable {
 	readonly orgId: string;
+	readonly loadVersion?: number;
 	readonly assignments?: DailyAssignment[];
 	load(types: AssignmentType[], assignments: DailyAssignment[], orgId: string): void;
 	startLoading?(): void;
@@ -41,6 +43,7 @@ export interface CalendarAssignmentsHydrationLoadable {
 
 export interface CalendarPinnedGroupsHydrationLoadable {
 	readonly orgId: string;
+	readonly loadVersion?: number;
 	load(items: string[], orgId: string): void;
 }
 
@@ -56,7 +59,7 @@ export interface CalendarHydrationStores {
 
 export interface CalendarWorkspaceHydrator {
 	hydrate(hydration?: CalendarWorkspaceHydration, stores?: CalendarHydrationStores): Promise<void>;
-	restrict(orgId: string, stores?: CalendarHydrationStores): void;
+	restrict(stores?: CalendarHydrationStores): void;
 	reset(): void;
 }
 
@@ -132,6 +135,7 @@ function createTargetDescriptor<T>(
 		snapshotKey: target.snapshotKey,
 		items: target.items,
 		storeOrgId: () => store.orgId,
+		storeLoadVersion: () => store.loadVersion,
 		startLoading: store.startLoading ? () => store.startLoading?.() : undefined,
 		apply: (items) => store.load(mergeLoadItems(store, items as T[], orgId, target.mode), orgId)
 	};
@@ -150,6 +154,7 @@ function createCalendarAssignmentsDescriptor(
 		snapshotKey: target.snapshotKey,
 		items: target.items,
 		storeOrgId: () => store.orgId,
+		storeLoadVersion: () => store.loadVersion,
 		startLoading: store.startLoading ? () => store.startLoading?.() : undefined,
 		apply: (items) => {
 			const mergedItems = mergeCalendarAssignments(
@@ -176,6 +181,7 @@ function createPinnedGroupsDescriptor(
 		snapshotKey: target.snapshotKey,
 		items: target.items,
 		storeOrgId: () => store.orgId,
+		storeLoadVersion: () => store.loadVersion,
 		apply: (items) => store.load(items as string[], orgId)
 	};
 }
@@ -188,15 +194,15 @@ export function createCalendarWorkspaceHydrator(): CalendarWorkspaceHydrator {
 			hydrationTargets.reset();
 		},
 
-		restrict(orgId: string, stores: CalendarHydrationStores = defaultCalendarHydrationStores) {
+		restrict(stores: CalendarHydrationStores = defaultCalendarHydrationStores) {
 			hydrationTargets.reset();
-			stores.personnelStore.load([], orgId);
-			stores.groupsStore.load([], orgId);
-			stores.statusTypesStore.load([], orgId);
-			stores.availabilityEntriesStore.load([], orgId);
-			stores.specialDaysStore.load([], orgId);
-			stores.calendarAssignmentsStore.load([], [], orgId);
-			stores.pinnedGroupsStore.load([], orgId);
+			stores.personnelStore.load([], '');
+			stores.groupsStore.load([], '');
+			stores.statusTypesStore.load([], '');
+			stores.availabilityEntriesStore.load([], '');
+			stores.specialDaysStore.load([], '');
+			stores.calendarAssignmentsStore.load([], [], '');
+			stores.pinnedGroupsStore.load([], '');
 		},
 
 		async hydrate(

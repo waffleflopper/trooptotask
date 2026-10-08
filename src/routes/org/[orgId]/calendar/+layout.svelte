@@ -24,7 +24,7 @@
 			fallbackMessage: 'Failed to hydrate calendar workspace',
 			hydrate: (calendar) => {
 				if ('access' in calendar) {
-					calendarWorkspaceHydrator.restrict(data.shell.org.id);
+					calendarWorkspaceHydrator.restrict();
 					accessRestricted = true;
 					return;
 				}

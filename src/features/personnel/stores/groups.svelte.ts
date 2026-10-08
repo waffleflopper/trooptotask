@@ -59,6 +59,9 @@ export const groupsStore: Pick<Store<Group>, 'items' | 'orgId' | 'loading'> = {
 
 /** Workspace bootstraps supply the catalog snapshot without another request. */
 export const groupCatalogHydration = {
+	get loadVersion() {
+		return groupManagementStore.loadVersion;
+	},
 	get items() {
 		return groupManagementStore.items;
 	},

@@ -17,6 +17,7 @@ import type { TrainingWorkspaceHydration, TrainingWorkspaceHydrationTarget } fro
 
 export interface TrainingHydrationLoadable<T> {
 	readonly orgId: string;
+	readonly loadVersion?: number;
 	readonly items?: T[];
 	load(items: T[], orgId: string): void;
 	startLoading?(): void;
@@ -36,7 +37,7 @@ export interface TrainingWorkspaceHydrator {
 	hydrate(hydration?: TrainingWorkspaceHydration, stores?: TrainingHydrationStores): Promise<void>;
 	reset(): void;
 	/** Drop pending hydration and this Organization's lane rows after access is denied. */
-	restrict(orgId: string, stores?: TrainingHydrationStores): void;
+	restrict(stores?: TrainingHydrationStores): void;
 }
 
 const defaultTrainingHydrationStores: TrainingHydrationStores = {
@@ -62,6 +63,7 @@ function createTargetDescriptor<T>(
 		snapshotKey: target.snapshotKey,
 		items: target.items,
 		storeOrgId: () => store.orgId,
+		storeLoadVersion: () => store.loadVersion,
 		startLoading: store.startLoading ? () => store.startLoading?.() : undefined,
 		apply: (items) => store.load(items as T[], orgId)
 	};
@@ -75,9 +77,9 @@ export function createTrainingWorkspaceHydrator(): TrainingWorkspaceHydrator {
 			hydrationTargets.reset();
 		},
 
-		restrict(orgId: string, stores: TrainingHydrationStores = defaultTrainingHydrationStores) {
+		restrict(stores: TrainingHydrationStores = defaultTrainingHydrationStores) {
 			hydrationTargets.reset();
-			for (const store of Object.values(stores)) store.load([], orgId);
+			for (const store of Object.values(stores)) store.load([], '');
 		},
 
 		async hydrate(

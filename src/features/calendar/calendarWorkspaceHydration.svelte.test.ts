@@ -227,7 +227,7 @@ describe('Calendar workspace hydration adapter', () => {
 		);
 		expect(stores.availabilityEntriesStore.loading).toBe(true);
 
-		hydrator.restrict('org-1', stores);
+		hydrator.restrict(stores);
 		resolveEntries([lateEntry]);
 		await pending;
 

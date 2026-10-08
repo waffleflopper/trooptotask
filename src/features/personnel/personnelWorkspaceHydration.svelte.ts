@@ -9,6 +9,7 @@ import type { PersonnelWorkspaceHydration, PersonnelWorkspaceHydrationTarget } f
 
 export interface PersonnelHydrationLoadable<T> {
 	readonly orgId: string;
+	readonly loadVersion?: number;
 	readonly items?: T[];
 	load(items: T[], orgId: string): void;
 	startLoading?(): void;
@@ -16,6 +17,7 @@ export interface PersonnelHydrationLoadable<T> {
 
 export interface PersonnelPinnedGroupsHydrationLoadable {
 	readonly orgId: string;
+	readonly loadVersion?: number;
 	load(items: string[], orgId: string): void;
 }
 
@@ -30,7 +32,7 @@ export interface PersonnelWorkspaceHydrator {
 	hydrate(hydration: PersonnelWorkspaceHydration | undefined, stores: PersonnelHydrationStores): Promise<void>;
 	reset(): void;
 	/** Drop pending hydration and this Organization's roster rows after access is denied. */
-	restrict(orgId: string, stores: PersonnelHydrationStores): void;
+	restrict(stores: PersonnelHydrationStores): void;
 }
 
 function createTargetDescriptor<T>(
@@ -46,6 +48,7 @@ function createTargetDescriptor<T>(
 		snapshotKey: target.snapshotKey,
 		items: target.items,
 		storeOrgId: () => store.orgId,
+		storeLoadVersion: () => store.loadVersion,
 		startLoading: store.startLoading ? () => store.startLoading?.() : undefined,
 		apply: (items) => store.load(items as T[], orgId)
 	};
@@ -64,6 +67,7 @@ function createPinnedGroupsDescriptor(
 		snapshotKey: target.snapshotKey,
 		items: target.items,
 		storeOrgId: () => store.orgId,
+		storeLoadVersion: () => store.loadVersion,
 		apply: (items) => store.load(items as string[], orgId)
 	};
 }
@@ -76,9 +80,9 @@ export function createPersonnelWorkspaceHydrator(): PersonnelWorkspaceHydrator {
 			hydrationTargets.reset();
 		},
 
-		restrict(orgId: string, stores: PersonnelHydrationStores) {
+		restrict(stores: PersonnelHydrationStores) {
 			hydrationTargets.reset();
-			for (const store of Object.values(stores)) store.load([], orgId);
+			for (const store of Object.values(stores)) store.load([], '');
 		},
 
 		async hydrate(hydration: PersonnelWorkspaceHydration | undefined, stores: PersonnelHydrationStores): Promise<void> {

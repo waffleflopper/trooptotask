@@ -6,6 +6,7 @@ export interface FeatureLaneWorkspaceHydrationTargetDescriptor {
 	snapshotKey: string;
 	items: unknown | Promise<unknown>;
 	storeOrgId(): string;
+	storeLoadVersion?(): number | undefined;
 	startLoading?(): void;
 	apply(resolved: unknown): void;
 }
@@ -18,6 +19,7 @@ export interface FeatureLaneWorkspaceHydrator {
 interface TargetSnapshotState {
 	orgId: string;
 	snapshotKey: string;
+	storeLoadVersion?: number;
 }
 
 interface CreateFeatureLaneWorkspaceHydratorOptions {
@@ -43,7 +45,8 @@ export function createFeatureLaneWorkspaceHydrator(
 		pendingSnapshotKeys.delete(descriptor.targetName);
 		appliedSnapshotKeys.set(descriptor.targetName, {
 			orgId,
-			snapshotKey: descriptor.snapshotKey
+			snapshotKey: descriptor.snapshotKey,
+			storeLoadVersion: descriptor.storeLoadVersion?.()
 		});
 	}
 
@@ -71,15 +74,23 @@ export function createFeatureLaneWorkspaceHydrator(
 		if (
 			descriptor.storeOrgId() === orgId &&
 			appliedState?.orgId === orgId &&
-			appliedState.snapshotKey === snapshotKey
+			appliedState.snapshotKey === snapshotKey &&
+			appliedState.storeLoadVersion === descriptor.storeLoadVersion?.()
 		) {
 			return;
 		}
 
+		const storeLoadVersion = descriptor.storeLoadVersion?.();
 		const pendingState = pendingSnapshotKeys.get(targetName);
-		if (pendingState?.orgId === orgId && pendingState.snapshotKey === snapshotKey) return;
+		if (
+			pendingState?.orgId === orgId &&
+			pendingState.snapshotKey === snapshotKey &&
+			pendingState.storeLoadVersion === storeLoadVersion
+		)
+			return;
 
-		pendingSnapshotKeys.set(targetName, { orgId, snapshotKey });
+		const requestState = { orgId, snapshotKey, storeLoadVersion };
+		pendingSnapshotKeys.set(targetName, requestState);
 
 		if (isPromiseLike<unknown>(descriptor.items)) {
 			const initialStoreOrgId = descriptor.storeOrgId();
@@ -87,8 +98,11 @@ export function createFeatureLaneWorkspaceHydrator(
 			try {
 				const items = await descriptor.items;
 				const latestPending = pendingSnapshotKeys.get(targetName);
-				if (latestPending?.orgId !== orgId || latestPending.snapshotKey !== snapshotKey) return;
-				if (storeMovedToAnotherOrg(descriptor, orgId, initialStoreOrgId)) {
+				if (latestPending !== requestState) return;
+				if (
+					descriptor.storeLoadVersion?.() !== storeLoadVersion ||
+					storeMovedToAnotherOrg(descriptor, orgId, initialStoreOrgId)
+				) {
 					pendingSnapshotKeys.delete(targetName);
 					return;
 				}
@@ -96,10 +110,11 @@ export function createFeatureLaneWorkspaceHydrator(
 				return;
 			} catch (error) {
 				const latestPending = pendingSnapshotKeys.get(targetName);
-				if (latestPending?.orgId !== orgId || latestPending.snapshotKey !== snapshotKey) {
+				if (latestPending !== requestState) {
 					return;
 				}
 				pendingSnapshotKeys.delete(targetName);
+				if (descriptor.storeLoadVersion?.() !== storeLoadVersion) return;
 				console.error(`[${options.logTag}] Failed to load ${targetName} for org ${orgId}`, error);
 				throw error;
 			}

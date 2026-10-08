@@ -40,7 +40,7 @@
 			hydrate: async (personnel) => {
 				if ('access' in personnel) {
 					if (cancelled) return;
-					personnelWorkspaceHydrator.restrict(orgId, hydrationStores);
+					personnelWorkspaceHydrator.restrict(hydrationStores);
 					restrictedOrgId = orgId;
 					return;
 				}

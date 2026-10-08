@@ -36,6 +36,9 @@ export const calendarAssignmentsSource = {
 
 /** Apply workspace snapshots through Calendar without exposing mutation methods. */
 export const calendarStatusHydration = {
+	get loadVersion() {
+		return statusTypesStore.loadVersion;
+	},
 	get orgId() {
 		return statusTypesStore.orgId;
 	},
@@ -48,6 +51,9 @@ export const calendarStatusHydration = {
 };
 
 export const calendarAvailabilityHydration = {
+	get loadVersion() {
+		return availabilityStore.loadVersion;
+	},
 	get orgId() {
 		return availabilityStore.orgId;
 	},
@@ -60,6 +66,9 @@ export const calendarAvailabilityHydration = {
 };
 
 export const calendarAssignmentsHydration = {
+	get loadVersion() {
+		return dailyAssignmentsStore.loadVersion;
+	},
 	get orgId() {
 		return dailyAssignmentsStore.orgId;
 	},

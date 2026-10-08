@@ -208,7 +208,8 @@
 				"src/lib/utils/retentionCutoff.ts",
 				"src/lib/utils/logSanitize.ts",
 				"src/lib/utils/logSanitize.test.ts",
-				"src/lib/utils/downloadBlob.ts"
+				"src/lib/utils/downloadBlob.ts",
+				"src/lib/utils/downloadBlob.test.ts"
 			],
 			"packet": "08-M16"
 		},
@@ -235,7 +236,6 @@
 				"src/lib/components/BannerStack.svelte",
 				"src/lib/components/BannerStack.test.ts",
 				"src/lib/components/BannerStackTest.svelte",
-				"src/lib/components/BrandMark.svelte",
 				"src/lib/stores/theme.svelte.test.ts",
 				"src/lib/stores/theme.svelte.ts",
 				"src/lib/stores/toast.svelte.ts",
@@ -476,7 +476,6 @@
 		],
 		"web-ui": [
 			"src/lib/components/BannerStack.svelte",
-			"src/lib/components/BrandMark.svelte",
 			"src/lib/stores/toast.svelte.ts",
 			"src/lib/utils/browserStorage.ts",
 			"src/lib/utils/deferToIdle.ts",

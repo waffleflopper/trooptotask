@@ -2,6 +2,7 @@
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import * as Empty from '$lib/components/ui/empty';
 	import { Skeleton } from '$lib/components/ui/skeleton';
+	import { downloadBlob } from '$lib/utils/downloadBlob';
 	import { Button } from '$lib/components/ui/button';
 	import * as ButtonGroup from '$lib/components/ui/button-group';
 	import { Toggle } from '$lib/components/ui/toggle';
@@ -187,7 +188,7 @@
 				throw new Error('Failed to export critical task matrix');
 			}
 			const blob = await response.blob();
-			const { downloadBlob, filenameFromContentDisposition } = await import('$lib/utils/workbook');
+			const { filenameFromContentDisposition } = await import('$lib/utils/workbook');
 			downloadBlob(
 				blob,
 				filenameFromContentDisposition(response.headers.get('Content-Disposition'), 'critical-task-matrix.xlsx')

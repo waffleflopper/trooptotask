@@ -1,4 +1,5 @@
 import type ExcelJS from 'exceljs';
+import { downloadBlob } from '$lib/utils/downloadBlob';
 import { resolveExcelWorkbookConstructor } from '$lib/utils/excelWorkbook';
 
 export const WORKBOOK_MIME_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -64,17 +65,6 @@ export async function writeWorkbookBuffer(workbook: Workbook): Promise<ArrayBuff
 export async function workbookBlob(workbook: Workbook): Promise<Blob> {
 	const buffer = await writeWorkbookBuffer(workbook);
 	return new Blob([buffer], { type: WORKBOOK_MIME_TYPE });
-}
-
-export function downloadBlob(blob: Blob, filename: string, revokeDelayMs = 0): void {
-	const url = URL.createObjectURL(blob);
-	const link = document.createElement('a');
-	link.href = url;
-	link.download = filename;
-	document.body.appendChild(link);
-	link.click();
-	document.body.removeChild(link);
-	setTimeout(() => URL.revokeObjectURL(url), revokeDelayMs);
 }
 
 export async function downloadWorkbook(workbook: Workbook, filename: string): Promise<void> {

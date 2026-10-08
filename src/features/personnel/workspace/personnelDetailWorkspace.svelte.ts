@@ -15,7 +15,8 @@ import type {
 	PersonnelReadinessLaneTone
 } from '$features/personnel/personnel-detail.types';
 import { archivePersonnel, type RequestPersonnelArchiveApproval } from '../utils/archivePersonnel';
-import { downloadBlob, filenameFromContentDisposition } from '$lib/utils/workbook';
+import { downloadBlob } from '$lib/utils/downloadBlob';
+import { filenameFromContentDisposition } from '$lib/utils/workbook';
 import type { Personnel } from '../personnel.types';
 import { SvelteDate } from 'svelte/reactivity';
 import { ArtifactDraft } from './artifactDraft.svelte';

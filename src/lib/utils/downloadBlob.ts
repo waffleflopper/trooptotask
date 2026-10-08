@@ -1,4 +1,4 @@
-export function downloadBlob(blob: Blob, filename: string) {
+export function downloadBlob(blob: Blob, filename: string): void {
 	const url = URL.createObjectURL(blob);
 	const anchor = document.createElement('a');
 	anchor.href = url;
@@ -9,6 +9,6 @@ export function downloadBlob(blob: Blob, filename: string) {
 		anchor.click();
 	} finally {
 		document.body.removeChild(anchor);
-		URL.revokeObjectURL(url);
+		setTimeout(() => URL.revokeObjectURL(url), 0);
 	}
 }

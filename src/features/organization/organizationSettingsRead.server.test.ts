@@ -11,7 +11,6 @@ const contracts = [
 		table: 'organization_memberships',
 		fields:
 			'id,organization_id,user_id,email,role,created_at,member_preset,capability_overrides,access_scope_kind,access_scope_group_ids',
-		order: null,
 		row: {
 			id: 'member',
 			organization_id: ORG,
@@ -30,7 +29,6 @@ const contracts = [
 		table: 'organization_invitations',
 		fields:
 			'id,email,role,status,created_at,expires_at,accepted_at,declined_at,revoked_at,expired_at,blocked_at,member_preset,capability_overrides,access_scope_kind,access_scope_group_ids',
-		order: 'created_at.desc',
 		row: {
 			id: 'invitation',
 			email: 'invite@example.test',
@@ -53,7 +51,6 @@ const contracts = [
 		method: 'listInvitationDeliveries',
 		table: 'organization_invitation_email_outbox',
 		fields: 'id,invitation_id,status,attempt_count,last_error,updated_at,sent_at',
-		order: 'created_at.desc',
 		row: {
 			id: 'delivery',
 			invitation_id: 'invitation',
@@ -68,14 +65,12 @@ const contracts = [
 		method: 'listOwnershipCandidateMemberships',
 		table: 'organization_memberships',
 		fields: 'id,user_id,email,role',
-		order: null,
 		row: { id: 'candidate', user_id: 'account', email: '  candidate@example.test  ', role: 'admin' }
 	}
 ] satisfies Array<{
 	method: 'listMemberAccess' | 'listInvitations' | 'listInvitationDeliveries' | 'listOwnershipCandidateMemberships';
 	table: string;
 	fields: string;
-	order: string | null;
 	row: object;
 }>;
 
@@ -87,7 +82,7 @@ function sdkFixture(
 	const requests: URL[] = [];
 	const rows = Array.from({ length: count }, (_, index) => ({
 		...contract.row,
-		id: `saved-${index}`,
+		id: `saved-${String(index).padStart(4, '0')}`,
 		organization_id: ORG,
 		provider_private: 'must not escape'
 	}));
@@ -101,17 +96,18 @@ function sdkFixture(
 				expect(init?.method).toBe('GET');
 				expect(url.pathname).toBe(`/rest/v1/${contract.table}`);
 				expect(url.searchParams.get('select')).toBe(contract.fields);
-				expect(url.searchParams.get('order')).toBe(contract.order);
 				const from = Number(url.searchParams.get('offset') ?? 0);
 				expect(url.searchParams.get('limit')).toBe('1000');
 				if (fault === 'first' || (fault === 'late' && from === 1000))
 					return Response.json({ message: 'Provider refused read', code: '42501' }, { status: 403 });
 				if (fault === 'null' || (fault === 'terminal-null' && from === 1000)) return Response.json(null);
-				return Response.json(
-					[...rows, foreign]
-						.filter((row) => url.searchParams.get('organization_id') === `eq.${row.organization_id}`)
-						.slice(from, from + 1000)
+				const orderedRows = [...rows, foreign].filter(
+					(row) => url.searchParams.get('organization_id') === `eq.${row.organization_id}`
 				);
+				if (url.searchParams.get('order')?.split(',').includes('id.asc'))
+					orderedRows.sort((left, right) => left.id.localeCompare(right.id));
+				else if (from > 0) orderedRows.reverse();
+				return Response.json(orderedRows.slice(from, from + 1000));
 			}
 		}
 	});
@@ -120,12 +116,15 @@ function sdkFixture(
 
 describe('five ordinary Organization settings reads with the installed SDK', () => {
 	it.each(contracts)(
-		'$method returns every saved field across pages and excludes foreign/provider metadata',
+		'$method returns each saved row once despite unstable page ordering and excludes foreign/provider metadata',
 		async (contract) => {
 			const { reader, requests } = sdkFixture(contract, 1001);
 			expect(requests).toEqual([]);
 			const rows = await reader[contract.method](ORG.toUpperCase());
-			const expected = Array.from({ length: 1001 }, (_, index) => ({ ...contract.row, id: `saved-${index}` }));
+			const expected = Array.from({ length: 1001 }, (_, index) => ({
+				...contract.row,
+				id: `saved-${String(index).padStart(4, '0')}`
+			}));
 			expect(rows).toEqual(expected);
 			expect(requests.map((url) => url.searchParams.get('offset'))).toEqual(['0', '1000']);
 		}
@@ -145,6 +144,40 @@ describe('five ordinary Organization settings reads with the installed SDK', () 
 				const fixture = sdkFixture(contract, 1001, fault);
 				await expect(fixture.reader[contract.method](ORG)).rejects.toEqual(new Error('Provider refused read'));
 			}
+		}
+	);
+	it.each(contracts.filter(({ method }) => method === 'listInvitations' || method === 'listInvitationDeliveries'))(
+		'$method keeps newest rows first and resolves timestamp ties by ID',
+		async (contract) => {
+			const rows = [
+				{ ...contract.row, id: 'a-old', created_at: '2026-10-01' },
+				{ ...contract.row, id: 'c-new', created_at: '2026-10-02' },
+				{ ...contract.row, id: 'b-new', created_at: '2026-10-02' }
+			];
+			const client = createClient('http://settings.invalid', 'synthetic-request-key', {
+				auth: { persistSession: false, autoRefreshToken: false },
+				global: {
+					fetch: async (input) => {
+						const order = new URL(String(input)).searchParams.get('order')?.split(',') ?? [];
+						return Response.json(
+							[...rows].sort((left, right) => {
+								for (const field of order) {
+									const comparison =
+										field === 'created_at.desc'
+											? right.created_at.localeCompare(left.created_at)
+											: field === 'id.asc'
+												? left.id.localeCompare(right.id)
+												: 0;
+									if (comparison) return comparison;
+								}
+								return 0;
+							})
+						);
+					}
+				}
+			});
+			const reader = createSupabaseOrganizationSettingsReader(client);
+			expect((await reader[contract.method](ORG)).map(({ id }) => id)).toEqual(['b-new', 'c-new', 'a-old']);
 		}
 	);
 	it('keeps omitted access fields omitted and present nulls intact', async () => {

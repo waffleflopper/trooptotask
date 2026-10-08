@@ -50,6 +50,7 @@ export function createSupabaseOrganizationSettingsReader(supabase: SupabaseClien
 						'id, organization_id, user_id, email, role, created_at, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids'
 					)
 					.eq('organization_id', orgId.toLowerCase())
+					.order('id')
 					.range(from, to)
 					.returns<OrganizationSettingsMembershipRow[]>()
 			);
@@ -68,6 +69,7 @@ export function createSupabaseOrganizationSettingsReader(supabase: SupabaseClien
 					)
 					.eq('organization_id', orgId.toLowerCase())
 					.order('created_at', { ascending: false })
+					.order('id')
 					.range(from, to)
 					.returns<OrganizationSettingsInvitationRow[]>()
 			);
@@ -84,6 +86,7 @@ export function createSupabaseOrganizationSettingsReader(supabase: SupabaseClien
 					.select('id, invitation_id, status, attempt_count, last_error, updated_at, sent_at')
 					.eq('organization_id', orgId.toLowerCase())
 					.order('created_at', { ascending: false })
+					.order('id')
 					.range(from, to)
 					.returns<OrganizationSettingsInvitationDeliveryRow[]>()
 			);
@@ -100,6 +103,7 @@ export function createSupabaseOrganizationSettingsReader(supabase: SupabaseClien
 						.from('organization_memberships')
 						.select('id, user_id, email, role')
 						.eq('organization_id', orgId.toLowerCase())
+						.order('id')
 						.range(from, to)
 						.returns<OrganizationOwnershipCandidateMembershipRow[]>()
 			);

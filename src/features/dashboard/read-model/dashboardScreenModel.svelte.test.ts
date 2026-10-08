@@ -1,3 +1,4 @@
+// @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Personnel } from '$features/personnel/contracts';
 import type { AvailabilityEntry, StatusType, DailyAssignment, AssignmentType } from '$features/calendar/contracts';
@@ -785,4 +786,110 @@ describe('Dashboard Onboarding progress', () => {
 			]);
 		}
 	);
+});
+
+describe('Dashboard today availability', () => {
+	const roster = {
+		personnel: [
+			{ id: 'p1', rank: 'SGT', firstName: 'Ann', lastName: 'Smith', groupId: 'g1' },
+			{ id: 'p2', rank: 'SPC', firstName: 'Bo', lastName: 'Jones', groupId: 'g1' },
+			{ id: 'p3', rank: 'SPC', firstName: 'Cy', lastName: 'Lee', groupId: 'g2' },
+			{ id: 'p4', rank: 'PFC', firstName: 'Di', lastName: 'Gone', groupId: 'g1', archivedAt: '2026-04-01T00:00:00Z' }
+		],
+		groups: [
+			{ id: 'g2', name: 'Bravo', sortOrder: 2 },
+			{ id: 'g1', name: 'Alpha', sortOrder: 1 }
+		],
+		statusTypes: [
+			{ id: 'leave', name: 'Leave', color: '#aa0000', textColor: '#ffffff' },
+			{ id: 'school', name: 'School', color: '#0000aa', textColor: '#ffffff' }
+		]
+	};
+
+	it('counts each active Person out today once and lists every entry that covers today', () => {
+		const model = createDashboardScreenModel(makeData(), {
+			today: '2026-04-23',
+			storage: createMemoryStorage(),
+			sources: makeSources({
+				...roster,
+				availabilityEntries: [
+					{ id: 'a1', personnelId: 'p1', statusTypeId: 'leave', startDate: '2026-04-22', endDate: '2026-04-24' },
+					{ id: 'a2', personnelId: 'p1', statusTypeId: 'school', startDate: '2026-04-23', endDate: '2026-04-23' },
+					{ id: 'a3', personnelId: 'p3', statusTypeId: 'school', startDate: '2026-04-23', endDate: '2026-04-25' },
+					{ id: 'a4', personnelId: 'p4', statusTypeId: 'leave', startDate: '2026-04-23', endDate: '2026-04-23' },
+					{ id: 'a5', personnelId: 'p2', statusTypeId: 'leave', startDate: '2026-04-24', endDate: '2026-04-26' },
+					{ id: 'a6', personnelId: 'unknown', statusTypeId: 'leave', startDate: '2026-04-23', endDate: '2026-04-23' }
+				]
+			})
+		});
+
+		expect(model.totalPersonnel).toBe(3);
+		expect(model.availableCount).toBe(1);
+		expect(model.quickStatValue('non-available-today')).toBe(2);
+		expect(model.onLeaveCount).toBe(1);
+		expect(
+			model.groupBreakdown.map(({ name, total, available, pct, statusCounts }) => ({
+				name,
+				total,
+				available,
+				pct,
+				statusCounts: Object.fromEntries(statusCounts)
+			}))
+		).toEqual([
+			{ name: 'Alpha', total: 2, available: 1, pct: 50, statusCounts: { leave: 1 } },
+			{ name: 'Bravo', total: 1, available: 0, pct: 0, statusCounts: { school: 1 } }
+		]);
+		expect(
+			model.nonAvailablePersonnel.map(({ id, personName, statusName, groupName }) => [
+				id,
+				personName,
+				statusName,
+				groupName
+			])
+		).toEqual([
+			['a1', 'SGT Smith, Ann', 'Leave', 'Alpha'],
+			['a2', 'SGT Smith, Ann', 'School', 'Alpha'],
+			['a3', 'SPC Lee, Cy', 'School', 'Bravo']
+		]);
+		expect(model.unitReadiness.statusEntries.map(([id, { count }]) => [id, count])).toEqual([
+			['leave', 1],
+			['school', 2]
+		]);
+	});
+
+	it('reuses Overview rows until a source changes', () => {
+		const availability = $state({
+			items: [
+				{ id: 'a1', personnelId: 'p1', statusTypeId: 'leave', startDate: '2026-04-23', endDate: '2026-04-23' }
+			] as AvailabilityEntry[],
+			loading: false
+		});
+		const model = createDashboardScreenModel(makeData(), {
+			today: '2026-04-23',
+			storage: createMemoryStorage(),
+			sources: { ...makeSources(roster), availability }
+		});
+
+		const groupBreakdown = model.groupBreakdown;
+		const nonAvailablePersonnel = model.nonAvailablePersonnel;
+		expect(model.groupBreakdown).toBe(groupBreakdown);
+		expect(model.nonAvailablePersonnel).toBe(nonAvailablePersonnel);
+
+		availability.items = [
+			...availability.items,
+			{
+				id: 'a2',
+				personnelId: 'p2',
+				statusTypeId: 'school',
+				startDate: '2026-04-23',
+				endDate: '2026-04-23'
+			} as AvailabilityEntry
+		];
+
+		expect(model.groupBreakdown.map(({ name, available }) => [name, available])).toEqual([
+			['Alpha', 0],
+			['Bravo', 1]
+		]);
+		expect(model.nonAvailablePersonnel.map(({ id }) => id)).toEqual(['a1', 'a2']);
+	});
 });

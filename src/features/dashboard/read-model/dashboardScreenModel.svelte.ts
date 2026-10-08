@@ -16,6 +16,7 @@ import type { AssignmentType, AvailabilityEntry, StatusType, DailyAssignment } f
 import type { DashboardPageData } from '$features/dashboard/contracts';
 import type { TrainingIssue } from '$features/training/contracts';
 import { getProgress } from '$features/onboarding/contracts';
+import { groupPersonnelByGroupId, indexById, indexTodayAvailability } from './dashboardIndexes';
 import type {
 	StarterConfigurationPackApplyResult,
 	StarterConfigurationPackId,
@@ -199,6 +200,12 @@ export class DashboardScreenModel {
 			fallbackGroupName: this.data.orgName
 		}).full({ status: 'active' });
 	});
+
+	private todayAvailability = $derived.by(() =>
+		indexTodayAvailability(this.sources.availability.items, this.today, this.rosterView.personnelById)
+	);
+	private statusTypeById = $derived.by(() => indexById(this.sources.statusTypes.items));
+	private groupById = $derived.by(() => indexById(this.sources.groups.items));
 
 	// ---------------------------------------------------------------------------
 	// Banner / getting-started support state
@@ -455,19 +462,8 @@ export class DashboardScreenModel {
 		);
 	}
 
-	get personnelIds(): Set<string> {
-		return new SvelteSet(this.rosterPersonnel.map((p) => p.id));
-	}
-
 	get todayEntries(): AvailabilityEntry[] {
-		const personnelIds = this.personnelIds;
-		return this.sources.availability.items.filter(
-			(e) => e.startDate <= this.today && e.endDate >= this.today && personnelIds.has(e.personnelId)
-		);
-	}
-
-	get unavailablePersonnelIds(): Set<string> {
-		return new SvelteSet(this.todayEntries.map((e) => e.personnelId));
+		return this.todayAvailability.entries;
 	}
 
 	get totalPersonnel(): number {
@@ -475,13 +471,13 @@ export class DashboardScreenModel {
 	}
 
 	get availableCount(): number {
-		return this.totalPersonnel - this.unavailablePersonnelIds.size;
+		return this.totalPersonnel - this.todayAvailability.byPersonnelId.size;
 	}
 
 	get statusBreakdown(): Map<string, DashboardStatusBreakdown> {
 		const map = new SvelteMap<string, DashboardStatusBreakdown>();
 		for (const entry of this.todayEntries) {
-			const st = this.sources.statusTypes.items.find((s) => s.id === entry.statusTypeId);
+			const st = this.statusTypeById.get(entry.statusTypeId);
 			if (!st) continue;
 			const existing = map.get(st.id);
 			if (existing) {
@@ -507,17 +503,17 @@ export class DashboardScreenModel {
 		return this.data.trainingSummary?.issues ?? [];
 	}
 
-	get upcomingChanges(): DashboardUpcomingChangeRow[] {
+	upcomingChanges = $derived.by<DashboardUpcomingChangeRow[]>(() => {
 		const sevenDaysOut = dateAfter(this.today, 7);
 		const changes: DashboardUpcomingChangeRow[] = [];
 
 		for (const entry of this.sources.availability.items) {
 			const person = this.findRosterPerson(entry.personnelId);
-			const st = this.sources.statusTypes.items.find((s) => s.id === entry.statusTypeId);
+			const st = this.statusTypeById.get(entry.statusTypeId);
 			if (!person || !st) continue;
 
 			const groupId = person.groupId ?? null;
-			const group = groupId ? this.sources.groups.items.find((g) => g.id === groupId) : null;
+			const group = groupId ? this.groupById.get(groupId) : null;
 			const groupName = group?.name ?? 'Unassigned';
 
 			if (entry.startDate > this.today && entry.startDate <= sevenDaysOut) {
@@ -548,7 +544,7 @@ export class DashboardScreenModel {
 		}
 
 		return changes.sort((a, b) => a.date.localeCompare(b.date));
-	}
+	});
 
 	get upcomingByDate(): Map<string, DashboardUpcomingChangeRow[]> {
 		return new SvelteMap(
@@ -561,8 +557,7 @@ export class DashboardScreenModel {
 	}
 
 	get activeOnboardings(): DashboardOnboardingProgressRow[] {
-		const personnelIds = this.personnelIds;
-		const onboardings = this.data.dashboard.data.activeOnboardings.filter((o) => personnelIds.has(o.personnelId));
+		const onboardings = this.data.dashboard.data.activeOnboardings.filter((o) => this.findRosterPerson(o.personnelId));
 		const completionSet = new SvelteSet(this.data.onboardingTrainingCompletions ?? []);
 
 		return onboardings.map((o) => {
@@ -588,7 +583,7 @@ export class DashboardScreenModel {
 		});
 	}
 
-	get groupBreakdown(): DashboardGroupBreakdownRow[] {
+	groupBreakdown = $derived.by<DashboardGroupBreakdownRow[]>(() => {
 		const pinnedSet = new SvelteSet(this.sources.pinnedGroups.list);
 		const sorted = [...this.sources.groups.items].sort((a, b) => {
 			const aPinned = pinnedSet.has(a.name);
@@ -597,33 +592,35 @@ export class DashboardScreenModel {
 			if (!aPinned && bPinned) return 1;
 			return (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
 		});
+		const todayByPersonnelId = this.todayAvailability.byPersonnelId;
+		const personnelByGroupId = groupPersonnelByGroupId(this.rosterPersonnel);
 
 		return sorted.map((group) => {
-			const groupPersonnel = this.rosterPersonnel.filter((p) => p.groupId === group.id);
+			const groupPersonnel = personnelByGroupId.get(group.id) ?? [];
 			const total = groupPersonnel.length;
-			const unavailable = groupPersonnel.filter((p) => this.unavailablePersonnelIds.has(p.id)).length;
-			const available = total - unavailable;
-			const pct = total > 0 ? Math.round((available / total) * 100) : 100;
 			const statusCounts = new SvelteMap<string, number>();
+			let unavailable = 0;
 
 			for (const person of groupPersonnel) {
-				const entry = this.todayEntries.find((e) => e.personnelId === person.id);
+				const entry = todayByPersonnelId.get(person.id);
 				if (entry) {
+					unavailable++;
 					statusCounts.set(entry.statusTypeId, (statusCounts.get(entry.statusTypeId) ?? 0) + 1);
 				}
 			}
 
+			const available = total - unavailable;
 			return {
 				id: group.id,
 				name: group.name,
 				total,
 				available,
-				pct,
+				pct: total > 0 ? Math.round((available / total) * 100) : 100,
 				statusCounts,
 				isPinned: pinnedSet.has(group.name)
 			};
 		});
-	}
+	});
 
 	get dutyStrengthPct(): number {
 		return this.totalPersonnel > 0 ? Math.round((this.availableCount / this.totalPersonnel) * 100) : 100;
@@ -646,14 +643,14 @@ export class DashboardScreenModel {
 		);
 	}
 
-	get nonAvailablePersonnel(): DashboardOutTodayRow[] {
-		return this.todayEntries
+	nonAvailablePersonnel = $derived.by<DashboardOutTodayRow[]>(() =>
+		this.todayEntries
 			.map((e) => {
 				const person = this.findRosterPerson(e.personnelId);
-				const st = this.sources.statusTypes.items.find((s) => s.id === e.statusTypeId);
+				const st = this.statusTypeById.get(e.statusTypeId);
 				if (!person || !st) return null;
 				const groupId = person.groupId ?? null;
-				const group = groupId ? this.sources.groups.items.find((g) => g.id === groupId) : null;
+				const group = groupId ? this.groupById.get(groupId) : null;
 				return {
 					id: e.id,
 					personnelId: e.personnelId,
@@ -670,8 +667,8 @@ export class DashboardScreenModel {
 				};
 			})
 			.filter((x): x is DashboardOutTodayRow => x !== null)
-			.sort((a, b) => a.personName.localeCompare(b.personName));
-	}
+			.sort((a, b) => a.personName.localeCompare(b.personName))
+	);
 
 	dutyForDays(count: number): DashboardDutyDayView[] {
 		const days: DashboardDutyDayView[] = [];
@@ -698,7 +695,7 @@ export class DashboardScreenModel {
 
 	get onLeaveCount(): number {
 		return this.todayEntries.filter((e) => {
-			const st = this.sources.statusTypes.items.find((s) => s.id === e.statusTypeId);
+			const st = this.statusTypeById.get(e.statusTypeId);
 			return st?.name?.toLowerCase().includes('leave') ?? false;
 		}).length;
 	}
@@ -710,7 +707,7 @@ export class DashboardScreenModel {
 			case 'total-strength':
 				return this.totalPersonnel;
 			case 'non-available-today':
-				return this.unavailablePersonnelIds.size;
+				return this.todayAvailability.byPersonnelId.size;
 			case 'on-leave':
 				return this.onLeaveCount;
 			case 'training-currency':

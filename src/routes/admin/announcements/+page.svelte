@@ -15,7 +15,7 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { formatDisplayDate } from '$lib/utils/dates';
-	import { adminBadgeVariant, formatAdminLabel } from '$lib/components/admin/adminTheme';
+	import { adminBadgeVariant, formatAdminLabel } from '$features/platform-admin/components/adminTheme';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();

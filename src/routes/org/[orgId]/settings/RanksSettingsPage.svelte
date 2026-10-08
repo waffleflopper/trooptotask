@@ -18,7 +18,7 @@
 	import * as NativeSelect from '$lib/components/ui/native-select/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar/index.js';
-	import type { RanksSettingsData } from './settingsRanks.server';
+	import type { RanksSettingsData } from './settingsSectionTypes';
 	import type { SettingsRankCatalogRow, SettingsRankServicePackOption } from './settingsSectionTypes';
 
 	type RankServiceFilter = SettingsRankCatalogRow['service'] | 'all';

@@ -8,7 +8,8 @@ const { restrictMock } = vi.hoisted(() => ({ restrictMock: vi.fn() }));
 vi.mock('$features/calendar/calendarWorkspaceHydration.svelte', () => ({
 	calendarWorkspaceHydrator: {
 		hydrate: vi.fn(),
-		restrict: restrictMock
+		restrict: restrictMock,
+		reset: vi.fn()
 	}
 }));
 
@@ -38,11 +39,11 @@ it('settles a revoked Calendar grant and removes the previous child workspace', 
 		}
 	});
 
-	expect(screen.getByTestId('calendar-child')).toBeTruthy();
+	expect(screen.queryByTestId('calendar-child')).toBeNull();
+	expect(screen.getByRole('status')).toBeTruthy();
 	resolveWorkspace({ laneKey: 'calendar', access: 'restricted' });
 
 	await waitFor(() => expect(screen.getByRole('heading', { name: 'Access Restricted' })).toBeTruthy());
 	expect(screen.queryByTestId('calendar-child')).toBeNull();
 	expect(screen.queryByRole('status')).toBeNull();
-	expect(restrictMock).toHaveBeenCalledWith('org-1');
 });

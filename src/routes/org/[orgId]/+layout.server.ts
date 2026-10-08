@@ -1,5 +1,5 @@
 import type { LayoutServerLoad } from './$types';
-import { createRootOrgLayoutLoad } from '$lib/server/core/useCases/createRootOrgLayoutLoad';
+import { createRootOrgLayoutLoad } from './rootOrgLayoutLoad.server';
 import { getIdentitySessionScope } from '$features/identity/index.server';
 import { error } from '@sveltejs/kit';
 

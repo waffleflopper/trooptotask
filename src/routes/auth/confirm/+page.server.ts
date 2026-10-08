@@ -11,8 +11,7 @@ export const load: PageServerLoad = async ({ url }) => {
 export const actions: Actions = {
 	default: async ({ request, locals, cookies }) => {
 		const formData = await request.formData();
-		const result = await confirmAuthLink({
-			supabase: locals.supabase,
+		const result = await confirmAuthLink(locals, {
 			tokenHash: formData.get('tokenHash')?.toString() ?? null,
 			type: formData.get('type')?.toString() ?? null,
 			next: formData.get('next')?.toString() ?? null

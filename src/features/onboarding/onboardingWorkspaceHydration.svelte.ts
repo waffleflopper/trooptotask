@@ -23,6 +23,7 @@ import type {
 
 export interface OnboardingHydrationLoadable<T> {
 	readonly orgId: string;
+	readonly loadVersion?: number;
 	readonly items?: T[];
 	load(items: T[], orgId: string): void;
 	startLoading?(): void;
@@ -30,6 +31,7 @@ export interface OnboardingHydrationLoadable<T> {
 
 export interface OnboardingTemplatesHydrationLoadable {
 	readonly orgId: string;
+	readonly loadVersion?: number;
 	load(templates: OnboardingTemplate[], steps: OnboardingTemplateStep[], orgId: string): void;
 }
 
@@ -69,6 +71,7 @@ function createTargetDescriptor<T>(
 		snapshotKey: target.snapshotKey,
 		items: target.items,
 		storeOrgId: () => store.orgId,
+		storeLoadVersion: () => store.loadVersion,
 		startLoading: store.startLoading ? () => store.startLoading?.() : undefined,
 		apply: (items) => store.load(items as T[], orgId)
 	};
@@ -87,6 +90,7 @@ function createTemplatesTargetDescriptor(
 		snapshotKey: target.snapshotKey,
 		items: { templates: target.templates, steps: target.steps },
 		storeOrgId: () => store.orgId,
+		storeLoadVersion: () => store.loadVersion,
 		apply: (items) => {
 			const { templates, steps } = items as OnboardingTemplatesResolved;
 			store.load(templates, steps, orgId);

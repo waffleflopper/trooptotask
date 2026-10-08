@@ -8,7 +8,7 @@ import {
 	isPromiseLike,
 	type DeferredData,
 	type HydrationItems
-} from '$lib/server/core/streamedWorkspace';
+} from '$lib/server/adapters/streamedWorkspace';
 import type { Cookies } from '@sveltejs/kit';
 
 import {

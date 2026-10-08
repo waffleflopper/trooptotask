@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getDefaultUserOrgPreferences } from '$features/identity/contracts';
 import type { AppShellFirstPaintChromePort, OrgAccessPort } from '$features/app-shell/contracts';
-import { createRootOrgLayoutLoad } from './createRootOrgLayoutLoad';
+import { createRootOrgLayoutLoad } from './rootOrgLayoutLoad.server';
 
 function createOrganizationQuery(row: Record<string, unknown>) {
 	const query = {

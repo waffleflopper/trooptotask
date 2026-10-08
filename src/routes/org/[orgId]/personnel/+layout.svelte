@@ -6,13 +6,15 @@
 		pinnedGroupsHydration
 	} from '$features/personnel';
 	import { calendarStatusHydration } from '$features/calendar';
-	import type { PersonnelWorkspaceResult } from '$features/personnel/contracts';
+	import type { PersonnelWorkspaceRestricted, PersonnelWorkspaceResult } from '$features/personnel/contracts';
 	import { throwRenderError } from '$lib/utils/streamedRouteData';
 	import { hydrateStreamedWorkspace } from '$lib/utils/streamedWorkspaceHydrator';
+	import WorkspaceAccessRestricted from '../WorkspaceAccessRestricted.svelte';
 
 	let { children, data } = $props();
 	let hydrationError = $state<{ orgId: string; error: Error } | null>(null);
 	let hydratedOrgId = $state<string | null>(null);
+	let restrictedOrgId = $state<string | null>(null);
 	const hydrationStores = {
 		personnelStore: personnelRosterHydration,
 		groupsStore: groupCatalogHydration,
@@ -30,11 +32,18 @@
 		const orgId = data.shell.org.id;
 		let cancelled = false;
 		hydrationError = null;
+		restrictedOrgId = null;
 
-		const stop = hydrateStreamedWorkspace<PersonnelWorkspaceResult>({
+		const stop = hydrateStreamedWorkspace<PersonnelWorkspaceResult | PersonnelWorkspaceRestricted>({
 			streamedWorkspace: data.personnel,
 			fallbackMessage: 'Failed to hydrate personnel workspace',
 			hydrate: async (personnel) => {
+				if ('access' in personnel) {
+					if (cancelled) return;
+					personnelWorkspaceHydrator.restrict(hydrationStores);
+					restrictedOrgId = orgId;
+					return;
+				}
 				await personnelWorkspaceHydrator.hydrate(personnel.hydration, hydrationStores);
 				if (!cancelled) hydratedOrgId = orgId;
 			},
@@ -51,6 +60,8 @@
 
 {#if hydrationError && hydrationError.orgId === data.shell.org.id && hydratedOrgId !== data.shell.org.id}
 	{renderHydrationError}
+{:else if restrictedOrgId === data.shell.org.id}
+	<WorkspaceAccessRestricted subject="personnel" />
 {:else}
 	{#if hydrationError && hydrationError.orgId === data.shell.org.id}
 		<div role="alert" class="border-b border-border bg-muted px-6 py-3 text-sm">

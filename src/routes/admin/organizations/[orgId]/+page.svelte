@@ -4,9 +4,9 @@
 	import { Button } from '$lib/components/ui/button';
 	import { beforeNavigate, invalidateAll } from '$app/navigation';
 	import type { PageData } from './$types';
-	import SuspendModal from '$lib/components/admin/SuspendModal.svelte';
-	import TransferOwnershipModal from '$lib/components/admin/TransferOwnershipModal.svelte';
-	import { adminBadgeVariant, formatAdminLabel } from '$lib/components/admin/adminTheme';
+	import SuspendModal from '$features/platform-admin/components/SuspendModal.svelte';
+	import TransferOwnershipModal from '$features/platform-admin/components/TransferOwnershipModal.svelte';
+	import { adminBadgeVariant, formatAdminLabel } from '$features/platform-admin/components/adminTheme';
 	import { Badge } from '$lib/components/ui/badge';
 	import { formatDisplayDate, formatDisplayDateTime } from '$lib/utils/dates';
 	import * as Card from '$lib/components/ui/card';

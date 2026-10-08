@@ -4,8 +4,7 @@ import { cleanup, render, screen } from '@testing-library/svelte';
 import Page from './+page.svelte';
 import { createReadyAppShellRouteData } from '../../appShell.test-support';
 import { createClientAccess } from '$lib/access/clientAccess';
-import { calendarStore } from '$features/calendar/stores/calendar.svelte';
-import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
+import { calendarStore, dailyAssignmentsStore } from '$features/calendar';
 
 vi.mock('$features/app-shell', async (importOriginal) => ({
 	...(await importOriginal<typeof import('$features/app-shell')>()),

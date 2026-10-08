@@ -1,6 +1,9 @@
 import { createSupabaseTrainingCatalogPersistence } from '$features/training/index.server';
 import { createSupabaseSignInRosterRankReferenceReader } from '$features/sign-in-rosters/index.server';
-import type { AdmittedOrganizationRequest } from '$lib/server/adapters/requestContexts.server';
+import {
+	createOrganizationInvitationSetupStateLookup,
+	type AdmittedOrganizationRequest
+} from '$lib/server/adapters/requestContexts.server';
 import {
 	createRequestRankCatalogContext,
 	createRequestPersonnelRosterContext,
@@ -9,17 +12,13 @@ import {
 	createRequestSensitiveActionContext,
 	createRequestActorContext
 } from '$lib/server/adapters/requestContexts.server';
-import {
-	createSupabaseOrganizationInvitationSetupStateLookupPort,
-	createSupabaseOrganizationSettingsReader
-} from '$features/organization/index.server';
+import { createSupabaseOrganizationSettingsReader } from '$features/organization/index.server';
 import type {
 	loadDangerSettings,
 	loadMembersSettings,
 	loadPoliciesSettings
 } from '$features/organization/index.server';
 import type { listGroupCatalog } from '$features/personnel/index.server';
-import { getAdminClient } from '$lib/server/supabase';
 import type { loadSettingsShell } from './settingsShell.server';
 import type { loadArchivesSettings } from './settingsArchives.server';
 
@@ -55,7 +54,7 @@ export function createSettingsMembersContext(request: AdmittedOrganizationReques
 	return {
 		...createRequestGroupContext(request),
 		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase),
-		organizationInvitationSetupStateLookup: createSupabaseOrganizationInvitationSetupStateLookupPort(getAdminClient)
+		organizationInvitationSetupStateLookup: createOrganizationInvitationSetupStateLookup()
 	};
 }
 

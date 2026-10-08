@@ -37,6 +37,11 @@ vi.mock('$lib/server/adapters/requestContexts.server', async () => {
 
 import { _createPersonnelLayoutLoad } from './+layout.server';
 
+function granted<T extends object>(workspace: T): Exclude<T, { access: 'restricted' }> {
+	if ('access' in workspace) throw new Error('Expected a granted workspace');
+	return workspace as Exclude<T, { access: 'restricted' }>;
+}
+
 type PersonnelLoadEvent = Parameters<ReturnType<typeof _createPersonnelLayoutLoad>>[0];
 const ORG = 'test-org';
 
@@ -141,7 +146,7 @@ describe('Personnel workspace page delivery', () => {
 		await Promise.resolve();
 		expect(ready).toBe(false);
 		calendar.resolve();
-		const workspace = await route.personnel.data;
+		const workspace = granted(await route.personnel.data);
 
 		expect(workspace.data.personnel.map((person) => person.id)).toEqual(['able']);
 		expect(workspace.data.groups.map((group) => group.name)).toEqual(['Alpha']);
@@ -161,7 +166,7 @@ describe('Personnel workspace page delivery', () => {
 		};
 
 		const route = (await _createPersonnelLayoutLoad()(eventFor())) as PersonnelWorkspaceRouteData;
-		const workspace = await route.personnel.data;
+		const workspace = granted(await route.personnel.data);
 
 		expect(workspace.data.lossWarningWindowDays).toBe(180);
 		expect(workspace.data.personnel.map((person) => person.id)).toEqual(['able']);
@@ -186,14 +191,14 @@ describe('Personnel workspace page delivery', () => {
 		}
 	});
 
-	it('rejects Personnel denial even when Calendar is configured', async () => {
+	it('streams Personnel denial as restricted even when Calendar is configured', async () => {
 		const ctx = seededContext();
 		requests.set(ORG, {
 			...ctx,
 			auth: { ...ctx.auth, capabilityMap: { ...createCapabilityMap('none'), calendar: 'configure' } }
 		});
 		const route = (await _createPersonnelLayoutLoad()(eventFor())) as PersonnelWorkspaceRouteData;
-		await expect(route.personnel.data).rejects.toMatchObject({ status: 403 });
+		await expect(route.personnel.data).resolves.toEqual({ laneKey: 'personnel', access: 'restricted' });
 		expect(createRequestPersonnelWorkspaceContextMock).not.toHaveBeenCalled();
 	});
 

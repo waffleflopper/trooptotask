@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { RanksSettingsData } from '../settingsRanks.server';
+import type { RanksSettingsData } from '../settingsSectionTypes';
 import Page from './+page.svelte';
 
 vi.mock('$app/forms', () => ({

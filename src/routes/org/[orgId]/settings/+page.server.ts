@@ -1,6 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import { requireReadyAppShell } from '$lib/server/core/appShellRouteData';
+import { requireReadyAppShell } from '$lib/server/adapters/appShellRouteData';
 
 export const load: PageServerLoad = async ({ parent }) => {
 	const shell = requireReadyAppShell(await parent());

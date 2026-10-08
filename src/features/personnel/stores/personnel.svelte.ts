@@ -72,6 +72,9 @@ export const rosterStore: RosterReadStore = {
 
 /** The owned entry point for workspace snapshots from other feature lanes. */
 export const personnelRosterHydration = {
+	get loadVersion() {
+		return personnelStore.loadVersion;
+	},
 	get items() {
 		return personnelStore.items;
 	},

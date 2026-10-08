@@ -2,7 +2,7 @@ import type { StarterConfigurationPackApplyResult } from '$features/dashboard/co
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { createRequestOnboardingTemplateStepContext } from '$lib/server/adapters/featureRequestContexts.server';
-import { applyStarterConfigurationPack } from '$lib/server/core/useCases/starterConfigurationPacks';
+import { applyStarterConfigurationPack } from '$features/dashboard/index.server';
 import type { RequestEvent } from '@sveltejs/kit';
 import { z } from 'zod';
 

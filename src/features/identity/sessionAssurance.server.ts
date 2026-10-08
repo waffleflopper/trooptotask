@@ -5,7 +5,7 @@ type SessionAssurance = 'allowed' | 'mfa_required' | 'expired' | 'unavailable';
 
 /** Read fresh assurance for an already identity-verified session before auth effects. */
 export async function checkSessionAssurance(
-	supabase: SupabaseClient,
+	{ supabase }: { supabase: SupabaseClient },
 	session: Pick<Session, 'access_token' | 'expires_at'>
 ): Promise<SessionAssurance> {
 	try {

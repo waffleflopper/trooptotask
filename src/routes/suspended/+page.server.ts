@@ -1,13 +1,14 @@
 import type { PageServerLoad } from './$types';
-import { redirect } from '@sveltejs/kit';
+import { error, redirect } from '@sveltejs/kit';
+import { readAccountSuspension } from '$features/identity/index.server';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	// If not logged in, redirect to login
 	if (!locals.user) throw redirect(302, '/auth/login');
 
-	const { data: isSuspended } = await locals.supabase.rpc('is_user_suspended', {
-		check_user_id: locals.user.id
-	});
+	const suspended = await readAccountSuspension(locals, locals.user.id);
+	// Match admission: an unverifiable status is unavailable, not active
+	if (suspended === null) throw error(500, 'Unable to verify account status');
 	// If not actually suspended, redirect away
-	if (!isSuspended) throw redirect(302, '/dashboard');
+	if (!suspended) throw redirect(302, '/dashboard');
 };

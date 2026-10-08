@@ -2,7 +2,7 @@
 	import * as DataTable from '$lib/components/ui/data-table/index.js';
 	import type { ColumnDef } from '$lib/components/ui/data-table/index.js';
 	import type { PageProps } from './$types';
-	import type { LogsSettingsData } from '../settingsLogs.server';
+	import type { LogsSettingsData } from '../settingsSectionTypes';
 	import { formatAuditTimestamp, getAuditActionParts } from '../settingsWorkspaceFormatters';
 
 	type AuditLogPage = LogsSettingsData['sections']['logs']['auditLogPage'];

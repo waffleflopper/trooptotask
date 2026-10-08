@@ -1,13 +1,15 @@
 <script lang="ts">
 	import { getAccountPreferencesContext } from '$features/identity';
-	import { CalendarPageContext } from '$features/calendar/contexts/CalendarPageContext.svelte';
+	import {
+		buildCalendarAnchorCookie,
+		CalendarPageContext,
+		calendarStore,
+		type CalendarPageData,
+		type CalendarWorkspaceResult
+	} from '$features/calendar';
 	import { CalendarRangeCoordinator } from '$features/calendar/contexts/CalendarRangeCoordinator.svelte';
-	import type { CalendarPageData } from '$features/calendar/contexts/CalendarPageContext.svelte';
-	import type { CalendarWorkspaceResult } from '$features/calendar/server/calendarWorkspaceBootstrap';
-	import { getAppShellContext } from '$features/app-shell';
-	import { calendarStore } from '$features/calendar/stores/calendar.svelte';
-	import { buildCalendarAnchorCookie } from '$features/calendar/utils/calendarAnchorDate';
 	import CalendarPageView from '$features/calendar/components/CalendarPageView.svelte';
+	import { getAppShellContext } from '$features/app-shell';
 	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { isPromiseLike, observeDeferred, throwRenderError } from '$lib/utils/streamedRouteData';

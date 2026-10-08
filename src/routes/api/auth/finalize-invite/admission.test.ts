@@ -139,7 +139,7 @@ describe('invite finalization request admission', () => {
 		expect((await POST(h.event())).status).toBe(200);
 		expect(h.readAssurance).toHaveBeenNthCalledWith(1, passwordSessionToken('verified-actor'));
 		expect(h.readAssurance).toHaveBeenNthCalledWith(2, passwordSessionToken('verified-actor', 'upgraded'));
-		expect(effects.accept).toHaveBeenCalledExactlyOnceWith(h.locals.supabase, 'verified@example.test');
+		expect(effects.accept).toHaveBeenCalledExactlyOnceWith(h.locals, 'verified@example.test');
 	});
 	it('denies expiry during assurance before profile/membership/cookie effects', async () => {
 		const h = fixture();
@@ -156,7 +156,7 @@ describe('invite finalization request admission', () => {
 		const response = await POST(h.event());
 		expect(response.status).toBe(200);
 		expect(effects.profile).not.toHaveBeenCalled();
-		expect(effects.accept).toHaveBeenCalledExactlyOnceWith(h.locals.supabase, 'verified@example.test');
+		expect(effects.accept).toHaveBeenCalledExactlyOnceWith(h.locals, 'verified@example.test');
 	});
 	it.each([
 		['aal1', 'aal1'],
@@ -171,7 +171,7 @@ describe('invite finalization request admission', () => {
 			lastName: 'Smith',
 			rank: 'SGT'
 		});
-		expect(effects.accept).toHaveBeenCalledExactlyOnceWith(h.locals.supabase, 'verified@example.test');
+		expect(effects.accept).toHaveBeenCalledExactlyOnceWith(h.locals, 'verified@example.test');
 		const marker = h.cookies.get('ttt_pending_auth_flow')!;
 		expect(JSON.parse(Buffer.from(marker.split('.')[0], 'base64url').toString('utf8'))).toMatchObject({
 			flow: 'complete',

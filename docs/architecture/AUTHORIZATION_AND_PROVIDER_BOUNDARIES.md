@@ -271,7 +271,7 @@ The approved v1 replacement direction keeps `Organization` and `Group` as canoni
 ## Guardrails For Contributors
 
 - Do not add new direct `locals.supabase` business logic outside auth edges, ports/adapters, or an explicitly approved remediation slice.
-- An organization-scoped surface may read platform-owned state only through a narrow, purpose-built service-role port that returns the minimum shape that surface needs — never through an RLS grant on a platform table, and never through a denormalised mirror. Wire such a port in its selected delivery context using the lazy `getAdminClient` callback. Acquiring an admin client directly in a route requires a `routeAdminProviderAllowlist` entry. Each port is a documented per-port exception (ADR 0012), not a general license.
+- An organization-scoped surface may read platform-owned state only through a narrow, purpose-built service-role port that returns the minimum shape that surface needs — never through an RLS grant on a platform table, and never through a denormalised mirror. Wire such a port in a Delivery adapter under `src/lib/server/adapters/`, after authorization and using the lazy `getAdminClient` callback where the port accepts it. A route server file that imports or acquires the admin client fails governance. Each port is a documented per-port exception (ADR 0012), not a general license.
 - Keep member authorization on stored presets, per-lane capabilities, shared scope sets.
 - Do not create new feature-permission piggybacking.
 - Do not invent partial-admin member shapes.

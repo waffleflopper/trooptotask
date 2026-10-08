@@ -15,7 +15,7 @@ import {
 	createRequestGettingStartedContext,
 	createRequestActorContext
 } from '$lib/server/adapters/requestContexts.server';
-import { listStarterConfigurationPacks } from '$lib/server/core/useCases/starterConfigurationPacks';
+import { listStarterConfigurationPacks } from '$features/dashboard/index.server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { json, type RequestEvent } from '@sveltejs/kit';
 

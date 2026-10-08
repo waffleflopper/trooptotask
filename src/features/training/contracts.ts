@@ -201,6 +201,11 @@ export interface TrainingWorkspaceResult {
 	hydration: TrainingWorkspaceHydration;
 }
 
+export interface TrainingWorkspaceRestricted {
+	laneKey: typeof TRAINING_WORKSPACE_LANE_KEY;
+	access: 'restricted';
+}
+
 import type { FeatureLanePolicyAction, PolicyResource, PolicyDecision } from '$lib/access/policyEvaluator';
 export interface TrainingAffordance {
 	readonly allowed: boolean;

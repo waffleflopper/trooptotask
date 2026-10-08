@@ -1,7 +1,7 @@
 <script lang="ts">
+	import AuthNotice from '$features/identity/AuthNotice.svelte';
+	import AuthShell from '$features/identity/AuthShell.svelte';
 	import { resolve } from '$app/paths';
-	import AuthNotice from '$lib/components/auth/AuthNotice.svelte';
-	import AuthShell from '$lib/components/auth/AuthShell.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import type { ActionData } from './$types';
 

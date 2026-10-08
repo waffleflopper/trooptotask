@@ -13,7 +13,7 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import * as Tabs from '$lib/components/ui/tabs';
 	import { formatDisplayDateTime } from '$lib/utils/dates';
-	import { adminBadgeVariant, formatAdminLabel } from '$lib/components/admin/adminTheme';
+	import { adminBadgeVariant, formatAdminLabel } from '$features/platform-admin/components/adminTheme';
 	import type { BadgeVariant } from '$lib/components/ui/badge';
 	import type { PageData } from './$types';
 

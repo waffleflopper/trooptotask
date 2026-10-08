@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DashboardWorkspaceData, DashboardWorkspaceResult } from '$features/dashboard/contracts';
 import { createReadyAppShellRouteData, createSuspendedAppShellRouteData } from '../appShell.test-support';
-import { requireReadyAppShell } from '$lib/server/core/appShellRouteData';
+import { requireReadyAppShell } from '$lib/server/adapters/appShellRouteData';
 
 const {
 	buildLayoutRequestMock,

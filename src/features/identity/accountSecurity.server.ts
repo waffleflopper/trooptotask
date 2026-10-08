@@ -102,7 +102,7 @@ export async function updateIdentityEmail(
 	if (proof === 'incorrect') return { status: 'incorrect-password', email };
 	if (proof !== 'accepted') return { status: 'proof-unavailable', email };
 	if (session.expires_at <= Date.now() / 1000) return { status: 'inactive' };
-	const assurance = await checkSessionAssurance(supabase, session);
+	const assurance = await checkSessionAssurance({ supabase }, session);
 	if (assurance === 'unavailable') return { status: 'assurance-unavailable', email };
 	if (assurance === 'expired') return { status: 'inactive' };
 	if (assurance === 'mfa_required') return { status: 'mfa-required', email };

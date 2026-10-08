@@ -14,7 +14,7 @@
 		Sun,
 		UsersRound
 	} from '@lucide/svelte';
-	import AdminSearch from '$lib/components/admin/AdminSearch.svelte';
+	import AdminSearch from '$features/platform-admin/components/AdminSearch.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Separator } from '$lib/components/ui/separator';

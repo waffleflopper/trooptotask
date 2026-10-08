@@ -49,11 +49,15 @@ export {
 export { fetchCalendarReportData, fetchCalendarStatusDaysReport } from './calendarReportQuery.server';
 
 export {
-	createCalendarWorkspaceHydration,
 	CALENDAR_WORKSPACE_LANE_KEY,
+	type CalendarAssignmentsHydrationItems,
+	type CalendarAssignmentsWorkspaceHydrationTarget,
+	type CalendarWorkspaceHydration,
+	type CalendarWorkspaceHydrationMode,
+	type CalendarWorkspaceHydrationTarget,
 	type CalendarWorkspaceRouteData,
 	type CalendarWorkspaceResult
-} from './server/calendarWorkspaceBootstrap';
+} from './calendar.types';
 
 export { CALENDAR_ANCHOR_COOKIE, resolveCalendarAnchorDate } from './utils/calendarAnchorDate';
 export { createInitialCalendarBufferedRange } from './utils/calendarRange';

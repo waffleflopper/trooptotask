@@ -1,6 +1,7 @@
 import type { Cookies } from '@sveltejs/kit';
 import type { Session, SupabaseClient, User } from '@supabase/supabase-js';
 import type { AdmittedActor, PendingAuthFlow } from './contracts';
+import { readAccountSuspension } from './accountSuspension.server';
 import { isPublicRoute } from './publicRoutes.server';
 import {
 	getAuthenticatedRedirectPath,
@@ -73,13 +74,11 @@ export async function readIdentityAdmission({
 		['/auth', '/api/auth', '/suspended'].some((prefix) => pathname.startsWith(prefix));
 	let actor: AdmittedActor | null = null;
 	if (user && !skipSuspensionCheck) {
-		const suspension = await Promise.resolve(supabase.rpc('is_user_suspended', { check_user_id: user.id })).catch(
-			() => null
-		);
-		if (suspension?.error !== null || typeof suspension?.data !== 'boolean') {
+		const suspended = await readAccountSuspension({ supabase }, user.id);
+		if (suspended === null) {
 			return { status: 'unavailable', code: 500, message: 'Unable to verify account status' };
 		}
-		if (suspension.data) return { status: 'redirect', code: 302, location: '/suspended' };
+		if (suspended) return { status: 'redirect', code: 302, location: '/suspended' };
 		if (session && !mfaPending && !authFlow && (marker === 'complete' || isPasswordAuthenticatedSession(session, user)))
 			actor = { userId: user.id };
 	}

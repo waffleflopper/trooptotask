@@ -1,10 +1,10 @@
 <script lang="ts">
+	import AuthField from '$features/identity/AuthField.svelte';
+	import AuthNotice from '$features/identity/AuthNotice.svelte';
+	import AuthPasswordToggle from '$features/identity/AuthPasswordToggle.svelte';
+	import AuthShell from '$features/identity/AuthShell.svelte';
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
-	import AuthField from '$lib/components/auth/AuthField.svelte';
-	import AuthNotice from '$lib/components/auth/AuthNotice.svelte';
-	import AuthPasswordToggle from '$lib/components/auth/AuthPasswordToggle.svelte';
-	import AuthShell from '$lib/components/auth/AuthShell.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
 

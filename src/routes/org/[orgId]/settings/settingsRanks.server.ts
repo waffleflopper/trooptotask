@@ -18,7 +18,7 @@ import type {
 	SettingsRankCatalogRow,
 	SettingsRankOption,
 	SettingsRankServicePackOption,
-	SettingsRanksSectionData
+	RanksSettingsData
 } from './settingsSectionTypes';
 
 const SERVICE_OPTIONS: Array<SettingsRankOption<RankService>> = [
@@ -91,12 +91,6 @@ const SOURCE_LABELS: Record<OrganizationRankCatalogEntry['source'], string> = {
 	'built-in': 'Built-in',
 	discovered: 'Discovered',
 	custom: 'Custom'
-};
-
-export type RanksSettingsData = {
-	sections: {
-		ranks: SettingsRanksSectionData;
-	};
 };
 
 export interface BuildRanksSettingsDataInput {

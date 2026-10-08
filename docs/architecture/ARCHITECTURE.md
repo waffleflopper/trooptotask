@@ -79,13 +79,8 @@ Phases 03–06 removed Billing and Duty Roster runtime and active-schema objects
 
 ### Provider ownership
 
-- The intended provider boundary is only partially achieved today.
-- Many server flows already go through ports and adapters.
-- Direct provider coupling still exists in route and utility code, especially around:
-  - auth flows and MFA endpoints
-  - admin/platform utilities
-  - some org layout settings fetches
-  - auth, export, and organization-settings edges that have not yet been fully retired or are intentionally provider-adjacent
+- Route files use owned ports and factories; governance rejects direct route provider access and any module-boundary finding.
+- Delivery adapters and owner-held factories bind provider-backed ports from request locals. Provider coupling remains inside those implementations, including auth/MFA, platform administration, exports and Organization settings. Account setup lazily obtains an admin client through its owning factory.
 - Service-role Supabase usage also exists for platform admin, audit writes, owned notification delivery/feedback submission, and retained cleanup jobs. D20 binds privileged clients in request/cron composition; self notifications, account dismissal preferences and Organization communications exports keep request-user clients.
 
 ### Product surface reality
@@ -139,7 +134,7 @@ Phases 03–06 removed Billing and Duty Roster runtime and active-schema objects
 
 ## Known Drift And Exceptions
 
-- Route-level `locals.supabase` islands still exist in multiple business-critical surfaces.
+- Provider-adjacent factories still consume request-local clients; route business logic calls their owned ports rather than `locals.supabase`.
 - Member authorization uses stored presets, per-lane capabilities, shared scope sets, suspension admission and sensitive-action checks; keep new work on those app-owned concepts.
 - Critical Tasks now owns its dedicated lane; remaining Critical Tasks drift is module/provider-specific, not lane ownership.
 - Rating Scheme now owns its dedicated lane and a first-class Evals route; remaining drift is module/provider-specific, not lane ownership.
@@ -147,9 +142,9 @@ Phases 03–06 removed Billing and Duty Roster runtime and active-schema objects
 
 ## Not Precedent
 
-The following patterns are tolerated current-state, not patterns to copy:
+Avoid these patterns:
 
-- route-level business logic built directly on `locals.supabase`
+- direct provider access from route business logic instead of owned ports and factories
 - service-role access for ordinary feature logic
 - new feature permissions borrowing another feature's lane
 - clinic-specific naming in new domain language

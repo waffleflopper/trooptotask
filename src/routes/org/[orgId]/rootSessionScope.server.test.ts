@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createReadyAppShellRouteData, createSuspendedAppShellRouteData } from './appShell.test-support';
 
 const { loadShell } = vi.hoisted(() => ({ loadShell: vi.fn() }));
-vi.mock('$lib/server/core/useCases/createRootOrgLayoutLoad', () => ({ createRootOrgLayoutLoad: () => loadShell }));
+vi.mock('./rootOrgLayoutLoad.server', () => ({ createRootOrgLayoutLoad: () => loadShell }));
 import { load } from './+layout.server';
 
 type Event = Parameters<typeof load>[0];

@@ -7,7 +7,7 @@ import { createRequestPersonnelWorkspaceContext } from '$lib/server/adapters/req
 import {
 	streamReadyFeatureLaneWorkspace,
 	type FeatureLaneWorkspaceRequestContext
-} from '$lib/server/core/featureLaneWorkspaceLoad';
+} from '$lib/server/adapters/featureLaneWorkspaceLoad';
 import type { LayoutServerLoad } from './$types';
 
 export interface PersonnelLayoutLoadDeps {

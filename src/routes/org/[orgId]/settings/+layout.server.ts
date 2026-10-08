@@ -4,7 +4,7 @@ import type { LayoutServerLoad } from './$types';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext, createRequestDeletionRequestStore } from '$lib/server/adapters/httpAdapter';
 import { loadSettingsShell } from './settingsShell.server';
-import { requireReadyAppShell } from '$lib/server/core/appShellRouteData';
+import { requireReadyAppShell } from '$lib/server/adapters/appShellRouteData';
 import { createSettingsShellContext } from './settingsRequestContexts.server';
 
 export const load: LayoutServerLoad = async ({ locals, cookies, params, parent, route }) => {

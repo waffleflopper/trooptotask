@@ -7,7 +7,7 @@ import { POLICY_ACTION_CATALOG, policyEvaluator } from '$lib/access/policyEvalua
 import {
 	streamReadyFeatureLaneWorkspace,
 	type FeatureLaneWorkspaceRequestContext
-} from '$lib/server/core/featureLaneWorkspaceLoad';
+} from '$lib/server/adapters/featureLaneWorkspaceLoad';
 import { fetchOnboardingWorkspace } from '$features/onboarding/index.server';
 
 async function streamOnboardingWorkspaceBootstrap(

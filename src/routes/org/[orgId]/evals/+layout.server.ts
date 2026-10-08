@@ -3,11 +3,11 @@ import type { LayoutServerLoad } from './$types';
 import { isHttpError } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
-import { createWorkspaceHydrationTarget } from '$lib/server/core/streamedWorkspace';
+import { createWorkspaceHydrationTarget } from '$lib/server/adapters/streamedWorkspace';
 import {
 	streamReadyFeatureLaneWorkspace,
 	type FeatureLaneWorkspaceRequestContext
-} from '$lib/server/core/featureLaneWorkspaceLoad';
+} from '$lib/server/adapters/featureLaneWorkspaceLoad';
 import { loadRatingSchemeWorkspace } from '$features/rating-scheme/index.server';
 import {
 	RATING_SCHEME_WORKSPACE_LANE_KEY,

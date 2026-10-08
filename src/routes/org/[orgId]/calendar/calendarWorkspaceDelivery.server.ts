@@ -1,5 +1,5 @@
 import { isHttpError } from '@sveltejs/kit';
-import type { FeatureLaneWorkspaceRequestContext } from '$lib/server/core/featureLaneWorkspaceLoad';
+import type { FeatureLaneWorkspaceRequestContext } from '$lib/server/adapters/featureLaneWorkspaceLoad';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { createRequestCalendarWorkspaceContext } from '$lib/server/adapters/requestContexts.server';
@@ -9,7 +9,7 @@ import {
 	createWorkspaceValueHydrationTarget,
 	isPromiseLike,
 	type HydrationItems
-} from '$lib/server/core/streamedWorkspace';
+} from '$lib/server/adapters/streamedWorkspace';
 import {
 	fetchCalendarBootstrap,
 	getActiveOnboardingPersonnelIds,

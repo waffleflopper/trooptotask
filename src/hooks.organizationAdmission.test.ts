@@ -8,8 +8,8 @@ import {
 	POST as createLeaderNote
 } from './routes/org/[orgId]/api/personnel/[id]/leader-notes/+server';
 import { PATCH as updateLeaderNote } from './routes/org/[orgId]/api/personnel/[id]/leader-notes/[noteId]/+server';
-import { createRootOrgLayoutLoad } from '$lib/server/core/useCases/createRootOrgLayoutLoad';
-import { requireReadyAppShell } from '$lib/server/core/appShellRouteData';
+import { createRootOrgLayoutLoad } from './routes/org/[orgId]/rootOrgLayoutLoad.server';
+import { requireReadyAppShell } from '$lib/server/adapters/appShellRouteData';
 import { buildLayoutRequest } from '$lib/server/adapters/requestContexts.server';
 import { getDefaultUserOrgPreferences } from '$features/identity/contracts';
 

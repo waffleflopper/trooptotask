@@ -6,7 +6,7 @@ import {
 	createWorkspaceHydrationTarget,
 	type DeferredData,
 	type HydrationItems
-} from '$lib/server/core/streamedWorkspace';
+} from '$lib/server/adapters/streamedWorkspace';
 import {
 	TRAINING_WORKSPACE_LANE_KEY,
 	type TrainingWorkspaceData,

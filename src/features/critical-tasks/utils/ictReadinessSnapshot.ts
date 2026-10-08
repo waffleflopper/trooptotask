@@ -7,12 +7,7 @@ import type {
 import type { Personnel } from '$features/personnel/contracts';
 import { getIctStatus } from './ictStatus';
 import { isIctTaskApplicableToMos } from './ictTaskLibrary';
-import {
-	tallyReadiness,
-	tallyReadinessBy,
-	type ReadinessFact,
-	type ReadinessTallyConfig
-} from '$lib/domain/readinessRollup';
+import { tallyReadiness, tallyReadinessBy, type ReadinessFact, type ReadinessTallyConfig } from './readinessRollup';
 import { formatDate, parseDate } from '$lib/utils/dates';
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;

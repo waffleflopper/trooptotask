@@ -185,8 +185,6 @@
 				"src/d3-scale.d.ts",
 				"src/lib/domain/currencyStatus.test.ts",
 				"src/lib/domain/currencyStatus.ts",
-				"src/lib/domain/readinessRollup.test.ts",
-				"src/lib/domain/readinessRollup.ts",
 				"src/lib/utils.ts",
 				"src/lib/utils/columnMapping.ts",
 				"src/lib/utils/csvParser.test.ts",

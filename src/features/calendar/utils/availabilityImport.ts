@@ -19,8 +19,54 @@
  */
 import type { Personnel } from '$features/personnel/contracts';
 import type { StatusType } from '$features/calendar/contracts';
+import type { ColumnDef } from '$lib/utils/columnMapping';
 import { parseDateString } from '$lib/utils/csvParser';
 import { validateDateRange, type AvailabilityRecord } from './availabilityMutation';
+
+export const STATUS_IMPORT_COLUMNS: ColumnDef[] = [
+	{
+		key: 'lastName',
+		label: 'Last Name',
+		required: true,
+		aliases: ['last name', 'lastname', 'surname', 'lname']
+	},
+	{
+		key: 'firstName',
+		label: 'First Name',
+		required: true,
+		aliases: ['first name', 'firstname', 'fname', 'given name']
+	},
+	{
+		key: 'startDate',
+		label: 'Start Date',
+		required: true,
+		aliases: ['start date', 'start', 'from', 'begin']
+	},
+	{
+		key: 'endDate',
+		label: 'End Date',
+		required: true,
+		aliases: ['end date', 'end', 'to', 'through']
+	},
+	{
+		key: 'statusType',
+		label: 'Status',
+		required: true,
+		aliases: ['status', 'status type', 'type']
+	},
+	{
+		key: 'rank',
+		label: 'Rank',
+		required: false,
+		aliases: ['rank', 'grade', 'pay grade']
+	},
+	{
+		key: 'note',
+		label: 'Note',
+		required: false,
+		aliases: ['note', 'notes', 'comment', 'remarks']
+	}
+];
 
 /** Values for one parsed import row, keyed by the STATUS_IMPORT_COLUMNS field keys. */
 export type AvailabilityImportRowValues = Record<string, string>;

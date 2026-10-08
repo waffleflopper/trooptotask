@@ -15,6 +15,7 @@
 	import CriticalTasksDefaults from '$features/critical-tasks/components/CriticalTasksDefaults.svelte';
 	import { criticalTasksSettingsFromWorkspaceData } from '$features/critical-tasks/utils/criticalTasksWorkspaceData';
 	import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
+	import { requestCriticalTasksWorkspaceRefresh } from '$features/critical-tasks/criticalTasksWorkspaceStatus.svelte';
 	import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/personnelIctCompletions.svelte';
 	import type { IctTask } from '$features/critical-tasks/criticalTasks.types';
 	import { criticalTasksConfigureLibraryAffordance } from '$features/critical-tasks/utils/criticalTasksPolicy';
@@ -358,6 +359,7 @@
 		if (!canManage) return;
 		const requestOrgId = orgId;
 		const generation = scopeGeneration;
+		requestCriticalTasksWorkspaceRefresh();
 		await ictTasksStore.update(taskId, { archivedAt: null });
 		if (!isCurrentRequest(requestOrgId, generation)) return;
 		taskStatusFilter = 'active';

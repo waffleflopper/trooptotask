@@ -10,7 +10,6 @@ export interface FeatureLaneWorkspaceRequestContext {
 export interface FeatureLaneWorkspaceLoadEvent {
 	locals: App.Locals;
 	cookies: Cookies;
-	url: URL;
 	depends: (...deps: string[]) => void;
 	parent: () => Promise<Parameters<typeof requireReadyAppShell>[0]>;
 }

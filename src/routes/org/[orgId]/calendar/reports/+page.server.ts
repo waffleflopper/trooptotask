@@ -4,10 +4,9 @@ import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { createRequestCalendarReportContext } from '$lib/server/adapters/requestContexts.server';
 import type { PageServerLoadEvent } from './$types';
 
-export const load = async ({ params, locals, cookies, parent, depends }: PageServerLoadEvent) => {
+export const load = async ({ params, locals, cookies, depends }: PageServerLoadEvent) => {
 	depends('app:org-core');
 	const { orgId } = params;
-	await parent();
 
 	return loadWithContext(locals, cookies, orgId, {
 		context: createRequestCalendarReportContext,

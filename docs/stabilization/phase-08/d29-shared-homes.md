@@ -63,6 +63,10 @@ CodeRabbit CLI reviews all 68 committed files at `4a965029` against `303058d2` a
 
 Independent GPT-6.1-Sol expanded acceptance of `c47ca7c8` returns Standards GO and Spec GO. It verifies both archive hashes and all 185 + 198 payload hashes, confirms the profile list, evaluation types, storage paths and hashes, import results, download files and Calendar denials from raw artifacts, finds no credentials or usable signed URLs, confirms the complete Rating Scheme restoration, and judges the coverage sufficient. Its one minor finding, the badge-order attribution, is corrected above. This is artifact acceptance, not independent live execution. CodeRabbit CLI on `4a965029..c47ca7c8` finds one wording issue: the EVIDENCE entry described a candidate as complete, and it now names the remaining gates.
 
+## CI documentation repair
+
+Depot run `sdf54077cj` on `3e5d5941` fails its Documentation and whitespace step: `CURRENT_OWNERSHIP.md` is not formatted. The local check had used the repository ignore file, which excludes `docs/`, so it never inspected that file. CI stops at that step, leaving later application steps unrun for that head. The repair formats the one table row. `node scripts/ci/changes.mjs --documents` then passes, checking the seven changed Markdown files and links across 247 documents. The full CI sequence runs again on the new head.
+
 ## Verify the archives
 
 ```bash

@@ -51,7 +51,7 @@ Frozen `6ca044ee`, the complete source candidate (later commits add only this re
 - With the deferred revoke, the Settings JSON (42 keys / 38 sections) and Excel (57 sheets, 38 inventory rows) downloads, two completed lifecycle rows, the Archives records workbook and the Training report workbook are all correct. The Training workbook is cell-for-cell identical to the baseline; the Archives workbook matches once the seed tag is normalized.
 - Calendar scoped reads and all six denied single/batch/foreign write pairs return the baseline statuses and bodies with no saved rows.
 
-Two ISSUE observations are not regressions. The roster Group chips (Bravo before Alpha) and two assignment badges in one Calendar cell appear in the opposite order from the baseline. Fixture UUIDs are regenerated per launch, and in both runs the lower UUID sorts first among otherwise tied rows (baseline Alpha `36f5…` < Bravo `6c5e…`; final Alpha `d11e…` > Bravo `73e0…`). The candidate changes only import paths in those components and reads. The counseling Open step stays UNRUN for the same reason as the baseline.
+Two ISSUE observations are not regressions. The roster Group chips (Bravo before Alpha) and two assignment badges in one Calendar cell appear in the opposite order from the baseline. Fixture UUIDs are regenerated per launch, and in both runs the lower UUID sorts first among otherwise tied rows: Group IDs for the chips (baseline Alpha `36f5…` < Bravo `6c5e…`; final Alpha `d11e…` > Bravo `73e0…`) and daily-assignment row IDs for the badges, which the unchanged assignment reader orders by `id` (baseline `3127…` < `a7db…`; final `9f53…` < `d976…`). The final run note attributes the badges to assignment-type IDs; this record supersedes that attribution without altering the archived observation. The candidate changes only import paths in those components and reads. The counseling Open step stays UNRUN for the same reason as the baseline.
 
 Archive: [d29-shared-homes-final-6ca044ee.tar.gz](d29-shared-homes-final-6ca044ee.tar.gz), 198 payloads, SHA-256 `a99a72e7044c3b49947408957b43abc7a8afb047ca67e50b8e0b746d8ac4be77`.
 
@@ -61,7 +61,7 @@ On the tree of `4a965029` (identical to the checked tree): format, lint (0 error
 
 CodeRabbit CLI reviews all 68 committed files at `4a965029` against `303058d2` and reports zero findings. Independent GPT-6.1-Sol source acceptance finds the overwritten Rating Scheme cases (fixed above) and no runtime regression or missed consumer: rank order and exact matching, both parser callers, status-days behavior and audit, the deferred revoke and the manifest classifications are confirmed.
 
-Independent expanded-artifact acceptance of both archives and the changed material since `4a965029` is pending.
+Independent GPT-6.1-Sol expanded acceptance of `c47ca7c8` returns Standards GO and Spec GO. It verifies both archive hashes and all 185 + 198 payload hashes, confirms the profile list, evaluation types, storage paths and hashes, import results, download files and Calendar denials from raw artifacts, finds no credentials or usable signed URLs, confirms the complete Rating Scheme restoration, and judges the coverage sufficient. Its one minor finding, the badge-order attribution, is corrected above. This is artifact acceptance, not independent live execution. CodeRabbit CLI on `4a965029..c47ca7c8` finds one wording issue: the EVIDENCE entry described a candidate as complete, and it now names the remaining gates.
 
 ## Verify the archives
 

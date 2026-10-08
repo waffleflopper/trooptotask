@@ -117,7 +117,10 @@ export function selectRosterCreationContext(
 		personnelLookup: ctx.personnelLookup,
 		findGroupNamesByIds: (groupIds: string[]) => findGroupNamesByIds({ groups: ctx.groups }, groupIds),
 		loadRankCatalog: () =>
-			loadOrganizationRankCatalog({ auth: ctx.auth, store: ctx.rawStore }, { authorization: 'training-records' })
+			loadOrganizationRankCatalog(
+				{ auth: ctx.auth, rankCatalog: ctx.rankCatalog },
+				{ authorization: 'training-records' }
+			)
 	};
 }
 

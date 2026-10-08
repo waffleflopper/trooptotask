@@ -7,7 +7,7 @@ import {
 	createRequestGroupContext,
 	createRequestNotificationContext,
 	createRequestSensitiveActionContext,
-	createRequestWriteContext
+	createRequestActorContext
 } from '$lib/server/adapters/requestContexts.server';
 import {
 	createSupabaseOrganizationInvitationSetupStateLookupPort,
@@ -30,7 +30,7 @@ export function createSettingsShellContext(request: AdmittedOrganizationRequest)
 	audit: AdmittedOrganizationRequest['audit'];
 } {
 	return {
-		...createRequestWriteContext(request),
+		...createRequestActorContext(request),
 		...createRequestPersonnelRosterContext(request),
 		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase)
 	};

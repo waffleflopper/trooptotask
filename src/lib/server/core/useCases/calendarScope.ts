@@ -1,4 +1,3 @@
-import type { FindOptions } from '$lib/server/core/ports';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import type { PersonnelCalendarRosterPort } from '$features/personnel/contracts';
 
@@ -9,8 +8,6 @@ export interface CalendarGroupScope {
 export interface CalendarAssigneeScope extends CalendarGroupScope {
 	personnelIds: string[];
 }
-
-type InFilterOptions = Pick<FindOptions, 'inFilters'>;
 
 export function requirePersonnelCalendarRoster<Methods extends keyof PersonnelCalendarRosterPort>(ctx: {
 	personnelCalendarRoster?: Pick<PersonnelCalendarRosterPort, Methods>;
@@ -48,13 +45,6 @@ export async function resolveCalendarAssigneeScope(ctx: {
 		...groupScope,
 		personnelIds
 	};
-}
-
-export function personnelInFilter(
-	scope: CalendarAssigneeScope | null,
-	column: string
-): InFilterOptions | Record<string, never> {
-	return scope ? { inFilters: { [column]: scope.personnelIds } } : {};
 }
 
 function uniqueNonEmptyIds(ids: string[]): string[] {

@@ -1,45 +1,27 @@
-import type { PersonnelArtifactArchiveWriter, PersonnelArtifactTable, PersonnelArtifactWritePort } from './contracts';
+import type { PersonnelArtifactArchiveWriter, PersonnelArtifactWritePort } from './contracts';
 import {
 	archiveLeaderNotesWithPersonnel,
 	restoreLeaderNotesWithPersonnel,
 	type LeaderNoteArchivePersistence
 } from './leaderNoteArchive.server';
 
-interface ParentArtifactArchiveSpec {
-	table: PersonnelArtifactTable;
-	filters?: { status: 'open' };
-	archivePatch(archivedAt: string): Record<string, unknown>;
-	restorePatch(): Record<string, unknown>;
+function parentArchiveFamilies(writer: PersonnelArtifactArchiveWriter) {
+	return [
+		{ list: writer.listFollowUpArchiveCandidates, set: writer.setFollowUpArchivedState },
+		{ list: writer.listCounselingArchiveCandidates, set: writer.setCounselingArchivedAt },
+		{ list: writer.listDocumentArchiveCandidates, set: writer.setDocumentArchivedAt }
+	];
 }
-
-const parentArtifactArchiveSpecs: ParentArtifactArchiveSpec[] = [
-	{
-		table: 'personnel_follow_ups',
-		filters: { status: 'open' },
-		archivePatch: (archivedAt) => ({ status: 'archived', archived_at: archivedAt }),
-		restorePatch: () => ({ status: 'open', archived_at: null })
-	},
-	{
-		table: 'counseling_records',
-		archivePatch: (archivedAt) => ({ archived_at: archivedAt }),
-		restorePatch: () => ({ archived_at: null })
-	},
-	{
-		table: 'personnel_documents',
-		archivePatch: (archivedAt) => ({ archived_at: archivedAt }),
-		restorePatch: () => ({ archived_at: null })
-	}
-];
 
 const ARCHIVE_UPDATE_BATCH_SIZE = 50;
 
 /** Bind note lifecycle updates to the same admitted Person batch. */
 function noteArchivePersistence(writer: PersonnelArtifactArchiveWriter): LeaderNoteArchivePersistence {
 	return {
-		findActive: () => writer.listCandidates('leader_notes', { archivedAt: null }),
-		findArchivedWithPersonnel: (archivedAt) => writer.listCandidates('leader_notes', { archivedAt }),
+		findActive: () => writer.listLeaderNoteArchiveCandidates(null),
+		findArchivedWithPersonnel: (archivedAt) => writer.listLeaderNoteArchiveCandidates(archivedAt),
 		async setArchivedAt(row, archivedAt) {
-			await writer.update('leader_notes', row, { archived_at: archivedAt });
+			await writer.setLeaderNoteArchivedAt(row, archivedAt);
 		}
 	};
 }
@@ -63,15 +45,12 @@ export async function archivePersonnelOwnedArtifacts(
 	if (uniquePersonnelIds.length === 0) return;
 	const writer = await boundArchiveWriter(ctx, uniquePersonnelIds, 'archive');
 
-	for (const { table, filters, archivePatch } of parentArtifactArchiveSpecs) {
-		const rows = await writer.listCandidates(table, {
-			archivedAt: null,
-			status: filters?.status
-		});
+	for (const family of parentArchiveFamilies(writer)) {
+		const rows = await family.list(null);
 
 		for (let index = 0; index < rows.length; index += ARCHIVE_UPDATE_BATCH_SIZE) {
 			const batch = rows.slice(index, index + ARCHIVE_UPDATE_BATCH_SIZE);
-			await Promise.all(batch.map((row) => writer.update(table, row, archivePatch(archivedAt))));
+			await Promise.all(batch.map((row) => family.set(row, archivedAt)));
 		}
 	}
 	await archiveLeaderNotesWithPersonnel(noteArchivePersistence(writer), archivedAt);
@@ -86,12 +65,12 @@ export async function restorePersonnelOwnedArtifacts(
 	if (uniquePersonnelIds.length === 0) return;
 	const writer = await boundArchiveWriter(ctx, uniquePersonnelIds, 'restore');
 
-	for (const { table, restorePatch } of parentArtifactArchiveSpecs) {
-		const rows = await writer.listCandidates(table, { archivedAt: personnelArchivedAt });
+	for (const family of parentArchiveFamilies(writer)) {
+		const rows = await family.list(personnelArchivedAt);
 
 		for (let index = 0; index < rows.length; index += ARCHIVE_UPDATE_BATCH_SIZE) {
 			const batch = rows.slice(index, index + ARCHIVE_UPDATE_BATCH_SIZE);
-			await Promise.all(batch.map((row) => writer.update(table, row, restorePatch())));
+			await Promise.all(batch.map((row) => family.set(row, null)));
 		}
 	}
 	await restoreLeaderNotesWithPersonnel(noteArchivePersistence(writer), personnelArchivedAt);

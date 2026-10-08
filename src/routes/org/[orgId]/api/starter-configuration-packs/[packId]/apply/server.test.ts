@@ -53,8 +53,6 @@ function buildRequest(ctx: ReturnType<typeof createTestContext>): AdmittedOrgani
 	return {
 		auth: ctx.auth,
 		audit: ctx.audit,
-		store: ctx.store,
-		rawStore: ctx.rawStore,
 		scope: ctx.scope,
 		supabase,
 		session: null

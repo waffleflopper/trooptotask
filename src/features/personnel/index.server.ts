@@ -134,3 +134,12 @@ export { createPersonnelSupportReader } from './supportReadProvider.server';
 export { createSupabasePersonnelExportReader } from './ordinaryExportRead.server';
 
 export { createSupabaseScopeEnforcementAdapter } from './scopeEnforcement.server';
+
+export { createSupabaseRankCatalogPersistence } from './supabaseRankCatalogPersistence.server';
+
+export {
+	createSupabasePersonnelSheetPersistence,
+	createSupabasePersonnelWorkbookHistoryReader
+} from './supabasePersonnelSheetPersistence.server';
+
+export { createSupabasePersonnelArtifactReadPersistence } from './supabasePersonnelArtifactReadPersistence.server';

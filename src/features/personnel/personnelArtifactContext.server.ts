@@ -1,49 +1,11 @@
+import type { CounselingRecordRow, PersonnelDocumentRow, FollowUpRow } from './personnelArtifactPersistence';
+export type { CounselingRecordRow, PersonnelDocumentRow, FollowUpRow } from './personnelArtifactPersistence';
 import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
 import { fail } from '$lib/errors';
 import type { PersonnelArtifactWriter } from './contracts';
-
-export interface CounselingRecordRow {
-	id: string;
-	personnel_id: string;
-	date_conducted: string;
-	title?: string | null;
-	subject?: string | null;
-	summary?: string | null;
-	notes?: string | null;
-	uploaded_by?: string | null;
-	file_path: string | null;
-	created_at?: string | null;
-	archived_at?: string | null;
-}
-
-export interface PersonnelDocumentRow {
-	id: string;
-	personnel_id: string;
-	title: string;
-	file_path: string;
-	file_size_bytes: number;
-	content_type: string;
-	uploaded_by: string;
-	created_at?: string | null;
-	archived_at?: string | null;
-}
-
-export interface FollowUpRow {
-	id: string;
-	personnel_id: string;
-	title: string;
-	notes: string | null;
-	due_date: string | null;
-	status: 'open' | 'completed' | 'archived';
-	created_by: string;
-	created_at: string;
-	updated_at: string;
-	completed_at: string | null;
-	archived_at?: string | null;
-}
 
 export interface PersonnelArtifactsContext {
 	actor: OrganizationAccessGrant;

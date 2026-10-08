@@ -57,14 +57,13 @@ export async function createPersonnelFollowUp(
 	const writer = await personnelArtifactWriter(ctx, input.personnelId);
 	const now = new Date().toISOString();
 
-	const row = await writer.insert<FollowUpRow>('personnel_follow_ups', {
+	const row = await writer.createFollowUp({
 		title: input.title,
 		notes: input.notes,
-		due_date: input.dueDate,
-		status: 'open',
-		created_by: ctx.actor.userId,
-		created_at: now,
-		updated_at: now
+		dueDate: input.dueDate,
+		createdBy: ctx.actor.userId,
+		createdAt: now,
+		updatedAt: now
 	});
 
 	ctx.audit.log({
@@ -89,18 +88,18 @@ export async function setPersonnelFollowUpStatus(
 	const input = parsed.data;
 	const writer = await personnelArtifactWriter(ctx, input.personnelId);
 
-	const current = await writer.find<FollowUpRow>('personnel_follow_ups', input.followUpId);
+	const current = await writer.findFollowUp(input.followUpId);
 	if (!current) fail(404, 'Follow-up not found');
 	if (current.status === 'archived' && input.status !== 'archived') {
 		fail(409, 'Archived follow-ups cannot be reopened');
 	}
 
 	const now = new Date().toISOString();
-	const row = await writer.update<FollowUpRow>('personnel_follow_ups', input.followUpId, {
+	const row = await writer.patchFollowUp(input.followUpId, {
 		status: input.status,
-		completed_at: input.status === 'completed' ? now : null,
-		archived_at: input.status === 'archived' ? now : null,
-		updated_at: now
+		completedAt: input.status === 'completed' ? now : null,
+		archivedAt: input.status === 'archived' ? now : null,
+		updatedAt: now
 	});
 
 	ctx.audit.log({
@@ -125,17 +124,17 @@ export async function updatePersonnelFollowUp(
 	const input = parsed.data;
 	const writer = await personnelArtifactWriter(ctx, input.personnelId);
 
-	const current = await writer.find<FollowUpRow>('personnel_follow_ups', input.followUpId);
+	const current = await writer.findFollowUp(input.followUpId);
 	if (!current) fail(404, 'Follow-up not found');
 	if (current.status === 'archived') {
 		fail(409, 'Archived follow-ups cannot be edited');
 	}
 
-	const row = await writer.update<FollowUpRow>('personnel_follow_ups', input.followUpId, {
+	const row = await writer.patchFollowUp(input.followUpId, {
 		title: input.title,
 		notes: input.notes,
-		due_date: input.dueDate,
-		updated_at: new Date().toISOString()
+		dueDate: input.dueDate,
+		updatedAt: new Date().toISOString()
 	});
 
 	ctx.audit.log({
@@ -172,15 +171,15 @@ export async function restorePersonnelFollowUp(
 
 	const input = parsed.data;
 	const writer = await personnelArtifactWriter(ctx, input.personnelId);
-	const current = await writer.find<FollowUpRow>('personnel_follow_ups', input.followUpId);
+	const current = await writer.findFollowUp(input.followUpId);
 	if (!current) fail(404, 'Follow-up not found');
 	if (current.status !== 'archived') fail(409, 'Only archived follow-ups can be restored');
 
-	const row = await writer.update<FollowUpRow>('personnel_follow_ups', input.followUpId, {
+	const row = await writer.patchFollowUp(input.followUpId, {
 		status: 'open',
-		completed_at: null,
-		archived_at: null,
-		updated_at: new Date().toISOString()
+		completedAt: null,
+		archivedAt: null,
+		updatedAt: new Date().toISOString()
 	});
 	ctx.audit.log({ action: 'personnel.follow_up.restored', resourceType: 'personnel', resourceId: input.personnelId });
 	const labels = await ctx.contributorLabels([row.created_by]);
@@ -194,10 +193,10 @@ export async function deletePersonnelFollowUp(ctx: PersonnelArtifactsContext, ra
 	}
 	const input = parsed.data;
 	const writer = await personnelArtifactWriter(ctx, input.personnelId);
-	const row = await writer.find<FollowUpRow>('personnel_follow_ups', input.followUpId);
+	const row = await writer.findFollowUp(input.followUpId);
 	if (!row) fail(404, 'Follow-up not found');
 	if (row.status !== 'archived') fail(409, 'Archive follow-ups before deleting them');
-	await writer.delete('personnel_follow_ups', input.followUpId);
+	await writer.deleteFollowUp(input.followUpId);
 	ctx.audit.log({ action: 'personnel.follow_up.deleted', resourceType: 'personnel', resourceId: input.personnelId });
 }
 

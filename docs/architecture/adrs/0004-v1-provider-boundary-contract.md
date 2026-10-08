@@ -9,6 +9,8 @@ TroopToTask v1 uses Supabase for auth, database access, RLS, storage-adjacent fl
 
 The conflict is intentional current-state drift rather than an architecture option: some code still talks directly to Supabase because it has not been remediated yet. [ADR 0013](0013-v1-module-and-delivery-contract.md) now owns feature-module placement and public exports; this ADR continues to govern provider ownership and narrow provider access.
 
+The final D28 candidate removes the shared generic ports, entities and table-dispatch store described in this historical context. Feature owners now supply finite contracts and adapters; delivery composes their selected collaborators. This completes the placement decision without changing Supabase, SQL/RLS or transaction authority. Candidate acceptance is tracked in the [final Personnel receipt](../../stabilization/phase-08/d28-final-personnel-persistence.md).
+
 ## Decision
 
 Business policy should not receive raw provider clients or arbitrary query access. Reusable server behavior belongs to owner-held operations and domain rules, provider-specific persistence belongs behind owned adapters and intentional SQL, and route files primarily compose request admission, transport mapping and authorized operation calls. Current Supabase Auth and SQL/RLS/Storage transaction guarantees remain authoritative.

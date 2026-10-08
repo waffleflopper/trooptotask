@@ -1,10 +1,9 @@
 <script lang="ts">
 	import { ratingSchemeWorkspaceHydrator } from '$features/rating-scheme';
 	import type { RatingSchemeWorkspaceResult, RatingSchemeWorkspaceRestricted } from '$features/rating-scheme/contracts';
-	import * as Alert from '$lib/components/ui/alert';
-	import * as PageShell from '$lib/components/ui/page-shell';
 	import { throwRenderError } from '$lib/utils/streamedRouteData';
 	import { hydrateStreamedWorkspace } from '$lib/utils/streamedWorkspaceHydrator';
+	import WorkspaceAccessRestricted from '../WorkspaceAccessRestricted.svelte';
 
 	let { children, data } = $props();
 	let hydrationError = $state<Error | null>(null);
@@ -42,14 +41,7 @@
 {#if hydrationError}
 	{renderHydrationError}
 {:else if accessRestricted}
-	<PageShell.Root>
-		<Alert.Root>
-			<Alert.Title>Access Restricted</Alert.Title>
-			<Alert.Description
-				>You don't have permission to view evaluations. Contact your organization admin for access.</Alert.Description
-			>
-		</Alert.Root>
-	</PageShell.Root>
+	<WorkspaceAccessRestricted subject="evaluations" />
 {:else}
 	{@render children()}
 {/if}

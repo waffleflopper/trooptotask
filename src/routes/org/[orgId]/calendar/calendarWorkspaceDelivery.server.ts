@@ -1,4 +1,3 @@
-import { isHttpError } from '@sveltejs/kit';
 import type { FeatureLaneWorkspaceRequestContext } from '$lib/server/adapters/featureLaneWorkspaceLoad';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
@@ -8,6 +7,7 @@ import {
 	createWorkspaceHydrationTarget,
 	createWorkspaceValueHydrationTarget,
 	isPromiseLike,
+	settleWorkspaceDenial,
 	type HydrationItems
 } from '$lib/server/adapters/streamedWorkspace';
 import {
@@ -133,13 +133,6 @@ export async function streamCalendarWorkspaceBootstrap(
 	});
 
 	return {
-		calendar: {
-			data: deferred.data.catch((cause: unknown) => {
-				if (isHttpError(cause, 403)) {
-					return { laneKey: CALENDAR_WORKSPACE_LANE_KEY, access: 'restricted' } as const;
-				}
-				throw cause;
-			})
-		}
+		calendar: { data: settleWorkspaceDenial(deferred.data, CALENDAR_WORKSPACE_LANE_KEY) }
 	};
 }

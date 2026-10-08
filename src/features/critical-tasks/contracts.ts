@@ -119,6 +119,11 @@ export interface CriticalTasksWorkspaceResult {
 	hydration: CriticalTasksWorkspaceHydration;
 }
 
+export interface CriticalTasksWorkspaceRestricted {
+	laneKey: typeof CRITICAL_TASKS_WORKSPACE_LANE_KEY;
+	access: 'restricted';
+}
+
 export type {
 	CriticalTasksSettings,
 	IctTask,

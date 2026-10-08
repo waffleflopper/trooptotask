@@ -1,9 +1,10 @@
 import { listStatusTypes } from '$features/calendar/index.server';
-import type { PersonnelWorkspaceRouteData } from '$features/personnel/contracts';
+import { PERSONNEL_WORKSPACE_LANE_KEY, type PersonnelWorkspaceRouteData } from '$features/personnel/contracts';
 import { loadPersonnelWorkspace } from '$features/personnel/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { createRequestPersonnelWorkspaceContext } from '$lib/server/adapters/requestContexts.server';
+import { settleWorkspaceDenial } from '$lib/server/adapters/streamedWorkspace';
 import {
 	streamReadyFeatureLaneWorkspace,
 	type FeatureLaneWorkspaceRequestContext
@@ -29,7 +30,7 @@ async function streamPersonnelWorkspace(
 					(await ctx.organizationSettings.findLossWarningWindowDays(orgId)) ?? null
 			})
 	});
-	return { personnel };
+	return { personnel: { data: settleWorkspaceDenial(personnel.data, PERSONNEL_WORKSPACE_LANE_KEY) } };
 }
 
 export function _createPersonnelLayoutLoad(deps: PersonnelLayoutLoadDeps = {}): LayoutServerLoad {

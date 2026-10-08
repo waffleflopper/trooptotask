@@ -63,6 +63,28 @@ describe('critical tasks layout client hydration', () => {
 		navigation.invalidate.mockClear();
 	});
 
+	it('shows a streamed denial instead of failing hydration', async () => {
+		const errors: unknown[] = [];
+		const onError = (event: ErrorEvent) => errors.push(event.error);
+		window.addEventListener('error', onError);
+		const children = createRawSnippet(() => ({ render: () => '<section>Critical Tasks child</section>' }));
+		render(Layout, {
+			props: {
+				children,
+				data: {
+					orgId: 'org-1',
+					criticalTasks: { data: Promise.resolve({ laneKey: 'critical-tasks', access: 'restricted' } as const) }
+				}
+			}
+		});
+
+		await waitFor(() => expect(screen.getByRole('heading', { name: 'Access Restricted' })).toBeTruthy());
+		expect(screen.queryByText('Critical Tasks child')).toBeNull();
+		expect(criticalTasksWorkspaceStatus.pending).toBe(false);
+		expect(errors).toEqual([]);
+		window.removeEventListener('error', onError);
+	});
+
 	it('refreshes the workspace once after a navigation that follows a refresh request', () => {
 		const children = createRawSnippet(() => ({ render: () => '<section>Critical Tasks child</section>' }));
 		render(Layout, { props: { children, data: { orgId: 'org-1', criticalTasks: { data: createWorkspace() } } } });

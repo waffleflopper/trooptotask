@@ -1,3 +1,5 @@
+import { isHttpError } from '@sveltejs/kit';
+
 export interface DeferredData<T> {
 	data: Promise<T>;
 }
@@ -119,4 +121,20 @@ export function createWorkspaceValueHydrationTarget<TValue, TMode extends string
 		snapshotKey: createWorkspaceSnapshotKey(items, { resolved: options.resolvedSnapshotKey }),
 		items
 	};
+}
+
+export interface RestrictedWorkspace<TLane extends string> {
+	laneKey: TLane;
+	access: 'restricted';
+}
+
+/** Stream a lane denial as a restricted result so the layout can show it instead of failing hydration. */
+export function settleWorkspaceDenial<T, TLane extends string>(
+	data: Promise<T>,
+	laneKey: TLane
+): Promise<T | RestrictedWorkspace<TLane>> {
+	return data.catch((cause: unknown) => {
+		if (isHttpError(cause, 403)) return { laneKey, access: 'restricted' } as const;
+		throw cause;
+	});
 }

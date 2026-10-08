@@ -67,7 +67,7 @@ Observed initial job times are 2m02s selection, 7m09s application and 6m08s data
 
 ## Migration acceptance record
 
-This historical record covers the original Depot migration, not the current ARM64 runner. Merged through [PR #1346](https://github.com/waffleflopper/trooptotask/pull/1346) at `0a9e2cfee31dda907d258e209d0ca4818beded45`, incorporating completed D04 commit `91b8bc3cd12354b71c4c8b2e869feed17d79ace5`. The original D04 branch and commits remain intact; [Phase 07 acceptance](stabilization/EVIDENCE.md#phase-07-integrated-phase-check) reconciles that integration separately from this tooling change.
+This historical record covers the original Depot migration, not the current Depot GitHub Actions runners. Merged through [PR #1346](https://github.com/waffleflopper/trooptotask/pull/1346) at `0a9e2cfee31dda907d258e209d0ca4818beded45`, incorporating completed D04 commit `91b8bc3cd12354b71c4c8b2e869feed17d79ace5`. The original D04 branch and commits remain intact; [Phase 07 acceptance](stabilization/EVIDENCE.md#phase-07-integrated-phase-check) reconciles that integration separately from this tooling change.
 
 Hosted candidate: [Depot run `56311mzhgj`](https://depot.dev/orgs/rvsvvkd4rp/workflows/m59999npzz), uploaded by `depot ci run --workflow .depot/workflows/ci.yml` against remote base `761349957d913e991339212aa610dc0887afe9db`, cache patch `patch/761349957d91/01cfa382fbbd8ea9`. Runtime/configuration diff SHA-256 is `e9f9df6fa27788b5ae4924d311b8f418328a3b08b0f2466252399c8777de8d54`, reproduced by `git diff --binary 91b8bc3c -- . ':(exclude)*.md' | sha256sum`. This identifies the uncommitted executable candidate independently of subsequent prose receipts.
 

@@ -1,6 +1,6 @@
 # Continuous integration
 
-GitHub Actions runs validation for this private, single-contributor repository on Robert’s dedicated `macmini-arm64` runner: an Ubuntu 24.04 ARM64 VM with four CPUs, 4 GB RAM and 60 GB disk. `main` intentionally remains unprotected on the current GitHub plan. Missing paid rulesets or branch protection is not a failure or an unfinished project requirement.
+GitHub Actions runs validation for this private, single-contributor repository on Depot’s `depot-ubuntu-24.04` runners. Each job uses the 2-CPU, 8-GB x64 configuration. `main` intentionally remains unprotected on the current GitHub plan. Missing paid rulesets or branch protection is not a failure or an unfinished project requirement.
 
 ## What runs
 
@@ -14,7 +14,7 @@ GitHub Actions runs validation for this private, single-contributor repository o
 
 The only lightweight exemption is Markdown under `docs/` and the root README/AGENTS/CLAUDE/CONTEXT files. Unknown paths run application validation. Files such as `docs/architecture/GOVERNANCE_BASELINE.json` remain executable inputs. Database inputs also run application checks, including the test that consumes `supabase/config.toml`. Unchanged SQL is not rerun solely for a UI change.
 
-All three jobs require every label in `[self-hosted, Linux, ARM64, macmini-arm64]`. The two substantial jobs become eligible after selection; this single runner executes one job at a time. Existing job timeouts are retained. npm downloads are cached; application dependencies use `npm ci`. Vitest keeps its complete current suite with `VITEST_MAX_WORKERS=1` for the VM’s memory limit. The Svelte/TypeScript step alone sets `NODE_OPTIONS=--max-old-space-size=2560` after a recorded failure at Node’s automatic heap limit. This reserves headroom within the 4 GB VM without changing checked files or diagnostics. There is no browser suite, OS matrix, sharding or coverage quota. Change compute or worker counts only with measured evidence; a worker limit does not resolve unexplained failures.
+All three jobs use `depot-ubuntu-24.04`. The two substantial jobs become eligible independently after selection. Existing job timeouts are retained. npm downloads are cached; application dependencies use `npm ci`. Vitest keeps its complete suite with `VITEST_MAX_WORKERS=2`, restoring the earlier Depot worker setting. The Svelte/TypeScript step retains `NODE_OPTIONS=--max-old-space-size=2560` after the recorded automatic-heap failure. There is no browser suite, OS matrix, sharding or coverage quota. Change compute or worker counts only with measured evidence.
 
 ## Local work and acceptance
 
@@ -30,11 +30,11 @@ The governance job needs full Git history and `origin/main`; preserve that check
 
 Actions records each disposable project in a private, credential-free receipt tied to the current run, attempt and job. Cancellation first stops the active command’s process group, including CLI wrappers and descendants, then leaves slow Docker disposal to the job’s `always()` cleanup step after successful checkout. Normal phases still clean up before the next phase starts; standalone runs keep their inline cleanup. The finalizer accepts only the recorded local Unix socket, disabled-seed project directory and exact project resource names/labels. Matching project labels also cover Docker-generated test container names for the pinned pg_prove:3.36 image from public ECR or setup-cli’s GHCR mirror. Validated test containers are removed by their IDs; network attachments must reference validated owned container IDs. It refuses active or unreadable process scope, records verified resource absence before removing the directory, and retains the receipt until both are absent. An interrupted directory removal can resume after a fresh resource-absence check. No receipt is a safe no-op; an invalid receipt or incomplete disposal fails. Cleanup never scans or prunes other projects.
 
-The pinned PostgreSQL image’s known reserved-role denial crash is worked around by disabling `supautils.hint_roles` decoration only in the disposable database. This preserves grants, RLS and expected SQLSTATE denials. Migration regressions run through pinned pg_prove with their relative migration includes intact. Failures remain failures; the existing SQL tests and historical migrations are unchanged. ARM64 acceptance requires these real container-backed checks to finish successfully; Docker hello-world or image-manifest inspection alone is insufficient.
+The pinned PostgreSQL image’s known reserved-role denial crash is worked around by disabling `supautils.hint_roles` decoration only in the disposable database. This preserves grants, RLS and expected SQLSTATE denials. Migration regressions run through pinned pg_prove with their relative migration includes intact. Failures remain failures; the existing SQL tests and historical migrations are unchanged. Runner acceptance requires these real container-backed checks to finish successfully; Docker hello-world or image-manifest inspection alone is insufficient.
 
 ## Actions operation
 
-The runner must be online with all four target labels. Docker must work without sudo for the actions user. The workflow’s pinned `actions/setup-node` supplies Node 24; npm remains pinned to 11.12.1, Supabase CLI to 2.101.0 and pg_prove to 3.36. Existing action commit pins are preserved. The workflow uses synthetic app/provider values and disposable database keys, with no production secrets. The unrelated Claude automation stays outside this migration.
+The Depot GitHub App connection must be active for this repository. Depot provisions runners for the workflow’s labels. The pinned `actions/setup-node` supplies Node 24; npm remains pinned to 11.12.1, Supabase CLI to 2.101.0 and pg_prove to 3.36. Existing action commit pins are preserved. The workflow uses synthetic app/provider values and disposable database keys, with no production secrets. The unrelated Claude automation stays outside this CI switch.
 
 ```bash
 gh api repos/waffleflopper/trooptotask/actions/runners
@@ -43,11 +43,15 @@ gh run watch <run-id> --repo waffleflopper/trooptotask --exit-status
 gh run view <run-id> --repo waffleflopper/trooptotask --log
 ```
 
-An updated PR triggers the migrated workflow. Once the workflow exists on the default branch, a full manual run can also be requested with `gh workflow run ci.yml --repo waffleflopper/trooptotask --ref <branch>`. GitHub requires the workflow on the default branch for manual dispatch. Record the run URL, exact PR head, actual job/step results and disposable cleanup; a queued or skipped database job does not establish database acceptance. Old queued Depot suites do not transfer to this runner.
+An updated PR triggers the migrated workflow. Once the workflow exists on the default branch, a full manual run can also be requested with `gh workflow run ci.yml --repo waffleflopper/trooptotask --ref <branch>`. GitHub requires the workflow on the default branch for manual dispatch. Record the run URL, exact PR head, actual job/step results and disposable cleanup; a queued or skipped database job does not establish database acceptance. Earlier ARM64 or Depot CI results do not establish acceptance on the new candidate’s Depot GitHub Actions runners.
 
 No repository visibility, paid plan, branch-protection or deployment setting is changed. Vercel remains separate and may deploy on publication/merge; existing release prerequisites still apply.
 
-References: [GitHub runner labels](https://docs.github.com/en/actions/how-tos/manage-runners/self-hosted-runners/use-in-a-workflow), [manual workflow dispatch](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow).
+References: [Depot runner labels and sizes](https://depot.dev/docs/github-actions/runner-types), [Depot GitHub connection](https://depot.dev/docs/github-actions/quickstart), [GitHub runner labels](https://docs.github.com/en/actions/how-tos/manage-runners/self-hosted-runners/use-in-a-workflow), [manual workflow dispatch](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow).
+
+## Return to Depot GitHub Actions
+
+Robert requests the return to Depot during #1573. The workflow remains in `.github/workflows/ci.yml`, with all three CI jobs using `depot-ubuntu-24.04`. The earlier Depot execution used a separate `.depot` workflow; this change uses Depot runners within GitHub Actions. The workflow restores two Vitest workers for the documented 8-GB runner. Current cancellation-safe database receipts, cleanup, pins, checks and type-step heap budget are retained. No database migration or remote database operation is included. Current-head hosted runner execution and full CI acceptance remain pending.
 
 ## ARM64 migration acceptance
 

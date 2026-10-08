@@ -17,7 +17,7 @@ concurrency:
 jobs:
   scope:
     name: Select checks
-    runs-on: [self-hosted, Linux, ARM64, macmini-arm64]
+    runs-on: depot-ubuntu-24.04
     timeout-minutes: 5
     outputs:
       application: ${{ steps.changes.outputs.application }}
@@ -36,7 +36,7 @@ jobs:
   validation:
     name: Repository and application
     needs: scope
-    runs-on: [self-hosted, Linux, ARM64, macmini-arm64]
+    runs-on: depot-ubuntu-24.04
     timeout-minutes: 25
     env:
       PUBLIC_SUPABASE_URL: http://127.0.0.1:59999
@@ -48,7 +48,7 @@ jobs:
       PUBLIC_APP_ORIGIN: ''
       PUBLIC_SITE_URL: ''
       APP_PUBLIC_ORIGIN_ALLOWLIST: ''
-      VITEST_MAX_WORKERS: '1'
+      VITEST_MAX_WORKERS: '2'
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
@@ -93,7 +93,7 @@ jobs:
     name: Database contracts
     needs: scope
     if: ${{ needs.scope.outputs.database == 'true' }}
-    runs-on: [self-hosted, Linux, ARM64, macmini-arm64]
+    runs-on: depot-ubuntu-24.04
     timeout-minutes: 20
     steps:
       - id: checkout

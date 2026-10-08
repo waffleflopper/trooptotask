@@ -9,7 +9,7 @@ const {
 	listCatalogMock,
 	findLatestCompletionsMock,
 	findManyMock,
-	findOneMock,
+	findCriticalTasksDefaultsMock,
 	listActiveForReadinessMock,
 	loadWithContextMock,
 	mockCtx
@@ -17,7 +17,7 @@ const {
 	const listCatalogMock = vi.fn();
 	const findLatestCompletionsMock = vi.fn();
 	const findManyMock = vi.fn();
-	const findOneMock = vi.fn();
+	const findCriticalTasksDefaultsMock = vi.fn();
 	const listActiveForReadinessMock = vi.fn();
 	const loadWithContextMock = vi.fn();
 
@@ -25,7 +25,7 @@ const {
 		listCatalogMock,
 		findLatestCompletionsMock,
 		findManyMock,
-		findOneMock,
+		findCriticalTasksDefaultsMock,
 		listActiveForReadinessMock,
 		loadWithContextMock,
 		mockCtx: {
@@ -33,9 +33,8 @@ const {
 				userId: 'user-1',
 				orgId: '11111111-1111-1111-1111-111111111111'
 			},
-			store: {
-				findMany: findManyMock,
-				findOne: findOneMock
+			organizationSettings: {
+				findCriticalTasksDefaults: findCriticalTasksDefaultsMock
 			},
 			groups: undefined as unknown as Pick<GroupPersistence, 'listCatalog'>,
 			criticalTaskLibrary: { listCatalog: listCatalogMock },
@@ -67,9 +66,9 @@ describe('streamCriticalTasksWorkspaceBootstrap', () => {
 		const store = createInMemoryDataStore();
 		store.findMany = findManyMock;
 		mockCtx.groups = createInMemoryGroupPersistence(store, mockCtx.auth.orgId);
-		findOneMock.mockResolvedValue({
-			critical_tasks_default_expiration_months: 18,
-			critical_tasks_expiring_soon_warning_days: 45
+		findCriticalTasksDefaultsMock.mockResolvedValue({
+			defaultExpirationMonths: 18,
+			expiringSoonWarningDays: 45
 		});
 		findLatestCompletionsMock.mockResolvedValue([]);
 		listCatalogMock.mockResolvedValue([]);

@@ -42,7 +42,7 @@ vi.mock('./BulkStatusAdd.svelte', async () => ({
 }));
 
 vi.mock('./BulkStatusRemove.svelte', async () => ({
-	default: (await import('$lib/test-stubs/BulkStatusRemoveLoadRangeStub.svelte')).default
+	default: (await import('../test-support/BulkStatusRemoveLoadRangeStub.svelte')).default
 }));
 
 vi.mock('./BulkStatusImport.svelte', async () => ({

@@ -7,7 +7,7 @@ import {
 	type AccountSetupAuthAdapter,
 	type AccountSetupCompletionStore
 } from './accountSetupCompletion.server';
-import { findUserEmailIdentityByEmail, normalizeUserEmailIdentity } from '$lib/server/userEmailIdentities';
+import { findUserEmailIdentityByEmail, normalizeUserEmailIdentity } from './userEmailIdentities.server';
 
 function isStructuredPasswordRejection(error: unknown): boolean {
 	return typeof error === 'object' && error !== null && 'code' in error && error.code === 'weak_password';

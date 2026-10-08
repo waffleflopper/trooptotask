@@ -7,7 +7,7 @@ import type { AvailabilityEntry, StatusType } from '$features/calendar/contracts
 import BulkStatusRemove from './BulkStatusRemove.svelte';
 
 vi.mock('$lib/components/ui/date-picker', async () => ({
-	DatePicker: (await import('$lib/test-stubs/DatePickerInputStub.svelte')).default
+	DatePicker: (await import('../test-support/DatePickerInputStub.svelte')).default
 }));
 
 const person: Personnel = {

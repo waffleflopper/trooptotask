@@ -1,6 +1,6 @@
 import type { AccountSetupLinkRecord, CreateAccountSetupLinkResult } from './accountSetupLinks.server';
 import type { SendAccountSetupOutboxDeliveryResult } from './authEmailOutbox.server';
-import { makePublicAppUrl } from '$lib/server/publicAppOrigin';
+import { makePublicAppUrl } from './publicAppOrigin.server';
 
 /**
  * Names the audit event the issuance emits. It has no other effect: every caller

@@ -1,6 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import { ALL_RANKS } from '$lib/types';
+import { BUILT_IN_ARMY_RANK_OPTIONS } from '$features/personnel/contracts';
 import { loadUserProfile, parseUserProfileForm, upsertUserProfile } from '$features/identity/index.server';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -8,7 +8,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 	return {
 		profile: await loadUserProfile(locals, locals.actor.userId),
-		ranks: ALL_RANKS
+		ranks: BUILT_IN_ARMY_RANK_OPTIONS
 	};
 };
 
@@ -17,11 +17,14 @@ export const actions: Actions = {
 		if (!locals.actor) redirect(303, '/auth/login');
 
 		const formData = await request.formData();
-		const profile = parseUserProfileForm({
-			firstName: formData.get('firstName'),
-			lastName: formData.get('lastName'),
-			rank: formData.get('rank')
-		});
+		const profile = parseUserProfileForm(
+			{
+				firstName: formData.get('firstName'),
+				lastName: formData.get('lastName'),
+				rank: formData.get('rank')
+			},
+			BUILT_IN_ARMY_RANK_OPTIONS
+		);
 
 		if ('error' in profile) {
 			return fail(400, { error: profile.error });

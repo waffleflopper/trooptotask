@@ -12,11 +12,12 @@
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { parseFile, parseCSVText } from '$lib/utils/csvParser';
 	import { toastStore } from '$lib/stores/toast.svelte';
-	import { autoMapColumns, detectHeaderRow, STATUS_IMPORT_COLUMNS } from '$lib/utils/columnMapping';
+	import { autoMapColumns, detectHeaderRow } from '$lib/utils/columnMapping';
 	import {
 		buildAvailabilityImportPlan,
 		buildRosterNameIndex,
 		planStatusResolution,
+		STATUS_IMPORT_COLUMNS,
 		validateAvailabilityImportRow,
 		type AvailabilityImportIssueCode,
 		type AvailabilityImportRowValidation,

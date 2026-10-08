@@ -25,6 +25,8 @@ Preconditions: `doctor` passes; `$V fixture` identifies Organization A, Alpha/Br
 
 ## Gotchas
 
+- Invitations and delivery attempts load all pages in descending creation-time order, with ascending ID breaking timestamp ties. The first delivery for an invitation supplies its status. Preserve newest-first behavior and compare complete saved IDs; an empty native list does not establish populated or large-page completeness.
+
 - A new person's approved Access Request and setup link are distinct from their Organization Invitation. Preserve their separate delivery and state; do not count account activation as membership.
 - An `Admin` invitation is a sensitive action. After more than 15 minutes since the owner's sign-in, `Invite` returns a 403 failure carrying `requiresStepUp`/`stepUpPath` and the page moves to `/auth/login?reauth=1&next=...settings/members` with no invitation row. A duplicate pending email is rejected before that check. The `Membership Role` options appear only in a `"verbose":true` snapshot.
 - Pending invitation creation may succeed when email delivery fails. `Resend` retries that invitation and does not mint a new setup credential.

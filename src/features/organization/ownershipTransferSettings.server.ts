@@ -1,18 +1,10 @@
+import type { OrganizationSettingsReader } from './contracts';
 import type { MembershipRole } from '$lib/access/memberAccessShape';
 import type { OwnershipTransferCandidate } from './ownershipTransferSettings';
 
-interface MembershipRow {
-	id: string;
-	user_id: string | null;
-	email: string | null;
-	role: MembershipRole;
-}
-
 interface OwnershipTransferSettingsContext {
 	auth: { orgId: string; role: MembershipRole };
-	store: {
-		findMany<T>(table: string, orgId: string, filters: undefined, options: { select: string }): Promise<T[]>;
-	};
+	organizationSettings: Pick<OrganizationSettingsReader, 'listOwnershipCandidateMemberships'>;
 }
 
 export async function loadOwnershipTransferCandidates(
@@ -20,9 +12,7 @@ export async function loadOwnershipTransferCandidates(
 ): Promise<OwnershipTransferCandidate[]> {
 	if (ctx.auth.role !== 'owner') return [];
 
-	const members = await ctx.store.findMany<MembershipRow>('organization_memberships', ctx.auth.orgId, undefined, {
-		select: 'id, user_id, email, role'
-	});
+	const members = await ctx.organizationSettings.listOwnershipCandidateMemberships(ctx.auth.orgId);
 
 	return members.flatMap((member) => {
 		if (member.role === 'owner' || !member.user_id || !member.email?.trim()) return [];

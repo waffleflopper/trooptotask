@@ -5,12 +5,7 @@ import {
 	type EffectiveMemberAccessProjection,
 	type MemberAccessProjectionRow
 } from '$lib/access/memberAccessProjection';
-import type {
-	MembershipRole,
-	StoredMemberPreset,
-	CapabilityOverrideMap,
-	ScopeSet
-} from '$lib/access/memberAccessShape';
+import type { MembershipRole } from '$lib/access/memberAccessShape';
 import type {
 	OrganizationGovernanceActionId,
 	SettingsAccessShape,
@@ -18,25 +13,7 @@ import type {
 	SettingsMemberAccessRow
 } from './settingsMemberAccessModel';
 
-export type SettingsAccessSourceRow = {
-	id?: unknown;
-	organization_id?: unknown;
-	user_id?: unknown;
-	email?: unknown;
-	role?: unknown;
-	member_preset?: StoredMemberPreset | null;
-	capability_overrides?: CapabilityOverrideMap | null;
-	access_scope_kind?: ScopeSet['kind'] | null;
-	access_scope_group_ids?: string[] | null;
-	status?: unknown;
-	created_at?: unknown;
-	expires_at?: unknown;
-	accepted_at?: unknown;
-	declined_at?: unknown;
-	revoked_at?: unknown;
-	expired_at?: unknown;
-	blocked_at?: unknown;
-};
+import type { SettingsAccessSourceRow } from './organizationSettingsTypes';
 
 export function buildSettingsMemberAccessRow(row: SettingsAccessSourceRow): SettingsMemberAccessRow {
 	const membershipRole = parseMembershipRole(row.role);

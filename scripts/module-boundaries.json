@@ -69,6 +69,7 @@
 				"src/lib/server/adapters/notificationDelivery.test.ts",
 				"src/lib/server/adapters/personnelArtifacts.test.ts",
 				"src/lib/server/adapters/personnelCriticalTasksRequestContext.server.test.ts",
+				"src/lib/server/adapters/residualSettingsRequestContext.server.test.ts",
 				"src/lib/server/adapters/personnelLeaderNotes.test.ts",
 				"src/lib/server/adapters/requestContexts.server.test.ts",
 				"src/lib/server/adapters/trainingRequestContext.server.test.ts",
@@ -292,7 +293,7 @@
 			"onboarding",
 			"notifications"
 		],
-		"critical-tasks": ["personnel", "access", "audit", "provider", "shared", "web-ui"],
+		"critical-tasks": ["organization", "personnel", "access", "audit", "provider", "shared", "web-ui"],
 		"dashboard": [
 			"organization",
 			"personnel",

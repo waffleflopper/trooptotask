@@ -4,6 +4,7 @@ import { createRequestNotificationDelivery } from './requestContexts.server';
 import { getAdminClient } from '$lib/server/supabase';
 import {
 	loadOrganizationRankCatalog,
+	createSupabaseRankCatalogPersistence,
 	createSupabaseGroupPersistence,
 	createSupabaseSelfPinPersistence,
 	createSupabasePersonnelTrainingRosterPort,
@@ -83,12 +84,13 @@ export function createRequestTrainingRosterContext(
 	Parameters<typeof deleteTrainingRecord>[0] &
 	Parameters<typeof importTrainingRecords>[0] &
 	Parameters<typeof fetchTrainingWorkspaceData>[0] {
+	const rankCatalog = createSupabaseRankCatalogPersistence(request.supabase, request.auth.orgId);
 	return {
 		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId),
 		selfPins: createSupabaseSelfPinPersistence(request.supabase, request.auth.orgId, request.auth.userId),
 		...createRequestTrainingCatalogContext(request),
 		loadRankCatalog: () =>
-			loadOrganizationRankCatalog({ auth: request.auth, store: request.store }, { authorization: 'training-view' }),
+			loadOrganizationRankCatalog({ auth: request.auth, rankCatalog: rankCatalog }, { authorization: 'training-view' }),
 		trainingCompletions: createSupabaseTrainingCompletionPersistence(request.supabase, request.auth.orgId),
 		personnelTrainingRoster: createSupabasePersonnelTrainingRosterPort(getAdminClient)
 	};
@@ -97,11 +99,15 @@ export function createRequestTrainingRosterContext(
 export function createRequestTrainingBriefingContext(
 	request: AdmittedOrganizationRequest
 ): Parameters<typeof fetchTrainingBriefingReport>[0] {
+	const rankCatalog = createSupabaseRankCatalogPersistence(request.supabase, request.auth.orgId);
 	return {
 		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId),
 		...createRequestTrainingCatalogContext(request),
 		loadRankCatalog: () =>
-			loadOrganizationRankCatalog({ auth: request.auth, store: request.store }, { authorization: 'training-records' }),
+			loadOrganizationRankCatalog(
+				{ auth: request.auth, rankCatalog: rankCatalog },
+				{ authorization: 'training-records' }
+			),
 		trainingCompletions: createSupabaseTrainingCompletionPersistence(request.supabase, request.auth.orgId),
 		personnelTrainingRoster: createSupabasePersonnelTrainingRosterPort(getAdminClient),
 		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase)
@@ -153,7 +159,7 @@ export function createRequestCriticalTasksReadContext(
 	return {
 		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId),
 		auth: request.auth,
-		store: request.store,
+		rankCatalog: createSupabaseRankCatalogPersistence(request.supabase, request.auth.orgId),
 		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase),
 		criticalTaskLibrary: createSupabaseCriticalTaskLibraryPersistence(request.supabase, request.auth.orgId),
 		criticalTaskCompletions: createSupabaseCriticalTaskCompletionPersistence(request.supabase, request.auth.orgId),
@@ -300,14 +306,14 @@ export function createRequestOnboardingInactiveStepContext(
 export function createRequestOnboardingWorkspaceContext(
 	request: AdmittedOrganizationRequest
 ): Parameters<typeof fetchOnboardingWorkspace>[0] {
+	const rankCatalog = createSupabaseRankCatalogPersistence(request.supabase, request.auth.orgId);
 	return {
 		onboardingCatalog: createSupabaseOnboardingCatalogPersistence(request.supabase, request.auth.orgId),
 		loadRankCatalog: () =>
 			loadOrganizationRankCatalog({
 				auth: request.auth,
 				audit: request.audit,
-				store: request.store,
-				rawStore: request.rawStore
+				rankCatalog: rankCatalog
 			}),
 		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId),
 		auth: request.auth,

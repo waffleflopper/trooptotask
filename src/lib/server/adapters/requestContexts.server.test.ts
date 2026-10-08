@@ -6,8 +6,10 @@ import {
 	buildRouteRequest,
 	buildLayoutRequest,
 	createRequestSensitiveActionContext,
-	createRequestOrganizationExportContext
+	createRequestOrganizationExportContext,
+	createRequestPersonnelWorkspaceContext
 } from './requestContexts.server';
+import { createRequestTrainingRosterContext } from './featureRequestContexts.server';
 
 const { getAdminClient } = vi.hoisted(() => ({
 	getAdminClient: vi.fn(() => {
@@ -41,6 +43,92 @@ function buildRequest(kind: 'route' | 'layout', locals: App.Locals) {
 				getClientAddress: () => '127.0.0.1'
 			} as never);
 }
+
+describe('request-bound rank catalogs', () => {
+	it('keeps deferred Personnel and Training catalog reads on their admitted Organization and client', async () => {
+		getAdminClient.mockClear();
+		const ranks = [
+			{
+				id: 'rank-a',
+				organization_id: ORG_ID,
+				code: 'A-ONLY',
+				label: 'A rank',
+				service: 'custom',
+				category: 'custom',
+				pay_grade: 'ungraded',
+				state: 'active',
+				source: 'custom',
+				sort_order: 1
+			},
+			{
+				id: 'rank-b',
+				organization_id: OTHER_ORG_ID,
+				code: 'B-ONLY',
+				label: 'B rank',
+				service: 'custom',
+				category: 'custom',
+				pay_grade: 'ungraded',
+				state: 'active',
+				source: 'custom',
+				sort_order: 1
+			}
+		];
+		const supabase = createClient('http://catalog.invalid', 'synthetic-request-key', {
+			auth: { persistSession: false, autoRefreshToken: false },
+			global: {
+				fetch: async (input, init) => {
+					const request = new Request(input, init);
+					const url = new URL(request.url);
+					if (request.headers.get('authorization') !== 'Bearer synthetic-request-key')
+						return Response.json({ message: 'Ordinary authority required' }, { status: 403 });
+					if (url.pathname === '/rest/v1/organization_memberships') return Response.json({ role: 'owner' });
+					if (url.pathname !== '/rest/v1/organization_rank_catalog')
+						return Response.json({ message: 'Unexpected catalog read' }, { status: 400 });
+					return Response.json(
+						ranks.filter((row) => url.searchParams.get('organization_id') === `eq.${row.organization_id}`)
+					);
+				}
+			}
+		});
+		const admitted = await buildRequest('route', {
+			actor: { userId: USER_ID },
+			supabase,
+			session: null
+		} as unknown as App.Locals);
+		const personnel = createRequestPersonnelWorkspaceContext(admitted);
+		const training = createRequestTrainingRosterContext(admitted);
+		const later = { ...admitted, auth: { ...admitted.auth, orgId: OTHER_ORG_ID } };
+		await expect(createRequestPersonnelWorkspaceContext(later).loadRankCatalog()).resolves.toEqual([
+			{
+				organizationId: OTHER_ORG_ID,
+				code: 'B-ONLY',
+				label: 'B rank',
+				service: 'custom',
+				category: 'custom',
+				payGrade: 'ungraded',
+				state: 'active',
+				source: 'custom',
+				sortOrder: 1
+			}
+		]);
+		const expected = [
+			{
+				organizationId: ORG_ID,
+				code: 'A-ONLY',
+				label: 'A rank',
+				service: 'custom',
+				category: 'custom',
+				payGrade: 'ungraded',
+				state: 'active',
+				source: 'custom',
+				sortOrder: 1
+			}
+		];
+		await expect(personnel.loadRankCatalog()).resolves.toEqual(expected);
+		await expect(training.loadRankCatalog()).resolves.toEqual(expected);
+		expect(getAdminClient).not.toHaveBeenCalled();
+	});
+});
 
 describe('request-bound sensitive-action authorization', () => {
 	it.each(['route', 'layout'] as const)(

@@ -1,3 +1,4 @@
+import type { RankCatalogPersistence } from '$features/personnel/contracts';
 import type { OrganizationSettingsReader } from '$features/organization/contracts';
 import type { PersonnelRosterActor, PersonnelCriticalTasksRosterPort } from '$features/personnel/contracts';
 import type {
@@ -5,21 +6,6 @@ import type {
 	CriticalTaskCompletionPersistence,
 	CriticalTasksReadModelPort
 } from '../contracts';
-
-export interface CriticalTasksReadStore {
-	findOne<T>(table: string, orgId: string, filters: Record<string, unknown>, select?: string): Promise<T | null>;
-	findMany<T>(
-		table: string,
-		orgId: string,
-		filters?: Record<string, unknown>,
-		options?: {
-			select?: string;
-			isNull?: Record<string, boolean>;
-			inFilters?: Record<string, string[]>;
-			orderBy?: Array<{ column: string; ascending: boolean }>;
-		}
-	): Promise<T[]>;
-}
 
 export interface CriticalTasksHistoryContext {
 	readonly auth: PersonnelRosterActor;
@@ -30,7 +16,7 @@ export interface CriticalTasksHistoryContext {
 
 export interface CriticalTasksReportContext {
 	readonly auth: PersonnelRosterActor;
-	readonly store: CriticalTasksReadStore;
+	readonly rankCatalog: Pick<RankCatalogPersistence, 'listEntries'>;
 	readonly organizationSettings: Pick<OrganizationSettingsReader, 'findCriticalTasksDefaults'>;
 	readonly criticalTaskCompletions: Pick<CriticalTaskCompletionPersistence, 'listReportHistory'>;
 	readonly criticalTaskLibrary: Pick<CriticalTaskLibraryPersistence, 'listCatalog'>;

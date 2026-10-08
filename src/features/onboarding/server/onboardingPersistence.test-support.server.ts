@@ -24,7 +24,7 @@ export function createTestContext(options?: Options) {
 	return {
 		...ctx,
 		loadRankCatalog: () =>
-			loadOrganizationRankCatalog({ auth: ctx.auth, audit: ctx.audit, store: ctx.store, rawStore: ctx.rawStore })
+			loadOrganizationRankCatalog({ auth: ctx.auth, audit: ctx.audit, rankCatalog: ctx.rankCatalog })
 	};
 }
 export function createWritePortsContext(options?: Options) {
@@ -32,21 +32,21 @@ export function createWritePortsContext(options?: Options) {
 	return {
 		...ctx,
 		loadRankCatalog: () =>
-			loadOrganizationRankCatalog({ auth: ctx.auth, audit: ctx.audit, store: ctx.store, rawStore: ctx.rawStore })
+			loadOrganizationRankCatalog({ auth: ctx.auth, audit: ctx.audit, rankCatalog: ctx.rankCatalog })
 	};
 }
 export function createQueryPortsContext(options?: Options) {
 	const ctx = memoryQuery(withOnboardingPersistence(options));
 	return {
 		...ctx,
-		loadRankCatalog: () => loadOrganizationRankCatalog({ auth: ctx.auth, store: ctx.store })
+		loadRankCatalog: () => loadOrganizationRankCatalog({ auth: ctx.auth, rankCatalog: ctx.rankCatalog })
 	};
 }
 export function createQueryWithRawStorePortsContext(options?: Options) {
 	const ctx = memoryRawQuery(withOnboardingPersistence(options));
 	return {
 		...ctx,
-		loadRankCatalog: () => loadOrganizationRankCatalog({ auth: ctx.auth, store: ctx.store, rawStore: ctx.rawStore })
+		loadRankCatalog: () => loadOrganizationRankCatalog({ auth: ctx.auth, rankCatalog: ctx.rankCatalog })
 	};
 }
 export {

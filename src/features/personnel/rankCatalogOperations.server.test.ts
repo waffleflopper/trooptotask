@@ -76,7 +76,7 @@ describe('organization rank catalog', () => {
 	});
 
 	it('keeps non-default military service packs opt-in when seeding defaults', () => {
-		const seeds = buildDefaultRankCatalogSeeds('test-org');
+		const seeds = buildDefaultRankCatalogSeeds();
 
 		expect(new Set(seeds.map((entry) => entry.service))).toEqual(DEFAULT_SEEDED_RANK_SERVICES);
 		expect(seeds).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'SGT', service: 'army' })]));

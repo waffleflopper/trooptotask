@@ -1,3 +1,4 @@
+import type { RankCatalogPersistence } from './rankCatalogPersistence';
 import type { PersonnelMemoryStore } from './inMemoryPersonnelPersistence.server';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { loadOrganizationRankCatalog } from './rankCatalogOperations.server';
@@ -8,7 +9,12 @@ import {
 	createInMemorySelfPinPersistence
 } from './inMemoryPersonnelPersistence.server';
 export function withPersonnelPersistence<
-	T extends { auth: OrganizationAccessGrant; store: PersonnelMemoryStore; rawStore?: PersonnelMemoryStore }
+	T extends {
+		auth: OrganizationAccessGrant;
+		store: PersonnelMemoryStore;
+		rawStore?: PersonnelMemoryStore;
+		rankCatalog: Pick<RankCatalogPersistence, 'listEntries'>;
+	}
 >(ctx: T) {
 	const ordinary = ctx.rawStore ?? ctx.store;
 	return {
@@ -19,6 +25,6 @@ export function withPersonnelPersistence<
 		organizationRoster: createInMemoryPersonnelRosterReader(ordinary, ctx.auth.orgId),
 		groups: createInMemoryGroupPersistence(ctx.store, ctx.auth.orgId),
 		selfPins: createInMemorySelfPinPersistence(ctx.store, ctx.auth.orgId, ctx.auth.userId),
-		loadRankCatalog: () => loadOrganizationRankCatalog(ctx)
+		loadRankCatalog: () => loadOrganizationRankCatalog({ auth: ctx.auth, rankCatalog: ctx.rankCatalog })
 	};
 }

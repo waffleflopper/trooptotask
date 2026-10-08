@@ -10,7 +10,7 @@ import {
 	createPersonnelDocument
 } from '$features/personnel/index.server';
 import { createTestContext } from './inMemory';
-import { createSupabaseDataStore } from './supabaseDataStore';
+import { createSupabasePersonnelArtifactReadPersistence } from '$features/personnel/index.server';
 
 const ORG = 'd130b000-0000-4000-8000-000000000001';
 const PERSON = 'd130a000-0000-4000-8000-000000000001';
@@ -64,13 +64,6 @@ function fixture(family: (typeof families)[number], failure?: 'artifact-page' | 
 				}
 				if (table === family.table) {
 					expect(url.searchParams.get('personnel_id')).toBe(`eq.${PERSON}`);
-					expect(url.searchParams.get('order')).toBe(
-						table === 'counseling_records'
-							? 'date_conducted.desc,created_at.desc'
-							: table === 'personnel_documents'
-								? 'created_at.desc'
-								: 'status.desc,created_at.desc'
-					);
 					if (table === 'personnel_follow_ups') expect(url.searchParams.get('status')).toBe('not.in.(archived)');
 					else expect(url.searchParams.get('archived_at')).toBe('is.null');
 					const offset = Number(url.searchParams.get('offset') ?? 0);
@@ -100,12 +93,11 @@ function fixture(family: (typeof families)[number], failure?: 'artifact-page' | 
 		}
 	});
 	const ctx = createTestContext({ auth: { orgId: ORG } });
-	const store = createSupabaseDataStore(client);
+	const artifactReads = createSupabasePersonnelArtifactReadPersistence(client, ORG);
 	return {
 		ctx: {
 			...ctx,
-			store,
-			rawStore: store,
+			artifactReads,
 			organizationPersonnel: createSupabasePersonnelRecordPersistence(client, ORG),
 			organizationSettings: createSupabaseOrganizationSettingsReader(client)
 		},

@@ -1,0 +1,30 @@
+import type { RankCategory, RankPayGrade, RankService, RankState } from './rankCatalog';
+import type { OrganizationRankCatalogSource } from './rankCatalogContracts';
+
+export interface RankCatalogValues {
+	code: string;
+	label: string;
+	service: RankService;
+	category: RankCategory;
+	pay_grade: RankPayGrade;
+	state: RankState;
+	source: OrganizationRankCatalogSource;
+	sort_order: number;
+}
+export interface SavedRankCatalogEntry extends RankCatalogValues {
+	id: string;
+	organization_id: string;
+	created_at?: string | null;
+	updated_at?: string | null;
+}
+export type RankCatalogSave = RankCatalogValues & {
+	id?: string;
+	created_at?: string | null;
+	updated_at?: string | null;
+};
+export interface RankCatalogPersistence {
+	listEntries(): Promise<SavedRankCatalogEntry[]>;
+	findEntryByCode(code: string): Promise<SavedRankCatalogEntry | null>;
+	saveEntries(entries: RankCatalogSave[]): Promise<SavedRankCatalogEntry[]>;
+	patchEntryById(id: string, values: RankCatalogValues): Promise<SavedRankCatalogEntry>;
+}

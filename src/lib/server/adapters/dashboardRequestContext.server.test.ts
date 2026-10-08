@@ -83,6 +83,10 @@ function request(groupIds: string[] = ['group-alpha'], criticalTasks: 'view' | '
 		global: {
 			fetch: async (input) => {
 				const url = new URL(input instanceof Request ? input.url : input.toString());
+				if (url.pathname === '/rest/v1/organization_rank_catalog') {
+					expect(url.searchParams.get('organization_id')).toBe(`eq.${ctx.auth.orgId}`);
+					return Response.json([]);
+				}
 				if (url.pathname === '/rest/v1/organizations') {
 					expect(url.searchParams.get('id')).toBe(`eq.${ctx.auth.orgId}`);
 					return Response.json({

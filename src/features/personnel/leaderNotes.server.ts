@@ -1,18 +1,11 @@
+import type { LeaderNoteRow } from './personnelArtifactPersistence';
+export type { LeaderNoteRow } from './personnelArtifactPersistence';
 import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
 import { personnelLeaderNoteInputSchema, type PersonnelLeaderNote } from './contracts';
 import { fail } from '$lib/errors';
-
-export interface LeaderNoteRow {
-	id: string;
-	personnel_id: string;
-	author: string;
-	text: string;
-	created_at: string;
-	archived_at?: string | null;
-}
 
 export interface LeaderNoteCursor {
 	createdAt: string;

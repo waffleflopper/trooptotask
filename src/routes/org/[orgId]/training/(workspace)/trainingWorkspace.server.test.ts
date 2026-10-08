@@ -10,6 +10,7 @@ import type { GroupPersistence, Personnel, SelfPinPersistence } from '$features/
 import type { ScopeSet } from '$lib/access/memberAccessShape';
 import type { PersonnelTrainingRosterPort } from '$features/personnel/index.server';
 import { createInMemoryDataStore } from '$features/training/server/trainingPersistence.test-support.server';
+import { createTestRankCatalogPersistence } from '$lib/server/adapters/inMemory';
 import {
 	createInMemoryGroupPersistence,
 	createInMemorySelfPinPersistence
@@ -41,6 +42,7 @@ const { findManyMock, listRosterCandidatesMock, loadWithContextMock, mockCtx } =
 			store: {
 				findMany: findManyMock
 			},
+			rankCatalog: undefined as unknown as ReturnType<typeof createTestRankCatalogPersistence>,
 			loadRankCatalog: undefined as unknown as () => Promise<
 				import('$features/personnel/contracts').RankCatalogEntry[]
 			>,
@@ -79,6 +81,7 @@ describe('streamTrainingWorkspaceBootstrap', () => {
 		mockCtx.auth.scopeSet = { kind: 'organization' };
 		const store = createInMemoryDataStore();
 		store.findMany = findManyMock;
+		mockCtx.rankCatalog = createTestRankCatalogPersistence(store, mockCtx.auth.orgId);
 		mockCtx.loadRankCatalog = () => loadOrganizationRankCatalog(mockCtx as never, { authorization: 'training-view' });
 		mockCtx.trainingCatalog = createInMemoryTrainingCatalogPersistence(store, mockCtx.auth.orgId);
 		mockCtx.trainingCompletions = createInMemoryTrainingCompletionPersistence(store, mockCtx.auth.orgId);

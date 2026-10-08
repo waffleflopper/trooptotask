@@ -132,13 +132,13 @@ export async function createPersonnelDocument(
 
 	let row: PersonnelDocumentRow;
 	try {
-		row = await writer.insert<PersonnelDocumentRow>('personnel_documents', {
+		row = await writer.createDocument({
 			title: derivePersonnelDocumentTitle({ title: input.title, filename: rawInput.file.name }),
-			file_path: filePath,
-			file_size_bytes: rawInput.file.size,
-			content_type: rawInput.file.type,
-			uploaded_by: ctx.actor.userId,
-			created_at: new Date().toISOString()
+			filePath: filePath,
+			fileSizeBytes: rawInput.file.size,
+			contentType: rawInput.file.type,
+			uploadedBy: ctx.actor.userId,
+			createdAt: new Date().toISOString()
 		});
 		if (
 			!row ||
@@ -180,7 +180,7 @@ export async function createPersonnelDocumentDownloadUrl(
 
 async function loadDocumentForWrite(ctx: PersonnelArtifactsContext, personnelId: string, id: string) {
 	const writer = await personnelArtifactWriter(ctx, personnelId);
-	const row = await writer.find<PersonnelDocumentRow>('personnel_documents', id);
+	const row = await writer.findDocument(id);
 	if (!row) fail(404, 'Document not found');
 	return { writer, row };
 }
@@ -191,9 +191,7 @@ export async function archivePersonnelDocument(
 ): Promise<PersonnelDocument> {
 	const { writer, row: existing } = await loadDocumentForWrite(ctx, input.personnelId, input.documentId);
 	if (existing.archived_at) fail(409, 'Document is already archived');
-	const row = await writer.update<PersonnelDocumentRow>('personnel_documents', input.documentId, {
-		archived_at: new Date().toISOString()
-	});
+	const row = await writer.setDocumentArchivedAt(input.documentId, new Date().toISOString());
 	ctx.audit.log({ action: 'personnel.document.archived', resourceType: 'personnel', resourceId: input.personnelId });
 	return mapDocumentRow(row, await ctx.contributorLabels(row.uploaded_by ? [row.uploaded_by] : []));
 }
@@ -203,7 +201,7 @@ export async function restorePersonnelDocument(
 	input: { personnelId: string; documentId: string }
 ): Promise<PersonnelDocument> {
 	const { writer } = await loadDocumentForWrite(ctx, input.personnelId, input.documentId);
-	const row = await writer.update<PersonnelDocumentRow>('personnel_documents', input.documentId, { archived_at: null });
+	const row = await writer.setDocumentArchivedAt(input.documentId, null);
 	ctx.audit.log({ action: 'personnel.document.restored', resourceType: 'personnel', resourceId: input.personnelId });
 	return mapDocumentRow(row, await ctx.contributorLabels(row.uploaded_by ? [row.uploaded_by] : []));
 }
@@ -214,7 +212,7 @@ export async function deletePersonnelDocument(
 ): Promise<void> {
 	const { writer, row } = await loadDocumentForWrite(ctx, input.personnelId, input.documentId);
 	if (!row.archived_at) fail(409, 'Archive documents before deleting them');
-	await writer.delete('personnel_documents', input.documentId);
+	await writer.deleteDocument(input.documentId);
 	await writer.removeFile('document', row.file_path);
 	ctx.audit.log({ action: 'personnel.document.deleted', resourceType: 'personnel', resourceId: input.personnelId });
 }

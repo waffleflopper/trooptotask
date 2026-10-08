@@ -82,6 +82,58 @@ function authenticated(action, loginCookies) {
 	};
 }
 
+test('award acknowledgement uses normal authenticated POST and preserves true and false bodies', async (t) => {
+	const input = await inputs(t);
+	for (const acknowledged of [true, false]) {
+		await fs.writeFile(input.bodyFile, JSON.stringify({ acknowledged }));
+		const http = authenticated((url, options) => {
+			assert.equal(url, `${origin}/org/${orgA}/api/personnel/${person}/award-tracking`);
+			assert.equal(options.method, 'POST');
+			assert.deepEqual(JSON.parse(options.body), { acknowledged });
+			assert.equal(options.headers.get('Cookie'), 'session.0=private-chunk-one; session.1=private-chunk-two');
+			return Response.json({ personnelId: person, acknowledged });
+		});
+		const output = await artifactHttp({
+			origin,
+			fixture,
+			args: args('POST', 'award-tracking', input.bodyFile),
+			evidenceRoot: input.evidenceRoot,
+			...http
+		});
+		assert.equal(output.status, 200);
+		assert.deepEqual(output.body, { personnelId: person, acknowledged });
+		assert.deepEqual(output.request.body, { acknowledged });
+	}
+});
+
+test('award control rejects other verbs, item paths and nonboolean or extra fields before authentication', async (t) => {
+	const input = await inputs(t);
+	for (const [method, route, body] of [
+		['GET', 'award-tracking', null],
+		['POST', `award-tracking/${record}`, { acknowledged: true }],
+		['POST', 'award-tracking', { acknowledged: 'true' }],
+		['POST', 'award-tracking', { acknowledged: true, personnelId: person }],
+		['POST', 'award-tracking', {}]
+	]) {
+		if (body) await fs.writeFile(input.bodyFile, JSON.stringify(body));
+		let requests = 0;
+		await assert.rejects(
+			artifactHttp({
+				origin,
+				fixture,
+				args: args(method, route, body ? input.bodyFile : undefined),
+				...input,
+				fetchImpl: async () => {
+					requests++;
+					throw new Error('Unexpected request');
+				}
+			}),
+			/award|allowlisted/i
+		);
+		assert.equal(requests, 0);
+	}
+});
+
 test('normal form login is independently confirmed and private chunk cookies reach the exact artifact route', async () => {
 	const http = authenticated(() =>
 		Response.json({ title: 'Synthetic private note', notes: 'Full private field' }, { status: 403 })

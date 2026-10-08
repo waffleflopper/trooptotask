@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const families = new Set(['leader-notes', 'follow-ups', 'counseling-records', 'documents']);
+const families = new Set(['leader-notes', 'follow-ups', 'counseling-records', 'documents', 'award-tracking']);
 const sensitiveKeys = new Set([
 	'password',
 	'cookie',
@@ -252,6 +252,8 @@ export async function artifactHttp({
 	if (!uuid.test(personId)) throw new Error('Use a Personnel UUID.');
 	const segments = typeof endpoint === 'string' ? endpoint.split('/') : [];
 	const [family, recordId, download] = segments;
+	if (family === 'award-tracking' && (method !== 'POST' || segments.length !== 1))
+		throw new Error('Award acknowledgement accepts only its collection POST.');
 	if (
 		!families.has(family) ||
 		segments.length > 3 ||
@@ -280,6 +282,8 @@ export async function artifactHttp({
 			throw new Error('Body file must contain JSON.');
 		}
 		if (!input || Array.isArray(input) || typeof input !== 'object') throw new Error('Body JSON must be an object.');
+		if (family === 'award-tracking' && (Object.keys(input).length !== 1 || typeof input.acknowledged !== 'boolean'))
+			throw new Error('Award acknowledgement requires only a boolean acknowledged field.');
 		if (method === 'POST' && ['documents', 'counseling-records'].includes(family)) {
 			body = new FormData();
 			for (const [key, value] of Object.entries(input)) {

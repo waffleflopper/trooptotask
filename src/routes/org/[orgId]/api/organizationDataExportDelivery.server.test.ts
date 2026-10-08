@@ -2,7 +2,7 @@ import { createSupabaseSignInRosterExportReader } from '$features/sign-in-roster
 import { createSupabaseDeletionRequestStore } from '$features/deletion-requests/index.server';
 import { createDeletionRequestTestStore } from '$features/deletion-requests/testing.server';
 import { describe, expect, it } from 'vitest';
-import type { DataStore } from '$lib/server/core/ports';
+import type { FixtureRowStore } from '$lib/server/adapters/test-support/inMemoryRows.types';
 import { createClient } from '@supabase/supabase-js';
 import { createRequestOrganizationExportContext } from '$lib/server/adapters/requestContexts.server';
 import {
@@ -53,7 +53,7 @@ describe('organization export inventory', () => {
 				activeReads -= 1;
 				return [{ table }];
 			}
-		} as Pick<DataStore, 'findMany'> as DataStore;
+		} as Pick<FixtureRowStore, 'findMany'> as FixtureRowStore;
 
 		const ctx = createTestContext({ auth: { orgId: 'org-1' } });
 		const pending = loadOrganizationExportPayload(

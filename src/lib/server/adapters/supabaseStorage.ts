@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { StoragePort } from '../core/ports';
+import type { StoragePort } from '$lib/storage/contracts';
 
 export function createSupabaseStorageAdapter(supabase: SupabaseClient): StoragePort {
 	return {

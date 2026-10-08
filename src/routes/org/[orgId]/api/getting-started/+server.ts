@@ -13,7 +13,7 @@ import {
 import {
 	buildRouteRequest,
 	createRequestGettingStartedContext,
-	createRequestWriteContext
+	createRequestActorContext
 } from '$lib/server/adapters/requestContexts.server';
 import { listStarterConfigurationPacks } from '$lib/server/core/useCases/starterConfigurationPacks';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -49,8 +49,8 @@ export function _createConfigs(provider: { supabase: SupabaseClient }) {
 	};
 	const progress = (
 		dismissed: boolean
-	): RouteConfig<void, { success: true }, ReturnType<typeof createRequestWriteContext>> => ({
-		context: createRequestWriteContext,
+	): RouteConfig<void, { success: true }, ReturnType<typeof createRequestActorContext>> => ({
+		context: createRequestActorContext,
 		mutation: true,
 		policyAction: POLICY_ACTION_CATALOG.identity.updateOwnPreferences,
 		parseInput: () => undefined,

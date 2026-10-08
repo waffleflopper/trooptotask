@@ -35,7 +35,7 @@
 		{
 			"path": "src/routes/org/[orgId]/settings/logs/+page.server.ts",
 			"classification": "platform-admin-edge",
-			"reason": "Organization audit-log settings still creates a service-role data store in the route."
+			"reason": "Organization audit-log settings still supplies a service-role client to Audit's owned log reader in the route."
 		},
 		{
 			"path": "src/routes/org/[orgId]/settings/members/+page.server.ts",

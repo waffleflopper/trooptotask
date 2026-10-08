@@ -37,6 +37,9 @@ import {
 	createSupabasePersonnelExportReader,
 	createSupabasePersonnelRosterReader,
 	createSupabasePersonnelRecordPersistence,
+	createSupabasePersonnelArtifactReadPersistence,
+	createSupabasePersonnelSheetPersistence,
+	createSupabasePersonnelWorkbookHistoryReader,
 	createSupabaseGroupPersistence,
 	createSupabaseSelfPinPersistence,
 	createSupabasePersonnelArtifactWritePort,
@@ -48,7 +51,8 @@ import {
 	createSupabasePersonnelTrainingRosterPort,
 	createSupabaseSignInRosterPersonnelLookupPort,
 	findGroupNamesByIds,
-	loadOrganizationRankCatalog
+	loadOrganizationRankCatalog,
+	createSupabaseRankCatalogPersistence
 } from '$features/personnel/index.server';
 import {
 	createSupabaseRatingSchemeExportReader,
@@ -67,9 +71,6 @@ import { validateUUID } from '$lib/server/validation';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { RequestEvent } from '@sveltejs/kit';
 import { error } from '@sveltejs/kit';
-import { createScopedDataStore } from './scopedDataStore';
-import { defaultScopeRules } from './scopeRules';
-import { createSupabaseDataStore } from './supabaseDataStore';
 import { createSupabaseScopeEnforcementAdapter } from '$features/personnel/index.server';
 import { createSupabaseStorageAdapter } from './supabaseStorage';
 
@@ -87,20 +88,13 @@ import {
 	loadPersonnelDocumentStorageCapBytes,
 	resolveOrganizationRouteIdentity
 } from '$features/organization/index.server';
-import type {
-	CounselingRecordRow,
-	FollowUpRow,
-	LeaderNoteContext,
-	LeaderNoteRow,
-	PersonnelArtifactsContext,
-	PersonnelDocumentRow
-} from '$features/personnel/index.server';
+import type { LeaderNoteContext, PersonnelArtifactsContext } from '$features/personnel/index.server';
 
 import { readOrganizationMembershipForRequest } from '$features/organization/index.server';
 import { getOrLoadRequestMembership } from '$lib/access/index.server';
 import { projectOrganizationAccessGrant } from '$lib/access/memberAccessProjection';
 import type { AuditPort } from '$lib/audit/contracts';
-import type { DataStore, ScopeEnforcementPort, WritePorts } from '$lib/server/core/ports';
+import type { PersonnelScopeEnforcement } from '$features/personnel/contracts';
 import type { PersonnelRecordPersistence } from '$features/personnel/contracts';
 import type { Session } from '@supabase/supabase-js';
 
@@ -109,9 +103,7 @@ export interface AdmittedOrganizationRequest {
 	readonly audit: AuditPort;
 	readonly supabase: SupabaseClient;
 	readonly session: Session | null;
-	readonly store: DataStore;
-	readonly rawStore: DataStore;
-	readonly scope: ScopeEnforcementPort;
+	readonly scope: PersonnelScopeEnforcement;
 }
 
 export type RequestContextBuilder<TContext> = (request: AdmittedOrganizationRequest) => TContext;
@@ -139,18 +131,11 @@ async function createOrganizationRequest(
 		readOrganizationMembershipForRequest(supabase, userId, orgId)
 	);
 	const auth = projectOrganizationAccessGrant(membership, userId, orgId);
-	const rawStore = createSupabaseDataStore(supabase);
 	return {
 		auth,
 		audit,
 		supabase,
 		session: locals.session,
-		rawStore,
-		store: createScopedDataStore(
-			rawStore,
-			auth.scopeSet.kind === 'groups' ? auth.scopeSet.groupIds : null,
-			defaultScopeRules
-		),
 		scope: createSupabaseScopeEnforcementAdapter({ supabase, orgId, scopeSet: auth.scopeSet })
 	};
 }
@@ -173,10 +158,6 @@ export async function buildLayoutRequest(locals: App.Locals, orgId: string): Pro
 	return createOrganizationRequest(locals, supabase, userId, canonicalOrgId, { log() {} });
 }
 
-export function createRequestDataContext(request: AdmittedOrganizationRequest): WritePorts & { rawStore: DataStore } {
-	return { auth: request.auth, audit: request.audit, store: request.store, rawStore: request.rawStore };
-}
-
 export function createRequestPersonnelArtifactsContext(
 	request: AdmittedOrganizationRequest
 ): PersonnelArtifactsContext {
@@ -184,15 +165,17 @@ export function createRequestPersonnelArtifactsContext(
 		...request,
 		organizationPersonnel: createSupabasePersonnelRecordPersistence(request.supabase, request.auth.orgId),
 		personnelArtifactWrites: createSupabasePersonnelArtifactWritePort(request.supabase, getAdminClient),
+		artifactReads: createSupabasePersonnelArtifactReadPersistence(request.supabase, request.auth.orgId),
 		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase),
 		storage: createSupabaseStorageAdapter(request.supabase)
 	});
 }
 
 export function createPersonnelArtifactDeliveryContext(
-	request: Pick<AdmittedOrganizationRequest, 'auth' | 'audit' | 'store' | 'rawStore' | 'scope'> & {
+	request: Pick<AdmittedOrganizationRequest, 'auth' | 'audit' | 'scope'> & {
 		organizationPersonnel: Pick<PersonnelRecordPersistence, 'findGroupReference'>;
 		personnelArtifactWrites: ReturnType<typeof createSupabasePersonnelArtifactWritePort>;
+		artifactReads: ReturnType<typeof createSupabasePersonnelArtifactReadPersistence>;
 		organizationSettings: Pick<
 			ReturnType<typeof createSupabaseOrganizationSettingsReader>,
 			'findStorageCapBytes' | 'findMemberLabels'
@@ -213,51 +196,10 @@ export function createPersonnelArtifactDeliveryContext(
 				const row = await request.organizationPersonnel.findGroupReference(personnelId);
 				return row?.groupId;
 			},
-			listCounselingRecords: (personnelId, { archived, limit }) =>
-				request.store.findMany<CounselingRecordRow>(
-					'counseling_records',
-					orgId,
-					{ personnel_id: personnelId },
-					{
-						orderBy: [
-							{ column: 'date_conducted', ascending: false },
-							{ column: 'created_at', ascending: false }
-						],
-						isNull: { archived_at: !archived },
-						limit
-					}
-				),
-			listDocuments: (personnelId, { archived, limit }) =>
-				request.store.findMany<PersonnelDocumentRow>(
-					'personnel_documents',
-					orgId,
-					{ personnel_id: personnelId },
-					{
-						orderBy: [{ column: 'created_at', ascending: false }],
-						isNull: { archived_at: !archived },
-						limit
-					}
-				),
-			listFollowUps: (personnelId, { archived, limit }) =>
-				request.store.findMany<FollowUpRow>(
-					'personnel_follow_ups',
-					orgId,
-					{ personnel_id: personnelId, ...(archived ? { status: 'archived' } : {}) },
-					{
-						orderBy: [
-							{ column: 'status', ascending: false },
-							...(archived ? [{ column: 'archived_at', ascending: false }] : []),
-							{ column: 'created_at', ascending: false }
-						],
-						...(archived ? {} : { notInFilters: { status: ['archived'] } }),
-						limit
-					}
-				),
-			findDocument: (personnelId, documentId) =>
-				request.store.findOne<PersonnelDocumentRow>('personnel_documents', orgId, {
-					id: documentId,
-					personnel_id: personnelId
-				})
+			listCounselingRecords: request.artifactReads.listCounselingRecords,
+			listDocuments: request.artifactReads.listDocuments,
+			listFollowUps: request.artifactReads.listFollowUps,
+			findDocument: request.artifactReads.findDocument
 		},
 		writerFor(personnelId) {
 			return artifactWrites.forPerson(request.auth, personnelId);
@@ -274,15 +216,17 @@ export function createRequestPersonnelLeaderNoteContext(request: AdmittedOrganiz
 		...request,
 		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase),
 		organizationPersonnel: createSupabasePersonnelRecordPersistence(request.supabase, request.auth.orgId),
-		personnelArtifactWrites: createSupabasePersonnelArtifactWritePort(request.supabase, getAdminClient)
+		personnelArtifactWrites: createSupabasePersonnelArtifactWritePort(request.supabase, getAdminClient),
+		artifactReads: createSupabasePersonnelArtifactReadPersistence(request.supabase, request.auth.orgId)
 	});
 }
 
 export function createPersonnelLeaderNoteDeliveryContext(
-	request: Pick<AdmittedOrganizationRequest, 'auth' | 'audit' | 'store' | 'rawStore' | 'scope'> & {
+	request: Pick<AdmittedOrganizationRequest, 'auth' | 'audit' | 'scope'> & {
 		organizationPersonnel: Pick<PersonnelRecordPersistence, 'findGroupReference'>;
 		organizationSettings: Pick<ReturnType<typeof createSupabaseOrganizationSettingsReader>, 'findMemberLabels'>;
 		personnelArtifactWrites: ReturnType<typeof createSupabasePersonnelArtifactWritePort>;
+		artifactReads: ReturnType<typeof createSupabasePersonnelArtifactReadPersistence>;
 	}
 ): LeaderNoteContext {
 	const artifactWrites = request.personnelArtifactWrites;
@@ -297,54 +241,22 @@ export function createPersonnelLeaderNoteDeliveryContext(
 				const row = await request.organizationPersonnel.findGroupReference(personnelId);
 				return row?.groupId;
 			},
-			async listPage(personnelId, { archived, limit, before }) {
-				const options = {
-					orderBy: [
-						{ column: 'created_at', ascending: false },
-						{ column: 'id', ascending: false }
-					],
-					isNull: { archived_at: !archived },
-					limit
-				};
-				if (!before) {
-					return request.store.findMany<LeaderNoteRow>('leader_notes', orgId, { personnel_id: personnelId }, options);
-				}
-				const tied = await request.store.findMany<LeaderNoteRow>(
-					'leader_notes',
-					orgId,
-					{ personnel_id: personnelId, created_at: before.createdAt },
-					{ ...options, rangeFilters: [{ column: 'id', op: 'lt', value: before.id }] }
-				);
-				if (tied.length === limit) return tied;
-				const older = await request.store.findMany<LeaderNoteRow>(
-					'leader_notes',
-					orgId,
-					{ personnel_id: personnelId },
-					{
-						...options,
-						limit: limit - tied.length,
-						rangeFilters: [{ column: 'created_at', op: 'lt', value: before.createdAt }]
-					}
-				);
-				return [...tied, ...older];
-			},
+			listPage: request.artifactReads.listLeaderNotePage,
 			async find(personnelId, noteId) {
-				return (await writerFor(personnelId)).find<LeaderNoteRow>('leader_notes', noteId);
+				return (await writerFor(personnelId)).findLeaderNote(noteId);
 			},
 			async insert(input) {
-				return (await writerFor(input.personnelId)).insert<LeaderNoteRow>('leader_notes', {
+				return (await writerFor(input.personnelId)).createLeaderNote({
 					author: input.author,
 					text: input.text,
-					created_at: input.createdAt
+					createdAt: input.createdAt
 				});
 			},
 			async update(personnelId, noteId, archivedAt) {
-				return (await writerFor(personnelId)).update<LeaderNoteRow>('leader_notes', noteId, {
-					archived_at: archivedAt
-				});
+				return (await writerFor(personnelId)).setLeaderNoteArchivedAt(noteId, archivedAt);
 			},
 			async delete(personnelId, noteId) {
-				return (await writerFor(personnelId)).delete('leader_notes', noteId);
+				return (await writerFor(personnelId)).deleteLeaderNote(noteId);
 			}
 		},
 		contributorLabels: (userIds) => request.organizationSettings.findMemberLabels(orgId, userIds)
@@ -358,12 +270,8 @@ export function createRequestNotificationDelivery() {
 	});
 }
 
-export function createRequestWriteContext(request: AdmittedOrganizationRequest): WritePorts {
-	return { auth: request.auth, audit: request.audit, store: request.store };
-}
-
 export function createRequestActorContext(request: AdmittedOrganizationRequest) {
-	return { auth: request.auth };
+	return { auth: request.auth, audit: request.audit };
 }
 
 export function createRequestEmptyContext(_request: AdmittedOrganizationRequest) {
@@ -371,6 +279,7 @@ export function createRequestEmptyContext(_request: AdmittedOrganizationRequest)
 }
 
 export function createRequestPersonnelRecordContext(request: AdmittedOrganizationRequest) {
+	const rankCatalog = createSupabaseRankCatalogPersistence(request.supabase, request.auth.orgId);
 	return {
 		auth: request.auth,
 		audit: request.audit,
@@ -378,14 +287,16 @@ export function createRequestPersonnelRecordContext(request: AdmittedOrganizatio
 		organizationPersonnel: createSupabasePersonnelRecordPersistence(request.supabase, request.auth.orgId),
 		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId),
 		loadRankCatalog: () =>
-			loadOrganizationRankCatalog({ auth: request.auth, audit: request.audit, store: request.store })
+			loadOrganizationRankCatalog({ auth: request.auth, audit: request.audit, rankCatalog: rankCatalog })
 	};
 }
 
 export function createRequestRankCatalogContext(request: AdmittedOrganizationRequest) {
 	return {
 		trainingCatalog: createSupabaseTrainingCatalogPersistence(request.supabase, request.auth.orgId),
-		...createRequestDataContext(request),
+		auth: request.auth,
+		audit: request.audit,
+		rankCatalog: createSupabaseRankCatalogPersistence(request.supabase, request.auth.orgId),
 		organizationPersonnel: createSupabasePersonnelRecordPersistence(request.supabase, request.auth.orgId)
 	};
 }
@@ -426,7 +337,7 @@ export function createRequestPersonnelExtendedInfoContext(request: AdmittedOrgan
 	return {
 		auth: request.auth,
 		audit: request.audit,
-		store: request.store,
+		personnelSheets: createSupabasePersonnelSheetPersistence(request.supabase, request.auth.orgId),
 		personnel: createSupabasePersonnelRecordPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet),
 		scope: request.scope
 	};
@@ -436,7 +347,7 @@ export function createRequestPersonnelAwardContext(request: AdmittedOrganization
 	return {
 		auth: request.auth,
 		audit: request.audit,
-		rawStore: request.rawStore,
+		personnelSheets: createSupabasePersonnelSheetPersistence(request.supabase, request.auth.orgId),
 		organizationPersonnel: createSupabasePersonnelRecordPersistence(request.supabase, request.auth.orgId),
 		scope: request.scope
 	};
@@ -448,7 +359,8 @@ export function createRequestPersonnelLifecycleContext(request: AdmittedOrganiza
 		audit: request.audit,
 		personnel: createSupabasePersonnelRecordPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet),
 		organizationPersonnel: createSupabasePersonnelRecordPersistence(request.supabase, request.auth.orgId),
-		personnelArtifactWrites: createSupabasePersonnelArtifactWritePort(request.supabase, getAdminClient)
+		personnelArtifactWrites: createSupabasePersonnelArtifactWritePort(request.supabase, getAdminClient),
+		artifactReads: createSupabasePersonnelArtifactReadPersistence(request.supabase, request.auth.orgId)
 	};
 }
 
@@ -470,12 +382,13 @@ export function createRequestPersonnelPermanentDeletionContext(request: Admitted
 }
 
 export function createRequestPersonnelWorkspaceContext(request: AdmittedOrganizationRequest) {
+	const rankCatalog = createSupabaseRankCatalogPersistence(request.supabase, request.auth.orgId);
 	return {
 		...createRequestPersonnelRosterContext(request),
 		organizationRoster: createSupabasePersonnelRosterReader(request.supabase, request.auth.orgId),
 		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId),
 		selfPins: createSupabaseSelfPinPersistence(request.supabase, request.auth.orgId, request.auth.userId),
-		loadRankCatalog: () => loadOrganizationRankCatalog({ auth: request.auth, store: request.store }),
+		loadRankCatalog: () => loadOrganizationRankCatalog({ auth: request.auth, rankCatalog: rankCatalog }),
 		calendarCatalogs: createSupabaseCalendarCatalogPersistence(request.supabase, request.auth.orgId),
 		personnelAwardAcknowledgement: createSupabasePersonnelAwardAcknowledgementPort(request.supabase),
 		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase)
@@ -518,7 +431,7 @@ export function createRequestPersonnelExportContext(request: AdmittedOrganizatio
 		calendarCatalogs: createSupabaseCalendarCatalogPersistence(request.supabase, request.auth.orgId),
 		organizationPersonnel: createSupabasePersonnelRecordPersistence(request.supabase, request.auth.orgId),
 		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId),
-		rawStore: request.rawStore
+		personnelWorkbookHistory: createSupabasePersonnelWorkbookHistoryReader(request.supabase, request.auth.orgId)
 	};
 }
 
@@ -612,6 +525,7 @@ export function createRequestSignInRosterContext(request: AdmittedOrganizationRe
 }
 
 export function createRequestSignInRosterCreationContext(request: AdmittedOrganizationRequest) {
+	const rankCatalog = createSupabaseRankCatalogPersistence(request.supabase, request.auth.orgId);
 	return {
 		...createRequestSignInRosterContext(request),
 		userId: request.auth.userId,
@@ -621,7 +535,7 @@ export function createRequestSignInRosterCreationContext(request: AdmittedOrgani
 			findGroupNamesByIds({ groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId) }, groupIds),
 		loadRankCatalog: () =>
 			loadOrganizationRankCatalog(
-				{ auth: request.auth, store: request.rawStore },
+				{ auth: request.auth, rankCatalog: rankCatalog },
 				{ authorization: 'training-records' }
 			)
 	};
@@ -718,7 +632,9 @@ export function createRequestDashboardWorkspaceContext(request: AdmittedOrganiza
 export function createRequestDashboardSummaryContext(request: AdmittedOrganizationRequest) {
 	return {
 		trainingCompletions: createSupabaseTrainingCompletionPersistence(request.supabase, request.auth.orgId),
-		...createRequestDataContext(request),
+		auth: request.auth,
+		audit: request.audit,
+		rankCatalog: createSupabaseRankCatalogPersistence(request.supabase, request.auth.orgId),
 		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId),
 		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase),
 		criticalTasksReadModel: createSupabaseCriticalTasksReadModelAdapter(request.supabase),

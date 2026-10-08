@@ -17,7 +17,12 @@ export function createSupabasePersonnelExportReader(client: SupabaseClient, orgI
 				throw new RequestFailure(400, 'Unsupported Personnel export table');
 			}
 			const result = await selectAllSupabaseRows<Record<string, unknown>>(async (from, to) => {
-				const { data, error } = await client.from(table).select('*').eq('organization_id', orgId).range(from, to);
+				const { data, error } = await client
+					.from(table)
+					.select('*')
+					.eq('organization_id', orgId)
+					.order('id', { ascending: true })
+					.range(from, to);
 				return { data, error };
 			});
 			if (result.error)

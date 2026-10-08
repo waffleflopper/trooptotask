@@ -149,12 +149,12 @@ describe('Personnel — archive', () => {
 				const writer = await forPeople(...args);
 				return {
 					...writer,
-					async update(table, row, patch) {
-						if (table === 'leader_notes' && failNote) {
+					async setLeaderNoteArchivedAt(row, archivedAt) {
+						if (failNote) {
 							failNote = false;
 							throw new Error('note archive interrupted');
 						}
-						await writer.update(table, row, patch);
+						await writer.setLeaderNoteArchivedAt(row, archivedAt);
 					}
 				};
 			};

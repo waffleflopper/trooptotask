@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
 import { listPersonnelLeaderNotes } from '$features/personnel/index.server';
 import { createTestContext } from './inMemory';
-import { createSupabaseDataStore } from './supabaseDataStore';
+import { createSupabasePersonnelArtifactReadPersistence } from '$features/personnel/index.server';
 import { createPersonnelLeaderNoteDeliveryContext } from './requestContexts.server';
 
 function seedPersonnel(ctx: ReturnType<typeof createTestContext>) {
@@ -88,7 +88,10 @@ describe('Personnel note cursor delivery', () => {
 				}
 			});
 			const ctx = createTestContext();
-			const notes = createPersonnelLeaderNoteDeliveryContext({ ...ctx, store: createSupabaseDataStore(client) });
+			const notes = createPersonnelLeaderNoteDeliveryContext({
+				...ctx,
+				artifactReads: createSupabasePersonnelArtifactReadPersistence(client, ctx.auth.orgId)
+			});
 			const rows = await notes.persistence.listPage('person-1', {
 				archived,
 				limit: 100,

@@ -1,3 +1,13 @@
+import type { PersonnelArtifactReadPersistence } from '$features/personnel/contracts';
+import type {
+	CounselingRecordRow,
+	PersonnelDocumentRow,
+	FollowUpRow,
+	LeaderNoteRow
+} from '$features/personnel/contracts';
+import type { PersonnelArtifactRef } from '$features/personnel/contracts';
+import type { PersonnelSheetPersistence, PersonnelWorkbookHistoryReader } from '$features/personnel/contracts';
+import type { RankCatalogPersistence } from '$features/personnel/contracts';
 import type {
 	OrganizationSettingsMembershipRow,
 	OrganizationSettingsInvitationRow,
@@ -15,19 +25,10 @@ import {
 } from '$features/personnel/inMemoryPersonnelPersistence.server';
 import { loadOrganizationRankCatalog } from '$features/personnel/index.server';
 import type { createRequestOrganizationExportContext } from './requestContexts.server';
-/**
- * In-memory implementations of all port interfaces, used in unit and integration tests.
- *
- * Key exports:
- * - `createInMemoryDataStore()` — DataStore with a `.seed(table, rows)` method for
- *   pre-populating test data. Supports filters, sorting, pagination, and range filters.
- * - Individual port builders (`createTestAuthContext`, `createTestAuditPort`, etc.) for
- *   tests that only need specific ports.
- *
- * Group scoping works automatically from `auth.scopeSet`. Critical Tasks latest-read
- * consumers supply their owned adapter through `criticalTasksReadModelFactory`.
- */
-import type { DataStore, FindOptions, FindResult, ScopeEnforcementPort, StoragePort } from '../core/ports';
+
+import type { FixtureRowStore, FixtureFindOptions, FixtureFindResult } from './test-support/inMemoryRows.types';
+import type { PersonnelScopeEnforcement } from '$features/personnel/contracts';
+import type { StoragePort } from '$lib/storage/contracts';
 import type { AuditEvent, AuditPort } from '$lib/audit/contracts';
 import type { CapabilityMap, OrganizationAccessGrant, ScopeSet } from '$lib/access/memberAccessShape';
 import type {
@@ -79,8 +80,8 @@ import type {
 import type { RatingSchemeDuePort, RatingSchemePersistence } from '$features/rating-scheme/contracts';
 import type { SignInRosterFileWritePort } from '$features/sign-in-rosters/contracts';
 import type { TrainingOnboardingReferencesPort } from '$features/training/contracts';
-import { createScopedDataStore } from './scopedDataStore';
-import { defaultScopeRules } from './scopeRules';
+import { createScopedFixtureRows } from './test-support/scopedFixtureRows';
+import { fixtureScopeRules } from './test-support/fixtureScopeRules';
 import { RequestFailure } from '$lib/errors';
 
 type Row = Record<string, unknown>;
@@ -119,7 +120,7 @@ function createInMemorySignInRosterFileWritePort(storage: StoragePort): SignInRo
 	};
 }
 
-function createInMemoryPersonnelOrganizationExportPort(rawStore: DataStore): PersonnelOrganizationExportPort {
+function createInMemoryPersonnelOrganizationExportPort(rawStore: FixtureRowStore): PersonnelOrganizationExportPort {
 	return {
 		listRows(actor, table) {
 			return rawStore.findMany<Record<string, unknown>>(table, actor.orgId);
@@ -139,23 +140,23 @@ const FULL_CAPABILITY_MAP: CapabilityMap = {
 type TestAuthContextOverrides = Partial<OrganizationAccessGrant> & Record<string, unknown>;
 
 type TestContextOptions = {
-	onboardingCatalogFactory?: (store: DataStore, orgId: string) => OnboardingCatalogPersistence;
-	onboardingWorkflowFactory?: (store: DataStore, orgId: string) => OnboardingWorkflowPersistence;
-	trainingCatalogFactory?: (store: DataStore, orgId: string) => TrainingCatalogPersistence;
-	trainingCompletionsFactory?: (store: DataStore, orgId: string) => TrainingCompletionPersistence;
+	onboardingCatalogFactory?: (store: FixtureRowStore, orgId: string) => OnboardingCatalogPersistence;
+	onboardingWorkflowFactory?: (store: FixtureRowStore, orgId: string) => OnboardingWorkflowPersistence;
+	trainingCatalogFactory?: (store: FixtureRowStore, orgId: string) => TrainingCatalogPersistence;
+	trainingCompletionsFactory?: (store: FixtureRowStore, orgId: string) => TrainingCompletionPersistence;
 	auth?: Parameters<typeof createTestAuthContext>[0];
-	calendarCatalogsFactory?: (rawStore: DataStore, orgId: string) => CalendarCatalogPersistence;
+	calendarCatalogsFactory?: (rawStore: FixtureRowStore, orgId: string) => CalendarCatalogPersistence;
 	calendarAvailabilityFactory?: (
-		rawStore: DataStore,
+		rawStore: FixtureRowStore,
 		auth: OrganizationAccessGrant,
 		removal: CalendarAvailabilityRemovalPort
 	) => CalendarAvailabilityPersistence;
-	calendarAssignmentsFactory?: (rawStore: DataStore, orgId: string) => CalendarAssignmentReader;
-	ratingSchemeFactory?: (rawStore: DataStore, orgId: string) => RatingSchemePersistence;
-	criticalTaskLibraryFactory?: (rawStore: DataStore, orgId: string) => CriticalTaskLibraryPersistence;
-	criticalTaskCompletionsFactory?: (rawStore: DataStore, orgId: string) => CriticalTaskCompletionPersistence;
+	calendarAssignmentsFactory?: (rawStore: FixtureRowStore, orgId: string) => CalendarAssignmentReader;
+	ratingSchemeFactory?: (rawStore: FixtureRowStore, orgId: string) => RatingSchemePersistence;
+	criticalTaskLibraryFactory?: (rawStore: FixtureRowStore, orgId: string) => CriticalTaskLibraryPersistence;
+	criticalTaskCompletionsFactory?: (rawStore: FixtureRowStore, orgId: string) => CriticalTaskCompletionPersistence;
 	criticalTasksReadModelFactory?: (
-		rawStore: DataStore,
+		rawStore: FixtureRowStore,
 		criticalTaskLibrary: CriticalTaskLibraryPersistence,
 		criticalTaskCompletions: CriticalTaskCompletionPersistence
 	) => CriticalTasksReadModelPort;
@@ -166,7 +167,7 @@ type TestContextOptions = {
 	onboardingPacketCreation?: OnboardingPacketCreationPort;
 };
 
-function createTestOnboardingPersistence(store: DataStore, orgId: string, options?: TestContextOptions) {
+function createTestOnboardingPersistence(store: FixtureRowStore, orgId: string, options?: TestContextOptions) {
 	async function unavailable(): Promise<never> {
 		throw new Error('Bind the owned Onboarding persistence provider in this test context');
 	}
@@ -208,7 +209,7 @@ function createTestOnboardingPersistence(store: DataStore, orgId: string, option
 	};
 }
 
-function createTestTrainingPersistence(store: DataStore, orgId: string, options?: TestContextOptions) {
+function createTestTrainingPersistence(store: FixtureRowStore, orgId: string, options?: TestContextOptions) {
 	async function unavailable(): Promise<never> {
 		throw new Error('Bind the owned Training persistence provider in this test context');
 	}
@@ -256,8 +257,8 @@ function unavailableCalendarPersistence(): never {
 }
 
 function createTestCalendarPersistence(
-	rawStore: DataStore,
-	store: DataStore,
+	rawStore: FixtureRowStore,
+	store: FixtureRowStore,
 	auth: OrganizationAccessGrant,
 	options?: TestContextOptions
 ): {
@@ -421,7 +422,7 @@ function getOrgColumn(table: string): string {
 	}
 }
 
-export function createInMemoryDataStore(): DataStore & {
+export function createInMemoryDataStore(): FixtureRowStore & {
 	seed(table: string, rows: Row[]): void;
 	replaceDailyAssignmentSlots(
 		orgId: string,
@@ -450,7 +451,7 @@ export function createInMemoryDataStore(): DataStore & {
 		rows: Row[],
 		orgId: string,
 		filters?: Record<string, unknown>,
-		options?: FindOptions
+		options?: FixtureFindOptions
 	): Row[] {
 		const allFilters = { ...filters, ...options?.filters };
 		let results = rows.filter((row) =>
@@ -505,7 +506,7 @@ export function createInMemoryDataStore(): DataStore & {
 		return results;
 	}
 
-	function applySorting(results: Row[], options?: FindOptions): Row[] {
+	function applySorting(results: Row[], options?: FixtureFindOptions): Row[] {
 		if (options?.orderBy && options.orderBy.length > 0) {
 			results.sort((a, b) => {
 				for (const { column, ascending } of options.orderBy!) {
@@ -523,7 +524,7 @@ export function createInMemoryDataStore(): DataStore & {
 		return results;
 	}
 
-	function applyPagination<T>(results: Row[], options?: FindOptions): T[] {
+	function applyPagination<T>(results: Row[], options?: FixtureFindOptions): T[] {
 		let sliced = results;
 		if (options?.range) {
 			sliced = sliced.slice(options.range.from, options.range.to + 1);
@@ -539,7 +540,7 @@ export function createInMemoryDataStore(): DataStore & {
 		rows: Row[],
 		orgId: string,
 		filters?: Record<string, unknown>,
-		options?: FindOptions
+		options?: FixtureFindOptions
 	): T[] {
 		const filtered = applyFilters(table, rows, orgId, filters, options);
 		const sorted = applySorting(filtered, options);
@@ -590,7 +591,7 @@ export function createInMemoryDataStore(): DataStore & {
 			table: string,
 			orgId: string,
 			filters?: Record<string, unknown>,
-			options?: FindOptions
+			options?: FixtureFindOptions
 		): Promise<T[]> {
 			return applyQuery<T>(table, getRows(table), orgId, filters, options);
 		},
@@ -599,8 +600,8 @@ export function createInMemoryDataStore(): DataStore & {
 			table: string,
 			orgId: string,
 			filters?: Record<string, unknown>,
-			options?: FindOptions
-		): Promise<FindResult<T>> {
+			options?: FixtureFindOptions
+		): Promise<FixtureFindResult<T>> {
 			const filtered = applyFilters(table, getRows(table), orgId, filters, options);
 			const count = filtered.length;
 			const data = applyPagination<T>(applySorting(filtered, options), options);
@@ -744,8 +745,10 @@ export function createTestAuthContext(overrides?: TestAuthContextOverrides): Org
 	return { ...defaults, ...overrides };
 }
 
-export function createTestScopeEnforcementPort(overrides?: Partial<ScopeEnforcementPort>): ScopeEnforcementPort {
-	const defaults: ScopeEnforcementPort = {
+export function createTestScopeEnforcementPort(
+	overrides?: Partial<PersonnelScopeEnforcement>
+): PersonnelScopeEnforcement {
+	const defaults: PersonnelScopeEnforcement = {
 		async requireGroupAccess() {},
 		async requireGroupAccessBatch() {}
 	};
@@ -795,7 +798,7 @@ function createScopedTestStores(auth: OrganizationAccessGrant): {
 		return { store: rawStore, rawStore };
 	}
 
-	const scopedStore = Object.assign(createScopedDataStore(rawStore, auth.scopeSet, defaultScopeRules), {
+	const scopedStore = Object.assign(createScopedFixtureRows(rawStore, auth.scopeSet, fixtureScopeRules), {
 		seed: rawStore.seed
 	}) as InMemoryDataStore;
 
@@ -812,8 +815,8 @@ function createInMemoryCalendarAssignmentReplacementPort(
 }
 
 function createInMemoryCalendarAvailabilityRemovalPort(
-	rawStore: DataStore,
-	store: DataStore,
+	rawStore: FixtureRowStore,
+	store: FixtureRowStore,
 	orgId: string
 ): CalendarAvailabilityRemovalPort {
 	return {
@@ -829,7 +832,7 @@ function createInMemoryCalendarAvailabilityRemovalPort(
 }
 
 async function inMemoryPersonnelRows(
-	rawStore: DataStore,
+	rawStore: FixtureRowStore,
 	actor: OrganizationAccessGrant,
 	status: 'active' | 'all',
 	ids?: string[]
@@ -851,7 +854,7 @@ async function inMemoryPersonnelRows(
 	});
 }
 
-function createInMemoryPersonnelAwardAcknowledgementPort(rawStore: DataStore): PersonnelAwardAcknowledgementPort {
+function createInMemoryPersonnelAwardAcknowledgementPort(rawStore: FixtureRowStore): PersonnelAwardAcknowledgementPort {
 	return {
 		async listAcknowledgedPersonnelIds(actor) {
 			if (!actor.isPrivileged && actor.capabilityMap.personnel === 'none') return [];
@@ -872,7 +875,7 @@ function createInMemoryPersonnelAwardAcknowledgementPort(rawStore: DataStore): P
 }
 
 function createInMemoryPersonnelArtifactWritePort(
-	rawStore: DataStore,
+	rawStore: FixtureRowStore,
 	storage: StoragePort
 ): PersonnelArtifactWritePort {
 	return {
@@ -894,7 +897,7 @@ function createInMemoryPersonnelArtifactWritePort(
 			) {
 				throw new RequestFailure(403, 'You do not have access to records outside your assigned scope');
 			}
-			return {
+			const rows = {
 				find<T>(table: string, id: string) {
 					return rawStore.findOne<T>(table, actor.orgId, { id, personnel_id: personnelId });
 				},
@@ -949,6 +952,72 @@ function createInMemoryPersonnelArtifactWritePort(
 					await storage.remove(kind === 'counseling' ? 'counseling-files' : 'personnel-documents', [path]);
 				}
 			};
+			return {
+				findCounseling: (id) => rows.find<CounselingRecordRow>('counseling_records', id),
+				createCounseling: (input) =>
+					rows.insert<CounselingRecordRow>('counseling_records', {
+						date_conducted: input.dateConducted,
+						title: input.title,
+						subject: input.title,
+						summary: input.summary,
+						notes: input.summary,
+						uploaded_by: input.uploadedBy,
+						file_path: input.filePath,
+						status: 'completed',
+						created_at: input.createdAt
+					}),
+				setCounselingArchivedAt: (id, archivedAt) =>
+					rows.update<CounselingRecordRow>('counseling_records', id, { archived_at: archivedAt }),
+				deleteCounseling: (id) => rows.delete('counseling_records', id),
+				findDocument: (id) => rows.find<PersonnelDocumentRow>('personnel_documents', id),
+				createDocument: (input) =>
+					rows.insert<PersonnelDocumentRow>('personnel_documents', {
+						title: input.title,
+						file_path: input.filePath,
+						file_size_bytes: input.fileSizeBytes,
+						content_type: input.contentType,
+						uploaded_by: input.uploadedBy,
+						created_at: input.createdAt
+					}),
+				setDocumentArchivedAt: (id, archivedAt) =>
+					rows.update<PersonnelDocumentRow>('personnel_documents', id, { archived_at: archivedAt }),
+				deleteDocument: (id) => rows.delete('personnel_documents', id),
+				findFollowUp: (id) => rows.find<FollowUpRow>('personnel_follow_ups', id),
+				createFollowUp: (input) =>
+					rows.insert<FollowUpRow>('personnel_follow_ups', {
+						title: input.title,
+						notes: input.notes,
+						due_date: input.dueDate,
+						status: 'open',
+						created_by: input.createdBy,
+						created_at: input.createdAt,
+						updated_at: input.updatedAt
+					}),
+				patchFollowUp: (id, input) =>
+					rows.update<FollowUpRow>('personnel_follow_ups', id, {
+						...(input.title !== undefined ? { title: input.title } : {}),
+						...(input.notes !== undefined ? { notes: input.notes } : {}),
+						...(input.dueDate !== undefined ? { due_date: input.dueDate } : {}),
+						...(input.status !== undefined ? { status: input.status } : {}),
+						...(input.completedAt !== undefined ? { completed_at: input.completedAt } : {}),
+						...(input.archivedAt !== undefined ? { archived_at: input.archivedAt } : {}),
+						updated_at: input.updatedAt
+					}),
+				deleteFollowUp: (id) => rows.delete('personnel_follow_ups', id),
+				findLeaderNote: (id) => rows.find<LeaderNoteRow>('leader_notes', id),
+				createLeaderNote: (input) =>
+					rows.insert<LeaderNoteRow>('leader_notes', {
+						author: input.author,
+						text: input.text,
+						created_at: input.createdAt
+					}),
+				setLeaderNoteArchivedAt: (id, archivedAt) =>
+					rows.update<LeaderNoteRow>('leader_notes', id, { archived_at: archivedAt }),
+				deleteLeaderNote: (id) => rows.delete('leader_notes', id),
+				sumActiveDocumentBytes: rows.sumActiveDocumentBytes,
+				uploadFile: rows.uploadFile,
+				removeFile: rows.removeFile
+			};
 		},
 		async forPeople(actor, personnelIds) {
 			const ids = [...new Set(personnelIds)];
@@ -974,8 +1043,8 @@ function createInMemoryPersonnelArtifactWritePort(
 				throw new RequestFailure(403, 'You do not have access to records outside your assigned scope');
 			}
 			const allowed = new Set(ids);
-			return {
-				async listCandidates(table, options) {
+			const rows = {
+				async listCandidates(table: string, options: { archivedAt: string | null; status?: 'open' }) {
 					const rows = await rawStore.findMany<{ id: string; personnel_id: string }>(
 						table,
 						actor.orgId,
@@ -990,7 +1059,7 @@ function createInMemoryPersonnelArtifactWritePort(
 					);
 					return rows.map((row) => ({ id: row.id, personnelId: row.personnel_id }));
 				},
-				async update(table, row, patch) {
+				async update(table: string, row: PersonnelArtifactRef, patch: Record<string, unknown>) {
 					if (!allowed.has(row.personnelId)) {
 						throw new RequestFailure(403, 'Artifact Person is outside the authorized batch');
 					}
@@ -1004,6 +1073,26 @@ function createInMemoryPersonnelArtifactWritePort(
 					if (!existing) return;
 					await rawStore.update(table, actor.orgId, row.id, patch);
 				}
+			};
+			return {
+				listFollowUpArchiveCandidates: (archivedAt) =>
+					rows.listCandidates('personnel_follow_ups', {
+						archivedAt,
+						...(archivedAt === null ? { status: 'open' } : {})
+					}),
+				listCounselingArchiveCandidates: (archivedAt) => rows.listCandidates('counseling_records', { archivedAt }),
+				listDocumentArchiveCandidates: (archivedAt) => rows.listCandidates('personnel_documents', { archivedAt }),
+				listLeaderNoteArchiveCandidates: (archivedAt) => rows.listCandidates('leader_notes', { archivedAt }),
+				setFollowUpArchivedState: (row, archivedAt) =>
+					rows.update('personnel_follow_ups', row, {
+						archived_at: archivedAt,
+						status: archivedAt === null ? 'open' : 'archived'
+					}),
+				setCounselingArchivedAt: (row, archivedAt) =>
+					rows.update('counseling_records', row, { archived_at: archivedAt }),
+				setDocumentArchivedAt: (row, archivedAt) =>
+					rows.update('personnel_documents', row, { archived_at: archivedAt }),
+				setLeaderNoteArchivedAt: (row, archivedAt) => rows.update('leader_notes', row, { archived_at: archivedAt })
 			};
 		}
 	};
@@ -1026,7 +1115,7 @@ function inMemoryPersonnelFromRow(row: Row) {
 	};
 }
 
-function createInMemoryPersonnelCalendarRosterPort(rawStore: DataStore): PersonnelCalendarRosterPort {
+function createInMemoryPersonnelCalendarRosterPort(rawStore: FixtureRowStore): PersonnelCalendarRosterPort {
 	return {
 		async listActive(actor) {
 			return (await inMemoryPersonnelRows(rawStore, actor, 'active')).map(inMemoryPersonnelFromRow);
@@ -1045,7 +1134,7 @@ function createInMemoryPersonnelCalendarRosterPort(rawStore: DataStore): Personn
 	};
 }
 
-function createInMemoryPersonnelOnboardingRosterPort(rawStore: DataStore): PersonnelOnboardingRosterPort {
+function createInMemoryPersonnelOnboardingRosterPort(rawStore: FixtureRowStore): PersonnelOnboardingRosterPort {
 	return {
 		async listRoster(actor, status) {
 			return (await inMemoryPersonnelRows(rawStore, actor, status)).map(inMemoryPersonnelFromRow);
@@ -1061,7 +1150,7 @@ function createInMemoryPersonnelOnboardingRosterPort(rawStore: DataStore): Perso
 	};
 }
 
-function createInMemoryPersonnelTrainingRosterPort(rawStore: DataStore): PersonnelTrainingRosterPort {
+function createInMemoryPersonnelTrainingRosterPort(rawStore: FixtureRowStore): PersonnelTrainingRosterPort {
 	const listActive = async (actor: OrganizationAccessGrant) =>
 		(await inMemoryPersonnelRows(rawStore, actor, 'active')).map(inMemoryPersonnelFromRow);
 	return {
@@ -1078,7 +1167,7 @@ function createInMemoryPersonnelTrainingRosterPort(rawStore: DataStore): Personn
 	};
 }
 
-function createInMemoryPersonnelCriticalTasksRosterPort(rawStore: DataStore): PersonnelCriticalTasksRosterPort {
+function createInMemoryPersonnelCriticalTasksRosterPort(rawStore: FixtureRowStore): PersonnelCriticalTasksRosterPort {
 	return {
 		async listActiveForReadiness(actor) {
 			return (await inMemoryPersonnelRows(rawStore, actor, 'active')).map(inMemoryPersonnelFromRow);
@@ -1103,7 +1192,7 @@ function createInMemoryPersonnelCriticalTasksRosterPort(rawStore: DataStore): Pe
 	};
 }
 
-function createInMemoryRatingSchemeDuePort(rawStore: DataStore): RatingSchemeDuePort {
+function createInMemoryRatingSchemeDuePort(rawStore: FixtureRowStore): RatingSchemeDuePort {
 	return {
 		async listDueEntries(actor) {
 			if (actor.capabilityMap.ratingScheme === 'none') return [];
@@ -1122,7 +1211,7 @@ function createInMemoryRatingSchemeDuePort(rawStore: DataStore): RatingSchemeDue
 	};
 }
 
-function createInMemoryPersonnelRatingSchemeRosterPort(rawStore: DataStore): PersonnelRatingSchemeRosterPort {
+function createInMemoryPersonnelRatingSchemeRosterPort(rawStore: FixtureRowStore): PersonnelRatingSchemeRosterPort {
 	return {
 		async listActiveReferences(actor) {
 			return (await inMemoryPersonnelRows(rawStore, actor, 'active')).map((row) => ({
@@ -1145,7 +1234,7 @@ function createInMemoryPersonnelRatingSchemeRosterPort(rawStore: DataStore): Per
 	};
 }
 
-function createInMemoryTrainingOnboardingReferencesPort(rawStore: DataStore): TrainingOnboardingReferencesPort {
+function createInMemoryTrainingOnboardingReferencesPort(rawStore: FixtureRowStore): TrainingOnboardingReferencesPort {
 	return {
 		async listTypes(actor) {
 			const rows = await rawStore.findMany<Row>('training_types', actor.orgId, undefined, {
@@ -1210,7 +1299,7 @@ function createInMemoryTrainingOnboardingReferencesPort(rawStore: DataStore): Tr
 }
 
 function createInMemoryOnboardingCalendarMarkersPort(
-	rawStore: DataStore,
+	rawStore: FixtureRowStore,
 	auth: OrganizationAccessGrant
 ): OnboardingCalendarMarkersPort {
 	return {
@@ -1258,7 +1347,7 @@ function unavailableNotificationStore(): NotificationStore {
 	};
 }
 
-function createInMemoryOrganizationSettingsReader(store: DataStore): OrganizationSettingsReader {
+function createInMemoryOrganizationSettingsReader(store: FixtureRowStore): OrganizationSettingsReader {
 	async function findScalar(orgId: string, column: string) {
 		const row = await store.findOne<Record<string, number | null>>('organizations', orgId.toLowerCase(), {}, column);
 		return row?.[column];
@@ -1373,7 +1462,7 @@ function createInMemoryOrganizationSettingsReader(store: DataStore): Organizatio
 	};
 }
 
-function createInMemoryOrganizationPolicyWritePort(store: DataStore): OrganizationPolicyWritePort {
+function createInMemoryOrganizationPolicyWritePort(store: FixtureRowStore): OrganizationPolicyWritePort {
 	return {
 		async updatePolicies(orgId, changes) {
 			const updates: Record<string, number> = {};
@@ -1390,7 +1479,7 @@ function createInMemoryOrganizationPolicyWritePort(store: DataStore): Organizati
 	};
 }
 
-export function createTestOrganizationArchiveReaders(rawStore: Pick<DataStore, 'findMany'>, orgId: string) {
+export function createTestOrganizationArchiveReaders(rawStore: Pick<FixtureRowStore, 'findMany'>, orgId: string) {
 	return {
 		calendar: {
 			async listRows(table) {
@@ -1417,7 +1506,7 @@ export function createTestOrganizationArchiveReaders(rawStore: Pick<DataStore, '
 	} satisfies ReturnType<typeof createRequestOrganizationExportContext>['archiveReaders'];
 }
 
-export function createTestDataExportLifecycleWriter(store: DataStore, orgId: string): DataExportLifecycleWriter {
+export function createTestDataExportLifecycleWriter(store: FixtureRowStore, orgId: string): DataExportLifecycleWriter {
 	return {
 		async createProcessing(input) {
 			const row = await store.insert<{ id: string }>('data_exports', orgId, {
@@ -1443,21 +1532,140 @@ export function createTestDataExportLifecycleWriter(store: DataStore, orgId: str
 	};
 }
 
-function createTestPersonnelPersistence(rawStore: DataStore, store: DataStore, auth: OrganizationAccessGrant) {
+function createTestArtifactReadPersistence(store: FixtureRowStore, orgId: string): PersonnelArtifactReadPersistence {
 	return {
+		listCounselingRecords: (personnelId, { archived, limit }) =>
+			store.findMany(
+				'counseling_records',
+				orgId,
+				{ personnel_id: personnelId },
+				{
+					isNull: { archived_at: !archived },
+					limit,
+					orderBy: [
+						{ column: 'date_conducted', ascending: false },
+						{ column: 'created_at', ascending: false }
+					]
+				}
+			),
+		listDocuments: (personnelId, { archived, limit }) =>
+			store.findMany(
+				'personnel_documents',
+				orgId,
+				{ personnel_id: personnelId },
+				{ isNull: { archived_at: !archived }, limit, orderBy: [{ column: 'created_at', ascending: false }] }
+			),
+		listFollowUps: (personnelId, { archived, limit }) =>
+			store.findMany(
+				'personnel_follow_ups',
+				orgId,
+				{ personnel_id: personnelId, ...(archived ? { status: 'archived' } : {}) },
+				{
+					...(archived ? {} : { notInFilters: { status: ['archived'] } }),
+					limit,
+					orderBy: [
+						{ column: 'status', ascending: false },
+						...(archived ? [{ column: 'archived_at', ascending: false }] : []),
+						{ column: 'created_at', ascending: false }
+					]
+				}
+			),
+		findDocument: (personnelId, id) => store.findOne('personnel_documents', orgId, { id, personnel_id: personnelId }),
+		async listLeaderNotePage(personnelId, { archived, limit, before }) {
+			const options = {
+				isNull: { archived_at: !archived },
+				limit,
+				orderBy: [
+					{ column: 'created_at', ascending: false },
+					{ column: 'id', ascending: false }
+				]
+			};
+			if (!before) return store.findMany('leader_notes', orgId, { personnel_id: personnelId }, options);
+			const tied = await store.findMany<LeaderNoteRow>(
+				'leader_notes',
+				orgId,
+				{ personnel_id: personnelId, created_at: before.createdAt },
+				{ ...options, rangeFilters: [{ column: 'id', op: 'lt', value: before.id }] }
+			);
+			if (tied.length === limit) return tied;
+			return [
+				...tied,
+				...(await store.findMany<LeaderNoteRow>(
+					'leader_notes',
+					orgId,
+					{ personnel_id: personnelId },
+					{
+						...options,
+						limit: limit - tied.length,
+						rangeFilters: [{ column: 'created_at', op: 'lt', value: before.createdAt }]
+					}
+				))
+			];
+		}
+	};
+}
+export function createTestRankCatalogPersistence(store: FixtureRowStore, orgId: string): RankCatalogPersistence {
+	return {
+		listEntries: () => store.findMany('organization_rank_catalog', orgId),
+		findEntryByCode: (code) => store.findOne('organization_rank_catalog', orgId, { code }),
+		saveEntries: (entries) =>
+			store.upsertMany(
+				'organization_rank_catalog',
+				orgId,
+				entries.map((entry) => ({ ...entry })),
+				{ onConflict: 'organization_id,code' }
+			),
+		patchEntryById: (id, values) => store.update('organization_rank_catalog', orgId, id, { ...values })
+	};
+}
+function createTestPersonnelPersistence(
+	rawStore: FixtureRowStore,
+	store: FixtureRowStore,
+	auth: OrganizationAccessGrant
+) {
+	const rankCatalog = createTestRankCatalogPersistence(rawStore, auth.orgId);
+	const personnelSheets: PersonnelSheetPersistence = {
+		listSheetsForPerson: (personnelId) =>
+			rawStore.findMany('personnel_extended_info', auth.orgId, { personnel_id: personnelId }),
+		findSheetForPerson: (personnelId) =>
+			rawStore.findOne('personnel_extended_info', auth.orgId, { personnel_id: personnelId }),
+		createSheet: (personnelId, values) =>
+			rawStore.insert('personnel_extended_info', auth.orgId, { ...values, personnel_id: personnelId }),
+		replaceEditableSheetFields: (id, values) =>
+			rawStore.update('personnel_extended_info', auth.orgId, id, { ...values }),
+		setAwardAcknowledgedAt: async (id, value) => {
+			await rawStore.update('personnel_extended_info', auth.orgId, id, { award_tracking_acknowledged_at: value });
+		}
+	};
+	const personnelWorkbookHistory: PersonnelWorkbookHistoryReader = {
+		listCounselingExportFacts: (personnelId) =>
+			rawStore.findMany(
+				'counseling_records',
+				auth.orgId,
+				{ personnel_id: personnelId },
+				{ orderBy: [{ column: 'date_conducted', ascending: false }] }
+			),
+		listExtendedInfoExportFacts: (personnelId) =>
+			rawStore.findMany('personnel_extended_info', auth.orgId, { personnel_id: personnelId })
+	};
+	return {
+		artifactReads: createTestArtifactReadPersistence(store, auth.orgId),
+		personnelSheets,
+		personnelWorkbookHistory,
 		personnel: createInMemoryPersonnelRecordPersistence(store, auth.orgId),
 		organizationPersonnel: createInMemoryPersonnelRecordPersistence(rawStore, auth.orgId),
 		roster: createInMemoryPersonnelRosterReader(store, auth.orgId),
 		organizationRoster: createInMemoryPersonnelRosterReader(rawStore, auth.orgId),
 		groups: createInMemoryGroupPersistence(store, auth.orgId),
 		selfPins: createInMemorySelfPinPersistence(store, auth.orgId, auth.userId),
-		loadRankCatalog: () => loadOrganizationRankCatalog({ auth, store })
+		rankCatalog,
+		loadRankCatalog: () => loadOrganizationRankCatalog({ auth, rankCatalog })
 	};
 }
 
 export function createTestContext(
 	overrides?: TestContextOptions & {
-		scope?: Partial<ScopeEnforcementPort>;
+		scope?: Partial<PersonnelScopeEnforcement>;
 
 		sensitiveActionDecision?: Partial<SensitiveActionDecision>;
 	}

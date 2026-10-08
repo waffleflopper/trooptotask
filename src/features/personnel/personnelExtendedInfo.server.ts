@@ -1,3 +1,8 @@
+import type {
+	PersonnelSheetPersistence,
+	PersonnelSheetEditableValues,
+	SavedPersonnelSheet
+} from './personnelSheetPersistence';
 import type { PersonnelRecordPersistence } from './contracts';
 import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
@@ -12,47 +17,12 @@ interface PersonnelExtendedInfoContext {
 	audit: PolicyAuditSink;
 	scope: { requireGroupAccess(personnelId: string): Promise<void> };
 	personnel: Pick<PersonnelRecordPersistence, 'findGroupReference'>;
-	store: {
-		findOne<T>(
-			table: 'personnel_extended_info',
-			orgId: string,
-			filters: Record<string, unknown>,
-			select?: string
-		): Promise<T | null>;
-		findMany<T>(table: 'personnel_extended_info', orgId: string, filters: Record<string, unknown>): Promise<T[]>;
-		insert<T>(table: 'personnel_extended_info', orgId: string, data: Record<string, unknown>): Promise<T>;
-		update<T>(table: 'personnel_extended_info', orgId: string, id: string, data: Record<string, unknown>): Promise<T>;
-	};
+	personnelSheets: PersonnelSheetPersistence;
 }
 
 type PersonnelExtendedInfoInput = z.infer<typeof personnelExtendedInfoInputSchema>;
 
-interface ExtendedInfoRow {
-	id: string;
-	personnel_id: string;
-	blood_type: string | null;
-	basd: string | null;
-	date_of_rank: string | null;
-	marital_status: string | null;
-	number_of_dependents: number | null;
-	children: unknown;
-	civilian_education: string | null;
-	military_education: unknown;
-	emergency_contact_name: string | null;
-	emergency_contact_relationship: string | null;
-	emergency_contact_phone: string | null;
-	spouse_name: string | null;
-	spouse_phone: string | null;
-	vehicle_make_model: string | null;
-	vehicle_plate: string | null;
-	vehicle_color: string | null;
-	personal_email: string | null;
-	personal_phone: string | null;
-	address_street: string | null;
-	address_city: string | null;
-	address_state: string | null;
-	address_zip: string | null;
-}
+type ExtendedInfoRow = SavedPersonnelSheet;
 
 function normalizeJsonStringArray(value: unknown): string[] {
 	return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
@@ -97,9 +67,8 @@ function mapExtendedInfoRow(row: ExtendedInfoRow): PersonnelExtendedInfo {
 	};
 }
 
-function toRowData(input: PersonnelExtendedInfoInput): Record<string, unknown> {
+function toRowData(input: PersonnelExtendedInfoInput): PersonnelSheetEditableValues {
 	return {
-		personnel_id: input.personnelId,
 		blood_type: input.bloodType || null,
 		basd: input.basd || null,
 		date_of_rank: input.dateOfRank || null,
@@ -144,9 +113,7 @@ export async function readPersonnelExtendedInfo(
 	personnelId: string
 ): Promise<PersonnelExtendedInfo | null> {
 	await requirePersonnelOperate(ctx, personnelId);
-	const rows = await ctx.store.findMany<ExtendedInfoRow>('personnel_extended_info', ctx.auth.orgId, {
-		personnel_id: personnelId
-	});
+	const rows = await ctx.personnelSheets.listSheetsForPerson(personnelId);
 	const row = rows[0];
 	return row ? mapExtendedInfoRow(row) : null;
 }
@@ -163,13 +130,11 @@ export async function updatePersonnelExtendedInfo(
 	const input = parsed.data;
 	await requirePersonnelOperate(ctx, input.personnelId);
 
-	const existing = await ctx.store.findOne<ExtendedInfoRow>('personnel_extended_info', ctx.auth.orgId, {
-		personnel_id: input.personnelId
-	});
+	const existing = await ctx.personnelSheets.findSheetForPerson(input.personnelId);
 	const data = toRowData(input);
 	const row = existing
-		? await ctx.store.update<ExtendedInfoRow>('personnel_extended_info', ctx.auth.orgId, existing.id, data)
-		: await ctx.store.insert<ExtendedInfoRow>('personnel_extended_info', ctx.auth.orgId, data);
+		? await ctx.personnelSheets.replaceEditableSheetFields(existing.id, data)
+		: await ctx.personnelSheets.createSheet(input.personnelId, data);
 
 	ctx.audit.log({
 		action: 'personnel.extended_info.updated',

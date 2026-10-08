@@ -96,7 +96,10 @@ async function loadCriticalTasksReportSource(ctx: CriticalTasksReportQueryContex
 		ctx.groups.listCatalog(),
 		ctx.criticalTaskLibrary.listCatalog(),
 		fetchCriticalTasksSettings(ctx),
-		loadOrganizationRankCatalog({ auth: ctx.auth, store: ctx.store }, { authorization: 'critical-tasks-readiness' })
+		loadOrganizationRankCatalog(
+			{ auth: ctx.auth, rankCatalog: ctx.rankCatalog },
+			{ authorization: 'critical-tasks-readiness' }
+		)
 	]);
 
 	return {

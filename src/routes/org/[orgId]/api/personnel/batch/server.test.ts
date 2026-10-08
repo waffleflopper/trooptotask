@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
-import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
+import { createSupabasePersonnelRecordPersistence } from '$features/personnel/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest, rethrowOrWrap } from '$lib/server/adapters/httpAdapter';
@@ -39,8 +39,17 @@ describe('POST /api/personnel/batch', () => {
 					})
 			}
 		});
-		const caught = await createSupabaseDataStore(client)
-			.insertMany('personnel', 'test-org', [{ slug: 'smith-jamie', group_id: 'group-alpha' }])
+		const caught = await createSupabasePersonnelRecordPersistence(client, 'test-org')
+			.createMany([
+				{
+					rank: 'SGT',
+					firstName: 'Jamie',
+					lastName: 'Smith',
+					clinicRole: '',
+					slug: 'smith-jamie',
+					groupId: 'group-alpha'
+				}
+			])
 			.catch((error: unknown) => error);
 		const log = vi.spyOn(console, 'error').mockImplementation(() => {});
 		try {

@@ -7,9 +7,10 @@ import { getOrLoadRequestMembership } from '$lib/access/index.server';
 import {
 	buildLayoutRequest,
 	buildRouteRequest,
-	createRequestWriteContext,
+	createRequestPersonnelRecordContext,
 	getAdmittedRequestClient
 } from './requestContexts.server';
+import { createSupabasePersonnelRecordPersistence } from '$features/personnel/index.server';
 import { handle, loadWithContext } from './httpAdapter';
 
 const { adminClient } = vi.hoisted(() => ({ adminClient: vi.fn() }));
@@ -73,14 +74,14 @@ function fixture(membership: OrganizationMembershipFacts = member) {
 			return Response.json({ code: 'XX000', message: 'synthetic provider failure' }, { status: 500 });
 		}
 		if (init?.method === 'POST') {
-			const row = JSON.parse(String(init.body));
+			const row = { ...JSON.parse(String(init.body)), id: 'created' };
 			tables[table].push(row);
 			return Response.json(row, { status: 201 });
 		}
 		expect(init?.method ?? 'GET').toBe('GET');
 		let rows = tables[table].filter((row) =>
 			[...url.searchParams].every(([key, filter]) => {
-				if (['select', 'offset', 'limit'].includes(key)) return true;
+				if (['select', 'offset', 'limit', 'order'].includes(key)) return true;
 				if (filter.startsWith('eq.')) return String(row[key]) === filter.slice(3);
 				if (filter.startsWith('in.(')) return filter.slice(4, -1).split(',').includes(String(row[key]));
 				throw new Error(`Unexpected provider filter: ${key}=${filter}`);
@@ -117,11 +118,19 @@ function event(locals: App.Locals, orgId = ORG): RequestEvent {
 }
 
 const write = handle({
-	context: createRequestWriteContext,
+	context: createRequestPersonnelRecordContext,
 	policyAction: POLICY_ACTION_CATALOG.personnel.createRecords,
 	policyResource: { kind: 'group', groupId: 'group-b' },
 	mutation: true,
-	fn: async (ctx) => ctx.store.insert('personnel', ctx.auth.orgId, { id: 'created', group_id: 'group-b' })
+	fn: async (ctx) =>
+		ctx.personnel.create({
+			rank: 'SGT',
+			firstName: 'Jamie',
+			lastName: 'Smith',
+			clinicRole: '',
+			slug: 'smith-jamie',
+			groupId: 'group-b'
+		})
 });
 
 afterEach(() => vi.restoreAllMocks());
@@ -148,7 +157,11 @@ describe('request membership admission through real request construction', () =>
 				},
 				scopeSet: { kind: 'groups', groupIds: ['group-a', 'group-b'] }
 			});
-			const visible = await ctx.store.findMany<{ id: string }>('personnel', ctx.auth.orgId);
+			const visible = await createSupabasePersonnelRecordPersistence(
+				f.locals.supabase,
+				ctx.auth.orgId,
+				ctx.auth.scopeSet
+			).listArchiveCandidates(['person-a', 'person-b', 'person-c', 'ungrouped', 'foreign-person']);
 			expect(visible.map((row) => row.id)).toEqual(['person-a', 'person-b']);
 			await expect(ctx.scope.requireGroupAccessBatch(['person-a', 'person-b'])).resolves.toBeUndefined();
 			await expect(ctx.scope.requireGroupAccess('person-c')).rejects.toMatchObject({ status: 403 });
@@ -163,12 +176,15 @@ describe('request membership admission through real request construction', () =>
 			const ctx = await buildRouteRequest(event(f.locals));
 			expect(ctx.auth.scopeSet).toEqual({ kind: 'organization' });
 			expect(ctx.auth.capabilityMap.training).toBe('configure');
-			expect((await ctx.store.findMany<{ id: string }>('personnel', ORG)).map((row) => row.id)).toEqual([
-				'person-a',
-				'person-b',
-				'person-c',
-				'ungrouped'
-			]);
+			expect(
+				(
+					await createSupabasePersonnelRecordPersistence(
+						f.locals.supabase,
+						ctx.auth.orgId,
+						ctx.auth.scopeSet
+					).listArchiveCandidates(['person-a', 'person-b', 'person-c', 'ungrouped', 'foreign-person'])
+				).map((row) => row.id)
+			).toEqual(['person-a', 'person-b', 'person-c', 'ungrouped']);
 		}
 	);
 
@@ -186,8 +202,8 @@ describe('request membership admission through real request construction', () =>
 		const f = fixture();
 		const response = await write(event(f.locals, 'alpha'));
 		expect(response.status).toBe(200);
-		expect(await response.json()).toEqual({ id: 'created', group_id: 'group-b', organization_id: ORG });
-		expect(f.tables.personnel.at(-1)).toEqual({ id: 'created', group_id: 'group-b', organization_id: ORG });
+		expect(await response.json()).toMatchObject({ id: 'created', groupId: 'group-b' });
+		expect(f.tables.personnel.at(-1)).toMatchObject({ id: 'created', group_id: 'group-b', organization_id: ORG });
 	});
 
 	it('rejects anonymous requests despite a prior membership read and never reads or writes provider data', async () => {
@@ -234,9 +250,9 @@ describe('request membership admission through real request construction', () =>
 			});
 			await expect(
 				loadWithContext(f.locals, {} as never, ORG, {
-					context: createRequestWriteContext,
+					context: createRequestPersonnelRecordContext,
 					policyAction: POLICY_ACTION_CATALOG.personnel.viewRoster,
-					fn: async (ctx) => ctx.store.findMany('personnel', ctx.auth.orgId)
+					fn: async (ctx) => ctx.auth.orgId
 				})
 			).rejects.toMatchObject({ status: 403 });
 			expect(f.tables.personnel).toEqual(before);

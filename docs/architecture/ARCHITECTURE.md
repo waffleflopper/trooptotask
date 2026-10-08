@@ -29,7 +29,7 @@ Complete one ready task within the active child at a time, obey the [deliverable
 
 The [current capability ownership ledger](CURRENT_OWNERSHIP.md) maps surviving M01–M17 source and delivery families to their logical owners. It records current placement and observed cross-owner consumers; its documented ownership decisions do not claim that module imports have already been cut over.
 
-The [trusted identity and access contract](AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md#trusted-identity-and-access-contract-07-01c) records current Supabase admission, distinct user/Personnel/membership/Organization identifiers, invitation transitions and SQL/Storage enforcement. D03 implements the narrow request-local context for Personnel leader notes. Phase 08 D01 now supplies Identity-owned request admission and a narrow actor consumed by HTTP/layout, platform-admin and Organization shell composition; the integrated D27 cutover binds other operations to their selected request collaborators. D27 now owns shared server policy under `src/lib/access/serverPolicy.server.ts` and its portable `OrganizationAccessGrant`. Feature, self-owned and governance consumers declare their grant and audit needs directly; D27 completes request/provider composition; generic persistence infrastructure remains D28 debt.
+The [trusted identity and access contract](AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md#trusted-identity-and-access-contract-07-01c) records current Supabase admission, distinct user/Personnel/membership/Organization identifiers, invitation transitions and SQL/Storage enforcement. D03 implements the narrow request-local context for Personnel leader notes. Phase 08 D01 now supplies Identity-owned request admission and a narrow actor consumed by HTTP/layout, platform-admin and Organization shell composition; the integrated D27 cutover binds other operations to their selected request collaborators. D27 now owns shared server policy under `src/lib/access/serverPolicy.server.ts` and its portable `OrganizationAccessGrant`. Feature, self-owned and governance consumers declare their grant and audit needs directly; D27 completes request/provider composition; D28 owns the final persistence cutover and its acceptance.
 
 The [chosen module and delivery contract](MODULE_CONVENTIONS.md#chosen-module-and-delivery-contract-07-01d) and [ADR 0013](adrs/0013-v1-module-and-delivery-contract.md) use the existing `src/features/<owner>` roots with distinct consumed portable, web and SvelteKit-recognized server-only seams. D02 enforces regression and completed-scope boundaries, and D03 has cut over Personnel leader notes and their consumers. Remaining central use cases, feature `server/*.ts` files and private route imports are reported Phase 08 work; Phase 07 integrated acceptance remains with D04.
 
@@ -57,15 +57,10 @@ Phases 03–06 removed Billing and Duty Roster runtime and active-schema objects
 
 ### Server structure
 
-- The repo already has an emerging app-owned backend shape:
-  - use cases in `src/lib/server/core/useCases/*`
-  - ports in `src/lib/server/core/ports.ts`
-  - provider and transport adapters in `src/lib/server/adapters/*`
-  - schema-first entities in `src/lib/server/entities/*`
-  - route wrappers such as `handle()` and `loadWithContext()`
-- These paths are current implementation, not the permanent public feature boundary. New or migrated feature behavior uses the owner-held server seam in [ADR 0013](adrs/0013-v1-module-and-delivery-contract.md), reusing sound typed collaborators and provider adapters until their owning cutovers.
-- Delivery binds each operation's consumed collaborators through selected request builders after authorization and input validation. The admitted request contains trusted grant/session and persistence facts; the universal feature context and unused preloaded-membership builder are removed. Generic persistence infrastructure remains D28's owned cutover.
-- Route-local `locals.supabase` logic still exists in a number of places and remains tolerated only as legacy or transitional drift.
+- Feature owners expose portable contracts through `src/features/<feature>/contracts.ts` and server operations/providers through their `index.server.ts` entry.
+- Delivery uses request builders in `src/lib/server/adapters/requestContexts.server.ts` and `featureRequestContexts.server.ts` to supply each operation's consumed collaborators after admission, policy and input validation. The admitted request carries the Organization grant, audit, ordinary client, session and Personnel scope enforcement.
+- Personnel's final D28 candidate owns finite rank, Soldier Data Sheet, artifact and workbook persistence. The generic store, shared CRUD ports, scoped-store dispatch and their production callers are removed together. Private in-memory row fixtures remain test support. The [final Personnel receipt](../stabilization/phase-08/d28-final-personnel-persistence.md) records pending acceptance.
+- Shared provider setup, Storage transport, HTTP wrappers and retained mechanisms remain under their assigned owners. Route-local provider access remains limited to the documented auth and maintenance boundaries.
 
 ### Auth and authorization
 

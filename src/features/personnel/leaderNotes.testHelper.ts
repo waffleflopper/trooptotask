@@ -39,16 +39,16 @@ export function testLeaderNoteContext(ctx: ReturnType<typeof createTestContext>)
 					)
 					.slice(0, limit);
 			},
-			find: async (personnelId, noteId) => (await writerFor(personnelId)).find<LeaderNoteRow>('leader_notes', noteId),
+			find: async (personnelId, noteId) => (await writerFor(personnelId)).findLeaderNote(noteId),
 			insert: async (input) =>
-				(await writerFor(input.personnelId)).insert<LeaderNoteRow>('leader_notes', {
+				(await writerFor(input.personnelId)).createLeaderNote({
 					author: input.author,
 					text: input.text,
-					created_at: input.createdAt
+					createdAt: input.createdAt
 				}),
 			update: async (personnelId, noteId, archivedAt) =>
-				(await writerFor(personnelId)).update<LeaderNoteRow>('leader_notes', noteId, { archived_at: archivedAt }),
-			delete: async (personnelId, noteId) => (await writerFor(personnelId)).delete('leader_notes', noteId)
+				(await writerFor(personnelId)).setLeaderNoteArchivedAt(noteId, archivedAt),
+			delete: async (personnelId, noteId) => (await writerFor(personnelId)).deleteLeaderNote(noteId)
 		},
 		contributorLabels: (userIds) =>
 			loadOrganizationMemberLabels(

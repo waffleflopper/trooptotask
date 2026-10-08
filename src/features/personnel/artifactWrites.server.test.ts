@@ -24,6 +24,7 @@ function member(personnel: 'view' | 'operate' | 'configure', groupIds: string[] 
 function client(row: Record<string, unknown> | null = { group_id: 'alpha' }) {
 	const query = {
 		select: vi.fn().mockReturnThis(),
+		order: vi.fn().mockReturnThis(),
 		eq: vi.fn().mockReturnThis(),
 		insert: vi.fn().mockReturnThis(),
 		update: vi.fn().mockReturnThis(),
@@ -80,13 +81,26 @@ describe('Person-bound artifact writes', () => {
 			'person-1'
 		);
 
-		await writer.find('personnel_follow_ups', 'artifact-1');
-		await writer.insert('personnel_follow_ups', { title: 'Follow up' });
-		await writer.update('personnel_follow_ups', 'artifact-1', { status: 'completed' });
-		await writer.delete('personnel_follow_ups', 'artifact-1');
+		await writer.findFollowUp('artifact-1');
+		await writer.createFollowUp({
+			title: 'Follow up',
+			notes: null,
+			dueDate: null,
+			createdBy: 'actor',
+			createdAt: '2026-10-08',
+			updatedAt: '2026-10-08'
+		});
+		await writer.patchFollowUp('artifact-1', { status: 'completed', updatedAt: '2026-10-08' });
+		await writer.deleteFollowUp('artifact-1');
 		expect(getAdminClient).toHaveBeenCalledTimes(1);
 		expect(admin.query.insert).toHaveBeenCalledWith({
 			title: 'Follow up',
+			notes: null,
+			due_date: null,
+			created_by: 'actor',
+			created_at: '2026-10-08',
+			updated_at: '2026-10-08',
+			status: 'open',
 			organization_id: 'a1300000-0000-4000-8000-000000000001',
 			personnel_id: 'person-1'
 		});
@@ -104,10 +118,22 @@ describe('Person-bound artifact writes', () => {
 		);
 
 		await expect(
-			writer.insert('personnel_follow_ups', { personnel_id: 'person-2', title: 'Wrong Person' })
+			writer.createFollowUp(
+				Object.assign(
+					{
+						title: 'Wrong Person',
+						notes: null,
+						dueDate: null,
+						createdBy: 'actor',
+						createdAt: '2026-10-08',
+						updatedAt: '2026-10-08'
+					},
+					{ personnel_id: 'person-2' }
+				)
+			)
 		).rejects.toMatchObject({ status: 400 });
 		await expect(
-			writer.update('personnel_follow_ups', 'artifact-1', { organization_id: 'org-2' })
+			writer.patchFollowUp('artifact-1', Object.assign({ updatedAt: '2026-10-08' }, { organization_id: 'org-2' }))
 		).rejects.toMatchObject({ status: 400 });
 		expect(admin.from).not.toHaveBeenCalled();
 	});
@@ -169,16 +195,16 @@ describe('Person-bound artifact writes', () => {
 			'archive'
 		);
 
-		await expect(writer.listCandidates('leader_notes', { archivedAt: null })).resolves.toEqual([
+		await expect(writer.listLeaderNoteArchiveCandidates(null)).resolves.toEqual([
 			{ id: 'note-1', personnelId: 'person-1' }
 		]);
 		expect(admin.query.in).toHaveBeenCalledWith('personnel_id', ['person-1']);
 		expect(admin.query.is).toHaveBeenCalledWith('archived_at', null);
-		await writer.update('leader_notes', { id: 'note-1', personnelId: 'person-1' }, { archived_at: '2026-09-26' });
+		await writer.setLeaderNoteArchivedAt({ id: 'note-1', personnelId: 'person-1' }, '2026-09-26');
 		expect(admin.query.eq).toHaveBeenCalledWith('organization_id', 'a1300000-0000-4000-8000-000000000001');
 		expect(admin.query.eq).toHaveBeenCalledWith('personnel_id', 'person-1');
 		await expect(
-			writer.update('leader_notes', { id: 'note-2', personnelId: 'person-2' }, { archived_at: '2026-09-26' })
+			writer.setLeaderNoteArchivedAt({ id: 'note-2', personnelId: 'person-2' }, '2026-09-26')
 		).rejects.toMatchObject({ status: 403 });
 		expect(admin.query.update).toHaveBeenCalledTimes(1);
 	});

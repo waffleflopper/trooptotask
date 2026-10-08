@@ -42,6 +42,7 @@
 	);
 	const canMutate = $derived(configureAffordance.visible && !configureAffordance.disabled);
 	const hydrated = $derived(onboardingTemplateStore.orgId === orgId);
+	let appliedHydrationVersion = -1;
 	function sharedTemplateData() {
 		return {
 			templates: onboardingTemplateStore.templates,
@@ -72,18 +73,22 @@
 			canConfigure: canMutate
 		};
 		const ready = hydrated;
-		void onboardingTemplateStore.hydrationVersion;
+		const version = onboardingTemplateStore.hydrationVersion;
 
 		untrack(() => {
 			workspace.replaceOrganization(organization);
-			if (ready) workspace.replaceData(sharedTemplateData());
+			if (!ready) return;
+			workspace.replaceData(sharedTemplateData());
+			appliedHydrationVersion = version;
 		});
 	});
 
 	// The board reads the shared template store, so saved edits here must reach it without a reload.
 	$effect(() => {
-		if (!hydrated) return;
-		onboardingTemplateStore.publish(model.templates, workspace.steps, orgId);
+		const templates = model.templates;
+		const steps = workspace.steps;
+		if (!hydrated || appliedHydrationVersion !== onboardingTemplateStore.hydrationVersion) return;
+		onboardingTemplateStore.publish(templates, steps, orgId);
 	});
 
 	$effect(() => {

@@ -215,6 +215,22 @@ describe('onboarding templates page', () => {
 		expect(onboardingTemplateStore.templates.map((template) => template.id)).toEqual(['template-1']);
 	});
 
+	it('applies a fresh workspace snapshot while open without publishing the stale editor copy over it', async () => {
+		await renderTemplatesPage();
+
+		onboardingTemplateStore.load(
+			[
+				{ id: 'template-refreshed', orgId: 'org-1', name: 'Refreshed Arrival', description: null } as OnboardingTemplate
+			],
+			[],
+			'org-1'
+		);
+
+		await waitFor(() => expect(screen.getAllByText('Refreshed Arrival').length).toBeGreaterThan(0));
+		expect(screen.queryByText('Standard Arrival')).toBeNull();
+		expect(onboardingTemplateStore.templates.map((template) => template.id)).toEqual(['template-refreshed']);
+	});
+
 	it('duplicates a template, shares the copy with the board and keeps it when Templates reopens', async () => {
 		const fetchMock = vi.fn().mockResolvedValue({
 			ok: true,

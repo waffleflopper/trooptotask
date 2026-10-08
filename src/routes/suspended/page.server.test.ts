@@ -19,11 +19,16 @@ describe('suspended page server', () => {
 		expect(rpc).toHaveBeenCalledWith('is_user_suspended', { check_user_id: 'user-1' });
 	});
 
-	it.each([
-		['an active account', { data: false, error: null }],
-		['an unverifiable status', { data: null, error: { message: 'unavailable' } }]
-	])('redirects %s to the dashboard', async (_case, result) => {
-		const { event: request } = event({ id: 'user-1' }, result);
+	it('redirects an active account to the dashboard', async () => {
+		const { event: request } = event({ id: 'user-1' }, { data: false, error: null });
 		await expect(load(request)).rejects.toMatchObject({ status: 302, location: '/dashboard' });
+	});
+
+	it('reports an unverifiable status as unavailable instead of admitting the account', async () => {
+		const { event: request } = event({ id: 'user-1' }, { data: null, error: { message: 'unavailable' } });
+		await expect(load(request)).rejects.toMatchObject({
+			status: 500,
+			body: { message: 'Unable to verify account status' }
+		});
 	});
 });

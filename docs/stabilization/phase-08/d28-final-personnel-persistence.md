@@ -89,3 +89,13 @@ The original CI failures, local reproduction and memory measurements remain pres
 ## Remaining gates
 
 Source cutover, production facade removal, affected lower checks, final native parent acceptance, independent acceptance and full source-stage CLI review are complete. Publication is complete. Repaired current-head CI/build and completed clean hosted reviews remain pending. Any new migration stops before merge for Robert's manual database operation. #1376 closes only after complete integrated acceptance; no other issue advances. Robert requests a stop after this next PR merges.
+
+## Roster fixture repair after current-head CI
+
+Actions 37728805827 on `3740fe6f` passes types, production build and isolated database contracts. Vitest records one failed roster test and 7,249 passing tests. The earlier three reverse-consumer failures now pass.
+
+The roster fixture rejects ordinary rank reads and substitutes raw reads for every other table. This override predates the finite rank provider and contradicts current request composition, which captures the ordinary client. Removing that fixture override preserves the real scoped fixture and the unchanged literal snapshot order. No production behavior or permission policy changes.
+
+Local reproduction records the same failure and ten passes. The repaired route, adjacent roster record route, rank sorting, Personnel rank operations and ICT report boundary pass five suites and 71 tests. Touched-file lint, formatting and whitespace checks pass. Original native proof and unaffected checks retain their bindings. No full manual repeat occurs. Independent delta acceptance, changed-material reviews and fresh current-head CI remain pending.
+
+The [bounded roster repair archive](d28-final-personnel-roster-fixture-repair.tar.gz) preserves four payloads and an inventory. SHA-256 is `db51fe91c6f47c160546e7f478e944e8a223c0a3fa2dcc080b3e4965fad780c1`. Fresh extraction verifies the exact member set, bytes and hashes. JWT syntax scanning finds zero matches in these payloads; this is a bounded scan, not a universal privacy claim. The six earlier archives remain unchanged.

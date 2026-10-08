@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildMembersSettingsSection } from '$features/organization/membersSettings.server';
-import { createTestContext } from './inMemory';
+import { buildMembersSettingsSection } from './membersSettings.server';
+import { createTestContext } from '$lib/server/adapters/inMemory';
 
 describe('Organization settings ordering in test contexts', () => {
 	it.each(['listMemberAccess', 'listOwnershipCandidateMemberships'] satisfies Array<

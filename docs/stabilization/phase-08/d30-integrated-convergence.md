@@ -131,6 +131,14 @@ All runs use the owned `verify:app` environment and native DevTools controls, wi
   - Invitation ports are still constructed eagerly. `getAdminClient()` performs no I/O, and the old route had the same ordering.
 - Round two at `0897bc3a` returns Standards GO / Spec GO. It confirms the bundle and exception fixes, every changed caller, cron authorization ordering, and Personnel's organization switch, including a real-page restricted render. This is source/artifact review, not independent live execution.
 
+## Hosted PR validation
+
+Non-draft [#1578](https://github.com/waffleflopper/trooptotask/pull/1578) targets main `17229542`. [Depot run `6mwbf7qn8d`](https://depot.dev/orgs/rvsvvkd4rp/workflows/6mwbf7qn8d?job=m4j9c42s12&repo=waffleflopper%2Ftrooptotask) passes Select checks and Repository and application at exact head `62830a3e8d2f410730143ed9acdec21816a23456`. Database contracts are skipped by the unchanged selector. GitHub check-run readback confirms each job is completed and bound to that SHA. Vercel's preview deployment also passes; production deployment settings remain uninspected.
+
+[Hosted CodeRabbit review `5461231179`](https://github.com/waffleflopper/trooptotask/pull/1578#pullrequestreview-5461231179) completes the intended source/prose diff at that head. It selects 144 paths, excludes the five compressed evidence archives, and reports three paths with no reviewable changes. The existing independent expanded-artifact acceptance covers the archives. Its two actionable findings are stale governance descriptions and completed-work queue pointers. Both are repaired in documentation, with formatting, local links/anchors and whitespace checked. The duplicate Dashboard import is an optional style suggestion; both imports bind the same module without changing authorization, requests or bundles, so it remains unchanged.
+
+These corrections change no application code, live controls, fixture or role/scope input. Prior local, live and independent evidence retains its original candidate binding. Current-head CI and completed hosted review are required after record-only updates; their final readback is available in the [PR checks](https://github.com/waffleflopper/trooptotask/pull/1578/checks) and review history. Robert reviews and merges. D30 is not integrated, the phase parent remains open and Phase 09 stays inactive.
+
 ## Release obligations
 
 D30 adds no migration or remote operation. Repository CI performs no remote migration. Push or merge may deploy through Vercel; external deployment settings remain uninspected. Earlier owner obligations stay with their [RELEASE](../RELEASE.md) entries. The agent has not inspected hosted state for any of them:

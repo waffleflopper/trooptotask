@@ -31,20 +31,13 @@ export {
 // Context
 export { CalendarPageContext } from './contexts/CalendarPageContext.svelte';
 export type { CalendarPageData, CalendarPageAccess } from './contexts/CalendarPageContext.svelte';
-export { CalendarRangeCoordinator } from './contexts/CalendarRangeCoordinator.svelte';
 
 // Route workspace state consumed by Delivery
-export { calendarWorkspaceHydrator } from './calendarWorkspaceHydration.svelte';
 export { calendarStore } from './stores/calendar.svelte';
 export { dailyAssignmentsStore } from './stores/dailyAssignments.svelte';
 export { buildCalendarAnchorCookie, CALENDAR_ANCHOR_COOKIE } from './utils/calendarAnchorDate';
 
-// Route pages
-export { default as CalendarPageView } from './components/CalendarPageView.svelte';
-export { default as AssignmentPlannerPage } from './components/AssignmentPlannerPage.svelte';
-export { default as BulkStatusPage } from './components/BulkStatusPage.svelte';
-export { default as CalendarReports } from './components/reports/CalendarReports.svelte';
-export { default as CalendarSettingsPage } from './components/CalendarSettingsPage.svelte';
+// Routed page components are separate public files so each route loads only its own page.
 
 export { CalendarStatusBadge } from '$lib/components/ui/calendar-status-badge';
 

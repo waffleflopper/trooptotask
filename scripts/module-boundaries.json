@@ -66,6 +66,7 @@
 				"src/lib/server/adapters/requestContexts.server.test.ts",
 				"src/lib/server/adapters/trainingRequestContext.server.test.ts",
 				"src/lib/server/adapters/requestContexts.server.ts",
+				"src/lib/server/adapters/scheduledMaintenanceSources.server.ts",
 				"src/lib/server/communicationsPagination.server.test.ts",
 				"src/lib/server/adapters/appShellRouteData.ts",
 				"src/lib/server/adapters/featureLaneWorkspaceLoad.ts",
@@ -410,7 +411,14 @@
 		"calendar": [
 			"src/features/calendar/contracts.ts",
 			"src/features/calendar/index.ts",
-			"src/features/calendar/index.server.ts"
+			"src/features/calendar/index.server.ts",
+			"src/features/calendar/components/CalendarPageView.svelte",
+			"src/features/calendar/components/AssignmentPlannerPage.svelte",
+			"src/features/calendar/components/BulkStatusPage.svelte",
+			"src/features/calendar/components/reports/CalendarReports.svelte",
+			"src/features/calendar/components/CalendarSettingsPage.svelte",
+			"src/features/calendar/calendarWorkspaceHydration.svelte.ts",
+			"src/features/calendar/contexts/CalendarRangeCoordinator.svelte.ts"
 		],
 		"critical-tasks": [
 			"src/features/critical-tasks/contracts.ts",
@@ -467,7 +475,11 @@
 		"identity": [
 			"src/features/identity/index.ts",
 			"src/features/identity/index.server.ts",
-			"src/features/identity/contracts.ts"
+			"src/features/identity/contracts.ts",
+			"src/features/identity/AuthField.svelte",
+			"src/features/identity/AuthNotice.svelte",
+			"src/features/identity/AuthPasswordToggle.svelte",
+			"src/features/identity/AuthShell.svelte"
 		],
 		"notifications": [
 			"src/features/notifications/contracts.ts",
@@ -482,8 +494,11 @@
 		],
 		"platform-admin": [
 			"src/features/platform-admin/contracts.ts",
-			"src/features/platform-admin/index.ts",
-			"src/features/platform-admin/index.server.ts"
+			"src/features/platform-admin/index.server.ts",
+			"src/features/platform-admin/components/AdminSearch.svelte",
+			"src/features/platform-admin/components/SuspendModal.svelte",
+			"src/features/platform-admin/components/TransferOwnershipModal.svelte",
+			"src/features/platform-admin/components/adminTheme.ts"
 		],
 		"app-shell": [
 			"src/features/app-shell/contracts.ts",

@@ -1,7 +1,3 @@
-export { default as AuthField } from './AuthField.svelte';
-export { default as AuthNotice } from './AuthNotice.svelte';
-export { default as AuthPasswordToggle } from './AuthPasswordToggle.svelte';
-export { default as AuthShell } from './AuthShell.svelte';
 export { default as PasswordMfaChallenge } from './PasswordMfaChallenge.svelte';
 
 export { redirectToSensitiveActionStepUp } from './sensitiveActionStepUp';

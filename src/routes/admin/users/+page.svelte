@@ -6,7 +6,7 @@
 	import { page } from '$app/stores';
 	import { formatDisplayDate } from '$lib/utils/dates';
 	import { Badge } from '$lib/components/ui/badge';
-	import { adminBadgeVariant } from '$features/platform-admin';
+	import { adminBadgeVariant } from '$features/platform-admin/components/adminTheme';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import * as Alert from '$lib/components/ui/alert';
 	import * as Card from '$lib/components/ui/card';

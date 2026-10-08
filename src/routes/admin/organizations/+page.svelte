@@ -12,7 +12,7 @@
 	import * as PageShell from '$lib/components/ui/page-shell';
 	import * as Table from '$lib/components/ui/table';
 	import { formatDisplayDate } from '$lib/utils/dates';
-	import { adminBadgeVariant, formatAdminLabel } from '$features/platform-admin';
+	import { adminBadgeVariant, formatAdminLabel } from '$features/platform-admin/components/adminTheme';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import type { PageData } from './$types';
 

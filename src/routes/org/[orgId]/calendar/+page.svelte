@@ -3,12 +3,12 @@
 	import {
 		buildCalendarAnchorCookie,
 		CalendarPageContext,
-		CalendarPageView,
-		CalendarRangeCoordinator,
 		calendarStore,
 		type CalendarPageData,
 		type CalendarWorkspaceResult
 	} from '$features/calendar';
+	import { CalendarRangeCoordinator } from '$features/calendar/contexts/CalendarRangeCoordinator.svelte';
+	import CalendarPageView from '$features/calendar/components/CalendarPageView.svelte';
 	import { getAppShellContext } from '$features/app-shell';
 	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';

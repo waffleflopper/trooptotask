@@ -8,7 +8,8 @@
 	import { formatDisplayDate, formatDisplayDateTime } from '$lib/utils/dates';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Spinner } from '$lib/components/ui/spinner';
-	import { SuspendModal, adminBadgeVariant, formatAdminLabel } from '$features/platform-admin';
+	import SuspendModal from '$features/platform-admin/components/SuspendModal.svelte';
+	import { adminBadgeVariant, formatAdminLabel } from '$features/platform-admin/components/adminTheme';
 	import * as Alert from '$lib/components/ui/alert';
 	import * as Card from '$lib/components/ui/card';
 	import * as Empty from '$lib/components/ui/empty';

@@ -1,5 +1,7 @@
 <script lang="ts">
-	import { AuthField, AuthNotice, AuthShell } from '$features/identity';
+	import AuthField from '$features/identity/AuthField.svelte';
+	import AuthNotice from '$features/identity/AuthNotice.svelte';
+	import AuthShell from '$features/identity/AuthShell.svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { sanitizeAuthNextPath, type MfaActionResponse } from '$features/identity/contracts';

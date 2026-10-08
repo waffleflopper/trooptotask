@@ -3,13 +3,13 @@
 		PasswordCompletion,
 		PasswordMfaChallenge,
 		passwordRequirements,
-		AuthField,
-		AuthNotice,
-		AuthPasswordToggle,
-		AuthShell,
 		hasPendingPasswordCompletion,
 		validatePassword
 	} from '$features/identity';
+	import AuthField from '$features/identity/AuthField.svelte';
+	import AuthNotice from '$features/identity/AuthNotice.svelte';
+	import AuthPasswordToggle from '$features/identity/AuthPasswordToggle.svelte';
+	import AuthShell from '$features/identity/AuthShell.svelte';
 	import type { PasswordCompletionState } from '$features/identity/contracts';
 	let completion = $state<PasswordCompletionState>(null);
 	import { goto, replaceState } from '$app/navigation';

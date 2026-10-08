@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { getAppShellContext } from '$features/app-shell';
 	const org = getAppShellContext();
-	import { CalendarSettingsPage } from '$features/calendar';
+	import CalendarSettingsPage from '$features/calendar/components/CalendarSettingsPage.svelte';
 </script>
 
 <svelte:head>

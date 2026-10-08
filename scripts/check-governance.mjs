@@ -4,8 +4,6 @@ import { fileURLToPath } from 'node:url';
 import { runModuleGovernance } from './module-governance.ts';
 
 const repoRoot = process.cwd();
-const baselinePath = path.join(repoRoot, 'docs/architecture/GOVERNANCE_BASELINE.json');
-const baseline = JSON.parse(readFileSync(baselinePath, 'utf8'));
 
 const errors = [];
 const FEATURE_PERMISSION_FAMILIES = [
@@ -118,51 +116,20 @@ function getPermissionPatternLane(patternText) {
 	return undefined;
 }
 
-function collectFeaturePermissionCouplingIssues(sourceFiles, baselineEntries) {
+function collectFeaturePermissionCouplingIssues(sourceFiles) {
 	const issues = [];
-	const entriesByFeature = new Map();
-
-	for (const entry of baselineEntries) {
-		const featureEntries = entriesByFeature.get(entry.feature) ?? [];
-		featureEntries.push(entry);
-		entriesByFeature.set(entry.feature, featureEntries);
-	}
 
 	for (const family of FEATURE_PERMISSION_FAMILIES) {
-		const entries = entriesByFeature.get(family.feature) ?? [];
-		const allowlistedPatterns = new Set(entries.map((entry) => `${entry.path}::${entry.pattern}`));
 		const featureFiles = sourceFiles.filter(({ path: filePath }) => hasFeatureFamilyMatch(filePath, family.feature));
-		const featureFilePaths = new Set(featureFiles.map(({ path: filePath }) => filePath));
 		const foreignPermissionLanes = new Set(family.foreignPermissionLanes);
 
 		for (const { path: filePath, content } of featureFiles) {
-			const patterns = collectPermissionPatterns(content);
-			for (const patternText of patterns) {
-				const lane = getPermissionPatternLane(patternText);
-				if (!foreignPermissionLanes.has(lane)) continue;
-
-				const key = `${filePath}::${patternText}`;
-				if (!allowlistedPatterns.has(key)) {
-					issues.push(
-						`Undocumented ${family.feature} permission coupling: ${filePath} -> ${patternText}. Use the owning feature permission lane.`
-					);
-				}
-			}
-		}
-
-		for (const entry of entries) {
-			if (!featureFilePaths.has(entry.path)) {
+			for (const patternText of collectPermissionPatterns(content)) {
+				if (!foreignPermissionLanes.has(getPermissionPatternLane(patternText))) continue;
 				issues.push(
-					`Permission coupling allowlist entry no longer matches the ${family.feature} file family: ${entry.path}`
+					`${family.feature} permission coupling: ${filePath} -> ${patternText}. Use the owning feature permission lane.`
 				);
 			}
-		}
-	}
-
-	const configuredFeatures = new Set(FEATURE_PERMISSION_FAMILIES.map((family) => family.feature));
-	for (const entry of baselineEntries) {
-		if (!configuredFeatures.has(entry.feature)) {
-			issues.push(`Permission coupling allowlist entry uses an unconfigured feature family: ${entry.feature}`);
 		}
 	}
 
@@ -300,75 +267,22 @@ function hasRouteAdminProviderUsage(content) {
 	);
 }
 
-function checkRouteSupabaseAllowlist() {
-	const routeFiles = walkRelative('src/routes').filter(
+function routeServerFiles() {
+	return walkRelative('src/routes').filter(
 		(filePath) => filePath.endsWith('.server.ts') || filePath.endsWith('/+server.ts')
 	);
-	const actualUsages = routeFiles.filter((filePath) => hasRouteSupabaseUsage(readRelativeFile(filePath)));
-	const allowlistedPaths = baseline.routeSupabaseAllowlist.map((entry) => entry.path).sort();
-	const actualPaths = [...actualUsages].sort();
-	const allowlistedSet = new Set(allowlistedPaths);
-
-	for (const entry of baseline.routeSupabaseAllowlist) {
-		const context = `Route allowlist entry ${entry.path}`;
-
-		if (!existsSync(path.join(repoRoot, entry.path))) {
-			errors.push(`${context} points to a missing file`);
-			continue;
-		}
-
-		if (!hasRouteSupabaseUsage(readRelativeFile(entry.path))) {
-			errors.push(`${context} is stale because the file no longer uses route-level Supabase`);
-		}
-	}
-
-	for (const filePath of actualPaths) {
-		if (!allowlistedSet.has(filePath)) {
-			errors.push(`Undocumented route-level Supabase usage: ${filePath}. Move the logic behind an adapter/use case.`);
-		}
-	}
-
-	for (const filePath of allowlistedPaths) {
-		if (!actualPaths.includes(filePath)) {
-			errors.push(`Stale route-level locals.supabase allowlist entry: ${filePath}`);
-		}
-	}
 }
 
-function checkRouteAdminProviderAllowlist() {
-	const routeFiles = walkRelative('src/routes').filter(
-		(filePath) => filePath.endsWith('.server.ts') || filePath.endsWith('/+server.ts')
-	);
-	const actualUsages = routeFiles.filter((filePath) => hasRouteAdminProviderUsage(readRelativeFile(filePath)));
-	const allowlist = baseline.routeAdminProviderAllowlist ?? [];
-	const allowlistedPaths = allowlist.map((entry) => entry.path).sort();
-	const actualPaths = [...actualUsages].sort();
-	const allowlistedSet = new Set(allowlistedPaths);
-
-	for (const entry of allowlist) {
-		const context = `Route admin-provider allowlist entry ${entry.path}`;
-
-		if (!existsSync(path.join(repoRoot, entry.path))) {
-			errors.push(`${context} points to a missing file`);
-			continue;
+function checkRouteProviderUsage() {
+	for (const filePath of routeServerFiles()) {
+		const content = readRelativeFile(filePath);
+		if (hasRouteSupabaseUsage(content)) {
+			errors.push(`Route-level Supabase usage: ${filePath}. Pass the request to an owned operation instead.`);
 		}
-
-		if (!hasRouteAdminProviderUsage(readRelativeFile(entry.path))) {
-			errors.push(`${context} is stale because the file no longer uses route-level admin-provider wiring`);
-		}
-	}
-
-	for (const filePath of actualPaths) {
-		if (!allowlistedSet.has(filePath)) {
+		if (hasRouteAdminProviderUsage(content)) {
 			errors.push(
-				`Undocumented route-level admin-provider usage: ${filePath}. Move the logic behind an adapter/use case.`
+				`Route-level admin-provider usage: ${filePath}. Bind service-role ports in a Delivery adapter after authorization.`
 			);
-		}
-	}
-
-	for (const filePath of allowlistedPaths) {
-		if (!actualPaths.includes(filePath)) {
-			errors.push(`Stale route-level admin-provider allowlist entry: ${filePath}`);
 		}
 	}
 }
@@ -377,23 +291,7 @@ function checkFeaturePermissionCouplings() {
 	const sourceFiles = walkRelative('src')
 		.filter(isProductionSourceFile)
 		.map((filePath) => ({ path: filePath, content: readRelativeFile(filePath) }));
-
-	for (const entry of baseline.featurePermissionCouplings) {
-		const context = `Permission coupling allowlist entry ${entry.path} -> ${entry.pattern}`;
-
-		if (!existsSync(path.join(repoRoot, entry.path))) {
-			errors.push(`${context} points to a missing file`);
-			continue;
-		}
-
-		if (!readRelativeFile(entry.path).includes(entry.pattern)) {
-			errors.push(`${context} is stale because the pattern is no longer present`);
-		}
-	}
-
-	for (const issue of collectFeaturePermissionCouplingIssues(sourceFiles, baseline.featurePermissionCouplings)) {
-		errors.push(issue);
-	}
+	errors.push(...collectFeaturePermissionCouplingIssues(sourceFiles));
 }
 
 function checkDeletedRouteAuthorizationFramework() {
@@ -422,8 +320,7 @@ function checkDeletedRouteAuthorizationFramework() {
 }
 
 function runGovernanceChecks() {
-	checkRouteSupabaseAllowlist();
-	checkRouteAdminProviderAllowlist();
+	checkRouteProviderUsage();
 	checkFeaturePermissionCouplings();
 	checkDeletedRouteAuthorizationFramework();
 	try {
@@ -443,9 +340,6 @@ function runGovernanceChecks() {
 	}
 
 	console.log('Governance checks passed.');
-	console.log(`- route-level locals.supabase allowlist entries: ${baseline.routeSupabaseAllowlist.length}`);
-	console.log(`- route-level admin-provider allowlist entries: ${(baseline.routeAdminProviderAllowlist ?? []).length}`);
-	console.log(`- documented feature permission couplings: ${baseline.featurePermissionCouplings.length}`);
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {

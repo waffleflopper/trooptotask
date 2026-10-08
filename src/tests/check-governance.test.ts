@@ -3,10 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 const require = createRequire(import.meta.url);
 const governance = require('../../scripts/check-governance.mjs') as {
-	collectFeaturePermissionCouplingIssues(
-		sourceFiles: Array<{ path: string; content: string }>,
-		baselineEntries: Array<{ feature: string; path: string; pattern: string }>
-	): string[];
+	collectFeaturePermissionCouplingIssues(sourceFiles: Array<{ path: string; content: string }>): string[];
 	collectPermissionPatterns(content: string): string[];
 	hasRouteAdminProviderUsage(content: string): boolean;
 	hasRouteSupabaseUsage(content: string): boolean;
@@ -188,40 +185,34 @@ describe('governance feature permission coupling detection', () => {
 		]);
 	});
 
-	it('flags foreign permission lanes for configured feature families when the baseline is empty', () => {
+	it('flags foreign permission lanes for configured feature families', () => {
 		expect(
-			governance.collectFeaturePermissionCouplingIssues(
-				[
-					{
-						path: 'src/features/critical-tasks/example.ts',
-						content: `
+			governance.collectFeaturePermissionCouplingIssues([
+				{
+					path: 'src/features/critical-tasks/example.ts',
+					content: `
 							const ownAction = POLICY_ACTION_CATALOG.criticalTasks.viewReadiness;
 							const borrowedAction = POLICY_ACTION_CATALOG.training.viewRecords;
 						`
-					}
-				],
-				[]
-			)
+				}
+			])
 		).toEqual([
-			'Undocumented critical-tasks permission coupling: src/features/critical-tasks/example.ts -> POLICY_ACTION_CATALOG.training.viewRecords. Use the owning feature permission lane.'
+			'critical-tasks permission coupling: src/features/critical-tasks/example.ts -> POLICY_ACTION_CATALOG.training.viewRecords. Use the owning feature permission lane.'
 		]);
 	});
 
 	it('does not flag same-family policy references', () => {
 		expect(
-			governance.collectFeaturePermissionCouplingIssues(
-				[
-					{
-						path: 'src/features/critical-tasks/example.ts',
-						content: 'const action = POLICY_ACTION_CATALOG.criticalTasks.configureLibrary;'
-					},
-					{
-						path: 'src/features/rating-scheme/example.ts',
-						content: 'const action = POLICY_ACTION_CATALOG.ratingScheme.viewEntries;'
-					}
-				],
-				[]
-			)
+			governance.collectFeaturePermissionCouplingIssues([
+				{
+					path: 'src/features/critical-tasks/example.ts',
+					content: 'const action = POLICY_ACTION_CATALOG.criticalTasks.configureLibrary;'
+				},
+				{
+					path: 'src/features/rating-scheme/example.ts',
+					content: 'const action = POLICY_ACTION_CATALOG.ratingScheme.viewEntries;'
+				}
+			])
 		).toEqual([]);
 	});
 });

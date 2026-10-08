@@ -1,5 +1,7 @@
 <script lang="ts">
-	import { AuthField, AuthNotice, AuthShell } from '$features/identity';
+	import AuthField from '$features/identity/AuthField.svelte';
+	import AuthNotice from '$features/identity/AuthNotice.svelte';
+	import AuthShell from '$features/identity/AuthShell.svelte';
 	import { enhance } from '$app/forms';
 	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';

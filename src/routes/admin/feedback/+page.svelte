@@ -17,7 +17,7 @@
 	import * as Tabs from '$lib/components/ui/tabs';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { formatDisplayDateTime } from '$lib/utils/dates';
-	import { adminBadgeVariant, formatAdminLabel } from '$features/platform-admin';
+	import { adminBadgeVariant, formatAdminLabel } from '$features/platform-admin/components/adminTheme';
 
 	let { data, form } = $props();
 	let activeTab = $state<'new' | 'reviewed' | 'resolved'>('new');

@@ -1,9 +1,6 @@
 <script lang="ts">
-	import {
-		calendarWorkspaceHydrator,
-		type CalendarWorkspaceResult,
-		type CalendarWorkspaceRestricted
-	} from '$features/calendar';
+	import { calendarWorkspaceHydrator } from '$features/calendar/calendarWorkspaceHydration.svelte';
+	import type { CalendarWorkspaceResult, CalendarWorkspaceRestricted } from '$features/calendar';
 	import { throwRenderError } from '$lib/utils/streamedRouteData';
 	import { hydrateStreamedWorkspace } from '$lib/utils/streamedWorkspaceHydrator';
 

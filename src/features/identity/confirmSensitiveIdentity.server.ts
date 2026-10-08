@@ -62,7 +62,7 @@ export async function confirmSensitiveIdentity(
 		)
 			return 'unavailable';
 
-		const assurance = await checkSessionAssurance(supabase, confirmedSession);
+		const assurance = await checkSessionAssurance({ supabase }, confirmedSession);
 		if (assurance === 'unavailable' || assurance === 'expired') return 'unavailable';
 
 		for (const { name, value, options } of staged) cookies.set(name, value, getAuthCookieOptions(options));

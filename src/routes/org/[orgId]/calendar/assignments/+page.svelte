@@ -2,7 +2,8 @@
 	import { getAppShellContext } from '$features/app-shell';
 	const org = getAppShellContext();
 	import { Spinner } from '$lib/components/ui/spinner';
-	import { AssignmentPlannerPage, type CalendarWorkspaceResult } from '$features/calendar';
+	import AssignmentPlannerPage from '$features/calendar/components/AssignmentPlannerPage.svelte';
+	import type { CalendarWorkspaceResult } from '$features/calendar';
 	import {
 		isPromiseLike,
 		materializeWorkspaceData,

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CalendarReports } from '$features/calendar';
+	import CalendarReports from '$features/calendar/components/reports/CalendarReports.svelte';
 
 	let { data } = $props();
 </script>

@@ -3,7 +3,11 @@
 	import { resolve } from '$app/paths';
 	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
-	import { passwordRequirements, AuthField, AuthNotice, AuthPasswordToggle, AuthShell } from '$features/identity';
+	import { passwordRequirements } from '$features/identity';
+	import AuthField from '$features/identity/AuthField.svelte';
+	import AuthNotice from '$features/identity/AuthNotice.svelte';
+	import AuthPasswordToggle from '$features/identity/AuthPasswordToggle.svelte';
+	import AuthShell from '$features/identity/AuthShell.svelte';
 
 	let { data, form } = $props();
 

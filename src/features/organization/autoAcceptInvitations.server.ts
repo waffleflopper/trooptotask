@@ -11,7 +11,7 @@ export class InvitationAcceptanceError extends Error {
 }
 
 export async function autoAcceptOrgInvites(
-	supabase: SupabaseClient,
+	{ supabase }: { supabase: SupabaseClient },
 	email: string
 ): Promise<{ accepted: number; unavailable: number }> {
 	let accepted = 0;

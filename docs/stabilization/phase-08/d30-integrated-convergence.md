@@ -106,6 +106,8 @@ Final local sequence on `0897bc3a` (Node 24.21.0, npm 11.19.0, the CI workflow's
 
 No SQL, migration, RLS policy or provider function changes. The isolated database contracts last ran on D28's exact-head CI for the unchanged schema, and D30 adds no database input.
 
+Publication preparation restores the unchanged CI-selection test's synthetic JSON filename. The test checks a path string, not the deleted file's existence. Removing that incidental rename keeps `scripts/ci/` unchanged against main, so the existing selector requires application CI and skips database CI. Focused CI-selection tests and documentation checks cover this preparation. Application code, live controls, fixtures and role/scope inputs remain unchanged from the recorded final proof and reviews.
+
 ## Live verification
 
 All runs use the owned `verify:app` environment and native DevTools controls, with doctor passing at start and end and owned cleanup afterwards.

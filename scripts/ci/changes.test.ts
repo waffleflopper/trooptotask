@@ -31,7 +31,7 @@ describe('CI job selection', () => {
 			application: false,
 			database: false
 		});
-		expect(classifyChanges(['docs/architecture/example.json']).application).toBe(true);
+		expect(classifyChanges(['docs/architecture/GOVERNANCE_BASELINE.json']).application).toBe(true);
 		expect(classifyChanges(['new-tool.config'])).toMatchObject({ application: true, database: false });
 	});
 

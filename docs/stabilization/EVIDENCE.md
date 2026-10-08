@@ -8,7 +8,7 @@ The [convergence record](phase-08/d30-integrated-convergence.md) is the closing 
 
 - **Reconciliation:** all 29 other Phase 08 children have verified merges on main `17229542`.
 - **Findings and exceptions:** module-boundary findings fall from 116 to 0, and every route provider exception is removed together with `GOVERNANCE_BASELINE.json`. The legacy `lib/server/core` root is retired. Governance now fails on any finding.
-- **Lane denials:** an unchanged-app baseline reproduced Critical Tasks, Training and Personnel lane-denial failures. The record holds that repair and its matching final proof, and the four live runs are packaged.
+- **Lane denials:** an unchanged-app baseline reproduced Critical Tasks, Training and Personnel lane-denial failures. The record holds that repair and its matching final proof, and the five live runs are packaged.
 - **Bundles:** per-route JavaScript stays within 300 B of base across all 84 route nodes.
 - **Checks and review:** the full local sequence passes on `0897bc3a` with 728 files / 7,281 tests. CodeRabbit's single finding is fixed, and independent round-two acceptance returns Standards GO / Spec GO.
 - **Remaining gates:** current-head CI and hosted review. The focused `ac14c29d` live proof passes.

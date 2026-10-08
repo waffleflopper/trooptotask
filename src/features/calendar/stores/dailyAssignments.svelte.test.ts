@@ -478,6 +478,39 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 			expect(dailyAssignmentsStore.assignments).toEqual(inserted);
 		});
 
+		it('shows the replacement slots while a batch is in flight', async () => {
+			const replaced = { id: 'a1', date: '2026-03-20', assignmentTypeId: 'type-1', assigneeId: 'p-old' };
+			const cleared = { id: 'a2', date: '2026-03-21', assignmentTypeId: 'type-1', assigneeId: 'p-old' };
+			const untouched = { id: 'a3', date: '2026-03-20', assignmentTypeId: 'type-2', assigneeId: 'p-other' };
+			dailyAssignmentsStore.load([], [replaced, cleared, untouched], 'org-1');
+			let respond!: (response: unknown) => void;
+			vi.stubGlobal(
+				'fetch',
+				vi.fn(() => new Promise((resolve) => (respond = resolve)))
+			);
+
+			const batch = dailyAssignmentsStore.setAssignmentBatch([
+				{ date: '2026-03-20', assignmentTypeId: 'type-1', assigneeId: 'p-new' },
+				{ date: '2026-03-21', assignmentTypeId: 'type-1', assigneeId: '' }
+			]);
+
+			expect(
+				dailyAssignmentsStore.assignments.map(({ date, assignmentTypeId, assigneeId }) => [
+					date,
+					assignmentTypeId,
+					assigneeId
+				])
+			).toEqual([
+				['2026-03-20', 'type-2', 'p-other'],
+				['2026-03-20', 'type-1', 'p-new']
+			]);
+
+			const saved = { id: 'a4', date: '2026-03-20', assignmentTypeId: 'type-1', assigneeId: 'p-new' };
+			respond({ ok: true, status: 200, json: () => Promise.resolve({ inserted: [saved] }) });
+			await expect(batch).resolves.toBe(true);
+			expect(dailyAssignmentsStore.assignments).toEqual([untouched, saved]);
+		});
+
 		it('should rollback batch on failure', async () => {
 			const existing = { id: 'a1', date: '2026-03-20', assignmentTypeId: 'type-1', assigneeId: 'p-old' };
 			dailyAssignmentsStore.load([], [existing], 'org-1');

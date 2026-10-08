@@ -10,6 +10,7 @@
 	import { autoMapColumns, detectHeaderRow, type ColumnDef as ImportColumnDef } from '$lib/utils/columnMapping';
 	import { parseFile } from '$lib/utils/csvParser';
 	import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
+	import { requestCriticalTasksWorkspaceRefresh } from '$features/critical-tasks/criticalTasksWorkspaceStatus.svelte';
 	import type { IctTask } from '$features/critical-tasks/criticalTasks.types';
 	import {
 		ICT_TASK_IMPORT_COLUMNS,
@@ -211,6 +212,7 @@
 		importError = '';
 
 		try {
+			if (importMode === 'upsert') requestCriticalTasksWorkspaceRefresh();
 			const result = await ictTasksStore.importBatch({
 				mode: importMode,
 				records: checkedRows

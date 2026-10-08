@@ -7,6 +7,10 @@ import IctTaskLibraryPage from './IctTaskLibraryPage.svelte';
 import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
 import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/personnelIctCompletions.svelte';
 import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
+import {
+	criticalTasksWorkspaceStatus,
+	resetCriticalTasksWorkspaceStatus
+} from '$features/critical-tasks/criticalTasksWorkspaceStatus.svelte';
 
 let accessFacts: ClientAccessFacts = { membershipRole: 'owner' };
 const org = createClientAccess(() => accessFacts);
@@ -72,6 +76,25 @@ describe('IctTaskLibraryPage', () => {
 		ictTasksStore.load([], 'org-test-reset');
 		personnelIctCompletionsStore.load([], 'org-test-reset');
 	});
+
+	it.each([true, false])(
+		'requests a workspace refresh for the next navigation when a restore starts (saved: %s)',
+		async (saved) => {
+			resetCriticalTasksWorkspaceStatus();
+			let settle!: (saved: boolean) => void;
+			vi.spyOn(ictTasksStore, 'update').mockReturnValue(new Promise((resolve) => (settle = resolve)));
+			render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+			await fireEvent.click(screen.getByRole('button', { name: 'Archived' }));
+			await fireEvent.click(screen.getByRole('button', { name: /Archived task/ }));
+			expect(criticalTasksWorkspaceStatus.refreshRequested).toBe(false);
+
+			await fireEvent.click(screen.getByRole('button', { name: 'Restore Task' }));
+			expect(criticalTasksWorkspaceStatus.refreshRequested).toBe(true);
+			settle(saved);
+			await Promise.resolve();
+			expect(criticalTasksWorkspaceStatus.refreshRequested).toBe(true);
+		}
+	);
 
 	it('shows active tasks only in configured library order', () => {
 		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });

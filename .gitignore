@@ -37,8 +37,9 @@ supabase/schema_remote_live.sql
 
 .worktrees/
 
-# Claude Code
-.claude/
+# Claude Code (skills are shared from .agents/skills)
+.claude/*
+!.claude/skills
 
 # Superpowers
 .superpowers/

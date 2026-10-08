@@ -1,5 +1,5 @@
 import { afterEach, expect, it } from 'vitest';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
@@ -8,6 +8,7 @@ import {
 	assertCurrentCandidate,
 	candidate,
 	completed,
+	files,
 	runLogged,
 	cleanEnvironment,
 	processIdentity,
@@ -39,6 +40,16 @@ it('makes edited verification instructions stale while unrelated prose stays out
 		);
 		await writeFile(path.join(directory, file), 'Original instructions\n');
 	}
+});
+
+it('skips only the agent skills alias and still refuses a linked application source', async () => {
+	expect(await files()).not.toContain('.claude/skills');
+	const directory = await mkdtemp(path.join(tmpdir(), 't2t-candidate-links-'));
+	directories.push(directory);
+	await writeFile(path.join(directory, 'linked-package.json'), '{}\n');
+	await symlink('linked-package.json', path.join(directory, 'package.json'));
+
+	await expect(candidate(directory)).rejects.toMatchObject({ code: 'SOURCE_TYPE' });
 });
 
 it('refuses changed source or copied artifacts before a browser command can use them', () => {

@@ -89,9 +89,7 @@
 	const activeRosterView = $derived(rosterReadModel.scoped(org.scopeSet, { status: 'active' }));
 	const activePersonnel = $derived(activeRosterView.flatPersonnel);
 	const canOpenTaskInput = $derived(canInputTask && activePersonnel.length > 0 && activeTasks.length > 0);
-	const canOpenCompletionImport = $derived(
-		canInputTask && activePersonnel.length > 0 && ictTasksStore.items.length > 0
-	);
+	const canOpenCompletionImport = $derived(canInputTask && activePersonnel.length > 0 && activeTasks.length > 0);
 	const groupFilterOptions = $derived(
 		activeRosterView.groupFilterOptions.map((option) => ({
 			value: option.value,

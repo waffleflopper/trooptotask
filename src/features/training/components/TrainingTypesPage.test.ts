@@ -1,13 +1,14 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import TrainingTypesPage from './TrainingTypesPage.svelte';
 import { personnelRosterHydration } from '$features/personnel';
 import { trainingRankCatalogStore } from '$features/training/stores/rankCatalog.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
+import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 import type { RankCatalogEntry } from '$features/personnel/contracts';
 import type { Personnel } from '$features/personnel/contracts';
-import type { TrainingType } from '$features/training/training.types';
+import type { PersonnelTraining, TrainingType } from '$features/training/training.types';
 
 const org = {
 	orgId: 'org-1',
@@ -74,6 +75,7 @@ describe('TrainingTypesPage', () => {
 		personnelRosterHydration.load([], 'org-test-reset');
 		trainingRankCatalogStore.load([], 'org-test-reset');
 		trainingTypesStore.load([], 'org-test-reset');
+		personnelTrainingsStore.load([], 'org-test-reset');
 	});
 
 	it('keeps a failed type creation editable and shows a retryable error', async () => {
@@ -303,6 +305,35 @@ describe('TrainingTypesPage', () => {
 		expect(screen.getByRole('button', { name: '+ New Type' })).toBeTruthy();
 		expect(screen.queryByText('1 configured')).toBeNull();
 	});
+
+	it.each([
+		['deleted', []],
+		['approval_required', ['completion-1']]
+	] as const)(
+		'keeps cached completions consistent when a type delete resolves %s',
+		async (result, remainingCompletionIds) => {
+			personnelTrainingsStore.load(
+				[
+					{ id: 'completion-1', personnelId: 'person-1', trainingTypeId: 'type-1' } as PersonnelTraining,
+					{ id: 'completion-2', personnelId: 'person-1', trainingTypeId: 'type-2' } as PersonnelTraining
+				],
+				'org-1'
+			);
+			vi.spyOn(trainingTypesStore, 'remove').mockResolvedValueOnce(result);
+			render(TrainingTypesPage, { props: { org, data: { personnel } } });
+
+			await fireEvent.click(screen.getByRole('button', { name: /^CPR 12mo/ }));
+			await fireEvent.click(screen.getAllByRole('button', { name: /^Delete/ })[0]);
+			await fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }));
+
+			await vi.waitFor(() =>
+				expect(personnelTrainingsStore.items.map((completion) => completion.id).sort()).toEqual([
+					...remainingCompletionIds,
+					'completion-2'
+				])
+			);
+		}
+	);
 
 	it('opens the create and edit forms from the page actions', async () => {
 		render(TrainingTypesPage, {

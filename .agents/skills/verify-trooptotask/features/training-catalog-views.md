@@ -7,11 +7,12 @@ An Organization Training configurator defines requirements and saved matrix layo
 - `catalog`: create, edit, order and delete Training types while preserving their IDs and retained completion references on ordinary edits.
 - `applicability`: Everyone, Optional and targeted role/MOS/rank rules determine whether a Person is required to complete a type; exclusions win over targeting.
 - `saved-views`: create, edit, order and delete a named set of Training columns, then use it in the matrix.
+- `workspace-reuse`: moving between the matrix, Manage Types and Manage Views keeps the loaded workspace and sends no page-data request.
 - `access`: Training view/operate and Group-scoped actors can read their allowed matrix but cannot change the Organization catalog, even when a Group-scoped actor has the Training configure capability; the latter retains its Bulk Import action for authorized records. A foreign Organization's catalog is private.
 
 ## How to get to it (user POV)
 
-Choose `Training` in the Organization navigation. In the Training actions toolbar, open `Manage Types` or `Manage Views`. On the matrix, choose the named saved view in `Training view filter` and switch the Group selector between all available Groups and Alpha. A direct link to `training/types` or `training/views` must enforce the same access rules as visible navigation.
+Choose `Training` in the Organization navigation. In the Training actions toolbar, open `Manage Types` or `Manage Views`. On the matrix, choose the named saved view in `Training view filter` and switch the Group selector between all available Groups and Alpha. A direct link (a full page load) to `training/types` or `training/views` must enforce the same access rules as visible navigation. Moving between the matrix, `Manage Types` and `Manage Views` reuses the loaded workspace and is not access proof.
 
 ## Driving it with verify:app
 
@@ -24,6 +25,7 @@ Preconditions: `doctor` passes for this checkout and `$V fixture` supplies `trai
    On a UI-created saved view, change its name and reverse two selected columns. Arm `training-views` before the edit PUT. A controlled 503 must retain the same name/order draft, useful error, and enabled Save. The original saved ID and fields remain exact. Restore the hook and explicitly retry; reload must show the edited name/order on that same ID. Delete only the temporary view. This existing-view edit is distinct from new-view creation.
 
 5. **Retained lookups:** As `rosterViewer`, inspect the Organization Dashboard Training projection and record what it actually shows; its current percentage does not include missing completions. As `trainingOnboarding`, open `Onboarding` → `Templates` and inspect the Training Type selector in a temporary template step for the seeded Required/Targeted names. Remove the temporary template through the visible controls and read back its absence. This is lookup proof, not a D09 completion or D14 template-cutover claim. If a selector is unavailable, preserve the attempted route and concrete prerequisite; do not substitute a source read for a live observation.
+6. **Workspace reuse:** As `trainingConfigure` on a settled matrix, clear resource timings and visit `Manage Types`, its `Training` link back to the matrix, then `Manage Views`. The page-data probe from the skill's Drive section must show no `__data.json` entry. Click `Reports`: expect one `training/reports/__data.json` and no workspace reload. Returning to the matrix from Reports loads the workspace again.
 
 Use `tool evaluate_script` on the signed-in page for endpoint probes. Substitute the actual public fixture IDs and a unique marker; this is a direct authenticated HTTP check, separate from UI driving:
 
@@ -39,6 +41,7 @@ For views use `api/training-views` and `{name:'MARKER',columnIds:[]}`. Read the 
 - The Group selector was changed to a compact control in #1394. Use its accessible name and visible options; do not assume Group pills.
 - This select component's portal options may be absent from a DevTools accessibility snapshot even when rendered. Read its open listbox options without changing the page, then use the focused trigger's arrow keys and Enter; confirm the visible selected value or resulting matrix/step. An empty snapshot listbox alone does not prove an empty catalog.
 - Clearing the Description textbox with `tool fill` can empty its DOM value without updating Svelte's bound value. Use focused keyboard selection and deletion, then inspect the save request body when diagnosing a discrepancy. The unchanged app accepted `description: null` and persisted null in the disposable provider.
+- Deleting a type removes its completions from the loaded matrix without a reload, matching the server cascade. A type deletion that needs approval keeps them.
 - A seeded Training type deletion can remove associated completions. Delete only rows created during this journey; restart this owned worker if a seeded row changes before another scenario needs it.
 - `clean-seeds` removes helper-created temporary rows, not types or views created through the UI. Delete UI-created rows visibly and read back their absence before cleanup.
 - The pure applicability examples and route/component checks in the issue's lower-level tests, plus isolated SQL authorization, complement the UI proof. Direct API and provider reads are not substitutes for browser interaction.

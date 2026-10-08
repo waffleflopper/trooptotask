@@ -20,6 +20,7 @@
 	import { rosterStore } from '$features/personnel';
 	import { trainingRankCatalogStore } from '$features/training/stores/rankCatalog.svelte';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
+	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 	import {
 		getExpirationMode,
 		toExpirationFields,
@@ -242,7 +243,9 @@
 	}
 
 	async function deleteType(id: string) {
-		await trainingTypesStore.remove(id);
+		if ((await trainingTypesStore.remove(id)) === 'deleted') {
+			personnelTrainingsStore.removeByTrainingTypeLocal(id);
+		}
 		if (selectedTypeId === id) selectedTypeId = null;
 		mobileDetailOpen = false;
 		confirmDelete = null;

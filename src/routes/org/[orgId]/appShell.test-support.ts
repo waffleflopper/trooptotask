@@ -1,3 +1,5 @@
+import { vi } from 'vitest';
+import type { Cookies } from '@sveltejs/kit';
 import type { AppShellRouteData, ReadyAppShell } from '$features/app-shell/contracts';
 
 export function createReadyAppShellRouteData(
@@ -61,4 +63,18 @@ export function createSuspendedAppShellRouteData(
 			state: { orgSuspended: true }
 		}
 	};
+}
+
+export function createUrlBlindLayoutEvent<TEvent>(parentData: AppShellRouteData) {
+	const depends = vi.fn();
+	const event = {
+		locals: {} as App.Locals,
+		cookies: {} as Cookies,
+		depends,
+		parent: vi.fn(async () => parentData),
+		get url(): URL {
+			throw new Error('Feature workspace layouts must not read the URL');
+		}
+	} as unknown as TEvent;
+	return { event, depends };
 }

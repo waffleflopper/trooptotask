@@ -10,6 +10,7 @@ A member moves through the availability calendar, narrows the people shown, and 
 - `calendar-filter`: narrow the grid with the group filter or searchbox.
 - `calendar-saved-range`: the fixed September statuses and closure render in month and long range, and the historical March status remains reachable.
 - `calendar-picker-keyboard`: ArrowLeft changes focused month and Escape dismisses the picker.
+- `calendar-workspace-reuse`: moving between Calendar, Assignments, Bulk Status and Settings keeps the loaded workspace and sends no page-data request.
 - `calendar-range-retry`: an additional-range failure shows a retry and a later successful load restores local data.
 
 ## How to get to it (user POV)
@@ -27,6 +28,7 @@ Preconditions: doctor passes; `$V fixture` supplies fixed September/March record
 5. With the filter clear, click the month/year label, choose September 2026, and capture the named Able, Baker and Unassigned rows plus `Verification Unit Closure`. Able's `Verification Leave - Alpha seeded leave` covers September 14–16; Baker has `Verification Training - Bravo seeded training` on September 15; Unassigned has leave that day. Click `3-Month` and confirm these saved status labels and closure in the September–November view. Move `Prev 3 Months` twice: March–May shows the one `Historical retained` leave day. Move forward twice and confirm the September facts return. Wait for the range to settle; a loading label is not proof.
 6. Open the `Month and year picker`; record the focused month, press `ArrowLeft` through `tool press_key`, confirm focus moves, then press `Escape` and confirm the dialog closes without changing the selected month. Capture before/after snapshots.
 7. On an uncovered long-range request, arm `$V network arm-fail $PAGE calendar-range`, then use `3-Month` or `Next 3 Months`. Capture `Additional calendar data is temporarily unavailable.` and `Retry calendar load`, plus `$V network state $PAGE` showing the synthetic `503`. Click `Retry calendar load`; expect a real `200`, local statuses and no foreign labels. Restore with `$V network restore $PAGE` even if the drive fails, and run doctor before continuing after an unexpected result.
+8. For workspace reuse, as `calendarConfigure` on a settled `/calendar`, clear resource timings, then use visible controls to visit `Planning` → `Assignment Planner`, the `Calendar` link, `Bulk Status` → `Add Bulk`, the `Calendar` link, and `Settings`. Read the page-data probe from the skill's Drive section after each stop: expect no `__data.json` entry. Then click `Reports` and expect one `calendar/reports/__data.json` whose Calendar layout digit is `0`. Separate `calendar-range` requests are range loads, not workspace reloads.
 
 ## Gotchas
 
@@ -34,5 +36,5 @@ Preconditions: doctor passes; `$V fixture` supplies fixed September/March record
 - The grid contains many unnamed day cells. Use named toolbar controls for navigation and use the latest snapshot for any cell interaction.
 - If the Group select's options are absent from the accessibility snapshot, open the named filter and use native `press_key` with `ArrowDown`/`ArrowUp` and `Enter`. Confirm the selected label and resulting Person rows after it settles; a DOM `.click()` on its custom option does not reliably select it.
 - Use `$V fixture` for the fixed dates and today's local date; a current-month screenshot does not establish the September or March records.
-- Arm the range failure before requesting an uncovered range. A cached range may not call the endpoint, so record `network state` before claiming a failure was exercised.
+- Arm the range failure before requesting an uncovered range. A cached range may not call the endpoint, so record `network state` before claiming a failure was exercised. Range coverage restarts each time `/calendar` mounts, including a return from another Calendar page.
 - `calendarOperate` is a synthetic fixture role accepted by `login`; it has Calendar access that the ordinary `manager` fixture does not.

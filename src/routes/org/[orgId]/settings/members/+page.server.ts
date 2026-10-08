@@ -3,14 +3,15 @@ import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { parseMemberAccessEditFormData } from '$lib/access/memberAccessCommands';
 import { createRequestDeletionRequestStore, toActionFailure } from '$lib/server/adapters/httpAdapter';
-import { buildRouteRequest, createRequestNotificationContext } from '$lib/server/adapters/requestContexts.server';
-import { createSupabaseAccountSetupLinkIssuancePorts } from '$features/identity/index.server';
-import { getAdminClient } from '$lib/server/supabase';
+import {
+	buildRouteRequest,
+	createRequestAccountSetupLinkIssuancePorts,
+	createRequestNotificationContext,
+	createRequestOrganizationInvitationPorts
+} from '$lib/server/adapters/requestContexts.server';
 import { listGroupCatalog } from '$features/personnel/index.server';
 import {
 	createSupabaseOrgSettingsMemberManagementPort,
-	createSupabaseOrganizationInvitationDeliveryPort,
-	createSupabaseOrganizationInvitationRateLimiter,
 	loadMembersSettings,
 	inviteOrganizationMember,
 	removeOrganizationMember,
@@ -55,10 +56,9 @@ export const actions: Actions = {
 					notifications: ctx.notifications,
 
 					settings: createSupabaseOrgSettingsMemberManagementPort(locals),
-					invitationDelivery: createSupabaseOrganizationInvitationDeliveryPort(getAdminClient()),
-					invitationRateLimiter: createSupabaseOrganizationInvitationRateLimiter(getAdminClient()),
+					...createRequestOrganizationInvitationPorts(),
 					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer,
-					...createSupabaseAccountSetupLinkIssuancePorts(getAdminClient())
+					...createRequestAccountSetupLinkIssuancePorts()
 				},
 				{
 					email: (formData.get('email') as string) ?? '',
@@ -89,8 +89,7 @@ export const actions: Actions = {
 					notifications: ctx.notifications,
 
 					settings: createSupabaseOrgSettingsMemberManagementPort(locals),
-					invitationDelivery: createSupabaseOrganizationInvitationDeliveryPort(getAdminClient()),
-					invitationRateLimiter: createSupabaseOrganizationInvitationRateLimiter(getAdminClient())
+					...createRequestOrganizationInvitationPorts()
 				},
 				{
 					inviteId: (formData.get('inviteId') as string) ?? '',

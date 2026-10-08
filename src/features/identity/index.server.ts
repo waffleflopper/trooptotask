@@ -34,6 +34,7 @@ export {
 export { verifyCurrentUserEmailConfirmation } from './currentUserEmailConfirmation.server';
 
 export { checkSessionAssurance } from './sessionAssurance.server';
+export { readAccountSuspension } from './accountSuspension.server';
 export { readIdentitySecurity, updateIdentityEmail } from './accountSecurity.server';
 
 export { getAuthCookieOptions } from './authCookies.server';

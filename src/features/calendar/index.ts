@@ -2,7 +2,12 @@
 
 // Types
 export type { StatusType, AvailabilityEntry, SpecialDay, AssignmentType, DailyAssignment } from './contracts';
-export type { CalendarBootstrap, CalendarRangeData } from './calendar.types';
+export type {
+	CalendarBootstrap,
+	CalendarRangeData,
+	CalendarWorkspaceResult,
+	CalendarWorkspaceRestricted
+} from './calendar.types';
 
 // Web reads and workspace hydration for other features
 export {
@@ -26,22 +31,20 @@ export {
 // Context
 export { CalendarPageContext } from './contexts/CalendarPageContext.svelte';
 export type { CalendarPageData, CalendarPageAccess } from './contexts/CalendarPageContext.svelte';
+export { CalendarRangeCoordinator } from './contexts/CalendarRangeCoordinator.svelte';
 
-// Components are imported directly from their paths:
-// $features/calendar/components/CalendarPageView.svelte
-// $features/calendar/components/Calendar.svelte
-// $features/calendar/components/CalendarRow.svelte (moved from personnel/PersonnelRow)
-// $features/calendar/components/CalendarHeader.svelte
-// $lib/components/ui/date-cell (shared UI primitive)
-// $features/calendar/components/AvailabilityModal.svelte
-// $features/calendar/components/BulkStatusPage.svelte
-// $features/calendar/components/BulkStatusAdd.svelte
-// $features/calendar/components/BulkStatusRemove.svelte
-// $features/calendar/components/BulkStatusImport.svelte
-// $features/calendar/components/StatusLegend.svelte
-// $features/calendar/components/DailyAssignmentModal.svelte
-// $features/calendar/components/MonthlyAssignmentPlanner.svelte
-// $features/calendar/components/LongRangeView.svelte
+// Route workspace state consumed by Delivery
+export { calendarWorkspaceHydrator } from './calendarWorkspaceHydration.svelte';
+export { calendarStore } from './stores/calendar.svelte';
+export { dailyAssignmentsStore } from './stores/dailyAssignments.svelte';
+export { buildCalendarAnchorCookie, CALENDAR_ANCHOR_COOKIE } from './utils/calendarAnchorDate';
+
+// Route pages
+export { default as CalendarPageView } from './components/CalendarPageView.svelte';
+export { default as AssignmentPlannerPage } from './components/AssignmentPlannerPage.svelte';
+export { default as BulkStatusPage } from './components/BulkStatusPage.svelte';
+export { default as CalendarReports } from './components/reports/CalendarReports.svelte';
+export { default as CalendarSettingsPage } from './components/CalendarSettingsPage.svelte';
 
 export { CalendarStatusBadge } from '$lib/components/ui/calendar-status-badge';
 

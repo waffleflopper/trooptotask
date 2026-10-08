@@ -94,7 +94,7 @@
 			"packet": "08-M13"
 		},
 		"identity": {
-			"roots": ["src/features/identity/", "src/lib/auth/", "src/lib/components/auth/"],
+			"roots": ["src/features/identity/"],
 			"files": ["src/tests/fixtures/passwordAttempt.ts", "src/tests/fixtures/passwordSession.ts"],
 			"packet": "08-M01"
 		},
@@ -119,7 +119,7 @@
 			"packet": "08-M04"
 		},
 		"platform-admin": {
-			"roots": ["src/features/platform-admin/", "src/lib/components/admin/"],
+			"roots": ["src/features/platform-admin/"],
 			"files": [],
 			"packet": "08-M12"
 		},
@@ -484,7 +484,11 @@
 			"src/features/feedback/index.ts",
 			"src/features/feedback/index.server.ts"
 		],
-		"platform-admin": ["src/features/platform-admin/index.server.ts", "src/features/platform-admin/contracts.ts"],
+		"platform-admin": [
+			"src/features/platform-admin/contracts.ts",
+			"src/features/platform-admin/index.ts",
+			"src/features/platform-admin/index.server.ts"
+		],
 		"app-shell": [
 			"src/features/app-shell/contracts.ts",
 			"src/features/app-shell/index.ts",
@@ -495,6 +499,8 @@
 	},
 	"mixedFiles": {},
 	"testSupportFiles": [
+		"src/tests/fixtures/passwordAttempt.ts",
+		"src/tests/fixtures/passwordSession.ts",
 		"src/lib/test-stubs/VisibleStub.svelte",
 		"src/lib/test/chartLayout.ts",
 		"src/lib/server/adapters/inMemory.ts",

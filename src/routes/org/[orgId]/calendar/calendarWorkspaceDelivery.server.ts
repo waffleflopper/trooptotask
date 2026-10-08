@@ -4,17 +4,89 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { createRequestCalendarWorkspaceContext } from '$lib/server/adapters/requestContexts.server';
 import {
+	createCompositeWorkspaceSnapshotKey,
+	createWorkspaceHydrationTarget,
+	createWorkspaceValueHydrationTarget,
+	isPromiseLike,
+	type HydrationItems
+} from '$lib/server/core/streamedWorkspace';
+import {
 	fetchCalendarBootstrap,
 	getActiveOnboardingPersonnelIds,
-	createCalendarWorkspaceHydration,
 	CALENDAR_WORKSPACE_LANE_KEY,
+	type CalendarAssignmentsHydrationItems,
+	type CalendarAssignmentsWorkspaceHydrationTarget,
+	type CalendarBootstrap,
 	type CalendarDateRange,
+	type CalendarWorkspaceHydration,
+	type CalendarWorkspaceHydrationMode,
+	type CalendarWorkspaceHydrationTarget,
 	type CalendarWorkspaceRouteData,
 	type CalendarWorkspaceResult
 } from '$features/calendar/index.server';
+import type { AssignmentType, DailyAssignment } from '$features/calendar/contracts';
 import { withCalendarTiming } from '$features/calendar/index.server';
 import { CALENDAR_ANCHOR_COOKIE, resolveCalendarAnchorDate } from '$features/calendar/index.server';
 import { createInitialCalendarBufferedRange } from '$features/calendar/index.server';
+
+function createCalendarHydrationTarget<T>(
+	items: HydrationItems<T>,
+	mode: CalendarWorkspaceHydrationMode = 'replace'
+): CalendarWorkspaceHydrationTarget<T> {
+	return createWorkspaceHydrationTarget(items, { mode, resolvedSnapshotKey: 'json' });
+}
+
+function createCalendarAssignmentsItems(
+	assignmentTypes: AssignmentType[],
+	dailyAssignments: DailyAssignment[] | Promise<DailyAssignment[]>
+): CalendarAssignmentsHydrationItems | Promise<CalendarAssignmentsHydrationItems> {
+	if (isPromiseLike(dailyAssignments)) {
+		return dailyAssignments.then((assignments) => ({
+			types: assignmentTypes,
+			assignments
+		}));
+	}
+
+	return {
+		types: assignmentTypes,
+		assignments: dailyAssignments
+	};
+}
+
+function createCalendarAssignmentsHydrationTarget(
+	data: CalendarBootstrap
+): CalendarAssignmentsWorkspaceHydrationTarget {
+	const items = createCalendarAssignmentsItems(data.assignmentTypes, data.dailyAssignments);
+	const target = createWorkspaceValueHydrationTarget(items, { mode: 'merge', resolvedSnapshotKey: 'json' });
+
+	return {
+		...target,
+		snapshotKey: createCompositeWorkspaceSnapshotKey(
+			{
+				assignmentTypes: data.assignmentTypes,
+				dailyAssignments: data.dailyAssignments,
+				rangeStart: data.rangeStart,
+				rangeEnd: data.rangeEnd
+			},
+			{ resolved: 'json' }
+		),
+		rangeStart: data.rangeStart,
+		rangeEnd: data.rangeEnd
+	};
+}
+
+export function createCalendarWorkspaceHydration(orgId: string, data: CalendarBootstrap): CalendarWorkspaceHydration {
+	return {
+		orgId,
+		personnel: createCalendarHydrationTarget(data.personnel),
+		groups: createCalendarHydrationTarget(data.groups),
+		statusTypes: createCalendarHydrationTarget(data.statusTypes),
+		availabilityEntries: createCalendarHydrationTarget(data.availabilityEntries, 'merge'),
+		specialDays: createCalendarHydrationTarget(data.specialDays, 'merge'),
+		calendarAssignments: createCalendarAssignmentsHydrationTarget(data),
+		pinnedGroups: createCalendarHydrationTarget(data.pinnedGroups)
+	};
+}
 
 function createSpecialDaysCatalogRange(anchorDate: Date, today: Date): CalendarDateRange {
 	const years = [anchorDate.getFullYear(), today.getFullYear()];

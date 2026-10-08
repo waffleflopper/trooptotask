@@ -1,8 +1,6 @@
 <script lang="ts">
+	import { AuthField, AuthNotice, AuthShell } from '$features/identity';
 	import { resolve } from '$app/paths';
-	import AuthField from '$lib/components/auth/AuthField.svelte';
-	import AuthNotice from '$lib/components/auth/AuthNotice.svelte';
-	import AuthShell from '$lib/components/auth/AuthShell.svelte';
 	import { ACCESS_REQUEST_HEARD_ABOUT_OPTIONS } from '$features/identity/index';
 	import { Button } from '$lib/components/ui/button';
 	import * as Field from '$lib/components/ui/field';

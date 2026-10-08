@@ -9,7 +9,7 @@ import type {
 	DailyAssignment
 } from '$features/calendar/contracts';
 import { createCalendarWorkspaceHydrator, type CalendarHydrationStores } from './calendarWorkspaceHydration.svelte';
-import type { CalendarWorkspaceHydration } from './server/calendarWorkspaceBootstrap';
+import type { CalendarWorkspaceHydration } from './calendar.types';
 
 function createLoadable<T>() {
 	let orgId = '';

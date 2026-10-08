@@ -4,7 +4,7 @@
 	import type { PasswordCompletionState } from './contracts';
 	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
-	import AuthNotice from '$lib/components/auth/AuthNotice.svelte';
+	import AuthNotice from './AuthNotice.svelte';
 	import PasswordMfaChallenge from './PasswordMfaChallenge.svelte';
 	let {
 		state: completionState,

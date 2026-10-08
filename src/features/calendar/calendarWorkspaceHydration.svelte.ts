@@ -23,7 +23,7 @@ import type {
 	CalendarAssignmentsWorkspaceHydrationTarget,
 	CalendarWorkspaceHydration,
 	CalendarWorkspaceHydrationTarget
-} from './server/calendarWorkspaceBootstrap';
+} from './calendar.types';
 
 export interface CalendarHydrationLoadable<T> {
 	readonly orgId: string;

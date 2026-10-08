@@ -108,3 +108,19 @@ export type SettingsRanksSectionData = {
 		canAddCustomRank: boolean;
 	};
 };
+
+export type RanksSettingsData = {
+	sections: {
+		ranks: SettingsRanksSectionData;
+	};
+};
+
+export interface LogsSettingsData {
+	sections: {
+		logs: SettingsLogsSectionData;
+	};
+}
+
+export interface SettingsLogsSectionData {
+	auditLogPage: AuditLogQueryResult;
+}

@@ -5,7 +5,7 @@ import { createRawSnippet } from 'svelte';
 
 const { restrictMock } = vi.hoisted(() => ({ restrictMock: vi.fn() }));
 
-vi.mock('$features/calendar/calendarWorkspaceHydration.svelte', () => ({
+vi.mock('$features/calendar', () => ({
 	calendarWorkspaceHydrator: {
 		hydrate: vi.fn(),
 		restrict: restrictMock

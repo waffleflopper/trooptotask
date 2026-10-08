@@ -51,7 +51,7 @@ function admit(role: 'owner' | 'admin' | 'member') {
 		}
 	});
 	loadWithContextMock.mockImplementationOnce(async (_locals, _cookies, _orgId, config) =>
-		loadWithContextCore(ctx, config, () => ({ auth: ctx.auth }))
+		loadWithContextCore(ctx, config, () => config.context(ctx))
 	);
 }
 

@@ -6,7 +6,8 @@ import {
 import {
 	createSupabaseTrainingExportReader,
 	createSupabaseTrainingCatalogPersistence,
-	createSupabaseTrainingCompletionPersistence
+	createSupabaseTrainingCompletionPersistence,
+	createSupabaseTrainingTypeNamesReader
 } from '$features/training/index.server';
 import {
 	createSupabaseCalendarExportReader,
@@ -14,7 +15,8 @@ import {
 	createSupabaseCalendarAvailabilityRemovalPort,
 	createSupabaseCalendarCatalogPersistence,
 	createSupabaseCalendarAvailabilityPersistence,
-	createSupabaseCalendarAssignmentReader
+	createSupabaseCalendarAssignmentReader,
+	createSupabaseStatusTypeNamesReader
 } from '$features/calendar/index.server';
 import {
 	createSupabaseCriticalTasksExportReader,
@@ -29,12 +31,16 @@ import {
 } from '$features/notifications/index.server';
 import {
 	createSupabaseOrganizationAdministratorRecipients,
+	createSupabaseOrganizationInvitationDeliveryPort,
+	createSupabaseOrganizationInvitationRateLimiter,
+	createSupabaseOrganizationMemberEmailsReader,
 	createSupabaseOrganizationPolicyWritePort,
 	createSupabaseOrganizationRawExportReader,
 	createSupabaseOrganizationSettingsReader
 } from '$features/organization/index.server';
 import {
 	createSupabasePersonnelExportReader,
+	createSupabasePersonnelNamesReader,
 	createSupabasePersonnelRosterReader,
 	createSupabasePersonnelRecordPersistence,
 	createSupabasePersonnelArtifactReadPersistence,
@@ -65,7 +71,13 @@ import {
 	createSupabaseSignInRosterFileWritePort
 } from '$features/sign-in-rosters/index.server';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
-import { createSupabaseAuditExportReader, createSupabaseAuditAdapter, getRequestInfo } from '$lib/audit/index.server';
+import {
+	createSupabaseAuditExportReader,
+	createSupabaseAuditAdapter,
+	createSupabaseOrganizationAuditStore,
+	getRequestInfo
+} from '$lib/audit/index.server';
+import { createSupabaseAccountSetupLinkIssuancePorts } from '$features/identity/index.server';
 import { getAdminClient } from '$lib/server/supabase';
 import { validateUUID } from '$lib/server/validation';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -272,6 +284,36 @@ export function createRequestNotificationDelivery() {
 
 export function createRequestActorContext(request: AdmittedOrganizationRequest) {
 	return { auth: request.auth, audit: request.audit };
+}
+
+/** Organization audit-log reads use service-role audit and label ports bound to the admitted Organization. */
+export function createRequestOrganizationAuditLogContext(request: AdmittedOrganizationRequest) {
+	const adminClient = getAdminClient();
+	const orgId = request.auth.orgId;
+	return {
+		auth: request.auth,
+		audit: request.audit,
+		auditStore: createSupabaseOrganizationAuditStore(adminClient),
+		auditLabels: {
+			personnelNames: createSupabasePersonnelNamesReader(adminClient, orgId),
+			trainingTypeNames: createSupabaseTrainingTypeNamesReader(adminClient, orgId),
+			statusTypeNames: createSupabaseStatusTypeNamesReader(adminClient, orgId),
+			actorEmails: createSupabaseOrganizationMemberEmailsReader(adminClient, orgId)
+		}
+	};
+}
+
+/** Member invitation delivery, limits and account-setup links require service-role provider access. */
+export function createRequestOrganizationInvitationPorts() {
+	const adminClient = getAdminClient();
+	return {
+		invitationDelivery: createSupabaseOrganizationInvitationDeliveryPort(adminClient),
+		invitationRateLimiter: createSupabaseOrganizationInvitationRateLimiter(adminClient)
+	};
+}
+
+export function createRequestAccountSetupLinkIssuancePorts() {
+	return createSupabaseAccountSetupLinkIssuancePorts(getAdminClient());
 }
 
 export function createRequestEmptyContext(_request: AdmittedOrganizationRequest) {

@@ -1,9 +1,13 @@
 <script lang="ts">
 	import {
-		hasPendingPasswordCompletion,
 		PasswordCompletion,
 		PasswordMfaChallenge,
 		passwordRequirements,
+		AuthField,
+		AuthNotice,
+		AuthPasswordToggle,
+		AuthShell,
+		hasPendingPasswordCompletion,
 		validatePassword
 	} from '$features/identity';
 	import type { PasswordCompletionState } from '$features/identity/contracts';
@@ -11,10 +15,6 @@
 	import { goto, replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/stores';
-	import AuthField from '$lib/components/auth/AuthField.svelte';
-	import AuthNotice from '$lib/components/auth/AuthNotice.svelte';
-	import AuthPasswordToggle from '$lib/components/auth/AuthPasswordToggle.svelte';
-	import AuthShell from '$lib/components/auth/AuthShell.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { onMount, onDestroy, tick } from 'svelte';

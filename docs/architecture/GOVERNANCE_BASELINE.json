@@ -9,11 +9,6 @@
 			"path": "src/routes/auth/confirm/+page.server.ts",
 			"classification": "auth-edge",
 			"reason": "Email confirmation remains an auth-provider boundary."
-		},
-		{
-			"path": "src/routes/suspended/+page.server.ts",
-			"classification": "auth-edge",
-			"reason": "Suspension checks remain part of the session/auth gate."
 		}
 	],
 	"routeAdminProviderAllowlist": [
@@ -31,16 +26,6 @@
 			"path": "src/routes/api/cleanup-old-data/+server.ts",
 			"classification": "cron-edge",
 			"reason": "Admitted cron delivery supplies a service-role client to Audit's public retention operation."
-		},
-		{
-			"path": "src/routes/org/[orgId]/settings/logs/+page.server.ts",
-			"classification": "platform-admin-edge",
-			"reason": "Organization audit-log settings still supplies a service-role client to Audit's owned log reader in the route."
-		},
-		{
-			"path": "src/routes/org/[orgId]/settings/members/+page.server.ts",
-			"classification": "auth-edge",
-			"reason": "Organization member invitation actions still create service-role invitation delivery and rate-limit adapters in the route."
 		}
 	],
 	"featurePermissionCouplings": []

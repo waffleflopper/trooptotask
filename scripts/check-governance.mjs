@@ -435,7 +435,7 @@ function runGovernanceChecks() {
 			errors.push(`Module ${issue.kind}: [${issue.packet}] ${issue.file}: ${issue.message}`);
 		}
 	} catch (error) {
-		errors.push(`Module boundary comparison unavailable: ${error instanceof Error ? error.message : String(error)}`);
+		errors.push(`Module boundary scan unavailable: ${error instanceof Error ? error.message : String(error)}`);
 	}
 
 	if (errors.length > 0) {
@@ -446,7 +446,7 @@ function runGovernanceChecks() {
 		process.exit(1);
 	}
 
-	console.log('Governance regression checks passed; reported Phase 08 debt remains open.');
+	console.log('Governance checks passed.');
 	console.log(`- route-level locals.supabase allowlist entries: ${baseline.routeSupabaseAllowlist.length}`);
 	console.log(`- route-level admin-provider allowlist entries: ${(baseline.routeAdminProviderAllowlist ?? []).length}`);
 	console.log(`- documented feature permission couplings: ${baseline.featurePermissionCouplings.length}`);

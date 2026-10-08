@@ -22,7 +22,7 @@ Use focused checks while editing. Full validation does not run automatically bef
 
 The [verification contract](architecture/DEFINITION_OF_DONE.md#required-commands) still defines acceptance. Format locally before submitting; CI checks formatting without rewriting the candidate. Passing CI for the exact candidate may be used directly rather than repeated locally. Pending checks are pending, never a claimed pass. A later source/configuration change requires affected verification again. Browser journey and populated-upgrade evidence remain required when their task calls for them; fresh database replay alone does not prove every upgrade.
 
-The governance job needs full Git history and `origin/main`; preserve that checkout behavior. It runs the canonical regression checker, which rejects new/completed-scope findings while reporting the owned Phase 08 debt. Do not replace it with the standalone inventory report or weaken any rule to make migration pass.
+The governance job runs the canonical checker, which fails on any module-boundary finding or undocumented route provider edge. Do not weaken any rule, exception list or scan path to make a change pass.
 
 ## Database isolation
 

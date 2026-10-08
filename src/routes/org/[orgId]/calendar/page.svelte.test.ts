@@ -3,10 +3,12 @@ import { createRawSnippet, getAllContexts, mount, unmount, untrack } from 'svelt
 import { AccountPreferencesProvider } from '$features/identity';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import { calendarStore } from '$features/calendar/stores/calendar.svelte';
-import { CALENDAR_ANCHOR_COOKIE } from '$features/calendar/utils/calendarAnchorDate';
-import type { CalendarRangeData } from '$features/calendar/index';
-import type { CalendarWorkspaceResult } from '$features/calendar/server/calendarWorkspaceBootstrap';
+import {
+	calendarStore,
+	CALENDAR_ANCHOR_COOKIE,
+	type CalendarRangeData,
+	type CalendarWorkspaceResult
+} from '$features/calendar';
 import { createReadyAppShellRouteData } from '../appShell.test-support';
 
 const { exportMonthToExcelMock, loadCalendarRangeMock, mergeCalendarRangeIntoStoresMock, printMonthCalendarMock } =

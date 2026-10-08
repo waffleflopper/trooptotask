@@ -1,10 +1,8 @@
 <script lang="ts">
+	import { AuthField, AuthNotice, AuthShell } from '$features/identity';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { sanitizeAuthNextPath, type MfaActionResponse } from '$features/identity/contracts';
-	import AuthField from '$lib/components/auth/AuthField.svelte';
-	import AuthNotice from '$lib/components/auth/AuthNotice.svelte';
-	import AuthShell from '$lib/components/auth/AuthShell.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
 

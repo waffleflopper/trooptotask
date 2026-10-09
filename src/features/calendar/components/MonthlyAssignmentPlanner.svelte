@@ -145,10 +145,9 @@
 				assignmentTypeId: typeId,
 				assigneeId: ''
 			}));
-			await onSetAssignmentBatch(batch);
+			if (await onSetAssignmentBatch(batch)) clearTypeId = null;
 		} finally {
 			isApplying = false;
-			clearTypeId = null;
 		}
 	}
 

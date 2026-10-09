@@ -155,6 +155,8 @@ Live on `dc6d634e` (digest `7ee92393`, worker 1, Chromium 152). Training Records
 
 **Checks.** The CI command sequence ran locally with CI's synthetic environment. On PR B `b7a4d0d4`: `format:check`, `lint` (0 errors; the same 3 warnings in untouched files), `governance:check`, `check`, `test` (736 files, 7,291 tests) and `build` pass. On PR C `9aafa693`, the same commands pass with `test` at 739 files and 7,304 tests. The Svelte autofixer reports no issues on the changed components. PR C is restacked on `b7a4d0d4`.
 
+**PR review.** CodeRabbit on #1596 found that a failed Clear month closed its confirmation, because the planner ignored the batch's `false` result. The confirmation now closes only on success. `MonthlyAssignmentPlanner.test.ts` drives a failure then a retry and fails without the fix. This was not rerun live: the change is one line on the failure path, and the component test drives the real confirmation through failure and retry. CodeRabbit also asked the recipe to state the signed-scan Remove exception, which is now added. Focused tests, `lint`, `check` and Prettier pass.
+
 ### Independent acceptance
 
 GPT-6.1 Sol reviewed the stack in four rounds; none wrote code. Round 1 (`168b6fdb`), round 2 (`e7790e4f`) and round 3 (`99f61889`) failed on the consumer findings recorded above, each resolved in the following round. Round 4 reviewed only `99f61889..2c3e1b03` against a realistic-user-path bar and returned **PASS+NOTES**: the round-3 findings are resolved, the sweep introduces no user-reachable regression, the stated exceptions are reasonable, the new verify controls stay within the disposable environment, and the round-5 archive and `dc6d634e` CI log support the claims. Its notes were evidence wording only, corrected here.

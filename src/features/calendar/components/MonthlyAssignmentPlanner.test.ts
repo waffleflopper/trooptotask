@@ -50,4 +50,32 @@ describe('MonthlyAssignmentPlanner', () => {
 		await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
 		expect(clear.disabled).toBe(false);
 	});
+	it('keeps the Clear confirmation open for a retry when the month clear fails', async () => {
+		const onSetAssignmentBatch = vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+		render(MonthlyAssignmentPlanner, {
+			props: {
+				currentDate: new Date(2026, 9, 1),
+				onDateChange: vi.fn(),
+				rangeStatus: 'ready',
+				onRetry: vi.fn(),
+				assignmentTypes: [staffDuty],
+				assignments: [],
+				personnelByGroup: [],
+				groups: [],
+				onSetAssignment: vi.fn(),
+				onSetAssignmentBatch
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Clear all Staff Duty' }));
+		const confirmation = screen.getByRole('alertdialog');
+		await fireEvent.click(within(confirmation).getByRole('button', { name: 'Clear All' }));
+
+		await waitFor(() => expect(confirmation.hasAttribute('aria-busy')).toBe(false));
+		expect(screen.getByRole('alertdialog')).toBe(confirmation);
+
+		await fireEvent.click(within(confirmation).getByRole('button', { name: 'Clear All' }));
+		await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+		expect(onSetAssignmentBatch).toHaveBeenCalledTimes(2);
+	});
 });

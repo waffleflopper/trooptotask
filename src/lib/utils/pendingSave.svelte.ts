@@ -1,4 +1,4 @@
-/** One save at a time for a settings section; a submit while one is pending is ignored. */
+/** One save at a time; a submit while one is pending is ignored. */
 export class PendingSave {
 	pending = $state(false);
 

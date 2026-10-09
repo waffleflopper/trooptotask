@@ -10,6 +10,7 @@
 		getTrainingStats
 	} from '$features/training/utils/trainingStatus';
 	import { formatDate } from '$lib/utils/dates';
+	import { PendingSave } from '$lib/utils/pendingSave.svelte';
 	import { toast } from 'svelte-sonner';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Badge } from '$lib/components/ui/badge';
@@ -51,6 +52,7 @@
 		disposed = true;
 	});
 	const isCurrent = () => !disposed;
+	const saving = new PendingSave();
 
 	const trainingMap = $derived.by(() => {
 		const map = new SvelteMap<string, PersonnelTraining>();
@@ -260,7 +262,6 @@
 	}
 
 	async function doMarkAllCompleted() {
-		showMarkAllConfirm = false;
 		const applicableTypes = trainingTypes.filter((t) => !t.expirationDateOnly);
 		const today = formatDate(new Date());
 		const records = applicableTypes.map((type) => ({
@@ -290,6 +291,7 @@
 		});
 		if (!saved) return;
 
+		showMarkAllConfirm = false;
 		for (const type of applicableTypes) {
 			editingStates.set(type.id, {
 				isComplete: true,
@@ -320,7 +322,7 @@
 	}
 </script>
 
-<AppDialog.Root {onClose}>
+<AppDialog.Root {onClose} busy={saving.pending}>
 	<AppDialog.Content size="wide">
 		<AppDialog.Header>
 			<AppDialog.Title>Training Records</AppDialog.Title>
@@ -328,7 +330,7 @@
 		</AppDialog.Header>
 
 		<AppDialog.Body>
-			<div class="grid gap-4">
+			<fieldset class="grid min-w-0 gap-4" disabled={saving.pending}>
 				<div class="grid grid-cols-2 gap-2 sm:grid-cols-5">
 					{#each [['Current', stats.current, 'success'], ['<60d', stats.warningYellow, 'warning'], ['<30d', stats.warningOrange, 'warning'], ['Expired', stats.expired, 'destructive'], ['Not Done', stats.notCompleted, 'outline']] as item (item[0])}
 						<div
@@ -377,9 +379,13 @@
 											{#if type.expirationDateOnly}
 												<!-- Expiration-date-only training must be edited manually. -->
 											{:else if neverExpires && !existing}
-												<Button size="sm" type="button" onclick={() => markComplete(type.id)}>Complete</Button>
+												<Button size="sm" type="button" onclick={() => saving.run(() => markComplete(type.id))}>
+													Complete
+												</Button>
 											{:else}
-												<Button size="sm" type="button" onclick={() => markCompletedToday(type.id)}>Today</Button>
+												<Button size="sm" type="button" onclick={() => saving.run(() => markCompletedToday(type.id))}>
+													Today
+												</Button>
 											{/if}
 											<Button variant="outline" size="sm" type="button" onclick={() => toggleEdit(type.id)}>
 												{existing ? 'Edit' : 'Add'}
@@ -493,7 +499,7 @@
 										<Button
 											size="sm"
 											type="button"
-											onclick={() => saveTraining(type.id)}
+											onclick={() => saving.run(() => saveTraining(type.id))}
 											disabled={type.expirationDateOnly
 												? !state.directExpirationDate
 												: neverExpires
@@ -508,11 +514,11 @@
 						</section>
 					{/each}
 				</div>
-			</div>
+			</fieldset>
 		</AppDialog.Body>
 
 		<AppDialog.Footer>
-			<Button variant="outline" type="button" onclick={onClose}>Close</Button>
+			<Button variant="outline" type="button" onclick={onClose} disabled={saving.pending}>Close</Button>
 		</AppDialog.Footer>
 	</AppDialog.Content>
 </AppDialog.Root>
@@ -535,7 +541,7 @@
 		message="Mark {count} trainings as completed today? (Expiration-date-only trainings must be set individually)"
 		confirmLabel="Mark All"
 		variant="warning"
-		onConfirm={doMarkAllCompleted}
+		onConfirm={() => saving.run(doMarkAllCompleted)}
 		onCancel={() => (showMarkAllConfirm = false)}
 	/>
 {/if}

@@ -14,7 +14,7 @@
 	import type { SpecialDay } from '$features/calendar/contracts';
 	import Pencil from '@lucide/svelte/icons/pencil';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
-	import { PendingSave } from './pendingSave.svelte';
+	import { PendingSave } from '$lib/utils/pendingSave.svelte';
 
 	type Props = {
 		canMutate: boolean;

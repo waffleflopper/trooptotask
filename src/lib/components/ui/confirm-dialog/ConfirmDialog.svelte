@@ -1,6 +1,7 @@
 <script lang="ts">
 	import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
+	import { busyDialog } from '$lib/components/ui/dialog';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import type { Snippet } from 'svelte';
 
@@ -55,7 +56,11 @@
 </script>
 
 <AlertDialog.Root open onOpenChange={(open) => !open && !busy && onCancel()}>
-	<AlertDialog.Content escapeKeydownBehavior={busy ? 'ignore' : 'close'} restoreScrollDelay={0}>
+	<AlertDialog.Content
+		{@attach busyDialog(busy)}
+		escapeKeydownBehavior={busy ? 'ignore' : 'close'}
+		restoreScrollDelay={0}
+	>
 		<AlertDialog.Header>
 			<AlertDialog.Title>{title}</AlertDialog.Title>
 			<AlertDialog.Description>{message}</AlertDialog.Description>

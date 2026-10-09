@@ -44,6 +44,21 @@ describe('ConfirmDialog', () => {
 		});
 	});
 
+	it('keeps focus inside and marks the dialog busy while confirming', async () => {
+		render(ConfirmDialogTest, { asyncConfirm: true });
+		const dialog = screen.getByRole('alertdialog', { name: 'Confirm shared action' });
+		const confirm = screen.getByRole('button', { name: 'Confirm action' });
+		confirm.focus();
+
+		await fireEvent.click(confirm);
+
+		expect(dialog.getAttribute('aria-busy')).toBe('true');
+		expect(document.activeElement).toBe(dialog);
+
+		await waitFor(() => expect(dialog.hasAttribute('aria-busy')).toBe(false));
+		expect(document.activeElement).toBe(dialog);
+	});
+
 	it('ignores an outside click and cancels on Escape with focus back on the opener', async () => {
 		render(ConfirmDialogTest);
 		await fireEvent.click(screen.getByRole('button', { name: 'Stand down' }));

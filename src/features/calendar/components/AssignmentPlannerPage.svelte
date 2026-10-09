@@ -1,5 +1,5 @@
 <script lang="ts">
-	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
+	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar';
 	import { CalendarRangeCoordinator } from '../contexts/CalendarRangeCoordinator.svelte';
 	import { createVisibleCalendarRange, getCalendarRangeGaps } from '../utils/calendarRange';
 	import { buildCalendarAnchorCookie } from '../utils/calendarAnchorDate';

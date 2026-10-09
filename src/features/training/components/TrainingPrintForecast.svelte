@@ -17,7 +17,7 @@
 </script>
 
 <script lang="ts">
-	import { buildReportCountTicks, readinessTrendDomain } from '$lib/components/charts/reportChartConventions';
+	import { buildReportCountTicks, readinessTrendDomain } from '$lib/components/patterns/report-chart';
 	import type { BriefingForecast } from '../utils/trainingBriefing.types';
 
 	interface Props {

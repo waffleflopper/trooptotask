@@ -1,6 +1,6 @@
 <script lang="ts" module>
 	import type { BriefingBand, BriefingRowsBy } from '../contracts';
-	import type { ReadinessBandTier } from '$lib/components/ui/readiness-band/index.js';
+	import type { ReadinessBandTier } from '$lib/components/patterns/readiness-band/index.js';
 
 	const BAND_TIER: Record<BriefingBand, ReadinessBandTier> = {
 		goal: 'good',
@@ -26,13 +26,13 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as OperationalMatrix from '$lib/components/ui/operational-matrix';
 	import type { OperationalMatrixColumn, OperationalMatrixRow } from '$lib/components/ui/operational-matrix';
-	import * as PageShell from '$lib/components/ui/page-shell';
-	import * as ReadinessBand from '$lib/components/ui/readiness-band/index.js';
-	import { readinessBandTone } from '$lib/components/ui/readiness-band/index.js';
-	import { ReportForecastChart } from '$lib/components/ui/report-chart';
-	import * as ReportWorkspace from '$lib/components/ui/report-workspace';
+	import * as PageShell from '$lib/components/patterns/page-shell';
+	import * as ReadinessBand from '$lib/components/patterns/readiness-band/index.js';
+	import { readinessBandTone } from '$lib/components/patterns/readiness-band/index.js';
+	import { ReportForecastChart } from '$lib/components/patterns/report-chart';
+	import * as ReportWorkspace from '$lib/components/patterns/report-workspace';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group';
-	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
+	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar';
 	import { downloadBlob } from '$lib/utils/downloadBlob';
 	import { filenameFromContentDisposition } from '$lib/utils/workbook';
 	import {

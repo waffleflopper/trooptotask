@@ -12,8 +12,8 @@
 		getTemplateDisplayName,
 		STEP_TYPE_LABELS
 	} from '../contexts/OnboardingPageContext.svelte';
-	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
-	import type { WorkspaceToolbarNavItem } from '$lib/components/ui/workspace-toolbar';
+	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar';
+	import type { WorkspaceToolbarNavItem } from '$lib/components/patterns/workspace-toolbar';
 	import { Badge } from '$lib/components/ui/badge';
 	import * as Empty from '$lib/components/ui/empty';
 	import * as OnboardingPacketList from './packet-list';

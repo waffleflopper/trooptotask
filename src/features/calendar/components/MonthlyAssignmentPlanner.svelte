@@ -4,7 +4,7 @@
 	import type { AssignmentType, DailyAssignment } from '$features/calendar/contracts';
 	import { formatDate, getMonthDates, getMonthName, isWeekend, addMonths } from '$lib/utils/dates';
 	import { assignmentSlotKey, indexAssignmentsBySlot } from '../utils/calendarIndexes';
-	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import { Button } from '$lib/components/ui/button';
 	import * as Combobox from '$lib/components/ui/combobox';
 	import { NativeSelect } from '$lib/components/ui/native-select';

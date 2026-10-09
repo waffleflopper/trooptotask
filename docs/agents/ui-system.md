@@ -6,7 +6,7 @@ Use this file for UI component work, shared styling, route UI changes, app-shell
 
 - The [component catalog index](../component-catalog.md#find-the-relevant-component) routes to shared APIs, states and known replacements. Read the foundation and relevant component sections.
 - The [foundation provenance and family contract](../ui-foundation-provenance.md) records every current family, its canonical API, retained deviations and selected target layer.
-- `src/lib/components/ui/**` currently contains both canonical primitives and project compositions. Phase 09 D02 will move the selected neutral patterns and feature-owned UI. Those moves have not happened.
+- `src/lib/components/ui/**` holds canonical primitives and central variants. `src/lib/components/patterns/**` holds shared neutral compositions such as page shell, workspace toolbar, report workspace and charts, bulk import and type management. `scripts/module-boundaries.json` enforces the direction: patterns may import `ui` and shared code, `ui` may not import patterns, and neither may import a feature.
 - Shared app and layout primitives under `src/lib/components/**` own product shell and reusable layout behavior.
 - `src/app.css` and `components.json` own global Tailwind v4, shadcn-svelte, token, and generated-component configuration.
 - `PRODUCT.md` and `DESIGN.md` describe the product and visual direction for design-heavy UI work.
@@ -41,7 +41,7 @@ Use accessible shared controls, dialogs and menus. Preserve labels, keyboard/foc
 
 ## Three-layer contract
 
-Use `components/ui` for canonical primitives and centrally owned variants. Use `components/patterns` for a shared neutral composition when current consumers justify it. Keep feature workflows and domain-specific presentation with their feature owner. D02 establishes those selected locations and updates all affected imports together. Do not add a second primitive API or retain old-path re-exports after the cutover.
+Use `components/ui` for canonical primitives and centrally owned variants. Use `components/patterns` for a shared neutral composition when current consumers justify it. Keep feature workflows and domain-specific presentation with their feature owner. Move a component's imports together with it. Do not add a second primitive API or retain old-path re-exports.
 
 The [family mapping](../ui-foundation-provenance.md#project-family-apis-and-target-layers) distinguishes current imports from the selected targets. Preserve existing props, bindings, snippets and events until a mapping names their replacement. Authoritative validation, authorization and saved state remain in the owning feature/server operations.
 

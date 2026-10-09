@@ -6,7 +6,7 @@ This document describes the conventions that fit the current v1 repo. It is inte
 
 - Route shells live under `src/routes/**`.
 - Product feature modules live under `src/features/*`.
-- Shared UI lives under `src/lib/components/**` and `src/lib/components/ui/**`.
+- Shared UI primitives live under `src/lib/components/ui/**`; shared neutral compositions live under `src/lib/components/patterns/**`.
 - Feature-owned server operations, persistence contracts and providers live under `src/features/<owner>/**`. Shared provider and delivery mechanics live under `src/lib/server/**`.
 
 The codebase already trends toward:
@@ -124,8 +124,9 @@ Keep feature-specific logic inside the feature module unless it is truly shared 
 ### Shared UI
 
 - Use shared UI primitives before building new one-off controls.
-- Keep generic shared UI in `$lib/components/ui/*`.
-- Keep layout or shell primitives in `$lib/components/*`.
+- Keep primitives and central variants in `$lib/components/ui/*`.
+- Keep shared neutral compositions, including page and workspace layouts, in `$lib/components/patterns/*`.
+- Keep domain-specific UI with its feature.
 - Keep public marketing primitives in `$lib/components/public/*`.
 - Follow `docs/component-catalog.md` for shared UI usage and styling expectations.
 - The current UI foundation is shadcn-svelte, Tailwind v4, and TroopToTask compound components. Shared components own appearance; route-level changes are behavioral only.

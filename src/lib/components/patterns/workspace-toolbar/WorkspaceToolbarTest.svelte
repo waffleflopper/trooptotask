@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { Button } from '../button/index.js';
-	import * as ButtonGroup from '../button-group/index.js';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import * as ButtonGroup from '$lib/components/ui/button-group/index.js';
 	import * as WorkspaceToolbar from './index.js';
 
 	let viewMode = $state<'month' | 'long-range'>('month');

@@ -1,8 +1,8 @@
 <script lang="ts">
 	import * as OperationalMatrix from '$lib/components/ui/operational-matrix';
 	import type { OperationalMatrixColumn, OperationalMatrixRow } from '$lib/components/ui/operational-matrix';
-	import * as ReadinessBand from '$lib/components/ui/readiness-band/index.js';
-	import * as ReportWorkspace from '$lib/components/ui/report-workspace';
+	import * as ReadinessBand from '$lib/components/patterns/readiness-band/index.js';
+	import * as ReportWorkspace from '$lib/components/patterns/report-workspace';
 	import type {
 		IctReadinessMatrix,
 		IctReadinessMatrixCell,

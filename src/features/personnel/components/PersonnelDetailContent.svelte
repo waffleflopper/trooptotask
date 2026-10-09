@@ -7,7 +7,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { Textarea } from '$lib/components/ui/textarea';
-	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import SoldierDataSheetModal from './SoldierDataSheetModal.svelte';
 	import type { PersonnelDetailStreams, PersonnelReadinessLane } from '$features/personnel/personnel-detail.types';
 	import {

@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	import { type RequirementStatus } from '$lib/components/ui/requirement-status-badge';
+	import { type RequirementStatus } from '$lib/components/patterns/requirement-status-badge';
 	import type { TrainingStatus } from '../contracts';
 
 	export const trainingRequirementStatusMap: Record<TrainingStatus, RequirementStatus> = {
@@ -15,7 +15,7 @@
 
 <script lang="ts">
 	import type { HTMLAnchorAttributes } from 'svelte/elements';
-	import { RequirementStatusBadge } from '$lib/components/ui/requirement-status-badge';
+	import { RequirementStatusBadge } from '$lib/components/patterns/requirement-status-badge';
 	import type { WithElementRef } from '$lib/utils.js';
 
 	let {

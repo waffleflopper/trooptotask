@@ -10,8 +10,8 @@
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
 	import * as ButtonGroup from '$lib/components/ui/button-group';
-	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
-	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
+	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar';
+	import type { WorkspaceToolbarAction } from '$lib/components/patterns/workspace-toolbar';
 	import RatingSchemeTableView from '$features/rating-scheme/components/RatingSchemeTableView.svelte';
 	import RatingSchemeGroupedView from '$features/rating-scheme/components/RatingSchemeGroupedView.svelte';
 	import EvalBadge from '$features/rating-scheme/components/EvalBadge.svelte';

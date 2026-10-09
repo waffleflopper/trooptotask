@@ -465,6 +465,52 @@ describe('module boundary declaration', () => {
 		).toEqual(['08-M17']);
 	});
 
+	it('lets features compose patterns over primitives and rejects the reverse directions', () => {
+		const manifest = JSON.parse(readFileSync('scripts/module-boundaries.json', 'utf8')) as Manifest;
+		const check = (sources: { path: string; content: string }[]) => {
+			const graph = buildImportGraph(sources, (candidate) => sources.some((source) => source.path === candidate));
+			return checkModuleBoundaries({ sourcePaths: sources.map((source) => source.path), ...graph }, manifest)
+				.filter((issue) => issue.kind === 'undeclared')
+				.map((issue) => issue.message);
+		};
+		const primitive = { path: 'src/lib/components/ui/button/index.ts', content: 'export const Button = true;' };
+		const pattern = {
+			path: 'src/lib/components/patterns/page-shell/index.ts',
+			content: "export { Button } from '$lib/components/ui/button';"
+		};
+		const feature = { path: 'src/features/training/index.ts', content: 'export const training = true;' };
+
+		expect(
+			check([
+				primitive,
+				pattern,
+				feature,
+				{
+					path: 'src/features/training/components/Page.svelte',
+					content: "<script>import * as PageShell from '$lib/components/patterns/page-shell';</script>"
+				}
+			])
+		).toEqual([]);
+
+		expect(
+			check([
+				pattern,
+				feature,
+				{
+					path: 'src/lib/components/ui/button/index.ts',
+					content: "export * from '$lib/components/patterns/page-shell';"
+				},
+				{
+					path: 'src/lib/components/patterns/report-chart/index.ts',
+					content: "export { training } from '$features/training';"
+				}
+			])
+		).toEqual([
+			'web-patterns → training: $features/training (src/features/training/index.ts)',
+			'web-ui → web-patterns: $lib/components/patterns/page-shell (src/lib/components/patterns/page-shell/index.ts)'
+		]);
+	});
+
 	it('reports private and undeclared paths without hiding either finding', () => {
 		const { graph, manifest } = fixture(
 			[

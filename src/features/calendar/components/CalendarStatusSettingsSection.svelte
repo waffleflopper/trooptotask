@@ -2,7 +2,7 @@
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Button } from '$lib/components/ui/button';
 	import { CalendarStatusBadge } from '$lib/components/ui/calendar-status-badge';
-	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';

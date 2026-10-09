@@ -2,8 +2,8 @@
 	import { SvelteDate } from 'svelte/reactivity';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
-	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
-	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
+	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar';
+	import type { WorkspaceToolbarAction } from '$lib/components/patterns/workspace-toolbar';
 	import type { CriticalTasksPageAccess } from '../contracts';
 	import IctCompletionModal from '$features/critical-tasks/components/IctCompletionModal.svelte';
 	import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';

@@ -10,7 +10,7 @@
 	import { PERSONNEL_COLUMNS } from '../personnelImportColumns';
 	import type { Personnel } from '../personnel.types';
 	import type { RankCatalogEntry } from '$features/personnel/contracts';
-	import * as BulkImportWorkspace from '$lib/components/ui/bulk-import-workspace';
+	import * as BulkImportWorkspace from '$lib/components/patterns/bulk-import-workspace';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import * as NativeSelect from '$lib/components/ui/native-select';

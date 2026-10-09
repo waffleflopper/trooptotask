@@ -5,8 +5,8 @@
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
-	import * as BulkImportWorkspace from '$lib/components/ui/bulk-import-workspace';
-	import type { BulkImportRowStatus } from '$lib/components/ui/bulk-import-workspace';
+	import * as BulkImportWorkspace from '$lib/components/patterns/bulk-import-workspace';
+	import type { BulkImportRowStatus } from '$lib/components/patterns/bulk-import-workspace';
 	import { Input } from '$lib/components/ui/input';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { useDataTableSelection, type ColumnDef } from '$lib/components/ui/data-table';

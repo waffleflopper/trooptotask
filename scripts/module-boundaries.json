@@ -202,14 +202,13 @@
 			"files": [],
 			"packet": "08-M07"
 		},
+		"web-patterns": {
+			"roots": ["src/lib/components/patterns/"],
+			"files": [],
+			"packet": "08-M16"
+		},
 		"web-ui": {
-			"roots": [
-				"src/lib/components/charts/",
-				"src/lib/components/ui/",
-				"src/lib/hooks/",
-				"src/lib/test-stubs/",
-				"src/lib/test/"
-			],
+			"roots": ["src/lib/components/ui/", "src/lib/hooks/", "src/lib/test-stubs/", "src/lib/test/"],
 			"files": [
 				"src/app.css",
 				"src/lib/utils.ts",
@@ -263,11 +262,12 @@
 			"provider",
 			"shared",
 			"web-ui",
+			"web-patterns",
 			"organization",
 			"onboarding",
 			"notifications"
 		],
-		"critical-tasks": ["organization", "personnel", "access", "audit", "provider", "shared", "web-ui"],
+		"critical-tasks": ["organization", "personnel", "access", "audit", "provider", "shared", "web-ui", "web-patterns"],
 		"dashboard": [
 			"organization",
 			"personnel",
@@ -337,7 +337,8 @@
 			"shared",
 			"sign-in-rosters",
 			"training",
-			"web-ui"
+			"web-ui",
+			"web-patterns"
 		],
 		"feedback": ["organization", "provider", "shared", "web-ui"],
 		"identity": ["access", "audit", "provider", "shared", "web-ui"],
@@ -351,10 +352,11 @@
 			"audit",
 			"provider",
 			"shared",
-			"web-ui"
+			"web-ui",
+			"web-patterns"
 		],
-		"organization": ["identity", "notifications", "access", "audit", "provider", "shared", "web-ui"],
-		"personnel": ["organization", "access", "audit", "provider", "shared", "web-ui"],
+		"organization": ["identity", "notifications", "access", "audit", "provider", "shared", "web-ui", "web-patterns"],
+		"personnel": ["organization", "access", "audit", "provider", "shared", "web-ui", "web-patterns"],
 		"platform-admin": [
 			"identity",
 			"organization",
@@ -373,7 +375,7 @@
 		],
 		"provider": ["shared"],
 		"public-web": ["identity", "web-ui", "shared"],
-		"rating-scheme": ["personnel", "access", "audit", "provider", "shared", "web-ui"],
+		"rating-scheme": ["personnel", "access", "audit", "provider", "shared", "web-ui", "web-patterns"],
 		"scheduled-maintenance": [
 			"identity",
 			"organization",
@@ -390,12 +392,24 @@
 		],
 		"shared": [],
 		"sign-in-rosters": ["organization", "personnel", "access", "audit", "provider", "shared", "web-ui"],
-		"training": ["organization", "personnel", "sign-in-rosters", "access", "audit", "provider", "shared", "web-ui"],
+		"training": [
+			"organization",
+			"personnel",
+			"sign-in-rosters",
+			"access",
+			"audit",
+			"provider",
+			"shared",
+			"web-ui",
+			"web-patterns"
+		],
+		"web-patterns": ["web-ui", "shared"],
 		"web-ui": ["shared"]
 	},
 	"publicRoots": {
 		"shared": ["src/lib/utils/", "src/lib/domain/", "src/lib/stores/core/", "src/lib/test-support/"],
-		"web-ui": ["src/lib/components/ui/", "src/lib/components/charts/", "src/lib/hooks/"],
+		"web-ui": ["src/lib/components/ui/", "src/lib/hooks/"],
+		"web-patterns": ["src/lib/components/patterns/"],
 		"access": ["src/lib/access/"],
 		"provider": ["src/lib/server/", "src/lib/storage/"]
 	},

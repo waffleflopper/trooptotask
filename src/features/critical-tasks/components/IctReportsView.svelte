@@ -3,10 +3,10 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import * as Card from '$lib/components/ui/card';
 	import * as Progress from '$lib/components/ui/progress';
-	import * as ReportWorkspace from '$lib/components/ui/report-workspace';
+	import * as ReportWorkspace from '$lib/components/patterns/report-workspace';
 	import * as Separator from '$lib/components/ui/separator';
-	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
-	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
+	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar';
+	import type { WorkspaceToolbarAction } from '$lib/components/patterns/workspace-toolbar';
 	import { downloadBlob } from '$lib/utils/downloadBlob';
 	import { filenameFromContentDisposition } from '$lib/utils/workbook';
 	import type { IctReportDashboard, IctReportScope } from '$features/critical-tasks/utils/ictReports';

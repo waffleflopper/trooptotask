@@ -5,7 +5,7 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import MinusIcon from '@lucide/svelte/icons/minus';
-	import * as ReportWorkspace from '$lib/components/ui/report-workspace/index.js';
+	import * as ReportWorkspace from '$lib/components/patterns/report-workspace/index.js';
 	import type { ColumnDef } from '$lib/components/ui/data-table/index.js';
 	import { useDataTable } from '$lib/components/ui/data-table/index.js';
 	import { SvelteSet } from 'svelte/reactivity';

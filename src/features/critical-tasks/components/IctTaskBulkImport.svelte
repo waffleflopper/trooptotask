@@ -1,12 +1,12 @@
 <script lang="ts">
-	import * as BulkImportWorkspace from '$lib/components/ui/bulk-import-workspace';
+	import * as BulkImportWorkspace from '$lib/components/patterns/bulk-import-workspace';
 	import { Button } from '$lib/components/ui/button';
 	import * as DataTable from '$lib/components/ui/data-table';
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
 	import * as NativeSelect from '$lib/components/ui/native-select';
 	import type { ColumnDef } from '$lib/components/ui/data-table';
-	import type { BulkImportRowStatus } from '$lib/components/ui/bulk-import-workspace';
+	import type { BulkImportRowStatus } from '$lib/components/patterns/bulk-import-workspace';
 	import { autoMapColumns, detectHeaderRow, type ColumnDef as ImportColumnDef } from '$lib/utils/columnMapping';
 	import { parseFile } from '$lib/utils/csvParser';
 	import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';

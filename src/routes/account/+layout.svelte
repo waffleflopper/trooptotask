@@ -6,8 +6,8 @@
 	import type { Snippet } from 'svelte';
 	import type { LayoutData } from './$types';
 	import { Button } from '$lib/components/ui/button';
-	import * as PageShell from '$lib/components/ui/page-shell';
-	import type { RouteTabItem } from '$lib/components/ui/page-shell';
+	import * as PageShell from '$lib/components/patterns/page-shell';
+	import type { RouteTabItem } from '$lib/components/patterns/page-shell';
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
 

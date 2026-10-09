@@ -15,7 +15,7 @@
 	import { useDataTable } from '$lib/components/ui/data-table';
 	import { cn } from '$lib/utils.js';
 	import type { ColumnDef } from '$lib/components/ui/data-table';
-	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
+	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar';
 	import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
 	import type { Personnel } from '../personnel.types';
 	import type { RequestPersonnelArchiveApproval } from '../utils/archivePersonnel';
@@ -554,7 +554,7 @@
 </div>
 
 {#if archiveTarget}
-	{#await import('$lib/components/ui/ConfirmDialog.svelte') then { default: ConfirmDialog }}
+	{#await import('$lib/components/ui/confirm-dialog') then { ConfirmDialog }}
 		<ConfirmDialog
 			title="Archive Personnel"
 			message="Archive {archiveTarget.rank} {archiveTarget.lastName}? They will be removed from active rosters, calendars, and reports, but their records remain available in archived personnel."
@@ -568,7 +568,7 @@
 {/if}
 
 {#if showBulkArchiveConfirm}
-	{#await import('$lib/components/ui/ConfirmDialog.svelte') then { default: ConfirmDialog }}
+	{#await import('$lib/components/ui/confirm-dialog') then { ConfirmDialog }}
 		<ConfirmDialog
 			title="Archive Personnel"
 			message="Archive {selectedArchiveIds.size} personnel? They will leave active rosters, calendars, and reports. Records are not erased, and some archives may require approval."

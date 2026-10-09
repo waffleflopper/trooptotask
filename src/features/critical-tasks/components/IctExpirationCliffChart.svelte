@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { buildReportCountTicks } from '$lib/components/charts/reportChartConventions';
-	import { ReportBarChart } from '$lib/components/ui/report-chart';
-	import * as ReportWorkspace from '$lib/components/ui/report-workspace';
+	import { buildReportCountTicks } from '$lib/components/patterns/report-chart';
+	import { ReportBarChart } from '$lib/components/patterns/report-chart';
+	import * as ReportWorkspace from '$lib/components/patterns/report-workspace';
 	import type { IctExpirationCliff } from '$features/critical-tasks/utils/ictReports';
 
 	interface Props {

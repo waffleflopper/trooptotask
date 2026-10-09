@@ -13,7 +13,6 @@ export {
 export {
 	formatReadinessBandPercent,
 	readinessBandLegendItems,
-	readinessBandTierForPercent,
 	readinessBandTone,
 	type ReadinessBandLegendItem,
 	type ReadinessBandPalette,

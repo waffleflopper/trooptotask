@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Area, Axis, Chart, Circle, Rect, Rule, Spline, Svg, Text } from 'layerchart';
 	import * as ChartUi from '$lib/components/ui/chart/index.js';
-	import { buildReportCountTicks, readinessTrendDomain } from '$lib/components/charts/reportChartConventions';
+	import { buildReportCountTicks, readinessTrendDomain } from './reportChartConventions';
 	import { cn } from '$lib/utils.js';
 
 	export interface ReportForecastPoint {

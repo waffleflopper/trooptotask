@@ -7,9 +7,9 @@
 	import * as Empty from '$lib/components/ui/empty';
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
-	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
-	import * as TypeWorkspace from '$lib/components/ui/type-management-workspace';
-	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
+	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
+	import * as TypeWorkspace from '$lib/components/patterns/type-management-workspace';
+	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';

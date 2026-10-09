@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { REPORT_CHART_SERIES, readinessTrendDomain } from '$lib/components/charts/reportChartConventions';
-	import { ReportLineChart } from '$lib/components/ui/report-chart';
-	import * as ReportWorkspace from '$lib/components/ui/report-workspace';
+	import { REPORT_CHART_SERIES, readinessTrendDomain } from '$lib/components/patterns/report-chart';
+	import { ReportLineChart } from '$lib/components/patterns/report-chart';
+	import * as ReportWorkspace from '$lib/components/patterns/report-workspace';
 	import type { IctReadinessTrend, IctReadinessTrendMonth } from '$features/critical-tasks/utils/ictReports';
 
 	interface Props {

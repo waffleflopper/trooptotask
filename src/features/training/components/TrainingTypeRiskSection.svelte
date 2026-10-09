@@ -1,5 +1,5 @@
 <script lang="ts">
-	import * as ReportWorkspace from '$lib/components/ui/report-workspace';
+	import * as ReportWorkspace from '$lib/components/patterns/report-workspace';
 	import type { BriefingTypeRisk } from '../utils/trainingBriefing.types';
 
 	interface Props {

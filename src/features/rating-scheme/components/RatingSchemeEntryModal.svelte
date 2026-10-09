@@ -16,7 +16,7 @@
 		syncReportTypeForRatingSchemeEntryDraft
 	} from '$features/rating-scheme/utils/ratingSchemeEntryDraft';
 	import * as Alert from '$lib/components/ui/alert';
-	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Button } from '$lib/components/ui/button';
 	import * as ButtonGroup from '$lib/components/ui/button-group';

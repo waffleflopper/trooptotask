@@ -2,8 +2,8 @@
 	import type { Snippet } from 'svelte';
 	import type { SettingsShell } from './settingsShell';
 	import { Badge } from '$lib/components/ui/badge/index.js';
-	import * as PageShell from '$lib/components/ui/page-shell/index.js';
-	import type { RouteTabItem } from '$lib/components/ui/page-shell/index.js';
+	import * as PageShell from '$lib/components/patterns/page-shell/index.js';
+	import type { RouteTabItem } from '$lib/components/patterns/page-shell/index.js';
 
 	let {
 		children,

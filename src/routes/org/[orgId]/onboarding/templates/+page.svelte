@@ -6,8 +6,8 @@
 	import Plus from '@lucide/svelte/icons/plus';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import { untrack } from 'svelte';
-	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
-	import type { WorkspaceToolbarAction, WorkspaceToolbarNavItem } from '$lib/components/ui/workspace-toolbar';
+	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar';
+	import type { WorkspaceToolbarAction, WorkspaceToolbarNavItem } from '$lib/components/patterns/workspace-toolbar';
 	import { Badge, type BadgeVariant } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as Empty from '$lib/components/ui/empty';
@@ -17,7 +17,7 @@
 	import * as RadioGroup from '$lib/components/ui/radio-group';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { Textarea } from '$lib/components/ui/textarea';
-	import * as TypeWorkspace from '$lib/components/ui/type-management-workspace';
+	import * as TypeWorkspace from '$lib/components/patterns/type-management-workspace';
 	import * as Select from '$lib/components/ui/select';
 	import { getAppShellContext } from '$features/app-shell';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -31,7 +31,7 @@
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
-	let ConfirmDialog = $state<typeof import('$lib/components/ui/ConfirmDialog.svelte').default | null>(null);
+	let ConfirmDialog = $state<typeof import('$lib/components/ui/confirm-dialog').ConfirmDialog | null>(null);
 
 	const org = getAppShellContext();
 	const orgId = $derived(org.orgId);
@@ -95,9 +95,9 @@
 		if (!model.confirmDelete || ConfirmDialog) return;
 
 		let cancelled = false;
-		void import('$lib/components/ui/ConfirmDialog.svelte').then((module) => {
+		void import('$lib/components/ui/confirm-dialog').then((module) => {
 			if (!cancelled) {
-				ConfirmDialog = module.default;
+				ConfirmDialog = module.ConfirmDialog;
 			}
 		});
 

@@ -6,7 +6,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as ButtonGroup from '$lib/components/ui/button-group';
 	import { Toggle } from '$lib/components/ui/toggle';
-	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
+	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar';
 	import { createRosterReadModel } from '$features/personnel/contracts';
 	import { getAppShellContext } from '$features/app-shell';
 	import { rosterStore } from '$features/personnel';
@@ -26,7 +26,7 @@
 		type IctTask,
 		type PersonnelIctCompletion
 	} from '$features/critical-tasks';
-	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
+	import type { WorkspaceToolbarAction } from '$lib/components/patterns/workspace-toolbar';
 	import type { Personnel } from '$features/personnel/contracts';
 
 	let { data } = $props();

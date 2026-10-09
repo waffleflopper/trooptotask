@@ -1,5 +1,5 @@
 <script lang="ts">
-	import ConfirmDialog from './ConfirmDialog.svelte';
+	import { ConfirmDialog } from './confirm-dialog/index.js';
 	import * as DropdownMenu from './dropdown-menu/index.js';
 	import * as Popover from './popover/index.js';
 

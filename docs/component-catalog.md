@@ -1468,7 +1468,7 @@ Status colors have their own raw tokens, separate from the amber brand `--accent
 `info` -> `--info`
 `danger` -> `--destructive`
 
-Raw values live once in `:root` and once in `:root[data-theme='dark']`; each `--color-*` mapping is declared once in `@theme inline`. Chrome and the stepped readiness ramp (`--readiness-band-*`) are identical in both themes and are declared only in `:root`. Global element defaults sit in `@layer base`, so primitive variants and utilities override them.
+Status text uses `text-*-foreground`, backed by separate `--danger-foreground`, `--warning-foreground`, `--success-foreground` and `--info-foreground` tokens that meet WCAG AA on page and muted status surfaces; the base status colors are fills, not text. Raw values live once in `:root` and once in `:root[data-theme='dark']`; each `--color-*` mapping is declared once in `@theme inline`. Chrome and the stepped readiness ramp (`--readiness-band-*`) are identical in both themes and are declared only in `:root`. Global element defaults sit in `@layer base`, so primitive variants and utilities override them.
 
 Use `bg-success-muted`, `text-success-foreground`, `bg-warning-muted`, `text-warning-foreground`, `bg-info-muted`, `text-info-foreground`, `bg-danger-muted`, and `text-danger-foreground` through shared components where possible.
 

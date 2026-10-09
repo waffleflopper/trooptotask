@@ -103,7 +103,7 @@ Add `args:[UID]` to read one element. Save each before/action/after read with th
 9. **Loading status (`ictOperator`, `manager`).** On Critical Tasks Reports, arm `$V network arm-hold PAGE critical-tasks/reports/summary` and choose a Group in Filter by group. While held, require `aria-busy="true"` on the waiting regions and any spinner to expose `role="status"` and a name; after release require `aria-busy` cleared. Restore the control and return the filter to All Groups. As `manager`, open Send feedback, arm `$V network arm-hold PAGE feedback`, submit a unique message and read the busy submit control and spinner before release. Restore and verify one saved row.
 10. **Theme and viewport.** Run at least one consumer per family (steps 1 through 9) in the light and dark app themes at about 1280 by 800 and 390 by 844, using the [shared UI theme pass](shared-ui.md#theme-and-viewport-preparation-for-phase-09) to select the theme and size the page. At narrow width require each popup, sheet and toast within the viewport and its controls usable.
 
-Restore every armed control, remove UI-created rows, run `clean-seeds`, finish doctor and owned cleanup, then package the run.
+Restore every armed control, remove UI-created rows and run `clean-seeds`. Able's re-derived slug cannot be restored through the UI, because each save derives it from the name; run `verify:app restart`, `doctor` and `fixture` on this worker before another journey relies on `verify-able`. Finish doctor and owned cleanup, then package the run.
 
 ## Gotchas
 

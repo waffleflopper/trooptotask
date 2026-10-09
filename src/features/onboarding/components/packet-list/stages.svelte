@@ -11,7 +11,7 @@
 	const currentIndex = $derived(stages.indexOf(shownStage));
 </script>
 
-<div class="flex flex-col gap-1">
+<div class="flex max-w-full min-w-0 flex-col gap-1">
 	{#if shownStage}
 		<p class="text-xs text-muted-foreground">Current stage: {shownStage}</p>
 	{/if}

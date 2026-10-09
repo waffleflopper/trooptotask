@@ -26,7 +26,7 @@ Navigate between user pages through visible links and menus. For a fixed seeded 
 
 In `.verification/evidence/verify-trooptotask/<run-name>/`, preserve before/action/after snapshots, screenshots, request status where relevant, and a second read after reload for saved changes. Save a workbook itself when validating export. Write a concise scratch run note with candidate, role, Organization, expected and observed result, artifact paths, and one of **source-mapped**, **live-verified**, **failed**, or **unreachable** for each attempted path. A path is unreachable only with the attempted route and concrete prerequisite; a visible success in another path is no substitute. Restore armed controls and grants, clean helper seeds, run owned cleanup, and confirm evidence survived.
 
-For durable publication, follow [artifact packaging](../../../../docs/architecture/DEFINITION_OF_DONE.md#packaging-durable-artifacts); keep generated captures out of the expanded tracked tree and link the run's archive from its acceptance record.
+For durable publication, follow [artifact packaging](../../../../docs/architecture/DEFINITION_OF_DONE.md#packaging-durable-artifacts); keep generated captures out of the checkout and link the run's release asset from its acceptance record.
 
 ## Features
 

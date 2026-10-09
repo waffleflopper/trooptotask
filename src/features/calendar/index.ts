@@ -39,6 +39,6 @@ export { buildCalendarAnchorCookie, CALENDAR_ANCHOR_COOKIE } from './utils/calen
 
 // Routed page components are separate public files so each route loads only its own page.
 
-export { CalendarStatusBadge } from '$lib/components/ui/calendar-status-badge';
+export { CalendarStatusBadge } from './components/calendar-status-badge';
 
 export type { CalendarOperationsPageAccess, CalendarSettingsPageAccess } from './contracts';

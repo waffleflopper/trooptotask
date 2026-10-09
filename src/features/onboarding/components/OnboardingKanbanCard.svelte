@@ -4,7 +4,7 @@
 	import { formatDisplayDate } from '$lib/utils/dates';
 	import { Avatar } from '$lib/components/ui/avatar';
 	import { Progress } from '$lib/components/ui/progress';
-	import * as KanbanBoard from '$lib/components/ui/kanban-board';
+	import * as KanbanBoard from './kanban-board';
 
 	interface Props {
 		ctx: OnboardingPageContext;

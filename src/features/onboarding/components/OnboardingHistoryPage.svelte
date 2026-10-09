@@ -17,7 +17,6 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import * as Empty from '$lib/components/ui/empty';
 	import * as OnboardingPacketList from './packet-list';
-	import * as Stepper from '$lib/components/ui/stepper';
 	import ClipboardList from '@lucide/svelte/icons/clipboard-list';
 	import { SvelteSet } from 'svelte/reactivity';
 
@@ -46,16 +45,6 @@
 	function toggleNotes(stepId: string) {
 		if (expandedNotes.has(stepId)) expandedNotes.delete(stepId);
 		else expandedNotes.add(stepId);
-	}
-
-	function paperworkSteps(stages: string[], currentStage: string) {
-		const currentIndex = stages.indexOf(currentStage);
-		return stages.map((stage, index) => ({
-			value: stage,
-			label: stage,
-			completed: currentIndex >= 0 && index < currentIndex,
-			disabled: currentIndex < 0
-		}));
 	}
 </script>
 
@@ -141,25 +130,11 @@
 													label={step.completed ? 'Complete' : 'Incomplete'}
 												/>
 											{:else if step.stepType === 'paperwork'}
-												{@const stages = step.stages ?? []}
-												{@const currentStage = step.currentStage ?? stages[0] ?? ''}
-												<div class="flex flex-col gap-1">
-													{#if currentStage}
-														<p class="text-xs text-muted-foreground">Current stage: {currentStage}</p>
-													{/if}
-													<Stepper.Root steps={paperworkSteps(stages, currentStage)} value={currentStage}>
-														<Stepper.List aria-label={`${step.stepName} paperwork stages`}>
-															{#each paperworkSteps(stages, currentStage) as stage (stage.value)}
-																<Stepper.Item
-																	value={stage.value}
-																	label={stage.label}
-																	completed={stage.completed}
-																	disabled
-																/>
-															{/each}
-														</Stepper.List>
-													</Stepper.Root>
-												</div>
+												<OnboardingPacketList.Stages
+													stepName={step.stepName}
+													stages={step.stages ?? []}
+													currentStage={step.currentStage ?? null}
+												/>
 											{/if}
 										{/snippet}
 

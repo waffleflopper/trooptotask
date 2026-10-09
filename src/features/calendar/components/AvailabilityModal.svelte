@@ -8,7 +8,7 @@
 	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
-	import { CalendarStatusBadge } from '$lib/components/ui/calendar-status-badge';
+	import { CalendarStatusBadge } from './calendar-status-badge';
 	import { DatePicker } from '$lib/components/ui/date-picker';
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';

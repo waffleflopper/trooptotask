@@ -16,7 +16,7 @@
 			"packet": "08-M13"
 		},
 		"calendar": {
-			"roots": ["src/features/calendar/", "src/lib/components/ui/calendar-status-badge/"],
+			"roots": ["src/features/calendar/"],
 			"files": [],
 			"packet": "08-M05"
 		},
@@ -228,7 +228,6 @@
 		}
 	},
 	"rootExclusions": {
-		"src/lib/components/ui/": ["src/lib/components/ui/calendar-status-badge/"],
 		"src/routes/": [
 			"src/routes/+page.server.ts",
 			"src/routes/+page.svelte",
@@ -341,7 +340,7 @@
 			"web-patterns"
 		],
 		"feedback": ["organization", "provider", "shared", "web-ui"],
-		"identity": ["access", "audit", "provider", "shared", "web-ui"],
+		"identity": ["access", "audit", "provider", "shared", "web-ui", "web-patterns"],
 		"notifications": ["identity", "access", "audit", "provider", "shared", "web-ui"],
 		"onboarding": [
 			"organization",
@@ -374,7 +373,7 @@
 			"web-ui"
 		],
 		"provider": ["shared"],
-		"public-web": ["identity", "web-ui", "shared"],
+		"public-web": ["identity", "web-ui", "web-patterns", "shared"],
 		"rating-scheme": ["personnel", "access", "audit", "provider", "shared", "web-ui", "web-patterns"],
 		"scheduled-maintenance": [
 			"identity",

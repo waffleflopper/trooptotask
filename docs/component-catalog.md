@@ -908,7 +908,6 @@ New form work should use the shadcn-svelte-backed shared control system. The dur
 	import * as Select from '$lib/components/ui/select';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import * as RadioGroup from '$lib/components/ui/radio-group';
-	import { Switch } from '$lib/components/ui/switch';
 
 	let title = $state('');
 	let status = $state('ready');
@@ -948,11 +947,6 @@ New form work should use the shadcn-svelte-backed shared control system. The dur
 	<Field.Label for="include-archive">Include archived records</Field.Label>
 </Field.Root>
 
-<Field.Root orientation="horizontal">
-	<Switch id="approval-required" />
-	<Field.Label for="approval-required">Approval required</Field.Label>
-</Field.Root>
-
 <RadioGroup.Root bind:value={status}>
 	<Field.Root orientation="horizontal">
 		<RadioGroup.Item id="standard" value="standard" />
@@ -963,17 +957,17 @@ New form work should use the shadcn-svelte-backed shared control system. The dur
 
 Public components:
 
-- `Field.Root`: group wrapper for one field. Use `orientation="horizontal"` for checkbox, radio, and switch rows.
+- `Field.Root`: group wrapper for one field. Use `orientation="horizontal"` for checkbox and radio rows.
 - `Field.Group`: stacked field group for related controls.
 - `Field.Control`: control slot wrapper that keeps shared controls full-width without route-local styling.
 - `Field.Label`, `Field.Description`, `Field.Error`: label, hint, and error text. Wire `for`, `id`, `aria-describedby`, and `aria-invalid` explicitly.
-- `Input`, `Textarea`, `Select.Root/Trigger/Content/Item`, `Checkbox`, `RadioGroup.Root/Item`, and `Switch` are the shared controls.
+- `Input`, `Textarea`, `Select.Root/Trigger/Content/Item`, `Checkbox` and `RadioGroup.Root/Item` are the shared controls.
 
 Rules:
 
 - Use `Select` for selects by default so option controls keep the same visual shape across Windows, macOS, Linux, and browser engines.
 - Keep `NativeSelect` only for explicit native form-submission or mobile-picker requirements approved at the shared-component level.
-- Use `Checkbox` for selection, inclusion, or batch choices. Use `Switch` only for immediate on/off settings.
+- Use `Checkbox` for selection, inclusion or batch choices. Switch is an unconsumed family selected for deletion; do not add callers.
 - Use validation errors over hints when both exist. Errors must set `aria-invalid="true"` on the control and reference the error id with `aria-describedby`.
 - Required markers are visual only with `aria-hidden="true"`; keep native `required` on native controls where submission validation matters.
 - Disabled and read-only states come from the shared controls. Do not add local opacity, colors, borders, spacing, or typography to route code.

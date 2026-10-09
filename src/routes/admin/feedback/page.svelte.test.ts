@@ -28,7 +28,7 @@ describe('Admin Feedback status tabs', () => {
 			data: {
 				adminUserId: 'admin-1',
 				newItems: [item],
-				reviewedItems: [{ ...item, id: 'feedback-2', status: 'reviewed' as const }],
+				reviewedItems: [{ ...item, id: 'feedback-2', message: 'Roster import stalls', status: 'reviewed' as const }],
 				resolvedItems: []
 			} as unknown as PageData,
 			form: null
@@ -46,6 +46,7 @@ describe('Admin Feedback status tabs', () => {
 		const reviewed = screen.getByRole('tab', { name: /Reviewed/ });
 		const panel = document.getElementById(reviewed.getAttribute('aria-controls') ?? '');
 		expect(panel?.hidden).toBe(false);
-		expect(panel?.textContent).toContain('Calendar export fails');
+		expect(panel?.textContent).toContain('Roster import stalls');
+		expect(panel?.textContent).not.toContain('Calendar export fails');
 	});
 });

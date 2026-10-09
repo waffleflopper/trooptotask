@@ -23,7 +23,7 @@
 		const close = event.target instanceof Element ? event.target.closest('[data-close-button]') : null;
 		if (!close || document.activeElement !== close) return;
 		const next = [...event.currentTarget.querySelectorAll<HTMLElement>('[data-close-button]')].find(
-			(button) => button !== close && button.closest('[data-removed="false"]')
+			(button) => button !== close && button.closest('[data-removed="false"][data-visible="true"]')
 		);
 		(next ?? (returnFocus?.isConnected ? returnFocus : null))?.focus({ preventScroll: true });
 	}

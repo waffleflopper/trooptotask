@@ -96,4 +96,20 @@ describe('Toaster announcements and dismissal', () => {
 		expect(document.activeElement).toBe(edit);
 		await waitFor(() => expect(screen.queryAllByRole('listitem')).toHaveLength(0));
 	});
+	it('moves focus only to a toast that is still visible when more toasts exist than are shown', async () => {
+		render(Toaster, { visibleToasts: 1 });
+
+		toastStore.success('Older');
+		toastStore.success('Newer');
+		await screen.findByText('Newer');
+		await screen.findByText('Older');
+		const hidden = toastNamed('Older');
+		expect(hidden.getAttribute('data-visible')).toBe('false');
+
+		const front = within(toastNamed('Newer')).getByRole('button', { name: 'Close toast' });
+		front.focus();
+		await fireEvent.click(front);
+
+		expect(hidden.contains(document.activeElement)).toBe(false);
+	});
 });

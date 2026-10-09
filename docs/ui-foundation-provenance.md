@@ -21,7 +21,7 @@ The source has 63 family directories, plus `ConfirmDialog.svelte` and the standa
 These are the selected layers. Current imports remain valid until the owning migration updates every consumer.
 
 - `src/lib/components/ui` owns canonical web primitives and central appearance variants.
-- `src/lib/components/patterns` will own shared, domain-neutral compositions justified by current consumers. D02 creates that directory. Patterns compose primitives and do not become another primitive library.
+- `src/lib/components/patterns` owns shared, domain-neutral compositions justified by current consumers. D02 created it. Patterns compose primitives and do not become another primitive library.
 - Feature presentation stays with its module's current web implementation. Domain-specific status and calculation inputs do not belong in neutral shared controls.
 
 The public family barrel is the canonical import API. Import its exported components, types and helpers. A component's internal files are implementation details. Existing `Root` and descriptive aliases in the same barrel are the same implementation, not two foundations. Preserve public props, bindings, snippets and events unless the mapping below names a replacement. Do not infer upstream support for props the local API does not expose.

@@ -1,6 +1,6 @@
 # Component Catalog & CSS Design System
 
-Shared UI primitives and existing project compositions currently live in `src/lib/components/ui/`. Import via `$lib/components/ui/...` until D02 moves the selected families and their consumers together. The [foundation provenance and family contract](ui-foundation-provenance.md) records the current APIs, deviations and target layers.
+Shared UI primitives and central variants live in `src/lib/components/ui/`; shared neutral compositions live in `src/lib/components/patterns/`. Import through each family's barrel. The [foundation provenance and family contract](ui-foundation-provenance.md) records the current APIs, deviations and target layers.
 Layout components such as dialogs, sheets, and cards live under `src/lib/components/ui/`. Import the shadcn-backed primitives or compound namespaces directly.
 Public marketing primitives live in `src/lib/components/public/`. Import via `$lib/components/public/...`.
 

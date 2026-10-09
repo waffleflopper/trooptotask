@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, render, screen } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { flushSync } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { themeStore } from '$lib/stores/theme.svelte';
@@ -45,5 +45,34 @@ describe('Toaster theme', () => {
 		themeStore.setTheme('light');
 		flushSync();
 		expect(toaster()?.getAttribute('data-sonner-theme')).toBe('light');
+	});
+});
+
+describe('Toaster announcements and dismissal', () => {
+	it('announces stacked toasts in a labelled polite region and dismisses only the chosen toast', async () => {
+		render(Toaster);
+
+		toastStore.success('Personnel updated');
+		toastStore.error('Failed to update personnel');
+		const region = (await screen.findByText('Personnel updated')).closest('section');
+		await screen.findByText('Failed to update personnel');
+
+		expect(region?.getAttribute('aria-live')).toBe('polite');
+		expect(region?.getAttribute('aria-label')).toMatch(/^Notifications/);
+		const toasts = within(region as HTMLElement).getAllByRole('listitem');
+		expect(toasts.map((toast) => toast.textContent?.trim())).toEqual(
+			expect.arrayContaining([
+				expect.stringContaining('Failed to update personnel'),
+				expect.stringContaining('Personnel updated')
+			])
+		);
+
+		const errorToast = toasts.find((toast) => toast.textContent?.includes('Failed to update personnel'));
+		const dismiss = within(errorToast as HTMLElement).getByRole('button', { name: 'Close toast' });
+		expect(dismiss.tabIndex).toBe(0);
+		await fireEvent.click(dismiss);
+
+		await waitFor(() => expect(screen.queryByText('Failed to update personnel')).toBeNull());
+		expect(screen.getByText('Personnel updated')).toBeTruthy();
 	});
 });

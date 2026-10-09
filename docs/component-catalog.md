@@ -1,6 +1,6 @@
 # Component Catalog & CSS Design System
 
-Shared UI primitives live in `src/lib/components/ui/`. Import via `$lib/components/ui/...`.
+Shared UI primitives and existing project compositions currently live in `src/lib/components/ui/`. Import via `$lib/components/ui/...` until D02 moves the selected families and their consumers together. The [foundation provenance and family contract](ui-foundation-provenance.md) records the current APIs, deviations and target layers.
 Layout components such as dialogs, sheets, and cards live under `src/lib/components/ui/`. Import the shadcn-backed primitives or compound namespaces directly.
 Public marketing primitives live in `src/lib/components/public/`. Import via `$lib/components/public/...`.
 
@@ -10,8 +10,8 @@ Public marketing primitives live in `src/lib/components/public/`. Import via `$l
 
 Read the [UI foundation](#ui-foundation), then the section for the component being changed:
 
-- Page and shell composition: [page shell](#uipage-shell), [workspace toolbar](#uiworkspace-toolbar), [public shell](#public-marketing-shell), [workflow panel](#uiworkflow-panel).
-- Input and selection: [form controls](#shared-form-controls), [command](#uicommand), [combobox](#uicombobox), [multi-select](#uimulti-select), [date picker](#uidate-picker), [file upload](#file-upload-pattern).
+- Page and shell composition: [page shell](#uipage-shell), [workspace toolbar](#uiworkspace-toolbar), [public shell](#public-marketing-shell).
+- Input and selection: [form controls](#shared-form-controls), [command](#uicommand), [combobox](#uicombobox), [date picker](#uidate-picker), [file upload](#file-upload-pattern).
 - Reports and records: [report workspace](#uireport-workspace), [charts](#uireport-chart), [data table](#uidata-table), [operational matrix](#uioperational-matrix), [bulk import](#uibulk-import-workspace).
 - Feedback and interaction: [dialogs](#uiapp-dialog), [confirmation](#uiconfirmdialogsvelte), [transient feedback](#transient-feedback), [empty states](#uiempty), [skeletons](#uiskeleton), [readiness](#uireadiness-band).
 - Shared appearance: [CSS tokens and design system](#css-design-system-appcss).
@@ -20,7 +20,9 @@ Read the [UI foundation](#ui-foundation), then the section for the component bei
 
 This catalog is the active reference for TroopToTask's shadcn-svelte + Tailwind v4 UI foundation. It records the selected shared primitives, compound project wrappers, expected usage, and replacement decisions for older local wrappers.
 
-Use it as the current component reference for button, button group, input, input group, sidebar, navigation menu, label, textarea, select, checkbox, switch, radio group, badge, alert, dialog, sheet, popover, dropdown menu, tooltip, command, combobox, tabs, table, pagination, calendar/date picker, chart, skeleton, progress, spinner, empty, and separator.
+Use it as the current component reference for button, button group, input, input group, sidebar, label, textarea, select, checkbox, radio group, badge, alert, dialog, sheet, popover, dropdown menu, tooltip, command, combobox, tabs, table, calendar/date picker, chart, skeleton, progress, spinner, empty, and separator.
+
+The [family contract](ui-foundation-provenance.md) governs retention, moves and removals. NavigationMenu, Pagination, RangeCalendar, Switch and the unused project families selected for deletion remain documented only for cutover reference. Do not add consumers to those families or to the retiring `multi-select` and `type-workspace` aliases. D02 removes them after completing the stated consumer and test obligations.
 
 Use the replacement notes here to map older TroopToTask building blocks to the current shadcn-svelte/shared UI foundation. Missing target guidance means the project has not selected a shadcn-svelte equivalent yet and needs a shared-component decision before new work relies on that pattern.
 
@@ -30,7 +32,7 @@ Replacement previews:
 - Legacy `toolbar` is represented by the shadcn-composed `ui/workspace-toolbar` example using `input-group`, `select`, `button-group`, `button`, and `dropdown-menu`.
 - Legacy `EmptyState` is represented by the shadcn `empty` component.
 - Legacy `FileUpload` is represented by the native shadcn `input type="file"` example.
-- Legacy `FormField` is replaced by the shadcn-backed `ui/field` compound primitives plus `Input`, `Textarea`, `Select`, `Checkbox`, `RadioGroup`, `Switch`, `Combobox`, and `MultiSelect`.
+- Legacy `FormField` is replaced by the shadcn-backed `ui/field` compound primitives plus `Input`, `Textarea`, `Select`, `Checkbox`, `RadioGroup` and `Combobox`, including its `multiple` mode.
 - Legacy `SearchSelect` is replaced by the shadcn-style `ui/combobox` compound API.
 - Legacy `Spinner` is represented by the shadcn `spinner` component.
 - Platform admin no longer has a custom `admin-*` CSS layer. `/admin/**` composes the shared sidebar, page-shell, card, field, command, tabs, alert, empty, badge, button, input/select/textarea, and table primitives with Tailwind layout utilities.
@@ -44,7 +46,7 @@ Foundation files:
 - `src/app.css` imports Tailwind v4 and maps shared semantic tokens to the product palette; see the [current token API](#current-token-api) and [palette](#palette).
 - `src/app.css` no longer owns admin-specific selectors. Global `.btn`, `.input`, `.select`, `.label`, and related legacy selectors have been removed after route consumers migrated to shared primitives.
 
-Implementation note: the current `shadcn-svelte@1.2.7` CLI generated the supported `nova` style. The RFC mentioned `new-york` based on the docs available when written; `components.json` records the implementation-time CLI result so future `shadcn-svelte add` runs stay consistent.
+The catalog records `shadcn-svelte@1.2.7` as its generation-time CLI reference. No CLI is installed. `components.json` selects `nova` and `stone`, but does not pin a registry. The [provenance comparison](ui-foundation-provenance.md#source-and-comparison-method) uses the immutable 1.2.7 registry tag and records adaptations rather than treating every local family as stock generated source.
 
 ---
 
@@ -538,7 +540,7 @@ Component Catalog coverage:
 
 ## `ui/workflow-panel`
 
-`ui/workflow-panel` is the shared shadcn-aligned panel family for manager and workflow surfaces that repeat a list-detail, two-panel, or configuration-panel shape. Use it with `ui/alert` for onboarding, training type, and workflow manager notices.
+This unconsumed family is selected for deletion in D02. Do not add consumers. The example below describes its current API for cutover reference; retained workflows use their existing feature-owned presentation and shared workspace controls.
 
 ```svelte
 <script lang="ts">
@@ -868,8 +870,7 @@ Compatibility note: the legacy `ui/Spinner.svelte` wrapper and `.spinner` select
 
 ## `ui/stepper`
 
-Shadcn-style compound primitive for workflow progress. Use this for new workflow step indicators that need explicit
-step metadata, keyboard focus movement, disabled/error/completed states, or previous/next controls.
+This family is selected for deletion in D02. Its sole production consumer is Onboarding History’s read-only paperwork stage display, which moves to private `OnboardingPacketList.Stages`. Do not add Stepper consumers; the example below documents its current unused navigation API for cutover reference.
 
 ```svelte
 <script lang="ts">
@@ -891,8 +892,7 @@ step metadata, keyboard focus movement, disabled/error/completed states, or prev
 </Stepper.Root>
 ```
 
-Use `Stepper.Item` with `label` and `description` for the default visual. Use child content only when composing a custom
-item layout with `Stepper.Trigger`, `Stepper.Indicator`, `Stepper.Label`, and `Stepper.Description`.
+D02 preserves the History display and its meaningful accessibility/readback coverage while deleting the unused navigation parts, fixture and tests. The selected API and deliberate semantic fixes are recorded in the [family contract](ui-foundation-provenance.md#project-family-apis-and-target-layers).
 
 ---
 
@@ -908,7 +908,6 @@ New form work should use the shadcn-svelte-backed shared control system. The dur
 	import * as Select from '$lib/components/ui/select';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import * as RadioGroup from '$lib/components/ui/radio-group';
-	import { Switch } from '$lib/components/ui/switch';
 
 	let title = $state('');
 	let status = $state('ready');
@@ -948,11 +947,6 @@ New form work should use the shadcn-svelte-backed shared control system. The dur
 	<Field.Label for="include-archive">Include archived records</Field.Label>
 </Field.Root>
 
-<Field.Root orientation="horizontal">
-	<Switch id="approval-required" />
-	<Field.Label for="approval-required">Approval required</Field.Label>
-</Field.Root>
-
 <RadioGroup.Root bind:value={status}>
 	<Field.Root orientation="horizontal">
 		<RadioGroup.Item id="standard" value="standard" />
@@ -963,17 +957,17 @@ New form work should use the shadcn-svelte-backed shared control system. The dur
 
 Public components:
 
-- `Field.Root`: group wrapper for one field. Use `orientation="horizontal"` for checkbox, radio, and switch rows.
+- `Field.Root`: group wrapper for one field. Use `orientation="horizontal"` for checkbox and radio rows.
 - `Field.Group`: stacked field group for related controls.
 - `Field.Control`: control slot wrapper that keeps shared controls full-width without route-local styling.
 - `Field.Label`, `Field.Description`, `Field.Error`: label, hint, and error text. Wire `for`, `id`, `aria-describedby`, and `aria-invalid` explicitly.
-- `Input`, `Textarea`, `Select.Root/Trigger/Content/Item`, `Checkbox`, `RadioGroup.Root/Item`, and `Switch` are the shared controls.
+- `Input`, `Textarea`, `Select.Root/Trigger/Content/Item`, `Checkbox` and `RadioGroup.Root/Item` are the shared controls.
 
 Rules:
 
 - Use `Select` for selects by default so option controls keep the same visual shape across Windows, macOS, Linux, and browser engines.
 - Keep `NativeSelect` only for explicit native form-submission or mobile-picker requirements approved at the shared-component level.
-- Use `Checkbox` for selection, inclusion, or batch choices. Use `Switch` only for immediate on/off settings.
+- Use `Checkbox` for selection, inclusion or batch choices. Switch is an unconsumed family selected for deletion; do not add callers.
 - Use validation errors over hints when both exist. Errors must set `aria-invalid="true"` on the control and reference the error id with `aria-describedby`.
 - Required markers are visual only with `aria-hidden="true"`; keep native `required` on native controls where submission validation matters.
 - Disabled and read-only states come from the shared controls. Do not add local opacity, colors, borders, spacing, or typography to route code.
@@ -1011,7 +1005,7 @@ Compound shadcn-style combobox primitives for searchable single-select and multi
 </Combobox.Root>
 ```
 
-For multi-select behavior, either use `Combobox.Root multiple` directly or prefer the `ui/multi-select` namespace below when the control is conceptually a multi-select.
+For multi-select behavior, use `Combobox.Root multiple` with its chip parts. The `ui/multi-select` namespace below is a retiring alias, not the canonical API for new callers.
 
 Props: `Root` accepts `items: readonly (string | { value: string; label?: string; description?: string; group?: string; disabled?: boolean })[]`, `value?: string | string[]` (bindable), `defaultValue?: string | string[]`, `name?: string`, `multiple?: boolean`, `autoHighlight?: boolean`, `disabled?: boolean`, `loading?: boolean`, `loadingText?: string`, `open?: boolean` (bindable), `label?: string`, `onValueChange?: (value) => void`. `Trigger` supports `clearable?: boolean`. `Search` wraps the command input and keeps filtering inside the shared primitive. `Chip` and `Item` require `value: string`; `Item` can also receive `label`, `description`, and `searchValue`.
 
@@ -1026,7 +1020,7 @@ Props: `Root` accepts `items: readonly (string | { value: string; label?: string
 
 ## `ui/multi-select`
 
-Compound namespace for chip-based multi-selects. It composes the same shared combobox foundation but exposes the route-facing API as `MultiSelect.Root`, `MultiSelect.Trigger`, `MultiSelect.Content`, `MultiSelect.Item`, and `MultiSelect.Chip`.
+This alias is used only by a test fixture and is selected for deletion in D02. Use `Combobox.Root multiple` with `Combobox.Chips`, `ChipsInput` and `Chip` for new callers. The example below describes the current alias; its meaningful form behavior tests migrate to Combobox during removal.
 
 ```svelte
 <script lang="ts">
@@ -1151,7 +1145,7 @@ Removed. Use `ui/workspace-toolbar` and generated shadcn-svelte primitives inste
 
 ## `ui/inline-notes`
 
-Use the compound `ui/inline-notes` primitives for note threads.
+This family has no production importer and is selected for deletion in D02. Do not add consumers. Retained note workflows stay with their feature owners; the example below describes the current unused API for cutover reference.
 
 ```svelte
 <script lang="ts">
@@ -1180,7 +1174,7 @@ Props: `notes: { text: string; timestamp: string; userId: string }[]`, `resolveA
 
 Compact compound management dialog for repeated status/type manager workflows. It composes `ui/app-dialog`, `ui/button`, `ui/empty`, and `ui/alert-dialog` while the route owns the form snippets and persistence.
 
-Use `ui/type-manager` for small modal CRUD lists such as status types and assignment types when inline add/edit rows are enough. Use `ui/type-workspace` when the type surface needs a persistent list-detail workspace, ordering controls, multi-section forms, impact facts, or a full-page configuration flow.
+`ui/type-manager` has no production importer and is selected for deletion in D02. Do not add consumers. `ui/type-workspace` is also a retiring alias; use the current canonical `ui/type-management-workspace` barrel for shared type layout. D02 moves that canonical family and all consumers to `patterns/type-management-workspace`. The example below describes the unused manager API for cutover reference.
 
 ```svelte
 <script lang="ts">

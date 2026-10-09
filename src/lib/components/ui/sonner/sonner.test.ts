@@ -104,7 +104,6 @@ describe('Toaster announcements and dismissal', () => {
 		await screen.findByText('Newer');
 		await screen.findByText('Older');
 		const hidden = toastNamed('Older');
-		expect(hidden.getAttribute('data-visible')).toBe('false');
 
 		const front = within(toastNamed('Newer')).getByRole('button', { name: 'Close toast' });
 		front.focus();

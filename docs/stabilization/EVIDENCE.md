@@ -6,7 +6,7 @@ All historical links below pin commit `dbd501301df350ef4e6cebb6bc1238283b24d9c9`
 
 ## Phase 09 D03 family interaction contracts
 
-**Implemented as a three-layer stack; awaiting merge.** Child [#1581](https://github.com/waffleflopper/trooptotask/issues/1581), parent [#1282](https://github.com/waffleflopper/trooptotask/issues/1282), task `09-03`, from main `15aeb088`. The first layer records the recipe and the unchanged baseline, the [primitive layer](#primitive-families-final-run) fixes forms, tabs and toasts, and the [overlay layer](#overlay-families-final-run) fixes the remaining families and records [whole-family coverage](#whole-family-coverage).
+**Accepted. D03 merged through [#1594](https://github.com/waffleflopper/trooptotask/pull/1594) (`25f30ccf`), [#1595](https://github.com/waffleflopper/trooptotask/pull/1595) (`6a58d22d`) and [#1596](https://github.com/waffleflopper/trooptotask/pull/1596) (`c69a41b9`); #1596 closed #1581.** Child [#1581](https://github.com/waffleflopper/trooptotask/issues/1581), parent [#1282](https://github.com/waffleflopper/trooptotask/issues/1282), task `09-03`, from main `15aeb088`. The first layer records the recipe and the unchanged baseline, the [primitive layer](#primitive-families-final-run) fixes forms, tabs and toasts, and the [overlay layer](#overlay-families-final-run) fixes the remaining families and records [whole-family coverage](#whole-family-coverage).
 
 **Preparation.** The [component-foundation recipe](../../.agents/skills/verify-trooptotask/features/component-foundation.md) adds consumer steps for every gap the issue lists and a read-only state reader for focus, ARIA relationships, live regions and `aria-busy`. Step 10 reuses the shared UI theme and viewport pass.
 

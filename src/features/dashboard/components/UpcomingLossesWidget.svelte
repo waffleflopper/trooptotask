@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { Badge } from '$lib/components/ui/badge';
-	import type { BadgeVariant } from '$lib/components/ui/badge/badge.svelte';
+	import { Badge, type BadgeVariant } from '$lib/components/ui/badge';
 	import type { UpcomingLossRecord } from '$features/personnel/contracts';
 
 	interface Props {

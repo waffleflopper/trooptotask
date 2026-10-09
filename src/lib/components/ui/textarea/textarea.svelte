@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { cn, type WithElementRef, type WithoutChildren } from '$lib/utils.js';
 	import type { HTMLTextareaAttributes } from 'svelte/elements';
-	import { getFieldContext } from '$lib/components/ui/field/context.svelte.js';
+	import { getFieldContext } from '$lib/components/ui/field/index.js';
 
 	let {
 		ref = $bindable(null),

@@ -15,7 +15,7 @@
 	import CalendarNextButton from './calendar-next-button.svelte';
 	import CalendarPrevButton from './calendar-prev-button.svelte';
 	import { cn, type WithoutChildrenOrChild } from '$lib/utils.js';
-	import type { ButtonVariant } from '../button/button.svelte';
+	import type { ButtonVariant } from '$lib/components/ui/button/index.js';
 	import { isEqualMonth, type DateValue } from '@internationalized/date';
 	import type { ComponentProps, Snippet } from 'svelte';
 

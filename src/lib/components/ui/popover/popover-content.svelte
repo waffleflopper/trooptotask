@@ -3,7 +3,7 @@
 	import PopoverPortal from './popover-portal.svelte';
 	import { cn, type WithoutChildrenOrChild } from '$lib/utils.js';
 	import type { ComponentProps } from 'svelte';
-	import { setFieldContext } from '$lib/components/ui/field/context.svelte.js';
+	import { setFieldContext } from '$lib/components/ui/field/index.js';
 
 	let {
 		ref = $bindable(null),

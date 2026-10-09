@@ -1,7 +1,6 @@
 <script lang="ts">
-	import { Accordion as AccordionPrimitive } from 'bits-ui';
+	import * as Accordion from '$lib/components/ui/accordion';
 	import type { Snippet } from 'svelte';
-	import { cn } from '$lib/utils.js';
 
 	let {
 		value,
@@ -13,13 +12,11 @@
 	} = $props();
 </script>
 
-<AccordionPrimitive.Item
+<Accordion.Item
 	{value}
 	data-slot="onboarding-packet-item"
-	class={cn(
-		'overflow-hidden rounded-lg border border-border bg-card text-card-foreground transition-colors hover:shadow-sm data-[state=open]:border-primary'
-	)}
+	class="overflow-hidden rounded-lg border border-border bg-card text-card-foreground transition-colors hover:shadow-sm data-[state=open]:border-primary"
 	{...restProps}
 >
 	{@render children?.()}
-</AccordionPrimitive.Item>
+</Accordion.Item>

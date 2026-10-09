@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { afterNavigate } from '$app/navigation';
-	import { mergeProps } from 'bits-ui';
 	import * as Sidebar from '$lib/components/ui/sidebar';
 	import OrgNavIcon from './OrgNavIcon.svelte';
 	import { isOrgNavItemActive, type OrgNavItem } from './orgNavigation';
@@ -10,18 +9,6 @@
 	afterNavigate(() => {
 		if (sidebar.isMobile) sidebar.setOpenMobile(false);
 	});
-	function selectLink(event: MouseEvent) {
-		if (
-			sidebar.isMobile &&
-			event.button === 0 &&
-			!event.ctrlKey &&
-			!event.metaKey &&
-			!event.shiftKey &&
-			!event.altKey &&
-			!event.defaultPrevented
-		)
-			sidebar.setOpenMobile(false);
-	}
 </script>
 
 <Sidebar.Menu>
@@ -29,9 +16,8 @@
 		<Sidebar.MenuItem>
 			<Sidebar.MenuButton isActive={isOrgNavItemActive(pathname, item)} tooltipContent={item.label}>
 				{#snippet child({ props })}
-					{@const linkProps = mergeProps(props, { onclick: selectLink })}
 					<a
-						{...linkProps}
+						{...props}
 						href={resolve(item.href as `/org/${string}`)}
 						aria-current={isOrgNavItemActive(pathname, item) ? 'page' : undefined}
 					>

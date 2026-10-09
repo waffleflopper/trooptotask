@@ -16,6 +16,7 @@ It is intentionally narrow. It does not prove the architecture is clean. It catc
 - each owner's `contracts.ts`, its only portable entrypoint, is checked transitively for Svelte, `$app`, browser globals, provider/Node imports, raw database-row types, UI and server code; web entrypoints are checked transitively for privileged imports (server-only files follow SvelteKit's `$lib/server` and `.server.` basename rules, plus route `+server` files), and feature `server/` files without SvelteKit-recognized placement are reported
 - portable global references use TypeScript symbol resolution to distinguish ECMAScript bindings and existing neutral parsing/encoding APIs from DOM/platform dependencies; DTO member names, imported bindings and local shadowing remain valid
 - portable `globalThis` access permits standard language globals and pure cross-runtime parsing/encoding utilities; unknown members and aliases fail closed, so new runtime facilities need an explicit rule review
+- the [UI foundation guard](#ui-foundation-guard) keeps one primitive foundation in `components/ui` and its families behind their public entries
 - every module-boundary finding fails the command; `node scripts/module-boundaries.ts` prints the same full report
 
 ## What It Does Not Claim
@@ -37,6 +38,20 @@ Value imports follow the installed Vite runtime resolution order for explicit fi
 The canonical command runs the same rules over the current tree and fails on any finding or unreadable source; it no longer compares with `origin/main`. GitHub Actions' validation job runs it and the production build with synthetic, unreachable provider settings; the build independently exercises SvelteKit's server-only import guard. No findings are excluded, and no hand-maintained exception list or count budget is used. Review any change to the owner declaration as a policy change. See the [D02 evidence](https://github.com/waffleflopper/trooptotask/blob/dbd501301df350ef4e6cebb6bc1238283b24d9c9/docs/stabilization/EVIDENCE.md#task-07-02b-ownership-and-public-dependency-rule) for the earlier standalone counts and the [D30 receipt](https://github.com/waffleflopper/trooptotask/blob/5fa75cf772d5a929408e97443b9cb005b4a71023/docs/stabilization/phase-08/d30-integrated-convergence.md) for the final Phase 08 removal.
 
 External packages are classified at the import boundary; the checker does not crawl `node_modules`. Portable contracts may reach only packages declared in `package.json` `dependencies`: test and build tooling in `devDependencies` (including `svelte`, `vite`, `vitest`, `jsdom`, `happy-dom` and `@testing-library/*`) and undeclared transitive packages are rejected. Among runtime dependencies, portable contracts also reject the current web inventory, including subpaths: the Svelte packages `svelte-sonner`, `@lucide/svelte`, `bits-ui` and `layerchart`; the stylesheet packages `@fontsource/*` and `tw-animate-css`; the Tailwind build packages `tailwindcss` and `@tailwindcss/*`; and the browser file-generation packages `exceljs`, `jspdf` and `jspdf-autotable`. They also reject the framework/provider scopes above, local `.svelte`, `.svelte.ts` and `.svelte.js` modules, local files other than script modules and JSON (such as stylesheets, SVG, HTML or Markdown assets), and external stylesheet paths matching the checker's `STYLESHEET` pattern, including query suffixes. Web consumers can still use these packages and stylesheets. Neutral runtime packages such as `zod`, `clsx` and `@internationalized/date`, and local JSON data, remain valid in portable contracts. Universal `src/hooks.ts` and `src/params/*` matchers are web entries for the server-privilege rule. Runtime dependency additions require review of the web inventory; this is not a proof of portability for arbitrary npm packages.
+
+## UI foundation guard
+
+`scripts/ui-foundation.ts` runs inside the module-boundary checker over the same Svelte-aware import graph, so every rule fails `governance:check` and appears in `node scripts/module-boundaries.ts`. It reports these findings:
+
+- `foundation-package`: `bits-ui`, including subpaths, is imported outside `src/lib/components/ui/`. Features and patterns compose a `ui` family instead.
+- `foundation-private`: a file outside a `ui` or `patterns` family imports one of that family's files other than its `index.ts`. This applies to other `ui` families too; the family's own files may import each other.
+- `foundation-layer`: a `ui` or `patterns` file imports feature, route, server-only, `src/lib/server`, `src/lib/storage` or `src/lib/access` code, or `$env/*`, `$app/server` or a `node:` builtin.
+- `foundation-provider-type`: a `ui` or `patterns` file imports from `@supabase/*` (including `import('@supabase/…')` types) or references SvelteKit's ambient `App` namespace, which carries the provider session and user. Shared controls take caller-shaped props.
+- `foundation-placement`: a directory under `src/lib/components/` other than `ui`, `patterns` or `public`. A new primitive family belongs in `ui` and a shared composition in `patterns`.
+
+`scripts/ui-foundation.test.ts` exercises accepted and rejected Svelte and TypeScript fixtures for each rule through `checkModuleBoundaries`.
+
+The rerunnable [Phase 10 consumer inventory](../stabilization/phase-10-inventory.md) (`npm run inventory:ui`) is a migration report, not a gate. It lists every tracked `.svelte` file and every `ui`/`patterns` importer with its packet, family imports, raw controls, `<style>` blocks, `var(--…)` references and hex literals. `npm run inventory:ui -- --check` reports a stale copy.
 
 ## No exception file
 

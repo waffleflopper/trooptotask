@@ -176,7 +176,6 @@ describe('module boundary declaration', () => {
 		['@lucide/svelte/icons/plus', undefined],
 		['bits-ui', undefined],
 		['layerchart', undefined],
-		['mode-watcher', undefined],
 		['./widget.svelte.js', 'src/features/alpha/widget.svelte.js'],
 		['@fontsource/ibm-plex-mono/400.css', undefined],
 		['@fontsource/ibm-plex-mono', undefined],

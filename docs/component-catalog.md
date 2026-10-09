@@ -1461,12 +1461,14 @@ Use these semantic tokens and Tailwind utilities:
 
 `--background` / `bg-background` | `--foreground` / `text-foreground` | `--card` / `bg-card` | `--muted` / `bg-muted` | `--muted-foreground` / `text-muted-foreground` | `--accent` / `text-accent` | `--destructive` / `text-destructive` | `--border` / `border` | `--ring` / `ring-ring`
 
-Status colors are exposed as Tailwind theme colors backed by shadcn-compatible primitives:
+Status colors have their own raw tokens, separate from the amber brand `--accent` and the chart series:
 
-`success` -> `--chart-2`
-`warning` -> `--accent`
-`info` -> `--chart-3`
+`success` -> `--success`
+`warning` -> `--warning`
+`info` -> `--info`
 `danger` -> `--destructive`
+
+Status text uses `text-*-foreground`, backed by separate `--danger-foreground`, `--warning-foreground`, `--success-foreground` and `--info-foreground` tokens that meet WCAG AA on page and muted status surfaces; the base status colors are fills, not text. Raw values live once in `:root` and once in `:root[data-theme='dark']`; each `--color-*` mapping is declared once in `@theme inline`. Chrome and the stepped readiness ramp (`--readiness-band-*`) are identical in both themes and are declared only in `:root`. Global element defaults sit in `@layer base`, so primitive variants and utilities override them.
 
 Use `bg-success-muted`, `text-success-foreground`, `bg-warning-muted`, `text-warning-foreground`, `bg-info-muted`, `text-info-foreground`, `bg-danger-muted`, and `text-danger-foreground` through shared components where possible.
 

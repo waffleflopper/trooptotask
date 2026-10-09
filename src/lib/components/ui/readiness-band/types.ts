@@ -5,11 +5,11 @@ export type ReadinessBandPalette = 'ramp' | 'semantic';
 
 /** Text tone for a readiness value outside a cell: success at goal, warning within 20 points, destructive below. */
 export const readinessBandTone: Record<ReadinessBandTier, string> = {
-	good: 'text-success',
-	okay: 'text-warning',
-	caution: 'text-warning',
-	warn: 'text-destructive',
-	danger: 'text-destructive',
+	good: 'text-success-foreground',
+	okay: 'text-warning-foreground',
+	caution: 'text-warning-foreground',
+	warn: 'text-danger-foreground',
+	danger: 'text-danger-foreground',
 	'not-applicable': 'text-muted-foreground'
 };
 

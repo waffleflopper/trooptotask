@@ -24,7 +24,8 @@ function patchFile({ filePath, patchName, replacements }) {
 	console.log(`[patch-bits-ui] Applied ${patchName} patch.`);
 }
 
-const auditedBitsUiVersion = '2.18.1';
+// Patches target this exact build; re-audit each against its regression test before bumping.
+const auditedBitsUiVersion = '2.19.5';
 const bitsUiPackageRoot = join(process.cwd(), 'node_modules', 'bits-ui');
 const bitsUiPackageJsonPath = join(bitsUiPackageRoot, 'package.json');
 const bitsUiPackageDist = join(bitsUiPackageRoot, 'dist');
@@ -45,6 +46,8 @@ function assertAuditedBitsUiVersion() {
 
 assertAuditedBitsUiVersion();
 
+// Unfixed upstream: completing a cross-month range recenters on the start and strands focus.
+// Delete with the unused range-calendar components.
 patchFile({
 	patchName: 'range calendar start placeholder synchronization',
 	filePath: join(bitsUiDist, 'range-calendar', 'range-calendar.svelte.js'),
@@ -59,191 +62,7 @@ patchFile({
 	]
 });
 
-patchFile({
-	patchName: 'dismissible layer timeout cleanup',
-	filePath: join(bitsUiDist, 'utilities', 'dismissible-layer', 'use-dismissable-layer.svelte.js'),
-	replacements: [
-		{
-			original: `        let unsubEvents = noop;
-        const cleanup = () => {
-            this.#resetState();`,
-			patched: `        let unsubEvents = noop;
-        let layerRegistrationTimeout;
-        const cleanup = () => {
-            if (layerRegistrationTimeout) {
-                clearTimeout(layerRegistrationTimeout);
-                layerRegistrationTimeout = undefined;
-            }
-            this.#resetState();`
-		},
-		{
-			original: `            afterSleep(1, () => {
-                if (!this.opts.ref.current)`,
-			patched: `            if (layerRegistrationTimeout) {
-                clearTimeout(layerRegistrationTimeout);
-            }
-            layerRegistrationTimeout = afterSleep(1, () => {
-                layerRegistrationTimeout = undefined;
-                if (!this.opts.ref.current)`
-		}
-	]
-});
-
-patchFile({
-	patchName: 'dismissible layer focus tick cleanup',
-	filePath: join(bitsUiDist, 'utilities', 'dismissible-layer', 'use-dismissable-layer.svelte.js'),
-	replacements: [
-		{
-			original: `    #handleFocus = (event) => {
-        if (event.defaultPrevented)
-            return;
-        if (!this.opts.ref.current)
-            return;
-        afterTick(() => {
-            if (!this.opts.ref.current || this.#isTargetWithinLayer(event.target))
-                return;
-            if (event.target && !this.#isFocusInsideDOMTree) {
-                this.#onFocusOutside.current?.(event);
-            }
-        });
-    };`,
-			patched: `    #handleFocus = (event) => {
-        if (event.defaultPrevented)
-            return;
-        const layerNode = this.opts.ref.current;
-        if (!layerNode)
-            return;
-        afterTick(() => {
-            if (!globalThis.bitsDismissableLayers.has(this) || isOrContainsTarget(layerNode, event.target))
-                return;
-            if (event.target && !this.#isFocusInsideDOMTree) {
-                this.#onFocusOutside.current?.(event);
-            }
-        });
-    };`
-		}
-	]
-});
-
-patchFile({
-	patchName: 'menu deferred focus cleanup',
-	filePath: join(bitsUiDist, 'menu', 'menu.svelte.js'),
-	replacements: [
-		{
-			original: `    #timer = 0;
-    #handleTypeaheadSearch;
-    mounted = $state(false);
-    #isSub;`,
-			patched: `    #timer = 0;
-    #handleTypeaheadSearch;
-    mounted = $state(false);
-    #isSub;
-    #destroyed = false;`
-		},
-		{
-			original: `        this.rovingFocusGroup = new RovingFocusGroup({
-            rootNode: boxWith(() => this.parentMenu.contentNode),
-            candidateAttr: this.parentMenu.root.getBitsAttr("item"),
-            loop: this.opts.loop,
-            orientation: boxWith(() => "vertical"),
-        });`,
-			patched: `        this.rovingFocusGroup = new RovingFocusGroup({
-            rootNode: boxWith(() => this.parentMenu.contentNode),
-            candidateAttr: this.parentMenu.root.getBitsAttr("item"),
-            loop: this.opts.loop,
-            orientation: boxWith(() => "vertical"),
-        });
-        onDestroyEffect(() => {
-            this.#destroyed = true;
-        });`
-		},
-		{
-			original: `            const handler = () => {
-                afterTick(() => {
-                    if (!this.parentMenu.root.isUsingKeyboard.current)
-                        return;
-                    this.rovingFocusGroup.focusFirstCandidate();
-                });
-            };`,
-			patched: `            const handler = () => {
-                const isUsingKeyboard = this.parentMenu.root.isUsingKeyboard.current;
-                afterTick(() => {
-                    if (this.#destroyed || !isUsingKeyboard)
-                        return;
-                    this.rovingFocusGroup.focusFirstCandidate();
-                });
-            };`
-		},
-		{
-			original: `    onfocus(_) {
-        if (!this.parentMenu.root.isUsingKeyboard.current)
-            return;
-        afterTick(() => this.rovingFocusGroup.focusFirstCandidate());
-    }`,
-			patched: `    onfocus(_) {
-        if (!this.parentMenu.root.isUsingKeyboard.current)
-            return;
-        afterTick(() => {
-            if (this.#destroyed)
-                return;
-            this.rovingFocusGroup.focusFirstCandidate();
-        });
-    }`
-		},
-		{
-			original: `    #isFocused = $state(false);
-    constructor(opts, content) {
-        this.opts = opts;`,
-			patched: `    #isFocused = $state(false);
-    #destroyed = false;
-    constructor(opts, content) {
-        this.opts = opts;`
-		},
-		{
-			original: `        this.onfocus = this.onfocus.bind(this);
-        this.onblur = this.onblur.bind(this);
-    }`,
-			patched: `        this.onfocus = this.onfocus.bind(this);
-        this.onblur = this.onblur.bind(this);
-        onDestroyEffect(() => {
-            this.#destroyed = true;
-        });
-    }`
-		},
-		{
-			original: `    onfocus(e) {
-        afterTick(() => {
-            if (e.defaultPrevented || this.opts.disabled.current)
-                return;
-            this.#isFocused = true;
-        });
-    }
-    onblur(e) {
-        afterTick(() => {
-            if (e.defaultPrevented)
-                return;
-            this.#isFocused = false;
-        });
-    }`,
-			patched: `    onfocus(e) {
-        const disabled = this.opts.disabled.current;
-        afterTick(() => {
-            if (this.#destroyed || e.defaultPrevented || disabled)
-                return;
-            this.#isFocused = true;
-        });
-    }
-    onblur(e) {
-        afterTick(() => {
-            if (this.#destroyed || e.defaultPrevented)
-                return;
-            this.#isFocused = false;
-        });
-    }`
-		}
-	]
-});
-
+// Unfixed upstream (huntabyte/bits-ui#2146): a superseded animation run can still fire its callback.
 patchFile({
 	patchName: 'presence animation tick cleanup',
 	filePath: join(bitsUiPackageDist, 'internal', 'animations-complete.js'),
@@ -275,6 +94,7 @@ patchFile({
 	]
 });
 
+// Unfixed upstream: the deferred autofocus reads the content ref after an immediate unmount.
 patchFile({
 	patchName: 'alert dialog open autofocus timeout cleanup',
 	filePath: join(bitsUiDist, 'alert-dialog', 'components', 'alert-dialog-content.svelte'),

@@ -120,9 +120,11 @@
 			};
 		};
 
-	const currentItems = $derived(
-		activeTab === 'new' ? data.newItems : activeTab === 'reviewed' ? data.reviewedItems : data.resolvedItems
-	);
+	const tabs = $derived([
+		{ value: 'new', label: 'New', items: data.newItems },
+		{ value: 'reviewed', label: 'Reviewed', items: data.reviewedItems },
+		{ value: 'resolved', label: 'Resolved', items: data.resolvedItems }
+	] as const);
 	const totalCount = $derived(data.newItems.length + data.reviewedItems.length + data.resolvedItems.length);
 </script>
 
@@ -158,100 +160,103 @@
 
 	<Tabs.Root bind:value={activeTab} onValueChange={closeEditor} class="grid gap-4">
 		<Tabs.List class="w-full justify-start">
-			<Tabs.Trigger value="new">
-				New {#if data.newItems.length > 0}<Badge variant="secondary">{data.newItems.length}</Badge>{/if}
-			</Tabs.Trigger>
-			<Tabs.Trigger value="reviewed">
-				Reviewed {#if data.reviewedItems.length > 0}<Badge variant="secondary">{data.reviewedItems.length}</Badge>{/if}
-			</Tabs.Trigger>
-			<Tabs.Trigger value="resolved">
-				Resolved {#if data.resolvedItems.length > 0}<Badge variant="secondary">{data.resolvedItems.length}</Badge>{/if}
-			</Tabs.Trigger>
+			{#each tabs as tab (tab.value)}
+				<Tabs.Trigger value={tab.value}>
+					{tab.label}
+					{#if tab.items.length > 0}<Badge variant="secondary">{tab.items.length}</Badge>{/if}
+				</Tabs.Trigger>
+			{/each}
 		</Tabs.List>
 
-		<Tabs.Content value={activeTab} class="grid gap-3">
-			{#if currentItems.length === 0}
-				<Card.Root>
-					<Card.Content>
-						<Empty.Root>
-							<Empty.Header>
-								<Empty.Title>No {activeTab} feedback.</Empty.Title>
-							</Empty.Header>
-						</Empty.Root>
-					</Card.Content>
-				</Card.Root>
-			{:else}
-				{#each currentItems as item (item.id)}
-					<Card.Root>
-						<Card.Header>
-							<button
-								class="grid w-full gap-3 text-left sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start"
-								onclick={() => openEditor(item)}
-							>
-								<span class="grid min-w-0 gap-2">
-									<span class="flex min-w-0 flex-wrap items-center gap-2">
-										<strong class="truncate text-sm">{item.user_email}</strong>
-										<Badge variant={adminBadgeVariant(item.category)}>{formatAdminLabel(item.category)}</Badge>
-									</span>
-									<span class="text-sm leading-6 text-muted-foreground">
-										{item.message.length > 140 ? `${item.message.slice(0, 140)}...` : item.message}
-									</span>
-									<span class="text-xs text-muted-foreground">
-										{formatDisplayDateTime(item.created_at)}
-										{#if item.organization_name}
-											/ {item.organization_name}{/if}
-										{#if item.page_url}
-											/ {item.page_url}{/if}
-									</span>
-								</span>
-								<span class="text-xs font-medium text-muted-foreground uppercase">
-									{editor?.id === item.id ? 'Hide' : 'Open'}
-								</span>
-							</button>
-						</Card.Header>
-
-						{#if editor && editor.id === item.id}
-							<Card.Content class="grid gap-4">
-								<div class="grid gap-2 rounded-lg border bg-muted/40 p-4">
-									<p class="text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">Full Message</p>
-									<p class="text-sm leading-6">{item.message}</p>
-								</div>
-
-								<form method="POST" action="?/update" class="grid gap-4" use:enhance={submitFeedback(item.id)}>
-									<input type="hidden" name="feedbackId" value={item.id} />
-									<div class="grid gap-4 md:grid-cols-[12rem_minmax(0,1fr)]">
-										<Field.Root>
-											<Field.Label for="status-{item.id}">Status</Field.Label>
-											<NativeSelect id="status-{item.id}" name="status" bind:value={editor.status}>
-												<option value="new">New</option>
-												<option value="reviewed">Reviewed</option>
-												<option value="resolved">Resolved</option>
-											</NativeSelect>
-										</Field.Root>
-										<Field.Root>
-											<Field.Label for="notes-{item.id}">Admin Notes</Field.Label>
-											<Textarea
-												id="notes-{item.id}"
-												name="adminNotes"
-												rows={4}
-												placeholder="Internal notes about this feedback..."
-												bind:value={editor.notes}
-											></Textarea>
-										</Field.Root>
-									</div>
-
-									<div class="flex justify-end">
-										<Button type="submit" disabled={writesDisabled}>
-											{#if pending?.kind === 'save' && pending.id === item.id}<Spinner />{/if}
-											Save Notes
-										</Button>
-									</div>
-								</form>
-							</Card.Content>
-						{/if}
-					</Card.Root>
-				{/each}
-			{/if}
-		</Tabs.Content>
+		{#each tabs as tab (tab.value)}
+			<Tabs.Content value={tab.value} class="grid gap-3">
+				{@render feedbackList(tab.value, tab.items)}
+			</Tabs.Content>
+		{/each}
 	</Tabs.Root>
 </PageShell.Root>
+
+{#snippet feedbackList(status: FeedbackStatus, items: PageData['newItems'])}
+	{#if items.length === 0}
+		<Card.Root>
+			<Card.Content>
+				<Empty.Root>
+					<Empty.Header>
+						<Empty.Title>No {status} feedback.</Empty.Title>
+					</Empty.Header>
+				</Empty.Root>
+			</Card.Content>
+		</Card.Root>
+	{:else}
+		{#each items as item (item.id)}
+			<Card.Root>
+				<Card.Header>
+					<button
+						class="grid w-full gap-3 text-left sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start"
+						onclick={() => openEditor(item)}
+					>
+						<span class="grid min-w-0 gap-2">
+							<span class="flex min-w-0 flex-wrap items-center gap-2">
+								<strong class="truncate text-sm">{item.user_email}</strong>
+								<Badge variant={adminBadgeVariant(item.category)}>{formatAdminLabel(item.category)}</Badge>
+							</span>
+							<span class="text-sm leading-6 text-muted-foreground">
+								{item.message.length > 140 ? `${item.message.slice(0, 140)}...` : item.message}
+							</span>
+							<span class="text-xs text-muted-foreground">
+								{formatDisplayDateTime(item.created_at)}
+								{#if item.organization_name}
+									/ {item.organization_name}{/if}
+								{#if item.page_url}
+									/ {item.page_url}{/if}
+							</span>
+						</span>
+						<span class="text-xs font-medium text-muted-foreground uppercase">
+							{editor?.id === item.id ? 'Hide' : 'Open'}
+						</span>
+					</button>
+				</Card.Header>
+
+				{#if editor && editor.id === item.id}
+					<Card.Content class="grid gap-4">
+						<div class="grid gap-2 rounded-lg border bg-muted/40 p-4">
+							<p class="text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">Full Message</p>
+							<p class="text-sm leading-6">{item.message}</p>
+						</div>
+
+						<form method="POST" action="?/update" class="grid gap-4" use:enhance={submitFeedback(item.id)}>
+							<input type="hidden" name="feedbackId" value={item.id} />
+							<div class="grid gap-4 md:grid-cols-[12rem_minmax(0,1fr)]">
+								<Field.Root>
+									<Field.Label for="status-{item.id}">Status</Field.Label>
+									<NativeSelect id="status-{item.id}" name="status" bind:value={editor.status}>
+										<option value="new">New</option>
+										<option value="reviewed">Reviewed</option>
+										<option value="resolved">Resolved</option>
+									</NativeSelect>
+								</Field.Root>
+								<Field.Root>
+									<Field.Label for="notes-{item.id}">Admin Notes</Field.Label>
+									<Textarea
+										id="notes-{item.id}"
+										name="adminNotes"
+										rows={4}
+										placeholder="Internal notes about this feedback..."
+										bind:value={editor.notes}
+									></Textarea>
+								</Field.Root>
+							</div>
+
+							<div class="flex justify-end">
+								<Button type="submit" disabled={writesDisabled}>
+									{#if pending?.kind === 'save' && pending.id === item.id}<Spinner />{/if}
+									Save Notes
+								</Button>
+							</div>
+						</form>
+					</Card.Content>
+				{/if}
+			</Card.Root>
+		{/each}
+	{/if}
+{/snippet}

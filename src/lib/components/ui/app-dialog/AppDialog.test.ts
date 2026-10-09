@@ -5,6 +5,15 @@ import AppDialogTest from './AppDialogTest.svelte';
 
 afterEach(() => cleanup());
 
+async function clickOutside() {
+	const outside = screen.getByRole('button', { name: 'Open test dialog' });
+	const point = { clientX: 5, clientY: 5 };
+	await fireEvent.pointerDown(outside, point);
+	await fireEvent.pointerUp(outside, point);
+	await fireEvent.click(outside, point);
+	await new Promise((resolve) => setTimeout(resolve, 20));
+}
+
 describe('AppDialog', () => {
 	it('renders accessible title and description', () => {
 		render(AppDialogTest);
@@ -34,6 +43,39 @@ describe('AppDialog', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Open test dialog' }));
 		expect(screen.getByRole('dialog', { name: 'Shared dialog title' })).toBeTruthy();
+	});
+
+	it('closes on Escape and on an outside click when idle', async () => {
+		render(AppDialogTest);
+
+		await clickOutside();
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Open test dialog' }));
+		await fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+		expect(screen.getByTestId('closed-count').textContent).toBe('2');
+	});
+
+	it('keeps focus inside and blocks Escape and outside click while busy', async () => {
+		render(AppDialogTest);
+		const dialog = screen.getByRole('dialog', { name: 'Shared dialog title' });
+		const save = screen.getByRole('button', { name: 'Save slowly' });
+		save.focus();
+
+		await fireEvent.click(save);
+
+		expect(dialog.getAttribute('aria-busy')).toBe('true');
+		expect(document.activeElement).toBe(dialog);
+		await fireEvent.keyDown(dialog, { key: 'Escape' });
+		await clickOutside();
+		expect(screen.getByRole('dialog', { name: 'Shared dialog title' })).toBe(dialog);
+		expect(screen.getByTestId('closed-count').textContent).toBe('0');
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Finish work' }));
+		expect(dialog.hasAttribute('aria-busy')).toBe(false);
+		await fireEvent.keyDown(dialog, { key: 'Escape' });
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 	});
 
 	it('blocks close affordances while busy', () => {

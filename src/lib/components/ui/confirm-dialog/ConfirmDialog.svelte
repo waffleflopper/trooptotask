@@ -55,11 +55,7 @@
 </script>
 
 <AlertDialog.Root open onOpenChange={(open) => !open && !busy && onCancel()}>
-	<AlertDialog.Content
-		escapeKeydownBehavior={busy ? 'ignore' : 'close'}
-		interactOutsideBehavior={busy ? 'ignore' : 'close'}
-		restoreScrollDelay={0}
-	>
+	<AlertDialog.Content escapeKeydownBehavior={busy ? 'ignore' : 'close'} restoreScrollDelay={0}>
 		<AlertDialog.Header>
 			<AlertDialog.Title>{title}</AlertDialog.Title>
 			<AlertDialog.Description>{message}</AlertDialog.Description>

@@ -18,13 +18,24 @@
 		showCloseButton = true,
 		size = 'default',
 		class: className,
+		ref = $bindable(null),
 		...restProps
 	}: Props = $props();
+
+	// A busy dialog disables its own controls; keep focus in the dialog instead of letting it fall to the page.
+	$effect(() => {
+		if (!closeBlocked || !ref) return;
+		const active = document.activeElement;
+		if (active === document.body || (ref.contains(active) && active?.matches(':disabled'))) ref.focus();
+	});
 
 	const primitiveSize = $derived(size === 'wide' || size === 'fullscreen' ? 'wide' : 'default');
 </script>
 
 <Dialog.Content
+	bind:ref
+	tabindex={-1}
+	aria-busy={closeBlocked || undefined}
 	size={primitiveSize}
 	showCloseButton={showCloseButton && !closeBlocked}
 	escapeKeydownBehavior={closeBlocked ? 'ignore' : 'close'}

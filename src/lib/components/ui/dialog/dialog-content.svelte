@@ -7,6 +7,7 @@
 	import type { ComponentProps } from 'svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import XIcon from '@lucide/svelte/icons/x';
+	import { keepFocusInside } from './keep-focus-inside';
 
 	let {
 		ref = $bindable(null),
@@ -32,6 +33,7 @@
 				bind:this={ref}
 				data-slot="dialog-content"
 				{...props}
+				{@attach keepFocusInside}
 				class={cn(
 					'bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 ring-foreground/10 fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl p-4 text-sm shadow-lg ring-1 duration-100 outline-none sm:max-w-sm',
 					size === 'wide' && 'sm:max-w-3xl',

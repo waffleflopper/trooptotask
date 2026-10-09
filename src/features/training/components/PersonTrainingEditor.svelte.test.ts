@@ -196,6 +196,122 @@ describe('PersonTrainingEditor', () => {
 		]);
 	});
 
+	// happy-dom does not apply a disabled fieldset to its controls' :disabled state.
+	const inDisabledGroup = (control: HTMLElement) => control.closest('fieldset')?.disabled === true;
+
+	function renderHeldSave(onSave: (data: Omit<PersonnelTraining, 'id'>) => Promise<void>) {
+		render(PersonTrainingEditor, {
+			props: {
+				person,
+				trainingTypes: [neverExpiresType, expiringType],
+				trainings: [savedRecord],
+				onSave,
+				onRemove: vi.fn(),
+				onClose: vi.fn()
+			}
+		});
+		return screen.getByRole('dialog', { name: 'Training Records' });
+	}
+
+	it('holds a draft save busy with the draft locked, ignores a repeat save and keeps the draft on failure', async () => {
+		vi.useRealTimers();
+		let rejectSave!: (error: Error) => void;
+		const onSave = vi.fn(
+			() =>
+				new Promise<void>((_, reject) => {
+					rejectSave = reject;
+				})
+		);
+		const errorToast = vi.spyOn(toast, 'error').mockImplementation(() => 'error');
+		const dialog = renderHeldSave(onSave);
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+		await fireEvent.input(screen.getByLabelText('Notes'), { target: { value: 'Draft A' } });
+		const save = screen.getByRole('button', { name: 'Save' });
+
+		await fireEvent.click(save);
+		await fireEvent.click(save);
+
+		expect(onSave).toHaveBeenCalledTimes(1);
+		expect(dialog.getAttribute('aria-busy')).toBe('true');
+		for (const control of [
+			screen.getByLabelText('Notes'),
+			screen.getByLabelText('Certificate URL'),
+			screen.getByRole('button', { name: 'Cancel' }),
+			screen.getByRole('button', { name: 'Today' }),
+			screen.getByRole('button', { name: 'Mark All Completed Today' })
+		]) {
+			expect(inDisabledGroup(control)).toBe(true);
+		}
+		expect((screen.getByRole('button', { name: 'Close' }) as HTMLButtonElement).disabled).toBe(true);
+		await fireEvent.keyDown(dialog, { key: 'Escape' });
+		expect(screen.getByRole('dialog', { name: 'Training Records' })).toBe(dialog);
+
+		rejectSave(new Error('Save denied'));
+
+		await waitFor(() => expect(dialog.hasAttribute('aria-busy')).toBe(false));
+		expect(errorToast).toHaveBeenCalledWith('Save denied', { duration: 6000 });
+		const notes = screen.getByLabelText('Notes') as HTMLInputElement;
+		expect(notes.value).toBe('Draft A');
+		expect(inDisabledGroup(notes)).toBe(false);
+	});
+
+	it('saves the draft it started with and leaves no newer draft to lose', async () => {
+		vi.useRealTimers();
+		let resolveSave!: () => void;
+		const onSave = vi.fn(
+			(_data: Omit<PersonnelTraining, 'id'>) =>
+				new Promise<void>((resolve) => {
+					resolveSave = resolve;
+				})
+		);
+		const dialog = renderHeldSave(onSave);
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+		await fireEvent.input(screen.getByLabelText('Notes'), { target: { value: 'Draft A' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+		expect(inDisabledGroup(screen.getByLabelText('Notes'))).toBe(true);
+
+		resolveSave();
+
+		await waitFor(() => expect(dialog.hasAttribute('aria-busy')).toBe(false));
+		expect(screen.queryByLabelText('Notes')).toBeNull();
+		expect(onSave.mock.calls.map(([data]) => data.notes)).toEqual(['Draft A']);
+	});
+
+	it('keeps the Mark All confirmation busy until the batch settles and open for a retry after failure', async () => {
+		vi.useRealTimers();
+		const settles: Array<{ resolve: () => void; reject: (error: Error) => void }> = [];
+		const onSaveBatch = vi.fn(() => new Promise<void>((resolve, reject) => settles.push({ resolve, reject })));
+		const errorToast = vi.spyOn(toast, 'error').mockImplementation(() => 'error');
+		renderEditor({ onSaveBatch });
+		const editor = screen.getByRole('dialog', { name: 'Training Records' });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Mark All Completed Today' }));
+		const confirmation = screen.getByRole('alertdialog');
+		const markAll = within(confirmation).getByRole('button', { name: 'Mark All' }) as HTMLButtonElement;
+		await fireEvent.click(markAll);
+		await fireEvent.click(markAll);
+
+		expect(onSaveBatch).toHaveBeenCalledTimes(1);
+		expect(confirmation.getAttribute('aria-busy')).toBe('true');
+		expect(markAll.disabled).toBe(true);
+		expect(editor.getAttribute('aria-busy')).toBe('true');
+
+		settles[0].reject(new Error('Batch denied'));
+
+		await waitFor(() => expect(confirmation.hasAttribute('aria-busy')).toBe(false));
+		expect(errorToast).toHaveBeenCalledWith('Batch denied', { duration: 6000 });
+		expect(screen.getByRole('alertdialog')).toBe(confirmation);
+		expect(editor.hasAttribute('aria-busy')).toBe(false);
+
+		await fireEvent.click(markAll);
+		expect(screen.getByRole('alertdialog')).toBe(confirmation);
+		settles[1].resolve();
+
+		await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+		expect(onSaveBatch).toHaveBeenCalledTimes(2);
+	});
+
 	it('counts saved currency states instead of display labels and excludes exemptions and inapplicable rows', () => {
 		const types: TrainingType[] = [
 			neverExpiresType,

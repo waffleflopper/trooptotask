@@ -4,8 +4,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RanksSettingsData } from '../settingsSectionTypes';
 import Page from './+page.svelte';
 
+type HeldSubmission = (opts: { result: { type: 'success' }; update: () => Promise<void> }) => Promise<void>;
+const { heldSubmissions } = vi.hoisted(() => ({ heldSubmissions: [] as HeldSubmission[] }));
+
+// Holds each enhanced submission until the test settles it.
 vi.mock('$app/forms', () => ({
-	enhance: () => {}
+	enhance: (
+		form: HTMLFormElement,
+		submit?: (input: { formElement: HTMLFormElement; formData: FormData }) => unknown
+	) => {
+		form.addEventListener('submit', (event) => {
+			event.preventDefault();
+			heldSubmissions.push(submit?.({ formElement: form, formData: new FormData(form) }) as HeldSubmission);
+		});
+	}
 }));
 
 beforeEach(() => {
@@ -21,6 +33,7 @@ async function cleanupRankPage() {
 }
 
 afterEach(async () => {
+	heldSubmissions.length = 0;
 	try {
 		await cleanupRankPage();
 	} finally {
@@ -435,4 +448,72 @@ describe('rank confirmation lifecycle', () => {
 			expect(vi.getTimerCount()).toBe(0);
 		}
 	);
+	it('disables rank mutations while a submitted rank action is pending', async () => {
+		const entry = {
+			code: 'Lt Gen',
+			label: 'Lieutenant General',
+			service: 'air-force',
+			serviceLabel: 'Air Force',
+			category: 'officer',
+			categoryLabel: 'Officer',
+			payGrade: 'O-9',
+			payGradeLabel: 'O-9',
+			state: 'active',
+			source: 'built-in',
+			sourceLabel: 'Built-in',
+			sortOrder: 0,
+			referenceSummary: {
+				code: 'Lt Gen',
+				activeReferences: { personnel: 0, trainingApplicability: 0, total: 0 },
+				historicalReferences: { signInRosterFilters: 0, signInRosterSnapshots: 0, total: 0 },
+				canDelete: true
+			},
+			warnings: [],
+			commands: {
+				canEdit: false,
+				canRetire: true,
+				canReactivate: false,
+				canDelete: false,
+				deleteDisabledReason: 'Built-in ranks can be retired but not removed.'
+			}
+		};
+		render(Page, {
+			props: {
+				data: {
+					ranksSettings: {
+						sections: {
+							ranks: {
+								commands: { canManageCatalog: true, canAddServicePack: true, canAddCustomRank: true },
+								copy: { payGradeHelp: 'Pay grade help.', tieBreakHelp: 'Tie-break help.' },
+								servicePacks: [],
+								options: {
+									services: [{ value: 'air-force', label: 'Air Force' }],
+									categories: [{ value: 'officer', label: 'Officer' }],
+									payGrades: [{ value: 'O-9', label: 'O-9' }],
+									states: [
+										{ value: 'active', label: 'Active' },
+										{ value: 'retired', label: 'Retired' }
+									]
+								},
+								entries: { active: [entry], retired: [] }
+							}
+						}
+					}
+				} as never,
+				form: null,
+				params: { orgId: 'org-1' }
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Actions for Lt Gen' }));
+		await fireEvent.click(screen.getByRole('menuitem', { name: 'Retire' }));
+		expect(heldSubmissions).toHaveLength(1);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Actions for Lt Gen' }));
+		expect(screen.getByRole('menuitem', { name: 'Retire' }).getAttribute('aria-disabled')).toBe('true');
+
+		await heldSubmissions[0]({ result: { type: 'success' }, update: async () => {} });
+		await vi.runAllTimersAsync();
+		expect(screen.getByRole('menuitem', { name: 'Retire' }).getAttribute('aria-disabled')).not.toBe('true');
+	});
 });

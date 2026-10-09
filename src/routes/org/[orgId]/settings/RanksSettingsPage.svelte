@@ -248,12 +248,14 @@
 		if (entry.commands.canRetire) {
 			actions.push({
 				label: 'Retire',
+				disabled: savingAction !== null,
 				onSelect: () => submitFormById(rowFormId('retire', entry.code))
 			});
 		}
 		if (entry.commands.canReactivate) {
 			actions.push({
 				label: 'Reactivate',
+				disabled: savingAction !== null,
 				onSelect: () => submitFormById(rowFormId('reactivate', entry.code))
 			});
 		}
@@ -261,6 +263,7 @@
 			actions.push({
 				label: 'Remove',
 				destructive: true,
+				disabled: savingAction !== null,
 				onSelect: () => {
 					pendingRankDelete = entry;
 				}
@@ -274,6 +277,7 @@
 		if (pack.canBulkRetire) {
 			actions.push({
 				label: `Retire active ranks (${pack.activeCount})`,
+				disabled: savingAction !== null,
 				onSelect: () => {
 					pendingBulkRankState = { pack, targetState: 'retired' };
 				}
@@ -282,6 +286,7 @@
 		if (pack.canBulkReactivate) {
 			actions.push({
 				label: `Reactivate retired ranks (${pack.retiredCount})`,
+				disabled: savingAction !== null,
 				onSelect: () => {
 					pendingBulkRankState = { pack, targetState: 'active' };
 				}

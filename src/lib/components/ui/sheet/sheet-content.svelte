@@ -11,6 +11,7 @@
 	import XIcon from '@lucide/svelte/icons/x';
 	import { cn, type WithoutChildrenOrChild } from '$lib/utils.js';
 	import type { ComponentProps } from 'svelte';
+	import { keepFocusInside } from '$lib/components/ui/dialog/index.js';
 
 	let {
 		ref = $bindable(null),
@@ -30,26 +31,31 @@
 
 <SheetPortal {...portalProps}>
 	<SheetOverlay />
-	<SheetPrimitive.Content
-		bind:ref
-		data-slot="sheet-content"
-		data-side={side}
-		class={cn(
-			'bg-popover text-popover-foreground fixed z-50 flex flex-col gap-4 bg-clip-padding text-sm shadow-lg transition duration-200 ease-in-out data-[side=bottom]:inset-x-0 data-[side=bottom]:bottom-0 data-[side=bottom]:h-auto data-[side=bottom]:border-t data-[side=left]:inset-y-0 data-[side=left]:left-0 data-[side=left]:h-full data-[side=left]:w-3/4 data-[side=left]:border-r data-[side=right]:inset-y-0 data-[side=right]:right-0 data-[side=right]:h-full data-[side=right]:w-3/4 data-[side=right]:border-l data-[side=top]:inset-x-0 data-[side=top]:top-0 data-[side=top]:h-auto data-[side=top]:border-b data-[side=left]:sm:max-w-sm data-[side=right]:sm:max-w-sm data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[side=bottom]:data-[state=open]:slide-in-from-bottom-10 data-[side=left]:data-[state=open]:slide-in-from-left-10 data-[side=right]:data-[state=open]:slide-in-from-right-10 data-[side=top]:data-[state=open]:slide-in-from-top-10 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[side=bottom]:data-[state=closed]:slide-out-to-bottom-10 data-[side=left]:data-[state=closed]:slide-out-to-left-10 data-[side=right]:data-[state=closed]:slide-out-to-right-10 data-[side=top]:data-[state=closed]:slide-out-to-top-10',
-			className
-		)}
-		{...restProps}
-	>
-		{@render children?.()}
-		{#if showCloseButton}
-			<SheetPrimitive.Close data-slot="sheet-close">
-				{#snippet child({ props })}
-					<Button variant="ghost" class="absolute top-3 right-3" size="icon-sm" {...props}>
-						<XIcon />
-						<span class="sr-only">Close</span>
-					</Button>
-				{/snippet}
-			</SheetPrimitive.Close>
-		{/if}
+	<SheetPrimitive.Content {...restProps}>
+		{#snippet child({ props })}
+			<div
+				bind:this={ref}
+				data-slot="sheet-content"
+				data-side={side}
+				{...props}
+				{@attach keepFocusInside}
+				class={cn(
+					'bg-popover text-popover-foreground fixed z-50 flex flex-col gap-4 bg-clip-padding outline-none text-sm shadow-lg transition duration-200 ease-in-out data-[side=bottom]:inset-x-0 data-[side=bottom]:bottom-0 data-[side=bottom]:h-auto data-[side=bottom]:border-t data-[side=left]:inset-y-0 data-[side=left]:left-0 data-[side=left]:h-full data-[side=left]:w-3/4 data-[side=left]:border-r data-[side=right]:inset-y-0 data-[side=right]:right-0 data-[side=right]:h-full data-[side=right]:w-3/4 data-[side=right]:border-l data-[side=top]:inset-x-0 data-[side=top]:top-0 data-[side=top]:h-auto data-[side=top]:border-b data-[side=left]:sm:max-w-sm data-[side=right]:sm:max-w-sm data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[side=bottom]:data-[state=open]:slide-in-from-bottom-10 data-[side=left]:data-[state=open]:slide-in-from-left-10 data-[side=right]:data-[state=open]:slide-in-from-right-10 data-[side=top]:data-[state=open]:slide-in-from-top-10 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[side=bottom]:data-[state=closed]:slide-out-to-bottom-10 data-[side=left]:data-[state=closed]:slide-out-to-left-10 data-[side=right]:data-[state=closed]:slide-out-to-right-10 data-[side=top]:data-[state=closed]:slide-out-to-top-10',
+					className
+				)}
+			>
+				{@render children?.()}
+				{#if showCloseButton}
+					<SheetPrimitive.Close data-slot="sheet-close">
+						{#snippet child({ props })}
+							<Button variant="ghost" class="absolute top-3 right-3" size="icon-sm" {...props}>
+								<XIcon />
+								<span class="sr-only">Close</span>
+							</Button>
+						{/snippet}
+					</SheetPrimitive.Close>
+				{/if}
+			</div>
+		{/snippet}
 	</SheetPrimitive.Content>
 </SheetPortal>

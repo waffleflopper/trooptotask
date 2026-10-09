@@ -56,8 +56,8 @@
 
 <AlertDialog.Root open onOpenChange={(open) => !open && !busy && onCancel()}>
 	<AlertDialog.Content
+		aria-busy={busy || undefined}
 		escapeKeydownBehavior={busy ? 'ignore' : 'close'}
-		interactOutsideBehavior={busy ? 'ignore' : 'close'}
 		restoreScrollDelay={0}
 	>
 		<AlertDialog.Header>

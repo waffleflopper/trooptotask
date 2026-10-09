@@ -62,41 +62,43 @@
 	}
 </script>
 
-<AppDialog.Root closeBlocked={submitting} {onClose}>
-	<AppDialog.Content closeBlocked={submitting}>
+<AppDialog.Root busy={submitting} {onClose}>
+	<AppDialog.Content>
 		<AppDialog.Header>
 			<AppDialog.Title>Send Feedback</AppDialog.Title>
 			<AppDialog.Description>Share feedback about the current page or workflow.</AppDialog.Description>
 		</AppDialog.Header>
 
 		<AppDialog.Body class="grid gap-4">
-			<div class="grid gap-2">
-				<Label for="feedback-category">Category</Label>
-				<Select.Root type="single" bind:value={category}>
-					<Select.Trigger id="feedback-category" class="w-full">{categoryLabel}</Select.Trigger>
-					<Select.Content>
-						<Select.Item value="general" label="General Feedback" />
-						<Select.Item value="bug" label="Bug Report" />
-						<Select.Item value="feature" label="Feature Request" />
-					</Select.Content>
-				</Select.Root>
-			</div>
+			<fieldset class="contents" disabled={submitting}>
+				<div class="grid gap-2">
+					<Label for="feedback-category">Category</Label>
+					<Select.Root type="single" bind:value={category}>
+						<Select.Trigger id="feedback-category" class="w-full">{categoryLabel}</Select.Trigger>
+						<Select.Content>
+							<Select.Item value="general" label="General Feedback" />
+							<Select.Item value="bug" label="Bug Report" />
+							<Select.Item value="feature" label="Feature Request" />
+						</Select.Content>
+					</Select.Root>
+				</div>
 
-			<div class="grid gap-2">
-				<Label for="feedback-message">Message</Label>
-				<Textarea
-					id="feedback-message"
-					bind:value={message}
-					rows={5}
-					class="min-h-28 resize-y"
-					placeholder={category === 'bug'
-						? 'Describe the bug: what happened, what you expected, and steps to reproduce...'
-						: category === 'feature'
-							? "Describe the feature you'd like to see..."
-							: 'Share your thoughts, suggestions, or feedback...'}
-					required
-				/>
-			</div>
+				<div class="grid gap-2">
+					<Label for="feedback-message">Message</Label>
+					<Textarea
+						id="feedback-message"
+						bind:value={message}
+						rows={5}
+						class="min-h-28 resize-y"
+						placeholder={category === 'bug'
+							? 'Describe the bug: what happened, what you expected, and steps to reproduce...'
+							: category === 'feature'
+								? "Describe the feature you'd like to see..."
+								: 'Share your thoughts, suggestions, or feedback...'}
+						required
+					/>
+				</div>
+			</fieldset>
 		</AppDialog.Body>
 
 		<AppDialog.Footer>

@@ -156,6 +156,31 @@ describe('SignInRosterModal', () => {
 		expect(body.filterConfig).toEqual(expect.objectContaining({ groups: [], ranks: expect.arrayContaining(['SGT']) }));
 	});
 
+	it('locks the new roster draft while its save is held', async () => {
+		let resolveCreate!: (response: Response) => void;
+		const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+			if ((init?.method ?? 'GET') === 'POST') return new Promise<Response>((resolve) => (resolveCreate = resolve));
+			return jsonResponse({ rosters: [], total: 0 });
+		});
+		vi.stubGlobal('fetch', fetchMock);
+		renderModal();
+		await waitFor(() => expect(screen.getByRole('button', { name: 'New Roster' })).toBeTruthy());
+		await fireEvent.click(screen.getByRole('button', { name: 'New Roster' }));
+		await fireEvent.input(screen.getByLabelText(/Title/i), { target: { value: 'Annual AT Sign-In' } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Generate & Print' }));
+
+		const dialog = screen.getByRole('dialog', { name: 'New Sign-In Roster' });
+		expect(dialog.getAttribute('aria-busy')).toBe('true');
+		// happy-dom does not apply a disabled fieldset to its controls' :disabled state.
+		expect(screen.getByLabelText(/Title/i).closest('fieldset')?.disabled).toBe(true);
+		await waitFor(() => expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(1));
+		expect(dialog.getAttribute('aria-busy')).toBe('true');
+
+		resolveCreate(jsonResponse({ id: 'roster-2' }));
+		await waitFor(() => expect(dialog.hasAttribute('aria-busy')).toBe(false));
+	});
+
 	it('selects the built-in Army and Civilian ranks when the Organization has no rank catalog', async () => {
 		const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) =>
 			(init?.method ?? 'GET') === 'POST' ? jsonResponse({ id: 'roster-2' }) : jsonResponse({ rosters: [], total: 0 })
@@ -762,10 +787,12 @@ describe('SignInRosterModal', () => {
 		).toBe(false);
 	});
 
-	it('removes an uploaded signed roster scan', async () => {
+	it('removes an uploaded signed roster scan once while the dialog stays busy', async () => {
+		let resolveRemove!: (response: Response) => void;
+		const removeResponse = new Promise<Response>((resolve) => (resolveRemove = resolve));
 		const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
 			if (String(input).endsWith('/upload') && init?.method === 'DELETE') {
-				return jsonResponse({});
+				return removeResponse;
 			}
 
 			return jsonResponse({
@@ -781,8 +808,22 @@ describe('SignInRosterModal', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: /Morning Formation/i }));
 		expect(screen.getByRole('button', { name: 'signed-roster.pdf' })).toBeTruthy();
+		const dialog = screen.getByRole('dialog', { name: 'Sign-In Rosters' });
+		for (const label of dialog.querySelectorAll('label[for]')) {
+			expect(document.getElementById(label.getAttribute('for') ?? '')).not.toBeNull();
+		}
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+		const remove = screen.getByRole('button', { name: 'Remove' });
+		await fireEvent.click(remove);
+		await fireEvent.click(remove);
+
+		expect(
+			fetchMock.mock.calls.filter(([input, init]) => String(input).endsWith('/upload') && init?.method === 'DELETE')
+		).toHaveLength(1);
+		expect(dialog.getAttribute('aria-busy')).toBe('true');
+		expect((screen.getAllByRole('button', { name: 'Close' }).at(-1) as HTMLButtonElement).disabled).toBe(true);
+
+		resolveRemove(jsonResponse({}));
 
 		await waitFor(() => {
 			expect(screen.queryByRole('button', { name: 'signed-roster.pdf' })).toBeNull();

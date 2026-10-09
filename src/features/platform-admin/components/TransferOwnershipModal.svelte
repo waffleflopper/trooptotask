@@ -134,8 +134,8 @@
 	}
 </script>
 
-<AppDialog.Root open closeBlocked={saving || saved || !!uncertain || reloading} {onClose}>
-	<AppDialog.Content closeBlocked={saving || saved || !!uncertain || reloading}>
+<AppDialog.Root open busy={saving || reloading} closeBlocked={saved || !!uncertain} {onClose}>
+	<AppDialog.Content>
 		<AppDialog.Header>
 			<AppDialog.Title>Transfer Ownership</AppDialog.Title>
 		</AppDialog.Header>

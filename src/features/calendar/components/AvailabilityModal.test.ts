@@ -115,6 +115,10 @@ describe('AvailabilityModal — saved status feedback', () => {
 		expect(onAdd).toHaveBeenCalledOnce();
 		expect(screen.getByText('Current Status')).toBeTruthy();
 		expect(successToast).not.toHaveBeenCalled();
+		// happy-dom does not apply a disabled fieldset to its controls' :disabled state.
+		for (const label of ['Start Date *', 'End Date *', 'Note']) {
+			expect(screen.getByLabelText(label).closest('fieldset')?.disabled).toBe(true);
+		}
 		resolveAdd(existingEntry);
 		await waitFor(() => expect(successToast).toHaveBeenCalledWith('Leave added — Apr 7', 5000));
 	});

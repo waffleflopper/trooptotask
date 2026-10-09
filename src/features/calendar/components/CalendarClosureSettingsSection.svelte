@@ -7,12 +7,14 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import { NativeSelect } from '$lib/components/ui/native-select';
+	import { Spinner } from '$lib/components/ui/spinner';
 	import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatDate } from '$lib/utils/dates';
 	import type { SpecialDay } from '$features/calendar/contracts';
 	import Pencil from '@lucide/svelte/icons/pencil';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
+	import { PendingSave } from '$lib/utils/pendingSave.svelte';
 
 	type Props = {
 		canMutate: boolean;
@@ -32,6 +34,7 @@
 	let editSpecialType = $state<'federal-holiday' | 'org-closure'>('org-closure');
 
 	let confirmDeleteSpecial = $state<SpecialDay | null>(null);
+	const saving = new PendingSave();
 	let showResetConfirm = $state(false);
 	let filterYear = $state(String(new Date().getFullYear()));
 	const addClosureDirty = $derived(
@@ -253,43 +256,58 @@
 	{/each}
 </div>
 
-<AppDialog.Root bind:open={addClosureOpen} closeBlocked={addClosureDirty} onClose={closeAddClosureDialog}>
-	<AppDialog.Content closeBlocked={addClosureDirty}>
+<AppDialog.Root
+	bind:open={addClosureOpen}
+	busy={saving.pending}
+	closeBlocked={addClosureDirty}
+	onClose={closeAddClosureDialog}
+>
+	<AppDialog.Content>
 		<AppDialog.Header>
 			<AppDialog.Title>Add Closure</AppDialog.Title>
 			<AppDialog.Description>Mark a federal holiday or unit closure on the calendar.</AppDialog.Description>
 		</AppDialog.Header>
 		<AppDialog.Body class="grid gap-4">
-			<div class="grid gap-2">
-				<Label for="add-closure-date">Date</Label>
-				<DatePicker bind:value={newSpecialDate} placeholder="Select date" />
-			</div>
-			<div class="grid gap-2">
-				<Label for="add-closure-name">Name</Label>
-				<Input
-					id="add-closure-name"
-					type="text"
-					placeholder="e.g., Training Day, Independence Day"
-					bind:value={newSpecialName}
-				/>
-			</div>
-			<div class="grid gap-2">
-				<Label for="add-closure-type">Type</Label>
-				<NativeSelect id="add-closure-type" bind:value={newSpecialType}>
-					<option value="org-closure">Closure</option>
-					<option value="federal-holiday">Federal Holiday</option>
-				</NativeSelect>
-			</div>
+			<fieldset class="contents" disabled={saving.pending}>
+				<div class="grid gap-2">
+					<Label for="add-closure-date">Date</Label>
+					<DatePicker id="add-closure-date" bind:value={newSpecialDate} placeholder="Select date" />
+				</div>
+				<div class="grid gap-2">
+					<Label for="add-closure-name">Name</Label>
+					<Input
+						id="add-closure-name"
+						type="text"
+						placeholder="e.g., Training Day, Independence Day"
+						bind:value={newSpecialName}
+					/>
+				</div>
+				<div class="grid gap-2">
+					<Label for="add-closure-type">Type</Label>
+					<NativeSelect id="add-closure-type" bind:value={newSpecialType}>
+						<option value="org-closure">Closure</option>
+						<option value="federal-holiday">Federal Holiday</option>
+					</NativeSelect>
+				</div>
+			</fieldset>
 		</AppDialog.Body>
 		<AppDialog.Footer>
-			<Button variant="outline" onclick={closeAddClosureDialog}>Cancel</Button>
-			<Button onclick={addSpecialDay} disabled={!newSpecialName.trim()}>Add Closure</Button>
+			<Button variant="outline" onclick={closeAddClosureDialog} disabled={saving.pending}>Cancel</Button>
+			<Button onclick={() => saving.run(addSpecialDay)} disabled={saving.pending || !newSpecialName.trim()}>
+				{#if saving.pending}<Spinner />{/if}
+				Add Closure
+			</Button>
 		</AppDialog.Footer>
 	</AppDialog.Content>
 </AppDialog.Root>
 
-<AppDialog.Root bind:open={editClosureOpen} closeBlocked={editClosureDirty} onClose={closeEditClosureDialog}>
-	<AppDialog.Content closeBlocked={editClosureDirty}>
+<AppDialog.Root
+	bind:open={editClosureOpen}
+	busy={saving.pending}
+	closeBlocked={editClosureDirty}
+	onClose={closeEditClosureDialog}
+>
+	<AppDialog.Content>
 		<AppDialog.Header>
 			<AppDialog.Title>Edit Closure</AppDialog.Title>
 			<AppDialog.Description>
@@ -299,21 +317,26 @@
 			</AppDialog.Description>
 		</AppDialog.Header>
 		<AppDialog.Body class="grid gap-4">
-			<div class="grid gap-2">
-				<Label for="edit-closure-name">Name</Label>
-				<Input id="edit-closure-name" type="text" bind:value={editSpecialName} />
-			</div>
-			<div class="grid gap-2">
-				<Label for="edit-closure-type">Type</Label>
-				<NativeSelect id="edit-closure-type" bind:value={editSpecialType}>
-					<option value="org-closure">Closure</option>
-					<option value="federal-holiday">Federal Holiday</option>
-				</NativeSelect>
-			</div>
+			<fieldset class="contents" disabled={saving.pending}>
+				<div class="grid gap-2">
+					<Label for="edit-closure-name">Name</Label>
+					<Input id="edit-closure-name" type="text" bind:value={editSpecialName} />
+				</div>
+				<div class="grid gap-2">
+					<Label for="edit-closure-type">Type</Label>
+					<NativeSelect id="edit-closure-type" bind:value={editSpecialType}>
+						<option value="org-closure">Closure</option>
+						<option value="federal-holiday">Federal Holiday</option>
+					</NativeSelect>
+				</div>
+			</fieldset>
 		</AppDialog.Body>
 		<AppDialog.Footer>
-			<Button variant="outline" onclick={closeEditClosureDialog}>Cancel</Button>
-			<Button onclick={saveEditSpecialDay} disabled={!editSpecialName.trim()}>Save Changes</Button>
+			<Button variant="outline" onclick={closeEditClosureDialog} disabled={saving.pending}>Cancel</Button>
+			<Button onclick={() => saving.run(saveEditSpecialDay)} disabled={saving.pending || !editSpecialName.trim()}>
+				{#if saving.pending}<Spinner />{/if}
+				Save Changes
+			</Button>
 		</AppDialog.Footer>
 	</AppDialog.Content>
 </AppDialog.Root>
@@ -325,7 +348,7 @@
 		confirmLabel="Remove"
 		variant="danger"
 		onConfirm={() => {
-			if (confirmDeleteSpecial) deleteSpecialDay(confirmDeleteSpecial);
+			if (confirmDeleteSpecial) return deleteSpecialDay(confirmDeleteSpecial);
 		}}
 		onCancel={() => (confirmDeleteSpecial = null)}
 	/>

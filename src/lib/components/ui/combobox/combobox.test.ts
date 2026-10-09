@@ -68,13 +68,22 @@ describe('Combobox multiple', () => {
 		expect(screen.getByLabelText('Selected frameworks').textContent).toBe('Next.js');
 	});
 
-	it('removes the last selected value with Backspace on an empty input', async () => {
+	it('removes only the last chip with Backspace on an empty input', async () => {
 		render(ComboboxMultipleTest);
-
 		const input = screen.getByRole('combobox', { name: 'Frameworks' });
+		await fireEvent.focus(input);
+		await fireEvent.click(within(await screen.findByRole('listbox')).getByRole('option', { name: 'Astro' }));
+		expect(screen.getAllByRole('button', { name: /^Remove / }).map((chip) => chip.getAttribute('aria-label'))).toEqual([
+			'Remove Next.js',
+			'Remove Astro'
+		]);
+
 		await fireEvent.keyDown(input, { key: 'Backspace' });
 
-		expect(screen.getByLabelText('Selected frameworks').textContent).toBe('');
+		expect(screen.getByLabelText('Selected frameworks').textContent).toBe('Next.js');
+		expect(screen.getAllByRole('button', { name: /^Remove / }).map((chip) => chip.getAttribute('aria-label'))).toEqual([
+			'Remove Next.js'
+		]);
 	});
 
 	it('closes when the user clicks outside the combobox and stays closed', async () => {

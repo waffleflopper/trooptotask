@@ -7,11 +7,13 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import { NativeSelect } from '$lib/components/ui/native-select';
+	import { Spinner } from '$lib/components/ui/spinner';
 	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import type { AssignmentType } from '$features/calendar/contracts';
 	import Pencil from '@lucide/svelte/icons/pencil';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
+	import { PendingSave } from '$lib/utils/pendingSave.svelte';
 
 	type Props = {
 		canMutate: boolean;
@@ -34,6 +36,7 @@
 	let editAssignColor = $state('');
 
 	let confirmDeleteAssign = $state<AssignmentType | null>(null);
+	const saving = new PendingSave();
 
 	const activeAssignmentTypes = $derived(dailyAssignmentsStore.types.filter((type) => !type.archivedAt));
 	const headerTypeId = $derived(activeAssignmentTypes.find((t) => t.showInDateHeader)?.id ?? null);
@@ -247,129 +250,157 @@
 	{/each}
 </div>
 
-<AppDialog.Root bind:open={addAssignmentOpen} closeBlocked={addAssignmentDirty} onClose={closeAddAssignmentDialog}>
-	<AppDialog.Content closeBlocked={addAssignmentDirty}>
+<AppDialog.Root
+	bind:open={addAssignmentOpen}
+	busy={saving.pending}
+	closeBlocked={addAssignmentDirty}
+	onClose={closeAddAssignmentDialog}
+>
+	<AppDialog.Content>
 		<AppDialog.Header>
 			<AppDialog.Title>Add Assignment Type</AppDialog.Title>
 			<AppDialog.Description>Create a new duty coverage assignment for daily scheduling.</AppDialog.Description>
 		</AppDialog.Header>
 		<AppDialog.Body class="grid gap-4">
-			<div class="grid gap-2">
-				<Label for="add-assign-name">Full name</Label>
-				<Input id="add-assign-name" type="text" placeholder="e.g., Staff Duty" bind:value={newAssignName} />
-			</div>
-			<div class="flex items-end gap-4">
-				<div class="grid flex-1 gap-2">
-					<Label for="add-assign-short">Short code</Label>
-					<Input
-						id="add-assign-short"
-						type="text"
-						placeholder="e.g., SD"
-						maxlength={5}
-						class="uppercase"
-						bind:value={newAssignShortName}
-					/>
+			<fieldset class="contents" disabled={saving.pending}>
+				<div class="grid gap-2">
+					<Label for="add-assign-name">Full name</Label>
+					<Input id="add-assign-name" type="text" placeholder="e.g., Staff Duty" bind:value={newAssignName} />
+				</div>
+				<div class="flex items-end gap-4">
+					<div class="grid flex-1 gap-2">
+						<Label for="add-assign-short">Short code</Label>
+						<Input
+							id="add-assign-short"
+							type="text"
+							placeholder="e.g., SD"
+							maxlength={5}
+							class="uppercase"
+							bind:value={newAssignShortName}
+						/>
+					</div>
+					<div class="grid gap-2">
+						<Label for="add-assign-color">Color</Label>
+						<input
+							id="add-assign-color"
+							type="color"
+							bind:value={newAssignColor}
+							class="size-9 cursor-pointer rounded-md border border-border p-0.5"
+						/>
+					</div>
+					{#if newAssignShortName.trim()}
+						<div>
+							<Label>Preview</Label>
+							<div class="mt-2">
+								<CalendarStatusBadge
+									statusType={{
+										id: 'assign-preview',
+										name: newAssignShortName.trim().toUpperCase(),
+										color: newAssignColor,
+										textColor: '#ffffff'
+									}}
+									class="font-mono font-bold uppercase tracking-widest"
+								>
+									{newAssignShortName.trim().toUpperCase()}
+								</CalendarStatusBadge>
+							</div>
+						</div>
+					{/if}
 				</div>
 				<div class="grid gap-2">
-					<Label for="add-assign-color">Color</Label>
-					<input
-						id="add-assign-color"
-						type="color"
-						bind:value={newAssignColor}
-						class="size-9 cursor-pointer rounded-md border border-border p-0.5"
-					/>
+					<Label for="add-assign-to">Assign to</Label>
+					<NativeSelect id="add-assign-to" bind:value={newAssignTo}>
+						<option value="personnel">Person</option>
+						<option value="group">Group</option>
+					</NativeSelect>
 				</div>
-				{#if newAssignShortName.trim()}
-					<div>
-						<Label>Preview</Label>
-						<div class="mt-2">
-							<CalendarStatusBadge
-								statusType={{
-									id: 'assign-preview',
-									name: newAssignShortName.trim().toUpperCase(),
-									color: newAssignColor,
-									textColor: '#ffffff'
-								}}
-								class="font-mono font-bold uppercase tracking-widest"
-							>
-								{newAssignShortName.trim().toUpperCase()}
-							</CalendarStatusBadge>
-						</div>
-					</div>
-				{/if}
-			</div>
-			<div class="grid gap-2">
-				<Label for="add-assign-to">Assign to</Label>
-				<NativeSelect id="add-assign-to" bind:value={newAssignTo}>
-					<option value="personnel">Person</option>
-					<option value="group">Group</option>
-				</NativeSelect>
-			</div>
+			</fieldset>
 		</AppDialog.Body>
 		<AppDialog.Footer>
-			<Button variant="outline" onclick={closeAddAssignmentDialog}>Cancel</Button>
-			<Button onclick={addAssignType} disabled={!newAssignName.trim() || !newAssignShortName.trim()}>
+			<Button variant="outline" onclick={closeAddAssignmentDialog} disabled={saving.pending}>Cancel</Button>
+			<Button
+				onclick={() => saving.run(addAssignType)}
+				disabled={saving.pending || !newAssignName.trim() || !newAssignShortName.trim()}
+			>
+				{#if saving.pending}<Spinner />{/if}
 				Add Assignment Type
 			</Button>
 		</AppDialog.Footer>
 	</AppDialog.Content>
 </AppDialog.Root>
 
-<AppDialog.Root bind:open={editAssignmentOpen} closeBlocked={editAssignmentDirty} onClose={closeEditAssignmentDialog}>
-	<AppDialog.Content closeBlocked={editAssignmentDirty}>
+<AppDialog.Root
+	bind:open={editAssignmentOpen}
+	busy={saving.pending}
+	closeBlocked={editAssignmentDirty}
+	onClose={closeEditAssignmentDialog}
+>
+	<AppDialog.Content>
 		<AppDialog.Header>
 			<AppDialog.Title>Edit Assignment Type</AppDialog.Title>
 			<AppDialog.Description>Update this duty coverage assignment.</AppDialog.Description>
 		</AppDialog.Header>
 		<AppDialog.Body class="grid gap-4">
-			<div class="grid gap-2">
-				<Label for="edit-assign-name">Full name</Label>
-				<Input id="edit-assign-name" type="text" bind:value={editAssignName} />
-			</div>
-			<div class="flex items-end gap-4">
-				<div class="grid flex-1 gap-2">
-					<Label for="edit-assign-short">Short code</Label>
-					<Input id="edit-assign-short" type="text" maxlength={5} class="uppercase" bind:value={editAssignShortName} />
+			<fieldset class="contents" disabled={saving.pending}>
+				<div class="grid gap-2">
+					<Label for="edit-assign-name">Full name</Label>
+					<Input id="edit-assign-name" type="text" bind:value={editAssignName} />
+				</div>
+				<div class="flex items-end gap-4">
+					<div class="grid flex-1 gap-2">
+						<Label for="edit-assign-short">Short code</Label>
+						<Input
+							id="edit-assign-short"
+							type="text"
+							maxlength={5}
+							class="uppercase"
+							bind:value={editAssignShortName}
+						/>
+					</div>
+					<div class="grid gap-2">
+						<Label for="edit-assign-color">Color</Label>
+						<input
+							id="edit-assign-color"
+							type="color"
+							bind:value={editAssignColor}
+							class="size-9 cursor-pointer rounded-md border border-border p-0.5"
+						/>
+					</div>
+					{#if editAssignShortName.trim()}
+						<div>
+							<Label>Preview</Label>
+							<div class="mt-2">
+								<CalendarStatusBadge
+									statusType={{
+										id: 'edit-assign-preview',
+										name: editAssignShortName.trim().toUpperCase(),
+										color: editAssignColor,
+										textColor: '#ffffff'
+									}}
+									class="font-mono font-bold uppercase tracking-widest"
+								>
+									{editAssignShortName.trim().toUpperCase()}
+								</CalendarStatusBadge>
+							</div>
+						</div>
+					{/if}
 				</div>
 				<div class="grid gap-2">
-					<Label for="edit-assign-color">Color</Label>
-					<input
-						id="edit-assign-color"
-						type="color"
-						bind:value={editAssignColor}
-						class="size-9 cursor-pointer rounded-md border border-border p-0.5"
-					/>
+					<Label for="edit-assign-to">Assign to</Label>
+					<NativeSelect id="edit-assign-to" bind:value={editAssignTo}>
+						<option value="personnel">Person</option>
+						<option value="group">Group</option>
+					</NativeSelect>
 				</div>
-				{#if editAssignShortName.trim()}
-					<div>
-						<Label>Preview</Label>
-						<div class="mt-2">
-							<CalendarStatusBadge
-								statusType={{
-									id: 'edit-assign-preview',
-									name: editAssignShortName.trim().toUpperCase(),
-									color: editAssignColor,
-									textColor: '#ffffff'
-								}}
-								class="font-mono font-bold uppercase tracking-widest"
-							>
-								{editAssignShortName.trim().toUpperCase()}
-							</CalendarStatusBadge>
-						</div>
-					</div>
-				{/if}
-			</div>
-			<div class="grid gap-2">
-				<Label for="edit-assign-to">Assign to</Label>
-				<NativeSelect id="edit-assign-to" bind:value={editAssignTo}>
-					<option value="personnel">Person</option>
-					<option value="group">Group</option>
-				</NativeSelect>
-			</div>
+			</fieldset>
 		</AppDialog.Body>
 		<AppDialog.Footer>
-			<Button variant="outline" onclick={closeEditAssignmentDialog}>Cancel</Button>
-			<Button onclick={saveEditAssign} disabled={!editAssignName.trim() || !editAssignShortName.trim()}>
+			<Button variant="outline" onclick={closeEditAssignmentDialog} disabled={saving.pending}>Cancel</Button>
+			<Button
+				onclick={() => saving.run(saveEditAssign)}
+				disabled={saving.pending || !editAssignName.trim() || !editAssignShortName.trim()}
+			>
+				{#if saving.pending}<Spinner />{/if}
 				Save Changes
 			</Button>
 		</AppDialog.Footer>
@@ -383,7 +414,7 @@
 		confirmLabel="Delete"
 		variant="danger"
 		onConfirm={() => {
-			if (confirmDeleteAssign) deleteAssignType(confirmDeleteAssign);
+			if (confirmDeleteAssign) return deleteAssignType(confirmDeleteAssign);
 		}}
 		onCancel={() => (confirmDeleteAssign = null)}
 	/>

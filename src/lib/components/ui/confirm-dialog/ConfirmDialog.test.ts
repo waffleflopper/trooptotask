@@ -44,6 +44,43 @@ describe('ConfirmDialog', () => {
 		});
 	});
 
+	it('keeps focus inside and marks the dialog busy while confirming', async () => {
+		render(ConfirmDialogTest, { asyncConfirm: true });
+		const dialog = screen.getByRole('alertdialog', { name: 'Confirm shared action' });
+		const confirm = screen.getByRole('button', { name: 'Confirm action' });
+		confirm.focus();
+
+		await fireEvent.click(confirm);
+
+		expect(dialog.getAttribute('aria-busy')).toBe('true');
+		expect(document.activeElement).toBe(dialog);
+
+		await waitFor(() => expect(dialog.hasAttribute('aria-busy')).toBe(false));
+		expect(document.activeElement).toBe(dialog);
+	});
+
+	it('ignores an outside click and cancels on Escape with focus back on the opener', async () => {
+		render(ConfirmDialogTest);
+		await fireEvent.click(screen.getByRole('button', { name: 'Stand down' }));
+		const opener = screen.getByRole('button', { name: 'Open confirm dialog' });
+		opener.focus();
+		await fireEvent.click(opener);
+		const dialog = await screen.findByRole('alertdialog', { name: 'Confirm shared action' });
+
+		const point = { clientX: 5, clientY: 5 };
+		await fireEvent.pointerDown(opener, point);
+		await fireEvent.pointerUp(opener, point);
+		await fireEvent.click(opener, point);
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		expect(screen.getByRole('alertdialog', { name: 'Confirm shared action' })).toBe(dialog);
+		expect(screen.getByTestId('cancel-count').textContent).toBe('1');
+
+		await fireEvent.keyDown(dialog, { key: 'Escape' });
+		await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+		expect(screen.getByTestId('cancel-count').textContent).toBe('2');
+		await waitFor(() => expect(document.activeElement).toBe(opener));
+	});
+
 	it('supports disabled confirm state', () => {
 		render(ConfirmDialogTest, { disabled: true });
 

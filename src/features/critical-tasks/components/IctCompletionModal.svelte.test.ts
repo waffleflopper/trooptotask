@@ -211,6 +211,52 @@ describe('IctCompletionModal', () => {
 		});
 	});
 
+	it('locks the draft while a save is held and keeps it unlocked after a failure', async () => {
+		let rejectSave!: (error: Error) => void;
+		const onSave = vi.fn(
+			() =>
+				new Promise<void>((_, reject) => {
+					rejectSave = reject;
+				})
+		);
+		vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+		// happy-dom does not apply a disabled fieldset to its controls' :disabled state.
+		const inDisabledGroup = (control: HTMLElement) => control.closest('fieldset')?.disabled === true;
+		renderModal({
+			existingCompletion: {
+				id: 'completion-1',
+				personnelId: 'person-1',
+				ictTaskId: 'task-1',
+				completedAt: '2097-03-10',
+				validationMethod: 'Lecture',
+				validatedBy: null,
+				notes: null,
+				loggedBy: null,
+				createdAt: '2026-04-02T00:00:00.000Z'
+			},
+			onSave
+		});
+		const dialog = screen.getByRole('dialog', { name: 'Edit ICT Completion' });
+		await fireEvent.input(screen.getByLabelText(/Notes \(optional\)/i), { target: { value: 'Draft A' } });
+		const save = screen.getByTestId('ict-completion-save');
+
+		await fireEvent.click(save);
+		await fireEvent.click(save);
+
+		expect(onSave).toHaveBeenCalledTimes(1);
+		expect(dialog.getAttribute('aria-busy')).toBe('true');
+		for (const label of [/Notes \(optional\)/i, /Validated By/i, /Validation Method/i]) {
+			expect(inDisabledGroup(screen.getByLabelText(label))).toBe(true);
+		}
+
+		rejectSave(new Error('Save denied'));
+
+		await waitFor(() => expect(dialog.hasAttribute('aria-busy')).toBe(false));
+		const notes = screen.getByLabelText(/Notes \(optional\)/i) as HTMLTextAreaElement;
+		expect(notes.value).toBe('Draft A');
+		expect(inDisabledGroup(notes)).toBe(false);
+	});
+
 	it('loads edit mode values and updates the existing completion without duplicating it', async () => {
 		const onSave = vi.fn().mockResolvedValue(undefined);
 		const onClose = vi.fn();

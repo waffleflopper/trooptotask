@@ -69,10 +69,11 @@
 {#if dangerZoneState.showDeleteConfirm}
 	<AppDialog.Root
 		bind:open={dangerZoneState.showDeleteConfirm}
-		closeBlocked={deleteLoading || dangerZoneState.deleteOrganizationCloseBlocked}
+		busy={deleteLoading}
+		closeBlocked={dangerZoneState.deleteOrganizationCloseBlocked}
 		onClose={closeDeleteOrganizationDialog}
 	>
-		<AppDialog.Content closeBlocked={deleteLoading || dangerZoneState.deleteOrganizationCloseBlocked}>
+		<AppDialog.Content>
 			<AppDialog.Header>
 				<AppDialog.Title>Delete Organization</AppDialog.Title>
 				<AppDialog.Description>
@@ -137,10 +138,11 @@
 {#if transferState.showTransferConfirm && transferState.transferTargetId}
 	<AppDialog.Root
 		bind:open={transferState.showTransferConfirm}
-		closeBlocked={transferLoading || transferState.transferCloseBlocked}
+		busy={transferLoading}
+		closeBlocked={transferState.transferCloseBlocked}
 		onClose={() => transferState.closeTransferConfirmation()}
 	>
-		<AppDialog.Content closeBlocked={transferLoading || transferState.transferCloseBlocked}>
+		<AppDialog.Content>
 			<AppDialog.Header>
 				<AppDialog.Title>Transfer Ownership</AppDialog.Title>
 				<AppDialog.Description>

@@ -2069,7 +2069,9 @@ async function main() {
 				'settings/general/updateName': 'error',
 				'settings/general/updateSlug': 'slugError',
 				'settings/general/clearSlug': 'slugError',
-				'settings/danger/deleteOrganization': 'deleteError'
+				'settings/danger/deleteOrganization': 'deleteError',
+				'settings/members/updateMemberAccess': 'accessError',
+				'settings/ranks/retireRank': 'rankError'
 			};
 			if (
 				![
@@ -2096,6 +2098,8 @@ async function main() {
 					'calendar-range',
 					'availability',
 					'availability/batch',
+					'daily-assignments/batch',
+					'special-days',
 					'sign-in-rosters',
 					'training-types',
 					'training-views',

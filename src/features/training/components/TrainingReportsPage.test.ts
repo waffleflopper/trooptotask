@@ -559,7 +559,7 @@ describe('Training Reports briefing page', () => {
 		expect(within(section).queryByRole('alert')).toBeNull();
 	});
 
-	it('keeps keyboard focus in the affected soldiers when paging reaches the first or last page', async () => {
+	it('hands keyboard focus to the other pager button when paging reaches the first or last page', async () => {
 		const scope: BriefingScope = { kind: 'cell', rowKey: null, typeId: 'cpr' };
 		const names = (from: number) => Array.from({ length: 25 }, (_, index) => `p${from + index}`);
 		const fetchImpl = vi
@@ -586,12 +586,13 @@ describe('Training Reports briefing page', () => {
 		const next = await page('Next', 'Rows 26–50 of 60');
 		expect(document.activeElement).toBe(next);
 		await page('Next', 'Rows 51–60 of 60');
-		await waitFor(() => expect(document.activeElement).toBe(section));
+		const previous = within(section).getByRole('button', { name: 'Previous' });
+		await waitFor(() => expect(document.activeElement).toBe(previous));
 
-		const previous = await page('Previous', 'Rows 26–50 of 60');
+		await page('Previous', 'Rows 26–50 of 60');
 		expect(document.activeElement).toBe(previous);
 		await page('Previous', 'Rows 1–25 of 60');
-		await waitFor(() => expect(document.activeElement).toBe(section));
+		await waitFor(() => expect(document.activeElement).toBe(within(section).getByRole('button', { name: 'Next' })));
 	});
 
 	async function pageIntoShrunkDetail(beforeResponse: (section: HTMLElement) => void): Promise<HTMLElement> {
@@ -633,9 +634,9 @@ describe('Training Reports briefing page', () => {
 		return section;
 	}
 
-	it('keeps keyboard focus in the affected soldiers when a requested page comes back as the only page', async () => {
+	it('keeps keyboard focus in the affected soldiers table when a requested page comes back as the only page', async () => {
 		const section = await pageIntoShrunkDetail(() => {});
-		await waitFor(() => expect(document.activeElement).toBe(section));
+		await waitFor(() => expect(document.activeElement).toBe(section.querySelector('[data-slot="data-table"]')));
 	});
 
 	it('leaves focus where the user moved it while a requested page comes back as the only page', async () => {

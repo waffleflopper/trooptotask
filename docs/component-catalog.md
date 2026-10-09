@@ -710,23 +710,32 @@ Shared shadcn-svelte-backed dialog foundation for information, edit, form, and r
 <script lang="ts">
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Button } from '$lib/components/ui/button';
+	import { PendingSave } from '$lib/utils/pendingSave.svelte';
 
 	let open = $state(false);
-	let saving = $state(false);
+	let name = $state('');
+	const saving = new PendingSave();
+	const dirty = $derived(name.trim() !== '');
+
+	async function save() {
+		// Await the mutation; close on success and keep the draft on failure.
+	}
 </script>
 
-<AppDialog.Root bind:open closeBlocked={saving} onClose={() => (open = false)}>
-	<AppDialog.Content closeBlocked={saving} size="default">
+<AppDialog.Root bind:open busy={saving.pending} closeBlocked={dirty} onClose={() => (open = false)}>
+	<AppDialog.Content size="default">
 		<AppDialog.Header class="px-4 pt-4">
 			<AppDialog.Title>Edit personnel metadata</AppDialog.Title>
 			<AppDialog.Description>Update route-provided fields without route-local dialog styling.</AppDialog.Description>
 		</AppDialog.Header>
 		<AppDialog.Body>
-			<!-- form fields or review content -->
+			<fieldset class="contents" disabled={saving.pending}>
+				<!-- form fields -->
+			</fieldset>
 		</AppDialog.Body>
 		<AppDialog.Footer>
-			<Button variant="outline" disabled={saving} onclick={() => (open = false)}>Cancel</Button>
-			<Button type="submit" form="personnel-form" disabled={saving}>Save</Button>
+			<Button variant="outline" disabled={saving.pending} onclick={() => (open = false)}>Cancel</Button>
+			<Button disabled={saving.pending} onclick={() => saving.run(save)}>Save</Button>
 		</AppDialog.Footer>
 	</AppDialog.Content>
 </AppDialog.Root>
@@ -734,8 +743,8 @@ Shared shadcn-svelte-backed dialog foundation for information, edit, form, and r
 
 Public components:
 
-- `AppDialog.Root`: controlled open state. Props: `open?: boolean` (bindable), `closeBlocked?: boolean`, `onClose?: () => void`, plus shadcn dialog root props.
-- `AppDialog.Content`: shared shell with close button, constrained viewport, mobile-safe width, and close-blocking behavior. Props: `size?: 'default' | 'wide' | 'fullscreen'`, `closeBlocked?: boolean`, `showCloseButton?: boolean`.
+- `AppDialog.Root`: controlled open state and dismissal policy. Props: `open?: boolean` (bindable), `busy?: boolean`, `closeBlocked?: boolean`, `onClose?: () => void`, plus shadcn dialog root props.
+- `AppDialog.Content`: shared shell with close button, constrained viewport and mobile-safe width. It reads `busy` and `closeBlocked` from Root. Props: `size?: 'default' | 'wide' | 'fullscreen'`, `showCloseButton?: boolean`.
 - `AppDialog.Header`, `AppDialog.Title`, `AppDialog.Description`: accessible heading and description wiring. Use a description unless the title alone is enough for screen-reader context.
 - `AppDialog.Body`: scrollable dialog body. Put long content and forms here.
 - `AppDialog.Footer`: sticky action area outside the scrollable body.
@@ -744,7 +753,10 @@ Allowed route behavior knobs:
 
 - Open/closed state, labels, form fields, validation, permissions, disabled/loading state, and action handlers.
 - `size` only when content volume requires it: default for normal forms, `wide` for tables/import previews, `fullscreen` for rare constrained workspaces.
-- `closeBlocked` during saves/imports/async confirms so Escape, outside click, and close buttons cannot interrupt in-flight operations.
+- `busy` while a save, import or delete is in flight. The dialog sets `aria-busy` and ignores Escape, outside click and its close button until the work settles. Use `PendingSave` (`$lib/utils/pendingSave.svelte`) so a repeated submit sends nothing, and put the fields in a `fieldset` disabled while pending so the draft cannot change before its response arrives. Disable Cancel and submit too, and keep the draft when the save fails.
+- `closeBlocked` when dismissal would lose something while nothing is in flight: an unsaved draft, or an outcome the user must read (a `saved` or `uncertain` result). It blocks the same dismissals without announcing `aria-busy`.
+
+Focus safety needs no code. When the focused control disables (a submit, a fieldset) or unmounts, the dialog content takes focus so keyboard users stay inside, whether or not the dialog is busy.
 
 Action guidance:
 
@@ -780,7 +792,7 @@ Guidance:
 - Use `variant="destructive"` or legacy alias `variant="danger"` for delete, permanent remove, revoke, and irreversible actions.
 - Use `variant="warning"` for archive, cancel, transfer, bulk change, or workflow changes that preserve data but alter active state.
 - Use `variant="primary"` or `variant="secondary"` only for non-destructive confirmations.
-- While `onConfirm` is awaited, both actions are disabled, a spinner renders inside the confirm button, and Escape/outside-click close is blocked.
+- Return the mutation's promise from `onConfirm` and keep the confirmation mounted until it settles: close it from the success path, not before the await. While the promise is pending both actions are disabled, a spinner renders inside the confirm button, `aria-busy` is set and Escape is ignored. An outside click never closes a confirmation.
 - Routes may pass labels, state, handlers, and disabled/loading flags only. Do not pass visual classes or wrap this component to change appearance for one route.
 
 ---

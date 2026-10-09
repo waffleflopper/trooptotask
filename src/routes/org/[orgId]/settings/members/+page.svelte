@@ -35,6 +35,7 @@
 	let memberSearch = $state('');
 	let pendingRemoveMemberForm = $state<HTMLFormElement | null>(null);
 	let pendingRemoveMemberEmail = $state('');
+	let removingMemberId = $state<string | null>(null);
 
 	const membersSection = $derived(data.membersSettings.sections.members);
 	const currentMember = $derived(data.membersSettings.currentMember);
@@ -63,6 +64,18 @@
 		return async ({ result, update }) => {
 			if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) return;
 			await update();
+		};
+	};
+
+	const removeMemberEnhance: SubmitFunction = ({ formData }) => {
+		removingMemberId = String(formData.get('membershipId'));
+		return async ({ result, update }) => {
+			try {
+				if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) return;
+				await update();
+			} finally {
+				removingMemberId = null;
+			}
 		};
 	};
 
@@ -266,12 +279,14 @@
 								<Edit />
 								{isOwner ? 'Manage role & access' : 'Manage access'}
 							</Button>
-							<form method="POST" action="?/removeMember" use:enhance={stepUpEnhance}>
+							<form method="POST" action="?/removeMember" use:enhance={removeMemberEnhance}>
 								<input type="hidden" name="membershipId" value={member.id} />
 								<Button
 									type="button"
 									variant="destructive"
 									size="sm"
+									disabled={removingMemberId === member.id}
+									aria-busy={removingMemberId === member.id || undefined}
 									onclick={(event) => {
 										pendingRemoveMemberForm = (event.currentTarget as HTMLButtonElement).closest('form');
 										pendingRemoveMemberEmail = member.email ?? 'this member';
@@ -374,7 +389,7 @@
 <Sheet.Root
 	open={Boolean(selectedMember)}
 	onOpenChange={(open) => {
-		if (!open && selectedMember) memberAccess.closeMemberEditor(selectedMember.id);
+		if (!open && selectedMember && !accessLoading) memberAccess.closeMemberEditor(selectedMember.id);
 	}}
 >
 	{#if selectedMember}
@@ -383,7 +398,13 @@
 		{@const selectedScopeKind = memberAccess.getSelectedScopeKind(selectedMember)}
 		{@const selectedScopeGroupIds = memberAccess.getSelectedScopeGroupIds(selectedMember)}
 		{@const changeCount = memberAccess.editorChangeCount(selectedMember)}
-		<Sheet.Content class="w-full overflow-y-auto sm:max-w-xl">
+		<Sheet.Content
+			class="w-full overflow-y-auto sm:max-w-xl"
+			aria-busy={accessLoading || undefined}
+			showCloseButton={!accessLoading}
+			escapeKeydownBehavior={accessLoading ? 'ignore' : 'close'}
+			interactOutsideBehavior={accessLoading ? 'ignore' : 'close'}
+		>
 			<Sheet.Header>
 				<Sheet.Title>Manage Access</Sheet.Title>
 				<Sheet.Description>{selectedMember.email ?? 'Selected member'}</Sheet.Description>
@@ -405,157 +426,159 @@
 					};
 				}}
 			>
-				<input type="hidden" name="membershipId" value={selectedMember.id} />
-				<input type="hidden" name="membershipRole" value={selectedMembershipRole} />
-				<Field.Root>
-					<Field.Label id="membership-role-label-{selectedMember.id}">Membership Role</Field.Label>
-					{#if isOwner}
-						<Select.Root
-							type="single"
-							value={selectedMembershipRole}
-							onValueChange={(value) =>
-								memberAccess.setMemberMembershipRole(selectedMember.id, value as EditableMembershipRole)}
-						>
-							<Select.Trigger aria-labelledby="membership-role-label-{selectedMember.id}" class="w-full">
-								{memberAccess.getGovernanceRoleLabel(selectedMembershipRole)}
-							</Select.Trigger>
-							<Select.Content>
-								{#each availableMembershipRoleOptions as option (option.value)}
-									<Select.Item value={option.value} label={option.label} />
-								{/each}
-							</Select.Content>
-						</Select.Root>
-					{:else}
-						<p class="rounded-md border bg-background px-3 py-2 text-sm">
-							{memberAccess.getGovernanceRoleLabel(selectedMembershipRole)}
-						</p>
-					{/if}
-					<Field.Description>{memberAccess.getGovernanceRoleHelper(selectedMembershipRole)}</Field.Description>
-				</Field.Root>
-
-				{#if selectedMembershipRole === 'member'}
+				<fieldset class="contents" disabled={accessLoading}>
+					<input type="hidden" name="membershipId" value={selectedMember.id} />
+					<input type="hidden" name="membershipRole" value={selectedMembershipRole} />
 					<Field.Root>
-						<Field.Label id="access-level-label-{selectedMember.id}">Member Preset</Field.Label>
-						<input type="hidden" name="memberPreset" value={selectedPreset} />
-						<Select.Root
-							type="single"
-							value={selectedPreset}
-							onValueChange={(value) => memberAccess.setMemberPreset(selectedMember.id, value as EditablePreset)}
-						>
-							<Select.Trigger aria-labelledby="access-level-label-{selectedMember.id}" class="w-full">
-								{getPresetLabel(selectedPreset)}
-							</Select.Trigger>
-							<Select.Content>
-								{#each availablePresetOptions as option (option.value)}
-									<Select.Item value={option.value} label={option.label} />
-								{/each}
-							</Select.Content>
-						</Select.Root>
-						<Field.Description>{memberAccess.getAccessOptionHelper(selectedPreset)}</Field.Description>
+						<Field.Label id="membership-role-label-{selectedMember.id}">Membership Role</Field.Label>
+						{#if isOwner}
+							<Select.Root
+								type="single"
+								value={selectedMembershipRole}
+								onValueChange={(value) =>
+									memberAccess.setMemberMembershipRole(selectedMember.id, value as EditableMembershipRole)}
+							>
+								<Select.Trigger aria-labelledby="membership-role-label-{selectedMember.id}" class="w-full">
+									{memberAccess.getGovernanceRoleLabel(selectedMembershipRole)}
+								</Select.Trigger>
+								<Select.Content>
+									{#each availableMembershipRoleOptions as option (option.value)}
+										<Select.Item value={option.value} label={option.label} />
+									{/each}
+								</Select.Content>
+							</Select.Root>
+						{:else}
+							<p class="rounded-md border bg-background px-3 py-2 text-sm">
+								{memberAccess.getGovernanceRoleLabel(selectedMembershipRole)}
+							</p>
+						{/if}
+						<Field.Description>{memberAccess.getGovernanceRoleHelper(selectedMembershipRole)}</Field.Description>
 					</Field.Root>
 
-					<input type="hidden" name="scopeSetKind" value={selectedScopeKind} />
-					<section class="grid gap-3" aria-labelledby="capability-overrides-{selectedMember.id}">
-						<div class="grid gap-1">
-							<h3 id="capability-overrides-{selectedMember.id}" class="font-medium">Area-by-area access</h3>
-							<p class="text-sm text-muted-foreground">
-								Use overrides only when the preset is too broad or too limited for one area.
-							</p>
-						</div>
-						<div class="grid gap-3 sm:grid-cols-2">
-							{#each accessLanes as lane (lane.id)}
-								{@const capabilityValue = memberAccess.getEditorCapabilityValue(
-									selectedMember,
-									lane.id,
-									selectedPreset
-								)}
-								{@const capabilityChanged = memberAccess.isCapabilityChanged(selectedMember, lane.id)}
-								<Field.Root class={capabilityChanged ? '' : 'opacity-60'}>
-									<Field.Label id="capability-{selectedMember.id}-{lane.id}">
-										{lane.label}
-										{#if capabilityChanged}
-											<span class="ml-1 inline-block size-1.5 rounded-full bg-ring" aria-label="changed"></span>
-										{/if}
-									</Field.Label>
-									<input type="hidden" name="capabilityOverride:{lane.id}" value={capabilityValue} />
-									<Select.Root
-										type="single"
-										value={capabilityValue}
-										onValueChange={(value) =>
-											memberAccess.setMemberCapability(selectedMember.id, lane.id, value as typeof capabilityValue)}
-									>
-										<Select.Trigger aria-labelledby="capability-{selectedMember.id}-{lane.id}" class="w-full">
-											{getCapabilityLabel(capabilityValue)}
-										</Select.Trigger>
-										<Select.Content>
-											{#each capabilityOptions as option (option.value)}
-												<Select.Item value={option.value} label={option.label} />
-											{/each}
-										</Select.Content>
-									</Select.Root>
-								</Field.Root>
-							{/each}
-						</div>
-					</section>
+					{#if selectedMembershipRole === 'member'}
+						<Field.Root>
+							<Field.Label id="access-level-label-{selectedMember.id}">Member Preset</Field.Label>
+							<input type="hidden" name="memberPreset" value={selectedPreset} />
+							<Select.Root
+								type="single"
+								value={selectedPreset}
+								onValueChange={(value) => memberAccess.setMemberPreset(selectedMember.id, value as EditablePreset)}
+							>
+								<Select.Trigger aria-labelledby="access-level-label-{selectedMember.id}" class="w-full">
+									{getPresetLabel(selectedPreset)}
+								</Select.Trigger>
+								<Select.Content>
+									{#each availablePresetOptions as option (option.value)}
+										<Select.Item value={option.value} label={option.label} />
+									{/each}
+								</Select.Content>
+							</Select.Root>
+							<Field.Description>{memberAccess.getAccessOptionHelper(selectedPreset)}</Field.Description>
+						</Field.Root>
 
-					<section class="grid gap-3" aria-labelledby="scope-set-{selectedMember.id}">
-						<div class="grid gap-1">
-							<h3 id="scope-set-{selectedMember.id}" class="font-medium">Group access</h3>
-							<p class="text-sm text-muted-foreground">
-								Choose whether access applies to every group or selected groups.
-							</p>
-						</div>
-						<RadioGroup.Root
-							value={selectedScopeKind}
-							onValueChange={(value) =>
-								memberAccess.setMemberScopeKind(selectedMember.id, value as 'organization' | 'groups')}
-							class="sm:grid-cols-2"
-						>
-							<Field.Root orientation="horizontal">
-								<RadioGroup.Item id="scope-all-{selectedMember.id}" value="organization" />
-								<Field.Label for="scope-all-{selectedMember.id}">All groups</Field.Label>
-							</Field.Root>
-							<Field.Root orientation="horizontal">
-								<RadioGroup.Item id="scope-groups-{selectedMember.id}" value="groups" />
-								<Field.Label for="scope-groups-{selectedMember.id}">Selected groups</Field.Label>
-							</Field.Root>
-						</RadioGroup.Root>
-						{#if selectedScopeKind === 'groups'}
-							<div class="grid gap-2">
-								{#each membersSection.groups as group (group.id)}
-									{@const checked = selectedScopeGroupIds.includes(group.id)}
-									{#if checked}<input type="hidden" name="scopeSetGroupIds" value={group.id} />{/if}
-									<Field.Root orientation="horizontal">
-										<Checkbox
-											id="scope-group-{selectedMember.id}-{group.id}"
-											{checked}
-											onCheckedChange={(value) =>
-												memberAccess.toggleMemberScopeGroup(selectedMember.id, group.id, value === true)}
-										/>
-										<Field.Label for="scope-group-{selectedMember.id}-{group.id}">{group.name}</Field.Label>
+						<input type="hidden" name="scopeSetKind" value={selectedScopeKind} />
+						<section class="grid gap-3" aria-labelledby="capability-overrides-{selectedMember.id}">
+							<div class="grid gap-1">
+								<h3 id="capability-overrides-{selectedMember.id}" class="font-medium">Area-by-area access</h3>
+								<p class="text-sm text-muted-foreground">
+									Use overrides only when the preset is too broad or too limited for one area.
+								</p>
+							</div>
+							<div class="grid gap-3 sm:grid-cols-2">
+								{#each accessLanes as lane (lane.id)}
+									{@const capabilityValue = memberAccess.getEditorCapabilityValue(
+										selectedMember,
+										lane.id,
+										selectedPreset
+									)}
+									{@const capabilityChanged = memberAccess.isCapabilityChanged(selectedMember, lane.id)}
+									<Field.Root class={capabilityChanged ? '' : 'opacity-60'}>
+										<Field.Label id="capability-{selectedMember.id}-{lane.id}">
+											{lane.label}
+											{#if capabilityChanged}
+												<span class="ml-1 inline-block size-1.5 rounded-full bg-ring" aria-label="changed"></span>
+											{/if}
+										</Field.Label>
+										<input type="hidden" name="capabilityOverride:{lane.id}" value={capabilityValue} />
+										<Select.Root
+											type="single"
+											value={capabilityValue}
+											onValueChange={(value) =>
+												memberAccess.setMemberCapability(selectedMember.id, lane.id, value as typeof capabilityValue)}
+										>
+											<Select.Trigger aria-labelledby="capability-{selectedMember.id}-{lane.id}" class="w-full">
+												{getCapabilityLabel(capabilityValue)}
+											</Select.Trigger>
+											<Select.Content>
+												{#each capabilityOptions as option (option.value)}
+													<Select.Item value={option.value} label={option.label} />
+												{/each}
+											</Select.Content>
+										</Select.Root>
 									</Field.Root>
 								{/each}
 							</div>
-						{/if}
-					</section>
-				{:else}
-					<input type="hidden" name="memberPreset" value={selectedPreset} />
-				{/if}
+						</section>
 
-				<Sheet.Footer>
-					<Button type="button" variant="outline" onclick={() => memberAccess.closeMemberEditor(selectedMember.id)}>
-						Cancel
-					</Button>
-					<Button type="submit" disabled={accessLoading || changeCount === 0}>
-						{#if accessLoading}
-							Saving...
-						{:else if changeCount > 0}
-							Save {changeCount} {changeCount === 1 ? 'change' : 'changes'}
-						{:else}
-							No changes
-						{/if}
-					</Button>
-				</Sheet.Footer>
+						<section class="grid gap-3" aria-labelledby="scope-set-{selectedMember.id}">
+							<div class="grid gap-1">
+								<h3 id="scope-set-{selectedMember.id}" class="font-medium">Group access</h3>
+								<p class="text-sm text-muted-foreground">
+									Choose whether access applies to every group or selected groups.
+								</p>
+							</div>
+							<RadioGroup.Root
+								value={selectedScopeKind}
+								onValueChange={(value) =>
+									memberAccess.setMemberScopeKind(selectedMember.id, value as 'organization' | 'groups')}
+								class="sm:grid-cols-2"
+							>
+								<Field.Root orientation="horizontal">
+									<RadioGroup.Item id="scope-all-{selectedMember.id}" value="organization" />
+									<Field.Label for="scope-all-{selectedMember.id}">All groups</Field.Label>
+								</Field.Root>
+								<Field.Root orientation="horizontal">
+									<RadioGroup.Item id="scope-groups-{selectedMember.id}" value="groups" />
+									<Field.Label for="scope-groups-{selectedMember.id}">Selected groups</Field.Label>
+								</Field.Root>
+							</RadioGroup.Root>
+							{#if selectedScopeKind === 'groups'}
+								<div class="grid gap-2">
+									{#each membersSection.groups as group (group.id)}
+										{@const checked = selectedScopeGroupIds.includes(group.id)}
+										{#if checked}<input type="hidden" name="scopeSetGroupIds" value={group.id} />{/if}
+										<Field.Root orientation="horizontal">
+											<Checkbox
+												id="scope-group-{selectedMember.id}-{group.id}"
+												{checked}
+												onCheckedChange={(value) =>
+													memberAccess.toggleMemberScopeGroup(selectedMember.id, group.id, value === true)}
+											/>
+											<Field.Label for="scope-group-{selectedMember.id}-{group.id}">{group.name}</Field.Label>
+										</Field.Root>
+									{/each}
+								</div>
+							{/if}
+						</section>
+					{:else}
+						<input type="hidden" name="memberPreset" value={selectedPreset} />
+					{/if}
+
+					<Sheet.Footer>
+						<Button type="button" variant="outline" onclick={() => memberAccess.closeMemberEditor(selectedMember.id)}>
+							Cancel
+						</Button>
+						<Button type="submit" disabled={accessLoading || changeCount === 0}>
+							{#if accessLoading}
+								Saving...
+							{:else if changeCount > 0}
+								Save {changeCount} {changeCount === 1 ? 'change' : 'changes'}
+							{:else}
+								No changes
+							{/if}
+						</Button>
+					</Sheet.Footer>
+				</fieldset>
 			</form>
 		</Sheet.Content>
 	{/if}

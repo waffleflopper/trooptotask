@@ -49,20 +49,6 @@
 
 	const shown = $derived(detail.detail);
 
-	let pager: HTMLButtonElement | null = null;
-
-	function showPage(page: number): void {
-		pager = document.activeElement instanceof HTMLButtonElement ? document.activeElement : null;
-		onPage(page);
-	}
-
-	$effect(() => {
-		if (!shown || !pager) return;
-		const active = document.activeElement;
-		if ((pager.disabled || !pager.isConnected) && (active === pager || active === document.body))
-			document.getElementById(id)?.focus();
-		pager = null;
-	});
 	const summary = $derived.by(() => {
 		if (!shown) return null;
 		const count = shown.totalRows;
@@ -97,7 +83,7 @@
 			setSearch: () => {},
 			page: shown?.page ?? detail.request.page,
 			pageSize: shown?.pageSize ?? detail.request.pageSize,
-			setPage: showPage,
+			setPage: onPage,
 			setPageSize: onPageSize,
 			toggleGroup: () => {},
 			expandAll: () => {},

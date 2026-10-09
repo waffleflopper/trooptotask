@@ -315,6 +315,11 @@
 		onImportComplete();
 		onClose();
 	}
+
+	function handleClose() {
+		if (importState === 'results') handleDone();
+		else onClose();
+	}
 </script>
 
 {#snippet previewCell(row: PreviewRow, column: ColumnDef<PreviewRow>)}
@@ -325,8 +330,8 @@
 	/>
 {/snippet}
 
-<AppDialog.Root closeBlocked={isSubmitting} {onClose}>
-	<AppDialog.Content size="wide" closeBlocked={isSubmitting} class="h-[min(42rem,calc(100dvh-2rem))]">
+<AppDialog.Root busy={isSubmitting} onClose={handleClose}>
+	<AppDialog.Content size="wide" class="h-[min(42rem,calc(100dvh-2rem))]">
 		<AppDialog.Header>
 			<AppDialog.Title>Bulk Training Import</AppDialog.Title>
 			<AppDialog.Description>

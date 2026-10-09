@@ -8,6 +8,7 @@ import Content from './dialog-content.svelte';
 import Description from './dialog-description.svelte';
 import Trigger from './dialog-trigger.svelte';
 import Close from './dialog-close.svelte';
+export { keepFocusInside } from './keep-focus-inside';
 
 export {
 	Root,

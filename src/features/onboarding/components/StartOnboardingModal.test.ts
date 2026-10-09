@@ -151,6 +151,40 @@ describe('StartOnboardingModal', () => {
 		expect(screen.getByRole('dialog', { name: 'Start Onboarding' })).toBeTruthy();
 	});
 
+	it('keeps focus in the dialog while a held submission disables Start and still closes', async () => {
+		const onSubmit = vi.fn(() => new Promise<boolean>(() => {}));
+		const onClose = vi.fn();
+		render(StartOnboardingModal, {
+			props: {
+				personnel,
+				canAddPerson: false,
+				existingOnboardingPersonnelIds: [],
+				groups: [],
+				rankCatalogUnavailable: false,
+				rankCatalog: [],
+				templates: [template],
+				onSubmit,
+				onAddPerson: vi.fn(),
+				onClose
+			}
+		});
+		const dialog = screen.getByRole('dialog', { name: 'Start Onboarding' });
+		await fireEvent.click(screen.getByRole('button', { name: 'Member' }));
+		await fireEvent.click(await screen.findByRole('option', { name: 'SGT Smith, Jane' }));
+		const start = screen.getByRole('button', { name: 'Start Onboarding' }) as HTMLButtonElement;
+		start.focus();
+
+		await fireEvent.click(start);
+
+		expect(start.disabled).toBe(true);
+		await waitFor(() => expect(document.activeElement).toBe(dialog));
+		expect(dialog.hasAttribute('aria-busy')).toBe(false);
+		await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+		expect(onClose).toHaveBeenCalledTimes(1);
+		await fireEvent.keyDown(dialog, { key: 'Escape' });
+		expect(onClose).toHaveBeenCalledTimes(2);
+	});
+
 	it('uses the local calendar date for the default start date', async () => {
 		const originalTimezone = process.env.TZ;
 		process.env.TZ = 'America/Anchorage';

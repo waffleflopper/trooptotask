@@ -136,6 +136,46 @@ describe('IctCompletionBulkImport', () => {
 		).toBeGreaterThan(0);
 	});
 
+	it('keeps focus in the busy dialog while an import is held, then returns to preview on failure', async () => {
+		parseFileMock.mockResolvedValue([
+			['Rank', 'Last Name', 'First Name', 'Task Code', 'Completion Date'],
+			['SGT', 'Smith', 'Jane', '181-105-1001', '2026-03-13']
+		]);
+		let rejectImport!: (reason: Error) => void;
+		vi.spyOn(personnelIctCompletionsStore, 'importBatch').mockImplementation(
+			() =>
+				new Promise((_resolve, reject) => {
+					rejectImport = reject;
+				})
+		);
+		const onCancel = vi.fn();
+		render(IctCompletionBulkImport, {
+			props: { personnel: [alphaMedic], tasks: [tcccTask], completions: [], onCancel, onDone: vi.fn() }
+		});
+		await fireEvent.change(screen.getByLabelText('Upload file'), {
+			target: { files: [new File(['fake'], 'ict-completions.csv', { type: 'text/csv' })] }
+		});
+		const importButton = await screen.findByRole('button', { name: 'Import Checked Rows' });
+		const dialog = screen.getByRole('dialog', { name: 'Import ICT Completions' });
+		expect(dialog.hasAttribute('aria-busy')).toBe(false);
+
+		importButton.focus();
+		await fireEvent.click(importButton);
+
+		expect(screen.getByText('Importing critical task completions...')).toBeTruthy();
+		expect(dialog.getAttribute('aria-busy')).toBe('true');
+		expect(document.activeElement).toBe(dialog);
+		expect(screen.queryByRole('button', { name: 'Close' })).toBeNull();
+		await fireEvent.keyDown(dialog, { key: 'Escape' });
+		expect(screen.getByRole('dialog', { name: 'Import ICT Completions' })).toBe(dialog);
+		expect(onCancel).not.toHaveBeenCalled();
+
+		rejectImport(new Error('Import service unavailable'));
+		expect(await screen.findByText('Import service unavailable')).toBeTruthy();
+		expect(dialog.hasAttribute('aria-busy')).toBe(false);
+		expect(screen.getByRole('button', { name: 'Import Checked Rows' })).toBeTruthy();
+	});
+
 	it('imports checked valid rows and renders the created and updated summary', async () => {
 		parseFileMock.mockResolvedValue([
 			['Rank', 'Last Name', 'First Name', 'Task Code', 'Completion Date', 'Validation Method'],

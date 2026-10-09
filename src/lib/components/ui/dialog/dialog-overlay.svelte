@@ -2,7 +2,7 @@
 	import { Dialog as DialogPrimitive } from 'bits-ui';
 	import { cn } from '$lib/utils.js';
 
-	let { ref = $bindable(null), class: className, ...restProps }: DialogPrimitive.OverlayProps = $props();
+	let { ref = $bindable(null), class: className, onmousedown, ...restProps }: DialogPrimitive.OverlayProps = $props();
 </script>
 
 <DialogPrimitive.Overlay
@@ -13,4 +13,9 @@
 		className
 	)}
 	{...restProps}
+	onmousedown={(event) => {
+		onmousedown?.(event);
+		// The backdrop is inert: pressing it must not move focus out of the modal.
+		event.preventDefault();
+	}}
 />

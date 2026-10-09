@@ -110,6 +110,55 @@ describe('TrainingRecordModal', () => {
 		resolveSave();
 	});
 
+	it('locks the draft, Exempt and Delete while a save is held and unlocks them with the draft on failure', async () => {
+		let rejectSave!: (error: Error) => void;
+		const onSave = vi.fn(
+			() =>
+				new Promise<void>((_, reject) => {
+					rejectSave = reject;
+				})
+		);
+		vi.spyOn(toast, 'error').mockImplementation(() => 'error');
+		// happy-dom does not apply a disabled fieldset to its controls' :disabled state.
+		const inDisabledGroup = (control: HTMLElement) => control.closest('fieldset')?.disabled === true;
+		render(TrainingRecordModal, {
+			props: {
+				person,
+				trainingType: { ...trainingType, canBeExempted: true },
+				existingTraining: {
+					id: 'record-1',
+					personnelId: person.id,
+					trainingTypeId: trainingType.id,
+					completionDate: '2026-01-05',
+					expirationDate: '2027-01-05',
+					notes: null,
+					certificateUrl: null
+				},
+				onSave,
+				onRemove: vi.fn(),
+				onClose: vi.fn(),
+				canBeExempted: true,
+				onToggleExempt: vi.fn()
+			}
+		});
+		await fireEvent.input(screen.getByLabelText('Notes (optional)'), { target: { value: 'Draft A' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+		const dialog = screen.getByRole('dialog');
+		expect(dialog.getAttribute('aria-busy')).toBe('true');
+		expect(inDisabledGroup(screen.getByLabelText('Notes (optional)'))).toBe(true);
+		expect(inDisabledGroup(screen.getByRole('button', { name: 'Mark as Exempt' }))).toBe(true);
+		expect((screen.getByRole('button', { name: 'Delete' }) as HTMLButtonElement).disabled).toBe(true);
+
+		rejectSave(new Error('Save denied'));
+
+		await waitFor(() => expect(dialog.hasAttribute('aria-busy')).toBe(false));
+		const notes = screen.getByLabelText('Notes (optional)') as HTMLTextAreaElement;
+		expect(notes.value).toBe('Draft A');
+		expect(inDisabledGroup(notes)).toBe(false);
+		expect((screen.getByRole('button', { name: 'Delete' }) as HTMLButtonElement).disabled).toBe(false);
+	});
+
 	it.each(['success', 'failure'] as const)('keeps a disposed record editor quiet after a late %s', async (outcome) => {
 		let resolveSave!: () => void;
 		let rejectSave!: (error: Error) => void;

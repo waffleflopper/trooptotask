@@ -25,6 +25,10 @@
 	let restoring = $state<string | null>(null);
 	let exportingPerson = $state<string | null>(null);
 	let permanentlyDeletingPerson = $state<string | null>(null);
+	const permanentDeleteInFlight = $derived(
+		permanentlyDeletingPerson !== null &&
+			permanentlyDeletingPerson === archivedPersonnelState.confirmPermanentDelete?.id
+	);
 
 	async function handleRestore(id: string) {
 		restoring = id;
@@ -95,6 +99,7 @@
 {#if archivedPersonnelState.confirmPermanentDelete}
 	<AppDialog.Root
 		open={Boolean(archivedPersonnelState.confirmPermanentDelete)}
+		busy={permanentDeleteInFlight}
 		onClose={() => archivedPersonnelState.clearPermanentDeleteConfirmation()}
 	>
 		<AppDialog.Content>
@@ -116,20 +121,19 @@
 				</div>
 			</AppDialog.Body>
 			<AppDialog.Footer>
-				{@const deleteInFlight = permanentlyDeletingPerson === archivedPersonnelState.confirmPermanentDelete.id}
 				<Button
 					type="button"
 					variant="outline"
-					disabled={deleteInFlight}
+					disabled={permanentDeleteInFlight}
 					onclick={() => archivedPersonnelState.clearPermanentDeleteConfirmation()}>Cancel</Button
 				>
 				<Button
 					type="button"
 					variant="destructive"
-					disabled={deleteInFlight || !archivedPersonnelState.permanentDeleteConfirmMatches}
+					disabled={permanentDeleteInFlight || !archivedPersonnelState.permanentDeleteConfirmMatches}
 					onclick={() => handlePermanentDelete(archivedPersonnelState.confirmPermanentDelete!.id)}
 				>
-					{deleteInFlight ? 'Deleting...' : 'Permanently Delete'}
+					{permanentDeleteInFlight ? 'Deleting...' : 'Permanently Delete'}
 				</Button>
 			</AppDialog.Footer>
 		</AppDialog.Content>

@@ -54,6 +54,7 @@
 	let loadError = $state('');
 	let signedScanDragOverId = $state<string | null>(null);
 	const signedScanUploadingIds = new SvelteSet<string>();
+	const signedScanRemovingIds = new SvelteSet<string>();
 	const signedScanErrors = new SvelteMap<string, string>();
 	const signedScanSelectedFiles = new SvelteMap<string, string>();
 
@@ -78,6 +79,7 @@
 	);
 	let selectedGroups = new SvelteSet<string>();
 	let saving = $state(false);
+	const busy = $derived(saving || signedScanUploadingIds.size > 0 || signedScanRemovingIds.size > 0);
 
 	function beginCustomRankSelection() {
 		if (rankFilterSelectionMode === 'custom') return;
@@ -483,8 +485,9 @@
 	}
 
 	async function removeSignedScan(roster: SignInRoster) {
-		if (!roster.signedFilePath || signedScanUploadingIds.has(roster.id)) return;
+		if (!roster.signedFilePath || signedScanUploadingIds.has(roster.id) || signedScanRemovingIds.has(roster.id)) return;
 
+		signedScanRemovingIds.add(roster.id);
 		try {
 			const response = await fetch(getSignedScanUploadUrl(roster), {
 				method: 'DELETE'
@@ -499,6 +502,8 @@
 			handleSignedScanRemoved(roster);
 		} catch (err: unknown) {
 			signedScanErrors.set(roster.id, err instanceof Error ? err.message : 'Remove failed.');
+		} finally {
+			signedScanRemovingIds.delete(roster.id);
 		}
 	}
 
@@ -554,8 +559,8 @@
 	}
 </script>
 
-<AppDialog.Root closeBlocked={saving} {onClose}>
-	<AppDialog.Content closeBlocked={saving} size="wide" class="h-[min(42rem,calc(100dvh-2rem))]">
+<AppDialog.Root {busy} {onClose}>
+	<AppDialog.Content size="wide" class="h-[min(42rem,calc(100dvh-2rem))]">
 		<AppDialog.Header>
 			<AppDialog.Title>{view === 'list' ? 'Sign-In Rosters' : 'New Sign-In Roster'}</AppDialog.Title>
 			<AppDialog.Description>
@@ -717,7 +722,11 @@
 													}
 												}}
 											>
-												<Field.Label for={`signed-scan-${roster.id}`}>Signed Scan</Field.Label>
+												{#if signedScanUploadingIds.has(roster.id) || roster.signedFilePath}
+													<Field.Title>Signed Scan</Field.Title>
+												{:else}
+													<Field.Label for={`signed-scan-${roster.id}`}>Signed Scan</Field.Label>
+												{/if}
 												{#if signedScanUploadingIds.has(roster.id)}
 													<div class="flex items-center gap-2 text-sm text-muted-foreground" aria-live="polite">
 														<Spinner class="size-3.5" />
@@ -737,8 +746,10 @@
 															variant="destructive"
 															size="sm"
 															type="button"
+															disabled={signedScanRemovingIds.has(roster.id)}
 															onclick={() => removeSignedScan(roster)}
 														>
+															{#if signedScanRemovingIds.has(roster.id)}<Spinner class="size-3" />{/if}
 															Remove
 														</Button>
 													</div>
@@ -774,176 +785,181 @@
 					{/if}
 				{/if}
 			{:else}
-				<section
-					class="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-start sm:justify-between"
-				>
-					<div class="grid gap-1">
-						<p class="font-mono text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">New Roster</p>
-						<p class="text-sm leading-relaxed text-muted-foreground">
-							Build a printable sign-in sheet from the current personnel snapshot.
-						</p>
-					</div>
-					<Badge variant="outline">{filteredPersonnel.length} included</Badge>
-				</section>
+				<fieldset class="contents" disabled={saving}>
+					<section
+						class="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-start sm:justify-between"
+					>
+						<div class="grid gap-1">
+							<p class="font-mono text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+								New Roster
+							</p>
+							<p class="text-sm leading-relaxed text-muted-foreground">
+								Build a printable sign-in sheet from the current personnel snapshot.
+							</p>
+						</div>
+						<Badge variant="outline">{filteredPersonnel.length} included</Badge>
+					</section>
 
-				<section class="grid gap-3 rounded-lg border border-border bg-card p-4">
-					<p class="font-mono text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">Basics</p>
-					<Field.Root>
-						<Field.Label for="roster-title">Title <span class="text-destructive">*</span></Field.Label>
-						<Input id="roster-title" type="text" placeholder="e.g. Annual AT Sign-In" bind:value={title} />
-					</Field.Root>
-				</section>
-
-				<section class="grid gap-3 rounded-lg border border-border bg-card p-4">
-					<p class="font-mono text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">Date</p>
-					<RadioGroup.Root bind:value={dateOption} class="grid gap-2 sm:grid-cols-2">
-						<Field.Root orientation="horizontal" class="rounded-lg border border-border bg-background p-3">
-							<RadioGroup.Item id="roster-date-specific" value="specific" />
-							<Field.Label for="roster-date-specific">Specific date</Field.Label>
-						</Field.Root>
-						<Field.Root orientation="horizontal" class="rounded-lg border border-border bg-background p-3">
-							<RadioGroup.Item id="roster-date-blank" value="blank" />
-							<Field.Label for="roster-date-blank">Leave blank</Field.Label>
-						</Field.Root>
-					</RadioGroup.Root>
-					{#if dateOption === 'specific'}
-						<Field.Root class="max-w-56">
-							<Field.Label for="roster-date">Roster date</Field.Label>
-							<DatePicker id="roster-date" bind:value={rosterDate} placeholder="Select roster date" />
-						</Field.Root>
-					{/if}
-				</section>
-
-				<div class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(14rem,18rem)]">
 					<section class="grid gap-3 rounded-lg border border-border bg-card p-4">
-						<p class="font-mono text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">Sort</p>
-						<RadioGroup.Root bind:value={sortBy} class="grid gap-2 sm:grid-cols-2">
+						<p class="font-mono text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">Basics</p>
+						<Field.Root>
+							<Field.Label for="roster-title">Title <span class="text-destructive">*</span></Field.Label>
+							<Input id="roster-title" type="text" placeholder="e.g. Annual AT Sign-In" bind:value={title} />
+						</Field.Root>
+					</section>
+
+					<section class="grid gap-3 rounded-lg border border-border bg-card p-4">
+						<p class="font-mono text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">Date</p>
+						<RadioGroup.Root bind:value={dateOption} class="grid gap-2 sm:grid-cols-2">
 							<Field.Root orientation="horizontal" class="rounded-lg border border-border bg-background p-3">
-								<RadioGroup.Item id="roster-sort-alpha" value="alphabetical" />
-								<Field.Label for="roster-sort-alpha">Alphabetical</Field.Label>
+								<RadioGroup.Item id="roster-date-specific" value="specific" />
+								<Field.Label for="roster-date-specific">Specific date</Field.Label>
 							</Field.Root>
 							<Field.Root orientation="horizontal" class="rounded-lg border border-border bg-background p-3">
-								<RadioGroup.Item id="roster-sort-rank" value="rank" />
-								<Field.Label for="roster-sort-rank">By rank</Field.Label>
+								<RadioGroup.Item id="roster-date-blank" value="blank" />
+								<Field.Label for="roster-date-blank">Leave blank</Field.Label>
 							</Field.Root>
 						</RadioGroup.Root>
+						{#if dateOption === 'specific'}
+							<Field.Root class="max-w-56">
+								<Field.Label for="roster-date">Roster date</Field.Label>
+								<DatePicker id="roster-date" bind:value={rosterDate} placeholder="Select roster date" />
+							</Field.Root>
+						{/if}
 					</section>
-					<section class="grid content-start gap-3 rounded-lg border border-border bg-card p-4">
-						<p class="font-mono text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">Layout</p>
-						<Field.Root orientation="horizontal" class="rounded-lg border border-border bg-background p-3">
-							<Checkbox id="roster-separate-group" bind:checked={separateByGroup} />
-							<Field.Label for="roster-separate-group">Separate by group</Field.Label>
-						</Field.Root>
-					</section>
-				</div>
 
-				<section class="grid gap-3 rounded-lg border border-border bg-card p-4">
-					<div class="flex items-center justify-between gap-3">
-						<p class="font-mono text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-							Filter by Rank
-						</p>
-						<Badge variant="outline">{selectedRankCount} selected</Badge>
+					<div class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(14rem,18rem)]">
+						<section class="grid gap-3 rounded-lg border border-border bg-card p-4">
+							<p class="font-mono text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">Sort</p>
+							<RadioGroup.Root bind:value={sortBy} class="grid gap-2 sm:grid-cols-2">
+								<Field.Root orientation="horizontal" class="rounded-lg border border-border bg-background p-3">
+									<RadioGroup.Item id="roster-sort-alpha" value="alphabetical" />
+									<Field.Label for="roster-sort-alpha">Alphabetical</Field.Label>
+								</Field.Root>
+								<Field.Root orientation="horizontal" class="rounded-lg border border-border bg-background p-3">
+									<RadioGroup.Item id="roster-sort-rank" value="rank" />
+									<Field.Label for="roster-sort-rank">By rank</Field.Label>
+								</Field.Root>
+							</RadioGroup.Root>
+						</section>
+						<section class="grid content-start gap-3 rounded-lg border border-border bg-card p-4">
+							<p class="font-mono text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">Layout</p>
+							<Field.Root orientation="horizontal" class="rounded-lg border border-border bg-background p-3">
+								<Checkbox id="roster-separate-group" bind:checked={separateByGroup} />
+								<Field.Label for="roster-separate-group">Separate by group</Field.Label>
+							</Field.Root>
+						</section>
 					</div>
-					<div class="flex flex-wrap gap-2">
-						<Button
-							variant={allOfficersSelected ? 'secondary' : 'outline'}
-							size="sm"
-							type="button"
-							aria-pressed={allOfficersSelected}
-							onclick={() => toggleCategory(rankCategoryGroups.officer)}
-						>
-							All Officers
-						</Button>
-						<Button
-							variant={allWarrantSelected ? 'secondary' : 'outline'}
-							size="sm"
-							type="button"
-							aria-pressed={allWarrantSelected}
-							onclick={() => toggleCategory(rankCategoryGroups.warrant)}
-						>
-							All Warrant
-						</Button>
-						<Button
-							variant={allEnlistedSelected ? 'secondary' : 'outline'}
-							size="sm"
-							type="button"
-							aria-pressed={allEnlistedSelected}
-							onclick={() => toggleCategory(rankCategoryGroups.enlisted)}
-						>
-							All Enlisted
-						</Button>
-						<Button
-							variant={allCiviliansSelected ? 'secondary' : 'outline'}
-							size="sm"
-							type="button"
-							aria-pressed={allCiviliansSelected}
-							onclick={() => toggleCategory(rankCategoryGroups.civilian)}
-						>
-							Civilians
-						</Button>
-					</div>
-					<div class="flex flex-wrap gap-2">
-						{#each rankFilterOptions as rank (rank)}
-							<Button
-								variant={selectedRankValues.has(rank) ? 'secondary' : 'outline'}
-								size="sm"
-								type="button"
-								aria-pressed={selectedRankValues.has(rank)}
-								onclick={() => toggleRank(rank)}
-							>
-								{rank}
-							</Button>
-						{/each}
-					</div>
-				</section>
 
-				{#if groups.length > 0}
 					<section class="grid gap-3 rounded-lg border border-border bg-card p-4">
 						<div class="flex items-center justify-between gap-3">
 							<p class="font-mono text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-								Filter by Group
+								Filter by Rank
 							</p>
-							<Badge variant="outline">{selectedGroupCount > 0 ? `${selectedGroupCount} selected` : 'All groups'}</Badge
-							>
+							<Badge variant="outline">{selectedRankCount} selected</Badge>
 						</div>
-						<p class="text-xs leading-relaxed text-muted-foreground">
-							Leave every group unselected to include the full roster.
-						</p>
 						<div class="flex flex-wrap gap-2">
-							{#each groups as group (group.id)}
+							<Button
+								variant={allOfficersSelected ? 'secondary' : 'outline'}
+								size="sm"
+								type="button"
+								aria-pressed={allOfficersSelected}
+								onclick={() => toggleCategory(rankCategoryGroups.officer)}
+							>
+								All Officers
+							</Button>
+							<Button
+								variant={allWarrantSelected ? 'secondary' : 'outline'}
+								size="sm"
+								type="button"
+								aria-pressed={allWarrantSelected}
+								onclick={() => toggleCategory(rankCategoryGroups.warrant)}
+							>
+								All Warrant
+							</Button>
+							<Button
+								variant={allEnlistedSelected ? 'secondary' : 'outline'}
+								size="sm"
+								type="button"
+								aria-pressed={allEnlistedSelected}
+								onclick={() => toggleCategory(rankCategoryGroups.enlisted)}
+							>
+								All Enlisted
+							</Button>
+							<Button
+								variant={allCiviliansSelected ? 'secondary' : 'outline'}
+								size="sm"
+								type="button"
+								aria-pressed={allCiviliansSelected}
+								onclick={() => toggleCategory(rankCategoryGroups.civilian)}
+							>
+								Civilians
+							</Button>
+						</div>
+						<div class="flex flex-wrap gap-2">
+							{#each rankFilterOptions as rank (rank)}
 								<Button
-									variant={selectedGroups.has(group.name) ? 'secondary' : 'outline'}
+									variant={selectedRankValues.has(rank) ? 'secondary' : 'outline'}
 									size="sm"
 									type="button"
-									aria-pressed={selectedGroups.has(group.name)}
-									onclick={() => toggleGroup(group.name)}
+									aria-pressed={selectedRankValues.has(rank)}
+									onclick={() => toggleRank(rank)}
 								>
-									{group.name}
+									{rank}
 								</Button>
 							{/each}
 						</div>
 					</section>
-				{/if}
 
-				<section
-					class="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between"
-				>
-					<div class="grid gap-1">
-						<p class="font-mono text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">Snapshot</p>
-						<p class="text-sm leading-relaxed text-muted-foreground">
-							{filteredPersonnel.length} personnel will be included in the roster.
-						</p>
-					</div>
-					{#if hasActiveCreateFilters}
-						<Button variant="outline" size="sm" type="button" onclick={resetCreateFilters}>Reset filters</Button>
+					{#if groups.length > 0}
+						<section class="grid gap-3 rounded-lg border border-border bg-card p-4">
+							<div class="flex items-center justify-between gap-3">
+								<p class="font-mono text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+									Filter by Group
+								</p>
+								<Badge variant="outline"
+									>{selectedGroupCount > 0 ? `${selectedGroupCount} selected` : 'All groups'}</Badge
+								>
+							</div>
+							<p class="text-xs leading-relaxed text-muted-foreground">
+								Leave every group unselected to include the full roster.
+							</p>
+							<div class="flex flex-wrap gap-2">
+								{#each groups as group (group.id)}
+									<Button
+										variant={selectedGroups.has(group.name) ? 'secondary' : 'outline'}
+										size="sm"
+										type="button"
+										aria-pressed={selectedGroups.has(group.name)}
+										onclick={() => toggleGroup(group.name)}
+									>
+										{group.name}
+									</Button>
+								{/each}
+							</div>
+						</section>
 					{/if}
-				</section>
+
+					<section
+						class="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between"
+					>
+						<div class="grid gap-1">
+							<p class="font-mono text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">Snapshot</p>
+							<p class="text-sm leading-relaxed text-muted-foreground">
+								{filteredPersonnel.length} personnel will be included in the roster.
+							</p>
+						</div>
+						{#if hasActiveCreateFilters}
+							<Button variant="outline" size="sm" type="button" onclick={resetCreateFilters}>Reset filters</Button>
+						{/if}
+					</section>
+				</fieldset>
 			{/if}
 		</AppDialog.Body>
 
 		<AppDialog.Footer>
 			{#if view === 'list'}
-				<Button variant="outline" type="button" onclick={onClose}>Close</Button>
+				<Button variant="outline" type="button" onclick={onClose} disabled={busy}>Close</Button>
 			{:else}
 				<Button variant="outline" type="button" onclick={() => (view = 'list')} disabled={saving}>Cancel</Button>
 				<Button type="button" disabled={!canGenerate || saving} onclick={handleGenerate}>
@@ -962,7 +978,7 @@
 		confirmLabel="Delete"
 		variant="danger"
 		onConfirm={() => {
-			if (confirmDeleteRoster) deleteRoster(confirmDeleteRoster);
+			if (confirmDeleteRoster) return deleteRoster(confirmDeleteRoster);
 		}}
 		onCancel={() => (confirmDeleteRoster = null)}
 	/>

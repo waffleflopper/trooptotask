@@ -97,6 +97,22 @@ describe('shadcn DataTable foundation', () => {
 		expect(screen.getByText('Charlie')).toBeTruthy();
 	});
 
+	test('keeps keyboard focus on pagination when a button disables at either end', async () => {
+		const data = [...testData, { id: '4', name: 'Diana', age: 28, group: 'B' }];
+		render(Table, { props: { data, columns, pageSize: 2 } });
+		const previous = screen.getByRole('button', { name: /Previous/ });
+		const next = screen.getByRole('button', { name: /Next/ });
+
+		next.focus();
+		await fireEvent.click(next);
+		expect(screen.getByText('Page 2 of 2')).toBeTruthy();
+		expect(document.activeElement).toBe(previous);
+
+		await fireEvent.click(previous);
+		expect(screen.getByText('Page 1 of 2')).toBeTruthy();
+		expect(document.activeElement).toBe(next);
+	});
+
 	test('calls row click from pointer and keyboard activation', async () => {
 		const onRowClick = vi.fn();
 		render(Table, {

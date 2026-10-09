@@ -123,6 +123,36 @@ describe('PersonnelModal', () => {
 		expect(onClose).not.toHaveBeenCalled();
 	});
 
+	it('locks the draft while a submit is held and unlocks it with the draft after a failure', async () => {
+		let rejectSubmit!: (error: Error) => void;
+		const onSubmit = vi.fn(
+			() =>
+				new Promise<void>((_, reject) => {
+					rejectSubmit = reject;
+				})
+		);
+		vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+		// happy-dom does not apply a disabled fieldset to its controls' :disabled state.
+		const inDisabledGroup = (control: HTMLElement) => control.closest('fieldset')?.disabled === true;
+		render(PersonnelModal, { props: { groups: [], rankCatalog: armyRankCatalog, onSubmit, onClose: vi.fn() } });
+		await fireEvent.input(screen.getByLabelText(/Last Name/i), { target: { value: 'Smith' } });
+		await fireEvent.input(screen.getByLabelText(/First Name/i), { target: { value: 'Jane' } });
+		await fireEvent.click(screen.getByTestId('personnel-save'));
+
+		const dialog = screen.getByRole('dialog', { name: 'Add Personnel' });
+		await waitFor(() => expect(dialog.getAttribute('aria-busy')).toBe('true'));
+		for (const label of [/Last Name/i, /First Name/i, /MOS/i, /^ETS$/]) {
+			expect(inDisabledGroup(screen.getByLabelText(label))).toBe(true);
+		}
+
+		rejectSubmit(new Error('Save denied'));
+
+		await waitFor(() => expect(dialog.hasAttribute('aria-busy')).toBe(false));
+		const lastName = screen.getByLabelText(/Last Name/i) as HTMLInputElement;
+		expect(lastName.value).toBe('Smith');
+		expect(inDisabledGroup(lastName)).toBe(false);
+	});
+
 	it('keeps the modal open when async submit fails', async () => {
 		const onClose = vi.fn();
 		const onSubmit = vi.fn().mockRejectedValue(new Error('insert blocked by policy'));

@@ -234,128 +234,137 @@
 			<AppDialog.Title id="ict-completion-title">{modalTitle}</AppDialog.Title>
 		</AppDialog.Header>
 
-		<AppDialog.Body class="space-y-4">
-			{#if selectorMode}
-				{#if selectedPerson && !showPersonnelSelect}
+		<AppDialog.Body>
+			<fieldset class="min-w-0 space-y-4" disabled={isSaving}>
+				{#if selectorMode}
+					{#if selectedPerson && !showPersonnelSelect}
+						<div class="rounded-lg border bg-muted/30 p-3">
+							<p class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+								{selectedPerson.rank}
+							</p>
+							<p class="text-sm font-semibold text-foreground">{selectedPerson.lastName}, {selectedPerson.firstName}</p>
+							<p class="font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground">
+								{selectedPerson.mos || 'No MOS'}
+							</p>
+						</div>
+					{/if}
+
+					<div class="grid gap-3">
+						{#if showPersonnelSelect}
+							<Field.Root>
+								<Field.Label for="ict-person-select">Person</Field.Label>
+								<Combobox.Root
+									items={personnelSelectOptions}
+									bind:value={selectedPersonnelId}
+									label="Person"
+									autoHighlight
+								>
+									<Combobox.Trigger id="ict-person-select" placeholder="Search personnel..." aria-label="Person" />
+									<Combobox.Content>
+										<Combobox.Search placeholder="Search personnel..." />
+										<Combobox.Empty>No personnel found.</Combobox.Empty>
+										<Combobox.List />
+									</Combobox.Content>
+								</Combobox.Root>
+								{#if personError}
+									<Field.Error>{personError}</Field.Error>
+								{/if}
+							</Field.Root>
+						{/if}
+
+						{#if showTaskSelect}
+							<Field.Root>
+								<Field.Label for="ict-task-select">Critical Task</Field.Label>
+								<Combobox.Root
+									items={taskSelectOptions}
+									bind:value={selectedTaskId}
+									label="Critical Task"
+									autoHighlight
+								>
+									<Combobox.Trigger
+										id="ict-task-select"
+										placeholder="Search task or title..."
+										aria-label="Critical Task"
+									/>
+									<Combobox.Content>
+										<Combobox.Search placeholder="Search task or title..." />
+										<Combobox.Empty>No critical tasks found.</Combobox.Empty>
+										<Combobox.List />
+									</Combobox.Content>
+								</Combobox.Root>
+								<Field.Description>{selectionHint}</Field.Description>
+								{#if taskError}
+									<Field.Error>{taskError}</Field.Error>
+								{/if}
+							</Field.Root>
+						{/if}
+					</div>
+				{:else if selectedPerson && selectedTask}
 					<div class="rounded-lg border bg-muted/30 p-3">
 						<p class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
 							{selectedPerson.rank}
 						</p>
 						<p class="text-sm font-semibold text-foreground">{selectedPerson.lastName}, {selectedPerson.firstName}</p>
 						<p class="font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground">
-							{selectedPerson.mos || 'No MOS'}
+							{selectedTask.taskCode}
+							{selectedTask.title}
 						</p>
 					</div>
 				{/if}
 
-				<div class="grid gap-3">
-					{#if showPersonnelSelect}
-						<Field.Root>
-							<Field.Label for="ict-person-select">Person</Field.Label>
-							<Combobox.Root
-								items={personnelSelectOptions}
-								bind:value={selectedPersonnelId}
-								label="Person"
-								autoHighlight
-							>
-								<Combobox.Trigger id="ict-person-select" placeholder="Search personnel..." aria-label="Person" />
-								<Combobox.Content>
-									<Combobox.Search placeholder="Search personnel..." />
-									<Combobox.Empty>No personnel found.</Combobox.Empty>
-									<Combobox.List />
-								</Combobox.Content>
-							</Combobox.Root>
-							{#if personError}
-								<Field.Error>{personError}</Field.Error>
-							{/if}
-						</Field.Root>
-					{/if}
+				<div class="grid gap-3 sm:grid-cols-2">
+					<Field.Root>
+						<Field.Label for="ict-completion-date">Completion Date</Field.Label>
+						<DatePicker id="ict-completion-date" bind:value={completionDate} aria-label="Completion Date" />
+						{#if completionDateError}
+							<Field.Error>{completionDateError}</Field.Error>
+						{/if}
+					</Field.Root>
 
-					{#if showTaskSelect}
-						<Field.Root>
-							<Field.Label for="ict-task-select">Critical Task</Field.Label>
-							<Combobox.Root items={taskSelectOptions} bind:value={selectedTaskId} label="Critical Task" autoHighlight>
-								<Combobox.Trigger
-									id="ict-task-select"
-									placeholder="Search task or title..."
-									aria-label="Critical Task"
-								/>
-								<Combobox.Content>
-									<Combobox.Search placeholder="Search task or title..." />
-									<Combobox.Empty>No critical tasks found.</Combobox.Empty>
-									<Combobox.List />
-								</Combobox.Content>
-							</Combobox.Root>
-							<Field.Description>{selectionHint}</Field.Description>
-							{#if taskError}
-								<Field.Error>{taskError}</Field.Error>
-							{/if}
-						</Field.Root>
-					{/if}
+					<Field.Root>
+						<Field.Label for="ict-validation-method">Validation Method</Field.Label>
+						<NativeSelect.Root id="ict-validation-method" bind:value={validationMethod} aria-label="Validation Method">
+							{#each methodOptions as option (option.value)}
+								<NativeSelect.Option value={option.value}>{option.label}</NativeSelect.Option>
+							{/each}
+						</NativeSelect.Root>
+						{#if validationMethodError}
+							<Field.Error>{validationMethodError}</Field.Error>
+						{/if}
+					</Field.Root>
 				</div>
-			{:else if selectedPerson && selectedTask}
-				<div class="rounded-lg border bg-muted/30 p-3">
+
+				{#if currentUserDisplayName}
+					<Field.Label class="flex-row items-center">
+						<Checkbox bind:checked={useCurrentValidator} onchange={handleValidatorToggle} />
+						<span>I am the validator</span>
+					</Field.Label>
+				{/if}
+
+				<Field.Root>
+					<Field.Label for="ict-validated-by">Validated By</Field.Label>
+					<Input id="ict-validated-by" bind:value={validatedBy} />
+					<Field.Description>Optional rank and name of the validator</Field.Description>
+				</Field.Root>
+
+				<div class="rounded-lg border bg-muted/30 p-3" aria-label="Calculated expiration date">
 					<p class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-						{selectedPerson.rank}
+						Expiration Date
 					</p>
-					<p class="text-sm font-semibold text-foreground">{selectedPerson.lastName}, {selectedPerson.firstName}</p>
-					<p class="font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground">
-						{selectedTask.taskCode}
-						{selectedTask.title}
+					<p class="text-sm text-foreground">
+						{#if !selectedTask}
+							Select a critical task to calculate expiration
+						{:else}
+							{previewExpirationDate ?? 'Set completion date to calculate expiration'}
+						{/if}
 					</p>
 				</div>
-			{/if}
-
-			<div class="grid gap-3 sm:grid-cols-2">
-				<Field.Root>
-					<Field.Label for="ict-completion-date">Completion Date</Field.Label>
-					<DatePicker id="ict-completion-date" bind:value={completionDate} aria-label="Completion Date" />
-					{#if completionDateError}
-						<Field.Error>{completionDateError}</Field.Error>
-					{/if}
-				</Field.Root>
 
 				<Field.Root>
-					<Field.Label for="ict-validation-method">Validation Method</Field.Label>
-					<NativeSelect.Root id="ict-validation-method" bind:value={validationMethod} aria-label="Validation Method">
-						{#each methodOptions as option (option.value)}
-							<NativeSelect.Option value={option.value}>{option.label}</NativeSelect.Option>
-						{/each}
-					</NativeSelect.Root>
-					{#if validationMethodError}
-						<Field.Error>{validationMethodError}</Field.Error>
-					{/if}
+					<Field.Label for="ict-notes">Notes (optional)</Field.Label>
+					<Textarea id="ict-notes" rows={3} bind:value={notes} />
 				</Field.Root>
-			</div>
-
-			{#if currentUserDisplayName}
-				<Field.Label class="flex-row items-center">
-					<Checkbox bind:checked={useCurrentValidator} onchange={handleValidatorToggle} />
-					<span>I am the validator</span>
-				</Field.Label>
-			{/if}
-
-			<Field.Root>
-				<Field.Label for="ict-validated-by">Validated By</Field.Label>
-				<Input id="ict-validated-by" bind:value={validatedBy} />
-				<Field.Description>Optional rank and name of the validator</Field.Description>
-			</Field.Root>
-
-			<div class="rounded-lg border bg-muted/30 p-3" aria-label="Calculated expiration date">
-				<p class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Expiration Date</p>
-				<p class="text-sm text-foreground">
-					{#if !selectedTask}
-						Select a critical task to calculate expiration
-					{:else}
-						{previewExpirationDate ?? 'Set completion date to calculate expiration'}
-					{/if}
-				</p>
-			</div>
-
-			<Field.Root>
-				<Field.Label for="ict-notes">Notes (optional)</Field.Label>
-				<Textarea id="ict-notes" rows={3} bind:value={notes} />
-			</Field.Root>
+			</fieldset>
 		</AppDialog.Body>
 
 		<AppDialog.Footer>

@@ -154,93 +154,95 @@
 
 		<AppDialog.Body>
 			<form id="personnel-form" class="grid gap-4" onsubmit={handleSubmit}>
-				<div class="grid gap-2">
-					<Label for="rank">Rank</Label>
-					<Combobox.Root items={rankOptions} bind:value={rank} label="Rank" autoHighlight>
-						<Combobox.Trigger
-							id="rank"
-							placeholder="Select rank..."
-							aria-label="Rank"
-							aria-invalid={!!rankError}
-							aria-describedby={rankError ? 'rank-error' : undefined}
-						/>
-						<Combobox.Content>
-							<Combobox.Search placeholder="Select rank..." />
-							<Combobox.Empty>No ranks found.</Combobox.Empty>
-							<Combobox.List />
-						</Combobox.Content>
-					</Combobox.Root>
-					{#if rankError}<p id="rank-error">{rankError}</p>{/if}
-				</div>
+				<fieldset class="contents" disabled={busy}>
+					<div class="grid gap-2">
+						<Label for="rank">Rank</Label>
+						<Combobox.Root items={rankOptions} bind:value={rank} label="Rank" autoHighlight>
+							<Combobox.Trigger
+								id="rank"
+								placeholder="Select rank..."
+								aria-label="Rank"
+								aria-invalid={!!rankError}
+								aria-describedby={rankError ? 'rank-error' : undefined}
+							/>
+							<Combobox.Content>
+								<Combobox.Search placeholder="Select rank..." />
+								<Combobox.Empty>No ranks found.</Combobox.Empty>
+								<Combobox.List />
+							</Combobox.Content>
+						</Combobox.Root>
+						{#if rankError}<p id="rank-error">{rankError}</p>{/if}
+					</div>
 
-				<div class="grid gap-4 sm:grid-cols-2">
-					<div class="grid gap-2">
-						<Label for="lastName">Last Name</Label>
-						<Input
-							id="lastName"
-							placeholder="Smith"
-							required
-							aria-invalid={!!lastNameError}
-							aria-describedby={lastNameError ? 'lastName-error' : undefined}
-							bind:value={lastName}
-						/>
-						{#if lastNameError}<p id="lastName-error">{lastNameError}</p>{/if}
+					<div class="grid gap-4 sm:grid-cols-2">
+						<div class="grid gap-2">
+							<Label for="lastName">Last Name</Label>
+							<Input
+								id="lastName"
+								placeholder="Smith"
+								required
+								aria-invalid={!!lastNameError}
+								aria-describedby={lastNameError ? 'lastName-error' : undefined}
+								bind:value={lastName}
+							/>
+							{#if lastNameError}<p id="lastName-error">{lastNameError}</p>{/if}
+						</div>
+						<div class="grid gap-2">
+							<Label for="firstName">First Name</Label>
+							<Input
+								id="firstName"
+								placeholder="John"
+								required
+								aria-invalid={!!firstNameError}
+								aria-describedby={firstNameError ? 'firstName-error' : undefined}
+								bind:value={firstName}
+							/>
+							{#if firstNameError}<p id="firstName-error">{firstNameError}</p>{/if}
+						</div>
 					</div>
-					<div class="grid gap-2">
-						<Label for="firstName">First Name</Label>
-						<Input
-							id="firstName"
-							placeholder="John"
-							required
-							aria-invalid={!!firstNameError}
-							aria-describedby={firstNameError ? 'firstName-error' : undefined}
-							bind:value={firstName}
-						/>
-						{#if firstNameError}<p id="firstName-error">{firstNameError}</p>{/if}
-					</div>
-				</div>
 
-				<div class="grid gap-4 sm:grid-cols-2">
-					<div class="grid gap-2">
-						<Label for="mos">MOS / Job Title</Label>
-						<Input id="mos" placeholder="e.g., 68W, 68C, RN" bind:value={mos} />
+					<div class="grid gap-4 sm:grid-cols-2">
+						<div class="grid gap-2">
+							<Label for="mos">MOS / Job Title</Label>
+							<Input id="mos" placeholder="e.g., 68W, 68C, RN" bind:value={mos} />
+						</div>
+						<div class="grid gap-2">
+							<Label for="clinicRole">Duty Role</Label>
+							<Input id="clinicRole" placeholder="e.g., Squad Leader, Medic" bind:value={clinicRole} />
+						</div>
 					</div>
-					<div class="grid gap-2">
-						<Label for="clinicRole">Duty Role</Label>
-						<Input id="clinicRole" placeholder="e.g., Squad Leader, Medic" bind:value={clinicRole} />
-					</div>
-				</div>
 
-				<div class="grid gap-4 sm:grid-cols-2">
-					<div class="grid gap-2">
-						<Label for="ets">ETS</Label>
-						<DatePicker id="ets" bind:value={ets} placeholder="Select ETS" />
+					<div class="grid gap-4 sm:grid-cols-2">
+						<div class="grid gap-2">
+							<Label for="ets">ETS</Label>
+							<DatePicker id="ets" bind:value={ets} placeholder="Select ETS" />
+						</div>
+						<div class="grid gap-2">
+							<Label for="deros">PCS / DEROS</Label>
+							<DatePicker id="deros" bind:value={deros} placeholder="Select PCS / DEROS" />
+						</div>
 					</div>
-					<div class="grid gap-2">
-						<Label for="deros">PCS / DEROS</Label>
-						<DatePicker id="deros" bind:value={deros} placeholder="Select PCS / DEROS" />
-					</div>
-				</div>
 
-				<div class="grid gap-2">
-					<Label for="group">Group</Label>
-					<Combobox.Root items={groupOptions} bind:value={groupId} label="Group" autoHighlight>
-						<Combobox.Trigger
-							id="group"
-							clearable={isEditing || allowUnassigned}
-							placeholder={isEditing || allowUnassigned ? 'No Group Assigned' : 'Select Group...'}
-							aria-label="Group"
-							aria-invalid={!!groupError}
-							aria-describedby={groupError ? 'group-error' : undefined}
-						/>
-						<Combobox.Content>
-							<Combobox.Search placeholder="Search Groups..." />
-							<Combobox.Empty>No groups found.</Combobox.Empty>
-							<Combobox.List />
-						</Combobox.Content>
-					</Combobox.Root>
-					{#if groupError}<p id="group-error">{groupError}</p>{/if}
-				</div>
+					<div class="grid gap-2">
+						<Label for="group">Group</Label>
+						<Combobox.Root items={groupOptions} bind:value={groupId} label="Group" autoHighlight>
+							<Combobox.Trigger
+								id="group"
+								clearable={isEditing || allowUnassigned}
+								placeholder={isEditing || allowUnassigned ? 'No Group Assigned' : 'Select Group...'}
+								aria-label="Group"
+								aria-invalid={!!groupError}
+								aria-describedby={groupError ? 'group-error' : undefined}
+							/>
+							<Combobox.Content>
+								<Combobox.Search placeholder="Search Groups..." />
+								<Combobox.Empty>No groups found.</Combobox.Empty>
+								<Combobox.List />
+							</Combobox.Content>
+						</Combobox.Root>
+						{#if groupError}<p id="group-error">{groupError}</p>{/if}
+					</div>
+				</fieldset>
 			</form>
 		</AppDialog.Body>
 

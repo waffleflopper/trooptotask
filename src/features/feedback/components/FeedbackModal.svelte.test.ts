@@ -19,8 +19,14 @@ async function submit(message: string) {
 	await fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
 }
 
+// happy-dom does not apply a disabled fieldset to its controls' :disabled state.
+const inDisabledGroup = (control: HTMLElement) => control.closest('fieldset')?.disabled === true;
+
 function expectPendingDraft(message: string) {
-	expect((screen.getByRole('textbox', { name: 'Message' }) as HTMLTextAreaElement).value).toBe(message);
+	const textbox = screen.getByRole('textbox', { name: 'Message' }) as HTMLTextAreaElement;
+	expect(textbox.value).toBe(message);
+	expect(inDisabledGroup(textbox)).toBe(true);
+	expect(inDisabledGroup(screen.getByLabelText('Category'))).toBe(true);
 	expect((screen.getByRole('button', { name: /Submitting/ }) as HTMLButtonElement).disabled).toBe(true);
 	expect((screen.getByRole('button', { name: 'Cancel' }) as HTMLButtonElement).disabled).toBe(true);
 }
@@ -100,6 +106,7 @@ describe('FeedbackModal submission lifetime', () => {
 			expect((screen.getByRole('textbox', { name: 'Message' }) as HTMLTextAreaElement).value).toBe(
 				'  Keep my failed draft.  '
 			);
+			expect(inDisabledGroup(screen.getByRole('textbox', { name: 'Message' }))).toBe(false);
 			expect((screen.getByRole('button', { name: 'Cancel' }) as HTMLButtonElement).disabled).toBe(false);
 			expect(onClose).not.toHaveBeenCalled();
 			expect(toastStore.success).not.toHaveBeenCalled();

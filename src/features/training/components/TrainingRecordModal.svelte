@@ -156,7 +156,7 @@
 		</AppDialog.Header>
 
 		<AppDialog.Body>
-			<div class="grid gap-4">
+			<fieldset class="grid min-w-0 gap-4" disabled={isSaving}>
 				<section class="grid gap-3 rounded-lg border border-border bg-card p-4">
 					<div class="flex flex-wrap items-center gap-2">
 						<Badge style={`background-color: ${trainingType.color}`}>{trainingType.name}</Badge>
@@ -247,12 +247,14 @@
 						<Input id="certificate-url" type="url" placeholder="https://..." bind:value={certificateUrl} />
 					</Field.Root>
 				{/if}
-			</div>
+			</fieldset>
 		</AppDialog.Body>
 
 		<AppDialog.Footer>
 			{#if !isExempt && existingTraining}
-				<Button variant="destructive" type="button" onclick={() => (showRemoveConfirm = true)}>Delete</Button>
+				<Button variant="destructive" type="button" onclick={() => (showRemoveConfirm = true)} disabled={isSaving}>
+					Delete
+				</Button>
 			{/if}
 			<div class="flex-1"></div>
 			<Button variant="outline" type="button" onclick={onClose} disabled={isSaving}>

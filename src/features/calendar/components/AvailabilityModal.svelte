@@ -335,7 +335,7 @@
 				</div>
 			{/if}
 
-			<div class="grid gap-4 pt-1">
+			<fieldset class="grid min-w-0 gap-4 pt-1" disabled={saving}>
 				{#if editingEntry}
 					<h4 class="text-sm font-medium">Edit Status</h4>
 				{:else}
@@ -397,7 +397,7 @@
 						placeholder="Optional note (e.g., JRTC rotation)"
 					/>
 				</Field.Root>
-			</div>
+			</fieldset>
 		</AppDialog.Body>
 
 		<AppDialog.Footer>

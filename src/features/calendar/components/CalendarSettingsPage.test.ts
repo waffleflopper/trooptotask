@@ -2,7 +2,7 @@
 import { createClientAccess, type ClientAccessFacts } from '$lib/access/clientAccess';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import CalendarSettingsPage from './CalendarSettingsPage.svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
 import type { AssignmentType, SpecialDay, StatusType } from '$features/calendar/contracts';
@@ -497,5 +497,117 @@ describe('CalendarSettingsPage', () => {
 
 		expect(yearSelect.value).toBe('2026');
 		expect(screen.getByText("New Year's Day")).toBeTruthy();
+	});
+
+	// happy-dom does not apply a disabled fieldset to its controls' :disabled state.
+	const inDisabledGroup = (control: HTMLElement) => control.closest('fieldset')?.disabled === true;
+
+	const heldAddDialogs = [
+		{
+			section: null,
+			dialogName: 'Add Status Type',
+			draft: { 'Status name': 'Detail' },
+			save: () => statusTypesStoreMock.add,
+			error: 'Failed to add status type'
+		},
+		{
+			section: /Assignment Types/i,
+			dialogName: 'Add Assignment Type',
+			draft: { 'Full name': 'Staff Duty', 'Short code': 'SD' },
+			save: () => assignmentTypesStoreMock.addType,
+			error: 'Failed to add assignment type'
+		},
+		{
+			section: /Closures/i,
+			dialogName: 'Add Closure',
+			draft: { Name: 'Training holiday' },
+			save: () => specialDaysStoreMock.add,
+			error: 'Failed to add closure'
+		}
+	];
+
+	it.each(heldAddDialogs)(
+		'holds $dialogName busy with its draft locked, ignores a repeat submit and keeps the draft on failure',
+		async ({ section, dialogName, draft, save, error }) => {
+			let settle!: (created: null) => void;
+			save().mockReturnValueOnce(new Promise((resolve) => (settle = resolve)));
+			const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+			render(CalendarSettingsPage, { props: { org } });
+			if (section) await fireEvent.click(screen.getByRole('button', { name: section }));
+			await fireEvent.click(screen.getByRole('button', { name: 'Add new' }));
+			const dialog = screen.getByRole('dialog', { name: dialogName });
+			for (const [label, value] of Object.entries(draft)) {
+				await fireEvent.input(within(dialog).getByLabelText(label), { target: { value } });
+			}
+			const submit = within(dialog).getByRole('button', { name: dialogName }) as HTMLButtonElement;
+			submit.focus();
+
+			await fireEvent.click(submit);
+			await fireEvent.click(submit);
+
+			expect(save()).toHaveBeenCalledTimes(1);
+			expect(dialog.getAttribute('aria-busy')).toBe('true');
+			expect(submit.disabled).toBe(true);
+			expect((within(dialog).getByRole('button', { name: 'Cancel' }) as HTMLButtonElement).disabled).toBe(true);
+			for (const label of Object.keys(draft)) {
+				expect(inDisabledGroup(within(dialog).getByLabelText(label))).toBe(true);
+			}
+			await waitFor(() => expect(document.activeElement).toBe(dialog));
+			await fireEvent.keyDown(dialog, { key: 'Escape' });
+			expect(screen.getByRole('dialog', { name: dialogName })).toBe(dialog);
+
+			settle(null);
+
+			await waitFor(() => expect(dialog.hasAttribute('aria-busy')).toBe(false));
+			expect(errorToast).toHaveBeenCalledWith(error);
+			expect(screen.getByRole('dialog', { name: dialogName })).toBe(dialog);
+			for (const [label, value] of Object.entries(draft)) {
+				const control = within(dialog).getByLabelText(label) as HTMLInputElement;
+				expect(control.value).toBe(value);
+				expect(inDisabledGroup(control)).toBe(false);
+			}
+			expect(submit.disabled).toBe(false);
+		}
+	);
+
+	it('keeps a held status deletion busy and undismissable until it settles', async () => {
+		statusTypesStoreMock.items = [{ id: 'leave', name: 'Leave', color: '#48bb78', textColor: '#ffffff' }];
+		let settle!: (deleted: boolean) => void;
+		statusTypesStoreMock.remove.mockReturnValueOnce(new Promise((resolve) => (settle = resolve)));
+		render(CalendarSettingsPage, { props: { org } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete status type' }));
+		const dialog = screen.getByRole('alertdialog', { name: 'Delete Status Type' });
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+
+		expect(dialog.getAttribute('aria-busy')).toBe('true');
+		expect((within(dialog).getByRole('button', { name: 'Cancel' }) as HTMLButtonElement).disabled).toBe(true);
+		await fireEvent.keyDown(dialog, { key: 'Escape' });
+		expect(screen.getByRole('alertdialog', { name: 'Delete Status Type' })).toBe(dialog);
+
+		settle(true);
+
+		await waitFor(() => expect(screen.queryByRole('alertdialog', { name: 'Delete Status Type' })).toBeNull());
+		expect(availabilityStoreMock.removeByStatusTypeLocal).toHaveBeenCalledWith('leave');
+	});
+
+	it('clears busy and keeps a held status deletion open when it rejects', async () => {
+		statusTypesStoreMock.items = [{ id: 'leave', name: 'Leave', color: '#48bb78', textColor: '#ffffff' }];
+		let fail!: (error: Error) => void;
+		statusTypesStoreMock.remove.mockReturnValueOnce(new Promise((_, reject) => (fail = reject)));
+		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+		render(CalendarSettingsPage, { props: { org } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete status type' }));
+		const dialog = screen.getByRole('alertdialog', { name: 'Delete Status Type' });
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+		expect(dialog.getAttribute('aria-busy')).toBe('true');
+
+		fail(new Error('Status type is in use'));
+
+		await waitFor(() => expect(dialog.hasAttribute('aria-busy')).toBe(false));
+		expect(errorToast).toHaveBeenCalledWith('Status type is in use');
+		expect(screen.getByRole('alertdialog', { name: 'Delete Status Type' })).toBe(dialog);
+		expect((within(dialog).getByRole('button', { name: 'Delete' }) as HTMLButtonElement).disabled).toBe(false);
 	});
 });

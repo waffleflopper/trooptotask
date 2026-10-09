@@ -555,7 +555,7 @@
 		confirmLabel="Delete"
 		variant="danger"
 		onConfirm={() => {
-			if (confirmDelete) deleteType(confirmDelete.id);
+			if (confirmDelete) return deleteType(confirmDelete.id);
 		}}
 		onCancel={() => (confirmDelete = null)}
 	/>

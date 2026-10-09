@@ -5,12 +5,14 @@
 	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
+	import { Spinner } from '$lib/components/ui/spinner';
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import type { StatusType } from '$features/calendar/contracts';
 	import Pencil from '@lucide/svelte/icons/pencil';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
+	import { PendingSave } from './pendingSave.svelte';
 
 	type Props = {
 		canMutate: boolean;
@@ -31,6 +33,7 @@
 	let editStatusTextColor = $state('');
 
 	let confirmDeleteStatus = $state<StatusType | null>(null);
+	const saving = new PendingSave();
 	const addStatusDirty = $derived(
 		newStatusName.trim() !== '' || newStatusColor !== '#4a4a47' || newStatusTextColor !== '#f8f7f4'
 	);
@@ -181,114 +184,134 @@
 	{/each}
 </div>
 
-<AppDialog.Root bind:open={addStatusOpen} closeBlocked={addStatusDirty} onClose={closeAddStatusDialog}>
+<AppDialog.Root
+	bind:open={addStatusOpen}
+	busy={saving.pending}
+	closeBlocked={addStatusDirty}
+	onClose={closeAddStatusDialog}
+>
 	<AppDialog.Content class="sm:max-w-md">
 		<AppDialog.Header>
 			<AppDialog.Title>Add Status Type</AppDialog.Title>
 			<AppDialog.Description>Create a new personnel availability status for the calendar.</AppDialog.Description>
 		</AppDialog.Header>
 		<AppDialog.Body class="grid gap-4">
-			<div class="grid gap-2">
-				<Label for="add-status-name">Status name</Label>
-				<Input id="add-status-name" type="text" placeholder="e.g., Leave, TDY, School" bind:value={newStatusName} />
-			</div>
-			<div class="flex flex-wrap items-end gap-4">
+			<fieldset class="contents" disabled={saving.pending}>
 				<div class="grid gap-2">
-					<Label for="add-status-bg">Background</Label>
-					<input
-						id="add-status-bg"
-						type="color"
-						bind:value={newStatusColor}
-						class="size-9 cursor-pointer rounded-md border border-border p-0.5"
-					/>
+					<Label for="add-status-name">Status name</Label>
+					<Input id="add-status-name" type="text" placeholder="e.g., Leave, TDY, School" bind:value={newStatusName} />
 				</div>
-				<div class="grid gap-2">
-					<Label for="add-status-text">Text</Label>
-					<input
-						id="add-status-text"
-						type="color"
-						bind:value={newStatusTextColor}
-						class="size-9 cursor-pointer rounded-md border border-border p-0.5"
-					/>
-				</div>
-				{#if newStatusName.trim()}
-					<div class="min-w-0 flex-1">
-						<Label>Preview</Label>
-						<div class="mt-2">
-							<CalendarStatusBadge
-								statusType={{
-									id: 'preview',
-									name: newStatusName,
-									color: newStatusColor,
-									textColor: newStatusTextColor
-								}}
-							>
-								{newStatusName}
-							</CalendarStatusBadge>
-						</div>
+				<div class="flex flex-wrap items-end gap-4">
+					<div class="grid gap-2">
+						<Label for="add-status-bg">Background</Label>
+						<input
+							id="add-status-bg"
+							type="color"
+							bind:value={newStatusColor}
+							class="size-9 cursor-pointer rounded-md border border-border p-0.5"
+						/>
 					</div>
-				{/if}
-			</div>
+					<div class="grid gap-2">
+						<Label for="add-status-text">Text</Label>
+						<input
+							id="add-status-text"
+							type="color"
+							bind:value={newStatusTextColor}
+							class="size-9 cursor-pointer rounded-md border border-border p-0.5"
+						/>
+					</div>
+					{#if newStatusName.trim()}
+						<div class="min-w-0 flex-1">
+							<Label>Preview</Label>
+							<div class="mt-2">
+								<CalendarStatusBadge
+									statusType={{
+										id: 'preview',
+										name: newStatusName,
+										color: newStatusColor,
+										textColor: newStatusTextColor
+									}}
+								>
+									{newStatusName}
+								</CalendarStatusBadge>
+							</div>
+						</div>
+					{/if}
+				</div>
+			</fieldset>
 		</AppDialog.Body>
 		<AppDialog.Footer>
-			<Button variant="outline" onclick={closeAddStatusDialog}>Cancel</Button>
-			<Button onclick={addStatus} disabled={!newStatusName.trim()}>Add Status Type</Button>
+			<Button variant="outline" onclick={closeAddStatusDialog} disabled={saving.pending}>Cancel</Button>
+			<Button onclick={() => saving.run(addStatus)} disabled={saving.pending || !newStatusName.trim()}>
+				{#if saving.pending}<Spinner />{/if}
+				Add Status Type
+			</Button>
 		</AppDialog.Footer>
 	</AppDialog.Content>
 </AppDialog.Root>
 
-<AppDialog.Root bind:open={editStatusOpen} closeBlocked={editStatusDirty} onClose={closeEditStatusDialog}>
+<AppDialog.Root
+	bind:open={editStatusOpen}
+	busy={saving.pending}
+	closeBlocked={editStatusDirty}
+	onClose={closeEditStatusDialog}
+>
 	<AppDialog.Content class="sm:max-w-md">
 		<AppDialog.Header>
 			<AppDialog.Title>Edit Status Type</AppDialog.Title>
 			<AppDialog.Description>Update this personnel availability status.</AppDialog.Description>
 		</AppDialog.Header>
 		<AppDialog.Body class="grid gap-4">
-			<div class="grid gap-2">
-				<Label for="edit-status-name">Status name</Label>
-				<Input id="edit-status-name" type="text" bind:value={editStatusName} />
-			</div>
-			<div class="flex flex-wrap items-end gap-4">
+			<fieldset class="contents" disabled={saving.pending}>
 				<div class="grid gap-2">
-					<Label for="edit-status-bg">Background</Label>
-					<input
-						id="edit-status-bg"
-						type="color"
-						bind:value={editStatusColor}
-						class="size-9 cursor-pointer rounded-md border border-border p-0.5"
-					/>
+					<Label for="edit-status-name">Status name</Label>
+					<Input id="edit-status-name" type="text" bind:value={editStatusName} />
 				</div>
-				<div class="grid gap-2">
-					<Label for="edit-status-text">Text</Label>
-					<input
-						id="edit-status-text"
-						type="color"
-						bind:value={editStatusTextColor}
-						class="size-9 cursor-pointer rounded-md border border-border p-0.5"
-					/>
-				</div>
-				{#if editStatusName.trim()}
-					<div class="min-w-0 flex-1">
-						<Label>Preview</Label>
-						<div class="mt-2">
-							<CalendarStatusBadge
-								statusType={{
-									id: 'edit-preview',
-									name: editStatusName,
-									color: editStatusColor,
-									textColor: editStatusTextColor
-								}}
-							>
-								{editStatusName}
-							</CalendarStatusBadge>
-						</div>
+				<div class="flex flex-wrap items-end gap-4">
+					<div class="grid gap-2">
+						<Label for="edit-status-bg">Background</Label>
+						<input
+							id="edit-status-bg"
+							type="color"
+							bind:value={editStatusColor}
+							class="size-9 cursor-pointer rounded-md border border-border p-0.5"
+						/>
 					</div>
-				{/if}
-			</div>
+					<div class="grid gap-2">
+						<Label for="edit-status-text">Text</Label>
+						<input
+							id="edit-status-text"
+							type="color"
+							bind:value={editStatusTextColor}
+							class="size-9 cursor-pointer rounded-md border border-border p-0.5"
+						/>
+					</div>
+					{#if editStatusName.trim()}
+						<div class="min-w-0 flex-1">
+							<Label>Preview</Label>
+							<div class="mt-2">
+								<CalendarStatusBadge
+									statusType={{
+										id: 'edit-preview',
+										name: editStatusName,
+										color: editStatusColor,
+										textColor: editStatusTextColor
+									}}
+								>
+									{editStatusName}
+								</CalendarStatusBadge>
+							</div>
+						</div>
+					{/if}
+				</div>
+			</fieldset>
 		</AppDialog.Body>
 		<AppDialog.Footer>
-			<Button variant="outline" onclick={closeEditStatusDialog}>Cancel</Button>
-			<Button onclick={saveEditStatus} disabled={!editStatusName.trim()}>Save Changes</Button>
+			<Button variant="outline" onclick={closeEditStatusDialog} disabled={saving.pending}>Cancel</Button>
+			<Button onclick={() => saving.run(saveEditStatus)} disabled={saving.pending || !editStatusName.trim()}>
+				{#if saving.pending}<Spinner />{/if}
+				Save Changes
+			</Button>
 		</AppDialog.Footer>
 	</AppDialog.Content>
 </AppDialog.Root>
@@ -300,7 +323,7 @@
 		confirmLabel="Delete"
 		variant="danger"
 		onConfirm={() => {
-			if (confirmDeleteStatus) deleteStatus(confirmDeleteStatus);
+			if (confirmDeleteStatus) return deleteStatus(confirmDeleteStatus);
 		}}
 		onCancel={() => (confirmDeleteStatus = null)}
 	/>

@@ -962,7 +962,7 @@
 		confirmLabel="Delete"
 		variant="danger"
 		onConfirm={() => {
-			if (confirmDeleteRoster) deleteRoster(confirmDeleteRoster);
+			if (confirmDeleteRoster) return deleteRoster(confirmDeleteRoster);
 		}}
 		onCancel={() => (confirmDeleteRoster = null)}
 	/>

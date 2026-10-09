@@ -1,1 +1,0 @@
-{"status":"BLOCKED","code":"FIXTURE_PROVIDER","message":"Synthetic provider operation failed (23502): null value in column \"id\" of relation \"organization_rank_catalog\" violates not-null constraint. Check disposable provider health."}

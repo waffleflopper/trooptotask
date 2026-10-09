@@ -1,9 +1,0 @@
-{
-  "rows": [
-    {
-      "id": "46b66117-0c33-4f3c-9ee0-cd0c29f0ce7e",
-      "critical_tasks_default_expiration_months": 12,
-      "critical_tasks_expiring_soon_warning_days": 60
-    }
-  ]
-}

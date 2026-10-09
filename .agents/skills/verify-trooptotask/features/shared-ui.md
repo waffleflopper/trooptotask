@@ -21,7 +21,7 @@ Range-calendar and pagination currently have no production callers. Their public
 
 ## Driving it with verify:app
 
-D29 status: **scoped native and component verification recorded**. The [acceptance receipt](../../../../docs/stabilization/phase-08/d29-ui-contracts.md) identifies the two frozen implementation runs, repaired failures and separate unconsumed component proof. Keep baseline failures and later passing observations separate under the [evidence contract](../../../../docs/architecture/DEFINITION_OF_DONE.md#packaging-durable-artifacts); this status does not certify unrelated feature behavior.
+D29 status: **scoped native and component verification recorded**. The [acceptance receipt](https://github.com/waffleflopper/trooptotask/blob/5fa75cf772d5a929408e97443b9cb005b4a71023/docs/stabilization/phase-08/d29-ui-contracts.md) identifies the two frozen implementation runs, repaired failures and separate unconsumed component proof. Keep baseline failures and later passing observations separate under the [evidence contract](../../../../docs/architecture/DEFINITION_OF_DONE.md#packaging-durable-artifacts); this status does not certify unrelated feature behavior.
 
 Use the index's owned worker, Node runtime, launch, doctor and native DevTools conventions. Sign in normally as `manager` and retain its page/Organization IDs. The existing actors, upload control and read-only DOM inspection suffice; no additional browser service is required. Preserve the original Personnel rows with `$V rows personnel orgA` before any form interaction and compare them after canceling.
 

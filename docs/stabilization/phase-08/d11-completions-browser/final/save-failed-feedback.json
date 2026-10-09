@@ -1,9 +1,0 @@
-{
-  "armed": true,
-  "entries": [
-    {
-      "type": "error",
-      "text": "Synthetic request failure"
-    }
-  ]
-}

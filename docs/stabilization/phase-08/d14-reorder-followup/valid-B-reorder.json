@@ -1,8 +1,0 @@
-{
-  "content": [
-    {
-      "type": "text",
-      "text": "Script ran on page and returned:\n```json\n[{\"request\":{\"family\":\"onboarding-template-steps/reorder\",\"method\":\"POST\",\"body\":{\"templateId\":\"e91aa482-2291-4ab2-948d-f6195af66694\",\"orderedStepIds\":[\"c44b7b3d-f14a-4dda-a73c-d3ea50a426af\"]}},\"status\":403,\"body\":\"{\\\"message\\\":\\\"You don't have permission. This requires Onboarding can manage permissions. Talk to your organization owner or admin.\\\"}\"}]\n```"
-    }
-  ]
-}

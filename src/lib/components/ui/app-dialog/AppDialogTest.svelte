@@ -16,6 +16,7 @@
 	let draft = $state('');
 	let closedCount = $state(0);
 	let confirmedCount = $state(0);
+	let submitted = $state(false);
 
 	function close() {
 		open = false;
@@ -43,6 +44,7 @@
 				<Button variant="outline" onclick={close} disabled={busy}>Cancel</Button>
 				<Button onclick={() => (confirmedCount += 1)} disabled={busy}>Confirm</Button>
 				<Button onclick={() => (busy = true)} disabled={busy}>Save slowly</Button>
+				<Button onclick={() => (submitted = true)} disabled={submitted}>Submit once</Button>
 			</AppDialog.Footer>
 		</AppDialog.Content>
 	</AppDialog.Root>

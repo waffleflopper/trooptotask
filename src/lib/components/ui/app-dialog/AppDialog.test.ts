@@ -78,6 +78,22 @@ describe('AppDialog', () => {
 		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 	});
 
+	it('keeps focus inside when a dialog that is not busy disables its focused button', async () => {
+		render(AppDialogTest);
+		const dialog = screen.getByRole('dialog', { name: 'Shared dialog title' });
+		const submit = screen.getByRole('button', { name: 'Submit once' });
+		submit.focus();
+
+		await fireEvent.click(submit);
+		await new Promise((resolve) => setTimeout(resolve));
+
+		expect((submit as HTMLButtonElement).disabled).toBe(true);
+		expect(document.activeElement).toBe(dialog);
+		expect(dialog.hasAttribute('aria-busy')).toBe(false);
+		await fireEvent.keyDown(dialog, { key: 'Escape' });
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+	});
+
 	it('blocks closing a draft without announcing busy work', async () => {
 		render(AppDialogTest);
 		const dialog = screen.getByRole('dialog', { name: 'Shared dialog title' });
@@ -94,7 +110,7 @@ describe('AppDialog', () => {
 		save.focus();
 		await fireEvent.click(save);
 		expect(dialog.getAttribute('aria-busy')).toBe('true');
-		expect(document.activeElement).toBe(dialog);
+		await waitFor(() => expect(document.activeElement).toBe(dialog));
 	});
 
 	it('blocks close affordances while busy', () => {

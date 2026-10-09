@@ -27,7 +27,7 @@
 
 <Dialog.Content
 	bind:ref
-	{@attach Dialog.busyDialog(dialog.busy)}
+	aria-busy={dialog.busy || undefined}
 	size={primitiveSize}
 	showCloseButton={showCloseButton && !dialog.closeBlocked}
 	escapeKeydownBehavior={dialog.closeBlocked ? 'ignore' : 'close'}

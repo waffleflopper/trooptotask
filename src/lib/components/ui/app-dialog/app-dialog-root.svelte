@@ -5,7 +5,7 @@
 	import { setAppDialogState } from './app-dialog-context';
 
 	type Props = DialogPrimitive.RootProps & {
-		/** Work is in flight: the dialog announces aria-busy, keeps focus inside and blocks dismissal. */
+		/** Work is in flight: the dialog announces aria-busy and blocks dismissal. */
 		busy?: boolean;
 		/** Dismissal would lose something (a draft, an unresolved outcome) without work being in flight. */
 		closeBlocked?: boolean;

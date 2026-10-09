@@ -3,6 +3,7 @@
 	import * as Sheet from './sheet/index.js';
 
 	let { kind }: { kind: 'sheet' | 'popover' } = $props();
+	let saving = $state(false);
 </script>
 
 <button type="button">Outside control</button>
@@ -13,6 +14,7 @@
 		<Sheet.Content>
 			<Sheet.Title>Manage Access</Sheet.Title>
 			<button type="button">Inside control</button>
+			<button type="button" disabled={saving} onclick={() => (saving = true)}>Save access</button>
 		</Sheet.Content>
 	</Sheet.Root>
 {:else}

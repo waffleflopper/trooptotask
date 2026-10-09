@@ -47,3 +47,19 @@ describe.each(cases)('$kind dismissal', ({ kind, trigger: triggerName }) => {
 		expect(screen.getByRole('button', { name: triggerName }).getAttribute('aria-expanded')).toBe('false');
 	});
 });
+
+describe('sheet focus', () => {
+	it('keeps focus inside when its focused control disables', async () => {
+		render(OverlayDismissalTest, { kind: 'sheet' });
+		await open('Manage access');
+		const sheet = screen.getByRole('dialog', { name: 'Manage Access' });
+		const save = screen.getByRole('button', { name: 'Save access' });
+		save.focus();
+
+		await fireEvent.click(save);
+		await new Promise((resolve) => setTimeout(resolve));
+
+		expect((save as HTMLButtonElement).disabled).toBe(true);
+		expect(document.activeElement).toBe(sheet);
+	});
+});

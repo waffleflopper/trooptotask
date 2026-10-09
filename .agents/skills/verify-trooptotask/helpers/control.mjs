@@ -2096,6 +2096,7 @@ async function main() {
 					'calendar-range',
 					'availability',
 					'availability/batch',
+					'special-days',
 					'sign-in-rosters',
 					'training-types',
 					'training-views',

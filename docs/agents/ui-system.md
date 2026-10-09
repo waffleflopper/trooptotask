@@ -5,7 +5,8 @@ Use this file for UI component work, shared styling, route UI changes, app-shell
 ## Current-State Sources
 
 - The [component catalog index](../component-catalog.md#find-the-relevant-component) routes to shared APIs, states and known replacements. Read the foundation and relevant component sections.
-- Shared UI source under `src/lib/components/ui/**` owns generated shadcn-svelte primitives and TroopToTask compound UI.
+- The [foundation provenance and family contract](../ui-foundation-provenance.md) records every current family, its canonical API, retained deviations and selected target layer.
+- `src/lib/components/ui/**` currently contains both canonical primitives and project compositions. Phase 09 D02 will move the selected neutral patterns and feature-owned UI. Those moves have not happened.
 - Shared app and layout primitives under `src/lib/components/**` own product shell and reusable layout behavior.
 - `src/app.css` and `components.json` own global Tailwind v4, shadcn-svelte, token, and generated-component configuration.
 - `PRODUCT.md` and `DESIGN.md` describe the product and visual direction for design-heavy UI work.
@@ -38,9 +39,15 @@ When no suitable pattern exists, use the direction already authorized to establi
 
 Use accessible shared controls, dialogs and menus. Preserve labels, keyboard/focus behavior, loading/empty/error states and save feedback. Inspect the rendered interaction against an analogous screen at narrow and wide widths, with long and short dynamic content. Use wrapping, truncation or overflow intentionally so content remains usable; a cosmetic adjustment alone does not require a new runtime test. Follow the [testing strategy](../architecture/TESTING.md) for uncovered interaction or accessibility behavior.
 
+## Three-layer contract
+
+Use `components/ui` for canonical primitives and centrally owned variants. Use `components/patterns` for a shared neutral composition when current consumers justify it. Keep feature workflows and domain-specific presentation with their feature owner. D02 establishes those selected locations and updates all affected imports together. Do not add a second primitive API or retain old-path re-exports after the cutover.
+
+The [family mapping](../ui-foundation-provenance.md#project-family-apis-and-target-layers) distinguishes current imports from the selected targets. Preserve existing props, bindings, snippets and events until a mapping names their replacement. Authoritative validation, authorization and saved state remain in the owning feature/server operations.
+
 ## Current UI Foundation
 
 - The active shared foundation is shadcn-svelte, Tailwind v4, and TroopToTask compound components.
-- `components.json` records the implementation-time shadcn-svelte style and aliases.
-- Dark mode currently uses `documentElement[data-theme]`; Tailwind v4 dark variants also support `.dark` for shadcn compatibility.
+- `components.json` selects Nova, Stone and the aliases. The CLI is not installed and the registry is not pinned. The provenance reference uses the immutable 1.2.7 registry tag for source comparison.
+- Dark mode currently uses `documentElement[data-theme]` through `themeStore`; Tailwind v4 dark variants also support `.dark` for shadcn compatibility. Sonner still reads `mode-watcher`. Removing that second theme source and consolidating tokens remain D01 runtime work. See the [pending theme/token contract](../ui-foundation-provenance.md#pending-token-and-theme-cutover).
 - Public marketing primitives live in `src/lib/components/public/**` and may have product-site-specific composition, but they should still avoid one-off route styling when a shared primitive exists.

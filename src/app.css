@@ -80,6 +80,8 @@
 :root {
 	color-scheme: light;
 
+	--focus-outline: 2px solid var(--ring);
+	--focus-outline-offset: 2px;
 	--transition-fast: 120ms cubic-bezier(0.2, 0, 0, 1);
 
 	/* Theme-invariant: chrome and readiness ramp must not be overridden in the dark block. */

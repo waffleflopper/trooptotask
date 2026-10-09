@@ -2,9 +2,11 @@
 	import { cn, type WithElementRef } from '$lib/utils.js';
 	import type { HTMLAttributes } from 'svelte/elements';
 	import type { Snippet } from 'svelte';
+	import { getFieldContext } from './context.svelte.js';
 
 	let {
 		ref = $bindable(null),
+		id: idProp,
 		class: className,
 		children,
 		errors,
@@ -29,6 +31,10 @@
 		return true;
 	});
 
+	const uid = $props.id();
+	const id = $derived(idProp ?? `${uid}-error`);
+	const field = getFieldContext();
+
 	const isMultipleErrors = $derived(errors && errors.length > 1);
 	const singleErrorMessage = $derived(errors && errors.length === 1 && errors[0]?.message);
 </script>
@@ -36,6 +42,8 @@
 {#if hasContent}
 	<div
 		bind:this={ref}
+		{id}
+		{@attach () => field?.register('error', id)}
 		role="alert"
 		data-slot="field-error"
 		class={cn('text-destructive text-sm font-normal', className)}

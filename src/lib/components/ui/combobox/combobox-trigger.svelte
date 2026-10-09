@@ -6,6 +6,7 @@
 	import type { HTMLButtonAttributes } from 'svelte/elements';
 	import type { ClassValue } from 'clsx';
 	import { cn } from '$lib/utils.js';
+	import { getFieldContext } from '$lib/components/ui/field/context.svelte.js';
 	import { getComboboxContext } from './context.js';
 
 	let {
@@ -26,6 +27,8 @@
 	} = $props();
 
 	const context = getComboboxContext();
+	const field = getFieldContext();
+	const fieldAria = $derived(field?.controlAria(restProps['aria-describedby'], restProps['aria-invalid']) ?? {});
 	const selectedValues = $derived(context.getSelectedValues());
 	const selectedLabels = $derived(context.getSelectedLabels());
 	const displayValue = $derived(selectedLabels.length > 0 ? selectedLabels.join(', ') : placeholder);
@@ -75,6 +78,7 @@
 			}
 		}}
 		{...restProps}
+		{...fieldAria}
 	>
 		<span data-slot="combobox-trigger-value" class="min-w-0 truncate">
 			{#if children}

@@ -23,6 +23,7 @@
 <script lang="ts">
 	import { cn, type WithElementRef } from '$lib/utils.js';
 	import type { HTMLAttributes } from 'svelte/elements';
+	import { createFieldContext } from './context.svelte.js';
 
 	let {
 		ref = $bindable(null),
@@ -33,6 +34,8 @@
 	}: WithElementRef<HTMLAttributes<HTMLDivElement>> & {
 		orientation?: FieldOrientation;
 	} = $props();
+
+	createFieldContext();
 </script>
 
 <div

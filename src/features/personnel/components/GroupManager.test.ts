@@ -59,7 +59,7 @@ describe('GroupManager', () => {
 		expect(onRemove).toHaveBeenCalledWith('group-bravo');
 	});
 
-	it('serializes pending additions and retains the keyboard draft after rejection', async () => {
+	it('serializes pending additions and associates a rejected addition with the keyboard draft', async () => {
 		let reject!: (reason: Error) => void;
 		const onAdd = vi
 			.fn()
@@ -80,11 +80,16 @@ describe('GroupManager', () => {
 		expect((screen.getByRole('button', { name: 'Done' }) as HTMLButtonElement).disabled).toBe(true);
 		reject(new Error('Organization is suspended'));
 		await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Organization is suspended'));
+		expect(input.getAttribute('aria-invalid')).toBe('true');
+		expect(document.getElementById(input.getAttribute('aria-describedby') ?? '')?.textContent).toBe(
+			'Organization is suspended'
+		);
 		expect(input.value).toBe('Pending Group');
 		expect(input.readOnly).toBe(false);
 		await fireEvent.keyDown(input, { key: 'Enter' });
 		await waitFor(() => expect(input.value).toBe(''));
 		expect(screen.queryByRole('alert')).toBeNull();
+		expect(input.getAttribute('aria-invalid')).toBeNull();
 		expect(onAdd).toHaveBeenCalledTimes(2);
 	});
 

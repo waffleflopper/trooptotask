@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { HTMLInputAttributes, HTMLInputTypeAttribute } from 'svelte/elements';
 	import { cn, type WithElementRef } from '$lib/utils.js';
+	import { getFieldContext } from '$lib/components/ui/field/context.svelte.js';
 
 	type InputType = Exclude<HTMLInputTypeAttribute, 'file'>;
 
@@ -17,6 +18,9 @@
 		'data-slot': dataSlot = 'input',
 		...restProps
 	}: Props = $props();
+
+	const field = getFieldContext();
+	const fieldAria = $derived(field?.controlAria(restProps['aria-describedby'], restProps['aria-invalid']) ?? {});
 </script>
 
 {#if type === 'file'}
@@ -30,6 +34,7 @@
 		type="file"
 		bind:files
 		{...restProps}
+		{...fieldAria}
 	/>
 {:else}
 	<input
@@ -42,5 +47,6 @@
 		{type}
 		bind:value
 		{...restProps}
+		{...fieldAria}
 	/>
 {/if}

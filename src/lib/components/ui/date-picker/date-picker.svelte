@@ -3,6 +3,7 @@
 	import { DateFormatter, getLocalTimeZone, parseDate, type DateValue } from '@internationalized/date';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Calendar } from '$lib/components/ui/calendar/index.js';
+	import { getFieldContext } from '$lib/components/ui/field/context.svelte.js';
 	import * as Popover from '$lib/components/ui/popover/index.js';
 	import { cn } from '$lib/utils.js';
 	import type { ClassValue } from 'svelte/elements';
@@ -28,6 +29,8 @@
 	}: Props = $props();
 
 	let open = $state(false);
+	const field = getFieldContext();
+	const fieldAria = $derived(field?.controlAria(undefined, undefined) ?? {});
 	const calendarValue = $derived(toCalendarValue(value));
 
 	const formatter = new DateFormatter('en-US', {
@@ -56,7 +59,7 @@
 </script>
 
 <Popover.Root bind:open>
-	<Popover.Trigger {id} {disabled} aria-label={ariaLabel}>
+	<Popover.Trigger {id} {disabled} aria-label={ariaLabel} {...fieldAria}>
 		{#snippet child({ props })}
 			<Button
 				{...props}

@@ -8,7 +8,7 @@
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
-	import * as TypeWorkspace from '$lib/components/ui/type-workspace';
+	import * as TypeWorkspace from '$lib/components/ui/type-management-workspace';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
@@ -224,7 +224,7 @@
 				<TypeWorkspace.Stack>
 					<TypeWorkspace.DetailHeader title={creating ? 'New Training View' : 'Edit Training View'} />
 
-					<TypeWorkspace.Form title="Basics">
+					<TypeWorkspace.FormSection title="Basics">
 						<Field.Root>
 							<Field.Label for="view-name">View Name</Field.Label>
 							<Input id="view-name" type="text" bind:value={name} placeholder="e.g. Annual Trainings" />
@@ -232,9 +232,9 @@
 								<Field.Error>{error}</Field.Error>
 							{/if}
 						</Field.Root>
-					</TypeWorkspace.Form>
+					</TypeWorkspace.FormSection>
 
-					<TypeWorkspace.Form title="Training Types">
+					<TypeWorkspace.FormSection title="Training Types">
 						<div class="flex items-center justify-between gap-3">
 							<TypeWorkspace.Description>
 								Choose the columns this saved view should show in the training matrix.
@@ -259,10 +259,10 @@
 								</Field.Root>
 							{/each}
 						</div>
-					</TypeWorkspace.Form>
+					</TypeWorkspace.FormSection>
 
 					{#if orderedIds.length > 0}
-						<TypeWorkspace.Form title="Column Order">
+						<TypeWorkspace.FormSection title="Column Order">
 							<ol class="grid gap-2">
 								{#each orderedIds as typeId, i (typeId)}
 									<li class="flex items-center justify-between gap-3 border-b border-border/70 py-2 last:border-b-0">
@@ -292,10 +292,10 @@
 									</li>
 								{/each}
 							</ol>
-						</TypeWorkspace.Form>
+						</TypeWorkspace.FormSection>
 					{/if}
 
-					<TypeWorkspace.Actions>
+					<TypeWorkspace.FooterActions>
 						{#if !creating && selectedView && canMutate}
 							<Button variant="destructive" size="sm" type="button" onclick={() => (confirmDeleteView = selectedView)}>
 								<Trash2 aria-hidden="true" />
@@ -307,7 +307,7 @@
 						<Button size="sm" type="button" onclick={handleSave} disabled={saving}>
 							{saving ? 'Saving...' : 'Save'}
 						</Button>
-					</TypeWorkspace.Actions>
+					</TypeWorkspace.FooterActions>
 				</TypeWorkspace.Stack>
 			{:else if selectedView}
 				<TypeWorkspace.Stack>
@@ -324,18 +324,18 @@
 					</TypeWorkspace.Description>
 
 					<TypeWorkspace.FactList>
-						<TypeWorkspace.Impact label="Columns">{selectedView.columnIds.length} selected</TypeWorkspace.Impact>
-						<TypeWorkspace.Impact label="Training Types">
+						<TypeWorkspace.Fact label="Columns">{selectedView.columnIds.length} selected</TypeWorkspace.Fact>
+						<TypeWorkspace.Fact label="Training Types">
 							{selectedView.columnIds.map(getTypeName).join(', ') || 'No columns selected'}
-						</TypeWorkspace.Impact>
+						</TypeWorkspace.Fact>
 					</TypeWorkspace.FactList>
 
 					{#if canMutate}
-						<TypeWorkspace.Actions>
+						<TypeWorkspace.FooterActions>
 							<Button variant="destructive" size="sm" type="button" onclick={() => (confirmDeleteView = selectedView)}>
 								Delete View
 							</Button>
-						</TypeWorkspace.Actions>
+						</TypeWorkspace.FooterActions>
 					{/if}
 				</TypeWorkspace.Stack>
 			{:else}

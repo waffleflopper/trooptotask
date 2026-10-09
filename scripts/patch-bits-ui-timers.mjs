@@ -46,22 +46,6 @@ function assertAuditedBitsUiVersion() {
 
 assertAuditedBitsUiVersion();
 
-// Unfixed upstream: completing a cross-month range recenters on the start and strands focus.
-// Delete with the unused range-calendar components.
-patchFile({
-	patchName: 'range calendar start placeholder synchronization',
-	filePath: join(bitsUiDist, 'range-calendar', 'range-calendar.svelte.js'),
-	replacements: [
-		{
-			original: `        watch(() => this.opts.value.current, (value) => {
-            const startValue = value.start;
-            if (startValue && this.opts.placeholder.current !== startValue) {`,
-			patched: `        watch(() => this.opts.value.current.start, (startValue, previousStartValue) => {
-            if (startValue && startValue !== previousStartValue && this.opts.placeholder.current !== startValue) {`
-		}
-	]
-});
-
 // Unfixed upstream (huntabyte/bits-ui#2146): a superseded animation run can still fire its callback.
 patchFile({
 	patchName: 'presence animation tick cleanup',

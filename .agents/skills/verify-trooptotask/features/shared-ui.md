@@ -51,7 +51,7 @@ D01 ran this pass on unchanged main `7a8d7071` and again on its token/theme cand
 
 ## Gotchas
 
-Run `npm run test -- src/lib/components/ui/tooltip/tooltip.test.ts src/lib/components/ui/range-calendar/range-calendar.test.ts src/lib/components/ui/pagination/pagination.test.ts src/lib/components/ui/sidebar/sidebar-menu-button.test.ts` under the required Node/npm versions. These render the public barrels, use literal expected dates/pages and assert caller-visible values, disabled selection, keyboard focus and selected semantics. Tooltip checks cover generated and caller IDs, resolving descriptions, dismissal, custom child rendering, references and Escape callbacks. Unconsumed components need this proof rather than a new test route.
+Run `npm run test -- src/lib/components/ui/tooltip/tooltip.test.ts src/lib/components/ui/sidebar/sidebar-menu-button.test.ts` under the required Node/npm versions. These render the public barrels and assert caller-visible values, keyboard focus and selected semantics. Tooltip checks cover generated and caller IDs, resolving descriptions, dismissal, custom child rendering, references and Escape callbacks. Unconsumed components need this proof rather than a new test route.
 
 Sidebar MenuButton checks cover current/ordinary destination closure, caller cancellation, modified/nonprimary activation, non-navigation controls and the desktop preference. Retain AppDialog, ConfirmDialog and AppShellHeader interaction tests alongside affected consumer tests. Text-only assertions cannot detect an empty ID or a broken description. A source-aware import scan establishes cycle removal and reverse consumers separately from these user interactions. Full required checks and production build remain candidate gates.
 

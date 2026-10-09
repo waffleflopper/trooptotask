@@ -84,7 +84,6 @@ interface TrainingPageViewTestCtx {
 
 	canViewTraining: boolean;
 	canRecordTraining: boolean;
-	trainingOverflowItems: unknown[];
 	groups: Group[];
 	selectedGroupId: string;
 	setSelectedGroupId: ReturnType<typeof vi.fn>;
@@ -105,7 +104,6 @@ function makeCtx(viewMode: 'alphabetical' | 'by-group', overrides: Partial<Train
 		canBulkImport: true,
 		canViewTraining: true,
 		canRecordTraining: true,
-		trainingOverflowItems: [],
 		groups,
 		selectedGroupId: '',
 		setSelectedGroupId: vi.fn(),

@@ -17,7 +17,7 @@
 	import * as RadioGroup from '$lib/components/ui/radio-group';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { Textarea } from '$lib/components/ui/textarea';
-	import * as TypeWorkspace from '$lib/components/ui/type-workspace';
+	import * as TypeWorkspace from '$lib/components/ui/type-management-workspace';
 	import * as Select from '$lib/components/ui/select';
 	import { getAppShellContext } from '$features/app-shell';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -278,7 +278,7 @@
 						title={model.creatingTemplate ? 'New Onboarding Template' : 'Edit Onboarding Template'}
 					/>
 
-					<TypeWorkspace.Form title="Basics">
+					<TypeWorkspace.FormSection title="Basics">
 						<Field.Root>
 							<Field.Label for="template-name">Name</Field.Label>
 							<Input
@@ -297,10 +297,10 @@
 								placeholder="Optional template description"
 							/>
 						</Field.Root>
-					</TypeWorkspace.Form>
+					</TypeWorkspace.FormSection>
 				</div>
 
-				<TypeWorkspace.Actions class="shrink-0 bg-background py-3 pr-2">
+				<TypeWorkspace.FooterActions class="shrink-0 bg-background py-3 pr-2">
 					{#if !model.creatingTemplate && model.selectedTemplate && model.canMutate}
 						<Button
 							variant="destructive"
@@ -325,7 +325,7 @@
 						{#if model.savingTemplate}<Spinner />{/if}
 						{model.creatingTemplate ? 'Create' : 'Save'}
 					</Button>
-				</TypeWorkspace.Actions>
+				</TypeWorkspace.FooterActions>
 			{:else if model.selectedTemplate}
 				<div class="min-h-0 flex-1 overflow-y-auto pr-2 pb-8 [scrollbar-gutter:stable]">
 					<TypeWorkspace.Stack>
@@ -344,17 +344,17 @@
 						</TypeWorkspace.Description>
 
 						<TypeWorkspace.FactList>
-							<TypeWorkspace.Impact label="Steps">
+							<TypeWorkspace.Fact label="Steps">
 								{model.selectedTemplateSteps.length} configured
-							</TypeWorkspace.Impact>
-							<TypeWorkspace.Impact label="Created">
+							</TypeWorkspace.Fact>
+							<TypeWorkspace.Fact label="Created">
 								{model.selectedTemplate.createdAt
 									? new Date(model.selectedTemplate.createdAt).toLocaleDateString()
 									: 'Unknown'}
-							</TypeWorkspace.Impact>
+							</TypeWorkspace.Fact>
 						</TypeWorkspace.FactList>
 
-						<TypeWorkspace.Form title="Steps">
+						<TypeWorkspace.FormSection title="Steps">
 							{#if model.selectedTemplateSteps.length === 0 && !model.addingStep}
 								<button
 									type="button"
@@ -464,12 +464,12 @@
 									{@render stepForm(saveStep, () => workspace.cancelAddStep(), 'Add Step')}
 								</TypeWorkspace.Choice>
 							{/if}
-						</TypeWorkspace.Form>
+						</TypeWorkspace.FormSection>
 					</TypeWorkspace.Stack>
 				</div>
 
 				{#if model.canMutate}
-					<TypeWorkspace.Actions class="shrink-0 bg-background py-3 pr-2">
+					<TypeWorkspace.FooterActions class="shrink-0 bg-background py-3 pr-2">
 						<Button
 							variant="destructive"
 							size="sm"
@@ -508,7 +508,7 @@
 							<Plus aria-hidden="true" />
 							Add Step
 						</Button>
-					</TypeWorkspace.Actions>
+					</TypeWorkspace.FooterActions>
 				{/if}
 			{:else}
 				<Empty.Root>
@@ -544,7 +544,7 @@
 
 {#snippet stepForm(onSave: () => void | Promise<void>, onCancel: () => void, saveLabel: string)}
 	<div class="grid gap-4">
-		<TypeWorkspace.Form title="Step Basics">
+		<TypeWorkspace.FormSection title="Step Basics">
 			<Field.Root>
 				<Field.Label for="step-name">Name</Field.Label>
 				<Input id="step-name" type="text" placeholder="Step name" bind:value={workspace.stepDraft.name} />
@@ -559,9 +559,9 @@
 					bind:value={workspace.stepDraft.description}
 				/>
 			</Field.Root>
-		</TypeWorkspace.Form>
+		</TypeWorkspace.FormSection>
 
-		<TypeWorkspace.Form title="Type">
+		<TypeWorkspace.FormSection title="Type">
 			<RadioGroup.Root bind:value={workspace.stepDraft.stepType} class="sm:grid-cols-3">
 				{#each ['checkbox', 'paperwork', 'training'] as const as typeOption (typeOption)}
 					<TypeWorkspace.Choice>
@@ -597,10 +597,10 @@
 					</Select.Root>
 				</Field.Root>
 			{/if}
-		</TypeWorkspace.Form>
+		</TypeWorkspace.FormSection>
 
 		{#if workspace.stepDraft.stepType === 'paperwork'}
-			<TypeWorkspace.Form title="Stages">
+			<TypeWorkspace.FormSection title="Stages">
 				<div class="grid gap-2">
 					{#each workspace.stepDraft.stages as stage, index (index)}
 						<div class="flex items-center justify-between rounded-md border bg-card p-2">
@@ -660,16 +660,16 @@
 						</Button>
 					</div>
 				</div>
-			</TypeWorkspace.Form>
+			</TypeWorkspace.FormSection>
 		{/if}
 
-		<TypeWorkspace.Actions>
+		<TypeWorkspace.FooterActions>
 			<TypeWorkspace.ActionSpacer />
 			<Button variant="outline" size="sm" type="button" onclick={onCancel}>Cancel</Button>
 			<Button size="sm" type="button" onclick={onSave} disabled={!model.canSaveStep}>
 				{#if model.savingStep}<Spinner class="size-3" />{/if}
 				{saveLabel}
 			</Button>
-		</TypeWorkspace.Actions>
+		</TypeWorkspace.FooterActions>
 	</div>
 {/snippet}

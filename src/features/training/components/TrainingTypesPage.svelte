@@ -9,7 +9,7 @@
 	import * as RadioGroup from '$lib/components/ui/radio-group';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { Textarea } from '$lib/components/ui/textarea';
-	import * as TypeWorkspace from '$lib/components/ui/type-workspace';
+	import * as TypeWorkspace from '$lib/components/ui/type-management-workspace';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -382,7 +382,7 @@
 				<div class="grid min-h-0 flex-1 gap-6 overflow-y-auto pr-2 pb-8 [scrollbar-gutter:stable]">
 					<TypeWorkspace.DetailHeader title={creating ? 'New Training Type' : 'Edit Training Type'} />
 
-					<TypeWorkspace.Form title="Basics" class="sm:grid-cols-[minmax(0,1fr)_12rem] sm:items-end">
+					<TypeWorkspace.FormSection title="Basics" class="sm:grid-cols-[minmax(0,1fr)_12rem] sm:items-end">
 						<Field.Root>
 							<Field.Label for="type-name">Name</Field.Label>
 							<Input id="type-name" type="text" bind:value={editName} placeholder="e.g. First Aid" />
@@ -398,9 +398,9 @@
 							<Field.Label for="type-desc">Description</Field.Label>
 							<Textarea id="type-desc" rows={2} bind:value={editDescription} placeholder="Optional description" />
 						</Field.Root>
-					</TypeWorkspace.Form>
+					</TypeWorkspace.FormSection>
 
-					<TypeWorkspace.Form title="Expiration">
+					<TypeWorkspace.FormSection title="Expiration">
 						<RadioGroup.Root bind:value={editExpirationMode} class="md:grid-cols-[1fr_0.8fr_1.2fr]">
 							{#each ['fixed', 'never', 'date-only'] as const as mode (mode)}
 								<TypeWorkspace.Choice>
@@ -417,10 +417,10 @@
 								<Input id="exp-months" type="number" min="1" max="120" bind:value={editExpirationMonths} />
 							</Field.Root>
 						{/if}
-					</TypeWorkspace.Form>
+					</TypeWorkspace.FormSection>
 
 					{#if editExpirationMode !== 'never'}
-						<TypeWorkspace.Form title="Warning Thresholds" layout="two-column">
+						<TypeWorkspace.FormSection title="Warning Thresholds" layout="two-column">
 							<Field.Root>
 								<Field.Label for="warn-yellow">Yellow warning (days)</Field.Label>
 								<Input id="warn-yellow" type="number" min="1" bind:value={editWarningYellow} />
@@ -429,7 +429,7 @@
 								<Field.Label for="warn-orange">Orange warning (days)</Field.Label>
 								<Input id="warn-orange" type="number" min="1" bind:value={editWarningOrange} />
 							</Field.Root>
-						</TypeWorkspace.Form>
+						</TypeWorkspace.FormSection>
 					{/if}
 
 					{#key selectedTypeId ?? 'new-training-type'}
@@ -448,15 +448,15 @@
 						/>
 					{/key}
 
-					<TypeWorkspace.Form title="Options">
+					<TypeWorkspace.FormSection title="Options">
 						<Field.Root orientation="horizontal">
 							<Checkbox id="can-be-exempted" bind:checked={editCanBeExempted} />
 							<Field.Label for="can-be-exempted">Can be exempted</Field.Label>
 						</Field.Root>
-					</TypeWorkspace.Form>
+					</TypeWorkspace.FormSection>
 				</div>
 
-				<TypeWorkspace.Actions class="shrink-0 bg-background py-3 pr-2">
+				<TypeWorkspace.FooterActions class="shrink-0 bg-background py-3 pr-2">
 					{#if !creating && selectedTypeId && canMutate}
 						<Button
 							variant="destructive"
@@ -474,7 +474,7 @@
 						{#if saving}<Spinner />{/if}
 						{creating ? 'Create' : 'Save'}
 					</Button>
-				</TypeWorkspace.Actions>
+				</TypeWorkspace.FooterActions>
 			{:else if selectedType}
 				<TypeWorkspace.Stack>
 					<TypeWorkspace.DetailHeader title={selectedType.name} color={selectedType.color}>
@@ -490,41 +490,41 @@
 					</TypeWorkspace.Description>
 
 					<TypeWorkspace.FactList>
-						<TypeWorkspace.Impact label="Expiration">
+						<TypeWorkspace.Fact label="Expiration">
 							{getExpirationLabel(getExpirationMode(selectedType))}
-						</TypeWorkspace.Impact>
+						</TypeWorkspace.Fact>
 
 						{#if getExpirationMode(selectedType) === 'fixed'}
-							<TypeWorkspace.Impact label="Duration">{selectedType.expirationMonths} months</TypeWorkspace.Impact>
+							<TypeWorkspace.Fact label="Duration">{selectedType.expirationMonths} months</TypeWorkspace.Fact>
 						{/if}
 
 						{#if getExpirationMode(selectedType) !== 'never'}
-							<TypeWorkspace.Impact label="Warning Thresholds">
+							<TypeWorkspace.Fact label="Warning Thresholds">
 								Yellow at {selectedType.warningDaysYellow} days, Orange at {selectedType.warningDaysOrange} days
-							</TypeWorkspace.Impact>
+							</TypeWorkspace.Fact>
 						{/if}
 
-						<TypeWorkspace.Impact label="Applies to">
+						<TypeWorkspace.Fact label="Applies to">
 							{formatApplicability(selectedType)}
-						</TypeWorkspace.Impact>
+						</TypeWorkspace.Fact>
 
-						<TypeWorkspace.Impact label="Optional">
+						<TypeWorkspace.Fact label="Optional">
 							{selectedType.isOptional
 								? 'Yes. People without records are not treated as missing this type.'
 								: 'No. Matching personnel are expected to have this training.'}
-						</TypeWorkspace.Impact>
+						</TypeWorkspace.Fact>
 
-						<TypeWorkspace.Impact label="Can be exempted">
+						<TypeWorkspace.Fact label="Can be exempted">
 							{selectedType.canBeExempted ? 'Yes' : 'No'}
-						</TypeWorkspace.Impact>
+						</TypeWorkspace.Fact>
 
-						<TypeWorkspace.Impact label="List order">
+						<TypeWorkspace.Fact label="List order">
 							{orderedTypes.findIndex((type) => type.id === selectedType.id) + 1} of {orderedTypes.length}
-						</TypeWorkspace.Impact>
+						</TypeWorkspace.Fact>
 					</TypeWorkspace.FactList>
 
 					{#if canMutate}
-						<TypeWorkspace.Actions>
+						<TypeWorkspace.FooterActions>
 							<Button
 								variant="destructive"
 								size="sm"
@@ -533,7 +533,7 @@
 							>
 								Delete Type
 							</Button>
-						</TypeWorkspace.Actions>
+						</TypeWorkspace.FooterActions>
 					{/if}
 				</TypeWorkspace.Stack>
 			{:else}

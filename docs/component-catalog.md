@@ -22,7 +22,7 @@ This catalog is the active reference for TroopToTask's shadcn-svelte + Tailwind 
 
 Use it as the current component reference for button, button group, input, input group, sidebar, label, textarea, select, checkbox, radio group, badge, alert, dialog, sheet, popover, dropdown menu, tooltip, command, combobox, tabs, table, calendar/date picker, chart, skeleton, progress, spinner, empty, and separator.
 
-The [family contract](ui-foundation-provenance.md) governs retention, moves and removals. NavigationMenu, Pagination, RangeCalendar, Switch and the unused project families selected for deletion remain documented only for cutover reference. Do not add consumers to those families or to the retiring `multi-select` and `type-workspace` aliases. D02 removes them after completing the stated consumer and test obligations.
+The [family contract](ui-foundation-provenance.md) governs retention, moves and removals. D02 has deleted the unused families and alias barrels it names. Its remaining layer moves update the paths below together with every consumer.
 
 Use the replacement notes here to map older TroopToTask building blocks to the current shadcn-svelte/shared UI foundation. Missing target guidance means the project has not selected a shadcn-svelte equivalent yet and needs a shared-component decision before new work relies on that pattern.
 
@@ -538,48 +538,6 @@ Component Catalog coverage:
 - `docs/component-catalog.md` covers grouped rows, sticky top header and row header, selected cell state, disabled/read-only cells, dialog-trigger cells, dense color-only cells with accessible labels, stacked month-band column headers, rich row headers with metadata, and loading/empty wrapper states.
 - `docs/component-catalog.md` covers training-matrix parity mapping with vertical task-code headers, requirement status badges, and the note that `IctMatrix` should retire into the shared training-matrix parity path instead of preserving a separate visual system.
 
-## `ui/workflow-panel`
-
-This unconsumed family is selected for deletion in D02. Do not add consumers. The example below describes its current API for cutover reference; retained workflows use their existing feature-owned presentation and shared workspace controls.
-
-```svelte
-<script lang="ts">
-	import * as Alert from '$lib/components/ui/alert';
-	import * as WorkflowPanel from '$lib/components/ui/workflow-panel';
-</script>
-
-<Alert.Root variant="warning">
-	<Alert.Title>Review required before publishing</Alert.Title>
-	<Alert.Description>Route-owned copy inside shared alert chrome.</Alert.Description>
-</Alert.Root>
-
-<WorkflowPanel.Root aria-label="Training type manager">
-	<WorkflowPanel.Header>
-		<WorkflowPanel.Title>Training type setup</WorkflowPanel.Title>
-		<WorkflowPanel.Description>Shared list-detail shell.</WorkflowPanel.Description>
-	</WorkflowPanel.Header>
-	<WorkflowPanel.Content>
-		<WorkflowPanel.Grid>
-			<WorkflowPanel.Item selected>Annual qualification</WorkflowPanel.Item>
-			<WorkflowPanel.Item>Configuration fields</WorkflowPanel.Item>
-		</WorkflowPanel.Grid>
-	</WorkflowPanel.Content>
-</WorkflowPanel.Root>
-```
-
-Public components:
-
-- `Root`, `Header`, `Title`, `Description`, `Content`, `Grid`, `Item`.
-
-Rules:
-
-- Routes own data loading, selected item state, forms, validation, permissions, actions, and copy.
-- Shared components own panel radius, borders, spacing, selected-row treatment, notice tone, and density.
-- Use `Alert.Root` variants `default`, `info`, `success`, `warning`, or `destructive` instead of route-local warning boxes, callouts, and notice panels.
-- If a workflow needs a new repeated surface shape, add it here and prove it in `docs/component-catalog.md` before production route usage.
-
----
-
 ## `ui/bulk-import-workspace`
 
 `ui/bulk-import-workspace` is the shared foundation for operational import workflows. It standardizes source choice, upload/paste/manual input panels, validation summaries, preview tables, row selection, progress states, disabled submit reasons, and final result summaries. Feature routes still own parsing, validation rules, duplicate/merge semantics, permissions, and persistence.
@@ -967,7 +925,7 @@ Rules:
 
 - Use `Select` for selects by default so option controls keep the same visual shape across Windows, macOS, Linux, and browser engines.
 - Keep `NativeSelect` only for explicit native form-submission or mobile-picker requirements approved at the shared-component level.
-- Use `Checkbox` for selection, inclusion or batch choices. Switch is an unconsumed family selected for deletion; do not add callers.
+- Use `Checkbox` for selection, inclusion or batch choices.
 - Use validation errors over hints when both exist. Errors must set `aria-invalid="true"` on the control and reference the error id with `aria-describedby`.
 - Required markers are visual only with `aria-hidden="true"`; keep native `required` on native controls where submission validation matters.
 - Disabled and read-only states come from the shared controls. Do not add local opacity, colors, borders, spacing, or typography to route code.
@@ -1005,7 +963,7 @@ Compound shadcn-style combobox primitives for searchable single-select and multi
 </Combobox.Root>
 ```
 
-For multi-select behavior, use `Combobox.Root multiple` with its chip parts. The `ui/multi-select` namespace below is a retiring alias, not the canonical API for new callers.
+For multi-select behavior, use `Combobox.Root multiple` with its chip parts.
 
 Props: `Root` accepts `items: readonly (string | { value: string; label?: string; description?: string; group?: string; disabled?: boolean })[]`, `value?: string | string[]` (bindable), `defaultValue?: string | string[]`, `name?: string`, `multiple?: boolean`, `autoHighlight?: boolean`, `disabled?: boolean`, `loading?: boolean`, `loadingText?: string`, `open?: boolean` (bindable), `label?: string`, `onValueChange?: (value) => void`. `Trigger` supports `clearable?: boolean`. `Search` wraps the command input and keeps filtering inside the shared primitive. `Chip` and `Item` require `value: string`; `Item` can also receive `label`, `description`, and `searchValue`.
 
@@ -1017,70 +975,6 @@ Props: `Root` accepts `items: readonly (string | { value: string; label?: string
 - `Combobox.Chips`, `Combobox.ChipsInput`, and `Combobox.Chip` support chip-style multi-selection. The inline input keeps focus for search and keyboard selection; selected options toggle while the popup stays open, and Escape closes it. One Command context owns both inline input and popup; its DOM element is rendered inside the portal around its options. Do not move the context into Content or add a second Command root.
 - Large lists, async/loading option states, empty states, and keyboard paths must be proven in `docs/component-catalog.md` before route usage.
 - Visual changes belong in shared combobox source only.
-
-## `ui/multi-select`
-
-This alias is used only by a test fixture and is selected for deletion in D02. Use `Combobox.Root multiple` with `Combobox.Chips`, `ChipsInput` and `Chip` for new callers. The example below describes the current alias; its meaningful form behavior tests migrate to Combobox during removal.
-
-```svelte
-<script lang="ts">
-	import * as MultiSelect from '$lib/components/ui/multi-select';
-
-	const groups = [
-		{ value: 'hq', label: 'HQ', group: 'Staff' },
-		{ value: 'a-co', label: 'A Co', group: 'Line companies' },
-		{ value: 'b-co', label: 'B Co', group: 'Line companies' }
-	];
-	let selectedGroups = $state<string[]>(['hq']);
-</script>
-
-<MultiSelect.Root items={groups} multiple name="groupIds" bind:value={selectedGroups} label="Groups">
-	<MultiSelect.Trigger>
-		<MultiSelect.Value>
-			{#snippet children(values)}
-				{#each values as groupValue (groupValue)}
-					{@const group = groups.find((option) => option.value === groupValue)}
-					<MultiSelect.Chip value={groupValue}>{group?.label ?? groupValue}</MultiSelect.Chip>
-				{/each}
-				<MultiSelect.Input placeholder="Groups" aria-label="Groups" />
-			{/snippet}
-		</MultiSelect.Value>
-	</MultiSelect.Trigger>
-	<MultiSelect.Content>
-		<MultiSelect.Empty>No groups found.</MultiSelect.Empty>
-		<MultiSelect.List>
-			{#snippet children(value, option)}
-				<MultiSelect.Item {value} label={option.label} />
-			{/snippet}
-		</MultiSelect.List>
-	</MultiSelect.Content>
-</MultiSelect.Root>
-```
-
-Toolbar compact pattern:
-
-```svelte
-<WorkspaceToolbar.Group label="Groups" activeCount={selectedGroups.length}>
-	<MultiSelect.Root items={groups} multiple bind:value={selectedGroups} label="Groups">
-		<MultiSelect.Trigger>
-			<MultiSelect.Value>
-				{#snippet children(values)}
-					<span>{values.length} selected</span>
-					<MultiSelect.Input aria-label="Groups" />
-				{/snippet}
-			</MultiSelect.Value>
-		</MultiSelect.Trigger>
-		<MultiSelect.Content>...</MultiSelect.Content>
-	</MultiSelect.Root>
-</WorkspaceToolbar.Group>
-```
-
-- Use for training, Critical Tasks, calendar report, MOS/rank/group/role, and toolbar filters where several values can be active.
-- Selected values should render as removable chips in regular forms and as an active count in compact toolbars.
-- Backspace removes the last selected value when the search input is empty.
-- Use the same object option shape as `Combobox.Root` when labels differ from submitted values, options need group headings, or selected chips should announce readable labels.
-- Provide `name` when selected values must participate in native form submission.
-- Do not pass color props or visual classes from routes. Domain colors require an explicit shared API and component catalog example.
 
 ## `ui/date-cell`
 
@@ -1143,80 +1037,15 @@ The legacy `ui/FileUpload.svelte` wrapper has been removed. Upload workflows sho
 
 Removed. Use `ui/workspace-toolbar` and generated shadcn-svelte primitives instead.
 
-## `ui/inline-notes`
+## `ui/type-management-workspace`
 
-This family has no production importer and is selected for deletion in D02. Do not add consumers. Retained note workflows stay with their feature owners; the example below describes the current unused API for cutover reference.
-
-```svelte
-<script lang="ts">
-	import * as InlineNotes from '$lib/components/ui/inline-notes';
-</script>
-
-<InlineNotes.Root
-	{notes}
-	resolveAuthor={(userId) => personnelMap[userId]?.name ?? 'Unknown'}
-	onAddNote={(text) => addNote(recordId, text)}
-/>
-
-<!-- Read-only -->
-<InlineNotes.Root {notes} {resolveAuthor} disabled />
-```
-
-Props: `notes: { text: string; timestamp: string; userId: string }[]`, `resolveAuthor: (userId: string) => string`, `onAddNote?: (text: string) => void`, `disabled?: boolean` (default `false`), `open?: boolean` (bindable)
-
-- Collapsed by default; shows note count in a shared badge
-- Cmd/Ctrl+Enter submits from the textarea
-- Omit `onAddNote` for read-only display
-
----
-
-## `ui/type-manager`
-
-Compact compound management dialog for repeated status/type manager workflows. It composes `ui/app-dialog`, `ui/button`, `ui/empty`, and `ui/alert-dialog` while the route owns the form snippets and persistence.
-
-`ui/type-manager` has no production importer and is selected for deletion in D02. Do not add consumers. `ui/type-workspace` is also a retiring alias; use the current canonical `ui/type-management-workspace` barrel for shared type layout. D02 moves that canonical family and all consumers to `patterns/type-management-workspace`. The example below describes the unused manager API for cutover reference.
-
-```svelte
-<script lang="ts">
-	import * as TypeManager from '$lib/components/ui/type-manager';
-</script>
-
-<TypeManager.Root
-	title="Status Types"
-	noun="Type"
-	items={statusTypes}
-	onAdd={addStatusType}
-	onUpdate={updateStatusType}
-	onRemove={removeStatusType}
-	onClose={closeManager}
-	{getAddData}
-	{resetAddForm}
-	onEditStart={startEdit}
-	{getEditData}
->
-	{#snippet addForm()}
-		<!-- route-owned shared controls -->
-	{/snippet}
-
-	{#snippet editForm()}
-		<!-- route-owned shared controls -->
-	{/snippet}
-
-	{#snippet itemDisplay(item)}
-		<span>{item.name}</span>
-	{/snippet}
-</TypeManager.Root>
-```
-
-## `ui/type-workspace`
-
-Shared shadcn-aligned workspace chrome for manage-type pages that need more than the compact modal helper. Training types, status types, assignment types, and similar configuration lists can use it when they need a list-detail layout, create/edit mode, row actions, form sections, detail facts, progressive disclosure, or a mobile list/detail flow.
+Shared shadcn-aligned workspace chrome for manage-type pages. Training types, status types, assignment types, and similar configuration lists can use it when they need a list-detail layout, create/edit mode, row actions, form sections, detail facts, progressive disclosure, or a mobile list/detail flow.
 
 The component owns the repeated visual structure: page workspace spacing, list/detail grid, selectable rows, swatches, section chrome, detail headers, configuration facts, progressive disclosure, mobile back affordance, and footer actions. Routes own behavior: fetching, selected item state, permissions, validation, persistence, field controls, destructive-confirm copy, and ordering rules.
 
 ```svelte
 <script lang="ts">
-	import * as TypeWorkspace from '$lib/components/ui/type-workspace';
+	import * as TypeWorkspace from '$lib/components/ui/type-management-workspace';
 	import { Button } from '$lib/components/ui/button';
 
 	let color = $state('#8a5800');
@@ -1249,9 +1078,9 @@ The component owns the repeated visual structure: page workspace spacing, list/d
 					{/snippet}
 				</TypeWorkspace.DetailHeader>
 
-				<TypeWorkspace.Form title="Basics">
+				<TypeWorkspace.FormSection title="Basics">
 					<!-- route-owned Field/Input controls -->
-				</TypeWorkspace.Form>
+				</TypeWorkspace.FormSection>
 
 				<TypeWorkspace.Description>Optional detail copy.</TypeWorkspace.Description>
 				<TypeWorkspace.ColorInput bind:value={color} />
@@ -1270,7 +1099,7 @@ The component owns the repeated visual structure: page workspace spacing, list/d
 				</TypeWorkspace.Disclosure>
 
 				<TypeWorkspace.FactList>
-					<TypeWorkspace.Impact label="Expiration">12 months</TypeWorkspace.Impact>
+					<TypeWorkspace.Fact label="Expiration">12 months</TypeWorkspace.Fact>
 				</TypeWorkspace.FactList>
 			</TypeWorkspace.Stack>
 		</TypeWorkspace.Detail>
@@ -1280,7 +1109,7 @@ The component owns the repeated visual structure: page workspace spacing, list/d
 
 Public components:
 
-- `Root`, `Layout`, `List`, `ItemList`, `ListItem`, `Detail`, `Stack`, `Form`, `FormSection`, `Choice`, `ChoiceGroup`, `Disclosure`, `Description`, `ColorInput`, `MobileBack`, `DetailHeader`, `FactList`, `Impact`, `Fact`, `Actions`, `FooterActions`, `ActionSpacer`, `ActionsSpacer`.
+- `Root`, `Layout`, `List`, `ItemList`, `ListItem`, `Detail`, `Stack`, `FormSection`, `Choice`, `ChoiceGroup`, `Disclosure`, `Description`, `ColorInput`, `MobileBack`, `DetailHeader`, `FactList`, `Fact`, `FooterActions`, `ActionSpacer`, `GroupSelector`.
 
 Key props:
 
@@ -1292,15 +1121,14 @@ Rules:
 
 - Do not restyle the workspace from route code. Add shared variants here when a repeated manage-type need appears.
 - Use `ListItem` for selectable type rows instead of rebuilding row chrome in each route.
-- Use `Form` for repeated edit/create sections instead of route-local bordered fieldset classes; the shared layout renders them as ruled sections, not stacked cards.
+- Use `FormSection` for repeated edit/create sections instead of route-local bordered fieldset classes; the shared layout renders them as ruled sections, not stacked cards.
 - Use `Choice` for repeated radio/checkbox option rows instead of route-local bordered option classes.
 - Use `ColorInput`, `Description`, and `ActionSpacer` when those repeated manage-type details are needed.
-- Use `Impact` for configuration facts such as expiration policy, permission state, ordering, and applicability. Facts render as scan-friendly rows, not individual cards. Do not put readiness/report metrics in a type manager.
+- Use `Fact` for configuration facts such as expiration policy, permission state, ordering, and applicability. Facts render as scan-friendly rows, not individual cards. Do not put readiness/report metrics in a type manager.
 - Use `Disclosure` and `GroupSelector` for large applicability, targeting, or exclusion option sets instead of route-local chip wrappers.
 - Use `MobileBack` with `List mobileHidden` and `Detail mobileHidden` when a route needs a mobile list-first flow.
 - Keep color swatches accessible by pairing color with labels, summaries, badges, or visible text.
 - Prove visual changes in `docs/component-catalog.md` before production routes consume them.
-- `ui/type-workspace` is the target shared gap behind the current training type page. `ui/type-manager` remains the compact modal API for smaller status and assignment managers until those workflows need the full workspace.
 
 ---
 
@@ -1333,7 +1161,7 @@ The legacy `SkeletonBlock`, `SkeletonLine`, `SkeletonGrid`, and `.skeleton-pulse
 
 Composable shadcn-svelte DataTable foundation built from the calibrated `ui/table`, `checkbox`, `dropdown-menu`, `skeleton`, `empty`, `button`, and shared toolbar primitives. It is the production DataTable system; the old DataTable implementation and its tests have been removed.
 
-The DataTable API is deliberately modular. Simple tables can render only `DataTable` or `View`; richer tables can opt into search, pagination, row actions, bulk selection, loading, grouping, dense layout, and toolbar controls one piece at a time.
+The DataTable API is deliberately modular. Simple tables can render only `DataTable`; richer tables can opt into search, pagination, row actions, bulk selection, loading, grouping, dense layout, and toolbar controls one piece at a time.
 
 ```svelte
 <script lang="ts">
@@ -1384,16 +1212,10 @@ The DataTable API is deliberately modular. Simple tables can render only `DataTa
 Exports:
 
 - `DataTable`: convenience shell that creates an internal `useDataTable` state when `data` and `columns` are passed.
-- `Root`: visual table frame for custom composition.
-- `View`: renders a `DataTableState<T>` through shared table primitives.
 - `Search`: shared search input wired to `DataTableState<T>`.
-- `SortableHeader`: header button wired to `toggleSort`.
-- `Pagination`: previous/next footer wired to `setPage`.
 - `SelectionCheckbox`: row/header checkbox primitive for table selection.
 - `BulkActions`: selected-count region for toolbar/bulk commands.
 - `RowActions`: shared dropdown-menu row action trigger.
-- `Empty`: empty state tuned for table surfaces.
-- `Loading`: skeleton row body.
 - `useDataTable`: headless sort/filter/pagination/grouping state.
 - `useDataTableSelection`: headless row selection and bulk-selection state.
 

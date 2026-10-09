@@ -133,6 +133,7 @@
 			</div>
 		</div>
 		<Separator />
+		<!-- Explicit IDs associate the help and error in server-rendered HTML, before Field registration runs. -->
 		<Field.Root class="md:max-w-sm" data-invalid={isReadinessGoalValid ? undefined : true}>
 			<Field.Label for="training-readiness-goal">Training readiness goal (%)</Field.Label>
 			<Field.Control>
@@ -143,11 +144,17 @@
 					max="100"
 					step="1"
 					bind:value={readinessGoalPercent}
+					aria-invalid={isReadinessGoalValid ? undefined : true}
+					aria-describedby={isReadinessGoalValid
+						? 'training-readiness-goal-help'
+						: 'training-readiness-goal-help training-readiness-goal-error'}
 				/>
 			</Field.Control>
-			<Field.Description>Used for goal lines and heat-map bands on Training Reports.</Field.Description>
+			<Field.Description id="training-readiness-goal-help">
+				Used for goal lines and heat-map bands on Training Reports.
+			</Field.Description>
 			{#if !isReadinessGoalValid}
-				<Field.Error>Must be a whole number between 1 and 100.</Field.Error>
+				<Field.Error id="training-readiness-goal-error">Must be a whole number between 1 and 100.</Field.Error>
 			{/if}
 		</Field.Root>
 	</section>

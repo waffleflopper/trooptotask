@@ -41,7 +41,6 @@ const WEB_PACKAGES = [
 	'@lucide/svelte',
 	'bits-ui',
 	'layerchart',
-	'mode-watcher',
 	'@fontsource/',
 	'devalue',
 	'tw-animate-css',

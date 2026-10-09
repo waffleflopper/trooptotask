@@ -924,8 +924,8 @@ function sortGroupName(a: string, b: string): number {
 }
 
 function availabilityColor(pct: number): string {
-	if (pct >= 90) return 'var(--chart-2)';
-	if (pct >= 75) return 'var(--accent)';
+	if (pct >= 90) return 'var(--success)';
+	if (pct >= 75) return 'var(--warning)';
 	return 'var(--destructive)';
 }
 

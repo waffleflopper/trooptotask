@@ -99,8 +99,8 @@
 	}
 
 	function cellBackground(percent: number): string {
-		if (percent >= 80) return 'color-mix(in srgb, var(--chart-2) 15%, transparent)';
-		if (percent >= 50) return 'color-mix(in srgb, var(--accent) 15%, transparent)';
+		if (percent >= 80) return 'color-mix(in srgb, var(--success) 15%, transparent)';
+		if (percent >= 50) return 'color-mix(in srgb, var(--warning) 15%, transparent)';
 		return 'color-mix(in srgb, var(--destructive) 15%, transparent)';
 	}
 

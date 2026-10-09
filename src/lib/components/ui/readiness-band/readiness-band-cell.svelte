@@ -44,11 +44,6 @@
 
 <style>
 	.readiness-band-cell {
-		--readiness-band-danger: #e8b9a8;
-		--readiness-band-warn: #eca382;
-		--readiness-band-caution: #f2c878;
-		--readiness-band-okay: #c5d89b;
-		--readiness-band-good: #9bc361;
 		--readiness-band-na-a: color-mix(in srgb, var(--muted) 76%, var(--card) 24%);
 		--readiness-band-na-b: color-mix(in srgb, var(--border) 72%, var(--card) 28%);
 
@@ -104,15 +99,15 @@
 	}
 
 	.readiness-band-cell[data-palette='semantic'][data-tier='good'] {
-		background: color-mix(in srgb, var(--chart-2) 14%, transparent);
+		background: color-mix(in srgb, var(--success) 14%, transparent);
 	}
 
 	.readiness-band-cell[data-palette='semantic'][data-tier='okay'] {
-		background: color-mix(in srgb, var(--accent) 12%, transparent);
+		background: color-mix(in srgb, var(--warning) 12%, transparent);
 	}
 
 	.readiness-band-cell[data-palette='semantic'][data-tier='caution'] {
-		background: color-mix(in srgb, var(--accent) 28%, transparent);
+		background: color-mix(in srgb, var(--warning) 28%, transparent);
 	}
 
 	.readiness-band-cell[data-palette='semantic'][data-tier='warn'] {

@@ -16,8 +16,9 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
-@custom-variant dark (&:where(.dark, .dark *, [data-theme='dark'], [data-theme='dark'] *));
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 
+/* Each --color-* mapping is declared once here; raw values live in :root and the dark theme block. */
 @theme inline {
 	--color-background: var(--background);
 	--color-foreground: var(--foreground);
@@ -38,21 +39,26 @@
 	--color-danger: var(--destructive);
 	--color-danger-foreground: var(--destructive);
 	--color-danger-muted: color-mix(in srgb, var(--destructive) 14%, var(--card));
-	--color-warning: var(--accent);
-	--color-warning-foreground: var(--accent);
-	--color-warning-muted: color-mix(in srgb, var(--accent) 16%, var(--card));
-	--color-info: var(--chart-3);
-	--color-info-foreground: var(--chart-3);
-	--color-info-muted: color-mix(in srgb, var(--chart-3) 14%, var(--card));
-	--color-success: var(--chart-2);
-	--color-success-foreground: var(--chart-2);
-	--color-success-muted: color-mix(in srgb, var(--chart-2) 14%, var(--card));
+	--color-warning: var(--warning);
+	--color-warning-foreground: var(--warning);
+	--color-warning-muted: color-mix(in srgb, var(--warning) 16%, var(--card));
+	--color-info: var(--info);
+	--color-info-foreground: var(--info);
+	--color-info-muted: color-mix(in srgb, var(--info) 14%, var(--card));
+	--color-success: var(--success);
+	--color-success-foreground: var(--success);
+	--color-success-muted: color-mix(in srgb, var(--success) 14%, var(--card));
 	--color-chrome: var(--chrome);
 	--color-chrome-text: var(--chrome-text);
 	--color-chrome-text-muted: var(--chrome-text-muted);
 	--color-chrome-border: var(--chrome-border);
 	--color-chrome-surface: var(--chrome-surface);
 	--color-chrome-surface-muted: var(--chrome-surface-muted);
+	--color-chrome-overlay: color-mix(in srgb, var(--chrome) 88%, transparent);
+	--color-chrome-hover: color-mix(in srgb, var(--chrome-text) 8%, transparent);
+	--color-chrome-border-subtle: color-mix(in srgb, var(--chrome-text) 12%, transparent);
+	--color-chrome-grid: color-mix(in srgb, var(--chrome-text) 3.5%, transparent);
+	--color-chrome-shadow: color-mix(in srgb, var(--chrome) 45%, transparent);
 	--color-border: var(--border);
 	--color-input: var(--input);
 	--color-ring: var(--ring);
@@ -75,33 +81,22 @@
 :root {
 	color-scheme: light;
 
-	--focus-outline: 2px solid var(--ring);
-	--focus-outline-offset: 2px;
-	--focus-ring-color: color-mix(in srgb, var(--ring) 24%, transparent);
-	--focus-ring: 0 0 0 3px var(--focus-ring-color);
 	--transition-fast: 120ms cubic-bezier(0.2, 0, 0, 1);
-	--transition-normal: 180ms cubic-bezier(0.2, 0, 0, 1);
-	--transition-slow: 240ms cubic-bezier(0.2, 0, 0, 1);
 
+	/* Chrome is identical in both themes. */
 	--chrome: oklch(14.7% 0.004 49.25);
 	--chrome-text: oklch(95.2% 0.006 95);
 	--chrome-text-muted: oklch(72% 0.01 73.639);
 	--chrome-border: oklch(25.5% 0.006 56.043);
 	--chrome-surface: oklch(18% 0.004 49.25);
 	--chrome-surface-muted: oklch(28% 0.005 49.25);
-	--color-chrome: var(--chrome);
-	--color-chrome-text: var(--chrome-text);
-	--color-chrome-text-muted: var(--chrome-text-muted);
-	--color-chrome-border: var(--chrome-border);
-	--color-chrome-surface: var(--chrome-surface);
-	--color-chrome-surface-muted: var(--chrome-surface-muted);
-	--color-chrome-overlay: color-mix(in srgb, var(--color-chrome) 88%, transparent);
-	--color-chrome-hover: color-mix(in srgb, var(--color-chrome-text) 8%, transparent);
-	--color-chrome-border-subtle: color-mix(in srgb, var(--color-chrome-text) 12%, transparent);
-	--color-chrome-grid: color-mix(in srgb, var(--color-chrome-text) 3.5%, transparent);
-	--color-chrome-shadow: color-mix(in srgb, var(--color-chrome) 45%, transparent);
-	--color-public-frame-glow: color-mix(in srgb, var(--accent) 7%, transparent);
-	--color-public-frame-shadow: color-mix(in srgb, var(--color-chrome) 45%, transparent);
+
+	/* Stepped readiness ramp; identical in both themes. */
+	--readiness-band-danger: #e8b9a8;
+	--readiness-band-warn: #eca382;
+	--readiness-band-caution: #f2c878;
+	--readiness-band-okay: #c5d89b;
+	--readiness-band-good: #9bc361;
 
 	/* Native shadcn-svelte tokens, using stock Tailwind OKLCH palette stops. */
 	--radius: 4px;
@@ -121,6 +116,9 @@
 	--accent-foreground: oklch(14.7% 0.004 49.25);
 	--destructive: oklch(57.7% 0.245 27.325);
 	--destructive-foreground: oklch(98.5% 0.001 106.423);
+	--warning: oklch(66.6% 0.179 58.318);
+	--success: oklch(62.7% 0.194 149.214);
+	--info: oklch(58.8% 0.158 241.966);
 	--border: oklch(92.3% 0.003 48.717);
 	--input: oklch(92.3% 0.003 48.717);
 	--ring: oklch(66.6% 0.179 58.318);
@@ -139,29 +137,8 @@
 	--sidebar-ring: oklch(66.6% 0.179 58.318);
 }
 
-:root[data-theme='dark'],
-.dark {
+:root[data-theme='dark'] {
 	color-scheme: dark;
-
-	--chrome: oklch(14.7% 0.004 49.25);
-	--chrome-text: oklch(95.2% 0.006 95);
-	--chrome-text-muted: oklch(72% 0.01 73.639);
-	--chrome-border: oklch(25.5% 0.006 56.043);
-	--chrome-surface: oklch(18% 0.004 49.25);
-	--chrome-surface-muted: oklch(28% 0.005 49.25);
-	--color-chrome: var(--chrome);
-	--color-chrome-text: var(--chrome-text);
-	--color-chrome-text-muted: var(--chrome-text-muted);
-	--color-chrome-border: var(--chrome-border);
-	--color-chrome-surface: var(--chrome-surface);
-	--color-chrome-surface-muted: var(--chrome-surface-muted);
-	--color-chrome-overlay: color-mix(in srgb, var(--color-chrome) 88%, transparent);
-	--color-chrome-hover: color-mix(in srgb, var(--color-chrome-text) 8%, transparent);
-	--color-chrome-border-subtle: color-mix(in srgb, var(--color-chrome-text) 12%, transparent);
-	--color-chrome-grid: color-mix(in srgb, var(--color-chrome-text) 3.5%, transparent);
-	--color-chrome-shadow: color-mix(in srgb, var(--color-chrome) 45%, transparent);
-	--color-public-frame-glow: color-mix(in srgb, var(--accent) 7%, transparent);
-	--color-public-frame-shadow: color-mix(in srgb, var(--color-chrome) 45%, transparent);
 
 	--background: oklch(14.7% 0.004 49.25);
 	--foreground: oklch(98.5% 0.001 106.423);
@@ -179,6 +156,7 @@
 	--accent-foreground: oklch(14.7% 0.004 49.25);
 	--destructive: oklch(63.7% 0.237 25.331);
 	--destructive-foreground: oklch(98.5% 0.001 106.423);
+	--warning: oklch(76.9% 0.188 70.08);
 	--border: oklch(26.8% 0.007 34.298);
 	--input: oklch(37.4% 0.01 67.558);
 	--ring: oklch(76.9% 0.188 70.08);
@@ -197,142 +175,64 @@
 	--sidebar-ring: oklch(76.9% 0.188 70.08);
 }
 
-*,
-*::before,
-*::after {
-	box-sizing: border-box;
-}
+/* Document defaults stay in the base layer so primitive variants and utilities can override them. */
+@layer base {
+	:where([data-slot], [data-slot] *) {
+		border-color: var(--border);
+	}
 
-:where([data-slot], [data-slot] *) {
-	border-color: var(--border);
-}
+	html,
+	body {
+		min-height: 100%;
+		font-family: 'Source Serif 4', serif;
+		font-size: 1rem;
+		font-weight: 400;
+		line-height: 1.5;
+		background: var(--background);
+		color: var(--foreground);
+		-webkit-font-smoothing: antialiased;
+		-moz-osx-font-smoothing: grayscale;
+	}
 
-html,
-body {
-	min-height: 100%;
-	margin: 0;
-	padding: 0;
-	font-family: 'Source Serif 4', serif;
-	font-size: 1rem;
-	font-weight: 400;
-	line-height: 1.5;
-	background: var(--background);
-	color: var(--foreground);
-	-webkit-font-smoothing: antialiased;
-	-moz-osx-font-smoothing: grayscale;
-}
+	body {
+		text-rendering: optimizeLegibility;
+	}
 
-body {
-	text-rendering: optimizeLegibility;
-}
+	button:not(:disabled) {
+		cursor: pointer;
+	}
 
-button:not([data-slot]),
-input:not([data-slot]),
-select:not([data-slot]),
-textarea:not([data-slot]) {
-	font: inherit;
-	color: inherit;
-}
+	a:not([data-slot]) {
+		color: var(--accent);
+		text-decoration: none;
+		transition:
+			color var(--transition-fast),
+			border-color var(--transition-fast);
+	}
 
-button {
-	cursor: pointer;
-}
+	::-webkit-scrollbar {
+		width: 8px;
+		height: 8px;
+	}
 
-a:not([data-slot]) {
-	color: var(--accent);
-	text-decoration: none;
-	transition:
-		color var(--transition-fast),
-		border-color var(--transition-fast);
-}
+	::-webkit-scrollbar-track {
+		background: transparent;
+	}
 
-a:not([data-slot]):hover {
-	color: var(--accent);
-}
+	::-webkit-scrollbar-thumb {
+		background: var(--muted-foreground);
+		border-radius: 9999px;
+	}
 
-/* Checkbox styling */
-input[type='checkbox'] {
-	width: 20px;
-	height: 20px;
-	accent-color: var(--accent);
-	cursor: pointer;
-}
+	[data-theme='dark'] select option {
+		background-color: var(--card);
+		color: var(--foreground);
+	}
 
-input[type='checkbox']:focus-visible {
-	outline: var(--focus-outline);
-	outline-offset: var(--focus-outline-offset);
-}
-
-/* ============================================
-   Chips / Tags
-   ============================================ */
-.chip {
-	display: inline-flex;
-	align-items: center;
-	gap: 0.25rem;
-	padding: 4px 12px;
-	border-radius: 9999px;
-	font-family: 'IBM Plex Mono', monospace;
-	font-size: 0.6875rem;
-	font-weight: 500;
-	letter-spacing: 0.08em;
-	text-transform: uppercase;
-	background-color: var(--muted);
-	color: var(--muted-foreground);
-	transition: all var(--transition-fast);
-}
-
-.chip-primary {
-	background-color: color-mix(in srgb, var(--accent) 12%, transparent);
-	color: var(--accent);
-}
-
-.chip-warning {
-	background-color: var(--color-warning-muted);
-	color: var(--color-warning-foreground);
-}
-
-/* ============================================
-   Scrollbar - Subtle
-   ============================================ */
-::-webkit-scrollbar {
-	width: 8px;
-	height: 8px;
-}
-
-::-webkit-scrollbar-track {
-	background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-	background: var(--muted-foreground);
-	border-radius: 9999px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-	background: var(--muted-foreground);
-}
-
-/* ============================================
-   Dark Mode Specific
-   ============================================ */
-[data-theme='dark'] select option {
-	background-color: var(--card);
-	color: var(--foreground);
-}
-
-[data-theme='dark'] select optgroup {
-	background-color: var(--background);
-	color: var(--foreground);
-}
-
-[data-theme='dark'] table {
-	color: var(--foreground);
-}
-
-[data-theme='dark'] th,
-[data-theme='dark'] td {
-	color: var(--foreground);
+	[data-theme='dark'] select optgroup {
+		background-color: var(--background);
+		color: var(--foreground);
+	}
 }
 
 /* Accessibility: Reduced motion */
@@ -403,6 +303,7 @@ input[type='checkbox']:focus-visible {
 		--accent-foreground: oklch(14.7% 0.004 49.25);
 		--destructive: oklch(57.7% 0.245 27.325);
 		--destructive-foreground: oklch(98.5% 0.001 106.423);
+		--warning: oklch(66.6% 0.179 58.318);
 		--border: oklch(92.3% 0.003 48.717);
 		--input: oklch(92.3% 0.003 48.717);
 		--ring: oklch(66.6% 0.179 58.318);

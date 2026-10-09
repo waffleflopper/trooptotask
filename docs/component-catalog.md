@@ -1,6 +1,6 @@
 # Component Catalog & CSS Design System
 
-Shared UI primitives live in `src/lib/components/ui/`. Import via `$lib/components/ui/...`.
+Shared UI primitives and existing project compositions currently live in `src/lib/components/ui/`. Import via `$lib/components/ui/...` until D02 moves the selected families and their consumers together. The [foundation provenance and family contract](ui-foundation-provenance.md) records the current APIs, deviations and target layers.
 Layout components such as dialogs, sheets, and cards live under `src/lib/components/ui/`. Import the shadcn-backed primitives or compound namespaces directly.
 Public marketing primitives live in `src/lib/components/public/`. Import via `$lib/components/public/...`.
 
@@ -44,7 +44,7 @@ Foundation files:
 - `src/app.css` imports Tailwind v4 and maps shared semantic tokens to the product palette; see the [current token API](#current-token-api) and [palette](#palette).
 - `src/app.css` no longer owns admin-specific selectors. Global `.btn`, `.input`, `.select`, `.label`, and related legacy selectors have been removed after route consumers migrated to shared primitives.
 
-Implementation note: the current `shadcn-svelte@1.2.7` CLI generated the supported `nova` style. The RFC mentioned `new-york` based on the docs available when written; `components.json` records the implementation-time CLI result so future `shadcn-svelte add` runs stay consistent.
+The catalog records `shadcn-svelte@1.2.7` as its generation-time CLI reference. No CLI is installed. `components.json` selects `nova` and `stone`, but does not pin a registry. The [provenance comparison](ui-foundation-provenance.md#source-and-comparison-method) uses the immutable 1.2.7 registry tag and records adaptations rather than treating every local family as stock generated source.
 
 ---
 

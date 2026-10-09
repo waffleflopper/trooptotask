@@ -4,6 +4,8 @@ Members use shared controls through Personnel forms, import previews and navigat
 
 ## Sub-features
 
+- `theme-and-viewport`: representative shell, form/error, dialog, toast, readiness and table consumers remain usable in light/dark at narrow/wide widths. Toasts follow the app selection even when the emulated system preference differs.
+
 - `tooltip-description`: pointer hover and keyboard focus expose a tooltip with a nonempty unique ID and `role="tooltip"`; the trigger's `aria-describedby` resolves to that content. Escape, blur and activation dismiss according to the existing trigger behavior.
 - `dialog-focus`: a real dialog opens with its title, contains keyboard focus, cancels without saving and restores focus to its opening control.
 - `confirmation-cancel`: an archive confirmation identifies the actual Person and cancels without archiving or losing the opening control's focus.
@@ -31,6 +33,18 @@ Use the index's owned worker, Node runtime, launch, doctor and native DevTools c
 6. **Platform navigation.** Use `$V actor platformReviewer admin/users` through normal sign-in. Inspect actual admitted Users content, collapse Toggle Sidebar and repeat the Users link's tooltip semantics/dismissal. On mobile, select the current Users link and require the drawer to close. Reopen and follow Dashboard; require the new screen and a closed drawer. Reopen, focus a navigation link and press Escape; require closure and focus restored to Toggle Sidebar. Repeat ordinary/current-link closure and Escape on the app sidebar under the [shell recipe](shell-preferences.md#driving-it-with-verifyapp). Modified new-tab activation must preserve the drawer. Desktop tooltip proof alone does not establish mobile drawer behavior.
 
 Native `evaluate_script` may read `document.activeElement`, tooltip/trigger attributes and `document.getElementById` results. Use visible controls for actions; do not call application handlers or alter attributes to manufacture a pass. Save before/action/after snapshots and screenshots. Restore controls, finish doctor and dispose only the owned worker before packaging or adopting updated instructions.
+
+### Theme and viewport preparation for Phase 09
+
+This recipe addition is **source-mapped and UNRUN** in D01's provenance PR. Before a token/theme or dependency cutover, confirm the controls on the launched unchanged worker and collect a separate baseline. A source comparison or the prior D29 focus receipt does not establish this visual baseline.
+
+1. Read `verify:app tools` on the owned worker. Confirm native `emulate` can set the preferred color scheme and `resize_page` can set the viewport. Use their returned schemas and capture actual viewport dimensions and `matchMedia` results. Record a failed or unavailable control instead of borrowing another browser.
+2. At about 1280 by 800, capture the app shell as `manager`. Use the visible **Toggle theme** control to choose light, then dark. Read the rendered `data-theme`, saved `localStorage.theme` and a second visible read after reload. Select the opposite emulated system color preference to prove that an explicit app selection wins. Do not call theme-store methods or change DOM attributes directly.
+3. For each app-selected theme, repeat representative captures at about 1280 by 800 and 390 by 844. At narrow width inspect the mobile drawer and content overflow. Use the wide control before resizing if a theme control is unavailable at narrow width. The same source, fixtures and role/scope must drive baseline and final captures.
+4. Capture a Personnel Edit dialog and a validation error from the existing invalid Personnel import preview. Keep labels, error associations, keyboard/focus, visible actions and cancel-without-saving observations alongside the screenshots. Do not introduce an invalid row into stored Personnel data.
+5. Capture a real success toast through the [Feedback journey](notifications-feedback.md#driving-it-with-verifyapp), with the app theme opposite the emulated system preference. Preserve the action and transient rendered toast before dismissal. Repeat in the other app theme. Provider persistence and toast appearance are distinct observations.
+6. As `ictOperator`, use the [Critical Tasks readiness recipe](critical-tasks-completions-readiness.md#driving-it-with-verifyapp) to capture the Reports readiness band and data table with the unchanged seeded values. Readiness green/amber/red semantics, active controls and readable content must survive both themes and widths. Do not credit unrelated feature writes or all-feature access to `manager`.
+7. Compare the unchanged and final captures for these six consumer categories. Only approved changes named in the [foundation contract](../../../../docs/ui-foundation-provenance.md) may differ. After a focused repair, repeat its failed case and justified adjacent consumers under the rerun rule, reusing applicable passing observations. Restore any synthetic controls and UI-created data, finish doctor and owned cleanup, then package baseline and final archives separately.
 
 ## Gotchas
 

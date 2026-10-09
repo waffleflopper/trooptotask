@@ -2,7 +2,7 @@
 
 Baseline: `282fcace16795a13e2306bf71d44465f59d51acc`. Completed phases are summarized below; their accepted evidence and exact historical task scopes remain linked. [BASELINE](BASELINE.md) owns retained contracts and original findings, [EVIDENCE](EVIDENCE.md) owns acceptance and verification, and [RELEASE](RELEASE.md) owns operator obligations.
 
-**Active checkpoint:** Phase **09**, parent [#1282](https://github.com/waffleflopper/trooptotask/issues/1282), milestone **7**, active child D01 [#1579](https://github.com/waffleflopper/trooptotask/issues/1579), task **09-01**, branch `stabilization/1579-foundation-provenance`, no PR, state **READY**. Phase 08 is accepted and closed on `8072a9ef`; see the [Phase 08 summary](#08--all-module-migration).
+**Active checkpoint:** Phase **09**, parent [#1282](https://github.com/waffleflopper/trooptotask/issues/1282), milestone **7**, active child D01 [#1579](https://github.com/waffleflopper/trooptotask/issues/1579), task **09-01**, branch `stabilization/1579-foundation-provenance`, no PR, state **IMPLEMENTING**. Phase 08 is accepted and closed on `8072a9ef`; see the [Phase 08 summary](#08--all-module-migration).
 
 ## Execution rules
 
@@ -51,6 +51,8 @@ Prerequisite: Phase 08 accepted. Each child owns one complete outcome and may sp
 | - [ ] | D03 [#1581](https://github.com/waffleflopper/trooptotask/issues/1581) | `09-03`     | Central interaction fixes and component tests for every family; consumer proof in light/dark and narrow/wide                                         | D01; D02 for moved families |
 | - [ ] | D04 [#1582](https://github.com/waffleflopper/trooptotask/issues/1582) | `09-04`     | Governance guards with fixtures and a rerunnable Phase 10 consumer inventory                                                                         | D02, D03                    |
 | - [ ] | D05 [#1583](https://github.com/waffleflopper/trooptotask/issues/1583) | `09-VERIFY` | Integrated foundation acceptance, Phase 09 compaction, parent/milestone closure                                                                      | D01–D04                     |
+
+D01's first PR delivers the [provenance and family contract](../ui-foundation-provenance.md) plus the carried planning edits. The token/theme/Bits runtime cutover, retained regressions and unchanged/final visual proof remain on #1579. The first PR references the issue and does not unlock D02/D03. [Current acceptance](EVIDENCE.md#phase-09-d01-foundation-provenance-and-contracts) keeps the source findings and UNRUN behavioral requirements distinct.
 
 Integrated credit: D29 (#1529/#1533) removed the five primitive barrel cycles originally listed under 09-01 and repaired the Tooltip, Pagination, RangeCalendar and Sidebar contracts. `onboarding-packet-list` already lives in Onboarding. D01 rechecks both on its candidate rather than repeating them.
 
@@ -123,4 +125,4 @@ Measurements unavailable now are listed in EVIDENCE. Later isolated synthetic wo
 
 ## Next executable task
 
-D01 [#1579](https://github.com/waffleflopper/trooptotask/issues/1579), task **09-01**, is READY on local branch `stabilization/1579-foundation-provenance` from main `8072a9ef`. That branch carries the Phase 08 compaction and the Phase 09 activation edits with D01's first PR. Earlier owner release obligations remain in [RELEASE](RELEASE.md).
+D01 [#1579](https://github.com/waffleflopper/trooptotask/issues/1579), task **09-01**, is IMPLEMENTING on local branch `stabilization/1579-foundation-provenance` from main `8072a9ef`. That branch carries the Phase 08 compaction and the Phase 09 activation edits with D01's first PR. Earlier owner release obligations remain in [RELEASE](RELEASE.md).

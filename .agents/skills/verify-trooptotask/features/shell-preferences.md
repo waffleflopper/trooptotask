@@ -4,6 +4,8 @@ A member reaches authorized screens while optional header content loads separate
 
 ## Sub-features
 
+- `theme-persistence`: an explicit header theme choice persists after reload and wins over the system preference. Shared UI and toasts follow that selected theme.
+
 - `first-paint`: authorized navigation and the current screen are usable before optional notification-count and Organization-switcher replies settle.
 - `optional-chrome`: a failed optional read leaves the screen, Account menu and permitted navigation usable; explicit switcher close/reopen retries without a request loop; a fresh load recovers other optional reads.
 - `training-preferences`: Group, saved View and matrix mode filter loaded data immediately; preference-only saves cause no Training workspace request or loading reset.
@@ -44,6 +46,8 @@ Preconditions: launch and doctor pass on the owned worker. Use `$V actor trainin
 12. Open Leave Organization as a nonowner, enter YES and cancel without dispatching. Open it again then replace Organization through native history; old confirmation cannot remain armed. Open What's New manually, close and reload to check the account's last-seen behavior. Keep auto-open timing after Dashboard readiness and failures of optional storage distinct from persisted provider state. These paths share the shell's scope; no pathname key or global modal bit is permitted.
 
 Direct SQL proof uses the canonical `python3 scripts/ci/database.py` runner under the repository's Node version, which owns fresh disposable projects and disables seeds. Its `account_preferences_rls.sql` contract exercises ordinary database roles for both tables, including no-feature-grant self actions, forged actor/Organization mutations, multi-membership, removal and anonymous callers. The populated `account_preferences_scope_before/after.sql` fixtures also prove that tightening progress scope preserves saved rows, JSON, timestamps and unaffected enforcement objects. This is provider/database proof, distinct from the native and HTTP steps above. `is_org_member` checks membership existence; fresh user/Organization suspension admission remains an independent HTTP boundary, and this contract does not claim direct-provider suspension denial.
+
+For Phase 09 theme work, run the [shared theme and viewport pass](shared-ui.md#theme-and-viewport-preparation-for-phase-09). Toggle the visible header control, reload and verify the same theme through the document attribute, saved browser preference and visible shell. System-preference emulation must not replace the explicit choice. This path is source-mapped and UNRUN in the provenance PR.
 
 Restore every control before reload/cleanup. Restore original preferences with native controls, verify exact rows, finish doctor and owned cleanup, then package sanitized artifacts under the task's evidence contract.
 

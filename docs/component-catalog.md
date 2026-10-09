@@ -457,13 +457,12 @@ Semantic palette:
 Public helpers:
 
 - `readinessBandLegendItems`
-- `readinessBandTierForPercent(percent)`
 - `formatReadinessBandPercent(percent)`
 - `readinessBandTone`: text color class per tier for values shown outside a cell (success, warning, destructive or muted), so a headline number, chart end label and grid total column share the cell scale.
 
 Rules:
 
-- Keep the `ramp` thresholds centralized: `<60%`, `60-69%`, `70-79%`, `80-89%`, `90%+`, and not applicable. A feature with its own goal-relative bands maps them to tiers in one record and passes the tier; never re-derive a tier from a rounded display percent.
+- The pattern presents tiers; it does not calculate them. Each feature computes its tier in one place and passes it in. The `ramp` legend reads `<60%`, `60-69%`, `70-79%`, `80-89%`, `90%+` and not applicable. Never re-derive a tier from a rounded display percent.
 - Routes may pass data, labels, and accessible names. They must not restyle readiness colors, hatching, radius, typography, or density locally.
 - `ui/operational-matrix` hosts these cells in Critical Tasks and Training Reports grids; readiness-tier meaning stays in `patterns/readiness-band`, not in the matrix primitive.
 

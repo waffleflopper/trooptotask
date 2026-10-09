@@ -2,7 +2,7 @@
 
 Baseline: `282fcace16795a13e2306bf71d44465f59d51acc`. Completed phases are summarized below; their accepted evidence and exact historical task scopes remain linked. [BASELINE](BASELINE.md) owns retained contracts and original findings, [EVIDENCE](EVIDENCE.md) owns acceptance and verification, and [RELEASE](RELEASE.md) owns operator obligations.
 
-**Active checkpoint:** Phase **09**, parent [#1282](https://github.com/waffleflopper/trooptotask/issues/1282), milestone **7**, active child D01 [#1579](https://github.com/waffleflopper/trooptotask/issues/1579), task **09-01**, branch `stabilization/1579-foundation-provenance`, no PR, state **IMPLEMENTING**. Phase 08 is accepted and closed on `8072a9ef`; see the [Phase 08 summary](#08--all-module-migration).
+**Active checkpoint:** Phase **09**, parent [#1282](https://github.com/waffleflopper/trooptotask/issues/1282), milestone **7**, active child D01 [#1579](https://github.com/waffleflopper/trooptotask/issues/1579), task **09-01**, branch `stabilization/1579-foundation-provenance`, state **AWAITING_PR** for the intermediate source/API outcome. Actual publication and current-head CI state are owned by GitHub. Phase 08 is accepted and closed on `8072a9ef`; see the [Phase 08 summary](#08--all-module-migration).
 
 ## Execution rules
 
@@ -125,4 +125,4 @@ Measurements unavailable now are listed in EVIDENCE. Later isolated synthetic wo
 
 ## Next executable task
 
-D01 [#1579](https://github.com/waffleflopper/trooptotask/issues/1579), task **09-01**, is IMPLEMENTING on local branch `stabilization/1579-foundation-provenance` from main `8072a9ef`. That branch carries the Phase 08 compaction and the Phase 09 activation edits with D01's first PR. Earlier owner release obligations remain in [RELEASE](RELEASE.md).
+D01 [#1579](https://github.com/waffleflopper/trooptotask/issues/1579), task **09-01**, is AWAITING_PR for its intermediate source/API outcome on branch `stabilization/1579-foundation-provenance` from main `8072a9ef`. That branch carries the Phase 08 compaction and the Phase 09 activation edits with D01's first PR. [Independent acceptance and the remaining runtime work](EVIDENCE.md#phase-09-d01-foundation-provenance-and-contracts) remain distinct. Robert's authorized stopping point is PR opening, with CI and hosted comments unmonitored; review and merge the PR, then repeat the continuation request. Earlier owner release obligations remain in [RELEASE](RELEASE.md).

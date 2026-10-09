@@ -117,47 +117,49 @@
 
 		<AppDialog.Body class="overflow-y-auto">
 			<form id="soldier-data-sheet-form" class="grid gap-4" onsubmit={handleSubmit}>
-				<Tabs.Root value="personal" class="lg:hidden">
-					<Tabs.List class="grid grid-cols-3">
-						<Tabs.Trigger value="personal">Personal</Tabs.Trigger>
-						<Tabs.Trigger value="family">Family</Tabs.Trigger>
-						<Tabs.Trigger value="education">Education</Tabs.Trigger>
-					</Tabs.List>
-					<Tabs.Content value="personal" class="mt-4 grid gap-4">
-						{@render PersonalFields()}
-						{@render MilitaryFields()}
-					</Tabs.Content>
-					<Tabs.Content value="family" class="mt-4 grid gap-4">
-						{@render FamilyFields()}
-					</Tabs.Content>
-					<Tabs.Content value="education" class="mt-4 grid gap-4">
-						{@render EducationFields()}
-						{@render EmergencyFields()}
-					</Tabs.Content>
-				</Tabs.Root>
+				<fieldset class="contents" disabled={isSaving}>
+					<Tabs.Root value="personal" class="lg:hidden">
+						<Tabs.List class="grid grid-cols-3">
+							<Tabs.Trigger value="personal">Personal</Tabs.Trigger>
+							<Tabs.Trigger value="family">Family</Tabs.Trigger>
+							<Tabs.Trigger value="education">Education</Tabs.Trigger>
+						</Tabs.List>
+						<Tabs.Content value="personal" class="mt-4 grid gap-4">
+							{@render PersonalFields('tab')}
+							{@render MilitaryFields('tab')}
+						</Tabs.Content>
+						<Tabs.Content value="family" class="mt-4 grid gap-4">
+							{@render FamilyFields('tab')}
+						</Tabs.Content>
+						<Tabs.Content value="education" class="mt-4 grid gap-4">
+							{@render EducationFields('tab')}
+							{@render EmergencyFields('tab')}
+						</Tabs.Content>
+					</Tabs.Root>
 
-				<div class="hidden gap-6 lg:grid lg:grid-cols-3">
-					<section class="grid content-start gap-4">
-						<h3 class="text-sm font-semibold">Personal info</h3>
-						{@render PersonalFields()}
-						{@render MilitaryFields()}
-					</section>
-					<section class="grid content-start gap-4">
-						<h3 class="text-sm font-semibold">Family and dependents</h3>
-						{@render FamilyFields()}
-					</section>
-					<section class="grid content-start gap-4">
-						<h3 class="text-sm font-semibold">Education and emergency contact</h3>
-						{@render EducationFields()}
-						{@render EmergencyFields()}
-					</section>
-				</div>
+					<div class="hidden gap-6 lg:grid lg:grid-cols-3">
+						<section class="grid content-start gap-4">
+							<h3 class="text-sm font-semibold">Personal info</h3>
+							{@render PersonalFields('grid')}
+							{@render MilitaryFields('grid')}
+						</section>
+						<section class="grid content-start gap-4">
+							<h3 class="text-sm font-semibold">Family and dependents</h3>
+							{@render FamilyFields('grid')}
+						</section>
+						<section class="grid content-start gap-4">
+							<h3 class="text-sm font-semibold">Education and emergency contact</h3>
+							{@render EducationFields('grid')}
+							{@render EmergencyFields('grid')}
+						</section>
+					</div>
 
-				{#if errorMessage}
-					<p class="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-						{errorMessage}
-					</p>
-				{/if}
+					{#if errorMessage}
+						<p class="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+							{errorMessage}
+						</p>
+					{/if}
+				</fieldset>
 			</form>
 		</AppDialog.Body>
 
@@ -170,30 +172,30 @@
 	</AppDialog.Content>
 </AppDialog.Root>
 
-{#snippet PersonalFields()}
+{#snippet PersonalFields(layout: string)}
 	<div class="grid gap-4 sm:grid-cols-2">
 		<div class="grid gap-2">
-			<Label for="blood-type">Blood type</Label>
-			<Input id="blood-type" bind:value={form.bloodType} />
+			<Label for="{layout}-blood-type">Blood type</Label>
+			<Input id="{layout}-blood-type" bind:value={form.bloodType} />
 		</div>
 		<div class="grid gap-2">
-			<Label for="marital-status">Marital status</Label>
-			<Input id="marital-status" bind:value={form.maritalStatus} />
+			<Label for="{layout}-marital-status">Marital status</Label>
+			<Input id="{layout}-marital-status" bind:value={form.maritalStatus} />
 		</div>
 	</div>
 	<div class="grid gap-4 sm:grid-cols-2">
 		<div class="grid gap-2">
-			<Label for="personal-phone">Personal phone</Label>
-			<Input id="personal-phone" bind:value={form.personalPhone} />
+			<Label for="{layout}-personal-phone">Personal phone</Label>
+			<Input id="{layout}-personal-phone" bind:value={form.personalPhone} />
 		</div>
 		<div class="grid gap-2">
-			<Label for="personal-email">Personal email</Label>
-			<Input id="personal-email" type="email" bind:value={form.personalEmail} />
+			<Label for="{layout}-personal-email">Personal email</Label>
+			<Input id="{layout}-personal-email" type="email" bind:value={form.personalEmail} />
 		</div>
 	</div>
 	<div class="grid gap-2">
-		<Label for="address-street">Address</Label>
-		<Input id="address-street" bind:value={form.addressStreet} />
+		<Label for="{layout}-address-street">Address</Label>
+		<Input id="{layout}-address-street" bind:value={form.addressStreet} />
 	</div>
 	<div class="grid gap-4 sm:grid-cols-[1fr_5rem_7rem]">
 		<Input aria-label="Address city" placeholder="City" bind:value={form.addressCity} />
@@ -202,78 +204,83 @@
 	</div>
 {/snippet}
 
-{#snippet MilitaryFields()}
+{#snippet MilitaryFields(layout: string)}
 	<div class="grid gap-4 sm:grid-cols-2">
 		<div class="grid gap-2">
-			<Label for="basd">BASD</Label>
-			<Input id="basd" type="date" bind:value={form.basd} />
+			<Label for="{layout}-basd">BASD</Label>
+			<Input id="{layout}-basd" type="date" bind:value={form.basd} />
 		</div>
 		<div class="grid gap-2">
-			<Label for="date-of-rank">Date of rank</Label>
-			<Input id="date-of-rank" type="date" bind:value={form.dateOfRank} />
+			<Label for="{layout}-date-of-rank">Date of rank</Label>
+			<Input id="{layout}-date-of-rank" type="date" bind:value={form.dateOfRank} />
 		</div>
 	</div>
 {/snippet}
 
-{#snippet FamilyFields()}
+{#snippet FamilyFields(layout: string)}
 	<div class="grid gap-4 sm:grid-cols-2">
 		<div class="grid gap-2">
-			<Label for="spouse-name">Spouse name</Label>
-			<Input id="spouse-name" bind:value={form.spouseName} />
+			<Label for="{layout}-spouse-name">Spouse name</Label>
+			<Input id="{layout}-spouse-name" bind:value={form.spouseName} />
 		</div>
 		<div class="grid gap-2">
-			<Label for="spouse-phone">Spouse phone</Label>
-			<Input id="spouse-phone" bind:value={form.spousePhone} />
+			<Label for="{layout}-spouse-phone">Spouse phone</Label>
+			<Input id="{layout}-spouse-phone" bind:value={form.spousePhone} />
 		</div>
 	</div>
 	<div class="grid gap-2">
-		<Label for="dependents">Number of dependents</Label>
-		<Input id="dependents" type="number" min="0" max="99" bind:value={form.numberOfDependents} />
+		<Label for="{layout}-dependents">Number of dependents</Label>
+		<Input id="{layout}-dependents" type="number" min="0" max="99" bind:value={form.numberOfDependents} />
 	</div>
 	<div class="grid gap-2">
-		<Label for="children">Children</Label>
-		<Textarea id="children" class="min-h-24" bind:value={form.childrenText} placeholder="Name, age" />
+		<Label for="{layout}-children">Children</Label>
+		<Textarea id="{layout}-children" class="min-h-24" bind:value={form.childrenText} placeholder="Name, age" />
 	</div>
 	<div class="grid gap-4 sm:grid-cols-3">
 		<div class="grid gap-2">
-			<Label for="vehicle-color">Vehicle color</Label>
-			<Input id="vehicle-color" bind:value={form.vehicleColor} />
+			<Label for="{layout}-vehicle-color">Vehicle color</Label>
+			<Input id="{layout}-vehicle-color" bind:value={form.vehicleColor} />
 		</div>
 		<div class="grid gap-2">
-			<Label for="vehicle-model">Vehicle</Label>
-			<Input id="vehicle-model" bind:value={form.vehicleMakeModel} />
+			<Label for="{layout}-vehicle-model">Vehicle</Label>
+			<Input id="{layout}-vehicle-model" bind:value={form.vehicleMakeModel} />
 		</div>
 		<div class="grid gap-2">
-			<Label for="vehicle-plate">Plate</Label>
-			<Input id="vehicle-plate" bind:value={form.vehiclePlate} />
+			<Label for="{layout}-vehicle-plate">Plate</Label>
+			<Input id="{layout}-vehicle-plate" bind:value={form.vehiclePlate} />
 		</div>
 	</div>
 {/snippet}
 
-{#snippet EducationFields()}
+{#snippet EducationFields(layout: string)}
 	<div class="grid gap-2">
-		<Label for="civilian-education">Civilian education</Label>
-		<Textarea id="civilian-education" class="min-h-24" bind:value={form.civilianEducation} />
+		<Label for="{layout}-civilian-education">Civilian education</Label>
+		<Textarea id="{layout}-civilian-education" class="min-h-24" bind:value={form.civilianEducation} />
 	</div>
 	<div class="grid gap-2">
-		<Label for="military-education">Military education</Label>
-		<Textarea id="military-education" class="min-h-24" bind:value={form.militaryEducationText} placeholder="BLC" />
+		<Label for="{layout}-military-education">Military education</Label>
+		<Textarea
+			id="{layout}-military-education"
+			class="min-h-24"
+			bind:value={form.militaryEducationText}
+			placeholder="BLC"
+		/>
 	</div>
 {/snippet}
 
-{#snippet EmergencyFields()}
+{#snippet EmergencyFields(layout: string)}
 	<div class="grid gap-4 sm:grid-cols-2">
 		<div class="grid gap-2">
-			<Label for="emergency-name">Emergency contact</Label>
-			<Input id="emergency-name" bind:value={form.emergencyContactName} />
+			<Label for="{layout}-emergency-name">Emergency contact</Label>
+			<Input id="{layout}-emergency-name" bind:value={form.emergencyContactName} />
 		</div>
 		<div class="grid gap-2">
-			<Label for="emergency-relationship">Relationship</Label>
-			<Input id="emergency-relationship" bind:value={form.emergencyContactRelationship} />
+			<Label for="{layout}-emergency-relationship">Relationship</Label>
+			<Input id="{layout}-emergency-relationship" bind:value={form.emergencyContactRelationship} />
 		</div>
 	</div>
 	<div class="grid gap-2">
-		<Label for="emergency-phone">Emergency phone</Label>
-		<Input id="emergency-phone" bind:value={form.emergencyContactPhone} />
+		<Label for="{layout}-emergency-phone">Emergency phone</Label>
+		<Input id="{layout}-emergency-phone" bind:value={form.emergencyContactPhone} />
 	</div>
 {/snippet}

@@ -2069,7 +2069,8 @@ async function main() {
 				'settings/general/updateName': 'error',
 				'settings/general/updateSlug': 'slugError',
 				'settings/general/clearSlug': 'slugError',
-				'settings/danger/deleteOrganization': 'deleteError'
+				'settings/danger/deleteOrganization': 'deleteError',
+				'settings/members/updateMemberAccess': 'accessError'
 			};
 			if (
 				![

@@ -22,7 +22,7 @@ This catalog is the active reference for TroopToTask's shadcn-svelte + Tailwind 
 
 Use it as the current component reference for button, button group, input, input group, sidebar, label, textarea, select, checkbox, radio group, badge, alert, dialog, sheet, popover, dropdown menu, tooltip, command, combobox, tabs, table, calendar/date picker, chart, skeleton, progress, spinner, empty, and separator.
 
-The [family contract](ui-foundation-provenance.md) governs retention, moves and removals. D02 has deleted the unused families and alias barrels it names. Its remaining layer moves update the paths below together with every consumer.
+The [family contract](ui-foundation-provenance.md) governs retention, moves and removals. Domain UI lives with its feature: Calendar owns its date cells and status badge, and Onboarding owns its kanban board and paperwork stage display. Those components are documented by their feature code, not here.
 
 Use the replacement notes here to map older TroopToTask building blocks to the current shadcn-svelte/shared UI foundation. Missing target guidance means the project has not selected a shadcn-svelte equivalent yet and needs a shared-component decision before new work relies on that pattern.
 
@@ -634,7 +634,7 @@ Compatibility note: the legacy `src/lib/components/ui/BulkImportTable.svelte` he
 
 Use these for any top-level marketing, legal, or trust page so the public site keeps one shared shell and one navigation/footer contract.
 
-The shared wordmark lives in `src/lib/components/ui/brand-wordmark/BrandWordmark.svelte`. Public navigation and account-access pages use that same Web UI component so its lettering and subtitle stay consistent.
+The shared wordmark is `patterns/brand-wordmark`. Public navigation and account-access pages use that same component so its lettering and subtitle stay consistent. It is a pattern rather than a `components/public` file because Identity's AuthShell also renders it, and public routes already depend on Identity.
 
 ```svelte
 <PublicShell user={data.user} active="security">
@@ -825,34 +825,6 @@ Compatibility note: the legacy `ui/Spinner.svelte` wrapper and `.spinner` select
 
 ---
 
-## `ui/stepper`
-
-This family is selected for deletion in D02. Its sole production consumer is Onboarding History’s read-only paperwork stage display, which moves to private `OnboardingPacketList.Stages`. Do not add Stepper consumers; the example below documents its current unused navigation API for cutover reference.
-
-```svelte
-<script lang="ts">
-	import * as Stepper from '$lib/components/ui/stepper';
-
-	const steps = [
-		{ value: 'draft', label: 'Draft', completed: true },
-		{ value: 'review', label: 'Review', description: 'Current approval stage' },
-		{ value: 'done', label: 'Done' }
-	];
-</script>
-
-<Stepper.Root {steps} value="review">
-	<Stepper.List>
-		{#each steps as step (step.value)}
-			<Stepper.Item value={step.value} label={step.label} description={step.description} />
-		{/each}
-	</Stepper.List>
-</Stepper.Root>
-```
-
-D02 preserves the History display and its meaningful accessibility/readback coverage while deleting the unused navigation parts, fixture and tests. The selected API and deliberate semantic fixes are recorded in the [family contract](ui-foundation-provenance.md#project-family-apis-and-target-layers).
-
----
-
 ## Shared Form Controls
 
 New form work should use the shadcn-svelte-backed shared control system. The durable public API is compound and explicit: routes compose labels, controls, descriptions, errors, values, disabled state, and handlers. Routes must not restyle controls locally.
@@ -974,30 +946,6 @@ Props: `Root` accepts `items: readonly (string | { value: string; label?: string
 - `Combobox.Chips`, `Combobox.ChipsInput`, and `Combobox.Chip` support chip-style multi-selection. The inline input keeps focus for search and keyboard selection; selected options toggle while the popup stays open, and Escape closes it. One Command context owns both inline input and popup; its DOM element is rendered inside the portal around its options. Do not move the context into Content or add a second Command root.
 - Large lists, async/loading option states, empty states, and keyboard paths must be proven in `docs/component-catalog.md` before route usage.
 - Visual changes belong in shared combobox source only.
-
-## `ui/date-cell`
-
-Token-aligned calendar/matrix day cell primitive. Use this for dense date status cells that need availability color, assignment markers, weekend/holiday/today treatment, and the same visual language as `the shared calendar component guidance`.
-
-```svelte
-<script lang="ts">
-	import * as DateCell from '$lib/components/ui/date-cell';
-</script>
-
-<DateCell.Root
-	today
-	holiday
-	holidayName="Training Holiday"
-	statuses={[{ id: 'leave', name: 'Leave', color: '#345b22', textColor: '#f7f8f4', note: 'Approved pass' }]}
-	markers={[{ id: 'staff-duty', name: 'Staff Duty', shortName: 'SD', color: '#263f75', textColor: '#ffffff' }]}
-/>
-```
-
-Props: `statuses?: DateCellStatus[]`, `markers?: DateCellMarker[]`, `weekend?: boolean`, `today?: boolean`, `holiday?: boolean`, `holidayName?: string`, `onboarding?: boolean`, `showStatusText?: boolean`, `density?: 'month' | 'long-range'`, plus button attributes.
-
-Compatibility: the legacy `ui/DateCell.svelte` wrapper has been removed. Calendar consumers should map product data into the `statuses` and `markers` props directly.
-
----
 
 ## `ui/empty`
 

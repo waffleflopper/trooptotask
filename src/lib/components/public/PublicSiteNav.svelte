@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import BrandWordmark from '$lib/components/ui/brand-wordmark/BrandWordmark.svelte';
+	import { BrandWordmark } from '$lib/components/patterns/brand-wordmark';
 	import { themeStore } from '$lib/stores/theme.svelte';
 
 	interface Props {

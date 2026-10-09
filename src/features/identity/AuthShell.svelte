@@ -3,7 +3,7 @@
 	import { resolve } from '$app/paths';
 	import MoonIcon from '@lucide/svelte/icons/moon';
 	import SunIcon from '@lucide/svelte/icons/sun';
-	import BrandWordmark from '$lib/components/ui/brand-wordmark/BrandWordmark.svelte';
+	import { BrandWordmark } from '$lib/components/patterns/brand-wordmark';
 	import { Button } from '$lib/components/ui/button';
 	import { themeStore } from '$lib/stores/theme.svelte';
 	import { cn } from '$lib/utils';

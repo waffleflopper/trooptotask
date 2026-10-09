@@ -6,7 +6,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import * as Alert from '$lib/components/ui/alert';
 	import * as Empty from '$lib/components/ui/empty';
-	import * as KanbanBoard from '$lib/components/ui/kanban-board';
+	import * as KanbanBoard from './kanban-board';
 	import ShieldAlert from '@lucide/svelte/icons/shield-alert';
 	import ClipboardList from '@lucide/svelte/icons/clipboard-list';
 	import UserPlus from '@lucide/svelte/icons/user-plus';

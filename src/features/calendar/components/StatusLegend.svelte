@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { StatusType } from '$features/calendar/contracts';
-	import { CalendarStatusBadge } from '$lib/components/ui/calendar-status-badge';
+	import { CalendarStatusBadge } from './calendar-status-badge';
 
 	interface Props {
 		statusTypes: StatusType[];

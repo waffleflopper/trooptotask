@@ -11,3 +11,4 @@ export { default as StatusIcon } from './status-icon.svelte';
 export { default as Notes } from './notes.svelte';
 export { default as Note } from './note.svelte';
 export type { PacketStepState, PacketStepTone } from './types';
+export { default as Stages } from './stages.svelte';

@@ -3,7 +3,7 @@
 	import type { StatusType } from '$features/calendar/contracts';
 	import { formatDate } from '$lib/utils/dates';
 	import { toastStore } from '$lib/stores/toast.svelte';
-	import { CalendarStatusBadge } from '$lib/components/ui/calendar-status-badge';
+	import { CalendarStatusBadge } from './calendar-status-badge';
 	import { Badge as UiBadge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import { useDataTableSelection } from '$lib/components/ui/data-table';

@@ -1,6 +1,6 @@
 # Web foundation provenance and family contracts
 
-This reference records the foundation and its contract for Phase 09 D01 [#1579](https://github.com/waffleflopper/trooptotask/issues/1579). The token source, theme source and Bits UI upgrade below are implemented. D02 [#1580](https://github.com/waffleflopper/trooptotask/issues/1580) has deleted the selected unused families, alias barrels, dead DataTable helpers and the RangeCalendar patch, and has moved the neutral compositions to `components/patterns`. Its feature-owner moves are in progress.
+This reference records the foundation and its contract for Phase 09 D01 [#1579](https://github.com/waffleflopper/trooptotask/issues/1579). The token source, theme source and Bits UI upgrade below are implemented. D02 [#1580](https://github.com/waffleflopper/trooptotask/issues/1580) executed the moves and deletions below; the tables keep the original `ui/*` paths as the record of each decision. One placement differs from the selection: BrandWordmark is `patterns/brand-wordmark`, not a `components/public` file, because Identity's AuthShell renders it and public routes already depend on Identity. A public-web home would create a module cycle.
 
 ## Source and comparison method
 

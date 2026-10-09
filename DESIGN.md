@@ -259,7 +259,7 @@ Navigation is standard because users need muscle memory.
 
 - **Authenticated Shell:** Permanent dark chrome using `--chrome` tokens, with muted text and amber current-state signal.
 - **Breadcrumbs:** Shared breadcrumb primitives in the app header area. Do not duplicate app breadcrumbs inside route content.
-- **Route Tabs:** Use `ui/page-shell` tabs or shadcn tabs for route-local Generate/History/Settings style navigation. Do not restore legacy `SubNav`.
+- **Route Tabs:** Use `patterns/page-shell` tabs or shadcn tabs for route-local Generate/History/Settings style navigation. Do not restore legacy `SubNav`.
 - **Menus:** Use dropdown menu, command, popover, sheet, dialog, tooltip, and drawer primitives from shared UI.
 - **Mobile:** Collapse structure through shared sidebar, sheet, drawer, toolbar overflow, and responsive route layout. Do not invent route-specific mobile chrome.
 
@@ -268,8 +268,8 @@ Navigation is standard because users need muscle memory.
 Data-heavy work is first-class.
 
 - **DataTable:** Production DataTable surfaces use `ui/data-table`; route code configures columns, filters, search, selection, actions, empty state, pagination, and row behavior.
-- **WorkspaceToolbar:** Use `ui/workspace-toolbar` for route controls. It owns one-row toolbar structure, grouping, labels, overflow behavior, and visual treatment.
-- **PageShell:** Use `ui/page-shell` for route roots, headers, tabs, fact grids, metrics, summary rails, and sticky action bars.
+- **WorkspaceToolbar:** Use `patterns/workspace-toolbar` for route controls. It owns one-row toolbar structure, grouping, labels, overflow behavior, and visual treatment.
+- **PageShell:** Use `patterns/page-shell` for route roots, headers, tabs, fact grids, metrics, summary rails, and sticky action bars.
 - **OperationalMatrix:** Training and Critical Tasks matrix surfaces converge on `ui/operational-matrix`, including vertical column headers where needed.
 - **Charts:** Use shadcn chart primitives and shared chart conventions for reports.
 

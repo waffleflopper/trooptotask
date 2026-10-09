@@ -95,6 +95,7 @@
 	}
 
 	let { start = $bindable(), end = $bindable(), presets = [], onCustom }: Props = $props();
+	const id = $props.id();
 
 	function applyPreset(preset: DateRangePreset) {
 		const range = preset.getRange();
@@ -110,12 +111,17 @@
 <div class="grid gap-2">
 	<div class="grid min-w-0 gap-2 sm:grid-cols-2">
 		<Field.Root>
-			<Field.Label>Start</Field.Label>
-			<DatePicker bind:value={start} onValueChange={handleCustomChange} placeholder="Select start date" />
+			<Field.Label for="{id}-start">Start</Field.Label>
+			<DatePicker
+				id="{id}-start"
+				bind:value={start}
+				onValueChange={handleCustomChange}
+				placeholder="Select start date"
+			/>
 		</Field.Root>
 		<Field.Root>
-			<Field.Label>End</Field.Label>
-			<DatePicker bind:value={end} onValueChange={handleCustomChange} placeholder="Select end date" />
+			<Field.Label for="{id}-end">End</Field.Label>
+			<DatePicker id="{id}-end" bind:value={end} onValueChange={handleCustomChange} placeholder="Select end date" />
 		</Field.Root>
 	</div>
 

@@ -7,17 +7,19 @@
 	import InfoIcon from '@lucide/svelte/icons/info';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 
-	let { ...restProps }: SonnerProps = $props();
+	let { onfocusin, onclick, ...restProps }: SonnerProps = $props();
 
 	let returnFocus: HTMLElement | null = null;
 
-	function rememberReturnFocus(event: FocusEvent & { currentTarget: HTMLElement }) {
+	function rememberReturnFocus(event: FocusEvent & { currentTarget: EventTarget & HTMLOListElement }) {
+		onfocusin?.(event);
 		const from = event.relatedTarget;
 		if (from instanceof HTMLElement && !event.currentTarget.contains(from)) returnFocus = from;
 	}
 
 	// Removing the focused toast would drop focus to the body, so move it before the toast leaves.
-	function keepFocusOnDismiss(event: MouseEvent & { currentTarget: HTMLElement }) {
+	function keepFocusOnDismiss(event: MouseEvent & { currentTarget: EventTarget & HTMLOListElement }) {
+		onclick?.(event);
 		const close = event.target instanceof Element ? event.target.closest('[data-close-button]') : null;
 		if (!close || document.activeElement !== close) return;
 		const next = [...event.currentTarget.querySelectorAll<HTMLElement>('[data-close-button]')].find(

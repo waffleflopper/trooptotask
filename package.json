@@ -35,7 +35,7 @@
 		"@sveltejs/adapter-auto": "^7.0.1",
 		"@sveltejs/kit": "^2.61.1",
 		"@sveltejs/vite-plugin-svelte": "^7.0.0",
-		"@testing-library/jest-dom": "^6.9.1",
+		"@testing-library/jest-dom": "^7.0.1",
 		"@testing-library/svelte": "^5.3.1",
 		"chrome-devtools-mcp": "1.10.1",
 		"eslint": "^9.39.4",

@@ -1,5 +1,4 @@
 import { SvelteMap, SvelteSet } from 'svelte/reactivity';
-import { resolve } from '$app/paths';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
@@ -22,7 +21,6 @@ import type { Personnel } from '$features/personnel/contracts';
 import type { Group } from '$features/personnel/contracts';
 import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 import type { TrainingBatchRecord, TrainingBatchImportResult } from '../contracts';
-import type { OverflowItem } from '$lib/components/ui/OverflowMenu.types';
 
 const TRAINING_POLICY_RESOURCE = { kind: 'unscoped' } as const;
 const TRAINING_CONFIGURATION_RESOURCE = { kind: 'organization' } as const;
@@ -213,34 +211,6 @@ export class TrainingPageContext {
 	// ---- derived: stats ----
 	get stats() {
 		return getTrainingStats(this.filteredPersonnel, trainingTypesStore.items, personnelTrainingsStore.items);
-	}
-
-	// ---- derived: overflow menu ----
-	get trainingOverflowItems(): OverflowItem[] {
-		const items: OverflowItem[] = [];
-		items.push({ label: 'Sign-In Rosters', onclick: () => this.#modals.open('sign-in-rosters') });
-		items.push({
-			label: 'Reports',
-			onclick: () => {
-				void loadNavigation().then(({ goto }) => goto(resolve(`/org/${this.orgUrlSegment}/training/reports`)));
-			}
-		});
-		if (this.canBulkImport) {
-			items.push({
-				label: 'Bulk Import',
-				onclick: () => this.#modals.open('bulk-import'),
-				divider: true
-			});
-		}
-		if (this.canManageConfig) {
-			items.push({
-				label: 'Manage Types',
-				onclick: () => {
-					void loadNavigation().then(({ goto }) => goto(resolve(`/org/${this.orgUrlSegment}/training/types`)));
-				}
-			});
-		}
-		return items;
 	}
 
 	// ---- helpers ----

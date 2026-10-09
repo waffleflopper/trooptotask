@@ -3,7 +3,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as ButtonGroup from '$lib/components/ui/button-group';
-	import * as TypeWorkspace from '$lib/components/ui/type-workspace';
+	import * as TypeWorkspace from '$lib/components/ui/type-management-workspace';
 
 	interface Props {
 		appliesToRoles: string[];
@@ -116,7 +116,7 @@
 	/>
 {/snippet}
 
-<TypeWorkspace.Form title="Applicability">
+<TypeWorkspace.FormSection title="Applicability">
 	<TypeWorkspace.Description>
 		Start with the broad policy, then open targeting only when this type applies to a subset.
 	</TypeWorkspace.Description>
@@ -181,4 +181,4 @@
 			{@render dimension('Excluded ranks', availableRanks, excludedRanks, 'excludedRanks', true)}
 		</TypeWorkspace.Disclosure>
 	{/if}
-</TypeWorkspace.Form>
+</TypeWorkspace.FormSection>

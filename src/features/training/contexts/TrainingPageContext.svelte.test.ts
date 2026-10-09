@@ -214,8 +214,6 @@ describe('TrainingPageContext', () => {
 			expect(ctx.canViewTraining).toBe(true);
 			expect(ctx.canManageConfig).toBe(false);
 			expect(ctx.canBulkImport).toBe(true);
-			expect(ctx.trainingOverflowItems.map((item) => item.label)).toContain('Bulk Import');
-			expect(ctx.trainingOverflowItems.map((item) => item.label)).not.toContain('Manage Types');
 		});
 	});
 
@@ -341,32 +339,6 @@ describe('TrainingPageContext', () => {
 			const ctx = makeContext(makeData(), modals, makeOrg());
 
 			expect(ctx.rankCatalog).toEqual(catalog);
-		});
-	});
-
-	describe('trainingOverflowItems', () => {
-		it('always includes Sign-In Rosters and Reports', () => {
-			const ctx = makeContext(makeData(), modals, makeOrg());
-			const labels = ctx.trainingOverflowItems.map((i) => i.label);
-			expect(labels).toContain('Sign-In Rosters');
-			expect(labels).toContain('Reports');
-		});
-
-		it('excludes config items for plain member', () => {
-			const org = makePolicyOrg({ training: 'operate' });
-			const ctx = makeContext(makeData(), modals, org);
-			const labels = ctx.trainingOverflowItems.map((i) => i.label);
-			expect(labels).not.toContain('Bulk Import');
-			expect(labels).not.toContain('Manage Types');
-			expect(labels).not.toContain('Reorder Columns');
-		});
-
-		it('includes config items with Training configure capability', () => {
-			const org = makePolicyOrg({ training: 'configure' });
-			const ctx = makeContext(makeData(), modals, org);
-			const labels = ctx.trainingOverflowItems.map((i) => i.label);
-			expect(labels).toContain('Bulk Import');
-			expect(labels).toContain('Manage Types');
 		});
 	});
 

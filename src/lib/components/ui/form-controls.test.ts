@@ -22,7 +22,7 @@ describe('shared form controls', () => {
 		expect(screen.getByText('Notes are too short.')).toBeTruthy();
 	});
 
-	it('supports controlled input, textarea, checkbox, switch, and disabled states', async () => {
+	it('supports controlled input, textarea, checkbox, and disabled states', async () => {
 		render(FormControlsTest);
 
 		await fireEvent.input(screen.getByRole('textbox', { name: /task title/i }), {
@@ -32,10 +32,9 @@ describe('shared form controls', () => {
 			target: { value: 'Updated notes' }
 		});
 		await fireEvent.click(screen.getByRole('checkbox', { name: /include archived records/i }));
-		await fireEvent.click(screen.getByRole('switch', { name: /approval required/i }));
 
 		expect(screen.getByLabelText('Current values').textContent).toContain('Updated task|Updated notes');
-		expect(screen.getByLabelText('Current values').textContent).toContain('|true|false');
+		expect(screen.getByLabelText('Current values').textContent?.trim()).toMatch(/\|true$/);
 		expect(screen.getByRole('textbox', { name: /disabled field/i }).hasAttribute('disabled')).toBe(true);
 	});
 

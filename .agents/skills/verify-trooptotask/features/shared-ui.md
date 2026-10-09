@@ -10,14 +10,10 @@ Members use shared controls through Personnel forms, import previews and navigat
 - `dialog-focus`: a real dialog opens with its title, contains keyboard focus, cancels without saving and restores focus to its opening control.
 - `confirmation-cancel`: an archive confirmation identifies the actual Person and cancels without archiving or losing the opening control's focus.
 - `date-selection`: calendar navigation and date activation update the caller's draft; canceling the enclosing form preserves stored dates.
-- `range-selection`: keyboard selection across a month boundary returns the exact start/end dates and retains usable focus. Caller date bounds prevent selection outside the allowed interval.
-- `pagination-selection`: public page controls update the caller's page and record range; disabled controls cannot change it or follow a caller-rendered destination. Previous/Next page wrappers use supplied destinations, while PrevButton/NextButton provide adjacent-page and end-boundary behavior.
 
 ## How to get to it (user POV)
 
 In Personnel, use a named row's Edit or Archive button. Edit contains ETS and PCS / DEROS date pickers. Import opens the file preview with validation hints. Toggle Sidebar collapses desktop navigation; its icon links and the header theme button expose tooltip labels. An admitted platform administrator uses the same sidebar on Admin screens.
-
-Range-calendar and pagination currently have no production callers. Their public component tests establish their interactions separately; a DataTable or Admin directory's unrelated paging buttons do not exercise the shared Pagination family. Recheck the source-aware consumer census before relying on this scope after future application changes.
 
 ## Driving it with verify:app
 
@@ -51,12 +47,8 @@ D01 ran this pass on unchanged main `7a8d7071` and again on its token/theme cand
 
 ## Gotchas
 
-Run `npm run test -- src/lib/components/ui/tooltip/tooltip.test.ts src/lib/components/ui/range-calendar/range-calendar.test.ts src/lib/components/ui/pagination/pagination.test.ts src/lib/components/ui/sidebar/sidebar-menu-button.test.ts` under the required Node/npm versions. These render the public barrels, use literal expected dates/pages and assert caller-visible values, disabled selection, keyboard focus and selected semantics. Tooltip checks cover generated and caller IDs, resolving descriptions, dismissal, custom child rendering, references and Escape callbacks. Unconsumed components need this proof rather than a new test route.
+Run `npm run test -- src/lib/components/ui/tooltip/tooltip.test.ts src/lib/components/ui/sidebar/sidebar-menu-button.test.ts` under the required Node/npm versions. These render the public barrels and assert caller-visible values, keyboard focus and selected semantics. Tooltip checks cover generated and caller IDs, resolving descriptions, dismissal, custom child rendering, references and Escape callbacks. Unconsumed components need this proof rather than a new test route.
 
 Sidebar MenuButton checks cover current/ordinary destination closure, caller cancellation, modified/nonprimary activation, non-navigation controls and the desktop preference. Retain AppDialog, ConfirmDialog and AppShellHeader interaction tests alongside affected consumer tests. Text-only assertions cannot detect an empty ID or a broken description. A source-aware import scan establishes cycle removal and reverse consumers separately from these user interactions. Full required checks and production build remain candidate gates.
 
-Pagination Link uses Bits UI's button-based Page API and forwards `disabled` to its custom child. A child rendering an anchor owns its destination and element-specific semantics: remove `href` when disabled, expose `aria-disabled`, omit button-only attributes and remove it from sequential keyboard focus. Prefer the shared `Button` with `href` for that mapping; its disabled anchor already follows this contract. Primary click/Enter/Space guards cannot remove a destination assigned afterward by arbitrary child markup. Dispatch disabled-wrapper keyboard regressions on the control itself, even though a native disabled button cannot receive ordinary focus. Enabled anchor Enter leaves the browser default available and selects the page through the resulting click; caller cancellation must preserve the page, range and destination. Public component tests separately dispatch Enter and its click activation, checking the uncanceled key, literal destination and callback sequence. This is component event proof, not a native browser keypress. Button Enter, Space and directional keys retain the primitive behavior.
-
-The audited Bits UI patch keeps RangeCalendar's placeholder synchronized with changes to the start date. Completing an end date must preserve keyboard focus even when that date lies beyond the start month's trailing week. Caller-driven start-date changes still update the displayed month.
-
-Retain original failed observations until the same repaired contracts pass. Completing a cross-month range must not strand focus on the document body; a disabled pagination destination must not change the caller's page through Enter. Record any unreachable consumer or unavailable native probe explicitly. This recipe does not activate Phase 09 or verify D29's mixed-owner utility/provider work.
+Retain original failed observations until the same repaired contracts pass. Record any unreachable consumer or unavailable native probe explicitly. This recipe does not activate Phase 09 or verify D29's mixed-owner utility/provider work.

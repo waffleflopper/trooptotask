@@ -3,10 +3,8 @@
 	import * as Combobox from '$lib/components/ui/combobox/index.js';
 	import * as Field from '$lib/components/ui/field/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
-	import * as MultiSelect from '$lib/components/ui/multi-select/index.js';
 	import { NativeSelect } from '$lib/components/ui/native-select/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
-	import { Switch } from '$lib/components/ui/switch/index.js';
 	import { Textarea } from '$lib/components/ui/textarea/index.js';
 
 	const statusOptions = [
@@ -32,7 +30,6 @@
 	let selectedPerson = $state('');
 	let selectedFilters = $state<string[]>(['hq']);
 	let checked = $state(false);
-	let enabled = $state(true);
 
 	const selectedStatusLabel = $derived(
 		statusOptions.find((option) => option.value === selectedStatus)?.label ?? 'Status'
@@ -102,28 +99,28 @@
 </Field.Root>
 
 <div role="toolbar" aria-label="Shared form toolbar">
-	<MultiSelect.Root items={filters} multiple name="groupIds" bind:value={selectedFilters} label="Groups">
-		<MultiSelect.Trigger>
-			<MultiSelect.Value>
+	<Combobox.Root items={filters} multiple name="groupIds" bind:value={selectedFilters} label="Groups">
+		<Combobox.Chips>
+			<Combobox.Value>
 				{#snippet children(values)}
 					<span data-testid="selected-count">{values.length} selected</span>
 					{#each values as filterValue (filterValue)}
 						{@const filter = filters.find((option) => option.value === filterValue)}
-						<MultiSelect.Chip value={filterValue}>{filter?.label ?? filterValue}</MultiSelect.Chip>
+						<Combobox.Chip value={filterValue}>{filter?.label ?? filterValue}</Combobox.Chip>
 					{/each}
-					<MultiSelect.Input placeholder="Groups" aria-label="Groups" />
+					<Combobox.ChipsInput placeholder="Groups" aria-label="Groups" />
 				{/snippet}
-			</MultiSelect.Value>
-		</MultiSelect.Trigger>
-		<MultiSelect.Content>
-			<MultiSelect.Empty>No groups found.</MultiSelect.Empty>
-			<MultiSelect.List>
+			</Combobox.Value>
+		</Combobox.Chips>
+		<Combobox.Content>
+			<Combobox.Empty>No groups found.</Combobox.Empty>
+			<Combobox.List>
 				{#snippet children(value, option)}
-					<MultiSelect.Item {value} label={option.label} />
+					<Combobox.Item {value} label={option.label} />
 				{/snippet}
-			</MultiSelect.List>
-		</MultiSelect.Content>
-	</MultiSelect.Root>
+			</Combobox.List>
+		</Combobox.Content>
+	</Combobox.Root>
 </div>
 
 <Combobox.Root items={people} loading loadingText="Loading personnel..." label="Loading people">
@@ -138,10 +135,6 @@
 		<Checkbox id="include-archive" bind:checked />
 		<Field.Label for="include-archive">Include archived records</Field.Label>
 	</Field.Root>
-	<Field.Root orientation="horizontal">
-		<Switch id="approval-required" bind:checked={enabled} />
-		<Field.Label for="approval-required">Approval required</Field.Label>
-	</Field.Root>
 	<Field.Root>
 		<Field.Label for="disabled-input">Disabled field</Field.Label>
 		<Field.Control>
@@ -151,5 +144,5 @@
 </Field.Group>
 
 <output aria-label="Current values">
-	{title}|{notes}|{nativeStatus}|{selectedStatus}|{selectedPerson}|{selectedFilters.join(',')}|{checked}|{enabled}
+	{title}|{notes}|{nativeStatus}|{selectedStatus}|{selectedPerson}|{selectedFilters.join(',')}|{checked}
 </output>

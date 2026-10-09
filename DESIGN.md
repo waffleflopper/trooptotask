@@ -251,7 +251,7 @@ Inputs are compact and precise.
 - **Focus:** Border shifts to ring, with `focus-visible:ring-3`.
 - **Error:** Destructive border and destructive ring at reduced opacity.
 - **Disabled:** 50% opacity, pointer-events disabled, muted background.
-- **Field Composition:** Use `ui/field`, `Input`, `Textarea`, `Select`, `Checkbox`, `RadioGroup`, `Switch`, `Combobox`, and `MultiSelect` instead of legacy route-local field wrappers.
+- **Field Composition:** Use `ui/field`, `Input`, `Textarea`, `Select`, `Checkbox`, `RadioGroup` and `Combobox` (with `multiple` for multi-select) instead of legacy route-local field wrappers.
 
 ### Navigation
 
@@ -271,7 +271,6 @@ Data-heavy work is first-class.
 - **WorkspaceToolbar:** Use `ui/workspace-toolbar` for route controls. It owns one-row toolbar structure, grouping, labels, overflow behavior, and visual treatment.
 - **PageShell:** Use `ui/page-shell` for route roots, headers, tabs, fact grids, metrics, summary rails, and sticky action bars.
 - **OperationalMatrix:** Training and Critical Tasks matrix surfaces converge on `ui/operational-matrix`, including vertical column headers where needed.
-- **WorkflowPanel:** Onboarding, training type, and manager panels converge on shared workflow-panel and alert variants instead of route-local warning panels.
 - **Charts:** Use shadcn chart primitives and shared chart conventions for reports.
 
 ## 6. Do's and Don'ts

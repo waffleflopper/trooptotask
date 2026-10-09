@@ -2,7 +2,7 @@
 
 Baseline: `282fcace16795a13e2306bf71d44465f59d51acc`. Completed phases are summarized below; their accepted evidence and exact historical task scopes remain linked. [BASELINE](BASELINE.md) owns retained contracts and original findings, [EVIDENCE](EVIDENCE.md) owns acceptance and verification, and [RELEASE](RELEASE.md) owns operator obligations.
 
-**Active checkpoint:** Phase **09**, parent [#1282](https://github.com/waffleflopper/trooptotask/issues/1282), milestone **7**, active child D01 [#1579](https://github.com/waffleflopper/trooptotask/issues/1579), task **09-01**, branch `stabilization/1579-foundation-provenance`, state **AWAITING_PR** for the intermediate source/API outcome. Actual publication and current-head CI state are owned by GitHub. Phase 08 is accepted and closed on `8072a9ef`; see the [Phase 08 summary](#08--all-module-migration).
+**Active checkpoint:** Phase **09**, parent [#1282](https://github.com/waffleflopper/trooptotask/issues/1282), milestone **7**, active child D01 [#1579](https://github.com/waffleflopper/trooptotask/issues/1579), task **09-01**, branch `stabilization/1579-foundation-runtime`, state **AWAITING_MERGE** for the final runtime PR. Actual publication and current-head CI state are owned by GitHub. Phase 08 is accepted and closed on `8072a9ef`; see the [Phase 08 summary](#08--all-module-migration).
 
 ## Execution rules
 
@@ -52,7 +52,7 @@ Prerequisite: Phase 08 accepted. Each child owns one complete outcome and may sp
 | - [ ] | D04 [#1582](https://github.com/waffleflopper/trooptotask/issues/1582) | `09-04`     | Governance guards with fixtures and a rerunnable Phase 10 consumer inventory                                                                         | D02, D03                    |
 | - [ ] | D05 [#1583](https://github.com/waffleflopper/trooptotask/issues/1583) | `09-VERIFY` | Integrated foundation acceptance, Phase 09 compaction, parent/milestone closure                                                                      | D01–D04                     |
 
-D01's first PR delivers the [provenance and family contract](../ui-foundation-provenance.md) plus the carried planning edits. The token/theme/Bits runtime cutover, retained regressions and unchanged/final visual proof remain on #1579. The first PR references the issue and does not unlock D02/D03. [Current acceptance](EVIDENCE.md#phase-09-d01-foundation-provenance-and-contracts) keeps the source findings and UNRUN behavioral requirements distinct.
+D01's first PR, #1584, delivered the [provenance and family contract](../ui-foundation-provenance.md). Its final PR carries the token, theme and Bits UI cutover with baseline and final proof and closes #1579 on merge. D02 and D03 unlock only after that merge. [Current acceptance](EVIDENCE.md#phase-09-d01-foundation-provenance-and-contracts) records the proof and its limits.
 
 Integrated credit: D29 (#1529/#1533) removed the five primitive barrel cycles originally listed under 09-01 and repaired the Tooltip, Pagination, RangeCalendar and Sidebar contracts. `onboarding-packet-list` already lives in Onboarding. D01 rechecks both on its candidate rather than repeating them.
 
@@ -125,4 +125,4 @@ Measurements unavailable now are listed in EVIDENCE. Later isolated synthetic wo
 
 ## Next executable task
 
-D01 [#1579](https://github.com/waffleflopper/trooptotask/issues/1579), task **09-01**, is AWAITING_PR for its intermediate source/API outcome on branch `stabilization/1579-foundation-provenance` from main `8072a9ef`. That branch carries the Phase 08 compaction and the Phase 09 activation edits with D01's first PR. [Independent acceptance and the remaining runtime work](EVIDENCE.md#phase-09-d01-foundation-provenance-and-contracts) remain distinct. Robert's authorized stopping point is PR opening, with CI and hosted comments unmonitored; review and merge the PR, then repeat the continuation request. Earlier owner release obligations remain in [RELEASE](RELEASE.md).
+D01 [#1579](https://github.com/waffleflopper/trooptotask/issues/1579), task **09-01**, is AWAITING_MERGE on branch `stabilization/1579-foundation-runtime`. Its final PR closes #1579 on merge. [Acceptance](EVIDENCE.md#phase-09-d01-foundation-provenance-and-contracts) lists the proof and limits. After Robert merges it, verify the integrated result and continue with D02 [#1580](https://github.com/waffleflopper/trooptotask/issues/1580) on request. Earlier owner release obligations remain in [RELEASE](RELEASE.md).

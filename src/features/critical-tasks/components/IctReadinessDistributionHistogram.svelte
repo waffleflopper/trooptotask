@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { REPORT_CHART_SERIES, buildReportCountTicks } from '$lib/components/charts/reportChartConventions';
-	import { ReportBarChart } from '$lib/components/ui/report-chart';
+	import { REPORT_CHART_SERIES, buildReportCountTicks } from '$lib/components/patterns/report-chart';
+	import { ReportBarChart } from '$lib/components/patterns/report-chart';
 	import * as NativeSelect from '$lib/components/ui/native-select';
-	import * as ReportWorkspace from '$lib/components/ui/report-workspace';
+	import * as ReportWorkspace from '$lib/components/patterns/report-workspace';
 	import type { IctReadinessDistribution } from '$features/critical-tasks/utils/ictReports';
 
 	interface Props {

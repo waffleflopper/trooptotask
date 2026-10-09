@@ -9,7 +9,7 @@
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as ButtonGroup from '$lib/components/ui/button-group/index.js';
-	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import * as DataTable from '$lib/components/ui/data-table/index.js';
 	import type { ColumnDef, DataTableRowAction, DataTableState } from '$lib/components/ui/data-table/index.js';
 	import * as Empty from '$lib/components/ui/empty/index.js';
@@ -17,7 +17,7 @@
 	import { Label } from '$lib/components/ui/label/index.js';
 	import * as NativeSelect from '$lib/components/ui/native-select/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
-	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar/index.js';
+	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar/index.js';
 	import type { RanksSettingsData } from './settingsSectionTypes';
 	import type { SettingsRankCatalogRow, SettingsRankServicePackOption } from './settingsSectionTypes';
 

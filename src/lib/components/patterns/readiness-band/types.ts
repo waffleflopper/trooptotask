@@ -30,12 +30,3 @@ export const readinessBandLegendItems: ReadinessBandLegendItem[] = [
 export function formatReadinessBandPercent(percent: number | null): string {
 	return percent === null ? '-' : `${percent}%`;
 }
-
-export function readinessBandTierForPercent(percent: number | null): ReadinessBandTier {
-	if (percent === null) return 'not-applicable';
-	if (percent < 60) return 'danger';
-	if (percent < 70) return 'warn';
-	if (percent < 80) return 'caution';
-	if (percent < 90) return 'okay';
-	return 'good';
-}

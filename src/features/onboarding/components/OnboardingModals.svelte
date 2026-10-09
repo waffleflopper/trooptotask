@@ -4,7 +4,7 @@
 	import StartOnboardingModal from './StartOnboardingModal.svelte';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import type { RankCatalogEntry } from '$features/personnel/contracts';
-	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import { Button } from '$lib/components/ui/button';
 	import { Label } from '$lib/components/ui/label';
 	import * as Select from '$lib/components/ui/select';

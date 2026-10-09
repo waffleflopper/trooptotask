@@ -3,10 +3,10 @@
 	import * as Alert from '$lib/components/ui/alert';
 	import * as Card from '$lib/components/ui/card';
 	import * as Empty from '$lib/components/ui/empty';
-	import * as PageShell from '$lib/components/ui/page-shell';
+	import * as PageShell from '$lib/components/patterns/page-shell';
 	import { Separator } from '$lib/components/ui/separator';
-	import { REPORT_CHART_SERIES, buildReportCountTicks } from '$lib/components/charts/reportChartConventions';
-	import { ReportBarChart } from '$lib/components/ui/report-chart';
+	import { REPORT_CHART_SERIES, buildReportCountTicks } from '$lib/components/patterns/report-chart';
+	import { ReportBarChart } from '$lib/components/patterns/report-chart';
 	import { formatDisplayDateTime } from '$lib/utils/dates';
 
 	let { data } = $props();

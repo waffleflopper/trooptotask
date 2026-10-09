@@ -19,7 +19,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import * as RadioGroup from '$lib/components/ui/radio-group';
 	import { Spinner } from '$lib/components/ui/spinner';
-	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import { SENSITIVE_FILE_ACCEPT, validateSensitiveFileSelection } from '$lib/storage/sensitiveFiles';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatDate as formatDateValue } from '$lib/utils/dates';

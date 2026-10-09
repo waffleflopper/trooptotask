@@ -12,7 +12,7 @@
 	import * as Card from '$lib/components/ui/card';
 	import * as Empty from '$lib/components/ui/empty';
 	import * as Field from '$lib/components/ui/field';
-	import * as PageShell from '$lib/components/ui/page-shell';
+	import * as PageShell from '$lib/components/patterns/page-shell';
 	import * as Table from '$lib/components/ui/table';
 
 	let { data } = $props();

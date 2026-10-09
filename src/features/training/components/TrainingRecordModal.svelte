@@ -10,7 +10,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
-	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import { DatePicker } from '$lib/components/ui/date-picker';
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';

@@ -2,14 +2,14 @@
 	import { onDestroy } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as ButtonGroup from '$lib/components/ui/button-group';
-	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import * as Empty from '$lib/components/ui/empty';
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { Textarea } from '$lib/components/ui/textarea';
-	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
-	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
+	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar';
+	import type { WorkspaceToolbarAction } from '$lib/components/patterns/workspace-toolbar';
 	import type { CriticalTasksPageAccess } from '../contracts';
 	import IctTaskBulkImport from '$features/critical-tasks/components/IctTaskBulkImport.svelte';
 	import CriticalTasksDefaults from '$features/critical-tasks/components/CriticalTasksDefaults.svelte';

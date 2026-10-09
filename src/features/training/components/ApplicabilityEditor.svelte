@@ -3,7 +3,8 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as ButtonGroup from '$lib/components/ui/button-group';
-	import * as TypeWorkspace from '$lib/components/ui/type-management-workspace';
+	import * as TypeWorkspace from '$lib/components/patterns/type-management-workspace';
+	import GroupSelector from './GroupSelector.svelte';
 
 	interface Props {
 		appliesToRoles: string[];
@@ -106,7 +107,7 @@
 	field: keyof Omit<ApplicabilityFields, 'isOptional'>,
 	exclude = false
 )}
-	<TypeWorkspace.GroupSelector
+	<GroupSelector
 		title={label}
 		{values}
 		{selected}

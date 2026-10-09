@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
-	import * as ReportWorkspace from '$lib/components/ui/report-workspace';
+	import * as ReportWorkspace from '$lib/components/patterns/report-workspace';
 	import type { BriefingFocus } from '../utils/trainingBriefing.types';
 
 	interface Props {

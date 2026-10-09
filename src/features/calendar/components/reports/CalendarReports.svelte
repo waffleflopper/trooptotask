@@ -6,7 +6,7 @@
 	import PersonnelTempo from './PersonnelTempo.svelte';
 	import AssignmentCoverage from './AssignmentCoverage.svelte';
 	import GroupReadiness from './GroupReadiness.svelte';
-	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
+	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar';
 
 	interface Props {
 		orgId: string;

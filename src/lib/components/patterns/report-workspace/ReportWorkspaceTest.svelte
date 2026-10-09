@@ -1,6 +1,6 @@
 <script lang="ts">
 	import * as ReportWorkspace from './index.js';
-	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar/index.js';
+	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 
 	const rows = [

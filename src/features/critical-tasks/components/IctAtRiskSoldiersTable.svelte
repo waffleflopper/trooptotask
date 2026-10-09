@@ -2,7 +2,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as DataTable from '$lib/components/ui/data-table';
 	import type { ColumnDef } from '$lib/components/ui/data-table';
-	import * as ReportWorkspace from '$lib/components/ui/report-workspace';
+	import * as ReportWorkspace from '$lib/components/patterns/report-workspace';
 	import type { IctAtRiskSoldierRow } from '$features/critical-tasks/utils/ictReports';
 
 	interface Props {

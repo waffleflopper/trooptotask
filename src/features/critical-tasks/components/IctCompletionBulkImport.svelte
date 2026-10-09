@@ -1,11 +1,11 @@
 <script lang="ts">
 	import * as AppDialog from '$lib/components/ui/app-dialog';
-	import * as BulkImportWorkspace from '$lib/components/ui/bulk-import-workspace';
+	import * as BulkImportWorkspace from '$lib/components/patterns/bulk-import-workspace';
 	import { Button } from '$lib/components/ui/button';
 	import * as DataTable from '$lib/components/ui/data-table';
 	import type { ColumnDef } from '$lib/components/ui/data-table';
 	import * as Tabs from '$lib/components/ui/tabs';
-	import type { BulkImportRowStatus } from '$lib/components/ui/bulk-import-workspace';
+	import type { BulkImportRowStatus } from '$lib/components/patterns/bulk-import-workspace';
 	import { autoMapColumns, detectHeaderRow, type ColumnDef as ImportColumnDef } from '$lib/utils/columnMapping';
 	import { parseFile } from '$lib/utils/csvParser';
 	import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/personnelIctCompletions.svelte';

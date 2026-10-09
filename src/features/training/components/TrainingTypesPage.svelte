@@ -9,9 +9,9 @@
 	import * as RadioGroup from '$lib/components/ui/radio-group';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { Textarea } from '$lib/components/ui/textarea';
-	import * as TypeWorkspace from '$lib/components/ui/type-management-workspace';
-	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
-	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import * as TypeWorkspace from '$lib/components/patterns/type-management-workspace';
+	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar';
+	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import type { Personnel } from '$features/personnel/contracts';
 	import type { RankCatalogEntry } from '$features/personnel/contracts';

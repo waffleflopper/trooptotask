@@ -1,6 +1,6 @@
 # Component Catalog & CSS Design System
 
-Shared UI primitives and existing project compositions currently live in `src/lib/components/ui/`. Import via `$lib/components/ui/...` until D02 moves the selected families and their consumers together. The [foundation provenance and family contract](ui-foundation-provenance.md) records the current APIs, deviations and target layers.
+Shared UI primitives and central variants live in `src/lib/components/ui/`; shared neutral compositions live in `src/lib/components/patterns/`. Import through each family's barrel. The [foundation provenance and family contract](ui-foundation-provenance.md) records the current APIs, deviations and target layers.
 Layout components such as dialogs, sheets, and cards live under `src/lib/components/ui/`. Import the shadcn-backed primitives or compound namespaces directly.
 Public marketing primitives live in `src/lib/components/public/`. Import via `$lib/components/public/...`.
 
@@ -10,10 +10,10 @@ Public marketing primitives live in `src/lib/components/public/`. Import via `$l
 
 Read the [UI foundation](#ui-foundation), then the section for the component being changed:
 
-- Page and shell composition: [page shell](#uipage-shell), [workspace toolbar](#uiworkspace-toolbar), [public shell](#public-marketing-shell).
+- Page and shell composition: [page shell](#patternspage-shell), [workspace toolbar](#patternsworkspace-toolbar), [public shell](#public-marketing-shell).
 - Input and selection: [form controls](#shared-form-controls), [command](#uicommand), [combobox](#uicombobox), [date picker](#uidate-picker), [file upload](#file-upload-pattern).
-- Reports and records: [report workspace](#uireport-workspace), [charts](#uireport-chart), [data table](#uidata-table), [operational matrix](#uioperational-matrix), [bulk import](#uibulk-import-workspace).
-- Feedback and interaction: [dialogs](#uiapp-dialog), [confirmation](#uiconfirmdialogsvelte), [transient feedback](#transient-feedback), [empty states](#uiempty), [skeletons](#uiskeleton), [readiness](#uireadiness-band).
+- Reports and records: [report workspace](#patternsreport-workspace), [charts](#patternsreport-chart), [data table](#uidata-table), [operational matrix](#uioperational-matrix), [bulk import](#patternsbulk-import-workspace).
+- Feedback and interaction: [dialogs](#uiapp-dialog), [confirmation](#uiconfirm-dialog), [transient feedback](#transient-feedback), [empty states](#uiempty), [skeletons](#uiskeleton), [readiness](#patternsreadiness-band).
 - Shared appearance: [CSS tokens and design system](#css-design-system-appcss).
 
 ## UI Foundation
@@ -29,7 +29,7 @@ Use the replacement notes here to map older TroopToTask building blocks to the c
 Replacement previews:
 
 - Production DataTable surfaces use the shadcn-svelte `ui/data-table` foundation documented in this catalog.
-- Legacy `toolbar` is represented by the shadcn-composed `ui/workspace-toolbar` example using `input-group`, `select`, `button-group`, `button`, and `dropdown-menu`.
+- Legacy `toolbar` is represented by the shadcn-composed `patterns/workspace-toolbar` example using `input-group`, `select`, `button-group`, `button`, and `dropdown-menu`.
 - Legacy `EmptyState` is represented by the shadcn `empty` component.
 - Legacy `FileUpload` is represented by the native shadcn `input type="file"` example.
 - Legacy `FormField` is replaced by the shadcn-backed `ui/field` compound primitives plus `Input`, `Textarea`, `Select`, `Checkbox`, `RadioGroup` and `Combobox`, including its `multiple` mode.
@@ -66,13 +66,13 @@ The Web UI Foundation's public [`toastStore`](../src/lib/stores/toast.svelte.ts)
 
 [`PasswordCompletion`](../src/features/identity/PasswordCompletion.svelte), exported by Identity’s web seam, composes the shared auth primitives for Account Security, recovery and invite reconciliation. Loaders expose only the server-persisted attempt state. Unknown outcomes offer a serialized status check; confirmed changes retry revocation alone; fenced failures permit explicit restart. Transport errors and reload never automatically resubmit a password. Fresh MFA uses `PasswordMfaChallenge`, with focus restored to the next action. Confirmed completion advances recovery or invite activation; Account Security offers explicit restart. Unavailable persistence offers status retry. Expired attempts require a fresh session after their original expiry before restart. Password drafts are discarded on confirmation or an unknown mutation outcome.
 
-## `ui/page-shell`
+## `patterns/page-shell`
 
-`ui/page-shell` is the shared authenticated-page shell primitive family for route workspaces. It standardizes page padding, route body overflow, page headers, route tabs, dense fact displays, right summary rails, and bottom sticky action bars without owning route-specific business rules.
+`patterns/page-shell` is the shared authenticated-page shell primitive family for route workspaces. It standardizes page padding, route body overflow, page headers, route tabs, dense fact displays, right summary rails, and bottom sticky action bars without owning route-specific business rules.
 
 ```svelte
 <script lang="ts">
-	import * as PageShell from '$lib/components/ui/page-shell';
+	import * as PageShell from '$lib/components/patterns/page-shell';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 
@@ -166,13 +166,13 @@ Props: `id?: string`, `value?: string` (bindable ISO `YYYY-MM-DD`), `placeholder
 
 ---
 
-## `ui/workspace-toolbar`
+## `patterns/workspace-toolbar`
 
-`ui/workspace-toolbar` is the shared toolbar used by authenticated production routes. It replaces route-local toolbar shells with one visual contract built from shadcn-svelte primitives; the old `ui/toolbar` family is retired.
+`patterns/workspace-toolbar` is the shared toolbar used by authenticated production routes. It replaces route-local toolbar shells with one visual contract built from shadcn-svelte primitives; the old `ui/toolbar` family is retired.
 
 ```svelte
 <script lang="ts">
-	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
+	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar';
 	import * as ButtonGroup from '$lib/components/ui/button-group';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import * as InputGroup from '$lib/components/ui/input-group';
@@ -271,14 +271,14 @@ Migration guidance:
 
 ---
 
-## `ui/report-workspace`
+## `patterns/report-workspace`
 
-`ui/report-workspace` is the shared shadcn-svelte-backed foundation for operational report pages and report sections. It standardizes report structure, toolbar placement, filter/configuration panels, chart/table sections, report states, and export actions without owning feature calculations.
+`patterns/report-workspace` is the shared shadcn-svelte-backed foundation for operational report pages and report sections. It standardizes report structure, toolbar placement, filter/configuration panels, chart/table sections, report states, and export actions without owning feature calculations.
 
 ```svelte
 <script lang="ts">
-	import * as ReportWorkspace from '$lib/components/ui/report-workspace';
-	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
+	import * as ReportWorkspace from '$lib/components/patterns/report-workspace';
+	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar';
 </script>
 
 <ReportWorkspace.Root ariaLabel="Readiness report workspace">
@@ -350,7 +350,7 @@ Public components:
 Shared components own:
 
 - Report page/section structure, spacing, borders, responsive wrapping, state presentation, disabled export affordance, and DataTable section framing.
-- Composition with `ui/workspace-toolbar`, `ui/data-table`, shadcn `button`, `empty`, `alert`, and `spinner`.
+- Composition with `patterns/workspace-toolbar`, `ui/data-table`, shadcn `button`, `empty`, `alert`, and `spinner`.
 
 Routes configure:
 
@@ -367,7 +367,7 @@ Report/export state guidance:
 Route-level visual override ban:
 
 - Routes must not pass route-local visual classes that change report component color, radius, border, typography, density, shadow, or internal spacing.
-- If a report needs a reusable new section shape, add it to `ui/report-workspace`, show it in `docs/component-catalog.md`, and document it here before route usage.
+- If a report needs a reusable new section shape, add it to `patterns/report-workspace`, show it in `docs/component-catalog.md`, and document it here before route usage.
 
 Migration notes:
 
@@ -378,9 +378,9 @@ Migration notes:
 
 ---
 
-## `ui/report-chart`
+## `patterns/report-chart`
 
-`ui/report-chart` is the shared shadcn-svelte chart target for operational reports. It composes the generated `ui/chart` container with LayerChart simplified charts so production report routes do not each own axis, grid, legend, and series setup.
+`patterns/report-chart` is the shared shadcn-svelte chart target for operational reports. It composes the generated `ui/chart` container with LayerChart simplified charts so production report routes do not each own axis, grid, legend, and series setup.
 
 Current chart inventory:
 
@@ -408,13 +408,13 @@ Shared components own:
 
 ---
 
-## `ui/requirement-status-badge`
+## `patterns/requirement-status-badge`
 
-`ui/requirement-status-badge` owns neutral requirement status visuals. Training owns its badge and status-cell wrappers; Critical Tasks owns its status badge and translates its completion statuses to this shared visual contract. Feature-specific presentation stays with its owner.
+`patterns/requirement-status-badge` owns neutral requirement status visuals. Training owns its badge and status-cell wrappers; Critical Tasks owns its status badge and translates its completion statuses to this shared visual contract. Feature-specific presentation stays with its owner.
 
 ```svelte
 <script lang="ts">
-	import { RequirementStatusBadge } from '$lib/components/ui/requirement-status-badge';
+	import { RequirementStatusBadge } from '$lib/components/patterns/requirement-status-badge';
 </script>
 
 <RequirementStatusBadge status="current" label="Current" />
@@ -424,13 +424,13 @@ Public shared exports are `RequirementStatusBadge`, `requirementStatusVisuals` a
 
 ---
 
-## `ui/readiness-band`
+## `patterns/readiness-band`
 
-`ui/readiness-band` is the shared shadcn-svelte-style visual contract for readiness tiers. The default `ramp` palette keeps Critical Tasks' report colors; Training Reports uses the token-based `semantic` palette (success → warning → destructive) with goal-relative tiers supplied by its model.
+`patterns/readiness-band` is the shared shadcn-svelte-style visual contract for readiness tiers. The default `ramp` palette keeps Critical Tasks' report colors; Training Reports uses the token-based `semantic` palette (success → warning → destructive) with goal-relative tiers supplied by its model.
 
 ```svelte
 <script lang="ts">
-	import * as ReadinessBand from '$lib/components/ui/readiness-band';
+	import * as ReadinessBand from '$lib/components/patterns/readiness-band';
 </script>
 
 <ReadinessBand.Cell tier="okay" percent={84} aria-label="11B weapons readiness: 84%, 21 of 25 current" />
@@ -457,15 +457,14 @@ Semantic palette:
 Public helpers:
 
 - `readinessBandLegendItems`
-- `readinessBandTierForPercent(percent)`
 - `formatReadinessBandPercent(percent)`
 - `readinessBandTone`: text color class per tier for values shown outside a cell (success, warning, destructive or muted), so a headline number, chart end label and grid total column share the cell scale.
 
 Rules:
 
-- Keep the `ramp` thresholds centralized: `<60%`, `60-69%`, `70-79%`, `80-89%`, `90%+`, and not applicable. A feature with its own goal-relative bands maps them to tiers in one record and passes the tier; never re-derive a tier from a rounded display percent.
+- The pattern presents tiers; it does not calculate them. Each feature computes its tier in one place and passes it in. The `ramp` legend reads `<60%`, `60-69%`, `70-79%`, `80-89%`, `90%+` and not applicable. Never re-derive a tier from a rounded display percent.
 - Routes may pass data, labels, and accessible names. They must not restyle readiness colors, hatching, radius, typography, or density locally.
-- `ui/operational-matrix` hosts these cells in Critical Tasks and Training Reports grids; readiness-tier meaning stays in `ui/readiness-band`, not in the matrix primitive.
+- `ui/operational-matrix` hosts these cells in Critical Tasks and Training Reports grids; readiness-tier meaning stays in `patterns/readiness-band`, not in the matrix primitive.
 
 ---
 
@@ -538,13 +537,13 @@ Component Catalog coverage:
 - `docs/component-catalog.md` covers grouped rows, sticky top header and row header, selected cell state, disabled/read-only cells, dialog-trigger cells, dense color-only cells with accessible labels, stacked month-band column headers, rich row headers with metadata, and loading/empty wrapper states.
 - `docs/component-catalog.md` covers training-matrix parity mapping with vertical task-code headers, requirement status badges, and the note that `IctMatrix` should retire into the shared training-matrix parity path instead of preserving a separate visual system.
 
-## `ui/bulk-import-workspace`
+## `patterns/bulk-import-workspace`
 
-`ui/bulk-import-workspace` is the shared foundation for operational import workflows. It standardizes source choice, upload/paste/manual input panels, validation summaries, preview tables, row selection, progress states, disabled submit reasons, and final result summaries. Feature routes still own parsing, validation rules, duplicate/merge semantics, permissions, and persistence.
+`patterns/bulk-import-workspace` is the shared foundation for operational import workflows. It standardizes source choice, upload/paste/manual input panels, validation summaries, preview tables, row selection, progress states, disabled submit reasons, and final result summaries. Feature routes still own parsing, validation rules, duplicate/merge semantics, permissions, and persistence.
 
 ```svelte
 <script lang="ts">
-	import * as BulkImportWorkspace from '$lib/components/ui/bulk-import-workspace';
+	import * as BulkImportWorkspace from '$lib/components/patterns/bulk-import-workspace';
 	import { useDataTableSelection } from '$lib/components/ui/data-table';
 </script>
 
@@ -697,7 +696,7 @@ Lower-level shell primitives used internally by `PublicShell`. Reach for these d
 
 ## Shared Route Toolbar
 
-See [`ui/workspace-toolbar`](#uiworkspace-toolbar) for the shared API and composition rules.
+See [`patterns/workspace-toolbar`](#patternsworkspace-toolbar) for the shared API and composition rules.
 
 Use `WorkspaceToolbar.Root` as the route toolbar root, `WorkspaceToolbar.Group` for control/action/meta boundaries, shadcn `ButtonGroup` plus `Button` for mutually exclusive view modes, shadcn `Toggle` for independent boolean toolbar state, shadcn `Select`/`InputGroup` through the shared workspace toolbar helpers for filters and search, and `WorkspaceToolbar.Actions` for command buttons plus dropdown overflow.
 
@@ -705,7 +704,7 @@ Configure route behavior through the shared API; extensions follow the [UI syste
 
 ## `ui/app-dialog`
 
-Shared shadcn-svelte-backed dialog foundation for information, edit, form, and review workflows. Use this for standard dialogs that collect or show content. Use `ui/ConfirmDialog.svelte` for confirmations.
+Shared shadcn-svelte-backed dialog foundation for information, edit, form, and review workflows. Use this for standard dialogs that collect or show content. Use `ui/confirm-dialog` for confirmations.
 
 ```svelte
 <script lang="ts">
@@ -757,7 +756,7 @@ Compatibility note: the legacy `src/lib/components/Modal.svelte` wrapper has bee
 
 ---
 
-## `ui/ConfirmDialog.svelte`
+## `ui/confirm-dialog`
 
 Shared shadcn-svelte alert-dialog foundation for destructive, warning, primary, and secondary confirmations. Handles internal async loading during `onConfirm` and also supports externally controlled `loading` and `disabled` states.
 
@@ -1035,9 +1034,9 @@ The legacy `ui/FileUpload.svelte` wrapper has been removed. Upload workflows sho
 
 ## `ui/toolbar`
 
-Removed. Use `ui/workspace-toolbar` and generated shadcn-svelte primitives instead.
+Removed. Use `patterns/workspace-toolbar` and generated shadcn-svelte primitives instead.
 
-## `ui/type-management-workspace`
+## `patterns/type-management-workspace`
 
 Shared shadcn-aligned workspace chrome for manage-type pages. Training types, status types, assignment types, and similar configuration lists can use it when they need a list-detail layout, create/edit mode, row actions, form sections, detail facts, progressive disclosure, or a mobile list/detail flow.
 
@@ -1045,7 +1044,7 @@ The component owns the repeated visual structure: page workspace spacing, list/d
 
 ```svelte
 <script lang="ts">
-	import * as TypeWorkspace from '$lib/components/ui/type-management-workspace';
+	import * as TypeWorkspace from '$lib/components/patterns/type-management-workspace';
 	import { Button } from '$lib/components/ui/button';
 
 	let color = $state('#8a5800');
@@ -1109,13 +1108,12 @@ The component owns the repeated visual structure: page workspace spacing, list/d
 
 Public components:
 
-- `Root`, `Layout`, `List`, `ItemList`, `ListItem`, `Detail`, `Stack`, `FormSection`, `Choice`, `ChoiceGroup`, `Disclosure`, `Description`, `ColorInput`, `MobileBack`, `DetailHeader`, `FactList`, `Fact`, `FooterActions`, `ActionSpacer`, `GroupSelector`.
+- `Root`, `Layout`, `List`, `ItemList`, `ListItem`, `Detail`, `Stack`, `FormSection`, `Choice`, `ChoiceGroup`, `Disclosure`, `Description`, `ColorInput`, `MobileBack`, `DetailHeader`, `FactList`, `Fact`, `FooterActions`, `ActionSpacer`.
 
 Key props:
 
 - `List` and `Detail`: `mobileHidden?: boolean` hides that pane below the large breakpoint while preserving the shared desktop split.
 - `Disclosure`: `title`, `description?`, and `open?` for shared progressive reveal around larger option groups.
-- `GroupSelector`: `title`, `values`, `selected`, `onchange`, optional helper copy, and `tone` for searchable grouped multi-selects used by applicability and exclusion rules.
 
 Rules:
 
@@ -1125,7 +1123,7 @@ Rules:
 - Use `Choice` for repeated radio/checkbox option rows instead of route-local bordered option classes.
 - Use `ColorInput`, `Description`, and `ActionSpacer` when those repeated manage-type details are needed.
 - Use `Fact` for configuration facts such as expiration policy, permission state, ordering, and applicability. Facts render as scan-friendly rows, not individual cards. Do not put readiness/report metrics in a type manager.
-- Use `Disclosure` and `GroupSelector` for large applicability, targeting, or exclusion option sets instead of route-local chip wrappers.
+- Use `Disclosure` for large applicability, targeting, or exclusion option sets instead of route-local chip wrappers. Training's applicability editor owns its searchable `GroupSelector`.
 - Use `MobileBack` with `List mobileHidden` and `Detail mobileHidden` when a route needs a mobile list-first flow.
 - Keep color swatches accessible by pairing color with labels, summaries, badges, or visible text.
 - Prove visual changes in `docs/component-catalog.md` before production routes consume them.
@@ -1166,7 +1164,7 @@ The DataTable API is deliberately modular. Simple tables can render only `DataTa
 ```svelte
 <script lang="ts">
 	import * as DataTable from '$lib/components/ui/data-table';
-	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
+	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar';
 	import type { ColumnDef } from '$lib/components/ui/data-table';
 
 	const columns: ColumnDef<Person>[] = [

@@ -2,7 +2,7 @@
 	import type { Personnel } from '$features/personnel/contracts';
 	import type { StatusType } from '$features/calendar/contracts';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import * as ReportWorkspace from '$lib/components/ui/report-workspace/index.js';
+	import * as ReportWorkspace from '$lib/components/patterns/report-workspace/index.js';
 	import type { GroupReadinessResult, ReadinessGroupRow } from '../../utils/calendarReports';
 	import { computeGroupReadiness } from '../../utils/calendarReports';
 	import { exportGroupReadinessWorkbook } from './calendarReportWorkbookExport';

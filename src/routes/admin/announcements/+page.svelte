@@ -11,7 +11,7 @@
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
 	import { NativeSelect } from '$lib/components/ui/native-select';
-	import * as PageShell from '$lib/components/ui/page-shell';
+	import * as PageShell from '$lib/components/patterns/page-shell';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { formatDisplayDate } from '$lib/utils/dates';

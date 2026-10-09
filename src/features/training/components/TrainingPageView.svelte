@@ -16,8 +16,8 @@
 	import * as Empty from '$lib/components/ui/empty';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Skeleton } from '$lib/components/ui/skeleton';
-	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
-	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
+	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar';
+	import type { WorkspaceToolbarAction } from '$lib/components/patterns/workspace-toolbar';
 	import { pinnedGroupsStore } from '$features/personnel';
 	import { groupsStore } from '$features/personnel';
 	import type { TrainingPageContext } from '$features/training/contexts/TrainingPageContext.svelte';

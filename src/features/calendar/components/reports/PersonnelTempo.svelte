@@ -3,7 +3,7 @@
 	import type { StatusType } from '$features/calendar/contracts';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
-	import * as ReportWorkspace from '$lib/components/ui/report-workspace/index.js';
+	import * as ReportWorkspace from '$lib/components/patterns/report-workspace/index.js';
 	import type { ColumnDef } from '$lib/components/ui/data-table/index.js';
 	import { useDataTable } from '$lib/components/ui/data-table/index.js';
 	import type { PersonnelTempoResult, TempoRow } from '../../utils/calendarReports';

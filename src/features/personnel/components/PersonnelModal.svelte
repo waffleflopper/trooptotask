@@ -3,7 +3,7 @@
 	import type { RankCatalogEntry } from '$features/personnel/contracts';
 	import type { Group } from '$features/personnel/contracts';
 	import { toastStore } from '$lib/stores/toast.svelte';
-	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Button } from '$lib/components/ui/button';
 	import * as Combobox from '$lib/components/ui/combobox';

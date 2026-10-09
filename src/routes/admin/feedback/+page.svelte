@@ -12,7 +12,7 @@
 	import * as Empty from '$lib/components/ui/empty';
 	import * as Field from '$lib/components/ui/field';
 	import { NativeSelect } from '$lib/components/ui/native-select';
-	import * as PageShell from '$lib/components/ui/page-shell';
+	import * as PageShell from '$lib/components/patterns/page-shell';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import * as Tabs from '$lib/components/ui/tabs';
 	import { Textarea } from '$lib/components/ui/textarea';

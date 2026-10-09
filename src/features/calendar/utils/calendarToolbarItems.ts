@@ -1,4 +1,4 @@
-import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
+import type { WorkspaceToolbarAction } from '$lib/components/patterns/workspace-toolbar';
 
 export interface CalendarToolbarInput {
 	orgId: string;

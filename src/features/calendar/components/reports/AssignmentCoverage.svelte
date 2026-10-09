@@ -2,7 +2,7 @@
 	import type { Personnel } from '$features/personnel/contracts';
 	import type { AssignmentType, DailyAssignment } from '$features/calendar/contracts';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import * as ReportWorkspace from '$lib/components/ui/report-workspace/index.js';
+	import * as ReportWorkspace from '$lib/components/patterns/report-workspace/index.js';
 	import type { ColumnDef } from '$lib/components/ui/data-table/index.js';
 	import { useDataTable } from '$lib/components/ui/data-table/index.js';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';

@@ -29,7 +29,7 @@
 <script lang="ts">
 	import * as DataTable from '$lib/components/ui/data-table';
 	import type { DataTableState } from '$lib/components/ui/data-table';
-	import * as ReportWorkspace from '$lib/components/ui/report-workspace';
+	import * as ReportWorkspace from '$lib/components/patterns/report-workspace';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group';
 	import type { BriefingScope } from '../contracts';
 	import type { BriefingDetailState } from '../read-model/trainingBriefingSession.svelte';

@@ -1,10 +1,10 @@
 <script lang="ts">
-	import * as BulkImportWorkspace from '$lib/components/ui/bulk-import-workspace';
+	import * as BulkImportWorkspace from '$lib/components/patterns/bulk-import-workspace';
 	import { Button } from '$lib/components/ui/button';
 	import { CalendarStatusBadge } from '$lib/components/ui/calendar-status-badge';
 	import * as DataTable from '$lib/components/ui/data-table';
 	import type { ColumnDef } from '$lib/components/ui/data-table';
-	import type { BulkImportRowStatus } from '$lib/components/ui/bulk-import-workspace';
+	import type { BulkImportRowStatus } from '$lib/components/patterns/bulk-import-workspace';
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
 	import { NativeSelect } from '$lib/components/ui/native-select';

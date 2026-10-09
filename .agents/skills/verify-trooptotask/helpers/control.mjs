@@ -2070,7 +2070,8 @@ async function main() {
 				'settings/general/updateSlug': 'slugError',
 				'settings/general/clearSlug': 'slugError',
 				'settings/danger/deleteOrganization': 'deleteError',
-				'settings/members/updateMemberAccess': 'accessError'
+				'settings/members/updateMemberAccess': 'accessError',
+				'settings/ranks/retireRank': 'rankError'
 			};
 			if (
 				![
@@ -2097,6 +2098,7 @@ async function main() {
 					'calendar-range',
 					'availability',
 					'availability/batch',
+					'daily-assignments/batch',
 					'special-days',
 					'sign-in-rosters',
 					'training-types',

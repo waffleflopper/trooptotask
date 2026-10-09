@@ -137,7 +137,6 @@
 	async function doClearAll() {
 		const typeId = clearTypeId;
 		if (rangeStatus !== 'ready' || !typeId) return;
-		clearTypeId = null;
 
 		isApplying = true;
 		try {
@@ -149,6 +148,7 @@
 			await onSetAssignmentBatch(batch);
 		} finally {
 			isApplying = false;
+			clearTypeId = null;
 		}
 	}
 
@@ -279,6 +279,7 @@
 										variant="ghost"
 										size="icon-xs"
 										onclick={() => clearAll(type.id)}
+										disabled={isApplying}
 										title="Clear all {type.name}"
 										aria-label="Clear all {type.name}"
 									>

@@ -367,6 +367,16 @@ describe('CalendarSettingsPage', () => {
 		expect(within(settingsNav).getByRole('button', { name: /Assignment Types/ }).textContent).toContain('1');
 	});
 
+	it('names the add-closure date picker by its Date label', async () => {
+		render(CalendarSettingsPage, { props: { org } });
+
+		await fireEvent.click(screen.getByRole('button', { name: /Closures/i }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Add new' }));
+		const dialog = screen.getByRole('dialog', { name: 'Add Closure' });
+
+		expect(within(dialog).getByRole('button', { name: 'Date' }).getAttribute('aria-haspopup')).toBe('dialog');
+	});
+
 	it('keeps the add-closure dialog open when creation fails', async () => {
 		specialDaysStoreMock.add.mockResolvedValueOnce(null);
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');

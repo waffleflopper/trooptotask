@@ -271,7 +271,7 @@
 			<fieldset class="contents" disabled={saving.pending}>
 				<div class="grid gap-2">
 					<Label for="add-closure-date">Date</Label>
-					<DatePicker bind:value={newSpecialDate} placeholder="Select date" />
+					<DatePicker id="add-closure-date" bind:value={newSpecialDate} placeholder="Select date" />
 				</div>
 				<div class="grid gap-2">
 					<Label for="add-closure-name">Name</Label>

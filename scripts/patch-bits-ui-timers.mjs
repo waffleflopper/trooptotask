@@ -24,7 +24,7 @@ function patchFile({ filePath, patchName, replacements }) {
 	console.log(`[patch-bits-ui] Applied ${patchName} patch.`);
 }
 
-// Each retained transformation has a public regression test; drop this gate only when none remain.
+// Patches target this exact build; re-audit each against its regression test before bumping.
 const auditedBitsUiVersion = '2.19.5';
 const bitsUiPackageRoot = join(process.cwd(), 'node_modules', 'bits-ui');
 const bitsUiPackageJsonPath = join(bitsUiPackageRoot, 'package.json');
@@ -47,7 +47,7 @@ function assertAuditedBitsUiVersion() {
 assertAuditedBitsUiVersion();
 
 // Unfixed upstream: completing a cross-month range recenters on the start and strands focus.
-// Remove with the unused range-calendar family (D02).
+// Delete with the unused range-calendar components.
 patchFile({
 	patchName: 'range calendar start placeholder synchronization',
 	filePath: join(bitsUiDist, 'range-calendar', 'range-calendar.svelte.js'),

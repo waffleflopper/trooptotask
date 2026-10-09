@@ -1,7 +1,5 @@
 // @vitest-environment happy-dom
-// Bits UI defers overlay focus and registration work by a tick or timer. These cover the
-// upstream-fixed and still-patched paths (scripts/patch-bits-ui-timers.mjs): closing an
-// overlay before that work runs must not read the destroyed overlay's state.
+// Bits UI defers overlay focus and registration by a tick or timer; some paths depend on scripts/patch-bits-ui-timers.mjs.
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import { flushSync, tick } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

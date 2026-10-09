@@ -1,7 +1,5 @@
 // @vitest-environment happy-dom
-// Regression for the retained presence transformation in patch-bits-ui-timers.mjs
-// (upstream huntabyte/bits-ui#2146). Overlay content uses this manager to finish its exit
-// animation; a run superseded by teardown must not invoke its callback afterward.
+// Guards the presence patch in patch-bits-ui-timers.mjs (huntabyte/bits-ui#2146).
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';

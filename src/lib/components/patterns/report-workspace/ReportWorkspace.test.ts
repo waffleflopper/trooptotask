@@ -3,6 +3,7 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup, render, screen, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
 import ReportWorkspaceTest from './ReportWorkspaceTest.svelte';
+import * as ReportWorkspace from './index.js';
 
 afterEach(() => cleanup());
 
@@ -49,5 +50,18 @@ describe('ReportWorkspace', () => {
 		expect(screen.getByText('No report data')).toBeInTheDocument();
 		expect(screen.getByRole('alert')).toHaveTextContent('Report failed');
 		expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+	});
+
+	it('marks a loading state busy with a named spinner and clears it when the wait ends', async () => {
+		const view = render(ReportWorkspace.State, { state: 'loading', title: 'Loading report rows' });
+
+		const busy = screen.getAllByRole('status').filter((node) => node.getAttribute('aria-busy') === 'true');
+		expect(busy).toHaveLength(1);
+		expect(busy[0]).toHaveTextContent('Loading report rows');
+		expect(within(busy[0]).getByRole('status', { name: 'Loading' })).toBeInTheDocument();
+
+		await view.rerender({ state: 'no-data', title: 'No report data' });
+		expect(screen.getByText('No report data')).toBeInTheDocument();
+		expect(document.querySelector('[aria-busy="true"]')).toBeNull();
 	});
 });

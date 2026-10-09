@@ -1,8 +1,0 @@
-{
-  "content": [
-    {
-      "type": "text",
-      "text": "Script ran on page and returned:\n```json\n[\" SPC Able, Synthetic \",\" SPC Baker, Synthetic \",\" SPC Unassigned, Synthetic \"]\n```"
-    }
-  ]
-}

@@ -1,9 +1,0 @@
-{
-  "role": "onboardingForeign",
-  "pageId": 8,
-  "browserContext": "map-onboardingForeign-57e46232-9768-40ad-9e4b-5c6e64a343f8",
-  "orgId": "f5593703-3a60-48b1-b1a6-249e2b2d333e",
-  "path": "/org/f5593703-3a60-48b1-b1a6-249e2b2d333e/onboarding/templates",
-  "access": "not-assessed",
-  "origin": "http://127.0.0.1:39121"
-}

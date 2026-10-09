@@ -1,9 +1,0 @@
-{
-  "role": "onboardingConfigure",
-  "pageId": 2,
-  "browserContext": "map-onboardingConfigure-b3192918-a0ce-4236-a122-2e0a1df397d0",
-  "orgId": "44f3845f-8f0a-4b33-97c2-c782216d75e2",
-  "path": "/org/44f3845f-8f0a-4b33-97c2-c782216d75e2/onboarding",
-  "access": "not-assessed",
-  "origin": "http://127.0.0.1:39121"
-}

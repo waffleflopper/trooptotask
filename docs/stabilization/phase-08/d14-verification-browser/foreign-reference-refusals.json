@@ -1,8 +1,0 @@
-{
-  "content": [
-    {
-      "type": "text",
-      "text": "Script ran on page and returned:\n```json\n[{\"request\":{\"family\":\"onboarding-template-steps\",\"method\":\"POST\",\"body\":{\"templateId\":\"fa315350-b227-4b63-9965-8c7bbe12cb7f\",\"name\":\"D14 Foreign Training Ref\",\"stepType\":\"training\",\"trainingTypeId\":\"d29f7960-3a15-44fa-89d3-e117302de034\",\"sortOrder\":3,\"description\":null,\"stages\":null}},\"status\":500,\"body\":\"{\\\"message\\\":\\\"Internal server error\\\"}\"},{\"request\":{\"family\":\"onboarding-template-steps\",\"method\":\"POST\",\"body\":{\"templateId\":\"6c25add5-beef-41c0-bd56-495d9f5918fc\",\"name\":\"D14 Foreign Template Ref\",\"stepType\":\"checkbox\",\"sortOrder\":3,\"description\":null,\"trainingTypeId\":null,\"stages\":null}},\"status\":500,\"body\":\"{\\\"message\\\":\\\"Internal server error\\\"}\"}]\n```"
-    }
-  ]
-}

@@ -1,8 +1,0 @@
-{
-  "content": [
-    {
-      "type": "text",
-      "text": "Script ran on page and returned:\n```json\n{\"title\":\"Verification Organization A — Dashboard — Troop to Task\",\"busyCount\":0,\"errorText\":false}\n```"
-    }
-  ]
-}

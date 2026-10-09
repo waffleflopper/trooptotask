@@ -1,9 +1,0 @@
-{
-  "role": "onboardingView",
-  "pageId": 5,
-  "browserContext": "map-onboardingView-347fff4e-c143-4aba-816a-f20c8e9a5735",
-  "orgId": "44f3845f-8f0a-4b33-97c2-c782216d75e2",
-  "path": "/org/44f3845f-8f0a-4b33-97c2-c782216d75e2/onboarding",
-  "access": "not-assessed",
-  "origin": "http://127.0.0.1:39121"
-}

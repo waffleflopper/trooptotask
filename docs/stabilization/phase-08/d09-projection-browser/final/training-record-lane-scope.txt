@@ -1,9 +1,0 @@
-/home/waffleflops/.t3/worktrees/trooptotask-v1-maintenance/t3code-e6039333/supabase/tests/training_record_lane_scope.sql .. ok
-All tests successful.
-Files=1, Tests=25,  0 wallclock secs ( 0.01 usr +  0.01 sys =  0.02 CPU)
-Result: PASS
-
-Connecting to local database...
-psql:/home/waffleflops/.t3/worktrees/trooptotask-v1-maintenance/t3code-e6039333/supabase/tests/training_record_lane_scope.sql:3: NOTICE:  extension "pgtap" already exists, skipping
-A new version of Supabase CLI is available: v2.118.0 (currently installed v2.101.0)
-We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli

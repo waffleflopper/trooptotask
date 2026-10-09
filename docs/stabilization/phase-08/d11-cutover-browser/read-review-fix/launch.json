@@ -1,5 +1,0 @@
-{
-  "status": "INCONCLUSIVE",
-  "code": "STALE_CANDIDATE",
-  "message": "Source or owned artifact changed. Restart before driving this candidate."
-}

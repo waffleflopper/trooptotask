@@ -1,7 +1,0 @@
-uid=11_0 RootWebArea "Error 404 - Troop to Task" url="http://127.0.0.1:43881/org/d8527f5d-69e0-4f9b-b351-e06d713e7836/dashboard"
-  uid=11_1 heading "404" level="1"
-  uid=11_2 StaticText "Page not found. The page you're looking for doesn't exist or has been moved."
-  uid=11_3 link "Go Home" url="http://127.0.0.1:43881/"
-    uid=11_4 StaticText "Go Home"
-  uid=11_5 region "Notifications alt+T" live="polite" relevant="additions text"
-  uid=11_6 generic atomic live="assertive" relevant="additions text"

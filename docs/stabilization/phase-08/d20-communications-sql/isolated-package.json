@@ -1,1 +1,0 @@
-{"private": true, "scripts": {"db:test": "sh -c 'for file in supabase/tests/*.sql; do supabase test db \"$file\" || exit 1; done'"}}

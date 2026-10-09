@@ -1,8 +1,0 @@
-{
-  "content": [
-    {
-      "type": "text",
-      "text": "Script ran on page and returned:\n```json\n[{\"confirmation\":\"Delete Template Are you sure you want to delete \\\"Verification Onboarding A Copy 2\\\"? This will also delete all steps in this template. Synthetic request failure Cancel  Delete\",\"alert\":\"Synthetic request failure\"}]\n```"
-    }
-  ]
-}

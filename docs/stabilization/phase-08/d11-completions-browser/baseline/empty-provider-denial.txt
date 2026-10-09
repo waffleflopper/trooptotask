@@ -1,2 +1,0 @@
-[http-adapter] Unhandled route error: new row violates row-level security policy for table "personnel_ict_completions"
-Sanitized from this owned worker's app log; the provider rejected the valid empty-scope INSERT.

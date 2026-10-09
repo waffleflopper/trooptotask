@@ -1,8 +1,0 @@
-{
-  "content": [
-    {
-      "type": "text",
-      "text": "Successfully navigated to http://127.0.0.1:39121/org/44f3845f-8f0a-4b33-97c2-c782216d75e2/onboarding/templates.\n## Pages\n1: about:blank\n2: Onboarding - Troop to Task (http://127.0.0.1:39121/org/44f3845f-8f0a-4b33-97c2-c782216d75e2/onboarding) isolatedContext=map-onboardingConfigure-b3192918-a0ce-4236-a122-2e0a1df397d0\n3: Error 403 - Troop to Task (http://127.0.0.1:39121/org/44f3845f-8f0a-4b33-97c2-c782216d75e2/onboarding/templates) isolatedContext=map-onboardingScoped-d016dab4-0567-4777-90fe-43127c564865\n4: Error 403 - Troop to Task (http://127.0.0.1:39121/org/44f3845f-8f0a-4b33-97c2-c782216d75e2/onboarding/templates) [selected] isolatedContext=map-onboardingEmpty-23a4fb3f-5902-4252-bba9-a740535443a8"
-    }
-  ]
-}

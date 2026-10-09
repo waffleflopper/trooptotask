@@ -1,1 +1,0 @@
-{"role":"scoped","method":"POST","body":{"lastName":"MapScopeDenied","firstName":"Synthetic","rank":"SPC","mos":"68W","clinicRole":"Medic","groupId":"c7e5fffc-7ba5-415d-9c92-b68b2d6e1d91","ets":null,"deros":null},"status":403,"response":{"message":"You do not have access to records outside your assigned scope"}}

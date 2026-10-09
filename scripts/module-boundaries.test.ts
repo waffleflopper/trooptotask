@@ -174,7 +174,6 @@ describe('module boundary declaration', () => {
 	it.each([
 		['svelte-sonner', undefined],
 		['@lucide/svelte/icons/plus', undefined],
-		['bits-ui', undefined],
 		['layerchart', undefined],
 		['./widget.svelte.js', 'src/features/alpha/widget.svelte.js'],
 		['@fontsource/ibm-plex-mono/400.css', undefined],

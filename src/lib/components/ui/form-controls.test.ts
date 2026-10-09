@@ -8,18 +8,48 @@ describe('shared form controls', () => {
 		cleanup();
 	});
 
-	it('wires labels, descriptions, required markers, and validation errors to controls', () => {
+	function descriptionText(control: HTMLElement) {
+		return (control.getAttribute('aria-describedby') ?? '')
+			.split(' ')
+			.filter(Boolean)
+			.map((id) => document.getElementById(id)?.textContent?.trim());
+	}
+
+	it('associates field descriptions and errors with each contained control', async () => {
 		render(FormControlsTest);
 
 		const title = screen.getByRole('textbox', { name: /task title/i });
-		expect(title.getAttribute('aria-describedby')).toBe('task-title-description');
+		expect(descriptionText(title)).toEqual(['Use the official task name.']);
+		expect(title.getAttribute('aria-invalid')).toBeNull();
 		expect(title.hasAttribute('required')).toBe(true);
 		expect(screen.getByText('*')).toBeTruthy();
 
+		const nativeStatus = screen.getByRole('combobox', { name: /native status/i });
+		expect(nativeStatus.getAttribute('aria-describedby')).toBe('native-status-help');
+
+		const customStatus = screen.getByRole('button', { name: /custom status/i });
+		expect(descriptionText(customStatus)).toEqual(['Choose a reviewed status.']);
+		expect(customStatus.getAttribute('aria-invalid')).toBe('true');
+
+		const person = screen.getByRole('button', { name: /person/i });
+		expect(descriptionText(person)).toEqual(['Search by last name.']);
+		await fireEvent.click(person);
+		const search = await screen.findByPlaceholderText('Search people');
+		expect(search.getAttribute('aria-describedby')).toBeNull();
+	});
+
+	it('marks a control invalid only while its field shows an error', async () => {
+		render(FormControlsTest);
+
 		const notes = screen.getByRole('textbox', { name: /notes/i });
 		expect(notes.getAttribute('aria-invalid')).toBe('true');
-		expect(notes.getAttribute('aria-describedby')).toBe('task-notes-error');
-		expect(screen.getByText('Notes are too short.')).toBeTruthy();
+		expect(descriptionText(notes)).toEqual(['Notes are too short.']);
+
+		await fireEvent.input(notes, { target: { value: 'Long enough notes' } });
+
+		expect(screen.queryByText('Notes are too short.')).toBeNull();
+		expect(notes.getAttribute('aria-invalid')).toBeNull();
+		expect(notes.getAttribute('aria-describedby')).toBeNull();
 	});
 
 	it('supports controlled input, textarea, checkbox, and disabled states', async () => {

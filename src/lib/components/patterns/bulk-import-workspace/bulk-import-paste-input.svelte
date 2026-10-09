@@ -25,29 +25,15 @@
 	}: Props = $props();
 	const uid = $props.id();
 	const textareaId = $derived(id ?? `${uid}-paste`);
-	const descriptionId = $derived(`${textareaId}-description`);
-	const errorId = $derived(`${textareaId}-error`);
 </script>
 
 <Field.Root data-invalid={!!error}>
 	<Field.Label for={textareaId}>{label}</Field.Label>
-	<Textarea
-		id={textareaId}
-		bind:value
-		{placeholder}
-		{disabled}
-		{rows}
-		aria-describedby={error
-			? `${description ? descriptionId : ''} ${errorId}`.trim()
-			: description
-				? descriptionId
-				: undefined}
-		aria-invalid={!!error}
-	/>
+	<Textarea id={textareaId} bind:value {placeholder} {disabled} {rows} />
 	{#if description}
-		<Field.Description id={descriptionId}>{description}</Field.Description>
+		<Field.Description>{description}</Field.Description>
 	{/if}
 	{#if error}
-		<Field.Error id={errorId}>{error}</Field.Error>
+		<Field.Error>{error}</Field.Error>
 	{/if}
 </Field.Root>

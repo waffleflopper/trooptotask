@@ -143,17 +143,11 @@
 					max="100"
 					step="1"
 					bind:value={readinessGoalPercent}
-					aria-invalid={isReadinessGoalValid ? undefined : true}
-					aria-describedby={isReadinessGoalValid
-						? 'training-readiness-goal-help'
-						: 'training-readiness-goal-help training-readiness-goal-error'}
 				/>
 			</Field.Control>
-			<Field.Description id="training-readiness-goal-help">
-				Used for goal lines and heat-map bands on Training Reports.
-			</Field.Description>
+			<Field.Description>Used for goal lines and heat-map bands on Training Reports.</Field.Description>
 			{#if !isReadinessGoalValid}
-				<Field.Error id="training-readiness-goal-error">Must be a whole number between 1 and 100.</Field.Error>
+				<Field.Error>Must be a whole number between 1 and 100.</Field.Error>
 			{/if}
 		</Field.Root>
 	</section>

@@ -3,8 +3,8 @@
 	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Button } from '$lib/components/ui/button';
+	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
-	import { Label } from '$lib/components/ui/label';
 	import * as Alert from '$lib/components/ui/alert';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
@@ -23,18 +23,21 @@
 	let editingId = $state<string | null>(null);
 	let editName = $state('');
 	let pending = $state(false);
-	let errorMessage = $state('');
+	let failure = $state<{ change: 'add' | 'rename' | 'remove'; message: string } | null>(null);
 	const groupDialogDirty = $derived(pending || newGroupName.trim() !== '' || Boolean(editingId && editName.trim()));
 
-	async function runChange(change: () => void | Promise<void>): Promise<boolean> {
+	async function runChange(change: 'add' | 'rename' | 'remove', apply: () => void | Promise<void>): Promise<boolean> {
 		if (pending) return false;
 		pending = true;
-		errorMessage = '';
+		failure = null;
 		try {
-			await change();
+			await apply();
 			return true;
 		} catch (cause) {
-			errorMessage = cause instanceof Error ? cause.message : 'Unable to save Group changes. Try again.';
+			failure = {
+				change,
+				message: cause instanceof Error ? cause.message : 'Unable to save Group changes. Try again.'
+			};
 			return false;
 		} finally {
 			pending = false;
@@ -43,11 +46,11 @@
 
 	async function handleAdd() {
 		const name = newGroupName.trim();
-		if (name && (await runChange(() => onAdd(name)))) newGroupName = '';
+		if (name && (await runChange('add', () => onAdd(name)))) newGroupName = '';
 	}
 
 	function startEdit(group: Group) {
-		errorMessage = '';
+		failure = null;
 		editingId = group.id;
 		editName = group.name;
 	}
@@ -55,7 +58,7 @@
 	async function saveEdit() {
 		const id = editingId;
 		const name = editName.trim();
-		if (id && name && (await runChange(() => onRename(id, name)))) cancelEdit();
+		if (id && name && (await runChange('rename', () => onRename(id, name)))) cancelEdit();
 	}
 
 	function cancelEdit() {
@@ -66,13 +69,13 @@
 	let confirmRemove = $state<Group | null>(null);
 
 	function handleRemove(group: Group) {
-		errorMessage = '';
+		failure = null;
 		confirmRemove = group;
 	}
 
 	async function doRemove() {
 		const group = confirmRemove;
-		if (group && (await runChange(() => onRemove(group.id)))) confirmRemove = null;
+		if (group && (await runChange('remove', () => onRemove(group.id)))) confirmRemove = null;
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
@@ -89,11 +92,8 @@
 		</AppDialog.Header>
 
 		<AppDialog.Body class="grid gap-4">
-			{#if errorMessage && !confirmRemove}
-				<Alert.Root variant="destructive"><Alert.Description>{errorMessage}</Alert.Description></Alert.Root>
-			{/if}
-			<div class="grid gap-2">
-				<Label for="new-group-name">Organization groups</Label>
+			<Field.Root>
+				<Field.Label for="new-group-name">Organization groups</Field.Label>
 				<div class="flex gap-2">
 					<Input
 						id="new-group-name"
@@ -105,19 +105,27 @@
 					/>
 					<Button type="button" size="sm" onclick={handleAdd} disabled={pending || !newGroupName.trim()}>Add</Button>
 				</div>
-			</div>
+				{#if failure?.change === 'add'}
+					<Field.Error>{failure.message}</Field.Error>
+				{/if}
+			</Field.Root>
 
 			<div class="grid max-h-80 gap-2 overflow-y-auto">
 				{#each groups as group (group.id)}
 					<div class="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
 						{#if editingId === group.id}
-							<Input
-								type="text"
-								aria-label="Group name"
-								readonly={pending}
-								bind:value={editName}
-								onkeydown={(e) => e.key === 'Enter' && saveEdit()}
-							/>
+							<Field.Root>
+								<Input
+									type="text"
+									aria-label="Group name"
+									readonly={pending}
+									bind:value={editName}
+									onkeydown={(e) => e.key === 'Enter' && saveEdit()}
+								/>
+								{#if failure?.change === 'rename'}
+									<Field.Error>{failure.message}</Field.Error>
+								{/if}
+							</Field.Root>
 							<div class="flex gap-2 sm:justify-end">
 								<Button type="button" size="sm" onclick={saveEdit} disabled={pending}>Save</Button>
 								<Button type="button" variant="outline" size="sm" onclick={cancelEdit} disabled={pending}>Cancel</Button
@@ -170,11 +178,11 @@
 		onConfirm={doRemove}
 		onCancel={() => {
 			confirmRemove = null;
-			errorMessage = '';
+			failure = null;
 		}}
 	>
-		{#if errorMessage}
-			<Alert.Root variant="destructive"><Alert.Description>{errorMessage}</Alert.Description></Alert.Root>
+		{#if failure?.change === 'remove'}
+			<Alert.Root variant="destructive"><Alert.Description>{failure.message}</Alert.Description></Alert.Root>
 		{/if}
 	</ConfirmDialog>
 {/if}

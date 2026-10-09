@@ -839,23 +839,27 @@ New form work should use the shadcn-svelte-backed shared control system. The dur
 	import * as RadioGroup from '$lib/components/ui/radio-group';
 
 	let title = $state('');
+	let notes = $state('');
 	let status = $state('ready');
+	const notesError = $derived(notes.trim() ? '' : 'Notes are required.');
 </script>
 
 <Field.Root>
 	<Field.Label for="task-title">Task title <span aria-hidden="true">*</span></Field.Label>
 	<Field.Control>
-		<Input id="task-title" name="title" bind:value={title} required aria-describedby="task-title-help" />
+		<Input id="task-title" name="title" bind:value={title} required />
 	</Field.Control>
-	<Field.Description id="task-title-help">Use the official task name.</Field.Description>
+	<Field.Description>Use the official task name.</Field.Description>
 </Field.Root>
 
-<Field.Root data-invalid>
+<Field.Root data-invalid={notesError ? true : undefined}>
 	<Field.Label for="task-notes">Notes</Field.Label>
 	<Field.Control>
-		<Textarea id="task-notes" aria-invalid="true" aria-describedby="task-notes-error" />
+		<Textarea id="task-notes" bind:value={notes} />
 	</Field.Control>
-	<Field.Error id="task-notes-error">Notes are required.</Field.Error>
+	{#if notesError}
+		<Field.Error>{notesError}</Field.Error>
+	{/if}
 </Field.Root>
 
 <Field.Root>
@@ -889,7 +893,7 @@ Public components:
 - `Field.Root`: group wrapper for one field. Use `orientation="horizontal"` for checkbox and radio rows.
 - `Field.Group`: stacked field group for related controls.
 - `Field.Control`: control slot wrapper that keeps shared controls full-width without route-local styling.
-- `Field.Label`, `Field.Description`, `Field.Error`: label, hint, and error text. Wire `for`, `id`, `aria-describedby`, and `aria-invalid` explicitly.
+- `Field.Label`, `Field.Description`, `Field.Error`: label, hint, and error text. Wire the label with `for` or `aria-labelledby`. Each rendered Description and Error inside a `Field.Root` registers its ID (generated unless the caller passes `id`), and the contained `Input`, `Textarea`, `NativeSelect`, `Select.Trigger`, `Combobox.Trigger` and `DatePicker` add those IDs to `aria-describedby` and set `aria-invalid="true"` while an Error is shown. A caller's own `aria-describedby` IDs come first and a caller's `aria-invalid` wins. Popover content starts outside the Field, so a search box in a popup is not described by the trigger's Field. Registration happens on mount; a server-rendered form whose errors must be associated before hydration still wires its IDs explicitly, as `AuthField` does.
 - `Input`, `Textarea`, `Select.Root/Trigger/Content/Item`, `Checkbox` and `RadioGroup.Root/Item` are the shared controls.
 
 Rules:
@@ -897,7 +901,7 @@ Rules:
 - Use `Select` for selects by default so option controls keep the same visual shape across Windows, macOS, Linux, and browser engines.
 - Keep `NativeSelect` only for explicit native form-submission or mobile-picker requirements approved at the shared-component level.
 - Use `Checkbox` for selection, inclusion or batch choices.
-- Use validation errors over hints when both exist. Errors must set `aria-invalid="true"` on the control and reference the error id with `aria-describedby`.
+- Use validation errors over hints when both exist. Render the error as `Field.Error` inside the control's `Field.Root` so the association and `aria-invalid` follow it; an alert elsewhere in the dialog is not associated.
 - Required markers are visual only with `aria-hidden="true"`; keep native `required` on native controls where submission validation matters.
 - Disabled and read-only states come from the shared controls. Do not add local opacity, colors, borders, spacing, or typography to route code.
 - Toolbar-compact usage should compose the same controls inside `WorkspaceToolbar.Group`, using shared active counts rather than visual route overrides.

@@ -25,26 +25,15 @@
 	}: Props = $props();
 	const uid = $props.id();
 	const inputId = $derived(id ?? `${uid}-file`);
-	const descriptionId = $derived(`${inputId}-description`);
-	const errorId = $derived(`${inputId}-error`);
 </script>
 
 <Field.Root data-invalid={!!error}>
 	<Field.Label for={inputId}>{label}</Field.Label>
-	<Input
-		id={inputId}
-		type="file"
-		{accept}
-		{disabled}
-		bind:files
-		aria-describedby={error ? `${descriptionId} ${errorId}` : descriptionId}
-		aria-invalid={!!error}
-		onchange={() => onFilesChange?.(files)}
-	/>
+	<Input id={inputId} type="file" {accept} {disabled} bind:files onchange={() => onFilesChange?.(files)} />
 	{#if description}
-		<Field.Description id={descriptionId}>{description}</Field.Description>
+		<Field.Description>{description}</Field.Description>
 	{/if}
 	{#if error}
-		<Field.Error id={errorId}>{error}</Field.Error>
+		<Field.Error>{error}</Field.Error>
 	{/if}
 </Field.Root>

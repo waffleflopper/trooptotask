@@ -2,6 +2,7 @@
 	import { Select as SelectPrimitive } from 'bits-ui';
 	import { cn, type WithoutChild } from '$lib/utils.js';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
+	import { getFieldContext } from '$lib/components/ui/field/context.svelte.js';
 
 	let {
 		ref = $bindable(null),
@@ -12,6 +13,9 @@
 	}: WithoutChild<SelectPrimitive.TriggerProps> & {
 		size?: 'sm' | 'default';
 	} = $props();
+
+	const field = getFieldContext();
+	const fieldAria = $derived(field?.controlAria(restProps['aria-describedby'], restProps['aria-invalid']) ?? {});
 </script>
 
 <SelectPrimitive.Trigger
@@ -23,6 +27,7 @@
 		className
 	)}
 	{...restProps}
+	{...fieldAria}
 >
 	{@render children?.()}
 	<ChevronDownIcon class="text-muted-foreground size-4 pointer-events-none" />

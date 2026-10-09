@@ -3,6 +3,7 @@
 	import type { Attachment } from 'svelte/attachments';
 	import type { HTMLSelectAttributes } from 'svelte/elements';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
+	import { getFieldContext } from '$lib/components/ui/field/context.svelte.js';
 
 	type NativeSelectProps = Omit<WithElementRef<HTMLSelectAttributes>, 'size'> & {
 		size?: 'sm' | 'default';
@@ -17,6 +18,9 @@
 		onchange,
 		...restProps
 	}: NativeSelectProps = $props();
+
+	const field = getFieldContext();
+	const fieldAria = $derived(field?.controlAria(restProps['aria-describedby'], restProps['aria-invalid']) ?? {});
 
 	const refAttachment: Attachment<HTMLSelectElement> = (node) => {
 		ref = node;
@@ -45,6 +49,7 @@
 		}}
 		class="border-input placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 dark:hover:bg-input/50 focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:aria-invalid:border-destructive/50 h-8 w-full min-w-0 appearance-none rounded-lg border bg-transparent py-1 pr-8 pl-2.5 text-sm transition-colors select-none focus-visible:ring-3 aria-invalid:ring-3 data-[size=sm]:h-7 data-[size=sm]:rounded-[min(var(--radius),10px)] data-[size=sm]:py-0.5 outline-none disabled:pointer-events-none disabled:cursor-not-allowed"
 		{...restProps}
+		{...fieldAria}
 	>
 		{@render children?.()}
 	</select>

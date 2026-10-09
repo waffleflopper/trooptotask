@@ -3,6 +3,7 @@
 	import PopoverPortal from './popover-portal.svelte';
 	import { cn, type WithoutChildrenOrChild } from '$lib/utils.js';
 	import type { ComponentProps } from 'svelte';
+	import { setFieldContext } from '$lib/components/ui/field/context.svelte.js';
 
 	let {
 		ref = $bindable(null),
@@ -14,6 +15,9 @@
 	}: PopoverPrimitive.ContentProps & {
 		portalProps?: WithoutChildrenOrChild<ComponentProps<typeof PopoverPortal>>;
 	} = $props();
+
+	// Controls inside the layer belong to the popup, not to the Field around its trigger.
+	setFieldContext(undefined);
 </script>
 
 <PopoverPortal {...portalProps}>

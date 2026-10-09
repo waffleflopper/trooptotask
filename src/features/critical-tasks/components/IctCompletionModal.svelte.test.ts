@@ -61,6 +61,13 @@ function renderModal(
 	});
 }
 
+function descriptions(control: HTMLElement): string[] {
+	return (control.getAttribute('aria-describedby') ?? '')
+		.split(' ')
+		.filter(Boolean)
+		.map((id) => document.getElementById(id)?.textContent?.trim() ?? '');
+}
+
 async function chooseDate(label: RegExp): Promise<void> {
 	await fireEvent.click(screen.getByLabelText(/Completion Date/i));
 	const day = await screen.findByRole('button', { name: label });
@@ -127,7 +134,7 @@ describe('IctCompletionModal', () => {
 		expect(screen.getByText('Validation method is required')).toBeTruthy();
 	});
 
-	it('keeps required selector errors visible until person and task combobox values are selected', async () => {
+	it('associates required errors and help text with their controls until values are selected', async () => {
 		const onSave = vi.fn();
 
 		renderModal({
@@ -141,8 +148,16 @@ describe('IctCompletionModal', () => {
 		await fireEvent.click(screen.getByTestId('ict-completion-save'));
 
 		expect(onSave).not.toHaveBeenCalled();
-		expect(screen.getByText('Person is required')).toBeTruthy();
-		expect(screen.getByText('Critical task is required')).toBeTruthy();
+		const personControl = screen.getByRole('button', { name: 'Person' });
+		const taskControl = screen.getByRole('button', { name: 'Critical Task' });
+		expect(descriptions(personControl)).toEqual(['Person is required']);
+		expect(personControl.getAttribute('aria-invalid')).toBe('true');
+		expect(descriptions(taskControl)).toEqual(['Select a person to narrow tasks by MOS.', 'Critical task is required']);
+		expect(taskControl.getAttribute('aria-invalid')).toBe('true');
+		expect(descriptions(screen.getByLabelText('Completion Date'))).toEqual(['Completion date is required']);
+		expect(screen.getByLabelText('Validation Method').getAttribute('aria-invalid')).toBe('true');
+		expect(descriptions(screen.getByLabelText('Validated By'))).toEqual(['Optional rank and name of the validator']);
+		expect(screen.getByLabelText('Validated By').getAttribute('aria-invalid')).toBeNull();
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Person' }));
 		await fireEvent.click(await screen.findByRole('option', { name: /SGT Smith, Jane/ }));
@@ -152,6 +167,8 @@ describe('IctCompletionModal', () => {
 
 		expect(screen.queryByText('Person is required')).toBeNull();
 		expect(screen.queryByText('Critical task is required')).toBeNull();
+		expect(personControl.getAttribute('aria-invalid')).toBeNull();
+		expect(descriptions(taskControl)).toEqual(['Showing tasks applicable to this person.']);
 		expect(screen.getByText('Completion date is required')).toBeTruthy();
 		expect(screen.getByText('Validation method is required')).toBeTruthy();
 	});

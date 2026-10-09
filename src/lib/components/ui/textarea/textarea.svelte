@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { cn, type WithElementRef, type WithoutChildren } from '$lib/utils.js';
 	import type { HTMLTextareaAttributes } from 'svelte/elements';
+	import { getFieldContext } from '$lib/components/ui/field/context.svelte.js';
 
 	let {
 		ref = $bindable(null),
@@ -9,6 +10,9 @@
 		'data-slot': dataSlot = 'textarea',
 		...restProps
 	}: WithoutChildren<WithElementRef<HTMLTextareaAttributes>> = $props();
+
+	const field = getFieldContext();
+	const fieldAria = $derived(field?.controlAria(restProps['aria-describedby'], restProps['aria-invalid']) ?? {});
 </script>
 
 <textarea
@@ -20,4 +24,5 @@
 	)}
 	bind:value
 	{...restProps}
+	{...fieldAria}
 ></textarea>

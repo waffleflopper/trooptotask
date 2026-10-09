@@ -24,13 +24,14 @@
 	];
 
 	let title = $state('Initial task');
-	let notes = $state('Initial notes');
+	let notes = $state('Short');
 	let nativeStatus = $state('ready');
 	let selectedStatus = $state('ready');
 	let selectedPerson = $state('');
 	let selectedFilters = $state<string[]>(['hq']);
 	let checked = $state(false);
 
+	const notesError = $derived(notes.trim().length < 6 ? 'Notes are too short.' : '');
 	const selectedStatusLabel = $derived(
 		statusOptions.find((option) => option.value === selectedStatus)?.label ?? 'Status'
 	);
@@ -39,17 +40,19 @@
 <Field.Root>
 	<Field.Label for="task-title">Task title <span aria-hidden="true">*</span></Field.Label>
 	<Field.Control>
-		<Input id="task-title" name="title" bind:value={title} required aria-describedby="task-title-description" />
+		<Input id="task-title" name="title" bind:value={title} required />
 	</Field.Control>
-	<Field.Description id="task-title-description">Use the official task name.</Field.Description>
+	<Field.Description>Use the official task name.</Field.Description>
 </Field.Root>
 
-<Field.Root data-invalid>
+<Field.Root data-invalid={notesError ? true : undefined}>
 	<Field.Label for="task-notes">Notes</Field.Label>
 	<Field.Control>
-		<Textarea id="task-notes" bind:value={notes} aria-invalid="true" aria-describedby="task-notes-error" />
+		<Textarea id="task-notes" bind:value={notes} />
 	</Field.Control>
-	<Field.Error id="task-notes-error">Notes are too short.</Field.Error>
+	{#if notesError}
+		<Field.Error>{notesError}</Field.Error>
+	{/if}
 </Field.Root>
 
 <Field.Root>
@@ -61,6 +64,7 @@
 			{/each}
 		</NativeSelect>
 	</Field.Control>
+	<Field.Description id="native-status-help">Matches the unit status board.</Field.Description>
 </Field.Root>
 
 <Field.Root>
@@ -75,6 +79,7 @@
 			</Select.Content>
 		</Select.Root>
 	</Field.Control>
+	<Field.Error>Choose a reviewed status.</Field.Error>
 </Field.Root>
 
 <Field.Root>
@@ -87,6 +92,7 @@
 					: 'Search personnel'}
 			</Combobox.Trigger>
 			<Combobox.Content>
+				<Combobox.Search placeholder="Search people" />
 				<Combobox.Empty>No people found.</Combobox.Empty>
 				<Combobox.List>
 					{#snippet children(value, option)}
@@ -96,6 +102,7 @@
 			</Combobox.Content>
 		</Combobox.Root>
 	</Field.Control>
+	<Field.Description>Search by last name.</Field.Description>
 </Field.Root>
 
 <div role="toolbar" aria-label="Shared form toolbar">

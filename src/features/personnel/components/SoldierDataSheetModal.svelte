@@ -106,8 +106,8 @@
 	}
 </script>
 
-<AppDialog.Root open closeBlocked={isSaving} {onClose}>
-	<AppDialog.Content closeBlocked={isSaving} size="fullscreen">
+<AppDialog.Root open busy={isSaving} {onClose}>
+	<AppDialog.Content size="fullscreen">
 		<AppDialog.Header class="px-4 pt-4">
 			<AppDialog.Title>Soldier Data Sheet</AppDialog.Title>
 			<AppDialog.Description

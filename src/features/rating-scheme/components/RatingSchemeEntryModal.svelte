@@ -144,8 +144,8 @@
 	}
 </script>
 
-<AppDialog.Root open closeBlocked={busy} {onClose}>
-	<AppDialog.Content size="wide" closeBlocked={busy} class="h-[calc(100dvh-2rem)]">
+<AppDialog.Root open {busy} {onClose}>
+	<AppDialog.Content size="wide" class="h-[calc(100dvh-2rem)]">
 		<AppDialog.Header>
 			<AppDialog.Title>{entry ? 'Edit Rating Entry' : 'Add Rating Entry'}</AppDialog.Title>
 			<AppDialog.Description

@@ -228,7 +228,7 @@
 	}
 </script>
 
-<AppDialog.Root open onClose={() => !isSaving && onClose()}>
+<AppDialog.Root open busy={isSaving} {onClose}>
 	<AppDialog.Content class="sm:max-w-xl">
 		<AppDialog.Header>
 			<AppDialog.Title id="ict-completion-title">{modalTitle}</AppDialog.Title>

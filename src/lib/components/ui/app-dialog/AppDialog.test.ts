@@ -78,8 +78,27 @@ describe('AppDialog', () => {
 		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 	});
 
+	it('blocks closing a draft without announcing busy work', async () => {
+		render(AppDialogTest);
+		const dialog = screen.getByRole('dialog', { name: 'Shared dialog title' });
+
+		await fireEvent.input(screen.getByRole('textbox', { name: 'Draft' }), { target: { value: 'Unsaved' } });
+
+		expect(dialog.hasAttribute('aria-busy')).toBe(false);
+		expect(screen.queryByRole('button', { name: 'Close' })).toBeNull();
+		await fireEvent.keyDown(dialog, { key: 'Escape' });
+		await clickOutside();
+		expect(screen.getByRole('dialog', { name: 'Shared dialog title' })).toBe(dialog);
+
+		const save = screen.getByRole('button', { name: 'Save slowly' });
+		save.focus();
+		await fireEvent.click(save);
+		expect(dialog.getAttribute('aria-busy')).toBe('true');
+		expect(document.activeElement).toBe(dialog);
+	});
+
 	it('blocks close affordances while busy', () => {
-		render(AppDialogTest, { closeBlocked: true });
+		render(AppDialogTest, { initialBusy: true });
 
 		expect(screen.getByRole('dialog', { name: 'Shared dialog title' })).toBeTruthy();
 		expect(screen.queryByRole('button', { name: 'Close' })).toBeNull();

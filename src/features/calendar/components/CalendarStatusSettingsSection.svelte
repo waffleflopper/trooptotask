@@ -182,7 +182,7 @@
 </div>
 
 <AppDialog.Root bind:open={addStatusOpen} closeBlocked={addStatusDirty} onClose={closeAddStatusDialog}>
-	<AppDialog.Content class="sm:max-w-md" closeBlocked={addStatusDirty}>
+	<AppDialog.Content class="sm:max-w-md">
 		<AppDialog.Header>
 			<AppDialog.Title>Add Status Type</AppDialog.Title>
 			<AppDialog.Description>Create a new personnel availability status for the calendar.</AppDialog.Description>
@@ -238,7 +238,7 @@
 </AppDialog.Root>
 
 <AppDialog.Root bind:open={editStatusOpen} closeBlocked={editStatusDirty} onClose={closeEditStatusDialog}>
-	<AppDialog.Content class="sm:max-w-md" closeBlocked={editStatusDirty}>
+	<AppDialog.Content class="sm:max-w-md">
 		<AppDialog.Header>
 			<AppDialog.Title>Edit Status Type</AppDialog.Title>
 			<AppDialog.Description>Update this personnel availability status.</AppDialog.Description>

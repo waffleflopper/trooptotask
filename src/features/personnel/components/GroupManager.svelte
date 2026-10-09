@@ -24,7 +24,7 @@
 	let editName = $state('');
 	let pending = $state(false);
 	let failure = $state<{ change: 'add' | 'rename' | 'remove'; message: string } | null>(null);
-	const groupDialogDirty = $derived(pending || newGroupName.trim() !== '' || Boolean(editingId && editName.trim()));
+	const groupDialogDirty = $derived(newGroupName.trim() !== '' || Boolean(editingId && editName.trim()));
 
 	async function runChange(change: 'add' | 'rename' | 'remove', apply: () => void | Promise<void>): Promise<boolean> {
 		if (pending) return false;
@@ -85,8 +85,8 @@
 	}
 </script>
 
-<AppDialog.Root open closeBlocked={groupDialogDirty} {onClose}>
-	<AppDialog.Content closeBlocked={groupDialogDirty}>
+<AppDialog.Root open busy={pending} closeBlocked={groupDialogDirty} {onClose}>
+	<AppDialog.Content>
 		<AppDialog.Header>
 			<AppDialog.Title>Manage Groups</AppDialog.Title>
 		</AppDialog.Header>

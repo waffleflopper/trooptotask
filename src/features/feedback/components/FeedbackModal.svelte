@@ -62,8 +62,8 @@
 	}
 </script>
 
-<AppDialog.Root closeBlocked={submitting} {onClose}>
-	<AppDialog.Content closeBlocked={submitting}>
+<AppDialog.Root busy={submitting} {onClose}>
+	<AppDialog.Content>
 		<AppDialog.Header>
 			<AppDialog.Title>Send Feedback</AppDialog.Title>
 			<AppDialog.Description>Share feedback about the current page or workflow.</AppDialog.Description>

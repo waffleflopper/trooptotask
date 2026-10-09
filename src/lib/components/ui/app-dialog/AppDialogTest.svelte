@@ -5,14 +5,15 @@
 
 	let {
 		initialOpen = true,
-		closeBlocked = false
+		initialBusy = false
 	}: {
 		initialOpen?: boolean;
-		closeBlocked?: boolean;
+		initialBusy?: boolean;
 	} = $props();
 
 	let open = $state(untrack(() => initialOpen));
-	let busy = $state(untrack(() => closeBlocked));
+	let busy = $state(untrack(() => initialBusy));
+	let draft = $state('');
 	let closedCount = $state(0);
 	let confirmedCount = $state(0);
 
@@ -28,14 +29,15 @@
 <p data-testid="confirmed-count">{confirmedCount}</p>
 
 {#if open}
-	<AppDialog.Root bind:open closeBlocked={busy} onClose={close}>
-		<AppDialog.Content closeBlocked={busy}>
+	<AppDialog.Root bind:open {busy} closeBlocked={draft !== ''} onClose={close}>
+		<AppDialog.Content>
 			<AppDialog.Header>
 				<AppDialog.Title>Shared dialog title</AppDialog.Title>
 				<AppDialog.Description>Shared dialog description.</AppDialog.Description>
 			</AppDialog.Header>
 			<AppDialog.Body>
 				<p>Standard dialog body.</p>
+				<input aria-label="Draft" bind:value={draft} />
 			</AppDialog.Body>
 			<AppDialog.Footer>
 				<Button variant="outline" onclick={close} disabled={busy}>Cancel</Button>

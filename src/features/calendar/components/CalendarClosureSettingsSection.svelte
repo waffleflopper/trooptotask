@@ -254,7 +254,7 @@
 </div>
 
 <AppDialog.Root bind:open={addClosureOpen} closeBlocked={addClosureDirty} onClose={closeAddClosureDialog}>
-	<AppDialog.Content closeBlocked={addClosureDirty}>
+	<AppDialog.Content>
 		<AppDialog.Header>
 			<AppDialog.Title>Add Closure</AppDialog.Title>
 			<AppDialog.Description>Mark a federal holiday or unit closure on the calendar.</AppDialog.Description>
@@ -289,7 +289,7 @@
 </AppDialog.Root>
 
 <AppDialog.Root bind:open={editClosureOpen} closeBlocked={editClosureDirty} onClose={closeEditClosureDialog}>
-	<AppDialog.Content closeBlocked={editClosureDirty}>
+	<AppDialog.Content>
 		<AppDialog.Header>
 			<AppDialog.Title>Edit Closure</AppDialog.Title>
 			<AppDialog.Description>

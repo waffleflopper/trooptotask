@@ -146,8 +146,8 @@
 	}
 </script>
 
-<AppDialog.Root open closeBlocked={busy} {onClose}>
-	<AppDialog.Content closeBlocked={busy}>
+<AppDialog.Root open {busy} {onClose}>
+	<AppDialog.Content>
 		<AppDialog.Header class="px-4 pt-4">
 			<AppDialog.Title>{isEditing ? 'Edit Personnel' : 'Add Personnel'}</AppDialog.Title>
 		</AppDialog.Header>

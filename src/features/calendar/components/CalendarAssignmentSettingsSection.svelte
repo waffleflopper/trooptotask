@@ -248,7 +248,7 @@
 </div>
 
 <AppDialog.Root bind:open={addAssignmentOpen} closeBlocked={addAssignmentDirty} onClose={closeAddAssignmentDialog}>
-	<AppDialog.Content closeBlocked={addAssignmentDirty}>
+	<AppDialog.Content>
 		<AppDialog.Header>
 			<AppDialog.Title>Add Assignment Type</AppDialog.Title>
 			<AppDialog.Description>Create a new duty coverage assignment for daily scheduling.</AppDialog.Description>
@@ -316,7 +316,7 @@
 </AppDialog.Root>
 
 <AppDialog.Root bind:open={editAssignmentOpen} closeBlocked={editAssignmentDirty} onClose={closeEditAssignmentDialog}>
-	<AppDialog.Content closeBlocked={editAssignmentDirty}>
+	<AppDialog.Content>
 		<AppDialog.Header>
 			<AppDialog.Title>Edit Assignment Type</AppDialog.Title>
 			<AppDialog.Description>Update this duty coverage assignment.</AppDialog.Description>

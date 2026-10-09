@@ -271,7 +271,7 @@
 	}
 </script>
 
-<AppDialog.Root open closeBlocked={step === 'importing'} onClose={handleClose}>
+<AppDialog.Root open busy={step === 'importing'} onClose={handleClose}>
 	<AppDialog.Content class="sm:max-w-5xl">
 		<AppDialog.Header>
 			<AppDialog.Title id="ict-completion-import-title">Import ICT Completions</AppDialog.Title>

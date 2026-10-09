@@ -93,6 +93,42 @@ describe('GroupManager', () => {
 		expect(onAdd).toHaveBeenCalledTimes(2);
 	});
 
+	it('blocks closing a draft without busy state, then holds focus only while the save is pending', async () => {
+		let reject!: (reason: Error) => void;
+		const onAdd = vi.fn(
+			() =>
+				new Promise<void>((_resolve, rejectPromise) => {
+					reject = rejectPromise;
+				})
+		);
+		const onClose = vi.fn();
+		renderGroupManager({ onAdd, onClose });
+		const dialog = screen.getByRole('dialog', { name: 'Manage Groups' });
+		const input = screen.getByLabelText('Organization groups') as HTMLInputElement;
+
+		await fireEvent.input(input, { target: { value: 'Alpha Company' } });
+		expect(dialog.hasAttribute('aria-busy')).toBe(false);
+		await fireEvent.keyDown(dialog, { key: 'Escape' });
+		expect(screen.getByRole('dialog', { name: 'Manage Groups' })).toBe(dialog);
+
+		const add = screen.getByRole('button', { name: 'Add' });
+		add.focus();
+		await fireEvent.click(add);
+		expect(dialog.getAttribute('aria-busy')).toBe('true');
+		expect(document.activeElement).toBe(dialog);
+
+		reject(new Error('A group named Alpha Company already exists'));
+		await waitFor(() => expect(dialog.hasAttribute('aria-busy')).toBe(false));
+		expect(document.getElementById(input.getAttribute('aria-describedby') ?? '')?.textContent).toBe(
+			'A group named Alpha Company already exists'
+		);
+		await fireEvent.keyDown(dialog, { key: 'Escape' });
+		expect(screen.getByRole('dialog', { name: 'Manage Groups' })).toBe(dialog);
+		expect(within(dialog).queryByRole('button', { name: 'Close' })).toBeNull();
+		expect(input.value).toBe('Alpha Company');
+		expect(onClose).not.toHaveBeenCalled();
+	});
+
 	it('blocks accidental close affordances while group edits are in progress', async () => {
 		const onClose = vi.fn();
 		renderGroupManager({ onClose });

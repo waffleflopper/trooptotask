@@ -554,8 +554,8 @@
 	}
 </script>
 
-<AppDialog.Root closeBlocked={saving} {onClose}>
-	<AppDialog.Content closeBlocked={saving} size="wide" class="h-[min(42rem,calc(100dvh-2rem))]">
+<AppDialog.Root busy={saving} {onClose}>
+	<AppDialog.Content size="wide" class="h-[min(42rem,calc(100dvh-2rem))]">
 		<AppDialog.Header>
 			<AppDialog.Title>{view === 'list' ? 'Sign-In Rosters' : 'New Sign-In Roster'}</AppDialog.Title>
 			<AppDialog.Description>

@@ -145,8 +145,8 @@
 	}
 </script>
 
-<AppDialog.Root closeBlocked={isSaving} {onClose}>
-	<AppDialog.Content closeBlocked={isSaving}>
+<AppDialog.Root busy={isSaving} {onClose}>
+	<AppDialog.Content>
 		<AppDialog.Header>
 			<AppDialog.Title>{existingTraining ? 'Edit' : 'Add'} Training Record</AppDialog.Title>
 			<AppDialog.Description>

@@ -336,14 +336,14 @@
 
 		uploadedFileName = file.name;
 		importError = '';
+		submitError = '';
 		importResult = null;
 		try {
 			const parsedRows = await parseFile(file);
-			if (parsedRows.length === 0) throw new Error('The file has no rows to import.');
+			const dataRows = detectHeaderRow(parsedRows[0] ?? [], PERSONNEL_COLUMNS) ? parsedRows.slice(1) : parsedRows;
+			if (dataRows.length === 0) throw new Error('The file has no rows to import.');
 			fileRows = parsedRows;
-			editableRows = (detectHeaderRow(parsedRows[0] ?? [], PERSONNEL_COLUMNS) ? parsedRows.slice(1) : parsedRows).map(
-				(row) => [...row]
-			);
+			editableRows = dataRows.map((row) => [...row]);
 			userOverrides = {};
 			await tick();
 			resetSelectionToValidRows();

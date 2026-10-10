@@ -120,8 +120,11 @@ describe('PersonnelImportPage', () => {
 		expect(parseFileMock).toHaveBeenCalledOnce();
 	});
 
-	it('says so when the chosen file has no rows and keeps Preview unavailable', async () => {
-		parseFileMock.mockResolvedValue([]);
+	it.each([
+		['no rows', []],
+		['only a header row', [['Rank', 'Last Name', 'First Name']]]
+	])('says so when the chosen file has %s and keeps Preview unavailable', async (_case, rows) => {
+		parseFileMock.mockResolvedValue(rows);
 		renderPage();
 
 		const input = document.querySelector<HTMLInputElement>('#fileUpload');
@@ -554,6 +557,32 @@ describe('PersonnelImportPage', () => {
 		expect(fetchMock).toHaveBeenCalledTimes(2);
 		expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual(expectedBody);
 		expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual(expectedBody);
+	});
+
+	it('drops an earlier import failure when another file is chosen', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => new Response(JSON.stringify({ message: 'Service unavailable' }), { status: 503 }))
+		);
+		parseFileMock.mockResolvedValue([
+			['Rank', 'Last Name', 'First Name'],
+			['SGT', 'Smith', 'John']
+		]);
+		renderPage();
+		const upload = (name: string) =>
+			fireEvent.change(document.querySelector<HTMLInputElement>('#fileUpload')!, {
+				target: { files: [new File(['records'], name, { type: 'text/csv' })] }
+			});
+		await upload('first.csv');
+		await fireEvent.click(await screen.findByRole('button', { name: /Preview 1 Rows/i }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Import checked rows' }));
+		await screen.findByText('Service unavailable');
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+		await upload('second.csv');
+		await fireEvent.click(await screen.findByRole('button', { name: /Preview 1 Rows/i }));
+
+		expect(screen.queryByText('Service unavailable')).toBeNull();
 	});
 
 	it('names the status when a failed import has no message body', async () => {

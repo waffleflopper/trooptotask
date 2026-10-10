@@ -65,7 +65,8 @@ function utcMillis(isoDate: string): number {
 
 export function validateDateRange(startDate: string, endDate: string): DateRangeValidation {
 	if (!startDate || !endDate) {
-		return { valid: false, dayCount: 0, error: null };
+		const error = !startDate && !endDate ? 'Choose a start date and an end date' : !startDate ? 'Choose a start date' : 'Choose an end date';
+		return { valid: false, dayCount: 0, error };
 	}
 	if (startDate > endDate) {
 		return { valid: false, dayCount: 0, error: 'End date must be on or after start date' };

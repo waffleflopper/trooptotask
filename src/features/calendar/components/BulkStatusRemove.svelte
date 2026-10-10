@@ -236,7 +236,7 @@
 					aria-live="polite"
 				>
 					<h3 class="font-semibold text-muted-foreground">Removal summary</h3>
-					{#if selection.selectedCount > 0 && selectedStatus && !range.error}
+					{#if selection.selectedCount > 0 && selectedStatus && range.valid}
 						<div class="flex flex-wrap items-center gap-2">
 							<CalendarStatusBadge statusType={selectedStatus}>{selectedStatus.name}</CalendarStatusBadge>
 							<span>

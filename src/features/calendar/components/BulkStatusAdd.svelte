@@ -175,7 +175,7 @@
 
 				<div class="flex flex-col gap-2 rounded-md border bg-muted p-4 text-xs" aria-live="polite">
 					<h3 class="font-semibold text-muted-foreground">Ready to apply</h3>
-					{#if selection.selectedCount > 0 && selectedStatus && !range.error}
+					{#if selection.selectedCount > 0 && selectedStatus && range.valid}
 						<div class="flex flex-wrap items-center gap-2">
 							<CalendarStatusBadge statusType={selectedStatus}>{selectedStatus.name}</CalendarStatusBadge>
 							<span>

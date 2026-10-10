@@ -283,7 +283,7 @@
 		</div>
 	{:else}
 		<main class="flex min-h-0 flex-col gap-4 overflow-hidden px-6 pt-4 pb-5 max-sm:p-3">
-			<WorkspaceToolbar.Root ariaLabel="Personnel controls">
+			<WorkspaceToolbar.Root ariaLabel="Personnel controls" wrap>
 				<WorkspaceToolbar.Group
 					label="Roster filters"
 					activeCount={activeRosterFilterCount}
@@ -507,7 +507,6 @@
 						{/snippet}
 						{#snippet groupHeader(group)}
 							<Toggle
-								size="sm"
 								pressed={pinnedGroupsStore.list.includes(group.key)}
 								onPressedChange={() => pinnedGroupsStore.toggle(group.key)}
 								title={pinnedGroupsStore.list.includes(group.key) ? 'Unpin group' : 'Pin group to top'}

@@ -526,6 +526,33 @@ describe('PersonnelDetailPageView', () => {
 		expect((screen.getByLabelText('Last name') as HTMLInputElement).value).toBe('Rivera-Jones');
 	});
 
+	it.each([
+		['Last name', 'Last name is required'],
+		['First name', 'First name is required']
+	])('ties a server-rejected blank %s to its field in basic info', async (label, message) => {
+		const fetchMock = vi.fn().mockResolvedValue(Response.json({ message }, { status: 400 }));
+		vi.stubGlobal('fetch', fetchMock);
+
+		render(PersonnelDetailPageView, {
+			props: { requestArchiveApproval, orgId: 'org-1', person, orgName: 'Test Org', detail: makeDetail() }
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit basic info' }));
+		await fireEvent.input(screen.getByLabelText(label), { target: { value: ' ' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Save basic info' }));
+
+		const error = await screen.findByText(message);
+		const field = screen.getByLabelText(label);
+		expect(error.getAttribute('data-slot')).toBe('field-error');
+		expect(field.getAttribute('aria-invalid')).toBe('true');
+		expect(field.getAttribute('aria-describedby')?.split(' ')).toContain(error.id);
+		expect(screen.queryByText('Unable to update basic info.')).toBeNull();
+		expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject({
+			[label === 'Last name' ? 'lastName' : 'firstName']: ''
+		});
+		expect(screen.getByRole('button', { name: 'Save basic info' })).toBeTruthy();
+	});
+
 	it('ties a missing follow-up title to its field on the dashboard', async () => {
 		const fetchMock = vi.fn();
 		vi.stubGlobal('fetch', fetchMock);

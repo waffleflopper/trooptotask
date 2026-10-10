@@ -293,6 +293,19 @@ describe('Personnel — create', () => {
 		});
 	});
 
+	it.each([
+		['lastName', 'Last name is required'],
+		['firstName', 'First name is required']
+	])('rejects a whitespace-only %s on create', async (field, message) => {
+		const ctx = buildContext();
+
+		await expect(createPersonnelRecord(ctx, { ...validInput, [field]: '   ' })).rejects.toMatchObject({
+			status: 400,
+			message
+		});
+		expect(await ctx.store.findMany('personnel', 'test-org')).toEqual([]);
+	});
+
 	it('persists ETS and DEROS on create', async () => {
 		const ctx = buildContext();
 
@@ -676,6 +689,36 @@ describe('Personnel — update', () => {
 
 		const unchanged = (await ctx.store.findOne('personnel', 'test-org', { id: 'p-2' })) as Record<string, unknown>;
 		expect(unchanged.slug).toBe('smith-john');
+	});
+
+	it.each([
+		['lastName', 'Last name is required'],
+		['firstName', 'First name is required']
+	])('rejects a whitespace-only %s on update and keeps the stored name and slug', async (field, message) => {
+		const ctx = buildContext();
+		ctx.store.seed('personnel', [
+			{
+				id: 'p-1',
+				rank: 'SGT',
+				last_name: 'Smith',
+				first_name: 'John',
+				slug: 'smith-john',
+				mos: '11B',
+				clinic_role: 'Team Leader',
+				group_id: null,
+				archived_at: null,
+				organization_id: 'test-org'
+			}
+		]);
+
+		await expect(updatePersonnelRecord(ctx, { id: 'p-1', [field]: ' ' })).rejects.toMatchObject({
+			status: 400,
+			message
+		});
+
+		const stored = (await ctx.store.findOne('personnel', 'test-org', { id: 'p-1' })) as Record<string, unknown>;
+		expect(stored).toMatchObject({ last_name: 'Smith', first_name: 'John', slug: 'smith-john' });
+		expect(ctx.audit.events).toEqual([]);
 	});
 
 	it('coerces empty groupId to null on update', async () => {

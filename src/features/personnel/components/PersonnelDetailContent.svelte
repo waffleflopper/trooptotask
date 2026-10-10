@@ -420,8 +420,18 @@
 						<form class="space-y-3 p-4" onsubmit={(event) => (event.preventDefault(), workspace.saveBasicInfo())}>
 							<Input bind:value={workspace.basicInfoRank} aria-label="Rank" />
 							<div class="grid gap-3 sm:grid-cols-2">
-								<Input bind:value={workspace.basicInfoFirstName} aria-label="First name" />
-								<Input bind:value={workspace.basicInfoLastName} aria-label="Last name" />
+								<Field.Root data-invalid={workspace.basicInfoNameError?.field === 'firstName' ? true : undefined}>
+									<Input bind:value={workspace.basicInfoFirstName} aria-label="First name" />
+									{#if workspace.basicInfoNameError?.field === 'firstName'}
+										<Field.Error>{workspace.basicInfoNameError.message}</Field.Error>
+									{/if}
+								</Field.Root>
+								<Field.Root data-invalid={workspace.basicInfoNameError?.field === 'lastName' ? true : undefined}>
+									<Input bind:value={workspace.basicInfoLastName} aria-label="Last name" />
+									{#if workspace.basicInfoNameError?.field === 'lastName'}
+										<Field.Error>{workspace.basicInfoNameError.message}</Field.Error>
+									{/if}
+								</Field.Root>
 							</div>
 							<div class="grid gap-3 sm:grid-cols-2">
 								<Input bind:value={workspace.basicInfoMos} aria-label="MOS" />

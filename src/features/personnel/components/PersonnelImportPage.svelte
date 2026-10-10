@@ -602,10 +602,8 @@
 											title={fieldIssue}
 											class={[
 												'pr-7',
-												fieldState === 'error' &&
-													'border-danger/80! bg-danger-muted/70! text-danger-foreground ring-1 ring-danger/45!',
 												fieldState === 'warning' &&
-													'border-warning/80! bg-warning-muted/80! text-warning-foreground ring-1 ring-warning/45!'
+													'border-warning/80 bg-warning-muted/80 text-warning-foreground ring-1 ring-warning/45 dark:bg-warning-muted/80'
 											]}
 											onchange={(event) => updateCell(row, fieldKey, event.currentTarget.value)}
 										/>

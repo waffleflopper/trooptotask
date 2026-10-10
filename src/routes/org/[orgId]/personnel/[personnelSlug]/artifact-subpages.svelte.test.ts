@@ -457,6 +457,13 @@ function rowAction(title: string, action: string) {
 	return within(article).getByRole('button', { name: action }) as HTMLButtonElement;
 }
 
+async function archivedAction(title: string, action: string) {
+	await fireEvent.click(rowAction(title, action));
+	if (action === 'Delete') {
+		await fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Delete' }));
+	}
+}
+
 describe('reused Personnel artifact pages', () => {
 	beforeEach(() => {
 		fetchMock = vi.fn();
@@ -649,12 +656,34 @@ describe('reused Personnel artifact pages', () => {
 		);
 	});
 
+	it('confirms before permanently deleting an archived item', async () => {
+		fetchMock.mockResolvedValueOnce(jsonResponse({ success: true }));
+		render(ArchivedPage, { props: { data: archivedData(basePageData, ['A target', 'A retained history']) } });
+
+		await fireEvent.click(rowAction('A target', 'Delete'));
+		const dialog = await screen.findByRole('alertdialog', { name: 'Delete archived item' });
+		expect(within(dialog).getByText('Permanently delete A target? This cannot be undone.')).toBeTruthy();
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+		await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+		expect(fetchMock).not.toHaveBeenCalled();
+		expect(screen.getByText('A target')).toBeTruthy();
+
+		await archivedAction('A target', 'Delete');
+		await waitFor(() => expect(screen.queryByText('A target')).toBeNull());
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+		expect(fetchMock).toHaveBeenCalledWith(
+			`/org/${basePageData.orgId}/api/personnel/${basePageData.personnelId}/documents/document-${basePageData.personnelId}-A target`,
+			{ method: 'DELETE' }
+		);
+		expect(screen.getByText('A retained history')).toBeTruthy();
+	});
+
 	it.each(['Restore', 'Delete'])('drops the previous Archived local list after a settled %s', async (action) => {
 		fetchMock.mockResolvedValueOnce(jsonResponse({ success: true }));
 		const view = render(ArchivedPage, {
 			props: { data: archivedData(basePageData, ['A target', 'A retained history']) }
 		});
-		await fireEvent.click(rowAction('A target', action));
+		await archivedAction('A target', action);
 		await waitFor(() => expect(screen.queryByText('A target')).toBeNull());
 		await view.rerender({ data: archivedData(contextChanges[1], ['B history']) });
 		expect.soft(screen.queryByText('A retained history')).toBeNull();
@@ -666,9 +695,9 @@ describe('reused Personnel artifact pages', () => {
 		const pendingB = deferredResponse();
 		fetchMock.mockReturnValueOnce(pendingA.promise).mockReturnValueOnce(pendingB.promise);
 		const view = render(ArchivedPage, { props: { data: archivedData(basePageData, ['A history']) } });
-		await fireEvent.click(rowAction('A history', action));
+		await archivedAction('A history', action);
 		await view.rerender({ data: archivedData(contextChanges[0], ['B history', 'B retained history']) });
-		await fireEvent.click(rowAction('B history', action));
+		await archivedAction('B history', action);
 		expect(rowAction('B history', action).disabled).toBe(true);
 		await settleResponse(pendingA, jsonResponse({ success: true }));
 		expect.soft(rowAction('B history', action).disabled).toBe(true);

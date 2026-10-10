@@ -2,6 +2,7 @@
 	import * as Alert from '$lib/components/ui/alert';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
+	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import type { PersonnelArchivedArtifact } from '$features/personnel/contracts';
 	import type {
 		PersonnelArchivedArtifactsPageData,
@@ -13,6 +14,7 @@
 	const records = $derived(localRecords ?? data.records);
 	let actionKey = $state('');
 	let error = $state('');
+	let pendingDelete = $state<{ record: PersonnelArchivedArtifact; url: string } | null>(null);
 
 	function formatDate(value: string | null | undefined) {
 		if (!value) return 'Unknown date';
@@ -64,11 +66,12 @@
 		}
 	}
 
-	async function remove(record: PersonnelArchivedArtifact) {
+	async function remove({ record, url }: { record: PersonnelArchivedArtifact; url: string }) {
+		pendingDelete = null;
 		error = '';
 		actionKey = `${record.kind}:${record.id}`;
 		try {
-			const response = await fetch(endpoint(record.kind, record.id), { method: 'DELETE' });
+			const response = await fetch(url, { method: 'DELETE' });
 			if (!response.ok) throw new Error('Unable to delete archived item.');
 			localRecords = records.filter((item) => item.id !== record.id || item.kind !== record.kind);
 		} catch (caught) {
@@ -120,7 +123,7 @@
 									variant="destructive"
 									size="sm"
 									disabled={actionKey === `${record.kind}:${record.id}`}
-									onclick={() => remove(record)}
+									onclick={() => (pendingDelete = { record, url: endpoint(record.kind, record.id) })}
 								>
 									Delete
 								</Button>
@@ -132,3 +135,15 @@
 		</div>
 	</section>
 </main>
+
+{#if pendingDelete}
+	{@const target = pendingDelete}
+	<ConfirmDialog
+		title="Delete archived item"
+		message="Permanently delete {titleFor(target.record)}? This cannot be undone."
+		confirmLabel="Delete"
+		variant="destructive"
+		onConfirm={() => remove(target)}
+		onCancel={() => (pendingDelete = null)}
+	/>
+{/if}

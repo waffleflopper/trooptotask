@@ -2,7 +2,7 @@
 
 Baseline: `282fcace16795a13e2306bf71d44465f59d51acc`. Completed phases are summarized below; their accepted evidence and exact historical task scopes remain linked. [BASELINE](BASELINE.md) owns retained contracts and original findings, [EVIDENCE](EVIDENCE.md) owns acceptance and verification, and [RELEASE](RELEASE.md) owns operator obligations.
 
-**Active checkpoint:** Phase **10**, parent [#1283](https://github.com/waffleflopper/trooptotask/issues/1283), milestone **8**, active child D01 [#1599](https://github.com/waffleflopper/trooptotask/issues/1599), task **10-01**, branch `stabilization/1599-app-shell-identity`, no PR, state **READY**. Phase 09 is accepted on `82a07be1` ([acceptance](https://github.com/waffleflopper/trooptotask/issues/1282#issuecomment-6092549374)); #1282 and milestone 7 are closed.
+**Active checkpoint:** Phase **10**, parent [#1283](https://github.com/waffleflopper/trooptotask/issues/1283), milestone **8**, active child D01 [#1599](https://github.com/waffleflopper/trooptotask/issues/1599), task **10-01**, branch `stabilization/1599-app-shell-identity`, PR 1 of 2 (verification preparation and unchanged baseline) in progress, state **IMPLEMENTING**. Phase 09 is accepted on `82a07be1` ([acceptance](https://github.com/waffleflopper/trooptotask/issues/1282#issuecomment-6092549374)); #1282 and milestone 7 are closed.
 
 ## Execution rules
 
@@ -114,4 +114,4 @@ Measurements unavailable now are listed in EVIDENCE. Later isolated synthetic wo
 
 ## Next executable task
 
-D01 [#1599](https://github.com/waffleflopper/trooptotask/issues/1599), task **10-01**, is READY on local branch `stabilization/1599-app-shell-identity` from `82a07be1`. Continue it through its next verified PR with t2t-stabilize; the activation TODO mapping travels with that PR. Earlier owner release obligations remain in [RELEASE](RELEASE.md).
+D01 [#1599](https://github.com/waffleflopper/trooptotask/issues/1599), task **10-01**, is IMPLEMENTING on branch `stabilization/1599-app-shell-identity` from `82a07be1`: PR 1 of 2 carries verification preparation and the unchanged baseline. Continue it through its next verified PR with t2t-stabilize; the activation TODO mapping travels with that PR. Earlier owner release obligations remain in [RELEASE](RELEASE.md).

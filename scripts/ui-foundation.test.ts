@@ -146,4 +146,16 @@ describe('ui foundation guard', () => {
 			])
 		).toEqual([{ kind: 'foundation-placement', file: 'src/lib/components/forms/input/input.svelte' }]);
 	});
+
+	it('leaves a malformed shared component to the source-graph finding', () => {
+		const sources = [
+			{ path: 'src/lib/components/ui/card/card.svelte', content: '<script lang="ts">let x = ;</script><div' }
+		];
+		const graph = buildImportGraph(sources, () => false);
+		expect(
+			checkModuleBoundaries({ sourcePaths: ['src/lib/components/ui/card/card.svelte'], ...graph }, manifest)
+				.filter(({ kind }) => kind === 'source-graph' || kind.startsWith('foundation-'))
+				.map(({ kind, file }) => ({ kind, file }))
+		).toEqual([{ kind: 'source-graph', file: 'src/lib/components/ui/card/card.svelte' }]);
+	});
 });

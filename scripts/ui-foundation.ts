@@ -25,7 +25,13 @@ function isFoundationSource(file: string): boolean {
 
 /** References to SvelteKit's ambient `App` namespace, which carries the provider session and user. */
 function ambientAppTypes(file: string, content: string): string[] {
-	const sections = file.endsWith('.svelte') ? sourceSections(file, content).scripts : [{ content, offset: 0 }];
+	let sections: { content: string; offset: number }[];
+	try {
+		sections = file.endsWith('.svelte') ? sourceSections(file, content).scripts : [{ content, offset: 0 }];
+	} catch {
+		// The import graph already reports the Svelte parse failure as a source-graph finding.
+		return [];
+	}
 	const found = new Set<string>();
 	for (const section of sections) {
 		const source = ts.createSourceFile(file, section.content, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);

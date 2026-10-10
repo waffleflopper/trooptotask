@@ -12,7 +12,7 @@
 
 <Accordion.Content
 	data-slot="onboarding-packet-content"
-	class="flex flex-col gap-3 border-t border-border bg-muted/25 p-4 max-sm:p-3"
+	class="flex flex-col gap-3 border-t border-border bg-muted/25 p-4 max-sm:p-3 [&_p:not(:last-child)]:mb-0"
 	{...restProps}
 >
 	{@render children?.()}

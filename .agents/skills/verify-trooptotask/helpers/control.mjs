@@ -1563,10 +1563,14 @@ async function main() {
 				kind,
 				tag,
 				classes: Object.fromEntries(
-					seed.map(([key, { request, link }]) => {
-						const { token_hash: _hash, ...stored } = link;
-						return [key, { email: request.email, accessRequestStatus: request.status, link: stored }];
-					})
+					seed.map(([key, { request, link }]) => [
+						key,
+						{
+							email: request.email,
+							accessRequestStatus: request.status,
+							link: Object.fromEntries(Object.entries(link).filter(([field]) => field !== 'token_hash'))
+						}
+					])
 				),
 				boundary: 'Privileged synthetic setup links; raw tokens stay in private worker state.'
 			});

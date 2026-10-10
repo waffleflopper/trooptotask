@@ -6,6 +6,10 @@
 	// Server-side guard ensures only suspended users see this
 </script>
 
+<svelte:head>
+	<title>Account Suspended - Troop to Task</title>
+</svelte:head>
+
 <div class="flex min-h-screen items-center justify-center bg-background p-4 sm:p-6">
 	<Card.Root class="w-full max-w-[480px]">
 		<Card.Header>

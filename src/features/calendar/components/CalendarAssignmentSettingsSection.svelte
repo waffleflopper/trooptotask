@@ -159,17 +159,16 @@
 
 	async function setShowInDateHeader(id: string) {
 		if (!canMutate) return;
+		const prev = activeAssignmentTypes.find((t) => t.showInDateHeader && t.id !== id);
 		try {
-			const prev = activeAssignmentTypes.find((t) => t.showInDateHeader);
-			if (prev && prev.id !== id) {
-				const cleared = await dailyAssignmentsStore.updateType(prev.id, { showInDateHeader: false });
-				if (!cleared) {
-					showAssignmentMutationError('Failed to update header assignment type');
-					return;
-				}
+			// Two writes are not atomic. Setting first means any failure can fall back to the previous single header.
+			if (!(await dailyAssignmentsStore.updateType(id, { showInDateHeader: true }))) {
+				showAssignmentMutationError('Failed to update header assignment type');
+				return;
 			}
-			const saved = await dailyAssignmentsStore.updateType(id, { showInDateHeader: true });
-			if (!saved) showAssignmentMutationError('Failed to update header assignment type');
+			if (!prev || (await dailyAssignmentsStore.updateType(prev.id, { showInDateHeader: false }))) return;
+			await dailyAssignmentsStore.updateType(id, { showInDateHeader: false });
+			showAssignmentMutationError('Failed to update header assignment type');
 		} catch (error) {
 			showAssignmentMutationError('Failed to update header assignment type', error);
 		}

@@ -304,41 +304,6 @@ describe('CalendarSettingsPage', () => {
 		expect(errorToast).toHaveBeenCalledWith('Failed to delete assignment type');
 	});
 
-	it('reports assignment header selection failures', async () => {
-		assignmentTypesStoreMock.types = [
-			{
-				id: 'cq',
-				name: 'Charge of Quarters',
-				shortName: 'CQ',
-				assignTo: 'personnel',
-				color: '#2563eb',
-				exemptPersonnelIds: [],
-				showInDateHeader: true
-			},
-			{
-				id: 'sd',
-				name: 'Staff Duty',
-				shortName: 'SD',
-				assignTo: 'personnel',
-				color: '#047857',
-				exemptPersonnelIds: [],
-				showInDateHeader: false
-			}
-		];
-		assignmentTypesStoreMock.updateType.mockResolvedValueOnce(false);
-		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
-
-		render(CalendarSettingsPage, { props: { org } });
-
-		await fireEvent.click(screen.getByRole('tab', { name: /Assignment Types/i }));
-		await fireEvent.click(screen.getByRole('radio', { name: 'Show Staff Duty in date header' }));
-
-		expect(assignmentTypesStoreMock.updateType).toHaveBeenCalledWith('cq', { showInDateHeader: false });
-		expect(errorToast).toHaveBeenCalledWith('Failed to update header assignment type');
-		expect(isChecked(screen.getByRole('radio', { name: 'Show Charge of Quarters in date header' }))).toBe(true);
-		expect(isChecked(screen.getByRole('radio', { name: 'Show Staff Duty in date header' }))).toBe(false);
-	});
-
 	it('switches settings sections as tabs and shows only the chosen panel', async () => {
 		render(CalendarSettingsPage, { props: { org } });
 

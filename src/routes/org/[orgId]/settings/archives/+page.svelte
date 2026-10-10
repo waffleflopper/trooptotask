@@ -4,8 +4,8 @@
 	import type { PageProps } from './$types';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as AppDialog from '$lib/components/ui/app-dialog/index.js';
+	import * as Field from '$lib/components/ui/field/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
-	import { Label } from '$lib/components/ui/label/index.js';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import ArchivedPersonnelSettingsSection from '../ArchivedPersonnelSettingsSection.svelte';
 	import { downloadBlob } from '$lib/utils/downloadBlob';
@@ -110,15 +110,15 @@
 				</AppDialog.Description>
 			</AppDialog.Header>
 			<AppDialog.Body>
-				<div class="grid gap-2">
-					<Label for="confirmPermanentDeletePersonnel">Type the name to confirm</Label>
+				<Field.Root>
+					<Field.Label for="confirmPermanentDeletePersonnel">Type the name to confirm</Field.Label>
 					<Input
 						id="confirmPermanentDeletePersonnel"
 						type="text"
 						bind:value={archivedPersonnelState.permanentDeleteConfirmText}
 						autocomplete="off"
 					/>
-				</div>
+				</Field.Root>
 			</AppDialog.Body>
 			<AppDialog.Footer>
 				<Button

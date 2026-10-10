@@ -1,11 +1,14 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { RanksSettingsData } from '../settingsSectionTypes';
+import type { RanksSettingsData, SettingsRankCatalogRow } from '../settingsSectionTypes';
 import Page from './+page.svelte';
 
-type HeldSubmission = (opts: { result: { type: 'success' }; update: () => Promise<void> }) => Promise<void>;
-const { heldSubmissions } = vi.hoisted(() => ({ heldSubmissions: [] as HeldSubmission[] }));
+type HeldSubmission = (opts: { result: { type: 'success' | 'failure' }; update: () => Promise<void> }) => Promise<void>;
+const { heldSubmissions, submittedForms } = vi.hoisted(() => ({
+	heldSubmissions: [] as HeldSubmission[],
+	submittedForms: [] as Array<{ action: string; fields: Record<string, string> }>
+}));
 
 // Holds each enhanced submission until the test settles it.
 vi.mock('$app/forms', () => ({
@@ -15,6 +18,10 @@ vi.mock('$app/forms', () => ({
 	) => {
 		form.addEventListener('submit', (event) => {
 			event.preventDefault();
+			submittedForms.push({
+				action: form.getAttribute('action') ?? '',
+				fields: Object.fromEntries(new FormData(form) as unknown as Iterable<[string, string]>)
+			});
 			heldSubmissions.push(submit?.({ formElement: form, formData: new FormData(form) }) as HeldSubmission);
 		});
 	}
@@ -34,6 +41,7 @@ async function cleanupRankPage() {
 
 afterEach(async () => {
 	heldSubmissions.length = 0;
+	submittedForms.length = 0;
 	try {
 		await cleanupRankPage();
 	} finally {
@@ -507,6 +515,7 @@ describe('rank confirmation lifecycle', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Actions for Lt Gen' }));
 		await fireEvent.click(screen.getByRole('menuitem', { name: 'Retire' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Retire rank' }));
 		expect(heldSubmissions).toHaveLength(1);
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Actions for Lt Gen' }));
@@ -515,5 +524,168 @@ describe('rank confirmation lifecycle', () => {
 		await heldSubmissions[0]({ result: { type: 'success' }, update: async () => {} });
 		await vi.runAllTimersAsync();
 		expect(screen.getByRole('menuitem', { name: 'Retire' }).getAttribute('aria-disabled')).not.toBe('true');
+	});
+});
+
+function rankEntry(overrides: Partial<SettingsRankCatalogRow> = {}): SettingsRankCatalogRow {
+	return {
+		code: 'DET-SGT',
+		label: 'Detachment Sergeant',
+		service: 'custom',
+		serviceLabel: 'Custom',
+		category: 'custom',
+		categoryLabel: 'Custom',
+		payGrade: 'ungraded',
+		payGradeLabel: 'Ungraded',
+		state: 'active',
+		source: 'custom',
+		sourceLabel: 'Custom',
+		sortOrder: 500,
+		referenceSummary: {
+			code: 'DET-SGT',
+			activeReferences: { personnel: 0, trainingApplicability: 0, total: 0 },
+			historicalReferences: { signInRosterFilters: 0, signInRosterSnapshots: 0, total: 0 },
+			canDelete: true
+		},
+		warnings: [],
+		commands: {
+			canEdit: true,
+			canRetire: true,
+			canReactivate: false,
+			canDelete: false,
+			deleteDisabledReason: null
+		},
+		...overrides
+	};
+}
+
+function renderRankPage(active: SettingsRankCatalogRow[], retired: SettingsRankCatalogRow[] = []) {
+	const ranksSettings: RanksSettingsData = {
+		sections: {
+			ranks: {
+				commands: { canManageCatalog: true, canAddServicePack: true, canAddCustomRank: true },
+				copy: { payGradeHelp: 'Pay grade help.', tieBreakHelp: 'Tie-break help.' },
+				servicePacks: [],
+				options: {
+					services: [{ value: 'custom', label: 'Custom' }],
+					categories: [{ value: 'custom', label: 'Custom' }],
+					payGrades: [{ value: 'ungraded', label: 'Ungraded' }],
+					states: [
+						{ value: 'active', label: 'Active' },
+						{ value: 'retired', label: 'Retired' }
+					]
+				},
+				entries: { active, retired }
+			}
+		}
+	};
+	const view = render(Page, { data: { ranksSettings } as never, form: null, params: { orgId: 'org-1' } });
+	return {
+		reject: (message: string) =>
+			view.rerender({ data: { ranksSettings } as never, form: { rankError: message }, params: { orgId: 'org-1' } })
+	};
+}
+
+describe('single rank retirement', () => {
+	it('asks before retiring one rank and submits nothing when cancelled', async () => {
+		renderRankPage([rankEntry()]);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Actions for DET-SGT' }));
+		await fireEvent.click(screen.getByRole('menuitem', { name: 'Retire' }));
+		expect(screen.getByRole('alertdialog', { name: 'Retire DET-SGT' })).toBeTruthy();
+		expect(screen.getByText(/DET-SGT Detachment Sergeant will be hidden from future rank selection/)).toBeTruthy();
+		expect(submittedForms).toEqual([]);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+		await vi.runAllTimersAsync();
+		expect(screen.queryByRole('alertdialog')).toBeNull();
+		expect(submittedForms).toEqual([]);
+		expect(screen.getByText('active', { selector: 'span' })).toBeTruthy();
+	});
+
+	it('retires the chosen rank through the existing retire command once confirmed', async () => {
+		renderRankPage([rankEntry(), rankEntry({ code: 'OTHER', label: 'Other Sergeant' })]);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Actions for DET-SGT' }));
+		await fireEvent.click(screen.getByRole('menuitem', { name: 'Retire' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Retire rank' }));
+
+		expect(submittedForms).toEqual([{ action: '?/retireRank', fields: { code: 'DET-SGT' } }]);
+	});
+
+	it('reactivates a retired rank without a confirmation', async () => {
+		renderRankPage(
+			[],
+			[
+				rankEntry({
+					code: 'OLD-SGT',
+					label: 'Old Sergeant',
+					state: 'retired',
+					commands: {
+						canEdit: true,
+						canRetire: false,
+						canReactivate: true,
+						canDelete: false,
+						deleteDisabledReason: null
+					}
+				})
+			]
+		);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Retired' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Actions for OLD-SGT' }));
+		await fireEvent.click(screen.getByRole('menuitem', { name: 'Reactivate' }));
+
+		expect(screen.queryByRole('alertdialog')).toBeNull();
+		expect(submittedForms).toEqual([{ action: '?/reactivateRank', fields: { code: 'OLD-SGT' } }]);
+	});
+});
+
+describe('rejected rank saves', () => {
+	it('keeps every custom rank value and shows the server error when adding is rejected', async () => {
+		const page = renderRankPage([rankEntry()]);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Add custom rank' }));
+		await fireEvent.input(screen.getByLabelText('Code'), { target: { value: 'NEW-1' } });
+		await fireEvent.input(screen.getByLabelText('Label'), { target: { value: 'New Rank' } });
+		await fireEvent.input(screen.getByLabelText('Tie-break order'), { target: { value: '650' } });
+		await fireEvent.submit(screen.getByRole('button', { name: 'Add Rank' }).closest('form') as HTMLFormElement);
+		expect(submittedForms[0].action).toBe('?/saveRank');
+
+		await page.reject('Rank code already exists.');
+		await heldSubmissions[0]({ result: { type: 'failure' }, update: async () => {} });
+
+		expect(screen.getByText('Rank code already exists.')).toBeTruthy();
+		expect((screen.getByLabelText('Code') as HTMLInputElement).value).toBe('NEW-1');
+		expect((screen.getByLabelText('Label') as HTMLInputElement).value).toBe('New Rank');
+		expect((screen.getByLabelText('Tie-break order') as HTMLInputElement).value).toBe('650');
+	});
+
+	it('keeps the edited label and shows the server error when saving an edit is rejected', async () => {
+		const page = renderRankPage([rankEntry()]);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Show details for DET-SGT' }));
+		await fireEvent.input(screen.getByLabelText('Label'), { target: { value: 'Detachment Sergeant Major' } });
+		await fireEvent.submit(screen.getByRole('button', { name: 'Save DET-SGT' }).closest('form') as HTMLFormElement);
+		expect(submittedForms[0]).toEqual({
+			action: '?/saveRank',
+			fields: {
+				intent: 'edit',
+				originalCode: 'DET-SGT',
+				code: 'DET-SGT',
+				label: 'Detachment Sergeant Major',
+				service: 'custom',
+				category: 'custom',
+				payGrade: 'ungraded',
+				state: 'active',
+				sortOrder: '500'
+			}
+		});
+
+		await page.reject('Label is too long.');
+		await heldSubmissions[0]({ result: { type: 'failure' }, update: async () => {} });
+
+		expect(screen.getByText('Label is too long.')).toBeTruthy();
+		expect((screen.getByLabelText('Label') as HTMLInputElement).value).toBe('Detachment Sergeant Major');
 	});
 });

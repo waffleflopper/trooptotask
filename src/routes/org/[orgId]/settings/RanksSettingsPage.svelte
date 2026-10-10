@@ -13,8 +13,8 @@
 	import * as DataTable from '$lib/components/ui/data-table/index.js';
 	import type { ColumnDef, DataTableRowAction, DataTableState } from '$lib/components/ui/data-table/index.js';
 	import * as Empty from '$lib/components/ui/empty/index.js';
+	import * as Field from '$lib/components/ui/field/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
-	import { Label } from '$lib/components/ui/label/index.js';
 	import * as NativeSelect from '$lib/components/ui/native-select/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar/index.js';
@@ -44,6 +44,7 @@
 	let expandedRankCode = $state<string | null>(null);
 	let customRankOpen = $state(false);
 	let pendingBulkRankState = $state<PendingBulkRankState | null>(null);
+	let pendingRankRetire = $state<SettingsRankCatalogRow | null>(null);
 	let pendingRankDelete = $state<SettingsRankCatalogRow | null>(null);
 
 	const ranks = $derived(ranksSettings.sections.ranks);
@@ -249,7 +250,9 @@
 			actions.push({
 				label: 'Retire',
 				disabled: savingAction !== null,
-				onSelect: () => submitFormById(rowFormId('retire', entry.code))
+				onSelect: () => {
+					pendingRankRetire = entry;
+				}
 			});
 		}
 		if (entry.commands.canReactivate) {
@@ -300,6 +303,13 @@
 		const { pack, targetState } = pendingBulkRankState;
 		pendingBulkRankState = null;
 		submitFormById(`bulk-${targetState}-${pack.value}`);
+	}
+
+	function confirmRankRetire(): void {
+		if (!pendingRankRetire) return;
+		const code = pendingRankRetire.code;
+		pendingRankRetire = null;
+		submitFormById(rowFormId('retire', code));
 	}
 
 	function confirmRankDelete(): void {
@@ -483,8 +493,8 @@
 			<form method="POST" action="?/saveRank" class="grid gap-4" use:enhance={enhancedForm('rank-add')}>
 				<input type="hidden" name="intent" value="add" />
 				<div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-					<div class="grid gap-2">
-						<Label for="rank-code">Code</Label>
+					<Field.Root>
+						<Field.Label for="rank-code">Code</Field.Label>
 						<Input
 							id="rank-code"
 							name="code"
@@ -493,9 +503,9 @@
 							required
 							disabled={!ranks.commands.canAddCustomRank}
 						/>
-					</div>
-					<div class="grid gap-2">
-						<Label for="rank-label">Label</Label>
+					</Field.Root>
+					<Field.Root>
+						<Field.Label for="rank-label">Label</Field.Label>
 						<Input
 							id="rank-label"
 							name="label"
@@ -504,9 +514,9 @@
 							required
 							disabled={!ranks.commands.canAddCustomRank}
 						/>
-					</div>
-					<div class="grid gap-2">
-						<Label for="rank-service">Branch</Label>
+					</Field.Root>
+					<Field.Root>
+						<Field.Label for="rank-service">Branch</Field.Label>
 						<NativeSelect.Root
 							id="rank-service"
 							name="service"
@@ -517,9 +527,9 @@
 								<NativeSelect.Option value={option.value}>{option.label}</NativeSelect.Option>
 							{/each}
 						</NativeSelect.Root>
-					</div>
-					<div class="grid gap-2">
-						<Label for="rank-category">Category</Label>
+					</Field.Root>
+					<Field.Root>
+						<Field.Label for="rank-category">Category</Field.Label>
 						<NativeSelect.Root
 							id="rank-category"
 							name="category"
@@ -530,42 +540,40 @@
 								<NativeSelect.Option value={option.value}>{option.label}</NativeSelect.Option>
 							{/each}
 						</NativeSelect.Root>
-					</div>
-					<div class="grid gap-1.5">
-						<Label for="rank-pay-grade">Pay grade</Label>
-						<p id="rank-pay-grade-help" class="text-xs text-muted-foreground">{ranks.copy.payGradeHelp}</p>
+					</Field.Root>
+					<Field.Root>
+						<Field.Label for="rank-pay-grade">Pay grade</Field.Label>
+						<Field.Description>{ranks.copy.payGradeHelp}</Field.Description>
 						<NativeSelect.Root
 							id="rank-pay-grade"
 							name="payGrade"
 							value="ungraded"
-							aria-describedby="rank-pay-grade-help"
 							disabled={!ranks.commands.canAddCustomRank}
 						>
 							{#each ranks.options.payGrades as option (option.value)}
 								<NativeSelect.Option value={option.value}>{option.label}</NativeSelect.Option>
 							{/each}
 						</NativeSelect.Root>
-					</div>
-					<div class="grid gap-2">
-						<Label for="rank-state">State</Label>
+					</Field.Root>
+					<Field.Root>
+						<Field.Label for="rank-state">State</Field.Label>
 						<NativeSelect.Root id="rank-state" name="state" value="active" disabled={!ranks.commands.canAddCustomRank}>
 							{#each ranks.options.states as option (option.value)}
 								<NativeSelect.Option value={option.value}>{option.label}</NativeSelect.Option>
 							{/each}
 						</NativeSelect.Root>
-					</div>
-					<div class="grid gap-1.5">
-						<Label for="rank-sort-order">Tie-break order</Label>
-						<p id="rank-sort-order-help" class="text-xs text-muted-foreground">{ranks.copy.tieBreakHelp}</p>
+					</Field.Root>
+					<Field.Root>
+						<Field.Label for="rank-sort-order">Tie-break order</Field.Label>
+						<Field.Description>{ranks.copy.tieBreakHelp}</Field.Description>
 						<Input
 							id="rank-sort-order"
 							name="sortOrder"
 							type="number"
 							value="500"
-							aria-describedby="rank-sort-order-help"
 							disabled={!ranks.commands.canAddCustomRank}
 						/>
-					</div>
+					</Field.Root>
 				</div>
 				<div>
 					<Button
@@ -639,6 +647,17 @@
 	/>
 {/if}
 
+{#if pendingRankRetire}
+	<ConfirmDialog
+		title={`Retire ${pendingRankRetire.code}`}
+		message={`${pendingRankRetire.code} ${pendingRankRetire.label} will be hidden from future rank selection. Existing Personnel records and historical references stay intact.`}
+		confirmLabel="Retire rank"
+		variant="warning"
+		onConfirm={confirmRankRetire}
+		onCancel={() => (pendingRankRetire = null)}
+	/>
+{/if}
+
 {#if pendingRankDelete}
 	<ConfirmDialog
 		title={`Remove ${pendingRankDelete.code}`}
@@ -691,9 +710,10 @@
 {#snippet rankCell(entry: SettingsRankCatalogRow, column: ColumnDef<SettingsRankCatalogRow>)}
 	{#if column.key === 'rank'}
 		<div class="flex max-w-80 items-start gap-2">
-			<button
+			<Button
 				type="button"
-				class="mt-0.5 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+				variant="ghost"
+				size="icon-xs"
 				aria-expanded={isRankExpanded(entry)}
 				aria-controls={rankDetailId(entry.code)}
 				aria-label={`${isRankExpanded(entry) ? 'Hide' : 'Show'} details for ${entry.code}`}
@@ -701,11 +721,11 @@
 			>
 				<ChevronRightIcon
 					aria-hidden
-					class="size-4 transition-transform duration-150 motion-reduce:transition-none {isRankExpanded(entry)
+					class="transition-transform duration-150 motion-reduce:transition-none {isRankExpanded(entry)
 						? 'rotate-90'
 						: ''}"
 				/>
-			</button>
+			</Button>
 			<span class="grid min-w-0 gap-0.5">
 				<span class="font-medium">{entry.code}</span>
 				<span class="truncate text-sm text-muted-foreground">{entry.label}</span>
@@ -817,65 +837,52 @@
 					<input type="hidden" name="intent" value="edit" />
 					<input type="hidden" name="originalCode" value={entry.code} />
 					<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-						<div class="grid gap-2">
-							<Label for={`${domId}-edit-code`}>Code</Label>
+						<Field.Root>
+							<Field.Label for={`${domId}-edit-code`}>Code</Field.Label>
 							<Input id={`${domId}-edit-code`} name="code" value={entry.code} readonly />
-						</div>
-						<div class="grid gap-2">
-							<Label for={`${domId}-edit-label`}>Label</Label>
+						</Field.Root>
+						<Field.Root>
+							<Field.Label for={`${domId}-edit-label`}>Label</Field.Label>
 							<Input id={`${domId}-edit-label`} name="label" value={entry.label} maxlength={120} required />
-						</div>
-						<div class="grid gap-2">
-							<Label for={`${domId}-edit-service`}>Branch</Label>
+						</Field.Root>
+						<Field.Root>
+							<Field.Label for={`${domId}-edit-service`}>Branch</Field.Label>
 							<NativeSelect.Root id={`${domId}-edit-service`} name="service" value={entry.service}>
 								{#each ranks.options.services as option (option.value)}
 									<NativeSelect.Option value={option.value}>{option.label}</NativeSelect.Option>
 								{/each}
 							</NativeSelect.Root>
-						</div>
-						<div class="grid gap-2">
-							<Label for={`${domId}-edit-category`}>Category</Label>
+						</Field.Root>
+						<Field.Root>
+							<Field.Label for={`${domId}-edit-category`}>Category</Field.Label>
 							<NativeSelect.Root id={`${domId}-edit-category`} name="category" value={entry.category}>
 								{#each ranks.options.categories as option (option.value)}
 									<NativeSelect.Option value={option.value}>{option.label}</NativeSelect.Option>
 								{/each}
 							</NativeSelect.Root>
-						</div>
-						<div class="grid gap-1.5">
-							<Label for={`${domId}-edit-pay-grade`}>Pay grade</Label>
-							<p id={`${domId}-edit-pay-grade-help`} class="text-xs text-muted-foreground">{ranks.copy.payGradeHelp}</p>
-							<NativeSelect.Root
-								id={`${domId}-edit-pay-grade`}
-								name="payGrade"
-								value={entry.payGrade}
-								aria-describedby={`${domId}-edit-pay-grade-help`}
-							>
+						</Field.Root>
+						<Field.Root>
+							<Field.Label for={`${domId}-edit-pay-grade`}>Pay grade</Field.Label>
+							<Field.Description>{ranks.copy.payGradeHelp}</Field.Description>
+							<NativeSelect.Root id={`${domId}-edit-pay-grade`} name="payGrade" value={entry.payGrade}>
 								{#each ranks.options.payGrades as option (option.value)}
 									<NativeSelect.Option value={option.value}>{option.label}</NativeSelect.Option>
 								{/each}
 							</NativeSelect.Root>
-						</div>
-						<div class="grid gap-2">
-							<Label for={`${domId}-edit-state`}>State</Label>
+						</Field.Root>
+						<Field.Root>
+							<Field.Label for={`${domId}-edit-state`}>State</Field.Label>
 							<NativeSelect.Root id={`${domId}-edit-state`} name="state" value={entry.state}>
 								{#each ranks.options.states as option (option.value)}
 									<NativeSelect.Option value={option.value}>{option.label}</NativeSelect.Option>
 								{/each}
 							</NativeSelect.Root>
-						</div>
-						<div class="grid gap-1.5">
-							<Label for={`${domId}-edit-sort-order`}>Tie-break order</Label>
-							<p id={`${domId}-edit-sort-order-help`} class="text-xs text-muted-foreground">
-								{ranks.copy.tieBreakHelp}
-							</p>
-							<Input
-								id={`${domId}-edit-sort-order`}
-								name="sortOrder"
-								type="number"
-								value={entry.sortOrder}
-								aria-describedby={`${domId}-edit-sort-order-help`}
-							/>
-						</div>
+						</Field.Root>
+						<Field.Root>
+							<Field.Label for={`${domId}-edit-sort-order`}>Tie-break order</Field.Label>
+							<Field.Description>{ranks.copy.tieBreakHelp}</Field.Description>
+							<Input id={`${domId}-edit-sort-order`} name="sortOrder" type="number" value={entry.sortOrder} />
+						</Field.Root>
 					</div>
 					<div>
 						<Button

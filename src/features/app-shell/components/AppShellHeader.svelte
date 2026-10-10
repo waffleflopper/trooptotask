@@ -33,6 +33,7 @@
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
+	import { IsMobile } from '$lib/hooks/is-mobile.svelte.js';
 
 	interface Props {
 		orgId: string;
@@ -64,6 +65,9 @@
 		children
 	}: Props = $props();
 
+	// The mobile drawer leaves no room beside it, so its menus open vertically as in the shadcn sidebar blocks.
+	const isMobile = new IsMobile();
+	const drawerMenuSide = $derived(isMobile.current ? 'bottom' : 'right');
 	let clientDashboardDateLabel = $state<string | null>(null);
 	let orgSwitcherOpen = $state(false);
 	let orgSwitcherOrgs = $state<OrganizationSwitcherOrg[]>([]);
@@ -377,7 +381,7 @@
 									</Sidebar.MenuButton>
 								{/snippet}
 							</DropdownMenu.Trigger>
-							<DropdownMenu.Content class="w-72" side="right" align="start">
+							<DropdownMenu.Content class="w-72" side={drawerMenuSide} align="start">
 								<DropdownMenu.Label>Organizations</DropdownMenu.Label>
 								<DropdownMenu.Group>
 									{#each visibleOrgs as org (org.id)}
@@ -476,7 +480,7 @@
 									</Sidebar.MenuButton>
 								{/snippet}
 							</DropdownMenu.Trigger>
-							<DropdownMenu.Content class="w-64" side="right" align="end">
+							<DropdownMenu.Content class="w-64" side={drawerMenuSide} align="end">
 								<DropdownMenu.Label>
 									<div class="flex min-w-0 items-center gap-2">
 										<span

@@ -144,17 +144,17 @@
 			</div>
 
 			<!-- Filter and Add new lead into each panel's own controls, so the panel itself is not a Tab stop. -->
-			<Tabs.Content value="status" tabindex={-1} class="overflow-y-auto p-6">
+			<Tabs.Content value="status" class="overflow-y-auto p-6">
 				{#if activeSection === 'status'}
 					<CalendarStatusSettingsSection bind:this={statusSection} {canMutate} {searchQuery} />
 				{/if}
 			</Tabs.Content>
-			<Tabs.Content value="assignments" tabindex={-1} class="overflow-y-auto p-6">
+			<Tabs.Content value="assignments" class="overflow-y-auto p-6">
 				{#if activeSection === 'assignments'}
 					<CalendarAssignmentSettingsSection bind:this={assignmentSection} {canMutate} {searchQuery} />
 				{/if}
 			</Tabs.Content>
-			<Tabs.Content value="closures" tabindex={-1} class="overflow-y-auto p-6">
+			<Tabs.Content value="closures" class="overflow-y-auto p-6">
 				{#if activeSection === 'closures'}
 					<CalendarClosureSettingsSection bind:this={closureSection} {canMutate} {searchQuery} />
 				{/if}

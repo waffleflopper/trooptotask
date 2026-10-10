@@ -351,10 +351,7 @@
 </script>
 
 <Tooltip.Provider>
-	<Sidebar.Provider
-		class="min-h-0 overflow-hidden bg-background font-sans"
-		style="margin-top: var(--banner-height, 0px); height: calc(100dvh - var(--banner-height, 0px)); max-height: calc(100dvh - var(--banner-height, 0px));"
-	>
+	<Sidebar.Provider class="below-banner min-h-0 overflow-hidden bg-background font-sans">
 		<Sidebar.Root collapsible="icon">
 			<Sidebar.Header>
 				<Sidebar.Menu>

@@ -184,6 +184,13 @@
 	--sidebar-ring: oklch(76.9% 0.188 70.08);
 }
 
+/* BannerStack publishes its measured height as --banner-height on <html>; the app frame fills the viewport below it. */
+@utility below-banner {
+	margin-top: var(--banner-height, 0px);
+	height: calc(100dvh - var(--banner-height, 0px));
+	max-height: calc(100dvh - var(--banner-height, 0px));
+}
+
 /* Document defaults stay in the base layer so primitive variants and utilities can override them. */
 @layer base {
 	:where([data-slot], [data-slot] *) {

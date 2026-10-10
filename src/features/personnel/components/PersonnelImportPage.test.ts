@@ -120,6 +120,39 @@ describe('PersonnelImportPage', () => {
 		expect(parseFileMock).toHaveBeenCalledOnce();
 	});
 
+	it('says so when the chosen file has no rows and keeps Preview unavailable', async () => {
+		parseFileMock.mockResolvedValue([]);
+		renderPage();
+
+		const input = document.querySelector<HTMLInputElement>('#fileUpload');
+		await fireEvent.change(input!, { target: { files: [new File([''], 'empty.csv', { type: 'text/csv' })] } });
+
+		const message = await screen.findByText('The file has no rows to import.');
+		expect(message.getAttribute('data-slot')).toBe('field-error');
+		expect(screen.getByRole('button', { name: /^Preview/ })).toBeDisabled();
+	});
+
+	it('ties an invalid preview cell to its issue text', async () => {
+		parseFileMock.mockResolvedValue([
+			['Rank', 'Last Name', 'First Name', 'MOS', 'Duty Role', 'Group', 'ETS', 'PCS / DEROS'],
+			['BAD', 'Invalid', 'Pat', '', '', '', '', '']
+		]);
+		renderPage();
+
+		const input = document.querySelector<HTMLInputElement>('#fileUpload');
+		await fireEvent.change(input!, {
+			target: { files: [new File(['records'], 'personnel.csv', { type: 'text/csv' })] }
+		});
+		await fireEvent.click(await screen.findByRole('button', { name: /Preview 1 Rows/i }));
+
+		const cell = await screen.findByLabelText('Row 2 Rank');
+		expect(cell.getAttribute('aria-invalid')).toBe('true');
+		const description = document.getElementById(cell.getAttribute('aria-describedby') ?? '');
+		expect(description?.textContent).toBe(
+			'"BAD" is not in the active Organization rank catalog. Update Organization Settings -> Ranks, then try again.'
+		);
+	});
+
 	it('submits only checked valid rows with ETS and PCS / DEROS through the import batch', async () => {
 		const fetchMock = vi.fn(async () => new Response(JSON.stringify({ inserted: [{}], errors: [] }), { status: 200 }));
 		vi.stubGlobal('fetch', fetchMock);
@@ -350,7 +383,9 @@ describe('PersonnelImportPage', () => {
 		await fireEvent.click(await screen.findByRole('button', { name: /Preview 1 Rows/i }));
 
 		expect(screen.getByLabelText('Row 2 Rank')).toHaveAttribute('data-cell-state', 'error');
-		expect(screen.getByText(/not in the active Organization rank catalog/)).toBeInTheDocument();
+		expect(screen.getByLabelText('Row 2 Rank')).toHaveAccessibleDescription(
+			/not in the active Organization rank catalog/
+		);
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Back' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Backfill ETS/DEROS' }));

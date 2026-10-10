@@ -338,6 +338,7 @@
 		importResult = null;
 		try {
 			const parsedRows = await parseFile(file);
+			if (parsedRows.length === 0) throw new Error('The file has no rows to import.');
 			fileRows = parsedRows;
 			editableRows = (detectHeaderRow(parsedRows[0] ?? [], PERSONNEL_COLUMNS) ? parsedRows.slice(1) : parsedRows).map(
 				(row) => [...row]
@@ -586,6 +587,7 @@
 					{@const fieldIssue = fieldError ?? fieldWarning}
 					{@const fieldState = fieldError ? 'error' : fieldWarning ? 'warning' : undefined}
 					{#if fieldIssue}
+						{@const issueId = `${row.id}-${fieldKey}-issue`}
 						<span class="relative block min-w-0">
 							<Tooltip.Root>
 								<Tooltip.Trigger>
@@ -598,6 +600,7 @@
 											spellcheck="false"
 											value={row.values[fieldKey] ?? ''}
 											aria-invalid={!!fieldError}
+											aria-describedby={issueId}
 											data-cell-state={fieldState}
 											title={fieldIssue}
 											class={[
@@ -611,6 +614,7 @@
 								</Tooltip.Trigger>
 								<Tooltip.Content side="top" sideOffset={6}>{fieldIssue}</Tooltip.Content>
 							</Tooltip.Root>
+							<span id={issueId} class="sr-only">{fieldIssue}</span>
 							<span
 								class={[
 									'pointer-events-none absolute top-1/2 right-1.5 inline-flex -translate-y-1/2 items-center',

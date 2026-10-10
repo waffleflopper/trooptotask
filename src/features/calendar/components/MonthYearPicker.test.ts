@@ -7,16 +7,18 @@ afterEach(cleanup);
 
 function renderPicker(props: Partial<{ year: number; month: number }> = {}) {
 	const onSelect = vi.fn();
-	const onClose = vi.fn();
+	const onEscape = vi.fn();
+	const onOutsideClick = vi.fn();
 	const result = render(MonthYearPicker, {
 		props: {
 			year: props.year ?? 2026,
 			month: props.month ?? 2,
 			onSelect,
-			onClose
+			onEscape,
+			onOutsideClick
 		}
 	});
-	return { ...result, onSelect, onClose };
+	return { ...result, onSelect, onEscape, onOutsideClick };
 }
 
 describe('MonthYearPicker', () => {
@@ -45,20 +47,22 @@ describe('MonthYearPicker', () => {
 		expect(onSelect).toHaveBeenCalledWith(2027, 0);
 	});
 
-	it('calls onClose when Escape is pressed', async () => {
-		const { onClose } = renderPicker();
+	it('calls onEscape when Escape is pressed', async () => {
+		const { onEscape, onOutsideClick } = renderPicker();
 
 		await fireEvent.keyDown(window, { key: 'Escape' });
 
-		expect(onClose).toHaveBeenCalledTimes(1);
+		expect(onEscape).toHaveBeenCalledTimes(1);
+		expect(onOutsideClick).not.toHaveBeenCalled();
 	});
 
-	it('calls onClose when clicking outside the picker', async () => {
-		const { onClose } = renderPicker();
+	it('calls onOutsideClick when clicking outside the picker', async () => {
+		const { onEscape, onOutsideClick } = renderPicker();
 
 		await fireEvent.mouseDown(document.body);
 
-		expect(onClose).toHaveBeenCalledTimes(1);
+		expect(onOutsideClick).toHaveBeenCalledTimes(1);
+		expect(onEscape).not.toHaveBeenCalled();
 	});
 
 	it('supports keyboard navigation with arrow keys and Enter', async () => {

@@ -10,7 +10,6 @@
 	import { CalendarRangeCoordinator } from '$features/calendar/contexts/CalendarRangeCoordinator.svelte';
 	import CalendarPageView from '$features/calendar/components/CalendarPageView.svelte';
 	import { getAppShellContext } from '$features/app-shell';
-	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { isPromiseLike, observeDeferred, throwRenderError } from '$lib/utils/streamedRouteData';
 	import { untrack } from 'svelte';
@@ -164,31 +163,10 @@
 		</div>
 	</section>
 {:else}
-	<CalendarPageView {ctx} data={viewData} />
-	{#if rangeCoordinator.loading}
-		<section
-			class="mx-3 mb-3 flex items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3 sm:mx-6 sm:mb-6"
-			aria-live="polite"
-			role="status"
-		>
-			<p class="m-0 text-sm text-foreground">Loading additional calendar dates...</p>
-		</section>
-	{:else if rangeCoordinator.error}
-		<section
-			class="mx-3 mb-3 flex items-center justify-between gap-3 rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-3 sm:mx-6 sm:mb-6"
-			aria-live="polite"
-			role="status"
-		>
-			<p class="m-0 text-sm text-foreground">Additional calendar data is temporarily unavailable.</p>
-			<Button
-				variant="outline"
-				size="sm"
-				onclick={() => {
-					rangeCoordinator.retryFailedRange();
-				}}
-			>
-				Retry calendar load
-			</Button>
-		</section>
-	{/if}
+	<CalendarPageView
+		{ctx}
+		data={viewData}
+		rangeStatus={rangeCoordinator.loading ? 'loading' : rangeCoordinator.error ? 'error' : 'ready'}
+		onRetryRange={() => rangeCoordinator.retryFailedRange()}
+	/>
 {/if}

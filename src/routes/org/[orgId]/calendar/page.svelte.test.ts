@@ -2,7 +2,7 @@
 import { createRawSnippet, getAllContexts, mount, unmount, untrack } from 'svelte';
 import { AccountPreferencesProvider } from '$features/identity';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import {
 	calendarStore,
 	CALENDAR_ANCHOR_COOKIE,
@@ -235,8 +235,9 @@ describe('calendar page', () => {
 			expect(loadCalendarRangeMock).toHaveBeenCalledTimes(1);
 		});
 
-		expect(screen.getByRole('toolbar', { name: 'Calendar controls' })).toBeTruthy();
-		expect(screen.getByText('Loading additional calendar dates...')).toBeTruthy();
+		const workspace = screen.getByRole('main');
+		expect(within(workspace).getByRole('toolbar', { name: 'Calendar controls' })).toBeTruthy();
+		expect(within(workspace).getByRole('status')).toBeTruthy();
 
 		resolveRange?.({
 			rangeStart: '2026-06-01',
@@ -245,6 +246,11 @@ describe('calendar page', () => {
 			specialDays: [],
 			dailyAssignments: []
 		});
+
+		await waitFor(() => {
+			expect(within(workspace).queryByRole('status')).toBeNull();
+		});
+		expect(within(workspace).getByRole('toolbar', { name: 'Calendar controls' })).toBeTruthy();
 	});
 
 	it('loads the navigated quarter and persists that month for the next server bootstrap', async () => {
@@ -287,19 +293,25 @@ describe('calendar page', () => {
 			expect(loadCalendarRangeMock).toHaveBeenCalledTimes(1);
 		});
 
-		expect(screen.getByRole('toolbar', { name: 'Calendar controls' })).toBeTruthy();
+		const workspace = screen.getByRole('main');
+		expect(within(workspace).getByRole('toolbar', { name: 'Calendar controls' })).toBeTruthy();
 		await waitFor(() => {
-			expect(screen.getByText('Additional calendar data is temporarily unavailable.')).toBeTruthy();
+			expect(within(workspace).getByRole('status').textContent).toContain(
+				'Additional calendar data is temporarily unavailable.'
+			);
 		});
-		expect(screen.getByRole('button', { name: 'Retry calendar load' })).toBeTruthy();
 
 		await new Promise((resolve) => setTimeout(resolve, 20));
 		expect(loadCalendarRangeMock).toHaveBeenCalledTimes(1);
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Retry calendar load' }));
+		await fireEvent.click(within(workspace).getByRole('button', { name: 'Retry calendar load' }));
 
 		await waitFor(() => {
-			expect(loadCalendarRangeMock).toHaveBeenCalledTimes(2);
+			expect(loadCalendarRangeMock).toHaveBeenNthCalledWith(2, 'org-1', {
+				rangeStart: '2026-06-01',
+				rangeEnd: '2026-08-31'
+			});
+			expect(screen.queryByText('Additional calendar data is temporarily unavailable.')).toBeNull();
 		});
 	});
 

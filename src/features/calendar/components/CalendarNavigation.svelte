@@ -36,6 +36,7 @@
 	}: Props = $props();
 
 	let pickerOpen = $state(false);
+	let pickerTrigger = $state<HTMLElement | null>(null);
 
 	function togglePicker() {
 		if (!onSelectMonthYear) return;
@@ -46,9 +47,14 @@
 		pickerOpen = false;
 	}
 
+	function closePickerToTrigger() {
+		closePicker();
+		pickerTrigger?.focus();
+	}
+
 	function handleSelectMonthYear(year: number, month: number) {
 		onSelectMonthYear?.(year, month);
-		closePicker();
+		closePickerToTrigger();
 	}
 
 	function stopMouseDownPropagation(event: MouseEvent) {
@@ -67,9 +73,10 @@
 				class="m-0 min-w-0 text-center font-display text-2xl leading-tight font-bold tracking-wider text-foreground uppercase"
 			>
 				{#if onSelectMonthYear && pickerYear !== undefined && pickerMonth !== undefined}
-					<button
-						class="focus-visible:ring-ring inline-flex w-full cursor-pointer items-center justify-center rounded-lg px-2 py-0.5 text-inherit transition-colors hover:bg-primary/10 hover:text-primary focus-visible:ring-2 focus-visible:outline-none"
-						type="button"
+					<Button
+						bind:ref={pickerTrigger}
+						variant="ghost"
+						class="h-auto w-full px-2 py-0.5 whitespace-normal [font:inherit]"
 						data-testid={titleTestId}
 						aria-expanded={pickerOpen}
 						aria-haspopup="dialog"
@@ -77,7 +84,7 @@
 						onclick={togglePicker}
 					>
 						{title}
-					</button>
+					</Button>
 				{:else}
 					<span data-testid={titleTestId}>{title}</span>
 				{/if}
@@ -90,7 +97,8 @@
 						year={pickerYear}
 						month={pickerMonth}
 						onSelect={handleSelectMonthYear}
-						onClose={closePicker}
+						onEscape={closePickerToTrigger}
+						onOutsideClick={closePicker}
 					/>
 				</div>
 			{/if}

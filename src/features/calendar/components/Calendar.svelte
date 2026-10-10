@@ -208,7 +208,10 @@
 	);
 </script>
 
-<div class="calendar flex flex-1 flex-col overflow-hidden rounded-lg border bg-card text-card-foreground">
+<div
+	class="calendar flex flex-1 flex-col overflow-hidden rounded-lg border bg-card text-card-foreground [--calendar-cell-width:36px] [--calendar-personnel-column-width:200px] max-[641px]:[--calendar-cell-width:32px] max-[641px]:[--calendar-personnel-column-width:120px] min-[641px]:max-[1025px]:[--calendar-personnel-column-width:160px]"
+	style:--dates-count={dates.length}
+>
 	<CalendarHeader
 		{year}
 		{month}
@@ -227,11 +230,6 @@
 
 	<div
 		class="calendar-body flex-1 overflow-auto overscroll-contain [-webkit-overflow-scrolling:touch]"
-		style="
-			--dates-count: {dates.length};
-			--calendar-group-row-height: {GROUP_ROW_HEIGHT}px;
-			--calendar-person-row-height: {personRowHeight}px;
-		"
 		bind:this={calendarBodyEl}
 		onscroll={handleScroll}
 	>
@@ -289,26 +287,3 @@
 		</div>
 	</div>
 </div>
-
-<style>
-	.calendar {
-		--calendar-cell-width: 36px;
-		--calendar-cell-height: 30px;
-		--calendar-personnel-column-width: 200px;
-	}
-
-	@media (max-width: 640px) {
-		.calendar {
-			--calendar-cell-width: 32px;
-			--calendar-cell-height: 34px;
-			--calendar-personnel-column-width: 120px;
-		}
-	}
-
-	@media (min-width: 641px) and (max-width: 1024px) {
-		.calendar {
-			--calendar-cell-height: 32px;
-			--calendar-personnel-column-width: 160px;
-		}
-	}
-</style>

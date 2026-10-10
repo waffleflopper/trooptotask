@@ -158,6 +158,7 @@ describe('calendarRenderState', () => {
 			dateKey: '2026-03-01',
 			dayName: 'Sun',
 			dayOfMonth: 1,
+			dateLabel: 'Sunday, March 1, 2026',
 			weekend: true,
 			holiday: true,
 			holidayName: 'Training Holiday',
@@ -194,6 +195,7 @@ describe('calendarRenderState', () => {
 		expect(cell?.markers).toEqual([
 			expect.objectContaining({ id: 'assignment-1', name: 'Manager on Duty', textColor: '#ffffff' })
 		]);
+		expect(cell?.label).toBe('SGT Smith, Alex, Sunday, March 1, 2026');
 		expect(cell?.title).toBe('School');
 		expect(state.personDateCells('person-1')).toHaveLength(2);
 	});

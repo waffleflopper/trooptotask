@@ -53,8 +53,8 @@
 {:else if current || workspace == null}
 	{@render children()}
 {:else}
-	<section role="status" aria-live="polite" aria-busy="true">
-		<p>Loading Calendar data</p>
-		<Skeleton class="h-24 w-full" aria-hidden="true" />
+	<section class="grid gap-4 p-5 sm:px-6 sm:pb-6" role="status" aria-live="polite" aria-busy="true">
+		<p class="m-0 text-sm text-muted-foreground">Loading Calendar data</p>
+		<Skeleton class="h-24 w-full rounded-lg" aria-hidden="true" />
 	</section>
 {/if}

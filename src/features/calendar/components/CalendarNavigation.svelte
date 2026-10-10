@@ -76,7 +76,7 @@
 					<Button
 						bind:ref={pickerTrigger}
 						variant="ghost"
-						class="h-auto w-full cursor-pointer border-0 px-2 py-0.5 font-display text-2xl leading-tight font-bold tracking-wider whitespace-normal text-inherit hover:bg-primary/10 hover:text-primary dark:hover:bg-primary/10"
+						class="h-auto w-full px-2 py-0.5 whitespace-normal [font:inherit]"
 						data-testid={titleTestId}
 						aria-expanded={pickerOpen}
 						aria-haspopup="dialog"

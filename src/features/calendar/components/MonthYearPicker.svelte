@@ -112,7 +112,7 @@
 			<Button
 				bind:ref={monthButtons[i]}
 				variant={selected ? 'default' : 'ghost'}
-				class={['h-auto px-1 py-2', selected ? 'hover:bg-primary/90' : 'hover:border-primary hover:bg-primary/10']}
+				class="h-auto px-1 py-2"
 				aria-current={selected ? 'true' : undefined}
 				onkeydown={(event) => handleMonthKeydown(event, i)}
 				onclick={() => onSelect(displayYear, i)}

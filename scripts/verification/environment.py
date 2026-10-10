@@ -2,8 +2,10 @@
 """Owned, disposable provider lifecycle; composes the existing CI isolation code."""
 
 import argparse
+import base64
 import contextlib
 import hashlib
+import hmac
 import importlib.util
 import io
 import json
@@ -13,6 +15,7 @@ import re
 import signal
 import subprocess
 import tempfile
+import time
 import tomllib
 from urllib.parse import urlsplit
 import uuid
@@ -129,7 +132,7 @@ def status(session):
         raise Blocked("Provider endpoint does not match the owned allocation; refusing to drive it.")
     records = containers(state, workdir, environment)
     running = {item["Name"].removeprefix("/") for item in records if item["State"]["Running"]}
-    required = [f"supabase_{name}_{state['project']}" for name in ("db", "auth", "rest", "kong", "storage")]
+    required = [f"supabase_{name}_{state['project']}" for name in ("db", "auth", "rest", "kong", "storage", "inbucket")]
     missing = [name for name in required if name not in running]
     if state["phase"] != "running" or missing:
         raise Blocked("Owned provider is unavailable or incomplete; cleanup this session and launch a new one.")
@@ -190,7 +193,7 @@ def review_failure_comment(control):
     return f"{control['project']}:{control['nonce']}:{control['request_id']}"
 
 
-class ReviewFailureDatabase:
+class OwnedDatabase:
     """Fixed operations on the verified disposable database; no caller SQL or DSN."""
 
     def __init__(self, session):
@@ -210,6 +213,20 @@ class ReviewFailureDatabase:
                         "-U", "supabase_admin", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-c", sql],
                        self.workdir, self.environment, suppress_diagnostic=True)
 
+    def totp_factor(self, user_id):
+        output = self._execute(f"""
+            SET statement_timeout = '10s';
+            SELECT row_to_json(factor) FROM
+              (SELECT f.secret, f.status::text AS status FROM auth.mfa_factors f
+               JOIN auth.users u ON u.id = f.user_id
+               WHERE f.user_id = '{user_id}'::uuid AND f.factor_type = 'totp'
+                 AND u.email LIKE '%@example.test'
+               ORDER BY f.created_at DESC LIMIT 1) AS factor;
+        """).strip()
+        return json.loads(output) if output else None
+
+
+class ReviewFailureDatabase(OwnedDatabase):
     def snapshot(self, request_id=None):
         target = f"id = '{request_id}'::uuid" if request_id else "false"
         output = self._execute(f"""
@@ -378,6 +395,42 @@ def deletion_review_failure(session, action, request_id=None):
             if control else None}
 
 
+def totp(secret, at):
+    """RFC 6238 SHA-1, 30-second, 6-digit code: the provider's TOTP parameters."""
+    key = base64.b32decode(secret.upper() + "=" * (-len(secret) % 8))
+    digest_bytes = hmac.new(key, int(at // 30).to_bytes(8, "big"), hashlib.sha1).digest()
+    offset = digest_bytes[-1] & 0x0F
+    return f"{(int.from_bytes(digest_bytes[offset:offset + 4], 'big') & 0x7FFFFFFF) % 1_000_000:06d}"
+
+
+def totp_code(session, user_id, at=None):
+    # The secret stays in this process; callers receive only the current short-lived code.
+    user_id = canonical_uuid(user_id)
+    factor = OwnedDatabase(session).totp_factor(user_id)
+    if not factor or not re.fullmatch(r"[A-Z2-7]+=*", factor.get("secret") or ""):
+        raise Blocked("No readable TOTP factor exists for this synthetic account.")
+    return {"status": "PASS", "factor": factor["status"], "code": totp(factor["secret"], time.time() if at is None else at)}
+
+
+def verification_auth_config(config, origin):
+    config["auth"]["site_url"] = origin
+    config["auth"]["additional_redirect_urls"] = [origin]
+    # The app's MFA challenge and account security use Supabase TOTP, which the
+    # repository's local config leaves off. Enable it only for this disposable
+    # provider; signup, password policies and all abuse limits stay as configured.
+    config["auth"]["mfa"]["totp"]["enroll_enabled"] = True
+    config["auth"]["mfa"]["totp"]["verify_enabled"] = True
+    return config
+
+
+def verification_excluded_services(excluded):
+    """CI's exclusions minus the services verification journeys use."""
+    # Sign-in Roster verification exercises real private PDF upload/download. The
+    # provider sends email-change confirmations itself; without its local Mailpit
+    # capture the change fails and Account Security cannot reach its pending state.
+    return ",".join(service for service in excluded.split(",") if service not in ("storage-api", "mailpit"))
+
+
 def create(session, repository, origin):
     if (session / "environment.json").exists() or (session / "provider").exists():
         raise Blocked("This session already has provider state; use status or cleanup, never adopt it.")
@@ -403,9 +456,7 @@ def create(session, repository, origin):
     try:
         ports = [sock.getsockname()[1] for sock in held]
         config = database.prepare_project(repository, workdir, project, ports)
-        config["auth"]["site_url"] = origin
-        config["auth"]["additional_redirect_urls"] = [origin]
-        # Keep signup, password policies, and all abuse limits exactly as configured.
+        verification_auth_config(config, origin)
         config_path = workdir / "supabase/config.toml"
         config_path.write_text(database.config_text(config))
         state = {"version": 1, "session": str(session), "repository": str(repository),
@@ -418,9 +469,8 @@ def create(session, repository, origin):
         for sock in held:
             sock.close()
         attempted = True
-        # Sign-in Roster verification exercises real private PDF upload/download.
-        excluded = database.EXCLUDED_SERVICES.replace("storage-api,", "")
-        execute(["supabase", "start", "--exclude", excluded], workdir, environment)
+        execute(["supabase", "start", "--exclude", verification_excluded_services(database.EXCLUDED_SERVICES)],
+                workdir, environment)
         if not containers(state, workdir, environment):
             raise Blocked("Supabase returned success without containers bearing the exact owned project label.")
         # Same pinned-image workaround as CI; applies only to the new disposable DB.
@@ -465,10 +515,15 @@ def main():
     failure.add_argument("session")
     failure.add_argument("action", choices=("arm", "restore", "state"))
     failure.add_argument("request_id", nargs="?")
+    code = subcommands.add_parser("totp-code", help="Return only the current code for one synthetic account's newest TOTP factor")
+    code.add_argument("session")
+    code.add_argument("user_id")
     args = parser.parse_args()
     try:
         session = private_session(args.session)
-        if args.command == "deletion-review-failure":
+        if args.command == "totp-code":
+            result = totp_code(session, args.user_id)
+        elif args.command == "deletion-review-failure":
             result = deletion_review_failure(session, args.action, args.request_id)
         else:
             result = create(session, args.repository, args.origin) if args.command == "create" else globals()[args.command](session)

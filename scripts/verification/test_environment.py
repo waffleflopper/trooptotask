@@ -9,8 +9,9 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import tomllib
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from scripts.verification import environment
 
@@ -313,7 +314,7 @@ class ReviewFailureProcessBoundaryTests(unittest.TestCase):
         environment.save(provider, {"API_URL": "http://127.0.0.1:54321", "ANON_KEY": "private-anon",
                                     "SERVICE_ROLE_KEY": "private-service"})
         self.records = []
-        for index, service in enumerate(("db", "auth", "rest", "kong", "storage")):
+        for index, service in enumerate(("db", "auth", "rest", "kong", "storage", "inbucket")):
             self.records.append({"Id": DATABASE_ID if service == "db" else str(index) * 64,
                                  "Name": f"/supabase_{service}_{PROJECT}", "State": {"Running": True},
                                  "Config": {"Labels": {"com.supabase.cli.project": PROJECT,
@@ -387,3 +388,78 @@ class ReviewFailureProcessBoundaryTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+RFC_SECRET = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ"
+USER = "44444444-4444-4444-8444-444444444444"
+
+
+class TotpCodeTests(unittest.TestCase):
+    def test_codes_match_rfc_6238_sha1_vectors(self):
+        self.assertEqual(environment.totp(RFC_SECRET, 59), "287082")
+        self.assertEqual(environment.totp(RFC_SECRET, 1111111109), "081804")
+
+    def test_returns_only_the_current_code_for_the_newest_factor(self):
+        database = Mock()
+        database.totp_factor.return_value = {"secret": RFC_SECRET, "status": "unverified"}
+        with patch.object(environment, "OwnedDatabase", return_value=database):
+            result = environment.totp_code(Path("/unused"), USER, at=1111111109)
+        self.assertEqual(result, {"status": "PASS", "factor": "unverified", "code": "081804"})
+        database.totp_factor.assert_called_once_with(USER)
+
+    def test_missing_factor_or_noncanonical_user_is_blocked(self):
+        database = Mock()
+        database.totp_factor.return_value = None
+        with patch.object(environment, "OwnedDatabase", return_value=database) as owned:
+            with self.assertRaises(environment.Blocked):
+                environment.totp_code(Path("/unused"), USER)
+            with self.assertRaises(environment.Blocked):
+                environment.totp_code(Path("/unused"), ORG_A.upper())
+        self.assertEqual(owned.call_count, 1)
+
+
+class VerificationAuthConfigTests(unittest.TestCase):
+    def test_enables_only_totp_and_owned_redirects(self):
+        source = tomllib.loads((Path(__file__).resolve().parents[2] / "supabase/config.toml").read_text())
+        config = environment.verification_auth_config(copy.deepcopy(source), "http://127.0.0.1:4100")
+        self.assertEqual(config["auth"]["mfa"]["totp"], {"enroll_enabled": True, "verify_enabled": True})
+        self.assertEqual(config["auth"]["site_url"], "http://127.0.0.1:4100")
+        self.assertEqual(config["auth"]["additional_redirect_urls"], ["http://127.0.0.1:4100"])
+        for changed in (config, source):
+            changed["auth"]["mfa"].pop("totp")
+            for key in ("site_url", "additional_redirect_urls"):
+                changed["auth"].pop(key)
+        self.assertEqual(config, source)
+
+    def test_starts_storage_and_mail_capture_and_keeps_other_ci_exclusions(self):
+        from scripts.ci import database
+
+        self.assertEqual(
+            environment.verification_excluded_services(database.EXCLUDED_SERVICES),
+            "studio,imgproxy,realtime,edge-runtime,logflare,vector,postgres-meta,supavisor",
+        )
+
+
+class ProviderStatusTests(unittest.TestCase):
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.session = Path(directory.name)
+        provider = self.session / "provider.json"
+        provider.write_text(json.dumps({"API_URL": "http://127.0.0.1:4200"}))
+        self.state = {"project": PROJECT, "phase": "running", "ports": {"api.port": 4200},
+                      "provider_sha256": environment.digest(provider)}
+
+    def status_with(self, services):
+        records = [{"Name": f"/supabase_{name}_{PROJECT}", "State": {"Running": True}} for name in services]
+        with (patch.object(environment, "owned", return_value=(self.state, self.session, {})),
+              patch.object(environment, "containers", return_value=records)):
+            return environment.status(self.session)
+
+    def test_running_provider_with_mail_capture_passes(self):
+        result = self.status_with(("db", "auth", "rest", "kong", "storage", "inbucket"))
+        self.assertEqual(result["status"], "PASS")
+
+    def test_stopped_mail_capture_blocks_the_provider(self):
+        with self.assertRaises(environment.Blocked):
+            self.status_with(("db", "auth", "rest", "kong", "storage"))

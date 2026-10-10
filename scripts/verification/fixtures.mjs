@@ -23,6 +23,16 @@ export async function provider(session) {
 		auth: { persistSession: false, autoRefreshToken: false }
 	});
 }
+async function enrollVerifiedTotp(session, actor) {
+	const config = await readJSON(path.join(session, 'provider.json'));
+	const client = createClient(config.API_URL, config.ANON_KEY, {
+		auth: { persistSession: false, autoRefreshToken: false }
+	});
+	checked(await client.auth.signInWithPassword({ email: actor.email, password: actor.password }));
+	const factor = checked(await client.auth.mfa.enroll({ factorType: 'totp' }));
+	const { code } = await environment('totp-code', session, actor.id);
+	checked(await client.auth.mfa.challengeAndVerify({ factorId: factor.id, code }));
+}
 export async function seed(session) {
 	const service = await provider(session);
 	const ids = Object.fromEntries(
@@ -231,6 +241,8 @@ export async function seed(session) {
 		orgAdmin: ids.orgAdminMembership,
 		orgMember: ids.orgMemberMembership
 	};
+	// Dedicated Organization A members whose credentials, factor or suspension identity journeys may change.
+	const identityActors = ['identityMfa', 'identityRecovery', 'identitySecurity', 'identitySuspended'];
 	const dashboardActors = {
 		dashboardView: { level: 'view', scope: 'organization' },
 		dashboardScoped: { level: 'view', scope: 'groups', groups: [ids.groupA] },
@@ -253,7 +265,8 @@ export async function seed(session) {
 		...Object.keys(organizationActors),
 		...Object.keys(notificationActors),
 		...Object.keys(deletionActors),
-		...Object.keys(dashboardActors)
+		...Object.keys(dashboardActors),
+		...identityActors
 	]) {
 		const email = `${role}-${randomUUID()}@example.test`;
 		const { user } = checked(await service.auth.admin.createUser({ email, password, email_confirm: true }));
@@ -1189,6 +1202,14 @@ export async function seed(session) {
 			}
 		])
 	);
+	checked(
+		await service.from('user_suspensions').insert({
+			user_id: actors.identitySuspended.id,
+			suspended_by: actors.platformReviewer.id,
+			reason: 'Synthetic identity suspension witness'
+		})
+	);
+	await enrollVerifiedTotp(session, actors.identityMfa);
 	const fixture = {
 		ids,
 		rankCatalog,
@@ -1202,7 +1223,8 @@ export async function seed(session) {
 		ratingSchemeActors,
 		organizationActors,
 		notificationActors,
-		deletionActors
+		deletionActors,
+		identityActors
 	};
 	await writeJSON(path.join(session, 'fixtures.json'), fixture);
 	return fixture;

@@ -39,6 +39,7 @@ For durable publication, follow [artifact packaging](../../../../docs/architectu
 - [Platform access, accounts and Organizations](platform-administration.md): platform admission, reviewed access, directories, suspension, role/ownership support and recovery.
 - [Platform announcements, Feedback and Audit support](platform-support-content.md): admin content lifecycle, reduced Dashboard activity, paging, denial, persisted effects and recovery.
 - [Sign in and sign out](sign-in.md): public gate, member session, account menu and profile rank, sign-out and form failure.
+- [Identity recovery, MFA and account security](identity-recovery-security.md): MFA challenge, password recovery and reset, invite activation and renewal, account setup, request access, security settings, suspension and link errors.
 - [App shell and saved preferences](shell-preferences.md): optional chrome, Training/Calendar persistence, pending saves, failures and user/Organization/session lifetime.
 - [Shared dialogs, date selection and tooltips](shared-ui.md): accessible descriptions, keyboard/focus restoration, and actual form consumers.
 - [Component family interaction contracts](component-foundation.md): field association, select/menu/tab keyboard, overlay dismissal and busy close, toasts and loading status on real consumers.

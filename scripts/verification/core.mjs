@@ -254,7 +254,7 @@ export async function reservePort() {
 	});
 	return { port: server.address().port, release: () => new Promise((resolve) => server.close(resolve)) };
 }
-export async function environment(command, session, origin) {
+export async function environment(command, session, ...extra) {
 	try {
 		const { stdout } = await execute(
 			'python3',
@@ -262,7 +262,8 @@ export async function environment(command, session, origin) {
 				path.join(repository, 'scripts/verification/environment.py'),
 				command,
 				session,
-				...(command === 'create' ? [repository, origin] : [])
+				...(command === 'create' ? [repository] : []),
+				...extra
 			],
 			{ env: cleanEnvironment(), timeout: 300_000, maxBuffer: 1024 * 1024 }
 		);

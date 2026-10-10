@@ -9,8 +9,16 @@ import path from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import ExcelJS from 'exceljs';
 import { jsPDF } from 'jspdf';
-import { repository, sessionPath, readJSON, processIdentity } from '../../../../scripts/verification/core.mjs';
+import {
+	repository,
+	sessionPath,
+	readJSON,
+	writeJSON,
+	processIdentity,
+	environment
+} from '../../../../scripts/verification/core.mjs';
 import { installNetworkControl } from './network-control.mjs';
+import { installBusyControl } from './busy-control.mjs';
 import { requestSettings } from './settings-request.mjs';
 import { seedDeletionSources, requestDeletion, requestPersonnelArchiveBatch } from './deletion-requests.mjs';
 import { requestOnboarding, readOnboardingRequests } from './onboarding-request.mjs';
@@ -28,6 +36,15 @@ import { requestPlatform } from './platform-request.mjs';
 import { platformFormNetworkTarget } from './platform-network-target.mjs';
 import { requestAuditTrainingUpdate } from './audit-request.mjs';
 import { artifactHttp, clearArtifactHttpCache } from './artifact-http.mjs';
+import {
+	accountSetupSeed,
+	authConfirmUrl,
+	identityEmails,
+	redactAuthTokens,
+	setupAccountUrl,
+	syntheticEmail,
+	textboxUid
+} from './identity-controls.mjs';
 import {
 	prepareUploadOverlap,
 	inspectUploadOverlap,
@@ -394,6 +411,7 @@ async function main() {
 			rankCatalog: fixture.rankCatalog,
 			dates: fixture.dates,
 			invitationEmails: fixture.invitationEmails,
+			identityEmails: identityEmails(fixture),
 			notificationUsers: Object.fromEntries(
 				Object.keys(fixture.notificationActors).map((role) => [role, fixture.actors[role].id])
 			),
@@ -525,6 +543,123 @@ async function main() {
 			returnedPath: await evaluate(state, pageId, '() => location.pathname'),
 			snapshot: text(await tool(state, 'take_snapshot', { pageId }))
 		});
+		return;
+	}
+	const identityPage = async (page, role) => {
+		const pageId = Number(page);
+		if (!Number.isInteger(pageId) || pageId < 1 || !fixture.identityActors.includes(role))
+			throw new Error('Use an owned page ID and an identity fixture role.');
+		if ((await evaluate(state, pageId, '() => location.origin')) !== doctor.origin)
+			throw new Error('The page is not on the owned app origin.');
+		return pageId;
+	};
+	const fillPrivate = async (pageId, label, occurrence, value) => {
+		const uid = textboxUid(text(await tool(state, 'take_snapshot', { pageId })), label, occurrence);
+		await tool(state, 'fill', { pageId, uid, value });
+	};
+	const pendingPasswords = path.join(session, 'identity-pending-passwords.json');
+	if (command === 'mfa-code') {
+		const [page, role, label, occurrence] = args;
+		const pageId = await identityPage(page, role);
+		if (!label) throw new Error('Use mfa-code PAGE ROLE LABEL [OCCURRENCE].');
+		const { factor, code } = await environment('totp-code', session, fixture.actors[role].id);
+		await fillPrivate(pageId, label, occurrence, code);
+		note({ pageId, role, label, occurrence: occurrence ?? 1, factor, filled: true });
+		return;
+	}
+	if (command === 'password') {
+		const [page, role, which, label, occurrence] = args;
+		const pageId = await identityPage(page, role);
+		if (!['current', 'next'].includes(which) || !label)
+			throw new Error('Use password PAGE ROLE current|next LABEL [OCCURRENCE].');
+		let pending = {};
+		try {
+			pending = await readJSON(pendingPasswords);
+		} catch (error) {
+			if (error.code !== 'ENOENT') throw error;
+		}
+		if (which === 'next' && !pending[role]) {
+			pending[role] = `Synthetic-${randomUUID()}!9`;
+			await writeJSON(pendingPasswords, pending);
+		}
+		await fillPrivate(pageId, label, occurrence, which === 'next' ? pending[role] : fixture.actors[role].password);
+		note({ pageId, role, which, label, occurrence: occurrence ?? 1, filled: true });
+		return;
+	}
+	if (command === 'password-commit') {
+		const [role] = args;
+		const pending = await readJSON(pendingPasswords);
+		if (!fixture.identityActors.includes(role) || !pending[role])
+			throw new Error('No pending synthetic password exists for this identity role.');
+		fixture.actors[role].password = pending[role];
+		await writeJSON(path.join(session, 'fixtures.json'), fixture);
+		delete pending[role];
+		await writeJSON(pendingPasswords, pending);
+		note({ role, committed: true });
+		return;
+	}
+	if (command === 'auth-link') {
+		const [page, type, role] = args;
+		const pageId = Number(page);
+		if (
+			!Number.isInteger(pageId) ||
+			pageId < 1 ||
+			(type === 'recovery' ? !fixture.identityActors.includes(role) : type !== 'invite' || args.length !== 2)
+		)
+			throw new Error('Use auth-link PAGE recovery IDENTITY_ROLE or auth-link PAGE invite.');
+		if ((await evaluate(state, pageId, '() => location.origin')) !== doctor.origin)
+			throw new Error('The page is not on the owned app origin.');
+		const email = type === 'recovery' ? fixture.actors[role].email : `identity-invite-${randomUUID()}@example.test`;
+		const link = checked(await (await provider()).auth.admin.generateLink({ type, email }));
+		const tokenHash = link.properties?.hashed_token;
+		if (!tokenHash || link.properties.verification_type !== type || link.user?.email !== email.toLowerCase())
+			throw new Error('The provider returned an unexpected link identity or type.');
+		await tool(state, 'navigate_page', { pageId, type: 'url', url: authConfirmUrl(doctor.origin, type, tokenHash) });
+		const snapshot = redactAuthTokens(text(await tool(state, 'take_snapshot', { pageId })));
+		if (snapshot.includes(tokenHash)) throw new Error('Link token survived redaction; refusing to print.');
+		note({ pageId, type, email, path: '/auth/confirm', snapshot });
+		return;
+	}
+	if (command === 'setup-link') {
+		const [page, kind] = args;
+		const pageId = Number(page);
+		const rawToken = (await saved()).accountSetup?.tokens?.[kind];
+		if (args.length !== 2 || !Number.isInteger(pageId) || pageId < 1 || !rawToken)
+			throw new Error('Use setup-link PAGE CLASS after seed account-setup.');
+		if ((await evaluate(state, pageId, '() => location.origin')) !== doctor.origin)
+			throw new Error('The page is not on the owned app origin.');
+		await tool(state, 'navigate_page', { pageId, type: 'url', url: setupAccountUrl(doctor.origin, rawToken) });
+		const snapshot = redactAuthTokens(text(await tool(state, 'take_snapshot', { pageId })));
+		if (snapshot.includes(rawToken)) throw new Error('Setup token survived redaction; refusing to print.');
+		note({ pageId, class: kind, path: '/auth/setup-account', snapshot });
+		return;
+	}
+	if (command === 'access-request') {
+		const email = syntheticEmail(args[0]);
+		const client = await provider();
+		const rows = checked(
+			await client
+				.from('access_requests')
+				.select(
+					'id,email,name,reason,heard_about,heard_about_details,status,created_at,reviewed_at,setup_user_id,setup_completed_at'
+				)
+				.eq('email', email)
+				.order('created_at')
+		);
+		const setupLinks = rows.length
+			? checked(
+					await client
+						.from('account_setup_links')
+						.select(
+							'id,access_request_id,expires_at,claimed_at,used_at,failed_at,failure_reason,revoked_at,revocation_reason'
+						)
+						.in(
+							'access_request_id',
+							rows.map(({ id }) => id)
+						)
+				)
+			: [];
+		note({ email, count: rows.length, rows, setupLinks });
 		return;
 	}
 	if (command === 'onboarding-request') {
@@ -746,7 +881,7 @@ async function main() {
 			!['admin/audit', 'admin/feedback', 'admin/announcements'].includes(destination)
 		)
 			readyText = ['Users', 'Organizations', 'Access Requests', 'Forbidden', 'Access denied', '403'];
-		readyText = [...readyText, 'Account Suspended'];
+		readyText = [...readyText, 'Account Suspended', 'Verify your code'];
 		const url = `${doctor.origin}/auth/login?next=${encodeURIComponent(destinationPath)}`;
 		const browserContext = `map-${role}-${randomUUID()}`;
 		const created = text(await tool(state, 'new_page', { url, isolatedContext: browserContext }));
@@ -1380,7 +1515,8 @@ async function main() {
 				'communications',
 				'organization-destruction',
 				'rating-scheme',
-				'deletion-sources'
+				'deletion-sources',
+				'account-setup'
 			].includes(kind)
 		)
 			throw new Error('Unknown temporary seed.');
@@ -1409,6 +1545,35 @@ async function main() {
 		}
 		if (kind === 'deletion-sources') {
 			note(await seedDeletionSources({ client, fixture, tag, ownedState, save }));
+			return;
+		}
+		if (kind === 'account-setup') {
+			if (ownedState.accountSetup) throw new Error('Clean the existing account setup seed first.');
+			const seed = Object.entries(accountSetupSeed(tag));
+			ownedState.accountSetup = { tag, tokens: Object.fromEntries(seed.map(([key, item]) => [key, item.rawToken])) };
+			for (const [table, key] of [
+				['access_requests', 'request'],
+				['account_setup_links', 'link']
+			])
+				ownedState.seeded.push({ kind, tag, table, organization: null, ids: seed.map(([, item]) => item[key].id) });
+			await save(ownedState);
+			checked(await client.from('access_requests').insert(seed.map(([, item]) => item.request)));
+			checked(await client.from('account_setup_links').insert(seed.map(([, item]) => item.link)));
+			note({
+				kind,
+				tag,
+				classes: Object.fromEntries(
+					seed.map(([key, { request, link }]) => [
+						key,
+						{
+							email: request.email,
+							accessRequestStatus: request.status,
+							link: Object.fromEntries(Object.entries(link).filter(([field]) => field !== 'token_hash'))
+						}
+					])
+				),
+				boundary: 'Privileged synthetic setup links; raw tokens stay in private worker state.'
+			});
 			return;
 		}
 		if (kind === 'organization-destruction') {
@@ -2031,7 +2196,7 @@ async function main() {
 				let query = client.from(item.table).delete().in('id', ids);
 				if (
 					!(
-						item.kind.startsWith('maintenance-retention') &&
+						(item.kind.startsWith('maintenance-retention') || item.kind === 'account-setup') &&
 						['access_requests', 'account_setup_links'].includes(item.table)
 					) &&
 					(item.kind !== 'communications' || item.table !== 'platform_announcements')
@@ -2049,6 +2214,7 @@ async function main() {
 			}
 		}
 		ownedState.seeded = [];
+		delete ownedState.accountSetup;
 		await save(ownedState);
 		await clearArtifactHttpCache({ session, sessionId: state.id });
 		if (platformError) throw platformError;
@@ -2257,6 +2423,20 @@ async function main() {
 		note(await evaluate(state, pageId, source));
 		return;
 	}
+	if (command === 'busy') {
+		const [action, page] = args;
+		const pageId = Number(page);
+		if (!Number.isInteger(pageId) || pageId < 1) throw new Error('Use a page ID from the owned browser.');
+		if (!['arm', 'state', 'restore'].includes(action)) throw new Error('Use busy arm|state|restore PAGE.');
+		const source =
+			action === 'arm'
+				? `() => (${installBusyControl.toString()})(window)`
+				: action === 'state'
+					? '() => ({ armed: !!window.__mapBusy, entries: window.__mapBusy?.entries ?? [] })'
+					: '() => { const c = window.__mapBusy; if (!c) return { restored: false }; c.observer.disconnect(); delete window.__mapBusy; return { restored: true }; }';
+		note(await evaluate(state, pageId, source));
+		return;
+	}
 	if (command === 'feedback') {
 		const [action, page] = args;
 		const pageId = Number(page);
@@ -2395,7 +2575,7 @@ async function main() {
 		return;
 	}
 	throw new Error(
-		'Use fixture, actor, rows, settings-request, deletion-request, personnel-archive-batch, deletion-review-failure, audit-training-update, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, private-buckets, roster-files, roster-replace, signed-download, calendar-grant, dashboard-access, server-source, seed, clean-seeds, retention, network, export, print, or workbook.'
+		'Use fixture, actor, rows, access-request, auth-link, setup-link, mfa-code, password, password-commit, settings-request, deletion-request, personnel-archive-batch, deletion-review-failure, audit-training-update, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, private-buckets, roster-files, roster-replace, signed-download, calendar-grant, dashboard-access, server-source, seed, clean-seeds, retention, network, busy, export, print, or workbook.'
 	);
 }
 

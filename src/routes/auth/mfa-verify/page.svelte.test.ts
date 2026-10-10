@@ -108,3 +108,34 @@ it('lets the user submit sign-out to the existing POST action', async () => {
 
 	expect(submissions).toEqual([{ method: 'post', pathname: '/auth/logout' }]);
 });
+
+it('ties a rejected code to the Verification Code field', async () => {
+	vi.stubGlobal(
+		'fetch',
+		vi.fn().mockResolvedValue(Response.json({ error: 'Invalid authentication code. Try again.' }, { status: 401 }))
+	);
+	render(Page);
+	const code = screen.getByLabelText('Verification Code');
+	await fireEvent.input(code, { target: { value: '123456' } });
+	await fireEvent.click(screen.getByRole('button', { name: 'Verify' }));
+
+	await waitFor(() => expect(code).toBeInvalid());
+	expect(code).toHaveAccessibleDescription('Invalid authentication code. Try again.');
+	expect(screen.getAllByRole('alert')).toHaveLength(1);
+	expect(code).toHaveValue('123456');
+});
+
+it('keeps a provider outage as a form alert that does not mark the code invalid', async () => {
+	vi.stubGlobal(
+		'fetch',
+		vi.fn().mockResolvedValue(Response.json({ error: 'Unable to verify MFA. Try again.' }, { status: 503 }))
+	);
+	render(Page);
+	const code = screen.getByLabelText('Verification Code');
+	await fireEvent.input(code, { target: { value: '123456' } });
+	await fireEvent.click(screen.getByRole('button', { name: 'Verify' }));
+
+	expect(await screen.findByRole('alert')).toHaveTextContent('Unable to verify MFA. Try again.');
+	expect(code).toBeValid();
+	expect(code).toHaveAccessibleDescription('Enter the current code from your authenticator app.');
+});

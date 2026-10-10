@@ -234,3 +234,20 @@ it('lets the user submit sign-out to the existing POST action', async () => {
 
 	expect(submissions).toEqual([{ method: 'post', pathname: '/auth/logout' }]);
 });
+
+it('names the confirmation field when the invite passwords differ', async () => {
+	render(Page);
+	const confirm = screen.getByLabelText(/^Confirm Password/);
+
+	await fireEvent.input(await screen.findByLabelText(/^Password/), { target: { value: 'NewPassword12' } });
+	await fireEvent.input(confirm, { target: { value: 'NewPassword13' } });
+
+	expect(confirm).toBeInvalid();
+	expect(confirm).toHaveAccessibleDescription('Passwords do not match');
+	expect(screen.getByRole('button', { name: 'Set Password' })).toBeDisabled();
+
+	await fireEvent.input(confirm, { target: { value: 'NewPassword12' } });
+
+	expect(confirm).toBeValid();
+	expect(confirm).toHaveAccessibleDescription('Passwords match.');
+});

@@ -2,6 +2,7 @@ export const PASSWORD_MIN_LENGTH = 12;
 export const PASSWORD_MAX_LENGTH = 72;
 export const PASSWORD_MIN_LENGTH_MESSAGE = `Password must be at least ${PASSWORD_MIN_LENGTH} characters`;
 export const PASSWORD_MAX_LENGTH_MESSAGE = `Password must be ${PASSWORD_MAX_LENGTH} characters or fewer`;
+export const PASSWORD_MISMATCH_MESSAGE = 'Passwords do not match';
 export const PASSWORD_REQUIREMENTS_MESSAGE = 'Password must include uppercase, lowercase, and a number';
 export const PASSWORD_PROVIDER_REJECTION_MESSAGE = `That password was rejected by account security rules. Choose a different, unique password with at least ${PASSWORD_MIN_LENGTH} characters, including uppercase, lowercase, and a number.`;
 

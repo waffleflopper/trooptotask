@@ -9,7 +9,8 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 
 	let code = $state('');
-	let error = $state('');
+	let codeError = $state('');
+	let formError = $state('');
 	let loading = $state(false);
 
 	function getNextPath(): string | null {
@@ -27,11 +28,12 @@
 		if (loading) return;
 
 		if (!code || code.length !== 6) {
-			error = 'Please enter a 6-digit code';
+			codeError = 'Please enter a 6-digit code';
 			return;
 		}
 
-		error = '';
+		codeError = '';
+		formError = '';
 		loading = true;
 		try {
 			const response = await fetch('/api/auth/mfa/verify', {
@@ -46,13 +48,15 @@
 
 			const payload = (await response.json()) as MfaActionResponse | null;
 			if (!response.ok || payload?.ok !== true) {
-				error = payload?.error ?? 'Verification failed';
+				const message = payload?.error ?? 'Verification failed';
+				if (response.status === 401) codeError = message;
+				else formError = message;
 				return;
 			}
 
 			await goto(resolve((getNextPath() ?? '/dashboard') as '/'));
 		} catch (e: unknown) {
-			error = e instanceof Error ? e.message : 'Verification failed';
+			formError = e instanceof Error ? e.message : 'Verification failed';
 		} finally {
 			loading = false;
 		}
@@ -79,8 +83,8 @@
 	]}
 >
 	<div class="flex flex-col gap-5">
-		{#if error}
-			<AuthNotice tone="error" message={error} />
+		{#if formError}
+			<AuthNotice tone="error" message={formError} />
 		{/if}
 
 		<form onsubmit={handleVerify} class="flex flex-col gap-5">
@@ -88,6 +92,7 @@
 				label="Verification Code"
 				id="mfa-code"
 				disabled={loading}
+				error={codeError}
 				hint="Enter the current code from your authenticator app."
 				value={code}
 				oninput={handleCodeInput}

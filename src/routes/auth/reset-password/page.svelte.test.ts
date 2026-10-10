@@ -214,3 +214,27 @@ it('lets the user submit sign-out to the existing POST action', async () => {
 
 	expect(submissions).toEqual([{ method: 'post', pathname: '/auth/logout' }]);
 });
+
+it('names the confirmation field when the passwords differ and keeps both entries', async () => {
+	vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ currentLevel: 'aal1', nextLevel: 'aal1' })));
+	render(Page);
+	const password = await screen.findByLabelText(/^New Password/);
+	const confirm = screen.getByLabelText(/^Confirm New Password/);
+
+	await fireEvent.input(password, { target: { value: 'NewPassword12' } });
+	await fireEvent.input(confirm, { target: { value: 'NewPassword13' } });
+
+	expect(confirm).toBeInvalid();
+	expect(confirm).toHaveAccessibleDescription('Passwords do not match');
+	expect(screen.getByRole('alert')).toHaveTextContent('Passwords do not match');
+	expect(password).toHaveValue('NewPassword12');
+	expect(confirm).toHaveValue('NewPassword13');
+	expect(screen.getByRole('button', { name: 'Update Password' })).toBeDisabled();
+
+	await fireEvent.input(confirm, { target: { value: 'NewPassword12' } });
+
+	expect(confirm).toBeValid();
+	expect(confirm).toHaveAccessibleDescription('Passwords match.');
+	expect(screen.queryByRole('alert')).toBeNull();
+	expect(screen.getByRole('button', { name: 'Update Password' })).toBeEnabled();
+});

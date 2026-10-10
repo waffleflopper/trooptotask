@@ -157,3 +157,20 @@ it('does not resubmit an uncertain claim when the loaded link still appears vali
 	expect(screen.queryByRole('button', { name: 'Set Up Account' })).not.toBeInTheDocument();
 	expect(screen.queryByRole('link', { name: /Request a fresh setup link/i })).not.toBeInTheDocument();
 });
+
+it('names the confirmation field when the setup passwords differ', async () => {
+	render(Page, { data: { session: null, state: 'valid', email: 'synthetic@example.test' }, form: null });
+	const confirm = screen.getByLabelText(/^Confirm Password/);
+
+	await fireEvent.input(screen.getByLabelText(/^Password/), { target: { value: 'NewPassword12' } });
+	await fireEvent.input(confirm, { target: { value: 'NewPassword13' } });
+
+	expect(confirm).toBeInvalid();
+	expect(confirm).toHaveAccessibleDescription('Passwords do not match');
+	expect(screen.getByRole('button', { name: 'Set Up Account' })).toBeDisabled();
+
+	await fireEvent.input(confirm, { target: { value: 'NewPassword12' } });
+
+	expect(confirm).toBeValid();
+	expect(screen.queryByText('Passwords do not match')).toBeNull();
+});

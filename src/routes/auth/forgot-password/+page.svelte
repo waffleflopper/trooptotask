@@ -8,6 +8,7 @@
 
 	let { form } = $props();
 	let loading = $state(false);
+	let emailError = $state('');
 </script>
 
 <svelte:head>
@@ -40,7 +41,7 @@
 				<p>If it does not arrive within a few minutes, check your spam folder.</p>
 			</AuthNotice>
 		{:else}
-			{#if form?.error}
+			{#if form?.error && !emailError}
 				<AuthNotice tone="error" message={form.error} />
 			{/if}
 
@@ -52,8 +53,12 @@
 				method="POST"
 				use:enhance={() => {
 					loading = true;
-					return async ({ update }) => {
+					return async ({ result, update }) => {
 						loading = false;
+						emailError =
+							result.type === 'failure' && result.status === 400 && typeof result.data?.error === 'string'
+								? result.data.error
+								: '';
 						await update();
 					};
 				}}
@@ -65,6 +70,7 @@
 					name="email"
 					type="email"
 					value={form?.email ?? ''}
+					error={emailError}
 					required
 					placeholder="you@example.com"
 				/>

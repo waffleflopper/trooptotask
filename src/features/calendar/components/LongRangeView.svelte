@@ -19,7 +19,6 @@
 	import { toastStore } from '$lib/stores/toast.svelte';
 
 	const PERSONNEL_COLUMN_WIDTH = 200;
-	const COL_WIDTH = 24;
 	const GROUP_ROW_HEIGHT = 18;
 	const PERSON_ROW_HEIGHT = 22;
 	const DEFAULT_VIEWPORT_HEIGHT = 720;
@@ -131,7 +130,9 @@
 		getVisibleVirtualRows(rosterLayout.rows, scrollTop, viewportHeight, ROW_OVERSCAN_PX, rosterOffsetTop)
 	);
 
-	const rosterWidth = $derived(`${PERSONNEL_COLUMN_WIDTH + visibleDateKeys.length * COL_WIDTH}px`);
+	const rosterWidth = $derived(
+		`calc(var(--calendar-personnel-column-width) + var(--long-range-col-width) * ${visibleDateKeys.length})`
+	);
 
 	function getRosterOffsetTop() {
 		if (!scrollAreaEl || !rosterRowsEl) return 0;
@@ -225,9 +226,8 @@
 </script>
 
 <div
-	class="flex flex-1 flex-col overflow-hidden rounded-lg border bg-card text-card-foreground"
+	class="flex flex-1 flex-col overflow-hidden rounded-lg border bg-card text-card-foreground [--long-range-col-width:--spacing(6)] max-sm:[--long-range-col-width:--spacing(7)]"
 	style:--calendar-personnel-column-width={`${PERSONNEL_COLUMN_WIDTH}px`}
-	style:--long-range-col-width={`${COL_WIDTH}px`}
 	style:--long-range-group-row-height={`${GROUP_ROW_HEIGHT}px`}
 	style:--long-range-person-row-height={`${PERSON_ROW_HEIGHT}px`}
 >
@@ -262,7 +262,8 @@
 				{#each months as month (`${month.year}-${month.month}`)}
 					<div
 						class="flex min-h-9 shrink-0 items-center justify-center border-l px-0 py-2 text-center font-mono text-xs font-semibold tracking-widest text-foreground uppercase first:border-l-0"
-						style="width: {month.dates.length * COL_WIDTH}px; min-width: {month.dates.length * COL_WIDTH}px;"
+						style:width={`calc(var(--long-range-col-width) * ${month.dates.length})`}
+						style:min-width={`calc(var(--long-range-col-width) * ${month.dates.length})`}
 					>
 						{month.name}
 						{month.year}
@@ -283,7 +284,7 @@
 							variant="cell"
 							size="none"
 							class={[
-								'h-8 w-[var(--long-range-col-width)] flex-col border-l border-border bg-card text-xs text-muted-foreground max-sm:h-9 max-sm:w-7 max-sm:min-w-7 max-sm:max-w-7',
+								'h-8 w-[var(--long-range-col-width)] flex-col border-l border-border bg-card text-xs text-muted-foreground max-sm:h-9',
 								header?.weekend && 'bg-muted/55',
 								header?.today && 'z-[1] bg-primary/10 inset-ring inset-ring-primary',
 								header?.specialDay?.type === 'federal-holiday' && 'bg-warning-muted/55'
@@ -321,7 +322,7 @@
 								{#each months as month (`${month.year}-${month.month}`)}
 									{#each month.dates as date (formatDate(date))}
 										<div
-											class="h-[var(--long-range-group-row-height)] w-[var(--long-range-col-width)] shrink-0 border-l bg-muted/70 max-sm:w-7 max-sm:min-w-7 max-sm:max-w-7"
+											class="h-[var(--long-range-group-row-height)] w-[var(--long-range-col-width)] shrink-0 border-l bg-muted/70"
 										></div>
 									{/each}
 								{/each}
@@ -347,7 +348,7 @@
 										{@const status = cell?.primaryStatus}
 										<div
 											class={[
-												'status-cell relative flex h-[var(--long-range-person-row-height)] w-[var(--long-range-col-width)] shrink-0 items-center justify-center border-l bg-card transition-colors max-sm:h-8 max-sm:w-7 max-sm:min-w-7 max-sm:max-w-7',
+												'status-cell relative flex h-[var(--long-range-person-row-height)] w-[var(--long-range-col-width)] shrink-0 items-center justify-center border-l bg-card transition-colors max-sm:h-8',
 												!status && 'empty-status-cell',
 												cell?.weekend && 'bg-muted/55',
 												cell?.today && 'z-[1] inset-ring inset-ring-primary',

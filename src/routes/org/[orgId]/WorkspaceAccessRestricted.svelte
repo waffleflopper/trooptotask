@@ -4,7 +4,11 @@
 	let { subject = 'this area' }: { subject?: string } = $props();
 </script>
 
-<Empty.Root role="alert" class="m-4 min-h-80 border bg-card p-6 text-card-foreground sm:m-6 sm:p-8">
+<svelte:head>
+	<title>Access Restricted - Troop to Task</title>
+</svelte:head>
+
+<Empty.Root role="alert" class="m-4 w-auto min-h-80 border bg-card p-6 text-card-foreground sm:m-6 sm:p-8">
 	<Empty.Header>
 		<h1 class="text-xl font-semibold tracking-tight">Access Restricted</h1>
 		<Empty.Description>

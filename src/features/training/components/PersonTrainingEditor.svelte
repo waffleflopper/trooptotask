@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { onDestroy, untrack } from 'svelte';
+	import { onDestroy, tick, untrack } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
-	import type { TrainingBatchRecord } from '../contracts';
+	import { DEFAULT_TRAINING_TYPE_COLOR, type TrainingBatchRecord } from '../contracts';
 	import type { Personnel } from '$features/personnel/contracts';
 	import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 	import {
@@ -12,6 +12,7 @@
 	import { formatDate } from '$lib/utils/dates';
 	import { PendingSave } from '$lib/utils/pendingSave.svelte';
 	import { toast } from 'svelte-sonner';
+	import * as Alert from '$lib/components/ui/alert';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
@@ -66,10 +67,13 @@
 
 	const editingStates = new SvelteMap<string, TrainingEditState>();
 	let editingPersonId: string | undefined;
+	let saveError = $state<string | null>(null);
+	const dirty = $derived([...editingStates.values()].some((state) => state.isEditing && state.isDirty));
 
 	$effect(() => {
 		const drafts = untrack(() => new Map(editingStates));
 		const retainDrafts = editingPersonId === person.id;
+		if (!retainDrafts) saveError = null;
 		editingStates.clear();
 
 		for (const type of trainingTypes) {
@@ -94,7 +98,10 @@
 		editingPersonId = person.id;
 	});
 
-	async function persistTraining(operation: () => Promise<void>): Promise<boolean> {
+	async function persistTraining(
+		operation: () => Promise<void>,
+		reportFailure: (message: string) => void
+	): Promise<boolean> {
 		const personnelId = person.id;
 		if (!isCurrent()) return false;
 		try {
@@ -102,9 +109,7 @@
 			return isCurrent() && person.id === personnelId;
 		} catch (error) {
 			if (isCurrent() && person.id === personnelId) {
-				toast.error(error instanceof Error ? error.message : 'Could not save training record. Try again.', {
-					duration: 6000
-				});
+				reportFailure(error instanceof Error ? error.message : 'Could not save training record. Try again.');
 			}
 			return false;
 		}
@@ -113,11 +118,26 @@
 	function getStatusInfo(typeId: string) {
 		const type = trainingTypes.find((t) => t.id === typeId);
 		const training = trainingMap.get(typeId);
-		if (!type) return { status: 'not-required' as const, label: 'N/A', color: '#6b7280' };
+		if (!type) return { status: 'not-required' as const, label: 'N/A', color: DEFAULT_TRAINING_TYPE_COLOR };
 		return getTrainingStatus(training, type, person);
 	}
 
 	const stats = $derived(getTrainingStats([person], trainingTypes, trainings));
+
+	function reportSaveFailure(typeId: string, message: string) {
+		const typeName = trainingTypes.find((type) => type.id === typeId)?.name;
+		saveError = typeName ? `${typeName}: ${message}` : message;
+	}
+
+	function runSave(event: MouseEvent, save: () => Promise<void>) {
+		const trigger = event.currentTarget as HTMLElement;
+		saveError = null;
+		void saving.run(save).then(async () => {
+			if (!saveError || !isCurrent()) return;
+			await tick();
+			if (trigger.isConnected) trigger.focus();
+		});
+	}
 
 	function toggleEdit(typeId: string) {
 		const state = editingStates.get(typeId);
@@ -144,15 +164,17 @@
 		const today = formatDate(new Date());
 		const expirationDate = calculateExpirationDate(today, type.expirationMonths);
 
-		const saved = await persistTraining(() =>
-			onSave({
-				personnelId: person.id,
-				trainingTypeId: typeId,
-				completionDate: today,
-				expirationDate,
-				notes: null,
-				certificateUrl: null
-			})
+		const saved = await persistTraining(
+			() =>
+				onSave({
+					personnelId: person.id,
+					trainingTypeId: typeId,
+					completionDate: today,
+					expirationDate,
+					notes: null,
+					certificateUrl: null
+				}),
+			(message) => reportSaveFailure(typeId, message)
 		);
 		if (!saved) return;
 
@@ -171,15 +193,17 @@
 		const type = trainingTypes.find((t) => t.id === typeId);
 		if (!type || type.expirationMonths !== null) return;
 
-		const saved = await persistTraining(() =>
-			onSave({
-				personnelId: person.id,
-				trainingTypeId: typeId,
-				completionDate: null,
-				expirationDate: null,
-				notes: null,
-				certificateUrl: null
-			})
+		const saved = await persistTraining(
+			() =>
+				onSave({
+					personnelId: person.id,
+					trainingTypeId: typeId,
+					completionDate: null,
+					expirationDate: null,
+					notes: null,
+					certificateUrl: null
+				}),
+			(message) => reportSaveFailure(typeId, message)
 		);
 		if (!saved) return;
 
@@ -212,15 +236,17 @@
 			? state.directExpirationDate || null
 			: calculateExpirationDate(completionDate, type.expirationMonths);
 
-		const saved = await persistTraining(() =>
-			onSave({
-				personnelId: person.id,
-				trainingTypeId: typeId,
-				completionDate,
-				expirationDate,
-				notes: state.notes.trim() || null,
-				certificateUrl: state.certificateUrl.trim() || null
-			})
+		const saved = await persistTraining(
+			() =>
+				onSave({
+					personnelId: person.id,
+					trainingTypeId: typeId,
+					completionDate,
+					expirationDate,
+					notes: state.notes.trim() || null,
+					certificateUrl: state.certificateUrl.trim() || null
+				}),
+			(message) => reportSaveFailure(typeId, message)
 		);
 		if (!saved) return;
 
@@ -272,23 +298,26 @@
 			status: 'completed' as const
 		}));
 
-		const saved = await persistTraining(async () => {
-			if (onSaveBatch) {
-				await onSaveBatch(records);
-			} else {
-				for (const type of applicableTypes) {
-					const expirationDate = calculateExpirationDate(today, type.expirationMonths);
-					await onSave({
-						personnelId: person.id,
-						trainingTypeId: type.id,
-						completionDate: today,
-						expirationDate,
-						notes: null,
-						certificateUrl: null
-					});
+		const saved = await persistTraining(
+			async () => {
+				if (onSaveBatch) {
+					await onSaveBatch(records);
+				} else {
+					for (const type of applicableTypes) {
+						const expirationDate = calculateExpirationDate(today, type.expirationMonths);
+						await onSave({
+							personnelId: person.id,
+							trainingTypeId: type.id,
+							completionDate: today,
+							expirationDate,
+							notes: null,
+							certificateUrl: null
+						});
+					}
 				}
-			}
-		});
+			},
+			(message) => toast.error(message, { duration: 6000 })
+		);
 		if (!saved) return;
 
 		showMarkAllConfirm = false;
@@ -322,7 +351,7 @@
 	}
 </script>
 
-<AppDialog.Root {onClose} busy={saving.pending}>
+<AppDialog.Root {onClose} busy={saving.pending} closeBlocked={dirty}>
 	<AppDialog.Content size="wide">
 		<AppDialog.Header>
 			<AppDialog.Title>Training Records</AppDialog.Title>
@@ -330,6 +359,12 @@
 		</AppDialog.Header>
 
 		<AppDialog.Body>
+			{#if saveError}
+				<Alert.Root variant="destructive" class="mb-4">
+					<Alert.Title>Training record was not saved</Alert.Title>
+					<Alert.Description>{saveError}</Alert.Description>
+				</Alert.Root>
+			{/if}
 			<fieldset class="grid min-w-0 gap-4" disabled={saving.pending}>
 				<div class="grid grid-cols-2 gap-2 sm:grid-cols-5">
 					{#each [['Current', stats.current, 'success'], ['<60d', stats.warningYellow, 'warning'], ['<30d', stats.warningOrange, 'warning'], ['Expired', stats.expired, 'destructive'], ['Not Done', stats.notCompleted, 'outline']] as item (item[0])}
@@ -379,11 +414,19 @@
 											{#if type.expirationDateOnly}
 												<!-- Expiration-date-only training must be edited manually. -->
 											{:else if neverExpires && !existing}
-												<Button size="sm" type="button" onclick={() => saving.run(() => markComplete(type.id))}>
+												<Button
+													size="sm"
+													type="button"
+													onclick={(event) => runSave(event, () => markComplete(type.id))}
+												>
 													Complete
 												</Button>
 											{:else}
-												<Button size="sm" type="button" onclick={() => saving.run(() => markCompletedToday(type.id))}>
+												<Button
+													size="sm"
+													type="button"
+													onclick={(event) => runSave(event, () => markCompletedToday(type.id))}
+												>
 													Today
 												</Button>
 											{/if}
@@ -499,7 +542,7 @@
 										<Button
 											size="sm"
 											type="button"
-											onclick={() => saving.run(() => saveTraining(type.id))}
+											onclick={(event) => runSave(event, () => saveTraining(type.id))}
 											disabled={type.expirationDateOnly
 												? !state.directExpirationDate
 												: neverExpires

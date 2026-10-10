@@ -288,6 +288,7 @@
 								header?.today && 'z-[1] bg-primary/10 inset-ring inset-ring-primary',
 								header?.specialDay?.type === 'federal-holiday' && 'bg-warning-muted/55'
 							]}
+							aria-label={header?.dateLabel}
 							title={header?.specialDay?.name ?? `Jump to ${month.name} ${month.year}`}
 							onclick={() => onDateColumnClick?.(date)}
 						>

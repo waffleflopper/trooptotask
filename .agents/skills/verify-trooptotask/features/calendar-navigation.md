@@ -48,7 +48,7 @@ Preconditions: doctor passes; `$V fixture` supplies fixed September/March record
 ## Gotchas
 
 - Month labels depend on the test date; compare before and after instead of hardcoding September 2026.
-- The grid contains many unnamed day cells. Use named toolbar controls for navigation and use the latest snapshot for any cell interaction.
+- Month day cells are named `RANK Last, First, Weekday, Month D, YYYY` and long-range day numbers by their full date, so a cell can be found by name in a snapshot. Use named toolbar controls for navigation and the latest snapshot for any cell interaction.
 - If the Group select's options are absent from the accessibility snapshot, open the named filter and use native `press_key` with `ArrowDown`/`ArrowUp` and `Enter`. Confirm the selected label and resulting Person rows after it settles; a DOM `.click()` on its custom option does not reliably select it.
 - Use `$V fixture` for the fixed dates and today's local date; a current-month screenshot does not establish the September or March records.
 - Arm the range failure before requesting an uncovered range. A cached range may not call the endpoint, so record `network state` before claiming a failure was exercised. Range coverage restarts each time `/calendar` mounts, including a return from another Calendar page.

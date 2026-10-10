@@ -90,6 +90,7 @@
 			markers={cell.markers}
 			{showStatusText}
 			onboarding={cell.onboarding}
+			aria-label={cell.label}
 			onclick={() => handleCellClick(cell.date)}
 		/>
 	{/each}

@@ -7,10 +7,6 @@ import CalendarSettingsPage from './CalendarSettingsPage.svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
 import type { AssignmentType, SpecialDay, StatusType } from '$features/calendar/contracts';
 
-function isChecked(control: HTMLElement): boolean {
-	return control.getAttribute('aria-checked') === 'true' || (control as HTMLInputElement).checked === true;
-}
-
 const { statusTypesStoreMock, availabilityStoreMock, assignmentTypesStoreMock, specialDaysStoreMock } = vi.hoisted(
 	() => ({
 		statusTypesStoreMock: {

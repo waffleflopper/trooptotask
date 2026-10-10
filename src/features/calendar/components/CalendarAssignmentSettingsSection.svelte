@@ -157,9 +157,12 @@
 		confirmDeleteAssign = null;
 	}
 
+	let headerSwitching = $state(false);
+
 	async function setShowInDateHeader(id: string) {
-		if (!canMutate) return;
+		if (!canMutate || headerSwitching) return;
 		const prev = activeAssignmentTypes.find((t) => t.showInDateHeader && t.id !== id);
+		headerSwitching = true;
 		try {
 			// The database allows one header type per Organization, so the switch is two writes: clear, then set.
 			// A failed set tries to restore the previous header; if that also fails, no header type remains.
@@ -172,6 +175,8 @@
 			showAssignmentMutationError('Failed to update header assignment type');
 		} catch (error) {
 			showAssignmentMutationError('Failed to update header assignment type', error);
+		} finally {
+			headerSwitching = false;
 		}
 	}
 </script>
@@ -187,7 +192,7 @@
 
 <RadioGroup.Root
 	bind:value={() => headerTypeId ?? '', (id) => void setShowInDateHeader(id)}
-	disabled={!canMutate}
+	disabled={!canMutate || headerSwitching}
 	aria-label="Assignment type shown in the date header"
 	class="gap-1.5"
 >

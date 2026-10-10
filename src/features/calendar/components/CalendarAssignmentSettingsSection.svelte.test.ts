@@ -110,4 +110,24 @@ describe('CalendarAssignmentSettingsSection date header', () => {
 		expect(isChecked(radio('Charge of Quarters'))).toBe(true);
 		expect(isChecked(radio('Staff Duty'))).toBe(false);
 	});
+
+	it('ignores another header choice until the pending switch finishes', async () => {
+		const server = stubAssignmentTypeServer([]);
+		const respond = vi.mocked(fetch).getMockImplementation()!;
+		let release!: () => void;
+		const gate = new Promise<void>((resolve) => (release = resolve));
+		vi.mocked(fetch).mockImplementationOnce(async (...args) => {
+			await gate;
+			return respond(...args);
+		});
+		render(CalendarAssignmentSettingsSection, { props: { canMutate: true, searchQuery: '' } });
+
+		await fireEvent.click(radio('Staff Duty'));
+		await fireEvent.click(radio('Charge of Quarters'));
+		release();
+
+		await waitFor(() => expect(server.puts).toEqual(['cq:false', 'sd:true']));
+		await waitFor(() => expect(isChecked(radio('Staff Duty'))).toBe(true));
+		expect(server.headerFlags()).toEqual({ cq: false, sd: true });
+	});
 });

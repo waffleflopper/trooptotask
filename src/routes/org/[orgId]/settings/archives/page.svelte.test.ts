@@ -65,4 +65,28 @@ describe('Archived personnel permanent delete', () => {
 		expect((screen.getByLabelText('Type the name to confirm') as HTMLInputElement).value).toBe('SGT Rivera, Monica');
 		expect(invalidateAllMock).not.toHaveBeenCalled();
 	});
+	it('holds the other actions of a row while its Restore is in flight', async () => {
+		let respond!: (response: Response) => void;
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(() => new Promise<Response>((resolve) => (respond = resolve)))
+		);
+		render(Page, {
+			props: { data: { archivesSettings: { sections: { archivedPersonnel: archivesSettings } } } } as never
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Restore' }));
+
+		for (const name of [/Restore/, /Export/, /Delete/]) {
+			expect((screen.getByRole('button', { name }) as HTMLButtonElement).disabled).toBe(true);
+		}
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+		expect(screen.queryByRole('dialog')).toBeNull();
+
+		respond(new Response(null, { status: 500 }));
+		await waitFor(() =>
+			expect((screen.getByRole('button', { name: 'Delete' }) as HTMLButtonElement).disabled).toBe(false)
+		);
+		expect((screen.getByRole('button', { name: 'Export' }) as HTMLButtonElement).disabled).toBe(false);
+	});
 });

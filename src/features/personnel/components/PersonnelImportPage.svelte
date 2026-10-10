@@ -11,6 +11,7 @@
 	import type { Personnel } from '../personnel.types';
 	import type { RankCatalogEntry } from '$features/personnel/contracts';
 	import * as BulkImportWorkspace from '$lib/components/patterns/bulk-import-workspace';
+	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import * as NativeSelect from '$lib/components/ui/native-select';
@@ -66,7 +67,6 @@
 		savedCount: number;
 		errors: PersonnelBatchMessage[];
 		skipped?: PersonnelBatchMessage[];
-		message?: string;
 	}
 
 	const TEMPLATE_HEADERS = 'Rank, Last Name, First Name, MOS, Duty Role, Group, ETS, PCS / DEROS';
@@ -78,6 +78,7 @@
 	let uploadedFiles = $state<FileList>();
 	let uploadedFileName = $state('');
 	let importError = $state('');
+	let submitError = $state('');
 	let importResult = $state<ImportResult | null>(null);
 	let runningImport = $state(false);
 	let editableRows = $state<string[][]>([]);
@@ -362,6 +363,7 @@
 		userOverrides = {};
 		selection.clear();
 		importError = '';
+		submitError = '';
 		importResult = null;
 		lastSubmittedEntries = [];
 		importStep = 'input';
@@ -408,6 +410,7 @@
 		if (checkedRows.length === 0) return;
 
 		lastSubmittedEntries = checkedRows;
+		submitError = '';
 		runningImport = true;
 		importStep = 'importing';
 
@@ -422,27 +425,19 @@
 				.json()
 				.catch(() => ({}));
 			if (!response.ok) {
-				importResult = {
-					savedCount: 0,
-					errors: data.errors ?? [],
-					skipped: data.skipped ?? [],
-					message: data.message ?? `Import failed with status ${response.status}`
-				};
-			} else {
-				importResult = {
-					savedCount: importMode === 'merge' ? (data.updated ?? []).length : (data.inserted ?? []).length,
-					errors: importMode === 'merge' ? [...(data.errors ?? []), ...(data.ambiguous ?? [])] : (data.errors ?? []),
-					skipped: importMode === 'merge' ? (data.skipped ?? []) : []
-				};
+				submitError = data.message ?? `Import failed with status ${response.status}`;
+				importStep = 'preview';
+				return;
 			}
-			importStep = 'results';
-		} catch (err) {
 			importResult = {
-				savedCount: 0,
-				errors: [{ index: -1, message: err instanceof Error ? err.message : 'Network error' }],
-				skipped: []
+				savedCount: importMode === 'merge' ? (data.updated ?? []).length : (data.inserted ?? []).length,
+				errors: importMode === 'merge' ? [...(data.errors ?? []), ...(data.ambiguous ?? [])] : (data.errors ?? []),
+				skipped: importMode === 'merge' ? (data.skipped ?? []) : []
 			};
 			importStep = 'results';
+		} catch (err) {
+			submitError = err instanceof Error ? err.message : 'Network error';
+			importStep = 'preview';
 		} finally {
 			runningImport = false;
 		}
@@ -643,6 +638,12 @@
 				{/if}
 			{/snippet}
 
+			{#if submitError}
+				<Alert.Root variant="destructive">
+					<Alert.Description>{submitError}</Alert.Description>
+				</Alert.Root>
+			{/if}
+
 			<Tooltip.Provider>
 				<BulkImportWorkspace.Root ariaLabel="Personnel import workspace">
 					<BulkImportWorkspace.Header
@@ -721,7 +722,7 @@
 				{#if importResult?.errors.some((error) => error.index >= 0)}
 					<Button variant="outline" type="button" onclick={reviewFailedRows}>Review failed rows</Button>
 					<Button variant="outline" type="button" onclick={clearFile}>Upload another file</Button>
-				{:else if importResult?.errors.length || importResult?.message}
+				{:else if importResult?.errors.length}
 					<Button variant="outline" type="button" onclick={clearFile}>Upload another file</Button>
 				{/if}
 				<Button type="button" onclick={finishImport}>Return to Personnel</Button>
@@ -729,7 +730,7 @@
 
 			<BulkImportWorkspace.ResultSummary
 				status={resultStatus}
-				description={importResult.message ?? 'Review the summary before returning to the roster.'}
+				description="Review the summary before returning to the roster."
 				items={[
 					{ label: 'Saved', value: importResult.savedCount, tone: 'success' },
 					...(importMode === 'merge'

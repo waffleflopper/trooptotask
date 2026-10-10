@@ -517,26 +517,104 @@ describe('PersonnelImportPage', () => {
 		expect(screen.getByRole('button', { name: 'Import checked rows' })).toBeDisabled();
 	});
 
-	it('shows a rejected request reason and allows a fresh upload', async () => {
+	it('keeps the edited preview, selection and an alert when the import is rejected, and retries the same rows', async () => {
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValueOnce(new Response(JSON.stringify({ message: 'Service unavailable' }), { status: 503 }))
+			.mockResolvedValueOnce(new Response(JSON.stringify({ inserted: [{}], errors: [] }), { status: 200 }));
+		vi.stubGlobal('fetch', fetchMock);
+		parseFileMock.mockResolvedValue([
+			['Rank', 'Last Name', 'First Name'],
+			['SGT', 'Smith', 'John'],
+			['CPL', 'Taylor', 'Pat']
+		]);
+		renderPage();
+		await fireEvent.change(document.querySelector<HTMLInputElement>('#fileUpload')!, {
+			target: { files: [new File(['records'], 'personnel.csv', { type: 'text/csv' })] }
+		});
+		await fireEvent.click(await screen.findByRole('button', { name: /Preview 2 Rows/i }));
+		const firstName = screen.getByRole('textbox', { name: 'Row 2 First Name' });
+		await fireEvent.change(firstName, { target: { value: 'Jonathan' } });
+		await fireEvent.blur(firstName);
+		await fireEvent.click(screen.getByRole('checkbox', { name: 'Select import row 2' }));
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Import checked rows' }));
+
+		expect((await screen.findByText('Service unavailable')).closest('[role="alert"]')).not.toBeNull();
+		expect(screen.queryByText('Import failed')).toBeNull();
+		expect((screen.getByRole('textbox', { name: 'Row 2 First Name' }) as HTMLInputElement).value).toBe('Jonathan');
+		expect(screen.getByRole('checkbox', { name: 'Select import row 1' })).toBeChecked();
+		expect(screen.getByRole('checkbox', { name: 'Select import row 2' })).not.toBeChecked();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Import checked rows' }));
+
+		await screen.findByRole('button', { name: 'Return to Personnel' });
+		expect(screen.queryByText('Service unavailable')).toBeNull();
+		const expectedBody = { records: [{ rank: 'SGT', lastName: 'Smith', firstName: 'Jonathan' }] };
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+		expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual(expectedBody);
+		expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual(expectedBody);
+	});
+
+	it('names the status when a failed import has no message body', async () => {
 		vi.stubGlobal(
 			'fetch',
-			vi.fn(async () => new Response(JSON.stringify({ message: 'Unable to save personnel' }), { status: 500 }))
+			vi.fn(async () => new Response('upstream down', { status: 502 }))
 		);
 		parseFileMock.mockResolvedValue([
 			['Rank', 'Last Name', 'First Name'],
 			['SGT', 'Smith', 'John']
 		]);
 		renderPage();
-		const input = document.querySelector<HTMLInputElement>('#fileUpload');
-		await fireEvent.change(input!, {
+		await fireEvent.change(document.querySelector<HTMLInputElement>('#fileUpload')!, {
 			target: { files: [new File(['records'], 'personnel.csv', { type: 'text/csv' })] }
 		});
 		await fireEvent.click(await screen.findByRole('button', { name: /Preview 1 Rows/i }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Import checked rows' }));
-		expect(await screen.findByText('Import failed')).toBeInTheDocument();
-		expect(screen.getByText('Unable to save personnel')).toBeInTheDocument();
-		await fireEvent.click(screen.getByRole('button', { name: 'Upload another file' }));
-		expect(document.querySelector<HTMLInputElement>('#fileUpload')).toBeInTheDocument();
+
+		expect((await screen.findByText('Import failed with status 502')).closest('[role="alert"]')).not.toBeNull();
+		expect(screen.getByRole('button', { name: 'Import checked rows' })).toBeEnabled();
+	});
+
+	it('keeps the preview and the import mode when the network drops, and retries the same rows', async () => {
+		const fetchMock = vi
+			.fn()
+			.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+			.mockResolvedValueOnce(
+				new Response(JSON.stringify({ updated: [{}], errors: [], ambiguous: [] }), { status: 200 })
+			);
+		vi.stubGlobal('fetch', fetchMock);
+		parseFileMock.mockResolvedValue([
+			['Rank', 'Last Name', 'First Name', 'ETS'],
+			['SGT', 'Smith', 'Jane', '2027-05-01']
+		]);
+		renderPage();
+		await fireEvent.click(screen.getByRole('button', { name: 'Backfill ETS/DEROS' }));
+		await fireEvent.change(document.querySelector<HTMLInputElement>('#fileUpload')!, {
+			target: { files: [new File(['records'], 'personnel.csv', { type: 'text/csv' })] }
+		});
+		await fireEvent.click(await screen.findByRole('button', { name: /Preview 1 Rows/i }));
+		const ets = screen.getByRole('textbox', { name: 'Row 2 ETS' });
+		await fireEvent.change(ets, { target: { value: '2028-01-15' } });
+		await fireEvent.blur(ets);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Backfill ETS/DEROS checked rows' }));
+
+		expect((await screen.findByText('Failed to fetch')).closest('[role="alert"]')).not.toBeNull();
+		expect((screen.getByRole('textbox', { name: 'Row 2 ETS' }) as HTMLInputElement).value).toBe('2028-01-15');
+		expect(screen.getByRole('checkbox', { name: 'Select import row 1' })).toBeChecked();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Backfill ETS/DEROS checked rows' }));
+
+		await screen.findByRole('button', { name: 'Return to Personnel' });
+		expect(screen.queryByText('Failed to fetch')).toBeNull();
+		const expectedBody = { records: [{ rank: 'SGT', lastName: 'Smith', firstName: 'Jane', ets: '2028-01-15' }] };
+		expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+			'/org/org-1/api/personnel/merge',
+			'/org/org-1/api/personnel/merge'
+		]);
+		expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual(expectedBody);
+		expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual(expectedBody);
 	});
 
 	it('renders partial results with recovery actions and failed-row context', async () => {

@@ -75,7 +75,7 @@ For the two retained private buckets, run `$V private-buckets` after the owned w
 
 ## Gotchas
 
-- Archive, Open, Restore and Delete repeat per item. Use a fresh snapshot and the named row; preserve the selected ID alongside the action. Delete currently acts directly without a confirmation dialog.
+- Archive, Open, Restore and Delete repeat per item. Use a fresh snapshot and the named row; preserve the selected ID alongside the action. Delete opens a destructive `Delete archived item` confirmation: Cancel and Escape send nothing and return focus to Delete; confirm deletes, and focus may then fall to `body`.
 - The recorded outcome comes from visible actions plus saved row/file readback and reload. A closed form, disappearing card, signed URL or success toast alone is insufficient.
 - Counseling file access has no current native entry point. Label authenticated Storage/SQL proof honestly; do not add an Open product feature merely to make the recipe executable.
 - The [retained file rules](../../../../docs/domain/retained-feature-rules.md#personnel-documents-and-counseling) and [sensitive authorization contract](../../../../docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md#feature-permission-direction) own expectations. Keep the accepted note author fallback and 100-row composite-cursor traversal with complete legacy arrays; a small native list does not re-prove tied-timestamp or large-collection coverage.

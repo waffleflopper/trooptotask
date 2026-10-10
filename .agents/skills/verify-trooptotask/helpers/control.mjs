@@ -35,7 +35,15 @@ import { requestPlatform } from './platform-request.mjs';
 import { platformFormNetworkTarget } from './platform-network-target.mjs';
 import { requestAuditTrainingUpdate } from './audit-request.mjs';
 import { artifactHttp, clearArtifactHttpCache } from './artifact-http.mjs';
-import { authConfirmUrl, redactAuthTokens, syntheticEmail, textboxUid } from './identity-controls.mjs';
+import {
+	accountSetupSeed,
+	authConfirmUrl,
+	identityEmails,
+	redactAuthTokens,
+	setupAccountUrl,
+	syntheticEmail,
+	textboxUid
+} from './identity-controls.mjs';
 import {
 	prepareUploadOverlap,
 	inspectUploadOverlap,
@@ -402,6 +410,7 @@ async function main() {
 			rankCatalog: fixture.rankCatalog,
 			dates: fixture.dates,
 			invitationEmails: fixture.invitationEmails,
+			identityEmails: identityEmails(fixture),
 			notificationUsers: Object.fromEntries(
 				Object.keys(fixture.notificationActors).map((role) => [role, fixture.actors[role].id])
 			),
@@ -610,16 +619,46 @@ async function main() {
 		note({ pageId, type, email, path: '/auth/confirm', snapshot });
 		return;
 	}
+	if (command === 'setup-link') {
+		const [page, kind] = args;
+		const pageId = Number(page);
+		const rawToken = (await saved()).accountSetup?.tokens?.[kind];
+		if (args.length !== 2 || !Number.isInteger(pageId) || pageId < 1 || !rawToken)
+			throw new Error('Use setup-link PAGE CLASS after seed account-setup.');
+		if ((await evaluate(state, pageId, '() => location.origin')) !== doctor.origin)
+			throw new Error('The page is not on the owned app origin.');
+		await tool(state, 'navigate_page', { pageId, type: 'url', url: setupAccountUrl(doctor.origin, rawToken) });
+		const snapshot = redactAuthTokens(text(await tool(state, 'take_snapshot', { pageId })));
+		if (snapshot.includes(rawToken)) throw new Error('Setup token survived redaction; refusing to print.');
+		note({ pageId, class: kind, path: '/auth/setup-account', snapshot });
+		return;
+	}
 	if (command === 'access-request') {
 		const email = syntheticEmail(args[0]);
+		const client = await provider();
 		const rows = checked(
-			await (await provider())
+			await client
 				.from('access_requests')
-				.select('id,email,name,reason,heard_about,heard_about_details,status,created_at,reviewed_at,setup_completed_at')
+				.select(
+					'id,email,name,reason,heard_about,heard_about_details,status,created_at,reviewed_at,setup_user_id,setup_completed_at'
+				)
 				.eq('email', email)
 				.order('created_at')
 		);
-		note({ email, count: rows.length, rows });
+		const setupLinks = rows.length
+			? checked(
+					await client
+						.from('account_setup_links')
+						.select(
+							'id,access_request_id,expires_at,claimed_at,used_at,failed_at,failure_reason,revoked_at,revocation_reason'
+						)
+						.in(
+							'access_request_id',
+							rows.map(({ id }) => id)
+						)
+				)
+			: [];
+		note({ email, count: rows.length, rows, setupLinks });
 		return;
 	}
 	if (command === 'onboarding-request') {
@@ -1475,7 +1514,8 @@ async function main() {
 				'communications',
 				'organization-destruction',
 				'rating-scheme',
-				'deletion-sources'
+				'deletion-sources',
+				'account-setup'
 			].includes(kind)
 		)
 			throw new Error('Unknown temporary seed.');
@@ -1504,6 +1544,31 @@ async function main() {
 		}
 		if (kind === 'deletion-sources') {
 			note(await seedDeletionSources({ client, fixture, tag, ownedState, save }));
+			return;
+		}
+		if (kind === 'account-setup') {
+			if (ownedState.accountSetup) throw new Error('Clean the existing account setup seed first.');
+			const seed = Object.entries(accountSetupSeed(tag));
+			ownedState.accountSetup = { tag, tokens: Object.fromEntries(seed.map(([key, item]) => [key, item.rawToken])) };
+			for (const [table, key] of [
+				['access_requests', 'request'],
+				['account_setup_links', 'link']
+			])
+				ownedState.seeded.push({ kind, tag, table, organization: null, ids: seed.map(([, item]) => item[key].id) });
+			await save(ownedState);
+			checked(await client.from('access_requests').insert(seed.map(([, item]) => item.request)));
+			checked(await client.from('account_setup_links').insert(seed.map(([, item]) => item.link)));
+			note({
+				kind,
+				tag,
+				classes: Object.fromEntries(
+					seed.map(([key, { request, link }]) => {
+						const { token_hash: _hash, ...stored } = link;
+						return [key, { email: request.email, accessRequestStatus: request.status, link: stored }];
+					})
+				),
+				boundary: 'Privileged synthetic setup links; raw tokens stay in private worker state.'
+			});
 			return;
 		}
 		if (kind === 'organization-destruction') {
@@ -2126,7 +2191,7 @@ async function main() {
 				let query = client.from(item.table).delete().in('id', ids);
 				if (
 					!(
-						item.kind.startsWith('maintenance-retention') &&
+						(item.kind.startsWith('maintenance-retention') || item.kind === 'account-setup') &&
 						['access_requests', 'account_setup_links'].includes(item.table)
 					) &&
 					(item.kind !== 'communications' || item.table !== 'platform_announcements')
@@ -2144,6 +2209,7 @@ async function main() {
 			}
 		}
 		ownedState.seeded = [];
+		delete ownedState.accountSetup;
 		await save(ownedState);
 		await clearArtifactHttpCache({ session, sessionId: state.id });
 		if (platformError) throw platformError;
@@ -2490,7 +2556,7 @@ async function main() {
 		return;
 	}
 	throw new Error(
-		'Use fixture, actor, rows, access-request, auth-link, mfa-code, password, password-commit, settings-request, deletion-request, personnel-archive-batch, deletion-review-failure, audit-training-update, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, private-buckets, roster-files, roster-replace, signed-download, calendar-grant, dashboard-access, server-source, seed, clean-seeds, retention, network, export, print, or workbook.'
+		'Use fixture, actor, rows, access-request, auth-link, setup-link, mfa-code, password, password-commit, settings-request, deletion-request, personnel-archive-batch, deletion-review-failure, audit-training-update, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, private-buckets, roster-files, roster-replace, signed-download, calendar-grant, dashboard-access, server-source, seed, clean-seeds, retention, network, export, print, or workbook.'
 	);
 }
 

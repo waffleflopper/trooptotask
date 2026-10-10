@@ -64,4 +64,18 @@ describe('RosterPicker', () => {
 
 		expect(screen.getByText('N/A')).toBeTruthy();
 	});
+
+	it('offers sorting only on the named data columns', () => {
+		render(RosterPicker, {
+			props: {
+				personnelByGroup: [{ group: 'Alpha', personnel: [personnel({})] }],
+				selection: makeSelection()
+			}
+		});
+
+		const sortButtons = screen
+			.getAllByRole('button', { name: /^Sort by/ })
+			.map((button) => button.getAttribute('aria-label'));
+		expect(sortButtons).toEqual(['Sort by Rank', 'Sort by Name', 'Sort by MOS / Duty Role']);
+	});
 });

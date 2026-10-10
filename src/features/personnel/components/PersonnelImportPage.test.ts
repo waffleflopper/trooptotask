@@ -576,6 +576,25 @@ describe('PersonnelImportPage', () => {
 		expect(screen.getByRole('button', { name: 'Import checked rows' })).toBeEnabled();
 	});
 
+	it('warns that rows may already be saved when the connection drops during an import', async () => {
+		vi.stubGlobal('fetch', vi.fn().mockRejectedValueOnce(new TypeError('Failed to fetch')));
+		parseFileMock.mockResolvedValue([
+			['Rank', 'Last Name', 'First Name'],
+			['SGT', 'Smith', 'John']
+		]);
+		renderPage();
+		await fireEvent.change(document.querySelector<HTMLInputElement>('#fileUpload')!, {
+			target: { files: [new File(['records'], 'personnel.csv', { type: 'text/csv' })] }
+		});
+		await fireEvent.click(await screen.findByRole('button', { name: /Preview 1 Rows/i }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Import checked rows' }));
+
+		const message =
+			'The connection dropped before the import was confirmed. Some rows may already be saved, so check Personnel before importing again.';
+		expect((await screen.findByText(message)).closest('[role="alert"]')).not.toBeNull();
+		expect(screen.getByRole('checkbox', { name: 'Select import row 1' })).toBeChecked();
+	});
+
 	it('keeps the preview and the import mode when the network drops, and retries the same rows', async () => {
 		const fetchMock = vi
 			.fn()
@@ -600,14 +619,18 @@ describe('PersonnelImportPage', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Backfill ETS/DEROS checked rows' }));
 
-		expect((await screen.findByText('Failed to fetch')).closest('[role="alert"]')).not.toBeNull();
+		expect(
+			(await screen.findByText('The connection dropped before the backfill was confirmed. Try again.')).closest(
+				'[role="alert"]'
+			)
+		).not.toBeNull();
 		expect((screen.getByRole('textbox', { name: 'Row 2 ETS' }) as HTMLInputElement).value).toBe('2028-01-15');
 		expect(screen.getByRole('checkbox', { name: 'Select import row 1' })).toBeChecked();
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Backfill ETS/DEROS checked rows' }));
 
 		await screen.findByRole('button', { name: 'Return to Personnel' });
-		expect(screen.queryByText('Failed to fetch')).toBeNull();
+		expect(screen.queryByText('The connection dropped before the backfill was confirmed. Try again.')).toBeNull();
 		const expectedBody = { records: [{ rank: 'SGT', lastName: 'Smith', firstName: 'Jane', ets: '2028-01-15' }] };
 		expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
 			'/org/org-1/api/personnel/merge',

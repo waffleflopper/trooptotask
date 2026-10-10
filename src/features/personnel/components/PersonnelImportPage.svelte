@@ -435,8 +435,11 @@
 				skipped: importMode === 'merge' ? (data.skipped ?? []) : []
 			};
 			importStep = 'results';
-		} catch (err) {
-			submitError = err instanceof Error ? err.message : 'Network error';
+		} catch {
+			submitError =
+				importMode === 'merge'
+					? 'The connection dropped before the backfill was confirmed. Try again.'
+					: 'The connection dropped before the import was confirmed. Some rows may already be saved, so check Personnel before importing again.';
 			importStep = 'preview';
 		} finally {
 			runningImport = false;

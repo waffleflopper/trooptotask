@@ -2,7 +2,7 @@
 
 Baseline: `282fcace16795a13e2306bf71d44465f59d51acc`. Completed phases are summarized below; their accepted evidence and exact historical task scopes remain linked. [BASELINE](BASELINE.md) owns retained contracts and original findings, [EVIDENCE](EVIDENCE.md) owns acceptance and verification, and [RELEASE](RELEASE.md) owns operator obligations.
 
-**Active checkpoint:** Phase **09**, parent [#1282](https://github.com/waffleflopper/trooptotask/issues/1282), milestone **7**, active child D04 [#1582](https://github.com/waffleflopper/trooptotask/issues/1582), task **09-04**, one PR from `chore/stabilize-1582`, state **AWAITING_MERGE**. D01 #1579 merged as `9c856f05`. D02 #1580 merged through #1591, #1592 and #1593 (`15aeb088`). D03 #1581 merged through #1594, #1595 and #1596 (`c69a41b9`). Actual publication and current-head CI state are owned by GitHub. Phase 08 is accepted and closed on `8072a9ef`; see the [Phase 08 summary](#08--all-module-migration).
+**Active checkpoint:** Phase **09**, parent [#1282](https://github.com/waffleflopper/trooptotask/issues/1282), milestone **7**, final child D05 [#1583](https://github.com/waffleflopper/trooptotask/issues/1583), task **09-VERIFY**, one PR from `chore/stabilize-1583`, state **AWAITING_MERGE**. D01–D04 (#1579–#1582) are merged and closed. After D05 merges, the #1282 acceptance comment closes the parent and milestone 7; Phase 10 [#1283](https://github.com/waffleflopper/trooptotask/issues/1283) is next and is not activated.
 
 ## Execution rules
 
@@ -42,21 +42,9 @@ Parent #1281 and milestone 6 are closed. Backlog #1554, #1555 and #1557 and the 
 
 ## 09 — UI foundation
 
-Prerequisite: Phase 08 accepted. Each child owns one complete outcome and may span several PRs. Before its cutover, extend the [shared UI recipe](../../.agents/skills/verify-trooptotask/features/shared-ui.md) and affected feature recipes, then run them on unchanged main. Repeat the affected steps on the final candidate. Component tests, governance fixtures, the Svelte autofixer and **G** stay separate obligations. Consumer screen migration is Phase 10.
+**Completed technical scope:** D01–D05 (#1579–#1583) recorded provenance and one canonical API per family, upgraded Bits UI to 2.19.5 with two justified patch transformations, made `src/app.css` and `themeStore` the only token and theme sources, created the `components/patterns` layer and moved domain UI to its owners, fixed and tested every family's interaction contract through real consumers in light/dark and narrow/wide, and added the [UI foundation guard](../architecture/GOVERNANCE_CHECKS.md#ui-foundation-guard) and the generated [Phase 10 consumer inventory](phase-10-inventory.md). The [Phase 09 integrated phase check](EVIDENCE.md#phase-09-integrated-phase-check) records the candidate, fresh live run, repair and pinned per-deliverable receipts. The [foundation reference](../ui-foundation-provenance.md) and [component catalog](../component-catalog.md) own the decided contract.
 
-| State | Child                                                                 | Task        | Outcome                                                                                                                                              | Depends on                  |
-| ----- | --------------------------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
-| - [x] | D01 [#1579](https://github.com/waffleflopper/trooptotask/issues/1579) | `09-01`     | Provenance per family, Bits UI patch disposition, one token and theme source, canonical API and target layer for every family                        | Phase 08                    |
-| - [x] | D02 [#1580](https://github.com/waffleflopper/trooptotask/issues/1580) | `09-02`     | `components/patterns` home, domain UI moved to owners, `multi-select`/`type-workspace` aliases and dead families deleted with all consumers migrated | D01                         |
-| - [x] | D03 [#1581](https://github.com/waffleflopper/trooptotask/issues/1581) | `09-03`     | Central interaction fixes and component tests for every family; consumer proof in light/dark and narrow/wide                                         | D01; D02 for moved families |
-| - [x] | D04 [#1582](https://github.com/waffleflopper/trooptotask/issues/1582) | `09-04`     | Governance guards with fixtures and a rerunnable Phase 10 consumer inventory                                                                         | D02, D03                    |
-| - [ ] | D05 [#1583](https://github.com/waffleflopper/trooptotask/issues/1583) | `09-VERIFY` | Integrated foundation acceptance, Phase 09 compaction, parent/milestone closure                                                                      | D01–D04                     |
-
-D01 merged through #1584 and #1590 (`9c856f05`); its [acceptance](EVIDENCE.md#phase-09-d01-foundation-provenance-and-contracts) records the proof. D02 merged as a stack of three PRs: alias and dead-family retirement (#1591, `6d3e73bc`), the `patterns` layer (#1592, `2f78d867`), then feature-owned UI (#1593, `15aeb088`), which closed #1580. [D02 acceptance](EVIDENCE.md#phase-09-d02-composition-layers) records the proof and limits. D03 merged as a stack of three PRs (#1594, #1595, #1596; `c69a41b9`): the [component-foundation recipe](../../.agents/skills/verify-trooptotask/features/component-foundation.md) and unchanged baseline, the primitive families, then the overlay families; [D03 evidence](EVIDENCE.md#phase-09-d03-family-interaction-contracts) records each gap's baseline and final result and the whole-family coverage. D04 adds the [UI foundation guard](../architecture/GOVERNANCE_CHECKS.md#ui-foundation-guard) to `governance:check` and the generated [Phase 10 consumer inventory](phase-10-inventory.md); [D04 evidence](EVIDENCE.md#phase-09-d04-foundation-guards-and-consumer-inventory) records the proof.
-
-Integrated credit: D29 (#1529/#1533) removed the five primitive barrel cycles originally listed under 09-01 and repaired the Tooltip, Pagination, RangeCalendar and Sidebar contracts. `onboarding-packet-list` already lives in Onboarding. D01 rechecks both on its candidate rather than repeating them.
-
-Parallel work: after D01 integrates, one worker may take D03's primitive-only families while D02 runs, under the [bounded parallel rule](../agents/stabilization-workflow.md#bounded-parallel-work). The coordinator keeps `scripts/module-boundaries.json`, the component catalog, shared recipes and TODO/EVIDENCE.
+The foundation gate does not certify Phase 10. Every remaining web consumer migrates there, starting from the inventory.
 
 ## 10 — All-UI consumers
 
@@ -125,4 +113,4 @@ Measurements unavailable now are listed in EVIDENCE. Later isolated synthetic wo
 
 ## Next executable task
 
-D04 [#1582](https://github.com/waffleflopper/trooptotask/issues/1582), task **09-04**, is AWAITING_MERGE as one PR that closes #1582 on merge. After it merges, verify the integrated result and continue with D05 [#1583](https://github.com/waffleflopper/trooptotask/issues/1583) on request. Earlier owner release obligations remain in [RELEASE](RELEASE.md).
+D05 [#1583](https://github.com/waffleflopper/trooptotask/issues/1583), task **09-VERIFY**, is AWAITING_MERGE as one PR that closes #1583 on merge. After it merges, verify the integrated result, record acceptance on #1282 and close #1282 and milestone 7. Phase 10 [#1283](https://github.com/waffleflopper/trooptotask/issues/1283) is next and needs Robert's explicit activation. Earlier owner release obligations remain in [RELEASE](RELEASE.md).

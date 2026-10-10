@@ -9,7 +9,8 @@
 
 	let { data, form } = $props();
 	let loading = $state(false);
-	let emailError = $state('');
+	// The server marks failures that belong to the email field, so native and enhanced submissions render the same.
+	const emailError = $derived(form && 'field' in form && form.field === 'email' ? form.error : '');
 
 	const emailValue = $derived(form?.email ?? data.email ?? '');
 </script>
@@ -58,12 +59,8 @@
 				method="POST"
 				use:enhance={() => {
 					loading = true;
-					return async ({ result, update }) => {
+					return async ({ update }) => {
 						loading = false;
-						emailError =
-							result.type === 'failure' && result.status === 400 && typeof result.data?.error === 'string'
-								? result.data.error
-								: '';
 						await update();
 					};
 				}}

@@ -118,7 +118,6 @@ describe('TrainingRecordModal', () => {
 					rejectSave = reject;
 				})
 		);
-		vi.spyOn(toast, 'error').mockImplementation(() => 'error');
 		// happy-dom does not apply a disabled fieldset to its controls' :disabled state.
 		const inDisabledGroup = (control: HTMLElement) => control.closest('fieldset')?.disabled === true;
 		render(TrainingRecordModal, {
@@ -157,6 +156,84 @@ describe('TrainingRecordModal', () => {
 		expect(notes.value).toBe('Draft A');
 		expect(inDisabledGroup(notes)).toBe(false);
 		expect((screen.getByRole('button', { name: 'Delete' }) as HTMLButtonElement).disabled).toBe(false);
+		expect(within(dialog).getByRole('alert').textContent).toContain('Save denied');
+	});
+
+	it('shows a failed save as a dialog alert, keeps the draft and returns focus to Save', async () => {
+		const errorToast = vi.spyOn(toast, 'error').mockImplementation(() => 'error');
+		const onClose = vi.fn();
+		render(TrainingRecordModal, {
+			props: {
+				person,
+				trainingType,
+				existingTraining: undefined,
+				onSave: vi
+					.fn()
+					.mockRejectedValueOnce(new Error('Training type no longer exists'))
+					.mockResolvedValueOnce(undefined),
+				onRemove: vi.fn(),
+				onClose
+			}
+		});
+		await fireEvent.input(screen.getByLabelText('Notes (optional)'), { target: { value: 'Keep me' } });
+		await fireEvent.click(screen.getByTestId('training-save'));
+
+		const alert = await screen.findByRole('alert');
+		expect(alert.textContent).toContain('Training record was not saved');
+		expect(alert.textContent).toContain('Training type no longer exists');
+		expect((screen.getByLabelText('Notes (optional)') as HTMLTextAreaElement).value).toBe('Keep me');
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId('training-save')));
+		expect(errorToast).not.toHaveBeenCalled();
+		expect(onClose).not.toHaveBeenCalled();
+
+		await fireEvent.click(screen.getByTestId('training-save'));
+		await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+	});
+
+	describe('Escape', () => {
+		function renderEditor() {
+			const onClose = vi.fn();
+			render(TrainingRecordModal, {
+				props: {
+					person,
+					trainingType,
+					existingTraining: {
+						id: 'record-1',
+						personnelId: person.id,
+						trainingTypeId: trainingType.id,
+						completionDate: '2026-01-05',
+						expirationDate: '2027-01-05',
+						notes: 'Saved notes',
+						certificateUrl: null
+					},
+					onSave: vi.fn(),
+					onRemove: vi.fn(),
+					onClose
+				}
+			});
+			return { onClose, dialog: screen.getByRole('dialog') };
+		}
+
+		it('keeps the dialog and the edited notes when a dirty record is dismissed with Escape', async () => {
+			const { onClose, dialog } = renderEditor();
+			await fireEvent.input(screen.getByLabelText('Notes (optional)'), { target: { value: 'Unsaved draft' } });
+
+			await fireEvent.keyDown(dialog, { key: 'Escape' });
+
+			expect(onClose).not.toHaveBeenCalled();
+			expect((screen.getByLabelText('Notes (optional)') as HTMLTextAreaElement).value).toBe('Unsaved draft');
+		});
+
+		it('closes on Escape when nothing changed or the edit was reverted', async () => {
+			const { onClose, dialog } = renderEditor();
+			const notes = screen.getByLabelText('Notes (optional)');
+			await fireEvent.input(notes, { target: { value: 'Unsaved draft' } });
+			await fireEvent.input(notes, { target: { value: 'Saved notes' } });
+
+			await fireEvent.keyDown(dialog, { key: 'Escape' });
+
+			expect(onClose).toHaveBeenCalledTimes(1);
+		});
 	});
 
 	it.each(['success', 'failure'] as const)('keeps a disposed record editor quiet after a late %s', async (outcome) => {
@@ -167,7 +244,6 @@ describe('TrainingRecordModal', () => {
 			rejectSave = reject;
 		});
 		const successToast = vi.spyOn(toast, 'success').mockImplementation(() => 'success');
-		const errorToast = vi.spyOn(toast, 'error').mockImplementation(() => 'error');
 		const onClose = vi.fn();
 		const view = render(TrainingRecordModal, {
 			props: {
@@ -195,11 +271,10 @@ describe('TrainingRecordModal', () => {
 		else rejectSave(new Error('Retired response'));
 		await tick();
 
-		expect({
-			success: successToast.mock.calls.length,
-			error: errorToast.mock.calls.length,
-			close: onClose.mock.calls.length
-		}).toEqual({ success: 0, error: 0, close: 0 });
+		expect({ success: successToast.mock.calls.length, close: onClose.mock.calls.length }).toEqual({
+			success: 0,
+			close: 0
+		});
 	});
 
 	it.each(['success', 'failure'] as const)('keeps a disposed record removal quiet after a late %s', async (outcome) => {

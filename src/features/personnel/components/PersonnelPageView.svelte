@@ -21,7 +21,7 @@
 	import type { Personnel } from '../personnel.types';
 	import type { RequestPersonnelArchiveApproval } from '../utils/archivePersonnel';
 	import { SvelteSet } from 'svelte/reactivity';
-	import { onDestroy } from 'svelte';
+	import { onDestroy, tick } from 'svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
 
 	interface Props {
@@ -139,6 +139,19 @@
 		}
 		if (ctx.canManagePersonnelRecord(person)) openPersonnelDetail(person);
 	});
+
+	// Pinning reorders the groups and the moved header drops focus; put it back on the pin unless focus moved elsewhere.
+	async function togglePin(groupKey: string) {
+		const restoreFocus = async () => {
+			await tick();
+			if (document.activeElement && document.activeElement !== document.body) return;
+			document.querySelector<HTMLElement>(`[data-pin-group="${CSS.escape(groupKey)}"]`)?.focus();
+		};
+		const saved = pinnedGroupsStore.toggle(groupKey);
+		await restoreFocus();
+		await saved;
+		await restoreFocus();
+	}
 
 	function openPersonnelDetail(person: Personnel): void {
 		void goto(resolve(`/org/${orgUrlSegment}/personnel/${person.slug ?? person.id}`));
@@ -508,7 +521,8 @@
 						{#snippet groupHeader(group)}
 							<Toggle
 								pressed={pinnedGroupsStore.list.includes(group.key)}
-								onPressedChange={() => pinnedGroupsStore.toggle(group.key)}
+								data-pin-group={group.key}
+								onPressedChange={() => togglePin(group.key)}
 								title={pinnedGroupsStore.list.includes(group.key) ? 'Unpin group' : 'Pin group to top'}
 								aria-label={pinnedGroupsStore.list.includes(group.key) ? `Unpin ${group.label}` : `Pin ${group.label}`}
 							>

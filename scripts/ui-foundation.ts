@@ -48,7 +48,20 @@ function ambientAppTypes(file: string, content: string): string[] {
 
 function checkUiFoundation(graph: Graph): Finding[] {
 	const findings: Finding[] = [];
+	const uiFamilies = new Set(
+		graph.sourcePaths.flatMap((file) => file.match(/^src\/lib\/components\/ui\/([^/]+)\//)?.[1] ?? [])
+	);
+	const duplicateFamilies = new Set<string>();
 	for (const file of graph.sourcePaths) {
+		const pattern = file.match(/^src\/lib\/components\/patterns\/([^/]+)\//)?.[1];
+		if (pattern && uiFamilies.has(pattern) && !duplicateFamilies.has(pattern)) {
+			duplicateFamilies.add(pattern);
+			findings.push({
+				kind: 'foundation-placement',
+				file,
+				message: `patterns/${pattern} duplicates the ui/${pattern} primitive family; extend ui/${pattern} instead`
+			});
+		}
 		const layer = file.startsWith(COMPONENTS) ? file.slice(COMPONENTS.length).split('/') : [];
 		if (layer.length > 1 && !COMPONENT_LAYERS.has(layer[0])) {
 			findings.push({
@@ -67,7 +80,45 @@ function checkUiFoundation(graph: Graph): Finding[] {
 			}
 		}
 	}
+	const localEdges = new Map<string, string[]>();
+	const providerTyped = new Set<string>();
 	for (const edge of graph.edges) {
+		if (edge.classification === 'local' && edge.to) {
+			if (!localEdges.has(edge.from)) localEdges.set(edge.from, []);
+			localEdges.get(edge.from)!.push(edge.to);
+		} else if (edge.specifier.startsWith('@supabase/')) providerTyped.add(edge.from);
+	}
+	const reachesProviderTypes = new Map<string, string | undefined>();
+	/** The first reachable non-foundation file exposing provider types, so a re-export cannot launder them. */
+	function providerTypeSource(start: string): string | undefined {
+		if (reachesProviderTypes.has(start)) return reachesProviderTypes.get(start);
+		const seen = new Set([start]);
+		const pending = [start];
+		let found: string | undefined;
+		while (pending.length && !found) {
+			const file = pending.shift()!;
+			if (providerTyped.has(file) || ambientAppTypes(file, graph.contents[file] ?? '').length) found = file;
+			for (const next of localEdges.get(file) ?? []) {
+				if (!seen.has(next) && !isFoundationSource(next)) {
+					seen.add(next);
+					pending.push(next);
+				}
+			}
+		}
+		reachesProviderTypes.set(start, found);
+		return found;
+	}
+	for (const edge of graph.edges) {
+		if (isFoundationSource(edge.from) && edge.to && !isFoundationSource(edge.to)) {
+			const source = providerTypeSource(edge.to);
+			if (source) {
+				findings.push({
+					kind: 'foundation-provider-type',
+					file: edge.from,
+					message: `${edge.specifier} reaches provider session/user types in ${source}; accept caller-shaped props instead`
+				});
+			}
+		}
 		if (edge.classification === 'external' && PRIMITIVE_PACKAGE.test(edge.specifier)) {
 			if (!edge.from.startsWith(`${COMPONENTS}ui/`)) {
 				findings.push({

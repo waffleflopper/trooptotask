@@ -147,6 +147,31 @@ describe('ui foundation guard', () => {
 		).toEqual([{ kind: 'foundation-placement', file: 'src/lib/components/forms/input/input.svelte' }]);
 	});
 
+	it('rejects provider types re-exported through a shared helper', () => {
+		expect(
+			foundationFindings([
+				{ path: 'src/lib/hooks/session.ts', content: "export type { User, Session } from '@supabase/supabase-js';" },
+				{ path: 'src/lib/hooks/account.ts', content: "export type { User } from './session';" },
+				{ path: 'src/lib/hooks/theme.ts', content: 'export const theme = 1;' },
+				{
+					path: 'src/lib/components/patterns/account/account.svelte',
+					content:
+						"<script lang=\"ts\">import type { User } from '$lib/hooks/account'; import { theme } from '$lib/hooks/theme'; let { user }: { user: User } = $props();</script>"
+				}
+			])
+		).toEqual([{ kind: 'foundation-provider-type', file: 'src/lib/components/patterns/account/account.svelte' }]);
+	});
+
+	it('rejects a patterns family that duplicates a ui primitive family', () => {
+		expect(
+			foundationFindings([
+				...BUTTON,
+				{ path: 'src/lib/components/patterns/button/index.ts', content: "export { default } from './button.svelte';" },
+				{ path: 'src/lib/components/patterns/button/button.svelte', content: '<button><slot /></button>' }
+			])
+		).toEqual([{ kind: 'foundation-placement', file: 'src/lib/components/patterns/button/index.ts' }]);
+	});
+
 	it('leaves a malformed shared component to the source-graph finding', () => {
 		const sources = [
 			{ path: 'src/lib/components/ui/card/card.svelte', content: '<script lang="ts">let x = ;</script><div' }

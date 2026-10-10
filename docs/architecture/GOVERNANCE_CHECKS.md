@@ -46,8 +46,8 @@ External packages are classified at the import boundary; the checker does not cr
 - `foundation-package`: `bits-ui`, including subpaths, is imported outside `src/lib/components/ui/`. Features and patterns compose a `ui` family instead.
 - `foundation-private`: a file outside a `ui` or `patterns` family imports one of that family's files other than its `index.ts`. This applies to other `ui` families too; the family's own files may import each other.
 - `foundation-layer`: a `ui` or `patterns` file imports feature, route, server-only, `src/lib/server`, `src/lib/storage` or `src/lib/access` code, or `$env/*`, `$app/server` or a `node:` builtin.
-- `foundation-provider-type`: a `ui` or `patterns` file imports from `@supabase/*` (including `import('@supabase/…')` types) or references SvelteKit's ambient `App` namespace, which carries the provider session and user. Shared controls take caller-shaped props.
-- `foundation-placement`: a directory under `src/lib/components/` other than `ui`, `patterns` or `public`. A new primitive family belongs in `ui` and a shared composition in `patterns`.
+- `foundation-provider-type`: a `ui` or `patterns` file imports from `@supabase/*` (including `import('@supabase/…')` types) or references SvelteKit's ambient `App` namespace, which carries the provider session and user, directly or through local files outside `ui`/`patterns` it imports transitively (such as a re-exporting hook). Shared controls take caller-shaped props.
+- `foundation-placement`: a directory under `src/lib/components/` other than `ui`, `patterns` or `public`, or a `patterns` family with the same name as a `ui` family. A new primitive family belongs in `ui` and a shared composition in `patterns`.
 
 `scripts/ui-foundation.test.ts` exercises accepted and rejected Svelte and TypeScript fixtures for each rule through `checkModuleBoundaries`.
 

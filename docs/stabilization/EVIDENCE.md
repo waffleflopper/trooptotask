@@ -27,6 +27,8 @@ Verify an archive with `tar -xzf ARCHIVE` and `sha256sum -c INVENTORY.sha256` in
 
 **Review.** CodeRabbit 0.9.0 `--committed` against `c69a41b9` (39 files) found that a malformed `ui` Svelte file would crash the guard and hide its `source-graph` finding; fixed in `973a8451` with a test. The delta `4ae0e2db..973a8451` (4 files) had no findings.
 
+**Independent acceptance.** GPT-6.1-Sol round 1 on `5033c41e` failed two guard bypasses: Supabase types re-exported through a shared hook reached a pattern with zero findings, and a copied Button under `patterns/button` passed the placement rule. The guard now follows local imports outside `ui`/`patterns` to any provider-typed file and rejects a `patterns` family named like a `ui` family, each with a rejecting fixture. Current source stays at 0 findings. The rest of the acceptance held: 0 governance findings without exceptions, 598 tracked Svelte files in 602 rows with none unclassified, deterministic reruns, and History and mobile navigation behavior established by the captures.
+
 No migration, provider or runtime configuration change is included. Push or merge may trigger externally configured Vercel deployments; external project settings were not inspected.
 
 ## Phase 09 D03 family interaction contracts

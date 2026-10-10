@@ -1,7 +1,8 @@
 <script lang="ts">
-	import { DashboardLoadError, dashboardWorkspaceHydrator } from '$features/dashboard';
+	import { dashboardWorkspaceHydrator } from '$features/dashboard';
 	import type { DashboardWorkspaceResult } from '$features/dashboard/contracts';
 	import { hydrateStreamedWorkspace } from '$lib/utils/streamedWorkspaceHydrator';
+	import WorkspaceLoadError from '../WorkspaceLoadError.svelte';
 
 	let { children, data } = $props();
 	let hydrationError = $state<Error | null>(null);
@@ -21,7 +22,7 @@
 </script>
 
 {#if hydrationError}
-	<DashboardLoadError />
+	<WorkspaceLoadError subject="Dashboard" />
 {:else}
 	{@render children()}
 {/if}

@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { getAppShellContext } from '$features/app-shell';
-	import { DashboardLoadError, DashboardPageView, createDashboardScreenModel } from '$features/dashboard';
+	import { DashboardPageView, createDashboardScreenModel } from '$features/dashboard';
 	import type { DashboardPageData } from '$features/dashboard/contracts';
 	import type { PageData } from './$types';
 	import type { DashboardPageSummaryData } from '$features/dashboard/contracts';
 	import type { DashboardWorkspaceResult } from '$features/dashboard/contracts';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { isPromiseLike, observeDeferred } from '$lib/utils/streamedRouteData';
+	import WorkspaceLoadError from '../WorkspaceLoadError.svelte';
 
 	type DashboardRouteData = Omit<PageData, 'summary'> & {
 		summary?: DashboardPageSummaryData | Promise<DashboardPageSummaryData>;
@@ -120,7 +121,7 @@
 </script>
 
 {#if loadError}
-	<DashboardLoadError />
+	<WorkspaceLoadError subject="Dashboard" />
 {:else if pending}
 	<section class="grid gap-4 p-4" aria-busy="true" aria-live="polite" role="status">
 		<div class="grid grid-cols-1 items-stretch gap-4 min-[721px]:grid-cols-[minmax(0,1fr)_auto]">

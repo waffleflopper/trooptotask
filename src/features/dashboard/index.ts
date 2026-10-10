@@ -1,4 +1,3 @@
-export { default as DashboardLoadError } from './components/DashboardLoadError.svelte';
 export { default as DashboardPageView } from './components/DashboardPageView.svelte';
 export {
 	createDashboardScreenModel,

@@ -5,7 +5,7 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { getAppShellContext } from '$features/app-shell';
 	import type { TrainingWorkspaceResult } from '$features/training/contracts';
-	import { isPromiseLike, observeDeferred, throwRenderError } from '$lib/utils/streamedRouteData';
+	import { isPromiseLike, observeDeferred } from '$lib/utils/streamedRouteData';
 
 	let { data } = $props();
 	const org = getAppShellContext();
@@ -50,21 +50,13 @@
 	);
 	const storesPending = $derived(!storesHydratedForOrg || trainingTypesStore.loading || trainingViewsStore.loading);
 	const workspacePending = $derived(routePending || (!!trainingBootstrap && storesPending));
-	const renderLoadError = $derived.by(() => {
-		if (loadError) {
-			throwRenderError(loadError, 'Failed to load training views workspace');
-		}
-		return null;
-	});
 </script>
 
 <svelte:head>
 	<title>Training Views - Troop to Task</title>
 </svelte:head>
 
-{#if loadError}
-	{renderLoadError}
-{:else if workspacePending}
+{#if workspacePending}
 	<section
 		class="flex items-center justify-center gap-2 p-6 text-muted-foreground"
 		aria-busy="true"
@@ -74,7 +66,7 @@
 		<Spinner class="size-4" />
 		<p>Loading training views...</p>
 	</section>
-{:else}
+{:else if !loadError}
 	<div class="h-full min-h-0 overflow-hidden">
 		<TrainingViewsPage {org} />
 	</div>

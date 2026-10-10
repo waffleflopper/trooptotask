@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Collapsible as CollapsiblePrimitive } from 'bits-ui';
+	import * as Collapsible from '$lib/components/ui/collapsible';
 	import MessageSquare from '@lucide/svelte/icons/message-square';
 	import type { Snippet } from 'svelte';
 
@@ -27,13 +27,8 @@
 	}
 </script>
 
-<CollapsiblePrimitive.Root
-	bind:open
-	onOpenChange={handleOpenChange}
-	data-slot="onboarding-packet-notes"
-	class="contents"
->
-	<CollapsiblePrimitive.Trigger
+<Collapsible.Root bind:open onOpenChange={handleOpenChange} data-slot="onboarding-packet-notes" class="contents">
+	<Collapsible.Trigger
 		data-slot="onboarding-packet-notes-trigger"
 		class="inline-flex items-center gap-1 rounded-md border border-border bg-transparent p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 data-[state=open]:bg-muted data-[state=open]:text-foreground [&_svg]:size-4"
 		aria-label={label}
@@ -42,8 +37,8 @@
 		{#if count > 0}
 			<span class="font-mono text-xs font-semibold text-primary">{count}</span>
 		{/if}
-	</CollapsiblePrimitive.Trigger>
-	<CollapsiblePrimitive.Content
+	</Collapsible.Trigger>
+	<Collapsible.Content
 		data-slot="onboarding-packet-notes-content"
 		class="mt-2 w-full rounded-lg border border-border bg-muted/35 p-3"
 	>
@@ -55,5 +50,5 @@
 		{#if count === 0 && !readOnly}
 			<p class="m-0 text-sm text-muted-foreground">{emptyLabel}</p>
 		{/if}
-	</CollapsiblePrimitive.Content>
-</CollapsiblePrimitive.Root>
+	</Collapsible.Content>
+</Collapsible.Root>

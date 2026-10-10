@@ -3,7 +3,7 @@
 	import type { Attachment } from 'svelte/attachments';
 	import type { HTMLSelectAttributes } from 'svelte/elements';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
-	import { getFieldContext } from '$lib/components/ui/field/context.svelte.js';
+	import { getFieldContext } from '$lib/components/ui/field/index.js';
 
 	type NativeSelectProps = Omit<WithElementRef<HTMLSelectAttributes>, 'size'> & {
 		size?: 'sm' | 'default';

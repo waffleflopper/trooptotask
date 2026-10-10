@@ -9,6 +9,7 @@ import Title from './field-title.svelte';
 import Description from './field-description.svelte';
 import Separator from './field-separator.svelte';
 import Error from './field-error.svelte';
+import { getFieldContext, setFieldContext } from './context.svelte.js';
 
 export {
 	Field,
@@ -33,5 +34,7 @@ export {
 	Title as FieldTitle,
 	Description as FieldDescription,
 	Separator as FieldSeparator,
-	Error as FieldError
+	Error as FieldError,
+	getFieldContext,
+	setFieldContext
 };

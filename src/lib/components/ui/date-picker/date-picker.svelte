@@ -3,7 +3,7 @@
 	import { DateFormatter, getLocalTimeZone, parseDate, type DateValue } from '@internationalized/date';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Calendar } from '$lib/components/ui/calendar/index.js';
-	import { getFieldContext } from '$lib/components/ui/field/context.svelte.js';
+	import { getFieldContext } from '$lib/components/ui/field/index.js';
 	import * as Popover from '$lib/components/ui/popover/index.js';
 	import { cn } from '$lib/utils.js';
 	import type { ClassValue } from 'svelte/elements';

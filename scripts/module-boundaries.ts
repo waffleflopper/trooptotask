@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 import { scanRepository } from './module-imports.ts';
+import { checkUiFoundation } from './ui-foundation.ts';
 
 type Owner = { roots: string[]; files: string[]; packet: string };
 type Manifest = {
@@ -203,6 +204,10 @@ function checkModuleBoundaries(graph: Graph, manifest: Manifest): Violation[] {
 		}
 	}
 	violations.push(...checkPrivilegeBoundaries(graph, sourceOwners, manifest));
+	for (const finding of checkUiFoundation(graph)) {
+		const owner = sourceOwners.get(finding.file);
+		add(finding.kind, finding.file, finding.message, owner ? manifest.owners[owner].packet : '09-04');
+	}
 	return violations.sort(
 		(left, right) =>
 			left.file.localeCompare(right.file) ||

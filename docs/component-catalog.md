@@ -20,7 +20,7 @@ Read the [UI foundation](#ui-foundation), then the section for the component bei
 
 This catalog is the active reference for TroopToTask's shadcn-svelte + Tailwind v4 UI foundation. It records the selected shared primitives, compound project wrappers, expected usage, and replacement decisions for older local wrappers.
 
-Use it as the current component reference for button, button group, input, input group, sidebar, label, textarea, select, checkbox, radio group, badge, alert, dialog, sheet, popover, dropdown menu, tooltip, command, combobox, tabs, table, calendar/date picker, chart, skeleton, progress, spinner, empty, and separator.
+Use it as the current component reference for accordion, collapsible, button, button group, input, input group, sidebar, label, textarea, select, checkbox, radio group, badge, alert, dialog, sheet, popover, dropdown menu, tooltip, command, combobox, tabs, table, calendar/date picker, chart, skeleton, progress, spinner, empty, and separator.
 
 The [family contract](ui-foundation-provenance.md) governs retention, moves and removals. Domain UI lives with its feature: Calendar owns its date cells and status badge, and Onboarding owns its kanban board and paperwork stage display. Those components are documented by their feature code, not here.
 

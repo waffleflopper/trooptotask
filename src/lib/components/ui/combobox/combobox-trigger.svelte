@@ -6,7 +6,7 @@
 	import type { HTMLButtonAttributes } from 'svelte/elements';
 	import type { ClassValue } from 'clsx';
 	import { cn } from '$lib/utils.js';
-	import { getFieldContext } from '$lib/components/ui/field/context.svelte.js';
+	import { getFieldContext } from '$lib/components/ui/field/index.js';
 	import { getComboboxContext } from './context.js';
 
 	let {

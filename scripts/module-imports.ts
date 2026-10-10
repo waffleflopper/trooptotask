@@ -311,4 +311,4 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
 	if (graph.failures.length > 0) process.exitCode = 1;
 }
 
-export { buildImportGraph, resolveImport, scanRepository, walkSourceFiles };
+export { buildImportGraph, resolveImport, scanRepository, sourceSections, walkSourceFiles };

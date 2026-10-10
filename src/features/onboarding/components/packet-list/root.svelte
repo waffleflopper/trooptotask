@@ -1,7 +1,6 @@
 <script lang="ts">
-	import { Accordion as AccordionPrimitive } from 'bits-ui';
+	import * as Accordion from '$lib/components/ui/accordion';
 	import type { Snippet } from 'svelte';
-	import { cn } from '$lib/utils.js';
 
 	let {
 		value = $bindable(''),
@@ -22,14 +21,14 @@
 	}
 </script>
 
-<AccordionPrimitive.Root
+<Accordion.Root
 	bind:value
 	type="single"
 	onValueChange={handleValueChange}
 	aria-label={ariaLabel}
 	data-slot="onboarding-packet-list"
-	class={cn('flex flex-col gap-3')}
+	class="gap-3"
 	{...restProps}
 >
 	{@render children?.()}
-</AccordionPrimitive.Root>
+</Accordion.Root>

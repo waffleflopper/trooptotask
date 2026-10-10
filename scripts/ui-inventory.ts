@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { format, resolveConfig } from 'prettier';
@@ -249,7 +249,7 @@ function renderInventory({ rows, families }: ReturnType<typeof buildInventory>):
 function trackedSources(root: string): Source[] {
 	return execFileSync('git', ['ls-files', '-z', 'src'], { cwd: root, encoding: 'utf8' })
 		.split('\0')
-		.filter((file) => SOURCE_FILE.test(file))
+		.filter((file) => SOURCE_FILE.test(file) && existsSync(path.join(root, file)))
 		.sort()
 		.map((file) => ({ path: file, content: readFileSync(path.join(root, file), 'utf8') }));
 }

@@ -1,4 +1,6 @@
 <script lang="ts">
+	import * as Alert from '$lib/components/ui/alert';
+	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import type { PersonnelArchivedArtifact } from '$features/personnel/contracts';
 	import type {
@@ -84,7 +86,9 @@
 		</div>
 		<div class="space-y-5 p-6">
 			{#if error}
-				<p class="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</p>
+				<Alert.Root variant="destructive">
+					<Alert.Description>{error}</Alert.Description>
+				</Alert.Root>
 			{/if}
 			{#if records.length === 0}
 				<p class="rounded-md border border-dashed p-4 text-sm text-muted-foreground">{data.emptyState}</p>
@@ -94,7 +98,7 @@
 						<article class="grid gap-3 p-4 md:grid-cols-[1fr_auto] md:items-center">
 							<div>
 								<div class="flex flex-wrap items-center gap-2">
-									<span class="rounded-sm border px-2 py-0.5 text-xs text-muted-foreground">{record.kind}</span>
+									<Badge variant="outline">{record.kind}</Badge>
 									<h3 class="font-medium">{titleFor(record)}</h3>
 								</div>
 								<p class="mt-1 text-xs text-muted-foreground">

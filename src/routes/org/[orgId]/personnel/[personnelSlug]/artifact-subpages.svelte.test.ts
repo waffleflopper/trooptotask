@@ -304,10 +304,38 @@ const contextChanges = [
 	{ name: 'another Organization and Person', orgId: 'org-2', personnelId: 'person-2' }
 ];
 const artifactFamilies = [
-	{ name: 'follow-up', field: 'Follow-up title', endpoint: 'follow-ups', fileField: null },
-	{ name: 'document', field: 'Document title', endpoint: 'documents', fileField: 'Document file' },
-	{ name: 'counseling', field: 'Counseling title', endpoint: 'counseling-records', fileField: 'Counseling PDF' },
-	{ name: 'note', field: 'New leader note', endpoint: 'leader-notes', fileField: null }
+	{
+		name: 'follow-up',
+		field: 'Follow-up title',
+		endpoint: 'follow-ups',
+		fileField: null,
+		saveFailure: 'Unable to add follow-up.',
+		missing: { control: 'Follow-up title', message: 'Enter a follow-up title.' }
+	},
+	{
+		name: 'document',
+		field: 'Document title',
+		endpoint: 'documents',
+		fileField: 'Document file',
+		saveFailure: 'Unable to upload document.',
+		missing: { control: 'Document file', message: 'Choose a PDF, JPEG, PNG, or HEIC file.' }
+	},
+	{
+		name: 'counseling',
+		field: 'Counseling title',
+		endpoint: 'counseling-records',
+		fileField: 'Counseling PDF',
+		saveFailure: 'Unable to upload counseling PDF.',
+		missing: { control: 'Counseling PDF', message: 'Choose a signed counseling PDF.' }
+	},
+	{
+		name: 'note',
+		field: 'New leader note',
+		endpoint: 'leader-notes',
+		fileField: null,
+		saveFailure: 'Unable to save leader note.',
+		missing: { control: 'New leader note', message: 'Enter a leader note before saving.' }
+	}
 ] as const;
 type ArtifactFamily = (typeof artifactFamilies)[number];
 type ArtifactContext = Pick<typeof basePageData, 'orgId' | 'personnelId'>;
@@ -441,6 +469,35 @@ describe('reused Personnel artifact pages', () => {
 	});
 
 	describe.each(artifactFamilies)('$name', (family) => {
+		it('keeps the entered draft and file and reports the save failure after a rejected save', async () => {
+			fetchMock.mockResolvedValueOnce(new Response('', { status: 500 }));
+			renderFamily(family, basePageData);
+			await fillArtifact(family, 'Rejected draft');
+			await submitArtifact(family);
+
+			expect((await screen.findByRole('alert')).textContent).toBe(family.saveFailure);
+			expect((screen.getByLabelText(family.field) as HTMLInputElement).value).toBe('Rejected draft');
+			if (family.fileField)
+				expect((screen.getByLabelText(family.fileField) as HTMLInputElement).files?.[0]?.name).toBe(
+					'Rejected draft.pdf'
+				);
+			expect(screen.queryByText('Rejected draft', { selector: 'h3, p' })).toBeNull();
+		});
+
+		it('ties the missing-field message to the control that needs input', async () => {
+			renderFamily(family, basePageData);
+			await fireEvent.submit(screen.getByLabelText(family.field).closest('form') as HTMLFormElement);
+
+			const control = screen.getByLabelText(family.missing.control);
+			expect(control.getAttribute('aria-invalid')).toBe('true');
+			const messageId = control.getAttribute('aria-describedby');
+			expect(document.getElementById(messageId ?? '')?.textContent).toBe(family.missing.message);
+			expect(fetchMock).not.toHaveBeenCalled();
+			expect(screen.queryByRole('alert', { name: /unable/i })).toBeNull();
+			const otherControl = screen.getByLabelText(family.field);
+			if (otherControl !== control) expect(otherControl.getAttribute('aria-invalid')).toBeNull();
+		});
+
 		it.each(contextChanges)('clears drafts and transient saved rows when opening $name', async (next) => {
 			fetchMock.mockResolvedValueOnce(jsonResponse(recordFor(family, basePageData, 'A saved artifact')));
 			const view = renderFamily(family, basePageData);
@@ -480,6 +537,33 @@ describe('reused Personnel artifact pages', () => {
 					.soft((screen.getByLabelText(family.fileField) as HTMLInputElement).files?.[0]?.name)
 					.toBe('B unsaved draft.pdf');
 		});
+	});
+
+	it.each([
+		{ family: artifactFamilies[1], message: 'Enter a document title.' },
+		{ family: artifactFamilies[2], message: 'Enter a counseling title.' }
+	])('ties a missing $family.name title to the title field once a file is chosen', async ({ family, message }) => {
+		renderFamily(family, basePageData);
+		await selectArtifactFile(family.fileField, 'orders.pdf');
+		await fireEvent.input(screen.getByLabelText(family.field), { target: { value: '' } });
+		await submitArtifact(family);
+
+		const title = screen.getByLabelText(family.field);
+		expect(title.getAttribute('aria-invalid')).toBe('true');
+		expect(document.getElementById(title.getAttribute('aria-describedby') ?? '')?.textContent).toBe(message);
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
+	it('keeps the edited follow-up draft when saving the edit is rejected', async () => {
+		fetchMock.mockResolvedValueOnce(new Response('', { status: 500 }));
+		renderFamily(artifactFamilies[0], basePageData, ['Dental readiness']);
+		await fireEvent.click(rowAction('Dental readiness', 'Edit'));
+		await fireEvent.input(screen.getByLabelText('Follow-up title'), { target: { value: 'Dental readiness, revised' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+		expect((await screen.findByRole('alert')).textContent).toBe('Unable to update follow-up.');
+		expect((screen.getByLabelText('Follow-up title') as HTMLInputElement).value).toBe('Dental readiness, revised');
+		expect(screen.getByRole('button', { name: 'Cancel edit' })).toBeTruthy();
 	});
 
 	it('keeps a same-Person document draft and file through refreshed page data', async () => {

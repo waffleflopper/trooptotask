@@ -1,6 +1,8 @@
 <script lang="ts">
+	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
 	import { DatePicker } from '$lib/components/ui/date-picker';
+	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import type { PersonnelCounselingRecord } from '$features/personnel/contracts';
@@ -34,8 +36,7 @@
 	}
 
 	async function submitCounselingRecord() {
-		await counselingRecords.submit();
-		if (!counselingRecords.error) clearFileInput();
+		if (await counselingRecords.submit()) clearFileInput();
 	}
 
 	async function archiveRecord(record: PersonnelCounselingRecord) {
@@ -79,11 +80,16 @@
 						aria-label="Counseling date conducted"
 						placeholder="Date conducted"
 					/>
-					<Input
-						bind:value={counselingRecords.fields.title}
-						aria-label="Counseling title"
-						placeholder="Counseling title"
-					/>
+					<Field.Root data-invalid={counselingRecords.fieldError('title') ? true : undefined}>
+						<Input
+							bind:value={counselingRecords.fields.title}
+							aria-label="Counseling title"
+							placeholder="Counseling title"
+						/>
+						{#if counselingRecords.fieldError('title')}
+							<Field.Error>{counselingRecords.fieldError('title')}</Field.Error>
+						{/if}
+					</Field.Root>
 				</div>
 				<Textarea
 					bind:value={counselingRecords.fields.summary}
@@ -92,19 +98,26 @@
 					placeholder="Optional summary"
 				/>
 				<div class="flex flex-wrap items-center justify-between gap-3">
-					<Input
-						bind:ref={fileInput}
-						type="file"
-						accept="application/pdf,.pdf"
-						aria-label="Counseling PDF"
-						onchange={updateFile}
-					/>
+					<Field.Root data-invalid={counselingRecords.fieldError('file') ? true : undefined}>
+						<Input
+							bind:ref={fileInput}
+							type="file"
+							accept="application/pdf,.pdf"
+							aria-label="Counseling PDF"
+							onchange={updateFile}
+						/>
+						{#if counselingRecords.fieldError('file')}
+							<Field.Error>{counselingRecords.fieldError('file')}</Field.Error>
+						{/if}
+					</Field.Root>
 					<Button type="submit" disabled={counselingRecords.saving}>
 						{counselingRecords.saving ? 'Uploading...' : 'Upload PDF'}
 					</Button>
 				</div>
 				{#if counselingRecords.error}
-					<p class="text-sm text-destructive">{counselingRecords.error}</p>
+					<Alert.Root variant="destructive">
+						<Alert.Description>{counselingRecords.error}</Alert.Description>
+					</Alert.Root>
 				{/if}
 			</form>
 

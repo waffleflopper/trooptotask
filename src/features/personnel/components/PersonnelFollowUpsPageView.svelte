@@ -1,6 +1,9 @@
 <script lang="ts">
+	import * as Alert from '$lib/components/ui/alert';
+	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import { DatePicker } from '$lib/components/ui/date-picker';
+	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import type { PersonnelFollowUp } from '$features/personnel/contracts';
@@ -28,12 +31,14 @@
 	}
 
 	function resetForm() {
+		followUps.issue = null;
 		followUps.fields = followUpDraftSpec.createEmptyInput();
 		editingId = '';
 	}
 
 	function startEdit(record: PersonnelFollowUp) {
 		followUps.error = '';
+		followUps.issue = null;
 		editingId = record.id;
 		followUps.fields = {
 			title: record.title,
@@ -49,11 +54,8 @@
 			return;
 		}
 
-		const validationError = followUpDraftSpec.validate(followUps.fields);
-		if (validationError) {
-			followUps.error = validationError;
-			return;
-		}
+		followUps.issue = followUpDraftSpec.validate(followUps.fields);
+		if (followUps.issue) return;
 
 		followUps.saving = true;
 		try {
@@ -106,7 +108,12 @@
 		<div class="space-y-5 p-6">
 			<form class="grid gap-3" onsubmit={(event) => (event.preventDefault(), submitFollowUp())}>
 				<div class="grid gap-3 md:grid-cols-[1fr_12rem_auto]">
-					<Input bind:value={followUps.fields.title} aria-label="Follow-up title" placeholder="Follow-up title" />
+					<Field.Root data-invalid={followUps.fieldError('title') ? true : undefined}>
+						<Input bind:value={followUps.fields.title} aria-label="Follow-up title" placeholder="Follow-up title" />
+						{#if followUps.fieldError('title')}
+							<Field.Error>{followUps.fieldError('title')}</Field.Error>
+						{/if}
+					</Field.Root>
 					<DatePicker bind:value={followUps.fields.dueDate} aria-label="Follow-up due date" placeholder="Due date" />
 					<Button type="submit" disabled={followUps.saving}>
 						{followUps.saving ? 'Saving...' : editingId ? 'Save' : 'Add'}
@@ -120,7 +127,9 @@
 				/>
 				<div class="flex items-center justify-between gap-3">
 					{#if followUps.error}
-						<p class="text-sm text-destructive">{followUps.error}</p>
+						<Alert.Root variant="destructive">
+							<Alert.Description>{followUps.error}</Alert.Description>
+						</Alert.Root>
 					{:else}
 						<p class="text-sm text-muted-foreground">Open and completed follow-ups stay visible until archived.</p>
 					{/if}
@@ -139,7 +148,7 @@
 							<div>
 								<div class="flex flex-wrap items-center gap-2">
 									<h3 class="font-medium">{record.title}</h3>
-									<span class="rounded-sm border px-2 py-0.5 text-xs text-muted-foreground">{record.status}</span>
+									<Badge variant="outline">{record.status}</Badge>
 								</div>
 								<p class="mt-1 text-xs text-muted-foreground">Due {formatDate(record.dueDate)}</p>
 								{#if record.notes}

@@ -508,6 +508,38 @@ describe('PersonnelDetailPageView', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Save basic info' }));
 		expect(await screen.findByText('Unable to update basic info.')).toBeTruthy();
 	});
+
+	it('keeps edited basic info values when the save is rejected', async () => {
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
+
+		render(PersonnelDetailPageView, {
+			props: { requestArchiveApproval, orgId: 'org-1', person, orgName: 'Test Org', detail: makeDetail() }
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit basic info' }));
+		await fireEvent.input(screen.getByLabelText('Rank'), { target: { value: 'SSG' } });
+		await fireEvent.input(screen.getByLabelText('Last name'), { target: { value: 'Rivera-Jones' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Save basic info' }));
+
+		expect(await screen.findByText('Unable to update basic info.')).toBeTruthy();
+		expect((screen.getByLabelText('Rank') as HTMLInputElement).value).toBe('SSG');
+		expect((screen.getByLabelText('Last name') as HTMLInputElement).value).toBe('Rivera-Jones');
+	});
+
+	it('ties a missing follow-up title to its field on the dashboard', async () => {
+		const fetchMock = vi.fn();
+		vi.stubGlobal('fetch', fetchMock);
+
+		render(PersonnelDetailPageView, { props: dashboardProps() });
+
+		const title = await screen.findByLabelText('Follow-up title');
+		await fireEvent.submit(title.closest('form') as HTMLFormElement);
+
+		const message = await screen.findByText('Enter a follow-up title.');
+		expect(title.getAttribute('aria-invalid')).toBe('true');
+		expect(title.getAttribute('aria-describedby')?.split(' ')).toContain(message.id);
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
 });
 
 const dashboardContextChanges = [

@@ -8,10 +8,15 @@ export interface ArtifactDraftRequest {
 	headers?: HeadersInit;
 }
 
+export interface ArtifactDraftIssue<TInput extends object> {
+	field: keyof TInput;
+	message: string;
+}
+
 export interface ArtifactDraftSpec<TInput extends object, TResult extends { id: string }> {
 	createEmptyInput: () => TInput;
 	endpoint: (context: ArtifactDraftContext) => string;
-	validate: (input: TInput) => string | null;
+	validate: (input: TInput) => ArtifactDraftIssue<TInput> | null;
 	encode: (input: TInput) => ArtifactDraftRequest;
 	decode?: (response: Response) => Promise<TResult>;
 	errorFallback: string;
@@ -39,6 +44,7 @@ export class ArtifactDraft<TInput extends object, TResult extends { id: string }
 	fields: TInput;
 	saving = $state(false);
 	error = $state('');
+	issue = $state<ArtifactDraftIssue<TInput> | null>(null);
 	items = $state<TResult[]>([]);
 
 	constructor(spec: ArtifactDraftSpec<TInput, TResult>, deps: ArtifactDraftDeps) {
@@ -47,13 +53,16 @@ export class ArtifactDraft<TInput extends object, TResult extends { id: string }
 		this.fields = $state(spec.createEmptyInput());
 	}
 
-	submit = async (): Promise<void> => {
+	/** The validation message for one field, or an empty string. */
+	fieldError(field: keyof TInput): string {
+		return this.issue?.field === field ? this.issue.message : '';
+	}
+
+	/** Resolves true when the draft was saved and its fields were reset. */
+	submit = async (): Promise<boolean> => {
 		this.error = '';
-		const validationError = this.#spec.validate(this.fields);
-		if (validationError) {
-			this.error = validationError;
-			return;
-		}
+		this.issue = this.#spec.validate(this.fields);
+		if (this.issue) return false;
 
 		this.saving = true;
 		try {
@@ -66,8 +75,10 @@ export class ArtifactDraft<TInput extends object, TResult extends { id: string }
 			if (!response.ok) throw new Error(this.#spec.errorFallback);
 			this.upsert(this.#spec.decode ? await this.#spec.decode(response) : ((await response.json()) as TResult));
 			this.fields = this.#spec.reset?.(this.fields) ?? this.#spec.createEmptyInput();
+			return true;
 		} catch (caught) {
 			this.error = caught instanceof Error ? caught.message : this.#spec.errorFallback;
+			return false;
 		} finally {
 			this.saving = false;
 		}

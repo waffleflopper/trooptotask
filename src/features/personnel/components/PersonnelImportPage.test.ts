@@ -559,7 +559,7 @@ describe('PersonnelImportPage', () => {
 		expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual(expectedBody);
 	});
 
-	it('drops an earlier import failure when another file is chosen', async () => {
+	it('drops an earlier import failure after going back to the file', async () => {
 		vi.stubGlobal(
 			'fetch',
 			vi.fn(async () => new Response(JSON.stringify({ message: 'Service unavailable' }), { status: 503 }))
@@ -569,17 +569,14 @@ describe('PersonnelImportPage', () => {
 			['SGT', 'Smith', 'John']
 		]);
 		renderPage();
-		const upload = (name: string) =>
-			fireEvent.change(document.querySelector<HTMLInputElement>('#fileUpload')!, {
-				target: { files: [new File(['records'], name, { type: 'text/csv' })] }
-			});
-		await upload('first.csv');
+		await fireEvent.change(document.querySelector<HTMLInputElement>('#fileUpload')!, {
+			target: { files: [new File(['records'], 'first.csv', { type: 'text/csv' })] }
+		});
 		await fireEvent.click(await screen.findByRole('button', { name: /Preview 1 Rows/i }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Import checked rows' }));
 		await screen.findByText('Service unavailable');
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Back' }));
-		await upload('second.csv');
 		await fireEvent.click(await screen.findByRole('button', { name: /Preview 1 Rows/i }));
 
 		expect(screen.queryByText('Service unavailable')).toBeNull();

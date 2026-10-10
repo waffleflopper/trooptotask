@@ -336,7 +336,6 @@
 
 		uploadedFileName = file.name;
 		importError = '';
-		submitError = '';
 		importResult = null;
 		try {
 			const parsedRows = await parseFile(file);
@@ -391,6 +390,7 @@
 	}
 
 	function backToInput() {
+		submitError = '';
 		importStep = 'input';
 	}
 

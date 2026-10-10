@@ -4,6 +4,8 @@
 	import LongRangeView from '$features/calendar/components/LongRangeView.svelte';
 	import StatusLegend from '$features/calendar/components/StatusLegend.svelte';
 	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar';
+	import * as Alert from '$lib/components/ui/alert';
+	import { Button } from '$lib/components/ui/button';
 	import * as Empty from '$lib/components/ui/empty';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { buildCalendarToolbarItems } from '$features/calendar/utils/calendarToolbarItems';
@@ -23,9 +25,11 @@
 			orgUrlSegment?: string;
 			orgName: string;
 		};
+		rangeStatus?: 'ready' | 'loading' | 'error';
+		onRetryRange?: () => void;
 	}
 
-	let { ctx, data }: Props = $props();
+	let { ctx, data, rangeStatus = 'ready', onRetryRange }: Props = $props();
 
 	function getExportData() {
 		return {
@@ -164,6 +168,19 @@
 						/>
 					</WorkspaceToolbar.Group>
 				</WorkspaceToolbar.Root>
+
+				{#if rangeStatus === 'loading'}
+					<Alert.Root role="status" aria-live="polite">
+						<Alert.Description>Loading additional calendar dates...</Alert.Description>
+					</Alert.Root>
+				{:else if rangeStatus === 'error'}
+					<Alert.Root variant="destructive" role="status" aria-live="polite">
+						<Alert.Description>Additional calendar data is temporarily unavailable.</Alert.Description>
+						<Alert.Action>
+							<Button type="button" variant="destructive" size="xs" onclick={onRetryRange}>Retry calendar load</Button>
+						</Alert.Action>
+					</Alert.Root>
+				{/if}
 
 				{#if ctx.viewMode === '3-month'}
 					<LongRangeView

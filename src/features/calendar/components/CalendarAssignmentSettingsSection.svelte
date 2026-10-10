@@ -162,7 +162,7 @@
 		const prev = activeAssignmentTypes.find((t) => t.showInDateHeader && t.id !== id);
 		try {
 			// The database allows one header type per Organization, so the switch is two writes: clear, then set.
-			// A failed set restores the previous header rather than leaving none.
+			// A failed set tries to restore the previous header; if that also fails, no header type remains.
 			if (prev && !(await dailyAssignmentsStore.updateType(prev.id, { showInDateHeader: false }))) {
 				showAssignmentMutationError('Failed to update header assignment type');
 				return;

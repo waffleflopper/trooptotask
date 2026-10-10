@@ -36,6 +36,7 @@
 	}: Props = $props();
 
 	let pickerOpen = $state(false);
+	let pickerTrigger = $state<HTMLElement | null>(null);
 
 	function togglePicker() {
 		if (!onSelectMonthYear) return;
@@ -46,9 +47,14 @@
 		pickerOpen = false;
 	}
 
+	function closePickerToTrigger() {
+		closePicker();
+		pickerTrigger?.focus();
+	}
+
 	function handleSelectMonthYear(year: number, month: number) {
 		onSelectMonthYear?.(year, month);
-		closePicker();
+		closePickerToTrigger();
 	}
 
 	function stopMouseDownPropagation(event: MouseEvent) {
@@ -68,6 +74,7 @@
 			>
 				{#if onSelectMonthYear && pickerYear !== undefined && pickerMonth !== undefined}
 					<Button
+						bind:ref={pickerTrigger}
 						variant="ghost"
 						class="h-auto w-full cursor-pointer border-0 px-2 py-0.5 font-display text-2xl leading-tight font-bold tracking-wider whitespace-normal text-inherit hover:bg-primary/10 hover:text-primary dark:hover:bg-primary/10"
 						data-testid={titleTestId}
@@ -90,7 +97,8 @@
 						year={pickerYear}
 						month={pickerMonth}
 						onSelect={handleSelectMonthYear}
-						onClose={closePicker}
+						onEscape={closePickerToTrigger}
+						onOutsideClick={closePicker}
 					/>
 				</div>
 			{/if}

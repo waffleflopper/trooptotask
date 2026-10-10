@@ -7,10 +7,11 @@
 		year: number;
 		month: number;
 		onSelect: (year: number, month: number) => void;
-		onClose: () => void;
+		onEscape: () => void;
+		onOutsideClick: () => void;
 	}
 
-	let { year, month, onSelect, onClose }: Props = $props();
+	let { year, month, onSelect, onEscape, onOutsideClick }: Props = $props();
 
 	const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -27,14 +28,14 @@
 
 	function handleWindowKeydown(e: KeyboardEvent) {
 		if (e.key === 'Escape') {
-			onClose();
+			onEscape();
 		}
 	}
 
 	function handleDocumentMouseDown(event: MouseEvent) {
 		if (!pickerEl) return;
 		if (event.target instanceof Node && !pickerEl.contains(event.target)) {
-			onClose();
+			onOutsideClick();
 		}
 	}
 

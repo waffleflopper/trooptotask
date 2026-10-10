@@ -200,3 +200,41 @@ it('keeps a missing recovery session unavailable without offering a status retry
 	expect(screen.queryByLabelText(/^New Password/)).toBeNull();
 	expect(fetchMock).not.toHaveBeenCalled();
 });
+
+it('lets the user submit sign-out to the existing POST action', async () => {
+	const { container } = render(Page);
+	const submissions: { method: string; pathname: string }[] = [];
+	container.addEventListener('submit', (event) => {
+		event.preventDefault();
+		const form = event.target as HTMLFormElement;
+		submissions.push({ method: form.method.toLowerCase(), pathname: new URL(form.action).pathname });
+	});
+
+	await fireEvent.click(screen.getByRole('button', { name: 'sign out' }));
+
+	expect(submissions).toEqual([{ method: 'post', pathname: '/auth/logout' }]);
+});
+
+it('names the confirmation field when the passwords differ and keeps both entries', async () => {
+	vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ currentLevel: 'aal1', nextLevel: 'aal1' })));
+	render(Page);
+	const password = await screen.findByLabelText(/^New Password/);
+	const confirm = screen.getByLabelText(/^Confirm New Password/);
+
+	await fireEvent.input(password, { target: { value: 'NewPassword12' } });
+	await fireEvent.input(confirm, { target: { value: 'NewPassword13' } });
+
+	expect(confirm).toBeInvalid();
+	expect(confirm).toHaveAccessibleDescription('Passwords do not match');
+	expect(screen.getByRole('alert')).toHaveTextContent('Passwords do not match');
+	expect(password).toHaveValue('NewPassword12');
+	expect(confirm).toHaveValue('NewPassword13');
+	expect(screen.getByRole('button', { name: 'Update Password' })).toBeDisabled();
+
+	await fireEvent.input(confirm, { target: { value: 'NewPassword12' } });
+
+	expect(confirm).toBeValid();
+	expect(confirm).toHaveAccessibleDescription('Passwords match.');
+	expect(screen.queryByRole('alert')).toBeNull();
+	expect(screen.getByRole('button', { name: 'Update Password' })).toBeEnabled();
+});

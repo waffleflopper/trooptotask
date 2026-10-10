@@ -1,5 +1,11 @@
 import { readIdentitySecurity, updateIdentityEmail } from '$features/identity/index.server';
 import { passwordCompletionState } from '$features/identity/index.server';
+import {
+	EMAIL_CHANGE_PASSWORD_REQUIRED_MESSAGE,
+	INCORRECT_CURRENT_PASSWORD_MESSAGE,
+	INVALID_EMAIL_MESSAGE,
+	SAME_EMAIL_MESSAGE
+} from '$features/identity/contracts';
 import type { PageServerLoad, Actions } from './$types';
 import { fail, redirect } from '@sveltejs/kit';
 
@@ -32,12 +38,12 @@ export const actions: Actions = {
 			case 'inactive':
 				return emailFailure(401, { emailError: 'Your session is no longer active. Sign in again.' });
 			case 'invalid-email':
-				return emailFailure(400, { emailError: 'Enter a valid email address', email: result.email });
+				return emailFailure(400, { emailError: INVALID_EMAIL_MESSAGE, email: result.email });
 			case 'same-email':
-				return emailFailure(400, { emailError: 'Enter a different email address', email: result.email });
+				return emailFailure(400, { emailError: SAME_EMAIL_MESSAGE, email: result.email });
 			case 'missing-password':
 				return emailFailure(400, {
-					emailError: 'Enter your current password to change your email',
+					emailError: EMAIL_CHANGE_PASSWORD_REQUIRED_MESSAGE,
 					email: result.email
 				});
 			case 'limited':
@@ -52,7 +58,7 @@ export const actions: Actions = {
 					email: result.email
 				});
 			case 'incorrect-password':
-				return emailFailure(401, { emailError: 'Current password is incorrect', email: result.email });
+				return emailFailure(401, { emailError: INCORRECT_CURRENT_PASSWORD_MESSAGE, email: result.email });
 			case 'proof-unavailable':
 				return emailFailure(503, {
 					emailError: 'Unable to verify your current password. Please try again.',

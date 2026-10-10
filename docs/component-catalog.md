@@ -44,6 +44,8 @@ Foundation files:
 - `components.json` initializes shadcn-svelte with `ui` pointed at `$lib/components/ui`.
 - `src/lib/utils.ts` provides the shadcn `cn` helper and element-ref utility types.
 - `src/app.css` imports Tailwind v4 and maps shared semantic tokens to the product palette; see the [current token API](#current-token-api) and [palette](#palette).
+- `src/app.css` defines the `below-banner` utility: the app frame fills the viewport under the fixed `BannerStack`, which publishes its measured height as `--banner-height` on `<html>`. Apply the utility instead of writing the variable; `ui/sidebar` reads it for its fixed container.
+- `src/app.css` names the fixed layers with the `z-banner` and `z-sheet` utilities. From lowest to highest the layers are: the desktop sidebar (`z-10`), `BannerStack` (`z-banner`), `ui/sheet` and its overlay (`z-sheet`), then dialogs, alert dialogs and floating content (menus, selects, popovers, tooltips) at shadcn's `z-50`, then the Toaster. Bits portals join `<body>` when the component mounts, not when it opens. Overlays on the same layer therefore paint in mount order, and a drawer that mounted after a resize would cover a dialog opened from it. A sheet sits below the dialogs it can open, and the banner sits above the page and desktop sidebar but below every modal layer. Use these layers instead of new z-values.
 - `src/app.css` no longer owns admin-specific selectors. Global `.btn`, `.input`, `.select`, `.label`, and related legacy selectors have been removed after route consumers migrated to shared primitives.
 
 The catalog records `shadcn-svelte@1.2.7` as its generation-time CLI reference. No CLI is installed. `components.json` selects `nova` and `stone`, but does not pin a registry. The [provenance comparison](ui-foundation-provenance.md#source-and-comparison-method) uses the immutable 1.2.7 registry tag and records adaptations rather than treating every local family as stock generated source.
@@ -56,7 +58,7 @@ Command input and result items must share one `Command.Root`. For server-filtere
 
 ## Transient feedback
 
-The Web UI Foundation's public [`toastStore`](../src/lib/stores/toast.svelte.ts) wraps Sonner for `success`, `error`, `warning`, `info` and `dismiss`. The root layout mounts the shared `ui/sonner` Toaster once. Feature views can report a failed save through this interface while keeping their draft or unsaved record visible for retry. A toast does not decide whether an operation succeeded or own saved feature state; the response and the feature's operation remain authoritative. No feature-specific message or recipient policy belongs in the shared adapter.
+The Web UI Foundation's public [`toastStore`](../src/lib/stores/toast.svelte.ts) wraps Sonner for `success`, `error`, `warning`, `info` and `dismiss`. The root layout mounts the shared `ui/sonner` Toaster once. Feature views can report a failed save through this interface while keeping their draft or unsaved record visible for retry. A toast does not decide whether an operation succeeded or own saved feature state; the response and the feature's operation remain authoritative. No feature-specific message or recipient policy belongs in the shared adapter. The Toaster keeps toasts clickable above modal layers: a modal sets `pointer-events: none` on `<body>`, so the Toaster restores it for its own list and stops `pointerdown` from reaching the open dialog or drawer, which would otherwise treat a touch on the toast as an outside press and close itself. While a modal's focus scope is active, keyboard focus stays in the modal; the toast is still announced through the Toaster's live region and dismisses itself.
 
 ## Password MFA continuation
 
@@ -911,7 +913,7 @@ Public components:
 Rules:
 
 - Use `Select` for selects by default so option controls keep the same visual shape across Windows, macOS, Linux, and browser engines.
-- Keep `NativeSelect` only for explicit native form-submission or mobile-picker requirements approved at the shared-component level.
+- Keep `NativeSelect` only for explicit native form-submission or mobile-picker requirements approved at the shared-component level. Account Profile's rank list is one: its form posts natively and works before hydration.
 - Use `Checkbox` for selection, inclusion or batch choices.
 - Use validation errors over hints when both exist. Render the error as `Field.Error` inside the control's `Field.Root` so the association and `aria-invalid` follow it; an alert elsewhere in the dialog is not associated.
 - Required markers are visual only with `aria-hidden="true"`; keep native `required` on native controls where submission validation matters.
@@ -978,6 +980,8 @@ Composable empty list placeholder.
 ```
 
 Compatibility note: the legacy `ui/EmptyState.svelte` wrapper has been removed. Compose `ui/empty` with `Button`, links, or route actions.
+
+The root and Organization error boundaries and `WorkspaceAccessRestricted` compose `ui/empty` for their status, message and recovery action. A page's `h1` stays a heading element inside `Empty.Header` where the page needs one. `Empty.Root` is full width, so a caller that adds outer margins also sets `w-auto` to keep the margins inside its column.
 
 ---
 
@@ -1257,6 +1261,8 @@ Status text uses `text-*-foreground`, backed by separate `--danger-foreground`, 
 Use `bg-success-muted`, `text-success-foreground`, `bg-warning-muted`, `text-warning-foreground`, `bg-info-muted`, `text-info-foreground`, `bg-danger-muted`, and `text-danger-foreground` through shared components where possible.
 
 ### Typography
+
+The document default font is the app sans (`var(--font-sans)`), so portaled overlays such as the mobile drawer inherit it. Auth Shell sets `font-body` (Source Serif 4) on its own wrapper, and the public site sets its own families.
 
 Use Tailwind typography utilities and shared component defaults. If scoped CSS truly needs a family, use the concrete family stack rather than a global alias:
 

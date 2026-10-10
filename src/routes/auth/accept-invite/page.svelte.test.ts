@@ -220,3 +220,34 @@ it('reconciles a lost activation response when retry confirms the pending marker
 	expect(screen.queryByRole('heading', { name: 'Account activated' })).toBeNull();
 	expect(fetchMock.mock.calls.filter(([url]) => url === '/api/auth/update-password')).toHaveLength(1);
 });
+
+it('lets the user submit sign-out to the existing POST action', async () => {
+	const { container } = render(Page);
+	const submissions: { method: string; pathname: string }[] = [];
+	container.addEventListener('submit', (event) => {
+		event.preventDefault();
+		const form = event.target as HTMLFormElement;
+		submissions.push({ method: form.method.toLowerCase(), pathname: new URL(form.action).pathname });
+	});
+
+	await fireEvent.click(screen.getByRole('button', { name: 'sign out' }));
+
+	expect(submissions).toEqual([{ method: 'post', pathname: '/auth/logout' }]);
+});
+
+it('names the confirmation field when the invite passwords differ', async () => {
+	render(Page);
+	const confirm = screen.getByLabelText(/^Confirm Password/);
+
+	await fireEvent.input(await screen.findByLabelText(/^Password/), { target: { value: 'NewPassword12' } });
+	await fireEvent.input(confirm, { target: { value: 'NewPassword13' } });
+
+	expect(confirm).toBeInvalid();
+	expect(confirm).toHaveAccessibleDescription('Passwords do not match');
+	expect(screen.getByRole('button', { name: 'Set Password' })).toBeDisabled();
+
+	await fireEvent.input(confirm, { target: { value: 'NewPassword12' } });
+
+	expect(confirm).toBeValid();
+	expect(confirm).toHaveAccessibleDescription('Passwords match.');
+});

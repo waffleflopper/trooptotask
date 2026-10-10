@@ -3,7 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
-	import { passwordRequirements } from '$features/identity';
+	import { PASSWORD_MISMATCH_MESSAGE, passwordRequirements } from '$features/identity';
 	import AuthField from '$features/identity/AuthField.svelte';
 	import AuthNotice from '$features/identity/AuthNotice.svelte';
 	import AuthPasswordToggle from '$features/identity/AuthPasswordToggle.svelte';
@@ -20,6 +20,7 @@
 
 	const requirements = $derived(passwordRequirements(password));
 	const passwordsMatch = $derived(password === confirmPassword && confirmPassword.length > 0);
+	const confirmError = $derived(confirmPassword && !passwordsMatch ? PASSWORD_MISMATCH_MESSAGE : undefined);
 	const recoveryState = $derived(
 		data.state === 'valid' ||
 			data.state === 'recovery-available' ||
@@ -194,6 +195,7 @@
 					bind:value={confirmPassword}
 					required
 					placeholder="Repeat your password"
+					error={confirmError}
 				>
 					{#snippet action()}
 						<AuthPasswordToggle
@@ -202,10 +204,6 @@
 						/>
 					{/snippet}
 				</AuthField>
-
-				{#if confirmPassword && !passwordsMatch}
-					<AuthNotice tone="error" message="Passwords do not match" />
-				{/if}
 
 				<Button type="submit" disabled={!canSubmit} class="w-full">
 					{#if loading}

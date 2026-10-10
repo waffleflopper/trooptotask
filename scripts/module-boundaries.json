@@ -146,6 +146,7 @@
 			],
 			"files": [
 				"src/routes/+error.svelte",
+				"src/routes/error.svelte.test.ts",
 				"src/routes/+page.server.ts",
 				"src/routes/+page.svelte",
 				"src/routes/page.svelte.test.ts"
@@ -234,6 +235,7 @@
 			"src/routes/+page.svelte",
 			"src/routes/page.svelte.test.ts",
 			"src/routes/+error.svelte",
+			"src/routes/error.svelte.test.ts",
 			"src/routes/about/",
 			"src/routes/privacy/",
 			"src/routes/security/",
@@ -530,6 +532,7 @@
 		"src/lib/test-stubs/VisibleStub.svelte",
 		"src/lib/test/chartLayout.ts",
 		"src/lib/server/adapters/inMemory.ts",
+		"src/features/app-shell/test-support/PreferenceProbe.svelte",
 		"src/features/calendar/test-support/DatePickerInputStub.svelte",
 		"src/features/calendar/calendarPersistence.test-support.server.ts",
 		"src/features/calendar/test-support/calendarProvider.ts",

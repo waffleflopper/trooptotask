@@ -5,6 +5,7 @@ import {
 	getAuthenticatedRedirectPath,
 	requestPublicPasswordRecovery
 } from '$features/identity/index.server';
+import { INVALID_EMAIL_MESSAGE } from '$features/identity/contracts';
 import { auditLog } from '$lib/audit/index.server';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -27,7 +28,7 @@ export const actions: Actions = {
 			{ audit: auditLog }
 		);
 		if (result.status === 'invalid-email') {
-			return fail(400, { error: 'Enter a valid email address', email: result.email });
+			return fail(400, { error: INVALID_EMAIL_MESSAGE, email: result.email });
 		}
 		if (result.status === 'rate-limited') {
 			return fail(429, {

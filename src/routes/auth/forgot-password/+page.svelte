@@ -3,11 +3,14 @@
 	import AuthNotice from '$features/identity/AuthNotice.svelte';
 	import AuthShell from '$features/identity/AuthShell.svelte';
 	import { enhance } from '$app/forms';
+	import { page } from '$app/state';
 	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
 
 	let { form } = $props();
 	let loading = $state(false);
+	// Only a 400 rejects the email itself; native and enhanced submissions both set the page status.
+	const emailError = $derived(page.status === 400 && form?.error ? form.error : '');
 </script>
 
 <svelte:head>
@@ -40,7 +43,7 @@
 				<p>If it does not arrive within a few minutes, check your spam folder.</p>
 			</AuthNotice>
 		{:else}
-			{#if form?.error}
+			{#if form?.error && !emailError}
 				<AuthNotice tone="error" message={form.error} />
 			{/if}
 
@@ -65,6 +68,7 @@
 					name="email"
 					type="email"
 					value={form?.email ?? ''}
+					error={emailError}
 					required
 					placeholder="you@example.com"
 				/>

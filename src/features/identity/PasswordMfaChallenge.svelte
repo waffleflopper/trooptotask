@@ -12,7 +12,8 @@
 		hint = 'Enter the current 6-digit code from your authenticator app before changing your password.'
 	}: { onverified: () => void | Promise<void>; hint?: string; id?: string } = $props();
 	let code = $state('');
-	let error = $state('');
+	let codeError = $state('');
+	let formError = $state('');
 	let loading = $state(false);
 	let form: HTMLFormElement;
 	onMount(() => {
@@ -22,7 +23,7 @@
 		event.preventDefault();
 		if (loading || code.length !== 6) return;
 		loading = true;
-		error = '';
+		codeError = formError = '';
 		try {
 			const response = await fetch('/api/auth/mfa/verify', {
 				method: 'POST',
@@ -35,26 +36,29 @@
 			}
 			const payload = (await response.json()) as MfaActionResponse | null;
 			if (!response.ok || payload?.ok !== true) {
-				error = payload?.error ?? 'Verification failed.';
+				const message = payload?.error ?? 'Verification failed.';
+				if (response.status === 401) codeError = message;
+				else formError = message;
 				return;
 			}
 			await onverified();
 		} catch (e: unknown) {
-			error = e instanceof Error ? e.message : 'Verification failed.';
+			formError = e instanceof Error ? e.message : 'Verification failed.';
 		} finally {
 			loading = false;
 			await tick();
-			if (error) form?.querySelector('input')?.focus();
+			if (codeError || formError) form?.querySelector('input')?.focus();
 		}
 	}
 </script>
 
-{#if error}<AuthNotice tone="error" message={error} />{/if}
+{#if formError}<AuthNotice tone="error" message={formError} />{/if}
 <form bind:this={form} onsubmit={verify} class="flex flex-col gap-5">
 	<AuthField
 		label="Authenticator Code"
 		{id}
 		disabled={loading}
+		error={codeError}
 		{hint}
 		value={code}
 		oninput={(event) => {

@@ -4,6 +4,7 @@
 		PasswordMfaChallenge,
 		passwordRequirements,
 		hasPendingPasswordCompletion,
+		PASSWORD_MISMATCH_MESSAGE,
 		validatePassword
 	} from '$features/identity';
 	import AuthField from '$features/identity/AuthField.svelte';
@@ -40,6 +41,7 @@
 
 	const requirements = $derived(passwordRequirements(password));
 	const passwordsMatch = $derived(password === confirmPassword && confirmPassword.length > 0);
+	const confirmError = $derived(confirmPassword && !passwordsMatch ? PASSWORD_MISMATCH_MESSAGE : undefined);
 	const canSubmit = $derived(requirements.valid && passwordsMatch && !loading);
 
 	async function readJsonResult(response: Response): Promise<{
@@ -104,7 +106,7 @@
 		}
 
 		if (password !== confirmPassword) {
-			error = 'Passwords do not match';
+			error = PASSWORD_MISMATCH_MESSAGE;
 			return;
 		}
 
@@ -352,6 +354,7 @@
 					bind:value={confirmPassword}
 					required
 					placeholder="Re-enter your password"
+					error={confirmError}
 					hint={passwordsMatch ? 'Passwords match.' : undefined}
 				>
 					{#snippet action()}
@@ -387,9 +390,7 @@
 			<div>
 				Leave this invite flow and
 				<form method="POST" action={resolve('/auth/logout')} class="inline">
-					<button type="submit" class="font-medium underline-offset-4 hover:text-foreground hover:underline">
-						sign out
-					</button>
+					<Button type="submit" variant="link" class="h-auto p-0">sign out</Button>
 				</form>
 				.
 			</div>

@@ -49,12 +49,12 @@
 	const hasImage = $derived(!!resolvedImageSrc);
 </script>
 
-<div class="min-h-screen overflow-x-hidden overflow-y-auto bg-muted/25 text-foreground">
+<div class="min-h-screen overflow-x-hidden overflow-y-auto bg-muted/25 font-body text-foreground">
 	<div class="mx-auto flex min-h-screen max-w-[1120px] flex-col px-4 py-5 sm:px-6 lg:px-8">
 		<header class="flex items-center justify-between gap-4">
 			<a
 				href={resolve('/')}
-				class="auth-brand inline-flex flex-col gap-0.5 text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+				class="inline-flex flex-col gap-0.5 text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
 			>
 				<BrandWordmark />
 			</a>
@@ -152,10 +152,3 @@
 		</footer>
 	</div>
 </div>
-
-<style>
-	.auth-brand {
-		--public-brand-accent: var(--accent);
-		--public-brand-subtitle-color: var(--muted-foreground);
-	}
-</style>

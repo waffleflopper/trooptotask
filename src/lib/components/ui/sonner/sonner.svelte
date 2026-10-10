@@ -7,7 +7,7 @@
 	import InfoIcon from '@lucide/svelte/icons/info';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 
-	let { onfocusin, onclick, ...restProps }: SonnerProps = $props();
+	let { onfocusin, onclick, onpointerdown, ...restProps }: SonnerProps = $props();
 
 	let returnFocus: HTMLElement | null = null;
 
@@ -15,6 +15,13 @@
 		onfocusin?.(event);
 		const from = event.relatedTarget;
 		if (from instanceof HTMLElement && !event.currentTarget.contains(from)) returnFocus = from;
+	}
+
+	// A modal layer dismisses on any pointerdown outside its content, so touching a toast would close the dialog or
+	// drawer the user is working in.
+	function keepOverlayOpen(event: PointerEvent & { currentTarget: EventTarget & HTMLOListElement }) {
+		onpointerdown?.(event);
+		event.stopPropagation();
 	}
 
 	// Removing the focused toast would drop focus to the body, so move it before the toast leaves.
@@ -29,12 +36,14 @@
 	}
 </script>
 
+<!-- A modal layer sets pointer-events: none on <body>, which the toaster would inherit, so pointer-events-auto keeps toasts clickable above it. -->
 <Sonner
 	theme={themeStore.current}
 	closeButton
 	onfocusin={rememberReturnFocus}
 	onclick={keepFocusOnDismiss}
-	class="toaster group"
+	onpointerdown={keepOverlayOpen}
+	class="toaster group pointer-events-auto"
 	style="--normal-bg: var(--color-popover); --normal-text: var(--color-popover-foreground); --normal-border: var(--color-border);"
 	{...restProps}
 >

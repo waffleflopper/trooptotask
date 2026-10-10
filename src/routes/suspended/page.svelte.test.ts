@@ -8,6 +8,12 @@ afterEach(() => {
 });
 
 describe('suspended page contact', () => {
+	it('titles the document', () => {
+		render(Page);
+
+		expect(document.title).toBe('Account Suspended - Troop to Task');
+	});
+
 	it('renders the canonical support mailbox', () => {
 		render(Page);
 

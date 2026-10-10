@@ -158,7 +158,7 @@ it.each([
 	['Enter a valid email address', 'email'],
 	['Enter a different email address', 'email'],
 	['Enter your current password to change your email', 'password']
-])('ties "%s" to the %s field and keeps both drafts', async (emailError, field) => {
+])('ties "%s" to the %s field, focuses it and keeps both drafts', async (emailError, field) => {
 	transport.send.mockResolvedValueOnce({
 		type: 'failure',
 		status: 400,
@@ -177,7 +177,7 @@ it.each([
 	expect(screen.queryByText('Email request not confirmed')).toBeNull();
 	expect(h.email).toHaveValue('new@example.test');
 	expect(h.password).toHaveValue(' OldPassword12 ');
-	await waitFor(() => expect(h.password).toHaveFocus());
+	await waitFor(() => expect(invalid).toHaveFocus());
 });
 it('clears a field error when the next request is sent and keeps a provider outage as a form alert', async () => {
 	transport.send

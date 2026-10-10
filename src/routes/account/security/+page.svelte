@@ -123,7 +123,9 @@
 				emailLoading = false;
 				await tick();
 				if (emailResult?.emailError && !emailMfaRequired && formElement.isConnected)
-					formElement.querySelector<HTMLInputElement>('#email-current-password')?.focus();
+					formElement
+						.querySelector<HTMLInputElement>(emailErrorField === 'email' ? '#email' : '#email-current-password')
+						?.focus();
 			}
 		};
 	};

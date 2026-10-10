@@ -304,10 +304,38 @@ const contextChanges = [
 	{ name: 'another Organization and Person', orgId: 'org-2', personnelId: 'person-2' }
 ];
 const artifactFamilies = [
-	{ name: 'follow-up', field: 'Follow-up title', endpoint: 'follow-ups', fileField: null },
-	{ name: 'document', field: 'Document title', endpoint: 'documents', fileField: 'Document file' },
-	{ name: 'counseling', field: 'Counseling title', endpoint: 'counseling-records', fileField: 'Counseling PDF' },
-	{ name: 'note', field: 'New leader note', endpoint: 'leader-notes', fileField: null }
+	{
+		name: 'follow-up',
+		field: 'Follow-up title',
+		endpoint: 'follow-ups',
+		fileField: null,
+		saveFailure: 'Unable to add follow-up.',
+		missing: { control: 'Follow-up title', message: 'Enter a follow-up title.' }
+	},
+	{
+		name: 'document',
+		field: 'Document title',
+		endpoint: 'documents',
+		fileField: 'Document file',
+		saveFailure: 'Unable to upload document.',
+		missing: { control: 'Document file', message: 'Choose a PDF, JPEG, PNG, or HEIC file.' }
+	},
+	{
+		name: 'counseling',
+		field: 'Counseling title',
+		endpoint: 'counseling-records',
+		fileField: 'Counseling PDF',
+		saveFailure: 'Unable to upload counseling PDF.',
+		missing: { control: 'Counseling PDF', message: 'Choose a signed counseling PDF.' }
+	},
+	{
+		name: 'note',
+		field: 'New leader note',
+		endpoint: 'leader-notes',
+		fileField: null,
+		saveFailure: 'Unable to save leader note.',
+		missing: { control: 'New leader note', message: 'Enter a leader note before saving.' }
+	}
 ] as const;
 type ArtifactFamily = (typeof artifactFamilies)[number];
 type ArtifactContext = Pick<typeof basePageData, 'orgId' | 'personnelId'>;
@@ -429,6 +457,13 @@ function rowAction(title: string, action: string) {
 	return within(article).getByRole('button', { name: action }) as HTMLButtonElement;
 }
 
+async function archivedAction(title: string, action: string) {
+	await fireEvent.click(rowAction(title, action));
+	if (action === 'Delete') {
+		await fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Delete' }));
+	}
+}
+
 describe('reused Personnel artifact pages', () => {
 	beforeEach(() => {
 		fetchMock = vi.fn();
@@ -441,6 +476,35 @@ describe('reused Personnel artifact pages', () => {
 	});
 
 	describe.each(artifactFamilies)('$name', (family) => {
+		it('keeps the entered draft and file and reports the save failure after a rejected save', async () => {
+			fetchMock.mockResolvedValueOnce(new Response('', { status: 500 }));
+			renderFamily(family, basePageData);
+			await fillArtifact(family, 'Rejected draft');
+			await submitArtifact(family);
+
+			expect((await screen.findByRole('alert')).textContent).toBe(family.saveFailure);
+			expect((screen.getByLabelText(family.field) as HTMLInputElement).value).toBe('Rejected draft');
+			if (family.fileField)
+				expect((screen.getByLabelText(family.fileField) as HTMLInputElement).files?.[0]?.name).toBe(
+					'Rejected draft.pdf'
+				);
+			expect(screen.queryByText('Rejected draft', { selector: 'h3, p' })).toBeNull();
+		});
+
+		it('ties the missing-field message to the control that needs input', async () => {
+			renderFamily(family, basePageData);
+			await fireEvent.submit(screen.getByLabelText(family.field).closest('form') as HTMLFormElement);
+
+			const control = screen.getByLabelText(family.missing.control);
+			expect(control.getAttribute('aria-invalid')).toBe('true');
+			const messageId = control.getAttribute('aria-describedby');
+			expect(document.getElementById(messageId ?? '')?.textContent).toBe(family.missing.message);
+			expect(fetchMock).not.toHaveBeenCalled();
+			expect(screen.queryByRole('alert', { name: /unable/i })).toBeNull();
+			const otherControl = screen.getByLabelText(family.field);
+			if (otherControl !== control) expect(otherControl.getAttribute('aria-invalid')).toBeNull();
+		});
+
 		it.each(contextChanges)('clears drafts and transient saved rows when opening $name', async (next) => {
 			fetchMock.mockResolvedValueOnce(jsonResponse(recordFor(family, basePageData, 'A saved artifact')));
 			const view = renderFamily(family, basePageData);
@@ -480,6 +544,33 @@ describe('reused Personnel artifact pages', () => {
 					.soft((screen.getByLabelText(family.fileField) as HTMLInputElement).files?.[0]?.name)
 					.toBe('B unsaved draft.pdf');
 		});
+	});
+
+	it.each([
+		{ family: artifactFamilies[1], message: 'Enter a document title.' },
+		{ family: artifactFamilies[2], message: 'Enter a counseling title.' }
+	])('ties a missing $family.name title to the title field once a file is chosen', async ({ family, message }) => {
+		renderFamily(family, basePageData);
+		await selectArtifactFile(family.fileField, 'orders.pdf');
+		await fireEvent.input(screen.getByLabelText(family.field), { target: { value: '' } });
+		await submitArtifact(family);
+
+		const title = screen.getByLabelText(family.field);
+		expect(title.getAttribute('aria-invalid')).toBe('true');
+		expect(document.getElementById(title.getAttribute('aria-describedby') ?? '')?.textContent).toBe(message);
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
+	it('keeps the edited follow-up draft when saving the edit is rejected', async () => {
+		fetchMock.mockResolvedValueOnce(new Response('', { status: 500 }));
+		renderFamily(artifactFamilies[0], basePageData, ['Dental readiness']);
+		await fireEvent.click(rowAction('Dental readiness', 'Edit'));
+		await fireEvent.input(screen.getByLabelText('Follow-up title'), { target: { value: 'Dental readiness, revised' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+		expect((await screen.findByRole('alert')).textContent).toBe('Unable to update follow-up.');
+		expect((screen.getByLabelText('Follow-up title') as HTMLInputElement).value).toBe('Dental readiness, revised');
+		expect(screen.getByRole('button', { name: 'Cancel edit' })).toBeTruthy();
 	});
 
 	it('keeps a same-Person document draft and file through refreshed page data', async () => {
@@ -565,12 +656,34 @@ describe('reused Personnel artifact pages', () => {
 		);
 	});
 
+	it('confirms before permanently deleting an archived item', async () => {
+		fetchMock.mockResolvedValueOnce(jsonResponse({ success: true }));
+		render(ArchivedPage, { props: { data: archivedData(basePageData, ['A target', 'A retained history']) } });
+
+		await fireEvent.click(rowAction('A target', 'Delete'));
+		const dialog = await screen.findByRole('alertdialog', { name: 'Delete archived item' });
+		expect(within(dialog).getByText('Permanently delete A target? This cannot be undone.')).toBeTruthy();
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+		await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+		expect(fetchMock).not.toHaveBeenCalled();
+		expect(screen.getByText('A target')).toBeTruthy();
+
+		await archivedAction('A target', 'Delete');
+		await waitFor(() => expect(screen.queryByText('A target')).toBeNull());
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+		expect(fetchMock).toHaveBeenCalledWith(
+			`/org/${basePageData.orgId}/api/personnel/${basePageData.personnelId}/documents/document-${basePageData.personnelId}-A target`,
+			{ method: 'DELETE' }
+		);
+		expect(screen.getByText('A retained history')).toBeTruthy();
+	});
+
 	it.each(['Restore', 'Delete'])('drops the previous Archived local list after a settled %s', async (action) => {
 		fetchMock.mockResolvedValueOnce(jsonResponse({ success: true }));
 		const view = render(ArchivedPage, {
 			props: { data: archivedData(basePageData, ['A target', 'A retained history']) }
 		});
-		await fireEvent.click(rowAction('A target', action));
+		await archivedAction('A target', action);
 		await waitFor(() => expect(screen.queryByText('A target')).toBeNull());
 		await view.rerender({ data: archivedData(contextChanges[1], ['B history']) });
 		expect.soft(screen.queryByText('A retained history')).toBeNull();
@@ -582,9 +695,9 @@ describe('reused Personnel artifact pages', () => {
 		const pendingB = deferredResponse();
 		fetchMock.mockReturnValueOnce(pendingA.promise).mockReturnValueOnce(pendingB.promise);
 		const view = render(ArchivedPage, { props: { data: archivedData(basePageData, ['A history']) } });
-		await fireEvent.click(rowAction('A history', action));
+		await archivedAction('A history', action);
 		await view.rerender({ data: archivedData(contextChanges[0], ['B history', 'B retained history']) });
-		await fireEvent.click(rowAction('B history', action));
+		await archivedAction('B history', action);
 		expect(rowAction('B history', action).disabled).toBe(true);
 		await settleResponse(pendingA, jsonResponse({ success: true }));
 		expect.soft(rowAction('B history', action).disabled).toBe(true);

@@ -3,7 +3,13 @@ import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
 import { z } from 'zod';
-import type { Personnel, PersonnelRecordPersistence, GroupPersistence } from './contracts';
+import {
+	PERSONNEL_FIRST_NAME_REQUIRED_MESSAGE,
+	PERSONNEL_LAST_NAME_REQUIRED_MESSAGE,
+	type Personnel,
+	type PersonnelRecordPersistence,
+	type GroupPersistence
+} from './contracts';
 import { normalizeActivePersonnelRank } from './rankValidation.server';
 import { buildUniquePersonnelSlug, isPersonnelSlugUniqueConstraintError } from './personnelSlug.server';
 import { fail, RequestFailure } from '$lib/errors';
@@ -37,6 +43,11 @@ function rankCodesMatchCanonical(left: string, right: string | undefined): boole
 	return right !== undefined && left.trim().toUpperCase() === right.trim().toUpperCase();
 }
 
+function requireNames(names: { lastName?: string; firstName?: string }): void {
+	if (names.lastName?.trim() === '') fail(400, PERSONNEL_LAST_NAME_REQUIRED_MESSAGE);
+	if (names.firstName?.trim() === '') fail(400, PERSONNEL_FIRST_NAME_REQUIRED_MESSAGE);
+}
+
 async function requireGroupInOrganization(
 	ctx: PersonnelRecordContext,
 	groupId: string | null | undefined
@@ -55,6 +66,7 @@ export async function createPersonnelRecord(ctx: PersonnelRecordContext, data: R
 	);
 
 	const validated = createInput.parse(data);
+	requireNames(validated);
 	await requireGroupInOrganization(ctx, validated.groupId as string | null | undefined);
 	validated.rank = await normalizeActivePersonnelRank(ctx, (validated as { rank: string }).rank);
 	const record = { ...validated, slug: '' };
@@ -102,6 +114,7 @@ export async function updatePersonnelRecord(ctx: PersonnelRecordContext, data: R
 		AUDIT_RESOURCE,
 		id
 	);
+	requireNames(patch);
 
 	if (nextGroupId !== undefined) {
 		await requireFeaturePolicy(

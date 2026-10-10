@@ -18,7 +18,7 @@ function makeSpec(
 	return {
 		createEmptyInput: () => ({ title: '', notes: '' }),
 		endpoint: ({ orgId, personId }) => `/org/${orgId}/api/personnel/${personId}/artifacts`,
-		validate: (input) => (input.title.trim() ? null : 'Enter a title.'),
+		validate: (input) => (input.title.trim() ? null : { field: 'title', message: 'Enter a title.' }),
 		encode: (input) => ({
 			headers: { 'content-type': 'application/json' },
 			body: JSON.stringify({ title: input.title.trim(), notes: input.notes.trim() })
@@ -36,10 +36,13 @@ describe('ArtifactDraft', () => {
 			fetch: fetchMock as typeof fetch
 		});
 
-		await draft.submit();
+		const saved = await draft.submit();
 
+		expect(saved).toBe(false);
 		expect(fetchMock).not.toHaveBeenCalled();
-		expect(draft.error).toBe('Enter a title.');
+		expect(draft.fieldError('title')).toBe('Enter a title.');
+		expect(draft.fieldError('notes')).toBe('');
+		expect(draft.error).toBe('');
 		expect(draft.saving).toBe(false);
 	});
 
@@ -51,9 +54,11 @@ describe('ArtifactDraft', () => {
 		});
 		draft.fields.title = 'Needs follow-up';
 
-		await draft.submit();
+		const saved = await draft.submit();
 
+		expect(saved).toBe(false);
 		expect(draft.error).toBe('Unable to create artifact.');
+		expect(draft.issue).toBeNull();
 		expect(draft.fields.title).toBe('Needs follow-up');
 		expect(draft.items).toEqual([]);
 	});
@@ -75,8 +80,9 @@ describe('ArtifactDraft', () => {
 		draft.fields.title = ' Needs follow-up ';
 		draft.fields.notes = ' Bring checklist ';
 
-		await draft.submit();
+		const saved = await draft.submit();
 
+		expect(saved).toBe(true);
 		expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/personnel/person-1/artifacts', {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },

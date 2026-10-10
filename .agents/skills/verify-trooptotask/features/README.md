@@ -49,10 +49,12 @@ For durable publication, follow [artifact packaging](../../../../docs/architectu
 - [Archival and deletion requests](deletion-requests.md): cross-feature submission, review, denial/cancellation, partial failures, source effects and scope.
 - [Organization settings and destruction](organization-settings-destruction.md): name and URL changes, retained settings, confirmation, step-up, denial and disposable-Organization deletion.
 - [Organization data exports](organization-exports.md): JSON and workbook contents, sensitive raw records, lifecycle, failed generation, download recovery, governance denial, and Organization switching.
-- [Find personnel](find-personnel.md): search, roster views, Organization-wide and Alpha-only reads, and record opening.
+- [Find personnel](find-personnel.md): search, roster views, group header pin and collapse, Organization-wide and Alpha-only reads, roster states and record opening.
 - [Personnel record lifecycle](personnel-records-lifecycle.md): create/edit, imports and ETS/DEROS backfill, archive/restore, approval, replay, scope and stable identities.
 - [Personnel artifacts](personnel-artifacts.md): counseling PDFs, documents, follow-ups and leader notes; drafts, sensitive access, archive/restore/removal, exports and retention.
 - [Manage groups](manage-groups.md): create, rename, remove, persist, and deny same/foreign Organization writes.
+- [Rank catalog](rank-settings.md): branch packs, custom ranks, edit, order, single and bulk retire/reactivate, remove, filters, failure and denial.
+- [Personnel, Groups and settings forms](personnel-form-states.md): failed saves that keep entered values, field error association and per-screen empty, restricted, disabled and narrow/dark states.
 - [Sign-in rosters](sign-in-rosters.md): Training entry, saved Personnel snapshot and PDF, signed scan lifecycle, scope, denial and recovery.
 - [Training catalog and views](training-catalog-views.md): requirement types, applicability, saved matrix views, scope, denial and persistence.
 - [Training completions, matrix and reports](training-completions-reports.md): saved record lifecycle, import/upsert recovery, dated status math, full matrix and report downloads, and scoped denial.

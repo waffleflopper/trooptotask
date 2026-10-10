@@ -11,6 +11,7 @@
 	import type { Personnel } from '../personnel.types';
 	import type { RankCatalogEntry } from '$features/personnel/contracts';
 	import * as BulkImportWorkspace from '$lib/components/patterns/bulk-import-workspace';
+	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import * as NativeSelect from '$lib/components/ui/native-select';
@@ -66,7 +67,6 @@
 		savedCount: number;
 		errors: PersonnelBatchMessage[];
 		skipped?: PersonnelBatchMessage[];
-		message?: string;
 	}
 
 	const TEMPLATE_HEADERS = 'Rank, Last Name, First Name, MOS, Duty Role, Group, ETS, PCS / DEROS';
@@ -78,6 +78,7 @@
 	let uploadedFiles = $state<FileList>();
 	let uploadedFileName = $state('');
 	let importError = $state('');
+	let submitError = $state('');
 	let importResult = $state<ImportResult | null>(null);
 	let runningImport = $state(false);
 	let editableRows = $state<string[][]>([]);
@@ -338,10 +339,10 @@
 		importResult = null;
 		try {
 			const parsedRows = await parseFile(file);
+			const dataRows = detectHeaderRow(parsedRows[0] ?? [], PERSONNEL_COLUMNS) ? parsedRows.slice(1) : parsedRows;
+			if (dataRows.length === 0) throw new Error('The file has no rows to import.');
 			fileRows = parsedRows;
-			editableRows = (detectHeaderRow(parsedRows[0] ?? [], PERSONNEL_COLUMNS) ? parsedRows.slice(1) : parsedRows).map(
-				(row) => [...row]
-			);
+			editableRows = dataRows.map((row) => [...row]);
 			userOverrides = {};
 			await tick();
 			resetSelectionToValidRows();
@@ -361,6 +362,7 @@
 		userOverrides = {};
 		selection.clear();
 		importError = '';
+		submitError = '';
 		importResult = null;
 		lastSubmittedEntries = [];
 		importStep = 'input';
@@ -388,6 +390,7 @@
 	}
 
 	function backToInput() {
+		submitError = '';
 		importStep = 'input';
 	}
 
@@ -407,6 +410,7 @@
 		if (checkedRows.length === 0) return;
 
 		lastSubmittedEntries = checkedRows;
+		submitError = '';
 		runningImport = true;
 		importStep = 'importing';
 
@@ -421,27 +425,22 @@
 				.json()
 				.catch(() => ({}));
 			if (!response.ok) {
-				importResult = {
-					savedCount: 0,
-					errors: data.errors ?? [],
-					skipped: data.skipped ?? [],
-					message: data.message ?? `Import failed with status ${response.status}`
-				};
-			} else {
-				importResult = {
-					savedCount: importMode === 'merge' ? (data.updated ?? []).length : (data.inserted ?? []).length,
-					errors: importMode === 'merge' ? [...(data.errors ?? []), ...(data.ambiguous ?? [])] : (data.errors ?? []),
-					skipped: importMode === 'merge' ? (data.skipped ?? []) : []
-				};
+				submitError = data.message ?? `Import failed with status ${response.status}`;
+				importStep = 'preview';
+				return;
 			}
-			importStep = 'results';
-		} catch (err) {
 			importResult = {
-				savedCount: 0,
-				errors: [{ index: -1, message: err instanceof Error ? err.message : 'Network error' }],
-				skipped: []
+				savedCount: importMode === 'merge' ? (data.updated ?? []).length : (data.inserted ?? []).length,
+				errors: importMode === 'merge' ? [...(data.errors ?? []), ...(data.ambiguous ?? [])] : (data.errors ?? []),
+				skipped: importMode === 'merge' ? (data.skipped ?? []) : []
 			};
 			importStep = 'results';
+		} catch {
+			submitError =
+				importMode === 'merge'
+					? 'The connection dropped before the backfill was confirmed. Try again.'
+					: 'The connection dropped before the import was confirmed. Some rows may already be saved, so check Personnel before importing again.';
+			importStep = 'preview';
 		} finally {
 			runningImport = false;
 		}
@@ -586,6 +585,7 @@
 					{@const fieldIssue = fieldError ?? fieldWarning}
 					{@const fieldState = fieldError ? 'error' : fieldWarning ? 'warning' : undefined}
 					{#if fieldIssue}
+						{@const issueId = `${row.id}-${fieldKey}-issue`}
 						<span class="relative block min-w-0">
 							<Tooltip.Root>
 								<Tooltip.Trigger>
@@ -598,14 +598,13 @@
 											spellcheck="false"
 											value={row.values[fieldKey] ?? ''}
 											aria-invalid={!!fieldError}
+											aria-describedby={issueId}
 											data-cell-state={fieldState}
 											title={fieldIssue}
 											class={[
 												'pr-7',
-												fieldState === 'error' &&
-													'border-danger/80! bg-danger-muted/70! text-danger-foreground ring-1 ring-danger/45!',
 												fieldState === 'warning' &&
-													'border-warning/80! bg-warning-muted/80! text-warning-foreground ring-1 ring-warning/45!'
+													'border-warning/80 bg-warning-muted/80 text-warning-foreground ring-1 ring-warning/45 dark:bg-warning-muted/80'
 											]}
 											onchange={(event) => updateCell(row, fieldKey, event.currentTarget.value)}
 										/>
@@ -613,6 +612,7 @@
 								</Tooltip.Trigger>
 								<Tooltip.Content side="top" sideOffset={6}>{fieldIssue}</Tooltip.Content>
 							</Tooltip.Root>
+							<span id={issueId} class="sr-only">{fieldIssue}</span>
 							<span
 								class={[
 									'pointer-events-none absolute top-1/2 right-1.5 inline-flex -translate-y-1/2 items-center',
@@ -640,6 +640,12 @@
 					{String(column.value(row) ?? '')}
 				{/if}
 			{/snippet}
+
+			{#if submitError}
+				<Alert.Root variant="destructive">
+					<Alert.Description>{submitError}</Alert.Description>
+				</Alert.Root>
+			{/if}
 
 			<Tooltip.Provider>
 				<BulkImportWorkspace.Root ariaLabel="Personnel import workspace">
@@ -719,7 +725,7 @@
 				{#if importResult?.errors.some((error) => error.index >= 0)}
 					<Button variant="outline" type="button" onclick={reviewFailedRows}>Review failed rows</Button>
 					<Button variant="outline" type="button" onclick={clearFile}>Upload another file</Button>
-				{:else if importResult?.errors.length || importResult?.message}
+				{:else if importResult?.errors.length}
 					<Button variant="outline" type="button" onclick={clearFile}>Upload another file</Button>
 				{/if}
 				<Button type="button" onclick={finishImport}>Return to Personnel</Button>
@@ -727,7 +733,7 @@
 
 			<BulkImportWorkspace.ResultSummary
 				status={resultStatus}
-				description={importResult.message ?? 'Review the summary before returning to the roster.'}
+				description="Review the summary before returning to the roster."
 				items={[
 					{ label: 'Saved', value: importResult.savedCount, tone: 'success' },
 					...(importMode === 'merge'

@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
+	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
+	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
 	import type { PersonnelDocument } from '$features/personnel/contracts';
 	import type { PersonnelDocumentsPageData } from '$features/personnel/personnel-detail.types';
@@ -48,8 +50,7 @@
 	}
 
 	async function submitDocument() {
-		await documents.submit();
-		if (!documents.error) clearFileInput();
+		if (await documents.submit()) clearFileInput();
 	}
 
 	async function openDocument(documentId: string) {
@@ -96,19 +97,31 @@
 		<div class="space-y-5 p-6">
 			<form class="grid gap-3" onsubmit={(event) => (event.preventDefault(), submitDocument())}>
 				<div class="grid gap-3 md:grid-cols-[1fr_auto]">
-					<Input bind:value={documents.fields.title} aria-label="Document title" placeholder="Document title" />
+					<Field.Root data-invalid={documents.fieldError('title') ? true : undefined}>
+						<Input bind:value={documents.fields.title} aria-label="Document title" placeholder="Document title" />
+						{#if documents.fieldError('title')}
+							<Field.Error>{documents.fieldError('title')}</Field.Error>
+						{/if}
+					</Field.Root>
 					<Button type="submit" disabled={documents.saving}>{documents.saving ? 'Uploading...' : 'Upload'}</Button>
 				</div>
-				<Input
-					bind:ref={fileInput}
-					type="file"
-					accept="application/pdf,image/jpeg,image/png,image/heic,image/heif,.pdf,.jpg,.jpeg,.png,.heic"
-					aria-label="Document file"
-					onchange={updateFile}
-				/>
+				<Field.Root data-invalid={documents.fieldError('file') ? true : undefined}>
+					<Input
+						bind:ref={fileInput}
+						type="file"
+						accept="application/pdf,image/jpeg,image/png,image/heic,image/heif,.pdf,.jpg,.jpeg,.png,.heic"
+						aria-label="Document file"
+						onchange={updateFile}
+					/>
+					{#if documents.fieldError('file')}
+						<Field.Error>{documents.fieldError('file')}</Field.Error>
+					{/if}
+				</Field.Root>
 				<p class="text-xs text-muted-foreground">PDF, JPEG, PNG, or HEIC. 10MB maximum.</p>
 				{#if documents.error}
-					<p class="text-sm text-destructive">{documents.error}</p>
+					<Alert.Root variant="destructive">
+						<Alert.Description>{documents.error}</Alert.Description>
+					</Alert.Root>
 				{/if}
 			</form>
 

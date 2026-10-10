@@ -32,6 +32,10 @@ import type { OrganizationRankCatalogEntry } from './rankCatalogContracts';
 
 export type { Personnel, PersonnelLookup } from './personnel.types';
 
+// Failures the Personnel forms attach to one field. Servers emit and forms match these exact strings.
+export const PERSONNEL_LAST_NAME_REQUIRED_MESSAGE = 'Last name is required';
+export const PERSONNEL_FIRST_NAME_REQUIRED_MESSAGE = 'First name is required';
+
 /** Stable Organization Group identity and display order. */
 export interface Group {
 	id: string;
@@ -142,6 +146,13 @@ export type {
 	OrganizationRankCatalogEntry,
 	OrganizationRankCatalogReferenceSummary,
 	OrganizationRankCatalogSource
+} from './rankCatalogContracts';
+export {
+	RANK_ALREADY_EXISTS_MESSAGE,
+	RANK_CODE_REQUIRED_MESSAGE,
+	RANK_LABEL_REQUIRED_MESSAGE,
+	RANK_TIE_BREAK_RANGE_MESSAGE,
+	RANK_TIE_BREAK_WHOLE_NUMBER_MESSAGE
 } from './rankCatalogContracts';
 
 /** Canonical Personnel facts used when saving a Sign-in Roster snapshot. */

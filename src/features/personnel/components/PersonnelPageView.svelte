@@ -5,22 +5,23 @@
 	import { pinnedGroupsStore } from '../stores/pinnedGroups.svelte';
 	import ArchiveIcon from '@lucide/svelte/icons/archive';
 	import DownloadIcon from '@lucide/svelte/icons/download';
+	import PinIcon from '@lucide/svelte/icons/pin';
 	import UsersIcon from '@lucide/svelte/icons/users';
-	import { Badge, badgeVariants } from '$lib/components/ui/badge';
-	import { Button, buttonVariants } from '$lib/components/ui/button';
+	import { Badge } from '$lib/components/ui/badge';
+	import { Button } from '$lib/components/ui/button';
 	import * as ButtonGroup from '$lib/components/ui/button-group';
 	import * as DataTable from '$lib/components/ui/data-table';
 	import * as Empty from '$lib/components/ui/empty/index.js';
 	import { Input } from '$lib/components/ui/input';
+	import { Toggle } from '$lib/components/ui/toggle';
 	import { useDataTable } from '$lib/components/ui/data-table';
-	import { cn } from '$lib/utils.js';
 	import type { ColumnDef } from '$lib/components/ui/data-table';
 	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar';
 	import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
 	import type { Personnel } from '../personnel.types';
 	import type { RequestPersonnelArchiveApproval } from '../utils/archivePersonnel';
 	import { SvelteSet } from 'svelte/reactivity';
-	import { onDestroy } from 'svelte';
+	import { onDestroy, tick } from 'svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
 
 	interface Props {
@@ -138,6 +139,19 @@
 		}
 		if (ctx.canManagePersonnelRecord(person)) openPersonnelDetail(person);
 	});
+
+	// Pinning reorders the groups and the moved header drops focus; put it back on the pin unless focus moved elsewhere.
+	async function togglePin(groupKey: string) {
+		const restoreFocus = async () => {
+			await tick();
+			if (document.activeElement && document.activeElement !== document.body) return;
+			document.querySelector<HTMLElement>(`[data-pin-group="${CSS.escape(groupKey)}"]`)?.focus();
+		};
+		const saved = pinnedGroupsStore.toggle(groupKey);
+		await restoreFocus();
+		await saved;
+		await restoreFocus();
+	}
 
 	function openPersonnelDetail(person: Personnel): void {
 		void goto(resolve(`/org/${orgUrlSegment}/personnel/${person.slug ?? person.id}`));
@@ -282,7 +296,7 @@
 		</div>
 	{:else}
 		<main class="flex min-h-0 flex-col gap-4 overflow-hidden px-6 pt-4 pb-5 max-sm:p-3">
-			<WorkspaceToolbar.Root ariaLabel="Personnel controls">
+			<WorkspaceToolbar.Root ariaLabel="Personnel controls" wrap>
 				<WorkspaceToolbar.Group
 					label="Roster filters"
 					activeCount={activeRosterFilterCount}
@@ -505,46 +519,25 @@
 							{/if}
 						{/snippet}
 						{#snippet groupHeader(group)}
-							<button
-								type="button"
-								class={cn(
-									buttonVariants({ variant: 'ghost', size: 'icon-sm' }),
-									'data-[state=on]:bg-transparent data-[state=on]:*:[svg]:fill-primary data-[state=on]:*:[svg]:stroke-primary'
-								)}
-								data-state={pinnedGroupsStore.list.includes(group.key) ? 'on' : 'off'}
-								aria-pressed={pinnedGroupsStore.list.includes(group.key)}
-								onclick={() => pinnedGroupsStore.toggle(group.key)}
+							<Toggle
+								pressed={pinnedGroupsStore.list.includes(group.key)}
+								data-pin-group={group.key}
+								onPressedChange={() => togglePin(group.key)}
 								title={pinnedGroupsStore.list.includes(group.key) ? 'Unpin group' : 'Pin group to top'}
 								aria-label={pinnedGroupsStore.list.includes(group.key) ? `Unpin ${group.label}` : `Pin ${group.label}`}
 							>
-								<svg
-									aria-hidden="true"
-									xmlns="http://www.w3.org/2000/svg"
-									width="24"
-									height="24"
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="2"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-								>
-									<path d="M12 17v5" />
-									<path
-										d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"
-									/>
-								</svg>
-							</button>
-							<button
+								<PinIcon aria-hidden="true" />
+							</Toggle>
+							<Button
 								type="button"
-								class={cn(buttonVariants({ variant: 'ghost' }), 'border-0 bg-transparent shadow-none')}
+								variant="ghost"
 								onclick={group.toggle}
 								aria-expanded={!group.collapsed}
 								aria-label={`${group.collapsed ? 'Expand' : 'Collapse'} ${group.label}`}
 							>
 								{group.label}
-								<span class={badgeVariants({ variant: 'outline' })}>{group.count}</span>
-							</button>
+								<Badge variant="outline">{group.count}</Badge>
+							</Button>
 						{/snippet}
 					</DataTable.DataTable>
 				</div>

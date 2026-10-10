@@ -1,6 +1,14 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import {
+		RANK_ALREADY_EXISTS_MESSAGE,
+		RANK_CODE_REQUIRED_MESSAGE,
+		RANK_LABEL_REQUIRED_MESSAGE,
+		RANK_TIE_BREAK_RANGE_MESSAGE,
+		RANK_TIE_BREAK_WHOLE_NUMBER_MESSAGE
+	} from '$features/personnel/contracts';
 	import type { SubmitFunction } from '@sveltejs/kit';
+	import { focusAfterDialogCloses } from '$lib/components/ui/dialog';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import PlusIcon from '@lucide/svelte/icons/plus';
@@ -13,8 +21,8 @@
 	import * as DataTable from '$lib/components/ui/data-table/index.js';
 	import type { ColumnDef, DataTableRowAction, DataTableState } from '$lib/components/ui/data-table/index.js';
 	import * as Empty from '$lib/components/ui/empty/index.js';
+	import * as Field from '$lib/components/ui/field/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
-	import { Label } from '$lib/components/ui/label/index.js';
 	import * as NativeSelect from '$lib/components/ui/native-select/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar/index.js';
@@ -24,10 +32,21 @@
 	type RankServiceFilter = SettingsRankCatalogRow['service'] | 'all';
 	type RankStateFilter = 'all' | 'active' | 'retired';
 	type BulkRankTargetState = 'active' | 'retired';
+	type RankErrorField = 'code' | 'label' | 'sortOrder';
 	type PendingBulkRankState = {
 		pack: SettingsRankServicePackOption;
 		targetState: BulkRankTargetState;
 	};
+
+	const RANK_FIELD_ERRORS = new Map<string, RankErrorField>([
+		[RANK_CODE_REQUIRED_MESSAGE, 'code'],
+		[RANK_ALREADY_EXISTS_MESSAGE, 'code'],
+		[RANK_LABEL_REQUIRED_MESSAGE, 'label'],
+		[RANK_TIE_BREAK_WHOLE_NUMBER_MESSAGE, 'sortOrder'],
+		[RANK_TIE_BREAK_RANGE_MESSAGE, 'sortOrder']
+	]);
+
+	const ROW_ACTION_KEYS = ['edit', 'retire', 'reactivate', 'delete'];
 
 	let {
 		ranksSettings,
@@ -38,16 +57,21 @@
 	} = $props();
 
 	let savingAction = $state<string | null>(null);
+	let settleSubmission: ((succeeded: boolean) => void) | null = null;
+	let confirmFailed = $state(false);
+	let ranksSection = $state<HTMLElement | null>(null);
 	let lastActionKey = $state<string | null>(null);
 	let stateFilter = $state<RankStateFilter>('active');
 	let branchFilter = $state<RankServiceFilter>('all');
 	let expandedRankCode = $state<string | null>(null);
 	let customRankOpen = $state(false);
 	let pendingBulkRankState = $state<PendingBulkRankState | null>(null);
+	let pendingRankRetire = $state<SettingsRankCatalogRow | null>(null);
 	let pendingRankDelete = $state<SettingsRankCatalogRow | null>(null);
 
 	const ranks = $derived(ranksSettings.sections.ranks);
 	const rankError = $derived(typeof form?.rankError === 'string' ? form.rankError : null);
+	const CONFIRM_FAILURE_FALLBACK = 'Unable to update the rank catalog. Try again.';
 	const actionSucceeded = $derived(Boolean(form?.success));
 	const branchFilterOptions = $derived([{ value: 'all' as const, label: 'All branches' }, ...ranks.options.services]);
 
@@ -75,6 +99,10 @@
 	const errorEditCode = $derived(
 		rankErrorScope === 'edit' && lastActionKey ? lastActionKey.slice('edit-'.length) : null
 	);
+	const rankErrorField = $derived(rankError ? (RANK_FIELD_ERRORS.get(rankError) ?? null) : null);
+	const addErrorField = $derived(rankErrorScope === 'add' ? rankErrorField : null);
+	// The edit form's Code is read-only, so a Code failure there stays in the form alert.
+	const editErrorField = $derived(rankErrorScope === 'edit' && rankErrorField !== 'code' ? rankErrorField : null);
 	const customRankPanelOpen = $derived(customRankOpen || rankErrorScope === 'add');
 
 	const payGradeOrder = new Map(
@@ -165,23 +193,88 @@
 		}
 	];
 
-	function enhancedForm(key: string): SubmitFunction {
-		return () => {
+	// Rank mutations run one at a time: savingAction is a single slot, so a second submission would clear it early.
+	// An edit form keeps what was saved; resetting it would blank fields whose bound values did not change.
+	function enhancedForm(key: string, { reset = true } = {}): SubmitFunction {
+		return ({ cancel }) => {
+			if (savingAction !== null) {
+				cancel();
+				return;
+			}
 			savingAction = key;
 			lastActionKey = key;
-			return async ({ update }) => {
+			return async ({ result, update }) => {
 				try {
-					await update();
+					await update({ reset });
 				} finally {
 					savingAction = null;
+					settleSubmission?.(result.type === 'success');
+					settleSubmission = null;
 				}
 			};
 		};
 	}
 
-	function submitFormById(id: string): void {
+	function submitFormById(id: string): boolean {
 		const element = document.getElementById(id);
-		if (element instanceof HTMLFormElement) element.requestSubmit();
+		if (!(element instanceof HTMLFormElement)) return false;
+		element.requestSubmit();
+		return true;
+	}
+
+	// Resolves with whether the form's request succeeded, once its enhance callback has applied the result.
+	function submitFormAndWait(id: string): Promise<boolean> {
+		if (savingAction !== null) return Promise.resolve(false);
+		return new Promise((resolve) => {
+			settleSubmission = resolve;
+			if (!submitFormById(id)) resolve(false);
+		});
+	}
+
+	function rowActionsTriggers(): HTMLButtonElement[] {
+		return [...(ranksSection?.querySelectorAll<HTMLButtonElement>('button[aria-label^="Actions for "]') ?? [])];
+	}
+
+	// The row's own trigger if it survived, else the row that took its place, else the one before it, else the heading.
+	function rankRowFocusTarget(code: string): () => HTMLElement | null {
+		const label = `Actions for ${code}`;
+		const index = rowActionsTriggers().findIndex((trigger) => trigger.getAttribute('aria-label') === label);
+		return () => {
+			const triggers = rowActionsTriggers();
+			return (
+				triggers.find((trigger) => trigger.getAttribute('aria-label') === label) ??
+				triggers[index] ??
+				triggers[index - 1] ??
+				document.getElementById('ranks-heading')
+			);
+		};
+	}
+
+	function packActionsFocusTarget(pack: SettingsRankServicePackOption): () => HTMLElement | null {
+		const label = `More actions for ${pack.label}`;
+		return () =>
+			[...document.querySelectorAll<HTMLElement>('button')].find(
+				(button) => button.getAttribute('aria-label') === label
+			) ?? document.getElementById('rank-service-packs');
+	}
+
+	// Keeps the confirmation open until the request settles. A failure leaves it open so it can be retried or cancelled.
+	async function confirmWithForm(formId: string, close: () => void, focusTarget: () => HTMLElement | null) {
+		confirmFailed = false;
+		const succeeded = await submitFormAndWait(formId);
+		confirmFailed = !succeeded;
+		if (!succeeded) return;
+		close();
+		focusAfterDialogCloses(focusTarget);
+	}
+
+	function cancelConfirmation(clear: () => void) {
+		confirmFailed = false;
+		clear();
+	}
+
+	function editFieldInvalid(entry: SettingsRankCatalogRow, field: RankErrorField): boolean {
+		return errorEditCode === entry.code && editErrorField === field;
 	}
 
 	function sourceVariant(source: SettingsRankCatalogRow['source']): 'secondary' | 'outline' {
@@ -195,6 +288,10 @@
 
 	function rankDetailId(code: string): string {
 		return `${rankDomId(code)}-detail`;
+	}
+
+	function isRowSaving(entry: SettingsRankCatalogRow): boolean {
+		return ROW_ACTION_KEYS.some((key) => savingAction === `${key}-${entry.code}`);
 	}
 
 	function rowFormId(intent: string, code: string): string {
@@ -249,7 +346,9 @@
 			actions.push({
 				label: 'Retire',
 				disabled: savingAction !== null,
-				onSelect: () => submitFormById(rowFormId('retire', entry.code))
+				onSelect: () => {
+					pendingRankRetire = entry;
+				}
 			});
 		}
 		if (entry.commands.canReactivate) {
@@ -295,18 +394,26 @@
 		return actions;
 	}
 
-	function confirmBulkRankState(): void {
+	async function confirmBulkRankState() {
 		if (!pendingBulkRankState) return;
 		const { pack, targetState } = pendingBulkRankState;
-		pendingBulkRankState = null;
-		submitFormById(`bulk-${targetState}-${pack.value}`);
+		await confirmWithForm(
+			`bulk-${targetState}-${pack.value}`,
+			() => (pendingBulkRankState = null),
+			packActionsFocusTarget(pack)
+		);
 	}
 
-	function confirmRankDelete(): void {
+	async function confirmRankRetire() {
+		if (!pendingRankRetire) return;
+		const code = pendingRankRetire.code;
+		await confirmWithForm(rowFormId('retire', code), () => (pendingRankRetire = null), rankRowFocusTarget(code));
+	}
+
+	async function confirmRankDelete() {
 		if (!pendingRankDelete) return;
 		const code = pendingRankDelete.code;
-		pendingRankDelete = null;
-		submitFormById(rowFormId('delete', code));
+		await confirmWithForm(rowFormId('delete', code), () => (pendingRankDelete = null), rankRowFocusTarget(code));
 	}
 
 	function bulkRankStateCount(pending: PendingBulkRankState): number {
@@ -355,7 +462,7 @@
 		</Alert.Root>
 	{/if}
 
-	{#if rankError && rankErrorScope === 'global'}
+	{#if rankError && rankErrorScope === 'global' && !confirmFailed}
 		<Alert.Root variant="destructive">
 			<Alert.Description>{rankError}</Alert.Description>
 		</Alert.Root>
@@ -375,7 +482,9 @@
 		aria-labelledby="rank-service-packs"
 	>
 		<div class="grid gap-1">
-			<h2 id="rank-service-packs" class="font-heading text-lg font-semibold tracking-tight">Branch Coverage</h2>
+			<h2 id="rank-service-packs" tabindex="-1" class="font-heading text-lg font-semibold tracking-tight">
+				Branch Coverage
+			</h2>
 			<p class="text-sm text-muted-foreground">
 				Add missing built-in ranks by branch, or retire and reactivate a whole branch pack from the actions menu.
 			</p>
@@ -403,9 +512,7 @@
 							<Button
 								type="submit"
 								size="sm"
-								disabled={!ranks.commands.canAddServicePack ||
-									pack.isInstalled ||
-									savingAction === `pack-${pack.value}`}
+								disabled={!ranks.commands.canAddServicePack || pack.isInstalled || savingAction !== null}
 								aria-busy={savingAction === `pack-${pack.value}`}
 								aria-label={`Add ${pack.label}`}
 							>
@@ -475,7 +582,7 @@
 				</p>
 			</div>
 			<Separator />
-			{#if rankError && rankErrorScope === 'add'}
+			{#if rankError && rankErrorScope === 'add' && !addErrorField}
 				<Alert.Root variant="destructive">
 					<Alert.Description>{rankError}</Alert.Description>
 				</Alert.Root>
@@ -483,8 +590,8 @@
 			<form method="POST" action="?/saveRank" class="grid gap-4" use:enhance={enhancedForm('rank-add')}>
 				<input type="hidden" name="intent" value="add" />
 				<div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-					<div class="grid gap-2">
-						<Label for="rank-code">Code</Label>
+					<Field.Root data-invalid={addErrorField === 'code' ? true : undefined}>
+						<Field.Label for="rank-code">Code</Field.Label>
 						<Input
 							id="rank-code"
 							name="code"
@@ -493,9 +600,10 @@
 							required
 							disabled={!ranks.commands.canAddCustomRank}
 						/>
-					</div>
-					<div class="grid gap-2">
-						<Label for="rank-label">Label</Label>
+						{#if addErrorField === 'code'}<Field.Error>{rankError}</Field.Error>{/if}
+					</Field.Root>
+					<Field.Root data-invalid={addErrorField === 'label' ? true : undefined}>
+						<Field.Label for="rank-label">Label</Field.Label>
 						<Input
 							id="rank-label"
 							name="label"
@@ -504,73 +612,66 @@
 							required
 							disabled={!ranks.commands.canAddCustomRank}
 						/>
-					</div>
-					<div class="grid gap-2">
-						<Label for="rank-service">Branch</Label>
-						<NativeSelect.Root
-							id="rank-service"
-							name="service"
-							value="custom"
-							disabled={!ranks.commands.canAddCustomRank}
-						>
+						{#if addErrorField === 'label'}<Field.Error>{rankError}</Field.Error>{/if}
+					</Field.Root>
+					<Field.Root>
+						<Field.Label for="rank-service">Branch</Field.Label>
+						<NativeSelect.Root id="rank-service" name="service" disabled={!ranks.commands.canAddCustomRank}>
 							{#each ranks.options.services as option (option.value)}
-								<NativeSelect.Option value={option.value}>{option.label}</NativeSelect.Option>
+								<NativeSelect.Option value={option.value} selected={option.value === 'custom'}
+									>{option.label}</NativeSelect.Option
+								>
 							{/each}
 						</NativeSelect.Root>
-					</div>
-					<div class="grid gap-2">
-						<Label for="rank-category">Category</Label>
-						<NativeSelect.Root
-							id="rank-category"
-							name="category"
-							value="custom"
-							disabled={!ranks.commands.canAddCustomRank}
-						>
+					</Field.Root>
+					<Field.Root>
+						<Field.Label for="rank-category">Category</Field.Label>
+						<NativeSelect.Root id="rank-category" name="category" disabled={!ranks.commands.canAddCustomRank}>
 							{#each ranks.options.categories as option (option.value)}
-								<NativeSelect.Option value={option.value}>{option.label}</NativeSelect.Option>
+								<NativeSelect.Option value={option.value} selected={option.value === 'custom'}
+									>{option.label}</NativeSelect.Option
+								>
 							{/each}
 						</NativeSelect.Root>
-					</div>
-					<div class="grid gap-1.5">
-						<Label for="rank-pay-grade">Pay grade</Label>
-						<p id="rank-pay-grade-help" class="text-xs text-muted-foreground">{ranks.copy.payGradeHelp}</p>
-						<NativeSelect.Root
-							id="rank-pay-grade"
-							name="payGrade"
-							value="ungraded"
-							aria-describedby="rank-pay-grade-help"
-							disabled={!ranks.commands.canAddCustomRank}
-						>
+					</Field.Root>
+					<Field.Root>
+						<Field.Label for="rank-pay-grade">Pay grade</Field.Label>
+						<Field.Description>{ranks.copy.payGradeHelp}</Field.Description>
+						<NativeSelect.Root id="rank-pay-grade" name="payGrade" disabled={!ranks.commands.canAddCustomRank}>
 							{#each ranks.options.payGrades as option (option.value)}
-								<NativeSelect.Option value={option.value}>{option.label}</NativeSelect.Option>
+								<NativeSelect.Option value={option.value} selected={option.value === 'ungraded'}
+									>{option.label}</NativeSelect.Option
+								>
 							{/each}
 						</NativeSelect.Root>
-					</div>
-					<div class="grid gap-2">
-						<Label for="rank-state">State</Label>
-						<NativeSelect.Root id="rank-state" name="state" value="active" disabled={!ranks.commands.canAddCustomRank}>
+					</Field.Root>
+					<Field.Root>
+						<Field.Label for="rank-state">State</Field.Label>
+						<NativeSelect.Root id="rank-state" name="state" disabled={!ranks.commands.canAddCustomRank}>
 							{#each ranks.options.states as option (option.value)}
-								<NativeSelect.Option value={option.value}>{option.label}</NativeSelect.Option>
+								<NativeSelect.Option value={option.value} selected={option.value === 'active'}
+									>{option.label}</NativeSelect.Option
+								>
 							{/each}
 						</NativeSelect.Root>
-					</div>
-					<div class="grid gap-1.5">
-						<Label for="rank-sort-order">Tie-break order</Label>
-						<p id="rank-sort-order-help" class="text-xs text-muted-foreground">{ranks.copy.tieBreakHelp}</p>
+					</Field.Root>
+					<Field.Root data-invalid={addErrorField === 'sortOrder' ? true : undefined}>
+						<Field.Label for="rank-sort-order">Tie-break order</Field.Label>
+						<Field.Description>{ranks.copy.tieBreakHelp}</Field.Description>
 						<Input
 							id="rank-sort-order"
 							name="sortOrder"
 							type="number"
-							value="500"
-							aria-describedby="rank-sort-order-help"
+							defaultValue="500"
 							disabled={!ranks.commands.canAddCustomRank}
 						/>
-					</div>
+						{#if addErrorField === 'sortOrder'}<Field.Error>{rankError}</Field.Error>{/if}
+					</Field.Root>
 				</div>
 				<div>
 					<Button
 						type="submit"
-						disabled={!ranks.commands.canAddCustomRank || savingAction === 'rank-add'}
+						disabled={!ranks.commands.canAddCustomRank || savingAction !== null}
 						aria-busy={savingAction === 'rank-add'}
 					>
 						<PlusIcon aria-hidden />
@@ -581,9 +682,13 @@
 		</section>
 	{/if}
 
-	<section class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground" aria-labelledby="ranks-heading">
+	<section
+		bind:this={ranksSection}
+		class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground"
+		aria-labelledby="ranks-heading"
+	>
 		<div class="grid gap-1">
-			<h2 id="ranks-heading" class="font-heading text-lg font-semibold tracking-tight">Ranks</h2>
+			<h2 id="ranks-heading" tabindex="-1" class="font-heading text-lg font-semibold tracking-tight">Ranks</h2>
 			<p class="text-sm text-muted-foreground">
 				Active ranks are available for future selection and import matching; retired ranks are hidden from selection
 				while existing references are preserved.
@@ -635,8 +740,23 @@
 		confirmLabel={bulkRankStateConfirmLabel(pendingBulkRankState)}
 		variant="warning"
 		onConfirm={confirmBulkRankState}
-		onCancel={() => (pendingBulkRankState = null)}
-	/>
+		onCancel={() => cancelConfirmation(() => (pendingBulkRankState = null))}
+	>
+		{@render confirmFailure()}
+	</ConfirmDialog>
+{/if}
+
+{#if pendingRankRetire}
+	<ConfirmDialog
+		title={`Retire ${pendingRankRetire.code}`}
+		message={`${pendingRankRetire.code} ${pendingRankRetire.label} will be hidden from future rank selection. Existing Personnel records and historical references stay intact.`}
+		confirmLabel="Retire rank"
+		variant="warning"
+		onConfirm={confirmRankRetire}
+		onCancel={() => cancelConfirmation(() => (pendingRankRetire = null))}
+	>
+		{@render confirmFailure()}
+	</ConfirmDialog>
 {/if}
 
 {#if pendingRankDelete}
@@ -646,9 +766,19 @@
 		confirmLabel="Remove rank"
 		variant="destructive"
 		onConfirm={confirmRankDelete}
-		onCancel={() => (pendingRankDelete = null)}
-	/>
+		onCancel={() => cancelConfirmation(() => (pendingRankDelete = null))}
+	>
+		{@render confirmFailure()}
+	</ConfirmDialog>
 {/if}
+
+{#snippet confirmFailure()}
+	{#if confirmFailed}
+		<Alert.Root variant="destructive">
+			<Alert.Description>{rankError ?? CONFIRM_FAILURE_FALLBACK}</Alert.Description>
+		</Alert.Root>
+	{/if}
+{/snippet}
 
 {#snippet rankToolbar(table: DataTableState<SettingsRankCatalogRow>)}
 	<WorkspaceToolbar.Root ariaLabel="Rank table controls">
@@ -691,9 +821,10 @@
 {#snippet rankCell(entry: SettingsRankCatalogRow, column: ColumnDef<SettingsRankCatalogRow>)}
 	{#if column.key === 'rank'}
 		<div class="flex max-w-80 items-start gap-2">
-			<button
+			<Button
 				type="button"
-				class="mt-0.5 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+				variant="ghost"
+				size="icon-xs"
 				aria-expanded={isRankExpanded(entry)}
 				aria-controls={rankDetailId(entry.code)}
 				aria-label={`${isRankExpanded(entry) ? 'Hide' : 'Show'} details for ${entry.code}`}
@@ -701,11 +832,11 @@
 			>
 				<ChevronRightIcon
 					aria-hidden
-					class="size-4 transition-transform duration-150 motion-reduce:transition-none {isRankExpanded(entry)
+					class="transition-transform duration-150 motion-reduce:transition-none {isRankExpanded(entry)
 						? 'rotate-90'
 						: ''}"
 				/>
-			</button>
+			</Button>
 			<span class="grid min-w-0 gap-0.5">
 				<span class="font-medium">{entry.code}</span>
 				<span class="truncate text-sm text-muted-foreground">{entry.label}</span>
@@ -725,7 +856,12 @@
 		<div class="flex justify-end">
 			{@render rankRowForms(entry)}
 			{#if rankRowActions(entry).length > 0}
-				<DataTable.RowActions row={entry} actions={rankRowActions(entry)} ariaLabel={`Actions for ${entry.code}`} />
+				<DataTable.RowActions
+					row={entry}
+					actions={rankRowActions(entry)}
+					ariaLabel={`Actions for ${entry.code}`}
+					busy={isRowSaving(entry)}
+				/>
 			{/if}
 		</div>
 	{:else}
@@ -808,80 +944,74 @@
 					<PencilIcon aria-hidden class="size-4" />
 					Edit rank
 				</div>
-				{#if rankError && errorEditCode === entry.code}
+				{#if rankError && errorEditCode === entry.code && !editErrorField}
 					<Alert.Root variant="destructive" class="mb-3">
 						<Alert.Description>{rankError}</Alert.Description>
 					</Alert.Root>
 				{/if}
-				<form method="POST" action="?/saveRank" class="grid gap-3" use:enhance={enhancedForm(`edit-${entry.code}`)}>
+				<form
+					method="POST"
+					action="?/saveRank"
+					class="grid gap-3"
+					use:enhance={enhancedForm(`edit-${entry.code}`, { reset: false })}
+				>
 					<input type="hidden" name="intent" value="edit" />
 					<input type="hidden" name="originalCode" value={entry.code} />
 					<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-						<div class="grid gap-2">
-							<Label for={`${domId}-edit-code`}>Code</Label>
+						<Field.Root>
+							<Field.Label for={`${domId}-edit-code`}>Code</Field.Label>
 							<Input id={`${domId}-edit-code`} name="code" value={entry.code} readonly />
-						</div>
-						<div class="grid gap-2">
-							<Label for={`${domId}-edit-label`}>Label</Label>
+						</Field.Root>
+						<Field.Root data-invalid={editFieldInvalid(entry, 'label') ? true : undefined}>
+							<Field.Label for={`${domId}-edit-label`}>Label</Field.Label>
 							<Input id={`${domId}-edit-label`} name="label" value={entry.label} maxlength={120} required />
-						</div>
-						<div class="grid gap-2">
-							<Label for={`${domId}-edit-service`}>Branch</Label>
+							{#if editFieldInvalid(entry, 'label')}<Field.Error>{rankError}</Field.Error>{/if}
+						</Field.Root>
+						<Field.Root>
+							<Field.Label for={`${domId}-edit-service`}>Branch</Field.Label>
 							<NativeSelect.Root id={`${domId}-edit-service`} name="service" value={entry.service}>
 								{#each ranks.options.services as option (option.value)}
 									<NativeSelect.Option value={option.value}>{option.label}</NativeSelect.Option>
 								{/each}
 							</NativeSelect.Root>
-						</div>
-						<div class="grid gap-2">
-							<Label for={`${domId}-edit-category`}>Category</Label>
+						</Field.Root>
+						<Field.Root>
+							<Field.Label for={`${domId}-edit-category`}>Category</Field.Label>
 							<NativeSelect.Root id={`${domId}-edit-category`} name="category" value={entry.category}>
 								{#each ranks.options.categories as option (option.value)}
 									<NativeSelect.Option value={option.value}>{option.label}</NativeSelect.Option>
 								{/each}
 							</NativeSelect.Root>
-						</div>
-						<div class="grid gap-1.5">
-							<Label for={`${domId}-edit-pay-grade`}>Pay grade</Label>
-							<p id={`${domId}-edit-pay-grade-help`} class="text-xs text-muted-foreground">{ranks.copy.payGradeHelp}</p>
-							<NativeSelect.Root
-								id={`${domId}-edit-pay-grade`}
-								name="payGrade"
-								value={entry.payGrade}
-								aria-describedby={`${domId}-edit-pay-grade-help`}
-							>
+						</Field.Root>
+						<Field.Root>
+							<Field.Label for={`${domId}-edit-pay-grade`}>Pay grade</Field.Label>
+							<Field.Description>{ranks.copy.payGradeHelp}</Field.Description>
+							<NativeSelect.Root id={`${domId}-edit-pay-grade`} name="payGrade" value={entry.payGrade}>
 								{#each ranks.options.payGrades as option (option.value)}
 									<NativeSelect.Option value={option.value}>{option.label}</NativeSelect.Option>
 								{/each}
 							</NativeSelect.Root>
-						</div>
-						<div class="grid gap-2">
-							<Label for={`${domId}-edit-state`}>State</Label>
+						</Field.Root>
+						<Field.Root>
+							<Field.Label for={`${domId}-edit-state`}>State</Field.Label>
 							<NativeSelect.Root id={`${domId}-edit-state`} name="state" value={entry.state}>
 								{#each ranks.options.states as option (option.value)}
 									<NativeSelect.Option value={option.value}>{option.label}</NativeSelect.Option>
 								{/each}
 							</NativeSelect.Root>
-						</div>
-						<div class="grid gap-1.5">
-							<Label for={`${domId}-edit-sort-order`}>Tie-break order</Label>
-							<p id={`${domId}-edit-sort-order-help`} class="text-xs text-muted-foreground">
-								{ranks.copy.tieBreakHelp}
-							</p>
-							<Input
-								id={`${domId}-edit-sort-order`}
-								name="sortOrder"
-								type="number"
-								value={entry.sortOrder}
-								aria-describedby={`${domId}-edit-sort-order-help`}
-							/>
-						</div>
+						</Field.Root>
+						<Field.Root data-invalid={editFieldInvalid(entry, 'sortOrder') ? true : undefined}>
+							<Field.Label for={`${domId}-edit-sort-order`}>Tie-break order</Field.Label>
+							<Field.Description>{ranks.copy.tieBreakHelp}</Field.Description>
+							<Input id={`${domId}-edit-sort-order`} name="sortOrder" type="number" value={entry.sortOrder} />
+							{#if editFieldInvalid(entry, 'sortOrder')}<Field.Error>{rankError}</Field.Error>{/if}
+						</Field.Root>
 					</div>
 					<div>
 						<Button
 							type="submit"
 							size="sm"
-							disabled={savingAction === `edit-${entry.code}`}
+							disabled={savingAction !== null}
 							aria-busy={savingAction === `edit-${entry.code}`}
 							aria-label={`Save ${entry.code}`}
 						>

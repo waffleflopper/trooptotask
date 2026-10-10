@@ -1,6 +1,10 @@
 <script lang="ts">
+	import * as Alert from '$lib/components/ui/alert';
+	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
+	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import type { PersonnelArchivedArtifact } from '$features/personnel/contracts';
+	import { focusAfterDialogCloses } from '$lib/components/ui/dialog';
 	import type {
 		PersonnelArchivedArtifactsPageData,
 		PersonnelArtifactKind
@@ -11,6 +15,9 @@
 	const records = $derived(localRecords ?? data.records);
 	let actionKey = $state('');
 	let error = $state('');
+	let pendingDelete = $state<{ record: PersonnelArchivedArtifact; url: string } | null>(null);
+	let deleteError = $state('');
+	let recordList = $state<HTMLElement | null>(null);
 
 	function formatDate(value: string | null | undefined) {
 		if (!value) return 'Unknown date';
@@ -62,15 +69,25 @@
 		}
 	}
 
-	async function remove(record: PersonnelArchivedArtifact) {
-		error = '';
+	// The confirmation stays open until the request settles; a failure keeps it open to retry or cancel.
+	async function remove({ record, url }: { record: PersonnelArchivedArtifact; url: string }) {
+		deleteError = '';
 		actionKey = `${record.kind}:${record.id}`;
+		const index = records.findIndex((item) => item.id === record.id && item.kind === record.kind);
 		try {
-			const response = await fetch(endpoint(record.kind, record.id), { method: 'DELETE' });
+			const response = await fetch(url, { method: 'DELETE' });
 			if (!response.ok) throw new Error('Unable to delete archived item.');
 			localRecords = records.filter((item) => item.id !== record.id || item.kind !== record.kind);
+			pendingDelete = null;
+			focusAfterDialogCloses(() => {
+				const rows = recordList?.querySelectorAll('article') ?? [];
+				return (
+					(rows[index] ?? rows[index - 1])?.querySelector('button') ??
+					document.getElementById('archived-artifacts-heading')
+				);
+			});
 		} catch (caught) {
-			error = caught instanceof Error ? caught.message : 'Unable to delete archived item.';
+			deleteError = caught instanceof Error ? caught.message : 'Unable to delete archived item.';
 		} finally {
 			actionKey = '';
 		}
@@ -80,21 +97,23 @@
 <main class="p-6">
 	<section class="rounded-md border bg-card">
 		<div class="border-b p-4">
-			<h2 class="text-lg font-semibold">{data.title}</h2>
+			<h2 id="archived-artifacts-heading" tabindex="-1" class="text-lg font-semibold">{data.title}</h2>
 		</div>
 		<div class="space-y-5 p-6">
 			{#if error}
-				<p class="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</p>
+				<Alert.Root variant="destructive">
+					<Alert.Description>{error}</Alert.Description>
+				</Alert.Root>
 			{/if}
 			{#if records.length === 0}
 				<p class="rounded-md border border-dashed p-4 text-sm text-muted-foreground">{data.emptyState}</p>
 			{:else}
-				<div class="divide-y rounded-md border">
+				<div bind:this={recordList} class="divide-y rounded-md border">
 					{#each records as record (record.kind + record.id)}
 						<article class="grid gap-3 p-4 md:grid-cols-[1fr_auto] md:items-center">
 							<div>
 								<div class="flex flex-wrap items-center gap-2">
-									<span class="rounded-sm border px-2 py-0.5 text-xs text-muted-foreground">{record.kind}</span>
+									<Badge variant="outline">{record.kind}</Badge>
 									<h3 class="font-medium">{titleFor(record)}</h3>
 								</div>
 								<p class="mt-1 text-xs text-muted-foreground">
@@ -116,7 +135,7 @@
 									variant="destructive"
 									size="sm"
 									disabled={actionKey === `${record.kind}:${record.id}`}
-									onclick={() => remove(record)}
+									onclick={() => (pendingDelete = { record, url: endpoint(record.kind, record.id) })}
 								>
 									Delete
 								</Button>
@@ -128,3 +147,22 @@
 		</div>
 	</section>
 </main>
+
+{#if pendingDelete}
+	{@const target = pendingDelete}
+	<ConfirmDialog
+		title="Delete archived item"
+		message="Permanently delete {titleFor(target.record)}? This cannot be undone."
+		confirmLabel="Delete"
+		variant="destructive"
+		onConfirm={() => remove(target)}
+		onCancel={() => {
+			pendingDelete = null;
+			deleteError = '';
+		}}
+	>
+		{#if deleteError}
+			<Alert.Root variant="destructive"><Alert.Description>{deleteError}</Alert.Description></Alert.Root>
+		{/if}
+	</ConfirmDialog>
+{/if}

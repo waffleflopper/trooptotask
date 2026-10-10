@@ -12,15 +12,25 @@ describe('personnel artifact draft specs', () => {
 	});
 
 	it('returns artifact-specific validation messages', () => {
-		expect(followUpDraftSpec.validate({ title: '', notes: '', dueDate: '' })).toBe('Enter a follow-up title.');
-		expect(leaderNoteDraftSpec.validate({ text: '' })).toBe('Enter a leader note before saving.');
-		expect(documentDraftSpec.validate({ title: 'Orders', file: null })).toBe('Choose a PDF, JPEG, PNG, or HEIC file.');
-		expect(documentDraftSpec.validate({ title: '', file: new File(['orders'], 'orders.pdf') })).toBe(
-			'Enter a document title.'
-		);
+		expect(followUpDraftSpec.validate({ title: '', notes: '', dueDate: '' })).toEqual({
+			field: 'title',
+			message: 'Enter a follow-up title.'
+		});
+		expect(leaderNoteDraftSpec.validate({ text: '' })).toEqual({
+			field: 'text',
+			message: 'Enter a leader note before saving.'
+		});
+		expect(documentDraftSpec.validate({ title: 'Orders', file: null })).toEqual({
+			field: 'file',
+			message: 'Choose a PDF, JPEG, PNG, or HEIC file.'
+		});
+		expect(documentDraftSpec.validate({ title: '', file: new File(['orders'], 'orders.pdf') })).toEqual({
+			field: 'title',
+			message: 'Enter a document title.'
+		});
 		expect(
 			counselingRecordDraftSpec.validate({ dateConducted: '2026-05-20', title: 'Monthly', summary: '', file: null })
-		).toBe('Choose a signed counseling PDF.');
+		).toEqual({ field: 'file', message: 'Choose a signed counseling PDF.' });
 		expect(
 			counselingRecordDraftSpec.validate({
 				dateConducted: '2026-05-20',
@@ -28,7 +38,7 @@ describe('personnel artifact draft specs', () => {
 				summary: '',
 				file: new File(['counseling'], 'monthly.pdf')
 			})
-		).toBe('Enter a counseling title.');
+		).toEqual({ field: 'title', message: 'Enter a counseling title.' });
 	});
 
 	it('encodes follow-ups and leader notes as trimmed JSON submissions', () => {

@@ -1,5 +1,7 @@
 <script lang="ts">
+	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
+	import * as Field from '$lib/components/ui/field';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import type { PersonnelLeaderNote } from '$features/personnel/contracts';
 	import type { PersonnelNotesPageData } from '$features/personnel/personnel-detail.types';
@@ -41,15 +43,22 @@
 		</div>
 		<div class="space-y-5 p-6">
 			<form class="space-y-3" onsubmit={(event) => (event.preventDefault(), leaderNotes.submit())}>
-				<Textarea
-					bind:value={leaderNotes.fields.text}
-					rows={4}
-					aria-label="New leader note"
-					placeholder="Add an observation or accomplishment"
-				/>
+				<Field.Root data-invalid={leaderNotes.fieldError('text') ? true : undefined}>
+					<Textarea
+						bind:value={leaderNotes.fields.text}
+						rows={4}
+						aria-label="New leader note"
+						placeholder="Add an observation or accomplishment"
+					/>
+					{#if leaderNotes.fieldError('text')}
+						<Field.Error>{leaderNotes.fieldError('text')}</Field.Error>
+					{/if}
+				</Field.Root>
 				<div class="flex items-center justify-between gap-3">
 					{#if leaderNotes.error}
-						<p class="text-sm text-destructive">{leaderNotes.error}</p>
+						<Alert.Root variant="destructive">
+							<Alert.Description>{leaderNotes.error}</Alert.Description>
+						</Alert.Root>
 					{:else}
 						<p class="text-sm text-muted-foreground">Newest notes appear first.</p>
 					{/if}

@@ -1,5 +1,9 @@
 import { goto, invalidateAll } from '$app/navigation';
 import { resolve } from '$app/paths';
+import {
+	PERSONNEL_FIRST_NAME_REQUIRED_MESSAGE,
+	PERSONNEL_LAST_NAME_REQUIRED_MESSAGE
+} from '$features/personnel/contracts';
 import type {
 	PersonnelExtendedInfo,
 	PersonnelLeaderNote,
@@ -30,6 +34,24 @@ import {
 	type FollowUpDraftInput,
 	type LeaderNoteDraftInput
 } from './personnelArtifactDraftSpecs';
+
+const NAME_FIELD_ERRORS = new Map<string, 'firstName' | 'lastName'>([
+	[PERSONNEL_FIRST_NAME_REQUIRED_MESSAGE, 'firstName'],
+	[PERSONNEL_LAST_NAME_REQUIRED_MESSAGE, 'lastName']
+]);
+
+async function readNameFailure(
+	response: Response
+): Promise<{ field: 'firstName' | 'lastName'; message: string } | null> {
+	try {
+		const body = (await response.json()) as { message?: unknown } | null;
+		const message = typeof body?.message === 'string' ? body.message : '';
+		const field = NAME_FIELD_ERRORS.get(message);
+		return field ? { field, message } : null;
+	} catch {
+		return null;
+	}
+}
 
 export type PersonnelDetailTone = PersonnelReadinessLaneTone;
 
@@ -138,6 +160,8 @@ export class PersonnelDetailWorkspace {
 	basicInfoDeros = $state('');
 	basicInfoSaving = $state(false);
 	basicInfoError = $state('');
+	/** A server rejection that names one name field; it renders on that field, not in the form alert. */
+	basicInfoNameError = $state<{ field: 'firstName' | 'lastName'; message: string } | null>(null);
 
 	togglingFollowUpId = $state('');
 	openingDocumentId = $state('');
@@ -306,12 +330,14 @@ export class PersonnelDetailWorkspace {
 		this.basicInfoEts = this.currentPerson.ets ?? '';
 		this.basicInfoDeros = this.currentPerson.deros ?? '';
 		this.basicInfoError = '';
+		this.basicInfoNameError = null;
 		this.editingBasicInfo = true;
 	};
 
 	saveBasicInfo = async (): Promise<void> => {
 		if (this.#disposed) return;
 		this.basicInfoError = '';
+		this.basicInfoNameError = null;
 		this.basicInfoSaving = true;
 		try {
 			const response = await this.#deps.fetch(`/org/${this.orgId}/api/personnel`, {
@@ -330,7 +356,11 @@ export class PersonnelDetailWorkspace {
 				})
 			});
 			if (this.#disposed) return;
-			if (!response.ok) throw new Error('Unable to update basic info.');
+			if (!response.ok) {
+				this.basicInfoNameError = await readNameFailure(response);
+				if (this.basicInfoNameError) return;
+				throw new Error('Unable to update basic info.');
+			}
 			const previousSlug = this.currentPerson.slug;
 			const savedPerson = (await response.json()) as Personnel;
 			if (this.#disposed) return;

@@ -23,6 +23,10 @@
 	} = $props();
 
 	const archivedPersonnel = $derived(section.rows);
+
+	function rowInFlight(id: string): boolean {
+		return restoring === id || exportingPerson === id;
+	}
 </script>
 
 <div class="grid gap-4">
@@ -70,7 +74,7 @@
 									<Button
 										size="sm"
 										onclick={() => onRestore(row.id)}
-										disabled={!section.commands.canRestore || restoring === row.id}
+										disabled={!section.commands.canRestore || rowInFlight(row.id)}
 									>
 										{#if restoring === row.id}<Spinner />{/if}
 										Restore
@@ -79,7 +83,7 @@
 										variant="outline"
 										size="sm"
 										onclick={() => onExport(row.id, row.exportFileStem)}
-										disabled={!section.commands.canExport || exportingPerson === row.id}
+										disabled={!section.commands.canExport || rowInFlight(row.id)}
 									>
 										{exportingPerson === row.id ? 'Exporting...' : 'Export'}
 									</Button>
@@ -87,7 +91,7 @@
 										variant="destructive"
 										size="sm"
 										onclick={() => onConfirmPermanentDelete(row)}
-										disabled={!section.commands.canPermanentlyDelete}
+										disabled={!section.commands.canPermanentlyDelete || rowInFlight(row.id)}
 									>
 										Delete
 									</Button>

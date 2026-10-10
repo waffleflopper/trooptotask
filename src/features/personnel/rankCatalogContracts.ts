@@ -1,5 +1,12 @@
 import type { RankCatalogEntry, RankService, RankState } from './rankCatalog';
 
+// Failures the rank forms attach to one field. Servers emit and the settings page matches these exact strings.
+export const RANK_CODE_REQUIRED_MESSAGE = 'Rank code is required';
+export const RANK_LABEL_REQUIRED_MESSAGE = 'Rank label is required';
+export const RANK_ALREADY_EXISTS_MESSAGE = 'Rank catalog entry already exists. Edit it instead.';
+export const RANK_TIE_BREAK_WHOLE_NUMBER_MESSAGE = 'Tie-break order must be a whole number.';
+export const RANK_TIE_BREAK_RANGE_MESSAGE = 'Tie-break order must fit within PostgreSQL integer range.';
+
 export type OrganizationRankCatalogSource = 'built-in' | 'discovered' | 'custom';
 
 export interface OrganizationRankCatalogEntry extends RankCatalogEntry {

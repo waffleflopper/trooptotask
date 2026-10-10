@@ -7,6 +7,7 @@
 	} from '$features/personnel';
 	import { calendarStatusHydration } from '$features/calendar';
 	import type { PersonnelWorkspaceRestricted, PersonnelWorkspaceResult } from '$features/personnel/contracts';
+	import * as Alert from '$lib/components/ui/alert';
 	import { throwRenderError } from '$lib/utils/streamedRouteData';
 	import { hydrateStreamedWorkspace } from '$lib/utils/streamedWorkspaceHydrator';
 	import WorkspaceAccessRestricted from '../WorkspaceAccessRestricted.svelte';
@@ -64,9 +65,11 @@
 	<WorkspaceAccessRestricted subject="personnel" />
 {:else}
 	{#if hydrationError && hydrationError.orgId === data.shell.org.id}
-		<div role="alert" class="border-b border-border bg-muted px-6 py-3 text-sm">
-			The roster could not be refreshed. Showing the last loaded roster; refresh to check the latest records.
-		</div>
+		<Alert.Root variant="warning">
+			<Alert.Description>
+				The roster could not be refreshed. Showing the last loaded roster; refresh to check the latest records.
+			</Alert.Description>
+		</Alert.Root>
 	{/if}
 	{@render children()}
 {/if}

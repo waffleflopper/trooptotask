@@ -242,4 +242,162 @@ describe('PersonnelModal', () => {
 			expect(onClose).toHaveBeenCalledTimes(1);
 		});
 	});
+
+	const editedPerson = {
+		id: 'person-1',
+		rank: 'SPC',
+		firstName: 'Jane',
+		lastName: 'Smith',
+		mos: '68W',
+		clinicRole: '',
+		ets: null,
+		deros: null,
+		groupId: null,
+		groupName: ''
+	};
+
+	function describedText(control: HTMLElement) {
+		return (control.getAttribute('aria-describedby') ?? '')
+			.split(' ')
+			.map((id) => document.getElementById(id)?.textContent)
+			.join(' ')
+			.trim();
+	}
+
+	it('ties an Edit name error to the cleared field and leaves valid fields unmarked', async () => {
+		const onSubmit = vi.fn();
+		render(PersonnelModal, {
+			props: { personnel: editedPerson, groups: [], rankCatalog: armyRankCatalog, onSubmit, onClose: vi.fn() }
+		});
+
+		await fireEvent.input(screen.getByLabelText(/First Name/i), { target: { value: '   ' } });
+		await fireEvent.click(screen.getByTestId('personnel-save'));
+
+		const firstName = screen.getByLabelText(/First Name/i);
+		expect(firstName.getAttribute('aria-invalid')).toBe('true');
+		expect(describedText(firstName)).toBe('Enter a first name.');
+		expect(screen.getByLabelText(/Last Name/i).getAttribute('aria-invalid')).toBeNull();
+		expect(onSubmit).not.toHaveBeenCalled();
+
+		await fireEvent.input(firstName, { target: { value: 'Jane' } });
+		expect(firstName.getAttribute('aria-invalid')).toBeNull();
+		expect(screen.queryByText('Enter a first name.')).toBeNull();
+	});
+
+	it('keeps every edited value when saving an Edit is rejected', async () => {
+		const onSubmit = vi.fn().mockRejectedValue(new Error('update blocked by policy'));
+		vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+		render(PersonnelModal, {
+			props: { personnel: editedPerson, groups: [], rankCatalog: armyRankCatalog, onSubmit, onClose: vi.fn() }
+		});
+
+		await fireEvent.input(screen.getByLabelText(/Last Name/i), { target: { value: 'Smythe' } });
+		await fireEvent.input(screen.getByLabelText(/MOS/i), { target: { value: '68C' } });
+		await fireEvent.click(screen.getByTestId('personnel-save'));
+
+		await waitFor(() => expect(toastStore.error).toHaveBeenCalledWith('update blocked by policy'));
+		expect((screen.getByLabelText(/Last Name/i) as HTMLInputElement).value).toBe('Smythe');
+		expect((screen.getByLabelText(/MOS/i) as HTMLInputElement).value).toBe('68C');
+		expect((screen.getByLabelText(/First Name/i) as HTMLInputElement).value).toBe('Jane');
+	});
+
+	it('ties missing rank and Group errors to their comboboxes', async () => {
+		render(PersonnelModal, {
+			props: {
+				groups: [{ id: 'g-1', name: 'Alpha', sortOrder: 0 }],
+				allowUnassigned: false,
+				rankCatalog: navyRankCatalog,
+				onSubmit: vi.fn(),
+				onClose: vi.fn()
+			}
+		});
+
+		await fireEvent.input(screen.getByLabelText(/Last Name/i), { target: { value: 'Nolan' } });
+		await fireEvent.input(screen.getByLabelText(/First Name/i), { target: { value: 'Avery' } });
+		await fireEvent.click(screen.getByTestId('personnel-save'));
+
+		const rank = document.getElementById('rank') as HTMLElement;
+		const group = document.getElementById('group') as HTMLElement;
+		expect(rank.getAttribute('aria-invalid')).toBe('true');
+		expect(describedText(rank)).toBe('Select a rank.');
+		expect(group.getAttribute('aria-invalid')).toBe('true');
+		expect(describedText(group)).toBe('Select a permitted Group.');
+	});
+	describe('dismissal with a typed draft', () => {
+		function renderOpenModal(onClose = vi.fn()) {
+			render(PersonnelModal, {
+				props: { groups: [], rankCatalog: armyRankCatalog, onSubmit: vi.fn(), onClose }
+			});
+			return { onClose, dialog: screen.getByRole('dialog') };
+		}
+
+		it('keeps the dialog and the typed values when Escape is pressed with a draft', async () => {
+			const { onClose, dialog } = renderOpenModal();
+			await fireEvent.input(screen.getByLabelText(/Last Name/i), { target: { value: 'Nolan' } });
+
+			await fireEvent.keyDown(dialog, { key: 'Escape' });
+
+			expect(screen.getByRole('dialog')).toBe(dialog);
+			expect((screen.getByLabelText(/Last Name/i) as HTMLInputElement).value).toBe('Nolan');
+			expect(onClose).not.toHaveBeenCalled();
+		});
+
+		it('closes on Escape when nothing was changed', async () => {
+			const { onClose, dialog } = renderOpenModal();
+
+			await fireEvent.keyDown(dialog, { key: 'Escape' });
+
+			expect(onClose).toHaveBeenCalledTimes(1);
+		});
+
+		it('closes on Escape after the draft is typed back to the opening values', async () => {
+			const { onClose, dialog } = renderOpenModal();
+			const lastName = screen.getByLabelText(/Last Name/i);
+			await fireEvent.input(lastName, { target: { value: 'Nolan' } });
+			await fireEvent.input(lastName, { target: { value: '' } });
+
+			await fireEvent.keyDown(dialog, { key: 'Escape' });
+
+			expect(onClose).toHaveBeenCalledTimes(1);
+		});
+
+		it('discards the draft when Cancel is pressed', async () => {
+			const { onClose } = renderOpenModal();
+			await fireEvent.input(screen.getByLabelText(/Last Name/i), { target: { value: 'Nolan' } });
+
+			await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+			expect(onClose).toHaveBeenCalledTimes(1);
+		});
+
+		it('blocks Escape on an edited existing Person', async () => {
+			const onClose = vi.fn();
+			render(PersonnelModal, {
+				props: {
+					personnel: {
+						id: 'p-1',
+						rank: 'SPC',
+						lastName: 'Smith',
+						firstName: 'John',
+						mos: '68W',
+						clinicRole: 'Medic',
+						ets: null,
+						deros: null,
+						groupId: null,
+						groupName: ''
+					},
+					groups: [],
+					rankCatalog: armyRankCatalog,
+					onSubmit: vi.fn(),
+					onClose
+				}
+			});
+			const dialog = screen.getByRole('dialog');
+
+			await fireEvent.input(screen.getByLabelText(/MOS/i), { target: { value: '68C' } });
+			await fireEvent.keyDown(dialog, { key: 'Escape' });
+			expect(onClose).not.toHaveBeenCalled();
+			expect((screen.getByLabelText(/MOS/i) as HTMLInputElement).value).toBe('68C');
+		});
+	});
 });

@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { toastStore } from '$lib/stores/toast.svelte';
 import type { PersonnelExtendedInfo } from '$features/personnel/contracts';
@@ -76,5 +76,62 @@ describe('SoldierDataSheetModal', () => {
 		await waitFor(() => expect(dialog.hasAttribute('aria-busy')).toBe(false));
 		expect(bloodType.value).toBe('A-');
 		expect(bloodType.closest('fieldset')?.disabled).toBe(false);
+	});
+	it.each([
+		['a SvelteKit error body', JSON.stringify({ message: 'Service unavailable' }), 'Service unavailable'],
+		['a non-JSON body', 'upstream down', 'Failed to save Soldier Data Sheet'],
+		['a JSON body without a message', JSON.stringify({ code: 503 }), 'Failed to save Soldier Data Sheet']
+	])('shows the failure message for %s and keeps the draft in the open sheet', async (_shape, body, expected) => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => new Response(body, { status: 503 }))
+		);
+		const toastError = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+		const onClose = vi.fn();
+		render(SoldierDataSheetModal, { props: { orgId: 'org-a', personnelId: 'person-1', initialInfo, onClose } });
+		const dialog = screen.getByRole('dialog', { name: 'Soldier Data Sheet' });
+		const [bloodType] = screen.getAllByLabelText('Blood type') as HTMLInputElement[];
+		await fireEvent.input(bloodType, { target: { value: 'A-' } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+		await waitFor(() => expect(within(dialog).getByRole('alert').textContent).toBe(expected));
+		expect(toastError).toHaveBeenCalledWith(expected);
+		expect(bloodType.value).toBe('A-');
+		expect(screen.getByRole('dialog', { name: 'Soldier Data Sheet' })).toBe(dialog);
+		expect(onClose).not.toHaveBeenCalled();
+	});
+
+	it('keeps the sheet and the typed value when Escape is pressed with a draft', async () => {
+		const onClose = vi.fn();
+		render(SoldierDataSheetModal, { props: { orgId: 'org-a', personnelId: 'person-1', initialInfo, onClose } });
+		const dialog = screen.getByRole('dialog', { name: 'Soldier Data Sheet' });
+		const [bloodType] = screen.getAllByLabelText('Blood type') as HTMLInputElement[];
+		await fireEvent.input(bloodType, { target: { value: 'A-' } });
+
+		await fireEvent.keyDown(dialog, { key: 'Escape' });
+
+		expect(screen.getByRole('dialog', { name: 'Soldier Data Sheet' })).toBe(dialog);
+		expect(bloodType.value).toBe('A-');
+		expect(onClose).not.toHaveBeenCalled();
+	});
+
+	it('closes on Escape when nothing was changed', async () => {
+		const onClose = vi.fn();
+		render(SoldierDataSheetModal, { props: { orgId: 'org-a', personnelId: 'person-1', initialInfo, onClose } });
+
+		await fireEvent.keyDown(screen.getByRole('dialog', { name: 'Soldier Data Sheet' }), { key: 'Escape' });
+
+		expect(onClose).toHaveBeenCalledTimes(1);
+	});
+
+	it('discards the draft when Cancel is pressed', async () => {
+		const onClose = vi.fn();
+		render(SoldierDataSheetModal, { props: { orgId: 'org-a', personnelId: 'person-1', initialInfo, onClose } });
+
+		const [bloodType] = screen.getAllByLabelText('Blood type') as HTMLInputElement[];
+		await fireEvent.input(bloodType, { target: { value: 'A-' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+		expect(onClose).toHaveBeenCalledTimes(1);
 	});
 });

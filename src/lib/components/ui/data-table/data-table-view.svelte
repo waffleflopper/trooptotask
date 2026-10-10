@@ -209,8 +209,11 @@
 								</Table.Row>
 								{#if rowDetail && rowDetailVisible?.(row)}
 									<Table.Row data-slot="data-table-detail-row">
-										<Table.Cell colspan={cols.length} class="bg-muted/25">
-											{@render rowDetail(row)}
+										<Table.Cell colspan={cols.length} class="bg-muted/25 whitespace-normal">
+											<!-- The detail spans every column, so on a scrolled narrow table it is pinned to the visible width. -->
+											<div data-slot="data-table-detail" class="sticky left-2 w-[calc(100cqw-1rem)] min-w-0">
+												{@render rowDetail(row)}
+											</div>
 										</Table.Cell>
 									</Table.Row>
 								{/if}
@@ -243,8 +246,10 @@
 						</Table.Row>
 						{#if rowDetail && rowDetailVisible?.(row)}
 							<Table.Row data-slot="data-table-detail-row">
-								<Table.Cell colspan={cols.length} class="bg-muted/25">
-									{@render rowDetail(row)}
+								<Table.Cell colspan={cols.length} class="bg-muted/25 whitespace-normal">
+									<div data-slot="data-table-detail" class="sticky left-2 w-[calc(100cqw-1rem)] min-w-0">
+										{@render rowDetail(row)}
+									</div>
 								</Table.Cell>
 							</Table.Row>
 						{/if}

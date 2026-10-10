@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
+	import * as Alert from '$lib/components/ui/alert';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as Combobox from '$lib/components/ui/combobox';
 	import { DatePicker } from '$lib/components/ui/date-picker';
+	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { Textarea } from '$lib/components/ui/textarea';
@@ -65,8 +67,7 @@
 	let documentFiles = $state<FileList | undefined>();
 
 	async function submitCounseling() {
-		await workspace.counselingRecords.submit();
-		if (!workspace.counselingRecords.error) {
+		if (await workspace.counselingRecords.submit()) {
 			if (counselingFileInput) counselingFileInput.value = '';
 			counselingFiles =
 				typeof DataTransfer !== 'undefined' ? new DataTransfer().files : (counselingFileInput?.files ?? undefined);
@@ -74,8 +75,7 @@
 	}
 
 	async function submitDocument() {
-		await workspace.documents.submit();
-		if (!workspace.documents.error) {
+		if (await workspace.documents.submit()) {
 			if (documentFileInput) documentFileInput.value = '';
 			documentFiles =
 				typeof DataTransfer !== 'undefined' ? new DataTransfer().files : (documentFileInput?.files ?? undefined);
@@ -108,9 +108,9 @@
 					</Button>
 				</section>
 				{#if workspace.exportError}
-					<p class="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-						{workspace.exportError}
-					</p>
+					<Alert.Root variant="destructive">
+						<Alert.Description>{workspace.exportError}</Alert.Description>
+					</Alert.Root>
 				{/if}
 
 				<section class="grid gap-3 lg:grid-cols-3" aria-label="Readiness summary">
@@ -147,19 +147,26 @@
 								<Button href={`${workspace.detailBasePath}/follow-ups`} variant="outline" size="sm">Show all</Button>
 							</div>
 						</div>
-						{#if workspace.followUps.error}
-							<p class="border-b px-4 py-3 text-sm text-destructive">{workspace.followUps.error}</p>
-						{/if}
 						<form
 							class="grid gap-3 border-b p-4"
 							onsubmit={(event) => (event.preventDefault(), workspace.followUps.submit())}
 						>
+							{#if workspace.followUps.error}
+								<Alert.Root variant="destructive">
+									<Alert.Description>{workspace.followUps.error}</Alert.Description>
+								</Alert.Root>
+							{/if}
 							<div class="grid gap-3 md:grid-cols-[1fr_10rem_auto]">
-								<Input
-									bind:value={workspace.followUps.fields.title}
-									aria-label="Follow-up title"
-									placeholder="Follow-up title"
-								/>
+								<Field.Root data-invalid={workspace.followUps.fieldError('title') ? true : undefined}>
+									<Input
+										bind:value={workspace.followUps.fields.title}
+										aria-label="Follow-up title"
+										placeholder="Follow-up title"
+									/>
+									{#if workspace.followUps.fieldError('title')}
+										<Field.Error>{workspace.followUps.fieldError('title')}</Field.Error>
+									{/if}
+								</Field.Root>
 								<DatePicker
 									bind:value={workspace.followUps.fields.dueDate}
 									aria-label="Follow-up due date"
@@ -234,11 +241,16 @@
 									aria-label="Counseling date conducted"
 									placeholder="Date conducted"
 								/>
-								<Input
-									bind:value={workspace.counselingRecords.fields.title}
-									aria-label="Counseling title"
-									placeholder="Counseling title"
-								/>
+								<Field.Root data-invalid={workspace.counselingRecords.fieldError('title') ? true : undefined}>
+									<Input
+										bind:value={workspace.counselingRecords.fields.title}
+										aria-label="Counseling title"
+										placeholder="Counseling title"
+									/>
+									{#if workspace.counselingRecords.fieldError('title')}
+										<Field.Error>{workspace.counselingRecords.fieldError('title')}</Field.Error>
+									{/if}
+								</Field.Root>
 							</div>
 							<Textarea
 								bind:value={workspace.counselingRecords.fields.summary}
@@ -247,20 +259,27 @@
 								placeholder="Optional summary"
 							/>
 							<div class="flex flex-wrap items-center justify-between gap-3">
-								<Input
-									type="file"
-									accept="application/pdf,.pdf"
-									aria-label="Counseling PDF"
-									bind:ref={counselingFileInput}
-									bind:files={counselingFiles}
-									onchange={workspace.updateCounselingFile}
-								/>
+								<Field.Root data-invalid={workspace.counselingRecords.fieldError('file') ? true : undefined}>
+									<Input
+										type="file"
+										accept="application/pdf,.pdf"
+										aria-label="Counseling PDF"
+										bind:ref={counselingFileInput}
+										bind:files={counselingFiles}
+										onchange={workspace.updateCounselingFile}
+									/>
+									{#if workspace.counselingRecords.fieldError('file')}
+										<Field.Error>{workspace.counselingRecords.fieldError('file')}</Field.Error>
+									{/if}
+								</Field.Root>
 								<Button type="submit" size="sm" disabled={workspace.counselingRecords.saving}>
 									{workspace.counselingRecords.saving ? 'Uploading...' : 'Upload PDF'}
 								</Button>
 							</div>
 							{#if workspace.counselingRecords.error}
-								<p class="text-sm text-destructive">{workspace.counselingRecords.error}</p>
+								<Alert.Root variant="destructive">
+									<Alert.Description>{workspace.counselingRecords.error}</Alert.Description>
+								</Alert.Root>
 							{/if}
 						</form>
 						<div class="divide-y">
@@ -305,25 +324,37 @@
 						</div>
 						<form class="grid gap-3 border-b p-4" onsubmit={(event) => (event.preventDefault(), submitDocument())}>
 							<div class="grid gap-3 md:grid-cols-[1fr_auto]">
-								<Input
-									bind:value={workspace.documents.fields.title}
-									aria-label="Document title"
-									placeholder="Document title"
-								/>
+								<Field.Root data-invalid={workspace.documents.fieldError('title') ? true : undefined}>
+									<Input
+										bind:value={workspace.documents.fields.title}
+										aria-label="Document title"
+										placeholder="Document title"
+									/>
+									{#if workspace.documents.fieldError('title')}
+										<Field.Error>{workspace.documents.fieldError('title')}</Field.Error>
+									{/if}
+								</Field.Root>
 								<Button type="submit" size="sm" disabled={workspace.documents.saving}>
 									{workspace.documents.saving ? 'Uploading...' : 'Upload'}
 								</Button>
 							</div>
-							<Input
-								type="file"
-								accept="application/pdf,image/jpeg,image/png,image/heic,image/heif,.pdf,.jpg,.jpeg,.png,.heic"
-								aria-label="Document file"
-								bind:ref={documentFileInput}
-								bind:files={documentFiles}
-								onchange={workspace.updateDocumentFile}
-							/>
+							<Field.Root data-invalid={workspace.documents.fieldError('file') ? true : undefined}>
+								<Input
+									type="file"
+									accept="application/pdf,image/jpeg,image/png,image/heic,image/heif,.pdf,.jpg,.jpeg,.png,.heic"
+									aria-label="Document file"
+									bind:ref={documentFileInput}
+									bind:files={documentFiles}
+									onchange={workspace.updateDocumentFile}
+								/>
+								{#if workspace.documents.fieldError('file')}
+									<Field.Error>{workspace.documents.fieldError('file')}</Field.Error>
+								{/if}
+							</Field.Root>
 							{#if workspace.documents.error}
-								<p class="text-sm text-destructive">{workspace.documents.error}</p>
+								<Alert.Root variant="destructive">
+									<Alert.Description>{workspace.documents.error}</Alert.Description>
+								</Alert.Root>
 							{/if}
 						</form>
 						<div class="divide-y">
@@ -389,8 +420,18 @@
 						<form class="space-y-3 p-4" onsubmit={(event) => (event.preventDefault(), workspace.saveBasicInfo())}>
 							<Input bind:value={workspace.basicInfoRank} aria-label="Rank" />
 							<div class="grid gap-3 sm:grid-cols-2">
-								<Input bind:value={workspace.basicInfoFirstName} aria-label="First name" />
-								<Input bind:value={workspace.basicInfoLastName} aria-label="Last name" />
+								<Field.Root data-invalid={workspace.basicInfoNameError?.field === 'firstName' ? true : undefined}>
+									<Input bind:value={workspace.basicInfoFirstName} aria-label="First name" />
+									{#if workspace.basicInfoNameError?.field === 'firstName'}
+										<Field.Error>{workspace.basicInfoNameError.message}</Field.Error>
+									{/if}
+								</Field.Root>
+								<Field.Root data-invalid={workspace.basicInfoNameError?.field === 'lastName' ? true : undefined}>
+									<Input bind:value={workspace.basicInfoLastName} aria-label="Last name" />
+									{#if workspace.basicInfoNameError?.field === 'lastName'}
+										<Field.Error>{workspace.basicInfoNameError.message}</Field.Error>
+									{/if}
+								</Field.Root>
 							</div>
 							<div class="grid gap-3 sm:grid-cols-2">
 								<Input bind:value={workspace.basicInfoMos} aria-label="MOS" />
@@ -414,7 +455,9 @@
 								<DatePicker bind:value={workspace.basicInfoDeros} aria-label="PCS / DEROS" placeholder="PCS / DEROS" />
 							</div>
 							{#if workspace.basicInfoError}
-								<p class="text-sm text-destructive">{workspace.basicInfoError}</p>
+								<Alert.Root variant="destructive">
+									<Alert.Description>{workspace.basicInfoError}</Alert.Description>
+								</Alert.Root>
 							{/if}
 							<div class="flex justify-end gap-2">
 								<Button type="button" variant="outline" size="sm" onclick={() => (workspace.editingBasicInfo = false)}
@@ -471,15 +514,22 @@
 						<Button href={`${workspace.detailBasePath}/notes`} variant="outline" size="sm">Show all</Button>
 					</div>
 					<form class="mt-4 space-y-2" onsubmit={(event) => (event.preventDefault(), workspace.leaderNotes.submit())}>
-						<Textarea
-							bind:value={workspace.leaderNotes.fields.text}
-							placeholder="Add an observation or accomplishment"
-							aria-label="New leader note"
-							rows={3}
-						/>
+						<Field.Root data-invalid={workspace.leaderNotes.fieldError('text') ? true : undefined}>
+							<Textarea
+								bind:value={workspace.leaderNotes.fields.text}
+								placeholder="Add an observation or accomplishment"
+								aria-label="New leader note"
+								rows={3}
+							/>
+							{#if workspace.leaderNotes.fieldError('text')}
+								<Field.Error>{workspace.leaderNotes.fieldError('text')}</Field.Error>
+							{/if}
+						</Field.Root>
 						<div class="flex items-center justify-between gap-3">
 							{#if workspace.leaderNotes.error}
-								<p class="text-xs text-destructive">{workspace.leaderNotes.error}</p>
+								<Alert.Root variant="destructive">
+									<Alert.Description>{workspace.leaderNotes.error}</Alert.Description>
+								</Alert.Root>
 							{:else}
 								<p class="text-xs text-muted-foreground">Observation journal</p>
 							{/if}

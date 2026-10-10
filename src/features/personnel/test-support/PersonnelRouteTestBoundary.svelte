@@ -1,8 +1,5 @@
 <script lang="ts">
-	import Layout from './+layout.svelte';
-	import Page from './+page.svelte';
-
-	let { data } = $props();
+	let { data, Layout, Page } = $props();
 </script>
 
 <svelte:boundary>

@@ -2237,7 +2237,12 @@ async function main() {
 				'settings/general/clearSlug': 'slugError',
 				'settings/danger/deleteOrganization': 'deleteError',
 				'settings/members/updateMemberAccess': 'accessError',
-				'settings/ranks/retireRank': 'rankError'
+				'settings/ranks/saveRank': 'rankError',
+				'settings/ranks/retireRank': 'rankError',
+				'settings/ranks/reactivateRank': 'rankError',
+				'settings/ranks/bulkRankState': 'rankError',
+				'settings/ranks/deleteRank': 'rankError',
+				'settings/ranks/addServicePack': 'rankError'
 			};
 			if (
 				![

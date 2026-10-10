@@ -21,8 +21,9 @@ vi.mock('$features/app-shell', () => ({
 	})
 }));
 
+import Layout from './+layout.svelte';
 import Page from './+page.svelte';
-import PageWithLayoutBoundary from './PersonnelRouteTestBoundary.svelte';
+import RouteBoundary from '$features/personnel/test-support/PersonnelRouteTestBoundary.svelte';
 
 const alpha = person('alpha', 'Alpha');
 const bravo = person('bravo', 'Bravo');
@@ -265,7 +266,7 @@ describe('Personnel route archive retry lifetime', () => {
 			)
 			.mockResolvedValueOnce(Response.json({ archivedIds: ['alpha'], approvalRequestedIds: [], errors: [] }));
 		vi.stubGlobal('fetch', send);
-		const view = render(PageWithLayoutBoundary, { data: routeData('a', initialWorkspace.promise) });
+		const view = render(RouteBoundary, { data: routeData('a', initialWorkspace.promise), Layout, Page });
 		initialWorkspace.resolve(workspace('a', [alpha, bravo]));
 		await settle(initialWorkspace.promise);
 		await screen.findByText('Alpha, Test');
@@ -301,8 +302,10 @@ describe('Personnel route archive retry lifetime', () => {
 		async (phase) => {
 			const pending = deferred<PersonnelWorkspaceResult>();
 			const initialWorkspace = deferred<PersonnelWorkspaceResult>();
-			const view = render(PageWithLayoutBoundary, {
-				data: routeData('a', phase === 'initial' ? pending.promise : initialWorkspace.promise)
+			const view = render(RouteBoundary, {
+				data: routeData('a', phase === 'initial' ? pending.promise : initialWorkspace.promise),
+				Layout,
+				Page
 			});
 			if (phase === 'new-Organization') {
 				initialWorkspace.resolve(workspace('a', [alpha]));

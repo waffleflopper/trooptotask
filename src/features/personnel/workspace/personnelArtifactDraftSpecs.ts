@@ -41,7 +41,7 @@ function todayIsoDate(): string {
 export const followUpDraftSpec: ArtifactDraftSpec<FollowUpDraftInput, PersonnelFollowUp> = {
 	createEmptyInput: () => ({ title: '', notes: '', dueDate: '' }),
 	endpoint: ({ orgId, personId }) => `/org/${orgId}/api/personnel/${personId}/follow-ups`,
-	validate: (input) => (input.title.trim() ? null : 'Enter a follow-up title.'),
+	validate: (input) => (input.title.trim() ? null : { field: 'title', message: 'Enter a follow-up title.' }),
 	encode: (input) => ({
 		headers: { 'content-type': 'application/json' },
 		body: JSON.stringify({
@@ -56,7 +56,7 @@ export const followUpDraftSpec: ArtifactDraftSpec<FollowUpDraftInput, PersonnelF
 export const leaderNoteDraftSpec: ArtifactDraftSpec<LeaderNoteDraftInput, PersonnelLeaderNote> = {
 	createEmptyInput: () => ({ text: '' }),
 	endpoint: ({ orgId, personId }) => `/org/${orgId}/api/personnel/${personId}/leader-notes`,
-	validate: (input) => (input.text.trim() ? null : 'Enter a leader note before saving.'),
+	validate: (input) => (input.text.trim() ? null : { field: 'text', message: 'Enter a leader note before saving.' }),
 	encode: (input) => ({
 		headers: { 'content-type': 'application/json' },
 		body: JSON.stringify({ text: input.text.trim() })
@@ -68,8 +68,8 @@ export const documentDraftSpec: ArtifactDraftSpec<DocumentDraftInput, PersonnelD
 	createEmptyInput: () => ({ title: '', file: null }),
 	endpoint: ({ orgId, personId }) => `/org/${orgId}/api/personnel/${personId}/documents`,
 	validate: (input) => {
-		if (!input.file) return 'Choose a PDF, JPEG, PNG, or HEIC file.';
-		if (!input.title.trim()) return 'Enter a document title.';
+		if (!input.file) return { field: 'file', message: 'Choose a PDF, JPEG, PNG, or HEIC file.' };
+		if (!input.title.trim()) return { field: 'title', message: 'Enter a document title.' };
 		return null;
 	},
 	encode: (input) => {
@@ -91,8 +91,8 @@ export const counselingRecordDraftSpec: ArtifactDraftSpec<CounselingRecordDraftI
 	createEmptyInput: () => ({ dateConducted: todayIsoDate(), title: '', summary: '', file: null }),
 	endpoint: ({ orgId, personId }) => `/org/${orgId}/api/personnel/${personId}/counseling-records`,
 	validate: (input) => {
-		if (!input.file) return 'Choose a signed counseling PDF.';
-		if (!input.title.trim()) return 'Enter a counseling title.';
+		if (!input.file) return { field: 'file', message: 'Choose a signed counseling PDF.' };
+		if (!input.title.trim()) return { field: 'title', message: 'Enter a counseling title.' };
 		return null;
 	},
 	encode: (input) => {

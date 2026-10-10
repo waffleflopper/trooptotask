@@ -162,6 +162,23 @@ describe('ui foundation guard', () => {
 		).toEqual([{ kind: 'foundation-provider-type', file: 'src/lib/components/patterns/account/account.svelte' }]);
 	});
 
+	it('rejects session types derived from generated route data', () => {
+		expect(
+			foundationFindings([
+				{
+					path: 'src/lib/hooks/session.ts',
+					content: "import type { LayoutData } from '../../routes/$types'; export type Session = LayoutData['session'];"
+				},
+				{ path: 'src/routes/+layout.server.ts', content: 'export const load = () => ({});' },
+				{
+					path: 'src/lib/components/patterns/account/account.svelte',
+					content:
+						'<script lang="ts">import type { Session } from \'$lib/hooks/session\'; let { session }: { session: Session } = $props();</script>'
+				}
+			])
+		).toEqual([{ kind: 'foundation-provider-type', file: 'src/lib/components/patterns/account/account.svelte' }]);
+	});
+
 	it('rejects a patterns family that duplicates a ui primitive family', () => {
 		expect(
 			foundationFindings([

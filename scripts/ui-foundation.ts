@@ -86,7 +86,10 @@ function checkUiFoundation(graph: Graph): Finding[] {
 		if (edge.classification === 'local' && edge.to) {
 			if (!localEdges.has(edge.from)) localEdges.set(edge.from, []);
 			localEdges.get(edge.from)!.push(edge.to);
-		} else if (edge.specifier.startsWith('@supabase/')) providerTyped.add(edge.from);
+		} else if (edge.specifier.startsWith('@supabase/') || /(?:^|\/)\$types$/.test(edge.specifier)) {
+			// Route `$types` page and layout data carry the provider session.
+			providerTyped.add(edge.from);
+		}
 	}
 	const reachesProviderTypes = new Map<string, string | undefined>();
 	/** The first reachable non-foundation file exposing provider types, so a re-export cannot launder them. */

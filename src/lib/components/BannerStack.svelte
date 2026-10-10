@@ -29,6 +29,6 @@
 	});
 </script>
 
-<div class="fixed inset-x-0 top-0 z-[90] flex flex-col bg-transparent" data-print-chrome bind:this={stackEl}>
+<div class="fixed inset-x-0 top-0 z-banner flex flex-col bg-transparent" data-print-chrome bind:this={stackEl}>
 	{@render children()}
 </div>

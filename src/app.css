@@ -191,6 +191,17 @@
 	max-height: calc(100dvh - var(--banner-height, 0px));
 }
 
+/* Fixed layers, lowest first: the desktop sidebar (z-10), the banner, sheets, then dialogs and floating content at
+   shadcn's z-50, then the Toaster. Bits portals join <body> when they mount, not when they open, so equal layers
+   would paint by mount history and a drawer mounted after a resize would cover the dialog it opens. */
+@utility z-banner {
+	z-index: 30;
+}
+
+@utility z-sheet {
+	z-index: 40;
+}
+
 /* Document defaults stay in the base layer so primitive variants and utilities can override them. */
 @layer base {
 	:where([data-slot], [data-slot] *) {

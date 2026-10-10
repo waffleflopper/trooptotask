@@ -8,6 +8,7 @@ import {
 	ACCOUNT_SETUP_RENEWAL_RATE_LIMIT_MESSAGE,
 	checkAccountSetupRenewalRateLimit
 } from '$features/identity/index.server';
+import { INVALID_EMAIL_MESSAGE } from '$features/identity/contracts';
 import { auditLog } from '$lib/audit/index.server';
 import { durableRateLimitAuditDetails } from '$lib/access/index.server';
 import { sanitizeString, validateEmail } from '$lib/server/validation';
@@ -33,7 +34,7 @@ export const actions: Actions = {
 		}
 
 		if (!validateEmail(email)) {
-			return fail(400, { error: 'Enter a valid email address', email });
+			return fail(400, { error: INVALID_EMAIL_MESSAGE, email });
 		}
 
 		const clientIp = getClientAddress();

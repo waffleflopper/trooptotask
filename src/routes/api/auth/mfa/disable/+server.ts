@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { MFA_DISABLE_CODE_REJECTED_MESSAGE } from '$features/identity/contracts';
 import { disableIdentityMfa } from '$features/identity/index.server';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
@@ -16,7 +17,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		case 'no-factor':
 			return json({ error: 'No verified MFA factor found.' }, { status: 400 });
 		case 'challenge-denied':
-			return json({ error: 'Invalid authenticator code. Try again.' }, { status: 401 });
+			return json({ error: MFA_DISABLE_CODE_REJECTED_MESSAGE }, { status: 401 });
 		case 'challenge-unavailable':
 			return json({ error: 'Unable to verify the MFA code. Try again.' }, { status: 503 });
 		case 'removal-denied':

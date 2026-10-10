@@ -6,10 +6,18 @@
 		PASSWORD_MISMATCH_MESSAGE,
 		passwordRequirements
 	} from '$features/identity';
-	import type { PasswordCompletionState } from '$features/identity/contracts';
+	import {
+		EMAIL_CHANGE_PASSWORD_REQUIRED_MESSAGE,
+		INCORRECT_CURRENT_PASSWORD_MESSAGE,
+		INVALID_EMAIL_MESSAGE,
+		MFA_DISABLE_CODE_REJECTED_MESSAGE,
+		MFA_ENROLLMENT_CODE_REJECTED_MESSAGE,
+		SAME_EMAIL_MESSAGE,
+		type MfaActionResponse,
+		type PasswordCompletionState
+	} from '$features/identity/contracts';
 	let completion = $state<PasswordCompletionState>(null);
 	import { onMount, tick, untrack } from 'svelte';
-	import type { MfaActionResponse } from '$features/identity/contracts';
 	let passwordMfaRequired = $state(false);
 	import { goto, invalidateAll } from '$app/navigation';
 	import { enhance } from '$app/forms';
@@ -24,15 +32,11 @@
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
-	// Failures that describe a single field; the same messages from the server and API handlers, matched exactly.
-	const INCORRECT_PASSWORD_MESSAGE = 'Current password is incorrect';
-	const ENROLLMENT_CODE_REJECTED_MESSAGE = 'Invalid enrollment code. Try again.';
-	const DISABLE_CODE_REJECTED_MESSAGE = 'Invalid authenticator code. Try again.';
 	const EMAIL_FIELD_ERRORS = new Map<string, 'email' | 'password'>([
-		['Enter a valid email address', 'email'],
-		['Enter a different email address', 'email'],
-		['Enter your current password to change your email', 'password'],
-		[INCORRECT_PASSWORD_MESSAGE, 'password']
+		[INVALID_EMAIL_MESSAGE, 'email'],
+		[SAME_EMAIL_MESSAGE, 'email'],
+		[EMAIL_CHANGE_PASSWORD_REQUIRED_MESSAGE, 'password'],
+		[INCORRECT_CURRENT_PASSWORD_MESSAGE, 'password']
 	]);
 
 	let checkingMfaStatus = $state(false);
@@ -195,7 +199,7 @@
 			const payload = (await response.json()) as MfaActionResponse | null;
 			if (!response.ok || payload?.ok !== true) {
 				const message = payload?.error ?? 'Verification failed';
-				if (message === ENROLLMENT_CODE_REJECTED_MESSAGE) verifyCodeError = message;
+				if (message === MFA_ENROLLMENT_CODE_REJECTED_MESSAGE) verifyCodeError = message;
 				else mfaError = message;
 				return;
 			}
@@ -269,7 +273,7 @@
 			const payload = (await response.json()) as MfaActionResponse | null;
 			if (!response.ok || payload?.ok !== true) {
 				const message = payload?.error ?? 'Failed to disable MFA';
-				if (message === DISABLE_CODE_REJECTED_MESSAGE) disableCodeError = message;
+				if (message === MFA_DISABLE_CODE_REJECTED_MESSAGE) disableCodeError = message;
 				else mfaError = message;
 				return;
 			}
@@ -332,7 +336,7 @@
 					typeof payload?.error === 'string'
 						? payload.error
 						: 'Unable to confirm the password update. Your password may have changed.';
-				if (response.status === 401 && message === INCORRECT_PASSWORD_MESSAGE) currentPasswordError = message;
+				if (response.status === 401 && message === INCORRECT_CURRENT_PASSWORD_MESSAGE) currentPasswordError = message;
 				else passwordError = message;
 				return;
 			}

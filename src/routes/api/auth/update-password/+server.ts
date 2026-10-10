@@ -3,6 +3,7 @@ import {
 	setCompletedAuthFlowCookie,
 	updateIdentityPassword
 } from '$features/identity/index.server';
+import { INCORRECT_CURRENT_PASSWORD_MESSAGE } from '$features/identity/contracts';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { auditLog } from '$lib/audit/index.server';
@@ -37,7 +38,7 @@ export const POST: RequestHandler = async ({ request, locals, cookies, getClient
 		case 'email-unavailable':
 			return json({ error: 'Current user email is unavailable' }, { status: 401 });
 		case 'incorrect-password':
-			return json({ error: 'Current password is incorrect' }, { status: 401 });
+			return json({ error: INCORRECT_CURRENT_PASSWORD_MESSAGE }, { status: 401 });
 		case 'proof-unavailable':
 			return json({ error: 'Unable to verify your current password. Please try again.' }, { status: 503 });
 		case 'assurance-unavailable':

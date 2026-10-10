@@ -288,3 +288,58 @@ export async function seedDashboardCurrency({ client, fixture, tag, ownedState, 
 		boundary: 'Privileged disposable setup; native UI and ordinary authorization observations remain separate.'
 	};
 }
+
+/** Seven Alpha People out today and returning within a week, four with an ETS, so each Overview list passes its row limit. */
+export async function seedDashboardOverflow({ client, fixture, tag, ownedState, save }) {
+	if (ownedState.seeded.some((item) => item.kind === 'dashboard-overflow'))
+		throw new Error('Clean the existing Dashboard overflow seed before preparing another cohort.');
+	const { ids, dates } = fixture;
+	const date = (offset) => {
+		const value = new Date(dates.ui + 'T12:00:00');
+		value.setDate(value.getDate() + offset);
+		return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
+	};
+	const people = Array.from({ length: 7 }, (_, index) => {
+		const number = String(index + 1).padStart(2, '0');
+		return {
+			id: randomUUID(),
+			organization_id: ids.orgA,
+			group_id: ids.groupA,
+			first_name: 'Synthetic',
+			last_name: `DashboardOverflow${number}${tag}`,
+			slug: `dashboard-overflow-${number}-${tag}`,
+			rank: 'SPC',
+			mos: '68W',
+			clinic_role: 'NCO',
+			...(index < 4 ? { ets: date(20 + index * 5) } : {})
+		};
+	});
+	const entries = people.map((person) => ({
+		id: randomUUID(),
+		organization_id: ids.orgA,
+		personnel_id: person.id,
+		status_type_id: ids.statusLeave,
+		start_date: dates.ui,
+		end_date: date(3),
+		note: `Dashboard overflow ${tag}`
+	}));
+	const batches = [
+		['personnel', 'orgA', people],
+		['availability_entries', 'orgA', entries]
+	];
+	for (const [table, organization, rows] of batches)
+		ownedState.seeded.push({ kind: 'dashboard-overflow', table, organization, tag, ids: rows.map(({ id }) => id) });
+	await save(ownedState);
+	for (const [table, , rows] of batches) {
+		const result = await client.from(table).insert(rows);
+		if (result.error) throw new Error('Owned Dashboard overflow setup failed: ' + result.error.message);
+	}
+	return {
+		tag,
+		today: dates.ui,
+		people: people.map(({ id, last_name, ets }) => ({ id, lastName: last_name, ets: ets ?? null })),
+		expected:
+			'On the ordinary fixture as dashboardView, Out Today lists eight People (seven seeded plus Baker), Upcoming Changes ten rows (seven returns plus Baker three) and Upcoming Losses four People with ETS in 20, 25, 30 and 35 days. The three expand buttons read "+2 more", "+4 more" and "+1 more". Other seeds add rows and change these counts.',
+		boundary: 'Privileged disposable setup; native UI and ordinary authorization observations remain separate.'
+	};
+}

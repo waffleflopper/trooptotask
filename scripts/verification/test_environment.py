@@ -314,7 +314,7 @@ class ReviewFailureProcessBoundaryTests(unittest.TestCase):
         environment.save(provider, {"API_URL": "http://127.0.0.1:54321", "ANON_KEY": "private-anon",
                                     "SERVICE_ROLE_KEY": "private-service"})
         self.records = []
-        for index, service in enumerate(("db", "auth", "rest", "kong", "storage")):
+        for index, service in enumerate(("db", "auth", "rest", "kong", "storage", "inbucket")):
             self.records.append({"Id": DATABASE_ID if service == "db" else str(index) * 64,
                                  "Name": f"/supabase_{service}_{PROJECT}", "State": {"Running": True},
                                  "Config": {"Labels": {"com.supabase.cli.project": PROJECT,
@@ -438,3 +438,28 @@ class VerificationAuthConfigTests(unittest.TestCase):
             environment.verification_excluded_services(database.EXCLUDED_SERVICES),
             "studio,imgproxy,realtime,edge-runtime,logflare,vector,postgres-meta,supavisor",
         )
+
+
+class ProviderStatusTests(unittest.TestCase):
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.session = Path(directory.name)
+        provider = self.session / "provider.json"
+        provider.write_text(json.dumps({"API_URL": "http://127.0.0.1:4200"}))
+        self.state = {"project": PROJECT, "phase": "running", "ports": {"api.port": 4200},
+                      "provider_sha256": environment.digest(provider)}
+
+    def status_with(self, services):
+        records = [{"Name": f"/supabase_{name}_{PROJECT}", "State": {"Running": True}} for name in services]
+        with (patch.object(environment, "owned", return_value=(self.state, self.session, {})),
+              patch.object(environment, "containers", return_value=records)):
+            return environment.status(self.session)
+
+    def test_running_provider_with_mail_capture_passes(self):
+        result = self.status_with(("db", "auth", "rest", "kong", "storage", "inbucket"))
+        self.assertEqual(result["status"], "PASS")
+
+    def test_stopped_mail_capture_blocks_the_provider(self):
+        with self.assertRaises(environment.Blocked):
+            self.status_with(("db", "auth", "rest", "kong", "storage"))

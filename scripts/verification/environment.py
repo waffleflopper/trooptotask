@@ -132,7 +132,7 @@ def status(session):
         raise Blocked("Provider endpoint does not match the owned allocation; refusing to drive it.")
     records = containers(state, workdir, environment)
     running = {item["Name"].removeprefix("/") for item in records if item["State"]["Running"]}
-    required = [f"supabase_{name}_{state['project']}" for name in ("db", "auth", "rest", "kong", "storage")]
+    required = [f"supabase_{name}_{state['project']}" for name in ("db", "auth", "rest", "kong", "storage", "inbucket")]
     missing = [name for name in required if name not in running]
     if state["phase"] != "running" or missing:
         raise Blocked("Owned provider is unavailable or incomplete; cleanup this session and launch a new one.")

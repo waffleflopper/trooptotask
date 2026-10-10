@@ -161,13 +161,14 @@
 		if (!canMutate) return;
 		const prev = activeAssignmentTypes.find((t) => t.showInDateHeader && t.id !== id);
 		try {
-			// Two writes are not atomic. Setting first means any failure can fall back to the previous single header.
-			if (!(await dailyAssignmentsStore.updateType(id, { showInDateHeader: true }))) {
+			// The database allows one header type per Organization, so the switch is two writes: clear, then set.
+			// A failed set restores the previous header rather than leaving none.
+			if (prev && !(await dailyAssignmentsStore.updateType(prev.id, { showInDateHeader: false }))) {
 				showAssignmentMutationError('Failed to update header assignment type');
 				return;
 			}
-			if (!prev || (await dailyAssignmentsStore.updateType(prev.id, { showInDateHeader: false }))) return;
-			await dailyAssignmentsStore.updateType(id, { showInDateHeader: false });
+			if (await dailyAssignmentsStore.updateType(id, { showInDateHeader: true })) return;
+			if (prev) await dailyAssignmentsStore.updateType(prev.id, { showInDateHeader: true });
 			showAssignmentMutationError('Failed to update header assignment type');
 		} catch (error) {
 			showAssignmentMutationError('Failed to update header assignment type', error);

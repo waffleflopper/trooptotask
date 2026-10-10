@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { themeStore } from '$lib/stores/theme.svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
 import { Toaster } from './index.js';
+import ToasterOverDialogTest from './ToasterOverDialogTest.svelte';
 import ToasterTest from './ToasterTest.svelte';
 
 function preferSystemTheme(theme: 'light' | 'dark') {
@@ -96,6 +97,21 @@ describe('Toaster announcements and dismissal', () => {
 		expect(document.activeElement).toBe(edit);
 		await waitFor(() => expect(screen.queryAllByRole('listitem')).toHaveLength(0));
 	});
+
+	it('keeps an open dialog when a toast is pressed, while a press elsewhere still closes it', async () => {
+		render(ToasterOverDialogTest);
+		toastStore.success('Personnel updated');
+		const toast = (await screen.findByText('Personnel updated')).closest('li') as HTMLElement;
+		const outside = { clientX: 5, clientY: 5 };
+
+		await fireEvent.pointerDown(within(toast).getByRole('button', { name: 'Close toast' }), outside);
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		expect(screen.getByRole('dialog', { name: 'Edit person' })).toBeTruthy();
+
+		await fireEvent.pointerDown(screen.getByRole('button', { name: 'Page content' }), outside);
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+	});
+
 	it('moves focus only to a toast that is still visible when more toasts exist than are shown', async () => {
 		render(Toaster, { visibleToasts: 1 });
 

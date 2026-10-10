@@ -56,7 +56,7 @@ Command input and result items must share one `Command.Root`. For server-filtere
 
 ## Transient feedback
 
-The Web UI Foundation's public [`toastStore`](../src/lib/stores/toast.svelte.ts) wraps Sonner for `success`, `error`, `warning`, `info` and `dismiss`. The root layout mounts the shared `ui/sonner` Toaster once. Feature views can report a failed save through this interface while keeping their draft or unsaved record visible for retry. A toast does not decide whether an operation succeeded or own saved feature state; the response and the feature's operation remain authoritative. No feature-specific message or recipient policy belongs in the shared adapter.
+The Web UI Foundation's public [`toastStore`](../src/lib/stores/toast.svelte.ts) wraps Sonner for `success`, `error`, `warning`, `info` and `dismiss`. The root layout mounts the shared `ui/sonner` Toaster once. Feature views can report a failed save through this interface while keeping their draft or unsaved record visible for retry. A toast does not decide whether an operation succeeded or own saved feature state; the response and the feature's operation remain authoritative. No feature-specific message or recipient policy belongs in the shared adapter. The Toaster keeps toasts clickable above modal layers: a modal sets `pointer-events: none` on `<body>`, so the Toaster restores it for its own list and stops `pointerdown` from reaching the open dialog or drawer, which would otherwise treat a touch on the toast as an outside press and close itself.
 
 ## Password MFA continuation
 

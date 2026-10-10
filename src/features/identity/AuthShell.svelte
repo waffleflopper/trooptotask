@@ -49,7 +49,7 @@
 	const hasImage = $derived(!!resolvedImageSrc);
 </script>
 
-<div class="min-h-screen overflow-x-hidden overflow-y-auto bg-muted/25 text-foreground">
+<div class="min-h-screen overflow-x-hidden overflow-y-auto bg-muted/25 font-body text-foreground">
 	<div class="mx-auto flex min-h-screen max-w-[1120px] flex-col px-4 py-5 sm:px-6 lg:px-8">
 		<header class="flex items-center justify-between gap-4">
 			<a

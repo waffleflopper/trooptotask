@@ -351,7 +351,7 @@
 </script>
 
 <Tooltip.Provider>
-	<Sidebar.Provider class="below-banner min-h-0 overflow-hidden bg-background font-sans">
+	<Sidebar.Provider class="below-banner min-h-0 overflow-hidden bg-background">
 		<Sidebar.Root collapsible="icon">
 			<Sidebar.Header>
 				<Sidebar.Menu>
@@ -554,7 +554,7 @@
 				<Breadcrumb.Root class="min-w-0 flex-1" aria-label="Current section">
 					<Breadcrumb.List class="flex-nowrap overflow-hidden">
 						{#each breadcrumbs as crumb, index (`${crumb.label}:${index}`)}
-							<Breadcrumb.Item class="min-w-0 shrink-0">
+							<Breadcrumb.Item class="min-w-0">
 								{#if crumb.href && index < breadcrumbs.length - 1}
 									<Breadcrumb.Link href={resolve(crumb.href as `/org/${string}`)} class="truncate">
 										{crumb.label}

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import * as ReportWorkspace from '$lib/components/patterns/report-workspace';
+	import * as Table from '$lib/components/ui/table';
 	import type { BriefingTypeRisk } from '../utils/trainingBriefing.types';
 
 	interface Props {
@@ -28,24 +29,27 @@
 		</ul>
 	{/snippet}
 
-	<table class="w-full table-fixed border-collapse" aria-label="Not ready and lapsing requirements by training type">
-		<thead>
-			<tr
-				class="h-7 border-b border-border text-left font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground"
+	<Table.Root class="table-fixed border-collapse" aria-label="Not ready and lapsing requirements by training type">
+		<Table.Header>
+			<Table.Row
+				class="h-7 border-border text-left font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground hover:bg-transparent"
 			>
-				<th scope="col" class="w-28 font-medium sm:w-[150px]">Type</th>
-				<th scope="col" class="font-medium">Records</th>
-				<th scope="col" class="w-16 text-right font-medium sm:w-20">Not ready</th>
-				<th scope="col" class="w-16 text-right font-medium sm:w-20">By {horizonEndLabel}</th>
-			</tr>
-		</thead>
-		<tbody>
+				<Table.Head class="h-7 w-28 px-0 sm:w-[150px]">Type</Table.Head>
+				<Table.Head class="h-7 px-0">Records</Table.Head>
+				<Table.Head class="h-7 w-16 px-0 text-right sm:w-20">Not ready</Table.Head>
+				<Table.Head class="h-7 w-16 px-0 text-right sm:w-20">By {horizonEndLabel}</Table.Head>
+			</Table.Row>
+		</Table.Header>
+		<Table.Body>
 			{#each risks as risk (risk.typeId)}
-				<tr class="border-b border-border">
-					<th scope="row" class="py-2 pr-3 text-left font-serif text-sm font-normal [overflow-wrap:anywhere]">
+				<Table.Row class="border-border hover:bg-transparent">
+					<Table.Head
+						scope="row"
+						class="h-auto px-0 py-2 pr-3 font-serif text-sm font-normal whitespace-normal [overflow-wrap:anywhere]"
+					>
 						{risk.name}
-					</th>
-					<td class="py-2">
+					</Table.Head>
+					<Table.Cell class="px-0 py-2">
 						{#if scale > 0}
 							<div class="flex h-3.5 gap-px" aria-hidden="true">
 								{#if risk.notReady > 0}
@@ -56,25 +60,26 @@
 								{/if}
 							</div>
 						{/if}
-					</td>
-					<td
+						<span class="sr-only">{risk.notReady} not ready, {risk.lapsing} lapsing by {horizonEndLabel}</span>
+					</Table.Cell>
+					<Table.Cell
 						class={[
-							'py-2 text-right font-mono text-[13px] font-medium',
+							'px-0 py-2 text-right font-mono text-[13px] font-medium',
 							risk.notReady > 0 ? 'text-destructive' : 'text-muted-foreground'
 						]}
 					>
 						{risk.notReady}
-					</td>
-					<td
+					</Table.Cell>
+					<Table.Cell
 						class={[
-							'py-2 text-right font-mono text-[13px] font-semibold',
+							'px-0 py-2 text-right font-mono text-[13px] font-semibold',
 							risk.lapsing > 0 ? 'text-warning' : 'text-muted-foreground'
 						]}
 					>
 						{risk.lapsing}
-					</td>
-				</tr>
+					</Table.Cell>
+				</Table.Row>
 			{/each}
-		</tbody>
-	</table>
+		</Table.Body>
+	</Table.Root>
 </ReportWorkspace.Section>

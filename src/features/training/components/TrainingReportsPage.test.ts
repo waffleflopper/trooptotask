@@ -663,6 +663,23 @@ describe('Training Reports briefing page', () => {
 		expect(fetchImpl).not.toHaveBeenCalled();
 	});
 
+	it('names the print brief and print matrix tables once the brief is being printed', async () => {
+		renderPage(vi.fn<typeof fetch>(), reportFor({ groupId: 'alpha', horizonDays: 60 }));
+
+		window.dispatchEvent(new Event('beforeprint'));
+
+		expect(
+			await screen.findByRole('table', {
+				name: 'Training types with the most requirements not ready or lapsing',
+				hidden: true
+			})
+		).toBeTruthy();
+		expect(
+			screen.getByRole('table', { name: 'Training status of each training type by group', hidden: true })
+		).toBeTruthy();
+		window.dispatchEvent(new Event('afterprint'));
+	});
+
 	it('exports the whole filtered briefing even while one cell is drilled into', async () => {
 		vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: () => 'blob:report', revokeObjectURL: () => {} }));
 		const fetchImpl = vi.fn<typeof fetch>(async (url) =>

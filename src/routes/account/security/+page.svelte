@@ -3,6 +3,7 @@
 		hasPendingPasswordCompletion,
 		PasswordCompletion,
 		PasswordMfaChallenge,
+		PASSWORD_MISMATCH_MESSAGE,
 		passwordRequirements
 	} from '$features/identity';
 	import type { PasswordCompletionState } from '$features/identity/contracts';
@@ -23,6 +24,17 @@
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
+	// Failures that describe a single field; the same messages from the server and API handlers, matched exactly.
+	const INCORRECT_PASSWORD_MESSAGE = 'Current password is incorrect';
+	const ENROLLMENT_CODE_REJECTED_MESSAGE = 'Invalid enrollment code. Try again.';
+	const DISABLE_CODE_REJECTED_MESSAGE = 'Invalid authenticator code. Try again.';
+	const EMAIL_FIELD_ERRORS = new Map<string, 'email' | 'password'>([
+		['Enter a valid email address', 'email'],
+		['Enter a different email address', 'email'],
+		['Enter your current password to change your email', 'password'],
+		[INCORRECT_PASSWORD_MESSAGE, 'password']
+	]);
+
 	let checkingMfaStatus = $state(false);
 	async function retryMfaStatus() {
 		checkingMfaStatus = true;
@@ -40,12 +52,15 @@
 	let factorId = $state('');
 	let verifyCode = $state('');
 	let mfaError = $state('');
+	let verifyCodeError = $state('');
+	let disableCodeError = $state('');
 	let mfaSuccess = $state('');
 	let loading = $state(false);
 	let disabling = $state(false);
 	let confirmingDisable = $state(false);
 	let disableCode = $state('');
 	let passwordError = $state('');
+	let currentPasswordError = $state('');
 	let passwordLoading = $state(false);
 	let currentPassword = $state('');
 	let newPassword = $state('');
@@ -115,13 +130,21 @@
 	// Local acknowledgments apply until authoritative loader data changes.
 	let mfaEnabled = $derived(data.hasMFA);
 	const pendingEmail = $derived(confirmedPendingEmail ?? data.pendingEmail);
+	const emailErrorField = $derived(
+		emailResult?.emailError ? EMAIL_FIELD_ERRORS.get(emailResult.emailError) : undefined
+	);
 	const requirements = $derived(passwordRequirements(newPassword));
 	const passwordsMatch = $derived(newPassword.length > 0 && newPassword === confirmPassword);
+	const confirmError = $derived(confirmPassword && !passwordsMatch ? PASSWORD_MISMATCH_MESSAGE : '');
 	const passwordReady = $derived(currentPassword.length > 0 && requirements.valid && passwordsMatch);
+
+	function clearMfaErrors() {
+		mfaError = verifyCodeError = disableCodeError = '';
+	}
 
 	async function startEnroll() {
 		if (loading) return;
-		mfaError = '';
+		clearMfaErrors();
 		mfaSuccess = '';
 		enrolling = true;
 		loading = true;
@@ -151,12 +174,12 @@
 
 	async function verifyEnrollment() {
 		if (loading) return;
+		clearMfaErrors();
 		if (!/^\d{6}$/.test(verifyCode)) {
-			mfaError = 'Please enter a 6-digit code';
+			verifyCodeError = 'Please enter a 6-digit code';
 			return;
 		}
 
-		mfaError = '';
 		loading = true;
 		try {
 			const response = await fetch('/api/auth/mfa/enroll/verify', {
@@ -171,7 +194,9 @@
 
 			const payload = (await response.json()) as MfaActionResponse | null;
 			if (!response.ok || payload?.ok !== true) {
-				mfaError = payload?.error ?? 'Verification failed';
+				const message = payload?.error ?? 'Verification failed';
+				if (message === ENROLLMENT_CODE_REJECTED_MESSAGE) verifyCodeError = message;
+				else mfaError = message;
 				return;
 			}
 
@@ -190,7 +215,7 @@
 
 	async function cancelEnroll() {
 		if (loading) return;
-		mfaError = '';
+		clearMfaErrors();
 		loading = true;
 		try {
 			if (factorId) {
@@ -222,12 +247,12 @@
 
 	async function disableMFA() {
 		if (disabling) return;
+		clearMfaErrors();
 		if (!disableCode || disableCode.length !== 6) {
-			mfaError = 'Please enter the 6-digit code from your authenticator app.';
+			disableCodeError = 'Please enter the 6-digit code from your authenticator app.';
 			return;
 		}
 
-		mfaError = '';
 		mfaSuccess = '';
 		disabling = true;
 		try {
@@ -243,7 +268,9 @@
 
 			const payload = (await response.json()) as MfaActionResponse | null;
 			if (!response.ok || payload?.ok !== true) {
-				mfaError = payload?.error ?? 'Failed to disable MFA';
+				const message = payload?.error ?? 'Failed to disable MFA';
+				if (message === DISABLE_CODE_REJECTED_MESSAGE) disableCodeError = message;
+				else mfaError = message;
 				return;
 			}
 
@@ -260,7 +287,7 @@
 
 	async function changePassword(form: HTMLFormElement) {
 		if (passwordLoading || passwordMfaRequired || completion) return;
-		passwordError = '';
+		passwordError = currentPasswordError = '';
 
 		if (!passwordReady) {
 			passwordError = 'Complete the current password and new password requirements.';
@@ -301,10 +328,12 @@
 					completion = 'started';
 					currentPassword = newPassword = confirmPassword = '';
 				}
-				passwordError =
+				const message =
 					typeof payload?.error === 'string'
 						? payload.error
 						: 'Unable to confirm the password update. Your password may have changed.';
+				if (response.status === 401 && message === INCORRECT_PASSWORD_MESSAGE) currentPasswordError = message;
+				else passwordError = message;
 				return;
 			}
 
@@ -319,7 +348,7 @@
 		} finally {
 			passwordLoading = false;
 			await tick();
-			if (passwordError && !passwordMfaRequired && form.isConnected)
+			if ((passwordError || currentPasswordError) && !passwordMfaRequired && form.isConnected)
 				form.querySelector<HTMLInputElement>('input')?.focus();
 		}
 	}
@@ -335,7 +364,7 @@
 	}
 
 	function startDisableMFA() {
-		mfaError = '';
+		clearMfaErrors();
 		mfaSuccess = '';
 		confirmingDisable = true;
 		disableCode = '';
@@ -344,7 +373,7 @@
 	function cancelDisableMFA() {
 		confirmingDisable = false;
 		disableCode = '';
-		mfaError = '';
+		clearMfaErrors();
 	}
 </script>
 
@@ -360,7 +389,7 @@
 		</Card.Header>
 		<Card.Content>
 			<form method="POST" action="?/updateEmail" use:enhance={submitEmail} class="grid gap-4">
-				{#if emailResult?.emailError}
+				{#if emailResult?.emailError && !emailErrorField}
 					<Alert.Root variant="destructive">
 						<Alert.Title>Email request not confirmed</Alert.Title>
 						<Alert.Description>{emailResult.emailError}</Alert.Description>
@@ -386,7 +415,7 @@
 					{/if}
 				</div>
 
-				<Field.Root>
+				<Field.Root data-invalid={emailErrorField === 'email' ? true : undefined}>
 					<Field.Label for="email">New email address</Field.Label>
 					<Field.Control>
 						<Input
@@ -395,17 +424,22 @@
 							type="email"
 							autocomplete="email"
 							required
+							aria-invalid={emailErrorField === 'email' ? true : undefined}
+							aria-describedby={emailErrorField === 'email' ? 'email-error' : undefined}
 							bind:value={emailDraft}
 							disabled={emailLoading || emailMfaRequired}
 						/>
 					</Field.Control>
+					{#if emailErrorField === 'email'}
+						<Field.Error id="email-error">{emailResult?.emailError}</Field.Error>
+					{/if}
 					<Field.Description
 						>Follow the confirmation instructions in both your current and new inboxes before using the new address to
 						sign in.</Field.Description
 					>
 				</Field.Root>
 
-				<Field.Root>
+				<Field.Root data-invalid={emailErrorField === 'password' ? true : undefined}>
 					<Field.Label for="email-current-password">Current password</Field.Label>
 					<Field.Control>
 						<Input
@@ -414,10 +448,15 @@
 							type="password"
 							autocomplete="current-password"
 							required
+							aria-invalid={emailErrorField === 'password' ? true : undefined}
+							aria-describedby={emailErrorField === 'password' ? 'email-current-password-error' : undefined}
 							bind:value={emailCurrentPassword}
 							disabled={emailLoading || emailMfaRequired}
 						/>
 					</Field.Control>
+					{#if emailErrorField === 'password'}
+						<Field.Error id="email-current-password-error">{emailResult?.emailError}</Field.Error>
+					{/if}
 				</Field.Root>
 
 				<div class="flex justify-end">
@@ -483,7 +522,7 @@
 						</Alert.Root>
 					{/if}
 
-					<Field.Root>
+					<Field.Root data-invalid={currentPasswordError ? true : undefined}>
 						<Field.Label for="current-password">Current password</Field.Label>
 						<Field.Control>
 							<Input
@@ -493,6 +532,7 @@
 								bind:value={currentPassword}
 							/>
 						</Field.Control>
+						{#if currentPasswordError}<Field.Error>{currentPasswordError}</Field.Error>{/if}
 					</Field.Root>
 
 					<div class="grid gap-4 sm:grid-cols-2">
@@ -509,11 +549,12 @@
 							</Field.Control>
 						</Field.Root>
 
-						<Field.Root>
+						<Field.Root data-invalid={confirmError ? true : undefined}>
 							<Field.Label for="confirm-password">Confirm new password</Field.Label>
 							<Field.Control>
 								<Input id="confirm-password" type="password" autocomplete="new-password" bind:value={confirmPassword} />
 							</Field.Control>
+							{#if confirmError}<Field.Error>{confirmError}</Field.Error>{/if}
 						</Field.Root>
 					</div>
 
@@ -617,7 +658,7 @@
 							void verifyEnrollment();
 						}}
 					>
-						<Field.Root>
+						<Field.Root data-invalid={verifyCodeError ? true : undefined}>
 							<Field.Label for="verify-code">Verification code</Field.Label>
 							<Field.Control>
 								<Input
@@ -632,6 +673,7 @@
 									inputmode="numeric"
 								/>
 							</Field.Control>
+							{#if verifyCodeError}<Field.Error>{verifyCodeError}</Field.Error>{/if}
 						</Field.Root>
 						<div class="flex flex-wrap justify-end gap-2">
 							<Button type="button" variant="outline" onclick={cancelEnroll} disabled={loading}>Cancel</Button>
@@ -658,7 +700,7 @@
 							Enter a fresh 6-digit code before MFA can be removed from this account.
 						</p>
 					</div>
-					<Field.Root>
+					<Field.Root data-invalid={disableCodeError ? true : undefined}>
 						<Field.Label for="disable-code">Authenticator code</Field.Label>
 						<Field.Control>
 							<Input
@@ -673,6 +715,7 @@
 								inputmode="numeric"
 							/>
 						</Field.Control>
+						{#if disableCodeError}<Field.Error>{disableCodeError}</Field.Error>{/if}
 					</Field.Root>
 					<div class="flex flex-wrap justify-end gap-2">
 						<Button type="button" variant="outline" onclick={cancelDisableMFA} disabled={disabling}

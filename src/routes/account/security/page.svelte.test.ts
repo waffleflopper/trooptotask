@@ -133,10 +133,11 @@ describe('enrollment confirmation', () => {
 				.mockResolvedValueOnce(Response.json({ factorId: 'pending-factor', qrCode: 'data:image/svg+xml,synthetic' }));
 			if (failure === 'network failure') fetchMock.mockRejectedValueOnce(new Error('Connection lost'));
 			else if (failure === 'invalid success response') fetchMock.mockResolvedValueOnce(Response.json({}));
-			else
+			else if (failure === 'invalid code')
 				fetchMock.mockResolvedValueOnce(
-					Response.json({ error: failure }, { status: failure === 'invalid code' ? 401 : 503 })
+					Response.json({ error: 'Invalid enrollment code. Try again.' }, { status: 401 })
 				);
+			else fetchMock.mockResolvedValueOnce(Response.json({ error: failure }, { status: 503 }));
 			fetchMock.mockImplementationOnce(
 				() =>
 					new Promise<Response>((resolve) => {
@@ -154,7 +155,14 @@ describe('enrollment confirmation', () => {
 			const code = await screen.findByLabelText('Verification code');
 			await fireEvent.input(code, { target: { value: '123456' } });
 			await fireEvent.click(screen.getByRole('button', { name: 'Verify and Enable' }));
-			await screen.findByText('Security issue');
+			if (failure === 'invalid code') {
+				await waitFor(() => expect(code).toBeInvalid());
+				expect(code).toHaveAccessibleDescription('Invalid enrollment code. Try again.');
+				expect(screen.queryByText('Security issue')).toBeNull();
+			} else {
+				await screen.findByText('Security issue');
+				expect(code).toBeValid();
+			}
 			expect(screen.getByText('Disabled')).toBeTruthy();
 			expect(code).toHaveValue('123456');
 			expect(screen.getByRole('img', { name: 'MFA QR Code' })).toHaveAttribute('src', 'data:image/svg+xml,synthetic');
@@ -201,10 +209,11 @@ describe('fresh-challenge MFA disable', () => {
 			const fetchMock = vi.fn();
 			if (failure === 'network failure') fetchMock.mockRejectedValueOnce(new Error('Connection lost'));
 			else if (failure === 'invalid success response') fetchMock.mockResolvedValueOnce(Response.json({}));
-			else
+			else if (failure === 'invalid code')
 				fetchMock.mockResolvedValueOnce(
-					Response.json({ error: failure }, { status: failure === 'invalid code' ? 401 : 503 })
+					Response.json({ error: 'Invalid authenticator code. Try again.' }, { status: 401 })
 				);
+			else fetchMock.mockResolvedValueOnce(Response.json({ error: failure }, { status: 503 }));
 			fetchMock.mockImplementationOnce(
 				() =>
 					new Promise<Response>((resolve) => {
@@ -222,7 +231,14 @@ describe('fresh-challenge MFA disable', () => {
 			const code = screen.getByLabelText('Authenticator code');
 			await fireEvent.input(code, { target: { value: '123456' } });
 			await fireEvent.click(screen.getByRole('button', { name: 'Confirm and Disable' }));
-			await screen.findByText('Security issue');
+			if (failure === 'invalid code') {
+				await waitFor(() => expect(code).toBeInvalid());
+				expect(code).toHaveAccessibleDescription('Invalid authenticator code. Try again.');
+				expect(screen.queryByText('Security issue')).toBeNull();
+			} else {
+				await screen.findByText('Security issue');
+				expect(code).toBeValid();
+			}
 			expect(screen.getByText('Enabled')).toBeTruthy();
 			expect(code).toHaveValue('123456');
 			await fireEvent.input(code, { target: { value: '654321' } });
@@ -273,4 +289,134 @@ it('replaces acknowledged MFA state with an unavailable reload, then retries wit
 	finish();
 	expect(await screen.findByRole('button', { name: 'Disable MFA' })).toBeEnabled();
 	expect(email).toHaveValue('draft@example.test');
+});
+
+describe('field-specific errors', () => {
+	const noMfa = { hasMFA: false, currentEmail: 'synthetic@example.test', pendingEmail: null } as PageData;
+	async function fillPasswordForm() {
+		const card = within(screen.getByRole('heading', { name: 'Password' }).closest('[data-slot="card"]')!);
+		const current = card.getByLabelText('Current password');
+		const next = card.getByLabelText('New password');
+		const confirm = card.getByLabelText('Confirm new password');
+		await fireEvent.input(current, { target: { value: 'OldPassword12' } });
+		await fireEvent.input(next, { target: { value: 'NewPassword12' } });
+		await fireEvent.input(confirm, { target: { value: 'NewPassword12' } });
+		return { current, next, confirm, submit: card.getByRole('button', { name: 'Update Password' }) };
+	}
+
+	it('ties a wrong current password to its field, keeps the drafts and returns focus to the first field', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue(Response.json({ error: 'Current password is incorrect' }, { status: 401 }))
+		);
+		render(Page, { props: { data: noMfa, form: null } });
+		const h = await fillPasswordForm();
+		await fireEvent.click(h.submit);
+
+		await waitFor(() => expect(h.current).toBeInvalid());
+		expect(h.current).toHaveAccessibleDescription('Current password is incorrect');
+		expect(screen.queryByText('Password update not confirmed')).toBeNull();
+		expect(h.next).toBeValid();
+		expect(h.current).toHaveValue('OldPassword12');
+		expect(h.next).toHaveValue('NewPassword12');
+		expect(h.confirm).toHaveValue('NewPassword12');
+		await waitFor(() => expect(h.current).toHaveFocus());
+		expect(h.submit).toBeEnabled();
+	});
+
+	it('keeps a rate limit as a form alert and clears the field error on the next attempt', async () => {
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValueOnce(Response.json({ error: 'Current password is incorrect' }, { status: 401 }))
+			.mockResolvedValueOnce(
+				Response.json({ error: 'Too many password update attempts. Please wait before trying again.' }, { status: 429 })
+			);
+		vi.stubGlobal('fetch', fetchMock);
+		render(Page, { props: { data: noMfa, form: null } });
+		const h = await fillPasswordForm();
+		await fireEvent.click(h.submit);
+		await waitFor(() => expect(h.current).toBeInvalid());
+
+		await fireEvent.click(h.submit);
+		expect(await screen.findByRole('alert')).toHaveTextContent(
+			'Too many password update attempts. Please wait before trying again.'
+		);
+		expect(screen.getByText('Password update not confirmed')).toBeTruthy();
+		expect(h.current).toBeValid();
+		expect(h.current).not.toHaveAccessibleDescription('Current password is incorrect');
+		expect(h.current).toHaveValue('OldPassword12');
+		await waitFor(() => expect(h.current).toHaveFocus());
+	});
+
+	it('marks the confirmation field invalid while the new passwords differ', async () => {
+		render(Page, { props: { data: noMfa, form: null } });
+		const h = await fillPasswordForm();
+		await fireEvent.input(h.confirm, { target: { value: 'NewPassword13' } });
+
+		expect(h.confirm).toBeInvalid();
+		expect(h.confirm).toHaveAccessibleDescription('Passwords do not match');
+		expect(h.submit).toBeDisabled();
+
+		await fireEvent.input(h.confirm, { target: { value: 'NewPassword12' } });
+
+		expect(h.confirm).toBeValid();
+		expect(h.submit).toBeEnabled();
+	});
+
+	it('ties a short enrollment code to Verification code without calling the server', async () => {
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValueOnce(Response.json({ factorId: 'pending-factor', qrCode: 'data:image/svg+xml,synthetic' }));
+		vi.stubGlobal('fetch', fetchMock);
+		render(Page, { props: { data: noMfa, form: null } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Enable MFA' }));
+		const code = await screen.findByLabelText('Verification code');
+		await fireEvent.input(code, { target: { value: '12345' } });
+		await fireEvent.submit(code.closest('form')!);
+
+		expect(code).toBeInvalid();
+		expect(code).toHaveAccessibleDescription('Please enter a 6-digit code');
+		expect(code).toHaveValue('12345');
+		expect(screen.queryByText('Security issue')).toBeNull();
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+	});
+
+	it('ties a short disable code to Authenticator code without calling the server', async () => {
+		const fetchMock = vi.fn();
+		vi.stubGlobal('fetch', fetchMock);
+		render(Page, { props: { data: { ...noMfa, hasMFA: true } as PageData, form: null } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Disable MFA' }));
+		const code = screen.getByLabelText('Authenticator code');
+		await fireEvent.input(code, { target: { value: '12345' } });
+		await fireEvent.submit(code.closest('form')!);
+
+		expect(code).toBeInvalid();
+		expect(code).toHaveAccessibleDescription('Please enter the 6-digit code from your authenticator app.');
+		expect(code).toHaveValue('12345');
+		expect(screen.queryByText('Security issue')).toBeNull();
+		expect(fetchMock).not.toHaveBeenCalled();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Keep MFA Enabled' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Disable MFA' }));
+		expect(screen.getByLabelText('Authenticator code')).toBeValid();
+	});
+
+	it('keeps an expired session during enrollment verification as a form alert', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi
+				.fn()
+				.mockResolvedValueOnce(Response.json({ factorId: 'pending-factor', qrCode: 'data:image/svg+xml,synthetic' }))
+				.mockResolvedValueOnce(Response.json({ error: 'Please sign in before managing MFA.' }, { status: 401 }))
+		);
+		render(Page, { props: { data: noMfa, form: null } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Enable MFA' }));
+		const code = await screen.findByLabelText('Verification code');
+		await fireEvent.input(code, { target: { value: '123456' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Verify and Enable' }));
+
+		expect(await screen.findByText('Security issue')).toBeTruthy();
+		expect(screen.getByRole('alert')).toHaveTextContent('Please sign in before managing MFA.');
+		expect(code).toBeValid();
+	});
 });

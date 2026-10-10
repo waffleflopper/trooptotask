@@ -66,7 +66,15 @@ it.each(['failure', 'error', 'invalid-success'])(
 		transport.send.mockResolvedValueOnce(result);
 		const h = await fixture();
 		await fireEvent.submit(h.form);
-		await screen.findByText('Email request not confirmed');
+		if (kind === 'failure') {
+			await waitFor(() => expect(h.password).toBeInvalid());
+			expect(h.password).toHaveAccessibleDescription('Current password is incorrect');
+			expect(screen.queryByText('Email request not confirmed')).toBeNull();
+			expect(h.email).toBeValid();
+		} else {
+			await screen.findByText('Email request not confirmed');
+			expect(h.password).toBeValid();
+		}
 		expect(h.email).toHaveValue('new@example.test');
 		expect(h.password).toHaveValue(' OldPassword12 ');
 		await waitFor(() => expect(h.password).toHaveFocus());
@@ -91,6 +99,7 @@ it.each(['failure', 'error', 'invalid-success'])(
 			data: { emailSuccess: 'Follow both inbox confirmations.', pendingEmail: 'new@example.test' }
 		});
 		await screen.findByText('Confirmation sent');
+		expect(h.password).not.toHaveAttribute('aria-invalid');
 		expect(h.password).toHaveValue('');
 		expect(screen.getByText('old@example.test')).toBeTruthy();
 		expect(screen.getByText('new@example.test')).toBeTruthy();
@@ -106,6 +115,9 @@ it('shows a global throttle as an email action error without losing the draft', 
 	const h = await fixture();
 	await fireEvent.submit(h.form);
 	await screen.findByText('Too many requests. Please wait and try again.');
+	expect(screen.getByText('Email request not confirmed')).toBeTruthy();
+	expect(h.email).toBeValid();
+	expect(h.password).toBeValid();
 	expect(h.email).toHaveValue('new@example.test');
 	expect(h.password).toHaveValue(' OldPassword12 ');
 	await waitFor(() => expect(h.password).toHaveFocus());
@@ -141,4 +153,46 @@ it('retains the email draft through inline MFA and requires explicit retry', asy
 	expect(h.password).toHaveValue(' OldPassword12 ');
 	expect(transport.send).toHaveBeenCalledTimes(1);
 	expect(screen.getByRole('button', { name: /Send Confirmation/ })).toBeEnabled();
+});
+it.each([
+	['Enter a valid email address', 'email'],
+	['Enter a different email address', 'email'],
+	['Enter your current password to change your email', 'password']
+])('ties "%s" to the %s field and keeps both drafts', async (emailError, field) => {
+	transport.send.mockResolvedValueOnce({
+		type: 'failure',
+		status: 400,
+		data: { emailError, email: 'new@example.test' }
+	});
+	const h = await fixture();
+	await fireEvent.submit(h.form);
+	const [invalid, valid] = field === 'email' ? [h.email, h.password] : [h.password, h.email];
+	await waitFor(() => expect(invalid).toBeInvalid());
+	expect(invalid).toHaveAccessibleDescription(
+		field === 'email'
+			? `${emailError} Follow the confirmation instructions in both your current and new inboxes before using the new address to sign in.`
+			: emailError
+	);
+	expect(valid).toBeValid();
+	expect(screen.queryByText('Email request not confirmed')).toBeNull();
+	expect(h.email).toHaveValue('new@example.test');
+	expect(h.password).toHaveValue(' OldPassword12 ');
+	await waitFor(() => expect(h.password).toHaveFocus());
+});
+it('clears a field error when the next request is sent and keeps a provider outage as a form alert', async () => {
+	transport.send
+		.mockResolvedValueOnce({ type: 'failure', status: 401, data: { emailError: 'Current password is incorrect' } })
+		.mockResolvedValueOnce({
+			type: 'failure',
+			status: 503,
+			data: { emailError: 'Unable to verify your current password. Please try again.' }
+		});
+	const h = await fixture();
+	await fireEvent.submit(h.form);
+	await waitFor(() => expect(h.password).toBeInvalid());
+	await fireEvent.submit(h.form);
+	expect(await screen.findByText('Email request not confirmed')).toBeTruthy();
+	expect(screen.getByRole('alert')).toHaveTextContent('Unable to verify your current password. Please try again.');
+	expect(h.password).toBeValid();
+	expect(h.email).toBeValid();
 });

@@ -26,6 +26,7 @@ Preconditions: doctor passes; `$V fixture` supplies the Person/status IDs and lo
 4. Add the same unique note with operation access. Capture the action, result and `$V rows availability_entries orgA note "$NOTE"`: exactly one row for `personA`, `statusLeave`, today's start/end date. Reload, reopen, and confirm the note visibly persists.
 5. Choose `Edit status`, fill a different note, narrow access to `view` while the editor stays open, and click `Update Status`. Capture `Could not save status`, the original note still shown, no `updated —` success, and the original row ID/fields unchanged in `rows`. Restore access, reload, edit again, then save. Confirm the new note uses the **same ID**, with exactly one matching row and the chosen Person/type/date. Reload and confirm the visible note.
 6. Click `Remove status`; capture the explicit `Remove this status entry` confirmation, then `Remove`. Reload and reopen: the note and row are absent. `$V rows availability_entries orgA id <historical-id>` must still show the unrelated March record. Use only the unique entry created in this run for removal.
+7. **Modal appearance.** Open Able's September 14 cell at 1280x800 light and again at 390x844 dark (visible **Toggle theme**, `resize_page`). Capture `Set Personnel Status` with its Person, date, current status, `Edit status`, `Remove status` and `Add Another Status`; at 390 read the dialog's `getBoundingClientRect()` against `innerWidth`. Close returns to the grid.
 
 ## Gotchas
 

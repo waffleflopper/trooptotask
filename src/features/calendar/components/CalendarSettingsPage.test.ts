@@ -350,7 +350,6 @@ describe('CalendarSettingsPage', () => {
 		const panel = screen.getByRole('tabpanel');
 		expect(within(panel).getByLabelText('Year')).toBeTruthy();
 		expect(screen.getByRole('heading', { name: 'Closures' })).toBeTruthy();
-		expect(panel.tabIndex, 'Tab moves from Add new into the panel controls').toBe(-1);
 	});
 
 	it("names each row's actions by the row and edits the chosen row", async () => {

@@ -4,12 +4,14 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/svelte';
 import Page from './+page.svelte';
 
+const { pageState } = vi.hoisted(() => ({ pageState: { status: 400 } }));
 vi.mock('$app/forms', () => ({ enhance: () => ({ destroy: () => {} }) }));
+vi.mock('$app/state', () => ({ page: pageState }));
 afterEach(cleanup);
 
 it('ties a server-rejected email to its field, including a native submission, and keeps a rate limit as a form alert', async () => {
 	const view = render(Page, {
-		props: { form: { error: 'Enter a valid email address', email: 'person@example', field: 'email' } }
+		props: { form: { error: 'Enter a valid email address', email: 'person@example' } }
 	});
 	const email = screen.getByLabelText(/^Email Address/);
 	expect(email).toBeInvalid();
@@ -19,6 +21,7 @@ it('ties a server-rejected email to its field, including a native submission, an
 		'Enter a valid email address'
 	]);
 
+	pageState.status = 429;
 	await view.rerender({ form: { error: 'Too many requests.', email: 'person@example' } });
 	expect(email).toBeValid();
 	expect(screen.getByRole('alert')).toHaveTextContent('Too many requests.');

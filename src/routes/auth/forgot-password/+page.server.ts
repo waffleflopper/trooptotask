@@ -28,7 +28,7 @@ export const actions: Actions = {
 			{ audit: auditLog }
 		);
 		if (result.status === 'invalid-email') {
-			return fail(400, { error: INVALID_EMAIL_MESSAGE, email: result.email, field: 'email' as const });
+			return fail(400, { error: INVALID_EMAIL_MESSAGE, email: result.email });
 		}
 		if (result.status === 'rate-limited') {
 			return fail(429, {

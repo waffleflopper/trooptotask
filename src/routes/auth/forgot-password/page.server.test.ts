@@ -52,7 +52,7 @@ describe('/auth/forgot-password delivery', () => {
 		requestRecoveryMock.mockResolvedValue({ status: 'invalid-email', email: 'bad' });
 		await expect(actions.default(makeActionEvent('bad'))).resolves.toEqual({
 			status: 400,
-			data: { error: 'Enter a valid email address', email: 'bad', field: 'email' }
+			data: { error: 'Enter a valid email address', email: 'bad' }
 		});
 	});
 

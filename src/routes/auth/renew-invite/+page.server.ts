@@ -30,11 +30,11 @@ export const actions: Actions = {
 		const email = sanitizeString(typeof rawEmail === 'string' ? rawEmail : null, 254);
 
 		if (!email) {
-			return fail(400, { error: 'Email is required', email, field: 'email' as const });
+			return fail(400, { error: 'Email is required', email });
 		}
 
 		if (!validateEmail(email)) {
-			return fail(400, { error: INVALID_EMAIL_MESSAGE, email, field: 'email' as const });
+			return fail(400, { error: INVALID_EMAIL_MESSAGE, email });
 		}
 
 		const clientIp = getClientAddress();

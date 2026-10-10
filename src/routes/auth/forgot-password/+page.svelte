@@ -3,13 +3,14 @@
 	import AuthNotice from '$features/identity/AuthNotice.svelte';
 	import AuthShell from '$features/identity/AuthShell.svelte';
 	import { enhance } from '$app/forms';
+	import { page } from '$app/state';
 	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
 
 	let { form } = $props();
 	let loading = $state(false);
-	// The server marks failures that belong to the email field, so native and enhanced submissions render the same.
-	const emailError = $derived(form && 'field' in form && form.field === 'email' ? form.error : '');
+	// Only a 400 rejects the email itself; native and enhanced submissions both set the page status.
+	const emailError = $derived(page.status === 400 && form?.error ? form.error : '');
 </script>
 
 <svelte:head>

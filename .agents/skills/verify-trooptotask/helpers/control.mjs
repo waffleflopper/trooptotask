@@ -9,7 +9,14 @@ import path from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import ExcelJS from 'exceljs';
 import { jsPDF } from 'jspdf';
-import { repository, sessionPath, readJSON, processIdentity } from '../../../../scripts/verification/core.mjs';
+import {
+	repository,
+	sessionPath,
+	readJSON,
+	writeJSON,
+	processIdentity,
+	environment
+} from '../../../../scripts/verification/core.mjs';
 import { installNetworkControl } from './network-control.mjs';
 import { requestSettings } from './settings-request.mjs';
 import { seedDeletionSources, requestDeletion, requestPersonnelArchiveBatch } from './deletion-requests.mjs';
@@ -28,6 +35,7 @@ import { requestPlatform } from './platform-request.mjs';
 import { platformFormNetworkTarget } from './platform-network-target.mjs';
 import { requestAuditTrainingUpdate } from './audit-request.mjs';
 import { artifactHttp, clearArtifactHttpCache } from './artifact-http.mjs';
+import { authConfirmUrl, redactAuthTokens, syntheticEmail, textboxUid } from './identity-controls.mjs';
 import {
 	prepareUploadOverlap,
 	inspectUploadOverlap,
@@ -527,6 +535,93 @@ async function main() {
 		});
 		return;
 	}
+	const identityPage = async (page, role) => {
+		const pageId = Number(page);
+		if (!Number.isInteger(pageId) || pageId < 1 || !fixture.identityActors.includes(role))
+			throw new Error('Use an owned page ID and an identity fixture role.');
+		if ((await evaluate(state, pageId, '() => location.origin')) !== doctor.origin)
+			throw new Error('The page is not on the owned app origin.');
+		return pageId;
+	};
+	const fillPrivate = async (pageId, label, occurrence, value) => {
+		const uid = textboxUid(text(await tool(state, 'take_snapshot', { pageId })), label, occurrence);
+		await tool(state, 'fill', { pageId, uid, value });
+	};
+	const pendingPasswords = path.join(session, 'identity-pending-passwords.json');
+	if (command === 'mfa-code') {
+		const [page, role, label, occurrence] = args;
+		const pageId = await identityPage(page, role);
+		if (!label) throw new Error('Use mfa-code PAGE ROLE LABEL [OCCURRENCE].');
+		const { factor, code } = await environment('totp-code', session, fixture.actors[role].id);
+		await fillPrivate(pageId, label, occurrence, code);
+		note({ pageId, role, label, occurrence: occurrence ?? 1, factor, filled: true });
+		return;
+	}
+	if (command === 'password') {
+		const [page, role, which, label, occurrence] = args;
+		const pageId = await identityPage(page, role);
+		if (!['current', 'next'].includes(which) || !label)
+			throw new Error('Use password PAGE ROLE current|next LABEL [OCCURRENCE].');
+		let pending = {};
+		try {
+			pending = await readJSON(pendingPasswords);
+		} catch (error) {
+			if (error.code !== 'ENOENT') throw error;
+		}
+		if (which === 'next' && !pending[role]) {
+			pending[role] = `Synthetic-${randomUUID()}!9`;
+			await writeJSON(pendingPasswords, pending);
+		}
+		await fillPrivate(pageId, label, occurrence, which === 'next' ? pending[role] : fixture.actors[role].password);
+		note({ pageId, role, which, label, occurrence: occurrence ?? 1, filled: true });
+		return;
+	}
+	if (command === 'password-commit') {
+		const [role] = args;
+		const pending = await readJSON(pendingPasswords);
+		if (!fixture.identityActors.includes(role) || !pending[role])
+			throw new Error('No pending synthetic password exists for this identity role.');
+		fixture.actors[role].password = pending[role];
+		await writeJSON(path.join(session, 'fixtures.json'), fixture);
+		delete pending[role];
+		await writeJSON(pendingPasswords, pending);
+		note({ role, committed: true });
+		return;
+	}
+	if (command === 'auth-link') {
+		const [page, type, role] = args;
+		const pageId = Number(page);
+		if (
+			!Number.isInteger(pageId) ||
+			pageId < 1 ||
+			(type === 'recovery' ? !fixture.identityActors.includes(role) : type !== 'invite' || args.length !== 2)
+		)
+			throw new Error('Use auth-link PAGE recovery IDENTITY_ROLE or auth-link PAGE invite.');
+		if ((await evaluate(state, pageId, '() => location.origin')) !== doctor.origin)
+			throw new Error('The page is not on the owned app origin.');
+		const email = type === 'recovery' ? fixture.actors[role].email : `identity-invite-${randomUUID()}@example.test`;
+		const link = checked(await (await provider()).auth.admin.generateLink({ type, email }));
+		const tokenHash = link.properties?.hashed_token;
+		if (!tokenHash || link.properties.verification_type !== type || link.user?.email !== email.toLowerCase())
+			throw new Error('The provider returned an unexpected link identity or type.');
+		await tool(state, 'navigate_page', { pageId, type: 'url', url: authConfirmUrl(doctor.origin, type, tokenHash) });
+		const snapshot = redactAuthTokens(text(await tool(state, 'take_snapshot', { pageId })));
+		if (snapshot.includes(tokenHash)) throw new Error('Link token survived redaction; refusing to print.');
+		note({ pageId, type, email, path: '/auth/confirm', snapshot });
+		return;
+	}
+	if (command === 'access-request') {
+		const email = syntheticEmail(args[0]);
+		const rows = checked(
+			await (await provider())
+				.from('access_requests')
+				.select('id,email,name,reason,heard_about,heard_about_details,status,created_at,reviewed_at,setup_completed_at')
+				.eq('email', email)
+				.order('created_at')
+		);
+		note({ email, count: rows.length, rows });
+		return;
+	}
 	if (command === 'onboarding-request') {
 		const [page, orgKey, method, family, bodyText, mode = 'await'] = args;
 		const pageId = Number(page);
@@ -746,7 +841,7 @@ async function main() {
 			!['admin/audit', 'admin/feedback', 'admin/announcements'].includes(destination)
 		)
 			readyText = ['Users', 'Organizations', 'Access Requests', 'Forbidden', 'Access denied', '403'];
-		readyText = [...readyText, 'Account Suspended'];
+		readyText = [...readyText, 'Account Suspended', 'Verify your code'];
 		const url = `${doctor.origin}/auth/login?next=${encodeURIComponent(destinationPath)}`;
 		const browserContext = `map-${role}-${randomUUID()}`;
 		const created = text(await tool(state, 'new_page', { url, isolatedContext: browserContext }));
@@ -2395,7 +2490,7 @@ async function main() {
 		return;
 	}
 	throw new Error(
-		'Use fixture, actor, rows, settings-request, deletion-request, personnel-archive-batch, deletion-review-failure, audit-training-update, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, private-buckets, roster-files, roster-replace, signed-download, calendar-grant, dashboard-access, server-source, seed, clean-seeds, retention, network, export, print, or workbook.'
+		'Use fixture, actor, rows, access-request, auth-link, mfa-code, password, password-commit, settings-request, deletion-request, personnel-archive-batch, deletion-review-failure, audit-training-update, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, private-buckets, roster-files, roster-replace, signed-download, calendar-grant, dashboard-access, server-source, seed, clean-seeds, retention, network, export, print, or workbook.'
 	);
 }
 

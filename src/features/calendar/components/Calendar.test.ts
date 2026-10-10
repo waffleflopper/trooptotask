@@ -72,6 +72,7 @@ function renderCalendar(
 		canEdit: boolean;
 		canEditAssignments: boolean;
 		onDateClick: (date: Date) => void;
+		onCellClick: (person: Personnel, date: Date) => void;
 		onPersonClick: (person: Personnel) => void;
 		onNavigateToMonth: (year: number, month: number) => void;
 		upcomingLossMap: Map<string, UpcomingLossRecord>;
@@ -94,6 +95,7 @@ function renderCalendar(
 			canEdit: overrides.canEdit,
 			canEditAssignments: overrides.canEditAssignments,
 			onDateClick: overrides.onDateClick,
+			onCellClick: overrides.onCellClick,
 			onPersonClick: overrides.onPersonClick,
 			onPrevMonth: () => {},
 			onNextMonth: () => {},
@@ -130,6 +132,35 @@ describe('Calendar', () => {
 
 		expect(onDateClick).toHaveBeenCalledTimes(1);
 		expect(onDateClick.mock.calls[0]?.[0]).toBeInstanceOf(Date);
+	});
+
+	it('names each day cell with its Person and date and describes its assignment', async () => {
+		const onCellClick = vi.fn();
+		renderCalendar({
+			onCellClick,
+			assignmentTypes: [
+				{
+					id: 'type-mod',
+					name: 'Manager on Duty',
+					shortName: 'MOD',
+					assignTo: 'personnel',
+					color: '#dc2626',
+					exemptPersonnelIds: [],
+					showInDateHeader: false
+				}
+			],
+			assignments: [{ id: 'assignment-1', date: '2026-03-01', assignmentTypeId: 'type-mod', assigneeId: 'person-1' }]
+		});
+
+		const assigned = screen.getByRole('button', {
+			name: 'SGT Smith, Alex, Sunday, March 1, 2026',
+			description: 'Manager on Duty'
+		});
+		expect(screen.getByRole('button', { name: 'SSG Taylor, Jamie, Monday, March 2, 2026' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Sunday, March 1, 2026' })).toBeTruthy();
+
+		await fireEvent.click(assigned);
+		expect(onCellClick).toHaveBeenCalledWith(expect.objectContaining({ id: 'person-1' }), new Date(2026, 2, 1));
 	});
 
 	it('hides personnel roles when role display is disabled', () => {
@@ -169,6 +200,7 @@ describe('Calendar', () => {
 
 		expect(badge.textContent?.trim()).toBe('SGT Smith');
 		expect(badge.title).toBe('Manager on Duty: SGT Smith');
+		expect(screen.getByRole('button', { name: 'Sunday, March 1, 2026, Manager on Duty: SGT Smith' })).toBeTruthy();
 	});
 
 	it('opens the month picker from the title and forwards the selected month and year', async () => {
@@ -212,7 +244,7 @@ describe('Calendar', () => {
 		});
 		await fireEvent.scroll(calendarBody);
 		await tick();
-		await fireEvent.click(screen.getByRole('button', { name: /Person 120/ }));
+		await fireEvent.click(screen.getByRole('button', { name: /Person 120, First 120$/ }));
 		expect(onPersonClick).toHaveBeenCalledWith(expect.objectContaining({ id: 'person-120' }));
 	});
 
@@ -259,18 +291,14 @@ describe('Calendar', () => {
 			expect(container.querySelector('[data-testid^="loss-indicator-"]')).toBeNull();
 		});
 
-		it('places the chip inside the personnel-info header, not inside a date cell', () => {
+		it('places the chip inside the person row header, not inside a date cell', () => {
 			const lossMap = new Map([['person-1', makeLossRecord('person-1', 'ETS')]]);
 			const { container } = renderCalendar({ upcomingLossMap: lossMap });
 
 			const chip = container.querySelector('[data-testid="loss-indicator-person-1"]') as HTMLElement | null;
 			expect(chip).toBeTruthy();
 
-			// Must be a descendant of .personnel-info (the sticky row header)
-			expect(chip?.closest('.personnel-info')).toBeTruthy();
-
-			// Must NOT be inside any .date-cell element
-			expect(chip?.closest('.date-cell')).toBeNull();
+			expect(chip?.closest('button')).toBe(screen.getByRole('button', { name: /Smith, Alex\s*ETS$/ }));
 		});
 
 		it('only shows chips for personnel that have a loss record, leaving others clean', () => {

@@ -7,16 +7,17 @@
 		year: number;
 		month: number;
 		onSelect: (year: number, month: number) => void;
-		onClose: () => void;
+		onEscape: () => void;
+		onOutsideClick: () => void;
 	}
 
-	let { year, month, onSelect, onClose }: Props = $props();
+	let { year, month, onSelect, onEscape, onOutsideClick }: Props = $props();
 
 	const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 	let displayYear = $derived(year);
 	let pickerEl = $state<HTMLDivElement | null>(null);
-	let monthButtons = $state<Array<HTMLButtonElement | null>>([]);
+	let monthButtons = $state<Array<HTMLElement | null>>(MONTH_LABELS.map(() => null));
 	let hasAutoFocused = $state(false);
 
 	$effect(() => {
@@ -27,14 +28,14 @@
 
 	function handleWindowKeydown(e: KeyboardEvent) {
 		if (e.key === 'Escape') {
-			onClose();
+			onEscape();
 		}
 	}
 
 	function handleDocumentMouseDown(event: MouseEvent) {
 		if (!pickerEl) return;
 		if (event.target instanceof Node && !pickerEl.contains(event.target)) {
-			onClose();
+			onOutsideClick();
 		}
 	}
 
@@ -107,18 +108,17 @@
 
 	<div class="grid grid-cols-3 gap-1">
 		{#each MONTH_LABELS as label, i (label)}
-			<button
-				bind:this={monthButtons[i]}
-				class={[
-					'focus-visible:ring-ring cursor-pointer rounded-lg border border-transparent bg-popover px-1 py-2 text-sm font-medium text-foreground transition-colors hover:border-primary hover:bg-primary/10 focus-visible:ring-2 focus-visible:outline-none',
-					displayYear === year && i === month && 'bg-primary text-primary-foreground hover:bg-primary/90'
-				]}
-				aria-current={displayYear === year && i === month ? 'true' : undefined}
+			{@const selected = displayYear === year && i === month}
+			<Button
+				bind:ref={monthButtons[i]}
+				variant={selected ? 'default' : 'ghost'}
+				class="h-auto px-1 py-2"
+				aria-current={selected ? 'true' : undefined}
 				onkeydown={(event) => handleMonthKeydown(event, i)}
 				onclick={() => onSelect(displayYear, i)}
 			>
 				{label}
-			</button>
+			</Button>
 		{/each}
 	</div>
 </div>

@@ -1,5 +1,3 @@
-export type DateCellDensity = 'month' | 'long-range';
-
 export interface DateCellStatus {
 	id: string;
 	name: string;

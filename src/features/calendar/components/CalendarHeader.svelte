@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { CalendarDateHeaderState } from '$features/calendar/utils/calendarRenderState';
+	import { Button } from '$lib/components/ui/button';
 	import CalendarNavigation from './CalendarNavigation.svelte';
 
 	interface Props {
@@ -57,13 +58,9 @@
 		onSelectMonthYear={onNavigateToMonth}
 	/>
 
-	<div
-		class="date-headers overflow-hidden"
-		bind:this={dateHeadersEl}
-		style="padding-right: {scrollbarWidth}px; --dates-count: {headerCells.length}; --calendar-date-columns: var(--calendar-personnel-column-width) repeat(var(--dates-count), minmax(var(--calendar-cell-width), 1fr));"
-	>
+	<div class="date-headers overflow-hidden" bind:this={dateHeadersEl} style:padding-right={`${scrollbarWidth}px`}>
 		<div
-			class="grid w-full min-w-[calc(var(--calendar-personnel-column-width)+(var(--calendar-cell-width)*var(--dates-count)))] grid-cols-[var(--calendar-date-columns)]"
+			class="grid w-full min-w-[calc(var(--calendar-personnel-column-width)+(var(--calendar-cell-width)*var(--dates-count)))] grid-cols-[var(--calendar-personnel-column-width)_repeat(var(--dates-count),minmax(var(--calendar-cell-width),1fr))]"
 		>
 			<div
 				class="sticky left-0 z-[3] flex items-center border-r border-b bg-muted px-3 py-2 font-mono text-xs font-semibold tracking-widest text-muted-foreground uppercase sm:px-4 sm:py-3"
@@ -71,13 +68,18 @@
 				Personnel
 			</div>
 			{#each headerCells as header (header.dateKey)}
-				<button
+				<Button
+					variant="cell"
+					size="none"
 					class={[
-						'flex min-w-0 cursor-pointer flex-col items-center gap-px overflow-hidden border-r border-b bg-card px-0 py-2 text-center transition-colors hover:bg-muted focus-visible:ring-ring focus-visible:z-[2] focus-visible:ring-2 focus-visible:outline-none max-sm:min-h-11 max-sm:min-w-[var(--calendar-cell-width)]',
+						'relative flex min-w-0 flex-col gap-px overflow-hidden border-r border-b border-border bg-card py-2 text-center whitespace-normal max-sm:min-h-11 max-sm:min-w-[var(--calendar-cell-width)]',
 						header.weekend && 'bg-muted/55',
 						header.holiday && 'bg-warning-muted/60',
-						header.today && 'bg-primary/10 shadow-[inset_0_-2px_0_var(--primary)]'
+						header.today && 'bg-primary/10 after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-primary'
 					]}
+					aria-label={header.headerAssignment
+						? `${header.dateLabel}, ${header.headerAssignment.assignmentTypeName}: ${header.headerAssignment.assigneeLabel}`
+						: header.dateLabel}
 					title={header.title}
 					onclick={() => onDateClick?.(header.date)}
 				>
@@ -95,7 +97,7 @@
 							{header.headerAssignment.assigneeLabel}
 						</span>
 					{/if}
-				</button>
+				</Button>
 			{/each}
 		</div>
 	</div>

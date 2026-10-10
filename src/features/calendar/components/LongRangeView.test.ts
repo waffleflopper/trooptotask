@@ -100,16 +100,15 @@ describe('LongRangeView', () => {
 		expect(onToggleViewMode).toHaveBeenCalledTimes(1);
 	});
 
-	it('clicking a date column calls the month jump callback', async () => {
+	it('names each date column with its full date and jumps to that date', async () => {
 		const onDateColumnClick = vi.fn();
 		renderView({ onDateColumnClick });
 
-		const marchButtons = screen.getAllByTitle('Jump to March 2026');
-		await fireEvent.click(marchButtons[0]);
+		await fireEvent.click(
+			screen.getByRole('button', { name: 'Saturday, April 4, 2026', description: 'Jump to April 2026' })
+		);
 
-		expect(onDateColumnClick).toHaveBeenCalledTimes(1);
-		expect(onDateColumnClick.mock.calls[0][0]).toBeInstanceOf(Date);
-		expect(onDateColumnClick.mock.calls[0][0].getMonth()).toBe(2);
+		expect(onDateColumnClick).toHaveBeenCalledWith(new Date(2026, 3, 4));
 	});
 
 	it('opens the picker from the range label and updates the visible quarter start month', async () => {

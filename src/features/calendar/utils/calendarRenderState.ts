@@ -12,6 +12,13 @@ import { formatDate, getDayName, isToday, isWeekend } from '$lib/utils/dates';
 
 export type CalendarDateKey = string;
 
+const DATE_LABEL_FORMAT = new Intl.DateTimeFormat('en-US', {
+	weekday: 'long',
+	month: 'long',
+	day: 'numeric',
+	year: 'numeric'
+});
+
 export interface CalendarRenderStateInput {
 	dates: readonly Date[];
 	personnelByGroup: readonly { group: string; personnel: readonly Personnel[] }[];
@@ -36,6 +43,7 @@ export interface CalendarDateHeaderState {
 	dateKey: CalendarDateKey;
 	dayName: string;
 	dayOfMonth: number;
+	dateLabel: string;
 	weekend: boolean;
 	today: boolean;
 	specialDay?: SpecialDay;
@@ -75,6 +83,7 @@ export interface CalendarPersonDateCellState {
 	primaryStatus?: CalendarCellStatusState;
 	markers: CalendarCellMarkerState[];
 	onboarding: boolean;
+	label: string;
 	title: string;
 	titleParts: string[];
 }
@@ -156,6 +165,7 @@ export function buildCalendarRenderState(input: CalendarRenderStateInput): Calen
 			dateKey,
 			dayName: getDayName(date),
 			dayOfMonth: date.getDate(),
+			dateLabel: DATE_LABEL_FORMAT.format(date),
 			weekend: isWeekend(date),
 			today: isToday(date),
 			specialDay,
@@ -187,9 +197,11 @@ export function buildCalendarRenderState(input: CalendarRenderStateInput): Calen
 	}
 
 	function personDateCells(personnelId: string): CalendarPersonDateCellState[] | undefined {
-		if (!personnelById.has(personnelId)) return undefined;
+		const person = personnelById.get(personnelId);
+		if (!person) return undefined;
 		const cached = rowCache.get(personnelId);
 		if (cached) return cached;
+		const personLabel = `${person.rank} ${person.lastName}, ${person.firstName}`;
 
 		const cells = dateKeys.map((dateKey) => {
 			const header = headerByDate.get(dateKey);
@@ -213,6 +225,7 @@ export function buildCalendarRenderState(input: CalendarRenderStateInput): Calen
 				primaryStatus: statuses.at(-1),
 				markers,
 				onboarding: activeOnboardingPersonnelIds.has(personnelId) && (input.highlightOnboarding ?? true),
+				label: `${personLabel}, ${header.dateLabel}`,
 				titleParts,
 				title: titleParts.join(' | ')
 			};

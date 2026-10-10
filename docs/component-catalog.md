@@ -13,7 +13,7 @@ Read the [UI foundation](#ui-foundation), then the section for the component bei
 - Page and shell composition: [page shell](#patternspage-shell), [workspace toolbar](#patternsworkspace-toolbar), [public shell](#public-marketing-shell).
 - Input and selection: [form controls](#shared-form-controls), [command](#uicommand), [combobox](#uicombobox), [date picker](#uidate-picker), [file upload](#file-upload-pattern).
 - Reports and records: [report workspace](#patternsreport-workspace), [charts](#patternsreport-chart), [data table](#uidata-table), [operational matrix](#uioperational-matrix), [bulk import](#patternsbulk-import-workspace).
-- Feedback and interaction: [dialogs](#uiapp-dialog), [confirmation](#uiconfirm-dialog), [transient feedback](#transient-feedback), [empty states](#uiempty), [skeletons](#uiskeleton), [readiness](#patternsreadiness-band).
+- Feedback and interaction: [buttons](#uibutton), [dialogs](#uiapp-dialog), [confirmation](#uiconfirm-dialog), [transient feedback](#transient-feedback), [empty states](#uiempty), [skeletons](#uiskeleton), [readiness](#patternsreadiness-band).
 - Shared appearance: [CSS tokens and design system](#css-design-system-appcss).
 
 ## UI Foundation
@@ -796,6 +796,22 @@ Guidance:
 - Use `variant="primary"` or `variant="secondary"` only for non-destructive confirmations.
 - Return the mutation's promise from `onConfirm` and keep the confirmation mounted until it settles: close it from the success path, not before the await. While the promise is pending both actions are disabled, a spinner renders inside the confirm button, `aria-busy` is set and Escape is ignored. An outside click never closes a confirmation.
 - Routes may pass labels, state, handlers, and disabled/loading flags only. Do not pass visual classes or wrap this component to change appearance for one route.
+
+---
+
+## `ui/button`
+
+Shadcn-svelte button primitive. Variants are `default`, `outline`, `secondary`, `ghost`, `destructive`, `link` and `cell`; sizes are `default`, `xs`, `sm`, `lg`, `icon`, `icon-xs`, `icon-sm`, `icon-lg` and `none`. Use `buttonVariants({ variant, size })` when a non-`Button` element needs the same classes.
+
+Use `variant="cell" size="none"` for a flat, square button that fills a grid or table cell, such as a Calendar date header, person row header, group band control or long-range day number. `cell` drops the radius, border and press offset, uses normal weight and leading, keeps the ghost hover colors, and draws a 2px inset focus ring so neighboring cells cannot cover it. `none` adds no height, padding or gap, so the cell keeps its own geometry. Callers pass layout utilities and token colors for states such as weekend, today or pinned. They do not restyle the variant's shape, focus ring or press behavior.
+
+```svelte
+<Button variant="cell" size="none" class="h-full justify-start gap-2 border-r border-b border-border bg-card px-2 py-1">
+	SPC Able, Synthetic
+</Button>
+```
+
+The month DateCell stays a native `<button>` with its own classes. Each month renders 651 or more of them, and both `ui/button` and the `cell` classes measurably slowed month load (Phase 10 D03 evidence).
 
 ---
 

@@ -1,13 +1,12 @@
 <script lang="ts">
-	import type { DateCellDensity, DateCellStatus } from './types.js';
+	import type { DateCellStatus } from './types.js';
 
 	interface Props {
 		statuses?: DateCellStatus[];
 		showStatusText?: boolean;
-		density?: DateCellDensity;
 	}
 
-	let { statuses = [], showStatusText = false, density = 'month' }: Props = $props();
+	let { statuses = [], showStatusText = false }: Props = $props();
 
 	const hasStatus = $derived(statuses.length > 0);
 	const firstStatus = $derived(statuses[0]);
@@ -35,8 +34,7 @@
 
 <span
 	data-slot="date-cell-fill"
-	data-density={density}
-	class="absolute inset-0 flex items-start justify-start overflow-hidden p-[3px] font-mono text-[7px] leading-none font-extrabold tracking-[0.05em] whitespace-nowrap uppercase data-[density=long-range]:p-0 data-[density=long-range]:text-[0px]"
+	class="absolute inset-0 flex items-start justify-start overflow-hidden p-[3px] font-mono text-[7px] leading-none font-extrabold tracking-[0.05em] whitespace-nowrap uppercase"
 	style:background
 	style:color={firstStatus?.textColor}
 >

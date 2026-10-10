@@ -1,11 +1,19 @@
 // @vitest-environment happy-dom
-import { describe, it, expect, afterEach } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/svelte';
+import { describe, it, expect, afterEach, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import GroupHeader from './GroupHeader.svelte';
 
 afterEach(cleanup);
 
-function renderHeader(overrides: Partial<{ groupName: string; isCollapsed: boolean; isPinned: boolean }> = {}) {
+function renderHeader(
+	overrides: Partial<{
+		groupName: string;
+		isCollapsed: boolean;
+		isPinned: boolean;
+		onToggle: () => void;
+		onPinToggle: () => void;
+	}> = {}
+) {
 	return render(GroupHeader, {
 		props: {
 			groupName: 'Alpha',
@@ -30,5 +38,26 @@ describe('GroupHeader', () => {
 	it('shows expand arrow when collapsed', () => {
 		renderHeader({ isCollapsed: true });
 		expect(screen.getByText('▶')).toBeTruthy();
+	});
+
+	it('toggles the group from the name and pins from the pin control without crossing over', async () => {
+		const onToggle = vi.fn();
+		const onPinToggle = vi.fn();
+		renderHeader({ groupName: 'Bravo', onToggle, onPinToggle });
+
+		await fireEvent.click(screen.getByRole('button', { name: /Bravo/ }));
+		expect(onToggle).toHaveBeenCalledTimes(1);
+		expect(onPinToggle).not.toHaveBeenCalled();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Pin' }));
+		expect(onPinToggle).toHaveBeenCalledTimes(1);
+		expect(onToggle).toHaveBeenCalledTimes(1);
+	});
+
+	it('exposes the pinned state on the pin control', () => {
+		renderHeader({ isPinned: true });
+		const pin = screen.getByRole('button', { name: 'Pinned' });
+		expect(pin.getAttribute('aria-pressed')).toBe('true');
+		expect(pin.getAttribute('title')).toBe('Unpin group');
 	});
 });

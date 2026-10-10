@@ -8,7 +8,7 @@ import { getDefaultUserOrgPreferences } from '$features/identity/contracts';
 import type { ReadyAppShell } from '$features/app-shell/contracts';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import Layout from './+layout.svelte';
-import PreferenceProbe from './PreferenceProbe.svelte';
+import PreferenceProbe from '$features/app-shell/test-support/PreferenceProbe.svelte';
 import type { LayoutData } from './$types';
 
 const { pageStore, invalidate } = vi.hoisted(() => {

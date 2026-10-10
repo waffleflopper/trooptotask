@@ -36,4 +36,40 @@ describe('account profile page', () => {
 			)
 		).toBeTruthy();
 	});
+
+	it('offers the account ranks in order with the saved rank selected, and requires a choice', () => {
+		render(ProfilePage, {
+			props: {
+				data: {
+					session: null,
+					accountPathname: '/account/profile',
+					profile: { userId: 'user-1', firstName: 'Emma', lastName: 'Hayes', rank: 'SGT' },
+					ranks: ['CPT', 'SGT', 'SFC']
+				},
+				form: null
+			}
+		});
+
+		const rank = screen.getByLabelText('Rank') as HTMLSelectElement;
+		expect(rank.name).toBe('rank');
+		expect(rank.required).toBe(true);
+		expect([...rank.options].map((option) => option.textContent)).toEqual(['Select rank', 'CPT', 'SGT', 'SFC']);
+		expect(rank.value).toBe('SGT');
+	});
+
+	it('starts on the empty choice when the account has no saved rank', () => {
+		render(ProfilePage, {
+			props: {
+				data: {
+					session: null,
+					accountPathname: '/account/profile',
+					profile: null,
+					ranks: ['CPT', 'SGT']
+				},
+				form: null
+			}
+		});
+
+		expect((screen.getByLabelText('Rank') as HTMLSelectElement).value).toBe('');
+	});
 });

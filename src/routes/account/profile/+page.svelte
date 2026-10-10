@@ -5,6 +5,7 @@
 	import * as Card from '$lib/components/ui/card';
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
+	import * as NativeSelect from '$lib/components/ui/native-select';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Spinner } from '$lib/components/ui/spinner';
 
@@ -68,17 +69,12 @@
 			<Field.Root>
 				<Field.Label for="rank">Rank</Field.Label>
 				<Field.Control>
-					<select
-						id="rank"
-						name="rank"
-						required
-						class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex h-8 w-full rounded-md border px-3 py-1 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-					>
-						<option value="">Select rank</option>
+					<NativeSelect.Root id="rank" name="rank" required value={data.profile?.rank ?? ''}>
+						<NativeSelect.Option value="">Select rank</NativeSelect.Option>
 						{#each data.ranks as rank (rank)}
-							<option value={rank} selected={data.profile?.rank === rank}>{rank}</option>
+							<NativeSelect.Option value={rank}>{rank}</NativeSelect.Option>
 						{/each}
-					</select>
+					</NativeSelect.Root>
 				</Field.Control>
 				<Field.Description>
 					This account-level rank uses the registration rank list and is not connected to any Organization rank catalog.

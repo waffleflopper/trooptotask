@@ -54,7 +54,7 @@
 		<header class="flex items-center justify-between gap-4">
 			<a
 				href={resolve('/')}
-				class="auth-brand inline-flex flex-col gap-0.5 text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+				class="inline-flex flex-col gap-0.5 text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
 			>
 				<BrandWordmark />
 			</a>
@@ -152,10 +152,3 @@
 		</footer>
 	</div>
 </div>
-
-<style>
-	.auth-brand {
-		--public-brand-accent: var(--accent);
-		--public-brand-subtitle-color: var(--muted-foreground);
-	}
-</style>

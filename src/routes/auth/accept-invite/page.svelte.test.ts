@@ -220,3 +220,17 @@ it('reconciles a lost activation response when retry confirms the pending marker
 	expect(screen.queryByRole('heading', { name: 'Account activated' })).toBeNull();
 	expect(fetchMock.mock.calls.filter(([url]) => url === '/api/auth/update-password')).toHaveLength(1);
 });
+
+it('lets the user submit sign-out to the existing POST action', async () => {
+	const { container } = render(Page);
+	const submissions: { method: string; pathname: string }[] = [];
+	container.addEventListener('submit', (event) => {
+		event.preventDefault();
+		const form = event.target as HTMLFormElement;
+		submissions.push({ method: form.method.toLowerCase(), pathname: new URL(form.action).pathname });
+	});
+
+	await fireEvent.click(screen.getByRole('button', { name: 'sign out' }));
+
+	expect(submissions).toEqual([{ method: 'post', pathname: '/auth/logout' }]);
+});

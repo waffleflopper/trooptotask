@@ -94,3 +94,17 @@ it.each(['invalid code', 'provider unavailable', 'network failure', 'invalid suc
 		await waitFor(() => expect(goto).toHaveBeenCalledWith('/dashboard'));
 	}
 );
+
+it('lets the user submit sign-out to the existing POST action', async () => {
+	const { container } = render(Page);
+	const submissions: { method: string; pathname: string }[] = [];
+	container.addEventListener('submit', (event) => {
+		event.preventDefault();
+		const form = event.target as HTMLFormElement;
+		submissions.push({ method: form.method.toLowerCase(), pathname: new URL(form.action).pathname });
+	});
+
+	await fireEvent.click(screen.getByRole('button', { name: 'sign out' }));
+
+	expect(submissions).toEqual([{ method: 'post', pathname: '/auth/logout' }]);
+});

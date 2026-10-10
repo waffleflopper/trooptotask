@@ -122,9 +122,7 @@
 			<div>
 				Leave this verification step and
 				<form method="POST" action={resolve('/auth/logout')} class="inline">
-					<button type="submit" class="font-medium underline-offset-4 hover:text-foreground hover:underline">
-						sign out
-					</button>
+					<Button type="submit" variant="link" class="h-auto p-0">sign out</Button>
 				</form>
 				.
 			</div>

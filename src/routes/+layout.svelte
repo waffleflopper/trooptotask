@@ -27,17 +27,9 @@
 	});
 </script>
 
-<div class="app">
+<div class="flex h-screen flex-col">
 	{@render children()}
 </div>
 <div class="contents" data-print-chrome>
 	<Toaster />
 </div>
-
-<style>
-	.app {
-		height: 100vh;
-		display: flex;
-		flex-direction: column;
-	}
-</style>

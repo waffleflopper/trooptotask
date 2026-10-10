@@ -1,102 +1,30 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { Button } from '$lib/components/ui/button';
+	import * as Card from '$lib/components/ui/card';
 
 	// Server-side guard ensures only suspended users see this
 </script>
 
-<div class="suspended-container">
-	<div class="suspended-card">
-		<p class="eyebrow">Access Restricted</p>
-		<h1>Account Suspended</h1>
-		<p class="message">
-			This account is currently suspended. If you believe that is incorrect, contact support so we can review it.
-		</p>
-		<div class="contact-panel">
-			<p class="contact-label">Support</p>
-			<p class="contact">support@trooptotask.org</p>
-		</div>
-		<form method="POST" action={resolve('/auth/logout')}>
-			<Button type="submit" variant="outline">Sign out</Button>
-		</form>
-	</div>
+<div class="flex min-h-screen items-center justify-center bg-background p-4 sm:p-6">
+	<Card.Root class="w-full max-w-[480px]">
+		<Card.Header>
+			<p class="font-mono text-[0.6875rem] font-semibold tracking-[0.12em] text-accent uppercase">Access Restricted</p>
+			<h1 class="font-heading text-4xl leading-none font-extrabold text-destructive uppercase sm:text-5xl">
+				Account Suspended
+			</h1>
+		</Card.Header>
+		<Card.Content class="flex flex-col gap-4">
+			<p class="text-sm leading-relaxed text-muted-foreground">
+				This account is currently suspended. If you believe that is incorrect, contact support so we can review it.
+			</p>
+			<div class="flex flex-col gap-2 rounded-md border bg-muted/70 p-4">
+				<p class="font-mono text-[0.6875rem] font-semibold tracking-[0.12em] text-accent uppercase">Support</p>
+				<p class="text-base font-semibold text-foreground">support@trooptotask.org</p>
+			</div>
+			<form method="POST" action={resolve('/auth/logout')}>
+				<Button type="submit" variant="outline">Sign out</Button>
+			</form>
+		</Card.Content>
+	</Card.Root>
 </div>
-
-<style>
-	.suspended-container {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		min-height: 100vh;
-		background: var(--background);
-		padding: 1.5rem;
-	}
-
-	.suspended-card {
-		display: flex;
-		flex-direction: column;
-		gap: 1rem;
-		max-width: 480px;
-		background: var(--card);
-		border: 1px solid var(--border);
-		border-radius: var(--radius);
-		padding: 1.5rem;
-		box-shadow:
-			0 4px 20px rgb(0 0 0 / 0.12),
-			0 2px 6px rgb(0 0 0 / 0.07);
-	}
-
-	.eyebrow,
-	.contact-label {
-		font-family: 'IBM Plex Mono', monospace;
-		font-size: 0.6875rem;
-		font-weight: 600;
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-		color: var(--accent);
-		margin: 0;
-	}
-
-	h1 {
-		font-family: 'Barlow Condensed', sans-serif;
-		font-size: clamp(2.3rem, 5vw, 3.2rem);
-		line-height: 0.94;
-		font-weight: 800;
-		text-transform: uppercase;
-		color: var(--destructive);
-		margin: 0;
-	}
-
-	.message {
-		color: var(--muted-foreground);
-		margin: 0;
-		line-height: 1.6;
-	}
-
-	.contact-panel {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-		padding: 1rem;
-		border: 1px solid var(--border);
-		border-radius: var(--radius);
-		background: color-mix(in srgb, var(--muted) 72%, var(--card) 28%);
-	}
-
-	.contact {
-		margin: 0;
-		font-size: 1rem;
-		font-weight: 600;
-		color: var(--foreground);
-	}
-
-	@media (max-width: 640px) {
-		.suspended-container {
-			padding: 1rem;
-		}
-
-		.suspended-card {
-			padding: 1.25rem;
-		}
-	}
-</style>

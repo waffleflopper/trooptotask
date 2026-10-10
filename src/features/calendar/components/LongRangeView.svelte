@@ -313,7 +313,7 @@
 						style:height={`${row.height}px`}
 					>
 						{#if row.type === 'group'}
-							<div class="flex h-[var(--long-range-group-row-height)] overflow-hidden bg-muted/70">
+							<div class="flex h-[var(--long-range-group-row-height)] overflow-clip bg-muted/70">
 								<div
 									class="sticky left-0 z-[2] flex h-[var(--long-range-group-row-height)] w-[var(--calendar-personnel-column-width)] shrink-0 items-center border-r bg-muted/70 px-3 font-mono text-xs font-semibold tracking-widest text-muted-foreground uppercase"
 								>
@@ -329,7 +329,7 @@
 							</div>
 						{:else}
 							<div
-								class="flex h-[var(--long-range-person-row-height)] overflow-hidden border-b hover:[&_.empty-status-cell]:bg-muted"
+								class="flex h-[var(--long-range-person-row-height)] overflow-clip border-b hover:[&_.empty-status-cell]:bg-muted"
 							>
 								<div
 									class="sticky left-0 z-[2] flex h-[var(--long-range-person-row-height)] w-[var(--calendar-personnel-column-width)] shrink-0 items-center gap-1 border-r bg-card px-3 text-sm"

@@ -37,6 +37,10 @@ function stubAssignmentTypeServer(failingPutNumbers: number[]) {
 			if (failingPutNumbers.includes(puts.length)) {
 				return new Response(JSON.stringify({ message: 'Synthetic failure' }), { status: 503 });
 			}
+			// Mirrors the assignment_types_one_header_per_org unique index.
+			if (data.showInDateHeader && [...persisted.values()].some((type) => type.id !== id && type.showInDateHeader)) {
+				return new Response(JSON.stringify({ message: 'Internal server error' }), { status: 500 });
+			}
 			const updated = { ...persisted.get(id)!, ...data };
 			persisted.set(id, updated);
 			return new Response(JSON.stringify(updated), { status: 200 });
@@ -67,19 +71,19 @@ describe('CalendarAssignmentSettingsSection date header', () => {
 		vi.restoreAllMocks();
 	});
 
-	it('moves the header to the chosen type, setting it before clearing the previous one', async () => {
+	it('moves the header to the chosen type, clearing the previous one first', async () => {
 		const server = stubAssignmentTypeServer([]);
 		render(CalendarAssignmentSettingsSection, { props: { canMutate: true, searchQuery: '' } });
 
 		await fireEvent.click(radio('Staff Duty'));
 
-		await waitFor(() => expect(server.puts).toEqual(['sd:true', 'cq:false']));
+		await waitFor(() => expect(server.puts).toEqual(['cq:false', 'sd:true']));
 		expect(server.headerFlags()).toEqual({ cq: false, sd: true });
 		await waitFor(() => expect(isChecked(radio('Staff Duty'))).toBe(true));
 		expect(isChecked(radio('Charge of Quarters'))).toBe(false);
 	});
 
-	it('keeps the previous header when setting the chosen type fails', async () => {
+	it('keeps the previous header when clearing it fails', async () => {
 		const server = stubAssignmentTypeServer([1]);
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 		render(CalendarAssignmentSettingsSection, { props: { canMutate: true, searchQuery: '' } });
@@ -87,13 +91,13 @@ describe('CalendarAssignmentSettingsSection date header', () => {
 		await fireEvent.click(radio('Staff Duty'));
 
 		await waitFor(() => expect(errorToast).toHaveBeenCalledWith('Failed to update header assignment type'));
-		expect(server.puts).toEqual(['sd:true']);
+		expect(server.puts).toEqual(['cq:false']);
 		expect(server.headerFlags()).toEqual({ cq: true, sd: false });
 		expect(isChecked(radio('Charge of Quarters'))).toBe(true);
 		expect(isChecked(radio('Staff Duty'))).toBe(false);
 	});
 
-	it('restores the previous header when clearing it fails after the chosen type was set', async () => {
+	it('restores the previous header when setting the chosen type fails after it was cleared', async () => {
 		const server = stubAssignmentTypeServer([2]);
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 		render(CalendarAssignmentSettingsSection, { props: { canMutate: true, searchQuery: '' } });
@@ -101,7 +105,7 @@ describe('CalendarAssignmentSettingsSection date header', () => {
 		await fireEvent.click(radio('Staff Duty'));
 
 		await waitFor(() => expect(errorToast).toHaveBeenCalledWith('Failed to update header assignment type'));
-		await waitFor(() => expect(server.puts).toEqual(['sd:true', 'cq:false', 'sd:false']));
+		await waitFor(() => expect(server.puts).toEqual(['cq:false', 'sd:true', 'cq:true']));
 		expect(server.headerFlags()).toEqual({ cq: true, sd: false });
 		expect(isChecked(radio('Charge of Quarters'))).toBe(true);
 		expect(isChecked(radio('Staff Duty'))).toBe(false);

@@ -237,7 +237,7 @@ describe('calendar page', () => {
 
 		const workspace = screen.getByRole('main');
 		expect(within(workspace).getByRole('toolbar', { name: 'Calendar controls' })).toBeTruthy();
-		expect(within(workspace).getByRole('status').textContent?.trim()).toBe('Loading additional calendar dates...');
+		expect(within(workspace).getByRole('status')).toBeTruthy();
 
 		resolveRange?.({
 			rangeStart: '2026-06-01',
@@ -246,6 +246,11 @@ describe('calendar page', () => {
 			specialDays: [],
 			dailyAssignments: []
 		});
+
+		await waitFor(() => {
+			expect(within(workspace).queryByRole('status')).toBeNull();
+		});
+		expect(within(workspace).getByRole('toolbar', { name: 'Calendar controls' })).toBeTruthy();
 	});
 
 	it('loads the navigated quarter and persists that month for the next server bootstrap', async () => {

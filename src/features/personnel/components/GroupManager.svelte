@@ -92,7 +92,7 @@
 		</AppDialog.Header>
 
 		<AppDialog.Body class="grid gap-4">
-			<Field.Root>
+			<Field.Root data-invalid={failure?.change === 'add' ? true : undefined}>
 				<Field.Label for="new-group-name">Organization groups</Field.Label>
 				<div class="flex gap-2">
 					<Input
@@ -114,7 +114,7 @@
 				{#each groups as group (group.id)}
 					<div class="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
 						{#if editingId === group.id}
-							<Field.Root>
+							<Field.Root data-invalid={failure?.change === 'rename' ? true : undefined}>
 								<Input
 									type="text"
 									aria-label="Group name"
@@ -174,7 +174,7 @@
 		title="Remove Group"
 		message={`Remove "${confirmRemove.name}"? Personnel in this group will become unassigned.`}
 		confirmLabel="Remove"
-		variant="danger"
+		variant="destructive"
 		onConfirm={doRemove}
 		onCancel={() => {
 			confirmRemove = null;

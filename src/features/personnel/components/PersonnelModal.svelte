@@ -8,8 +8,8 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as Combobox from '$lib/components/ui/combobox';
 	import { DatePicker } from '$lib/components/ui/date-picker';
+	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
-	import { Label } from '$lib/components/ui/label';
 	import ArchiveIcon from '@lucide/svelte/icons/archive';
 	import { onDestroy, untrack } from 'svelte';
 
@@ -155,84 +155,62 @@
 		<AppDialog.Body>
 			<form id="personnel-form" class="grid gap-4" onsubmit={handleSubmit}>
 				<fieldset class="contents" disabled={busy}>
-					<div class="grid gap-2">
-						<Label for="rank">Rank</Label>
+					<Field.Root data-invalid={rankError ? true : undefined}>
+						<Field.Label for="rank">Rank</Field.Label>
 						<Combobox.Root items={rankOptions} bind:value={rank} label="Rank" autoHighlight>
-							<Combobox.Trigger
-								id="rank"
-								placeholder="Select rank..."
-								aria-label="Rank"
-								aria-invalid={!!rankError}
-								aria-describedby={rankError ? 'rank-error' : undefined}
-							/>
+							<Combobox.Trigger id="rank" placeholder="Select rank..." aria-label="Rank" />
 							<Combobox.Content>
 								<Combobox.Search placeholder="Select rank..." />
 								<Combobox.Empty>No ranks found.</Combobox.Empty>
 								<Combobox.List />
 							</Combobox.Content>
 						</Combobox.Root>
-						{#if rankError}<p id="rank-error">{rankError}</p>{/if}
+						{#if rankError}<Field.Error>{rankError}</Field.Error>{/if}
+					</Field.Root>
+
+					<div class="grid gap-4 sm:grid-cols-2">
+						<Field.Root data-invalid={lastNameError ? true : undefined}>
+							<Field.Label for="lastName">Last Name</Field.Label>
+							<Input id="lastName" placeholder="Smith" required bind:value={lastName} />
+							{#if lastNameError}<Field.Error>{lastNameError}</Field.Error>{/if}
+						</Field.Root>
+						<Field.Root data-invalid={firstNameError ? true : undefined}>
+							<Field.Label for="firstName">First Name</Field.Label>
+							<Input id="firstName" placeholder="John" required bind:value={firstName} />
+							{#if firstNameError}<Field.Error>{firstNameError}</Field.Error>{/if}
+						</Field.Root>
 					</div>
 
 					<div class="grid gap-4 sm:grid-cols-2">
-						<div class="grid gap-2">
-							<Label for="lastName">Last Name</Label>
-							<Input
-								id="lastName"
-								placeholder="Smith"
-								required
-								aria-invalid={!!lastNameError}
-								aria-describedby={lastNameError ? 'lastName-error' : undefined}
-								bind:value={lastName}
-							/>
-							{#if lastNameError}<p id="lastName-error">{lastNameError}</p>{/if}
-						</div>
-						<div class="grid gap-2">
-							<Label for="firstName">First Name</Label>
-							<Input
-								id="firstName"
-								placeholder="John"
-								required
-								aria-invalid={!!firstNameError}
-								aria-describedby={firstNameError ? 'firstName-error' : undefined}
-								bind:value={firstName}
-							/>
-							{#if firstNameError}<p id="firstName-error">{firstNameError}</p>{/if}
-						</div>
-					</div>
-
-					<div class="grid gap-4 sm:grid-cols-2">
-						<div class="grid gap-2">
-							<Label for="mos">MOS / Job Title</Label>
+						<Field.Root>
+							<Field.Label for="mos">MOS / Job Title</Field.Label>
 							<Input id="mos" placeholder="e.g., 68W, 68C, RN" bind:value={mos} />
-						</div>
-						<div class="grid gap-2">
-							<Label for="clinicRole">Duty Role</Label>
+						</Field.Root>
+						<Field.Root>
+							<Field.Label for="clinicRole">Duty Role</Field.Label>
 							<Input id="clinicRole" placeholder="e.g., Squad Leader, Medic" bind:value={clinicRole} />
-						</div>
+						</Field.Root>
 					</div>
 
 					<div class="grid gap-4 sm:grid-cols-2">
-						<div class="grid gap-2">
-							<Label for="ets">ETS</Label>
+						<Field.Root>
+							<Field.Label for="ets">ETS</Field.Label>
 							<DatePicker id="ets" bind:value={ets} placeholder="Select ETS" />
-						</div>
-						<div class="grid gap-2">
-							<Label for="deros">PCS / DEROS</Label>
+						</Field.Root>
+						<Field.Root>
+							<Field.Label for="deros">PCS / DEROS</Field.Label>
 							<DatePicker id="deros" bind:value={deros} placeholder="Select PCS / DEROS" />
-						</div>
+						</Field.Root>
 					</div>
 
-					<div class="grid gap-2">
-						<Label for="group">Group</Label>
+					<Field.Root data-invalid={groupError ? true : undefined}>
+						<Field.Label for="group">Group</Field.Label>
 						<Combobox.Root items={groupOptions} bind:value={groupId} label="Group" autoHighlight>
 							<Combobox.Trigger
 								id="group"
 								clearable={isEditing || allowUnassigned}
 								placeholder={isEditing || allowUnassigned ? 'No Group Assigned' : 'Select Group...'}
 								aria-label="Group"
-								aria-invalid={!!groupError}
-								aria-describedby={groupError ? 'group-error' : undefined}
 							/>
 							<Combobox.Content>
 								<Combobox.Search placeholder="Search Groups..." />
@@ -240,8 +218,8 @@
 								<Combobox.List />
 							</Combobox.Content>
 						</Combobox.Root>
-						{#if groupError}<p id="group-error">{groupError}</p>{/if}
-					</div>
+						{#if groupError}<Field.Error>{groupError}</Field.Error>{/if}
+					</Field.Root>
 				</fieldset>
 			</form>
 		</AppDialog.Body>

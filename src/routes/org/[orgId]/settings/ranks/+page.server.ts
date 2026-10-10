@@ -1,6 +1,13 @@
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import type { RankCategory, RankPayGrade, RankService, RankState } from '$features/personnel/contracts';
+import {
+	RANK_TIE_BREAK_RANGE_MESSAGE,
+	RANK_TIE_BREAK_WHOLE_NUMBER_MESSAGE,
+	type RankCategory,
+	type RankPayGrade,
+	type RankService,
+	type RankState
+} from '$features/personnel/contracts';
 import { buildRouteRequest, createRequestRankCatalogContext } from '$lib/server/adapters/requestContexts.server';
 import { createSupabaseRankCatalogAdministrationPort } from '$features/personnel/index.server';
 import { fail } from '$lib/errors';
@@ -172,12 +179,12 @@ function getRankSaveIntent(formData: FormData): 'create' | 'update' {
 function parseSortOrder(formData: FormData): number {
 	const rawSortOrder = getStringFormValue(formData, 'sortOrder').trim();
 	if (!/^-?\d+$/.test(rawSortOrder)) {
-		fail(400, 'Tie-break order must be a whole number.');
+		fail(400, RANK_TIE_BREAK_WHOLE_NUMBER_MESSAGE);
 	}
 
 	const sortOrder = Number(rawSortOrder);
 	if (!Number.isSafeInteger(sortOrder) || sortOrder < PG_INTEGER_MIN || sortOrder > PG_INTEGER_MAX) {
-		fail(400, 'Tie-break order must fit within PostgreSQL integer range.');
+		fail(400, RANK_TIE_BREAK_RANGE_MESSAGE);
 	}
 
 	return sortOrder;

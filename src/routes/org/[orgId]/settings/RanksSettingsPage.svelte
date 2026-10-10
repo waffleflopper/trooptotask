@@ -1,5 +1,12 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import {
+		RANK_ALREADY_EXISTS_MESSAGE,
+		RANK_CODE_REQUIRED_MESSAGE,
+		RANK_LABEL_REQUIRED_MESSAGE,
+		RANK_TIE_BREAK_RANGE_MESSAGE,
+		RANK_TIE_BREAK_WHOLE_NUMBER_MESSAGE
+	} from '$features/personnel/contracts';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
@@ -24,10 +31,21 @@
 	type RankServiceFilter = SettingsRankCatalogRow['service'] | 'all';
 	type RankStateFilter = 'all' | 'active' | 'retired';
 	type BulkRankTargetState = 'active' | 'retired';
+	type RankErrorField = 'code' | 'label' | 'sortOrder';
 	type PendingBulkRankState = {
 		pack: SettingsRankServicePackOption;
 		targetState: BulkRankTargetState;
 	};
+
+	const RANK_FIELD_ERRORS = new Map<string, RankErrorField>([
+		[RANK_CODE_REQUIRED_MESSAGE, 'code'],
+		[RANK_ALREADY_EXISTS_MESSAGE, 'code'],
+		[RANK_LABEL_REQUIRED_MESSAGE, 'label'],
+		[RANK_TIE_BREAK_WHOLE_NUMBER_MESSAGE, 'sortOrder'],
+		[RANK_TIE_BREAK_RANGE_MESSAGE, 'sortOrder']
+	]);
+
+	const ROW_ACTION_KEYS = ['edit', 'retire', 'reactivate', 'delete'];
 
 	let {
 		ranksSettings,
@@ -76,6 +94,10 @@
 	const errorEditCode = $derived(
 		rankErrorScope === 'edit' && lastActionKey ? lastActionKey.slice('edit-'.length) : null
 	);
+	const rankErrorField = $derived(rankError ? (RANK_FIELD_ERRORS.get(rankError) ?? null) : null);
+	const addErrorField = $derived(rankErrorScope === 'add' ? rankErrorField : null);
+	// The edit form's Code is read-only, so a Code failure there stays in the form alert.
+	const editErrorField = $derived(rankErrorScope === 'edit' && rankErrorField !== 'code' ? rankErrorField : null);
 	const customRankPanelOpen = $derived(customRankOpen || rankErrorScope === 'add');
 
 	const payGradeOrder = new Map(
@@ -185,6 +207,10 @@
 		if (element instanceof HTMLFormElement) element.requestSubmit();
 	}
 
+	function editFieldInvalid(entry: SettingsRankCatalogRow, field: RankErrorField): boolean {
+		return errorEditCode === entry.code && editErrorField === field;
+	}
+
 	function sourceVariant(source: SettingsRankCatalogRow['source']): 'secondary' | 'outline' {
 		return source === 'built-in' ? 'secondary' : 'outline';
 	}
@@ -196,6 +222,10 @@
 
 	function rankDetailId(code: string): string {
 		return `${rankDomId(code)}-detail`;
+	}
+
+	function isRowSaving(entry: SettingsRankCatalogRow): boolean {
+		return ROW_ACTION_KEYS.some((key) => savingAction === `${key}-${entry.code}`);
 	}
 
 	function rowFormId(intent: string, code: string): string {
@@ -485,7 +515,7 @@
 				</p>
 			</div>
 			<Separator />
-			{#if rankError && rankErrorScope === 'add'}
+			{#if rankError && rankErrorScope === 'add' && !addErrorField}
 				<Alert.Root variant="destructive">
 					<Alert.Description>{rankError}</Alert.Description>
 				</Alert.Root>
@@ -493,7 +523,7 @@
 			<form method="POST" action="?/saveRank" class="grid gap-4" use:enhance={enhancedForm('rank-add')}>
 				<input type="hidden" name="intent" value="add" />
 				<div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-					<Field.Root>
+					<Field.Root data-invalid={addErrorField === 'code' ? true : undefined}>
 						<Field.Label for="rank-code">Code</Field.Label>
 						<Input
 							id="rank-code"
@@ -503,8 +533,9 @@
 							required
 							disabled={!ranks.commands.canAddCustomRank}
 						/>
+						{#if addErrorField === 'code'}<Field.Error>{rankError}</Field.Error>{/if}
 					</Field.Root>
-					<Field.Root>
+					<Field.Root data-invalid={addErrorField === 'label' ? true : undefined}>
 						<Field.Label for="rank-label">Label</Field.Label>
 						<Input
 							id="rank-label"
@@ -514,6 +545,7 @@
 							required
 							disabled={!ranks.commands.canAddCustomRank}
 						/>
+						{#if addErrorField === 'label'}<Field.Error>{rankError}</Field.Error>{/if}
 					</Field.Root>
 					<Field.Root>
 						<Field.Label for="rank-service">Branch</Field.Label>
@@ -563,7 +595,7 @@
 							{/each}
 						</NativeSelect.Root>
 					</Field.Root>
-					<Field.Root>
+					<Field.Root data-invalid={addErrorField === 'sortOrder' ? true : undefined}>
 						<Field.Label for="rank-sort-order">Tie-break order</Field.Label>
 						<Field.Description>{ranks.copy.tieBreakHelp}</Field.Description>
 						<Input
@@ -573,12 +605,13 @@
 							value="500"
 							disabled={!ranks.commands.canAddCustomRank}
 						/>
+						{#if addErrorField === 'sortOrder'}<Field.Error>{rankError}</Field.Error>{/if}
 					</Field.Root>
 				</div>
 				<div>
 					<Button
 						type="submit"
-						disabled={!ranks.commands.canAddCustomRank || savingAction === 'rank-add'}
+						disabled={!ranks.commands.canAddCustomRank || savingAction !== null}
 						aria-busy={savingAction === 'rank-add'}
 					>
 						<PlusIcon aria-hidden />
@@ -745,7 +778,12 @@
 		<div class="flex justify-end">
 			{@render rankRowForms(entry)}
 			{#if rankRowActions(entry).length > 0}
-				<DataTable.RowActions row={entry} actions={rankRowActions(entry)} ariaLabel={`Actions for ${entry.code}`} />
+				<DataTable.RowActions
+					row={entry}
+					actions={rankRowActions(entry)}
+					ariaLabel={`Actions for ${entry.code}`}
+					busy={isRowSaving(entry)}
+				/>
 			{/if}
 		</div>
 	{:else}
@@ -828,7 +866,7 @@
 					<PencilIcon aria-hidden class="size-4" />
 					Edit rank
 				</div>
-				{#if rankError && errorEditCode === entry.code}
+				{#if rankError && errorEditCode === entry.code && !editErrorField}
 					<Alert.Root variant="destructive" class="mb-3">
 						<Alert.Description>{rankError}</Alert.Description>
 					</Alert.Root>
@@ -841,9 +879,10 @@
 							<Field.Label for={`${domId}-edit-code`}>Code</Field.Label>
 							<Input id={`${domId}-edit-code`} name="code" value={entry.code} readonly />
 						</Field.Root>
-						<Field.Root>
+						<Field.Root data-invalid={editFieldInvalid(entry, 'label') ? true : undefined}>
 							<Field.Label for={`${domId}-edit-label`}>Label</Field.Label>
 							<Input id={`${domId}-edit-label`} name="label" value={entry.label} maxlength={120} required />
+							{#if editFieldInvalid(entry, 'label')}<Field.Error>{rankError}</Field.Error>{/if}
 						</Field.Root>
 						<Field.Root>
 							<Field.Label for={`${domId}-edit-service`}>Branch</Field.Label>
@@ -878,17 +917,18 @@
 								{/each}
 							</NativeSelect.Root>
 						</Field.Root>
-						<Field.Root>
+						<Field.Root data-invalid={editFieldInvalid(entry, 'sortOrder') ? true : undefined}>
 							<Field.Label for={`${domId}-edit-sort-order`}>Tie-break order</Field.Label>
 							<Field.Description>{ranks.copy.tieBreakHelp}</Field.Description>
 							<Input id={`${domId}-edit-sort-order`} name="sortOrder" type="number" value={entry.sortOrder} />
+							{#if editFieldInvalid(entry, 'sortOrder')}<Field.Error>{rankError}</Field.Error>{/if}
 						</Field.Root>
 					</div>
 					<div>
 						<Button
 							type="submit"
 							size="sm"
-							disabled={savingAction === `edit-${entry.code}`}
+							disabled={savingAction !== null}
 							aria-busy={savingAction === `edit-${entry.code}`}
 							aria-label={`Save ${entry.code}`}
 						>

@@ -143,6 +143,13 @@ export type {
 	OrganizationRankCatalogReferenceSummary,
 	OrganizationRankCatalogSource
 } from './rankCatalogContracts';
+export {
+	RANK_ALREADY_EXISTS_MESSAGE,
+	RANK_CODE_REQUIRED_MESSAGE,
+	RANK_LABEL_REQUIRED_MESSAGE,
+	RANK_TIE_BREAK_RANGE_MESSAGE,
+	RANK_TIE_BREAK_WHOLE_NUMBER_MESSAGE
+} from './rankCatalogContracts';
 
 /** Canonical Personnel facts used when saving a Sign-in Roster snapshot. */
 export interface SignInRosterPersonnelLookupRecord {

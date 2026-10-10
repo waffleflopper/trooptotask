@@ -518,12 +518,14 @@ describe('rank confirmation lifecycle', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Retire rank' }));
 		expect(heldSubmissions).toHaveLength(1);
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Actions for Lt Gen' }));
-		expect(screen.getByRole('menuitem', { name: 'Retire' }).getAttribute('aria-disabled')).toBe('true');
+		const trigger = screen.getByRole('button', { name: 'Actions for Lt Gen' }) as HTMLButtonElement;
+		expect(trigger.disabled).toBe(true);
+		expect(trigger.getAttribute('aria-busy')).toBe('true');
 
 		await heldSubmissions[0]({ result: { type: 'success' }, update: async () => {} });
 		await vi.runAllTimersAsync();
-		expect(screen.getByRole('menuitem', { name: 'Retire' }).getAttribute('aria-disabled')).not.toBe('true');
+		expect(trigger.disabled).toBe(false);
+		expect(trigger.getAttribute('aria-busy')).toBe('false');
 	});
 });
 
@@ -613,6 +615,21 @@ describe('single rank retirement', () => {
 		expect(submittedForms).toEqual([{ action: '?/retireRank', fields: { code: 'DET-SGT' } }]);
 	});
 
+	it('holds every other rank action while one retirement is in flight', async () => {
+		renderRankPage([rankEntry(), rankEntry({ code: 'OTHER', label: 'Other Sergeant' })]);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Actions for DET-SGT' }));
+		await fireEvent.click(screen.getByRole('menuitem', { name: 'Retire' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Retire rank' }));
+		expect(submittedForms).toHaveLength(1);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Actions for OTHER' }));
+		expect(screen.getByRole('menuitem', { name: 'Retire' }).getAttribute('aria-disabled')).toBe('true');
+		expect(screen.getByRole('button', { name: 'Add custom rank' })).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: 'Show details for DET-SGT' }));
+		expect((screen.getByRole('button', { name: 'Save DET-SGT' }) as HTMLButtonElement).disabled).toBe(true);
+	});
+
 	it('reactivates a retired rank without a confirmation', async () => {
 		renderRankPage(
 			[],
@@ -659,6 +676,58 @@ describe('rejected rank saves', () => {
 		expect((screen.getByLabelText('Code') as HTMLInputElement).value).toBe('NEW-1');
 		expect((screen.getByLabelText('Label') as HTMLInputElement).value).toBe('New Rank');
 		expect((screen.getByLabelText('Tie-break order') as HTMLInputElement).value).toBe('650');
+	});
+
+	it.each([
+		['Code', 'Rank catalog entry already exists. Edit it instead.'],
+		['Code', 'Rank code is required'],
+		['Label', 'Rank label is required'],
+		['Tie-break order', 'Tie-break order must be a whole number.'],
+		['Tie-break order', 'Tie-break order must fit within PostgreSQL integer range.']
+	])('attaches the rejected %s to its own field: %s', async (fieldLabel, message) => {
+		const page = renderRankPage([rankEntry()]);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Add custom rank' }));
+		await fireEvent.input(screen.getByLabelText('Code'), { target: { value: 'NEW-1' } });
+		await fireEvent.submit(screen.getByRole('button', { name: 'Add Rank' }).closest('form') as HTMLFormElement);
+		await page.reject(message);
+		await heldSubmissions[0]({ result: { type: 'failure' }, update: async () => {} });
+
+		const field = screen.getByLabelText(fieldLabel);
+		expect(field.getAttribute('aria-invalid')).toBe('true');
+		const error = screen.getByText(message);
+		expect(error.getAttribute('data-slot')).toBe('field-error');
+		expect(field.getAttribute('aria-describedby')?.split(' ')).toContain(error.id);
+		for (const other of ['Code', 'Label', 'Tie-break order'].filter((label) => label !== fieldLabel)) {
+			expect(screen.getByLabelText(other).getAttribute('aria-invalid')).toBeNull();
+		}
+		expect(screen.getAllByRole('alert')).toEqual([error]);
+	});
+
+	it('attaches a rejected edit label and tie-break to the edit form fields', async () => {
+		const page = renderRankPage([rankEntry()]);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Show details for DET-SGT' }));
+		await fireEvent.submit(screen.getByRole('button', { name: 'Save DET-SGT' }).closest('form') as HTMLFormElement);
+		await page.reject('Rank label is required');
+		await heldSubmissions[0]({ result: { type: 'failure' }, update: async () => {} });
+
+		const label = screen.getByLabelText('Label');
+		expect(label.getAttribute('aria-invalid')).toBe('true');
+		expect(label.getAttribute('aria-describedby')).toBe(screen.getByText('Rank label is required').id);
+		expect(screen.getByLabelText('Tie-break order').getAttribute('aria-invalid')).toBeNull();
+	});
+
+	it('keeps a Code failure of the read-only edit form in the form alert', async () => {
+		const page = renderRankPage([rankEntry()]);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Show details for DET-SGT' }));
+		await fireEvent.submit(screen.getByRole('button', { name: 'Save DET-SGT' }).closest('form') as HTMLFormElement);
+		await page.reject('Rank code is required');
+		await heldSubmissions[0]({ result: { type: 'failure' }, update: async () => {} });
+
+		expect(screen.getByText('Rank code is required').getAttribute('data-slot')).not.toBe('field-error');
+		expect(screen.getByLabelText('Code').getAttribute('aria-invalid')).toBeNull();
 	});
 
 	it('keeps the edited label and shows the server error when saving an edit is rejected', async () => {

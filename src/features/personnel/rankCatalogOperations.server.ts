@@ -12,13 +12,17 @@ import {
 	type RankService,
 	type RankState
 } from './rankCatalog';
-import type {
-	OrganizationRankCatalogEntry,
-	OrganizationRankCatalogReferenceSummary,
-	OrganizationRankCatalogSource,
-	SaveOrganizationRankCatalogEntryInput,
-	AddOrganizationRankServicePackResult,
-	BulkSetOrganizationRankCatalogStateResult
+import {
+	RANK_ALREADY_EXISTS_MESSAGE,
+	RANK_CODE_REQUIRED_MESSAGE,
+	RANK_LABEL_REQUIRED_MESSAGE,
+	RANK_TIE_BREAK_RANGE_MESSAGE,
+	type OrganizationRankCatalogEntry,
+	type OrganizationRankCatalogReferenceSummary,
+	type OrganizationRankCatalogSource,
+	type SaveOrganizationRankCatalogEntryInput,
+	type AddOrganizationRankServicePackResult,
+	type BulkSetOrganizationRankCatalogStateResult
 } from './rankCatalogContracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { sanitizeString } from '$lib/server/validation';
@@ -203,7 +207,7 @@ export async function saveOrganizationRankCatalogEntry(
 
 	const existing = await ports.rankCatalog.findEntryByCode(entry.code);
 	if (intent === 'create' && existing) {
-		fail(409, 'Rank catalog entry already exists. Edit it instead.');
+		fail(409, RANK_ALREADY_EXISTS_MESSAGE);
 	}
 	if (intent === 'update' && !existing) {
 		fail(404, 'Rank catalog entry not found');
@@ -407,7 +411,7 @@ export async function retireOrganizationRankCatalogEntry(
 
 	const code = sanitizeString(input.code, 80);
 	if (!code) {
-		fail(400, 'Rank code is required');
+		fail(400, RANK_CODE_REQUIRED_MESSAGE);
 	}
 
 	const existing = await ports.rankCatalog.findEntryByCode(code);
@@ -440,7 +444,7 @@ export async function reactivateOrganizationRankCatalogEntry(
 
 	const code = sanitizeString(input.code, 80);
 	if (!code) {
-		fail(400, 'Rank code is required');
+		fail(400, RANK_CODE_REQUIRED_MESSAGE);
 	}
 
 	const existing = await ports.rankCatalog.findEntryByCode(code);
@@ -475,7 +479,7 @@ export async function removeOrganizationRankCatalogEntry(
 
 	const code = sanitizeString(input.code, 80);
 	if (!code) {
-		fail(400, 'Rank code is required');
+		fail(400, RANK_CODE_REQUIRED_MESSAGE);
 	}
 
 	const existing = await ports.rankCatalog.findEntryByCode(code);
@@ -601,10 +605,10 @@ function sanitizeRankCatalogEntry(input: SaveOrganizationRankCatalogEntryInput):
 	const label = sanitizeString(input.label, 120);
 
 	if (!code) {
-		fail(400, 'Rank code is required');
+		fail(400, RANK_CODE_REQUIRED_MESSAGE);
 	}
 	if (!label) {
-		fail(400, 'Rank label is required');
+		fail(400, RANK_LABEL_REQUIRED_MESSAGE);
 	}
 	if (!RANK_SERVICES.has(input.service)) {
 		fail(400, 'Invalid rank service');
@@ -621,7 +625,7 @@ function sanitizeRankCatalogEntry(input: SaveOrganizationRankCatalogEntryInput):
 
 	const sortOrder = Number.isFinite(input.sortOrder) ? input.sortOrder : 0;
 	if (!Number.isInteger(sortOrder) || sortOrder < PG_INTEGER_MIN || sortOrder > PG_INTEGER_MAX) {
-		fail(400, 'Tie-break order must fit within PostgreSQL integer range.');
+		fail(400, RANK_TIE_BREAK_RANGE_MESSAGE);
 	}
 
 	return {

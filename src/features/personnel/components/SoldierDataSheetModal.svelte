@@ -93,8 +93,10 @@
 			});
 
 			if (!response.ok) {
-				errorMessage = await response.text();
-				throw new Error(errorMessage || 'Failed to save Soldier Data Sheet');
+				const body: { message?: unknown } | null = await response.json().catch(() => null);
+				throw new Error(
+					typeof body?.message === 'string' && body.message ? body.message : 'Failed to save Soldier Data Sheet'
+				);
 			}
 
 			toastStore.success('Soldier Data Sheet saved');

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Badge } from '$lib/components/ui/badge';
+	import { Button } from '$lib/components/ui/button';
 	import { Progress } from '$lib/components/ui/progress';
 	import { Separator } from '$lib/components/ui/separator';
 	import { CalendarStatusBadge } from '$features/calendar';
@@ -13,6 +14,7 @@
 	let { ctx }: Props = $props();
 
 	const CARD_LIMIT = 6;
+	const uid = $props.id();
 
 	const view = $derived(ctx.unitReadiness);
 	const statusEntries = $derived(view.statusEntries);
@@ -197,22 +199,31 @@
 						<div class="mb-2 font-mono text-[0.625rem] font-semibold uppercase tracking-widest text-muted-foreground">
 							Upcoming Losses
 						</div>
-						{#each visibleLosses as loss (loss.personId)}
-							<div class="flex items-baseline justify-between gap-2 py-1">
-								<span class="min-w-0 truncate text-sm text-foreground">{loss.personName}</span>
-								<span class="shrink-0 font-mono text-[0.625rem] text-muted-foreground">
-									{ctx.formatShortDate(loss.targetDate)}
-								</span>
-							</div>
-						{/each}
+						<div id="{uid}-losses">
+							{#each visibleLosses as loss (loss.personId)}
+								<div class="flex items-baseline justify-between gap-2 py-1">
+									<span class="min-w-0 truncate text-sm text-foreground">{loss.personName}</span>
+									<span class="shrink-0 font-mono text-[0.625rem] text-muted-foreground">
+										{ctx.formatShortDate(loss.targetDate)}
+									</span>
+								</div>
+							{/each}
+						</div>
 						{#if ctx.upcomingLosses.length > LOSSES_LIMIT}
-							<button
-								type="button"
-								class="mt-1 font-mono text-[0.625rem] text-muted-foreground transition-colors hover:text-foreground"
+							<Button
+								variant="ghost"
+								size="sm"
+								class="mt-1"
+								aria-expanded={lossesExpanded}
+								aria-controls="{uid}-losses"
 								onclick={() => (lossesExpanded = !lossesExpanded)}
 							>
-								{lossesExpanded ? 'Show less' : `+${ctx.upcomingLosses.length - LOSSES_LIMIT} more`}
-							</button>
+								{lossesExpanded ? 'Show less' : `+${ctx.upcomingLosses.length - LOSSES_LIMIT} more`}<span
+									class="sr-only"
+								>
+									in Upcoming Losses</span
+								>
+							</Button>
 						{/if}
 					</div>
 				{/if}
@@ -376,7 +387,7 @@
 					</p>
 				</Card.Content>
 			{:else}
-				<div class="divide-y">
+				<div id="{uid}-changes" class="divide-y">
 					{#each visibleChanges as change (change.key)}
 						<div class="flex items-baseline justify-between gap-2 px-4 py-2">
 							<span class="min-w-0 truncate text-sm text-foreground">{change.personName}</span>
@@ -387,16 +398,23 @@
 							</span>
 						</div>
 					{/each}
-					{#if ctx.upcomingChanges.length > CARD_LIMIT}
-						<button
-							type="button"
-							class="w-full px-4 py-2 font-mono text-[0.625rem] text-muted-foreground transition-colors hover:text-foreground"
+				</div>
+				{#if ctx.upcomingChanges.length > CARD_LIMIT}
+					<div class="border-t">
+						<Button
+							variant="ghost"
+							size="sm"
+							class="w-full"
+							aria-expanded={changesExpanded}
+							aria-controls="{uid}-changes"
 							onclick={() => (changesExpanded = !changesExpanded)}
 						>
-							{changesExpanded ? 'Show less' : `+${ctx.upcomingChanges.length - CARD_LIMIT} more`}
-						</button>
-					{/if}
-				</div>
+							{changesExpanded ? 'Show less' : `+${ctx.upcomingChanges.length - CARD_LIMIT} more`}<span class="sr-only">
+								in Upcoming Changes</span
+							>
+						</Button>
+					</div>
+				{/if}
 			{/if}
 		</Card.Root>
 
@@ -409,7 +427,7 @@
 						<Badge variant="secondary">{ctx.nonAvailablePersonnel.length}</Badge>
 					</div>
 				</Card.Header>
-				<div class="divide-y">
+				<div id="{uid}-out-today" class="divide-y">
 					{#each visibleOutToday as person (person.id)}
 						<div class="flex items-center justify-between gap-2 px-4 py-2">
 							<div class="flex min-w-0 items-baseline gap-1">
@@ -432,16 +450,25 @@
 							</CalendarStatusBadge>
 						</div>
 					{/each}
-					{#if ctx.nonAvailablePersonnel.length > CARD_LIMIT}
-						<button
-							type="button"
-							class="w-full px-4 py-2 font-mono text-[0.625rem] text-muted-foreground transition-colors hover:text-foreground"
+				</div>
+				{#if ctx.nonAvailablePersonnel.length > CARD_LIMIT}
+					<div class="border-t">
+						<Button
+							variant="ghost"
+							size="sm"
+							class="w-full"
+							aria-expanded={outTodayExpanded}
+							aria-controls="{uid}-out-today"
 							onclick={() => (outTodayExpanded = !outTodayExpanded)}
 						>
-							{outTodayExpanded ? 'Show less' : `+${ctx.nonAvailablePersonnel.length - CARD_LIMIT} more`}
-						</button>
-					{/if}
-				</div>
+							{outTodayExpanded ? 'Show less' : `+${ctx.nonAvailablePersonnel.length - CARD_LIMIT} more`}<span
+								class="sr-only"
+							>
+								in Out Today</span
+							>
+						</Button>
+					</div>
+				{/if}
 			</Card.Root>
 		{/if}
 	</div>

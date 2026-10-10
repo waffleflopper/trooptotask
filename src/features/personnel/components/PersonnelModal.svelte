@@ -70,6 +70,17 @@
 	let deros = $state(untrack(() => personnel?.deros ?? ''));
 	let groupId = $state(untrack(() => personnel?.groupId ?? ''));
 	let submitAttempted = $state(false);
+	const openingValues = untrack(() => ({ rank, firstName, lastName, mos, clinicRole, ets, deros, groupId }));
+	const dirty = $derived(
+		rank !== openingValues.rank ||
+			firstName !== openingValues.firstName ||
+			lastName !== openingValues.lastName ||
+			mos !== openingValues.mos ||
+			clinicRole !== openingValues.clinicRole ||
+			ets !== openingValues.ets ||
+			deros !== openingValues.deros ||
+			groupId !== openingValues.groupId
+	);
 
 	const isEditing = $derived(!!personnel);
 	const rankMissing = $derived(rank.trim() === '');
@@ -146,7 +157,7 @@
 	}
 </script>
 
-<AppDialog.Root open {busy} {onClose}>
+<AppDialog.Root open {busy} closeBlocked={dirty} {onClose}>
 	<AppDialog.Content>
 		<AppDialog.Header class="px-4 pt-4">
 			<AppDialog.Title>{isEditing ? 'Edit Personnel' : 'Add Personnel'}</AppDialog.Title>

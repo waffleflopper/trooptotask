@@ -77,4 +77,36 @@ describe('SoldierDataSheetModal', () => {
 		expect(bloodType.value).toBe('A-');
 		expect(bloodType.closest('fieldset')?.disabled).toBe(false);
 	});
+	it('keeps the sheet and the typed value when Escape is pressed with a draft', async () => {
+		const onClose = vi.fn();
+		render(SoldierDataSheetModal, { props: { orgId: 'org-a', personnelId: 'person-1', initialInfo, onClose } });
+		const dialog = screen.getByRole('dialog', { name: 'Soldier Data Sheet' });
+		const [bloodType] = screen.getAllByLabelText('Blood type') as HTMLInputElement[];
+		await fireEvent.input(bloodType, { target: { value: 'A-' } });
+
+		await fireEvent.keyDown(dialog, { key: 'Escape' });
+
+		expect(screen.getByRole('dialog', { name: 'Soldier Data Sheet' })).toBe(dialog);
+		expect(bloodType.value).toBe('A-');
+		expect(onClose).not.toHaveBeenCalled();
+	});
+
+	it('closes on Escape when nothing was changed', async () => {
+		const onClose = vi.fn();
+		render(SoldierDataSheetModal, { props: { orgId: 'org-a', personnelId: 'person-1', initialInfo, onClose } });
+
+		await fireEvent.keyDown(screen.getByRole('dialog', { name: 'Soldier Data Sheet' }), { key: 'Escape' });
+
+		expect(onClose).toHaveBeenCalledTimes(1);
+	});
+
+	it('discards the draft when Cancel is pressed', async () => {
+		const onClose = vi.fn();
+		render(SoldierDataSheetModal, { props: { orgId: 'org-a', personnelId: 'person-1', initialInfo, onClose } });
+
+		const [bloodType] = screen.getAllByLabelText('Blood type') as HTMLInputElement[];
+		await fireEvent.input(bloodType, { target: { value: 'A-' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+		expect(onClose).toHaveBeenCalledTimes(1);
+	});
 });

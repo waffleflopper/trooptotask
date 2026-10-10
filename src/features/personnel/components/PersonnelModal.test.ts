@@ -323,4 +323,81 @@ describe('PersonnelModal', () => {
 		expect(group.getAttribute('aria-invalid')).toBe('true');
 		expect(describedText(group)).toBe('Select a permitted Group.');
 	});
+	describe('dismissal with a typed draft', () => {
+		function renderOpenModal(onClose = vi.fn()) {
+			render(PersonnelModal, {
+				props: { groups: [], rankCatalog: armyRankCatalog, onSubmit: vi.fn(), onClose }
+			});
+			return { onClose, dialog: screen.getByRole('dialog') };
+		}
+
+		it('keeps the dialog and the typed values when Escape is pressed with a draft', async () => {
+			const { onClose, dialog } = renderOpenModal();
+			await fireEvent.input(screen.getByLabelText(/Last Name/i), { target: { value: 'Nolan' } });
+
+			await fireEvent.keyDown(dialog, { key: 'Escape' });
+
+			expect(screen.getByRole('dialog')).toBe(dialog);
+			expect((screen.getByLabelText(/Last Name/i) as HTMLInputElement).value).toBe('Nolan');
+			expect(onClose).not.toHaveBeenCalled();
+		});
+
+		it('closes on Escape when nothing was changed', async () => {
+			const { onClose, dialog } = renderOpenModal();
+
+			await fireEvent.keyDown(dialog, { key: 'Escape' });
+
+			expect(onClose).toHaveBeenCalledTimes(1);
+		});
+
+		it('closes on Escape after the draft is typed back to the opening values', async () => {
+			const { onClose, dialog } = renderOpenModal();
+			const lastName = screen.getByLabelText(/Last Name/i);
+			await fireEvent.input(lastName, { target: { value: 'Nolan' } });
+			await fireEvent.input(lastName, { target: { value: '' } });
+
+			await fireEvent.keyDown(dialog, { key: 'Escape' });
+
+			expect(onClose).toHaveBeenCalledTimes(1);
+		});
+
+		it('discards the draft when Cancel is pressed', async () => {
+			const { onClose } = renderOpenModal();
+			await fireEvent.input(screen.getByLabelText(/Last Name/i), { target: { value: 'Nolan' } });
+
+			await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+			expect(onClose).toHaveBeenCalledTimes(1);
+		});
+
+		it('blocks Escape on an edited existing Person', async () => {
+			const onClose = vi.fn();
+			render(PersonnelModal, {
+				props: {
+					personnel: {
+						id: 'p-1',
+						rank: 'SPC',
+						lastName: 'Smith',
+						firstName: 'John',
+						mos: '68W',
+						clinicRole: 'Medic',
+						ets: null,
+						deros: null,
+						groupId: null,
+						groupName: ''
+					},
+					groups: [],
+					rankCatalog: armyRankCatalog,
+					onSubmit: vi.fn(),
+					onClose
+				}
+			});
+			const dialog = screen.getByRole('dialog');
+
+			await fireEvent.input(screen.getByLabelText(/MOS/i), { target: { value: '68C' } });
+			await fireEvent.keyDown(dialog, { key: 'Escape' });
+			expect(onClose).not.toHaveBeenCalled();
+			expect((screen.getByLabelText(/MOS/i) as HTMLInputElement).value).toBe('68C');
+		});
+	});
 });

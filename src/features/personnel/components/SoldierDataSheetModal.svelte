@@ -27,7 +27,9 @@
 			.join('\n'),
 		militaryEducationText: initialInfo.militaryEducation.join('\n')
 	}));
+	const openingForm = JSON.stringify(initialForm);
 	let form = $state(initialForm);
+	const dirty = $derived(JSON.stringify(form) !== openingForm);
 	let isSaving = $state(false);
 	let errorMessage = $state('');
 
@@ -107,7 +109,7 @@
 	}
 </script>
 
-<AppDialog.Root open busy={isSaving} {onClose}>
+<AppDialog.Root open busy={isSaving} closeBlocked={dirty} {onClose}>
 	<AppDialog.Content size="fullscreen">
 		<AppDialog.Header class="px-4 pt-4">
 			<AppDialog.Title>Soldier Data Sheet</AppDialog.Title>

@@ -157,6 +157,7 @@ describe('Calendar', () => {
 			description: 'Manager on Duty'
 		});
 		expect(screen.getByRole('button', { name: 'SSG Taylor, Jamie, Monday, March 2, 2026' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Sunday, March 1, 2026' })).toBeTruthy();
 
 		await fireEvent.click(assigned);
 		expect(onCellClick).toHaveBeenCalledWith(expect.objectContaining({ id: 'person-1' }), new Date(2026, 2, 1));
@@ -199,6 +200,7 @@ describe('Calendar', () => {
 
 		expect(badge.textContent?.trim()).toBe('SGT Smith');
 		expect(badge.title).toBe('Manager on Duty: SGT Smith');
+		expect(screen.getByRole('button', { name: 'Sunday, March 1, 2026, Manager on Duty: SGT Smith' })).toBeTruthy();
 	});
 
 	it('opens the month picker from the title and forwards the selected month and year', async () => {

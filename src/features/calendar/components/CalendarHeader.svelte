@@ -77,6 +77,9 @@
 						header.holiday && 'bg-warning-muted/60',
 						header.today && 'bg-primary/10 after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-primary'
 					]}
+					aria-label={header.headerAssignment
+						? `${header.dateLabel}, ${header.headerAssignment.assignmentTypeName}: ${header.headerAssignment.assigneeLabel}`
+						: header.dateLabel}
 					title={header.title}
 					onclick={() => onDateClick?.(header.date)}
 				>

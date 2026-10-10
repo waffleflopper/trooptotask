@@ -4,6 +4,52 @@
 
 All historical links below pin commit `dbd501301df350ef4e6cebb6bc1238283b24d9c9` unless a different accepted candidate is explicit. They preserve the recorded commands, environments, failed attempts and review dispositions. Temporary directories, screenshots and private local logs mentioned in those records are **not durable artifacts** and are not required to retrieve these summaries. A committed report of an observation is not the raw observation itself; reproduce from maintained procedures when current proof is required.
 
+## Phase 10 D03 #1601
+
+**PR 1 of about 3, Calendar grid family (`Refs #1601`; awaiting PR).** D03 [#1601](https://github.com/waffleflopper/trooptotask/issues/1601), task `10-03`. Branch `stabilization/1601-calendar-grid` carries the recipe steps (`7e8afc36`) and the cutover (`e8f049ab`, tree `470602bb`, driven as `9a99f95c` before a message-only amend). In scope are Calendar, CalendarHeader, CalendarRow, GroupHeader, LongRangeView, MonthYearPicker, CalendarNavigation, CalendarPageView, `date-cell/*` and `calendar-status-badge/*`. StatusLegend, TodayBreakdown, AvailabilityModal, DailyAssignmentModal and the calendar route files already had no candidates and were observed unchanged. Settings, bulk, planner and reports belong to later D03 PRs.
+
+| Run      | Identity and archive                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Baseline | Revision `7e8afc36` (application source identical to main `9aca8bd3`), candidate digest `b50b81c4`, worker 1, origin `http://127.0.0.1:36963`, Chromium 152.0.7977.82, Organization A. [`1601-grid-baseline.tar.gz`](https://github.com/waffleflopper/trooptotask/releases/download/evidence/1601-grid-baseline.tar.gz), SHA-256 `e6445407923963a1d0c70fc80d76320fae49d36d6b9738b8e5de6d5d41ce151e`, 56 payload files plus `INVENTORY.sha256`. |
+| Final    | Revision `9a99f95c`, candidate digest `c990a714`, worker 1, origin `http://127.0.0.1:36729`, Chromium 152.0.7977.82, Organization A. [`1601-grid-final.tar.gz`](https://github.com/waffleflopper/trooptotask/releases/download/evidence/1601-grid-final.tar.gz), SHA-256 `f0152453f1ea93aa7f68d09a96bd176ed9f28ec50776f585347d8dac52d6b98e`, 86 payload files plus `INVENTORY.sha256`.                                                         |
+
+Both archives were re-downloaded with `gh release download` and match the local hashes, and each inventory was verified by re-extraction. The month-load trace's session JWT and refresh token are redacted, and no text capture holds a token. `clean-seeds`, doctor and owned cleanup passed after each run. Each archive's `notes.md` has the per-step detail, and the final notes list two rejected candidates.
+
+| Screen (calendarOperate unless named)     | Baseline                                   | Final                                             |
+| ----------------------------------------- | ------------------------------------------ | ------------------------------------------------- |
+| Month, 1280 light and 390 dark (Sep, Oct) | pass                                       | pass, probe geometry, colors and fonts match      |
+| 3-Month, 1280 light and 390 dark          | pass                                       | pass                                              |
+| Group band at 390                         | FAIL, Pin overflows the 120px column       | pass, label truncates and Pin stays in the column |
+| Keyboard order, focus and Enter/Escape    | pass, 72 stops                             | pass, same 72 stops, each with a visible ring     |
+| Month picker keyboard                     | pass                                       | pass                                              |
+| Availability and Daily Assignments modals | pass                                       | pass, 1280 light and 390 dark                     |
+| Pin, reload and collapse                  | pass                                       | pass                                              |
+| calendarView read-only                    | pass                                       | pass                                              |
+| calendarEmpty, 1280 light and 390 dark    | pass                                       | pass                                              |
+| Access denied                             | workspace card; in-page branch unreachable | same; in-page `w-auto` repair source-mapped       |
+| CalendarStatusBadge consumers             | not captured                               | pass on 9 surfaces                                |
+
+**Performance.** Measured on a `seed bulk-501` roster of 504 people with a warm cache and no throttling, five runs per step. The baseline and the final ran in separate stacks at a host load near 3, so gaps inside the run-to-run spread count as no difference. The bound is main-thread render of the 651-cell window, which is one long task per load.
+
+| Step (median ms)                        | Baseline     | Final        | Rejected `ui/button` cells |
+| --------------------------------------- | ------------ | ------------ | -------------------------- |
+| Trace LCP, CLS                          | 426, 0.00    | 384, 0.00    | not run                    |
+| Month load first cell, paint, long task | 194, 217, 99 | 187, 210, 90 | 229, 260, 133              |
+| Next / Prev to label                    | 42 / 42      | 40 / 42      | 60 / 64                    |
+| Next / Prev to settled frame            | 49 / 50      | 50 / 51      | 68 / 82                    |
+| 3-Month on / off to label               | 59 / 60      | 60 / 55      | not run                    |
+| 3-Month on / off to settled frame       | 82 / 67      | 82 / 66      | not run                    |
+
+Month load made 0 `__data.json` and 0 `calendar-range` requests, navigation made none, and the first 3-Month entry made one `calendar-range` request on both sides. DOM elements went from 1847 to 1844. The baseline notes list 3-Month on settled as 69; its recorded samples give 82. An end-of-run month load under swap pressure (median 230) is kept in the archive and superseded by a retake at baseline load.
+
+**Deleted paths.** No files were deleted. Removed are the Calendar and GroupHeader `<style>` blocks; `--calendar-cell-height`, `--calendar-group-row-height`, `--calendar-person-row-height` and LongRangeView's header-height var; `DateCellDensity`, the density prop, `data-density` and DateCell's `children`; the `DateCell`, `DateCellFill`, `DateCellMarker`, `DateCellMarkerData`, `Fill` and `Marker` exports; `CalendarBadgeStatusType` and the badge's color-mix vars; and the GroupHeader spacer, its dead `stopPropagation` and the dead `personnel-info`, `long-range-wrapper` and `has-status` classes. A search finds no remaining reference.
+
+**Shared consumers.** CalendarStatusBadge is shared by StatusLegend, AvailabilityModal, BulkStatusAdd, BulkStatusRemove, BulkStatusImport (parse preview only), both calendar settings sections at 1280 and 390, and the dashboard OverviewTab. Each paints its status data colors with a transparent border, keeps caller classes and does not clip. DateCell, GroupHeader and MonthYearPicker have no consumer outside the grid.
+
+**Dispositions.** The month DateCell stays a native button because `ui/button` cells cost load and navigation time (table above); the reason is in source. Grid widths, column counts and long-range row heights stay as CSS variables because they are layout state that virtualization reads. The badge drops its status-tinted outline border and its anchor hover and focus tints; no consumer renders it as a link. After picker selection or Escape, focus lands on `body`, as in the baseline; it is not repaired here. The pinned band is 35px instead of 34px and its Pin control fills the band. Inventory row `10-03` moves from 20 to 16 candidate files, 22 to 15 raw controls, 5 to 3 style blocks and 149 to 116 variables; the remaining in-scope candidates are DateCell's button and the geometry variables.
+
+**Checks on `e8f049ab`.** `npm run format`, `format:check`, `lint` (0 errors; 4 warnings, three pre-existing in `CalendarPageContext.svelte.ts` and the onboarding store, one in the ignored baseline evidence script), `governance:check` (0 module-boundary findings), `check` (0 errors, 0 warnings), `npx vitest run src/features/calendar src/routes/org/[orgId]/calendar` (72 files, 559 tests), `build`, `inventory:ui -- --check` and `git diff --check` all exit 0.
+
 ## Phase 10 D01 #1599
 
 **Final PR candidate, PR 2 of 2 (`Closes #1599` on merge; pending CI and review).** D01 [#1599](https://github.com/waffleflopper/trooptotask/issues/1599), task `10-01`. PR 1 [#1609](https://github.com/waffleflopper/trooptotask/pull/1609) merged the recipes, identity fixtures and controls, and the unchanged-application baseline as `857b1511`. Branch `stabilization/1599-ui-cutover` carries the cutover; its final run, repairs and checks follow the baseline material, which stays as recorded. The unchanged-application baseline ran on revision `5ab07896` (application source identical to main `82a07be1`; only verification helpers, recipes and docs differ), verify:app candidate digest `abf6bb5a`, worker 1, origin `http://127.0.0.1:36193`, Chromium 152.0.7977.82, synthetic Organizations A/B. Recipe wording corrected after the run (listed in the archive notes) is not live-reverified. A later gap run drove only the identity steps added after independent acceptance (below). The migration PR repeats these steps on its candidate. UNRUN marks a combination with no capture; unreachable names the missing route.

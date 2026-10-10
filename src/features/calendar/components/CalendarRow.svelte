@@ -40,8 +40,9 @@
 	class="personnel-row grid h-full w-full min-w-[calc(var(--calendar-personnel-column-width)+(var(--calendar-cell-width)*var(--dates-count)))] items-stretch [grid-template-columns:var(--calendar-personnel-column-width)_repeat(var(--dates-count),minmax(var(--calendar-cell-width),1fr))]"
 >
 	<Button
-		variant="ghost"
-		class="sticky left-0 z-[3] h-full cursor-pointer justify-start gap-2 rounded-none border-0 border-r border-b border-border bg-card px-2 py-1 text-left leading-normal font-normal focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset active:not-aria-[haspopup]:translate-y-0 sm:px-3"
+		variant="cell"
+		size="none"
+		class="sticky left-0 z-[3] h-full justify-start gap-2 border-r border-b border-border bg-card px-2 py-1 text-left sm:px-3"
 		onclick={handlePersonClick}
 	>
 		<span class="min-w-8 shrink-0 font-mono text-xs font-semibold tracking-wider text-primary uppercase sm:min-w-10">

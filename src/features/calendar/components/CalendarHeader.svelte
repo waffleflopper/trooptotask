@@ -69,9 +69,10 @@
 			</div>
 			{#each headerCells as header (header.dateKey)}
 				<Button
-					variant="ghost"
+					variant="cell"
+					size="none"
 					class={[
-						'relative flex h-auto min-w-0 cursor-pointer flex-col gap-px overflow-hidden rounded-none border-0 border-r border-b border-border bg-card px-0 py-2 text-center leading-normal font-normal whitespace-normal focus-visible:z-[2] focus-visible:ring-2 focus-visible:ring-ring active:not-aria-[haspopup]:translate-y-0 max-sm:min-h-11 max-sm:min-w-[var(--calendar-cell-width)]',
+						'relative flex min-w-0 flex-col gap-px overflow-hidden border-r border-b border-border bg-card py-2 text-center whitespace-normal max-sm:min-h-11 max-sm:min-w-[var(--calendar-cell-width)]',
 						header.weekend && 'bg-muted/55',
 						header.holiday && 'bg-warning-muted/60',
 						header.today && 'bg-primary/10 after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-primary'

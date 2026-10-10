@@ -280,9 +280,10 @@
 						{@const dateKey = formatDate(date)}
 						{@const header = renderState.headerCell(dateKey)}
 						<Button
-							variant="ghost"
+							variant="cell"
+							size="none"
 							class={[
-								'h-8 w-[var(--long-range-col-width)] cursor-pointer flex-col rounded-none border-0 border-l border-border bg-card p-0 text-xs font-normal text-muted-foreground focus-visible:z-[2] focus-visible:ring-2 focus-visible:ring-ring active:not-aria-[haspopup]:translate-y-0 max-sm:h-9 max-sm:w-7 max-sm:min-w-7 max-sm:max-w-7',
+								'h-8 w-[var(--long-range-col-width)] flex-col border-l border-border bg-card text-xs text-muted-foreground max-sm:h-9 max-sm:w-7 max-sm:min-w-7 max-sm:max-w-7',
 								header?.weekend && 'bg-muted/55',
 								header?.today && 'z-[1] bg-primary/10 inset-ring inset-ring-primary',
 								header?.specialDay?.type === 'federal-holiday' && 'bg-warning-muted/55'

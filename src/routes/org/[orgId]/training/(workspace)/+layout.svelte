@@ -1,19 +1,14 @@
 <script lang="ts">
 	import { trainingWorkspaceHydrator } from '$features/training';
 	import type { TrainingWorkspaceResult, TrainingWorkspaceRestricted } from '$features/training/contracts';
-	import { throwRenderError } from '$lib/utils/streamedRouteData';
+	import * as Alert from '$lib/components/ui/alert';
+	import { Button } from '$lib/components/ui/button';
 	import { hydrateStreamedWorkspace } from '$lib/utils/streamedWorkspaceHydrator';
 	import WorkspaceAccessRestricted from '../../WorkspaceAccessRestricted.svelte';
 
 	let { children, data } = $props();
 	let hydrationError = $state<Error | null>(null);
 	let accessRestricted = $state(false);
-	const renderHydrationError = $derived.by(() => {
-		if (hydrationError) {
-			throwRenderError(hydrationError, 'Failed to hydrate training workspace');
-		}
-		return null;
-	});
 
 	$effect(() => {
 		hydrationError = null;
@@ -38,7 +33,15 @@
 </script>
 
 {#if hydrationError}
-	{renderHydrationError}
+	<section class="p-6 max-sm:p-2">
+		<Alert.Root variant="destructive">
+			<Alert.Title>Unable to load Training</Alert.Title>
+			<Alert.Description>Training data could not be loaded. Please try again.</Alert.Description>
+			<div class="mt-3">
+				<Button variant="outline" onclick={() => window.location.reload()}>Retry Training</Button>
+			</div>
+		</Alert.Root>
+	</section>
 {:else if accessRestricted}
 	<WorkspaceAccessRestricted subject="training" />
 {:else}

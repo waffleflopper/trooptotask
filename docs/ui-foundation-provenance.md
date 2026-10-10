@@ -14,7 +14,7 @@ The audit reads each matching Nova registry JSON into disposable scratch output.
 - **Adapted** means a matching registry family exists, but its production files differ. The named differences and their retained purpose appear below.
 - **Project composition** means the project owns the family API. A composition may retain registry helpers without becoming a stock primitive.
 
-The source has 63 family directories, plus `ConfirmDialog.svelte` and the standalone `OverflowMenu.types.ts`. Tests and harness files at the `ui` root are verification support, not additional public families. [D01 evidence](stabilization/EVIDENCE.md#phase-09-d01-foundation-provenance-and-contracts) links the complete normalized comparisons, source graph, installed-version snapshot and archive integrity check.
+The source has 63 family directories, plus `ConfirmDialog.svelte` and the standalone `OverflowMenu.types.ts`. Tests and harness files at the `ui` root are verification support, not additional public families. [D01 evidence](https://github.com/waffleflopper/trooptotask/blob/a52f42e75b77c72906ce63e4f4329c5fec1bde45/docs/stabilization/EVIDENCE.md#L241-L271) links the complete normalized comparisons, source graph, installed-version snapshot and archive integrity check.
 
 ## Layers and API rules
 
@@ -96,7 +96,7 @@ The installed candidate is 2.19.5 with the presence and AlertDialog transformati
 
 Focused scratch runs use copies of the same application source, the installed Svelte/Vitest configuration and separately swapped Bits UI packages. Patched 2.18.1 and 2.19.5 with those three transformations each pass the five public RangeCalendar cases, five teardown probes and one presence lifecycle case. Pristine 2.19.5 fails two range cases, the AlertDialog probe and the presence case. The archive preserves those failures and successes separately.
 
-These happy-dom observations establish specific lifecycle failures, not native browser focus or touch dismissal. Menu separator semantics, touch dismissal and menu content state changed upstream; the [D01 evidence](stabilization/EVIDENCE.md#phase-09-d01-foundation-provenance-and-contracts) records the browser proof for the upgraded overlays.
+These happy-dom observations establish specific lifecycle failures, not native browser focus or touch dismissal. Menu separator semantics, touch dismissal and menu content state changed upstream; the [D01 evidence](https://github.com/waffleflopper/trooptotask/blob/a52f42e75b77c72906ce63e4f4329c5fec1bde45/docs/stabilization/EVIDENCE.md#L241-L271) records the browser proof for the upgraded overlays.
 
 ## Project family APIs and target layers
 
@@ -164,4 +164,4 @@ The selected Onboarding stage display keeps the current History presentation. It
 - With the globals in `@layer base`, authored component classes now take effect where the old unlayered rules had overridden them. Report and print section rules render the authored `border-foreground` ink color (ReportWorkspace sections and the Training print brief). Sign-in and Organization chooser outline controls show their `border-input` borders in dark. The TroopToTask wordmark renders "To" in amber with "Troop" and "Task" in the text color. Organization card names use the text color. Native dropdown options use the browser's color-scheme colors. Robert accepted these changes in D01.
 - `app.html` no longer carries a competing inline hex palette. It keeps the pre-paint theme script.
 
-The cascade audit predicted corrected variant borders, invalid/focused fields, raw-control typography, dark muted table text and theme-specific toast/native controls. The [D01 evidence](stabilization/EVIDENCE.md#phase-09-d01-foundation-provenance-and-contracts) records the unchanged baseline and final observations, including measured status text contrast.
+The cascade audit predicted corrected variant borders, invalid/focused fields, raw-control typography, dark muted table text and theme-specific toast/native controls. The [D01 evidence](https://github.com/waffleflopper/trooptotask/blob/a52f42e75b77c72906ce63e4f4329c5fec1bde45/docs/stabilization/EVIDENCE.md#L241-L271) records the unchanged baseline and final observations, including measured status text contrast.

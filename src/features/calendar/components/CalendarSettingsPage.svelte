@@ -143,7 +143,6 @@
 				</div>
 			</div>
 
-			<!-- Filter and Add new lead into each panel's own controls, so the panel itself is not a Tab stop. -->
 			<Tabs.Content value="status" class="overflow-y-auto p-6">
 				{#if activeSection === 'status'}
 					<CalendarStatusSettingsSection bind:this={statusSection} {canMutate} {searchQuery} />

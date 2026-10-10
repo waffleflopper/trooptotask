@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/svelte';
+import { cleanup, render, screen, within } from '@testing-library/svelte';
 import type { Personnel } from '$features/personnel/contracts';
 import type { DataTableSelectionState } from '$lib/components/ui/data-table';
 import RosterPicker from './RosterPicker.svelte';
@@ -65,7 +65,7 @@ describe('RosterPicker', () => {
 		expect(screen.getByText('N/A')).toBeTruthy();
 	});
 
-	it('offers sorting only on the named data columns', () => {
+	it('offers sorting on the data columns but not the selection column', () => {
 		render(RosterPicker, {
 			props: {
 				personnelByGroup: [{ group: 'Alpha', personnel: [personnel({})] }],
@@ -73,9 +73,11 @@ describe('RosterPicker', () => {
 			}
 		});
 
-		const sortButtons = screen
-			.getAllByRole('button', { name: /^Sort by/ })
-			.map((button) => button.getAttribute('aria-label'));
-		expect(sortButtons).toEqual(['Sort by Rank', 'Sort by Name', 'Sort by MOS / Duty Role']);
+		const [selectionHeader, ...dataHeaders] = screen.getAllByRole('columnheader');
+		expect(within(selectionHeader).queryByRole('button')).toBeNull();
+		for (const name of ['Rank', 'Name', 'MOS / Duty Role']) {
+			const header = dataHeaders.find((cell) => cell.textContent?.includes(name));
+			expect(within(header!).getByRole('button', { name: `Sort by ${name}` })).toBeTruthy();
+		}
 	});
 });

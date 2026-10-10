@@ -67,9 +67,9 @@
 				class="m-0 min-w-0 text-center font-display text-2xl leading-tight font-bold tracking-wider text-foreground uppercase"
 			>
 				{#if onSelectMonthYear && pickerYear !== undefined && pickerMonth !== undefined}
-					<button
-						class="focus-visible:ring-ring inline-flex w-full cursor-pointer items-center justify-center rounded-lg px-2 py-0.5 text-inherit transition-colors hover:bg-primary/10 hover:text-primary focus-visible:ring-2 focus-visible:outline-none"
-						type="button"
+					<Button
+						variant="ghost"
+						class="h-auto w-full cursor-pointer border-0 px-2 py-0.5 font-display text-2xl leading-tight font-bold tracking-wider whitespace-normal text-inherit hover:bg-primary/10 hover:text-primary dark:hover:bg-primary/10"
 						data-testid={titleTestId}
 						aria-expanded={pickerOpen}
 						aria-haspopup="dialog"
@@ -77,7 +77,7 @@
 						onclick={togglePicker}
 					>
 						{title}
-					</button>
+					</Button>
 				{:else}
 					<span data-testid={titleTestId}>{title}</span>
 				{/if}

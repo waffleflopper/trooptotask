@@ -259,18 +259,14 @@ describe('Calendar', () => {
 			expect(container.querySelector('[data-testid^="loss-indicator-"]')).toBeNull();
 		});
 
-		it('places the chip inside the personnel-info header, not inside a date cell', () => {
+		it('places the chip inside the person row header, not inside a date cell', () => {
 			const lossMap = new Map([['person-1', makeLossRecord('person-1', 'ETS')]]);
 			const { container } = renderCalendar({ upcomingLossMap: lossMap });
 
 			const chip = container.querySelector('[data-testid="loss-indicator-person-1"]') as HTMLElement | null;
 			expect(chip).toBeTruthy();
 
-			// Must be a descendant of .personnel-info (the sticky row header)
-			expect(chip?.closest('.personnel-info')).toBeTruthy();
-
-			// Must NOT be inside any .date-cell element
-			expect(chip?.closest('.date-cell')).toBeNull();
+			expect(chip?.closest('button')).toBe(screen.getByRole('button', { name: /Smith, Alex/ }));
 		});
 
 		it('only shows chips for personnel that have a loss record, leaving others clean', () => {

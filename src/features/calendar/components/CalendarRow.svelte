@@ -3,6 +3,7 @@
 		CalendarPersonDateCellState,
 		CalendarPersonHeaderState
 	} from '$features/calendar/utils/calendarRenderState';
+	import { Button } from '$lib/components/ui/button';
 	import * as DateCell from './date-cell/index.js';
 	import type { Personnel } from '$features/personnel/contracts';
 
@@ -38,11 +39,9 @@
 <div
 	class="personnel-row grid h-full w-full min-w-[calc(var(--calendar-personnel-column-width)+(var(--calendar-cell-width)*var(--dates-count)))] items-stretch [grid-template-columns:var(--calendar-personnel-column-width)_repeat(var(--dates-count),minmax(var(--calendar-cell-width),1fr))]"
 >
-	<button
-		class={[
-			'personnel-info sticky left-0 z-[3] flex h-full cursor-pointer items-center gap-2 border-r border-b bg-card px-2 py-1 text-left hover:bg-muted sm:px-3',
-			!showPersonnelRoles && 'py-1'
-		]}
+	<Button
+		variant="ghost"
+		class="sticky left-0 z-[3] h-full cursor-pointer justify-start gap-2 rounded-none border-0 border-r border-b border-border bg-card px-2 py-1 text-left leading-normal font-normal focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset active:not-aria-[haspopup]:translate-y-0 sm:px-3"
 		onclick={handlePersonClick}
 	>
 		<span class="min-w-8 shrink-0 font-mono text-xs font-semibold tracking-wider text-primary uppercase sm:min-w-10">
@@ -79,7 +78,7 @@
 				</span>
 			{/if}
 		</div>
-	</button>
+	</Button>
 	{#each cells as cell (cell.dateKey)}
 		<DateCell.Root
 			weekend={cell.weekend}

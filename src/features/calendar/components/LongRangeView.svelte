@@ -18,7 +18,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { toastStore } from '$lib/stores/toast.svelte';
 
-	/** Must match --long-range-col-width in CSS */
+	const PERSONNEL_COLUMN_WIDTH = 200;
 	const COL_WIDTH = 24;
 	const GROUP_ROW_HEIGHT = 18;
 	const PERSON_ROW_HEIGHT = 22;
@@ -131,9 +131,7 @@
 		getVisibleVirtualRows(rosterLayout.rows, scrollTop, viewportHeight, ROW_OVERSCAN_PX, rosterOffsetTop)
 	);
 
-	const rosterWidth = $derived(
-		`calc(var(--calendar-personnel-column-width) + ${visibleDateKeys.length * COL_WIDTH}px)`
-	);
+	const rosterWidth = $derived(`${PERSONNEL_COLUMN_WIDTH + visibleDateKeys.length * COL_WIDTH}px`);
 
 	function getRosterOffsetTop() {
 		if (!scrollAreaEl || !rosterRowsEl) return 0;
@@ -227,12 +225,11 @@
 </script>
 
 <div
-	class="long-range-wrapper flex flex-1 flex-col overflow-hidden rounded-lg border bg-card text-card-foreground [--long-range-col-width:24px] [--long-range-header-height:36px]"
-	style="
-		--calendar-personnel-column-width: 200px;
-		--long-range-group-row-height: {GROUP_ROW_HEIGHT}px;
-		--long-range-person-row-height: {PERSON_ROW_HEIGHT}px;
-	"
+	class="flex flex-1 flex-col overflow-hidden rounded-lg border bg-card text-card-foreground"
+	style:--calendar-personnel-column-width={`${PERSONNEL_COLUMN_WIDTH}px`}
+	style:--long-range-col-width={`${COL_WIDTH}px`}
+	style:--long-range-group-row-height={`${GROUP_ROW_HEIGHT}px`}
+	style:--long-range-person-row-height={`${PERSON_ROW_HEIGHT}px`}
 >
 	<CalendarNavigation
 		title={`${months[0].name} ${months[0].year} – ${months[2].name} ${months[2].year}`}
@@ -258,13 +255,13 @@
 			<!-- Header Row with Months and Days -->
 			<div class="sticky top-0 z-10 flex border-b bg-muted">
 				<div
-					class="sticky left-0 z-20 flex min-h-[var(--long-range-header-height)] w-[var(--calendar-personnel-column-width)] shrink-0 items-center border-r bg-muted px-3 py-2 font-mono text-xs font-semibold tracking-widest text-muted-foreground uppercase"
+					class="sticky left-0 z-20 flex min-h-9 w-[var(--calendar-personnel-column-width)] shrink-0 items-center border-r bg-muted px-3 py-2 font-mono text-xs font-semibold tracking-widest text-muted-foreground uppercase"
 				>
 					Personnel
 				</div>
 				{#each months as month (`${month.year}-${month.month}`)}
 					<div
-						class="flex min-h-[var(--long-range-header-height)] shrink-0 items-center justify-center border-l px-0 py-2 text-center font-mono text-xs font-semibold tracking-widest text-foreground uppercase first:border-l-0"
+						class="flex min-h-9 shrink-0 items-center justify-center border-l px-0 py-2 text-center font-mono text-xs font-semibold tracking-widest text-foreground uppercase first:border-l-0"
 						style="width: {month.dates.length * COL_WIDTH}px; min-width: {month.dates.length * COL_WIDTH}px;"
 					>
 						{month.name}
@@ -274,7 +271,7 @@
 			</div>
 
 			<!-- Day Numbers Row — clickable to jump to that month -->
-			<div class="sticky top-[var(--long-range-header-height)] z-[9] flex border-b bg-card">
+			<div class="sticky top-9 z-[9] flex border-b bg-card">
 				<div
 					class="sticky left-0 z-10 min-h-8 w-[var(--calendar-personnel-column-width)] shrink-0 border-r bg-card px-3"
 				></div>
@@ -282,18 +279,19 @@
 					{#each month.dates as date (formatDate(date))}
 						{@const dateKey = formatDate(date)}
 						{@const header = renderState.headerCell(dateKey)}
-						<button
+						<Button
+							variant="ghost"
 							class={[
-								'flex h-8 w-[var(--long-range-col-width)] shrink-0 cursor-pointer flex-col items-center justify-center border-l bg-card text-xs text-muted-foreground transition-colors hover:bg-muted focus-visible:ring-ring focus-visible:z-[2] focus-visible:ring-2 focus-visible:outline-none max-sm:h-9 max-sm:w-7 max-sm:min-w-7 max-sm:max-w-7',
+								'h-8 w-[var(--long-range-col-width)] cursor-pointer flex-col rounded-none border-0 border-l border-border bg-card p-0 text-xs font-normal text-muted-foreground focus-visible:z-[2] focus-visible:ring-2 focus-visible:ring-ring active:not-aria-[haspopup]:translate-y-0 max-sm:h-9 max-sm:w-7 max-sm:min-w-7 max-sm:max-w-7',
 								header?.weekend && 'bg-muted/55',
-								header?.today && 'z-[1] bg-primary/10 shadow-[inset_0_0_0_1px_var(--primary)]',
+								header?.today && 'z-[1] bg-primary/10 inset-ring inset-ring-primary',
 								header?.specialDay?.type === 'federal-holiday' && 'bg-warning-muted/55'
 							]}
 							title={header?.specialDay?.name ?? `Jump to ${month.name} ${month.year}`}
 							onclick={() => onDateColumnClick?.(date)}
 						>
 							<span class="font-mono text-[9px] font-semibold sm:text-xs">{date.getDate()}</span>
-						</button>
+						</Button>
 					{/each}
 				{/each}
 			</div>
@@ -350,10 +348,10 @@
 												'status-cell relative flex h-[var(--long-range-person-row-height)] w-[var(--long-range-col-width)] shrink-0 items-center justify-center border-l bg-card transition-colors max-sm:h-8 max-sm:w-7 max-sm:min-w-7 max-sm:max-w-7',
 												!status && 'empty-status-cell',
 												cell?.weekend && 'bg-muted/55',
-												cell?.today && 'z-[1] shadow-[inset_0_0_0_1px_var(--primary)]',
-												status && 'has-status border-transparent'
+												cell?.today && 'z-[1] inset-ring inset-ring-primary',
+												status && 'border-transparent'
 											]}
-											style={status ? `background-color: ${status.color}` : ''}
+											style:background-color={status?.color}
 											title={cell?.title ?? ''}
 										></div>
 									{/each}
@@ -373,9 +371,7 @@
 				<span
 					class="flex items-center gap-2 rounded-lg border bg-card px-2 py-1 font-mono text-xs tracking-wider text-muted-foreground uppercase"
 				>
-					<span
-						class="size-2 rounded-[2px] shadow-[inset_0_0_0_1px_rgba(14,14,13,0.08)]"
-						style="background-color: {status.color}"
+					<span class="size-2 rounded-[2px] inset-ring inset-ring-foreground/10" style:background-color={status.color}
 					></span>
 					{status.name}
 				</span>

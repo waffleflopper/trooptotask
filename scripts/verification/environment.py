@@ -423,6 +423,14 @@ def verification_auth_config(config, origin):
     return config
 
 
+def verification_excluded_services(excluded):
+    """CI's exclusions minus the services verification journeys use."""
+    # Sign-in Roster verification exercises real private PDF upload/download. The
+    # provider sends email-change confirmations itself; without its local Mailpit
+    # capture the change fails and Account Security cannot reach its pending state.
+    return ",".join(service for service in excluded.split(",") if service not in ("storage-api", "mailpit"))
+
+
 def create(session, repository, origin):
     if (session / "environment.json").exists() or (session / "provider").exists():
         raise Blocked("This session already has provider state; use status or cleanup, never adopt it.")
@@ -461,9 +469,8 @@ def create(session, repository, origin):
         for sock in held:
             sock.close()
         attempted = True
-        # Sign-in Roster verification exercises real private PDF upload/download.
-        excluded = database.EXCLUDED_SERVICES.replace("storage-api,", "")
-        execute(["supabase", "start", "--exclude", excluded], workdir, environment)
+        execute(["supabase", "start", "--exclude", verification_excluded_services(database.EXCLUDED_SERVICES)],
+                workdir, environment)
         if not containers(state, workdir, environment):
             raise Blocked("Supabase returned success without containers bearing the exact owned project label.")
         # Same pinned-image workaround as CI; applies only to the new disposable DB.

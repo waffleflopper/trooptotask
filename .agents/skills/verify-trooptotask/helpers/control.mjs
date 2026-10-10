@@ -18,6 +18,7 @@ import {
 	environment
 } from '../../../../scripts/verification/core.mjs';
 import { installNetworkControl } from './network-control.mjs';
+import { installBusyControl } from './busy-control.mjs';
 import { requestSettings } from './settings-request.mjs';
 import { seedDeletionSources, requestDeletion, requestPersonnelArchiveBatch } from './deletion-requests.mjs';
 import { requestOnboarding, readOnboardingRequests } from './onboarding-request.mjs';
@@ -2418,6 +2419,20 @@ async function main() {
 		note(await evaluate(state, pageId, source));
 		return;
 	}
+	if (command === 'busy') {
+		const [action, page] = args;
+		const pageId = Number(page);
+		if (!Number.isInteger(pageId) || pageId < 1) throw new Error('Use a page ID from the owned browser.');
+		if (!['arm', 'state', 'restore'].includes(action)) throw new Error('Use busy arm|state|restore PAGE.');
+		const source =
+			action === 'arm'
+				? `() => (${installBusyControl.toString()})(window)`
+				: action === 'state'
+					? '() => ({ armed: !!window.__mapBusy, entries: window.__mapBusy?.entries ?? [] })'
+					: '() => { const c = window.__mapBusy; if (!c) return { restored: false }; c.observer.disconnect(); delete window.__mapBusy; return { restored: true }; }';
+		note(await evaluate(state, pageId, source));
+		return;
+	}
 	if (command === 'feedback') {
 		const [action, page] = args;
 		const pageId = Number(page);
@@ -2556,7 +2571,7 @@ async function main() {
 		return;
 	}
 	throw new Error(
-		'Use fixture, actor, rows, access-request, auth-link, setup-link, mfa-code, password, password-commit, settings-request, deletion-request, personnel-archive-batch, deletion-review-failure, audit-training-update, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, private-buckets, roster-files, roster-replace, signed-download, calendar-grant, dashboard-access, server-source, seed, clean-seeds, retention, network, export, print, or workbook.'
+		'Use fixture, actor, rows, access-request, auth-link, setup-link, mfa-code, password, password-commit, settings-request, deletion-request, personnel-archive-batch, deletion-review-failure, audit-training-update, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, private-buckets, roster-files, roster-replace, signed-download, calendar-grant, dashboard-access, server-source, seed, clean-seeds, retention, network, busy, export, print, or workbook.'
 	);
 }
 

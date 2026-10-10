@@ -430,3 +430,11 @@ class VerificationAuthConfigTests(unittest.TestCase):
             for key in ("site_url", "additional_redirect_urls"):
                 changed["auth"].pop(key)
         self.assertEqual(config, source)
+
+    def test_starts_storage_and_mail_capture_and_keeps_other_ci_exclusions(self):
+        from scripts.ci import database
+
+        self.assertEqual(
+            environment.verification_excluded_services(database.EXCLUDED_SERVICES),
+            "studio,imgproxy,realtime,edge-runtime,logflare,vector,postgres-meta,supavisor",
+        )

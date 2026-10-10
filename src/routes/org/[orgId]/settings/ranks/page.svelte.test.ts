@@ -4,7 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RanksSettingsData, SettingsRankCatalogRow, SettingsRankServicePackOption } from '../settingsSectionTypes';
 import Page from './+page.svelte';
 
-type HeldSubmission = (opts: { result: { type: 'success' | 'failure' }; update: () => Promise<void> }) => Promise<void>;
+type HeldSubmission = (opts: {
+	result: { type: 'success' | 'failure' };
+	update: (options?: { reset?: boolean }) => Promise<void>;
+}) => Promise<void>;
 const { heldSubmissions, submittedForms } = vi.hoisted(() => ({
 	heldSubmissions: [] as HeldSubmission[],
 	submittedForms: [] as Array<{ action: string; fields: Record<string, string> }>
@@ -598,12 +601,21 @@ function rankSettings(
 				copy: { payGradeHelp: 'Pay grade help.', tieBreakHelp: 'Tie-break help.' },
 				servicePacks,
 				options: {
-					services: [{ value: 'custom', label: 'Custom' }],
-					categories: [{ value: 'custom', label: 'Custom' }],
-					payGrades: [{ value: 'ungraded', label: 'Ungraded' }],
+					services: [
+						{ value: 'army', label: 'Army' },
+						{ value: 'custom', label: 'Custom' }
+					],
+					categories: [
+						{ value: 'officer', label: 'Officer' },
+						{ value: 'custom', label: 'Custom' }
+					],
+					payGrades: [
+						{ value: 'O-10', label: 'O-10' },
+						{ value: 'ungraded', label: 'Ungraded' }
+					],
 					states: [
-						{ value: 'active', label: 'Active' },
-						{ value: 'retired', label: 'Retired' }
+						{ value: 'retired', label: 'Retired' },
+						{ value: 'active', label: 'Active' }
 					]
 				},
 				entries: { active, retired }
@@ -884,6 +896,65 @@ describe('rank mutations do not overlap', () => {
 
 		await fireEvent.submit(addPack.closest('form') as HTMLFormElement);
 		expect(submittedForms).toHaveLength(1);
+	});
+});
+
+describe('successful rank saves', () => {
+	it('returns the add form to its defaults after a rank is added, so the next add can be submitted', async () => {
+		renderRankPage([rankEntry()]);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Add custom rank' }));
+		const form = screen.getByRole('button', { name: 'Add Rank' }).closest('form') as HTMLFormElement;
+		await fireEvent.input(screen.getByLabelText('Code'), { target: { value: 'NEW-1' } });
+		await fireEvent.change(screen.getByLabelText('Branch'), { target: { value: 'army' } });
+		await fireEvent.change(screen.getByLabelText('Category'), { target: { value: 'officer' } });
+		await fireEvent.change(screen.getByLabelText('Pay grade'), { target: { value: 'O-10' } });
+		await fireEvent.input(screen.getByLabelText('Tie-break order'), { target: { value: '650' } });
+		await fireEvent.submit(form);
+		// SvelteKit's update() resets the submitted form after a successful action.
+		await heldSubmissions[0]({ result: { type: 'success' }, update: async () => form.reset() });
+
+		const value = (label: string) => (screen.getByLabelText(label) as HTMLInputElement | HTMLSelectElement).value;
+		expect([value('Code'), value('Branch'), value('Category'), value('Pay grade'), value('State')]).toEqual([
+			'',
+			'custom',
+			'custom',
+			'ungraded',
+			'active'
+		]);
+		expect(value('Tie-break order')).toBe('500');
+	});
+
+	it('keeps the saved values in an open edit form after the save succeeds', async () => {
+		const view = render(Page, {
+			data: { ranksSettings: rankSettings([rankEntry()], [], []) } as never,
+			form: null,
+			params: { orgId: 'org-1' }
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Show details for DET-SGT' }));
+		const form = screen.getByRole('button', { name: 'Save DET-SGT' }).closest('form') as HTMLFormElement;
+		await fireEvent.input(screen.getByLabelText('Label'), { target: { value: 'Detachment Lead' } });
+		await fireEvent.change(screen.getByLabelText('Pay grade'), { target: { value: 'O-10' } });
+		await fireEvent.submit(form);
+		const saved = rankEntry({ label: 'Detachment Lead', payGrade: 'O-10', payGradeLabel: 'O-10' });
+		// SvelteKit's update() resets the form unless told not to, then reloads the page data.
+		await heldSubmissions[0]({
+			result: { type: 'success' },
+			update: async (options?: { reset?: boolean }) => {
+				if (options?.reset !== false) form.reset();
+				await view.rerender({
+					data: { ranksSettings: rankSettings([saved], [], []) } as never,
+					form: { success: true },
+					params: { orgId: 'org-1' }
+				});
+			}
+		});
+
+		expect((screen.getByLabelText('Label') as HTMLInputElement).value).toBe('Detachment Lead');
+		expect((screen.getByLabelText('Branch') as HTMLSelectElement).value).toBe('custom');
+		expect((screen.getByLabelText('Pay grade') as HTMLSelectElement).value).toBe('O-10');
+		expect((screen.getByLabelText('Tie-break order') as HTMLInputElement).value).toBe('500');
 	});
 });
 

@@ -194,7 +194,8 @@
 	];
 
 	// Rank mutations run one at a time: savingAction is a single slot, so a second submission would clear it early.
-	function enhancedForm(key: string): SubmitFunction {
+	// An edit form keeps what was saved; resetting it would blank fields whose bound values did not change.
+	function enhancedForm(key: string, { reset = true } = {}): SubmitFunction {
 		return ({ cancel }) => {
 			if (savingAction !== null) {
 				cancel();
@@ -204,7 +205,7 @@
 			lastActionKey = key;
 			return async ({ result, update }) => {
 				try {
-					await update();
+					await update({ reset });
 				} finally {
 					savingAction = null;
 					settleSubmission?.(result.type === 'success');
@@ -615,49 +616,42 @@
 					</Field.Root>
 					<Field.Root>
 						<Field.Label for="rank-service">Branch</Field.Label>
-						<NativeSelect.Root
-							id="rank-service"
-							name="service"
-							value="custom"
-							disabled={!ranks.commands.canAddCustomRank}
-						>
+						<NativeSelect.Root id="rank-service" name="service" disabled={!ranks.commands.canAddCustomRank}>
 							{#each ranks.options.services as option (option.value)}
-								<NativeSelect.Option value={option.value}>{option.label}</NativeSelect.Option>
+								<NativeSelect.Option value={option.value} selected={option.value === 'custom'}
+									>{option.label}</NativeSelect.Option
+								>
 							{/each}
 						</NativeSelect.Root>
 					</Field.Root>
 					<Field.Root>
 						<Field.Label for="rank-category">Category</Field.Label>
-						<NativeSelect.Root
-							id="rank-category"
-							name="category"
-							value="custom"
-							disabled={!ranks.commands.canAddCustomRank}
-						>
+						<NativeSelect.Root id="rank-category" name="category" disabled={!ranks.commands.canAddCustomRank}>
 							{#each ranks.options.categories as option (option.value)}
-								<NativeSelect.Option value={option.value}>{option.label}</NativeSelect.Option>
+								<NativeSelect.Option value={option.value} selected={option.value === 'custom'}
+									>{option.label}</NativeSelect.Option
+								>
 							{/each}
 						</NativeSelect.Root>
 					</Field.Root>
 					<Field.Root>
 						<Field.Label for="rank-pay-grade">Pay grade</Field.Label>
 						<Field.Description>{ranks.copy.payGradeHelp}</Field.Description>
-						<NativeSelect.Root
-							id="rank-pay-grade"
-							name="payGrade"
-							value="ungraded"
-							disabled={!ranks.commands.canAddCustomRank}
-						>
+						<NativeSelect.Root id="rank-pay-grade" name="payGrade" disabled={!ranks.commands.canAddCustomRank}>
 							{#each ranks.options.payGrades as option (option.value)}
-								<NativeSelect.Option value={option.value}>{option.label}</NativeSelect.Option>
+								<NativeSelect.Option value={option.value} selected={option.value === 'ungraded'}
+									>{option.label}</NativeSelect.Option
+								>
 							{/each}
 						</NativeSelect.Root>
 					</Field.Root>
 					<Field.Root>
 						<Field.Label for="rank-state">State</Field.Label>
-						<NativeSelect.Root id="rank-state" name="state" value="active" disabled={!ranks.commands.canAddCustomRank}>
+						<NativeSelect.Root id="rank-state" name="state" disabled={!ranks.commands.canAddCustomRank}>
 							{#each ranks.options.states as option (option.value)}
-								<NativeSelect.Option value={option.value}>{option.label}</NativeSelect.Option>
+								<NativeSelect.Option value={option.value} selected={option.value === 'active'}
+									>{option.label}</NativeSelect.Option
+								>
 							{/each}
 						</NativeSelect.Root>
 					</Field.Root>
@@ -668,7 +662,7 @@
 							id="rank-sort-order"
 							name="sortOrder"
 							type="number"
-							value="500"
+							defaultValue="500"
 							disabled={!ranks.commands.canAddCustomRank}
 						/>
 						{#if addErrorField === 'sortOrder'}<Field.Error>{rankError}</Field.Error>{/if}
@@ -955,7 +949,12 @@
 						<Alert.Description>{rankError}</Alert.Description>
 					</Alert.Root>
 				{/if}
-				<form method="POST" action="?/saveRank" class="grid gap-3" use:enhance={enhancedForm(`edit-${entry.code}`)}>
+				<form
+					method="POST"
+					action="?/saveRank"
+					class="grid gap-3"
+					use:enhance={enhancedForm(`edit-${entry.code}`, { reset: false })}
+				>
 					<input type="hidden" name="intent" value="edit" />
 					<input type="hidden" name="originalCode" value={entry.code} />
 					<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">

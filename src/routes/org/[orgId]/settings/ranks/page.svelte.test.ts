@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { RanksSettingsData, SettingsRankCatalogRow } from '../settingsSectionTypes';
+import type { RanksSettingsData, SettingsRankCatalogRow, SettingsRankServicePackOption } from '../settingsSectionTypes';
 import Page from './+page.svelte';
 
 type HeldSubmission = (opts: { result: { type: 'success' | 'failure' }; update: () => Promise<void> }) => Promise<void>;
@@ -10,19 +10,28 @@ const { heldSubmissions, submittedForms } = vi.hoisted(() => ({
 	submittedForms: [] as Array<{ action: string; fields: Record<string, string> }>
 }));
 
-// Holds each enhanced submission until the test settles it.
+// Holds each enhanced submission until the test settles it. A submission its handler cancels sends no request.
 vi.mock('$app/forms', () => ({
 	enhance: (
 		form: HTMLFormElement,
-		submit?: (input: { formElement: HTMLFormElement; formData: FormData }) => unknown
+		submit?: (input: { formElement: HTMLFormElement; formData: FormData; cancel: () => void }) => unknown
 	) => {
 		form.addEventListener('submit', (event) => {
 			event.preventDefault();
+			let cancelled = false;
+			const settle = submit?.({
+				formElement: form,
+				formData: new FormData(form),
+				cancel: () => {
+					cancelled = true;
+				}
+			}) as HeldSubmission;
+			if (cancelled) return;
 			submittedForms.push({
 				action: form.getAttribute('action') ?? '',
 				fields: Object.fromEntries(new FormData(form) as unknown as Iterable<[string, string]>)
 			});
-			heldSubmissions.push(submit?.({ formElement: form, formData: new FormData(form) }) as HeldSubmission);
+			heldSubmissions.push(settle);
 		});
 	}
 }));
@@ -561,13 +570,33 @@ function rankEntry(overrides: Partial<SettingsRankCatalogRow> = {}): SettingsRan
 	};
 }
 
-function renderRankPage(active: SettingsRankCatalogRow[], retired: SettingsRankCatalogRow[] = []) {
-	const ranksSettings: RanksSettingsData = {
+function rankPack(overrides: Partial<SettingsRankServicePackOption> = {}): SettingsRankServicePackOption {
+	return {
+		value: 'navy',
+		label: 'Navy',
+		builtInCount: 25,
+		existingCount: 2,
+		activeCount: 2,
+		retiredCount: 0,
+		missingCount: 23,
+		isInstalled: false,
+		canBulkRetire: true,
+		canBulkReactivate: false,
+		...overrides
+	};
+}
+
+function rankSettings(
+	active: SettingsRankCatalogRow[],
+	retired: SettingsRankCatalogRow[],
+	servicePacks: SettingsRankServicePackOption[]
+): RanksSettingsData {
+	return {
 		sections: {
 			ranks: {
 				commands: { canManageCatalog: true, canAddServicePack: true, canAddCustomRank: true },
 				copy: { payGradeHelp: 'Pay grade help.', tieBreakHelp: 'Tie-break help.' },
-				servicePacks: [],
+				servicePacks,
 				options: {
 					services: [{ value: 'custom', label: 'Custom' }],
 					categories: [{ value: 'custom', label: 'Custom' }],
@@ -581,10 +610,44 @@ function renderRankPage(active: SettingsRankCatalogRow[], retired: SettingsRankC
 			}
 		}
 	};
-	const view = render(Page, { data: { ranksSettings } as never, form: null, params: { orgId: 'org-1' } });
+}
+
+function renderRankPage(
+	active: SettingsRankCatalogRow[],
+	retired: SettingsRankCatalogRow[] = [],
+	servicePacks: SettingsRankServicePackOption[] = []
+) {
+	const view = render(Page, {
+		data: { ranksSettings: rankSettings(active, retired, servicePacks) } as never,
+		form: null,
+		params: { orgId: 'org-1' }
+	});
+	const show = (
+		next: { active: SettingsRankCatalogRow[]; retired?: SettingsRankCatalogRow[] },
+		form: { rankError?: string; success?: boolean } | null
+	) =>
+		view.rerender({
+			data: { ranksSettings: rankSettings(next.active, next.retired ?? [], servicePacks) } as never,
+			form,
+			params: { orgId: 'org-1' }
+		});
 	return {
-		reject: (message: string) =>
-			view.rerender({ data: { ranksSettings } as never, form: { rankError: message }, params: { orgId: 'org-1' } })
+		reject: (message: string) => show({ active, retired }, { rankError: message }),
+		// What SvelteKit's update() does when the action succeeds: the catalog reloads without the changed rows.
+		succeedWith: (next: { active: SettingsRankCatalogRow[]; retired?: SettingsRankCatalogRow[] }) =>
+			heldSubmissions[heldSubmissions.length - 1]({
+				result: { type: 'success' },
+				update: async () => {
+					await show(next, { success: true });
+				}
+			}),
+		fail: (message: string) =>
+			heldSubmissions[heldSubmissions.length - 1]({
+				result: { type: 'failure' },
+				update: async () => {
+					await show({ active, retired }, { rankError: message });
+				}
+			})
 	};
 }
 
@@ -655,6 +718,172 @@ describe('single rank retirement', () => {
 
 		expect(screen.queryByRole('alertdialog')).toBeNull();
 		expect(submittedForms).toEqual([{ action: '?/reactivateRank', fields: { code: 'OLD-SGT' } }]);
+	});
+});
+
+function retiredCopy(entry: SettingsRankCatalogRow): SettingsRankCatalogRow {
+	return {
+		...entry,
+		state: 'retired',
+		commands: { ...entry.commands, canRetire: false, canReactivate: true }
+	};
+}
+
+const rankA = rankEntry({ code: 'A-1', label: 'Alpha Sergeant' });
+const rankB = rankEntry({ code: 'B-2', label: 'Bravo Sergeant' });
+const rankC = rankEntry({ code: 'C-3', label: 'Charlie Sergeant' });
+
+async function openRetire(code: string) {
+	await fireEvent.click(screen.getByRole('button', { name: `Actions for ${code}` }));
+	await fireEvent.click(screen.getByRole('menuitem', { name: 'Retire' }));
+	await vi.runAllTimersAsync();
+	return screen.getByRole('alertdialog', { name: `Retire ${code}` });
+}
+
+describe('rank confirmations settle with their request', () => {
+	it('keeps the retire confirmation busy and open until the request succeeds, then closes it', async () => {
+		const page = renderRankPage([rankA, rankB]);
+
+		const dialog = await openRetire('A-1');
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Retire rank' }));
+		await vi.runAllTimersAsync();
+
+		expect(submittedForms).toEqual([{ action: '?/retireRank', fields: { code: 'A-1' } }]);
+		expect(dialog.getAttribute('aria-busy')).toBe('true');
+		expect((within(dialog).getByRole('button', { name: 'Cancel' }) as HTMLButtonElement).disabled).toBe(true);
+		await fireEvent.keyDown(dialog, { key: 'Escape' });
+		await vi.runAllTimersAsync();
+		expect(screen.getByRole('alertdialog', { name: 'Retire A-1' })).toBe(dialog);
+
+		await page.succeedWith({ active: [rankB], retired: [retiredCopy(rankA)] });
+		await vi.runAllTimersAsync();
+		expect(screen.queryByRole('alertdialog')).toBeNull();
+	});
+
+	it('keeps the retire confirmation open with the server message on failure and retries it', async () => {
+		const page = renderRankPage([rankA, rankB]);
+
+		const dialog = await openRetire('A-1');
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Retire rank' }));
+		await page.fail('Rank is still referenced.');
+		await vi.runAllTimersAsync();
+
+		expect(screen.getByRole('alertdialog', { name: 'Retire A-1' })).toBe(dialog);
+		expect(dialog.hasAttribute('aria-busy')).toBe(false);
+		expect(within(dialog).getByRole('alert').textContent).toContain('Rank is still referenced.');
+		expect(screen.getAllByRole('alert')).toHaveLength(1);
+		expect(submittedForms).toHaveLength(1);
+
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Retire rank' }));
+		expect(submittedForms).toHaveLength(2);
+		await page.succeedWith({ active: [rankB], retired: [retiredCopy(rankA)] });
+		await vi.runAllTimersAsync();
+		expect(screen.queryByRole('alertdialog')).toBeNull();
+	});
+
+	it('moves focus to the next row after a retirement removes the row from the active filter', async () => {
+		const page = renderRankPage([rankA, rankB, rankC]);
+
+		const dialog = await openRetire('B-2');
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Retire rank' }));
+		await page.succeedWith({ active: [rankA, rankC], retired: [retiredCopy(rankB)] });
+		await vi.runAllTimersAsync();
+
+		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Actions for C-3' }));
+	});
+
+	it('moves focus to the previous row when the last row is retired out of the active filter', async () => {
+		const page = renderRankPage([rankA, rankB, rankC]);
+
+		const dialog = await openRetire('C-3');
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Retire rank' }));
+		await page.succeedWith({ active: [rankA, rankB], retired: [retiredCopy(rankC)] });
+		await vi.runAllTimersAsync();
+
+		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Actions for B-2' }));
+	});
+
+	it('moves focus to the Ranks heading when the only row leaves the filter', async () => {
+		const page = renderRankPage([rankA]);
+
+		const dialog = await openRetire('A-1');
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Retire rank' }));
+		await page.succeedWith({ active: [], retired: [retiredCopy(rankA)] });
+		await vi.runAllTimersAsync();
+
+		expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Ranks' }));
+	});
+
+	it('returns focus to the row actions when the retired row stays in the All filter', async () => {
+		const page = renderRankPage([rankA, rankB]);
+		await fireEvent.click(screen.getByRole('button', { name: 'All' }));
+
+		const dialog = await openRetire('A-1');
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Retire rank' }));
+		await page.succeedWith({ active: [rankB], retired: [retiredCopy(rankA)] });
+		await vi.runAllTimersAsync();
+
+		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Actions for A-1' }));
+	});
+
+	it('holds the remove confirmation until the request settles, then focuses the next row', async () => {
+		const removable = (entry: SettingsRankCatalogRow) => ({
+			...entry,
+			commands: { ...entry.commands, canDelete: true }
+		});
+		const page = renderRankPage([removable(rankA), removable(rankB), removable(rankC)]);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Actions for B-2' }));
+		await fireEvent.click(screen.getByRole('menuitem', { name: 'Remove' }));
+		await vi.runAllTimersAsync();
+		const dialog = screen.getByRole('alertdialog', { name: 'Remove B-2' });
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Remove rank' }));
+		await vi.runAllTimersAsync();
+
+		expect(submittedForms).toEqual([{ action: '?/deleteRank', fields: { code: 'B-2' } }]);
+		expect(dialog.getAttribute('aria-busy')).toBe('true');
+
+		await page.succeedWith({ active: [removable(rankA), removable(rankC)] });
+		await vi.runAllTimersAsync();
+		expect(screen.queryByRole('alertdialog')).toBeNull();
+		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Actions for C-3' }));
+	});
+
+	it('holds the bulk confirmation until the request settles, then returns focus to the pack actions', async () => {
+		const page = renderRankPage([rankA], [], [rankPack()]);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'More actions for Navy' }));
+		await fireEvent.click(screen.getByRole('menuitem', { name: 'Retire active ranks (2)' }));
+		await vi.runAllTimersAsync();
+		const dialog = screen.getByRole('alertdialog', { name: 'Retire Navy ranks' });
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Retire active ranks' }));
+		await vi.runAllTimersAsync();
+
+		expect(submittedForms).toEqual([
+			{ action: '?/bulkRankState', fields: { service: 'navy', targetState: 'retired' } }
+		]);
+		expect(dialog.getAttribute('aria-busy')).toBe('true');
+
+		await page.succeedWith({ active: [rankA] });
+		await vi.runAllTimersAsync();
+		expect(screen.queryByRole('alertdialog')).toBeNull();
+		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'More actions for Navy' }));
+	});
+});
+
+describe('rank mutations do not overlap', () => {
+	it('disables Add pack while a retirement is in flight and sends nothing when a second submit is forced', async () => {
+		renderRankPage([rankA], [], [rankPack({ isInstalled: false })]);
+
+		const dialog = await openRetire('A-1');
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Retire rank' }));
+		expect(submittedForms).toHaveLength(1);
+
+		const addPack = screen.getByRole('button', { name: 'Add Navy', hidden: true }) as HTMLButtonElement;
+		expect(addPack.disabled).toBe(true);
+
+		await fireEvent.submit(addPack.closest('form') as HTMLFormElement);
+		expect(submittedForms).toHaveLength(1);
 	});
 });
 

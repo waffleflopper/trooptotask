@@ -127,7 +127,7 @@
 								{/if}
 							</Field.Root>
 							<div class="flex gap-2 sm:justify-end">
-								<Button type="button" size="sm" onclick={saveEdit} disabled={pending}>Save</Button>
+								<Button type="button" size="sm" onclick={saveEdit} disabled={pending || !editName.trim()}>Save</Button>
 								<Button type="button" variant="outline" size="sm" onclick={cancelEdit} disabled={pending}>Cancel</Button
 								>
 							</div>

@@ -8,6 +8,7 @@
 		RANK_TIE_BREAK_WHOLE_NUMBER_MESSAGE
 	} from '$features/personnel/contracts';
 	import type { SubmitFunction } from '@sveltejs/kit';
+	import { focusAfterDialogCloses } from '$lib/components/ui/dialog';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import PlusIcon from '@lucide/svelte/icons/plus';
@@ -56,6 +57,9 @@
 	} = $props();
 
 	let savingAction = $state<string | null>(null);
+	let settleSubmission: ((succeeded: boolean) => void) | null = null;
+	let confirmFailed = $state(false);
+	let ranksSection = $state<HTMLElement | null>(null);
 	let lastActionKey = $state<string | null>(null);
 	let stateFilter = $state<RankStateFilter>('active');
 	let branchFilter = $state<RankServiceFilter>('all');
@@ -67,6 +71,7 @@
 
 	const ranks = $derived(ranksSettings.sections.ranks);
 	const rankError = $derived(typeof form?.rankError === 'string' ? form.rankError : null);
+	const CONFIRM_FAILURE_FALLBACK = 'Unable to update the rank catalog. Try again.';
 	const actionSucceeded = $derived(Boolean(form?.success));
 	const branchFilterOptions = $derived([{ value: 'all' as const, label: 'All branches' }, ...ranks.options.services]);
 
@@ -188,23 +193,83 @@
 		}
 	];
 
+	// Rank mutations run one at a time: savingAction is a single slot, so a second submission would clear it early.
 	function enhancedForm(key: string): SubmitFunction {
-		return () => {
+		return ({ cancel }) => {
+			if (savingAction !== null) {
+				cancel();
+				return;
+			}
 			savingAction = key;
 			lastActionKey = key;
-			return async ({ update }) => {
+			return async ({ result, update }) => {
 				try {
 					await update();
 				} finally {
 					savingAction = null;
+					settleSubmission?.(result.type === 'success');
+					settleSubmission = null;
 				}
 			};
 		};
 	}
 
-	function submitFormById(id: string): void {
+	function submitFormById(id: string): boolean {
 		const element = document.getElementById(id);
-		if (element instanceof HTMLFormElement) element.requestSubmit();
+		if (!(element instanceof HTMLFormElement)) return false;
+		element.requestSubmit();
+		return true;
+	}
+
+	// Resolves with whether the form's request succeeded, once its enhance callback has applied the result.
+	function submitFormAndWait(id: string): Promise<boolean> {
+		if (savingAction !== null) return Promise.resolve(false);
+		return new Promise((resolve) => {
+			settleSubmission = resolve;
+			if (!submitFormById(id)) resolve(false);
+		});
+	}
+
+	function rowActionsTriggers(): HTMLButtonElement[] {
+		return [...(ranksSection?.querySelectorAll<HTMLButtonElement>('button[aria-label^="Actions for "]') ?? [])];
+	}
+
+	// The row's own trigger if it survived, else the row that took its place, else the one before it, else the heading.
+	function rankRowFocusTarget(code: string): () => HTMLElement | null {
+		const label = `Actions for ${code}`;
+		const index = rowActionsTriggers().findIndex((trigger) => trigger.getAttribute('aria-label') === label);
+		return () => {
+			const triggers = rowActionsTriggers();
+			return (
+				triggers.find((trigger) => trigger.getAttribute('aria-label') === label) ??
+				triggers[index] ??
+				triggers[index - 1] ??
+				document.getElementById('ranks-heading')
+			);
+		};
+	}
+
+	function packActionsFocusTarget(pack: SettingsRankServicePackOption): () => HTMLElement | null {
+		const label = `More actions for ${pack.label}`;
+		return () =>
+			[...document.querySelectorAll<HTMLElement>('button')].find(
+				(button) => button.getAttribute('aria-label') === label
+			) ?? document.getElementById('rank-service-packs');
+	}
+
+	// Keeps the confirmation open until the request settles. A failure leaves it open so it can be retried or cancelled.
+	async function confirmWithForm(formId: string, close: () => void, focusTarget: () => HTMLElement | null) {
+		confirmFailed = false;
+		const succeeded = await submitFormAndWait(formId);
+		confirmFailed = !succeeded;
+		if (!succeeded) return;
+		close();
+		focusAfterDialogCloses(focusTarget);
+	}
+
+	function cancelConfirmation(clear: () => void) {
+		confirmFailed = false;
+		clear();
 	}
 
 	function editFieldInvalid(entry: SettingsRankCatalogRow, field: RankErrorField): boolean {
@@ -328,25 +393,26 @@
 		return actions;
 	}
 
-	function confirmBulkRankState(): void {
+	async function confirmBulkRankState() {
 		if (!pendingBulkRankState) return;
 		const { pack, targetState } = pendingBulkRankState;
-		pendingBulkRankState = null;
-		submitFormById(`bulk-${targetState}-${pack.value}`);
+		await confirmWithForm(
+			`bulk-${targetState}-${pack.value}`,
+			() => (pendingBulkRankState = null),
+			packActionsFocusTarget(pack)
+		);
 	}
 
-	function confirmRankRetire(): void {
+	async function confirmRankRetire() {
 		if (!pendingRankRetire) return;
 		const code = pendingRankRetire.code;
-		pendingRankRetire = null;
-		submitFormById(rowFormId('retire', code));
+		await confirmWithForm(rowFormId('retire', code), () => (pendingRankRetire = null), rankRowFocusTarget(code));
 	}
 
-	function confirmRankDelete(): void {
+	async function confirmRankDelete() {
 		if (!pendingRankDelete) return;
 		const code = pendingRankDelete.code;
-		pendingRankDelete = null;
-		submitFormById(rowFormId('delete', code));
+		await confirmWithForm(rowFormId('delete', code), () => (pendingRankDelete = null), rankRowFocusTarget(code));
 	}
 
 	function bulkRankStateCount(pending: PendingBulkRankState): number {
@@ -395,7 +461,7 @@
 		</Alert.Root>
 	{/if}
 
-	{#if rankError && rankErrorScope === 'global'}
+	{#if rankError && rankErrorScope === 'global' && !confirmFailed}
 		<Alert.Root variant="destructive">
 			<Alert.Description>{rankError}</Alert.Description>
 		</Alert.Root>
@@ -415,7 +481,9 @@
 		aria-labelledby="rank-service-packs"
 	>
 		<div class="grid gap-1">
-			<h2 id="rank-service-packs" class="font-heading text-lg font-semibold tracking-tight">Branch Coverage</h2>
+			<h2 id="rank-service-packs" tabindex="-1" class="font-heading text-lg font-semibold tracking-tight">
+				Branch Coverage
+			</h2>
 			<p class="text-sm text-muted-foreground">
 				Add missing built-in ranks by branch, or retire and reactivate a whole branch pack from the actions menu.
 			</p>
@@ -443,9 +511,7 @@
 							<Button
 								type="submit"
 								size="sm"
-								disabled={!ranks.commands.canAddServicePack ||
-									pack.isInstalled ||
-									savingAction === `pack-${pack.value}`}
+								disabled={!ranks.commands.canAddServicePack || pack.isInstalled || savingAction !== null}
 								aria-busy={savingAction === `pack-${pack.value}`}
 								aria-label={`Add ${pack.label}`}
 							>
@@ -622,9 +688,13 @@
 		</section>
 	{/if}
 
-	<section class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground" aria-labelledby="ranks-heading">
+	<section
+		bind:this={ranksSection}
+		class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground"
+		aria-labelledby="ranks-heading"
+	>
 		<div class="grid gap-1">
-			<h2 id="ranks-heading" class="font-heading text-lg font-semibold tracking-tight">Ranks</h2>
+			<h2 id="ranks-heading" tabindex="-1" class="font-heading text-lg font-semibold tracking-tight">Ranks</h2>
 			<p class="text-sm text-muted-foreground">
 				Active ranks are available for future selection and import matching; retired ranks are hidden from selection
 				while existing references are preserved.
@@ -676,8 +746,10 @@
 		confirmLabel={bulkRankStateConfirmLabel(pendingBulkRankState)}
 		variant="warning"
 		onConfirm={confirmBulkRankState}
-		onCancel={() => (pendingBulkRankState = null)}
-	/>
+		onCancel={() => cancelConfirmation(() => (pendingBulkRankState = null))}
+	>
+		{@render confirmFailure()}
+	</ConfirmDialog>
 {/if}
 
 {#if pendingRankRetire}
@@ -687,8 +759,10 @@
 		confirmLabel="Retire rank"
 		variant="warning"
 		onConfirm={confirmRankRetire}
-		onCancel={() => (pendingRankRetire = null)}
-	/>
+		onCancel={() => cancelConfirmation(() => (pendingRankRetire = null))}
+	>
+		{@render confirmFailure()}
+	</ConfirmDialog>
 {/if}
 
 {#if pendingRankDelete}
@@ -698,9 +772,19 @@
 		confirmLabel="Remove rank"
 		variant="destructive"
 		onConfirm={confirmRankDelete}
-		onCancel={() => (pendingRankDelete = null)}
-	/>
+		onCancel={() => cancelConfirmation(() => (pendingRankDelete = null))}
+	>
+		{@render confirmFailure()}
+	</ConfirmDialog>
 {/if}
+
+{#snippet confirmFailure()}
+	{#if confirmFailed}
+		<Alert.Root variant="destructive">
+			<Alert.Description>{rankError ?? CONFIRM_FAILURE_FALLBACK}</Alert.Description>
+		</Alert.Root>
+	{/if}
+{/snippet}
 
 {#snippet rankToolbar(table: DataTableState<SettingsRankCatalogRow>)}
 	<WorkspaceToolbar.Root ariaLabel="Rank table controls">

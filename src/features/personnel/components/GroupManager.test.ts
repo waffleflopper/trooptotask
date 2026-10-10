@@ -59,6 +59,26 @@ describe('GroupManager', () => {
 		expect(onRemove).toHaveBeenCalledWith('group-bravo');
 	});
 
+	it('disables Save while the rename draft is blank and re-enables it once a name is typed', async () => {
+		const onRename = vi.fn();
+		renderGroupManager({ onRename });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit Alpha Company' }));
+		const input = screen.getByRole('textbox', { name: 'Group name' });
+		const save = screen.getByRole('button', { name: 'Save' }) as HTMLButtonElement;
+		expect(save.disabled).toBe(false);
+
+		await fireEvent.input(input, { target: { value: '   ' } });
+		expect(save.disabled).toBe(true);
+		await fireEvent.click(save);
+		expect(onRename).not.toHaveBeenCalled();
+
+		await fireEvent.input(input, { target: { value: 'Renamed' } });
+		expect(save.disabled).toBe(false);
+		await fireEvent.click(save);
+		expect(onRename).toHaveBeenCalledWith('group-alpha', 'Renamed');
+	});
+
 	it('serializes pending additions and associates a rejected addition with the keyboard draft', async () => {
 		let reject!: (reason: Error) => void;
 		const onAdd = vi

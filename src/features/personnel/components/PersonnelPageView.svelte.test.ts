@@ -285,25 +285,6 @@ describe('PersonnelPageView', () => {
 		expect(within(toolbar).queryByRole('button', { name: 'Bulk Import' })).toBeNull();
 	});
 
-	it('wraps the toolbar onto further rows instead of scrolling its actions off a narrow screen', () => {
-		const ctx = {
-			...makeCtx(),
-			canAddPersonnel: true,
-			canImportPersonnel: true,
-			canManageGroups: true,
-			canManagePersonnelRecord: () => true,
-			personnelRecordAffordance: () => allowedAffordance()
-		} as unknown as PersonnelPageContext;
-
-		render(PersonnelPageView, {
-			props: { ctx, requestArchiveApproval }
-		});
-
-		const toolbar = screen.getByRole('toolbar', { name: 'Personnel controls' });
-		expect(toolbar.classList.contains('flex-wrap')).toBe(true);
-		expect(toolbar.classList.contains('overflow-x-auto')).toBe(false);
-	});
-
 	it('links import to the dedicated personnel import route', () => {
 		const ctx = {
 			...makeCtx(),

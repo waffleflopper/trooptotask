@@ -341,6 +341,7 @@ describe('members settings page', () => {
 		await fireEvent.click(invite);
 		expect(heldSubmissions).toHaveLength(2);
 		expect(invite.textContent?.trim()).toBe('Inviting...');
+		expect(within(inviteForm).queryByRole('alert')).toBeNull();
 	});
 
 	it('ignores invitation responses that arrive after the page is gone', async () => {

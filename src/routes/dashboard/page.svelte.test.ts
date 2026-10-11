@@ -132,6 +132,22 @@ describe('/dashboard page', () => {
 		expect(document.activeElement).toBe(accept);
 	});
 
+	it('hides an earlier failure while a new response to the invitation is pending', async () => {
+		const { default: Page } = await import('./+page.svelte');
+		const view = render(Page, { props: { data: invitationData(), form: null } });
+		await respond(
+			'?/declineInvitation',
+			{ type: 'failure', status: 409, data: { error: 'Invitation expired' } },
+			(form) => view.rerender({ data: invitationData(), form: form as never })
+		);
+		const row = screen.getByText('Bravo Company').parentElement!;
+		await waitFor(() => expect(within(row).getByRole('alert').textContent).toContain('Invitation expired'));
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Accept invitation to Bravo Company' }));
+
+		expect(within(row).queryByRole('alert')).toBeNull();
+	});
+
 	it('moves focus to the workspace heading when a declined invitation leaves the list', async () => {
 		const { default: Page } = await import('./+page.svelte');
 		const view = render(Page, { props: { data: invitationData(), form: null } });

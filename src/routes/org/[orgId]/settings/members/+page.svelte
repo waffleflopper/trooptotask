@@ -55,6 +55,9 @@
 	let invitationOwner = $state(NEW_INVITATION);
 	let invitationPending = $state(false);
 	let invitationRequestError = $state<string | null>(null);
+	// A new invitation request supersedes the outcome on screen; only the server's answer to it shows again.
+	let invitationSupersededForm = $state.raw<typeof form | undefined>(undefined);
+	const invitationForm = $derived(form === invitationSupersededForm ? undefined : form);
 	let membersHeading = $state<HTMLHeadingElement | null>(null);
 	let pendingInvitesHeading = $state<HTMLHeadingElement | null>(null);
 
@@ -88,6 +91,7 @@
 		invitationOwner = owner;
 		invitationPending = true;
 		invitationRequestError = null;
+		invitationSupersededForm = form;
 		return async (outcome) => {
 			if (!active) return;
 			const { result } = outcome;
@@ -182,14 +186,14 @@
 				<p class="text-sm text-muted-foreground">Create an invite they can accept after signing in.</p>
 			</div>
 			<form method="POST" action="?/invite" use:enhance={invitationEnhance}>
-				{#if invitationOwner === NEW_INVITATION && (invitationRequestError || form?.inviteError)}
+				{#if invitationOwner === NEW_INVITATION && (invitationRequestError || invitationForm?.inviteError)}
 					<Alert.Root variant="destructive" class="mb-4">
-						<Alert.Description>{invitationRequestError ?? form?.inviteError}</Alert.Description>
+						<Alert.Description>{invitationRequestError ?? invitationForm?.inviteError}</Alert.Description>
 					</Alert.Root>
 				{/if}
-				{#if invitationOwner === NEW_INVITATION && form?.inviteSuccess && !invitationRequestError}
+				{#if invitationOwner === NEW_INVITATION && invitationForm?.inviteSuccess && !invitationRequestError}
 					<Alert.Root role="status" class="mb-4">
-						<Alert.Description>{form.inviteMessage ?? 'Invitation created.'}</Alert.Description>
+						<Alert.Description>{invitationForm.inviteMessage ?? 'Invitation created.'}</Alert.Description>
 					</Alert.Root>
 				{/if}
 				<input type="hidden" name="membershipRole" value={memberAccess.inviteMembershipRole} />
@@ -427,9 +431,9 @@
 								<Badge variant={getFunnelStatusVariant(invite.funnelStatus)}>{invite.funnelStatusLabel}</Badge>
 								<p class="text-sm text-muted-foreground">{invite.funnelStatusDetail}</p>
 							</div>
-							{#if invitationOwner === invite.id && (invitationRequestError || form?.inviteError)}
+							{#if invitationOwner === invite.id && (invitationRequestError || invitationForm?.inviteError)}
 								<Alert.Root variant="destructive">
-									<Alert.Description>{invitationRequestError ?? form?.inviteError}</Alert.Description>
+									<Alert.Description>{invitationRequestError ?? invitationForm?.inviteError}</Alert.Description>
 								</Alert.Root>
 							{/if}
 						</div>

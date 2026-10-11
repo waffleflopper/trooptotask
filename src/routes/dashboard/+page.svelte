@@ -21,6 +21,9 @@
 	let loading = $state<string | null>(null);
 	let respondedInvitationId = $state<string | null>(null);
 	let requestError = $state<string | null>(null);
+	// A new response supersedes the failure on screen; only a failure the server returns for it shows again.
+	let supersededForm = $state.raw<typeof form | undefined>(undefined);
+	const failure = $derived(form === supersededForm ? undefined : form?.error);
 	let successMessage = $state<string | null>(null);
 	let orgFilter = $state('');
 	let successTimer: ReturnType<typeof setTimeout>;
@@ -38,6 +41,7 @@
 			loading = invitationId;
 			respondedInvitationId = invitationId;
 			requestError = null;
+			supersededForm = form;
 			return async (outcome) => {
 				// A resolved invitation leaves the list; a failed one keeps its row and button.
 				await settleAction(outcome, {
@@ -110,9 +114,9 @@
 				</h2>
 			</header>
 
-			{#if respondedInvitationId === null && form?.error}
+			{#if respondedInvitationId === null && failure}
 				<Alert.Root variant="destructive">
-					<Alert.Description>{form.error}</Alert.Description>
+					<Alert.Description>{failure}</Alert.Description>
 				</Alert.Root>
 			{/if}
 
@@ -139,9 +143,9 @@
 								<div class="flex min-w-0 flex-col gap-1">
 									<span class="truncate font-medium text-foreground">{invitation.organizationName}</span>
 									<span class="text-sm text-muted-foreground">Invited {formatRelativeDate(invitation.createdAt)}</span>
-									{#if respondedInvitationId === invitation.id && (requestError || form?.error)}
+									{#if respondedInvitationId === invitation.id && (requestError || failure)}
 										<Alert.Root variant="destructive" class="mt-2">
-											<Alert.Description>{requestError ?? form?.error}</Alert.Description>
+											<Alert.Description>{requestError ?? failure}</Alert.Description>
 										</Alert.Root>
 									{/if}
 								</div>

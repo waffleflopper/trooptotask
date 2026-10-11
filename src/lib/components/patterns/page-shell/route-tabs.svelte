@@ -1,5 +1,4 @@
 <script lang="ts">
-	import type { Snippet } from 'svelte';
 	import type { HTMLAttributes } from 'svelte/elements';
 	import type { PathnameWithSearchOrHash, RouteIdWithSearchOrHash } from '$app/types';
 	import { resolve } from '$app/paths';
@@ -8,8 +7,7 @@
 
 	export type RouteTabItem = {
 		label: string;
-		href?: RouteIdWithSearchOrHash | PathnameWithSearchOrHash;
-		value?: string;
+		href: RouteIdWithSearchOrHash | PathnameWithSearchOrHash;
 		active?: boolean;
 		badge?: string | number;
 		/** Announced in place of the bare badge, e.g. `2 pending requests`. */
@@ -21,41 +19,23 @@
 	type Props = HTMLAttributes<HTMLElement> & {
 		items?: RouteTabItem[];
 		label?: string;
-		value?: string;
-		onValueChange?: (value: string) => void;
-		children?: Snippet;
 	};
 
-	let {
-		items = [],
-		label = 'Route sections',
-		value,
-		onValueChange,
-		children,
-		class: className,
-		...restProps
-	}: Props = $props();
-
-	function isActive(item: RouteTabItem) {
-		return item.active ?? (value !== undefined && item.value === value);
-	}
+	let { items = [], label = 'Route sections', class: className, ...restProps }: Props = $props();
 
 	let scroller = $state<HTMLElement>();
-	const activeIndex = $derived(items.findIndex(isActive));
+	const activeIndex = $derived(items.findIndex((item) => item.active));
 
 	// Scrolls only the tab strip; scrollIntoView could also move the page.
 	$effect(() => {
 		void activeIndex;
-		const tab = scroller?.querySelector<HTMLElement>('[data-active="true"], [aria-current="page"]');
+		const tab = scroller?.querySelector<HTMLElement>('[aria-current="page"]');
 		if (!scroller || !tab) return;
 		const strip = scroller.getBoundingClientRect();
 		const target = tab.getBoundingClientRect();
 		if (target.left < strip.left) scroller.scrollLeft += target.left - strip.left;
 		else if (target.right > strip.right) scroller.scrollLeft += target.right - strip.right;
 	});
-
-	const focusRing =
-		'rounded-t-md outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50';
 </script>
 
 {#snippet badge(item: RouteTabItem)}
@@ -69,59 +49,32 @@
 
 <nav data-slot="route-tabs" aria-label={label} class={cn('min-w-0 border-b border-border', className)} {...restProps}>
 	<div bind:this={scroller} class="flex min-w-0 items-center gap-1 overflow-x-auto">
-		{#if children}
-			{@render children()}
-		{:else}
-			{#each items as item (item.href ?? item.value ?? item.label)}
-				{@const active = isActive(item)}
-				{#if item.href && !item.disabled}
-					<a
-						data-slot="route-tab"
-						data-active={active ? 'true' : undefined}
-						href={resolve(item.href as '/')}
-						aria-current={active ? 'page' : undefined}
-						class={cn(
-							'inline-flex h-10 shrink-0 items-center gap-2 border-b-2 px-3 text-sm font-medium transition-colors',
-							focusRing,
-							active
-								? 'border-foreground text-foreground'
-								: 'border-transparent text-muted-foreground hover:border-muted-foreground/40 hover:text-foreground'
-						)}
-					>
-						<span>{item.label}</span>
-						{@render badge(item)}
-					</a>
-				{:else if item.href}
-					<span
-						data-slot="route-tab"
-						aria-disabled="true"
-						class="inline-flex h-10 shrink-0 items-center gap-2 border-b-2 border-transparent px-3 text-sm font-medium text-muted-foreground opacity-50"
-					>
-						<span>{item.label}</span>
-						{@render badge(item)}
-					</span>
-				{:else}
-					<button
-						type="button"
-						data-slot="route-tab"
-						data-active={active ? 'true' : undefined}
-						role="tab"
-						aria-selected={active}
-						disabled={item.disabled}
-						onclick={() => item.value && onValueChange?.(item.value)}
-						class={cn(
-							'inline-flex h-10 shrink-0 items-center gap-2 border-b-2 px-3 text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50',
-							focusRing,
-							active
-								? 'border-foreground text-foreground'
-								: 'border-transparent text-muted-foreground hover:border-muted-foreground/40 hover:text-foreground'
-						)}
-					>
-						<span>{item.label}</span>
-						{@render badge(item)}
-					</button>
-				{/if}
-			{/each}
-		{/if}
+		{#each items as item (item.href)}
+			{#if item.disabled}
+				<span
+					data-slot="route-tab"
+					aria-disabled="true"
+					class="inline-flex h-10 shrink-0 items-center gap-2 border-b-2 border-transparent px-3 text-sm font-medium text-muted-foreground opacity-50"
+				>
+					<span>{item.label}</span>
+					{@render badge(item)}
+				</span>
+			{:else}
+				<a
+					data-slot="route-tab"
+					href={resolve(item.href as '/')}
+					aria-current={item.active ? 'page' : undefined}
+					class={cn(
+						'inline-flex h-10 shrink-0 items-center gap-2 rounded-t-md border-b-2 px-3 text-sm font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50',
+						item.active
+							? 'border-foreground text-foreground'
+							: 'border-transparent text-muted-foreground hover:border-muted-foreground/40 hover:text-foreground'
+					)}
+				>
+					<span>{item.label}</span>
+					{@render badge(item)}
+				</a>
+			{/if}
+		{/each}
 	</div>
 </nav>

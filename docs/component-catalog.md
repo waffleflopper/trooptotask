@@ -78,11 +78,9 @@ The Web UI Foundation's public [`toastStore`](../src/lib/stores/toast.svelte.ts)
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 
-	let tab = $state('overview');
 	const tabs = [
-		{ label: 'Overview', value: 'overview' },
-		{ label: 'History', value: 'history', badge: 48 },
-		{ label: 'Settings', value: 'settings' }
+		{ label: 'Overview', href: '/account/profile', active: true },
+		{ label: 'History', href: '/account/security', badge: 48, badgeLabel: '48 history entries' }
 	];
 </script>
 
@@ -97,7 +95,7 @@ The Web UI Foundation's public [`toastStore`](../src/lib/stores/toast.svelte.ts)
 		{/snippet}
 	</PageShell.Header>
 
-	<PageShell.Tabs items={tabs} value={tab} onValueChange={(value) => (tab = value)} />
+	<PageShell.Tabs items={tabs} label="Training sections" />
 
 	<section class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
 		<div class="rounded-lg border bg-card p-4 text-card-foreground">
@@ -127,7 +125,7 @@ Public components:
 
 - `Root`: authenticated page content scroller. Props: `density?: 'default' | 'compact'`, `width?: 'full' | 'content' | 'wide'`, `bodyClass?`, `children?`.
 - `Header`: page header. Props: `title`, `subtitle?`, snippets `back`, `meta`, `actions`, and `overflow`.
-- `Tabs`: route-level navigation. Props: `items?`, `label?`, `value?`, `onValueChange?`, `children?`. Items support `label`, `href`, `value`, `active`, `badge`, `badgeLabel`, `badgeVariant`, and `disabled`. Each tab shows the app focus ring. When a bare count would be ambiguous, set `badgeLabel` (for example `2 pending requests`); assistive technology then hears that text in place of the badge.
+- `Tabs`: route-level navigation links. Props: `items?`, `label?`. Items support `label`, `href` (required), `active`, `badge`, `badgeLabel`, `badgeVariant`, and `disabled`. The active link carries `aria-current="page"`; a disabled item renders as non-interactive text. Use `ui/tabs` for in-page views. Each tab shows the app focus ring. When a bare count would be ambiguous, set `badgeLabel` (for example `2 pending requests`); assistive technology then hears that text in place of the badge.
 - `FactGrid`: dense fact layout. Props: `layout?: 'stack' | 'two' | 'three' | 'rail'`, `children?`.
 - `FactRow`: label/value row. Props: `label`, `value?`, `tone?`, `layout?: 'inline' | 'stack'`, `icon?`, `badge?`, `badgeVariant?`, `children?`. Use `layout="stack"` inside multi-column fact grids so labels and long values do not compress.
 - `Metric`: compact bordered metric tile. Props: `label`, `value`, `detail?`, `tone?`, `children?`.
@@ -542,7 +540,7 @@ Component Catalog coverage:
 
 ## `patterns/bulk-import-workspace`
 
-`patterns/bulk-import-workspace` is the shared foundation for operational import workflows. It standardizes source choice, upload/paste/manual input panels, validation summaries, preview tables, row selection, progress states, disabled submit reasons, and final result summaries. Feature routes still own parsing, validation rules, duplicate/merge semantics, permissions, and persistence.
+`patterns/bulk-import-workspace` is the shared foundation for operational import workflows. It standardizes upload/paste/manual input panels, validation summaries, preview tables, row selection, progress states, disabled submit reasons, and final result summaries. Feature routes still own parsing, validation rules, duplicate/merge semantics, permissions, and persistence.
 
 ```svelte
 <script lang="ts">
@@ -552,15 +550,6 @@ Component Catalog coverage:
 
 <BulkImportWorkspace.Root ariaLabel="Personnel import workspace" {step}>
 	<BulkImportWorkspace.Header title="Personnel import" step="Step 1" />
-
-	<BulkImportWorkspace.SourcePicker label="Import source">
-		<BulkImportWorkspace.SourceOption
-			label="Upload"
-			selected={source === 'upload'}
-			onSelect={() => (source = 'upload')}
-		/>
-		<BulkImportWorkspace.SourceOption label="Paste" selected={source === 'paste'} onSelect={() => (source = 'paste')} />
-	</BulkImportWorkspace.SourcePicker>
 
 	<BulkImportWorkspace.InputPanel title="Upload rows">
 		<BulkImportWorkspace.FileInput bind:files label="Upload personnel file" error={fileError} />
@@ -588,8 +577,6 @@ Public components:
 
 - `Root`: import workspace shell. Props: `ariaLabel?`, `step?`, `children`. Pass the route's current step key as `step`. When it changes with focus inside this Root, Root holds focus on itself while the step's markup is replaced, so neither the browser nor a dialog's focus trap moves it. Focus then returns to a control that survived the change, or moves to the new step's first `h2` or `h3`. Inside a dialog the whole dialog counts as the Root, because its footer holds the step controls, and focus on the dialog itself counts as held. A step without a heading, such as `ProgressState`, keeps focus held until a later step renders one, unless the user moves focus elsewhere first. Focus outside the Root when the step changes stays where it is. Render one Root around every step so it sees the change.
 - `Header`: title, description, step label, and metadata.
-- `SourcePicker`: accessible radio-group-style source chooser.
-- `SourceOption`: selectable upload/paste/manual choice.
 - `InputPanel`: shared section for upload, paste, manual, template, or example controls.
 - `FileInput`: shared file input presentation using `ui/field` and `ui/input`.
 - `PasteInput`: shared textarea presentation using `ui/field` and `ui/textarea`.
@@ -619,14 +606,14 @@ Import validation/result state guidance:
 
 Route-level visual override ban:
 
-- Routes must not restyle the import workspace, source cards, input panels, validation summary, preview table, footer, or result summary locally.
+- Routes must not restyle the import workspace, input panels, validation summary, preview table, footer, or result summary locally.
 - If an import workflow needs a durable capability the shared API cannot express, add it centrally and prove it in `docs/component-catalog.md`.
 
 Migration notes:
 
 - Personnel bulk import/merge should migrate first because it already uses the new dialog and DataTable foundations but still contains route-local import source, preview, and result markup.
 - Critical Tasks task import and completion import should follow because they share the same upload-preview-import-result state machine with domain-specific validation.
-- Training bulk import should follow after paste/upload source choice settles in the shared API.
+- Training bulk import should follow.
 - Calendar bulk status add/remove/import should migrate after the import workspace proves partial-success and disabled-row handling.
 
 Compatibility note: the legacy `src/lib/components/ui/BulkImportTable.svelte` helper has been removed. Import flows should compose `BulkImportWorkspace.PreviewTable`, `BulkImportWorkspace.RowStatus`, `BulkImportWorkspace.ValidationSummary`, and route-owned parsing/mapping utilities.

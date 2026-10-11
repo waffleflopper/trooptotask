@@ -146,6 +146,31 @@ describe('/dashboard page', () => {
 		expect(screen.getByRole('status').textContent?.trim()).toBe('Invitation declined.');
 	});
 
+	it('refreshes after an accepted invitation only while the dashboard is still open', async () => {
+		const { default: Page } = await import('./+page.svelte');
+		const refreshes: string[] = [];
+		const view = render(Page, { props: { data: invitationData(), form: null } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Accept invitation to Bravo Company' }));
+		await enhanceRequests[0](
+			frameworkOutcome(
+				{ type: 'success', status: 200 },
+				{ applyForm: async () => {}, invalidate: async () => void refreshes.push('open') }
+			)
+		);
+		await waitFor(() => expect(screen.getByRole('status').textContent?.trim()).toBe('Joined Bravo Company.'));
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Accept invitation to Bravo Company' }));
+		view.unmount();
+		await enhanceRequests[1](
+			frameworkOutcome(
+				{ type: 'success', status: 200 },
+				{ applyForm: async () => {}, away: true, invalidate: async () => void refreshes.push('left') }
+			)
+		);
+
+		expect(refreshes).toEqual(['open']);
+	});
+
 	it.each([
 		[
 			'?/acceptInvitation',

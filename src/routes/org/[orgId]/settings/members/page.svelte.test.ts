@@ -317,6 +317,56 @@ describe('members settings page', () => {
 		await waitFor(() => expect(resend.getAttribute('aria-disabled')).toBeNull());
 	});
 
+	it('places a Resend error in its invitation when Invite is pressed while the Resend is pending', async () => {
+		const view = renderPage(null, true, [pendingInvite]);
+		const page = { applyForm: (form: unknown) => view.rerender({ form } as never) };
+		await fireEvent.click(screen.getByRole('button', { name: 'Resend invitation to pending@example.com' }));
+		await fireEvent.input(screen.getByLabelText('Email address'), { target: { value: 'new@example.com' } });
+		const invite = screen.getByRole('button', { name: 'Invite' });
+		await fireEvent.click(invite);
+
+		expect(heldSubmissions).toHaveLength(1);
+		expect(invite.getAttribute('aria-disabled')).toBe('true');
+
+		await heldSubmissions[0](
+			frameworkOutcome({ type: 'failure', status: 503, data: { inviteError: 'Unable to resend' } }, page)
+		);
+
+		const row = screen.getByText('pending@example.com', { ignore: '.sr-only' }).closest('.p-3') as HTMLElement;
+		await waitFor(() => expect(within(row).getByRole('alert').textContent?.trim()).toBe('Unable to resend'));
+		const inviteForm = screen.getByLabelText('Email address').closest('form')!;
+		expect(within(inviteForm).queryByRole('alert')).toBeNull();
+		expect((screen.getByLabelText('Email address') as HTMLInputElement).value).toBe('new@example.com');
+
+		await fireEvent.click(invite);
+		expect(heldSubmissions).toHaveLength(2);
+		expect(invite.textContent?.trim()).toBe('Inviting...');
+	});
+
+	it('ignores invitation responses that arrive after the page is gone', async () => {
+		const view = renderPage(null, true, [pendingInvite]);
+		await fireEvent.click(screen.getByRole('button', { name: 'Revoke invitation for pending@example.com' }));
+		const late = heldSubmissions[0];
+		const before = window.location.href;
+		view.unmount();
+
+		await late(
+			frameworkOutcome(
+				{ type: 'success', status: 200, data: { inviteSuccess: true, inviteMessage: 'Invitation revoked.' } },
+				{ applyForm: async () => {}, away: true }
+			)
+		);
+		await late(
+			frameworkOutcome(
+				{ type: 'failure', status: 403, data: { requiresStepUp: true } },
+				{ applyForm: async () => {}, away: true }
+			)
+		);
+
+		expect(toasts).toEqual([]);
+		expect(window.location.href).toBe(before);
+	});
+
 	it('confirms a Revoke with a toast and moves focus to the Members heading once the invitation leaves', async () => {
 		const view = renderPage(null, true, [pendingInvite]);
 		await fireEvent.click(screen.getByRole('button', { name: 'Revoke invitation for pending@example.com' }));
@@ -352,13 +402,19 @@ describe('members settings page', () => {
 		const sheet = screen.getByRole('dialog', { name: 'Manage Access' });
 		await fireEvent.click(document.getElementById('scope-groups-alpha') as HTMLElement);
 		await fireEvent.click(within(sheet).getByRole('checkbox', { name: '1st Platoon' }));
-		await fireEvent.click(within(sheet).getByRole('button', { name: /^Save/ }));
+		const save = within(sheet).getByRole('button', { name: /^Save/ });
+		const alertsWhenScrolled: Array<string | undefined> = [];
+		save.scrollIntoView = () =>
+			void alertsWhenScrolled.push(sheet.querySelector('[role="alert"]')?.textContent?.trim());
+		save.focus();
+		await fireEvent.click(save);
 
 		await heldSubmissions[0](frameworkOutcome(serverError, { applyForm: (form) => view.rerender({ form } as never) }));
 
 		await waitFor(() => expect(within(sheet).getByRole('alert').textContent?.trim()).toBe(requestErrorText));
 		expect(within(sheet).getByRole('checkbox', { name: '1st Platoon' }).getAttribute('aria-checked')).toBe('true');
 		expect(document.activeElement).toBe(within(sheet).getByRole('button', { name: 'Save 1 change' }));
+		expect(alertsWhenScrolled).toEqual([requestErrorText]);
 	});
 
 	it('closes the sheet after a saved access change and returns focus to that member’s Manage button', async () => {

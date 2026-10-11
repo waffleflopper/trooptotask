@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { onDestroy } from 'svelte';
 	import type { PageProps } from './$types';
 	import { Edit, RefreshCw, Search, Trash2 } from '@lucide/svelte';
 	import type { SubmitFunction } from '@sveltejs/kit';
@@ -32,8 +33,12 @@
 	import { pluralize } from '../settingsWorkspaceFormatters';
 
 	let { data, form }: PageProps = $props();
+	let active = true;
+	onDestroy(() => {
+		active = false;
+	});
+	const isCurrent = () => active;
 
-	let inviteLoading = $state(false);
 	let accessLoading = $state(false);
 	let memberSearch = $state('');
 	let pendingRemoveMemberForm = $state<HTMLFormElement | null>(null);
@@ -44,9 +49,11 @@
 	let accessOpener = $state<HTMLElement | null>(null);
 	let accessSaveButton = $state<HTMLButtonElement | null>(null);
 	let memberRequestError = $state<string | null>(null);
-	// Invite, Resend and Revoke share the `inviteError` outcome; this names the invitation row that produced it.
-	let invitationActionId = $state<string | null>(null);
-	let invitationPendingId = $state<string | null>(null);
+	// Invite, Resend and Revoke share the `inviteError` outcome, so one request runs at a time and its owner,
+	// the new invitation or a pending invitation's id, places the outcome.
+	const NEW_INVITATION = 'new';
+	let invitationOwner = $state(NEW_INVITATION);
+	let invitationPending = $state(false);
 	let invitationRequestError = $state<string | null>(null);
 	let membersHeading = $state<HTMLHeadingElement | null>(null);
 	let pendingInvitesHeading = $state<HTMLHeadingElement | null>(null);
@@ -72,25 +79,39 @@
 	const accessLanes = memberAccess.accessLanes;
 	const capabilityOptions = memberAccess.capabilityOptions;
 	const governanceRoleExplanation = explainPolicyReasonCode('denied:governance-role');
+	const inviteLoading = $derived(invitationPending && invitationOwner === NEW_INVITATION);
 	const sessionEmail = $derived((data.session as { user?: { email?: string | null } } | null | undefined)?.user?.email);
 
-	const invitationRowEnhance: SubmitFunction = ({ formData, submitter, cancel }) => {
-		if (invitationPendingId) return cancel();
-		invitationActionId = invitationPendingId = String(formData.get('inviteId'));
+	const invitationEnhance: SubmitFunction = ({ formData, submitter, cancel }) => {
+		if (invitationPending) return cancel();
+		const owner = formData.has('inviteId') ? String(formData.get('inviteId')) : NEW_INVITATION;
+		invitationOwner = owner;
+		invitationPending = true;
 		invitationRequestError = null;
 		return async (outcome) => {
+			if (!active) return;
 			const { result } = outcome;
 			if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) {
-				invitationPendingId = null;
+				invitationPending = false;
 				return;
 			}
-			invitationRequestError = await settleAction(outcome, {
-				focus: () => [submitter as HTMLElement | null, pendingInvitesHeading, membersHeading],
-				settled: () => (invitationPendingId = null)
+			await settleAction(outcome, {
+				isCurrent,
+				settled: (error) => {
+					invitationRequestError = error;
+					invitationPending = false;
+					if (owner === NEW_INVITATION && result.type === 'success') memberAccess.clearInviteEmail();
+				},
+				focus: () => [submitter as HTMLElement | null, pendingInvitesHeading, membersHeading]
 			});
-			if (result.type === 'success' && typeof result.data?.inviteMessage === 'string') {
+			// The invite form confirms in place; a pending invitation row confirms with a toast.
+			if (
+				active &&
+				owner !== NEW_INVITATION &&
+				result.type === 'success' &&
+				typeof result.data?.inviteMessage === 'string'
+			)
 				toastStore.success(result.data.inviteMessage);
-			}
 		};
 	};
 
@@ -99,13 +120,18 @@
 		removingMemberId = String(formData.get('membershipId'));
 		memberRequestError = null;
 		return async (outcome) => {
+			if (!active) return;
 			if (outcome.result.type === 'failure' && redirectToSensitiveActionStepUp(outcome.result.data)) {
 				removingMemberId = null;
 				return;
 			}
-			memberRequestError = await settleAction(outcome, {
-				focus: () => [formElement.querySelector('button'), membersHeading],
-				settled: () => (removingMemberId = null)
+			await settleAction(outcome, {
+				isCurrent,
+				settled: (error) => {
+					memberRequestError = error;
+					removingMemberId = null;
+				},
+				focus: () => [formElement.querySelector('button'), membersHeading]
 			});
 		};
 	};
@@ -155,36 +181,13 @@
 				<h3 id="invite-member-heading" class="text-lg font-semibold tracking-tight">Invite Member</h3>
 				<p class="text-sm text-muted-foreground">Create an invite they can accept after signing in.</p>
 			</div>
-			<form
-				method="POST"
-				action="?/invite"
-				use:enhance={({ submitter, cancel }) => {
-					if (inviteLoading) return cancel();
-					inviteLoading = true;
-					invitationActionId = null;
-					invitationRequestError = null;
-					return async (outcome) => {
-						const { result } = outcome;
-						if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) {
-							inviteLoading = false;
-							return;
-						}
-						invitationRequestError = await settleAction(outcome, {
-							focus: () => [submitter as HTMLElement | null],
-							settled: () => {
-								inviteLoading = false;
-								if (result.type === 'success') memberAccess.clearInviteEmail();
-							}
-						});
-					};
-				}}
-			>
-				{#if invitationActionId === null && (invitationRequestError || form?.inviteError)}
+			<form method="POST" action="?/invite" use:enhance={invitationEnhance}>
+				{#if invitationOwner === NEW_INVITATION && (invitationRequestError || form?.inviteError)}
 					<Alert.Root variant="destructive" class="mb-4">
 						<Alert.Description>{invitationRequestError ?? form?.inviteError}</Alert.Description>
 					</Alert.Root>
 				{/if}
-				{#if invitationActionId === null && form?.inviteSuccess && !invitationRequestError}
+				{#if invitationOwner === NEW_INVITATION && form?.inviteSuccess && !invitationRequestError}
 					<Alert.Root role="status" class="mb-4">
 						<Alert.Description>{form.inviteMessage ?? 'Invitation created.'}</Alert.Description>
 					</Alert.Root>
@@ -233,10 +236,10 @@
 						{/if}
 					</Field.Root>
 					<div class="flex items-end">
-						<!-- aria-disabled keeps focus on the pressed button while the invitation is pending. -->
+						<!-- aria-disabled keeps focus on the pressed button while an invitation request is pending. -->
 						<Button
 							type="submit"
-							aria-disabled={inviteLoading ? 'true' : undefined}
+							aria-disabled={invitationPending ? 'true' : undefined}
 							aria-busy={inviteLoading || undefined}>{inviteLoading ? 'Inviting...' : 'Invite'}</Button
 						>
 					</div>
@@ -424,35 +427,35 @@
 								<Badge variant={getFunnelStatusVariant(invite.funnelStatus)}>{invite.funnelStatusLabel}</Badge>
 								<p class="text-sm text-muted-foreground">{invite.funnelStatusDetail}</p>
 							</div>
-							{#if invitationActionId === invite.id && (invitationRequestError || form?.inviteError)}
+							{#if invitationOwner === invite.id && (invitationRequestError || form?.inviteError)}
 								<Alert.Root variant="destructive">
 									<Alert.Description>{invitationRequestError ?? form?.inviteError}</Alert.Description>
 								</Alert.Root>
 							{/if}
 						</div>
 						<div class="flex flex-wrap gap-2">
-							<form method="POST" action="?/resendInvite" use:enhance={invitationRowEnhance}>
+							<form method="POST" action="?/resendInvite" use:enhance={invitationEnhance}>
 								<input type="hidden" name="inviteId" value={invite.id} />
 								<!-- Resend stays enabled in every funnel state; it is insufficient in some, never futile. -->
 								<Button
 									type="submit"
 									variant="outline"
 									size="sm"
-									aria-disabled={invitationPendingId ? 'true' : undefined}
-									aria-busy={invitationPendingId === invite.id || undefined}
+									aria-disabled={invitationPending ? 'true' : undefined}
+									aria-busy={(invitationPending && invitationOwner === invite.id) || undefined}
 								>
 									<RefreshCw />
 									Resend <span class="sr-only">invitation to {invite.email}</span>
 								</Button>
 							</form>
-							<form method="POST" action="?/revokeInvite" use:enhance={invitationRowEnhance}>
+							<form method="POST" action="?/revokeInvite" use:enhance={invitationEnhance}>
 								<input type="hidden" name="inviteId" value={invite.id} />
 								<Button
 									type="submit"
 									variant="outline"
 									size="sm"
-									aria-disabled={invitationPendingId ? 'true' : undefined}
-									aria-busy={invitationPendingId === invite.id || undefined}
+									aria-disabled={invitationPending ? 'true' : undefined}
+									aria-busy={(invitationPending && invitationOwner === invite.id) || undefined}
 								>
 									Revoke <span class="sr-only">invitation for {invite.email}</span>
 								</Button>
@@ -527,17 +530,20 @@
 					accessRequestError = null;
 					memberRequestError = null;
 					return async (outcome) => {
+						if (!active) return;
 						const { result } = outcome;
 						if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) {
 							accessLoading = false;
 							return;
 						}
-						accessRequestError = await settleAction(outcome, {
-							focus: () => [accessSaveButton, accessOpener, membersHeading],
-							settled: () => {
+						await settleAction(outcome, {
+							isCurrent,
+							settled: (error) => {
+								accessRequestError = error;
 								accessLoading = false;
 								if (result.type === 'success') closeAccessSheet(memberId);
-							}
+							},
+							focus: () => [accessSaveButton, accessOpener, membersHeading]
 						});
 					};
 				}}

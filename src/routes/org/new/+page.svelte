@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { page } from '$app/state';
+	import { onDestroy } from 'svelte';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
@@ -17,6 +18,10 @@
 	let unexpectedError = $state<string | null>(null);
 	// A new submission supersedes the earlier failure, so its text goes while the retry is in flight.
 	const failure = $derived(loading ? undefined : form?.error);
+	let active = true;
+	onDestroy(() => {
+		active = false;
+	});
 	// Only a 400 rejects the name itself; other failures belong to the request.
 	const nameError = $derived(page.status === 400 && failure ? failure : '');
 	const requestError = $derived(unexpectedError ?? (failure && !nameError ? failure : ''));
@@ -53,9 +58,13 @@
 					loading = true;
 					unexpectedError = null;
 					return async (outcome) => {
-						unexpectedError = await settleAction(outcome, {
-							focus: () => [nameError ? nameInput : null, createButton],
-							settled: () => (loading = false)
+						await settleAction(outcome, {
+							isCurrent: () => active,
+							settled: (error) => {
+								unexpectedError = error;
+								loading = false;
+							},
+							focus: () => [nameError ? nameInput : null, createButton]
 						});
 					};
 				}}

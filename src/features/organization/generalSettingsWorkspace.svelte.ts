@@ -21,6 +21,8 @@ export class GeneralSettingsWorkspace {
 	pendingSlugAction = $state<SlugAction | null>(null);
 	slugFormAction = $state('?/updateSlug');
 
+	#isCurrent = () => this.#active;
+
 	dispose(): void {
 		this.#active = false;
 	}
@@ -82,10 +84,13 @@ export class GeneralSettingsWorkspace {
 		this.nameLoading = true;
 		this.nameRequestError = null;
 		return async (outcome) => {
-			if (!this.#active) return;
-			this.nameRequestError = await settleAction(outcome, {
-				focus,
-				settled: () => (this.nameLoading = false)
+			await settleAction(outcome, {
+				isCurrent: this.#isCurrent,
+				settled: (error) => {
+					this.nameRequestError = error;
+					this.nameLoading = false;
+				},
+				focus
 			});
 		};
 	}
@@ -107,17 +112,18 @@ export class GeneralSettingsWorkspace {
 		this.slugLoading = true;
 		this.slugRequestError = null;
 		return async (outcome) => {
-			if (!this.#active) return;
-			this.slugRequestError = await settleAction(outcome, {
-				focus: focus(action),
-				settled: () => {
+			await settleAction(outcome, {
+				isCurrent: this.#isCurrent,
+				settled: (error) => {
+					this.slugRequestError = error;
 					this.slugLoading = false;
 					this.slugFormAction = '?/updateSlug';
-				}
+				},
+				focus: focus(action)
 			});
 			// A saved custom URL answers with a redirect to the General page at its new path.
 			const { result } = outcome;
-			if (result.type === 'redirect' && result.location.endsWith('/settings/general'))
+			if (this.#active && result.type === 'redirect' && result.location.endsWith('/settings/general'))
 				toastStore.success(
 					action === 'clear'
 						? 'Custom URL removed. The app path uses the Organization ID again.'

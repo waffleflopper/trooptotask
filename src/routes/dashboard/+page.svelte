@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { onDestroy } from 'svelte';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import { resolve } from '$app/paths';
 	import MoonIcon from '@lucide/svelte/icons/moon';
@@ -13,6 +14,10 @@
 	import { settleAction } from '$lib/utils/settleAction';
 
 	let { data, form } = $props();
+	let active = true;
+	onDestroy(() => {
+		active = false;
+	});
 	let loading = $state<string | null>(null);
 	let respondedInvitationId = $state<string | null>(null);
 	let requestError = $state<string | null>(null);
@@ -35,11 +40,15 @@
 			requestError = null;
 			return async (outcome) => {
 				// A resolved invitation leaves the list; a failed one keeps its row and button.
-				requestError = await settleAction(outcome, {
-					focus: () => [formElement.querySelector('button'), workspacesHeading],
-					settled: () => (loading = null)
+				await settleAction(outcome, {
+					isCurrent: () => active,
+					settled: (error) => {
+						requestError = error;
+						loading = null;
+						if (outcome.result.type === 'success') showSuccess(successText);
+					},
+					focus: () => [formElement.querySelector('button'), workspacesHeading]
 				});
-				if (outcome.result.type === 'success') showSuccess(successText);
 			};
 		};
 	}

@@ -19,6 +19,7 @@
 	onDestroy(() => {
 		active = false;
 	});
+	const isCurrent = () => active;
 
 	let deleteLoading = $state(false);
 	let transferLoading = $state(false);
@@ -45,15 +46,15 @@
 				transferLoading = false;
 				return;
 			}
-			const error = await settleAction(outcome, {
-				focus: () => [transferButton],
-				settled: () => {
-					if (!active) return;
+			await settleAction(outcome, {
+				isCurrent,
+				settled: (error) => {
+					transferRequestError = error;
 					transferLoading = false;
 					if (result.type === 'success') transferState.closeTransferConfirmation();
-				}
+				},
+				focus: () => [transferButton]
 			});
-			if (active) transferRequestError = error;
 		};
 	};
 
@@ -68,13 +69,14 @@
 				deleteLoading = false;
 				return;
 			}
-			const error = await settleAction(outcome, {
-				focus: () => [deleteButton],
-				settled: () => {
-					if (active) deleteLoading = false;
-				}
+			await settleAction(outcome, {
+				isCurrent,
+				settled: (error) => {
+					deleteRequestError = error;
+					deleteLoading = false;
+				},
+				focus: () => [deleteButton]
 			});
-			if (active) deleteRequestError = error;
 		};
 	};
 

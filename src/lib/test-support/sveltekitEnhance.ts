@@ -5,6 +5,10 @@ export interface FrameworkPage {
 	applyForm: (data: unknown) => Promise<void>;
 	/** Renders the redirect target, like the `goto` that `applyAction` awaits. */
 	navigate?: (location: string) => Promise<void>;
+	/** Reloads page data, like the `invalidateAll` a success awaits. A test can hold or reject it. */
+	invalidate?: () => Promise<void>;
+	/** The user left the action's page, so a success or failure no longer applies `form`. */
+	away?: boolean;
 	form?: HTMLFormElement;
 	location?: string;
 	errorPage?: boolean;
@@ -12,13 +16,14 @@ export interface FrameworkPage {
 
 /**
  * The `update` that SvelteKit 2 passes to a `use:enhance` callback, reduced to its observable effects:
- * a success resets the form, applies `form` and moves focus to the body; a failure applies `form`;
- * an error swaps the document for the error page; a redirect navigates and moves focus to the body.
+ * a success resets the form, reloads page data, applies `form` and moves focus to the body; a failure applies
+ * `form`; neither applies `form` once the user left the page; an error swaps the document for the error page;
+ * a redirect navigates and moves focus to the body.
  */
 export function frameworkOutcome(result: ActionResult, page: FrameworkPage) {
 	return {
 		result,
-		update: async ({ reset = true }: { reset?: boolean; invalidateAll?: boolean } = {}) => {
+		update: async ({ reset = true, invalidateAll = true }: { reset?: boolean; invalidateAll?: boolean } = {}) => {
 			if (result.type === 'redirect') {
 				page.location = result.location;
 				await page.navigate?.(result.location);
@@ -32,7 +37,11 @@ export function frameworkOutcome(result: ActionResult, page: FrameworkPage) {
 				document.body.replaceChildren(errorPage);
 				return;
 			}
-			if (result.type === 'success' && reset) page.form?.reset();
+			if (result.type === 'success') {
+				if (reset) page.form?.reset();
+				if (invalidateAll) await page.invalidate?.();
+			}
+			if (page.away) return;
 			await page.applyForm(result.data ?? null);
 			if (result.type === 'success') focusBody();
 		}

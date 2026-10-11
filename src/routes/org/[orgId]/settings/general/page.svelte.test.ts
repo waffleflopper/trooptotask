@@ -329,6 +329,24 @@ describe('General settings feedback and focus', () => {
 		expect(toasts.at(-1)).toBe('Custom URL removed. The app path uses the Organization ID again.');
 	});
 
+	it('does not confirm a custom URL once the Organization changes while the redirect loads', async () => {
+		const view = render(Page, { data: data('a', null), form: null, params: { orgId: 'a' } });
+		await fireEvent.input(screen.getByLabelText('Custom path'), { target: { value: 'new-path' } });
+		enhancements.get('?/updateSlug')!({ cancel: () => {} });
+		await tick();
+		await fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Update URL' }));
+		const switchOrganization = () => view.rerender({ form: null, data: data('b', null) });
+
+		await callbacks.at(-1)!(
+			frameworkOutcome(
+				{ type: 'redirect', status: 303, location: '/org/new-path/settings/general' },
+				{ applyForm: async () => {}, navigate: switchOrganization }
+			)
+		);
+
+		expect(toasts).toEqual([]);
+	});
+
 	it('does not confirm a custom URL when the save redirects to sign-in', async () => {
 		render(Page, { data: data('a', null), form: null, params: { orgId: 'a' } });
 		await fireEvent.input(screen.getByLabelText('Custom path'), { target: { value: 'new-path' } });

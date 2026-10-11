@@ -1,7 +1,12 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import { enhanceRequests, frameworkOutcome, simulateEnhance } from '$lib/test-support/sveltekitEnhance';
+import {
+	enhanceRequests,
+	frameworkOutcome,
+	simulateEnhance,
+	type FrameworkPage
+} from '$lib/test-support/sveltekitEnhance';
 
 const { pageState } = vi.hoisted(() => ({ pageState: { status: 200 } }));
 vi.mock('$app/forms', () => ({ enhance: simulateEnhance }));
@@ -65,7 +70,9 @@ describe('/org/new page', () => {
 
 	it('associates a rejected name with its field and returns focus to it', async () => {
 		pageState.status = 400;
-		render(Page, { props: { data: makePageData(), form: { error: 'Organization name is required' } } });
+		const view = render(Page, {
+			props: { data: makePageData(), form: { error: 'Organization name is required' } }
+		});
 
 		const name = screen.getByLabelText('Organization Name') as HTMLInputElement;
 		expect(name.getAttribute('aria-invalid')).toBe('true');
@@ -79,7 +86,7 @@ describe('/org/new page', () => {
 		await enhanceRequests[0](
 			frameworkOutcome(
 				{ type: 'failure', status: 400, data: { error: 'Organization name is required' } },
-				{ applyForm: async () => {} }
+				{ applyForm: (form) => view.rerender({ form: form as never }) }
 			)
 		);
 		await waitFor(() => expect(document.activeElement).toBe(name));
@@ -141,6 +148,19 @@ describe('/org/new page', () => {
 		await waitFor(() =>
 			expect(screen.getByRole('alert').textContent?.trim()).toBe("The request didn't complete. Try again.")
 		);
+	});
+
+	it('does not navigate to the new Organization when its response arrives after the user left', async () => {
+		const view = render(Page, { props: { data: makePageData(), form: null } });
+		await fireEvent.input(screen.getByLabelText('Organization Name'), { target: { value: '2nd Battalion' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Create Organization' }));
+		const late = enhanceRequests[0];
+		view.unmount();
+		const page: FrameworkPage = { applyForm: async () => {} };
+
+		await late(frameworkOutcome({ type: 'redirect', status: 303, location: '/org/2nd-battalion' }, page));
+
+		expect(page.location).toBeUndefined();
 	});
 
 	it('reports a request failure in an Alert without marking the name invalid', () => {

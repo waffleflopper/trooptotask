@@ -100,6 +100,12 @@ describe('onboarding history page', () => {
 		}
 	);
 
+	it('does not render its own main landmark inside the app shell', () => {
+		renderHistory([]);
+
+		expect(screen.queryByRole('main')).toBeNull();
+	});
+
 	it('does not render redundant archived summary cards', () => {
 		const onboardings: PersonnelOnboarding[] = [];
 

@@ -113,6 +113,11 @@ afterEach(async () => {
 });
 
 describe('Onboarding retained interactions', () => {
+	it('does not render its own main landmark inside the app shell', () => {
+		mount();
+		expect(screen.queryByRole('main')).toBeNull();
+	});
+
 	it('disables Start when no template steps are available', () => {
 		onboardingTemplateStore.load(onboardingTemplateStore.templates, [], 'org-1');
 		mount();

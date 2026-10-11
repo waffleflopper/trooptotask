@@ -268,3 +268,29 @@ it('closes the open results on Escape and keeps focus in the search', async () =
 	expect(document.activeElement).toBe(input);
 	expect((input as HTMLInputElement).value).toBe('alpha');
 });
+
+it('keeps results dismissed by Escape during a lookup closed when the lookup completes', async () => {
+	vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+	const pending = pendingResponse();
+	vi.stubGlobal(
+		'fetch',
+		vi.fn(() => pending.promise)
+	);
+	render(AdminSearch);
+	const input = screen.getByRole('combobox', { name: 'Search platform admin records' });
+	input.focus();
+	await fireEvent.input(input, { target: { value: 'alpha' } });
+	await vi.advanceTimersByTimeAsync(250);
+	expect(screen.getByRole('listbox').getAttribute('aria-busy')).toBe('true');
+	await fireEvent.keyDown(input, { key: 'Escape' });
+	pending.resolve(userResult('alpha'));
+	await vi.advanceTimersByTimeAsync(0);
+	expect(screen.queryByRole('listbox')).toBeNull();
+	expect(input.getAttribute('aria-expanded')).toBe('false');
+	expect(document.activeElement).toBe(input);
+
+	input.blur();
+	input.focus();
+	await vi.advanceTimersByTimeAsync(0);
+	expect(screen.getByRole('option', { name: /alpha@example.test/ })).toBeTruthy();
+});

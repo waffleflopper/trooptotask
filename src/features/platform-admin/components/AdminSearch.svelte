@@ -11,7 +11,8 @@
 	let isOpen = $state(false);
 	let loading = $state(false);
 	let errorMsg = $state('');
-	let focused = false;
+	// Focus or typing asks for the list; blur and Escape dismiss it, including results still on their way.
+	let listWanted = false;
 	let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 	let blurTimer: ReturnType<typeof setTimeout> | undefined;
 	let requestController: AbortController | undefined;
@@ -32,13 +33,14 @@
 		errorMsg = '';
 		loading = false;
 		isOpen = false;
+		listWanted = true;
 		const searchTerm = query.trim();
 		if (searchTerm.length < 3) return;
 		const controller = new AbortController();
 		requestController = controller;
 		debounceTimer = setTimeout(async () => {
 			loading = true;
-			isOpen = focused;
+			isOpen = listWanted;
 			try {
 				const res = await fetch(`/admin/api/search?q=${encodeURIComponent(searchTerm)}`, { signal: controller.signal });
 				if (!res.ok) throw new Error('Search unavailable');
@@ -47,11 +49,11 @@
 					throw new Error('Search unavailable');
 				if (controller.signal.aborted) return;
 				results = nextResults;
-				isOpen = focused;
+				isOpen = listWanted;
 			} catch {
 				if (controller.signal.aborted) return;
 				errorMsg = 'Search could not be loaded. Try typing your search again.';
-				isOpen = focused;
+				isOpen = listWanted;
 			} finally {
 				if (!controller.signal.aborted) loading = false;
 			}
@@ -59,7 +61,7 @@
 	}
 
 	function close() {
-		focused = false;
+		listWanted = false;
 		clearTimeout(blurTimer);
 		blurTimer = setTimeout(() => {
 			isOpen = false;
@@ -86,7 +88,7 @@
 			bind:value={query}
 			oninput={handleInput}
 			onfocus={() => {
-				focused = true;
+				listWanted = true;
 				clearTimeout(blurTimer);
 				if (hasResults || loading || errorMsg) isOpen = true;
 			}}
@@ -94,6 +96,7 @@
 			onkeydown={(event) => {
 				if (event.key === 'Escape' && isOpen) {
 					event.preventDefault();
+					listWanted = false;
 					isOpen = false;
 				}
 			}}

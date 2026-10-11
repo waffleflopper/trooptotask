@@ -29,16 +29,7 @@ function data(orgId: string, orgUrlSegment = `slug-${orgId}`) {
 								created_at: '2026-04-26T12:00:00Z',
 								denial_reason: null
 							}
-						],
-						auditLog: {
-							logs: [],
-							totalCount: 0,
-							last30DaysCount: 0,
-							page: 1,
-							limit: 9,
-							actionFilter: '',
-							availableActions: []
-						}
+						]
 					}
 				}
 			}

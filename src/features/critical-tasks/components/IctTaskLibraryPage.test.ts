@@ -100,6 +100,7 @@ describe('IctTaskLibraryPage', () => {
 		personnelIctCompletionsStore.load(completions, 'org-other');
 		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
 
+		expect(screen.getByRole('status', { name: 'Loading ICT task library' })).toBeTruthy();
 		const newTask = screen.getByRole('button', { name: 'New Task' }) as HTMLButtonElement;
 		expect(newTask.disabled).toBe(true);
 		expect(newTask.title).toBe('Critical Tasks are still loading.');

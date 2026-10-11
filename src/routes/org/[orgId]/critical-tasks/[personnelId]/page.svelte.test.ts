@@ -113,7 +113,7 @@ describe('critical tasks personnel detail route', () => {
 			}
 		});
 
-		expect(screen.getByText('Loading critical task record...')).toBeTruthy();
+		expect(screen.getByRole('status', { name: 'Loading critical task record' })).toBeTruthy();
 		expect(screen.queryByText('Applicable Critical Tasks')).toBeNull();
 	});
 

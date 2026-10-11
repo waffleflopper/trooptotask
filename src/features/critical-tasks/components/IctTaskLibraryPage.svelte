@@ -517,6 +517,7 @@
 				class="flex items-center justify-center gap-2 p-6 text-muted-foreground"
 				aria-live="polite"
 				role="status"
+				aria-label="Loading ICT task library"
 			>
 				<Spinner />
 				<p>Loading ICT task library...</p>

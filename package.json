@@ -27,8 +27,7 @@
 		"format:check": "prettier --check .",
 		"lint": "eslint .",
 		"lint:fix": "eslint --fix .",
-		"inventory:ui": "node ./scripts/ui-inventory.ts",
-		"audit:empty-titles": "node ./scripts/empty-title-levels.ts"
+		"inventory:ui": "node ./scripts/ui-inventory.ts"
 	},
 	"devDependencies": {
 		"@eslint/js": "^9.39.4",

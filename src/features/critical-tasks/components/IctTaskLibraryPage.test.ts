@@ -299,7 +299,7 @@ describe('IctTaskLibraryPage', () => {
 		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Import CSV' }));
-		await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText('Import behavior')));
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Import ICT Tasks' })));
 
 		await fireEvent.click(
 			within(screen.getByRole('region', { name: 'ICT task import workspace' })).getByRole('button', {

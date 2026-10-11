@@ -286,7 +286,10 @@
 		editing = false;
 		importingTasks = true;
 		await tick();
-		importRegion?.querySelector<HTMLElement>('select, input, button')?.focus();
+		const heading = importRegion?.querySelector<HTMLElement>('h2');
+		if (!heading) return;
+		heading.tabIndex = -1;
+		heading.focus();
 	}
 
 	async function cancelImport() {

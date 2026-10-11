@@ -7,7 +7,7 @@ import { frameworkOutcome } from '$lib/test-support/sveltekitEnhance';
 import Page from './+page.svelte';
 
 const { enhancements, stepUp } = vi.hoisted(() => ({
-	enhancements: new Map<string, (...args: never[]) => unknown>(),
+	enhancements: new Map<string, (input: { cancel: () => void }) => unknown>(),
 	stepUp: vi.fn(() => false)
 }));
 vi.mock('$app/forms', () => ({

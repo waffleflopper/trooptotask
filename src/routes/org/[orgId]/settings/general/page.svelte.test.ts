@@ -54,7 +54,7 @@ afterEach(async () => {
 });
 
 async function beginNameSave() {
-	await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+	await fireEvent.click(screen.getByRole('button', { name: 'Edit organization name' }));
 	enhancements.get('?/updateName')!({ cancel: () => {} });
 	await tick();
 	await fireEvent.click(screen.getByRole('button', { name: 'Update Name' }));
@@ -64,7 +64,7 @@ async function beginNameSave() {
 describe('General settings Organization lifetime', () => {
 	it('discards confirmations and drafts when switching between Organizations with equal profiles', async () => {
 		const view = render(Page, { data: data('a'), form: null, params: { orgId: 'a' } });
-		await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit organization name' }));
 		await fireEvent.input(screen.getByLabelText('Organization name'), { target: { value: 'Unsaved Alpha' } });
 		enhancements.get('?/updateName')!({ cancel: () => {} });
 		await tick();
@@ -72,7 +72,7 @@ describe('General settings Organization lifetime', () => {
 		await view.rerender({ data: data('b'), form: null });
 		expect(screen.queryByRole('dialog')).toBeNull();
 		expect(screen.queryByLabelText('Organization name')).toBeNull();
-		await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit organization name' }));
 		expect((screen.getByLabelText('Organization name') as HTMLInputElement).value).toBe('Example Organization');
 	});
 
@@ -173,4 +173,47 @@ describe('General settings Organization lifetime', () => {
 			expect(screen.getByRole('dialog', { name: 'Update custom URL?' })).toBeTruthy();
 		}
 	);
+});
+
+describe('General settings feedback and focus', () => {
+	it('moves focus into the name editor and back to its Edit button on cancel', async () => {
+		render(Page, { data: data('a'), form: null, params: { orgId: 'a' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit organization name' }));
+		await tick();
+		expect(document.activeElement).toBe(screen.getByLabelText('Organization name'));
+		await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+		await tick();
+		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Edit organization name' }));
+	});
+
+	it('announces a saved name as status and returns focus to Edit', async () => {
+		render(Page, { data: data('a'), form: { nameSuccess: true }, params: { orgId: 'a' } });
+		await tick();
+		expect(screen.getByRole('status').textContent?.trim()).toBe('Organization name updated.');
+		expect(screen.queryByRole('alert')).toBeNull();
+		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Edit organization name' }));
+	});
+
+	it('associates a rejected name with its field and focuses it', async () => {
+		render(Page, { data: data('a'), form: { error: 'Name is taken' }, params: { orgId: 'a' } });
+		await tick();
+		const name = screen.getByLabelText('Organization name');
+		expect(name.getAttribute('aria-invalid')).toBe('true');
+		expect(document.getElementById(name.getAttribute('aria-describedby') ?? '')?.textContent?.trim()).toBe(
+			'Name is taken'
+		);
+		expect(document.activeElement).toBe(name);
+	});
+
+	it('associates a rejected custom path with its field and focuses it', async () => {
+		render(Page, { data: data('a'), form: { slugError: 'Choose another URL' }, params: { orgId: 'a' } });
+		await tick();
+		const slug = screen.getByLabelText('Custom path');
+		expect(slug.getAttribute('aria-invalid')).toBe('true');
+		const descriptions = (slug.getAttribute('aria-describedby') ?? '')
+			.split(' ')
+			.map((id) => document.getElementById(id)?.textContent?.trim());
+		expect(descriptions).toContain('Choose another URL');
+		expect(document.activeElement).toBe(slug);
+	});
 });

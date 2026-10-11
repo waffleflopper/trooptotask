@@ -1,10 +1,12 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import { enhance } from '$app/forms';
 	import type { PageProps } from './$types';
 	import { Edit, RefreshCw, Search, Trash2 } from '@lucide/svelte';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import { explainPolicyReasonCode } from '$lib/access/policyDecisionExplanations';
 	import { redirectToSensitiveActionStepUp } from '$features/identity';
+	import * as Alert from '$lib/components/ui/alert/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as AppDialog from '$lib/components/ui/app-dialog/index.js';
@@ -36,6 +38,8 @@
 	let pendingRemoveMemberForm = $state<HTMLFormElement | null>(null);
 	let pendingRemoveMemberEmail = $state('');
 	let removingMemberId = $state<string | null>(null);
+	let accessErrorMemberId = $state<string | null>(null);
+	let membersHeading = $state<HTMLHeadingElement | null>(null);
 
 	const membersSection = $derived(data.membersSettings.sections.members);
 	const currentMember = $derived(data.membersSettings.currentMember);
@@ -67,7 +71,7 @@
 		};
 	};
 
-	const removeMemberEnhance: SubmitFunction = ({ formData }) => {
+	const removeMemberEnhance: SubmitFunction = ({ formData, formElement }) => {
 		removingMemberId = String(formData.get('membershipId'));
 		return async ({ result, update }) => {
 			try {
@@ -76,8 +80,20 @@
 			} finally {
 				removingMemberId = null;
 			}
+			await tick();
+			if (formElement.isConnected) formElement.querySelector('button')?.focus();
+			else membersHeading?.focus();
 		};
 	};
+
+	function closeAccessSheet(memberId: string) {
+		accessErrorMemberId = null;
+		memberAccess.closeMemberEditor(memberId);
+	}
+
+	function memberName(member: SettingsMemberAccessRow): string {
+		return member.email ?? `${member.userId.slice(0, 8)}...`;
+	}
 
 	function isCurrentMember(member: SettingsMemberAccessRow): boolean {
 		return Boolean(sessionEmail && member.email === sessionEmail);
@@ -130,10 +146,16 @@
 					};
 				}}
 			>
-				{#if form?.inviteError}<p class="text-sm text-destructive">{form.inviteError}</p>{/if}
-				{#if form?.inviteSuccess}<p class="text-sm text-muted-foreground">
-						{form.inviteMessage ?? 'Invitation created.'}
-					</p>{/if}
+				{#if form?.inviteError}
+					<Alert.Root variant="destructive" class="mb-4">
+						<Alert.Description>{form.inviteError}</Alert.Description>
+					</Alert.Root>
+				{/if}
+				{#if form?.inviteSuccess}
+					<Alert.Root role="status" class="mb-4">
+						<Alert.Description>{form.inviteMessage ?? 'Invitation created.'}</Alert.Description>
+					</Alert.Root>
+				{/if}
 				<input type="hidden" name="membershipRole" value={memberAccess.inviteMembershipRole} />
 				<div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_12rem_14rem_auto]">
 					<div class="grid gap-2">
@@ -223,13 +245,13 @@
 	<div class="rounded-lg border bg-card text-card-foreground">
 		<div class="flex flex-col gap-3 border-b p-4 md:flex-row md:items-center md:justify-between">
 			<div>
-				<h3 class="font-medium">Organization members</h3>
+				<h3 bind:this={membersHeading} tabindex="-1" class="font-medium outline-none">Organization members</h3>
 				<p class="text-sm text-muted-foreground">
 					{membersSection.rows.length}
 					{pluralize('member', membersSection.rows.length)}
 				</p>
 			</div>
-			<div class="flex items-center gap-3">
+			<div class="flex flex-wrap items-center gap-3">
 				<div class="relative">
 					<Label for="member-filter" class="sr-only">Filter members</Label>
 					<Search class="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -245,6 +267,20 @@
 			</div>
 		</div>
 
+		{#if form?.memberError || form?.accessSuccess}
+			<div class="border-b p-4">
+				{#if form?.memberError}
+					<Alert.Root variant="destructive">
+						<Alert.Description>{form.memberError}</Alert.Description>
+					</Alert.Root>
+				{:else}
+					<Alert.Root role="status">
+						<Alert.Description>Access updated.</Alert.Description>
+					</Alert.Root>
+				{/if}
+			</div>
+		{/if}
+
 		<div class="divide-y">
 			{#each filteredMembers as member (member.id)}
 				{@const accessShape = memberAccess.getMemberAccessShape(member)}
@@ -259,7 +295,7 @@
 					</div>
 					<div class="min-w-0 grid gap-2">
 						<div class="min-w-0">
-							<p class="truncate font-medium">{member.email ?? `${member.userId.slice(0, 8)}...`}</p>
+							<p class="truncate font-medium">{memberName(member)}</p>
 							<p class="truncate text-sm text-muted-foreground">{memberAccess.formatScopeSet(accessShape.scopeSet)}</p>
 						</div>
 						<div class="flex flex-wrap gap-2">
@@ -278,6 +314,7 @@
 							<Button type="button" variant="outline" size="sm" onclick={() => memberAccess.openMemberEditor(member)}>
 								<Edit />
 								{isOwner ? 'Manage role & access' : 'Manage access'}
+								<span class="sr-only">for {memberName(member)}</span>
 							</Button>
 							<form method="POST" action="?/removeMember" use:enhance={removeMemberEnhance}>
 								<input type="hidden" name="membershipId" value={member.id} />
@@ -293,7 +330,7 @@
 									}}
 								>
 									<Trash2 />
-									Remove
+									Remove <span class="sr-only">{memberName(member)}</span>
 								</Button>
 							</form>
 						{/if}
@@ -310,10 +347,6 @@
 			{/each}
 		</div>
 	</div>
-
-	{#if form?.memberError}<p class="text-sm text-destructive">{form.memberError}</p>{/if}
-	{#if form?.accessError}<p class="text-sm text-destructive">{form.accessError}</p>{/if}
-	{#if form?.accessSuccess}<p class="text-sm text-muted-foreground">Access updated.</p>{/if}
 
 	{#if membersSection.invitations.length > 0}
 		<section
@@ -344,12 +377,14 @@
 								<!-- Resend stays enabled in every funnel state; it is insufficient in some, never futile. -->
 								<Button type="submit" variant="outline" size="sm">
 									<RefreshCw />
-									Resend
+									Resend <span class="sr-only">invitation to {invite.email}</span>
 								</Button>
 							</form>
 							<form method="POST" action="?/revokeInvite" use:enhance={stepUpEnhance}>
 								<input type="hidden" name="inviteId" value={invite.id} />
-								<Button type="submit" variant="outline" size="sm">Revoke</Button>
+								<Button type="submit" variant="outline" size="sm">
+									Revoke <span class="sr-only">invitation for {invite.email}</span>
+								</Button>
 							</form>
 						</div>
 					</div>
@@ -389,7 +424,7 @@
 <Sheet.Root
 	open={Boolean(selectedMember)}
 	onOpenChange={(open) => {
-		if (!open && selectedMember && !accessLoading) memberAccess.closeMemberEditor(selectedMember.id);
+		if (!open && selectedMember && !accessLoading) closeAccessSheet(selectedMember.id);
 	}}
 >
 	{#if selectedMember}
@@ -415,11 +450,12 @@
 				class="grid gap-5 px-4 pb-4"
 				use:enhance={() => {
 					accessLoading = true;
+					accessErrorMemberId = selectedMember.id;
 					return async ({ result, update }) => {
 						try {
 							if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) return;
 							await update();
-							if (result.type === 'success') memberAccess.closeMemberEditor(selectedMember.id);
+							if (result.type === 'success') closeAccessSheet(selectedMember.id);
 						} finally {
 							accessLoading = false;
 						}
@@ -564,10 +600,14 @@
 						<input type="hidden" name="memberPreset" value={selectedPreset} />
 					{/if}
 
+					{#if form?.accessError && accessErrorMemberId === selectedMember.id}
+						<Alert.Root variant="destructive">
+							<Alert.Description>{form.accessError}</Alert.Description>
+						</Alert.Root>
+					{/if}
+
 					<Sheet.Footer>
-						<Button type="button" variant="outline" onclick={() => memberAccess.closeMemberEditor(selectedMember.id)}>
-							Cancel
-						</Button>
+						<Button type="button" variant="outline" onclick={() => closeAccessSheet(selectedMember.id)}>Cancel</Button>
 						<Button type="submit" disabled={accessLoading || changeCount === 0}>
 							{#if accessLoading}
 								Saving...

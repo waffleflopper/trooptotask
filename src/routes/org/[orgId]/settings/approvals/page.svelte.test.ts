@@ -61,7 +61,7 @@ function deferred<T>() {
 }
 
 async function deny(reason: string) {
-	await fireEvent.click(screen.getByRole('button', { name: 'Deny' }));
+	await fireEvent.click(screen.getByRole('button', { name: /^Deny/ }));
 	await fireEvent.input(screen.getByRole('textbox', { name: 'Denial reason' }), { target: { value: reason } });
 }
 
@@ -73,6 +73,7 @@ function currentDraft(value: string, busy = false) {
 }
 
 function noFeedback() {
+	expect(screen.queryByRole('alert')).toBeNull();
 	expect(feedback.error).not.toHaveBeenCalled();
 	expect(feedback.warning).not.toHaveBeenCalled();
 	expect(feedback.success).not.toHaveBeenCalled();
@@ -100,7 +101,7 @@ describe('Organization approval review lifetime', () => {
 		const send = vi.fn().mockReturnValueOnce(a.promise).mockReturnValueOnce(b.promise);
 		vi.stubGlobal('fetch', send);
 		const view = mount();
-		await fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+		await fireEvent.click(screen.getByRole('button', { name: /^Approve/ }));
 		await view.rerender({ data: data('b') });
 		await deny('B still required');
 		await fireEvent.click(screen.getByRole('button', { name: /Confirm/ }));
@@ -132,7 +133,7 @@ describe('Organization approval review lifetime', () => {
 		noFeedback();
 		expect(navigation.invalidateAll).not.toHaveBeenCalled();
 		current.resolve(Response.json({ message: 'Current A unavailable' }, { status: 503 }));
-		await waitFor(() => expect(feedback.error).toHaveBeenCalledOnce());
+		await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
 		currentDraft('Current A reason');
 	});
 
@@ -143,7 +144,7 @@ describe('Organization approval review lifetime', () => {
 			vi.fn(() => pending.promise)
 		);
 		const view = mount();
-		await fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+		await fireEvent.click(screen.getByRole('button', { name: /^Approve/ }));
 		await view.rerender({ data: data('b') });
 		await deny('B remains current');
 		if (kind === 'response') pending.resolve(Response.json({ message: 'A unavailable' }, { status: 503 }));
@@ -159,7 +160,7 @@ describe('Organization approval review lifetime', () => {
 		const read = vi.fn(() => body.promise);
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, json: read }));
 		const view = mount();
-		await fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+		await fireEvent.click(screen.getByRole('button', { name: /^Approve/ }));
 		await waitFor(() => expect(read).toHaveBeenCalledOnce());
 		await view.rerender({ data: data('b') });
 		await deny('B still current');
@@ -185,7 +186,7 @@ describe('Organization approval review lifetime', () => {
 					.mockReturnValueOnce(b.promise)
 			);
 			const view = mount();
-			await fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+			await fireEvent.click(screen.getByRole('button', { name: /^Approve/ }));
 			await waitFor(() => expect(navigation.invalidateAll).toHaveBeenCalledOnce());
 			await view.rerender({ data: data('b') });
 			await deny('B pending');
@@ -209,7 +210,7 @@ describe('Organization approval review lifetime', () => {
 			vi.fn(() => pending.promise)
 		);
 		const view = mount();
-		await fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+		await fireEvent.click(screen.getByRole('button', { name: /^Approve/ }));
 		view.unmount();
 		pending.resolve(new Response(null, { status: 200 }));
 		await settle(pending.promise);
@@ -229,9 +230,9 @@ describe('Organization approval review lifetime', () => {
 		expect(send).toHaveBeenCalledOnce();
 		expect(send).toHaveBeenCalledWith('/org/slug-a/api/deletion-requests/review', expect.any(Object));
 		pending.resolve(Response.json({ message: 'Review unavailable' }, { status: 503 }));
-		await waitFor(() => expect(feedback.error).toHaveBeenCalledOnce());
+		await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
 		currentDraft('Same organization draft');
-		const activity = screen.getByRole('complementary', { name: 'Settings activity' });
+		const activity = screen.getByRole('region', { name: 'Approval Requests' });
 		expect(within(activity).getByText('a@example.com')).toBeTruthy();
 	});
 });

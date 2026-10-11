@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, tick } from 'svelte';
 	import { enhance } from '$app/forms';
 	import * as Alert from '$lib/components/ui/alert/index.js';
 	import * as AppDialog from '$lib/components/ui/app-dialog/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
+	import * as Field from '$lib/components/ui/field/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
-	import { Label } from '$lib/components/ui/label/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import type { SettingsOrganizationSectionData, GeneralSettingsActionData } from './generalSettingsTypes';
 	import { GeneralSettingsWorkspace } from './generalSettingsWorkspace.svelte';
@@ -19,9 +19,35 @@
 	onDestroy(() => workspace.dispose());
 	let nameFormEl = $state<HTMLFormElement | null>(null);
 	let slugFormEl = $state<HTMLFormElement | null>(null);
+	let editButton = $state<HTMLButtonElement | null>(null);
+	let nameInput = $state<HTMLInputElement | null>(null);
+	let slugInput = $state<HTMLInputElement | null>(null);
+
+	async function focusAfterRender(target: () => HTMLElement | null) {
+		await tick();
+		target()?.focus();
+	}
+
+	function openNameEditor() {
+		workspace.startNameEdit();
+		void focusAfterRender(() => nameInput);
+	}
+
+	function closeNameEditor() {
+		workspace.cancelNameEdit();
+		void focusAfterRender(() => editButton);
+	}
 
 	$effect(() => {
-		if (form?.nameSuccess) workspace.nameEditing = false;
+		if (form?.nameSuccess) {
+			workspace.nameEditing = false;
+			void focusAfterRender(() => editButton);
+		} else if (form?.error) {
+			workspace.nameEditing = true;
+			void focusAfterRender(() => nameInput);
+		} else if (form?.slugError) {
+			void focusAfterRender(() => slugInput);
+		}
 	});
 </script>
 
@@ -43,32 +69,40 @@
 			use:enhance={({ cancel }) => workspace.submitName(cancel)}
 		>
 			{#if form?.nameSuccess}
-				<Alert.Root variant="success" class="mb-3">
+				<Alert.Root variant="success" role="status" class="mb-3">
 					<Alert.Description>Organization name updated.</Alert.Description>
-				</Alert.Root>
-			{/if}
-			{#if form?.error}
-				<Alert.Root variant="destructive" class="mb-3">
-					<Alert.Description>{form.error}</Alert.Description>
 				</Alert.Root>
 			{/if}
 			{#if workspace.nameEditing}
 				<div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto_auto]">
-					<div class="grid gap-2">
-						<Label for="name">Organization name</Label>
-						<Input id="name" name="name" type="text" value={organization.name ?? ''} required maxlength={100} />
-					</div>
+					<!-- Explicit IDs associate a server error in server-rendered HTML, before Field registration runs. -->
+					<Field.Root data-invalid={form?.error ? true : undefined}>
+						<Field.Label for="name">Organization name</Field.Label>
+						<Field.Control>
+							<Input
+								bind:ref={nameInput}
+								id="name"
+								name="name"
+								type="text"
+								value={organization.name ?? ''}
+								required
+								maxlength={100}
+								aria-invalid={form?.error ? true : undefined}
+								aria-describedby={form?.error ? 'organization-name-error' : undefined}
+							/>
+						</Field.Control>
+						{#if form?.error}
+							<Field.Error id="organization-name-error">{form.error}</Field.Error>
+						{/if}
+					</Field.Root>
 					<div class="flex items-end">
 						<Button type="submit" disabled={workspace.nameLoading || !organization.canUpdateProfile}>
 							{workspace.nameLoading ? 'Saving...' : 'Save'}
 						</Button>
 					</div>
 					<div class="flex items-end">
-						<Button
-							type="button"
-							variant="outline"
-							onclick={() => workspace.cancelNameEdit()}
-							disabled={workspace.nameLoading}>Cancel</Button
+						<Button type="button" variant="outline" onclick={closeNameEditor} disabled={workspace.nameLoading}
+							>Cancel</Button
 						>
 					</div>
 				</div>
@@ -79,7 +113,9 @@
 						<p class="text-base font-medium">{organization.name ?? 'Unnamed organization'}</p>
 					</div>
 					{#if organization.canUpdateProfile}
-						<Button type="button" variant="outline" size="sm" onclick={() => workspace.startNameEdit()}>Edit</Button>
+						<Button bind:ref={editButton} type="button" variant="outline" size="sm" onclick={openNameEditor}>
+							Edit <span class="sr-only">organization name</span>
+						</Button>
 					{/if}
 				</div>
 			{/if}
@@ -99,11 +135,6 @@
 						/org/1-11-bde/calendar.
 					</p>
 				</div>
-				{#if form?.slugError}
-					<Alert.Root variant="destructive">
-						<Alert.Description>{form.slugError}</Alert.Description>
-					</Alert.Root>
-				{/if}
 				{#if form?.slugSuccess}
 					<Alert.Root variant="success">
 						<Alert.Description
@@ -112,22 +143,27 @@
 					</Alert.Root>
 				{/if}
 				<div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto_auto]">
-					<div class="grid gap-2">
-						<Label for="urlSlug">Custom path</Label>
-						<Input
-							id="urlSlug"
-							name="urlSlug"
-							type="text"
-							value={organization.urlSlug ?? ''}
-							placeholder="1-11-bde"
-							autocomplete="off"
-							aria-describedby="url-slug-help"
-							maxlength={ORGANIZATION_SLUG_MAX_LENGTH}
-						/>
-						<p id="url-slug-help" class="text-sm text-muted-foreground">
-							Current app path: /org/{organization.urlSegment}
-						</p>
-					</div>
+					<Field.Root data-invalid={form?.slugError ? true : undefined}>
+						<Field.Label for="urlSlug">Custom path</Field.Label>
+						<Field.Control>
+							<Input
+								bind:ref={slugInput}
+								id="urlSlug"
+								name="urlSlug"
+								type="text"
+								value={organization.urlSlug ?? ''}
+								placeholder="1-11-bde"
+								autocomplete="off"
+								aria-invalid={form?.slugError ? true : undefined}
+								aria-describedby={form?.slugError ? 'url-slug-help url-slug-error' : 'url-slug-help'}
+								maxlength={ORGANIZATION_SLUG_MAX_LENGTH}
+							/>
+						</Field.Control>
+						<Field.Description id="url-slug-help">Current app path: /org/{organization.urlSegment}</Field.Description>
+						{#if form?.slugError}
+							<Field.Error id="url-slug-error">{form.slugError}</Field.Error>
+						{/if}
+					</Field.Root>
 					<div class="flex items-end">
 						<Button type="submit" disabled={workspace.slugLoading || !organization.canUpdateUrlSlug}>
 							{workspace.slugLoading ? 'Saving...' : organization.urlSlug ? 'Update URL' : 'Set URL'}

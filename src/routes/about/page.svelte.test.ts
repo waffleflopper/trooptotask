@@ -5,7 +5,15 @@ import Page from './+page.svelte';
 
 afterEach(cleanup);
 
-function bodyLinks(user: { id: string } | null) {
+const member = {
+	id: 'synthetic-user',
+	app_metadata: {},
+	user_metadata: {},
+	aud: 'authenticated',
+	created_at: '2026-09-25T00:00:00Z'
+};
+
+function bodyLinks(user: typeof member | null) {
 	const { container } = render(Page, { props: { data: { session: null, user } } });
 	return within(container.querySelector('main')!);
 }
@@ -19,7 +27,7 @@ describe('about page actions', () => {
 	});
 
 	it('sends a signed-in member to the dashboard instead of the access request', () => {
-		const main = bodyLinks({ id: 'user-1' });
+		const main = bodyLinks(member);
 
 		expect(main.getByRole('link', { name: 'Go to Dashboard' }).getAttribute('href')).toBe('/dashboard?show=all');
 		expect(main.queryByRole('link', { name: 'Request access' })).toBeNull();

@@ -62,9 +62,7 @@
 					<Alert.Title>Access Requests</Alert.Title>
 					<Alert.Description>{data.pendingAccessRequests} pending review.</Alert.Description>
 					{#if data.accessiblePages.includes('access-requests')}
-						<Alert.Action>
-							<Button href="/admin/access-requests" size="sm" variant="outline">Open Queue</Button>
-						</Alert.Action>
+						<Button href="/admin/access-requests" size="sm" variant="outline" class="mt-1 w-fit">Open Queue</Button>
 					{/if}
 				</Alert.Root>
 			{/if}
@@ -75,9 +73,7 @@
 						{data.pendingFeedback} unread item{data.pendingFeedback === 1 ? '' : 's'}.
 					</Alert.Description>
 					{#if data.accessiblePages.includes('feedback')}
-						<Alert.Action>
-							<Button href="/admin/feedback" size="sm" variant="outline">Review Notes</Button>
-						</Alert.Action>
+						<Button href="/admin/feedback" size="sm" variant="outline" class="mt-1 w-fit">Review Notes</Button>
 					{/if}
 				</Alert.Root>
 			{/if}

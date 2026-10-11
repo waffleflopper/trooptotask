@@ -104,6 +104,7 @@ describe('/dashboard page', () => {
 		});
 
 		expect(screen.getByRole('link', { name: /Alpha Company/ }).getAttribute('href')).toBe('/org/1-11-bde');
+		expect(screen.getAllByRole('main')).toHaveLength(1);
 	});
 
 	it('names invitation actions after their Organization', async () => {

@@ -19,6 +19,12 @@ describe('suspended page contact', () => {
 
 		expect(screen.getByText('support@trooptotask.org')).toBeTruthy();
 	});
+
+	it("is the page's one main landmark", () => {
+		render(Page);
+
+		expect(screen.getAllByRole('main')).toHaveLength(1);
+	});
 });
 
 it('lets a suspended user submit sign-out to the existing POST action', async () => {

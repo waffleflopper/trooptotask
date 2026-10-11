@@ -73,7 +73,7 @@
 	<title>Dashboard - Troop to Task</title>
 </svelte:head>
 
-<div class="min-h-screen bg-background p-4 sm:p-6 lg:p-12">
+<main class="min-h-screen bg-background p-4 sm:p-6 lg:p-12">
 	<Button
 		class="fixed top-5 right-5 z-10"
 		variant="outline"
@@ -255,4 +255,4 @@
 			</div>
 		</section>
 	</div>
-</div>
+</main>

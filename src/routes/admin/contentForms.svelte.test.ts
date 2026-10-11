@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
 import Announcements from './announcements/+page.svelte';
 import Feedback from './feedback/+page.svelte';
@@ -151,20 +151,71 @@ describe('announcement form ownership', () => {
 			expect(screen.getByLabelText('Title')).toHaveProperty('value', 'Unsent title');
 			expect(screen.getByRole('button', { name: 'Save' })).toHaveProperty('disabled', true);
 			expect(screen.queryByText(/Private (transport|provider) detail/)).toBeNull();
-			expect((await submit(screen.getByRole('button', { name: 'Deactivate' }))).cancel).toHaveBeenCalledOnce();
+			expect(
+				(await submit(screen.getByRole('button', { name: 'Deactivate Active notice' }))).cancel
+			).toHaveBeenCalledOnce();
 			expect(invalidateAll).not.toHaveBeenCalled();
 			await fireEvent.click(screen.getByRole('button', { name: 'Reload Announcements' }));
 			await waitFor(() => expect(screen.getByRole('button', { name: 'Save' })).toHaveProperty('disabled', false));
 			expect(invalidateAll).toHaveBeenCalledOnce();
 		}
 	);
-	it('cancels inside enhancement before a dismissed Delete can dispatch or lock the page', async () => {
-		vi.stubGlobal('confirm', vi.fn().mockReturnValue(false));
+	it('asks for confirmation naming the announcement before a Delete can dispatch or lock the page', async () => {
 		render(Announcements, { props: { data: announcementData(), form: null } });
-		const request = await submit(screen.getAllByRole('button', { name: 'Delete' })[0]);
+		const deleteButton = screen.getByRole('button', { name: 'Delete Active notice' });
+		const request = await submit(deleteButton);
 		expect(request.cancel).toHaveBeenCalledOnce();
-		expect(screen.getAllByRole('button', { name: 'Delete' })[0]).toHaveProperty('disabled', false);
+		const dialog = screen.getByRole('alertdialog');
+		expect(dialog.textContent).toContain('Delete "Active notice"? This cannot be undone.');
+		expect(deleteButton).toHaveProperty('disabled', false);
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+		await waitFor(() => expect(document.activeElement).toBe(deleteButton));
+		expect(screen.queryByRole('alertdialog')).toBeNull();
 		expect(invalidateAll).not.toHaveBeenCalled();
+	});
+
+	it('submits the Delete only after its confirmation and then focuses Create Announcement', async () => {
+		const view = render(Announcements, { props: { data: announcementData(), form: null } });
+		const deleteButton = screen.getByRole('button', { name: 'Delete Active notice' });
+		const requestSubmit = vi.spyOn(deleteButton.closest('form')!, 'requestSubmit').mockImplementation(() => {});
+		await submit(deleteButton);
+		await fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }));
+		expect(requestSubmit).toHaveBeenCalledWith(deleteButton);
+		const confirmed = await submit(deleteButton);
+		expect(confirmed.cancel).not.toHaveBeenCalled();
+		invalidateAll.mockImplementationOnce(async () => {
+			const remaining = announcementData();
+			await view.rerender({
+				data: { ...remaining, announcements: remaining.announcements.slice(1) },
+				form: null
+			});
+		});
+		await confirmed.finish(succeeded);
+		await waitFor(() =>
+			expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Create Announcement' }))
+		);
+	});
+
+	it('focuses Title on open and Create Announcement on cancel and after a save', async () => {
+		render(Announcements, { props: { data: announcementData(), form: null } });
+		await openAnnouncement();
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText('Title')));
+		await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+		await waitFor(() =>
+			expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Create Announcement' }))
+		);
+		await openAnnouncement();
+		await (await submit(screen.getByRole('button', { name: 'Save' }))).finish(succeeded);
+		await waitFor(() =>
+			expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Create Announcement' }))
+		);
+	});
+
+	it('returns focus to the toggled announcement button after its re-read', async () => {
+		render(Announcements, { props: { data: announcementData(), form: null } });
+		const toggle = screen.getByRole('button', { name: 'Deactivate Active notice' });
+		await (await submit(toggle)).finish(succeeded);
+		await waitFor(() => expect(document.activeElement).toBe(toggle));
 	});
 
 	it('retains the current create draft after failure and closes it only after its own successful retry', async () => {
@@ -206,26 +257,30 @@ describe('announcement form ownership', () => {
 				})
 		);
 		render(Announcements, { props: { data: announcementData(), form: null } });
-		const request = await submit(screen.getByRole('button', { name: 'Deactivate' }));
-		expect((await submit(screen.getByRole('button', { name: 'Activate' }))).cancel).toHaveBeenCalledOnce();
+		const request = await submit(screen.getByRole('button', { name: 'Deactivate Active notice' }));
+		expect((await submit(screen.getByRole('button', { name: 'Activate Peer notice' }))).cancel).toHaveBeenCalledOnce();
 		const completion = request.finish(succeeded);
 		await waitFor(() => expect(invalidateAll).toHaveBeenCalledOnce());
-		expect(screen.getByRole('button', { name: 'Activate' })).toHaveProperty('disabled', true);
-		expect((await submit(screen.getAllByRole('button', { name: 'Delete' })[1])).cancel).toHaveBeenCalledOnce();
+		expect(screen.getByRole('button', { name: 'Activate Peer notice' })).toHaveProperty('disabled', true);
+		expect((await submit(screen.getByRole('button', { name: 'Delete Peer notice' }))).cancel).toHaveBeenCalledOnce();
 		release();
 		await completion;
-		expect(screen.getByRole('button', { name: 'Activate' })).toHaveProperty('disabled', false);
+		expect(screen.getByRole('button', { name: 'Activate Peer notice' })).toHaveProperty('disabled', false);
 	});
 
 	it('blocks repeat mutations after read failure and recovers using a read-only reload', async () => {
 		invalidateAll.mockRejectedValueOnce(new Error('Private provider failure'));
 		render(Announcements, { props: { data: announcementData(), form: null } });
-		await (await submit(screen.getByRole('button', { name: 'Deactivate' }))).finish(succeeded);
-		expect(screen.getByRole('button', { name: 'Activate' })).toHaveProperty('disabled', true);
+		await (await submit(screen.getByRole('button', { name: 'Deactivate Active notice' }))).finish(succeeded);
+		expect(screen.getByRole('button', { name: 'Activate Peer notice' })).toHaveProperty('disabled', true);
 		expect(screen.queryByText('Private provider failure')).toBeNull();
-		expect((await submit(screen.getByRole('button', { name: 'Deactivate' }))).cancel).toHaveBeenCalledOnce();
+		expect(
+			(await submit(screen.getByRole('button', { name: 'Deactivate Active notice' }))).cancel
+		).toHaveBeenCalledOnce();
 		await fireEvent.click(screen.getByRole('button', { name: 'Reload Announcements' }));
-		await waitFor(() => expect(screen.getByRole('button', { name: 'Deactivate' })).toHaveProperty('disabled', false));
+		await waitFor(() =>
+			expect(screen.getByRole('button', { name: 'Deactivate Active notice' })).toHaveProperty('disabled', false)
+		);
 		expect(invalidateAll).toHaveBeenCalledTimes(2);
 	});
 
@@ -246,9 +301,9 @@ describe('announcement form ownership', () => {
 
 	it('retires pending state when the admitted actor changes', async () => {
 		const view = render(Announcements, { props: { data: announcementData(), form: null } });
-		const old = await submit(screen.getByRole('button', { name: 'Deactivate' }));
+		const old = await submit(screen.getByRole('button', { name: 'Deactivate Active notice' }));
 		await view.rerender({ data: announcementData('admin-b'), form: null });
-		expect(screen.getByRole('button', { name: 'Deactivate' })).toHaveProperty('disabled', false);
+		expect(screen.getByRole('button', { name: 'Deactivate Active notice' })).toHaveProperty('disabled', false);
 		await old.finish(failed);
 		expect(screen.queryByText('Current request failed')).toBeNull();
 	});

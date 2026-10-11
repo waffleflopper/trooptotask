@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { beforeNavigate, invalidateAll } from '$app/navigation';
-	import { onDestroy, untrack } from 'svelte';
+	import { onDestroy, tick, untrack } from 'svelte';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as Alert from '$lib/components/ui/alert';
 	import * as Card from '$lib/components/ui/card';
+	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import * as Empty from '$lib/components/ui/empty';
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
@@ -31,6 +32,11 @@
 	let editorLifetime = 0;
 	let requestId = 0;
 	let currentActor = untrack(() => data.adminUserId);
+	let createButton = $state<HTMLButtonElement | null>(null);
+	let titleInput = $state<HTMLInputElement | null>(null);
+	let reloadButton = $state<HTMLButtonElement | null>(null);
+	let deleteRequest = $state<{ title: string; form: HTMLFormElement; submitter: HTMLElement | null } | null>(null);
+	let confirmedDeleteForm: HTMLFormElement | null = null;
 
 	function retirePage() {
 		pageLifetime += 1;
@@ -39,6 +45,7 @@
 		needsReload = false;
 		actionError = null;
 		showCreateForm = false;
+		deleteRequest = null;
 	}
 	beforeNavigate(retirePage);
 	onDestroy(retirePage);
@@ -49,10 +56,35 @@
 		}
 	});
 
-	function setCreateForm(open: boolean) {
+	async function setCreateForm(open: boolean) {
 		editorLifetime += 1;
 		actionError = null;
 		showCreateForm = open;
+		await tick();
+		(open ? titleInput : createButton)?.focus();
+	}
+
+	// The pressed button disables while the write and its re-read run, which drops focus to the page.
+	async function restoreFocus(submitter: HTMLElement | null) {
+		await tick();
+		if (document.activeElement && document.activeElement !== document.body) return;
+		const pressed = submitter instanceof HTMLButtonElement && submitter.isConnected && !submitter.disabled;
+		(pressed ? submitter : (reloadButton ?? createButton ?? titleInput))?.focus();
+	}
+
+	function confirmDelete() {
+		if (!deleteRequest) return;
+		const { form, submitter } = deleteRequest;
+		deleteRequest = null;
+		confirmedDeleteForm = form;
+		form.requestSubmit(submitter);
+	}
+
+	async function cancelDelete() {
+		const submitter = deleteRequest?.submitter;
+		deleteRequest = null;
+		await tick();
+		submitter?.focus();
 	}
 
 	async function refreshAnnouncements(isCurrent: () => boolean) {
@@ -81,14 +113,18 @@
 
 	const submitAnnouncement =
 		(operation: Exclude<PendingOperation, { kind: 'reload' }>): SubmitFunction =>
-		({ cancel, formElement }) => {
-			if (
-				writesDisabled ||
-				(operation.kind === 'delete' && !confirm('Delete this announcement? This cannot be undone.'))
-			) {
+		({ cancel, formElement, submitter }) => {
+			if (writesDisabled) {
 				cancel();
 				return;
 			}
+			if (operation.kind === 'delete' && confirmedDeleteForm !== formElement) {
+				cancel();
+				const title = data.announcements.find((announcement) => announcement.id === operation.id)?.title ?? '';
+				deleteRequest = { title, form: formElement, submitter };
+				return;
+			}
+			confirmedDeleteForm = null;
 			const lifetime = pageLifetime;
 			const actorId = data.adminUserId;
 			const editor = editorLifetime;
@@ -119,7 +155,10 @@
 					if (operation.kind === 'create' && isCurrentEditor()) setCreateForm(false);
 					await refreshAnnouncements(isCurrent);
 				} finally {
-					if (isCurrent()) pending = null;
+					if (isCurrent()) {
+						pending = null;
+						void restoreFocus(submitter);
+					}
 				}
 			};
 		};
@@ -143,7 +182,7 @@
 	>
 		{#snippet actions()}
 			{#if !showCreateForm}
-				<Button onclick={() => setCreateForm(true)}>Create Announcement</Button>
+				<Button bind:ref={createButton} onclick={() => setCreateForm(true)}>Create Announcement</Button>
 			{/if}
 		{/snippet}
 	</PageShell.Header>
@@ -157,7 +196,7 @@
 		<Alert.Root variant="warning">
 			<Alert.Description>Check current announcements before another save.</Alert.Description>
 			<Alert.Action
-				><Button variant="outline" onclick={reloadAnnouncements} disabled={pending !== null}
+				><Button bind:ref={reloadButton} variant="outline" onclick={reloadAnnouncements} disabled={pending !== null}
 					>Reload Announcements</Button
 				></Alert.Action
 			>
@@ -174,7 +213,15 @@
 				<form method="POST" action="?/create" class="grid gap-4" use:enhance={submitAnnouncement({ kind: 'create' })}>
 					<Field.Root>
 						<Field.Label for="title">Title</Field.Label>
-						<Input id="title" name="title" type="text" maxlength={200} placeholder="Announcement title" required />
+						<Input
+							bind:ref={titleInput}
+							id="title"
+							name="title"
+							type="text"
+							maxlength={200}
+							placeholder="Announcement title"
+							required
+						/>
 					</Field.Root>
 					<Field.Root>
 						<Field.Label for="message">Message</Field.Label>
@@ -237,7 +284,12 @@
 								use:enhance={submitAnnouncement({ kind: 'toggle', id: announcement.id })}
 							>
 								<input type="hidden" name="id" value={announcement.id} />
-								<Button type="submit" variant="outline" disabled={writesDisabled}>
+								<Button
+									type="submit"
+									variant="outline"
+									disabled={writesDisabled}
+									aria-label={`${announcement.is_active ? 'Deactivate' : 'Activate'} ${announcement.title}`}
+								>
 									{#if pending?.kind === 'toggle' && pending.id === announcement.id}<Spinner />{/if}
 									{announcement.is_active ? 'Deactivate' : 'Activate'}
 								</Button>
@@ -248,7 +300,12 @@
 								use:enhance={submitAnnouncement({ kind: 'delete', id: announcement.id })}
 							>
 								<input type="hidden" name="id" value={announcement.id} />
-								<Button type="submit" variant="destructive" disabled={writesDisabled}>
+								<Button
+									type="submit"
+									variant="destructive"
+									disabled={writesDisabled}
+									aria-label={`Delete ${announcement.title}`}
+								>
 									{#if pending?.kind === 'delete' && pending.id === announcement.id}<Spinner />{/if}
 									Delete
 								</Button>
@@ -268,3 +325,13 @@
 		{/if}
 	</div>
 </PageShell.Root>
+
+{#if deleteRequest}
+	<ConfirmDialog
+		title="Delete announcement"
+		message={`Delete "${deleteRequest.title}"? This cannot be undone.`}
+		confirmLabel="Delete"
+		onConfirm={confirmDelete}
+		onCancel={cancelDelete}
+	/>
+{/if}

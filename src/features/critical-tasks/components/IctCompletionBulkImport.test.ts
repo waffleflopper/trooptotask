@@ -194,6 +194,9 @@ describe('IctCompletionBulkImport', () => {
 		expect(await screen.findByText('Import service unavailable')).toBeTruthy();
 		expect(dialog.hasAttribute('aria-busy')).toBe(false);
 		expect(screen.getByRole('button', { name: 'Import Checked Rows' })).toBeTruthy();
+		await waitFor(() =>
+			expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Review Completion Import' }))
+		);
 	});
 
 	it('imports checked valid rows and renders the created and updated summary', async () => {
@@ -253,7 +256,9 @@ describe('IctCompletionBulkImport', () => {
 			expect(screen.getByRole('table')).toBeTruthy();
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Import Checked Rows' }));
+		const importButton = screen.getByRole('button', { name: 'Import Checked Rows' });
+		importButton.focus();
+		await fireEvent.click(importButton);
 
 		await waitFor(() => {
 			expect(importBatch).toHaveBeenCalledWith({
@@ -273,7 +278,8 @@ describe('IctCompletionBulkImport', () => {
 			});
 		});
 
-		expect(await screen.findByText('Import Finished')).toBeTruthy();
+		const finished = await screen.findByRole('heading', { name: 'Import Finished' });
+		await waitFor(() => expect(document.activeElement).toBe(finished));
 		expect(screen.getByText('1 created')).toBeTruthy();
 		expect(screen.getByText('1 updated')).toBeTruthy();
 		expect(screen.getByText('1 failed')).toBeTruthy();

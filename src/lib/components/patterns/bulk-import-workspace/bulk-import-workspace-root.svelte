@@ -16,16 +16,22 @@
 	// Focus this Root lost stays owed through a step without a heading, such as a progress state.
 	let focusOwed = false;
 
+	// A dialog's footer holds its step controls, so inside a dialog the whole dialog owns the step's focus.
+	function focusOwner(): HTMLElement | null {
+		return root?.closest<HTMLElement>('[role="dialog"]') ?? root;
+	}
+
+	// A dialog's focus trap parks lost focus on the dialog itself.
 	function focusIsLost(): boolean {
 		const active = document.activeElement;
-		return !active || active === document.body || !active.isConnected;
+		return !active || active === document.body || !active.isConnected || active === focusOwner();
 	}
 
 	// Runs before the step's markup is replaced, so it can still see whether focus was inside.
 	$effect.pre(() => {
 		if (step === renderedStep) return;
 		renderedStep = step;
-		focusOwed = focusOwed ? focusIsLost() : !!root?.contains(document.activeElement);
+		focusOwed = focusOwed ? focusIsLost() : !!focusOwner()?.contains(document.activeElement);
 		if (!focusOwed) return;
 		void tick().then(() => {
 			if (!focusIsLost()) {

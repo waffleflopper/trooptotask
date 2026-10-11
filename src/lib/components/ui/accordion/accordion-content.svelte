@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Accordion as AccordionPrimitive } from 'bits-ui';
 	import { cn, type WithoutChild } from '$lib/utils.js';
+	import { getAccordionContentId } from './accordion-context.js';
 
 	let {
 		ref = $bindable(null),
@@ -8,10 +9,13 @@
 		children,
 		...restProps
 	}: WithoutChild<AccordionPrimitive.ContentProps> = $props();
+
+	const contentId = getAccordionContentId();
 </script>
 
 <AccordionPrimitive.Content
 	bind:ref
+	id={contentId}
 	data-slot="accordion-content"
 	class="data-open:animate-accordion-down data-closed:animate-accordion-up text-sm overflow-hidden"
 	{...restProps}

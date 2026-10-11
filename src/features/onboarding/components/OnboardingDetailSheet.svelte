@@ -7,6 +7,8 @@
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
 	import { Badge } from '$lib/components/ui/badge';
+	import * as Collapsible from '$lib/components/ui/collapsible';
+	import { Progress } from '$lib/components/ui/progress';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import CircleAlert from '@lucide/svelte/icons/circle-alert';
@@ -57,9 +59,7 @@
 				</span>
 			</Sheet.Description>
 			<div class="mt-3 flex items-center gap-3">
-				<div class="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-					<div class="h-full rounded-full bg-primary transition-all" style="width: {pct}%"></div>
-				</div>
+				<Progress value={pct} aria-label="Onboarding progress" class="flex-1" />
 				<span class="font-mono text-xs font-medium text-muted-foreground">
 					{progress.completed}/{progress.total}
 				</span>
@@ -111,39 +111,33 @@
 				{/each}
 
 				{#if completedSteps.length > 0}
-					<div class="mt-2 rounded-lg border border-border/60">
-						<button
-							onclick={() => (completedSectionOpen = !completedSectionOpen)}
-							class="flex w-full items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-accent/50"
-						>
-							<ChevronDown
-								class="h-3.5 w-3.5 text-muted-foreground transition-transform {completedSectionOpen
-									? ''
-									: '-rotate-90'}"
-							/>
-							<span class="flex-1 text-sm font-medium text-muted-foreground">Completed</span>
-							<span
-								class="flex h-5 min-w-5 items-center justify-center rounded-full bg-success/10 px-1.5 font-mono text-[10px] font-semibold text-success"
-							>
-								{completedSteps.length}
-							</span>
-						</button>
-
-						{#if completedSectionOpen}
-							<div class="flex flex-col gap-1.5 border-t border-border/40 p-2">
-								{#each completedSteps as step (step.id)}
-									<OnboardingStepRow
-										{step}
-										mode="completed"
-										{canManage}
-										{ctx}
-										expanded={expandedCompletedSteps.has(step.id)}
-										onToggleExpand={() => toggleCompletedStep(step.id)}
+					<Collapsible.Root bind:open={completedSectionOpen} class="mt-2 rounded-lg border border-border/60">
+						<Collapsible.Trigger>
+							{#snippet child({ props })}
+								<Button {...props} variant="ghost" size="none" class="w-full justify-start gap-2 px-3 py-2.5 text-left">
+									<ChevronDown
+										class="h-3.5 w-3.5 text-muted-foreground transition-transform {completedSectionOpen
+											? ''
+											: '-rotate-90'}"
 									/>
-								{/each}
-							</div>
-						{/if}
-					</div>
+									<span class="flex-1 text-sm font-medium text-muted-foreground">Completed</span>
+									<Badge variant="success">{completedSteps.length}</Badge>
+								</Button>
+							{/snippet}
+						</Collapsible.Trigger>
+						<Collapsible.Content class="flex flex-col gap-1.5 border-t border-border/40 p-2">
+							{#each completedSteps as step (step.id)}
+								<OnboardingStepRow
+									{step}
+									mode="completed"
+									{canManage}
+									{ctx}
+									expanded={expandedCompletedSteps.has(step.id)}
+									onToggleExpand={() => toggleCompletedStep(step.id)}
+								/>
+							{/each}
+						</Collapsible.Content>
+					</Collapsible.Root>
 				{/if}
 			</div>
 		</div>

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { OnboardingStepProgress } from '../onboarding.types';
+	import { Button } from '$lib/components/ui/button';
 	import Check from '@lucide/svelte/icons/check';
 
 	type StageState = 'done' | 'current' | 'upcoming';
@@ -50,15 +51,16 @@
 {#if stageViews.length > 0}
 	<div class={['mt-2 grid gap-1.5', inset && 'pl-7']} role="group" aria-label={`${step.stepName} paperwork stages`}>
 		{#each stageViews as stage (stage.index)}
-			<button
-				type="button"
+			<Button
+				variant="outline"
+				size="none"
 				disabled={!canManage}
+				aria-current={stage.state === 'current' ? 'step' : undefined}
 				onclick={() => selectStage(stage.value)}
 				class={[
-					'flex min-h-10 w-full items-center gap-2 rounded-md border px-2.5 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-70',
-					stage.state === 'current' && 'border-primary bg-primary/5',
-					stage.state === 'done' && 'border-success/30 bg-success/5',
-					stage.state === 'upcoming' && 'border-border/70 bg-background'
+					'min-h-10 w-full justify-start gap-2 px-2.5 py-2 text-left',
+					stage.state === 'current' && 'border-primary bg-primary/5 dark:bg-primary/5',
+					stage.state === 'done' && 'border-success/30 bg-success/5 dark:bg-success/5'
 				]}
 			>
 				<span
@@ -79,7 +81,7 @@
 				<span class="text-[0.68rem] font-medium uppercase text-muted-foreground">
 					{stage.state === 'done' ? 'Cleared' : stage.state === 'current' ? 'Current' : 'Queued'}
 				</span>
-			</button>
+			</Button>
 		{/each}
 	</div>
 {/if}

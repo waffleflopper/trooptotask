@@ -145,6 +145,83 @@ describe('Onboarding retained interactions', () => {
 		expect(screen.queryByRole('group', { name: 'Finance packet paperwork stages' })).toBeNull();
 	});
 
+	it('exposes card selection as a pressed state and opens that packet in the detail sheet', async () => {
+		mount();
+		const card = screen.getByRole('button', { name: /SGT Smith, Jane/ });
+
+		card.focus();
+		expect(document.activeElement).toBe(card);
+		expect(card.getAttribute('type')).toBe('button');
+		expect(card.getAttribute('aria-pressed')).toBe('false');
+
+		await fireEvent.click(card);
+
+		expect(card.getAttribute('aria-pressed')).toBe('true');
+		expect(await screen.findByRole('dialog')).toBeTruthy();
+		expect(screen.getByRole('progressbar', { name: 'Onboarding progress' }).getAttribute('aria-valuenow')).toBe('0');
+	});
+
+	it('collapses completed steps behind a labelled toggle that reports its state', async () => {
+		onboardingStore.load([{ ...packet, steps: [{ ...packet.steps[0], completed: true }] }], 'org-1');
+		mount();
+		await fireEvent.click(screen.getByRole('button', { name: /SGT Smith, Jane/ }));
+
+		const toggle = await screen.findByRole('button', { name: /Completed/ });
+		expect(toggle.getAttribute('aria-expanded')).toBe('false');
+		expect(toggle.textContent).toContain('1');
+		expect(screen.queryByRole('checkbox', { name: 'Mark Verify ID card incomplete' })).toBeNull();
+
+		await fireEvent.click(toggle);
+
+		expect(toggle.getAttribute('aria-expanded')).toBe('true');
+		expect(await screen.findByRole('checkbox', { name: 'Mark Verify ID card incomplete' })).toBeTruthy();
+
+		await fireEvent.click(toggle);
+
+		expect(toggle.getAttribute('aria-expanded')).toBe('false');
+		expect(screen.queryByRole('checkbox', { name: 'Mark Verify ID card incomplete' })).toBeNull();
+	});
+
+	it('lets a completed paperwork step expand its stage adjustment with a named toggle', async () => {
+		onboardingStore.load(
+			[
+				{
+					...packet,
+					steps: [
+						{
+							...packet.steps[0],
+							stepName: 'Finance packet',
+							stepType: 'paperwork',
+							stages: ['Submitted', 'Reviewed', 'Filed'],
+							currentStage: 'Filed',
+							completed: true
+						}
+					]
+				}
+			],
+			'org-1'
+		);
+		mount();
+		await fireEvent.click(screen.getByRole('button', { name: /SGT Smith, Jane/ }));
+		await fireEvent.click(await screen.findByRole('button', { name: /Completed/ }));
+
+		const toggle = await screen.findByRole('button', { name: 'Expand to adjust' });
+		const panelId = toggle.getAttribute('aria-controls');
+		expect(toggle.getAttribute('aria-expanded')).toBe('false');
+		expect(document.getElementById(panelId!)?.hasAttribute('hidden')).toBe(true);
+
+		await fireEvent.click(toggle);
+
+		const expanded = screen.getByRole('button', { name: 'Collapse' });
+		expect(expanded.getAttribute('aria-expanded')).toBe('true');
+		expect(document.getElementById(panelId!)?.hasAttribute('hidden')).toBe(false);
+		expect(
+			within(screen.getByRole('group', { name: 'Finance packet paperwork stages' })).getByRole('button', {
+				name: /Filed Current/
+			})
+		).toBeTruthy();
+	});
+
 	it('keeps a failed start draft in the actual pipeline and retries it without reselection', async () => {
 		const created = { ...packet, id: 'packet-2', personnelId: 'person-2' };
 		const fetchMock = vi

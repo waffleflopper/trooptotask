@@ -6,6 +6,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Spinner } from '$lib/components/ui/spinner';
+	import Check from '@lucide/svelte/icons/check';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import OnboardingPaperworkStageQueue from './OnboardingPaperworkStageQueue.svelte';
 
@@ -82,15 +83,7 @@
 				/>
 			{:else}
 				<div class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-success text-white">
-					<svg
-						width="12"
-						height="12"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="3"
-						aria-hidden="true"><path d="M20 6L9 17l-5-5" /></svg
-					>
+					<Check class="size-3 stroke-3" aria-hidden="true" />
 				</div>
 			{/if}
 			<span class="flex-1 text-sm font-medium text-muted-foreground line-through">
@@ -100,15 +93,16 @@
 				{STEP_TYPE_LABELS[step.stepType]}
 			</Badge>
 			{#if isExpandable}
-				<button
+				<Button
+					variant="ghost"
+					size="icon-xs"
 					onclick={onToggleExpand}
-					class="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
 					aria-label={expanded ? 'Collapse' : 'Expand to adjust'}
 					aria-expanded={expanded}
 					aria-controls={adjustmentPanelId}
 				>
 					<ChevronDown class="h-3.5 w-3.5 transition-transform {expanded ? '' : '-rotate-90'}" />
-				</button>
+				</Button>
 			{/if}
 		</div>
 		{#if isExpandable}

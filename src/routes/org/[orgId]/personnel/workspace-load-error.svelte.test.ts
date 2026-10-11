@@ -81,3 +81,16 @@ it.each([
 		expect(reload).toHaveBeenCalledTimes(1);
 	}
 );
+
+it.each([
+	['person record', DetailPage],
+	['import', ImportPage]
+])(
+	'shows the Personnel load error on the %s page when a refresh rejects under an already loaded layout',
+	async (_name, Page) => {
+		render(Page, { props: { data: rejectedRouteData() } as never });
+
+		expect((await screen.findByRole('alert')).textContent).toContain('Unable to load Personnel');
+		expect(screen.getByRole('button', { name: 'Retry Personnel' })).toBeTruthy();
+	}
+);

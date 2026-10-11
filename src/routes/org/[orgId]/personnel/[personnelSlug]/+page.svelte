@@ -5,6 +5,7 @@
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import type { Group } from '$features/personnel/contracts';
 	import { getAppShellContext } from '$features/app-shell';
+	import WorkspaceLoadError from '../../WorkspaceLoadError.svelte';
 
 	interface PersonnelLayoutData {
 		personnelDetailHeader: PersonnelDetailHeader;
@@ -46,7 +47,7 @@
 </script>
 
 {#if workspaceGroups.error}
-	<!-- The Personnel layout observes this same source and shows WorkspaceLoadError. -->
+	<WorkspaceLoadError subject="Personnel" />
 {:else}
 	<PersonnelDetailPageView
 		orgId={org.orgId}

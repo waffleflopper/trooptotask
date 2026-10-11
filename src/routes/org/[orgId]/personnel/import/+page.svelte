@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { getAppShellContext } from '$features/app-shell';
 	import { PersonnelImportPage } from '$features/personnel';
+	import WorkspaceLoadError from '../../WorkspaceLoadError.svelte';
 
 	let { data } = $props();
 
@@ -21,5 +22,5 @@
 		personnel={personnelWorkspace.data.personnel}
 	/>
 {:catch}
-	<!-- The Personnel layout observes this same source and shows WorkspaceLoadError. -->
+	<WorkspaceLoadError subject="Personnel" />
 {/await}

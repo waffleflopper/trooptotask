@@ -498,6 +498,7 @@
 					accessLoading = true;
 					accessErrorMemberId = memberId;
 					accessRequestError = null;
+					memberRequestError = null;
 					return async (outcome) => {
 						const { result } = outcome;
 						if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) {

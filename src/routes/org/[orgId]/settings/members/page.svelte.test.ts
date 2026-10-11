@@ -317,4 +317,26 @@ describe('members settings page', () => {
 		await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Manage Access' })).toBeNull());
 		expect(document.activeElement).toBe(manage);
 	});
+
+	it('replaces an earlier removal error with the saved access result', async () => {
+		const view = renderPage();
+		const page = { applyForm: (form: unknown) => view.rerender({ form } as never) };
+		await fireEvent.click(
+			within(memberRow('alpha@example.com')).getByRole('button', { name: 'Remove alpha@example.com' })
+		);
+		await fireEvent.click(screen.getByRole('button', { name: 'Remove member' }));
+		await heldSubmissions[0](frameworkOutcome(serverError, page));
+		await waitFor(() => screen.getByRole('alert'));
+
+		await fireEvent.click(within(memberRow('alpha@example.com')).getByRole('button', { name: /Manage/ }));
+		const sheet = screen.getByRole('dialog', { name: 'Manage Access' });
+		await fireEvent.click(document.getElementById('scope-groups-alpha') as HTMLElement);
+		await fireEvent.click(within(sheet).getByRole('checkbox', { name: '1st Platoon' }));
+		await fireEvent.click(within(sheet).getByRole('button', { name: /^Save/ }));
+		await heldSubmissions[1](frameworkOutcome({ type: 'success', status: 200, data: { accessSuccess: true } }, page));
+
+		await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Manage Access' })).toBeNull());
+		expect(screen.queryByRole('alert')).toBeNull();
+		expect(screen.getByText('Access updated.')).toBeTruthy();
+	});
 });

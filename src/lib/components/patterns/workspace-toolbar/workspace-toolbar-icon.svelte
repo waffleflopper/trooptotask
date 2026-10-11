@@ -5,6 +5,7 @@
 	import ClipboardCheck from '@lucide/svelte/icons/clipboard-check';
 	import ClipboardList from '@lucide/svelte/icons/clipboard-list';
 	import Download from '@lucide/svelte/icons/download';
+	import Plus from '@lucide/svelte/icons/plus';
 	import Printer from '@lucide/svelte/icons/printer';
 	import Settings from '@lucide/svelte/icons/settings';
 	import Upload from '@lucide/svelte/icons/upload';
@@ -16,27 +17,20 @@
 
 	let { icon }: Props = $props();
 
-	const Icon = $derived(
-		icon === 'book-open'
-			? BookOpen
-			: icon === 'calendar-days'
-				? CalendarDays
-				: icon === 'chart'
-					? BarChart3
-					: icon === 'clipboard-check'
-						? ClipboardCheck
-						: icon === 'clipboard-list'
-							? ClipboardList
-							: icon === 'download'
-								? Download
-								: icon === 'printer'
-									? Printer
-									: icon === 'settings'
-										? Settings
-										: icon === 'upload'
-											? Upload
-											: null
-	);
+	const icons = {
+		'book-open': BookOpen,
+		'calendar-days': CalendarDays,
+		chart: BarChart3,
+		'clipboard-check': ClipboardCheck,
+		'clipboard-list': ClipboardList,
+		download: Download,
+		plus: Plus,
+		printer: Printer,
+		settings: Settings,
+		upload: Upload
+	} satisfies Record<WorkspaceToolbarIcon, unknown>;
+
+	const Icon = $derived(icon ? icons[icon] : null);
 </script>
 
 {#if Icon}

@@ -40,6 +40,7 @@ For durable publication, follow [artifact packaging](../../../../docs/architectu
 - [Platform announcements, Feedback and Audit support](platform-support-content.md): admin content lifecycle, reduced Dashboard activity, paging, denial, persisted effects and recovery.
 - [Platform admin states](platform-admin-states.md): admin shell, global search, role-derived visibility, raw table/details/button mappings, dialogs, failed saves that keep entered values, URL filters and paging, and per-page loading, empty, error, denied, narrow and dark states.
 - [Sign in and sign out](sign-in.md): public gate, member session, account menu and profile rank, sign-out and form failure.
+- [Public and marketing pages](public-pages.md): Home, About, Security, Privacy and Terms; header and footer navigation, theme, FAQ, narrow header, signed-in state, contact links and no commercial or Duty Roster claims.
 - [Identity recovery, MFA and account security](identity-recovery-security.md): MFA challenge, password recovery and reset, invite activation and renewal, account setup, request access, security settings, suspension and link errors.
 - [App shell and saved preferences](shell-preferences.md): optional chrome, Training/Calendar persistence, pending saves, failures and user/Organization/session lifetime.
 - [Shared dialogs, date selection and tooltips](shared-ui.md): accessible descriptions, keyboard/focus restoration, and actual form consumers.

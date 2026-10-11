@@ -290,18 +290,27 @@ describe('SignInRosterModal', () => {
 		}
 	});
 
-	it('shows a list load error without clearing the roster array shape', async () => {
-		const fetchMock = vi.fn(async () => jsonResponse({ error: 'Sign-in rosters are unavailable.' }, false));
+	it('shows a list load failure with Retry instead of the empty state and a misleading total, then recovers', async () => {
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValueOnce(jsonResponse({ error: 'Sign-in rosters are unavailable.' }, false))
+			.mockResolvedValueOnce(jsonResponse({ rosters: [makeRoster()], total: 1 }));
 		vi.stubGlobal('fetch', fetchMock);
 
 		renderModal();
 
-		await waitFor(() => {
-			expect(screen.getByText('Sign-in rosters are unavailable.')).toBeTruthy();
-		});
+		const alert = await screen.findByRole('alert');
+		expect(alert.textContent).toContain('Sign-in rosters are unavailable.');
+		expect(screen.queryByText('No sign-in rosters yet.')).toBeNull();
+		expect(screen.queryByText(/\d+ total/)).toBeNull();
+		expect(screen.getAllByRole('button', { name: 'New Roster' })).toHaveLength(1);
 
-		expect(screen.getByRole('alert').textContent).toContain('Sign-in rosters are unavailable.');
-		expect(screen.getByText('No sign-in rosters yet.')).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+
+		await waitFor(() => expect(screen.getByText('Morning Formation')).toBeTruthy());
+		expect(screen.queryByRole('alert')).toBeNull();
+		expect(screen.getByText('1 total')).toBeTruthy();
+		expect(fetchMock).toHaveBeenCalledTimes(2);
 	});
 
 	it('persists rank and group filters in the generated roster payload', async () => {

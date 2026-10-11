@@ -582,7 +582,9 @@
 							Generate, reprint, and track signed attendance sheets from one place.
 						</p>
 					</div>
-					<Badge variant="outline">{total} total</Badge>
+					{#if !loadError}
+						<Badge variant="outline">{total} total</Badge>
+					{/if}
 				</Card.Root>
 
 				<Card.Root class="flex flex-wrap items-end gap-3 p-4">
@@ -624,6 +626,11 @@
 				{#if loadError}
 					<Alert.Root variant="destructive">
 						<Alert.Description>{loadError}</Alert.Description>
+						<Alert.Action>
+							<Button size="sm" variant="outline" type="button" onclick={() => fetchRosters(rosters.length === 0)}>
+								Retry
+							</Button>
+						</Alert.Action>
 					</Alert.Root>
 				{/if}
 
@@ -631,7 +638,7 @@
 					<div class="flex justify-center p-8">
 						<Spinner class="size-5 text-muted-foreground" />
 					</div>
-				{:else if rosters.length === 0}
+				{:else if rosters.length === 0 && !loadError}
 					<Empty.Root>
 						<Empty.Header>
 							<Empty.Title>No sign-in rosters yet.</Empty.Title>
@@ -642,7 +649,7 @@
 							</Empty.Content>
 						{/if}
 					</Empty.Root>
-				{:else}
+				{:else if rosters.length > 0}
 					<div class="grid gap-3">
 						{#each rosters as roster (roster.id)}
 							<Card.Root class="overflow-hidden" data-expanded={expandedId === roster.id || undefined}>

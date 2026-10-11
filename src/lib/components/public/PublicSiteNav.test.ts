@@ -1,10 +1,14 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
 import '@testing-library/jest-dom/vitest';
-import { cleanup, render, screen } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
+import { themeStore } from '$lib/stores/theme.svelte';
 import PublicSiteNav from './PublicSiteNav.svelte';
 
-afterEach(cleanup);
+afterEach(() => {
+	cleanup();
+	themeStore.setTheme('light');
+});
 
 describe('public navigation', () => {
 	it('keeps anonymous page, FAQ and access destinations available', () => {
@@ -24,5 +28,23 @@ describe('public navigation', () => {
 		expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('href', '/dashboard?show=all');
 		expect(screen.queryByRole('link', { name: 'Sign In' })).not.toBeInTheDocument();
 		expect(screen.queryByRole('link', { name: 'Request Access' })).not.toBeInTheDocument();
+	});
+
+	it('marks only the current page in the navigation', () => {
+		render(PublicSiteNav, { props: { user: null, active: 'security' } });
+
+		expect(screen.getByRole('link', { name: 'Security' })).toHaveAttribute('aria-current', 'page');
+		expect(screen.getByRole('link', { name: 'About' })).not.toHaveAttribute('aria-current');
+	});
+
+	it('switches the app theme from the toggle button', async () => {
+		render(PublicSiteNav, { props: { user: null } });
+		themeStore.setTheme('light');
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Toggle theme' }));
+		expect(themeStore.current).toBe('dark');
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Toggle theme' }));
+		expect(themeStore.current).toBe('light');
 	});
 });

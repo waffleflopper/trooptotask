@@ -1,199 +1,60 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+
+	const linkClass =
+		'font-heading text-[0.8125rem] font-medium tracking-[0.03em] text-muted-foreground no-underline transition-colors duration-[120ms] hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring';
+	const headingClass = 'mb-1 font-mono text-[10px] font-semibold tracking-[0.14em] text-muted-foreground uppercase';
+	const labelClass = 'font-mono text-[9px] font-medium tracking-[0.12em] text-muted-foreground uppercase';
 </script>
 
-<footer class="site-footer">
-	<div class="container">
-		<div class="footer__inner">
+<footer class="border-t border-border bg-background pt-12 pb-10">
+	<div class="mx-auto max-w-[1200px] px-8 max-sm:px-4">
+		<div class="grid grid-cols-[auto_1fr_auto] items-start gap-16 max-[900px]:grid-cols-1 max-[900px]:gap-10">
 			<div>
-				<div class="footer__brand">Troop<span>To</span>Task</div>
-				<div class="footer__tagline">Unit Readiness Platform</div>
-			</div>
-
-			<div class="footer__links">
-				<div class="footer__links-col">
-					<div class="footer__link-heading">Product</div>
-					<a href={resolve('/about')} class="footer__link">About</a>
-					<a href={resolve('/security')} class="footer__link">Security</a>
-					<a href={resolve('/#faq')} class="footer__link">FAQ</a>
+				<div class="font-heading text-[20px] font-extrabold tracking-[0.02em] text-foreground">
+					Troop<span class="text-accent">To</span>Task
 				</div>
-				<div class="footer__links-col">
-					<div class="footer__link-heading">Access</div>
-					<a href={resolve('/auth/request-access')} class="footer__link">Request Access</a>
-					<a href={resolve('/auth/login')} class="footer__link">Sign In</a>
-				</div>
-				<div class="footer__links-col">
-					<div class="footer__link-heading">Legal</div>
-					<a href={resolve('/privacy')} class="footer__link">Privacy Policy</a>
-					<a href={resolve('/terms')} class="footer__link">Terms of Use</a>
+				<div class="mt-2 font-mono text-[10px] font-medium tracking-[0.12em] text-muted-foreground uppercase">
+					Unit Readiness Platform
 				</div>
 			</div>
 
-			<div class="footer__legal">
+			<div class="flex gap-12 max-sm:flex-col max-sm:gap-8">
+				<div class="flex flex-col gap-3">
+					<div class={headingClass}>Product</div>
+					<a href={resolve('/about')} class={linkClass}>About</a>
+					<a href={resolve('/security')} class={linkClass}>Security</a>
+					<a href={resolve('/#faq')} class={linkClass}>FAQ</a>
+				</div>
+				<div class="flex flex-col gap-3">
+					<div class={headingClass}>Access</div>
+					<a href={resolve('/auth/request-access')} class={linkClass}>Request Access</a>
+					<a href={resolve('/auth/login')} class={linkClass}>Sign In</a>
+				</div>
+				<div class="flex flex-col gap-3">
+					<div class={headingClass}>Legal</div>
+					<a href={resolve('/privacy')} class={linkClass}>Privacy Policy</a>
+					<a href={resolve('/terms')} class={linkClass}>Terms of Use</a>
+				</div>
+			</div>
+
+			<div
+				class="max-w-[36ch] justify-self-end text-right font-mono text-[10px] leading-[1.7] text-muted-foreground max-[900px]:max-w-none max-[900px]:justify-self-start max-[900px]:text-left"
+			>
 				<div>© 2026 TroopToTask. All rights reserved.</div>
-				<div class="footer__legal-spacer">Not affiliated with the U.S. Department of Defense.</div>
+				<div class="mt-2">Not affiliated with the U.S. Department of Defense.</div>
 				<div>Designed for DoD personnel use.</div>
-				<div class="footer__legal-note">
+				<div class="mt-2">
 					Formal government adoption may involve additional review. Day-to-day use should follow local policy and
 					data-handling guidance.
 				</div>
 			</div>
 		</div>
 
-		<div class="footer__meta">
-			<div class="footer-label">trooptotask.org</div>
-			<div class="footer__meta-divider"></div>
-			<div class="footer-label">Built for unit leaders</div>
+		<div class="mt-8 flex flex-wrap items-center gap-6 border-t border-border pt-6">
+			<div class={labelClass}>trooptotask.org</div>
+			<div class="h-3 w-px bg-border"></div>
+			<div class={labelClass}>Built for unit leaders</div>
 		</div>
 	</div>
 </footer>
-
-<style>
-	.container {
-		max-width: 1200px;
-		margin: 0 auto;
-		padding: 0 2rem;
-	}
-
-	.footer-label {
-		font-family: 'IBM Plex Mono', monospace;
-		font-size: 9px;
-		font-weight: 500;
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-		color: var(--muted-foreground);
-	}
-
-	.site-footer {
-		border-top: 1px solid var(--border);
-		padding: 3rem 0 2.5rem;
-		background: var(--background);
-	}
-
-	.footer__inner {
-		display: grid;
-		grid-template-columns: auto 1fr auto;
-		gap: 4rem;
-		align-items: start;
-	}
-
-	.footer__brand {
-		font-family: 'Barlow Condensed', sans-serif;
-		font-size: 20px;
-		font-weight: 800;
-		letter-spacing: 0.02em;
-		color: var(--foreground);
-	}
-
-	.footer__brand span {
-		color: var(--accent);
-	}
-
-	.footer__tagline {
-		font-family: 'IBM Plex Mono', monospace;
-		font-size: 10px;
-		font-weight: 500;
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-		color: var(--muted-foreground);
-		margin-top: 0.5rem;
-	}
-
-	.footer__links {
-		display: flex;
-		gap: 3rem;
-	}
-
-	.footer__links-col {
-		display: flex;
-		flex-direction: column;
-		gap: 0.75rem;
-	}
-
-	.footer__link-heading {
-		font-family: 'IBM Plex Mono', monospace;
-		font-size: 10px;
-		font-weight: 600;
-		letter-spacing: 0.14em;
-		text-transform: uppercase;
-		color: var(--muted-foreground);
-		margin-bottom: 0.25rem;
-	}
-
-	.footer__link {
-		font-family: 'Barlow Condensed', sans-serif;
-		font-size: 0.8125rem;
-		font-weight: 500;
-		letter-spacing: 0.03em;
-		color: var(--muted-foreground);
-		transition: color 0.12s;
-		text-decoration: none;
-	}
-
-	.footer__link:hover {
-		color: var(--foreground);
-	}
-
-	.footer__link:focus-visible {
-		outline: var(--focus-outline);
-		outline-offset: var(--focus-outline-offset);
-	}
-
-	.footer__legal {
-		justify-self: end;
-		max-width: 36ch;
-		font-family: 'IBM Plex Mono', monospace;
-		font-size: 10px;
-		color: var(--muted-foreground);
-		line-height: 1.7;
-		text-align: right;
-	}
-
-	.footer__legal-spacer {
-		margin-top: 0.5rem;
-	}
-
-	.footer__legal-note {
-		margin-top: 0.5rem;
-	}
-
-	.footer__meta {
-		margin-top: 2rem;
-		padding-top: 1.5rem;
-		border-top: 1px solid var(--border);
-		display: flex;
-		align-items: center;
-		gap: 1.5rem;
-		flex-wrap: wrap;
-	}
-
-	.footer__meta-divider {
-		width: 1px;
-		height: 12px;
-		background: var(--border);
-	}
-
-	@media (max-width: 900px) {
-		.footer__inner {
-			grid-template-columns: 1fr;
-			gap: 2.5rem;
-		}
-
-		.footer__legal {
-			justify-self: start;
-			max-width: none;
-			text-align: left;
-		}
-	}
-
-	@media (max-width: 640px) {
-		.container {
-			padding: 0 1rem;
-		}
-
-		.footer__links {
-			flex-direction: column;
-			gap: 2rem;
-		}
-	}
-</style>

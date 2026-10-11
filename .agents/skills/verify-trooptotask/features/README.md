@@ -45,6 +45,7 @@ For durable publication, follow [artifact packaging](../../../../docs/architectu
 - [App shell and saved preferences](shell-preferences.md): optional chrome, Training/Calendar persistence, pending saves, failures and user/Organization/session lifetime.
 - [Shared dialogs, date selection and tooltips](shared-ui.md): accessible descriptions, keyboard/focus restoration, and actual form consumers.
 - [Component family interaction contracts](component-foundation.md): field association, select/menu/tab keyboard, overlay dismissal and busy close, toasts and loading status on real consumers.
+- [Shared composition equivalence](shared-compositions.md): read-only computed-style `style-probe`/`style-diff`, type-management, bulk-import, readiness band, chart, status badge, route tabs and toolbar consumers, and the shared a11y defects.
 - [Create an Organization](organization-creation.md): confirmed-account gate, owner creation, initial configuration and retry boundaries.
 - [Invite and accept Organization members](organization-invitations.md): existing/new account paths, separate setup and invitation states, acceptance, denial and resend.
 - [Manage Organization member access and ownership](organization-member-access.md): role, capability and Group edits, stale access, transfer and denial.

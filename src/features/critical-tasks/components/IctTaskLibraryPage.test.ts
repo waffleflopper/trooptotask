@@ -270,6 +270,44 @@ describe('IctTaskLibraryPage', () => {
 		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Import CSV' })));
 	});
 
+	it.each([
+		{
+			pressed: 'Move 181-105-1001 down',
+			focused: 'Move 181-105-1001 up',
+			order: ['071-COM-1001', '071-COM-2001', '181-105-1001']
+		},
+		{
+			pressed: 'Move 181-105-1001 up',
+			focused: 'Move 181-105-1001 down',
+			order: ['181-105-1001', '071-COM-1001', '071-COM-2001']
+		},
+		{
+			pressed: 'Move 071-COM-2001 up',
+			focused: 'Move 071-COM-2001 up',
+			order: ['071-COM-1001', '071-COM-2001', '181-105-1001']
+		}
+	])('keeps focus on $focused after $pressed', async ({ pressed, focused, order }) => {
+		ictTasksStore.load([infantryTask, activeTask, allMosTask], 'org-1');
+		vi.spyOn(ictTasksStore, 'update').mockImplementation(async (id, patch) => {
+			ictTasksStore.load(
+				ictTasksStore.items.map((task) => (task.id === id ? { ...task, ...patch } : task)),
+				'org-1'
+			);
+			return true;
+		});
+		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+
+		const button = screen.getByRole('button', { name: pressed });
+		button.focus();
+		await fireEvent.click(button);
+
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: focused })));
+		const codes = screen
+			.getAllByRole('button', { name: /^Move .* up$/ })
+			.map((up) => up.getAttribute('aria-label')?.split(' ')[1]);
+		expect(codes).toEqual(order);
+	});
+
 	it('creates task metadata with normalized MOS applicability and optional expiration override', async () => {
 		const add = vi.spyOn(ictTasksStore, 'add').mockResolvedValue({
 			...activeTask,

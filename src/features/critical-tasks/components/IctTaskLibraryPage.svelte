@@ -399,15 +399,19 @@
 		selectedTaskId = taskId;
 	}
 
-	async function moveTask(index: number, direction: -1 | 1) {
+	async function moveTask(index: number, direction: -1 | 1, pressed: HTMLElement) {
 		const current = activeTasks[index];
 		const target = activeTasks[index + direction];
 		if (!current || !target || !canManage) return;
+		const moveButtons = [...(pressed.parentElement?.querySelectorAll<HTMLButtonElement>('button') ?? [])];
+		const focusCandidates = moveButtons.sort((a, b) => Number(b === pressed) - Number(a === pressed));
 
 		await Promise.all([
 			ictTasksStore.update(current.id, { sortOrder: target.sortOrder }),
 			ictTasksStore.update(target.id, { sortOrder: current.sortOrder })
 		]);
+		await tick();
+		focusCandidates.find((button) => button.isConnected && !button.disabled)?.focus();
 	}
 
 	function completionCount(taskId: string): number {
@@ -564,7 +568,7 @@
 												variant="ghost"
 												size="icon-sm"
 												type="button"
-												onclick={() => moveTask(index, -1)}
+												onclick={(event) => moveTask(index, -1, event.currentTarget)}
 												disabled={index === 0}
 												aria-label="Move {task.taskCode} up">▲</Button
 											>
@@ -572,7 +576,7 @@
 												variant="ghost"
 												size="icon-sm"
 												type="button"
-												onclick={() => moveTask(index, 1)}
+												onclick={(event) => moveTask(index, 1, event.currentTarget)}
 												disabled={index === activeTasks.length - 1}
 												aria-label="Move {task.taskCode} down">▼</Button
 											>

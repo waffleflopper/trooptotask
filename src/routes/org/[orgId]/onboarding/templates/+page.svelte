@@ -157,6 +157,10 @@
 	}
 </script>
 
+<svelte:head>
+	<title>Onboarding Templates - Troop to Task</title>
+</svelte:head>
+
 {#if !hydrated}
 	<section class="flex items-center justify-center gap-2 p-6 text-muted-foreground" aria-busy="true" role="status">
 		<Spinner />

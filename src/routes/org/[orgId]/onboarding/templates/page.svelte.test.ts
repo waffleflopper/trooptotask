@@ -92,6 +92,12 @@ describe('onboarding templates page', () => {
 		expect(within(toolbar).getByRole('button', { name: 'Add Template' }).hasAttribute('disabled')).toBe(true);
 	});
 
+	it('sets the Onboarding Templates document title', async () => {
+		await renderTemplatesPage();
+
+		await waitFor(() => expect(document.title).toBe('Onboarding Templates - Troop to Task'));
+	});
+
 	it('hides template creation without Onboarding configure affordance', async () => {
 		canConfigure = false;
 

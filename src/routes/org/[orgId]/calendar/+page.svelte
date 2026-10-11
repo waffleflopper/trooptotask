@@ -150,7 +150,7 @@
 {#if loadError}
 	{renderLoadError}
 {:else if workspacePending}
-	<section class="grid gap-4 p-5 sm:px-6 sm:pb-6" aria-busy="true" aria-live="polite" role="status">
+	<section class="grid gap-4 p-5 sm:px-6 sm:pb-6" aria-live="polite" role="status">
 		<div class="flex flex-wrap items-center gap-3">
 			<Skeleton class="h-3 w-34" />
 			<Skeleton class="h-3 w-22" />

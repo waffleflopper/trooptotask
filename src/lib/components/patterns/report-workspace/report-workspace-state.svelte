@@ -48,7 +48,6 @@
 	<div
 		role="status"
 		aria-live="polite"
-		aria-busy="true"
 		data-slot="report-workspace-state"
 		class={cn(
 			'flex min-h-32 items-center justify-center gap-2 rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground',

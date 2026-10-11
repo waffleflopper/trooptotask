@@ -123,7 +123,7 @@
 {#if loadError}
 	<WorkspaceLoadError subject="Dashboard" />
 {:else if pending}
-	<section class="grid gap-4 p-4" aria-busy="true" aria-live="polite" role="status">
+	<section class="grid gap-4 p-4" aria-live="polite" role="status">
 		<div class="grid grid-cols-1 items-stretch gap-4 min-[721px]:grid-cols-[minmax(0,1fr)_auto]">
 			<div class="grid gap-3">
 				<Skeleton class="h-3 w-[92px]" />

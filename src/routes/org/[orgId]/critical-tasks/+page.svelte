@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
+	import * as Alert from '$lib/components/ui/alert';
 	import * as Empty from '$lib/components/ui/empty';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { downloadBlob } from '$lib/utils/downloadBlob';
@@ -209,7 +210,8 @@
 				icon: 'download',
 				priority: 'low',
 				variant: 'default',
-				disabled: matrixExportLoading
+				disabled: matrixExportLoading || loading,
+				disabledReason: loading ? 'Export unavailable while loading.' : undefined
 			}
 		];
 
@@ -295,8 +297,8 @@
 			<p class="text-muted-foreground">Contact your organization admin for critical tasks access.</p>
 		</section>
 	{:else}
-		<main class="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-3 md:p-4">
-			<WorkspaceToolbar.Root ariaLabel="Critical Tasks controls">
+		<div class="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-3 md:p-4">
+			<WorkspaceToolbar.Root ariaLabel="Critical Tasks controls" wrap>
 				<WorkspaceToolbar.Group
 					label="Critical Tasks filters"
 					activeCount={activeFilterCount}
@@ -345,28 +347,52 @@
 			</WorkspaceToolbar.Root>
 
 			{#if matrixExportError}
-				<p class="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-					{matrixExportError}
-				</p>
+				<Alert.Root variant="destructive">
+					<Alert.Title>Unable to export the matrix</Alert.Title>
+					<Alert.Description>{matrixExportError}</Alert.Description>
+					<Alert.Action>
+						<Button
+							type="button"
+							variant="destructive"
+							size="xs"
+							onclick={exportMatrixExcel}
+							disabled={matrixExportLoading}
+						>
+							Retry
+						</Button>
+					</Alert.Action>
+				</Alert.Root>
 			{/if}
 
 			{#if loading}
-				<section class="h-full overflow-auto" data-testid="critical-tasks-loading" aria-label="Loading Critical Tasks">
+				<div
+					class="h-full overflow-auto"
+					role="status"
+					aria-busy="true"
+					aria-live="polite"
+					aria-label="Loading Critical Tasks"
+					data-testid="critical-tasks-loading"
+				>
 					<div class="grid grid-cols-4 gap-2" aria-hidden="true">
 						{#each Array(24) as _, index (index)}
 							<Skeleton class="h-[38px] w-[100px]" />
 						{/each}
 					</div>
-				</section>
+				</div>
 			{:else if activeTasks.length === 0}
-				<section class="h-full overflow-auto">
-					<Empty.Root>
-						<Empty.Header>
-							<Empty.Title>No critical tasks yet.</Empty.Title>
-							<Empty.Description>Add ICTL tasks to begin tracking annual proficiency.</Empty.Description>
-						</Empty.Header>
-					</Empty.Root>
-				</section>
+				<Empty.Root>
+					<Empty.Header>
+						<Empty.Title>No critical tasks yet.</Empty.Title>
+						<Empty.Description>Add ICTL tasks to begin tracking annual proficiency.</Empty.Description>
+					</Empty.Header>
+				</Empty.Root>
+			{:else if activePersonnel.length === 0}
+				<Empty.Root>
+					<Empty.Header>
+						<Empty.Title>No personnel yet.</Empty.Title>
+						<Empty.Description>Add personnel to the roster to track their critical tasks.</Empty.Description>
+					</Empty.Header>
+				</Empty.Root>
 			{:else}
 				<section class="flex min-h-0 flex-1 flex-col" aria-label="Critical Tasks matrix workspace">
 					<div class="min-h-0 flex-1 overflow-hidden" data-testid="critical-tasks-matrix-panel">
@@ -387,7 +413,7 @@
 					</div>
 				</section>
 			{/if}
-		</main>
+		</div>
 	{/if}
 </div>
 

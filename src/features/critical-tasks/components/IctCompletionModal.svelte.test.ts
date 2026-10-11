@@ -258,6 +258,39 @@ describe('IctCompletionModal', () => {
 		expect(inDisabledGroup(notes)).toBe(false);
 	});
 
+	it('shows a failed save inside the dialog, keeps the draft, returns focus to Save and holds Escape', async () => {
+		const onClose = vi.fn();
+		const onSave = vi.fn().mockRejectedValue(new Error('Failed to save ICT completion'));
+		renderModal({ onSave, onClose });
+		const dialog = screen.getByRole('dialog', { name: 'Log ICT Completion' });
+
+		await chooseDate(/May 10, 2026/i);
+		await fireEvent.change(screen.getByLabelText(/Validation Method/i), { target: { value: 'Demonstration' } });
+		await fireEvent.input(screen.getByLabelText(/Notes \(optional\)/i), { target: { value: 'Range day' } });
+		await fireEvent.click(screen.getByTestId('ict-completion-save'));
+
+		const alert = await screen.findByRole('alert');
+		expect(dialog.contains(alert)).toBe(true);
+		expect(alert.textContent).toContain('ICT completion was not saved');
+		expect(alert.textContent).toContain('Failed to save ICT completion');
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId('ict-completion-save')));
+		expect((screen.getByLabelText(/Notes \(optional\)/i) as HTMLTextAreaElement).value).toBe('Range day');
+		expect((screen.getByLabelText(/Validation Method/i) as HTMLSelectElement).value).toBe('Demonstration');
+
+		await fireEvent.keyDown(document.activeElement ?? dialog, { key: 'Escape' });
+		expect(onClose).not.toHaveBeenCalled();
+		expect(screen.getByRole('dialog', { name: 'Log ICT Completion' })).toBeTruthy();
+	});
+
+	it('closes a pristine dialog on Escape', async () => {
+		const onClose = vi.fn();
+		renderModal({ onClose });
+
+		await fireEvent.keyDown(screen.getByRole('dialog', { name: 'Log ICT Completion' }), { key: 'Escape' });
+
+		expect(onClose).toHaveBeenCalledTimes(1);
+	});
+
 	describe('while the store changes under a held save', () => {
 		const optimistic: PersonnelIctCompletion = {
 			id: 'temp-1',
@@ -293,7 +326,6 @@ describe('IctCompletionModal', () => {
 
 		it('keeps the Log title and the entered draft while a new completion is held, then rolled back', async () => {
 			let rejectSave!: (error: Error) => void;
-			const errorSpy = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 			const props = renderWithLiveStore(
 				() =>
 					new Promise<void>((_, reject) => {
@@ -310,7 +342,7 @@ describe('IctCompletionModal', () => {
 			expect(screen.queryByRole('dialog', { name: 'Edit ICT Completion' })).toBeNull();
 
 			rejectSave(new Error('Save denied'));
-			await waitFor(() => expect(errorSpy).toHaveBeenCalledWith('Save denied'));
+			expect((await screen.findByRole('alert')).textContent).toContain('Save denied');
 			props.completions = [];
 			await tick();
 

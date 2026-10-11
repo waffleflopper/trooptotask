@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { untrack } from 'svelte';
+	import { tick, untrack } from 'svelte';
+	import * as Alert from '$lib/components/ui/alert';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
@@ -61,6 +62,8 @@
 	let completionDateError = $state('');
 	let validationMethodError = $state('');
 	let isSaving = $state(false);
+	let saveError = $state<string | null>(null);
+	let saveButton = $state<HTMLElement | null>(null);
 
 	const methodOptions = [
 		{ value: '', label: 'Select validation method' },
@@ -117,6 +120,20 @@
 		});
 	});
 	const modalTitle = $derived(activeExistingCompletion ? 'Edit ICT Completion' : 'Log ICT Completion');
+	const openingValues = $derived({
+		completionDate: activeExistingCompletion?.completedAt ?? '',
+		validationMethod: activeExistingCompletion?.validationMethod ?? '',
+		validatedBy: activeExistingCompletion?.validatedBy ?? '',
+		notes: activeExistingCompletion?.notes ?? ''
+	});
+	const dirty = $derived(
+		(showPersonnelSelect && selectedPersonnelId !== '') ||
+			(showTaskSelect && selectedTaskId !== '') ||
+			completionDate !== openingValues.completionDate ||
+			validationMethod !== openingValues.validationMethod ||
+			validatedBy !== openingValues.validatedBy ||
+			notes !== openingValues.notes
+	);
 	const previewExpirationDate = $derived(
 		selectedTask ? calculateIctExpirationDate(completionDate || null, selectedTask, settings) : null
 	);
@@ -213,6 +230,7 @@
 		if (isSaving || !validate() || !selectedPerson || !selectedTask) return;
 
 		isSaving = true;
+		saveError = null;
 		try {
 			await onSave(
 				{
@@ -228,20 +246,30 @@
 			toastStore.success(activeExistingCompletion ? 'ICT completion updated' : 'ICT completion saved');
 			onClose();
 		} catch (error) {
-			toastStore.error(getErrorMessage(error));
+			saveError = getErrorMessage(error);
 		} finally {
 			isSaving = false;
+		}
+		if (saveError) {
+			await tick();
+			saveButton?.focus();
 		}
 	}
 </script>
 
-<AppDialog.Root open busy={isSaving} {onClose}>
+<AppDialog.Root open busy={isSaving} closeBlocked={dirty} {onClose}>
 	<AppDialog.Content class="sm:max-w-xl">
 		<AppDialog.Header>
 			<AppDialog.Title id="ict-completion-title">{modalTitle}</AppDialog.Title>
 		</AppDialog.Header>
 
 		<AppDialog.Body>
+			{#if saveError}
+				<Alert.Root variant="destructive" class="mb-4">
+					<Alert.Title>ICT completion was not saved</Alert.Title>
+					<Alert.Description>{saveError}</Alert.Description>
+				</Alert.Root>
+			{/if}
 			<fieldset class="min-w-0 space-y-4" disabled={isSaving}>
 				{#if selectorMode}
 					{#if selectedPerson && !showPersonnelSelect}
@@ -376,7 +404,13 @@
 
 		<AppDialog.Footer>
 			<Button variant="outline" type="button" onclick={onClose} disabled={isSaving}>Cancel</Button>
-			<Button type="button" data-testid="ict-completion-save" onclick={handleSave} disabled={isSaving}>
+			<Button
+				type="button"
+				data-testid="ict-completion-save"
+				bind:ref={saveButton}
+				onclick={handleSave}
+				disabled={isSaving}
+			>
 				{isSaving ? 'Saving...' : 'Save'}
 			</Button>
 		</AppDialog.Footer>

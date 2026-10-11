@@ -122,7 +122,7 @@
 			</AppDialog.Header>
 			<AppDialog.Body>
 				{#if deleteRequestError || form?.deleteError}
-					<Alert.Root variant="destructive">
+					<Alert.Root variant="destructive" class="mb-3">
 						<Alert.Description>{deleteRequestError ?? form?.deleteError}</Alert.Description>
 					</Alert.Root>
 				{/if}
@@ -180,7 +180,7 @@
 			</AppDialog.Header>
 			<AppDialog.Body>
 				{#if transferRequestError || form?.transferError}
-					<Alert.Root variant="destructive">
+					<Alert.Root variant="destructive" class="mb-3">
 						<Alert.Description>{transferRequestError ?? form?.transferError}</Alert.Description>
 					</Alert.Root>
 				{/if}

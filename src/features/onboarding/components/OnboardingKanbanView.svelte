@@ -81,14 +81,14 @@
 			</Empty.Root>
 		</div>
 	{:else}
-		<header class="flex shrink-0 items-center justify-between border-b border-border px-3 py-3 sm:px-6">
+		<header class="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-3 sm:px-6">
 			<div class="flex items-center gap-3">
 				<h1 class="text-lg font-semibold tracking-tight">Onboarding Pipeline</h1>
 				{#if ctx.filteredOnboardings.length > 0}
 					<Badge variant="secondary">{ctx.filteredOnboardings.length} active</Badge>
 				{/if}
 			</div>
-			<div class="flex items-center gap-2">
+			<div class="flex flex-wrap items-center gap-2">
 				{#if ctx.canManageConfig}
 					<Button href={ctx.templatesUrl} variant="outline" size="sm">Templates</Button>
 				{/if}

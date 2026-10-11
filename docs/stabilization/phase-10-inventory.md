@@ -20,7 +20,7 @@ Each row has a disposition. `complete` has no candidates. `test support` is a ha
 | 10-06      |    33 |                     0 |            0 |                0 |          0 |            0 |         0 |
 | 10-07      |    39 |                     0 |            0 |                0 |          0 |            0 |         0 |
 | 10-08      |    12 |                     0 |            0 |                0 |          0 |            0 |         0 |
-| 10-09      |    83 |                     2 |            1 |                0 |          0 |            2 |         0 |
+| 10-09      |    74 |                     2 |            1 |                0 |          0 |            2 |         0 |
 | foundation |   273 |                     0 |            0 |                0 |          0 |            0 |         0 |
 
 Open rows: 0. Unclassified rows: 0. Unused native exceptions: 0.
@@ -59,13 +59,13 @@ Each family is imported through `$lib/components/<layer>/<family>` (its `index.t
 | `patterns/report-workspace`          |  16 |     0 |      0 |      0 | `10-03`×5, `10-04`×4, `10-05`×7                                                                                            |
 | `patterns/requirement-status-badge`  |   2 |     0 |      0 |      0 | `10-04`×1, `10-05`×1                                                                                                       |
 | `patterns/type-management-workspace` |   4 |     0 |      0 |      0 | `10-04`×3, `10-06`×1                                                                                                       |
-| `patterns/workspace-toolbar`         |  18 |     0 |      0 |      2 | `10-02`×2, `10-03`×5, `10-04`×4, `10-05`×5, `10-06`×2, `10-09`×2                                                           |
+| `patterns/workspace-toolbar`         |  18 |     0 |      0 |      0 | `10-02`×2, `10-03`×5, `10-04`×4, `10-05`×5, `10-06`×2                                                                      |
 | `ui/accordion`                       |   4 |     0 |      1 |      0 | `10-06`×4, `10-08`×1                                                                                                       |
 | `ui/alert`                           |  45 |     9 |      0 |      3 | `10-01`×4, `10-02`×11, `10-03`×3, `10-04`×5, `10-05`×6, `10-06`×6, `10-07`×19, `10-09`×3                                   |
 | `ui/alert-dialog`                    |   0 |     0 |      0 |      1 | `foundation`×1                                                                                                             |
 | `ui/app-dialog`                      |  24 |     2 |      0 |      1 | `10-01`×2, `10-02`×4, `10-03`×5, `10-04`×3, `10-05`×3, `10-06`×3, `10-07`×6, `foundation`×1                                |
 | `ui/avatar`                          |   1 |     0 |      0 |      0 | `10-06`×1                                                                                                                  |
-| `ui/badge`                           |  40 |    10 |      0 |      5 | `10-02`×6, `10-03`×9, `10-04`×8, `10-05`×4, `10-06`×7, `10-07`×16, `10-09`×5                                               |
+| `ui/badge`                           |  40 |    10 |      0 |      4 | `10-02`×6, `10-03`×9, `10-04`×8, `10-05`×4, `10-06`×7, `10-07`×16, `10-09`×4                                               |
 | `ui/breadcrumb`                      |   1 |     0 |      0 |      0 | `10-01`×1                                                                                                                  |
 | `ui/button`                          | 109 |    14 |      4 |     30 | `10-01`×24, `10-02`×15, `10-03`×25, `10-04`×12, `10-05`×12, `10-06`×10, `10-07`×25, `10-08`×4, `10-09`×15, `foundation`×15 |
 | `ui/button-group`                    |   9 |     0 |      0 |      2 | `10-02`×2, `10-03`×1, `10-04`×2, `10-05`×4, `10-09`×2                                                                      |
@@ -92,7 +92,7 @@ Each family is imported through `$lib/components/<layer>/<family>` (its `index.t
 | `ui/progress`                        |   5 |     0 |      0 |      1 | `10-04`×1, `10-05`×1, `10-06`×3, `10-09`×1                                                                                 |
 | `ui/radio-group`                     |   5 |     0 |      0 |      0 | `10-03`×1, `10-04`×1, `10-06`×2, `10-07`×1                                                                                 |
 | `ui/select`                          |  10 |     0 |      0 |      2 | `10-01`×1, `10-03`×2, `10-05`×1, `10-06`×3, `10-07`×3, `10-09`×1, `foundation`×1                                           |
-| `ui/separator`                       |   8 |     2 |      0 |      6 | `10-01`×1, `10-02`×1, `10-04`×1, `10-05`×1, `10-07`×6, `10-09`×2, `foundation`×4                                           |
+| `ui/separator`                       |   8 |     2 |      0 |      4 | `10-01`×1, `10-02`×1, `10-04`×1, `10-05`×1, `10-07`×6, `foundation`×4                                                      |
 | `ui/sheet`                           |   2 |     0 |      0 |      2 | `10-06`×1, `10-07`×1, `foundation`×2                                                                                       |
 | `ui/sidebar`                         |   2 |     1 |      0 |      0 | `10-01`×2, `10-07`×1                                                                                                       |
 | `ui/skeleton`                        |  10 |     0 |      0 |      2 | `10-02`×1, `10-03`×3, `10-04`×3, `10-05`×2, `10-06`×1, `foundation`×2                                                      |
@@ -416,13 +416,9 @@ Each family is imported through `$lib/components/<layer>/<family>` (its `index.t
 | `src/lib/components/patterns/bulk-import-workspace/BulkImportWorkspaceTest.svelte`         | shared | `ui/button`, `ui/data-table`                      | ·            |         · | ·          |   · | test support |
 | `src/lib/components/patterns/page-shell/fact-grid.svelte`                                  | shared | ·                                                 | ·            |         · | ·          |   · | complete     |
 | `src/lib/components/patterns/page-shell/fact-metric.svelte`                                | shared | ·                                                 | ·            |         · | ·          |   · | complete     |
-| `src/lib/components/patterns/page-shell/fact-row.svelte`                                   | shared | `ui/badge`                                        | ·            |         · | ·          |   · | complete     |
 | `src/lib/components/patterns/page-shell/page-header.svelte`                                | shared | ·                                                 | ·            |         · | ·          |   · | complete     |
 | `src/lib/components/patterns/page-shell/page-shell.svelte`                                 | shared | ·                                                 | ·            |         · | ·          |   · | complete     |
 | `src/lib/components/patterns/page-shell/route-tabs.svelte`                                 | shared | `ui/badge`                                        | ·            |         · | ·          |   · | complete     |
-| `src/lib/components/patterns/page-shell/sticky-action-bar.svelte`                          | shared | ·                                                 | ·            |         · | ·          |   · | complete     |
-| `src/lib/components/patterns/page-shell/summary-rail-section.svelte`                       | shared | `ui/separator`                                    | ·            |         · | ·          |   · | complete     |
-| `src/lib/components/patterns/page-shell/summary-rail.svelte`                               | shared | `ui/separator`                                    | ·            |         · | ·          |   · | complete     |
 | `src/lib/components/patterns/readiness-band/readiness-band-cell.svelte`                    | shared | ·                                                 | ·            |         · | ·          |   · | complete     |
 | `src/lib/components/patterns/readiness-band/readiness-band-legend.svelte`                  | shared | ·                                                 | ·            |         · | ·          |   · | complete     |
 | `src/lib/components/patterns/readiness-band/readiness-band-swatch.svelte`                  | shared | ·                                                 | ·            |         · | ·          |   · | complete     |
@@ -433,12 +429,9 @@ Each family is imported through `$lib/components/<layer>/<family>` (its `index.t
 | `src/lib/components/patterns/report-chart/ReportLineChart.svelte`                          | shared | `ui/chart`                                        | ·            |         · | ·          |   · | complete     |
 | `src/lib/components/patterns/report-workspace/DateRangeField.svelte`                       | shared | `ui/button`, `ui/date-picker`, `ui/field`         | ·            |         · | ·          |   · | complete     |
 | `src/lib/components/patterns/report-workspace/DateRangeFieldTest.svelte`                   | shared | ·                                                 | ·            |         · | ·          |   · | test support |
-| `src/lib/components/patterns/report-workspace/report-workspace-chart.svelte`               | shared | ·                                                 | ·            |         · | ·          |   · | complete     |
 | `src/lib/components/patterns/report-workspace/report-workspace-content.svelte`             | shared | ·                                                 | ·            |         · | ·          |   · | complete     |
 | `src/lib/components/patterns/report-workspace/report-workspace-export-action.svelte`       | shared | `ui/button`, `ui/spinner`                         | ·            |         · | ·          |   · | complete     |
-| `src/lib/components/patterns/report-workspace/report-workspace-export-actions.svelte`      | shared | ·                                                 | ·            |         · | ·          |   · | complete     |
 | `src/lib/components/patterns/report-workspace/report-workspace-filters.svelte`             | shared | ·                                                 | ·            |         · | ·          |   · | complete     |
-| `src/lib/components/patterns/report-workspace/report-workspace-header.svelte`              | shared | ·                                                 | ·            |         · | ·          |   · | complete     |
 | `src/lib/components/patterns/report-workspace/report-workspace-option-chips.svelte`        | shared | `ui/button`, `ui/toggle`                          | ·            |         · | ·          |   · | complete     |
 | `src/lib/components/patterns/report-workspace/report-workspace-option-list.svelte`         | shared | `ui/checkbox`, `ui/label`                         | ·            |         · | ·          |   · | complete     |
 | `src/lib/components/patterns/report-workspace/report-workspace-root.svelte`                | shared | ·                                                 | ·            |         · | ·          |   · | complete     |
@@ -446,11 +439,9 @@ Each family is imported through `$lib/components/<layer>/<family>` (its `index.t
 | `src/lib/components/patterns/report-workspace/report-workspace-state.svelte`               | shared | `ui/alert`, `ui/button`, `ui/empty`, `ui/spinner` | ·            |         · | ·          |   · | complete     |
 | `src/lib/components/patterns/report-workspace/report-workspace-summary-strip.svelte`       | shared | ·                                                 | ·            |         · | ·          |   · | complete     |
 | `src/lib/components/patterns/report-workspace/report-workspace-table.svelte`               | shared | `ui/data-table`                                   | ·            |         · | ·          |   · | complete     |
-| `src/lib/components/patterns/report-workspace/report-workspace-toolbar.svelte`             | shared | `patterns/workspace-toolbar`                      | ·            |         · | ·          |   · | complete     |
-| `src/lib/components/patterns/report-workspace/ReportWorkspaceTest.svelte`                  | shared | `patterns/workspace-toolbar`, `ui/button`         | ·            |         · | ·          |   · | test support |
+| `src/lib/components/patterns/report-workspace/ReportWorkspaceTest.svelte`                  | shared | `ui/button`                                       | ·            |         · | ·          |   · | test support |
 | `src/lib/components/patterns/requirement-status-badge/requirement-status-badge.svelte`     | shared | `ui/badge`                                        | ·            |         · | ·          |   · | complete     |
 | `src/lib/components/patterns/type-management-workspace/action-spacer.svelte`               | shared | ·                                                 | ·            |         · | ·          |   · | complete     |
-| `src/lib/components/patterns/type-management-workspace/choice-group.svelte`                | shared | ·                                                 | ·            |         · | ·          |   · | complete     |
 | `src/lib/components/patterns/type-management-workspace/choice.svelte`                      | shared | ·                                                 | ·            |         · | ·          |   · | complete     |
 | `src/lib/components/patterns/type-management-workspace/color-input.svelte`                 | shared | `ui/input`                                        | ·            |         · | ·          |   · | complete     |
 | `src/lib/components/patterns/type-management-workspace/description.svelte`                 | shared | ·                                                 | ·            |         · | ·          |   · | complete     |

@@ -16,7 +16,6 @@ import Description from './description.svelte';
 import ColorInput from './color-input.svelte';
 import MobileBack from './mobile-back.svelte';
 import Disclosure from './disclosure.svelte';
-import ChoiceGroup from './choice-group.svelte';
 
 export {
 	Root,
@@ -36,6 +35,5 @@ export {
 	Description,
 	ColorInput,
 	MobileBack,
-	Disclosure,
-	ChoiceGroup
+	Disclosure
 };

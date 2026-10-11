@@ -1,13 +1,12 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import VisibleStub from '$lib/test-stubs/VisibleStub.svelte';
 import type { OnboardingWorkspaceResult } from '$features/onboarding/contracts';
 import type { PersonnelOnboarding } from '$features/onboarding/contracts';
 import { onboardingStore, onboardingTemplateStore } from '$features/onboarding';
 import { personnelRosterHydration } from '$features/personnel';
 
-const throwRenderErrorMock = vi.fn();
 const modalRegistryState = vi.hoisted(() => ({
 	startOnboardingOpen: false
 }));
@@ -68,23 +67,12 @@ vi.mock('$features/app-shell', () => ({
 	})
 }));
 
-vi.mock('$lib/utils/streamedRouteData', async () => {
-	const actual = await vi.importActual<typeof import('$lib/utils/streamedRouteData')>('$lib/utils/streamedRouteData');
-
-	return {
-		...actual,
-		throwRenderError: (error: unknown, fallbackMessage: string) => {
-			throwRenderErrorMock(error, fallbackMessage);
-			return undefined as never;
-		}
-	};
-});
-
 import Page from './+page.svelte';
+import OnboardingRoute from './onboardingRoute.test.svelte';
 
 afterEach(() => {
 	cleanup();
-	throwRenderErrorMock.mockReset();
+	vi.unstubAllGlobals();
 	modalRegistryState.startOnboardingOpen = false;
 	onboardingStore.load([], 'org-test-reset');
 	onboardingTemplateStore.load([], [], 'org-test-reset');
@@ -194,7 +182,7 @@ describe('onboarding page', () => {
 			}
 		});
 
-		expect(screen.getByRole('status')).toBeTruthy();
+		expect(screen.getByRole('status', { name: 'Loading onboarding' })).toBeTruthy();
 
 		deferred.resolve(makeBootstrap());
 
@@ -292,30 +280,32 @@ describe('onboarding page', () => {
 		expect(screen.queryByText('CPL Cancelled, Drew')).toBeNull();
 	});
 
-	it('invokes the render error path when onboarding workspace loading fails', async () => {
-		const deferred = createDeferred<OnboardingWorkspaceResult>();
+	it('shows the Onboarding load error with Retry and never a stuck loading status when the source rejects', async () => {
+		const reload = vi.fn();
+		vi.stubGlobal('location', { ...window.location, reload });
+		const rejected = Promise.reject(new Error('onboarding failed'));
+		rejected.catch(() => {});
 
-		render(Page, {
-			props: {
-				data: {
-					session: null,
-					onboarding: {
-						data: deferred.promise
-					}
-				}
-			}
+		render(OnboardingRoute, {
+			props: { Page, data: { shell: { org: { id: 'org-1' } }, session: null, onboarding: { data: rejected } } as never }
 		});
 
-		deferred.reject(new Error('onboarding failed'));
-
-		await waitFor(() => {
-			expect(throwRenderErrorMock).toHaveBeenCalledWith(
-				expect.objectContaining({ message: 'onboarding failed' }),
-				'Failed to load onboarding workspace'
-			);
-		});
-
+		expect((await screen.findByRole('alert')).textContent).toContain('Unable to load Onboarding');
 		expect(screen.queryByRole('status')).toBeNull();
+		expect(screen.queryByText('Onboarding Pipeline')).toBeNull();
+		await fireEvent.click(screen.getByRole('button', { name: 'Retry Onboarding' }));
+		expect(reload).toHaveBeenCalledTimes(1);
+	});
+
+	it('renders nothing from the page itself when the source rejects, leaving the error to the layout', async () => {
+		const rejected = Promise.reject(new Error('onboarding failed'));
+		rejected.catch(() => {});
+
+		render(Page, { props: { data: { session: null, onboarding: { data: rejected } } } });
+
+		await waitFor(() => expect(screen.queryByRole('status')).toBeNull());
+		expect(screen.queryByRole('alert')).toBeNull();
+		expect(screen.queryByText('Onboarding Pipeline')).toBeNull();
 		expect(screen.queryAllByTestId('visible-stub')).toHaveLength(0);
 	});
 });

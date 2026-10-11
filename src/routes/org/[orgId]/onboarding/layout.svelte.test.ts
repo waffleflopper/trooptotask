@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, render, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { createRawSnippet } from 'svelte';
 import { afterEach, expect, it, vi } from 'vitest';
 import { onboardingStore, onboardingWorkspaceHydrator } from '$features/onboarding';
@@ -77,4 +77,18 @@ it('ignores a request from a destroyed layout when returning to the same organiz
 	respond(Response.json({ ...packet, id: 'new-packet', personnelId: 'person-new', templateId: 'template-1' }));
 	await expect(pending).resolves.toBeNull();
 	expect(onboardingStore.items).toEqual([packet]);
+});
+
+it('replaces the workspace with a load error and a working retry when the streamed Onboarding lane rejects', async () => {
+	const reload = vi.fn();
+	vi.stubGlobal('location', { ...window.location, reload });
+	const rejected = Promise.reject(new Error('onboardings failed'));
+	rejected.catch(() => {});
+
+	render(Layout, { props: { children, data: { shell: shell(), onboarding: { data: rejected } } } });
+
+	expect((await screen.findByRole('alert')).textContent).toContain('Unable to load Onboarding');
+	expect(screen.queryByText('Onboarding workspace')).toBeNull();
+	await fireEvent.click(screen.getByRole('button', { name: 'Retry Onboarding' }));
+	expect(reload).toHaveBeenCalledTimes(1);
 });

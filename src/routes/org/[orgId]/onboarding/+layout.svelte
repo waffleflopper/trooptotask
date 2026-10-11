@@ -2,8 +2,8 @@
 	import { onDestroy, untrack } from 'svelte';
 	import { onboardingWorkspaceHydrator, onboardingStore } from '$features/onboarding';
 	import type { OnboardingWorkspaceResult } from '$features/onboarding/contracts';
-	import { throwRenderError } from '$lib/utils/streamedRouteData';
 	import { hydrateStreamedWorkspace } from '$lib/utils/streamedWorkspaceHydrator';
+	import WorkspaceLoadError from '../WorkspaceLoadError.svelte';
 
 	let { children, data } = $props();
 	onDestroy(() => {
@@ -11,12 +11,6 @@
 		onboardingWorkspaceHydrator.reset();
 	});
 	let hydrationError = $state<Error | null>(null);
-	const renderHydrationError = $derived.by(() => {
-		if (hydrationError) {
-			throwRenderError(hydrationError, 'Failed to hydrate onboarding workspace');
-		}
-		return null;
-	});
 
 	$effect(() => {
 		const orgId = data.shell.org.id;
@@ -38,7 +32,7 @@
 </script>
 
 {#if hydrationError}
-	{renderHydrationError}
+	<WorkspaceLoadError subject="Onboarding" />
 {:else}
 	{@render children()}
 {/if}

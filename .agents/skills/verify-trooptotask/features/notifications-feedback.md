@@ -15,7 +15,7 @@ Members read their own Organization notifications, send feedback about the curre
 
 ## How to get to it (user POV)
 
-Sign in, open an Organization, and use the bell in the header. Select a notification to mark it read and follow its link, or choose `Mark all read`. There is currently no notification delete control; deletion is a separately supported JSON endpoint, not a visible journey. Use `Send Feedback` in the sidebar/account shell to open its modal, choose a category, enter a message and Submit. An active announcement appears above the workspace with `Dismiss announcement`. Switch Organizations through the header switcher.
+Sign in, open an Organization, and use the bell in the header. Select a notification to mark it read and follow its link, or choose `Mark all read`. There is currently no notification delete control; deletion is a separately supported JSON endpoint, not a visible journey. Use `Send Feedback` in the sidebar/account shell to open its modal, choose a category, enter a message and Submit. An active announcement appears above the workspace with `Dismiss announcement: <title>`. Switch Organizations through the header switcher.
 
 ## Driving it with verify:app
 

@@ -147,11 +147,11 @@ Setup, in this order. `$V seed communications` (announcements and inbox rows). `
 
 11. **Announcement banner.** As `notificationMember` and `notificationOther` on the Organization Dashboard (`$V actor ROLE home`), 1280 light then 390 dark.
 
-    | Control (source)              | Accessible name and state                                                    | Expected                                                                                                                                                                           |
-    | ----------------------------- | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-    | Banner (`AnnouncementBanner`) | `alert` with the title and message; `Dismiss announcement`                   | Only the active seeded announcement. The dismiss name identifies the announcement when more than one can show; app ring; readable variant colors in both themes; wraps inside 390  |
-    | Failed dismiss                | `notificationOther`: `network arm-fail $PAGE announcements/dismiss`, Dismiss | The banner stays (or returns) with an announced error and focus not lost to `body`; no dismissal row (`$V communications notificationOther`). Restore, retry                       |
-    | Dismiss                       | `notificationMember`                                                         | The banner disappears and focus moves to the next banner's `Dismiss announcement`, or to the page's main content (`#main-content`) after the last; it stays dismissed after reload |
+    | Control (source)              | Accessible name and state                                                    | Expected                                                                                                                                                                                    |
+    | ----------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+    | Banner (`AnnouncementBanner`) | `alert` with the title and message; `Dismiss announcement: <title>`          | Only the active seeded announcement. Each dismiss name carries its announcement's title, so two banners are told apart; app ring; readable variant colors in both themes; wraps inside 390  |
+    | Failed dismiss                | `notificationOther`: `network arm-fail $PAGE announcements/dismiss`, Dismiss | The banner stays (or returns) with an announced error and focus not lost to `body`; no dismissal row (`$V communications notificationOther`). Restore, retry                                |
+    | Dismiss                       | `notificationMember`                                                         | The banner disappears and focus moves to the next banner's `Dismiss announcement: <title>`, or to the page's main content (`#main-content`) after the last; it stays dismissed after reload |
 
 12. **Send Feedback.** As `orgAdmin` (any A member) from General, 1280 light then 390 dark.
 
@@ -181,3 +181,6 @@ Setup, in this order. `$V seed communications` (announcements and inbox rows). `
 - Members actions can require a recent sign-in; a fresh `actor` session satisfies it. A step-up redirect is a separate path owned by the [member access recipe](organization-member-access.md).
 - The notification bell lives in the app shell header, not in this deliverable's scope; its states belong to the [notifications recipe](notifications-feedback.md).
 - Feedback success writes a real row that no visible control deletes. Use one unique message; owned cleanup disposes it.
+- `What's New` can open a moment after an actor's first arrival and take focus, so a key pressed right after `actor` lands on its `Got it`. Wait for it, choose `Got it`, then start the step.
+- Decline the invitation on `/dashboard?show=all`. On plain `/dashboard`, declining an account's last invitation reloads into the `/org/new` redirect. `Invitation declined.` clears after four seconds; observe the status region from before the press.
+- Repeated `actor` sign-ins can hit the sign-in rate limit (`Too many requests`). Reuse an actor's open page instead of signing in again.

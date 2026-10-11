@@ -40,7 +40,7 @@ Expected results come from the issue's acceptance and the [component contracts](
 
    Rerun a probe against the same page to prove the read is deterministic; a reload and a second read must also give `0`. State the matched counts, because a selector that matches nothing proves nothing.
 
-5. Keyboard, from a real `focus()` on a control followed by native `press_key`. Types, Views and Templates: Tab order, ArrowDown/ArrowUp/Home/End and the disclosure `summary` with Enter and Space. Route tabs: Tab, ArrowLeft and ArrowRight. Record the focused element's tag, role and name, and the `aria-selected` of its `row`, after each key. Right moves from a row to its actions, Left back, and Enter selects the row. After a successful create, `document.activeElement` is the new row.
+5. Keyboard, from a real `focus()` on a control followed by native `press_key`. Types, Views and Templates: Tab order, ArrowDown/ArrowUp/Home/End and the disclosure `summary` with Enter and Space. Route tabs: Tab, ArrowLeft and ArrowRight. Record the focused element's tag, role and name, and the `aria-selected` of its `row`, after each key. Right moves from a row to its actions, Left back, and Enter selects the row. After a successful create, `document.activeElement` is the new row. At 390 wide the list and detail take turns: selecting a row leaves `document.activeElement` on the detail heading (`tabindex="-1"`), Back leaves it on the selected row, and a successful create leaves it on the new item's detail heading.
 6. Shared defects: count `main` and nested `main` on an Organization page and an admin page; read the tag of each `[data-slot="empty-title"]` in the empty states; read the Close controls of the Training roster dialog.
 7. Toolbar: read the `workspace-toolbar`, its select trigger, input group and action label at 1280, 820 and 390 widths.
 8. Failure states: `network arm-fail` for the Types and Templates create, then `network restore`.
@@ -51,7 +51,7 @@ Run `node --test .agents/skills/verify-trooptotask/helpers/style-probe.test.mjs`
 
 - The probe measures the page it is on. Identical pages need identical state: the same seeds, rows, theme, width and open dialogs.
 - The theme belongs to the browser context. Account pages have no Toggle theme control; set the theme on an Organization page first and read `html[data-theme]`.
-- Admin routes have one `main`; Organization pages nest `main#main-content` in the shell `main` (the Training matrix has three); Account pages have none.
+- Candidate contract: every page, including Account and the Organization suspended and session-unavailable states, has exactly one `main`. The D09 baseline observed otherwise: Organization pages nested `main#main-content` in the shell `main` (the Training matrix had three) and Account pages had none. Admin routes already had one.
 - The Critical Tasks Library denies `ictOperator`; use `ictConfigurator` for the library itself and keep the denial as its own state.
 - At 390 wide the import actions live in a `More ... actions` menu.
 - The probe caps each selector at 200 elements. Large readiness sets compare the first 200; state the count.

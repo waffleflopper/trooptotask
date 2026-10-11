@@ -74,10 +74,8 @@
 
 	function confirmDelete() {
 		if (!deleteRequest) return;
-		const { form, submitter } = deleteRequest;
-		deleteRequest = null;
-		confirmedDeleteForm = form;
-		form.requestSubmit(submitter);
+		confirmedDeleteForm = deleteRequest.form;
+		deleteRequest.form.requestSubmit(deleteRequest.submitter);
 	}
 
 	async function cancelDelete() {
@@ -157,6 +155,7 @@
 				} finally {
 					if (isCurrent()) {
 						pending = null;
+						if (operation.kind === 'delete') deleteRequest = null;
 						void restoreFocus(submitter);
 					}
 				}
@@ -331,6 +330,7 @@
 		title="Delete announcement"
 		message={`Delete "${deleteRequest.title}"? This cannot be undone.`}
 		confirmLabel="Delete"
+		loading={pending?.kind === 'delete'}
 		onConfirm={confirmDelete}
 		onCancel={cancelDelete}
 	/>

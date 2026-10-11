@@ -174,7 +174,7 @@ describe('announcement form ownership', () => {
 		expect(invalidateAll).not.toHaveBeenCalled();
 	});
 
-	it('submits the Delete only after its confirmation and then focuses Create Announcement', async () => {
+	it('submits the Delete only after its confirmation, stays busy until the result, then focuses Create Announcement', async () => {
 		const view = render(Announcements, { props: { data: announcementData(), form: null } });
 		const deleteButton = screen.getByRole('button', { name: 'Delete Active notice' });
 		const requestSubmit = vi.spyOn(deleteButton.closest('form')!, 'requestSubmit').mockImplementation(() => {});
@@ -190,7 +190,9 @@ describe('announcement form ownership', () => {
 				form: null
 			});
 		});
+		expect(screen.getByRole('alertdialog').getAttribute('aria-busy')).toBe('true');
 		await confirmed.finish(succeeded);
+		expect(screen.queryByRole('alertdialog')).toBeNull();
 		await waitFor(() =>
 			expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Create Announcement' }))
 		);

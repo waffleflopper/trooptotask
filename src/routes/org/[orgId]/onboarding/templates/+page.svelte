@@ -34,6 +34,7 @@
 	let { data }: PageProps = $props();
 	let emptyAddTemplate = $state<HTMLElement | null>(null);
 	let addStepButton = $state<HTMLElement | null>(null);
+	let addFirstStepButton = $state<HTMLElement | null>(null);
 	let ConfirmDialog = $state<typeof import('$lib/components/ui/confirm-dialog').ConfirmDialog | null>(null);
 
 	const org = getAppShellContext();
@@ -165,7 +166,7 @@
 	async function returnFocusFromStepForm(stepId: string | null): Promise<void> {
 		await tick();
 		const edit = stepId ? document.querySelector<HTMLElement>(`[data-edit-step="${CSS.escape(stepId)}"]`) : null;
-		(edit ?? addStepButton)?.focus();
+		(edit ?? addFirstStepButton ?? addStepButton)?.focus();
 	}
 
 	async function saveStep(stepId: string | null): Promise<void> {
@@ -426,6 +427,7 @@
 									</Empty.Header>
 									<Empty.Content>
 										<Button
+											bind:ref={addFirstStepButton}
 											variant="outline"
 											size="sm"
 											type="button"

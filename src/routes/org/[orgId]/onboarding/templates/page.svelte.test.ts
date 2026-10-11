@@ -187,6 +187,15 @@ describe('onboarding templates page', () => {
 		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Add Step' })));
 	});
 
+	it('returns focus to Add first step when the empty template step form is cancelled', async () => {
+		await renderTemplatesPage({ templateSteps: [] });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Add first step' }));
+		await fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }));
+
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Add first step' })));
+	});
+
 	it('moves focus to Name when a step is edited and back to its Edit button on Cancel', async () => {
 		await renderTemplatesPage();
 

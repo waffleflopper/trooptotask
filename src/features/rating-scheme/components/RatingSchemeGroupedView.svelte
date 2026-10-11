@@ -128,6 +128,7 @@
 									variant="cell"
 									size="none"
 									class="flex h-auto w-full flex-wrap items-center justify-start gap-2 border-b border-border px-4 py-3 pl-12 text-left text-sm whitespace-normal last:border-b-0"
+									data-rating-entry-id={entry.id}
 									onclick={() => onEdit(entry)}
 								>
 									<span class="min-w-35 text-sm font-normal">{getRatedPersonLabel(entry.ratedPersonId)}</span>

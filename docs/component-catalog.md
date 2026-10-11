@@ -999,7 +999,7 @@ Compatibility note: the legacy `ui/EmptyState.svelte` wrapper has been removed. 
 
 The root and Organization error boundaries and `WorkspaceAccessRestricted` compose `ui/empty` for their status, message and recovery action. A page's `h1` stays a heading element inside `Empty.Header` where the page needs one. `Empty.Root` is full width, so a caller that adds outer margins also sets `w-auto` to keep the margins inside its column.
 
-A streamed workspace source that rejects renders `WorkspaceLoadError` (a destructive `Alert` with a `Retry` button that reloads the page) from its route layout. A route page never throws from an `{#await}` catch, because SvelteKit's root has no boundary to catch it and the loading state would stay up.
+On Dashboard and Training, a streamed workspace source that rejects renders `WorkspaceLoadError` (a destructive `Alert` with a `Retry` button that reloads the page) from its route layout, and their pages do not throw from an `{#await}` catch. SvelteKit's root has no boundary to catch a render-time throw, so the loading state would stay up. Calendar, Critical Tasks, Evaluations, Onboarding and Personnel routes still call `throwRenderError`; each adopts `WorkspaceLoadError` in its own Phase 10 packet.
 
 ---
 

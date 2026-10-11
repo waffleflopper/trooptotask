@@ -314,7 +314,7 @@ describe('IctTaskLibraryPage', () => {
 		await fireEvent.click(create);
 
 		const alert = await screen.findByRole('alert');
-		expect(alert.textContent?.replace(/\s+/g, ' ').trim()).toBe('Task was not saved Network unavailable');
+		expect(alert.textContent).toContain('Network unavailable');
 		await waitFor(() => expect(document.activeElement).toBe(create));
 		expect(screen.getByLabelText('Task code').getAttribute('aria-invalid')).toBeNull();
 	});

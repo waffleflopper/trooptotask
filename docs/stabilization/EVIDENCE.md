@@ -141,6 +141,25 @@ The archive is [`1604-acceptance.tar.gz`](https://github.com/waffleflopper/troop
   - The Rating Scheme toolbar row was already wider than 390 on main (510 inside 356), so `Add Entry` sits past the edge. The row has `overflow-x: auto`, so the button is reached by scrolling. That layout belongs to D05 [#1603](https://github.com/waffleflopper/trooptotask/issues/1603).
 - **Archive.** [`1604-toolbar.tar.gz`](https://github.com/waffleflopper/trooptotask/releases/download/evidence/1604-toolbar.tar.gz), SHA-256 `88ab999db605d97fc3f484422405440791dc02f7a9aae5ffbf983148231783d4`. It holds 6 payload files plus `INVENTORY.sha256`, and a fresh download matched every hash.
 
+**Shared-toolbar consumer census on `d7744fe9`.** Acceptance round 2 asked for focused observations of every consumer of the toolbar label rule (`9217e160`). The rule changes only actions without an icon. A label beside an icon stays hidden below 35rem, as before. The source census of `WorkspaceToolbarAction` definitions finds these icon-less actions:
+
+| Page                   | Actions                          | Placement                                      |
+| ---------------------- | -------------------------------- | ---------------------------------------------- |
+| Calendar               | `Export to Excel`, `Print / PDF` | `overflow: always`                             |
+| Critical Tasks Library | `Clear filters`                  | normal priority, only while a filter is active |
+| Critical Tasks Reports | `Clear filters`                  | normal priority, only while a filter is active |
+| Rating Scheme          | `Export`                         | normal priority                                |
+| Rating Scheme          | `Add Entry`                      | critical, `overflow: never`                    |
+
+Personnel and Ranks use the toolbar's nav, search and selects, with no actions. The run used worker 1, origin `http://127.0.0.1:44035` and Chromium 152.0.7977.82. Results:
+
+- **Calendar.** No inline actions at 390. Both actions are in the overflow menu, so the rule doesn't reach them.
+- **Critical Tasks Library**, with the search `ALPHA` active. At 390, 560 and 600 the only inline action is `New Task`, an icon action with its label hidden. `Clear filters` is in the overflow menu, so the rule doesn't reach it.
+- **Critical Tasks Reports.** The only inline action at every width is `Export Excel`, an icon action. Two attempts to apply a group or MOS filter did not commit, so `Clear filters` never rendered. It has Library's normal priority and the same shared layout, but this case is source-reasoned, not observed.
+- **Rating Scheme.** `Add Entry` is inline with its label at 390, 560 and 600, and `Export` is in the overflow menu.
+
+The archive is [`1604-consumers.tar.gz`](https://github.com/waffleflopper/trooptotask/releases/download/evidence/1604-consumers.tar.gz), SHA-256 `7ca8637e986437cf986caecc68646279f31b74446e111be35b44507079e4b00d`, with 14 payload files plus `INVENTORY.sha256`. A fresh download matched every hash.
+
 **Dispositions.** Every D06 baseline and later-run failure now passes on a candidate:
 
 - **History accordion.** Repaired in the shared `ui/accordion` wrapper. Each trigger resolves to its own panel, collapsed and expanded.

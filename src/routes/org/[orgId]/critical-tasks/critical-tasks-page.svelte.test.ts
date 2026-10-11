@@ -661,6 +661,27 @@ describe('critical tasks page', () => {
 		expect(exportButton.getAttribute('title')).toBe('Export unavailable while loading.');
 	});
 
+	it('keeps Record Completion and Import Completions unavailable until completions have loaded', async () => {
+		personnelStore.load([person()], 'org-1');
+		groupCatalogHydration.load([alphaGroup], 'org-1');
+		ictTasksStore.load([ictTask], 'org-1');
+		render(Page, { props: { data: { orgId: 'org-1' } } });
+
+		const record = screen.getByRole('button', { name: 'Record Completion' }) as HTMLButtonElement;
+		const importCompletions = screen.getByRole('button', { name: 'Import Completions' }) as HTMLButtonElement;
+		expect([record.disabled, record.getAttribute('title')]).toEqual([true, 'Critical Tasks are still loading.']);
+		expect([importCompletions.disabled, importCompletions.getAttribute('title')]).toEqual([
+			true,
+			'Critical Tasks are still loading.'
+		]);
+		await fireEvent.click(record);
+		expect(screen.queryByRole('dialog')).toBeNull();
+
+		personnelIctCompletionsStore.load([completion({})], 'org-1');
+		await waitFor(() => expect(record.disabled).toBe(false));
+		expect(record.getAttribute('title')).toBeNull();
+	});
+
 	it('shows an empty roster and a filter miss as distinct Empty states', async () => {
 		personnelStore.load([], 'org-1');
 		groupCatalogHydration.load([], 'org-1');

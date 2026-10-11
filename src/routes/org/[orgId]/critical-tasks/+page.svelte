@@ -90,8 +90,17 @@
 	);
 	const activeRosterView = $derived(rosterReadModel.scoped(org.scopeSet, { status: 'active' }));
 	const activePersonnel = $derived(activeRosterView.flatPersonnel);
-	const canOpenTaskInput = $derived(canInputTask && activePersonnel.length > 0 && activeTasks.length > 0);
-	const canOpenCompletionImport = $derived(canInputTask && activePersonnel.length > 0 && activeTasks.length > 0);
+	// A dialog resolves a pair's existing completion when the pair is chosen, so it opens only once every store has loaded.
+	const completionInputBlocker = $derived(
+		loading ? 'loading' : activePersonnel.length === 0 || activeTasks.length === 0 ? 'empty' : null
+	);
+	const canOpenCompletionInput = $derived(canInputTask && completionInputBlocker === null);
+
+	function completionInputDisabledReason(emptyReason: string): string | undefined {
+		if (completionInputBlocker === 'loading') return 'Critical Tasks are still loading.';
+		if (completionInputBlocker === 'empty') return emptyReason;
+		return undefined;
+	}
 	const groupFilterOptions = $derived(
 		activeRosterView.groupFilterOptions.map((option) => ({
 			value: option.value,
@@ -167,13 +176,13 @@
 	});
 
 	function handleToolbarTaskInput(): void {
-		if (!canOpenTaskInput) return;
+		if (!canOpenCompletionInput) return;
 		activeCompletionCell = null;
 		showTaskInputModal = true;
 	}
 
 	function handleCompletionImportOpen(): void {
-		if (!canOpenCompletionImport) return;
+		if (!canOpenCompletionInput) return;
 		activeCompletionCell = null;
 		showTaskInputModal = false;
 		showCompletionImportModal = true;
@@ -223,10 +232,8 @@
 				icon: 'upload',
 				priority: 'normal',
 				variant: 'default',
-				disabled: !canOpenCompletionImport,
-				disabledReason: !canOpenCompletionImport
-					? 'Add personnel and active tasks before importing completions.'
-					: undefined
+				disabled: !canOpenCompletionInput,
+				disabledReason: completionInputDisabledReason('Add personnel and active tasks before importing completions.')
 			});
 		}
 
@@ -259,8 +266,8 @@
 				priority: 'critical',
 				overflow: 'never',
 				variant: 'primary',
-				disabled: !canOpenTaskInput,
-				disabledReason: !canOpenTaskInput ? 'Add personnel and active tasks before recording a completion.' : undefined
+				disabled: !canOpenCompletionInput,
+				disabledReason: completionInputDisabledReason('Add personnel and active tasks before recording a completion.')
 			});
 		}
 

@@ -34,10 +34,10 @@
 			<Table.Row
 				class="h-7 border-border text-left font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground hover:bg-transparent"
 			>
-				<Table.Head class="h-7 w-28 px-0 sm:w-[150px]">Type</Table.Head>
-				<Table.Head class="h-7 px-0">Records</Table.Head>
-				<Table.Head class="h-7 w-16 px-0 text-right sm:w-20">Not ready</Table.Head>
-				<Table.Head class="h-7 w-16 px-0 text-right sm:w-20">By {horizonEndLabel}</Table.Head>
+				<Table.Head scope="col" class="h-7 w-28 px-0 sm:w-[150px]">Type</Table.Head>
+				<Table.Head scope="col" class="h-7 px-0">Records</Table.Head>
+				<Table.Head scope="col" class="h-7 w-16 px-0 text-right sm:w-20">Not ready</Table.Head>
+				<Table.Head scope="col" class="h-7 w-16 px-0 text-right sm:w-20">By {horizonEndLabel}</Table.Head>
 			</Table.Row>
 		</Table.Header>
 		<Table.Body>

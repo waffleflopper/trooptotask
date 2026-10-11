@@ -92,13 +92,13 @@
 						{value}
 						<Button
 							variant="ghost"
-							size="icon-xs"
-							class="-my-1 -mr-1.5 ml-1"
+							size="icon-sm"
+							class="-my-2.5 -mr-2 ml-1 size-10 sm:-my-1 sm:-mr-1.5 sm:size-7"
 							bind:ref={() => removeButtons[value] ?? null, (element) => (removeButtons[value] = element)}
 							aria-label={removeLabel(value)}
 							onclick={() => remove(value)}
 						>
-							<X aria-hidden="true" />
+							<X aria-hidden="true" class="size-3" />
 						</Button>
 					</Badge>
 				{/each}

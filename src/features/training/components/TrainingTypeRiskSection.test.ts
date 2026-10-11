@@ -25,4 +25,14 @@ it('exposes each Records bar as text a screen reader can read', () => {
 	).toEqual(['3 not ready, 2 lapsing by Oct 31', '3', '2']);
 	expect(within(weapons).getAllByRole('cell')[0].textContent?.trim()).toBe('0 not ready, 0 lapsing by Oct 31');
 	expect(within(table).getByRole('rowheader', { name: 'CPR' })).toBeTruthy();
+	expect(
+		within(table)
+			.getAllByRole('columnheader')
+			.map((header) => [header.textContent?.trim(), header.getAttribute('scope')])
+	).toEqual([
+		['Type', 'col'],
+		['Records', 'col'],
+		['Not ready', 'col'],
+		['By Oct 31', 'col']
+	]);
 });

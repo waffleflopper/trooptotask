@@ -7,6 +7,7 @@
 	import { PersonnelModal } from '$features/personnel';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import * as Alert from '$lib/components/ui/alert';
+	import * as Card from '$lib/components/ui/card';
 	import { Button } from '$lib/components/ui/button';
 	import * as Combobox from '$lib/components/ui/combobox';
 	import { DatePicker } from '$lib/components/ui/date-picker';
@@ -109,7 +110,7 @@
 
 		<AppDialog.Body>
 			<div class="flex flex-col gap-3">
-				<div class="grid gap-3 rounded-lg border bg-card p-3">
+				<Card.Root class="grid gap-3 p-3">
 					<p class="m-0 font-mono text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
 						Assignment
 					</p>
@@ -135,9 +136,9 @@
 							<DatePicker disabled={saving} id="start-date" bind:value={startDate} placeholder="Select start date" />
 						</Field.Root>
 					</div>
-				</div>
+				</Card.Root>
 
-				<div class="grid gap-3 rounded-lg border bg-card p-3">
+				<Card.Root class="grid gap-3 p-3">
 					<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 						<p class="m-0 font-mono text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">Member</p>
 						{#if canAddPerson}
@@ -167,7 +168,7 @@
 							<Combobox.List />
 						</Combobox.Content>
 					</Combobox.Root>
-				</div>
+				</Card.Root>
 
 				{#if saveError}
 					<Alert.Root variant="destructive">

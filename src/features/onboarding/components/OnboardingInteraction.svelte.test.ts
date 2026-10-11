@@ -628,6 +628,35 @@ describe('Onboarding retained interactions', () => {
 		);
 	});
 
+	it.each([
+		['Space', (box: HTMLElement) => fireEvent.keyDown(box, { key: ' ' })],
+		['click', (box: HTMLElement) => fireEvent.click(box)]
+	])('saves a checkbox step exactly once from %s', async (_input, activate) => {
+		const fetchMock = vi.fn().mockResolvedValue(
+			Response.json({
+				id: 'step-1',
+				onboardingId: 'packet-1',
+				stepName: 'Verify ID card',
+				stepType: 'checkbox',
+				completed: true,
+				currentStage: null
+			})
+		);
+		vi.stubGlobal('fetch', fetchMock);
+		mount();
+		await fireEvent.click(screen.getByRole('button', { name: /SGT Smith, Jane/ }));
+		await activate(await screen.findByRole('checkbox', { name: 'Mark Verify ID card complete' }));
+		await waitFor(() => expect(onboardingStore.getById('packet-1')?.steps[0].completed).toBe(true));
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+		expect(fetchMock).toHaveBeenCalledWith(
+			'/org/org-1/api/onboarding-steps',
+			expect.objectContaining({
+				method: 'PUT',
+				body: JSON.stringify({ action: 'toggleCheckbox', stepId: 'step-1', completed: true })
+			})
+		);
+	});
+
 	it('rolls back a denied checkbox toggle and shows confirmed completion after retry', async () => {
 		let deny!: (response: Response) => void;
 		let confirm!: (response: Response) => void;

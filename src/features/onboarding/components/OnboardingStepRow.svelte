@@ -32,7 +32,7 @@
 				<Checkbox
 					checked={false}
 					aria-label={`Mark ${step.stepName} complete`}
-					onclick={() => ctx.handleToggleCheckbox(step)}
+					onCheckedChange={() => ctx.handleToggleCheckbox(step)}
 				/>
 			{:else}
 				<div class="h-5 w-5 shrink-0 rounded-full border-2 border-border"></div>
@@ -79,7 +79,7 @@
 				<Checkbox
 					checked={true}
 					aria-label={`Mark ${step.stepName} incomplete`}
-					onclick={() => ctx.handleToggleCheckbox(step)}
+					onCheckedChange={() => ctx.handleToggleCheckbox(step)}
 				/>
 			{:else}
 				<div class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-success text-white">

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import { Badge } from '$lib/components/ui/badge';
 	import * as Card from '$lib/components/ui/card';
@@ -26,6 +27,7 @@
 
 	let { orgId, reportScope, initialDashboard, loading = false }: Props = $props();
 
+	let viewRoot = $state<HTMLElement | null>(null);
 	let filterGroupId = $state('');
 	let filterMosValues = $state<string[]>([]);
 	let filterRole = $state('');
@@ -136,11 +138,14 @@
 		return items;
 	});
 
-	function clearFilters() {
+	// Clearing removes Clear filters itself, and its menu when it was the last overflow item.
+	async function clearFilters() {
 		filterGroupId = '';
 		filterMosValues = [];
 		filterRole = '';
 		filterRank = '';
+		await tick();
+		viewRoot?.querySelector<HTMLElement>('[aria-label="Filter by group"]')?.focus();
 	}
 
 	function formatDelta(delta: number): string {
@@ -219,7 +224,7 @@
 	});
 </script>
 
-<div class="flex flex-col gap-5 p-4 sm:p-2 md:p-4">
+<div bind:this={viewRoot} class="flex flex-col gap-5 p-4 sm:p-2 md:p-4">
 	<WorkspaceToolbar.Root ariaLabel="Critical task report controls" wrap>
 		<WorkspaceToolbar.Group
 			label="Critical task report filters"

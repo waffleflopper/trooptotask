@@ -412,6 +412,25 @@ describe('IctReportsView', () => {
 		});
 	});
 
+	it('moves focus to the group filter when Clear filters removes its own menu', async () => {
+		render(IctReportsView, {
+			props: { orgId: 'org-1', reportScope: makeReportScope(), initialDashboard }
+		});
+
+		await fireEvent.pointerDown(screen.getByRole('button', { name: 'Filter by group' }));
+		const alphaOption = screen.getByRole('option', { name: 'Alpha' });
+		await fireEvent.pointerDown(alphaOption);
+		await fireEvent.pointerUp(alphaOption);
+		const more = await screen.findByRole('button', { name: 'More critical task report actions' });
+		await fireEvent.click(more);
+		await fireEvent.click(await screen.findByRole('menuitem', { name: 'Clear filters' }));
+
+		const group = screen.getByRole('button', { name: 'Filter by group' });
+		await waitFor(() => expect(document.activeElement).toBe(group));
+		expect(group.textContent?.trim()).toBe('All Groups');
+		expect(screen.queryByRole('button', { name: 'More critical task report actions' })).toBeNull();
+	});
+
 	it('names every readiness metric and its value inside the report metrics region', () => {
 		render(IctReportsView, {
 			props: { orgId: 'org-1', reportScope: makeReportScope(), initialDashboard }

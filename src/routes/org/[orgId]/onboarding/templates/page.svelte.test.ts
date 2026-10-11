@@ -118,6 +118,27 @@ describe('onboarding templates page', () => {
 		expect(screen.getByText('Initial counseling')).toBeTruthy();
 	});
 
+	it('offers Add first step on an empty template and opens the step form', async () => {
+		await renderTemplatesPage({ templateSteps: [] });
+
+		expect(screen.getByText('No steps yet.')).toBeTruthy();
+		const addFirst = screen.getByRole('button', { name: 'Add first step' });
+		expect(addFirst.hasAttribute('disabled')).toBe(false);
+
+		await fireEvent.click(addFirst);
+
+		expect(screen.queryByRole('button', { name: 'Add first step' })).toBeNull();
+		expect(screen.getByLabelText('Name')).toBeTruthy();
+	});
+
+	it('disables Add first step for a Group-scoped configurator', async () => {
+		scopeSet = { kind: 'groups', groupIds: ['alpha'] };
+
+		await renderTemplatesPage({ templateSteps: [] });
+
+		expect(screen.getByRole('button', { name: 'Add first step' }).hasAttribute('disabled')).toBe(true);
+	});
+
 	it('renders a failed create error and retains the draft for a real retry', async () => {
 		const fetchMock = vi
 			.fn()

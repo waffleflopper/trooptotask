@@ -12,6 +12,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as Empty from '$lib/components/ui/empty';
 	import * as Alert from '$lib/components/ui/alert';
+	import * as Card from '$lib/components/ui/card';
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
 	import * as RadioGroup from '$lib/components/ui/radio-group';
@@ -356,17 +357,25 @@
 
 						<TypeWorkspace.FormSection title="Steps">
 							{#if model.selectedTemplateSteps.length === 0 && !model.addingStep}
-								<button
-									type="button"
-									class="flex min-h-28 w-full flex-col items-center justify-center gap-2 rounded-md border border-dashed bg-card/70 p-4 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
-									onclick={() => workspace.startAddStep()}
-									disabled={!model.canMutate}
-								>
-									<Plus class="size-4" aria-hidden="true" />
-									<span class="font-medium">Add first step</span>
-								</button>
+								<Empty.Root class="min-h-28 border p-4">
+									<Empty.Header>
+										<Empty.Title>No steps yet.</Empty.Title>
+									</Empty.Header>
+									<Empty.Content>
+										<Button
+											variant="outline"
+											size="sm"
+											type="button"
+											onclick={() => workspace.startAddStep()}
+											disabled={!model.canMutate}
+										>
+											<Plus aria-hidden="true" />
+											Add first step
+										</Button>
+									</Empty.Content>
+								</Empty.Root>
 							{:else}
-								<div class="grid overflow-hidden rounded-md border border-border bg-card">
+								<Card.Root class="grid overflow-hidden">
 									{#each model.selectedTemplateSteps as step, index (step.id)}
 										<div class="border-b border-border/70 p-3 last:border-b-0">
 											{#if model.editingStepId === step.id}
@@ -456,7 +465,7 @@
 											{/if}
 										</div>
 									{/each}
-								</div>
+								</Card.Root>
 							{/if}
 
 							{#if model.addingStep}
@@ -603,7 +612,7 @@
 			<TypeWorkspace.FormSection title="Stages">
 				<div class="grid gap-2">
 					{#each workspace.stepDraft.stages as stage, index (index)}
-						<div class="flex items-center justify-between rounded-md border bg-card p-2">
+						<Card.Root class="flex items-center justify-between p-2">
 							<span class="text-sm text-foreground">{stage}</span>
 							<div class="flex gap-1">
 								<Button
@@ -639,7 +648,7 @@
 									<Trash2 aria-hidden="true" />
 								</Button>
 							</div>
-						</div>
+						</Card.Root>
 					{/each}
 					<div class="flex items-center gap-2 max-sm:flex-col max-sm:items-stretch">
 						<Input

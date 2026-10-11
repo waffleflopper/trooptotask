@@ -375,7 +375,6 @@
 				<div
 					class="h-full overflow-auto"
 					role="status"
-					aria-busy="true"
 					aria-live="polite"
 					aria-label="Loading Critical Tasks"
 					data-testid="critical-tasks-loading"

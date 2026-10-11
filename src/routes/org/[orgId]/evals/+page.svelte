@@ -71,13 +71,7 @@
 {#if loadError}
 	<!-- The Evals layout observes this same source and shows WorkspaceLoadError. -->
 {:else if workspacePending}
-	<section
-		class="grid gap-4 p-3 sm:px-6 sm:py-5"
-		aria-busy="true"
-		aria-live="polite"
-		role="status"
-		aria-label="Loading evaluations"
-	>
+	<section class="grid gap-4 p-3 sm:px-6 sm:py-5" aria-live="polite" role="status" aria-label="Loading evaluations">
 		<div class="flex flex-wrap items-center gap-3">
 			<Skeleton class="h-3 w-[124px]" />
 			<Skeleton class="h-3 w-24" />

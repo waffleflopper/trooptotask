@@ -650,11 +650,12 @@ describe('critical tasks page', () => {
 			notes: 'Toolbar entry'
 		});
 	});
-	it('names the pending matrix as a busy status inside a page with no nested main landmark', () => {
+	it('names the pending matrix as a live status inside a page with no nested main landmark', () => {
 		render(Page, { props: { data: { orgId: 'org-1' } } });
 
 		const status = screen.getByRole('status', { name: 'Loading Critical Tasks' });
-		expect(status.getAttribute('aria-busy')).toBe('true');
+		expect(status.getAttribute('aria-live')).toBe('polite');
+		expect(status.hasAttribute('aria-busy')).toBe(false);
 		expect(screen.queryByRole('main')).toBeNull();
 		const exportButton = screen.getByRole('button', { name: 'Export Excel' }) as HTMLButtonElement;
 		expect(exportButton.disabled).toBe(true);

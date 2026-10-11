@@ -131,7 +131,7 @@ describe('evals page', () => {
 			}
 		});
 
-		expect(screen.getByRole('status')).toBeTruthy();
+		expect(screen.getByRole('status', { name: 'Loading evaluations' }).getAttribute('aria-busy')).toBe('true');
 
 		workspace.resolve(makeBootstrap());
 

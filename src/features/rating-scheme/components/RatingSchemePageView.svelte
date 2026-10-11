@@ -120,9 +120,9 @@
 			</Alert.Root>
 		</div>
 	{:else}
-		<main class="flex min-h-0 flex-1 overflow-hidden p-4 md:p-6">
+		<div class="flex min-h-0 flex-1 overflow-hidden p-4 md:p-6">
 			<section class="flex min-h-0 w-full flex-col gap-4 overflow-hidden">
-				<WorkspaceToolbar.Root ariaLabel="Evaluation controls">
+				<WorkspaceToolbar.Root ariaLabel="Evaluation controls" wrap>
 					<WorkspaceToolbar.Group
 						label="Evaluation filters"
 						activeCount={activeFilterCount}
@@ -202,6 +202,6 @@
 					{/if}
 				</div>
 			</section>
-		</main>
+		</div>
 	{/if}
 </div>

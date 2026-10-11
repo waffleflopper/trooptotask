@@ -123,6 +123,7 @@ describe('RatingSchemePageView', () => {
 			}
 		});
 
+		expect(screen.queryByRole('main')).toBeNull();
 		const groupedToggle = screen.getByRole('button', { name: 'Grouped' });
 		const tableToggle = screen.getByRole('button', { name: 'Table' });
 

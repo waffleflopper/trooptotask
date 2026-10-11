@@ -132,7 +132,26 @@ The archive is [`1604-review.tar.gz`](https://github.com/waffleflopper/trooptota
 
 The archive is [`1604-acceptance.tar.gz`](https://github.com/waffleflopper/trooptotask/releases/download/evidence/1604-acceptance.tar.gz), SHA-256 `d54dfbcb3d0cbe2b0121f6765e68786ed18187cf43ba4cf2d5009b9bb8554902`, with 114 payload files plus `INVENTORY.sha256`. Verify it the same way as `1604-followup.tar.gz`. A fresh download matched every hash. The checkout path in `cleanup.json` and `c3-signed-download.json` is redacted.
 
-**Remaining failure, disposition.** The History packet accordion's `aria-controls` is now repaired in the shared `ui/accordion` wrapper. The live run resolves each trigger to its own panel, collapsed and expanded. The roster viewer's signed-scan download and the Training-gated `Record Training` are repaired and pass live. The Onboarding board header that clips `Start Onboarding` at 390 is a D06 presentation failure. It stays FAIL until a later candidate passes the recipe's narrow-header check. Listbox arrow keys, the duplicate dialog `Close`, `Empty.Title` not being a heading and the app shell's nested `main` belong to shared families. They stay with D09 [#1607](https://github.com/waffleflopper/trooptotask/issues/1607), and D06 does not change them.
+**Toolbar and board-header run on `55890842`.** Two more commits fix what the acceptance-fix run and CodeRabbit found. `55890842` lets the board header wrap at 390. `9217e160` changes the shared workspace toolbar so that below 35rem it hides an action's label only when an icon sits beside it. Before that, an action with no icon (Rating Scheme's `Add Entry`) rendered as a blank button. The run used digest `396f6297` (`396f6297b338d6339d1aa87116270d6d2cf05e4b617eb0efec52bf92b1ad16b7`), worker 1, origin `http://127.0.0.1:46639`, Chromium 152.0.7977.82.
+
+- **Board header at 390 dark.** PASS. The header's scroll width equals its 390 client width. `Templates`, `History` and `Start Onboarding` wrap to a second row, and `Start Onboarding` spans x 170–314.
+- **Shared toolbar at 390.** PASS:
+  - Rating Scheme's `Add Entry` shows its label.
+  - Training's `Manage Types` and Templates' `Add Template` stay icon-only.
+  - The Rating Scheme toolbar row was already wider than 390 on main (510 inside 356), so `Add Entry` sits past the edge. The row has `overflow-x: auto`, so the button is reached by scrolling. That layout belongs to D05 [#1603](https://github.com/waffleflopper/trooptotask/issues/1603).
+- **Archive.** [`1604-toolbar.tar.gz`](https://github.com/waffleflopper/trooptotask/releases/download/evidence/1604-toolbar.tar.gz), SHA-256 `88ab999db605d97fc3f484422405440791dc02f7a9aae5ffbf983148231783d4`. It holds 6 payload files plus `INVENTORY.sha256`, and a fresh download matched every hash.
+
+**Dispositions.** Every D06 baseline and later-run failure now passes on a candidate:
+
+- **History accordion.** Repaired in the shared `ui/accordion` wrapper. Each trigger resolves to its own panel, collapsed and expanded.
+- **Roster viewer and Training link.** The viewer's signed-scan download and the Training-gated `Record Training` pass live.
+- **Board header at 390.** Passes on `55890842`.
+- **Left to their shared owners.** D06 does not change these, and they stay with D09 [#1607](https://github.com/waffleflopper/trooptotask/issues/1607):
+  - Listbox arrow keys.
+  - The duplicate dialog `Close`.
+  - `Empty.Title` not being a heading.
+  - The app shell's nested `main`.
+- **Not configured state.** The disabled `Start Onboarding` explains itself only through the adjacent `Set up onboarding` text. It sits outside the Tab order, so a programmatic description would never be announced.
 
 ## Phase 10 D04 #1602
 

@@ -445,3 +445,24 @@ test('a page server-load error dispatches the real read and fails only the page 
 	assert.deepEqual(retried.nodes, nodes);
 	assert.equal(reads, 2);
 });
+
+test('a rejected platform form result carries the chosen 4xx status in the SvelteKit envelope', async () => {
+	const page = { fetch: async () => new Response('ordinary result', { status: 200 }) };
+	installNetworkControl(page, {
+		mode: 'fail',
+		ordinal: 1,
+		suffix: '/admin/feedback',
+		search: '?/update',
+		failureField: 'error',
+		failureStatus: 400,
+		sameOrigin: true
+	});
+	page.location = { href: 'http://localhost/admin/feedback' };
+	const rejected = await page.fetch('/admin/feedback?/update', { method: 'POST' });
+	assert.equal(rejected.status, 400);
+	const result = await rejected.json();
+	assert.equal(result.type, 'failure');
+	assert.equal(result.status, 400);
+	assert.deepEqual(parse(result.data), { error: 'Synthetic request failure' });
+	assert.equal((await page.fetch('/admin/feedback?/update', { method: 'POST' })).status, 200);
+});

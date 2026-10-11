@@ -8,6 +8,7 @@ export function installNetworkControl(
 		suffix,
 		search = null,
 		failureField = null,
+		failureStatus = 503,
 		requestTarget = null,
 		sameOrigin = false,
 		requestMethod = null
@@ -105,12 +106,16 @@ export function installNetworkControl(
 			});
 		}
 		if (['fail', 'hold-fail'].includes(control.mode) && requestNumber === control.ordinal) {
-			call.status = 503;
+			call.status = failureStatus;
 			const body = failureField
-				? { type: 'failure', status: 503, data: JSON.stringify([{ [failureField]: 1 }, 'Synthetic request failure']) }
+				? {
+						type: 'failure',
+						status: failureStatus,
+						data: JSON.stringify([{ [failureField]: 1 }, 'Synthetic request failure'])
+					}
 				: { message: 'Synthetic request failure' };
 			const response = new Response(JSON.stringify(body), {
-				status: 503,
+				status: failureStatus,
 				headers: { 'Content-Type': 'application/json' }
 			});
 			if (control.mode === 'hold-fail')

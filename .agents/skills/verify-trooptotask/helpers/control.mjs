@@ -2246,6 +2246,7 @@ async function main() {
 			[
 				'arm-fail',
 				'arm-error',
+				'arm-fail-400',
 				'arm-hold',
 				'arm-hold-fail',
 				'arm-reject',
@@ -2417,12 +2418,14 @@ async function main() {
 				throw new Error('Synthetic transport rejection requires a documented mutation family.');
 			if (action === 'arm-error' && !formAction && !accountForm)
 				throw new Error('Unexpected-error results are supported only for form action families.');
+			if (action === 'arm-fail-400' && !platformForm?.failureField)
+				throw new Error('A rejected form result is supported only for platform form actions.');
 			if (action === 'arm-drop' && !['admin-suspend', 'admin-transfer'].includes(family))
 				throw new Error('Lost-response proof is supported only for platform mutation controls.');
 			const mode =
 				action === 'arm-hold-fail'
 					? 'hold-fail'
-					: action === 'arm-fail'
+					: action === 'arm-fail' || action === 'arm-fail-400'
 						? 'fail'
 						: action === 'arm-error'
 							? 'error'
@@ -2457,7 +2460,7 @@ async function main() {
 					: shellPart
 						? 'GET'
 						: null;
-			const install = `(${installNetworkControl.toString()})(window, ${JSON.stringify({ mode, ordinal, suffix, search, failureField, requestTarget, sameOrigin, requestMethod })})`;
+			const install = `(${installNetworkControl.toString()})(window, ${JSON.stringify({ mode, ordinal, suffix, search, failureField, failureStatus: action === 'arm-fail-400' ? 400 : 503, requestTarget, sameOrigin, requestMethod })})`;
 			// Onboarding's HTTP adapter captures fetch at creation, so install before page code.
 			if (family.startsWith('onboarding-') || shellPart) {
 				const armed = await evaluate(state, pageId, '() => !!window.__mapNetwork');

@@ -33,6 +33,7 @@
 
 	let { data }: PageProps = $props();
 	let emptyAddTemplate = $state<HTMLElement | null>(null);
+	let addStepButton = $state<HTMLElement | null>(null);
 	let ConfirmDialog = $state<typeof import('$lib/components/ui/confirm-dialog').ConfirmDialog | null>(null);
 
 	const org = getAppShellContext();
@@ -119,6 +120,7 @@
 				label: 'Add Template',
 				onclick: () => workspace.startCreateTemplate(),
 				disabled: model.templateActionDisabled,
+				icon: 'plus',
 				priority: 'critical',
 				overflow: 'never',
 				variant: 'primary'
@@ -145,8 +147,36 @@
 		}
 	}
 
-	async function saveStep(): Promise<void> {
-		await workspace.saveStep();
+	async function focusStepName(): Promise<void> {
+		await tick();
+		document.getElementById('step-name')?.focus();
+	}
+
+	function startAddStep(): void {
+		workspace.startAddStep();
+		void focusStepName();
+	}
+
+	function startEditStep(step: OnboardingTemplateStep): void {
+		workspace.startEditStep(step);
+		void focusStepName();
+	}
+
+	async function returnFocusFromStepForm(stepId: string | null): Promise<void> {
+		await tick();
+		const edit = stepId ? document.querySelector<HTMLElement>(`[data-edit-step="${CSS.escape(stepId)}"]`) : null;
+		(edit ?? addStepButton)?.focus();
+	}
+
+	async function saveStep(stepId: string | null): Promise<void> {
+		const result = await workspace.saveStep();
+		if (result.ok) await returnFocusFromStepForm(stepId);
+	}
+
+	function cancelStep(stepId: string | null): void {
+		if (stepId) workspace.cancelEditStep();
+		else workspace.cancelAddStep();
+		void returnFocusFromStepForm(stepId);
 	}
 
 	function requestDelete(target: OnboardingTemplateDeleteTarget) {
@@ -327,7 +357,7 @@
 					</TypeWorkspace.FormSection>
 				</div>
 
-				<TypeWorkspace.FooterActions class="shrink-0 bg-background py-3 pr-2">
+				<TypeWorkspace.FooterActions class="shrink-0 flex-wrap bg-background py-3 pr-2">
 					{#if !model.creatingTemplate && model.selectedTemplate && model.canMutate}
 						<Button
 							variant="destructive"
@@ -392,7 +422,7 @@
 											variant="outline"
 											size="sm"
 											type="button"
-											onclick={() => workspace.startAddStep()}
+											onclick={startAddStep}
 											disabled={!model.canMutate}
 										>
 											<Plus aria-hidden="true" />
@@ -405,7 +435,11 @@
 									{#each model.selectedTemplateSteps as step, index (step.id)}
 										<div class="border-b border-border/70 p-3 last:border-b-0">
 											{#if model.editingStepId === step.id}
-												{@render stepForm(saveStep, () => workspace.cancelEditStep(), 'Save Changes')}
+												{@render stepForm(
+													() => saveStep(step.id),
+													() => cancelStep(step.id),
+													'Save Changes'
+												)}
 											{:else}
 												<div class="flex items-center justify-between gap-3 max-sm:flex-col max-sm:items-stretch">
 													<div class="flex min-w-0 flex-1 items-center gap-2 max-sm:flex-wrap">
@@ -446,7 +480,8 @@
 																size="icon"
 																type="button"
 																title="Edit"
-																onclick={() => workspace.startEditStep(step)}
+																onclick={() => startEditStep(step)}
+																data-edit-step={step.id}
 																aria-label={`Edit ${step.name}`}
 															>
 																<Pencil aria-hidden="true" />
@@ -498,7 +533,11 @@
 
 							{#if model.addingStep}
 								<TypeWorkspace.Choice>
-									{@render stepForm(saveStep, () => workspace.cancelAddStep(), 'Add Step')}
+									{@render stepForm(
+										() => saveStep(null),
+										() => cancelStep(null),
+										'Add Step'
+									)}
 								</TypeWorkspace.Choice>
 							{/if}
 						</TypeWorkspace.FormSection>
@@ -506,7 +545,7 @@
 				</div>
 
 				{#if model.canMutate}
-					<TypeWorkspace.FooterActions class="shrink-0 bg-background py-3 pr-2">
+					<TypeWorkspace.FooterActions class="shrink-0 flex-wrap bg-background py-3 pr-2">
 						<Button
 							variant="destructive"
 							size="sm"
@@ -536,10 +575,11 @@
 							Duplicate Template
 						</Button>
 						<Button
+							bind:ref={addStepButton}
 							variant="outline"
 							size="sm"
 							type="button"
-							onclick={() => workspace.startAddStep()}
+							onclick={startAddStep}
 							disabled={model.addingStep || !!model.editingStepId}
 						>
 							<Plus aria-hidden="true" />
@@ -584,7 +624,7 @@
 		<TypeWorkspace.FormSection title="Step Basics">
 			<Field.Root>
 				<Field.Label for="step-name">Name</Field.Label>
-				<Input id="step-name" type="text" placeholder="Step name" autofocus bind:value={workspace.stepDraft.name} />
+				<Input id="step-name" type="text" placeholder="Step name" bind:value={workspace.stepDraft.name} />
 			</Field.Root>
 
 			<Field.Root>

@@ -178,6 +178,27 @@ describe('onboarding templates page', () => {
 		}
 	);
 
+	it('returns focus to Add Step when the new step form is cancelled', async () => {
+		await renderTemplatesPage();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Add Step' }));
+		await fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }));
+
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Add Step' })));
+	});
+
+	it('moves focus to Name when a step is edited and back to its Edit button on Cancel', async () => {
+		await renderTemplatesPage();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit Initial counseling' }));
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('textbox', { name: 'Name' })));
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+		await waitFor(() =>
+			expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Edit Initial counseling' }))
+		);
+	});
+
 	it('disables Add first step for a Group-scoped configurator', async () => {
 		scopeSet = { kind: 'groups', groupIds: ['alpha'] };
 

@@ -2382,7 +2382,7 @@ async function main() {
 			)
 				throw new Error('Delayed synthetic failure is not supported for this request family.');
 			if (
-				(['admin-access-read', 'admin-audit-read', 'admin-dashboard-read'].includes(family) || shellPart) &&
+				(/^admin-[a-z-]+-read$/.test(family) || shellPart) &&
 				!['arm-fail', 'arm-hold', 'arm-observe'].includes(action)
 			)
 				throw new Error('Platform read controls support failure, hold and observation only.');

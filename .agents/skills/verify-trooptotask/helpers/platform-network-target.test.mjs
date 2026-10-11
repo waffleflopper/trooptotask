@@ -71,7 +71,11 @@ for (const [family, route, action] of [
 
 for (const [family, route] of [
 	['admin-audit-read', '/admin/audit/__data.json'],
-	['admin-dashboard-read', '/admin/__data.json']
+	['admin-dashboard-read', '/admin/__data.json'],
+	['admin-users-read', '/admin/users/__data.json'],
+	['admin-organizations-read', '/admin/organizations/__data.json'],
+	['admin-feedback-read', '/admin/feedback/__data.json'],
+	['admin-announcements-read', '/admin/announcements/__data.json']
 ]) {
 	test(`${family} leaves foreign origins, other admin pages and form writes untouched`, async () => {
 		let dispatched = 0;
@@ -89,7 +93,7 @@ for (const [family, route] of [
 		});
 		await page.fetch(`http://other.test${route}`);
 		await page.fetch('/admin/feedback?/update', { method: 'POST' });
-		await page.fetch('/admin/users/__data.json');
+		await page.fetch('/admin/access-requests/__data.json');
 		assert.equal(dispatched, 3);
 		assert.equal(page.__mapNetwork.calls.length, 0);
 		assert.equal((await page.fetch(`${route}?page=2`)).status, 503);

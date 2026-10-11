@@ -38,6 +38,7 @@ For durable publication, follow [artifact packaging](../../../../docs/architectu
 
 - [Platform access, accounts and Organizations](platform-administration.md): platform admission, reviewed access, directories, suspension, role/ownership support and recovery.
 - [Platform announcements, Feedback and Audit support](platform-support-content.md): admin content lifecycle, reduced Dashboard activity, paging, denial, persisted effects and recovery.
+- [Platform admin states](platform-admin-states.md): admin shell, global search, role-derived visibility, raw table/details/button mappings, dialogs, failed saves that keep entered values, URL filters and paging, and per-page loading, empty, error, denied, narrow and dark states.
 - [Sign in and sign out](sign-in.md): public gate, member session, account menu and profile rank, sign-out and form failure.
 - [Identity recovery, MFA and account security](identity-recovery-security.md): MFA challenge, password recovery and reset, invite activation and renewal, account setup, request access, security settings, suspension and link errors.
 - [App shell and saved preferences](shell-preferences.md): optional chrome, Training/Calendar persistence, pending saves, failures and user/Organization/session lifetime.

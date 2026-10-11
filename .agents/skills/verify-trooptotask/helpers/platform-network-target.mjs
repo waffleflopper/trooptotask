@@ -14,7 +14,11 @@ export function platformFormNetworkTarget(family, fixture, seed) {
 	}
 	const contentReads = {
 		'admin-audit-read': '/admin/audit/__data.json',
-		'admin-dashboard-read': '/admin/__data.json'
+		'admin-dashboard-read': '/admin/__data.json',
+		'admin-users-read': '/admin/users/__data.json',
+		'admin-organizations-read': '/admin/organizations/__data.json',
+		'admin-feedback-read': '/admin/feedback/__data.json',
+		'admin-announcements-read': '/admin/announcements/__data.json'
 	};
 	if (Object.hasOwn(contentReads, family))
 		return {

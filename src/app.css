@@ -23,6 +23,7 @@
 	--color-foreground: var(--foreground);
 	--color-card: var(--card);
 	--color-card-foreground: var(--card-foreground);
+	--color-card-alt: var(--card-alt);
 	--color-popover: var(--popover);
 	--color-popover-foreground: var(--popover-foreground);
 	--color-primary: var(--primary);
@@ -33,6 +34,8 @@
 	--color-muted-foreground: var(--muted-foreground);
 	--color-accent: var(--accent);
 	--color-accent-foreground: var(--accent-foreground);
+	--color-accent-text: var(--accent-text);
+	--color-accent-hover: color-mix(in srgb, var(--accent) 82%, var(--chrome-text) 18%);
 	--color-destructive: var(--destructive);
 	--color-destructive-foreground: var(--destructive-foreground);
 	--color-danger: var(--destructive);
@@ -104,6 +107,8 @@
 	--foreground: oklch(14.7% 0.004 49.25);
 	--card: oklch(98.5% 0.001 106.423);
 	--card-foreground: oklch(14.7% 0.004 49.25);
+	/* Alternating band behind long-form public sections. */
+	--card-alt: color-mix(in srgb, var(--card) 96%, var(--foreground) 4%);
 	--popover: oklch(98.5% 0.001 106.423);
 	--popover-foreground: oklch(14.7% 0.004 49.25);
 	--primary: oklch(14.7% 0.004 49.25);
@@ -114,6 +119,8 @@
 	--muted-foreground: oklch(44.4% 0.011 73.639);
 	--accent: oklch(66.6% 0.179 58.318);
 	--accent-foreground: oklch(14.7% 0.004 49.25);
+	/* Amber for text on paper: the bright accent is only ~3:1 on the light card, this clears AA. */
+	--accent-text: oklch(48% 0.13 55);
 	--destructive: oklch(57.7% 0.245 27.325);
 	--destructive-foreground: oklch(98.5% 0.001 106.423);
 	--warning: oklch(66.6% 0.179 58.318);
@@ -149,6 +156,7 @@
 	--foreground: oklch(98.5% 0.001 106.423);
 	--card: oklch(21.6% 0.006 56.043);
 	--card-foreground: oklch(98.5% 0.001 106.423);
+	--card-alt: color-mix(in srgb, var(--card) 82%, black 18%);
 	--popover: oklch(21.6% 0.006 56.043);
 	--popover-foreground: oklch(98.5% 0.001 106.423);
 	--primary: oklch(98.5% 0.001 106.423);
@@ -159,6 +167,7 @@
 	--muted-foreground: oklch(70.9% 0.01 56.259);
 	--accent: oklch(76.9% 0.188 70.08);
 	--accent-foreground: oklch(14.7% 0.004 49.25);
+	--accent-text: var(--accent);
 	--destructive: oklch(63.7% 0.237 25.331);
 	--destructive-foreground: oklch(98.5% 0.001 106.423);
 	--warning: oklch(76.9% 0.188 70.08);
@@ -200,6 +209,37 @@
 
 @utility z-sheet {
 	z-index: 40;
+}
+
+/* Scroll reveal. Content hides only once the page arms it with .reveal-enabled and adds .revealed as it enters view, so
+   a visitor without IntersectionObserver or with reduced motion sees everything. Stagger with the delay-* utilities. */
+@utility reveal {
+	@media (prefers-reduced-motion: no-preference) {
+		:where(.reveal-enabled) & {
+			opacity: 0;
+			transform: translateY(24px);
+			transition-property: opacity, transform;
+			transition-duration: 0.7s;
+			transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+		}
+
+		:where(.reveal-enabled) &.revealed {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+}
+
+/* Faint dot grid over a chrome surface. */
+@utility bg-chrome-dots {
+	background-image: radial-gradient(var(--color-chrome-grid) 1px, transparent 1px);
+	background-size: 32px 32px;
+}
+
+/* Fractal noise texture for public page headers; pair with a low opacity. */
+@utility bg-noise {
+	background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+	background-size: 256px 256px;
 }
 
 /* Document defaults stay in the base layer so primitive variants and utilities can override them. */

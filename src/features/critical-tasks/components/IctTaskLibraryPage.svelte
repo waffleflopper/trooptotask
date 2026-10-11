@@ -512,9 +512,10 @@
 										selectedTaskId === task.id && !creating && 'border-primary bg-primary/5'
 									]}
 								>
-									<button
-										class="grid min-w-0 flex-1 gap-1 p-3 text-left"
-										type="button"
+									<Button
+										variant="ghost"
+										size="none"
+										class="grid h-auto min-w-0 flex-1 items-start justify-start gap-1 rounded-r-none p-3 text-left font-normal whitespace-normal"
 										aria-pressed={selectedTaskId === task.id && !creating}
 										onclick={() => selectTask(task.id)}
 									>
@@ -523,7 +524,7 @@
 										>
 										<span class="truncate text-sm font-medium text-foreground">{task.title}</span>
 										<span class="truncate text-xs text-muted-foreground">{formatTaskListMeta(task)}</span>
-									</button>
+									</Button>
 									{#if canReorderTasks}
 										<div class="flex flex-col justify-center gap-1 p-2" aria-label="Reorder {task.taskCode}">
 											<Button

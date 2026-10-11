@@ -288,9 +288,7 @@
 	<title>Critical Tasks - Troop to Task</title>
 </svelte:head>
 
-<div
-	class="flex h-[calc(100dvh-var(--app-shell-header-height,56px)-var(--banner-height,0px))] min-h-0 flex-col overflow-hidden bg-background"
->
+<div class="flex h-full min-h-0 flex-col overflow-hidden bg-background">
 	{#if !canViewReadiness}
 		<section class="h-full max-w-3xl overflow-auto p-4" aria-labelledby="critical-tasks-restricted-title">
 			<h2 id="critical-tasks-restricted-title" class="text-2xl font-semibold text-foreground">Access Restricted</h2>

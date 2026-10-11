@@ -2,6 +2,8 @@
 	import { SvelteDate } from 'svelte/reactivity';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
+	import * as DataTable from '$lib/components/ui/data-table';
+	import type { ColumnDef } from '$lib/components/ui/data-table';
 	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar';
 	import type { WorkspaceToolbarAction } from '$lib/components/patterns/workspace-toolbar';
 	import type { CriticalTasksPageAccess } from '../contracts';
@@ -365,6 +367,39 @@
 		return calculateIctExpirationDate(row.completion.completedAt, row.task, settings);
 	}
 
+	// Both tables keep the task library order, so no column sorts or searches.
+	function column<Row>(key: string, header: string, value: (row: Row) => unknown): ColumnDef<Row> {
+		return { key, header, value, sortable: false, searchable: false };
+	}
+
+	const activeColumns = $derived.by<ColumnDef<ActiveTaskRow>[]>(() => {
+		const columns = [
+			column<ActiveTaskRow>('task', 'Task', (row) => row.task.taskCode),
+			column<ActiveTaskRow>('status', 'Status', (row) => statusLabels[row.statusInfo.status]),
+			column<ActiveTaskRow>('completed', 'Completed', (row) => formatRecordDate(row.completion?.completedAt)),
+			column<ActiveTaskRow>('expires', 'Expires', (row) => formatRecordDate(row.statusInfo.expirationDate)),
+			column<ActiveTaskRow>('method', 'Method', (row) => row.completion?.validationMethod ?? '—'),
+			column<ActiveTaskRow>('validator', 'Validator', (row) => row.completion?.validatedBy ?? '—'),
+			column<ActiveTaskRow>('notes', 'Notes', (row) => row.completion?.notes ?? 'No notes')
+		];
+		if (canRecordCompletion) {
+			columns.push({ ...column<ActiveTaskRow>('action', 'Action', () => ''), align: 'right' });
+		}
+		return columns;
+	});
+	const historyColumns: ColumnDef<CriticalTasksPersonnelHistoryRow>[] = [
+		column<CriticalTasksPersonnelHistoryRow>('task', 'Task', (row) => row.taskCode),
+		column<CriticalTasksPersonnelHistoryRow>('completed', 'Completed', (row) =>
+			formatRecordDate(row.completion.completedAt)
+		),
+		column<CriticalTasksPersonnelHistoryRow>('expired', 'Expired', (row) =>
+			formatRecordDate(historyExpirationDate(row))
+		),
+		column<CriticalTasksPersonnelHistoryRow>('method', 'Method', (row) => row.completion.validationMethod),
+		column<CriticalTasksPersonnelHistoryRow>('validator', 'Validator', (row) => row.completion.validatedBy ?? '—'),
+		column<CriticalTasksPersonnelHistoryRow>('notes', 'Notes', (row) => row.completion.notes ?? 'No notes')
+	];
+
 	function handlePrint(): void {
 		window.print();
 	}
@@ -425,6 +460,90 @@
 		return items;
 	});
 </script>
+
+{#snippet activeCell(row: ActiveTaskRow, column: ColumnDef<ActiveTaskRow>)}
+	{#if column.key === 'task'}
+		<span class="block font-mono text-xs text-muted-foreground">{row.task.taskCode}</span>
+		<span class="block font-medium leading-5 whitespace-normal">{row.task.title}</span>
+	{:else if column.key === 'status'}
+		<Badge variant={statusVariant(row.statusInfo.status)}>{statusLabels[row.statusInfo.status]}</Badge>
+	{:else if column.key === 'completed'}
+		<span class={!row.completion ? 'font-mono text-xs italic text-muted-foreground' : 'font-mono text-xs'}>
+			{formatRecordDate(row.completion?.completedAt)}
+		</span>
+	{:else if column.key === 'expires'}
+		<span
+			class={!row.statusInfo.expirationDate ? 'font-mono text-xs italic text-muted-foreground' : 'font-mono text-xs'}
+		>
+			{formatRecordDate(row.statusInfo.expirationDate)}
+			{#if expirationSubLabel(row)}
+				<span class={`mt-0.5 block text-[0.65rem] ${expirationSubLabelClass(row.statusInfo.status)}`}>
+					{expirationSubLabel(row)}
+				</span>
+			{/if}
+		</span>
+	{:else if column.key === 'method'}
+		<span
+			class={!row.completion?.validationMethod
+				? 'text-xs italic text-muted-foreground'
+				: 'text-xs text-muted-foreground'}
+		>
+			{row.completion?.validationMethod ?? '—'}
+		</span>
+	{:else if column.key === 'validator'}
+		<span class={!row.completion?.validatedBy ? 'font-mono text-xs italic text-muted-foreground' : 'font-mono text-xs'}>
+			{row.completion?.validatedBy ?? '—'}
+		</span>
+	{:else if column.key === 'notes'}
+		<div
+			class={!row.completion?.notes
+				? 'max-w-72 text-xs italic whitespace-normal text-muted-foreground'
+				: 'max-w-72 text-xs leading-5 whitespace-normal text-muted-foreground'}
+		>
+			{row.completion?.notes ?? 'No notes'}
+		</div>
+	{:else}
+		<Button
+			type="button"
+			variant={row.completion ? 'outline' : 'default'}
+			size="sm"
+			aria-label={`${row.completion ? 'Edit' : 'Log'} completion for ${row.task.taskCode}`}
+			onclick={() => (activeEditorRow = row)}
+		>
+			{row.completion ? 'Edit' : 'Log Completion'}
+		</Button>
+	{/if}
+{/snippet}
+
+{#snippet historyCell(row: CriticalTasksPersonnelHistoryRow, column: ColumnDef<CriticalTasksPersonnelHistoryRow>)}
+	{#if column.key === 'task'}
+		<span class="block font-mono text-xs text-muted-foreground">{row.taskCode}</span>
+		<span class="block font-medium leading-5 whitespace-normal text-muted-foreground">{row.taskTitle}</span>
+		{#if row.taskArchivedAt}
+			<Badge variant="outline" class="mt-1">Archived</Badge>
+		{/if}
+	{:else if column.key === 'completed'}
+		<span class="font-mono text-xs">{formatRecordDate(row.completion.completedAt)}</span>
+	{:else if column.key === 'expired'}
+		<span class={!historyExpirationDate(row) ? 'font-mono text-xs italic text-muted-foreground' : 'font-mono text-xs'}>
+			{formatRecordDate(historyExpirationDate(row))}
+		</span>
+	{:else if column.key === 'method'}
+		<span class="text-xs text-muted-foreground">{row.completion.validationMethod}</span>
+	{:else if column.key === 'validator'}
+		<span class={!row.completion.validatedBy ? 'font-mono text-xs italic text-muted-foreground' : 'font-mono text-xs'}>
+			{row.completion.validatedBy ?? '—'}
+		</span>
+	{:else}
+		<div
+			class={!row.completion.notes
+				? 'max-w-72 text-xs italic whitespace-normal text-muted-foreground'
+				: 'max-w-72 text-xs leading-5 whitespace-normal text-muted-foreground'}
+		>
+			{row.completion.notes ?? 'No notes'}
+		</div>
+	{/if}
+{/snippet}
 
 <svelte:head>
 	<title>{personnelName} Critical Tasks Record - Troop to Task</title>
@@ -559,130 +678,14 @@
 			>
 		</div>
 
-		<div class="overflow-x-auto rounded-lg border bg-background">
-			<table class="w-full min-w-[58rem] border-collapse text-sm" aria-label="Applicable Critical Tasks">
-				<thead>
-					<tr class="border-b bg-muted/50">
-						<th
-							class="px-3 py-2 text-left font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground"
-							>Task</th
-						>
-						<th
-							class="px-3 py-2 text-left font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground"
-							>Status</th
-						>
-						<th
-							class="px-3 py-2 text-left font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground"
-							>Completed</th
-						>
-						<th
-							class="px-3 py-2 text-left font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground"
-							>Expires</th
-						>
-						<th
-							class="px-3 py-2 text-left font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground"
-							>Method</th
-						>
-						<th
-							class="px-3 py-2 text-left font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground"
-							>Validator</th
-						>
-						<th
-							class="px-3 py-2 text-left font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground"
-							>Notes</th
-						>
-						{#if canRecordCompletion}
-							<th
-								class="px-3 py-2 text-right font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground"
-								>Action</th
-							>
-						{/if}
-					</tr>
-				</thead>
-				<tbody>
-					{#if filteredActiveRows.length === 0}
-						<tr>
-							<td class="px-3 py-10 text-center text-muted-foreground" colspan={canRecordCompletion ? 8 : 7}
-								>No active critical tasks match this view.</td
-							>
-						</tr>
-					{:else}
-						{#each filteredActiveRows as row (row.task.id)}
-							<tr class="border-b last:border-b-0 hover:bg-muted/30">
-								<td class="px-3 py-3 align-middle">
-									<span class="block font-mono text-xs text-muted-foreground">{row.task.taskCode}</span>
-									<span class="block font-medium leading-5">{row.task.title}</span>
-								</td>
-								<td class="px-3 py-3 align-middle">
-									<Badge variant={statusVariant(row.statusInfo.status)}>{statusLabels[row.statusInfo.status]}</Badge>
-								</td>
-								<td class="px-3 py-3 align-middle">
-									<span
-										class={!row.completion ? 'font-mono text-xs italic text-muted-foreground' : 'font-mono text-xs'}
-									>
-										{formatRecordDate(row.completion?.completedAt)}
-									</span>
-								</td>
-								<td class="px-3 py-3 align-middle">
-									<span
-										class={!row.statusInfo.expirationDate
-											? 'font-mono text-xs italic text-muted-foreground'
-											: 'font-mono text-xs'}
-									>
-										{formatRecordDate(row.statusInfo.expirationDate)}
-										{#if expirationSubLabel(row)}
-											<span class={`mt-0.5 block text-[0.65rem] ${expirationSubLabelClass(row.statusInfo.status)}`}>
-												{expirationSubLabel(row)}
-											</span>
-										{/if}
-									</span>
-								</td>
-								<td class="px-3 py-3 align-middle">
-									<span
-										class={!row.completion?.validationMethod
-											? 'text-xs italic text-muted-foreground'
-											: 'text-xs text-muted-foreground'}
-									>
-										{row.completion?.validationMethod ?? '—'}
-									</span>
-								</td>
-								<td class="px-3 py-3 align-middle">
-									<span
-										class={!row.completion?.validatedBy
-											? 'font-mono text-xs italic text-muted-foreground'
-											: 'font-mono text-xs'}
-									>
-										{row.completion?.validatedBy ?? '—'}
-									</span>
-								</td>
-								<td class="px-3 py-3 align-middle">
-									<div
-										class={!row.completion?.notes
-											? 'max-w-72 text-xs italic text-muted-foreground'
-											: 'max-w-72 text-xs leading-5 text-muted-foreground'}
-									>
-										{row.completion?.notes ?? 'No notes'}
-									</div>
-								</td>
-								{#if canRecordCompletion}
-									<td class="px-3 py-3 text-right align-middle">
-										<Button
-											type="button"
-											variant={row.completion ? 'outline' : 'default'}
-											size="sm"
-											aria-label={`${row.completion ? 'Edit' : 'Log'} completion for ${row.task.taskCode}`}
-											onclick={() => (activeEditorRow = row)}
-										>
-											{row.completion ? 'Edit' : 'Log Completion'}
-										</Button>
-									</td>
-								{/if}
-							</tr>
-						{/each}
-					{/if}
-				</tbody>
-			</table>
-		</div>
+		<DataTable.DataTable
+			data={filteredActiveRows}
+			columns={activeColumns}
+			ariaLabel="Applicable Critical Tasks"
+			emptyMessage="No active critical tasks match this view."
+			rowKey={(row) => row.task.id}
+			cell={activeCell}
+		/>
 	</section>
 
 	<section class="rounded-lg border bg-muted/20 p-4 sm:p-5" aria-labelledby="ict-history-title">
@@ -700,94 +703,16 @@
 			>
 		</div>
 
-		<div class="overflow-x-auto rounded-lg border bg-background">
-			<table class="w-full min-w-[52rem] border-collapse text-sm" aria-label="ICT completion history">
-				<thead>
-					<tr class="border-b bg-muted/50">
-						<th
-							class="px-3 py-2 text-left font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground"
-							>Task</th
-						>
-						<th
-							class="px-3 py-2 text-left font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground"
-							>Completed</th
-						>
-						<th
-							class="px-3 py-2 text-left font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground"
-							>Expired</th
-						>
-						<th
-							class="px-3 py-2 text-left font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground"
-							>Method</th
-						>
-						<th
-							class="px-3 py-2 text-left font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground"
-							>Validator</th
-						>
-						<th
-							class="px-3 py-2 text-left font-mono text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground"
-							>Notes</th
-						>
-					</tr>
-				</thead>
-				<tbody>
-					{#if archivedHistoryRows.length === 0}
-						<tr>
-							<td class="px-3 py-10 text-center text-muted-foreground" colspan="6"
-								>{history.personnel.archivedAt
-									? 'No completion history recorded for this person.'
-									: 'No archived task completions recorded.'}</td
-							>
-						</tr>
-					{:else}
-						{#each archivedHistoryRows as row (row.completion.id)}
-							<tr class="border-b last:border-b-0 hover:bg-muted/30">
-								<td class="px-3 py-3 align-middle">
-									<span class="block font-mono text-xs text-muted-foreground">{row.taskCode}</span>
-									<span class="block font-medium leading-5 text-muted-foreground">{row.taskTitle}</span>
-									{#if row.taskArchivedAt}
-										<Badge variant="outline" class="mt-1">Archived</Badge>
-									{/if}
-								</td>
-								<td class="px-3 py-3 align-middle"
-									><span class="font-mono text-xs">{formatRecordDate(row.completion.completedAt)}</span></td
-								>
-								<td class="px-3 py-3 align-middle">
-									<span
-										class={!historyExpirationDate(row)
-											? 'font-mono text-xs italic text-muted-foreground'
-											: 'font-mono text-xs'}
-									>
-										{formatRecordDate(historyExpirationDate(row))}
-									</span>
-								</td>
-								<td class="px-3 py-3 align-middle"
-									><span class="text-xs text-muted-foreground">{row.completion.validationMethod}</span></td
-								>
-								<td class="px-3 py-3 align-middle">
-									<span
-										class={!row.completion.validatedBy
-											? 'font-mono text-xs italic text-muted-foreground'
-											: 'font-mono text-xs'}
-									>
-										{row.completion.validatedBy ?? '—'}
-									</span>
-								</td>
-								<td class="px-3 py-3 align-middle">
-									<div
-										class={!row.completion.notes
-											? 'max-w-72 text-xs italic text-muted-foreground'
-											: 'max-w-72 text-xs leading-5 text-muted-foreground'}
-									>
-										{row.completion.notes ?? 'No notes'}
-									</div>
-								</td>
-							</tr>
-						{/each}
-					{/if}
-				</tbody>
-			</table>
-		</div>
+		<DataTable.DataTable
+			data={archivedHistoryRows}
+			columns={historyColumns}
+			ariaLabel="ICT completion history"
+			emptyMessage={history.personnel.archivedAt
+				? 'No completion history recorded for this person.'
+				: 'No archived task completions recorded.'}
+			rowKey={(row) => row.completion.id}
+			cell={historyCell}
+		/>
 	</section>
 
 	<footer

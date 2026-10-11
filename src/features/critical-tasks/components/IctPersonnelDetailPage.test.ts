@@ -182,6 +182,44 @@ describe('IctPersonnelDetailPage', () => {
 		expect(screen.getByText('Observed on lane 2')).toBeTruthy();
 	});
 
+	it('names both record tables, keeps the task library order without sort controls and states empty views', () => {
+		ictTasksStore.load([secondaryActiveTask, activeTask], 'org-1');
+		personnelIctCompletionsStore.load([], 'org-1');
+		const data = {
+			orgId: 'org-1',
+			criticalTasks: criticalTasksLayoutData,
+			criticalTasksPersonnelHistory: { ...history, rows: [] }
+		};
+
+		const { unmount } = render(IctPersonnelDetailPage, { props: { org, data } });
+
+		const active = screen.getByRole('table', { name: 'Applicable Critical Tasks' });
+		expect(
+			within(active)
+				.getAllByRole('columnheader')
+				.map((header) => header.textContent?.trim())
+		).toEqual(['Task', 'Status', 'Completed', 'Expires', 'Method', 'Validator', 'Notes', 'Action']);
+		expect(
+			within(active)
+				.getAllByText(/^181-105-100\d$/)
+				.map((code) => code.textContent)
+		).toEqual(['181-105-1001', '181-105-1003']);
+		expect(screen.queryByRole('button', { name: /^Sort by/ })).toBeNull();
+		const archived = screen.getByRole('table', { name: 'ICT completion history' });
+		expect(within(archived).getAllByRole('columnheader')).toHaveLength(6);
+		expect(within(archived).queryAllByRole('row')).toHaveLength(1);
+		expect(screen.getByText('No archived task completions recorded.')).toBeTruthy();
+		unmount();
+
+		accessFacts = { membershipRole: 'member', capabilityMap: createCapabilityMap('view') };
+		ictTasksStore.load([], 'org-1');
+		render(IctPersonnelDetailPage, { props: { org, data } });
+
+		const viewOnly = screen.getByRole('table', { name: 'Applicable Critical Tasks' });
+		expect(within(viewOnly).queryByRole('columnheader', { name: 'Action' })).toBeNull();
+		expect(screen.getByText('No active critical tasks match this view.')).toBeTruthy();
+	});
+
 	it('shows archived personnel completion history read-only when the active workspace omits it', () => {
 		ictTasksStore.load([activeTask], 'org-1');
 		personnelIctCompletionsStore.load([], 'org-1');

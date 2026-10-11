@@ -1,6 +1,7 @@
 <script lang="ts">
 	import * as TypeManagementWorkspace from './index.js';
 	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
 
 	const types = [
 		{ title: 'Annual Qualification', description: 'Expires after 12 months', disabled: false },
@@ -27,7 +28,7 @@
 					>
 						{#snippet actions()}
 							{#if textControls}
-								<input aria-label="Note for {type.title}" />
+								<Input aria-label="Note for {type.title}" />
 								<span contenteditable="true" role="textbox" aria-label="Memo for {type.title}" tabindex="-1"></span>
 							{/if}
 							<Button variant="outline" size="icon" type="button" aria-label="Move {type.title} up">

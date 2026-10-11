@@ -83,7 +83,7 @@ Each family is imported through `$lib/components/<layer>/<family>` (its `index.t
 | `ui/dropdown-menu`                   |   1 |     0 |      0 |      5 | `10-01`×1, `10-09`×3, `foundation`×2                                                                                       |
 | `ui/empty`                           |  18 |    10 |      0 |      5 | `10-01`×3, `10-02`×2, `10-03`×2, `10-04`×3, `10-05`×4, `10-06`×4, `10-07`×10, `10-09`×2, `foundation`×3                    |
 | `ui/field`                           |  37 |     7 |      0 |     11 | `10-01`×4, `10-02`×10, `10-03`×6, `10-04`×4, `10-05`×5, `10-06`×4, `10-07`×11, `10-09`×3, `foundation`×8                   |
-| `ui/input`                           |  45 |     4 |      0 |      5 | `10-01`×4, `10-02`×11, `10-03`×9, `10-04`×7, `10-05`×5, `10-06`×2, `10-07`×11, `10-09`×2, `foundation`×3                   |
+| `ui/input`                           |  45 |     4 |      0 |      6 | `10-01`×4, `10-02`×11, `10-03`×9, `10-04`×7, `10-05`×5, `10-06`×2, `10-07`×11, `10-09`×3, `foundation`×3                   |
 | `ui/input-group`                     |   0 |     0 |      0 |      3 | `10-09`×1, `foundation`×2                                                                                                  |
 | `ui/label`                           |   6 |     0 |      0 |      2 | `10-01`×1, `10-03`×1, `10-07`×4, `10-09`×1, `foundation`×1                                                                 |
 | `ui/native-select`                   |  12 |     5 |      0 |      1 | `10-01`×1, `10-02`×2, `10-03`×6, `10-05`×3, `10-07`×5, `foundation`×1                                                      |
@@ -468,7 +468,7 @@ Each family is imported through `$lib/components/<layer>/<family>` (its `index.t
 | `src/lib/components/patterns/type-management-workspace/mobile-back.svelte`                 | shared | `ui/button`                                       | ·            |         · | ·          |   · | complete     |
 | `src/lib/components/patterns/type-management-workspace/root.svelte`                        | shared | ·                                                 | ·            |         · | ·          |   · | complete     |
 | `src/lib/components/patterns/type-management-workspace/stack.svelte`                       | shared | ·                                                 | ·            |         · | ·          |   · | complete     |
-| `src/lib/components/patterns/type-management-workspace/TypeManagementWorkspaceTest.svelte` | shared | `ui/button`                                       | ·            |         · | ·          |   2 | test support |
+| `src/lib/components/patterns/type-management-workspace/TypeManagementWorkspaceTest.svelte` | shared | `ui/button`, `ui/input`                           | ·            |         · | ·          |   2 | test support |
 | `src/lib/components/patterns/workspace-toolbar/MultiSelectTest.svelte`                     | shared | ·                                                 | ·            |         · | ·          |   · | test support |
 | `src/lib/components/patterns/workspace-toolbar/workspace-toolbar-actions.svelte`           | shared | `ui/button`, `ui/dropdown-menu`                   | ·            |         · | ·          |   · | complete     |
 | `src/lib/components/patterns/workspace-toolbar/workspace-toolbar-group.svelte`             | shared | ·                                                 | ·            |         · | ·          |   · | complete     |

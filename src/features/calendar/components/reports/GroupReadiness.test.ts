@@ -1,0 +1,91 @@
+// @vitest-environment happy-dom
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { Personnel } from '$features/personnel/contracts';
+import GroupReadiness from './GroupReadiness.svelte';
+
+vi.mock('./calendarReportData', () => ({
+	fetchCalendarReportData: vi.fn(async () => ({
+		entries: [
+			{ id: 'entry-1', personnelId: 'bravo-1', statusTypeId: 'leave', startDate: '2000-01-01', endDate: '2100-12-31' }
+		]
+	}))
+}));
+
+const personnel: Personnel[] = [
+	{
+		id: 'alpha-1',
+		firstName: 'Ann',
+		lastName: 'Able',
+		rank: 'SGT',
+		groupId: 'alpha',
+		groupName: 'Alpha',
+		clinicRole: '',
+		mos: '11B'
+	},
+	{
+		id: 'bravo-1',
+		firstName: 'Ben',
+		lastName: 'Baker',
+		rank: 'SPC',
+		groupId: 'bravo',
+		groupName: 'Bravo',
+		clinicRole: '',
+		mos: '11B'
+	}
+];
+
+afterEach(cleanup);
+
+function rowOrder(): string[] {
+	const table = screen.getByRole('table', { name: 'Group availability heat map' });
+	return within(table)
+		.getAllByRole('row')
+		.slice(1)
+		.map((row) => within(row).getAllByRole('cell')[0].textContent?.trim() ?? '');
+}
+
+function sortState(): string[] {
+	return ['Sort by group', 'Sort by lowest availability'].map(
+		(name) => screen.getByRole('button', { name }).closest('th')?.getAttribute('aria-sort') ?? 'none'
+	);
+}
+
+describe('GroupReadiness', () => {
+	it('lists the least available group first and sorts by group or lowest availability in both directions', async () => {
+		render(GroupReadiness, {
+			props: {
+				orgId: 'org-1',
+				personnel,
+				statusTypes: [],
+				groups: [
+					{ id: 'alpha', name: 'Alpha' },
+					{ id: 'bravo', name: 'Bravo' }
+				]
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Run group availability report' }));
+		await screen.findByRole('table', { name: 'Group availability heat map' });
+
+		expect(rowOrder()).toEqual(['Bravo', 'Alpha']);
+		expect(sortState()).toEqual(['none', 'ascending']);
+		expect(screen.getAllByText('0/1').length).toBeGreaterThan(0);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Sort by group' }));
+		expect(rowOrder()).toEqual(['Alpha', 'Bravo']);
+		expect(sortState()).toEqual(['ascending', 'none']);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Sort by group' }));
+		expect(rowOrder()).toEqual(['Bravo', 'Alpha']);
+		expect(sortState()).toEqual(['descending', 'none']);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Sort by lowest availability' }));
+		expect(rowOrder()).toEqual(['Bravo', 'Alpha']);
+		expect(sortState()).toEqual(['none', 'ascending']);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Sort by lowest availability' }));
+		expect(rowOrder()).toEqual(['Alpha', 'Bravo']);
+		expect(sortState()).toEqual(['none', 'descending']);
+	});
+});

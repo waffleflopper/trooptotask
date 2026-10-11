@@ -8,6 +8,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as Combobox from '$lib/components/ui/combobox';
 	import { NativeSelect } from '$lib/components/ui/native-select';
+	import * as Table from '$lib/components/ui/table';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
@@ -162,17 +163,20 @@
 </script>
 
 <div class="bg-card overflow-hidden rounded-lg border">
-	<div class="bg-muted/30 flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4">
-		<div class="inline-flex flex-wrap items-center gap-2">
+	<div class="bg-muted/30 flex items-center justify-between gap-3 border-b px-5 py-4">
+		<div class="inline-flex shrink-0 items-center gap-2">
 			<Button variant="outline" size="icon-sm" onclick={prevMonth} aria-label="Previous month">
 				<ChevronLeftIcon />
 			</Button>
 			<Button variant="outline" size="sm" onclick={goToCurrentMonth}>Today</Button>
 		</div>
 
-		<h3 class="font-display min-w-44 text-center text-xl font-bold tracking-wide uppercase">{monthName} {year}</h3>
+		<h3 class="font-display min-w-0 flex-1 truncate text-center text-base font-bold tracking-wide uppercase sm:text-xl">
+			{monthName}
+			{year}
+		</h3>
 
-		<div class="inline-flex justify-end">
+		<div class="inline-flex shrink-0 justify-end">
 			<Button variant="outline" size="icon-sm" onclick={nextMonth} aria-label="Next month">
 				<ChevronRightIcon />
 			</Button>
@@ -245,7 +249,7 @@
 					</div>
 				{/if}
 
-				<NativeSelect bind:value={quickFillDays} class="w-[150px]">
+				<NativeSelect bind:value={quickFillDays} class="w-[150px]" aria-label="Quick Fill days">
 					<option value="weekdays">Weekdays only</option>
 					<option value="weekends">Weekends only</option>
 					<option value="all">All days</option>
@@ -261,97 +265,95 @@
 			</div>
 		</div>
 
-		<div class="overflow-x-auto">
-			<table class="w-full border-collapse text-sm">
-				<thead>
-					<tr class="bg-muted/40 border-b">
-						<th class="w-14 px-3 py-2 text-left font-medium">Date</th>
-						<th class="w-14 px-3 py-2 text-left font-medium">Day</th>
-						{#each activeAssignmentTypes as type (type.id)}
-							<th class="min-w-40 px-3 py-2 text-left font-medium">
-								<div class="flex items-center justify-between gap-2">
-									<span
-										class="rounded-md px-1.5 py-0.5 font-mono text-xs font-semibold text-white uppercase"
-										style="background-color: {type.color}">{type.shortName}</span
-									>
-									<Button
-										variant="ghost"
-										size="icon-xs"
-										onclick={() => clearAll(type.id)}
-										disabled={isApplying}
-										title="Clear all {type.name}"
-										aria-label="Clear all {type.name}"
-									>
-										<Trash2Icon />
-									</Button>
-								</div>
-							</th>
-						{/each}
-					</tr>
-				</thead>
-				<tbody>
-					{#each dates as date (formatDate(date))}
-						{@const dateStr = formatDate(date)}
-						{@const weekend = isWeekend(date)}
-						{@const dayName = date.toLocaleDateString('en-US', { weekday: 'short' })}
-						{@const isToday = formatDate(new Date()) === dateStr}
-						<tr class={['border-b last:border-b-0', weekend && 'bg-muted/30', isToday && 'bg-primary/10']}>
-							<td class="px-3 py-2">
-								<span class="font-semibold">{date.getDate()}</span>
-							</td>
-							<td class="px-3 py-2">
-								<span class="text-muted-foreground font-mono text-xs uppercase">{dayName}</span>
-							</td>
-							{#each activeAssignmentTypes as type (type.id)}
-								{@const assignment = assignmentBySlot.get(assignmentSlotKey(dateStr, type.id))}
-								<td class="px-2 py-1.5">
-									{#if type.assignTo === 'personnel'}
-										<Combobox.Root
-											items={personnelOptions}
-											value={assignment?.assigneeId ?? ''}
-											label={`Select ${type.name} assignee for ${dateStr}`}
-											onValueChange={(value) =>
-												handleChange(date, type.id, Array.isArray(value) ? (value[0] ?? '') : value)}
-											autoHighlight
-										>
-											<Combobox.Trigger
-												clearable
-												placeholder="-"
-												aria-label={`Select ${type.name} assignee for ${dateStr}`}
-											/>
-											<Combobox.Content>
-												<Combobox.Search placeholder="Search personnel..." />
-												<Combobox.Empty>No personnel found.</Combobox.Empty>
-												<Combobox.List />
-											</Combobox.Content>
-										</Combobox.Root>
-									{:else}
-										<Combobox.Root
-											items={groupOptions}
-											value={assignment?.assigneeId ?? ''}
-											label={`Select ${type.name} group for ${dateStr}`}
-											onValueChange={(value) =>
-												handleChange(date, type.id, Array.isArray(value) ? (value[0] ?? '') : value)}
-											autoHighlight
-										>
-											<Combobox.Trigger
-												clearable
-												placeholder="-"
-												aria-label={`Select ${type.name} group for ${dateStr}`}
-											/>
-											<Combobox.Content>
-												<Combobox.Empty>No groups found.</Combobox.Empty>
-												<Combobox.List />
-											</Combobox.Content>
-										</Combobox.Root>
-									{/if}
-								</td>
-							{/each}
-						</tr>
+		<Table.Root aria-label="{monthName} {year} assignments">
+			<Table.Header>
+				<Table.Row class="bg-muted/40">
+					<Table.Head scope="col" class="w-14 px-3">Date</Table.Head>
+					<Table.Head scope="col" class="w-14 px-3">Day</Table.Head>
+					{#each activeAssignmentTypes as type (type.id)}
+						<Table.Head scope="col" class="min-w-40 px-3">
+							<div class="flex items-center justify-between gap-2">
+								<span
+									class="rounded-md px-1.5 py-0.5 font-mono text-xs font-semibold text-white uppercase"
+									style="background-color: {type.color}">{type.shortName}</span
+								>
+								<Button
+									variant="ghost"
+									size="icon-xs"
+									onclick={() => clearAll(type.id)}
+									disabled={isApplying}
+									title="Clear all {type.name}"
+									aria-label="Clear all {type.name}"
+								>
+									<Trash2Icon />
+								</Button>
+							</div>
+						</Table.Head>
 					{/each}
-				</tbody>
-			</table>
-		</div>
+				</Table.Row>
+			</Table.Header>
+			<Table.Body>
+				{#each dates as date (formatDate(date))}
+					{@const dateStr = formatDate(date)}
+					{@const weekend = isWeekend(date)}
+					{@const dayName = date.toLocaleDateString('en-US', { weekday: 'short' })}
+					{@const isToday = formatDate(new Date()) === dateStr}
+					<Table.Row class={[weekend && 'bg-muted/30', isToday && 'bg-primary/10']}>
+						<Table.Cell class="px-3">
+							<span class="font-semibold">{date.getDate()}</span>
+						</Table.Cell>
+						<Table.Cell class="px-3">
+							<span class="text-muted-foreground font-mono text-xs uppercase">{dayName}</span>
+						</Table.Cell>
+						{#each activeAssignmentTypes as type (type.id)}
+							{@const assignment = assignmentBySlot.get(assignmentSlotKey(dateStr, type.id))}
+							<Table.Cell class="py-1.5">
+								{#if type.assignTo === 'personnel'}
+									<Combobox.Root
+										items={personnelOptions}
+										value={assignment?.assigneeId ?? ''}
+										label={`Select ${type.name} assignee for ${dateStr}`}
+										onValueChange={(value) =>
+											handleChange(date, type.id, Array.isArray(value) ? (value[0] ?? '') : value)}
+										autoHighlight
+									>
+										<Combobox.Trigger
+											clearable
+											placeholder="-"
+											aria-label={`Select ${type.name} assignee for ${dateStr}`}
+										/>
+										<Combobox.Content>
+											<Combobox.Search placeholder="Search personnel..." />
+											<Combobox.Empty>No personnel found.</Combobox.Empty>
+											<Combobox.List />
+										</Combobox.Content>
+									</Combobox.Root>
+								{:else}
+									<Combobox.Root
+										items={groupOptions}
+										value={assignment?.assigneeId ?? ''}
+										label={`Select ${type.name} group for ${dateStr}`}
+										onValueChange={(value) =>
+											handleChange(date, type.id, Array.isArray(value) ? (value[0] ?? '') : value)}
+										autoHighlight
+									>
+										<Combobox.Trigger
+											clearable
+											placeholder="-"
+											aria-label={`Select ${type.name} group for ${dateStr}`}
+										/>
+										<Combobox.Content>
+											<Combobox.Empty>No groups found.</Combobox.Empty>
+											<Combobox.List />
+										</Combobox.Content>
+									</Combobox.Root>
+								{/if}
+							</Table.Cell>
+						{/each}
+					</Table.Row>
+				{/each}
+			</Table.Body>
+		</Table.Root>
 
 		<div class="text-muted-foreground border-t px-5 py-3 text-sm">{dates.length} days in {monthName}</div>
 	{/if}

@@ -3,6 +3,9 @@
 	import type { StatusType } from '$features/calendar/contracts';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as ReportWorkspace from '$lib/components/patterns/report-workspace/index.js';
+	import type { ColumnDef } from '$lib/components/ui/data-table/index.js';
+	import { useDataTable } from '$lib/components/ui/data-table/index.js';
+	import * as Table from '$lib/components/ui/table/index.js';
 	import type { GroupReadinessResult, ReadinessGroupRow } from '../../utils/calendarReports';
 	import { computeGroupReadiness } from '../../utils/calendarReports';
 	import { exportGroupReadinessWorkbook } from './calendarReportWorkbookExport';
@@ -36,14 +39,38 @@
 
 	const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-	let groupSort = $state<'risk-asc' | 'risk-desc' | 'group-asc' | 'group-desc'>('risk-asc');
-	const tableRows = $derived.by(() => {
-		const rows = report.result?.groups ?? [];
-		return [...rows].sort((a, b) => {
-			if (groupSort === 'group-asc') return sortByGroupName(a, b);
-			if (groupSort === 'group-desc') return sortByGroupName(b, a);
-			return groupSort === 'risk-asc' ? sortByGroupRisk(a, b) : sortByGroupRisk(b, a);
-		});
+	const tableColumns = $derived<ColumnDef<ReadinessGroupRow>[]>([
+		{
+			key: 'group',
+			header: 'Group',
+			headerAriaLabel: 'Sort by group',
+			value: (group) => group.groupName,
+			compare: sortByGroupName
+		},
+		{
+			key: 'lowest',
+			header: 'Lowest',
+			headerAriaLabel: 'Sort by lowest availability',
+			value: groupLowestAvailability,
+			compare: sortByGroupRisk,
+			align: 'center'
+		},
+		...(report.result?.dates ?? []).map(
+			(dateStr, index): ColumnDef<ReadinessGroupRow> => ({
+				key: dateStr,
+				header: formatShortDate(dateStr),
+				value: (group) => group.cells[index]?.availablePercent,
+				sortable: false,
+				align: 'center'
+			})
+		)
+	]);
+	const table = useDataTable({
+		data: () => report.result?.groups ?? [],
+		columns: () => tableColumns,
+		initialSortKey: 'lowest',
+		initialSortDirection: 'asc',
+		rowKey: (group) => group.groupId
 	});
 	const resultMeta = $derived(
 		report.result ? `${report.result.groups.length} groups · ${startDate} to ${endDate}` : ''
@@ -98,22 +125,14 @@
 		return `${dayNames[date.getDay()]} ${date.getMonth() + 1}/${date.getDate()}`;
 	}
 
-	function cellBackground(percent: number): string {
-		if (percent >= 80) return 'color-mix(in srgb, var(--success) 15%, transparent)';
-		if (percent >= 50) return 'color-mix(in srgb, var(--warning) 15%, transparent)';
-		return 'color-mix(in srgb, var(--destructive) 15%, transparent)';
+	function cellTone(percent: number): string {
+		if (percent >= 80) return 'bg-success/15';
+		if (percent >= 50) return 'bg-warning/15';
+		return 'bg-destructive/15';
 	}
 
 	function sortByGroupName(a: ReadinessGroupRow, b: ReadinessGroupRow): number {
 		return a.groupName.localeCompare(b.groupName);
-	}
-
-	function toggleGroupSort() {
-		groupSort = groupSort === 'group-asc' ? 'group-desc' : 'group-asc';
-	}
-
-	function toggleRiskSort() {
-		groupSort = groupSort === 'risk-asc' ? 'risk-desc' : 'risk-asc';
 	}
 
 	function sortByGroupRisk(a: ReadinessGroupRow, b: ReadinessGroupRow): number {
@@ -188,10 +207,14 @@
 			retryLabel="Run again"
 		/>
 	{:else if report.result}
-		<ReportWorkspace.Section
+		<ReportWorkspace.Table
 			title="Group availability by day"
 			description="Each cell shows available personnel over total personnel for that group and date."
 			meta={resultMeta}
+			{table}
+			columns={tableColumns}
+			ariaLabel="Group availability heat map"
+			emptyMessage="No group availability to report."
 		>
 			{#snippet actions()}
 				<ReportWorkspace.ExportAction label="Export group availability" onclick={handleExportExcel} />
@@ -209,82 +232,17 @@
 				{/if}
 			{/snippet}
 
-			{#if report.result.groups.length === 0}
-				<ReportWorkspace.State
-					state="no-data"
-					title="No group availability to report"
-					description="No personnel are assigned to the selected groups for these dates."
-				/>
-			{:else}
-				<div class="overflow-x-auto rounded-md border border-border">
-					<table class="w-full border-collapse text-sm" aria-label="Group availability heat map">
-						<thead class="bg-muted">
-							<tr>
-								<th
-									class="min-w-36 border-b border-border px-3 py-2 text-left text-xs font-semibold text-muted-foreground uppercase"
-									aria-sort={groupSort === 'group-asc'
-										? 'ascending'
-										: groupSort === 'group-desc'
-											? 'descending'
-											: 'none'}
-								>
-									<button
-										type="button"
-										class="-mx-2 inline-flex min-h-8 max-w-full items-center rounded-sm px-2 text-left font-mono text-[0.6875rem] font-semibold tracking-[0.08em] uppercase [overflow-wrap:anywhere] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
-										aria-label="Sort by group"
-										onclick={toggleGroupSort}
-									>
-										Group
-									</button>
-								</th>
-								<th
-									class="min-w-24 border-b border-border px-3 py-2 text-center text-xs font-semibold text-muted-foreground uppercase"
-									aria-sort={groupSort === 'risk-asc' ? 'ascending' : groupSort === 'risk-desc' ? 'descending' : 'none'}
-								>
-									<button
-										type="button"
-										class="inline-flex min-h-8 max-w-full items-center justify-center rounded-sm px-2 text-center font-mono text-[0.6875rem] font-semibold tracking-[0.08em] uppercase [overflow-wrap:anywhere] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
-										aria-label="Sort by lowest availability"
-										onclick={toggleRiskSort}
-									>
-										Lowest
-									</button>
-								</th>
-								{#each report.result.dates as dateStr (dateStr)}
-									<th
-										class="min-w-20 border-b border-border px-3 py-2 text-center text-xs font-semibold text-muted-foreground uppercase [overflow-wrap:anywhere]"
-									>
-										{formatShortDate(dateStr)}
-									</th>
-								{/each}
-							</tr>
-						</thead>
-						<tbody>
-							{#each tableRows as group (group.groupId)}
-								<tr>
-									<td
-										class="border-b border-border/60 px-3 py-2 font-semibold [overflow-wrap:anywhere]"
-										title={group.groupName}
-									>
-										{group.groupName}
-									</td>
-									<td class="border-b border-border/60 px-3 py-2 text-center font-semibold tabular-nums">
-										{groupLowestAvailability(group)}%
-									</td>
-									{#each group.cells as cell (cell.date)}
-										<td
-											class="border-b border-border/60 px-3 py-2 text-center tabular-nums"
-											style:background={cellBackground(cell.availablePercent)}
-										>
-											{cell.availableCount}/{cell.totalPersonnel}
-										</td>
-									{/each}
-								</tr>
-							{/each}
-						</tbody>
-					</table>
-				</div>
-			{/if}
-		</ReportWorkspace.Section>
+			{#snippet row(group)}
+				<Table.Row>
+					<Table.Cell class="font-semibold" title={group.groupName}>{group.groupName}</Table.Cell>
+					<Table.Cell class="text-center font-semibold tabular-nums">{groupLowestAvailability(group)}%</Table.Cell>
+					{#each group.cells as cell (cell.date)}
+						<Table.Cell class={['text-center tabular-nums', cellTone(cell.availablePercent)]}>
+							{cell.availableCount}/{cell.totalPersonnel}
+						</Table.Cell>
+					{/each}
+				</Table.Row>
+			{/snippet}
+		</ReportWorkspace.Table>
 	{/if}
 </ReportWorkspace.Root>

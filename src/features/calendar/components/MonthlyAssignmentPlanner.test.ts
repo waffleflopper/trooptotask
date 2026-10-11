@@ -78,4 +78,29 @@ describe('MonthlyAssignmentPlanner', () => {
 		await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
 		expect(onSetAssignmentBatch).toHaveBeenCalledTimes(2);
 	});
+	it('names the month table and the Quick Fill day filter', () => {
+		render(MonthlyAssignmentPlanner, {
+			props: {
+				currentDate: new Date(2026, 9, 1),
+				onDateChange: vi.fn(),
+				rangeStatus: 'ready',
+				onRetry: vi.fn(),
+				assignmentTypes: [staffDuty],
+				assignments: [],
+				personnelByGroup: [],
+				groups: [],
+				onSetAssignment: vi.fn(),
+				onSetAssignmentBatch: vi.fn()
+			}
+		});
+
+		const table = screen.getByRole('table', { name: 'October 2026 assignments' });
+		expect(
+			within(table)
+				.getAllByRole('columnheader')
+				.map((header) => header.textContent?.trim())
+		).toEqual(['Date', 'Day', 'SD']);
+		expect(within(table).getAllByRole('row')).toHaveLength(32);
+		expect((screen.getByRole('combobox', { name: 'Quick Fill days' }) as HTMLSelectElement).value).toBe('weekdays');
+	});
 });

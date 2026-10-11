@@ -219,7 +219,7 @@ describe('General settings feedback and focus', () => {
 	});
 
 	it('keeps the typed name in place with an Alert when the save errors unexpectedly', async () => {
-		const view = render(Page, { data: data('a'), form: null, params: { orgId: 'a' } });
+		const view = render(Page, { data: data('a'), form: { nameSuccess: true }, params: { orgId: 'a' } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Edit organization name' }));
 		await fireEvent.input(screen.getByLabelText('Organization name'), { target: { value: 'Draft Name' } });
 		enhancements.get('?/updateName')!({ cancel: () => {} });
@@ -237,11 +237,12 @@ describe('General settings feedback and focus', () => {
 			"The request didn't complete. Your entries are still here. Try again."
 		);
 		expect((screen.getByLabelText('Organization name') as HTMLInputElement).value).toBe('Draft Name');
+		expect(screen.queryByText('Organization name updated.')).toBeNull();
 		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Save' }));
 	});
 
 	it('keeps the typed custom path in place with an Alert when the save errors unexpectedly', async () => {
-		const view = render(Page, { data: data('a'), form: null, params: { orgId: 'a' } });
+		const view = render(Page, { data: data('a'), form: { slugSuccess: true }, params: { orgId: 'a' } });
 		await fireEvent.input(screen.getByLabelText('Custom path'), { target: { value: 'draft-path' } });
 		enhancements.get('?/updateSlug')!({ cancel: () => {} });
 		await tick();
@@ -257,6 +258,7 @@ describe('General settings feedback and focus', () => {
 		expect(page).not.toHaveProperty('errorPage');
 		within(slugForm).getByRole('alert');
 		expect((screen.getByLabelText('Custom path') as HTMLInputElement).value).toBe('draft-path');
+		expect(screen.queryByText(/Custom URL updated/)).toBeNull();
 		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Update URL' }));
 	});
 

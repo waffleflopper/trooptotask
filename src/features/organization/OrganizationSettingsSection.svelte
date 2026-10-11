@@ -72,7 +72,7 @@
 			use:enhance={({ cancel }) =>
 				workspace.submitName(cancel, () => [editButton, form?.error ? nameInput : nameSaveButton, nameInput])}
 		>
-			{#if form?.nameSuccess}
+			{#if form?.nameSuccess && !workspace.nameEditing}
 				<Alert.Root variant="success" role="status" class="mb-3">
 					<Alert.Description>Organization name updated.</Alert.Description>
 				</Alert.Root>
@@ -159,7 +159,7 @@
 						<Alert.Description>{workspace.slugRequestError}</Alert.Description>
 					</Alert.Root>
 				{/if}
-				{#if form?.slugSuccess}
+				{#if form?.slugSuccess && !workspace.slugRequestError}
 					<Alert.Root variant="success">
 						<Alert.Description
 							>Custom URL updated. Bookmarks and shared links using the old URL will need updating.</Alert.Description

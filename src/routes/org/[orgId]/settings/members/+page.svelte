@@ -176,7 +176,7 @@
 						<Alert.Description>{invitationRequestError ?? form?.inviteError}</Alert.Description>
 					</Alert.Root>
 				{/if}
-				{#if invitationActionId === null && form?.inviteSuccess}
+				{#if invitationActionId === null && form?.inviteSuccess && !invitationRequestError}
 					<Alert.Root role="status" class="mb-4">
 						<Alert.Description>{form.inviteMessage ?? 'Invitation created.'}</Alert.Description>
 					</Alert.Root>

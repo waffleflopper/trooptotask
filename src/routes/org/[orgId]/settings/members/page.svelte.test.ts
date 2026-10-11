@@ -104,7 +104,8 @@ function renderPage(form: Record<string, unknown> | null = null, canInvite = fal
 const memberRow = (email: string) =>
 	screen.getByText(email, { ignore: '.sr-only' }).closest('.divide-y > div') as HTMLElement;
 
-const settle = (index: number) => heldSubmissions[index]({ result: { type: 'success', status: 200 }, update: async () => {} });
+const settle = (index: number) =>
+	heldSubmissions[index]({ result: { type: 'success', status: 200 }, update: async () => {} });
 
 const serverError: ActionResult = { type: 'error', status: 500, error: { message: 'Internal Error' } };
 const requestErrorText = "The request didn't complete. Your entries are still here. Try again.";
@@ -200,7 +201,7 @@ describe('members settings page', () => {
 	});
 
 	it('keeps the invite draft with an Alert in the form when the invite errors, and refocuses Invite', async () => {
-		const view = renderPage(null, true);
+		const view = renderPage({ inviteSuccess: true, inviteMessage: 'Invitation created.' }, true);
 		await fireEvent.input(screen.getByLabelText('Email address'), { target: { value: 'new@example.com' } });
 		const invite = screen.getByRole('button', { name: 'Invite' });
 		invite.focus();
@@ -211,6 +212,7 @@ describe('members settings page', () => {
 		const inviteForm = screen.getByLabelText('Email address').closest('form')!;
 		await waitFor(() => expect(within(inviteForm).getByRole('alert').textContent?.trim()).toBe(requestErrorText));
 		expect((screen.getByLabelText('Email address') as HTMLInputElement).value).toBe('new@example.com');
+		expect(screen.queryByText('Invitation created.')).toBeNull();
 		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Invite' }));
 	});
 

@@ -102,7 +102,7 @@
 				statusSelect.count === statusTypes.length
 					? data.entries
 					: data.entries.filter((entry) => statusSelect.has(entry.statusTypeId));
-			return computeStatusDays(filteredPersonnel, entries, startDate, endDate);
+			return computeStatusDays(filteredPersonnel, entries, statusTypes, startDate, endDate);
 		}
 	});
 

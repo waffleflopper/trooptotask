@@ -144,6 +144,7 @@ export interface PersonnelTempoResult {
 export function computePersonnelTempo(
 	personnel: Personnel[],
 	entries: AvailabilityEntry[],
+	statusTypes: StatusType[],
 	awayStatusTypeIds: Set<string>,
 	startDate: string,
 	endDate: string,
@@ -196,7 +197,11 @@ export function computePersonnelTempo(
 	// Sort by most days away descending
 	rows.sort((a, b) => b.totalAwayDays - a.totalAwayDays);
 
-	return { rows, activeStatusTypeIds: [...activeStatusTypeIds], totalDaysInPeriod };
+	return {
+		rows,
+		activeStatusTypeIds: statusTypes.filter((type) => activeStatusTypeIds.has(type.id)).map((type) => type.id),
+		totalDaysInPeriod
+	};
 }
 
 // =============================================================
@@ -269,7 +274,13 @@ export function computeAssignmentCoverage(
 	const averageTotal =
 		rows.length > 0 ? Math.round((rows.reduce((sum, r) => sum + r.totalAssignments, 0) / rows.length) * 10) / 10 : 0;
 
-	return { rows, activeAssignmentTypeIds: [...activeAssignmentTypeIds], averageTotal };
+	return {
+		rows,
+		activeAssignmentTypeIds: assignmentTypes
+			.filter((type) => activeAssignmentTypeIds.has(type.id))
+			.map((type) => type.id),
+		averageTotal
+	};
 }
 
 // =============================================================

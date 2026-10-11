@@ -78,6 +78,14 @@ describe('TrainingTypesPage', () => {
 		personnelTrainingsStore.load([], 'org-test-reset');
 	});
 
+	it('titles the empty list and the empty detail as level-3 headings, like a type header', () => {
+		trainingTypesStore.load([], 'org-1');
+		render(TrainingTypesPage, { props: { org, data: { personnel: [] } } });
+
+		expect(screen.getByRole('heading', { name: 'No training types yet.', level: 3 })).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'Select a training type', level: 3 })).toBeTruthy();
+	});
+
 	it('keeps a failed type creation editable and shows a retryable error', async () => {
 		vi.spyOn(trainingTypesStore, 'add').mockRejectedValueOnce(new Error('Synthetic save failure'));
 		render(TrainingTypesPage, { props: { org, data: { personnel: [] } } });

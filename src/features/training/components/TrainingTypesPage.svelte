@@ -324,7 +324,7 @@
 			{#if orderedTypes.length === 0 && !creating}
 				<Empty.Root>
 					<Empty.Header>
-						<Empty.Title>No training types yet.</Empty.Title>
+						<Empty.Title level={3}>No training types yet.</Empty.Title>
 						<Empty.Description>Create one to get started.</Empty.Description>
 					</Empty.Header>
 					{#if canMutate}
@@ -543,7 +543,7 @@
 			{:else}
 				<Empty.Root>
 					<Empty.Header>
-						<Empty.Title>Select a training type</Empty.Title>
+						<Empty.Title level={3}>Select a training type</Empty.Title>
 						<Empty.Description>Choose a type from the list to view details.</Empty.Description>
 					</Empty.Header>
 				</Empty.Root>

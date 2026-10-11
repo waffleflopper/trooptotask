@@ -94,6 +94,14 @@ describe('TrainingViewsPage', () => {
 		expect(screen.getByText('ACFT, Weapons Qual')).toBeTruthy();
 	});
 
+	it('titles the empty list and the empty detail as level-3 headings, like a view header', () => {
+		trainingViewsStore.load([], 'org-1');
+		render(TrainingViewsPage, { props: { org } });
+
+		expect(screen.getByRole('heading', { name: 'No saved views yet.', level: 3 })).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'Select a training view', level: 3 })).toBeTruthy();
+	});
+
 	it.each(['create', 'edit'] as const)('retains a failed %s draft and saves on explicit retry', async (mode) => {
 		let respond!: (response: Response) => void;
 		const response = new Promise<Response>((resolve) => {

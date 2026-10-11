@@ -262,7 +262,7 @@
 			{#if model.templates.length === 0 && !model.creatingTemplate}
 				<Empty.Root>
 					<Empty.Header>
-						<Empty.Title>No templates yet.</Empty.Title>
+						<Empty.Title level={3}>No templates yet.</Empty.Title>
 						<Empty.Description>Create one to get started.</Empty.Description>
 					</Empty.Header>
 					{#if model.canMutate}
@@ -606,7 +606,7 @@
 			{:else}
 				<Empty.Root>
 					<Empty.Header>
-						<Empty.Title>Select a template</Empty.Title>
+						<Empty.Title level={3}>Select a template</Empty.Title>
 						<Empty.Description>Choose a template from the list to view details.</Empty.Description>
 					</Empty.Header>
 				</Empty.Root>

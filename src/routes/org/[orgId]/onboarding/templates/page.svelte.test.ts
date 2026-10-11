@@ -370,6 +370,13 @@ describe('onboarding templates page', () => {
 		);
 	});
 
+	it('titles the empty list and the empty detail as level-3 headings, like a template header', async () => {
+		await renderTemplatesPage({ templates: [], templateSteps: [] });
+
+		expect(screen.getByRole('heading', { name: 'No templates yet.', level: 3 })).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'Select a template', level: 3 })).toBeTruthy();
+	});
+
 	it('does not render redundant template summary cards above the editor', async () => {
 		await renderTemplatesPage();
 

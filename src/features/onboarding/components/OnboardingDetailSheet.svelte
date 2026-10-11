@@ -87,15 +87,16 @@
 						{#if ctx.isResyncing(onboarding.id)}<Spinner />{/if}
 						Re-sync
 					</Button>
-					{#if onboarding.templateId === null}
-						<Button size="sm" variant="outline" onclick={() => ctx.openAssignTemplate(onboarding.id)}>
-							Assign Template
-						</Button>
-					{:else}
-						<Button size="sm" variant="outline" onclick={() => ctx.openSwitchTemplate(onboarding.id)}>
-							Switch Template
-						</Button>
-					{/if}
+					<Button
+						size="sm"
+						variant="outline"
+						onclick={() =>
+							onboarding.templateId === null
+								? ctx.openAssignTemplate(onboarding.id)
+								: ctx.openSwitchTemplate(onboarding.id)}
+					>
+						{onboarding.templateId === null ? 'Assign Template' : 'Switch Template'}
+					</Button>
 				{/if}
 				<Button size="sm" variant="destructive" onclick={() => (ctx.cancellingId = onboarding.id)}>Cancel</Button>
 			</div>

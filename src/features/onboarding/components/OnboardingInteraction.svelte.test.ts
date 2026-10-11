@@ -689,6 +689,22 @@ describe('Onboarding retained interactions', () => {
 		await waitFor(() => expect(document.activeElement).toBe(after));
 	});
 
+	it('keeps focus on the same control when Assign Template completes and it becomes Switch Template', async () => {
+		onboardingStore.load([{ ...packet, templateId: null }], 'org-1');
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ templateId: 'template-1', steps: packet.steps })));
+		mount();
+		await fireEvent.click(screen.getByRole('button', { name: /SGT Smith, Jane/ }));
+		const assign = await screen.findByRole('button', { name: 'Assign Template' });
+		assign.focus();
+		await fireEvent.click(assign);
+		const dialog = await screen.findByRole('dialog', { name: 'Assign Template' });
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Assign Template' }));
+		await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Assign Template' })).toBeNull());
+
+		const switchTemplate = screen.getByRole('button', { name: 'Switch Template' });
+		await waitFor(() => expect(document.activeElement).toBe(switchTemplate));
+	});
+
 	it('rolls back a denied checkbox toggle and shows confirmed completion after retry', async () => {
 		let deny!: (response: Response) => void;
 		let confirm!: (response: Response) => void;

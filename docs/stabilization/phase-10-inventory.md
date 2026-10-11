@@ -20,7 +20,7 @@ Each row has a disposition. `complete` has no candidates. `test support` is a ha
 | 10-06      |    33 |                     0 |            0 |                0 |          0 |            0 |         0 |
 | 10-07      |    39 |                     0 |            0 |                0 |          0 |            0 |         0 |
 | 10-08      |    12 |                     0 |            0 |                0 |          0 |            0 |         0 |
-| 10-09      |    82 |                     2 |            1 |                0 |          0 |            2 |         0 |
+| 10-09      |    83 |                     2 |            1 |                0 |          0 |            2 |         0 |
 | foundation |   273 |                     0 |            0 |                0 |          0 |            0 |         0 |
 
 Open rows: 0. Unclassified rows: 0. Unused native exceptions: 0.
@@ -67,7 +67,7 @@ Each family is imported through `$lib/components/<layer>/<family>` (its `index.t
 | `ui/avatar`                          |   1 |     0 |      0 |      0 | `10-06`×1                                                                                                                  |
 | `ui/badge`                           |  40 |    10 |      0 |      5 | `10-02`×6, `10-03`×9, `10-04`×8, `10-05`×4, `10-06`×7, `10-07`×16, `10-09`×5                                               |
 | `ui/breadcrumb`                      |   1 |     0 |      0 |      0 | `10-01`×1                                                                                                                  |
-| `ui/button`                          | 109 |    14 |      4 |     29 | `10-01`×24, `10-02`×15, `10-03`×25, `10-04`×12, `10-05`×12, `10-06`×10, `10-07`×25, `10-08`×4, `10-09`×14, `foundation`×15 |
+| `ui/button`                          | 109 |    14 |      4 |     30 | `10-01`×24, `10-02`×15, `10-03`×25, `10-04`×12, `10-05`×12, `10-06`×10, `10-07`×25, `10-08`×4, `10-09`×15, `foundation`×15 |
 | `ui/button-group`                    |   9 |     0 |      0 |      2 | `10-02`×2, `10-03`×1, `10-04`×2, `10-05`×4, `10-09`×2                                                                      |
 | `ui/calendar`                        |   0 |     0 |      0 |      1 | `foundation`×1                                                                                                             |
 | `ui/card`                            |  13 |    10 |      0 |      0 | `10-01`×3, `10-03`×3, `10-04`×1, `10-05`×1, `10-06`×4, `10-07`×11                                                          |
@@ -467,6 +467,7 @@ Each family is imported through `$lib/components/<layer>/<family>` (its `index.t
 | `src/lib/components/patterns/type-management-workspace/list.svelte`                        | shared | ·                                                 | ·            |         · | ·          |   · | complete     |
 | `src/lib/components/patterns/type-management-workspace/mobile-back.svelte`                 | shared | `ui/button`                                       | ·            |         · | ·          |   · | complete     |
 | `src/lib/components/patterns/type-management-workspace/root.svelte`                        | shared | ·                                                 | ·            |         · | ·          |   · | complete     |
+| `src/lib/components/patterns/type-management-workspace/SinglePaneTest.svelte`              | shared | `ui/button`                                       | ·            |         · | ·          |   · | test support |
 | `src/lib/components/patterns/type-management-workspace/stack.svelte`                       | shared | ·                                                 | ·            |         · | ·          |   · | complete     |
 | `src/lib/components/patterns/type-management-workspace/TypeManagementWorkspaceTest.svelte` | shared | `ui/button`, `ui/input`                           | ·            |         · | ·          |   2 | test support |
 | `src/lib/components/patterns/workspace-toolbar/MultiSelectTest.svelte`                     | shared | ·                                                 | ·            |         · | ·          |   · | test support |

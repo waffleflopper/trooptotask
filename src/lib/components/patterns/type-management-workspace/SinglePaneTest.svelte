@@ -35,7 +35,8 @@
 			</TypeManagementWorkspace.ItemList>
 		</TypeManagementWorkspace.List>
 		<TypeManagementWorkspace.Detail mobileHidden={!detailOpen}>
-			<TypeManagementWorkspace.MobileBack onclick={() => (detailOpen = false)}>Types</TypeManagementWorkspace.MobileBack>
+			<TypeManagementWorkspace.MobileBack onclick={() => (detailOpen = false)}>Types</TypeManagementWorkspace.MobileBack
+			>
 			<TypeManagementWorkspace.DetailHeader title={selected} />
 		</TypeManagementWorkspace.Detail>
 	</TypeManagementWorkspace.Layout>

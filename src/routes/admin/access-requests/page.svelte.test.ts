@@ -237,6 +237,21 @@ describe('admin access request setup support UI', () => {
 		);
 	});
 
+	it('returns focus to the pressed review button after SvelteKit moves focus to the page on success', async () => {
+		renderPending([makePendingRequest({})]);
+		const finish = await submitReview('Reject Test Soldier');
+		invalidateAll.mockResolvedValueOnce(undefined);
+		await act(() =>
+			finish({ type: 'success', status: 200 }, async () => {
+				document.body.tabIndex = -1;
+				document.body.focus();
+			})
+		);
+		await waitFor(() =>
+			expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Reject Test Soldier' }))
+		);
+	});
+
 	it('sends focus to Reload requests when the re-read after a review fails', async () => {
 		renderPending([makePendingRequest({})]);
 		const finish = await submitReview('Approve Test Soldier');

@@ -61,12 +61,18 @@
 			return async ({ result, update }) => {
 				if (!isCurrent()) return;
 				try {
-					// Refresh separately so a late read cannot apply the old form result to a reopened page.
-					await update({ invalidateAll: false });
-					if (!isCurrent()) return;
-					if (result.type === 'failure')
-						emailError = typeof result.data?.error === 'string' ? result.data.error : 'The email could not be sent.';
-					if (result.type !== 'success') return;
+					// SvelteKit's update() moves focus to the page on success and swaps in the error page on an error.
+					if (result.type === 'redirect') {
+						await update({ invalidateAll: false });
+						return;
+					}
+					if (result.type !== 'success') {
+						emailError =
+							result.type === 'failure' && typeof result.data?.error === 'string'
+								? result.data.error
+								: 'The email could not be sent.';
+						return;
+					}
 					await invalidateAll();
 					if (isCurrent() && typeof result.data?.message === 'string') toastStore.success(result.data.message);
 				} catch {

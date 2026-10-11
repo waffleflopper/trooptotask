@@ -54,21 +54,33 @@ async function finishAcknowledgement(finish: (response: Response) => void) {
 	await act();
 }
 
-async function submitAccountEmail(name: string) {
+// What SvelteKit's update() does through applyAction: success moves focus to the page, an error replaces the page.
+function frameworkUpdate(result: ActionResult, view: { unmount: () => void }) {
+	return async () => {
+		if (result.type === 'success') {
+			document.body.tabIndex = -1;
+			document.body.focus();
+		}
+		if (result.type === 'error') view.unmount();
+	};
+}
+
+async function submitAccountEmail(name: string, view: { unmount: () => void }) {
 	await act();
-	const form = screen.getByRole('button', { name }).closest('form')!;
+	const button = screen.getByRole('button', { name });
+	const form = button.closest('form')!;
 	const input = {
 		formElement: form,
 		formData: new FormData(form),
 		action: new URL(form.action),
 		controller: new AbortController(),
-		submitter: null,
+		submitter: button,
 		cancel: vi.fn()
 	};
 	const callback = await forms.get(form.getAttribute('action')!)!(input);
 	await act();
 	if (!callback) throw new Error('Form did not provide its response callback');
-	return (result: ActionResult, update: () => Promise<void>) => callback({ ...input, result, update });
+	return (result: ActionResult, update = frameworkUpdate(result, view)) => callback({ ...input, result, update });
 }
 
 describe('admin user detail page', () => {
@@ -76,7 +88,7 @@ describe('admin user detail page', () => {
 		'ignores a delayed %s result after leaving and reopening the account',
 		async (name) => {
 			const view = render(Page, { props: { data: makePageData() } });
-			const finish = await submitAccountEmail(name);
+			const finish = await submitAccountEmail(name, view);
 			view.unmount();
 			const reopened = render(Page, { props: { data: makePageData() } });
 			const update = vi.fn(async () => {
@@ -91,18 +103,18 @@ describe('admin user detail page', () => {
 	it('keeps a new account email submission busy when an older result arrives after A to B to A', async () => {
 		const data = makePageData();
 		const view = render(Page, { props: { data } });
-		const old = await submitAccountEmail('Send Password Reset');
+		const old = await submitAccountEmail('Send Password Reset', view);
 		const navigate = beforeNavigate.mock.calls[0][0];
 		navigate();
 		await view.rerender({ data: makePageData({ user: { ...data.user, id: 'other-user' } }) });
 		navigate();
 		await view.rerender({ data });
-		const current = await submitAccountEmail('Send Password Reset');
+		const current = await submitAccountEmail('Send Password Reset', view);
 		const staleUpdate = vi.fn(async () => {});
 		await act(() => old({ type: 'failure', status: 500, data: { error: 'Old failure' } }, staleUpdate));
 		expect(screen.getByRole('button', { name: /Send Password Reset/ }).getAttribute('aria-disabled')).toBe('true');
 		expect(staleUpdate).not.toHaveBeenCalled();
-		await act(() => current({ type: 'failure', status: 500, data: { error: 'Current failure' } }, async () => {}));
+		await act(() => current({ type: 'failure', status: 500, data: { error: 'Current failure' } }));
 		expect(screen.getByRole('button', { name: 'Send Password Reset' }).getAttribute('aria-disabled')).toBe('false');
 		expect(screen.getByRole('alert').textContent).toContain('Current failure');
 		expect(screen.queryByText('Old failure')).toBeNull();
@@ -112,13 +124,9 @@ describe('admin user detail page', () => {
 		'releases %s after the acknowledged response cannot refresh account details',
 		async (name) => {
 			const view = render(Page, { props: { data: makePageData() } });
-			const finish = await submitAccountEmail(name);
+			const finish = await submitAccountEmail(name, view);
 			invalidateAll.mockRejectedValueOnce(new Error('read unavailable'));
-			await act(() =>
-				finish({ type: 'success', status: 200, data: { success: true } }, async () => {
-					await view.rerender({ data: makePageData() });
-				})
-			);
+			await act(() => finish({ type: 'success', status: 200, data: { success: true } }));
 			expect(screen.getByRole('button', { name }).getAttribute('aria-disabled')).toBe('false');
 			expect(screen.getByRole('alert').textContent).toContain(
 				'Account details could not be refreshed. Check the current account before sending another email.'
@@ -275,23 +283,38 @@ describe('admin user detail page', () => {
 		expect(invalidateAll).toHaveBeenCalledTimes(1);
 	});
 	it('announces a sent email through the app toast once the account is current', async () => {
-		render(Page, { props: { data: makePageData() } });
-		const finish = await submitAccountEmail('Resend Invite');
+		const view = render(Page, { props: { data: makePageData() } });
+		const button = screen.getByRole('button', { name: 'Resend Invite' });
+		button.focus();
+		const finish = await submitAccountEmail('Resend Invite', view);
 
-		await act(() =>
-			finish({ type: 'success', status: 200, data: { success: true, message: 'Invite email resent' } }, async () => {})
-		);
+		await act(() => finish({ type: 'success', status: 200, data: { success: true, message: 'Invite email resent' } }));
 
 		expect(invalidateAll).toHaveBeenCalledOnce();
 		expect(toastStore.success).toHaveBeenCalledExactlyOnceWith('Invite email resent');
 		expect(screen.queryByRole('alert')).toBeNull();
+		expect(document.activeElement).toBe(button);
+	});
+
+	it('keeps the page and shows the email failure in context when the request errors', async () => {
+		const view = render(Page, { props: { data: makePageData() } });
+		const button = screen.getByRole('button', { name: 'Send Password Reset' });
+		button.focus();
+		const finish = await submitAccountEmail('Send Password Reset', view);
+
+		await act(() => finish({ type: 'error', status: 500, error: new Error('Failed to fetch') }));
+
+		expect(screen.getByRole('alert').textContent).toContain('The email could not be sent.');
+		expect(button.getAttribute('aria-disabled')).toBe('false');
+		expect(document.activeElement).toBe(button);
+		expect(invalidateAll).not.toHaveBeenCalled();
 	});
 
 	it('keeps focus on Send Password Reset while the email is pending and ignores another press', async () => {
-		render(Page, { props: { data: makePageData() } });
+		const view = render(Page, { props: { data: makePageData() } });
 		const button = screen.getByRole('button', { name: 'Send Password Reset' });
 		button.focus();
-		const finish = await submitAccountEmail('Send Password Reset');
+		const finish = await submitAccountEmail('Send Password Reset', view);
 
 		expect(button.getAttribute('aria-disabled')).toBe('true');
 		expect(button.getAttribute('aria-busy')).toBe('true');
@@ -309,9 +332,7 @@ describe('admin user detail page', () => {
 		});
 		expect(cancel).toHaveBeenCalledOnce();
 
-		await act(() =>
-			finish({ type: 'failure', status: 503, data: { error: 'Synthetic request failure' } }, async () => {})
-		);
+		await act(() => finish({ type: 'failure', status: 503, data: { error: 'Synthetic request failure' } }));
 		expect(button.getAttribute('aria-disabled')).toBe('false');
 		expect(document.activeElement).toBe(button);
 		expect(screen.getByRole('alert').textContent).toContain('Synthetic request failure');
@@ -319,16 +340,14 @@ describe('admin user detail page', () => {
 	});
 
 	it('keeps a failed email in context until the next attempt or navigation', async () => {
-		render(Page, { props: { data: makePageData() } });
-		const first = await submitAccountEmail('Resend Invite');
-		await act(() =>
-			first({ type: 'failure', status: 503, data: { error: 'Mail service unavailable' } }, async () => {})
-		);
+		const view = render(Page, { props: { data: makePageData() } });
+		const first = await submitAccountEmail('Resend Invite', view);
+		await act(() => first({ type: 'failure', status: 503, data: { error: 'Mail service unavailable' } }));
 		expect(screen.getByRole('alert').textContent).toContain('Mail service unavailable');
 
-		const second = await submitAccountEmail('Resend Invite');
+		const second = await submitAccountEmail('Resend Invite', view);
 		expect(screen.queryByRole('alert')).toBeNull();
-		await act(() => second({ type: 'failure', status: 503, data: { error: 'Still unavailable' } }, async () => {}));
+		await act(() => second({ type: 'failure', status: 503, data: { error: 'Still unavailable' } }));
 		expect(screen.getByRole('alert').textContent).toContain('Still unavailable');
 
 		await act(() => beforeNavigate.mock.calls[0][0]());

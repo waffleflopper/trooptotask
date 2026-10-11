@@ -50,6 +50,9 @@ describe('BulkImportWorkspace', () => {
 		const invalidSelection = screen.getByRole('checkbox', { name: /Select import row 2/ });
 		expect(invalidSelection).toBeDisabled();
 		expect(invalidSelection).not.toBeChecked();
+		expect(invalidSelection).toHaveAttribute('aria-invalid', 'true');
+		expect(invalidSelection).toHaveAccessibleDescription('Value is required.');
+		expect(screen.getByRole('checkbox', { name: 'Select import row 1' })).not.toHaveAttribute('aria-invalid');
 		await fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
 		expect(screen.getByText('0 of 2 selected')).toBeInTheDocument();
 		await fireEvent.click(screen.getByRole('checkbox', { name: 'Select all import rows' }));

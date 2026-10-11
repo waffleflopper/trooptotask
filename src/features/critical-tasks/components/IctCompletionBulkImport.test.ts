@@ -136,6 +136,26 @@ describe('IctCompletionBulkImport', () => {
 		).toBeGreaterThan(0);
 	});
 
+	it('marks a blocked preview row invalid and describes it with its reason', async () => {
+		render(IctCompletionBulkImport, {
+			props: { personnel: [alphaMedic], tasks: [tcccTask], completions: [], onCancel: vi.fn(), onDone: vi.fn() }
+		});
+		await fireEvent.change(screen.getByLabelText('Upload file'), {
+			target: { files: [new File(['fake'], 'ict-completions.csv', { type: 'text/csv' })] }
+		});
+
+		const ready = await screen.findByRole('checkbox', { name: 'Select import row 1' });
+		const invalid = screen.getByRole('checkbox', { name: 'Select import row 3' });
+		const describedBy = invalid.getAttribute('aria-describedby') ?? '';
+
+		expect(invalid.getAttribute('aria-invalid')).toBe('true');
+		expect(document.getElementById(describedBy)?.textContent?.trim()).toBe(
+			'Task code "BAD-TASK" does not match an existing critical task'
+		);
+		expect(ready.hasAttribute('aria-invalid')).toBe(false);
+		expect(ready.hasAttribute('aria-describedby')).toBe(false);
+	});
+
 	it('keeps focus in the busy dialog while an import is held, then returns to preview on failure', async () => {
 		parseFileMock.mockResolvedValue([
 			['Rank', 'Last Name', 'First Name', 'Task Code', 'Completion Date'],

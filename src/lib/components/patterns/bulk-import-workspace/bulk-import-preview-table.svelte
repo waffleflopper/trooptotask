@@ -53,6 +53,7 @@
 		headerCell
 	}: Props = $props();
 
+	const uid = $props.id();
 	const shouldShowStatusColumn = $derived(!!rowStatus || !!disabledReason);
 	const previewColumns = $derived([
 		...(selection
@@ -73,6 +74,10 @@
 		...columns
 	]);
 
+	function statusDescriptionId(rowIndex: number): string {
+		return `${uid}-row-${rowIndex}-status`;
+	}
+
 	function resolveRowStatus(row: T, rowIndex: number): BulkImportRowStatus | undefined {
 		const explicitStatus = rowStatus?.(row, rowIndex);
 		if (explicitStatus) return explicitStatus;
@@ -90,20 +95,26 @@
 	{#if column.key === 'select' && selection}
 		{@const rowIndex = rows.indexOf(row)}
 		{@const reason = disabledReason?.(row, rowIndex)}
+		{@const blocked = disabledRow?.(row) ?? false}
+		{@const blockedReason = blocked && shouldShowStatusColumn && resolveRowStatus(row, rowIndex)?.description}
 		<DataTable.SelectionCheckbox
 			checked={selection.isSelected(row, rowIndex)}
-			disabled={disabledRow?.(row) ?? false}
+			disabled={blocked}
+			invalid={!!blockedReason}
+			describedBy={blockedReason ? statusDescriptionId(rowIndex) : undefined}
 			ariaLabel={reason ? `Select import row ${rowIndex + 1}: ${reason}` : `Select import row ${rowIndex + 1}`}
 			onCheckedChange={(checked) => selection.toggleRow(row, rowIndex, checked)}
 		/>
 	{:else if column.key === 'import-status'}
-		{@const status = resolveRowStatus(row, rows.indexOf(row))}
+		{@const rowIndex = rows.indexOf(row)}
+		{@const status = resolveRowStatus(row, rowIndex)}
 		{#if status}
 			<RowStatus
 				tone={status.tone}
 				label={status.label}
 				description={status.description}
 				descriptionMode={statusDescriptionMode}
+				descriptionId={statusDescriptionId(rowIndex)}
 			/>
 		{/if}
 	{:else if cell}

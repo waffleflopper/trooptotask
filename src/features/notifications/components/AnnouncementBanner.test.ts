@@ -68,8 +68,12 @@ it('reports a failed dismissal inside its banner, keeps focus on Dismiss and per
 	dismiss.focus();
 	await fireEvent.click(dismiss);
 	const banner = screen.getByText('Heads up').closest('[data-slot="alert"]') as HTMLElement;
-	const failure = await waitFor(() => within(banner).getByRole('alert'));
-	expect(dismiss.getAttribute('aria-describedby')).toBe(failure.id);
+	const failure = await waitFor(() => within(banner).getByText('Could not dismiss announcement. Try again.'));
+	expect(screen.getAllByRole('alert')).toEqual([banner]);
+	expect(document.getElementById(dismiss.getAttribute('aria-describedby') ?? '')?.textContent?.trim()).toBe(
+		'Could not dismiss announcement. Try again.'
+	);
+	expect(banner.contains(failure)).toBe(true);
 	expect(dismiss.getAttribute('aria-disabled')).toBeNull();
 	expect(document.activeElement).toBe(dismiss);
 	await fireEvent.click(dismiss);

@@ -109,7 +109,8 @@
 			</div>
 			{#if failed}
 				<div class="mx-auto w-full max-w-[1680px] px-4 pb-3 sm:px-6">
-					<Alert.Root variant="destructive" id={dismissErrorId(announcement.id)}>
+					<!-- The banner's own alert announces the failure, so this one is not a second live region. -->
+					<Alert.Root variant="destructive" role={undefined} id={dismissErrorId(announcement.id)}>
 						<Alert.Description>Could not dismiss announcement. Try again.</Alert.Description>
 					</Alert.Root>
 				</div>

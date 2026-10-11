@@ -5,13 +5,14 @@
 	import Pencil from '@lucide/svelte/icons/pencil';
 	import Plus from '@lucide/svelte/icons/plus';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
-	import { untrack } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar';
 	import type { WorkspaceToolbarAction, WorkspaceToolbarNavItem } from '$lib/components/patterns/workspace-toolbar';
 	import { Badge, type BadgeVariant } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as Empty from '$lib/components/ui/empty';
 	import * as Alert from '$lib/components/ui/alert';
+	import * as Card from '$lib/components/ui/card';
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
 	import * as RadioGroup from '$lib/components/ui/radio-group';
@@ -26,11 +27,14 @@
 		onboardingTemplateStore,
 		type OnboardingTemplateDeleteTarget
 	} from '$features/onboarding';
-	import type { OnboardingStepType } from '$features/onboarding/contracts';
+	import type { OnboardingStepType, OnboardingTemplateStep } from '$features/onboarding/contracts';
 	import { trainingTypeSource } from '$features/training';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
+	let emptyAddTemplate = $state<HTMLElement | null>(null);
+	let addStepButton = $state<HTMLElement | null>(null);
+	let addFirstStepButton = $state<HTMLElement | null>(null);
 	let ConfirmDialog = $state<typeof import('$lib/components/ui/confirm-dialog').ConfirmDialog | null>(null);
 
 	const org = getAppShellContext();
@@ -117,6 +121,7 @@
 				label: 'Add Template',
 				onclick: () => workspace.startCreateTemplate(),
 				disabled: model.templateActionDisabled,
+				icon: 'plus',
 				priority: 'critical',
 				overflow: 'never',
 				variant: 'primary'
@@ -143,18 +148,72 @@
 		}
 	}
 
-	async function saveStep(): Promise<void> {
-		await workspace.saveStep();
+	async function focusStepName(): Promise<void> {
+		await tick();
+		document.getElementById('step-name')?.focus();
+	}
+
+	function startAddStep(): void {
+		workspace.startAddStep();
+		void focusStepName();
+	}
+
+	function startEditStep(step: OnboardingTemplateStep): void {
+		workspace.startEditStep(step);
+		void focusStepName();
+	}
+
+	async function returnFocusFromStepForm(stepId: string | null): Promise<void> {
+		await tick();
+		const edit = stepId ? document.querySelector<HTMLElement>(`[data-edit-step="${CSS.escape(stepId)}"]`) : null;
+		(edit ?? addFirstStepButton ?? addStepButton)?.focus();
+	}
+
+	async function saveStep(stepId: string | null): Promise<void> {
+		const result = await workspace.saveStep();
+		if (result.ok) await returnFocusFromStepForm(stepId);
+	}
+
+	function cancelStep(stepId: string | null): void {
+		if (stepId) workspace.cancelEditStep();
+		else workspace.cancelAddStep();
+		void returnFocusFromStepForm(stepId);
 	}
 
 	function requestDelete(target: OnboardingTemplateDeleteTarget) {
 		workspace.requestDelete(target);
 	}
 
+	async function moveStep(step: OnboardingTemplateStep, direction: 'up' | 'down') {
+		await workspace.moveStep(step, direction);
+		await tick();
+		const steps = model.selectedTemplateSteps;
+		const index = steps.findIndex((item) => item.id === step.id);
+		const atEdge = direction === 'up' ? index === 0 : index === steps.length - 1;
+		const keep = atEdge ? (direction === 'up' ? 'down' : 'up') : direction;
+		document.querySelector<HTMLElement>(`[data-move-step="${CSS.escape(step.id)}:${keep}"]`)?.focus();
+	}
+
 	async function handleConfirmDelete(): Promise<void> {
-		await workspace.confirmDelete();
+		const target = model.confirmDelete;
+		const stepIndex = model.selectedTemplateSteps.findIndex((step) => step.id === target?.id);
+		const result = await workspace.confirmDelete();
+		if (!result.ok || !target) return;
+		await tick();
+		if (target.type === 'template') {
+			const next = document.querySelector<HTMLElement>('[role="option"][aria-selected="true"] button');
+			(next ?? emptyAddTemplate)?.focus();
+			return;
+		}
+		const steps = model.selectedTemplateSteps;
+		const survivor = steps[Math.min(stepIndex, steps.length - 1)];
+		await returnFocusFromStepForm(survivor?.id ?? null);
 	}
 </script>
+
+<svelte:head>
+	<title>Onboarding Templates - Troop to Task</title>
+</svelte:head>
 
 {#if !hydrated}
 	<section class="flex items-center justify-center gap-2 p-6 text-muted-foreground" aria-busy="true" role="status">
@@ -199,7 +258,13 @@
 					</Empty.Header>
 					{#if model.canMutate}
 						<Empty.Content>
-							<Button variant="outline" size="sm" type="button" onclick={() => workspace.startCreateTemplate()}>
+							<Button
+								bind:ref={emptyAddTemplate}
+								variant="outline"
+								size="sm"
+								type="button"
+								onclick={() => workspace.startCreateTemplate()}
+							>
 								Add Template
 							</Button>
 						</Empty.Content>
@@ -300,7 +365,7 @@
 					</TypeWorkspace.FormSection>
 				</div>
 
-				<TypeWorkspace.FooterActions class="shrink-0 bg-background py-3 pr-2">
+				<TypeWorkspace.FooterActions class="shrink-0 flex-wrap bg-background py-3 pr-2">
 					{#if !model.creatingTemplate && model.selectedTemplate && model.canMutate}
 						<Button
 							variant="destructive"
@@ -356,21 +421,34 @@
 
 						<TypeWorkspace.FormSection title="Steps">
 							{#if model.selectedTemplateSteps.length === 0 && !model.addingStep}
-								<button
-									type="button"
-									class="flex min-h-28 w-full flex-col items-center justify-center gap-2 rounded-md border border-dashed bg-card/70 p-4 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
-									onclick={() => workspace.startAddStep()}
-									disabled={!model.canMutate}
-								>
-									<Plus class="size-4" aria-hidden="true" />
-									<span class="font-medium">Add first step</span>
-								</button>
+								<Empty.Root class="min-h-28 border p-4">
+									<Empty.Header>
+										<Empty.Title>No steps yet.</Empty.Title>
+									</Empty.Header>
+									<Empty.Content>
+										<Button
+											bind:ref={addFirstStepButton}
+											variant="outline"
+											size="sm"
+											type="button"
+											onclick={startAddStep}
+											disabled={!model.canMutate}
+										>
+											<Plus aria-hidden="true" />
+											Add first step
+										</Button>
+									</Empty.Content>
+								</Empty.Root>
 							{:else}
-								<div class="grid overflow-hidden rounded-md border border-border bg-card">
+								<Card.Root class="grid overflow-hidden">
 									{#each model.selectedTemplateSteps as step, index (step.id)}
 										<div class="border-b border-border/70 p-3 last:border-b-0">
 											{#if model.editingStepId === step.id}
-												{@render stepForm(saveStep, () => workspace.cancelEditStep(), 'Save Changes')}
+												{@render stepForm(
+													() => saveStep(step.id),
+													() => cancelStep(step.id),
+													'Save Changes'
+												)}
 											{:else}
 												<div class="flex items-center justify-between gap-3 max-sm:flex-col max-sm:items-stretch">
 													<div class="flex min-w-0 flex-1 items-center gap-2 max-sm:flex-wrap">
@@ -388,7 +466,8 @@
 																type="button"
 																title="Move up"
 																disabled={index === 0}
-																onclick={() => workspace.moveStep(step, 'up')}
+																onclick={() => moveStep(step, 'up')}
+																data-move-step="{step.id}:up"
 																aria-label={`Move ${step.name} up`}
 															>
 																<ArrowUp aria-hidden="true" />
@@ -399,7 +478,8 @@
 																type="button"
 																title="Move down"
 																disabled={index === model.selectedTemplateSteps.length - 1}
-																onclick={() => workspace.moveStep(step, 'down')}
+																onclick={() => moveStep(step, 'down')}
+																data-move-step="{step.id}:down"
 																aria-label={`Move ${step.name} down`}
 															>
 																<ArrowDown aria-hidden="true" />
@@ -409,7 +489,8 @@
 																size="icon"
 																type="button"
 																title="Edit"
-																onclick={() => workspace.startEditStep(step)}
+																onclick={() => startEditStep(step)}
+																data-edit-step={step.id}
 																aria-label={`Edit ${step.name}`}
 															>
 																<Pencil aria-hidden="true" />
@@ -456,12 +537,16 @@
 											{/if}
 										</div>
 									{/each}
-								</div>
+								</Card.Root>
 							{/if}
 
 							{#if model.addingStep}
 								<TypeWorkspace.Choice>
-									{@render stepForm(saveStep, () => workspace.cancelAddStep(), 'Add Step')}
+									{@render stepForm(
+										() => saveStep(null),
+										() => cancelStep(null),
+										'Add Step'
+									)}
 								</TypeWorkspace.Choice>
 							{/if}
 						</TypeWorkspace.FormSection>
@@ -469,7 +554,7 @@
 				</div>
 
 				{#if model.canMutate}
-					<TypeWorkspace.FooterActions class="shrink-0 bg-background py-3 pr-2">
+					<TypeWorkspace.FooterActions class="shrink-0 flex-wrap bg-background py-3 pr-2">
 						<Button
 							variant="destructive"
 							size="sm"
@@ -499,10 +584,11 @@
 							Duplicate Template
 						</Button>
 						<Button
+							bind:ref={addStepButton}
 							variant="outline"
 							size="sm"
 							type="button"
-							onclick={() => workspace.startAddStep()}
+							onclick={startAddStep}
 							disabled={model.addingStep || !!model.editingStepId}
 						>
 							<Plus aria-hidden="true" />
@@ -603,7 +689,7 @@
 			<TypeWorkspace.FormSection title="Stages">
 				<div class="grid gap-2">
 					{#each workspace.stepDraft.stages as stage, index (index)}
-						<div class="flex items-center justify-between rounded-md border bg-card p-2">
+						<Card.Root class="flex items-center justify-between p-2">
 							<span class="text-sm text-foreground">{stage}</span>
 							<div class="flex gap-1">
 								<Button
@@ -639,7 +725,7 @@
 									<Trash2 aria-hidden="true" />
 								</Button>
 							</div>
-						</div>
+						</Card.Root>
 					{/each}
 					<div class="flex items-center gap-2 max-sm:flex-col max-sm:items-stretch">
 						<Input

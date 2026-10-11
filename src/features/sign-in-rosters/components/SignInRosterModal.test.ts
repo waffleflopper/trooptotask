@@ -290,17 +290,27 @@ describe('SignInRosterModal', () => {
 		}
 	});
 
-	it('shows a list load error without clearing the roster array shape', async () => {
-		const fetchMock = vi.fn(async () => jsonResponse({ error: 'Sign-in rosters are unavailable.' }, false));
+	it('shows a list load failure with Retry instead of the empty state and a misleading total, then recovers', async () => {
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValueOnce(jsonResponse({ error: 'Sign-in rosters are unavailable.' }, false))
+			.mockResolvedValueOnce(jsonResponse({ rosters: [makeRoster()], total: 1 }));
 		vi.stubGlobal('fetch', fetchMock);
 
 		renderModal();
 
-		await waitFor(() => {
-			expect(screen.getByText('Sign-in rosters are unavailable.')).toBeTruthy();
-		});
+		const alert = await screen.findByRole('alert');
+		expect(alert.textContent).toContain('Sign-in rosters are unavailable.');
+		expect(screen.queryByText('No sign-in rosters yet.')).toBeNull();
+		expect(screen.queryByText(/\d+ total/)).toBeNull();
+		expect(screen.getAllByRole('button', { name: 'New Roster' })).toHaveLength(1);
 
-		expect(screen.getByText('No sign-in rosters yet.')).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+
+		await waitFor(() => expect(screen.getByText('Morning Formation')).toBeTruthy());
+		expect(screen.queryByRole('alert')).toBeNull();
+		expect(screen.getByText('1 total')).toBeTruthy();
+		expect(fetchMock).toHaveBeenCalledTimes(2);
 	});
 
 	it('persists rank and group filters in the generated roster payload', async () => {
@@ -726,6 +736,45 @@ describe('SignInRosterModal', () => {
 		expect(screen.getByRole('button', { name: 'Reset filters' })).toBeTruthy();
 	});
 
+	it('discloses one saved roster at a time through a trigger that names its panel', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () =>
+				jsonResponse({
+					rosters: [makeRoster(), makeRoster({ id: 'roster-2', title: 'Evening Formation' })],
+					total: 2
+				})
+			)
+		);
+
+		renderModal();
+
+		const morning = await screen.findByRole('button', { name: /Morning Formation/i });
+		const evening = screen.getByRole('button', { name: /Evening Formation/i });
+		expect(morning.getAttribute('aria-expanded')).toBe('false');
+		expect(screen.queryByRole('button', { name: 'Re-print' })).toBeNull();
+
+		await fireEvent.click(morning);
+
+		expect(morning.getAttribute('aria-expanded')).toBe('true');
+		expect(morning.textContent).toContain('Hide');
+		const panelId = morning.getAttribute('aria-controls');
+		expect(panelId).toBeTruthy();
+		expect(document.getElementById(panelId!)?.textContent).toContain('Created');
+		expect(screen.getAllByRole('button', { name: 'Re-print' })).toHaveLength(1);
+
+		await fireEvent.click(evening);
+
+		expect(morning.getAttribute('aria-expanded')).toBe('false');
+		expect(evening.getAttribute('aria-expanded')).toBe('true');
+		expect(screen.getAllByRole('button', { name: 'Re-print' })).toHaveLength(1);
+
+		await fireEvent.click(evening);
+
+		expect(evening.getAttribute('aria-expanded')).toBe('false');
+		expect(screen.queryByRole('button', { name: 'Re-print' })).toBeNull();
+	});
+
 	it('uploads a signed roster scan through the shadcn file input and shows selected-file progress', async () => {
 		let resolveUpload: ((response: Response) => void) | undefined;
 		const uploadResponse = new Promise<Response>((resolve) => {
@@ -785,6 +834,43 @@ describe('SignInRosterModal', () => {
 		expect(
 			fetchMock.mock.calls.some(([input, init]) => String(input).endsWith('/upload') && init?.method === 'POST')
 		).toBe(false);
+	});
+
+	it('lets a read-only member download a signed scan without upload or removal controls', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () =>
+				jsonResponse({
+					rosters: [makeRoster({ signedFilePath: 'org-1/sign-in-rosters/roster-1/signed-roster.pdf' })],
+					total: 1
+				})
+			)
+		);
+
+		renderModal({ canEdit: false });
+		await fireEvent.click(await screen.findByRole('button', { name: /Morning Formation/i }));
+
+		expect(screen.getByRole('button', { name: 'signed-roster.pdf' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull();
+		expect(screen.queryByLabelText('Signed Scan')).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
+	});
+
+	it('shows a download error when the signed scan link request fails', async () => {
+		const roster = makeRoster({ signedFilePath: 'org-1/sign-in-rosters/roster-1/signed-roster.pdf' });
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (input: RequestInfo | URL) => {
+				if (String(input).endsWith('/upload')) throw new TypeError('Failed to fetch');
+				return jsonResponse({ rosters: [roster], total: 1 });
+			})
+		);
+
+		renderModal({ canEdit: false });
+		await fireEvent.click(await screen.findByRole('button', { name: /Morning Formation/i }));
+		await fireEvent.click(screen.getByRole('button', { name: 'signed-roster.pdf' }));
+
+		expect(await screen.findByText('Could not generate download link.')).toBeTruthy();
 	});
 
 	it('removes an uploaded signed roster scan once while the dialog stays busy', async () => {

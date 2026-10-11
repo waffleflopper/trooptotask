@@ -53,7 +53,7 @@
 </svelte:head>
 
 <div class="flex h-full flex-col bg-background">
-	<main class="flex min-h-0 flex-col gap-4 overflow-auto p-3 sm:px-6 sm:py-4">
+	<div class="flex min-h-0 flex-col gap-4 overflow-auto p-3 sm:px-6 sm:py-4">
 		<WorkspaceToolbar.Root ariaLabel="Onboarding history controls">
 			<WorkspaceToolbar.Group label="Onboarding sections">
 				<WorkspaceToolbar.Nav ariaLabel="Onboarding sections" items={onboardingNavItems} />
@@ -158,5 +158,5 @@
 				{/each}
 			</OnboardingPacketList.Root>
 		{/if}
-	</main>
+	</div>
 </div>

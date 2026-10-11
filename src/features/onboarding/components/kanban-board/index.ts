@@ -4,8 +4,6 @@ import ColumnHeader from './kanban-board-column-header.svelte';
 import ColumnItems from './kanban-board-column-items.svelte';
 import Card from './kanban-board-card.svelte';
 
-export { kanbanCardVariants } from './kanban-board-card.svelte';
-
 export {
 	Root,
 	Column,

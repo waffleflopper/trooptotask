@@ -31,7 +31,7 @@
 	const pct = $derived(progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0);
 </script>
 
-<KanbanBoard.Card {selected} {onclick}>
+<KanbanBoard.Card {selected} {onclick} data-onboarding-id={onboarding.id}>
 	<div class="flex items-start gap-3">
 		<Avatar {initials} size="md" />
 		<div class="min-w-0 flex-1">

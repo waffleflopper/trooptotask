@@ -43,6 +43,20 @@ describe('OnboardingPaperworkStageQueue', () => {
 		expect(within(group).getByRole('button', { name: /Filed Queued/ })).toBeTruthy();
 	});
 
+	it('marks only the current stage as the current step', () => {
+		render(OnboardingPaperworkStageQueue, {
+			props: { step: makePaperworkStep(), canManage: true, onSelect: vi.fn() }
+		});
+
+		const group = screen.getByRole('group', { name: 'Finance packet paperwork stages' });
+
+		expect(
+			within(group)
+				.getAllByRole('button')
+				.map((button) => button.getAttribute('aria-current'))
+		).toEqual([null, 'step', null]);
+	});
+
 	it('treats a missing current stage as the first active stage', () => {
 		render(OnboardingPaperworkStageQueue, {
 			props: {
@@ -74,7 +88,7 @@ describe('OnboardingPaperworkStageQueue', () => {
 		expect(within(group).getByRole('button', { name: /Review Queued/ })).toBeTruthy();
 	});
 
-	it('disables all stages when the user cannot manage the onboarding', async () => {
+	it('shows a read-only member the stage progress as a list with no controls', () => {
 		const onSelect = vi.fn();
 		render(OnboardingPaperworkStageQueue, {
 			props: {
@@ -84,11 +98,16 @@ describe('OnboardingPaperworkStageQueue', () => {
 			}
 		});
 
-		const group = screen.getByRole('group', { name: 'Finance packet paperwork stages' });
-		const submitted = within(group).getByRole('button', { name: /Submitted Cleared/ });
+		const list = screen.getByRole('list', { name: 'Finance packet paperwork stages' });
+		const items = within(list).getAllByRole('listitem');
 
-		expect(submitted.hasAttribute('disabled')).toBe(true);
-		await fireEvent.click(submitted);
+		expect(items.map((item) => item.textContent?.replace(/\s+/g, ' ').trim())).toEqual([
+			'Submitted Cleared',
+			'2 Review Current',
+			'3 Filed Queued'
+		]);
+		expect(items.map((item) => item.getAttribute('aria-current'))).toEqual([null, 'step', null]);
+		expect(screen.queryAllByRole('button')).toEqual([]);
 		expect(onSelect).not.toHaveBeenCalled();
 	});
 

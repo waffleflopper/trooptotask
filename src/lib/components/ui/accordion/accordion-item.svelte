@@ -1,8 +1,12 @@
 <script lang="ts">
 	import { Accordion as AccordionPrimitive } from 'bits-ui';
 	import { cn } from '$lib/utils.js';
+	import { setAccordionContentId } from './accordion-context.js';
 
 	let { ref = $bindable(null), class: className, ...restProps }: AccordionPrimitive.ItemProps = $props();
+
+	const uid = $props.id();
+	setAccordionContentId(`accordion-content-${uid}`);
 </script>
 
 <AccordionPrimitive.Item

@@ -5,7 +5,7 @@
 	import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 	import { getAppShellContext } from '$features/app-shell';
 	import { Skeleton } from '$lib/components/ui/skeleton';
-	import { isPromiseLike, observeDeferred, throwRenderError } from '$lib/utils/streamedRouteData';
+	import { isPromiseLike, observeDeferred } from '$lib/utils/streamedRouteData';
 
 	let { data } = $props();
 
@@ -21,12 +21,6 @@
 	let onboardingBootstrap = $state<OnboardingWorkspaceResult | null>(null);
 	let OnboardingModals = $state<Awaited<ReturnType<typeof loadOnboardingModals>>['default'] | null>(null);
 	let loadError = $state<Error | null>(null);
-	const renderLoadError = $derived.by(() => {
-		if (loadError) {
-			throwRenderError(loadError, 'Failed to load onboarding workspace');
-		}
-		return null;
-	});
 
 	$effect(() => {
 		let cancelled = false;
@@ -97,10 +91,14 @@
 	<title>Onboarding - Troop to Task</title>
 </svelte:head>
 
-{#if loadError}
-	{renderLoadError}
-{:else if workspacePending}
-	<section class="grid gap-4 p-3 sm:px-6 sm:py-5" aria-busy="true" aria-live="polite" role="status">
+{#if workspacePending}
+	<section
+		class="grid gap-4 p-3 sm:px-6 sm:py-5"
+		aria-busy="true"
+		aria-live="polite"
+		role="status"
+		aria-label="Loading onboarding"
+	>
 		<div class="flex flex-wrap items-center gap-3">
 			<Skeleton class="h-3 w-[124px]" />
 			<Skeleton class="h-3 w-24" />

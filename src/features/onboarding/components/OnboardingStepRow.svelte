@@ -6,6 +6,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Spinner } from '$lib/components/ui/spinner';
+	import Check from '@lucide/svelte/icons/check';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import OnboardingPaperworkStageQueue from './OnboardingPaperworkStageQueue.svelte';
 
@@ -31,10 +32,10 @@
 				<Checkbox
 					checked={false}
 					aria-label={`Mark ${step.stepName} complete`}
-					onclick={() => ctx.handleToggleCheckbox(step)}
+					onCheckedChange={() => ctx.handleToggleCheckbox(step)}
 				/>
 			{:else}
-				<div class="h-5 w-5 shrink-0 rounded-full border-2 border-border"></div>
+				<div role="img" aria-label="Not complete" class="h-5 w-5 shrink-0 rounded-full border-2 border-border"></div>
 			{/if}
 			<span class="flex-1 text-sm font-medium">{step.stepName}</span>
 			<Badge variant={step.stepType === 'training' ? 'info' : step.stepType === 'paperwork' ? 'warning' : 'secondary'}>
@@ -46,7 +47,7 @@
 			<OnboardingPaperworkStageQueue {step} {canManage} onSelect={(stage) => ctx.handleStageClick(step, stage)} />
 		{/if}
 
-		{#if step.stepType === 'training'}
+		{#if step.stepType === 'training' && ctx.canOpenTraining}
 			<div class="mt-2 pl-7">
 				<Button href={ctx.trainingPageUrl} variant="outline" size="sm">Record Training</Button>
 			</div>
@@ -62,6 +63,7 @@
 				<Button
 					size="sm"
 					variant="destructive"
+					aria-label={`Remove ${step.stepName}`}
 					onclick={() => ctx.handleRemoveDeprecatedStep(step.id)}
 					disabled={ctx.removingDeprecatedStepId === step.id}
 				>
@@ -78,19 +80,15 @@
 				<Checkbox
 					checked={true}
 					aria-label={`Mark ${step.stepName} incomplete`}
-					onclick={() => ctx.handleToggleCheckbox(step)}
+					onCheckedChange={() => ctx.handleToggleCheckbox(step)}
 				/>
 			{:else}
-				<div class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-success text-white">
-					<svg
-						width="12"
-						height="12"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="3"
-						aria-hidden="true"><path d="M20 6L9 17l-5-5" /></svg
-					>
+				<div
+					role="img"
+					aria-label="Complete"
+					class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-success text-white"
+				>
+					<Check class="size-3 stroke-3" aria-hidden="true" />
 				</div>
 			{/if}
 			<span class="flex-1 text-sm font-medium text-muted-foreground line-through">
@@ -100,15 +98,16 @@
 				{STEP_TYPE_LABELS[step.stepType]}
 			</Badge>
 			{#if isExpandable}
-				<button
+				<Button
+					variant="ghost"
+					size="icon-xs"
 					onclick={onToggleExpand}
-					class="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-					aria-label={expanded ? 'Collapse' : 'Expand to adjust'}
+					aria-label={expanded ? `Collapse ${step.stepName}` : `Expand ${step.stepName} to adjust stage`}
 					aria-expanded={expanded}
 					aria-controls={adjustmentPanelId}
 				>
 					<ChevronDown class="h-3.5 w-3.5 transition-transform {expanded ? '' : '-rotate-90'}" />
-				</button>
+				</Button>
 			{/if}
 		</div>
 		{#if isExpandable}

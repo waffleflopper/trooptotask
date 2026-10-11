@@ -5,6 +5,7 @@ export type WorkspaceToolbarIcon =
 	| 'clipboard-check'
 	| 'clipboard-list'
 	| 'download'
+	| 'plus'
 	| 'printer'
 	| 'settings'
 	| 'upload';

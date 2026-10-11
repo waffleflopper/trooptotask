@@ -20,7 +20,7 @@ describe('OnboardingPacketList.Stages', () => {
 		expect(screen.getByText('Current stage: Signed')).toBeTruthy();
 		const items = stageItems();
 		expect(items.map((item) => item.textContent?.replace(/\s+/g, ' ').trim())).toEqual([
-			'Step 1: 1 Drafted',
+			'Step 1: Drafted',
 			'Step 2: 2 Signed',
 			'Step 3: 3 Filed'
 		]);

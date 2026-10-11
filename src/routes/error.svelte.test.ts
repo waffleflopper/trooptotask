@@ -26,6 +26,14 @@ describe('root error screen', () => {
 		expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
 	});
 
+	it('offers Try again when a failed refresh lands here without an error status', () => {
+		pageState.status = 200;
+		render(ErrorPage);
+
+		expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Error');
+		expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
+	});
+
 	it('reloads the requested page from Try again after a server failure', async () => {
 		pageState.status = 503;
 		const reload = vi.fn();

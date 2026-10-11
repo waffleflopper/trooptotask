@@ -2,15 +2,19 @@
 	import { page } from '$app/state';
 	import { Button } from '$lib/components/ui/button';
 	import * as Empty from '$lib/components/ui/empty';
+
+	// A failed client-side data refresh can land here with a non-error status, so only a real 4xx is final.
+	const label = $derived(page.status >= 400 ? String(page.status) : 'Error');
+	const retryable = $derived(page.status < 400 || page.status >= 500);
 </script>
 
 <svelte:head>
-	<title>Error {page.status} - Troop to Task</title>
+	<title>{page.status >= 400 ? `Error ${page.status}` : 'Error'} - Troop to Task</title>
 </svelte:head>
 
 <Empty.Root class="min-h-[60vh]">
 	<Empty.Header>
-		<h1 class="text-7xl leading-none font-bold text-accent">{page.status}</h1>
+		<h1 class="text-7xl leading-none font-bold text-accent">{label}</h1>
 		<Empty.Description>
 			{#if page.status === 404}
 				Page not found. The page you're looking for doesn't exist or has been moved.
@@ -22,7 +26,7 @@
 		</Empty.Description>
 	</Empty.Header>
 	<Empty.Content class="flex-row flex-wrap justify-center">
-		{#if page.status >= 500}
+		{#if retryable}
 			<Button variant="outline" onclick={() => window.location.reload()}>Try again</Button>
 		{/if}
 		<Button href="/">Go Home</Button>

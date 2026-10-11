@@ -124,6 +124,22 @@ export function installNetworkControl(
 		call.status = response.status;
 		call.contentDisposition = response.headers?.get('Content-Disposition') ?? null;
 		call.contentType = response.headers?.get('Content-Type') ?? null;
+		if (control.mode === 'load-error' && requestNumber === control.ordinal) {
+			const [head, ...streamed] = (await response.text()).split('\n');
+			const envelope = JSON.parse(head);
+			if (envelope?.type !== 'data' || !Array.isArray(envelope.nodes) || envelope.nodes.length === 0)
+				throw new TypeError('Expected SvelteKit page data');
+			envelope.nodes[envelope.nodes.length - 1] = {
+				type: 'error',
+				status: 503,
+				error: { message: 'Synthetic request failure' }
+			};
+			call.failure = 'page-load';
+			return new Response([JSON.stringify(envelope), ...streamed].join('\n'), {
+				status: response.status,
+				headers: { 'Content-Type': call.contentType ?? 'application/json' }
+			});
+		}
 		if (control.mode === 'drop-response' && requestNumber === control.ordinal) {
 			call.failure = 'response';
 			throw new TypeError('Synthetic response lost after real dispatch');

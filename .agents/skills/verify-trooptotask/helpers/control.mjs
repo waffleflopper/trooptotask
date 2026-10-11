@@ -2231,7 +2231,16 @@ async function main() {
 		const pageId = Number(page);
 		if (!Number.isInteger(pageId) || pageId < 1) throw new Error('Use a page ID from the owned browser.');
 		if (
-			['arm-fail', 'arm-error', 'arm-hold', 'arm-hold-fail', 'arm-reject', 'arm-observe', 'arm-drop'].includes(action)
+			[
+				'arm-fail',
+				'arm-error',
+				'arm-hold',
+				'arm-hold-fail',
+				'arm-reject',
+				'arm-observe',
+				'arm-drop',
+				'arm-load-error'
+			].includes(action)
 		) {
 			const platformForm = platformFormNetworkTarget(family, fixture, (await saved()).platform);
 			const shellPart = {
@@ -2383,9 +2392,11 @@ async function main() {
 				throw new Error('Delayed synthetic failure is not supported for this request family.');
 			if (
 				(/^admin-[a-z-]+-read$/.test(family) || shellPart) &&
-				!['arm-fail', 'arm-hold', 'arm-observe'].includes(action)
+				!['arm-fail', 'arm-hold', 'arm-observe', ...(shellPart ? [] : ['arm-load-error'])].includes(action)
 			)
 				throw new Error('Platform read controls support failure, hold and observation only.');
+			if (action === 'arm-load-error' && !/^admin-[a-z-]+-read$/.test(family))
+				throw new Error('A page server-load error is supported only for platform page-data reads.');
 			if (
 				action === 'arm-reject' &&
 				!['deletion-requests/review', 'personnel/archive-batch'].includes(family) &&
@@ -2409,7 +2420,9 @@ async function main() {
 									? 'reject'
 									: action === 'arm-drop'
 										? 'drop-response'
-										: 'observe';
+										: action === 'arm-load-error'
+											? 'load-error'
+											: 'observe';
 			const search =
 				(shellPart ? `?part=${shellPart}` : platformForm?.search) ??
 				accountForm?.[1] ??

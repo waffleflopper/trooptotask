@@ -2,11 +2,38 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
+import { tick } from 'svelte';
+import BulkImportStepTest from './BulkImportStepTest.svelte';
 import BulkImportWorkspaceTest from './BulkImportWorkspaceTest.svelte';
 
 afterEach(() => cleanup());
 
 describe('BulkImportWorkspace', () => {
+	it('moves focus to the new step heading when advancing unmounts the focused control', async () => {
+		render(BulkImportStepTest);
+
+		const parse = screen.getByRole('button', { name: 'Parse file' });
+		parse.focus();
+		await fireEvent.click(parse);
+		await tick();
+		await Promise.resolve();
+
+		expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Review rows' }));
+	});
+
+	it('does not take focus when a later workspace mounts after the earlier one closed', async () => {
+		const first = render(BulkImportStepTest);
+		const parse = screen.getByRole('button', { name: 'Parse file' });
+		parse.focus();
+		first.unmount();
+		await new Promise((resolve) => setTimeout(resolve));
+
+		render(BulkImportStepTest);
+		await tick();
+
+		expect(document.activeElement).toBe(document.body);
+	});
+
 	it('renders source selection and updates selected source', async () => {
 		render(BulkImportWorkspaceTest);
 

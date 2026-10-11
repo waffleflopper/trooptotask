@@ -598,7 +598,7 @@ Public components:
 - `RowStatus`: shared per-row import status display. Props: `tone: 'valid' | 'warning' | 'error' | 'disabled' | 'duplicate' | 'info'`, `label?`, `description?`, `descriptionMode?`.
 - `ProgressState`: importing/loading state with optional progress value.
 - `FooterActions`: footer command region with disabled submit reason.
-- `ResultSummary`: final `success`, `partial`, or `failed` result summary.
+- `ResultSummary`: final `success`, `partial`, or `failed` result summary. Its title is an `h3`, so a results step without a `Header` still gives Root a focus target.
 
 Shared components own:
 

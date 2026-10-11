@@ -3,7 +3,7 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 
 	let workspace = $state<'steps' | 'other'>('steps');
-	let step = $state<'upload' | 'importing' | 'review'>('upload');
+	let step = $state<'upload' | 'importing' | 'review' | 'results'>('upload');
 
 	function switchStep() {
 		step = step === 'upload' ? 'review' : 'upload';
@@ -11,7 +11,7 @@
 </script>
 
 <Button onclick={switchStep}>Switch step from outside</Button>
-<Button onclick={() => (step = 'review')}>Finish import from outside</Button>
+<Button onclick={() => (step = 'results')}>Finish import from outside</Button>
 {#if workspace === 'steps'}
 	<BulkImportWorkspace.Root ariaLabel="Step import workspace" {step}>
 		{#if step === 'upload'}
@@ -20,6 +20,8 @@
 			<Button onclick={() => (step = 'importing')}>Start import</Button>
 		{:else if step === 'importing'}
 			<BulkImportWorkspace.ProgressState title="Importing rows" />
+		{:else if step === 'results'}
+			<BulkImportWorkspace.ResultSummary status="success" items={[{ label: 'Saved', value: 2 }]} />
 		{:else}
 			<BulkImportWorkspace.Header step="Step 2" title="Review rows" />
 			<Button onclick={() => (step = 'upload')}>Back</Button>

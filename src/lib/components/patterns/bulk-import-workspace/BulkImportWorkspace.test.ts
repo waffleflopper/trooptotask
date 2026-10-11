@@ -26,7 +26,7 @@ describe('BulkImportWorkspace', () => {
 		expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Upload file' }));
 	});
 
-	it('keeps lost focus owed through a step without a heading until the next heading renders', async () => {
+	it('keeps lost focus owed through the progress step and gives it to the result summary title', async () => {
 		render(BulkImportStepTest);
 
 		await press('Start import');
@@ -36,7 +36,7 @@ describe('BulkImportWorkspace', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Finish import from outside' }));
 		await tick();
 
-		expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Review rows' }));
+		expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Import complete' }));
 	});
 
 	it('leaves focus on a control that survives the step change', async () => {

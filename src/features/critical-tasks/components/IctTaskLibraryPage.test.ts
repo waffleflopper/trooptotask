@@ -96,6 +96,20 @@ describe('IctTaskLibraryPage', () => {
 		}
 	);
 
+	it('keeps New Task and Import CSV unavailable until the library has loaded', async () => {
+		personnelIctCompletionsStore.load(completions, 'org-other');
+		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+
+		const newTask = screen.getByRole('button', { name: 'New Task' }) as HTMLButtonElement;
+		expect(newTask.disabled).toBe(true);
+		expect(newTask.title).toBe('Critical Tasks are still loading.');
+		await fireEvent.click(newTask);
+		expect(screen.queryByLabelText('Task code')).toBeNull();
+
+		personnelIctCompletionsStore.load(completions, 'org-1');
+		await waitFor(() => expect(newTask.disabled).toBe(false));
+	});
+
 	it('shows active tasks only in configured library order', () => {
 		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
 

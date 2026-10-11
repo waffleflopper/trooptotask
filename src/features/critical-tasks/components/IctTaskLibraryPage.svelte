@@ -142,7 +142,8 @@
 					label: 'Import CSV',
 					onclick: startImport,
 					icon: 'upload',
-					disabled: creating || editing || importingTasks,
+					disabled: loading || creating || editing || importingTasks,
+					disabledReason: loading ? 'Critical Tasks are still loading.' : undefined,
 					priority: 'normal',
 					variant: 'default'
 				},
@@ -151,7 +152,8 @@
 					label: 'New Task',
 					onclick: startCreate,
 					icon: 'clipboard-check',
-					disabled: creating || editing || importingTasks,
+					disabled: loading || creating || editing || importingTasks,
+					disabledReason: loading ? 'Critical Tasks are still loading.' : undefined,
 					priority: 'critical',
 					overflow: 'never',
 					variant: 'primary'
@@ -254,7 +256,7 @@
 	}
 
 	async function startCreate() {
-		if (!canManage) return;
+		if (!canManage || loading) return;
 		taskStatusFilter = 'active';
 		selectedTaskId = null;
 		resetForm();
@@ -287,7 +289,7 @@
 	}
 
 	async function startImport() {
-		if (!canManage) return;
+		if (!canManage || loading) return;
 		taskStatusFilter = 'active';
 		selectedTaskId = null;
 		creating = false;
@@ -513,7 +515,6 @@
 		{#if loading}
 			<section
 				class="flex items-center justify-center gap-2 p-6 text-muted-foreground"
-				aria-busy="true"
 				aria-live="polite"
 				role="status"
 			>

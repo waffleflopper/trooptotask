@@ -160,6 +160,15 @@ Personnel and Ranks use the toolbar's nav, search and selects, with no actions. 
 
 The archive is [`1604-consumers.tar.gz`](https://github.com/waffleflopper/trooptotask/releases/download/evidence/1604-consumers.tar.gz), SHA-256 `7ca8637e986437cf986caecc68646279f31b74446e111be35b44507079e4b00d`, with 14 payload files plus `INVENTORY.sha256`. A fresh download matched every hash.
 
+**Download-failure run on `6674dbfe`.** CodeRabbit raised two findings on `d7744fe9`, and two commits fix them. In `dcd466ab`, a signed-scan link request that fails shows `Could not generate download link.` in the field. Before, a rejected fetch or a non-JSON reply left the user with nothing. In `6674dbfe`, the accordion content always keeps the id its trigger names, even if a caller passes its own. The run used worker 1, origin `http://127.0.0.1:44891` and Chromium 152.0.7977.82, as `rosterViewer` at 1280 light.
+
+- **Failed link request.** PASS. A synthetic 503 on the Alpha roster's link request shows the error in the field.
+- **Retry.** PASS. The error clears and the signed PDF opens: 3205 bytes, matching the stored file's SHA-256 (`e5f0d817…`).
+- **Rejected fetch.** Covered by a component test that fails without the change. The control cannot produce a network rejection.
+- **Accordion.** No live capture, because the read-only query used the wrong slot name. The change only moves `id` after the spread, and no caller passes an `id`. The rendered markup therefore equals what the acceptance-fix run verified, and the packet-list linkage test passes.
+
+The archive is [`1604-download.tar.gz`](https://github.com/waffleflopper/trooptotask/releases/download/evidence/1604-download.tar.gz), SHA-256 `1385b065bfd8e6ccb5777c9ef7b457d5f5096d58ec7ceb880b43a84b7002747e`, with 7 payload files plus `INVENTORY.sha256`. A fresh download matched every hash.
+
 **Dispositions.** Every D06 baseline and later-run failure now passes on a candidate:
 
 - **History accordion.** Repaired in the shared `ui/accordion` wrapper. Each trigger resolves to its own panel, collapsed and expanded.

@@ -129,11 +129,12 @@
 		if (typeof IntersectionObserver === 'undefined') {
 			const updateNav = () => (navScrolled = heroEl ? heroEl.getBoundingClientRect().bottom <= 57 : false);
 			updateNav();
-			window.addEventListener('scroll', updateNav, { passive: true });
+			// The public shell scrolls, not the window, and element scroll events do not bubble.
+			document.addEventListener('scroll', updateNav, { capture: true, passive: true });
 			window.addEventListener('hashchange', updateNav);
 			window.addEventListener('resize', updateNav);
 			return () => {
-				window.removeEventListener('scroll', updateNav);
+				document.removeEventListener('scroll', updateNav, { capture: true });
 				window.removeEventListener('hashchange', updateNav);
 				window.removeEventListener('resize', updateNav);
 			};
@@ -356,7 +357,7 @@
 				{#each faqs as faq, i (faq.question)}
 					<Accordion.Item value={String(i)} class="reveal border-b border-border first:border-t">
 						<Accordion.Trigger
-							class="items-center gap-6 py-5 font-heading text-[1.125rem] leading-[1.3] font-semibold tracking-[0.02em] text-foreground hover:text-accent hover:no-underline"
+							class="items-center gap-6 py-5 font-heading text-[1.125rem] leading-[1.3] font-semibold tracking-[0.02em] text-foreground hover:text-accent-text hover:no-underline"
 						>
 							{faq.question}
 						</Accordion.Trigger>

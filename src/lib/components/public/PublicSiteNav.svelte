@@ -106,7 +106,7 @@
 		href={resolve(route)}
 		aria-current={current ? 'page' : undefined}
 		class={cn(
-			'border-b-2 py-2 font-heading text-base font-medium tracking-[0.04em] no-underline transition-colors duration-[120ms] hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
+			'border-b-2 py-2 font-heading text-[1rem] font-medium tracking-[0.04em] no-underline transition-colors duration-[120ms] hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
 			tone.muted,
 			floating ? 'hover:text-chrome-text' : 'hover:text-foreground',
 			current ? ['border-accent', tone.text] : 'border-transparent'

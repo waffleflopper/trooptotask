@@ -334,7 +334,7 @@
 			>
 				{#each proofPoints as point (point.title)}
 					<div class={['reveal', point.delay]}>
-						<h3 class="mb-2 font-heading text-base font-semibold tracking-[0.02em]">{point.title}</h3>
+						<h3 class="mb-2 font-heading text-[1rem] font-semibold tracking-[0.02em]">{point.title}</h3>
 						<p class="m-0 text-[0.9375rem] leading-[1.5] text-muted-foreground">{point.text}</p>
 					</div>
 				{/each}

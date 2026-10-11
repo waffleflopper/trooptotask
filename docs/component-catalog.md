@@ -612,7 +612,7 @@ Import validation/result state guidance:
 
 - Validation errors and warnings should be produced by feature utilities. Shared UI only renders the resulting counts/messages.
 - Use `rowStatus` for valid/warning/error/duplicate/disabled/info presentation. Use `disabledReason` for rows that must not be selected; the preview table uses it in the selection label and can render it through the status column.
-- `PreviewTable.disabledRow` disables the row's import checkbox, not its cell editors. Pass the same predicate to `useDataTableSelection` so select-all excludes invalid rows. Editable cells remain available to correct validation errors; use `rowStatus` and `disabledReason` to explain those errors.
+- `PreviewTable.disabledRow` disables the row's import checkbox, not its cell editors. When the row's `rowStatus` has a description, the checkbox is `aria-invalid` and described by it. Pass the same predicate to `useDataTableSelection` so select-all excludes invalid rows. Editable cells remain available to correct validation errors; use `rowStatus` and `disabledReason` to explain those errors.
 - Use `ResultSummary status="partial"` when some rows were saved and some failed.
 - Use `ResultSummary status="failed"` when no requested rows were saved.
 - Use `ProgressState` for parsing/importing work that blocks closing or submit actions.
@@ -1000,7 +1000,7 @@ Compatibility note: the legacy `ui/EmptyState.svelte` wrapper has been removed. 
 
 The root and Organization error boundaries and `WorkspaceAccessRestricted` compose `ui/empty` for their status, message and recovery action. A page's `h1` stays a heading element inside `Empty.Header` where the page needs one. `Empty.Root` is full width, so a caller that adds outer margins also sets `w-auto` to keep the margins inside its column.
 
-On Dashboard, Training, Critical Tasks and Evals, a streamed workspace source that rejects renders `WorkspaceLoadError` (a destructive `Alert` with a `Retry` button that reloads the page) from its route layout, and their pages that read the same source render nothing in their rejected branch instead of throwing. SvelteKit's root has no boundary to catch a render-time throw, so the loading state would stay up. Calendar, Onboarding and Personnel routes still call `throwRenderError`; each adopts `WorkspaceLoadError` in its own Phase 10 packet.
+On Dashboard, Training, Critical Tasks and Evals, a streamed workspace source that rejects renders `WorkspaceLoadError` (a destructive `Alert` with a `Retry` button that reloads the page) from its route layout, and their pages that read the same source render nothing in their rejected branch instead of throwing. SvelteKit's root has no boundary to catch a render-time throw, so the loading state would stay up. Calendar, Onboarding and Personnel routes still call `throwRenderError`; each adopts `WorkspaceLoadError` in its own Phase 10 packet. Critical Tasks Reports and the person record load in blocking page loads, so `critical-tasks/+error.svelte` renders `WorkspaceLoadError` for a 5xx and the Organization error page otherwise.
 
 ---
 
@@ -1204,11 +1204,13 @@ Exports:
 - `useDataTable`: headless sort/filter/pagination/grouping state.
 - `useDataTableSelection`: headless row selection and bulk-selection state.
 
-`DataTable` props: `data?: T[]`, `columns?: ColumnDef<T>[]`, `table?: DataTableState<T>`, `initialSortKey?: string`, `initialSortDirection?: SortDirection`, `pageSize?: number`, `groupBy?: GroupDef<T>`, `filterFn?: (row: T, query: string) => boolean`, `ariaLabel?: string`, `emptyMessage?: string`, `showSearch?: boolean`, `searchPlaceholder?: string`, `rowKey?: (row: T, index: number) => string | number`, `onRowClick?: (row: T) => void`, `rowActionLabel?: (row: T) => string`, `disabledRow?: (row: T) => boolean`, `rowDetailVisible?: (row: T) => boolean`, `loading?: boolean`, `loadingRows?: number`, `density?: 'default' | 'dense'`, `compact?: boolean`, `striped?: boolean`, `stickyHeader?: boolean`, `stickyFirstColumn?: boolean`, `maxHeight?: string`
+`DataTable` props: `data?: T[]`, `columns?: ColumnDef<T>[]`, `table?: DataTableState<T>`, `initialSortKey?: string`, `initialSortDirection?: SortDirection`, `pageSize?: number`, `groupBy?: GroupDef<T>`, `filterFn?: (row: T, query: string) => boolean`, `ariaLabel?: string`, `emptyMessage?: string`, `showSearch?: boolean`, `searchPlaceholder?: string`, `rowKey?: (row: T, index: number) => string | number`, `onRowClick?: (row: T) => void`, `rowActionLabel?: (row: T) => string`, `disabledRow?: (row: T) => boolean`, `rowDetailVisible?: (row: T) => boolean`, `loading?: boolean`, `loadingRows?: number`, `density?: 'default' | 'dense'`, `compact?: boolean`, `striped?: boolean`, `stickyHeader?: boolean`, `stickyFirstColumn?: boolean`, `maxHeight?: string`, `scrollRegionLabel?: string`
+
+Pass `scrollRegionLabel` when a wide table can scroll sideways. It names the scroll container as a focusable `region` (`Table.Root` takes the same prop) so keyboard users can scroll it.
 
 Snippets: `cell?: (row: T, col: ColumnDef<T>)`, `row?: (row: T, cols: ColumnDef<T>[])`, `rowDetail?: (row: T)`, `headerCell?: (col: ColumnDef<T>)`, `groupHeader?: (ctx: GroupHeaderContext)`, `toolbar?: (table: DataTableState<T>)`, `footer?: (table: DataTableState<T>)`
 
-`ColumnDef<T>`: `key`, `header`, `value`, `headerAriaLabel?`, `searchValue?`, `compare?`, `searchable?`, `sortable?`, `align?`, `width?`
+`ColumnDef<T>`: `key`, `header`, `value`, `headerAriaLabel?`, `searchValue?`, `compare?`, `searchable?`, `sortable?`, `align?`, `width?`, `rowHeader?`. A `rowHeader` column renders its body cells as `th scope="row"`, so each row is announced by that cell.
 
 `DataTableState<T>` provides: `columns`, `rows`, `allRows`, `groups`, `totalRows`, `totalPages`, `sortKey`, `sortDirection`, `search`, `page`, `pageSize`, `toggleSort()`, `setSearch()`, `setPage()`, `setPageSize()`, `toggleGroup()`, `expandAll()`, `collapseAll()`, `getRowKey()`, `isRowDisabled()`
 

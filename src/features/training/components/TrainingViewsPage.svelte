@@ -369,7 +369,6 @@
 		title="Delete Saved View"
 		message={`Delete "${confirmDeleteView.name}"? This only removes the saved layout.`}
 		confirmLabel="Delete"
-		variant="danger"
 		onConfirm={doDelete}
 		onCancel={() => (confirmDeleteView = null)}
 	/>

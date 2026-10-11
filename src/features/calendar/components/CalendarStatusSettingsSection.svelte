@@ -306,7 +306,6 @@
 		title="Delete Status Type"
 		message={`Remove "${confirmDeleteStatus.name}"? All schedule entries using this status will also be removed. This cannot be undone.`}
 		confirmLabel="Delete"
-		variant="danger"
 		onConfirm={() => {
 			if (confirmDeleteStatus) return deleteStatus(confirmDeleteStatus);
 		}}

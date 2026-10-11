@@ -416,7 +416,6 @@
 		title="Remove Status"
 		message="Remove this status entry?"
 		confirmLabel="Remove"
-		variant="danger"
 		onConfirm={doRemove}
 		onCancel={() => (removeEntryId = null)}
 	/>

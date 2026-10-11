@@ -308,7 +308,6 @@
 		title="Delete Training Record"
 		message="Are you sure you want to delete this training record?"
 		confirmLabel="Delete"
-		variant="danger"
 		onConfirm={doRemove}
 		onCancel={() => (showRemoveConfirm = false)}
 	/>

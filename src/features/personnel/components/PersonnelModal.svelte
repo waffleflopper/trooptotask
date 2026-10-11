@@ -265,7 +265,7 @@
 		title="Archive Personnel"
 		message="Archive {personnel.rank} {personnel.lastName}? They will be removed from active rosters, calendars, and reports, but their records remain available in archived personnel."
 		confirmLabel="Archive"
-		variant="warning"
+		variant="default"
 		loading={isArchiving}
 		onConfirm={doArchive}
 		onCancel={() => (showArchiveConfirm = false)}

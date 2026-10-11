@@ -9,7 +9,7 @@
 		message: string;
 		confirmLabel?: string;
 		cancelLabel?: string;
-		variant?: 'destructive' | 'danger' | 'warning' | 'primary' | 'secondary';
+		variant?: 'destructive' | 'default' | 'secondary';
 		disabled?: boolean;
 		loading?: boolean;
 		onConfirm: () => void | Promise<void>;
@@ -33,15 +33,6 @@
 	let confirming = $state(false);
 	const busy = $derived(confirming || loading);
 	const confirmDisabled = $derived(disabled || busy);
-	const confirmVariant = $derived(
-		variant === 'secondary'
-			? 'secondary'
-			: variant === 'warning'
-				? 'default'
-				: variant === 'primary'
-					? 'default'
-					: 'destructive'
-	);
 
 	async function handleConfirm() {
 		if (confirmDisabled) return;
@@ -69,7 +60,7 @@
 		{/if}
 		<AlertDialog.Footer>
 			<Button variant="outline" onclick={onCancel} disabled={busy}>{cancelLabel}</Button>
-			<Button variant={confirmVariant} onclick={handleConfirm} disabled={confirmDisabled}>
+			<Button {variant} onclick={handleConfirm} disabled={confirmDisabled}>
 				{#if busy}<Spinner />{/if}
 				{confirmLabel}
 			</Button>

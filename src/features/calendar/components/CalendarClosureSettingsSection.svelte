@@ -335,7 +335,6 @@
 		title="Remove Special Day"
 		message={`Remove "${confirmDeleteSpecial.name}"?`}
 		confirmLabel="Remove"
-		variant="danger"
 		onConfirm={() => {
 			if (confirmDeleteSpecial) return deleteSpecialDay(confirmDeleteSpecial);
 		}}
@@ -348,7 +347,7 @@
 		title="Reset Federal Holidays"
 		message="Reset federal holidays to defaults? Custom closures will be preserved."
 		confirmLabel="Reset"
-		variant="warning"
+		variant="default"
 		onConfirm={resetFederalHolidays}
 		onCancel={() => (showResetConfirm = false)}
 	/>

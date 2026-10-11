@@ -799,7 +799,7 @@
 		title="Archive ICT Task"
 		message={archiveMessage(confirmArchive)}
 		confirmLabel="Archive Task"
-		variant="warning"
+		variant="default"
 		onConfirm={confirmArchiveTask}
 		onCancel={() => (confirmArchive = null)}
 	/>

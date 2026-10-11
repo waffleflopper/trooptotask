@@ -50,7 +50,6 @@
 		title="Cancel Onboarding"
 		message="Are you sure you want to cancel this onboarding? This action cannot be undone."
 		confirmLabel="Cancel Onboarding"
-		variant="danger"
 		onConfirm={() => ctx.handleCancelOnboarding(ctx.cancellingId!)}
 		onCancel={() => (ctx.cancellingId = null)}
 	/>
@@ -63,7 +62,7 @@
 			? `Are you sure? There ${ctx.completingIncompleteCount === 1 ? 'is 1 step' : `are ${ctx.completingIncompleteCount} steps`} still incomplete.`
 			: 'Mark this onboarding as complete?'}
 		confirmLabel="Mark Complete"
-		variant={ctx.completingIncompleteCount > 0 ? 'warning' : undefined}
+		variant={ctx.completingIncompleteCount > 0 ? 'default' : undefined}
 		onConfirm={() => ctx.confirmCompleteOnboarding()}
 		onCancel={() => ctx.cancelComplete()}
 	/>

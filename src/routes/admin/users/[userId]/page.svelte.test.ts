@@ -83,7 +83,7 @@ describe('admin user detail page', () => {
 				await reopened.rerender({ data: makePageData() });
 			});
 			await act(() => finish({ type: 'failure', status: 503, data: { error: 'Old account failure' } }, update));
-			expect(toastStore.error).not.toHaveBeenCalled();
+			expect(screen.queryByRole('alert')).toBeNull();
 			expect(update).not.toHaveBeenCalled();
 		}
 	);
@@ -104,7 +104,8 @@ describe('admin user detail page', () => {
 		expect(staleUpdate).not.toHaveBeenCalled();
 		await act(() => current({ type: 'failure', status: 500, data: { error: 'Current failure' } }, async () => {}));
 		expect(screen.getByRole('button', { name: 'Send Password Reset' }).getAttribute('aria-disabled')).toBe('false');
-		expect(toastStore.error).toHaveBeenCalledExactlyOnceWith('Current failure');
+		expect(screen.getByRole('alert').textContent).toContain('Current failure');
+		expect(screen.queryByText('Old failure')).toBeNull();
 	});
 
 	it.each(['Send Password Reset', 'Resend Invite'])(
@@ -119,7 +120,7 @@ describe('admin user detail page', () => {
 				})
 			);
 			expect(screen.getByRole('button', { name }).getAttribute('aria-disabled')).toBe('false');
-			expect(toastStore.error).toHaveBeenCalledExactlyOnceWith(
+			expect(screen.getByRole('alert').textContent).toContain(
 				'Account details could not be refreshed. Check the current account before sending another email.'
 			);
 			expect(toastStore.success).not.toHaveBeenCalled();
@@ -283,7 +284,7 @@ describe('admin user detail page', () => {
 
 		expect(invalidateAll).toHaveBeenCalledOnce();
 		expect(toastStore.success).toHaveBeenCalledExactlyOnceWith('Invite email resent');
-		expect(toastStore.error).not.toHaveBeenCalled();
+		expect(screen.queryByRole('alert')).toBeNull();
 	});
 
 	it('keeps focus on Send Password Reset while the email is pending and ignores another press', async () => {
@@ -313,7 +314,25 @@ describe('admin user detail page', () => {
 		);
 		expect(button.getAttribute('aria-disabled')).toBe('false');
 		expect(document.activeElement).toBe(button);
-		expect(toastStore.error).toHaveBeenCalledExactlyOnceWith('Synthetic request failure');
+		expect(screen.getByRole('alert').textContent).toContain('Synthetic request failure');
+		expect(toastStore.error).not.toHaveBeenCalled();
+	});
+
+	it('keeps a failed email in context until the next attempt or navigation', async () => {
+		render(Page, { props: { data: makePageData() } });
+		const first = await submitAccountEmail('Resend Invite');
+		await act(() =>
+			first({ type: 'failure', status: 503, data: { error: 'Mail service unavailable' } }, async () => {})
+		);
+		expect(screen.getByRole('alert').textContent).toContain('Mail service unavailable');
+
+		const second = await submitAccountEmail('Resend Invite');
+		expect(screen.queryByRole('alert')).toBeNull();
+		await act(() => second({ type: 'failure', status: 503, data: { error: 'Still unavailable' } }, async () => {}));
+		expect(screen.getByRole('alert').textContent).toContain('Still unavailable');
+
+		await act(() => beforeNavigate.mock.calls[0][0]());
+		expect(screen.queryByRole('alert')).toBeNull();
 	});
 
 	it('offers resend invite only while account confirmation is pending', () => {

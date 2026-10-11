@@ -6,6 +6,7 @@
 	import { beforeNavigate, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { formatDisplayDate, formatDisplayDateTime } from '$lib/utils/dates';
+	import * as Alert from '$lib/components/ui/alert';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import SuspendModal from '$features/platform-admin/components/SuspendModal.svelte';
@@ -21,6 +22,7 @@
 	let showSuspendModal = $state(false);
 	let sendingReset = $state(false);
 	let sendingInvite = $state(false);
+	let emailError = $state<string | null>(null);
 	let navigationLifetime = $state(0);
 	const canSuspend = $derived(data.adminRole === 'super_admin');
 
@@ -29,6 +31,7 @@
 		showSuspendModal = false;
 		sendingReset = false;
 		sendingInvite = false;
+		emailError = null;
 	});
 	onDestroy(() => {
 		navigationLifetime += 1;
@@ -52,6 +55,7 @@
 			const lifetime = navigationLifetime;
 			const targetId = data.user.id;
 			const isCurrent = () => lifetime === navigationLifetime && targetId === data.user.id;
+			emailError = null;
 			if (kind === 'reset') sendingReset = true;
 			else sendingInvite = true;
 			return async ({ result, update }) => {
@@ -61,17 +65,14 @@
 					await update({ invalidateAll: false });
 					if (!isCurrent()) return;
 					if (result.type === 'failure')
-						toastStore.error(
-							typeof result.data?.error === 'string' ? result.data.error : 'The email could not be sent.'
-						);
+						emailError = typeof result.data?.error === 'string' ? result.data.error : 'The email could not be sent.';
 					if (result.type !== 'success') return;
 					await invalidateAll();
 					if (isCurrent() && typeof result.data?.message === 'string') toastStore.success(result.data.message);
 				} catch {
 					if (isCurrent())
-						toastStore.error(
-							'Account details could not be refreshed. Check the current account before sending another email.'
-						);
+						emailError =
+							'Account details could not be refreshed. Check the current account before sending another email.';
 				} finally {
 					if (isCurrent()) {
 						if (kind === 'reset') sendingReset = false;
@@ -162,6 +163,12 @@
 			</Button>
 		{/if}
 	</div>
+
+	{#if emailError}
+		<Alert.Root variant="destructive">
+			<Alert.Description>{emailError}</Alert.Description>
+		</Alert.Root>
+	{/if}
 
 	<div class="grid gap-4 xl:grid-cols-2">
 		<Card.Root>

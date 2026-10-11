@@ -137,6 +137,9 @@ describe('RatingSchemePageView', () => {
 		expect(tableToggle.getAttribute('aria-pressed')).toBe('true');
 		expect(screen.getByRole('columnheader', { name: /Rated Individual/ })).toBeTruthy();
 		expect(screen.getByRole('columnheader', { name: /Thru Date/ })).toBeTruthy();
+		const scrollRegion = screen.getByRole('region', { name: 'Rating scheme entries, scrollable' });
+		expect(scrollRegion.tabIndex).toBe(0);
+		expect(within(scrollRegion).getByRole('table')).toBeTruthy();
 		expect(screen.getByText('SGT Smith, Jane')).toBeTruthy();
 		expect(screen.getByText('CPT Jones, Alex')).toBeTruthy();
 	});

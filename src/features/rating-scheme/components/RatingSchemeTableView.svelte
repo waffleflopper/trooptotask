@@ -111,6 +111,7 @@
 	onRowClick={onEdit ? (entry) => onEdit(entry) : undefined}
 	rowActionLabel={onEdit ? getRatingEntryActionLabel : undefined}
 	compact
+	scrollRegionLabel="Rating scheme entries, scrollable"
 	initialSortKey="thruDate"
 	initialSortDirection="asc"
 >

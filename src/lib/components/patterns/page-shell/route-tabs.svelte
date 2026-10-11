@@ -12,6 +12,8 @@
 		value?: string;
 		active?: boolean;
 		badge?: string | number;
+		/** Announced in place of the bare badge, e.g. `2 pending requests`. */
+		badgeLabel?: string;
 		badgeVariant?: BadgeVariant;
 		disabled?: boolean;
 	};
@@ -37,7 +39,19 @@
 	function isActive(item: RouteTabItem) {
 		return item.active ?? (value !== undefined && item.value === value);
 	}
+
+	const focusRing =
+		'rounded-t-md outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50';
 </script>
+
+{#snippet badge(item: RouteTabItem)}
+	{#if item.badge !== undefined}
+		<Badge variant={item.badgeVariant ?? 'secondary'} aria-hidden={item.badgeLabel ? 'true' : undefined}
+			>{item.badge}</Badge
+		>
+		{#if item.badgeLabel}<span class="sr-only">{item.badgeLabel}</span>{/if}
+	{/if}
+{/snippet}
 
 <nav data-slot="route-tabs" aria-label={label} class={cn('min-w-0 border-b border-border', className)} {...restProps}>
 	<div class="flex min-w-0 items-center gap-1 overflow-x-auto">
@@ -54,15 +68,14 @@
 						aria-current={active ? 'page' : undefined}
 						class={cn(
 							'inline-flex h-10 shrink-0 items-center gap-2 border-b-2 px-3 text-sm font-medium transition-colors',
+							focusRing,
 							active
 								? 'border-foreground text-foreground'
 								: 'border-transparent text-muted-foreground hover:border-muted-foreground/40 hover:text-foreground'
 						)}
 					>
 						<span>{item.label}</span>
-						{#if item.badge !== undefined}
-							<Badge variant={item.badgeVariant ?? 'secondary'}>{item.badge}</Badge>
-						{/if}
+						{@render badge(item)}
 					</a>
 				{:else if item.href}
 					<span
@@ -71,9 +84,7 @@
 						class="inline-flex h-10 shrink-0 items-center gap-2 border-b-2 border-transparent px-3 text-sm font-medium text-muted-foreground opacity-50"
 					>
 						<span>{item.label}</span>
-						{#if item.badge !== undefined}
-							<Badge variant={item.badgeVariant ?? 'secondary'}>{item.badge}</Badge>
-						{/if}
+						{@render badge(item)}
 					</span>
 				{:else}
 					<button
@@ -86,15 +97,14 @@
 						onclick={() => item.value && onValueChange?.(item.value)}
 						class={cn(
 							'inline-flex h-10 shrink-0 items-center gap-2 border-b-2 px-3 text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50',
+							focusRing,
 							active
 								? 'border-foreground text-foreground'
 								: 'border-transparent text-muted-foreground hover:border-muted-foreground/40 hover:text-foreground'
 						)}
 					>
 						<span>{item.label}</span>
-						{#if item.badge !== undefined}
-							<Badge variant={item.badgeVariant ?? 'secondary'}>{item.badge}</Badge>
-						{/if}
+						{@render badge(item)}
 					</button>
 				{/if}
 			{/each}

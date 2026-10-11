@@ -154,7 +154,7 @@ describe('training types page', () => {
 			}
 		});
 
-		expect(await screen.findByRole('button', { name: /^CPR 12mo/ })).toBeTruthy();
+		expect(await screen.findByRole('row', { name: 'CPR' })).toBeTruthy();
 		expect(screen.queryByText('Loading training types...')).toBeNull();
 	});
 

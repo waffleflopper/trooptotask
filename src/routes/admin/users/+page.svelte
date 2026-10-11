@@ -123,7 +123,12 @@
 								</Badge>
 							</Table.Cell>
 							<Table.Cell class="text-right">
-								<Button href="/admin/users/{user.id}" variant="outline" size="sm">Inspect</Button>
+								<Button
+									href="/admin/users/{user.id}"
+									variant="outline"
+									size="sm"
+									aria-label={`Inspect ${user.email || user.id}`}>Inspect</Button
+								>
 							</Table.Cell>
 						</Table.Row>
 					{:else}

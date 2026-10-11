@@ -249,6 +249,30 @@ describe('onboarding templates page', () => {
 		expect(screen.queryByRole('alert')).toBeNull();
 	});
 
+	it('moves focus to the new template row after a create', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue(
+				Response.json({
+					id: 'saved-template',
+					orgId: 'org-1',
+					name: 'Fresh checklist',
+					description: null,
+					createdAt: '2026-01-02'
+				})
+			)
+		);
+		await renderTemplatesPage();
+		await fireEvent.click(screen.getByRole('button', { name: 'Add Template' }));
+		await fireEvent.input(screen.getByRole('textbox', { name: 'Name' }), { target: { value: 'Fresh checklist' } });
+		await fireEvent.click(screen.getByRole('button', { name: /^Create$/ }));
+
+		const row = () =>
+			within(screen.getByRole('grid', { name: 'Onboarding templates' })).getByRole('row', { name: 'Fresh checklist' });
+		await waitFor(() => expect(document.activeElement).toBe(row()));
+		expect(row().getAttribute('aria-selected')).toBe('true');
+	});
+
 	it('renders a failed delete inside the retained confirmation and clears it after retry', async () => {
 		vi.stubGlobal(
 			'fetch',

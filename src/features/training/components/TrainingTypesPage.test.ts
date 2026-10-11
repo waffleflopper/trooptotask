@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import TrainingTypesPage from './TrainingTypesPage.svelte';
 import { personnelRosterHydration } from '$features/personnel';
@@ -91,6 +91,22 @@ describe('TrainingTypesPage', () => {
 		expect(await screen.findByText('Failed to save training type.')).toBeTruthy();
 		expect((screen.getByRole('textbox', { name: 'Name' }) as HTMLInputElement).value).toBe('Range Safety');
 		expect(screen.getByRole('button', { name: 'Create' }).hasAttribute('disabled')).toBe(false);
+	});
+
+	it('moves focus to the new type row after a create', async () => {
+		vi.spyOn(trainingTypesStore, 'add').mockImplementationOnce(async (input) => {
+			const created = { ...input, id: 'type-created' } as TrainingType;
+			trainingTypesStore.load([trainingType, created], 'org-1');
+			return created;
+		});
+		render(TrainingTypesPage, { props: { org, data: { personnel: [] } } });
+
+		await fireEvent.click(screen.getByRole('button', { name: '+ New Type' }));
+		await fireEvent.input(screen.getByRole('textbox', { name: 'Name' }), { target: { value: 'Range Safety' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('row', { name: 'Range Safety' })));
+		expect(document.activeElement?.getAttribute('aria-selected')).toBe('true');
 	});
 
 	it('uses hydrated personnel when route bootstrap omits applicability source data', async () => {

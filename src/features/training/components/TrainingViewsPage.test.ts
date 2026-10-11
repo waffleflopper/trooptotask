@@ -131,6 +131,31 @@ describe('TrainingViewsPage', () => {
 		expect(trainingViewsStore.items).toEqual(mode === 'create' ? [...trainingViews, savedView] : [savedView]);
 	});
 
+	it('moves focus to the new view row after a create', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue(
+				Response.json({
+					id: 'view-created',
+					name: 'Range priorities',
+					columnIds: [],
+					createdBy: 'user-1',
+					createdAt: '2026-10-06T00:00:00.000Z',
+					updatedAt: '2026-10-06T00:00:00.000Z'
+				})
+			)
+		);
+		render(TrainingViewsPage, { props: { org } });
+		await fireEvent.click(screen.getByRole('button', { name: 'New View' }));
+		await fireEvent.input(screen.getByRole('textbox', { name: 'View Name' }), {
+			target: { value: 'Range priorities' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('row', { name: 'Range priorities' })));
+		expect(document.activeElement?.getAttribute('aria-selected')).toBe('true');
+	});
+
 	it('clears the required-name error once a name is typed', async () => {
 		render(TrainingViewsPage, { props: { org } });
 		await fireEvent.click(screen.getByRole('button', { name: 'New View' }));

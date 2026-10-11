@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import { DEFAULT_TRAINING_TYPE_COLOR, type TrainingPageAccess } from '../contracts';
 	import { ArrowDown, ArrowUp, Trash2 } from '@lucide/svelte';
 	import * as Empty from '$lib/components/ui/empty';
@@ -57,6 +58,7 @@
 	let error = $state('');
 	let mobileDetailOpen = $state(false);
 	let confirmDelete: { id: string; name: string } | null = $state(null);
+	let typeList = $state<ReturnType<typeof TypeWorkspace.ItemList>>();
 
 	let editName = $state('');
 	let editDescription = $state('');
@@ -228,6 +230,10 @@
 				selectedTypeId = newType.id;
 				creating = false;
 				mobileDetailOpen = true;
+				editing = false;
+				saving = false;
+				await tick();
+				typeList?.focusSelected();
 			} else if (selectedTypeId) {
 				if (!(await trainingTypesStore.update(selectedTypeId, payload))) {
 					error = 'Failed to save training type.';
@@ -328,7 +334,7 @@
 					{/if}
 				</Empty.Root>
 			{:else}
-				<TypeWorkspace.ItemList aria-label="Training types">
+				<TypeWorkspace.ItemList bind:this={typeList} aria-label="Training types">
 					{#each orderedTypes as type, i (type.id)}
 						<TypeWorkspace.ListItem
 							selected={selectedType?.id === type.id && !creating}

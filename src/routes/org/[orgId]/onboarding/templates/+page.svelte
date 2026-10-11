@@ -181,6 +181,14 @@
 		void returnFocusFromStepForm(stepId);
 	}
 
+	async function saveTemplate(): Promise<void> {
+		const wasCreating = model.creatingTemplate;
+		const result = await workspace.saveTemplate();
+		if (!result.ok || !wasCreating) return;
+		await tick();
+		templateList?.focusSelected();
+	}
+
 	function requestDelete(target: OnboardingTemplateDeleteTarget) {
 		workspace.requestDelete(target);
 	}
@@ -385,7 +393,7 @@
 					<Button variant="outline" size="sm" type="button" onclick={() => workspace.cancelTemplateEdit()}>
 						Cancel
 					</Button>
-					<Button size="sm" type="button" onclick={() => workspace.saveTemplate()} disabled={!model.canSaveTemplate}>
+					<Button size="sm" type="button" onclick={saveTemplate} disabled={!model.canSaveTemplate}>
 						{#if model.savingTemplate}<Spinner />{/if}
 						{model.creatingTemplate ? 'Create' : 'Save'}
 					</Button>

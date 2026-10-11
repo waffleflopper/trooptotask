@@ -142,9 +142,13 @@ describe('ui foundation guard', () => {
 		expect(
 			foundationFindings([
 				{ path: 'src/lib/components/forms/input/input.svelte', content: '<input />' },
-				{ path: 'src/lib/components/BannerStack.svelte', content: '<div></div>' }
+				{ path: 'src/lib/components/Banner.svelte', content: '<div></div>' },
+				{ path: 'src/lib/components/public/PublicFooter.svelte', content: '<footer></footer>' }
 			])
-		).toEqual([{ kind: 'foundation-placement', file: 'src/lib/components/forms/input/input.svelte' }]);
+		).toEqual([
+			{ kind: 'foundation-placement', file: 'src/lib/components/Banner.svelte' },
+			{ kind: 'foundation-placement', file: 'src/lib/components/forms/input/input.svelte' }
+		]);
 	});
 
 	it('rejects provider types re-exported through a shared helper', () => {

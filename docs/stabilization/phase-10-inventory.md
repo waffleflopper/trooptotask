@@ -12,7 +12,7 @@ Each row has a disposition. `complete` has no candidates. `test support` is a ha
 
 | Packet     | Files | Files with candidates | Raw controls | `<style>` blocks | `var(--…)` | Hex literals | Open rows |
 | ---------- | ----: | --------------------: | -----------: | ---------------: | ---------: | -----------: | --------: |
-| 10-01      |    34 |                     1 |            3 |                0 |          0 |            0 |         0 |
+| 10-01      |    35 |                     1 |            3 |                0 |          0 |            0 |         0 |
 | 10-02      |    28 |                     0 |            0 |                0 |          0 |            0 |         0 |
 | 10-03      |    43 |                    10 |            3 |                0 |         39 |            3 |         0 |
 | 10-04      |    32 |                     3 |            3 |                0 |          0 |            0 |         0 |
@@ -20,7 +20,7 @@ Each row has a disposition. `complete` has no candidates. `test support` is a ha
 | 10-06      |    33 |                     0 |            0 |                0 |          0 |            0 |         0 |
 | 10-07      |    39 |                     0 |            0 |                0 |          0 |            0 |         0 |
 | 10-08      |    12 |                     0 |            0 |                0 |          0 |            0 |         0 |
-| 10-09      |    84 |                     2 |            1 |                0 |          0 |            2 |         0 |
+| 10-09      |    82 |                     2 |            1 |                0 |          0 |            2 |         0 |
 | foundation |   273 |                     0 |            0 |                0 |          0 |            0 |         0 |
 
 Open rows: 0. Unclassified rows: 0. Unused native exceptions: 0.
@@ -112,6 +112,7 @@ Each family is imported through `$lib/components/<layer>/<family>` (its `index.t
 | `src/features/app-shell/components/AppShell.svelte`           | app  | ·                                                                                                                                     | ·                                    |         · | ·          |   · | complete     |
 | `src/features/app-shell/components/AppShellHeader.svelte`     | app  | `ui/app-dialog`, `ui/breadcrumb`, `ui/button`, `ui/dropdown-menu`, `ui/input`, `ui/label`, `ui/separator`, `ui/sidebar`, `ui/tooltip` | ·                                    |         · | ·          |   · | complete     |
 | `src/features/app-shell/components/AppShellNavigation.svelte` | app  | `ui/sidebar`                                                                                                                          | ·                                    |         · | ·          |   · | complete     |
+| `src/features/app-shell/components/BannerStack.svelte`        | app  | ·                                                                                                                                     | ·                                    |         · | ·          |   · | complete     |
 | `src/features/app-shell/components/OrgNavIcon.svelte`         | app  | ·                                                                                                                                     | ·                                    |         · | ·          |   · | complete     |
 | `src/features/app-shell/components/WhatsNewModal.svelte`      | app  | `ui/app-dialog`, `ui/button`                                                                                                          | ·                                    |         · | ·          |   · | complete     |
 | `src/features/app-shell/test-support/PreferenceProbe.svelte`  | app  | ·                                                                                                                                     | `button`×2, `input[type=checkbox]`×1 |         · | ·          |   · | test support |
@@ -399,8 +400,6 @@ Each family is imported through `$lib/components/<layer>/<family>` (its `index.t
 
 | File                                                                                       | Area   | Families                                          | Raw controls | `<style>` | `var(--…)` | Hex | Disposition  |
 | ------------------------------------------------------------------------------------------ | ------ | ------------------------------------------------- | ------------ | --------: | ---------- | --: | ------------ |
-| `src/lib/components/BannerStack.svelte`                                                    | shared | ·                                                 | ·            |         · | ·          |   · | complete     |
-| `src/lib/components/BannerStackTest.svelte`                                                | shared | ·                                                 | ·            |         · | ·          |   · | test support |
 | `src/lib/components/patterns/brand-wordmark/BrandWordmark.svelte`                          | shared | ·                                                 | ·            |         · | ·          |   · | complete     |
 | `src/lib/components/patterns/bulk-import-workspace/bulk-import-file-input.svelte`          | shared | `ui/field`, `ui/input`                            | ·            |         · | ·          |   · | complete     |
 | `src/lib/components/patterns/bulk-import-workspace/bulk-import-footer-actions.svelte`      | shared | ·                                                 | ·            |         · | ·          |   · | complete     |

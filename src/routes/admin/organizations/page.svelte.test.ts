@@ -1,7 +1,10 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ComponentProps } from 'svelte';
-import { cleanup, render, screen } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+
+const { goto } = vi.hoisted(() => ({ goto: vi.fn(async () => {}) }));
+vi.mock('$app/navigation', () => ({ goto }));
 
 import Page from './+page.svelte';
 
@@ -9,9 +12,10 @@ type PageProps = ComponentProps<typeof Page>;
 
 afterEach(() => {
 	cleanup();
+	goto.mockClear();
 });
 
-function renderOrganizationsPage(data: Partial<PageProps['data']>) {
+function organizationsData(data: Partial<PageProps['data']>): PageProps['data'] {
 	const baseData: PageProps['data'] = {
 		session: null,
 		adminUserId: 'admin-1',
@@ -50,14 +54,11 @@ function renderOrganizationsPage(data: Partial<PageProps['data']>) {
 		}
 	};
 
-	return render(Page, {
-		props: {
-			data: {
-				...baseData,
-				...data
-			}
-		}
-	});
+	return { ...baseData, ...data };
+}
+
+function renderOrganizationsPage(data: Partial<PageProps['data']>) {
+	return render(Page, { props: { data: organizationsData(data) } });
 }
 
 describe('admin organizations page', () => {
@@ -149,12 +150,53 @@ describe('admin organizations page', () => {
 		expect(screen.getByRole('searchbox', { name: 'Search' })).toHaveProperty('value', 'Able & Baker');
 		expect(screen.getByRole('combobox', { name: 'Status' })).toHaveProperty('value', 'suspended');
 		expect(screen.getByRole('combobox', { name: 'Rows' })).toHaveProperty('value', '25');
-		expect(screen.getByRole('link', { name: 'Previous' }).getAttribute('href')).toBe(
-			'/admin/organizations?page=1&pageSize=25&q=Able+%26+Baker&status=suspended'
-		);
-		expect(screen.getByRole('link', { name: 'Next' }).getAttribute('href')).toBe(
-			'/admin/organizations?page=3&pageSize=25&q=Able+%26+Baker&status=suspended'
-		);
+	});
+
+	it('pages through the Organization index with buttons that keep focus and the filters', async () => {
+		renderOrganizationsPage({
+			pagination: { page: 2, pageSize: 25, totalCount: 60, totalPages: 3, q: 'Able & Baker', status: 'suspended' }
+		});
+		expect(screen.queryByRole('link', { name: 'Next' })).toBeNull();
+		const next = screen.getByRole('button', { name: 'Next' });
+		next.focus();
+		await fireEvent.click(next);
+		expect(goto).toHaveBeenCalledWith('/admin/organizations?page=3&pageSize=25&q=Able+%26+Baker&status=suspended', {
+			keepFocus: true
+		});
+		expect(document.activeElement).toBe(next);
+		await fireEvent.click(screen.getByRole('button', { name: 'Previous' }));
+		expect(goto).toHaveBeenLastCalledWith('/admin/organizations?page=1&pageSize=25&q=Able+%26+Baker&status=suspended', {
+			keepFocus: true
+		});
+	});
+
+	it('moves focus to Previous when Next reaches the last Organization page and keeps the range text', async () => {
+		const organization = {
+			id: 'org-60',
+			name: 'Org 60',
+			memberCount: 1,
+			personnelCount: 1,
+			ownerEmail: 'owner@example.test',
+			isSuspended: false,
+			suspended_at: null,
+			created_at: '2026-06-01T00:00:00.000Z'
+		};
+		const second = organizationsData({
+			organizations: [organization],
+			pagination: { page: 2, pageSize: 25, totalCount: 60, totalPages: 3, q: '', status: 'all' }
+		});
+		const view = render(Page, { props: { data: second } });
+		expect(screen.getByText('Showing 26-50 of 60')).toBeTruthy();
+		goto.mockImplementationOnce(async () => {
+			await view.rerender({
+				data: { ...second, pagination: { ...second.pagination, page: 3 } }
+			});
+		});
+		const next = screen.getByRole('button', { name: 'Next' });
+		next.focus();
+		await fireEvent.click(next);
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Previous' })));
+		expect(screen.getByText('Showing 51-60 of 60')).toBeTruthy();
 	});
 
 	it('warns when activation health diagnostics are unavailable', () => {

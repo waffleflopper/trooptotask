@@ -12,6 +12,7 @@
 	import * as PageShell from '$lib/components/patterns/page-shell';
 	import * as Table from '$lib/components/ui/table';
 	import { formatDisplayDate } from '$lib/utils/dates';
+	import AdminPager from '$features/platform-admin/components/AdminPager.svelte';
 	import { adminBadgeVariant, formatAdminLabel } from '$features/platform-admin/components/adminTheme';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import type { PageData } from './$types';
@@ -290,27 +291,7 @@
 	{#if data.pagination.totalCount > 0}
 		<div class="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
 			<p>Showing {showingStart}-{showingEnd} of {data.pagination.totalCount}</p>
-			{#if data.pagination.totalPages > 1}
-				<div class="flex flex-wrap items-center gap-3">
-					<Button
-						href={pageHref(data.pagination.page - 1)}
-						variant="outline"
-						size="sm"
-						disabled={data.pagination.page === 1}
-					>
-						Previous
-					</Button>
-					<span>Page {data.pagination.page} of {data.pagination.totalPages}</span>
-					<Button
-						href={pageHref(data.pagination.page + 1)}
-						variant="outline"
-						size="sm"
-						disabled={data.pagination.page === data.pagination.totalPages}
-					>
-						Next
-					</Button>
-				</div>
-			{/if}
+			<AdminPager page={data.pagination.page} totalPages={data.pagination.totalPages} {pageHref} />
 		</div>
 	{/if}
 </PageShell.Root>

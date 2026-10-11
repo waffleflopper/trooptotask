@@ -224,7 +224,9 @@
 				"src/lib/utils/deferToIdle.ts",
 				"src/lib/utils/modalRegistry.svelte.test.ts",
 				"src/lib/utils/modalRegistry.svelte.ts",
-				"src/lib/utils/pendingSave.svelte.ts"
+				"src/lib/utils/pendingSave.svelte.ts",
+				"src/lib/utils/settleAction.test.ts",
+				"src/lib/utils/settleAction.ts"
 			],
 			"packet": "08-M16"
 		}
@@ -486,7 +488,8 @@
 			"src/lib/utils/browserStorage.ts",
 			"src/lib/utils/deferToIdle.ts",
 			"src/lib/utils/modalRegistry.svelte.ts",
-			"src/lib/utils/pendingSave.svelte.ts"
+			"src/lib/utils/pendingSave.svelte.ts",
+			"src/lib/utils/settleAction.ts"
 		],
 		"audit": ["src/lib/audit/index.server.ts", "src/lib/audit/contracts.ts"],
 		"identity": [

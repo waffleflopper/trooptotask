@@ -97,6 +97,7 @@ $V calendar-grant calendarOperate restore
 $V seed duplicate-able                  # or overlap, bulk-501, training-pages; returns a tag
 $V clean-seeds                          # only rows created by this helper
 $V network arm-fail 2 calendar-range    # one scoped synthetic 503; use the actual page ID
+$V network arm-hold 2 calendar-reports/status-days # Calendar report data; daily-assignments is the single slot save
 $V network arm-fail 2 sign-in-rosters    # roster list, or sign-in-rosters/ROSTER_ID/upload
 $V network arm-fail 2 training-types     # fail one Training catalog request; training-views also supported
 $V network arm-fail 2 availability/batch 2 # second matching batch request fails

@@ -26,6 +26,7 @@
 	let activeTab = $state<'new' | 'reviewed' | 'resolved'>('new');
 	let editor = $state<{ id: string; status: FeedbackStatus; notes: string } | null>(null);
 	let triggers = $state<Record<string, HTMLButtonElement | null>>({});
+	let tabTriggers = $state<Record<string, HTMLButtonElement | null>>({});
 	let pending = $state<{ kind: 'save'; id: string } | { kind: 'reload' } | null>(null);
 	let needsReload = $state(false);
 	let actionError = $state<string | null | undefined>(undefined);
@@ -121,7 +122,7 @@
 				} finally {
 					if (isCurrent()) {
 						pending = null;
-						void restoreSubmitterFocus(submitter, () => triggers[id]);
+						void restoreSubmitterFocus(submitter, () => [triggers[id], tabTriggers[activeTab]]);
 					}
 				}
 			};
@@ -168,7 +169,10 @@
 	<Tabs.Root bind:value={activeTab} onValueChange={closeEditor} class="grid gap-4">
 		<Tabs.List class="w-full justify-start">
 			{#each tabs as tab (tab.value)}
-				<Tabs.Trigger value={tab.value}>
+				<Tabs.Trigger
+					value={tab.value}
+					bind:ref={() => tabTriggers[tab.value] ?? null, (element) => (tabTriggers[tab.value] = element)}
+				>
 					{tab.label}
 					{#if tab.items.length > 0}<Badge variant="secondary">{tab.items.length}</Badge>{/if}
 				</Tabs.Trigger>

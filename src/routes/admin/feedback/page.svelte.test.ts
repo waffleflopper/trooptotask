@@ -17,6 +17,7 @@ vi.mock('$app/forms', () => ({
 }));
 vi.mock('$lib/stores/toast.svelte', () => ({ toastStore: { success: toastSuccess, error: vi.fn() } }));
 
+import { invalidateAll } from '$app/navigation';
 import Page from './+page.svelte';
 import type { PageData } from './$types';
 
@@ -84,8 +85,19 @@ describe('Admin Feedback status tabs', () => {
 	});
 
 	describe('focus after Save Notes', () => {
-		async function saveNotes(result: ActionResult) {
-			renderNewItem();
+		async function saveNotes(result: ActionResult, movesToReviewed = false) {
+			const view = renderNewItem();
+			if (movesToReviewed)
+				vi.mocked(invalidateAll).mockImplementationOnce(async () => {
+					await view.rerender({
+						data: {
+							adminUserId: 'admin-1',
+							newItems: [],
+							reviewedItems: [{ ...item, status: 'reviewed' as const }],
+							resolvedItems: []
+						} as unknown as PageData
+					});
+				});
 			const trigger = screen.getByRole('button', { name: /tester@example\.mil/ });
 			await fireEvent.click(trigger);
 			const save = screen.getByRole('button', { name: 'Save Notes' });
@@ -112,6 +124,12 @@ describe('Admin Feedback status tabs', () => {
 			const { save } = await saveNotes({ type: 'failure', status: 400, data: { error: 'Notes are too long' } });
 			expect(screen.getByText('Notes are too long')).toBeTruthy();
 			await waitFor(() => expect(document.activeElement).toBe(save));
+		});
+
+		it('keeps focus in the page when the saved status moves the item to another tab', async () => {
+			await saveNotes({ type: 'success', status: 200 }, true);
+			expect(screen.queryByRole('button', { name: 'Save Notes' })).toBeNull();
+			await waitFor(() => expect(document.activeElement).not.toBe(document.body));
 		});
 
 		it('returns to the item trigger while Save Notes stays disabled for a reload', async () => {

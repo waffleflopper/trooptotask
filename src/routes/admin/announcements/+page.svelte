@@ -149,7 +149,7 @@
 					if (isCurrent()) {
 						pending = null;
 						if (operation.kind === 'delete') deleteRequest = null;
-						void restoreSubmitterFocus(submitter, () => reloadButton ?? createButton ?? titleInput);
+						void restoreSubmitterFocus(submitter, () => [reloadButton, createButton, titleInput]);
 					}
 				}
 			};

@@ -92,10 +92,10 @@
 				} finally {
 					if (isCurrent()) {
 						loadingId = null;
-						void restoreSubmitterFocus(
-							submitter,
-							() => reloadButton ?? (activeTab === 'pending' ? pendingTab : reviewedTab)
-						);
+						void restoreSubmitterFocus(submitter, () => [
+							reloadButton,
+							activeTab === 'pending' ? pendingTab : reviewedTab
+						]);
 					}
 				}
 			};

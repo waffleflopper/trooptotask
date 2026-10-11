@@ -132,7 +132,7 @@
 			{:else}
 				<Empty.Root>
 					<Empty.Header>
-						<Empty.Title>No signup data available.</Empty.Title>
+						<Empty.Title level={4}>No signup data available.</Empty.Title>
 					</Empty.Header>
 				</Empty.Root>
 			{/if}
@@ -172,7 +172,7 @@
 				{:else}
 					<Empty.Root>
 						<Empty.Header>
-							<Empty.Title>No recent activity.</Empty.Title>
+							<Empty.Title level={4}>No recent activity.</Empty.Title>
 						</Empty.Header>
 					</Empty.Root>
 				{/if}

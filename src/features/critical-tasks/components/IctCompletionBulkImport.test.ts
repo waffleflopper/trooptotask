@@ -156,6 +156,22 @@ describe('IctCompletionBulkImport', () => {
 		expect(ready.hasAttribute('aria-describedby')).toBe(false);
 	});
 
+	it('titles an empty file preview one level below the review heading', async () => {
+		parseFileMock.mockResolvedValue([]);
+		render(IctCompletionBulkImport, {
+			props: { personnel: [alphaMedic], tasks: [tcccTask], completions: [], onCancel: vi.fn(), onDone: vi.fn() }
+		});
+		await fireEvent.change(screen.getByLabelText('Upload file'), {
+			target: { files: [new File([''], 'ict-completions.csv', { type: 'text/csv' })] }
+		});
+
+		const review = await screen.findByRole('heading', { name: 'Review Completion Import' });
+		const empty = document.querySelector('[data-slot="empty-title"]');
+
+		expect(review.tagName).toBe('H2');
+		expect(empty?.tagName).toBe('H3');
+	});
+
 	it('keeps focus in the busy dialog while an import is held, then returns to preview on failure', async () => {
 		parseFileMock.mockResolvedValue([
 			['Rank', 'Last Name', 'First Name', 'Task Code', 'Completion Date'],

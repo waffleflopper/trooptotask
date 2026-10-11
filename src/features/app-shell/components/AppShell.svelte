@@ -6,7 +6,7 @@
 	import { getBrowserLocalStorage } from '$lib/utils/browserStorage';
 	import { AccountPreferencesProvider } from '$features/identity';
 	import { AnnouncementBanner } from '$features/notifications';
-	import BannerStack from '$lib/components/BannerStack.svelte';
+	import BannerStack from './BannerStack.svelte';
 	import AppShellHeader from './AppShellHeader.svelte';
 	import { changelog } from '../changelog';
 	import { createAppShellContext, setAppShellContext } from '../appShellContext';

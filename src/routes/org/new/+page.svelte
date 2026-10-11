@@ -32,7 +32,7 @@
 	<title>Create Your Organization - Troop to Task</title>
 </svelte:head>
 
-<div class="flex min-h-screen flex-1 items-center justify-center bg-background p-4 sm:p-6">
+<main class="flex min-h-screen flex-1 items-center justify-center bg-background p-4 sm:p-6">
 	<Card.Root class="w-full max-w-[520px]">
 		<Card.Header class="gap-2">
 			<p class="font-mono text-[0.6875rem] font-semibold tracking-[0.12em] text-accent uppercase">
@@ -134,4 +134,4 @@
 			</form>
 		</Card.Content>
 	</Card.Root>
-</div>
+</main>

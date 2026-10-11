@@ -8,7 +8,7 @@
 </script>
 
 {#if suspendedShell}
-	<div class="flex min-h-screen items-center justify-center bg-background p-6 text-foreground">
+	<main class="flex min-h-screen items-center justify-center bg-background p-6 text-foreground">
 		<div class="grid max-w-md gap-4 rounded-lg border bg-card p-8 text-center text-card-foreground">
 			<h1
 				class="[font-family:'Barlow Condensed', sans-serif] text-3xl leading-tight font-bold tracking-[0.04em] text-destructive uppercase"
@@ -22,7 +22,7 @@
 			<p class="m-0 font-medium">support@trooptotask.org</p>
 			<Button href="/dashboard?show=all" variant="outline">Back to Dashboard</Button>
 		</div>
-	</div>
+	</main>
 {:else if readyShell && data.identitySessionScope?.userId === readyShell.user.id}
 	{#key `${readyShell.user.id}:${readyShell.org.id}:${data.identitySessionScope.sessionId}`}
 		<AppShell shell={readyShell} {children} onToggleTheme={() => themeStore.toggle()} isDarkTheme={themeStore.isDark}>
@@ -34,5 +34,7 @@
 		</AppShell>
 	{/key}
 {:else if readyShell}
-	<p role="alert">Workspace session unavailable. Refresh or sign in again.</p>
+	<main>
+		<p role="alert">Workspace session unavailable. Refresh or sign in again.</p>
+	</main>
 {/if}

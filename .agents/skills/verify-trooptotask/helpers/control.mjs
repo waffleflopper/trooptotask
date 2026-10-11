@@ -23,6 +23,7 @@ import { requestSettings } from './settings-request.mjs';
 import { seedDeletionSources, requestDeletion, requestPersonnelArchiveBatch } from './deletion-requests.mjs';
 import { requestOnboarding, readOnboardingRequests } from './onboarding-request.mjs';
 import { installFeedbackControl } from './feedback-control.mjs';
+import { readStyleProbe, diffStyleProbes, styleProperties, resolveStyleSelectors } from './style-probe.mjs';
 import { observePrint } from './print-observation.mjs';
 import { seedPersonnelRetention, readRetentionFiles } from './personnel-retention.mjs';
 import { seedArtifactRetention } from './artifact-retention.mjs';
@@ -2622,6 +2623,45 @@ async function main() {
 		});
 		return;
 	}
+	if (command === 'style-probe') {
+		const [page, filename, ...selectors] = args;
+		const pageId = Number(page);
+		if (!Number.isInteger(pageId) || pageId < 1 || !filename)
+			throw new Error('Use style-probe PAGE FILE.json [SELECTOR ...].');
+		const target = path.resolve(filename);
+		if (!target.startsWith(evidenceRoot + path.sep) || !target.endsWith('.json'))
+			throw new Error('Probe path must be a new .json under the skill evidence directory.');
+		const read = await evaluate(
+			state,
+			pageId,
+			`() => {
+				if (location.origin !== ${JSON.stringify(doctor.origin)}) throw new Error('Use an owned app page');
+				return (${readStyleProbe.toString()})(window, ${JSON.stringify(resolveStyleSelectors(selectors))}, ${JSON.stringify(styleProperties)}, 200);
+			}`
+		);
+		await fs.mkdir(path.dirname(target), { recursive: true });
+		await fs.writeFile(target, JSON.stringify(read, null, '\t') + '\n', { flag: 'wx' });
+		note({
+			saved: target,
+			url: read.url,
+			viewport: read.viewport,
+			theme: read.theme,
+			matched: read.selectors.filter((entry) => entry.count).map((entry) => `${entry.selector} x${entry.count}`)
+		});
+		return;
+	}
+	if (command === 'style-diff') {
+		const [beforeFile, afterFile] = args.map((file) => path.resolve(file ?? ''));
+		for (const file of [beforeFile, afterFile])
+			if (!file.startsWith(evidenceRoot + path.sep) || !file.endsWith('.json'))
+				throw new Error('Use style-diff BEFORE.json AFTER.json under the skill evidence directory.');
+		const differences = diffStyleProbes(
+			JSON.parse(await fs.readFile(beforeFile, 'utf8')),
+			JSON.parse(await fs.readFile(afterFile, 'utf8'))
+		);
+		note({ differences: differences.length, details: differences });
+		return;
+	}
 	if (command === 'workbook') {
 		const target = path.resolve(args[0] ?? '');
 		if (!target.startsWith(evidenceRoot + path.sep))
@@ -2641,7 +2681,7 @@ async function main() {
 		return;
 	}
 	throw new Error(
-		'Use fixture, actor, rows, access-request, auth-link, setup-link, mfa-code, password, password-commit, settings-request, deletion-request, personnel-archive-batch, deletion-review-failure, audit-training-update, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, private-buckets, roster-files, roster-replace, signed-download, calendar-grant, dashboard-access, server-source, seed, clean-seeds, retention, network, busy, export, print, or workbook.'
+		'Use fixture, actor, rows, access-request, auth-link, setup-link, mfa-code, password, password-commit, settings-request, deletion-request, personnel-archive-batch, deletion-review-failure, audit-training-update, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, private-buckets, roster-files, roster-replace, signed-download, calendar-grant, dashboard-access, server-source, seed, clean-seeds, retention, network, busy, export, print, style-probe, style-diff, or workbook.'
 	);
 }
 

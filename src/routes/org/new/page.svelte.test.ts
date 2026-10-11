@@ -46,6 +46,7 @@ describe('/org/new page', () => {
 		expect(screen.queryByTestId('org-new-status')).toBeNull();
 		expect((screen.getByLabelText('Organization Name') as HTMLInputElement).disabled).toBe(false);
 		expect((screen.getByRole('button', { name: 'Create Organization' }) as HTMLButtonElement).disabled).toBe(false);
+		expect(screen.getAllByRole('main')).toHaveLength(1);
 	});
 
 	it('blocks unconfirmed users in the visible page state', () => {

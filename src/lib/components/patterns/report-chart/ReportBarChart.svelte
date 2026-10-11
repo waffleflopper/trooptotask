@@ -57,7 +57,8 @@
 			color: item.color,
 			props: {
 				fill: item.color,
-				stroke: layout === 'overlap' ? item.color : 'var(--background)',
+				stroke: layout === 'overlap' ? item.color : undefined,
+				class: layout === 'overlap' ? undefined : 'stroke-background',
 				strokeWidth: layout === 'overlap' ? 2 : 1,
 				radius: 2
 			}
@@ -97,9 +98,7 @@
 			xAxis: {
 				tickLength: 0,
 				tickLabelProps: {
-					fill: 'var(--muted-foreground)',
-					stroke: 'none',
-					class: 'text-[10px]'
+					class: 'fill-muted-foreground text-[10px]'
 				}
 			},
 			yAxis: {
@@ -110,9 +109,7 @@
 					dx: -8,
 					textAnchor: 'end',
 					verticalAnchor: 'middle',
-					fill: 'var(--muted-foreground)',
-					stroke: 'none',
-					class: 'text-[10px]'
+					class: 'fill-muted-foreground text-[10px]'
 				}
 			}
 		}}

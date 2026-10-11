@@ -1,7 +1,5 @@
 export { default as Root } from './bulk-import-workspace-root.svelte';
 export { default as Header } from './bulk-import-workspace-header.svelte';
-export { default as SourcePicker } from './bulk-import-source-picker.svelte';
-export { default as SourceOption } from './bulk-import-source-option.svelte';
 export { default as InputPanel } from './bulk-import-input-panel.svelte';
 export { default as FileInput } from './bulk-import-file-input.svelte';
 export { default as PasteInput } from './bulk-import-paste-input.svelte';

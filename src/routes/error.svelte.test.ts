@@ -17,6 +17,7 @@ describe('root error screen', () => {
 
 		expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(String(status));
 		expect(screen.getByRole('link', { name: 'Go Home' }).getAttribute('href')).toBe('/');
+		expect(screen.getAllByRole('main')).toHaveLength(1);
 	});
 
 	it.each([404, 403])('offers no retry for a %i', (status) => {

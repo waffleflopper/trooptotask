@@ -90,8 +90,16 @@ describe('TrainingViewsPage', () => {
 
 		expect(screen.getByRole('toolbar', { name: 'Training view controls' })).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'Back to Matrix' }).getAttribute('href')).toBe('/org/org-1/training');
-		expect(screen.getByRole('button', { name: /Annual Requirements/i })).toBeTruthy();
+		expect(screen.getByRole('row', { name: 'Annual Requirements' })).toBeTruthy();
 		expect(screen.getByText('ACFT, Weapons Qual')).toBeTruthy();
+	});
+
+	it('titles the empty list and the empty detail as level-3 headings, like a view header', () => {
+		trainingViewsStore.load([], 'org-1');
+		render(TrainingViewsPage, { props: { org } });
+
+		expect(screen.getByRole('heading', { name: 'No saved views yet.', level: 3 })).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'Select a training view', level: 3 })).toBeTruthy();
 	});
 
 	it.each(['create', 'edit'] as const)('retains a failed %s draft and saves on explicit retry', async (mode) => {
@@ -129,6 +137,31 @@ describe('TrainingViewsPage', () => {
 			expect(screen.queryByRole('textbox', { name: 'View Name' })).toBeNull();
 		});
 		expect(trainingViewsStore.items).toEqual(mode === 'create' ? [...trainingViews, savedView] : [savedView]);
+	});
+
+	it('moves focus to the new view row after a create', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue(
+				Response.json({
+					id: 'view-created',
+					name: 'Range priorities',
+					columnIds: [],
+					createdBy: 'user-1',
+					createdAt: '2026-10-06T00:00:00.000Z',
+					updatedAt: '2026-10-06T00:00:00.000Z'
+				})
+			)
+		);
+		render(TrainingViewsPage, { props: { org } });
+		await fireEvent.click(screen.getByRole('button', { name: 'New View' }));
+		await fireEvent.input(screen.getByRole('textbox', { name: 'View Name' }), {
+			target: { value: 'Range priorities' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('row', { name: 'Range priorities' })));
+		expect(document.activeElement?.getAttribute('aria-selected')).toBe('true');
 	});
 
 	it('clears the required-name error once a name is typed', async () => {

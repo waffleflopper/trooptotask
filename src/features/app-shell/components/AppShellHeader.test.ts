@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import type { ComponentProps } from 'svelte';
 import AppShellHeader from './AppShellHeader.svelte';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
-import { tick } from 'svelte';
+import { createRawSnippet, tick } from 'svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
 
 const { pageStore } = vi.hoisted(() => {
@@ -463,6 +463,17 @@ describe('AppShellHeader', () => {
 		await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull());
 		expect(trigger.getAttribute('aria-describedby')).toBeNull();
 		expect(document.activeElement).toBe(trigger);
+	});
+
+	it('renders one main landmark around page content as the skip-link target', () => {
+		const children = createRawSnippet(() => ({ render: () => '<section>Roster page</section>' }));
+		renderHeader({ children });
+
+		const main = screen.getByRole('main');
+		expect(screen.getAllByRole('main')).toHaveLength(1);
+		expect(main.id).toBe('main-content');
+		expect(main.textContent).toBe('Roster page');
+		expect(screen.getByRole('link', { name: 'Skip to main content' }).getAttribute('href')).toBe('#main-content');
 	});
 
 	it('renders a feedback utility button when a feedback handler is provided', async () => {

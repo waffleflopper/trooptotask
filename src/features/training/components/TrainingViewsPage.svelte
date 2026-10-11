@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import type { TrainingPageAccess } from '../contracts';
 	import { ArrowDown, ArrowUp, Trash2 } from '@lucide/svelte';
 	import { Badge } from '$lib/components/ui/badge';
@@ -29,6 +30,7 @@
 	let saving = $state(false);
 	let mobileDetailOpen = $state(false);
 	let confirmDeleteView: TrainingView | null = $state(null);
+	let viewList = $state<ReturnType<typeof TypeWorkspace.ItemList>>();
 	let name = $state('');
 	let selectedIds = new SvelteSet<string>();
 	let orderedIds: string[] = $state([]);
@@ -146,8 +148,15 @@
 					createdAt: '',
 					updatedAt: ''
 				});
-				if (created) selectedViewId = created.id;
 				creating = false;
+				if (created) {
+					selectedViewId = created.id;
+					editing = false;
+					saving = false;
+					mobileDetailOpen = true;
+					await tick();
+					viewList?.focusSelected();
+				}
 			} else if (selectedViewId) {
 				if (!(await trainingViewsStore.update(selectedViewId, { name: name.trim(), columnIds: orderedIds }))) {
 					error = 'Failed to save view.';
@@ -194,7 +203,7 @@
 			{#if orderedViews.length === 0 && !creating}
 				<Empty.Root>
 					<Empty.Header>
-						<Empty.Title>No saved views yet.</Empty.Title>
+						<Empty.Title level={3}>No saved views yet.</Empty.Title>
 						<Empty.Description>Create a saved column layout for the training matrix.</Empty.Description>
 					</Empty.Header>
 					{#if canMutate}
@@ -204,7 +213,7 @@
 					{/if}
 				</Empty.Root>
 			{:else}
-				<TypeWorkspace.ItemList aria-label="Training views">
+				<TypeWorkspace.ItemList bind:this={viewList} aria-label="Training views">
 					{#each orderedViews as view (view.id)}
 						<TypeWorkspace.ListItem
 							selected={selectedView?.id === view.id && !creating}
@@ -346,7 +355,7 @@
 			{:else}
 				<Empty.Root>
 					<Empty.Header>
-						<Empty.Title>Select a training view</Empty.Title>
+						<Empty.Title level={3}>Select a training view</Empty.Title>
 						<Empty.Description>Choose a saved layout from the list to view details.</Empty.Description>
 					</Empty.Header>
 				</Empty.Root>

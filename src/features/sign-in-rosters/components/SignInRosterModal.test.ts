@@ -110,6 +110,21 @@ describe('SignInRosterModal', () => {
 		vi.unstubAllGlobals();
 	});
 
+	it('offers one Close button in the roster list and in the create form', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => jsonResponse({ rosters: [], total: 0 }))
+		);
+		renderModal();
+
+		await waitFor(() => expect(screen.getByRole('button', { name: 'New Roster' })).toBeTruthy());
+		expect(screen.getAllByRole('button', { name: 'Close' })).toHaveLength(1);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'New Roster' }));
+		expect(screen.getAllByRole('button', { name: 'Close' })).toHaveLength(1);
+		expect(screen.getByRole('button', { name: 'Cancel' })).toBeTruthy();
+	});
+
 	it('persists the roster when creating a new sign-in roster', async () => {
 		const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
 			if ((init?.method ?? 'GET') === 'POST') {
@@ -907,7 +922,7 @@ describe('SignInRosterModal', () => {
 			fetchMock.mock.calls.filter(([input, init]) => String(input).endsWith('/upload') && init?.method === 'DELETE')
 		).toHaveLength(1);
 		expect(dialog.getAttribute('aria-busy')).toBe('true');
-		expect((screen.getAllByRole('button', { name: 'Close' }).at(-1) as HTMLButtonElement).disabled).toBe(true);
+		expect((screen.getByRole('button', { name: 'Close' }) as HTMLButtonElement).disabled).toBe(true);
 
 		resolveRemove(jsonResponse({}));
 

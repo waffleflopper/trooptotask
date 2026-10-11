@@ -34,18 +34,20 @@
 	}
 </script>
 
-<PageShell.Root width="content">
-	<PageShell.Header
-		title="Account"
-		subtitle="Manage your User Profile and sign-in controls outside Organization settings."
-	>
-		{#snippet actions()}
-			<Button type="button" variant="outline" size="sm" onclick={goBack}>
-				<ArrowLeftIcon aria-hidden="true" />
-				Back
-			</Button>
-		{/snippet}
-	</PageShell.Header>
-	<PageShell.Tabs items={tabs} label="Account sections" />
-	{@render children()}
-</PageShell.Root>
+<main>
+	<PageShell.Root width="content">
+		<PageShell.Header
+			title="Account"
+			subtitle="Manage your User Profile and sign-in controls outside Organization settings."
+		>
+			{#snippet actions()}
+				<Button type="button" variant="outline" size="sm" onclick={goBack}>
+					<ArrowLeftIcon aria-hidden="true" />
+					Back
+				</Button>
+			{/snippet}
+		</PageShell.Header>
+		<PageShell.Tabs items={tabs} label="Account sections" />
+		{@render children()}
+	</PageShell.Root>
+</main>

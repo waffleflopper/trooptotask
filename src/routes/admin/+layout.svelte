@@ -174,6 +174,8 @@
 			</Button>
 			<Badge variant="outline" class="hidden md:inline-flex">{formatRole(data.adminRole)}</Badge>
 		</header>
-		{@render children()}
+		<main class="flex min-h-0 w-full min-w-0 flex-1 flex-col">
+			{@render children()}
+		</main>
 	</Sidebar.Inset>
 </Sidebar.Provider>

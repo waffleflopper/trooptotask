@@ -249,6 +249,30 @@ describe('onboarding templates page', () => {
 		expect(screen.queryByRole('alert')).toBeNull();
 	});
 
+	it('moves focus to the new template row after a create', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue(
+				Response.json({
+					id: 'saved-template',
+					orgId: 'org-1',
+					name: 'Fresh checklist',
+					description: null,
+					createdAt: '2026-01-02'
+				})
+			)
+		);
+		await renderTemplatesPage();
+		await fireEvent.click(screen.getByRole('button', { name: 'Add Template' }));
+		await fireEvent.input(screen.getByRole('textbox', { name: 'Name' }), { target: { value: 'Fresh checklist' } });
+		await fireEvent.click(screen.getByRole('button', { name: /^Create$/ }));
+
+		const row = () =>
+			within(screen.getByRole('grid', { name: 'Onboarding templates' })).getByRole('row', { name: 'Fresh checklist' });
+		await waitFor(() => expect(document.activeElement).toBe(row()));
+		expect(row().getAttribute('aria-selected')).toBe('true');
+	});
+
 	it('renders a failed delete inside the retained confirmation and clears it after retry', async () => {
 		vi.stubGlobal(
 			'fetch',
@@ -294,10 +318,11 @@ describe('onboarding templates page', () => {
 		await fireEvent.click(within(dialog).getByRole('button', { name: /^Delete$/ }));
 		await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
 
-		const remaining = within(screen.getByRole('listbox', { name: 'Onboarding templates' })).getByRole('option', {
-			name: /Bravo Arrival/
+		const remaining = within(screen.getByRole('grid', { name: 'Onboarding templates' })).getByRole('row', {
+			name: 'Bravo Arrival'
 		});
-		await waitFor(() => expect(remaining.contains(document.activeElement)).toBe(true));
+		await waitFor(() => expect(document.activeElement).toBe(remaining));
+		expect(remaining.getAttribute('aria-selected')).toBe('true');
 	});
 
 	it.each([
@@ -343,6 +368,13 @@ describe('onboarding templates page', () => {
 				)
 			)
 		);
+	});
+
+	it('titles the empty list and the empty detail as level-3 headings, like a template header', async () => {
+		await renderTemplatesPage({ templates: [], templateSteps: [] });
+
+		expect(screen.getByRole('heading', { name: 'No templates yet.', level: 3 })).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'Select a template', level: 3 })).toBeTruthy();
 	});
 
 	it('does not render redundant template summary cards above the editor', async () => {

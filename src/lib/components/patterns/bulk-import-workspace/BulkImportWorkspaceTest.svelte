@@ -22,7 +22,6 @@
 		{ key: 'status', header: 'Status', value: (row: ImportRow) => row.status }
 	];
 
-	let source = $state<'upload' | 'paste' | 'manual'>('upload');
 	let pasteValue = $state('');
 	let files = $state<FileList>();
 	const selection = DataTable.useDataTableSelection<ImportRow>({
@@ -39,27 +38,6 @@
 		description="Choose a source, validate rows, then import checked records."
 		meta={[{ label: 'Required', value: 'Name, status' }]}
 	/>
-
-	<BulkImportWorkspace.SourcePicker label="Choose import source">
-		<BulkImportWorkspace.SourceOption
-			label="Upload"
-			description="Use a CSV or spreadsheet."
-			selected={source === 'upload'}
-			onSelect={() => (source = 'upload')}
-		/>
-		<BulkImportWorkspace.SourceOption
-			label="Paste"
-			description="Paste copied rows."
-			selected={source === 'paste'}
-			onSelect={() => (source = 'paste')}
-		/>
-		<BulkImportWorkspace.SourceOption
-			label="Manual"
-			description="Add one record."
-			selected={source === 'manual'}
-			onSelect={() => (source = 'manual')}
-		/>
-	</BulkImportWorkspace.SourcePicker>
 
 	<BulkImportWorkspace.InputPanel title="Input rows" description="Shared input presentation owns labels and errors.">
 		<BulkImportWorkspace.FileInput bind:files label="Upload import file" error="File is required" />

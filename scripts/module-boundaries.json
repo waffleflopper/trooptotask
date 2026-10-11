@@ -213,9 +213,6 @@
 			"files": [
 				"src/app.css",
 				"src/lib/utils.ts",
-				"src/lib/components/BannerStack.svelte",
-				"src/lib/components/BannerStack.test.ts",
-				"src/lib/components/BannerStackTest.svelte",
 				"src/lib/stores/theme.svelte.test.ts",
 				"src/lib/stores/theme.svelte.ts",
 				"src/lib/stores/toast.svelte.ts",
@@ -483,7 +480,6 @@
 			"src/app.css",
 			"src/lib/utils.ts",
 			"src/lib/stores/theme.svelte.ts",
-			"src/lib/components/BannerStack.svelte",
 			"src/lib/stores/toast.svelte.ts",
 			"src/lib/utils/browserStorage.ts",
 			"src/lib/utils/deferToIdle.ts",

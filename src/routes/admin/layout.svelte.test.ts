@@ -107,6 +107,13 @@ const supportNav = [
 ] as LayoutData['visibleNavGroups'];
 
 describe('admin layout', () => {
+	it('renders one main landmark around page content, apart from the admin header', () => {
+		renderLayout(['dashboard']);
+
+		expect(screen.getAllByRole('main')).toHaveLength(1);
+		expect(screen.getByRole('main').textContent).toBe('Admin child');
+	});
+
 	it('hides global admin search when the admin cannot access users or organizations', () => {
 		renderLayout(['dashboard']);
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import { DEFAULT_TRAINING_TYPE_COLOR, type TrainingPageAccess } from '../contracts';
 	import { ArrowDown, ArrowUp, Trash2 } from '@lucide/svelte';
 	import * as Empty from '$lib/components/ui/empty';
@@ -57,6 +58,7 @@
 	let error = $state('');
 	let mobileDetailOpen = $state(false);
 	let confirmDelete: { id: string; name: string } | null = $state(null);
+	let typeList = $state<ReturnType<typeof TypeWorkspace.ItemList>>();
 
 	let editName = $state('');
 	let editDescription = $state('');
@@ -228,6 +230,10 @@
 				selectedTypeId = newType.id;
 				creating = false;
 				mobileDetailOpen = true;
+				editing = false;
+				saving = false;
+				await tick();
+				typeList?.focusSelected();
 			} else if (selectedTypeId) {
 				if (!(await trainingTypesStore.update(selectedTypeId, payload))) {
 					error = 'Failed to save training type.';
@@ -318,7 +324,7 @@
 			{#if orderedTypes.length === 0 && !creating}
 				<Empty.Root>
 					<Empty.Header>
-						<Empty.Title>No training types yet.</Empty.Title>
+						<Empty.Title level={3}>No training types yet.</Empty.Title>
 						<Empty.Description>Create one to get started.</Empty.Description>
 					</Empty.Header>
 					{#if canMutate}
@@ -328,7 +334,7 @@
 					{/if}
 				</Empty.Root>
 			{:else}
-				<TypeWorkspace.ItemList role="listbox" aria-label="Training types">
+				<TypeWorkspace.ItemList bind:this={typeList} aria-label="Training types">
 					{#each orderedTypes as type, i (type.id)}
 						<TypeWorkspace.ListItem
 							selected={selectedType?.id === type.id && !creating}
@@ -337,8 +343,6 @@
 							description={getTypeSummaryLine(type)}
 							onselect={() => selectType(type.id)}
 							disabled={editing || creating}
-							role="option"
-							aria-selected={selectedType?.id === type.id && !creating}
 						>
 							{#snippet actions()}
 								{#if canMutate && !editing && !creating}
@@ -539,7 +543,7 @@
 			{:else}
 				<Empty.Root>
 					<Empty.Header>
-						<Empty.Title>Select a training type</Empty.Title>
+						<Empty.Title level={3}>Select a training type</Empty.Title>
 						<Empty.Description>Choose a type from the list to view details.</Empty.Description>
 					</Empty.Header>
 				</Empty.Root>

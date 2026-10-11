@@ -122,7 +122,7 @@
 			</Empty.Header>
 		</Empty.Root>
 	{:else if ctx.isHydrating}
-		<main class="flex flex-1 overflow-hidden p-3 sm:px-6 sm:pt-4 sm:pb-5" aria-busy="true">
+		<div class="flex flex-1 overflow-hidden p-3 sm:px-6 sm:pt-4 sm:pb-5" aria-busy="true">
 			<section class="flex w-full flex-col gap-3 overflow-visible sm:gap-4" aria-live="polite" role="status">
 				<p class="font-mono text-xs font-semibold tracking-widest text-primary uppercase">Loading calendar data</p>
 
@@ -136,9 +136,9 @@
 					</div>
 				{/if}
 			</section>
-		</main>
+		</div>
 	{:else}
-		<main class="flex flex-1 overflow-hidden p-3 sm:px-6 sm:pt-4 sm:pb-5">
+		<div class="flex flex-1 overflow-hidden p-3 sm:px-6 sm:pt-4 sm:pb-5">
 			<section class="flex h-full w-full flex-col gap-3 overflow-hidden sm:gap-4">
 				<WorkspaceToolbar.Root ariaLabel="Calendar controls">
 					<WorkspaceToolbar.Group
@@ -232,7 +232,7 @@
 					<StatusLegend statusTypes={statusTypesStore.items} />
 				{/if}
 			</section>
-		</main>
+		</div>
 	{/if}
 </div>
 

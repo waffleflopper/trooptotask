@@ -541,7 +541,7 @@
 					{#if visibleTasks.length === 0 && !creating}
 						<Empty.Root>
 							<Empty.Header>
-								<Empty.Title>
+								<Empty.Title level={4}>
 									{taskStatusFilter === 'active' ? 'No active ICT tasks.' : 'No archived ICT tasks.'}
 								</Empty.Title>
 								<Empty.Description>
@@ -559,7 +559,7 @@
 					{:else if visibleTasks.length > 0 && filteredTasks.length === 0}
 						<Empty.Root>
 							<Empty.Header>
-								<Empty.Title>No ICT tasks match the current filters.</Empty.Title>
+								<Empty.Title level={4}>No ICT tasks match the current filters.</Empty.Title>
 							</Empty.Header>
 							<Empty.Content>
 								<Button variant="outline" type="button" onclick={clearTaskFilters}>Clear filters</Button>
@@ -781,7 +781,7 @@
 					{:else}
 						<Empty.Root>
 							<Empty.Header>
-								<Empty.Title>Select an ICT task to view details.</Empty.Title>
+								<Empty.Title level={3}>Select an ICT task to view details.</Empty.Title>
 							</Empty.Header>
 						</Empty.Root>
 					{/if}

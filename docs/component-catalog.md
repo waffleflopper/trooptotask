@@ -1,8 +1,6 @@
 # Component Catalog & CSS Design System
 
-Shared UI primitives and central variants live in `src/lib/components/ui/`; shared neutral compositions live in `src/lib/components/patterns/`. Import through each family's barrel. The [foundation provenance and family contract](ui-foundation-provenance.md) records the current APIs, deviations and target layers.
-Layout components such as dialogs, sheets, and cards live under `src/lib/components/ui/`. Import the shadcn-backed primitives or compound namespaces directly.
-Public marketing primitives live in `src/lib/components/public/`. Import via `$lib/components/public/...`.
+`src/lib/components/` holds three layers and nothing else; the `foundation-placement` governance rule rejects any other file or directory there. Shared UI primitives and central variants, including dialogs, sheets and cards, live in `src/lib/components/ui/`. Shared neutral compositions with real consumers live in `src/lib/components/patterns/`. Import both through each family's barrel. Public marketing primitives live in `src/lib/components/public/`; import them via `$lib/components/public/...`. Feature UI, including the app shell's `BannerStack`, lives with its owner under `src/features/`. The [foundation provenance and family contract](ui-foundation-provenance.md) records the current APIs, deviations and target layers.
 
 ---
 
@@ -26,12 +24,12 @@ The [family contract](ui-foundation-provenance.md) governs retention, moves and 
 
 Use the replacement notes here to map older TroopToTask building blocks to the current shadcn-svelte/shared UI foundation. Missing target guidance means the project has not selected a shadcn-svelte equivalent yet and needs a shared-component decision before new work relies on that pattern.
 
-Replacement previews:
+Replacements:
 
 - Production DataTable surfaces use the shadcn-svelte `ui/data-table` foundation documented in this catalog.
-- Legacy `toolbar` is represented by the shadcn-composed `patterns/workspace-toolbar` example using `input-group`, `select`, `button-group`, `button`, and `dropdown-menu`.
-- Legacy `EmptyState` is represented by the shadcn `empty` component.
-- Legacy `FileUpload` is represented by the native shadcn `input type="file"` example.
+- Legacy `toolbar` and `ui/toolbar` are replaced by `patterns/workspace-toolbar`, which composes `input-group`, `select`, `button-group`, `button` and `dropdown-menu`.
+- Legacy `EmptyState` is replaced by the shadcn `empty` component.
+- Legacy `FileUpload` is replaced by `Field` with `Input type="file"`; see the [file upload pattern](#file-upload-pattern).
 - Legacy `FormField` is replaced by the shadcn-backed `ui/field` compound primitives plus `Input`, `Textarea`, `Select`, `Checkbox`, `RadioGroup` and `Combobox`, including its `multiple` mode.
 - Legacy `SearchSelect` is replaced by the shadcn-style `ui/combobox` compound API.
 - Legacy `Spinner` is represented by the shadcn `spinner` component.
@@ -44,7 +42,7 @@ Foundation files:
 - `components.json` initializes shadcn-svelte with `ui` pointed at `$lib/components/ui`.
 - `src/lib/utils.ts` provides the shadcn `cn` helper and element-ref utility types.
 - `src/app.css` imports Tailwind v4 and maps shared semantic tokens to the product palette; see the [current token API](#current-token-api) and [palette](#palette).
-- `src/app.css` defines the `below-banner` utility: the app frame fills the viewport under the fixed `BannerStack`, which publishes its measured height as `--banner-height` on `<html>`. Apply the utility instead of writing the variable; `ui/sidebar` reads it for its fixed container.
+- `src/app.css` defines the `below-banner` utility: the app frame fills the viewport under the app shell's fixed `BannerStack` (`src/features/app-shell`), which publishes its measured height as `--banner-height` on `<html>`. Apply the utility instead of writing the variable; `ui/sidebar` reads it for its fixed container.
 - `src/app.css` names the fixed layers with the `z-banner` and `z-sheet` utilities. From lowest to highest the layers are: the desktop sidebar (`z-10`), `BannerStack` (`z-banner`), `ui/sheet` and its overlay (`z-sheet`), then dialogs, alert dialogs and floating content (menus, selects, popovers, tooltips) at shadcn's `z-50`, then the Toaster. Bits portals join `<body>` when the component mounts, not when it opens. Overlays on the same layer therefore paint in mount order, and a drawer that mounted after a resize would cover a dialog opened from it. A sheet sits below the dialogs it can open, and the banner sits above the page and desktop sidebar but below every modal layer. Use these layers instead of new z-values.
 - `src/app.css` no longer owns admin-specific selectors. Global `.btn`, `.input`, `.select`, `.label`, and related legacy selectors have been removed after route consumers migrated to shared primitives.
 
@@ -78,11 +76,9 @@ The Web UI Foundation's public [`toastStore`](../src/lib/stores/toast.svelte.ts)
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 
-	let tab = $state('overview');
 	const tabs = [
-		{ label: 'Overview', value: 'overview' },
-		{ label: 'History', value: 'history', badge: 48 },
-		{ label: 'Settings', value: 'settings' }
+		{ label: 'Overview', href: '/account/profile', active: true },
+		{ label: 'History', href: '/account/security', badge: 48, badgeLabel: '48 history entries' }
 	];
 </script>
 
@@ -97,7 +93,7 @@ The Web UI Foundation's public [`toastStore`](../src/lib/stores/toast.svelte.ts)
 		{/snippet}
 	</PageShell.Header>
 
-	<PageShell.Tabs items={tabs} value={tab} onValueChange={(value) => (tab = value)} />
+	<PageShell.Tabs items={tabs} label="Training sections" />
 
 	<section class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
 		<div class="rounded-lg border bg-card p-4 text-card-foreground">
@@ -127,7 +123,7 @@ Public components:
 
 - `Root`: authenticated page content scroller. Props: `density?: 'default' | 'compact'`, `width?: 'full' | 'content' | 'wide'`, `bodyClass?`, `children?`.
 - `Header`: page header. Props: `title`, `subtitle?`, snippets `back`, `meta`, `actions`, and `overflow`.
-- `Tabs`: route-level navigation. Props: `items?`, `label?`, `value?`, `onValueChange?`, `children?`. Items support `label`, `href`, `value`, `active`, `badge`, `badgeLabel`, `badgeVariant`, and `disabled`. Each tab shows the app focus ring. When a bare count would be ambiguous, set `badgeLabel` (for example `2 pending requests`); assistive technology then hears that text in place of the badge.
+- `Tabs`: route-level navigation links. Props: `items?`, `label?`. Items support `label`, `href` (required), `active`, `badge`, `badgeLabel`, `badgeVariant`, and `disabled`. The active link carries `aria-current="page"`; a disabled item renders as non-interactive text. Use `ui/tabs` for in-page views. Each tab shows the app focus ring. When a bare count would be ambiguous, set `badgeLabel` (for example `2 pending requests`); assistive technology then hears that text in place of the badge.
 - `FactGrid`: dense fact layout. Props: `layout?: 'stack' | 'two' | 'three' | 'rail'`, `children?`.
 - `FactRow`: label/value row. Props: `label`, `value?`, `tone?`, `layout?: 'inline' | 'stack'`, `icon?`, `badge?`, `badgeVariant?`, `children?`. Use `layout="stack"` inside multi-column fact grids so labels and long values do not compress.
 - `Metric`: compact bordered metric tile. Props: `label`, `value`, `detail?`, `tone?`, `children?`.
@@ -138,6 +134,7 @@ Public components:
 Rules:
 
 - Use `Root` inside the authenticated shell/sidebar inset so page content scrolls inside the shell and the app breadcrumb/header remains outside the route scroller.
+- The shell owns the page's only `main` landmark. `ui/sidebar`'s `Inset` renders a `div`; the Organization shell's `main#main-content` (the skip-link target) and the platform admin layout's `main` wrap page content below their headers. Route content renders a `div` root, never another `main`.
 - Use `Header` for route-local title, subtitle, meta, and actions. Do not duplicate the authenticated app breadcrumb bar inside route content.
 - Use `Tabs` for route-level Overview/History/Settings style navigation. Do not restore legacy `SubNav`.
 - Use `SummaryRail`, `FactGrid`, `FactRow`, and `Metric` for dense operational summaries instead of route-local summary wrappers.
@@ -215,7 +212,7 @@ Props: `id?: string`, `value?: string` (bindable ISO `YYYY-MM-DD`), `placeholder
 
 Public components:
 
-- `WorkspaceToolbar.Root`: the shared toolbar shell. Props: `ariaLabel: string`, `wrap?: boolean`, `children?: Snippet`, plus normal `div` attributes. The shell renders `role="toolbar"`. By default it is one fixed-height `flex-nowrap` row with hidden horizontal overflow as a last resort. `wrap` lets groups and their controls flow onto further rows when the container is too narrow, so no control is ever scrolled out of view; use it for filter-heavy report toolbars whose controls cannot fit one row at medium widths.
+- `WorkspaceToolbar.Root`: the shared toolbar shell. Props: `ariaLabel: string`, `wrap?: boolean`, `children?: Snippet`, plus normal `div` attributes. The shell renders `role="toolbar"`. By default it is one fixed-height `flex-nowrap` row with hidden horizontal overflow as a last resort. `wrap` lets groups and their controls flow onto further rows when the container is too narrow, so no control is ever scrolled out of view; use it for filter-heavy report toolbars whose controls cannot fit one row at medium widths. The shell is a size container: at 47.5rem and below, select triggers cap at 8.5rem and search at 10rem; at 35rem and below, gaps and padding tighten, select triggers cap at 7rem, search narrows to 8rem and action labels hide beside their icons. These rules use the `toolbar-compact` and `toolbar-narrow` variants from `src/app.css` and take precedence over consumer classes.
 - `WorkspaceToolbar.Group`: the labeled control/action boundary. Props: `label: string`, `activeCount?: number`, `zone?: 'controls' | 'actions' | 'meta'`, `children?: Snippet`, plus normal `div` attributes. `activeCount` is included in the accessible group label. The `actions` zone aligns to the toolbar's right edge.
 - `WorkspaceToolbar.Select` truncates a long selected label inside its trigger and exposes the full label as the trigger title. `WorkspaceToolbar.Actions` names every action button by its label, so compact icon-only buttons keep their accessible name. An action chosen from one of its menus runs after that menu has finished closing, so an action that moves focus into page content keeps it. If the menu unmounts before its close finishes, for example when a resize moves the action out of overflow, the action runs then.
 - `WorkspaceToolbar.Meta`: compact passive metadata for rare toolbar-safe status. Props: `tone?: 'neutral' | 'warning' | 'success'`, `children?: Snippet`, plus normal `div` attributes. Keep passive route context outside the toolbar unless there is proven room.
@@ -238,11 +235,7 @@ Rules:
 - Compose route-specific behavior under the [shared UI composition rules](agents/ui-system.md#default-ui-rules); keep toolbar appearance and reusable APIs owned by the shared component.
 - If an authorized route change needs behavior this API cannot express, implement and verify the smallest shared API extension, update affected consumers and document its usage here.
 
-Migration guidance:
-
-- Start every migrated route toolbar from `WorkspaceToolbar.Root`, `WorkspaceToolbar.Group`, shadcn `ButtonGroup`, shadcn `Button`, shadcn `DropdownMenu`, and shadcn form primitives.
-- Treat the `docs/component-catalog.md` desktop, constrained/mobile, overflow, disabled, loading, selected, filter, search, view-toggle, and icon-only examples as the review baseline.
-- Production route migration happens only when explicitly requested. Until then, the component catalog is the development ground for this toolbar family.
+Consumers: the Calendar month view, assignment planner, bulk status and reports; the Critical Tasks library, person detail, matrix and reports; Onboarding History and templates; Personnel; Rating Scheme; and the Training matrix, types, views and reports. Start a new route toolbar from `WorkspaceToolbar.Root`, `WorkspaceToolbar.Group`, shadcn `ButtonGroup`, shadcn `Button`, shadcn `DropdownMenu` and shadcn form primitives. A change to the toolbar is verified on these consumers at narrow and wide widths.
 
 ---
 
@@ -345,7 +338,7 @@ Public components:
 - `SummaryStrip`: compact operational summary band for completed report results. Props: `topRisk`, `population`, `parameters`, `findings`, `riskTone?: 'default' | 'warning' | 'danger' | 'success'`, `ariaLabel?`. Use inside the `summary` snippet so the strip sits between the section header and result body, not as a nested card.
 - `Chart`: chart section with accessible chart region. Props: `title`, `description?`, `meta?`, `ariaLabel?`.
 - `Table`: DataTable-backed report table section. Props include `data`, `columns`, `table`, `ariaLabel`, `emptyMessage`, `loading`, `showSearch`, `searchPlaceholder`, `pageSize`, and cell/row/header/summary snippets.
-- `State`: shared `loading`, `no-data`, and `error` report states.
+- `State`: shared `loading`, `no-data`, and `error` report states. `level?: 2 | 3 | 4` sets the no-data heading level; the default `4` fits a state inside a report section, and a page-level state passes `2`.
 - `ExportActions`: grouped export region.
 - `ExportAction`: shared export command. Props: `label`, `state?: 'ready' | 'loading' | 'disabled' | 'error'`, `disabledReason?`, `errorReason?`, `loading?`, `loadingLabel?`, plus button props such as `href`.
 
@@ -369,14 +362,13 @@ Report/export state guidance:
 Route-level visual override ban:
 
 - Routes must not pass route-local visual classes that change report component color, radius, border, typography, density, shadow, or internal spacing.
-- If a report needs a reusable new section shape, add it to `patterns/report-workspace`, show it in `docs/component-catalog.md`, and document it here before route usage.
+- If a report needs a reusable new section shape, add it to `patterns/report-workspace` and document it here before route usage.
 
-Migration notes:
+Consumers:
 
 - All five Calendar reports compose `ReportWorkspace` and render their results through `Table`. Group availability by day passes a feature-owned `table` state (initial sort by lowest availability) and a `row` snippet whose day cells use the `success`, `warning` and `destructive` tokens at 15% for its availability tones; sorting uses the DataTable sortable header.
-- Critical Tasks reports should follow because they already use the shared toolbar but still carry route-local report grids, states, and chart/table shells.
+- Critical Tasks reports compose `ReportWorkspace` for the readiness trend, expiration cliff, readiness distribution, readiness matrix, at-risk soldiers and tasks-below-threshold sections.
 - Training Reports uses a wrapping toolbar for filters and the forecast horizon, page-header actions (secondary Export Excel, primary Print brief), `State`, and `briefing` sections throughout. Its Affected soldiers drill-down puts `DataTable` with a server-backed `table` state (rows, page, page size and total pages from the detail API; sorting off) inside a briefing section, so the table's own Previous/Next pagination drives server pages without client sorting or a scroll box. Type risk renders stacked HTML bars in a semantic table rather than a chart primitive. The normal screen uses shared `ReportWorkspace` composition inside a `print:hidden` wrapper. The feature-owned `TrainingPrintBrief` separately renders the captured loaded report and optional loaded-detail page. Its `data-print-report="training"` root exists only during a print cycle. Scoped rules in `src/app.css` hide app chrome and the sidebar, release shell height and overflow, and select the `training-brief` landscape named page with white margins. Print tables repeat context and headings through `thead` and the matrix key through `tfoot`. The appendix includes only the currently loaded detail page with its exact range and scope; Excel exports all filtered affected requirements. This approved training print composition does not change the shared platform UI architecture.
-- Personnel report-like flows should migrate after bulk import/merge surfaces are separated from the current combined manager.
 
 ---
 
@@ -389,7 +381,8 @@ Current chart inventory:
 - Critical Tasks readiness trend maps to `ReportLineChart` with multiple series.
 - Critical Tasks expiration cliff maps to `ReportBarChart layout="stack"`.
 - Critical Tasks readiness distribution maps to `ReportBarChart layout="group"` or `layout="overlap"`.
-- Training Reports' forecast maps to `ReportForecastChart`.
+- Training Reports' forecast, on screen and in the print brief, maps to `ReportForecastChart`.
+- The platform admin Dashboard's signup chart maps to `ReportBarChart`.
 - No current report usage requires a shadcn area chart. Add an area wrapper only when a real route needs cumulative or filled-trend semantics.
 
 Public components:
@@ -406,8 +399,7 @@ Routes configure:
 Shared components own:
 
 - shadcn chart container usage, LayerChart simplified chart composition, axis baseline, grid styling, legend structure, and responsive chart frame.
-
-`docs/component-catalog.md` shows the Critical Tasks chart mapping and the line, stacked bar, and overlap bar target examples.
+- Token paint as classes: axis labels use `fill-muted-foreground`, and grouped or stacked bars separate with `stroke-background`. Series colors are route data and stay as values.
 
 ---
 
@@ -423,7 +415,7 @@ Shared components own:
 <RequirementStatusBadge status="current" label="Current" />
 ```
 
-Public shared exports are `RequirementStatusBadge`, `requirementStatusVisuals` and `RequirementStatus`. Routes pass status keys, visible labels and screen-reader labels through the relevant owner component. Keep shared status colors and typography in the neutral base; Training matrix/report cells retain Training's status-cell presentation.
+Public shared exports are `RequirementStatusBadge`, `requirementStatusVisuals` and `RequirementStatus`. Routes pass status keys, visible labels and screen-reader labels through the relevant owner component. Keep shared status colors and typography in the neutral base; Training matrix/report cells retain Training's status-cell presentation. `Expiring` uses the `expiring` status token and `Not Required` uses the `status-hatch` utility, both from `src/app.css`.
 
 ---
 
@@ -444,7 +436,9 @@ Public components:
 
 - `Cell`: report heat-cell. Props: `tier`, `percent?`, `label?`, `palette?: 'ramp' | 'semantic'`, `size?: 'compact' | 'tile'`, `drop?: number | null`, `children?`, plus normal `span` attributes. `tile` fills its column for a briefing grid. `drop` marks an upcoming hot spot with a 2px inset foreground ring and a `▼ n` chip in foreground/background tokens, and adds screen-reader text contained by the cell; the ring and chip stay distinguishable on every band, including solid destructive cells.
 - `Legend`: readiness tier legend. Props: `items?`, `ariaLabel?`, `palette?`, `dropLabel?` (keys the `drop` marker), plus normal `ul` attributes.
-- `Swatch`: visual swatch used by `Legend`. Props: `tier`, `palette?`, plus normal `span` attributes.
+- `Swatch`: visual swatch used by `Legend`. Props: `tier`, `palette?`, `drop?: boolean` (draws the hot-spot marker instead of a tier fill), plus normal `span` attributes.
+
+Tier classes live in the typed maps `readinessBandCellPalette` and `readinessBandSwatchFill` in `types.ts`. The ramp colors are `--readiness-band-*` theme colors (`bg-readiness-band-good`, `text-readiness-band-ink`), and the not-applicable hatching is the `readiness-band-stripes` utility. Cells expose `data-tier` for verification.
 
 Semantic palette:
 
@@ -542,7 +536,7 @@ Component Catalog coverage:
 
 ## `patterns/bulk-import-workspace`
 
-`patterns/bulk-import-workspace` is the shared foundation for operational import workflows. It standardizes source choice, upload/paste/manual input panels, validation summaries, preview tables, row selection, progress states, disabled submit reasons, and final result summaries. Feature routes still own parsing, validation rules, duplicate/merge semantics, permissions, and persistence.
+`patterns/bulk-import-workspace` is the shared foundation for operational import workflows. It standardizes upload/paste/manual input panels, validation summaries, preview tables, row selection, progress states, disabled submit reasons, and final result summaries. Feature routes still own parsing, validation rules, duplicate/merge semantics, permissions, and persistence.
 
 ```svelte
 <script lang="ts">
@@ -552,15 +546,6 @@ Component Catalog coverage:
 
 <BulkImportWorkspace.Root ariaLabel="Personnel import workspace" {step}>
 	<BulkImportWorkspace.Header title="Personnel import" step="Step 1" />
-
-	<BulkImportWorkspace.SourcePicker label="Import source">
-		<BulkImportWorkspace.SourceOption
-			label="Upload"
-			selected={source === 'upload'}
-			onSelect={() => (source = 'upload')}
-		/>
-		<BulkImportWorkspace.SourceOption label="Paste" selected={source === 'paste'} onSelect={() => (source = 'paste')} />
-	</BulkImportWorkspace.SourcePicker>
 
 	<BulkImportWorkspace.InputPanel title="Upload rows">
 		<BulkImportWorkspace.FileInput bind:files label="Upload personnel file" error={fileError} />
@@ -588,13 +573,11 @@ Public components:
 
 - `Root`: import workspace shell. Props: `ariaLabel?`, `step?`, `children`. Pass the route's current step key as `step`. When it changes with focus inside this Root, Root holds focus on itself while the step's markup is replaced, so neither the browser nor a dialog's focus trap moves it. Focus then returns to a control that survived the change, or moves to the new step's first `h2` or `h3`. Inside a dialog the whole dialog counts as the Root, because its footer holds the step controls, and focus on the dialog itself counts as held. A step without a heading, such as `ProgressState`, keeps focus held until a later step renders one, unless the user moves focus elsewhere first. Focus outside the Root when the step changes stays where it is. Render one Root around every step so it sees the change.
 - `Header`: title, description, step label, and metadata.
-- `SourcePicker`: accessible radio-group-style source chooser.
-- `SourceOption`: selectable upload/paste/manual choice.
 - `InputPanel`: shared section for upload, paste, manual, template, or example controls.
 - `FileInput`: shared file input presentation using `ui/field` and `ui/input`.
 - `PasteInput`: shared textarea presentation using `ui/field` and `ui/textarea`.
 - `ValidationSummary`: shared error/warning/ready count summary.
-- `PreviewTable`: DataTable-backed preview with optional `useDataTableSelection` row selection. Supports `rowStatus`, `disabledReason`, `statusColumnHeader`, `statusDescriptionMode`, `cellPresentation`, and `selectedCountLabel`. Use `cellPresentation="editable-grid"` when route-provided cell snippets render editable inputs in a dense preview; issue-bearing cells should expose a field-level tooltip and `data-cell-state`.
+- `PreviewTable`: DataTable-backed preview with optional `useDataTableSelection` row selection. Supports `rowStatus`, `disabledReason`, `statusColumnHeader`, `statusDescriptionMode`, `cellPresentation`, `selectedCountLabel` and `emptyLevel` (forwarded to `DataTable`). Use `cellPresentation="editable-grid"` when route-provided cell snippets render editable inputs in a dense preview; issue-bearing cells should expose a field-level tooltip and `data-cell-state`.
 - `RowStatus`: shared per-row import status display. Props: `tone: 'valid' | 'warning' | 'error' | 'disabled' | 'duplicate' | 'info'`, `label?`, `description?`, `descriptionMode?`.
 - `ProgressState`: importing/loading state with optional progress value.
 - `FooterActions`: footer command region with disabled submit reason.
@@ -619,17 +602,10 @@ Import validation/result state guidance:
 
 Route-level visual override ban:
 
-- Routes must not restyle the import workspace, source cards, input panels, validation summary, preview table, footer, or result summary locally.
+- Routes must not restyle the import workspace, input panels, validation summary, preview table, footer, or result summary locally.
 - If an import workflow needs a durable capability the shared API cannot express, add it centrally and prove it in `docs/component-catalog.md`.
 
-Migration notes:
-
-- Personnel bulk import/merge should migrate first because it already uses the new dialog and DataTable foundations but still contains route-local import source, preview, and result markup.
-- Critical Tasks task import and completion import should follow because they share the same upload-preview-import-result state machine with domain-specific validation.
-- Training bulk import should follow after paste/upload source choice settles in the shared API.
-- Calendar bulk status add/remove/import should migrate after the import workspace proves partial-success and disabled-row handling.
-
-Compatibility note: the legacy `src/lib/components/ui/BulkImportTable.svelte` helper has been removed. Import flows should compose `BulkImportWorkspace.PreviewTable`, `BulkImportWorkspace.RowStatus`, `BulkImportWorkspace.ValidationSummary`, and route-owned parsing/mapping utilities.
+Consumers: Personnel import, Critical Tasks task import and completion import, Training bulk import and Calendar bulk status import. Each composes `BulkImportWorkspace.PreviewTable`, `BulkImportWorkspace.RowStatus` and `BulkImportWorkspace.ValidationSummary` around its own parsing and mapping. The legacy `ui/BulkImportTable.svelte` helper and the unused `SourcePicker`/`SourceOption` source chooser have been removed.
 
 ---
 
@@ -637,7 +613,7 @@ Compatibility note: the legacy `src/lib/components/ui/BulkImportTable.svelte` he
 
 Use these for any top-level marketing, legal, or trust page so the public site keeps one shared shell and one navigation/footer contract.
 
-The shared wordmark is `patterns/brand-wordmark`. Public navigation and account-access pages use that same component so its lettering and subtitle stay consistent. It is a pattern rather than a `components/public` file because Identity's AuthShell also renders it, and public routes already depend on Identity. `variant="on-chrome"` lifts the subtitle to the muted chrome tone; only the public navigation uses it, while it floats over the dark hero.
+The shared wordmark is `patterns/brand-wordmark`. Public navigation and account-access pages use that same component so its lettering and subtitle stay consistent. It is a pattern rather than a `components/public` file because Identity's AuthShell also renders it, and public routes already depend on Identity. Props: `class?`, `hideSubtitleOnMobile?` (hides the subtitle below the `sm` breakpoint, where the title also steps down from 22px to 18px) and `variant?: 'default' | 'on-chrome'`. `on-chrome` lifts the subtitle to the muted chrome tone; only the public navigation uses it, while it floats over the dark hero. The wordmark paints from `font-heading`, `font-mono`, `text-accent` and the muted text tokens, with no local CSS variables to override.
 
 Public files are Tailwind on central tokens with no `<style>` block or local token set. Amber text on paper uses `text-accent-text` (AA-safe on the light card, the bright accent in dark), the alternating long-form band uses `bg-card-alt`, and the primary amber action is `Button variant="accent"`. Hero grid, page-header noise and scroll reveal are the named utilities `bg-chrome-dots`, `bg-noise` and `reveal` in `src/app.css`. `reveal` hides content only under an ancestor with `.reveal-enabled`, which the landing page sets once its observer is armed; add `.revealed` to show it and `delay-*` to stagger.
 
@@ -751,7 +727,7 @@ Shared shadcn-svelte-backed dialog foundation for information, edit, form, and r
 Public components:
 
 - `AppDialog.Root`: controlled open state and dismissal policy. Props: `open?: boolean` (bindable), `busy?: boolean`, `closeBlocked?: boolean`, `onClose?: () => void`, plus shadcn dialog root props.
-- `AppDialog.Content`: shared shell with close button, constrained viewport and mobile-safe width. It reads `busy` and `closeBlocked` from Root. Props: `size?: 'default' | 'wide' | 'fullscreen'`, `showCloseButton?: boolean`.
+- `AppDialog.Content`: shared shell with close button, constrained viewport and mobile-safe width. It reads `busy` and `closeBlocked` from Root. Props: `size?: 'default' | 'wide' | 'fullscreen'`, `showCloseButton?: boolean`. The built-in close button is named `Close`; set `showCloseButton={false}` whenever the footer shows its own `Close` button, so the dialog never offers two.
 - `AppDialog.Header`, `AppDialog.Title`, `AppDialog.Description`: accessible heading and description wiring. Use a description unless the title alone is enough for screen-reader context.
 - `AppDialog.Body`: scrollable dialog body. Put long content and forms here.
 - `AppDialog.Footer`: sticky action area outside the scrollable body.
@@ -1002,6 +978,8 @@ Composable empty list placeholder.
 </Empty.Root>
 ```
 
+`Empty.Title` renders a heading. `level?: 2 | 3 | 4` defaults to `2` for a page-level empty state; pass the next level below the nearest section heading when the state sits inside one.
+
 Compatibility note: the legacy `ui/EmptyState.svelte` wrapper has been removed. Compose `ui/empty` with `Button`, links, or route actions.
 
 The root, Organization and platform admin error boundaries and `WorkspaceAccessRestricted` compose `ui/empty` for their status, message and recovery action. The admin boundary renders inside the admin navigation and offers `Try again` for a 5xx. A non-admin denied by the admin layout still reaches the root boundary's 403. A page's `h1` stays a heading element inside `Empty.Header` where the page needs one. `Empty.Root` is full width, so a caller that adds outer margins also sets `w-auto` to keep the margins inside its column.
@@ -1025,13 +1003,9 @@ The legacy `ui/FileUpload.svelte` wrapper has been removed. Upload workflows sho
 
 ---
 
-## `ui/toolbar`
-
-Removed. Use `patterns/workspace-toolbar` and generated shadcn-svelte primitives instead.
-
 ## `patterns/type-management-workspace`
 
-Shared shadcn-aligned workspace chrome for manage-type pages. Training types, status types, assignment types, and similar configuration lists can use it when they need a list-detail layout, create/edit mode, row actions, form sections, detail facts, progressive disclosure, or a mobile list/detail flow.
+Shared shadcn-aligned workspace chrome for manage-type pages. Training Types, Training Views (with Training's `ApplicabilityEditor`) and Onboarding templates use it. Another configuration list can use it when it needs a list-detail layout, create/edit mode, row actions, form sections, detail facts, progressive disclosure, or a mobile list/detail flow.
 
 The component owns the repeated visual structure: page workspace spacing, list/detail grid, selectable rows, swatches, section chrome, detail headers, configuration facts, progressive disclosure, mobile back affordance, and footer actions. Routes own behavior: fetching, selected item state, permissions, validation, persistence, field controls, destructive-confirm copy, and ordering rules.
 
@@ -1046,7 +1020,7 @@ The component owns the repeated visual structure: page workspace spacing, list/d
 <TypeWorkspace.Root aria-label="Training type management workspace">
 	<TypeWorkspace.Layout>
 		<TypeWorkspace.List mobileHidden={mobileDetailOpen}>
-			<TypeWorkspace.ItemList role="listbox" aria-label="Training types">
+			<TypeWorkspace.ItemList aria-label="Training types">
 				<TypeWorkspace.ListItem
 					title="Annual Qualification"
 					description="Expires after 12 months"
@@ -1106,12 +1080,15 @@ Public components:
 Key props:
 
 - `List` and `Detail`: `mobileHidden?: boolean` hides that pane below the large breakpoint while preserving the shared desktop split.
-- `Disclosure`: `title`, `description?`, and `open?` for shared progressive reveal around larger option groups.
+- `ItemList`: renders the `grid` and owns its keyboard model. The selected row (or the first) is the single Tab stop. Up, Down, Home and End move between rows; Right and Left move between a row and its actions. Bind the instance and call `focusSelected()` to restore focus after a row is removed.
+- `ListItem`: `title`, `description?`, `color?`, `selected?`, `disabled?`, `onselect?` and an `actions` snippet. It renders a `row` named by its title and described by its description; Enter, Space or a click selects it, and clicks inside `actions` do not.
+- `ColorInput`: requires a bound `value`; the route supplies the default color.
+- `Disclosure`: `title`, `description?`, and `open?` for shared progressive reveal around larger option groups. Closed content stays mounted but hidden, so route-owned control state survives a toggle.
 
 Rules:
 
 - Do not restyle the workspace from route code. Add shared variants here when a repeated manage-type need appears.
-- Use `ListItem` for selectable type rows instead of rebuilding row chrome in each route.
+- Use `ListItem` for selectable type rows instead of rebuilding row chrome in each route. Do not add list roles from route code; `ItemList` and `ListItem` own the grid semantics.
 - Use `FormSection` for repeated edit/create sections instead of route-local bordered fieldset classes; the shared layout renders them as ruled sections, not stacked cards.
 - Use `Choice` for repeated radio/checkbox option rows instead of route-local bordered option classes.
 - Use `ColorInput`, `Description`, and `ActionSpacer` when those repeated manage-type details are needed.
@@ -1210,7 +1187,7 @@ Exports:
 - `useDataTable`: headless sort/filter/pagination/grouping state.
 - `useDataTableSelection`: headless row selection and bulk-selection state.
 
-`DataTable` props: `data?: T[]`, `columns?: ColumnDef<T>[]`, `table?: DataTableState<T>`, `initialSortKey?: string`, `initialSortDirection?: SortDirection`, `pageSize?: number`, `groupBy?: GroupDef<T>`, `filterFn?: (row: T, query: string) => boolean`, `ariaLabel?: string`, `emptyMessage?: string`, `showSearch?: boolean`, `searchPlaceholder?: string`, `rowKey?: (row: T, index: number) => string | number`, `onRowClick?: (row: T) => void`, `rowActionLabel?: (row: T) => string`, `disabledRow?: (row: T) => boolean`, `rowDetailVisible?: (row: T) => boolean`, `loading?: boolean`, `loadingRows?: number`, `density?: 'default' | 'dense'`, `compact?: boolean`, `striped?: boolean`, `stickyHeader?: boolean`, `stickyFirstColumn?: boolean`, `maxHeight?: string`, `scrollRegionLabel?: string`
+`DataTable` props: `data?: T[]`, `columns?: ColumnDef<T>[]`, `table?: DataTableState<T>`, `initialSortKey?: string`, `initialSortDirection?: SortDirection`, `pageSize?: number`, `groupBy?: GroupDef<T>`, `filterFn?: (row: T, query: string) => boolean`, `ariaLabel?: string`, `emptyMessage?: string`, `emptyLevel?: 2 | 3 | 4` (heading level of the empty message, default `3`), `showSearch?: boolean`, `searchPlaceholder?: string`, `rowKey?: (row: T, index: number) => string | number`, `onRowClick?: (row: T) => void`, `rowActionLabel?: (row: T) => string`, `disabledRow?: (row: T) => boolean`, `rowDetailVisible?: (row: T) => boolean`, `loading?: boolean`, `loadingRows?: number`, `density?: 'default' | 'dense'`, `compact?: boolean`, `striped?: boolean`, `stickyHeader?: boolean`, `stickyFirstColumn?: boolean`, `maxHeight?: string`, `scrollRegionLabel?: string`
 
 Pass `scrollRegionLabel` when a wide table can scroll sideways. It names the scroll container as a focusable `region` (`Table.Root` takes the same prop) so keyboard users can scroll it.
 
@@ -1283,7 +1260,7 @@ Status colors have their own raw tokens, separate from the amber brand `--accent
 `info` -> `--info`
 `danger` -> `--destructive`
 
-Status text uses `text-*-foreground`, backed by separate `--danger-foreground`, `--warning-foreground`, `--success-foreground` and `--info-foreground` tokens that meet WCAG AA on page and muted status surfaces; the base status colors are fills, not text. Raw values live once in `:root` and once in `:root[data-theme='dark']`; each `--color-*` mapping is declared once in `@theme inline`. Chrome and the stepped readiness ramp (`--readiness-band-*`) are identical in both themes and are declared only in `:root`. Global element defaults sit in `@layer base`, so primitive variants and utilities override them.
+Status text uses `text-*-foreground`, backed by separate `--danger-foreground`, `--warning-foreground`, `--success-foreground` and `--info-foreground` tokens that meet WCAG AA on page and muted status surfaces; the base status colors are fills, not text. Raw values live once in `:root` and once in `:root[data-theme='dark']`; each `--color-*` mapping is declared once in `@theme inline`. Chrome and the stepped readiness ramp (`--readiness-band-*`, including `--readiness-band-ink` for text on the ramp) are identical in both themes and are declared only in `:root`. The `--expiring` fill is shared by both themes; `--expiring-foreground` has light, dark and print values. Shared fills that need a pattern are utilities in `src/app.css`: `status-hatch` and `readiness-band-stripes`. Global element defaults sit in `@layer base`, so primitive variants and utilities override them.
 
 Use `bg-success-muted`, `text-success-foreground`, `bg-warning-muted`, `text-warning-foreground`, `bg-info-muted`, `text-info-foreground`, `bg-danger-muted`, and `text-danger-foreground` through shared components where possible.
 

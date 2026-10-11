@@ -6,6 +6,7 @@
 		DataTableSelectionState
 	} from '$lib/components/ui/data-table/index.js';
 	import * as DataTable from '$lib/components/ui/data-table/index.js';
+	import type { EmptyTitleLevel } from '$lib/components/ui/empty/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import RowStatus from './bulk-import-row-status.svelte';
 	import type {
@@ -19,6 +20,7 @@
 		columns: ColumnDef<T>[];
 		ariaLabel?: string;
 		emptyMessage?: string;
+		emptyLevel?: EmptyTitleLevel;
 		loading?: boolean;
 		selection?: DataTableSelectionState<T>;
 		rowKey?: (row: T, index: number) => string | number;
@@ -39,6 +41,7 @@
 		columns,
 		ariaLabel = 'Import preview',
 		emptyMessage = 'No preview rows.',
+		emptyLevel,
 		loading = false,
 		selection,
 		rowKey,
@@ -166,6 +169,7 @@
 		columns={previewColumns}
 		{ariaLabel}
 		{emptyMessage}
+		{emptyLevel}
 		{loading}
 		{rowKey}
 		density="dense"

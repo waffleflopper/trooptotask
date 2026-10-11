@@ -81,16 +81,6 @@ describe('BulkImportWorkspace', () => {
 		expect(document.activeElement).toBe(document.body);
 	});
 
-	it('renders source selection and updates selected source', async () => {
-		render(BulkImportWorkspaceTest);
-
-		const picker = screen.getByRole('radiogroup', { name: 'Choose import source' });
-		expect(within(picker).getByRole('radio', { name: /Upload/ })).toHaveAttribute('aria-checked', 'true');
-
-		await fireEvent.click(within(picker).getByRole('radio', { name: /Paste/ }));
-		expect(within(picker).getByRole('radio', { name: /Paste/ })).toHaveAttribute('aria-checked', 'true');
-	});
-
 	it('renders shared file and paste input labels, descriptions, and errors', () => {
 		render(BulkImportWorkspaceTest);
 

@@ -295,7 +295,7 @@
 			</p>
 		</div>
 	{:else}
-		<main class="flex min-h-0 flex-col gap-4 overflow-hidden px-6 pt-4 pb-5 max-sm:p-3">
+		<div class="flex min-h-0 flex-col gap-4 overflow-hidden px-6 pt-4 pb-5 max-sm:p-3">
 			<WorkspaceToolbar.Root ariaLabel="Personnel controls" wrap>
 				<WorkspaceToolbar.Group
 					label="Roster filters"
@@ -426,6 +426,7 @@
 							: getPersonnelRowActionLabel}
 						ariaLabel="Personnel roster"
 						emptyMessage="No personnel match your search."
+						emptyLevel={2}
 						maxHeight="100%"
 					>
 						{#snippet toolbar(tbl)}
@@ -542,7 +543,7 @@
 					</DataTable.DataTable>
 				</div>
 			{/if}
-		</main>
+		</div>
 	{/if}
 </div>
 

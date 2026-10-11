@@ -4,6 +4,7 @@
 	import * as Alert from '$lib/components/ui/alert/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as Empty from '$lib/components/ui/empty/index.js';
+	import type { EmptyTitleLevel } from '$lib/components/ui/empty/index.js';
 	import { Spinner } from '$lib/components/ui/spinner/index.js';
 	import { cn } from '$lib/utils.js';
 
@@ -11,6 +12,7 @@
 		state: 'loading' | 'no-data' | 'error';
 		title: string;
 		description?: string;
+		level?: EmptyTitleLevel;
 		onRetry?: () => void | Promise<void>;
 		retryLabel?: string;
 		children?: Snippet;
@@ -20,6 +22,7 @@
 		state,
 		title,
 		description,
+		level = 4,
 		onRetry,
 		retryLabel = 'Retry',
 		children,
@@ -60,7 +63,7 @@
 {:else}
 	<Empty.Root class={cn('border border-dashed border-border bg-card', className)} {...restProps}>
 		<Empty.Header>
-			<Empty.Title>{title}</Empty.Title>
+			<Empty.Title {level}>{title}</Empty.Title>
 			{#if description}
 				<Empty.Description>{description}</Empty.Description>
 			{/if}

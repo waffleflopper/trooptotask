@@ -474,7 +474,7 @@
 	<title>Import Personnel - Troop to Task</title>
 </svelte:head>
 
-<main class="flex h-full min-h-0 flex-col overflow-auto bg-background">
+<div class="flex h-full min-h-0 flex-col overflow-auto bg-background">
 	<div class="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-5 px-6 py-5 max-sm:px-3">
 		<header class="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-4">
 			<div class="grid gap-2">
@@ -768,4 +768,4 @@
 			{/if}
 		</BulkImportWorkspace.Root>
 	</div>
-</main>
+</div>

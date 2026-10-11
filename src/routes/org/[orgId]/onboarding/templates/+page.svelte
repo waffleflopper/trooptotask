@@ -33,6 +33,7 @@
 
 	let { data }: PageProps = $props();
 	let emptyAddTemplate = $state<HTMLElement | null>(null);
+	let templateList = $state<ReturnType<typeof TypeWorkspace.ItemList>>();
 	let addStepButton = $state<HTMLElement | null>(null);
 	let addFirstStepButton = $state<HTMLElement | null>(null);
 	let ConfirmDialog = $state<typeof import('$lib/components/ui/confirm-dialog').ConfirmDialog | null>(null);
@@ -180,6 +181,14 @@
 		void returnFocusFromStepForm(stepId);
 	}
 
+	async function saveTemplate(): Promise<void> {
+		const wasCreating = model.creatingTemplate;
+		const result = await workspace.saveTemplate();
+		if (!result.ok || !wasCreating) return;
+		await tick();
+		templateList?.focusSelected();
+	}
+
 	function requestDelete(target: OnboardingTemplateDeleteTarget) {
 		workspace.requestDelete(target);
 	}
@@ -201,8 +210,8 @@
 		if (!result.ok || !target) return;
 		await tick();
 		if (target.type === 'template') {
-			const next = document.querySelector<HTMLElement>('[role="option"][aria-selected="true"] button');
-			(next ?? emptyAddTemplate)?.focus();
+			if (templateList) templateList.focusSelected();
+			else emptyAddTemplate?.focus();
 			return;
 		}
 		const steps = model.selectedTemplateSteps;
@@ -253,7 +262,7 @@
 			{#if model.templates.length === 0 && !model.creatingTemplate}
 				<Empty.Root>
 					<Empty.Header>
-						<Empty.Title>No templates yet.</Empty.Title>
+						<Empty.Title level={3}>No templates yet.</Empty.Title>
 						<Empty.Description>Create one to get started.</Empty.Description>
 					</Empty.Header>
 					{#if model.canMutate}
@@ -271,7 +280,7 @@
 					{/if}
 				</Empty.Root>
 			{:else}
-				<TypeWorkspace.ItemList role="listbox" aria-label="Onboarding templates">
+				<TypeWorkspace.ItemList bind:this={templateList} aria-label="Onboarding templates">
 					{#each model.templates as template (template.id)}
 						<TypeWorkspace.ListItem
 							selected={model.selectedTemplate?.id === template.id && !model.creatingTemplate}
@@ -279,8 +288,6 @@
 							description={workspace.getTemplateSummary(template)}
 							onselect={() => workspace.selectTemplate(template.id)}
 							disabled={model.templateActionDisabled}
-							role="option"
-							aria-selected={model.selectedTemplate?.id === template.id && !model.creatingTemplate}
 						>
 							{#snippet actions()}
 								{#if model.canMutate && !model.templateActionDisabled}
@@ -386,7 +393,7 @@
 					<Button variant="outline" size="sm" type="button" onclick={() => workspace.cancelTemplateEdit()}>
 						Cancel
 					</Button>
-					<Button size="sm" type="button" onclick={() => workspace.saveTemplate()} disabled={!model.canSaveTemplate}>
+					<Button size="sm" type="button" onclick={saveTemplate} disabled={!model.canSaveTemplate}>
 						{#if model.savingTemplate}<Spinner />{/if}
 						{model.creatingTemplate ? 'Create' : 'Save'}
 					</Button>
@@ -423,7 +430,7 @@
 							{#if model.selectedTemplateSteps.length === 0 && !model.addingStep}
 								<Empty.Root class="min-h-28 border p-4">
 									<Empty.Header>
-										<Empty.Title>No steps yet.</Empty.Title>
+										<Empty.Title level={4}>No steps yet.</Empty.Title>
 									</Empty.Header>
 									<Empty.Content>
 										<Button
@@ -599,7 +606,7 @@
 			{:else}
 				<Empty.Root>
 					<Empty.Header>
-						<Empty.Title>Select a template</Empty.Title>
+						<Empty.Title level={3}>Select a template</Empty.Title>
 						<Empty.Description>Choose a template from the list to view details.</Empty.Description>
 					</Empty.Header>
 				</Empty.Root>

@@ -29,7 +29,13 @@
 				style:background-color={color}
 			></span>
 		{/if}
-		<h3 class="truncate text-xl font-semibold text-foreground">{title}</h3>
+		<h3
+			tabindex="-1"
+			data-slot="type-management-workspace-detail-heading"
+			class="truncate text-xl font-semibold text-foreground outline-none"
+		>
+			{title}
+		</h3>
 	</div>
 	{#if actions}
 		<div data-slot="type-management-workspace-detail-actions" class="flex shrink-0 items-center gap-2">

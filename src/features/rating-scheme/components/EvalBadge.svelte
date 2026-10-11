@@ -16,7 +16,7 @@
 	const dueClasses: Record<EvalDueBadgeStatus, string> = {
 		current: 'border-success/20 bg-success-muted text-success-foreground',
 		'expiring-soon': 'border-warning/20 bg-warning-muted text-warning-foreground',
-		expiring: 'border-orange-500/20 bg-orange-500/10 text-orange-700 dark:text-orange-300',
+		expiring: 'border-expiring/20 bg-expiring/10 text-expiring-foreground',
 		expired: 'border-danger/20 bg-danger-muted text-danger-foreground',
 		completed: 'border-border bg-muted text-muted-foreground'
 	};

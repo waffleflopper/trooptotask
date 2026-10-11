@@ -28,14 +28,20 @@ const SOURCES = [
 		content: '{#each [] as item}<a href="#top">{item}</a>{/each}'
 	},
 	{ path: 'src/hooks.client.svelte', content: '<p>stray</p>' },
+	{ path: 'src/features/calendar/test-support/DatePickerStub.svelte', content: '<input type="date" />' },
 	{ path: 'src/features/calendar/calendarRows.ts', content: 'export const rows = [];' }
 ];
 
-function inventory() {
+const GROUP_HEADER = 'src/features/calendar/components/GroupHeader.svelte';
+
+function inventory(exceptions = {}) {
 	const paths = SOURCES.map((source) => source.path);
 	const { edges } = buildImportGraph(SOURCES, (candidate) => paths.includes(candidate));
-	return buildInventory(SOURCES, edges);
+	return buildInventory(SOURCES, edges, exceptions);
 }
+
+const dispositionOf = (file: string, exceptions = {}) =>
+	inventory(exceptions).rows.find((row) => row.file === file)?.disposition;
 
 describe('ui inventory', () => {
 	it('lists every Svelte file and family importer with its packet, area and candidates', () => {
@@ -50,7 +56,8 @@ describe('ui inventory', () => {
 					controls: {},
 					styleBlocks: 0,
 					cssVariables: {},
-					hexLiterals: 0
+					hexLiterals: 0,
+					disposition: { kind: 'test support' }
 				},
 				{
 					file: 'src/features/calendar/components/GroupHeader.svelte',
@@ -60,7 +67,19 @@ describe('ui inventory', () => {
 					controls: { '[role=button]': 1, table: 1 },
 					styleBlocks: 0,
 					cssVariables: {},
-					hexLiterals: 0
+					hexLiterals: 0,
+					disposition: { kind: 'open' }
+				},
+				{
+					file: 'src/features/calendar/test-support/DatePickerStub.svelte',
+					area: 'app',
+					packet: '10-03',
+					families: [],
+					controls: { input: 1 },
+					styleBlocks: 0,
+					cssVariables: {},
+					hexLiterals: 0,
+					disposition: { kind: 'test support' }
 				},
 				{
 					file: 'src/hooks.client.svelte',
@@ -70,7 +89,8 @@ describe('ui inventory', () => {
 					controls: {},
 					styleBlocks: 0,
 					cssVariables: {},
-					hexLiterals: 0
+					hexLiterals: 0,
+					disposition: { kind: 'complete' }
 				},
 				{
 					file: 'src/lib/components/public/PublicSiteNav.svelte',
@@ -80,7 +100,8 @@ describe('ui inventory', () => {
 					controls: {},
 					styleBlocks: 0,
 					cssVariables: {},
-					hexLiterals: 0
+					hexLiterals: 0,
+					disposition: { kind: 'complete' }
 				},
 				{
 					file: 'src/lib/components/ui/button/button.svelte',
@@ -90,7 +111,8 @@ describe('ui inventory', () => {
 					controls: {},
 					styleBlocks: 0,
 					cssVariables: {},
-					hexLiterals: 0
+					hexLiterals: 0,
+					disposition: { kind: 'complete' }
 				},
 				{
 					file: 'src/routes/admin/+page.svelte',
@@ -100,7 +122,8 @@ describe('ui inventory', () => {
 					controls: { select: 1 },
 					styleBlocks: 0,
 					cssVariables: {},
-					hexLiterals: 0
+					hexLiterals: 0,
+					disposition: { kind: 'open' }
 				},
 				{
 					file: 'src/routes/auth/reset-password/+page.svelte',
@@ -110,16 +133,42 @@ describe('ui inventory', () => {
 					controls: { button: 1, input: 1 },
 					styleBlocks: 1,
 					cssVariables: { '--brass': 1 },
-					hexLiterals: 1
+					hexLiterals: 1,
+					disposition: { kind: 'open' }
 				}
-			]
+			],
+			unusedExceptions: []
 		});
+	});
+
+	it('shows a row as native only while its candidates match the recorded signature', () => {
+		const reason = 'Virtualized group rows need a native row element.';
+		expect(
+			dispositionOf(GROUP_HEADER, { [GROUP_HEADER]: { covers: { table: 1, '[role=button]': 1 }, reason } })
+		).toEqual({ kind: 'native', reason });
+		expect(
+			dispositionOf(GROUP_HEADER, { [GROUP_HEADER]: { covers: { table: 2, '[role=button]': 1 }, reason } })
+		).toEqual({ kind: 'open' });
+		expect(dispositionOf(GROUP_HEADER, { [GROUP_HEADER]: { covers: { table: 1 }, reason } })).toEqual({ kind: 'open' });
+	});
+
+	it('classifies test harnesses by path whatever their candidates', () => {
+		expect(dispositionOf('src/features/calendar/test-support/DatePickerStub.svelte')).toEqual({ kind: 'test support' });
+		expect(dispositionOf('src/features/calendar/calendarRows.test.ts')).toEqual({ kind: 'test support' });
+	});
+
+	it('reports a recorded exception whose row no longer has candidates', () => {
+		const exceptions = { 'src/routes/admin/+page.svelte': { covers: { select: 1 }, reason: 'Posts natively.' } };
+		expect(
+			inventory({ ...exceptions, 'src/hooks.client.svelte': { covers: { button: 1 }, reason: 'Gone.' } })
+		).toMatchObject({ unusedExceptions: ['src/hooks.client.svelte'] });
 	});
 
 	it('renders the same report on every run and keeps unclassified rows visible', () => {
 		const first = renderInventory(inventory());
 		expect(renderInventory(inventory())).toBe(first);
-		expect(first).toContain('Unclassified rows: 1.');
+		expect(first).toContain('Open rows: 3. Unclassified rows: 1. Unused native exceptions: 0.');
+		expect(first).toContain('| `src/routes/admin/+page.svelte` | admin | · | `select`×1 | · | · | · | **OPEN** |');
 		expect(first).toContain('## unclassified');
 		expect(first).toContain('`src/hooks.client.svelte`');
 		expect(first).toContain('| `ui/button` | 2 | 0 | 0 | 0 | `10-01`×1, `10-03`×1 |');

@@ -168,7 +168,7 @@
 </script>
 
 <AppDialog.Root busy={isSaving} closeBlocked={dirty} {onClose}>
-	<AppDialog.Content>
+	<AppDialog.Content showCloseButton={!isExempt}>
 		<AppDialog.Header>
 			<AppDialog.Title>{existingTraining ? 'Edit' : 'Add'} Training Record</AppDialog.Title>
 			<AppDialog.Description>

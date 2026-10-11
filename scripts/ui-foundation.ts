@@ -63,11 +63,11 @@ function checkUiFoundation(graph: Graph): Finding[] {
 			});
 		}
 		const layer = file.startsWith(COMPONENTS) ? file.slice(COMPONENTS.length).split('/') : [];
-		if (layer.length > 1 && !COMPONENT_LAYERS.has(layer[0])) {
+		if (layer.length > 0 && !COMPONENT_LAYERS.has(layer[0])) {
 			findings.push({
 				kind: 'foundation-placement',
 				file,
-				message: `Shared component directory ${COMPONENTS}${layer[0]}/ is not a foundation layer; add primitives to components/ui and compositions to components/patterns`
+				message: `${COMPONENTS}${layer[0]} is outside the foundation layers; add primitives to components/ui, compositions to components/patterns and feature UI to its owner`
 			});
 		}
 		if (isFoundationSource(file)) {

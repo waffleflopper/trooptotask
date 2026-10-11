@@ -117,6 +117,7 @@
 			{columns}
 			ariaLabel="At-risk Soldiers call list"
 			emptyMessage="No Soldiers match the active filters."
+			emptyLevel={4}
 			{loading}
 			density="dense"
 			stickyHeader

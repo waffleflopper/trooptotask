@@ -136,13 +136,26 @@ describe('patterns/type-management-workspace', () => {
 
 	describe('when one pane shows at a time', () => {
 		function showPanes(singlePane: boolean) {
+			const listeners = new Set<(event: { matches: boolean }) => void>();
 			vi.stubGlobal(
 				'matchMedia',
-				vi.fn((query: string) => ({ matches: singlePane && query === '(width < 64rem)', media: query }))
+				vi.fn((query: string) => ({
+					get matches() {
+						return singlePane && query === '(width < 64rem)';
+					},
+					media: query,
+					addEventListener: (_type: string, listener: (event: { matches: boolean }) => void) => listeners.add(listener),
+					removeEventListener: (_type: string, listener: (event: { matches: boolean }) => void) =>
+						listeners.delete(listener)
+				}))
 			);
 			render(SinglePaneTest);
 			const row = (name: string) => screen.getByRole('row', { name });
-			return { row, back: () => screen.getByRole('button', { name: 'Types' }) };
+			function narrow() {
+				singlePane = true;
+				for (const listener of listeners) listener({ matches: true });
+			}
+			return { row, narrow, back: () => screen.getByRole('button', { name: 'Types' }) };
 		}
 
 		afterEach(() => vi.unstubAllGlobals());
@@ -169,6 +182,27 @@ describe('patterns/type-management-workspace', () => {
 			await tick();
 
 			expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Range Day' }));
+		});
+
+		it('moves focus to the detail heading when narrowing hides the focused list', async () => {
+			const { row, narrow } = showPanes(false);
+			row('CPR').focus();
+			await fireEvent.click(row('CPR'));
+			await tick();
+			expect(document.activeElement).toBe(row('CPR'));
+
+			narrow();
+
+			expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'CPR' }));
+		});
+
+		it('moves focus to the selected row when narrowing hides the focused detail', async () => {
+			const { row, narrow } = showPanes(false);
+			screen.getByRole('heading', { name: 'Annual Qualification' }).focus();
+
+			narrow();
+
+			expect(document.activeElement).toBe(row('Annual Qualification'));
 		});
 
 		it('leaves focus alone on a wide layout, where both panes stay visible', async () => {

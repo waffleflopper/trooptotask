@@ -2,7 +2,7 @@
 	import type { HTMLAttributes } from 'svelte/elements';
 	import { cn, type WithElementRef } from '$lib/utils.js';
 	import { focusSelectedRow } from './item-list.svelte';
-	import { isSinglePane } from './single-pane.js';
+	import { focusDetailHeading, isSinglePane, LAYOUT, whenSinglePaneStarts } from './single-pane.js';
 
 	interface Props extends WithElementRef<HTMLAttributes<HTMLElement>> {
 		mobileHidden?: boolean;
@@ -19,6 +19,13 @@
 		}
 		wasHidden = mobileHidden;
 	});
+
+	// A resize that hides this pane would strand focus on an invisible row.
+	$effect(() =>
+		whenSinglePaneStarts(() => {
+			if (mobileHidden && ref?.contains(document.activeElement)) focusDetailHeading(ref.closest(LAYOUT));
+		})
+	);
 </script>
 
 <section

@@ -637,7 +637,9 @@ Compatibility note: the legacy `src/lib/components/ui/BulkImportTable.svelte` he
 
 Use these for any top-level marketing, legal, or trust page so the public site keeps one shared shell and one navigation/footer contract.
 
-The shared wordmark is `patterns/brand-wordmark`. Public navigation and account-access pages use that same component so its lettering and subtitle stay consistent. It is a pattern rather than a `components/public` file because Identity's AuthShell also renders it, and public routes already depend on Identity.
+The shared wordmark is `patterns/brand-wordmark`. Public navigation and account-access pages use that same component so its lettering and subtitle stay consistent. It is a pattern rather than a `components/public` file because Identity's AuthShell also renders it, and public routes already depend on Identity. `variant="on-chrome"` lifts the subtitle to the muted chrome tone; only the public navigation uses it, while it floats over the dark hero.
+
+Public files are Tailwind on central tokens with no `<style>` block or local token set. Amber text on paper uses `text-accent-text` (AA-safe on the light card, the bright accent in dark), the alternating long-form band uses `bg-card-alt`, and the primary amber action is `Button variant="accent"`. Hero grid, page-header noise and scroll reveal are the named utilities `bg-chrome-dots`, `bg-noise` and `reveal` in `src/app.css`. `reveal` hides content only under an ancestor with `.reveal-enabled`, which the landing page sets once its observer is armed; add `.revealed` to show it and `delay-*` to stagger.
 
 ```svelte
 <PublicShell user={data.user} active="security">
@@ -669,12 +671,12 @@ Guidance:
 
 Shared inner-page hero/header for marketing, legal, and trust pages.
 
-Props: `label: string`, `title: Snippet`, `children: Snippet`
+Props: `label: string`, `meta?: string`, `title: Snippet`, `children: Snippet`
 
 Guidance:
 
 - Keep `label` short, mono, and structural.
-- Put supporting copy and metadata like effective dates in `children`; use `.page-meta` for low-emphasis header metadata.
+- Put supporting copy in `children`. Pass low-emphasis header metadata such as an effective date as `meta`.
 
 ### `public/PublicContentSection.svelte`
 
@@ -693,7 +695,9 @@ Shared email callout for public legal and security pages. `email` is required; `
 
 ### `public/PublicSiteNav.svelte`, `public/PublicCta.svelte`, `public/PublicFooter.svelte`
 
-Lower-level shell primitives used internally by `PublicShell`. Reach for these directly only if you have a compelling reason to diverge from the standard public page wrapper.
+Lower-level shell primitives used internally by `PublicShell`. Reach for these directly only if you have a compelling reason to diverge from the standard public page wrapper. The navigation's theme toggle and access links and the CTA link are `Button`; the footer wordmark stays hand-set because its sizes differ from `BrandWordmark`.
+
+The landing page FAQ is `ui/accordion` (`type="single"`, one answer open, the open one closes on a second press).
 
 ---
 
@@ -802,7 +806,9 @@ Guidance:
 
 ## `ui/button`
 
-Shadcn-svelte button primitive. Variants are `default`, `outline`, `secondary`, `ghost`, `destructive`, `link` and `cell`; sizes are `default`, `xs`, `sm`, `lg`, `icon`, `icon-xs`, `icon-sm`, `icon-lg` and `none`. Use `buttonVariants({ variant, size })` when a non-`Button` element needs the same classes.
+Shadcn-svelte button primitive. Variants are `default`, `outline`, `accent`, `secondary`, `ghost`, `destructive`, `link` and `cell`; sizes are `default`, `xs`, `sm`, `lg`, `icon`, `icon-xs`, `icon-sm`, `icon-lg` and `none`. Use `buttonVariants({ variant, size })` when a non-`Button` element needs the same classes.
+
+Use `variant="accent"` for the filled amber call to action on the public site (nav Request Access, CTA and landing hero actions); it lightens on hover through `bg-accent-hover`.
 
 Use `variant="cell" size="none"` for a flat, square button that fills a grid or table cell, such as a Calendar date header, person row header, group band control or long-range day number. `cell` drops the radius, border and press offset, uses normal weight and leading, keeps the ghost hover colors, and draws a 2px inset focus ring so neighboring cells cannot cover it. `none` adds no height, padding or gap, so the cell keeps its own geometry. Callers pass layout utilities and token colors for states such as weekend, today or pinned. They do not restyle the variant's shape, focus ring or press behavior.
 
@@ -1305,7 +1311,7 @@ Global app concerns retained in `src/app.css`:
 
 `--focus-outline` | `--focus-outline-offset` | `--focus-ring` | `--transition-fast` | `--transition-normal` | `--transition-slow`
 
-These support native controls and legacy public-page CSS while the shared component system remains the preferred path for new interactions.
+These support native controls while the shared component system remains the preferred path for new interactions.
 
 ### Chrome / App Shell Tokens
 

@@ -221,6 +221,45 @@ describe('IctTaskLibraryPage', () => {
 		expect(add).not.toHaveBeenCalled();
 	});
 
+	it.each([
+		{
+			field: 'Expiration override',
+			value: '0',
+			error: 'Enter a whole number of months, 1 or more, or leave blank for the Organization default'
+		},
+		{
+			field: 'Expiration override',
+			value: '1.5',
+			error: 'Enter a whole number of months, 1 or more, or leave blank for the Organization default'
+		},
+		{ field: 'Sort order', value: '-1', error: 'Enter a whole number, 0 or more' },
+		{ field: 'Sort order', value: '2.5', error: 'Enter a whole number, 0 or more' }
+	])('rejects $field $value on its field without saving', async ({ field, value, error }) => {
+		const add = vi.spyOn(ictTasksStore, 'add').mockResolvedValue({ ...activeTask, id: 'task-new' });
+		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'New Task' }));
+		await fireEvent.input(screen.getByLabelText('Task code'), { target: { value: '181-105-2000' } });
+		await fireEvent.input(screen.getByLabelText('Title'), { target: { value: 'Evacuate casualty' } });
+		await fireEvent.input(screen.getByLabelText('Expiration override'), { target: { value: '' } });
+		const input = screen.getByLabelText(field) as HTMLInputElement;
+		await fireEvent.input(input, { target: { value } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Create Task' }));
+
+		await waitFor(() => expect(document.activeElement).toBe(input));
+		expect(input.getAttribute('aria-invalid')).toBe('true');
+		expect(describedBy(input)).toEqual([error]);
+		expect(add.mock.calls).toEqual([]);
+
+		await fireEvent.input(input, { target: { value: field === 'Sort order' ? '4' : '' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Create Task' }));
+
+		expect(add.mock.calls[0]?.[0]).toMatchObject({
+			expirationMonths: null,
+			sortOrder: field === 'Sort order' ? 4 : 3
+		});
+	});
+
 	it('keeps a duplicate task code on its field with the draft and focus', async () => {
 		vi.spyOn(ictTasksStore, 'add').mockRejectedValue(new Error('Task code already exists in this Organization'));
 		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });

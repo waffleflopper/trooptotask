@@ -53,9 +53,11 @@
 	let editing = $state(false);
 	let saving = $state(false);
 	let formError = $state('');
-	let fieldErrors = $state<{ taskCode?: string; title?: string }>({});
+	let fieldErrors = $state<{ taskCode?: string; title?: string; expirationMonths?: string; sortOrder?: string }>({});
 	let taskCodeInput = $state<HTMLInputElement | null>(null);
 	let titleInput = $state<HTMLInputElement | null>(null);
+	let expirationInput = $state<HTMLInputElement | null>(null);
+	let sortOrderInput = $state<HTMLInputElement | null>(null);
 	let saveButton = $state<HTMLButtonElement | null>(null);
 	let pageRoot = $state<HTMLElement | null>(null);
 	let importRegion = $state<HTMLElement | null>(null);
@@ -296,16 +298,9 @@
 		importTrigger?.focus();
 	}
 
-	function parsePositiveInteger(value: string): number | null {
+	function parseWholeNumber(value: string, min: number): number | null {
 		const trimmed = value.trim();
-		if (!trimmed) return null;
-		const parsed = Number.parseInt(trimmed, 10);
-		return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
-	}
-
-	function parseSortOrder(value: string): number {
-		const parsed = Number.parseInt(value.trim(), 10);
-		return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+		return /^\d+$/.test(trimmed) && Number(trimmed) >= min ? Number(trimmed) : null;
 	}
 
 	function normalizeOptionalText(value: string): string | null {
@@ -325,13 +320,29 @@
 		if (!canManage || saving) return;
 
 		formError = '';
+		const usesDefaultExpiration = !formExpirationMonths.trim();
+		const expirationMonths = usesDefaultExpiration ? null : parseWholeNumber(formExpirationMonths, 1);
+		const sortOrder = parseWholeNumber(formSortOrder, 0);
 		fieldErrors = {
 			taskCode: formTaskCode.trim() ? undefined : 'Task code is required',
-			title: formTitle.trim() ? undefined : 'Title is required'
+			title: formTitle.trim() ? undefined : 'Title is required',
+			expirationMonths:
+				usesDefaultExpiration || expirationMonths !== null
+					? undefined
+					: 'Enter a whole number of months, 1 or more, or leave blank for the Organization default',
+			sortOrder: sortOrder === null ? 'Enter a whole number, 0 or more' : undefined
 		};
-		if (fieldErrors.taskCode || fieldErrors.title) {
+		const firstInvalid = (
+			[
+				[fieldErrors.taskCode, taskCodeInput],
+				[fieldErrors.title, titleInput],
+				[fieldErrors.expirationMonths, expirationInput],
+				[fieldErrors.sortOrder, sortOrderInput]
+			] as const
+		).find(([error]) => error);
+		if (firstInvalid || sortOrder === null) {
 			await tick();
-			(fieldErrors.taskCode ? taskCodeInput : titleInput)?.focus();
+			firstInvalid?.[1]?.focus();
 			return;
 		}
 
@@ -345,8 +356,8 @@
 				description: normalizeOptionalText(formDescription),
 				category: normalizeOptionalText(formCategory),
 				mos: parseMosApplicabilityInput(formMos),
-				expirationMonths: parsePositiveInteger(formExpirationMonths),
-				sortOrder: parseSortOrder(formSortOrder),
+				expirationMonths,
+				sortOrder,
 				archivedAt: null
 			};
 
@@ -651,8 +662,10 @@
 										min="1"
 										value={formExpirationMonths}
 										oninput={handleExpirationInput}
+										bind:ref={expirationInput}
 										placeholder="Org default"
 									/>
+									{#if fieldErrors.expirationMonths}<Field.Error>{fieldErrors.expirationMonths}</Field.Error>{/if}
 								</Field.Root>
 
 								<Field.Root>
@@ -663,7 +676,9 @@
 										min="0"
 										value={formSortOrder}
 										oninput={handleSortOrderInput}
+										bind:ref={sortOrderInput}
 									/>
+									{#if fieldErrors.sortOrder}<Field.Error>{fieldErrors.sortOrder}</Field.Error>{/if}
 								</Field.Root>
 							</div>
 

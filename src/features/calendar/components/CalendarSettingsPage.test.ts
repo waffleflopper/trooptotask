@@ -128,7 +128,7 @@ describe('CalendarSettingsPage', () => {
 
 		render(CalendarSettingsPage, { props: { org } });
 
-		expect(screen.getByRole('navigation', { name: 'Calendar settings controls' })).toBeTruthy();
+		expect(screen.getByRole('tablist', { name: 'Calendar settings sections' })).toBeTruthy();
 		expect(screen.queryByText('Access restricted.')).toBeNull();
 	});
 
@@ -198,7 +198,7 @@ describe('CalendarSettingsPage', () => {
 
 		render(CalendarSettingsPage, { props: { org } });
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Edit status type' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit Leave' }));
 		const dialog = screen.getByRole('dialog', { name: 'Edit Status Type' });
 		await fireEvent.input(within(dialog).getByLabelText('Status name'), { target: { value: 'Leave Updated' } });
 		await fireEvent.click(within(dialog).getByRole('button', { name: 'Save Changes' }));
@@ -221,7 +221,7 @@ describe('CalendarSettingsPage', () => {
 
 		render(CalendarSettingsPage, { props: { org } });
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Delete status type' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete Leave' }));
 		const dialog = screen.getByRole('alertdialog', { name: 'Delete Status Type' });
 		await fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
 
@@ -236,7 +236,7 @@ describe('CalendarSettingsPage', () => {
 
 		render(CalendarSettingsPage, { props: { org } });
 
-		await fireEvent.click(screen.getByRole('button', { name: /Assignment Types/i }));
+		await fireEvent.click(screen.getByRole('tab', { name: /Assignment Types/i }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Add new' }));
 		const dialog = screen.getByRole('dialog', { name: 'Add Assignment Type' });
 		await fireEvent.input(within(dialog).getByLabelText('Full name'), { target: { value: 'Staff Duty' } });
@@ -264,8 +264,8 @@ describe('CalendarSettingsPage', () => {
 
 		render(CalendarSettingsPage, { props: { org } });
 
-		await fireEvent.click(screen.getByRole('button', { name: /Assignment Types/i }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Edit assignment type' }));
+		await fireEvent.click(screen.getByRole('tab', { name: /Assignment Types/i }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit Charge of Quarters' }));
 		const dialog = screen.getByRole('dialog', { name: 'Edit Assignment Type' });
 		await fireEvent.input(within(dialog).getByLabelText('Full name'), { target: { value: 'Staff Duty' } });
 		await fireEvent.click(within(dialog).getByRole('button', { name: 'Save Changes' }));
@@ -291,8 +291,8 @@ describe('CalendarSettingsPage', () => {
 
 		render(CalendarSettingsPage, { props: { org } });
 
-		await fireEvent.click(screen.getByRole('button', { name: /Assignment Types/i }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Delete assignment type' }));
+		await fireEvent.click(screen.getByRole('tab', { name: /Assignment Types/i }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete Charge of Quarters' }));
 		const dialog = screen.getByRole('alertdialog', { name: 'Delete Assignment Type' });
 		await fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
 
@@ -300,7 +300,20 @@ describe('CalendarSettingsPage', () => {
 		expect(errorToast).toHaveBeenCalledWith('Failed to delete assignment type');
 	});
 
-	it('reports assignment header selection failures', async () => {
+	it('switches settings sections as tabs and shows only the chosen panel', async () => {
+		render(CalendarSettingsPage, { props: { org } });
+
+		const closuresTab = screen.getByRole('tab', { name: /Closures/ });
+		await fireEvent.click(closuresTab);
+
+		expect(closuresTab.getAttribute('aria-selected')).toBe('true');
+		expect(screen.getByRole('tab', { name: /Status Types/ }).getAttribute('aria-selected')).toBe('false');
+		const panel = screen.getByRole('tabpanel');
+		expect(within(panel).getByLabelText('Year')).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'Closures' })).toBeTruthy();
+	});
+
+	it("names each row's actions by the row and edits the chosen row", async () => {
 		assignmentTypesStoreMock.types = [
 			{
 				id: 'cq',
@@ -309,28 +322,29 @@ describe('CalendarSettingsPage', () => {
 				assignTo: 'personnel',
 				color: '#2563eb',
 				exemptPersonnelIds: [],
-				showInDateHeader: true
+				showInDateHeader: false
 			},
 			{
 				id: 'sd',
 				name: 'Staff Duty',
 				shortName: 'SD',
-				assignTo: 'personnel',
+				assignTo: 'group',
 				color: '#047857',
 				exemptPersonnelIds: [],
 				showInDateHeader: false
 			}
 		];
-		assignmentTypesStoreMock.updateType.mockResolvedValueOnce(false);
-		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
 		render(CalendarSettingsPage, { props: { org } });
 
-		await fireEvent.click(screen.getByRole('button', { name: /Assignment Types/i }));
-		await fireEvent.click(screen.getByRole('radio', { name: 'Show Staff Duty in date header' }));
+		await fireEvent.click(screen.getByRole('tab', { name: /Assignment Types/ }));
+		expect(screen.getByRole('button', { name: 'Delete Charge of Quarters' })).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit Staff Duty' }));
+		const dialog = screen.getByRole('dialog', { name: 'Edit Assignment Type' });
 
-		expect(assignmentTypesStoreMock.updateType).toHaveBeenCalledWith('cq', { showInDateHeader: false });
-		expect(errorToast).toHaveBeenCalledWith('Failed to update header assignment type');
+		expect((within(dialog).getByLabelText('Full name') as HTMLInputElement).value).toBe('Staff Duty');
+		expect((within(dialog).getByLabelText('Short code') as HTMLInputElement).value).toBe('SD');
+		expect((within(dialog).getByLabelText('Color') as HTMLInputElement).value).toBe('#047857');
 	});
 
 	it('hides archived assignment types from Calendar settings management', async () => {
@@ -358,19 +372,19 @@ describe('CalendarSettingsPage', () => {
 
 		render(CalendarSettingsPage, { props: { org } });
 
-		await fireEvent.click(screen.getByRole('button', { name: /Assignment Types/i }));
+		await fireEvent.click(screen.getByRole('tab', { name: /Assignment Types/i }));
 
 		expect(screen.getAllByText('Charge of Quarters').length).toBeGreaterThan(0);
 		expect(screen.queryByText('Archived Duty')).toBeNull();
 		expect(screen.getByText(/Currently showing:/)).toBeTruthy();
-		const settingsNav = screen.getByRole('navigation', { name: 'Calendar settings controls' });
-		expect(within(settingsNav).getByRole('button', { name: /Assignment Types/ }).textContent).toContain('1');
+		const settingsNav = screen.getByRole('tablist', { name: 'Calendar settings sections' });
+		expect(within(settingsNav).getByRole('tab', { name: /Assignment Types/ }).textContent).toContain('1');
 	});
 
 	it('names the add-closure date picker by its Date label', async () => {
 		render(CalendarSettingsPage, { props: { org } });
 
-		await fireEvent.click(screen.getByRole('button', { name: /Closures/i }));
+		await fireEvent.click(screen.getByRole('tab', { name: /Closures/i }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Add new' }));
 		const dialog = screen.getByRole('dialog', { name: 'Add Closure' });
 
@@ -383,7 +397,7 @@ describe('CalendarSettingsPage', () => {
 
 		render(CalendarSettingsPage, { props: { org } });
 
-		await fireEvent.click(screen.getByRole('button', { name: /Closures/i }));
+		await fireEvent.click(screen.getByRole('tab', { name: /Closures/i }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Add new' }));
 		const dialog = screen.getByRole('dialog', { name: 'Add Closure' });
 		await fireEvent.input(within(dialog).getByLabelText('Name'), { target: { value: 'Training holiday' } });
@@ -407,8 +421,8 @@ describe('CalendarSettingsPage', () => {
 
 		render(CalendarSettingsPage, { props: { org } });
 
-		await fireEvent.click(screen.getByRole('button', { name: /Closures/i }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Edit closure' }));
+		await fireEvent.click(screen.getByRole('tab', { name: /Closures/i }));
+		await fireEvent.click(screen.getByRole('button', { name: /^Edit Training Day,/ }));
 		const dialog = screen.getByRole('dialog', { name: 'Edit Closure' });
 		await fireEvent.input(within(dialog).getByLabelText('Name'), { target: { value: 'Updated Training Day' } });
 		await fireEvent.click(within(dialog).getByRole('button', { name: 'Save Changes' }));
@@ -431,8 +445,8 @@ describe('CalendarSettingsPage', () => {
 
 		render(CalendarSettingsPage, { props: { org } });
 
-		await fireEvent.click(screen.getByRole('button', { name: /Closures/i }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Delete closure' }));
+		await fireEvent.click(screen.getByRole('tab', { name: /Closures/i }));
+		await fireEvent.click(screen.getByRole('button', { name: /^Delete Training Day,/ }));
 		const dialog = screen.getByRole('alertdialog', { name: 'Remove Special Day' });
 		await fireEvent.click(within(dialog).getByRole('button', { name: 'Remove' }));
 
@@ -445,7 +459,7 @@ describe('CalendarSettingsPage', () => {
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
 		render(CalendarSettingsPage, { props: { org } });
-		await fireEvent.click(screen.getByRole('button', { name: /Closures/i }));
+		await fireEvent.click(screen.getByRole('tab', { name: /Closures/i }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Reset Federal Holidays' }));
 		const dialog = screen.getByRole('alertdialog', { name: 'Reset Federal Holidays' });
 		await fireEvent.click(within(dialog).getByRole('button', { name: 'Reset' }));
@@ -460,7 +474,7 @@ describe('CalendarSettingsPage', () => {
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
 		render(CalendarSettingsPage, { props: { org } });
-		await fireEvent.click(screen.getByRole('button', { name: /Closures/i }));
+		await fireEvent.click(screen.getByRole('tab', { name: /Closures/i }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Reset Federal Holidays' }));
 		const dialog = screen.getByRole('alertdialog', { name: 'Reset Federal Holidays' });
 		await fireEvent.click(within(dialog).getByRole('button', { name: 'Reset' }));
@@ -476,7 +490,7 @@ describe('CalendarSettingsPage', () => {
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
 		render(CalendarSettingsPage, { props: { org } });
-		await fireEvent.click(screen.getByRole('button', { name: /Closures/i }));
+		await fireEvent.click(screen.getByRole('tab', { name: /Closures/i }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Reset Federal Holidays' }));
 		const dialog = screen.getByRole('alertdialog', { name: 'Reset Federal Holidays' });
 		await fireEvent.click(within(dialog).getByRole('button', { name: 'Reset' }));
@@ -497,7 +511,7 @@ describe('CalendarSettingsPage', () => {
 
 		render(CalendarSettingsPage, { props: { org } });
 
-		await fireEvent.click(screen.getByRole('button', { name: /Closures/i }));
+		await fireEvent.click(screen.getByRole('tab', { name: /Closures/i }));
 
 		const yearSelect = screen.getByLabelText('Year') as HTMLSelectElement;
 		expect(yearSelect.value).toBe(String(new Date().getFullYear()));
@@ -543,7 +557,7 @@ describe('CalendarSettingsPage', () => {
 			save().mockReturnValueOnce(new Promise((resolve) => (settle = resolve)));
 			const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 			render(CalendarSettingsPage, { props: { org } });
-			if (section) await fireEvent.click(screen.getByRole('button', { name: section }));
+			if (section) await fireEvent.click(screen.getByRole('tab', { name: section }));
 			await fireEvent.click(screen.getByRole('button', { name: 'Add new' }));
 			const dialog = screen.getByRole('dialog', { name: dialogName });
 			for (const [label, value] of Object.entries(draft)) {
@@ -586,7 +600,7 @@ describe('CalendarSettingsPage', () => {
 		statusTypesStoreMock.remove.mockReturnValueOnce(new Promise((resolve) => (settle = resolve)));
 		render(CalendarSettingsPage, { props: { org } });
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Delete status type' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete Leave' }));
 		const dialog = screen.getByRole('alertdialog', { name: 'Delete Status Type' });
 		await fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
 
@@ -608,7 +622,7 @@ describe('CalendarSettingsPage', () => {
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 		render(CalendarSettingsPage, { props: { org } });
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Delete status type' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete Leave' }));
 		const dialog = screen.getByRole('alertdialog', { name: 'Delete Status Type' });
 		await fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
 		expect(dialog.getAttribute('aria-busy')).toBe('true');

@@ -2,6 +2,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
+	import * as Tabs from '$lib/components/ui/tabs';
 	import type { CalendarSettingsPageAccess } from '../contracts';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
@@ -11,7 +12,6 @@
 	import CalendarClosureSettingsSection from '$features/calendar/components/CalendarClosureSettingsSection.svelte';
 	import CalendarStatusSettingsSection from '$features/calendar/components/CalendarStatusSettingsSection.svelte';
 	import CalendarOff from '@lucide/svelte/icons/calendar-off';
-	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import Palette from '@lucide/svelte/icons/palette';
 	import Plus from '@lucide/svelte/icons/plus';
 	import Search from '@lucide/svelte/icons/search';
@@ -26,9 +26,7 @@
 	const canManageConfig = $derived(configureAffordance.visible);
 	const canMutate = $derived(configureAffordance.allowed);
 
-	type Section = 'status' | 'assignments' | 'closures';
-
-	let activeSection = $state<Section>('status');
+	let activeSection = $state<string>('status');
 	let searchQuery = $state('');
 	let statusSection = $state<CalendarStatusSettingsSection>();
 	let assignmentSection = $state<CalendarAssignmentSettingsSection>();
@@ -38,21 +36,21 @@
 
 	const sectionDefs = [
 		{
-			key: 'status' as Section,
+			key: 'status',
 			label: 'Status Types',
 			description: 'Personnel availability statuses',
 			icon: Palette,
 			getCount: () => statusTypesStore.items.length
 		},
 		{
-			key: 'assignments' as Section,
+			key: 'assignments',
 			label: 'Assignment Types',
 			description: 'Duty coverage assignments',
 			icon: Users,
 			getCount: () => activeAssignmentTypes.length
 		},
 		{
-			key: 'closures' as Section,
+			key: 'closures',
 			label: 'Closures',
 			description: 'Holidays & special days',
 			icon: CalendarOff,
@@ -87,7 +85,11 @@
 		<Button href={`/org/${orgUrlSegment}/calendar`} size="sm">View calendar</Button>
 	</div>
 {:else}
-	<div class="flex min-h-[600px] flex-col overflow-hidden rounded-md border border-border bg-background lg:flex-row">
+	<Tabs.Root
+		bind:value={activeSection}
+		orientation="vertical"
+		class="min-h-[600px] flex-col gap-0 overflow-hidden rounded-md border border-border bg-background lg:flex-row"
+	>
 		<aside
 			class="flex w-full shrink-0 flex-col border-b border-border bg-muted/30 lg:w-[260px] lg:border-r lg:border-b-0"
 		>
@@ -96,35 +98,17 @@
 				<h2 class="text-sm font-semibold tracking-tight">Calendar Settings</h2>
 			</div>
 
-			<nav class="flex flex-1 flex-col gap-0.5 p-2" aria-label="Calendar settings controls">
-				{#each sectionDefs as section (section.key)}
-					<button
-						class="group flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left transition-colors {activeSection ===
-						section.key
-							? 'bg-background shadow-sm'
-							: 'hover:bg-background/60'}"
-						onclick={() => (activeSection = section.key)}
-					>
-						<section.icon
-							class="size-4 {activeSection === section.key ? 'text-foreground' : 'text-muted-foreground'}"
-						/>
-						<div class="flex flex-1 flex-col">
-							<span
-								class="text-sm font-medium {activeSection === section.key
-									? 'text-foreground'
-									: 'text-muted-foreground'}"
-							>
-								{section.label}
-							</span>
-							<span class="text-[11px] text-muted-foreground">{section.description}</span>
-						</div>
-						<Badge variant="secondary" class="ml-auto text-[10px]">{section.getCount()}</Badge>
-						{#if activeSection === section.key}
-							<ChevronRight class="size-3.5 text-muted-foreground" />
-						{/if}
-					</button>
-				{/each}
-			</nav>
+			<div class="flex-1 p-2">
+				<Tabs.List aria-label="Calendar settings sections" class="w-full">
+					{#each sectionDefs as section (section.key)}
+						<Tabs.Trigger value={section.key}>
+							<section.icon />
+							{section.label}
+							<Badge variant="secondary" class="ml-auto">{section.getCount()}</Badge>
+						</Tabs.Trigger>
+					{/each}
+				</Tabs.List>
+			</div>
 
 			<div class="border-t border-border px-4 py-3">
 				<Button variant="outline" size="sm" class="w-full" href={`/org/${orgUrlSegment}/calendar`}>
@@ -145,28 +129,35 @@
 						<Input
 							type="text"
 							placeholder="Filter..."
-							class="h-8 w-48 max-w-full pl-8 text-sm"
+							aria-label="Filter {activeSectionDef.label}"
+							class="w-48 max-w-full pl-8"
 							bind:value={searchQuery}
 						/>
 					</div>
 					{#if canMutate}
-						<Button size="sm" class="gap-1.5" onclick={openAddForActiveSection}>
-							<Plus class="size-3.5" />
+						<Button size="sm" onclick={openAddForActiveSection}>
+							<Plus />
 							Add new
 						</Button>
 					{/if}
 				</div>
 			</div>
 
-			<div class="flex-1 overflow-y-auto p-6">
+			<Tabs.Content value="status" class="overflow-y-auto p-6">
 				{#if activeSection === 'status'}
 					<CalendarStatusSettingsSection bind:this={statusSection} {canMutate} {searchQuery} />
-				{:else if activeSection === 'assignments'}
+				{/if}
+			</Tabs.Content>
+			<Tabs.Content value="assignments" class="overflow-y-auto p-6">
+				{#if activeSection === 'assignments'}
 					<CalendarAssignmentSettingsSection bind:this={assignmentSection} {canMutate} {searchQuery} />
-				{:else if activeSection === 'closures'}
+				{/if}
+			</Tabs.Content>
+			<Tabs.Content value="closures" class="overflow-y-auto p-6">
+				{#if activeSection === 'closures'}
 					<CalendarClosureSettingsSection bind:this={closureSection} {canMutate} {searchQuery} />
 				{/if}
-			</div>
+			</Tabs.Content>
 		</main>
-	</div>
+	</Tabs.Root>
 {/if}

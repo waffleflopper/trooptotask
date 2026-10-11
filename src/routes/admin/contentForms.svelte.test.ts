@@ -479,4 +479,27 @@ describe('Dashboard admitted navigation', () => {
 			else expect(screen.getByText(/Use global admin search/)).toBeTruthy();
 		}
 	);
+
+	it('gives the signup chart a canonical data table', () => {
+		render(Dashboard, {
+			props: {
+				data: {
+					...adminData('admin-a'),
+					userStats: { total: 3, last_30_days: 1 },
+					totalOrganizations: 2,
+					pendingAccessRequests: 0,
+					pendingFeedback: 0,
+					signupTrend: [{ date: '2026-10-01', count: 2 }],
+					recentActivity: []
+				}
+			}
+		});
+		const table = screen.getByRole('table', { name: 'Admin signup trend data' });
+		expect(table.dataset.slot).toBe('table');
+		expect(
+			within(table)
+				.getAllByRole('row')
+				.map((row) => row.textContent?.trim())
+		).toEqual(['Date New accounts', '2026-10-01 2']);
+	});
 });

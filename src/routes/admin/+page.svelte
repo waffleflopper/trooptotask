@@ -5,6 +5,7 @@
 	import * as Empty from '$lib/components/ui/empty';
 	import * as PageShell from '$lib/components/patterns/page-shell';
 	import { Separator } from '$lib/components/ui/separator';
+	import * as Table from '$lib/components/ui/table';
 	import { REPORT_CHART_SERIES, buildReportCountTicks } from '$lib/components/patterns/report-chart';
 	import { ReportBarChart } from '$lib/components/patterns/report-chart';
 	import { formatDisplayDateTime } from '$lib/utils/dates';
@@ -115,22 +116,22 @@
 					heightClass="h-[190px]"
 				/>
 				<div class="sr-only">
-					<table aria-label="Admin signup trend data">
-						<thead>
-							<tr>
-								<th scope="col">Date</th>
-								<th scope="col">New accounts</th>
-							</tr>
-						</thead>
-						<tbody>
+					<Table.Root aria-label="Admin signup trend data">
+						<Table.Header>
+							<Table.Row>
+								<Table.Head scope="col">Date</Table.Head>
+								<Table.Head scope="col">New accounts</Table.Head>
+							</Table.Row>
+						</Table.Header>
+						<Table.Body>
 							{#each data.signupTrend as day (day.date)}
-								<tr>
-									<td>{day.date}</td>
-									<td>{day.count}</td>
-								</tr>
+								<Table.Row>
+									<Table.Cell>{day.date}</Table.Cell>
+									<Table.Cell>{day.count}</Table.Cell>
+								</Table.Row>
 							{/each}
-						</tbody>
-					</table>
+						</Table.Body>
+					</Table.Root>
 				</div>
 			{:else}
 				<Empty.Root>

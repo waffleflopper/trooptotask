@@ -92,6 +92,18 @@ describe('IctTaskBulkImport', () => {
 		expect(
 			screen.getAllByTitle('Duplicate task code "181-105-2000" also appears on row 2 ("Task one")').length
 		).toBeGreaterThan(0);
+		const blocked = screen
+			.getAllByRole('checkbox')
+			.filter((checkbox) => checkbox.getAttribute('aria-invalid') === 'true')
+			.map((checkbox) =>
+				(checkbox.getAttribute('aria-describedby') ?? '')
+					.split(/\s+/)
+					.map((id) => document.getElementById(id)?.textContent?.trim())
+			);
+		expect(blocked).toEqual([
+			['Duplicate task code "181-105-2000" also appears on row 3 ("Task duplicate")'],
+			['Duplicate task code "181-105-2000" also appears on row 2 ("Task one")']
+		]);
 	});
 
 	it('imports checked rows and renders the created and updated summary', async () => {

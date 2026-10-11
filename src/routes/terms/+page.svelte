@@ -14,13 +14,12 @@
 </svelte:head>
 
 <PublicShell user={data.user}>
-	<PublicPageHeader label="Terms of Use">
+	<PublicPageHeader label="Terms of Use" meta="Effective Date: March 8, 2026">
 		{#snippet title()}Terms of <em>Use</em>{/snippet}
 		<p>
 			Please read these terms carefully before using TroopToTask. By accessing or using the service, you agree to be
 			bound by these terms.
 		</p>
-		<p class="page-meta">Effective Date: March 8, 2026</p>
 	</PublicPageHeader>
 
 	<PublicContentSection label="01 // Acceptance of Terms">
@@ -35,7 +34,7 @@
 		{#snippet title()}What TroopToTask provides.{/snippet}
 		<p>
 			TroopToTask is a web-based personnel management platform for military unit leaders. It provides calendar
-			management, training tracking, duty assignments, counseling records, in-processing checklists, and related tools.
+			management, training tracking, daily assignments, counseling records, in-processing checklists, and related tools.
 		</p>
 	</PublicContentSection>
 

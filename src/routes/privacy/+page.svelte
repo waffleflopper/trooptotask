@@ -14,10 +14,9 @@
 </svelte:head>
 
 <PublicShell user={data.user}>
-	<PublicPageHeader label="Privacy Policy">
+	<PublicPageHeader label="Privacy Policy" meta="Effective Date: March 8, 2026">
 		{#snippet title()}Your privacy, <em>respected.</em>{/snippet}
 		<p>TroopToTask is committed to protecting your personal information and the personnel data you entrust to us.</p>
-		<p class="page-meta">Effective Date: March 8, 2026</p>
 	</PublicPageHeader>
 
 	<PublicContentSection label="01 // Information We Collect">

@@ -23,17 +23,22 @@
 </svelte:head>
 
 <PublicShell user={data.user} active="security">
-	<PublicPageHeader label="Security">
+	<PublicPageHeader label="Security" meta="Last reviewed: May 2026">
 		{#snippet title()}Your data, <em>protected.</em>{/snippet}
 		<p>TroopToTask aligns with NIST SP 800-171 for the protection of Controlled Unclassified Information.</p>
-		<p class="page-meta">Last reviewed: May 2026</p>
 	</PublicPageHeader>
 
-	<nav class="section-index" aria-label="On this page">
-		<ul>
+	<nav class="sticky top-14 z-40 border-b border-border bg-card" aria-label="On this page">
+		<ul
+			class="mx-auto flex max-w-[780px] list-none items-stretch gap-1 overflow-x-auto px-4 [scrollbar-width:thin] max-sm:px-2"
+		>
 			{#each sections as section (section.id)}
 				<li>
-					<a href={`#${section.id}`}><span class="idx-num">{section.num}</span>{section.label}</a>
+					<a
+						href={`#${section.id}`}
+						class="inline-flex items-center gap-[0.4rem] border-b-2 border-transparent px-[0.65rem] py-[0.7rem] font-mono text-[0.6875rem] font-medium tracking-[0.08em] whitespace-nowrap text-muted-foreground uppercase no-underline transition-colors duration-[120ms] hover:border-accent hover:text-accent-text focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+						><span class="font-semibold text-accent-text">{section.num}</span>{section.label}</a
+					>
 				</li>
 			{/each}
 		</ul>
@@ -154,65 +159,3 @@
 		</p>
 	</PublicContentSection>
 </PublicShell>
-
-<style>
-	.section-index {
-		position: sticky;
-		top: 56px;
-		z-index: 40;
-		background: var(--card);
-		border-bottom: 1px solid var(--border);
-	}
-
-	.section-index ul {
-		display: flex;
-		gap: 0.25rem;
-		align-items: stretch;
-		max-width: 780px;
-		margin: 0 auto;
-		padding: 0 1rem;
-		list-style: none;
-		overflow-x: auto;
-		scrollbar-width: thin;
-	}
-
-	.section-index a {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.4rem;
-		padding: 0.7rem 0.65rem;
-		white-space: nowrap;
-		font-family: 'IBM Plex Mono', monospace;
-		font-size: 0.6875rem;
-		font-weight: 500;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		text-decoration: none;
-		color: var(--muted-foreground);
-		border-bottom: 2px solid transparent;
-		transition:
-			color var(--transition-fast),
-			border-color var(--transition-fast);
-	}
-
-	.section-index a:hover {
-		color: var(--brass-text);
-		border-bottom-color: var(--brass);
-	}
-
-	.section-index a:focus-visible {
-		outline: var(--focus-outline);
-		outline-offset: -2px;
-	}
-
-	.idx-num {
-		color: var(--brass-text);
-		font-weight: 600;
-	}
-
-	@media (max-width: 640px) {
-		.section-index ul {
-			padding-inline: 0.5rem;
-		}
-	}
-</style>

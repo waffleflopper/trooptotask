@@ -4,12 +4,14 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
+	import * as Collapsible from '$lib/components/ui/collapsible';
 	import * as Empty from '$lib/components/ui/empty';
 	import * as Field from '$lib/components/ui/field';
 	import { NativeSelect } from '$lib/components/ui/native-select';
 	import * as PageShell from '$lib/components/patterns/page-shell';
 	import * as Table from '$lib/components/ui/table';
 	import { formatDisplayDateTime } from '$lib/utils/dates';
+	import AdminPager from '$features/platform-admin/components/AdminPager.svelte';
 	import { adminBadgeVariant, formatAdminLabel } from '$features/platform-admin/components/adminTheme';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 
@@ -20,13 +22,13 @@
 		if (value) params.set(key, value);
 		else params.delete(key);
 		params.set('page', '1');
-		goto(`/admin/audit?${params.toString()}`);
+		goto(`/admin/audit?${params.toString()}`, { keepFocus: true });
 	}
 
-	function goToPage(pageNum: number) {
+	function pageHref(pageNum: number) {
 		const params = new SvelteURLSearchParams($page.url.searchParams);
 		params.set('page', pageNum.toString());
-		goto(`/admin/audit?${params.toString()}`);
+		return `/admin/audit?${params.toString()}`;
 	}
 
 	const totalPages = $derived(Math.ceil(data.totalCount / data.limit));
@@ -143,15 +145,28 @@
 							</Table.Cell>
 							<Table.Cell>
 								{#if log.details && Object.keys(log.details).length > 0}
-									<details>
-										<summary class="cursor-pointer text-xs font-medium text-muted-foreground uppercase">View</summary>
-										<pre
-											class="mt-2 max-w-96 overflow-auto rounded-md border bg-muted p-3 text-xs text-muted-foreground">{JSON.stringify(
-												log.details,
-												null,
-												2
-											)}</pre>
-									</details>
+									<Collapsible.Root>
+										<Collapsible.Trigger>
+											{#snippet child({ props })}
+												<Button
+													{...props}
+													variant="ghost"
+													size="xs"
+													aria-label={`View details for ${formatAdminLabel(log.action)} at ${formatDisplayDateTime(log.createdAt)}`}
+												>
+													View details
+												</Button>
+											{/snippet}
+										</Collapsible.Trigger>
+										<Collapsible.Content>
+											<pre
+												class="mt-2 max-w-96 overflow-auto rounded-md border bg-muted p-3 text-xs text-muted-foreground">{JSON.stringify(
+													log.details,
+													null,
+													2
+												)}</pre>
+										</Collapsible.Content>
+									</Collapsible.Root>
 								{:else}
 									<span class="text-muted-foreground">-</span>
 								{/if}
@@ -173,15 +188,5 @@
 		</div>
 	</Card.Root>
 
-	{#if totalPages > 1}
-		<div class="flex flex-wrap items-center justify-end gap-3 text-sm text-muted-foreground">
-			<Button variant="outline" size="sm" disabled={data.page <= 1} onclick={() => goToPage(data.page - 1)}>
-				Previous
-			</Button>
-			<span>Page {data.page} of {totalPages}</span>
-			<Button variant="outline" size="sm" disabled={data.page >= totalPages} onclick={() => goToPage(data.page + 1)}>
-				Next
-			</Button>
-		</div>
-	{/if}
+	<AdminPager page={data.page} {totalPages} {pageHref} />
 </PageShell.Root>

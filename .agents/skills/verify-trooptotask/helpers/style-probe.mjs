@@ -111,16 +111,29 @@ export function readStyleProbe(target, selectors, properties, limit) {
 	};
 }
 
-// Elements pair by selector and index. A changed count, text or attribute shows the page
-// state differed or a role/name changed; a changed style property shows a visual change.
+// Extra selectors add to the defaults; a repeated selector is read once.
+export function resolveStyleSelectors(extras = []) {
+	return [...new Set([...defaultStyleSelectors, ...extras])];
+}
+
+// Reads from a different page, viewport or theme are not comparable, so those differences
+// come first. Elements pair by selector and index. A selector read by only one side, a changed
+// count, text or attribute shows the page state differed or a role/name changed; a changed
+// style property shows a visual change.
 export function diffStyleProbes(before, after, { ignoreAttributes = [] } = {}) {
 	const differences = [];
 	const note = (selector, index, field, was, now) => differences.push({ selector, index, field, was, now });
+	const path = (probe) => probe.url?.split('?')[0];
+	const size = (probe) => (probe.viewport ? `${probe.viewport.width}x${probe.viewport.height}` : undefined);
+	if (path(before) !== path(after)) note(null, null, 'url', path(before), path(after));
+	if (size(before) !== size(after)) note(null, null, 'viewport', size(before), size(after));
+	if (before.theme !== after.theme) note(null, null, 'theme', before.theme, after.theme);
 	const byselector = new Map(after.selectors.map((entry) => [entry.selector, entry]));
+	const known = new Set(before.selectors.map((entry) => entry.selector));
 	for (const entry of before.selectors) {
 		const other = byselector.get(entry.selector);
 		if (!other) {
-			note(entry.selector, null, 'selector', 'present', 'absent');
+			note(entry.selector, null, 'selector-removed', 'present', 'absent');
 			continue;
 		}
 		if (entry.count !== other.count) note(entry.selector, null, 'count', entry.count, other.count);
@@ -141,5 +154,7 @@ export function diffStyleProbes(before, after, { ignoreAttributes = [] } = {}) {
 				if (a.style[key] !== b.style[key]) note(entry.selector, i, `style:${key}`, a.style[key], b.style[key]);
 		}
 	}
+	for (const entry of after.selectors)
+		if (!known.has(entry.selector)) note(entry.selector, null, 'selector-added', 'absent', 'present');
 	return differences;
 }

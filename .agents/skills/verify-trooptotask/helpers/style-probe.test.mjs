@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { Window } from 'happy-dom';
-import { diffStyleProbes, readStyleProbe, styleProperties } from './style-probe.mjs';
+import {
+	defaultStyleSelectors,
+	diffStyleProbes,
+	readStyleProbe,
+	resolveStyleSelectors,
+	styleProperties
+} from './style-probe.mjs';
 
 function page(css, html) {
 	const window = new Window({ width: 390, height: 844 });
@@ -64,9 +70,41 @@ test('diff is empty for identical reads and names each changed style, role, text
 	assert.deepEqual(fields.sort(), ['0:attr:role', '0:role', '0:style:color', '1:text', 'null:count'].sort());
 });
 
-test('diff reports a selector missing from the later read', () => {
-	const before = { selectors: [{ selector: 'main', count: 1, elements: [] }] };
-	assert.deepEqual(diffStyleProbes(before, { selectors: [] }), [
-		{ selector: 'main', index: null, field: 'selector', was: 'present', now: 'absent' }
+test('diff reports a selector read by only one side in either direction', () => {
+	const entry = (selector) => ({ selector, count: 1, elements: [] });
+	const differences = diffStyleProbes(
+		{ selectors: [entry('main'), entry('details')] },
+		{ selectors: [entry('main'), entry('summary')] }
+	);
+	assert.deepEqual(differences, [
+		{ selector: 'details', index: null, field: 'selector-removed', was: 'present', now: 'absent' },
+		{ selector: 'summary', index: null, field: 'selector-added', was: 'absent', now: 'present' }
 	]);
+});
+
+test('diff reports a different page path, viewport or theme before any element difference', () => {
+	const probe = (url, width, theme, count) => ({
+		url,
+		viewport: { width, height: 800 },
+		theme,
+		selectors: [{ selector: 'main', count, elements: [] }]
+	});
+	assert.deepEqual(
+		diffStyleProbes(probe('/org/a/training?tab=1', 1280, 'light', 1), probe('/org/a/training?tab=2', 1280, 'light', 1)),
+		[]
+	);
+	assert.deepEqual(
+		diffStyleProbes(probe('/org/a/training', 1280, 'light', 1), probe('/org/a/personnel', 390, 'dark', 2)),
+		[
+			{ selector: null, index: null, field: 'url', was: '/org/a/training', now: '/org/a/personnel' },
+			{ selector: null, index: null, field: 'viewport', was: '1280x800', now: '390x800' },
+			{ selector: null, index: null, field: 'theme', was: 'light', now: 'dark' },
+			{ selector: 'main', index: null, field: 'count', was: 1, now: 2 }
+		]
+	);
+});
+
+test('extra selectors extend the defaults instead of replacing them', () => {
+	assert.deepEqual(resolveStyleSelectors(), defaultStyleSelectors);
+	assert.deepEqual(resolveStyleSelectors(['.mine', 'main', '.mine']), [...defaultStyleSelectors, '.mine']);
 });

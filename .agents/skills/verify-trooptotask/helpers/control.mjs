@@ -23,7 +23,7 @@ import { requestSettings } from './settings-request.mjs';
 import { seedDeletionSources, requestDeletion, requestPersonnelArchiveBatch } from './deletion-requests.mjs';
 import { requestOnboarding, readOnboardingRequests } from './onboarding-request.mjs';
 import { installFeedbackControl } from './feedback-control.mjs';
-import { readStyleProbe, diffStyleProbes, styleProperties, defaultStyleSelectors } from './style-probe.mjs';
+import { readStyleProbe, diffStyleProbes, styleProperties, resolveStyleSelectors } from './style-probe.mjs';
 import { observePrint } from './print-observation.mjs';
 import { seedPersonnelRetention, readRetentionFiles } from './personnel-retention.mjs';
 import { seedArtifactRetention } from './artifact-retention.mjs';
@@ -2636,7 +2636,7 @@ async function main() {
 			pageId,
 			`() => {
 				if (location.origin !== ${JSON.stringify(doctor.origin)}) throw new Error('Use an owned app page');
-				return (${readStyleProbe.toString()})(window, ${JSON.stringify(selectors.length ? selectors : defaultStyleSelectors)}, ${JSON.stringify(styleProperties)}, 200);
+				return (${readStyleProbe.toString()})(window, ${JSON.stringify(resolveStyleSelectors(selectors))}, ${JSON.stringify(styleProperties)}, 200);
 			}`
 		);
 		await fs.mkdir(path.dirname(target), { recursive: true });

@@ -6,6 +6,8 @@ All historical links below pin commit `dbd501301df350ef4e6cebb6bc1238283b24d9c9`
 
 ## Phase 10 D04 #1602
 
+**Accepted and merged.** D04 [#1602](https://github.com/waffleflopper/trooptotask/issues/1602), task `10-04`, merged as one PR, [#1615](https://github.com/waffleflopper/trooptotask/pull/1615), squashed to `ef7f9baf` on 2026-10-10. Its exact head `a98a6053` passed all 7 CI checks, CodeRabbit approved, every review thread was resolved, and independent acceptance round 2 accepted it; #1602 closed on merge. The baseline, final run, acceptance rounds and checks below are its complete record.
+
 **Unchanged-application baseline (verification preparation; no application change).** D04 [#1602](https://github.com/waffleflopper/trooptotask/issues/1602): Dashboard and Training on the canonical UI foundation. Recipes, one seed and the unchanged-app baseline only. Tested revision `3cf35215e` (main, application source unchanged), candidate digest `c81a491d` (`c81a491d860635ca267d38b5e2c85b75b1a33312902f0e949a6b1fc435aacd5b`), worker 1, origin `http://127.0.0.1:39129`, Chromium 152.0.7977.82. Actors: `dashboardView`, `dashboardScoped`, `dashboardEmpty`, `dashboardNone`, `dashboardForeign`, `dashboardSwitch`, `trainingConfigure`, `trainingEmpty`, `viewer`, and for the in-page restricted attempt `rosterScoped`, `trainingScoped`, `trainingScopedConfig`, `trainingOperate`, `trainingView`, `trainingForeign`, `rosterViewer`. Failure steps used the synthetic 503 from `network arm-fail` and `server-source fail-hard`, which prove client recovery only. Final doctor, `clean-seeds` and owned cleanup passed.
 
 | Item         | Result and limits                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -95,7 +97,7 @@ Independent acceptance (gpt-6.1-sol) on `cc6db0e8` (digest `576e634d`, worker 2,
 - Every risk column header has `scope="col"` and every type row header `scope="row"`.
 - Enter then Space on `Name` sorts descending then ascending with `aria-sort` on the `th` and focus kept.
 
-Final doctor, `clean-seeds` and owned cleanup passed. Archive [`1602-acceptance.tar.gz`](https://github.com/waffleflopper/trooptotask/releases/download/evidence/1602-acceptance.tar.gz), SHA-256 `b173848d3b91c00982beca904f05765cd9bfb0a411aca20c7883b3542dad5799`, 69 payload files plus `INVENTORY.sha256`, re-downloaded and verified; checkout paths are replaced with `<checkout>`. `e771f65c` was not driven live; its two tests are the proof. Its own receipts also record a passing focused Vitest run (67 files, 641 tests) and `inventory:ui -- --check`.
+Final doctor, `clean-seeds` and owned cleanup passed. Archive [`1602-acceptance.tar.gz`](https://github.com/waffleflopper/trooptotask/releases/download/evidence/1602-acceptance.tar.gz), SHA-256 `b173848d3b91c00982beca904f05765cd9bfb0a411aca20c7883b3542dad5799`, 69 payload files plus `INVENTORY.sha256`, re-downloaded and verified; checkout paths are replaced with `<checkout>`. Its own receipts also record a passing focused Vitest run (67 files, 641 tests) and `inventory:ui -- --check`.
 
 The migration and deletion map:
 
@@ -111,7 +113,14 @@ The carried-over UNRUN journeys keep their baseline observation because the D04 
 - **Unchanged code.** Excel export, Sign-In Rosters, deletion-request approval, B isolation, Group-scoped writes, `trainingSwitch` timing, the starter-pack endpoint, and Dashboard sources, scope and navigation. Their policies, endpoints, load functions and export builder are untouched. The only change near them is the Export reason text.
 - **Print cohorts.** The Dense, Short and Empty cohorts changed only by an `aria-label` on each print table; the layouts and pagination are unchanged.
 
-Exact-head CI runs on the PR.
+**Acceptance round 2.** gpt-6.1-sol accepted PR head `a98a6053` with no blocking item. Exact-head CI passed: application CI, Select checks, CodeRabbit and both Vercel checks; Database contracts and `claude` were skipped. It reran the Svelte autofixer on the 19 changed components (0 issues) and confirmed the deletion map, the empty shared-family diff and the reuse justification against source. It drove `e771f65c` on `246a7ea7` (digest `419593e8`, worker 2, origin `http://127.0.0.1:43399`, Chromium 152.0.7977.82, actor `trainingConfigure`) at 1280x800 light and 390x844 dark:
+
+- A failed import request shows `Import failed`, focuses the enabled `Import`, and keeps all 15 cell values, the edited note and the selection.
+- A blank Views Save shows `Name is required.` with its `aria-invalid` and `aria-describedby`; typing a name removes the message, the invalid state and the description.
+
+The only later commit, `a98a6053`, changes recipe wording, so those observations stand under `246a7ea7`. Final doctor, `clean-seeds` and owned cleanup passed, and no Training row or view was saved. Archive [`1602-acceptance-r2.tar.gz`](https://github.com/waffleflopper/trooptotask/releases/download/evidence/1602-acceptance-r2.tar.gz), SHA-256 `b989326ea17745be8ae30dac1df33fb4cdc24ec3349eeeede1b7cfd5b158a6df`, 104 payload files plus `INVENTORY.sha256`, re-downloaded and verified; local paths are replaced with placeholders. The Export reason not tied by `aria-describedby` stays a Low, non-blocking observation.
+
+The `throwRenderError` stuck-loading defect outside D04 is routed to its owners on [#1283](https://github.com/waffleflopper/trooptotask/issues/1283#issuecomment-6104246343).
 
 ## Phase 10 D02 #1600
 

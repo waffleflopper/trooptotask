@@ -497,7 +497,11 @@ describe('Dashboard admitted navigation', () => {
 			}
 		});
 		const table = screen.getByRole('table', { name: 'Admin signup trend data' });
-		expect(table.dataset.slot).toBe('table');
+		expect(
+			within(table)
+				.getAllByRole('columnheader')
+				.map((header) => header.textContent?.trim())
+		).toEqual(['Date', 'New accounts']);
 		expect(
 			within(table)
 				.getAllByRole('row')

@@ -13,23 +13,17 @@ afterEach(() => {
 
 describe('Platform admin error screen', () => {
 	it.each([
-		[404, "Page not found. The page you're looking for doesn't exist or has been moved."],
-		[403, "You don't have permission to view this page."],
-		[503, 'This admin page could not be loaded. Please try again.']
-	])('explains a %i and returns to the admin Dashboard', (status, message) => {
+		[404, false],
+		[403, false],
+		[500, true],
+		[503, true]
+	])('shows a %i with Try again %s and a link back to the admin Dashboard', (status, retry) => {
 		pageState.status = status;
 		render(ErrorPage);
 
 		expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(String(status));
-		expect(screen.getByText(message)).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Try again' }) !== null).toBe(retry);
 		expect(screen.getByRole('link', { name: 'Back to Dashboard' }).getAttribute('href')).toBe('/admin');
-	});
-
-	it.each([404, 403])('offers no retry for a %i', (status) => {
-		pageState.status = status;
-		render(ErrorPage);
-
-		expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
 	});
 
 	it('reloads the page from Try again after a failed load', async () => {

@@ -51,7 +51,7 @@ External packages are classified at the import boundary; the checker does not cr
 
 `scripts/ui-foundation.test.ts` exercises accepted and rejected Svelte and TypeScript fixtures for each rule through `checkModuleBoundaries`.
 
-The rerunnable [Phase 10 consumer inventory](../stabilization/phase-10-inventory.md) (`npm run inventory:ui`) is a migration report, not a gate. It lists every tracked `.svelte` file and every `ui`/`patterns` importer with its packet, family imports, raw controls, `<style>` blocks, `var(--…)` references and hex literals. `npm run inventory:ui -- --check` reports a stale copy.
+The rerunnable [Phase 10 consumer inventory](../stabilization/phase-10-inventory.md) (`npm run inventory:ui`) is a migration report, not a gate. It lists every tracked `.svelte` file and every `ui`/`patterns` importer with its packet, family imports, raw controls, `<style>` blocks, `var(--…)` references and hex literals. Each row's disposition is `complete`, `test support` (classified by path), `native` (its exact candidates are recorded with a behavioral reason in the script's `NATIVE_EXCEPTIONS`) or **OPEN**, and the summary counts open rows per packet. `npm run inventory:ui -- --check` reports a stale copy; it does not fail on open rows, because a native exception records a reason rather than an allowlist entry.
 
 ## No exception file
 

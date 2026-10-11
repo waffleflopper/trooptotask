@@ -10,6 +10,11 @@ type Source = { path: string; content: string };
 type Edge = { from: string; to?: string; classification: string };
 type Area = 'app' | 'admin' | 'public' | 'shared';
 type Packet = `10-0${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9}` | 'foundation' | 'unclassified';
+type Disposition =
+	| { kind: 'complete' }
+	| { kind: 'test support' }
+	| { kind: 'native'; reason: string }
+	| { kind: 'open' };
 type Row = {
 	file: string;
 	area: Area;
@@ -19,7 +24,9 @@ type Row = {
 	styleBlocks: number;
 	cssVariables: Record<string, number>;
 	hexLiterals: number;
+	disposition: Disposition;
 };
+type NativeException = { covers: Record<string, number>; reason: string };
 
 const OUTPUT = 'docs/stabilization/phase-10-inventory.md';
 const SOURCE_FILE = /\.(?:[cm]?[jt]sx?|svelte)$/;
@@ -85,6 +92,64 @@ const CONTROL_MAPPING: [string, string][] = [
 	['#hex', 'Shared color tokens from `src/app.css`']
 ];
 
+/** Harnesses, stubs and fixtures that only tests mount or import. */
+const TEST_SUPPORT =
+	/(?:^|\/)(?:test-support|test-stubs|__tests__)\/|(?:Test|Stub)\.svelte$|\.(?:test|spec|test-support)\./;
+
+const CALENDAR_GRID =
+	'Grid geometry, not a skin: Calendar sets the cell and personnel-column widths per breakpoint and the date count from data, and the header, rows, group headers and cells size from them.';
+const COLOR_INPUT_DEFAULT = 'Default value of a native color input, which accepts only `#rrggbb`.';
+const PRINT_TABLE = 'Print layout: a native `table` paginates and repeats its heading row on each printed page.';
+
+/**
+ * Candidates kept for a behavioral reason. `covers` is the row's exact candidate signature; a row whose
+ * candidates differ in any way (a new control, a changed count) is open.
+ */
+const NATIVE_EXCEPTIONS: Record<string, NativeException> = {
+	'src/features/calendar/components/Calendar.svelte': {
+		covers: { '--calendar-cell-width': 1, '--calendar-personnel-column-width': 1, '--dates-count': 1 },
+		reason: CALENDAR_GRID
+	},
+	'src/features/calendar/components/CalendarAssignmentSettingsSection.svelte': {
+		covers: { '#hex': 1 },
+		reason: COLOR_INPUT_DEFAULT
+	},
+	'src/features/calendar/components/CalendarHeader.svelte': {
+		covers: { '--calendar-cell-width': 3, '--calendar-personnel-column-width': 2, '--dates-count': 2 },
+		reason: CALENDAR_GRID
+	},
+	'src/features/calendar/components/CalendarRow.svelte': {
+		covers: { '--calendar-cell-width': 2, '--calendar-personnel-column-width': 2, '--dates-count': 2 },
+		reason: CALENDAR_GRID
+	},
+	'src/features/calendar/components/CalendarStatusSettingsSection.svelte': {
+		covers: { '#hex': 2 },
+		reason: COLOR_INPUT_DEFAULT
+	},
+	'src/features/calendar/components/date-cell/date-cell.svelte': {
+		covers: { button: 1, '--calendar-cell-width': 1 },
+		reason:
+			'A month remounts 651+ cells on every navigation, and the `ui/button` wrapper slowed load and navigation; the cell width is the Calendar grid geometry.'
+	},
+	'src/features/calendar/components/GroupHeader.svelte': {
+		covers: { '--calendar-cell-width': 1, '--calendar-personnel-column-width': 3, '--dates-count': 1 },
+		reason: CALENDAR_GRID
+	},
+	'src/features/calendar/components/LongRangeView.svelte': {
+		covers: {
+			'--calendar-personnel-column-width': 5,
+			'--long-range-col-width': 6,
+			'--long-range-group-row-height': 3,
+			'--long-range-person-row-height': 3
+		},
+		reason:
+			'Grid geometry, not a skin: the row heights and column width are the values the row virtualizer positions with.'
+	},
+	'src/features/training/components/TrainingPrintBrief.svelte': { covers: { table: 1 }, reason: PRINT_TABLE },
+	'src/features/training/components/TrainingPrintDetail.svelte': { covers: { table: 1 }, reason: PRINT_TABLE },
+	'src/features/training/components/TrainingPrintMatrix.svelte': { covers: { table: 1 }, reason: PRINT_TABLE }
+};
+
 const NON_CONTROL_INPUTS = new Set(['hidden', 'submit', 'button', 'reset', 'image']);
 
 function classify<T>(file: string, rules: [RegExp, T][], fallback: T): T {
@@ -132,7 +197,32 @@ function countMatches(content: string, pattern: RegExp): Record<string, number> 
 	return counts;
 }
 
-function buildInventory(sources: Source[], edges: Edge[]) {
+const list = (counts: Record<string, number>) =>
+	Object.entries(counts)
+		.sort(([left], [right]) => left.localeCompare(right))
+		.map(([key, count]) => `\`${key}\`×${count}`)
+		.join(', ');
+
+function candidates(row: Omit<Row, 'disposition'>): Record<string, number> {
+	return {
+		...row.controls,
+		...(row.styleBlocks ? { '<style>': row.styleBlocks } : {}),
+		...row.cssVariables,
+		...(row.hexLiterals ? { '#hex': row.hexLiterals } : {})
+	};
+}
+
+function dispose(row: Omit<Row, 'disposition'>, exceptions: Record<string, NativeException>): Disposition {
+	if (TEST_SUPPORT.test(row.file)) return { kind: 'test support' };
+	const signature = list(candidates(row));
+	if (!signature) return { kind: 'complete' };
+	const exception = exceptions[row.file];
+	return exception && list(exception.covers) === signature
+		? { kind: 'native', reason: exception.reason }
+		: { kind: 'open' };
+}
+
+function buildInventory(sources: Source[], edges: Edge[], exceptions = NATIVE_EXCEPTIONS) {
 	const familySet = new Set<string>();
 	for (const { path: file } of sources) {
 		const match = file.match(FAMILY);
@@ -147,12 +237,12 @@ function buildInventory(sources: Source[], edges: Edge[]) {
 	}
 	const rows: Row[] = sources
 		.filter(({ path: file }) => file.endsWith('.svelte') || consumers.has(file))
-		.map(({ path: file, content }) => {
+		.map(({ path: file, content }): Row => {
 			const packet = classify<Packet>(file, PACKET_RULES, 'unclassified');
 			const scanned = packet !== 'foundation';
 			const template =
 				scanned && file.endsWith('.svelte') ? scanTemplate(file, content) : { controls: {}, styleBlocks: 0 };
-			return {
+			const row = {
 				file,
 				area: classify<Area>(file, AREA_RULES, 'app'),
 				packet,
@@ -163,22 +253,28 @@ function buildInventory(sources: Source[], edges: Edge[]) {
 					? (content.match(/(?<![&\w#])#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})\b/g)?.length ?? 0)
 					: 0
 			};
+			return { ...row, disposition: dispose(row, exceptions) };
 		})
 		.sort((left, right) => left.file.localeCompare(right.file));
-	return { rows, families: [...familySet].sort() };
+	const unusedExceptions = Object.keys(exceptions).filter(
+		(file) => !rows.some((row) => row.file === file && ['native', 'open'].includes(row.disposition.kind))
+	);
+	return { rows, families: [...familySet].sort(), unusedExceptions };
 }
 
 const sum = (values: number[]) => values.reduce((total, value) => total + value, 0);
 const total = (counts: Record<string, number>) => sum(Object.values(counts));
-const list = (counts: Record<string, number>) =>
-	Object.entries(counts)
-		.sort(([left], [right]) => left.localeCompare(right))
-		.map(([key, count]) => `\`${key}\`×${count}`)
-		.join(', ');
 const cell = (value: string) => value.replaceAll('|', '\\|') || '·';
-const findings = (row: Row) => total(row.controls) + row.styleBlocks + total(row.cssVariables) + row.hexLiterals;
+const findings = (row: Row) => total(candidates(row));
+const isOpen = (row: Row) => row.disposition.kind === 'open';
+const disposition = ({ disposition }: Row) =>
+	disposition.kind === 'native'
+		? `native: ${disposition.reason}`
+		: disposition.kind === 'open'
+			? '**OPEN**'
+			: disposition.kind;
 
-function renderInventory({ rows, families }: ReturnType<typeof buildInventory>): string {
+function renderInventory({ rows, families, unusedExceptions }: ReturnType<typeof buildInventory>): string {
 	const packets = [...new Set(rows.map((row) => row.packet))].sort();
 	const lines = [
 		'# Phase 10 consumer inventory',
@@ -189,21 +285,23 @@ function renderInventory({ rows, families }: ReturnType<typeof buildInventory>):
 		'',
 		'Counts are migration candidates, not findings of the governance gate. `foundation` rows are the `components/ui` primitives themselves; their native elements are the canonical implementation and are not counted. Raw controls are template elements outside `ui`; `<input type="hidden">` is not a control and `submit`/`button`/`reset` inputs count as buttons.',
 		'',
+		"Each row has a disposition. `complete` has no candidates. `test support` is a harness, stub or fixture that only tests mount or import, classified by path. `native` keeps exactly the candidates recorded with its behavioral reason in the script's `NATIVE_EXCEPTIONS`. **OPEN** is any other row with candidates, including a recorded row whose candidates changed.",
+		'',
 		'## Summary',
 		'',
-		'| Packet | Files | Files with candidates | Raw controls | `<style>` blocks | `var(--…)` | Hex literals |',
-		'| ------ | ----: | --------------------: | -----------: | ---------------: | ---------: | -----------: |'
+		'| Packet | Files | Files with candidates | Raw controls | `<style>` blocks | `var(--…)` | Hex literals | Open rows |',
+		'| ------ | ----: | --------------------: | -----------: | ---------------: | ---------: | -----------: | --------: |'
 	];
 	for (const packet of packets) {
 		const owned = rows.filter((row) => row.packet === packet);
 		lines.push(
-			`| ${packet} | ${owned.length} | ${owned.filter((row) => findings(row) > 0).length} | ${sum(owned.map((row) => total(row.controls)))} | ${sum(owned.map((row) => row.styleBlocks))} | ${sum(owned.map((row) => total(row.cssVariables)))} | ${sum(owned.map((row) => row.hexLiterals))} |`
+			`| ${packet} | ${owned.length} | ${owned.filter((row) => findings(row) > 0).length} | ${sum(owned.map((row) => total(row.controls)))} | ${sum(owned.map((row) => row.styleBlocks))} | ${sum(owned.map((row) => total(row.cssVariables)))} | ${sum(owned.map((row) => row.hexLiterals))} | ${owned.filter(isOpen).length} |`
 		);
 	}
 	const unclassified = rows.filter((row) => row.packet === 'unclassified');
 	lines.push(
 		'',
-		`Unclassified rows: ${unclassified.length}.`,
+		`Open rows: ${rows.filter(isOpen).length}. Unclassified rows: ${unclassified.length}. Unused native exceptions: ${unusedExceptions.length}${unusedExceptions.length ? ` (${unusedExceptions.map((file) => `\`${file}\``).join(', ')})` : ''}.`,
 		'',
 		'## Control mapping',
 		'',
@@ -234,12 +332,12 @@ function renderInventory({ rows, families }: ReturnType<typeof buildInventory>):
 			'',
 			`## ${packet}`,
 			'',
-			'| File | Area | Families | Raw controls | `<style>` | `var(--…)` | Hex |',
-			'| ---- | ---- | -------- | ------------ | --------: | ---------- | --: |'
+			'| File | Area | Families | Raw controls | `<style>` | `var(--…)` | Hex | Disposition |',
+			'| ---- | ---- | -------- | ------------ | --------: | ---------- | --: | ----------- |'
 		);
 		for (const row of rows.filter((item) => item.packet === packet)) {
 			lines.push(
-				`| \`${row.file}\` | ${row.area} | ${cell(row.families.map((family) => `\`${family}\``).join(', '))} | ${cell(list(row.controls))} | ${row.styleBlocks || '·'} | ${cell(list(row.cssVariables))} | ${row.hexLiterals || '·'} |`
+				`| \`${row.file}\` | ${row.area} | ${cell(row.families.map((family) => `\`${family}\``).join(', '))} | ${cell(list(row.controls))} | ${row.styleBlocks || '·'} | ${cell(list(row.cssVariables))} | ${row.hexLiterals || '·'} | ${cell(disposition(row))} |`
 			);
 		}
 	}

@@ -300,6 +300,7 @@ describe('SignInRosterModal', () => {
 			expect(screen.getByText('Sign-in rosters are unavailable.')).toBeTruthy();
 		});
 
+		expect(screen.getByRole('alert').textContent).toContain('Sign-in rosters are unavailable.');
 		expect(screen.getByText('No sign-in rosters yet.')).toBeTruthy();
 	});
 
@@ -724,6 +725,45 @@ describe('SignInRosterModal', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'PO2' }));
 
 		expect(screen.getByRole('button', { name: 'Reset filters' })).toBeTruthy();
+	});
+
+	it('discloses one saved roster at a time through a trigger that names its panel', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () =>
+				jsonResponse({
+					rosters: [makeRoster(), makeRoster({ id: 'roster-2', title: 'Evening Formation' })],
+					total: 2
+				})
+			)
+		);
+
+		renderModal();
+
+		const morning = await screen.findByRole('button', { name: /Morning Formation/i });
+		const evening = screen.getByRole('button', { name: /Evening Formation/i });
+		expect(morning.getAttribute('aria-expanded')).toBe('false');
+		expect(screen.queryByRole('button', { name: 'Re-print' })).toBeNull();
+
+		await fireEvent.click(morning);
+
+		expect(morning.getAttribute('aria-expanded')).toBe('true');
+		expect(morning.textContent).toContain('Hide');
+		const panelId = morning.getAttribute('aria-controls');
+		expect(panelId).toBeTruthy();
+		expect(document.getElementById(panelId!)?.textContent).toContain('Created');
+		expect(screen.getAllByRole('button', { name: 'Re-print' })).toHaveLength(1);
+
+		await fireEvent.click(evening);
+
+		expect(morning.getAttribute('aria-expanded')).toBe('false');
+		expect(evening.getAttribute('aria-expanded')).toBe('true');
+		expect(screen.getAllByRole('button', { name: 'Re-print' })).toHaveLength(1);
+
+		await fireEvent.click(evening);
+
+		expect(evening.getAttribute('aria-expanded')).toBe('false');
+		expect(screen.queryByRole('button', { name: 'Re-print' })).toBeNull();
 	});
 
 	it('uploads a signed roster scan through the shadcn file input and shows selected-file progress', async () => {

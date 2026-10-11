@@ -6,7 +6,9 @@
 	import type { RankCatalogEntry } from '$features/personnel/contracts';
 	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import { Button } from '$lib/components/ui/button';
-	import { Label } from '$lib/components/ui/label';
+	import * as Alert from '$lib/components/ui/alert';
+	import * as Card from '$lib/components/ui/card';
+	import * as Field from '$lib/components/ui/field';
 	import * as Select from '$lib/components/ui/select';
 	import { Spinner } from '$lib/components/ui/spinner';
 
@@ -80,20 +82,24 @@
 
 			<AppDialog.Body>
 				<div class="flex flex-col gap-3">
-					<div class="grid gap-2 rounded-lg border bg-card p-3">
-						<Label for="switch-template-select">New Template</Label>
-						<Select.Root type="single" bind:value={ctx.switchTemplateSelected}>
-							<Select.Trigger id="switch-template-select" class="w-full">{switchTemplateLabel}</Select.Trigger>
-							<Select.Content>
-								{#each ctx.templates as t (t.id)}
-									<Select.Item value={t.id} label={t.name} />
-								{/each}
-							</Select.Content>
-						</Select.Root>
-					</div>
+					<Card.Root class="p-3">
+						<Field.Root>
+							<Field.Label for="switch-template-select">New Template</Field.Label>
+							<Select.Root type="single" bind:value={ctx.switchTemplateSelected}>
+								<Select.Trigger id="switch-template-select" class="w-full">{switchTemplateLabel}</Select.Trigger>
+								<Select.Content>
+									{#each ctx.templates as t (t.id)}
+										<Select.Item value={t.id} label={t.name} />
+									{/each}
+								</Select.Content>
+							</Select.Root>
+						</Field.Root>
+					</Card.Root>
 
 					{#if ctx.switchTemplateError}
-						<p class="m-0 text-sm text-destructive">{ctx.switchTemplateError}</p>
+						<Alert.Root variant="destructive">
+							<Alert.Description>{ctx.switchTemplateError}</Alert.Description>
+						</Alert.Root>
 					{/if}
 				</div>
 			</AppDialog.Body>
@@ -126,20 +132,24 @@
 
 			<AppDialog.Body>
 				<div class="flex flex-col gap-3">
-					<div class="grid gap-2 rounded-lg border bg-card p-3">
-						<Label for="assign-template-select">Template</Label>
-						<Select.Root type="single" bind:value={ctx.assignTemplateSelected}>
-							<Select.Trigger id="assign-template-select" class="w-full">{assignTemplateLabel}</Select.Trigger>
-							<Select.Content>
-								{#each ctx.templates as t (t.id)}
-									<Select.Item value={t.id} label={t.name} />
-								{/each}
-							</Select.Content>
-						</Select.Root>
-					</div>
+					<Card.Root class="p-3">
+						<Field.Root>
+							<Field.Label for="assign-template-select">Template</Field.Label>
+							<Select.Root type="single" bind:value={ctx.assignTemplateSelected}>
+								<Select.Trigger id="assign-template-select" class="w-full">{assignTemplateLabel}</Select.Trigger>
+								<Select.Content>
+									{#each ctx.templates as t (t.id)}
+										<Select.Item value={t.id} label={t.name} />
+									{/each}
+								</Select.Content>
+							</Select.Root>
+						</Field.Root>
+					</Card.Root>
 
 					{#if ctx.assignTemplateError}
-						<p class="m-0 text-sm text-destructive">{ctx.assignTemplateError}</p>
+						<Alert.Root variant="destructive">
+							<Alert.Description>{ctx.assignTemplateError}</Alert.Description>
+						</Alert.Root>
 					{/if}
 				</div>
 			</AppDialog.Body>

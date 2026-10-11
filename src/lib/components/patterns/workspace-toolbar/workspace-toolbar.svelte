@@ -58,7 +58,7 @@
 			padding-inline: 0.375rem;
 		}
 
-		:global([data-slot='workspace-toolbar'] [data-workspace-toolbar-action-label]) {
+		:global([data-slot='workspace-toolbar'] [data-workspace-toolbar-action-label]:not(:only-child)) {
 			display: none;
 		}
 

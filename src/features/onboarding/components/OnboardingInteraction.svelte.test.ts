@@ -113,6 +113,11 @@ afterEach(async () => {
 });
 
 describe('Onboarding retained interactions', () => {
+	it('does not render its own main landmark inside the app shell', () => {
+		mount();
+		expect(screen.queryByRole('main')).toBeNull();
+	});
+
 	it('disables Start when no template steps are available', () => {
 		onboardingTemplateStore.load(onboardingTemplateStore.templates, [], 'org-1');
 		mount();
@@ -143,6 +148,137 @@ describe('Onboarding retained interactions', () => {
 		expect(await screen.findByText('Finance packet')).toBeTruthy();
 		expect(screen.getByText('Removed')).toBeTruthy();
 		expect(screen.queryByRole('group', { name: 'Finance packet paperwork stages' })).toBeNull();
+	});
+
+	it('names the step in the Remove control of an inactive incomplete step', async () => {
+		onboardingStore.load(
+			[{ ...packet, steps: [{ ...packet.steps[0], stepName: 'Finance packet', active: false }] }],
+			'org-1'
+		);
+		mount();
+		await fireEvent.click(screen.getByRole('button', { name: /SGT Smith, Jane/ }));
+		expect(await screen.findByRole('button', { name: 'Remove Finance packet' })).toBeTruthy();
+	});
+
+	it('gives a member who cannot manage read-only step content instead of disabled controls', async () => {
+		onboardingStore.load(
+			[
+				{
+					...packet,
+					steps: [
+						packet.steps[0],
+						{
+							...packet.steps[0],
+							id: 'step-2',
+							stepName: 'Finance packet',
+							stepType: 'paperwork',
+							stages: ['Submitted', 'Review', 'Filed'],
+							currentStage: 'Review'
+						}
+					]
+				}
+			],
+			'org-1'
+		);
+		const ctx = new OnboardingPageContext(new ModalRegistry(), {
+			orgId: 'org-1',
+			orgUrlSegment: 'org-1',
+			...createClientAccess({ membershipRole: 'member', capabilityMap: createCapabilityMap('view') })
+		});
+		render(OnboardingKanbanView, { props: { ctx } });
+		await fireEvent.click(screen.getByRole('button', { name: /SGT Smith, Jane/ }));
+
+		const dialog = await screen.findByRole('dialog', { name: 'SGT Smith, Jane' });
+		const stages = within(dialog).getByRole('list', { name: 'Finance packet paperwork stages' });
+		expect(
+			within(stages)
+				.getAllByRole('listitem')
+				.map((item) => item.getAttribute('aria-current'))
+		).toEqual([null, 'step', null]);
+		expect(within(dialog).queryByRole('checkbox')).toBeNull();
+		expect(within(dialog).getAllByRole('img', { name: 'Not complete' })).toHaveLength(2);
+		expect(
+			within(dialog)
+				.queryAllByRole('button')
+				.filter((button) => (button as HTMLButtonElement).disabled)
+		).toEqual([]);
+	});
+
+	it('exposes card selection as a pressed state and opens that packet in the detail sheet', async () => {
+		mount();
+		const card = screen.getByRole('button', { name: /SGT Smith, Jane/ });
+
+		card.focus();
+		expect(document.activeElement).toBe(card);
+		expect(card.getAttribute('type')).toBe('button');
+		expect(card.getAttribute('aria-pressed')).toBe('false');
+
+		await fireEvent.click(card);
+
+		expect(card.getAttribute('aria-pressed')).toBe('true');
+		expect(await screen.findByRole('dialog')).toBeTruthy();
+		expect(screen.getByRole('progressbar', { name: 'Onboarding progress' }).getAttribute('aria-valuenow')).toBe('0');
+	});
+
+	it('collapses completed steps behind a labelled toggle that reports its state', async () => {
+		onboardingStore.load([{ ...packet, steps: [{ ...packet.steps[0], completed: true }] }], 'org-1');
+		mount();
+		await fireEvent.click(screen.getByRole('button', { name: /SGT Smith, Jane/ }));
+
+		const toggle = await screen.findByRole('button', { name: /Completed/ });
+		expect(toggle.getAttribute('aria-expanded')).toBe('false');
+		expect(toggle.textContent).toContain('1');
+		expect(screen.queryByRole('checkbox', { name: 'Mark Verify ID card incomplete' })).toBeNull();
+
+		await fireEvent.click(toggle);
+
+		expect(toggle.getAttribute('aria-expanded')).toBe('true');
+		expect(await screen.findByRole('checkbox', { name: 'Mark Verify ID card incomplete' })).toBeTruthy();
+
+		await fireEvent.click(toggle);
+
+		expect(toggle.getAttribute('aria-expanded')).toBe('false');
+		expect(screen.queryByRole('checkbox', { name: 'Mark Verify ID card incomplete' })).toBeNull();
+	});
+
+	it('lets a completed paperwork step expand its stage adjustment with a named toggle', async () => {
+		onboardingStore.load(
+			[
+				{
+					...packet,
+					steps: [
+						{
+							...packet.steps[0],
+							stepName: 'Finance packet',
+							stepType: 'paperwork',
+							stages: ['Submitted', 'Reviewed', 'Filed'],
+							currentStage: 'Filed',
+							completed: true
+						}
+					]
+				}
+			],
+			'org-1'
+		);
+		mount();
+		await fireEvent.click(screen.getByRole('button', { name: /SGT Smith, Jane/ }));
+		await fireEvent.click(await screen.findByRole('button', { name: /Completed/ }));
+
+		const toggle = await screen.findByRole('button', { name: 'Expand Finance packet to adjust stage' });
+		const panelId = toggle.getAttribute('aria-controls');
+		expect(toggle.getAttribute('aria-expanded')).toBe('false');
+		expect(document.getElementById(panelId!)?.hasAttribute('hidden')).toBe(true);
+
+		await fireEvent.click(toggle);
+
+		const expanded = screen.getByRole('button', { name: 'Collapse Finance packet' });
+		expect(expanded.getAttribute('aria-expanded')).toBe('true');
+		expect(document.getElementById(panelId!)?.hasAttribute('hidden')).toBe(false);
+		expect(
+			within(screen.getByRole('group', { name: 'Finance packet paperwork stages' })).getByRole('button', {
+				name: /Filed Current/
+			})
+		).toBeTruthy();
 	});
 
 	it('keeps a failed start draft in the actual pipeline and retries it without reselection', async () => {
@@ -388,6 +524,38 @@ describe('Onboarding retained interactions', () => {
 		expect(onboardingStore.getById('packet-1')).toMatchObject({ status: 'cancelled', steps: packet.steps });
 	});
 
+	it.each([
+		{ training: 'none', link: false },
+		{ training: 'view', link: true }
+	] as const)(
+		'shows Record Training only to a member who can open Training ($training)',
+		async ({ training, link }) => {
+			const trainingStep = {
+				...packet.steps[0],
+				id: 'step-training',
+				templateStepId: null,
+				stepName: 'Complete safety course',
+				stepType: 'training' as const,
+				trainingTypeId: 'training-1'
+			};
+			onboardingStore.load([{ ...packet, steps: [trainingStep] }], 'org-1');
+			const ctx = new OnboardingPageContext(new ModalRegistry(), {
+				orgId: 'org-1',
+				orgUrlSegment: 'org-1',
+				...createClientAccess({
+					membershipRole: 'member',
+					capabilityMap: { ...createCapabilityMap('none'), onboarding: 'operate', training }
+				})
+			});
+			render(OnboardingKanbanView, { props: { ctx } });
+
+			await fireEvent.click(screen.getByRole('button', { name: /SGT Smith, Jane/ }));
+
+			expect(await screen.findByText('Complete safety course')).toBeTruthy();
+			expect(Boolean(screen.queryByRole('link', { name: 'Record Training' }))).toBe(link);
+		}
+	);
+
 	it.each(['operate', 'configure'] as const)(
 		'offers packet reconciliation only to a scoped %s user when permitted',
 		async (access) => {
@@ -549,6 +717,78 @@ describe('Onboarding retained interactions', () => {
 				body: JSON.stringify({ personnelId: 'person-2', templateId: 'template-1', startedAt: '2026-06-15' })
 			})
 		);
+	});
+
+	it.each([
+		['Space', (box: HTMLElement) => fireEvent.keyDown(box, { key: ' ' })],
+		['click', (box: HTMLElement) => fireEvent.click(box)]
+	])('saves a checkbox step exactly once from %s', async (_input, activate) => {
+		const fetchMock = vi.fn().mockResolvedValue(
+			Response.json({
+				id: 'step-1',
+				onboardingId: 'packet-1',
+				stepName: 'Verify ID card',
+				stepType: 'checkbox',
+				completed: true,
+				currentStage: null
+			})
+		);
+		vi.stubGlobal('fetch', fetchMock);
+		mount();
+		await fireEvent.click(screen.getByRole('button', { name: /SGT Smith, Jane/ }));
+		await activate(await screen.findByRole('checkbox', { name: 'Mark Verify ID card complete' }));
+		await waitFor(() => expect(onboardingStore.getById('packet-1')?.steps[0].completed).toBe(true));
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+		expect(fetchMock).toHaveBeenCalledWith(
+			'/org/org-1/api/onboarding-steps',
+			expect.objectContaining({
+				method: 'PUT',
+				body: JSON.stringify({ action: 'toggleCheckbox', stepId: 'step-1', completed: true })
+			})
+		);
+	});
+
+	it('returns focus to the packet card after a save moves it to another column and the sheet closes', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue(
+				Response.json({
+					id: 'step-1',
+					onboardingId: 'packet-1',
+					stepName: 'Verify ID card',
+					stepType: 'checkbox',
+					completed: true,
+					currentStage: null
+				})
+			)
+		);
+		mount();
+		const before = screen.getByRole('button', { name: /SGT Smith, Jane/ });
+		await fireEvent.click(before);
+		await fireEvent.click(await screen.findByRole('checkbox', { name: 'Mark Verify ID card complete' }));
+		await waitFor(() => expect(before.isConnected).toBe(false));
+
+		await fireEvent.keyDown(await screen.findByRole('dialog'), { key: 'Escape' });
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+		const after = screen.getByRole('button', { name: /SGT Smith, Jane/ });
+		await waitFor(() => expect(document.activeElement).toBe(after));
+	});
+
+	it('keeps focus on the same control when Assign Template completes and it becomes Switch Template', async () => {
+		onboardingStore.load([{ ...packet, templateId: null }], 'org-1');
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ templateId: 'template-1', steps: packet.steps })));
+		mount();
+		await fireEvent.click(screen.getByRole('button', { name: /SGT Smith, Jane/ }));
+		const assign = await screen.findByRole('button', { name: 'Assign Template' });
+		assign.focus();
+		await fireEvent.click(assign);
+		const dialog = await screen.findByRole('dialog', { name: 'Assign Template' });
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Assign Template' }));
+		await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Assign Template' })).toBeNull());
+
+		const switchTemplate = screen.getByRole('button', { name: 'Switch Template' });
+		await waitFor(() => expect(document.activeElement).toBe(switchTemplate));
 	});
 
 	it('rolls back a denied checkbox toggle and shows confirmed completion after retry', async () => {

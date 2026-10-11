@@ -37,6 +37,23 @@ describe('OnboardingPacketList', () => {
 		expect(screen.getByText('Removed from template')).toBeTruthy();
 	});
 
+	it('links each packet trigger to its own content panel, collapsed and expanded', async () => {
+		render(OnboardingPacketListTest);
+		const panelOf = (name: RegExp) => {
+			const id = screen.getByRole('button', { name }).getAttribute('aria-controls');
+			return id ? document.getElementById(id) : null;
+		};
+
+		expect(panelOf(/Jordan Lee/i)?.textContent).toContain('Bring packet to S1.');
+		expect(panelOf(/Morgan Price/i)).not.toBeNull();
+		expect(panelOf(/Morgan Price/i)).not.toBe(panelOf(/Jordan Lee/i));
+
+		await fireEvent.click(screen.getByRole('button', { name: /Morgan Price/i }));
+
+		await waitFor(() => expect(panelOf(/Morgan Price/i)?.getAttribute('data-state')).toBe('open'));
+		expect(panelOf(/Jordan Lee/i)?.getAttribute('data-state')).toBe('closed');
+	});
+
 	it('toggles independent notes and renders note count', async () => {
 		render(OnboardingPacketListTest);
 

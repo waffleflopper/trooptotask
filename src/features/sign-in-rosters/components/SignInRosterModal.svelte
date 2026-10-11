@@ -10,7 +10,10 @@
 	import { signInRosterRankOptions, sortSignInRosterRows } from '../signInRosterRankOrder';
 	import type { RowInput } from 'jspdf-autotable';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
+	import * as Alert from '$lib/components/ui/alert';
 	import { Badge } from '$lib/components/ui/badge';
+	import * as Card from '$lib/components/ui/card';
+	import * as Collapsible from '$lib/components/ui/collapsible';
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { DatePicker } from '$lib/components/ui/date-picker';
@@ -473,15 +476,17 @@
 	async function downloadSignedScan(roster: SignInRoster) {
 		if (!roster.signedFilePath) return;
 
-		const response = await fetch(getSignedScanUploadUrl(roster));
-		const payload = (await response.json()) as { url?: string; error?: string };
+		signedScanErrors.delete(roster.id);
+		const url = await fetch(getSignedScanUploadUrl(roster))
+			.then(async (response) => (response.ok ? ((await response.json()) as { url?: string }).url : undefined))
+			.catch(() => undefined);
 
-		if (!response.ok || !payload.url) {
+		if (!url) {
 			signedScanErrors.set(roster.id, 'Could not generate download link.');
 			return;
 		}
 
-		window.open(payload.url, '_blank');
+		window.open(url, '_blank');
 	}
 
 	async function removeSignedScan(roster: SignInRoster) {
@@ -570,9 +575,7 @@
 
 		<AppDialog.Body class="grid gap-4">
 			{#if view === 'list'}
-				<section
-					class="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-start sm:justify-between"
-				>
+				<Card.Root class="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between">
 					<div class="grid gap-1">
 						<p class="font-mono text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">
 							Saved Rosters
@@ -581,10 +584,12 @@
 							Generate, reprint, and track signed attendance sheets from one place.
 						</p>
 					</div>
-					<Badge variant="outline">{total} total</Badge>
-				</section>
+					{#if !loadError}
+						<Badge variant="outline">{total} total</Badge>
+					{/if}
+				</Card.Root>
 
-				<section class="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-4">
+				<Card.Root class="flex flex-wrap items-end gap-3 p-4">
 					<Field.Root class="min-w-56 flex-1">
 						<Field.Label for="roster-search">Title</Field.Label>
 						<Input
@@ -619,18 +624,23 @@
 					{#if canEdit}
 						<Button size="sm" type="button" onclick={() => (view = 'create')}>New Roster</Button>
 					{/if}
-				</section>
+				</Card.Root>
 				{#if loadError}
-					<p class="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-						{loadError}
-					</p>
+					<Alert.Root variant="destructive">
+						<Alert.Description>{loadError}</Alert.Description>
+						<Alert.Action>
+							<Button size="sm" variant="outline" type="button" onclick={() => fetchRosters(rosters.length === 0)}>
+								Retry
+							</Button>
+						</Alert.Action>
+					</Alert.Root>
 				{/if}
 
 				{#if loading && rosters.length === 0}
 					<div class="flex justify-center p-8">
 						<Spinner class="size-5 text-muted-foreground" />
 					</div>
-				{:else if rosters.length === 0}
+				{:else if rosters.length === 0 && !loadError}
 					<Empty.Root>
 						<Empty.Header>
 							<Empty.Title>No sign-in rosters yet.</Empty.Title>
@@ -641,42 +651,46 @@
 							</Empty.Content>
 						{/if}
 					</Empty.Root>
-				{:else}
+				{:else if rosters.length > 0}
 					<div class="grid gap-3">
 						{#each rosters as roster (roster.id)}
-							<section
-								class="overflow-hidden rounded-lg border border-border bg-card"
-								data-expanded={expandedId === roster.id || undefined}
-							>
-								<button
-									class="flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-muted/40"
-									type="button"
-									aria-expanded={expandedId === roster.id}
-									onclick={() => (expandedId = expandedId === roster.id ? null : roster.id)}
+							<Card.Root class="overflow-hidden" data-expanded={expandedId === roster.id || undefined}>
+								<Collapsible.Root
+									open={expandedId === roster.id}
+									onOpenChange={(open) => (expandedId = open ? roster.id : null)}
 								>
-									<span class="grid min-w-0 flex-1 gap-2">
-										<span class="truncate text-base font-semibold text-foreground">{roster.title}</span>
-										<span class="flex flex-wrap gap-2">
-											<Badge variant="outline">
-												{roster.blankDate
-													? 'Blank date'
-													: roster.rosterDate
-														? formatDate(roster.rosterDate + 'T00:00:00')
-														: 'No date'}
-											</Badge>
-											<Badge variant="outline">{roster.personnelSnapshot.length} personnel</Badge>
-											{#if roster.signedFilePath}
-												<Badge variant="outline">Signed</Badge>
-											{/if}
-										</span>
-									</span>
-									<span class="font-mono text-xs text-muted-foreground">
-										{expandedId === roster.id ? 'Hide' : 'Show'}
-									</span>
-								</button>
+									<Collapsible.Trigger>
+										{#snippet child({ props })}
+											<Button
+												{...props}
+												variant="ghost"
+												size="none"
+												class="h-auto w-full justify-start gap-3 rounded-none p-4 text-left whitespace-normal"
+											>
+												<span class="grid min-w-0 flex-1 gap-2">
+													<span class="truncate text-base font-semibold text-foreground">{roster.title}</span>
+													<span class="flex flex-wrap gap-2">
+														<Badge variant="outline">
+															{roster.blankDate
+																? 'Blank date'
+																: roster.rosterDate
+																	? formatDate(roster.rosterDate + 'T00:00:00')
+																	: 'No date'}
+														</Badge>
+														<Badge variant="outline">{roster.personnelSnapshot.length} personnel</Badge>
+														{#if roster.signedFilePath}
+															<Badge variant="outline">Signed</Badge>
+														{/if}
+													</span>
+												</span>
+												<span class="font-mono text-xs text-muted-foreground">
+													{expandedId === roster.id ? 'Hide' : 'Show'}
+												</span>
+											</Button>
+										{/snippet}
+									</Collapsible.Trigger>
 
-								{#if expandedId === roster.id}
-									<div class="grid gap-3 border-t border-border px-4 py-4">
+									<Collapsible.Content class="grid gap-3 border-t border-border px-4 py-4">
 										<div class="flex flex-wrap gap-2 text-sm text-muted-foreground">
 											<span>Sort: {roster.sortBy === 'rank' ? 'By rank' : 'Alphabetical'}</span>
 											{#if roster.separateByGroup}
@@ -768,10 +782,22 @@
 													<Field.Error>{signedScanErrors.get(roster.id)}</Field.Error>
 												{/if}
 											</Field.Root>
+										{:else if roster.signedFilePath}
+											<Field.Root class="max-w-md">
+												<Field.Title>Signed Scan</Field.Title>
+												<div class="flex flex-wrap items-center gap-2">
+													<Button variant="outline" size="sm" type="button" onclick={() => downloadSignedScan(roster)}>
+														{getFilename(roster.signedFilePath)}
+													</Button>
+												</div>
+												{#if signedScanErrors.get(roster.id)}
+													<Field.Error>{signedScanErrors.get(roster.id)}</Field.Error>
+												{/if}
+											</Field.Root>
 										{/if}
-									</div>
-								{/if}
-							</section>
+									</Collapsible.Content>
+								</Collapsible.Root>
+							</Card.Root>
 						{/each}
 					</div>
 
@@ -786,9 +812,7 @@
 				{/if}
 			{:else}
 				<fieldset class="contents" disabled={saving}>
-					<section
-						class="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-start sm:justify-between"
-					>
+					<Card.Root class="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between">
 						<div class="grid gap-1">
 							<p class="font-mono text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">
 								New Roster
@@ -798,17 +822,17 @@
 							</p>
 						</div>
 						<Badge variant="outline">{filteredPersonnel.length} included</Badge>
-					</section>
+					</Card.Root>
 
-					<section class="grid gap-3 rounded-lg border border-border bg-card p-4">
+					<Card.Root class="grid gap-3 p-4">
 						<p class="font-mono text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">Basics</p>
 						<Field.Root>
 							<Field.Label for="roster-title">Title <span class="text-destructive">*</span></Field.Label>
 							<Input id="roster-title" type="text" placeholder="e.g. Annual AT Sign-In" bind:value={title} />
 						</Field.Root>
-					</section>
+					</Card.Root>
 
-					<section class="grid gap-3 rounded-lg border border-border bg-card p-4">
+					<Card.Root class="grid gap-3 p-4">
 						<p class="font-mono text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">Date</p>
 						<RadioGroup.Root bind:value={dateOption} class="grid gap-2 sm:grid-cols-2">
 							<Field.Root orientation="horizontal" class="rounded-lg border border-border bg-background p-3">
@@ -826,10 +850,10 @@
 								<DatePicker id="roster-date" bind:value={rosterDate} placeholder="Select roster date" />
 							</Field.Root>
 						{/if}
-					</section>
+					</Card.Root>
 
 					<div class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(14rem,18rem)]">
-						<section class="grid gap-3 rounded-lg border border-border bg-card p-4">
+						<Card.Root class="grid gap-3 p-4">
 							<p class="font-mono text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">Sort</p>
 							<RadioGroup.Root bind:value={sortBy} class="grid gap-2 sm:grid-cols-2">
 								<Field.Root orientation="horizontal" class="rounded-lg border border-border bg-background p-3">
@@ -841,17 +865,17 @@
 									<Field.Label for="roster-sort-rank">By rank</Field.Label>
 								</Field.Root>
 							</RadioGroup.Root>
-						</section>
-						<section class="grid content-start gap-3 rounded-lg border border-border bg-card p-4">
+						</Card.Root>
+						<Card.Root class="grid content-start gap-3 p-4">
 							<p class="font-mono text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">Layout</p>
 							<Field.Root orientation="horizontal" class="rounded-lg border border-border bg-background p-3">
 								<Checkbox id="roster-separate-group" bind:checked={separateByGroup} />
 								<Field.Label for="roster-separate-group">Separate by group</Field.Label>
 							</Field.Root>
-						</section>
+						</Card.Root>
 					</div>
 
-					<section class="grid gap-3 rounded-lg border border-border bg-card p-4">
+					<Card.Root class="grid gap-3 p-4">
 						<div class="flex items-center justify-between gap-3">
 							<p class="font-mono text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">
 								Filter by Rank
@@ -909,10 +933,10 @@
 								</Button>
 							{/each}
 						</div>
-					</section>
+					</Card.Root>
 
 					{#if groups.length > 0}
-						<section class="grid gap-3 rounded-lg border border-border bg-card p-4">
+						<Card.Root class="grid gap-3 p-4">
 							<div class="flex items-center justify-between gap-3">
 								<p class="font-mono text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">
 									Filter by Group
@@ -937,12 +961,10 @@
 									</Button>
 								{/each}
 							</div>
-						</section>
+						</Card.Root>
 					{/if}
 
-					<section
-						class="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between"
-					>
+					<Card.Root class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
 						<div class="grid gap-1">
 							<p class="font-mono text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">Snapshot</p>
 							<p class="text-sm leading-relaxed text-muted-foreground">
@@ -952,7 +974,7 @@
 						{#if hasActiveCreateFilters}
 							<Button variant="outline" size="sm" type="button" onclick={resetCreateFilters}>Reset filters</Button>
 						{/if}
-					</section>
+					</Card.Root>
 				</fieldset>
 			{/if}
 		</AppDialog.Body>

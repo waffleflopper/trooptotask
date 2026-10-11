@@ -17,11 +17,14 @@
 			{:else if page.status === 403}
 				You don't have permission to view this page.
 			{:else}
-				Something went wrong. Please try again later.
+				Something went wrong. Please try again.
 			{/if}
 		</Empty.Description>
 	</Empty.Header>
-	<Empty.Content>
+	<Empty.Content class="flex-row flex-wrap justify-center">
+		{#if page.status >= 500}
+			<Button variant="outline" onclick={() => window.location.reload()}>Try again</Button>
+		{/if}
 		<Button href="/org/{page.params.orgId}">Back to Dashboard</Button>
 	</Empty.Content>
 </Empty.Root>

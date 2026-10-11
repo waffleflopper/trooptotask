@@ -69,7 +69,7 @@
 
 <div class="flex h-full flex-col bg-background">
 	{#if !ctx.canViewOnboarding}
-		<main class="flex min-h-0 flex-1 overflow-auto p-3 sm:p-6">
+		<div class="flex min-h-0 flex-1 overflow-auto p-3 sm:p-6">
 			<Empty.Root>
 				<Empty.Media variant="icon"><ShieldAlert /></Empty.Media>
 				<Empty.Header>
@@ -79,16 +79,16 @@
 					</Empty.Description>
 				</Empty.Header>
 			</Empty.Root>
-		</main>
+		</div>
 	{:else}
-		<header class="flex shrink-0 items-center justify-between border-b border-border px-3 py-3 sm:px-6">
+		<header class="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-3 sm:px-6">
 			<div class="flex items-center gap-3">
 				<h1 class="text-lg font-semibold tracking-tight">Onboarding Pipeline</h1>
 				{#if ctx.filteredOnboardings.length > 0}
 					<Badge variant="secondary">{ctx.filteredOnboardings.length} active</Badge>
 				{/if}
 			</div>
-			<div class="flex items-center gap-2">
+			<div class="flex flex-wrap items-center gap-2">
 				{#if ctx.canManageConfig}
 					<Button href={ctx.templatesUrl} variant="outline" size="sm">Templates</Button>
 				{/if}
@@ -102,7 +102,7 @@
 			</div>
 		</header>
 
-		<main class="flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-3 sm:px-6 sm:py-4">
+		<div class="flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-3 sm:px-6 sm:py-4">
 			{#if !ctx.hasTemplateSteps && ctx.onboardings.length > 0}
 				<Alert.Root variant="warning">
 					<TriangleAlert />
@@ -182,7 +182,7 @@
 					{/each}
 				</KanbanBoard.Root>
 			{/if}
-		</main>
+		</div>
 
 		{#if selectedOnboarding}
 			<OnboardingDetailSheet

@@ -11,6 +11,7 @@ export const SERVER_SOURCE_TABLES = Object.freeze([
 	'daily_assignments',
 	'rating_scheme_entries',
 	'personnel_ict_completions',
+	'ict_tasks',
 	'user_org_preferences',
 	'getting_started_progress',
 	'organizations'

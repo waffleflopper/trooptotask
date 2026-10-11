@@ -2242,6 +2242,8 @@ async function main() {
 				'settings/general/clearSlug': 'slugError',
 				'settings/danger/deleteOrganization': 'deleteError',
 				'settings/members/updateMemberAccess': 'accessError',
+				'settings/members/invite': 'inviteError',
+				'settings/members/removeMember': 'memberError',
 				'settings/ranks/saveRank': 'rankError',
 				'settings/ranks/retireRank': 'rankError',
 				'settings/ranks/reactivateRank': 'rankError',
@@ -2249,6 +2251,8 @@ async function main() {
 				'settings/ranks/deleteRank': 'rankError',
 				'settings/ranks/addServicePack': 'rankError'
 			};
+			const settingsPage =
+				/^settings-page\/(general|members|policies|approvals|logs|exports|danger)$/.exec(family)?.[1] ?? null;
 			if (
 				![
 					'audit-page',
@@ -2303,6 +2307,7 @@ async function main() {
 					'critical-tasks/matrix/export'
 				].includes(family) &&
 				!Object.hasOwn(formActions, family) &&
+				!settingsPage &&
 				!platformForm &&
 				!/^onboarding-templates\/[0-9a-f-]{36}\/duplicate$/.test(family) &&
 				!/^sign-in-rosters\/[0-9a-f-]{36}\/upload$/.test(family) &&
@@ -2322,6 +2327,7 @@ async function main() {
 			let organizationSegment = org('orgA');
 			if (
 				formAction ||
+				settingsPage ||
 				['organization/settings', 'audit-page', 'dashboard-page', 'deletion-requests/review'].includes(family) ||
 				shellPart
 			) {
@@ -2333,8 +2339,8 @@ async function main() {
 			let suffix =
 				family === 'dashboard-page'
 					? `/org/${organizationSegment}/__data.json`
-					: family === 'audit-page'
-						? `/org/${organizationSegment}/settings/logs/__data.json`
+					: family === 'audit-page' || settingsPage
+						? `/org/${organizationSegment}/settings/${settingsPage ?? 'logs'}/__data.json`
 						: formAction
 							? `/org/${organizationSegment}/${family.slice(0, family.lastIndexOf('/'))}`
 							: ['feedback', 'announcements/dismiss'].includes(family)

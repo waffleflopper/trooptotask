@@ -4,14 +4,14 @@ Members meet the shared type-management workspace, bulk-import workspace, readin
 
 ## Sub-features
 
-- `type-management`: Training Types, Training Views and Onboarding Templates render a keyboard list (`listbox`), a detail form with `details` disclosures and a color field, and per-row action toolbars.
+- `type-management`: Training Types, Training Views and Onboarding Templates render a keyboard `grid` of `row` elements, a detail form with `details` disclosures and a color field, and per-row action toolbars.
 - `bulk-import`: Personnel, Training, Critical Tasks and Calendar imports render the shared workspace, header, input panels and footer actions. The source picker and source option have no production consumer; only the component test fixture renders them.
 - `readiness-band`: Training Reports and Critical Tasks Reports render ramp and semantic tiles, drop markers and a legend.
 - `report-chart`: Training and Critical Tasks Reports render Bar, Line, Forecast and ChartTable charts.
 - `requirement-status-badge`: the Training matrix, record modal and Critical Tasks screens render Current, Expiring, Expiring Soon, Expired, Exempt, N/A, Not Done and Not Required.
 - `route-tabs`: Organization settings, Personnel detail and Account pages render link navigation as tabs, including count badges.
 - `workspace-toolbar`: Personnel, Training and Critical Tasks toolbars narrow their select and search and hide action labels by container width.
-- `shared-defects`: empty-state titles are headings, an Organization page has one `main` landmark, a dialog has one Close control, and the type-management listbox moves with arrow keys.
+- `shared-defects`: empty-state titles are headings, an Organization page has one `main` landmark, a dialog has one Close control, and the type-management grid moves between rows with arrow keys.
 
 ## How to get to it (user POV)
 
@@ -40,7 +40,7 @@ Expected results come from the issue's acceptance and the [component contracts](
 
    Rerun a probe against the same page to prove the read is deterministic; a reload and a second read must also give `0`. State the matched counts, because a selector that matches nothing proves nothing.
 
-5. Keyboard, from a real `focus()` on a control followed by native `press_key`. Types, Views and Templates: Tab order, ArrowDown/ArrowUp/Home/End and the disclosure `summary` with Enter and Space. Route tabs: Tab, ArrowLeft and ArrowRight. Record the focused element's tag, role, name and the parent `option`'s `aria-selected` after each key.
+5. Keyboard, from a real `focus()` on a control followed by native `press_key`. Types, Views and Templates: Tab order, ArrowDown/ArrowUp/Home/End and the disclosure `summary` with Enter and Space. Route tabs: Tab, ArrowLeft and ArrowRight. Record the focused element's tag, role and name, and the `aria-selected` of its `row`, after each key. Right moves from a row to its actions, Left back, and Enter selects the row. After a successful create, `document.activeElement` is the new row.
 6. Shared defects: count `main` and nested `main` on an Organization page and an admin page; read the tag of each `[data-slot="empty-title"]` in the empty states; read the Close controls of the Training roster dialog.
 7. Toolbar: read the `workspace-toolbar`, its select trigger, input group and action label at 1280, 820 and 390 widths.
 8. Failure states: `network arm-fail` for the Types and Templates create, then `network restore`.

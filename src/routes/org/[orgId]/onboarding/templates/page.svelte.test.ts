@@ -291,6 +291,31 @@ describe('onboarding templates page', () => {
 		await waitFor(() => expect(remaining.contains(document.activeElement)).toBe(true));
 	});
 
+	it.each([
+		{ deleted: 'First step', focused: 'Edit Second step' },
+		{ deleted: 'Second step', focused: 'Edit First step' }
+	])('moves focus to $focused after $deleted is deleted', async ({ deleted, focused }) => {
+		const step = (id: string, name: string, sortOrder: number) => ({
+			id,
+			templateId: 'template-1',
+			name,
+			description: null,
+			stepType: 'checkbox' as const,
+			trainingTypeId: null,
+			stages: null,
+			sortOrder
+		});
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ success: true })));
+		await renderTemplatesPage({ templateSteps: [step('step-1', 'First step', 0), step('step-2', 'Second step', 1)] });
+
+		await fireEvent.click(screen.getByRole('button', { name: `Delete ${deleted}` }));
+		const dialog = await screen.findByRole('alertdialog');
+		await fireEvent.click(within(dialog).getByRole('button', { name: /^Delete$/ }));
+		await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: focused })));
+	});
+
 	it('moves focus to Add Template after the last template is deleted', async () => {
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ success: true })));
 		await renderTemplatesPage({ templateSteps: [] });

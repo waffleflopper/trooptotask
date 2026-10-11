@@ -195,11 +195,18 @@
 
 	async function handleConfirmDelete(): Promise<void> {
 		const target = model.confirmDelete;
+		const stepIndex = model.selectedTemplateSteps.findIndex((step) => step.id === target?.id);
 		const result = await workspace.confirmDelete();
-		if (!result.ok || target?.type !== 'template') return;
+		if (!result.ok || !target) return;
 		await tick();
-		const next = document.querySelector<HTMLElement>('[role="option"][aria-selected="true"] button');
-		(next ?? emptyAddTemplate)?.focus();
+		if (target.type === 'template') {
+			const next = document.querySelector<HTMLElement>('[role="option"][aria-selected="true"] button');
+			(next ?? emptyAddTemplate)?.focus();
+			return;
+		}
+		const steps = model.selectedTemplateSteps;
+		const survivor = steps[Math.min(stepIndex, steps.length - 1)];
+		await returnFocusFromStepForm(survivor?.id ?? null);
 	}
 </script>
 

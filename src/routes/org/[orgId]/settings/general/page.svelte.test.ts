@@ -236,9 +236,7 @@ describe('General settings feedback and focus', () => {
 
 		const nameForm = screen.getByLabelText('Organization name').closest('form')!;
 		expect(page).not.toHaveProperty('errorPage');
-		expect(within(nameForm).getByRole('alert').textContent?.trim()).toBe(
-			"The request didn't complete. Your entries are still here. Try again."
-		);
+		expect(within(nameForm).getByRole('alert').textContent?.trim()).toBe("The request didn't complete. Try again.");
 		expect((screen.getByLabelText('Organization name') as HTMLInputElement).value).toBe('Draft Name');
 		expect(screen.queryByText('Organization name updated.')).toBeNull();
 		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Save' }));

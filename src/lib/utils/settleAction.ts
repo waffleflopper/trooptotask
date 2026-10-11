@@ -13,7 +13,7 @@ export interface SettleOptions {
 	settled?: () => void;
 }
 
-const UNEXPECTED_ERROR_MESSAGE = "The request didn't complete. Your entries are still here. Try again.";
+const UNEXPECTED_ERROR_MESSAGE = "The request didn't complete. Try again.";
 
 /**
  * Settles a `use:enhance` result in place. An unexpected error returns a message for an in-context Alert

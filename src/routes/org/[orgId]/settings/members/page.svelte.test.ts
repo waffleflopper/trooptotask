@@ -108,7 +108,7 @@ const settle = (index: number) =>
 	heldSubmissions[index]({ result: { type: 'success', status: 200 }, update: async () => {} });
 
 const serverError: ActionResult = { type: 'error', status: 500, error: { message: 'Internal Error' } };
-const requestErrorText = "The request didn't complete. Your entries are still here. Try again.";
+const requestErrorText = "The request didn't complete. Try again.";
 
 afterEach(() => {
 	heldSubmissions.length = 0;

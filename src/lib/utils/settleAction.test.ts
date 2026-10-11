@@ -37,7 +37,7 @@ describe('settleAction', () => {
 			{ focus: () => [button] }
 		);
 
-		expect(message).toBe("The request didn't complete. Your entries are still here. Try again.");
+		expect(message).toBe("The request didn't complete. Try again.");
 		expect(page.errorPage).toBeUndefined();
 		expect(input.isConnected).toBe(true);
 		expect(input.value).toBe('draft@example.mil');

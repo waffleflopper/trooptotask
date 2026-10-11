@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import { tick } from 'svelte';
+import SinglePaneTest from './SinglePaneTest.svelte';
 import TypeManagementWorkspaceTest from './TypeManagementWorkspaceTest.svelte';
 
 function renderList(props: Record<string, unknown> = {}) {
@@ -131,5 +132,57 @@ describe('patterns/type-management-workspace', () => {
 
 		expect(trigger.getAttribute('aria-expanded')).toBe('true');
 		expect(content?.hidden).toBe(false);
+	});
+
+	describe('when one pane shows at a time', () => {
+		function showPanes(singlePane: boolean) {
+			vi.stubGlobal(
+				'matchMedia',
+				vi.fn((query: string) => ({ matches: singlePane && query === '(width < 64rem)', media: query }))
+			);
+			render(SinglePaneTest);
+			const row = (name: string) => screen.getByRole('row', { name });
+			return { row, back: () => screen.getByRole('button', { name: 'Types' }) };
+		}
+
+		afterEach(() => vi.unstubAllGlobals());
+
+		it('moves focus to the detail heading on select and back to the selected row on Back', async () => {
+			const { row, back } = showPanes(true);
+			row('CPR').focus();
+
+			await fireEvent.click(row('CPR'));
+			await tick();
+			expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'CPR' }));
+			expect(document.activeElement?.getAttribute('tabindex')).toBe('-1');
+
+			await fireEvent.click(back());
+			await tick();
+			expect(document.activeElement).toBe(row('CPR'));
+		});
+
+		it('moves focus to the new item detail after a create, because the list is hidden', async () => {
+			showPanes(true);
+
+			await fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+			await tick();
+			await tick();
+
+			expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Range Day' }));
+		});
+
+		it('leaves focus alone on a wide layout, where both panes stay visible', async () => {
+			const { row } = showPanes(false);
+			row('CPR').focus();
+
+			await fireEvent.click(row('CPR'));
+			await tick();
+			expect(document.activeElement).toBe(row('CPR'));
+
+			await fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+			await tick();
+			await tick();
+			expect(document.activeElement).toBe(row('Range Day'));
+		});
 	});
 });

@@ -1,12 +1,19 @@
 <script lang="ts">
 	import type { HTMLAttributes } from 'svelte/elements';
 	import { cn, type WithElementRef } from '$lib/utils.js';
+	import { focusDetailHeading, isSinglePane } from './single-pane.js';
 
 	interface Props extends WithElementRef<HTMLAttributes<HTMLElement>> {
 		mobileHidden?: boolean;
 	}
 
 	let { ref = $bindable(null), class: className, mobileHidden = false, children, ...restProps }: Props = $props();
+
+	let wasHidden: boolean | undefined;
+	$effect(() => {
+		if (wasHidden && !mobileHidden && isSinglePane()) focusDetailHeading(ref);
+		wasHidden = mobileHidden;
+	});
 </script>
 
 <section

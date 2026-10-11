@@ -16,6 +16,10 @@
 		return rows.find((row) => row.getAttribute('aria-selected') === 'true') ?? rows[0];
 	}
 
+	export function focusSelectedRow(grid: HTMLElement) {
+		selectedRow(grid)?.focus();
+	}
+
 	// One Tab stop: the selected row, or the first row. Row actions are reached with ArrowRight.
 	function rovingTabStop(grid: HTMLElement) {
 		const sync = () => {
@@ -35,6 +39,7 @@
 <script lang="ts">
 	import type { HTMLAttributes } from 'svelte/elements';
 	import { cn, type WithElementRef } from '$lib/utils.js';
+	import { focusDetailHeading, isSinglePane } from './single-pane.js';
 
 	let {
 		ref = $bindable(null),
@@ -44,8 +49,14 @@
 		...restProps
 	}: WithElementRef<HTMLAttributes<HTMLDivElement>> = $props();
 
+	// With one pane showing, the list is hidden after a create: the new item's detail is where focus can land.
 	export function focusSelected() {
-		if (ref) selectedRow(ref)?.focus();
+		if (!ref) return;
+		if (isSinglePane() && ref.closest('[data-slot="type-management-workspace-list"][data-mobile-hidden]')) {
+			focusDetailHeading(ref.closest('[data-slot="type-management-workspace-layout"]'));
+		} else {
+			focusSelectedRow(ref);
+		}
 	}
 
 	function onkeydown(event: KeyboardEvent & { currentTarget: EventTarget & HTMLDivElement }) {

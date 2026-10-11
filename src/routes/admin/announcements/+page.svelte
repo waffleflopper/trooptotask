@@ -17,6 +17,7 @@
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { formatDisplayDate } from '$lib/utils/dates';
 	import { adminBadgeVariant, formatAdminLabel } from '$features/platform-admin/components/adminTheme';
+	import { restoreSubmitterFocus } from '$features/platform-admin/components/restoreSubmitterFocus';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -62,14 +63,6 @@
 		showCreateForm = open;
 		await tick();
 		(open ? titleInput : createButton)?.focus();
-	}
-
-	// The pressed button disables while the write and its re-read run, which drops focus to the page.
-	async function restoreFocus(submitter: HTMLElement | null) {
-		await tick();
-		if (document.activeElement && document.activeElement !== document.body) return;
-		const pressed = submitter instanceof HTMLButtonElement && submitter.isConnected && !submitter.disabled;
-		(pressed ? submitter : (reloadButton ?? createButton ?? titleInput))?.focus();
 	}
 
 	function confirmDelete() {
@@ -156,7 +149,7 @@
 					if (isCurrent()) {
 						pending = null;
 						if (operation.kind === 'delete') deleteRequest = null;
-						void restoreFocus(submitter);
+						void restoreSubmitterFocus(submitter, () => reloadButton ?? createButton ?? titleInput);
 					}
 				}
 			};

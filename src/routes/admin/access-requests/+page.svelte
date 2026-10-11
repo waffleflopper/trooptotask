@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { beforeNavigate, invalidateAll } from '$app/navigation';
-	import { onDestroy, tick } from 'svelte';
+	import { onDestroy } from 'svelte';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import { redirectToSensitiveActionStepUp } from '$features/identity';
 	import { Badge } from '$lib/components/ui/badge';
@@ -14,6 +14,7 @@
 	import * as Tabs from '$lib/components/ui/tabs';
 	import { formatDisplayDateTime } from '$lib/utils/dates';
 	import { adminBadgeVariant, formatAdminLabel } from '$features/platform-admin/components/adminTheme';
+	import { restoreSubmitterFocus } from '$features/platform-admin/components/restoreSubmitterFocus';
 	import type { BadgeVariant } from '$lib/components/ui/badge';
 	import type { PageData } from './$types';
 
@@ -64,14 +65,6 @@
 		}
 	}
 
-	// The pressed button disables while the review and its re-read run, which drops focus to the page.
-	async function restoreReviewFocus(submitter: HTMLElement | null) {
-		await tick();
-		if (document.activeElement && document.activeElement !== document.body) return;
-		const pressed = submitter instanceof HTMLButtonElement && submitter.isConnected && !submitter.disabled;
-		(pressed ? submitter : (reloadButton ?? (activeTab === 'pending' ? pendingTab : reviewedTab)))?.focus();
-	}
-
 	const stepUpEnhance = (id: string): SubmitFunction => {
 		return ({ submitter }) => {
 			const expectedLifetime = lifetime;
@@ -99,7 +92,10 @@
 				} finally {
 					if (isCurrent()) {
 						loadingId = null;
-						void restoreReviewFocus(submitter);
+						void restoreSubmitterFocus(
+							submitter,
+							() => reloadButton ?? (activeTab === 'pending' ? pendingTab : reviewedTab)
+						);
 					}
 				}
 			};

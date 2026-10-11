@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/svelte';
-import type { SubmitFunction } from '@sveltejs/kit';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
 
 const { submits, toastSuccess } = vi.hoisted(() => ({
 	submits: [] as SubmitFunction[],
@@ -81,6 +81,44 @@ describe('Admin Feedback status tabs', () => {
 		const callback = await submits.at(-1)!(input);
 		await act(() => callback?.({ ...input, result: { type: 'success', status: 200 }, update: async () => {} }));
 		expect(toastSuccess).toHaveBeenCalledWith('Feedback saved');
+	});
+
+	describe('focus after Save Notes', () => {
+		async function saveNotes(result: ActionResult) {
+			renderNewItem();
+			const trigger = screen.getByRole('button', { name: /tester@example\.mil/ });
+			await fireEvent.click(trigger);
+			const save = screen.getByRole('button', { name: 'Save Notes' });
+			const form = save.closest('form')!;
+			const input = {
+				formElement: form,
+				formData: new FormData(form),
+				action: new URL('http://localhost/admin/feedback?/update'),
+				controller: new AbortController(),
+				submitter: save,
+				cancel: vi.fn()
+			};
+			const callback = await act(() => submits.at(-1)!(input));
+			await act(() => callback?.({ ...input, result, update: async () => {} }));
+			return { trigger, save };
+		}
+
+		it('returns to Save Notes after a saved note', async () => {
+			const { save } = await saveNotes({ type: 'success', status: 200 });
+			await waitFor(() => expect(document.activeElement).toBe(save));
+		});
+
+		it('returns to Save Notes after a rejected save', async () => {
+			const { save } = await saveNotes({ type: 'failure', status: 400, data: { error: 'Notes are too long' } });
+			expect(screen.getByText('Notes are too long')).toBeTruthy();
+			await waitFor(() => expect(document.activeElement).toBe(save));
+		});
+
+		it('returns to the item trigger while Save Notes stays disabled for a reload', async () => {
+			const { trigger, save } = await saveNotes({ type: 'error', error: new Error('offline') });
+			expect((save as HTMLButtonElement).disabled).toBe(true);
+			await waitFor(() => expect(document.activeElement).toBe(trigger));
+		});
 	});
 
 	it('gives every status tab a panel its aria-controls resolves to', async () => {

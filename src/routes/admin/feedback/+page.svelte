@@ -20,10 +20,12 @@
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatDisplayDateTime } from '$lib/utils/dates';
 	import { adminBadgeVariant, formatAdminLabel } from '$features/platform-admin/components/adminTheme';
+	import { restoreSubmitterFocus } from '$features/platform-admin/components/restoreSubmitterFocus';
 
 	let { data, form } = $props();
 	let activeTab = $state<'new' | 'reviewed' | 'resolved'>('new');
 	let editor = $state<{ id: string; status: FeedbackStatus; notes: string } | null>(null);
+	let triggers = $state<Record<string, HTMLButtonElement | null>>({});
 	let pending = $state<{ kind: 'save'; id: string } | { kind: 'reload' } | null>(null);
 	let needsReload = $state(false);
 	let actionError = $state<string | null | undefined>(undefined);
@@ -82,7 +84,7 @@
 	}
 	const submitFeedback =
 		(id: string): SubmitFunction =>
-		({ cancel, formElement }) => {
+		({ cancel, formElement, submitter }) => {
 			if (writesDisabled) {
 				cancel();
 				return;
@@ -117,7 +119,10 @@
 					toastStore.success('Feedback saved');
 					await refreshFeedback(isCurrent);
 				} finally {
-					if (isCurrent()) pending = null;
+					if (isCurrent()) {
+						pending = null;
+						void restoreSubmitterFocus(submitter, () => triggers[id]);
+					}
 				}
 			};
 		};
@@ -197,6 +202,7 @@
 						{#snippet child({ props })}
 							<Button
 								{...props}
+								bind:ref={() => triggers[item.id] ?? null, (element) => (triggers[item.id] = element)}
 								variant="ghost"
 								size="none"
 								class="grid h-auto w-full gap-3 rounded-md px-4 py-3 text-left font-normal whitespace-normal sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start"

@@ -98,7 +98,10 @@
 		try {
 			await refreshAnnouncements(isCurrent);
 		} finally {
-			if (isCurrent()) pending = null;
+			if (isCurrent()) {
+				pending = null;
+				void restoreSubmitterFocus(reloadButton, () => [createButton, titleInput]);
+			}
 		}
 	}
 
@@ -187,8 +190,12 @@
 	{#if needsReload}
 		<Alert.Root variant="warning">
 			<Alert.Description>Check current announcements before another save.</Alert.Description>
-			<Button bind:ref={reloadButton} variant="outline" onclick={reloadAnnouncements} disabled={pending !== null}
-				>Reload Announcements</Button
+			<Button
+				bind:ref={reloadButton}
+				class="mt-1 w-fit"
+				variant="outline"
+				onclick={reloadAnnouncements}
+				disabled={pending !== null}>Reload Announcements</Button
 			>
 		</Alert.Root>
 	{/if}

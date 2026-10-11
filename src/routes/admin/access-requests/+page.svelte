@@ -196,6 +196,7 @@
 			<Alert.Description>{reloadError ?? 'Check current requests before another review.'}</Alert.Description>
 			<Button
 				bind:ref={reloadButton}
+				class="mt-1 w-fit"
 				variant="outline"
 				disabled={refreshing || loadingId !== null}
 				onclick={() => reloadRequests()}

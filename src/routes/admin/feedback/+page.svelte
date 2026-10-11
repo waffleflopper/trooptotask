@@ -27,6 +27,7 @@
 	let editor = $state<{ id: string; status: FeedbackStatus; notes: string } | null>(null);
 	let triggers = $state<Record<string, HTMLButtonElement | null>>({});
 	let tabTriggers = $state<Record<string, HTMLButtonElement | null>>({});
+	let reloadButton = $state<HTMLButtonElement | null>(null);
 	let pending = $state<{ kind: 'save'; id: string } | { kind: 'reload' } | null>(null);
 	let needsReload = $state(false);
 	let actionError = $state<string | null | undefined>(undefined);
@@ -80,7 +81,10 @@
 		try {
 			await refreshFeedback(isCurrent);
 		} finally {
-			if (isCurrent()) pending = null;
+			if (isCurrent()) {
+				pending = null;
+				void restoreSubmitterFocus(reloadButton, () => [editor ? triggers[editor.id] : null, tabTriggers[activeTab]]);
+			}
 		}
 	}
 	const submitFeedback =
@@ -159,7 +163,13 @@
 	{#if needsReload}
 		<Alert.Root variant="warning">
 			<Alert.Description>Check current feedback before another save.</Alert.Description>
-			<Button variant="outline" onclick={reloadFeedback} disabled={pending !== null}>Reload Feedback</Button>
+			<Button
+				bind:ref={reloadButton}
+				class="mt-1 w-fit"
+				variant="outline"
+				onclick={reloadFeedback}
+				disabled={pending !== null}>Reload Feedback</Button
+			>
 		</Alert.Root>
 	{/if}
 

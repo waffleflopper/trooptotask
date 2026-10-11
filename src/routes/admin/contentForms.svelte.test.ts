@@ -279,11 +279,16 @@ describe('announcement form ownership', () => {
 		expect(
 			(await submit(screen.getByRole('button', { name: 'Deactivate Active notice' }))).cancel
 		).toHaveBeenCalledOnce();
-		await fireEvent.click(screen.getByRole('button', { name: 'Reload Announcements' }));
+		const reload = screen.getByRole('button', { name: 'Reload Announcements' });
+		reload.focus();
+		await fireEvent.click(reload);
 		await waitFor(() =>
 			expect(screen.getByRole('button', { name: 'Deactivate Active notice' })).toHaveProperty('disabled', false)
 		);
 		expect(invalidateAll).toHaveBeenCalledTimes(2);
+		await waitFor(() =>
+			expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Create Announcement' }))
+		);
 	});
 
 	it.each([failed, succeeded])('ignores a previous page reply after leaving and returning ($type)', async (result) => {
@@ -403,9 +408,12 @@ describe('Feedback editor ownership', () => {
 		await (await submit(screen.getByRole('button', { name: 'Save Notes' }))).finish(succeeded);
 		expect(screen.getByRole('button', { name: 'Save Notes' })).toHaveProperty('disabled', true);
 		expect((await submit(screen.getByRole('button', { name: 'Save Notes' }))).cancel).toHaveBeenCalledOnce();
-		await fireEvent.click(screen.getByRole('button', { name: 'Reload Feedback' }));
+		const reload = screen.getByRole('button', { name: 'Reload Feedback' });
+		reload.focus();
+		await fireEvent.click(reload);
 		await waitFor(() => expect(screen.getByRole('button', { name: 'Save Notes' })).toHaveProperty('disabled', false));
 		expect(invalidateAll).toHaveBeenCalledTimes(2);
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: /First feedback/ })));
 	});
 
 	it('ignores a read failure after the page lifetime has retired', async () => {

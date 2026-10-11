@@ -4,8 +4,8 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/sve
 import { tick } from 'svelte';
 import TypeManagementWorkspaceTest from './TypeManagementWorkspaceTest.svelte';
 
-function renderList() {
-	render(TypeManagementWorkspaceTest);
+function renderList(props: Record<string, unknown> = {}) {
+	render(TypeManagementWorkspaceTest, { props });
 	const grid = screen.getByRole('grid', { name: 'Types' });
 	const row = (name: string) => within(grid).getByRole('row', { name });
 	return { grid, row };
@@ -56,6 +56,38 @@ describe('patterns/type-management-workspace', () => {
 		expect(document.activeElement).toBe(row('Annual Qualification'));
 		await press('ArrowDown');
 		expect(document.activeElement).toBe(row('CPR'));
+	});
+
+	it.each([
+		{ control: 'Note for Annual Qualification', role: 'input' },
+		{ control: 'Memo for Annual Qualification', role: 'contenteditable' }
+	])('leaves arrow and Home/End keys to a text $role inside a row', async ({ control }) => {
+		const { grid, row } = renderList({ textControls: true });
+		const field = within(grid).getByLabelText(control);
+		field.focus();
+
+		for (const key of ['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Home', 'End']) {
+			expect(await fireEvent.keyDown(field, { key })).toBe(true);
+			expect(document.activeElement).toBe(field);
+		}
+		expect(row('CPR').tabIndex).toBe(-1);
+	});
+
+	it('runs a consumer onkeydown before grid navigation and lets it veto the move', async () => {
+		const seen: string[] = [];
+		const { row } = renderList({
+			onkeydown: (event: KeyboardEvent) => {
+				seen.push(event.key);
+				if (event.key === 'End') event.preventDefault();
+			}
+		});
+		row('Annual Qualification').focus();
+
+		await press('ArrowDown');
+		expect(document.activeElement).toBe(row('CPR'));
+		await press('End');
+		expect(document.activeElement).toBe(row('CPR'));
+		expect(seen).toEqual(['ArrowDown', 'End']);
 	});
 
 	it('selects with Enter, Space or a click, moves the Tab stop, and ignores disabled rows and action clicks', async () => {

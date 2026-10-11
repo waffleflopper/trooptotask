@@ -7,13 +7,15 @@
 		{ title: 'CPR', description: 'Expires after 24 months', disabled: false },
 		{ title: 'Range Day', description: 'Archived', disabled: true }
 	];
+	let { onkeydown, textControls = false }: { onkeydown?: (event: KeyboardEvent) => void; textControls?: boolean } =
+		$props();
 	let selected = $state('Annual Qualification');
 </script>
 
 <TypeManagementWorkspace.Root aria-label="Type management workspace test">
 	<TypeManagementWorkspace.Layout>
 		<TypeManagementWorkspace.List aria-label="Types">
-			<TypeManagementWorkspace.ItemList aria-label="Types">
+			<TypeManagementWorkspace.ItemList aria-label="Types" {...onkeydown ? { onkeydown } : {}}>
 				{#each types as type (type.title)}
 					<TypeManagementWorkspace.ListItem
 						title={type.title}
@@ -24,6 +26,10 @@
 						onselect={() => (selected = type.title)}
 					>
 						{#snippet actions()}
+							{#if textControls}
+								<input aria-label="Note for {type.title}" />
+								<span contenteditable="true" role="textbox" aria-label="Memo for {type.title}" tabindex="-1"></span>
+							{/if}
 							<Button variant="outline" size="icon" type="button" aria-label="Move {type.title} up">
 								<span aria-hidden="true">↑</span>
 							</Button>

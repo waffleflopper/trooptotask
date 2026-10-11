@@ -1,6 +1,7 @@
 <script lang="ts" module>
 	const ROW = '[data-slot="type-management-workspace-list-item"]';
 	const CONTROL = 'button, a[href], input, select, textarea, [tabindex]';
+	const TEXT_EDITING = 'input, select, textarea, [contenteditable]:not([contenteditable="false"])';
 
 	function rowsOf(grid: HTMLElement) {
 		return [...grid.querySelectorAll<HTMLElement>(ROW)];
@@ -39,6 +40,7 @@
 		ref = $bindable(null),
 		class: className,
 		children,
+		onkeydown: consumerKeydown,
 		...restProps
 	}: WithElementRef<HTMLAttributes<HTMLDivElement>> = $props();
 
@@ -46,10 +48,12 @@
 		if (ref) selectedRow(ref)?.focus();
 	}
 
-	function onkeydown(event: KeyboardEvent) {
+	function onkeydown(event: KeyboardEvent & { currentTarget: EventTarget & HTMLDivElement }) {
+		consumerKeydown?.(event);
+		if (event.defaultPrevented) return;
 		const target = event.target as HTMLElement;
 		const row = target.closest<HTMLElement>(ROW);
-		if (!ref || !row) return;
+		if (!ref || !row || target.closest(TEXT_EDITING)) return;
 		const rows = rowsOf(ref);
 		const index = rows.indexOf(row);
 		const stops = [row, ...controlsOf(row).filter((control) => !control.matches(':disabled'))];

@@ -177,3 +177,24 @@ it('requires the exact organization name rather than silently accepting extra wh
 	expect((screen.getByRole('button', { name: 'Transfer Ownership' }) as HTMLButtonElement).disabled).toBe(true);
 	expect(fetch).not.toHaveBeenCalled();
 });
+
+it('keeps the pressed Transfer Ownership focusable and busy while held, and sends nothing on another press', async () => {
+	let reply!: (response: Response) => void;
+	const fetch = vi.fn(() => new Promise<Response>((resolve) => (reply = resolve)));
+	vi.stubGlobal('fetch', fetch);
+	render(TransferOwnershipModal, props());
+	await fireEvent.change(screen.getByLabelText('New Owner'), { target: { value: 'member-alpha' } });
+	await fireEvent.input(screen.getByLabelText('Type Alpha Clinic to confirm'), { target: { value: 'Alpha Clinic' } });
+	const transfer = screen.getByRole('button', { name: 'Transfer Ownership' });
+	transfer.focus();
+	await fireEvent.click(transfer);
+	expect(screen.getByRole('button', { name: /Transferring/ })).toBe(transfer);
+	expect(transfer).toHaveProperty('disabled', false);
+	expect(transfer.getAttribute('aria-busy')).toBe('true');
+	expect(document.activeElement).toBe(transfer);
+	await fireEvent.click(transfer);
+	expect(fetch).toHaveBeenCalledOnce();
+	reply(actionResponse('failure', { error: { message: 'Organization name does not match' } }));
+	expect(await screen.findByText('Organization name does not match')).toBeTruthy();
+	expect(transfer.getAttribute('aria-busy')).toBeNull();
+});

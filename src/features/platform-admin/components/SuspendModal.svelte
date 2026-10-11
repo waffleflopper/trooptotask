@@ -138,13 +138,22 @@
 			{#if saved}
 				<Button onclick={() => window.location.reload()}>Reload details</Button>
 			{:else if uncertain}
-				<Button onclick={reloadDetails} disabled={reloading}>
+				<Button
+					onclick={reloadDetails}
+					aria-disabled={reloading ? 'true' : undefined}
+					aria-busy={reloading || undefined}
+				>
 					{#if reloading}<Spinner />{/if}
 					Reload details
 				</Button>
 			{:else}
 				<Button variant="outline" onclick={onClose} disabled={saving}>Cancel</Button>
-				<Button variant={isSuspended ? 'default' : 'destructive'} onclick={handleAction} disabled={saving}>
+				<Button
+					variant={isSuspended ? 'default' : 'destructive'}
+					onclick={handleAction}
+					aria-disabled={saving ? 'true' : undefined}
+					aria-busy={saving || undefined}
+				>
 					{#if saving}<Spinner />{/if}
 					{saving ? 'Processing...' : isSuspended ? 'Unsuspend' : 'Suspend'}
 				</Button>

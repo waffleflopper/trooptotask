@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/stores';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
@@ -22,13 +23,13 @@
 		if (value) params.set(key, value);
 		else params.delete(key);
 		params.set('page', '1');
-		goto(`/admin/audit?${params.toString()}`, { keepFocus: true });
+		goto(resolve(`/admin/audit?${params.toString()}`), { keepFocus: true });
 	}
 
 	function pageHref(pageNum: number) {
 		const params = new SvelteURLSearchParams($page.url.searchParams);
 		params.set('page', pageNum.toString());
-		return `/admin/audit?${params.toString()}`;
+		return resolve(`/admin/audit?${params.toString()}`);
 	}
 
 	const totalPages = $derived(Math.ceil(data.totalCount / data.limit));
@@ -117,7 +118,9 @@
 							</Table.Cell>
 							<Table.Cell>
 								{#if log.userId}
-									<a href="/admin/users/{log.userId}" class="font-mono text-xs">{log.userId.slice(0, 8)}...</a>
+									<a href={resolve('/admin/users/[userId]', { userId: log.userId })} class="font-mono text-xs"
+										>{log.userId.slice(0, 8)}...</a
+									>
 								{:else}
 									<span class="text-muted-foreground">-</span>
 								{/if}

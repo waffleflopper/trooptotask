@@ -136,6 +136,26 @@ describe('IctCompletionBulkImport', () => {
 		).toBeGreaterThan(0);
 	});
 
+	it('marks a blocked preview row invalid and describes it with its reason', async () => {
+		render(IctCompletionBulkImport, {
+			props: { personnel: [alphaMedic], tasks: [tcccTask], completions: [], onCancel: vi.fn(), onDone: vi.fn() }
+		});
+		await fireEvent.change(screen.getByLabelText('Upload file'), {
+			target: { files: [new File(['fake'], 'ict-completions.csv', { type: 'text/csv' })] }
+		});
+
+		const ready = await screen.findByRole('checkbox', { name: 'Select import row 1' });
+		const invalid = screen.getByRole('checkbox', { name: 'Select import row 3' });
+		const describedBy = invalid.getAttribute('aria-describedby') ?? '';
+
+		expect(invalid.getAttribute('aria-invalid')).toBe('true');
+		expect(document.getElementById(describedBy)?.textContent?.trim()).toBe(
+			'Task code "BAD-TASK" does not match an existing critical task'
+		);
+		expect(ready.hasAttribute('aria-invalid')).toBe(false);
+		expect(ready.hasAttribute('aria-describedby')).toBe(false);
+	});
+
 	it('keeps focus in the busy dialog while an import is held, then returns to preview on failure', async () => {
 		parseFileMock.mockResolvedValue([
 			['Rank', 'Last Name', 'First Name', 'Task Code', 'Completion Date'],
@@ -174,6 +194,9 @@ describe('IctCompletionBulkImport', () => {
 		expect(await screen.findByText('Import service unavailable')).toBeTruthy();
 		expect(dialog.hasAttribute('aria-busy')).toBe(false);
 		expect(screen.getByRole('button', { name: 'Import Checked Rows' })).toBeTruthy();
+		await waitFor(() =>
+			expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Review Completion Import' }))
+		);
 	});
 
 	it('imports checked valid rows and renders the created and updated summary', async () => {
@@ -233,7 +256,9 @@ describe('IctCompletionBulkImport', () => {
 			expect(screen.getByRole('table')).toBeTruthy();
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Import Checked Rows' }));
+		const importButton = screen.getByRole('button', { name: 'Import Checked Rows' });
+		importButton.focus();
+		await fireEvent.click(importButton);
 
 		await waitFor(() => {
 			expect(importBatch).toHaveBeenCalledWith({
@@ -253,7 +278,8 @@ describe('IctCompletionBulkImport', () => {
 			});
 		});
 
-		expect(await screen.findByText('Import Finished')).toBeTruthy();
+		const finished = await screen.findByRole('heading', { name: 'Import Finished' });
+		await waitFor(() => expect(document.activeElement).toBe(finished));
 		expect(screen.getByText('1 created')).toBeTruthy();
 		expect(screen.getByText('1 updated')).toBeTruthy();
 		expect(screen.getByText('1 failed')).toBeTruthy();

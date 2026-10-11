@@ -31,7 +31,7 @@
 </script>
 
 <Alert.Root variant={status === 'failed' ? 'destructive' : 'default'} class={cn('gap-3', className)} {...restProps}>
-	<Alert.Title>{resolvedTitle}</Alert.Title>
+	<Alert.Title><h3>{resolvedTitle}</h3></Alert.Title>
 	{#if description}
 		<Alert.Description>{description}</Alert.Description>
 	{/if}

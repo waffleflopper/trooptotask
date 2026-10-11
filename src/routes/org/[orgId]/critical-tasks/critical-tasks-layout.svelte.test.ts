@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { createRawSnippet } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import Layout from './+layout.svelte';
@@ -100,6 +100,24 @@ describe('critical tasks layout client hydration', () => {
 		expect(personnelIctCompletionsStore.items).toEqual([]);
 		expect(errors).toEqual([]);
 		window.removeEventListener('error', onError);
+	});
+
+	it('replaces the workspace with a load error and a working retry when the streamed source rejects', async () => {
+		const reload = vi.fn();
+		vi.stubGlobal('location', { ...window.location, reload });
+		const rejected = Promise.reject(new Error('personnel_ict_completions failed'));
+		rejected.catch(() => {});
+		const children = createRawSnippet(() => ({ render: () => '<section>Critical Tasks child</section>' }));
+
+		render(Layout, { props: { children, data: { orgId: 'org-1', criticalTasks: { data: rejected } } } });
+
+		const alert = await screen.findByRole('alert');
+		expect(alert.textContent).toContain('Unable to load Critical Tasks');
+		expect(screen.queryByText('Critical Tasks child')).toBeNull();
+		expect(criticalTasksWorkspaceStatus.pending).toBe(false);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Retry Critical Tasks' }));
+		expect(reload).toHaveBeenCalledTimes(1);
 	});
 
 	it('refreshes the workspace once after a navigation that follows a refresh request', () => {

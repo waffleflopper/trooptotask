@@ -103,6 +103,14 @@ export class RatingSchemePageContext {
 		return counts;
 	}
 
+	get ratingModalOpen(): boolean {
+		return this.#modals.isOpen('rating-modal');
+	}
+
+	get editingRatingEntryId(): string | null {
+		return this.#modals.payload<{ entry: RatingSchemeEntry | null }>('rating-modal')?.entry?.id ?? null;
+	}
+
 	handleAddRatingEntry(): void {
 		this.#modals.open('rating-modal', { entry: null });
 	}

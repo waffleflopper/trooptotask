@@ -13,9 +13,9 @@
 		CriticalTasksWorkspaceRestricted,
 		CriticalTasksWorkspaceResult
 	} from '$features/critical-tasks/contracts';
-	import { throwRenderError } from '$lib/utils/streamedRouteData';
 	import { hydrateStreamedWorkspace } from '$lib/utils/streamedWorkspaceHydrator';
 	import WorkspaceAccessRestricted from '../WorkspaceAccessRestricted.svelte';
+	import WorkspaceLoadError from '../WorkspaceLoadError.svelte';
 
 	let { children, data } = $props();
 	let hydrationError = $state<Error | null>(null);
@@ -28,12 +28,6 @@
 
 		const shellOrgId = data.shell?.org?.id;
 		return typeof shellOrgId === 'string' ? shellOrgId : null;
-	});
-	const renderHydrationError = $derived.by(() => {
-		if (hydrationError) {
-			throwRenderError(hydrationError, 'Failed to hydrate Critical Tasks workspace');
-		}
-		return null;
 	});
 
 	afterNavigate(() => {
@@ -78,7 +72,7 @@
 </script>
 
 {#if hydrationError}
-	{renderHydrationError}
+	<WorkspaceLoadError subject="Critical Tasks" />
 {:else if accessRestricted}
 	<WorkspaceAccessRestricted subject="Critical Tasks" />
 {:else if !workspacePending}

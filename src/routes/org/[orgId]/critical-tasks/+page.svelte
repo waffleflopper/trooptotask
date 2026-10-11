@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
+	import * as Alert from '$lib/components/ui/alert';
 	import * as Empty from '$lib/components/ui/empty';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { downloadBlob } from '$lib/utils/downloadBlob';
@@ -89,8 +90,17 @@
 	);
 	const activeRosterView = $derived(rosterReadModel.scoped(org.scopeSet, { status: 'active' }));
 	const activePersonnel = $derived(activeRosterView.flatPersonnel);
-	const canOpenTaskInput = $derived(canInputTask && activePersonnel.length > 0 && activeTasks.length > 0);
-	const canOpenCompletionImport = $derived(canInputTask && activePersonnel.length > 0 && activeTasks.length > 0);
+	// A dialog resolves a pair's existing completion when the pair is chosen, so it opens only once every store has loaded.
+	const completionInputBlocker = $derived(
+		loading ? 'loading' : activePersonnel.length === 0 || activeTasks.length === 0 ? 'empty' : null
+	);
+	const canOpenCompletionInput = $derived(canInputTask && completionInputBlocker === null);
+
+	function completionInputDisabledReason(emptyReason: string): string | undefined {
+		if (completionInputBlocker === 'loading') return 'Critical Tasks are still loading.';
+		if (completionInputBlocker === 'empty') return emptyReason;
+		return undefined;
+	}
 	const groupFilterOptions = $derived(
 		activeRosterView.groupFilterOptions.map((option) => ({
 			value: option.value,
@@ -166,13 +176,13 @@
 	});
 
 	function handleToolbarTaskInput(): void {
-		if (!canOpenTaskInput) return;
+		if (!canOpenCompletionInput) return;
 		activeCompletionCell = null;
 		showTaskInputModal = true;
 	}
 
 	function handleCompletionImportOpen(): void {
-		if (!canOpenCompletionImport) return;
+		if (!canOpenCompletionInput) return;
 		activeCompletionCell = null;
 		showTaskInputModal = false;
 		showCompletionImportModal = true;
@@ -209,7 +219,8 @@
 				icon: 'download',
 				priority: 'low',
 				variant: 'default',
-				disabled: matrixExportLoading
+				disabled: matrixExportLoading || loading,
+				disabledReason: loading ? 'Export unavailable while loading.' : undefined
 			}
 		];
 
@@ -221,10 +232,8 @@
 				icon: 'upload',
 				priority: 'normal',
 				variant: 'default',
-				disabled: !canOpenCompletionImport,
-				disabledReason: !canOpenCompletionImport
-					? 'Add personnel and active tasks before importing completions.'
-					: undefined
+				disabled: !canOpenCompletionInput,
+				disabledReason: completionInputDisabledReason('Add personnel and active tasks before importing completions.')
 			});
 		}
 
@@ -257,8 +266,8 @@
 				priority: 'critical',
 				overflow: 'never',
 				variant: 'primary',
-				disabled: !canOpenTaskInput,
-				disabledReason: !canOpenTaskInput ? 'Add personnel and active tasks before recording a completion.' : undefined
+				disabled: !canOpenCompletionInput,
+				disabledReason: completionInputDisabledReason('Add personnel and active tasks before recording a completion.')
 			});
 		}
 
@@ -288,17 +297,15 @@
 	<title>Critical Tasks - Troop to Task</title>
 </svelte:head>
 
-<div
-	class="flex h-[calc(100dvh-var(--app-shell-header-height,56px)-var(--banner-height,0px))] min-h-0 flex-col overflow-hidden bg-background"
->
+<div class="flex h-full min-h-0 flex-col overflow-hidden bg-background">
 	{#if !canViewReadiness}
 		<section class="h-full max-w-3xl overflow-auto p-4" aria-labelledby="critical-tasks-restricted-title">
 			<h2 id="critical-tasks-restricted-title" class="text-2xl font-semibold text-foreground">Access Restricted</h2>
 			<p class="text-muted-foreground">Contact your organization admin for critical tasks access.</p>
 		</section>
 	{:else}
-		<main class="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-3 md:p-4">
-			<WorkspaceToolbar.Root ariaLabel="Critical Tasks controls">
+		<div class="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-3 md:p-4">
+			<WorkspaceToolbar.Root ariaLabel="Critical Tasks controls" wrap>
 				<WorkspaceToolbar.Group
 					label="Critical Tasks filters"
 					activeCount={activeFilterCount}
@@ -347,28 +354,51 @@
 			</WorkspaceToolbar.Root>
 
 			{#if matrixExportError}
-				<p class="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-					{matrixExportError}
-				</p>
+				<Alert.Root variant="destructive">
+					<Alert.Title>Unable to export the matrix</Alert.Title>
+					<Alert.Description>{matrixExportError}</Alert.Description>
+					<Alert.Action>
+						<Button
+							type="button"
+							variant="destructive"
+							size="xs"
+							onclick={exportMatrixExcel}
+							disabled={matrixExportLoading}
+						>
+							Retry
+						</Button>
+					</Alert.Action>
+				</Alert.Root>
 			{/if}
 
 			{#if loading}
-				<section class="h-full overflow-auto" data-testid="critical-tasks-loading" aria-label="Loading Critical Tasks">
+				<div
+					class="h-full overflow-auto"
+					role="status"
+					aria-live="polite"
+					aria-label="Loading Critical Tasks"
+					data-testid="critical-tasks-loading"
+				>
 					<div class="grid grid-cols-4 gap-2" aria-hidden="true">
 						{#each Array(24) as _, index (index)}
 							<Skeleton class="h-[38px] w-[100px]" />
 						{/each}
 					</div>
-				</section>
+				</div>
 			{:else if activeTasks.length === 0}
-				<section class="h-full overflow-auto">
-					<Empty.Root>
-						<Empty.Header>
-							<Empty.Title>No critical tasks yet.</Empty.Title>
-							<Empty.Description>Add ICTL tasks to begin tracking annual proficiency.</Empty.Description>
-						</Empty.Header>
-					</Empty.Root>
-				</section>
+				<Empty.Root>
+					<Empty.Header>
+						<Empty.Title>No critical tasks yet.</Empty.Title>
+						<Empty.Description>Add ICTL tasks to begin tracking annual proficiency.</Empty.Description>
+					</Empty.Header>
+				</Empty.Root>
+			{:else if activePersonnel.length === 0}
+				<Empty.Root>
+					<Empty.Header>
+						<Empty.Title>No personnel yet.</Empty.Title>
+						<Empty.Description>Add personnel to the roster to track their critical tasks.</Empty.Description>
+					</Empty.Header>
+				</Empty.Root>
 			{:else}
 				<section class="flex min-h-0 flex-1 flex-col" aria-label="Critical Tasks matrix workspace">
 					<div class="min-h-0 flex-1 overflow-hidden" data-testid="critical-tasks-matrix-panel">
@@ -389,7 +419,7 @@
 					</div>
 				</section>
 			{/if}
-		</main>
+		</div>
 	{/if}
 </div>
 

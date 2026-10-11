@@ -16,6 +16,7 @@
 		type CriticalTasksMatrixCell,
 		type CriticalTasksMatrixRow
 	} from '$features/critical-tasks/utils/criticalTasksMatrix';
+	import * as Empty from '$lib/components/ui/empty';
 	import * as OperationalMatrix from '$lib/components/ui/operational-matrix';
 	import CriticalTaskStatusBadge from './CriticalTaskStatusBadge.svelte';
 	import type { Group } from '$features/personnel/contracts';
@@ -221,6 +222,11 @@
 		return 'bg-muted text-muted-foreground';
 	}
 
+	// The empty state replaces the viewport, and a remounted viewport starts at the top without a scroll event.
+	$effect.pre(() => {
+		if (visibleRows.length === 0) scrollTop = 0;
+	});
+
 	function handleViewportScroll(event: Event): void {
 		scrollTop = (event.currentTarget as HTMLElement).scrollTop;
 	}
@@ -342,59 +348,60 @@
 		{/each}
 	</div>
 
-	<OperationalMatrix.Viewport
-		ariaLabel="Critical Tasks matrix viewport"
-		class="h-full min-h-0 rounded-lg border border-border bg-card"
-		data-testid="critical-tasks-matrix-scroll"
-		virtualized
-		onViewportHeightChange={(height) => (measuredViewportHeight = height)}
-		onscroll={handleViewportScroll}
-	>
-		<OperationalMatrix.Table
-			ariaLabel="Critical Tasks readiness matrix"
-			data-testid="critical-tasks-matrix-table"
-			class="min-w-max table-fixed text-sm [&_[data-matrix-column-header]]:border [&_[data-matrix-column-header]]:border-border [&_[data-matrix-column-header]]:bg-muted [&_[data-matrix-column-header]]:font-mono [&_[data-matrix-column-header]]:text-[9px] [&_[data-matrix-column-header]]:font-semibold [&_[data-matrix-column-header]]:uppercase [&_[data-matrix-column-header]]:shadow-sm [&_[data-matrix-cell]]:border [&_[data-matrix-cell]]:border-border [&_[data-matrix-cell]]:p-0 [&_[data-slot=operational-matrix-cell-content]]:flex [&_[data-slot=operational-matrix-cell-content]]:h-10 [&_[data-slot=operational-matrix-cell-content]]:w-full [&_[data-slot=operational-matrix-cell-trigger]]:flex [&_[data-slot=operational-matrix-cell-trigger]]:h-10 [&_[data-slot=operational-matrix-cell-trigger]]:w-full [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:outline-hidden [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-2 [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-ring [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-inset [&_[data-selected=true]]:ring-2 [&_[data-selected=true]]:ring-foreground [&_[data-selected=true]]:ring-inset"
+	{#if visibleRows.length === 0}
+		<Empty.Root class="rounded-lg border border-border bg-card">
+			<Empty.Header>
+				<Empty.Title>No personnel match the current filters.</Empty.Title>
+				<Empty.Description>Clear the search, group or gaps filter to see more personnel.</Empty.Description>
+			</Empty.Header>
+		</Empty.Root>
+	{:else}
+		<OperationalMatrix.Viewport
+			ariaLabel="Critical Tasks matrix viewport"
+			class="h-full min-h-0 rounded-lg border border-border bg-card"
+			data-testid="critical-tasks-matrix-scroll"
+			virtualized
+			onViewportHeightChange={(height) => (measuredViewportHeight = height)}
+			onscroll={handleViewportScroll}
 		>
-			<OperationalMatrix.Header>
-				<OperationalMatrix.HeaderRow>
-					<OperationalMatrix.CornerCell
-						sticky
-						class="sticky left-0 top-0 z-30 w-64 min-w-56 bg-muted px-3 py-2 text-left font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground"
-					>
-						Soldier
-					</OperationalMatrix.CornerCell>
-					{#each matrixColumns as column (column.id)}
-						<OperationalMatrix.ColumnHeader
-							{column}
+			<OperationalMatrix.Table
+				ariaLabel="Critical Tasks readiness matrix"
+				data-testid="critical-tasks-matrix-table"
+				class="min-w-max table-fixed text-sm [&_[data-matrix-column-header]]:border [&_[data-matrix-column-header]]:border-border [&_[data-matrix-column-header]]:bg-muted [&_[data-matrix-column-header]]:font-mono [&_[data-matrix-column-header]]:text-[9px] [&_[data-matrix-column-header]]:font-semibold [&_[data-matrix-column-header]]:uppercase [&_[data-matrix-column-header]]:shadow-sm [&_[data-matrix-cell]]:border [&_[data-matrix-cell]]:border-border [&_[data-matrix-cell]]:p-0 [&_[data-slot=operational-matrix-cell-content]]:flex [&_[data-slot=operational-matrix-cell-content]]:h-10 [&_[data-slot=operational-matrix-cell-content]]:w-full [&_[data-slot=operational-matrix-cell-trigger]]:flex [&_[data-slot=operational-matrix-cell-trigger]]:h-10 [&_[data-slot=operational-matrix-cell-trigger]]:w-full [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:outline-hidden [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-2 [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-ring [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-inset [&_[data-selected=true]]:ring-2 [&_[data-selected=true]]:ring-foreground [&_[data-selected=true]]:ring-inset"
+			>
+				<OperationalMatrix.Header>
+					<OperationalMatrix.HeaderRow>
+						<OperationalMatrix.CornerCell
 							sticky
-							orientation="vertical"
-							aria-label={column.label}
-							title={column.source.title}
-							class="sticky top-0 z-20 h-52 w-14 min-w-14 max-w-14 bg-muted"
+							class="sticky left-0 top-0 z-30 w-64 min-w-56 bg-muted px-3 py-2 text-left font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground"
 						>
-							<span class="grid w-40 gap-0.5 text-center">
-								<span class="truncate text-[9px] font-bold leading-none text-foreground">
-									{column.source.taskCode}
+							Soldier
+						</OperationalMatrix.CornerCell>
+						{#each matrixColumns as column (column.id)}
+							<OperationalMatrix.ColumnHeader
+								{column}
+								sticky
+								orientation="vertical"
+								aria-label={column.label}
+								title={column.source.title}
+								class="sticky top-0 z-20 h-52 w-14 min-w-14 max-w-14 bg-muted"
+							>
+								<span class="grid w-40 gap-0.5 text-center">
+									<span class="truncate text-[9px] font-bold leading-none text-foreground">
+										{column.source.taskCode}
+									</span>
+									<span
+										class="line-clamp-2 whitespace-normal text-[8px] font-medium normal-case leading-tight tracking-normal text-muted-foreground"
+									>
+										{column.source.title}
+									</span>
 								</span>
-								<span
-									class="line-clamp-2 whitespace-normal text-[8px] font-medium normal-case leading-tight tracking-normal text-muted-foreground"
-								>
-									{column.source.title}
-								</span>
-							</span>
-						</OperationalMatrix.ColumnHeader>
-					{/each}
-				</OperationalMatrix.HeaderRow>
-			</OperationalMatrix.Header>
+							</OperationalMatrix.ColumnHeader>
+						{/each}
+					</OperationalMatrix.HeaderRow>
+				</OperationalMatrix.Header>
 
-			<OperationalMatrix.Body>
-				{#if visibleRows.length === 0}
-					<tr>
-						<td class="px-4 py-8 text-center text-sm text-muted-foreground" colspan={totalColumns}>
-							No personnel match the current Critical Tasks filters.
-						</td>
-					</tr>
-				{:else}
+				<OperationalMatrix.Body>
 					{#if virtualWindow.topSpacerHeight > 0}
 						<tr aria-hidden="true" data-matrix-spacer="top">
 							<td colspan={totalColumns} style:height={`${virtualWindow.topSpacerHeight}px`}></td>
@@ -425,8 +432,8 @@
 							<td colspan={totalColumns} style:height={`${virtualWindow.bottomSpacerHeight}px`}></td>
 						</tr>
 					{/if}
-				{/if}
-			</OperationalMatrix.Body>
-		</OperationalMatrix.Table>
-	</OperationalMatrix.Viewport>
+				</OperationalMatrix.Body>
+			</OperationalMatrix.Table>
+		</OperationalMatrix.Viewport>
+	{/if}
 </OperationalMatrix.Root>

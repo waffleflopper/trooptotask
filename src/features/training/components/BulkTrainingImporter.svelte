@@ -363,7 +363,7 @@
 		</AppDialog.Header>
 
 		<AppDialog.Body>
-			<BulkImportWorkspace.Root ariaLabel="Bulk training import workspace">
+			<BulkImportWorkspace.Root ariaLabel="Bulk training import workspace" step={importState}>
 				{#if importState === 'input'}
 					<BulkImportWorkspace.Header
 						title="Import Records"

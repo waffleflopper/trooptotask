@@ -5,8 +5,9 @@
 	import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 	import { getAppShellContext } from '$features/app-shell';
 	import { Skeleton } from '$lib/components/ui/skeleton';
-	import { isPromiseLike, observeDeferred, throwRenderError } from '$lib/utils/streamedRouteData';
+	import { isPromiseLike, observeDeferred } from '$lib/utils/streamedRouteData';
 	import type { RatingSchemeWorkspaceResult, RatingSchemeWorkspaceRestricted } from '$features/rating-scheme/contracts';
+	import WorkspaceLoadError from '../WorkspaceLoadError.svelte';
 
 	let { data } = $props();
 
@@ -14,12 +15,6 @@
 	const modals = new ModalRegistry();
 	let ratingSchemeBootstrap = $state<RatingSchemeWorkspaceResult | RatingSchemeWorkspaceRestricted | null>(null);
 	let loadError = $state<Error | null>(null);
-	const renderLoadError = $derived.by(() => {
-		if (loadError) {
-			throwRenderError(loadError, 'Failed to load Rating Scheme workspace');
-		}
-		return null;
-	});
 
 	function createPageData(workspace: RatingSchemeWorkspaceResult): RatingSchemePageData {
 		return {
@@ -74,9 +69,9 @@
 </svelte:head>
 
 {#if loadError}
-	{renderLoadError}
+	<!-- The Evals layout observes this same source and shows WorkspaceLoadError. -->
 {:else if workspacePending}
-	<section class="grid gap-4 p-3 sm:px-6 sm:py-5" aria-busy="true" aria-live="polite" role="status">
+	<section class="grid gap-4 p-3 sm:px-6 sm:py-5" aria-live="polite" role="status" aria-label="Loading evaluations">
 		<div class="flex flex-wrap items-center gap-3">
 			<Skeleton class="h-3 w-[124px]" />
 			<Skeleton class="h-3 w-24" />
@@ -106,5 +101,5 @@
 		{/await}
 	{/if}
 {:else}
-	{throwRenderError(new Error('Missing Rating Scheme workspace data'), 'Failed to load Rating Scheme workspace')}
+	<WorkspaceLoadError subject="Evals" />
 {/if}

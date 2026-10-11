@@ -15,9 +15,9 @@
 {#if loading}
 	<section
 		class="flex items-center justify-center gap-2 p-6 text-muted-foreground"
-		aria-busy="true"
 		aria-live="polite"
 		role="status"
+		aria-label="Loading critical task record"
 	>
 		<Spinner />
 		<p>Loading critical task record...</p>

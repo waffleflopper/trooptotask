@@ -650,4 +650,77 @@ describe('critical tasks page', () => {
 			notes: 'Toolbar entry'
 		});
 	});
+	it('names the pending matrix as a live status inside a page with no nested main landmark', () => {
+		render(Page, { props: { data: { orgId: 'org-1' } } });
+
+		const status = screen.getByRole('status', { name: 'Loading Critical Tasks' });
+		expect(status.getAttribute('aria-live')).toBe('polite');
+		expect(status.hasAttribute('aria-busy')).toBe(false);
+		expect(screen.queryByRole('main')).toBeNull();
+		const exportButton = screen.getByRole('button', { name: 'Export Excel' }) as HTMLButtonElement;
+		expect(exportButton.disabled).toBe(true);
+		expect(exportButton.getAttribute('title')).toBe('Export unavailable while loading.');
+	});
+
+	it('keeps Record Completion and Import Completions unavailable until completions have loaded', async () => {
+		personnelStore.load([person()], 'org-1');
+		groupCatalogHydration.load([alphaGroup], 'org-1');
+		ictTasksStore.load([ictTask], 'org-1');
+		render(Page, { props: { data: { orgId: 'org-1' } } });
+
+		const record = screen.getByRole('button', { name: 'Record Completion' }) as HTMLButtonElement;
+		const importCompletions = screen.getByRole('button', { name: 'Import Completions' }) as HTMLButtonElement;
+		expect([record.disabled, record.getAttribute('title')]).toEqual([true, 'Critical Tasks are still loading.']);
+		expect([importCompletions.disabled, importCompletions.getAttribute('title')]).toEqual([
+			true,
+			'Critical Tasks are still loading.'
+		]);
+		await fireEvent.click(record);
+		expect(screen.queryByRole('dialog')).toBeNull();
+
+		personnelIctCompletionsStore.load([completion({})], 'org-1');
+		await waitFor(() => expect(record.disabled).toBe(false));
+		expect(record.getAttribute('title')).toBeNull();
+	});
+
+	it('shows an empty roster and a filter miss as distinct Empty states', async () => {
+		personnelStore.load([], 'org-1');
+		groupCatalogHydration.load([], 'org-1');
+		ictTasksStore.load([ictTask], 'org-1');
+		personnelIctCompletionsStore.load([], 'org-1');
+
+		const view = render(Page, { props: { data: { orgId: 'org-1' } } });
+
+		expect(screen.getByText('No personnel yet.')).toBeTruthy();
+		expect(screen.queryByRole('table', { name: 'Critical Tasks readiness matrix' })).toBeNull();
+		view.unmount();
+
+		personnelStore.load([person()], 'org-1');
+		render(Page, { props: { data: { orgId: 'org-1' } } });
+		await fireEvent.input(screen.getByTestId('critical-tasks-search'), { target: { value: 'nobody' } });
+
+		expect(await screen.findByText('No personnel match the current filters.')).toBeTruthy();
+		expect(screen.queryByRole('table', { name: 'Critical Tasks readiness matrix' })).toBeNull();
+		expect(screen.queryByText('No personnel yet.')).toBeNull();
+	});
+
+	it('reports a failed matrix export as an alert whose Retry requests the export again', async () => {
+		personnelStore.load([person()], 'org-1');
+		groupCatalogHydration.load([alphaGroup], 'org-1');
+		ictTasksStore.load([ictTask], 'org-1');
+		personnelIctCompletionsStore.load([], 'org-1');
+		const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 503 } as Response);
+		vi.stubGlobal('fetch', fetchMock);
+
+		render(Page, { props: { data: { orgId: 'org-1' } } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Export Excel' }));
+
+		const alert = await screen.findByRole('alert');
+		expect(within(alert).getByText('Unable to export the matrix')).toBeTruthy();
+		expect(within(alert).getByText('Failed to export critical task matrix')).toBeTruthy();
+
+		await fireEvent.click(within(alert).getByRole('button', { name: 'Retry' }));
+		await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+		expect(fetchMock.mock.calls[1][0]).toBe('/org/org-1/api/critical-tasks/matrix/export');
+	});
 });

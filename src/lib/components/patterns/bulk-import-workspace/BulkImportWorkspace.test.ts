@@ -2,11 +2,85 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
+import { tick } from 'svelte';
+import BulkImportStepTest from './BulkImportStepTest.svelte';
 import BulkImportWorkspaceTest from './BulkImportWorkspaceTest.svelte';
 
 afterEach(() => cleanup());
 
 describe('BulkImportWorkspace', () => {
+	async function press(name: string) {
+		const button = screen.getByRole('button', { name });
+		button.focus();
+		await fireEvent.click(button);
+		await tick();
+	}
+
+	it('moves focus to the new step heading when the step change removes the focused control', async () => {
+		render(BulkImportStepTest);
+
+		await press('Parse file');
+		expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Review rows' }));
+
+		await press('Back');
+		expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Upload file' }));
+	});
+
+	it('keeps lost focus owed through the progress step and gives it to the result summary title', async () => {
+		render(BulkImportStepTest);
+
+		await press('Start import');
+		expect(screen.getByText('Importing rows')).toBeInTheDocument();
+		expect(document.activeElement).toBe(screen.getByRole('region', { name: 'Step import workspace' }));
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Finish import from outside' }));
+		await tick();
+
+		expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Import complete' }));
+	});
+
+	it('drops owed focus once the user moves focus outside the workspace', async () => {
+		render(BulkImportStepTest);
+
+		await press('Start import');
+		await press('Dismiss outside notice');
+		expect(document.activeElement).toBe(document.body);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Finish import from outside' }));
+		await tick();
+
+		expect(screen.getByRole('heading', { name: 'Import complete' })).toBeInTheDocument();
+		expect(document.activeElement).toBe(document.body);
+	});
+
+	it('leaves focus on a control that survives the step change', async () => {
+		render(BulkImportStepTest);
+
+		await press('Switch step');
+
+		expect(screen.getByRole('heading', { name: 'Review rows' })).toBeInTheDocument();
+		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Switch step' }));
+	});
+
+	it('leaves focus outside the workspace when the step changes from outside', async () => {
+		render(BulkImportStepTest);
+
+		await press('Switch step from outside');
+
+		expect(screen.getByRole('heading', { name: 'Review rows' })).toBeInTheDocument();
+		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Switch step from outside' }));
+	});
+
+	it('does not move focus into a workspace that immediately replaces the focused one', async () => {
+		render(BulkImportStepTest);
+
+		await press('Open other workspace');
+		await new Promise((resolve) => setTimeout(resolve));
+
+		expect(screen.getByRole('heading', { name: 'Other import' })).toBeInTheDocument();
+		expect(document.activeElement).toBe(document.body);
+	});
+
 	it('renders source selection and updates selected source', async () => {
 		render(BulkImportWorkspaceTest);
 
@@ -50,6 +124,9 @@ describe('BulkImportWorkspace', () => {
 		const invalidSelection = screen.getByRole('checkbox', { name: /Select import row 2/ });
 		expect(invalidSelection).toBeDisabled();
 		expect(invalidSelection).not.toBeChecked();
+		expect(invalidSelection).toHaveAttribute('aria-invalid', 'true');
+		expect(invalidSelection).toHaveAccessibleDescription('Value is required.');
+		expect(screen.getByRole('checkbox', { name: 'Select import row 1' })).not.toHaveAttribute('aria-invalid');
 		await fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
 		expect(screen.getByText('0 of 2 selected')).toBeInTheDocument();
 		await fireEvent.click(screen.getByRole('checkbox', { name: 'Select all import rows' }));

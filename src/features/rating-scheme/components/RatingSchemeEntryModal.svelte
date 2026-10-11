@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, tick } from 'svelte';
 	import type { PersonnelLookup } from '$features/personnel/contracts';
 	import type { RatingSchemeEntry, ReportType, WorkflowStatus } from '../rating-scheme.types';
 	import {
@@ -54,13 +54,18 @@
 	}
 
 	let draft = $state(createInitialDraft());
+	const pristineDraft = JSON.stringify(createInitialDraft());
 	let showDeleteConfirm = $state(false);
 	let saveAttempted = $state(false);
 	let isSaving = $state(false);
 	let isDeleting = $state(false);
+	let saveError = $state('');
+	let saveButton = $state<HTMLButtonElement | null>(null);
 	const busy = $derived(isSaving || isDeleting);
+	const dirty = $derived(JSON.stringify(draft) !== pristineDraft);
 
 	const view = $derived(getRatingSchemeEntryDraftView(draft));
+	const missingRequired = $derived(saveAttempted ? view.missingRequiredLabels : []);
 
 	function handleRatedPersonValueChange(value: string | string[]) {
 		if (Array.isArray(value)) return;
@@ -111,6 +116,7 @@
 		const saveData = buildRatingSchemeEntrySaveData(draft);
 		const successMessage = entry ? 'Rating entry updated' : 'Rating entry added';
 		const failureMessage = entry ? 'Failed to update rating entry' : 'Failed to add rating entry';
+		saveError = '';
 		isSaving = true;
 		try {
 			await onSave(saveData, isCurrent);
@@ -118,9 +124,13 @@
 			toastStore.success(successMessage);
 			onClose();
 		} catch (error) {
-			if (isCurrent()) toastStore.error(getSaveErrorMessage(error, failureMessage));
+			if (isCurrent()) saveError = getSaveErrorMessage(error, failureMessage);
 		} finally {
 			if (isCurrent()) isSaving = false;
+		}
+		if (saveError && isCurrent()) {
+			await tick();
+			saveButton?.focus();
 		}
 	}
 
@@ -144,7 +154,11 @@
 	}
 </script>
 
-<AppDialog.Root open {busy} {onClose}>
+{#snippet requiredError(missingLabel: string, fieldName: string)}
+	{#if missingRequired.includes(missingLabel)}<Field.Error>{fieldName} is required.</Field.Error>{/if}
+{/snippet}
+
+<AppDialog.Root open {busy} closeBlocked={dirty} {onClose}>
 	<AppDialog.Content size="wide" class="h-[calc(100dvh-2rem)]">
 		<AppDialog.Header>
 			<AppDialog.Title>{entry ? 'Edit Rating Entry' : 'Add Rating Entry'}</AppDialog.Title>
@@ -155,7 +169,13 @@
 
 		<AppDialog.Body class="grid min-h-0 gap-4 overflow-y-auto">
 			<fieldset class="contents" disabled={busy}>
-				{#if saveAttempted && view.missingRequiredLabels.length > 0}
+				{#if saveError}
+					<Alert.Root variant="destructive">
+						<Alert.Title>Rating entry was not saved</Alert.Title>
+						<Alert.Description>{saveError}</Alert.Description>
+					</Alert.Root>
+				{/if}
+				{#if missingRequired.length > 0}
 					<Alert.Root variant="warning">
 						<Alert.Title>Complete required fields</Alert.Title>
 						<Alert.Description>Missing: {view.missingRequiredLabels.join(', ')}.</Alert.Description>
@@ -184,6 +204,7 @@
 							<Combobox.List />
 						</Combobox.Content>
 					</Combobox.Root>
+					{@render requiredError('rated individual', 'Rated individual')}
 				</Field.Root>
 
 				<div class="grid gap-4 sm:grid-cols-2">
@@ -233,23 +254,31 @@
 							onclick={() => (draft.rater.mode = 'external')}>External</Button
 						>
 					</ButtonGroup.Root>
-					{#if draft.rater.mode === 'internal'}
-						<Combobox.Root
-							items={personnelOptions}
-							bind:value={draft.rater.personId}
-							label="Rater from organization"
-							autoHighlight
-						>
-							<Combobox.Trigger clearable placeholder="Search rater..." aria-label="Rater from organization" />
-							<Combobox.Content>
-								<Combobox.Search placeholder="Search rater..." />
-								<Combobox.Empty>No personnel found.</Combobox.Empty>
-								<Combobox.List />
-							</Combobox.Content>
-						</Combobox.Root>
-					{:else}
-						<Input type="text" bind:value={draft.rater.name} placeholder="Rank, Name, Position (e.g., MAJ Smith, S3)" />
-					{/if}
+					<Field.Root>
+						{#if draft.rater.mode === 'internal'}
+							<Combobox.Root
+								items={personnelOptions}
+								bind:value={draft.rater.personId}
+								label="Rater from organization"
+								autoHighlight
+							>
+								<Combobox.Trigger clearable placeholder="Search rater..." aria-label="Rater from organization" />
+								<Combobox.Content>
+									<Combobox.Search placeholder="Search rater..." />
+									<Combobox.Empty>No personnel found.</Combobox.Empty>
+									<Combobox.List />
+								</Combobox.Content>
+							</Combobox.Root>
+						{:else}
+							<Input
+								type="text"
+								bind:value={draft.rater.name}
+								aria-label="External rater"
+								placeholder="Rank, Name, Position (e.g., MAJ Smith, S3)"
+							/>
+						{/if}
+						{@render requiredError('rater', 'Rater')}
+					</Field.Root>
 				</Field.Set>
 
 				<Field.Set class="rounded-lg border bg-muted/20 p-4">
@@ -266,31 +295,35 @@
 							onclick={() => (draft.seniorRater.mode = 'external')}>External</Button
 						>
 					</ButtonGroup.Root>
-					{#if draft.seniorRater.mode === 'internal'}
-						<Combobox.Root
-							items={personnelOptions}
-							bind:value={draft.seniorRater.personId}
-							label="Senior rater from organization"
-							autoHighlight
-						>
-							<Combobox.Trigger
-								clearable
-								placeholder="Search senior rater..."
-								aria-label="Senior rater from organization"
+					<Field.Root>
+						{#if draft.seniorRater.mode === 'internal'}
+							<Combobox.Root
+								items={personnelOptions}
+								bind:value={draft.seniorRater.personId}
+								label="Senior rater from organization"
+								autoHighlight
+							>
+								<Combobox.Trigger
+									clearable
+									placeholder="Search senior rater..."
+									aria-label="Senior rater from organization"
+								/>
+								<Combobox.Content>
+									<Combobox.Search placeholder="Search senior rater..." />
+									<Combobox.Empty>No personnel found.</Combobox.Empty>
+									<Combobox.List />
+								</Combobox.Content>
+							</Combobox.Root>
+						{:else}
+							<Input
+								type="text"
+								bind:value={draft.seniorRater.name}
+								aria-label="External senior rater"
+								placeholder="Rank, Name, Position (e.g., COL Jones, BDE CDR)"
 							/>
-							<Combobox.Content>
-								<Combobox.Search placeholder="Search senior rater..." />
-								<Combobox.Empty>No personnel found.</Combobox.Empty>
-								<Combobox.List />
-							</Combobox.Content>
-						</Combobox.Root>
-					{:else}
-						<Input
-							type="text"
-							bind:value={draft.seniorRater.name}
-							placeholder="Rank, Name, Position (e.g., COL Jones, BDE CDR)"
-						/>
-					{/if}
+						{/if}
+						{@render requiredError('senior rater', 'Senior rater')}
+					</Field.Root>
 				</Field.Set>
 
 				{#if !draft.showIntermediate}
@@ -390,6 +423,7 @@
 							placeholder="Select start date"
 							onValueChange={handleRatingPeriodStartChange}
 						/>
+						{@render requiredError('rating period start', 'Rating period start')}
 					</Field.Root>
 					<Field.Root>
 						<Field.Label for="period-end">Thru Date (Due)</Field.Label>
@@ -399,6 +433,7 @@
 							placeholder="Select thru date"
 							onValueChange={handleRatingPeriodEndChange}
 						/>
+						{@render requiredError('thru date', 'Thru date')}
 					</Field.Root>
 				</div>
 
@@ -459,7 +494,7 @@
 				<Button variant="destructive" disabled={busy} onclick={() => (showDeleteConfirm = true)}>Delete</Button>
 			{/if}
 			<Button variant="outline" onclick={onClose} disabled={busy}>Cancel</Button>
-			<Button disabled={busy} onclick={handleSave}>{isSaving ? 'Saving...' : 'Save'}</Button>
+			<Button disabled={busy} onclick={handleSave} bind:ref={saveButton}>{isSaving ? 'Saving...' : 'Save'}</Button>
 		</AppDialog.Footer>
 	</AppDialog.Content>
 </AppDialog.Root>

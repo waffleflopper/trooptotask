@@ -1,9 +1,11 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import { invalidate } from '$app/navigation';
+	import * as Alert from '$lib/components/ui/alert';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
+	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
-	import { Label } from '$lib/components/ui/label';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import type { CriticalTasksSettings } from '../criticalTasks.types';
 
@@ -16,17 +18,27 @@
 	let saveError = $state('');
 	let lastSettingsKey = $state('');
 	let lastOrgId = $state('');
+	let saveButton = $state<HTMLButtonElement | null>(null);
 	const changed = $derived(
 		defaultExpirationMonths !== savedExpirationMonths || expiringSoonWarningDays !== savedWarningDays
 	);
-	const valid = $derived(
-		Number.isInteger(defaultExpirationMonths) &&
-			defaultExpirationMonths >= 1 &&
-			defaultExpirationMonths <= 120 &&
-			Number.isInteger(expiringSoonWarningDays) &&
-			expiringSoonWarningDays >= 1 &&
-			expiringSoonWarningDays <= 365
+	const expirationError = $derived(
+		inRange(defaultExpirationMonths, 120) ? undefined : 'Default expiration must be 1–120 months.'
 	);
+	const warningWindowError = $derived(
+		inRange(expiringSoonWarningDays, 365) ? undefined : 'Expiring-soon window must be 1–365 days.'
+	);
+	const saveDisabledReason = $derived(
+		expirationError || warningWindowError
+			? 'Fix the highlighted defaults before saving.'
+			: changed
+				? undefined
+				: 'No changes to save.'
+	);
+
+	function inRange(value: number, max: number): boolean {
+		return Number.isInteger(value) && value >= 1 && value <= max;
+	}
 
 	$effect(() => {
 		const key = `${settings.defaultExpirationMonths}:${settings.expiringSoonWarningDays}`;
@@ -42,7 +54,7 @@
 	});
 
 	async function save() {
-		if (!changed || !valid || saving) return;
+		if (saveDisabledReason || saving) return;
 		const requestOrgId = orgId;
 		const submitted = { defaultExpirationMonths, expiringSoonWarningDays };
 		saveError = '';
@@ -63,6 +75,10 @@
 		} finally {
 			if (orgId === requestOrgId) saving = false;
 		}
+		if (saveError) {
+			await tick();
+			saveButton?.focus();
+		}
 	}
 </script>
 
@@ -79,16 +95,28 @@
 		</div>
 		<div class="flex items-center gap-2">
 			<Badge variant={changed ? 'outline' : 'secondary'}>{changed ? 'Unsaved changes' : 'Saved'}</Badge>
-			<Button size="sm" type="button" disabled={!changed || !valid || saving} onclick={save}>
+			<Button
+				size="sm"
+				type="button"
+				disabled={!!saveDisabledReason || saving}
+				title={saveDisabledReason}
+				onclick={save}
+				bind:ref={saveButton}
+			>
 				{#if saving}<Spinner />{/if}
 				{saving ? 'Saving...' : 'Save'}
 			</Button>
 		</div>
 	</div>
+	{#if saveError}
+		<Alert.Root variant="destructive">
+			<Alert.Title>{saveError}</Alert.Title>
+			<Alert.Description>Your entered defaults are kept. Try Save again.</Alert.Description>
+		</Alert.Root>
+	{/if}
 	<div class="grid gap-4 md:grid-cols-2">
-		<div class="grid gap-2">
-			<Label for="critical-tasks-default-expiration">Default expiration</Label>
-			<p class="text-sm text-muted-foreground">Used when a task has no expiration override.</p>
+		<Field.Root>
+			<Field.Label for="critical-tasks-default-expiration">Default expiration</Field.Label>
 			<div class="flex items-center gap-2">
 				<Input
 					id="critical-tasks-default-expiration"
@@ -100,10 +128,11 @@
 				/>
 				<span class="text-sm text-muted-foreground">Months</span>
 			</div>
-		</div>
-		<div class="grid gap-2">
-			<Label for="critical-tasks-expiring-window">Expiring-soon window</Label>
-			<p class="text-sm text-muted-foreground">When a current task becomes expiring soon.</p>
+			<Field.Description>Used when a task has no expiration override.</Field.Description>
+			{#if expirationError}<Field.Error>{expirationError}</Field.Error>{/if}
+		</Field.Root>
+		<Field.Root>
+			<Field.Label for="critical-tasks-expiring-window">Expiring-soon window</Field.Label>
 			<div class="flex items-center gap-2">
 				<Input
 					id="critical-tasks-expiring-window"
@@ -115,12 +144,8 @@
 				/>
 				<span class="text-sm text-muted-foreground">Days</span>
 			</div>
-		</div>
+			<Field.Description>When a current task becomes expiring soon.</Field.Description>
+			{#if warningWindowError}<Field.Error>{warningWindowError}</Field.Error>{/if}
+		</Field.Root>
 	</div>
-	{#if !valid}
-		<p class="text-sm text-destructive">Expiration must be 1–120 months; warning window must be 1–365 days.</p>
-	{/if}
-	{#if saveError}
-		<p class="text-sm text-destructive" role="alert">{saveError}</p>
-	{/if}
 </section>

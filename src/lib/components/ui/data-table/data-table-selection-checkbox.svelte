@@ -6,6 +6,9 @@
 		indeterminate?: boolean;
 		disabled?: boolean;
 		ariaLabel: string;
+		/** The row cannot be selected because its data is invalid; `describedBy` names the reason. */
+		invalid?: boolean;
+		describedBy?: string;
 		onCheckedChange?: (checked: boolean) => void;
 	};
 
@@ -14,6 +17,8 @@
 		indeterminate = false,
 		disabled = false,
 		ariaLabel,
+		invalid = false,
+		describedBy,
 		onCheckedChange
 	}: Props = $props();
 </script>
@@ -23,5 +28,7 @@
 	{indeterminate}
 	{disabled}
 	aria-label={ariaLabel}
+	aria-invalid={invalid || undefined}
+	aria-describedby={describedBy}
 	onCheckedChange={(value) => onCheckedChange?.(!!value)}
 />

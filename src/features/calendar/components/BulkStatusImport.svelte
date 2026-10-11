@@ -265,7 +265,7 @@
 	}
 </script>
 
-<BulkImportWorkspace.Root ariaLabel="Calendar status import workspace">
+<BulkImportWorkspace.Root ariaLabel="Calendar status import workspace" {step}>
 	{#if step === 'upload'}
 		<div class="grid gap-5 lg:grid-cols-[minmax(16rem,22rem)_minmax(0,1fr)]">
 			<section class="rounded-lg border bg-card p-5 text-card-foreground">

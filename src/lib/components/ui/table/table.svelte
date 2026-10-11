@@ -5,12 +5,23 @@
 	let {
 		ref = $bindable(null),
 		class: className,
+		scrollRegionLabel,
 		children,
 		...restProps
-	}: WithElementRef<HTMLTableAttributes> = $props();
+	}: WithElementRef<HTMLTableAttributes> & {
+		/** Names the scroll container as a focusable region so keyboard users can scroll a wide table. */
+		scrollRegionLabel?: string;
+	} = $props();
 </script>
 
-<div data-slot="table-container" class="relative w-full overflow-x-auto">
+<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+<div
+	data-slot="table-container"
+	class="relative w-full overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+	role={scrollRegionLabel ? 'region' : undefined}
+	aria-label={scrollRegionLabel}
+	tabindex={scrollRegionLabel ? 0 : undefined}
+>
 	<table bind:this={ref} data-slot="table" class={cn('w-full caption-bottom text-sm', className)} {...restProps}>
 		{@render children?.()}
 	</table>

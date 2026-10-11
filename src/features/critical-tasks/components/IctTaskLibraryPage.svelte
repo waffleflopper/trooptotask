@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, tick } from 'svelte';
+	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
 	import * as ButtonGroup from '$lib/components/ui/button-group';
 	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
@@ -10,7 +11,7 @@
 	import { Textarea } from '$lib/components/ui/textarea';
 	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar';
 	import type { WorkspaceToolbarAction } from '$lib/components/patterns/workspace-toolbar';
-	import type { CriticalTasksPageAccess } from '../contracts';
+	import { ICT_TASK_CODE_EXISTS_MESSAGE, type CriticalTasksPageAccess } from '../contracts';
 	import IctTaskBulkImport from '$features/critical-tasks/components/IctTaskBulkImport.svelte';
 	import CriticalTasksDefaults from '$features/critical-tasks/components/CriticalTasksDefaults.svelte';
 	import { criticalTasksSettingsFromWorkspaceData } from '$features/critical-tasks/utils/criticalTasksWorkspaceData';
@@ -52,6 +53,15 @@
 	let editing = $state(false);
 	let saving = $state(false);
 	let formError = $state('');
+	let fieldErrors = $state<{ taskCode?: string; title?: string; expirationMonths?: string; sortOrder?: string }>({});
+	let taskCodeInput = $state<HTMLInputElement | null>(null);
+	let titleInput = $state<HTMLInputElement | null>(null);
+	let editButton = $state<HTMLButtonElement | null>(null);
+	let expirationInput = $state<HTMLInputElement | null>(null);
+	let sortOrderInput = $state<HTMLInputElement | null>(null);
+	let saveButton = $state<HTMLButtonElement | null>(null);
+	let pageRoot = $state<HTMLElement | null>(null);
+	let importRegion = $state<HTMLElement | null>(null);
 	let importingTasks = $state(false);
 	let confirmArchive = $state<IctTask | null>(null);
 	let taskStatusFilter = $state<'active' | 'archived'>('active');
@@ -132,7 +142,8 @@
 					label: 'Import CSV',
 					onclick: startImport,
 					icon: 'upload',
-					disabled: creating || editing || importingTasks,
+					disabled: loading || creating || editing || importingTasks,
+					disabledReason: loading ? 'Critical Tasks are still loading.' : undefined,
 					priority: 'normal',
 					variant: 'default'
 				},
@@ -141,7 +152,8 @@
 					label: 'New Task',
 					onclick: startCreate,
 					icon: 'clipboard-check',
-					disabled: creating || editing || importingTasks,
+					disabled: loading || creating || editing || importingTasks,
+					disabledReason: loading ? 'Critical Tasks are still loading.' : undefined,
 					priority: 'critical',
 					overflow: 'never',
 					variant: 'primary'
@@ -183,6 +195,7 @@
 		formExpirationMonths = '';
 		formSortOrder = '0';
 		formError = '';
+		fieldErrors = {};
 	});
 
 	$effect(() => {
@@ -232,6 +245,7 @@
 
 	function resetForm(task?: IctTask) {
 		formError = '';
+		fieldErrors = {};
 		formTaskCode = task?.taskCode ?? '';
 		formTitle = task?.title ?? '';
 		formDescription = task?.description ?? '';
@@ -241,54 +255,65 @@
 		formSortOrder = String(task?.sortOrder ?? nextSortOrder());
 	}
 
-	function startCreate() {
-		if (!canManage) return;
+	async function startCreate() {
+		if (!canManage || loading) return;
 		taskStatusFilter = 'active';
 		selectedTaskId = null;
 		resetForm();
 		creating = true;
 		editing = false;
 		importingTasks = false;
+		await tick();
+		taskCodeInput?.focus();
 	}
 
-	function startEdit() {
+	async function startEdit() {
 		if (!selectedTask || !canManage || selectedTask.archivedAt) return;
 		resetForm(selectedTask);
 		editing = true;
 		creating = false;
 		importingTasks = false;
+		await tick();
+		taskCodeInput?.focus();
 	}
 
-	function cancelEdit() {
+	async function cancelEdit() {
+		const wasCreating = creating;
 		creating = false;
 		editing = false;
 		saving = false;
 		formError = '';
+		fieldErrors = {};
+		await tick();
+		(wasCreating ? pageRoot?.querySelector<HTMLElement>('button[aria-label="New Task"]') : editButton)?.focus();
 	}
 
-	function startImport() {
-		if (!canManage) return;
+	async function startImport() {
+		if (!canManage || loading) return;
 		taskStatusFilter = 'active';
 		selectedTaskId = null;
 		creating = false;
 		editing = false;
 		importingTasks = true;
+		await tick();
+		const heading = importRegion?.querySelector<HTMLElement>('h2');
+		if (!heading) return;
+		heading.tabIndex = -1;
+		heading.focus();
 	}
 
-	function cancelImport() {
+	async function cancelImport() {
 		importingTasks = false;
+		await tick();
+		const importTrigger =
+			pageRoot?.querySelector<HTMLElement>('button[aria-label="Import CSV"]') ??
+			pageRoot?.querySelector<HTMLElement>('button[aria-label="More ICT task library actions"]');
+		importTrigger?.focus();
 	}
 
-	function parsePositiveInteger(value: string): number | null {
+	function parseWholeNumber(value: string, min: number): number | null {
 		const trimmed = value.trim();
-		if (!trimmed) return null;
-		const parsed = Number.parseInt(trimmed, 10);
-		return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
-	}
-
-	function parseSortOrder(value: string): number {
-		const parsed = Number.parseInt(value.trim(), 10);
-		return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+		return /^\d+$/.test(trimmed) && Number(trimmed) >= min ? Number(trimmed) : null;
 	}
 
 	function normalizeOptionalText(value: string): string | null {
@@ -305,11 +330,38 @@
 
 	async function saveTask(event?: SubmitEvent) {
 		event?.preventDefault();
-		if (!canManage || saving || !formTaskCode.trim() || !formTitle.trim()) return;
+		if (!canManage || saving) return;
+
+		formError = '';
+		// A number input holding text it cannot parse reports an empty value, which is not an intentional blank.
+		const usesDefaultExpiration = !formExpirationMonths.trim() && !expirationInput?.validity.badInput;
+		const expirationMonths = usesDefaultExpiration ? null : parseWholeNumber(formExpirationMonths, 1);
+		const sortOrder = parseWholeNumber(formSortOrder, 0);
+		fieldErrors = {
+			taskCode: formTaskCode.trim() ? undefined : 'Task code is required',
+			title: formTitle.trim() ? undefined : 'Title is required',
+			expirationMonths:
+				usesDefaultExpiration || expirationMonths !== null
+					? undefined
+					: 'Enter a whole number of months, 1 or more, or leave blank for the Organization default',
+			sortOrder: sortOrder === null ? 'Enter a whole number, 0 or more' : undefined
+		};
+		const firstInvalid = (
+			[
+				[fieldErrors.taskCode, taskCodeInput],
+				[fieldErrors.title, titleInput],
+				[fieldErrors.expirationMonths, expirationInput],
+				[fieldErrors.sortOrder, sortOrderInput]
+			] as const
+		).find(([error]) => error);
+		if (firstInvalid || sortOrder === null) {
+			await tick();
+			firstInvalid?.[1]?.focus();
+			return;
+		}
 
 		const requestOrgId = orgId;
 		const generation = scopeGeneration;
-		formError = '';
 		saving = true;
 		try {
 			const payload = {
@@ -318,8 +370,8 @@
 				description: normalizeOptionalText(formDescription),
 				category: normalizeOptionalText(formCategory),
 				mos: parseMosApplicabilityInput(formMos),
-				expirationMonths: parsePositiveInteger(formExpirationMonths),
-				sortOrder: parseSortOrder(formSortOrder),
+				expirationMonths,
+				sortOrder,
 				archivedAt: null
 			};
 
@@ -338,10 +390,16 @@
 			editing = false;
 		} catch (error) {
 			if (isCurrentRequest(requestOrgId, generation)) {
-				formError = error instanceof Error ? error.message : 'Could not save task';
+				const message = error instanceof Error ? error.message : 'Could not save task';
+				if (message === ICT_TASK_CODE_EXISTS_MESSAGE) fieldErrors = { taskCode: message };
+				else formError = message;
 			}
 		} finally {
 			if (isCurrentRequest(requestOrgId, generation)) saving = false;
+		}
+		if (fieldErrors.taskCode || formError) {
+			await tick();
+			(fieldErrors.taskCode ? taskCodeInput : saveButton)?.focus();
 		}
 	}
 
@@ -366,15 +424,19 @@
 		selectedTaskId = taskId;
 	}
 
-	async function moveTask(index: number, direction: -1 | 1) {
+	async function moveTask(index: number, direction: -1 | 1, pressed: HTMLElement) {
 		const current = activeTasks[index];
 		const target = activeTasks[index + direction];
 		if (!current || !target || !canManage) return;
+		const moveButtons = [...(pressed.parentElement?.querySelectorAll<HTMLButtonElement>('button') ?? [])];
+		const focusCandidates = moveButtons.sort((a, b) => Number(b === pressed) - Number(a === pressed));
 
 		await Promise.all([
 			ictTasksStore.update(current.id, { sortOrder: target.sortOrder }),
 			ictTasksStore.update(target.id, { sortOrder: current.sortOrder })
 		]);
+		await tick();
+		focusCandidates.find((button) => button.isConnected && !button.disabled)?.focus();
 	}
 
 	function completionCount(taskId: string): number {
@@ -410,8 +472,8 @@
 		<p class="text-muted-foreground">Critical Tasks configure access is required to manage ICT task definitions.</p>
 	</section>
 {:else}
-	<div class="flex flex-col gap-4 p-4">
-		<WorkspaceToolbar.Root ariaLabel="ICT task library controls">
+	<div class="flex flex-col gap-4 p-4" bind:this={pageRoot}>
+		<WorkspaceToolbar.Root ariaLabel="ICT task library controls" wrap>
 			<WorkspaceToolbar.Group
 				label="ICT task library filters"
 				activeCount={toolbarActiveFilterCount}
@@ -453,15 +515,15 @@
 		{#if loading}
 			<section
 				class="flex items-center justify-center gap-2 p-6 text-muted-foreground"
-				aria-busy="true"
 				aria-live="polite"
 				role="status"
+				aria-label="Loading ICT task library"
 			>
 				<Spinner />
 				<p>Loading ICT task library...</p>
 			</section>
 		{:else if importingTasks}
-			<section>
+			<section bind:this={importRegion}>
 				<IctTaskBulkImport tasks={ictTasksStore.items} onCancel={cancelImport} onDone={cancelImport} />
 			</section>
 		{:else}
@@ -512,9 +574,10 @@
 										selectedTaskId === task.id && !creating && 'border-primary bg-primary/5'
 									]}
 								>
-									<button
-										class="grid min-w-0 flex-1 gap-1 p-3 text-left"
-										type="button"
+									<Button
+										variant="ghost"
+										size="none"
+										class="grid h-auto min-w-0 flex-1 items-start justify-start gap-1 rounded-r-none p-3 text-left font-normal whitespace-normal"
 										aria-pressed={selectedTaskId === task.id && !creating}
 										onclick={() => selectTask(task.id)}
 									>
@@ -523,14 +586,14 @@
 										>
 										<span class="truncate text-sm font-medium text-foreground">{task.title}</span>
 										<span class="truncate text-xs text-muted-foreground">{formatTaskListMeta(task)}</span>
-									</button>
+									</Button>
 									{#if canReorderTasks}
 										<div class="flex flex-col justify-center gap-1 p-2" aria-label="Reorder {task.taskCode}">
 											<Button
 												variant="ghost"
 												size="icon-sm"
 												type="button"
-												onclick={() => moveTask(index, -1)}
+												onclick={(event) => moveTask(index, -1, event.currentTarget)}
 												disabled={index === 0}
 												aria-label="Move {task.taskCode} up">▲</Button
 											>
@@ -538,7 +601,7 @@
 												variant="ghost"
 												size="icon-sm"
 												type="button"
-												onclick={() => moveTask(index, 1)}
+												onclick={(event) => moveTask(index, 1, event.currentTarget)}
 												disabled={index === activeTasks.length - 1}
 												aria-label="Move {task.taskCode} down">▼</Button
 											>
@@ -555,18 +618,20 @@
 					aria-label="ICT task details"
 				>
 					{#if creating || editing}
-						<form class="flex flex-col gap-4" onsubmit={saveTask}>
+						<form class="flex flex-col gap-4" novalidate onsubmit={saveTask}>
 							<h3 class="text-lg font-semibold">{creating ? 'New ICT Task' : 'Edit ICT Task'}</h3>
 
 							<div class="grid gap-4 md:grid-cols-2">
 								<Field.Root>
 									<Field.Label for="ict-task-code">Task code</Field.Label>
-									<Input id="ict-task-code" type="text" bind:value={formTaskCode} required />
+									<Input id="ict-task-code" type="text" bind:value={formTaskCode} bind:ref={taskCodeInput} required />
+									{#if fieldErrors.taskCode}<Field.Error>{fieldErrors.taskCode}</Field.Error>{/if}
 								</Field.Root>
 
 								<Field.Root>
 									<Field.Label for="ict-task-title">Title</Field.Label>
-									<Input id="ict-task-title" type="text" bind:value={formTitle} required />
+									<Input id="ict-task-title" type="text" bind:value={formTitle} bind:ref={titleInput} required />
+									{#if fieldErrors.title}<Field.Error>{fieldErrors.title}</Field.Error>{/if}
 								</Field.Root>
 
 								<Field.Root class="md:col-span-2">
@@ -611,8 +676,10 @@
 										min="1"
 										value={formExpirationMonths}
 										oninput={handleExpirationInput}
+										bind:ref={expirationInput}
 										placeholder="Org default"
 									/>
+									{#if fieldErrors.expirationMonths}<Field.Error>{fieldErrors.expirationMonths}</Field.Error>{/if}
 								</Field.Root>
 
 								<Field.Root>
@@ -623,16 +690,21 @@
 										min="0"
 										value={formSortOrder}
 										oninput={handleSortOrderInput}
+										bind:ref={sortOrderInput}
 									/>
+									{#if fieldErrors.sortOrder}<Field.Error>{fieldErrors.sortOrder}</Field.Error>{/if}
 								</Field.Root>
 							</div>
 
 							{#if formError}
-								<p class="text-sm text-destructive" role="alert">{formError}</p>
+								<Alert.Root variant="destructive">
+									<Alert.Title>Task was not saved</Alert.Title>
+									<Alert.Description>{formError}</Alert.Description>
+								</Alert.Root>
 							{/if}
 							<div class="flex flex-wrap justify-end gap-2">
 								<Button variant="outline" size="sm" type="button" onclick={cancelEdit}>Cancel</Button>
-								<Button size="sm" type="submit" disabled={!formTaskCode.trim() || !formTitle.trim() || saving}>
+								<Button size="sm" type="submit" disabled={saving} bind:ref={saveButton}>
 									{#if saving}<Spinner />{/if}
 									{creating ? 'Create Task' : 'Save Changes'}
 								</Button>
@@ -648,7 +720,9 @@
 									<h3 class="text-lg font-semibold text-foreground">{selectedTask.title}</h3>
 								</div>
 								{#if canManage && !selectedTask.archivedAt}
-									<Button variant="outline" size="sm" type="button" onclick={startEdit}>Edit</Button>
+									<Button variant="outline" size="sm" type="button" onclick={startEdit} bind:ref={editButton}
+										>Edit</Button
+									>
 								{/if}
 							</div>
 

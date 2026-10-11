@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import VisibleStub from '$lib/test-stubs/VisibleStub.svelte';
 import type { RatingSchemeWorkspaceResult, RatingSchemeWorkspaceRestricted } from '$features/rating-scheme/contracts';
 
@@ -48,7 +48,6 @@ vi.mock('$features/app-shell', () => ({
 }));
 
 import Page from './+page.svelte';
-import PageWithRouteBoundary from './RatingSchemeRouteTestBoundary.svelte';
 
 afterEach(() => {
 	cleanup();
@@ -132,7 +131,7 @@ describe('evals page', () => {
 			}
 		});
 
-		expect(screen.getByRole('status')).toBeTruthy();
+		expect(screen.getByRole('status', { name: 'Loading evaluations' }).hasAttribute('aria-busy')).toBe(false);
 
 		workspace.resolve(makeBootstrap());
 
@@ -142,35 +141,36 @@ describe('evals page', () => {
 		});
 	});
 
-	it('shows the route error boundary when Rating Scheme workspace loading fails', async () => {
+	it('leaves a rejected Rating Scheme workspace to the layout, without a skeleton, an error or a render throw', async () => {
 		const workspace = deferred<RatingSchemeWorkspaceResult>();
+		const errors: unknown[] = [];
+		const onError = (event: ErrorEvent) => errors.push(event.error);
+		window.addEventListener('error', onError);
 
-		render(PageWithRouteBoundary, {
-			props: {
-				data: makeRouteData(workspace.promise)
-			}
-		});
+		render(Page, { props: { data: makeRouteData(workspace.promise) } });
+		expect(screen.getByRole('status')).toBeTruthy();
 
 		workspace.reject(new Error('rating scheme failed'));
 
-		await waitFor(() => {
-			expect(screen.getByRole('alert').textContent).toContain('rating scheme failed');
-		});
-		expect(screen.queryByRole('status')).toBeNull();
+		await waitFor(() => expect(screen.queryByRole('status')).toBeNull());
+		expect(screen.queryByRole('alert')).toBeNull();
 		expect(screen.queryAllByTestId('visible-stub')).toHaveLength(0);
+		expect(errors).toEqual([]);
+		window.removeEventListener('error', onError);
 	});
 
-	it('shows the route error boundary when Rating Scheme route data is missing', async () => {
-		render(PageWithRouteBoundary, {
-			props: {
-				data: makeRouteDataWithoutRatingScheme()
-			}
-		});
+	it('shows a load error with Retry when Rating Scheme route data is missing', async () => {
+		const reload = vi.fn();
+		vi.stubGlobal('location', { ...window.location, reload });
 
-		await waitFor(() => {
-			expect(screen.getByRole('alert').textContent).toContain('Missing Rating Scheme workspace data');
-		});
+		render(Page, { props: { data: makeRouteDataWithoutRatingScheme() } });
+
+		expect((await screen.findByRole('alert')).textContent).toContain('Unable to load Evals');
 		expect(screen.queryAllByTestId('visible-stub')).toHaveLength(0);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Retry Evals' }));
+		expect(reload).toHaveBeenCalledTimes(1);
+		vi.unstubAllGlobals();
 	});
 
 	it.each(['immediate', 'deferred'])(

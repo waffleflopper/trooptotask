@@ -43,7 +43,7 @@ afterEach(() => {
 });
 
 describe('BulkTrainingImporter', () => {
-	it('refreshes imported records when its results are dismissed with Escape', async () => {
+	it('focuses the result title after an import and refreshes records when dismissed with Escape', async () => {
 		vi.stubGlobal(
 			'fetch',
 			vi.fn(async () => Response.json({ inserted: [{ id: 'record-1' }], updated: [], exempted: [], errors: [] }))
@@ -57,8 +57,11 @@ describe('BulkTrainingImporter', () => {
 			target: { value: 'Last Name,First Name,Training Type,Date / Status,Notes\nSmith,John,CPR,2026-01-15,' }
 		});
 		await fireEvent.click(screen.getByRole('button', { name: 'Preview' }));
-		await fireEvent.click(await screen.findByRole('button', { name: 'Import' }));
+		const importButton = await screen.findByRole('button', { name: 'Import' });
+		importButton.focus();
+		await fireEvent.click(importButton);
 		await screen.findByRole('button', { name: 'Done' });
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Import complete' })));
 
 		await fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
 
@@ -80,6 +83,37 @@ describe('BulkTrainingImporter', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Preview' }));
 		await screen.findByRole('button', { name: 'Import' });
 	}
+
+	it('moves focus from Preview to the Preview step heading', async () => {
+		renderImporter();
+		await fireEvent.input(screen.getByLabelText('CSV data'), {
+			target: { value: [header, 'Smith,John,CPR,2026-01-15,', 'Nobody,John,CPR,2026-01-15,'].join('\n') }
+		});
+		const preview = screen.getByRole('button', { name: 'Preview' });
+		preview.focus();
+		await fireEvent.click(preview);
+
+		const heading = await screen.findByRole('heading', { name: 'Preview' });
+		await waitFor(() => expect(document.activeElement).toBe(heading));
+	});
+
+	it('moves focus from an uploaded file to the Preview step heading', async () => {
+		renderImporter();
+		const fileInput = screen.getByLabelText('Upload training file');
+		fileInput.focus();
+		await fireEvent.change(fileInput, {
+			target: {
+				files: [
+					new File([[header, 'Smith,John,CPR,2026-01-15,', 'Nobody,John,CPR,2026-01-15,'].join('\n')], 'training.csv', {
+						type: 'text/csv'
+					})
+				]
+			}
+		});
+
+		const heading = await screen.findByRole('heading', { name: 'Preview' });
+		await waitFor(() => expect(document.activeElement).toBe(heading));
+	});
 
 	it('marks an invalid row cell with aria-invalid and a description that resolves to its message', async () => {
 		renderImporter();

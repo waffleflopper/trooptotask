@@ -217,7 +217,7 @@ Public components:
 
 - `WorkspaceToolbar.Root`: the shared toolbar shell. Props: `ariaLabel: string`, `wrap?: boolean`, `children?: Snippet`, plus normal `div` attributes. The shell renders `role="toolbar"`. By default it is one fixed-height `flex-nowrap` row with hidden horizontal overflow as a last resort. `wrap` lets groups and their controls flow onto further rows when the container is too narrow, so no control is ever scrolled out of view; use it for filter-heavy report toolbars whose controls cannot fit one row at medium widths.
 - `WorkspaceToolbar.Group`: the labeled control/action boundary. Props: `label: string`, `activeCount?: number`, `zone?: 'controls' | 'actions' | 'meta'`, `children?: Snippet`, plus normal `div` attributes. `activeCount` is included in the accessible group label. The `actions` zone aligns to the toolbar's right edge.
-- `WorkspaceToolbar.Select` truncates a long selected label inside its trigger and exposes the full label as the trigger title. `WorkspaceToolbar.Actions` names every action button by its label, so compact icon-only buttons keep their accessible name.
+- `WorkspaceToolbar.Select` truncates a long selected label inside its trigger and exposes the full label as the trigger title. `WorkspaceToolbar.Actions` names every action button by its label, so compact icon-only buttons keep their accessible name. An action chosen from one of its menus runs after that menu has finished closing, so an action that moves focus into page content keeps it. If the menu unmounts before its close finishes, for example when a resize moves the action out of overflow, the action runs then.
 - `WorkspaceToolbar.Meta`: compact passive metadata for rare toolbar-safe status. Props: `tone?: 'neutral' | 'warning' | 'success'`, `children?: Snippet`, plus normal `div` attributes. Keep passive route context outside the toolbar unless there is proven room.
 
 Allowed route behavior knobs:
@@ -396,6 +396,7 @@ Public components:
 
 - `ReportLineChart`: multi-series line chart. Props: `data`, `series`, `ariaLabel`, `yDomain?`, `yTicks?`, `heightClass?`, `class?`.
 - `ReportBarChart`: multi-series bar chart. Props: `data`, `series`, `ariaLabel`, `layout?: 'group' | 'stack' | 'overlap'`, `yDomain?`, `yTicks?`, `heightClass?`, `class?`.
+- `ReportChartTable`: the screen-reader data table that stands in for a chart. Props: `label` (the table's accessible name), `columns` (header labels, the first for the row-name column) and `rows: { key, cells }[]` (the first cell is the row header). It renders `ui/table` inside `sr-only`. Each chart consumer renders one beside its chart; `ReportForecastChart` renders its own.
 - `ReportForecastChart`: one plot that pairs a readiness line over a shaded area (upper area) with per-interval count bars rising from the shared calendar axis (lower strip), plus a dashed success goal line, an optional highlighted band whose label and caption sit in their own row above the plot, aligned to the band, start and end point labels, and a screen-reader table. Props: `points: { date, label, percent }[]`, `bars: { start, end, count, emphasized }[]`, `goal: { value, label }`, `band: { start, end, label, caption } | null`, `xTicks: { date, label }[]`, `endTone` (text color class, usually from `readinessBandTone`), `ariaLabel`, `heightClass?`, `class?`. Dates are `YYYY-MM-DD` calendar days placed as UTC midnights, so a short final interval and month ticks land exactly. The y domain comes from `readinessTrendDomain` over the points and goal. Axis ticks and bar counts that would overlap a neighbor are dropped; the first and last ticks always stay. Points must not rise over time, so the start label sits above the start point and the end label below the end point, the sides the line never reaches. Each label steps past any gridline or goal line its glyphs would cross. The end label has its own row between the line floor and the bar counts. The goal label sits in the right gutter past the end point, centered on the goal line, and the right padding is sized to fit it, so no plotted mark can reach it. Training Reports uses it for the readiness forecast.
 
 Routes configure:
@@ -549,7 +550,7 @@ Component Catalog coverage:
 	import { useDataTableSelection } from '$lib/components/ui/data-table';
 </script>
 
-<BulkImportWorkspace.Root ariaLabel="Personnel import workspace">
+<BulkImportWorkspace.Root ariaLabel="Personnel import workspace" {step}>
 	<BulkImportWorkspace.Header title="Personnel import" step="Step 1" />
 
 	<BulkImportWorkspace.SourcePicker label="Import source">
@@ -585,7 +586,7 @@ Component Catalog coverage:
 
 Public components:
 
-- `Root`: import workspace shell. Props: `ariaLabel?`, `children`.
+- `Root`: import workspace shell. Props: `ariaLabel?`, `step?`, `children`. Pass the route's current step key as `step`. When it changes with focus inside this Root, Root holds focus on itself while the step's markup is replaced, so neither the browser nor a dialog's focus trap moves it. Focus then returns to a control that survived the change, or moves to the new step's first `h2` or `h3`. Inside a dialog the whole dialog counts as the Root, because its footer holds the step controls, and focus on the dialog itself counts as held. A step without a heading, such as `ProgressState`, keeps focus held until a later step renders one, unless the user moves focus elsewhere first. Focus outside the Root when the step changes stays where it is. Render one Root around every step so it sees the change.
 - `Header`: title, description, step label, and metadata.
 - `SourcePicker`: accessible radio-group-style source chooser.
 - `SourceOption`: selectable upload/paste/manual choice.
@@ -597,7 +598,7 @@ Public components:
 - `RowStatus`: shared per-row import status display. Props: `tone: 'valid' | 'warning' | 'error' | 'disabled' | 'duplicate' | 'info'`, `label?`, `description?`, `descriptionMode?`.
 - `ProgressState`: importing/loading state with optional progress value.
 - `FooterActions`: footer command region with disabled submit reason.
-- `ResultSummary`: final `success`, `partial`, or `failed` result summary.
+- `ResultSummary`: final `success`, `partial`, or `failed` result summary. Its title is an `h3`, so a results step without a `Header` still gives Root a focus target.
 
 Shared components own:
 
@@ -611,7 +612,7 @@ Import validation/result state guidance:
 
 - Validation errors and warnings should be produced by feature utilities. Shared UI only renders the resulting counts/messages.
 - Use `rowStatus` for valid/warning/error/duplicate/disabled/info presentation. Use `disabledReason` for rows that must not be selected; the preview table uses it in the selection label and can render it through the status column.
-- `PreviewTable.disabledRow` disables the row's import checkbox, not its cell editors. Pass the same predicate to `useDataTableSelection` so select-all excludes invalid rows. Editable cells remain available to correct validation errors; use `rowStatus` and `disabledReason` to explain those errors.
+- `PreviewTable.disabledRow` disables the row's import checkbox, not its cell editors. When the row's `rowStatus` has a description, the checkbox is `aria-invalid` and described by it. Pass the same predicate to `useDataTableSelection` so select-all excludes invalid rows. Editable cells remain available to correct validation errors; use `rowStatus` and `disabledReason` to explain those errors.
 - Use `ResultSummary status="partial"` when some rows were saved and some failed.
 - Use `ResultSummary status="failed"` when no requested rows were saved.
 - Use `ProgressState` for parsing/importing work that blocks closing or submit actions.
@@ -999,7 +1000,7 @@ Compatibility note: the legacy `ui/EmptyState.svelte` wrapper has been removed. 
 
 The root and Organization error boundaries and `WorkspaceAccessRestricted` compose `ui/empty` for their status, message and recovery action. A page's `h1` stays a heading element inside `Empty.Header` where the page needs one. `Empty.Root` is full width, so a caller that adds outer margins also sets `w-auto` to keep the margins inside its column.
 
-On Dashboard, Training and Onboarding, a streamed workspace source that rejects renders `WorkspaceLoadError` (a destructive `Alert` with a `Retry` button that reloads the page) from its route layout, and their pages do not throw from an `{#await}` catch. SvelteKit's root has no boundary to catch a render-time throw, so the loading state would stay up. Calendar, Critical Tasks, Evaluations and Personnel routes still call `throwRenderError`; each adopts `WorkspaceLoadError` in its own Phase 10 packet.
+On Dashboard, Training, Onboarding, Critical Tasks and Evals, a streamed workspace source that rejects renders `WorkspaceLoadError` (a destructive `Alert` with a `Retry` button that reloads the page) from its route layout, and their pages do not throw from an `{#await}` catch. SvelteKit's root has no boundary to catch a render-time throw, so the loading state would stay up. Calendar and Personnel routes still call `throwRenderError`; each adopts `WorkspaceLoadError` in its own Phase 10 packet. Critical Tasks Reports and the person record load in blocking page loads, so `critical-tasks/+error.svelte` renders `WorkspaceLoadError` for a 5xx and the Organization error page otherwise.
 
 ---
 
@@ -1203,11 +1204,13 @@ Exports:
 - `useDataTable`: headless sort/filter/pagination/grouping state.
 - `useDataTableSelection`: headless row selection and bulk-selection state.
 
-`DataTable` props: `data?: T[]`, `columns?: ColumnDef<T>[]`, `table?: DataTableState<T>`, `initialSortKey?: string`, `initialSortDirection?: SortDirection`, `pageSize?: number`, `groupBy?: GroupDef<T>`, `filterFn?: (row: T, query: string) => boolean`, `ariaLabel?: string`, `emptyMessage?: string`, `showSearch?: boolean`, `searchPlaceholder?: string`, `rowKey?: (row: T, index: number) => string | number`, `onRowClick?: (row: T) => void`, `rowActionLabel?: (row: T) => string`, `disabledRow?: (row: T) => boolean`, `rowDetailVisible?: (row: T) => boolean`, `loading?: boolean`, `loadingRows?: number`, `density?: 'default' | 'dense'`, `compact?: boolean`, `striped?: boolean`, `stickyHeader?: boolean`, `stickyFirstColumn?: boolean`, `maxHeight?: string`
+`DataTable` props: `data?: T[]`, `columns?: ColumnDef<T>[]`, `table?: DataTableState<T>`, `initialSortKey?: string`, `initialSortDirection?: SortDirection`, `pageSize?: number`, `groupBy?: GroupDef<T>`, `filterFn?: (row: T, query: string) => boolean`, `ariaLabel?: string`, `emptyMessage?: string`, `showSearch?: boolean`, `searchPlaceholder?: string`, `rowKey?: (row: T, index: number) => string | number`, `onRowClick?: (row: T) => void`, `rowActionLabel?: (row: T) => string`, `disabledRow?: (row: T) => boolean`, `rowDetailVisible?: (row: T) => boolean`, `loading?: boolean`, `loadingRows?: number`, `density?: 'default' | 'dense'`, `compact?: boolean`, `striped?: boolean`, `stickyHeader?: boolean`, `stickyFirstColumn?: boolean`, `maxHeight?: string`, `scrollRegionLabel?: string`
+
+Pass `scrollRegionLabel` when a wide table can scroll sideways. It names the scroll container as a focusable `region` (`Table.Root` takes the same prop) so keyboard users can scroll it.
 
 Snippets: `cell?: (row: T, col: ColumnDef<T>)`, `row?: (row: T, cols: ColumnDef<T>[])`, `rowDetail?: (row: T)`, `headerCell?: (col: ColumnDef<T>)`, `groupHeader?: (ctx: GroupHeaderContext)`, `toolbar?: (table: DataTableState<T>)`, `footer?: (table: DataTableState<T>)`
 
-`ColumnDef<T>`: `key`, `header`, `value`, `headerAriaLabel?`, `searchValue?`, `compare?`, `searchable?`, `sortable?`, `align?`, `width?`
+`ColumnDef<T>`: `key`, `header`, `value`, `headerAriaLabel?`, `searchValue?`, `compare?`, `searchable?`, `sortable?`, `align?`, `width?`, `rowHeader?`. A `rowHeader` column renders its body cells as `th scope="row"`, so each row is announced by that cell.
 
 `DataTableState<T>` provides: `columns`, `rows`, `allRows`, `groups`, `totalRows`, `totalPages`, `sortKey`, `sortDirection`, `search`, `page`, `pageSize`, `toggleSort()`, `setSearch()`, `setPage()`, `setPageSize()`, `toggleGroup()`, `expandAll()`, `collapseAll()`, `getRowKey()`, `isRowDisabled()`
 

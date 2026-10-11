@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { createRawSnippet } from 'svelte';
 
 const { restrict, hydrate } = vi.hoisted(() => ({ restrict: vi.fn(), hydrate: vi.fn() }));
@@ -57,4 +57,21 @@ it('ignores an older allowed response after an immediate restriction replaces it
 	await pending;
 	expect(hydrate).not.toHaveBeenCalled();
 	expect(screen.queryByTestId('evals-child')).toBeNull();
+});
+
+it('replaces the evaluation workspace with a load error and a working retry when the streamed source rejects', async () => {
+	const reload = vi.fn();
+	vi.stubGlobal('location', { ...window.location, reload });
+	const rejected = Promise.reject(new Error('rating_scheme_entries failed'));
+	rejected.catch(() => {});
+
+	render(Layout, { props: { children, data: data(rejected as Promise<Workspace>) } });
+
+	const alert = await screen.findByRole('alert');
+	expect(alert.textContent).toContain('Unable to load Evals');
+	expect(screen.queryByTestId('evals-child')).toBeNull();
+
+	await fireEvent.click(screen.getByRole('button', { name: 'Retry Evals' }));
+	expect(reload).toHaveBeenCalledTimes(1);
+	vi.unstubAllGlobals();
 });

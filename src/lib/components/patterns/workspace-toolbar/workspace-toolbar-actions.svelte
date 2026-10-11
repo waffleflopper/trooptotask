@@ -2,10 +2,11 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import MoreHorizontal from '@lucide/svelte/icons/more-horizontal';
-	import { getContext } from 'svelte';
+	import { getContext, onDestroy } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import WorkspaceToolbarIcon from './workspace-toolbar-icon.svelte';
+	import WorkspaceToolbarMenu from './workspace-toolbar-menu.svelte';
 	import {
 		getWorkspaceToolbarDensity,
 		partitionWorkspaceToolbarActions,
@@ -28,6 +29,10 @@
 	const visibleActions = $derived(partitionedActions.visibleActions);
 	const overflowActions = $derived(partitionedActions.overflowActions);
 
+	// A menu that unmounts mid-close still runs its chosen action, unless this whole toolbar is going away.
+	let mounted = true;
+	onDestroy(() => (mounted = false));
+
 	function buttonVariant(action: WorkspaceToolbarAction): 'default' | 'outline' | 'secondary' | 'destructive' {
 		if (action.variant === 'primary') return 'default';
 		if (action.variant === 'secondary') return 'secondary';
@@ -40,7 +45,7 @@
 	}
 
 	function handleMenuItemSelect(item: WorkspaceToolbarMenuItem, parent?: WorkspaceToolbarAction): void {
-		if (menuItemDisabled(item, parent)) return;
+		if (!mounted || menuItemDisabled(item, parent)) return;
 		if (item.href) {
 			void goto(resolve(item.href as '/'));
 			return;
@@ -49,7 +54,7 @@
 	}
 
 	function handleActionSelect(action: WorkspaceToolbarAction): void {
-		if (action.disabled) return;
+		if (!mounted || action.disabled) return;
 		if (action.href) {
 			void goto(resolve(action.href as '/'));
 			return;
@@ -61,23 +66,20 @@
 <div data-slot="workspace-toolbar-actions" data-label={ariaLabel} class="contents">
 	{#each visibleActions as action (action.id)}
 		{#if action.menuItems?.length}
-			<DropdownMenu.Root>
-				<DropdownMenu.Trigger>
-					{#snippet child({ props })}
-						<Button
-							variant={buttonVariant(action)}
-							disabled={action.disabled}
-							title={action.disabledReason}
-							aria-label={action.label}
-							{...props}
-						>
-							<WorkspaceToolbarIcon icon={action.icon} />
-							<span data-workspace-toolbar-action-label>{action.label}</span>
-						</Button>
-					{/snippet}
-				</DropdownMenu.Trigger>
-				<DropdownMenu.Content align="end">
-					<DropdownMenu.Label>{action.label}</DropdownMenu.Label>
+			<WorkspaceToolbarMenu label={action.label}>
+				{#snippet trigger(props)}
+					<Button
+						variant={buttonVariant(action)}
+						disabled={action.disabled}
+						title={action.disabledReason}
+						aria-label={action.label}
+						{...props}
+					>
+						<WorkspaceToolbarIcon icon={action.icon} />
+						<span data-workspace-toolbar-action-label>{action.label}</span>
+					</Button>
+				{/snippet}
+				{#snippet children(choose)}
 					{#each action.menuItems as item, index (`${action.id}-${item.label}-${index}`)}
 						{#if item.toggle}
 							<DropdownMenu.CheckboxItem
@@ -91,14 +93,14 @@
 							<DropdownMenu.Item
 								disabled={menuItemDisabled(item, action)}
 								title={item.disabledReason ?? action.disabledReason}
-								onclick={() => handleMenuItemSelect(item, action)}
+								onclick={() => choose(() => handleMenuItemSelect(item, action))}
 							>
 								{item.label}
 							</DropdownMenu.Item>
 						{/if}
 					{/each}
-				</DropdownMenu.Content>
-			</DropdownMenu.Root>
+				{/snippet}
+			</WorkspaceToolbarMenu>
 		{:else}
 			<Button
 				variant={buttonVariant(action)}
@@ -116,16 +118,13 @@
 	{/each}
 
 	{#if overflowActions.length > 0}
-		<DropdownMenu.Root>
-			<DropdownMenu.Trigger>
-				{#snippet child({ props })}
-					<Button variant="outline" size="icon" aria-label={overflowAriaLabel} {...props}>
-						<MoreHorizontal aria-hidden="true" />
-					</Button>
-				{/snippet}
-			</DropdownMenu.Trigger>
-			<DropdownMenu.Content align="end">
-				<DropdownMenu.Label>{overflowAriaLabel}</DropdownMenu.Label>
+		<WorkspaceToolbarMenu label={overflowAriaLabel}>
+			{#snippet trigger(props)}
+				<Button variant="outline" size="icon" aria-label={overflowAriaLabel} {...props}>
+					<MoreHorizontal aria-hidden="true" />
+				</Button>
+			{/snippet}
+			{#snippet children(choose)}
 				{#each overflowActions as action (action.id)}
 					{#if action.toggle}
 						<DropdownMenu.CheckboxItem
@@ -142,14 +141,14 @@
 						<DropdownMenu.Item
 							disabled={action.disabled}
 							title={action.disabledReason}
-							onclick={() => handleActionSelect(action)}
+							onclick={() => choose(() => handleActionSelect(action))}
 						>
 							<WorkspaceToolbarIcon icon={action.icon} />
 							{action.label}
 						</DropdownMenu.Item>
 					{/if}
 				{/each}
-			</DropdownMenu.Content>
-		</DropdownMenu.Root>
+			{/snippet}
+		</WorkspaceToolbarMenu>
 	{/if}
 </div>

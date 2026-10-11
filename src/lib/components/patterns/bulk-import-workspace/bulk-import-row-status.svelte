@@ -13,9 +13,10 @@
 		label?: string;
 		description?: string;
 		descriptionMode?: BulkImportRowStatusDescriptionMode;
+		descriptionId?: string;
 	};
 
-	let { tone, label, description, descriptionMode = 'inline' }: Props = $props();
+	let { tone, label, description, descriptionMode = 'inline', descriptionId }: Props = $props();
 
 	const displayLabel = $derived(label ?? defaultLabel(tone));
 	const badgeVariant = $derived(
@@ -68,7 +69,10 @@
 		<span>{displayLabel}</span>
 	</Badge>
 	{#if description}
-		<span class={descriptionMode === 'inline' ? 'max-w-56 text-xs leading-5 text-muted-foreground' : 'sr-only'}>
+		<span
+			id={descriptionId}
+			class={descriptionMode === 'inline' ? 'max-w-56 text-xs leading-5 text-muted-foreground' : 'sr-only'}
+		>
 			{description}
 		</span>
 	{/if}

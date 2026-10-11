@@ -5,6 +5,7 @@
 	import { WORKFLOW_STATUS_OPTIONS } from '../rating-scheme.types';
 	import { getRatingDueStatus, getDaysUntilDue } from '$features/rating-scheme/utils/ratingScheme';
 	import EvalBadge from './EvalBadge.svelte';
+	import { Button } from '$lib/components/ui/button';
 	import * as Empty from '$lib/components/ui/empty';
 	import { SvelteMap } from 'svelte/reactivity';
 
@@ -123,9 +124,11 @@
 						{#each rGroup.entries as entry (entry.id)}
 							{@const due = formatDueStatus(entry)}
 							{#if onEdit}
-								<button
-									class="flex w-full flex-wrap items-center gap-2 border-b px-4 py-3 pl-12 text-left text-sm transition-colors last:border-b-0 hover:bg-muted/40"
-									type="button"
+								<Button
+									variant="cell"
+									size="none"
+									class="flex h-auto w-full flex-wrap items-center justify-start gap-2 border-b border-border px-4 py-3 pl-12 text-left text-sm whitespace-normal last:border-b-0"
+									data-rating-entry-id={entry.id}
 									onclick={() => onEdit(entry)}
 								>
 									<span class="min-w-35 text-sm font-normal">{getRatedPersonLabel(entry.ratedPersonId)}</span>
@@ -141,7 +144,7 @@
 											{formatDate(entry.ratingPeriodStart)}-{formatDate(entry.ratingPeriodEnd)}
 										</span>
 									</span>
-								</button>
+								</Button>
 							{:else}
 								<div class="flex flex-wrap items-center gap-2 border-b px-4 py-3 pl-12 text-sm last:border-b-0">
 									<span class="min-w-35 text-sm font-normal">{getRatedPersonLabel(entry.ratedPersonId)}</span>

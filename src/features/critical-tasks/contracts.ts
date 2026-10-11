@@ -1,6 +1,8 @@
 import type { ClientAffordance } from '$lib/access/clientAccess';
 import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
 
+export const ICT_TASK_CODE_EXISTS_MESSAGE = 'Task code already exists in this Organization';
+
 export type CriticalTasksAffordance = Pick<ClientAffordance, 'allowed' | 'visible'>;
 
 /** Live advisory decisions supplied by Delivery; server operations enforce policy. */

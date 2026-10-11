@@ -96,6 +96,21 @@ describe('IctTaskLibraryPage', () => {
 		}
 	);
 
+	it('keeps New Task and Import CSV unavailable until the library has loaded', async () => {
+		personnelIctCompletionsStore.load(completions, 'org-other');
+		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+
+		expect(screen.getByRole('status', { name: 'Loading ICT task library' })).toBeTruthy();
+		const newTask = screen.getByRole('button', { name: 'New Task' }) as HTMLButtonElement;
+		expect(newTask.disabled).toBe(true);
+		expect(newTask.title).toBe('Critical Tasks are still loading.');
+		await fireEvent.click(newTask);
+		expect(screen.queryByLabelText('Task code')).toBeNull();
+
+		personnelIctCompletionsStore.load(completions, 'org-1');
+		await waitFor(() => expect(newTask.disabled).toBe(false));
+	});
+
 	it('shows active tasks only in configured library order', () => {
 		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
 
@@ -197,6 +212,180 @@ describe('IctTaskLibraryPage', () => {
 		expect(screen.queryByLabelText(/CSV data/i)).toBeNull();
 	});
 
+	function describedBy(element: HTMLElement): string[] {
+		return (element.getAttribute('aria-describedby') ?? '')
+			.split(/\s+/)
+			.filter(Boolean)
+			.map((id) => document.getElementById(id)?.textContent?.trim() ?? `missing #${id}`);
+	}
+
+	it('names each missing required field on Create Task and focuses the first', async () => {
+		const add = vi.spyOn(ictTasksStore, 'add');
+		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'New Task' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Create Task' }));
+
+		const taskCode = screen.getByLabelText('Task code');
+		const title = screen.getByLabelText('Title');
+		await waitFor(() => expect(document.activeElement).toBe(taskCode));
+		expect(taskCode.getAttribute('aria-invalid')).toBe('true');
+		expect(describedBy(taskCode)).toEqual(['Task code is required']);
+		expect(title.getAttribute('aria-invalid')).toBe('true');
+		expect(describedBy(title)).toEqual(['Title is required']);
+		expect(add).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		{
+			field: 'Expiration override',
+			value: '0',
+			error: 'Enter a whole number of months, 1 or more, or leave blank for the Organization default'
+		},
+		{
+			field: 'Expiration override',
+			value: '1.5',
+			error: 'Enter a whole number of months, 1 or more, or leave blank for the Organization default'
+		},
+		{ field: 'Sort order', value: '-1', error: 'Enter a whole number, 0 or more' },
+		{ field: 'Sort order', value: '2.5', error: 'Enter a whole number, 0 or more' }
+	])('rejects $field $value on its field without saving', async ({ field, value, error }) => {
+		const add = vi.spyOn(ictTasksStore, 'add').mockResolvedValue({ ...activeTask, id: 'task-new' });
+		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'New Task' }));
+		await fireEvent.input(screen.getByLabelText('Task code'), { target: { value: '181-105-2000' } });
+		await fireEvent.input(screen.getByLabelText('Title'), { target: { value: 'Evacuate casualty' } });
+		await fireEvent.input(screen.getByLabelText('Expiration override'), { target: { value: '' } });
+		const input = screen.getByLabelText(field) as HTMLInputElement;
+		await fireEvent.input(input, { target: { value } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Create Task' }));
+
+		await waitFor(() => expect(document.activeElement).toBe(input));
+		expect(input.getAttribute('aria-invalid')).toBe('true');
+		expect(describedBy(input)).toEqual([error]);
+		expect(add.mock.calls).toEqual([]);
+
+		await fireEvent.input(input, { target: { value: field === 'Sort order' ? '4' : '' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Create Task' }));
+
+		expect(add.mock.calls[0]?.[0]).toMatchObject({
+			expirationMonths: null,
+			sortOrder: field === 'Sort order' ? 4 : 3
+		});
+	});
+
+	it.each([
+		{
+			field: 'Expiration override',
+			error: 'Enter a whole number of months, 1 or more, or leave blank for the Organization default'
+		},
+		{ field: 'Sort order', error: 'Enter a whole number, 0 or more' }
+	])('rejects $field text the browser cannot parse instead of reading it as blank', async ({ field, error }) => {
+		const add = vi.spyOn(ictTasksStore, 'add').mockResolvedValue({ ...activeTask, id: 'task-new' });
+		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'New Task' }));
+		await fireEvent.input(screen.getByLabelText('Task code'), { target: { value: '181-105-2000' } });
+		await fireEvent.input(screen.getByLabelText('Title'), { target: { value: 'Evacuate casualty' } });
+		const input = screen.getByLabelText(field) as HTMLInputElement;
+		Object.defineProperty(input, 'validity', { configurable: true, get: () => ({ badInput: true, valid: false }) });
+		await fireEvent.input(input, { target: { value: '' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Create Task' }));
+
+		await waitFor(() => expect(document.activeElement).toBe(input));
+		expect(input.getAttribute('aria-invalid')).toBe('true');
+		expect(describedBy(input)).toEqual([error]);
+		expect(add.mock.calls).toEqual([]);
+	});
+
+	it('keeps a duplicate task code on its field with the draft and focus', async () => {
+		vi.spyOn(ictTasksStore, 'add').mockRejectedValue(new Error('Task code already exists in this Organization'));
+		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'New Task' }));
+		const taskCode = screen.getByLabelText('Task code') as HTMLInputElement;
+		const title = screen.getByLabelText('Title') as HTMLInputElement;
+		await fireEvent.input(taskCode, { target: { value: '181-105-1001' } });
+		await fireEvent.input(title, { target: { value: 'Duplicate probe' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Create Task' }));
+
+		await waitFor(() => expect(document.activeElement).toBe(taskCode));
+		expect(taskCode.getAttribute('aria-invalid')).toBe('true');
+		expect(describedBy(taskCode)).toEqual(['Task code already exists in this Organization']);
+		expect(title.getAttribute('aria-invalid')).toBeNull();
+		expect([taskCode.value, title.value]).toEqual(['181-105-1001', 'Duplicate probe']);
+		expect(screen.getByRole('heading', { name: 'New ICT Task' })).toBeTruthy();
+	});
+
+	it('reports any other failed save as an alert and returns focus to Create Task', async () => {
+		vi.spyOn(ictTasksStore, 'add').mockRejectedValue(new Error('Network unavailable'));
+		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'New Task' }));
+		await fireEvent.input(screen.getByLabelText('Task code'), { target: { value: '181-105-2000' } });
+		await fireEvent.input(screen.getByLabelText('Title'), { target: { value: 'Evacuate casualty' } });
+		const create = screen.getByRole('button', { name: 'Create Task' });
+		await fireEvent.click(create);
+
+		const alert = await screen.findByRole('alert');
+		expect(alert.textContent).toContain('Network unavailable');
+		await waitFor(() => expect(document.activeElement).toBe(create));
+		expect(screen.getByLabelText('Task code').getAttribute('aria-invalid')).toBeNull();
+	});
+
+	it('moves focus into the task import and back to Import CSV when it closes', async () => {
+		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Import CSV' }));
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Import ICT Tasks' })));
+
+		await fireEvent.click(
+			within(screen.getByRole('region', { name: 'ICT task import workspace' })).getByRole('button', {
+				name: 'Cancel'
+			})
+		);
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Import CSV' })));
+	});
+
+	it.each([
+		{
+			pressed: 'Move 181-105-1001 down',
+			focused: 'Move 181-105-1001 up',
+			order: ['071-COM-1001', '071-COM-2001', '181-105-1001']
+		},
+		{
+			pressed: 'Move 181-105-1001 up',
+			focused: 'Move 181-105-1001 down',
+			order: ['181-105-1001', '071-COM-1001', '071-COM-2001']
+		},
+		{
+			pressed: 'Move 071-COM-2001 up',
+			focused: 'Move 071-COM-2001 up',
+			order: ['071-COM-1001', '071-COM-2001', '181-105-1001']
+		}
+	])('keeps focus on $focused after $pressed', async ({ pressed, focused, order }) => {
+		ictTasksStore.load([infantryTask, activeTask, allMosTask], 'org-1');
+		vi.spyOn(ictTasksStore, 'update').mockImplementation(async (id, patch) => {
+			ictTasksStore.load(
+				ictTasksStore.items.map((task) => (task.id === id ? { ...task, ...patch } : task)),
+				'org-1'
+			);
+			return true;
+		});
+		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+
+		const button = screen.getByRole('button', { name: pressed });
+		button.focus();
+		await fireEvent.click(button);
+
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: focused })));
+		const codes = screen
+			.getAllByRole('button', { name: /^Move .* up$/ })
+			.map((up) => up.getAttribute('aria-label')?.split(' ')[1]);
+		expect(codes).toEqual(order);
+	});
+
 	it('creates task metadata with normalized MOS applicability and optional expiration override', async () => {
 		const add = vi.spyOn(ictTasksStore, 'add').mockResolvedValue({
 			...activeTask,
@@ -231,6 +420,20 @@ describe('IctTaskLibraryPage', () => {
 				archivedAt: null
 			})
 		);
+	});
+
+	it.each([
+		{ open: 'New Task', select: false },
+		{ open: 'Edit', select: true }
+	])('moves focus to Task code on $open and back to $open on Cancel', async ({ open, select }) => {
+		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+		if (select) await fireEvent.click(screen.getByRole('button', { name: /Perform tactical combat casualty care/ }));
+
+		await fireEvent.click(screen.getByRole('button', { name: open }));
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText('Task code')));
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: open })));
 	});
 
 	it('edits task metadata without touching completion history', async () => {

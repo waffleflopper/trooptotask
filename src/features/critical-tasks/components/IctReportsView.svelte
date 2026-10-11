@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import { Badge } from '$lib/components/ui/badge';
 	import * as Card from '$lib/components/ui/card';
@@ -26,6 +27,7 @@
 
 	let { orgId, reportScope, initialDashboard, loading = false }: Props = $props();
 
+	let viewRoot = $state<HTMLElement | null>(null);
 	let filterGroupId = $state('');
 	let filterMosValues = $state<string[]>([]);
 	let filterRole = $state('');
@@ -91,8 +93,21 @@
 		if (percent >= 70) return 'warning';
 		return 'destructive';
 	});
-	const readinessDeltaLabel = $derived(formatDelta(dashboard.kpis.overallReadiness.deltaPercent));
 	const readinessProgress = $derived(Math.max(0, Math.min(100, dashboard.kpis.overallReadiness.percent)));
+	const readinessMetrics = $derived.by(() => {
+		const { overallReadiness, soldiersBelow70, tasksExpiringSoon, tasksBelowThreshold } = dashboard.kpis;
+		return [
+			{ label: 'Ready', value: String(overallReadiness.readyCount) },
+			{ label: 'Applicable', value: String(overallReadiness.applicableCount) },
+			{ label: '30-day delta', value: formatDelta(overallReadiness.deltaPercent) },
+			{
+				label: `Soldiers below ${soldiersBelow70.thresholdPercent}%`,
+				value: `${soldiersBelow70.count} of ${soldiersBelow70.totalApplicable}`
+			},
+			{ label: `Tasks expiring within ${tasksExpiringSoon.windowDays} days`, value: String(tasksExpiringSoon.count) },
+			{ label: `Tasks below ${tasksBelowThreshold.thresholdPercent}%`, value: String(tasksBelowThreshold.count) }
+		];
+	});
 	const topTasksBelowThreshold = $derived(dashboard.tasksBelowThreshold.rows.slice(0, 4));
 	const topAtRiskSoldiers = $derived(dashboard.atRiskSoldiers.rows.slice(0, 5));
 	const toolbarActionItems = $derived.by<WorkspaceToolbarAction[]>(() => {
@@ -123,11 +138,14 @@
 		return items;
 	});
 
-	function clearFilters() {
+	// Clearing removes Clear filters itself, and its menu when it was the last overflow item.
+	async function clearFilters() {
 		filterGroupId = '';
 		filterMosValues = [];
 		filterRole = '';
 		filterRank = '';
+		await tick();
+		viewRoot?.querySelector<HTMLElement>('[aria-label="Filter by group"]')?.focus();
 	}
 
 	function formatDelta(delta: number): string {
@@ -206,8 +224,8 @@
 	});
 </script>
 
-<div class="flex flex-col gap-5 p-4 sm:p-2 md:p-4">
-	<WorkspaceToolbar.Root ariaLabel="Critical task report controls">
+<div bind:this={viewRoot} class="flex flex-col gap-5 p-4 sm:p-2 md:p-4">
+	<WorkspaceToolbar.Root ariaLabel="Critical task report controls" wrap>
 		<WorkspaceToolbar.Group
 			label="Critical task report filters"
 			activeCount={activeFilterCount}
@@ -284,38 +302,36 @@
 						</div>
 					{/each}
 				</dl>
+				<p class="mt-1 text-xs text-muted-foreground" role="status" aria-live="polite">
+					{dashboardLoading ? 'Updating critical task reports' : ''}
+				</p>
 			</div>
 
 			<div class="grid gap-4 xl:grid-cols-[18rem_minmax(0,1fr)]">
 				<aside class="space-y-4">
-					<Card.Root>
+					<Card.Root role="region" aria-label="Critical task report metrics">
 						<Card.Header>
 							<Card.Title>Readiness summary</Card.Title>
 							<Card.Description>{dashboardLoading ? 'Updating' : 'Current filtered population'}</Card.Description>
 						</Card.Header>
-						<Card.Content class="space-y-4">
-							<div>
-								<div class="flex items-center justify-between gap-3">
-									<span class="text-sm text-muted-foreground">Overall</span>
-									<Badge variant={readinessVariant}>{dashboard.kpis.overallReadiness.percent}%</Badge>
+						<Card.Content>
+							<dl class="grid gap-3 text-sm">
+								<div class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2">
+									<dt class="text-muted-foreground">Overall</dt>
+									<dd><Badge variant={readinessVariant}>{dashboard.kpis.overallReadiness.percent}%</Badge></dd>
+									<dd class="col-span-2">
+										<Progress.Progress value={readinessProgress} aria-label="Overall readiness" />
+									</dd>
 								</div>
-								<Progress.Progress class="mt-2" value={readinessProgress} aria-label="Overall readiness" />
-							</div>
-							<Separator.Separator />
-							<div class="grid gap-3 text-sm">
-								<div class="flex items-center justify-between gap-3">
-									<span class="text-muted-foreground">Ready</span>
-									<span class="font-medium">{dashboard.kpis.overallReadiness.readyCount}</span>
-								</div>
-								<div class="flex items-center justify-between gap-3">
-									<span class="text-muted-foreground">Applicable</span>
-									<span class="font-medium">{dashboard.kpis.overallReadiness.applicableCount}</span>
-								</div>
-								<div class="flex items-center justify-between gap-3">
-									<span class="text-muted-foreground">30-day delta</span>
-									<span class="font-medium">{readinessDeltaLabel}</span>
-								</div>
-							</div>
+								{#each readinessMetrics as metric, index (metric.label)}
+									<div
+										class={['flex items-center justify-between gap-3', index === 0 && 'border-t border-border pt-3']}
+									>
+										<dt class="text-muted-foreground">{metric.label}</dt>
+										<dd class="font-medium">{metric.value}</dd>
+									</div>
+								{/each}
+							</dl>
 						</Card.Content>
 					</Card.Root>
 

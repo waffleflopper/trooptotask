@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import type { PersonnelLookup } from '$features/personnel/contracts';
 	import {
 		WORKFLOW_STATUS_OPTIONS,
@@ -25,6 +26,30 @@
 	let { ctx, personnelLookup }: Props = $props();
 
 	let exportLoading = $state(false);
+	let workspace = $state<HTMLElement | null>(null);
+	let entryDialogOpener: Element | null = null;
+	let entryDialogEntryId: string | null = null;
+	let entryDialogWasOpen = false;
+
+	// The edited row can remount (it changes group) or disappear (it left the filter), so the opener is not enough.
+	$effect.pre(() => {
+		const open = ctx.ratingModalOpen;
+		if (open && !entryDialogWasOpen) {
+			entryDialogOpener = document.activeElement;
+			entryDialogEntryId = ctx.editingRatingEntryId;
+		} else if (!open && entryDialogWasOpen) {
+			void restoreFocusAfterEntryDialog(entryDialogOpener, entryDialogEntryId);
+		}
+		entryDialogWasOpen = open;
+	});
+
+	async function restoreFocusAfterEntryDialog(opener: Element | null, entryId: string | null) {
+		await tick();
+		const row = entryId ? workspace?.querySelector(`[data-rating-entry-id="${CSS.escape(entryId)}"]`) : null;
+		const addEntry = workspace?.querySelector('button[aria-label="Add Entry"]');
+		const target = opener?.isConnected ? opener : (row ?? addEntry);
+		if (target instanceof HTMLElement) target.focus();
+	}
 	const ratingViewOptions = [
 		{ value: 'grouped', label: 'Grouped' },
 		{ value: 'table', label: 'Table' }
@@ -94,7 +119,7 @@
 				label: 'Add Entry',
 				onclick: () => ctx.handleAddRatingEntry(),
 				disabled: !canUseRatingSchemeWriteActions,
-				disabledReason: ratingSchemeWriteAffordance.explanation,
+				disabledReason: canUseRatingSchemeWriteActions ? undefined : ratingSchemeWriteAffordance.explanation,
 				priority: 'critical',
 				overflow: 'never',
 				variant: 'primary'
@@ -109,7 +134,7 @@
 	<title>Evals - Troop to Task</title>
 </svelte:head>
 
-<div class="flex h-full min-h-0 flex-col overflow-hidden bg-background">
+<div class="flex h-full min-h-0 flex-col overflow-hidden bg-background" bind:this={workspace}>
 	{#if !canViewRatingScheme}
 		<div class="p-4 md:p-6">
 			<Alert.Root variant="warning">
@@ -120,9 +145,9 @@
 			</Alert.Root>
 		</div>
 	{:else}
-		<main class="flex min-h-0 flex-1 overflow-hidden p-4 md:p-6">
+		<div class="flex min-h-0 flex-1 overflow-hidden p-4 md:p-6">
 			<section class="flex min-h-0 w-full flex-col gap-4 overflow-hidden">
-				<WorkspaceToolbar.Root ariaLabel="Evaluation controls">
+				<WorkspaceToolbar.Root ariaLabel="Evaluation controls" wrap>
 					<WorkspaceToolbar.Group
 						label="Evaluation filters"
 						activeCount={activeFilterCount}
@@ -202,6 +227,6 @@
 					{/if}
 				</div>
 			</section>
-		</main>
+		</div>
 	{/if}
 </div>

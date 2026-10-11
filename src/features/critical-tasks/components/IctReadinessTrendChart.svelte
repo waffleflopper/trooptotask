@@ -1,6 +1,10 @@
 <script lang="ts">
-	import { REPORT_CHART_SERIES, readinessTrendDomain } from '$lib/components/patterns/report-chart';
-	import { ReportLineChart } from '$lib/components/patterns/report-chart';
+	import {
+		REPORT_CHART_SERIES,
+		ReportChartTable,
+		ReportLineChart,
+		readinessTrendDomain
+	} from '$lib/components/patterns/report-chart';
 	import * as ReportWorkspace from '$lib/components/patterns/report-workspace';
 	import type { IctReadinessTrend, IctReadinessTrendMonth } from '$features/critical-tasks/utils/ictReports';
 
@@ -60,6 +64,17 @@
 		})
 	]);
 
+	const fallbackRows = $derived(
+		trend.months.map((month) => ({
+			key: month.month,
+			cells: [
+				month.label,
+				formatPercent(month.overallReadinessPercent),
+				...trend.comparisonMos.map((mos) => formatPercent(mosSnapshot(month, mos)?.readinessPercent ?? 0))
+			]
+		}))
+	);
+
 	function seriesKey(mos: string): string {
 		return `mos-${mos}`;
 	}
@@ -101,29 +116,10 @@
 			</p>
 		{/if}
 
-		<div class="sr-only">
-			<table aria-label="12-month readiness trend data">
-				<thead>
-					<tr>
-						<th scope="col">Month</th>
-						<th scope="col">Unit-wide readiness</th>
-						{#each trend.comparisonMos as mos (mos)}
-							<th scope="col">{mos} readiness</th>
-						{/each}
-					</tr>
-				</thead>
-				<tbody>
-					{#each trend.months as month (month.month)}
-						<tr>
-							<td>{month.label}</td>
-							<td>{formatPercent(month.overallReadinessPercent)}</td>
-							{#each trend.comparisonMos as mos (mos)}
-								<td>{formatPercent(mosSnapshot(month, mos)?.readinessPercent ?? 0)}</td>
-							{/each}
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-		</div>
+		<ReportChartTable
+			label="12-month readiness trend data"
+			columns={['Month', 'Unit-wide readiness', ...trend.comparisonMos.map((mos) => `${mos} readiness`)]}
+			rows={fallbackRows}
+		/>
 	{/if}
 </ReportWorkspace.Section>

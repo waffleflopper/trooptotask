@@ -182,6 +182,83 @@ describe('IctPersonnelDetailPage', () => {
 		expect(screen.getByText('Observed on lane 2')).toBeTruthy();
 	});
 
+	it('names both record tables, keeps the task library order without sort controls and states empty views', () => {
+		ictTasksStore.load([secondaryActiveTask, activeTask], 'org-1');
+		personnelIctCompletionsStore.load([], 'org-1');
+		const data = {
+			orgId: 'org-1',
+			criticalTasks: criticalTasksLayoutData,
+			criticalTasksPersonnelHistory: { ...history, rows: [] }
+		};
+
+		const { unmount } = render(IctPersonnelDetailPage, { props: { org, data } });
+
+		const active = screen.getByRole('table', { name: 'Applicable Critical Tasks' });
+		expect(
+			within(active)
+				.getAllByRole('columnheader')
+				.map((header) => header.textContent?.trim())
+		).toEqual(['Task', 'Status', 'Completed', 'Expires', 'Method', 'Validator', 'Notes', 'Action']);
+		expect(
+			within(active)
+				.getAllByText(/^181-105-100\d$/)
+				.map((code) => code.textContent)
+		).toEqual(['181-105-1001', '181-105-1003']);
+		expect(screen.queryByRole('button', { name: /^Sort by/ })).toBeNull();
+		const archived = screen.getByRole('table', { name: 'ICT completion history' });
+		expect(within(archived).getAllByRole('columnheader')).toHaveLength(6);
+		expect(within(archived).queryAllByRole('row')).toHaveLength(1);
+		expect(screen.getByText('No archived task completions recorded.')).toBeTruthy();
+		unmount();
+
+		accessFacts = { membershipRole: 'member', capabilityMap: createCapabilityMap('view') };
+		ictTasksStore.load([], 'org-1');
+		render(IctPersonnelDetailPage, { props: { org, data } });
+
+		const viewOnly = screen.getByRole('table', { name: 'Applicable Critical Tasks' });
+		expect(within(viewOnly).queryByRole('columnheader', { name: 'Action' })).toBeNull();
+		expect(screen.getByText('No active critical tasks match this view.')).toBeTruthy();
+	});
+
+	it('heads each record row with its task and scrolls each table inside a named focusable region', () => {
+		ictTasksStore.load([activeTask], 'org-1');
+		personnelIctCompletionsStore.load([activeCompletion], 'org-1');
+		render(IctPersonnelDetailPage, {
+			props: {
+				org,
+				data: {
+					orgId: 'org-1',
+					criticalTasks: criticalTasksLayoutData,
+					criticalTasksPersonnelHistory: {
+						personnel: { ...history.personnel, archivedAt: '2026-04-14T12:00:00Z' },
+						rows: [
+							{
+								completion: activeCompletion,
+								task: activeTask,
+								taskCode: activeTask.taskCode,
+								taskTitle: activeTask.title,
+								taskArchivedAt: null
+							}
+						]
+					}
+				}
+			}
+		});
+
+		for (const name of ['Applicable Critical Tasks', 'ICT completion history']) {
+			const table = screen.getByRole('table', { name });
+			const rowHeaders = within(table).getAllByRole('rowheader');
+			expect(rowHeaders.map((header) => header.textContent?.replace(/\s+/g, ' ').trim())).toEqual([
+				'181-105-1001 Perform tactical combat casualty care'
+			]);
+			expect(rowHeaders[0].getAttribute('scope')).toBe('row');
+			const region = screen.getByRole('region', { name: `${name}, scrollable` });
+			expect(region.getAttribute('tabindex')).toBe('0');
+			expect(region.contains(table)).toBe(true);
+		}
+		expect(screen.queryByRole('main')).toBeNull();
+	});
+
 	it('shows archived personnel completion history read-only when the active workspace omits it', () => {
 		ictTasksStore.load([activeTask], 'org-1');
 		personnelIctCompletionsStore.load([], 'org-1');

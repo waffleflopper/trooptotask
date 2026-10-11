@@ -383,3 +383,25 @@ test('personal preference/progress failures target only an A read and leave savi
 		control.command('restore');
 	}
 });
+
+test('Critical Task catalog failure targets only the A catalog read; completions, B and writes stay real', async () => {
+	const dispatched = [];
+	const control = controller(async (...args) => {
+		dispatched.push(args);
+		return new Response('stored task catalog');
+	});
+	const catalog = `${providerUrl}/rest/v1/ict_tasks?select=id,task_code,title&organization_id=eq.${orgA}&order=sort_order.asc`;
+	control.command('arm', { table: 'ict_tasks', mode: 'fail-hard' });
+	for (const input of [
+		[catalog.replace(orgA, orgB)],
+		[catalog.replace('/ict_tasks?', '/personnel_ict_completions?')],
+		[catalog, { method: 'PATCH' }]
+	])
+		assert.equal(await (await control.fetch(...input)).text(), 'stored task catalog');
+	const failure = await control.fetch(catalog);
+	assert.equal(failure.status, 500);
+	assert.equal((await failure.json()).code, 'T2T_VERIFY_SOURCE_FAILURE');
+	assert.equal(dispatched.length, 3);
+	assert.equal(await (await control.fetch(catalog)).text(), 'stored task catalog');
+	control.command('restore');
+});

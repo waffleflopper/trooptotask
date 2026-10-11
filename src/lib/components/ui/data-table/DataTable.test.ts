@@ -46,6 +46,37 @@ describe('shadcn DataTable foundation', () => {
 		expect(within(table).getByText('Charlie')).toBeTruthy();
 	});
 
+	test('heads rows from a rowHeader column and names its scroll region only when labelled', () => {
+		const headed: ColumnDef<TestRow>[] = [{ ...columns[0], rowHeader: true }, columns[1]];
+		render(Table, {
+			props: {
+				data: testData,
+				columns: headed,
+				ariaLabel: 'Personnel table',
+				scrollRegionLabel: 'Personnel, scrollable'
+			}
+		});
+
+		const table = screen.getByRole('table', { name: 'Personnel table' });
+		expect(
+			within(table)
+				.getAllByRole('rowheader')
+				.map((cell) => cell.textContent?.trim())
+		).toEqual(['Alice', 'Bob', 'Charlie']);
+		expect(
+			within(table)
+				.getAllByRole('cell')
+				.map((cell) => cell.textContent?.trim())
+		).toEqual(['30', '25', '35']);
+		const region = screen.getByRole('region', { name: 'Personnel, scrollable' });
+		expect(region.getAttribute('tabindex')).toBe('0');
+
+		cleanup();
+		render(Table, { props: { data: testData, columns, ariaLabel: 'Personnel table' } });
+		expect(screen.queryByRole('region')).toBeNull();
+		expect(screen.queryAllByRole('rowheader')).toHaveLength(0);
+	});
+
 	test('renders custom cell snippets', () => {
 		render(CellSnippetWrapper, { props: { data: testData, columns } });
 

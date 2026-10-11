@@ -523,8 +523,8 @@
 			</div>
 		</header>
 
-		{#if importStep === 'input'}
-			<BulkImportWorkspace.Root ariaLabel="Personnel import workspace">
+		<BulkImportWorkspace.Root ariaLabel="Personnel import workspace" step={importStep}>
+			{#if importStep === 'input'}
 				<BulkImportWorkspace.Header
 					step="Step 1"
 					title="Upload roster file"
@@ -573,82 +573,80 @@
 						Preview {dataRowCount > 0 ? dataRowCount : ''} Rows
 					</Button>
 				</BulkImportWorkspace.FooterActions>
-			</BulkImportWorkspace.Root>
-		{:else if importStep === 'preview'}
-			{#snippet previewCell(row: PreviewRow, column: DataTableColumnDef<PreviewRow>)}
-				{#if column.key === 'sourceRowNumber'}
-					<span class="font-mono text-xs text-muted-foreground">{row.sourceRowNumber}</span>
-				{:else if column.key.startsWith('field:')}
-					{@const fieldKey = column.key.slice('field:'.length)}
-					{@const fieldError = row.validation.cellErrors[fieldKey]}
-					{@const fieldWarning = row.validation.cellWarnings[fieldKey]}
-					{@const fieldIssue = fieldError ?? fieldWarning}
-					{@const fieldState = fieldError ? 'error' : fieldWarning ? 'warning' : undefined}
-					{#if fieldIssue}
-						{@const issueId = `${row.id}-${fieldKey}-issue`}
-						<span class="relative block min-w-0">
-							<Tooltip.Root>
-								<Tooltip.Trigger>
-									{#snippet child({ props })}
-										<Input
-											{...props}
-											type="text"
-											aria-label={`Row ${row.sourceRowNumber} ${column.header}`}
-											autocomplete="off"
-											spellcheck="false"
-											value={row.values[fieldKey] ?? ''}
-											aria-invalid={!!fieldError}
-											aria-describedby={issueId}
-											data-cell-state={fieldState}
-											title={fieldIssue}
-											class={[
-												'pr-7',
-												fieldState === 'warning' &&
-													'border-warning/80 bg-warning-muted/80 text-warning-foreground ring-1 ring-warning/45 dark:bg-warning-muted/80'
-											]}
-											onchange={(event) => updateCell(row, fieldKey, event.currentTarget.value)}
-										/>
-									{/snippet}
-								</Tooltip.Trigger>
-								<Tooltip.Content side="top" sideOffset={6}>{fieldIssue}</Tooltip.Content>
-							</Tooltip.Root>
-							<span id={issueId} class="sr-only">{fieldIssue}</span>
-							<span
-								class={[
-									'pointer-events-none absolute top-1/2 right-1.5 inline-flex -translate-y-1/2 items-center',
-									fieldState === 'error' ? 'text-danger-foreground' : 'text-warning-foreground'
-								]}
-								aria-hidden="true"
-							>
-								{#if fieldState === 'error'}
-									<AlertCircleIcon class="size-3.5" />
-								{:else}
-									<TriangleAlertIcon class="size-3.5" />
-								{/if}
+			{:else if importStep === 'preview'}
+				{#snippet previewCell(row: PreviewRow, column: DataTableColumnDef<PreviewRow>)}
+					{#if column.key === 'sourceRowNumber'}
+						<span class="font-mono text-xs text-muted-foreground">{row.sourceRowNumber}</span>
+					{:else if column.key.startsWith('field:')}
+						{@const fieldKey = column.key.slice('field:'.length)}
+						{@const fieldError = row.validation.cellErrors[fieldKey]}
+						{@const fieldWarning = row.validation.cellWarnings[fieldKey]}
+						{@const fieldIssue = fieldError ?? fieldWarning}
+						{@const fieldState = fieldError ? 'error' : fieldWarning ? 'warning' : undefined}
+						{#if fieldIssue}
+							{@const issueId = `${row.id}-${fieldKey}-issue`}
+							<span class="relative block min-w-0">
+								<Tooltip.Root>
+									<Tooltip.Trigger>
+										{#snippet child({ props })}
+											<Input
+												{...props}
+												type="text"
+												aria-label={`Row ${row.sourceRowNumber} ${column.header}`}
+												autocomplete="off"
+												spellcheck="false"
+												value={row.values[fieldKey] ?? ''}
+												aria-invalid={!!fieldError}
+												aria-describedby={issueId}
+												data-cell-state={fieldState}
+												title={fieldIssue}
+												class={[
+													'pr-7',
+													fieldState === 'warning' &&
+														'border-warning/80 bg-warning-muted/80 text-warning-foreground ring-1 ring-warning/45 dark:bg-warning-muted/80'
+												]}
+												onchange={(event) => updateCell(row, fieldKey, event.currentTarget.value)}
+											/>
+										{/snippet}
+									</Tooltip.Trigger>
+									<Tooltip.Content side="top" sideOffset={6}>{fieldIssue}</Tooltip.Content>
+								</Tooltip.Root>
+								<span id={issueId} class="sr-only">{fieldIssue}</span>
+								<span
+									class={[
+										'pointer-events-none absolute top-1/2 right-1.5 inline-flex -translate-y-1/2 items-center',
+										fieldState === 'error' ? 'text-danger-foreground' : 'text-warning-foreground'
+									]}
+									aria-hidden="true"
+								>
+									{#if fieldState === 'error'}
+										<AlertCircleIcon class="size-3.5" />
+									{:else}
+										<TriangleAlertIcon class="size-3.5" />
+									{/if}
+								</span>
 							</span>
-						</span>
+						{:else}
+							<Input
+								aria-label={`Row ${row.sourceRowNumber} ${column.header}`}
+								autocomplete="off"
+								spellcheck="false"
+								value={row.values[fieldKey] ?? ''}
+								onchange={(event) => updateCell(row, fieldKey, event.currentTarget.value)}
+							/>
+						{/if}
 					{:else}
-						<Input
-							aria-label={`Row ${row.sourceRowNumber} ${column.header}`}
-							autocomplete="off"
-							spellcheck="false"
-							value={row.values[fieldKey] ?? ''}
-							onchange={(event) => updateCell(row, fieldKey, event.currentTarget.value)}
-						/>
+						{String(column.value(row) ?? '')}
 					{/if}
-				{:else}
-					{String(column.value(row) ?? '')}
+				{/snippet}
+
+				{#if submitError}
+					<Alert.Root variant="destructive">
+						<Alert.Description>{submitError}</Alert.Description>
+					</Alert.Root>
 				{/if}
-			{/snippet}
 
-			{#if submitError}
-				<Alert.Root variant="destructive">
-					<Alert.Description>{submitError}</Alert.Description>
-				</Alert.Root>
-			{/if}
-
-			<Tooltip.Provider>
-				<BulkImportWorkspace.Root ariaLabel="Personnel import workspace">
+				<Tooltip.Provider>
 					<BulkImportWorkspace.Header
 						step="Step 2"
 						title="Review mapped rows"
@@ -713,61 +711,61 @@
 							{submitModeLabel} checked rows
 						</Button>
 					</BulkImportWorkspace.FooterActions>
-				</BulkImportWorkspace.Root>
-			</Tooltip.Provider>
-		{:else if importStep === 'importing'}
-			<BulkImportWorkspace.ProgressState
-				title={importMode === 'merge' ? 'Backfilling personnel records' : 'Importing personnel records'}
-				description="Keep this page open while the roster is updated."
-			/>
-		{:else if importStep === 'results' && importResult}
-			{#snippet resultActions()}
-				{#if importResult?.errors.some((error) => error.index >= 0)}
-					<Button variant="outline" type="button" onclick={reviewFailedRows}>Review failed rows</Button>
-					<Button variant="outline" type="button" onclick={clearFile}>Upload another file</Button>
-				{:else if importResult?.errors.length}
-					<Button variant="outline" type="button" onclick={clearFile}>Upload another file</Button>
-				{/if}
-				<Button type="button" onclick={finishImport}>Return to Personnel</Button>
-			{/snippet}
+				</Tooltip.Provider>
+			{:else if importStep === 'importing'}
+				<BulkImportWorkspace.ProgressState
+					title={importMode === 'merge' ? 'Backfilling personnel records' : 'Importing personnel records'}
+					description="Keep this page open while the roster is updated."
+				/>
+			{:else if importStep === 'results' && importResult}
+				{#snippet resultActions()}
+					{#if importResult?.errors.some((error) => error.index >= 0)}
+						<Button variant="outline" type="button" onclick={reviewFailedRows}>Review failed rows</Button>
+						<Button variant="outline" type="button" onclick={clearFile}>Upload another file</Button>
+					{:else if importResult?.errors.length}
+						<Button variant="outline" type="button" onclick={clearFile}>Upload another file</Button>
+					{/if}
+					<Button type="button" onclick={finishImport}>Return to Personnel</Button>
+				{/snippet}
 
-			<BulkImportWorkspace.ResultSummary
-				status={resultStatus}
-				description="Review the summary before returning to the roster."
-				items={[
-					{ label: 'Saved', value: importResult.savedCount, tone: 'success' },
-					...(importMode === 'merge'
-						? [{ label: 'Skipped', value: importResult.skipped?.length ?? 0, tone: 'neutral' as const }]
-						: []),
-					{
-						label: 'Failed',
-						value: importResult.errors.length,
-						tone: importResult.errors.length > 0 ? 'error' : 'neutral'
-					}
-				]}
-				actions={resultActions}
-			>
-				{#if importResult.errors.length > 0}
-					<ul class="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-						{#each importResult.errors as err (`${err.index}-${err.message}`)}
-							<li>
-								{#if sourceRowForError(err.index)}Row {sourceRowForError(err.index)}:
-								{/if}{err.message}
-							</li>
-						{/each}
-					</ul>
-				{/if}
-				{#if importResult.skipped && importResult.skipped.length > 0}
-					<ul class="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-						{#each importResult.skipped as skipped (`skipped-${skipped.index}-${skipped.message}`)}
-							<li>
-								{#if sourceRowForError(skipped.index)}Row {sourceRowForError(skipped.index)}:
-								{/if}{skipped.message}
-							</li>
-						{/each}
-					</ul>
-				{/if}
-			</BulkImportWorkspace.ResultSummary>
-		{/if}
+				<BulkImportWorkspace.ResultSummary
+					status={resultStatus}
+					description="Review the summary before returning to the roster."
+					items={[
+						{ label: 'Saved', value: importResult.savedCount, tone: 'success' },
+						...(importMode === 'merge'
+							? [{ label: 'Skipped', value: importResult.skipped?.length ?? 0, tone: 'neutral' as const }]
+							: []),
+						{
+							label: 'Failed',
+							value: importResult.errors.length,
+							tone: importResult.errors.length > 0 ? 'error' : 'neutral'
+						}
+					]}
+					actions={resultActions}
+				>
+					{#if importResult.errors.length > 0}
+						<ul class="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+							{#each importResult.errors as err (`${err.index}-${err.message}`)}
+								<li>
+									{#if sourceRowForError(err.index)}Row {sourceRowForError(err.index)}:
+									{/if}{err.message}
+								</li>
+							{/each}
+						</ul>
+					{/if}
+					{#if importResult.skipped && importResult.skipped.length > 0}
+						<ul class="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+							{#each importResult.skipped as skipped (`skipped-${skipped.index}-${skipped.message}`)}
+								<li>
+									{#if sourceRowForError(skipped.index)}Row {sourceRowForError(skipped.index)}:
+									{/if}{skipped.message}
+								</li>
+							{/each}
+						</ul>
+					{/if}
+				</BulkImportWorkspace.ResultSummary>
+			{/if}
+		</BulkImportWorkspace.Root>
 	</div>
 </main>

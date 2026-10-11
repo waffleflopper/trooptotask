@@ -132,7 +132,12 @@ describe('Evals deletion recovery', () => {
 		await prepareNewEntry();
 		await fireEvent.input(screen.getByLabelText('Notes'), { target: { value: 'New current draft' } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-		await waitFor(() => expect(errorToast).toHaveBeenCalledWith('Create temporarily unavailable'));
+		await waitFor(() =>
+			expect(within(screen.getByRole('dialog')).getByRole('alert').textContent?.replace(/\s+/g, ' ').trim()).toBe(
+				'Rating entry was not saved Create temporarily unavailable'
+			)
+		);
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Save' })));
 		expect(modals.isOpen('rating-modal')).toBe(true);
 		expect((screen.getByLabelText('Notes') as HTMLTextAreaElement).value).toBe('New current draft');
 		await waitFor(() =>
@@ -143,6 +148,7 @@ describe('Evals deletion recovery', () => {
 		expect(successToast).toHaveBeenCalledWith('Rating entry added');
 		expect(requests).toHaveLength(2);
 		expect(requests[0]).toEqual(requests[1]);
+		expect(errorToast).not.toHaveBeenCalled();
 		expect(requests[1]).toEqual(
 			expect.objectContaining({
 				ratedPersonId: 'person-a',
@@ -152,7 +158,6 @@ describe('Evals deletion recovery', () => {
 				ratingPeriodEnd: '2026-12-31'
 			})
 		);
-		expect(errorToast).toHaveBeenCalledTimes(1);
 	});
 
 	it('retires held update feedback after leaving the originating workspace', async () => {
@@ -424,7 +429,10 @@ describe('Evals deletion recovery', () => {
 				await update.mock.results[0].value;
 			});
 			if (outcome === 'failure and retry') {
-				expect(errorToast).toHaveBeenCalledWith('Failed to update rating entry');
+				expect(within(screen.getByRole('dialog')).getByRole('alert').textContent?.replace(/\s+/g, ' ').trim()).toBe(
+					'Rating entry was not saved Failed to update rating entry'
+				);
+				expect(errorToast).not.toHaveBeenCalled();
 				expect(origin.modals.isOpen('rating-modal')).toBe(true);
 				expect((screen.getByLabelText('Notes') as HTMLTextAreaElement).value).toBe('Current retained draft');
 				expect((screen.getByRole('button', { name: 'Save' }) as HTMLButtonElement).disabled).toBe(false);

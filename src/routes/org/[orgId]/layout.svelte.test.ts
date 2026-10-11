@@ -341,4 +341,31 @@ describe('organization layout suspended contact', () => {
 		expect(screen.queryByText('Org child')).toBeNull();
 		expect(screen.getByRole('link', { name: 'Back to Dashboard' }).getAttribute('href')).toBe('/dashboard?show=all');
 	});
+
+	it("is the page's one main landmark", () => {
+		render(Layout, {
+			children,
+			data: {
+				session: null,
+				identitySessionScope: null,
+				shell: {
+					kind: 'suspended',
+					org: { id: 'org-1', name: 'Demo Org', urlSegment: 'demo-org' },
+					state: { orgSuspended: true }
+				}
+			} satisfies LayoutData
+		});
+		expect(screen.getAllByRole('main')).toHaveLength(1);
+	});
+});
+
+describe('organization layout session unavailable', () => {
+	it("is the page's one main landmark, holding the alert", () => {
+		render(Layout, { children, data: { ...workspace(), identitySessionScope: null } });
+		const main = screen.getByRole('main');
+		expect(screen.getAllByRole('main')).toHaveLength(1);
+		expect(within(main).getByRole('alert').textContent).toBe(
+			'Workspace session unavailable. Refresh or sign in again.'
+		);
+	});
 });

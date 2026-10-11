@@ -75,12 +75,12 @@ describe('admin user detail page', () => {
 	it.each(['Send Password Reset', 'Resend Invite'])(
 		'ignores a delayed %s result after leaving and reopening the account',
 		async (name) => {
-			const view = render(Page, { props: { data: makePageData(), form: null } });
+			const view = render(Page, { props: { data: makePageData() } });
 			const finish = await submitAccountEmail(name);
 			view.unmount();
-			const reopened = render(Page, { props: { data: makePageData(), form: null } });
+			const reopened = render(Page, { props: { data: makePageData() } });
 			const update = vi.fn(async () => {
-				await reopened.rerender({ data: makePageData(), form: { error: 'Old account failure' } });
+				await reopened.rerender({ data: makePageData() });
 			});
 			await act(() => finish({ type: 'failure', status: 503, data: { error: 'Old account failure' } }, update));
 			expect(toastStore.error).not.toHaveBeenCalled();
@@ -90,13 +90,13 @@ describe('admin user detail page', () => {
 
 	it('keeps a new account email submission busy when an older result arrives after A to B to A', async () => {
 		const data = makePageData();
-		const view = render(Page, { props: { data, form: null } });
+		const view = render(Page, { props: { data } });
 		const old = await submitAccountEmail('Send Password Reset');
 		const navigate = beforeNavigate.mock.calls[0][0];
 		navigate();
-		await view.rerender({ data: makePageData({ user: { ...data.user, id: 'other-user' } }), form: null });
+		await view.rerender({ data: makePageData({ user: { ...data.user, id: 'other-user' } }) });
 		navigate();
-		await view.rerender({ data, form: null });
+		await view.rerender({ data });
 		const current = await submitAccountEmail('Send Password Reset');
 		const staleUpdate = vi.fn(async () => {});
 		await act(() => old({ type: 'failure', status: 500, data: { error: 'Old failure' } }, staleUpdate));
@@ -110,12 +110,12 @@ describe('admin user detail page', () => {
 	it.each(['Send Password Reset', 'Resend Invite'])(
 		'releases %s after the acknowledged response cannot refresh account details',
 		async (name) => {
-			const view = render(Page, { props: { data: makePageData(), form: null } });
+			const view = render(Page, { props: { data: makePageData() } });
 			const finish = await submitAccountEmail(name);
 			invalidateAll.mockRejectedValueOnce(new Error('read unavailable'));
 			await act(() =>
 				finish({ type: 'success', status: 200, data: { success: true } }, async () => {
-					await view.rerender({ data: makePageData(), form: { success: true, message: 'Synthetic email sent' } });
+					await view.rerender({ data: makePageData() });
 				})
 			);
 			expect(screen.getByRole('button', { name }).getAttribute('aria-disabled')).toBe('false');
@@ -128,7 +128,7 @@ describe('admin user detail page', () => {
 	);
 
 	it('keeps support account assistance while hiding super-admin suspension controls', () => {
-		render(Page, { props: { data: makePageData({ adminRole: 'support' }), form: null } });
+		render(Page, { props: { data: makePageData({ adminRole: 'support' }) } });
 		expect(screen.getByRole('button', { name: 'Send Password Reset' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Resend Invite' })).toBeTruthy();
 		expect(screen.queryByRole('button', { name: 'Suspend User' })).toBeNull();
@@ -136,9 +136,9 @@ describe('admin user detail page', () => {
 
 	it('refreshes the visible User state after suspension before offering unsuspension', async () => {
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ success: true })));
-		const view = render(Page, { props: { data: makePageData(), form: null } });
+		const view = render(Page, { props: { data: makePageData() } });
 		invalidateAll.mockImplementation(async () => {
-			await view.rerender({ data: makePageData({ isSuspended: true }), form: null });
+			await view.rerender({ data: makePageData({ isSuspended: true }) });
 		});
 		await fireEvent.click(screen.getByRole('button', { name: 'Suspend User' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Suspend' }));
@@ -159,7 +159,7 @@ describe('admin user detail page', () => {
 			)
 		);
 		const data = makePageData();
-		const view = render(Page, { props: { data, form: null } });
+		const view = render(Page, { props: { data } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Suspend User' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Suspend' }));
 		const navigate = beforeNavigate.mock.calls[0][0];
@@ -167,8 +167,7 @@ describe('admin user detail page', () => {
 		await view.rerender({
 			data: makePageData({
 				user: { ...data.user, id: '22222222-2222-4222-8222-222222222222', email: 'other@example.test' }
-			}),
-			form: null
+			})
 		});
 		await finishAcknowledgement(finish);
 		expect(screen.queryByRole('dialog')).toBeNull();
@@ -188,7 +187,7 @@ describe('admin user detail page', () => {
 					})
 			)
 		);
-		const view = render(Page, { props: { data: makePageData(), form: null } });
+		const view = render(Page, { props: { data: makePageData() } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Suspend User' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Suspend' }));
 		view.unmount();
@@ -209,14 +208,14 @@ describe('admin user detail page', () => {
 			)
 		);
 		const data = makePageData();
-		const view = render(Page, { props: { data, form: null } });
+		const view = render(Page, { props: { data } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Suspend User' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Suspend' }));
 		const navigate = beforeNavigate.mock.calls[0][0];
 		navigate();
-		await view.rerender({ data: makePageData({ user: { ...data.user, id: 'other-user' } }), form: null });
+		await view.rerender({ data: makePageData({ user: { ...data.user, id: 'other-user' } }) });
 		navigate();
-		await view.rerender({ data, form: null });
+		await view.rerender({ data });
 		await finishAcknowledgement(finish);
 		expect(invalidateAll).not.toHaveBeenCalled();
 		expect(toastStore.success).not.toHaveBeenCalled();
@@ -227,9 +226,9 @@ describe('admin user detail page', () => {
 		async (current) => {
 			const fetch = vi.fn().mockRejectedValue(new Error('reply lost'));
 			vi.stubGlobal('fetch', fetch);
-			const view = render(Page, { props: { data: makePageData(), form: null } });
+			const view = render(Page, { props: { data: makePageData() } });
 			invalidateAll.mockRejectedValueOnce(new Error('read unavailable')).mockImplementationOnce(async () => {
-				await view.rerender({ data: makePageData({ isSuspended: current }), form: null });
+				await view.rerender({ data: makePageData({ isSuspended: current }) });
 			});
 			await fireEvent.click(screen.getByRole('button', { name: 'Suspend User' }));
 			await fireEvent.click(screen.getByRole('button', { name: 'Suspend' }));
@@ -254,7 +253,7 @@ describe('admin user detail page', () => {
 		vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('reply lost')));
 		let finish!: () => void;
 		const data = makePageData();
-		const view = render(Page, { props: { data, form: null } });
+		const view = render(Page, { props: { data } });
 		invalidateAll.mockImplementation(
 			() =>
 				new Promise<void>((resolve) => {
@@ -266,7 +265,7 @@ describe('admin user detail page', () => {
 		await screen.findByRole('button', { name: 'Reload details' });
 		await fireEvent.click(screen.getByRole('button', { name: 'Reload details' }));
 		beforeNavigate.mock.calls[0][0]();
-		await view.rerender({ data: makePageData({ user: { ...data.user, id: 'other-user' } }), form: null });
+		await view.rerender({ data: makePageData({ user: { ...data.user, id: 'other-user' } }) });
 		await act(() => {
 			finish();
 		});
@@ -275,7 +274,7 @@ describe('admin user detail page', () => {
 		expect(invalidateAll).toHaveBeenCalledTimes(1);
 	});
 	it('announces a sent email through the app toast once the account is current', async () => {
-		render(Page, { props: { data: makePageData(), form: null } });
+		render(Page, { props: { data: makePageData() } });
 		const finish = await submitAccountEmail('Resend Invite');
 
 		await act(() =>
@@ -288,7 +287,7 @@ describe('admin user detail page', () => {
 	});
 
 	it('keeps focus on Send Password Reset while the email is pending and ignores another press', async () => {
-		render(Page, { props: { data: makePageData(), form: null } });
+		render(Page, { props: { data: makePageData() } });
 		const button = screen.getByRole('button', { name: 'Send Password Reset' });
 		button.focus();
 		const finish = await submitAccountEmail('Send Password Reset');
@@ -318,15 +317,14 @@ describe('admin user detail page', () => {
 	});
 
 	it('offers resend invite only while account confirmation is pending', () => {
-		render(Page, { props: { data: makePageData(), form: null } });
+		render(Page, { props: { data: makePageData() } });
 		expect(screen.getByRole('button', { name: 'Resend Invite' })).toBeTruthy();
 		cleanup();
 		render(Page, {
 			props: {
 				data: makePageData({
 					user: { ...makePageData().user, emailConfirmationStatus: 'confirmed' }
-				}),
-				form: null
+				})
 			}
 		});
 		expect(screen.queryByRole('button', { name: 'Resend Invite' })).toBeNull();

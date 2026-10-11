@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import Page from './+page.svelte';
 import type { OnboardingTemplate, PersonnelOnboarding } from '$features/onboarding/contracts';
 import { createReadyAppShellRouteData } from '../../appShell.test-support';
@@ -37,11 +37,11 @@ function renderHistory(
 
 describe('onboarding history page', () => {
 	it.each([
-		{ currentStage: 'Reviewed', selectedName: 'Step 2: Reviewed' },
-		{ currentStage: 'Archived review', selectedName: null }
+		{ currentStage: 'Reviewed', selectedText: 'Step 2: 2 Reviewed' },
+		{ currentStage: 'Archived review', selectedText: null }
 	])(
 		'identifies saved paperwork stage $currentStage without allowing edits',
-		async ({ currentStage, selectedName }) => {
+		async ({ currentStage, selectedText }) => {
 			const personnel: Personnel[] = [
 				{
 					id: 'p-stage',
@@ -85,11 +85,18 @@ describe('onboarding history page', () => {
 			await fireEvent.click(screen.getByRole('button', { name: /SGT Stage, Sam/ }));
 
 			expect(screen.getByText(`Current stage: ${currentStage}`)).toBeTruthy();
-			const stageButtons = screen.getAllByRole('button', { name: /Step \d:/ });
-			expect(stageButtons.every((button) => (button as HTMLButtonElement).disabled)).toBe(true);
-			expect(stageButtons.filter((button) => button.getAttribute('aria-current') === 'step')).toEqual(
-				selectedName ? [screen.getByRole('button', { name: selectedName })] : []
+			const stages = within(screen.getByRole('list', { name: 'Saved paperwork paperwork stages' })).getAllByRole(
+				'listitem'
 			);
+			expect(stages).toHaveLength(3);
+			expect(
+				within(screen.getByRole('list', { name: 'Saved paperwork paperwork stages' })).queryAllByRole('button')
+			).toEqual([]);
+			expect(
+				stages
+					.filter((stage) => stage.getAttribute('aria-current') === 'step')
+					.map((stage) => stage.textContent?.replace(/\s+/g, ' ').trim())
+			).toEqual(selectedText ? [selectedText] : []);
 		}
 	);
 

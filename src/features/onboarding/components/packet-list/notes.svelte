@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Button } from '$lib/components/ui/button';
 	import * as Collapsible from '$lib/components/ui/collapsible';
 	import MessageSquare from '@lucide/svelte/icons/message-square';
 	import type { Snippet } from 'svelte';
@@ -28,15 +29,15 @@
 </script>
 
 <Collapsible.Root bind:open onOpenChange={handleOpenChange} data-slot="onboarding-packet-notes" class="contents">
-	<Collapsible.Trigger
-		data-slot="onboarding-packet-notes-trigger"
-		class="inline-flex items-center gap-1 rounded-md border border-border bg-transparent p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 data-[state=open]:bg-muted data-[state=open]:text-foreground [&_svg]:size-4"
-		aria-label={label}
-	>
-		<MessageSquare aria-hidden="true" class="size-4" />
-		{#if count > 0}
-			<span class="font-mono text-xs font-semibold text-primary">{count}</span>
-		{/if}
+	<Collapsible.Trigger data-slot="onboarding-packet-notes-trigger" aria-label={label}>
+		{#snippet child({ props })}
+			<Button {...props} variant="outline" size="sm" class="gap-1 px-1.5 text-muted-foreground">
+				<MessageSquare aria-hidden="true" class="size-4" />
+				{#if count > 0}
+					<span class="font-mono text-xs font-semibold text-primary">{count}</span>
+				{/if}
+			</Button>
+		{/snippet}
 	</Collapsible.Trigger>
 	<Collapsible.Content
 		data-slot="onboarding-packet-notes-content"

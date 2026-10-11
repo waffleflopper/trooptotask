@@ -13,7 +13,7 @@ Platform administrators publish global messages, review member Feedback and inve
 
 ## How to get to it (user POV)
 
-Sign in to the internal admin workspace at `/admin`. Use Dashboard, Feedback, Audit Log and Announcements in its sidebar. Select Create Announcement, complete its fields and Save. Deactivate or Activate changes its member visibility. Delete requires the browser confirmation. Expand a Feedback card to change Status or Admin Notes, then choose Save Notes. Audit Log provides Action and Severity controls, Previous/Next pages and View details. The global search opens the already owned User and Organization support pages.
+Sign in to the internal admin workspace at `/admin`. Use Dashboard, Feedback, Audit Log and Announcements in its sidebar. Select Create Announcement, complete its fields and Save. Deactivate or Activate changes its member visibility. Delete asks for confirmation in an in-app dialog naming the announcement. Expand a Feedback card to change Status or Admin Notes, then choose Save Notes. Audit Log provides Action and Severity controls, Previous/Next pages and View details. The global search opens the already owned User and Organization support pages.
 
 ## Driving it with verify:app
 

@@ -35,7 +35,7 @@ Replacement previews:
 - Legacy `FormField` is replaced by the shadcn-backed `ui/field` compound primitives plus `Input`, `Textarea`, `Select`, `Checkbox`, `RadioGroup` and `Combobox`, including its `multiple` mode.
 - Legacy `SearchSelect` is replaced by the shadcn-style `ui/combobox` compound API.
 - Legacy `Spinner` is represented by the shadcn `spinner` component.
-- Platform admin no longer has a custom `admin-*` CSS layer. `/admin/**` composes the shared sidebar, page-shell, card, field, command, tabs, alert, empty, badge, button, input/select/textarea, and table primitives with Tailwind layout utilities.
+- Platform admin no longer has a custom `admin-*` CSS layer. `/admin/**` composes the shared sidebar, page-shell, card, field, command, tabs, collapsible, alert, confirm-dialog, empty, badge, button, input/select/textarea, and table primitives with Tailwind layout utilities. Its sidebar is a named navigation that marks the current page with `aria-current`. Users and Audit Log page with the admin-owned `AdminPager`, which keeps focus on Previous or Next across the navigation. Admin save and email results use `toastStore`.
 
 Composition and visual ownership follow the [UI system](agents/ui-system.md#default-ui-rules). Within authorized UI work, extend shared APIs or add centrally owned variants and update affected consumers and this catalog. Preserve existing consumer behavior; route-local visual exceptions require Robert's explicit approval. Replacement notes below identify obsolete APIs, not permission to create compatibility wrappers.
 
@@ -998,7 +998,7 @@ Composable empty list placeholder.
 
 Compatibility note: the legacy `ui/EmptyState.svelte` wrapper has been removed. Compose `ui/empty` with `Button`, links, or route actions.
 
-The root and Organization error boundaries and `WorkspaceAccessRestricted` compose `ui/empty` for their status, message and recovery action. A page's `h1` stays a heading element inside `Empty.Header` where the page needs one. `Empty.Root` is full width, so a caller that adds outer margins also sets `w-auto` to keep the margins inside its column.
+The root, Organization and platform admin error boundaries and `WorkspaceAccessRestricted` compose `ui/empty` for their status, message and recovery action. The admin boundary renders inside the admin navigation and offers `Try again` for a 5xx. A non-admin denied by the admin layout still reaches the root boundary's 403. A page's `h1` stays a heading element inside `Empty.Header` where the page needs one. `Empty.Root` is full width, so a caller that adds outer margins also sets `w-auto` to keep the margins inside its column.
 
 On Dashboard, Training, Onboarding, Critical Tasks and Evals, a streamed workspace source that rejects renders `WorkspaceLoadError` (a destructive `Alert` with a `Retry` button that reloads the page) from its route layout, and their pages do not throw from an `{#await}` catch. SvelteKit's root has no boundary to catch a render-time throw, so the loading state would stay up. Calendar and Personnel routes still call `throwRenderError`; each adopts `WorkspaceLoadError` in its own Phase 10 packet. Critical Tasks Reports and the person record load in blocking page loads, so `critical-tasks/+error.svelte` renders `WorkspaceLoadError` for a 5xx and the Organization error page otherwise.
 

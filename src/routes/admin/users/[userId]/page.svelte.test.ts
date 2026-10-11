@@ -6,6 +6,9 @@ import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
 const { invalidateAll, beforeNavigate } = vi.hoisted(() => ({ invalidateAll: vi.fn(), beforeNavigate: vi.fn() }));
 vi.mock('$app/navigation', () => ({ invalidateAll, beforeNavigate }));
 
+const { toastStore } = vi.hoisted(() => ({ toastStore: { success: vi.fn(), error: vi.fn() } }));
+vi.mock('$lib/stores/toast.svelte', () => ({ toastStore }));
+
 const { forms } = vi.hoisted(() => ({ forms: new Map<string, SubmitFunction>() }));
 vi.mock('$app/forms', () => ({
 	enhance: (form: HTMLFormElement, submit: SubmitFunction) => {
@@ -80,7 +83,7 @@ describe('admin user detail page', () => {
 				await reopened.rerender({ data: makePageData(), form: { error: 'Old account failure' } });
 			});
 			await act(() => finish({ type: 'failure', status: 503, data: { error: 'Old account failure' } }, update));
-			expect(screen.queryByRole('alert')).toBeNull();
+			expect(toastStore.error).not.toHaveBeenCalled();
 			expect(update).not.toHaveBeenCalled();
 		}
 	);
@@ -97,10 +100,11 @@ describe('admin user detail page', () => {
 		const current = await submitAccountEmail('Send Password Reset');
 		const staleUpdate = vi.fn(async () => {});
 		await act(() => old({ type: 'failure', status: 500, data: { error: 'Old failure' } }, staleUpdate));
-		expect((screen.getByRole('button', { name: /Send Password Reset/ }) as HTMLButtonElement).disabled).toBe(true);
+		expect(screen.getByRole('button', { name: /Send Password Reset/ }).getAttribute('aria-disabled')).toBe('true');
 		expect(staleUpdate).not.toHaveBeenCalled();
 		await act(() => current({ type: 'failure', status: 500, data: { error: 'Current failure' } }, async () => {}));
-		expect((screen.getByRole('button', { name: 'Send Password Reset' }) as HTMLButtonElement).disabled).toBe(false);
+		expect(screen.getByRole('button', { name: 'Send Password Reset' }).getAttribute('aria-disabled')).toBe('false');
+		expect(toastStore.error).toHaveBeenCalledExactlyOnceWith('Current failure');
 	});
 
 	it.each(['Send Password Reset', 'Resend Invite'])(
@@ -114,9 +118,11 @@ describe('admin user detail page', () => {
 					await view.rerender({ data: makePageData(), form: { success: true, message: 'Synthetic email sent' } });
 				})
 			);
-			expect((screen.getByRole('button', { name }) as HTMLButtonElement).disabled).toBe(false);
-			expect(screen.getByRole('alert').textContent).toMatch(/refresh/i);
-			expect(screen.queryByText('Synthetic email sent')).toBeNull();
+			expect(screen.getByRole('button', { name }).getAttribute('aria-disabled')).toBe('false');
+			expect(toastStore.error).toHaveBeenCalledExactlyOnceWith(
+				'Account details could not be refreshed. Check the current account before sending another email.'
+			);
+			expect(toastStore.success).not.toHaveBeenCalled();
 			expect(invalidateAll).toHaveBeenCalledOnce();
 		}
 	);
@@ -138,7 +144,7 @@ describe('admin user detail page', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Suspend' }));
 		expect(await screen.findByRole('button', { name: 'Unsuspend User' })).toBeTruthy();
 		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-		expect(screen.getByText('User suspended')).toBeTruthy();
+		expect(toastStore.success).toHaveBeenCalledExactlyOnceWith('User suspended');
 	});
 
 	it('does not refresh or announce an old mutation after navigation to another User', async () => {
@@ -167,7 +173,7 @@ describe('admin user detail page', () => {
 		await finishAcknowledgement(finish);
 		expect(screen.queryByRole('dialog')).toBeNull();
 		expect(screen.getByRole('button', { name: 'Suspend User' })).toBeTruthy();
-		expect(screen.queryByText('User suspended')).toBeNull();
+		expect(toastStore.success).not.toHaveBeenCalled();
 		expect(invalidateAll).not.toHaveBeenCalled();
 	});
 
@@ -188,7 +194,7 @@ describe('admin user detail page', () => {
 		view.unmount();
 		await finishAcknowledgement(finish);
 		expect(invalidateAll).not.toHaveBeenCalled();
-		expect(screen.queryByText('User suspended')).toBeNull();
+		expect(toastStore.success).not.toHaveBeenCalled();
 	});
 
 	it('does not revive an old mutation after navigation away and back to the same User', async () => {
@@ -213,7 +219,7 @@ describe('admin user detail page', () => {
 		await view.rerender({ data, form: null });
 		await finishAcknowledgement(finish);
 		expect(invalidateAll).not.toHaveBeenCalled();
-		expect(screen.queryByText('User suspended')).toBeNull();
+		expect(toastStore.success).not.toHaveBeenCalled();
 	});
 
 	it.each([false, true])(
@@ -238,7 +244,7 @@ describe('admin user detail page', () => {
 			} else {
 				expect(await screen.findByRole('button', { name: 'Suspend' })).toBeTruthy();
 			}
-			expect(screen.queryByText('User suspended')).toBeNull();
+			expect(toastStore.success).not.toHaveBeenCalled();
 			expect(invalidateAll).toHaveBeenCalledTimes(2);
 			expect(fetch).toHaveBeenCalledTimes(1);
 		}
@@ -265,23 +271,50 @@ describe('admin user detail page', () => {
 			finish();
 		});
 		expect(screen.queryByRole('dialog')).toBeNull();
-		expect(screen.queryByText('User suspended')).toBeNull();
+		expect(toastStore.success).not.toHaveBeenCalled();
 		expect(invalidateAll).toHaveBeenCalledTimes(1);
 	});
-	it('prioritizes visible success toasts over stale form errors', () => {
-		render(Page, {
-			props: {
-				data: makePageData(),
-				form: {
-					success: true,
-					message: 'Invite email resent',
-					error: 'Previous form error'
-				} as never
-			}
-		});
+	it('announces a sent email through the app toast once the account is current', async () => {
+		render(Page, { props: { data: makePageData(), form: null } });
+		const finish = await submitAccountEmail('Resend Invite');
 
-		expect(screen.getByText('Invite email resent')).toBeTruthy();
-		expect(screen.queryByText('Previous form error')).toBeNull();
+		await act(() =>
+			finish({ type: 'success', status: 200, data: { success: true, message: 'Invite email resent' } }, async () => {})
+		);
+
+		expect(invalidateAll).toHaveBeenCalledOnce();
+		expect(toastStore.success).toHaveBeenCalledExactlyOnceWith('Invite email resent');
+		expect(toastStore.error).not.toHaveBeenCalled();
+	});
+
+	it('keeps focus on Send Password Reset while the email is pending and ignores another press', async () => {
+		render(Page, { props: { data: makePageData(), form: null } });
+		const button = screen.getByRole('button', { name: 'Send Password Reset' });
+		button.focus();
+		const finish = await submitAccountEmail('Send Password Reset');
+
+		expect(button.getAttribute('aria-disabled')).toBe('true');
+		expect(button.getAttribute('aria-busy')).toBe('true');
+		expect((button as HTMLButtonElement).disabled).toBe(false);
+		expect(document.activeElement).toBe(button);
+		const form = button.closest('form')!;
+		const cancel = vi.fn();
+		await forms.get(form.getAttribute('action')!)!({
+			formElement: form,
+			formData: new FormData(form),
+			action: new URL(form.action),
+			controller: new AbortController(),
+			submitter: button,
+			cancel
+		});
+		expect(cancel).toHaveBeenCalledOnce();
+
+		await act(() =>
+			finish({ type: 'failure', status: 503, data: { error: 'Synthetic request failure' } }, async () => {})
+		);
+		expect(button.getAttribute('aria-disabled')).toBe('false');
+		expect(document.activeElement).toBe(button);
+		expect(toastStore.error).toHaveBeenCalledExactlyOnceWith('Synthetic request failure');
 	});
 
 	it('offers resend invite only while account confirmation is pending', () => {

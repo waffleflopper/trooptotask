@@ -10,35 +10,28 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import SuspendModal from '$features/platform-admin/components/SuspendModal.svelte';
 	import { adminBadgeVariant, formatAdminLabel } from '$features/platform-admin/components/adminTheme';
-	import * as Alert from '$lib/components/ui/alert';
 	import * as Card from '$lib/components/ui/card';
 	import * as Empty from '$lib/components/ui/empty';
 	import * as PageShell from '$lib/components/patterns/page-shell';
 	import * as Table from '$lib/components/ui/table';
+	import { toastStore } from '$lib/stores/toast.svelte';
 
-	let { data, form } = $props();
+	let { data } = $props();
 
 	let showSuspendModal = $state(false);
 	let sendingReset = $state(false);
 	let sendingInvite = $state(false);
-	let toastMessage = $state<string | null>(null);
-	let toastError = $state<string | null>(null);
-	let toastTimer: ReturnType<typeof setTimeout> | undefined;
 	let navigationLifetime = $state(0);
 	const canSuspend = $derived(data.adminRole === 'super_admin');
 
 	beforeNavigate(() => {
 		navigationLifetime += 1;
-		clearTimeout(toastTimer);
 		showSuspendModal = false;
-		toastMessage = null;
-		toastError = null;
 		sendingReset = false;
 		sendingInvite = false;
 	});
 	onDestroy(() => {
 		navigationLifetime += 1;
-		clearTimeout(toastTimer);
 	});
 
 	async function reloadSuspension(lifetime: number, targetId: string): Promise<boolean> {
@@ -51,7 +44,11 @@
 
 	const accountEmailEnhance =
 		(kind: 'reset' | 'invite'): SubmitFunction =>
-		() => {
+		({ cancel }) => {
+			if (kind === 'reset' ? sendingReset : sendingInvite) {
+				cancel();
+				return;
+			}
 			const lifetime = navigationLifetime;
 			const targetId = data.user.id;
 			const isCurrent = () => lifetime === navigationLifetime && targetId === data.user.id;
@@ -63,12 +60,17 @@
 					// Refresh separately so a late read cannot apply the old form result to a reopened page.
 					await update({ invalidateAll: false });
 					if (!isCurrent()) return;
-					if (result.type === 'success') await invalidateAll();
+					if (result.type === 'failure')
+						toastStore.error(
+							typeof result.data?.error === 'string' ? result.data.error : 'The email could not be sent.'
+						);
+					if (result.type !== 'success') return;
+					await invalidateAll();
+					if (isCurrent() && typeof result.data?.message === 'string') toastStore.success(result.data.message);
 				} catch {
 					if (isCurrent())
-						showToast(
-							'Account details could not be refreshed. Check the current account before sending another email.',
-							true
+						toastStore.error(
+							'Account details could not be refreshed. Check the current account before sending another email.'
 						);
 				} finally {
 					if (isCurrent()) {
@@ -85,29 +87,10 @@
 			throw new Error('User state could not be refreshed');
 		if (targetId !== data.user.id || lifetime !== navigationLifetime) return;
 		showSuspendModal = false;
-		showToast(isSuspended ? 'User suspended' : 'User unsuspended');
-	}
-
-	function showToast(message: string, isError = false) {
-		clearTimeout(toastTimer);
-		if (isError) {
-			toastError = message;
-			toastMessage = null;
-		} else {
-			toastMessage = message;
-			toastError = null;
-		}
-		toastTimer = setTimeout(() => {
-			toastMessage = null;
-			toastError = null;
-		}, 4000);
+		toastStore.success(isSuspended ? 'User suspended' : 'User unsuspended');
 	}
 
 	const initials = $derived(data.user.email.slice(0, 2).toUpperCase());
-	const formToastMessage = $derived(form?.success && form?.message ? `${form.message}` : null);
-	const formToastError = $derived(form && 'error' in form && form.error ? `${form.error}` : null);
-	const visibleToastMessage = $derived(toastError ? null : (toastMessage ?? formToastMessage));
-	const visibleToastError = $derived(visibleToastMessage ? null : (toastError ?? formToastError));
 	const emailConfirmationLabel = $derived(data.user.emailConfirmationStatus === 'confirmed' ? 'Confirmed' : 'Pending');
 	const emailConfirmationDetail = $derived(
 		data.user.emailConfirmedAt
@@ -121,17 +104,6 @@
 </svelte:head>
 
 <PageShell.Root width="wide" density="compact">
-	{#if visibleToastMessage}
-		<Alert.Root variant="success">
-			<Alert.Description>{visibleToastMessage}</Alert.Description>
-		</Alert.Root>
-	{/if}
-	{#if visibleToastError}
-		<Alert.Root variant="destructive">
-			<Alert.Description>{visibleToastError}</Alert.Description>
-		</Alert.Root>
-	{/if}
-
 	<PageShell.Header
 		title={data.user.email}
 		subtitle={`Joined ${formatDisplayDate(data.user.createdAt)} - ${
@@ -169,7 +141,7 @@
 
 	<div class="flex flex-wrap gap-2">
 		<form method="POST" action="?/resetPassword" use:enhance={accountEmailEnhance('reset')}>
-			<Button type="submit" variant="outline" disabled={sendingReset}>
+			<Button type="submit" variant="outline" aria-disabled={sendingReset} aria-busy={sendingReset}>
 				{#if sendingReset}<Spinner color="currentColor" />{/if}
 				Send Password Reset
 			</Button>
@@ -177,7 +149,7 @@
 
 		{#if data.user.emailConfirmationStatus === 'pending'}
 			<form method="POST" action="?/resendInvite" use:enhance={accountEmailEnhance('invite')}>
-				<Button type="submit" variant="outline" disabled={sendingInvite}>
+				<Button type="submit" variant="outline" aria-disabled={sendingInvite} aria-busy={sendingInvite}>
 					{#if sendingInvite}<Spinner color="currentColor" />{/if}
 					Resend Invite
 				</Button>

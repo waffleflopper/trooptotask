@@ -90,9 +90,7 @@
 			xAxis: {
 				tickLength: 0,
 				tickLabelProps: {
-					fill: 'var(--muted-foreground)',
-					stroke: 'none',
-					class: 'text-[10px]'
+					class: 'fill-muted-foreground text-[10px]'
 				}
 			},
 			yAxis: {
@@ -103,9 +101,7 @@
 					dx: -8,
 					textAnchor: 'end',
 					verticalAnchor: 'middle',
-					fill: 'var(--muted-foreground)',
-					stroke: 'none',
-					class: 'text-[10px]'
+					class: 'fill-muted-foreground text-[10px]'
 				}
 			}
 		}}

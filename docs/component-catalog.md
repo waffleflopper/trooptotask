@@ -213,7 +213,7 @@ Props: `id?: string`, `value?: string` (bindable ISO `YYYY-MM-DD`), `placeholder
 
 Public components:
 
-- `WorkspaceToolbar.Root`: the shared toolbar shell. Props: `ariaLabel: string`, `wrap?: boolean`, `children?: Snippet`, plus normal `div` attributes. The shell renders `role="toolbar"`. By default it is one fixed-height `flex-nowrap` row with hidden horizontal overflow as a last resort. `wrap` lets groups and their controls flow onto further rows when the container is too narrow, so no control is ever scrolled out of view; use it for filter-heavy report toolbars whose controls cannot fit one row at medium widths.
+- `WorkspaceToolbar.Root`: the shared toolbar shell. Props: `ariaLabel: string`, `wrap?: boolean`, `children?: Snippet`, plus normal `div` attributes. The shell renders `role="toolbar"`. By default it is one fixed-height `flex-nowrap` row with hidden horizontal overflow as a last resort. `wrap` lets groups and their controls flow onto further rows when the container is too narrow, so no control is ever scrolled out of view; use it for filter-heavy report toolbars whose controls cannot fit one row at medium widths. The shell is a size container: at 47.5rem and below, select triggers cap at 8.5rem and search at 10rem; at 35rem and below, gaps and padding tighten, select triggers cap at 7rem, search narrows to 8rem and action labels hide beside their icons. These rules use the `toolbar-compact` and `toolbar-narrow` variants from `src/app.css` and take precedence over consumer classes.
 - `WorkspaceToolbar.Group`: the labeled control/action boundary. Props: `label: string`, `activeCount?: number`, `zone?: 'controls' | 'actions' | 'meta'`, `children?: Snippet`, plus normal `div` attributes. `activeCount` is included in the accessible group label. The `actions` zone aligns to the toolbar's right edge.
 - `WorkspaceToolbar.Select` truncates a long selected label inside its trigger and exposes the full label as the trigger title. `WorkspaceToolbar.Actions` names every action button by its label, so compact icon-only buttons keep their accessible name. An action chosen from one of its menus runs after that menu has finished closing, so an action that moves focus into page content keeps it. If the menu unmounts before its close finishes, for example when a resize moves the action out of overflow, the action runs then.
 - `WorkspaceToolbar.Meta`: compact passive metadata for rare toolbar-safe status. Props: `tone?: 'neutral' | 'warning' | 'success'`, `children?: Snippet`, plus normal `div` attributes. Keep passive route context outside the toolbar unless there is proven room.
@@ -404,6 +404,7 @@ Routes configure:
 Shared components own:
 
 - shadcn chart container usage, LayerChart simplified chart composition, axis baseline, grid styling, legend structure, and responsive chart frame.
+- Token paint as classes: axis labels use `fill-muted-foreground`, and grouped or stacked bars separate with `stroke-background`. Series colors are route data and stay as values.
 
 `docs/component-catalog.md` shows the Critical Tasks chart mapping and the line, stacked bar, and overlap bar target examples.
 
@@ -421,7 +422,7 @@ Shared components own:
 <RequirementStatusBadge status="current" label="Current" />
 ```
 
-Public shared exports are `RequirementStatusBadge`, `requirementStatusVisuals` and `RequirementStatus`. Routes pass status keys, visible labels and screen-reader labels through the relevant owner component. Keep shared status colors and typography in the neutral base; Training matrix/report cells retain Training's status-cell presentation.
+Public shared exports are `RequirementStatusBadge`, `requirementStatusVisuals` and `RequirementStatus`. Routes pass status keys, visible labels and screen-reader labels through the relevant owner component. Keep shared status colors and typography in the neutral base; Training matrix/report cells retain Training's status-cell presentation. `Expiring` uses the `expiring` status token and `Not Required` uses the `status-hatch` utility, both from `src/app.css`.
 
 ---
 
@@ -442,7 +443,9 @@ Public components:
 
 - `Cell`: report heat-cell. Props: `tier`, `percent?`, `label?`, `palette?: 'ramp' | 'semantic'`, `size?: 'compact' | 'tile'`, `drop?: number | null`, `children?`, plus normal `span` attributes. `tile` fills its column for a briefing grid. `drop` marks an upcoming hot spot with a 2px inset foreground ring and a `▼ n` chip in foreground/background tokens, and adds screen-reader text contained by the cell; the ring and chip stay distinguishable on every band, including solid destructive cells.
 - `Legend`: readiness tier legend. Props: `items?`, `ariaLabel?`, `palette?`, `dropLabel?` (keys the `drop` marker), plus normal `ul` attributes.
-- `Swatch`: visual swatch used by `Legend`. Props: `tier`, `palette?`, plus normal `span` attributes.
+- `Swatch`: visual swatch used by `Legend`. Props: `tier`, `palette?`, `drop?: boolean` (draws the hot-spot marker instead of a tier fill), plus normal `span` attributes.
+
+Tier classes live in the typed maps `readinessBandCellPalette` and `readinessBandSwatchFill` in `types.ts`. The ramp colors are `--readiness-band-*` theme colors (`bg-readiness-band-good`, `text-readiness-band-ink`), and the not-applicable hatching is the `readiness-band-stripes` utility. Cells expose `data-tier` for verification.
 
 Semantic palette:
 
@@ -1273,7 +1276,7 @@ Status colors have their own raw tokens, separate from the amber brand `--accent
 `info` -> `--info`
 `danger` -> `--destructive`
 
-Status text uses `text-*-foreground`, backed by separate `--danger-foreground`, `--warning-foreground`, `--success-foreground` and `--info-foreground` tokens that meet WCAG AA on page and muted status surfaces; the base status colors are fills, not text. Raw values live once in `:root` and once in `:root[data-theme='dark']`; each `--color-*` mapping is declared once in `@theme inline`. Chrome and the stepped readiness ramp (`--readiness-band-*`) are identical in both themes and are declared only in `:root`. Global element defaults sit in `@layer base`, so primitive variants and utilities override them.
+Status text uses `text-*-foreground`, backed by separate `--danger-foreground`, `--warning-foreground`, `--success-foreground` and `--info-foreground` tokens that meet WCAG AA on page and muted status surfaces; the base status colors are fills, not text. Raw values live once in `:root` and once in `:root[data-theme='dark']`; each `--color-*` mapping is declared once in `@theme inline`. Chrome and the stepped readiness ramp (`--readiness-band-*`, including `--readiness-band-ink` for text on the ramp) are identical in both themes and are declared only in `:root`. The `--expiring` fill is shared by both themes; `--expiring-foreground` has light, dark and print values. Shared fills that need a pattern are utilities in `src/app.css`: `status-hatch` and `readiness-band-stripes`. Global element defaults sit in `@layer base`, so primitive variants and utilities override them.
 
 Use `bg-success-muted`, `text-success-foreground`, `bg-warning-muted`, `text-warning-foreground`, `bg-info-muted`, `text-info-foreground`, `bg-danger-muted`, and `text-danger-foreground` through shared components where possible.
 

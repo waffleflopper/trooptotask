@@ -11,7 +11,6 @@
 	type RequirementStatusVisual = {
 		label: string;
 		class: string;
-		style?: string;
 	};
 
 	export const requirementStatusVisuals: Record<RequirementStatus, RequirementStatusVisual> = {
@@ -25,7 +24,7 @@
 		},
 		expiring: {
 			label: 'Expiring',
-			class: 'border-orange-500/20 bg-orange-500/10 text-orange-700 dark:text-orange-300'
+			class: 'border-expiring/20 bg-expiring/10 text-expiring-foreground'
 		},
 		expired: {
 			label: 'Expired',
@@ -37,9 +36,7 @@
 		},
 		'not-required': {
 			label: 'Not Required',
-			class: 'text-foreground',
-			style:
-				'background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--muted-foreground) 22%, transparent) 0 1px, transparent 1px 6px), var(--background);'
+			class: 'status-hatch text-foreground'
 		},
 		exempt: {
 			label: 'Exempt',
@@ -66,6 +63,6 @@
 	const visual = $derived(requirementStatusVisuals[status]);
 </script>
 
-<Badge variant="outline" class={cn(visual.class, className)} style={visual.style} {...restProps}>
+<Badge variant="outline" class={cn(visual.class, className)} {...restProps}>
 	{label ?? visual.label}
 </Badge>

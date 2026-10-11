@@ -29,45 +29,13 @@
 			? 'min-h-12 flex-wrap [&_[data-slot=workspace-toolbar-group]]:max-w-full [&_[data-slot=workspace-toolbar-group]]:flex-wrap'
 			: 'h-12 flex-nowrap overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
 		'[&_[data-slot=button]]:shrink-0 [&_[data-slot=input-group]]:min-w-0',
+		// Important keeps these container rules above consumer overrides, as the former unlayered stylesheet did.
+		'@container',
+		'toolbar-compact:[&_[data-slot=select-trigger]]:max-w-[8.5rem]! toolbar-compact:[&_[data-slot=select-trigger]]:min-w-0! toolbar-compact:[&_[data-slot=input-group]]:w-40!',
+		'toolbar-narrow:gap-1! toolbar-narrow:px-1.5! toolbar-narrow:[&_[data-workspace-toolbar-action-label]:not(:only-child)]:hidden! toolbar-narrow:[&_[data-slot=select-trigger]]:max-w-28! toolbar-narrow:[&_[data-slot=input-group]]:w-32!',
 		className
 	)}
 	{...restProps}
 >
 	{@render children?.()}
 </div>
-
-<style>
-	:global([data-slot='workspace-toolbar']) {
-		container-type: inline-size;
-	}
-
-	@container (max-width: 47.5rem) {
-		:global([data-slot='workspace-toolbar'] [data-slot='select-trigger']) {
-			max-width: 8.5rem;
-			min-width: 0;
-		}
-
-		:global([data-slot='workspace-toolbar'] [data-slot='input-group']) {
-			width: 10rem;
-		}
-	}
-
-	@container (max-width: 35rem) {
-		:global([data-slot='workspace-toolbar']) {
-			gap: 0.25rem;
-			padding-inline: 0.375rem;
-		}
-
-		:global([data-slot='workspace-toolbar'] [data-workspace-toolbar-action-label]:not(:only-child)) {
-			display: none;
-		}
-
-		:global([data-slot='workspace-toolbar'] [data-slot='select-trigger']) {
-			max-width: 7rem;
-		}
-
-		:global([data-slot='workspace-toolbar'] [data-slot='input-group']) {
-			width: 8rem;
-		}
-	}
-</style>

@@ -23,42 +23,23 @@
 <ul
 	aria-label={ariaLabel}
 	data-slot="readiness-band-legend"
-	class={cn('readiness-band-legend', className)}
+	class={cn('m-0 flex list-none flex-wrap items-center gap-x-4 gap-y-2 p-0', className)}
 	{...restProps}
 >
 	{#each items as item (item.tier)}
-		<li>
+		<li
+			class="inline-flex items-center gap-1.5 font-mono text-[0.625rem] tracking-[0.08em] text-muted-foreground uppercase"
+		>
 			<Swatch tier={item.tier} {palette} />
 			<span>{item.label}</span>
 		</li>
 	{/each}
 	{#if dropLabel}
-		<li>
-			<Swatch tier="not-applicable" {palette} data-drop="" />
+		<li
+			class="inline-flex items-center gap-1.5 font-mono text-[0.625rem] tracking-[0.08em] text-muted-foreground uppercase"
+		>
+			<Swatch tier="not-applicable" {palette} drop />
 			<span>{dropLabel}</span>
 		</li>
 	{/if}
 </ul>
-
-<style>
-	.readiness-band-legend {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 0.5rem 1rem;
-		margin: 0;
-		padding: 0;
-		list-style: none;
-	}
-
-	.readiness-band-legend li {
-		display: inline-flex;
-		align-items: center;
-		gap: 6px;
-		font-family: 'IBM Plex Mono', monospace;
-		font-size: 0.625rem;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: var(--muted-foreground);
-	}
-</style>

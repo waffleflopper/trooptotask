@@ -4,7 +4,7 @@
 	export const trainingStatusCellClasses: Record<TrainingStatus, string> = {
 		current: 'bg-success-muted text-success-foreground ring-success/20',
 		'warning-yellow': 'bg-warning-muted text-warning-foreground ring-warning/20',
-		'warning-orange': 'bg-orange-500/10 text-orange-700 ring-orange-500/20 dark:text-orange-300',
+		'warning-orange': 'bg-expiring/10 text-expiring-foreground ring-expiring/20',
 		expired: 'bg-danger-muted text-danger-foreground ring-danger/20',
 		'not-completed': 'bg-muted text-muted-foreground ring-border',
 		'not-required': 'bg-background text-muted-foreground ring-border',

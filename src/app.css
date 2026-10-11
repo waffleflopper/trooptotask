@@ -17,6 +17,9 @@
 @import 'tw-animate-css';
 
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+/* WorkspaceToolbar breakpoints. Registered in this order so the narrow rules sort after, and win over, the compact ones. */
+@custom-variant toolbar-compact (@container (max-width: 47.5rem));
+@custom-variant toolbar-narrow (@container (max-width: 35rem));
 
 @theme inline {
 	--color-background: var(--background);
@@ -48,8 +51,16 @@
 	--color-info-foreground: var(--info-foreground);
 	--color-info-muted: color-mix(in srgb, var(--info) 14%, var(--card));
 	--color-success: var(--success);
+	--color-expiring: var(--expiring);
+	--color-expiring-foreground: var(--expiring-foreground);
 	--color-success-foreground: var(--success-foreground);
 	--color-success-muted: color-mix(in srgb, var(--success) 14%, var(--card));
+	--color-readiness-band-danger: var(--readiness-band-danger);
+	--color-readiness-band-warn: var(--readiness-band-warn);
+	--color-readiness-band-caution: var(--readiness-band-caution);
+	--color-readiness-band-okay: var(--readiness-band-okay);
+	--color-readiness-band-good: var(--readiness-band-good);
+	--color-readiness-band-ink: var(--readiness-band-ink);
 	--color-chrome: var(--chrome);
 	--color-chrome-text: var(--chrome-text);
 	--color-chrome-text-muted: var(--chrome-text-muted);
@@ -100,6 +111,7 @@
 	--readiness-band-caution: #f2c878;
 	--readiness-band-okay: #c5d89b;
 	--readiness-band-good: #9bc361;
+	--readiness-band-ink: #24211d;
 
 	/* Native shadcn-svelte tokens, using stock Tailwind OKLCH palette stops. */
 	--radius: 4px;
@@ -124,11 +136,13 @@
 	--destructive: oklch(57.7% 0.245 27.325);
 	--destructive-foreground: oklch(98.5% 0.001 106.423);
 	--warning: oklch(66.6% 0.179 58.318);
+	--expiring: oklch(70.5% 0.213 47.604);
 	--success: oklch(62.7% 0.194 149.214);
 	--info: oklch(58.8% 0.158 241.966);
 	/* Status text on page and muted status surfaces (WCAG AA 4.5:1); fills stay on the raw status tokens. */
 	--danger-foreground: oklch(50.5% 0.213 27.518);
 	--warning-foreground: oklch(47.3% 0.137 46.201);
+	--expiring-foreground: oklch(55.3% 0.195 38.402);
 	--success-foreground: oklch(44.8% 0.119 151.328);
 	--info-foreground: oklch(50% 0.134 242.749);
 	--border: oklch(92.3% 0.003 48.717);
@@ -173,6 +187,7 @@
 	--warning: oklch(76.9% 0.188 70.08);
 	--danger-foreground: oklch(70.4% 0.191 22.216);
 	--warning-foreground: oklch(76.9% 0.188 70.08);
+	--expiring-foreground: oklch(83.7% 0.128 66.29);
 	--success-foreground: oklch(72.3% 0.219 149.579);
 	--info-foreground: oklch(74.6% 0.16 232.661);
 	--border: oklch(26.8% 0.007 34.298);
@@ -198,6 +213,26 @@
 	margin-top: var(--banner-height, 0px);
 	height: calc(100dvh - var(--banner-height, 0px));
 	max-height: calc(100dvh - var(--banner-height, 0px));
+}
+
+@utility status-hatch {
+	background:
+		repeating-linear-gradient(
+			135deg,
+			color-mix(in srgb, var(--muted-foreground) 22%, transparent) 0 1px,
+			transparent 1px 6px
+		),
+		var(--background);
+}
+
+@utility readiness-band-stripes {
+	background-image: repeating-linear-gradient(
+		45deg,
+		color-mix(in srgb, var(--muted) 76%, var(--card) 24%),
+		color-mix(in srgb, var(--muted) 76%, var(--card) 24%) 3px,
+		color-mix(in srgb, var(--border) 72%, var(--card) 28%) 3px,
+		color-mix(in srgb, var(--border) 72%, var(--card) 28%) 6px
+	);
 }
 
 /* Fixed layers, lowest first: the desktop sidebar (z-10), the banner, sheets, then dialogs and floating content at
@@ -363,6 +398,7 @@
 		--warning: oklch(66.6% 0.179 58.318);
 		--danger-foreground: oklch(50.5% 0.213 27.518);
 		--warning-foreground: oklch(47.3% 0.137 46.201);
+		--expiring-foreground: oklch(55.3% 0.195 38.402);
 		--success-foreground: oklch(44.8% 0.119 151.328);
 		--info-foreground: oklch(50% 0.134 242.749);
 		--border: oklch(92.3% 0.003 48.717);

@@ -160,6 +160,50 @@ describe('Onboarding retained interactions', () => {
 		expect(await screen.findByRole('button', { name: 'Remove Finance packet' })).toBeTruthy();
 	});
 
+	it('gives a member who cannot manage read-only step content instead of disabled controls', async () => {
+		onboardingStore.load(
+			[
+				{
+					...packet,
+					steps: [
+						packet.steps[0],
+						{
+							...packet.steps[0],
+							id: 'step-2',
+							stepName: 'Finance packet',
+							stepType: 'paperwork',
+							stages: ['Submitted', 'Review', 'Filed'],
+							currentStage: 'Review'
+						}
+					]
+				}
+			],
+			'org-1'
+		);
+		const ctx = new OnboardingPageContext(new ModalRegistry(), {
+			orgId: 'org-1',
+			orgUrlSegment: 'org-1',
+			...createClientAccess({ membershipRole: 'member', capabilityMap: createCapabilityMap('view') })
+		});
+		render(OnboardingKanbanView, { props: { ctx } });
+		await fireEvent.click(screen.getByRole('button', { name: /SGT Smith, Jane/ }));
+
+		const dialog = await screen.findByRole('dialog', { name: 'SGT Smith, Jane' });
+		const stages = within(dialog).getByRole('list', { name: 'Finance packet paperwork stages' });
+		expect(
+			within(stages)
+				.getAllByRole('listitem')
+				.map((item) => item.getAttribute('aria-current'))
+		).toEqual([null, 'step', null]);
+		expect(within(dialog).queryByRole('checkbox')).toBeNull();
+		expect(within(dialog).getAllByRole('img', { name: 'Not complete' })).toHaveLength(2);
+		expect(
+			within(dialog)
+				.queryAllByRole('button')
+				.filter((button) => (button as HTMLButtonElement).disabled)
+		).toEqual([]);
+	});
+
 	it('exposes card selection as a pressed state and opens that packet in the detail sheet', async () => {
 		mount();
 		const card = screen.getByRole('button', { name: /SGT Smith, Jane/ });

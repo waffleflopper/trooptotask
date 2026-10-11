@@ -35,7 +35,7 @@
 					onCheckedChange={() => ctx.handleToggleCheckbox(step)}
 				/>
 			{:else}
-				<div class="h-5 w-5 shrink-0 rounded-full border-2 border-border"></div>
+				<div role="img" aria-label="Not complete" class="h-5 w-5 shrink-0 rounded-full border-2 border-border"></div>
 			{/if}
 			<span class="flex-1 text-sm font-medium">{step.stepName}</span>
 			<Badge variant={step.stepType === 'training' ? 'info' : step.stepType === 'paperwork' ? 'warning' : 'secondary'}>
@@ -83,7 +83,11 @@
 					onCheckedChange={() => ctx.handleToggleCheckbox(step)}
 				/>
 			{:else}
-				<div class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-success text-white">
+				<div
+					role="img"
+					aria-label="Complete"
+					class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-success text-white"
+				>
 					<Check class="size-3 stroke-3" aria-hidden="true" />
 				</div>
 			{/if}

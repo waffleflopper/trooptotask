@@ -93,7 +93,7 @@
 					class="shrink-0 aria-disabled:opacity-50"
 					onclick={() => dismiss(announcement.id)}
 					aria-disabled={dismissing.includes(announcement.id) ? 'true' : undefined}
-					aria-label="Dismiss announcement"
+					aria-label={`Dismiss announcement: ${announcement.title}`}
 				>
 					<XIcon aria-hidden="true" class="size-3" />
 					Dismiss

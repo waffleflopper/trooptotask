@@ -24,13 +24,17 @@ it.each([200, 503])('ignores a pending account A dismissal after replacement wit
 	const error = vi.spyOn(toastStore, 'error').mockReturnValue('error-toast');
 	vi.stubGlobal('fetch', vi.fn().mockReturnValue(held.pending));
 	const view = render(AnnouncementBanner, { accountId: 'account-a', announcements: [announcement] });
-	await fireEvent.click(screen.getByRole('button', { name: 'Dismiss announcement' }));
-	expect(screen.getByRole('button', { name: 'Dismiss announcement' }).getAttribute('aria-disabled')).toBe('true');
+	await fireEvent.click(screen.getByRole('button', { name: 'Dismiss announcement: Heads up' }));
+	expect(screen.getByRole('button', { name: 'Dismiss announcement: Heads up' }).getAttribute('aria-disabled')).toBe(
+		'true'
+	);
 	await view.rerender({ accountId: 'account-b', announcements: [announcement] });
 	held.release(new Response(null, { status }));
 	await held.pending;
 	await waitFor(() =>
-		expect(screen.getByRole('button', { name: 'Dismiss announcement' }).getAttribute('aria-disabled')).toBeNull()
+		expect(
+			screen.getByRole('button', { name: 'Dismiss announcement: Heads up' }).getAttribute('aria-disabled')
+		).toBeNull()
 	);
 	expect(screen.getByText('Heads up')).toBeTruthy();
 	expect(error).not.toHaveBeenCalled();
@@ -40,7 +44,7 @@ it('preserves account-wide dismissal across an Organization presentation refresh
 	const held = heldResponse();
 	vi.stubGlobal('fetch', vi.fn().mockReturnValue(held.pending));
 	const view = render(AnnouncementBanner, { accountId: 'account-a', announcements: [announcement] });
-	await fireEvent.click(screen.getByRole('button', { name: 'Dismiss announcement' }));
+	await fireEvent.click(screen.getByRole('button', { name: 'Dismiss announcement: Heads up' }));
 	await view.rerender({ accountId: 'account-a', announcements: [{ ...announcement }] });
 	held.release(new Response(null, { status: 200 }));
 	await waitFor(() => expect(screen.queryByText('Heads up')).toBeNull());
@@ -51,7 +55,7 @@ it('does not report a late failure after the banner is unmounted', async () => {
 	const error = vi.spyOn(toastStore, 'error').mockReturnValue('error-toast');
 	vi.stubGlobal('fetch', vi.fn().mockReturnValue(held.pending));
 	const view = render(AnnouncementBanner, { accountId: 'account-a', announcements: [announcement] });
-	await fireEvent.click(screen.getByRole('button', { name: 'Dismiss announcement' }));
+	await fireEvent.click(screen.getByRole('button', { name: 'Dismiss announcement: Heads up' }));
 	view.unmount();
 	held.release(new Response(null, { status: 503 }));
 	await held.pending;
@@ -76,11 +80,13 @@ it('retains a failed dismissal, reports failure and permits a successful retry',
 		accountId: 'account-a',
 		announcements: [{ id: 'announcement-1', title: 'Heads up', message: 'Maintenance tonight', type: 'maintenance' }]
 	});
-	await fireEvent.click(screen.getByRole('button', { name: 'Dismiss announcement' }));
+	await fireEvent.click(screen.getByRole('button', { name: 'Dismiss announcement: Heads up' }));
 	await waitFor(() => expect(error).toHaveBeenCalled());
 	expect(screen.getByText('Heads up')).toBeTruthy();
-	expect(screen.getByRole('button', { name: 'Dismiss announcement' }).getAttribute('aria-disabled')).toBeNull();
-	await fireEvent.click(screen.getByRole('button', { name: 'Dismiss announcement' }));
+	expect(
+		screen.getByRole('button', { name: 'Dismiss announcement: Heads up' }).getAttribute('aria-disabled')
+	).toBeNull();
+	await fireEvent.click(screen.getByRole('button', { name: 'Dismiss announcement: Heads up' }));
 	await waitFor(() => expect(screen.queryByText('Heads up')).toBeNull());
 });
 
@@ -101,7 +107,7 @@ describe('AnnouncementBanner', () => {
 		expect(screen.getByText('Heads up')).toBeTruthy();
 		expect(screen.getByText('Maintenance tonight')).toBeTruthy();
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Dismiss announcement' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Dismiss announcement: Heads up' }));
 
 		await waitFor(() => {
 			expect(fetchMock).toHaveBeenCalledWith('/api/announcements/dismiss', {
@@ -130,7 +136,8 @@ describe('AnnouncementBanner focus', () => {
 			announcements: [announcement, { ...announcement, id: 'announcement-2', title: 'Second notice' }]
 		});
 
-		const [first, second] = screen.getAllByRole('button', { name: 'Dismiss announcement' });
+		const first = screen.getByRole('button', { name: 'Dismiss announcement: Heads up' });
+		const second = screen.getByRole('button', { name: 'Dismiss announcement: Second notice' });
 		first.focus();
 		await fireEvent.click(first);
 		await waitFor(() => expect(document.activeElement).toBe(second));
@@ -146,7 +153,7 @@ describe('AnnouncementBanner focus', () => {
 		const held = heldResponse();
 		vi.stubGlobal('fetch', vi.fn().mockReturnValue(held.pending));
 		render(AnnouncementBanner, { accountId: 'account-a', announcements: [announcement] });
-		const button = screen.getByRole('button', { name: 'Dismiss announcement' }) as HTMLButtonElement;
+		const button = screen.getByRole('button', { name: 'Dismiss announcement: Heads up' }) as HTMLButtonElement;
 		button.focus();
 		await fireEvent.click(button);
 		expect(button.disabled).toBe(false);

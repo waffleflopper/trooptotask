@@ -103,14 +103,29 @@ describe('settleAction', () => {
 		expect(document.activeElement).toBe(button);
 	});
 
-	it('hands a redirect to the framework', async () => {
+	it('returns focus to the control after a redirect that keeps the page', async () => {
 		const { button, page } = mount();
+		button.focus();
 
-		const message = await settleAction(frameworkOutcome({ type: 'redirect', status: 303, location: '/org/b' }, page), {
-			focus: () => [button]
-		});
+		const message = await settleAction(
+			frameworkOutcome({ type: 'redirect', status: 303, location: '/org/new-path/settings/general' }, page),
+			{ focus: () => [button] }
+		);
 
 		expect(message).toBeNull();
+		expect(page.location).toBe('/org/new-path/settings/general');
+		expect(document.activeElement).toBe(button);
+	});
+
+	it('leaves focus to the framework after a redirect to another page', async () => {
+		const { button, heading, page } = mount();
+		page.navigate = async () => void document.body.replaceChildren(document.createElement('main'));
+
+		await settleAction(frameworkOutcome({ type: 'redirect', status: 303, location: '/org/b' }, page), {
+			focus: () => [button, heading]
+		});
+
 		expect(page.location).toBe('/org/b');
+		expect(document.activeElement).toBe(document.body);
 	});
 });

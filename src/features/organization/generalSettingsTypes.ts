@@ -20,7 +20,6 @@ export interface GeneralSettingsData {
 export type GeneralSettingsActionData = {
 	[key: string]: unknown;
 	nameSuccess?: boolean;
-	slugSuccess?: boolean;
 	error?: string;
 	slugError?: string;
 } | null;

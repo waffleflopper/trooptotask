@@ -5,10 +5,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { frameworkOutcome } from '$lib/test-support/sveltekitEnhance';
 import Page from './+page.svelte';
 
-const { enhancements, callbacks } = vi.hoisted(() => ({
+const { enhancements, callbacks, toasts } = vi.hoisted(() => ({
 	enhancements: new Map<string, (input: { cancel: () => void }) => unknown>(),
-	callbacks: [] as Array<(input: unknown) => Promise<void>>
+	callbacks: [] as Array<(input: unknown) => Promise<void>>,
+	toasts: [] as string[]
 }));
+vi.mock('$lib/stores/toast.svelte', () => ({ toastStore: { success: (message: string) => toasts.push(message) } }));
 vi.mock('$app/forms', () => ({
 	enhance: (node: HTMLFormElement, submit: (input: { cancel: () => void }) => unknown) => {
 		const action = node.getAttribute('action')!;
@@ -45,6 +47,7 @@ function data(orgId: string, urlSlug: string | null = 'example-unit') {
 beforeEach(() => {
 	enhancements.clear();
 	callbacks.length = 0;
+	toasts.length = 0;
 	vi.useFakeTimers();
 });
 afterEach(async () => {
@@ -242,7 +245,7 @@ describe('General settings feedback and focus', () => {
 	});
 
 	it('keeps the typed custom path in place with an Alert when the save errors unexpectedly', async () => {
-		const view = render(Page, { data: data('a'), form: { slugSuccess: true }, params: { orgId: 'a' } });
+		const view = render(Page, { data: data('a'), form: null, params: { orgId: 'a' } });
 		await fireEvent.input(screen.getByLabelText('Custom path'), { target: { value: 'draft-path' } });
 		enhancements.get('?/updateSlug')!({ cancel: () => {} });
 		await tick();
@@ -258,33 +261,47 @@ describe('General settings feedback and focus', () => {
 		expect(page).not.toHaveProperty('errorPage');
 		within(slugForm).getByRole('alert');
 		expect((screen.getByLabelText('Custom path') as HTMLInputElement).value).toBe('draft-path');
-		expect(screen.queryByText(/Custom URL updated/)).toBeNull();
 		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Update URL' }));
 	});
 
-	it('returns focus to the URL controls after a successful set and reset', async () => {
+	it('confirms a saved custom URL and returns focus to the URL controls after its redirect', async () => {
 		const view = render(Page, { data: data('a', null), form: null, params: { orgId: 'a' } });
+		const navigateTo = (urlSlug: string | null) => ({
+			applyForm: async () => {},
+			navigate: () => view.rerender({ form: null, data: data('a', urlSlug) })
+		});
 		await fireEvent.input(screen.getByLabelText('Custom path'), { target: { value: 'new-path' } });
 		enhancements.get('?/updateSlug')!({ cancel: () => {} });
 		await tick();
 		await fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Update URL' }));
 		await callbacks.at(-1)!(
 			frameworkOutcome(
-				{ type: 'success', status: 200, data: { slugSuccess: true } },
-				{ applyForm: (form) => view.rerender({ form: form as never, data: data('a', 'new-path') }) }
+				{ type: 'redirect', status: 303, location: '/org/new-path/settings/general' },
+				navigateTo('new-path')
 			)
 		);
 		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Update URL' }));
+		expect(toasts.at(-1)).toBe('Custom URL updated. Bookmarks and shared links using the old URL will need updating.');
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Reset to default' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Reset URL' }));
 		await callbacks.at(-1)!(
-			frameworkOutcome(
-				{ type: 'success', status: 200, data: { slugSuccess: true } },
-				{ applyForm: (form) => view.rerender({ form: form as never, data: data('a', null) }) }
-			)
+			frameworkOutcome({ type: 'redirect', status: 303, location: '/org/a/settings/general' }, navigateTo(null))
 		);
 		expect(screen.queryByRole('button', { name: 'Reset to default' })).toBeNull();
 		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Set URL' }));
+		expect(toasts.at(-1)).toBe('Custom URL removed. The app path uses the Organization ID again.');
+	});
+
+	it('does not confirm a custom URL when the save redirects to sign-in', async () => {
+		render(Page, { data: data('a', null), form: null, params: { orgId: 'a' } });
+		await fireEvent.input(screen.getByLabelText('Custom path'), { target: { value: 'new-path' } });
+		enhancements.get('?/updateSlug')!({ cancel: () => {} });
+		await tick();
+		await fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Update URL' }));
+		await callbacks.at(-1)!(
+			frameworkOutcome({ type: 'redirect', status: 303, location: '/auth/login' }, { applyForm: async () => {} })
+		);
+		expect(toasts).toEqual([]);
 	});
 });

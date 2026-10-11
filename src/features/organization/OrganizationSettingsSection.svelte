@@ -159,13 +159,6 @@
 						<Alert.Description>{workspace.slugRequestError}</Alert.Description>
 					</Alert.Root>
 				{/if}
-				{#if form?.slugSuccess && !workspace.slugRequestError}
-					<Alert.Root variant="success">
-						<Alert.Description
-							>Custom URL updated. Bookmarks and shared links using the old URL will need updating.</Alert.Description
-						>
-					</Alert.Root>
-				{/if}
 				<div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto_auto]">
 					<Field.Root data-invalid={form?.slugError ? true : undefined}>
 						<Field.Label for="urlSlug">Custom path</Field.Label>

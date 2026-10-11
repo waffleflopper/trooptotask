@@ -1,5 +1,6 @@
 import { tick } from 'svelte';
 import type { SubmitFunction } from '@sveltejs/kit';
+import { toastStore } from '$lib/stores/toast.svelte';
 import { settleAction, type SettleOptions } from '$lib/utils/settleAction';
 
 type SubmitCallback = Exclude<Awaited<ReturnType<SubmitFunction>>, void>;
@@ -113,6 +114,14 @@ export class GeneralSettingsWorkspace {
 					this.slugFormAction = '?/updateSlug';
 				}
 			});
+			// A saved custom URL answers with a redirect to the General page at its new path.
+			const { result } = outcome;
+			if (result.type === 'redirect' && result.location.endsWith('/settings/general'))
+				toastStore.success(
+					action === 'clear'
+						? 'Custom URL removed. The app path uses the Organization ID again.'
+						: 'Custom URL updated. Bookmarks and shared links using the old URL will need updating.'
+				);
 		};
 	}
 }

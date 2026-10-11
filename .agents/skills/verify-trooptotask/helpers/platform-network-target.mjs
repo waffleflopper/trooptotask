@@ -38,6 +38,19 @@ export function platformFormNetworkTarget(family, fixture, seed) {
 			sameOrigin: true
 		};
 	}
+	const detail = /^admin-(user|organization)-detail-read$/.exec(family);
+	if (detail) {
+		if (!seed) throw new Error('Seed platform-admin first.');
+		const id = detail[1] === 'user' ? fixture.actors.orgInvitee?.id : seed.organization?.id;
+		if (!uuid.test(id ?? '')) throw new Error('Use a recorded platform target.');
+		return {
+			suffix: `/admin/${detail[1]}s/${id}/__data.json`,
+			search: null,
+			failureField: null,
+			requestTarget: null,
+			sameOrigin: true
+		};
+	}
 	const account = /^admin-account\/(orgCreator|orgInvitee|orgMember)\/(resetPassword|resendInvite)$/.exec(family);
 	const access = /^admin-access\/(approve|reject|completed)\/(approve|reject|resend)$/.exec(family);
 	if (!account && !access) return null;

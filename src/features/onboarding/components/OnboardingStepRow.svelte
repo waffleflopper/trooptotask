@@ -63,6 +63,7 @@
 				<Button
 					size="sm"
 					variant="destructive"
+					aria-label={`Remove ${step.stepName}`}
 					onclick={() => ctx.handleRemoveDeprecatedStep(step.id)}
 					disabled={ctx.removingDeprecatedStepId === step.id}
 				>
@@ -97,7 +98,7 @@
 					variant="ghost"
 					size="icon-xs"
 					onclick={onToggleExpand}
-					aria-label={expanded ? 'Collapse' : 'Expand to adjust'}
+					aria-label={expanded ? `Collapse ${step.stepName}` : `Expand ${step.stepName} to adjust stage`}
 					aria-expanded={expanded}
 					aria-controls={adjustmentPanelId}
 				>

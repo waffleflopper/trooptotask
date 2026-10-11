@@ -150,6 +150,16 @@ describe('Onboarding retained interactions', () => {
 		expect(screen.queryByRole('group', { name: 'Finance packet paperwork stages' })).toBeNull();
 	});
 
+	it('names the step in the Remove control of an inactive incomplete step', async () => {
+		onboardingStore.load(
+			[{ ...packet, steps: [{ ...packet.steps[0], stepName: 'Finance packet', active: false }] }],
+			'org-1'
+		);
+		mount();
+		await fireEvent.click(screen.getByRole('button', { name: /SGT Smith, Jane/ }));
+		expect(await screen.findByRole('button', { name: 'Remove Finance packet' })).toBeTruthy();
+	});
+
 	it('exposes card selection as a pressed state and opens that packet in the detail sheet', async () => {
 		mount();
 		const card = screen.getByRole('button', { name: /SGT Smith, Jane/ });
@@ -210,14 +220,14 @@ describe('Onboarding retained interactions', () => {
 		await fireEvent.click(screen.getByRole('button', { name: /SGT Smith, Jane/ }));
 		await fireEvent.click(await screen.findByRole('button', { name: /Completed/ }));
 
-		const toggle = await screen.findByRole('button', { name: 'Expand to adjust' });
+		const toggle = await screen.findByRole('button', { name: 'Expand Finance packet to adjust stage' });
 		const panelId = toggle.getAttribute('aria-controls');
 		expect(toggle.getAttribute('aria-expanded')).toBe('false');
 		expect(document.getElementById(panelId!)?.hasAttribute('hidden')).toBe(true);
 
 		await fireEvent.click(toggle);
 
-		const expanded = screen.getByRole('button', { name: 'Collapse' });
+		const expanded = screen.getByRole('button', { name: 'Collapse Finance packet' });
 		expect(expanded.getAttribute('aria-expanded')).toBe('true');
 		expect(document.getElementById(panelId!)?.hasAttribute('hidden')).toBe(false);
 		expect(

@@ -55,7 +55,7 @@
 		<a
 			href={resolve('/')}
 			class={cn(
-				'flex shrink-0 items-baseline no-underline outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
+				'flex shrink-0 items-baseline no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
 				tone.text
 			)}
 		>

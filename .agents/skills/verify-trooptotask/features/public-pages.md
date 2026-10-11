@@ -51,7 +51,7 @@ Commands below use `PAGE` and `$ORIGIN`. Helpers: `evaluate_script` for read-onl
 
 12. **Console.** After each page load in the matrix, call `list_console_messages` and save it. Expect no `error` message. The owned app is not hosted on Vercel, so every page also logs one or two errors for `/_vercel/insights/script.js` and `/_vercel/speed-insights/script.js` (HTML MIME type or 404) and matching Vercel `log` lines. Record these as environment noise and list them separately; any other error is a failure.
 
-13. **Contrast.** On each page, in both themes at 1280, run `evaluate_script` over visible text nodes: resolve the text color and the nearest opaque ancestor background (use a 1x1 canvas to convert `oklch()` colors), and list text under 4.5:1 (3:1 for 24px or 18.66px bold). Expect none. Exclude the overlay header on `/` over the dark hero, whose translucent background makes the nearest-ancestor method wrong; judge it from the screenshot.
+13. **Contrast.** On each page, in both themes at 1280, run `evaluate_script` over visible text nodes: resolve the text color and the nearest opaque ancestor background (use a 1x1 canvas to convert `oklch()` colors), and list text under 4.5:1 (3:1 for 24px or 18.66px bold), skipping text inside `aria-hidden="true"` decoration (the home quote mark, the classification bar's `//`). Expect none. Exclude the overlay header on `/` over the dark hero, whose translucent background makes the nearest-ancestor method wrong; judge it from the screenshot.
 
 ## Gotchas
 

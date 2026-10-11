@@ -194,7 +194,7 @@
 
 {#snippet indexedLabel(index: string, text: string)}
 	<span class={[labelClass, 'text-muted-foreground']}>
-		<span class="mr-[0.7em] text-accent tabular-nums">{index}</span>{text}
+		<span class="mr-[0.7em] text-accent-text tabular-nums">{index}</span>{text}
 	</span>
 {/snippet}
 
@@ -324,7 +324,7 @@
 					TroopToTask is the one place every leader looks.
 				</blockquote>
 				<cite
-					class="mt-6 block font-mono text-xs font-medium tracking-[0.08em] text-muted-foreground uppercase not-italic"
+					class="mt-6 block font-mono text-[0.75rem] font-medium tracking-[0.08em] text-muted-foreground uppercase not-italic"
 					>Company Commander, Active Duty Infantry Unit</cite
 				>
 			</div>

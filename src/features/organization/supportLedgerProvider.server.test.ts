@@ -23,7 +23,7 @@ function organizationStore(
 		const request = new Request(input, init);
 		const url = new URL(request.url);
 		const query = url.searchParams;
-		expect(request.method).toBe('GET');
+		expect(['GET', 'HEAD']).toContain(request.method);
 		expect(url.pathname).toBe('/rest/v1/organizations');
 		// This provider fixture exposes only retained columns. A commercial read fails,
 		// including joins or filters, even if its result would later be discarded.
@@ -54,12 +54,24 @@ function organizationStore(
 		const totalCount = selected.length;
 		const offset = Number(query.get('offset') ?? 0);
 		const limit = Number(query.get('limit') ?? selected.length);
+		if (request.method === 'HEAD') return new Response(null, { headers: { 'content-range': `*/${totalCount}` } });
+		if (offset > 0 && offset >= totalCount) {
+			return Response.json(
+				{
+					code: 'PGRST103',
+					details: `An offset of ${offset} was requested, but there are only ${totalCount} rows.`,
+					hint: null,
+					message: 'Requested range not satisfiable'
+				},
+				{ status: 416, headers: { 'content-range': `*/${totalCount}` } }
+			);
+		}
 		selected = selected.slice(offset, offset + limit);
 		return Response.json(
 			selected.map((row) => Object.fromEntries(columns.map((column) => [column, row[column as keyof typeof row]]))),
 			{
 				headers: request.headers.get('prefer')?.includes('count=exact')
-					? { 'content-range': `${offset}-${offset + selected.length - 1}/${totalCount}` }
+					? { 'content-range': `${selected.length ? `${offset}-${offset + selected.length - 1}` : '*'}/${totalCount}` }
 					: {}
 			}
 		);
@@ -96,6 +108,22 @@ describe('Platform Organization Ledger provider boundary', () => {
 		const page = await organizationStore().listOrganizationsPage({ q: 'Able', status, from: 0, to: 24 });
 		expect(page.organizations.map((row) => row.id)).toEqual(expectedIds);
 		expect(page.totalCount).toBe(expectedIds.length);
+	});
+
+	it('reports the matching total and no rows for a page past the last row instead of failing', async () => {
+		const store = organizationStore();
+		expect(await store.listOrganizationsPage({ q: '', status: 'all', from: 25, to: 49 })).toEqual({
+			organizations: [],
+			totalCount: 4
+		});
+		expect(await store.listOrganizationsPage({ q: 'able', status: 'suspended', from: 25, to: 49 })).toEqual({
+			organizations: [],
+			totalCount: 1
+		});
+		expect(await store.listOrganizationsPage({ q: 'zzz', status: 'all', from: 25, to: 49 })).toEqual({
+			organizations: [],
+			totalCount: 0
+		});
 	});
 
 	it('propagates provider failures instead of showing an empty organization directory', async () => {

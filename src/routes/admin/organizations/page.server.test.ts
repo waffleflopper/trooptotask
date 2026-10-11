@@ -46,6 +46,14 @@ beforeEach(() => {
 						const isLedger = url.searchParams.has('offset');
 						if ((isLedger && failingSource === 'ledger') || (!isLedger && failingSource === 'activation'))
 							return Response.json({ message: 'private provider detail' }, { status: 500 });
+						const offset = Number(url.searchParams.get('offset') ?? 0);
+						if (isLedger && offset > 0 && offset >= count)
+							return Response.json(
+								{ code: 'PGRST103', message: 'Requested range not satisfiable', details: null, hint: null },
+								{ status: 416, headers: { 'Content-Range': `*/${count}` } }
+							);
+						if (isLedger && url.searchParams.get('select') === 'id')
+							return new Response(null, { headers: { 'Content-Range': `*/${count}` } });
 						return Response.json((isLedger ? count > 0 : candidates) ? [organization] : [], {
 							headers: { 'Content-Range': `0-0/${count}` }
 						});
@@ -87,6 +95,16 @@ describe('Organization index admitted source composition', () => {
 		expect(query.searchParams.get('name')).toBe('ilike.%Able%');
 		expect(query.searchParams.get('suspended_at')).toBe('is.null');
 		expect(query.searchParams.get('select')).not.toMatch(/\b(tier|gift_tier)\b/);
+	});
+	it('shows the last page of a filtered directory instead of an error when the requested page is past the end', async () => {
+		count = 30;
+		const result = await load(event('/admin/organizations?q=Able&page=9'));
+		expect(result).toMatchObject({ pagination: { page: 2, pageSize: 25, totalCount: 30, totalPages: 2, q: 'Able' } });
+		count = 0;
+		await expect(load(event('/admin/organizations?q=zzz&page=2'))).resolves.toMatchObject({
+			organizations: [],
+			pagination: { page: 1, totalCount: 0, totalPages: 1, q: 'zzz' }
+		});
 	});
 	it('includes saved Rating configuration through the actual owning reader', async () => {
 		count = 1;

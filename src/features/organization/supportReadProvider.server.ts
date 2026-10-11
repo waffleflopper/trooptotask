@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
+import { isRangePastResults, selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type {
 	OrganizationSupportOrganization,
 	OrganizationSupportOwnerMembershipMetric,
@@ -111,15 +111,21 @@ export function createOrganizationSupportSuspensionCommands(
 export function createOrganizationSupportReader(client: SupabaseClient): OrganizationSupportReader {
 	return {
 		async listOrganizationsPage(query) {
-			let builder = client
-				.from('organizations')
-				.select(ORGANIZATION_COLUMNS, { count: 'exact' })
+			const matching = (columns: string, options: { count: 'exact'; head?: boolean }) => {
+				let builder = client.from('organizations').select(columns, options);
+				if (query.q) builder = builder.ilike('name', `%${query.q}%`);
+				if (query.status === 'active') builder = builder.is('suspended_at', null);
+				else if (query.status === 'suspended') builder = builder.not('suspended_at', 'is', null);
+				return builder;
+			};
+			const response = (await matching(ORGANIZATION_COLUMNS, { count: 'exact' })
 				.order('created_at', { ascending: false })
-				.order('id', { ascending: false });
-			if (query.q) builder = builder.ilike('name', `%${query.q}%`);
-			if (query.status === 'active') builder = builder.is('suspended_at', null);
-			else if (query.status === 'suspended') builder = builder.not('suspended_at', 'is', null);
-			const response = (await builder.range(query.from, query.to)) as Response<OrganizationSupportOrganization[]>;
+				.order('id', { ascending: false })
+				.range(query.from, query.to)) as Response<OrganizationSupportOrganization[]>;
+			if (isRangePastResults(response.error)) {
+				const total = (await matching('id', { count: 'exact', head: true })) as Response<null>;
+				return { organizations: [], totalCount: exactCount(total) };
+			}
 			return { organizations: requiredRows(response).map(organization), totalCount: exactCount(response) };
 		},
 		async getOrganizationById(organizationId) {

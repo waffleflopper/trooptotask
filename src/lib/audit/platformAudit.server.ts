@@ -1,3 +1,4 @@
+import { lastPage } from '$lib/server/supabasePagination.server';
 import type {
 	PlatformAudit,
 	PlatformAuditDashboardActivity,
@@ -68,22 +69,26 @@ export function createPlatformAudit(deps: PlatformAuditDependencies): PlatformAu
 
 		async listLogs(input) {
 			const limit = normalizeLimit(input.limit, 50);
-			const page = Math.max(1, input.page);
+			const requestedPage = Math.max(1, input.page);
 			const actionFilter = normalizeFilter(input.action);
 			const severityFilter = normalizeFilter(input.severity);
 			const orgFilter = normalizeFilter(input.orgId);
-			const offset = (page - 1) * limit;
-
-			const [logPage, availableActions] = await Promise.all([
+			const readPage = (page: number) =>
 				deps.store.listLogs({
-					offset,
+					offset: (page - 1) * limit,
 					limit,
 					action: actionFilter || undefined,
 					severity: severityFilter || undefined,
 					orgId: orgFilter || undefined
-				}),
+				});
+
+			const [firstPage, availableActions] = await Promise.all([
+				readPage(requestedPage),
 				deps.store.listDistinctActions()
 			]);
+			// A page past the end (a stale or edited URL) shows the last page that exists.
+			const page = Math.min(requestedPage, lastPage(firstPage.totalCount, limit));
+			const logPage = page === requestedPage ? firstPage : await readPage(page);
 
 			return {
 				logs: logPage.logs.map(mapLog),

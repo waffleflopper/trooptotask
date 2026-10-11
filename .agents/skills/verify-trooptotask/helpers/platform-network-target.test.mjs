@@ -71,7 +71,11 @@ for (const [family, route, action] of [
 
 for (const [family, route] of [
 	['admin-audit-read', '/admin/audit/__data.json'],
-	['admin-dashboard-read', '/admin/__data.json']
+	['admin-dashboard-read', '/admin/__data.json'],
+	['admin-users-read', '/admin/users/__data.json'],
+	['admin-organizations-read', '/admin/organizations/__data.json'],
+	['admin-feedback-read', '/admin/feedback/__data.json'],
+	['admin-announcements-read', '/admin/announcements/__data.json']
 ]) {
 	test(`${family} leaves foreign origins, other admin pages and form writes untouched`, async () => {
 		let dispatched = 0;
@@ -89,7 +93,7 @@ for (const [family, route] of [
 		});
 		await page.fetch(`http://other.test${route}`);
 		await page.fetch('/admin/feedback?/update', { method: 'POST' });
-		await page.fetch('/admin/users/__data.json');
+		await page.fetch('/admin/access-requests/__data.json');
 		assert.equal(dispatched, 3);
 		assert.equal(page.__mapNetwork.calls.length, 0);
 		assert.equal((await page.fetch(`${route}?page=2`)).status, 503);
@@ -215,4 +219,34 @@ test('review read failure is same-origin and leaves form posts and other routes 
 	assert.equal(page.__mapNetwork.calls.length, 1);
 	assert.equal(dispatched, 3);
 	assert.throws(() => platformFormNetworkTarget('admin-access-read', fixture, null));
+});
+
+test('detail page reads bind only the recorded User or Organization', async () => {
+	const organization = '30000000-0000-4000-8000-000000000001';
+	const detailSeed = { ...seed, organization: { id: organization } };
+	for (const [family, route, sibling] of [
+		['admin-user-detail-read', `/admin/users/${invitee}`, `/admin/users/${selected}`],
+		['admin-organization-detail-read', `/admin/organizations/${organization}`, `/admin/organizations/${other}`]
+	]) {
+		let dispatched = 0;
+		const page = {
+			location: { href: `http://owned.test${route}` },
+			fetch: async () => {
+				dispatched++;
+				return Response.json({ untouched: true });
+			}
+		};
+		installNetworkControl(page, {
+			...platformFormNetworkTarget(family, fixture, detailSeed),
+			mode: 'fail',
+			ordinal: 1
+		});
+		await page.fetch(`${sibling}/__data.json`);
+		await page.fetch(`${route}?/resetPassword`, { method: 'POST' });
+		await page.fetch(`http://other.test${route}/__data.json`);
+		assert.equal(page.__mapNetwork.calls.length, 0);
+		assert.equal((await page.fetch(`${route}/__data.json?x-sveltekit-invalidated=01`)).status, 503);
+		assert.equal(dispatched, 3);
+		assert.throws(() => platformFormNetworkTarget(family, fixture, null));
+	}
 });

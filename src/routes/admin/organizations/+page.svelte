@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { TriangleAlert } from '@lucide/svelte';
 	import * as Alert from '$lib/components/ui/alert';
@@ -12,6 +13,7 @@
 	import * as PageShell from '$lib/components/patterns/page-shell';
 	import * as Table from '$lib/components/ui/table';
 	import { formatDisplayDate } from '$lib/utils/dates';
+	import AdminPager from '$features/platform-admin/components/AdminPager.svelte';
 	import { adminBadgeVariant, formatAdminLabel } from '$features/platform-admin/components/adminTheme';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import type { PageData } from './$types';
@@ -55,6 +57,19 @@
 		if (data.pagination.q) params.set('q', data.pagination.q);
 		if (statusFilter !== 'all') params.set('status', statusFilter);
 		return `${organizationsRouteRoot}?${params.toString()}`;
+	}
+
+	function applyFilters(event: SubmitEvent & { currentTarget: HTMLFormElement }) {
+		event.preventDefault();
+		const form = new FormData(event.currentTarget);
+		const params = new SvelteURLSearchParams();
+		params.set('page', '1');
+		params.set('pageSize', String(form.get('pageSize')));
+		const q = String(form.get('q') ?? '');
+		if (q) params.set('q', q);
+		const status = String(form.get('status') ?? 'all');
+		if (status !== 'all') params.set('status', status);
+		goto(resolve(`/admin/organizations?${params.toString()}`), { keepFocus: true });
 	}
 
 	function nextActivationStep(item: ActivationOrganization): string {
@@ -199,9 +214,9 @@
 			<form
 				method="GET"
 				action={organizationsRouteRoot}
+				onsubmit={applyFilters}
 				class="grid flex-1 gap-3 xl:grid-cols-[minmax(16rem,1fr)_9rem_minmax(10rem,1fr)_auto] xl:items-end"
 			>
-				<input type="hidden" name="page" value="1" />
 				<Field.Root>
 					<Field.Label for="org-search">Search</Field.Label>
 					<Input
@@ -263,7 +278,9 @@
 							</Table.Cell>
 							<Table.Cell>{org.memberCount}</Table.Cell>
 							<Table.Cell>{org.personnelCount}</Table.Cell>
-							<Table.Cell class="max-w-60 break-words text-muted-foreground">{org.ownerEmail || '-'}</Table.Cell>
+							<Table.Cell class="min-w-48 max-w-60 break-all whitespace-normal text-muted-foreground"
+								>{org.ownerEmail || '-'}</Table.Cell
+							>
 							<Table.Cell>
 								<Badge variant={adminBadgeVariant(org.isSuspended ? 'suspended' : 'active')}>
 									{org.isSuspended ? 'Suspended' : 'Active'}
@@ -290,27 +307,7 @@
 	{#if data.pagination.totalCount > 0}
 		<div class="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
 			<p>Showing {showingStart}-{showingEnd} of {data.pagination.totalCount}</p>
-			{#if data.pagination.totalPages > 1}
-				<div class="flex flex-wrap items-center gap-3">
-					<Button
-						href={pageHref(data.pagination.page - 1)}
-						variant="outline"
-						size="sm"
-						disabled={data.pagination.page === 1}
-					>
-						Previous
-					</Button>
-					<span>Page {data.pagination.page} of {data.pagination.totalPages}</span>
-					<Button
-						href={pageHref(data.pagination.page + 1)}
-						variant="outline"
-						size="sm"
-						disabled={data.pagination.page === data.pagination.totalPages}
-					>
-						Next
-					</Button>
-				</div>
-			{/if}
+			<AdminPager page={data.pagination.page} totalPages={data.pagination.totalPages} {pageHref} />
 		</div>
 	{/if}
 </PageShell.Root>

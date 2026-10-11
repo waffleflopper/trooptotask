@@ -136,3 +136,23 @@ it('does not complete an unacknowledged HTTP 200 response', async () => {
 	expect(await screen.findByText(/The change could not be confirmed/)).toBeTruthy();
 	expect(callbacks.onComplete).not.toHaveBeenCalled();
 });
+
+it('keeps the pressed Suspend focusable and busy while the change is held, and sends nothing on another press', async () => {
+	let reply!: (response: Response) => void;
+	const fetch = vi.fn(() => new Promise<Response>((resolve) => (reply = resolve)));
+	vi.stubGlobal('fetch', fetch);
+	render(SuspendModal, props());
+	const suspend = screen.getByRole('button', { name: 'Suspend' });
+	suspend.focus();
+	await fireEvent.click(suspend);
+	const busy = screen.getByRole('button', { name: /Processing/ });
+	expect(busy).toBe(suspend);
+	expect(suspend).toHaveProperty('disabled', false);
+	expect(suspend.getAttribute('aria-busy')).toBe('true');
+	expect(document.activeElement).toBe(suspend);
+	await fireEvent.click(suspend);
+	expect(fetch).toHaveBeenCalledOnce();
+	reply(Response.json({ message: 'Change denied' }, { status: 409 }));
+	expect(await screen.findByText('Change denied')).toBeTruthy();
+	expect(suspend.getAttribute('aria-busy')).toBeNull();
+});

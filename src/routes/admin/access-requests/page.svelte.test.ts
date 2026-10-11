@@ -150,13 +150,14 @@ function renderPending(requests: PendingRequest[]) {
 
 async function submitReview(name: string) {
 	await act();
-	const form = screen.getByRole('button', { name }).closest('form')!;
+	const submitter = screen.getByRole('button', { name });
+	const form = submitter.closest('form')!;
 	const input = {
 		formElement: form,
 		formData: new FormData(form),
 		action: new URL(form.action),
 		controller: new AbortController(),
-		submitter: null,
+		submitter,
 		cancel: vi.fn()
 	};
 	const callback = await forms.get(form.getAttribute('action')!)!(input);
@@ -169,7 +170,7 @@ describe('admin access request setup support UI', () => {
 	it('does not apply a delayed review result to a reopened review page', async () => {
 		const pending = [makePendingRequest({})];
 		const view = renderPending(pending);
-		const finish = await submitReview('Approve');
+		const finish = await submitReview('Approve Test Soldier');
 		view.unmount();
 		const reopened = renderPending(pending);
 		const update = vi.fn(async () => {
@@ -183,7 +184,7 @@ describe('admin access request setup support UI', () => {
 
 	it('reads current request state after an approval failure before offering another review', async () => {
 		const view = renderPending([makePendingRequest({})]);
-		const finish = await submitReview('Approve');
+		const finish = await submitReview('Approve Test Soldier');
 		let release!: () => void;
 		invalidateAll.mockImplementation(
 			() =>
@@ -195,8 +196,21 @@ describe('admin access request setup support UI', () => {
 			await view.rerender({ form: { error: 'Setup creation failed' } });
 		});
 		await waitFor(() => expect(invalidateAll).toHaveBeenCalled());
-		expect((screen.getByRole('button', { name: /Approve/ }) as HTMLButtonElement).disabled).toBe(true);
-		expect((screen.getByRole('button', { name: 'Reject' }) as HTMLButtonElement).disabled).toBe(true);
+		const approve = screen.getByRole('button', { name: /Approve/ }) as HTMLButtonElement;
+		expect(approve.disabled).toBe(false);
+		expect(approve.getAttribute('aria-busy')).toBe('true');
+		expect(screen.getByRole('button', { name: 'Reject Test Soldier' }).getAttribute('aria-disabled')).toBe('true');
+		const reject = screen.getByRole('button', { name: 'Reject Test Soldier' });
+		const cancel = vi.fn();
+		await forms.get('?/reject')!({
+			formElement: reject.closest('form')!,
+			formData: new FormData(reject.closest('form')!),
+			action: new URL(reject.closest('form')!.action),
+			controller: new AbortController(),
+			submitter: reject,
+			cancel
+		});
+		expect(cancel).toHaveBeenCalledOnce();
 		await act(async () => {
 			await view.rerender({
 				data: { adminUserId: 'admin-1', pending: [], reviewed: [makeReviewedRequest({})] } as unknown as PageData
@@ -204,24 +218,74 @@ describe('admin access request setup support UI', () => {
 			release();
 			await pending;
 		});
-		expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Approve Test Soldier' })).toBeNull();
 		expect(screen.getByRole('alert').textContent).toContain('Setup creation failed');
 		await fireEvent.click(screen.getByRole('tab', { name: /Reviewed/ }));
-		expect((screen.getByRole('button', { name: 'Send Fresh Setup' }) as HTMLButtonElement).disabled).toBe(false);
+		expect(
+			(screen.getByRole('button', { name: 'Send Fresh Setup for Test Soldier' }) as HTMLButtonElement).disabled
+		).toBe(false);
 	});
 
 	it('keeps review writes disabled after a failed reread and retries only the read', async () => {
 		renderPending([makePendingRequest({})]);
-		const finish = await submitReview('Reject');
+		const finish = await submitReview('Reject Test Soldier');
 		invalidateAll.mockRejectedValueOnce(new Error('read unavailable')).mockResolvedValueOnce(undefined);
 		await act(() => finish({ type: 'failure', status: 503, data: { error: 'Reply unavailable' } }, async () => {}));
-		expect((screen.getByRole('button', { name: 'Approve' }) as HTMLButtonElement).disabled).toBe(true);
-		expect((screen.getByRole('button', { name: 'Reject' }) as HTMLButtonElement).disabled).toBe(true);
-		await fireEvent.click(screen.getByRole('button', { name: 'Reload requests' }));
+		expect((screen.getByRole('button', { name: 'Approve Test Soldier' }) as HTMLButtonElement).disabled).toBe(true);
+		expect((screen.getByRole('button', { name: 'Reject Test Soldier' }) as HTMLButtonElement).disabled).toBe(true);
+		const reload = screen.getByRole('button', { name: 'Reload requests' });
+		reload.focus();
+		await fireEvent.click(reload);
 		await waitFor(() =>
-			expect((screen.getByRole('button', { name: 'Reject' }) as HTMLButtonElement).disabled).toBe(false)
+			expect((screen.getByRole('button', { name: 'Reject Test Soldier' }) as HTMLButtonElement).disabled).toBe(false)
 		);
 		expect(invalidateAll).toHaveBeenCalledTimes(2);
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('tab', { name: /Pending/ })));
+	});
+
+	it('returns focus to the pressed review button once a failed review has been re-read', async () => {
+		renderPending([makePendingRequest({})]);
+		const finish = await submitReview('Reject Test Soldier');
+		invalidateAll.mockResolvedValueOnce(undefined);
+		await act(() => finish({ type: 'failure', status: 503, data: { error: 'Reply unavailable' } }, async () => {}));
+		await waitFor(() =>
+			expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Reject Test Soldier' }))
+		);
+	});
+
+	it('returns focus to the pressed review button after SvelteKit moves focus to the page on success', async () => {
+		renderPending([makePendingRequest({})]);
+		const finish = await submitReview('Reject Test Soldier');
+		invalidateAll.mockResolvedValueOnce(undefined);
+		await act(() =>
+			finish({ type: 'success', status: 200 }, async () => {
+				document.body.tabIndex = -1;
+				document.body.focus();
+			})
+		);
+		await waitFor(() =>
+			expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Reject Test Soldier' }))
+		);
+	});
+
+	it('sends focus to Reload requests when the re-read after a review fails', async () => {
+		renderPending([makePendingRequest({})]);
+		const finish = await submitReview('Approve Test Soldier');
+		invalidateAll.mockRejectedValueOnce(new Error('read unavailable'));
+		await act(() => finish({ type: 'failure', status: 503, data: { error: 'Reply unavailable' } }, async () => {}));
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Reload requests' })));
+	});
+
+	it('sends focus to the Pending tab when the reviewed request leaves the list', async () => {
+		const view = renderPending([makePendingRequest({})]);
+		const finish = await submitReview('Approve Test Soldier');
+		invalidateAll.mockImplementationOnce(async () => {
+			await view.rerender({
+				data: { adminUserId: 'admin-1', pending: [], reviewed: [makeReviewedRequest({})] } as unknown as PageData
+			});
+		});
+		await act(() => finish({ type: 'success', status: 200 }, async () => {}));
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('tab', { name: /Pending/ })));
 	});
 
 	it('surfaces setup delivery failure details and fresh setup action without token-bearing URLs', async () => {
@@ -245,7 +309,7 @@ describe('admin access request setup support UI', () => {
 		expect(scope.getByText('Setup link ID link-1')).toBeTruthy();
 		expect(scope.getByText('Delivery failed (outbox-1), 1 attempt')).toBeTruthy();
 		expect(scope.getByText('Delivery error: mail provider unavailable')).toBeTruthy();
-		expect(scope.getByRole('button', { name: 'Send Fresh Setup' })).toBeTruthy();
+		expect(scope.getByRole('button', { name: 'Send Fresh Setup for Test Soldier' })).toBeTruthy();
 		expect(card?.textContent).not.toContain('token=');
 		expect(card?.textContent).not.toContain('/auth/setup-account');
 	});
@@ -292,7 +356,7 @@ describe('admin access request setup support UI', () => {
 		expect(scope.getByText('Setup Failed')).toBeTruthy();
 		expect(scope.getByText(/The old link is no longer usable/)).toBeTruthy();
 		expect(scope.getByText(/account-create-failed/)).toBeTruthy();
-		expect(scope.getByRole('button', { name: 'Send Fresh Setup' })).toBeTruthy();
+		expect(scope.getByRole('button', { name: 'Send Fresh Setup for Test Soldier' })).toBeTruthy();
 	});
 
 	it('shows staff review while preserving fresh-link delivery for a held claim', async () => {
@@ -314,7 +378,7 @@ describe('admin access request setup support UI', () => {
 		expect(scope.getByText('Setup Claim held')).toBeTruthy();
 		expect(scope.getByText(/Held claim link-earlier on Access Request request-earlier/)).toBeTruthy();
 		expect(scope.getByText(/A fresh link cannot bypass this claim/)).toBeTruthy();
-		expect(scope.getByRole('button', { name: 'Send Fresh Setup' })).toBeTruthy();
+		expect(scope.getByRole('button', { name: 'Send Fresh Setup for Test Soldier' })).toBeTruthy();
 	});
 
 	it('surfaces replaced setup-link revocation reason with replacement-oriented copy', async () => {
@@ -336,7 +400,7 @@ describe('admin access request setup support UI', () => {
 		expect(scope.getByText('Setup Replaced')).toBeTruthy();
 		expect(scope.getByText('The latest known setup link was replaced by a newer setup email.')).toBeTruthy();
 		expect(scope.getByText(/Latest known setup link replaced \(replaced\)/)).toBeTruthy();
-		expect(scope.getByRole('button', { name: 'Send Fresh Setup' })).toBeTruthy();
+		expect(scope.getByRole('button', { name: 'Send Fresh Setup for Test Soldier' })).toBeTruthy();
 	});
 
 	it('surfaces manual setup-link revocation reason with distinct support copy', async () => {
@@ -359,7 +423,7 @@ describe('admin access request setup support UI', () => {
 		expect(scope.getByText('Setup Revoked manually')).toBeTruthy();
 		expect(scope.getByText(/manually revoked/)).toBeTruthy();
 		expect(scope.getByText(/Latest known setup link revoked \(manual\)/)).toBeTruthy();
-		expect(scope.getByRole('button', { name: 'Send Fresh Setup' })).toBeTruthy();
+		expect(scope.getByRole('button', { name: 'Send Fresh Setup for Test Soldier' })).toBeTruthy();
 	});
 
 	it('surfaces cleanup setup-link revocation reason with distinct support copy', async () => {
@@ -382,7 +446,7 @@ describe('admin access request setup support UI', () => {
 		expect(scope.getByText('Setup Revoked by cleanup')).toBeTruthy();
 		expect(scope.getByText(/revoked by cleanup after it expired/)).toBeTruthy();
 		expect(scope.getByText(/Latest known setup link revoked \(cleanup\)/)).toBeTruthy();
-		expect(scope.getByRole('button', { name: 'Send Fresh Setup' })).toBeTruthy();
+		expect(scope.getByRole('button', { name: 'Send Fresh Setup for Test Soldier' })).toBeTruthy();
 	});
 
 	it('keeps completed setup visible and removes invalid resend actions', async () => {
@@ -450,8 +514,8 @@ describe('admin access request setup support UI', () => {
 		expect(scope.getByText('Organization Invitation')).toBeTruthy();
 		expect(scope.getByText(/Invited by leader@example\.mil/)).toBeTruthy();
 		expect(scope.getAllByText('Membership Role: Admin').length).toBeGreaterThan(0);
-		expect(scope.getByRole('button', { name: 'Approve' })).toBeTruthy();
-		expect(scope.getByRole('button', { name: 'Reject' })).toBeTruthy();
+		expect(scope.getByRole('button', { name: 'Approve Test Soldier' })).toBeTruthy();
+		expect(scope.getByRole('button', { name: 'Reject Test Soldier' })).toBeTruthy();
 	});
 
 	it('marks an auto-approved request so it does not read as a vetted decision', async () => {

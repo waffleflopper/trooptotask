@@ -6,6 +6,7 @@
 	import { page } from '$app/stores';
 	import { formatDisplayDate } from '$lib/utils/dates';
 	import { Badge } from '$lib/components/ui/badge';
+	import AdminPager from '$features/platform-admin/components/AdminPager.svelte';
 	import { adminBadgeVariant } from '$features/platform-admin/components/adminTheme';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import * as Alert from '$lib/components/ui/alert';
@@ -22,13 +23,13 @@
 		const params = new SvelteURLSearchParams();
 		if (searchInput) params.set('search', searchInput);
 		params.set('page', '1');
-		goto(resolve(`/admin/users?${params.toString()}`));
+		goto(resolve(`/admin/users?${params.toString()}`), { keepFocus: true });
 	}
 
-	function goToPage(pageNum: number) {
+	function pageHref(pageNum: number) {
 		const params = new SvelteURLSearchParams($page.url.searchParams);
 		params.set('page', pageNum.toString());
-		goto(resolve(`/admin/users?${params.toString()}`));
+		return resolve(`/admin/users?${params.toString()}`);
 	}
 
 	function emailConfirmationLabel(status: string): string {
@@ -122,7 +123,12 @@
 								</Badge>
 							</Table.Cell>
 							<Table.Cell class="text-right">
-								<Button href="/admin/users/{user.id}" variant="outline" size="sm">Inspect</Button>
+								<Button
+									href="/admin/users/{user.id}"
+									variant="outline"
+									size="sm"
+									aria-label={`Inspect ${user.email || user.id}`}>Inspect</Button
+								>
 							</Table.Cell>
 						</Table.Row>
 					{:else}
@@ -137,15 +143,5 @@
 		</Card.Content>
 	</Card.Root>
 
-	{#if totalPages > 1}
-		<div class="flex flex-wrap items-center justify-end gap-3 text-sm text-muted-foreground">
-			<Button variant="outline" size="sm" disabled={data.page <= 1} onclick={() => goToPage(data.page - 1)}>
-				Previous
-			</Button>
-			<span>Page {data.page} of {totalPages}</span>
-			<Button variant="outline" size="sm" disabled={data.page >= totalPages} onclick={() => goToPage(data.page + 1)}>
-				Next
-			</Button>
-		</div>
-	{/if}
+	<AdminPager page={data.page} {totalPages} {pageHref} />
 </PageShell.Root>

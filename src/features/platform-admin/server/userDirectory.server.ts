@@ -1,3 +1,4 @@
+import { lastPage } from '$lib/server/supabasePagination.server';
 import type {
 	PlatformDirectoryAuthUser,
 	PlatformDirectoryEmailConfirmationStatus,
@@ -41,7 +42,9 @@ export function createPlatformUserDirectory(deps: PlatformUserDirectoryDependenc
 			);
 
 			const totalCount = sortedUsers.length;
-			const offset = (input.page - 1) * input.limit;
+			// A page past the end (a stale or edited URL) shows the last page that exists.
+			const page = Math.min(input.page, lastPage(totalCount, input.limit));
+			const offset = (page - 1) * input.limit;
 			const pagedUsers = sortedUsers.slice(offset, offset + input.limit);
 			const userIds = pagedUsers.map((user) => user.id);
 			const [membershipUserIds, suspendedUserIds] = await Promise.all([
@@ -62,7 +65,7 @@ export function createPlatformUserDirectory(deps: PlatformUserDirectoryDependenc
 					emailConfirmationStatus: emailConfirmationStatus(user)
 				})),
 				totalCount,
-				page: input.page,
+				page,
 				limit: input.limit,
 				search: input.search,
 				authError: null

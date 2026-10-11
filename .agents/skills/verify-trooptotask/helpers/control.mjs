@@ -31,7 +31,13 @@ import { seedOnboarding } from './onboarding-fixtures.mjs';
 import { seedAudit } from './audit-fixtures.mjs';
 import { seedDashboard, seedDashboardCurrency, seedDashboardOverflow } from './dashboard-fixtures.mjs';
 import { seedTrainingPrint, cleanTrainingPrint } from './training-print-fixtures.mjs';
-import { seedPlatform, readPlatform, cleanPlatform, recordPlatformUserAudit } from './platform-fixtures.mjs';
+import {
+	seedPlatform,
+	seedOrganizationPages,
+	readPlatform,
+	cleanPlatform,
+	recordPlatformUserAudit
+} from './platform-fixtures.mjs';
 import { requestPlatform } from './platform-request.mjs';
 import { platformFormNetworkTarget } from './platform-network-target.mjs';
 import { requestAuditTrainingUpdate } from './audit-request.mjs';
@@ -825,7 +831,7 @@ async function main() {
 				: destination === 'settings/logs'
 					? ['Audit Log', "You don't have permission to view this page"]
 					: destination === 'admin/feedback'
-						? ['Beta Feedback', 'Access denied', 'Forbidden']
+						? ['Sort incoming bug reports', 'Access denied', 'Forbidden']
 						: destination.startsWith('onboarding')
 							? [
 									'STEPS',
@@ -1513,6 +1519,7 @@ async function main() {
 				'dashboard-currency',
 				'dashboard-overflow',
 				'platform-admin',
+				'organization-pages',
 				'communications',
 				'organization-destruction',
 				'rating-scheme',
@@ -1530,6 +1537,10 @@ async function main() {
 		}
 		if (kind === 'platform-admin') {
 			note(await seedPlatform({ client, fixture, tag, ownedState, save }));
+			return;
+		}
+		if (kind === 'organization-pages') {
+			note(await seedOrganizationPages({ client, fixture, tag, ownedState, save }));
 			return;
 		}
 		if (kind === 'audit') {
@@ -2200,6 +2211,7 @@ async function main() {
 					);
 				let query = client.from(item.table).delete().in('id', ids);
 				if (
+					item.kind !== 'organization-pages' &&
 					!(
 						(item.kind.startsWith('maintenance-retention') || item.kind === 'account-setup') &&
 						['access_requests', 'account_setup_links'].includes(item.table)
@@ -2231,7 +2243,17 @@ async function main() {
 		const pageId = Number(page);
 		if (!Number.isInteger(pageId) || pageId < 1) throw new Error('Use a page ID from the owned browser.');
 		if (
-			['arm-fail', 'arm-error', 'arm-hold', 'arm-hold-fail', 'arm-reject', 'arm-observe', 'arm-drop'].includes(action)
+			[
+				'arm-fail',
+				'arm-error',
+				'arm-fail-400',
+				'arm-hold',
+				'arm-hold-fail',
+				'arm-reject',
+				'arm-observe',
+				'arm-drop',
+				'arm-load-error'
+			].includes(action)
 		) {
 			const platformForm = platformFormNetworkTarget(family, fixture, (await saved()).platform);
 			const shellPart = {
@@ -2382,10 +2404,12 @@ async function main() {
 			)
 				throw new Error('Delayed synthetic failure is not supported for this request family.');
 			if (
-				(['admin-access-read', 'admin-audit-read', 'admin-dashboard-read'].includes(family) || shellPart) &&
-				!['arm-fail', 'arm-hold', 'arm-observe'].includes(action)
+				(/^admin-[a-z-]+-read$/.test(family) || shellPart) &&
+				!['arm-fail', 'arm-hold', 'arm-observe', ...(shellPart ? [] : ['arm-load-error'])].includes(action)
 			)
 				throw new Error('Platform read controls support failure, hold and observation only.');
+			if (action === 'arm-load-error' && !/^admin-[a-z-]+-read$/.test(family))
+				throw new Error('A page server-load error is supported only for platform page-data reads.');
 			if (
 				action === 'arm-reject' &&
 				!['deletion-requests/review', 'personnel/archive-batch'].includes(family) &&
@@ -2394,12 +2418,14 @@ async function main() {
 				throw new Error('Synthetic transport rejection requires a documented mutation family.');
 			if (action === 'arm-error' && !formAction && !accountForm)
 				throw new Error('Unexpected-error results are supported only for form action families.');
+			if (action === 'arm-fail-400' && !platformForm?.failureField)
+				throw new Error('A rejected form result is supported only for platform form actions.');
 			if (action === 'arm-drop' && !['admin-suspend', 'admin-transfer'].includes(family))
 				throw new Error('Lost-response proof is supported only for platform mutation controls.');
 			const mode =
 				action === 'arm-hold-fail'
 					? 'hold-fail'
-					: action === 'arm-fail'
+					: action === 'arm-fail' || action === 'arm-fail-400'
 						? 'fail'
 						: action === 'arm-error'
 							? 'error'
@@ -2409,7 +2435,9 @@ async function main() {
 									? 'reject'
 									: action === 'arm-drop'
 										? 'drop-response'
-										: 'observe';
+										: action === 'arm-load-error'
+											? 'load-error'
+											: 'observe';
 			const search =
 				(shellPart ? `?part=${shellPart}` : platformForm?.search) ??
 				accountForm?.[1] ??
@@ -2432,7 +2460,7 @@ async function main() {
 					: shellPart
 						? 'GET'
 						: null;
-			const install = `(${installNetworkControl.toString()})(window, ${JSON.stringify({ mode, ordinal, suffix, search, failureField, requestTarget, sameOrigin, requestMethod })})`;
+			const install = `(${installNetworkControl.toString()})(window, ${JSON.stringify({ mode, ordinal, suffix, search, failureField, failureStatus: action === 'arm-fail-400' ? 400 : 503, requestTarget, sameOrigin, requestMethod })})`;
 			// Onboarding's HTTP adapter captures fetch at creation, so install before page code.
 			if (family.startsWith('onboarding-') || shellPart) {
 				const armed = await evaluate(state, pageId, '() => !!window.__mapNetwork');

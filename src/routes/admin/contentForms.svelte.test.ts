@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
+import { frameworkOutcome } from '$lib/test-support/sveltekitEnhance';
 import Announcements from './announcements/+page.svelte';
 import Feedback from './feedback/+page.svelte';
 import Dashboard from './+page.svelte';
@@ -127,7 +128,10 @@ async function submit(button: HTMLElement) {
 		finish: async (result: ActionResult) => {
 			if (!callback) throw new Error('Submission was canceled');
 			await act(async () => {
-				await callback!({ ...input, result, update: vi.fn().mockResolvedValue(undefined) });
+				await callback!({
+					...input,
+					...frameworkOutcome(result, { form, applyForm: async () => {}, invalidate: () => invalidateAll() })
+				});
 			});
 		}
 	};
@@ -151,20 +155,88 @@ describe('announcement form ownership', () => {
 			expect(screen.getByLabelText('Title')).toHaveProperty('value', 'Unsent title');
 			expect(screen.getByRole('button', { name: 'Save' })).toHaveProperty('disabled', true);
 			expect(screen.queryByText(/Private (transport|provider) detail/)).toBeNull();
-			expect((await submit(screen.getByRole('button', { name: 'Deactivate' }))).cancel).toHaveBeenCalledOnce();
+			expect(
+				(await submit(screen.getByRole('button', { name: 'Deactivate Active notice' }))).cancel
+			).toHaveBeenCalledOnce();
 			expect(invalidateAll).not.toHaveBeenCalled();
 			await fireEvent.click(screen.getByRole('button', { name: 'Reload Announcements' }));
 			await waitFor(() => expect(screen.getByRole('button', { name: 'Save' })).toHaveProperty('disabled', false));
 			expect(invalidateAll).toHaveBeenCalledOnce();
 		}
 	);
-	it('cancels inside enhancement before a dismissed Delete can dispatch or lock the page', async () => {
-		vi.stubGlobal('confirm', vi.fn().mockReturnValue(false));
+	it('asks for confirmation naming the announcement before a Delete can dispatch or lock the page', async () => {
 		render(Announcements, { props: { data: announcementData(), form: null } });
-		const request = await submit(screen.getAllByRole('button', { name: 'Delete' })[0]);
+		const deleteButton = screen.getByRole('button', { name: 'Delete Active notice' });
+		const request = await submit(deleteButton);
 		expect(request.cancel).toHaveBeenCalledOnce();
-		expect(screen.getAllByRole('button', { name: 'Delete' })[0]).toHaveProperty('disabled', false);
+		const dialog = screen.getByRole('alertdialog');
+		expect(dialog.textContent).toContain('Delete "Active notice"? This cannot be undone.');
+		expect(deleteButton).toHaveProperty('disabled', false);
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+		await waitFor(() => expect(document.activeElement).toBe(deleteButton));
+		expect(screen.queryByRole('alertdialog')).toBeNull();
 		expect(invalidateAll).not.toHaveBeenCalled();
+	});
+
+	it('submits the Delete only after its confirmation, stays busy until the result, then focuses Create Announcement', async () => {
+		const view = render(Announcements, { props: { data: announcementData(), form: null } });
+		const deleteButton = screen.getByRole('button', { name: 'Delete Active notice' });
+		const requestSubmit = vi.spyOn(deleteButton.closest('form')!, 'requestSubmit').mockImplementation(() => {});
+		await submit(deleteButton);
+		await fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }));
+		expect(requestSubmit).toHaveBeenCalledWith(deleteButton);
+		const confirmed = await submit(deleteButton);
+		expect(confirmed.cancel).not.toHaveBeenCalled();
+		invalidateAll.mockImplementationOnce(async () => {
+			const remaining = announcementData();
+			await view.rerender({
+				data: { ...remaining, announcements: remaining.announcements.slice(1) },
+				form: null
+			});
+		});
+		expect(screen.getByRole('alertdialog').getAttribute('aria-busy')).toBe('true');
+		await confirmed.finish(succeeded);
+		expect(screen.queryByRole('alertdialog')).toBeNull();
+		await waitFor(() =>
+			expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Create Announcement' }))
+		);
+	});
+
+	it('focuses Title on open and Create Announcement on cancel and after a save', async () => {
+		render(Announcements, { props: { data: announcementData(), form: null } });
+		await openAnnouncement();
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText('Title')));
+		await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+		await waitFor(() =>
+			expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Create Announcement' }))
+		);
+		await openAnnouncement();
+		await (await submit(screen.getByRole('button', { name: 'Save' }))).finish(succeeded);
+		await waitFor(() =>
+			expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Create Announcement' }))
+		);
+	});
+
+	it('returns focus to the toggled announcement button after its re-read', async () => {
+		render(Announcements, { props: { data: announcementData(), form: null } });
+		const toggle = screen.getByRole('button', { name: 'Deactivate Active notice' });
+		await (await submit(toggle)).finish(succeeded);
+		await waitFor(() => expect(document.activeElement).toBe(toggle));
+	});
+
+	it('keeps the pressed toggle focusable and busy while its save is held, and ignores another press', async () => {
+		render(Announcements, { props: { data: announcementData(), form: null } });
+		const toggle = screen.getByRole('button', { name: 'Deactivate Active notice' });
+		toggle.focus();
+		const request = await submit(toggle);
+		expect(toggle).toHaveProperty('disabled', false);
+		expect(toggle.getAttribute('aria-disabled')).toBe('true');
+		expect(toggle.getAttribute('aria-busy')).toBe('true');
+		expect(document.activeElement).toBe(toggle);
+		expect((await submit(toggle)).cancel).toHaveBeenCalledOnce();
+		await request.finish(succeeded);
+		expect(toggle.getAttribute('aria-busy')).toBeNull();
+		expect(invalidateAll).toHaveBeenCalledOnce();
 	});
 
 	it('retains the current create draft after failure and closes it only after its own successful retry', async () => {
@@ -206,27 +278,39 @@ describe('announcement form ownership', () => {
 				})
 		);
 		render(Announcements, { props: { data: announcementData(), form: null } });
-		const request = await submit(screen.getByRole('button', { name: 'Deactivate' }));
-		expect((await submit(screen.getByRole('button', { name: 'Activate' }))).cancel).toHaveBeenCalledOnce();
+		const request = await submit(screen.getByRole('button', { name: 'Deactivate Active notice' }));
+		expect((await submit(screen.getByRole('button', { name: 'Activate Peer notice' }))).cancel).toHaveBeenCalledOnce();
 		const completion = request.finish(succeeded);
 		await waitFor(() => expect(invalidateAll).toHaveBeenCalledOnce());
-		expect(screen.getByRole('button', { name: 'Activate' })).toHaveProperty('disabled', true);
-		expect((await submit(screen.getAllByRole('button', { name: 'Delete' })[1])).cancel).toHaveBeenCalledOnce();
+		expect(screen.getByRole('button', { name: 'Activate Peer notice' }).getAttribute('aria-disabled')).toBe('true');
+		expect((await submit(screen.getByRole('button', { name: 'Delete Peer notice' }))).cancel).toHaveBeenCalledOnce();
 		release();
 		await completion;
-		expect(screen.getByRole('button', { name: 'Activate' })).toHaveProperty('disabled', false);
+		expect(screen.getByRole('button', { name: 'Activate Peer notice' }).getAttribute('aria-disabled')).toBeNull();
 	});
 
 	it('blocks repeat mutations after read failure and recovers using a read-only reload', async () => {
 		invalidateAll.mockRejectedValueOnce(new Error('Private provider failure'));
 		render(Announcements, { props: { data: announcementData(), form: null } });
-		await (await submit(screen.getByRole('button', { name: 'Deactivate' }))).finish(succeeded);
-		expect(screen.getByRole('button', { name: 'Activate' })).toHaveProperty('disabled', true);
+		await (await submit(screen.getByRole('button', { name: 'Deactivate Active notice' }))).finish(succeeded);
+		expect(screen.getByRole('button', { name: 'Activate Peer notice' })).toHaveProperty('disabled', true);
 		expect(screen.queryByText('Private provider failure')).toBeNull();
-		expect((await submit(screen.getByRole('button', { name: 'Deactivate' }))).cancel).toHaveBeenCalledOnce();
-		await fireEvent.click(screen.getByRole('button', { name: 'Reload Announcements' }));
-		await waitFor(() => expect(screen.getByRole('button', { name: 'Deactivate' })).toHaveProperty('disabled', false));
+		expect(
+			screen.getByText('Saved, but announcements could not be refreshed. Reload them before another save.')
+		).toBeTruthy();
+		expect(
+			(await submit(screen.getByRole('button', { name: 'Deactivate Active notice' }))).cancel
+		).toHaveBeenCalledOnce();
+		const reload = screen.getByRole('button', { name: 'Reload Announcements' });
+		reload.focus();
+		await fireEvent.click(reload);
+		await waitFor(() =>
+			expect(screen.getByRole('button', { name: 'Deactivate Active notice' })).toHaveProperty('disabled', false)
+		);
 		expect(invalidateAll).toHaveBeenCalledTimes(2);
+		await waitFor(() =>
+			expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Create Announcement' }))
+		);
 	});
 
 	it.each([failed, succeeded])('ignores a previous page reply after leaving and returning ($type)', async (result) => {
@@ -237,7 +321,7 @@ describe('announcement form ownership', () => {
 		await openAnnouncement();
 		const fresh = await submit(screen.getByRole('button', { name: 'Save' }));
 		await old.finish(result);
-		expect(screen.getByRole('button', { name: /Saving/ })).toHaveProperty('disabled', true);
+		expect(screen.getByRole('button', { name: /Saving/ }).getAttribute('aria-busy')).toBe('true');
 		expect(screen.getByLabelText('Title')).toHaveProperty('value', 'Unsent title');
 		expect(invalidateAll).not.toHaveBeenCalled();
 		await fresh.finish(failed);
@@ -246,9 +330,9 @@ describe('announcement form ownership', () => {
 
 	it('retires pending state when the admitted actor changes', async () => {
 		const view = render(Announcements, { props: { data: announcementData(), form: null } });
-		const old = await submit(screen.getByRole('button', { name: 'Deactivate' }));
+		const old = await submit(screen.getByRole('button', { name: 'Deactivate Active notice' }));
 		await view.rerender({ data: announcementData('admin-b'), form: null });
-		expect(screen.getByRole('button', { name: 'Deactivate' })).toHaveProperty('disabled', false);
+		expect(screen.getByRole('button', { name: 'Deactivate Active notice' })).toHaveProperty('disabled', false);
 		await old.finish(failed);
 		expect(screen.queryByText('Current request failed')).toBeNull();
 	});
@@ -284,12 +368,23 @@ describe('Feedback editor ownership', () => {
 		await fireEvent.click(screen.getByRole('tab', { name: /New 2/ }));
 		await openFeedback();
 		await fireEvent.input(screen.getByLabelText('Admin Notes'), { target: { value: 'Fresh after tabs' } });
-		expect(screen.getByRole('button', { name: /Save Notes/ })).toHaveProperty('disabled', true);
+		expect((await submit(screen.getByRole('button', { name: /Save Notes/ }))).cancel).toHaveBeenCalledOnce();
 		await old.finish(failed);
 		expect(screen.getByLabelText('Admin Notes')).toHaveProperty('value', 'Fresh after tabs');
 		expect(screen.queryByText('Current request failed')).toBeNull();
 		expect(screen.getByRole('button', { name: 'Save Notes' })).toHaveProperty('disabled', false);
 	});
+	it('keeps the saved Status and Notes in the open editor after a save', async () => {
+		render(Feedback, { props: { data: feedbackData(), form: null } });
+		await openFeedback();
+		await fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'reviewed' } });
+		await fireEvent.input(screen.getByLabelText('Admin Notes'), { target: { value: 'Saved review' } });
+		await (await submit(screen.getByRole('button', { name: 'Save Notes' }))).finish(succeeded);
+		expect(screen.getByLabelText('Status')).toHaveProperty('value', 'reviewed');
+		expect(screen.getByLabelText('Admin Notes')).toHaveProperty('value', 'Saved review');
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Save Notes' })));
+	});
+
 	it('retains the selected status and unsaved notes on a current failure', async () => {
 		render(Feedback, { props: { data: feedbackData(), form: null } });
 		await openFeedback();
@@ -345,10 +440,14 @@ describe('Feedback editor ownership', () => {
 		await openFeedback();
 		await (await submit(screen.getByRole('button', { name: 'Save Notes' }))).finish(succeeded);
 		expect(screen.getByRole('button', { name: 'Save Notes' })).toHaveProperty('disabled', true);
+		expect(screen.getByText('Saved, but feedback could not be refreshed. Reload it before another save.')).toBeTruthy();
 		expect((await submit(screen.getByRole('button', { name: 'Save Notes' }))).cancel).toHaveBeenCalledOnce();
-		await fireEvent.click(screen.getByRole('button', { name: 'Reload Feedback' }));
+		const reload = screen.getByRole('button', { name: 'Reload Feedback' });
+		reload.focus();
+		await fireEvent.click(reload);
 		await waitFor(() => expect(screen.getByRole('button', { name: 'Save Notes' })).toHaveProperty('disabled', false));
 		expect(invalidateAll).toHaveBeenCalledTimes(2);
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: /First feedback/ })));
 	});
 
 	it('ignores a read failure after the page lifetime has retired', async () => {
@@ -424,4 +523,31 @@ describe('Dashboard admitted navigation', () => {
 			else expect(screen.getByText(/Use global admin search/)).toBeTruthy();
 		}
 	);
+
+	it('gives the signup chart a canonical data table', () => {
+		render(Dashboard, {
+			props: {
+				data: {
+					...adminData('admin-a'),
+					userStats: { total: 3, last_30_days: 1 },
+					totalOrganizations: 2,
+					pendingAccessRequests: 0,
+					pendingFeedback: 0,
+					signupTrend: [{ date: '2026-10-01', count: 2 }],
+					recentActivity: []
+				}
+			}
+		});
+		const table = screen.getByRole('table', { name: 'Admin signup trend data' });
+		expect(
+			within(table)
+				.getAllByRole('columnheader')
+				.map((header) => header.textContent?.trim())
+		).toEqual(['Date', 'New accounts']);
+		expect(
+			within(table)
+				.getAllByRole('row')
+				.map((row) => row.textContent?.trim())
+		).toEqual(['Date New accounts', '2026-10-01 2']);
+	});
 });

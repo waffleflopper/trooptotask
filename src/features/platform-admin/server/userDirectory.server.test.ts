@@ -118,6 +118,25 @@ describe('PlatformUserDirectory', () => {
 		expect(second.totalCount).toBe(3);
 	});
 
+	it('shows the last page when the requested page is past the end', async () => {
+		const accounts = ['user-a', 'user-m', 'user-z'].map((id, index) => ({
+			id,
+			email: `${id}@example.test`,
+			createdAt: `2026-06-0${index + 1}T00:00:00.000Z`,
+			lastSignInAt: null,
+			emailConfirmedAt: null
+		}));
+		const sources = createInMemoryPlatformUserDirectorySources({ authUsers: accounts });
+		const directory = createPlatformUserDirectory({ ...sources, personnel: createInMemoryPlatformMetricsStore({}) });
+
+		const past = await directory.listUsers({ search: '', page: 7, limit: 2 });
+		expect(past.users.map((user) => user.id)).toEqual(['user-a']);
+		expect(past).toMatchObject({ page: 2, totalCount: 3 });
+
+		const none = await directory.listUsers({ search: 'nobody', page: 3, limit: 2 });
+		expect(none).toMatchObject({ users: [], page: 1, totalCount: 0 });
+	});
+
 	it('surfaces auth-provider list failures without shaping stale rows', async () => {
 		const directory = createSubject({ authError: 'service unavailable' });
 

@@ -515,6 +515,7 @@
 		"platform-admin": [
 			"src/features/platform-admin/contracts.ts",
 			"src/features/platform-admin/index.server.ts",
+			"src/features/platform-admin/components/AdminPager.svelte",
 			"src/features/platform-admin/components/AdminSearch.svelte",
 			"src/features/platform-admin/components/SuspendModal.svelte",
 			"src/features/platform-admin/components/TransferOwnershipModal.svelte",

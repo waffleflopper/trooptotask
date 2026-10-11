@@ -413,3 +413,56 @@ test('availability removal observation records the JSON IDs and preserves the re
 		[{ method: 'DELETE', count: 3, ids: ['saved-a', 'saved-b', 'saved-a'], status: 200 }]
 	);
 });
+
+test('a page server-load error dispatches the real read and fails only the page node of the selected request', async () => {
+	const suffix = '/admin/users/__data.json';
+	const nodes = [
+		{ type: 'data', data: [{}] },
+		{ type: 'data', data: [{ nav: 1 }] },
+		{ type: 'data', data: [{ users: 2 }] }
+	];
+	let reads = 0;
+	const page = {
+		location: { href: 'http://localhost/admin' },
+		fetch: async (url) => {
+			if (new URL(String(url), 'http://localhost/').pathname === suffix) reads++;
+			return new Response(JSON.stringify({ type: 'data', nodes }) + '\n', {
+				headers: { 'Content-Type': 'application/json' }
+			});
+		}
+	};
+	installNetworkControl(page, { mode: 'load-error', ordinal: 1, suffix, sameOrigin: true });
+	await page.fetch('/admin/feedback/__data.json?x-sveltekit-invalidated=001');
+	assert.equal(page.__mapNetwork.calls.length, 0);
+	const failed = await page.fetch(`${suffix}?x-sveltekit-invalidated=001`);
+	assert.equal(reads, 1);
+	assert.equal(failed.status, 200);
+	const envelope = JSON.parse((await failed.text()).split('\n')[0]);
+	assert.deepEqual(envelope.nodes.slice(0, 2), nodes.slice(0, 2));
+	assert.deepEqual(envelope.nodes[2], { type: 'error', status: 503, error: { message: 'Synthetic request failure' } });
+	assert.equal(page.__mapNetwork.calls[0].failure, 'page-load');
+	const retried = JSON.parse((await (await page.fetch(`${suffix}?x-sveltekit-invalidated=001`)).text()).split('\n')[0]);
+	assert.deepEqual(retried.nodes, nodes);
+	assert.equal(reads, 2);
+});
+
+test('a rejected platform form result carries the chosen 4xx status in the SvelteKit envelope', async () => {
+	const page = { fetch: async () => new Response('ordinary result', { status: 200 }) };
+	installNetworkControl(page, {
+		mode: 'fail',
+		ordinal: 1,
+		suffix: '/admin/feedback',
+		search: '?/update',
+		failureField: 'error',
+		failureStatus: 400,
+		sameOrigin: true
+	});
+	page.location = { href: 'http://localhost/admin/feedback' };
+	const rejected = await page.fetch('/admin/feedback?/update', { method: 'POST' });
+	assert.equal(rejected.status, 400);
+	const result = await rejected.json();
+	assert.equal(result.type, 'failure');
+	assert.equal(result.status, 400);
+	assert.deepEqual(parse(result.data), { error: 'Synthetic request failure' });
+	assert.equal((await page.fetch('/admin/feedback?/update', { method: 'POST' })).status, 200);
+});

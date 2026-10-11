@@ -1,5 +1,17 @@
 export const SUPABASE_PAGE_SIZE = 1000;
 
+const RANGE_PAST_RESULTS_CODE = 'PGRST103';
+
+/** PostgREST rejects a row range that starts past the last row (HTTP 416) instead of returning no rows. */
+export function isRangePastResults(error: unknown): boolean {
+	return typeof error === 'object' && error !== null && (error as { code?: unknown }).code === RANGE_PAST_RESULTS_CODE;
+}
+
+/** The last page of a directory, so an out-of-range request can land on a page that exists. */
+export function lastPage(totalCount: number, pageSize: number): number {
+	return Math.max(1, Math.ceil(totalCount / pageSize));
+}
+
 export interface SupabasePageResult<T> {
 	data: T[] | null;
 	error: unknown;

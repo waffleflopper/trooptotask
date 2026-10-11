@@ -53,6 +53,8 @@ Use the index's owned worker, launch, doctor and native DevTools conventions. Ta
 					selected: n.getAttribute('aria-selected'),
 					checked: n.getAttribute('aria-checked'),
 					sort: n.getAttribute('aria-sort'),
+					current: n.getAttribute('aria-current'),
+					disabled: n.disabled ?? null,
 					state: n.getAttribute('data-state'),
 					invalid: n.getAttribute('aria-invalid'),
 					busy: n.getAttribute('aria-busy'),

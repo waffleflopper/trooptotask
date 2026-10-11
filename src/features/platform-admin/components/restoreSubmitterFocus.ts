@@ -7,7 +7,9 @@ export async function restoreSubmitterFocus(
 	fallbacks: () => (HTMLElement | null | undefined)[]
 ) {
 	await tick();
-	if (document.activeElement && document.activeElement !== document.body) return;
+	// Chrome keeps a focused button as activeElement after it disables, until the next frame moves focus to the page.
+	const active = document.activeElement;
+	if (active && active !== document.body && active.isConnected && !active.matches(':disabled')) return;
 	const pressed = submitter instanceof HTMLButtonElement && submitter.isConnected && !submitter.disabled;
 	for (const target of [pressed ? submitter : null, ...fallbacks()]) {
 		target?.focus();

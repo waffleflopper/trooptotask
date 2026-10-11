@@ -30,6 +30,15 @@ describe('restoreSubmitterFocus', () => {
 		expect(document.activeElement).toBe(tab);
 	});
 
+	it('treats a focused button that has since disabled as lost focus', async () => {
+		const pressed = button('Save');
+		pressed.focus();
+		pressed.disabled = true;
+		const trigger = button('Trigger');
+		await restoreSubmitterFocus(pressed, () => [trigger]);
+		expect(document.activeElement).toBe(trigger);
+	});
+
 	it('leaves focus alone when the user already moved it', async () => {
 		const elsewhere = button('Elsewhere');
 		elsewhere.focus();

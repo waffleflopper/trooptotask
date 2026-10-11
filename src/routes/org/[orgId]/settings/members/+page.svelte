@@ -46,6 +46,7 @@
 	let memberRequestError = $state<string | null>(null);
 	// Invite, Resend and Revoke share the `inviteError` outcome; this names the invitation row that produced it.
 	let invitationActionId = $state<string | null>(null);
+	let invitationPendingId = $state<string | null>(null);
 	let invitationRequestError = $state<string | null>(null);
 	let membersHeading = $state<HTMLHeadingElement | null>(null);
 	let pendingInvitesHeading = $state<HTMLHeadingElement | null>(null);
@@ -73,14 +74,19 @@
 	const governanceRoleExplanation = explainPolicyReasonCode('denied:governance-role');
 	const sessionEmail = $derived((data.session as { user?: { email?: string | null } } | null | undefined)?.user?.email);
 
-	const invitationRowEnhance: SubmitFunction = ({ formData, submitter }) => {
-		invitationActionId = String(formData.get('inviteId'));
+	const invitationRowEnhance: SubmitFunction = ({ formData, submitter, cancel }) => {
+		if (invitationPendingId) return cancel();
+		invitationActionId = invitationPendingId = String(formData.get('inviteId'));
 		invitationRequestError = null;
 		return async (outcome) => {
 			const { result } = outcome;
-			if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) return;
+			if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) {
+				invitationPendingId = null;
+				return;
+			}
 			invitationRequestError = await settleAction(outcome, {
-				focus: () => [submitter as HTMLElement | null, pendingInvitesHeading, membersHeading]
+				focus: () => [submitter as HTMLElement | null, pendingInvitesHeading, membersHeading],
+				settled: () => (invitationPendingId = null)
 			});
 			if (result.type === 'success' && typeof result.data?.inviteMessage === 'string') {
 				toastStore.success(result.data.inviteMessage);
@@ -428,14 +434,26 @@
 							<form method="POST" action="?/resendInvite" use:enhance={invitationRowEnhance}>
 								<input type="hidden" name="inviteId" value={invite.id} />
 								<!-- Resend stays enabled in every funnel state; it is insufficient in some, never futile. -->
-								<Button type="submit" variant="outline" size="sm">
+								<Button
+									type="submit"
+									variant="outline"
+									size="sm"
+									aria-disabled={invitationPendingId ? 'true' : undefined}
+									aria-busy={invitationPendingId === invite.id || undefined}
+								>
 									<RefreshCw />
 									Resend <span class="sr-only">invitation to {invite.email}</span>
 								</Button>
 							</form>
 							<form method="POST" action="?/revokeInvite" use:enhance={invitationRowEnhance}>
 								<input type="hidden" name="inviteId" value={invite.id} />
-								<Button type="submit" variant="outline" size="sm">
+								<Button
+									type="submit"
+									variant="outline"
+									size="sm"
+									aria-disabled={invitationPendingId ? 'true' : undefined}
+									aria-busy={invitationPendingId === invite.id || undefined}
+								>
 									Revoke <span class="sr-only">invitation for {invite.email}</span>
 								</Button>
 							</form>

@@ -297,6 +297,26 @@ describe('members settings page', () => {
 		expect(document.activeElement).toBe(resend);
 	});
 
+	it('keeps focus on Resend while it sends and sends a second press or a Revoke nowhere', async () => {
+		renderPage(null, true, [pendingInvite]);
+		const resend = screen.getByRole('button', { name: 'Resend invitation to pending@example.com' });
+		const revoke = screen.getByRole('button', { name: 'Revoke invitation for pending@example.com' });
+		resend.focus();
+
+		await fireEvent.click(resend);
+		await fireEvent.click(resend);
+		await fireEvent.click(revoke);
+
+		expect(heldSubmissions).toHaveLength(1);
+		expect((resend as HTMLButtonElement).disabled).toBe(false);
+		expect(resend.getAttribute('aria-disabled')).toBe('true');
+		expect(revoke.getAttribute('aria-disabled')).toBe('true');
+		expect(document.activeElement).toBe(resend);
+
+		await settle(0);
+		await waitFor(() => expect(resend.getAttribute('aria-disabled')).toBeNull());
+	});
+
 	it('confirms a Revoke with a toast and moves focus to the Members heading once the invitation leaves', async () => {
 		const view = renderPage(null, true, [pendingInvite]);
 		await fireEvent.click(screen.getByRole('button', { name: 'Revoke invitation for pending@example.com' }));

@@ -32,6 +32,7 @@
 		stickyHeader?: boolean;
 		stickyFirstColumn?: boolean;
 		maxHeight?: string;
+		scrollRegionLabel?: string;
 		cell?: DataTableCellSnippet<T>;
 		row?: DataTableRowSnippet<T>;
 		rowDetail?: DataTableRowDetailSnippet<T>;
@@ -56,6 +57,7 @@
 		stickyHeader = false,
 		stickyFirstColumn = false,
 		maxHeight,
+		scrollRegionLabel,
 		cell,
 		row: rowSnippet,
 		rowDetail,
@@ -115,6 +117,23 @@
 	}
 </script>
 
+{#snippet bodyCell(row: T, column: ColumnDef<T>)}
+	{@const alignClass = cn(column.align === 'center' && 'text-center', column.align === 'right' && 'text-right')}
+	{#if column.rowHeader}
+		<th
+			scope="row"
+			data-slot="table-cell"
+			class={cn('p-2 text-left align-middle font-normal whitespace-nowrap', alignClass)}
+		>
+			{#if cell}{@render cell(row, column)}{:else}{String(column.value(row) ?? '')}{/if}
+		</th>
+	{:else}
+		<Table.Cell class={alignClass}>
+			{#if cell}{@render cell(row, column)}{:else}{String(column.value(row) ?? '')}{/if}
+		</Table.Cell>
+	{/if}
+{/snippet}
+
 <DataTableRoot density={resolvedDensity} {striped} {stickyHeader} {stickyFirstColumn} {maxHeight}>
 	{#if toolbar}
 		<div
@@ -125,7 +144,7 @@
 		</div>
 	{/if}
 
-	<Table.Root aria-label={ariaLabel}>
+	<Table.Root aria-label={ariaLabel} {scrollRegionLabel}>
 		<Table.Header>
 			<Table.Row>
 				{#each cols as column (column.key)}
@@ -200,11 +219,7 @@
 									onkeydown={onRowClick ? (event) => handleRowKeydown(event, row) : undefined}
 								>
 									{#each cols as column (column.key)}
-										<Table.Cell
-											class={cn(column.align === 'center' && 'text-center', column.align === 'right' && 'text-right')}
-										>
-											{#if cell}{@render cell(row, column)}{:else}{String(column.value(row) ?? '')}{/if}
-										</Table.Cell>
+										{@render bodyCell(row, column)}
 									{/each}
 								</Table.Row>
 								{#if rowDetail && rowDetailVisible?.(row)}
@@ -237,11 +252,7 @@
 							onkeydown={onRowClick ? (event) => handleRowKeydown(event, row) : undefined}
 						>
 							{#each cols as column (column.key)}
-								<Table.Cell
-									class={cn(column.align === 'center' && 'text-center', column.align === 'right' && 'text-right')}
-								>
-									{#if cell}{@render cell(row, column)}{:else}{String(column.value(row) ?? '')}{/if}
-								</Table.Cell>
+								{@render bodyCell(row, column)}
 							{/each}
 						</Table.Row>
 						{#if rowDetail && rowDetailVisible?.(row)}

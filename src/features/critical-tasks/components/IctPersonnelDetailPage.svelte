@@ -374,7 +374,7 @@
 
 	const activeColumns = $derived.by<ColumnDef<ActiveTaskRow>[]>(() => {
 		const columns = [
-			column<ActiveTaskRow>('task', 'Task', (row) => row.task.taskCode),
+			{ ...column<ActiveTaskRow>('task', 'Task', (row) => row.task.taskCode), rowHeader: true },
 			column<ActiveTaskRow>('status', 'Status', (row) => statusLabels[row.statusInfo.status]),
 			column<ActiveTaskRow>('completed', 'Completed', (row) => formatRecordDate(row.completion?.completedAt)),
 			column<ActiveTaskRow>('expires', 'Expires', (row) => formatRecordDate(row.statusInfo.expirationDate)),
@@ -388,7 +388,7 @@
 		return columns;
 	});
 	const historyColumns: ColumnDef<CriticalTasksPersonnelHistoryRow>[] = [
-		column<CriticalTasksPersonnelHistoryRow>('task', 'Task', (row) => row.taskCode),
+		{ ...column<CriticalTasksPersonnelHistoryRow>('task', 'Task', (row) => row.taskCode), rowHeader: true },
 		column<CriticalTasksPersonnelHistoryRow>('completed', 'Completed', (row) =>
 			formatRecordDate(row.completion.completedAt)
 		),
@@ -549,8 +549,8 @@
 	<title>{personnelName} Critical Tasks Record - Troop to Task</title>
 </svelte:head>
 
-<main class="mx-auto flex max-w-[1480px] flex-col gap-5 p-4 text-foreground sm:p-5">
-	<WorkspaceToolbar.Root ariaLabel="Personnel critical task controls">
+<div class="mx-auto flex max-w-[1480px] flex-col gap-5 p-4 text-foreground sm:p-5">
+	<WorkspaceToolbar.Root ariaLabel="Personnel critical task controls" wrap>
 		<WorkspaceToolbar.Group
 			label="Applicable task filters"
 			activeCount={activeFilterCount}
@@ -682,6 +682,7 @@
 			data={filteredActiveRows}
 			columns={activeColumns}
 			ariaLabel="Applicable Critical Tasks"
+			scrollRegionLabel="Applicable Critical Tasks, scrollable"
 			emptyMessage="No active critical tasks match this view."
 			rowKey={(row) => row.task.id}
 			cell={activeCell}
@@ -707,6 +708,7 @@
 			data={archivedHistoryRows}
 			columns={historyColumns}
 			ariaLabel="ICT completion history"
+			scrollRegionLabel="ICT completion history, scrollable"
 			emptyMessage={history.personnel.archivedAt
 				? 'No completion history recorded for this person.'
 				: 'No archived task completions recorded.'}
@@ -721,7 +723,7 @@
 		<span>All dates in local time · Edits audited</span>
 		<span>Record reflects latest workspace sync</span>
 	</footer>
-</main>
+</div>
 
 {#if activeEditorRow && canRecordCompletion}
 	<IctCompletionModal

@@ -41,6 +41,7 @@
 		stickyHeader?: boolean;
 		stickyFirstColumn?: boolean;
 		maxHeight?: string;
+		scrollRegionLabel?: string;
 		cell?: DataTableCellSnippet<T>;
 		row?: DataTableRowSnippet<T>;
 		rowDetail?: DataTableRowDetailSnippet<T>;
@@ -76,6 +77,7 @@
 		stickyHeader = true,
 		stickyFirstColumn,
 		maxHeight,
+		scrollRegionLabel,
 		cell,
 		row,
 		rowDetail,
@@ -132,6 +134,7 @@
 	{stickyHeader}
 	{stickyFirstColumn}
 	{maxHeight}
+	{scrollRegionLabel}
 	{cell}
 	{row}
 	{rowDetail}

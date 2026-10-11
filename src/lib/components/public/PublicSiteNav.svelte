@@ -1,7 +1,11 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import MoonIcon from '@lucide/svelte/icons/moon';
+	import SunIcon from '@lucide/svelte/icons/sun';
 	import { BrandWordmark } from '$lib/components/patterns/brand-wordmark';
+	import { Button } from '$lib/components/ui/button';
 	import { themeStore } from '$lib/stores/theme.svelte';
+	import { cn } from '$lib/utils';
 
 	interface Props {
 		user?: unknown;
@@ -12,260 +16,102 @@
 	}
 
 	let { user, active, showFaqLink = false, overlay = false, scrolled = false }: Props = $props();
+
+	// The nav is paper by default and floats over the dark hero until the page scrolls past it.
+	const tones = {
+		paper: {
+			bar: 'border-border bg-background',
+			text: 'text-foreground',
+			muted: 'text-muted-foreground',
+			toggle: 'text-muted-foreground hover:bg-muted hover:text-foreground dark:hover:bg-muted',
+			outline: 'border-border text-foreground hover:border-muted-foreground hover:bg-muted dark:hover:bg-muted'
+		},
+		chrome: {
+			bar: 'border-transparent bg-chrome-overlay',
+			text: 'text-chrome-text',
+			muted: 'text-chrome-text-muted',
+			toggle: 'text-chrome-text-muted hover:bg-chrome-hover hover:text-chrome-text dark:hover:bg-chrome-hover',
+			outline:
+				'border-chrome-border-subtle text-chrome-text hover:border-chrome-text-muted hover:bg-chrome-hover hover:text-chrome-text dark:hover:bg-chrome-hover'
+		}
+	} as const;
+
+	const floating = $derived(overlay && !scrolled);
+	const tone = $derived(tones[floating ? 'chrome' : 'paper']);
+	const actionClass =
+		'rounded-md px-4 py-[0.45rem] font-heading text-[14px] leading-none font-semibold tracking-[0.04em] max-sm:px-3';
 </script>
 
-<nav class="public-nav" class:overlay class:scrolled={overlay && scrolled}>
-	<div class="nav-container">
-		<a href={resolve('/')} class="nav-brand">
-			<BrandWordmark hideSubtitleOnMobile />
+<nav
+	class={cn(
+		'top-0 z-100 border-b transition-[background-color,border-color,box-shadow] duration-[240ms] ease-[cubic-bezier(0.2,0,0,1)]',
+		overlay ? 'fixed right-0 left-0' : 'sticky',
+		tone.bar,
+		floating && 'backdrop-blur-md',
+		overlay && scrolled && 'shadow-[0_1px_3px] shadow-chrome-shadow'
+	)}
+>
+	<div class="mx-auto flex h-14 max-w-[1200px] items-center justify-between gap-8 px-8 max-sm:gap-4 max-sm:px-4">
+		<a
+			href={resolve('/')}
+			class={cn(
+				'flex shrink-0 items-baseline no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
+				tone.text
+			)}
+		>
+			<BrandWordmark hideSubtitleOnMobile variant={floating ? 'on-chrome' : 'default'} />
 		</a>
 
-		<div class="nav-links">
-			<a href={resolve('/about')} class="nav-link" class:active={active === 'about'}>About</a>
-			<a href={resolve('/security')} class="nav-link" class:active={active === 'security'}>Security</a>
+		<div class="flex flex-1 items-center justify-center gap-8 max-[900px]:hidden">
+			{@render navLink('/about', 'About', active === 'about')}
+			{@render navLink('/security', 'Security', active === 'security')}
 			{#if showFaqLink}
-				<a href={resolve('/#faq')} class="nav-link">FAQ</a>
+				{@render navLink('/#faq', 'FAQ', false)}
 			{/if}
 		</div>
 
-		<div class="nav-actions">
-			<button class="theme-toggle" type="button" onclick={() => themeStore.toggle()} aria-label="Toggle theme">
+		<div class="flex shrink-0 items-center gap-3">
+			<Button
+				variant="ghost"
+				size="icon"
+				type="button"
+				onclick={() => themeStore.toggle()}
+				aria-label="Toggle theme"
+				class={cn('size-9 max-sm:size-[34px]', tone.toggle)}
+			>
 				{#if themeStore.isDark}
-					<svg
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-					>
-						<circle cx="12" cy="12" r="5" />
-						<path
-							d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"
-						/>
-					</svg>
+					<SunIcon aria-hidden="true" />
 				{:else}
-					<svg
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-					>
-						<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-					</svg>
+					<MoonIcon aria-hidden="true" />
 				{/if}
-			</button>
+			</Button>
 			{#if user}
-				<a href={resolve('/dashboard?show=all')} class="nav-button nav-button-outline">Dashboard</a>
+				<Button href={resolve('/dashboard?show=all')} variant="ghost" size="none" class={cn(actionClass, tone.outline)}
+					>Dashboard</Button
+				>
 			{:else}
-				<a href={resolve('/auth/login')} class="nav-button nav-button-outline">Sign In</a>
-				<a href={resolve('/auth/request-access')} class="nav-button nav-button-amber">Request Access</a>
+				<Button href={resolve('/auth/login')} variant="ghost" size="none" class={cn(actionClass, tone.outline)}
+					>Sign In</Button
+				>
+				<Button href={resolve('/auth/request-access')} variant="accent" size="none" class={actionClass}
+					>Request Access</Button
+				>
 			{/if}
 		</div>
 	</div>
 </nav>
 
-<style>
-	.public-nav {
-		--_fg: var(--foreground);
-		--_muted: var(--muted-foreground);
-		--_border: var(--border);
-		--_bg: var(--background);
-		--_hover-bg: var(--muted);
-		--_btn-border: var(--border);
-		position: sticky;
-		top: 0;
-		z-index: 100;
-		background: var(--_bg);
-		border-bottom: 1px solid var(--_border);
-		transition:
-			background-color 240ms cubic-bezier(0.2, 0, 0, 1),
-			border-color 240ms cubic-bezier(0.2, 0, 0, 1),
-			box-shadow 240ms cubic-bezier(0.2, 0, 0, 1);
-	}
-
-	.public-nav.overlay {
-		position: fixed;
-		left: 0;
-		right: 0;
-		--_fg: var(--hero-text);
-		--_muted: var(--hero-muted);
-		--_border: transparent;
-		--_bg: var(--color-chrome-overlay);
-		backdrop-filter: blur(12px);
-		-webkit-backdrop-filter: blur(12px);
-		--_hover-bg: var(--hero-hover);
-		--_btn-border: var(--hero-border);
-	}
-
-	.public-nav.overlay.scrolled {
-		--_fg: var(--foreground);
-		--_muted: var(--muted-foreground);
-		--_border: var(--border);
-		--_bg: var(--background);
-		--_hover-bg: var(--muted);
-		--_btn-border: var(--border);
-		backdrop-filter: none;
-		-webkit-backdrop-filter: none;
-		box-shadow: 0 1px 3px var(--color-chrome-shadow);
-	}
-
-	.nav-container {
-		max-width: 1200px;
-		margin: 0 auto;
-		padding: 0 2rem;
-		height: 56px;
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 2rem;
-	}
-
-	.nav-brand {
-		display: flex;
-		align-items: baseline;
-		text-decoration: none;
-		color: var(--_fg);
-		flex-shrink: 0;
-	}
-
-	.nav-brand :global(.brand-wordmark) {
-		--public-brand-accent: var(--brass);
-		--public-brand-subtitle-color: var(--_muted);
-	}
-
-	.nav-links {
-		display: flex;
-		align-items: center;
-		gap: 2rem;
-		flex: 1;
-		justify-content: center;
-	}
-
-	.nav-link {
-		padding: 0.5rem 0;
-		text-decoration: none;
-		font-family: 'Barlow Condensed', sans-serif;
-		font-size: 1rem;
-		font-weight: 500;
-		letter-spacing: 0.04em;
-		color: var(--_muted);
-		border-bottom: 2px solid transparent;
-		transition:
-			color var(--transition-fast),
-			border-color var(--transition-fast);
-	}
-
-	.nav-link:hover,
-	.nav-link.active {
-		color: var(--_fg);
-		border-bottom-color: var(--brass);
-	}
-
-	.nav-actions {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-		flex-shrink: 0;
-	}
-
-	.theme-toggle {
-		width: 36px;
-		height: 36px;
-		border-radius: var(--radius);
-		border: none;
-		background: transparent;
-		color: var(--_muted);
-		cursor: pointer;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		transition:
-			color var(--transition-fast),
-			background-color var(--transition-fast);
-	}
-
-	.theme-toggle:hover {
-		color: var(--_fg);
-		background: var(--_hover-bg);
-	}
-
-	.theme-toggle svg {
-		width: 16px;
-		height: 16px;
-	}
-
-	.nav-button {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		padding: 0.45rem 1rem;
-		border-radius: var(--radius);
-		border: 1px solid transparent;
-		font-family: 'Barlow Condensed', sans-serif;
-		font-size: 14px;
-		font-weight: 600;
-		letter-spacing: 0.04em;
-		line-height: 1;
-		text-decoration: none;
-		transition:
-			background-color var(--transition-fast),
-			border-color var(--transition-fast),
-			color var(--transition-fast);
-	}
-
-	.nav-button-outline {
-		background: transparent;
-		border-color: var(--_btn-border);
-		color: var(--_fg);
-	}
-
-	.nav-button-outline:hover {
-		border-color: var(--_muted);
-		background: var(--_hover-bg);
-	}
-
-	.nav-button-amber {
-		background: var(--brass);
-		border-color: var(--brass);
-		color: var(--color-chrome);
-	}
-
-	.nav-button.nav-button-amber:hover {
-		background: var(--brass-light);
-		border-color: var(--brass-light);
-		color: var(--color-chrome);
-	}
-
-	.nav-brand:focus-visible,
-	.nav-link:focus-visible,
-	.theme-toggle:focus-visible,
-	.nav-button:focus-visible {
-		outline: var(--focus-outline);
-		outline-offset: var(--focus-outline-offset);
-	}
-
-	@media (max-width: 900px) {
-		.nav-links {
-			display: none;
-		}
-	}
-
-	@media (max-width: 640px) {
-		.nav-container {
-			padding: 0 1rem;
-			gap: 1rem;
-		}
-
-		.nav-button {
-			padding-inline: 0.75rem;
-		}
-
-		.theme-toggle {
-			width: 34px;
-			height: 34px;
-		}
-	}
-</style>
+{#snippet navLink(route: '/about' | '/security' | '/#faq', label: string, current: boolean)}
+	<a
+		href={resolve(route)}
+		aria-current={current ? 'page' : undefined}
+		class={cn(
+			'border-b-2 py-2 font-heading text-[1rem] font-medium tracking-[0.04em] no-underline transition-colors duration-[120ms] hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
+			tone.muted,
+			floating ? 'hover:text-chrome-text' : 'hover:text-foreground',
+			current ? ['border-accent', tone.text] : 'border-transparent'
+		)}
+	>
+		{label}
+	</a>
+{/snippet}

@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import Page from './+page.svelte';
 
 afterEach(() => {
@@ -10,34 +10,41 @@ afterEach(() => {
 });
 
 describe('landing FAQ', () => {
-	it('exposes one answer at a time through its trigger and keeps access available without an observer', async () => {
+	it('opens one answer at a time and lets the open one close, without an intersection observer', async () => {
 		vi.stubGlobal('IntersectionObserver', undefined);
 		const { container } = render(Page, { props: { data: { session: null, user: null } } });
 		const main = within(container.querySelector('main')!);
 		const first = main.getByRole('button', { name: /Are the calendar statuses fixed/i });
 		const second = main.getByRole('button', { name: /Can I scope access/i });
-		const firstAnswer = document.getElementById(first.getAttribute('aria-controls')!);
-		const secondAnswer = document.getElementById(second.getAttribute('aria-controls')!);
 
 		expect(first).toHaveAttribute('aria-expanded', 'false');
-		expect(firstAnswer).toHaveAttribute('hidden');
-		expect(secondAnswer).toHaveAttribute('hidden');
+		expect(second).toHaveAttribute('aria-expanded', 'false');
+		expect(main.getByText(/You define every status yourself/)).not.toBeVisible();
 		expect(main.getByRole('heading', { name: /Know your formation/i })).toBeVisible();
-		expect(main.getAllByRole('link', { name: 'Request Access' })).toHaveLength(2);
 
 		await fireEvent.click(first);
 		expect(first).toHaveAttribute('aria-expanded', 'true');
-		expect(firstAnswer).not.toHaveAttribute('hidden');
+		expect(main.getByText(/You define every status yourself/)).toBeVisible();
 
 		await fireEvent.click(second);
-		expect(first).toHaveAttribute('aria-expanded', 'false');
-		expect(firstAnswer).toHaveAttribute('hidden');
 		expect(second).toHaveAttribute('aria-expanded', 'true');
-		expect(secondAnswer).not.toHaveAttribute('hidden');
+		expect(first).toHaveAttribute('aria-expanded', 'false');
+		expect(main.getByText(/Group-scoped access can let leaders/)).toBeVisible();
+		await waitFor(() => expect(main.getByText(/You define every status yourself/)).not.toBeVisible());
 
 		await fireEvent.click(second);
 		expect(second).toHaveAttribute('aria-expanded', 'false');
-		expect(secondAnswer).toHaveAttribute('hidden');
+		await waitFor(() => expect(main.getByText(/Group-scoped access can let leaders/)).not.toBeVisible());
+	});
+
+	it('sends a visitor to reviewed access from the hero and the closing call to action', () => {
+		vi.stubGlobal('IntersectionObserver', undefined);
+		const { container } = render(Page, { props: { data: { session: null, user: null } } });
+		const main = within(container.querySelector('main')!);
+
+		const links = main.getAllByRole('link', { name: 'Request Access' });
+		expect(links).toHaveLength(2);
+		for (const link of links) expect(link).toHaveAttribute('href', '/auth/request-access');
 	});
 
 	it('keeps the admitted-user dashboard destinations', () => {

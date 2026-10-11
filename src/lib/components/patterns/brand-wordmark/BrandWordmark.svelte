@@ -6,9 +6,17 @@
 		titleClass?: string;
 		subtitleClass?: string;
 		hideSubtitleOnMobile?: boolean;
+		/** `on-chrome` lifts the subtitle to the muted chrome tone for a wordmark sitting on the dark app chrome. */
+		variant?: 'default' | 'on-chrome';
 	}
 
-	let { class: className, titleClass, subtitleClass, hideSubtitleOnMobile = false }: Props = $props();
+	let {
+		class: className,
+		titleClass,
+		subtitleClass,
+		hideSubtitleOnMobile = false,
+		variant = 'default'
+	}: Props = $props();
 </script>
 
 <div class={cn('brand-wordmark', className)}>
@@ -17,6 +25,7 @@
 		class={cn(
 			'brand-wordmark__subtitle',
 			hideSubtitleOnMobile && 'brand-wordmark__subtitle--mobile-hidden',
+			variant === 'on-chrome' && 'brand-wordmark__subtitle--on-chrome',
 			subtitleClass
 		)}
 	>
@@ -49,6 +58,10 @@
 		font-weight: 500;
 		letter-spacing: 0.14em;
 		text-transform: uppercase;
+	}
+
+	.brand-wordmark__subtitle--on-chrome {
+		color: var(--color-chrome-text-muted);
 	}
 
 	@media (max-width: 640px) {

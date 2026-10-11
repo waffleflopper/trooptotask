@@ -4,6 +4,7 @@
 	import DataTableRoot from './data-table-root.svelte';
 	import DataTableSortableHeader from './data-table-sortable-header.svelte';
 	import DataTableEmpty from './data-table-empty.svelte';
+	import type { EmptyTitleLevel } from '$lib/components/ui/empty/index.js';
 	import DataTableLoading from './data-table-loading.svelte';
 	import DataTablePagination from './data-table-pagination.svelte';
 	import { eventStartedInInteractiveDescendant } from './data-table-context.js';
@@ -22,6 +23,7 @@
 		table: DataTableState<T>;
 		ariaLabel?: string;
 		emptyMessage?: string;
+		emptyLevel?: EmptyTitleLevel;
 		loading?: boolean;
 		loadingRows?: number;
 		onRowClick?: (row: T) => void;
@@ -47,6 +49,7 @@
 		table,
 		ariaLabel,
 		emptyMessage = 'No data.',
+		emptyLevel,
 		loading = false,
 		loadingRows = 5,
 		onRowClick,
@@ -271,7 +274,7 @@
 	</Table.Root>
 
 	{#if !loading && table.groups.length === 0 && table.rows.length === 0}
-		<DataTableEmpty message={emptyMessage} />
+		<DataTableEmpty message={emptyMessage} level={emptyLevel} />
 	{/if}
 
 	{#if !loading && table.groups.length === 0}

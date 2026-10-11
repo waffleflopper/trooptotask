@@ -188,8 +188,14 @@ describe('shadcn DataTable foundation', () => {
 
 	test('renders empty and loading states', () => {
 		const emptyView = render(Table, { props: { data: [], columns, emptyMessage: 'No personnel found.' } });
-		expect(screen.getByText('No personnel found.')).toBeTruthy();
+		expect(screen.getByRole('heading', { level: 3, name: 'No personnel found.' })).toBeTruthy();
 		emptyView.unmount();
+
+		const pageEmptyView = render(Table, {
+			props: { data: [], columns, emptyMessage: 'No personnel found.', emptyLevel: 2 }
+		});
+		expect(screen.getByRole('heading', { level: 2, name: 'No personnel found.' })).toBeTruthy();
+		pageEmptyView.unmount();
 
 		render(Table, { props: { data: testData, columns, loading: true, loadingRows: 2 } });
 		expect(screen.getByLabelText('Loading table rows').getAttribute('aria-busy')).toBe('true');

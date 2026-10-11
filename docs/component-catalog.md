@@ -136,6 +136,7 @@ Public components:
 Rules:
 
 - Use `Root` inside the authenticated shell/sidebar inset so page content scrolls inside the shell and the app breadcrumb/header remains outside the route scroller.
+- The shell owns the page's only `main` landmark. `ui/sidebar`'s `Inset` renders a `div`; the Organization shell's `main#main-content` (the skip-link target) and the platform admin layout's `main` wrap page content below their headers. Route content renders a `div` root, never another `main`.
 - Use `Header` for route-local title, subtitle, meta, and actions. Do not duplicate the authenticated app breadcrumb bar inside route content.
 - Use `Tabs` for route-level Overview/History/Settings style navigation. Do not restore legacy `SubNav`.
 - Use `SummaryRail`, `FactGrid`, `FactRow`, and `Metric` for dense operational summaries instead of route-local summary wrappers.
@@ -343,7 +344,7 @@ Public components:
 - `SummaryStrip`: compact operational summary band for completed report results. Props: `topRisk`, `population`, `parameters`, `findings`, `riskTone?: 'default' | 'warning' | 'danger' | 'success'`, `ariaLabel?`. Use inside the `summary` snippet so the strip sits between the section header and result body, not as a nested card.
 - `Chart`: chart section with accessible chart region. Props: `title`, `description?`, `meta?`, `ariaLabel?`.
 - `Table`: DataTable-backed report table section. Props include `data`, `columns`, `table`, `ariaLabel`, `emptyMessage`, `loading`, `showSearch`, `searchPlaceholder`, `pageSize`, and cell/row/header/summary snippets.
-- `State`: shared `loading`, `no-data`, and `error` report states.
+- `State`: shared `loading`, `no-data`, and `error` report states. `level?: 2 | 3 | 4` sets the no-data heading level; the default `4` fits a state inside a report section, and a page-level state passes `2`.
 - `ExportActions`: grouped export region.
 - `ExportAction`: shared export command. Props: `label`, `state?: 'ready' | 'loading' | 'disabled' | 'error'`, `disabledReason?`, `errorReason?`, `loading?`, `loadingLabel?`, plus button props such as `href`.
 
@@ -584,7 +585,7 @@ Public components:
 - `FileInput`: shared file input presentation using `ui/field` and `ui/input`.
 - `PasteInput`: shared textarea presentation using `ui/field` and `ui/textarea`.
 - `ValidationSummary`: shared error/warning/ready count summary.
-- `PreviewTable`: DataTable-backed preview with optional `useDataTableSelection` row selection. Supports `rowStatus`, `disabledReason`, `statusColumnHeader`, `statusDescriptionMode`, `cellPresentation`, and `selectedCountLabel`. Use `cellPresentation="editable-grid"` when route-provided cell snippets render editable inputs in a dense preview; issue-bearing cells should expose a field-level tooltip and `data-cell-state`.
+- `PreviewTable`: DataTable-backed preview with optional `useDataTableSelection` row selection. Supports `rowStatus`, `disabledReason`, `statusColumnHeader`, `statusDescriptionMode`, `cellPresentation`, `selectedCountLabel` and `emptyLevel` (forwarded to `DataTable`). Use `cellPresentation="editable-grid"` when route-provided cell snippets render editable inputs in a dense preview; issue-bearing cells should expose a field-level tooltip and `data-cell-state`.
 - `RowStatus`: shared per-row import status display. Props: `tone: 'valid' | 'warning' | 'error' | 'disabled' | 'duplicate' | 'info'`, `label?`, `description?`, `descriptionMode?`.
 - `ProgressState`: importing/loading state with optional progress value.
 - `FooterActions`: footer command region with disabled submit reason.
@@ -741,7 +742,7 @@ Shared shadcn-svelte-backed dialog foundation for information, edit, form, and r
 Public components:
 
 - `AppDialog.Root`: controlled open state and dismissal policy. Props: `open?: boolean` (bindable), `busy?: boolean`, `closeBlocked?: boolean`, `onClose?: () => void`, plus shadcn dialog root props.
-- `AppDialog.Content`: shared shell with close button, constrained viewport and mobile-safe width. It reads `busy` and `closeBlocked` from Root. Props: `size?: 'default' | 'wide' | 'fullscreen'`, `showCloseButton?: boolean`.
+- `AppDialog.Content`: shared shell with close button, constrained viewport and mobile-safe width. It reads `busy` and `closeBlocked` from Root. Props: `size?: 'default' | 'wide' | 'fullscreen'`, `showCloseButton?: boolean`. The built-in close button is named `Close`; set `showCloseButton={false}` whenever the footer shows its own `Close` button, so the dialog never offers two.
 - `AppDialog.Header`, `AppDialog.Title`, `AppDialog.Description`: accessible heading and description wiring. Use a description unless the title alone is enough for screen-reader context.
 - `AppDialog.Body`: scrollable dialog body. Put long content and forms here.
 - `AppDialog.Footer`: sticky action area outside the scrollable body.
@@ -992,6 +993,8 @@ Composable empty list placeholder.
 </Empty.Root>
 ```
 
+`Empty.Title` renders a heading. `level?: 2 | 3 | 4` defaults to `2` for a page-level empty state; pass the next level below the nearest section heading when the state sits inside one.
+
 Compatibility note: the legacy `ui/EmptyState.svelte` wrapper has been removed. Compose `ui/empty` with `Button`, links, or route actions.
 
 The root, Organization and platform admin error boundaries and `WorkspaceAccessRestricted` compose `ui/empty` for their status, message and recovery action. The admin boundary renders inside the admin navigation and offers `Try again` for a 5xx. A non-admin denied by the admin layout still reaches the root boundary's 403. A page's `h1` stays a heading element inside `Empty.Header` where the page needs one. `Empty.Root` is full width, so a caller that adds outer margins also sets `w-auto` to keep the margins inside its column.
@@ -1203,7 +1206,7 @@ Exports:
 - `useDataTable`: headless sort/filter/pagination/grouping state.
 - `useDataTableSelection`: headless row selection and bulk-selection state.
 
-`DataTable` props: `data?: T[]`, `columns?: ColumnDef<T>[]`, `table?: DataTableState<T>`, `initialSortKey?: string`, `initialSortDirection?: SortDirection`, `pageSize?: number`, `groupBy?: GroupDef<T>`, `filterFn?: (row: T, query: string) => boolean`, `ariaLabel?: string`, `emptyMessage?: string`, `showSearch?: boolean`, `searchPlaceholder?: string`, `rowKey?: (row: T, index: number) => string | number`, `onRowClick?: (row: T) => void`, `rowActionLabel?: (row: T) => string`, `disabledRow?: (row: T) => boolean`, `rowDetailVisible?: (row: T) => boolean`, `loading?: boolean`, `loadingRows?: number`, `density?: 'default' | 'dense'`, `compact?: boolean`, `striped?: boolean`, `stickyHeader?: boolean`, `stickyFirstColumn?: boolean`, `maxHeight?: string`, `scrollRegionLabel?: string`
+`DataTable` props: `data?: T[]`, `columns?: ColumnDef<T>[]`, `table?: DataTableState<T>`, `initialSortKey?: string`, `initialSortDirection?: SortDirection`, `pageSize?: number`, `groupBy?: GroupDef<T>`, `filterFn?: (row: T, query: string) => boolean`, `ariaLabel?: string`, `emptyMessage?: string`, `emptyLevel?: 2 | 3 | 4` (heading level of the empty message, default `3`), `showSearch?: boolean`, `searchPlaceholder?: string`, `rowKey?: (row: T, index: number) => string | number`, `onRowClick?: (row: T) => void`, `rowActionLabel?: (row: T) => string`, `disabledRow?: (row: T) => boolean`, `rowDetailVisible?: (row: T) => boolean`, `loading?: boolean`, `loadingRows?: number`, `density?: 'default' | 'dense'`, `compact?: boolean`, `striped?: boolean`, `stickyHeader?: boolean`, `stickyFirstColumn?: boolean`, `maxHeight?: string`, `scrollRegionLabel?: string`
 
 Pass `scrollRegionLabel` when a wide table can scroll sideways. It names the scroll container as a focusable `region` (`Table.Root` takes the same prop) so keyboard users can scroll it.
 

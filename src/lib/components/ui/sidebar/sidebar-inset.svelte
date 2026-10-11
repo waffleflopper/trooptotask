@@ -7,10 +7,11 @@
 		class: className,
 		children,
 		...restProps
-	}: WithElementRef<HTMLAttributes<HTMLElement>> = $props();
+	}: WithElementRef<HTMLAttributes<HTMLDivElement>> = $props();
 </script>
 
-<main
+<!-- A div, not shadcn's main: each shell renders its own main around page content, apart from its header. -->
+<div
 	bind:this={ref}
 	data-slot="sidebar-inset"
 	class={cn(
@@ -20,4 +21,4 @@
 	{...restProps}
 >
 	{@render children?.()}
-</main>
+</div>

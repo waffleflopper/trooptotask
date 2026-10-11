@@ -565,7 +565,7 @@
 </script>
 
 <AppDialog.Root {busy} {onClose}>
-	<AppDialog.Content size="wide" class="h-[min(42rem,calc(100dvh-2rem))]">
+	<AppDialog.Content size="wide" showCloseButton={view !== 'list'} class="h-[min(42rem,calc(100dvh-2rem))]">
 		<AppDialog.Header>
 			<AppDialog.Title>{view === 'list' ? 'Sign-In Rosters' : 'New Sign-In Roster'}</AppDialog.Title>
 			<AppDialog.Description>
@@ -643,7 +643,7 @@
 				{:else if rosters.length === 0 && !loadError}
 					<Empty.Root>
 						<Empty.Header>
-							<Empty.Title>No sign-in rosters yet.</Empty.Title>
+							<Empty.Title level={3}>No sign-in rosters yet.</Empty.Title>
 						</Empty.Header>
 						{#if canEdit}
 							<Empty.Content>

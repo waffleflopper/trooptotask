@@ -422,7 +422,7 @@
 							{#if model.selectedTemplateSteps.length === 0 && !model.addingStep}
 								<Empty.Root class="min-h-28 border p-4">
 									<Empty.Header>
-										<Empty.Title>No steps yet.</Empty.Title>
+										<Empty.Title level={4}>No steps yet.</Empty.Title>
 									</Empty.Header>
 									<Empty.Content>
 										<Button

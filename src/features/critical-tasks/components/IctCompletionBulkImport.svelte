@@ -431,6 +431,7 @@
 							rows={previewRows}
 							columns={previewColumns}
 							ariaLabel="ICT completion import preview"
+							emptyLevel={4}
 							{selection}
 							rowKey={(row) => row.rowNumber}
 							disabledRow={(row) => !row.validation.valid}

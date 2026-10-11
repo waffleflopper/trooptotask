@@ -36,7 +36,7 @@
 	}
 </script>
 
-<main class="p-6">
+<div class="p-6">
 	<section class="rounded-md border bg-card">
 		<div class="border-b p-4">
 			<h2 class="text-lg font-semibold">{data.title}</h2>
@@ -96,4 +96,4 @@
 			{/if}
 		</div>
 	</section>
-</main>
+</div>

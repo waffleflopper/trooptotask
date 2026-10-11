@@ -175,7 +175,7 @@
 </script>
 
 <div class="flex h-full flex-col bg-background">
-	<main class="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden p-2">
+	<div class="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden p-2">
 		<WorkspaceToolbar.Root ariaLabel="Training controls" wrap>
 			<WorkspaceToolbar.Group label="Training filters" activeCount={activeFilterCount} data-testid="training-filters">
 				<ButtonGroup.Root aria-label="Training matrix view mode">
@@ -296,5 +296,5 @@
 				{/if}
 			</div>
 		{/if}
-	</main>
+	</div>
 </div>

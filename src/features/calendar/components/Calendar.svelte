@@ -237,7 +237,7 @@
 			{#if totalPersonnel === 0}
 				<Empty.Root class="min-h-52 border-0">
 					<Empty.Header>
-						<Empty.Title>No personnel added yet</Empty.Title>
+						<Empty.Title level={3}>No personnel added yet</Empty.Title>
 						<Empty.Description>Go to Personnel to add people to your roster.</Empty.Description>
 					</Empty.Header>
 					{#if personnelHref}

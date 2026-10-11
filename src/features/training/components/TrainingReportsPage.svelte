@@ -391,12 +391,14 @@
 		{#if options.types.length === 0}
 			<ReportWorkspace.State
 				state="no-data"
+				level={2}
 				title={report.input.viewId ? 'This view has no required training types.' : 'No training types configured.'}
 				description={report.input.viewId ? 'Choose another view.' : 'Create training types first.'}
 			/>
 		{:else if bottomLine.today.percent === null}
 			<ReportWorkspace.State
 				state="no-data"
+				level={2}
 				title={activeFilterCount > 0 ? 'No applicable requirements for these filters.' : 'No applicable requirements.'}
 				description={activeFilterCount > 0
 					? 'No soldier in this selection is required to hold the selected training.'

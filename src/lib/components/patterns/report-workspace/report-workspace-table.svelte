@@ -72,6 +72,7 @@
 		{table}
 		{ariaLabel}
 		{emptyMessage}
+		emptyLevel={4}
 		{loading}
 		{showSearch}
 		{searchPlaceholder}

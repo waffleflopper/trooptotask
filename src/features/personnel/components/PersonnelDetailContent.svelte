@@ -87,7 +87,7 @@
 	<title>{workspace.displayName} - Personnel</title>
 </svelte:head>
 
-<main class="min-h-full bg-background text-foreground">
+<div class="min-h-full bg-background text-foreground">
 	<section class="flex min-h-full flex-col">
 		<div class="grid gap-5 p-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
 			<section class="space-y-5">
@@ -560,7 +560,7 @@
 			</aside>
 		</div>
 	</section>
-</main>
+</div>
 
 {#if workspace.showArchiveConfirm}
 	<ConfirmDialog

@@ -288,6 +288,7 @@
 	{:else if !hasActiveTasks}
 		<ReportWorkspace.State
 			state="no-data"
+			level={2}
 			title="No active critical tasks configured."
 			description="Add active critical tasks before running readiness reports."
 		/>

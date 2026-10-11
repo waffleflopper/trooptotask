@@ -352,7 +352,7 @@
 </script>
 
 <AppDialog.Root {onClose} busy={saving.pending} closeBlocked={dirty}>
-	<AppDialog.Content size="wide">
+	<AppDialog.Content size="wide" showCloseButton={false}>
 		<AppDialog.Header>
 			<AppDialog.Title>Training Records</AppDialog.Title>
 			<AppDialog.Description>{person.rank} {person.lastName}, {person.firstName}</AppDialog.Description>

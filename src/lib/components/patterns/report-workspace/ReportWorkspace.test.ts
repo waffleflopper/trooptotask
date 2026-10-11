@@ -61,7 +61,10 @@ describe('ReportWorkspace', () => {
 		expect(within(busy[0]).getByRole('status', { name: 'Loading' })).toBeInTheDocument();
 
 		await view.rerender({ state: 'no-data', title: 'No report data' });
-		expect(screen.getByText('No report data')).toBeInTheDocument();
+		expect(screen.getByRole('heading', { level: 4, name: 'No report data' })).toBeInTheDocument();
 		expect(document.querySelector('[aria-busy="true"]')).toBeNull();
+
+		await view.rerender({ state: 'no-data', title: 'No report data', level: 2 });
+		expect(screen.getByRole('heading', { level: 2, name: 'No report data' })).toBeInTheDocument();
 	});
 });

@@ -105,6 +105,7 @@
 <DataTable
 	data={entries}
 	{columns}
+	emptyLevel={2}
 	emptyMessage={onEdit
 		? "No rating scheme entries yet. Click 'Add Entry' to get started."
 		: 'No rating scheme entries yet.'}

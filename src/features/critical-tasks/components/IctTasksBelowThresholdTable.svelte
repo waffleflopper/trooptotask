@@ -92,6 +92,7 @@
 			{columns}
 			ariaLabel="Tasks below unit threshold"
 			emptyMessage={`No tasks are below ${thresholdPercent}% for the active filters.`}
+			emptyLevel={4}
 			{loading}
 			density="dense"
 			stickyHeader

@@ -117,7 +117,7 @@
 			</div>
 		</aside>
 
-		<main class="flex min-w-0 flex-1 flex-col overflow-hidden">
+		<div class="flex min-w-0 flex-1 flex-col overflow-hidden">
 			<div class="flex flex-wrap items-center justify-between gap-4 border-b border-border px-6 py-4">
 				<div>
 					<h3 class="text-base font-semibold">{activeSectionDef.label}</h3>
@@ -158,6 +158,6 @@
 					<CalendarClosureSettingsSection bind:this={closureSection} {canMutate} {searchQuery} />
 				{/if}
 			</Tabs.Content>
-		</main>
+		</div>
 	</Tabs.Root>
 {/if}

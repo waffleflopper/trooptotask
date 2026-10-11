@@ -698,7 +698,7 @@
 		{#if hasNoRanks}
 			<Empty.Root>
 				<Empty.Header>
-					<Empty.Title>No ranks in this catalog yet.</Empty.Title>
+					<Empty.Title level={3}>No ranks in this catalog yet.</Empty.Title>
 					<Empty.Description>
 						Add a branch pack from Branch Coverage above to import standard ranks, or create a custom rank.
 					</Empty.Description>

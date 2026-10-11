@@ -1,4 +1,5 @@
 <script lang="ts" generics="T">
+	import type { EmptyTitleLevel } from '$lib/components/ui/empty/index.js';
 	import type {
 		ColumnDef,
 		DataTableCellSnippet,
@@ -27,6 +28,7 @@
 		filterFn?: (row: T, query: string) => boolean;
 		ariaLabel?: string;
 		emptyMessage?: string;
+		emptyLevel?: EmptyTitleLevel;
 		showSearch?: boolean;
 		searchPlaceholder?: string;
 		rowKey?: (row: T, index: number) => RowKey;
@@ -63,6 +65,7 @@
 		filterFn,
 		ariaLabel,
 		emptyMessage,
+		emptyLevel,
 		showSearch = false,
 		searchPlaceholder,
 		rowKey,
@@ -124,6 +127,7 @@
 	{table}
 	{ariaLabel}
 	{emptyMessage}
+	{emptyLevel}
 	{loading}
 	{loadingRows}
 	{onRowClick}

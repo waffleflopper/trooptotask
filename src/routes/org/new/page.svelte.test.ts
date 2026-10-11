@@ -1,8 +1,10 @@
 // @vitest-environment happy-dom
+import type { ActionResult } from '@sveltejs/kit';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { frameworkOutcome } from '$lib/test-support/sveltekitEnhance';
 
-type Submit = () => (options: { result: { type: string }; update: () => Promise<void> }) => Promise<void>;
+type Submit = () => (options: { result: ActionResult; update: () => Promise<void> }) => Promise<void>;
 const forms = vi.hoisted(() => ({ submit: null as Submit | null }));
 const { pageState } = vi.hoisted(() => ({ pageState: { status: 200 } }));
 vi.mock('$app/forms', () => ({
@@ -77,10 +79,32 @@ describe('/org/new page', () => {
 		expect(document.getElementById(name.getAttribute('aria-describedby') ?? '')?.textContent?.trim()).toBe(
 			'Organization name is required'
 		);
-		expect(screen.getByRole('alert').textContent?.trim()).toBe('Organization name is required');
+		expect(screen.getByRole('alert')).toBe(document.getElementById(name.getAttribute('aria-describedby') ?? ''));
 
-		await forms.submit?.()({ result: { type: 'failure' }, update: async () => {} });
+		await forms.submit?.()(
+			frameworkOutcome(
+				{ type: 'failure', status: 400, data: { error: 'Organization name is required' } },
+				{ applyForm: async () => {} }
+			)
+		);
 		await waitFor(() => expect(document.activeElement).toBe(name));
+	});
+
+	it('keeps the typed name with an Alert when creation errors unexpectedly, and refocuses Create', async () => {
+		const view = render(Page, { props: { data: makePageData(), form: null } });
+		await fireEvent.input(screen.getByLabelText('Organization Name'), { target: { value: '2nd Battalion' } });
+
+		await forms.submit?.()(
+			frameworkOutcome(
+				{ type: 'error', status: 500, error: { message: 'Internal Error' } },
+				{ applyForm: (form) => view.rerender({ form: form as never }) }
+			)
+		);
+
+		await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+		expect((screen.getByLabelText('Organization Name') as HTMLInputElement).value).toBe('2nd Battalion');
+		expect(screen.getByLabelText('Organization Name').getAttribute('aria-invalid')).toBeNull();
+		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Create Organization' }));
 	});
 
 	it('reports a request failure in an Alert without marking the name invalid', () => {

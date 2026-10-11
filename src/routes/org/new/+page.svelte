@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { tick } from 'svelte';
 	import { enhance } from '$app/forms';
 	import { page } from '$app/state';
 	import * as Alert from '$lib/components/ui/alert';
@@ -8,15 +7,18 @@
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
 	import { Spinner } from '$lib/components/ui/spinner';
+	import { settleAction } from '$lib/utils/settleAction';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 	let loading = $state(false);
 	let nameInput = $state<HTMLInputElement | null>(null);
+	let createButton = $state<HTMLButtonElement | null>(null);
+	let unexpectedError = $state<string | null>(null);
 	const canSubmit = $derived(data.emailConfirmed && !loading);
 	// Only a 400 rejects the name itself; other failures belong to the request.
 	const nameError = $derived(page.status === 400 && form?.error ? form.error : '');
-	const requestError = $derived(form?.error && !nameError ? form.error : '');
+	const requestError = $derived(unexpectedError ?? (form?.error && !nameError ? form.error : ''));
 </script>
 
 <svelte:head>
@@ -47,12 +49,12 @@
 				class="flex flex-col gap-5"
 				use:enhance={() => {
 					loading = true;
-					return async ({ result, update }) => {
-						loading = false;
-						await update();
-						if (result.type !== 'failure') return;
-						await tick();
-						nameInput?.focus();
+					unexpectedError = null;
+					return async (outcome) => {
+						unexpectedError = await settleAction(outcome, {
+							focus: () => [nameError ? nameInput : null, createButton],
+							settled: () => (loading = false)
+						});
 					};
 				}}
 			>
@@ -104,7 +106,7 @@
 
 				<div class="flex flex-col-reverse gap-3 border-t pt-5 sm:flex-row sm:justify-end">
 					<Button href="/" variant="outline">Cancel</Button>
-					<Button type="submit" disabled={!canSubmit}>
+					<Button bind:ref={createButton} type="submit" disabled={!canSubmit}>
 						{#if loading}<Spinner />{/if}
 						{loading ? 'Creating...' : 'Create Organization'}
 					</Button>

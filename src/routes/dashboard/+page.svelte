@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { tick } from 'svelte';
 	import { enhance } from '$app/forms';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import { resolve } from '$app/paths';
@@ -11,9 +10,12 @@
 	import { Input } from '$lib/components/ui/input';
 	import { themeStore } from '$lib/stores/theme.svelte';
 	import { formatRelativeDate } from '$lib/utils/dates';
+	import { settleAction } from '$lib/utils/settleAction';
 
 	let { data, form } = $props();
 	let loading = $state<string | null>(null);
+	let respondedInvitationId = $state<string | null>(null);
+	let requestError = $state<string | null>(null);
 	let successMessage = $state<string | null>(null);
 	let orgFilter = $state('');
 	let successTimer: ReturnType<typeof setTimeout>;
@@ -28,14 +30,15 @@
 	function respondToInvitation(invitationId: string, successText: string): SubmitFunction {
 		return ({ formElement }) => {
 			loading = invitationId;
-			return async ({ result, update }) => {
-				loading = null;
-				if (result.type === 'success') showSuccess(successText);
-				await update();
-				await tick();
+			respondedInvitationId = invitationId;
+			requestError = null;
+			return async (outcome) => {
 				// A resolved invitation leaves the list; a failed one keeps its row and button.
-				if (formElement.isConnected) formElement.querySelector('button')?.focus();
-				else workspacesHeading?.focus();
+				requestError = await settleAction(outcome, {
+					focus: () => [formElement.querySelector('button'), workspacesHeading],
+					settled: () => (loading = null)
+				});
+				if (outcome.result.type === 'success') showSuccess(successText);
 			};
 		};
 	}
@@ -97,7 +100,7 @@
 				</h2>
 			</header>
 
-			{#if form?.error}
+			{#if respondedInvitationId === null && form?.error}
 				<Alert.Root variant="destructive">
 					<Alert.Description>{form.error}</Alert.Description>
 				</Alert.Root>
@@ -126,6 +129,11 @@
 								<div class="flex min-w-0 flex-col gap-1">
 									<span class="truncate font-medium text-foreground">{invitation.organizationName}</span>
 									<span class="text-sm text-muted-foreground">Invited {formatRelativeDate(invitation.createdAt)}</span>
+									{#if respondedInvitationId === invitation.id && (requestError || form?.error)}
+										<Alert.Root variant="destructive" class="mt-2">
+											<Alert.Description>{requestError ?? form?.error}</Alert.Description>
+										</Alert.Root>
+									{/if}
 								</div>
 
 								<div class="flex flex-wrap justify-end gap-2 max-sm:w-full">

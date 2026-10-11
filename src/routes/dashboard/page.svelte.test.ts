@@ -1,8 +1,10 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
+import type { ActionResult } from '@sveltejs/kit';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { frameworkOutcome } from '$lib/test-support/sveltekitEnhance';
 
-type Callback = (options: { result: { type: string }; update: () => Promise<void> }) => Promise<void>;
+type Callback = (options: { result: ActionResult; update: () => Promise<void> }) => Promise<void>;
 type Submit = (input: { formElement: HTMLFormElement }) => Callback;
 const forms = vi.hoisted(() => ({ submits: new Map<string, Submit>() }));
 vi.mock('$app/forms', () => ({
@@ -22,13 +24,13 @@ function invitationData(pendingInvitations = [invitation]) {
 	return { session: null, organizations: [], pendingInvitations };
 }
 
-async function respond(action: string, result: string, update: () => Promise<void> = async () => {}) {
+async function respond(action: string, result: ActionResult, applyForm: (form: unknown) => Promise<void>) {
 	const form = screen
 		.getAllByRole('button')
 		.map((button) => button.closest('form'))
 		.find((element) => element?.getAttribute('action') === action);
 	if (!form) throw new Error(`Missing form ${action}`);
-	await forms.submits.get(action)?.({ formElement: form })({ result: { type: result }, update });
+	await forms.submits.get(action)?.({ formElement: form })(frameworkOutcome(result, { form, applyForm }));
 }
 
 describe('/dashboard page', () => {
@@ -112,9 +114,9 @@ describe('/dashboard page', () => {
 		const { default: Page } = await import('./+page.svelte');
 		const view = render(Page, { props: { data: invitationData(), form: null } });
 
-		await respond('?/declineInvitation', 'success', async () => {
-			await view.rerender({ data: invitationData([]), form: null });
-		});
+		await respond('?/declineInvitation', { type: 'success', status: 200 }, (form) =>
+			view.rerender({ data: invitationData([]), form: form as never })
+		);
 
 		await waitFor(() =>
 			expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Available workspaces' }))
@@ -122,14 +124,32 @@ describe('/dashboard page', () => {
 		expect(screen.getByRole('status').textContent?.trim()).toBe('Invitation declined.');
 	});
 
-	it('returns focus to the pressed action when the invitation response fails', async () => {
-		const { default: Page } = await import('./+page.svelte');
-		render(Page, { props: { data: invitationData(), form: null } });
+	it.each([
+		[
+			'?/acceptInvitation',
+			'Accept',
+			'failure',
+			{ type: 'failure', status: 409, data: { error: 'Invitation expired' } }
+		],
+		['?/acceptInvitation', 'Accept', 'error', { type: 'error', status: 500, error: { message: 'Internal Error' } }],
+		[
+			'?/declineInvitation',
+			'Decline',
+			'failure',
+			{ type: 'failure', status: 409, data: { error: 'Invitation expired' } }
+		],
+		['?/declineInvitation', 'Decline', 'error', { type: 'error', status: 500, error: { message: 'Internal Error' } }]
+	] as const)(
+		'keeps the invitation with an Alert in its row after a %s %s %s',
+		async (action, label, _kind, result) => {
+			const { default: Page } = await import('./+page.svelte');
+			const view = render(Page, { props: { data: invitationData(), form: null } });
 
-		await respond('?/declineInvitation', 'failure');
+			await respond(action, result, (form) => view.rerender({ data: invitationData(), form: form as never }));
 
-		await waitFor(() =>
-			expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Decline invitation to Bravo Company' }))
-		);
-	});
+			const row = screen.getByText('Bravo Company').parentElement!;
+			await waitFor(() => expect(within(row).getByRole('alert')).toBeTruthy());
+			expect(document.activeElement).toBe(screen.getByRole('button', { name: `${label} invitation to Bravo Company` }));
+		}
+	);
 });

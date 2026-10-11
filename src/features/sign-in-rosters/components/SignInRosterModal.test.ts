@@ -856,6 +856,23 @@ describe('SignInRosterModal', () => {
 		expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
 	});
 
+	it('shows a download error when the signed scan link request fails', async () => {
+		const roster = makeRoster({ signedFilePath: 'org-1/sign-in-rosters/roster-1/signed-roster.pdf' });
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (input: RequestInfo | URL) => {
+				if (String(input).endsWith('/upload')) throw new TypeError('Failed to fetch');
+				return jsonResponse({ rosters: [roster], total: 1 });
+			})
+		);
+
+		renderModal({ canEdit: false });
+		await fireEvent.click(await screen.findByRole('button', { name: /Morning Formation/i }));
+		await fireEvent.click(screen.getByRole('button', { name: 'signed-roster.pdf' }));
+
+		expect(await screen.findByText('Could not generate download link.')).toBeTruthy();
+	});
+
 	it('removes an uploaded signed roster scan once while the dialog stays busy', async () => {
 		let resolveRemove!: (response: Response) => void;
 		const removeResponse = new Promise<Response>((resolve) => (resolveRemove = resolve));

@@ -476,15 +476,17 @@
 	async function downloadSignedScan(roster: SignInRoster) {
 		if (!roster.signedFilePath) return;
 
-		const response = await fetch(getSignedScanUploadUrl(roster));
-		const payload = (await response.json()) as { url?: string; error?: string };
+		signedScanErrors.delete(roster.id);
+		const url = await fetch(getSignedScanUploadUrl(roster))
+			.then(async (response) => (response.ok ? ((await response.json()) as { url?: string }).url : undefined))
+			.catch(() => undefined);
 
-		if (!response.ok || !payload.url) {
+		if (!url) {
 			signedScanErrors.set(roster.id, 'Could not generate download link.');
 			return;
 		}
 
-		window.open(payload.url, '_blank');
+		window.open(url, '_blank');
 	}
 
 	async function removeSignedScan(roster: SignInRoster) {

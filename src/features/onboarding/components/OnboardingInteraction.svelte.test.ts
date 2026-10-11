@@ -524,6 +524,38 @@ describe('Onboarding retained interactions', () => {
 		expect(onboardingStore.getById('packet-1')).toMatchObject({ status: 'cancelled', steps: packet.steps });
 	});
 
+	it.each([
+		{ training: 'none', link: false },
+		{ training: 'view', link: true }
+	] as const)(
+		'shows Record Training only to a member who can open Training ($training)',
+		async ({ training, link }) => {
+			const trainingStep = {
+				...packet.steps[0],
+				id: 'step-training',
+				templateStepId: null,
+				stepName: 'Complete safety course',
+				stepType: 'training' as const,
+				trainingTypeId: 'training-1'
+			};
+			onboardingStore.load([{ ...packet, steps: [trainingStep] }], 'org-1');
+			const ctx = new OnboardingPageContext(new ModalRegistry(), {
+				orgId: 'org-1',
+				orgUrlSegment: 'org-1',
+				...createClientAccess({
+					membershipRole: 'member',
+					capabilityMap: { ...createCapabilityMap('none'), onboarding: 'operate', training }
+				})
+			});
+			render(OnboardingKanbanView, { props: { ctx } });
+
+			await fireEvent.click(screen.getByRole('button', { name: /SGT Smith, Jane/ }));
+
+			expect(await screen.findByText('Complete safety course')).toBeTruthy();
+			expect(Boolean(screen.queryByRole('link', { name: 'Record Training' }))).toBe(link);
+		}
+	);
+
 	it.each(['operate', 'configure'] as const)(
 		'offers packet reconciliation only to a scoped %s user when permitted',
 		async (access) => {

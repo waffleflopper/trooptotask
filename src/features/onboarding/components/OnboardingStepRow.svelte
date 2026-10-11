@@ -47,7 +47,7 @@
 			<OnboardingPaperworkStageQueue {step} {canManage} onSelect={(stage) => ctx.handleStageClick(step, stage)} />
 		{/if}
 
-		{#if step.stepType === 'training'}
+		{#if step.stepType === 'training' && ctx.canOpenTraining}
 			<div class="mt-2 pl-7">
 				<Button href={ctx.trainingPageUrl} variant="outline" size="sm">Record Training</Button>
 			</div>

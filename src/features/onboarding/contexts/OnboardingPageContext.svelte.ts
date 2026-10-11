@@ -136,6 +136,11 @@ export class OnboardingPageContext {
 		}).visible;
 	}
 
+	get canOpenTraining(): boolean {
+		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.training.viewMatrix, { kind: 'unscoped' })
+			.visible;
+	}
+
 	get canAddPerson(): boolean {
 		const resource = personnelScopeResource(this.#org.scopeSet);
 		return (

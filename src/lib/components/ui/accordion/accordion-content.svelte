@@ -15,10 +15,10 @@
 
 <AccordionPrimitive.Content
 	bind:ref
-	id={contentId}
 	data-slot="accordion-content"
 	class="data-open:animate-accordion-down data-closed:animate-accordion-up text-sm overflow-hidden"
 	{...restProps}
+	id={contentId}
 >
 	<div
 		class={cn(

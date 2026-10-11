@@ -143,7 +143,7 @@
 
 	{#if !canMutate}
 		<section class="bg-card text-muted-foreground rounded-lg border px-6 py-8 text-center sm:px-8 sm:py-12">
-			<h1 class="font-display mb-2 text-xl font-semibold">Access restricted.</h1>
+			<h1 class="mb-2 text-xl font-semibold">Access restricted.</h1>
 			<p>Calendar operation access is required to perform bulk status operations.</p>
 		</section>
 	{:else}

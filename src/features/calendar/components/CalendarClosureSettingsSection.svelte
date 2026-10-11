@@ -183,12 +183,7 @@
 </script>
 
 <div class="mb-4 flex flex-wrap items-center gap-3">
-	<Label
-		for="calendar-settings-filter-year"
-		class="font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground"
-	>
-		Year
-	</Label>
+	<Label for="calendar-settings-filter-year">Year</Label>
 	<NativeSelect
 		id="calendar-settings-filter-year"
 		class="w-[6.5rem]"
@@ -199,7 +194,7 @@
 			<option value={year}>{year}</option>
 		{/each}
 	</NativeSelect>
-	<Badge variant="secondary" class="font-mono text-[10px]">{filteredClosures.length} days</Badge>
+	<Badge variant="secondary">{filteredClosures.length} days</Badge>
 	{#if canMutate}
 		<div class="ml-auto flex flex-col items-end gap-0.5">
 			<Button variant="outline" size="sm" onclick={() => (showResetConfirm = true)}>Reset Federal Holidays</Button>
@@ -211,41 +206,35 @@
 <div class="space-y-1.5">
 	{#each filteredClosures as day (day.id)}
 		<div
-			class="flex items-center gap-4 rounded-md border border-transparent px-4 py-3 transition-colors hover:border-border hover:bg-muted/40"
+			class="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-md border border-transparent px-4 py-3 transition-colors hover:border-border hover:bg-muted/40"
 		>
-			<div class="w-28 shrink-0">
-				<span class="text-sm tabular-nums text-muted-foreground">
-					{formatDisplayDate(day.date)}
-				</span>
-			</div>
-			<span class="flex-1 text-sm font-medium">{day.name}</span>
-			<Badge variant={day.type === 'federal-holiday' ? 'default' : 'outline'} class="text-[10px]">
-				{day.type === 'federal-holiday' ? 'Holiday' : 'Closure'}
-			</Badge>
-			{#if canMutate}
-				<div class="flex gap-1">
+			<span class="w-28 shrink-0 text-sm tabular-nums text-muted-foreground">{formatDisplayDate(day.date)}</span>
+			<span class="min-w-0 flex-1 basis-32 break-words text-sm font-medium">{day.name}</span>
+			<div class="ml-auto flex shrink-0 items-center gap-2">
+				<Badge variant={day.type === 'federal-holiday' ? 'default' : 'outline'}>
+					{day.type === 'federal-holiday' ? 'Holiday' : 'Closure'}
+				</Badge>
+				{#if canMutate}
 					<Button
 						variant="ghost"
 						size="icon-sm"
-						class="size-7"
-						title="Edit closure"
-						aria-label="Edit closure"
+						title="Edit {day.name}, {formatDisplayDate(day.date)}"
+						aria-label="Edit {day.name}, {formatDisplayDate(day.date)}"
 						onclick={() => openEditSpecialDay(day)}
 					>
-						<Pencil class="size-3.5" />
+						<Pencil />
 					</Button>
 					<Button
-						variant="ghost"
+						variant="destructive"
 						size="icon-sm"
-						class="size-7 text-destructive hover:text-destructive"
-						title="Delete closure"
-						aria-label="Delete closure"
+						title="Delete {day.name}, {formatDisplayDate(day.date)}"
+						aria-label="Delete {day.name}, {formatDisplayDate(day.date)}"
 						onclick={() => (confirmDeleteSpecial = day)}
 					>
-						<Trash2 class="size-3.5" />
+						<Trash2 />
 					</Button>
-				</div>
-			{/if}
+				{/if}
+			</div>
 		</div>
 	{:else}
 		<div

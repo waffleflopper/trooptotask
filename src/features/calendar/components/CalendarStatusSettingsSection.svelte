@@ -3,8 +3,8 @@
 	import { Button } from '$lib/components/ui/button';
 	import { CalendarStatusBadge } from './calendar-status-badge';
 	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
+	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
-	import { Label } from '$lib/components/ui/label';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
@@ -21,10 +21,14 @@
 
 	let { canMutate, searchQuery }: Props = $props();
 
+	// A color input only accepts #rrggbb, and the chosen values are saved as the status colors.
+	const DEFAULT_STATUS_COLOR = '#4a4a47';
+	const DEFAULT_STATUS_TEXT_COLOR = '#f8f7f4';
+
 	let addStatusOpen = $state(false);
 	let newStatusName = $state('');
-	let newStatusColor = $state('#4a4a47');
-	let newStatusTextColor = $state('#f8f7f4');
+	let newStatusColor = $state(DEFAULT_STATUS_COLOR);
+	let newStatusTextColor = $state(DEFAULT_STATUS_TEXT_COLOR);
 
 	let editStatusOpen = $state(false);
 	let editingStatus = $state<StatusType | null>(null);
@@ -35,7 +39,9 @@
 	let confirmDeleteStatus = $state<StatusType | null>(null);
 	const saving = new PendingSave();
 	const addStatusDirty = $derived(
-		newStatusName.trim() !== '' || newStatusColor !== '#4a4a47' || newStatusTextColor !== '#f8f7f4'
+		newStatusName.trim() !== '' ||
+			newStatusColor !== DEFAULT_STATUS_COLOR ||
+			newStatusTextColor !== DEFAULT_STATUS_TEXT_COLOR
 	);
 	const editStatusDirty = $derived(
 		Boolean(
@@ -56,8 +62,8 @@
 
 	function resetAddStatusForm() {
 		newStatusName = '';
-		newStatusColor = '#4a4a47';
-		newStatusTextColor = '#f8f7f4';
+		newStatusColor = DEFAULT_STATUS_COLOR;
+		newStatusTextColor = DEFAULT_STATUS_TEXT_COLOR;
 	}
 
 	function closeAddStatusDialog() {
@@ -159,22 +165,20 @@
 					<Button
 						variant="ghost"
 						size="icon-sm"
-						class="size-7"
-						title="Edit status type"
-						aria-label="Edit status type"
+						title="Edit {status.name}"
+						aria-label="Edit {status.name}"
 						onclick={() => openEditStatus(status)}
 					>
-						<Pencil class="size-3.5" />
+						<Pencil />
 					</Button>
 					<Button
-						variant="ghost"
+						variant="destructive"
 						size="icon-sm"
-						class="size-7 text-destructive hover:text-destructive"
-						title="Delete status type"
-						aria-label="Delete status type"
+						title="Delete {status.name}"
+						aria-label="Delete {status.name}"
 						onclick={() => (confirmDeleteStatus = status)}
 					>
-						<Trash2 class="size-3.5" />
+						<Trash2 />
 					</Button>
 				</div>
 			{/if}
@@ -197,45 +201,33 @@
 		</AppDialog.Header>
 		<AppDialog.Body class="grid gap-4">
 			<fieldset class="contents" disabled={saving.pending}>
-				<div class="grid gap-2">
-					<Label for="add-status-name">Status name</Label>
+				<Field.Root>
+					<Field.Label for="add-status-name">Status name</Field.Label>
 					<Input id="add-status-name" type="text" placeholder="e.g., Leave, TDY, School" bind:value={newStatusName} />
-				</div>
+				</Field.Root>
 				<div class="flex flex-wrap items-end gap-4">
-					<div class="grid gap-2">
-						<Label for="add-status-bg">Background</Label>
-						<input
-							id="add-status-bg"
-							type="color"
-							bind:value={newStatusColor}
-							class="size-9 cursor-pointer rounded-md border border-border p-0.5"
-						/>
-					</div>
-					<div class="grid gap-2">
-						<Label for="add-status-text">Text</Label>
-						<input
-							id="add-status-text"
-							type="color"
-							bind:value={newStatusTextColor}
-							class="size-9 cursor-pointer rounded-md border border-border p-0.5"
-						/>
-					</div>
+					<Field.Root class="w-auto">
+						<Field.Label for="add-status-bg">Background</Field.Label>
+						<Input id="add-status-bg" type="color" class="w-12 cursor-pointer p-1" bind:value={newStatusColor} />
+					</Field.Root>
+					<Field.Root class="w-auto">
+						<Field.Label for="add-status-text">Text</Field.Label>
+						<Input id="add-status-text" type="color" class="w-12 cursor-pointer p-1" bind:value={newStatusTextColor} />
+					</Field.Root>
 					{#if newStatusName.trim()}
-						<div class="min-w-0 flex-1">
-							<Label>Preview</Label>
-							<div class="mt-2">
-								<CalendarStatusBadge
-									statusType={{
-										id: 'preview',
-										name: newStatusName,
-										color: newStatusColor,
-										textColor: newStatusTextColor
-									}}
-								>
-									{newStatusName}
-								</CalendarStatusBadge>
-							</div>
-						</div>
+						<Field.Root class="w-auto min-w-0 flex-1">
+							<Field.Title>Preview</Field.Title>
+							<CalendarStatusBadge
+								statusType={{
+									id: 'preview',
+									name: newStatusName,
+									color: newStatusColor,
+									textColor: newStatusTextColor
+								}}
+							>
+								{newStatusName}
+							</CalendarStatusBadge>
+						</Field.Root>
 					{/if}
 				</div>
 			</fieldset>
@@ -263,45 +255,38 @@
 		</AppDialog.Header>
 		<AppDialog.Body class="grid gap-4">
 			<fieldset class="contents" disabled={saving.pending}>
-				<div class="grid gap-2">
-					<Label for="edit-status-name">Status name</Label>
+				<Field.Root>
+					<Field.Label for="edit-status-name">Status name</Field.Label>
 					<Input id="edit-status-name" type="text" bind:value={editStatusName} />
-				</div>
+				</Field.Root>
 				<div class="flex flex-wrap items-end gap-4">
-					<div class="grid gap-2">
-						<Label for="edit-status-bg">Background</Label>
-						<input
-							id="edit-status-bg"
-							type="color"
-							bind:value={editStatusColor}
-							class="size-9 cursor-pointer rounded-md border border-border p-0.5"
-						/>
-					</div>
-					<div class="grid gap-2">
-						<Label for="edit-status-text">Text</Label>
-						<input
+					<Field.Root class="w-auto">
+						<Field.Label for="edit-status-bg">Background</Field.Label>
+						<Input id="edit-status-bg" type="color" class="w-12 cursor-pointer p-1" bind:value={editStatusColor} />
+					</Field.Root>
+					<Field.Root class="w-auto">
+						<Field.Label for="edit-status-text">Text</Field.Label>
+						<Input
 							id="edit-status-text"
 							type="color"
+							class="w-12 cursor-pointer p-1"
 							bind:value={editStatusTextColor}
-							class="size-9 cursor-pointer rounded-md border border-border p-0.5"
 						/>
-					</div>
+					</Field.Root>
 					{#if editStatusName.trim()}
-						<div class="min-w-0 flex-1">
-							<Label>Preview</Label>
-							<div class="mt-2">
-								<CalendarStatusBadge
-									statusType={{
-										id: 'edit-preview',
-										name: editStatusName,
-										color: editStatusColor,
-										textColor: editStatusTextColor
-									}}
-								>
-									{editStatusName}
-								</CalendarStatusBadge>
-							</div>
-						</div>
+						<Field.Root class="w-auto min-w-0 flex-1">
+							<Field.Title>Preview</Field.Title>
+							<CalendarStatusBadge
+								statusType={{
+									id: 'edit-preview',
+									name: editStatusName,
+									color: editStatusColor,
+									textColor: editStatusTextColor
+								}}
+							>
+								{editStatusName}
+							</CalendarStatusBadge>
+						</Field.Root>
 					{/if}
 				</div>
 			</fieldset>

@@ -101,3 +101,19 @@ it('preserves the partial draft and retries only the failed Person before refres
 	);
 	expect((screen.getByRole('button', { name: 'Review & Confirm' }) as HTMLButtonElement).disabled).toBe(true);
 });
+
+it.each([
+	['Start Date', 'Choose a start date'],
+	['End Date', 'Choose an end date']
+])('guides instead of summarizing an Invalid Date when %s is cleared', async (label, guidance) => {
+	render(BulkStatusAdd, {
+		props: { personnelByGroup: [{ group: 'Alpha', personnel }], statusTypes, onApply: vi.fn(), onComplete: vi.fn() }
+	});
+	await fireEvent.click(screen.getByRole('checkbox', { name: 'Select SPC Able, Ann' }));
+
+	await fireEvent.input(screen.getByLabelText(label), { target: { value: '' } });
+
+	expect(screen.queryByText(/Invalid Date/)).toBeNull();
+	expect(screen.getAllByText(guidance)).toHaveLength(2);
+	expect((screen.getByRole('button', { name: 'Review & Confirm' }) as HTMLButtonElement).disabled).toBe(true);
+});

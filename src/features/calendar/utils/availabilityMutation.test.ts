@@ -19,9 +19,14 @@ function entry(over: Partial<AvailabilityEntry> & { id: string }): AvailabilityE
 }
 
 describe('validateDateRange', () => {
-	it('reports neither valid nor an error when a date is missing', () => {
-		expect(validateDateRange('', '2026-01-05')).toEqual({ valid: false, dayCount: 0, error: null });
-		expect(validateDateRange('2026-01-05', '')).toEqual({ valid: false, dayCount: 0, error: null });
+	it('names the missing date', () => {
+		expect(validateDateRange('', '2026-01-05')).toEqual({ valid: false, dayCount: 0, error: 'Choose a start date' });
+		expect(validateDateRange('2026-01-05', '')).toEqual({ valid: false, dayCount: 0, error: 'Choose an end date' });
+		expect(validateDateRange('', '')).toEqual({
+			valid: false,
+			dayCount: 0,
+			error: 'Choose a start date and an end date'
+		});
 	});
 
 	it('rejects an end before the start with a message and no day count', () => {

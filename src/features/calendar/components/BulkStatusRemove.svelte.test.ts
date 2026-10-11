@@ -173,4 +173,18 @@ describe('BulkStatusRemove', () => {
 		expect(screen.getAllByText('Remove date range cannot exceed 366 days')).toHaveLength(2);
 		expect((screen.getByRole('button', { name: 'Review Matching Entries' }) as HTMLButtonElement).disabled).toBe(true);
 	});
+
+	it.each([
+		['Start Date', 'Choose a start date'],
+		['End Date', 'Choose an end date']
+	])('guides instead of summarizing an Invalid Date when %s is cleared', async (label, guidance) => {
+		renderRemove();
+		await fireEvent.click(screen.getByRole('checkbox', { name: 'Select SGT Able, Ann' }));
+
+		await setDate(label, '');
+
+		expect(screen.queryByText(/Invalid Date/)).toBeNull();
+		expect(screen.getAllByText(guidance)).toHaveLength(2);
+		expect((screen.getByRole('button', { name: 'Review Matching Entries' }) as HTMLButtonElement).disabled).toBe(true);
+	});
 });

@@ -196,8 +196,21 @@ describe('admin access request setup support UI', () => {
 			await view.rerender({ form: { error: 'Setup creation failed' } });
 		});
 		await waitFor(() => expect(invalidateAll).toHaveBeenCalled());
-		expect((screen.getByRole('button', { name: /Approve/ }) as HTMLButtonElement).disabled).toBe(true);
-		expect((screen.getByRole('button', { name: 'Reject Test Soldier' }) as HTMLButtonElement).disabled).toBe(true);
+		const approve = screen.getByRole('button', { name: /Approve/ }) as HTMLButtonElement;
+		expect(approve.disabled).toBe(false);
+		expect(approve.getAttribute('aria-busy')).toBe('true');
+		expect(screen.getByRole('button', { name: 'Reject Test Soldier' }).getAttribute('aria-disabled')).toBe('true');
+		const reject = screen.getByRole('button', { name: 'Reject Test Soldier' });
+		const cancel = vi.fn();
+		await forms.get('?/reject')!({
+			formElement: reject.closest('form')!,
+			formData: new FormData(reject.closest('form')!),
+			action: new URL(reject.closest('form')!.action),
+			controller: new AbortController(),
+			submitter: reject,
+			cancel
+		});
+		expect(cancel).toHaveBeenCalledOnce();
 		await act(async () => {
 			await view.rerender({
 				data: { adminUserId: 'admin-1', pending: [], reviewed: [makeReviewedRequest({})] } as unknown as PageData
@@ -220,11 +233,14 @@ describe('admin access request setup support UI', () => {
 		await act(() => finish({ type: 'failure', status: 503, data: { error: 'Reply unavailable' } }, async () => {}));
 		expect((screen.getByRole('button', { name: 'Approve Test Soldier' }) as HTMLButtonElement).disabled).toBe(true);
 		expect((screen.getByRole('button', { name: 'Reject Test Soldier' }) as HTMLButtonElement).disabled).toBe(true);
-		await fireEvent.click(screen.getByRole('button', { name: 'Reload requests' }));
+		const reload = screen.getByRole('button', { name: 'Reload requests' });
+		reload.focus();
+		await fireEvent.click(reload);
 		await waitFor(() =>
 			expect((screen.getByRole('button', { name: 'Reject Test Soldier' }) as HTMLButtonElement).disabled).toBe(false)
 		);
 		expect(invalidateAll).toHaveBeenCalledTimes(2);
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('tab', { name: /Pending/ })));
 	});
 
 	it('returns focus to the pressed review button once a failed review has been re-read', async () => {

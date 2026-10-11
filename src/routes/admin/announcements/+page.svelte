@@ -17,7 +17,7 @@
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { formatDisplayDate } from '$lib/utils/dates';
 	import { adminBadgeVariant, formatAdminLabel } from '$features/platform-admin/components/adminTheme';
-	import { restoreSubmitterFocus } from '$features/platform-admin/components/restoreSubmitterFocus';
+	import { restoreFocus, settleAction } from '$lib/utils/settleAction';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -78,15 +78,6 @@
 		submitter?.focus();
 	}
 
-	async function refreshAnnouncements(isCurrent: () => boolean) {
-		try {
-			await invalidateAll();
-			if (isCurrent()) needsReload = false;
-		} catch {
-			if (isCurrent()) actionError = 'Announcements could not be refreshed. Reload them before another save.';
-		}
-	}
-
 	async function reloadAnnouncements() {
 		if (pending) return;
 		const lifetime = pageLifetime;
@@ -96,13 +87,15 @@
 		pending = { kind: 'reload' };
 		actionError = null;
 		try {
-			await refreshAnnouncements(isCurrent);
-		} finally {
-			if (isCurrent()) {
-				pending = null;
-				void restoreSubmitterFocus(reloadButton, () => [createButton, titleInput]);
-			}
+			await invalidateAll();
+			if (isCurrent()) needsReload = false;
+		} catch {
+			if (isCurrent()) actionError = 'Announcements could not be refreshed. Reload them before another save.';
 		}
+		if (!isCurrent()) return;
+		pending = null;
+		await tick();
+		if (isCurrent()) restoreFocus([reloadButton, createButton, titleInput]);
 	}
 
 	const submitAnnouncement =
@@ -127,34 +120,33 @@
 			const isCurrentEditor = () => isCurrent() && editorLifetime === editor && formElement.isConnected;
 			pending = operation;
 			actionError = null;
-			return async ({ result, update }) => {
-				if (!isCurrent()) return;
-				try {
-					if (result.type === 'redirect') {
-						await update({ invalidateAll: false });
-						return;
-					}
-					if (result.type === 'failure' && result.status < 500) {
-						if (isCurrentEditor())
-							actionError =
-								typeof result.data?.error === 'string' ? result.data.error : 'Announcement could not be saved.';
-						return;
-					}
-					needsReload = true;
-					if (result.type === 'error' || result.type === 'failure') {
-						if (isCurrentEditor())
-							actionError = 'The save result could not be confirmed. Check current announcements before trying again.';
-						return;
-					}
-					if (operation.kind === 'create' && isCurrentEditor()) setCreateForm(false);
-					await refreshAnnouncements(isCurrent);
-				} finally {
-					if (isCurrent()) {
+			return async (outcome) => {
+				const { result } = outcome;
+				// A 5xx or an unexpected error may have saved, so writes wait for a read-only reload.
+				const unconfirmed = result.type === 'error' || (result.type === 'failure' && result.status >= 500);
+				await settleAction(outcome, {
+					isCurrent,
+					settled: (error) => {
 						pending = null;
 						if (operation.kind === 'delete') deleteRequest = null;
-						void restoreSubmitterFocus(submitter, () => [reloadButton, createButton, titleInput]);
-					}
-				}
+						if (unconfirmed || error) needsReload = true;
+						if (unconfirmed) {
+							if (isCurrentEditor())
+								actionError =
+									'The save result could not be confirmed. Check current announcements before trying again.';
+						} else if (error) {
+							actionError = 'Saved, but announcements could not be refreshed. Reload them before another save.';
+						} else if (result.type === 'failure') {
+							if (isCurrentEditor())
+								actionError =
+									typeof result.data?.error === 'string' ? result.data.error : 'Announcement could not be saved.';
+						} else if (operation.kind === 'create' && isCurrentEditor()) {
+							editorLifetime += 1;
+							showCreateForm = false;
+						}
+					},
+					focus: () => [submitter, reloadButton, createButton, titleInput]
+				});
 			};
 		};
 
@@ -195,8 +187,12 @@
 				class="mt-1 w-fit"
 				variant="outline"
 				onclick={reloadAnnouncements}
-				disabled={pending !== null}>Reload Announcements</Button
+				aria-disabled={pending ? 'true' : undefined}
+				aria-busy={pending?.kind === 'reload' || undefined}
 			>
+				{#if pending?.kind === 'reload'}<Spinner />{/if}
+				Reload Announcements
+			</Button>
 		</Alert.Root>
 	{/if}
 
@@ -241,7 +237,12 @@
 					</div>
 					<div class="flex flex-wrap justify-end gap-2">
 						<Button type="button" variant="outline" onclick={() => setCreateForm(false)}>Cancel</Button>
-						<Button type="submit" disabled={writesDisabled}>
+						<Button
+							type="submit"
+							disabled={needsReload}
+							aria-disabled={pending ? 'true' : undefined}
+							aria-busy={pending?.kind === 'create' || undefined}
+						>
 							{#if pending?.kind === 'create'}<Spinner />{/if}
 							{pending?.kind === 'create' ? 'Saving...' : 'Save'}
 						</Button>
@@ -284,7 +285,9 @@
 								<Button
 									type="submit"
 									variant="outline"
-									disabled={writesDisabled}
+									disabled={needsReload}
+									aria-disabled={pending ? 'true' : undefined}
+									aria-busy={(pending?.kind === 'toggle' && pending.id === announcement.id) || undefined}
 									aria-label={`${announcement.is_active ? 'Deactivate' : 'Activate'} ${announcement.title}`}
 								>
 									{#if pending?.kind === 'toggle' && pending.id === announcement.id}<Spinner />{/if}
@@ -300,7 +303,9 @@
 								<Button
 									type="submit"
 									variant="destructive"
-									disabled={writesDisabled}
+									disabled={needsReload}
+									aria-disabled={pending ? 'true' : undefined}
+									aria-busy={(pending?.kind === 'delete' && pending.id === announcement.id) || undefined}
 									aria-label={`Delete ${announcement.title}`}
 								>
 									{#if pending?.kind === 'delete' && pending.id === announcement.id}<Spinner />{/if}

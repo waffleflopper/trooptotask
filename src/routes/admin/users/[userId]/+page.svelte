@@ -16,6 +16,7 @@
 	import * as PageShell from '$lib/components/patterns/page-shell';
 	import * as Table from '$lib/components/ui/table';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { settleAction } from '$lib/utils/settleAction';
 
 	let { data } = $props();
 
@@ -47,7 +48,7 @@
 
 	const accountEmailEnhance =
 		(kind: 'reset' | 'invite'): SubmitFunction =>
-		({ cancel }) => {
+		({ cancel, submitter }) => {
 			if (kind === 'reset' ? sendingReset : sendingInvite) {
 				cancel();
 				return;
@@ -58,33 +59,26 @@
 			emailError = null;
 			if (kind === 'reset') sendingReset = true;
 			else sendingInvite = true;
-			return async ({ result, update }) => {
-				if (!isCurrent()) return;
-				try {
-					// SvelteKit's update() moves focus to the page on success and swaps in the error page on an error.
-					if (result.type === 'redirect') {
-						await update({ invalidateAll: false });
-						return;
-					}
-					if (result.type !== 'success') {
-						emailError =
-							result.type === 'failure' && typeof result.data?.error === 'string'
-								? result.data.error
-								: 'The email could not be sent.';
-						return;
-					}
-					await invalidateAll();
-					if (isCurrent() && typeof result.data?.message === 'string') toastStore.success(result.data.message);
-				} catch {
-					if (isCurrent())
-						emailError =
-							'Account details could not be refreshed. Check the current account before sending another email.';
-				} finally {
-					if (isCurrent()) {
+			return async (outcome) => {
+				const { result } = outcome;
+				await settleAction(outcome, {
+					isCurrent,
+					settled: (error) => {
 						if (kind === 'reset') sendingReset = false;
 						else sendingInvite = false;
-					}
-				}
+						if (result.type === 'failure' || result.type === 'error')
+							emailError =
+								result.type === 'failure' && typeof result.data?.error === 'string'
+									? result.data.error
+									: 'The email could not be sent.';
+						else if (error)
+							emailError =
+								'Account details could not be refreshed. Check the current account before sending another email.';
+						else if (result.type === 'success' && typeof result.data?.message === 'string')
+							toastStore.success(result.data.message);
+					},
+					focus: () => [submitter]
+				});
 			};
 		};
 

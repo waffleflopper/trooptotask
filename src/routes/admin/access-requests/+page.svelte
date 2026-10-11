@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { beforeNavigate, invalidateAll } from '$app/navigation';
-	import { onDestroy } from 'svelte';
+	import { onDestroy, tick } from 'svelte';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import { redirectToSensitiveActionStepUp } from '$features/identity';
 	import { Badge } from '$lib/components/ui/badge';
@@ -14,7 +14,7 @@
 	import * as Tabs from '$lib/components/ui/tabs';
 	import { formatDisplayDateTime } from '$lib/utils/dates';
 	import { adminBadgeVariant, formatAdminLabel } from '$features/platform-admin/components/adminTheme';
-	import { restoreSubmitterFocus } from '$features/platform-admin/components/restoreSubmitterFocus';
+	import { restoreFocus, settleAction } from '$lib/utils/settleAction';
 	import type { BadgeVariant } from '$lib/components/ui/badge';
 	import type { PageData } from './$types';
 
@@ -29,6 +29,8 @@
 	let reloadError = $state<string | null>(null);
 	let reviewError = $state<string | null>(null);
 	const writesDisabled = $derived(loadingId !== null || needsReload || refreshing);
+	// A pending review keeps its buttons focusable through its own re-read, so the pressed one keeps focus.
+	const reviewsDisabled = $derived(loadingId === null && (needsReload || refreshing));
 	let reloadButton = $state<HTMLButtonElement | null>(null);
 	let pendingTab = $state<HTMLButtonElement | null>(null);
 	let reviewedTab = $state<HTMLButtonElement | null>(null);
@@ -65,8 +67,18 @@
 		}
 	}
 
+	async function reloadFromButton() {
+		if (refreshing || loadingId) return;
+		const expectedLifetime = lifetime;
+		await reloadRequests();
+		if (lifetime !== expectedLifetime) return;
+		await tick();
+		restoreFocus([reloadButton, activeTab === 'pending' ? pendingTab : reviewedTab]);
+	}
+
 	const stepUpEnhance = (id: string): SubmitFunction => {
-		return ({ submitter }) => {
+		return ({ cancel, submitter }) => {
+			if (writesDisabled) return cancel();
 			const expectedLifetime = lifetime;
 			const actorId = data.adminUserId;
 			const isCurrent = () => lifetime === expectedLifetime && data.adminUserId === actorId;
@@ -74,30 +86,29 @@
 			reviewError = null;
 			return async ({ result, update }) => {
 				if (!isCurrent()) return;
-				try {
-					if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) return;
-					needsReload = true;
-					if (result.type === 'error') {
-						reviewError = 'The review result could not be confirmed. Check current requests before trying again.';
-					} else {
-						await update({ invalidateAll: false });
-					}
-					if (!isCurrent() || result.type === 'redirect') return;
-					await reloadRequests(expectedLifetime, actorId);
-				} catch {
-					if (isCurrent()) {
-						needsReload = true;
-						reloadError = 'Current requests could not be refreshed. Reload them before another review.';
-					}
-				} finally {
-					if (isCurrent()) {
-						loadingId = null;
-						void restoreSubmitterFocus(submitter, () => [
-							reloadButton,
-							activeTab === 'pending' ? pendingTab : reviewedTab
-						]);
-					}
+				if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) {
+					loadingId = null;
+					return;
 				}
+				// Any review result may have changed the queue, so current requests are re-read before focus returns.
+				if (result.type !== 'redirect') {
+					needsReload = true;
+					await reloadRequests(expectedLifetime, actorId);
+				}
+				await settleAction(
+					{ result, update: () => update({ invalidateAll: false }) },
+					{
+						isCurrent,
+						settled: (error) => {
+							loadingId = null;
+							reviewError =
+								result.type === 'error'
+									? 'The review result could not be confirmed. Check current requests before trying again.'
+									: error;
+						},
+						focus: () => [submitter, reloadButton, activeTab === 'pending' ? pendingTab : reviewedTab]
+					}
+				);
 			};
 		};
 	};
@@ -198,8 +209,10 @@
 				bind:ref={reloadButton}
 				class="mt-1 w-fit"
 				variant="outline"
-				disabled={refreshing || loadingId !== null}
-				onclick={() => reloadRequests()}
+				disabled={loadingId !== null}
+				aria-disabled={refreshing ? 'true' : undefined}
+				aria-busy={refreshing || undefined}
+				onclick={reloadFromButton}
 			>
 				{#if refreshing}<Spinner />{/if}
 				Reload requests
@@ -251,7 +264,13 @@
 							<div class="flex flex-wrap gap-2 md:justify-end">
 								<form method="POST" action="?/approve" use:enhance={stepUpEnhance(`${req.id}-approve`)}>
 									<input type="hidden" name="requestId" value={req.id} />
-									<Button type="submit" disabled={writesDisabled} aria-label={`Approve ${req.name}`}>
+									<Button
+										type="submit"
+										disabled={reviewsDisabled}
+										aria-disabled={loadingId ? 'true' : undefined}
+										aria-busy={loadingId === `${req.id}-approve` || undefined}
+										aria-label={`Approve ${req.name}`}
+									>
 										{#if loadingId === `${req.id}-approve`}<Spinner />{/if}
 										Approve
 									</Button>
@@ -261,7 +280,9 @@
 									<Button
 										type="submit"
 										variant="destructive"
-										disabled={writesDisabled}
+										disabled={reviewsDisabled}
+										aria-disabled={loadingId ? 'true' : undefined}
+										aria-busy={loadingId === `${req.id}-reject` || undefined}
 										aria-label={`Reject ${req.name}`}
 									>
 										{#if loadingId === `${req.id}-reject`}<Spinner />{/if}
@@ -369,7 +390,9 @@
 									<Button
 										type="submit"
 										variant="outline"
-										disabled={writesDisabled}
+										disabled={reviewsDisabled}
+										aria-disabled={loadingId ? 'true' : undefined}
+										aria-busy={loadingId === `${req.id}-resend` || undefined}
 										aria-label={`${setupActionLabel(req.setup_state)} for ${req.name}`}
 									>
 										{#if loadingId === `${req.id}-resend`}<Spinner />{/if}

@@ -519,8 +519,7 @@
 			"src/features/platform-admin/components/AdminSearch.svelte",
 			"src/features/platform-admin/components/SuspendModal.svelte",
 			"src/features/platform-admin/components/TransferOwnershipModal.svelte",
-			"src/features/platform-admin/components/adminTheme.ts",
-			"src/features/platform-admin/components/restoreSubmitterFocus.ts"
+			"src/features/platform-admin/components/adminTheme.ts"
 		],
 		"app-shell": [
 			"src/features/app-shell/contracts.ts",

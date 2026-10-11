@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
+import { frameworkOutcome } from '$lib/test-support/sveltekitEnhance';
 
 const { submits, toastSuccess } = vi.hoisted(() => ({
 	submits: [] as SubmitFunction[],
@@ -80,7 +81,15 @@ describe('Admin Feedback status tabs', () => {
 			cancel: vi.fn()
 		};
 		const callback = await submits.at(-1)!(input);
-		await act(() => callback?.({ ...input, result: { type: 'success', status: 200 }, update: async () => {} }));
+		await act(() =>
+			callback?.({
+				...input,
+				...frameworkOutcome(
+					{ type: 'success', status: 200 },
+					{ form, applyForm: async () => {}, invalidate: () => invalidateAll() }
+				)
+			})
+		);
 		expect(toastSuccess).toHaveBeenCalledWith('Feedback saved');
 	});
 
@@ -111,7 +120,12 @@ describe('Admin Feedback status tabs', () => {
 				cancel: vi.fn()
 			};
 			const callback = await act(() => submits.at(-1)!(input));
-			await act(() => callback?.({ ...input, result, update: async () => {} }));
+			await act(() =>
+				callback?.({
+					...input,
+					...frameworkOutcome(result, { form, applyForm: async () => {}, invalidate: () => invalidateAll() })
+				})
+			);
 			return { trigger, save };
 		}
 

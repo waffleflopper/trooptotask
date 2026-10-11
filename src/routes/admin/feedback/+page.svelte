@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { beforeNavigate, invalidateAll } from '$app/navigation';
-	import { onDestroy, untrack } from 'svelte';
+	import { onDestroy, tick, untrack } from 'svelte';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import type { FeedbackStatus } from '$features/feedback/contracts';
 	import type { PageData } from './$types';
@@ -20,7 +20,7 @@
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatDisplayDateTime } from '$lib/utils/dates';
 	import { adminBadgeVariant, formatAdminLabel } from '$features/platform-admin/components/adminTheme';
-	import { restoreSubmitterFocus } from '$features/platform-admin/components/restoreSubmitterFocus';
+	import { restoreFocus, settleAction } from '$lib/utils/settleAction';
 
 	let { data, form } = $props();
 	let activeTab = $state<'new' | 'reviewed' | 'resolved'>('new');
@@ -62,14 +62,6 @@
 		}
 	});
 
-	async function refreshFeedback(isCurrent: () => boolean) {
-		try {
-			await invalidateAll();
-			if (isCurrent()) needsReload = false;
-		} catch {
-			if (isCurrent()) actionError = 'Feedback could not be refreshed. Reload it before another save.';
-		}
-	}
 	async function reloadFeedback() {
 		if (pending) return;
 		const lifetime = pageLifetime;
@@ -79,13 +71,15 @@
 		pending = { kind: 'reload' };
 		actionError = null;
 		try {
-			await refreshFeedback(isCurrent);
-		} finally {
-			if (isCurrent()) {
-				pending = null;
-				void restoreSubmitterFocus(reloadButton, () => [editor ? triggers[editor.id] : null, tabTriggers[activeTab]]);
-			}
+			await invalidateAll();
+			if (isCurrent()) needsReload = false;
+		} catch {
+			if (isCurrent()) actionError = 'Feedback could not be refreshed. Reload it before another save.';
 		}
+		if (!isCurrent()) return;
+		pending = null;
+		await tick();
+		if (isCurrent()) restoreFocus([reloadButton, editor ? triggers[editor.id] : null, tabTriggers[activeTab]]);
 	}
 	const submitFeedback =
 		(id: string): SubmitFunction =>
@@ -104,31 +98,32 @@
 			pending = { kind: 'save', id };
 			actionError = null;
 			return async ({ result, update }) => {
-				if (!isCurrent()) return;
-				try {
-					if (result.type === 'redirect') {
-						await update({ invalidateAll: false });
-						return;
+				// A 5xx or an unexpected error may have saved, so saves wait for a read-only reload.
+				const unconfirmed = result.type === 'error' || (result.type === 'failure' && result.status >= 500);
+				// The open editor keeps its Status and Notes after a save, so the form is not reset.
+				await settleAction(
+					{ result, update: () => update({ reset: false }) },
+					{
+						isCurrent,
+						settled: (error) => {
+							pending = null;
+							if (unconfirmed || error) needsReload = true;
+							if (unconfirmed) {
+								if (isCurrentEditor())
+									actionError = 'The save result could not be confirmed. Check current feedback before trying again.';
+							} else if (error) {
+								actionError = 'Saved, but feedback could not be refreshed. Reload it before another save.';
+							} else if (result.type === 'failure') {
+								if (isCurrentEditor())
+									actionError =
+										typeof result.data?.error === 'string' ? result.data.error : 'Feedback could not be saved.';
+							} else if (result.type === 'success') {
+								toastStore.success('Feedback saved');
+							}
+						},
+						focus: () => [submitter, triggers[id], tabTriggers[activeTab]]
 					}
-					if (result.type === 'failure' && result.status < 500) {
-						if (isCurrentEditor())
-							actionError = typeof result.data?.error === 'string' ? result.data.error : 'Feedback could not be saved.';
-						return;
-					}
-					needsReload = true;
-					if (result.type === 'error' || result.type === 'failure') {
-						if (isCurrentEditor())
-							actionError = 'The save result could not be confirmed. Check current feedback before trying again.';
-						return;
-					}
-					toastStore.success('Feedback saved');
-					await refreshFeedback(isCurrent);
-				} finally {
-					if (isCurrent()) {
-						pending = null;
-						void restoreSubmitterFocus(submitter, () => [triggers[id], tabTriggers[activeTab]]);
-					}
-				}
+				);
 			};
 		};
 
@@ -168,8 +163,12 @@
 				class="mt-1 w-fit"
 				variant="outline"
 				onclick={reloadFeedback}
-				disabled={pending !== null}>Reload Feedback</Button
+				aria-disabled={pending ? 'true' : undefined}
+				aria-busy={pending?.kind === 'reload' || undefined}
 			>
+				{#if pending?.kind === 'reload'}<Spinner />{/if}
+				Reload Feedback
+			</Button>
 		</Alert.Root>
 	{/if}
 
@@ -272,7 +271,12 @@
 									</div>
 
 									<div class="flex justify-end">
-										<Button type="submit" disabled={writesDisabled}>
+										<Button
+											type="submit"
+											disabled={needsReload}
+											aria-disabled={pending ? 'true' : undefined}
+											aria-busy={(pending?.kind === 'save' && pending.id === item.id) || undefined}
+										>
 											{#if pending?.kind === 'save' && pending.id === item.id}<Spinner />{/if}
 											Save Notes
 										</Button>

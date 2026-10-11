@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
+import { frameworkOutcome } from '$lib/test-support/sveltekitEnhance';
 import Announcements from './announcements/+page.svelte';
 import Feedback from './feedback/+page.svelte';
 import Dashboard from './+page.svelte';
@@ -127,7 +128,10 @@ async function submit(button: HTMLElement) {
 		finish: async (result: ActionResult) => {
 			if (!callback) throw new Error('Submission was canceled');
 			await act(async () => {
-				await callback!({ ...input, result, update: vi.fn().mockResolvedValue(undefined) });
+				await callback!({
+					...input,
+					...frameworkOutcome(result, { form, applyForm: async () => {}, invalidate: () => invalidateAll() })
+				});
 			});
 		}
 	};
@@ -220,6 +224,21 @@ describe('announcement form ownership', () => {
 		await waitFor(() => expect(document.activeElement).toBe(toggle));
 	});
 
+	it('keeps the pressed toggle focusable and busy while its save is held, and ignores another press', async () => {
+		render(Announcements, { props: { data: announcementData(), form: null } });
+		const toggle = screen.getByRole('button', { name: 'Deactivate Active notice' });
+		toggle.focus();
+		const request = await submit(toggle);
+		expect(toggle).toHaveProperty('disabled', false);
+		expect(toggle.getAttribute('aria-disabled')).toBe('true');
+		expect(toggle.getAttribute('aria-busy')).toBe('true');
+		expect(document.activeElement).toBe(toggle);
+		expect((await submit(toggle)).cancel).toHaveBeenCalledOnce();
+		await request.finish(succeeded);
+		expect(toggle.getAttribute('aria-busy')).toBeNull();
+		expect(invalidateAll).toHaveBeenCalledOnce();
+	});
+
 	it('retains the current create draft after failure and closes it only after its own successful retry', async () => {
 		render(Announcements, { props: { data: announcementData(), form: null } });
 		await openAnnouncement();
@@ -263,11 +282,11 @@ describe('announcement form ownership', () => {
 		expect((await submit(screen.getByRole('button', { name: 'Activate Peer notice' }))).cancel).toHaveBeenCalledOnce();
 		const completion = request.finish(succeeded);
 		await waitFor(() => expect(invalidateAll).toHaveBeenCalledOnce());
-		expect(screen.getByRole('button', { name: 'Activate Peer notice' })).toHaveProperty('disabled', true);
+		expect(screen.getByRole('button', { name: 'Activate Peer notice' }).getAttribute('aria-disabled')).toBe('true');
 		expect((await submit(screen.getByRole('button', { name: 'Delete Peer notice' }))).cancel).toHaveBeenCalledOnce();
 		release();
 		await completion;
-		expect(screen.getByRole('button', { name: 'Activate Peer notice' })).toHaveProperty('disabled', false);
+		expect(screen.getByRole('button', { name: 'Activate Peer notice' }).getAttribute('aria-disabled')).toBeNull();
 	});
 
 	it('blocks repeat mutations after read failure and recovers using a read-only reload', async () => {
@@ -276,6 +295,9 @@ describe('announcement form ownership', () => {
 		await (await submit(screen.getByRole('button', { name: 'Deactivate Active notice' }))).finish(succeeded);
 		expect(screen.getByRole('button', { name: 'Activate Peer notice' })).toHaveProperty('disabled', true);
 		expect(screen.queryByText('Private provider failure')).toBeNull();
+		expect(
+			screen.getByText('Saved, but announcements could not be refreshed. Reload them before another save.')
+		).toBeTruthy();
 		expect(
 			(await submit(screen.getByRole('button', { name: 'Deactivate Active notice' }))).cancel
 		).toHaveBeenCalledOnce();
@@ -299,7 +321,7 @@ describe('announcement form ownership', () => {
 		await openAnnouncement();
 		const fresh = await submit(screen.getByRole('button', { name: 'Save' }));
 		await old.finish(result);
-		expect(screen.getByRole('button', { name: /Saving/ })).toHaveProperty('disabled', true);
+		expect(screen.getByRole('button', { name: /Saving/ }).getAttribute('aria-busy')).toBe('true');
 		expect(screen.getByLabelText('Title')).toHaveProperty('value', 'Unsent title');
 		expect(invalidateAll).not.toHaveBeenCalled();
 		await fresh.finish(failed);
@@ -346,12 +368,23 @@ describe('Feedback editor ownership', () => {
 		await fireEvent.click(screen.getByRole('tab', { name: /New 2/ }));
 		await openFeedback();
 		await fireEvent.input(screen.getByLabelText('Admin Notes'), { target: { value: 'Fresh after tabs' } });
-		expect(screen.getByRole('button', { name: /Save Notes/ })).toHaveProperty('disabled', true);
+		expect((await submit(screen.getByRole('button', { name: /Save Notes/ }))).cancel).toHaveBeenCalledOnce();
 		await old.finish(failed);
 		expect(screen.getByLabelText('Admin Notes')).toHaveProperty('value', 'Fresh after tabs');
 		expect(screen.queryByText('Current request failed')).toBeNull();
 		expect(screen.getByRole('button', { name: 'Save Notes' })).toHaveProperty('disabled', false);
 	});
+	it('keeps the saved Status and Notes in the open editor after a save', async () => {
+		render(Feedback, { props: { data: feedbackData(), form: null } });
+		await openFeedback();
+		await fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'reviewed' } });
+		await fireEvent.input(screen.getByLabelText('Admin Notes'), { target: { value: 'Saved review' } });
+		await (await submit(screen.getByRole('button', { name: 'Save Notes' }))).finish(succeeded);
+		expect(screen.getByLabelText('Status')).toHaveProperty('value', 'reviewed');
+		expect(screen.getByLabelText('Admin Notes')).toHaveProperty('value', 'Saved review');
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Save Notes' })));
+	});
+
 	it('retains the selected status and unsaved notes on a current failure', async () => {
 		render(Feedback, { props: { data: feedbackData(), form: null } });
 		await openFeedback();
@@ -407,6 +440,7 @@ describe('Feedback editor ownership', () => {
 		await openFeedback();
 		await (await submit(screen.getByRole('button', { name: 'Save Notes' }))).finish(succeeded);
 		expect(screen.getByRole('button', { name: 'Save Notes' })).toHaveProperty('disabled', true);
+		expect(screen.getByText('Saved, but feedback could not be refreshed. Reload it before another save.')).toBeTruthy();
 		expect((await submit(screen.getByRole('button', { name: 'Save Notes' }))).cancel).toHaveBeenCalledOnce();
 		const reload = screen.getByRole('button', { name: 'Reload Feedback' });
 		reload.focus();

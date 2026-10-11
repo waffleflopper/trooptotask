@@ -41,10 +41,18 @@
 	const progress = $derived(ctx.getProgress(onboarding));
 	const pct = $derived(progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0);
 	const groupName = $derived(ctx.getPersonGroupName(onboarding.personnelId));
+
+	function restoreCardFocus(event: Event) {
+		const card = document.querySelector<HTMLElement>(`[data-onboarding-id="${CSS.escape(onboarding.id)}"]`);
+		const target = card ?? document.querySelector<HTMLElement>('[data-slot="kanban-board-card"]');
+		if (!target) return;
+		event.preventDefault();
+		target.focus();
+	}
 </script>
 
 <Sheet.Root bind:open {onOpenChange}>
-	<Sheet.Content side="right" class="sm:max-w-md" showCloseButton={true}>
+	<Sheet.Content side="right" class="sm:max-w-md" showCloseButton={true} onCloseAutoFocus={restoreCardFocus}>
 		<Sheet.Header class="border-b border-border pb-3">
 			<Sheet.Title>{ctx.getPersonName(onboarding.personnelId)}</Sheet.Title>
 			<Sheet.Description>

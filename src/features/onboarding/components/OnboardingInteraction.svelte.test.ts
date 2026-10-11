@@ -657,6 +657,33 @@ describe('Onboarding retained interactions', () => {
 		);
 	});
 
+	it('returns focus to the packet card after a save moves it to another column and the sheet closes', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue(
+				Response.json({
+					id: 'step-1',
+					onboardingId: 'packet-1',
+					stepName: 'Verify ID card',
+					stepType: 'checkbox',
+					completed: true,
+					currentStage: null
+				})
+			)
+		);
+		mount();
+		const before = screen.getByRole('button', { name: /SGT Smith, Jane/ });
+		await fireEvent.click(before);
+		await fireEvent.click(await screen.findByRole('checkbox', { name: 'Mark Verify ID card complete' }));
+		await waitFor(() => expect(before.isConnected).toBe(false));
+
+		await fireEvent.keyDown(await screen.findByRole('dialog'), { key: 'Escape' });
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+		const after = screen.getByRole('button', { name: /SGT Smith, Jane/ });
+		await waitFor(() => expect(document.activeElement).toBe(after));
+	});
+
 	it('rolls back a denied checkbox toggle and shows confirmed completion after retry', async () => {
 		let deny!: (response: Response) => void;
 		let confirm!: (response: Response) => void;

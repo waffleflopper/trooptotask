@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, tick } from 'svelte';
 	import type { Personnel } from '$features/personnel/contracts';
 	import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 	import { calculateExpirationDate, getTrainingStatus } from '$features/training/utils/trainingStatus';
@@ -57,7 +57,24 @@
 	let notes = $state('');
 	let certificateUrl = $state('');
 	let isSaving = $state(false);
+	let saveError = $state<string | null>(null);
+	let saveButton = $state<HTMLElement | null>(null);
 	let showRemoveConfirm = $state(false);
+
+	const openingValues = $derived({
+		isComplete: !!existingTraining,
+		completionDate: existingTraining?.completionDate ?? (neverExpires ? '' : todayStr),
+		directExpirationDate: existingTraining?.expirationDate ?? '',
+		notes: existingTraining?.notes ?? '',
+		certificateUrl: existingTraining?.certificateUrl ?? ''
+	});
+	const dirty = $derived(
+		isComplete !== openingValues.isComplete ||
+			completionDate !== openingValues.completionDate ||
+			directExpirationDate !== openingValues.directExpirationDate ||
+			notes !== openingValues.notes ||
+			certificateUrl !== openingValues.certificateUrl
+	);
 
 	$effect(() => {
 		isComplete = !!existingTraining;
@@ -117,15 +134,20 @@
 		};
 		const isUpdate = !!existingTraining;
 		isSaving = true;
+		saveError = null;
 		try {
 			await onSave(saveData);
 			if (!isCurrent()) return;
 			toast.success(isUpdate ? 'Training record updated' : 'Training record saved');
 			onClose();
 		} catch (error) {
-			if (isCurrent()) toast.error(getErrorMessage(error), { duration: 6000 });
+			if (isCurrent()) saveError = getErrorMessage(error);
 		} finally {
 			if (isCurrent()) isSaving = false;
+		}
+		if (saveError && isCurrent()) {
+			await tick();
+			saveButton?.focus();
 		}
 	}
 
@@ -145,7 +167,7 @@
 	}
 </script>
 
-<AppDialog.Root busy={isSaving} {onClose}>
+<AppDialog.Root busy={isSaving} closeBlocked={dirty} {onClose}>
 	<AppDialog.Content>
 		<AppDialog.Header>
 			<AppDialog.Title>{existingTraining ? 'Edit' : 'Add'} Training Record</AppDialog.Title>
@@ -156,6 +178,12 @@
 		</AppDialog.Header>
 
 		<AppDialog.Body>
+			{#if saveError}
+				<Alert.Root variant="destructive" class="mb-4">
+					<Alert.Title>Training record was not saved</Alert.Title>
+					<Alert.Description>{saveError}</Alert.Description>
+				</Alert.Root>
+			{/if}
 			<fieldset class="grid min-w-0 gap-4" disabled={isSaving}>
 				<section class="grid gap-3 rounded-lg border border-border bg-card p-4">
 					<div class="flex flex-wrap items-center gap-2">
@@ -261,7 +289,13 @@
 				{isExempt ? 'Close' : 'Cancel'}
 			</Button>
 			{#if !isExempt}
-				<Button type="button" data-testid="training-save" onclick={handleSave} disabled={!canSave || isSaving}>
+				<Button
+					type="button"
+					data-testid="training-save"
+					bind:ref={saveButton}
+					onclick={handleSave}
+					disabled={!canSave || isSaving}
+				>
 					{isSaving ? 'Saving...' : 'Save'}
 				</Button>
 			{/if}

@@ -5,7 +5,7 @@
 	import { TrainingTypesPage } from '$features/training';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import type { TrainingWorkspaceResult } from '$features/training/contracts';
-	import { isPromiseLike, materializeWorkspaceData, throwRenderError } from '$lib/utils/streamedRouteData';
+	import { isPromiseLike, materializeWorkspaceData } from '$lib/utils/streamedRouteData';
 
 	let { data } = $props();
 	const org = getAppShellContext();
@@ -55,8 +55,8 @@
 				<TrainingTypesPage {org} data={pageDataFor(resolvedTraining)} />
 			</div>
 		{/if}
-	{:catch error}
-		{throwRenderError(error, 'Failed to load training types workspace')}
+	{:catch}
+		<!-- The Training layout observes this same source and shows WorkspaceLoadError. -->
 	{/await}
 {:else if immediateWorkspacePending}
 	<section

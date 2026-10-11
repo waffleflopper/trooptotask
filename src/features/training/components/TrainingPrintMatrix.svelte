@@ -91,7 +91,10 @@
 {/snippet}
 
 <section class="break-before-page" aria-label={`Training type by ${noun.one}${range ? `, ${range}` : ''}`}>
-	<table class="w-full table-fixed border-separate border-spacing-0">
+	<table
+		class="w-full table-fixed border-separate border-spacing-0"
+		aria-label={`Training status of each training type by ${noun.one}`}
+	>
 		<colgroup>
 			<col style:width={`${PRINT_MATRIX_WIDTHS.type}px`} />
 			<col style:width={`${PRINT_MATRIX_WIDTHS.all}px`} />

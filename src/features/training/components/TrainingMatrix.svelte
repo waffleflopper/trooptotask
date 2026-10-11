@@ -12,6 +12,7 @@
 	import * as OperationalMatrix from '$lib/components/ui/operational-matrix';
 	import type { ColumnDef, GroupDef } from '$lib/components/ui/data-table';
 	import { useDataTable } from '$lib/components/ui/data-table';
+	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import TrainingStatusBadge from './TrainingStatusBadge.svelte';
 	import TrainingStatusCell from './TrainingStatusCell.svelte';
@@ -90,6 +91,11 @@
 	function sortIndicator(key: string): string {
 		if (table.sortKey !== key) return '';
 		return table.sortDirection === 'asc' ? ' ▲' : ' ▼';
+	}
+
+	function ariaSort(key: string): 'ascending' | 'descending' | 'none' {
+		if (table.sortKey !== key) return 'none';
+		return table.sortDirection === 'asc' ? 'ascending' : 'descending';
 	}
 
 	function createTrainingKey(personnelId: string, typeId: string): string {
@@ -191,16 +197,17 @@
 			class="sticky left-0 z-10 w-48 min-w-32 max-w-48 border border-border bg-card px-2 py-1.5 text-left align-middle sm:min-w-48 sm:px-3"
 		>
 			{#if onPersonClick}
-				<button
-					type="button"
-					class="flex w-full items-baseline gap-2 text-left text-foreground hover:text-primary sm:gap-4"
+				<Button
+					variant="cell"
+					size="none"
+					class="w-full min-w-0 justify-start gap-2 text-left sm:gap-4"
 					onclick={() => onPersonClick?.(row.meta.person)}
 				>
 					<span class="w-8 shrink-0 font-mono text-xs font-semibold uppercase tracking-[0.08em] text-amber-700">
 						{row.meta.rank}
 					</span>
 					<span class="truncate text-sm font-medium">{row.label}</span>
-				</button>
+				</Button>
 			{:else}
 				<span class="flex items-baseline gap-2 text-foreground sm:gap-4">
 					<span class="w-8 shrink-0 font-mono text-xs font-semibold uppercase tracking-[0.08em] text-amber-700">
@@ -263,31 +270,30 @@
 					<OperationalMatrix.CornerCell
 						sticky
 						class="sticky left-0 top-0 z-30 w-32 min-w-32 bg-muted px-2 py-1.5 sm:w-48 sm:min-w-48 sm:px-3"
+						aria-sort={ariaSort('name')}
 					>
-						<button
-							class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground hover:text-foreground"
-							type="button"
-							onclick={() => table.toggleSort('name')}
-						>
-							Name{sortIndicator('name')}
-						</button>
+						<Button variant="ghost" size="sm" onclick={() => table.toggleSort('name')}>
+							Name<span aria-hidden="true">{sortIndicator('name')}</span>
+						</Button>
 					</OperationalMatrix.CornerCell>
 					{#each matrixColumns as column (column.id)}
 						<OperationalMatrix.ColumnHeader
 							{column}
 							sticky
 							class="sticky top-0 z-20 h-14 w-28 min-w-28 bg-muted px-1.5 text-center sm:w-32 sm:min-w-32"
+							aria-sort={ariaSort(column.id)}
 						>
-							<button
-								class="grid w-full place-items-center gap-1 text-center"
-								type="button"
+							<Button
+								variant="ghost"
+								size="none"
+								class="h-full w-full flex-col gap-1 px-1 text-center whitespace-normal"
 								onclick={() => table.toggleSort(column.id)}
 							>
 								<span class="size-2 rounded-sm" style:background-color={column.meta.color} aria-hidden="true"></span>
 								<span class="line-clamp-2 text-xs font-bold normal-case tracking-normal text-foreground">
-									{column.label}{sortIndicator(column.id)}
+									{column.label}<span aria-hidden="true">{sortIndicator(column.id)}</span>
 								</span>
-							</button>
+							</Button>
 						</OperationalMatrix.ColumnHeader>
 					{/each}
 				</OperationalMatrix.HeaderRow>

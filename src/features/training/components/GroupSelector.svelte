@@ -33,6 +33,8 @@
 
 	const uid = $props.id();
 	let query = $state('');
+	let searchInput = $state<HTMLInputElement | null>(null);
+	const removeButtons: Record<string, HTMLElement | null> = $state({});
 
 	const normalizedQuery = $derived(query.trim().toLowerCase());
 	const filteredValues = $derived(
@@ -47,6 +49,9 @@
 	}
 
 	function remove(value: string) {
+		const index = selected.indexOf(value);
+		const neighbor = selected[index + 1] ?? selected[index - 1];
+		(neighbor === undefined ? searchInput : removeButtons[neighbor])?.focus();
 		onchange(selected.filter((item) => item !== value));
 	}
 </script>
@@ -71,7 +76,13 @@
 	{:else}
 		<div data-slot="type-management-workspace-group-selector-search">
 			<label class="sr-only" for="{uid}-search">{searchPlaceholder}</label>
-			<Input id="{uid}-search" type="search" bind:value={query} placeholder={searchPlaceholder} />
+			<Input
+				id="{uid}-search"
+				type="search"
+				bind:ref={searchInput}
+				bind:value={query}
+				placeholder={searchPlaceholder}
+			/>
 		</div>
 
 		{#if selectedValues.length > 0}
@@ -79,14 +90,16 @@
 				{#each selectedValues as value (value)}
 					<Badge variant={tone === 'danger' ? 'danger' : 'outline'}>
 						{value}
-						<button
-							type="button"
-							class="-my-2.5 -mr-2 ml-1 inline-flex size-10 items-center justify-center rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring sm:-my-1 sm:size-7"
+						<Button
+							variant="ghost"
+							size="icon-sm"
+							class="-my-2.5 -mr-2 ml-1 size-10 sm:-my-1 sm:-mr-1.5 sm:size-7"
+							bind:ref={() => removeButtons[value] ?? null, (element) => (removeButtons[value] = element)}
 							aria-label={removeLabel(value)}
 							onclick={() => remove(value)}
 						>
 							<X aria-hidden="true" class="size-3" />
-						</button>
+						</Button>
 					</Badge>
 				{/each}
 			</div>

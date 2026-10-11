@@ -177,6 +177,50 @@ describe('TrainingPageView', () => {
 		expect(screen.queryByText('No personnel found.')).toBeNull();
 	});
 
+	it('announces the loading skeleton as a busy status region and says why export is unavailable', () => {
+		personnelRosterHydration.load(personnel, 'org-stale');
+		groupCatalogHydration.load(groups, 'org-stale');
+		trainingTypesStore.load([trainingType], 'org-stale');
+		personnelTrainingsStore.load([], 'org-stale');
+
+		render(TrainingPageView, {
+			props: {
+				ctx: makeCtx('alphabetical', { orgId: 'org-2' }) as unknown as TrainingPageContext,
+				modals: new ModalRegistry()
+			}
+		});
+
+		const status = screen.getByRole('status', { name: 'Loading training matrix' });
+		expect(status.getAttribute('aria-busy')).toBe('true');
+		expect(screen.getByText('Export unavailable while loading.')).toBeTruthy();
+		expect((screen.getByRole('button', { name: 'Export Excel' }) as HTMLButtonElement).disabled).toBe(true);
+	});
+
+	it.each([
+		{ label: 'an empty roster', overrides: { filteredPersonnel: [] }, reason: 'No personnel to export.' },
+		{ label: 'no training types', overrides: {}, reason: 'No training types to export.' }
+	])('states why Export Excel is disabled for $label', ({ overrides, reason }) => {
+		if (reason === 'No training types to export.') trainingTypesStore.load([], 'org-1');
+
+		render(TrainingPageView, {
+			props: {
+				ctx: makeCtx('alphabetical', overrides) as unknown as TrainingPageContext,
+				modals: new ModalRegistry()
+			}
+		});
+
+		expect(screen.getByText(reason)).toBeTruthy();
+		expect((screen.getByRole('button', { name: 'Export Excel' }) as HTMLButtonElement).disabled).toBe(true);
+	});
+
+	it('shows no export reason while Export Excel is available', () => {
+		render(TrainingPageView, {
+			props: { ctx: makeCtx('alphabetical') as unknown as TrainingPageContext, modals: new ModalRegistry() }
+		});
+
+		expect(screen.queryByTestId('export-disabled-reason')).toBeNull();
+	});
+
 	it('retains a failed completion draft and updates the matrix after a successful retry', async () => {
 		vi.useFakeTimers({ toFake: ['Date'] });
 		vi.setSystemTime(new Date('2026-06-15T12:00:00Z'));

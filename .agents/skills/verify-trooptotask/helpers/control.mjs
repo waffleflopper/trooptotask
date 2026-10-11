@@ -29,7 +29,7 @@ import { seedArtifactRetention } from './artifact-retention.mjs';
 import { seedMaintenance, readMaintenance } from './maintenance-fixtures.mjs';
 import { seedOnboarding } from './onboarding-fixtures.mjs';
 import { seedAudit } from './audit-fixtures.mjs';
-import { seedDashboard, seedDashboardCurrency } from './dashboard-fixtures.mjs';
+import { seedDashboard, seedDashboardCurrency, seedDashboardOverflow } from './dashboard-fixtures.mjs';
 import { seedTrainingPrint, cleanTrainingPrint } from './training-print-fixtures.mjs';
 import { seedPlatform, readPlatform, cleanPlatform, recordPlatformUserAudit } from './platform-fixtures.mjs';
 import { requestPlatform } from './platform-request.mjs';
@@ -1511,6 +1511,7 @@ async function main() {
 				'audit',
 				'dashboard',
 				'dashboard-currency',
+				'dashboard-overflow',
 				'platform-admin',
 				'communications',
 				'organization-destruction',
@@ -1541,6 +1542,10 @@ async function main() {
 		}
 		if (kind === 'dashboard-currency') {
 			note(await seedDashboardCurrency({ client, fixture, tag, ownedState, save }));
+			return;
+		}
+		if (kind === 'dashboard-overflow') {
+			note(await seedDashboardOverflow({ client, fixture, tag, ownedState, save }));
 			return;
 		}
 		if (kind === 'deletion-sources') {

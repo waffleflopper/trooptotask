@@ -1,19 +1,13 @@
 <script lang="ts">
 	import { trainingWorkspaceHydrator } from '$features/training';
 	import type { TrainingWorkspaceResult, TrainingWorkspaceRestricted } from '$features/training/contracts';
-	import { throwRenderError } from '$lib/utils/streamedRouteData';
 	import { hydrateStreamedWorkspace } from '$lib/utils/streamedWorkspaceHydrator';
 	import WorkspaceAccessRestricted from '../../WorkspaceAccessRestricted.svelte';
+	import WorkspaceLoadError from '../../WorkspaceLoadError.svelte';
 
 	let { children, data } = $props();
 	let hydrationError = $state<Error | null>(null);
 	let accessRestricted = $state(false);
-	const renderHydrationError = $derived.by(() => {
-		if (hydrationError) {
-			throwRenderError(hydrationError, 'Failed to hydrate training workspace');
-		}
-		return null;
-	});
 
 	$effect(() => {
 		hydrationError = null;
@@ -38,7 +32,7 @@
 </script>
 
 {#if hydrationError}
-	{renderHydrationError}
+	<WorkspaceLoadError subject="Training" />
 {:else if accessRestricted}
 	<WorkspaceAccessRestricted subject="training" />
 {:else}

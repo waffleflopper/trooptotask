@@ -21,6 +21,9 @@ export type {
 import type { TrainingBriefingReportInput } from './utils/briefingReportInput';
 
 export type { TrainingType, TrainingView, PersonnelTraining, TrainingStatus } from './training.types';
+
+/** Matches the `training_types.color` column default and the seeded value, so a type saved without a color renders gray. */
+export const DEFAULT_TRAINING_TYPE_COLOR = '#6b7280';
 export { isTrainingApplicable } from './utils/applicability';
 export type { TrainingStats } from './utils/trainingStatus';
 export type {

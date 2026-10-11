@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { TrainingPageAccess } from '../contracts';
+	import { DEFAULT_TRAINING_TYPE_COLOR, type TrainingPageAccess } from '../contracts';
 	import { ArrowDown, ArrowUp, Trash2 } from '@lucide/svelte';
 	import * as Empty from '$lib/components/ui/empty';
 	import * as Field from '$lib/components/ui/field';
@@ -60,7 +60,7 @@
 
 	let editName = $state('');
 	let editDescription = $state('');
-	let editColor = $state('#6b7280');
+	let editColor = $state(DEFAULT_TRAINING_TYPE_COLOR);
 	let editExpirationMode: ExpirationMode = $state('never');
 	let editExpirationMonths = $state<number | null>(12);
 	let editWarningYellow = $state(60);
@@ -172,7 +172,7 @@
 		selectedTypeId = null;
 		editName = '';
 		editDescription = '';
-		editColor = '#6b7280';
+		editColor = DEFAULT_TRAINING_TYPE_COLOR;
 		editExpirationMode = 'fixed';
 		editExpirationMonths = 12;
 		editWarningYellow = 60;

@@ -49,8 +49,10 @@ Use the index's owned worker, launch, doctor and native DevTools conventions. Ta
 							(n.labels?.[0] ? text(n.labels[0]) : text(n).slice(0, 60))),
 					tabindex: n.getAttribute('tabindex'),
 					expanded: n.getAttribute('aria-expanded'),
+					pressed: n.getAttribute('aria-pressed'),
 					selected: n.getAttribute('aria-selected'),
 					checked: n.getAttribute('aria-checked'),
+					sort: n.getAttribute('aria-sort'),
 					state: n.getAttribute('data-state'),
 					invalid: n.getAttribute('aria-invalid'),
 					busy: n.getAttribute('aria-busy'),
@@ -63,6 +65,7 @@ Use the index's owned worker, launch, doctor and native DevTools conventions. Ta
 		dialogs: [...document.querySelectorAll('[role=dialog],[role=alertdialog]')].map((d) => ({
 			role: d.getAttribute('role'),
 			state: d.getAttribute('data-state'),
+			busy: d.getAttribute('aria-busy'),
 			title: ids(d, 'aria-labelledby')
 				.map((x) => x.text)
 				.join(' ')

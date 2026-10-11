@@ -1,15 +1,16 @@
 import { z } from 'zod';
-import type {
-	SavedTrainingType,
-	SavedTrainingView,
-	SavedTrainingCompletion,
-	TrainingTypeCreate,
-	TrainingTypePatch,
-	TrainingViewCreate,
-	TrainingViewPatch,
-	TrainingCompletionCreate,
-	TrainingCompletionPatch,
-	TrainingCompletedUpsert
+import {
+	DEFAULT_TRAINING_TYPE_COLOR,
+	type SavedTrainingType,
+	type SavedTrainingView,
+	type SavedTrainingCompletion,
+	type TrainingTypeCreate,
+	type TrainingTypePatch,
+	type TrainingViewCreate,
+	type TrainingViewPatch,
+	type TrainingCompletionCreate,
+	type TrainingCompletionPatch,
+	type TrainingCompletedUpsert
 } from '../contracts';
 
 export type TrainingTypeRow = {
@@ -173,7 +174,7 @@ export function trainingTypeCreateRow(input: TrainingTypeCreate, orgId: string) 
 		excluded_mos: input.excludedMos ?? [],
 		excluded_ranks: input.excludedRanks ?? [],
 		exempt_personnel_ids: input.exemptPersonnelIds ?? [],
-		color: input.color ?? '#6b7280',
+		color: input.color ?? DEFAULT_TRAINING_TYPE_COLOR,
 		sort_order: input.sortOrder ?? 0,
 		expiration_date_only: input.expirationDateOnly ?? false,
 		can_be_exempted: input.canBeExempted ?? false,

@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { getAppShellContext } from '$features/app-shell';
-	import { DashboardLoadError, DashboardPageView, createDashboardScreenModel } from '$features/dashboard';
+	import { DashboardPageView, createDashboardScreenModel } from '$features/dashboard';
 	import type { DashboardPageData } from '$features/dashboard/contracts';
 	import type { PageData } from './$types';
 	import type { DashboardPageSummaryData } from '$features/dashboard/contracts';
 	import type { DashboardWorkspaceResult } from '$features/dashboard/contracts';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { isPromiseLike, observeDeferred } from '$lib/utils/streamedRouteData';
+	import WorkspaceLoadError from '../WorkspaceLoadError.svelte';
 
 	type DashboardRouteData = Omit<PageData, 'summary'> & {
 		summary?: DashboardPageSummaryData | Promise<DashboardPageSummaryData>;
@@ -120,11 +121,11 @@
 </script>
 
 {#if loadError}
-	<DashboardLoadError />
+	<WorkspaceLoadError subject="Dashboard" />
 {:else if pending}
-	<section class="workspace-loading" aria-busy="true" aria-live="polite" role="status">
-		<div class="workspace-loading__hero">
-			<div class="workspace-loading__copy">
+	<section class="grid gap-4 p-4" aria-busy="true" aria-live="polite" role="status">
+		<div class="grid grid-cols-1 items-stretch gap-4 min-[721px]:grid-cols-[minmax(0,1fr)_auto]">
+			<div class="grid gap-3">
 				<Skeleton class="h-3 w-[92px]" />
 				<Skeleton class="h-14 w-full" />
 				<Skeleton class="h-[18px] w-[78%]" />
@@ -132,7 +133,7 @@
 			</div>
 			<Skeleton class="h-[88px] w-[136px]" />
 		</div>
-		<div class="workspace-loading__grid">
+		<div class="grid grid-cols-1 gap-4 min-[721px]:grid-cols-2">
 			<Skeleton class="h-[200px] w-full" />
 			<Skeleton class="h-[200px] w-full" />
 			<Skeleton class="h-[240px] w-full" />
@@ -142,36 +143,3 @@
 {:else if ctx}
 	<DashboardPageView {ctx} />
 {/if}
-
-<style>
-	.workspace-loading {
-		display: grid;
-		gap: 1rem;
-		padding: 1rem;
-	}
-
-	.workspace-loading__hero {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr) auto;
-		gap: 1rem;
-		align-items: stretch;
-	}
-
-	.workspace-loading__copy {
-		display: grid;
-		gap: 0.75rem;
-	}
-
-	.workspace-loading__grid {
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: 1rem;
-	}
-
-	@media (max-width: 720px) {
-		.workspace-loading__hero,
-		.workspace-loading__grid {
-			grid-template-columns: 1fr;
-		}
-	}
-</style>

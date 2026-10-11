@@ -1,7 +1,9 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import type { TrainingBatchRecord, TrainingBatchImportResult } from '../contracts';
 	import type { Personnel } from '$features/personnel/contracts';
 	import type { TrainingType } from '$features/training/training.types';
+	import * as Alert from '$lib/components/ui/alert';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
@@ -56,7 +58,13 @@
 	}
 	let results = $state<ImportResults | null>(null);
 	let importError = $state('');
+	let requestError = $state('');
+	let previewEdited = $state(false);
 	let isSubmitting = $state(false);
+	let importButton = $state<HTMLElement | null>(null);
+	const dirty = $derived(
+		importState === 'input' ? importText.trim() !== '' : importState === 'preview' && previewEdited
+	);
 
 	const exampleCsv = `Last Name,First Name,Training Type,Date / Status,Notes\nSmith,John,CPR/BLS,2024-01-15,\nJohnson,Jane,ACLS,2024-02-20,\nWilliams,Robert,First Aid,yes,Annual refresh\nDavis,Michael,Safety Brief,exempt,`;
 
@@ -179,6 +187,7 @@
 			};
 		});
 
+		previewEdited = false;
 		selection.clear();
 		selection.toggleAllPageRows(true);
 	}
@@ -216,9 +225,11 @@
 		rawRows = [];
 		previewRows = [];
 		importError = '';
+		requestError = '';
 	}
 
 	function updatePreviewCell(row: PreviewRow, key: string, value: string) {
+		previewEdited = true;
 		row.values = { ...row.values, [key]: value };
 		row.validation = validateRow(row.values);
 		previewRows = [...previewRows];
@@ -282,6 +293,7 @@
 		isSubmitting = true;
 		importState = 'importing';
 		importError = '';
+		requestError = '';
 
 		try {
 			const res = await fetch(`/org/${orgId}/api/personnel-trainings/batch`, {
@@ -304,10 +316,14 @@
 			};
 			importState = 'results';
 		} catch (err) {
-			importError = err instanceof Error ? err.message : 'Import failed';
+			requestError = err instanceof Error ? err.message : 'Import failed';
 			importState = 'preview';
 		} finally {
 			isSubmitting = false;
+		}
+		if (requestError) {
+			await tick();
+			importButton?.focus();
 		}
 	}
 
@@ -323,14 +339,21 @@
 </script>
 
 {#snippet previewCell(row: PreviewRow, column: ColumnDef<PreviewRow>)}
+	{@const issue = row.validation.cellErrors[column.key]}
+	{@const issueId = `${row.id}-${column.key}-issue`}
 	<Input
 		aria-label={`${column.header} for source row ${row.sourceRowNumber}`}
+		aria-invalid={!!issue}
+		aria-describedby={issue ? issueId : undefined}
 		value={row.values[column.key] ?? ''}
 		oninput={(event) => updatePreviewCell(row, column.key, event.currentTarget.value)}
 	/>
+	{#if issue}
+		<span id={issueId} class="sr-only">{issue}</span>
+	{/if}
 {/snippet}
 
-<AppDialog.Root busy={isSubmitting} onClose={handleClose}>
+<AppDialog.Root busy={isSubmitting} closeBlocked={dirty} onClose={handleClose}>
 	<AppDialog.Content size="wide" class="h-[min(42rem,calc(100dvh-2rem))]">
 		<AppDialog.Header>
 			<AppDialog.Title>Bulk Training Import</AppDialog.Title>
@@ -400,6 +423,12 @@
 						description="Correct row values inline, then import the checked rows."
 						meta={[{ label: 'Rows', value: `${rawRows.length} rows loaded` }]}
 					/>
+					{#if requestError}
+						<Alert.Root variant="destructive">
+							<Alert.Title>Import failed</Alert.Title>
+							<Alert.Description>{requestError} Your preview is unchanged. Try again.</Alert.Description>
+						</Alert.Root>
+					{/if}
 					<BulkImportWorkspace.ValidationSummary
 						title="Preview validation"
 						description="Rows with errors are visible but cannot be selected until fixed."
@@ -448,6 +477,7 @@
 			{:else if importState === 'preview'}
 				<Button variant="outline" type="button" onclick={handleBack}>Back</Button>
 				<Button
+					bind:ref={importButton}
 					type="button"
 					onclick={handleImport}
 					disabled={isSubmitting || !!submitDisabledReason}

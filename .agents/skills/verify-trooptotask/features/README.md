@@ -55,6 +55,7 @@ For durable publication, follow [artifact packaging](../../../../docs/architectu
 - [Manage groups](manage-groups.md): create, rename, remove, persist, and deny same/foreign Organization writes.
 - [Rank catalog](rank-settings.md): branch packs, custom ranks, edit, order, single and bulk retire/reactivate, remove, filters, failure and denial.
 - [Personnel, Groups and settings forms](personnel-form-states.md): failed saves that keep entered values, field error association and per-screen empty, restricted, disabled and narrow/dark states.
+- [Dashboard and Training states](training-form-states.md): raw controls, failed saves that keep entered values, field error association, data colors, tables and print, and per-screen loading, empty, error, denied, narrow and dark states.
 - [Sign-in rosters](sign-in-rosters.md): Training entry, saved Personnel snapshot and PDF, signed scan lifecycle, scope, denial and recovery.
 - [Training catalog and views](training-catalog-views.md): requirement types, applicability, saved matrix views, scope, denial and persistence.
 - [Training completions, matrix and reports](training-completions-reports.md): saved record lifecycle, import/upsert recovery, dated status math, full matrix and report downloads, and scoped denial.

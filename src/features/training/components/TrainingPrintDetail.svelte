@@ -24,7 +24,7 @@
 </script>
 
 <section class="break-before-page" aria-label="Affected soldiers, loaded page">
-	<table class="w-full table-fixed border-separate border-spacing-0">
+	<table class="w-full table-fixed border-separate border-spacing-0" aria-label="Affected soldiers by requirement">
 		<colgroup>
 			{#each COLUMN_WIDTHS as width, index (index)}
 				<col style:width={`${width}px`} />

@@ -150,7 +150,6 @@ describe('PersonTrainingEditor', () => {
 			rejectSave = reject;
 		});
 		const onSave = vi.fn().mockReturnValueOnce(pendingSave).mockResolvedValueOnce(undefined);
-		const errorToast = vi.spyOn(toast, 'error').mockImplementation(() => 'error');
 		const record = savedRecord;
 		const view = render(PersonTrainingEditor, {
 			props: {
@@ -171,11 +170,12 @@ describe('PersonTrainingEditor', () => {
 		await view.rerender({ trainings: [{ ...record, id: 'pending-record', notes: 'Retained draft' }] });
 		rejectSave(new Error('Save denied'));
 		await view.rerender({ trainings: [record] });
-		await waitFor(() => expect(errorToast).toHaveBeenCalled());
+		expect((await screen.findByRole('alert')).textContent).toContain('Orientation: Save denied');
 		expect((screen.getByLabelText('Notes') as HTMLInputElement).value).toBe('Retained draft');
 		expect((screen.getByLabelText('Certificate URL') as HTMLInputElement).value).toBe('https://example.test/draft');
 		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 		await waitFor(() => expect(screen.queryByLabelText('Notes')).toBeNull());
+		expect(screen.queryByRole('alert')).toBeNull();
 		expect(onSave.mock.calls.map(([data]) => data)).toEqual([
 			{
 				personnelId: person.id,
@@ -249,10 +249,60 @@ describe('PersonTrainingEditor', () => {
 		rejectSave(new Error('Save denied'));
 
 		await waitFor(() => expect(dialog.hasAttribute('aria-busy')).toBe(false));
-		expect(errorToast).toHaveBeenCalledWith('Save denied', { duration: 6000 });
+		expect(within(dialog).getByRole('alert').textContent).toContain('Orientation: Save denied');
+		expect(errorToast).not.toHaveBeenCalled();
 		const notes = screen.getByLabelText('Notes') as HTMLInputElement;
 		expect(notes.value).toBe('Draft A');
 		expect(inDisabledGroup(notes)).toBe(false);
+		await waitFor(() => expect(document.activeElement).toBe(save));
+	});
+
+	it('keeps the editor open on Escape while an inline edit is dirty and closes once it is cancelled', async () => {
+		vi.useRealTimers();
+		const onClose = vi.fn();
+		render(PersonTrainingEditor, {
+			props: {
+				person,
+				trainingTypes: [neverExpiresType],
+				trainings: [savedRecord],
+				onSave: vi.fn(),
+				onRemove: vi.fn(),
+				onClose
+			}
+		});
+		const dialog = screen.getByRole('dialog', { name: 'Training Records' });
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+		await fireEvent.input(screen.getByLabelText('Notes'), { target: { value: 'Unsaved draft' } });
+
+		await fireEvent.keyDown(dialog, { key: 'Escape' });
+
+		expect(onClose).not.toHaveBeenCalled();
+		expect((screen.getByLabelText('Notes') as HTMLInputElement).value).toBe('Unsaved draft');
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+		await fireEvent.keyDown(dialog, { key: 'Escape' });
+
+		expect(onClose).toHaveBeenCalledTimes(1);
+	});
+
+	it('closes on Escape when an inline edit was opened but not changed', async () => {
+		vi.useRealTimers();
+		const onClose = vi.fn();
+		render(PersonTrainingEditor, {
+			props: {
+				person,
+				trainingTypes: [neverExpiresType],
+				trainings: [savedRecord],
+				onSave: vi.fn(),
+				onRemove: vi.fn(),
+				onClose
+			}
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+
+		await fireEvent.keyDown(screen.getByRole('dialog', { name: 'Training Records' }), { key: 'Escape' });
+
+		expect(onClose).toHaveBeenCalledTimes(1);
 	});
 
 	it('saves the draft it started with and leaves no newer draft to lose', async () => {

@@ -33,6 +33,7 @@
 	let selectedIds = new SvelteSet<string>();
 	let orderedIds: string[] = $state([]);
 	let error = $state('');
+	let nameRequired = $state(false);
 
 	const orderedViews = $derived([...trainingViewsStore.items].sort((a, b) => a.name.localeCompare(b.name)));
 	const selectedView = $derived(
@@ -67,6 +68,7 @@
 		selectedIds.clear();
 		orderedIds = [];
 		error = '';
+		nameRequired = false;
 		creating = true;
 		editing = false;
 		mobileDetailOpen = true;
@@ -80,6 +82,7 @@
 		for (const id of view.columnIds) selectedIds.add(id);
 		orderedIds = [...view.columnIds];
 		error = '';
+		nameRequired = false;
 		editing = true;
 		creating = false;
 		mobileDetailOpen = true;
@@ -127,7 +130,7 @@
 
 	async function handleSave() {
 		if (!name.trim()) {
-			error = 'Name is required.';
+			nameRequired = true;
 			return;
 		}
 
@@ -228,7 +231,9 @@
 						<Field.Root>
 							<Field.Label for="view-name">View Name</Field.Label>
 							<Input id="view-name" type="text" bind:value={name} placeholder="e.g. Annual Trainings" />
-							{#if error}
+							{#if nameRequired && !name.trim()}
+								<Field.Error>Name is required.</Field.Error>
+							{:else if error}
 								<Field.Error>{error}</Field.Error>
 							{/if}
 						</Field.Root>

@@ -204,7 +204,10 @@
 											type is on the matrix
 										</p>
 									</div>
-									<table class="mt-1 w-full table-fixed border-collapse">
+									<table
+										class="mt-1 w-full table-fixed border-collapse"
+										aria-label="Training types with the most requirements not ready or lapsing"
+									>
 										<colgroup>
 											<col class="w-5" />
 											<col class="w-[330px]" />

@@ -130,4 +130,17 @@ describe('TrainingViewsPage', () => {
 		});
 		expect(trainingViewsStore.items).toEqual(mode === 'create' ? [...trainingViews, savedView] : [savedView]);
 	});
+
+	it('clears the required-name error once a name is typed', async () => {
+		render(TrainingViewsPage, { props: { org } });
+		await fireEvent.click(screen.getByRole('button', { name: 'New View' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+		expect(screen.getByText('Name is required.')).toBeTruthy();
+
+		await fireEvent.input(screen.getByRole('textbox', { name: 'View Name' }), {
+			target: { value: 'Range priorities' }
+		});
+
+		expect(screen.queryByText('Name is required.')).toBeNull();
+	});
 });

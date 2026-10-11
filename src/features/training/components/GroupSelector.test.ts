@@ -33,4 +33,33 @@ describe('GroupSelector', () => {
 		expect(screen.getByRole('checkbox', { name: 'Medical' })).toBeTruthy();
 		expect(screen.queryByRole('checkbox', { name: 'Infantry' })).toBeNull();
 	});
+
+	it.each([
+		{ removed: 'Medical', focused: 'Remove Signal' },
+		{ removed: 'Signal', focused: 'Remove Medical' }
+	])('moves focus from the removed $removed chip to $focused', async ({ removed, focused }) => {
+		const onchange = vi.fn();
+		const values = ['Infantry', 'Medical', 'Signal'];
+		const { rerender } = render(GroupSelector, {
+			props: { title: 'Roles', values, selected: ['Medical', 'Signal'], onchange }
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: `Remove ${removed}` }));
+		await rerender({ title: 'Roles', values, selected: onchange.mock.lastCall![0], onchange });
+
+		expect(document.activeElement).toBe(screen.getByRole('button', { name: focused }));
+	});
+
+	it('moves focus to the search field when the last chip is removed', async () => {
+		const onchange = vi.fn();
+		const values = ['Infantry', 'Medical'];
+		const { rerender } = render(GroupSelector, {
+			props: { title: 'Roles', values, selected: ['Medical'], onchange }
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Remove Medical' }));
+		await rerender({ title: 'Roles', values, selected: [], onchange });
+
+		expect(document.activeElement).toBe(screen.getByLabelText('Search roles'));
+	});
 });

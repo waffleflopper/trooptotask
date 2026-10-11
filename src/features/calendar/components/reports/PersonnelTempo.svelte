@@ -67,6 +67,7 @@
 			return computePersonnelTempo(
 				personnel,
 				entries,
+				statusTypes,
 				awayStatusSelect.selectedIds as Set<string>,
 				startDate,
 				endDate,

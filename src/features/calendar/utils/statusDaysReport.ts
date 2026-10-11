@@ -1,4 +1,4 @@
-import type { AvailabilityEntry } from '$features/calendar/contracts';
+import type { AvailabilityEntry, StatusType } from '$features/calendar/contracts';
 import type { Personnel } from '$features/personnel/contracts';
 import { comparePersonnelByRankThenName } from '$features/personnel/contracts';
 
@@ -10,7 +10,7 @@ export interface StatusDayRow {
 
 export interface StatusDaysResult {
 	rows: StatusDayRow[];
-	activeStatusTypeIds: string[]; // status type IDs that appear in results (for column headers)
+	activeStatusTypeIds: string[]; // status type IDs that appear in results, in catalog order (for column headers)
 }
 
 /**
@@ -44,6 +44,7 @@ function clampDate(date: string, min: string, max: string): string {
 export function computeStatusDays(
 	personnel: Personnel[],
 	entries: AvailabilityEntry[],
+	statusTypes: StatusType[],
 	startDate: string,
 	endDate: string
 ): StatusDaysResult {
@@ -86,6 +87,6 @@ export function computeStatusDays(
 
 	return {
 		rows,
-		activeStatusTypeIds: [...activeStatusTypeIds]
+		activeStatusTypeIds: statusTypes.filter((type) => activeStatusTypeIds.has(type.id)).map((type) => type.id)
 	};
 }

@@ -747,10 +747,6 @@ async function main() {
 	}
 	if (command === 'actor') {
 		const [role, destination = 'calendar'] = args;
-		const actor =
-			role === 'unconfirmedAccount' && destination === 'org/new'
-				? (await saved()).unconfirmedAccount
-				: fixture.actors[role];
 		const orgDestinations = [
 			'evals',
 			'personnel',
@@ -777,7 +773,7 @@ async function main() {
 			'settings/danger'
 		];
 		if (
-			!actor ||
+			!fixture.actors[role] ||
 			![
 				...orgDestinations,
 				'dashboard',
@@ -790,7 +786,7 @@ async function main() {
 				'admin/organizations',
 				'admin/access-requests'
 			].includes(destination) ||
-			(actor.organization === null && orgDestinations.includes(destination)) ||
+			(fixture.actors[role].organization === null && orgDestinations.includes(destination)) ||
 			((destination === 'admin' || destination.startsWith('admin/')) &&
 				![
 					'platformReviewer',
@@ -805,7 +801,7 @@ async function main() {
 				].includes(role))
 		)
 			throw new Error('Unknown synthetic actor or destination.');
-		const targetOrg = actor.organization ?? null;
+		const targetOrg = fixture.actors[role].organization ?? null;
 		const destinationPath =
 			destination === 'admin' || destination.startsWith('admin/')
 				? `/${destination}`
@@ -905,8 +901,8 @@ async function main() {
 		await tool(state, 'fill_form', {
 			pageId,
 			elements: [
-				{ uid: uid('Email Address'), value: actor.email },
-				{ uid: uid('Password'), value: actor.password }
+				{ uid: uid('Email Address'), value: fixture.actors[role].email },
+				{ uid: uid('Password'), value: fixture.actors[role].password }
 			]
 		});
 		const ready = text(await tool(state, 'take_snapshot', { pageId }));
@@ -1521,8 +1517,7 @@ async function main() {
 				'organization-destruction',
 				'rating-scheme',
 				'deletion-sources',
-				'account-setup',
-				'unconfirmed-account'
+				'account-setup'
 			].includes(kind)
 		)
 			throw new Error('Unknown temporary seed.');
@@ -1583,28 +1578,6 @@ async function main() {
 					])
 				),
 				boundary: 'Privileged synthetic setup links; raw tokens stay in private worker state.'
-			});
-			return;
-		}
-		if (kind === 'unconfirmed-account') {
-			if (ownedState.unconfirmedAccount) throw new Error('Clean the existing unconfirmed account seed first.');
-			const account = {
-				email: `unconfirmed-${tag}@verification.invalid`,
-				password: `Synthetic-${randomUUID()}!9`,
-				organization: null
-			};
-			const { user } = checked(
-				await client.auth.admin.createUser({ email: account.email, password: account.password, email_confirm: false })
-			);
-			ownedState.unconfirmedAccount = { ...account, id: user.id };
-			await save(ownedState);
-			note({
-				kind,
-				tag,
-				email: account.email,
-				emailConfirmed: Boolean(user.email_confirmed_at),
-				signIn: 'actor unconfirmedAccount org/new',
-				boundary: 'Synthetic auth user without a membership; its password stays in private worker state.'
 			});
 			return;
 		}
@@ -2247,10 +2220,6 @@ async function main() {
 		}
 		ownedState.seeded = [];
 		delete ownedState.accountSetup;
-		if (ownedState.unconfirmedAccount) {
-			checked(await client.auth.admin.deleteUser(ownedState.unconfirmedAccount.id));
-			delete ownedState.unconfirmedAccount;
-		}
 		await save(ownedState);
 		await clearArtifactHttpCache({ session, sessionId: state.id });
 		if (platformError) throw platformError;

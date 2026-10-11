@@ -36,7 +36,6 @@
 	<Button
 		size="sm"
 		variant={format === 'json' ? 'default' : 'outline'}
-		class="aria-disabled:opacity-50"
 		onclick={() => onExportOrganization(format)}
 		disabled={busy && !exporting}
 		aria-disabled={exporting ? 'true' : undefined}

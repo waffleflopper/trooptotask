@@ -47,6 +47,7 @@ export class GeneralSettingsWorkspace {
 	}
 
 	requestSlugClear(): void {
+		if (this.slugLoading) return;
 		this.pendingSlugAction = 'clear';
 		this.slugConfirmOpen = true;
 	}
@@ -68,7 +69,7 @@ export class GeneralSettingsWorkspace {
 	}
 
 	submitName(cancel: () => void, focus: SettleOptions['focus']): SubmitCallback | void {
-		if (!this.#active) {
+		if (!this.#active || this.nameLoading) {
 			cancel();
 			return;
 		}
@@ -90,7 +91,7 @@ export class GeneralSettingsWorkspace {
 	}
 
 	submitSlug(cancel: () => void, focus: (action: SlugAction) => SettleOptions['focus']): SubmitCallback | void {
-		if (!this.#active) {
+		if (!this.#active || this.slugLoading) {
 			cancel();
 			return;
 		}

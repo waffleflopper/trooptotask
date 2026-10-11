@@ -108,7 +108,9 @@
 						<Button
 							bind:ref={nameSaveButton}
 							type="submit"
-							disabled={workspace.nameLoading || !organization.canUpdateProfile}
+							disabled={!organization.canUpdateProfile}
+							aria-disabled={workspace.nameLoading ? 'true' : undefined}
+							aria-busy={workspace.nameLoading || undefined}
 						>
 							{workspace.nameLoading ? 'Saving...' : 'Save'}
 						</Button>
@@ -185,7 +187,9 @@
 						<Button
 							bind:ref={slugSaveButton}
 							type="submit"
-							disabled={workspace.slugLoading || !organization.canUpdateUrlSlug}
+							disabled={!organization.canUpdateUrlSlug}
+							aria-disabled={workspace.slugLoading ? 'true' : undefined}
+							aria-busy={workspace.slugLoading || undefined}
 						>
 							{workspace.slugLoading ? 'Saving...' : organization.urlSlug ? 'Update URL' : 'Set URL'}
 						</Button>
@@ -196,7 +200,8 @@
 								bind:ref={slugResetButton}
 								type="button"
 								variant="outline"
-								disabled={workspace.slugLoading || !organization.canUpdateUrlSlug}
+								disabled={!organization.canUpdateUrlSlug}
+								aria-disabled={workspace.slugLoading ? 'true' : undefined}
 								onclick={() => workspace.requestSlugClear()}>Reset to default</Button
 							>
 						</div>

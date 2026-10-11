@@ -88,7 +88,8 @@
 		};
 	};
 
-	const removeMemberEnhance: SubmitFunction = ({ formData, formElement }) => {
+	const removeMemberEnhance: SubmitFunction = ({ formData, formElement, cancel }) => {
+		if (removingMemberId) return cancel();
 		removingMemberId = String(formData.get('membershipId'));
 		memberRequestError = null;
 		return async (outcome) => {
@@ -151,7 +152,8 @@
 			<form
 				method="POST"
 				action="?/invite"
-				use:enhance={({ submitter }) => {
+				use:enhance={({ submitter, cancel }) => {
+					if (inviteLoading) return cancel();
 					inviteLoading = true;
 					invitationActionId = null;
 					invitationRequestError = null;
@@ -225,7 +227,12 @@
 						{/if}
 					</Field.Root>
 					<div class="flex items-end">
-						<Button type="submit" disabled={inviteLoading}>{inviteLoading ? 'Inviting...' : 'Invite'}</Button>
+						<!-- aria-disabled keeps focus on the pressed button while the invitation is pending. -->
+						<Button
+							type="submit"
+							aria-disabled={inviteLoading ? 'true' : undefined}
+							aria-busy={inviteLoading || undefined}>{inviteLoading ? 'Inviting...' : 'Invite'}</Button
+						>
 					</div>
 				</div>
 				{#if memberAccess.inviteMembershipRole === 'member'}
@@ -355,9 +362,10 @@
 									type="button"
 									variant="destructive"
 									size="sm"
-									disabled={removingMemberId === member.id}
+									aria-disabled={removingMemberId === member.id ? 'true' : undefined}
 									aria-busy={removingMemberId === member.id || undefined}
 									onclick={(event) => {
+										if (removingMemberId === member.id) return;
 										pendingRemoveMemberForm = (event.currentTarget as HTMLButtonElement).closest('form');
 										pendingRemoveMemberEmail = member.email ?? 'this member';
 									}}
@@ -493,7 +501,8 @@
 				method="POST"
 				action="?/updateMemberAccess"
 				class="grid gap-5 px-4 pb-4"
-				use:enhance={() => {
+				use:enhance={({ cancel }) => {
+					if (accessLoading) return cancel();
 					const memberId = selectedMember.id;
 					accessLoading = true;
 					accessErrorMemberId = memberId;
@@ -658,20 +667,31 @@
 							<Alert.Description>{accessRequestError ?? form?.accessError}</Alert.Description>
 						</Alert.Root>
 					{/if}
-
-					<Sheet.Footer>
-						<Button type="button" variant="outline" onclick={() => closeAccessSheet(selectedMember.id)}>Cancel</Button>
-						<Button bind:ref={accessSaveButton} type="submit" disabled={accessLoading || changeCount === 0}>
-							{#if accessLoading}
-								Saving...
-							{:else if changeCount > 0}
-								Save {changeCount} {changeCount === 1 ? 'change' : 'changes'}
-							{:else}
-								No changes
-							{/if}
-						</Button>
-					</Sheet.Footer>
 				</fieldset>
+				<!-- Outside the fieldset so Save keeps focus (aria-disabled) while the request is pending. -->
+				<Sheet.Footer>
+					<Button
+						type="button"
+						variant="outline"
+						disabled={accessLoading}
+						onclick={() => closeAccessSheet(selectedMember.id)}>Cancel</Button
+					>
+					<Button
+						bind:ref={accessSaveButton}
+						type="submit"
+						disabled={changeCount === 0}
+						aria-disabled={accessLoading ? 'true' : undefined}
+						aria-busy={accessLoading || undefined}
+					>
+						{#if accessLoading}
+							Saving...
+						{:else if changeCount > 0}
+							Save {changeCount} {changeCount === 1 ? 'change' : 'changes'}
+						{:else}
+							No changes
+						{/if}
+					</Button>
+				</Sheet.Footer>
 			</form>
 		</Sheet.Content>
 	{/if}

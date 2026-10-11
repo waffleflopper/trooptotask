@@ -97,7 +97,7 @@
 					type="button"
 					variant="ghost"
 					size="xs"
-					class="shrink-0 aria-disabled:opacity-50"
+					class="shrink-0"
 					onclick={() => dismiss(announcement.id)}
 					aria-disabled={dismissing.includes(announcement.id) ? 'true' : undefined}
 					aria-label={`Dismiss announcement: ${announcement.title}`}

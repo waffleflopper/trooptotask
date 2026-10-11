@@ -65,6 +65,44 @@ async function beginNameSave() {
 	return callbacks.at(-1)!;
 }
 
+describe('General settings pending saves', () => {
+	it('keeps focus on Save while the name saves and ignores a second submission', async () => {
+		render(Page, { data: data('a'), form: null, params: { orgId: 'a' } });
+		await beginNameSave();
+		const save = screen.getByRole('button', { name: 'Saving...' }) as HTMLButtonElement;
+		save.focus();
+		const requests = callbacks.length;
+
+		await fireEvent.click(save);
+
+		expect(callbacks).toHaveLength(requests);
+		expect(screen.queryByRole('dialog')).toBeNull();
+		expect(save.disabled).toBe(false);
+		expect(save.getAttribute('aria-disabled')).toBe('true');
+		expect(document.activeElement).toBe(save);
+	});
+
+	it('keeps focus on Update URL while the URL saves and ignores a second submission or a Reset', async () => {
+		render(Page, { data: data('a'), form: null, params: { orgId: 'a' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Update URL' }));
+		await fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Update URL' }));
+		const save = screen.getByRole('button', { name: 'Saving...' }) as HTMLButtonElement;
+		const reset = screen.getByRole('button', { name: 'Reset to default' }) as HTMLButtonElement;
+		save.focus();
+		const requests = callbacks.length;
+
+		await fireEvent.click(save);
+		await fireEvent.click(reset);
+
+		expect(callbacks).toHaveLength(requests);
+		expect(screen.queryByRole('dialog')).toBeNull();
+		expect(save.disabled).toBe(false);
+		expect(save.getAttribute('aria-disabled')).toBe('true');
+		expect(reset.getAttribute('aria-disabled')).toBe('true');
+		expect(document.activeElement).toBe(save);
+	});
+});
+
 describe('General settings Organization lifetime', () => {
 	it('discards confirmations and drafts when switching between Organizations with equal profiles', async () => {
 		const view = render(Page, { data: data('a'), form: null, params: { orgId: 'a' } });

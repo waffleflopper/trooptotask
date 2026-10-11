@@ -34,7 +34,8 @@
 	const dangerZoneSection = $derived(dangerZoneState.section);
 	const currentMember = $derived(settings.currentMember);
 
-	const transferEnhance: SubmitFunction = () => {
+	const transferEnhance: SubmitFunction = ({ cancel }) => {
+		if (transferLoading) return cancel();
 		transferLoading = true;
 		transferRequestError = null;
 		return async (outcome) => {
@@ -56,7 +57,8 @@
 		};
 	};
 
-	const deleteEnhance: SubmitFunction = () => {
+	const deleteEnhance: SubmitFunction = ({ cancel }) => {
+		if (deleteLoading) return cancel();
 		deleteLoading = true;
 		deleteRequestError = null;
 		return async (outcome) => {
@@ -155,7 +157,9 @@
 					type="submit"
 					form="delete-org-form"
 					variant="destructive"
-					disabled={deleteLoading || !dangerZoneState.deleteConfirmMatches}
+					disabled={!dangerZoneState.deleteConfirmMatches}
+					aria-disabled={deleteLoading ? 'true' : undefined}
+					aria-busy={deleteLoading || undefined}
 				>
 					{deleteLoading ? 'Deleting...' : 'Delete Permanently'}
 				</Button>
@@ -210,7 +214,9 @@
 					type="submit"
 					form="transfer-ownership-form"
 					variant="destructive"
-					disabled={transferLoading || !transferState.transferConfirmMatches}
+					disabled={!transferState.transferConfirmMatches}
+					aria-disabled={transferLoading ? 'true' : undefined}
+					aria-busy={transferLoading || undefined}
 				>
 					{transferLoading ? 'Transferring...' : 'Transfer Ownership'}
 				</Button>

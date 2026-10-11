@@ -142,7 +142,33 @@ describe('Organization policy saves', () => {
 		const section = within(screen.getByRole('region', { name: region }));
 		expect((input as HTMLInputElement).value).toBe(String(edited));
 		expect(section.getByText('Unsaved changes')).toBeTruthy();
-		expect((section.getByRole('button', { name: `Save ${region}` }) as HTMLButtonElement).disabled).toBe(false);
+		expect(section.getByRole('button', { name: `Save ${region}` }).getAttribute('aria-disabled')).toBeNull();
+	});
+
+	it.each([
+		['Retention period (months)', 'Archive Retention'],
+		['Warning lead time (days)', 'Loss Warning Window'],
+		['Training readiness goal (%)', 'Training Readiness']
+	] as const)('keeps focus on Save %s while it saves and after it saves', async (label, region) => {
+		const pending = deferredResponse();
+		render(Page, { data: data('a'), form: null, params: { orgId: 'slug-a' } });
+		await fireEvent.input(screen.getByLabelText(label), { target: { value: '49' } });
+		const save = within(screen.getByRole('region', { name: region })).getByRole('button') as HTMLButtonElement;
+		save.focus();
+
+		await fireEvent.click(save);
+		await fireEvent.click(save);
+
+		expect(pending.request).toHaveBeenCalledOnce();
+		expect(save.disabled).toBe(false);
+		expect(save.getAttribute('aria-disabled')).toBe('true');
+		expect(document.activeElement).toBe(save);
+
+		pending.resolve(new Response(null, { status: 200 }));
+		await waitFor(() => expect(feedback.success).toHaveBeenCalledOnce());
+		expect(save.disabled).toBe(false);
+		expect(save.getAttribute('aria-disabled')).toBe('true');
+		expect(document.activeElement).toBe(save);
 	});
 
 	it('rejects an invalid readiness goal with a linked field error before saving', async () => {
@@ -158,9 +184,9 @@ describe('Organization policy saves', () => {
 			expect(describedBy.map((id) => document.getElementById(id)?.textContent?.trim())).toContain(
 				section.getByRole('alert').textContent?.trim()
 			);
-			expect((section.getByRole('button', { name: 'Save Training Readiness' }) as HTMLButtonElement).disabled).toBe(
-				true
-			);
+			const save = section.getByRole('button', { name: 'Save Training Readiness' });
+			expect(save.getAttribute('aria-disabled')).toBe('true');
+			await fireEvent.click(save);
 		}
 		expect(request).not.toHaveBeenCalled();
 

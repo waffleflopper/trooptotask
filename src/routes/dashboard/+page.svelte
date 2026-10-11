@@ -28,7 +28,8 @@
 	}
 
 	function respondToInvitation(invitationId: string, successText: string): SubmitFunction {
-		return ({ formElement }) => {
+		return ({ formElement, cancel }) => {
+			if (loading) return cancel();
 			loading = invitationId;
 			respondedInvitationId = invitationId;
 			requestError = null;
@@ -144,7 +145,13 @@
 										use:enhance={respondToInvitation(invitation.id, `Joined ${invitation.organizationName}.`)}
 									>
 										<input type="hidden" name="invitationId" value={invitation.id} />
-										<Button class="max-sm:w-full" type="submit" disabled={loading === invitation.id}>
+										<!-- aria-disabled keeps focus on the pressed button while the response is pending. -->
+										<Button
+											class="max-sm:w-full"
+											type="submit"
+											aria-disabled={loading === invitation.id ? 'true' : undefined}
+											aria-busy={loading === invitation.id || undefined}
+										>
 											{loading === invitation.id ? 'Accepting...' : 'Accept'}
 											<span class="sr-only">invitation to {invitation.organizationName}</span>
 										</Button>
@@ -156,7 +163,13 @@
 										use:enhance={respondToInvitation(invitation.id, 'Invitation declined.')}
 									>
 										<input type="hidden" name="invitationId" value={invitation.id} />
-										<Button class="max-sm:w-full" type="submit" variant="outline" disabled={loading === invitation.id}>
+										<Button
+											class="max-sm:w-full"
+											type="submit"
+											variant="outline"
+											aria-disabled={loading === invitation.id ? 'true' : undefined}
+											aria-busy={loading === invitation.id || undefined}
+										>
 											Decline <span class="sr-only">invitation to {invitation.organizationName}</span>
 										</Button>
 									</form>

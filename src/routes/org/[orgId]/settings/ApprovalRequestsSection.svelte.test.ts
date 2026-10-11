@@ -120,22 +120,27 @@ describe('ApprovalRequestsSection', () => {
 		vi.stubGlobal('fetch', send);
 		mount();
 		await draft();
-		await fireEvent.click(card('Archived record A').getByRole('button', { name: /Confirm/ }));
-		expect(reason().disabled).toBe(true);
+		const confirm = card('Archived record A').getByRole('button', { name: /Confirm/ }) as HTMLButtonElement;
+		confirm.focus();
+		await fireEvent.click(confirm);
+		expect(reason().readOnly).toBe(true);
 		for (const name of ['Approve Archived record B', 'Deny Archived record B']) {
-			expect((card('Archived record B').getByRole('button', { name }) as HTMLButtonElement).disabled).toBe(true);
+			expect(card('Archived record B').getByRole('button', { name }).getAttribute('aria-disabled')).toBe('true');
 		}
-		expect((card('Archived record A').getByRole('button', { name: /Confirm/ }) as HTMLButtonElement).disabled).toBe(
-			true
-		);
+		expect(confirm.getAttribute('aria-disabled')).toBe('true');
+		expect(confirm.disabled).toBe(false);
+		expect(document.activeElement).toBe(confirm);
+		await fireEvent.click(confirm);
+		await fireEvent.click(card('Archived record B').getByRole('button', { name: 'Deny Archived record B' }));
 		await fireEvent.keyDown(reason(), { key: 'Escape' });
 		await fireEvent.keyDown(reason(), { key: 'Enter' });
 		expect(reason().value).toBe('Still required');
 		expect(send).toHaveBeenCalledOnce();
 		pending.resolve(Response.json({ message: 'Review unavailable' }, { status: 503 }));
 		await waitFor(() => expect(reviewError('Archived record A')).toBe('Review unavailable'));
-		expect(reason().disabled).toBe(false);
+		expect(reason().readOnly).toBe(false);
 		expect(reason().value).toBe('Still required');
+		expect(confirm.getAttribute('aria-disabled')).toBeNull();
 	});
 
 	it.each(['response', 'transport', 'null', 'malformed', 'non-string message'] as const)(
@@ -168,7 +173,7 @@ describe('ApprovalRequestsSection', () => {
 			);
 			expect(feedback.error).not.toHaveBeenCalled();
 			expect(reason().value).toBe('Still required');
-			expect(reason().disabled).toBe(false);
+			expect(reason().readOnly).toBe(false);
 			expect(send).toHaveBeenCalledOnce();
 			expect(navigation.invalidateAll).not.toHaveBeenCalled();
 			await fireEvent.click(card('Archived record A').getByRole('button', { name: /Confirm/ }));
@@ -193,7 +198,7 @@ describe('ApprovalRequestsSection', () => {
 		await waitFor(() => expect(navigation.invalidateAll).toHaveBeenCalledOnce());
 		expect(screen.queryByText('Archived record B')).toBeNull();
 		expect(reason().value).toBe('Still required');
-		expect(reason().disabled).toBe(false);
+		expect(reason().readOnly).toBe(false);
 	});
 
 	it('reports an acknowledged review separately from refresh failure without offering the mutation again', async () => {
@@ -207,9 +212,8 @@ describe('ApprovalRequestsSection', () => {
 		expect(screen.queryByText('Archived record A')).toBeNull();
 		expect(screen.getByText('1 pending')).toBeTruthy();
 		expect(
-			(card('Archived record B').getByRole('button', { name: 'Approve Archived record B' }) as HTMLButtonElement)
-				.disabled
-		).toBe(true);
+			card('Archived record B').getByRole('button', { name: 'Approve Archived record B' }).getAttribute('aria-disabled')
+		).toBe('true');
 		refresh.reject(new Error('Readback unavailable'));
 		await refresh.promise.catch(() => undefined);
 		await waitFor(() => expect(feedback.warning).toHaveBeenCalledOnce());
@@ -220,9 +224,8 @@ describe('ApprovalRequestsSection', () => {
 		expect(screen.queryByText('Archived record A')).toBeNull();
 		expect(screen.getByText('1 pending')).toBeTruthy();
 		expect(
-			(card('Archived record B').getByRole('button', { name: 'Approve Archived record B' }) as HTMLButtonElement)
-				.disabled
-		).toBe(false);
+			card('Archived record B').getByRole('button', { name: 'Approve Archived record B' }).getAttribute('aria-disabled')
+		).toBeNull();
 		await tick();
 		expect(send).toHaveBeenCalledOnce();
 	});

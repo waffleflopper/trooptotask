@@ -116,7 +116,14 @@
 
 		<AppDialog.Footer>
 			<Button type="button" variant="outline" onclick={onClose} disabled={submitting}>Cancel</Button>
-			<Button type="button" onclick={handleSubmit} disabled={!canSubmit || submitting}>
+			<!-- aria-disabled keeps focus on Submit while the request is pending; handleSubmit ignores a repeat press. -->
+			<Button
+				type="button"
+				onclick={handleSubmit}
+				disabled={!canSubmit}
+				aria-disabled={submitting ? 'true' : undefined}
+				aria-busy={submitting || undefined}
+			>
 				{#if submitting}<Spinner />{/if}
 				{submitting ? 'Submitting...' : 'Submit'}
 			</Button>

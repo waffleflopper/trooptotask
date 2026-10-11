@@ -59,8 +59,8 @@ async function deny(reason: string) {
 function currentDraft(value: string, busy = false) {
 	const input = screen.getByRole('textbox', { name: 'Denial reason' }) as HTMLInputElement;
 	expect(input.value).toBe(value);
-	expect(input.disabled).toBe(busy);
-	expect((screen.getByRole('button', { name: /Confirm/ }) as HTMLButtonElement).disabled).toBe(busy);
+	expect(input.readOnly).toBe(busy);
+	expect(screen.getByRole('button', { name: /Confirm/ }).getAttribute('aria-disabled')).toBe(busy ? 'true' : null);
 }
 
 function noFeedback() {

@@ -15,10 +15,11 @@
 	let nameInput = $state<HTMLInputElement | null>(null);
 	let createButton = $state<HTMLButtonElement | null>(null);
 	let unexpectedError = $state<string | null>(null);
-	const canSubmit = $derived(data.emailConfirmed && !loading);
+	// A new submission supersedes the earlier failure, so its text goes while the retry is in flight.
+	const failure = $derived(loading ? undefined : form?.error);
 	// Only a 400 rejects the name itself; other failures belong to the request.
-	const nameError = $derived(page.status === 400 && form?.error ? form.error : '');
-	const requestError = $derived(unexpectedError ?? (form?.error && !nameError ? form.error : ''));
+	const nameError = $derived(page.status === 400 && failure ? failure : '');
+	const requestError = $derived(unexpectedError ?? (failure && !nameError ? failure : ''));
 </script>
 
 <svelte:head>
@@ -47,7 +48,8 @@
 			<form
 				method="POST"
 				class="flex flex-col gap-5"
-				use:enhance={() => {
+				use:enhance={({ cancel }) => {
+					if (loading) return cancel();
 					loading = true;
 					unexpectedError = null;
 					return async (outcome) => {
@@ -106,7 +108,14 @@
 
 				<div class="flex flex-col-reverse gap-3 border-t pt-5 sm:flex-row sm:justify-end">
 					<Button href="/" variant="outline">Cancel</Button>
-					<Button bind:ref={createButton} type="submit" disabled={!canSubmit}>
+					<!-- aria-disabled keeps focus on the pressed button while the request is pending. -->
+					<Button
+						bind:ref={createButton}
+						type="submit"
+						disabled={!data.emailConfirmed}
+						aria-disabled={loading ? 'true' : undefined}
+						aria-busy={loading || undefined}
+					>
 						{#if loading}<Spinner />{/if}
 						{loading ? 'Creating...' : 'Create Organization'}
 					</Button>

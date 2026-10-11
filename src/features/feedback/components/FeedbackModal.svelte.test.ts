@@ -24,7 +24,9 @@ function expectPendingDraft(message: string) {
 	expect(textbox.value).toBe(message);
 	expect(textbox.disabled).toBe(true);
 	expect((screen.getByLabelText('Category') as HTMLButtonElement).disabled).toBe(true);
-	expect((screen.getByRole('button', { name: /Submitting/ }) as HTMLButtonElement).disabled).toBe(true);
+	const pending = screen.getByRole('button', { name: /Submitting/ }) as HTMLButtonElement;
+	expect(pending.getAttribute('aria-disabled')).toBe('true');
+	expect(pending.disabled).toBe(false);
 	expect((screen.getByRole('button', { name: 'Cancel' }) as HTMLButtonElement).disabled).toBe(true);
 }
 
@@ -40,6 +42,26 @@ afterEach(() => {
 });
 
 describe('FeedbackModal submission lifetime', () => {
+	it('keeps focus on Submit while sending and sends a second press nowhere', async () => {
+		const acknowledgment = deferred<void>();
+		const send = vi.fn(async () => {
+			await acknowledgment.promise;
+			return Response.json({ success: true });
+		});
+		vi.stubGlobal('fetch', send);
+		render(FeedbackModal, { onClose: vi.fn() });
+		await fireEvent.input(screen.getByRole('textbox', { name: 'Message' }), { target: { value: 'Needs a label.' } });
+		const submitButton = screen.getByRole('button', { name: 'Submit' });
+		submitButton.focus();
+
+		await fireEvent.click(submitButton);
+		await fireEvent.click(submitButton);
+
+		expect(send).toHaveBeenCalledOnce();
+		expect(document.activeElement).toBe(submitButton);
+		acknowledgment.resolve();
+	});
+
 	it('waits for the current submission to be stored before reporting success and closing', async () => {
 		const acknowledgment = deferred<void>();
 		const saved: unknown[] = [];

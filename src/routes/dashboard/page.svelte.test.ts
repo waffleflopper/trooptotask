@@ -2,14 +2,15 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import type { ActionResult } from '@sveltejs/kit';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { frameworkOutcome } from '$lib/test-support/sveltekitEnhance';
+import { enhanceRequests, frameworkOutcome, simulateEnhance } from '$lib/test-support/sveltekitEnhance';
 
 type Callback = (options: { result: ActionResult; update: () => Promise<void> }) => Promise<void>;
-type Submit = (input: { formElement: HTMLFormElement }) => Callback;
+type Submit = (input: { formElement: HTMLFormElement; cancel: () => void }) => Callback;
 const forms = vi.hoisted(() => ({ submits: new Map<string, Submit>() }));
 vi.mock('$app/forms', () => ({
 	enhance: (form: HTMLFormElement, submit: Submit) => {
 		forms.submits.set(form.getAttribute('action') ?? '', submit);
+		return simulateEnhance(form, submit);
 	}
 }));
 
@@ -30,7 +31,9 @@ async function respond(action: string, result: ActionResult, applyForm: (form: u
 		.map((button) => button.closest('form'))
 		.find((element) => element?.getAttribute('action') === action);
 	if (!form) throw new Error(`Missing form ${action}`);
-	await forms.submits.get(action)?.({ formElement: form })(frameworkOutcome(result, { form, applyForm }));
+	await forms.submits.get(action)?.({ formElement: form, cancel: () => {} })(
+		frameworkOutcome(result, { form, applyForm })
+	);
 }
 
 describe('/dashboard page', () => {
@@ -63,6 +66,7 @@ describe('/dashboard page', () => {
 		cleanup();
 		vi.unstubAllGlobals();
 		forms.submits.clear();
+		enhanceRequests.length = 0;
 	});
 
 	it('hydrates the theme toggle without crashing when the organization chooser is forced visible', async () => {
@@ -108,6 +112,24 @@ describe('/dashboard page', () => {
 
 		expect(screen.getByRole('button', { name: 'Accept invitation to Bravo Company' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Decline invitation to Bravo Company' })).toBeTruthy();
+	});
+
+	it('keeps focus on Accept while the response is pending and sends a second press nowhere', async () => {
+		const { default: Page } = await import('./+page.svelte');
+		render(Page, { props: { data: invitationData(), form: null } });
+		const accept = screen.getByRole('button', { name: 'Accept invitation to Bravo Company' }) as HTMLButtonElement;
+		const decline = screen.getByRole('button', { name: 'Decline invitation to Bravo Company' });
+		accept.focus();
+
+		await fireEvent.click(accept);
+		await fireEvent.click(accept);
+		await fireEvent.click(decline);
+
+		expect(enhanceRequests).toHaveLength(1);
+		expect(accept.disabled).toBe(false);
+		expect(accept.getAttribute('aria-disabled')).toBe('true');
+		expect(decline.getAttribute('aria-disabled')).toBe('true');
+		expect(document.activeElement).toBe(accept);
 	});
 
 	it('moves focus to the workspace heading when a declined invitation leaves the list', async () => {

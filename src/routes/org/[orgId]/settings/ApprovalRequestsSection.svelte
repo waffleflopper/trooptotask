@@ -24,6 +24,7 @@
 		active = false;
 	});
 
+	const reviewing = $derived(processingApproval !== null);
 	const pendingApprovals = $derived(
 		approvalRequests.filter((request) => request.status === 'pending' && !reviewedIds.has(request.id))
 	);
@@ -38,6 +39,7 @@
 	}
 
 	function startDenial(id: string) {
+		if (processingApproval) return;
 		denyingId = id;
 		denialReason = '';
 		void focusById(`denial-reason-${id}`);
@@ -137,17 +139,19 @@
 								placeholder="Reason"
 								class="min-w-0 flex-1"
 								bind:value={denialReason}
-								disabled={processingApproval !== null}
+								readonly={reviewing}
 								onkeydown={(event) => {
 									if (processingApproval) return;
 									if (event.key === 'Enter') handleApprovalAction(request.id, 'deny', denialReason);
 									if (event.key === 'Escape') cancelDenial(request.id);
 								}}
 							/>
+							<!-- aria-disabled keeps focus on the pressed button while the review is pending. -->
 							<Button
 								variant="destructive"
 								size="sm"
-								disabled={processingApproval !== null}
+								aria-disabled={reviewing ? 'true' : undefined}
+								aria-busy={processingApproval === request.id || undefined}
 								onclick={() => handleApprovalAction(request.id, 'deny', denialReason)}
 							>
 								{#if processingApproval === request.id}<Spinner />{/if}
@@ -158,7 +162,8 @@
 						<div class="flex flex-wrap gap-2">
 							<Button
 								size="sm"
-								disabled={processingApproval !== null}
+								aria-disabled={reviewing ? 'true' : undefined}
+								aria-busy={processingApproval === request.id || undefined}
 								onclick={() => handleApprovalAction(request.id, 'approve')}
 							>
 								{#if processingApproval === request.id}<Spinner />{/if}
@@ -168,7 +173,7 @@
 								id="deny-{request.id}"
 								variant="outline"
 								size="sm"
-								disabled={processingApproval !== null}
+								aria-disabled={reviewing ? 'true' : undefined}
 								onclick={() => startDenial(request.id)}
 							>
 								Deny <span class="sr-only">{requestName(request)}</span>

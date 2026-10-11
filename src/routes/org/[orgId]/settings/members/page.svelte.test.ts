@@ -20,12 +20,24 @@ vi.mock('$lib/stores/toast.svelte', () => ({
 vi.mock('$app/forms', () => ({
 	enhance: (
 		form: HTMLFormElement,
-		submit?: (input: { formElement: HTMLFormElement; formData: FormData; submitter: HTMLElement | null }) => unknown
+		submit?: (input: {
+			formElement: HTMLFormElement;
+			formData: FormData;
+			submitter: HTMLElement | null;
+			cancel: () => void;
+		}) => unknown
 	) => {
 		form.addEventListener('submit', (event) => {
 			event.preventDefault();
 			const submitter = (event as SubmitEvent).submitter ?? null;
-			heldSubmissions.push(submit?.({ formElement: form, formData: new FormData(form), submitter }) as HeldSubmission);
+			let cancelled = false;
+			const callback = submit?.({
+				formElement: form,
+				formData: new FormData(form),
+				submitter,
+				cancel: () => (cancelled = true)
+			});
+			if (!cancelled) heldSubmissions.push(callback as HeldSubmission);
 		});
 	}
 }));
@@ -121,15 +133,38 @@ describe('members settings page', () => {
 		renderPage();
 		const row = memberRow('alpha@example.com');
 		const remove = within(row).getByRole('button', { name: 'Remove alpha@example.com' }) as HTMLButtonElement;
+		remove.focus();
 
 		await fireEvent.click(remove);
 		await fireEvent.click(screen.getByRole('button', { name: 'Remove member' }));
 
 		expect(heldSubmissions).toHaveLength(1);
-		expect(remove.disabled).toBe(true);
+		expect(remove.disabled).toBe(false);
+		expect(remove.getAttribute('aria-disabled')).toBe('true');
+		expect(document.activeElement).toBe(remove);
+
+		await fireEvent.click(remove);
+		expect(screen.queryByRole('dialog', { name: 'Remove Member' })).toBeNull();
+		expect(heldSubmissions).toHaveLength(1);
 
 		await settle(0);
-		await waitFor(() => expect(remove.disabled).toBe(false));
+		await waitFor(() => expect(remove.getAttribute('aria-disabled')).toBeNull());
+	});
+
+	it('keeps focus on Invite while it sends and sends a second press nowhere', async () => {
+		renderPage(null, true);
+		await fireEvent.input(screen.getByLabelText('Email address'), { target: { value: 'new@example.com' } });
+		const invite = screen.getByRole('button', { name: 'Invite' }) as HTMLButtonElement;
+		invite.focus();
+
+		await fireEvent.click(invite);
+		await fireEvent.click(invite);
+
+		expect(heldSubmissions).toHaveLength(1);
+		expect(invite.disabled).toBe(false);
+		expect(invite.getAttribute('aria-disabled')).toBe('true');
+		expect(invite.textContent?.trim()).toBe('Inviting...');
+		expect(document.activeElement).toBe(invite);
 	});
 
 	it('keeps Manage Access open and locked while its save is pending', async () => {
@@ -140,13 +175,21 @@ describe('members settings page', () => {
 		await fireEvent.click(document.getElementById('scope-groups-alpha') as HTMLElement);
 		await fireEvent.click(within(sheet).getByRole('checkbox', { name: '1st Platoon' }));
 
-		await fireEvent.click(within(sheet).getByRole('button', { name: /^Save/ }));
+		const save = within(sheet).getByRole('button', { name: /^Save/ }) as HTMLButtonElement;
+		save.focus();
+		await fireEvent.click(save);
 
 		expect(heldSubmissions).toHaveLength(1);
 		expect(sheet.getAttribute('aria-busy')).toBe('true');
-		const cancel = within(sheet).getByRole('button', { name: 'Cancel' });
+		expect(save.disabled).toBe(false);
+		expect(save.getAttribute('aria-disabled')).toBe('true');
+		expect(document.activeElement).toBe(save);
+		await fireEvent.click(save);
+		expect(heldSubmissions).toHaveLength(1);
+		const cancel = within(sheet).getByRole('button', { name: 'Cancel' }) as HTMLButtonElement;
+		expect(cancel.disabled).toBe(true);
 		// happy-dom does not apply a disabled fieldset to its controls' :disabled state.
-		expect(cancel.closest('fieldset')?.disabled).toBe(true);
+		expect(sheet.querySelector('fieldset')?.disabled).toBe(true);
 		expect(within(sheet).queryByRole('button', { name: 'Close' })).toBeNull();
 		await fireEvent.keyDown(sheet, { key: 'Escape' });
 		expect(screen.getByRole('dialog', { name: 'Manage Access' })).toBe(sheet);

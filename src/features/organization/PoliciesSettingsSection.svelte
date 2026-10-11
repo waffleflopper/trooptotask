@@ -69,7 +69,13 @@
 		</div>
 		<div class="flex flex-wrap items-center gap-2">
 			<Badge variant={changed ? 'outline' : 'secondary'}>{changed ? 'Unsaved changes' : 'Saved'}</Badge>
-			<Button size="sm" disabled={saveDisabled || saving} onclick={onSave}>
+			<!-- aria-disabled keeps focus on Save while it saves and after the saved value leaves nothing to save. -->
+			<Button
+				size="sm"
+				aria-disabled={saveDisabled || saving ? 'true' : undefined}
+				aria-busy={saving || undefined}
+				onclick={onSave}
+			>
 				{#if saving}<Spinner />{/if}
 				{saving ? 'Saving...' : 'Save'} <span class="sr-only">{heading}</span>
 			</Button>

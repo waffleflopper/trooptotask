@@ -43,3 +43,40 @@ function focusBody() {
 	document.body.tabIndex = -1;
 	document.body.focus();
 }
+
+type EnhanceCallback = (outcome: ReturnType<typeof frameworkOutcome>) => Promise<void>;
+
+/** The requests that `simulateEnhance` let through, in order. A submission the handler cancelled is not here. */
+export const enhanceRequests: EnhanceCallback[] = [];
+
+/**
+ * `use:enhance` for a mocked `$app/forms`: each submit event on the form runs the handler like SvelteKit does
+ * and keeps the callback of every submission the handler did not cancel, so a test can hold and release it.
+ */
+export function simulateEnhance(
+	form: HTMLFormElement,
+	submit: (input: {
+		action: URL;
+		formData: FormData;
+		formElement: HTMLFormElement;
+		controller: AbortController;
+		submitter: HTMLElement | null;
+		cancel: () => void;
+	}) => unknown
+) {
+	const onSubmit = (event: SubmitEvent) => {
+		event.preventDefault();
+		let cancelled = false;
+		const callback = submit({
+			action: new URL(form.action || 'http://localhost/'),
+			formData: new FormData(form),
+			formElement: form,
+			controller: new AbortController(),
+			submitter: event.submitter as HTMLElement | null,
+			cancel: () => (cancelled = true)
+		});
+		if (!cancelled && typeof callback === 'function') enhanceRequests.push(callback as EnhanceCallback);
+	};
+	form.addEventListener('submit', onSubmit);
+	return { destroy: () => form.removeEventListener('submit', onSubmit) };
+}

@@ -33,6 +33,7 @@
 
 	let { data }: PageProps = $props();
 	let emptyAddTemplate = $state<HTMLElement | null>(null);
+	let templateList = $state<ReturnType<typeof TypeWorkspace.ItemList>>();
 	let addStepButton = $state<HTMLElement | null>(null);
 	let addFirstStepButton = $state<HTMLElement | null>(null);
 	let ConfirmDialog = $state<typeof import('$lib/components/ui/confirm-dialog').ConfirmDialog | null>(null);
@@ -201,8 +202,8 @@
 		if (!result.ok || !target) return;
 		await tick();
 		if (target.type === 'template') {
-			const next = document.querySelector<HTMLElement>('[role="option"][aria-selected="true"] button');
-			(next ?? emptyAddTemplate)?.focus();
+			if (templateList) templateList.focusSelected();
+			else emptyAddTemplate?.focus();
 			return;
 		}
 		const steps = model.selectedTemplateSteps;
@@ -271,7 +272,7 @@
 					{/if}
 				</Empty.Root>
 			{:else}
-				<TypeWorkspace.ItemList role="listbox" aria-label="Onboarding templates">
+				<TypeWorkspace.ItemList bind:this={templateList} aria-label="Onboarding templates">
 					{#each model.templates as template (template.id)}
 						<TypeWorkspace.ListItem
 							selected={model.selectedTemplate?.id === template.id && !model.creatingTemplate}
@@ -279,8 +280,6 @@
 							description={workspace.getTemplateSummary(template)}
 							onselect={() => workspace.selectTemplate(template.id)}
 							disabled={model.templateActionDisabled}
-							role="option"
-							aria-selected={model.selectedTemplate?.id === template.id && !model.creatingTemplate}
 						>
 							{#snippet actions()}
 								{#if model.canMutate && !model.templateActionDisabled}

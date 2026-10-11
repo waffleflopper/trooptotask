@@ -328,7 +328,7 @@
 					{/if}
 				</Empty.Root>
 			{:else}
-				<TypeWorkspace.ItemList role="listbox" aria-label="Training types">
+				<TypeWorkspace.ItemList aria-label="Training types">
 					{#each orderedTypes as type, i (type.id)}
 						<TypeWorkspace.ListItem
 							selected={selectedType?.id === type.id && !creating}
@@ -337,8 +337,6 @@
 							description={getTypeSummaryLine(type)}
 							onselect={() => selectType(type.id)}
 							disabled={editing || creating}
-							role="option"
-							aria-selected={selectedType?.id === type.id && !creating}
 						>
 							{#snippet actions()}
 								{#if canMutate && !editing && !creating}

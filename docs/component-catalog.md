@@ -1033,7 +1033,7 @@ The component owns the repeated visual structure: page workspace spacing, list/d
 <TypeWorkspace.Root aria-label="Training type management workspace">
 	<TypeWorkspace.Layout>
 		<TypeWorkspace.List mobileHidden={mobileDetailOpen}>
-			<TypeWorkspace.ItemList role="listbox" aria-label="Training types">
+			<TypeWorkspace.ItemList aria-label="Training types">
 				<TypeWorkspace.ListItem
 					title="Annual Qualification"
 					description="Expires after 12 months"
@@ -1093,12 +1093,15 @@ Public components:
 Key props:
 
 - `List` and `Detail`: `mobileHidden?: boolean` hides that pane below the large breakpoint while preserving the shared desktop split.
-- `Disclosure`: `title`, `description?`, and `open?` for shared progressive reveal around larger option groups.
+- `ItemList`: renders the `grid` and owns its keyboard model. The selected row (or the first) is the single Tab stop. Up, Down, Home and End move between rows; Right and Left move between a row and its actions. Bind the instance and call `focusSelected()` to restore focus after a row is removed.
+- `ListItem`: `title`, `description?`, `color?`, `selected?`, `disabled?`, `onselect?` and an `actions` snippet. It renders a `row` named by its title and described by its description; Enter, Space or a click selects it, and clicks inside `actions` do not.
+- `ColorInput`: requires a bound `value`; the route supplies the default color.
+- `Disclosure`: `title`, `description?`, and `open?` for shared progressive reveal around larger option groups. Closed content stays mounted but hidden, so route-owned control state survives a toggle.
 
 Rules:
 
 - Do not restyle the workspace from route code. Add shared variants here when a repeated manage-type need appears.
-- Use `ListItem` for selectable type rows instead of rebuilding row chrome in each route.
+- Use `ListItem` for selectable type rows instead of rebuilding row chrome in each route. Do not add list roles from route code; `ItemList` and `ListItem` own the grid semantics.
 - Use `FormSection` for repeated edit/create sections instead of route-local bordered fieldset classes; the shared layout renders them as ruled sections, not stacked cards.
 - Use `Choice` for repeated radio/checkbox option rows instead of route-local bordered option classes.
 - Use `ColorInput`, `Description`, and `ActionSpacer` when those repeated manage-type details are needed.

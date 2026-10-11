@@ -90,7 +90,7 @@ describe('TrainingViewsPage', () => {
 
 		expect(screen.getByRole('toolbar', { name: 'Training view controls' })).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'Back to Matrix' }).getAttribute('href')).toBe('/org/org-1/training');
-		expect(screen.getByRole('button', { name: /Annual Requirements/i })).toBeTruthy();
+		expect(screen.getByRole('row', { name: 'Annual Requirements' })).toBeTruthy();
 		expect(screen.getByText('ACFT, Weapons Qual')).toBeTruthy();
 	});
 

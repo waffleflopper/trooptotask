@@ -109,6 +109,7 @@ describe('TrainingTypesPage', () => {
 		});
 
 		await fireEvent.click(screen.getByRole('button', { name: '+ New Type' }));
+		await fireEvent.click(screen.getByRole('button', { name: /^Targeting/ }));
 
 		expect(screen.getAllByRole('checkbox', { name: 'Medic' }).length).toBeGreaterThan(0);
 		expect(screen.getAllByRole('checkbox', { name: '68W' }).length).toBeGreaterThan(0);
@@ -145,7 +146,7 @@ describe('TrainingTypesPage', () => {
 			}
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: /^CPR 12mo/ }));
+		await fireEvent.click(screen.getByRole('row', { name: 'CPR' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
 
 		expect(screen.getAllByRole('checkbox', { name: 'PO2' }).length).toBeGreaterThan(0);
@@ -184,6 +185,7 @@ describe('TrainingTypesPage', () => {
 		});
 
 		await fireEvent.click(screen.getByRole('button', { name: '+ New Type' }));
+		await fireEvent.click(screen.getByRole('button', { name: /^Targeting/ }));
 
 		expect(screen.getAllByRole('checkbox', { name: 'PO2' }).length).toBeGreaterThan(0);
 		expect(screen.queryByRole('checkbox', { name: 'DET-RET' })).toBeNull();
@@ -226,6 +228,7 @@ describe('TrainingTypesPage', () => {
 		});
 
 		await fireEvent.click(screen.getByRole('button', { name: '+ New Type' }));
+		await fireEvent.click(screen.getByRole('button', { name: /^Targeting/ }));
 
 		expect(screen.getAllByRole('checkbox', { name: 'PO2' }).length).toBeGreaterThan(0);
 		expect(screen.queryByRole('checkbox', { name: 'DET-RET' })).toBeNull();
@@ -250,6 +253,7 @@ describe('TrainingTypesPage', () => {
 		});
 
 		await fireEvent.click(screen.getByRole('button', { name: '+ New Type' }));
+		await fireEvent.click(screen.getByRole('button', { name: /^Targeting/ }));
 
 		expect(screen.getAllByRole('checkbox', { name: 'SGT' }).length).toBeGreaterThan(0);
 		expect(screen.getAllByRole('checkbox', { name: 'sgt' }).length).toBeGreaterThan(0);
@@ -278,6 +282,7 @@ describe('TrainingTypesPage', () => {
 		});
 
 		await fireEvent.click(screen.getByRole('button', { name: '+ New Type' }));
+		await fireEvent.click(screen.getByRole('button', { name: /^Targeting/ }));
 
 		expect(screen.getAllByRole('checkbox', { name: 'PO2' }).length).toBeGreaterThan(0);
 		expect(screen.getAllByRole('checkbox', { name: 'SSgt' }).length).toBeGreaterThan(0);
@@ -322,7 +327,7 @@ describe('TrainingTypesPage', () => {
 			vi.spyOn(trainingTypesStore, 'remove').mockResolvedValueOnce(result);
 			render(TrainingTypesPage, { props: { org, data: { personnel } } });
 
-			await fireEvent.click(screen.getByRole('button', { name: /^CPR 12mo/ }));
+			await fireEvent.click(screen.getByRole('row', { name: 'CPR' }));
 			await fireEvent.click(screen.getAllByRole('button', { name: /^Delete/ })[0]);
 			await fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }));
 
@@ -354,7 +359,7 @@ describe('TrainingTypesPage', () => {
 		expect(screen.getByText('New Training Type')).toBeTruthy();
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-		await fireEvent.click(screen.getByRole('button', { name: /^CPR 12mo/ }));
+		await fireEvent.click(screen.getByRole('row', { name: 'CPR' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
 
 		expect(screen.getByText('Edit Training Type')).toBeTruthy();

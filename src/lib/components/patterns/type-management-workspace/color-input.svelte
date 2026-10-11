@@ -4,10 +4,10 @@
 	import { cn } from '$lib/utils.js';
 
 	interface Props extends Omit<HTMLInputAttributes, 'type' | 'value' | 'files'> {
-		value?: string;
+		value: string;
 	}
 
-	let { class: className, value = $bindable('#6b7280'), ...restProps }: Props = $props();
+	let { class: className, value = $bindable(), ...restProps }: Props = $props();
 </script>
 
 <div data-slot="type-management-workspace-color-input" class="flex items-center gap-3">

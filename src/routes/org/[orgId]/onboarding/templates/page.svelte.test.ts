@@ -294,10 +294,11 @@ describe('onboarding templates page', () => {
 		await fireEvent.click(within(dialog).getByRole('button', { name: /^Delete$/ }));
 		await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
 
-		const remaining = within(screen.getByRole('listbox', { name: 'Onboarding templates' })).getByRole('option', {
-			name: /Bravo Arrival/
+		const remaining = within(screen.getByRole('grid', { name: 'Onboarding templates' })).getByRole('row', {
+			name: 'Bravo Arrival'
 		});
-		await waitFor(() => expect(remaining.contains(document.activeElement)).toBe(true));
+		await waitFor(() => expect(document.activeElement).toBe(remaining));
+		expect(remaining.getAttribute('aria-selected')).toBe('true');
 	});
 
 	it.each([

@@ -223,4 +223,31 @@ describe('IctMatrix', () => {
 			completion: undefined
 		});
 	});
+	it('shows the first person again after a filter empties the matrix and is cleared', async () => {
+		const roster = Array.from({ length: 30 }, (_, index) =>
+			person({ id: `person-${index + 1}`, lastName: `Soldier ${index + 1}` })
+		);
+		const props = {
+			orgId: 'org-1',
+			personnel: roster,
+			tasks: [task({ id: 'task-1', taskCode: '181-105-1001' })],
+			completions: [],
+			groups,
+			settings,
+			viewMode: 'alphabetical' as const,
+			canEdit: true,
+			onSelectCell: vi.fn(),
+			orgName: 'Test Unit'
+		};
+		const { rerender } = render(IctMatrix, { props });
+
+		await fireEvent.scroll(screen.getByTestId('critical-tasks-matrix-scroll'), {
+			target: { scrollTop: 2000 }
+		});
+		await rerender({ ...props, personnel: [] });
+		expect(screen.getByText('No personnel match the current filters.')).toBeTruthy();
+		await rerender({ ...props, personnel: roster });
+
+		expect(screen.getByRole('button', { name: /Soldier 1 181-105-1001: not recorded/ })).toBeTruthy();
+	});
 });

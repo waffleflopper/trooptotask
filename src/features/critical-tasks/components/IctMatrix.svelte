@@ -222,6 +222,11 @@
 		return 'bg-muted text-muted-foreground';
 	}
 
+	// The empty state replaces the viewport, and a remounted viewport starts at the top without a scroll event.
+	$effect.pre(() => {
+		if (visibleRows.length === 0) scrollTop = 0;
+	});
+
 	function handleViewportScroll(event: Event): void {
 		scrollTop = (event.currentTarget as HTMLElement).scrollTop;
 	}

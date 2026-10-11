@@ -62,7 +62,7 @@
 			? `Are you sure? There ${ctx.completingIncompleteCount === 1 ? 'is 1 step' : `are ${ctx.completingIncompleteCount} steps`} still incomplete.`
 			: 'Mark this onboarding as complete?'}
 		confirmLabel="Mark Complete"
-		variant={ctx.completingIncompleteCount > 0 ? 'default' : undefined}
+		variant="default"
 		onConfirm={() => ctx.confirmCompleteOnboarding()}
 		onCancel={() => ctx.cancelComplete()}
 	/>

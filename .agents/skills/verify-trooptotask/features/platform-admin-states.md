@@ -169,6 +169,6 @@ Preconditions: owned launch and `doctor` pass; use the index's `WORKER`, `V`, fr
 - Admin pages load on the server. Page-data controls fail or hold a SvelteKit client navigation only; a full reload is not intercepted. Arm, then use a visible sidebar link.
 - `admin-access-read`, `admin-access/*` and `admin-transfer` need `seed platform-admin` first.
 - Both search instances render in the DOM at every width (one is CSS-hidden); read the snapshot, not the DOM count alone, for what a user reaches.
-- Announcement Delete currently calls `window.confirm`. Dismiss it with the native `handle_dialog` tool; an unhandled dialog blocks the page.
+- Announcement Delete currently calls `window.confirm`. The key press or click that opens it blocks every verify:app tool call until it times out (about 120 s), and the dialog is then dismissed. To accept, start the press in the background and send `handle_dialog` with `accept`; it queues behind the press and applies to the open dialog.
 - `clean-seeds` refuses a remaining seeded suspension; restore any suspension visibly first. Feedback rows have no delete and stay until worker cleanup.
 - A failed suspend or transfer marks the dialog uncertain; it closes only through `Reload details` and then `Cancel` or a matching current state.

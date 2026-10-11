@@ -260,6 +260,30 @@ describe('IctTaskLibraryPage', () => {
 		});
 	});
 
+	it.each([
+		{
+			field: 'Expiration override',
+			error: 'Enter a whole number of months, 1 or more, or leave blank for the Organization default'
+		},
+		{ field: 'Sort order', error: 'Enter a whole number, 0 or more' }
+	])('rejects $field text the browser cannot parse instead of reading it as blank', async ({ field, error }) => {
+		const add = vi.spyOn(ictTasksStore, 'add').mockResolvedValue({ ...activeTask, id: 'task-new' });
+		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'New Task' }));
+		await fireEvent.input(screen.getByLabelText('Task code'), { target: { value: '181-105-2000' } });
+		await fireEvent.input(screen.getByLabelText('Title'), { target: { value: 'Evacuate casualty' } });
+		const input = screen.getByLabelText(field) as HTMLInputElement;
+		Object.defineProperty(input, 'validity', { configurable: true, get: () => ({ badInput: true, valid: false }) });
+		await fireEvent.input(input, { target: { value: '' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Create Task' }));
+
+		await waitFor(() => expect(document.activeElement).toBe(input));
+		expect(input.getAttribute('aria-invalid')).toBe('true');
+		expect(describedBy(input)).toEqual([error]);
+		expect(add.mock.calls).toEqual([]);
+	});
+
 	it('keeps a duplicate task code on its field with the draft and focus', async () => {
 		vi.spyOn(ictTasksStore, 'add').mockRejectedValue(new Error('Task code already exists in this Organization'));
 		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });

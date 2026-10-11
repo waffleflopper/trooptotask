@@ -331,7 +331,8 @@
 		if (!canManage || saving) return;
 
 		formError = '';
-		const usesDefaultExpiration = !formExpirationMonths.trim();
+		// A number input holding text it cannot parse reports an empty value, which is not an intentional blank.
+		const usesDefaultExpiration = !formExpirationMonths.trim() && !expirationInput?.validity.badInput;
 		const expirationMonths = usesDefaultExpiration ? null : parseWholeNumber(formExpirationMonths, 1);
 		const sortOrder = parseWholeNumber(formSortOrder, 0);
 		fieldErrors = {

@@ -197,6 +197,79 @@ describe('IctTaskLibraryPage', () => {
 		expect(screen.queryByLabelText(/CSV data/i)).toBeNull();
 	});
 
+	function describedBy(element: HTMLElement): string[] {
+		return (element.getAttribute('aria-describedby') ?? '')
+			.split(/\s+/)
+			.filter(Boolean)
+			.map((id) => document.getElementById(id)?.textContent?.trim() ?? `missing #${id}`);
+	}
+
+	it('names each missing required field on Create Task and focuses the first', async () => {
+		const add = vi.spyOn(ictTasksStore, 'add');
+		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'New Task' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Create Task' }));
+
+		const taskCode = screen.getByLabelText('Task code');
+		const title = screen.getByLabelText('Title');
+		await waitFor(() => expect(document.activeElement).toBe(taskCode));
+		expect(taskCode.getAttribute('aria-invalid')).toBe('true');
+		expect(describedBy(taskCode)).toEqual(['Task code is required']);
+		expect(title.getAttribute('aria-invalid')).toBe('true');
+		expect(describedBy(title)).toEqual(['Title is required']);
+		expect(add).not.toHaveBeenCalled();
+	});
+
+	it('keeps a duplicate task code on its field with the draft and focus', async () => {
+		vi.spyOn(ictTasksStore, 'add').mockRejectedValue(new Error('Task code already exists in this Organization'));
+		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'New Task' }));
+		const taskCode = screen.getByLabelText('Task code') as HTMLInputElement;
+		const title = screen.getByLabelText('Title') as HTMLInputElement;
+		await fireEvent.input(taskCode, { target: { value: '181-105-1001' } });
+		await fireEvent.input(title, { target: { value: 'Duplicate probe' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Create Task' }));
+
+		await waitFor(() => expect(document.activeElement).toBe(taskCode));
+		expect(taskCode.getAttribute('aria-invalid')).toBe('true');
+		expect(describedBy(taskCode)).toEqual(['Task code already exists in this Organization']);
+		expect(title.getAttribute('aria-invalid')).toBeNull();
+		expect([taskCode.value, title.value]).toEqual(['181-105-1001', 'Duplicate probe']);
+		expect(screen.getByRole('heading', { name: 'New ICT Task' })).toBeTruthy();
+	});
+
+	it('reports any other failed save as an alert and returns focus to Create Task', async () => {
+		vi.spyOn(ictTasksStore, 'add').mockRejectedValue(new Error('Network unavailable'));
+		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'New Task' }));
+		await fireEvent.input(screen.getByLabelText('Task code'), { target: { value: '181-105-2000' } });
+		await fireEvent.input(screen.getByLabelText('Title'), { target: { value: 'Evacuate casualty' } });
+		const create = screen.getByRole('button', { name: 'Create Task' });
+		await fireEvent.click(create);
+
+		const alert = await screen.findByRole('alert');
+		expect(alert.textContent?.replace(/\s+/g, ' ').trim()).toBe('Task was not saved Network unavailable');
+		await waitFor(() => expect(document.activeElement).toBe(create));
+		expect(screen.getByLabelText('Task code').getAttribute('aria-invalid')).toBeNull();
+	});
+
+	it('moves focus into the task import and back to Import CSV when it closes', async () => {
+		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Import CSV' }));
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText('Import behavior')));
+
+		await fireEvent.click(
+			within(screen.getByRole('region', { name: 'ICT task import workspace' })).getByRole('button', {
+				name: 'Cancel'
+			})
+		);
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Import CSV' })));
+	});
+
 	it('creates task metadata with normalized MOS applicability and optional expiration override', async () => {
 		const add = vi.spyOn(ictTasksStore, 'add').mockResolvedValue({
 			...activeTask,

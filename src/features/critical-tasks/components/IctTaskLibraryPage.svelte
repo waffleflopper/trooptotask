@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, tick } from 'svelte';
+	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
 	import * as ButtonGroup from '$lib/components/ui/button-group';
 	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
@@ -10,7 +11,7 @@
 	import { Textarea } from '$lib/components/ui/textarea';
 	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar';
 	import type { WorkspaceToolbarAction } from '$lib/components/patterns/workspace-toolbar';
-	import type { CriticalTasksPageAccess } from '../contracts';
+	import { ICT_TASK_CODE_EXISTS_MESSAGE, type CriticalTasksPageAccess } from '../contracts';
 	import IctTaskBulkImport from '$features/critical-tasks/components/IctTaskBulkImport.svelte';
 	import CriticalTasksDefaults from '$features/critical-tasks/components/CriticalTasksDefaults.svelte';
 	import { criticalTasksSettingsFromWorkspaceData } from '$features/critical-tasks/utils/criticalTasksWorkspaceData';
@@ -52,6 +53,12 @@
 	let editing = $state(false);
 	let saving = $state(false);
 	let formError = $state('');
+	let fieldErrors = $state<{ taskCode?: string; title?: string }>({});
+	let taskCodeInput = $state<HTMLInputElement | null>(null);
+	let titleInput = $state<HTMLInputElement | null>(null);
+	let saveButton = $state<HTMLButtonElement | null>(null);
+	let pageRoot = $state<HTMLElement | null>(null);
+	let importRegion = $state<HTMLElement | null>(null);
 	let importingTasks = $state(false);
 	let confirmArchive = $state<IctTask | null>(null);
 	let taskStatusFilter = $state<'active' | 'archived'>('active');
@@ -183,6 +190,7 @@
 		formExpirationMonths = '';
 		formSortOrder = '0';
 		formError = '';
+		fieldErrors = {};
 	});
 
 	$effect(() => {
@@ -232,6 +240,7 @@
 
 	function resetForm(task?: IctTask) {
 		formError = '';
+		fieldErrors = {};
 		formTaskCode = task?.taskCode ?? '';
 		formTitle = task?.title ?? '';
 		formDescription = task?.description ?? '';
@@ -264,19 +273,27 @@
 		editing = false;
 		saving = false;
 		formError = '';
+		fieldErrors = {};
 	}
 
-	function startImport() {
+	async function startImport() {
 		if (!canManage) return;
 		taskStatusFilter = 'active';
 		selectedTaskId = null;
 		creating = false;
 		editing = false;
 		importingTasks = true;
+		await tick();
+		importRegion?.querySelector<HTMLElement>('select, input, button')?.focus();
 	}
 
-	function cancelImport() {
+	async function cancelImport() {
 		importingTasks = false;
+		await tick();
+		const importTrigger =
+			pageRoot?.querySelector<HTMLElement>('button[aria-label="Import CSV"]') ??
+			pageRoot?.querySelector<HTMLElement>('button[aria-label="More ICT task library actions"]');
+		importTrigger?.focus();
 	}
 
 	function parsePositiveInteger(value: string): number | null {
@@ -305,11 +322,21 @@
 
 	async function saveTask(event?: SubmitEvent) {
 		event?.preventDefault();
-		if (!canManage || saving || !formTaskCode.trim() || !formTitle.trim()) return;
+		if (!canManage || saving) return;
+
+		formError = '';
+		fieldErrors = {
+			taskCode: formTaskCode.trim() ? undefined : 'Task code is required',
+			title: formTitle.trim() ? undefined : 'Title is required'
+		};
+		if (fieldErrors.taskCode || fieldErrors.title) {
+			await tick();
+			(fieldErrors.taskCode ? taskCodeInput : titleInput)?.focus();
+			return;
+		}
 
 		const requestOrgId = orgId;
 		const generation = scopeGeneration;
-		formError = '';
 		saving = true;
 		try {
 			const payload = {
@@ -338,10 +365,16 @@
 			editing = false;
 		} catch (error) {
 			if (isCurrentRequest(requestOrgId, generation)) {
-				formError = error instanceof Error ? error.message : 'Could not save task';
+				const message = error instanceof Error ? error.message : 'Could not save task';
+				if (message === ICT_TASK_CODE_EXISTS_MESSAGE) fieldErrors = { taskCode: message };
+				else formError = message;
 			}
 		} finally {
 			if (isCurrentRequest(requestOrgId, generation)) saving = false;
+		}
+		if (fieldErrors.taskCode || formError) {
+			await tick();
+			(fieldErrors.taskCode ? taskCodeInput : saveButton)?.focus();
 		}
 	}
 
@@ -410,8 +443,8 @@
 		<p class="text-muted-foreground">Critical Tasks configure access is required to manage ICT task definitions.</p>
 	</section>
 {:else}
-	<div class="flex flex-col gap-4 p-4">
-		<WorkspaceToolbar.Root ariaLabel="ICT task library controls">
+	<div class="flex flex-col gap-4 p-4" bind:this={pageRoot}>
+		<WorkspaceToolbar.Root ariaLabel="ICT task library controls" wrap>
 			<WorkspaceToolbar.Group
 				label="ICT task library filters"
 				activeCount={toolbarActiveFilterCount}
@@ -461,7 +494,7 @@
 				<p>Loading ICT task library...</p>
 			</section>
 		{:else if importingTasks}
-			<section>
+			<section bind:this={importRegion}>
 				<IctTaskBulkImport tasks={ictTasksStore.items} onCancel={cancelImport} onDone={cancelImport} />
 			</section>
 		{:else}
@@ -556,18 +589,20 @@
 					aria-label="ICT task details"
 				>
 					{#if creating || editing}
-						<form class="flex flex-col gap-4" onsubmit={saveTask}>
+						<form class="flex flex-col gap-4" novalidate onsubmit={saveTask}>
 							<h3 class="text-lg font-semibold">{creating ? 'New ICT Task' : 'Edit ICT Task'}</h3>
 
 							<div class="grid gap-4 md:grid-cols-2">
 								<Field.Root>
 									<Field.Label for="ict-task-code">Task code</Field.Label>
-									<Input id="ict-task-code" type="text" bind:value={formTaskCode} required />
+									<Input id="ict-task-code" type="text" bind:value={formTaskCode} bind:ref={taskCodeInput} required />
+									{#if fieldErrors.taskCode}<Field.Error>{fieldErrors.taskCode}</Field.Error>{/if}
 								</Field.Root>
 
 								<Field.Root>
 									<Field.Label for="ict-task-title">Title</Field.Label>
-									<Input id="ict-task-title" type="text" bind:value={formTitle} required />
+									<Input id="ict-task-title" type="text" bind:value={formTitle} bind:ref={titleInput} required />
+									{#if fieldErrors.title}<Field.Error>{fieldErrors.title}</Field.Error>{/if}
 								</Field.Root>
 
 								<Field.Root class="md:col-span-2">
@@ -629,11 +664,14 @@
 							</div>
 
 							{#if formError}
-								<p class="text-sm text-destructive" role="alert">{formError}</p>
+								<Alert.Root variant="destructive">
+									<Alert.Title>Task was not saved</Alert.Title>
+									<Alert.Description>{formError}</Alert.Description>
+								</Alert.Root>
 							{/if}
 							<div class="flex flex-wrap justify-end gap-2">
 								<Button variant="outline" size="sm" type="button" onclick={cancelEdit}>Cancel</Button>
-								<Button size="sm" type="submit" disabled={!formTaskCode.trim() || !formTitle.trim() || saving}>
+								<Button size="sm" type="submit" disabled={saving} bind:ref={saveButton}>
 									{#if saving}<Spinner />{/if}
 									{creating ? 'Create Task' : 'Save Changes'}
 								</Button>

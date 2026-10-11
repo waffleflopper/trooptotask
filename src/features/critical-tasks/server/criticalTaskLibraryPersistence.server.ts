@@ -1,12 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { fail } from '$lib/errors';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
-import type { CriticalTaskLibraryPersistence, IctTask } from '../contracts';
+import { ICT_TASK_CODE_EXISTS_MESSAGE, type CriticalTaskLibraryPersistence, type IctTask } from '../contracts';
 import { mapIctTask, taskCreateValues, taskPatchValues, TASK_SELECT, type SavedIctTask } from './ictTaskMapping.server';
 
 function throwWriteError(error: { code?: string; message: string }): never {
 	if (error.code === '23505' && error.message.includes('"ict_tasks_organization_id_task_code_key"')) {
-		fail(409, 'Task code already exists in this Organization');
+		fail(409, ICT_TASK_CODE_EXISTS_MESSAGE);
 	}
 	throw new Error(error.message);
 }

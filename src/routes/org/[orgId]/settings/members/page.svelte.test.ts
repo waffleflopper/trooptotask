@@ -437,6 +437,32 @@ describe('members settings page', () => {
 		expect(document.activeElement).toBe(manage);
 	});
 
+	it('keeps the sheet open with a reload Alert when the page cannot refresh after a saved access change', async () => {
+		const view = renderPage();
+		await fireEvent.click(within(memberRow('alpha@example.com')).getByRole('button', { name: /Manage/ }));
+		const sheet = screen.getByRole('dialog', { name: 'Manage Access' });
+		await fireEvent.click(document.getElementById('scope-groups-alpha') as HTMLElement);
+		await fireEvent.click(within(sheet).getByRole('checkbox', { name: '1st Platoon' }));
+		await fireEvent.click(within(sheet).getByRole('button', { name: /^Save/ }));
+
+		await heldSubmissions[0](
+			frameworkOutcome(
+				{ type: 'success', status: 200, data: { accessSuccess: true } },
+				{
+					applyForm: (form) => view.rerender({ form } as never),
+					invalidate: () => Promise.reject(new Error('offline'))
+				}
+			)
+		);
+
+		await waitFor(() =>
+			expect(within(sheet).getByRole('alert').textContent?.trim()).toBe(
+				"The page couldn't refresh after this request. Reload to see the current state."
+			)
+		);
+		expect(screen.getByRole('dialog', { name: 'Manage Access' })).toBe(sheet);
+	});
+
 	it('replaces an earlier removal error with the saved access result', async () => {
 		const view = renderPage();
 		const page = { applyForm: (form: unknown) => view.rerender({ form } as never) };

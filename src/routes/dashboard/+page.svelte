@@ -45,7 +45,7 @@
 					settled: (error) => {
 						requestError = error;
 						loading = null;
-						if (outcome.result.type === 'success') showSuccess(successText);
+						if (!error && outcome.result.type === 'success') showSuccess(successText);
 					},
 					focus: () => [formElement.querySelector('button'), workspacesHeading]
 				});

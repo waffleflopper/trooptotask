@@ -51,7 +51,7 @@
 				settled: (error) => {
 					transferRequestError = error;
 					transferLoading = false;
-					if (result.type === 'success') transferState.closeTransferConfirmation();
+					if (!error && result.type === 'success') transferState.closeTransferConfirmation();
 				},
 				focus: () => [transferButton]
 			});

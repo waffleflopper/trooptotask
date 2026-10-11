@@ -13,9 +13,9 @@ export interface SettleOptions {
 	 */
 	isCurrent: () => boolean;
 	/**
-	 * Applies the outcome to the view: receives the in-context error message (null unless the result was an
-	 * unexpected error) and ends busy state. Runs after the result applies, also when `update` rejects, and
-	 * before focus moves, so the message renders and a re-enabled control can take focus.
+	 * Applies the outcome to the view: receives the in-context error message and ends busy state. The message is
+	 * null only when the result applied cleanly; gate success-only effects (closing a sheet, clearing a draft) on
+	 * it. Runs before focus moves, so the message renders and a re-enabled control can take focus.
 	 */
 	settled: (error: string | null) => void;
 	/** Focus candidates, tried in order once the result renders. Return the initiating control first. */
@@ -23,6 +23,8 @@ export interface SettleOptions {
 }
 
 const UNEXPECTED_ERROR_MESSAGE = "The request didn't complete. Try again.";
+// The request may already have taken effect, so this asks for a reload rather than a retry.
+const REFRESH_FAILED_MESSAGE = "The page couldn't refresh after this request. Reload to see the current state.";
 
 /**
  * Settles a `use:enhance` result in place. An unexpected error yields a message for an in-context Alert instead
@@ -36,11 +38,16 @@ export async function settleAction(
 	{ isCurrent, settled, focus }: SettleOptions
 ): Promise<void> {
 	if (!isCurrent()) return;
-	try {
-		if (result.type !== 'error') await update();
-	} finally {
-		if (isCurrent()) settled(result.type === 'error' ? UNEXPECTED_ERROR_MESSAGE : null);
+	let error = result.type === 'error' ? UNEXPECTED_ERROR_MESSAGE : null;
+	if (result.type !== 'error') {
+		try {
+			await update();
+		} catch {
+			error = REFRESH_FAILED_MESSAGE;
+		}
 	}
+	if (!isCurrent()) return;
+	settled(error);
 	await tick();
 	if (!isCurrent()) return;
 	const target = focus().find(canTakeFocus);

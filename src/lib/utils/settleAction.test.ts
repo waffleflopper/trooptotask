@@ -138,19 +138,26 @@ describe('settleAction', () => {
 		expect(document.activeElement).toBe(button);
 	});
 
-	it('ends busy state when the refresh after a success rejects', async () => {
-		const { button, page } = mount();
+	it('reports a failed refresh after a success in context and keeps focus, without asking for a retry', async () => {
+		const { form, button, page } = mount();
+		button.focus();
 		button.disabled = true;
 		page.invalidate = () => Promise.reject(new Error('offline'));
 
-		const settling = settleAction(frameworkOutcome({ type: 'success', status: 200 }, page), {
+		await settleAction(frameworkOutcome({ type: 'success', status: 200 }, page), {
 			isCurrent: current,
-			settled: () => (button.disabled = false),
+			settled: (error) => {
+				button.disabled = false;
+				showAlert(form, error);
+			},
 			focus: () => [button]
 		});
 
-		await expect(settling).rejects.toThrow('offline');
 		expect(button.disabled).toBe(false);
+		expect(form.querySelector('[role="alert"]')?.textContent).toBe(
+			"The page couldn't refresh after this request. Reload to see the current state."
+		);
+		expect(document.activeElement).toBe(button);
 	});
 
 	it('changes nothing when the response arrives after the view is gone', async () => {

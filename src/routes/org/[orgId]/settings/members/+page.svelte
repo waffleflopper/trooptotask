@@ -100,7 +100,7 @@
 				settled: (error) => {
 					invitationRequestError = error;
 					invitationPending = false;
-					if (owner === NEW_INVITATION && result.type === 'success') memberAccess.clearInviteEmail();
+					if (!error && owner === NEW_INVITATION && result.type === 'success') memberAccess.clearInviteEmail();
 				},
 				focus: () => [submitter as HTMLElement | null, pendingInvitesHeading, membersHeading]
 			});
@@ -541,7 +541,7 @@
 							settled: (error) => {
 								accessRequestError = error;
 								accessLoading = false;
-								if (result.type === 'success') closeAccessSheet(memberId);
+								if (!error && result.type === 'success') closeAccessSheet(memberId);
 							},
 							focus: () => [accessSaveButton, accessOpener, membersHeading]
 						});

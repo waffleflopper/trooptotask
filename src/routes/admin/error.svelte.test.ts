@@ -26,6 +26,15 @@ describe('Platform admin error screen', () => {
 		expect(screen.getByRole('link', { name: 'Back to Dashboard' }).getAttribute('href')).toBe('/admin');
 	});
 
+	it('offers Try again when a failed refresh lands here without an error status', () => {
+		pageState.status = 200;
+		render(ErrorPage);
+
+		expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Error');
+		expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'Back to Dashboard' }).getAttribute('href')).toBe('/admin');
+	});
+
 	it('reloads the page from Try again after a failed load', async () => {
 		pageState.status = 503;
 		const reload = vi.fn();

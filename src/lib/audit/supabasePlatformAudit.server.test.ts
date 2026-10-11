@@ -1,3 +1,4 @@
+import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
 import { createSupabasePlatformAuditStore } from './supabasePlatformAudit.server';
 
@@ -158,5 +159,56 @@ describe('Supabase PlatformAudit adapter', () => {
 			(error: unknown) => error
 		);
 		expect(error).toEqual(new Error(`${operation} failed`));
+	});
+});
+
+describe('Supabase PlatformAudit adapter paging past the last row', () => {
+	function storeOver(totalCount: number, requests: Request[] = []) {
+		const fetch: typeof globalThis.fetch = async (input, init) => {
+			const request = new Request(input, init);
+			requests.push(request);
+			const offset = Number(new URL(request.url).searchParams.get('offset') ?? 0);
+			if (request.method === 'HEAD') return new Response(null, { headers: { 'content-range': `*/${totalCount}` } });
+			if (offset > 0 && offset >= totalCount)
+				return Response.json(
+					{
+						code: 'PGRST103',
+						details: `An offset of ${offset} was requested, but there are only ${totalCount} rows.`,
+						hint: null,
+						message: 'Requested range not satisfiable'
+					},
+					{ status: 416, headers: { 'content-range': `*/${totalCount}` } }
+				);
+			return Response.json([], { headers: { 'content-range': `*/${totalCount}` } });
+		};
+		return createSupabasePlatformAuditStore(
+			createClient('http://localhost:9', 'synthetic-service-key', {
+				auth: { persistSession: false, autoRefreshToken: false },
+				global: { fetch }
+			})
+		);
+	}
+
+	it('reports the filtered total and no entries for a page past the last row', async () => {
+		const requests: Request[] = [];
+		const store = storeOver(105, requests);
+
+		await expect(store.listLogs({ offset: 5000, limit: 50, action: 'a.b', severity: 'info' })).resolves.toEqual({
+			logs: [],
+			totalCount: 105
+		});
+		const count = requests.find((request) => request.method === 'HEAD')!;
+		expect(new URL(count.url).searchParams.get('action')).toBe('eq.a.b');
+		expect(new URL(count.url).searchParams.get('severity')).toBe('eq.info');
+	});
+
+	it('still rejects a failed read that is not a page past the end', async () => {
+		const store = createSupabasePlatformAuditStore(
+			createClient('http://localhost:9', 'synthetic-service-key', {
+				auth: { persistSession: false, autoRefreshToken: false },
+				global: { fetch: async () => Response.json({ code: '42501', message: 'denied' }, { status: 403 }) }
+			})
+		);
+		await expect(store.listLogs({ offset: 50, limit: 50 })).rejects.toThrow('table audit_logs list failed');
 	});
 });

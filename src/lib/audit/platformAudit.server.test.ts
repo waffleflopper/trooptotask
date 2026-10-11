@@ -131,6 +131,35 @@ describe('PlatformAudit', () => {
 		expect(result.page).toBe(2);
 	});
 
+	it('shows the last page when the requested Audit page is past the end', async () => {
+		const log = (id: string, timestamp: string) => ({
+			id,
+			userId: null,
+			orgId: null,
+			action: 'admin.audit.review',
+			resourceType: null,
+			resourceId: null,
+			ipAddress: null,
+			details: null,
+			severity: 'info',
+			timestamp
+		});
+		const audit = createPlatformAudit({
+			store: createInMemoryPlatformAuditStore({
+				logs: [
+					log('newest', '2026-06-08T17:00:00.000Z'),
+					log('middle', '2026-06-08T16:00:00.000Z'),
+					log('oldest', '2026-06-08T15:00:00.000Z')
+				]
+			})
+		});
+
+		const result = await audit.listLogs({ page: 40, limit: 2 });
+
+		expect(result.logs.map((entry) => entry.id)).toEqual(['oldest']);
+		expect(result).toMatchObject({ page: 2, limit: 2, totalCount: 3 });
+	});
+
 	it('returns recent activity for organization and user detail pages', async () => {
 		const audit = createPlatformAudit({
 			store: createInMemoryPlatformAuditStore({

@@ -144,6 +144,41 @@ describe('createPlatformOrganizationLedger', () => {
 			pagination: { page: 1, pageSize: 25, totalCount: 0, totalPages: 1, q: 'missing', status: 'active' }
 		});
 	});
+	it('shows the last page when the requested page is past the end', async () => {
+		const rows = [organization({ id: 'a' }), organization({ id: 'b' }), organization({ id: 'c' })];
+		const listOrganizationsPage = vi.fn(async ({ from, to }: { from: number; to: number }) => ({
+			organizations: rows.slice(from, to + 1),
+			totalCount: rows.length
+		}));
+		const ledger = createPlatformOrganizationLedger({ store: { listOrganizationsPage }, metrics: metrics() });
+
+		const result = await ledger.listOrganizations({ page: 9, pageSize: 2 });
+
+		expect(result.pagination).toMatchObject({ page: 2, pageSize: 2, totalCount: 3, totalPages: 2 });
+		expect(result.organizations.map((row) => row.id)).toEqual(['c']);
+		expect(listOrganizationsPage.mock.calls.map(([query]) => [query.from, query.to])).toEqual([
+			[16, 17],
+			[2, 3]
+		]);
+	});
+
+	it('shows the empty first page when nothing matches a requested later page', async () => {
+		const listOrganizationsPage = vi.fn(async (_query: { from: number; to: number }) => ({
+			organizations: [],
+			totalCount: 0
+		}));
+		const ledger = createPlatformOrganizationLedger({ store: { listOrganizationsPage }, metrics: metrics() });
+
+		expect(await ledger.listOrganizations({ q: 'zzz', page: 2 })).toEqual({
+			organizations: [],
+			pagination: { page: 1, pageSize: 25, totalCount: 0, totalPages: 1, q: 'zzz', status: 'all' }
+		});
+		expect(listOrganizationsPage.mock.calls.map(([query]) => [query.from, query.to])).toEqual([
+			[25, 49],
+			[0, 24]
+		]);
+	});
+
 	it('does not publish rows with false metrics when the admitted source read fails', async () => {
 		const ledger = createPlatformOrganizationLedger({
 			store: { listOrganizationsPage: async () => ({ organizations: [organization()], totalCount: 1 }) },

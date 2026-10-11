@@ -1,3 +1,4 @@
+import { isRangePastResults } from '$lib/server/supabasePagination.server';
 import { assertAuditQuerySuccess } from './providerError.server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createPlatformAudit, type PlatformAuditRecord, type PlatformAuditStore } from './platformAudit.server';
@@ -65,14 +66,22 @@ export function createSupabasePlatformAuditStore(supabase: SupabaseClient): Plat
 		},
 
 		async listLogs(input) {
-			let query = supabase.from('audit_logs').select(AUDIT_LOG_LIST_COLUMNS, { count: 'exact' });
-			if (input.action) query = query.eq('action', input.action);
-			if (input.severity) query = query.eq('severity', input.severity);
-			if (input.orgId) query = query.eq('org_id', input.orgId);
+			const matching = (columns: string, options: { count: 'exact'; head?: boolean }) => {
+				let query = supabase.from('audit_logs').select(columns, options);
+				if (input.action) query = query.eq('action', input.action);
+				if (input.severity) query = query.eq('severity', input.severity);
+				if (input.orgId) query = query.eq('org_id', input.orgId);
+				return query;
+			};
 
-			const response = (await query
+			const response = (await matching(AUDIT_LOG_LIST_COLUMNS, { count: 'exact' })
 				.order('timestamp', { ascending: false })
 				.range(input.offset, input.offset + input.limit - 1)) as SupabaseResponse<SupabaseAuditLogRow[]>;
+			if (isRangePastResults(response.error)) {
+				const total = (await matching('id', { count: 'exact', head: true })) as SupabaseResponse<null>;
+				assertAuditQuerySuccess('table audit_logs count', total);
+				return { logs: [], totalCount: total.count ?? 0 };
+			}
 			assertAuditQuerySuccess('table audit_logs list', response);
 
 			return {

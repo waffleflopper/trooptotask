@@ -42,10 +42,16 @@
 		return $page.url.pathname.startsWith(href);
 	}
 
+	// The phone sheet closes in the link's own click handler, before beforeNavigate runs, so note the link while it is still in the sheet.
+	let phoneLinkHref: string | null = null;
 	let returnFocusToSidebarTrigger = false;
-	beforeNavigate(({ type }) => {
-		returnFocusToSidebarTrigger =
-			type === 'link' && document.activeElement?.closest('[data-sidebar="sidebar"][data-mobile="true"]') != null;
+	function notePhoneLink(event: MouseEvent) {
+		const link = event.currentTarget as HTMLAnchorElement;
+		phoneLinkHref = link.closest('[data-sidebar="sidebar"][data-mobile="true"]') ? link.href : null;
+	}
+	beforeNavigate(({ type, to }) => {
+		returnFocusToSidebarTrigger = type === 'link' && phoneLinkHref !== null && to?.url.href === phoneLinkHref;
+		phoneLinkHref = null;
 	});
 	afterNavigate(() => {
 		if (!returnFocusToSidebarTrigger) return;
@@ -88,7 +94,11 @@
 								{#each group.items as item (item.href)}
 									{@const Icon = navIconByPage[item.page as keyof typeof navIconByPage] ?? Gauge}
 									<Sidebar.MenuItem>
-										<Sidebar.MenuButton isActive={isActive(item.href)} tooltipContent={item.label}>
+										<Sidebar.MenuButton
+											isActive={isActive(item.href)}
+											tooltipContent={item.label}
+											onclick={notePhoneLink}
+										>
 											{#snippet child({ props })}
 												<a
 													{...props}

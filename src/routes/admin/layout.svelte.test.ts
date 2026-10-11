@@ -1,11 +1,12 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, within } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
+import type { Window as HappyDOMWindow } from 'happy-dom';
 import { createRawSnippet } from 'svelte';
 import VisibleStub from '$lib/test-stubs/VisibleStub.svelte';
 
 const navigation = vi.hoisted(() => ({
-	before: [] as Array<(navigation: { type: string }) => void>,
+	before: [] as Array<(navigation: { type: string; to: { url: URL } | null }) => void>,
 	after: [] as Array<() => void>
 }));
 
@@ -20,7 +21,8 @@ vi.mock('$app/stores', async () => {
 });
 
 vi.mock('$app/navigation', () => ({
-	beforeNavigate: (callback: (navigation: { type: string }) => void) => navigation.before.push(callback),
+	beforeNavigate: (callback: (navigation: { type: string; to: { url: URL } | null }) => void) =>
+		navigation.before.push(callback),
 	afterNavigate: (callback: () => void) => navigation.after.push(callback)
 }));
 
@@ -36,7 +38,32 @@ afterEach(() => {
 	navigation.before.length = 0;
 	navigation.after.length = 0;
 	document.body.innerHTML = '';
+	(window as unknown as HappyDOMWindow).happyDOM.setViewport({ width: 1024, height: 768 });
 });
+
+// Mirrors a browser link choice under SvelteKit: the link's own handlers run, pending work settles before the
+// document listener's beforeNavigate, and focus resets to the body before afterNavigate.
+function routeLinkClicks() {
+	let navigated = Promise.resolve();
+	const route = (event: MouseEvent) => {
+		const link = (event.target as Element).closest('a');
+		if (!link) return;
+		event.preventDefault();
+		navigated = new Promise((resolve) => setTimeout(resolve, 0))
+			.then(() => navigation.before.forEach((callback) => callback({ type: 'link', to: { url: new URL(link.href) } })))
+			.then(() => new Promise((resolve) => setTimeout(resolve, 50)))
+			.then(() => {
+				document.body.tabIndex = -1;
+				document.body.focus();
+				navigation.after.forEach((callback) => callback());
+			});
+	};
+	document.addEventListener('click', route);
+	return async () => {
+		document.removeEventListener('click', route);
+		await navigated;
+	};
+}
 
 const children = createRawSnippet(() => ({
 	render: () => '<section>Admin child</section>'
@@ -74,6 +101,11 @@ function renderLayout(
 	});
 }
 
+const supportNav = [
+	{ label: null, items: [{ label: 'Dashboard', href: '/admin', page: 'dashboard' }] },
+	{ label: 'Support', items: [{ label: 'Users', href: '/admin/users', page: 'users' }] }
+] as LayoutData['visibleNavGroups'];
+
 describe('admin layout', () => {
 	it('hides global admin search when the admin cannot access users or organizations', () => {
 		renderLayout(['dashboard']);
@@ -105,33 +137,30 @@ describe('admin layout', () => {
 		expect(screen.queryByRole('button', { name: /Platform Admin|admin@example.test/ })).toBeNull();
 	});
 
-	it('returns focus to Toggle Sidebar after a link choice in the phone sidebar', () => {
-		renderLayout(['dashboard']);
-		const sheet = document.createElement('div');
-		sheet.dataset.sidebar = 'sidebar';
-		sheet.dataset.mobile = 'true';
-		const link = document.createElement('a');
-		link.href = '/admin/users';
-		sheet.append(link);
-		document.body.append(sheet);
+	it('returns focus to Toggle Sidebar after a link choice in the phone sidebar', async () => {
+		(window as unknown as HappyDOMWindow).happyDOM.setViewport({ width: 390, height: 844 });
+		renderLayout(['dashboard', 'users'], supportNav);
+		const stopRouting = routeLinkClicks();
+		const trigger = screen.getAllByRole('button', { name: 'Toggle Sidebar' })[0];
+		trigger.focus();
+		await fireEvent.click(trigger);
+		const link = within(screen.getByRole('dialog')).getByRole('link', { name: 'Users' });
 		link.focus();
+		await fireEvent.click(link);
+		await stopRouting();
 
-		navigation.before.forEach((callback) => callback({ type: 'link' }));
-		sheet.remove();
-		navigation.after.forEach((callback) => callback());
-
+		expect(screen.queryByRole('dialog')).toBeNull();
 		expect(document.activeElement?.getAttribute('data-sidebar')).toBe('trigger');
-		expect(document.activeElement?.textContent?.trim()).toBe('Toggle Sidebar');
 	});
 
-	it('leaves focus alone after a desktop link choice', () => {
-		renderLayout(['dashboard']);
-		const link = screen.getByRole('link', { name: 'Dashboard' });
+	it('leaves the page focus reset alone after a desktop link choice', async () => {
+		renderLayout(['dashboard', 'users'], supportNav);
+		const stopRouting = routeLinkClicks();
+		const link = screen.getByRole('link', { name: 'Users' });
 		link.focus();
+		await fireEvent.click(link);
+		await stopRouting();
 
-		navigation.before.forEach((callback) => callback({ type: 'link' }));
-		navigation.after.forEach((callback) => callback());
-
-		expect(document.activeElement).toBe(link);
+		expect(document.activeElement).toBe(document.body);
 	});
 });

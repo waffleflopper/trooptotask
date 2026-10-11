@@ -1,13 +1,13 @@
 <script lang="ts">
 	import type { HTMLAttributes } from 'svelte/elements';
-	import type { PathnameWithSearchOrHash, RouteIdWithSearchOrHash } from '$app/types';
+	import type { PathnameWithSearchOrHash } from '$app/types';
 	import { resolve } from '$app/paths';
 	import { Badge, type BadgeVariant } from '$lib/components/ui/badge/index.js';
 	import { cn } from '$lib/utils.js';
 
 	export type RouteTabItem = {
 		label: string;
-		href: RouteIdWithSearchOrHash | PathnameWithSearchOrHash;
+		href: PathnameWithSearchOrHash;
 		active?: boolean;
 		badge?: string | number;
 		/** Announced in place of the bare badge, e.g. `2 pending requests`. */

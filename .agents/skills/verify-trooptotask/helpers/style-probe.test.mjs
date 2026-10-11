@@ -104,6 +104,30 @@ test('diff reports a different page path, viewport or theme before any element d
 	);
 });
 
+test('probe keeps SVG geometry so a reshaped mark with the same box differs', async (t) => {
+	const before = page('', '<svg><path d="M0 0 L10 10"></path></svg>');
+	const after = page('', '<svg><path d="M0 10 L10 0"></path></svg>');
+	t.after(() => {
+		before.happyDOM.close();
+		after.happyDOM.close();
+	});
+	const differences = diffStyleProbes(read(before, ['svg path']), read(after, ['svg path']));
+	assert.deepEqual(
+		differences.map((d) => [d.field, d.was, d.now]),
+		[['attr:d', 'M0 0 L10 10', 'M0 10 L10 0']]
+	);
+});
+
+test('diff reports an invalid selector instead of treating it as equal', async (t) => {
+	const window = page('', '<p>x</p>');
+	t.after(() => window.happyDOM.close());
+	const probe = read(window, ['p[']);
+	assert.deepEqual(
+		diffStyleProbes(probe, probe).map((d) => [d.selector, d.field]),
+		[['p[', 'selector-error']]
+	);
+});
+
 test('extra selectors extend the defaults instead of replacing them', () => {
 	assert.deepEqual(resolveStyleSelectors(), defaultStyleSelectors);
 	assert.deepEqual(resolveStyleSelectors(['.mine', 'main', '.mine']), [...defaultStyleSelectors, '.mine']);

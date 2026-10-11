@@ -71,11 +71,13 @@ export const defaultStyleSelectors = [
 export function readStyleProbe(target, selectors, properties, limit) {
 	const document = target.document;
 	const text = (n) => (n.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 80);
+	// SVG geometry stays whole so a reshaped chart mark with the same box still differs.
+	const geometry = /^(d|points|viewBox|transform)$/;
 	const attributes = (n) =>
 		Object.fromEntries(
 			[...n.attributes]
-				.filter((a) => a.name !== 'class' && a.name !== 'style' && !/^(d|points|viewBox|transform)$/.test(a.name))
-				.map((a) => [a.name, a.value.length > 120 ? a.value.slice(0, 120) + '…' : a.value])
+				.filter((a) => a.name !== 'class' && a.name !== 'style')
+				.map((a) => [a.name, a.value.length > 120 && !geometry.test(a.name) ? a.value.slice(0, 120) + '…' : a.value])
 		);
 	const entries = [];
 	for (const selector of selectors) {
@@ -134,6 +136,11 @@ export function diffStyleProbes(before, after, { ignoreAttributes = [] } = {}) {
 		const other = byselector.get(entry.selector);
 		if (!other) {
 			note(entry.selector, null, 'selector-removed', 'present', 'absent');
+			continue;
+		}
+		// A selector that failed on either side measured nothing, so it cannot count as equal.
+		if (entry.error || other.error) {
+			note(entry.selector, null, 'selector-error', entry.error ?? null, other.error ?? null);
 			continue;
 		}
 		if (entry.count !== other.count) note(entry.selector, null, 'count', entry.count, other.count);

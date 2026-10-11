@@ -1,19 +1,23 @@
 import { tick } from 'svelte';
 import type { SubmitFunction } from '@sveltejs/kit';
+import { settleAction, type SettleOptions } from '$lib/utils/settleAction';
 
 type SubmitCallback = Exclude<Awaited<ReturnType<SubmitFunction>>, void>;
+type SlugAction = 'update' | 'clear';
 
 /** One General settings lifetime, recreated by the canonical Organization key. */
 export class GeneralSettingsWorkspace {
 	#active = true;
 	nameLoading = $state(false);
 	slugLoading = $state(false);
+	nameRequestError = $state<string | null>(null);
+	slugRequestError = $state<string | null>(null);
 	nameEditing = $state(false);
 	nameConfirmOpen = $state(false);
 	nameConfirmed = $state(false);
 	slugConfirmOpen = $state(false);
 	slugConfirmed = $state(false);
-	pendingSlugAction = $state<'update' | 'clear' | null>(null);
+	pendingSlugAction = $state<SlugAction | null>(null);
 	slugFormAction = $state('?/updateSlug');
 
 	dispose(): void {
@@ -25,6 +29,7 @@ export class GeneralSettingsWorkspace {
 	}
 	cancelNameEdit(): void {
 		this.nameEditing = false;
+		this.nameRequestError = null;
 	}
 	requestNameSave(): void {
 		this.nameConfirmOpen = true;
@@ -61,7 +66,7 @@ export class GeneralSettingsWorkspace {
 		this.pendingSlugAction = null;
 	}
 
-	submitName(cancel: () => void): SubmitCallback | void {
+	submitName(cancel: () => void, focus: SettleOptions['focus']): SubmitCallback | void {
 		if (!this.#active) {
 			cancel();
 			return;
@@ -73,14 +78,17 @@ export class GeneralSettingsWorkspace {
 		}
 		this.nameConfirmed = false;
 		this.nameLoading = true;
-		return async ({ update }) => {
+		this.nameRequestError = null;
+		return async (outcome) => {
 			if (!this.#active) return;
-			this.nameLoading = false;
-			await update();
+			this.nameRequestError = await settleAction(outcome, {
+				focus,
+				settled: () => (this.nameLoading = false)
+			});
 		};
 	}
 
-	submitSlug(cancel: () => void): SubmitCallback | void {
+	submitSlug(cancel: () => void, focus: (action: SlugAction) => SettleOptions['focus']): SubmitCallback | void {
 		if (!this.#active) {
 			cancel();
 			return;
@@ -91,14 +99,20 @@ export class GeneralSettingsWorkspace {
 			this.slugConfirmOpen = true;
 			return;
 		}
+		const action = this.pendingSlugAction ?? 'update';
 		this.slugConfirmed = false;
 		this.pendingSlugAction = null;
 		this.slugLoading = true;
-		return async ({ update }) => {
+		this.slugRequestError = null;
+		return async (outcome) => {
 			if (!this.#active) return;
-			this.slugLoading = false;
-			this.slugFormAction = '?/updateSlug';
-			await update();
+			this.slugRequestError = await settleAction(outcome, {
+				focus: focus(action),
+				settled: () => {
+					this.slugLoading = false;
+					this.slugFormAction = '?/updateSlug';
+				}
+			});
 		};
 	}
 }

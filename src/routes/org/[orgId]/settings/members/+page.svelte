@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { tick } from 'svelte';
 	import { enhance } from '$app/forms';
 	import type { PageProps } from './$types';
 	import { Edit, RefreshCw, Search, Trash2 } from '@lucide/svelte';
@@ -18,6 +17,8 @@
 	import * as Select from '$lib/components/ui/select/index.js';
 	import * as Sheet from '$lib/components/ui/sheet/index.js';
 	import { formatRelativeDate } from '$lib/utils/dates';
+	import { settleAction } from '$lib/utils/settleAction';
+	import { toastStore } from '$lib/stores/toast.svelte';
 	import {
 		createSettingsMemberAccessWorkspace,
 		type EditableMembershipRole,
@@ -39,7 +40,15 @@
 	let pendingRemoveMemberEmail = $state('');
 	let removingMemberId = $state<string | null>(null);
 	let accessErrorMemberId = $state<string | null>(null);
+	let accessRequestError = $state<string | null>(null);
+	let accessOpener = $state<HTMLElement | null>(null);
+	let accessSaveButton = $state<HTMLButtonElement | null>(null);
+	let memberRequestError = $state<string | null>(null);
+	// Invite, Resend and Revoke share the `inviteError` outcome; this names the invitation row that produced it.
+	let invitationActionId = $state<string | null>(null);
+	let invitationRequestError = $state<string | null>(null);
 	let membersHeading = $state<HTMLHeadingElement | null>(null);
+	let pendingInvitesHeading = $state<HTMLHeadingElement | null>(null);
 
 	const membersSection = $derived(data.membersSettings.sections.members);
 	const currentMember = $derived(data.membersSettings.currentMember);
@@ -64,30 +73,39 @@
 	const governanceRoleExplanation = explainPolicyReasonCode('denied:governance-role');
 	const sessionEmail = $derived((data.session as { user?: { email?: string | null } } | null | undefined)?.user?.email);
 
-	const stepUpEnhance: SubmitFunction = () => {
-		return async ({ result, update }) => {
+	const invitationRowEnhance: SubmitFunction = ({ formData, submitter }) => {
+		invitationActionId = String(formData.get('inviteId'));
+		invitationRequestError = null;
+		return async (outcome) => {
+			const { result } = outcome;
 			if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) return;
-			await update();
+			invitationRequestError = await settleAction(outcome, {
+				focus: () => [submitter as HTMLElement | null, pendingInvitesHeading, membersHeading]
+			});
+			if (result.type === 'success' && typeof result.data?.inviteMessage === 'string') {
+				toastStore.success(result.data.inviteMessage);
+			}
 		};
 	};
 
 	const removeMemberEnhance: SubmitFunction = ({ formData, formElement }) => {
 		removingMemberId = String(formData.get('membershipId'));
-		return async ({ result, update }) => {
-			try {
-				if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) return;
-				await update();
-			} finally {
+		memberRequestError = null;
+		return async (outcome) => {
+			if (outcome.result.type === 'failure' && redirectToSensitiveActionStepUp(outcome.result.data)) {
 				removingMemberId = null;
+				return;
 			}
-			await tick();
-			if (formElement.isConnected) formElement.querySelector('button')?.focus();
-			else membersHeading?.focus();
+			memberRequestError = await settleAction(outcome, {
+				focus: () => [formElement.querySelector('button'), membersHeading],
+				settled: () => (removingMemberId = null)
+			});
 		};
 	};
 
 	function closeAccessSheet(memberId: string) {
 		accessErrorMemberId = null;
+		accessRequestError = null;
 		memberAccess.closeMemberEditor(memberId);
 	}
 
@@ -133,25 +151,32 @@
 			<form
 				method="POST"
 				action="?/invite"
-				use:enhance={() => {
+				use:enhance={({ submitter }) => {
 					inviteLoading = true;
-					return async ({ result, update }) => {
-						try {
-							if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) return;
-							await update();
-							if (result.type === 'success') memberAccess.clearInviteEmail();
-						} finally {
+					invitationActionId = null;
+					invitationRequestError = null;
+					return async (outcome) => {
+						const { result } = outcome;
+						if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) {
 							inviteLoading = false;
+							return;
 						}
+						invitationRequestError = await settleAction(outcome, {
+							focus: () => [submitter as HTMLElement | null],
+							settled: () => {
+								inviteLoading = false;
+								if (result.type === 'success') memberAccess.clearInviteEmail();
+							}
+						});
 					};
 				}}
 			>
-				{#if form?.inviteError}
+				{#if invitationActionId === null && (invitationRequestError || form?.inviteError)}
 					<Alert.Root variant="destructive" class="mb-4">
-						<Alert.Description>{form.inviteError}</Alert.Description>
+						<Alert.Description>{invitationRequestError ?? form?.inviteError}</Alert.Description>
 					</Alert.Root>
 				{/if}
-				{#if form?.inviteSuccess}
+				{#if invitationActionId === null && form?.inviteSuccess}
 					<Alert.Root role="status" class="mb-4">
 						<Alert.Description>{form.inviteMessage ?? 'Invitation created.'}</Alert.Description>
 					</Alert.Root>
@@ -267,11 +292,11 @@
 			</div>
 		</div>
 
-		{#if form?.memberError || form?.accessSuccess}
+		{#if memberRequestError || form?.memberError || form?.accessSuccess}
 			<div class="border-b p-4">
-				{#if form?.memberError}
+				{#if memberRequestError || form?.memberError}
 					<Alert.Root variant="destructive">
-						<Alert.Description>{form.memberError}</Alert.Description>
+						<Alert.Description>{memberRequestError ?? form?.memberError}</Alert.Description>
 					</Alert.Root>
 				{:else}
 					<Alert.Root role="status">
@@ -311,7 +336,15 @@
 					</div>
 					<div class="flex flex-wrap justify-end gap-2">
 						{#if member.membershipRole !== 'owner' && membersSection.canManageMemberAccess && (member.membershipRole !== 'admin' || isOwner)}
-							<Button type="button" variant="outline" size="sm" onclick={() => memberAccess.openMemberEditor(member)}>
+							<Button
+								type="button"
+								variant="outline"
+								size="sm"
+								onclick={(event) => {
+									accessOpener = event.currentTarget;
+									memberAccess.openMemberEditor(member);
+								}}
+							>
 								<Edit />
 								{isOwner ? 'Manage role & access' : 'Manage access'}
 								<span class="sr-only">for {memberName(member)}</span>
@@ -354,7 +387,14 @@
 			aria-labelledby="pending-invites-heading"
 		>
 			<div class="flex items-center justify-between gap-3">
-				<h3 id="pending-invites-heading" class="text-lg font-semibold tracking-tight">Pending Invitations</h3>
+				<h3
+					bind:this={pendingInvitesHeading}
+					id="pending-invites-heading"
+					tabindex="-1"
+					class="text-lg font-semibold tracking-tight outline-none"
+				>
+					Pending Invitations
+				</h3>
 				<Badge variant="outline">{membersSection.invitations.length} Pending</Badge>
 			</div>
 			<div class="divide-y rounded-md border">
@@ -370,9 +410,14 @@
 								<Badge variant={getFunnelStatusVariant(invite.funnelStatus)}>{invite.funnelStatusLabel}</Badge>
 								<p class="text-sm text-muted-foreground">{invite.funnelStatusDetail}</p>
 							</div>
+							{#if invitationActionId === invite.id && (invitationRequestError || form?.inviteError)}
+								<Alert.Root variant="destructive">
+									<Alert.Description>{invitationRequestError ?? form?.inviteError}</Alert.Description>
+								</Alert.Root>
+							{/if}
 						</div>
 						<div class="flex flex-wrap gap-2">
-							<form method="POST" action="?/resendInvite" use:enhance={stepUpEnhance}>
+							<form method="POST" action="?/resendInvite" use:enhance={invitationRowEnhance}>
 								<input type="hidden" name="inviteId" value={invite.id} />
 								<!-- Resend stays enabled in every funnel state; it is insufficient in some, never futile. -->
 								<Button type="submit" variant="outline" size="sm">
@@ -380,7 +425,7 @@
 									Resend <span class="sr-only">invitation to {invite.email}</span>
 								</Button>
 							</form>
-							<form method="POST" action="?/revokeInvite" use:enhance={stepUpEnhance}>
+							<form method="POST" action="?/revokeInvite" use:enhance={invitationRowEnhance}>
 								<input type="hidden" name="inviteId" value={invite.id} />
 								<Button type="submit" variant="outline" size="sm">
 									Revoke <span class="sr-only">invitation for {invite.email}</span>
@@ -449,16 +494,23 @@
 				action="?/updateMemberAccess"
 				class="grid gap-5 px-4 pb-4"
 				use:enhance={() => {
+					const memberId = selectedMember.id;
 					accessLoading = true;
-					accessErrorMemberId = selectedMember.id;
-					return async ({ result, update }) => {
-						try {
-							if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) return;
-							await update();
-							if (result.type === 'success') closeAccessSheet(selectedMember.id);
-						} finally {
+					accessErrorMemberId = memberId;
+					accessRequestError = null;
+					return async (outcome) => {
+						const { result } = outcome;
+						if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) {
 							accessLoading = false;
+							return;
 						}
+						accessRequestError = await settleAction(outcome, {
+							focus: () => [accessSaveButton, accessOpener, membersHeading],
+							settled: () => {
+								accessLoading = false;
+								if (result.type === 'success') closeAccessSheet(memberId);
+							}
+						});
 					};
 				}}
 			>
@@ -600,15 +652,15 @@
 						<input type="hidden" name="memberPreset" value={selectedPreset} />
 					{/if}
 
-					{#if form?.accessError && accessErrorMemberId === selectedMember.id}
+					{#if accessRequestError || (form?.accessError && accessErrorMemberId === selectedMember.id)}
 						<Alert.Root variant="destructive">
-							<Alert.Description>{form.accessError}</Alert.Description>
+							<Alert.Description>{accessRequestError ?? form?.accessError}</Alert.Description>
 						</Alert.Root>
 					{/if}
 
 					<Sheet.Footer>
 						<Button type="button" variant="outline" onclick={() => closeAccessSheet(selectedMember.id)}>Cancel</Button>
-						<Button type="submit" disabled={accessLoading || changeCount === 0}>
+						<Button bind:ref={accessSaveButton} type="submit" disabled={accessLoading || changeCount === 0}>
 							{#if accessLoading}
 								Saving...
 							{:else if changeCount > 0}

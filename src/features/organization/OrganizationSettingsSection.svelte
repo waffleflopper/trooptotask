@@ -21,7 +21,10 @@
 	let slugFormEl = $state<HTMLFormElement | null>(null);
 	let editButton = $state<HTMLButtonElement | null>(null);
 	let nameInput = $state<HTMLInputElement | null>(null);
+	let nameSaveButton = $state<HTMLButtonElement | null>(null);
 	let slugInput = $state<HTMLInputElement | null>(null);
+	let slugSaveButton = $state<HTMLButtonElement | null>(null);
+	let slugResetButton = $state<HTMLButtonElement | null>(null);
 
 	async function focusAfterRender(target: () => HTMLElement | null) {
 		await tick();
@@ -66,11 +69,17 @@
 			bind:this={nameFormEl}
 			method="POST"
 			action="?/updateName"
-			use:enhance={({ cancel }) => workspace.submitName(cancel)}
+			use:enhance={({ cancel }) =>
+				workspace.submitName(cancel, () => [editButton, form?.error ? nameInput : nameSaveButton, nameInput])}
 		>
 			{#if form?.nameSuccess}
 				<Alert.Root variant="success" role="status" class="mb-3">
 					<Alert.Description>Organization name updated.</Alert.Description>
+				</Alert.Root>
+			{/if}
+			{#if workspace.nameRequestError}
+				<Alert.Root variant="destructive" class="mb-3">
+					<Alert.Description>{workspace.nameRequestError}</Alert.Description>
 				</Alert.Root>
 			{/if}
 			{#if workspace.nameEditing}
@@ -96,7 +105,11 @@
 						{/if}
 					</Field.Root>
 					<div class="flex items-end">
-						<Button type="submit" disabled={workspace.nameLoading || !organization.canUpdateProfile}>
+						<Button
+							bind:ref={nameSaveButton}
+							type="submit"
+							disabled={workspace.nameLoading || !organization.canUpdateProfile}
+						>
 							{workspace.nameLoading ? 'Saving...' : 'Save'}
 						</Button>
 					</div>
@@ -125,7 +138,13 @@
 			bind:this={slugFormEl}
 			method="POST"
 			action={workspace.slugFormAction}
-			use:enhance={({ cancel }) => workspace.submitSlug(cancel)}
+			use:enhance={({ cancel }) =>
+				workspace.submitSlug(cancel, (action) => () => [
+					form?.slugError ? slugInput : null,
+					action === 'clear' ? slugResetButton : null,
+					slugSaveButton,
+					slugInput
+				])}
 		>
 			<div class="grid gap-3">
 				<div class="grid gap-1">
@@ -135,6 +154,11 @@
 						/org/1-11-bde/calendar.
 					</p>
 				</div>
+				{#if workspace.slugRequestError}
+					<Alert.Root variant="destructive">
+						<Alert.Description>{workspace.slugRequestError}</Alert.Description>
+					</Alert.Root>
+				{/if}
 				{#if form?.slugSuccess}
 					<Alert.Root variant="success">
 						<Alert.Description
@@ -165,13 +189,18 @@
 						{/if}
 					</Field.Root>
 					<div class="flex items-end">
-						<Button type="submit" disabled={workspace.slugLoading || !organization.canUpdateUrlSlug}>
+						<Button
+							bind:ref={slugSaveButton}
+							type="submit"
+							disabled={workspace.slugLoading || !organization.canUpdateUrlSlug}
+						>
 							{workspace.slugLoading ? 'Saving...' : organization.urlSlug ? 'Update URL' : 'Set URL'}
 						</Button>
 					</div>
 					{#if organization.urlSlug}
 						<div class="flex items-end">
 							<Button
+								bind:ref={slugResetButton}
 								type="button"
 								variant="outline"
 								disabled={workspace.slugLoading || !organization.canUpdateUrlSlug}

@@ -25,12 +25,12 @@ it.each([200, 503])('ignores a pending account A dismissal after replacement wit
 	vi.stubGlobal('fetch', vi.fn().mockReturnValue(held.pending));
 	const view = render(AnnouncementBanner, { accountId: 'account-a', announcements: [announcement] });
 	await fireEvent.click(screen.getByRole('button', { name: 'Dismiss announcement' }));
-	expect((screen.getByRole('button', { name: 'Dismiss announcement' }) as HTMLButtonElement).disabled).toBe(true);
+	expect(screen.getByRole('button', { name: 'Dismiss announcement' }).getAttribute('aria-disabled')).toBe('true');
 	await view.rerender({ accountId: 'account-b', announcements: [announcement] });
 	held.release(new Response(null, { status }));
 	await held.pending;
 	await waitFor(() =>
-		expect((screen.getByRole('button', { name: 'Dismiss announcement' }) as HTMLButtonElement).disabled).toBe(false)
+		expect(screen.getByRole('button', { name: 'Dismiss announcement' }).getAttribute('aria-disabled')).toBeNull()
 	);
 	expect(screen.getByText('Heads up')).toBeTruthy();
 	expect(error).not.toHaveBeenCalled();
@@ -79,7 +79,7 @@ it('retains a failed dismissal, reports failure and permits a successful retry',
 	await fireEvent.click(screen.getByRole('button', { name: 'Dismiss announcement' }));
 	await waitFor(() => expect(error).toHaveBeenCalled());
 	expect(screen.getByText('Heads up')).toBeTruthy();
-	expect((screen.getByRole('button', { name: 'Dismiss announcement' }) as HTMLButtonElement).disabled).toBe(false);
+	expect(screen.getByRole('button', { name: 'Dismiss announcement' }).getAttribute('aria-disabled')).toBeNull();
 	await fireEvent.click(screen.getByRole('button', { name: 'Dismiss announcement' }));
 	await waitFor(() => expect(screen.queryByText('Heads up')).toBeNull());
 });
@@ -112,5 +112,49 @@ describe('AnnouncementBanner', () => {
 			expect(screen.queryByRole('alert')).toBeNull();
 		});
 		expect(onCountChange).toHaveBeenCalledWith(0);
+	});
+});
+
+describe('AnnouncementBanner focus', () => {
+	it('moves focus to the next dismissal, then to the main content after the last one', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => new Response(null, { status: 204 }))
+		);
+		const main = document.createElement('main');
+		main.id = 'main-content';
+		main.tabIndex = -1;
+		document.body.append(main);
+		render(AnnouncementBanner, {
+			accountId: 'account-a',
+			announcements: [announcement, { ...announcement, id: 'announcement-2', title: 'Second notice' }]
+		});
+
+		const [first, second] = screen.getAllByRole('button', { name: 'Dismiss announcement' });
+		first.focus();
+		await fireEvent.click(first);
+		await waitFor(() => expect(document.activeElement).toBe(second));
+		expect(screen.queryByText('Heads up')).toBeNull();
+
+		await fireEvent.click(second);
+		await waitFor(() => expect(document.activeElement).toBe(main));
+		expect(screen.queryByRole('alert')).toBeNull();
+		main.remove();
+	});
+
+	it('keeps focus on a pending dismissal', async () => {
+		const held = heldResponse();
+		vi.stubGlobal('fetch', vi.fn().mockReturnValue(held.pending));
+		render(AnnouncementBanner, { accountId: 'account-a', announcements: [announcement] });
+		const button = screen.getByRole('button', { name: 'Dismiss announcement' }) as HTMLButtonElement;
+		button.focus();
+		await fireEvent.click(button);
+		expect(button.disabled).toBe(false);
+		expect(document.activeElement).toBe(button);
+		await fireEvent.click(button);
+		expect(fetch).toHaveBeenCalledOnce();
+		held.release(new Response(null, { status: 503 }));
+		await waitFor(() => expect(button.getAttribute('aria-disabled')).toBeNull());
+		expect(document.activeElement).toBe(button);
 	});
 });

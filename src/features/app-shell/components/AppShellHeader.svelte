@@ -650,7 +650,11 @@
 				</div>
 			</header>
 
-			<main id="main-content" class="min-h-0 w-full min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-background">
+			<main
+				id="main-content"
+				tabindex="-1"
+				class="min-h-0 w-full min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-background outline-none"
+			>
 				{@render children?.()}
 			</main>
 		</Sidebar.Inset>

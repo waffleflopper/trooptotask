@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import { enhance } from '$app/forms';
+	import type { SubmitFunction } from '@sveltejs/kit';
 	import { resolve } from '$app/paths';
 	import MoonIcon from '@lucide/svelte/icons/moon';
 	import SunIcon from '@lucide/svelte/icons/sun';
@@ -15,11 +17,27 @@
 	let successMessage = $state<string | null>(null);
 	let orgFilter = $state('');
 	let successTimer: ReturnType<typeof setTimeout>;
+	let workspacesHeading = $state<HTMLHeadingElement | null>(null);
 
 	function showSuccess(msg: string) {
 		successMessage = msg;
 		clearTimeout(successTimer);
 		successTimer = setTimeout(() => (successMessage = null), 4000);
+	}
+
+	function respondToInvitation(invitationId: string, successText: string): SubmitFunction {
+		return ({ formElement }) => {
+			loading = invitationId;
+			return async ({ result, update }) => {
+				loading = null;
+				if (result.type === 'success') showSuccess(successText);
+				await update();
+				await tick();
+				// A resolved invitation leaves the list; a failed one keeps its row and button.
+				if (formElement.isConnected) formElement.querySelector('button')?.focus();
+				else workspacesHeading?.focus();
+			};
+		};
 	}
 
 	function formatRole(role: string): string {
@@ -70,7 +88,13 @@
 			class="flex flex-col gap-6 rounded-lg border border-border bg-card p-5 text-card-foreground shadow-sm lg:p-8"
 		>
 			<header class="flex flex-col">
-				<h2 class="text-3xl leading-tight font-semibold tracking-tight text-foreground">Available workspaces</h2>
+				<h2
+					bind:this={workspacesHeading}
+					tabindex="-1"
+					class="text-3xl leading-tight font-semibold tracking-tight text-foreground outline-none"
+				>
+					Available workspaces
+				</h2>
 			</header>
 
 			{#if form?.error}
@@ -109,36 +133,23 @@
 										class="max-sm:flex-1"
 										method="POST"
 										action="?/acceptInvitation"
-										use:enhance={() => {
-											loading = invitation.id;
-											return async ({ result, update }) => {
-												loading = null;
-												if (result.type === 'success') showSuccess(`Joined ${invitation.organizationName}.`);
-												await update();
-											};
-										}}
+										use:enhance={respondToInvitation(invitation.id, `Joined ${invitation.organizationName}.`)}
 									>
 										<input type="hidden" name="invitationId" value={invitation.id} />
 										<Button class="max-sm:w-full" type="submit" disabled={loading === invitation.id}>
 											{loading === invitation.id ? 'Accepting...' : 'Accept'}
+											<span class="sr-only">invitation to {invitation.organizationName}</span>
 										</Button>
 									</form>
 									<form
 										class="max-sm:flex-1"
 										method="POST"
 										action="?/declineInvitation"
-										use:enhance={() => {
-											loading = invitation.id;
-											return async ({ result, update }) => {
-												loading = null;
-												if (result.type === 'success') showSuccess('Invitation declined.');
-												await update();
-											};
-										}}
+										use:enhance={respondToInvitation(invitation.id, 'Invitation declined.')}
 									>
 										<input type="hidden" name="invitationId" value={invitation.id} />
 										<Button class="max-sm:w-full" type="submit" variant="outline" disabled={loading === invitation.id}>
-											Decline
+											Decline <span class="sr-only">invitation to {invitation.organizationName}</span>
 										</Button>
 									</form>
 								</div>
@@ -170,7 +181,7 @@
 						{#each filteredOrgs as org (org.id)}
 							<a
 								href={resolve(`/org/${org.urlSegment ?? org.id}` as `/org/${string}`)}
-								class="flex items-center justify-between gap-4 rounded-lg border border-border bg-background p-4 text-foreground transition-colors hover:bg-muted max-sm:flex-col max-sm:items-start"
+								class="flex items-center justify-between gap-4 rounded-lg border border-border bg-background p-4 text-foreground transition-colors outline-none hover:bg-muted focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 max-sm:flex-col max-sm:items-start"
 							>
 								<div class="flex min-w-0 flex-col gap-1">
 									<span class="truncate font-medium">{org.name}</span>

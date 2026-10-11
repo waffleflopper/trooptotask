@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, tick } from 'svelte';
 	import type { Announcement } from '../contracts';
 	import XIcon from '@lucide/svelte/icons/x';
 	import * as Alert from '$lib/components/ui/alert';
@@ -47,12 +47,20 @@
 			});
 			if (!response.ok) throw new Error('Could not dismiss announcement');
 			if (!isCurrent(account, generation)) return;
+			const index = visibleAnnouncements.findIndex((announcement) => announcement.id === id);
 			visibleAnnouncements = visibleAnnouncements.filter((announcement) => announcement.id !== id);
+			const next = visibleAnnouncements[Math.min(index, visibleAnnouncements.length - 1)];
+			await tick();
+			document.getElementById(next ? dismissId(next.id) : 'main-content')?.focus({ preventScroll: !next });
 		} catch {
 			if (isCurrent(account, generation)) toastStore.error('Could not dismiss announcement. Try again.');
 		} finally {
 			if (isCurrent(account, generation)) dismissing = dismissing.filter((pendingId) => pendingId !== id);
 		}
+	}
+
+	function dismissId(id: string) {
+		return `dismiss-announcement-${id}`;
 	}
 
 	function variantFor(type: Announcement['type']) {
@@ -76,13 +84,15 @@
 						{announcement.message}
 					</Alert.Description>
 				</div>
+				<!-- aria-disabled keeps focus on the pressed button while the dismissal is pending. -->
 				<Button
+					id={dismissId(announcement.id)}
 					type="button"
 					variant="ghost"
 					size="xs"
-					class="shrink-0"
+					class="shrink-0 aria-disabled:opacity-50"
 					onclick={() => dismiss(announcement.id)}
-					disabled={dismissing.includes(announcement.id)}
+					aria-disabled={dismissing.includes(announcement.id) ? 'true' : undefined}
 					aria-label="Dismiss announcement"
 				>
 					<XIcon aria-hidden="true" class="size-3" />

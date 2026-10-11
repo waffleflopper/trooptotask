@@ -780,6 +780,18 @@
 													<Field.Error>{signedScanErrors.get(roster.id)}</Field.Error>
 												{/if}
 											</Field.Root>
+										{:else if roster.signedFilePath}
+											<Field.Root class="max-w-md">
+												<Field.Title>Signed Scan</Field.Title>
+												<div class="flex flex-wrap items-center gap-2">
+													<Button variant="outline" size="sm" type="button" onclick={() => downloadSignedScan(roster)}>
+														{getFilename(roster.signedFilePath)}
+													</Button>
+												</div>
+												{#if signedScanErrors.get(roster.id)}
+													<Field.Error>{signedScanErrors.get(roster.id)}</Field.Error>
+												{/if}
+											</Field.Root>
 										{/if}
 									</Collapsible.Content>
 								</Collapsible.Root>

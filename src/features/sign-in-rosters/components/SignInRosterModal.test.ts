@@ -836,6 +836,26 @@ describe('SignInRosterModal', () => {
 		).toBe(false);
 	});
 
+	it('lets a read-only member download a signed scan without upload or removal controls', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () =>
+				jsonResponse({
+					rosters: [makeRoster({ signedFilePath: 'org-1/sign-in-rosters/roster-1/signed-roster.pdf' })],
+					total: 1
+				})
+			)
+		);
+
+		renderModal({ canEdit: false });
+		await fireEvent.click(await screen.findByRole('button', { name: /Morning Formation/i }));
+
+		expect(screen.getByRole('button', { name: 'signed-roster.pdf' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull();
+		expect(screen.queryByLabelText('Signed Scan')).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
+	});
+
 	it('removes an uploaded signed roster scan once while the dialog stays busy', async () => {
 		let resolveRemove!: (response: Response) => void;
 		const removeResponse = new Promise<Response>((resolve) => (resolveRemove = resolve));

@@ -26,6 +26,19 @@ describe('BulkImportWorkspace', () => {
 		expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Upload file' }));
 	});
 
+	it('keeps lost focus owed through a step without a heading until the next heading renders', async () => {
+		render(BulkImportStepTest);
+
+		await press('Start import');
+		expect(screen.getByText('Importing rows')).toBeInTheDocument();
+		expect(document.activeElement).toBe(document.body);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Finish import from outside' }));
+		await tick();
+
+		expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Review rows' }));
+	});
+
 	it('leaves focus on a control that survives the step change', async () => {
 		render(BulkImportStepTest);
 

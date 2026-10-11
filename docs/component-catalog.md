@@ -586,7 +586,7 @@ Component Catalog coverage:
 
 Public components:
 
-- `Root`: import workspace shell. Props: `ariaLabel?`, `step?`, `children`. Pass the route's current step key as `step`. When it changes and the change removes the focused control inside this Root, focus moves to the new step's first `h2` or `h3`. Focus elsewhere, or on a control that survives the change, stays where it is. Render one Root around every step so it sees the change.
+- `Root`: import workspace shell. Props: `ariaLabel?`, `step?`, `children`. Pass the route's current step key as `step`. When it changes and the change removes the focused control inside this Root, focus moves to the new step's first `h2` or `h3`. A step without a heading, such as `ProgressState`, keeps that focus owed until a later step renders one. Focus elsewhere, or on a control that survives the change, stays where it is. Render one Root around every step so it sees the change.
 - `Header`: title, description, step label, and metadata.
 - `SourcePicker`: accessible radio-group-style source chooser.
 - `SourceOption`: selectable upload/paste/manual choice.

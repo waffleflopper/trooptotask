@@ -52,7 +52,19 @@ export const defaultStyleSelectors = [
 	'[role="radiogroup"]',
 	'[role="radio"]',
 	'details',
-	'summary'
+	'summary',
+	'main svg',
+	'main svg path',
+	'main svg rect',
+	'main svg line',
+	'main svg circle',
+	'main svg text',
+	'main h1',
+	'main h2',
+	'main h3',
+	'[data-slot="empty"]',
+	'[role="dialog"]',
+	'[data-slot="alert"]'
 ];
 
 // Runs in the owned page. Pure read: no events, no attribute writes, no scrolling.

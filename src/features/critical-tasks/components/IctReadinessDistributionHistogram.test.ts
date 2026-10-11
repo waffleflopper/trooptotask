@@ -46,7 +46,7 @@ describe('IctReadinessDistributionHistogram', () => {
 		expect((select as HTMLSelectElement).value).toBe('11B');
 		let table = within(section).getByRole('table', { name: 'Individual readiness distribution data' });
 		expect(within(table).getByRole('columnheader', { name: '11B Soldiers' })).toBeTruthy();
-		expect(within(table).getByRole('cell', { name: '0-20%' })).toBeTruthy();
+		expect(within(table).getByRole('rowheader', { name: '0-20%' })).toBeTruthy();
 
 		await fireEvent.change(select, { target: { value: '68W' } });
 

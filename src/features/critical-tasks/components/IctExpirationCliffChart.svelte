@@ -1,6 +1,10 @@
 <script lang="ts">
-	import { buildReportCountTicks } from '$lib/components/patterns/report-chart';
-	import { ReportBarChart } from '$lib/components/patterns/report-chart';
+	import {
+		REPORT_CHART_SERIES,
+		ReportBarChart,
+		ReportChartTable,
+		buildReportCountTicks
+	} from '$lib/components/patterns/report-chart';
 	import * as ReportWorkspace from '$lib/components/patterns/report-workspace';
 	import type { IctExpirationCliff } from '$features/critical-tasks/utils/ictReports';
 
@@ -22,14 +26,6 @@
 	interface CliffMonthWithMosCounts extends CliffMonth {
 		expiringCountsByMos: Map<string, number>;
 	}
-
-	const EXPIRATION_SERIES_COLORS = [
-		'var(--chart-1)',
-		'var(--chart-2)',
-		'var(--chart-3)',
-		'var(--chart-4)',
-		'var(--chart-5)'
-	];
 
 	let { cliff, currentReadinessPercent = null, loading = false, heightClass = 'h-[260px]' }: Props = $props();
 
@@ -56,7 +52,14 @@
 		cliff.mosSeries.map((mos, index) => ({
 			key: seriesKey(mos),
 			label: mos,
-			color: EXPIRATION_SERIES_COLORS[index % EXPIRATION_SERIES_COLORS.length]
+			color: REPORT_CHART_SERIES[index % REPORT_CHART_SERIES.length].color
+		}))
+	);
+
+	const fallbackRows = $derived(
+		monthsWithMosCounts.map((month) => ({
+			key: month.month,
+			cells: [month.label, month.totalExpiringCount, ...cliff.mosSeries.map((mos) => expiringCountForMos(month, mos))]
 		}))
 	);
 
@@ -123,28 +126,9 @@
 		</div>
 	{/if}
 
-	<div class="sr-only">
-		<table aria-label="6-month expiration cliff data">
-			<thead>
-				<tr>
-					<th scope="col">Month</th>
-					<th scope="col">Total expiring</th>
-					{#each cliff.mosSeries as mos (mos)}
-						<th scope="col">{mos} expiring</th>
-					{/each}
-				</tr>
-			</thead>
-			<tbody>
-				{#each monthsWithMosCounts as month (month.month)}
-					<tr>
-						<td>{month.label}</td>
-						<td>{month.totalExpiringCount}</td>
-						{#each cliff.mosSeries as mos (mos)}
-							<td>{expiringCountForMos(month, mos)}</td>
-						{/each}
-					</tr>
-				{/each}
-			</tbody>
-		</table>
-	</div>
+	<ReportChartTable
+		label="6-month expiration cliff data"
+		columns={['Month', 'Total expiring', ...cliff.mosSeries.map((mos) => `${mos} expiring`)]}
+		rows={fallbackRows}
+	/>
 </ReportWorkspace.Section>

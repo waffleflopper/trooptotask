@@ -59,7 +59,7 @@ describe('IctExpirationCliffChart', () => {
 		const fallbackTable = within(section).getByRole('table', { name: '6-month expiration cliff data' });
 		expect(within(fallbackTable).getByRole('columnheader', { name: 'Total expiring' })).toBeTruthy();
 		expect(within(fallbackTable).getByRole('columnheader', { name: '68W expiring' })).toBeTruthy();
-		expect(within(fallbackTable).getByRole('cell', { name: 'Jun 2026' })).toBeTruthy();
+		expect(within(fallbackTable).getByRole('rowheader', { name: 'Jun 2026' })).toBeTruthy();
 		expect(within(fallbackTable).getAllByRole('cell', { name: '2' }).length).toBeGreaterThan(0);
 
 		const aprilRow = within(fallbackTable).getByRole('row', { name: 'Apr 2026 0 0 0' });

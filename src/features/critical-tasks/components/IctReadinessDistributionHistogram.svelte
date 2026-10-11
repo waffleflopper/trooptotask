@@ -1,6 +1,10 @@
 <script lang="ts">
-	import { REPORT_CHART_SERIES, buildReportCountTicks } from '$lib/components/patterns/report-chart';
-	import { ReportBarChart } from '$lib/components/patterns/report-chart';
+	import {
+		REPORT_CHART_SERIES,
+		ReportBarChart,
+		ReportChartTable,
+		buildReportCountTicks
+	} from '$lib/components/patterns/report-chart';
 	import * as NativeSelect from '$lib/components/ui/native-select';
 	import * as ReportWorkspace from '$lib/components/patterns/report-workspace';
 	import type { IctReadinessDistribution } from '$features/critical-tasks/utils/ictReports';
@@ -60,6 +64,16 @@
 		})
 	);
 
+	const fallbackRows = $derived(
+		distribution.bins.map((bin) => ({
+			key: bin.key,
+			cells: [
+				bin.label,
+				...activeSeries.map((series) => series.bins.find((seriesBin) => seriesBin.key === bin.key)?.soldierCount ?? 0)
+			]
+		}))
+	);
+
 	function seriesKey(mos: string): string {
 		return `mos-${mos}`;
 	}
@@ -80,7 +94,7 @@
 	aria-busy={loading ? 'true' : 'false'}
 	data-report-chart-section="true"
 >
-	<div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+	<div class="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
 		<p class="text-sm text-muted-foreground">Soldiers grouped by individual readiness percentage.</p>
 		{#if overlayMode}
 			<span class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
@@ -88,14 +102,14 @@
 			</span>
 		{:else if distribution.series.length > 1}
 			<label
-				class="flex items-center gap-2 font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground"
+				class="flex min-w-0 max-w-full items-center gap-2 font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground"
 			>
 				Histogram MOS
 				<NativeSelect.Root
 					value={selectedHistogramMos}
 					aria-label="Histogram MOS"
 					disabled={loading}
-					class="min-w-44"
+					class="w-44 min-w-0 max-w-full"
 					onchange={(event) => (selectedMos = event.currentTarget.value)}
 				>
 					{#each distribution.series as series (series.mos)}
@@ -125,27 +139,10 @@
 			{heightClass}
 		/>
 
-		<div class="sr-only">
-			<table aria-label="Individual readiness distribution data">
-				<thead>
-					<tr>
-						<th scope="col">Readiness band</th>
-						{#each activeSeries as series (series.mos)}
-							<th scope="col">{series.mos} Soldiers</th>
-						{/each}
-					</tr>
-				</thead>
-				<tbody>
-					{#each distribution.bins as bin (bin.key)}
-						<tr>
-							<td>{bin.label}</td>
-							{#each activeSeries as series (series.mos)}
-								<td>{series.bins.find((seriesBin) => seriesBin.key === bin.key)?.soldierCount ?? 0}</td>
-							{/each}
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-		</div>
+		<ReportChartTable
+			label="Individual readiness distribution data"
+			columns={['Readiness band', ...activeSeries.map((series) => `${series.mos} Soldiers`)]}
+			rows={fallbackRows}
+		/>
 	{/if}
 </ReportWorkspace.Section>

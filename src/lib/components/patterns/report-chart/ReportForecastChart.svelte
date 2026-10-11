@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Area, Axis, Chart, Circle, Rect, Rule, Spline, Svg, Text } from 'layerchart';
 	import * as ChartUi from '$lib/components/ui/chart/index.js';
+	import ReportChartTable from './ReportChartTable.svelte';
 	import { buildReportCountTicks, readinessTrendDomain } from './reportChartConventions';
 	import { cn } from '$lib/utils.js';
 
@@ -130,12 +131,18 @@
 	const first = $derived(points[0]);
 	const last = $derived(points[points.length - 1]);
 	const tableRows = $derived(
-		points.map((point, index) => ({
-			label: point.label,
-			percent: point.percent,
-			lapses: index === 0 ? null : (bars[index - 1]?.count ?? 0),
-			inWindow: index === 0 ? null : (bars[index - 1]?.emphasized ?? false)
-		}))
+		points.map((point, index) => {
+			const bar = index === 0 ? null : (bars[index - 1] ?? null);
+			return {
+				key: point.label,
+				cells: [
+					point.label,
+					`${point.percent}%`,
+					index === 0 ? '—' : (bar?.count ?? 0),
+					index === 0 ? '—' : bar?.emphasized ? 'Yes' : 'No'
+				]
+			};
+		})
 	);
 
 	function axisLabels(xScale: (date: number) => number) {
@@ -290,27 +297,9 @@
 		</Chart>
 	</ChartUi.Container>
 
-	<div class="sr-only">
-		<table>
-			<caption>{ariaLabel}</caption>
-			<thead>
-				<tr>
-					<th scope="col">Date</th>
-					<th scope="col">Ready</th>
-					<th scope="col">Lapses that week</th>
-					<th scope="col">In highlighted window</th>
-				</tr>
-			</thead>
-			<tbody>
-				{#each tableRows as row (row.label)}
-					<tr>
-						<th scope="row">{row.label}</th>
-						<td>{row.percent}%</td>
-						<td>{row.lapses ?? '—'}</td>
-						<td>{row.inWindow === null ? '—' : row.inWindow ? 'Yes' : 'No'}</td>
-					</tr>
-				{/each}
-			</tbody>
-		</table>
-	</div>
+	<ReportChartTable
+		label={ariaLabel}
+		columns={['Date', 'Ready', 'Lapses that week', 'In highlighted window']}
+		rows={tableRows}
+	/>
 </div>

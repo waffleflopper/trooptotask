@@ -56,7 +56,7 @@ describe('IctReadinessTrendChart', () => {
 		expect(within(fallbackTable).getByRole('columnheader', { name: 'Month' })).toBeTruthy();
 		expect(within(fallbackTable).getByRole('columnheader', { name: 'Unit-wide readiness' })).toBeTruthy();
 		expect(within(fallbackTable).getByRole('columnheader', { name: '11B readiness' })).toBeTruthy();
-		expect(within(fallbackTable).getByRole('cell', { name: 'Mar 2026' })).toBeTruthy();
+		expect(within(fallbackTable).getByRole('rowheader', { name: 'Mar 2026' })).toBeTruthy();
 		expect(within(fallbackTable).getByRole('cell', { name: '75%' })).toBeTruthy();
 	});
 

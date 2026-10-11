@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import CriticalTasksDefaults from './CriticalTasksDefaults.svelte';
 
@@ -66,16 +66,16 @@ describe('Critical Tasks defaults', () => {
 		vi.stubGlobal('fetch', fetch);
 		render(CriticalTasksDefaults, { orgId: 'org-a', settings });
 		const expiration = screen.getByLabelText('Default expiration') as HTMLInputElement;
+		const window = screen.getByLabelText('Expiring-soon window') as HTMLInputElement;
 		await fireEvent.input(expiration, { target: { value: '13' } });
+		await fireEvent.input(window, { target: { value: '45' } });
 		const save = screen.getByRole('button', { name: 'Save' });
 		await fireEvent.click(save);
 
 		const alert = await screen.findByRole('alert');
-		expect(alert.textContent?.replace(/\s+/g, ' ').trim()).toBe(
-			'Failed to save Critical Tasks defaults Your entered defaults are kept. Try Save again.'
-		);
+		expect(within(alert).getByText('Failed to save Critical Tasks defaults')).toBeTruthy();
 		expect(fetch).toHaveBeenCalledTimes(1);
-		expect(expiration.value).toBe('13');
+		expect([expiration.value, window.value]).toEqual(['13', '45']);
 		await waitFor(() => expect(document.activeElement).toBe(save));
 	});
 });

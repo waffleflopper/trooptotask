@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import IctCompletionModal from './IctCompletionModal.svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
@@ -255,6 +256,89 @@ describe('IctCompletionModal', () => {
 		const notes = screen.getByLabelText(/Notes \(optional\)/i) as HTMLTextAreaElement;
 		expect(notes.value).toBe('Draft A');
 		expect(inDisabledGroup(notes)).toBe(false);
+	});
+
+	describe('while the store changes under a held save', () => {
+		const optimistic: PersonnelIctCompletion = {
+			id: 'temp-1',
+			personnelId: 'person-1',
+			ictTaskId: 'task-1',
+			completedAt: '2026-05-10',
+			validationMethod: 'Practical Exercise',
+			validatedBy: null,
+			notes: 'Lane validation',
+			loggedBy: null,
+			createdAt: '2026-05-01T12:00:00.000Z'
+		};
+
+		function renderWithLiveStore(onSave: () => Promise<void>) {
+			const props = $state({
+				person,
+				task,
+				settings: { defaultExpirationMonths: 12, expiringSoonWarningDays: 60 },
+				currentUserDisplayName: 'SFC Taylor Example',
+				completions: [] as PersonnelIctCompletion[],
+				onSave,
+				onClose: vi.fn()
+			});
+			render(IctCompletionModal, { props });
+			return props;
+		}
+
+		async function fillDraft() {
+			await chooseDate(/May 10, 2026/i);
+			await fireEvent.change(screen.getByLabelText(/Validation Method/i), { target: { value: 'Practical Exercise' } });
+			await fireEvent.input(screen.getByLabelText(/Notes \(optional\)/i), { target: { value: 'Lane validation' } });
+		}
+
+		it('keeps the Log title and the entered draft while a new completion is held, then rolled back', async () => {
+			let rejectSave!: (error: Error) => void;
+			const errorSpy = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+			const props = renderWithLiveStore(
+				() =>
+					new Promise<void>((_, reject) => {
+						rejectSave = reject;
+					})
+			);
+			await fillDraft();
+
+			await fireEvent.click(screen.getByTestId('ict-completion-save'));
+			props.completions = [optimistic];
+			await tick();
+
+			expect(screen.getByRole('dialog', { name: 'Log ICT Completion' })).toBeTruthy();
+			expect(screen.queryByRole('dialog', { name: 'Edit ICT Completion' })).toBeNull();
+
+			rejectSave(new Error('Save denied'));
+			await waitFor(() => expect(errorSpy).toHaveBeenCalledWith('Save denied'));
+			props.completions = [];
+			await tick();
+
+			expect(screen.getByRole('dialog', { name: 'Log ICT Completion' })).toBeTruthy();
+			expect((screen.getByLabelText(/Validation Method/i) as HTMLSelectElement).value).toBe('Practical Exercise');
+			expect((screen.getByLabelText(/Notes \(optional\)/i) as HTMLTextAreaElement).value).toBe('Lane validation');
+			expect(screen.getByText('May 10, 2026')).toBeTruthy();
+		});
+
+		it('reports a new completion as saved even after the store already holds it', async () => {
+			let resolveSave!: () => void;
+			const successSpy = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
+			const props = renderWithLiveStore(
+				() =>
+					new Promise<void>((resolve) => {
+						resolveSave = resolve;
+					})
+			);
+			await fillDraft();
+
+			await fireEvent.click(screen.getByTestId('ict-completion-save'));
+			props.completions = [optimistic];
+			await tick();
+			resolveSave();
+
+			await waitFor(() => expect(successSpy).toHaveBeenCalledWith('ICT completion saved'));
+			expect(props.onClose).toHaveBeenCalledTimes(1);
+		});
 	});
 
 	it('loads edit mode values and updates the existing completion without duplicating it', async () => {

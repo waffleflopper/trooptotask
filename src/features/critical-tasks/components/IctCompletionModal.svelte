@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
@@ -95,19 +96,25 @@
 	const selectionHint = $derived(
 		selectedPerson ? 'Showing tasks applicable to this person.' : 'Select a person to narrow tasks by MOS.'
 	);
+	const selectedPersonId = $derived(selectedPerson?.id ?? '');
+	const selectedTaskKey = $derived(selectedTask?.id ?? '');
+	// The pair's capture is resolved when the pair is chosen, not on every store change: a save in flight adds or
+	// replaces the capture optimistically and rolls it back on failure, and neither may retitle or reseed the dialog.
 	const activeExistingCompletion = $derived.by(() => {
 		if (existingCompletion) return existingCompletion;
-		if (!selectedPerson || !selectedTask) return undefined;
+		if (!selectedPersonId || !selectedTaskKey) return undefined;
 
-		let latest: PersonnelIctCompletion | undefined;
-		for (const completion of completions) {
-			if (completion.personnelId !== selectedPerson.id || completion.ictTaskId !== selectedTask.id) continue;
-			if (!latest || compareIctCompletionRecency(latest, completion) < 0) {
-				latest = completion;
+		return untrack(() => {
+			let latest: PersonnelIctCompletion | undefined;
+			for (const completion of completions) {
+				if (completion.personnelId !== selectedPersonId || completion.ictTaskId !== selectedTaskKey) continue;
+				if (!latest || compareIctCompletionRecency(latest, completion) < 0) {
+					latest = completion;
+				}
 			}
-		}
 
-		return latest;
+			return latest;
+		});
 	});
 	const modalTitle = $derived(activeExistingCompletion ? 'Edit ICT Completion' : 'Log ICT Completion');
 	const previewExpirationDate = $derived(
@@ -139,7 +146,7 @@
 	});
 
 	$effect(() => {
-		const selectedPairKey = `${selectedPerson?.id ?? ''}:${selectedTask?.id ?? ''}`;
+		const selectedPairKey = `${selectedPersonId}:${selectedTaskKey}`;
 		const completion = activeExistingCompletion;
 		const existingValidatedBy = completion?.validatedBy ?? '';
 

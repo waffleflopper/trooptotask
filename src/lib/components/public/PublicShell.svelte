@@ -32,7 +32,7 @@
 <div class="min-h-screen overflow-x-hidden bg-background font-body text-base leading-[1.65] font-light text-foreground">
 	{#if showClassificationBar}
 		<div
-			class="border-b border-border bg-muted px-4 py-1.5 text-center font-mono text-[0.6875rem] leading-[1.4] font-medium tracking-[0.15em] text-muted-foreground uppercase max-sm:px-3 max-sm:text-[0.6rem] dark:border-chrome-border dark:bg-foreground dark:text-chrome-text-muted"
+			class="border-b border-border bg-muted px-4 py-1.5 text-center font-mono text-[0.6875rem] leading-[1.4] font-medium tracking-[0.15em] text-muted-foreground uppercase max-sm:px-3 max-sm:text-[0.6rem] dark:border-chrome-border dark:bg-chrome dark:text-chrome-text-muted"
 		>
 			<span>TROOP TO TASK</span>
 			<span class="mx-3 text-accent">//</span>

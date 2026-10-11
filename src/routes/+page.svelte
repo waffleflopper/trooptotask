@@ -301,7 +301,7 @@
 				</div>
 			{/each}
 			<div class="reveal mx-auto max-w-[760px] border-y border-border p-[clamp(2rem,4vw,3rem)] text-center">
-				<span class={[labelClass, 'text-accent']}>MORE IN THE SYSTEM</span>
+				<span class={[labelClass, 'text-accent-text']}>MORE IN THE SYSTEM</span>
 				<h2 class={[showcaseHeadingClass, 'text-balance']}>And this is not the whole platform.</h2>
 				<p class="mx-auto mt-4 max-w-[62ch] leading-[1.65] text-muted-foreground">
 					Personnel records, permission-scoped access, exports, audit history, sign-in rosters, counseling support, and
@@ -346,7 +346,7 @@
 	<section class="bg-background py-[clamp(5rem,10vh,9rem)]" id="faq">
 		<div class={[containerClass, 'max-w-[760px]']}>
 			<div class="reveal mb-[clamp(2rem,4vw,3.5rem)] text-center">
-				<span class={[labelClass, 'text-accent']}>FREQUENTLY ASKED</span>
+				<span class={[labelClass, 'text-accent-text']}>FREQUENTLY ASKED</span>
 				<h2 class={showcaseHeadingClass}>
 					The questions people ask<br /><em class="font-light text-accent italic">before they hand over the roster.</em>
 				</h2>

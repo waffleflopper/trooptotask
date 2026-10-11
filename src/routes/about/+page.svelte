@@ -8,7 +8,7 @@
 
 	const paragraph = 'm-0 max-w-[72ch] text-[length:clamp(1.02rem,1.1vw,1.16rem)] leading-[1.66] text-muted-foreground';
 	const sectionLabel =
-		'mb-[0.85rem] font-mono text-[0.72rem] leading-[1.2] font-semibold tracking-[0.14em] text-accent uppercase';
+		'mb-[0.85rem] font-mono text-[0.72rem] leading-[1.2] font-semibold tracking-[0.14em] text-accent-text uppercase';
 	const buttonClass =
 		'min-h-10 px-4 py-[0.62rem] font-heading text-[0.95rem] leading-none font-bold tracking-[0.04em] uppercase hover:border-accent max-sm:w-full';
 
@@ -70,9 +70,15 @@
 					<Button href={resolve('/')} size="none" class={cn(buttonClass, 'border-primary')}
 						>See how TroopToTask works</Button
 					>
-					<Button href={resolve('/auth/request-access')} variant="outline" size="none" class={buttonClass}
-						>Request access</Button
-					>
+					{#if data.user}
+						<Button href={resolve('/dashboard?show=all')} variant="outline" size="none" class={buttonClass}
+							>Go to Dashboard</Button
+						>
+					{:else}
+						<Button href={resolve('/auth/request-access')} variant="outline" size="none" class={buttonClass}
+							>Request access</Button
+						>
+					{/if}
 				</div>
 			</div>
 

@@ -9,28 +9,48 @@ import BulkImportWorkspaceTest from './BulkImportWorkspaceTest.svelte';
 afterEach(() => cleanup());
 
 describe('BulkImportWorkspace', () => {
-	it('moves focus to the new step heading when advancing unmounts the focused control', async () => {
+	async function press(name: string) {
+		const button = screen.getByRole('button', { name });
+		button.focus();
+		await fireEvent.click(button);
+		await tick();
+	}
+
+	it('moves focus to the new step heading when the step change removes the focused control', async () => {
 		render(BulkImportStepTest);
 
-		const parse = screen.getByRole('button', { name: 'Parse file' });
-		parse.focus();
-		await fireEvent.click(parse);
-		await tick();
-		await Promise.resolve();
-
+		await press('Parse file');
 		expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Review rows' }));
+
+		await press('Back');
+		expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Upload file' }));
 	});
 
-	it('does not take focus when a later workspace mounts after the earlier one closed', async () => {
-		const first = render(BulkImportStepTest);
-		const parse = screen.getByRole('button', { name: 'Parse file' });
-		parse.focus();
-		first.unmount();
+	it('leaves focus on a control that survives the step change', async () => {
+		render(BulkImportStepTest);
+
+		await press('Switch step');
+
+		expect(screen.getByRole('heading', { name: 'Review rows' })).toBeInTheDocument();
+		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Switch step' }));
+	});
+
+	it('leaves focus outside the workspace when the step changes from outside', async () => {
+		render(BulkImportStepTest);
+
+		await press('Switch step from outside');
+
+		expect(screen.getByRole('heading', { name: 'Review rows' })).toBeInTheDocument();
+		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Switch step from outside' }));
+	});
+
+	it('does not move focus into a workspace that immediately replaces the focused one', async () => {
+		render(BulkImportStepTest);
+
+		await press('Open other workspace');
 		await new Promise((resolve) => setTimeout(resolve));
 
-		render(BulkImportStepTest);
-		await tick();
-
+		expect(screen.getByRole('heading', { name: 'Other import' })).toBeInTheDocument();
 		expect(document.activeElement).toBe(document.body);
 	});
 

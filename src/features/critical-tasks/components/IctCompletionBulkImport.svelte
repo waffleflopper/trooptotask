@@ -278,7 +278,7 @@
 		</AppDialog.Header>
 
 		<AppDialog.Body>
-			<BulkImportWorkspace.Root ariaLabel="ICT completion import workspace">
+			<BulkImportWorkspace.Root ariaLabel="ICT completion import workspace" {step}>
 				{#if step === 'input'}
 					<div class="flex flex-col gap-4 rounded-lg border bg-card p-5 text-card-foreground">
 						<BulkImportWorkspace.Header

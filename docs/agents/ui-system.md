@@ -4,10 +4,10 @@ Use this file for UI component work, shared styling, route UI changes, app-shell
 
 ## Current-State Sources
 
-- The [component catalog index](../component-catalog.md#find-the-relevant-component) routes to shared APIs, states and known replacements. Read the foundation and relevant component sections.
-- The [foundation provenance and family contract](../ui-foundation-provenance.md) records every current family, its canonical API, retained deviations and selected target layer.
+- The [component catalog index](../component-catalog.md#find-the-relevant-component) lists every shared family with its parts and production consumers. Read the foundation and relevant component sections.
+- The [foundation provenance and family contract](../ui-foundation-provenance.md) records each primitive's provenance and retained deviations and the layer decisions D02 executed.
 - `src/lib/components/ui/**` holds canonical primitives and central variants. `src/lib/components/patterns/**` holds shared neutral compositions such as page shell, workspace toolbar, report workspace and charts, bulk import and type management. `scripts/module-boundaries.json` enforces the direction: patterns may import `ui` and shared code, `ui` may not import patterns, and neither may import a feature.
-- Shared app and layout primitives under `src/lib/components/**` own product shell and reusable layout behavior.
+- The app shell (sidebar navigation, header and `BannerStack`) lives in `src/features/app-shell`.
 - `src/app.css` and `components.json` own global Tailwind v4, shadcn-svelte, token, and generated-component configuration.
 - `PRODUCT.md` and `DESIGN.md` describe the product and visual direction for design-heavy UI work.
 
@@ -43,7 +43,7 @@ Use accessible shared controls, dialogs and menus. Preserve labels, keyboard/foc
 
 Use `components/ui` for canonical primitives and centrally owned variants. Use `components/patterns` for a shared neutral composition when current consumers justify it. Keep feature workflows and domain-specific presentation with their feature owner. Move a component's imports together with it. Do not add a second primitive API or retain old-path re-exports.
 
-The [family mapping](../ui-foundation-provenance.md#project-family-apis-and-target-layers) distinguishes current imports from the selected targets. Preserve existing props, bindings, snippets and events until a mapping names their replacement. Authoritative validation, authorization and saved state remain in the owning feature/server operations.
+The [family mapping](../ui-foundation-provenance.md#project-family-apis-and-target-layers) records where each family landed. Preserve a component's props, bindings, snippets and events unless the authorized work changes them. Authoritative validation, authorization and saved state remain in the owning feature/server operations.
 
 ## Current UI Foundation
 

@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { Actions } from './index.js';
 import WorkspaceToolbarTest from './WorkspaceToolbarTest.svelte';
 
 describe('WorkspaceToolbar', () => {
@@ -48,5 +49,27 @@ describe('WorkspaceToolbar', () => {
 		expect(actions.dataset.zone).toBe('actions');
 		expect(within(actions).getByRole<HTMLButtonElement>('button', { name: 'Import' }).disabled).toBe(true);
 		expect(within(actions).getByRole<HTMLButtonElement>('button', { name: 'Syncing roster' }).disabled).toBe(true);
+	});
+
+	it('runs an overflow action once its menu has closed', async () => {
+		const menusOpenAtRun: number[] = [];
+		render(Actions, {
+			props: {
+				overflowAriaLabel: 'More library actions',
+				actions: [
+					{
+						id: 'import',
+						label: 'Import CSV',
+						overflow: 'always',
+						onclick: () => menusOpenAtRun.push(document.querySelectorAll('[role=menu]').length)
+					}
+				]
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'More library actions' }));
+		await fireEvent.click(await screen.findByRole('menuitem', { name: 'Import CSV' }));
+
+		await waitFor(() => expect(menusOpenAtRun).toEqual([0]));
 	});
 });

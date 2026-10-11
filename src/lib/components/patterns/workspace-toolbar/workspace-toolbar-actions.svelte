@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import MoreHorizontal from '@lucide/svelte/icons/more-horizontal';
-	import { getContext } from 'svelte';
+	import { getContext, tick } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import WorkspaceToolbarIcon from './workspace-toolbar-icon.svelte';
@@ -56,12 +56,24 @@
 		}
 		action.onclick?.();
 	}
+
+	// A closing menu keeps its pointer handlers through the exit animation and pulls focus
+	// back into itself, so an action that moves focus runs once the menu is gone.
+	let pendingSelection: (() => void) | null = null;
+
+	async function runPendingSelection(open: boolean): Promise<void> {
+		const run = pendingSelection;
+		if (open || !run) return;
+		pendingSelection = null;
+		await tick();
+		run();
+	}
 </script>
 
 <div data-slot="workspace-toolbar-actions" data-label={ariaLabel} class="contents">
 	{#each visibleActions as action (action.id)}
 		{#if action.menuItems?.length}
-			<DropdownMenu.Root>
+			<DropdownMenu.Root onOpenChangeComplete={runPendingSelection}>
 				<DropdownMenu.Trigger>
 					{#snippet child({ props })}
 						<Button
@@ -91,7 +103,7 @@
 							<DropdownMenu.Item
 								disabled={menuItemDisabled(item, action)}
 								title={item.disabledReason ?? action.disabledReason}
-								onclick={() => handleMenuItemSelect(item, action)}
+								onclick={() => (pendingSelection = () => handleMenuItemSelect(item, action))}
 							>
 								{item.label}
 							</DropdownMenu.Item>
@@ -116,7 +128,7 @@
 	{/each}
 
 	{#if overflowActions.length > 0}
-		<DropdownMenu.Root>
+		<DropdownMenu.Root onOpenChangeComplete={runPendingSelection}>
 			<DropdownMenu.Trigger>
 				{#snippet child({ props })}
 					<Button variant="outline" size="icon" aria-label={overflowAriaLabel} {...props}>
@@ -142,7 +154,7 @@
 						<DropdownMenu.Item
 							disabled={action.disabled}
 							title={action.disabledReason}
-							onclick={() => handleActionSelect(action)}
+							onclick={() => (pendingSelection = () => handleActionSelect(action))}
 						>
 							<WorkspaceToolbarIcon icon={action.icon} />
 							{action.label}

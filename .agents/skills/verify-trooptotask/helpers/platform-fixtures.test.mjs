@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { seedPlatform, cleanPlatform, recordPlatformUserAudit } from './platform-fixtures.mjs';
+import { seedPlatform, seedOrganizationPages, cleanPlatform, recordPlatformUserAudit } from './platform-fixtures.mjs';
 
 const fixture = {
 	actors: Object.fromEntries(
@@ -269,4 +269,31 @@ test('missing or out-of-scope audit acknowledgements cannot grant cleanup author
 	);
 	assert.equal(writes, 0);
 	assert.equal(ownedState.platform.userAuditIds, undefined);
+});
+test('the Organization paging seed records every ID before its first write and refuses a second cohort', async () => {
+	const ownedState = { seeded: [] };
+	let saved;
+	const client = {
+		from: (table) => ({
+			insert: async (rows) => {
+				assert.equal(table, 'organizations');
+				assert.deepEqual(
+					rows.map(({ id }) => id),
+					saved.ids
+				);
+				return { error: null };
+			}
+		})
+	};
+	const save = async (state) => {
+		saved = structuredClone(state.seeded[0]);
+	};
+	const result = await seedOrganizationPages({ client, fixture, tag: 'witness', ownedState, save });
+	assert.equal(saved.ids.length, 30);
+	assert.equal(saved.kind, 'organization-pages');
+	assert.equal(result.names[0], 'Paging verification witness 01');
+	await assert.rejects(
+		seedOrganizationPages({ client, fixture, tag: 'again', ownedState, save }),
+		/Clean the existing/
+	);
 });

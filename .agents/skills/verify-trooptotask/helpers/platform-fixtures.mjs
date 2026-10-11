@@ -74,6 +74,21 @@ export async function seedPlatform({ client, fixture, tag, ownedState, save }) {
 	return { ...ownedState.platform, boundary: 'Privileged synthetic prerequisites; no UI or authorization proof.' };
 }
 
+// Thirty extra Organizations put the Organizations index past one 25-row page. Clean-seeds deletes them by recorded ID.
+export async function seedOrganizationPages({ client, fixture, tag, ownedState, save }) {
+	if (ownedState.seeded.some((item) => item.kind === 'organization-pages'))
+		throw new Error('Clean the existing Organization paging seed before preparing another cohort.');
+	const rows = Array.from({ length: 30 }, (_, index) => ({
+		id: randomUUID(),
+		name: `Paging verification ${tag} ${String(index + 1).padStart(2, '0')}`,
+		created_by: fixture.actors.orgCreator.id
+	}));
+	ownedState.seeded.push({ kind: 'organization-pages', table: 'organizations', tag, ids: rows.map(({ id }) => id) });
+	await save(ownedState);
+	checked(await client.from('organizations').insert(rows));
+	return { tag, names: rows.map(({ name }) => name), boundary: 'Privileged synthetic prerequisites; no UI proof.' };
+}
+
 export async function readPlatform({ client, fixture, ownedState }) {
 	const seed = ownedState.platform;
 	if (!seed) throw new Error('Seed platform-admin first.');

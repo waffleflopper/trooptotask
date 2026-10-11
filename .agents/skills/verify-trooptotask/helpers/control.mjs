@@ -31,7 +31,13 @@ import { seedOnboarding } from './onboarding-fixtures.mjs';
 import { seedAudit } from './audit-fixtures.mjs';
 import { seedDashboard, seedDashboardCurrency, seedDashboardOverflow } from './dashboard-fixtures.mjs';
 import { seedTrainingPrint, cleanTrainingPrint } from './training-print-fixtures.mjs';
-import { seedPlatform, readPlatform, cleanPlatform, recordPlatformUserAudit } from './platform-fixtures.mjs';
+import {
+	seedPlatform,
+	seedOrganizationPages,
+	readPlatform,
+	cleanPlatform,
+	recordPlatformUserAudit
+} from './platform-fixtures.mjs';
 import { requestPlatform } from './platform-request.mjs';
 import { platformFormNetworkTarget } from './platform-network-target.mjs';
 import { requestAuditTrainingUpdate } from './audit-request.mjs';
@@ -1513,6 +1519,7 @@ async function main() {
 				'dashboard-currency',
 				'dashboard-overflow',
 				'platform-admin',
+				'organization-pages',
 				'communications',
 				'organization-destruction',
 				'rating-scheme',
@@ -1530,6 +1537,10 @@ async function main() {
 		}
 		if (kind === 'platform-admin') {
 			note(await seedPlatform({ client, fixture, tag, ownedState, save }));
+			return;
+		}
+		if (kind === 'organization-pages') {
+			note(await seedOrganizationPages({ client, fixture, tag, ownedState, save }));
 			return;
 		}
 		if (kind === 'audit') {
@@ -2200,6 +2211,7 @@ async function main() {
 					);
 				let query = client.from(item.table).delete().in('id', ids);
 				if (
+					item.kind !== 'organization-pages' &&
 					!(
 						(item.kind.startsWith('maintenance-retention') || item.kind === 'account-setup') &&
 						['access_requests', 'account_setup_links'].includes(item.table)

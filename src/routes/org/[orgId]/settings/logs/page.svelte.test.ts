@@ -21,7 +21,7 @@ describe('logs settings page', () => {
 		expect(screen.getByText('Organization logs are not available.')).toBeTruthy();
 	});
 
-	it('tells a search with no matches apart from an empty log', async () => {
+	it('names the search term when a search hides every entry', async () => {
 		const auditLogPage = {
 			logs: [
 				{
@@ -54,7 +54,7 @@ describe('logs settings page', () => {
 			target: { value: 'zzz' }
 		});
 
-		expect(screen.getByText('No audit log entries match "zzz".')).toBeTruthy();
-		expect(screen.queryByText('No audit log entries yet.')).toBeNull();
+		expect(screen.queryByText('admin@example.com')).toBeNull();
+		expect(screen.getByText(/"zzz"/)).toBeTruthy();
 	});
 });

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import type { TrainingBatchRecord, TrainingBatchImportResult } from '../contracts';
 	import type { Personnel } from '$features/personnel/contracts';
 	import type { TrainingType } from '$features/training/training.types';
@@ -60,6 +61,7 @@
 	let requestError = $state('');
 	let previewEdited = $state(false);
 	let isSubmitting = $state(false);
+	let importButton = $state<HTMLElement | null>(null);
 	const dirty = $derived(
 		importState === 'input' ? importText.trim() !== '' : importState === 'preview' && previewEdited
 	);
@@ -319,6 +321,10 @@
 		} finally {
 			isSubmitting = false;
 		}
+		if (requestError) {
+			await tick();
+			importButton?.focus();
+		}
 	}
 
 	function handleDone() {
@@ -471,6 +477,7 @@
 			{:else if importState === 'preview'}
 				<Button variant="outline" type="button" onclick={handleBack}>Back</Button>
 				<Button
+					bind:ref={importButton}
 					type="button"
 					onclick={handleImport}
 					disabled={isSubmitting || !!submitDisabledReason}

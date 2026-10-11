@@ -111,6 +111,7 @@ describe('BulkTrainingImporter', () => {
 		expect(screen.queryByText('Import preview needs review')).toBeNull();
 		expect((screen.getByLabelText('Last Name for source row 2') as HTMLInputElement).value).toBe('Smith');
 		expect((screen.getByRole('button', { name: 'Import' }) as HTMLButtonElement).disabled).toBe(false);
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Import' })));
 	});
 
 	describe('Escape', () => {

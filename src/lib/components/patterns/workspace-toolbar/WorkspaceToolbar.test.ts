@@ -126,6 +126,26 @@ describe('WorkspaceToolbar', () => {
 			await waitFor(() => expect(runs).toEqual(['planner']));
 		});
 
+		it('runs only the first item chosen while its menu is closing', async () => {
+			const runs: string[] = [];
+			const planning = {
+				id: 'planning',
+				label: 'Planning',
+				menuItems: [
+					{ label: 'Assignment Planner', onclick: () => runs.push('planner') },
+					{ label: 'Monthly Plan', onclick: () => runs.push('monthly') }
+				]
+			};
+			const { rerender } = render(Actions, { props: { overflowAriaLabel: 'More actions', actions: [planning] } });
+
+			await fireEvent.click(screen.getByRole('button', { name: 'Planning' }));
+			await fireEvent.click(await screen.findByRole('menuitem', { name: 'Assignment Planner' }));
+			await fireEvent.click(screen.getByRole('menuitem', { name: 'Monthly Plan' }));
+			await rerender({ overflowAriaLabel: 'More actions', actions: [] });
+
+			await waitFor(() => expect(runs).toEqual(['planner']));
+		});
+
 		it('drops the chosen action when the whole toolbar unmounts before its close finishes', async () => {
 			const runs: string[] = [];
 			const planning = {

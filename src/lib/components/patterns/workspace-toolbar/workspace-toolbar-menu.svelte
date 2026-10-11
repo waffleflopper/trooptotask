@@ -14,8 +14,9 @@
 	// itself, so a chosen action runs once this menu has closed, or once it unmounts mid-close.
 	let pending: (() => void) | null = null;
 
+	// The first choice wins; a second item clicked during the exit animation is ignored.
 	function choose(action: () => void): void {
-		pending = action;
+		pending ??= action;
 	}
 
 	async function runPending(): Promise<void> {

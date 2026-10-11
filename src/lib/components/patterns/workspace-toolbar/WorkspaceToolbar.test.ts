@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Actions } from './index.js';
 import WorkspaceToolbarTest from './WorkspaceToolbarTest.svelte';
@@ -123,6 +124,30 @@ describe('WorkspaceToolbar', () => {
 			await rerender({ overflowAriaLabel: 'More actions', actions: [] });
 
 			await waitFor(() => expect(runs).toEqual(['planner']));
+		});
+
+		it('drops the chosen action when the whole toolbar unmounts before its close finishes', async () => {
+			const runs: string[] = [];
+			const planning = {
+				id: 'planning',
+				label: 'Planning',
+				menuItems: [{ label: 'Assignment Planner', onclick: () => runs.push('planner') }]
+			};
+			const { rerender } = render(Actions, { props: { overflowAriaLabel: 'More actions', actions: [planning] } });
+
+			await fireEvent.click(screen.getByRole('button', { name: 'Planning' }));
+			await fireEvent.click(await screen.findByRole('menuitem', { name: 'Assignment Planner' }));
+			await rerender({ overflowAriaLabel: 'More actions', actions: [] });
+			await waitFor(() => expect(runs).toEqual(['planner']));
+
+			await rerender({ overflowAriaLabel: 'More actions', actions: [planning] });
+			await fireEvent.click(screen.getByRole('button', { name: 'Planning' }));
+			await fireEvent.click(await screen.findByRole('menuitem', { name: 'Assignment Planner' }));
+			cleanup();
+			await tick();
+			await new Promise((resolve) => setTimeout(resolve));
+
+			expect(runs).toEqual(['planner']);
 		});
 	});
 });

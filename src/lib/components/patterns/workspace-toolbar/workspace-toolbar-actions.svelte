@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import MoreHorizontal from '@lucide/svelte/icons/more-horizontal';
-	import { getContext } from 'svelte';
+	import { getContext, onDestroy } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import WorkspaceToolbarIcon from './workspace-toolbar-icon.svelte';
@@ -29,6 +29,10 @@
 	const visibleActions = $derived(partitionedActions.visibleActions);
 	const overflowActions = $derived(partitionedActions.overflowActions);
 
+	// A menu that unmounts mid-close still runs its chosen action, unless this whole toolbar is going away.
+	let mounted = true;
+	onDestroy(() => (mounted = false));
+
 	function buttonVariant(action: WorkspaceToolbarAction): 'default' | 'outline' | 'secondary' | 'destructive' {
 		if (action.variant === 'primary') return 'default';
 		if (action.variant === 'secondary') return 'secondary';
@@ -41,7 +45,7 @@
 	}
 
 	function handleMenuItemSelect(item: WorkspaceToolbarMenuItem, parent?: WorkspaceToolbarAction): void {
-		if (menuItemDisabled(item, parent)) return;
+		if (!mounted || menuItemDisabled(item, parent)) return;
 		if (item.href) {
 			void goto(resolve(item.href as '/'));
 			return;
@@ -50,7 +54,7 @@
 	}
 
 	function handleActionSelect(action: WorkspaceToolbarAction): void {
-		if (action.disabled) return;
+		if (!mounted || action.disabled) return;
 		if (action.href) {
 			void goto(resolve(action.href as '/'));
 			return;

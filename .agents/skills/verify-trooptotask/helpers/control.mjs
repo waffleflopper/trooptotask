@@ -747,6 +747,10 @@ async function main() {
 	}
 	if (command === 'actor') {
 		const [role, destination = 'calendar'] = args;
+		const actor =
+			role === 'unconfirmedAccount' && destination === 'org/new'
+				? (await saved()).unconfirmedAccount
+				: fixture.actors[role];
 		const orgDestinations = [
 			'evals',
 			'personnel',
@@ -773,7 +777,7 @@ async function main() {
 			'settings/danger'
 		];
 		if (
-			!fixture.actors[role] ||
+			!actor ||
 			![
 				...orgDestinations,
 				'dashboard',
@@ -786,7 +790,7 @@ async function main() {
 				'admin/organizations',
 				'admin/access-requests'
 			].includes(destination) ||
-			(fixture.actors[role].organization === null && orgDestinations.includes(destination)) ||
+			(actor.organization === null && orgDestinations.includes(destination)) ||
 			((destination === 'admin' || destination.startsWith('admin/')) &&
 				![
 					'platformReviewer',
@@ -801,7 +805,7 @@ async function main() {
 				].includes(role))
 		)
 			throw new Error('Unknown synthetic actor or destination.');
-		const targetOrg = fixture.actors[role].organization ?? null;
+		const targetOrg = actor.organization ?? null;
 		const destinationPath =
 			destination === 'admin' || destination.startsWith('admin/')
 				? `/${destination}`
@@ -901,8 +905,8 @@ async function main() {
 		await tool(state, 'fill_form', {
 			pageId,
 			elements: [
-				{ uid: uid('Email Address'), value: fixture.actors[role].email },
-				{ uid: uid('Password'), value: fixture.actors[role].password }
+				{ uid: uid('Email Address'), value: actor.email },
+				{ uid: uid('Password'), value: actor.password }
 			]
 		});
 		const ready = text(await tool(state, 'take_snapshot', { pageId }));
@@ -1517,7 +1521,8 @@ async function main() {
 				'organization-destruction',
 				'rating-scheme',
 				'deletion-sources',
-				'account-setup'
+				'account-setup',
+				'unconfirmed-account'
 			].includes(kind)
 		)
 			throw new Error('Unknown temporary seed.');
@@ -1578,6 +1583,28 @@ async function main() {
 					])
 				),
 				boundary: 'Privileged synthetic setup links; raw tokens stay in private worker state.'
+			});
+			return;
+		}
+		if (kind === 'unconfirmed-account') {
+			if (ownedState.unconfirmedAccount) throw new Error('Clean the existing unconfirmed account seed first.');
+			const account = {
+				email: `unconfirmed-${tag}@verification.invalid`,
+				password: `Synthetic-${randomUUID()}!9`,
+				organization: null
+			};
+			const { user } = checked(
+				await client.auth.admin.createUser({ email: account.email, password: account.password, email_confirm: false })
+			);
+			ownedState.unconfirmedAccount = { ...account, id: user.id };
+			await save(ownedState);
+			note({
+				kind,
+				tag,
+				email: account.email,
+				emailConfirmed: Boolean(user.email_confirmed_at),
+				signIn: 'actor unconfirmedAccount org/new',
+				boundary: 'Synthetic auth user without a membership; its password stays in private worker state.'
 			});
 			return;
 		}
@@ -2220,6 +2247,10 @@ async function main() {
 		}
 		ownedState.seeded = [];
 		delete ownedState.accountSetup;
+		if (ownedState.unconfirmedAccount) {
+			checked(await client.auth.admin.deleteUser(ownedState.unconfirmedAccount.id));
+			delete ownedState.unconfirmedAccount;
+		}
 		await save(ownedState);
 		await clearArtifactHttpCache({ session, sessionId: state.id });
 		if (platformError) throw platformError;
@@ -2230,7 +2261,9 @@ async function main() {
 		const [action, page, family, ordinalText = '1'] = args;
 		const pageId = Number(page);
 		if (!Number.isInteger(pageId) || pageId < 1) throw new Error('Use a page ID from the owned browser.');
-		if (['arm-fail', 'arm-hold', 'arm-hold-fail', 'arm-reject', 'arm-observe', 'arm-drop'].includes(action)) {
+		if (
+			['arm-fail', 'arm-error', 'arm-hold', 'arm-hold-fail', 'arm-reject', 'arm-observe', 'arm-drop'].includes(action)
+		) {
 			const platformForm = platformFormNetworkTarget(family, fixture, (await saved()).platform);
 			const shellPart = {
 				'shell-notification-count': 'notification-count',
@@ -2243,7 +2276,10 @@ async function main() {
 				'settings/danger/deleteOrganization': 'deleteError',
 				'settings/members/updateMemberAccess': 'accessError',
 				'settings/members/invite': 'inviteError',
+				'settings/members/resendInvite': 'inviteError',
+				'settings/members/revokeInvite': 'inviteError',
 				'settings/members/removeMember': 'memberError',
+				'settings/danger/transferOwnership': 'transferError',
 				'settings/ranks/saveRank': 'rankError',
 				'settings/ranks/retireRank': 'rankError',
 				'settings/ranks/reactivateRank': 'rankError',
@@ -2251,6 +2287,12 @@ async function main() {
 				'settings/ranks/deleteRank': 'rankError',
 				'settings/ranks/addServicePack': 'rankError'
 			};
+			// Account-level forms outside an Organization: [path, action search, failure field].
+			const accountForm = {
+				'dashboard/acceptInvitation': ['/dashboard', '?/acceptInvitation', 'error'],
+				'dashboard/declineInvitation': ['/dashboard', '?/declineInvitation', 'error'],
+				'org/new': ['/org/new', '', 'error']
+			}[family];
 			const settingsPage =
 				/^settings-page\/(general|members|policies|approvals|logs|exports|danger)$/.exec(family)?.[1] ?? null;
 			if (
@@ -2307,6 +2349,7 @@ async function main() {
 					'critical-tasks/matrix/export'
 				].includes(family) &&
 				!Object.hasOwn(formActions, family) &&
+				!accountForm &&
 				!settingsPage &&
 				!platformForm &&
 				!/^onboarding-templates\/[0-9a-f-]{36}\/duplicate$/.test(family) &&
@@ -2354,6 +2397,7 @@ async function main() {
 				suffix = `/admin/organizations/${seed.organization.id}`;
 			}
 			if (platformForm) suffix = platformForm.suffix;
+			if (accountForm) suffix = accountForm[0];
 			if (shellPart) suffix = `/org/${organizationSegment}/api/app-shell-chrome`;
 			if (
 				action === 'arm-hold-fail' &&
@@ -2379,6 +2423,8 @@ async function main() {
 				!platformForm?.failureField
 			)
 				throw new Error('Synthetic transport rejection requires a documented mutation family.');
+			if (action === 'arm-error' && !formAction && !accountForm)
+				throw new Error('Unexpected-error results are supported only for form action families.');
 			if (action === 'arm-drop' && !['admin-suspend', 'admin-transfer'].includes(family))
 				throw new Error('Lost-response proof is supported only for platform mutation controls.');
 			const mode =
@@ -2386,18 +2432,23 @@ async function main() {
 					? 'hold-fail'
 					: action === 'arm-fail'
 						? 'fail'
-						: action === 'arm-hold'
-							? 'hold'
-							: action === 'arm-reject'
-								? 'reject'
-								: action === 'arm-drop'
-									? 'drop-response'
-									: 'observe';
+						: action === 'arm-error'
+							? 'error'
+							: action === 'arm-hold'
+								? 'hold'
+								: action === 'arm-reject'
+									? 'reject'
+									: action === 'arm-drop'
+										? 'drop-response'
+										: 'observe';
 			const search =
 				(shellPart ? `?part=${shellPart}` : platformForm?.search) ??
+				accountForm?.[1] ??
 				(family === 'admin-transfer' ? '?/transferOwnership' : formAction ? `?/${formAction}` : null);
 			const failureField =
-				platformForm?.failureField ?? (family === 'admin-transfer' ? 'error' : formAction ? formActions[family] : null);
+				platformForm?.failureField ??
+				accountForm?.[2] ??
+				(family === 'admin-transfer' ? 'error' : formAction ? formActions[family] : null);
 			const requestTarget = platformForm?.requestTarget ?? null;
 			const heldPersonnelFailure = family === 'personnel' && action === 'arm-hold-fail';
 			const sameOrigin =

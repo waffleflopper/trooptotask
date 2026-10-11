@@ -299,6 +299,16 @@ test('a form failure reaches the selected action without intercepting another ac
 	assert.equal((await page.fetch('/org/a/settings/general?/updateSlug', { method: 'POST' })).status, 200);
 });
 
+test('a form error answers the selected action with an unexpected-error envelope', async () => {
+	const page = { fetch: async () => new Response('ordinary result', { status: 200 }) };
+	installNetworkControl(page, { mode: 'error', ordinal: 1, suffix: '/dashboard', search: '?/acceptInvitation' });
+	assert.equal((await page.fetch('/dashboard?/declineInvitation', { method: 'POST' })).status, 200);
+	const error = await page.fetch('/dashboard?/acceptInvitation', { method: 'POST' });
+	assert.equal(error.status, 500);
+	assert.deepEqual(await error.json(), { type: 'error', error: { message: 'Synthetic server error' } });
+	assert.equal((await page.fetch('/dashboard?/acceptInvitation', { method: 'POST' })).status, 200);
+});
+
 test('form filtering uses the effective Request method, including a fetch init override', async () => {
 	const page = { fetch: async () => new Response('ordinary result') };
 	installNetworkControl(page, {

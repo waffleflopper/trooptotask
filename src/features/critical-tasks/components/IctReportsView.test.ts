@@ -412,6 +412,66 @@ describe('IctReportsView', () => {
 		});
 	});
 
+	it('names every readiness metric and its value inside the report metrics region', () => {
+		render(IctReportsView, {
+			props: { orgId: 'org-1', reportScope: makeReportScope(), initialDashboard }
+		});
+
+		const metrics = screen.getByRole('region', { name: 'Critical task report metrics' });
+		const text = (elements: HTMLElement[]) => elements.map((element) => element.textContent?.trim());
+		expect(text(within(metrics).getAllByRole('term'))).toEqual([
+			'Overall',
+			'Ready',
+			'Applicable',
+			'30-day delta',
+			'Soldiers below 70%',
+			'Tasks expiring within 45 days',
+			'Tasks below 70%'
+		]);
+		expect(text(within(metrics).getAllByRole('definition')).filter(Boolean)).toEqual([
+			'67%',
+			'2',
+			'3',
+			'-4% over 30 days',
+			'1 of 2',
+			'1',
+			'1'
+		]);
+	});
+
+	it('announces a held filter update as a status and clears it when the report arrives', async () => {
+		let release: (dashboard: IctReportDashboard) => void = () => {};
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(
+				() =>
+					new Promise((resolve) => {
+						release = (dashboard) => resolve({ ok: true, json: async () => dashboard });
+					})
+			)
+		);
+		render(IctReportsView, {
+			props: { orgId: 'org-1', reportScope: makeReportScope(), initialDashboard }
+		});
+		const report = screen.getByRole('region', { name: 'Critical task analysis console' });
+		const updating = () =>
+			within(report)
+				.getAllByRole('status')
+				.map((status) => status.textContent?.trim())
+				.filter(Boolean);
+		expect(updating()).toEqual([]);
+
+		await fireEvent.pointerDown(screen.getByRole('button', { name: 'Filter by group' }));
+		const alphaOption = screen.getByRole('option', { name: 'Alpha' });
+		await fireEvent.pointerDown(alphaOption);
+		await fireEvent.pointerUp(alphaOption);
+
+		await waitFor(() => expect(updating()).toEqual(['Updating critical task reports']));
+		release(filteredDashboard);
+		await waitFor(() => expect(updating()).toEqual([]));
+		expect(within(report).getAllByText('100%').length).toBeGreaterThan(0);
+	});
+
 	it('keeps toolbar actions and filters visible for the empty task-library state', () => {
 		render(IctReportsView, {
 			props: {

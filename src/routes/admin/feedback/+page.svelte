@@ -159,10 +159,7 @@
 	{#if needsReload}
 		<Alert.Root variant="warning">
 			<Alert.Description>Check current feedback before another save.</Alert.Description>
-			<Alert.Action
-				><Button variant="outline" onclick={reloadFeedback} disabled={pending !== null}>Reload Feedback</Button
-				></Alert.Action
-			>
+			<Button variant="outline" onclick={reloadFeedback} disabled={pending !== null}>Reload Feedback</Button>
 		</Alert.Root>
 	{/if}
 

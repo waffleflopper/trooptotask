@@ -187,10 +187,8 @@
 	{#if needsReload}
 		<Alert.Root variant="warning">
 			<Alert.Description>Check current announcements before another save.</Alert.Description>
-			<Alert.Action
-				><Button bind:ref={reloadButton} variant="outline" onclick={reloadAnnouncements} disabled={pending !== null}
-					>Reload Announcements</Button
-				></Alert.Action
+			<Button bind:ref={reloadButton} variant="outline" onclick={reloadAnnouncements} disabled={pending !== null}
+				>Reload Announcements</Button
 			>
 		</Alert.Root>
 	{/if}

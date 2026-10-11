@@ -50,10 +50,22 @@ export async function settleAction(
 	settled(error);
 	await tick();
 	if (!isCurrent()) return;
-	const target = focus().find(canTakeFocus);
-	target?.focus();
-	// A control that kept focus while pending does not scroll on focus(), but the result may have moved it.
-	target?.scrollIntoView({ block: 'nearest' });
+	restoreFocus(focus());
+}
+
+/**
+ * Focuses the first candidate that takes focus, scrolled into view. A control in a hidden panel refuses focus, so
+ * the next candidate gets it.
+ */
+export function restoreFocus(candidates: ReadonlyArray<HTMLElement | null | undefined>): void {
+	for (const target of candidates) {
+		if (!canTakeFocus(target)) continue;
+		target.focus();
+		if (document.activeElement !== target) continue;
+		// A control that kept focus while pending does not scroll on focus(), but the result may have moved it.
+		target.scrollIntoView({ block: 'nearest' });
+		return;
+	}
 }
 
 // A focused control that becomes disabled stays `document.activeElement` in Chrome, so disabled counts as lost.

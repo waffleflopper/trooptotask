@@ -108,6 +108,27 @@ describe('settleAction', () => {
 		expect(document.activeElement).toBe(heading);
 	});
 
+	it('passes over a control in a hidden panel that refuses focus', async () => {
+		const { button, heading, page } = mount();
+		const panel = document.createElement('div');
+		panel.hidden = true;
+		const hiddenTrigger = document.createElement('button');
+		hiddenTrigger.textContent = 'Moved item';
+		// Chrome does not focus an element inside a hidden panel; happy-dom does, so the trigger refuses here.
+		hiddenTrigger.focus = () => {};
+		panel.append(hiddenTrigger);
+		document.body.append(panel);
+		button.remove();
+
+		await settleAction(frameworkOutcome({ type: 'success', status: 200 }, page), {
+			isCurrent: current,
+			settled: () => {},
+			focus: () => [button, hiddenTrigger, heading]
+		});
+
+		expect(document.activeElement).toBe(heading);
+	});
+
 	it('ends busy state before choosing focus, so a re-enabled control keeps it', async () => {
 		const { button, heading, page } = mount();
 		button.disabled = true;

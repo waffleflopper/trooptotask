@@ -74,7 +74,7 @@ function deferred<T>() {
 }
 
 describe('ApprovalRequestsSection', () => {
-	it('names the section and each review action after its request', () => {
+	it('names the section and each review action after its request', async () => {
 		mount();
 
 		const section = screen.getByRole('region', { name: 'Approval Requests' });
@@ -83,6 +83,9 @@ describe('ApprovalRequestsSection', () => {
 		expect(card('Archived record A').getByText('requester@example.com')).toBeTruthy();
 		expect(card('Archived record A').getByRole('button', { name: 'Approve Archived record A' })).toBeTruthy();
 		expect(card('Archived record B').getByRole('button', { name: 'Deny Archived record B' })).toBeTruthy();
+
+		await draft('Archived record B');
+		expect(card('Archived record B').getByRole('button', { name: 'Confirm denial of Archived record B' })).toBeTruthy();
 	});
 
 	it('moves focus into the denial reason and returns it to Deny on Escape', async () => {

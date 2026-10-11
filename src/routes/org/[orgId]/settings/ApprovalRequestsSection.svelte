@@ -155,7 +155,7 @@
 								onclick={() => handleApprovalAction(request.id, 'deny', denialReason)}
 							>
 								{#if processingApproval === request.id}<Spinner />{/if}
-								Confirm
+								Confirm <span class="sr-only">denial of {requestName(request)}</span>
 							</Button>
 						</div>
 					{:else}

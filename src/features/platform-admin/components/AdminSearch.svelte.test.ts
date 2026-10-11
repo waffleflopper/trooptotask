@@ -232,3 +232,39 @@ it('opens each Organization by keyboard when result labels are identical', async
 	const selected = screen.getByRole('option', { selected: true });
 	expect(input.getAttribute('aria-activedescendant')).toBe(selected.id);
 });
+
+it('announces a pending lookup and its empty result through a status message', async () => {
+	vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+	const pending = pendingResponse();
+	vi.stubGlobal(
+		'fetch',
+		vi.fn(() => pending.promise)
+	);
+	render(AdminSearch);
+	const input = screen.getByRole('combobox', { name: 'Search platform admin records' });
+	input.focus();
+	await fireEvent.input(input, { target: { value: 'zzzz-no-match' } });
+	await vi.advanceTimersByTimeAsync(250);
+	expect(screen.getByRole('status').textContent).toBe('Searching');
+	expect(screen.getByRole('listbox').getAttribute('aria-busy')).toBe('true');
+	pending.resolve(Response.json({ users: [], organizations: [] }));
+	await vi.advanceTimersByTimeAsync(0);
+	expect(screen.getByRole('status').textContent).toBe('No admin records found.');
+	expect(screen.getByRole('listbox').getAttribute('aria-busy')).toBe('false');
+});
+
+it('closes the open results on Escape and keeps focus in the search', async () => {
+	vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+	vi.stubGlobal('fetch', vi.fn().mockResolvedValue(userResult('alpha')));
+	render(AdminSearch);
+	const input = screen.getByRole('combobox', { name: 'Search platform admin records' });
+	input.focus();
+	await fireEvent.input(input, { target: { value: 'alpha' } });
+	await vi.advanceTimersByTimeAsync(250);
+	expect(screen.getByRole('option', { name: /alpha@example.test/ })).toBeTruthy();
+	await fireEvent.keyDown(input, { key: 'Escape' });
+	expect(screen.queryByRole('listbox')).toBeNull();
+	expect(input.getAttribute('aria-expanded')).toBe('false');
+	expect(document.activeElement).toBe(input);
+	expect((input as HTMLInputElement).value).toBe('alpha');
+});

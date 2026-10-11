@@ -84,6 +84,37 @@ describe('BulkTrainingImporter', () => {
 		await screen.findByRole('button', { name: 'Import' });
 	}
 
+	it('moves focus from Preview to the Preview step heading', async () => {
+		renderImporter();
+		await fireEvent.input(screen.getByLabelText('CSV data'), {
+			target: { value: [header, 'Smith,John,CPR,2026-01-15,', 'Nobody,John,CPR,2026-01-15,'].join('\n') }
+		});
+		const preview = screen.getByRole('button', { name: 'Preview' });
+		preview.focus();
+		await fireEvent.click(preview);
+
+		const heading = await screen.findByRole('heading', { name: 'Preview' });
+		await waitFor(() => expect(document.activeElement).toBe(heading));
+	});
+
+	it('moves focus from an uploaded file to the Preview step heading', async () => {
+		renderImporter();
+		const fileInput = screen.getByLabelText('Upload training file');
+		fileInput.focus();
+		await fireEvent.change(fileInput, {
+			target: {
+				files: [
+					new File([[header, 'Smith,John,CPR,2026-01-15,', 'Nobody,John,CPR,2026-01-15,'].join('\n')], 'training.csv', {
+						type: 'text/csv'
+					})
+				]
+			}
+		});
+
+		const heading = await screen.findByRole('heading', { name: 'Preview' });
+		await waitFor(() => expect(document.activeElement).toBe(heading));
+	});
+
 	it('marks an invalid row cell with aria-invalid and a description that resolves to its message', async () => {
 		renderImporter();
 		await previewRows('Smith,John,CPR,2026-01-15,', 'Nobody,John,CPR,2026-01-15,');

@@ -31,12 +31,26 @@ describe('BulkImportWorkspace', () => {
 
 		await press('Start import');
 		expect(screen.getByText('Importing rows')).toBeInTheDocument();
-		expect(document.activeElement).toBe(document.body);
+		expect(document.activeElement).toBe(screen.getByRole('region', { name: 'Step import workspace' }));
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Finish import from outside' }));
 		await tick();
 
 		expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Import complete' }));
+	});
+
+	it('drops owed focus once the user moves focus outside the workspace', async () => {
+		render(BulkImportStepTest);
+
+		await press('Start import');
+		await press('Dismiss outside notice');
+		expect(document.activeElement).toBe(document.body);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Finish import from outside' }));
+		await tick();
+
+		expect(screen.getByRole('heading', { name: 'Import complete' })).toBeInTheDocument();
+		expect(document.activeElement).toBe(document.body);
 	});
 
 	it('leaves focus on a control that survives the step change', async () => {

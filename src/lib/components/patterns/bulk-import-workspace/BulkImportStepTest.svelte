@@ -4,6 +4,7 @@
 
 	let workspace = $state<'steps' | 'other'>('steps');
 	let step = $state<'upload' | 'importing' | 'review' | 'results'>('upload');
+	let outsideNotice = $state(true);
 
 	function switchStep() {
 		step = step === 'upload' ? 'review' : 'upload';
@@ -12,6 +13,9 @@
 
 <Button onclick={switchStep}>Switch step from outside</Button>
 <Button onclick={() => (step = 'results')}>Finish import from outside</Button>
+{#if outsideNotice}
+	<Button onclick={() => (outsideNotice = false)}>Dismiss outside notice</Button>
+{/if}
 {#if workspace === 'steps'}
 	<BulkImportWorkspace.Root ariaLabel="Step import workspace" {step}>
 		{#if step === 'upload'}

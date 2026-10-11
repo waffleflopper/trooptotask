@@ -586,7 +586,7 @@ Component Catalog coverage:
 
 Public components:
 
-- `Root`: import workspace shell. Props: `ariaLabel?`, `step?`, `children`. Pass the route's current step key as `step`. When it changes and the change removes the focused control inside this Root, focus moves to the new step's first `h2` or `h3`. Inside a dialog the whole dialog counts as the Root, because its footer holds the step controls, and focus the dialog parks on itself counts as lost. A step without a heading, such as `ProgressState`, keeps that focus owed until a later step renders one. Focus elsewhere, or on a control that survives the change, stays where it is. Render one Root around every step so it sees the change.
+- `Root`: import workspace shell. Props: `ariaLabel?`, `step?`, `children`. Pass the route's current step key as `step`. When it changes with focus inside this Root, Root holds focus on itself while the step's markup is replaced, so neither the browser nor a dialog's focus trap moves it. Focus then returns to a control that survived the change, or moves to the new step's first `h2` or `h3`. Inside a dialog the whole dialog counts as the Root, because its footer holds the step controls, and focus on the dialog itself counts as held. A step without a heading, such as `ProgressState`, keeps focus held until a later step renders one, unless the user moves focus elsewhere first. Focus outside the Root when the step changes stays where it is. Render one Root around every step so it sees the change.
 - `Header`: title, description, step label, and metadata.
 - `SourcePicker`: accessible radio-group-style source chooser.
 - `SourceOption`: selectable upload/paste/manual choice.

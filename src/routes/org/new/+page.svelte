@@ -16,8 +16,9 @@
 	let nameInput = $state<HTMLInputElement | null>(null);
 	let createButton = $state<HTMLButtonElement | null>(null);
 	let unexpectedError = $state<string | null>(null);
-	// A new submission supersedes the earlier failure, so its text goes while the retry is in flight.
-	const failure = $derived(loading ? undefined : form?.error);
+	// A new submission supersedes the failure on screen; only a failure the server returns for it shows again.
+	let supersededForm = $state.raw<ActionData | undefined>(undefined);
+	const failure = $derived(form === supersededForm ? undefined : form?.error);
 	let active = true;
 	onDestroy(() => {
 		active = false;
@@ -57,6 +58,7 @@
 					if (loading) return cancel();
 					loading = true;
 					unexpectedError = null;
+					supersededForm = form;
 					return async (outcome) => {
 						await settleAction(outcome, {
 							isCurrent: () => active,

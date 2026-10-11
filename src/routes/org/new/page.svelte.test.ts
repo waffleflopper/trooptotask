@@ -150,6 +150,34 @@ describe('/org/new page', () => {
 		);
 	});
 
+	it('drops a corrected name error when the retry errors unexpectedly', async () => {
+		pageState.status = 400;
+		const view = render(Page, { props: { data: makePageData(), form: null } });
+		const page = { applyForm: (form: unknown) => view.rerender({ form: form as never }) };
+		const name = screen.getByLabelText('Organization Name') as HTMLInputElement;
+		const create = screen.getByRole('button', { name: 'Create Organization' });
+		await fireEvent.input(name, { target: { value: 'Taken' } });
+		await fireEvent.click(create);
+		await enhanceRequests[0](
+			frameworkOutcome({ type: 'failure', status: 400, data: { error: 'Name is already in use' } }, page)
+		);
+		await waitFor(() => expect(name.getAttribute('aria-invalid')).toBe('true'));
+
+		await fireEvent.input(name, { target: { value: '2nd Battalion' } });
+		await fireEvent.click(create);
+		await enhanceRequests[1](
+			frameworkOutcome({ type: 'error', status: 500, error: { message: 'Internal Error' } }, page)
+		);
+
+		await waitFor(() =>
+			expect(screen.getByRole('alert').textContent?.trim()).toBe("The request didn't complete. Try again.")
+		);
+		expect(screen.getAllByRole('alert')).toHaveLength(1);
+		expect(name.getAttribute('aria-invalid')).toBeNull();
+		expect(name.value).toBe('2nd Battalion');
+		expect(document.activeElement).toBe(create);
+	});
+
 	it('does not navigate to the new Organization when its response arrives after the user left', async () => {
 		const view = render(Page, { props: { data: makePageData(), form: null } });
 		await fireEvent.input(screen.getByLabelText('Organization Name'), { target: { value: '2nd Battalion' } });

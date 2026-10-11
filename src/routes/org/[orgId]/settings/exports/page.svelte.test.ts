@@ -62,18 +62,36 @@ describe('Organization export target lifetime', () => {
 			mount();
 			await fireEvent.click(screen.getByRole('button', { name: `Export ${label}` }));
 			expect(request).toHaveBeenCalledWith(`/org/organization-a/api/${endpoint}`, { method: 'POST' });
-			expect((screen.getByRole('button', { name: /Generating/ }) as HTMLButtonElement).disabled).toBe(true);
+			expect(screen.getByRole('button', { name: /Generating/ }).getAttribute('aria-disabled')).toBe('true');
 			expect(
 				(screen.getByRole('button', { name: label === 'JSON' ? 'Export Excel' : 'Export JSON' }) as HTMLButtonElement)
 					.disabled
 			).toBe(true);
+			expect(screen.getByRole('status').textContent).toBe(`Generating ${label} export...`);
 			expect(downloads.save).not.toHaveBeenCalled();
 			pending.resolve(success(header));
 			await waitFor(() => expect(downloads.save).toHaveBeenCalledWith(expect.any(Blob), filename));
-			expect(screen.getByText('Export downloaded successfully.')).toBeTruthy();
+			expect(screen.getByRole('status').textContent).toBe('Export downloaded successfully.');
 			idle();
 		}
 	);
+
+	it('keeps focus on the pressed export while it is busy and ignores repeat presses', async () => {
+		const pending = deferred<Response>();
+		const request = vi.fn(() => pending.promise);
+		vi.stubGlobal('fetch', request);
+		mount();
+		const button = screen.getByRole('button', { name: 'Export JSON' });
+		button.focus();
+		await fireEvent.click(button);
+		expect(document.activeElement).toBe(button);
+		expect((button as HTMLButtonElement).disabled).toBe(false);
+		await fireEvent.click(button);
+		expect(request).toHaveBeenCalledOnce();
+		pending.resolve(success());
+		await waitFor(() => expect(downloads.save).toHaveBeenCalledOnce());
+		expect(document.activeElement).toBe(button);
+	});
 
 	it('allows an explicit retry after a failed response without downloading its body', async () => {
 		const request = vi
@@ -83,7 +101,7 @@ describe('Organization export target lifetime', () => {
 		vi.stubGlobal('fetch', request);
 		mount();
 		await fireEvent.click(screen.getByRole('button', { name: 'Export JSON' }));
-		await waitFor(() => expect(screen.getByText('A export unavailable')).toBeTruthy());
+		await waitFor(() => expect(screen.getByRole('alert').textContent?.trim()).toBe('A export unavailable'));
 		expect(downloads.save).not.toHaveBeenCalled();
 		idle();
 		await fireEvent.click(screen.getByRole('button', { name: 'Export JSON' }));
@@ -119,7 +137,7 @@ describe('Organization export target lifetime', () => {
 		a.resolve(success('requested-a.json'));
 		await waitFor(() => expect(downloads.save).toHaveBeenCalledWith(expect.any(Blob), 'requested-a.json'));
 		expect(await downloads.save.mock.calls[0][0].text()).toBe('organization-a artifact');
-		expect((screen.getByRole('button', { name: /Generating/ }) as HTMLButtonElement).disabled).toBe(true);
+		expect(screen.getByRole('button', { name: /Generating/ }).getAttribute('aria-disabled')).toBe('true');
 		noFeedback();
 		b.resolve(new Response('organization-b artifact', { status: 200 }));
 		await waitFor(() =>
@@ -141,7 +159,7 @@ describe('Organization export target lifetime', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Export Excel' }));
 		old.resolve(success('old-a.json'));
 		await waitFor(() => expect(downloads.save).toHaveBeenCalledWith(expect.any(Blob), 'old-a.json'));
-		expect((screen.getByRole('button', { name: /Generating/ }) as HTMLButtonElement).disabled).toBe(true);
+		expect(screen.getByRole('button', { name: /Generating/ }).getAttribute('aria-disabled')).toBe('true');
 		noFeedback();
 		current.resolve(success('current-a.xlsx'));
 		await waitFor(() => expect(downloads.save).toHaveBeenCalledWith(expect.any(Blob), 'current-a.xlsx'));

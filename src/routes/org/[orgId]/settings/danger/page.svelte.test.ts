@@ -1,15 +1,17 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import type { ComponentProps } from 'svelte';
+import type { ActionResult } from '@sveltejs/kit';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { frameworkOutcome } from '$lib/test-support/sveltekitEnhance';
 import Page from './+page.svelte';
 
 const { enhancements, stepUp } = vi.hoisted(() => ({
-	enhancements: new Map<string, (...args: never[]) => unknown>(),
+	enhancements: new Map<string, (input: { cancel: () => void }) => unknown>(),
 	stepUp: vi.fn(() => false)
 }));
 vi.mock('$app/forms', () => ({
-	enhance: (node: HTMLFormElement, submit: (...args: never[]) => unknown) => {
+	enhance: (node: HTMLFormElement, submit: (input: { cancel: () => void }) => unknown) => {
 		enhancements.set(node.id, submit);
 	}
 }));
@@ -86,7 +88,7 @@ it.each(['failure', 'redirect'] as const)(
 	async (type) => {
 		const view = render(Page, { data: makeData(), form: null, params: { orgId: 'org-a' } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Delete Example Organization' }));
-		const callback = enhancements.get('delete-org-form')!() as (input: unknown) => Promise<void>;
+		const callback = enhancements.get('delete-org-form')!({ cancel: () => {} }) as (input: unknown) => Promise<void>;
 		await view.rerender({ data: makeData('org-b'), form: null });
 		const update = vi.fn();
 		await callback({
@@ -101,3 +103,95 @@ it.each(['failure', 'redirect'] as const)(
 		expect(screen.queryByRole('dialog')).toBeNull();
 	}
 );
+
+const serverError: ActionResult = { type: 'error', status: 500, error: { message: 'Internal Error' } };
+
+async function openTransfer() {
+	const data = makeData();
+	data.dangerSettings.sections.dangerZone.transferOwnershipCandidates = [
+		{ id: 'm-1', userId: 'u-1', email: 'next@example.com', membershipRole: 'admin' }
+	];
+	const view = render(Page, { data, form: null, params: { orgId: 'org-a' } });
+	const trigger = document.getElementById('transfer-owner-target')!;
+	await fireEvent.pointerDown(trigger, { pointerType: 'mouse', button: 0 });
+	await fireEvent.pointerUp(trigger, { pointerType: 'mouse', button: 0 });
+	await vi.runAllTimersAsync();
+	const option = screen.getByRole('option', { name: 'next@example.com' });
+	await fireEvent.pointerUp(option, { pointerType: 'mouse', button: 0 });
+	await fireEvent.click(screen.getByRole('button', { name: 'Transfer Ownership' }));
+	await vi.runAllTimersAsync();
+	const dialog = screen.getByRole('dialog', { name: 'Transfer Ownership' });
+	await fireEvent.input(within(dialog).getByRole('textbox'), { target: { value: 'next@example.com' } });
+	const callback = enhancements.get('transfer-ownership-form')!({ cancel: () => {} }) as (
+		input: unknown
+	) => Promise<void>;
+	return { view, data, dialog, callback };
+}
+
+it.each([
+	[
+		'failure',
+		{ type: 'failure', status: 409, data: { transferError: 'Member is no longer eligible' } } as ActionResult
+	],
+	['error', serverError]
+])('shows a %s transfer in an Alert inside its dialog and keeps the confirmation', async (_kind, result) => {
+	const { view, data, dialog, callback } = await openTransfer();
+
+	await callback(frameworkOutcome(result, { applyForm: (form) => view.rerender({ data, form: form as never }) }));
+
+	expect(within(dialog).getByRole('alert')).toBeTruthy();
+	expect((within(dialog).getByRole('textbox') as HTMLInputElement).value).toBe('next@example.com');
+	expect(document.activeElement).toBe(within(dialog).getByRole('button', { name: 'Transfer Ownership' }));
+});
+
+it('keeps the delete confirmation with an Alert in its dialog when deletion errors', async () => {
+	const data = makeData();
+	const view = render(Page, { data, form: null, params: { orgId: 'org-a' } });
+	await fireEvent.click(screen.getByRole('button', { name: 'Delete Example Organization' }));
+	const dialog = screen.getByRole('dialog', { name: 'Delete Organization' });
+	await fireEvent.input(within(dialog).getByRole('textbox'), { target: { value: 'Example Organization' } });
+	const callback = enhancements.get('delete-org-form')!({ cancel: () => {} }) as (input: unknown) => Promise<void>;
+
+	await callback(frameworkOutcome(serverError, { applyForm: (form) => view.rerender({ data, form: form as never }) }));
+
+	expect(within(dialog).getByRole('alert')).toBeTruthy();
+	expect((within(dialog).getByRole('textbox') as HTMLInputElement).value).toBe('Example Organization');
+	expect(document.activeElement).toBe(within(dialog).getByRole('button', { name: 'Delete Permanently' }));
+});
+
+it('keeps focus on Delete Permanently while deletion is pending and ignores a second submission', async () => {
+	render(Page, { data: makeData(), form: null, params: { orgId: 'org-a' } });
+	await fireEvent.click(screen.getByRole('button', { name: 'Delete Example Organization' }));
+	const dialog = screen.getByRole('dialog', { name: 'Delete Organization' });
+	await fireEvent.input(within(dialog).getByRole('textbox'), { target: { value: 'Example Organization' } });
+	const remove = within(dialog).getByRole('button', { name: 'Delete Permanently' }) as HTMLButtonElement;
+	remove.focus();
+
+	const submit = enhancements.get('delete-org-form')!;
+	const first = vi.fn();
+	submit({ cancel: first });
+	await vi.runAllTimersAsync();
+
+	expect(first).not.toHaveBeenCalled();
+	expect(remove.textContent?.trim()).toBe('Deleting...');
+	expect(remove.disabled).toBe(false);
+	expect(remove.getAttribute('aria-disabled')).toBe('true');
+	expect(document.activeElement).toBe(remove);
+	const repeat = vi.fn();
+	submit({ cancel: repeat });
+	expect(repeat).toHaveBeenCalledOnce();
+});
+
+it('keeps focus on Transfer Ownership while the transfer is pending and ignores a second submission', async () => {
+	const { dialog } = await openTransfer();
+	await vi.runAllTimersAsync();
+	const transfer = within(dialog).getByRole('button', { name: 'Transferring...' }) as HTMLButtonElement;
+	transfer.focus();
+
+	expect(transfer.disabled).toBe(false);
+	expect(transfer.getAttribute('aria-disabled')).toBe('true');
+	expect(document.activeElement).toBe(transfer);
+	const repeat = vi.fn();
+	enhancements.get('transfer-ownership-form')!({ cancel: repeat });
+	expect(repeat).toHaveBeenCalledOnce();
+});

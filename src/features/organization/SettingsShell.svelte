@@ -1,7 +1,9 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { navigating } from '$app/state';
 	import type { SettingsShell } from './settingsShell';
 	import { Badge } from '$lib/components/ui/badge/index.js';
+	import { Spinner } from '$lib/components/ui/spinner/index.js';
 	import * as PageShell from '$lib/components/patterns/page-shell/index.js';
 	import type { RouteTabItem } from '$lib/components/patterns/page-shell/index.js';
 
@@ -15,6 +17,11 @@
 	const organization = $derived(settingsShell?.organization);
 	const currentMember = $derived(settingsShell?.currentMember);
 	const baseHref = $derived(`/org/${organization?.urlSegment ?? orgUrlSegment}/settings`);
+
+	function counted(count: number | undefined, one: string, many = `${one}s`) {
+		return count ? { badge: count, badgeLabel: `${count} ${count === 1 ? one : many}` } : {};
+	}
+
 	const tabs = $derived(
 		[
 			{ label: 'General', href: `${baseHref}/general`, active: activePath.endsWith('/settings/general') },
@@ -22,7 +29,7 @@
 				label: 'Members',
 				href: `${baseHref}/members`,
 				active: activePath.endsWith('/settings/members'),
-				badge: settingsShell?.navBadges.pendingInvitationsCount || undefined,
+				...counted(settingsShell?.navBadges.pendingInvitationsCount, 'pending invitation'),
 				badgeVariant: 'warning' as const
 			},
 			{ label: 'Policies', href: `${baseHref}/policies`, active: activePath.endsWith('/settings/policies') },
@@ -33,14 +40,14 @@
 				label: 'Archives',
 				href: `${baseHref}/archives`,
 				active: activePath.endsWith('/settings/archives'),
-				badge: settingsShell?.navBadges.archivedPersonnelCount || undefined,
+				...counted(settingsShell?.navBadges.archivedPersonnelCount, 'archived person', 'archived people'),
 				badgeVariant: 'outline' as const
 			},
 			{
 				label: 'Approvals',
 				href: `${baseHref}/approvals`,
 				active: activePath.endsWith('/settings/approvals'),
-				badge: settingsShell?.navBadges.pendingApprovalsCount || undefined,
+				...counted(settingsShell?.navBadges.pendingApprovalsCount, 'pending request'),
 				badgeVariant: 'warning' as const
 			},
 			...(settingsShell?.tabVisibility.logs
@@ -55,13 +62,16 @@
 			active: tab.active || (activePath.endsWith('/settings') && tab.label === 'General')
 		}))
 	);
+	const loadingTab = $derived(
+		navigating.to ? tabs.find((tab) => !tab.active && tab.href === navigating.to?.url.pathname) : undefined
+	);
 </script>
 
 <svelte:head>
 	<title>Settings - {organization?.name ?? 'Organization'} - Troop to Task</title>
 </svelte:head>
 
-<PageShell.Root width="wide" bodyClass="gap-5">
+<PageShell.Root width="wide" bodyClass="grid-cols-[minmax(0,1fr)] gap-5">
 	<PageShell.Header
 		title="Organization Settings"
 		subtitle={`${organization?.name ?? 'Organization'} governance, access, policies, retention, and export controls.`}
@@ -69,9 +79,19 @@
 		{#snippet meta()}
 			<Badge variant="outline">{currentMember?.isOwner ? 'Owner access' : 'Admin access'}</Badge>
 		{/snippet}
+		{#snippet actions()}
+			<p role="status" class="flex items-center gap-2 text-sm text-muted-foreground">
+				{#if loadingTab}
+					<Spinner role="presentation" aria-hidden="true" />
+					Loading {loadingTab.label}...
+				{/if}
+			</p>
+		{/snippet}
 	</PageShell.Header>
 
 	<PageShell.Tabs items={tabs as RouteTabItem[]} label="Organization settings sections" />
 
-	{@render children()}
+	<div class="min-w-0" aria-busy={loadingTab ? 'true' : undefined}>
+		{@render children()}
+	</div>
 </PageShell.Root>

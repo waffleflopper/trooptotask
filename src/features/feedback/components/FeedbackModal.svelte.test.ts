@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { toastStore } from '$lib/stores/toast.svelte';
 import FeedbackModal from './FeedbackModal.svelte';
@@ -19,15 +19,14 @@ async function submit(message: string) {
 	await fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
 }
 
-// happy-dom does not apply a disabled fieldset to its controls' :disabled state.
-const inDisabledGroup = (control: HTMLElement) => control.closest('fieldset')?.disabled === true;
-
 function expectPendingDraft(message: string) {
 	const textbox = screen.getByRole('textbox', { name: 'Message' }) as HTMLTextAreaElement;
 	expect(textbox.value).toBe(message);
-	expect(inDisabledGroup(textbox)).toBe(true);
-	expect(inDisabledGroup(screen.getByLabelText('Category'))).toBe(true);
-	expect((screen.getByRole('button', { name: /Submitting/ }) as HTMLButtonElement).disabled).toBe(true);
+	expect(textbox.disabled).toBe(true);
+	expect((screen.getByLabelText('Category') as HTMLButtonElement).disabled).toBe(true);
+	const pending = screen.getByRole('button', { name: /Submitting/ }) as HTMLButtonElement;
+	expect(pending.getAttribute('aria-disabled')).toBe('true');
+	expect(pending.disabled).toBe(false);
 	expect((screen.getByRole('button', { name: 'Cancel' }) as HTMLButtonElement).disabled).toBe(true);
 }
 
@@ -43,6 +42,26 @@ afterEach(() => {
 });
 
 describe('FeedbackModal submission lifetime', () => {
+	it('keeps focus on Submit while sending and sends a second press nowhere', async () => {
+		const acknowledgment = deferred<void>();
+		const send = vi.fn(async () => {
+			await acknowledgment.promise;
+			return Response.json({ success: true });
+		});
+		vi.stubGlobal('fetch', send);
+		render(FeedbackModal, { onClose: vi.fn() });
+		await fireEvent.input(screen.getByRole('textbox', { name: 'Message' }), { target: { value: 'Needs a label.' } });
+		const submitButton = screen.getByRole('button', { name: 'Submit' });
+		submitButton.focus();
+
+		await fireEvent.click(submitButton);
+		await fireEvent.click(submitButton);
+
+		expect(send).toHaveBeenCalledOnce();
+		expect(document.activeElement).toBe(submitButton);
+		acknowledgment.resolve();
+	});
+
 	it('waits for the current submission to be stored before reporting success and closing', async () => {
 		const acknowledgment = deferred<void>();
 		const saved: unknown[] = [];
@@ -100,13 +119,14 @@ describe('FeedbackModal submission lifetime', () => {
 			await waitFor(() =>
 				expect((screen.getByRole('button', { name: 'Submit' }) as HTMLButtonElement).disabled).toBe(false)
 			);
-			expect(toastStore.error).toHaveBeenCalledWith(
+			expect(within(screen.getByRole('dialog')).getByRole('alert').textContent?.trim()).toBe(
 				failure === 'transport' ? 'Connection interrupted' : 'Feedback service unavailable'
 			);
-			expect((screen.getByRole('textbox', { name: 'Message' }) as HTMLTextAreaElement).value).toBe(
-				'  Keep my failed draft.  '
-			);
-			expect(inDisabledGroup(screen.getByRole('textbox', { name: 'Message' }))).toBe(false);
+			expect(toastStore.error).not.toHaveBeenCalled();
+			const textbox = screen.getByRole('textbox', { name: 'Message' }) as HTMLTextAreaElement;
+			expect(textbox.value).toBe('  Keep my failed draft.  ');
+			expect(textbox.disabled).toBe(false);
+			expect(document.activeElement).toBe(textbox);
 			expect((screen.getByRole('button', { name: 'Cancel' }) as HTMLButtonElement).disabled).toBe(false);
 			expect(onClose).not.toHaveBeenCalled();
 			expect(toastStore.success).not.toHaveBeenCalled();
@@ -114,6 +134,7 @@ describe('FeedbackModal submission lifetime', () => {
 			expect(attempts).toBe(1);
 
 			await fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+			expect(screen.queryByRole('alert')).toBeNull();
 			await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
 			expect(saved).toEqual([{ category: 'general', message: 'Keep my failed draft.', organizationId: 'org-a' }]);
 			expect(toastStore.success).toHaveBeenCalledTimes(1);

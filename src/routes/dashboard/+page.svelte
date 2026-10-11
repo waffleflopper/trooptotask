@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { onDestroy } from 'svelte';
+	import type { SubmitFunction } from '@sveltejs/kit';
 	import { resolve } from '$app/paths';
 	import MoonIcon from '@lucide/svelte/icons/moon';
 	import SunIcon from '@lucide/svelte/icons/sun';
@@ -9,17 +11,50 @@
 	import { Input } from '$lib/components/ui/input';
 	import { themeStore } from '$lib/stores/theme.svelte';
 	import { formatRelativeDate } from '$lib/utils/dates';
+	import { settleAction } from '$lib/utils/settleAction';
 
 	let { data, form } = $props();
+	let active = true;
+	onDestroy(() => {
+		active = false;
+	});
 	let loading = $state<string | null>(null);
+	let respondedInvitationId = $state<string | null>(null);
+	let requestError = $state<string | null>(null);
+	// A new response supersedes the failure on screen; only a failure the server returns for it shows again.
+	let supersededForm = $state.raw<typeof form | undefined>(undefined);
+	const failure = $derived(form === supersededForm ? undefined : form?.error);
 	let successMessage = $state<string | null>(null);
 	let orgFilter = $state('');
 	let successTimer: ReturnType<typeof setTimeout>;
+	let workspacesHeading = $state<HTMLHeadingElement | null>(null);
 
 	function showSuccess(msg: string) {
 		successMessage = msg;
 		clearTimeout(successTimer);
 		successTimer = setTimeout(() => (successMessage = null), 4000);
+	}
+
+	function respondToInvitation(invitationId: string, successText: string): SubmitFunction {
+		return ({ formElement, cancel }) => {
+			if (loading) return cancel();
+			loading = invitationId;
+			respondedInvitationId = invitationId;
+			requestError = null;
+			supersededForm = form;
+			return async (outcome) => {
+				// A resolved invitation leaves the list; a failed one keeps its row and button.
+				await settleAction(outcome, {
+					isCurrent: () => active,
+					settled: (error) => {
+						requestError = error;
+						loading = null;
+						if (!error && outcome.result.type === 'success') showSuccess(successText);
+					},
+					focus: () => [formElement.querySelector('button'), workspacesHeading]
+				});
+			};
+		};
 	}
 
 	function formatRole(role: string): string {
@@ -70,12 +105,18 @@
 			class="flex flex-col gap-6 rounded-lg border border-border bg-card p-5 text-card-foreground shadow-sm lg:p-8"
 		>
 			<header class="flex flex-col">
-				<h2 class="text-3xl leading-tight font-semibold tracking-tight text-foreground">Available workspaces</h2>
+				<h2
+					bind:this={workspacesHeading}
+					tabindex="-1"
+					class="text-3xl leading-tight font-semibold tracking-tight text-foreground outline-none"
+				>
+					Available workspaces
+				</h2>
 			</header>
 
-			{#if form?.error}
+			{#if respondedInvitationId === null && failure}
 				<Alert.Root variant="destructive">
-					<Alert.Description>{form.error}</Alert.Description>
+					<Alert.Description>{failure}</Alert.Description>
 				</Alert.Root>
 			{/if}
 
@@ -102,6 +143,11 @@
 								<div class="flex min-w-0 flex-col gap-1">
 									<span class="truncate font-medium text-foreground">{invitation.organizationName}</span>
 									<span class="text-sm text-muted-foreground">Invited {formatRelativeDate(invitation.createdAt)}</span>
+									{#if respondedInvitationId === invitation.id && (requestError || failure)}
+										<Alert.Root variant="destructive" class="mt-2">
+											<Alert.Description>{requestError ?? failure}</Alert.Description>
+										</Alert.Root>
+									{/if}
 								</div>
 
 								<div class="flex flex-wrap justify-end gap-2 max-sm:w-full">
@@ -109,36 +155,35 @@
 										class="max-sm:flex-1"
 										method="POST"
 										action="?/acceptInvitation"
-										use:enhance={() => {
-											loading = invitation.id;
-											return async ({ result, update }) => {
-												loading = null;
-												if (result.type === 'success') showSuccess(`Joined ${invitation.organizationName}.`);
-												await update();
-											};
-										}}
+										use:enhance={respondToInvitation(invitation.id, `Joined ${invitation.organizationName}.`)}
 									>
 										<input type="hidden" name="invitationId" value={invitation.id} />
-										<Button class="max-sm:w-full" type="submit" disabled={loading === invitation.id}>
+										<!-- aria-disabled keeps focus on the pressed button while the response is pending. -->
+										<Button
+											class="max-sm:w-full"
+											type="submit"
+											aria-disabled={loading === invitation.id ? 'true' : undefined}
+											aria-busy={loading === invitation.id || undefined}
+										>
 											{loading === invitation.id ? 'Accepting...' : 'Accept'}
+											<span class="sr-only">invitation to {invitation.organizationName}</span>
 										</Button>
 									</form>
 									<form
 										class="max-sm:flex-1"
 										method="POST"
 										action="?/declineInvitation"
-										use:enhance={() => {
-											loading = invitation.id;
-											return async ({ result, update }) => {
-												loading = null;
-												if (result.type === 'success') showSuccess('Invitation declined.');
-												await update();
-											};
-										}}
+										use:enhance={respondToInvitation(invitation.id, 'Invitation declined.')}
 									>
 										<input type="hidden" name="invitationId" value={invitation.id} />
-										<Button class="max-sm:w-full" type="submit" variant="outline" disabled={loading === invitation.id}>
-											Decline
+										<Button
+											class="max-sm:w-full"
+											type="submit"
+											variant="outline"
+											aria-disabled={loading === invitation.id ? 'true' : undefined}
+											aria-busy={loading === invitation.id || undefined}
+										>
+											Decline <span class="sr-only">invitation to {invitation.organizationName}</span>
 										</Button>
 									</form>
 								</div>
@@ -170,7 +215,7 @@
 						{#each filteredOrgs as org (org.id)}
 							<a
 								href={resolve(`/org/${org.urlSegment ?? org.id}` as `/org/${string}`)}
-								class="flex items-center justify-between gap-4 rounded-lg border border-border bg-background p-4 text-foreground transition-colors hover:bg-muted max-sm:flex-col max-sm:items-start"
+								class="flex items-center justify-between gap-4 rounded-lg border border-border bg-background p-4 text-foreground transition-colors outline-none hover:bg-muted focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 max-sm:flex-col max-sm:items-start"
 							>
 								<div class="flex min-w-0 flex-col gap-1">
 									<span class="truncate font-medium">{org.name}</span>

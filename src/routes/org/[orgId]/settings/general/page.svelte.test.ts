@@ -2,12 +2,15 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import { tick, type ComponentProps } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { frameworkOutcome } from '$lib/test-support/sveltekitEnhance';
 import Page from './+page.svelte';
 
-const { enhancements, callbacks } = vi.hoisted(() => ({
+const { enhancements, callbacks, toasts } = vi.hoisted(() => ({
 	enhancements: new Map<string, (input: { cancel: () => void }) => unknown>(),
-	callbacks: [] as Array<(input: unknown) => Promise<void>>
+	callbacks: [] as Array<(input: unknown) => Promise<void>>,
+	toasts: [] as string[]
 }));
+vi.mock('$lib/stores/toast.svelte', () => ({ toastStore: { success: (message: string) => toasts.push(message) } }));
 vi.mock('$app/forms', () => ({
 	enhance: (node: HTMLFormElement, submit: (input: { cancel: () => void }) => unknown) => {
 		const action = node.getAttribute('action')!;
@@ -22,7 +25,7 @@ vi.mock('$app/forms', () => ({
 	}
 }));
 
-function data(orgId: string) {
+function data(orgId: string, urlSlug: string | null = 'example-unit') {
 	return {
 		orgId,
 		generalSettings: {
@@ -31,8 +34,8 @@ function data(orgId: string) {
 				organization: {
 					id: orgId,
 					name: 'Example Organization',
-					urlSlug: 'example-unit',
-					urlSegment: 'example-unit',
+					urlSlug,
+					urlSegment: urlSlug ?? orgId,
 					canUpdateProfile: true,
 					canUpdateUrlSlug: true
 				}
@@ -44,6 +47,7 @@ function data(orgId: string) {
 beforeEach(() => {
 	enhancements.clear();
 	callbacks.length = 0;
+	toasts.length = 0;
 	vi.useFakeTimers();
 });
 afterEach(async () => {
@@ -54,17 +58,55 @@ afterEach(async () => {
 });
 
 async function beginNameSave() {
-	await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+	await fireEvent.click(screen.getByRole('button', { name: 'Edit organization name' }));
 	enhancements.get('?/updateName')!({ cancel: () => {} });
 	await tick();
 	await fireEvent.click(screen.getByRole('button', { name: 'Update Name' }));
 	return callbacks.at(-1)!;
 }
 
+describe('General settings pending saves', () => {
+	it('keeps focus on Save while the name saves and ignores a second submission', async () => {
+		render(Page, { data: data('a'), form: null, params: { orgId: 'a' } });
+		await beginNameSave();
+		const save = screen.getByRole('button', { name: 'Saving...' }) as HTMLButtonElement;
+		save.focus();
+		const requests = callbacks.length;
+
+		await fireEvent.click(save);
+
+		expect(callbacks).toHaveLength(requests);
+		expect(screen.queryByRole('dialog')).toBeNull();
+		expect(save.disabled).toBe(false);
+		expect(save.getAttribute('aria-disabled')).toBe('true');
+		expect(document.activeElement).toBe(save);
+	});
+
+	it('keeps focus on Update URL while the URL saves and ignores a second submission or a Reset', async () => {
+		render(Page, { data: data('a'), form: null, params: { orgId: 'a' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Update URL' }));
+		await fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Update URL' }));
+		const save = screen.getByRole('button', { name: 'Saving...' }) as HTMLButtonElement;
+		const reset = screen.getByRole('button', { name: 'Reset to default' }) as HTMLButtonElement;
+		save.focus();
+		const requests = callbacks.length;
+
+		await fireEvent.click(save);
+		await fireEvent.click(reset);
+
+		expect(callbacks).toHaveLength(requests);
+		expect(screen.queryByRole('dialog')).toBeNull();
+		expect(save.disabled).toBe(false);
+		expect(save.getAttribute('aria-disabled')).toBe('true');
+		expect(reset.getAttribute('aria-disabled')).toBe('true');
+		expect(document.activeElement).toBe(save);
+	});
+});
+
 describe('General settings Organization lifetime', () => {
 	it('discards confirmations and drafts when switching between Organizations with equal profiles', async () => {
 		const view = render(Page, { data: data('a'), form: null, params: { orgId: 'a' } });
-		await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit organization name' }));
 		await fireEvent.input(screen.getByLabelText('Organization name'), { target: { value: 'Unsaved Alpha' } });
 		enhancements.get('?/updateName')!({ cancel: () => {} });
 		await tick();
@@ -72,7 +114,7 @@ describe('General settings Organization lifetime', () => {
 		await view.rerender({ data: data('b'), form: null });
 		expect(screen.queryByRole('dialog')).toBeNull();
 		expect(screen.queryByLabelText('Organization name')).toBeNull();
-		await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit organization name' }));
 		expect((screen.getByLabelText('Organization name') as HTMLInputElement).value).toBe('Example Organization');
 	});
 
@@ -173,4 +215,147 @@ describe('General settings Organization lifetime', () => {
 			expect(screen.getByRole('dialog', { name: 'Update custom URL?' })).toBeTruthy();
 		}
 	);
+});
+
+describe('General settings feedback and focus', () => {
+	it('moves focus into the name editor and back to its Edit button on cancel', async () => {
+		render(Page, { data: data('a'), form: null, params: { orgId: 'a' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit organization name' }));
+		await tick();
+		expect(document.activeElement).toBe(screen.getByLabelText('Organization name'));
+		await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+		await tick();
+		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Edit organization name' }));
+	});
+
+	it('announces a saved name as status and returns focus to Edit', async () => {
+		render(Page, { data: data('a'), form: { nameSuccess: true }, params: { orgId: 'a' } });
+		await tick();
+		screen.getByRole('status');
+		expect(screen.queryByRole('alert')).toBeNull();
+		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Edit organization name' }));
+	});
+
+	it('associates a rejected name with its field and focuses it', async () => {
+		render(Page, { data: data('a'), form: { error: 'Name is taken' }, params: { orgId: 'a' } });
+		await tick();
+		const name = screen.getByLabelText('Organization name');
+		expect(name.getAttribute('aria-invalid')).toBe('true');
+		expect(document.getElementById(name.getAttribute('aria-describedby') ?? '')?.textContent?.trim()).toBe(
+			'Name is taken'
+		);
+		expect(document.activeElement).toBe(name);
+	});
+
+	it('associates a rejected custom path with its field and focuses it', async () => {
+		render(Page, { data: data('a'), form: { slugError: 'Choose another URL' }, params: { orgId: 'a' } });
+		await tick();
+		const slug = screen.getByLabelText('Custom path');
+		expect(slug.getAttribute('aria-invalid')).toBe('true');
+		const descriptions = (slug.getAttribute('aria-describedby') ?? '')
+			.split(' ')
+			.map((id) => document.getElementById(id)?.textContent?.trim());
+		expect(descriptions).toContain('Choose another URL');
+		expect(document.activeElement).toBe(slug);
+	});
+
+	it('keeps the typed name in place with an Alert when the save errors unexpectedly', async () => {
+		const view = render(Page, { data: data('a'), form: { nameSuccess: true }, params: { orgId: 'a' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit organization name' }));
+		await fireEvent.input(screen.getByLabelText('Organization name'), { target: { value: 'Draft Name' } });
+		enhancements.get('?/updateName')!({ cancel: () => {} });
+		await tick();
+		await fireEvent.click(screen.getByRole('button', { name: 'Update Name' }));
+		const callback = callbacks.at(-1)!;
+		const page = { applyForm: (form: unknown) => view.rerender({ form: form as never }) };
+
+		await callback(frameworkOutcome({ type: 'error', status: 500, error: { message: 'Internal Error' } }, page));
+		await tick();
+
+		const nameForm = screen.getByLabelText('Organization name').closest('form')!;
+		expect(page).not.toHaveProperty('errorPage');
+		expect(within(nameForm).getByRole('alert').textContent?.trim()).toBe("The request didn't complete. Try again.");
+		expect((screen.getByLabelText('Organization name') as HTMLInputElement).value).toBe('Draft Name');
+		expect(screen.queryByText('Organization name updated.')).toBeNull();
+		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Save' }));
+	});
+
+	it('keeps the typed custom path in place with an Alert when the save errors unexpectedly', async () => {
+		const view = render(Page, { data: data('a'), form: null, params: { orgId: 'a' } });
+		await fireEvent.input(screen.getByLabelText('Custom path'), { target: { value: 'draft-path' } });
+		enhancements.get('?/updateSlug')!({ cancel: () => {} });
+		await tick();
+		await fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Update URL' }));
+		const page = { applyForm: (form: unknown) => view.rerender({ form: form as never }) };
+
+		await callbacks.at(-1)!(
+			frameworkOutcome({ type: 'error', status: 500, error: { message: 'Internal Error' } }, page)
+		);
+		await tick();
+
+		const slugForm = screen.getByLabelText('Custom path').closest('form')!;
+		expect(page).not.toHaveProperty('errorPage');
+		within(slugForm).getByRole('alert');
+		expect((screen.getByLabelText('Custom path') as HTMLInputElement).value).toBe('draft-path');
+		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Update URL' }));
+	});
+
+	it('confirms a saved custom URL and returns focus to the URL controls after its redirect', async () => {
+		const view = render(Page, { data: data('a', null), form: null, params: { orgId: 'a' } });
+		const navigateTo = (urlSlug: string | null) => ({
+			applyForm: async () => {},
+			navigate: () => view.rerender({ form: null, data: data('a', urlSlug) })
+		});
+		await fireEvent.input(screen.getByLabelText('Custom path'), { target: { value: 'new-path' } });
+		enhancements.get('?/updateSlug')!({ cancel: () => {} });
+		await tick();
+		await fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Update URL' }));
+		await callbacks.at(-1)!(
+			frameworkOutcome(
+				{ type: 'redirect', status: 303, location: '/org/new-path/settings/general' },
+				navigateTo('new-path')
+			)
+		);
+		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Update URL' }));
+		expect(toasts.at(-1)).toBe('Custom URL updated. Bookmarks and shared links using the old URL will need updating.');
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Reset to default' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Reset URL' }));
+		await callbacks.at(-1)!(
+			frameworkOutcome({ type: 'redirect', status: 303, location: '/org/a/settings/general' }, navigateTo(null))
+		);
+		expect(screen.queryByRole('button', { name: 'Reset to default' })).toBeNull();
+		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Set URL' }));
+		expect(toasts.at(-1)).toBe('Custom URL removed. The app path uses the Organization ID again.');
+	});
+
+	it('does not confirm a custom URL once the Organization changes while the redirect loads', async () => {
+		const view = render(Page, { data: data('a', null), form: null, params: { orgId: 'a' } });
+		await fireEvent.input(screen.getByLabelText('Custom path'), { target: { value: 'new-path' } });
+		enhancements.get('?/updateSlug')!({ cancel: () => {} });
+		await tick();
+		await fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Update URL' }));
+		const switchOrganization = () => view.rerender({ form: null, data: data('b', null) });
+
+		await callbacks.at(-1)!(
+			frameworkOutcome(
+				{ type: 'redirect', status: 303, location: '/org/new-path/settings/general' },
+				{ applyForm: async () => {}, navigate: switchOrganization }
+			)
+		);
+
+		expect(toasts).toEqual([]);
+	});
+
+	it('does not confirm a custom URL when the save redirects to sign-in', async () => {
+		render(Page, { data: data('a', null), form: null, params: { orgId: 'a' } });
+		await fireEvent.input(screen.getByLabelText('Custom path'), { target: { value: 'new-path' } });
+		enhancements.get('?/updateSlug')!({ cancel: () => {} });
+		await tick();
+		await fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Update URL' }));
+		await callbacks.at(-1)!(
+			frameworkOutcome({ type: 'redirect', status: 303, location: '/auth/login' }, { applyForm: async () => {} })
+		);
+		expect(toasts).toEqual([]);
+	});
 });

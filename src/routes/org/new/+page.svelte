@@ -1,223 +1,137 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { page } from '$app/state';
+	import { onDestroy } from 'svelte';
+	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
+	import * as Card from '$lib/components/ui/card';
+	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
+	import { Spinner } from '$lib/components/ui/spinner';
+	import { settleAction } from '$lib/utils/settleAction';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 	let loading = $state(false);
-	const canSubmit = $derived(data.emailConfirmed && !loading);
+	let nameInput = $state<HTMLInputElement | null>(null);
+	let createButton = $state<HTMLButtonElement | null>(null);
+	let unexpectedError = $state<string | null>(null);
+	// A new submission supersedes the failure on screen; only a failure the server returns for it shows again.
+	let supersededForm = $state.raw<ActionData | undefined>(undefined);
+	const failure = $derived(form === supersededForm ? undefined : form?.error);
+	let active = true;
+	onDestroy(() => {
+		active = false;
+	});
+	// Only a 400 rejects the name itself; other failures belong to the request.
+	const nameError = $derived(page.status === 400 && failure ? failure : '');
+	const requestError = $derived(unexpectedError ?? (failure && !nameError ? failure : ''));
 </script>
 
 <svelte:head>
 	<title>Create Your Organization - Troop to Task</title>
 </svelte:head>
 
-<div class="create-page">
-	<div class="create-card">
-		<div class="card-intro">
-			<p class="eyebrow">First Organization Setup</p>
-			<h1>{data.emailConfirmed ? 'Create your first Organization' : 'Confirm your email first'}</h1>
-			<p class="subtitle">
+<div class="flex min-h-screen flex-1 items-center justify-center bg-background p-4 sm:p-6">
+	<Card.Root class="w-full max-w-[520px]">
+		<Card.Header class="gap-2">
+			<p class="font-mono text-[0.6875rem] font-semibold tracking-[0.12em] text-accent uppercase">
+				First Organization Setup
+			</p>
+			<h1 class="font-heading text-4xl leading-none font-extrabold sm:text-5xl">
+				{data.emailConfirmed ? 'Create your first Organization' : 'Confirm your email first'}
+			</h1>
+			<p class="text-base leading-relaxed text-muted-foreground">
 				{#if data.emailConfirmed}
 					Stand up the workspace your unit will use for rosters, schedules, readiness, and first-run setup.
 				{:else}
 					Open the newest confirmation email{data.userEmail ? ` for ${data.userEmail}` : ''} before creating a workspace.
 				{/if}
 			</p>
-		</div>
+		</Card.Header>
 
-		<form
-			method="POST"
-			use:enhance={() => {
-				loading = true;
-				return async ({ update }) => {
-					loading = false;
-					await update();
-				};
-			}}
-		>
-			{#if form?.error}
-				<div class="error-message">{form.error}</div>
-			{/if}
+		<Card.Content>
+			<form
+				method="POST"
+				class="flex flex-col gap-5"
+				use:enhance={({ cancel }) => {
+					if (loading) return cancel();
+					loading = true;
+					unexpectedError = null;
+					supersededForm = form;
+					return async (outcome) => {
+						await settleAction(outcome, {
+							isCurrent: () => active,
+							settled: (error) => {
+								unexpectedError = error;
+								loading = false;
+							},
+							focus: () => [nameError ? nameInput : null, createButton]
+						});
+					};
+				}}
+			>
+				{#if requestError}
+					<Alert.Root variant="destructive">
+						<Alert.Description>{requestError}</Alert.Description>
+					</Alert.Root>
+				{/if}
 
-			{#if !data.emailConfirmed}
-				<div class="status-message" data-testid="org-new-status">
-					<p class="seed-label">Email confirmation required</p>
-					<p>
-						{data.emailConfirmationMessage}
+				{#if !data.emailConfirmed}
+					<Alert.Root role="status" data-testid="org-new-status">
+						<Alert.Title>Email confirmation required</Alert.Title>
+						<Alert.Description>{data.emailConfirmationMessage}</Alert.Description>
+					</Alert.Root>
+				{/if}
+
+				<Field.Root data-invalid={nameError ? true : undefined}>
+					<Field.Label for="name">Organization Name</Field.Label>
+					<Field.Control>
+						<Input
+							bind:ref={nameInput}
+							id="name"
+							name="name"
+							type="text"
+							placeholder="e.g., 1st Battalion"
+							required
+							disabled={!data.emailConfirmed}
+							aria-invalid={nameError ? true : undefined}
+							aria-describedby={nameError ? 'name-error' : undefined}
+						/>
+					</Field.Control>
+					{#if nameError}
+						<Field.Error id="name-error">{nameError}</Field.Error>
+					{/if}
+				</Field.Root>
+
+				<div
+					class="flex flex-col gap-2 rounded-md border bg-muted/70 p-4 text-sm leading-relaxed text-muted-foreground"
+				>
+					<p class="font-mono text-[0.6875rem] font-semibold tracking-[0.12em] text-accent uppercase">
+						Included On Day One
 					</p>
+					<p>
+						Your organization starts with default groups, status types, assignment types, and federal holidays so you
+						are not staring at a blank page after setup.
+					</p>
+					<p>After creation, you will land on the owner dashboard with the first-run setup checklist.</p>
 				</div>
-			{/if}
 
-			<div class="grid gap-2">
-				<label class="field-label" for="name">Organization Name</label>
-				<Input
-					id="name"
-					name="name"
-					type="text"
-					placeholder="e.g., 1st Battalion"
-					required
-					disabled={!data.emailConfirmed}
-				/>
-			</div>
-
-			<div class="seed-info">
-				<p class="seed-label">Included On Day One</p>
-				<p>
-					Your organization starts with default groups, status types, assignment types, and federal holidays so you are
-					not staring at a blank page after setup.
-				</p>
-				<p>After creation, you will land on the owner dashboard with the first-run setup checklist.</p>
-			</div>
-
-			<div class="actions">
-				<Button href="/" variant="outline">Cancel</Button>
-				<Button type="submit" disabled={!canSubmit}>
-					{loading ? 'Creating...' : 'Create Organization'}
-				</Button>
-			</div>
-		</form>
-	</div>
+				<div class="flex flex-col-reverse gap-3 border-t pt-5 sm:flex-row sm:justify-end">
+					<Button href="/" variant="outline">Cancel</Button>
+					<!-- aria-disabled keeps focus on the pressed button while the request is pending. -->
+					<Button
+						bind:ref={createButton}
+						type="submit"
+						disabled={!data.emailConfirmed}
+						aria-disabled={loading ? 'true' : undefined}
+						aria-busy={loading || undefined}
+					>
+						{#if loading}<Spinner />{/if}
+						{loading ? 'Creating...' : 'Create Organization'}
+					</Button>
+				</div>
+			</form>
+		</Card.Content>
+	</Card.Root>
 </div>
-
-<style>
-	.create-page {
-		flex: 1;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		min-height: 100vh;
-		background: var(--background);
-		padding: 1.5rem;
-	}
-
-	.create-card {
-		background: var(--card);
-		border: 1px solid var(--border);
-		border-radius: var(--radius);
-		box-shadow:
-			0 4px 20px rgb(0 0 0 / 0.12),
-			0 2px 6px rgb(0 0 0 / 0.07);
-		padding: 1.5rem;
-		width: 100%;
-		max-width: 520px;
-		display: flex;
-		flex-direction: column;
-		gap: 1.25rem;
-	}
-
-	.card-intro {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-		padding-bottom: 1rem;
-		border-bottom: 1px solid var(--border);
-	}
-
-	.eyebrow,
-	.seed-label,
-	.field-label {
-		font-family: 'IBM Plex Mono', monospace;
-		font-size: 0.6875rem;
-		font-weight: 600;
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-		color: var(--accent);
-	}
-
-	.field-label {
-		color: var(--muted-foreground);
-	}
-
-	.create-card h1 {
-		font-family: 'Barlow Condensed', sans-serif;
-		font-size: clamp(2.4rem, 5vw, 3.4rem);
-		line-height: 0.94;
-		font-weight: 800;
-		text-transform: uppercase;
-		margin: 0;
-		color: var(--foreground);
-	}
-
-	.subtitle {
-		margin: 0;
-		color: var(--muted-foreground);
-		font-size: 1rem;
-		line-height: 1.55;
-	}
-
-	.error-message {
-		background: color-mix(in srgb, var(--destructive) 12%, var(--card));
-		border: 1px solid var(--border);
-		color: var(--destructive);
-		padding: 0.75rem 1rem;
-		border-radius: var(--radius);
-		font-size: 0.8125rem;
-		margin-bottom: 1rem;
-	}
-
-	.status-message {
-		background: color-mix(in srgb, var(--accent) 10%, var(--card));
-		border: 1px solid var(--border);
-		color: var(--muted-foreground);
-		padding: 0.9rem 1rem;
-		border-radius: var(--radius);
-		font-size: 0.8125rem;
-		margin-bottom: 1rem;
-	}
-
-	.status-message p {
-		margin: 0;
-		line-height: 1.55;
-	}
-
-	.status-message p + p {
-		margin-top: 0.45rem;
-	}
-
-	.seed-info {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-		font-size: 0.8125rem;
-		color: var(--muted-foreground);
-		background: color-mix(in srgb, var(--muted) 72%, var(--card) 28%);
-		padding: 1rem;
-		border-radius: var(--radius);
-		margin: 1rem 0 0;
-		border: 1px solid var(--border);
-	}
-
-	.seed-info p {
-		margin: 0;
-		line-height: 1.55;
-	}
-
-	.actions {
-		display: flex;
-		gap: 0.75rem;
-		justify-content: flex-end;
-		margin-top: 1.25rem;
-		padding-top: 1.25rem;
-		border-top: 1px solid var(--border);
-	}
-
-	@media (max-width: 640px) {
-		.create-page {
-			padding: 1rem;
-		}
-
-		.create-card {
-			padding: 1.25rem;
-		}
-
-		.actions {
-			flex-direction: column-reverse;
-		}
-
-		.actions :global([data-slot='button']) {
-			width: 100%;
-		}
-	}
-</style>

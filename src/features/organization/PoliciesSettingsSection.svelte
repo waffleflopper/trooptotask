@@ -1,9 +1,13 @@
+<script lang="ts" module>
+	export type PolicyKey = 'retention' | 'warning' | 'goal';
+</script>
+
 <script lang="ts">
+	import * as Alert from '$lib/components/ui/alert/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as Field from '$lib/components/ui/field/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
-	import { Label } from '$lib/components/ui/label/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import { Spinner } from '$lib/components/ui/spinner/index.js';
 
@@ -20,6 +24,7 @@
 		savingRetention,
 		savingWarningWindow,
 		savingReadinessGoal,
+		saveErrors = {},
 		onSaveRetention,
 		onSaveLossWarning,
 		onSaveReadinessGoal
@@ -36,104 +41,137 @@
 		savingRetention: boolean;
 		savingWarningWindow: boolean;
 		savingReadinessGoal: boolean;
+		saveErrors?: Partial<Record<PolicyKey, string>>;
 		onSaveRetention: () => void;
 		onSaveLossWarning: () => void;
 		onSaveReadinessGoal: () => void;
 	} = $props();
+
+	/** Explicit IDs associate the help and error in server-rendered HTML, before Field registration runs. */
+	function describedBy(...ids: (string | false)[]) {
+		return ids.filter(Boolean).join(' ') || undefined;
+	}
 </script>
+
+{#snippet sectionHeader(
+	headingId: string,
+	heading: string,
+	description: string | null,
+	changed: boolean,
+	saveDisabled: boolean,
+	saving: boolean,
+	onSave: () => void
+)}
+	<div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+		<div class="grid gap-1">
+			<h2 id={headingId} class="font-heading text-lg font-semibold tracking-tight">{heading}</h2>
+			{#if description}<p class="text-sm text-muted-foreground">{description}</p>{/if}
+		</div>
+		<div class="flex flex-wrap items-center gap-2">
+			<Badge variant={changed ? 'outline' : 'secondary'}>{changed ? 'Unsaved changes' : 'Saved'}</Badge>
+			<!-- aria-disabled keeps focus on Save while it saves and after the saved value leaves nothing to save. -->
+			<Button
+				size="sm"
+				aria-disabled={saveDisabled || saving ? 'true' : undefined}
+				aria-busy={saving || undefined}
+				onclick={onSave}
+			>
+				{#if saving}<Spinner />{/if}
+				{saving ? 'Saving...' : 'Save'} <span class="sr-only">{heading}</span>
+			</Button>
+		</div>
+	</div>
+{/snippet}
+
+{#snippet saveError(message: string | undefined)}
+	{#if message}
+		<Alert.Root variant="destructive">
+			<Alert.Description>{message}</Alert.Description>
+		</Alert.Root>
+	{/if}
+{/snippet}
 
 <div class="grid gap-4">
 	<section
 		class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground"
 		aria-labelledby="archive-retention-heading"
 	>
-		<div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-			<div class="grid gap-1">
-				<h2 id="archive-retention-heading" class="font-heading text-lg font-semibold tracking-tight">
-					Archive Retention
-				</h2>
-				<p class="text-sm text-muted-foreground">Archived personnel are automatically purged after this window.</p>
-			</div>
-			<div class="flex flex-wrap items-center gap-2">
-				<Badge variant={hasRetentionChanges ? 'outline' : 'secondary'}
-					>{hasRetentionChanges ? 'Unsaved changes' : 'Saved'}</Badge
-				>
-				<Button
-					size="sm"
-					disabled={!hasRetentionChanges || !isRetentionValid || savingRetention}
-					onclick={onSaveRetention}
-				>
-					{#if savingRetention}<Spinner />{/if}
-					{savingRetention ? 'Saving...' : 'Save'}
-				</Button>
-			</div>
-		</div>
+		{@render sectionHeader(
+			'archive-retention-heading',
+			'Archive Retention',
+			'Archived personnel are automatically purged after this window.',
+			hasRetentionChanges,
+			!hasRetentionChanges || !isRetentionValid,
+			savingRetention,
+			onSaveRetention
+		)}
 		<Separator />
-		<div class="grid gap-2 md:max-w-sm">
-			<Label for="retention-months">Retention period</Label>
-			<div class="flex items-center gap-2">
-				<Input id="retention-months" type="number" min="1" max="120" bind:value={retentionMonths} />
-				<span class="text-sm text-muted-foreground">Months</span>
-			</div>
-			{#if !isRetentionValid}<p class="text-sm text-destructive">Must be between 1 and 120 months.</p>{/if}
-		</div>
+		{@render saveError(saveErrors.retention)}
+		<Field.Root class="md:max-w-sm" data-invalid={isRetentionValid ? undefined : true}>
+			<Field.Label for="retention-months">Retention period (months)</Field.Label>
+			<Field.Control>
+				<Input
+					id="retention-months"
+					type="number"
+					min="1"
+					max="120"
+					bind:value={retentionMonths}
+					aria-invalid={isRetentionValid ? undefined : true}
+					aria-describedby={describedBy(!isRetentionValid && 'retention-months-error')}
+				/>
+			</Field.Control>
+			{#if !isRetentionValid}
+				<Field.Error id="retention-months-error">Must be between 1 and 120 months.</Field.Error>
+			{/if}
+		</Field.Root>
 	</section>
 
 	<section class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground" aria-labelledby="loss-warning-heading">
-		<div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-			<div class="grid gap-1">
-				<h2 id="loss-warning-heading" class="font-heading text-lg font-semibold tracking-tight">Loss Warning Window</h2>
-				<p class="text-sm text-muted-foreground">Flag personnel approaching ETS / PCS / DEROS this far out.</p>
-			</div>
-			<div class="flex flex-wrap items-center gap-2">
-				<Badge variant={hasLossWarningChanges ? 'outline' : 'secondary'}
-					>{hasLossWarningChanges ? 'Unsaved changes' : 'Saved'}</Badge
-				>
-				<Button
-					size="sm"
-					disabled={!hasLossWarningChanges || !isLossWarningValid || savingWarningWindow}
-					onclick={onSaveLossWarning}
-				>
-					{#if savingWarningWindow}<Spinner />{/if}
-					{savingWarningWindow ? 'Saving...' : 'Save'}
-				</Button>
-			</div>
-		</div>
+		{@render sectionHeader(
+			'loss-warning-heading',
+			'Loss Warning Window',
+			'Flag personnel approaching ETS / PCS / DEROS this far out.',
+			hasLossWarningChanges,
+			!hasLossWarningChanges || !isLossWarningValid,
+			savingWarningWindow,
+			onSaveLossWarning
+		)}
 		<Separator />
-		<div class="grid gap-2 md:max-w-sm">
-			<Label for="loss-warning-window">Warning lead time</Label>
-			<div class="flex items-center gap-2">
-				<Input id="loss-warning-window" type="number" min="1" max="365" bind:value={warningWindowDays} />
-				<span class="text-sm text-muted-foreground">Days</span>
-			</div>
-			{#if !isLossWarningValid}<p class="text-sm text-destructive">Must be between 1 and 365 days.</p>{/if}
-		</div>
+		{@render saveError(saveErrors.warning)}
+		<Field.Root class="md:max-w-sm" data-invalid={isLossWarningValid ? undefined : true}>
+			<Field.Label for="loss-warning-window">Warning lead time (days)</Field.Label>
+			<Field.Control>
+				<Input
+					id="loss-warning-window"
+					type="number"
+					min="1"
+					max="365"
+					bind:value={warningWindowDays}
+					aria-invalid={isLossWarningValid ? undefined : true}
+					aria-describedby={describedBy(!isLossWarningValid && 'loss-warning-window-error')}
+				/>
+			</Field.Control>
+			{#if !isLossWarningValid}
+				<Field.Error id="loss-warning-window-error">Must be between 1 and 365 days.</Field.Error>
+			{/if}
+		</Field.Root>
 	</section>
 
 	<section
 		class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground"
 		aria-labelledby="training-readiness-heading"
 	>
-		<div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-			<h2 id="training-readiness-heading" class="font-heading text-lg font-semibold tracking-tight">
-				Training Readiness
-			</h2>
-			<div class="flex flex-wrap items-center gap-2">
-				<Badge variant={hasReadinessGoalChanges ? 'outline' : 'secondary'}
-					>{hasReadinessGoalChanges ? 'Unsaved changes' : 'Saved'}</Badge
-				>
-				<Button
-					size="sm"
-					disabled={!hasReadinessGoalChanges || !isReadinessGoalValid || savingReadinessGoal}
-					onclick={onSaveReadinessGoal}
-				>
-					{#if savingReadinessGoal}<Spinner />{/if}
-					{savingReadinessGoal ? 'Saving...' : 'Save'}
-				</Button>
-			</div>
-		</div>
+		{@render sectionHeader(
+			'training-readiness-heading',
+			'Training Readiness',
+			null,
+			hasReadinessGoalChanges,
+			!hasReadinessGoalChanges || !isReadinessGoalValid,
+			savingReadinessGoal,
+			onSaveReadinessGoal
+		)}
 		<Separator />
-		<!-- Explicit IDs associate the help and error in server-rendered HTML, before Field registration runs. -->
+		{@render saveError(saveErrors.goal)}
 		<Field.Root class="md:max-w-sm" data-invalid={isReadinessGoalValid ? undefined : true}>
 			<Field.Label for="training-readiness-goal">Training readiness goal (%)</Field.Label>
 			<Field.Control>
@@ -145,9 +183,10 @@
 					step="1"
 					bind:value={readinessGoalPercent}
 					aria-invalid={isReadinessGoalValid ? undefined : true}
-					aria-describedby={isReadinessGoalValid
-						? 'training-readiness-goal-help'
-						: 'training-readiness-goal-help training-readiness-goal-error'}
+					aria-describedby={describedBy(
+						'training-readiness-goal-help',
+						!isReadinessGoalValid && 'training-readiness-goal-error'
+					)}
 				/>
 			</Field.Control>
 			<Field.Description id="training-readiness-goal-help">

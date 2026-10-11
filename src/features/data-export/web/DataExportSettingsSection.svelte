@@ -1,4 +1,5 @@
 <script lang="ts">
+	import * as Alert from '$lib/components/ui/alert/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
@@ -17,7 +18,32 @@
 		exportingOrgExcel: boolean;
 		onExportOrganization: (format: 'json' | 'excel') => void;
 	} = $props();
+
+	const busy = $derived(exportingOrgJson || exportingOrgExcel);
+	const status = $derived(
+		exportingOrgJson
+			? 'Generating JSON export...'
+			: exportingOrgExcel
+				? 'Generating Excel export...'
+				: exportSuccess
+					? 'Export downloaded successfully.'
+					: ''
+	);
 </script>
+
+{#snippet exportButton(format: 'json' | 'excel', label: string, exporting: boolean)}
+	<!-- The pressed button stays focusable while busy so focus does not fall back to the page. -->
+	<Button
+		size="sm"
+		variant={format === 'json' ? 'default' : 'outline'}
+		onclick={() => onExportOrganization(format)}
+		disabled={busy && !exporting}
+		aria-disabled={exporting ? 'true' : undefined}
+	>
+		{#if exporting}<Spinner role="presentation" aria-hidden="true" />{/if}
+		{exporting ? 'Generating...' : label}
+	</Button>
+{/snippet}
 
 <div class="grid gap-4">
 	<section class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground" aria-labelledby="data-export-heading">
@@ -31,8 +57,11 @@
 		</div>
 		<Separator />
 
-		{#if exportError}<p class="text-sm text-destructive">{exportError}</p>{/if}
-		{#if exportSuccess}<p class="text-sm text-muted-foreground">Export downloaded successfully.</p>{/if}
+		{#if exportError}
+			<Alert.Root variant="destructive">
+				<Alert.Description>{exportError}</Alert.Description>
+			</Alert.Root>
+		{/if}
 
 		<div class="grid gap-4 rounded-md border p-3 md:grid-cols-[minmax(0,1fr)_auto]">
 			<div class="grid gap-1">
@@ -43,21 +72,11 @@
 				<p class="text-sm text-muted-foreground">
 					Includes Calendar, personnel, training, onboarding, and sign-in rosters.
 				</p>
+				<p role="status" class="text-sm font-medium">{status}</p>
 			</div>
 			<div class="flex flex-wrap items-center gap-2">
-				<Button size="sm" onclick={() => onExportOrganization('json')} disabled={exportingOrgJson || exportingOrgExcel}>
-					{#if exportingOrgJson}<Spinner />{/if}
-					{exportingOrgJson ? 'Generating...' : 'Export JSON'}
-				</Button>
-				<Button
-					variant="outline"
-					size="sm"
-					onclick={() => onExportOrganization('excel')}
-					disabled={exportingOrgJson || exportingOrgExcel}
-				>
-					{#if exportingOrgExcel}<Spinner />{/if}
-					{exportingOrgExcel ? 'Generating...' : 'Export Excel'}
-				</Button>
+				{@render exportButton('json', 'Export JSON', exportingOrgJson)}
+				{@render exportButton('excel', 'Export Excel', exportingOrgExcel)}
 			</div>
 		</div>
 

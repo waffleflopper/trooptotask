@@ -10,6 +10,7 @@
 	import * as Alert from '$lib/components/ui/alert/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Label } from '$lib/components/ui/label/index.js';
+	import { settleAction } from '$lib/utils/settleAction';
 	import DangerZoneSettingsSection from './DangerZoneSettingsSection.svelte';
 	import { createSettingsDangerZoneState } from './dangerSettingsState.svelte';
 
@@ -18,9 +19,14 @@
 	onDestroy(() => {
 		active = false;
 	});
+	const isCurrent = () => active;
 
 	let deleteLoading = $state(false);
 	let transferLoading = $state(false);
+	let deleteRequestError = $state<string | null>(null);
+	let transferRequestError = $state<string | null>(null);
+	let deleteButton = $state<HTMLButtonElement | null>(null);
+	let transferButton = $state<HTMLButtonElement | null>(null);
 	const dangerZoneState = createSettingsDangerZoneState(() => settings);
 	const transferState = createOwnershipTransferWorkspace(
 		() => settings.sections.dangerZone.transferOwnershipCandidates
@@ -29,22 +35,59 @@
 	const dangerZoneSection = $derived(dangerZoneState.section);
 	const currentMember = $derived(settings.currentMember);
 
-	const transferEnhance: SubmitFunction = () => {
+	const transferEnhance: SubmitFunction = ({ cancel }) => {
+		if (transferLoading) return cancel();
 		transferLoading = true;
-		return async ({ result, update }) => {
+		transferRequestError = null;
+		return async (outcome) => {
 			if (!active) return;
-			try {
-				if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) return;
-				await update();
-				if (result.type === 'success') transferState.closeTransferConfirmation();
-			} finally {
-				if (active) transferLoading = false;
+			const { result } = outcome;
+			if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) {
+				transferLoading = false;
+				return;
 			}
+			await settleAction(outcome, {
+				isCurrent,
+				settled: (error) => {
+					transferRequestError = error;
+					transferLoading = false;
+					if (!error && result.type === 'success') transferState.closeTransferConfirmation();
+				},
+				focus: () => [transferButton]
+			});
+		};
+	};
+
+	const deleteEnhance: SubmitFunction = ({ cancel }) => {
+		if (deleteLoading) return cancel();
+		deleteLoading = true;
+		deleteRequestError = null;
+		return async (outcome) => {
+			if (!active) return;
+			const { result } = outcome;
+			if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) {
+				deleteLoading = false;
+				return;
+			}
+			await settleAction(outcome, {
+				isCurrent,
+				settled: (error) => {
+					deleteRequestError = error;
+					deleteLoading = false;
+				},
+				focus: () => [deleteButton]
+			});
 		};
 	};
 
 	function closeDeleteOrganizationDialog() {
+		deleteRequestError = null;
 		dangerZoneState.closeDeleteConfirmation();
+	}
+
+	function closeTransferDialog() {
+		transferRequestError = null;
+		transferState.closeTransferConfirmation();
 	}
 </script>
 
@@ -82,9 +125,9 @@
 				</AppDialog.Description>
 			</AppDialog.Header>
 			<AppDialog.Body>
-				{#if form?.deleteError}
-					<Alert.Root variant="destructive">
-						<Alert.Description>{form.deleteError}</Alert.Description>
+				{#if deleteRequestError || form?.deleteError}
+					<Alert.Root variant="destructive" class="mb-3">
+						<Alert.Description>{deleteRequestError ?? form?.deleteError}</Alert.Description>
 					</Alert.Root>
 				{/if}
 				<form
@@ -92,18 +135,7 @@
 					method="POST"
 					action="?/deleteOrganization"
 					class="grid gap-3"
-					use:enhance={() => {
-						deleteLoading = true;
-						return async ({ result, update }) => {
-							if (!active) return;
-							try {
-								if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) return;
-								await update();
-							} finally {
-								if (active) deleteLoading = false;
-							}
-						};
-					}}
+					use:enhance={deleteEnhance}
 					onsubmit={(event) => {
 						if (!dangerZoneState.deleteConfirmMatches) event.preventDefault();
 					}}
@@ -123,10 +155,13 @@
 					>Cancel</Button
 				>
 				<Button
+					bind:ref={deleteButton}
 					type="submit"
 					form="delete-org-form"
 					variant="destructive"
-					disabled={deleteLoading || !dangerZoneState.deleteConfirmMatches}
+					disabled={!dangerZoneState.deleteConfirmMatches}
+					aria-disabled={deleteLoading ? 'true' : undefined}
+					aria-busy={deleteLoading || undefined}
 				>
 					{deleteLoading ? 'Deleting...' : 'Delete Permanently'}
 				</Button>
@@ -140,7 +175,7 @@
 		bind:open={transferState.showTransferConfirm}
 		busy={transferLoading}
 		closeBlocked={transferState.transferCloseBlocked}
-		onClose={() => transferState.closeTransferConfirmation()}
+		onClose={closeTransferDialog}
 	>
 		<AppDialog.Content>
 			<AppDialog.Header>
@@ -150,7 +185,11 @@
 				</AppDialog.Description>
 			</AppDialog.Header>
 			<AppDialog.Body>
-				{#if form?.transferError}<p class="text-sm text-destructive">{form.transferError}</p>{/if}
+				{#if transferRequestError || form?.transferError}
+					<Alert.Root variant="destructive" class="mb-3">
+						<Alert.Description>{transferRequestError ?? form?.transferError}</Alert.Description>
+					</Alert.Root>
+				{/if}
 				<form
 					id="transfer-ownership-form"
 					method="POST"
@@ -171,17 +210,15 @@
 				</form>
 			</AppDialog.Body>
 			<AppDialog.Footer>
+				<Button type="button" variant="outline" disabled={transferLoading} onclick={closeTransferDialog}>Cancel</Button>
 				<Button
-					type="button"
-					variant="outline"
-					disabled={transferLoading}
-					onclick={() => transferState.closeTransferConfirmation()}>Cancel</Button
-				>
-				<Button
+					bind:ref={transferButton}
 					type="submit"
 					form="transfer-ownership-form"
 					variant="destructive"
-					disabled={transferLoading || !transferState.transferConfirmMatches}
+					disabled={!transferState.transferConfirmMatches}
+					aria-disabled={transferLoading ? 'true' : undefined}
+					aria-busy={transferLoading || undefined}
 				>
 					{transferLoading ? 'Transferring...' : 'Transfer Ownership'}
 				</Button>

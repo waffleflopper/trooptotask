@@ -96,6 +96,14 @@ export function installNetworkControl(
 			call.failure = 'transport';
 			throw new TypeError('Synthetic network rejection');
 		}
+		if (control.mode === 'error' && requestNumber === control.ordinal) {
+			// SvelteKit's envelope for an action that threw: `use:enhance` receives `result.type === 'error'`.
+			call.status = 500;
+			return new Response(JSON.stringify({ type: 'error', error: { message: 'Synthetic server error' } }), {
+				status: 500,
+				headers: { 'Content-Type': 'application/json' }
+			});
+		}
 		if (['fail', 'hold-fail'].includes(control.mode) && requestNumber === control.ordinal) {
 			call.status = 503;
 			const body = failureField

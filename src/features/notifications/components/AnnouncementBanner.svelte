@@ -1,10 +1,9 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, tick } from 'svelte';
 	import type { Announcement } from '../contracts';
 	import XIcon from '@lucide/svelte/icons/x';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
-	import { toastStore } from '$lib/stores/toast.svelte';
 
 	let {
 		announcements,
@@ -14,6 +13,7 @@
 
 	let visibleAnnouncements = $derived([...announcements]);
 	let dismissing = $state<string[]>([]);
+	let failedDismissals = $state<string[]>([]);
 	let lifetime = 0;
 	let currentAccount: string | undefined;
 	$effect(() => {
@@ -21,6 +21,7 @@
 			currentAccount = accountId;
 			++lifetime;
 			dismissing = [];
+			failedDismissals = [];
 		}
 	});
 	onDestroy(() => {
@@ -39,6 +40,7 @@
 		const account = accountId;
 		const generation = lifetime;
 		dismissing = [...dismissing, id];
+		failedDismissals = failedDismissals.filter((failedId) => failedId !== id);
 		try {
 			const response = await fetch('/api/announcements/dismiss', {
 				method: 'POST',
@@ -47,12 +49,24 @@
 			});
 			if (!response.ok) throw new Error('Could not dismiss announcement');
 			if (!isCurrent(account, generation)) return;
+			const index = visibleAnnouncements.findIndex((announcement) => announcement.id === id);
 			visibleAnnouncements = visibleAnnouncements.filter((announcement) => announcement.id !== id);
+			const next = visibleAnnouncements[Math.min(index, visibleAnnouncements.length - 1)];
+			await tick();
+			document.getElementById(next ? dismissId(next.id) : 'main-content')?.focus({ preventScroll: !next });
 		} catch {
-			if (isCurrent(account, generation)) toastStore.error('Could not dismiss announcement. Try again.');
+			if (isCurrent(account, generation)) failedDismissals = [...failedDismissals, id];
 		} finally {
 			if (isCurrent(account, generation)) dismissing = dismissing.filter((pendingId) => pendingId !== id);
 		}
+	}
+
+	function dismissId(id: string) {
+		return `dismiss-announcement-${id}`;
+	}
+
+	function dismissErrorId(id: string) {
+		return `dismiss-announcement-error-${id}`;
 	}
 
 	function variantFor(type: Announcement['type']) {
@@ -62,6 +76,7 @@
 
 {#if visibleAnnouncements.length > 0}
 	{#each visibleAnnouncements as announcement (announcement.id)}
+		{@const failed = failedDismissals.includes(announcement.id)}
 		<Alert.Root variant={variantFor(announcement.type)} class="rounded-none border-x-0 border-t-0 px-0 py-0">
 			<div
 				class="mx-auto flex w-full max-w-[1680px] flex-wrap items-start gap-3 px-4 py-3 sm:flex-nowrap sm:items-center sm:px-6"
@@ -76,19 +91,30 @@
 						{announcement.message}
 					</Alert.Description>
 				</div>
+				<!-- aria-disabled keeps focus on the pressed button while the dismissal is pending. -->
 				<Button
+					id={dismissId(announcement.id)}
 					type="button"
 					variant="ghost"
 					size="xs"
 					class="shrink-0"
 					onclick={() => dismiss(announcement.id)}
-					disabled={dismissing.includes(announcement.id)}
-					aria-label="Dismiss announcement"
+					aria-disabled={dismissing.includes(announcement.id) ? 'true' : undefined}
+					aria-label={`Dismiss announcement: ${announcement.title}`}
+					aria-describedby={failed ? dismissErrorId(announcement.id) : undefined}
 				>
 					<XIcon aria-hidden="true" class="size-3" />
 					Dismiss
 				</Button>
 			</div>
+			{#if failed}
+				<div class="mx-auto w-full max-w-[1680px] px-4 pb-3 sm:px-6">
+					<!-- The banner's own alert announces the failure, so this one is not a second live region. -->
+					<Alert.Root variant="destructive" role={undefined} id={dismissErrorId(announcement.id)}>
+						<Alert.Description>Could not dismiss announcement. Try again.</Alert.Description>
+					</Alert.Root>
+				</div>
+			{/if}
 		</Alert.Root>
 	{/each}
 {/if}

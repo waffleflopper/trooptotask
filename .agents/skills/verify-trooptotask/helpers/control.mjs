@@ -2230,7 +2230,9 @@ async function main() {
 		const [action, page, family, ordinalText = '1'] = args;
 		const pageId = Number(page);
 		if (!Number.isInteger(pageId) || pageId < 1) throw new Error('Use a page ID from the owned browser.');
-		if (['arm-fail', 'arm-hold', 'arm-hold-fail', 'arm-reject', 'arm-observe', 'arm-drop'].includes(action)) {
+		if (
+			['arm-fail', 'arm-error', 'arm-hold', 'arm-hold-fail', 'arm-reject', 'arm-observe', 'arm-drop'].includes(action)
+		) {
 			const platformForm = platformFormNetworkTarget(family, fixture, (await saved()).platform);
 			const shellPart = {
 				'shell-notification-count': 'notification-count',
@@ -2242,6 +2244,11 @@ async function main() {
 				'settings/general/clearSlug': 'slugError',
 				'settings/danger/deleteOrganization': 'deleteError',
 				'settings/members/updateMemberAccess': 'accessError',
+				'settings/members/invite': 'inviteError',
+				'settings/members/resendInvite': 'inviteError',
+				'settings/members/revokeInvite': 'inviteError',
+				'settings/members/removeMember': 'memberError',
+				'settings/danger/transferOwnership': 'transferError',
 				'settings/ranks/saveRank': 'rankError',
 				'settings/ranks/retireRank': 'rankError',
 				'settings/ranks/reactivateRank': 'rankError',
@@ -2249,6 +2256,14 @@ async function main() {
 				'settings/ranks/deleteRank': 'rankError',
 				'settings/ranks/addServicePack': 'rankError'
 			};
+			// Account-level forms outside an Organization: [path, action search, failure field].
+			const accountForm = {
+				'dashboard/acceptInvitation': ['/dashboard', '?/acceptInvitation', 'error'],
+				'dashboard/declineInvitation': ['/dashboard', '?/declineInvitation', 'error'],
+				'org/new': ['/org/new', '', 'error']
+			}[family];
+			const settingsPage =
+				/^settings-page\/(general|members|policies|approvals|logs|exports|danger)$/.exec(family)?.[1] ?? null;
 			if (
 				![
 					'audit-page',
@@ -2303,6 +2318,8 @@ async function main() {
 					'critical-tasks/matrix/export'
 				].includes(family) &&
 				!Object.hasOwn(formActions, family) &&
+				!accountForm &&
+				!settingsPage &&
 				!platformForm &&
 				!/^onboarding-templates\/[0-9a-f-]{36}\/duplicate$/.test(family) &&
 				!/^sign-in-rosters\/[0-9a-f-]{36}\/upload$/.test(family) &&
@@ -2322,6 +2339,7 @@ async function main() {
 			let organizationSegment = org('orgA');
 			if (
 				formAction ||
+				settingsPage ||
 				['organization/settings', 'audit-page', 'dashboard-page', 'deletion-requests/review'].includes(family) ||
 				shellPart
 			) {
@@ -2333,8 +2351,8 @@ async function main() {
 			let suffix =
 				family === 'dashboard-page'
 					? `/org/${organizationSegment}/__data.json`
-					: family === 'audit-page'
-						? `/org/${organizationSegment}/settings/logs/__data.json`
+					: family === 'audit-page' || settingsPage
+						? `/org/${organizationSegment}/settings/${settingsPage ?? 'logs'}/__data.json`
 						: formAction
 							? `/org/${organizationSegment}/${family.slice(0, family.lastIndexOf('/'))}`
 							: ['feedback', 'announcements/dismiss'].includes(family)
@@ -2348,6 +2366,7 @@ async function main() {
 				suffix = `/admin/organizations/${seed.organization.id}`;
 			}
 			if (platformForm) suffix = platformForm.suffix;
+			if (accountForm) suffix = accountForm[0];
 			if (shellPart) suffix = `/org/${organizationSegment}/api/app-shell-chrome`;
 			if (
 				action === 'arm-hold-fail' &&
@@ -2373,6 +2392,8 @@ async function main() {
 				!platformForm?.failureField
 			)
 				throw new Error('Synthetic transport rejection requires a documented mutation family.');
+			if (action === 'arm-error' && !formAction && !accountForm)
+				throw new Error('Unexpected-error results are supported only for form action families.');
 			if (action === 'arm-drop' && !['admin-suspend', 'admin-transfer'].includes(family))
 				throw new Error('Lost-response proof is supported only for platform mutation controls.');
 			const mode =
@@ -2380,18 +2401,23 @@ async function main() {
 					? 'hold-fail'
 					: action === 'arm-fail'
 						? 'fail'
-						: action === 'arm-hold'
-							? 'hold'
-							: action === 'arm-reject'
-								? 'reject'
-								: action === 'arm-drop'
-									? 'drop-response'
-									: 'observe';
+						: action === 'arm-error'
+							? 'error'
+							: action === 'arm-hold'
+								? 'hold'
+								: action === 'arm-reject'
+									? 'reject'
+									: action === 'arm-drop'
+										? 'drop-response'
+										: 'observe';
 			const search =
 				(shellPart ? `?part=${shellPart}` : platformForm?.search) ??
+				accountForm?.[1] ??
 				(family === 'admin-transfer' ? '?/transferOwnership' : formAction ? `?/${formAction}` : null);
 			const failureField =
-				platformForm?.failureField ?? (family === 'admin-transfer' ? 'error' : formAction ? formActions[family] : null);
+				platformForm?.failureField ??
+				accountForm?.[2] ??
+				(family === 'admin-transfer' ? 'error' : formAction ? formActions[family] : null);
 			const requestTarget = platformForm?.requestTarget ?? null;
 			const heldPersonnelFailure = family === 'personnel' && action === 'arm-hold-fail';
 			const sameOrigin =

@@ -1,20 +1,27 @@
 import { tick } from 'svelte';
 import type { SubmitFunction } from '@sveltejs/kit';
+import { toastStore } from '$lib/stores/toast.svelte';
+import { settleAction, type SettleOptions } from '$lib/utils/settleAction';
 
 type SubmitCallback = Exclude<Awaited<ReturnType<SubmitFunction>>, void>;
+type SlugAction = 'update' | 'clear';
 
 /** One General settings lifetime, recreated by the canonical Organization key. */
 export class GeneralSettingsWorkspace {
 	#active = true;
 	nameLoading = $state(false);
 	slugLoading = $state(false);
+	nameRequestError = $state<string | null>(null);
+	slugRequestError = $state<string | null>(null);
 	nameEditing = $state(false);
 	nameConfirmOpen = $state(false);
 	nameConfirmed = $state(false);
 	slugConfirmOpen = $state(false);
 	slugConfirmed = $state(false);
-	pendingSlugAction = $state<'update' | 'clear' | null>(null);
+	pendingSlugAction = $state<SlugAction | null>(null);
 	slugFormAction = $state('?/updateSlug');
+
+	#isCurrent = () => this.#active;
 
 	dispose(): void {
 		this.#active = false;
@@ -25,6 +32,7 @@ export class GeneralSettingsWorkspace {
 	}
 	cancelNameEdit(): void {
 		this.nameEditing = false;
+		this.nameRequestError = null;
 	}
 	requestNameSave(): void {
 		this.nameConfirmOpen = true;
@@ -41,6 +49,7 @@ export class GeneralSettingsWorkspace {
 	}
 
 	requestSlugClear(): void {
+		if (this.slugLoading) return;
 		this.pendingSlugAction = 'clear';
 		this.slugConfirmOpen = true;
 	}
@@ -61,8 +70,8 @@ export class GeneralSettingsWorkspace {
 		this.pendingSlugAction = null;
 	}
 
-	submitName(cancel: () => void): SubmitCallback | void {
-		if (!this.#active) {
+	submitName(cancel: () => void, focus: SettleOptions['focus']): SubmitCallback | void {
+		if (!this.#active || this.nameLoading) {
 			cancel();
 			return;
 		}
@@ -73,15 +82,21 @@ export class GeneralSettingsWorkspace {
 		}
 		this.nameConfirmed = false;
 		this.nameLoading = true;
-		return async ({ update }) => {
-			if (!this.#active) return;
-			this.nameLoading = false;
-			await update();
+		this.nameRequestError = null;
+		return async (outcome) => {
+			await settleAction(outcome, {
+				isCurrent: this.#isCurrent,
+				settled: (error) => {
+					this.nameRequestError = error;
+					this.nameLoading = false;
+				},
+				focus
+			});
 		};
 	}
 
-	submitSlug(cancel: () => void): SubmitCallback | void {
-		if (!this.#active) {
+	submitSlug(cancel: () => void, focus: (action: SlugAction) => SettleOptions['focus']): SubmitCallback | void {
+		if (!this.#active || this.slugLoading) {
 			cancel();
 			return;
 		}
@@ -91,14 +106,29 @@ export class GeneralSettingsWorkspace {
 			this.slugConfirmOpen = true;
 			return;
 		}
+		const action = this.pendingSlugAction ?? 'update';
 		this.slugConfirmed = false;
 		this.pendingSlugAction = null;
 		this.slugLoading = true;
-		return async ({ update }) => {
-			if (!this.#active) return;
-			this.slugLoading = false;
-			this.slugFormAction = '?/updateSlug';
-			await update();
+		this.slugRequestError = null;
+		return async (outcome) => {
+			await settleAction(outcome, {
+				isCurrent: this.#isCurrent,
+				settled: (error) => {
+					this.slugRequestError = error;
+					this.slugLoading = false;
+					this.slugFormAction = '?/updateSlug';
+				},
+				focus: focus(action)
+			});
+			// A saved custom URL answers with a redirect to the General page at its new path.
+			const { result } = outcome;
+			if (this.#active && result.type === 'redirect' && result.location.endsWith('/settings/general'))
+				toastStore.success(
+					action === 'clear'
+						? 'Custom URL removed. The app path uses the Organization ID again.'
+						: 'Custom URL updated. Bookmarks and shared links using the old URL will need updating.'
+				);
 		};
 	}
 }

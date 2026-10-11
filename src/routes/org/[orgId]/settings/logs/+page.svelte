@@ -1,6 +1,6 @@
 <script lang="ts">
 	import * as DataTable from '$lib/components/ui/data-table/index.js';
-	import type { ColumnDef } from '$lib/components/ui/data-table/index.js';
+	import { useDataTable, type ColumnDef } from '$lib/components/ui/data-table/index.js';
 	import type { PageProps } from './$types';
 	import type { LogsSettingsData } from '../settingsSectionTypes';
 	import { formatAuditTimestamp, getAuditActionParts } from '../settingsWorkspaceFormatters';
@@ -47,6 +47,14 @@
 			align: 'right'
 		}
 	];
+	const auditTable = useDataTable({
+		data: () => auditLog?.logs ?? [],
+		columns: () => auditColumns,
+		initialSortKey: 'time',
+		initialSortDirection: 'desc',
+		pageSize: 25
+	});
+	const searchTerm = $derived(auditTable.search.trim());
 </script>
 
 {#if auditLog}
@@ -63,16 +71,12 @@
 			</div>
 
 			<DataTable.DataTable
-				data={auditLog.logs}
-				columns={auditColumns}
+				table={auditTable}
 				ariaLabel="Organization audit log entries"
-				emptyMessage="No audit log entries yet."
+				emptyMessage={searchTerm ? `No audit log entries match "${searchTerm}".` : 'No audit log entries yet.'}
 				density="dense"
-				pageSize={25}
 				showSearch
 				searchPlaceholder="Search audit log"
-				initialSortKey="time"
-				initialSortDirection="desc"
 			>
 				{#snippet cell(log: AuditLogPage['logs'][number], column: ColumnDef<AuditLogPage['logs'][number]>)}
 					{#if column.key === 'time'}

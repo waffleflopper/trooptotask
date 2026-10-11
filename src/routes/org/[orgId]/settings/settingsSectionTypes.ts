@@ -33,7 +33,6 @@ export type SettingsArchivesSectionData = {
 export type SettingsActivityData = {
 	pendingApprovalsCount: number;
 	approvalRequests: DeletionRequestApproval[];
-	auditLog: AuditLogQueryResult;
 };
 
 export type SettingsApprovalsSectionData = {

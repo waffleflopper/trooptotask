@@ -127,7 +127,7 @@ Public components:
 
 - `Root`: authenticated page content scroller. Props: `density?: 'default' | 'compact'`, `width?: 'full' | 'content' | 'wide'`, `bodyClass?`, `children?`.
 - `Header`: page header. Props: `title`, `subtitle?`, snippets `back`, `meta`, `actions`, and `overflow`.
-- `Tabs`: route-level navigation. Props: `items?`, `label?`, `value?`, `onValueChange?`, `children?`. Items support `label`, `href`, `value`, `active`, `badge`, `badgeVariant`, and `disabled`.
+- `Tabs`: route-level navigation. Props: `items?`, `label?`, `value?`, `onValueChange?`, `children?`. Items support `label`, `href`, `value`, `active`, `badge`, `badgeLabel`, `badgeVariant`, and `disabled`. Each tab shows the app focus ring. When a bare count would be ambiguous, set `badgeLabel` (for example `2 pending requests`); assistive technology then hears that text in place of the badge.
 - `FactGrid`: dense fact layout. Props: `layout?: 'stack' | 'two' | 'three' | 'rail'`, `children?`.
 - `FactRow`: label/value row. Props: `label`, `value?`, `tone?`, `layout?: 'inline' | 'stack'`, `icon?`, `badge?`, `badgeVariant?`, `children?`. Use `layout="stack"` inside multi-column fact grids so labels and long values do not compress.
 - `Metric`: compact bordered metric tile. Props: `label`, `value`, `detail?`, `tone?`, `children?`.

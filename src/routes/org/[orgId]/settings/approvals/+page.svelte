@@ -1,14 +1,12 @@
 <script lang="ts">
 	import type { PageProps } from './$types';
-	import SettingsActivityRail from '../SettingsActivityRail.svelte';
+	import ApprovalRequestsSection from '../ApprovalRequestsSection.svelte';
 
 	let { data }: PageProps = $props();
 
 	const activity = $derived(data.approvalsSettings.sections.approvals.activity);
 </script>
 
-<div class="grid gap-4">
-	{#key data.orgId}
-		<SettingsActivityRail orgId={data.orgUrlSegment} {activity} lockedTab="approvals" />
-	{/key}
-</div>
+{#key data.orgId}
+	<ApprovalRequestsSection orgId={data.orgUrlSegment} approvalRequests={activity.approvalRequests} />
+{/key}

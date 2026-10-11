@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { onDestroy } from 'svelte';
 	import type { PageProps } from './$types';
 	import { Edit, RefreshCw, Search, Trash2 } from '@lucide/svelte';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import { explainPolicyReasonCode } from '$lib/access/policyDecisionExplanations';
 	import { redirectToSensitiveActionStepUp } from '$features/identity';
+	import * as Alert from '$lib/components/ui/alert/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as AppDialog from '$lib/components/ui/app-dialog/index.js';
@@ -16,6 +18,8 @@
 	import * as Select from '$lib/components/ui/select/index.js';
 	import * as Sheet from '$lib/components/ui/sheet/index.js';
 	import { formatRelativeDate } from '$lib/utils/dates';
+	import { settleAction } from '$lib/utils/settleAction';
+	import { toastStore } from '$lib/stores/toast.svelte';
 	import {
 		createSettingsMemberAccessWorkspace,
 		type EditableMembershipRole,
@@ -29,13 +33,33 @@
 	import { pluralize } from '../settingsWorkspaceFormatters';
 
 	let { data, form }: PageProps = $props();
+	let active = true;
+	onDestroy(() => {
+		active = false;
+	});
+	const isCurrent = () => active;
 
-	let inviteLoading = $state(false);
 	let accessLoading = $state(false);
 	let memberSearch = $state('');
 	let pendingRemoveMemberForm = $state<HTMLFormElement | null>(null);
 	let pendingRemoveMemberEmail = $state('');
 	let removingMemberId = $state<string | null>(null);
+	let accessErrorMemberId = $state<string | null>(null);
+	let accessRequestError = $state<string | null>(null);
+	let accessOpener = $state<HTMLElement | null>(null);
+	let accessSaveButton = $state<HTMLButtonElement | null>(null);
+	let memberRequestError = $state<string | null>(null);
+	// Invite, Resend and Revoke share the `inviteError` outcome, so one request runs at a time and its owner,
+	// the new invitation or a pending invitation's id, places the outcome.
+	const NEW_INVITATION = 'new';
+	let invitationOwner = $state(NEW_INVITATION);
+	let invitationPending = $state(false);
+	let invitationRequestError = $state<string | null>(null);
+	// A new invitation request supersedes the outcome on screen; only the server's answer to it shows again.
+	let invitationSupersededForm = $state.raw<typeof form | undefined>(undefined);
+	const invitationForm = $derived(form === invitationSupersededForm ? undefined : form);
+	let membersHeading = $state<HTMLHeadingElement | null>(null);
+	let pendingInvitesHeading = $state<HTMLHeadingElement | null>(null);
 
 	const membersSection = $derived(data.membersSettings.sections.members);
 	const currentMember = $derived(data.membersSettings.currentMember);
@@ -58,26 +82,73 @@
 	const accessLanes = memberAccess.accessLanes;
 	const capabilityOptions = memberAccess.capabilityOptions;
 	const governanceRoleExplanation = explainPolicyReasonCode('denied:governance-role');
+	const inviteLoading = $derived(invitationPending && invitationOwner === NEW_INVITATION);
 	const sessionEmail = $derived((data.session as { user?: { email?: string | null } } | null | undefined)?.user?.email);
 
-	const stepUpEnhance: SubmitFunction = () => {
-		return async ({ result, update }) => {
-			if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) return;
-			await update();
+	const invitationEnhance: SubmitFunction = ({ formData, submitter, cancel }) => {
+		if (invitationPending) return cancel();
+		const owner = formData.has('inviteId') ? String(formData.get('inviteId')) : NEW_INVITATION;
+		invitationOwner = owner;
+		invitationPending = true;
+		invitationRequestError = null;
+		invitationSupersededForm = form;
+		return async (outcome) => {
+			if (!active) return;
+			const { result } = outcome;
+			if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) {
+				invitationPending = false;
+				return;
+			}
+			await settleAction(outcome, {
+				isCurrent,
+				settled: (error) => {
+					invitationRequestError = error;
+					invitationPending = false;
+					if (!error && owner === NEW_INVITATION && result.type === 'success') memberAccess.clearInviteEmail();
+				},
+				focus: () => [submitter as HTMLElement | null, pendingInvitesHeading, membersHeading]
+			});
+			// The invite form confirms in place; a pending invitation row confirms with a toast.
+			if (
+				active &&
+				owner !== NEW_INVITATION &&
+				result.type === 'success' &&
+				typeof result.data?.inviteMessage === 'string'
+			)
+				toastStore.success(result.data.inviteMessage);
 		};
 	};
 
-	const removeMemberEnhance: SubmitFunction = ({ formData }) => {
+	const removeMemberEnhance: SubmitFunction = ({ formData, formElement, cancel }) => {
+		if (removingMemberId) return cancel();
 		removingMemberId = String(formData.get('membershipId'));
-		return async ({ result, update }) => {
-			try {
-				if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) return;
-				await update();
-			} finally {
+		memberRequestError = null;
+		return async (outcome) => {
+			if (!active) return;
+			if (outcome.result.type === 'failure' && redirectToSensitiveActionStepUp(outcome.result.data)) {
 				removingMemberId = null;
+				return;
 			}
+			await settleAction(outcome, {
+				isCurrent,
+				settled: (error) => {
+					memberRequestError = error;
+					removingMemberId = null;
+				},
+				focus: () => [formElement.querySelector('button'), membersHeading]
+			});
 		};
 	};
+
+	function closeAccessSheet(memberId: string) {
+		accessErrorMemberId = null;
+		accessRequestError = null;
+		memberAccess.closeMemberEditor(memberId);
+	}
+
+	function memberName(member: SettingsMemberAccessRow): string {
+		return member.email ?? `${member.userId.slice(0, 8)}...`;
+	}
 
 	function isCurrentMember(member: SettingsMemberAccessRow): boolean {
 		return Boolean(sessionEmail && member.email === sessionEmail);
@@ -114,26 +185,17 @@
 				<h3 id="invite-member-heading" class="text-lg font-semibold tracking-tight">Invite Member</h3>
 				<p class="text-sm text-muted-foreground">Create an invite they can accept after signing in.</p>
 			</div>
-			<form
-				method="POST"
-				action="?/invite"
-				use:enhance={() => {
-					inviteLoading = true;
-					return async ({ result, update }) => {
-						try {
-							if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) return;
-							await update();
-							if (result.type === 'success') memberAccess.clearInviteEmail();
-						} finally {
-							inviteLoading = false;
-						}
-					};
-				}}
-			>
-				{#if form?.inviteError}<p class="text-sm text-destructive">{form.inviteError}</p>{/if}
-				{#if form?.inviteSuccess}<p class="text-sm text-muted-foreground">
-						{form.inviteMessage ?? 'Invitation created.'}
-					</p>{/if}
+			<form method="POST" action="?/invite" use:enhance={invitationEnhance}>
+				{#if invitationOwner === NEW_INVITATION && (invitationRequestError || invitationForm?.inviteError)}
+					<Alert.Root variant="destructive" class="mb-4">
+						<Alert.Description>{invitationRequestError ?? invitationForm?.inviteError}</Alert.Description>
+					</Alert.Root>
+				{/if}
+				{#if invitationOwner === NEW_INVITATION && invitationForm?.inviteSuccess && !invitationRequestError}
+					<Alert.Root role="status" class="mb-4">
+						<Alert.Description>{invitationForm.inviteMessage ?? 'Invitation created.'}</Alert.Description>
+					</Alert.Root>
+				{/if}
 				<input type="hidden" name="membershipRole" value={memberAccess.inviteMembershipRole} />
 				<div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_12rem_14rem_auto]">
 					<div class="grid gap-2">
@@ -178,7 +240,12 @@
 						{/if}
 					</Field.Root>
 					<div class="flex items-end">
-						<Button type="submit" disabled={inviteLoading}>{inviteLoading ? 'Inviting...' : 'Invite'}</Button>
+						<!-- aria-disabled keeps focus on the pressed button while an invitation request is pending. -->
+						<Button
+							type="submit"
+							aria-disabled={invitationPending ? 'true' : undefined}
+							aria-busy={inviteLoading || undefined}>{inviteLoading ? 'Inviting...' : 'Invite'}</Button
+						>
 					</div>
 				</div>
 				{#if memberAccess.inviteMembershipRole === 'member'}
@@ -223,13 +290,13 @@
 	<div class="rounded-lg border bg-card text-card-foreground">
 		<div class="flex flex-col gap-3 border-b p-4 md:flex-row md:items-center md:justify-between">
 			<div>
-				<h3 class="font-medium">Organization members</h3>
+				<h3 bind:this={membersHeading} tabindex="-1" class="font-medium outline-none">Organization members</h3>
 				<p class="text-sm text-muted-foreground">
 					{membersSection.rows.length}
 					{pluralize('member', membersSection.rows.length)}
 				</p>
 			</div>
-			<div class="flex items-center gap-3">
+			<div class="flex flex-wrap items-center gap-3">
 				<div class="relative">
 					<Label for="member-filter" class="sr-only">Filter members</Label>
 					<Search class="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -245,6 +312,20 @@
 			</div>
 		</div>
 
+		{#if memberRequestError || form?.memberError || form?.accessSuccess}
+			<div class="border-b p-4">
+				{#if memberRequestError || form?.memberError}
+					<Alert.Root variant="destructive">
+						<Alert.Description>{memberRequestError ?? form?.memberError}</Alert.Description>
+					</Alert.Root>
+				{:else}
+					<Alert.Root role="status">
+						<Alert.Description>Access updated.</Alert.Description>
+					</Alert.Root>
+				{/if}
+			</div>
+		{/if}
+
 		<div class="divide-y">
 			{#each filteredMembers as member (member.id)}
 				{@const accessShape = memberAccess.getMemberAccessShape(member)}
@@ -259,7 +340,7 @@
 					</div>
 					<div class="min-w-0 grid gap-2">
 						<div class="min-w-0">
-							<p class="truncate font-medium">{member.email ?? `${member.userId.slice(0, 8)}...`}</p>
+							<p class="truncate font-medium">{memberName(member)}</p>
 							<p class="truncate text-sm text-muted-foreground">{memberAccess.formatScopeSet(accessShape.scopeSet)}</p>
 						</div>
 						<div class="flex flex-wrap gap-2">
@@ -275,9 +356,18 @@
 					</div>
 					<div class="flex flex-wrap justify-end gap-2">
 						{#if member.membershipRole !== 'owner' && membersSection.canManageMemberAccess && (member.membershipRole !== 'admin' || isOwner)}
-							<Button type="button" variant="outline" size="sm" onclick={() => memberAccess.openMemberEditor(member)}>
+							<Button
+								type="button"
+								variant="outline"
+								size="sm"
+								onclick={(event) => {
+									accessOpener = event.currentTarget;
+									memberAccess.openMemberEditor(member);
+								}}
+							>
 								<Edit />
 								{isOwner ? 'Manage role & access' : 'Manage access'}
+								<span class="sr-only">for {memberName(member)}</span>
 							</Button>
 							<form method="POST" action="?/removeMember" use:enhance={removeMemberEnhance}>
 								<input type="hidden" name="membershipId" value={member.id} />
@@ -285,15 +375,16 @@
 									type="button"
 									variant="destructive"
 									size="sm"
-									disabled={removingMemberId === member.id}
+									aria-disabled={removingMemberId === member.id ? 'true' : undefined}
 									aria-busy={removingMemberId === member.id || undefined}
 									onclick={(event) => {
+										if (removingMemberId === member.id) return;
 										pendingRemoveMemberForm = (event.currentTarget as HTMLButtonElement).closest('form');
 										pendingRemoveMemberEmail = member.email ?? 'this member';
 									}}
 								>
 									<Trash2 />
-									Remove
+									Remove <span class="sr-only">{memberName(member)}</span>
 								</Button>
 							</form>
 						{/if}
@@ -311,17 +402,20 @@
 		</div>
 	</div>
 
-	{#if form?.memberError}<p class="text-sm text-destructive">{form.memberError}</p>{/if}
-	{#if form?.accessError}<p class="text-sm text-destructive">{form.accessError}</p>{/if}
-	{#if form?.accessSuccess}<p class="text-sm text-muted-foreground">Access updated.</p>{/if}
-
 	{#if membersSection.invitations.length > 0}
 		<section
 			class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground"
 			aria-labelledby="pending-invites-heading"
 		>
 			<div class="flex items-center justify-between gap-3">
-				<h3 id="pending-invites-heading" class="text-lg font-semibold tracking-tight">Pending Invitations</h3>
+				<h3
+					bind:this={pendingInvitesHeading}
+					id="pending-invites-heading"
+					tabindex="-1"
+					class="text-lg font-semibold tracking-tight outline-none"
+				>
+					Pending Invitations
+				</h3>
 				<Badge variant="outline">{membersSection.invitations.length} Pending</Badge>
 			</div>
 			<div class="divide-y rounded-md border">
@@ -337,19 +431,38 @@
 								<Badge variant={getFunnelStatusVariant(invite.funnelStatus)}>{invite.funnelStatusLabel}</Badge>
 								<p class="text-sm text-muted-foreground">{invite.funnelStatusDetail}</p>
 							</div>
+							{#if invitationOwner === invite.id && (invitationRequestError || invitationForm?.inviteError)}
+								<Alert.Root variant="destructive">
+									<Alert.Description>{invitationRequestError ?? invitationForm?.inviteError}</Alert.Description>
+								</Alert.Root>
+							{/if}
 						</div>
 						<div class="flex flex-wrap gap-2">
-							<form method="POST" action="?/resendInvite" use:enhance={stepUpEnhance}>
+							<form method="POST" action="?/resendInvite" use:enhance={invitationEnhance}>
 								<input type="hidden" name="inviteId" value={invite.id} />
 								<!-- Resend stays enabled in every funnel state; it is insufficient in some, never futile. -->
-								<Button type="submit" variant="outline" size="sm">
+								<Button
+									type="submit"
+									variant="outline"
+									size="sm"
+									aria-disabled={invitationPending ? 'true' : undefined}
+									aria-busy={(invitationPending && invitationOwner === invite.id) || undefined}
+								>
 									<RefreshCw />
-									Resend
+									Resend <span class="sr-only">invitation to {invite.email}</span>
 								</Button>
 							</form>
-							<form method="POST" action="?/revokeInvite" use:enhance={stepUpEnhance}>
+							<form method="POST" action="?/revokeInvite" use:enhance={invitationEnhance}>
 								<input type="hidden" name="inviteId" value={invite.id} />
-								<Button type="submit" variant="outline" size="sm">Revoke</Button>
+								<Button
+									type="submit"
+									variant="outline"
+									size="sm"
+									aria-disabled={invitationPending ? 'true' : undefined}
+									aria-busy={(invitationPending && invitationOwner === invite.id) || undefined}
+								>
+									Revoke <span class="sr-only">invitation for {invite.email}</span>
+								</Button>
 							</form>
 						</div>
 					</div>
@@ -389,7 +502,7 @@
 <Sheet.Root
 	open={Boolean(selectedMember)}
 	onOpenChange={(open) => {
-		if (!open && selectedMember && !accessLoading) memberAccess.closeMemberEditor(selectedMember.id);
+		if (!open && selectedMember && !accessLoading) closeAccessSheet(selectedMember.id);
 	}}
 >
 	{#if selectedMember}
@@ -413,16 +526,29 @@
 				method="POST"
 				action="?/updateMemberAccess"
 				class="grid gap-5 px-4 pb-4"
-				use:enhance={() => {
+				use:enhance={({ cancel }) => {
+					if (accessLoading) return cancel();
+					const memberId = selectedMember.id;
 					accessLoading = true;
-					return async ({ result, update }) => {
-						try {
-							if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) return;
-							await update();
-							if (result.type === 'success') memberAccess.closeMemberEditor(selectedMember.id);
-						} finally {
+					accessErrorMemberId = memberId;
+					accessRequestError = null;
+					memberRequestError = null;
+					return async (outcome) => {
+						if (!active) return;
+						const { result } = outcome;
+						if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) {
 							accessLoading = false;
+							return;
 						}
+						await settleAction(outcome, {
+							isCurrent,
+							settled: (error) => {
+								accessRequestError = error;
+								accessLoading = false;
+								if (!error && result.type === 'success') closeAccessSheet(memberId);
+							},
+							focus: () => [accessSaveButton, accessOpener, membersHeading]
+						});
 					};
 				}}
 			>
@@ -564,21 +690,36 @@
 						<input type="hidden" name="memberPreset" value={selectedPreset} />
 					{/if}
 
-					<Sheet.Footer>
-						<Button type="button" variant="outline" onclick={() => memberAccess.closeMemberEditor(selectedMember.id)}>
-							Cancel
-						</Button>
-						<Button type="submit" disabled={accessLoading || changeCount === 0}>
-							{#if accessLoading}
-								Saving...
-							{:else if changeCount > 0}
-								Save {changeCount} {changeCount === 1 ? 'change' : 'changes'}
-							{:else}
-								No changes
-							{/if}
-						</Button>
-					</Sheet.Footer>
+					{#if accessRequestError || (form?.accessError && accessErrorMemberId === selectedMember.id)}
+						<Alert.Root variant="destructive">
+							<Alert.Description>{accessRequestError ?? form?.accessError}</Alert.Description>
+						</Alert.Root>
+					{/if}
 				</fieldset>
+				<!-- Outside the fieldset so Save keeps focus (aria-disabled) while the request is pending. -->
+				<Sheet.Footer>
+					<Button
+						type="button"
+						variant="outline"
+						disabled={accessLoading}
+						onclick={() => closeAccessSheet(selectedMember.id)}>Cancel</Button
+					>
+					<Button
+						bind:ref={accessSaveButton}
+						type="submit"
+						disabled={changeCount === 0}
+						aria-disabled={accessLoading ? 'true' : undefined}
+						aria-busy={accessLoading || undefined}
+					>
+						{#if accessLoading}
+							Saving...
+						{:else if changeCount > 0}
+							Save {changeCount} {changeCount === 1 ? 'change' : 'changes'}
+						{:else}
+							No changes
+						{/if}
+					</Button>
+				</Sheet.Footer>
 			</form>
 		</Sheet.Content>
 	{/if}

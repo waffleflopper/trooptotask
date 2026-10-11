@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { tick } from 'svelte';
 
-import SettingsActivityRail from './SettingsActivityRail.svelte';
+import ApprovalRequestsSection from './ApprovalRequestsSection.svelte';
 import type { DeletionRequestApproval } from '$features/deletion-requests/contracts';
 
 const navigation = vi.hoisted(() => ({ invalidateAll: vi.fn() }));
@@ -38,47 +38,29 @@ function request(id: string, description: string): DeletionRequestApproval {
 
 const approvalRequests = [request('request-1', 'Archived record A'), request('request-2', 'Archived record B')];
 
-const auditLog = {
-	logs: [
-		{
-			id: 'audit-1',
-			userId: 'user-1',
-			actor: 'admin@example.com',
-			action: 'organization.rename',
-			resourceType: 'organization',
-			resourceId: 'org-1',
-			details: { name: 'Test Org' },
-			createdAt: '2026-04-26T12:00:00Z'
-		}
-	],
-	totalCount: 1,
-	last30DaysCount: 1,
-	page: 1,
-	limit: 100,
-	actionFilter: '',
-	availableActions: ['organization.rename']
-};
-
 function mount() {
-	return render(SettingsActivityRail, {
-		orgId: 'org-1',
-		activity: { pendingApprovalsCount: 2, approvalRequests, auditLog }
-	});
+	return render(ApprovalRequestsSection, { orgId: 'org-1', approvalRequests });
 }
 
 function card(description: string) {
-	const element = screen.getAllByRole('article').find((article) => within(article).queryByText(description));
+	const element = screen
+		.getAllByRole('article')
+		.find((article) => within(article).queryAllByText(description).length > 0);
 	if (!element) throw new Error(`Missing request card: ${description}`);
 	return within(element);
 }
 
 async function draft(description = 'Archived record A', reason = 'Still required') {
-	await fireEvent.click(card(description).getByRole('button', { name: 'Deny' }));
+	await fireEvent.click(card(description).getByRole('button', { name: `Deny ${description}` }));
 	await fireEvent.input(screen.getByRole('textbox', { name: 'Denial reason' }), { target: { value: reason } });
 }
 
 function reason() {
 	return screen.getByRole('textbox', { name: 'Denial reason' }) as HTMLInputElement;
+}
+
+function reviewError(description: string) {
+	return card(description).queryByRole('alert')?.textContent?.trim();
 }
 
 function deferred<T>() {
@@ -91,31 +73,47 @@ function deferred<T>() {
 	return { promise, resolve, reject };
 }
 
-describe('SettingsActivityRail', () => {
-	it('identifies the saved requester while preserving activity tab and collapse interactions', async () => {
+describe('ApprovalRequestsSection', () => {
+	it('names the section and each review action after its request', async () => {
 		mount();
 
-		const activity = screen.getByRole('complementary', { name: 'Settings activity' });
-		expect(within(activity).getByRole('tab', { name: /Approvals 2/ })).toBeTruthy();
+		const section = screen.getByRole('region', { name: 'Approval Requests' });
+		expect(within(section).getByRole('heading', { level: 2, name: 'Approval Requests' })).toBeTruthy();
+		expect(within(section).getByText('2 pending')).toBeTruthy();
 		expect(card('Archived record A').getByText('requester@example.com')).toBeTruthy();
+		expect(card('Archived record A').getByRole('button', { name: 'Approve Archived record A' })).toBeTruthy();
+		expect(card('Archived record B').getByRole('button', { name: 'Deny Archived record B' })).toBeTruthy();
 
-		await fireEvent.click(within(activity).getByRole('tab', { name: 'Audit Log' }));
-		expect(within(activity).getByRole('columnheader', { name: 'Area' })).toBeTruthy();
-		expect(within(activity).getByRole('columnheader', { name: 'Event' })).toBeTruthy();
-		expect(within(activity).getByRole('cell', { name: 'Organization' })).toBeTruthy();
-		expect(within(activity).getByRole('cell', { name: 'Rename' })).toBeTruthy();
-		expect(within(activity).getByText('admin@example.com')).toBeTruthy();
+		await draft('Archived record B');
+		expect(card('Archived record B').getByRole('button', { name: 'Confirm denial of Archived record B' })).toBeTruthy();
+	});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Collapse' }));
-		expect(screen.getByRole('button', { name: 'Show activity panel' })).toBeTruthy();
-		await fireEvent.click(screen.getByRole('button', { name: 'Show activity panel' }));
-		expect(screen.getByRole('button', { name: 'Collapse' })).toBeTruthy();
+	it('moves focus into the denial reason and returns it to Deny on Escape', async () => {
+		mount();
+		await draft();
+		await waitFor(() => expect(document.activeElement).toBe(reason()));
+		await fireEvent.keyDown(reason(), { key: 'Escape' });
+		await waitFor(() =>
+			expect(document.activeElement).toBe(
+				card('Archived record A').getByRole('button', { name: 'Deny Archived record A' })
+			)
+		);
+		expect(screen.queryByRole('textbox', { name: 'Denial reason' })).toBeNull();
+	});
+
+	it('moves focus to the section heading after a review removes the request', async () => {
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
+		mount();
+		await fireEvent.click(card('Archived record A').getByRole('button', { name: 'Approve Archived record A' }));
+		await waitFor(() => expect(navigation.invalidateAll).toHaveBeenCalledOnce());
+		expect(document.activeElement).toBe(screen.getByRole('heading', { level: 2, name: 'Approval Requests' }));
+		expect(screen.getByText('1 pending')).toBeTruthy();
 	});
 
 	it('starts a fresh denial draft for a different request', async () => {
 		mount();
 		await draft();
-		await fireEvent.click(card('Archived record B').getByRole('button', { name: 'Deny' }));
+		await fireEvent.click(card('Archived record B').getByRole('button', { name: 'Deny Archived record B' }));
 		expect(reason().value).toBe('');
 	});
 
@@ -125,22 +123,27 @@ describe('SettingsActivityRail', () => {
 		vi.stubGlobal('fetch', send);
 		mount();
 		await draft();
-		await fireEvent.click(card('Archived record A').getByRole('button', { name: /Confirm/ }));
-		expect(reason().disabled).toBe(true);
-		for (const name of ['Approve', 'Deny']) {
-			expect((card('Archived record B').getByRole('button', { name }) as HTMLButtonElement).disabled).toBe(true);
+		const confirm = card('Archived record A').getByRole('button', { name: /Confirm/ }) as HTMLButtonElement;
+		confirm.focus();
+		await fireEvent.click(confirm);
+		expect(reason().readOnly).toBe(true);
+		for (const name of ['Approve Archived record B', 'Deny Archived record B']) {
+			expect(card('Archived record B').getByRole('button', { name }).getAttribute('aria-disabled')).toBe('true');
 		}
-		expect((card('Archived record A').getByRole('button', { name: /Confirm/ }) as HTMLButtonElement).disabled).toBe(
-			true
-		);
+		expect(confirm.getAttribute('aria-disabled')).toBe('true');
+		expect(confirm.disabled).toBe(false);
+		expect(document.activeElement).toBe(confirm);
+		await fireEvent.click(confirm);
+		await fireEvent.click(card('Archived record B').getByRole('button', { name: 'Deny Archived record B' }));
 		await fireEvent.keyDown(reason(), { key: 'Escape' });
 		await fireEvent.keyDown(reason(), { key: 'Enter' });
 		expect(reason().value).toBe('Still required');
 		expect(send).toHaveBeenCalledOnce();
 		pending.resolve(Response.json({ message: 'Review unavailable' }, { status: 503 }));
-		await waitFor(() => expect(feedback.error).toHaveBeenCalledOnce());
-		expect(reason().disabled).toBe(false);
+		await waitFor(() => expect(reviewError('Archived record A')).toBe('Review unavailable'));
+		expect(reason().readOnly).toBe(false);
 		expect(reason().value).toBe('Still required');
+		expect(confirm.getAttribute('aria-disabled')).toBeNull();
 	});
 
 	it.each(['response', 'transport', 'null', 'malformed', 'non-string message'] as const)(
@@ -166,12 +169,14 @@ describe('SettingsActivityRail', () => {
 			mount();
 			await draft();
 			await fireEvent.keyDown(reason(), { key: 'Enter' });
-			await waitFor(() => expect(feedback.error).toHaveBeenCalledOnce());
-			expect(feedback.error.mock.calls[0][0]).toEqual(expect.any(String));
-			expect(feedback.error.mock.calls[0][0].length).toBeGreaterThan(0);
-			if (kind === 'response') expect(feedback.error.mock.calls[0][0]).toContain('Review unavailable');
+			await waitFor(() =>
+				expect(reviewError('Archived record A')).toBe(
+					kind === 'response' ? 'Review unavailable' : 'Unable to confirm the review. Refresh the page or try again.'
+				)
+			);
+			expect(feedback.error).not.toHaveBeenCalled();
 			expect(reason().value).toBe('Still required');
-			expect(reason().disabled).toBe(false);
+			expect(reason().readOnly).toBe(false);
 			expect(send).toHaveBeenCalledOnce();
 			expect(navigation.invalidateAll).not.toHaveBeenCalled();
 			await fireEvent.click(card('Archived record A').getByRole('button', { name: /Confirm/ }));
@@ -192,11 +197,11 @@ describe('SettingsActivityRail', () => {
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
 		mount();
 		await draft();
-		await fireEvent.click(card('Archived record B').getByRole('button', { name: 'Approve' }));
+		await fireEvent.click(card('Archived record B').getByRole('button', { name: 'Approve Archived record B' }));
 		await waitFor(() => expect(navigation.invalidateAll).toHaveBeenCalledOnce());
 		expect(screen.queryByText('Archived record B')).toBeNull();
 		expect(reason().value).toBe('Still required');
-		expect(reason().disabled).toBe(false);
+		expect(reason().readOnly).toBe(false);
 	});
 
 	it('reports an acknowledged review separately from refresh failure without offering the mutation again', async () => {
@@ -205,13 +210,13 @@ describe('SettingsActivityRail', () => {
 		const send = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
 		vi.stubGlobal('fetch', send);
 		mount();
-		await fireEvent.click(card('Archived record A').getByRole('button', { name: 'Approve' }));
+		await fireEvent.click(card('Archived record A').getByRole('button', { name: 'Approve Archived record A' }));
 		await waitFor(() => expect(navigation.invalidateAll).toHaveBeenCalledOnce());
 		expect(screen.queryByText('Archived record A')).toBeNull();
-		expect(screen.getByRole('tab', { name: /Approvals 1/ })).toBeTruthy();
-		expect((card('Archived record B').getByRole('button', { name: 'Approve' }) as HTMLButtonElement).disabled).toBe(
-			true
-		);
+		expect(screen.getByText('1 pending')).toBeTruthy();
+		expect(
+			card('Archived record B').getByRole('button', { name: 'Approve Archived record B' }).getAttribute('aria-disabled')
+		).toBe('true');
 		refresh.reject(new Error('Readback unavailable'));
 		await refresh.promise.catch(() => undefined);
 		await waitFor(() => expect(feedback.warning).toHaveBeenCalledOnce());
@@ -220,10 +225,10 @@ describe('SettingsActivityRail', () => {
 		expect(feedback.error).not.toHaveBeenCalled();
 		expect(send).toHaveBeenCalledOnce();
 		expect(screen.queryByText('Archived record A')).toBeNull();
-		expect(screen.getByRole('tab', { name: /Approvals 1/ })).toBeTruthy();
-		expect((card('Archived record B').getByRole('button', { name: 'Approve' }) as HTMLButtonElement).disabled).toBe(
-			false
-		);
+		expect(screen.getByText('1 pending')).toBeTruthy();
+		expect(
+			card('Archived record B').getByRole('button', { name: 'Approve Archived record B' }).getAttribute('aria-disabled')
+		).toBeNull();
 		await tick();
 		expect(send).toHaveBeenCalledOnce();
 	});

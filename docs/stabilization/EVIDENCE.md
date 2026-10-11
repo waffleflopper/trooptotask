@@ -143,22 +143,21 @@ The archive is [`1604-acceptance.tar.gz`](https://github.com/waffleflopper/troop
 
 **Shared-toolbar consumer census on `d7744fe9`.** Acceptance round 2 asked for focused observations of every consumer of the toolbar label rule (`9217e160`). The rule changes only actions without an icon. A label beside an icon stays hidden below 35rem, as before. The source census of `WorkspaceToolbarAction` definitions finds these icon-less actions:
 
-| Page                   | Actions                          | Placement                                      |
-| ---------------------- | -------------------------------- | ---------------------------------------------- |
-| Calendar               | `Export to Excel`, `Print / PDF` | `overflow: always`                             |
-| Critical Tasks Library | `Clear filters`                  | normal priority, only while a filter is active |
-| Critical Tasks Reports | `Clear filters`                  | normal priority, only while a filter is active |
-| Rating Scheme          | `Export`                         | normal priority                                |
-| Rating Scheme          | `Add Entry`                      | critical, `overflow: never`                    |
+| Page                   | Actions                                                                                                            | Placement                                      |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- |
+| Calendar               | `Export to Excel`, `Print / PDF`, and the `Show Onboarding`, `Show Status Text` and `Show Personnel Roles` toggles | `overflow: always`                             |
+| Critical Tasks Library | `Clear filters`                                                                                                    | normal priority, only while a filter is active |
+| Critical Tasks Reports | `Clear filters`                                                                                                    | normal priority, only while a filter is active |
+| Rating Scheme          | `Add Entry`                                                                                                        | critical, `overflow: never`                    |
 
 Personnel and Ranks use the toolbar's nav, search and selects, with no actions. The run used worker 1, origin `http://127.0.0.1:44035` and Chromium 152.0.7977.82. Results:
 
 - **Calendar.** No inline actions at 390. Both actions are in the overflow menu, so the rule doesn't reach them.
 - **Critical Tasks Library**, with the search `ALPHA` active. At 390, 560 and 600 the only inline action is `New Task`, an icon action with its label hidden. `Clear filters` is in the overflow menu, so the rule doesn't reach it.
 - **Critical Tasks Reports.** The only inline action at every width is `Export Excel`, an icon action. Two attempts to apply a group or MOS filter did not commit, so `Clear filters` never rendered. It has Library's normal priority and the same shared layout, but this case is source-reasoned, not observed.
-- **Rating Scheme.** `Add Entry` is inline with its label at 390, 560 and 600, and `Export` is in the overflow menu.
+- **Rating Scheme.** `Add Entry` is inline with its label at 390, 560 and 600. `Export` carries a `download` icon and sits in the overflow menu, so the rule doesn't change it.
 
-The archive is [`1604-consumers.tar.gz`](https://github.com/waffleflopper/trooptotask/releases/download/evidence/1604-consumers.tar.gz), SHA-256 `7ca8637e986437cf986caecc68646279f31b74446e111be35b44507079e4b00d`, with 14 payload files plus `INVENTORY.sha256`. A fresh download matched every hash.
+The archive is [`1604-consumers.tar.gz`](https://github.com/waffleflopper/trooptotask/releases/download/evidence/1604-consumers.tar.gz), SHA-256 `7ca8637e986437cf986caecc68646279f31b74446e111be35b44507079e4b00d`, with 14 payload files plus `INVENTORY.sha256`. A fresh download matched every hash. Erratum: the archive's NOTES lists Rating Scheme `Export` as icon-less and omits the three Calendar toggles. The table above is the corrected census. The archived observations are unaffected, because every action involved sits in an overflow menu or carries an icon.
 
 **Download-failure run on `6674dbfe`.** CodeRabbit raised two findings on `d7744fe9`, and two commits fix them. In `dcd466ab`, a signed-scan link request that fails shows `Could not generate download link.` in the field. Before, a rejected fetch or a non-JSON reply left the user with nothing. In `6674dbfe`, the accordion content always keeps the id its trigger names, even if a caller passes its own. The run used worker 1, origin `http://127.0.0.1:44891` and Chromium 152.0.7977.82, as `rosterViewer` at 1280 light.
 

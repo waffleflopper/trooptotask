@@ -1,8 +1,6 @@
 # Component Catalog & CSS Design System
 
-Shared UI primitives and central variants live in `src/lib/components/ui/`; shared neutral compositions live in `src/lib/components/patterns/`. Import through each family's barrel. The [foundation provenance and family contract](ui-foundation-provenance.md) records the current APIs, deviations and target layers.
-Layout components such as dialogs, sheets, and cards live under `src/lib/components/ui/`. Import the shadcn-backed primitives or compound namespaces directly.
-Public marketing primitives live in `src/lib/components/public/`. Import via `$lib/components/public/...`.
+`src/lib/components/` holds three layers and nothing else; the `foundation-placement` governance rule rejects any other file or directory there. Shared UI primitives and central variants, including dialogs, sheets and cards, live in `src/lib/components/ui/`. Shared neutral compositions with real consumers live in `src/lib/components/patterns/`. Import both through each family's barrel. Public marketing primitives live in `src/lib/components/public/`; import them via `$lib/components/public/...`. Feature UI, including the app shell's `BannerStack`, lives with its owner under `src/features/`. The [foundation provenance and family contract](ui-foundation-provenance.md) records the current APIs, deviations and target layers.
 
 ---
 
@@ -26,12 +24,12 @@ The [family contract](ui-foundation-provenance.md) governs retention, moves and 
 
 Use the replacement notes here to map older TroopToTask building blocks to the current shadcn-svelte/shared UI foundation. Missing target guidance means the project has not selected a shadcn-svelte equivalent yet and needs a shared-component decision before new work relies on that pattern.
 
-Replacement previews:
+Replacements:
 
 - Production DataTable surfaces use the shadcn-svelte `ui/data-table` foundation documented in this catalog.
-- Legacy `toolbar` is represented by the shadcn-composed `patterns/workspace-toolbar` example using `input-group`, `select`, `button-group`, `button`, and `dropdown-menu`.
-- Legacy `EmptyState` is represented by the shadcn `empty` component.
-- Legacy `FileUpload` is represented by the native shadcn `input type="file"` example.
+- Legacy `toolbar` and `ui/toolbar` are replaced by `patterns/workspace-toolbar`, which composes `input-group`, `select`, `button-group`, `button` and `dropdown-menu`.
+- Legacy `EmptyState` is replaced by the shadcn `empty` component.
+- Legacy `FileUpload` is replaced by `Field` with `Input type="file"`; see the [file upload pattern](#file-upload-pattern).
 - Legacy `FormField` is replaced by the shadcn-backed `ui/field` compound primitives plus `Input`, `Textarea`, `Select`, `Checkbox`, `RadioGroup` and `Combobox`, including its `multiple` mode.
 - Legacy `SearchSelect` is replaced by the shadcn-style `ui/combobox` compound API.
 - Legacy `Spinner` is represented by the shadcn `spinner` component.
@@ -44,7 +42,7 @@ Foundation files:
 - `components.json` initializes shadcn-svelte with `ui` pointed at `$lib/components/ui`.
 - `src/lib/utils.ts` provides the shadcn `cn` helper and element-ref utility types.
 - `src/app.css` imports Tailwind v4 and maps shared semantic tokens to the product palette; see the [current token API](#current-token-api) and [palette](#palette).
-- `src/app.css` defines the `below-banner` utility: the app frame fills the viewport under the fixed `BannerStack`, which publishes its measured height as `--banner-height` on `<html>`. Apply the utility instead of writing the variable; `ui/sidebar` reads it for its fixed container.
+- `src/app.css` defines the `below-banner` utility: the app frame fills the viewport under the app shell's fixed `BannerStack` (`src/features/app-shell`), which publishes its measured height as `--banner-height` on `<html>`. Apply the utility instead of writing the variable; `ui/sidebar` reads it for its fixed container.
 - `src/app.css` names the fixed layers with the `z-banner` and `z-sheet` utilities. From lowest to highest the layers are: the desktop sidebar (`z-10`), `BannerStack` (`z-banner`), `ui/sheet` and its overlay (`z-sheet`), then dialogs, alert dialogs and floating content (menus, selects, popovers, tooltips) at shadcn's `z-50`, then the Toaster. Bits portals join `<body>` when the component mounts, not when it opens. Overlays on the same layer therefore paint in mount order, and a drawer that mounted after a resize would cover a dialog opened from it. A sheet sits below the dialogs it can open, and the banner sits above the page and desktop sidebar but below every modal layer. Use these layers instead of new z-values.
 - `src/app.css` no longer owns admin-specific selectors. Global `.btn`, `.input`, `.select`, `.label`, and related legacy selectors have been removed after route consumers migrated to shared primitives.
 
@@ -237,11 +235,7 @@ Rules:
 - Compose route-specific behavior under the [shared UI composition rules](agents/ui-system.md#default-ui-rules); keep toolbar appearance and reusable APIs owned by the shared component.
 - If an authorized route change needs behavior this API cannot express, implement and verify the smallest shared API extension, update affected consumers and document its usage here.
 
-Migration guidance:
-
-- Start every migrated route toolbar from `WorkspaceToolbar.Root`, `WorkspaceToolbar.Group`, shadcn `ButtonGroup`, shadcn `Button`, shadcn `DropdownMenu`, and shadcn form primitives.
-- Treat the `docs/component-catalog.md` desktop, constrained/mobile, overflow, disabled, loading, selected, filter, search, view-toggle, and icon-only examples as the review baseline.
-- Production route migration happens only when explicitly requested. Until then, the component catalog is the development ground for this toolbar family.
+Consumers: the Calendar month view, assignment planner, bulk status and reports; the Critical Tasks library, person detail, matrix and reports; Onboarding History and templates; Personnel; Rating Scheme; and the Training matrix, types, views and reports. Start a new route toolbar from `WorkspaceToolbar.Root`, `WorkspaceToolbar.Group`, shadcn `ButtonGroup`, shadcn `Button`, shadcn `DropdownMenu` and shadcn form primitives. A change to the toolbar is verified on these consumers at narrow and wide widths.
 
 ---
 
@@ -368,14 +362,13 @@ Report/export state guidance:
 Route-level visual override ban:
 
 - Routes must not pass route-local visual classes that change report component color, radius, border, typography, density, shadow, or internal spacing.
-- If a report needs a reusable new section shape, add it to `patterns/report-workspace`, show it in `docs/component-catalog.md`, and document it here before route usage.
+- If a report needs a reusable new section shape, add it to `patterns/report-workspace` and document it here before route usage.
 
-Migration notes:
+Consumers:
 
 - All five Calendar reports compose `ReportWorkspace` and render their results through `Table`. Group availability by day passes a feature-owned `table` state (initial sort by lowest availability) and a `row` snippet whose day cells use the `success`, `warning` and `destructive` tokens at 15% for its availability tones; sorting uses the DataTable sortable header.
-- Critical Tasks reports should follow because they already use the shared toolbar but still carry route-local report grids, states, and chart/table shells.
+- Critical Tasks reports compose `ReportWorkspace` for the readiness trend, expiration cliff, readiness distribution, readiness matrix, at-risk soldiers and tasks-below-threshold sections.
 - Training Reports uses a wrapping toolbar for filters and the forecast horizon, page-header actions (secondary Export Excel, primary Print brief), `State`, and `briefing` sections throughout. Its Affected soldiers drill-down puts `DataTable` with a server-backed `table` state (rows, page, page size and total pages from the detail API; sorting off) inside a briefing section, so the table's own Previous/Next pagination drives server pages without client sorting or a scroll box. Type risk renders stacked HTML bars in a semantic table rather than a chart primitive. The normal screen uses shared `ReportWorkspace` composition inside a `print:hidden` wrapper. The feature-owned `TrainingPrintBrief` separately renders the captured loaded report and optional loaded-detail page. Its `data-print-report="training"` root exists only during a print cycle. Scoped rules in `src/app.css` hide app chrome and the sidebar, release shell height and overflow, and select the `training-brief` landscape named page with white margins. Print tables repeat context and headings through `thead` and the matrix key through `tfoot`. The appendix includes only the currently loaded detail page with its exact range and scope; Excel exports all filtered affected requirements. This approved training print composition does not change the shared platform UI architecture.
-- Personnel report-like flows should migrate after bulk import/merge surfaces are separated from the current combined manager.
 
 ---
 
@@ -388,7 +381,8 @@ Current chart inventory:
 - Critical Tasks readiness trend maps to `ReportLineChart` with multiple series.
 - Critical Tasks expiration cliff maps to `ReportBarChart layout="stack"`.
 - Critical Tasks readiness distribution maps to `ReportBarChart layout="group"` or `layout="overlap"`.
-- Training Reports' forecast maps to `ReportForecastChart`.
+- Training Reports' forecast, on screen and in the print brief, maps to `ReportForecastChart`.
+- The platform admin Dashboard's signup chart maps to `ReportBarChart`.
 - No current report usage requires a shadcn area chart. Add an area wrapper only when a real route needs cumulative or filled-trend semantics.
 
 Public components:
@@ -406,8 +400,6 @@ Shared components own:
 
 - shadcn chart container usage, LayerChart simplified chart composition, axis baseline, grid styling, legend structure, and responsive chart frame.
 - Token paint as classes: axis labels use `fill-muted-foreground`, and grouped or stacked bars separate with `stroke-background`. Series colors are route data and stay as values.
-
-`docs/component-catalog.md` shows the Critical Tasks chart mapping and the line, stacked bar, and overlap bar target examples.
 
 ---
 
@@ -613,14 +605,7 @@ Route-level visual override ban:
 - Routes must not restyle the import workspace, input panels, validation summary, preview table, footer, or result summary locally.
 - If an import workflow needs a durable capability the shared API cannot express, add it centrally and prove it in `docs/component-catalog.md`.
 
-Migration notes:
-
-- Personnel bulk import/merge should migrate first because it already uses the new dialog and DataTable foundations but still contains route-local import source, preview, and result markup.
-- Critical Tasks task import and completion import should follow because they share the same upload-preview-import-result state machine with domain-specific validation.
-- Training bulk import should follow.
-- Calendar bulk status add/remove/import should migrate after the import workspace proves partial-success and disabled-row handling.
-
-Compatibility note: the legacy `src/lib/components/ui/BulkImportTable.svelte` helper has been removed. Import flows should compose `BulkImportWorkspace.PreviewTable`, `BulkImportWorkspace.RowStatus`, `BulkImportWorkspace.ValidationSummary`, and route-owned parsing/mapping utilities.
+Consumers: Personnel import, Critical Tasks task import and completion import, Training bulk import and Calendar bulk status import. Each composes `BulkImportWorkspace.PreviewTable`, `BulkImportWorkspace.RowStatus` and `BulkImportWorkspace.ValidationSummary` around its own parsing and mapping. The legacy `ui/BulkImportTable.svelte` helper and the unused `SourcePicker`/`SourceOption` source chooser have been removed.
 
 ---
 
@@ -628,7 +613,7 @@ Compatibility note: the legacy `src/lib/components/ui/BulkImportTable.svelte` he
 
 Use these for any top-level marketing, legal, or trust page so the public site keeps one shared shell and one navigation/footer contract.
 
-The shared wordmark is `patterns/brand-wordmark`. Public navigation and account-access pages use that same component so its lettering and subtitle stay consistent. It is a pattern rather than a `components/public` file because Identity's AuthShell also renders it, and public routes already depend on Identity. `variant="on-chrome"` lifts the subtitle to the muted chrome tone; only the public navigation uses it, while it floats over the dark hero.
+The shared wordmark is `patterns/brand-wordmark`. Public navigation and account-access pages use that same component so its lettering and subtitle stay consistent. It is a pattern rather than a `components/public` file because Identity's AuthShell also renders it, and public routes already depend on Identity. Props: `class?`, `hideSubtitleOnMobile?` (hides the subtitle below the `sm` breakpoint, where the title also steps down from 22px to 18px) and `variant?: 'default' | 'on-chrome'`. `on-chrome` lifts the subtitle to the muted chrome tone; only the public navigation uses it, while it floats over the dark hero. The wordmark paints from `font-heading`, `font-mono`, `text-accent` and the muted text tokens, with no local CSS variables to override.
 
 Public files are Tailwind on central tokens with no `<style>` block or local token set. Amber text on paper uses `text-accent-text` (AA-safe on the light card, the bright accent in dark), the alternating long-form band uses `bg-card-alt`, and the primary amber action is `Button variant="accent"`. Hero grid, page-header noise and scroll reveal are the named utilities `bg-chrome-dots`, `bg-noise` and `reveal` in `src/app.css`. `reveal` hides content only under an ancestor with `.reveal-enabled`, which the landing page sets once its observer is armed; add `.revealed` to show it and `delay-*` to stagger.
 
@@ -1018,13 +1003,9 @@ The legacy `ui/FileUpload.svelte` wrapper has been removed. Upload workflows sho
 
 ---
 
-## `ui/toolbar`
-
-Removed. Use `patterns/workspace-toolbar` and generated shadcn-svelte primitives instead.
-
 ## `patterns/type-management-workspace`
 
-Shared shadcn-aligned workspace chrome for manage-type pages. Training types, status types, assignment types, and similar configuration lists can use it when they need a list-detail layout, create/edit mode, row actions, form sections, detail facts, progressive disclosure, or a mobile list/detail flow.
+Shared shadcn-aligned workspace chrome for manage-type pages. Training Types, Training Views (with Training's `ApplicabilityEditor`) and Onboarding templates use it. Another configuration list can use it when it needs a list-detail layout, create/edit mode, row actions, form sections, detail facts, progressive disclosure, or a mobile list/detail flow.
 
 The component owns the repeated visual structure: page workspace spacing, list/detail grid, selectable rows, swatches, section chrome, detail headers, configuration facts, progressive disclosure, mobile back affordance, and footer actions. Routes own behavior: fetching, selected item state, permissions, validation, persistence, field controls, destructive-confirm copy, and ordering rules.
 

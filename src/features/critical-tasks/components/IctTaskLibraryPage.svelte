@@ -56,6 +56,7 @@
 	let fieldErrors = $state<{ taskCode?: string; title?: string; expirationMonths?: string; sortOrder?: string }>({});
 	let taskCodeInput = $state<HTMLInputElement | null>(null);
 	let titleInput = $state<HTMLInputElement | null>(null);
+	let editButton = $state<HTMLButtonElement | null>(null);
 	let expirationInput = $state<HTMLInputElement | null>(null);
 	let sortOrderInput = $state<HTMLInputElement | null>(null);
 	let saveButton = $state<HTMLButtonElement | null>(null);
@@ -252,7 +253,7 @@
 		formSortOrder = String(task?.sortOrder ?? nextSortOrder());
 	}
 
-	function startCreate() {
+	async function startCreate() {
 		if (!canManage) return;
 		taskStatusFilter = 'active';
 		selectedTaskId = null;
@@ -260,22 +261,29 @@
 		creating = true;
 		editing = false;
 		importingTasks = false;
+		await tick();
+		taskCodeInput?.focus();
 	}
 
-	function startEdit() {
+	async function startEdit() {
 		if (!selectedTask || !canManage || selectedTask.archivedAt) return;
 		resetForm(selectedTask);
 		editing = true;
 		creating = false;
 		importingTasks = false;
+		await tick();
+		taskCodeInput?.focus();
 	}
 
-	function cancelEdit() {
+	async function cancelEdit() {
+		const wasCreating = creating;
 		creating = false;
 		editing = false;
 		saving = false;
 		formError = '';
 		fieldErrors = {};
+		await tick();
+		(wasCreating ? pageRoot?.querySelector<HTMLElement>('button[aria-label="New Task"]') : editButton)?.focus();
 	}
 
 	async function startImport() {
@@ -709,7 +717,9 @@
 									<h3 class="text-lg font-semibold text-foreground">{selectedTask.title}</h3>
 								</div>
 								{#if canManage && !selectedTask.archivedAt}
-									<Button variant="outline" size="sm" type="button" onclick={startEdit}>Edit</Button>
+									<Button variant="outline" size="sm" type="button" onclick={startEdit} bind:ref={editButton}
+										>Edit</Button
+									>
 								{/if}
 							</div>
 

@@ -383,6 +383,20 @@ describe('IctTaskLibraryPage', () => {
 		);
 	});
 
+	it.each([
+		{ open: 'New Task', select: false },
+		{ open: 'Edit', select: true }
+	])('moves focus to Task code on $open and back to $open on Cancel', async ({ open, select }) => {
+		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+		if (select) await fireEvent.click(screen.getByRole('button', { name: /Perform tactical combat casualty care/ }));
+
+		await fireEvent.click(screen.getByRole('button', { name: open }));
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText('Task code')));
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: open })));
+	});
+
 	it('edits task metadata without touching completion history', async () => {
 		const update = vi.spyOn(ictTasksStore, 'update').mockResolvedValue(true);
 

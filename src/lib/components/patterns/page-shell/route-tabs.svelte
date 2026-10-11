@@ -40,6 +40,20 @@
 		return item.active ?? (value !== undefined && item.value === value);
 	}
 
+	let scroller = $state<HTMLElement>();
+	const activeIndex = $derived(items.findIndex(isActive));
+
+	// Scrolls only the tab strip; scrollIntoView could also move the page.
+	$effect(() => {
+		void activeIndex;
+		const tab = scroller?.querySelector<HTMLElement>('[data-active="true"], [aria-current="page"]');
+		if (!scroller || !tab) return;
+		const strip = scroller.getBoundingClientRect();
+		const target = tab.getBoundingClientRect();
+		if (target.left < strip.left) scroller.scrollLeft += target.left - strip.left;
+		else if (target.right > strip.right) scroller.scrollLeft += target.right - strip.right;
+	});
+
 	const focusRing =
 		'rounded-t-md outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50';
 </script>
@@ -54,7 +68,7 @@
 {/snippet}
 
 <nav data-slot="route-tabs" aria-label={label} class={cn('min-w-0 border-b border-border', className)} {...restProps}>
-	<div class="flex min-w-0 items-center gap-1 overflow-x-auto">
+	<div bind:this={scroller} class="flex min-w-0 items-center gap-1 overflow-x-auto">
 		{#if children}
 			{@render children()}
 		{:else}

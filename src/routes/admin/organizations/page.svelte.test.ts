@@ -152,6 +152,31 @@ describe('admin organizations page', () => {
 		expect(screen.getByRole('combobox', { name: 'Rows' })).toHaveProperty('value', '25');
 	});
 
+	it('applies the filters from the first page and keeps focus on the control that applied them', async () => {
+		renderOrganizationsPage({
+			pagination: { page: 3, pageSize: 25, totalCount: 90, totalPages: 4, q: '', status: 'all' }
+		});
+		const search = screen.getByRole('searchbox', { name: 'Search' });
+		await fireEvent.input(search, { target: { value: 'Able & Baker' } });
+		await fireEvent.change(screen.getByRole('combobox', { name: 'Rows' }), { target: { value: '50' } });
+		await fireEvent.change(screen.getByRole('combobox', { name: 'Status' }), { target: { value: 'suspended' } });
+
+		search.focus();
+		await fireEvent.submit(search.closest('form')!);
+		expect(goto).toHaveBeenLastCalledWith('/admin/organizations?page=1&pageSize=50&q=Able+%26+Baker&status=suspended', {
+			keepFocus: true
+		});
+
+		const apply = screen.getByRole('button', { name: 'Apply' });
+		apply.focus();
+		await fireEvent.click(apply);
+		expect(goto).toHaveBeenCalledTimes(2);
+		expect(goto).toHaveBeenLastCalledWith('/admin/organizations?page=1&pageSize=50&q=Able+%26+Baker&status=suspended', {
+			keepFocus: true
+		});
+		expect(document.activeElement).toBe(apply);
+	});
+
 	it('pages through the Organization index with buttons that keep focus and the filters', async () => {
 		renderOrganizationsPage({
 			pagination: { page: 2, pageSize: 25, totalCount: 60, totalPages: 3, q: 'Able & Baker', status: 'suspended' }

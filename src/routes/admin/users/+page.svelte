@@ -23,7 +23,7 @@
 		const params = new SvelteURLSearchParams();
 		if (searchInput) params.set('search', searchInput);
 		params.set('page', '1');
-		goto(resolve(`/admin/users?${params.toString()}`));
+		goto(resolve(`/admin/users?${params.toString()}`), { keepFocus: true });
 	}
 
 	function pageHref(pageNum: number) {

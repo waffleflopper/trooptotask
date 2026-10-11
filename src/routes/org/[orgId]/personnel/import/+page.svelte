@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { getAppShellContext } from '$features/app-shell';
-	import { throwRenderError } from '$lib/utils/streamedRouteData';
 	import { PersonnelImportPage } from '$features/personnel';
 
 	let { data } = $props();
@@ -21,6 +20,6 @@
 		rankCatalog={personnelWorkspace.data.rankCatalog}
 		personnel={personnelWorkspace.data.personnel}
 	/>
-{:catch error}
-	{throwRenderError(error, 'Failed to load personnel workspace')}
+{:catch}
+	<!-- The Personnel layout observes this same source and shows WorkspaceLoadError. -->
 {/await}

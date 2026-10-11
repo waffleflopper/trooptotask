@@ -194,6 +194,19 @@ describe('calendar page', () => {
 		calendarStore.goToMonth(2026, 3);
 	});
 
+	it('settles on nothing when the streamed workspace rejects, leaving the load error to the Calendar layout', async () => {
+		const rejected = Promise.reject(new Error('availability failed'));
+		rejected.catch(() => {});
+
+		const view = render(WithPreferences, {
+			props: { data: { ...makePageData(), calendar: { data: rejected } } }
+		});
+		expect(screen.getByRole('status').hasAttribute('aria-busy')).toBe(false);
+		await waitFor(() => expect(screen.queryByRole('status')).toBeNull());
+
+		expect(view.container.textContent).toBe('');
+	});
+
 	it('loads a larger calendar range on demand when navigating beyond the buffered window', async () => {
 		render(WithPreferences, {
 			props: {

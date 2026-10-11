@@ -11,7 +11,7 @@
 	import CalendarPageView from '$features/calendar/components/CalendarPageView.svelte';
 	import { getAppShellContext } from '$features/app-shell';
 	import { Skeleton } from '$lib/components/ui/skeleton';
-	import { isPromiseLike, observeDeferred, throwRenderError } from '$lib/utils/streamedRouteData';
+	import { isPromiseLike, observeDeferred } from '$lib/utils/streamedRouteData';
 	import { untrack } from 'svelte';
 
 	let { data } = $props();
@@ -22,12 +22,6 @@
 	const shell = $derived(data.shell.kind === 'ready' ? data.shell : null);
 	let calendarBootstrap = $state<CalendarWorkspaceResult | null>(null);
 	let loadError = $state<Error | null>(null);
-	const renderLoadError = $derived.by(() => {
-		if (loadError) {
-			throwRenderError(loadError, 'Failed to load calendar workspace');
-		}
-		return null;
-	});
 
 	$effect(() => {
 		let cancelled = false;
@@ -148,7 +142,7 @@
 </script>
 
 {#if loadError}
-	{renderLoadError}
+	<!-- The Calendar layout observes this same source and shows WorkspaceLoadError. -->
 {:else if workspacePending}
 	<section class="grid gap-4 p-5 sm:px-6 sm:pb-6" aria-live="polite" role="status">
 		<div class="flex flex-wrap items-center gap-3">

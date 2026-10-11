@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import Page from './+page.svelte';
 import { createReadyAppShellRouteData } from '../../appShell.test-support';
 import { createClientAccess } from '$lib/access/clientAccess';
@@ -93,4 +93,20 @@ it('reviews a whole saved overlap through the shell Organization when the route 
 	expect(screen.getByText('SGT Smith, Alex')).toBeTruthy();
 	expect(screen.getByText(/Jan 14, 2026.*Jan 16, 2026/)).toBeTruthy();
 	expect(screen.getByRole('button', { name: 'Confirm Removal' })).toBeTruthy();
+});
+
+it('settles on nothing when the streamed workspace rejects, leaving the load error to the Calendar layout', async () => {
+	const rejected = Promise.reject(new Error('availability failed'));
+	rejected.catch(() => {});
+
+	const view = render(Page, {
+		data: {
+			...createReadyAppShellRouteData({ orgId: 'org-1', orgName: 'Test Unit' }),
+			calendar: { data: rejected }
+		}
+	});
+	expect(screen.getByText('Loading bulk status operations...')).toBeTruthy();
+	await waitFor(() => expect(screen.queryByText('Loading bulk status operations...')).toBeNull());
+
+	expect(view.container.textContent).toBe('');
 });

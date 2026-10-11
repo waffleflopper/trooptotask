@@ -4,12 +4,7 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import AssignmentPlannerPage from '$features/calendar/components/AssignmentPlannerPage.svelte';
 	import type { CalendarWorkspaceResult } from '$features/calendar';
-	import {
-		isPromiseLike,
-		materializeWorkspaceData,
-		observeDeferred,
-		throwRenderError
-	} from '$lib/utils/streamedRouteData';
+	import { isPromiseLike, materializeWorkspaceData, observeDeferred } from '$lib/utils/streamedRouteData';
 
 	let { data } = $props();
 	let calendarBootstrap = $state<CalendarWorkspaceResult | null>(null);
@@ -49,12 +44,6 @@
 
 	const workspacePending = $derived(!!data.calendar?.data && calendarBootstrap === null && loadError === null);
 	const resolvedData = $derived.by(() => materializeWorkspaceData(data, 'calendar', calendarBootstrap));
-	const renderLoadError = $derived.by(() => {
-		if (loadError) {
-			throwRenderError(loadError, 'Failed to load assignment planner workspace');
-		}
-		return null;
-	});
 
 	const pageData = $derived.by(() => ({
 		orgId: data.shell.org.id,
@@ -68,7 +57,7 @@
 </svelte:head>
 
 {#if loadError}
-	{renderLoadError}
+	<!-- The Calendar layout observes this same source and shows WorkspaceLoadError. -->
 {:else if workspacePending}
 	<section class="flex items-center justify-center gap-2 p-6 text-muted-foreground" aria-live="polite" role="status">
 		<Spinner />

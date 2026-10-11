@@ -137,6 +137,47 @@ describe('onboarding templates page', () => {
 		expect(screen.getByLabelText('Name')).toBeTruthy();
 	});
 
+	it.each(['Add first step', 'Add Step'])(
+		'moves focus to the step Name field when %s opens the form',
+		async (opener) => {
+			await renderTemplatesPage({ templateSteps: opener === 'Add Step' ? undefined : [] });
+
+			await fireEvent.click(screen.getByRole('button', { name: opener }));
+
+			await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('textbox', { name: 'Name' })));
+		}
+	);
+
+	it.each([
+		{ moved: 'Second step', direction: 'up', kept: 'Move Second step down' },
+		{ moved: 'First step', direction: 'down', kept: 'Move First step up' }
+	] as const)(
+		'keeps focus on $moved after Move $direction leaves that control disabled',
+		async ({ moved, direction, kept }) => {
+			const step = (id: string, name: string, sortOrder: number) => ({
+				id,
+				templateId: 'template-1',
+				name,
+				description: null,
+				stepType: 'checkbox' as const,
+				trainingTypeId: null,
+				stages: null,
+				sortOrder
+			});
+			const swapped = [step('step-2', 'Second step', 0), step('step-1', 'First step', 1)];
+			vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json(swapped)));
+			await renderTemplatesPage({
+				templateSteps: [step('step-1', 'First step', 0), step('step-2', 'Second step', 1)]
+			});
+
+			const mover = screen.getByRole('button', { name: `Move ${moved} ${direction}` });
+			mover.focus();
+			await fireEvent.click(mover);
+
+			await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: kept })));
+		}
+	);
+
 	it('disables Add first step for a Group-scoped configurator', async () => {
 		scopeSet = { kind: 'groups', groupIds: ['alpha'] };
 
@@ -207,6 +248,46 @@ describe('onboarding templates page', () => {
 		await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
 		expect(screen.queryByRole('button', { name: 'Edit Standard Arrival' })).toBeNull();
 		expect(screen.queryByRole('alert')).toBeNull();
+	});
+
+	it('moves focus to the remaining template after a confirmed delete', async () => {
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ success: true })));
+		await renderTemplatesPage({
+			templates: [
+				{ id: 'template-1', orgId: 'org-1', name: 'Alpha Arrival', description: null, createdAt: '2026-01-01' },
+				{ id: 'template-2', orgId: 'org-1', name: 'Bravo Arrival', description: null, createdAt: '2026-01-01' }
+			],
+			templateSteps: []
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete Alpha Arrival' }));
+		const dialog = await screen.findByRole('alertdialog');
+		await fireEvent.click(within(dialog).getByRole('button', { name: /^Delete$/ }));
+		await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+
+		const remaining = within(screen.getByRole('listbox', { name: 'Onboarding templates' })).getByRole('option', {
+			name: /Bravo Arrival/
+		});
+		await waitFor(() => expect(remaining.contains(document.activeElement)).toBe(true));
+	});
+
+	it('moves focus to Add Template after the last template is deleted', async () => {
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ success: true })));
+		await renderTemplatesPage({ templateSteps: [] });
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete Template' }));
+		const dialog = await screen.findByRole('alertdialog');
+		await fireEvent.click(within(dialog).getByRole('button', { name: /^Delete$/ }));
+		await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+
+		await waitFor(() =>
+			expect(document.activeElement).toBe(
+				within(screen.getByText('No templates yet.').closest('[data-slot="empty"]') as HTMLElement).getByRole(
+					'button',
+					{
+						name: 'Add Template'
+					}
+				)
+			)
+		);
 	});
 
 	it('does not render redundant template summary cards above the editor', async () => {

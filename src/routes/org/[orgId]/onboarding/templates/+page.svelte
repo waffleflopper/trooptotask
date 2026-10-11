@@ -5,7 +5,7 @@
 	import Pencil from '@lucide/svelte/icons/pencil';
 	import Plus from '@lucide/svelte/icons/plus';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
-	import { untrack } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar';
 	import type { WorkspaceToolbarAction, WorkspaceToolbarNavItem } from '$lib/components/patterns/workspace-toolbar';
 	import { Badge, type BadgeVariant } from '$lib/components/ui/badge';
@@ -27,11 +27,12 @@
 		onboardingTemplateStore,
 		type OnboardingTemplateDeleteTarget
 	} from '$features/onboarding';
-	import type { OnboardingStepType } from '$features/onboarding/contracts';
+	import type { OnboardingStepType, OnboardingTemplateStep } from '$features/onboarding/contracts';
 	import { trainingTypeSource } from '$features/training';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
+	let emptyAddTemplate = $state<HTMLElement | null>(null);
 	let ConfirmDialog = $state<typeof import('$lib/components/ui/confirm-dialog').ConfirmDialog | null>(null);
 
 	const org = getAppShellContext();
@@ -152,8 +153,23 @@
 		workspace.requestDelete(target);
 	}
 
+	async function moveStep(step: OnboardingTemplateStep, direction: 'up' | 'down') {
+		await workspace.moveStep(step, direction);
+		await tick();
+		const steps = model.selectedTemplateSteps;
+		const index = steps.findIndex((item) => item.id === step.id);
+		const atEdge = direction === 'up' ? index === 0 : index === steps.length - 1;
+		const keep = atEdge ? (direction === 'up' ? 'down' : 'up') : direction;
+		document.querySelector<HTMLElement>(`[data-move-step="${CSS.escape(step.id)}:${keep}"]`)?.focus();
+	}
+
 	async function handleConfirmDelete(): Promise<void> {
-		await workspace.confirmDelete();
+		const target = model.confirmDelete;
+		const result = await workspace.confirmDelete();
+		if (!result.ok || target?.type !== 'template') return;
+		await tick();
+		const next = document.querySelector<HTMLElement>('[role="option"][aria-selected="true"] button');
+		(next ?? emptyAddTemplate)?.focus();
 	}
 </script>
 
@@ -204,7 +220,13 @@
 					</Empty.Header>
 					{#if model.canMutate}
 						<Empty.Content>
-							<Button variant="outline" size="sm" type="button" onclick={() => workspace.startCreateTemplate()}>
+							<Button
+								bind:ref={emptyAddTemplate}
+								variant="outline"
+								size="sm"
+								type="button"
+								onclick={() => workspace.startCreateTemplate()}
+							>
 								Add Template
 							</Button>
 						</Empty.Content>
@@ -401,7 +423,8 @@
 																type="button"
 																title="Move up"
 																disabled={index === 0}
-																onclick={() => workspace.moveStep(step, 'up')}
+																onclick={() => moveStep(step, 'up')}
+																data-move-step="{step.id}:up"
 																aria-label={`Move ${step.name} up`}
 															>
 																<ArrowUp aria-hidden="true" />
@@ -412,7 +435,8 @@
 																type="button"
 																title="Move down"
 																disabled={index === model.selectedTemplateSteps.length - 1}
-																onclick={() => workspace.moveStep(step, 'down')}
+																onclick={() => moveStep(step, 'down')}
+																data-move-step="{step.id}:down"
 																aria-label={`Move ${step.name} down`}
 															>
 																<ArrowDown aria-hidden="true" />
@@ -560,7 +584,7 @@
 		<TypeWorkspace.FormSection title="Step Basics">
 			<Field.Root>
 				<Field.Label for="step-name">Name</Field.Label>
-				<Input id="step-name" type="text" placeholder="Step name" bind:value={workspace.stepDraft.name} />
+				<Input id="step-name" type="text" placeholder="Step name" autofocus bind:value={workspace.stepDraft.name} />
 			</Field.Root>
 
 			<Field.Root>

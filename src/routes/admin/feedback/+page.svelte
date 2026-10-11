@@ -9,6 +9,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as Alert from '$lib/components/ui/alert';
 	import * as Card from '$lib/components/ui/card';
+	import * as Collapsible from '$lib/components/ui/collapsible';
 	import * as Empty from '$lib/components/ui/empty';
 	import * as Field from '$lib/components/ui/field';
 	import { NativeSelect } from '$lib/components/ui/native-select';
@@ -16,6 +17,7 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import * as Tabs from '$lib/components/ui/tabs';
 	import { Textarea } from '$lib/components/ui/textarea';
+	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatDisplayDateTime } from '$lib/utils/dates';
 	import { adminBadgeVariant, formatAdminLabel } from '$features/platform-admin/components/adminTheme';
 
@@ -37,10 +39,9 @@
 		editor = null;
 		actionError = null;
 	}
-	function openEditor(item: PageData['newItems'][number]) {
-		const wasOpen = editor?.id === item.id;
+	function setEditorOpen(item: PageData['newItems'][number], open: boolean) {
 		closeEditor();
-		if (!wasOpen) editor = { id: item.id, status: item.status, notes: item.admin_notes ?? '' };
+		if (open) editor = { id: item.id, status: item.status, notes: item.admin_notes ?? '' };
 	}
 	function retirePage() {
 		pageLifetime += 1;
@@ -113,6 +114,7 @@
 							actionError = 'The save result could not be confirmed. Check current feedback before trying again.';
 						return;
 					}
+					toastStore.success('Feedback saved');
 					await refreshFeedback(isCurrent);
 				} finally {
 					if (isCurrent()) pending = null;
@@ -129,12 +131,12 @@
 </script>
 
 <svelte:head>
-	<title>Beta Feedback - Admin - Troop to Task</title>
+	<title>Feedback - Admin - Troop to Task</title>
 </svelte:head>
 
 <PageShell.Root width="content" density="compact">
 	<PageShell.Header
-		title="Beta Feedback"
+		title="Feedback"
 		subtitle="Sort incoming bug reports, feature requests, and tester notes without losing the audit trail."
 	/>
 
@@ -190,72 +192,79 @@
 	{:else}
 		{#each items as item (item.id)}
 			<Card.Root>
-				<Card.Header>
-					<button
-						class="grid w-full gap-3 text-left sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start"
-						onclick={() => openEditor(item)}
-					>
-						<span class="grid min-w-0 gap-2">
-							<span class="flex min-w-0 flex-wrap items-center gap-2">
-								<strong class="truncate text-sm">{item.user_email}</strong>
-								<Badge variant={adminBadgeVariant(item.category)}>{formatAdminLabel(item.category)}</Badge>
-							</span>
-							<span class="text-sm leading-6 text-muted-foreground">
-								{item.message.length > 140 ? `${item.message.slice(0, 140)}...` : item.message}
-							</span>
-							<span class="text-xs text-muted-foreground">
-								{formatDisplayDateTime(item.created_at)}
-								{#if item.organization_name}
-									/ {item.organization_name}{/if}
-								{#if item.page_url}
-									/ {item.page_url}{/if}
-							</span>
-						</span>
-						<span class="text-xs font-medium text-muted-foreground uppercase">
-							{editor?.id === item.id ? 'Hide' : 'Open'}
-						</span>
-					</button>
-				</Card.Header>
+				<Collapsible.Root open={editor?.id === item.id} onOpenChange={(open) => setEditorOpen(item, open)}>
+					<Collapsible.Trigger>
+						{#snippet child({ props })}
+							<Button
+								{...props}
+								variant="ghost"
+								size="none"
+								class="grid h-auto w-full gap-3 rounded-md px-4 py-3 text-left font-normal whitespace-normal sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start"
+							>
+								<span class="grid min-w-0 gap-2">
+									<span class="flex min-w-0 flex-wrap items-center gap-2">
+										<strong class="truncate text-sm">{item.user_email}</strong>
+										<Badge variant={adminBadgeVariant(item.category)}>{formatAdminLabel(item.category)}</Badge>
+									</span>
+									<span class="text-sm leading-6 text-muted-foreground">
+										{item.message.length > 140 ? `${item.message.slice(0, 140)}...` : item.message}
+									</span>
+									<span class="text-xs text-muted-foreground">
+										{formatDisplayDateTime(item.created_at)}
+										{#if item.organization_name}
+											/ {item.organization_name}{/if}
+										{#if item.page_url}
+											/ {item.page_url}{/if}
+									</span>
+								</span>
+								<span class="text-xs font-medium text-muted-foreground uppercase">
+									{editor?.id === item.id ? 'Hide' : 'Open'}
+								</span>
+							</Button>
+						{/snippet}
+					</Collapsible.Trigger>
+					<Collapsible.Content>
+						{#if editor && editor.id === item.id}
+							<Card.Content class="grid gap-4 border-t">
+								<div class="grid gap-2 rounded-lg border bg-muted/40 p-4">
+									<p class="text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">Full Message</p>
+									<p class="text-sm leading-6">{item.message}</p>
+								</div>
 
-				{#if editor && editor.id === item.id}
-					<Card.Content class="grid gap-4">
-						<div class="grid gap-2 rounded-lg border bg-muted/40 p-4">
-							<p class="text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">Full Message</p>
-							<p class="text-sm leading-6">{item.message}</p>
-						</div>
+								<form method="POST" action="?/update" class="grid gap-4" use:enhance={submitFeedback(item.id)}>
+									<input type="hidden" name="feedbackId" value={item.id} />
+									<div class="grid gap-4 md:grid-cols-[12rem_minmax(0,1fr)]">
+										<Field.Root>
+											<Field.Label for="status-{item.id}">Status</Field.Label>
+											<NativeSelect id="status-{item.id}" name="status" bind:value={editor.status}>
+												<option value="new">New</option>
+												<option value="reviewed">Reviewed</option>
+												<option value="resolved">Resolved</option>
+											</NativeSelect>
+										</Field.Root>
+										<Field.Root>
+											<Field.Label for="notes-{item.id}">Admin Notes</Field.Label>
+											<Textarea
+												id="notes-{item.id}"
+												name="adminNotes"
+												rows={4}
+												placeholder="Internal notes about this feedback..."
+												bind:value={editor.notes}
+											></Textarea>
+										</Field.Root>
+									</div>
 
-						<form method="POST" action="?/update" class="grid gap-4" use:enhance={submitFeedback(item.id)}>
-							<input type="hidden" name="feedbackId" value={item.id} />
-							<div class="grid gap-4 md:grid-cols-[12rem_minmax(0,1fr)]">
-								<Field.Root>
-									<Field.Label for="status-{item.id}">Status</Field.Label>
-									<NativeSelect id="status-{item.id}" name="status" bind:value={editor.status}>
-										<option value="new">New</option>
-										<option value="reviewed">Reviewed</option>
-										<option value="resolved">Resolved</option>
-									</NativeSelect>
-								</Field.Root>
-								<Field.Root>
-									<Field.Label for="notes-{item.id}">Admin Notes</Field.Label>
-									<Textarea
-										id="notes-{item.id}"
-										name="adminNotes"
-										rows={4}
-										placeholder="Internal notes about this feedback..."
-										bind:value={editor.notes}
-									></Textarea>
-								</Field.Root>
-							</div>
-
-							<div class="flex justify-end">
-								<Button type="submit" disabled={writesDisabled}>
-									{#if pending?.kind === 'save' && pending.id === item.id}<Spinner />{/if}
-									Save Notes
-								</Button>
-							</div>
-						</form>
-					</Card.Content>
-				{/if}
+									<div class="flex justify-end">
+										<Button type="submit" disabled={writesDisabled}>
+											{#if pending?.kind === 'save' && pending.id === item.id}<Spinner />{/if}
+											Save Notes
+										</Button>
+									</div>
+								</form>
+							</Card.Content>
+						{/if}
+					</Collapsible.Content>
+				</Collapsible.Root>
 			</Card.Root>
 		{/each}
 	{/if}

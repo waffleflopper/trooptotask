@@ -825,7 +825,7 @@ async function main() {
 				: destination === 'settings/logs'
 					? ['Audit Log', "You don't have permission to view this page"]
 					: destination === 'admin/feedback'
-						? ['Beta Feedback', 'Access denied', 'Forbidden']
+						? ['Sort incoming bug reports', 'Access denied', 'Forbidden']
 						: destination.startsWith('onboarding')
 							? [
 									'STEPS',

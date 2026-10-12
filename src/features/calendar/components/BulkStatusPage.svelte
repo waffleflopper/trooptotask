@@ -60,7 +60,7 @@
 		const url = new URL(page.url);
 		url.searchParams.set('tab', tab);
 		const target = `${url.pathname}${url.search}` as `/org/${string}/calendar/bulk?${string}`;
-		goto(resolve(target), { replaceState: true, noScroll: true });
+		goto(resolve(target), { replaceState: true, noScroll: true, keepFocus: true });
 	}
 
 	// ---- Personnel data ----

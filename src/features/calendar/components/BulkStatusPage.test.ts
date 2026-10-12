@@ -118,6 +118,18 @@ describe('BulkStatusPage', () => {
 		expect(screen.queryByText('Access restricted.')).toBeNull();
 	});
 
+	it('switches tabs without resetting focus or scroll, and replaces the history entry', async () => {
+		renderPage();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+
+		expect(gotoMock).toHaveBeenCalledWith('/org/org-1/calendar/bulk?tab=remove', {
+			replaceState: true,
+			noScroll: true,
+			keepFocus: true
+		});
+	});
+
 	it('loads Remove review ranges with the canonical organization id', async () => {
 		pageMock.url = new URL('http://localhost/org/local-dev-test/calendar/bulk?tab=remove');
 		orgUrlSegment = 'local-dev-test';

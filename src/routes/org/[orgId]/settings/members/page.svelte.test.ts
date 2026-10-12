@@ -167,6 +167,20 @@ describe('members settings page', () => {
 		expect(document.activeElement).toBe(invite);
 	});
 
+	it('names each Manage Access select and the listbox it opens', async () => {
+		renderPage();
+		await fireEvent.click(within(memberRow('alpha@example.com')).getByRole('button', { name: /Manage/ }));
+		const sheet = screen.getByRole('dialog', { name: 'Manage Access' });
+
+		for (const name of ['Membership Role', 'Member Preset', 'Calendar']) {
+			const trigger = within(sheet).getByRole('button', { name });
+			await fireEvent.keyDown(trigger, { key: 'ArrowDown' });
+			expect(await screen.findByRole('listbox', { name })).toBeTruthy();
+			await fireEvent.keyDown(screen.getByRole('listbox', { name }), { key: 'Escape' });
+			await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull());
+		}
+	});
+
 	it('keeps Manage Access open and locked while its save is pending', async () => {
 		renderPage();
 		const row = memberRow('alpha@example.com');

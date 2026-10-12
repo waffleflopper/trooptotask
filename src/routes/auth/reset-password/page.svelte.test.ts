@@ -201,6 +201,14 @@ it('keeps a missing recovery session unavailable without offering a status retry
 	expect(fetchMock).not.toHaveBeenCalled();
 });
 
+it('ends the sign-out sentence with no space before its period', () => {
+	render(Page);
+
+	const sentence = screen.getByRole('button', { name: 'sign out' }).closest('div')!;
+
+	expect(sentence.textContent?.replace(/\s+/g, ' ').trim()).toBe('Stop this recovery session and sign out.');
+});
+
 it('lets the user submit sign-out to the existing POST action', async () => {
 	const { container } = render(Page);
 	const submissions: { method: string; pathname: string }[] = [];

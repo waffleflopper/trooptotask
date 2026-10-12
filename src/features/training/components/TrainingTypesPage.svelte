@@ -53,6 +53,7 @@
 
 	let selectedTypeId: string | null = $state(null);
 	let editing = $state(false);
+	let nameInput = $state<HTMLInputElement | null>(null);
 	let creating = $state(false);
 	let saving = $state(false);
 	let error = $state('');
@@ -135,6 +136,11 @@
 		mobileDetailOpen = true;
 	}
 
+	async function focusNameInput() {
+		await tick();
+		nameInput?.focus();
+	}
+
 	function startEdit() {
 		if (!selectedType || !canMutate) return;
 		error = '';
@@ -156,6 +162,7 @@
 		editCanBeExempted = selectedType.canBeExempted;
 		editIsOptional = selectedType.isOptional;
 		editing = true;
+		focusNameInput();
 	}
 
 	function cancelEdit() {
@@ -189,6 +196,7 @@
 		editIsOptional = false;
 		creating = true;
 		editing = false;
+		focusNameInput();
 	}
 
 	async function saveEdit() {
@@ -350,7 +358,11 @@
 										variant="outline"
 										size="icon"
 										type="button"
-										onclick={() => moveUp(i)}
+										onclick={async (event) => {
+											const button = event.currentTarget;
+											await moveUp(i);
+											TypeWorkspace.focusEnabledSibling(button);
+										}}
 										disabled={i === 0}
 										aria-label={`Move ${type.name} up`}
 									>
@@ -360,7 +372,11 @@
 										variant="outline"
 										size="icon"
 										type="button"
-										onclick={() => moveDown(i)}
+										onclick={async (event) => {
+											const button = event.currentTarget;
+											await moveDown(i);
+											TypeWorkspace.focusEnabledSibling(button);
+										}}
 										disabled={i === orderedTypes.length - 1}
 										aria-label={`Move ${type.name} down`}
 									>
@@ -389,7 +405,13 @@
 					<TypeWorkspace.FormSection title="Basics" class="sm:grid-cols-[minmax(0,1fr)_12rem] sm:items-end">
 						<Field.Root>
 							<Field.Label for="type-name">Name</Field.Label>
-							<Input id="type-name" type="text" bind:value={editName} placeholder="e.g. First Aid" />
+							<Input
+								id="type-name"
+								type="text"
+								bind:ref={nameInput}
+								bind:value={editName}
+								placeholder="e.g. First Aid"
+							/>
 							{#if error}
 								<Field.Error>{error}</Field.Error>
 							{/if}

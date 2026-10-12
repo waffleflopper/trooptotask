@@ -36,6 +36,7 @@
 	let orderedIds: string[] = $state([]);
 	let error = $state('');
 	let nameRequired = $state(false);
+	let nameInput = $state<HTMLInputElement | null>(null);
 
 	const orderedViews = $derived([...trainingViewsStore.items].sort((a, b) => a.name.localeCompare(b.name)));
 	const selectedView = $derived(
@@ -63,6 +64,11 @@
 		mobileDetailOpen = true;
 	}
 
+	async function focusNameInput() {
+		await tick();
+		nameInput?.focus();
+	}
+
 	function startCreate() {
 		if (!canMutate) return;
 		selectedViewId = null;
@@ -74,6 +80,7 @@
 		creating = true;
 		editing = false;
 		mobileDetailOpen = true;
+		focusNameInput();
 	}
 
 	function startEdit(view: TrainingView | null = selectedView) {
@@ -88,6 +95,7 @@
 		editing = true;
 		creating = false;
 		mobileDetailOpen = true;
+		focusNameInput();
 	}
 
 	function cancelEdit() {
@@ -239,7 +247,13 @@
 					<TypeWorkspace.FormSection title="Basics">
 						<Field.Root>
 							<Field.Label for="view-name">View Name</Field.Label>
-							<Input id="view-name" type="text" bind:value={name} placeholder="e.g. Annual Trainings" />
+							<Input
+								id="view-name"
+								type="text"
+								bind:ref={nameInput}
+								bind:value={name}
+								placeholder="e.g. Annual Trainings"
+							/>
 							{#if nameRequired && !name.trim()}
 								<Field.Error>Name is required.</Field.Error>
 							{:else if error}
@@ -286,7 +300,10 @@
 												variant="outline"
 												size="icon"
 												type="button"
-												onclick={() => moveUp(i)}
+												onclick={(event) => {
+													moveUp(i);
+													TypeWorkspace.focusEnabledSibling(event.currentTarget);
+												}}
 												disabled={i === 0}
 												aria-label={`Move ${getTypeName(typeId)} up`}
 											>
@@ -296,7 +313,10 @@
 												variant="outline"
 												size="icon"
 												type="button"
-												onclick={() => moveDown(i)}
+												onclick={(event) => {
+													moveDown(i);
+													TypeWorkspace.focusEnabledSibling(event.currentTarget);
+												}}
 												disabled={i === orderedIds.length - 1}
 												aria-label={`Move ${getTypeName(typeId)} down`}
 											>

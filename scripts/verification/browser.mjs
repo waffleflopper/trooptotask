@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import fs from 'node:fs/promises';
 import path from 'node:path';
 import { Blocked, sleep } from './core.mjs';
 
@@ -20,15 +21,29 @@ export function assertOwnedNavigation(name, args, ownedOrigins) {
 		);
 }
 
-// Recordings are evidence: they stay under the owned evidence directory as .webm or .mp4.
-export function assertRecordingPath(name, args, evidenceDirectory) {
+// Recordings are evidence: they stay under the owned evidence directory as .webm or .mp4, judged by the real
+// path of the nearest existing ancestor so a symlinked folder cannot point the recorder elsewhere.
+export async function assertRecordingPath(name, args, evidenceDirectory) {
 	if (name !== 'screencast_start') return;
-	const target = typeof args.filePath === 'string' ? path.resolve(args.filePath) : '';
-	if (!target.startsWith(evidenceDirectory + path.sep) || !/\.(webm|mp4)$/i.test(target))
+	const target = typeof args.filePath === 'string' ? await realTarget(path.resolve(args.filePath)) : '';
+	const evidence = await realTarget(path.resolve(evidenceDirectory));
+	if (!target.startsWith(evidence + path.sep) || !/\.(webm|mp4)$/i.test(target))
 		throw new Blocked(
 			'RECORDING_PATH',
 			'screencast_start needs a filePath ending in .webm or .mp4 under .verification/evidence/.'
 		);
+}
+
+async function realTarget(file) {
+	let existing = file;
+	while (true) {
+		try {
+			return path.join(await fs.realpath(existing), path.relative(existing, file));
+		} catch (error) {
+			if (error.code !== 'ENOENT' || path.dirname(existing) === existing) throw error;
+			existing = path.dirname(existing);
+		}
+	}
 }
 
 export const textContent = (result) =>

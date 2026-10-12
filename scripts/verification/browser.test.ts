@@ -1,5 +1,8 @@
 import { expect, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
+import { mkdir, mkdtemp, rm, symlink } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { runInNewContext } from 'node:vm';
 import { assertOwnedNavigation, assertRecordingPath, driver } from './browser.mjs';
 
@@ -24,13 +27,13 @@ it('permits only owned absolute navigation while retaining native reload and ins
 	expect(() => assertOwnedNavigation('take_snapshot', { pageId: 7 }, origins)).not.toThrow();
 });
 
-it('admits a recording only as a webm or mp4 under the owned evidence directory', () => {
+it('admits a recording only as a webm or mp4 under the owned evidence directory', async () => {
 	const evidence = '/repo/.verification/evidence';
 	for (const filePath of [
 		`${evidence}/verify-trooptotask/run/sweep.webm`,
 		`${evidence}/verify-trooptotask/run/sweep.MP4`
 	])
-		expect(() => assertRecordingPath('screencast_start', { filePath }, evidence)).not.toThrow();
+		await expect(assertRecordingPath('screencast_start', { filePath }, evidence)).resolves.toBeUndefined();
 	for (const args of [
 		{},
 		{ filePath: '/tmp/sweep.webm' },
@@ -38,10 +41,28 @@ it('admits a recording only as a webm or mp4 under the owned evidence directory'
 		{ filePath: `${evidence}-other/sweep.webm` },
 		{ filePath: `${evidence}/run/sweep.gif` }
 	])
-		expect(() => assertRecordingPath('screencast_start', args, evidence)).toThrowError(
-			expect.objectContaining({ code: 'RECORDING_PATH' })
-		);
-	expect(() => assertRecordingPath('screencast_stop', {}, evidence)).not.toThrow();
+		await expect(assertRecordingPath('screencast_start', args, evidence)).rejects.toMatchObject({
+			code: 'RECORDING_PATH'
+		});
+	await expect(assertRecordingPath('screencast_stop', {}, evidence)).resolves.toBeUndefined();
+});
+
+it('refuses a recording whose evidence folder is a symlink to somewhere else', async () => {
+	const root = await mkdtemp(path.join(tmpdir(), 'recording-path-'));
+	const evidence = path.join(root, 'evidence');
+	await mkdir(path.join(root, 'outside'));
+	await mkdir(evidence);
+	await symlink(path.join(root, 'outside'), path.join(evidence, 'escape'));
+	try {
+		await expect(
+			assertRecordingPath('screencast_start', { filePath: path.join(evidence, 'escape/sweep.webm') }, evidence)
+		).rejects.toMatchObject({ code: 'RECORDING_PATH' });
+		await expect(
+			assertRecordingPath('screencast_start', { filePath: path.join(evidence, 'run/sweep.webm') }, evidence)
+		).resolves.toBeUndefined();
+	} finally {
+		await rm(root, { recursive: true, force: true });
+	}
 });
 
 it('signs a synthetic actor in through the visible login form before returning its page', async () => {

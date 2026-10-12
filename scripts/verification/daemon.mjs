@@ -138,7 +138,7 @@ async function fresh() {
 }
 async function call(name, args = {}, timeout = 45000) {
 	assertOwnedNavigation(name, args, ownedOrigins);
-	assertRecordingPath(name, args, evidenceDirectory);
+	await assertRecordingPath(name, args, evidenceDirectory);
 	const result = await client.callTool({ name, arguments: args }, undefined, { timeout });
 	if (result.isError)
 		throw new Blocked(

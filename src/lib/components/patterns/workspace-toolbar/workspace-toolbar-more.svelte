@@ -129,6 +129,9 @@
 					{#if filter.kind === 'toggle'}
 						<DropdownMenu.CheckboxItem checked={filter.pressed} onCheckedChange={filter.onPressedChange}>
 							{filter.label}
+							{#if active}
+								<span aria-hidden="true" class="ml-auto size-2 rounded-full bg-accent"></span>
+							{/if}
 						</DropdownMenu.CheckboxItem>
 					{:else}
 						{@const current =

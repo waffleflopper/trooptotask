@@ -253,6 +253,21 @@ describe('WorkspaceToolbar', () => {
 		expect(description(moreButton()), 'filters back on the row do not mark More').toBe('');
 	});
 
+	it('marks an active folded toggle with the same hidden dot as an active folded select', async () => {
+		render(DataToolbarTest);
+		await layOut(521);
+
+		const dotsIn = (item: HTMLElement) =>
+			[...item.querySelectorAll('span[aria-hidden="true"]')].filter((el) => el.childElementCount === 0);
+		await openMore();
+		expect(dotsIn(screen.getByRole('menuitemcheckbox', { name: 'Gaps only' }))).toHaveLength(0);
+
+		await fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Gaps only' }));
+		await openMore();
+		expect(dotsIn(screen.getByRole('menuitemcheckbox', { name: 'Gaps only' }))).toHaveLength(1);
+		expect(screen.getByRole('menuitemcheckbox', { name: 'Gaps only' }).getAttribute('aria-checked')).toBe('true');
+	});
+
 	it('treats a multi-select holding its defaults in another order as inactive', async () => {
 		render(DataToolbarTest, { props: { initialStatus: ['tdy', 'present'], statusDefaults: ['present', 'tdy'] } });
 		await layOut(521);

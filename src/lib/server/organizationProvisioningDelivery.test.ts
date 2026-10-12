@@ -85,6 +85,10 @@ describe('Organization provisioning delivery boundary', () => {
 			])
 		);
 		expect(new Set(defaults.rank_catalog.map((row) => row.service))).toEqual(new Set(['army', 'civilian', 'custom']));
+		// One duplicate code would fail organization_rank_catalog_org_code_key and so every creation.
+		const codes = defaults.rank_catalog.map((row) => row.code);
+		expect(codes).toHaveLength(30);
+		expect(new Set(codes).size).toBe(codes.length);
 	});
 
 	it('reports a provider failure without a second write, so a retry has a single operation to repeat', async () => {

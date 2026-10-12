@@ -10,7 +10,11 @@
 	import { Input } from '$lib/components/ui/input';
 	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import * as TypeWorkspace from '$lib/components/patterns/type-management-workspace';
-	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar';
+	import {
+		WorkspaceToolbar,
+		type ToolbarItem,
+		type WorkspaceToolbarProps
+	} from '$lib/components/patterns/workspace-toolbar';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
@@ -187,24 +191,32 @@
 		confirmDeleteView = null;
 		mobileDetailOpen = false;
 	}
+
+	const toolbarItems = $derived<ToolbarItem[]>([
+		{ kind: 'action', id: 'back-to-matrix', label: 'Back to Matrix', href: `/org/${orgUrlSegment}/training` }
+	]);
+	const newViewAction = $derived<WorkspaceToolbarProps['primary']>(
+		canMutate
+			? {
+					kind: 'action',
+					id: 'new-view',
+					label: 'New View',
+					onclick: startCreate,
+					disabled: typeActionDisabled,
+					disabledReason: typeActionDisabled ? 'Finish the current edit first' : undefined
+				}
+			: undefined
+	);
+	const editViewAction: NonNullable<WorkspaceToolbarProps['primary']> = {
+		kind: 'action',
+		id: 'edit-view',
+		label: 'Edit',
+		onclick: () => startEdit(selectedView)
+	};
 </script>
 
 <TypeWorkspace.Root aria-label="Training views workspace">
-	<WorkspaceToolbar.Root ariaLabel="Training view controls">
-		<WorkspaceToolbar.Group label="Training view actions" zone="actions">
-			<Button href={`/org/${orgUrlSegment}/training`} variant="outline">Back to Matrix</Button>
-			{#if canMutate}
-				<Button
-					type="button"
-					onclick={startCreate}
-					disabled={typeActionDisabled}
-					title={typeActionDisabled ? 'Finish the current edit first' : undefined}
-				>
-					New View
-				</Button>
-			{/if}
-		</WorkspaceToolbar.Group>
-	</WorkspaceToolbar.Root>
+	<WorkspaceToolbar ariaLabel="Training view controls" items={toolbarItems} primary={newViewAction} />
 
 	<TypeWorkspace.Layout>
 		<TypeWorkspace.List mobileHidden={mobileDetailOpen || creating || editing}>
@@ -345,13 +357,10 @@
 				</TypeWorkspace.Stack>
 			{:else if selectedView}
 				<TypeWorkspace.Stack>
-					<TypeWorkspace.DetailHeader title={selectedView.name}>
-						{#snippet actions()}
-							{#if canMutate}
-								<Button variant="outline" size="sm" type="button" onclick={() => startEdit(selectedView)}>Edit</Button>
-							{/if}
-						{/snippet}
-					</TypeWorkspace.DetailHeader>
+					{#if canMutate}
+						<WorkspaceToolbar ariaLabel="Training view detail controls" items={[]} primary={editViewAction} />
+					{/if}
+					<TypeWorkspace.DetailHeader title={selectedView.name} />
 
 					<TypeWorkspace.Description>
 						This saved layout controls which training columns appear in the matrix.

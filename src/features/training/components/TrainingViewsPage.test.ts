@@ -1,10 +1,26 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { goto } from '$app/navigation';
+import { describedBy, openMoreMenu, stubToolbarLayout } from './toolbarFold.testing';
 import TrainingViewsPage from './TrainingViewsPage.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 import type { TrainingType, TrainingView } from '$features/training/training.types';
+
+vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
+
+const viewer = {
+	orgId: 'org-1',
+	affordanceForFeatureAction: () => ({
+		allowed: false,
+		visible: true,
+		disabled: true,
+		reason: 'denied:capability',
+		explanation: '',
+		decision: {}
+	})
+} as unknown as import('../contracts').TrainingPageAccess;
 
 const org = {
 	orgId: 'org-1',
@@ -79,6 +95,7 @@ describe('TrainingViewsPage', () => {
 	});
 
 	afterEach(() => {
+		vi.mocked(goto).mockClear();
 		vi.unstubAllGlobals();
 		cleanup();
 		trainingTypesStore.load([], 'org-test-reset');
@@ -199,5 +216,66 @@ describe('TrainingViewsPage', () => {
 		});
 
 		expect(screen.queryByText('Name is required.')).toBeNull();
+	});
+
+	it('puts New View in the page toolbar and Edit in the detail toolbar', () => {
+		render(TrainingViewsPage, { props: { org } });
+
+		const page = screen.getByRole('toolbar', { name: 'Training view controls' });
+		const detail = screen.getByRole('toolbar', { name: 'Training view detail controls' });
+		expect(within(page).getByRole('button', { name: 'New View' })).toBeTruthy();
+		expect(within(detail).getByRole('button', { name: 'Edit' })).toBeTruthy();
+	});
+
+	it('leaves a viewer only the way back to the matrix', () => {
+		render(TrainingViewsPage, { props: { org: viewer } });
+
+		expect(screen.queryByRole('toolbar', { name: 'Training view detail controls' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'New View' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
+		expect(screen.getByRole('link', { name: 'Back to Matrix' })).toBeTruthy();
+	});
+
+	it('disables New View with its reason while a view is being edited', async () => {
+		render(TrainingViewsPage, { props: { org } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+
+		const newView = within(screen.getByRole('toolbar', { name: 'Training view controls' })).getByRole('button', {
+			name: 'New View'
+		}) as HTMLButtonElement;
+		expect(newView.disabled).toBe(true);
+		expect(describedBy(newView)).toBe('Finish the current edit first');
+		expect(screen.queryByRole('toolbar', { name: 'Training view detail controls' })).toBeNull();
+	});
+
+	it('moves Back to Matrix into More before New View and still navigates from there', async () => {
+		const layout = stubToolbarLayout();
+		try {
+			render(TrainingViewsPage, { props: { org } });
+			await layout.resize(1);
+
+			const toolbar = screen.getByRole('toolbar', { name: 'Training view controls' });
+			expect(within(toolbar).queryByRole('link', { name: 'Back to Matrix' })).toBeNull();
+			expect(within(toolbar).getByRole('button', { name: 'New View' })).toBeTruthy();
+
+			const menu = await openMoreMenu('Training view controls');
+			await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Back to Matrix' }));
+			await waitFor(() => expect(goto).toHaveBeenCalledWith('/org/org-1/training'));
+		} finally {
+			layout.restore();
+		}
+	});
+
+	it('keeps Edit on the detail toolbar when it has no room', async () => {
+		const layout = stubToolbarLayout();
+		try {
+			render(TrainingViewsPage, { props: { org } });
+			await layout.resize(1);
+
+			expect(screen.getByRole('button', { name: 'Edit' })).toBeTruthy();
+			expect(screen.queryByRole('button', { name: 'More Training view detail controls' })).toBeNull();
+		} finally {
+			layout.restore();
+		}
 	});
 });

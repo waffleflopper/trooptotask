@@ -12,12 +12,14 @@
 	import { formatToday } from '$lib/utils/dates';
 	import TrainingMatrix from '$features/training/components/TrainingMatrix.svelte';
 	import { Button } from '$lib/components/ui/button';
-	import * as ButtonGroup from '$lib/components/ui/button-group';
 	import * as Empty from '$lib/components/ui/empty';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Skeleton } from '$lib/components/ui/skeleton';
-	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar';
-	import type { WorkspaceToolbarAction } from '$lib/components/patterns/workspace-toolbar';
+	import {
+		WorkspaceToolbar,
+		type ToolbarItem,
+		type WorkspaceToolbarProps
+	} from '$lib/components/patterns/workspace-toolbar';
 	import { pinnedGroupsStore } from '$features/personnel';
 	import { groupsStore } from '$features/personnel';
 	import type { TrainingPageContext } from '$features/training/contexts/TrainingPageContext.svelte';
@@ -56,11 +58,11 @@
 			trainingTypesStore.items.length === 0
 	);
 	const exportDisabledReason = $derived.by(() => {
-		if (exportState.status === 'exporting') return null;
+		if (exportState.status === 'exporting') return undefined;
 		if (loading) return 'Export unavailable while loading.';
 		if (ctx.filteredPersonnel.length === 0) return 'No personnel to export.';
 		if (trainingTypesStore.items.length === 0) return 'No training types to export.';
-		return null;
+		return undefined;
 	});
 	const exportError = $derived(
 		exportState.status === 'error' && exportState.orgId === ctx.orgId ? exportState.message : null
@@ -110,110 +112,101 @@
 		{ value: 'alphabetical', label: 'A-Z' },
 		{ value: 'by-group', label: 'Group' }
 	];
-	const activeFilterCount = $derived((ctx.selectedViewId ? 1 : 0) + (ctx.selectedGroupId ? 1 : 0));
-	const toolbarActions = $derived.by<WorkspaceToolbarAction[]>(() => {
-		const actions: WorkspaceToolbarAction[] = [
+	const toolbarItems = $derived.by<ToolbarItem[]>(() => {
+		const items: ToolbarItem[] = [
 			{
+				kind: 'view',
+				id: 'matrix-view',
+				label: 'Training matrix view mode',
+				options: matrixViewOptions,
+				value: ctx.viewMode,
+				onValueChange: (value) => {
+					if (value === 'alphabetical' || value === 'by-group') ctx.setViewMode(value);
+				}
+			},
+			{
+				kind: 'select',
+				id: 'training-view',
+				label: 'Training view',
+				ariaLabel: 'Training view filter',
+				options: trainingViewOptions,
+				value: ctx.selectedViewId ?? '',
+				defaultValue: '',
+				onValueChange: (value) => ctx.setSelectedViewId(value || null)
+			},
+			{
+				kind: 'select',
+				id: 'group',
+				label: 'Group',
+				ariaLabel: 'Training group filter',
+				options: groupFilterOptions,
+				value: ctx.selectedGroupId,
+				defaultValue: '',
+				onValueChange: (value) => ctx.setSelectedGroupId(value)
+			},
+			{
+				kind: 'action',
+				id: 'reports',
+				label: 'Reports',
+				href: `/org/${orgUrlSegment}/training/reports`,
+				icon: 'chart'
+			},
+			{
+				kind: 'action',
+				id: 'sign-in-rosters',
+				label: 'Sign-In Rosters',
+				onclick: () => modals.open('sign-in-rosters'),
+				icon: 'clipboard-list'
+			},
+			{
+				kind: 'action',
 				id: 'export-excel',
 				label: exportState.status === 'exporting' ? 'Exporting...' : 'Export Excel',
 				onclick: () => void exportExcel(),
 				icon: 'download',
+				loading: exportState.status === 'exporting',
 				disabled: exportDisabled,
-				priority: 'normal'
+				disabledReason: exportDisabledReason
 			}
 		];
 
 		if (ctx.canBulkImport) {
-			actions.push({
+			items.push({
+				kind: 'action',
 				id: 'bulk-import',
 				label: 'Import',
 				onclick: () => modals.open('bulk-import'),
-				icon: 'upload',
-				priority: 'normal'
+				icon: 'upload'
 			});
 		}
 		if (ctx.canManageConfig) {
-			actions.push({
+			items.push({
+				kind: 'action',
 				id: 'manage-views',
 				label: 'Manage Views',
 				href: `/org/${orgUrlSegment}/training/views`,
-				icon: 'settings',
-				priority: 'normal'
+				icon: 'settings'
 			});
 		}
-
-		actions.push(
-			{
-				id: 'sign-in-rosters',
-				label: 'Sign-In Rosters',
-				onclick: () => modals.open('sign-in-rosters'),
-				icon: 'clipboard-list',
-				priority: 'normal'
-			},
-			{
-				id: 'reports',
-				label: 'Reports',
-				href: `/org/${orgUrlSegment}/training/reports`,
-				icon: 'chart',
-				priority: 'normal'
-			}
-		);
-
-		if (ctx.canManageConfig) {
-			actions.push({
-				id: 'manage-types',
-				label: 'Manage Types',
-				href: `/org/${orgUrlSegment}/training/types`,
-				icon: 'book-open',
-				priority: 'critical',
-				variant: 'primary'
-			});
-		}
-
-		return actions;
+		return items;
 	});
+
+	const toolbarPrimary = $derived.by<WorkspaceToolbarProps['primary']>(() =>
+		ctx.canManageConfig
+			? {
+					kind: 'action',
+					id: 'manage-types',
+					label: 'Manage Types',
+					href: `/org/${orgUrlSegment}/training/types`,
+					icon: 'book-open'
+				}
+			: undefined
+	);
 </script>
 
 <div class="flex h-full flex-col bg-background">
 	<div class="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden p-2">
-		<WorkspaceToolbar.Root ariaLabel="Training controls" wrap>
-			<WorkspaceToolbar.Group label="Training filters" activeCount={activeFilterCount} data-testid="training-filters">
-				<ButtonGroup.Root aria-label="Training matrix view mode">
-					{#each matrixViewOptions as option (option.value)}
-						<Button
-							variant={ctx.viewMode === option.value ? 'secondary' : 'outline'}
-							aria-pressed={ctx.viewMode === option.value}
-							onclick={() => ctx.setViewMode(option.value as 'alphabetical' | 'by-group')}
-						>
-							{option.label}
-						</Button>
-					{/each}
-				</ButtonGroup.Root>
-				<WorkspaceToolbar.Select
-					ariaLabel="Training view filter"
-					options={trainingViewOptions}
-					value={ctx.selectedViewId ?? ''}
-					onValueChange={(value) => ctx.setSelectedViewId(value || null)}
-				/>
-				<WorkspaceToolbar.Select
-					ariaLabel="Training group filter"
-					options={groupFilterOptions}
-					value={ctx.selectedGroupId}
-					onValueChange={(value) => ctx.setSelectedGroupId(value)}
-				/>
-			</WorkspaceToolbar.Group>
-
-			<WorkspaceToolbar.Group label="Training actions" zone="actions">
-				{#if exportDisabledReason}
-					<WorkspaceToolbar.Meta data-testid="export-disabled-reason">{exportDisabledReason}</WorkspaceToolbar.Meta>
-				{/if}
-				<WorkspaceToolbar.Actions
-					actions={toolbarActions}
-					ariaLabel="Training actions"
-					overflowAriaLabel="More training actions"
-				/>
-			</WorkspaceToolbar.Group>
-		</WorkspaceToolbar.Root>
+		<WorkspaceToolbar ariaLabel="Training controls" items={toolbarItems} primary={toolbarPrimary} />
 
 		{#if exportError}
 			<Alert.Root variant="destructive">

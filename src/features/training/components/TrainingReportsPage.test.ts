@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Personnel } from '$features/personnel/contracts';
 import type { PersonnelTraining, TrainingType } from '$features/training/training.types';
 import {
@@ -12,6 +12,7 @@ import {
 	type TrainingBriefingReportInput
 } from '../contracts';
 import { buildTrainingBriefing } from '../utils/trainingBriefing';
+import { openMoreMenu, openSubmenu, stubToolbarLayout } from './toolbarFold.testing';
 import TrainingReportsPage from './TrainingReportsPage.svelte';
 
 const { replaceState } = vi.hoisted(() => ({ replaceState: vi.fn() }));
@@ -145,7 +146,7 @@ describe('Training Reports briefing page', () => {
 		const fetchImpl = vi.fn<typeof fetch>(async () => Response.json(reportFor({ horizonDays: 30 })));
 		renderPage(fetchImpl);
 
-		const thirtyDays = screen.getByRole('radio', { name: '30 days' });
+		const thirtyDays = screen.getByRole('button', { name: '30 days' });
 		thirtyDays.focus();
 		await fireEvent.click(thirtyDays);
 
@@ -201,11 +202,11 @@ describe('Training Reports briefing page', () => {
 			.mockResolvedValueOnce(Response.json(reportFor({ rowsBy: 'mos' })));
 		renderPage(fetchImpl);
 
-		await fireEvent.click(screen.getByRole('radio', { name: 'MOS' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'MOS' }));
 		const alert = await screen.findByRole('alert');
 
 		expect(within(alert).getByText('Unable to update the briefing')).toBeTruthy();
-		expect(screen.getByRole('radio', { name: 'Group' }).getAttribute('aria-checked')).toBe('true');
+		expect(screen.getByRole('button', { name: 'Group' }).getAttribute('aria-pressed')).toBe('true');
 		expect(screen.getByRole('table', { name: 'Group by training type readiness' })).toBeTruthy();
 
 		await fireEvent.click(within(alert).getByRole('button', { name: 'Retry' }));
@@ -220,7 +221,7 @@ describe('Training Reports briefing page', () => {
 		const fetchImpl = vi.fn<typeof fetch>(() => new Promise<Response>((respond) => pending.push(respond)));
 		renderPage(fetchImpl);
 
-		await fireEvent.click(screen.getByRole('radio', { name: 'MOS' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'MOS' }));
 		pending[0](new Response(null, { status: 503 }));
 		const retry = within(await screen.findByRole('alert')).getByRole('button', { name: 'Retry' });
 		retry.focus();
@@ -256,7 +257,7 @@ describe('Training Reports briefing page', () => {
 
 	it('leaves focus where the user moved it while a retried refresh is loading', async () => {
 		const { respond } = await failRowsByRefresh();
-		const thirtyDays = screen.getByRole('radio', { name: '30 days' });
+		const thirtyDays = screen.getByRole('button', { name: '30 days' });
 		thirtyDays.focus();
 
 		respond(Response.json(reportFor({ rowsBy: 'mos' })));
@@ -267,7 +268,7 @@ describe('Training Reports briefing page', () => {
 	it.each([
 		{
 			control: 'toolbar',
-			container: { role: 'group', name: 'Training report actions' },
+			container: { role: 'toolbar', name: 'Training report controls' },
 			initialReport: reportFor({ groupId: 'alpha' })
 		},
 		{
@@ -336,7 +337,7 @@ describe('Training Reports briefing page', () => {
 		});
 		expect(selected.closest('td')?.getAttribute('data-selected')).toBe('true');
 
-		await fireEvent.click(screen.getByRole('radio', { name: '30 days' }));
+		await fireEvent.click(screen.getByRole('button', { name: '30 days' }));
 		expect(await screen.findByText('Forecast · next 30 days')).toBeTruthy();
 
 		expect(screen.queryByRole('region', { name: 'Affected soldiers' })).toBeNull();
@@ -500,32 +501,32 @@ describe('Training Reports briefing page', () => {
 			.mockResolvedValueOnce(Response.json(reportFor({ horizonDays: 30 })))
 			.mockResolvedValueOnce(Response.json(reportFor({ horizonDays: 30, rowsBy: 'mos' })));
 		renderPage(fetchImpl);
-		const ninetyDays = screen.getByRole('radio', { name: '90 days' });
-		const group = screen.getByRole('radio', { name: 'Group' });
+		const ninetyDays = screen.getByRole('button', { name: '90 days' });
+		const group = screen.getByRole('button', { name: 'Group' });
 
 		for (let activation = 0; activation < 2; activation++) {
 			await fireEvent.click(ninetyDays);
 			await fireEvent.click(group);
-			expect(ninetyDays.getAttribute('aria-checked')).toBe('true');
-			expect(group.getAttribute('aria-checked')).toBe('true');
+			expect(ninetyDays.getAttribute('aria-pressed')).toBe('true');
+			expect(group.getAttribute('aria-pressed')).toBe('true');
 		}
 		expect(screen.getByText('Forecast · next 90 days')).toBeTruthy();
 		expect(fetchImpl).not.toHaveBeenCalled();
 		expect(replaceState).not.toHaveBeenCalled();
 
-		await fireEvent.click(screen.getByRole('radio', { name: '30 days' }));
+		await fireEvent.click(screen.getByRole('button', { name: '30 days' }));
 		expect(await screen.findByText('Forecast · next 30 days')).toBeTruthy();
-		await fireEvent.click(screen.getByRole('radio', { name: 'MOS' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'MOS' }));
 		expect(await screen.findByRole('table', { name: 'MOS by training type readiness' })).toBeTruthy();
 
 		expect(replaceState).toHaveBeenLastCalledWith(
 			'/org/org-1/training/reports?horizon=30&rowsBy=mos',
 			expect.anything()
 		);
-		expect(screen.getByRole('radio', { name: '30 days' }).getAttribute('aria-checked')).toBe('true');
-		expect(screen.getByRole('radio', { name: 'MOS' }).getAttribute('aria-checked')).toBe('true');
-		expect(ninetyDays.getAttribute('aria-checked')).toBe('false');
-		expect(group.getAttribute('aria-checked')).toBe('false');
+		expect(screen.getByRole('button', { name: '30 days' }).getAttribute('aria-pressed')).toBe('true');
+		expect(screen.getByRole('button', { name: 'MOS' }).getAttribute('aria-pressed')).toBe('true');
+		expect(ninetyDays.getAttribute('aria-pressed')).toBe('false');
+		expect(group.getAttribute('aria-pressed')).toBe('false');
 	});
 
 	it('keeps the loaded affected soldiers after a failed page and returns focus to them on retry', async () => {
@@ -694,5 +695,159 @@ describe('Training Reports briefing page', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Export Excel' }));
 
 		await waitFor(() => expect(fetchImpl).toHaveBeenCalledWith('/org/org-1/api/training-reports/export'));
+	});
+
+	describe('controls folded into More', () => {
+		let layout: ReturnType<typeof stubToolbarLayout>;
+
+		beforeEach(() => {
+			layout = stubToolbarLayout();
+		});
+
+		afterEach(() => layout.restore());
+
+		const controls = 'Training report controls';
+
+		it('keeps Print brief on the row and moves every other control into More', async () => {
+			renderPage();
+			await layout.resize(1);
+
+			const toolbar = screen.getByRole('toolbar', { name: controls });
+			expect(within(toolbar).getByRole('button', { name: 'Print brief' })).toBeTruthy();
+			expect(within(toolbar).queryByRole('button', { name: 'Export Excel' })).toBeNull();
+			expect(within(toolbar).queryByRole('button', { name: '30 days' })).toBeNull();
+			const menu = await openMoreMenu(controls);
+			expect(within(menu).getByRole('menuitem', { name: 'Export Excel' })).toBeTruthy();
+			expect(within(menu).getByRole('group', { name: 'Forecast horizon' })).toBeTruthy();
+			for (const name of ['View, All training', 'Group, All groups', 'Rank, All ranks', 'MOS', 'Duty role', 'Types']) {
+				expect(within(menu).getByRole('menuitem', { name }), name).toBeTruthy();
+			}
+		});
+
+		it('changes the horizon from its radio group and writes it to the address', async () => {
+			const fetchImpl = vi.fn<typeof fetch>(async () => Response.json(reportFor({ horizonDays: 30 })));
+			renderPage(fetchImpl);
+			await layout.resize(1);
+
+			const menu = await openMoreMenu(controls);
+			const horizon = within(menu).getByRole('group', { name: 'Forecast horizon' });
+			expect(within(horizon).getByRole('menuitemradio', { name: '90 days' }).getAttribute('aria-checked')).toBe('true');
+			await fireEvent.click(within(horizon).getByRole('menuitemradio', { name: '30 days' }));
+
+			expect(fetchImpl).toHaveBeenCalledWith('/org/org-1/api/training-reports?horizon=30', expect.anything());
+			expect(await screen.findByText('Forecast · next 30 days')).toBeTruthy();
+			expect(replaceState).toHaveBeenLastCalledWith('/org/org-1/training/reports?horizon=30', expect.anything());
+		});
+
+		it('filters by group from its submenu and offers Clear filters afterwards', async () => {
+			const fetchImpl = vi.fn<typeof fetch>(async () => Response.json(reportFor({ groupId: 'alpha' })));
+			renderPage(fetchImpl);
+			await layout.resize(1);
+
+			let menu = await openMoreMenu(controls);
+			expect(within(menu).queryByRole('menuitem', { name: 'Clear filters' })).toBeNull();
+			await openSubmenu('Group, All groups');
+			await fireEvent.click(await screen.findByRole('menuitemradio', { name: 'Alpha' }));
+
+			expect(fetchImpl).toHaveBeenCalledWith('/org/org-1/api/training-reports?group=alpha', expect.anything());
+			await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+			await waitFor(() => expect(screen.getByRole('button', { name: `More ${controls}` })).toBeTruthy());
+			menu = await openMoreMenu(controls);
+			expect(within(menu).getByRole('menuitem', { name: 'Group, Alpha' })).toBeTruthy();
+			expect(within(menu).getByRole('menuitem', { name: 'Clear filters' })).toBeTruthy();
+		});
+
+		it('picks several MOS values without closing the menu', async () => {
+			const fetchImpl = vi.fn<typeof fetch>(async () => Response.json(reportFor({ mos: ['68W'] })));
+			renderPage(fetchImpl);
+			await layout.resize(1);
+
+			await openMoreMenu(controls);
+			await openSubmenu('MOS');
+			const option = await screen.findByRole('menuitemcheckbox', { name: '68W' });
+			option.focus();
+			await fireEvent.keyDown(option, { key: ' ' });
+
+			expect(fetchImpl).toHaveBeenCalledWith('/org/org-1/api/training-reports?mos=68W', expect.anything());
+			expect(screen.getAllByRole('menu'), 'More and its submenu stay open').toHaveLength(2);
+		});
+
+		it('clears filters from More and focuses the briefing', async () => {
+			const pending: Array<(response: Response) => void> = [];
+			renderPage(
+				vi.fn<typeof fetch>(() => new Promise<Response>((respond) => pending.push(respond))),
+				reportFor({ groupId: 'alpha' })
+			);
+			await layout.resize(1);
+			const briefing = screen.getByRole('region', { name: 'Training readiness briefing' });
+
+			const menu = await openMoreMenu(controls);
+			await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Clear filters' }));
+
+			await waitFor(() => expect(document.activeElement).toBe(briefing));
+			pending[0](Response.json(reportFor()));
+			expect(await screen.findByRole('table', { name: 'Group by training type readiness' })).toBeTruthy();
+		});
+
+		it('exports the briefing from More', async () => {
+			vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: () => 'blob:report', revokeObjectURL: () => {} }));
+			const fetchImpl = vi.fn<typeof fetch>(async () => new Response(new Blob(['xlsx'])));
+			renderPage(fetchImpl);
+			await layout.resize(1);
+
+			const menu = await openMoreMenu(controls);
+			await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Export Excel' }));
+
+			await waitFor(() => expect(fetchImpl).toHaveBeenCalledWith('/org/org-1/api/training-reports/export'));
+		});
+
+		it('disables Export Excel while the workbook is being made and while no soldier is in scope', async () => {
+			vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: () => 'blob:report', revokeObjectURL: () => {} }));
+			const pending: Array<(response: Response) => void> = [];
+			renderPage(vi.fn<typeof fetch>(() => new Promise<Response>((respond) => pending.push(respond))));
+
+			await fireEvent.click(screen.getByRole('button', { name: 'Export Excel' }));
+			const exporting = screen.getByRole('button', { name: 'Exporting...' }) as HTMLButtonElement;
+			expect(exporting.disabled).toBe(true);
+			expect(exporting.getAttribute('aria-busy')).toBe('true');
+			pending[0](new Response(new Blob(['xlsx'])));
+			await waitFor(() => expect(screen.getByRole('button', { name: 'Export Excel' })).toBeTruthy());
+			cleanup();
+
+			const empty = reportFor();
+			renderPage(vi.fn<typeof fetch>(), {
+				...empty,
+				briefing: { ...empty.briefing, bottomLine: { ...empty.briefing.bottomLine, soldierCount: 0 } }
+			});
+			expect((screen.getByRole('button', { name: 'Export Excel' }) as HTMLButtonElement).disabled).toBe(true);
+		});
+
+		it('says the briefing is updating while a change loads', async () => {
+			const fetchImpl = vi.fn<typeof fetch>(() => new Promise<Response>(() => {}));
+			renderPage(fetchImpl);
+			expect(screen.queryByText('Updating briefing')).toBeNull();
+
+			await fireEvent.click(screen.getByRole('button', { name: '30 days' }));
+
+			expect(await screen.findByText('Updating briefing')).toBeTruthy();
+		});
+
+		it('regroups the hot-spot grid from the section toolbar, on the row and from More', async () => {
+			const fetchImpl = vi.fn<typeof fetch>(async (url) =>
+				Response.json(reportFor({ rowsBy: String(url).includes('rowsBy=role') ? 'role' : 'mos' }))
+			);
+			renderPage(fetchImpl);
+			const section = screen.getByRole('toolbar', { name: 'Hot-spot grid controls' });
+			expect(within(section).getByRole('button', { name: 'Group' }).getAttribute('aria-pressed')).toBe('true');
+
+			await fireEvent.click(within(section).getByRole('button', { name: 'MOS' }));
+			expect(await screen.findByRole('table', { name: 'MOS by training type readiness' })).toBeTruthy();
+			expect(replaceState).toHaveBeenLastCalledWith('/org/org-1/training/reports?rowsBy=mos', expect.anything());
+
+			await layout.resize(1);
+			const menu = await openMoreMenu('Hot-spot grid controls');
+			await fireEvent.click(within(menu).getByRole('menuitemradio', { name: 'Duty role' }));
+			expect(fetchImpl).toHaveBeenLastCalledWith('/org/org-1/api/training-reports?rowsBy=role', expect.anything());
+		});
 	});
 });

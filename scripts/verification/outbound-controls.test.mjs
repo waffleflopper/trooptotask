@@ -135,7 +135,12 @@ test('an armed failure returns a synthetic 503 for the matching kind and count, 
 
 test('restore clears an armed failure before it fires; invalid arming is refused', async () => {
 	const { mail } = sink();
-	for (const options of [{}, { mode: 'fail', kind: 'confirm' }, { mode: 'fail', count: 0 }, { mode: 'fail', count: 11 }])
+	for (const options of [
+		{},
+		{ mode: 'fail', kind: 'confirm' },
+		{ mode: 'fail', count: 0 },
+		{ mode: 'fail', count: 11 }
+	])
 		assert.throws(() => mail.command('mail-arm', options));
 	mail.command('mail-arm', { mode: 'fail' });
 	mail.command('mail-restore');

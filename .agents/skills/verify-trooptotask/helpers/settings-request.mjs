@@ -15,7 +15,8 @@ export async function requestSettings(target, { origin, organizationSegment, fam
 		'settings/general/updateName': ['name'],
 		'settings/general/updateSlug': ['urlSlug'],
 		'settings/general/clearSlug': [],
-		'settings/danger/deleteOrganization': ['confirmName']
+		'settings/danger/deleteOrganization': ['confirmName'],
+		'settings/members/invite': ['email', 'membershipRole', 'memberPreset']
 	};
 	if (!Object.hasOwn(fields, family)) throw new Error('Unsupported settings request');
 	if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('Use a JSON object');

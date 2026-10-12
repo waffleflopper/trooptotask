@@ -2,7 +2,7 @@
 
 Baseline: `282fcace16795a13e2306bf71d44465f59d51acc`. Completed phases are summarized below; their accepted evidence and exact historical task scopes remain linked. [BASELINE](BASELINE.md) owns retained contracts and original findings, [EVIDENCE](EVIDENCE.md) owns acceptance and verification, and [RELEASE](RELEASE.md) owns operator obligations.
 
-**Active checkpoint:** Phase **11**, parent [#1284](https://github.com/waffleflopper/trooptotask/issues/1284), milestone **9**. Active child **D01 [#1639](https://github.com/waffleflopper/trooptotask/issues/1639)**, task **11-01**, state **READY**. Branch `chore/plan-stabilization-phase`, base `89341b62058539381fde4fa7f4b4d0c2430f9533`, no PR. Phase 10's [accepted closeout](https://github.com/waffleflopper/trooptotask/issues/1283#issuecomment-6126822936) is verified; parent #1283 and milestone 8 are closed. Planning only: STOP before implementation. Robert directs the first Phase 11 deliverable to use this current worktree/branch and carry these uncommitted planning edits with its first substantive PR.
+**Active checkpoint:** Phase **11**, parent [#1284](https://github.com/waffleflopper/trooptotask/issues/1284), milestone **9**. Active child **D01 [#1639](https://github.com/waffleflopper/trooptotask/issues/1639)**, task **11-01**, state **IMPLEMENTING**. PR 1 (verification controls and failing baseline, `Refs #1639`) is in review from `chore/plan-stabilization-phase`; PR 2 carries the repair and closes the child ([record](EVIDENCE.md#11-01-d01-invitation-origin-approvals-and-setup-recovery)). Phase 10's [accepted closeout](https://github.com/waffleflopper/trooptotask/issues/1283#issuecomment-6126822936) is verified; parent #1283 and milestone 8 are closed.
 
 ## Execution rules
 

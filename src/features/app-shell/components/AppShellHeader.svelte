@@ -47,6 +47,7 @@
 		isDarkTheme: boolean;
 		onFeedback?: () => void;
 		onWhatsNew?: () => void;
+		banner?: Snippet;
 		children?: Snippet;
 	}
 
@@ -62,6 +63,7 @@
 		isDarkTheme,
 		onFeedback,
 		onWhatsNew,
+		banner,
 		children
 	}: Props = $props();
 
@@ -85,9 +87,10 @@
 	let notificationsLoading = $state(false);
 	let notificationsWriting = $state(false);
 	let notificationsLoadFailed = $state(false);
+	let notificationCountFailed = $state(false);
 	let notificationGeneration = 0;
 	let notificationCountRequest = 0;
-	let notificationCountLoading = false;
+	let notificationCountLoading = $state(false);
 	let showLeaveOrganizationDialog = $state(false);
 	let leaveOrganizationConfirmText = $state('');
 	let localUnreadCount = $state(0);
@@ -191,26 +194,24 @@
 	async function loadUnreadNotificationCount(segment: string, scope: string, generation: number) {
 		const request = ++notificationCountRequest;
 		notificationCountLoading = true;
+		const isCurrent = () => isCurrentNotificationRequest(scope, generation) && request === notificationCountRequest;
 		try {
 			const response = await fetch(`/org/${segment}/api/app-shell-chrome?part=notification-count`);
-			if (!response.ok) return;
-
-			const result = await response.json();
-			if (
-				isCurrentNotificationRequest(scope, generation) &&
-				request === notificationCountRequest &&
-				result.ok &&
-				typeof result.unreadNotificationCount === 'number'
-			) {
+			const result = response.ok ? await response.json() : null;
+			if (!isCurrent()) return;
+			if (result?.ok && typeof result.unreadNotificationCount === 'number') {
 				localUnreadCount = result.unreadNotificationCount;
+				notificationCountFailed = false;
+			} else {
+				notificationCountFailed = true;
 			}
 		} catch {
-			if (isCurrentNotificationRequest(scope, generation) && request === notificationCountRequest) {
+			if (isCurrent()) {
 				localUnreadCount = 0;
+				notificationCountFailed = true;
 			}
 		} finally {
-			if (isCurrentNotificationRequest(scope, generation) && request === notificationCountRequest)
-				notificationCountLoading = false;
+			if (isCurrent()) notificationCountLoading = false;
 		}
 	}
 
@@ -326,6 +327,7 @@
 		notificationsLoading = false;
 		notificationsWriting = false;
 		notificationsLoadFailed = false;
+		notificationCountFailed = false;
 		notificationsOpen = false;
 		localUnreadCount = 0;
 		void loadUnreadNotificationCount(orgUrlSegment, scope, generation);
@@ -341,16 +343,24 @@
 			});
 	});
 
-	$effect(() => {
+	$effect.pre(() => {
 		if (notificationsOpen) {
 			untrack(() => {
 				void loadNotifications();
+				if (notificationCountFailed)
+					void loadUnreadNotificationCount(orgUrlSegment, notificationScope, notificationGeneration);
 			});
 		}
 	});
 </script>
 
 <Tooltip.Provider>
+	<a
+		href="#main-content"
+		class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-4 focus:z-50 focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:shadow-md"
+		>Skip to main content</a
+	>
+	{@render banner?.()}
 	<Sidebar.Provider class="below-banner min-h-0 overflow-hidden bg-background">
 		<Sidebar.Root collapsible="icon">
 			<Sidebar.Header>
@@ -546,9 +556,6 @@
 				class="sticky top-0 z-10 flex h-14 min-w-0 shrink-0 items-center gap-2 border-b bg-background px-4"
 				data-print-chrome
 			>
-				<a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-3"
-					>Skip to main content</a
-				>
 				<Sidebar.Trigger />
 				<Separator orientation="vertical" class="h-4" />
 				<Breadcrumb.Root class="min-w-0 flex-1" aria-label="Current section">
@@ -617,7 +624,13 @@
 							{:else if notificationsLoadFailed}
 								<DropdownMenu.Item disabled>Could not load notifications. Reopen to retry.</DropdownMenu.Item>
 							{:else if notifications.length === 0}
-								<DropdownMenu.Item disabled>No notifications</DropdownMenu.Item>
+								<DropdownMenu.Item disabled>
+									{notificationCountLoading
+										? 'Loading notifications...'
+										: notificationCountFailed
+											? 'Could not load notifications. Reopen to retry.'
+											: 'No notifications'}
+								</DropdownMenu.Item>
 							{:else}
 								{#each notifications as notification (notification.id)}
 									<DropdownMenu.Item onclick={() => openNotification(notification)} disabled={notificationsWriting}>

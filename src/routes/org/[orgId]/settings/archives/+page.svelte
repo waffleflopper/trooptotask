@@ -4,6 +4,7 @@
 	import type { PageProps } from './$types';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as AppDialog from '$lib/components/ui/app-dialog/index.js';
+	import { focusAfterDialogCloses } from '$lib/components/ui/dialog';
 	import * as Field from '$lib/components/ui/field/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { toastStore } from '$lib/stores/toast.svelte';
@@ -55,6 +56,7 @@
 	async function handlePermanentDelete(id: string) {
 		if (permanentlyDeletingPerson === id) return;
 		permanentlyDeletingPerson = id;
+		const index = archivedPersonnelState.rows.findIndex((row) => row.id === id);
 		try {
 			const res = await fetch(`/org/${orgId}/api/personnel/permanent`, {
 				method: 'DELETE',
@@ -65,6 +67,13 @@
 			toastStore.success('Personnel permanently deleted');
 			archivedPersonnelState.clearPermanentDeleteConfirmation();
 			await invalidateAll();
+			focusAfterDialogCloses(() => {
+				const rows = document.querySelectorAll('[aria-label="Archived personnel records"] tbody tr');
+				return (
+					(rows[index] ?? rows[index - 1])?.querySelector('button') ??
+					document.getElementById('archived-records-heading')
+				);
+			});
 		} catch {
 			toastStore.error('Failed to permanently delete');
 		} finally {

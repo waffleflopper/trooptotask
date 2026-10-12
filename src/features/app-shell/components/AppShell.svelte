@@ -96,11 +96,6 @@
 	});
 </script>
 
-<BannerStack>
-	{#if shell.announcements.length}
-		<AnnouncementBanner accountId={shell.user.id} announcements={shell.announcements} />
-	{/if}
-</BannerStack>
 <AppShellHeader
 	orgId={shell.org.id}
 	orgUrlSegment={shell.org.urlSegment}
@@ -117,6 +112,13 @@
 	}}
 	onWhatsNew={() => (showWhatsNew = true)}
 >
+	{#snippet banner()}
+		<BannerStack>
+			{#if shell.announcements.length}
+				<AnnouncementBanner accountId={shell.user.id} announcements={shell.announcements} />
+			{/if}
+		</BannerStack>
+	{/snippet}
 	<AccountPreferencesProvider userId={shell.user.id} orgId={shell.org.id} preferences={shell.preferences}>
 		{@render children()}
 	</AccountPreferencesProvider>

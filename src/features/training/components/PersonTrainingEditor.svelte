@@ -571,7 +571,6 @@
 		title="Remove Training Record"
 		message="Are you sure you want to remove this training record?"
 		confirmLabel="Delete"
-		variant="danger"
 		onConfirm={doRemoveTraining}
 		onCancel={() => (confirmRemoveTypeId = null)}
 	/>
@@ -583,7 +582,7 @@
 		title="Mark All Completed"
 		message="Mark {count} trainings as completed today? (Expiration-date-only trainings must be set individually)"
 		confirmLabel="Mark All"
-		variant="warning"
+		variant="default"
 		onConfirm={() => saving.run(doMarkAllCompleted)}
 		onCancel={() => (showMarkAllConfirm = false)}
 	/>

@@ -16,22 +16,4 @@ export type {
 	WorkspaceToolbarOption
 } from './types.js';
 
-export {
-	Root,
-	Group,
-	Meta,
-	Actions,
-	Select,
-	Search,
-	MultiSelect,
-	Nav,
-	//
-	Root as WorkspaceToolbar,
-	Group as WorkspaceToolbarGroup,
-	Meta as WorkspaceToolbarMeta,
-	Actions as WorkspaceToolbarActions,
-	Select as WorkspaceToolbarSelect,
-	Search as WorkspaceToolbarSearch,
-	MultiSelect as WorkspaceToolbarMultiSelect,
-	Nav as WorkspaceToolbarNav
-};
+export { Root, Group, Meta, Actions, Select, Search, MultiSelect, Nav };

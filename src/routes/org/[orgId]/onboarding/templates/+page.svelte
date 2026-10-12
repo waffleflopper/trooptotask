@@ -623,7 +623,6 @@
 			? ' This will also delete all steps in this template.'
 			: ''}"
 		confirmLabel="Delete"
-		variant="danger"
 		onConfirm={handleConfirmDelete}
 		onCancel={() => workspace.cancelDelete()}
 	>

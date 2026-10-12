@@ -31,8 +31,6 @@
 		});
 	}
 
-	export const YEAR_PRESETS: DateRangePreset[] = createYearPresets();
-
 	export const WEEK_PRESETS: DateRangePreset[] = [
 		{
 			id: 'this-week',

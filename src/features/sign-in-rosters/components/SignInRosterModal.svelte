@@ -998,7 +998,6 @@
 		title="Delete Roster"
 		message={`Delete "${confirmDeleteRoster.title}"? This removes the saved roster record.`}
 		confirmLabel="Delete"
-		variant="danger"
 		onConfirm={() => {
 			if (confirmDeleteRoster) return deleteRoster(confirmDeleteRoster);
 		}}

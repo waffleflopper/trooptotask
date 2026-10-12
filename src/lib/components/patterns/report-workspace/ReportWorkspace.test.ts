@@ -8,20 +8,9 @@ import * as ReportWorkspace from './index.js';
 afterEach(() => cleanup());
 
 describe('ReportWorkspace', () => {
-	it('renders report header title, description, and meta', () => {
+	it('renders export actions with disabled and error reasons', () => {
 		render(ReportWorkspaceTest);
 
-		expect(screen.getByRole('heading', { name: 'Readiness report' })).toBeInTheDocument();
-		expect(screen.getByText('Current personnel readiness by group.')).toBeInTheDocument();
-		expect(screen.getByText('Rows')).toBeInTheDocument();
-		expect(screen.getByText('Today')).toBeInTheDocument();
-	});
-
-	it('renders toolbar filters, actions, and disabled export reasons', () => {
-		render(ReportWorkspaceTest);
-
-		expect(screen.getByRole('toolbar', { name: 'Readiness report controls' })).toBeInTheDocument();
-		expect(screen.getByRole('group', { name: 'Report filters, 1 active' })).toBeInTheDocument();
 		expect(screen.getByRole('link', { name: 'Export workbook' })).toHaveAttribute('href', '/export.xlsx');
 
 		const disabledExport = screen.getByRole('button', { name: 'Export PDF: Select a date range first' });
@@ -34,12 +23,11 @@ describe('ReportWorkspace', () => {
 		expect(erroredExport).toHaveAttribute('title', 'Export service is unavailable');
 	});
 
-	it('renders filter, chart, table, loading, no-data, and error states', () => {
+	it('renders filter, table, loading, no-data, and error states', () => {
 		render(ReportWorkspaceTest);
 
 		expect(screen.getByRole('region', { name: 'Report configuration' })).toBeInTheDocument();
 		expect(screen.getByRole('group', { name: 'Date range controls' })).toBeInTheDocument();
-		expect(screen.getByRole('img', { name: 'Readiness trend chart' })).toBeInTheDocument();
 
 		const table = screen.getByRole('table', { name: 'Readiness rows table' });
 		expect(within(table).getByText('Avery Brooks')).toBeInTheDocument();

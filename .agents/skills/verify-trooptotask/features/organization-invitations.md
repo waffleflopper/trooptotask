@@ -40,6 +40,8 @@ These cases record the repaired behavior of issue #1639; the pre-repair baseline
 
 ## Gotchas
 
+- `/auth/renew-invite` allows three requests per hour per client IP across all emails, and every owned-worker request shares one IP. Budget renewals across cases or wait out the window; a `Too many fresh-link requests` response is the app's rate limit, not a grant result.
+
 - Invitations and delivery attempts load all pages in descending creation-time order, with ascending ID breaking timestamp ties. The first delivery for an invitation supplies its status. Preserve newest-first behavior and compare complete saved IDs; an empty native list does not establish populated or large-page completeness.
 
 - A new person's approved Access Request and setup link are distinct from their Organization Invitation. Preserve their separate delivery and state; do not count account activation as membership.

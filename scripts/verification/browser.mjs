@@ -32,20 +32,24 @@ export async function assertRecordingPath(name, args, evidenceDirectory) {
 		);
 }
 
-// A write stays inside the owned evidence directory only if the path has no `..` and nothing at or below the
-// root is a symlink; then the path as written is where the bytes land, whatever links or later folders exist.
+// A write stays inside the owned evidence directory only if the path has no `..` and nothing below the root is
+// a symlink; then the path as written is where the bytes land, whatever links or later folders exist.
 export async function isUnderEvidence(file, evidenceDirectory) {
 	if (file.split(/[\\/]/).includes('..')) return false;
 	const root = path.resolve(evidenceDirectory);
 	const relative = path.relative(root, path.resolve(file));
 	if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) return false;
-	if (
-		!(await fs.stat(root).then(
-			(stat) => stat.isDirectory(),
+	const rootStat = await fs.stat(root).catch((error) => {
+		if (error.code === 'ENOENT') return null;
+		throw error;
+	});
+	// A root not created yet holds nothing to follow; a dangling link at the root would send the write elsewhere.
+	if (!rootStat)
+		return !(await fs.lstat(root).then(
+			(stat) => stat.isSymbolicLink(),
 			() => false
-		))
-	)
-		return false;
+		));
+	if (!rootStat.isDirectory()) return false;
 	let current = root;
 	for (const part of relative.split(path.sep)) {
 		current = path.join(current, part);

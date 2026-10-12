@@ -118,6 +118,22 @@ it('refuses a path that climbs out through a symlink with ..', async () => {
 	}
 });
 
+it('accepts a path under an evidence root that is not created yet, but not under a dangling one', async () => {
+	const root = await mkdtemp(path.join(tmpdir(), 'missing-root-'));
+	const evidence = path.join(root, '.verification/evidence');
+	const dangling = path.join(root, 'dangling-evidence');
+	await symlink(path.join(root, 'missing'), dangling);
+	try {
+		await expect(
+			assertRecordingPath('screencast_start', { filePath: `${evidence}/verify-trooptotask/run/a.webm` }, evidence)
+		).resolves.toBeUndefined();
+		expect(await isUnderEvidence(`${evidence}/verify-trooptotask/run`, evidence)).toBe(true);
+		expect(await isUnderEvidence(`${dangling}/run`, dangling)).toBe(false);
+	} finally {
+		await rm(root, { recursive: true, force: true });
+	}
+});
+
 it('signs a synthetic actor in through the visible login form before returning its page', async () => {
 	const state = { origin: `http://127.0.0.1:4100/${randomUUID()}` };
 	const fixture = {

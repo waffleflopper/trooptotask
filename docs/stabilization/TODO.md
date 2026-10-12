@@ -2,7 +2,7 @@
 
 Baseline: `282fcace16795a13e2306bf71d44465f59d51acc`. Completed phases are summarized below; their accepted evidence and exact historical task scopes remain linked. [BASELINE](BASELINE.md) owns retained contracts and original findings, [EVIDENCE](EVIDENCE.md) owns acceptance and verification, and [RELEASE](RELEASE.md) owns operator obligations.
 
-**Active checkpoint:** Phase **10** accepted on `@@CANDIDATE@@`; parent [#1283](https://github.com/waffleflopper/trooptotask/issues/1283) and milestone **8** close with D10 [#1608](https://github.com/waffleflopper/trooptotask/issues/1608). Phase **11** ([#1284](https://github.com/waffleflopper/trooptotask/issues/1284)) is next and is not activated.
+**Active checkpoint:** Phase **10** accepted on `6fceca59`; parent [#1283](https://github.com/waffleflopper/trooptotask/issues/1283) and milestone **8** close with D10 [#1608](https://github.com/waffleflopper/trooptotask/issues/1608). Phase **11** ([#1284](https://github.com/waffleflopper/trooptotask/issues/1284)) is next and is not activated.
 
 ## Execution rules
 

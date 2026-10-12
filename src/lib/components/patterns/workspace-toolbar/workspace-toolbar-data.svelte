@@ -486,20 +486,19 @@
 							oninput={(event) => search?.onValueChange(event.currentTarget.value)}
 							onkeydown={closeSearchOnEscape}
 						/>
-						{#if searchMode === 'open'}
-							<InputGroup.Addon align="inline-end">
-								<InputGroup.Button
-									size="icon-xs"
-									aria-label="Close search"
-									onclick={closeSearch}
-									onkeydown={closeSearchOnEscape}
-								>
-									<XIcon aria-hidden="true" />
-								</InputGroup.Button>
-							</InputGroup.Addon>
-						{/if}
 					</InputGroup.Root>
 				</div>
+				{#if searchMode === 'open'}
+					<Button
+						variant="ghost"
+						size="icon"
+						aria-label="Close search"
+						onclick={closeSearch}
+						onkeydown={closeSearchOnEscape}
+					>
+						<XIcon aria-hidden="true" />
+					</Button>
+				{/if}
 			{/if}
 		{/if}
 

@@ -361,6 +361,20 @@ describe('WorkspaceToolbar', () => {
 		);
 	});
 
+	it('puts Close search after the open field, outside its input group', async () => {
+		render(DataToolbarTest);
+		await layOut(291);
+
+		await fireEvent.click(within(toolbar()).getByRole('button', { name: 'Search roster' }));
+		const field = within(toolbar()).getByRole('searchbox', { name: 'Search roster' });
+		const fieldGroup = field.closest<HTMLElement>('[role="group"]');
+		const close = within(toolbar()).getByRole('button', { name: 'Close search' });
+
+		expect(fieldGroup).toBeTruthy();
+		expect(within(fieldGroup as HTMLElement).queryByRole('button', { name: 'Close search' })).toBeNull();
+		expect(field.compareDocumentPosition(close) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+	});
+
 	it('keeps the same focused field when the row widens during phone search', async () => {
 		render(DataToolbarTest);
 		await layOut(291);

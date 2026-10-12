@@ -3,7 +3,7 @@
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 
 	type Props = {
-		label: string;
+		label?: string;
 		trigger: Snippet<[Record<string, unknown>]>;
 		children: Snippet<[(action: () => void) => void]>;
 		contentClass?: string;
@@ -42,7 +42,9 @@
 		{/snippet}
 	</DropdownMenu.Trigger>
 	<DropdownMenu.Content align="end" class={contentClass}>
-		<DropdownMenu.Label>{label}</DropdownMenu.Label>
+		{#if label}
+			<DropdownMenu.Label>{label}</DropdownMenu.Label>
+		{/if}
 		{@render children(choose)}
 	</DropdownMenu.Content>
 </DropdownMenu.Root>

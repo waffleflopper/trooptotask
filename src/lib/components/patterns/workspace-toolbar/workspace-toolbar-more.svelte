@@ -89,7 +89,7 @@
 	{/if}
 {/snippet}
 
-<WorkspaceToolbarMenu label={ariaLabel} contentClass="w-auto min-w-48">
+<WorkspaceToolbarMenu contentClass="w-auto min-w-48">
 	{#snippet trigger(props)}
 		{@render moreButton(`More ${ariaLabel}`, props, hiddenActive.length > 0 ? descriptionId : undefined)}
 	{/snippet}

@@ -782,7 +782,7 @@ Guidance:
 
 ## `ui/button`
 
-Shadcn-svelte button primitive. Variants are `default`, `outline`, `accent`, `secondary`, `ghost`, `destructive`, `link` and `cell`; sizes are `default`, `xs`, `sm`, `lg`, `icon`, `icon-xs`, `icon-sm`, `icon-lg` and `none`. Use `buttonVariants({ variant, size })` when a non-`Button` element needs the same classes.
+Shadcn-svelte button primitive. Variants are `default`, `outline`, `accent`, `secondary`, `ghost`, `destructive` (soft red tint with `text-destructive-text`), `link` and `cell`; sizes are `default`, `xs`, `sm`, `lg`, `icon`, `icon-xs`, `icon-sm`, `icon-lg` and `none`. Use `buttonVariants({ variant, size })` when a non-`Button` element needs the same classes.
 
 Use `variant="accent"` for the filled amber call to action on the public site (nav Request Access, CTA and landing hero actions); it lightens on hover through `bg-accent-hover`.
 
@@ -1263,6 +1263,8 @@ Status colors have their own raw tokens, separate from the amber brand `--accent
 Status text uses `text-*-foreground`, backed by separate `--danger-foreground`, `--warning-foreground`, `--success-foreground` and `--info-foreground` tokens that meet WCAG AA on page and muted status surfaces; the base status colors are fills, not text. Raw values live once in `:root` and once in `:root[data-theme='dark']`; each `--color-*` mapping is declared once in `@theme inline`. Chrome and the stepped readiness ramp (`--readiness-band-*`, including `--readiness-band-ink` for text on the ramp) are identical in both themes and are declared only in `:root`. The `--expiring` fill is shared by both themes; `--expiring-foreground` has light, dark and print values. Shared fills that need a pattern are utilities in `src/app.css`: `status-hatch` and `readiness-band-stripes`. Global element defaults sit in `@layer base`, so primitive variants and utilities override them.
 
 Use `bg-success-muted`, `text-success-foreground`, `bg-warning-muted`, `text-warning-foreground`, `bg-info-muted`, `text-info-foreground`, `bg-danger-muted`, and `text-danger-foreground` through shared components where possible.
+
+Small amber text on paper, including plain links, uses `text-accent-text`; the bright `text-accent` is about 3:1 on the light card. Red text on a destructive tint uses `text-destructive-text`, which stays above 4.5:1 at the hover tint; the destructive Button and DropdownMenu item variants read it. Text over a user-chosen color (a training type color) renders in foreground beside a color swatch.
 
 ### Typography
 

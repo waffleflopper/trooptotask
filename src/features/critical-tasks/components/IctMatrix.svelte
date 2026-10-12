@@ -255,7 +255,7 @@
 				class="grid gap-2 text-foreground no-underline hover:text-primary"
 			>
 				<span class="flex min-w-0 items-baseline gap-3">
-					<span class="w-10 shrink-0 font-mono text-xs font-semibold uppercase tracking-[0.08em] text-amber-700">
+					<span class="w-10 shrink-0 font-mono text-xs font-semibold uppercase tracking-[0.08em] text-accent-text">
 						{row.source.person.rank}
 					</span>
 					<span class="min-w-0">
@@ -281,7 +281,7 @@
 			</a>
 		{:else}
 			<span class="flex min-w-0 items-baseline gap-3">
-				<span class="w-10 shrink-0 font-mono text-xs font-semibold uppercase tracking-[0.08em] text-amber-700">
+				<span class="w-10 shrink-0 font-mono text-xs font-semibold uppercase tracking-[0.08em] text-accent-text">
 					{row.source.person.rank}
 				</span>
 				<span class="min-w-0">

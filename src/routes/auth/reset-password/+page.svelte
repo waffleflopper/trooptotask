@@ -352,9 +352,8 @@
 			<div>
 				Stop this recovery session and
 				<form method="POST" action={resolve('/auth/logout')} class="inline">
-					<Button type="submit" variant="link" class="h-auto p-0">sign out</Button>
+					<Button type="submit" variant="link" class="h-auto p-0">sign out</Button>.
 				</form>
-				.
 			</div>
 		</div>
 	</div>

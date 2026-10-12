@@ -74,6 +74,31 @@ describe('WorkspaceToolbar', () => {
 		await waitFor(() => expect(menusOpenAtRun).toEqual([0]));
 	});
 
+	it('lists the items of an overflowed menu action and runs the chosen one', async () => {
+		const runs: string[] = [];
+		render(Actions, {
+			props: {
+				overflowAriaLabel: 'More actions',
+				actions: [
+					{
+						id: 'bulk-status',
+						label: 'Bulk Status',
+						overflow: 'always',
+						menuItems: [
+							{ label: 'Add Bulk', onclick: () => runs.push('add') },
+							{ label: 'Remove Bulk', onclick: () => runs.push('remove') }
+						]
+					}
+				]
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+		await fireEvent.click(await screen.findByRole('menuitem', { name: 'Remove Bulk' }));
+
+		await waitFor(() => expect(runs).toEqual(['remove']));
+	});
+
 	describe('while a menu close animation is running', () => {
 		beforeEach(() => {
 			const running = { finished: new Promise(() => undefined), pending: false, playState: 'running' };

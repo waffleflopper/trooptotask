@@ -13,16 +13,23 @@
 		title?: string;
 		message?: string;
 		centered?: boolean;
+		ref?: HTMLElement | null;
 		children?: Snippet;
 	}
 
-	let { tone = 'info', title, message, centered = false, children }: Props = $props();
+	let { tone = 'info', title, message, centered = false, ref = $bindable(null), children }: Props = $props();
 
 	const variant = $derived(tone === 'error' ? 'destructive' : tone);
 	const role = $derived(tone === 'error' ? 'alert' : 'status');
 </script>
 
-<Alert.Root {variant} {role} class={centered ? 'justify-items-center text-center' : undefined}>
+<Alert.Root
+	bind:ref
+	{variant}
+	{role}
+	tabindex={-1}
+	class={centered ? 'justify-items-center text-center outline-none' : 'outline-none'}
+>
 	<span class="mt-0.5 inline-flex size-4 items-center justify-center" aria-hidden="true">
 		{#if tone === 'error'}
 			<AlertCircleIcon />

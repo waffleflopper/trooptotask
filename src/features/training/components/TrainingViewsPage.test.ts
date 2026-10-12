@@ -164,6 +164,30 @@ describe('TrainingViewsPage', () => {
 		expect(document.activeElement?.getAttribute('aria-selected')).toBe('true');
 	});
 
+	it.each(['New View', 'Edit'])('moves focus into the View Name field when %s opens the editor', async (name) => {
+		render(TrainingViewsPage, { props: { org } });
+		const opener = screen.getByRole('button', { name });
+		opener.focus();
+		await fireEvent.click(opener);
+
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('textbox', { name: 'View Name' })));
+	});
+
+	it('keeps focus on the other direction when a column reaches the end of the order', async () => {
+		render(TrainingViewsPage, { props: { org } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+
+		const moveDown = screen.getByRole('button', { name: 'Move ACFT down' });
+		moveDown.focus();
+		await fireEvent.click(moveDown);
+
+		expect(screen.getByRole('button', { name: 'Move ACFT down' }).hasAttribute('disabled')).toBe(true);
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Move ACFT up' })));
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Move ACFT up' }));
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Move ACFT down' })));
+	});
+
 	it('clears the required-name error once a name is typed', async () => {
 		render(TrainingViewsPage, { props: { org } });
 		await fireEvent.click(screen.getByRole('button', { name: 'New View' }));

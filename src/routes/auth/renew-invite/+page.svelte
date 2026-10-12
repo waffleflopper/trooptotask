@@ -7,9 +7,11 @@
 	import { resolve } from '$app/paths';
 	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
+	import { tick } from 'svelte';
 
 	let { data, form } = $props();
 	let loading = $state(false);
+	let confirmation = $state<HTMLElement | null>(null);
 	// Only a 400 rejects the email itself; native and enhanced submissions both set the page status.
 	const emailError = $derived(page.status === 400 && form?.error ? form.error : '');
 
@@ -40,7 +42,7 @@
 >
 	<div class="flex flex-col gap-5">
 		{#if form?.success}
-			<AuthNotice tone="success" title="Check your email" centered>
+			<AuthNotice bind:ref={confirmation} tone="success" title="Check your email" centered>
 				<p>
 					If <strong>{form.email}</strong> still has an approved, incomplete request, a fresh setup email is on the way.
 				</p>
@@ -63,6 +65,8 @@
 					return async ({ update }) => {
 						loading = false;
 						await update();
+						await tick();
+						(confirmation ?? document.getElementById('email'))?.focus();
 					};
 				}}
 				class="flex flex-col gap-5"

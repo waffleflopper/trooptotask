@@ -95,6 +95,14 @@ it.each(['invalid code', 'provider unavailable', 'network failure', 'invalid suc
 	}
 );
 
+it('ends the sign-out sentence with no space before its period', () => {
+	render(Page);
+
+	const sentence = screen.getByRole('button', { name: 'sign out' }).closest('div')!;
+
+	expect(sentence.textContent?.replace(/\s+/g, ' ').trim()).toBe('Leave this verification step and sign out.');
+});
+
 it('lets the user submit sign-out to the existing POST action', async () => {
 	const { container } = render(Page);
 	const submissions: { method: string; pathname: string }[] = [];
@@ -138,4 +146,18 @@ it('keeps a provider outage as a form alert that does not mark the code invalid'
 	expect(await screen.findByRole('alert')).toHaveTextContent('Unable to verify MFA. Try again.');
 	expect(code).toBeValid();
 	expect(code).toHaveAccessibleDescription('Enter the current code from your authenticator app.');
+});
+
+it.each([
+	['a rejected code', 401],
+	['a provider failure', 503]
+])('returns focus to the code field after %s', async (_name, status) => {
+	vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ error: 'Verification failed' }, { status })));
+	render(Page);
+	const code = screen.getByLabelText('Verification Code');
+	await fireEvent.input(code, { target: { value: '123456' } });
+	await fireEvent.click(screen.getByRole('button', { name: 'Verify' }));
+
+	await waitFor(() => expect(code).toHaveFocus());
+	expect(code).not.toBeDisabled();
 });

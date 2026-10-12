@@ -22,7 +22,7 @@ The separately authorized [CI workflow](../ci.md) preserves PR/main triggers, co
 
 Robert explicitly accepts an unprotected private `main` on the existing GitHub plan, with owner review of CI results before merge. Paid branch protection and rulesets are not requirements, defects or reasons for a red check. Existing source/governance, security and test controls remain required; failed validation still blocks acceptance. The module checker supplements route/provider/permission controls and does not certify runtime behavior or hosted deployment state.
 
-## D-10 No Rescind Lever For Auto-Approved Platform Access — resolved pending verification
+## D-10 No Rescind Lever For Auto-Approved Platform Access — resolved
 
 The F01 repair for #1639 replaces the missing lever with a derived grant ([ADR 0012](adrs/0012-organization-invited-platform-access-auto-approval.md#failure-and-concurrency-semantics)). Migration `20261012000100_invitation_grant_liveness` adds `access_requests.approval_basis`, the `rescinded` status, `access_request_setup_grant_is_live`, atomic `issue_account_setup_link` and `link_organization_invitation_access_request` RPCs, a grant-checking setup claim and platform `rescind_access_request_and_block_linked_invitations`. Setup-link issuance, claim, setup-page validation and renewal or resubmit eligibility refuse a dead grant. Provenance reads `approval_basis`.
 

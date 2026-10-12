@@ -461,3 +461,19 @@ Before application release, Robert completes these operator steps:
 3. Report successful application before this PR merges. Verify normal authorized removal through ordinary application use after release. Hosted parity remains owner-reported unless separately verified.
 
 Repository CI operates disposable local databases and performs no remote migration. Vercel already reports the #1553 preview Ready in [comment 6023901450](https://github.com/waffleflopper/trooptotask/pull/1553#issuecomment-6023901450). The preview's database target and external production deployment settings are uninspected. The new preview requires this function wherever its database is hosted. No fixture, test, provider probe, or synthetic SQL contract belongs on the hosted database. The agent performs no remote database operation or deployment. Robert's successful-application report clears the manual hold; ordinary post-release verification remains owner-operated.
+
+## Phase 11 D01 invitation-origin setup grants
+
+Robert applies [`supabase/migrations/20261012000100_invitation_grant_liveness.sql`](../../supabase/migrations/20261012000100_invitation_grant_liveness.sql), SHA-256 `25a5585344c9e83172fa67f683d24759fbeb8658f69b4cddc62cde3bbd45d391`, through his normal ordered migration procedure. Its repository predecessor is `20261006000100`; the agent has not inspected the hosted ledger.
+
+Applying it adds `access_requests.approval_basis`, backfills it for approved rows (platform review when an `access_request.approved` audit event exists, invitation when a matching inviter's link pre-dates the review by at most five minutes, otherwise platform review), adds the `rescinded` status and a CHECK that approved and rescinded rows carry a basis, and creates or replaces the grant, issuance, bridge, rescind and claim functions. It rewrites no other column and deletes nothing. Existing approved invitation-origin requests whose invitations are all revoked or blocked lose their setup grant immediately; that residue is the defect being repaired.
+
+The two sides are not compatible in either order. After the migration, the old application's platform approval and invite bridge write approved rows without a basis, so the CHECK rejects them: new-person invitations and platform approvals fail loudly until the new application deploys, while existing claims and completed accounts keep working. The new application calls the new RPCs, so deploying it first fails every new-person invitation. Keep the window short.
+
+Before application release, Robert completes these operator steps:
+
+1. Confirm the intended release revision, migration chain, owner notice and backup.
+2. Apply only the reviewed migration through the existing ordered process. Record its version, hash and outcome privately. Spot-check that no approved row lacks `approval_basis`.
+3. Merge the closing PR immediately afterward so Vercel deploys the new application. Verify one new-person invitation and one platform approval through ordinary use after release.
+
+Repository CI operates disposable local databases and performs no remote migration. External production deployment settings are uninspected. No fixture, test, provider probe or synthetic SQL contract belongs on the hosted database.

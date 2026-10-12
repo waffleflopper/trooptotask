@@ -114,4 +114,4 @@ Measurements unavailable now are listed in EVIDENCE. Later isolated synthetic wo
 
 ## Next executable task
 
-Phase 11 [#1284](https://github.com/waffleflopper/trooptotask/issues/1284), security and reliability repair, is next. It is not activated; it starts only on Robert's explicit activation request under [workflow #1275](https://github.com/waffleflopper/trooptotask/issues/1275). Earlier owner release obligations remain in [RELEASE](RELEASE.md).
+Phase 11 [#1284](https://github.com/waffleflopper/trooptotask/issues/1284), security and reliability repair, is active. D01 [#1639](https://github.com/waffleflopper/trooptotask/issues/1639) is in progress under the active checkpoint above. Each later deliverable starts only on Robert's explicit request under [workflow #1275](https://github.com/waffleflopper/trooptotask/issues/1275). Earlier owner release obligations remain in [RELEASE](RELEASE.md).

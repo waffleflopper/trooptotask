@@ -142,17 +142,14 @@ describe('org/new admission through real provisioning', () => {
 	it.each([
 		['missing', { name: 'Alpha Company' }],
 		['malformed', { name: 'Alpha Company', requestId: 'not-a-uuid' }]
-	])('asks for a reload without creating when the request id is %s', async (_, fields) => {
-		const result = await actions.default(event(confirmed, fields) as never);
-		expect(result).toMatchObject({
-			status: 400,
-			data: {
-				error: 'This form is out of date. Reload the page and try again.',
-				name: 'Alpha Company',
-				requestId: expect.stringMatching(/^[0-9a-f-]{36}$/)
-			}
+	])('creates with a fresh request id when the submitted one is %s', async (_, fields) => {
+		await expect(actions.default(event(confirmed, fields) as never)).rejects.toMatchObject({
+			status: 303,
+			location: '/org/org-1'
 		});
-		expect(port.createOrganization).not.toHaveBeenCalled();
+		const [[call]] = port.createOrganization.mock.calls;
+		expect(call.name).toBe('Alpha Company');
+		expect(call.requestId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
 	});
 
 	it('answers an unconfirmed creation with a safe retry message, keeping the draft and request id for the retry', async () => {

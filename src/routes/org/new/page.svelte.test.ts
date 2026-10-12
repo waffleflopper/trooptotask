@@ -72,7 +72,7 @@ describe('/org/new page', () => {
 			props: {
 				data: makePageData(),
 				form: {
-					error: 'This form is out of date. Reload the page and try again.',
+					error: 'Organization name is required',
 					name: 'Alpha',
 					requestId: 'fresh-id'
 				}

@@ -9,7 +9,6 @@ import type { CurrentUserEmailConfirmation } from '$features/identity/contracts'
 
 const EMAIL_CONFIRMATION_REQUIRED_MESSAGE = 'Confirm your email before creating an Organization.';
 const EMAIL_CONFIRMATION_UNAVAILABLE_MESSAGE = 'Unable to verify email confirmation right now. Try again in a moment.';
-const REQUEST_ID_INVALID_MESSAGE = 'This form is out of date. Reload the page and try again.';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	if (!locals.actor || !locals.user) throw redirect(303, '/auth/login');
@@ -39,6 +38,7 @@ export const actions: Actions = {
 		const formData = await request.formData();
 		const name = String(formData.get('name') ?? '');
 		const submittedRequestId = String(formData.get('requestId') ?? '');
+		// A page rendered before request ids existed still creates, without retry identity for that submission.
 		const requestId = validateUUID(submittedRequestId) ? submittedRequestId : crypto.randomUUID();
 		const retained = { name, requestId };
 
@@ -51,9 +51,6 @@ export const actions: Actions = {
 		}
 		if (emailConfirmation.status === 'unavailable') {
 			return fail(503, { error: EMAIL_CONFIRMATION_UNAVAILABLE_MESSAGE, ...retained });
-		}
-		if (requestId !== submittedRequestId) {
-			return fail(400, { error: REQUEST_ID_INVALID_MESSAGE, ...retained });
 		}
 
 		let result: { orgId: string };

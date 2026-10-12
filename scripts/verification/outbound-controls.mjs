@@ -1,19 +1,12 @@
 export const MAIL_KINDS = Object.freeze(['account-setup', 'auth', 'invitation']);
 const write = (method, path, options = {}) => Object.freeze({ method, path, ...options });
-const ORGANIZATION_CREATE = ['/rest/v1/rpc/create_org_with_owner', '/rest/v1/rpc/create_organization'];
 // `bodyStatus` narrows a write to one requested status; `afterCommit` lets the provider commit, then loses its reply.
 export const PROVIDER_FAULTS = Object.freeze({
 	'setup-link-create': [write('POST', '/rest/v1/rpc/issue_account_setup_link')],
 	'invitation-access-link': [write('POST', '/rest/v1/rpc/link_organization_invitation_access_request')],
 	'invitation-block': [write('PATCH', '/rest/v1/organization_invitations', { bodyStatus: 'blocked' })],
-	'org-create': ORGANIZATION_CREATE.map((path) => write('POST', path)),
-	'org-create-lost-ack': ORGANIZATION_CREATE.map((path) => write('POST', path, { afterCommit: true })),
-	'org-owner-email': [write('PATCH', '/rest/v1/organization_memberships')],
-	'org-groups': [write('POST', '/rest/v1/groups')],
-	'org-status-types': [write('POST', '/rest/v1/status_types')],
-	'org-assignment-types': [write('POST', '/rest/v1/assignment_types')],
-	'org-holidays': [write('POST', '/rest/v1/special_days')],
-	'org-ranks': [write('POST', '/rest/v1/organization_rank_catalog')]
+	'org-create': [write('POST', '/rest/v1/rpc/create_organization')],
+	'org-create-lost-ack': [write('POST', '/rest/v1/rpc/create_organization', { afterCommit: true })]
 });
 const MAIL_URL = 'https://api.resend.com/emails';
 const MAX_MESSAGES = 200;

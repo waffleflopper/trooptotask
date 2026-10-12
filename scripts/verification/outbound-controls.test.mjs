@@ -227,23 +227,7 @@ test('each named fault matches only its allowlisted writes on the owned provider
 			]
 		],
 		'org-create': [
-			[providerInput('rpc/create_org_with_owner', { method: 'POST' }), ['POST', '/rest/v1/rpc/create_org_with_owner']],
 			[providerInput('rpc/create_organization', { method: 'POST' }), ['POST', '/rest/v1/rpc/create_organization']]
-		],
-		'org-owner-email': [
-			[
-				providerInput('organization_memberships', { method: 'PATCH', body: JSON.stringify({ email: 'a@b.test' }) }),
-				['PATCH', '/rest/v1/organization_memberships']
-			]
-		],
-		'org-groups': [[providerInput('groups', { method: 'POST' }), ['POST', '/rest/v1/groups']]],
-		'org-status-types': [[providerInput('status_types', { method: 'POST' }), ['POST', '/rest/v1/status_types']]],
-		'org-assignment-types': [
-			[providerInput('assignment_types', { method: 'POST' }), ['POST', '/rest/v1/assignment_types']]
-		],
-		'org-holidays': [[providerInput('special_days', { method: 'POST' }), ['POST', '/rest/v1/special_days']]],
-		'org-ranks': [
-			[providerInput('organization_rank_catalog', { method: 'POST' }), ['POST', '/rest/v1/organization_rank_catalog']]
 		]
 	};
 	for (const [name, matching] of Object.entries(cases)) {
@@ -307,14 +291,14 @@ test('a lost-acknowledgment fault lets the provider commit, then replaces its re
 	assert.equal(await (await control.fetch(...create)).text(), 'real');
 });
 
-test('a pre-commit org-create fault never reaches the provider; other provisioning writes pass', async () => {
+test('a pre-commit org-create fault never reaches the provider; other writes pass', async () => {
 	const { control, passed } = faults();
 	control.command('fault-arm', { name: 'org-create' });
-	for (const table of ['groups', 'status_types', 'organization_memberships', 'rpc/create_org_with_owners'])
+	for (const table of ['groups', 'organization_memberships', 'rpc/create_organizations'])
 		assert.equal(await (await control.fetch(...providerInput(table, { method: 'POST' }))).text(), 'real');
-	assert.equal(passed.length, 4);
-	assert.equal((await control.fetch(...providerInput('rpc/create_org_with_owner', { method: 'POST' }))).status, 503);
-	assert.equal(passed.length, 4);
+	assert.equal(passed.length, 3);
+	assert.equal((await control.fetch(...providerInput('rpc/create_organization', { method: 'POST' }))).status, 503);
+	assert.equal(passed.length, 3);
 });
 
 test('a fault fires on the selected ordinal once and stays dormant until restored and re-armed', async () => {

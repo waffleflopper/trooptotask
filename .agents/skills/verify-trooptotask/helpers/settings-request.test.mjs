@@ -54,6 +54,30 @@ test('named form actions use SvelteKit enhancement semantics and retain the acti
 	assert.deepEqual(JSON.parse(result.body), envelope);
 });
 
+test('the member invite action submits only email, role and preset to the A Members form action', async () => {
+	const page = {
+		location: { origin: input.origin },
+		fetch: async (path, request) => {
+			assert.equal(path, '/org/synthetic-a/settings/members?/invite');
+			assert.deepEqual(Object.fromEntries(new URLSearchParams(request.body)), {
+				email: 'denied@example.test',
+				membershipRole: 'member',
+				memberPreset: 'viewer'
+			});
+			return Response.json({ type: 'failure', status: 403, data: '[{"inviteError":1},"denied"]' });
+		}
+	};
+	const result = await requestSettings(page, {
+		...input,
+		family: 'settings/members/invite',
+		body: { email: 'denied@example.test', membershipRole: 'member', memberPreset: 'viewer' }
+	});
+	assert.equal(JSON.parse(result.body).status, 403);
+	await assert.rejects(
+		requestSettings(page, { ...input, family: 'settings/members/invite', body: { accessScopeGroupIds: 'x' } })
+	);
+});
+
 test('an unowned origin, path traversal, unknown action or unsupported payload sends no request', async () => {
 	let calls = 0;
 	const page = { location: { origin: input.origin }, fetch: async () => calls++ };

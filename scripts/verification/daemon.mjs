@@ -28,7 +28,8 @@ import {
 	sleep
 } from './core.mjs';
 import { seed } from './fixtures.mjs';
-import { driver, assertOwnedNavigation } from './browser.mjs';
+import { driver, assertOwnedNavigation, textContent } from './browser.mjs';
+import { openCapturedLink } from './outbound-controls.mjs';
 import { capturePrint } from './print-capture.mjs';
 
 const session = process.argv[2];
@@ -68,6 +69,16 @@ async function serverSource(action, options = {}) {
 		throw new Blocked('SOURCE_CONTROL', 'Owned server source control did not authenticate.');
 	return response.json();
 }
+async function openMailLink({ pageId, email, kind, ordinal }) {
+	const captured = await serverSource('mail-link', { email, kind, ordinal });
+	if (captured.status !== 'PASS') throw new Blocked('MAIL_LINK', captured.message);
+	try {
+		const opened = await openCapturedLink({ captured, origin: state.origin, pageId, call, textContent });
+		return { status: 'PASS', pageId, email, kind, ...opened };
+	} catch (error) {
+		throw new Blocked('MAIL_LINK', error.message);
+	}
+}
 async function cleanup() {
 	if (closing) throw new Blocked('CLEANUP_PENDING', 'Cleanup is already in progress; wait and inspect info.');
 	closing = true;
@@ -75,11 +86,7 @@ async function cleanup() {
 		await port?.release();
 		port = undefined;
 		if (sourceControl && app?.exitCode === null && !app.signalCode) {
-			try {
-				await serverSource('restore');
-			} catch {
-				// The owned app is stopped below; its preload also releases waits on SIGTERM.
-			}
+			await Promise.allSettled(['restore', 'mail-restore', 'fault-restore'].map((action) => serverSource(action)));
 		}
 		const results = await Promise.allSettled([
 			(async () => {
@@ -156,7 +163,8 @@ try {
 		sessionId: state.id,
 		providerUrl: provider.API_URL,
 		orgId: fixture.ids.orgA,
-		token: randomBytes(32).toString('hex')
+		token: randomBytes(32).toString('hex'),
+		mailApiKey: randomBytes(24).toString('hex')
 	};
 	const sourceConfigPath = path.join(session, 'server-source-control.json');
 	await writeJSON(sourceConfigPath, sourceControlConfig);
@@ -169,6 +177,8 @@ try {
 		PUBLIC_SUPABASE_URL: provider.API_URL,
 		PUBLIC_SUPABASE_ANON_KEY: provider.ANON_KEY,
 		SUPABASE_SERVICE_ROLE_KEY: provider.SERVICE_ROLE_KEY,
+		RESEND_API_KEY: sourceControlConfig.mailApiKey,
+		RESEND_FROM_EMAIL: 'verify@example.test',
 		ACCOUNT_SETUP_LINK_SECRET: randomBytes(32).toString('hex'),
 		ACCOUNT_SETUP_SESSION_SECRET: randomBytes(32).toString('hex'),
 		CLEANUP_SECRET: cleanupSecret,
@@ -323,12 +333,30 @@ try {
 									result = await drive.login(input.role);
 									break;
 								case 'server-source':
+									if (!['arm', 'state', 'release', 'restore'].includes(input.action))
+										throw new Blocked('COMMAND', 'Use server-source arm, state, release or restore.');
 									result = await serverSource(input.action, {
 										table: input.table,
 										mode: input.mode,
 										ordinal: input.ordinal,
 										holdMs: input.holdMs
 									});
+									break;
+								case 'mail':
+									if (!['state', 'fail', 'restore'].includes(input.action))
+										throw new Blocked('COMMAND', 'Use mail state, fail or restore.');
+									result = await serverSource(
+										input.action === 'fail' ? 'mail-arm' : `mail-${input.action}`,
+										input.action === 'fail' ? { mode: 'fail', kind: input.kind, count: input.count } : {}
+									);
+									break;
+								case 'mail-link':
+									result = await openMailLink(input);
+									break;
+								case 'fault':
+									if (!['arm', 'state', 'restore'].includes(input.action))
+										throw new Blocked('COMMAND', 'Use fault arm, state or restore.');
+									result = await serverSource(`fault-${input.action}`, { name: input.name, ordinal: input.ordinal });
 									break;
 								case 'print-capture':
 									result = await capturePrint({ state, session, input, call });

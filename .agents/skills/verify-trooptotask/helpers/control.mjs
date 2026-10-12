@@ -47,6 +47,10 @@ import {
 	accountSetupSeed,
 	authConfirmUrl,
 	identityEmails,
+	mailKind,
+	mailRequest,
+	readAccessRequests,
+	faultRequest,
 	redactAuthTokens,
 	setupAccountUrl,
 	syntheticEmail,
@@ -315,6 +319,31 @@ async function main() {
 				...(holdMs === undefined ? {} : { holdMs: Number(holdMs) })
 			})
 		);
+		return;
+	}
+	if (command === 'mail') {
+		note(await run(state, mailRequest(args)));
+		return;
+	}
+	if (command === 'fault') {
+		note(await run(state, faultRequest(args)));
+		return;
+	}
+	if (command === 'mail-link') {
+		const [page, email, kind, ordinal] = args;
+		const pageId = Number(page);
+		if (args.length < 3 || args.length > 4 || !Number.isInteger(pageId) || pageId < 1)
+			throw new Error('Use mail-link PAGE EMAIL setup|auth|invitation [N].');
+		if ((await evaluate(state, pageId, '() => location.origin')) !== doctor.origin)
+			throw new Error('The page is not on the owned app origin.');
+		const opened = await run(state, {
+			command: 'mail-link',
+			pageId,
+			email: syntheticEmail(email),
+			kind: mailKind(kind),
+			...(ordinal === undefined ? {} : { ordinal: Number(ordinal) })
+		});
+		note({ ...opened, snapshot: redactAuthTokens(opened.snapshot) });
 		return;
 	}
 	if (command === 'deletion-review-failure') {
@@ -642,31 +671,7 @@ async function main() {
 		return;
 	}
 	if (command === 'access-request') {
-		const email = syntheticEmail(args[0]);
-		const client = await provider();
-		const rows = checked(
-			await client
-				.from('access_requests')
-				.select(
-					'id,email,name,reason,heard_about,heard_about_details,status,created_at,reviewed_at,setup_user_id,setup_completed_at'
-				)
-				.eq('email', email)
-				.order('created_at')
-		);
-		const setupLinks = rows.length
-			? checked(
-					await client
-						.from('account_setup_links')
-						.select(
-							'id,access_request_id,expires_at,claimed_at,used_at,failed_at,failure_reason,revoked_at,revocation_reason'
-						)
-						.in(
-							'access_request_id',
-							rows.map(({ id }) => id)
-						)
-				)
-			: [];
-		note({ email, count: rows.length, rows, setupLinks });
+		note(await readAccessRequests(await provider(), syntheticEmail(args[0])));
 		return;
 	}
 	if (command === 'onboarding-request') {
@@ -2681,7 +2686,7 @@ async function main() {
 		return;
 	}
 	throw new Error(
-		'Use fixture, actor, rows, access-request, auth-link, setup-link, mfa-code, password, password-commit, settings-request, deletion-request, personnel-archive-batch, deletion-review-failure, audit-training-update, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, private-buckets, roster-files, roster-replace, signed-download, calendar-grant, dashboard-access, server-source, seed, clean-seeds, retention, network, busy, export, print, style-probe, style-diff, or workbook.'
+		'Use fixture, actor, rows, access-request, auth-link, setup-link, mail, mail-link, fault, mfa-code, password, password-commit, settings-request, deletion-request, personnel-archive-batch, deletion-review-failure, audit-training-update, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, private-buckets, roster-files, roster-replace, signed-download, calendar-grant, dashboard-access, server-source, seed, clean-seeds, retention, network, busy, export, print, style-probe, style-diff, or workbook.'
 	);
 }
 

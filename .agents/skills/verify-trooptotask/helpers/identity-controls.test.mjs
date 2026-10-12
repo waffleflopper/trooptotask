@@ -4,7 +4,11 @@ import { test } from 'node:test';
 import {
 	accountSetupSeed,
 	authConfirmUrl,
+	faultRequest,
 	identityEmails,
+	mailKind,
+	mailRequest,
+	readAccessRequests,
 	redactAuthTokens,
 	setupAccountUrl,
 	syntheticEmail,
@@ -126,4 +130,103 @@ test('setupAccountUrl builds the setup email link and redaction removes its toke
 	const url = setupAccountUrl('http://127.0.0.1:4100', 'raw_Token-1');
 	assert.equal(url, 'http://127.0.0.1:4100/auth/setup-account?token=raw_Token-1');
 	assert.equal(redactAuthTokens(`url="${url}"`), 'url="http://127.0.0.1:4100/auth/setup-account?token=[REDACTED]"');
+});
+
+test('mail commands shape the supervisor request and refuse anything else', () => {
+	assert.equal(mailKind('setup'), 'account-setup');
+	assert.equal(mailKind('invitation'), 'invitation');
+	assert.equal(mailKind('auth'), 'auth');
+	assert.throws(() => mailKind('account-setup'));
+	assert.deepEqual(mailRequest(['state']), { command: 'mail', action: 'state' });
+	assert.deepEqual(mailRequest(['restore']), { command: 'mail', action: 'restore' });
+	assert.deepEqual(mailRequest(['fail']), { command: 'mail', action: 'fail' });
+	assert.deepEqual(mailRequest(['fail', '3']), { command: 'mail', action: 'fail', count: 3 });
+	assert.deepEqual(mailRequest(['fail', 'setup']), { command: 'mail', action: 'fail', kind: 'account-setup' });
+	assert.deepEqual(mailRequest(['fail', 'invitation', '2']), {
+		command: 'mail',
+		action: 'fail',
+		kind: 'invitation',
+		count: 2
+	});
+	for (const args of [
+		[],
+		['state', 'x'],
+		['fail', 'confirm'],
+		['fail', 'setup', 'invitation'],
+		['fail', '1', 'setup'],
+		['arm']
+	])
+		assert.throws(() => mailRequest(args), /Use mail/);
+});
+
+test('fault commands accept only the named provider faults', () => {
+	assert.deepEqual(faultRequest(['state']), { command: 'fault', action: 'state' });
+	assert.deepEqual(faultRequest(['restore']), { command: 'fault', action: 'restore' });
+	assert.deepEqual(faultRequest(['arm', 'setup-link-create']), {
+		command: 'fault',
+		action: 'arm',
+		name: 'setup-link-create'
+	});
+	assert.deepEqual(faultRequest(['arm', 'invitation-block', '2']), {
+		command: 'fault',
+		action: 'arm',
+		name: 'invitation-block',
+		ordinal: 2
+	});
+	for (const args of [
+		[],
+		['arm'],
+		['arm', 'account_setup_links'],
+		['state', 'x'],
+		['arm', 'invitation-block', '1', '2']
+	])
+		assert.throws(() => faultRequest(args), /Use fault/);
+});
+
+function accessClient() {
+	const selects = [];
+	const tables = {
+		access_requests: [{ id: 'r1', email: 'a@example.test', status: 'approved', reviewed_by: 'u1' }],
+		account_setup_links: [{ id: 'l1', access_request_id: 'r1' }],
+		access_request_organization_invitation_links: [
+			{ id: 'k1', access_request_id: 'r1', organization_invitation_id: 'i1' },
+			{ id: 'k2', access_request_id: 'r1', organization_invitation_id: 'i2' }
+		],
+		organization_invitations: [{ id: 'i1', status: 'blocked' }]
+	};
+	const client = {
+		selects,
+		from(table) {
+			const query = {
+				select(columns) {
+					selects.push([table, columns]);
+					return query;
+				},
+				eq: () => query,
+				order: () => query,
+				in: () => query,
+				then: (resolve) => resolve({ data: tables[table], error: null })
+			};
+			return query;
+		}
+	};
+	return client;
+}
+
+test('access-request readback adds review, invitation bridge rows and invitation status without token hashes', async () => {
+	const client = accessClient();
+	const result = await readAccessRequests(client, 'a@example.test');
+	assert.equal(result.count, 1);
+	assert.equal(result.rows[0].reviewed_by, 'u1');
+	assert.deepEqual(
+		result.invitationLinks.map(({ id, invitation_status }) => [id, invitation_status]),
+		[
+			['k1', 'blocked'],
+			['k2', null]
+		]
+	);
+	assert.equal(
+		client.selects.some(([, columns]) => columns.includes('token_hash')),
+		false
+	);
 });

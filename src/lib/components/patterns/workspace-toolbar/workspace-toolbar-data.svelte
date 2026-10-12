@@ -219,7 +219,9 @@
 	}
 
 	$effect.pre(() => {
-		const next: Layout = { ids: [...visibleIds], more: showMore, collapsed: Boolean(fit?.searchCollapsed) };
+		// An item with no measurement yet nulls the fit; its layout is not a change from the last real one.
+		if (!fit) return;
+		const next: Layout = { ids: [...visibleIds], more: showMore, collapsed: fit.searchCollapsed };
 		const before = previousLayout;
 		previousLayout = next;
 		if (before && rowElement) untrack(() => handleLayoutChange(before, next));

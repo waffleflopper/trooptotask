@@ -3,6 +3,7 @@
 
 	type Props = {
 		withArchive?: boolean;
+		withExport?: boolean;
 		initialSearch?: string;
 		initialStatus?: string[];
 		statusDefaults?: string[];
@@ -14,6 +15,7 @@
 
 	let {
 		withArchive = true,
+		withExport = false,
 		initialSearch = '',
 		initialStatus = [],
 		statusDefaults = [],
@@ -97,6 +99,9 @@
 			disabledReason: importDisabledReason,
 			onclick: () => log('import')
 		},
+		...(withExport
+			? [{ kind: 'action', id: 'export', label: 'Export', onclick: () => log('export') } satisfies ToolbarItem]
+			: []),
 		...(withArchive
 			? [
 					{

@@ -43,6 +43,7 @@ const naturalWidths: Record<string, number> = {
 	reports: 90,
 	planning: 90,
 	import: 100,
+	export: 80,
 	add: 100
 };
 
@@ -408,6 +409,23 @@ describe('WorkspaceToolbar', () => {
 			within(toolbar()).getByRole('button', { name: 'Search roster' }),
 			'narrowing again shows the icon, not a reopened field'
 		).toBeTruthy();
+	});
+
+	it('keeps phone search open and focused while a new row item waits for its first measurement', async () => {
+		const { rerender } = render(DataToolbarTest);
+		await layOut(291);
+
+		await fireEvent.click(within(toolbar()).getByRole('button', { name: 'Search roster' }));
+		const field = within(toolbar()).getByRole('searchbox', { name: 'Search roster' });
+		await waitFor(() => expect(document.activeElement).toBe(field));
+
+		await rerender({ withExport: true });
+		await tick();
+		await layOut(291);
+
+		expect(within(toolbar()).getByRole('searchbox', { name: 'Search roster' })).toBe(field);
+		expect(within(toolbar()).getByRole('button', { name: 'Close search' })).toBeTruthy();
+		expect(document.activeElement).toBe(field);
 	});
 
 	it('runs a folded action after More has closed, and navigates a folded link', async () => {

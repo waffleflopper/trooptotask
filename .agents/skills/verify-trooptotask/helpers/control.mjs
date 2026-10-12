@@ -15,7 +15,8 @@ import {
 	readJSON,
 	writeJSON,
 	processIdentity,
-	environment
+	environment,
+	recordingTransition
 } from '../../../../scripts/verification/core.mjs';
 import { installNetworkControl } from './network-control.mjs';
 import { installBusyControl } from './busy-control.mjs';
@@ -24,6 +25,7 @@ import { seedDeletionSources, requestDeletion, requestPersonnelArchiveBatch } fr
 import { requestOnboarding, readOnboardingRequests } from './onboarding-request.mjs';
 import { installFeedbackControl } from './feedback-control.mjs';
 import { readStyleProbe, diffStyleProbes, styleProperties, resolveStyleSelectors } from './style-probe.mjs';
+import { runSweep, toolbarReadSource } from './toolbar-sweep.mjs';
 import { observePrint } from './print-observation.mjs';
 import { seedPersonnelRetention, readRetentionFiles } from './personnel-retention.mjs';
 import { seedArtifactRetention } from './artifact-retention.mjs';
@@ -2667,6 +2669,108 @@ async function main() {
 		note({ differences: differences.length, details: differences });
 		return;
 	}
+	if (command === 'toolbar-sweep') {
+		const usage =
+			'Use toolbar-sweep PAGE TOOLBAR_LABEL RUN_DIR --expect ID,ID,... [--from 1440] [--to 390] [--step 2] [--height 900] [--record NAME].';
+		const [page, label, runName, ...flags] = args;
+		const option = (name, fallback) => {
+			const at = flags.indexOf(`--${name}`);
+			if (at < 0) return fallback;
+			if (flags[at + 1] === undefined || flags[at + 1].startsWith('--')) throw new Error(usage);
+			return flags[at + 1];
+		};
+		const known = ['expect', 'from', 'to', 'step', 'height', 'record'];
+		for (let i = 0; i < flags.length; i += 2)
+			if (!flags[i].startsWith('--') || !known.includes(flags[i].slice(2))) throw new Error(usage);
+		const pageId = Number(page);
+		const [from, to, step, height] = [
+			option('from', '1440'),
+			option('to', '390'),
+			option('step', '2'),
+			option('height', '900')
+		].map(Number);
+		const expectIds = (option('expect', '') || '').split(',').filter(Boolean);
+		const recordName = option('record');
+		if (!Number.isInteger(pageId) || pageId < 1 || !label || !runName || !expectIds.length) throw new Error(usage);
+		if (![from, to, step, height].every(Number.isInteger) || to < 200 || from < to || step < 1 || height < 200)
+			throw new Error('Use whole numbers with 200 <= --to <= --from, --step >= 1 and --height >= 200.');
+		if (expectIds.some((id) => !/^[\w.-]+$/.test(id)) || new Set(expectIds).size !== expectIds.length)
+			throw new Error('--expect takes distinct toolbar item ids separated by commas.');
+		if (recordName !== undefined && !/^[\w-][\w.-]*$/.test(recordName))
+			throw new Error('--record takes a plain file name without an extension or directory.');
+		const runDir = path.resolve(runName);
+		if (!runDir.startsWith(evidenceRoot + path.sep))
+			throw new Error('RUN_DIR must be a directory under the skill evidence directory.');
+		if (recordName && !doctor.recording?.available)
+			throw new Error(
+				doctor.recording?.message ?? 'This worker reports no recording prerequisite; run restart on this checkout.'
+			);
+		const traceFile = path.join(runDir, 'toolbar-sweep.json');
+		const videoFile = recordName ? path.join(runDir, `${recordName}.webm`) : undefined;
+		for (const file of [traceFile, videoFile].filter(Boolean))
+			if (
+				await fs.stat(file).then(
+					() => true,
+					() => false
+				)
+			)
+				throw new Error(`${file} already exists; use a new RUN_DIR or name.`);
+		await fs.mkdir(runDir, { recursive: true });
+		const theme = await evaluate(state, pageId, `() => document.documentElement.dataset.theme ?? null`);
+		const recorded = async (name, args, expected) => {
+			const result = await tool(state, name, args);
+			if (recordingTransition(name, result) !== expected)
+				throw new Error(`${name} did not confirm: ${text(result).slice(0, 300)}`);
+		};
+		const driven = {
+			resize: (width, tall) => tool(state, 'resize_page', { pageId, width, height: tall }),
+			read: () => evaluate(state, pageId, toolbarReadSource(label, doctor.origin)),
+			startRecording: (filePath) => recorded('screencast_start', { pageId, filePath }, 'started'),
+			stopRecording: () => recorded('screencast_stop', { pageId }, 'stopped')
+		};
+		const result = await runSweep({
+			page: driven,
+			expect: expectIds,
+			from,
+			to,
+			step,
+			height,
+			recording: videoFile,
+			sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+			progress: (message) => process.stderr.write(`toolbar-sweep ${message}\n`),
+			write: async (trace) =>
+				fs.writeFile(
+					traceFile,
+					JSON.stringify(
+						{
+							label,
+							theme,
+							candidate: doctor.candidate,
+							origin: doctor.origin,
+							browser: doctor.browser?.version,
+							...trace
+						},
+						null,
+						'\t'
+					) + '\n',
+					{ flag: 'wx' }
+				)
+		});
+		const { verdict } = result;
+		note({
+			saved: traceFile,
+			recording: result.recording,
+			ok: verdict.ok,
+			steps: { down: result.down.length, up: result.up.length },
+			failureCount: verdict.failures.length,
+			failures: verdict.failures.slice(0, 20),
+			foldedAt: verdict.foldedAt,
+			restoredAt: verdict.restoredAt,
+			error: result.error
+		});
+		if (!verdict.ok) process.exitCode = 1;
+		return;
+	}
 	if (command === 'workbook') {
 		const target = path.resolve(args[0] ?? '');
 		if (!target.startsWith(evidenceRoot + path.sep))
@@ -2686,7 +2790,7 @@ async function main() {
 		return;
 	}
 	throw new Error(
-		'Use fixture, actor, rows, access-request, auth-link, setup-link, mail, mail-link, fault, mfa-code, password, password-commit, settings-request, deletion-request, personnel-archive-batch, deletion-review-failure, audit-training-update, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, private-buckets, roster-files, roster-replace, signed-download, calendar-grant, dashboard-access, server-source, seed, clean-seeds, retention, network, busy, export, print, style-probe, style-diff, or workbook.'
+		'Use fixture, actor, rows, access-request, auth-link, setup-link, mail, mail-link, fault, mfa-code, password, password-commit, settings-request, deletion-request, personnel-archive-batch, deletion-review-failure, audit-training-update, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, private-buckets, roster-files, roster-replace, signed-download, calendar-grant, dashboard-access, server-source, seed, clean-seeds, retention, network, busy, export, print, style-probe, style-diff, toolbar-sweep, or workbook.'
 	);
 }
 

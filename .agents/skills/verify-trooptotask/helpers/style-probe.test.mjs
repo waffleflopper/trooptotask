@@ -41,6 +41,19 @@ test('probe reports tag, role, attributes, text and requested computed propertie
 	assert.equal(cells.elements[0].style['font-weight'], '600');
 });
 
+test('probe ignores a toolbar measuring copy and keeps the live match', async (t) => {
+	const window = page(
+		'',
+		'<div data-slot="workspace-toolbar" role="toolbar"><button data-slot="button">Export</button></div>' +
+			'<div data-toolbar-measure><button data-slot="button">Export</button><button data-slot="button">Reports</button></div>'
+	);
+	t.after(() => window.happyDOM.close());
+	const result = read(window, ['[data-slot="button"]']);
+	assert.equal(result.selectors[0].count, 1);
+	assert.equal(result.selectors[0].elements.length, 1);
+	assert.equal(result.selectors[0].elements[0].text, 'Export');
+});
+
 test('probe leaves the page unchanged and survives an invalid selector', async (t) => {
 	const window = page('', '<div data-slot="x" role="listbox"></div>');
 	t.after(() => window.happyDOM.close());

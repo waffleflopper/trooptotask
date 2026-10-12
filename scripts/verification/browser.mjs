@@ -21,22 +21,24 @@ export function assertOwnedNavigation(name, args, ownedOrigins) {
 		);
 }
 
-// Recordings are evidence: they stay under the owned evidence directory as .webm or .mp4, judged by the real
-// path of the nearest existing ancestor so a symlinked folder cannot point the recorder elsewhere.
+// Recordings are evidence: they stay under the owned evidence directory as .webm or .mp4.
 export async function assertRecordingPath(name, args, evidenceDirectory) {
 	if (name !== 'screencast_start') return;
-	const target = typeof args.filePath === 'string' ? await realTarget(path.resolve(args.filePath)) : '';
-	const evidence = await realTarget(path.resolve(evidenceDirectory));
-	if (!target.startsWith(evidence + path.sep) || !/\.(webm|mp4)$/i.test(target))
+	const file = typeof args.filePath === 'string' ? args.filePath : '';
+	if (!/\.(webm|mp4)$/i.test(file) || !(await isUnderEvidence(file, evidenceDirectory)))
 		throw new Blocked(
 			'RECORDING_PATH',
 			'screencast_start needs a filePath ending in .webm or .mp4 under .verification/evidence/.'
 		);
 }
 
+// Judged by the real path of the nearest existing ancestor, so a symlinked folder cannot point a write elsewhere.
 export async function isUnderEvidence(file, evidenceDirectory) {
-	const target = await realTarget(path.resolve(file));
-	return target.startsWith((await realTarget(path.resolve(evidenceDirectory))) + path.sep);
+	const [target, evidence] = await Promise.all([
+		realTarget(path.resolve(file)),
+		realTarget(path.resolve(evidenceDirectory))
+	]);
+	return Boolean(target && evidence) && target.startsWith(evidence + path.sep);
 }
 
 async function realTarget(file) {
@@ -46,6 +48,14 @@ async function realTarget(file) {
 			return path.join(await fs.realpath(existing), path.relative(existing, file));
 		} catch (error) {
 			if (error.code !== 'ENOENT' || path.dirname(existing) === existing) throw error;
+			// A dangling symlink has no real location yet; a write through it lands wherever it points.
+			if (
+				await fs.lstat(existing).then(
+					(stat) => stat.isSymbolicLink(),
+					() => false
+				)
+			)
+				return null;
 			existing = path.dirname(existing);
 		}
 	}

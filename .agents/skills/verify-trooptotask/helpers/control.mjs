@@ -2684,7 +2684,7 @@ async function main() {
 		const videoFile = recordName ? path.join(runDir, `${recordName}.webm`) : undefined;
 		for (const file of [traceFile, videoFile].filter(Boolean))
 			if (
-				await fs.stat(file).then(
+				await fs.lstat(file).then(
 					() => true,
 					() => false
 				)

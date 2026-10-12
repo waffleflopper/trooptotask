@@ -81,6 +81,23 @@ it('judges an evidence folder by its real location, so a symlinked run folder is
 	}
 });
 
+it('refuses a recording or run folder that is a dangling symlink to somewhere outside', async () => {
+	const root = await mkdtemp(path.join(tmpdir(), 'dangling-path-'));
+	const evidence = path.join(root, 'evidence');
+	await mkdir(path.join(evidence, 'run'), { recursive: true });
+	await symlink(path.join(root, 'outside/sweep.webm'), path.join(evidence, 'run/sweep.webm'));
+	await symlink(path.join(root, 'outside/new-run'), path.join(evidence, 'run/new-run'));
+	try {
+		await expect(
+			assertRecordingPath('screencast_start', { filePath: path.join(evidence, 'run/sweep.webm') }, evidence)
+		).rejects.toMatchObject({ code: 'RECORDING_PATH' });
+		expect(await isUnderEvidence(path.join(evidence, 'run/new-run'), evidence)).toBe(false);
+		expect(await isUnderEvidence(path.join(evidence, 'run/new-run/deeper'), evidence)).toBe(false);
+	} finally {
+		await rm(root, { recursive: true, force: true });
+	}
+});
+
 it('signs a synthetic actor in through the visible login form before returning its page', async () => {
 	const state = { origin: `http://127.0.0.1:4100/${randomUUID()}` };
 	const fixture = {

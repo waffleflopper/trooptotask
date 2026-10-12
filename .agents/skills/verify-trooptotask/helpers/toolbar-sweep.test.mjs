@@ -112,6 +112,43 @@ test('reports, without hiding it, a step that folds two controls at once', () =>
 	assert.match(failures[1].detail, /export, import restored in one step/);
 });
 
+// [viewport width, folded count, search mode, row content width]. The sidebar docks at 768px, so the row
+// is wider just below it than just above it.
+function shellSweep(rows) {
+	const steps = rows.map(([width, folded, search, contentWidth]) => step([width, folded, search], { contentWidth }));
+	return { down: steps, up: [...steps].reverse().slice(1) };
+}
+const dockedRows = [
+	[1440, 0, 'field', 1168],
+	[1300, 1, 'field', 1028],
+	[1200, 2, 'field', 928],
+	[1100, 3, 'field', 828],
+	[1000, 4, 'field', 728],
+	[900, 5, 'field', 628],
+	[800, 6, 'field', 528]
+];
+
+test('judges direction by row width, so controls returning where the shell docks its sidebar are accepted', () => {
+	const rows = [
+		...dockedRows,
+		[700, 4, 'field', 658],
+		[600, 5, 'field', 558],
+		[500, 6, 'field', 458],
+		[400, 7, 'icon', 358]
+	];
+	assert.deepEqual(checkSweep(shellSweep(rows), { expect }).failures, []);
+});
+
+test('still rejects a control coming back while the row narrows', () => {
+	const rows = [...dockedRows, [700, 5, 'field', 428]];
+	const failures = checkSweep(shellSweep(rows), { expect }).failures;
+	assert.deepEqual(
+		failures.map((f) => [f.check, f.width]),
+		[['direction', 700]]
+	);
+	assert.match(failures[0].detail, /came back while the row narrowed going down/);
+});
+
 test('rejects search collapsing to an icon while a listed control is still on the row', () => {
 	const rows = table.map((row) => (row[0] === 900 ? [900, 5, 'icon'] : row));
 	const failures = checkSweep(sweep(rows), { expect }).failures;

@@ -186,15 +186,19 @@ export function checkSweep({ down, up }, { expect }) {
 			const width = list[i].width;
 			for (const id of removed) foldedAt[id] ??= width;
 			if (direction === 'up') for (const id of added) restoredAt[id] = width;
-			const wrong = direction === 'down' ? added : removed;
+			// The toolbar fits its own row, and the shell can change the row's width without the viewport moving
+			// the same way (the sidebar docks at 768px). Judge direction by the row's content width.
+			const rowDelta = list[i].read.contentWidth - list[i - 1].read.contentWidth;
+			const jump = Math.abs(rowDelta - (width - list[i - 1].width)) > tolerance;
+			const wrong = rowDelta > tolerance ? removed : rowDelta < -tolerance ? added : [...removed, ...added];
 			if (wrong.length)
 				fail(
 					'direction',
 					width,
-					`${wrong.join(', ')} ${direction === 'down' ? 'came back going down' : 'left going up'}.`
+					`${wrong.join(', ')} ${rowDelta > tolerance ? 'left while the row widened' : rowDelta < -tolerance ? 'came back while the row narrowed' : 'changed at the same row width'} going ${direction}.`
 				);
-			const moved = direction === 'down' ? removed : added;
-			if (moved.length > 1)
+			const moved = rowDelta > tolerance ? added : removed;
+			if (moved.length > 1 && !jump)
 				fail(
 					'one-at-a-time',
 					width,

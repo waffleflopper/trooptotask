@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Page from './+page.svelte';
 import { ictTasksStore } from '$features/critical-tasks';
@@ -404,24 +405,32 @@ describe('critical tasks page', () => {
 		expect(within(groupedTable).getByText('Bravo')).toBeTruthy();
 		expectBefore(screen.getByRole('link', { name: /Smith, Jane/ }), screen.getByRole('link', { name: /Jones, Jane/ }));
 
-		await fireEvent.input(screen.getByTestId('critical-tasks-search'), { target: { value: '11b' } });
+		await fireEvent.input(screen.getByRole('searchbox', { name: 'Search by name, rank, or MOS' }), {
+			target: { value: '11b' }
+		});
 		await waitFor(() => {
 			expect(screen.queryByRole('link', { name: /Smith, Jane/ })).toBeNull();
 			expect(screen.getByRole('link', { name: /Jones, Jane/ })).toBeTruthy();
 		});
 
-		await fireEvent.input(screen.getByTestId('critical-tasks-search'), { target: { value: 'sgt' } });
+		await fireEvent.input(screen.getByRole('searchbox', { name: 'Search by name, rank, or MOS' }), {
+			target: { value: 'sgt' }
+		});
 		await waitFor(() => {
 			expect(screen.getByRole('link', { name: /Smith, Jane/ })).toBeTruthy();
 			expect(screen.queryByRole('link', { name: /Jones, Jane/ })).toBeNull();
 		});
 
-		await fireEvent.input(screen.getByTestId('critical-tasks-search'), { target: { value: 'smith' } });
+		await fireEvent.input(screen.getByRole('searchbox', { name: 'Search by name, rank, or MOS' }), {
+			target: { value: 'smith' }
+		});
 		await waitFor(() => {
 			expect(screen.getByRole('link', { name: /Smith, Jane/ })).toBeTruthy();
 		});
 
-		await fireEvent.input(screen.getByTestId('critical-tasks-search'), { target: { value: '' } });
+		await fireEvent.input(screen.getByRole('searchbox', { name: 'Search by name, rank, or MOS' }), {
+			target: { value: '' }
+		});
 		await fireEvent.click(screen.getByRole('button', { name: 'A-Z' }));
 
 		await waitFor(() => {
@@ -431,6 +440,17 @@ describe('critical tasks page', () => {
 			expectBefore(
 				screen.getByRole('link', { name: /Jones, Jane/ }),
 				screen.getByRole('link', { name: /Smith, Jane/ })
+			);
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Group' }));
+		expect(screen.getByRole('button', { name: 'Group' }).getAttribute('aria-pressed')).toBe('true');
+		await waitFor(() => {
+			const regroupedTable = screen.getByRole('table', { name: 'Critical Tasks readiness matrix' });
+			expect(within(regroupedTable).getByText('Alpha')).toBeTruthy();
+			expectBefore(
+				screen.getByRole('link', { name: /Smith, Jane/ }),
+				screen.getByRole('link', { name: /Jones, Jane/ })
 			);
 		});
 	});
@@ -697,7 +717,9 @@ describe('critical tasks page', () => {
 
 		personnelStore.load([person()], 'org-1');
 		render(Page, { props: { data: { orgId: 'org-1' } } });
-		await fireEvent.input(screen.getByTestId('critical-tasks-search'), { target: { value: 'nobody' } });
+		await fireEvent.input(screen.getByRole('searchbox', { name: 'Search by name, rank, or MOS' }), {
+			target: { value: 'nobody' }
+		});
 
 		expect(await screen.findByText('No personnel match the current filters.')).toBeTruthy();
 		expect(screen.queryByRole('table', { name: 'Critical Tasks readiness matrix' })).toBeNull();
@@ -722,5 +744,85 @@ describe('critical tasks page', () => {
 		await fireEvent.click(within(alert).getByRole('button', { name: 'Retry' }));
 		await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
 		expect(fetchMock.mock.calls[1][0]).toBe('/org/org-1/api/critical-tasks/matrix/export');
+	});
+
+	it('exports the matrix with the group, gaps and trimmed search chosen in the toolbar', async () => {
+		personnelStore.load(
+			[
+				person({ id: 'smith', lastName: 'Smith', groupId: alphaGroup.id, groupName: alphaGroup.name }),
+				person({ id: 'jones', lastName: 'Jones', groupId: bravoGroup.id, groupName: bravoGroup.name })
+			],
+			'org-1'
+		);
+		groupCatalogHydration.load([alphaGroup, bravoGroup], 'org-1');
+		ictTasksStore.load([ictTask], 'org-1');
+		personnelIctCompletionsStore.load([], 'org-1');
+		const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 503 } as Response);
+		vi.stubGlobal('fetch', fetchMock);
+
+		render(Page, { props: { data: { orgId: 'org-1' } } });
+		const group = screen.getByRole('button', { name: 'Critical Tasks group filter' });
+		group.focus();
+		await fireEvent.keyDown(group, { key: 'ArrowDown' });
+		const alpha = await screen.findByRole('option', { name: /Alpha/ });
+		await fireEvent.pointerUp(alpha);
+		expect(group.textContent).toContain('Alpha');
+		await fireEvent.click(screen.getByRole('button', { name: 'Gaps only' }));
+		await fireEvent.input(screen.getByRole('searchbox', { name: 'Search by name, rank, or MOS' }), {
+			target: { value: '  smith ' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Export Excel' }));
+
+		await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+		expect(fetchMock.mock.calls[0][0]).toBe(
+			'/org/org-1/api/critical-tasks/matrix/export?groupFilter=group-alpha&search=smith&gapsOnly=true'
+		);
+	});
+
+	it('keeps actions a Critical Tasks viewer may not use out of More when every control folds', async () => {
+		mockOrgContext.role = 'member';
+		mockOrgContext.isOwner = false;
+		mockOrgContext.isPrivileged = false;
+		mockOrgContext.capabilityMap.criticalTasks = 'view';
+		personnelStore.load([person()], 'org-1');
+		groupCatalogHydration.load([alphaGroup], 'org-1');
+		ictTasksStore.load([ictTask], 'org-1');
+		personnelIctCompletionsStore.load([], 'org-1');
+		const observers: { callback: ResizeObserverCallback; targets: Element[] }[] = [];
+		vi.stubGlobal(
+			'ResizeObserver',
+			class {
+				targets: Element[] = [];
+				constructor(callback: ResizeObserverCallback) {
+					observers.push({ callback, targets: this.targets });
+				}
+				observe(target: Element) {
+					this.targets.push(target);
+				}
+				unobserve() {}
+				disconnect() {}
+			}
+		);
+
+		render(Page, { props: { data: { orgId: 'org-1' } } });
+		for (const { callback, targets } of observers) {
+			const entries = targets.map((target) => {
+				const box = [{ inlineSize: target.hasAttribute('data-toolbar-row') ? 1 : 40, blockSize: 32 }];
+				return { target, borderBoxSize: box, contentBoxSize: box };
+			});
+			callback(entries as unknown as ResizeObserverEntry[], {} as ResizeObserver);
+		}
+		await tick();
+
+		const more = screen.getByRole('button', { name: 'More Critical Tasks controls' });
+		more.focus();
+		await fireEvent.keyDown(more, { key: 'Enter' });
+		const menu = await screen.findByRole('menu');
+		expect(within(menu).getByRole('menuitem', { name: 'Group, All groups' })).toBeTruthy();
+		expect(within(menu).getByRole('menuitem', { name: 'Export Excel' })).toBeTruthy();
+		expect(within(menu).getByRole('menuitem', { name: 'Reports' })).toBeTruthy();
+		expect(within(menu).queryByRole('menuitem', { name: 'Task Library' })).toBeNull();
+		expect(within(menu).queryByRole('menuitem', { name: 'Import Completions' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Record Completion' })).toBeNull();
 	});
 });

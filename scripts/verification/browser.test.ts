@@ -1,7 +1,10 @@
 import { expect, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
+import { mkdir, mkdtemp, rm, symlink } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { runInNewContext } from 'node:vm';
-import { assertOwnedNavigation, driver } from './browser.mjs';
+import { assertOwnedNavigation, assertRecordingPath, driver, isUnderEvidence } from './browser.mjs';
 
 const origins = ['http://127.0.0.1:4100', 'http://127.0.0.1:5400'];
 
@@ -22,6 +25,113 @@ it('permits only owned absolute navigation while retaining native reload and ins
 	}
 	expect(() => assertOwnedNavigation('navigate_page', { type: 'reload' }, origins)).not.toThrow();
 	expect(() => assertOwnedNavigation('take_snapshot', { pageId: 7 }, origins)).not.toThrow();
+});
+
+it('admits a recording only as a webm or mp4 under the owned evidence directory', async () => {
+	const root = await mkdtemp(path.join(tmpdir(), 'recording-kinds-'));
+	const evidence = path.join(root, 'evidence');
+	await mkdir(evidence);
+	for (const filePath of [
+		`${evidence}/verify-trooptotask/run/sweep.webm`,
+		`${evidence}/verify-trooptotask/run/sweep.MP4`
+	])
+		await expect(assertRecordingPath('screencast_start', { filePath }, evidence)).resolves.toBeUndefined();
+	for (const args of [
+		{},
+		{ filePath: '/tmp/sweep.webm' },
+		{ filePath: `${evidence}/../browsers/sweep.webm` },
+		{ filePath: `${evidence}-other/sweep.webm` },
+		{ filePath: `${evidence}/run/sweep.gif` }
+	])
+		await expect(assertRecordingPath('screencast_start', args, evidence)).rejects.toMatchObject({
+			code: 'RECORDING_PATH'
+		});
+	await expect(assertRecordingPath('screencast_stop', {}, evidence)).resolves.toBeUndefined();
+	await rm(root, { recursive: true, force: true });
+});
+
+it('refuses a recording whose evidence folder is a symlink to somewhere else', async () => {
+	const root = await mkdtemp(path.join(tmpdir(), 'recording-path-'));
+	const evidence = path.join(root, 'evidence');
+	await mkdir(path.join(root, 'outside'));
+	await mkdir(evidence);
+	await symlink(path.join(root, 'outside'), path.join(evidence, 'escape'));
+	try {
+		await expect(
+			assertRecordingPath('screencast_start', { filePath: path.join(evidence, 'escape/sweep.webm') }, evidence)
+		).rejects.toMatchObject({ code: 'RECORDING_PATH' });
+		await expect(
+			assertRecordingPath('screencast_start', { filePath: path.join(evidence, 'run/sweep.webm') }, evidence)
+		).resolves.toBeUndefined();
+	} finally {
+		await rm(root, { recursive: true, force: true });
+	}
+});
+
+it('judges an evidence folder by its real location, so a symlinked run folder is outside', async () => {
+	const root = await mkdtemp(path.join(tmpdir(), 'evidence-path-'));
+	const evidence = path.join(root, 'evidence');
+	await mkdir(path.join(root, 'outside'));
+	await mkdir(evidence);
+	await symlink(path.join(root, 'outside'), path.join(evidence, 'escape'));
+	try {
+		expect(await isUnderEvidence(path.join(evidence, 'escape/new-run'), evidence)).toBe(false);
+		expect(await isUnderEvidence(path.join(evidence, 'run/new-run'), evidence)).toBe(true);
+		expect(await isUnderEvidence(evidence, evidence)).toBe(false);
+		expect(await isUnderEvidence(path.join(evidence, '../outside/new-run'), evidence)).toBe(false);
+	} finally {
+		await rm(root, { recursive: true, force: true });
+	}
+});
+
+it('refuses a recording or run folder that is a dangling symlink to somewhere outside', async () => {
+	const root = await mkdtemp(path.join(tmpdir(), 'dangling-path-'));
+	const evidence = path.join(root, 'evidence');
+	await mkdir(path.join(evidence, 'run'), { recursive: true });
+	await symlink(path.join(root, 'outside/sweep.webm'), path.join(evidence, 'run/sweep.webm'));
+	await symlink(path.join(root, 'outside/new-run'), path.join(evidence, 'run/new-run'));
+	try {
+		await expect(
+			assertRecordingPath('screencast_start', { filePath: path.join(evidence, 'run/sweep.webm') }, evidence)
+		).rejects.toMatchObject({ code: 'RECORDING_PATH' });
+		expect(await isUnderEvidence(path.join(evidence, 'run/new-run'), evidence)).toBe(false);
+		expect(await isUnderEvidence(path.join(evidence, 'run/new-run/deeper'), evidence)).toBe(false);
+	} finally {
+		await rm(root, { recursive: true, force: true });
+	}
+});
+
+it('refuses a path that climbs out through a symlink with ..', async () => {
+	const root = await mkdtemp(path.join(tmpdir(), 'climb-path-'));
+	const evidence = path.join(root, 'evidence');
+	await mkdir(path.join(root, 'outside/sub'), { recursive: true });
+	await mkdir(evidence);
+	await symlink(path.join(root, 'outside/sub'), path.join(evidence, 'escape'));
+	try {
+		await expect(
+			assertRecordingPath('screencast_start', { filePath: `${evidence}/escape/../escaped.webm` }, evidence)
+		).rejects.toMatchObject({ code: 'RECORDING_PATH' });
+		expect(await isUnderEvidence(`${evidence}/escape/../new-run`, evidence)).toBe(false);
+		expect(await isUnderEvidence(`${evidence}/run/../run/new-run`, evidence)).toBe(false);
+	} finally {
+		await rm(root, { recursive: true, force: true });
+	}
+});
+
+it('accepts a path under an evidence root that is not created yet, but not under a dangling one', async () => {
+	const root = await mkdtemp(path.join(tmpdir(), 'missing-root-'));
+	const evidence = path.join(root, '.verification/evidence');
+	const dangling = path.join(root, 'dangling-evidence');
+	await symlink(path.join(root, 'missing'), dangling);
+	try {
+		await expect(
+			assertRecordingPath('screencast_start', { filePath: `${evidence}/verify-trooptotask/run/a.webm` }, evidence)
+		).resolves.toBeUndefined();
+		expect(await isUnderEvidence(`${evidence}/verify-trooptotask/run`, evidence)).toBe(true);
+		expect(await isUnderEvidence(`${dangling}/run`, dangling)).toBe(false);
+	} finally {
+		await rm(root, { recursive: true, force: true });
+	}
 });
 
 it('signs a synthetic actor in through the visible login form before returning its page', async () => {

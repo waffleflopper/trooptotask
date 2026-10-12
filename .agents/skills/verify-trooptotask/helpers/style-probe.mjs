@@ -46,6 +46,8 @@ export const defaultStyleSelectors = [
 	'[data-slot="workspace-toolbar"] [data-slot="select-trigger"]',
 	'[data-slot="workspace-toolbar"] [data-slot="input-group"]',
 	'[data-slot="workspace-toolbar"] [data-workspace-toolbar-action-label]',
+	'[data-slot="workspace-toolbar"] [data-toolbar-item] [data-slot="button"]',
+	'[data-slot="workspace-toolbar"] [data-toolbar-more] [data-slot="button"]',
 	'[data-slot="empty-title"]',
 	'[role="listbox"]',
 	'[role="option"]',
@@ -83,7 +85,8 @@ export function readStyleProbe(target, selectors, properties, limit) {
 	for (const selector of selectors) {
 		let nodes;
 		try {
-			nodes = [...document.querySelectorAll(selector)];
+			// A toolbar's hidden measuring copies would double every match and carry no visible style.
+			nodes = [...document.querySelectorAll(selector)].filter((n) => !n.closest('[data-toolbar-measure]'));
 		} catch {
 			entries.push({ selector, error: 'invalid selector' });
 			continue;

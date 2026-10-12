@@ -9,6 +9,9 @@ import {
 	candidate,
 	completed,
 	files,
+	onPath,
+	recording,
+	recordingTransition,
 	runLogged,
 	cleanEnvironment,
 	processIdentity,
@@ -127,4 +130,35 @@ it('reports a missing build executable instead of leaving a pending completion',
 		path.join(directory, 'build.log')
 	);
 	await expect(completed(child, 'Production build')).rejects.toThrow();
+});
+
+it('reports ffmpeg as an unavailable recording prerequisite instead of failing silently', async () => {
+	const withFfmpeg = await mkdtemp(path.join(tmpdir(), 't2t-ffmpeg-present-'));
+	const without = await mkdtemp(path.join(tmpdir(), 't2t-ffmpeg-absent-'));
+	directories.push(withFfmpeg, without);
+	await writeFile(path.join(withFfmpeg, 'ffmpeg'), '#!/bin/sh\n', { mode: 0o755 });
+
+	expect(await onPath('ffmpeg', withFfmpeg)).toBe(path.join(withFfmpeg, 'ffmpeg'));
+	expect(await recording(withFfmpeg)).toEqual({ available: true, ffmpeg: path.join(withFfmpeg, 'ffmpeg') });
+	const missing = await recording(`${without}${path.delimiter}${withFfmpeg}-nope`);
+	expect(missing.available).toBe(false);
+	expect(missing.message).toContain('ffmpeg is not on the clean PATH');
+});
+
+it('tracks a started and stopped recording only from the native tool replies', () => {
+	const reply = (text: string) => ({ content: [{ type: 'text', text }] });
+	expect(
+		recordingTransition(
+			'screencast_start',
+			reply('Screencast recording started. The recording will be saved to /x.webm.')
+		)
+	).toBe('started');
+	expect(
+		recordingTransition('screencast_start', reply('Error: a screencast recording is already in progress.'))
+	).toBeNull();
+	expect(
+		recordingTransition('screencast_stop', reply('The screencast recording has been stopped and saved to /x.webm.'))
+	).toBe('stopped');
+	expect(recordingTransition('screencast_stop', reply('Error: no active screencast recording to stop.'))).toBeNull();
+	expect(recordingTransition('take_snapshot', reply('Screencast recording started'))).toBeNull();
 });

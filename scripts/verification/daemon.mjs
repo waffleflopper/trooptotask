@@ -15,6 +15,8 @@ import {
 	writeJSON,
 	cleanEnvironment,
 	browser,
+	recording,
+	recordingTransition,
 	reservePort,
 	environment,
 	runLogged,
@@ -28,7 +30,7 @@ import {
 	sleep
 } from './core.mjs';
 import { seed } from './fixtures.mjs';
-import { driver, assertOwnedNavigation, textContent } from './browser.mjs';
+import { driver, assertOwnedNavigation, assertRecordingPath, textContent } from './browser.mjs';
 import { openCapturedLink } from './outbound-controls.mjs';
 import { capturePrint } from './print-capture.mjs';
 
@@ -39,6 +41,8 @@ await writeJSON(path.join(session, 'session.json'), state);
 let app, client, transport, server, port;
 let sourceControl, sourceControlConfig;
 let ownedOrigins = [];
+let recordingActive = false;
+const evidenceDirectory = path.join(root, 'evidence');
 let closing = false;
 let interrupted = false;
 for (const sig of ['SIGTERM', 'SIGINT'])
@@ -88,6 +92,13 @@ async function cleanup() {
 		if (sourceControl && app?.exitCode === null && !app.signalCode) {
 			await Promise.allSettled(['restore', 'mail-restore', 'fault-restore'].map((action) => serverSource(action)));
 		}
+		if (recordingActive) {
+			try {
+				await call('screencast_stop', {}, 15000);
+			} catch {
+				// The DevTools process is closed below, which also ends its recorder.
+			}
+		}
 		const results = await Promise.allSettled([
 			(async () => {
 				const mcpProcess = state.mcpProcess ?? (transport?.pid && (await processIdentity(transport.pid)));
@@ -127,6 +138,7 @@ async function fresh() {
 }
 async function call(name, args = {}, timeout = 45000) {
 	assertOwnedNavigation(name, args, ownedOrigins);
+	await assertRecordingPath(name, args, evidenceDirectory);
 	const result = await client.callTool({ name, arguments: args }, undefined, { timeout });
 	if (result.isError)
 		throw new Blocked(
@@ -137,11 +149,14 @@ async function call(name, args = {}, timeout = 45000) {
 				.join(' ')
 				.slice(0, 1200)}`
 		);
+	const change = recordingTransition(name, result);
+	if (change) recordingActive = change === 'started';
 	return result;
 }
 
 try {
 	state.browser = await browser(true);
+	state.recording = await recording();
 	continuing();
 	state.candidate = await candidate();
 	state.revision = (await execute('git', ['rev-parse', 'HEAD'], { cwd: repository })).stdout.trim();
@@ -249,6 +264,8 @@ try {
 			`--userDataDir=${path.join(session, 'chrome-profile')}`,
 			'--no-usage-statistics',
 			'--no-performance-crux',
+			'--experimentalScreencast',
+			'--experimentalScreencastFps=30',
 			'--redactNetworkHeaders',
 			`--workspace=${root}`,
 			`--allowedUrlPattern=${state.origin}/*`,
@@ -319,6 +336,7 @@ try {
 										candidate: state.candidate,
 										origin: state.origin,
 										browser: state.browser,
+										recording: state.recording,
 										revision: state.revision,
 										session: state.id
 									};

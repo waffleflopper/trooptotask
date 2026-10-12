@@ -12,6 +12,7 @@ import {
 	sessions,
 	root,
 	browser,
+	recording,
 	candidate,
 	readJSON,
 	writeJSON,
@@ -43,7 +44,7 @@ const help = `TroopToTask verification — owned synthetic production app + pers
 npm run verify:app -- <command> [--worker 1|2]
 
 setup                 Detect Chrome >=149, or install pinned Chrome for Testing; never personal profiles
-info                  Read-only dependency/candidate/worker summary
+info                  Read-only dependency/candidate/worker summary, including ffmpeg for recordings
 launch                Copy this candidate, create isolated provider/fixtures, build, launch app and browser
 doctor                Prove app/provider ownership and current candidate; refuses stale instances
 restart               Cleanup this worker, then launch the current candidate
@@ -61,7 +62,8 @@ Examples:
   npm run verify:app -- tool take_screenshot '{"pageId":1}'
 
 Native MCP supplies click/fill/press_key, wait_for, DOM/a11y snapshots, network request/response,
-console, screenshots, and performance traces. Use tools for schemas, not one-off browser scripts.
+console, screenshots, performance traces, and screencast_start/screencast_stop (needs ffmpeg; info
+reports it, files stay under .verification/evidence, cleanup stops a running recording). Use tools for schemas, not one-off browser scripts.
 The browser only allows the owned app/provider origins. No attach-to-URL/profile option exists.
 JSON stdout (except help); exit 0 success, 1 behavioral FAIL, 2 BLOCKED/INCONCLUSIVE.
 Private state: ${sessions}
@@ -231,6 +233,7 @@ try {
 					candidate: await candidate(),
 					worker,
 					browser: await browser(),
+					recording: await recording(),
 					session
 				};
 				break;

@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import { Blocked, sleep } from './core.mjs';
 
 // Reuse normally signed-in isolated contexts within one owned browser.
@@ -17,6 +19,48 @@ export function assertOwnedNavigation(name, args, ownedOrigins) {
 			'URL_NOT_OWNED',
 			'Navigation requires an absolute URL on the owned app or provider origin, without credentials. Use doctor for the app origin.'
 		);
+}
+
+// Recordings are evidence: they stay under the owned evidence directory as .webm or .mp4.
+export async function assertRecordingPath(name, args, evidenceDirectory) {
+	if (name !== 'screencast_start') return;
+	const file = typeof args.filePath === 'string' ? args.filePath : '';
+	if (!/\.(webm|mp4)$/i.test(file) || !(await isUnderEvidence(file, evidenceDirectory)))
+		throw new Blocked(
+			'RECORDING_PATH',
+			'screencast_start needs a filePath ending in .webm or .mp4 under .verification/evidence/, without .. or a symlink.'
+		);
+}
+
+// A write stays inside the owned evidence directory only if the path has no `..` and nothing below the root is
+// a symlink; then the path as written is where the bytes land, whatever links or later folders exist.
+export async function isUnderEvidence(file, evidenceDirectory) {
+	if (file.split(/[\\/]/).includes('..')) return false;
+	const root = path.resolve(evidenceDirectory);
+	const relative = path.relative(root, path.resolve(file));
+	if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) return false;
+	const rootStat = await fs.stat(root).catch((error) => {
+		if (error.code === 'ENOENT') return null;
+		throw error;
+	});
+	// A root not created yet holds nothing to follow; a dangling link at the root would send the write elsewhere.
+	if (!rootStat)
+		return !(await fs.lstat(root).then(
+			(stat) => stat.isSymbolicLink(),
+			() => false
+		));
+	if (!rootStat.isDirectory()) return false;
+	let current = root;
+	for (const part of relative.split(path.sep)) {
+		current = path.join(current, part);
+		const stat = await fs.lstat(current).catch((error) => {
+			if (error.code === 'ENOENT') return null;
+			throw error;
+		});
+		if (!stat) return true;
+		if (stat.isSymbolicLink()) return false;
+	}
+	return true;
 }
 
 export const textContent = (result) =>

@@ -7,6 +7,8 @@ import Search from './workspace-toolbar-search.svelte';
 import MultiSelect from './workspace-toolbar-multi-select.svelte';
 import Nav from './workspace-toolbar-nav.svelte';
 
+export { default as WorkspaceToolbar } from './workspace-toolbar-data.svelte';
+
 export type {
 	WorkspaceToolbarAction,
 	WorkspaceToolbarActionVariant,
@@ -15,5 +17,7 @@ export type {
 	WorkspaceToolbarNavItem,
 	WorkspaceToolbarOption
 } from './types.js';
+
+export type { ToolbarAction, ToolbarItem, ToolbarOption, WorkspaceToolbarProps } from './toolbar-types.js';
 
 export { Root, Group, Meta, Actions, Select, Search, MultiSelect, Nav };

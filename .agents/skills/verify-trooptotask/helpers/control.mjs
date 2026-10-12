@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { registeredFixtureFileWrite } from '../../../../scripts/verification/registered-file-upload.mjs';
+import { isUnderEvidence } from '../../../../scripts/verification/browser.mjs';
 // Controls only this checkout's owned synthetic worker. No claim runner is used.
 import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
@@ -15,7 +16,8 @@ import {
 	readJSON,
 	writeJSON,
 	processIdentity,
-	environment
+	environment,
+	recordingTransition
 } from '../../../../scripts/verification/core.mjs';
 import { installNetworkControl } from './network-control.mjs';
 import { installBusyControl } from './busy-control.mjs';
@@ -24,6 +26,7 @@ import { seedDeletionSources, requestDeletion, requestPersonnelArchiveBatch } fr
 import { requestOnboarding, readOnboardingRequests } from './onboarding-request.mjs';
 import { installFeedbackControl } from './feedback-control.mjs';
 import { readStyleProbe, diffStyleProbes, styleProperties, resolveStyleSelectors } from './style-probe.mjs';
+import { parseSweepArguments, runSweep, toolbarReadSource } from './toolbar-sweep.mjs';
 import { observePrint } from './print-observation.mjs';
 import { seedPersonnelRetention, readRetentionFiles } from './personnel-retention.mjs';
 import { seedArtifactRetention } from './artifact-retention.mjs';
@@ -2667,6 +2670,84 @@ async function main() {
 		note({ differences: differences.length, details: differences });
 		return;
 	}
+	if (command === 'toolbar-sweep') {
+		const { pageId, label, runName, expectIds, pinnedIds, search, from, to, step, height, recordName } =
+			parseSweepArguments(args);
+		const runDir = path.resolve(runName);
+		if (!(await isUnderEvidence(runDir, evidenceRoot)))
+			throw new Error('RUN_DIR must be a directory under the skill evidence directory.');
+		if (recordName && !doctor.recording?.available)
+			throw new Error(
+				doctor.recording?.message ?? 'This worker reports no recording prerequisite; run restart on this checkout.'
+			);
+		const traceFile = path.join(runDir, 'toolbar-sweep.json');
+		const videoFile = recordName ? path.join(runDir, `${recordName}.webm`) : undefined;
+		for (const file of [traceFile, videoFile].filter(Boolean))
+			if (
+				await fs.lstat(file).then(
+					() => true,
+					() => false
+				)
+			)
+				throw new Error(`${file} already exists; use a new RUN_DIR or name.`);
+		await fs.mkdir(runDir, { recursive: true });
+		const theme = await evaluate(state, pageId, `() => document.documentElement.dataset.theme ?? null`);
+		const recorded = async (name, args, expected) => {
+			const result = await tool(state, name, args);
+			if (recordingTransition(name, result) !== expected)
+				throw new Error(`${name} did not confirm: ${text(result).slice(0, 300)}`);
+		};
+		const driven = {
+			resize: (width, tall) => tool(state, 'resize_page', { pageId, width, height: tall }),
+			read: () => evaluate(state, pageId, toolbarReadSource(label, doctor.origin)),
+			startRecording: (filePath) => recorded('screencast_start', { pageId, filePath }, 'started'),
+			stopRecording: () => recorded('screencast_stop', { pageId }, 'stopped')
+		};
+		const result = await runSweep({
+			page: driven,
+			expect: expectIds,
+			pinned: pinnedIds,
+			search,
+			from,
+			to,
+			step,
+			height,
+			recording: videoFile,
+			sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+			progress: (message) => process.stderr.write(`toolbar-sweep ${message}\n`),
+			write: async (trace) =>
+				fs.writeFile(
+					traceFile,
+					JSON.stringify(
+						{
+							label,
+							theme,
+							candidate: doctor.candidate,
+							origin: doctor.origin,
+							browser: doctor.browser?.version,
+							...trace
+						},
+						null,
+						'\t'
+					) + '\n',
+					{ flag: 'wx' }
+				)
+		});
+		const { verdict } = result;
+		note({
+			saved: traceFile,
+			recording: result.recording,
+			ok: verdict.ok,
+			steps: { down: result.down.length, up: result.up.length },
+			failureCount: verdict.failures.length,
+			failures: verdict.failures.slice(0, 20),
+			foldedAt: verdict.foldedAt,
+			restoredAt: verdict.restoredAt,
+			error: result.error
+		});
+		if (!verdict.ok) process.exitCode = 1;
+		return;
+	}
 	if (command === 'workbook') {
 		const target = path.resolve(args[0] ?? '');
 		if (!target.startsWith(evidenceRoot + path.sep))
@@ -2686,7 +2767,7 @@ async function main() {
 		return;
 	}
 	throw new Error(
-		'Use fixture, actor, rows, access-request, auth-link, setup-link, mail, mail-link, fault, mfa-code, password, password-commit, settings-request, deletion-request, personnel-archive-batch, deletion-review-failure, audit-training-update, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, private-buckets, roster-files, roster-replace, signed-download, calendar-grant, dashboard-access, server-source, seed, clean-seeds, retention, network, busy, export, print, style-probe, style-diff, or workbook.'
+		'Use fixture, actor, rows, access-request, auth-link, setup-link, mail, mail-link, fault, mfa-code, password, password-commit, settings-request, deletion-request, personnel-archive-batch, deletion-review-failure, audit-training-update, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, private-buckets, roster-files, roster-replace, signed-download, calendar-grant, dashboard-access, server-source, seed, clean-seeds, retention, network, busy, export, print, style-probe, style-diff, toolbar-sweep, or workbook.'
 	);
 }
 

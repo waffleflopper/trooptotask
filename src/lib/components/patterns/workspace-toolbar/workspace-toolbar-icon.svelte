@@ -13,9 +13,11 @@
 
 	type Props = {
 		icon?: WorkspaceToolbarIcon;
+		/** Keep an icon-sized empty box when there is no icon, so sibling labels line up. */
+		reserve?: boolean;
 	};
 
-	let { icon }: Props = $props();
+	let { icon, reserve = false }: Props = $props();
 
 	const icons = {
 		'book-open': BookOpen,
@@ -35,4 +37,6 @@
 
 {#if Icon}
 	<Icon aria-hidden="true" />
+{:else if reserve}
+	<span aria-hidden="true" class="size-4 shrink-0"></span>
 {/if}

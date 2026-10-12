@@ -353,10 +353,10 @@
 </script>
 
 <Tooltip.Provider>
-	<Sidebar.Provider class="below-banner min-h-0 overflow-hidden bg-background">
+	<Sidebar.Provider class="below-banner relative min-h-0 overflow-hidden bg-background">
 		<a
 			href="#main-content"
-			class="sr-only focus:not-sr-only focus:fixed focus:top-[calc(var(--banner-height,0px)+0.75rem)] focus:left-4 focus:z-50 focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:shadow-md"
+			class="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-4 focus:z-50 focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:shadow-md"
 			>Skip to main content</a
 		>
 		<Sidebar.Root collapsible="icon">

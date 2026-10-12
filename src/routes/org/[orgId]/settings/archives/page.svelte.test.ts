@@ -74,7 +74,7 @@ describe('Archived personnel permanent delete', () => {
 			({ archivesSettings: { sections: { archivedPersonnel: { ...archivesSettings, rows } } } }) as never;
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
 		const view = render(Page, {
-			props: { data: dataWith(remaining === 0 ? archivesSettings.rows : [archivesSettings.rows[0], second]) }
+			props: { data: dataWith(remaining === 0 ? archivesSettings.rows : [archivesSettings.rows[0], second]) } as never
 		});
 		invalidateAllMock.mockImplementation(() => view.rerender({ data: dataWith(remaining === 0 ? [] : [second]) }));
 

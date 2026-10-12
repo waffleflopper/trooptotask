@@ -136,9 +136,7 @@ describe('fitToolbar', () => {
 				keepOrder.slice(0, fit.visibleIds.length)
 			);
 			expect(fit.visibleIds.length, `non-decreasing count at ${available}px`).toBeGreaterThanOrEqual(previousCount);
-			expect(!fit.searchCollapsed || fit.visibleIds.length === 0, `search collapses last at ${available}px`).toBe(
-				true
-			);
+			expect(!fit.searchCollapsed || fit.visibleIds.length === 0, `search collapses last at ${available}px`).toBe(true);
 			expect(previousCollapsed || !fit.searchCollapsed, `search never re-collapses at ${available}px`).toBe(true);
 			previousCount = fit.visibleIds.length;
 			previousCollapsed = fit.searchCollapsed;

@@ -11,6 +11,7 @@
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 	let loading = $state(false);
+	let rankError = $state<string>();
 </script>
 
 <svelte:head>
@@ -27,7 +28,12 @@
 	<Card.Content>
 		<form
 			method="POST"
-			use:enhance={() => {
+			use:enhance={({ formData, cancel }) => {
+				if (String(formData.get('rank') ?? '') === '') {
+					rankError = 'Select a rank.';
+					return cancel();
+				}
+				rankError = undefined;
 				loading = true;
 				return async ({ update }) => {
 					loading = false;
@@ -66,10 +72,16 @@
 				</Field.Root>
 			</div>
 
-			<Field.Root>
+			<Field.Root data-invalid={rankError ? true : undefined}>
 				<Field.Label for="rank">Rank</Field.Label>
 				<Field.Control>
-					<NativeSelect.Root id="rank" name="rank" required value={data.profile?.rank ?? ''}>
+					<NativeSelect.Root
+						id="rank"
+						name="rank"
+						aria-required="true"
+						value={data.profile?.rank ?? ''}
+						onchange={() => (rankError = undefined)}
+					>
 						<NativeSelect.Option value="">Select rank</NativeSelect.Option>
 						{#each data.ranks as rank (rank)}
 							<NativeSelect.Option value={rank}>{rank}</NativeSelect.Option>
@@ -79,6 +91,7 @@
 				<Field.Description>
 					This account-level rank uses the registration rank list and is not connected to any Organization rank catalog.
 				</Field.Description>
+				{#if rankError}<Field.Error>{rankError}</Field.Error>{/if}
 			</Field.Root>
 
 			<div class="flex justify-end">

@@ -316,6 +316,12 @@
 			border-color var(--transition-fast);
 	}
 
+	a:not([data-slot]):focus-visible {
+		outline: 2px solid transparent;
+		border-radius: var(--radius-sm);
+		box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+	}
+
 	::-webkit-scrollbar {
 		width: 8px;
 		height: 8px;

@@ -65,6 +65,27 @@ describe('Archived personnel permanent delete', () => {
 		expect((screen.getByLabelText('Type the name to confirm') as HTMLInputElement).value).toBe('SGT Rivera, Monica');
 		expect(invalidateAllMock).not.toHaveBeenCalled();
 	});
+	it.each([
+		{ remaining: 0, focused: () => screen.getByRole('heading', { name: 'Archived Records' }) },
+		{ remaining: 1, focused: () => screen.getAllByRole('button', { name: 'Restore' })[0] }
+	])('moves focus to a stable target after deleting a row leaves $remaining rows', async ({ remaining, focused }) => {
+		const second = { ...archivesSettings.rows[0], id: 'person-2', lastName: 'Chen', firstName: 'Lee' };
+		const dataWith = (rows: typeof archivesSettings.rows) =>
+			({ archivesSettings: { sections: { archivedPersonnel: { ...archivesSettings, rows } } } }) as never;
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
+		const view = render(Page, {
+			props: { data: dataWith(remaining === 0 ? archivesSettings.rows : [archivesSettings.rows[0], second]) } as never
+		});
+		invalidateAllMock.mockImplementation(() => view.rerender({ data: dataWith(remaining === 0 ? [] : [second]) }));
+
+		await fireEvent.click(screen.getAllByRole('button', { name: 'Delete' })[0]);
+		const confirmation = (await screen.findByLabelText('Type the name to confirm')) as HTMLInputElement;
+		await fireEvent.input(confirmation, { target: { value: 'SGT Rivera, Monica' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Permanently Delete' }));
+
+		await waitFor(() => expect(document.activeElement).toBe(focused()));
+	});
+
 	it('holds the other actions of a row while its Restore is in flight', async () => {
 		let respond!: (response: Response) => void;
 		vi.stubGlobal(

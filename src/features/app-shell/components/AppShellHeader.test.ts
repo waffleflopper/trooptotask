@@ -271,16 +271,16 @@ describe('responsive sidebar interaction', () => {
 		expect(screen.getByRole('dialog', { name: 'Sidebar' })).toBeTruthy();
 	});
 
-	it('opens and dismisses the Dashboard tooltip on desktop Home hover', async () => {
+	it('names the collapsed Home link tooltip after the link and dismisses it with Escape', async () => {
 		setWindowSize(1024, 768);
 		renderHeader();
 		await fireEvent.click(within(screen.getByRole('banner')).getByRole('button', { name: 'Toggle Sidebar' }));
 		const home = screen.getByRole('link', { name: 'Home' });
 		await fireEvent.pointerEnter(home, { pointerType: 'mouse' });
 		await fireEvent.pointerMove(home, { pointerType: 'mouse' });
-		await screen.findByText('Dashboard');
+		expect((await screen.findByRole('tooltip')).textContent?.trim()).toBe('Home');
 		await fireEvent.keyDown(home, { key: 'Escape' });
-		await waitFor(() => expect(screen.queryByText('Dashboard')).toBeNull());
+		await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull());
 		expect(home.getAttribute('href')).toBe('/org/org-1');
 	});
 
@@ -290,13 +290,11 @@ describe('responsive sidebar interaction', () => {
 		renderHeader();
 		await fireEvent.click(within(screen.getByRole('banner')).getByRole('button', { name: 'Toggle Sidebar' }));
 		const home = screen.getByRole('link', { name: 'Home' });
-		const breadcrumbs = screen.getByLabelText('Current section');
-		const tooltipCaption = () => screen.queryAllByText('Dashboard').find((element) => !breadcrumbs.contains(element));
 		await fireEvent.pointerEnter(home, { pointerType: 'mouse' });
 		await fireEvent.pointerMove(home, { pointerType: 'mouse' });
-		await waitFor(() => expect(tooltipCaption()).toBeTruthy());
+		await screen.findByRole('tooltip');
 		await fireEvent.click(home);
-		await waitFor(() => expect(tooltipCaption()).toBeUndefined());
+		await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull());
 	});
 });
 
@@ -446,6 +444,51 @@ describe('notification recovery', () => {
 		expect(screen.getByRole('button', { name: '2 unread notifications' })).toBeTruthy();
 		expect(goto).not.toHaveBeenCalled();
 	});
+
+	it.each(['HTTP', 'transport', 'application'])(
+		'does not report an empty inbox after a %s notification count failure, and recovers on reopen',
+		async (failure) => {
+			let countRequests = 0;
+			vi.mocked(fetch).mockImplementation(async (input) => {
+				if (!String(input).includes('notification-count')) return notificationResponse([]);
+				if (++countRequests === 1) {
+					if (failure === 'transport') throw new Error('Connection failed');
+					if (failure === 'application') return notificationResponse({ ok: false });
+					return notificationResponse(null, false);
+				}
+				return notificationResponse({ ok: true, unreadNotificationCount: 0 });
+			});
+			renderHeader();
+			await fireEvent.click(screen.getByRole('button', { name: 'Notifications' }));
+			await screen.findByRole('menuitem', { name: /Could not load notifications/ });
+			expect(screen.queryByRole('menuitem', { name: 'No notifications' })).toBeNull();
+			await fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+			await fireEvent.click(screen.getByRole('button', { name: 'Notifications' }));
+			await screen.findByRole('menuitem', { name: 'No notifications' });
+			expect(countRequests).toBe(2);
+		}
+	);
+
+	it('shows the retry as loading, never the stale failure, when the bell opens after a count failure', async () => {
+		let countRequests = 0;
+		let releaseRetry: (response: Response) => void = () => {};
+		vi.mocked(fetch).mockImplementation(async (input) => {
+			if (!String(input).includes('notification-count')) return notificationResponse([]);
+			if (++countRequests === 1) return notificationResponse(null, false);
+			return new Promise<Response>((resolve) => (releaseRetry = resolve));
+		});
+		renderHeader();
+		await waitFor(() => expect(countRequests).toBe(1));
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Notifications' }));
+		await screen.findByRole('menuitem', { name: 'Loading notifications...' });
+		expect(screen.queryByRole('menuitem', { name: /Could not load notifications/ })).toBeNull();
+		expect(countRequests).toBe(2);
+
+		releaseRetry(notificationResponse({ ok: true, unreadNotificationCount: 0 }));
+		await screen.findByRole('menuitem', { name: 'No notifications' });
+	});
 });
 
 describe('AppShellHeader', () => {
@@ -474,6 +517,28 @@ describe('AppShellHeader', () => {
 		expect(main.id).toBe('main-content');
 		expect(main.textContent).toBe('Roster page');
 		expect(screen.getByRole('link', { name: 'Skip to main content' }).getAttribute('href')).toBe('#main-content');
+	});
+
+	it('puts the skip link before every sidebar tab stop on desktop', () => {
+		renderHeader();
+
+		const skip = screen.getByRole('link', { name: 'Skip to main content' });
+		const sidebarStops = [
+			screen.getByRole('button', { name: 'Switch organization' }),
+			screen.getByRole('link', { name: 'Home' })
+		];
+		for (const stop of sidebarStops) {
+			expect(skip.compareDocumentPosition(stop) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+		}
+	});
+
+	it('puts the skip link before an announcement banner', () => {
+		const banner = createRawSnippet(() => ({ render: () => '<button type="button">Dismiss announcement</button>' }));
+		renderHeader({ banner });
+
+		const skip = screen.getByRole('link', { name: 'Skip to main content' });
+		const dismiss = screen.getByRole('button', { name: 'Dismiss announcement' });
+		expect(skip.compareDocumentPosition(dismiss) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 	});
 
 	it('renders a feedback utility button when a feedback handler is provided', async () => {

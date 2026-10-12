@@ -6,6 +6,7 @@
 	import { isOrgNavItemActive, type OrgNavItem } from './orgNavigation';
 	let { navItems, pathname }: { navItems: OrgNavItem[]; pathname: string } = $props();
 	const sidebar = Sidebar.useSidebar();
+	const linkName = (item: OrgNavItem) => item.compactLabel ?? item.label;
 	afterNavigate(() => {
 		if (sidebar.isMobile) sidebar.setOpenMobile(false);
 	});
@@ -14,7 +15,7 @@
 <Sidebar.Menu>
 	{#each navItems as item (item.href)}
 		<Sidebar.MenuItem>
-			<Sidebar.MenuButton isActive={isOrgNavItemActive(pathname, item)} tooltipContent={item.label}>
+			<Sidebar.MenuButton isActive={isOrgNavItemActive(pathname, item)} tooltipContent={linkName(item)}>
 				{#snippet child({ props })}
 					<a
 						{...props}
@@ -22,7 +23,7 @@
 						aria-current={isOrgNavItemActive(pathname, item) ? 'page' : undefined}
 					>
 						<OrgNavIcon icon={item.icon} />
-						<span>{item.compactLabel ?? item.label}</span>
+						<span>{linkName(item)}</span>
 						{#if item.badgeLabel}
 							<Sidebar.MenuBadge>{item.badgeLabel}</Sidebar.MenuBadge>
 						{/if}

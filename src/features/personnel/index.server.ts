@@ -24,7 +24,6 @@ export { countArchivedPersonnel, loadRosterPersonnel } from './rosterRead.server
 export { createSupabasePersonnelNamesReader } from './personnelNames.server';
 export { findGroupNamesByIds, listGroupCatalog } from './groupCatalog.server';
 export { createGroup, updateGroup, deleteGroup } from './groupOperations.server';
-export { seedDefaultGroups } from './groupSeed.server';
 export { listPinnedGroupNames } from './pinnedGroupNames.server';
 export { pinGroup, replacePinnedGroups, unpinGroup } from './pinnedGroupOperations.server';
 export { requirePersonnelGroupAccess, requirePersonnelGroupAccessBatch } from './personnelGroupAccess.server';
@@ -58,7 +57,7 @@ export {
 	saveOrganizationRankCatalogEntry
 } from './rankCatalogOperations.server';
 export { createSupabaseRankCatalogAdministrationPort } from './rankCatalogAdministration.server';
-export { seedDefaultRankCatalog } from './rankCatalogSeed.server';
+export { getPersonnelOrganizationDefaults } from './organizationDefaults.server';
 export {
 	createActivePersonnelRankResolver,
 	createPersonnelCatalogRankResolver,

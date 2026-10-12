@@ -1,10 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
 import { createOrganizationProvisioningDelivery } from './organizationProvisioningDelivery';
-import { provisionOrganization } from '$features/organization/index.server';
+import { provisionOrganization, type OrganizationDefaults } from '$features/organization/index.server';
 
 // Exercise the real SDK wire format without connecting to a provider. SQL/RLS and
-// transaction guarantees belong to the isolated database contract in 02-03-04.
+// transaction guarantees belong to the isolated database contract in org_ownership_rpc_contract.sql.
 function httpPort(handle: (request: Request) => Promise<Response>) {
 	const supabase = createClient('http://127.0.0.1:9', 'synthetic-anon-key', {
 		auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
@@ -13,158 +13,91 @@ function httpPort(handle: (request: Request) => Promise<Response>) {
 	return createOrganizationProvisioningDelivery({ supabase } as never);
 }
 
-function providerFailure(message: string) {
-	return Response.json({ code: '42501', message, details: '', hint: '' }, { status: 403 });
-}
-
 describe('Organization provisioning delivery boundary', () => {
-	it('creates repeated Organizations with owner/defaults without reading ownership or billing data', async () => {
-		const creations: Array<{ id: string; name: string }> = [];
-		const writes: Array<{ table: string; body: unknown }> = [];
+	afterEach(() => vi.useRealTimers());
+
+	it('creates an Organization in one provider call carrying every retained default', async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-06-15T12:00:00Z'));
+		const calls: Array<{
+			method: string;
+			path: string;
+			body: { p_name: string; p_request_id: string; p_defaults: OrganizationDefaults };
+		}> = [];
 		const port = httpPort(async (request) => {
-			const path = new URL(request.url).pathname;
-			// Any ownership, plan, subscription or usage read fails at the real SDK boundary.
-			if (request.method === 'GET') throw new Error(`Unexpected provisioning read: ${path}`);
-			const body = await request.json();
-			if (path === '/rest/v1/rpc/create_org_with_owner') {
-				const id = `org-${creations.length + 1}`;
-				creations.push({ id, name: body.p_name });
-				return Response.json(id);
-			}
-			writes.push({ table: path.split('/').at(-1)!, body });
-			return new Response(null, { status: 201 });
+			calls.push({ method: request.method, path: new URL(request.url).pathname, body: await request.json() });
+			return Response.json('org-1');
 		});
-		for (const name of ['Alpha', 'Bravo', 'Charlie', 'Delta']) {
-			await provisionOrganization(port, { name, userId: 'owner', email: 'OWNER@EXAMPLE.TEST' });
-		}
-		expect(creations).toEqual([
-			{ id: 'org-1', name: 'Alpha' },
-			{ id: 'org-2', name: 'Bravo' },
-			{ id: 'org-3', name: 'Charlie' },
-			{ id: 'org-4', name: 'Delta' }
+
+		const requestId = '6f0c6c9e-7a53-4d1b-9a4e-2f3f0f9f0a11';
+		expect(await provisionOrganization(port, { name: 'Alpha Company', requestId })).toEqual({ orgId: 'org-1' });
+
+		expect(calls).toHaveLength(1);
+		const [{ method, path, body }] = calls;
+		expect([method, path]).toEqual(['POST', '/rest/v1/rpc/create_organization']);
+		expect(body.p_name).toBe('Alpha Company');
+		expect(body.p_request_id).toBe(requestId);
+		const defaults = body.p_defaults;
+		expect(Object.keys(defaults).sort()).toEqual([
+			'assignment_types',
+			'groups',
+			'rank_catalog',
+			'special_days',
+			'status_types'
 		]);
-		for (const { id } of creations) {
-			expect(writes).toEqual(
-				expect.arrayContaining([
-					{
-						table: 'groups',
-						body: [
-							{ organization_id: id, name: 'Leadership', sort_order: 0 },
-							{ organization_id: id, name: 'Alpha', sort_order: 1 },
-							{ organization_id: id, name: 'Bravo', sort_order: 2 }
-						]
-					},
-					{
-						table: 'assignment_types',
-						body: expect.arrayContaining([
-							expect.objectContaining({ organization_id: id, name: 'Staff Duty', assign_to: 'personnel' })
-						])
-					},
-					{
-						table: 'organization_rank_catalog',
-						body: expect.arrayContaining([
-							expect.objectContaining({ organization_id: id, code: 'SGT', state: 'active' })
-						])
-					}
-				])
-			);
-		}
+		expect(defaults.groups).toEqual([
+			{ name: 'Leadership', sort_order: 0 },
+			{ name: 'Alpha', sort_order: 1 },
+			{ name: 'Bravo', sort_order: 2 }
+		]);
+		expect(defaults.status_types).toEqual([
+			{ name: 'Leave', color: '#48bb78', text_color: '#ffffff', sort_order: 0 },
+			{ name: 'School', color: '#4299e1', text_color: '#ffffff', sort_order: 1 },
+			{ name: 'Training / TDY', color: '#9f7aea', text_color: '#ffffff', sort_order: 2 },
+			{ name: 'Appointment', color: '#ed8936', text_color: '#ffffff', sort_order: 3 },
+			{ name: 'Sick', color: '#e53e3e', text_color: '#ffffff', sort_order: 4 },
+			{ name: 'Other Duty / Detail', color: '#a0522d', text_color: '#ffffff', sort_order: 5 },
+			{ name: 'CQ/SD', color: '#dc2626', text_color: '#ffffff', sort_order: 6 }
+		]);
+		expect(defaults.assignment_types).toEqual([
+			{ name: 'Staff Duty', short_name: 'SD', assign_to: 'personnel', color: '#dc2626', sort_order: 0 }
+		]);
+		expect(defaults.special_days).toHaveLength(44);
+		expect(defaults.special_days).toEqual(
+			expect.arrayContaining([
+				{ date: '2025-01-01', name: "New Year's Day", type: 'federal-holiday' },
+				{ date: '2026-07-03', name: 'Independence Day', type: 'federal-holiday' },
+				{ date: '2028-12-25', name: 'Christmas Day', type: 'federal-holiday' }
+			])
+		);
+		expect(defaults.rank_catalog).toEqual(
+			expect.arrayContaining([
+				{
+					code: 'SGT',
+					label: expect.any(String),
+					service: 'army',
+					category: 'enlisted',
+					pay_grade: 'E-5',
+					state: 'active',
+					source: 'built-in',
+					sort_order: expect.any(Number)
+				}
+			])
+		);
+		expect(new Set(defaults.rank_catalog.map((row) => row.service))).toEqual(new Set(['army', 'civilian', 'custom']));
 	});
 
-	const writes = [
-		{
-			name: 'Groups',
-			table: 'groups',
-			write: (port: ReturnType<typeof httpPort>) => port.seedDefaultGroups('org-1'),
-			body: [
-				{ organization_id: 'org-1', name: 'Leadership', sort_order: 0 },
-				{ organization_id: 'org-1', name: 'Alpha', sort_order: 1 },
-				{ organization_id: 'org-1', name: 'Bravo', sort_order: 2 }
-			]
-		},
-		{
-			name: 'statuses',
-			table: 'status_types',
-			write: (port: ReturnType<typeof httpPort>) => port.seedDefaultStatusTypes('org-1'),
-			body: [
-				{
-					organization_id: 'org-1',
-					name: 'Leave',
-					color: '#48bb78',
-					text_color: '#ffffff',
-					sort_order: 0
-				},
-				{ organization_id: 'org-1', name: 'School', color: '#4299e1', text_color: '#ffffff', sort_order: 1 },
-				{
-					organization_id: 'org-1',
-					name: 'Training / TDY',
-					color: '#9f7aea',
-					text_color: '#ffffff',
-					sort_order: 2
-				},
-				{ organization_id: 'org-1', name: 'Appointment', color: '#ed8936', text_color: '#ffffff', sort_order: 3 },
-				{ organization_id: 'org-1', name: 'Sick', color: '#e53e3e', text_color: '#ffffff', sort_order: 4 },
-				{
-					organization_id: 'org-1',
-					name: 'Other Duty / Detail',
-					color: '#a0522d',
-					text_color: '#ffffff',
-					sort_order: 5
-				},
-				{ organization_id: 'org-1', name: 'CQ/SD', color: '#dc2626', text_color: '#ffffff', sort_order: 6 }
-			]
-		},
-		{
-			name: 'manual assignments',
-			table: 'assignment_types',
-			write: (port: ReturnType<typeof httpPort>) => port.seedDefaultAssignmentTypes('org-1'),
-			body: [
-				{
-					organization_id: 'org-1',
-					name: 'Staff Duty',
-					short_name: 'SD',
-					assign_to: 'personnel',
-					color: '#dc2626',
-					sort_order: 0
-				}
-			]
-		}
-	];
+	it('reports a provider failure without a second write, so a retry has a single operation to repeat', async () => {
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		const paths: string[] = [];
+		const port = httpPort(async (request) => {
+			paths.push(new URL(request.url).pathname);
+			return Response.json({ code: 'P0001', message: 'synthetic provider failure' }, { status: 500 });
+		});
 
-	it.each(writes)(
-		'serializes $name at the provider boundary and surfaces write denial',
-		async ({ write, table, body }) => {
-			for (const denied of [false, true]) {
-				const received: unknown[] = [];
-				const port = httpPort(async (request) => {
-					expect(new URL(request.url).pathname).toBe(`/rest/v1/${table}`);
-					expect(request.method).toBe('POST');
-					received.push(await request.json());
-					return denied ? providerFailure('Write denied') : new Response(null, { status: 201 });
-				});
-				expect(await write(port)).toBe(denied ? 'Write denied' : null);
-				expect(received).toEqual([body]);
-			}
-		}
-	);
-
-	it('seeds the retained rank defaults with duplicate-ignore and surfaces provider denial', async () => {
-		for (const denied of [false, true]) {
-			const port = httpPort(async (request) => {
-				expect(new URL(request.url).pathname).toBe('/rest/v1/organization_rank_catalog');
-				expect(new URL(request.url).searchParams.get('on_conflict')).toBe('organization_id,code');
-				expect(request.headers.get('prefer')).toContain('resolution=ignore-duplicates');
-				const rows = (await request.json()) as Array<Record<string, unknown>>;
-				expect(rows).toEqual(
-					expect.arrayContaining([
-						expect.objectContaining({ organization_id: 'org-1', code: 'SGT', pay_grade: 'E-5', source: 'built-in' }),
-						expect.objectContaining({ organization_id: 'org-1', code: 'CIV', source: 'built-in' })
-					])
-				);
-				expect(new Set(rows.map((row) => row.service))).toEqual(new Set(['army', 'civilian', 'custom']));
-				return denied ? providerFailure('Rank seed denied') : new Response(null, { status: 201 });
-			});
-			expect(await port.seedDefaultRankCatalog('org-1')).toBe(denied ? 'Rank seed denied' : null);
-		}
+		await expect(
+			provisionOrganization(port, { name: 'Alpha Company', requestId: '6f0c6c9e-7a53-4d1b-9a4e-2f3f0f9f0a11' })
+		).rejects.toMatchObject({ status: 503 });
+		expect(paths).toEqual(['/rest/v1/rpc/create_organization']);
 	});
 });

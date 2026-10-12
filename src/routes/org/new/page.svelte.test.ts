@@ -27,6 +27,7 @@ function makePageData(overrides: Partial<PageData> = {}): PageData {
 		emailConfirmed: true,
 		userEmail: 'owner@example.com',
 		emailConfirmationMessage: undefined,
+		requestId: 'load-request-id',
 		...overrides
 	} as PageData;
 }
@@ -47,6 +48,37 @@ describe('/org/new page', () => {
 		expect((screen.getByLabelText('Organization Name') as HTMLInputElement).disabled).toBe(false);
 		expect((screen.getByRole('button', { name: 'Create Organization' }) as HTMLButtonElement).disabled).toBe(false);
 		expect(screen.getAllByRole('main')).toHaveLength(1);
+	});
+
+	it('submits the load request id and keeps it, with the draft name, after a failed attempt', async () => {
+		pageState.status = 503;
+		const view = render(Page, { props: { data: makePageData(), form: null } });
+		const requestId = () => (document.querySelector('input[name="requestId"]') as HTMLInputElement).value;
+		expect(requestId()).toBe('load-request-id');
+
+		await view.rerender({
+			form: { error: 'We could not confirm that.', name: '2nd Battalion', requestId: 'load-request-id' }
+		});
+
+		expect(requestId()).toBe('load-request-id');
+		expect((screen.getByLabelText('Organization Name') as HTMLInputElement).value).toBe('2nd Battalion');
+		expect(screen.getByRole('alert').textContent?.trim()).toBe('We could not confirm that.');
+		expect(screen.getByLabelText('Organization Name').getAttribute('aria-invalid')).toBeNull();
+	});
+
+	it('uses the request id the server returns with a failure', async () => {
+		pageState.status = 400;
+		render(Page, {
+			props: {
+				data: makePageData(),
+				form: {
+					error: 'This form is out of date. Reload the page and try again.',
+					name: 'Alpha',
+					requestId: 'fresh-id'
+				}
+			}
+		});
+		expect((document.querySelector('input[name="requestId"]') as HTMLInputElement).value).toBe('fresh-id');
 	});
 
 	it('blocks unconfirmed users in the visible page state', () => {
@@ -72,7 +104,10 @@ describe('/org/new page', () => {
 	it('associates a rejected name with its field and returns focus to it', async () => {
 		pageState.status = 400;
 		const view = render(Page, {
-			props: { data: makePageData(), form: { error: 'Organization name is required' } }
+			props: {
+				data: makePageData(),
+				form: { error: 'Organization name is required', name: ' ', requestId: 'load-request-id' }
+			}
 		});
 
 		const name = screen.getByLabelText('Organization Name') as HTMLInputElement;
@@ -130,7 +165,10 @@ describe('/org/new page', () => {
 	it('drops the earlier failure when a retry starts and keeps the typed name', async () => {
 		pageState.status = 503;
 		const view = render(Page, {
-			props: { data: makePageData(), form: { error: 'Synthetic request failure' } }
+			props: {
+				data: makePageData(),
+				form: { error: 'Synthetic request failure', name: '2nd Battalion', requestId: 'load-request-id' }
+			}
 		});
 		await fireEvent.input(screen.getByLabelText('Organization Name'), { target: { value: '2nd Battalion' } });
 		expect(screen.getByRole('alert').textContent?.trim()).toBe('Synthetic request failure');
@@ -197,7 +235,11 @@ describe('/org/new page', () => {
 		render(Page, {
 			props: {
 				data: makePageData(),
-				form: { error: 'Unable to verify email confirmation right now. Try again in a moment.' }
+				form: {
+					error: 'Unable to verify email confirmation right now. Try again in a moment.',
+					name: '',
+					requestId: 'load-request-id'
+				}
 			}
 		});
 

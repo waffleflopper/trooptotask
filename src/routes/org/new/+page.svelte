@@ -71,6 +71,8 @@
 					};
 				}}
 			>
+				<input type="hidden" name="requestId" value={form?.requestId ?? data.requestId} />
+
 				{#if requestError}
 					<Alert.Root variant="destructive">
 						<Alert.Description>{requestError}</Alert.Description>
@@ -92,6 +94,7 @@
 							id="name"
 							name="name"
 							type="text"
+							value={form?.name ?? ''}
 							placeholder="e.g., 1st Battalion"
 							required
 							disabled={!data.emailConfirmed}

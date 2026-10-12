@@ -195,3 +195,10 @@ it('keeps focus on Transfer Ownership while the transfer is pending and ignores 
 	enhancements.get('transfer-ownership-form')!({ cancel: repeat });
 	expect(repeat).toHaveBeenCalledOnce();
 });
+
+it('names the transfer member listbox after its field', async () => {
+	render(Page, { data: makeData(), form: null, params: { orgId: 'org-a' } });
+	await fireEvent.keyDown(screen.getByRole('button', { name: 'Transfer ownership' }), { key: 'ArrowDown' });
+	await vi.runAllTimersAsync();
+	expect(screen.getByRole('listbox', { name: 'Transfer ownership' })).toBeTruthy();
+});

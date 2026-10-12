@@ -126,6 +126,14 @@ describe('Combobox single', () => {
 		}
 	);
 
+	it('names its open list after the trigger, not the default suggestions label', async () => {
+		render(ComboboxSingleTest);
+
+		await fireEvent.keyDown(screen.getByRole('button', { name: 'Person' }), { key: 'ArrowDown' });
+
+		expect(await screen.findByRole('listbox', { name: 'Person' })).toBeTruthy();
+	});
+
 	it('dismisses with Escape without committing and restores trigger focus', async () => {
 		const onValueChange = vi.fn();
 		render(ComboboxSingleTest, { onValueChange });

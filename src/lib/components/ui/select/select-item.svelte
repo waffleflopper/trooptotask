@@ -32,7 +32,7 @@
 		{#if childrenProp}
 			{@render childrenProp({ selected, highlighted })}
 		{:else}
-			{label || value}
+			<span class="min-w-0 wrap-anywhere">{label || value}</span>
 		{/if}
 	{/snippet}
 </SelectPrimitive.Item>

@@ -3,6 +3,7 @@
 	import { cn, type WithoutChild } from '$lib/utils.js';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import { getFieldContext } from '$lib/components/ui/field/index.js';
+	import { getSelectContext } from './context.svelte.js';
 
 	let {
 		ref = $bindable(null),
@@ -16,6 +17,11 @@
 
 	const field = getFieldContext();
 	const fieldAria = $derived(field?.controlAria(restProps['aria-describedby'], restProps['aria-invalid']) ?? {});
+	const select = getSelectContext();
+
+	$effect(() => {
+		if (select) select.trigger = ref;
+	});
 </script>
 
 <SelectPrimitive.Trigger

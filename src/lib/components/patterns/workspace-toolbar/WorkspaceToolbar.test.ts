@@ -409,6 +409,25 @@ describe('WorkspaceToolbar', () => {
 		expect(gotoMock.mock.calls[0]?.[0]).toBe('/reports');
 	});
 
+	it('reserves an empty icon slot on icon-less folded actions beside icon-bearing ones', async () => {
+		render(DataToolbarTest);
+		await layOut(691);
+		await openMore();
+
+		const leading = (name: string) => screen.getByRole('menuitem', { name }).firstElementChild;
+		expect(leading('Import')?.tagName.toLowerCase()).toBe('svg');
+		for (const name of ['Planning', 'Archive']) {
+			const slot = leading(name);
+			expect(slot?.tagName.toLowerCase(), `${name} reserves the icon slot`).toBe('span');
+			expect(slot?.getAttribute('aria-hidden')).toBe('true');
+			expect(slot?.childElementCount).toBe(0);
+		}
+
+		await openSubmenu('Planning');
+		const planner = await screen.findByRole('menuitem', { name: 'Assignment Planner' });
+		expect(planner.firstElementChild, 'a list with no icons reserves nothing').toBeNull();
+	});
+
 	it('opens a folded menu action as a submenu with destructive items last', async () => {
 		render(DataToolbarTest);
 		await layOut(781);

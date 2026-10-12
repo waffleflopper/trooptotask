@@ -46,12 +46,19 @@
 	</Button>
 {/snippet}
 
-{#snippet actionItem(action: ToolbarAction, path: string[], blocked: boolean, choose: Choose, run: RunAction)}
+{#snippet actionItem(
+	action: ToolbarAction,
+	path: string[],
+	blocked: boolean,
+	choose: Choose,
+	run: RunAction,
+	reserveIcon: boolean
+)}
 	{@const unavailable = blocked || action.disabled || action.loading}
 	{#if action.menuItems}
 		<DropdownMenu.Sub>
 			<DropdownMenu.SubTrigger disabled={unavailable} title={action.disabledReason}>
-				<WorkspaceToolbarIcon icon={action.icon} />
+				<WorkspaceToolbarIcon icon={action.icon} reserve={reserveIcon} />
 				{action.label}
 			</DropdownMenu.SubTrigger>
 			<DropdownMenu.SubContent>
@@ -69,7 +76,7 @@
 			{#if action.loading}
 				<Spinner aria-hidden="true" />
 			{:else}
-				<WorkspaceToolbarIcon icon={action.icon} />
+				<WorkspaceToolbarIcon icon={action.icon} reserve={reserveIcon} />
 			{/if}
 			{action.label}
 		</DropdownMenu.Item>
@@ -78,13 +85,14 @@
 
 {#snippet actionItems(actions: ToolbarAction[], path: string[], blocked: boolean, choose: Choose, run: RunAction)}
 	{@const destructive = actions.filter((action) => action.destructive)}
+	{@const reserveIcon = actions.some((action) => action.icon)}
 	{#each actions.filter((action) => !action.destructive) as action (action.id)}
-		{@render actionItem(action, path, blocked, choose, run)}
+		{@render actionItem(action, path, blocked, choose, run, reserveIcon)}
 	{/each}
 	{#if destructive.length > 0}
 		<DropdownMenu.Separator />
 		{#each destructive as action (action.id)}
-			{@render actionItem(action, path, blocked, choose, run)}
+			{@render actionItem(action, path, blocked, choose, run, reserveIcon)}
 		{/each}
 	{/if}
 {/snippet}

@@ -28,7 +28,9 @@ it('permits only owned absolute navigation while retaining native reload and ins
 });
 
 it('admits a recording only as a webm or mp4 under the owned evidence directory', async () => {
-	const evidence = '/repo/.verification/evidence';
+	const root = await mkdtemp(path.join(tmpdir(), 'recording-kinds-'));
+	const evidence = path.join(root, 'evidence');
+	await mkdir(evidence);
 	for (const filePath of [
 		`${evidence}/verify-trooptotask/run/sweep.webm`,
 		`${evidence}/verify-trooptotask/run/sweep.MP4`
@@ -45,6 +47,7 @@ it('admits a recording only as a webm or mp4 under the owned evidence directory'
 			code: 'RECORDING_PATH'
 		});
 	await expect(assertRecordingPath('screencast_stop', {}, evidence)).resolves.toBeUndefined();
+	await rm(root, { recursive: true, force: true });
 });
 
 it('refuses a recording whose evidence folder is a symlink to somewhere else', async () => {
@@ -93,6 +96,23 @@ it('refuses a recording or run folder that is a dangling symlink to somewhere ou
 		).rejects.toMatchObject({ code: 'RECORDING_PATH' });
 		expect(await isUnderEvidence(path.join(evidence, 'run/new-run'), evidence)).toBe(false);
 		expect(await isUnderEvidence(path.join(evidence, 'run/new-run/deeper'), evidence)).toBe(false);
+	} finally {
+		await rm(root, { recursive: true, force: true });
+	}
+});
+
+it('refuses a path that climbs out through a symlink with ..', async () => {
+	const root = await mkdtemp(path.join(tmpdir(), 'climb-path-'));
+	const evidence = path.join(root, 'evidence');
+	await mkdir(path.join(root, 'outside/sub'), { recursive: true });
+	await mkdir(evidence);
+	await symlink(path.join(root, 'outside/sub'), path.join(evidence, 'escape'));
+	try {
+		await expect(
+			assertRecordingPath('screencast_start', { filePath: `${evidence}/escape/../escaped.webm` }, evidence)
+		).rejects.toMatchObject({ code: 'RECORDING_PATH' });
+		expect(await isUnderEvidence(`${evidence}/escape/../new-run`, evidence)).toBe(false);
+		expect(await isUnderEvidence(`${evidence}/run/../run/new-run`, evidence)).toBe(false);
 	} finally {
 		await rm(root, { recursive: true, force: true });
 	}

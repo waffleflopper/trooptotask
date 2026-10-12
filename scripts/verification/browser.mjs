@@ -28,37 +28,35 @@ export async function assertRecordingPath(name, args, evidenceDirectory) {
 	if (!/\.(webm|mp4)$/i.test(file) || !(await isUnderEvidence(file, evidenceDirectory)))
 		throw new Blocked(
 			'RECORDING_PATH',
-			'screencast_start needs a filePath ending in .webm or .mp4 under .verification/evidence/.'
+			'screencast_start needs a filePath ending in .webm or .mp4 under .verification/evidence/, without .. or a symlink.'
 		);
 }
 
-// Judged by the real path of the nearest existing ancestor, so a symlinked folder cannot point a write elsewhere.
+// A write stays inside the owned evidence directory only if the path has no `..` and nothing at or below the
+// root is a symlink; then the path as written is where the bytes land, whatever links or later folders exist.
 export async function isUnderEvidence(file, evidenceDirectory) {
-	const [target, evidence] = await Promise.all([
-		realTarget(path.resolve(file)),
-		realTarget(path.resolve(evidenceDirectory))
-	]);
-	return Boolean(target && evidence) && target.startsWith(evidence + path.sep);
-}
-
-async function realTarget(file) {
-	let existing = file;
-	while (true) {
-		try {
-			return path.join(await fs.realpath(existing), path.relative(existing, file));
-		} catch (error) {
-			if (error.code !== 'ENOENT' || path.dirname(existing) === existing) throw error;
-			// A dangling symlink has no real location yet; a write through it lands wherever it points.
-			if (
-				await fs.lstat(existing).then(
-					(stat) => stat.isSymbolicLink(),
-					() => false
-				)
-			)
-				return null;
-			existing = path.dirname(existing);
-		}
+	if (file.split(/[\\/]/).includes('..')) return false;
+	const root = path.resolve(evidenceDirectory);
+	const relative = path.relative(root, path.resolve(file));
+	if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) return false;
+	if (
+		!(await fs.stat(root).then(
+			(stat) => stat.isDirectory(),
+			() => false
+		))
+	)
+		return false;
+	let current = root;
+	for (const part of relative.split(path.sep)) {
+		current = path.join(current, part);
+		const stat = await fs.lstat(current).catch((error) => {
+			if (error.code === 'ENOENT') return null;
+			throw error;
+		});
+		if (!stat) return true;
+		if (stat.isSymbolicLink()) return false;
 	}
+	return true;
 }
 
 export const textContent = (result) =>

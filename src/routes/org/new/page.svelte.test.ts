@@ -50,20 +50,33 @@ describe('/org/new page', () => {
 		expect(screen.getAllByRole('main')).toHaveLength(1);
 	});
 
-	it('submits the load request id and keeps it, with the draft name, after a failed attempt', async () => {
+	it('keeps the request id and the name typed since submitting when a failure arrives', async () => {
 		pageState.status = 503;
 		const view = render(Page, { props: { data: makePageData(), form: null } });
 		const requestId = () => (document.querySelector('input[name="requestId"]') as HTMLInputElement).value;
+		const name = screen.getByLabelText('Organization Name') as HTMLInputElement;
 		expect(requestId()).toBe('load-request-id');
+		await fireEvent.input(name, { target: { value: '2nd Battalion' } });
 
 		await view.rerender({
-			form: { error: 'We could not confirm that.', name: '2nd Battalion', requestId: 'load-request-id' }
+			form: { error: 'We could not confirm that.', name: '1st Battalion', requestId: 'load-request-id' }
 		});
 
 		expect(requestId()).toBe('load-request-id');
-		expect((screen.getByLabelText('Organization Name') as HTMLInputElement).value).toBe('2nd Battalion');
+		expect(name.value).toBe('2nd Battalion');
 		expect(screen.getByRole('alert').textContent?.trim()).toBe('We could not confirm that.');
-		expect(screen.getByLabelText('Organization Name').getAttribute('aria-invalid')).toBeNull();
+		expect(name.getAttribute('aria-invalid')).toBeNull();
+	});
+
+	it('renders the submitted name when a failure arrives as a full page render', () => {
+		pageState.status = 503;
+		render(Page, {
+			props: {
+				data: makePageData(),
+				form: { error: 'We could not confirm that.', name: '1st Battalion', requestId: 'load-request-id' }
+			}
+		});
+		expect((screen.getByLabelText('Organization Name') as HTMLInputElement).value).toBe('1st Battalion');
 	});
 
 	it('uses the request id the server returns with a failure', async () => {

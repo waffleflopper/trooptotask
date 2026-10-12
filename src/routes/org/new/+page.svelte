@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { page } from '$app/state';
-	import { onDestroy } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
@@ -13,6 +13,8 @@
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 	let loading = $state(false);
+	// A no-JS failure re-renders with the submitted name; with JS, later edits must survive a delayed failure.
+	let nameDraft = $state(untrack(() => form?.name ?? ''));
 	let nameInput = $state<HTMLInputElement | null>(null);
 	let createButton = $state<HTMLButtonElement | null>(null);
 	let unexpectedError = $state<string | null>(null);
@@ -94,7 +96,7 @@
 							id="name"
 							name="name"
 							type="text"
-							value={form?.name ?? ''}
+							bind:value={nameDraft}
 							placeholder="e.g., 1st Battalion"
 							required
 							disabled={!data.emailConfirmed}

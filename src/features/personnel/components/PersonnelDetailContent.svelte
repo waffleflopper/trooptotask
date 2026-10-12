@@ -67,12 +67,19 @@
 	let documentFiles = $state<FileList | undefined>();
 
 	let saveBasicInfoButton = $state<HTMLElement | null>(null);
+	let editBasicInfoButton = $state<HTMLElement | null>(null);
 
 	async function saveBasicInfo(event: SubmitEvent) {
 		event.preventDefault();
 		await workspace.saveBasicInfo();
 		await tick();
-		saveBasicInfoButton?.focus();
+		(workspace.editingBasicInfo ? saveBasicInfoButton : editBasicInfoButton)?.focus();
+	}
+
+	async function cancelBasicInfoEdit() {
+		workspace.editingBasicInfo = false;
+		await tick();
+		editBasicInfoButton?.focus();
 	}
 
 	async function submitCounseling() {
@@ -419,8 +426,12 @@
 										<ArchiveIcon aria-hidden="true" />
 									</Button>
 								{/if}
-								<Button type="button" variant="outline" size="sm" onclick={workspace.startBasicInfoEdit}
-									>Edit basic info</Button
+								<Button
+									bind:ref={editBasicInfoButton}
+									type="button"
+									variant="outline"
+									size="sm"
+									onclick={workspace.startBasicInfoEdit}>Edit basic info</Button
 								>
 							</div>
 						{/if}
@@ -469,9 +480,7 @@
 								</Alert.Root>
 							{/if}
 							<div class="flex justify-end gap-2">
-								<Button type="button" variant="outline" size="sm" onclick={() => (workspace.editingBasicInfo = false)}
-									>Cancel</Button
-								>
+								<Button type="button" variant="outline" size="sm" onclick={cancelBasicInfoEdit}>Cancel</Button>
 								<Button bind:ref={saveBasicInfoButton} type="submit" size="sm" disabled={workspace.basicInfoSaving}>
 									{workspace.basicInfoSaving ? 'Saving...' : 'Save basic info'}
 								</Button>

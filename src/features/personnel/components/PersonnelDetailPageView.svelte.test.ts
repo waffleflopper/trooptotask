@@ -523,6 +523,22 @@ describe('PersonnelDetailPageView', () => {
 		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Save basic info' })));
 	});
 
+	it('returns focus to Edit basic info when the form closes after a save or Cancel', async () => {
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(person) }));
+
+		render(PersonnelDetailPageView, {
+			props: { requestArchiveApproval, orgId: 'org-1', person, orgName: 'Test Org', detail: makeDetail() }
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit basic info' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Save basic info' }));
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Edit basic info' })));
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit basic info' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Edit basic info' })));
+	});
+
 	it('keeps edited basic info values when the save is rejected', async () => {
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
 

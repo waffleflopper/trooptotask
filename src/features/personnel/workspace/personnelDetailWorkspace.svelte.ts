@@ -283,7 +283,7 @@ export class PersonnelDetailWorkspace {
 		return {
 			good: 'border-success/20 bg-success-muted text-success-foreground',
 			watch: 'border-warning/20 bg-warning-muted text-warning-foreground',
-			bad: 'border-destructive/20 bg-destructive/10 text-destructive',
+			bad: 'border-danger/20 bg-danger-muted text-danger-foreground',
 			info: 'border-info/20 bg-info-muted text-info-foreground',
 			neutral: 'border-border bg-muted text-muted-foreground'
 		}[tone];

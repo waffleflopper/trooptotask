@@ -41,6 +41,7 @@
 	--color-accent-hover: color-mix(in srgb, var(--accent) 82%, var(--chrome-text) 18%);
 	--color-destructive: var(--destructive);
 	--color-destructive-foreground: var(--destructive-foreground);
+	--color-destructive-text: var(--destructive-text);
 	--color-danger: var(--destructive);
 	--color-danger-foreground: var(--danger-foreground);
 	--color-danger-muted: color-mix(in srgb, var(--destructive) 14%, var(--card));
@@ -135,6 +136,8 @@
 	--accent-text: oklch(48% 0.13 55);
 	--destructive: oklch(57.7% 0.245 27.325);
 	--destructive-foreground: oklch(98.5% 0.001 106.423);
+	/* Red for text on the destructive tint: danger-foreground falls under AA once the hover tint darkens. */
+	--destructive-text: oklch(44.4% 0.177 26.899);
 	--warning: oklch(66.6% 0.179 58.318);
 	--expiring: oklch(70.5% 0.213 47.604);
 	--success: oklch(62.7% 0.194 149.214);
@@ -142,7 +145,7 @@
 	/* Status text on page and muted status surfaces (WCAG AA 4.5:1); fills stay on the raw status tokens. */
 	--danger-foreground: oklch(50.5% 0.213 27.518);
 	--warning-foreground: oklch(47.3% 0.137 46.201);
-	--expiring-foreground: oklch(55.3% 0.195 38.402);
+	--expiring-foreground: oklch(47% 0.157 37.304);
 	--success-foreground: oklch(44.8% 0.119 151.328);
 	--info-foreground: oklch(50% 0.134 242.749);
 	--border: oklch(92.3% 0.003 48.717);
@@ -184,6 +187,7 @@
 	--accent-text: var(--accent);
 	--destructive: oklch(63.7% 0.237 25.331);
 	--destructive-foreground: oklch(98.5% 0.001 106.423);
+	--destructive-text: oklch(80.8% 0.114 19.571);
 	--warning: oklch(76.9% 0.188 70.08);
 	--danger-foreground: oklch(70.4% 0.191 22.216);
 	--warning-foreground: oklch(76.9% 0.188 70.08);
@@ -305,7 +309,7 @@
 	}
 
 	a:not([data-slot]) {
-		color: var(--accent);
+		color: var(--accent-text);
 		text-decoration: none;
 		transition:
 			color var(--transition-fast),
@@ -404,7 +408,7 @@
 		--warning: oklch(66.6% 0.179 58.318);
 		--danger-foreground: oklch(50.5% 0.213 27.518);
 		--warning-foreground: oklch(47.3% 0.137 46.201);
-		--expiring-foreground: oklch(55.3% 0.195 38.402);
+		--expiring-foreground: oklch(47% 0.157 37.304);
 		--success-foreground: oklch(44.8% 0.119 151.328);
 		--info-foreground: oklch(50% 0.134 242.749);
 		--border: oklch(92.3% 0.003 48.717);

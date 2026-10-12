@@ -292,19 +292,19 @@
 				</AuthField>
 
 				<ul class="grid gap-2 text-xs leading-normal text-muted-foreground" aria-live="polite">
-					<li class={requirements.minLength ? 'text-success' : undefined}>
+					<li class={requirements.minLength ? 'text-success-foreground' : undefined}>
 						<span class="sr-only">{requirements.minLength ? 'Met: ' : 'Needed: '}</span>At least 12 characters
 					</li>
-					<li class={requirements.maxLength ? 'text-success' : undefined}>
+					<li class={requirements.maxLength ? 'text-success-foreground' : undefined}>
 						<span class="sr-only">{requirements.maxLength ? 'Met: ' : 'Needed: '}</span>72 characters or fewer
 					</li>
-					<li class={requirements.uppercase ? 'text-success' : undefined}>
+					<li class={requirements.uppercase ? 'text-success-foreground' : undefined}>
 						<span class="sr-only">{requirements.uppercase ? 'Met: ' : 'Needed: '}</span>One uppercase letter
 					</li>
-					<li class={requirements.lowercase ? 'text-success' : undefined}>
+					<li class={requirements.lowercase ? 'text-success-foreground' : undefined}>
 						<span class="sr-only">{requirements.lowercase ? 'Met: ' : 'Needed: '}</span>One lowercase letter
 					</li>
-					<li class={requirements.digit ? 'text-success' : undefined}>
+					<li class={requirements.digit ? 'text-success-foreground' : undefined}>
 						<span class="sr-only">{requirements.digit ? 'Met: ' : 'Needed: '}</span>One number
 					</li>
 				</ul>
@@ -352,9 +352,8 @@
 			<div>
 				Stop this recovery session and
 				<form method="POST" action={resolve('/auth/logout')} class="inline">
-					<Button type="submit" variant="link" class="h-auto p-0">sign out</Button>
+					<Button type="submit" variant="link" class="h-auto p-0">sign out</Button>.
 				</form>
-				.
 			</div>
 		</div>
 	</div>

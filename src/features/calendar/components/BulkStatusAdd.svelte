@@ -149,7 +149,7 @@
 						<DatePicker id="endDate" bind:value={endDate} placeholder="Select end date" />
 						{#if range.dayCount > 0}
 							<div class="flex items-center gap-2 text-xs">
-								<span class="font-semibold text-accent">{range.dayCount}</span>
+								<span class="font-semibold text-accent-text">{range.dayCount}</span>
 								<span class="text-muted-foreground">{range.dayCount === 1 ? 'day selected' : 'days selected'}</span>
 							</div>
 						{/if}
@@ -234,7 +234,7 @@
 			<ul class="max-h-80 divide-y overflow-y-auto rounded-md border text-xs">
 				{#each selectedPersonnel as person (person.id)}
 					<li class="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2">
-						<span class="font-semibold text-accent">{person.rank}</span>
+						<span class="font-semibold text-accent-text">{person.rank}</span>
 						<span class="flex-1 font-medium">{person.lastName}, {person.firstName}</span>
 						{#if person.groupName}
 							<span class="font-mono uppercase tracking-wider text-muted-foreground">{person.groupName}</span>

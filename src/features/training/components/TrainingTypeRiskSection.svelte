@@ -65,7 +65,7 @@
 					<Table.Cell
 						class={[
 							'px-0 py-2 text-right font-mono text-[13px] font-medium',
-							risk.notReady > 0 ? 'text-destructive' : 'text-muted-foreground'
+							risk.notReady > 0 ? 'text-danger-foreground' : 'text-muted-foreground'
 						]}
 					>
 						{risk.notReady}
@@ -73,7 +73,7 @@
 					<Table.Cell
 						class={[
 							'px-0 py-2 text-right font-mono text-[13px] font-semibold',
-							risk.lapsing > 0 ? 'text-warning' : 'text-muted-foreground'
+							risk.lapsing > 0 ? 'text-warning-foreground' : 'text-muted-foreground'
 						]}
 					>
 						{risk.lapsing}

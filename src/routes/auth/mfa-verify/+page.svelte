@@ -7,6 +7,7 @@
 	import { sanitizeAuthNextPath, type MfaActionResponse } from '$features/identity/contracts';
 	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
+	import { tick } from 'svelte';
 
 	let code = $state('');
 	let codeError = $state('');
@@ -59,6 +60,8 @@
 			formError = e instanceof Error ? e.message : 'Verification failed';
 		} finally {
 			loading = false;
+			await tick();
+			if (codeError || formError) document.getElementById('mfa-code')?.focus();
 		}
 	}
 </script>
@@ -127,9 +130,8 @@
 			<div>
 				Leave this verification step and
 				<form method="POST" action={resolve('/auth/logout')} class="inline">
-					<Button type="submit" variant="link" class="h-auto p-0">sign out</Button>
+					<Button type="submit" variant="link" class="h-auto p-0">sign out</Button>.
 				</form>
-				.
 			</div>
 		</div>
 	</div>

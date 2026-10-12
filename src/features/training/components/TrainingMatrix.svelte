@@ -203,14 +203,14 @@
 					class="w-full min-w-0 justify-start gap-2 text-left sm:gap-4"
 					onclick={() => onPersonClick?.(row.meta.person)}
 				>
-					<span class="w-8 shrink-0 font-mono text-xs font-semibold uppercase tracking-[0.08em] text-amber-700">
+					<span class="w-8 shrink-0 font-mono text-xs font-semibold uppercase tracking-[0.08em] text-accent-text">
 						{row.meta.rank}
 					</span>
 					<span class="truncate text-sm font-medium">{row.label}</span>
 				</Button>
 			{:else}
 				<span class="flex items-baseline gap-2 text-foreground sm:gap-4">
-					<span class="w-8 shrink-0 font-mono text-xs font-semibold uppercase tracking-[0.08em] text-amber-700">
+					<span class="w-8 shrink-0 font-mono text-xs font-semibold uppercase tracking-[0.08em] text-accent-text">
 						{row.meta.rank}
 					</span>
 					<span class="truncate text-sm font-medium">{row.label}</span>

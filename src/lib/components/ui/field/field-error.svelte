@@ -46,7 +46,7 @@
 		{@attach () => field?.register('error', id)}
 		role="alert"
 		data-slot="field-error"
-		class={cn('text-destructive text-sm font-normal', className)}
+		class={cn('text-danger-foreground text-sm font-normal', className)}
 		{...restProps}
 	>
 		{#if children}

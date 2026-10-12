@@ -280,6 +280,57 @@ describe('General settings feedback and focus', () => {
 		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Save' }));
 	});
 
+	it('shows only the unexpected error once a rejected name save is followed by one', async () => {
+		const view = render(Page, {
+			data: data('a'),
+			form: { error: 'Synthetic request failure' },
+			params: { orgId: 'a' }
+		});
+		await tick();
+		enhancements.get('?/updateName')!({ cancel: () => {} });
+		await tick();
+		await fireEvent.click(screen.getByRole('button', { name: 'Update Name' }));
+		const page = { applyForm: (form: unknown) => view.rerender({ form: form as never }) };
+
+		await callbacks.at(-1)!(
+			frameworkOutcome({ type: 'error', status: 500, error: { message: 'Internal Error' } }, page)
+		);
+		await tick();
+
+		const name = screen.getByLabelText('Organization name');
+		const nameForm = name.closest('form')!;
+		expect(within(nameForm).getByRole('alert').textContent?.trim()).toBe("The request didn't complete. Try again.");
+		expect(screen.queryByText('Synthetic request failure')).toBeNull();
+		expect(name.getAttribute('aria-invalid')).toBeNull();
+		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Save' }));
+	});
+
+	it('shows only the unexpected error once a rejected custom path is followed by one', async () => {
+		const view = render(Page, {
+			data: data('a'),
+			form: { slugError: 'Synthetic request failure' },
+			params: { orgId: 'a' }
+		});
+		await tick();
+		enhancements.get('?/updateSlug')!({ cancel: () => {} });
+		await tick();
+		await fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Update URL' }));
+		const page = { applyForm: (form: unknown) => view.rerender({ form: form as never }) };
+
+		await callbacks.at(-1)!(
+			frameworkOutcome({ type: 'error', status: 500, error: { message: 'Internal Error' } }, page)
+		);
+		await tick();
+
+		const slug = screen.getByLabelText('Custom path');
+		expect(within(slug.closest('form')!).getByRole('alert').textContent?.trim()).toBe(
+			"The request didn't complete. Try again."
+		);
+		expect(screen.queryByText('Synthetic request failure')).toBeNull();
+		expect(slug.getAttribute('aria-invalid')).toBeNull();
+		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Update URL' }));
+	});
+
 	it('keeps the typed custom path in place with an Alert when the save errors unexpectedly', async () => {
 		const view = render(Page, { data: data('a'), form: null, params: { orgId: 'a' } });
 		await fireEvent.input(screen.getByLabelText('Custom path'), { target: { value: 'draft-path' } });

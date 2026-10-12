@@ -35,7 +35,7 @@
 <main class="flex min-h-screen flex-1 items-center justify-center bg-background p-4 sm:p-6">
 	<Card.Root class="w-full max-w-[520px]">
 		<Card.Header class="gap-2">
-			<p class="font-mono text-[0.6875rem] font-semibold tracking-[0.12em] text-accent uppercase">
+			<p class="font-mono text-[0.6875rem] font-semibold tracking-[0.12em] text-accent-text uppercase">
 				First Organization Setup
 			</p>
 			<h1 class="font-heading text-4xl leading-none font-extrabold sm:text-5xl">
@@ -107,7 +107,7 @@
 				<div
 					class="flex flex-col gap-2 rounded-md border bg-muted/70 p-4 text-sm leading-relaxed text-muted-foreground"
 				>
-					<p class="font-mono text-[0.6875rem] font-semibold tracking-[0.12em] text-accent uppercase">
+					<p class="font-mono text-[0.6875rem] font-semibold tracking-[0.12em] text-accent-text uppercase">
 						Included On Day One
 					</p>
 					<p>

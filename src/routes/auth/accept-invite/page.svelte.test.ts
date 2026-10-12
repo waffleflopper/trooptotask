@@ -221,6 +221,14 @@ it('reconciles a lost activation response when retry confirms the pending marker
 	expect(fetchMock.mock.calls.filter(([url]) => url === '/api/auth/update-password')).toHaveLength(1);
 });
 
+it('ends the sign-out sentence with no space before its period', () => {
+	render(Page);
+
+	const sentence = screen.getByRole('button', { name: 'sign out' }).closest('div')!;
+
+	expect(sentence.textContent?.replace(/\s+/g, ' ').trim()).toBe('Leave this invite flow and sign out.');
+});
+
 it('lets the user submit sign-out to the existing POST action', async () => {
 	const { container } = render(Page);
 	const submissions: { method: string; pathname: string }[] = [];

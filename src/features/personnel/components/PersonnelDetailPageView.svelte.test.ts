@@ -509,6 +509,20 @@ describe('PersonnelDetailPageView', () => {
 		expect(await screen.findByText('Unable to update basic info.')).toBeTruthy();
 	});
 
+	it('keeps focus on the Save button after a failed basic info save', async () => {
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
+
+		render(PersonnelDetailPageView, {
+			props: { requestArchiveApproval, orgId: 'org-1', person, orgName: 'Test Org', detail: makeDetail() }
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit basic info' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Save basic info' }));
+
+		await screen.findByText('Unable to update basic info.');
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Save basic info' })));
+	});
+
 	it('keeps edited basic info values when the save is rejected', async () => {
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
 

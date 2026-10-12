@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, tick } from 'svelte';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
@@ -65,6 +65,15 @@
 	let documentFileInput = $state<HTMLInputElement | null>(null);
 	let counselingFiles = $state<FileList | undefined>();
 	let documentFiles = $state<FileList | undefined>();
+
+	let saveBasicInfoButton = $state<HTMLElement | null>(null);
+
+	async function saveBasicInfo(event: SubmitEvent) {
+		event.preventDefault();
+		await workspace.saveBasicInfo();
+		await tick();
+		saveBasicInfoButton?.focus();
+	}
 
 	async function submitCounseling() {
 		if (await workspace.counselingRecords.submit()) {
@@ -417,7 +426,7 @@
 						{/if}
 					</div>
 					{#if workspace.editingBasicInfo}
-						<form class="space-y-3 p-4" onsubmit={(event) => (event.preventDefault(), workspace.saveBasicInfo())}>
+						<form class="space-y-3 p-4" onsubmit={saveBasicInfo}>
 							<Input bind:value={workspace.basicInfoRank} aria-label="Rank" />
 							<div class="grid gap-3 sm:grid-cols-2">
 								<Field.Root data-invalid={workspace.basicInfoNameError?.field === 'firstName' ? true : undefined}>
@@ -463,7 +472,7 @@
 								<Button type="button" variant="outline" size="sm" onclick={() => (workspace.editingBasicInfo = false)}
 									>Cancel</Button
 								>
-								<Button type="submit" size="sm" disabled={workspace.basicInfoSaving}>
+								<Button bind:ref={saveBasicInfoButton} type="submit" size="sm" disabled={workspace.basicInfoSaving}>
 									{workspace.basicInfoSaving ? 'Saving...' : 'Save basic info'}
 								</Button>
 							</div>

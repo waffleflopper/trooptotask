@@ -201,7 +201,7 @@ Props: `id?: string`, `value?: string` (bindable ISO `YYYY-MM-DD`), `placeholder
 			defaultValue: '',
 			onValueChange: setGroup
 		},
-		{ kind: 'toggle', id: 'gaps', label: 'Show gaps only', pressed: gapsOnly, onPressedChange: setGapsOnly },
+		{ kind: 'toggle', id: 'gaps', label: 'Gaps only', pressed: gapsOnly, onPressedChange: setGapsOnly },
 		{ kind: 'action', id: 'reports', label: 'Reports', icon: 'chart', href: reportsHref },
 		{ kind: 'action', id: 'export', label: 'Export Excel', icon: 'download', loading: exporting, onclick: exportExcel }
 	]);
@@ -211,7 +211,7 @@ Props: `id?: string`, `value?: string` (bindable ISO `YYYY-MM-DD`), `placeholder
 	ariaLabel="Critical Tasks controls"
 	{items}
 	search={{ label: 'Search by name, rank, or MOS', placeholder: 'Search...', value: search, onValueChange: setSearch }}
-	primary={{ kind: 'action', id: 'record', label: 'Record Completion', icon: 'clipboard-check', onclick: openRecord }}
+	primary={{ kind: 'action', id: 'record', label: 'Record Completion', icon: 'plus', onclick: openRecord }}
 />
 ```
 

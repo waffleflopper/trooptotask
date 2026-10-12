@@ -2,7 +2,7 @@
 
 Baseline: `282fcace16795a13e2306bf71d44465f59d51acc`. Completed phases are summarized below; their accepted evidence and exact historical task scopes remain linked. [BASELINE](BASELINE.md) owns retained contracts and original findings, [EVIDENCE](EVIDENCE.md) owns acceptance and verification, and [RELEASE](RELEASE.md) owns operator obligations.
 
-**Active checkpoint:** Phase **11**, parent [#1284](https://github.com/waffleflopper/trooptotask/issues/1284), milestone **9**. D01 [#1639](https://github.com/waffleflopper/trooptotask/issues/1639) closed on merge of [#1649](https://github.com/waffleflopper/trooptotask/pull/1649) as `e71ad8f76` ([record](EVIDENCE.md#11-01-d01-invitation-origin-approvals-and-setup-recovery)). Child **D02 [#1640](https://github.com/waffleflopper/trooptotask/issues/1640)**, task **11-03**, is IMPLEMENTING on `chore/stabilize-1640` as one PR that closes it ([record](EVIDENCE.md#11-03-d02-recoverable-organization-creation)).
+**Active checkpoint:** Phase **11**, parent [#1284](https://github.com/waffleflopper/trooptotask/issues/1284), milestone **9**. D01 [#1639](https://github.com/waffleflopper/trooptotask/issues/1639) closed on merge of [#1649](https://github.com/waffleflopper/trooptotask/pull/1649) as `e71ad8f76` ([record](EVIDENCE.md#11-01-d01-invitation-origin-approvals-and-setup-recovery)). Child **D02 [#1640](https://github.com/waffleflopper/trooptotask/issues/1640)**, task **11-03**, is READY TO CLOSE through one PR from `chore/stabilize-1640` ([record](EVIDENCE.md#11-03-d02-recoverable-organization-creation)); its merge waits on the production migration in [RELEASE](RELEASE.md#phase-11-d02-recoverable-organization-creation).
 
 ## Execution rules
 
@@ -114,4 +114,4 @@ Measurements unavailable now are listed in EVIDENCE. Later isolated synthetic wo
 
 ## Next executable task
 
-Phase 11 [#1284](https://github.com/waffleflopper/trooptotask/issues/1284), security and reliability repair, is active. D01 [#1639](https://github.com/waffleflopper/trooptotask/issues/1639) is merged and closed; D02 [#1640](https://github.com/waffleflopper/trooptotask/issues/1640) is implementing. Each later deliverable starts only on Robert's explicit request under [workflow #1275](https://github.com/waffleflopper/trooptotask/issues/1275). Earlier owner release obligations remain in [RELEASE](RELEASE.md).
+Phase 11 [#1284](https://github.com/waffleflopper/trooptotask/issues/1284), security and reliability repair, is active. D01 [#1639](https://github.com/waffleflopper/trooptotask/issues/1639) is merged and closed; D02 [#1640](https://github.com/waffleflopper/trooptotask/issues/1640) is ready to close, with its merge gated on the production migration. Each later deliverable starts only on Robert's explicit request under [workflow #1275](https://github.com/waffleflopper/trooptotask/issues/1275). Earlier owner release obligations remain in [RELEASE](RELEASE.md).

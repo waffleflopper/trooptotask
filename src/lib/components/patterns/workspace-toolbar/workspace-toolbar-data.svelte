@@ -56,6 +56,7 @@
 	let searchOpen = $state(false);
 	let rowElement = $state<HTMLElement | null>(null);
 	let searchInput = $state<HTMLInputElement | null>(null);
+	let closeButton = $state<HTMLButtonElement | null>(null);
 	let searchIconWrapper = $state<HTMLElement | null>(null);
 
 	const views = $derived(items.filter((item): item is ToolbarView => sectionOf(item) === 'view'));
@@ -203,8 +204,11 @@
 	}
 
 	function handleLayoutChange(before: Layout, after: Layout): void {
-		if (searchOpen && !after.collapsed) searchOpen = false;
 		const active = document.activeElement;
+		if (searchOpen && !after.collapsed) {
+			searchOpen = false;
+			if (active && active === closeButton) focusAfterUpdate(() => searchInput);
+		}
 		const leaving = before.ids.filter((id) => !after.ids.includes(id));
 		if (leaving.some((id) => holdsFocus(id, active))) {
 			focusAfterUpdate(moreTrigger);
@@ -492,6 +496,7 @@
 				</div>
 				{#if searchMode === 'open'}
 					<Button
+						bind:ref={closeButton}
 						variant="ghost"
 						size="icon"
 						aria-label="Close search"

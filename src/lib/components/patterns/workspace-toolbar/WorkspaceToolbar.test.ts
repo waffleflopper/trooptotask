@@ -428,6 +428,22 @@ describe('WorkspaceToolbar', () => {
 		expect(document.activeElement).toBe(field);
 	});
 
+	it('moves focus from Close search to the field when the row widens during phone search', async () => {
+		render(DataToolbarTest);
+		await layOut(291);
+
+		await fireEvent.click(within(toolbar()).getByRole('button', { name: 'Search roster' }));
+		const close = within(toolbar()).getByRole('button', { name: 'Close search' });
+		close.focus();
+		expect(document.activeElement).toBe(close);
+
+		await layOut(400);
+		await waitFor(() =>
+			expect(document.activeElement).toBe(within(toolbar()).getByRole('searchbox', { name: 'Search roster' }))
+		);
+		expect(within(toolbar()).queryByRole('button', { name: 'Close search' })).toBeNull();
+	});
+
 	it('runs a folded action after More has closed, and navigates a folded link', async () => {
 		render(DataToolbarTest);
 		await layOut(691);

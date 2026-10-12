@@ -191,7 +191,8 @@ describe('TrainingPageView', () => {
 		});
 
 		const status = screen.getByRole('status', { name: 'Loading training matrix' });
-		expect(status.getAttribute('aria-busy')).toBe('true');
+		expect(status.getAttribute('aria-live')).toBe('polite');
+		expect(status.hasAttribute('aria-busy')).toBe(false);
 		expect(screen.getByText('Export unavailable while loading.')).toBeTruthy();
 		expect((screen.getByRole('button', { name: 'Export Excel' }) as HTMLButtonElement).disabled).toBe(true);
 	});

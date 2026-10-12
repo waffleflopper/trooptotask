@@ -967,7 +967,10 @@
 					method="POST"
 					action="?/saveRank"
 					class="grid gap-3"
-					use:enhance={enhancedForm(`edit-${entry.code}`, { reset: false })}
+					use:enhance={enhancedForm(`edit-${entry.code}`, {
+						reset: false,
+						focusFallback: () => document.getElementById('ranks-heading')
+					})}
 				>
 					<input type="hidden" name="intent" value="edit" />
 					<input type="hidden" name="originalCode" value={entry.code} />

@@ -1120,6 +1120,16 @@ describe('held rank saves keep focus', () => {
 		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Save DET-SGT' }));
 	});
 
+	it('moves focus to the Ranks heading when a held edit removes its row from the filter', async () => {
+		const succeed = renderSettled([rankEntry()]);
+		await fireEvent.click(screen.getByRole('button', { name: 'Show details for DET-SGT' }));
+
+		await submitAndHold('Save DET-SGT');
+		await succeed({ active: [] });
+
+		expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Ranks' }));
+	});
+
 	it('moves focus to the pack actions once a held pack add leaves Added disabled', async () => {
 		const succeed = renderSettled([rankEntry()], [rankPack()]);
 

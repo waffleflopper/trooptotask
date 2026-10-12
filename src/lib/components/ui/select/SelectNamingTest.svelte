@@ -38,3 +38,13 @@
 		{/each}
 	</Select.Content>
 </Select.Root>
+
+<label for="plain-status">Plain status</label>
+<Select.Root type="single" value="ready">
+	<Select.Trigger id="plain-status">Ready</Select.Trigger>
+	<Select.Content>
+		{#each options as option (option.value)}
+			<Select.Item value={option.value} label={option.label} />
+		{/each}
+	</Select.Content>
+</Select.Root>

@@ -25,6 +25,13 @@ describe('Select listbox name', () => {
 		expect(screen.getByRole('listbox', { name: 'Status filter' })).toBeTruthy();
 	});
 
+	it('is the text of a label without an id', async () => {
+		render(SelectNamingTest);
+
+		await openListbox('Plain status');
+		expect(screen.getByRole('listbox', { name: 'Plain status' })).toBeTruthy();
+	});
+
 	it('keeps a name the consumer gives the content', async () => {
 		render(SelectNamingTest);
 

@@ -4,6 +4,7 @@
 	import { cn } from '$lib/utils.js';
 	import { getComboboxContext, type ComboboxOption } from './context.js';
 	import ComboboxItem from './combobox-item.svelte';
+	import { listboxName } from '$lib/components/ui/select/index.js';
 
 	type Props = Omit<ComponentProps<typeof Command.List>, 'children'> & {
 		children?: Snippet<[string, ComboboxOption]>;
@@ -11,6 +12,11 @@
 
 	let { class: className, children, ...restProps }: Props = $props();
 	const context = getComboboxContext();
+	const name = $derived(
+		restProps['aria-label'] || restProps['aria-labelledby']
+			? {}
+			: listboxName(context.anchor?.querySelector<HTMLElement>('[aria-haspopup="listbox"]') ?? null)
+	);
 	const groupedItems = $derived.by(() => {
 		const groups: Array<[string, ComboboxOption[]]> = [];
 
@@ -29,7 +35,7 @@
 	});
 </script>
 
-<Command.List class={cn('max-h-72 p-1', className)} {...restProps}>
+<Command.List class={cn('max-h-72 p-1', className)} {...name} {...restProps}>
 	{#if context.loading}
 		<Command.Loading>
 			<div class="py-6 text-center text-sm text-muted-foreground">{context.loadingText}</div>

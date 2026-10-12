@@ -28,6 +28,13 @@ export function listboxName(trigger: HTMLElement | null) {
 	if (labelledBy) return { 'aria-labelledby': labelledBy };
 	const label = trigger.getAttribute('aria-label');
 	if (label) return { 'aria-label': label };
-	const labelIds = Array.from((trigger as HTMLButtonElement).labels ?? [], (element) => element.id).filter(Boolean);
-	return labelIds.length > 0 ? { 'aria-labelledby': labelIds.join(' ') } : {};
+	const labels = Array.from((trigger as HTMLButtonElement).labels ?? []);
+	if (labels.length > 0 && labels.every((element) => element.id)) {
+		return { 'aria-labelledby': labels.map((element) => element.id).join(' ') };
+	}
+	const text = labels
+		.map((element) => element.textContent?.trim())
+		.filter(Boolean)
+		.join(' ');
+	return text ? { 'aria-label': text } : {};
 }

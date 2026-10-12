@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { runInNewContext } from 'node:vm';
-import { assertOwnedNavigation, assertRecordingPath, driver } from './browser.mjs';
+import { assertOwnedNavigation, assertRecordingPath, driver, isUnderEvidence } from './browser.mjs';
 
 const origins = ['http://127.0.0.1:4100', 'http://127.0.0.1:5400'];
 
@@ -60,6 +60,22 @@ it('refuses a recording whose evidence folder is a symlink to somewhere else', a
 		await expect(
 			assertRecordingPath('screencast_start', { filePath: path.join(evidence, 'run/sweep.webm') }, evidence)
 		).resolves.toBeUndefined();
+	} finally {
+		await rm(root, { recursive: true, force: true });
+	}
+});
+
+it('judges an evidence folder by its real location, so a symlinked run folder is outside', async () => {
+	const root = await mkdtemp(path.join(tmpdir(), 'evidence-path-'));
+	const evidence = path.join(root, 'evidence');
+	await mkdir(path.join(root, 'outside'));
+	await mkdir(evidence);
+	await symlink(path.join(root, 'outside'), path.join(evidence, 'escape'));
+	try {
+		expect(await isUnderEvidence(path.join(evidence, 'escape/new-run'), evidence)).toBe(false);
+		expect(await isUnderEvidence(path.join(evidence, 'run/new-run'), evidence)).toBe(true);
+		expect(await isUnderEvidence(evidence, evidence)).toBe(false);
+		expect(await isUnderEvidence(path.join(evidence, '../outside/new-run'), evidence)).toBe(false);
 	} finally {
 		await rm(root, { recursive: true, force: true });
 	}

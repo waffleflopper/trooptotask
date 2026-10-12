@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { registeredFixtureFileWrite } from '../../../../scripts/verification/registered-file-upload.mjs';
+import { isUnderEvidence } from '../../../../scripts/verification/browser.mjs';
 // Controls only this checkout's owned synthetic worker. No claim runner is used.
 import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
@@ -2699,7 +2700,7 @@ async function main() {
 		if (recordName !== undefined && !/^[\w-][\w.-]*$/.test(recordName))
 			throw new Error('--record takes a plain file name without an extension or directory.');
 		const runDir = path.resolve(runName);
-		if (!runDir.startsWith(evidenceRoot + path.sep))
+		if (!(await isUnderEvidence(runDir, evidenceRoot)))
 			throw new Error('RUN_DIR must be a directory under the skill evidence directory.');
 		if (recordName && !doctor.recording?.available)
 			throw new Error(

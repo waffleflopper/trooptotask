@@ -34,6 +34,11 @@ export async function assertRecordingPath(name, args, evidenceDirectory) {
 		);
 }
 
+export async function isUnderEvidence(file, evidenceDirectory) {
+	const target = await realTarget(path.resolve(file));
+	return target.startsWith((await realTarget(path.resolve(evidenceDirectory))) + path.sep);
+}
+
 async function realTarget(file) {
 	let existing = file;
 	while (true) {

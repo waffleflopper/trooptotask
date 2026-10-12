@@ -95,7 +95,6 @@ export function mailKind(value) {
 	return mailKinds[value];
 }
 
-/** `mail state|restore` or `mail fail [KIND] [COUNT]`, shaped for the supervisor's mail command. */
 export function mailRequest(args) {
 	const [action, ...rest] = args;
 	if (['state', 'restore'].includes(action) && !rest.length) return { command: 'mail', action };
@@ -110,7 +109,6 @@ export function mailRequest(args) {
 	};
 }
 
-/** `fault state|restore` or `fault arm NAME [ORDINAL]`, shaped for the supervisor's fault command. */
 export function faultRequest(args) {
 	const [action, name, ordinal] = args;
 	const usage = `Use fault state|restore or fault arm ${Object.keys(PROVIDER_FAULTS).join('|')} [ORDINAL].`;
@@ -122,16 +120,11 @@ export function faultRequest(args) {
 
 const accessRequestColumns =
 	'id,email,name,reason,heard_about,heard_about_details,status,created_at,reviewed_at,reviewed_by,setup_user_id,setup_completed_at';
-const acquisitionColumns = 'origin,approval_basis,rescinded_at,rescinded_by';
-const missingColumn = (error) => ['42703', 'PGRST204'].includes(error?.code);
 
-/** Stored Access Requests with their setup links and invitation bridge rows; token hashes are never selected. */
 export async function readAccessRequests(client, email) {
-	const read = async (columns) => client.from('access_requests').select(columns).eq('email', email).order('created_at');
-	// The acquisition-provenance columns exist only after the repair; read them whenever the schema has them.
-	let result = await read(`${accessRequestColumns},${acquisitionColumns}`);
-	if (missingColumn(result.error)) result = await read(accessRequestColumns);
-	const rows = checkedRows(result);
+	const rows = checkedRows(
+		await client.from('access_requests').select(accessRequestColumns).eq('email', email).order('created_at')
+	);
 	const ids = rows.map(({ id }) => id);
 	if (!ids.length) return { email, count: 0, rows, setupLinks: [], invitationLinks: [] };
 	const setupLinks = checkedRows(

@@ -1,5 +1,3 @@
-// Loaded by the owned verification preload only. Captures the app's outbound mail and faults named provider
-// writes inside the verification app process; application code and the provider are never modified.
 export const MAIL_KINDS = Object.freeze(['account-setup', 'auth', 'invitation']);
 export const PROVIDER_FAULTS = Object.freeze({
 	'setup-link-create': [
@@ -34,7 +32,6 @@ export function providerOrigin(value) {
 	return url.origin;
 }
 
-/** Keeps a link's path and query but replaces every secret-bearing parameter value. */
 export function redactLinkTokens(value) {
 	return String(value).replace(
 		/([?&#][^=&#\s"']*(?:token|hash|secret|code|key)[^=&#\s"']*=)[^&#\s"']*/gi,
@@ -195,53 +192,53 @@ export function createMailSink({ apiKey, fetch: originalFetch }) {
 export function createProviderFaultController({ providerUrl, fetch: originalFetch }) {
 	const origin = providerOrigin(providerUrl);
 	if (typeof originalFetch !== 'function') throw new Error('Invalid owned provider fault configuration.');
-	let active = null;
-	let last = null;
+	const active = new Map();
+	let last = {};
 
-	function receipt(control = active) {
-		return (
-			control && {
-				name: control.name,
-				ordinal: control.ordinal,
-				matches: control.matches,
-				phase: control.phase,
-				call: control.call && { ...control.call }
-			}
-		);
-	}
+	const receipt = (control) => ({
+		ordinal: control.ordinal,
+		matches: control.matches,
+		phase: control.phase,
+		call: control.call && { ...control.call }
+	});
+	const receipts = (controls) => Object.fromEntries([...controls].map(([name, control]) => [name, receipt(control)]));
 
 	function command(action, options = {}) {
 		if (action === 'fault-arm') {
 			const { name, ordinal = 1 } = options;
 			if (!Object.hasOwn(PROVIDER_FAULTS, name) || !Number.isInteger(ordinal) || ordinal < 1 || ordinal > 10)
 				throw new Error(`Use fault arm ${Object.keys(PROVIDER_FAULTS).join('|')} with ordinal 1–10.`);
-			if (active && !active.triggered) throw new Error('Restore the active provider fault before arming another.');
-			last = receipt() ?? last;
-			active = { name, ordinal, matches: 0, phase: 'armed', triggered: false, call: null };
+			if (active.get(name)?.triggered === false)
+				throw new Error('Restore that armed provider fault before arming it again.');
+			active.set(name, { ordinal, matches: 0, phase: 'armed', triggered: false, call: null });
 		} else if (action === 'fault-restore') {
-			if (active) active.phase = active.triggered ? 'faulted' : 'restored';
-			last = receipt() ?? last;
-			active = null;
+			for (const control of active.values()) control.phase = control.triggered ? 'faulted' : 'restored';
+			if (active.size) last = receipts(active);
+			active.clear();
 		} else if (action !== 'fault-state') {
 			throw new Error('Use fault-arm, fault-state or fault-restore.');
 		}
-		return { status: 'PASS', armed: active !== null && !active.triggered, control: receipt(), lastControl: last };
+		return {
+			status: 'PASS',
+			armed: [...active].filter(([, control]) => !control.triggered).map(([name]) => name),
+			controls: receipts(active),
+			lastControls: last
+		};
 	}
 
 	async function faultFetch(input, init) {
-		const control = active;
-		if (!control || control.triggered) return originalFetch(input, init);
+		if (![...active.values()].some((control) => !control.triggered)) return originalFetch(input, init);
 		const request = describe(input, init);
-		if (
-			!request ||
-			request.url.origin !== origin ||
-			request.url.username ||
-			request.url.password ||
-			!PROVIDER_FAULTS[control.name].some(
-				([method, pathname]) => method === request.method && pathname === request.url.pathname
-			)
-		)
+		if (!request || request.url.origin !== origin || request.url.username || request.url.password)
 			return originalFetch(input, init);
+		const name = Object.keys(PROVIDER_FAULTS).find(
+			(candidate) =>
+				active.get(candidate)?.triggered === false &&
+				PROVIDER_FAULTS[candidate].some(
+					([method, pathname]) => method === request.method && pathname === request.url.pathname
+				)
+		);
+		if (!name) return originalFetch(input, init);
 		if (request.method === 'PATCH') {
 			let status;
 			try {
@@ -251,6 +248,7 @@ export function createProviderFaultController({ providerUrl, fetch: originalFetc
 			}
 			if (status !== 'blocked') return originalFetch(input, init);
 		}
+		const control = active.get(name);
 		control.matches++;
 		if (control.matches !== control.ordinal) return originalFetch(input, init);
 		control.triggered = true;
@@ -265,4 +263,23 @@ export function createProviderFaultController({ providerUrl, fetch: originalFetc
 	}
 
 	return { fetch: faultFetch, command };
+}
+
+export async function openCapturedLink({ captured, origin, pageId, call, textContent }) {
+	const link = new URL(captured.link);
+	if (link.origin !== origin) throw new Error('The captured link is not on the owned app origin.');
+	const secrets = [...link.searchParams]
+		.filter(([name]) => /token|hash|secret|code|key/i.test(name))
+		.map(([, value]) => value)
+		.filter(Boolean);
+	let snapshot;
+	try {
+		await call('navigate_page', { pageId, type: 'url', url: link.href });
+		snapshot = redactLinkTokens(textContent(await call('take_snapshot', { pageId })));
+	} catch {
+		throw new Error('Opening the captured link failed; its DevTools error is withheld because it may carry the token.');
+	}
+	if (secrets.some((secret) => snapshot.includes(secret)))
+		throw new Error('Link token survived redaction; refusing to print.');
+	return { sequence: captured.sequence, path: link.pathname, snapshot };
 }

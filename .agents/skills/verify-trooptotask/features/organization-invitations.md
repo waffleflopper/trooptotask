@@ -34,6 +34,8 @@ Record these on the current candidate before the repair and again after it. Use 
 - (e) Approve a public request through platform review first (setup mail delivered), then run a failing invite for the same email with `fault arm setup-link-create`. The independent approval must survive and renew-invite must deliver a working link. Before the repair the failed issuance also revokes the approval's valid link as `replaced` without inserting its replacement.
 - (f) Invite a completed account from another Organization and revoke it. The account must still sign in with its request history and memberships unchanged.
 - (g) As `platformReviewer`, open `admin/access-requests` on a request approved through an invitation. Before the repair its only action is `Send Fresh Setup`; there is no rescind.
+- (i) Failure during cleanup: arm both `fault arm setup-link-create` and `fault arm invitation-block`, then invite a new email. The fatal issuance's block fails too, so the invitation stays `pending` and the owner's failure must not claim it was blocked. A pending invitation is a live vouch, visible to the owner, who can revoke it. Case (e) covers the issuance's own cleanup: replacing a sibling link must never lose it when the insert fails.
+- Competing issuance (two simultaneous invites or renewals for one request) is a race the UI cannot make deterministic. Operation tests cover `concurrent-create`; two-session SQL suites prove the issuance and bridge transactions.
 - (h) `$V mail fail setup 1`, then invite a new email. The owner sees `Invitation created and email delivery was queued.`, the funnel shows `Setup email didn't reach them`, the invitation stays pending and renew-invite delivers a working link.
 
 ## Gotchas

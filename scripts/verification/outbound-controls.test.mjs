@@ -6,7 +6,12 @@ import { once } from 'node:events';
 import * as fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { createMailSink, createProviderFaultController, redactLinkTokens } from './outbound-controls.mjs';
+import {
+	createMailSink,
+	createProviderFaultController,
+	openCapturedLink,
+	redactLinkTokens
+} from './outbound-controls.mjs';
 
 const apiKey = 'a1'.repeat(24);
 const providerUrl = 'http://127.0.0.1:56321';
@@ -235,7 +240,7 @@ test('each named fault matches only its allowlisted writes on the owned provider
 			assert.equal(response.status, 503);
 			assert.equal((await response.json()).code, 'T2T_VERIFY_PROVIDER_FAULT');
 			assert.equal(passed.length, 0);
-			assert.deepEqual(control.command('fault-state').control.call, { method, path });
+			assert.deepEqual(control.command('fault-state').controls[name].call, { method, path });
 		}
 	}
 });
@@ -264,7 +269,7 @@ test('other writes, reads, origins and foreign operations pass through without c
 	];
 	for (const input of ordinary) assert.equal(await (await control.fetch(...input)).text(), 'real');
 	assert.equal(passed.length, ordinary.length);
-	assert.equal(control.command('fault-state').control.matches, 0);
+	assert.equal(control.command('fault-state').controls['invitation-block'].matches, 0);
 	const blocked = new Request(`${providerUrl}/rest/v1/organization_invitations`, {
 		method: 'PATCH',
 		body: JSON.stringify({ status: 'blocked' })
@@ -275,24 +280,23 @@ test('other writes, reads, origins and foreign operations pass through without c
 test('a fault fires on the selected ordinal once and stays dormant until restored and re-armed', async () => {
 	const { control, passed } = faults();
 	control.command('fault-arm', { name: 'setup-link-create', ordinal: 2 });
-	assert.throws(() => control.command('fault-arm', { name: 'invitation-block' }));
+	assert.throws(() => control.command('fault-arm', { name: 'setup-link-create' }));
 	const create = providerInput('account_setup_links', { method: 'POST' });
 	assert.equal(await (await control.fetch(...create)).text(), 'real');
 	assert.equal((await control.fetch(...create)).status, 503);
 	assert.equal(await (await control.fetch(...create)).text(), 'real');
 	assert.equal(passed.length, 2);
 	const state = control.command('fault-state');
-	assert.equal(state.armed, false);
-	assert.deepEqual(state.control, {
-		name: 'setup-link-create',
+	assert.deepEqual(state.armed, []);
+	assert.deepEqual(state.controls['setup-link-create'], {
 		ordinal: 2,
 		matches: 2,
 		phase: 'faulted',
 		call: { method: 'POST', path: '/rest/v1/account_setup_links' }
 	});
 	control.command('fault-restore');
-	assert.equal(control.command('fault-state').control, null);
-	assert.equal(control.command('fault-state').lastControl.phase, 'faulted');
+	assert.deepEqual(control.command('fault-state').controls, {});
+	assert.equal(control.command('fault-state').lastControls['setup-link-create'].phase, 'faulted');
 	control.command('fault-arm', { name: 'setup-link-create' });
 	assert.equal((await control.fetch(...create)).status, 503);
 });
@@ -310,9 +314,9 @@ test('restore before the ordinal leaves later writes untouched; invalid arming i
 	control.command('fault-arm', { name: 'setup-link-create', ordinal: 2 });
 	const create = providerInput('account_setup_links', { method: 'POST' });
 	assert.equal(await (await control.fetch(...create)).text(), 'real');
-	assert.equal(control.command('fault-restore').armed, false);
+	assert.deepEqual(control.command('fault-restore').armed, []);
 	assert.equal(await (await control.fetch(...create)).text(), 'real');
-	assert.equal(control.command('fault-state').lastControl.phase, 'restored');
+	assert.equal(control.command('fault-state').lastControls['setup-link-create'].phase, 'restored');
 	assert.throws(
 		() => createProviderFaultController({ providerUrl: 'http://localhost:56321', fetch }),
 		/exact owned loopback provider origin/
@@ -414,7 +418,7 @@ test('the actual Node preloader captures mail, serves its link only over the aut
 	assert.equal((await send(write, { method: 'POST', body: '{}' })).status, 503);
 	assert.equal((await send(write, { method: 'POST', body: '{}' })).body, 'actual fixture write');
 	assert.deepEqual(requests, ['POST /rest/v1/account_setup_links']);
-	assert.equal((await command('fault-state')).control.phase, 'faulted');
+	assert.equal((await command('fault-state')).controls['setup-link-create'].phase, 'faulted');
 	assert.equal(diagnostic, '');
 	assert.equal(JSON.stringify(ready).includes(config.token), false);
 	assert.equal(JSON.stringify(ready).includes(apiKey), false);
@@ -428,4 +432,63 @@ test('auth confirmation mail is its own kind and its token hash is redacted', as
 	assert.equal(message.kind, 'auth');
 	assert.deepEqual(message.paths, ['/auth/confirm?token_hash=[redacted]&type=recovery']);
 	assert.equal(mail.command('mail-link', { email: 'new@example.test', kind: 'auth' }).link, confirm);
+});
+
+test('issuance and cleanup faults compose: each fails its own write once', async () => {
+	const { control, passed } = faults();
+	control.command('fault-arm', { name: 'setup-link-create' });
+	control.command('fault-arm', { name: 'invitation-block' });
+	assert.deepEqual(control.command('fault-state').armed, ['setup-link-create', 'invitation-block']);
+	const block = providerInput('organization_invitations', {
+		method: 'PATCH',
+		body: JSON.stringify({ status: 'blocked' })
+	});
+	assert.equal((await control.fetch(...providerInput('account_setup_links', { method: 'POST' }))).status, 503);
+	assert.equal((await control.fetch(...block)).status, 503);
+	assert.equal(await (await control.fetch(...block)).text(), 'real');
+	assert.equal(passed.length, 1);
+	assert.deepEqual(
+		Object.fromEntries(Object.entries(control.command('fault-state').controls).map(([name, { call }]) => [name, call])),
+		{
+			'setup-link-create': { method: 'POST', path: '/rest/v1/account_setup_links' },
+			'invitation-block': { method: 'PATCH', path: '/rest/v1/organization_invitations' }
+		}
+	);
+});
+
+test('opening a captured link never surfaces its token, even when DevTools fails', async () => {
+	const origin = 'http://127.0.0.1:4100';
+	const captured = { sequence: 3, link: `${origin}/auth/setup-account?token=${rawToken}` };
+	const textContent = (result) => result;
+	const failing = (failOn) => async (name, args) => {
+		if (name === failOn) throw new Error(`navigate failed for ${args.url ?? captured.link}`);
+		return name === 'take_snapshot' ? 'Choose your password' : null;
+	};
+	for (const failOn of ['navigate_page', 'take_snapshot']) {
+		const error = await openCapturedLink({ captured, origin, pageId: 2, call: failing(failOn), textContent }).catch(
+			(caught) => caught
+		);
+		assert.equal(error.message.includes(rawToken), false);
+		assert.match(error.message, /withheld/);
+	}
+	await assert.rejects(
+		openCapturedLink({ captured, origin: 'http://127.0.0.1:9999', pageId: 2, call: failing(), textContent }),
+		/not on the owned app origin/
+	);
+	const leaky = async (name) => (name === 'take_snapshot' ? `url=${captured.link.replace('token=', 'TOKEN=')}` : null);
+	await assert.rejects(
+		openCapturedLink({
+			captured,
+			origin,
+			pageId: 2,
+			call: leaky,
+			textContent: (result) => result.replace('TOKEN=', 'x=')
+		}),
+		/refusing to print/
+	);
+	assert.deepEqual(await openCapturedLink({ captured, origin, pageId: 2, call: failing(), textContent }), {
+		sequence: 3,
+		path: '/auth/setup-account',
+		snapshot: 'Choose your password'
+	});
 });

@@ -183,7 +183,7 @@ test('fault commands accept only the named provider faults', () => {
 		assert.throws(() => faultRequest(args), /Use fault/);
 });
 
-function accessClient({ widerFails = false } = {}) {
+function accessClient() {
 	const selects = [];
 	const tables = {
 		access_requests: [{ id: 'r1', email: 'a@example.test', status: 'approved', reviewed_by: 'u1' }],
@@ -200,18 +200,12 @@ function accessClient({ widerFails = false } = {}) {
 			const query = {
 				select(columns) {
 					selects.push([table, columns]);
-					query.failed = widerFails && table === 'access_requests' && columns.includes('origin');
 					return query;
 				},
 				eq: () => query,
 				order: () => query,
 				in: () => query,
-				then: (resolve) =>
-					resolve(
-						query.failed
-							? { data: null, error: { code: '42703', message: 'column access_requests.origin does not exist' } }
-							: { data: tables[table], error: null }
-					)
+				then: (resolve) => resolve({ data: tables[table], error: null })
 			};
 			return query;
 		}
@@ -231,18 +225,8 @@ test('access-request readback adds review, invitation bridge rows and invitation
 			['k2', null]
 		]
 	);
-	assert.match(client.selects[0][1], /origin,approval_basis,rescinded_at,rescinded_by/);
 	assert.equal(
 		client.selects.some(([, columns]) => columns.includes('token_hash')),
 		false
 	);
-});
-
-test('access-request readback falls back to the columns that exist today', async () => {
-	const client = accessClient({ widerFails: true });
-	const result = await readAccessRequests(client, 'a@example.test');
-	assert.equal(result.count, 1);
-	assert.equal(client.selects[1][0], 'access_requests');
-	assert.equal(client.selects[1][1].includes('origin'), false);
-	assert.equal(client.selects[1][1].includes('reviewed_by'), true);
 });

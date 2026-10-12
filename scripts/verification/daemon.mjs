@@ -29,7 +29,7 @@ import {
 } from './core.mjs';
 import { seed } from './fixtures.mjs';
 import { driver, assertOwnedNavigation, textContent } from './browser.mjs';
-import { redactLinkTokens } from './outbound-controls.mjs';
+import { openCapturedLink } from './outbound-controls.mjs';
 import { capturePrint } from './print-capture.mjs';
 
 const session = process.argv[2];
@@ -72,16 +72,12 @@ async function serverSource(action, options = {}) {
 async function openMailLink({ pageId, email, kind, ordinal }) {
 	const captured = await serverSource('mail-link', { email, kind, ordinal });
 	if (captured.status !== 'PASS') throw new Blocked('MAIL_LINK', captured.message);
-	const link = new URL(captured.link);
-	if (link.origin !== state.origin) throw new Blocked('MAIL_LINK', 'The captured link is not on the owned app origin.');
-	await call('navigate_page', { pageId, type: 'url', url: link.href });
-	const snapshot = redactLinkTokens(textContent(await call('take_snapshot', { pageId })));
-	const secrets = [...link.searchParams]
-		.filter(([name]) => /token|hash|secret|code|key/i.test(name))
-		.map(([, value]) => value);
-	if (secrets.some((secret) => secret && snapshot.includes(secret)))
-		throw new Blocked('MAIL_LINK', 'Link token survived redaction; refusing to print.');
-	return { status: 'PASS', pageId, email, kind, sequence: captured.sequence, path: link.pathname, snapshot };
+	try {
+		const opened = await openCapturedLink({ captured, origin: state.origin, pageId, call, textContent });
+		return { status: 'PASS', pageId, email, kind, ...opened };
+	} catch (error) {
+		throw new Blocked('MAIL_LINK', error.message);
+	}
 }
 async function cleanup() {
 	if (closing) throw new Blocked('CLEANUP_PENDING', 'Cleanup is already in progress; wait and inspect info.');
@@ -90,13 +86,7 @@ async function cleanup() {
 		await port?.release();
 		port = undefined;
 		if (sourceControl && app?.exitCode === null && !app.signalCode) {
-			for (const action of ['restore', 'mail-restore', 'fault-restore']) {
-				try {
-					await serverSource(action);
-				} catch {
-					// The owned app is stopped below; its preload also releases waits on SIGTERM.
-				}
-			}
+			await Promise.allSettled(['restore', 'mail-restore', 'fault-restore'].map((action) => serverSource(action)));
 		}
 		const results = await Promise.allSettled([
 			(async () => {

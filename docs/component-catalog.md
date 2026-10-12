@@ -184,79 +184,119 @@ Props: `id?: string`, `value?: string` (bindable ISO `YYYY-MM-DD`), `placeholder
 
 ## `patterns/workspace-toolbar`
 
-`patterns/workspace-toolbar` is the shared toolbar used by authenticated production routes. It gives every workspace toolbar one visual contract built from shadcn-svelte primitives.
+`patterns/workspace-toolbar` is the shared toolbar used by authenticated production routes. The named `WorkspaceToolbar` export is data driven. A route describes its controls as ranked data and the toolbar decides what fits on one row. Everything that does not fit folds into one More menu.
 
 ```svelte
 <script lang="ts">
-	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar';
-	import * as ButtonGroup from '$lib/components/ui/button-group';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
-	import * as InputGroup from '$lib/components/ui/input-group';
-	import { Button } from '$lib/components/ui/button';
+	import { WorkspaceToolbar, type ToolbarItem } from '$lib/components/patterns/workspace-toolbar';
+
+	const items = $derived<ToolbarItem[]>([
+		{ kind: 'view', id: 'view', label: 'View mode', options: viewOptions, value: view, onValueChange: setView },
+		{
+			kind: 'select',
+			id: 'group',
+			label: 'Group',
+			options: groupOptions,
+			value: group,
+			defaultValue: '',
+			onValueChange: setGroup
+		},
+		{ kind: 'toggle', id: 'gaps', label: 'Show gaps only', pressed: gapsOnly, onPressedChange: setGapsOnly },
+		{ kind: 'action', id: 'reports', label: 'Reports', icon: 'chart', href: reportsHref },
+		{ kind: 'action', id: 'export', label: 'Export Excel', icon: 'download', loading: exporting, onclick: exportExcel }
+	]);
 </script>
 
-<WorkspaceToolbar.Root ariaLabel="Calendar controls">
-	<WorkspaceToolbar.Group label="Calendar view mode">
-		<ButtonGroup.Root aria-label="Calendar view mode">
-			<Button variant="secondary">Month</Button>
-			<Button variant="outline">Long range</Button>
-		</ButtonGroup.Root>
-	</WorkspaceToolbar.Group>
-
-	<WorkspaceToolbar.Group label="Calendar filters" activeCount={activeFilterCount}>
-		<DropdownMenu.Root>
-			<DropdownMenu.Trigger>
-				{#snippet child({ props })}
-					<Button variant="outline" {...props}>Filters</Button>
-				{/snippet}
-			</DropdownMenu.Trigger>
-			<DropdownMenu.Content>Filter controls...</DropdownMenu.Content>
-		</DropdownMenu.Root>
-	</WorkspaceToolbar.Group>
-
-	<WorkspaceToolbar.Group label="Calendar search" class="min-w-0 shrink">
-		<InputGroup.Root class="w-40 sm:w-56">
-			<InputGroup.Input type="search" aria-label="Search roster" placeholder="Search..." />
-		</InputGroup.Root>
-	</WorkspaceToolbar.Group>
-
-	<WorkspaceToolbar.Group label="Calendar actions" zone="actions">
-		<Button>Add status</Button>
-		<Button variant="outline" size="icon" aria-label="More calendar actions">...</Button>
-	</WorkspaceToolbar.Group>
-</WorkspaceToolbar.Root>
+<WorkspaceToolbar
+	ariaLabel="Critical Tasks controls"
+	{items}
+	search={{ label: 'Search by name, rank, or MOS', placeholder: 'Search...', value: search, onValueChange: setSearch }}
+	primary={{ kind: 'action', id: 'record', label: 'Record Completion', icon: 'clipboard-check', onclick: openRecord }}
+/>
 ```
 
-Public components:
+Props (`WorkspaceToolbarProps`):
 
-- `WorkspaceToolbar.Root`: the shared toolbar shell. Props: `ariaLabel: string`, `wrap?: boolean`, `children?: Snippet`, plus normal `div` attributes. The shell renders `role="toolbar"`. By default it is one fixed-height `flex-nowrap` row with hidden horizontal overflow as a last resort. `wrap` lets groups and their controls flow onto further rows when the container is too narrow, so no control is ever scrolled out of view; use it for filter-heavy report toolbars whose controls cannot fit one row at medium widths. The shell is a size container: at 47.5rem and below, select triggers cap at 8.5rem and search at 10rem; at 35rem and below, gaps and padding tighten, select triggers cap at 7rem, search narrows to 8rem and action labels hide beside their icons. These rules use the `toolbar-compact` and `toolbar-narrow` variants from `src/app.css` and take precedence over consumer classes.
-- `WorkspaceToolbar.Group`: the labeled control/action boundary. Props: `label: string`, `activeCount?: number`, `zone?: 'controls' | 'actions' | 'meta'`, `children?: Snippet`, plus normal `div` attributes. `activeCount` is included in the accessible group label. The `actions` zone aligns to the toolbar's right edge.
-- `WorkspaceToolbar.Select`: single-choice `ui/select`. Props: `ariaLabel`, `options: { value, label }[]`, `value`, `disabled?`, `onValueChange`. It truncates a long selected label inside its trigger and exposes the full label as the trigger title.
-- `WorkspaceToolbar.MultiSelect`: checkbox dropdown for several values. Props: `ariaLabel`, `label`, `options`, `value: string[]`, `disabled?`, `onChange`. Critical Tasks and Training reports use it.
-- `WorkspaceToolbar.Search`: compact `ui/input-group` search. Props: `value` (bindable), `ariaLabel`, `placeholder?`, `testId?`, `onValueChange?`.
-- `WorkspaceToolbar.Nav`: link group for sibling workspace views. Props: `ariaLabel`, `items: { label, href }[]`. Calendar planner, bulk status and reports, Onboarding History and templates use it.
-- `WorkspaceToolbar.Actions`: command buttons with dropdown overflow. Props: `actions: WorkspaceToolbarAction[]`, `ariaLabel?`, `overflowAriaLabel`. Each action sets `priority`, `displayMode`, `overflow`, `variant`, `icon`, `menuItems`, `toggle` and disabled reasons. It names every action button by its label, so compact icon-only buttons keep their accessible name. An action chosen from one of its menus runs after that menu has finished closing, so an action that moves focus into page content keeps it. If the menu unmounts before its close finishes, for example when a resize moves the action out of overflow, the action runs then.
-- `WorkspaceToolbar.Meta`: compact passive metadata for rare toolbar-safe status. Props: `tone?: 'neutral' | 'warning' | 'success'`, `children?: Snippet`, plus normal `div` attributes. Keep passive route context outside the toolbar unless there is proven room.
+- `ariaLabel`: the toolbar name. The More trigger is named `More {ariaLabel}`.
+- `items: ToolbarItem[]`: views, filters and actions, most important first.
+- `search?`: `label`, `placeholder`, `value` and `onValueChange`. The search field is pinned.
+- `primary?`: one pinned `ToolbarAction`. It is always on the row and is never menu only.
 
-Allowed route behavior knobs:
+Item kinds (`toolbar-types.ts`):
 
-- Labels, placeholders, option data, selected values, search text, active filter counts, disabled/loading state, permissions, and action handlers.
-- Which commands stay visible versus move into a `DropdownMenu` overflow.
-- Whether a route uses text buttons or icon-only buttons at shared breakpoints.
-- Which filters are combined into one filter trigger.
+- `view`: a mutually exclusive mode. The row shows a `ButtonGroup` with `aria-pressed`. More shows a radio group.
+- `select`: one value with a required `defaultValue`. It is active when its value differs from the default.
+- `multiSelect`: several values with optional `defaultValues`. It is active when its set differs from the defaults, in any order.
+- `toggle`: one boolean. It is active when pressed.
+- `action`: exactly one of `onclick`, `href` or `menuItems`, plus `icon`, `destructive`, `disabled`, `disabledReason`, `loading` and `menuOnly`. `href` navigates with `goto`. `menuItems` nest as submenus, and a disabled or loading parent blocks its children.
+
+Every item has a unique `id` and a visible `label`. An optional `ariaLabel` keeps an existing accessible name.
+
+Rank rule:
+
+- `items` order is the only ranking. There is no priority number and no per-route breakpoint.
+- The row renders view, search, filters, actions, More and primary. Actions render in reverse rank, so the highest ranked action sits next to the primary. The first trailing control aligns right.
+
+Fold rule:
+
+- The toolbar measures each control's natural width in a hidden copy and fits them to the row width.
+- Actions fold first, then filters, then views. Within each section the lowest ranked item folds first.
+- More takes room once something folds or a `menuOnly` action exists. With nothing folded and no menu-only action there is no More button.
+- Search collapses to an icon button only after every item has folded. The primary and More never fold.
+- Before the first measurement every control renders on the row, and the root clips overflow.
+
+More rendering:
+
+- More lists folded items under View, Filters and Actions headings, separated, in that order.
+- A folded `select` or `multiSelect` becomes a submenu. Its trigger shows the current value and an accent dot when the filter is active. A folded `toggle` becomes a checkbox item.
+- Folded actions keep row order, with menu-only actions after them. Destructive actions sit last after a separator, in every menu and submenu.
+- When a folded filter is active, the More trigger shows a dot and is described as `Hidden filters active: …`.
+- A chosen action runs after its menu has finished closing, so an action that moves focus into page content keeps it. If More unmounts before its close finishes, the action runs then. If the whole toolbar unmounts, the action is dropped.
+- When a focused control or an open menu folds, focus moves to More. When More disappears, focus moves to the first returning control.
+
+Phone search:
+
+- A collapsed search is an icon button named by the search label. A non-empty search value describes the button.
+- Opening it fills the row with the search field and a Close search button and hides the other controls. Escape or Close search returns to the icon.
+- When the row widens enough to show the field, the toolbar leaves phone search and keeps the same input element.
+
+Data attributes, for tests and the verification helpers:
+
+| Attribute                       | Element                                       | Values                                                   |
+| ------------------------------- | --------------------------------------------- | -------------------------------------------------------- |
+| `data-slot="workspace-toolbar"` | Root, with `role="toolbar"` and `aria-label`  | —                                                        |
+| `data-toolbar-search`           | Root                                          | `field`, `icon`, `open` or `none`                        |
+| `data-toolbar-ready`            | Root                                          | `true` after the first fit, otherwise `false`            |
+| `data-toolbar-row`              | The live row                                  | —                                                        |
+| `data-toolbar-item`             | Each live item wrapper, including the primary | The item `id`                                            |
+| `data-toolbar-more`             | The More wrapper                              | —                                                        |
+| `data-toolbar-measure`          | The hidden, inert measuring copy              | Its item wrappers carry the same `data-toolbar-item` ids |
 
 Rules:
 
-- Keep the toolbar as one row where it fits. Combine filters early for action-heavy routes; move page-level commands such as exports to the page header. A filter-heavy report toolbar that still cannot fit uses `wrap` rather than hiding controls behind sideways scrolling.
-- Use shadcn `button-group` for view toggles and [`ui/toggle-group`](#uitoggle-group) for a single-choice segmented value such as a forecast horizon. Do not build route-local segmented controls.
-- Use `DropdownMenu` for command overflow. Commands can overflow; filters and search should stay as stateful controls or combine into a filter trigger.
-- Use compact search widths such as `w-40 sm:w-56` unless a route has proven room for wider search.
-- Keep disabled actions visible when their presence explains unavailable work. Loading actions should be disabled and show the shared spinner.
+- Rank items by importance to the route's main task. Do not hand-pick overflow or icon-only modes.
+- Use `menuOnly` for rare or destructive commands that should never take row space.
+- Keep disabled actions visible when their presence explains unavailable work, and give them a `disabledReason`. Loading actions show the shared spinner.
 - Do not add route-local toolbar spacing, radius, borders, shadows, color, density, typography, or internal selector overrides.
 - Compose route-specific behavior under the [shared UI composition rules](agents/ui-system.md#default-ui-rules); keep toolbar appearance and reusable APIs owned by the shared component.
 - If an authorized route change needs behavior this API cannot express, implement and verify the smallest shared API extension, update affected consumers and document its usage here.
 
-Consumers: the Calendar month view, assignment planner, bulk status and reports; the Critical Tasks library, person detail, matrix and reports; Onboarding History and templates; Personnel; Rating Scheme; Ranks settings; and the Training matrix, types, views and reports. Start a new route toolbar from `WorkspaceToolbar.Root`, `WorkspaceToolbar.Group`, shadcn `ButtonGroup`, shadcn `Button`, shadcn `DropdownMenu` and shadcn form primitives. A change to the toolbar is verified on these consumers at narrow and wide widths.
+Consumers: the Critical Tasks matrix. A new route toolbar starts from `WorkspaceToolbar`. A change to the toolbar is verified on its consumers at narrow and wide widths.
+
+### Legacy composition API (temporary)
+
+The namespace parts below remain until the remaining consumers migrate. Slice 7 of #1624 removes them. Do not start a new toolbar from them.
+
+- `WorkspaceToolbar.Root`: the legacy shell. Props: `ariaLabel: string`, `wrap?: boolean`, `children?: Snippet`, plus normal `div` attributes. It renders `role="toolbar"` as one fixed-height `flex-nowrap` row with hidden horizontal overflow as a last resort. `wrap` lets groups flow onto further rows. The shell is a size container that uses the `toolbar-compact` and `toolbar-narrow` variants from `src/app.css`.
+- `WorkspaceToolbar.Group`: the labeled control/action boundary. Props: `label: string`, `activeCount?: number`, `zone?: 'controls' | 'actions' | 'meta'`, `children?: Snippet`, plus normal `div` attributes. `activeCount` is included in the accessible group label. The `actions` zone aligns to the toolbar's right edge.
+- `WorkspaceToolbar.Select`: single-choice `ui/select`. Props: `ariaLabel`, `options: { value, label }[]`, `value`, `disabled?`, `onValueChange`.
+- `WorkspaceToolbar.MultiSelect`: checkbox dropdown for several values. Props: `ariaLabel`, `label`, `options`, `value: string[]`, `disabled?`, `onChange`.
+- `WorkspaceToolbar.Search`: compact `ui/input-group` search. Props: `value` (bindable), `ariaLabel`, `placeholder?`, `testId?`, `onValueChange?`.
+- `WorkspaceToolbar.Nav`: link group for sibling workspace views. Props: `ariaLabel`, `items: { label, href }[]`.
+- `WorkspaceToolbar.Actions`: command buttons with dropdown overflow. Props: `actions: WorkspaceToolbarAction[]`, `ariaLabel?`, `overflowAriaLabel`. Each action sets `priority`, `displayMode`, `overflow`, `variant`, `icon`, `menuItems`, `toggle` and disabled reasons. An action chosen from one of its menus runs after that menu has finished closing.
+- `WorkspaceToolbar.Meta`: compact passive metadata. Props: `tone?: 'neutral' | 'warning' | 'success'`, `children?: Snippet`, plus normal `div` attributes.
+
+Legacy consumers: the Calendar month view, assignment planner, bulk status and reports; the Critical Tasks library, person detail and reports; Onboarding History and templates; Personnel; Rating Scheme; Ranks settings; and the Training matrix, types, views and reports.
 
 ---
 

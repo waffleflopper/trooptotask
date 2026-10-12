@@ -420,6 +420,34 @@ describe('fetchCalendarBootstrap', () => {
 		}
 	);
 
+	it.each(['calendarAvailability', 'calendarAssignments'] as const)(
+		'keeps the server alive when the streamed %s read rejects before the eager reads settle',
+		async (port) => {
+			const ctx = buildCtx();
+			seedCalendarData(ctx.store);
+			const failure = new Error('Synthetic verification source failure');
+			if (port === 'calendarAvailability') ctx.calendarAvailability.listOverlapping = () => Promise.reject(failure);
+			else ctx.calendarAssignments.listRange = () => Promise.reject(failure);
+			const roster = ctx.personnelCalendarRoster!;
+			const listActive = roster.listActive.bind(roster);
+			roster.listActive = async (auth) => {
+				await new Promise((resolve) => setTimeout(resolve, 20));
+				return listActive(auth);
+			};
+			const unhandled = vi.fn();
+			process.on('unhandledRejection', unhandled);
+
+			try {
+				const result = await fetchCalendarBootstrap(ctx, RANGE);
+				const streamed = port === 'calendarAvailability' ? result.availabilityEntries : result.dailyAssignments;
+				await expect(streamed).rejects.toBe(failure);
+				expect(unhandled).not.toHaveBeenCalled();
+			} finally {
+				process.off('unhandledRejection', unhandled);
+			}
+		}
+	);
+
 	it('returns the configured loss warning window from the organizations row', async () => {
 		const ctx = buildCtx();
 		seedCalendarData(ctx.store);

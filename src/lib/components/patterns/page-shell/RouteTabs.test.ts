@@ -1,11 +1,11 @@
 // @vitest-environment happy-dom
 import { render, screen, within } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
-import { RouteTabs } from './index.js';
+import { Tabs } from './index.js';
 
 describe('patterns/page-shell RouteTabs', () => {
 	it('marks the active route, announces badge labels and leaves a disabled section unlinked', () => {
-		render(RouteTabs, {
+		render(Tabs, {
 			props: {
 				label: 'Organization settings sections',
 				items: [

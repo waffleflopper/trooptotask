@@ -231,7 +231,6 @@
 			<div
 				class="grid gap-2 overflow-hidden rounded-lg border border-border bg-card p-3"
 				role="status"
-				aria-busy="true"
 				aria-live="polite"
 				aria-label="Loading training matrix"
 				data-testid="skeleton-grid"

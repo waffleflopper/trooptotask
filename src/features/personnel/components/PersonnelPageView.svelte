@@ -553,7 +553,7 @@
 			title="Archive Personnel"
 			message="Archive {archiveTarget.rank} {archiveTarget.lastName}? They will be removed from active rosters, calendars, and reports, but their records remain available in archived personnel."
 			confirmLabel="Archive"
-			variant="warning"
+			variant="default"
 			loading={archiveSubmitting}
 			onConfirm={confirmArchive}
 			onCancel={() => (archiveTarget = null)}
@@ -567,7 +567,7 @@
 			title="Archive Personnel"
 			message="Archive {selectedArchiveIds.size} personnel? They will leave active rosters, calendars, and reports. Records are not erased, and some archives may require approval."
 			confirmLabel="Archive"
-			variant="warning"
+			variant="default"
 			loading={bulkArchiveSubmitting}
 			onConfirm={confirmBulkArchive}
 			onCancel={() => (showBulkArchiveConfirm = false)}

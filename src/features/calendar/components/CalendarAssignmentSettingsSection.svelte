@@ -381,7 +381,6 @@
 		title="Delete Assignment Type"
 		message={`Remove "${confirmDeleteAssign.name}"? All assignments using this type will also be removed. This cannot be undone.`}
 		confirmLabel="Delete"
-		variant="danger"
 		onConfirm={() => {
 			if (confirmDeleteAssign) return deleteAssignType(confirmDeleteAssign);
 		}}

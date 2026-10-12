@@ -14,7 +14,6 @@
 <div
 	role="status"
 	aria-live="polite"
-	aria-busy="true"
 	data-slot="bulk-import-progress-state"
 	class="flex min-h-36 flex-col items-center justify-center gap-3 rounded-lg border border-border bg-card p-6 text-center text-card-foreground"
 >

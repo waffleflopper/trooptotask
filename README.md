@@ -170,30 +170,28 @@ a pass.
 
 ```
 src/
-  app.css                    # Global design system + CSS variables
-  features/
-    training/                # Training types, matrix, reports, bulk import
-    personnel/               # Personnel CRUD, bulk import, extended info
-    calendar/                # Calendar views, availability, status, assignments
-    onboarding/              # Onboarding workflows, templates
-    dashboard/               # Readiness, people/duty, and training/evaluation overview
-    sign-in-rosters/         # Sign-in roster generation
-    groups/                  # Group and member management
+  app.css                    # Tailwind v4 setup, design tokens and shared utilities
+  features/                  # Feature modules: UI, client state, domain rules and server operations
+    app-shell/               # Sidebar navigation, header and banners
+    calendar/                # Calendar views, availability, statuses and assignments
+    critical-tasks/          # Critical task library, completions, matrix and reports
+    personnel/               # Personnel records, groups and bulk import
+    training/                # Training types, matrix, reports and bulk import
+    ...                      # Dashboard, onboarding, organization, identity and others
   lib/
-    components/              # Shared layout components (Modal, PageToolbar, etc.)
-    components/ui/           # Shared UI primitives (Badge, Spinner, DataTable, etc.)
-    server/
-      entities/              # Schema-first entity definitions
-      apiRoute.ts            # API route wrapper (permissions, validation, audit)
+    components/ui/           # Shared shadcn-svelte primitives (Button, Field, DataTable, etc.)
+    components/patterns/     # Shared neutral compositions (PageShell, WorkspaceToolbar, etc.)
+    components/public/       # Public marketing site shell
+    server/                  # Server adapters, Supabase clients and environment
     stores/                  # Shared cross-cutting stores
-    types.ts                 # Shared TypeScript types
     utils/                   # Shared utilities
   routes/
-    org/[orgId]/             # Main app (thin shells importing from features)
+    org/[orgId]/             # Main app (thin routes composing feature modules)
+    admin/                   # Platform admin
     auth/                    # Login, callback, registration
 ```
 
-Each feature module contains its own `components/`, `stores/`, `utils/`, and types. Features are imported via `$features/feature-name/...`.
+Each feature keeps its own UI, client state, domain rules and server operations. Import another feature only through its public seam, such as `$features/training` or `$features/training/index.server`.
 
 ## License
 

@@ -5,9 +5,9 @@ Members meet the shared type-management workspace, bulk-import workspace, readin
 ## Sub-features
 
 - `type-management`: Training Types, Training Views and Onboarding Templates render a keyboard `grid` of `row` elements, a detail form with `details` disclosures and a color field, and per-row action toolbars.
-- `bulk-import`: Personnel, Training, Critical Tasks and Calendar imports render the shared workspace, header, input panels and footer actions. The source picker and source option have no production consumer; only the component test fixture renders them.
+- `bulk-import`: Personnel, Training, Critical Tasks and Calendar imports render the shared workspace, preview table and validation summary. Personnel, Training and Critical Tasks completion import add the header, input panel and file input; only Personnel renders footer actions.
 - `readiness-band`: Training Reports and Critical Tasks Reports render ramp and semantic tiles, drop markers and a legend.
-- `report-chart`: Training and Critical Tasks Reports render Bar, Line, Forecast and ChartTable charts.
+- `report-chart`: Critical Tasks Reports render Bar, Line and ChartTable charts, Training Reports renders the Forecast chart, and the platform admin dashboard renders a Bar chart.
 - `requirement-status-badge`: the Training matrix, record modal and Critical Tasks screens render Current, Expiring, Expiring Soon, Expired, Exempt, N/A, Not Done and Not Required.
 - `route-tabs`: Organization settings, Personnel detail and Account pages render link navigation as tabs, including count badges.
 - `workspace-toolbar`: Personnel, Training and Critical Tasks toolbars narrow their select and search and hide action labels by container width.

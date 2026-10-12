@@ -5,7 +5,7 @@
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import type { Group } from '$features/personnel/contracts';
 	import { getAppShellContext } from '$features/app-shell';
-	import { throwRenderError } from '$lib/utils/streamedRouteData';
+	import WorkspaceLoadError from '../../WorkspaceLoadError.svelte';
 
 	interface PersonnelLayoutData {
 		personnelDetailHeader: PersonnelDetailHeader;
@@ -36,12 +36,6 @@
 
 	const org = getAppShellContext();
 	const workspaceGroups = $derived(new PersonnelWorkspaceGroups(data.personnel.data));
-	const renderWorkspaceError = $derived.by(() => {
-		if (workspaceGroups.error) {
-			throwRenderError(workspaceGroups.error, 'Failed to load personnel workspace');
-		}
-		return null;
-	});
 	const person = $derived(data.personnelDetailHeader.person);
 	const archiveResource = $derived(
 		person.groupId ? { kind: 'group' as const, groupId: person.groupId } : { kind: 'organization' as const }
@@ -53,7 +47,7 @@
 </script>
 
 {#if workspaceGroups.error}
-	{renderWorkspaceError}
+	<WorkspaceLoadError subject="Personnel" />
 {:else}
 	<PersonnelDetailPageView
 		orgId={org.orgId}

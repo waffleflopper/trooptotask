@@ -557,7 +557,6 @@
 		title="Delete Training Type"
 		message="Are you sure you want to delete '{confirmDelete.name}'? All associated training records will also be deleted. This cannot be undone."
 		confirmLabel="Delete"
-		variant="danger"
 		onConfirm={() => {
 			if (confirmDelete) return deleteType(confirmDelete.id);
 		}}

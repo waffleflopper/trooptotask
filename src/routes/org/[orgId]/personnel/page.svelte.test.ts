@@ -23,7 +23,7 @@ vi.mock('$features/app-shell', () => ({
 
 import Layout from './+layout.svelte';
 import Page from './+page.svelte';
-import RouteBoundary from '$features/personnel/test-support/PersonnelRouteTestBoundary.svelte';
+import RouteHarness from '$features/personnel/test-support/PersonnelRouteTestHarness.svelte';
 
 const alpha = person('alpha', 'Alpha');
 const bravo = person('bravo', 'Bravo');
@@ -266,7 +266,7 @@ describe('Personnel route archive retry lifetime', () => {
 			)
 			.mockResolvedValueOnce(Response.json({ archivedIds: ['alpha'], approvalRequestedIds: [], errors: [] }));
 		vi.stubGlobal('fetch', send);
-		const view = render(RouteBoundary, { data: routeData('a', initialWorkspace.promise), Layout, Page });
+		const view = render(RouteHarness, { data: routeData('a', initialWorkspace.promise), Layout, Page });
 		initialWorkspace.resolve(workspace('a', [alpha, bravo]));
 		await settle(initialWorkspace.promise);
 		await screen.findByText('Alpha, Test');
@@ -298,11 +298,13 @@ describe('Personnel route archive retry lifetime', () => {
 	});
 
 	it.each(['initial', 'new-Organization'] as const)(
-		'keeps an actual layout/page %s load rejection fatal when there is no saved workspace for that Organization',
+		'replaces the roster with a load error and a working retry when the %s load rejects with no saved workspace for that Organization',
 		async (phase) => {
+			const reload = vi.fn();
+			vi.stubGlobal('location', { ...window.location, reload });
 			const pending = deferred<PersonnelWorkspaceResult>();
 			const initialWorkspace = deferred<PersonnelWorkspaceResult>();
-			const view = render(RouteBoundary, {
+			const view = render(RouteHarness, {
 				data: routeData('a', phase === 'initial' ? pending.promise : initialWorkspace.promise),
 				Layout,
 				Page
@@ -315,9 +317,11 @@ describe('Personnel route archive retry lifetime', () => {
 			}
 			pending.reject(new Error(`${phase} workspace unavailable`));
 			const alert = await screen.findByRole('alert');
-			expect(alert.textContent).toContain(`${phase} workspace unavailable`);
+			expect(alert.textContent).toContain('Unable to load Personnel');
 			expect(screen.queryByText('Alpha, Test')).toBeNull();
 			expect(screen.queryByRole('button', { name: 'Archive' })).toBeNull();
+			await fireEvent.click(screen.getByRole('button', { name: 'Retry Personnel' }));
+			expect(reload).toHaveBeenCalledTimes(1);
 		}
 	);
 });

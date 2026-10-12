@@ -8,9 +8,9 @@
 	import { calendarStatusHydration } from '$features/calendar';
 	import type { PersonnelWorkspaceRestricted, PersonnelWorkspaceResult } from '$features/personnel/contracts';
 	import * as Alert from '$lib/components/ui/alert';
-	import { throwRenderError } from '$lib/utils/streamedRouteData';
 	import { hydrateStreamedWorkspace } from '$lib/utils/streamedWorkspaceHydrator';
 	import WorkspaceAccessRestricted from '../WorkspaceAccessRestricted.svelte';
+	import WorkspaceLoadError from '../WorkspaceLoadError.svelte';
 
 	let { children, data } = $props();
 	let hydrationError = $state<{ orgId: string; error: Error } | null>(null);
@@ -22,12 +22,6 @@
 		statusTypesStore: calendarStatusHydration,
 		pinnedGroupsStore: pinnedGroupsHydration
 	};
-	const renderHydrationError = $derived.by(() => {
-		if (hydrationError && hydrationError.orgId === data.shell.org.id && hydratedOrgId !== data.shell.org.id) {
-			throwRenderError(hydrationError.error, 'Failed to hydrate personnel workspace');
-		}
-		return null;
-	});
 
 	$effect(() => {
 		const orgId = data.shell.org.id;
@@ -60,7 +54,7 @@
 </script>
 
 {#if hydrationError && hydrationError.orgId === data.shell.org.id && hydratedOrgId !== data.shell.org.id}
-	{renderHydrationError}
+	<WorkspaceLoadError subject="Personnel" />
 {:else if restrictedOrgId === data.shell.org.id}
 	<WorkspaceAccessRestricted subject="personnel" />
 {:else}

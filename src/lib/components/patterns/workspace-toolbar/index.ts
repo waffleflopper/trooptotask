@@ -16,4 +16,6 @@ export type {
 	WorkspaceToolbarOption
 } from './types.js';
 
+export type { ToolbarAction, ToolbarItem, ToolbarOption, WorkspaceToolbarProps } from './toolbar-types.js';
+
 export { Root, Group, Meta, Actions, Select, Search, MultiSelect, Nav };

@@ -2,6 +2,7 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RanksSettingsData, SettingsRankCatalogRow, SettingsRankServicePackOption } from '../settingsSectionTypes';
+import { frameworkOutcome } from '$lib/test-support/sveltekitEnhance';
 import Page from './+page.svelte';
 
 type HeldSubmission = (opts: {
@@ -17,7 +18,12 @@ const { heldSubmissions, submittedForms } = vi.hoisted(() => ({
 vi.mock('$app/forms', () => ({
 	enhance: (
 		form: HTMLFormElement,
-		submit?: (input: { formElement: HTMLFormElement; formData: FormData; cancel: () => void }) => unknown
+		submit?: (input: {
+			formElement: HTMLFormElement;
+			formData: FormData;
+			submitter: HTMLElement | null;
+			cancel: () => void;
+		}) => unknown
 	) => {
 		form.addEventListener('submit', (event) => {
 			event.preventDefault();
@@ -25,6 +31,7 @@ vi.mock('$app/forms', () => ({
 			const settle = submit?.({
 				formElement: form,
 				formData: new FormData(form),
+				submitter: event.submitter,
 				cancel: () => {
 					cancelled = true;
 				}
@@ -1056,5 +1063,69 @@ describe('rejected rank saves', () => {
 
 		expect(screen.getByText('Label is too long.')).toBeTruthy();
 		expect((screen.getByLabelText('Label') as HTMLInputElement).value).toBe('Detachment Sergeant Major');
+	});
+});
+
+describe('held rank saves keep focus', () => {
+	async function submitAndHold(name: string) {
+		const button = screen.getByRole('button', { name }) as HTMLButtonElement;
+		button.focus();
+		(button.closest('form') as HTMLFormElement).requestSubmit(button);
+		await vi.runAllTimersAsync();
+		expect(button.disabled).toBe(true);
+	}
+
+	function renderSettled(active: SettingsRankCatalogRow[], packs: SettingsRankServicePackOption[] = []) {
+		const view = render(Page, {
+			data: { ranksSettings: rankSettings(active, [], packs) } as never,
+			form: null,
+			params: { orgId: 'org-1' }
+		});
+		// SvelteKit's update() moves focus to the body after a success.
+		return (next: { active: SettingsRankCatalogRow[]; packs?: SettingsRankServicePackOption[] }) =>
+			heldSubmissions[0](
+				frameworkOutcome(
+					{ type: 'success', status: 200 },
+					{
+						applyForm: (form) =>
+							view.rerender({
+								data: { ranksSettings: rankSettings(next.active, [], next.packs ?? packs) } as never,
+								form: form as never,
+								params: { orgId: 'org-1' }
+							})
+					}
+				) as never
+			);
+	}
+
+	it('returns focus to Add Rank once a held add succeeds', async () => {
+		const succeed = renderSettled([rankEntry()]);
+		await fireEvent.click(screen.getByRole('button', { name: 'Add custom rank' }));
+		await fireEvent.input(screen.getByLabelText('Code'), { target: { value: 'NEW-1' } });
+		await fireEvent.input(screen.getByLabelText('Label'), { target: { value: 'New rank' } });
+
+		await submitAndHold('Add Rank');
+		await succeed({ active: [rankEntry(), rankEntry({ code: 'NEW-1', label: 'New rank' })] });
+
+		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Add Rank' }));
+	});
+
+	it('returns focus to the row Save once a held edit succeeds', async () => {
+		const succeed = renderSettled([rankEntry()]);
+		await fireEvent.click(screen.getByRole('button', { name: 'Show details for DET-SGT' }));
+
+		await submitAndHold('Save DET-SGT');
+		await succeed({ active: [rankEntry({ label: 'Detachment Lead' })] });
+
+		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Save DET-SGT' }));
+	});
+
+	it('moves focus to the pack actions once a held pack add leaves Added disabled', async () => {
+		const succeed = renderSettled([rankEntry()], [rankPack()]);
+
+		await submitAndHold('Add Navy');
+		await succeed({ active: [rankEntry()], packs: [rankPack({ isInstalled: true })] });
+
+		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'More actions for Navy' }));
 	});
 });

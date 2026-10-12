@@ -4,7 +4,7 @@ Members meet the shared type-management workspace, bulk-import workspace, readin
 
 ## Sub-features
 
-- `type-management`: Training Types, Training Views and Onboarding Templates render a keyboard `grid` of `row` elements, a detail form with `details` disclosures and a color field, and per-row action toolbars.
+- `type-management`: Training Types, Training Views and Onboarding Templates render a keyboard `grid` of `row` elements, a detail form with `Collapsible` disclosures (a trigger `button` with `aria-expanded`, not `details`/`summary`) and a color field, and per-row action toolbars.
 - `bulk-import`: Personnel, Training, Critical Tasks and Calendar imports render the shared workspace, preview table and validation summary. Personnel, Training and Critical Tasks completion import add the header, input panel and file input; only Personnel renders footer actions.
 - `readiness-band`: Training Reports and Critical Tasks Reports render ramp and semantic tiles, drop markers and a legend.
 - `report-chart`: Critical Tasks Reports render Bar, Line and ChartTable charts, Training Reports renders the Forecast chart, and the platform admin dashboard renders a Bar chart.
@@ -40,7 +40,7 @@ Expected results come from the issue's acceptance and the [component contracts](
 
    Rerun a probe against the same page to prove the read is deterministic; a reload and a second read must also give `0`. State the matched counts, because a selector that matches nothing proves nothing.
 
-5. Keyboard, from a real `focus()` on a control followed by native `press_key`. Types, Views and Templates: Tab order, ArrowDown/ArrowUp/Home/End and the disclosure `summary` with Enter and Space. Route tabs: Tab, ArrowLeft and ArrowRight. Record the focused element's tag, role and name, and the `aria-selected` of its `row`, after each key. Right moves from a row to its actions, Left back, and Enter selects the row. After a successful create, `document.activeElement` is the new row. At 390 wide the list and detail take turns: selecting a row leaves `document.activeElement` on the detail heading (`tabindex="-1"`), Back leaves it on the selected row, and a successful create leaves it on the new item's detail heading.
+5. Keyboard, from a real `focus()` on a control followed by native `press_key`. Types, Views and Templates: Tab order, ArrowDown/ArrowUp/Home/End and the disclosure trigger `button` with Enter and Space, reading its `aria-expanded` after each key. Route tabs: Tab, ArrowLeft and ArrowRight. Record the focused element's tag, role and name, and the `aria-selected` of its `row`, after each key. Right moves from a row to its actions, Left back, and Enter selects the row. After a successful create, `document.activeElement` is the new row. At 390 wide the list and detail take turns: selecting a row leaves `document.activeElement` on the detail heading (`tabindex="-1"`), Back leaves it on the selected row, and a successful create leaves it on the new item's detail heading.
 6. Shared defects: count `main` and nested `main` on an Organization page and an admin page; read the tag of each `[data-slot="empty-title"]` in the empty states; read the Close controls of the Training roster dialog.
 7. Toolbar: read the `workspace-toolbar`, its select trigger, input group and action label at 1280, 820 and 390 widths.
 8. Failure states: `network arm-fail` for the Types and Templates create, then `network restore`.

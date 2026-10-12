@@ -150,7 +150,7 @@ def live_processes(workdir=None, group=None):
                 cwd = Path(os.readlink(proc / 'cwd').removesuffix(' (deleted)'))
                 if cwd == workdir or workdir in cwd.parents:
                     yield int(proc.name)
-        except (FileNotFoundError, ProcessLookupError, PermissionError):
+        except (FileNotFoundError, ProcessLookupError):
             continue
 
 

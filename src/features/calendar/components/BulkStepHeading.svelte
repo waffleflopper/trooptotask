@@ -15,7 +15,7 @@
 	<p
 		class={cn(
 			'text-[11px] font-bold uppercase tracking-[0.08em]',
-			tone === 'destructive' ? 'text-destructive' : 'text-accent'
+			tone === 'destructive' ? 'text-destructive' : 'text-accent-text'
 		)}
 	>
 		{eyebrow}

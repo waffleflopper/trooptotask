@@ -344,9 +344,9 @@
 	function expirationSubLabelClass(status: IctStatusValue): string {
 		switch (statusTone(status)) {
 			case 'expired':
-				return 'text-danger';
+				return 'text-danger-foreground';
 			case 'expiring':
-				return 'text-warning';
+				return 'text-warning-foreground';
 			default:
 				return 'text-muted-foreground';
 		}

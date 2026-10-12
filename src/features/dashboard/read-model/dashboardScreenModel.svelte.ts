@@ -924,9 +924,9 @@ function sortGroupName(a: string, b: string): number {
 }
 
 function availabilityColor(pct: number): string {
-	if (pct >= 90) return 'var(--success)';
-	if (pct >= 75) return 'var(--warning)';
-	return 'var(--destructive)';
+	if (pct >= 90) return 'var(--success-foreground)';
+	if (pct >= 75) return 'var(--warning-foreground)';
+	return 'var(--danger-foreground)';
 }
 
 function hexToTextColor(hex: string): string {

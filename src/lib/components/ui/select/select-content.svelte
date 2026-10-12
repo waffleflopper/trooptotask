@@ -6,6 +6,7 @@
 	import { cn, type WithoutChild } from '$lib/utils.js';
 	import type { ComponentProps } from 'svelte';
 	import type { WithoutChildrenOrChild } from '$lib/utils.js';
+	import { getSelectContext, listboxName } from './context.svelte.js';
 
 	let {
 		ref = $bindable(null),
@@ -18,6 +19,11 @@
 	}: WithoutChild<SelectPrimitive.ContentProps> & {
 		portalProps?: WithoutChildrenOrChild<ComponentProps<typeof SelectPortal>>;
 	} = $props();
+
+	const select = getSelectContext();
+	const name = $derived(
+		restProps['aria-label'] || restProps['aria-labelledby'] ? {} : listboxName(select?.trigger ?? null)
+	);
 </script>
 
 <SelectPortal {...portalProps}>
@@ -30,6 +36,7 @@
 			'bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 ring-foreground/10 min-w-36 rounded-lg shadow-md ring-1 duration-100 data-[side=inline-start]:slide-in-from-right-2 data-[side=inline-end]:slide-in-from-left-2 relative isolate z-50 max-h-(--bits-select-content-available-height) overflow-x-hidden overflow-y-auto',
 			className
 		)}
+		{...name}
 		{...restProps}
 	>
 		<SelectScrollUpButton />

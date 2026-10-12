@@ -251,62 +251,6 @@ function createAccessRequestLookupBuilder(result: { data: { id: string } | null;
 	return { builder, calls };
 }
 
-function createAccessRequestInsertBuilder(result: {
-	data: { id: string } | null;
-	error: { message: string; code?: string } | null;
-}) {
-	const calls: Call[] = [];
-
-	function track(method: string) {
-		return (...args: unknown[]) => {
-			calls.push({ method, args });
-			return builder;
-		};
-	}
-
-	const builder: Record<string, unknown> = {
-		insert: track('insert'),
-		select: track('select'),
-		single: (...args: unknown[]) => {
-			calls.push({ method: 'single', args });
-			return result;
-		}
-	};
-
-	return { builder, calls };
-}
-
-function createAccessRequestApprovalBuilder(result: { error: { message: string } | null } = { error: null }) {
-	const calls: Call[] = [];
-	let eqCount = 0;
-
-	const builder: Record<string, unknown> = {
-		update: (...args: unknown[]) => {
-			calls.push({ method: 'update', args });
-			return builder;
-		},
-		eq: (...args: unknown[]) => {
-			calls.push({ method: 'eq', args });
-			eqCount += 1;
-			return eqCount >= 2 ? result : builder;
-		}
-	};
-
-	return { builder, calls };
-}
-
-function createInvitationAccessRequestLinkInsertBuilder(result: { error: { message: string; code?: string } | null }) {
-	const calls: Call[] = [];
-	const builder: Record<string, unknown> = {
-		insert: (...args: unknown[]) => {
-			calls.push({ method: 'insert', args });
-			return result;
-		}
-	};
-
-	return { builder, calls };
-}
-
 function createRpcBuilder(result: unknown) {
 	const calls: Call[] = [];
 	const builder: Record<string, unknown> = {
@@ -758,456 +702,6 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 		});
 	});
 
-	it('creates a pending Access Request and stores the originating Organization Invitation context for non-users', async () => {
-		const { builder: lookupBuilder, calls: lookupCalls } = createAccessRequestLookupBuilder({
-			data: null,
-			error: null
-		});
-		const { builder: approvedLookupBuilder, calls: approvedLookupCalls } = createAccessRequestLookupBuilder({
-			data: null,
-			error: null
-		});
-		const { builder: requestInsertBuilder, calls: requestInsertCalls } = createAccessRequestInsertBuilder({
-			data: { id: 'access-request-1' },
-			error: null
-		});
-		const { builder: linkInsertBuilder, calls: linkInsertCalls } = createInvitationAccessRequestLinkInsertBuilder({
-			error: null
-		});
-		const { builder: approvalBuilder } = createAccessRequestApprovalBuilder();
-		const adminSupabase = {
-			from: vi
-				.fn()
-				.mockReturnValueOnce(lookupBuilder)
-				.mockReturnValueOnce(approvedLookupBuilder)
-				.mockReturnValueOnce(requestInsertBuilder)
-				.mockReturnValueOnce(linkInsertBuilder)
-				.mockReturnValueOnce(approvalBuilder)
-		};
-		const port = createSupabaseOrgSettingsMemberManagementPort(
-			{
-				supabase: { from: vi.fn() }
-			} as never,
-			{ getAdminClient: () => adminSupabase as never }
-		);
-
-		const result = await port.createOrLinkApprovedAccessRequestForInvitation({
-			organizationId: 'org-1',
-			invitationId: 'invite-1',
-			email: 'Invitee@Example.com',
-			invitedBy: 'owner-1',
-			invitedAt: '2026-05-22T12:00:00.000Z',
-			role: 'member',
-			memberPreset: 'viewer',
-			capabilityOverrides: { personnel: 'view' },
-			accessScopeKind: 'groups',
-			accessScopeGroupIds: ['11111111-1111-4111-8111-111111111111']
-		});
-
-		expect(result).toEqual({ status: 'created', accessRequestId: 'access-request-1' });
-		expect(adminSupabase.from).toHaveBeenNthCalledWith(1, 'access_requests');
-		expect(adminSupabase.from).toHaveBeenNthCalledWith(2, 'access_requests');
-		expect(adminSupabase.from).toHaveBeenNthCalledWith(3, 'access_requests');
-		expect(adminSupabase.from).toHaveBeenNthCalledWith(4, 'access_request_organization_invitation_links');
-		expect(adminSupabase.from).toHaveBeenNthCalledWith(5, 'access_requests');
-		expect(lookupCalls).toContainEqual({ method: 'eq', args: ['email', 'invitee@example.com'] });
-		expect(lookupCalls).toContainEqual({ method: 'eq', args: ['status', 'pending'] });
-		expect(approvedLookupCalls).toContainEqual({ method: 'eq', args: ['email', 'invitee@example.com'] });
-		expect(approvedLookupCalls).toContainEqual({ method: 'eq', args: ['status', 'approved'] });
-		expect(approvedLookupCalls).toContainEqual({ method: 'is', args: ['setup_completed_at', null] });
-		expect(approvedLookupCalls).toContainEqual({
-			method: 'or',
-			args: [expect.stringContaining('and(reviewed_at.is.null,created_at.gte."')]
-		});
-		expect(requestInsertCalls).toContainEqual({
-			method: 'insert',
-			args: [
-				expect.objectContaining({
-					email: 'invitee@example.com',
-					name: 'invitee@example.com',
-					heard_about: 'other',
-					heard_about_details: 'Organization Invitation'
-				})
-			]
-		});
-		expect(linkInsertCalls).toEqual([
-			{
-				method: 'insert',
-				args: [
-					expect.objectContaining({
-						access_request_id: 'access-request-1',
-						organization_invitation_id: 'invite-1',
-						organization_id: 'org-1',
-						invited_by: 'owner-1',
-						invited_at: '2026-05-22T12:00:00.000Z',
-						intended_member_preset: 'viewer',
-						intended_capability_overrides: { personnel: 'view' },
-						intended_access_scope_kind: 'groups',
-						intended_access_scope_group_ids: ['11111111-1111-4111-8111-111111111111']
-					})
-				]
-			}
-		]);
-	});
-
-	it('links a duplicate pending Access Request to the new Organization Invitation without inserting another request', async () => {
-		const { builder: lookupBuilder } = createAccessRequestLookupBuilder({
-			data: { id: 'pending-request-1' },
-			error: null
-		});
-		const { builder: linkInsertBuilder } = createInvitationAccessRequestLinkInsertBuilder({ error: null });
-		const { builder: approvalBuilder, calls: approvalCalls } = createAccessRequestApprovalBuilder();
-		const adminSupabase = {
-			from: vi
-				.fn()
-				.mockReturnValueOnce(lookupBuilder)
-				.mockReturnValueOnce(linkInsertBuilder)
-				.mockReturnValueOnce(approvalBuilder)
-		};
-		const port = createSupabaseOrgSettingsMemberManagementPort(
-			{
-				supabase: { from: vi.fn() }
-			} as never,
-			{ getAdminClient: () => adminSupabase as never }
-		);
-
-		await expect(
-			port.createOrLinkApprovedAccessRequestForInvitation({
-				organizationId: 'org-1',
-				invitationId: 'invite-1',
-				email: 'pending@example.com',
-				invitedBy: 'owner-1',
-				invitedAt: '2026-05-22T12:00:00.000Z',
-				role: 'member',
-				memberPreset: 'viewer',
-				capabilityOverrides: {},
-				accessScopeKind: 'organization',
-				accessScopeGroupIds: []
-			})
-		).resolves.toEqual({ status: 'linked', accessRequestId: 'pending-request-1' });
-
-		expect(adminSupabase.from).toHaveBeenCalledTimes(3);
-		expect(adminSupabase.from).not.toHaveBeenNthCalledWith(2, 'access_requests');
-		// A pre-existing pending public request is auto-approved on the inviter's vouching too.
-		expect(approvalCalls).toContainEqual({ method: 'eq', args: ['id', 'pending-request-1'] });
-		expect(approvalCalls).toContainEqual({ method: 'eq', args: ['status', 'pending'] });
-	});
-
-	it('links an approved incomplete Access Request to the new Organization Invitation without inserting a duplicate pending request', async () => {
-		const { builder: pendingLookupBuilder } = createAccessRequestLookupBuilder({
-			data: null,
-			error: null
-		});
-		const { builder: approvedLookupBuilder, calls: approvedLookupCalls } = createAccessRequestLookupBuilder({
-			data: { id: 'approved-request-1' },
-			error: null
-		});
-		const { builder: linkInsertBuilder } = createInvitationAccessRequestLinkInsertBuilder({ error: null });
-		const { builder: approvalBuilder } = createAccessRequestApprovalBuilder();
-		const adminSupabase = {
-			from: vi
-				.fn()
-				.mockReturnValueOnce(pendingLookupBuilder)
-				.mockReturnValueOnce(approvedLookupBuilder)
-				.mockReturnValueOnce(linkInsertBuilder)
-				.mockReturnValueOnce(approvalBuilder)
-		};
-		const port = createSupabaseOrgSettingsMemberManagementPort(
-			{
-				supabase: { from: vi.fn() }
-			} as never,
-			{ getAdminClient: () => adminSupabase as never }
-		);
-
-		await expect(
-			port.createOrLinkApprovedAccessRequestForInvitation({
-				organizationId: 'org-1',
-				invitationId: 'invite-1',
-				email: ' Approved@Example.com \t',
-				invitedBy: 'owner-1',
-				invitedAt: '2026-05-22T12:00:00.000Z',
-				role: 'member',
-				memberPreset: 'viewer',
-				capabilityOverrides: {},
-				accessScopeKind: 'organization',
-				accessScopeGroupIds: []
-			})
-		).resolves.toEqual({ status: 'linked', accessRequestId: 'approved-request-1' });
-
-		expect(adminSupabase.from).toHaveBeenCalledTimes(4);
-		expect(approvedLookupCalls).toEqual([
-			{ method: 'select', args: ['id'] },
-			{ method: 'eq', args: ['email', 'approved@example.com'] },
-			{ method: 'eq', args: ['status', 'approved'] },
-			{ method: 'is', args: ['setup_completed_at', null] },
-			{
-				method: 'or',
-				args: [expect.stringContaining('and(reviewed_at.is.null,created_at.gte."')]
-			},
-			{ method: 'order', args: ['reviewed_at', { ascending: false, nullsFirst: false }] },
-			{ method: 'order', args: ['created_at', { ascending: false }] },
-			{ method: 'limit', args: [1] },
-			{ method: 'maybeSingle', args: [] }
-		]);
-		expect(adminSupabase.from).not.toHaveBeenNthCalledWith(3, 'access_requests');
-	});
-
-	it('inserts the invite-origin Access Request pending and then flips it to approved for the inviter', async () => {
-		const { builder: pendingLookupBuilder } = createAccessRequestLookupBuilder({ data: null, error: null });
-		const { builder: approvedLookupBuilder } = createAccessRequestLookupBuilder({ data: null, error: null });
-		const { builder: requestInsertBuilder, calls: requestInsertCalls } = createAccessRequestInsertBuilder({
-			data: { id: 'access-request-1' },
-			error: null
-		});
-		const { builder: linkInsertBuilder } = createInvitationAccessRequestLinkInsertBuilder({ error: null });
-		const { builder: approvalBuilder, calls: approvalCalls } = createAccessRequestApprovalBuilder();
-		const adminSupabase = {
-			from: vi
-				.fn()
-				.mockReturnValueOnce(pendingLookupBuilder)
-				.mockReturnValueOnce(approvedLookupBuilder)
-				.mockReturnValueOnce(requestInsertBuilder)
-				.mockReturnValueOnce(linkInsertBuilder)
-				.mockReturnValueOnce(approvalBuilder)
-		};
-		const port = createSupabaseOrgSettingsMemberManagementPort(
-			{
-				supabase: { from: vi.fn() }
-			} as never,
-			{ getAdminClient: () => adminSupabase as never }
-		);
-
-		await expect(
-			port.createOrLinkApprovedAccessRequestForInvitation({
-				organizationId: 'org-1',
-				invitationId: 'invite-1',
-				email: 'invitee@example.com',
-				invitedBy: 'owner-1',
-				invitedAt: '2026-05-22T12:00:00.000Z',
-				role: 'member',
-				memberPreset: 'viewer',
-				capabilityOverrides: {},
-				accessScopeKind: 'organization',
-				accessScopeGroupIds: []
-			})
-		).resolves.toEqual({ status: 'created', accessRequestId: 'access-request-1' });
-
-		// Born pending: access_requests_pending_email_idx only covers pending rows, and it is
-		// the only serialization point two simultaneous invites to one email have.
-		expect(requestInsertCalls[0].args[0]).not.toHaveProperty('status');
-		expect(approvalCalls).toEqual([
-			{
-				method: 'update',
-				args: [
-					{
-						status: 'approved',
-						reviewed_by: 'owner-1',
-						reviewed_at: expect.any(String)
-					}
-				]
-			},
-			{ method: 'eq', args: ['id', 'access-request-1'] },
-			{ method: 'eq', args: ['status', 'pending'] }
-		]);
-	});
-
-	it('fails the bridge when the approval flip errors', async () => {
-		const { builder: pendingLookupBuilder } = createAccessRequestLookupBuilder({
-			data: { id: 'pending-request-1' },
-			error: null
-		});
-		const { builder: linkInsertBuilder } = createInvitationAccessRequestLinkInsertBuilder({ error: null });
-		const { builder: approvalBuilder } = createAccessRequestApprovalBuilder({
-			error: { message: 'access request store unavailable' }
-		});
-		const adminSupabase = {
-			from: vi
-				.fn()
-				.mockReturnValueOnce(pendingLookupBuilder)
-				.mockReturnValueOnce(linkInsertBuilder)
-				.mockReturnValueOnce(approvalBuilder)
-		};
-		const port = createSupabaseOrgSettingsMemberManagementPort(
-			{
-				supabase: { from: vi.fn() }
-			} as never,
-			{ getAdminClient: () => adminSupabase as never }
-		);
-
-		await expect(
-			port.createOrLinkApprovedAccessRequestForInvitation({
-				organizationId: 'org-1',
-				invitationId: 'invite-1',
-				email: 'invitee@example.com',
-				invitedBy: 'owner-1',
-				invitedAt: '2026-05-22T12:00:00.000Z',
-				role: 'member',
-				memberPreset: 'viewer',
-				capabilityOverrides: {},
-				accessScopeKind: 'organization',
-				accessScopeGroupIds: []
-			})
-		).resolves.toEqual({ status: 'failed', message: 'access request store unavailable' });
-	});
-
-	it('recovers from a losing pending-email insert by reusing a request another writer already approved', async () => {
-		const { builder: pendingLookupBuilder } = createAccessRequestLookupBuilder({ data: null, error: null });
-		const { builder: approvedLookupBuilder } = createAccessRequestLookupBuilder({ data: null, error: null });
-		const { builder: requestInsertBuilder } = createAccessRequestInsertBuilder({
-			data: null,
-			error: {
-				code: '23505',
-				message: 'duplicate key value violates unique constraint "access_requests_pending_email_idx"'
-			}
-		});
-		const { builder: retryPendingLookupBuilder } = createAccessRequestLookupBuilder({ data: null, error: null });
-		const { builder: retryApprovedLookupBuilder } = createAccessRequestLookupBuilder({
-			data: { id: 'winner-request-1' },
-			error: null
-		});
-		const { builder: linkInsertBuilder, calls: linkInsertCalls } = createInvitationAccessRequestLinkInsertBuilder({
-			error: null
-		});
-		const { builder: approvalBuilder } = createAccessRequestApprovalBuilder();
-		const adminSupabase = {
-			from: vi
-				.fn()
-				.mockReturnValueOnce(pendingLookupBuilder)
-				.mockReturnValueOnce(approvedLookupBuilder)
-				.mockReturnValueOnce(requestInsertBuilder)
-				.mockReturnValueOnce(retryPendingLookupBuilder)
-				.mockReturnValueOnce(retryApprovedLookupBuilder)
-				.mockReturnValueOnce(linkInsertBuilder)
-				.mockReturnValueOnce(approvalBuilder)
-		};
-		const port = createSupabaseOrgSettingsMemberManagementPort(
-			{
-				supabase: { from: vi.fn() }
-			} as never,
-			{ getAdminClient: () => adminSupabase as never }
-		);
-
-		await expect(
-			port.createOrLinkApprovedAccessRequestForInvitation({
-				organizationId: 'org-2',
-				invitationId: 'invite-2',
-				email: 'invitee@example.com',
-				invitedBy: 'owner-2',
-				invitedAt: '2026-05-22T12:00:01.000Z',
-				role: 'member',
-				memberPreset: 'viewer',
-				capabilityOverrides: {},
-				accessScopeKind: 'organization',
-				accessScopeGroupIds: []
-			})
-		).resolves.toEqual({ status: 'linked', accessRequestId: 'winner-request-1' });
-
-		expect(adminSupabase.from).toHaveBeenCalledTimes(7);
-		// The losing writer's own Organization Invitation still lands on the shared request.
-		expect(linkInsertCalls).toEqual([
-			{
-				method: 'insert',
-				args: [
-					expect.objectContaining({
-						access_request_id: 'winner-request-1',
-						organization_invitation_id: 'invite-2',
-						organization_id: 'org-2',
-						invited_by: 'owner-2'
-					})
-				]
-			}
-		]);
-	});
-
-	it('blocks a just-created invitation when the non-user Access Request bridge fails', async () => {
-		const { builder, calls } = createInvitationExpiryBuilder();
-		const adminSupabase = {
-			from: vi.fn(() => builder)
-		};
-		const port = createSupabaseOrgSettingsMemberManagementPort(
-			{
-				supabase: { from: vi.fn() }
-			} as never,
-			{ getAdminClient: () => adminSupabase as never }
-		);
-
-		await expect(
-			port.blockInvitationAfterAccessRequestBridgeFailure({
-				organizationId: 'org-1',
-				invitationId: 'invite-1',
-				blockedBy: 'owner-1',
-				reason: 'access request store unavailable'
-			})
-		).resolves.toEqual({ status: 'blocked' });
-
-		expect(adminSupabase.from).toHaveBeenCalledWith('organization_invitations');
-		expect(calls).toContainEqual({
-			method: 'update',
-			args: [
-				expect.objectContaining({
-					status: 'blocked',
-					blocked_at: expect.any(String),
-					blocked_by: 'owner-1'
-				})
-			]
-		});
-		expect(calls).toContainEqual({ method: 'eq', args: ['id', 'invite-1'] });
-		expect(calls).toContainEqual({ method: 'eq', args: ['organization_id', 'org-1'] });
-		expect(calls).toContainEqual({ method: 'eq', args: ['status', 'pending'] });
-		expect(calls).toContainEqual({ method: 'select', args: ['id'] });
-		expect(calls).toContainEqual({ method: 'single', args: [] });
-	});
-
-	it('does not swallow unrelated unique constraint failures while creating invite-origin Access Requests', async () => {
-		const { builder: lookupBuilder } = createAccessRequestLookupBuilder({
-			data: null,
-			error: null
-		});
-		const { builder: approvedLookupBuilder } = createAccessRequestLookupBuilder({
-			data: null,
-			error: null
-		});
-		const { builder: requestInsertBuilder } = createAccessRequestInsertBuilder({
-			data: null,
-			error: {
-				code: '23505',
-				message: 'duplicate key value violates unique constraint "some_other_unique_idx"'
-			}
-		});
-		const adminSupabase = {
-			from: vi
-				.fn()
-				.mockReturnValueOnce(lookupBuilder)
-				.mockReturnValueOnce(approvedLookupBuilder)
-				.mockReturnValueOnce(requestInsertBuilder)
-		};
-		const port = createSupabaseOrgSettingsMemberManagementPort(
-			{
-				supabase: { from: vi.fn() }
-			} as never,
-			{ getAdminClient: () => adminSupabase as never }
-		);
-
-		await expect(
-			port.createOrLinkApprovedAccessRequestForInvitation({
-				organizationId: 'org-1',
-				invitationId: 'invite-1',
-				email: 'pending@example.com',
-				invitedBy: 'owner-1',
-				invitedAt: '2026-05-22T12:00:00.000Z',
-				role: 'member',
-				memberPreset: 'viewer',
-				capabilityOverrides: {},
-				accessScopeKind: 'organization',
-				accessScopeGroupIds: []
-			})
-		).resolves.toEqual({
-			status: 'failed',
-			message: 'duplicate key value violates unique constraint "some_other_unique_idx"'
-		});
-		expect(adminSupabase.from).toHaveBeenCalledTimes(3);
-	});
-
 	it('revokes invitations through the lifecycle transition RPC', async () => {
 		const { builder, calls } = createRpcBuilder({
 			data: {
@@ -1274,83 +768,99 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 	});
 });
 
-describe('invitation approval provenance', () => {
-	it.each(['pending', 'approved'] as const)(
-		'bridges a %s request without overwriting independent approvals or other identities',
-		async (status) => {
-			const rows = [
-				{
-					id: 'target',
-					email: 'invitee@example.com',
-					status,
-					reviewed_by: status === 'approved' ? 'platform-reviewer' : null,
-					reviewed_at: status === 'approved' ? '2026-09-18T10:00:00.000Z' : null
-				},
-				{
-					id: 'other-approved',
-					email: 'other@example.com',
-					status: 'approved',
-					reviewed_by: 'independent-reviewer',
-					reviewed_at: '2026-09-18T09:00:00.000Z'
-				},
-				{ id: 'other-pending', email: 'waiting@example.com', status: 'pending', reviewed_by: null, reviewed_at: null }
-			];
-			const before = structuredClone(rows);
-			const links: unknown[] = [];
-			const client = createClient('http://localhost:9', 'synthetic-service-key', {
-				auth: { persistSession: false, autoRefreshToken: false },
-				global: {
-					fetch: async (input, init) => {
-						const url = new URL(String(input));
-						if (url.pathname === '/rest/v1/access_request_organization_invitation_links' && init?.method === 'POST') {
-							links.push(JSON.parse(String(init.body)));
-							return new Response(null, { status: 201 });
-						}
-						expect(url.pathname).toBe('/rest/v1/access_requests');
-						const selected = rows.filter((row) =>
-							(['id', 'email', 'status'] as const).every((field) => {
-								const filter = url.searchParams.get(field);
-								return !filter || filter === `eq.${row[field]}`;
-							})
-						);
-						if (init?.method === 'GET') return Response.json(selected.map((row) => ({ id: row.id })));
-						expect(init?.method).toBe('PATCH');
-						for (const row of selected) Object.assign(row, JSON.parse(String(init?.body)));
-						return new Response(null, { status: 204 });
-					}
+describe('invitation Access Request bridge', () => {
+	const bridgeInput = {
+		organizationId: 'org-a',
+		invitationId: 'invite-a',
+		email: 'invitee@example.com',
+		invitedBy: 'owner-a',
+		invitedAt: '2026-09-18T12:00:00.000Z',
+		role: 'member' as const,
+		memberPreset: 'viewer' as const,
+		capabilityOverrides: { personnel: 'view' as const },
+		accessScopeKind: 'groups' as const,
+		accessScopeGroupIds: ['11111111-1111-4111-8111-111111111111']
+	};
+
+	function createBridgeClient(response: () => Response) {
+		const requests: { path: string; body: unknown }[] = [];
+		const client = createClient('http://localhost:9', 'synthetic-service-key', {
+			auth: { persistSession: false, autoRefreshToken: false },
+			global: {
+				fetch: async (input, init) => {
+					requests.push({ path: new URL(String(input)).pathname, body: JSON.parse(String(init?.body)) });
+					return response();
 				}
-			});
-			const port = createSupabaseOrgSettingsMemberManagementPort(
-				{ supabase: client },
-				{ getAdminClient: () => client }
-			);
-			expect(
-				await port.createOrLinkApprovedAccessRequestForInvitation({
-					organizationId: 'org-a',
-					invitationId: 'invite-a',
-					email: ' INVITEE@EXAMPLE.COM ',
-					invitedBy: 'owner-a',
-					invitedAt: '2026-09-18T12:00:00.000Z',
-					role: 'member',
-					memberPreset: 'viewer',
-					capabilityOverrides: {},
-					accessScopeKind: 'groups',
-					accessScopeGroupIds: ['group-a']
-				})
-			).toEqual({ status: 'linked', accessRequestId: 'target' });
-			expect(rows.slice(1)).toEqual(before.slice(1));
-			if (status === 'approved') expect(rows[0]).toEqual(before[0]);
-			else
-				expect(rows[0]).toMatchObject({ status: 'approved', reviewed_by: 'owner-a', reviewed_at: expect.any(String) });
-			expect(links).toEqual([
-				expect.objectContaining({
-					access_request_id: 'target',
-					organization_id: 'org-a',
-					organization_invitation_id: 'invite-a'
-				})
-			]);
-		}
-	);
+			}
+		});
+		const port = createSupabaseOrgSettingsMemberManagementPort({ supabase: { from: vi.fn() } } as never, {
+			getAdminClient: () => client
+		});
+		return { port, requests };
+	}
+
+	it('hands the whole invitation snapshot to one database transaction', async () => {
+		const { port, requests } = createBridgeClient(() =>
+			Response.json({ bridge_status: 'created', access_request_id: 'access-request-1' })
+		);
+
+		await expect(port.createOrLinkApprovedAccessRequestForInvitation(bridgeInput)).resolves.toEqual({
+			status: 'created',
+			accessRequestId: 'access-request-1'
+		});
+		expect(requests).toEqual([
+			{
+				path: '/rest/v1/rpc/link_organization_invitation_access_request',
+				body: {
+					p_invitation_id: 'invite-a',
+					p_organization_id: 'org-a',
+					p_email: 'invitee@example.com',
+					p_invited_by: 'owner-a',
+					p_invited_at: '2026-09-18T12:00:00.000Z',
+					p_role: 'member',
+					p_member_preset: 'viewer',
+					p_capability_overrides: { personnel: 'view' },
+					p_access_scope_kind: 'groups',
+					p_access_scope_group_ids: ['11111111-1111-4111-8111-111111111111']
+				}
+			}
+		]);
+	});
+
+	it.each([
+		[
+			{ bridge_status: 'linked', access_request_id: 'shared-request' },
+			{ status: 'linked', accessRequestId: 'shared-request' }
+		],
+		[
+			{ bridge_status: 'already-linked', access_request_id: 'shared-request' },
+			{ status: 'already-linked', accessRequestId: 'shared-request' }
+		],
+		[{ bridge_status: 'invitation-not-pending', access_request_id: null }, { status: 'invitation-not-pending' }],
+		[
+			{ bridge_status: 'created', access_request_id: null },
+			{ status: 'failed', message: 'Access Request link returned an unexpected result' }
+		],
+		[
+			{ bridge_status: null, access_request_id: null },
+			{ status: 'failed', message: 'Access Request link returned an unexpected result' }
+		]
+	])('reads bridge row %j as %j', async (row, expected) => {
+		const { port } = createBridgeClient(() => Response.json(row));
+
+		await expect(port.createOrLinkApprovedAccessRequestForInvitation(bridgeInput)).resolves.toEqual(expected);
+	});
+
+	it('reports a failed transaction with the database message', async () => {
+		const { port } = createBridgeClient(() =>
+			Response.json({ message: 'access request store unavailable' }, { status: 500 })
+		);
+
+		await expect(port.createOrLinkApprovedAccessRequestForInvitation(bridgeInput)).resolves.toEqual({
+			status: 'failed',
+			message: 'access request store unavailable'
+		});
+	});
 });
 
 describe('invitation Organization isolation', () => {
@@ -1407,10 +917,11 @@ describe('invitation Organization isolation', () => {
 							return !filter || filter === `eq.${row[field]}`;
 						})
 					);
+					if (url.searchParams.get('id') === 'eq.unreachable') {
+						return Response.json({ code: '08006', message: 'connection failure' }, { status: 503 });
+					}
 					for (const row of selected) Object.assign(row, JSON.parse(String(init?.body)));
-					return selected.length === 1
-						? Response.json({ id: selected[0].id })
-						: Response.json({ code: 'PGRST116', message: 'No matching row' }, { status: 406 });
+					return Response.json(selected.map((row) => ({ id: row.id })));
 				}
 			}
 		});
@@ -1423,8 +934,10 @@ describe('invitation Organization isolation', () => {
 				reason: 'issuance failed'
 			});
 		expect(await block('failed')).toEqual({ status: 'blocked' });
-		expect(await block('sibling')).toMatchObject({ status: 'failed' });
-		expect(await block('accepted')).toMatchObject({ status: 'failed' });
+		expect(await block('failed')).toEqual({ status: 'not-pending' });
+		expect(await block('sibling')).toEqual({ status: 'not-pending' });
+		expect(await block('accepted')).toEqual({ status: 'not-pending' });
+		expect(await block('unreachable')).toEqual({ status: 'failed', message: 'connection failure' });
 		expect(rows[0]).toMatchObject({ id: 'failed', status: 'blocked', blocked_by: 'owner-a' });
 		expect(rows.slice(1)).toEqual(before.slice(1));
 	});

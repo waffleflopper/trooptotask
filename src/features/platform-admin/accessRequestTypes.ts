@@ -1,4 +1,6 @@
 import type {
+	AccessRequestApprovalBasis,
+	AccessRequestStatus,
 	AccountSetupLinkFailureReason,
 	AccountSetupLinkRevocationReason,
 	AuthEmailOutboxStatus,
@@ -39,7 +41,8 @@ export interface PlatformAccessRequestAdminItem {
 	heard_about: string | null;
 	heard_about_label: string | null;
 	heard_about_details: string | null;
-	status: 'pending' | 'approved' | 'rejected';
+	status: AccessRequestStatus;
+	approval_basis: AccessRequestApprovalBasis | null;
 	created_at: string;
 	reviewed_at: string | null;
 	setup_completed_at: string | null;
@@ -66,6 +69,7 @@ export interface PlatformAccessRequestAdminItem {
 	invitation_origins: AccessRequestInvitationOrigin[];
 	auto_approved: boolean;
 	auto_approval_detail: string | null;
+	setup_grant_withdrawn: boolean;
 }
 
 export interface PlatformAccessRequestAdminList {
@@ -97,11 +101,17 @@ export type PlatformAccessRequestAdminRejectResult =
 	| { status: 'authorization_denied'; message: string; failure: SensitiveActionFailureFields }
 	| { status: 'not_found' | 'already_reviewed' | 'failed' };
 
+export type PlatformAccessRequestAdminRescindResult =
+	| { status: 'rescinded' }
+	| { status: 'authorization_denied'; message: string; failure: SensitiveActionFailureFields }
+	| { status: 'not_approved' | 'setup_completed' | 'claim_held' | 'failed' };
+
 export interface PlatformAccessRequestAdministration {
 	list(input?: { now?: Date }): Promise<PlatformAccessRequestAdminList>;
 	approve(input: PlatformAccessRequestAdminCommand): Promise<PlatformAccessRequestAdminSendResult>;
 	resendSetup(input: PlatformAccessRequestAdminCommand): Promise<PlatformAccessRequestAdminSendResult>;
 	reject(input: PlatformAccessRequestAdminRejectCommand): Promise<PlatformAccessRequestAdminRejectResult>;
+	rescind(input: PlatformAccessRequestAdminRejectCommand): Promise<PlatformAccessRequestAdminRescindResult>;
 }
 
 export interface PlatformAccessRequestAdministrationStore extends IdentityPlatformAccessRequestStore {

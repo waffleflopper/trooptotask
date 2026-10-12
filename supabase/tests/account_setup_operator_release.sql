@@ -12,11 +12,11 @@ INSERT INTO public.platform_admins (id, user_id, role, is_active) VALUES
   ('a5000000-0000-4000-8000-000000000011', 'a5000000-0000-4000-8000-000000000001', 'support', true),
   ('a5000000-0000-4000-8000-000000000012', 'a5000000-0000-4000-8000-000000000002', 'billing', true),
   ('a5000000-0000-4000-8000-000000000013', 'a5000000-0000-4000-8000-000000000003', 'support', false);
-INSERT INTO public.access_requests (id, email, name, status, setup_completed_at) VALUES
-  ('a5000000-0000-4000-8000-000000000101', 'release@example.test', 'Held setup', 'approved', NULL),
-  ('a5000000-0000-4000-8000-000000000102', 'release@example.test', 'Replacement setup', 'approved', NULL),
-  ('a5000000-0000-4000-8000-000000000103', 'completed-release@example.test', 'Completed setup', 'approved', now()),
-  ('a5000000-0000-4000-8000-000000000104', 'used-release@example.test', 'Used link', 'approved', NULL);
+INSERT INTO public.access_requests (id, email, name, status, approval_basis, setup_completed_at) VALUES
+  ('a5000000-0000-4000-8000-000000000101', 'release@example.test', 'Held setup', 'approved', 'platform_review', NULL),
+  ('a5000000-0000-4000-8000-000000000102', 'release@example.test', 'Replacement setup', 'approved', 'platform_review', NULL),
+  ('a5000000-0000-4000-8000-000000000103', 'completed-release@example.test', 'Completed setup', 'approved', 'platform_review', now()),
+  ('a5000000-0000-4000-8000-000000000104', 'used-release@example.test', 'Used link', 'approved', 'platform_review', NULL);
 INSERT INTO public.account_setup_links
   (id, access_request_id, token_hash, expires_at, claimed_at, used_at, revoked_at, revocation_reason)
 VALUES

@@ -260,6 +260,22 @@ describe('rethrowOrWrap', () => {
 		expect(log).toHaveBeenCalledWith('[http-adapter] Unhandled route error:', expect.stringContaining(err.message));
 		log.mockRestore();
 	});
+
+	it('forwards a 5xx failure whose message was written for the user', () => {
+		const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+		const response = wrapped(
+			new RequestFailure(500, 'Invitation could not be created because the account setup link could not be issued', {
+				publicMessage: true
+			})
+		);
+
+		expect(response).toMatchObject({
+			status: 500,
+			body: { message: 'Invitation could not be created because the account setup link could not be issued' }
+		});
+		log.mockRestore();
+	});
 });
 
 // Exercise the dispatcher with a real, observable write and no second policy gate

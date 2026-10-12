@@ -3,7 +3,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { env } from '$env/dynamic/private';
 import { addUtcDays } from './accountSetupDates';
 import { getAdminClient } from '$lib/server/supabase';
-import type { AccountSetupLinkRevocationReason, AccountSetupLinkFailureReason } from './contracts';
+import { isSetupGrantWithdrawn } from './accessRequestSetupState.server';
+import type { AccessRequestStatus, AccountSetupLinkRevocationReason, AccountSetupLinkFailureReason } from './contracts';
 export type { AccountSetupLinkRevocationReason, AccountSetupLinkFailureReason } from './contracts';
 
 export const ACCOUNT_SETUP_LINK_EXPIRY_DAYS = 14;
@@ -31,8 +32,9 @@ export interface AccountSetupLinkAccessRequest {
 	name?: string | null;
 	firstName?: string | null;
 	lastName?: string | null;
-	status: 'pending' | 'approved' | 'rejected';
+	status: AccessRequestStatus;
 	setupCompletedAt: Date | string | null;
+	setupGrantLive: boolean;
 }
 
 export interface AccountSetupLinkRecord {
@@ -62,10 +64,14 @@ interface AccountSetupLinkHistoryCounts {
 	failedSetupHistoryCount: number;
 }
 
+export type IssueAccountSetupLinkResult =
+	| { status: 'created'; link: AccountSetupLinkRecord; revokedLinkIds: string[] }
+	| { status: Exclude<CreateAccountSetupLinkResult['status'], 'created'> };
+
 export interface AccountSetupLinkStore {
 	getAccessRequest(id: string): Promise<AccountSetupLinkAccessRequest | null>;
-	revokeUnusedLinksForAccessRequest(accessRequestId: string, revokedAt: Date): Promise<AccountSetupLinkRecord[]>;
-	insertSetupLink(input: CreateAccountSetupLinkInput): Promise<AccountSetupLinkRecord>;
+	/** Revokes the request's unclaimed active links as replaced and inserts the new one atomically. */
+	issueSetupLink(input: CreateAccountSetupLinkInput): Promise<IssueAccountSetupLinkResult>;
 	findByTokenHash(tokenHash: string): Promise<AccountSetupLinkRecord | null>;
 	getSetupLink(id: string): Promise<AccountSetupLinkRecord | null>;
 	claimSetupLinkForSession(input: {
@@ -104,8 +110,17 @@ interface AccessRequestRow {
 	name?: string | null;
 	first_name?: string | null;
 	last_name?: string | null;
-	status: 'pending' | 'approved' | 'rejected';
+	status: AccessRequestStatus;
 	setup_completed_at: string | null;
+	setup_grant_live: boolean;
+}
+
+interface IssueAccountSetupLinkRpcRow {
+	issue_status: IssueAccountSetupLinkResult['status'] | null;
+	setup_link_id: string | null;
+	expires_at: string | null;
+	created_at: string | null;
+	revoked_setup_link_ids: string[] | null;
 }
 
 interface ClaimAccountSetupLinkRpcRow {
@@ -130,7 +145,7 @@ export type CreateAccountSetupLinkResult =
 			setupPath: string;
 			expiresAt: Date;
 			link: AccountSetupLinkRecord;
-			revokedLinks: AccountSetupLinkRecord[];
+			revokedLinkIds: string[];
 	  }
 	| { status: 'access-request-missing' }
 	| { status: 'access-request-not-approved' }
@@ -211,7 +226,8 @@ function mapAccessRequestRow(row: AccessRequestRow): AccountSetupLinkAccessReque
 		firstName: row.first_name,
 		lastName: row.last_name,
 		status: row.status,
-		setupCompletedAt: row.setup_completed_at
+		setupCompletedAt: row.setup_completed_at,
+		setupGrantLive: row.setup_grant_live
 	};
 }
 
@@ -258,17 +274,55 @@ function readExactCount(count: number | null): number {
 	return count;
 }
 
-function isUniqueConstraintError(error: unknown): boolean {
-	if (!error || typeof error !== 'object') {
-		return false;
+function mapIssueRpcRow(
+	row: IssueAccountSetupLinkRpcRow,
+	input: CreateAccountSetupLinkInput
+): IssueAccountSetupLinkResult {
+	if (row.issue_status !== 'created') {
+		if (!row.issue_status) throw new Error('Account setup link issuance returned no status');
+		return { status: row.issue_status };
 	}
+	if (!row.setup_link_id || !row.expires_at || !row.created_at) {
+		throw new Error('Account setup link issuance returned an incomplete link');
+	}
+	return {
+		status: 'created',
+		link: mapSetupLinkRow({
+			id: row.setup_link_id,
+			access_request_id: input.accessRequestId,
+			token_hash: input.tokenHash,
+			expires_at: row.expires_at,
+			created_at: row.created_at,
+			claimed_at: null,
+			failed_at: null,
+			failure_reason: null,
+			used_at: null,
+			revoked_at: null,
+			revocation_reason: null
+		}),
+		revokedLinkIds: row.revoked_setup_link_ids ?? []
+	};
+}
 
-	const candidate = error as { code?: unknown; message?: unknown };
-	return (
-		candidate.code === '23505' ||
-		(typeof candidate.message === 'string' &&
-			candidate.message.includes('account_setup_links_one_active_per_request_idx'))
-	);
+export function revokedSetupLinkStatus(
+	reason: AccountSetupLinkRevocationReason | null
+): 'expired' | 'revoked' | 'replaced' {
+	switch (reason) {
+		case 'cleanup':
+			return 'expired';
+		case 'manual':
+			return 'revoked';
+		case 'replaced':
+		case null:
+			return 'replaced';
+	}
+}
+
+export function isUnclaimedLinkGrantWithdrawn(
+	linkStatus: 'valid' | 'claimed',
+	accessRequest: AccountSetupLinkAccessRequest
+): boolean {
+	return linkStatus === 'valid' && isSetupGrantWithdrawn(accessRequest);
 }
 
 function getValidationStatus(link: AccountSetupLinkRecord | null, now: Date): ValidateAccountSetupLinkResult {
@@ -285,10 +339,7 @@ function getValidationStatus(link: AccountSetupLinkRecord | null, now: Date): Va
 	}
 
 	if (link.revokedAt) {
-		if (link.revocationReason === 'replaced') {
-			return { status: 'replaced' };
-		}
-		return { status: 'revoked' };
+		return { status: revokedSetupLinkStatus(link.revocationReason) };
 	}
 
 	if (link.expiresAt <= now) {
@@ -392,39 +443,16 @@ export function createAccountSetupLinkService(
 
 	return {
 		async createForAccessRequest(accessRequestId: string): Promise<CreateAccountSetupLinkResult> {
-			const accessRequest = await store.getAccessRequest(accessRequestId);
-			if (!accessRequest) {
-				return { status: 'access-request-missing' };
-			}
-
-			if (accessRequest.status !== 'approved') {
-				return { status: 'access-request-not-approved' };
-			}
-
-			if (accessRequest.setupCompletedAt) {
-				return { status: 'access-request-completed' };
-			}
-
 			const createdAt = now();
 			const rawToken = generateToken();
-			const tokenHash = hashSetupToken(rawToken);
-			const expiresAt = addUtcDays(createdAt, ACCOUNT_SETUP_LINK_EXPIRY_DAYS);
-
-			let link: AccountSetupLinkRecord;
-			let revokedLinks: AccountSetupLinkRecord[];
-			try {
-				revokedLinks = await store.revokeUnusedLinksForAccessRequest(accessRequestId, createdAt);
-				link = await store.insertSetupLink({
-					accessRequestId,
-					tokenHash,
-					expiresAt,
-					createdAt
-				});
-			} catch (error) {
-				if (isUniqueConstraintError(error)) {
-					return { status: 'concurrent-create' };
-				}
-				throw error;
+			const issued = await store.issueSetupLink({
+				accessRequestId,
+				tokenHash: hashSetupToken(rawToken),
+				expiresAt: addUtcDays(createdAt, ACCOUNT_SETUP_LINK_EXPIRY_DAYS),
+				createdAt
+			});
+			if (issued.status !== 'created') {
+				return { status: issued.status };
 			}
 
 			return {
@@ -432,9 +460,9 @@ export function createAccountSetupLinkService(
 				accessRequestId,
 				rawToken,
 				setupPath: `/auth/setup-account?token=${encodeURIComponent(rawToken)}`,
-				expiresAt,
-				link,
-				revokedLinks
+				expiresAt: issued.link.expiresAt,
+				link: issued.link,
+				revokedLinkIds: issued.revokedLinkIds
 			};
 		},
 
@@ -455,6 +483,10 @@ export function createAccountSetupLinkService(
 			}
 
 			if (accessRequest.status !== 'approved') {
+				return { status: 'access-request-not-approved' };
+			}
+
+			if (isUnclaimedLinkGrantWithdrawn(validation.status, accessRequest)) {
 				return { status: 'access-request-not-approved' };
 			}
 
@@ -517,7 +549,7 @@ export function createSupabaseAccountSetupLinkStore(client: SupabaseClient): Acc
 		async getAccessRequest(id) {
 			const { data, error } = await client
 				.from('access_requests')
-				.select('id, email, name, first_name, last_name, status, setup_completed_at')
+				.select('id, email, name, first_name, last_name, status, setup_completed_at, setup_grant_live')
 				.eq('id', id)
 				.maybeSingle();
 
@@ -525,40 +557,18 @@ export function createSupabaseAccountSetupLinkStore(client: SupabaseClient): Acc
 			return data ? mapAccessRequestRow(data as AccessRequestRow) : null;
 		},
 
-		async revokeUnusedLinksForAccessRequest(accessRequestId, revokedAt) {
+		async issueSetupLink(input) {
 			const { data, error } = await client
-				.from('account_setup_links')
-				.update({ revoked_at: revokedAt.toISOString(), revocation_reason: 'replaced' })
-				.eq('access_request_id', accessRequestId)
-				.is('claimed_at', null)
-				.is('used_at', null)
-				.is('revoked_at', null)
-				.select(SETUP_LINK_SELECT);
-
-			throwSupabaseError(error);
-			return ((data ?? []) as AccountSetupLinkRow[]).map(mapSetupLinkRow);
-		},
-
-		async insertSetupLink(input) {
-			const { data, error } = await client
-				.from('account_setup_links')
-				.insert({
-					access_request_id: input.accessRequestId,
-					token_hash: input.tokenHash,
-					expires_at: input.expiresAt.toISOString(),
-					created_at: input.createdAt.toISOString(),
-					claimed_at: null,
-					failed_at: null,
-					failure_reason: null,
-					used_at: null,
-					revoked_at: null,
-					revocation_reason: null
+				.rpc('issue_account_setup_link', {
+					p_access_request_id: input.accessRequestId,
+					p_token_hash: input.tokenHash,
+					p_expires_at: input.expiresAt.toISOString(),
+					p_created_at: input.createdAt.toISOString()
 				})
-				.select(SETUP_LINK_SELECT)
-				.single();
+				.single<IssueAccountSetupLinkRpcRow>();
 
 			throwSupabaseError(error);
-			return mapSetupLinkRow(data as AccountSetupLinkRow);
+			return mapIssueRpcRow(data as IssueAccountSetupLinkRpcRow, input);
 		},
 
 		async findByTokenHash(tokenHash) {

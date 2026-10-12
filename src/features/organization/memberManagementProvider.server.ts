@@ -3,7 +3,6 @@ import type {
 	OrganizationMembershipUpdateInput,
 	OrganizationSettingsMemberManagementPort
 } from './memberManagement.server';
-import { ACCESS_REQUEST_SETUP_RENEWAL_DAYS, addUtcDays } from '$features/identity/contracts';
 import { getAdminClient } from '$lib/server/supabase';
 import {
 	findInvitationRecipientAccount,
@@ -45,23 +44,14 @@ interface OrganizationRow {
 	name: string | null;
 }
 
+interface LinkInvitationAccessRequestRpcRow {
+	bridge_status: 'created' | 'linked' | 'already-linked' | 'invitation-not-pending' | null;
+	access_request_id: string | null;
+}
+
 interface RevokeOrganizationInvitationRpcRow {
 	revoke_status: OrganizationInvitationRevokeResult['status'] | null;
 	revoked_email: string | null;
-}
-
-function isUniqueConstraintError(error: unknown, constraintName: string): boolean {
-	if (!error || typeof error !== 'object') {
-		return false;
-	}
-
-	const candidate = error as { code?: unknown; message?: unknown; details?: unknown };
-	const message = [
-		typeof candidate.message === 'string' ? candidate.message : '',
-		typeof candidate.details === 'string' ? candidate.details : ''
-	].join(' ');
-
-	return candidate.code === '23505' && message.includes(constraintName);
 }
 
 export function createSupabaseOrgSettingsMemberManagementPort(
@@ -160,54 +150,36 @@ export function createSupabaseOrgSettingsMemberManagementPort(
 		},
 
 		async createOrLinkApprovedAccessRequestForInvitation(input) {
-			const adminSupabase = getAdminClientFn();
-			let accessRequest = await findReusableAccessRequestForInvitation(adminSupabase, input.email);
-			let status: 'created' | 'linked' = 'linked';
+			const { data, error } = await getAdminClientFn()
+				.rpc('link_organization_invitation_access_request', {
+					p_invitation_id: input.invitationId,
+					p_organization_id: input.organizationId,
+					p_email: input.email,
+					p_invited_by: input.invitedBy,
+					p_invited_at: input.invitedAt,
+					p_role: input.role,
+					p_member_preset: input.memberPreset,
+					p_capability_overrides: input.capabilityOverrides,
+					p_access_scope_kind: input.accessScopeKind,
+					p_access_scope_group_ids: input.accessScopeGroupIds
+				})
+				.single<LinkInvitationAccessRequestRpcRow>();
 
-			if (!accessRequest) {
-				// Insert pending, never approved: access_requests_pending_email_idx only covers
-				// pending rows, and it is the only serialization point two simultaneous invites have.
-				const created = await insertPendingAccessRequest(adminSupabase, input.email);
-				if (created.status === 'failed') {
-					if (isUniqueConstraintError(created.error, 'access_requests_pending_email_idx')) {
-						// Re-read through the reusable lookup, not the pending one: the writer that
-						// won the index may already have flipped its row to approved.
-						accessRequest = await findReusableAccessRequestForInvitation(adminSupabase, input.email);
-					}
-					if (!accessRequest) {
-						return { status: 'failed', message: created.message };
-					}
-				} else {
-					accessRequest = created.accessRequest;
-					status = 'created';
-				}
+			if (error || !data) {
+				return { status: 'failed', message: error?.message ?? 'Access Request could not be linked' };
 			}
-
-			const link = await insertAccessRequestInvitationLink(adminSupabase, {
-				accessRequestId: accessRequest.id,
-				...input
-			});
-
-			if (link.status === 'failed') {
-				return { status: 'failed', message: link.message };
+			if (data.bridge_status === 'invitation-not-pending') {
+				return { status: 'invitation-not-pending' };
 			}
-
-			// The inviting Organization owner or admin is the reviewer: their invitation is the
-			// vouching. A row another writer already flipped stays theirs; this is a no-op then.
-			const approval = await approveInvitedAccessRequest(adminSupabase, {
-				accessRequestId: accessRequest.id,
-				reviewerId: input.invitedBy
-			});
-
-			if (approval.status === 'failed') {
-				return { status: 'failed', message: approval.message };
+			if (
+				(data.bridge_status === 'created' ||
+					data.bridge_status === 'linked' ||
+					data.bridge_status === 'already-linked') &&
+				data.access_request_id
+			) {
+				return { status: data.bridge_status, accessRequestId: data.access_request_id };
 			}
-
-			if (link.status === 'already-linked') {
-				return { status: 'already-linked', accessRequestId: accessRequest.id };
-			}
-
-			return { status, accessRequestId: accessRequest.id };
+			return { status: 'failed', message: 'Access Request link returned an unexpected result' };
 		},
 
 		async blockInvitationAfterAccessRequestBridgeFailure(input) {
@@ -223,13 +195,13 @@ export function createSupabaseOrgSettingsMemberManagementPort(
 				.eq('organization_id', input.organizationId)
 				.eq('status', 'pending')
 				.select('id')
-				.single<OrganizationInvitationLookupRow>();
+				.returns<OrganizationInvitationLookupRow[]>();
 
 			if (error || !data) {
 				return { status: 'failed', message: error?.message ?? 'Invitation could not be blocked' };
 			}
 
-			return { status: 'blocked' };
+			return data.length > 0 ? { status: 'blocked' } : { status: 'not-pending' };
 		},
 
 		async revokeInvitation(orgId, inviteId) {
@@ -410,53 +382,6 @@ async function findInvitationAccessRequestLinksForSetup(
 	return [data];
 }
 
-async function findPendingAccessRequest(client: SupabaseClient, email: string): Promise<AccessRequestLookupRow | null> {
-	const { data, error } = await client
-		.from('access_requests')
-		.select('id')
-		.eq('email', normalizeUserEmailIdentity(email))
-		.eq('status', 'pending')
-		.maybeSingle<AccessRequestLookupRow>();
-
-	if (error) {
-		throw error;
-	}
-
-	return data ?? null;
-}
-
-async function findApprovedIncompleteAccessRequest(
-	client: SupabaseClient,
-	email: string
-): Promise<AccessRequestLookupRow | null> {
-	const renewalCutoff = addUtcDays(new Date(), -ACCESS_REQUEST_SETUP_RENEWAL_DAYS).toISOString();
-	const quotedRenewalCutoff = `"${renewalCutoff}"`;
-	const { data, error } = await client
-		.from('access_requests')
-		.select('id')
-		.eq('email', normalizeUserEmailIdentity(email))
-		.eq('status', 'approved')
-		.is('setup_completed_at', null)
-		.or(`reviewed_at.gte.${quotedRenewalCutoff},and(reviewed_at.is.null,created_at.gte.${quotedRenewalCutoff})`)
-		.order('reviewed_at', { ascending: false, nullsFirst: false })
-		.order('created_at', { ascending: false })
-		.limit(1)
-		.maybeSingle<AccessRequestLookupRow>();
-
-	if (error) {
-		throw error;
-	}
-
-	return data ?? null;
-}
-
-async function findReusableAccessRequestForInvitation(
-	client: SupabaseClient,
-	email: string
-): Promise<AccessRequestLookupRow | null> {
-	return (await findPendingAccessRequest(client, email)) ?? findApprovedIncompleteAccessRequest(client, email);
-}
-
 async function hasCompletedAccessRequestSetupForEmail(
 	client: SupabaseClient,
 	email: string,
@@ -478,87 +403,6 @@ async function hasCompletedAccessRequestSetupForEmail(
 	}
 
 	return Boolean(data?.id);
-}
-
-async function insertPendingAccessRequest(
-	client: SupabaseClient,
-	email: string
-): Promise<
-	{ status: 'created'; accessRequest: AccessRequestLookupRow } | { status: 'failed'; message: string; error: unknown }
-> {
-	const normalizedEmail = normalizeUserEmailIdentity(email);
-	const { data, error } = await client
-		.from('access_requests')
-		.insert({
-			email: normalizedEmail,
-			name: normalizedEmail,
-			reason: 'Created from an Organization Invitation.',
-			heard_about: 'other',
-			heard_about_details: 'Organization Invitation'
-		})
-		.select('id')
-		.single<AccessRequestLookupRow>();
-
-	if (error || !data) {
-		return {
-			status: 'failed',
-			message: error?.message ?? 'Access Request could not be created',
-			error
-		};
-	}
-
-	return { status: 'created', accessRequest: data };
-}
-
-async function approveInvitedAccessRequest(
-	client: SupabaseClient,
-	input: { accessRequestId: string; reviewerId: string }
-): Promise<{ status: 'approved' } | { status: 'failed'; message: string }> {
-	const { error } = await client
-		.from('access_requests')
-		.update({
-			status: 'approved',
-			reviewed_by: input.reviewerId,
-			reviewed_at: new Date().toISOString()
-		})
-		.eq('id', input.accessRequestId)
-		.eq('status', 'pending');
-
-	if (error) {
-		return { status: 'failed', message: error.message ?? 'Access Request could not be approved' };
-	}
-
-	return { status: 'approved' };
-}
-
-async function insertAccessRequestInvitationLink(
-	client: SupabaseClient,
-	input: Parameters<OrganizationSettingsMemberManagementPort['createOrLinkApprovedAccessRequestForInvitation']>[0] & {
-		accessRequestId: string;
-	}
-): Promise<{ status: 'linked' } | { status: 'already-linked' } | { status: 'failed'; message: string }> {
-	const { error } = await client.from('access_request_organization_invitation_links').insert({
-		access_request_id: input.accessRequestId,
-		organization_invitation_id: input.invitationId,
-		organization_id: input.organizationId,
-		invited_by: input.invitedBy,
-		invited_at: input.invitedAt,
-		intended_membership_role: input.role,
-		intended_member_preset: input.memberPreset,
-		intended_capability_overrides: input.capabilityOverrides,
-		intended_access_scope_kind: input.accessScopeKind,
-		intended_access_scope_group_ids: input.accessScopeGroupIds
-	});
-
-	if (!error) {
-		return { status: 'linked' };
-	}
-
-	if (isUniqueConstraintError(error, 'access_request_organization_invitation_links_invitation_key')) {
-		return { status: 'already-linked' };
-	}
-
-	return { status: 'failed', message: error.message ?? 'Access Request link could not be created' };
 }
 
 function normalizeRevokeStatus(

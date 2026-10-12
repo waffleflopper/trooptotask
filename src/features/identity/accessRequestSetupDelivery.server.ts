@@ -11,17 +11,19 @@ import {
 	type AuthEmailOutboxStore
 } from './authEmailOutbox.server';
 import { addUtcDays } from './accountSetupDates';
+import { isSetupGrantWithdrawn } from './accessRequestSetupState.server';
 import { makePublicAppUrl } from './publicAppOrigin.server';
 import { getAdminClient } from '$lib/server/supabase';
-import { ACCESS_REQUEST_SETUP_RENEWAL_DAYS } from './contracts';
+import { ACCESS_REQUEST_SETUP_RENEWAL_DAYS, type AccessRequestStatus } from './contracts';
 
 export interface AccessRequestSetupRequest {
 	id: string;
 	email: string;
-	status: 'pending' | 'approved' | 'rejected';
+	status: AccessRequestStatus;
 	createdAt: Date;
 	reviewedAt: Date | null;
 	setupCompletedAt: Date | null;
+	setupGrantLive: boolean;
 }
 
 export interface CreatePendingAccessRequestInput {
@@ -65,10 +67,11 @@ type SetupEmailSender = (input: SendSetupEmailInput) => Promise<void>;
 interface AccessRequestRow {
 	id: string;
 	email: string;
-	status: 'pending' | 'approved' | 'rejected';
+	status: AccessRequestStatus;
 	created_at: string;
 	reviewed_at: string | null;
 	setup_completed_at: string | null;
+	setup_grant_live: boolean;
 }
 
 function normalizeEmail(email: string): string {
@@ -82,7 +85,8 @@ function mapAccessRequest(row: AccessRequestRow): AccessRequestSetupRequest {
 		status: row.status,
 		createdAt: new Date(row.created_at),
 		reviewedAt: row.reviewed_at ? new Date(row.reviewed_at) : null,
-		setupCompletedAt: row.setup_completed_at ? new Date(row.setup_completed_at) : null
+		setupCompletedAt: row.setup_completed_at ? new Date(row.setup_completed_at) : null,
+		setupGrantLive: row.setup_grant_live
 	};
 }
 
@@ -95,7 +99,7 @@ function latestFirst(a: AccessRequestSetupRequest, b: AccessRequestSetupRequest)
 }
 
 function isApprovedIncompleteRenewable(request: AccessRequestSetupRequest, now: Date): boolean {
-	if (request.status !== 'approved' || request.setupCompletedAt) {
+	if (request.status !== 'approved' || request.setupCompletedAt || !request.setupGrantLive) {
 		return false;
 	}
 
@@ -137,7 +141,7 @@ export function createAccessRequestSetupDeliveryService(
 				status: 'fresh-setup-delivery-failed',
 				accessRequestId: request.id,
 				setupLinkId: setupResult.link.id,
-				revokedLinkIds: setupResult.revokedLinks.map((link) => link.id)
+				revokedLinkIds: setupResult.revokedLinkIds
 			};
 		}
 
@@ -145,7 +149,7 @@ export function createAccessRequestSetupDeliveryService(
 			status: 'fresh-setup-sent',
 			accessRequestId: request.id,
 			setupLinkId: setupResult.link.id,
-			revokedLinkIds: setupResult.revokedLinks.map((link) => link.id)
+			revokedLinkIds: setupResult.revokedLinkIds
 		};
 	}
 
@@ -174,7 +178,7 @@ export function createAccessRequestSetupDeliveryService(
 				}
 			}
 
-			if (existingRequests.length > 0) {
+			if (existingRequests.some((request) => !isSetupGrantWithdrawn(request))) {
 				return { status: 'no-public-action' };
 			}
 
@@ -215,7 +219,7 @@ export function createSupabaseAccessRequestSetupDeliveryStore(client: SupabaseCl
 		async listAccessRequestsByEmail(email) {
 			const { data, error } = await client
 				.from('access_requests')
-				.select('id, email, status, created_at, reviewed_at, setup_completed_at')
+				.select('id, email, status, created_at, reviewed_at, setup_completed_at, setup_grant_live')
 				.eq('email', normalizeEmail(email));
 
 			if (error) {

@@ -28,7 +28,9 @@ export async function seedPlatform({ client, fixture, tag, ownedState, save }) {
 				email: `platform-${key}-${tag}@example.test`,
 				name: `Platform ${key} ${tag}`,
 				status: key === 'completed' ? 'approved' : 'pending',
-				...(key === 'completed' ? { setup_completed_at: new Date().toISOString() } : {})
+				...(key === 'completed'
+					? { approval_basis: 'platform_review', setup_completed_at: new Date().toISOString() }
+					: {})
 			}
 		])
 	);

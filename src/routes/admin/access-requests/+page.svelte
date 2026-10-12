@@ -115,6 +115,7 @@
 
 	function setupStateVariant(req: AccessRequestCard): BadgeVariant {
 		if (req.held_setup_claim) return 'warning';
+		if (req.setup_grant_withdrawn) return 'danger';
 		const state = req.setup_state;
 		if (state === 'completed') return 'success';
 		if (state === 'failed' || state === 'delivery_failed') return 'danger';
@@ -130,7 +131,11 @@
 	}
 
 	function canSendSetup(req: AccessRequestCard): boolean {
-		return req.setup_state !== 'completed' && req.setup_state !== 'delivery_pending';
+		return !req.setup_grant_withdrawn && req.setup_state !== 'completed' && req.setup_state !== 'delivery_pending';
+	}
+
+	function canRescind(req: AccessRequestCard): boolean {
+		return req.status === 'approved' && req.setup_state !== 'completed';
 	}
 
 	function setupDeliverySummary(req: PageData['reviewed'][number]): string | null {
@@ -339,7 +344,7 @@
 										/ {req.auto_approved ? 'Auto-approved' : 'Reviewed'}
 										{formatDisplayDateTime(req.reviewed_at)}{/if}
 								</p>
-								{#if req.status === 'approved'}
+								{#if req.status === 'approved' || req.status === 'rescinded'}
 									<div class="grid gap-1 text-xs text-muted-foreground">
 										<p>{req.setup_state_detail}</p>
 										{#if req.held_setup_claim}
@@ -384,21 +389,39 @@
 									</div>
 								{/if}
 							</div>
-							{#if req.status === 'approved' && canSendSetup(req)}
-								<form method="POST" action="?/resend" use:enhance={stepUpEnhance(`${req.id}-resend`)}>
-									<input type="hidden" name="requestId" value={req.id} />
-									<Button
-										type="submit"
-										variant="outline"
-										disabled={reviewsDisabled}
-										aria-disabled={loadingId ? 'true' : undefined}
-										aria-busy={loadingId === `${req.id}-resend` || undefined}
-										aria-label={`${setupActionLabel(req.setup_state)} for ${req.name}`}
-									>
-										{#if loadingId === `${req.id}-resend`}<Spinner />{/if}
-										{setupActionLabel(req.setup_state)}
-									</Button>
-								</form>
+							{#if canRescind(req)}
+								<div class="flex flex-wrap gap-2 md:justify-end">
+									{#if canSendSetup(req)}
+										<form method="POST" action="?/resend" use:enhance={stepUpEnhance(`${req.id}-resend`)}>
+											<input type="hidden" name="requestId" value={req.id} />
+											<Button
+												type="submit"
+												variant="outline"
+												disabled={reviewsDisabled}
+												aria-disabled={loadingId ? 'true' : undefined}
+												aria-busy={loadingId === `${req.id}-resend` || undefined}
+												aria-label={`${setupActionLabel(req.setup_state)} for ${req.name}`}
+											>
+												{#if loadingId === `${req.id}-resend`}<Spinner />{/if}
+												{setupActionLabel(req.setup_state)}
+											</Button>
+										</form>
+									{/if}
+									<form method="POST" action="?/rescind" use:enhance={stepUpEnhance(`${req.id}-rescind`)}>
+										<input type="hidden" name="requestId" value={req.id} />
+										<Button
+											type="submit"
+											variant="destructive"
+											disabled={reviewsDisabled}
+											aria-disabled={loadingId ? 'true' : undefined}
+											aria-busy={loadingId === `${req.id}-rescind` || undefined}
+											aria-label={`Rescind ${req.name}`}
+										>
+											{#if loadingId === `${req.id}-rescind`}<Spinner />{/if}
+											Rescind
+										</Button>
+									</form>
+								</div>
 							{:else if req.status === 'approved' && req.setup_state === 'completed'}
 								<p class="text-xs text-muted-foreground">
 									Account setup completed

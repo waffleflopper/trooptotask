@@ -99,7 +99,6 @@ describe('access request setup delivery', () => {
 			setupLinkId: 'setup-link-1'
 		});
 		expect(store.insertedRequests).toEqual([]);
-		expect(store.revokedAccessRequestIds).toEqual(['request-1']);
 		expect(sendSetupEmail).toHaveBeenCalledWith(
 			expect.objectContaining({
 				email: 'test@example.com',
@@ -186,7 +185,6 @@ describe('access request setup delivery', () => {
 			accessRequestId: 'request-1',
 			setupLinkId: 'setup-link-1'
 		});
-		expect(store.revokedAccessRequestIds).toEqual(['request-1']);
 		expect(sendSetupEmail).toHaveBeenCalledOnce();
 	});
 
@@ -294,7 +292,7 @@ describe('access request setup delivery', () => {
 
 	it('does not deliver or insert another request when renewal persistence fails', async () => {
 		const store = createAccessRequestSetupDeliveryStore([accessRequestFixture()]);
-		store.insertSetupLink = vi.fn().mockRejectedValue(new Error('synthetic write failure'));
+		store.issueSetupLink = vi.fn().mockRejectedValue(new Error('synthetic write failure'));
 		const { service, sendSetupEmail } = makeService(store);
 		await expect(
 			service.requestFreshSetupLink({ email: 'test@example.com', origin: 'http://localhost:4173' })
@@ -306,12 +304,7 @@ describe('access request setup delivery', () => {
 
 	it('treats concurrent completion during renewal as a quiet no-op', async () => {
 		const store = createAccessRequestSetupDeliveryStore([accessRequestFixture()]);
-		store.getAccessRequest = vi.fn().mockResolvedValue({
-			id: 'request-1',
-			email: 'test@example.com',
-			status: 'approved',
-			setupCompletedAt: new Date('2026-05-18T12:01:00.000Z')
-		});
+		store.issueSetupLink = vi.fn().mockResolvedValue({ status: 'access-request-completed' });
 		const { service, sendSetupEmail } = makeService(store);
 
 		const result = await service.requestFreshSetupLink({
@@ -324,11 +317,54 @@ describe('access request setup delivery', () => {
 		expect(store.setupLinks).toEqual([]);
 	});
 
+	it('renews the newest request whose grant is still live and never a withdrawn one', async () => {
+		const store = createAccessRequestSetupDeliveryStore([
+			accessRequestFixture({ id: 'platform-reviewed', createdAt: new Date('2026-05-01T12:00:00.000Z') }),
+			accessRequestFixture({
+				id: 'invitation-withdrawn',
+				setupGrantLive: false,
+				createdAt: new Date('2026-05-10T12:00:00.000Z')
+			})
+		]);
+		const { service, sendSetupEmail } = makeService(store);
+
+		expect(
+			await service.requestFreshSetupLink({ email: 'test@example.com', origin: 'http://localhost:4173' })
+		).toMatchObject({ status: 'fresh-setup-sent', accessRequestId: 'platform-reviewed' });
+		expect(store.setupLinks.map((link) => link.accessRequestId)).toEqual(['platform-reviewed']);
+		expect(sendSetupEmail).toHaveBeenCalledOnce();
+	});
+
+	it('lets a person whose invitation was withdrawn apply for reviewed access', async () => {
+		const store = createAccessRequestSetupDeliveryStore([accessRequestFixture({ setupGrantLive: false })]);
+		const { service, sendSetupEmail } = makeService(store);
+
+		expect(await service.submitAccessRequest(makeSubmission())).toEqual({ status: 'pending-created' });
+		expect(store.insertedRequests.map((request) => request.email)).toEqual(['test@example.com']);
+		expect(store.setupLinks).toEqual([]);
+		expect(sendSetupEmail).not.toHaveBeenCalled();
+	});
+
+	it('keeps a rescinded or rejected request blocking reviewed resubmission', async () => {
+		for (const request of [
+			accessRequestFixture({ status: 'rescinded', setupGrantLive: false }),
+			accessRequestFixture({ status: 'rejected', setupGrantLive: false })
+		]) {
+			const store = createAccessRequestSetupDeliveryStore([request]);
+			const { service } = makeService(store);
+
+			expect(await service.submitAccessRequest(makeSubmission())).toEqual({ status: 'no-public-action' });
+			expect(store.insertedRequests).toEqual([]);
+		}
+	});
+
 	it('keeps missing, completed, rejected, pending, and no-longer-renewable renewal states quiet', async () => {
 		for (const requests of [
 			[],
 			[accessRequestFixture({ setupCompletedAt: new Date('2026-05-03T12:00:00.000Z') })],
 			[accessRequestFixture({ status: 'rejected' })],
+			[accessRequestFixture({ status: 'rescinded' })],
+			[accessRequestFixture({ setupGrantLive: false })],
 			[accessRequestFixture({ status: 'pending' })],
 			[
 				accessRequestFixture({

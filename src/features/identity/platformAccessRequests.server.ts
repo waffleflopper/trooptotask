@@ -1,6 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
-import { rejectAccessRequestAndBlockLinkedInvitations } from './accessRequestRejection.server';
+import {
+	rejectAccessRequestAndBlockLinkedInvitations,
+	rescindAccessRequestAndBlockLinkedInvitations
+} from './accessRequestRejection.server';
 import type {
 	AccessRequestAuthEmailOutbox,
 	AccessRequestSetupLink,
@@ -10,7 +13,7 @@ import type {
 } from './contracts';
 
 const REQUEST_COLUMNS =
-	'id, name, email, reason, heard_about, heard_about_details, status, created_at, reviewed_at, reviewed_by, setup_completed_at';
+	'id, name, email, reason, heard_about, heard_about_details, status, approval_basis, created_at, reviewed_at, reviewed_by, setup_completed_at, setup_grant_live';
 const LINK_COLUMNS =
 	'access_request_id, id, created_at, expires_at, claimed_at, failed_at, failure_reason, used_at, revoked_at, revocation_reason';
 const DELIVERY_COLUMNS =
@@ -109,6 +112,7 @@ export function createIdentityPlatformAccessRequestStore(client: SupabaseClient)
 				.from('access_requests')
 				.update({
 					status: 'approved',
+					approval_basis: 'platform_review',
 					reviewed_by: input.reviewerId,
 					reviewed_at: input.reviewedAt.toISOString()
 				})
@@ -124,6 +128,11 @@ export function createIdentityPlatformAccessRequestStore(client: SupabaseClient)
 		},
 		rejectPendingAccessRequestAndBlockLinkedInvitations: (input) =>
 			rejectAccessRequestAndBlockLinkedInvitations(client, {
+				accessRequestId: input.accessRequestId,
+				reviewerId: input.actorUserId
+			}),
+		rescindApprovedAccessRequestAndBlockLinkedInvitations: (input) =>
+			rescindAccessRequestAndBlockLinkedInvitations(client, {
 				accessRequestId: input.accessRequestId,
 				reviewerId: input.actorUserId
 			})

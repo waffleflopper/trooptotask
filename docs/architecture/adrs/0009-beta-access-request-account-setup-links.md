@@ -34,7 +34,7 @@ Date: 2026-05-18
 - Each approved **Access Request** may have only one active **Account Setup Link** at a time.
 - Creating a fresh setup link revokes any older unused setup links for the same **Access Request**.
 - **Account Setup Links** expire after 14 days.
-- Approved **Access Requests** remain eligible for fresh setup links for 90 days unless manually rejected or otherwise closed.
+- Approved **Access Requests** remain eligible for fresh setup links for 90 days unless closed. Amended 2026-10-12: a platform rescind closes an approved incomplete request, and an invitation-origin approval stops issuing links while none of its invitations is live ([ADR 0012](0012-organization-invited-platform-access-auto-approval.md#failure-and-concurrency-semantics)).
 - When a valid **Account Setup Link** is used, the recipient chooses their own password before TroopToTask creates or activates the Supabase **User Account**.
 - If a Supabase **User Account** already exists for the setup email, completing the **Account Setup Link** activates that existing account and replaces its password with the password entered in the setup form. This keeps overlapping beta access and organization-invite paths on one identity, but the setup page must be treated as an account-credential reset for that email.
 - The Supabase **User Account** should be created with the email already confirmed because the one-time setup link sent to that address is the email-control proof.

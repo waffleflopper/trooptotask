@@ -31,7 +31,7 @@ A User Account with an Organization Membership.
 _Avoid_: Soldier, Personnel Record, bare User when membership matters
 
 **Access Request**:
-A request for reviewed entry into TroopToTask; approval authorizes account setup, not Organization membership. Public requests receive platform review; an Organization Invitation for a new account supplies organization-authorized approval through the invitation bridge.
+A request for reviewed entry into TroopToTask; approval authorizes account setup, not Organization membership. Public requests receive platform review; an Organization Invitation for a new account supplies organization-authorized approval through the invitation bridge. That approval lasts only while a linked invitation is neither revoked nor blocked, and platform staff can rescind any approval before setup completes.
 _Avoid_: Organization Invitation, registration invite
 
 **Account Setup Link**:

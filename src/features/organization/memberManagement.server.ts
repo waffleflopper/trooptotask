@@ -61,6 +61,7 @@ export type OrganizationInvitationAccessRequestBridgeResult =
 	| { status: 'created'; accessRequestId: string }
 	| { status: 'linked'; accessRequestId: string }
 	| { status: 'already-linked'; accessRequestId: string }
+	| { status: 'invitation-not-pending' }
 	| { status: 'failed'; message: string };
 
 export interface OrganizationInvitationAccessRequestBridgeInput {
@@ -127,7 +128,7 @@ export interface OrganizationSettingsMemberManagementPort {
 		invitationId: string;
 		blockedBy: string;
 		reason: string;
-	}): Promise<{ status: 'blocked' } | { status: 'failed'; message: string }>;
+	}): Promise<{ status: 'blocked' } | { status: 'not-pending' } | { status: 'failed'; message: string }>;
 	revokeInvitation(orgId: string, inviteId: string): Promise<OrganizationInvitationRevokeResult>;
 	findMembershipById(orgId: string, membershipId: string): Promise<OrganizationMembershipRecord | null>;
 	removeMembership(orgId: string, membershipId: string, expectedRole: EditableMembershipRole): Promise<string | null>;
@@ -292,8 +293,11 @@ export async function inviteOrganizationMember(
 			})
 		: null;
 
-	if (accessRequestBridge?.status === 'failed') {
-		fail(500, 'Invitation could not be created because platform access setup could not be linked');
+	if (accessRequestBridge?.status === 'invitation-not-pending') {
+		fail(
+			409,
+			'The invitation was withdrawn or expired before platform access setup could be linked. Send a new invitation.'
+		);
 	}
 
 	if (accessRequestBridge) {
@@ -351,19 +355,34 @@ export async function inviteOrganizationMember(
 async function bridgeInvitationToAccessRequest(
 	ports: OrganizationSettingsMemberManagementPorts,
 	input: OrganizationInvitationAccessRequestBridgeInput
-): Promise<{ status: 'created' | 'linked' | 'already-linked'; accessRequestId: string } | { status: 'failed' }> {
+): Promise<
+	{ status: 'created' | 'linked' | 'already-linked'; accessRequestId: string } | { status: 'invitation-not-pending' }
+> {
 	const result = await ports.settings.createOrLinkApprovedAccessRequestForInvitation(input);
+	if (result.status === 'invitation-not-pending') {
+		ports.audit.log({
+			action: 'member.invite_access_request_link_failed',
+			resourceType: 'organization',
+			details: { email: input.email, invitationId: input.invitationId, reason: result.status, blocked: false },
+			severity: 'warning'
+		});
+		return { status: 'invitation-not-pending' };
+	}
 	if (result.status === 'failed') {
-		await blockInvitationAfterPlatformAccessFailure(ports, {
+		return blockInvitationAndFail(ports, {
 			organizationId: input.organizationId,
 			invitationId: input.invitationId,
 			blockedBy: input.invitedBy,
 			email: input.email,
 			reason: result.message,
 			failureAction: 'member.invite_access_request_link_failed',
-			blockFailureAction: 'member.invite_access_request_link_block_failed'
+			blockFailureAction: 'member.invite_access_request_link_block_failed',
+			publicMessages: {
+				blocked: 'Invitation could not be created because platform access setup could not be linked',
+				failed:
+					'Platform access setup could not be linked. Check Pending Invitations and revoke the invitation if it is still listed.'
+			}
 		});
-		return { status: 'failed' };
 	}
 
 	ports.audit.log({
@@ -386,11 +405,12 @@ async function bridgeInvitationToAccessRequest(
 }
 
 /**
- * Blocks the just-created invitation, records why, and reports whether the block itself
- * held. Shared by the two ways platform access setup can leave an invitation stranded:
- * the Access Request bridge failing, and the setup link failing to be created.
+ * Blocks the just-created invitation, records why, and fails the invite with copy that
+ * matches what the block left behind. Shared by the two ways platform access setup can
+ * leave an invitation stranded: the Access Request bridge failing, and the setup link
+ * failing to be created.
  */
-async function blockInvitationAfterPlatformAccessFailure(
+async function blockInvitationAndFail(
 	ports: OrganizationSettingsMemberManagementPorts,
 	input: {
 		organizationId: string;
@@ -401,8 +421,9 @@ async function blockInvitationAfterPlatformAccessFailure(
 		failureAction: string;
 		blockFailureAction: string;
 		failureDetails?: Record<string, unknown>;
+		publicMessages: { blocked: string; failed: string };
 	}
-): Promise<void> {
+): Promise<never> {
 	const blockResult = await ports.settings.blockInvitationAfterAccessRequestBridgeFailure({
 		organizationId: input.organizationId,
 		invitationId: input.invitationId,
@@ -419,7 +440,7 @@ async function blockInvitationAfterPlatformAccessFailure(
 			...(input.failureDetails ?? { reason: input.reason }),
 			blocked: blockResult.status === 'blocked'
 		},
-		severity: blockResult.status === 'blocked' ? 'warning' : 'critical'
+		severity: blockResult.status === 'failed' ? 'critical' : 'warning'
 	});
 
 	if (blockResult.status === 'failed') {
@@ -434,6 +455,11 @@ async function blockInvitationAfterPlatformAccessFailure(
 			severity: 'critical'
 		});
 	}
+
+	if (blockResult.status === 'not-pending') {
+		fail(409, 'This invitation was withdrawn while it was being created.');
+	}
+	fail(500, input.publicMessages[blockResult.status], { publicMessage: true });
 }
 
 /**
@@ -493,7 +519,7 @@ async function issueInvitationAccountSetupLink(
 		return;
 	}
 
-	await blockInvitationAfterPlatformAccessFailure(ports, {
+	await blockInvitationAndFail(ports, {
 		organizationId: input.organizationId,
 		invitationId: input.invitationId,
 		blockedBy: input.invitedBy,
@@ -501,10 +527,13 @@ async function issueInvitationAccountSetupLink(
 		reason: notCreatedReason,
 		failureAction: 'member.invite_account_setup_link_not_created',
 		blockFailureAction: 'member.invite_account_setup_link_block_failed',
-		failureDetails: { accessRequestId: input.accessRequestId, reason: notCreatedReason }
+		failureDetails: { accessRequestId: input.accessRequestId, reason: notCreatedReason },
+		publicMessages: {
+			blocked: 'Invitation could not be created because the account setup link could not be issued',
+			failed:
+				'The account setup link could not be issued. Check Pending Invitations and revoke the invitation if it is still listed.'
+		}
 	});
-
-	fail(500, 'Invitation could not be created because the account setup link could not be issued');
 }
 
 export async function resendOrganizationInvitation(

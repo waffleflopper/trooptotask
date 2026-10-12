@@ -90,6 +90,7 @@ export {
 export {
 	classifyAccessRequestSetupState,
 	findLatestAccessRequestSetupDelivery,
+	isSetupGrantWithdrawn,
 	normalizeAccessRequestSetupDeliveries,
 	normalizeAccessRequestSetupLinks,
 	resolveAccessRequestSetupState,
@@ -98,7 +99,7 @@ export {
 	type AccessRequestSetupLink,
 	type AccessRequestSetupStateSource
 } from './accessRequestSetupState.server';
-export type { AccessRequestSetupState } from './contracts';
+export type { AccessRequestApprovalBasis, AccessRequestSetupState, AccessRequestStatus } from './contracts';
 export {
 	type AuthEmailOutboxRecord,
 	type AuthEmailOutboxStatus,

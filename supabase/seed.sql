@@ -158,8 +158,8 @@ INSERT INTO "auth"."identities" ("provider_id", "user_id", "identity_data", "pro
 -- Data for Name: access_requests; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-INSERT INTO "public"."access_requests" ("id", "email", "name", "reason", "status", "reviewed_by", "reviewed_at", "created_at") VALUES
-	('284ebdbf-93aa-418b-89d9-97c80261d0dc', 'localdev@test.com', 'LocalDev', 'merrr', 'approved', 'a66f8bd7-92e1-416e-9dbe-11da5a7f7f3c', '2026-04-16 19:48:15.95+00', '2026-04-16 19:45:19.715958+00');
+INSERT INTO "public"."access_requests" ("id", "email", "name", "reason", "status", "approval_basis", "reviewed_by", "reviewed_at", "created_at") VALUES
+	('284ebdbf-93aa-418b-89d9-97c80261d0dc', 'localdev@test.com', 'LocalDev', 'merrr', 'approved', 'platform_review', 'a66f8bd7-92e1-416e-9dbe-11da5a7f7f3c', '2026-04-16 19:48:15.95+00', '2026-04-16 19:45:19.715958+00');
 
 
 --

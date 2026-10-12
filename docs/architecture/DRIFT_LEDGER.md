@@ -22,11 +22,11 @@ The separately authorized [CI workflow](../ci.md) preserves PR/main triggers, co
 
 Robert explicitly accepts an unprotected private `main` on the existing GitHub plan, with owner review of CI results before merge. Paid branch protection and rulesets are not requirements, defects or reasons for a red check. Existing source/governance, security and test controls remain required; failed validation still blocks acceptance. The module checker supplements route/provider/permission controls and does not certify runtime behavior or hosted deployment state.
 
-## D-10 No Rescind Lever For Auto-Approved Platform Access
+## D-10 No Rescind Lever For Auto-Approved Platform Access — resolved
 
-An Access Request auto-approved from an Organization Invitation (ADR 0012) cannot have platform access withdrawn between approval and setup completion. `reject` operates only on pending requests; manual Account Setup Link revocation is unimplemented. A fatal setup-link issuance failure can leave approval behind, allowing `/auth/renew-invite` to issue a credential even though the invitation did not complete. Reviewed-request provenance is visibility, not remediation.
+The F01 repair for #1639 replaces the missing lever with a derived grant ([ADR 0012](adrs/0012-organization-invited-platform-access-auto-approval.md#failure-and-concurrency-semantics)). Migration `20261012000100_invitation_grant_liveness` adds `access_requests.approval_basis`, the `rescinded` status, `access_request_setup_grant_is_live`, atomic `issue_account_setup_link` and `link_organization_invitation_access_request` RPCs, a grant-checking setup claim and platform `rescind_access_request_and_block_linked_invitations`. Setup-link issuance, claim, setup-page validation and renewal or resubmit eligibility refuse a dead grant. Provenance reads `approval_basis`.
 
-F01 / task **11-01** owns coherent issuance, renewal and rescind transitions with concurrency-safe provenance. Preserve independent approvals, sibling Organization grants and existing accounts. Acceptance must cover fatal issuance failure, renewal, rejection/rescind, concurrent invitations and independent approvals with deterministic clocks and failure cases. Billing removal and this documentation consolidation do not close F01.
+Isolated SQL contracts and unit tests cover the code. The entry closes when the live journeys for fatal issuance, revoke after delivery, renewal, rescind, concurrent invitations and independent approvals pass on the merged candidate and their acceptance is recorded under the [evidence contract](DEFINITION_OF_DONE.md#recording-evidence).
 
 ## Authorization decisions during remediation
 

@@ -4,6 +4,7 @@ import { createPlatformAccessRequestOperations } from '$features/platform-admin/
 import { validateUUID } from '$lib/server/validation';
 import type {
 	PlatformAccessRequestAdminRejectResult,
+	PlatformAccessRequestAdminRescindResult,
 	PlatformAccessRequestAdminSendResult
 } from '$features/platform-admin/contracts';
 
@@ -77,6 +78,31 @@ function mapRejectResult(result: PlatformAccessRequestAdminRejectResult) {
 	}
 }
 
+function mapRescindResult(result: PlatformAccessRequestAdminRescindResult) {
+	switch (result.status) {
+		case 'rescinded':
+			return { success: true, action: 'rescind' };
+		case 'authorization_denied':
+			return fail(403, {
+				error: result.message,
+				...result.failure
+			});
+		case 'not_approved':
+			return fail(404, { error: 'Approved request not found' });
+		case 'setup_completed':
+			return fail(409, {
+				error: 'This user has already completed account setup, so platform access can no longer be rescinded here.'
+			});
+		case 'claim_held':
+			return fail(409, {
+				error:
+					'A setup attempt holds a claim on this request. Confirm its Auth operation has ended and release the claim before rescinding.'
+			});
+		case 'failed':
+			return fail(500, { error: 'Failed to rescind request' });
+	}
+}
+
 export const load: PageServerLoad = async (event) => {
 	const operations = await createPlatformAccessRequestOperations(event);
 	return operations.list();
@@ -101,6 +127,16 @@ export const actions: Actions = {
 		if (!validateUUID(requestId)) return fail(400, { error: 'Invalid request ID' });
 
 		return mapRejectResult(await operations.reject(requestId));
+	},
+
+	rescind: async (event) => {
+		const operations = await createPlatformAccessRequestOperations(event);
+		const formData = await event.request.formData();
+		const requestId = requestIdFromForm(formData);
+		if (!requestId) return fail(400, { error: 'Missing request ID' });
+		if (!validateUUID(requestId)) return fail(400, { error: 'Invalid request ID' });
+
+		return mapRescindResult(await operations.rescind(requestId));
 	},
 
 	resend: async (event) => {

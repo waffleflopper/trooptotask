@@ -2,14 +2,14 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SELECT no_plan();
 
-INSERT INTO public.access_requests(id,email,name,status) VALUES
- ('e1000000-0000-4000-8000-000000000001','recovery@example.test','Recovery Source','approved'),
- ('e1000000-0000-4000-8000-000000000002','recovery@example.test','Recovery Target','approved'),
- ('e1000000-0000-4000-8000-000000000003','other@example.test','Other','approved'),
- ('e1000000-0000-4000-8000-000000000004','new@example.test','New Source','approved'),
- ('e1000000-0000-4000-8000-000000000005','new@example.test','New Target','approved'),
- ('e1000000-0000-4000-8000-000000000006','legacy@example.test','Legacy Source','approved'),
- ('e1000000-0000-4000-8000-000000000007','legacy@example.test','Legacy Target','approved');
+INSERT INTO public.access_requests(id,email,name,status, approval_basis) VALUES
+ ('e1000000-0000-4000-8000-000000000001','recovery@example.test','Recovery Source','approved', 'platform_review'),
+ ('e1000000-0000-4000-8000-000000000002','recovery@example.test','Recovery Target','approved', 'platform_review'),
+ ('e1000000-0000-4000-8000-000000000003','other@example.test','Other','approved', 'platform_review'),
+ ('e1000000-0000-4000-8000-000000000004','new@example.test','New Source','approved', 'platform_review'),
+ ('e1000000-0000-4000-8000-000000000005','new@example.test','New Target','approved', 'platform_review'),
+ ('e1000000-0000-4000-8000-000000000006','legacy@example.test','Legacy Source','approved', 'platform_review'),
+ ('e1000000-0000-4000-8000-000000000007','legacy@example.test','Legacy Target','approved', 'platform_review');
 INSERT INTO public.account_setup_links(id,access_request_id,token_hash,expires_at) VALUES
  ('e2000000-0000-4000-8000-000000000001','e1000000-0000-4000-8000-000000000001','reconcile-source','2030-01-01'),
  ('e2000000-0000-4000-8000-000000000002','e1000000-0000-4000-8000-000000000002','reconcile-target','2030-01-01'),
@@ -42,8 +42,8 @@ SELECT throws_ok($$SELECT public.reconcile_account_setup_claim('e2000000-0000-40
 RESET ROLE;
 
 -- A malformed approved request cannot enter the email-scoped recovery lock.
-INSERT INTO public.access_requests(id,email,name,status) VALUES
- ('e1000000-0000-4000-8000-000000000010','','Blank Email','approved');
+INSERT INTO public.access_requests(id,email,name,status, approval_basis) VALUES
+ ('e1000000-0000-4000-8000-000000000010','','Blank Email','approved', 'platform_review');
 INSERT INTO public.account_setup_links(id,access_request_id,token_hash,expires_at) VALUES
  ('e2000000-0000-4000-8000-000000000010','e1000000-0000-4000-8000-000000000010','blank-email','2030-01-01');
 SELECT is(public.reconcile_account_setup_claim('e2000000-0000-4000-8000-000000000010',
@@ -262,9 +262,9 @@ SELECT is((SELECT count(*)::integer FROM public.account_setup_links WHERE id IN
 
 -- If Auth's email changes after the witnessed write, old-email setup proof
 -- cannot finalize that user even though the original marker still committed.
-INSERT INTO public.access_requests(id,email,name,status) VALUES
- ('e1000000-0000-4000-8000-000000000008','changed@example.test','Changed Source','approved'),
- ('e1000000-0000-4000-8000-000000000009','changed@example.test','Changed Target','approved');
+INSERT INTO public.access_requests(id,email,name,status, approval_basis) VALUES
+ ('e1000000-0000-4000-8000-000000000008','changed@example.test','Changed Source','approved', 'platform_review'),
+ ('e1000000-0000-4000-8000-000000000009','changed@example.test','Changed Target','approved', 'platform_review');
 INSERT INTO public.account_setup_links(id,access_request_id,token_hash,expires_at) VALUES
  ('e2000000-0000-4000-8000-000000000008','e1000000-0000-4000-8000-000000000008','changed-source','2030-01-01'),
  ('e2000000-0000-4000-8000-000000000009','e1000000-0000-4000-8000-000000000009','changed-target','2030-01-01');

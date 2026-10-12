@@ -1,4 +1,4 @@
-import type { AccountSetupLinkRecord, CreateAccountSetupLinkResult } from './accountSetupLinks.server';
+import type { CreateAccountSetupLinkResult } from './accountSetupLinks.server';
 import type { SendAccountSetupOutboxDeliveryResult } from './authEmailOutbox.server';
 import { makePublicAppUrl } from './publicAppOrigin.server';
 
@@ -98,13 +98,13 @@ function isCreatedSetupLinkResult(
 
 function auditRevokedSetupLinks(
 	audit: AccountSetupLinkIssuanceDependencies['audit'],
-	input: { accessRequestId: string; replacementSetupLinkId: string; revokedLinks: AccountSetupLinkRecord[] }
+	input: { accessRequestId: string; replacementSetupLinkId: string; revokedLinkIds: string[] }
 ): void {
-	for (const revokedLink of input.revokedLinks) {
+	for (const revokedLinkId of input.revokedLinkIds) {
 		audit({
 			action: 'account_setup.link_revoked',
 			resourceType: 'account_setup_link',
-			resourceId: revokedLink.id,
+			resourceId: revokedLinkId,
 			details: {
 				accessRequestId: input.accessRequestId,
 				replacementSetupLinkId: input.replacementSetupLinkId,
@@ -131,7 +131,7 @@ export function createAccountSetupLinkIssuance(deps: AccountSetupLinkIssuanceDep
 			auditRevokedSetupLinks(deps.audit, {
 				accessRequestId: command.accessRequestId,
 				replacementSetupLinkId: setupResult.link.id,
-				revokedLinks: setupResult.revokedLinks ?? []
+				revokedLinkIds: setupResult.revokedLinkIds
 			});
 
 			const auditActions = DELIVERY_AUDIT_ACTIONS[command.origin];

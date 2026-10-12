@@ -31,6 +31,7 @@ interface RequestSource extends AccessRequestSetupStateSource {
 function source(overrides: Partial<RequestSource> = {}): RequestSource {
 	return {
 		email: 'invitee@example.com',
+		status: 'approved',
 		setup_completed_at: null,
 		account_setup_links: [link],
 		auth_email_outbox: [delivery],

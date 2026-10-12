@@ -1,6 +1,8 @@
 import { createAccountSetupCompletionService, type AccountSetupCompletionStore } from './accountSetupCompletion.server';
 import {
 	createAccountSetupLinkService,
+	isUnclaimedLinkGrantWithdrawn,
+	revokedSetupLinkStatus,
 	type AccountSetupLinkRecord,
 	type ValidateAccountSetupLinkResult
 } from './accountSetupLinks.server';
@@ -85,7 +87,8 @@ function tokenStateMessage(state: string): string {
 		case 'expired':
 			return 'This Account Setup Link has expired. Request a fresh setup link and use the newest email.';
 		case 'revoked':
-			return 'This Account Setup Link was replaced. Check your inbox for the newest setup email.';
+		case 'access-request-not-approved':
+			return 'This Account Setup Link is no longer valid because the access it was sent for was withdrawn. Contact the person who invited you or platform support if you still need access.';
 		case 'replaced':
 			return 'This Account Setup Link was replaced. Check your inbox for the newest setup email.';
 		case 'claimed':
@@ -98,8 +101,6 @@ function tokenStateMessage(state: string): string {
 		case 'used':
 		case 'access-request-completed':
 			return 'This setup link has already been used. Sign in or reset your password if you need access.';
-		case 'access-request-not-approved':
-			return 'This Account Setup Link is no longer approved. Request access again or contact support.';
 		case 'session-expired':
 			return 'This setup session has expired. Open the newest setup email or request a fresh setup link.';
 		default:
@@ -107,10 +108,13 @@ function tokenStateMessage(state: string): string {
 	}
 }
 
-function getSetupLinkState(link: AccountSetupLinkRecord, now: Date): string {
+function getSetupLinkState(
+	link: AccountSetupLinkRecord,
+	now: Date
+): 'used' | 'failed' | 'expired' | 'revoked' | 'replaced' | 'claimed' | 'valid' {
 	if (link.usedAt) return 'used';
 	if (link.failedAt) return 'failed';
-	if (link.revokedAt) return link.revocationReason === 'replaced' ? 'replaced' : 'revoked';
+	if (link.revokedAt) return revokedSetupLinkStatus(link.revocationReason);
 	if (link.expiresAt <= now) return 'expired';
 	if (link.claimedAt) return 'claimed';
 	return 'valid';
@@ -352,6 +356,14 @@ export function createAccountSetupRouteFlow(dependencies: AccountSetupRouteFlowD
 				return {
 					state: setupLinkState as AccountSetupPageState,
 					message: tokenStateMessage(setupLinkState),
+					clearSession: true
+				};
+			}
+
+			if (isUnclaimedLinkGrantWithdrawn(setupLinkState, accessRequest)) {
+				return {
+					state: 'access-request-not-approved',
+					message: tokenStateMessage('access-request-not-approved'),
 					clearSession: true
 				};
 			}

@@ -11,6 +11,7 @@ import {
 import { createAccountSetupLinkService } from './accountSetupLinks.server';
 import { createAccountSetupRouteFlow } from './accountSetupRouteFlow.server';
 import { PASSWORD_PROVIDER_REJECTION_MESSAGE } from './passwordPolicy';
+import { accountSetupLinkFixture, issueSetupLinkInMemory } from './accountSetupFixtures.server';
 
 function makeStore(accessRequest: AccountSetupLinkAccessRequest): AccountSetupCompletionStore & {
 	links: AccountSetupLinkRecord[];
@@ -35,33 +36,9 @@ function makeStore(accessRequest: AccountSetupLinkAccessRequest): AccountSetupCo
 		async getAccessRequest(id) {
 			return id === accessRequest.id ? accessRequest : null;
 		},
-		async revokeUnusedLinksForAccessRequest(accessRequestId, revokedAt) {
-			const revoked: AccountSetupLinkRecord[] = [];
-			for (const link of links) {
-				if (link.accessRequestId === accessRequestId && !link.usedAt && !link.revokedAt) {
-					link.revokedAt = revokedAt;
-					link.revocationReason = 'replaced';
-					revoked.push(link);
-				}
-			}
-			return revoked;
-		},
-		async insertSetupLink(input) {
-			const link: AccountSetupLinkRecord = {
-				id: `link-${links.length + 1}`,
-				accessRequestId: input.accessRequestId,
-				tokenHash: input.tokenHash,
-				expiresAt: input.expiresAt,
-				createdAt: input.createdAt,
-				claimedAt: null,
-				failedAt: null,
-				failureReason: null,
-				usedAt: null,
-				revokedAt: null,
-				revocationReason: null
-			};
-			links.push(link);
-			return link;
+		async issueSetupLink(input) {
+			const request = input.accessRequestId === accessRequest.id ? accessRequest : null;
+			return issueSetupLinkInMemory(request, links, input, `link-${links.length + 1}`);
 		},
 		async findByTokenHash(tokenHash) {
 			return links.find((link) => link.tokenHash === tokenHash) ?? null;
@@ -76,7 +53,9 @@ function makeStore(accessRequest: AccountSetupLinkAccessRequest): AccountSetupCo
 			}
 			// This fake prioritizes access-request outcomes for focused service tests; the database RPC owns exact status ordering.
 			if (accessRequest.setupCompletedAt) return { status: 'access-request-completed' };
-			if (accessRequest.status !== 'approved') return { status: 'access-request-not-approved' };
+			if (accessRequest.status !== 'approved' || !accessRequest.setupGrantLive) {
+				return { status: 'access-request-not-approved' };
+			}
 			if (link.usedAt) return { status: 'used' };
 			if (link.failedAt) return { status: 'failed' };
 			if (link.claimedAt) return { status: 'claimed' };
@@ -186,7 +165,8 @@ const approvedRequest: AccountSetupLinkAccessRequest = {
 	firstName: 'Person',
 	lastName: 'Example',
 	status: 'approved',
-	setupCompletedAt: null
+	setupCompletedAt: null,
+	setupGrantLive: true
 };
 
 describe('Account Setup completion', () => {
@@ -218,12 +198,14 @@ describe('Account Setup completion', () => {
 		await addSetupToken(store);
 		const original = store.links[0];
 		original.claimedAt = new Date('2026-05-18T11:59:00.000Z');
-		const target = await store.insertSetupLink({
+		const target = accountSetupLinkFixture({
+			id: 'link-2',
 			accessRequestId: 'request-2',
 			tokenHash: 'different-request-token-hash',
 			expiresAt: new Date('2026-06-01T12:00:00.000Z'),
 			createdAt: new Date('2026-05-18T12:00:00.000Z')
 		});
+		store.links.push(target);
 		store.getAccessRequest = vi.fn(async (id) =>
 			id === 'request-1' ? { ...approvedRequest } : id === 'request-2' ? { ...approvedRequest, id } : null
 		);

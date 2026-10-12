@@ -3,10 +3,10 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SELECT no_plan();
-INSERT INTO public.access_requests (id,email,name,status) VALUES
- ('b2000000-0000-4000-8000-000000000001','upgrade-claim@example.test','Earlier request','approved'),
- ('b2000000-0000-4000-8000-000000000002','upgrade-claim@example.test','Second held request','approved'),
- ('b2000000-0000-4000-8000-000000000003','upgrade-claim@example.test','Later request','approved');
+INSERT INTO public.access_requests (id,email,name,status, approval_basis) VALUES
+ ('b2000000-0000-4000-8000-000000000001','upgrade-claim@example.test','Earlier request','approved', 'platform_review'),
+ ('b2000000-0000-4000-8000-000000000002','upgrade-claim@example.test','Second held request','approved', 'platform_review'),
+ ('b2000000-0000-4000-8000-000000000003','upgrade-claim@example.test','Later request','approved', 'platform_review');
 INSERT INTO public.account_setup_links (id,access_request_id,token_hash,expires_at,claimed_at) VALUES
  ('b2000000-0000-4000-8000-000000000011','b2000000-0000-4000-8000-000000000001','upgrade-held-hash','2030-01-02T00:00:00Z','2030-01-01T00:00:00Z'),
  ('b2000000-0000-4000-8000-000000000012','b2000000-0000-4000-8000-000000000002','upgrade-second-held-hash','2030-01-02T00:00:00Z','2030-01-01T00:00:00Z'),

@@ -209,17 +209,12 @@ function faults() {
 test('each named fault matches only its allowlisted writes on the owned provider', async () => {
 	const cases = {
 		'setup-link-create': [
-			[providerInput('account_setup_links', { method: 'POST' }), ['POST', '/rest/v1/account_setup_links']],
 			[
 				providerInput('rpc/issue_account_setup_link', { method: 'POST' }),
 				['POST', '/rest/v1/rpc/issue_account_setup_link']
 			]
 		],
 		'invitation-access-link': [
-			[
-				providerInput('access_request_organization_invitation_links', { method: 'POST' }),
-				['POST', '/rest/v1/access_request_organization_invitation_links']
-			],
 			[
 				providerInput('rpc/link_organization_invitation_access_request', { method: 'POST' }),
 				['POST', '/rest/v1/rpc/link_organization_invitation_access_request']
@@ -281,7 +276,7 @@ test('a fault fires on the selected ordinal once and stays dormant until restore
 	const { control, passed } = faults();
 	control.command('fault-arm', { name: 'setup-link-create', ordinal: 2 });
 	assert.throws(() => control.command('fault-arm', { name: 'setup-link-create' }));
-	const create = providerInput('account_setup_links', { method: 'POST' });
+	const create = providerInput('rpc/issue_account_setup_link', { method: 'POST' });
 	assert.equal(await (await control.fetch(...create)).text(), 'real');
 	assert.equal((await control.fetch(...create)).status, 503);
 	assert.equal(await (await control.fetch(...create)).text(), 'real');
@@ -292,7 +287,7 @@ test('a fault fires on the selected ordinal once and stays dormant until restore
 		ordinal: 2,
 		matches: 2,
 		phase: 'faulted',
-		call: { method: 'POST', path: '/rest/v1/account_setup_links' }
+		call: { method: 'POST', path: '/rest/v1/rpc/issue_account_setup_link' }
 	});
 	control.command('fault-restore');
 	assert.deepEqual(control.command('fault-state').controls, {});
@@ -312,7 +307,7 @@ test('restore before the ordinal leaves later writes untouched; invalid arming i
 	])
 		assert.throws(() => control.command('fault-arm', options));
 	control.command('fault-arm', { name: 'setup-link-create', ordinal: 2 });
-	const create = providerInput('account_setup_links', { method: 'POST' });
+	const create = providerInput('rpc/issue_account_setup_link', { method: 'POST' });
 	assert.equal(await (await control.fetch(...create)).text(), 'real');
 	assert.deepEqual(control.command('fault-restore').armed, []);
 	assert.equal(await (await control.fetch(...create)).text(), 'real');
@@ -413,11 +408,11 @@ test('the actual Node preloader captures mail, serves its link only over the aut
 	assert.equal((await send(url, init)).status, 200);
 	assert.equal(requests.length, 0);
 
-	const write = `${config.providerUrl}/rest/v1/account_setup_links`;
+	const write = `${config.providerUrl}/rest/v1/rpc/issue_account_setup_link`;
 	await command('fault-arm', { name: 'setup-link-create' });
 	assert.equal((await send(write, { method: 'POST', body: '{}' })).status, 503);
 	assert.equal((await send(write, { method: 'POST', body: '{}' })).body, 'actual fixture write');
-	assert.deepEqual(requests, ['POST /rest/v1/account_setup_links']);
+	assert.deepEqual(requests, ['POST /rest/v1/rpc/issue_account_setup_link']);
 	assert.equal((await command('fault-state')).controls['setup-link-create'].phase, 'faulted');
 	assert.equal(diagnostic, '');
 	assert.equal(JSON.stringify(ready).includes(config.token), false);
@@ -443,14 +438,14 @@ test('issuance and cleanup faults compose: each fails its own write once', async
 		method: 'PATCH',
 		body: JSON.stringify({ status: 'blocked' })
 	});
-	assert.equal((await control.fetch(...providerInput('account_setup_links', { method: 'POST' }))).status, 503);
+	assert.equal((await control.fetch(...providerInput('rpc/issue_account_setup_link', { method: 'POST' }))).status, 503);
 	assert.equal((await control.fetch(...block)).status, 503);
 	assert.equal(await (await control.fetch(...block)).text(), 'real');
 	assert.equal(passed.length, 1);
 	assert.deepEqual(
 		Object.fromEntries(Object.entries(control.command('fault-state').controls).map(([name, { call }]) => [name, call])),
 		{
-			'setup-link-create': { method: 'POST', path: '/rest/v1/account_setup_links' },
+			'setup-link-create': { method: 'POST', path: '/rest/v1/rpc/issue_account_setup_link' },
 			'invitation-block': { method: 'PATCH', path: '/rest/v1/organization_invitations' }
 		}
 	);

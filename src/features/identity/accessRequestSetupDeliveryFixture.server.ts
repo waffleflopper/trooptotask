@@ -3,10 +3,10 @@ import type {
 	AccessRequestSetupRequest,
 	CreatePendingAccessRequestInput
 } from './accessRequestSetupDelivery.server';
-import type { AccountSetupLinkRecord, CreateAccountSetupLinkInput } from './accountSetupLinks.server';
+import type { AccountSetupLinkRecord } from './accountSetupLinks.server';
 import type { AuthEmailOutboxRecord } from './authEmailOutbox.server';
 import { AUTH_WORKFLOW_CREATED_AT, AUTH_WORKFLOW_REVIEWED_AT } from '$lib/test-support/authWorkflowFixtures';
-import { accountSetupLinkFixture, createAuthEmailOutboxStore } from './accountSetupFixtures.server';
+import { createAuthEmailOutboxStore, issueSetupLinkInMemory } from './accountSetupFixtures.server';
 
 export function accessRequestFixture(overrides: Partial<AccessRequestSetupRequest> = {}): AccessRequestSetupRequest {
 	return {
@@ -16,6 +16,7 @@ export function accessRequestFixture(overrides: Partial<AccessRequestSetupReques
 		createdAt: AUTH_WORKFLOW_CREATED_AT,
 		reviewedAt: AUTH_WORKFLOW_REVIEWED_AT,
 		setupCompletedAt: null,
+		setupGrantLive: true,
 		...overrides
 	};
 }
@@ -24,18 +25,15 @@ export function createAccessRequestSetupDeliveryStore(requests: AccessRequestSet
 	const setupLinks: AccountSetupLinkRecord[] = [];
 	const outboxStore = createAuthEmailOutboxStore();
 	const insertedRequests: CreatePendingAccessRequestInput[] = [];
-	const revokedAccessRequestIds: string[] = [];
 	let linkId = 0;
 
 	const store: AccessRequestSetupDeliveryStore & {
 		insertedRequests: CreatePendingAccessRequestInput[];
-		revokedAccessRequestIds: string[];
 		setupLinks: AccountSetupLinkRecord[];
 		outboxRecords: AuthEmailOutboxRecord[];
 	} = {
 		...outboxStore,
 		insertedRequests,
-		revokedAccessRequestIds,
 		setupLinks,
 		outboxRecords: outboxStore.records,
 		async listAccessRequestsByEmail(email) {
@@ -51,37 +49,13 @@ export function createAccessRequestSetupDeliveryStore(requests: AccessRequestSet
 				id: request.id,
 				email: request.email,
 				status: request.status,
-				setupCompletedAt: request.setupCompletedAt
+				setupCompletedAt: request.setupCompletedAt,
+				setupGrantLive: request.setupGrantLive
 			};
 		},
-		async revokeUnusedLinksForAccessRequest(accessRequestId, revokedAt) {
-			const revoked: AccountSetupLinkRecord[] = [];
-			revokedAccessRequestIds.push(accessRequestId);
-			for (const link of setupLinks) {
-				if (
-					link.accessRequestId === accessRequestId &&
-					!link.claimedAt &&
-					!link.failedAt &&
-					!link.usedAt &&
-					!link.revokedAt
-				) {
-					link.revokedAt = revokedAt;
-					link.revocationReason = 'replaced';
-					revoked.push(link);
-				}
-			}
-			return revoked;
-		},
-		async insertSetupLink(input: CreateAccountSetupLinkInput) {
-			const record = accountSetupLinkFixture({
-				id: `setup-link-${++linkId}`,
-				accessRequestId: input.accessRequestId,
-				tokenHash: input.tokenHash,
-				expiresAt: input.expiresAt,
-				createdAt: input.createdAt
-			});
-			setupLinks.push(record);
-			return record;
+		async issueSetupLink(input) {
+			const request = requests.find((item) => item.id === input.accessRequestId);
+			return issueSetupLinkInMemory(request, setupLinks, input, `setup-link-${++linkId}`);
 		},
 		async findByTokenHash(tokenHash) {
 			return setupLinks.find((link) => link.tokenHash === tokenHash) ?? null;
@@ -95,7 +69,7 @@ export function createAccessRequestSetupDeliveryStore(requests: AccessRequestSet
 			if (!link || link.accessRequestId !== input.accessRequestId || !request) return { status: 'missing' };
 			// This fake prioritizes access-request outcomes for focused service tests; the database RPC owns exact status ordering.
 			if (request.setupCompletedAt) return { status: 'access-request-completed' };
-			if (request.status !== 'approved') return { status: 'access-request-not-approved' };
+			if (request.status !== 'approved' || !request.setupGrantLive) return { status: 'access-request-not-approved' };
 			if (link.usedAt) return { status: 'used' };
 			if (link.failedAt) return { status: 'failed' };
 			if (link.claimedAt) return { status: 'claimed' };

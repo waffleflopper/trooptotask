@@ -68,7 +68,8 @@ export function accountSetupSeed(tag, now = Date.now()) {
 				id: randomUUID(),
 				email: `setup-${tag}-${kind}@example.test`,
 				name: `Synthetic Setup ${kind}`,
-				status: kind === 'not-approved' ? 'pending' : 'approved'
+				status: kind === 'not-approved' ? 'pending' : 'approved',
+				approval_basis: kind === 'not-approved' ? null : 'platform_review'
 			};
 			const link = {
 				id: randomUUID(),
@@ -119,7 +120,7 @@ export function faultRequest(args) {
 }
 
 const accessRequestColumns =
-	'id,email,name,reason,heard_about,heard_about_details,status,created_at,reviewed_at,reviewed_by,setup_user_id,setup_completed_at';
+	'id,email,name,reason,heard_about,heard_about_details,status,approval_basis,setup_grant_live,created_at,reviewed_at,reviewed_by,setup_user_id,setup_completed_at';
 
 export async function readAccessRequests(client, email) {
 	const rows = checkedRows(

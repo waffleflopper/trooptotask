@@ -102,7 +102,8 @@ export async function seedMaintenance({ client, fixture, kind, tag, ownedState, 
 					id,
 					email: `maintenance-${tag}-${classification}-${index}@example.test`,
 					name: 'Synthetic maintenance',
-					status: 'approved'
+					status: 'approved',
+					approval_basis: 'platform_review'
 				}
 			});
 			links.push({

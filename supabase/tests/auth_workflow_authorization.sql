@@ -105,19 +105,21 @@ VALUES (
 	true
 );
 
-INSERT INTO public.access_requests (id, email, name, status)
+INSERT INTO public.access_requests (id, email, name, status, approval_basis)
 VALUES
 	(
 		'50000000-0000-4000-8000-000000001034',
 		'authz-request-1034@example.test',
 		'Authz Request',
-		'approved'
+		'approved',
+		'platform_review'
 	),
 	(
 		'50000000-0000-4000-8000-000000001035',
 		'authz-request-1035@example.test',
 		'Authz Request Two',
-		'approved'
+		'approved',
+		'platform_review'
 	);
 
 INSERT INTO public.organization_invitations (

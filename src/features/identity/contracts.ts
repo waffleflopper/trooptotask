@@ -78,6 +78,7 @@ export interface AccountSecurityOverview {
 export const PLATFORM_ACCESS_REQUEST_APPROVE_ACTION = 'platform.accessRequest.approve';
 export const PLATFORM_ACCESS_REQUEST_RESEND_SETUP_ACTION = 'platform.accessRequest.resendSetup';
 export const PLATFORM_ACCESS_REQUEST_REJECT_ACTION = 'platform.accessRequest.reject';
+export const PLATFORM_ACCESS_REQUEST_RESCIND_ACTION = 'platform.accessRequest.rescind';
 export const ORGANIZATION_TRANSFER_OWNERSHIP_ACTION = 'organization.transferOwnership';
 export const ORGANIZATION_DELETE_ACTION = 'organization.deleteOrganization';
 export const ORGANIZATION_MEMBER_INVITE_HIGH_PRIVILEGE_ACTION = 'organization.member.inviteHighPrivilege';
@@ -88,6 +89,7 @@ export type SensitiveAction =
 	| typeof PLATFORM_ACCESS_REQUEST_APPROVE_ACTION
 	| typeof PLATFORM_ACCESS_REQUEST_RESEND_SETUP_ACTION
 	| typeof PLATFORM_ACCESS_REQUEST_REJECT_ACTION
+	| typeof PLATFORM_ACCESS_REQUEST_RESCIND_ACTION
 	| typeof ORGANIZATION_TRANSFER_OWNERSHIP_ACTION
 	| typeof ORGANIZATION_DELETE_ACTION
 	| typeof ORGANIZATION_MEMBER_INVITE_HIGH_PRIVILEGE_ACTION
@@ -139,7 +141,13 @@ export interface SensitiveActionAuthorizer {
 
 export type PasswordCompletionState = 'started' | 'failed' | 'pending' | 'complete' | 'expired' | 'unavailable' | null;
 
+export type AccessRequestStatus = 'pending' | 'approved' | 'rejected' | 'rescinded';
+
+/** Who vouched for an approved or rescinded Access Request (ADR 0012). */
+export type AccessRequestApprovalBasis = 'platform_review' | 'organization_invitation';
+
 export type AccessRequestSetupState =
+	| 'rescinded'
 	| 'not_sent'
 	| 'delivery_failed'
 	| 'delivery_pending'
@@ -258,11 +266,13 @@ export interface IdentitySupportAccessRequestRow {
 	reason: string | null;
 	heard_about: string | null;
 	heard_about_details: string | null;
-	status: 'pending' | 'approved' | 'rejected';
+	status: AccessRequestStatus;
+	approval_basis: AccessRequestApprovalBasis | null;
 	created_at: string;
 	reviewed_at: string | null;
 	reviewed_by: string | null;
 	setup_completed_at: string | null;
+	setup_grant_live: boolean;
 	account_setup_links: AccessRequestSetupLink | AccessRequestSetupLink[] | null;
 	auth_email_outbox: AccessRequestAuthEmailOutbox | AccessRequestAuthEmailOutbox[] | null;
 }
@@ -270,7 +280,7 @@ export interface IdentitySupportAccessRequestRow {
 export interface IdentitySupportAccessRequestCommandRow {
 	id: string;
 	email: string;
-	status: 'pending' | 'approved' | 'rejected';
+	status: AccessRequestStatus;
 	setup_completed_at: string | null;
 }
 
@@ -286,6 +296,11 @@ export type RejectAccessRequestAndBlockInvitationsResult =
 	| { status: 'not_found'; blockedInvitations: [] }
 	| { status: 'failed'; message: string; blockedInvitations: [] };
 
+export type RescindAccessRequestAndBlockInvitationsResult =
+	| { status: 'rescinded'; blockedInvitations: BlockedOrganizationInvitation[] }
+	| { status: 'not_found' | 'completed' | 'claim-held'; blockedInvitations: [] }
+	| { status: 'failed'; message: string; blockedInvitations: [] };
+
 export interface IdentityPlatformAccessRequestStore {
 	listAccessRequests(): Promise<IdentitySupportAccessRequestRow[]>;
 	getPendingAccessRequestForApproval(accessRequestId: string): Promise<IdentitySupportAccessRequestCommandRow | null>;
@@ -299,6 +314,10 @@ export interface IdentityPlatformAccessRequestStore {
 		accessRequestId: string;
 		actorUserId: string;
 	}): Promise<RejectAccessRequestAndBlockInvitationsResult>;
+	rescindApprovedAccessRequestAndBlockLinkedInvitations(input: {
+		accessRequestId: string;
+		actorUserId: string;
+	}): Promise<RescindAccessRequestAndBlockInvitationsResult>;
 }
 
 export type {

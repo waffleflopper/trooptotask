@@ -257,10 +257,11 @@ function shapeInvitationRow(
  *
  * `replaced` is the one that does not read as credential-in-hand on its face, since it means the
  * newest link is revoked. It belongs here because of which revocations can reach a *pending*
- * invitation: `'replaced'` is written inside link creation, between revoking the old link and
- * inserting its replacement, so it resolves to a live link a moment later; `'cleanup'` only
+ * invitation: `'replaced'` is written in the same transaction that inserts its replacement, so a
+ * reader sees the live link instead; `'cleanup'` only
  * touches links that have already expired, and a link expires alongside the invitation that
- * issued it, so that row has left the funnel for history; `'manual'` is unimplemented (ADR 0012).
+ * issued it, so that row has left the funnel for history; `'manual'` comes only from platform
+ * rescind, which also blocks the linked pending invitation (ADR 0012).
  */
 const CREDENTIAL_IN_HAND_SETUP_STATES: ReadonlySet<AccessRequestSetupState> = new Set([
 	'pending',

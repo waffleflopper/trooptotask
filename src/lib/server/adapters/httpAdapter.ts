@@ -67,8 +67,10 @@ function toPublicFailure(err: unknown): { status: number; message: string; detai
 		return { status: err.status, message: err.message, details: { reason, requiresStepUp, stepUpPath } };
 	}
 	console.error('[http-adapter] Unhandled route error:', sanitizeErrorForLog(err));
-	const status = err instanceof RequestFailure && err.status >= 500 && err.status <= 599 ? err.status : 500;
-	return { status, message: INTERNAL_ERROR_MESSAGE, details: {} };
+	if (err instanceof RequestFailure && err.status >= 500 && err.status <= 599) {
+		return { status: err.status, message: err.publicMessage ? err.message : INTERNAL_ERROR_MESSAGE, details: {} };
+	}
+	return { status: 500, message: INTERNAL_ERROR_MESSAGE, details: {} };
 }
 
 export function rethrowOrWrap(err: unknown): never {

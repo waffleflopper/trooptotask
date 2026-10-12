@@ -115,7 +115,7 @@
 			aria-label="Projected unit readiness without retraining"
 		>
 			<span>Projected unit readiness without retraining: </span>
-			<strong class="font-mono text-danger">
+			<strong class="font-mono text-danger-foreground">
 				{cliff.projectedReadinessAtMonth6.readinessPercent}% by {formatProjectionMonth(
 					cliff.projectedReadinessAtMonth6.label
 				)}

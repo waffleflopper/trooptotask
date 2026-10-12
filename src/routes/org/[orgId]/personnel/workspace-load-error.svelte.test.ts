@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
+import type { Component } from 'svelte';
 import { afterEach, expect, it, vi } from 'vitest';
 import type { Personnel, PersonnelDetailStreams } from '$features/personnel/contracts';
 
@@ -88,7 +89,8 @@ it.each([
 ])(
 	'shows the Personnel load error on the %s page when a refresh rejects under an already loaded layout',
 	async (_name, Page) => {
-		render(Page, { props: { data: rejectedRouteData() } as never });
+		const RoutePage = Page as unknown as Component<{ data: ReturnType<typeof rejectedRouteData> }>;
+		render(RoutePage, { props: { data: rejectedRouteData() } });
 
 		expect((await screen.findByRole('alert')).textContent).toContain('Unable to load Personnel');
 		expect(screen.getByRole('button', { name: 'Retry Personnel' })).toBeTruthy();

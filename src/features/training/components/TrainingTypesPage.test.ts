@@ -117,6 +117,37 @@ describe('TrainingTypesPage', () => {
 		expect(document.activeElement?.getAttribute('aria-selected')).toBe('true');
 	});
 
+	it.each(['+ New Type', 'Edit'])('moves focus into the Name field when %s opens the editor', async (name) => {
+		render(TrainingTypesPage, { props: { org, data: { personnel: [] } } });
+		const opener = screen.getByRole('button', { name });
+		opener.focus();
+		await fireEvent.click(opener);
+
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('textbox', { name: 'Name' })));
+	});
+
+	it('keeps focus on the other direction when a type reaches the end of the list', async () => {
+		trainingTypesStore.load(
+			[trainingType, { ...trainingType, id: 'type-2', name: 'First Aid', sortOrder: 1 }],
+			'org-1'
+		);
+		vi.spyOn(trainingTypesStore, 'update').mockImplementation(async (id, patch) => {
+			trainingTypesStore.load(
+				trainingTypesStore.items.map((type) => (type.id === id ? { ...type, ...patch } : type)),
+				'org-1'
+			);
+			return true;
+		});
+		render(TrainingTypesPage, { props: { org, data: { personnel: [] } } });
+
+		const moveDown = screen.getByRole('button', { name: 'Move CPR down' });
+		moveDown.focus();
+		await fireEvent.click(moveDown);
+
+		expect(screen.getByRole('button', { name: 'Move CPR down' }).hasAttribute('disabled')).toBe(true);
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Move CPR up' })));
+	});
+
 	it('uses hydrated personnel when route bootstrap omits applicability source data', async () => {
 		render(TrainingTypesPage, {
 			props: {

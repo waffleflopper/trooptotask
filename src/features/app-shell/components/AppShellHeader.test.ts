@@ -474,6 +474,19 @@ describe('AppShellHeader', () => {
 		expect(screen.getByRole('link', { name: 'Skip to main content' }).getAttribute('href')).toBe('#main-content');
 	});
 
+	it('puts the skip link before every sidebar tab stop on desktop', () => {
+		renderHeader();
+
+		const skip = screen.getByRole('link', { name: 'Skip to main content' });
+		const sidebarStops = [
+			screen.getByRole('button', { name: 'Switch organization' }),
+			screen.getByRole('link', { name: 'Home' })
+		];
+		for (const stop of sidebarStops) {
+			expect(skip.compareDocumentPosition(stop) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+		}
+	});
+
 	it('renders a feedback utility button when a feedback handler is provided', async () => {
 		const onFeedback = vi.fn();
 

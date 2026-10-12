@@ -352,6 +352,11 @@
 
 <Tooltip.Provider>
 	<Sidebar.Provider class="below-banner min-h-0 overflow-hidden bg-background">
+		<a
+			href="#main-content"
+			class="sr-only focus:not-sr-only focus:fixed focus:top-[calc(var(--banner-height,0px)+0.75rem)] focus:left-4 focus:z-50 focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:shadow-md"
+			>Skip to main content</a
+		>
 		<Sidebar.Root collapsible="icon">
 			<Sidebar.Header>
 				<Sidebar.Menu>
@@ -546,9 +551,6 @@
 				class="sticky top-0 z-10 flex h-14 min-w-0 shrink-0 items-center gap-2 border-b bg-background px-4"
 				data-print-chrome
 			>
-				<a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-3"
-					>Skip to main content</a
-				>
 				<Sidebar.Trigger />
 				<Separator orientation="vertical" class="h-4" />
 				<Breadcrumb.Root class="min-w-0 flex-1" aria-label="Current section">

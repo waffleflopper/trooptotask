@@ -913,6 +913,7 @@ Public components:
 Rules:
 
 - Use `Select` when an option list needs the shared popup presentation across Windows, macOS, Linux, and browser engines.
+- Name every `Select.Trigger` with a `<label for>`, `aria-labelledby` or `aria-label`. The open `Select.Content` listbox takes the same name from its trigger, in that accessible-name order (`aria-labelledby`, then `aria-label`, then the `for` labels). The trigger's text is its selected value and never names the listbox. A name passed to `Select.Content` wins.
 - Use `NativeSelect` for plain form choices, including forms that post natively before hydration such as Account Profile's rank list. Calendar, Critical Tasks, Personnel import, platform admin and Ranks settings use it.
 - Use `Checkbox` for selection, inclusion or batch choices.
 - Use validation errors over hints when both exist. Render the error as `Field.Error` inside the control's `Field.Root` so the association and `aria-invalid` follow it; an alert elsewhere in the dialog is not associated.

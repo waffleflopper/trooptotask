@@ -21,7 +21,7 @@ Each row has a disposition. `complete` has no candidates. `test support` is a ha
 | 10-07      |    39 |                     0 |            0 |                0 |          0 |            0 |         0 |
 | 10-08      |    12 |                     0 |            0 |                0 |          0 |            0 |         0 |
 | 10-09      |    74 |                     2 |            1 |                0 |          0 |            2 |         0 |
-| foundation |   273 |                     0 |            0 |                0 |          0 |            0 |         0 |
+| foundation |   274 |                     0 |            0 |                0 |          0 |            0 |         0 |
 
 Open rows: 0. Unclassified rows: 0. Unused native exceptions: 0.
 
@@ -82,7 +82,7 @@ Each family is imported through `$lib/components/<layer>/<family>` (its `index.t
 | `ui/dialog`                          |   3 |     0 |      0 |      6 | `10-02`×3, `foundation`×6                                                                                                  |
 | `ui/dropdown-menu`                   |   1 |     0 |      0 |      5 | `10-01`×1, `10-09`×3, `foundation`×2                                                                                       |
 | `ui/empty`                           |  18 |    10 |      0 |      5 | `10-01`×3, `10-02`×2, `10-03`×2, `10-04`×3, `10-05`×4, `10-06`×4, `10-07`×10, `10-09`×2, `foundation`×3                    |
-| `ui/field`                           |  37 |     7 |      0 |     11 | `10-01`×4, `10-02`×10, `10-03`×6, `10-04`×4, `10-05`×5, `10-06`×4, `10-07`×11, `10-09`×3, `foundation`×8                   |
+| `ui/field`                           |  37 |     7 |      0 |     12 | `10-01`×4, `10-02`×10, `10-03`×6, `10-04`×4, `10-05`×5, `10-06`×4, `10-07`×11, `10-09`×3, `foundation`×9                   |
 | `ui/input`                           |  45 |     4 |      0 |      6 | `10-01`×4, `10-02`×11, `10-03`×9, `10-04`×7, `10-05`×5, `10-06`×2, `10-07`×11, `10-09`×3, `foundation`×3                   |
 | `ui/input-group`                     |   0 |     0 |      0 |      3 | `10-09`×1, `foundation`×2                                                                                                  |
 | `ui/label`                           |   6 |     0 |      0 |      2 | `10-01`×1, `10-03`×1, `10-07`×4, `10-09`×1, `foundation`×1                                                                 |
@@ -91,7 +91,7 @@ Each family is imported through `$lib/components/<layer>/<family>` (its `index.t
 | `ui/popover`                         |   0 |     0 |      0 |      5 | `foundation`×5                                                                                                             |
 | `ui/progress`                        |   5 |     0 |      0 |      1 | `10-04`×1, `10-05`×1, `10-06`×3, `10-09`×1                                                                                 |
 | `ui/radio-group`                     |   5 |     0 |      0 |      0 | `10-03`×1, `10-04`×1, `10-06`×2, `10-07`×1                                                                                 |
-| `ui/select`                          |  10 |     0 |      0 |      2 | `10-01`×1, `10-03`×2, `10-05`×1, `10-06`×3, `10-07`×3, `10-09`×1, `foundation`×1                                           |
+| `ui/select`                          |  10 |     0 |      0 |      3 | `10-01`×1, `10-03`×2, `10-05`×1, `10-06`×3, `10-07`×3, `10-09`×1, `foundation`×2                                           |
 | `ui/separator`                       |   8 |     2 |      0 |      4 | `10-01`×1, `10-02`×1, `10-04`×1, `10-05`×1, `10-07`×6, `foundation`×4                                                      |
 | `ui/sheet`                           |   2 |     0 |      0 |      2 | `10-06`×1, `10-07`×1, `foundation`×2                                                                                       |
 | `ui/sidebar`                         |   2 |     1 |      0 |      0 | `10-01`×2, `10-07`×1                                                                                                       |
@@ -557,7 +557,7 @@ Each family is imported through `$lib/components/<layer>/<family>` (its `index.t
 | `src/lib/components/ui/combobox/combobox-content.svelte`                     | shared | `ui/popover`                                                                                         | ·            |         · | ·          |   · | complete     |
 | `src/lib/components/ui/combobox/combobox-empty.svelte`                       | shared | `ui/command`                                                                                         | ·            |         · | ·          |   · | complete     |
 | `src/lib/components/ui/combobox/combobox-item.svelte`                        | shared | ·                                                                                                    | ·            |         · | ·          |   · | complete     |
-| `src/lib/components/ui/combobox/combobox-list.svelte`                        | shared | `ui/command`                                                                                         | ·            |         · | ·          |   · | complete     |
+| `src/lib/components/ui/combobox/combobox-list.svelte`                        | shared | `ui/command`, `ui/select`                                                                            | ·            |         · | ·          |   · | complete     |
 | `src/lib/components/ui/combobox/combobox-search.svelte`                      | shared | `ui/command`                                                                                         | ·            |         · | ·          |   · | complete     |
 | `src/lib/components/ui/combobox/combobox-trigger.svelte`                     | shared | `ui/field`                                                                                           | ·            |         · | ·          |   · | complete     |
 | `src/lib/components/ui/combobox/combobox-value.svelte`                       | shared | ·                                                                                                    | ·            |         · | ·          |   · | complete     |
@@ -688,6 +688,7 @@ Each family is imported through `$lib/components/<layer>/<family>` (its `index.t
 | `src/lib/components/ui/select/select-separator.svelte`                       | shared | `ui/separator`                                                                                       | ·            |         · | ·          |   · | complete     |
 | `src/lib/components/ui/select/select-trigger.svelte`                         | shared | `ui/field`                                                                                           | ·            |         · | ·          |   · | complete     |
 | `src/lib/components/ui/select/select.svelte`                                 | shared | ·                                                                                                    | ·            |         · | ·          |   · | complete     |
+| `src/lib/components/ui/select/SelectNamingTest.svelte`                       | shared | `ui/field`                                                                                           | ·            |         · | ·          |   · | test support |
 | `src/lib/components/ui/separator/separator.svelte`                           | shared | ·                                                                                                    | ·            |         · | ·          |   · | complete     |
 | `src/lib/components/ui/sheet/sheet-close.svelte`                             | shared | ·                                                                                                    | ·            |         · | ·          |   · | complete     |
 | `src/lib/components/ui/sheet/sheet-content.svelte`                           | shared | `ui/button`, `ui/dialog`                                                                             | ·            |         · | ·          |   · | complete     |

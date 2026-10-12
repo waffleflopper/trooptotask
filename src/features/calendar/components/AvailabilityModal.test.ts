@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import AvailabilityModal from './AvailabilityModal.svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
 import type { Personnel } from '$features/personnel/contracts';
@@ -77,8 +77,8 @@ describe('AvailabilityModal — status type select', () => {
 		});
 		renderModal(new Date(2026, 3, 7), { statusTypes, onAdd });
 
-		await fireEvent.pointerDown(screen.getByRole('button', { name: /Status Type/i }));
-		const tdyOption = screen.getByRole('option', { name: 'TDY' });
+		await fireEvent.pointerDown(screen.getByRole('button', { name: 'Status Type' }));
+		const tdyOption = within(screen.getByRole('listbox', { name: 'Status Type' })).getByRole('option', { name: 'TDY' });
 		await fireEvent.pointerDown(tdyOption);
 		await fireEvent.pointerUp(tdyOption);
 		await fireEvent.click(screen.getByRole('button', { name: 'Add Status' }));

@@ -8,7 +8,9 @@
 		RANK_TIE_BREAK_WHOLE_NUMBER_MESSAGE
 	} from '$features/personnel/contracts';
 	import type { SubmitFunction } from '@sveltejs/kit';
+	import { tick } from 'svelte';
 	import { focusAfterDialogCloses } from '$lib/components/ui/dialog';
+	import { restoreFocus } from '$lib/utils/settleAction';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import PlusIcon from '@lucide/svelte/icons/plus';
@@ -195,8 +197,13 @@
 
 	// Rank mutations run one at a time: savingAction is a single slot, so a second submission would clear it early.
 	// An edit form keeps what was saved; resetting it would blank fields whose bound values did not change.
-	function enhancedForm(key: string, { reset = true } = {}): SubmitFunction {
-		return ({ cancel }) => {
+	// The submit button is disabled while pending and SvelteKit moves focus to the body after a success, so focus
+	// returns to the submitter, or the fallback when it stays disabled. A confirmation has no submitter and moves focus itself.
+	function enhancedForm(
+		key: string,
+		{ reset = true, focusFallback }: { reset?: boolean; focusFallback?: () => HTMLElement | null } = {}
+	): SubmitFunction {
+		return ({ cancel, submitter }) => {
 			if (savingAction !== null) {
 				cancel();
 				return;
@@ -211,6 +218,9 @@
 					settleSubmission?.(result.type === 'success');
 					settleSubmission = null;
 				}
+				if (!submitter) return;
+				await tick();
+				restoreFocus([submitter, focusFallback?.()]);
 			};
 		};
 	}
@@ -507,7 +517,11 @@
 						</div>
 					</div>
 					<div class="flex flex-wrap items-center gap-2 lg:justify-end">
-						<form method="POST" action="?/addServicePack" use:enhance={enhancedForm(`pack-${pack.value}`)}>
+						<form
+							method="POST"
+							action="?/addServicePack"
+							use:enhance={enhancedForm(`pack-${pack.value}`, { focusFallback: packActionsFocusTarget(pack) })}
+						>
 							<input type="hidden" name="service" value={pack.value} />
 							<Button
 								type="submit"
@@ -953,7 +967,10 @@
 					method="POST"
 					action="?/saveRank"
 					class="grid gap-3"
-					use:enhance={enhancedForm(`edit-${entry.code}`, { reset: false })}
+					use:enhance={enhancedForm(`edit-${entry.code}`, {
+						reset: false,
+						focusFallback: () => document.getElementById('ranks-heading')
+					})}
 				>
 					<input type="hidden" name="intent" value="edit" />
 					<input type="hidden" name="originalCode" value={entry.code} />

@@ -46,19 +46,19 @@
 		</div>
 		<Separator />
 
-		<div class="grid gap-4 rounded-md border p-3 md:grid-cols-[minmax(0,1fr)_auto]">
+		<div class="grid grid-cols-[minmax(0,1fr)] gap-4 rounded-md border p-3 md:grid-cols-[minmax(0,1fr)_auto]">
 			<div class="grid gap-1">
 				<Label for="transfer-owner-target">Transfer ownership</Label>
 				<p class="text-sm text-muted-foreground">Hand the Owner role to another member. You will become Admin.</p>
 			</div>
-			<div class="flex flex-wrap items-center gap-2">
+			<div class="flex min-w-0 flex-wrap items-center gap-2">
 				<Select.Root
 					type="single"
 					value={selectedTransferTargetValue}
 					onValueChange={(value) => (transferTargetId = value === noTransferTargetValue ? null : value)}
 				>
-					<Select.Trigger id="transfer-owner-target" class="w-full min-w-56 md:w-64">
-						{selectedTransferTargetLabel}
+					<Select.Trigger id="transfer-owner-target" class="w-full min-w-0 md:w-64">
+						<span class="min-w-0 truncate">{selectedTransferTargetLabel}</span>
 					</Select.Trigger>
 					<Select.Content>
 						<Select.Item value={noTransferTargetValue} label="Select member..." />
@@ -76,7 +76,7 @@
 			</div>
 		</div>
 
-		<div class="grid gap-4 rounded-md border p-3 md:grid-cols-[minmax(0,1fr)_auto]">
+		<div class="grid grid-cols-[minmax(0,1fr)] gap-4 rounded-md border p-3 md:grid-cols-[minmax(0,1fr)_auto]">
 			<div class="grid gap-1">
 				<p class="text-sm font-medium">Purge archived</p>
 				<p class="text-sm text-muted-foreground">
@@ -91,7 +91,7 @@
 			</div>
 		</div>
 
-		<div class="grid gap-4 rounded-md border p-3 md:grid-cols-[minmax(0,1fr)_auto]">
+		<div class="grid grid-cols-[minmax(0,1fr)] gap-4 rounded-md border p-3 md:grid-cols-[minmax(0,1fr)_auto]">
 			<div class="grid gap-1">
 				<p class="text-sm font-medium">Delete organization</p>
 				<p class="text-sm text-muted-foreground">

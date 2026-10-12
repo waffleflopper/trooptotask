@@ -9,6 +9,7 @@ import ScrollDownButton from './select-scroll-down-button.svelte';
 import ScrollUpButton from './select-scroll-up-button.svelte';
 import GroupHeading from './select-group-heading.svelte';
 import Portal from './select-portal.svelte';
+import { listboxName } from './context.svelte.js';
 
 export {
 	Root,
@@ -22,6 +23,7 @@ export {
 	ScrollUpButton,
 	GroupHeading,
 	Portal,
+	listboxName,
 	//
 	Root as Select,
 	Group as SelectGroup,

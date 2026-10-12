@@ -213,7 +213,7 @@
 								<Select.Trigger aria-labelledby="invite-membership-role-label" class="w-full">
 									{memberAccess.getGovernanceRoleLabel(memberAccess.inviteMembershipRole)}
 								</Select.Trigger>
-								<Select.Content aria-labelledby="invite-membership-role-label">
+								<Select.Content>
 									{#each availableMembershipRoleOptions as option (option.value)}
 										<Select.Item value={option.value} label={option.label} />
 									{/each}
@@ -229,7 +229,7 @@
 								<Select.Trigger aria-labelledby="invite-access-level-label" class="w-full">
 									{getPresetLabel(memberAccess.invitePreset)}
 								</Select.Trigger>
-								<Select.Content aria-labelledby="invite-access-level-label">
+								<Select.Content>
 									{#each availablePresetOptions as option (option.value)}
 										<Select.Item value={option.value} label={option.label} />
 									{/each}
@@ -567,7 +567,7 @@
 								<Select.Trigger aria-labelledby="membership-role-label-{selectedMember.id}" class="w-full">
 									{memberAccess.getGovernanceRoleLabel(selectedMembershipRole)}
 								</Select.Trigger>
-								<Select.Content aria-labelledby="membership-role-label-{selectedMember.id}">
+								<Select.Content>
 									{#each availableMembershipRoleOptions as option (option.value)}
 										<Select.Item value={option.value} label={option.label} />
 									{/each}
@@ -593,7 +593,7 @@
 								<Select.Trigger aria-labelledby="access-level-label-{selectedMember.id}" class="w-full">
 									{getPresetLabel(selectedPreset)}
 								</Select.Trigger>
-								<Select.Content aria-labelledby="access-level-label-{selectedMember.id}">
+								<Select.Content>
 									{#each availablePresetOptions as option (option.value)}
 										<Select.Item value={option.value} label={option.label} />
 									{/each}
@@ -635,7 +635,7 @@
 											<Select.Trigger aria-labelledby="capability-{selectedMember.id}-{lane.id}" class="w-full">
 												{getCapabilityLabel(capabilityValue)}
 											</Select.Trigger>
-											<Select.Content aria-labelledby="capability-{selectedMember.id}-{lane.id}">
+											<Select.Content>
 												{#each capabilityOptions as option (option.value)}
 													<Select.Item value={option.value} label={option.label} />
 												{/each}

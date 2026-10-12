@@ -464,7 +464,7 @@
 				{:else}
 					<Field.Set class="rounded-lg border bg-muted/20 p-4">
 						<div class="flex items-center justify-between gap-2">
-							<Field.Legend>Workflow Status</Field.Legend>
+							<Field.Legend id="workflow-status-label">Workflow Status</Field.Legend>
 							<Button variant="destructive" size="sm" onclick={() => removeWorkflowFromDraft(draft)}>Remove</Button>
 						</div>
 						<Select.Root
@@ -472,7 +472,9 @@
 							value={draft.workflowStatus}
 							onValueChange={(value) => handleWorkflowStatusValueChange(value as string)}
 						>
-							<Select.Trigger id="workflow-status" class="w-full">{view.workflowStatusLabel}</Select.Trigger>
+							<Select.Trigger id="workflow-status" aria-labelledby="workflow-status-label" class="w-full"
+								>{view.workflowStatusLabel}</Select.Trigger
+							>
 							<Select.Content>
 								{#each view.filteredWorkflowOptions as opt (opt.value)}
 									<Select.Item value={opt.value} label={opt.label} />

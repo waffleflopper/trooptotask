@@ -345,7 +345,9 @@
 				{/if}
 
 				<Field.Root>
-					<Field.Label id="statusType-label">Status Type <span class="text-destructive">*</span></Field.Label>
+					<Field.Label id="statusType-label"
+						>Status Type <span class="text-destructive" aria-hidden="true">*</span></Field.Label
+					>
 					<div class="flex flex-wrap items-center gap-2">
 						<Select.Root type="single" bind:value={selectedStatusId}>
 							<Select.Trigger id="statusType" aria-labelledby="statusType-label" class="min-w-[180px] flex-1">

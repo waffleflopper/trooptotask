@@ -468,6 +468,27 @@ describe('notification recovery', () => {
 			expect(countRequests).toBe(2);
 		}
 	);
+
+	it('shows the retry as loading, never the stale failure, when the bell opens after a count failure', async () => {
+		let countRequests = 0;
+		let releaseRetry: (response: Response) => void = () => {};
+		vi.mocked(fetch).mockImplementation(async (input) => {
+			if (!String(input).includes('notification-count')) return notificationResponse([]);
+			if (++countRequests === 1) return notificationResponse(null, false);
+			return new Promise<Response>((resolve) => (releaseRetry = resolve));
+		});
+		renderHeader();
+		await waitFor(() => expect(countRequests).toBe(1));
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Notifications' }));
+		await screen.findByRole('menuitem', { name: 'Loading notifications...' });
+		expect(screen.queryByRole('menuitem', { name: /Could not load notifications/ })).toBeNull();
+		expect(countRequests).toBe(2);
+
+		releaseRetry(notificationResponse({ ok: true, unreadNotificationCount: 0 }));
+		await screen.findByRole('menuitem', { name: 'No notifications' });
+	});
 });
 
 describe('AppShellHeader', () => {
@@ -509,6 +530,15 @@ describe('AppShellHeader', () => {
 		for (const stop of sidebarStops) {
 			expect(skip.compareDocumentPosition(stop) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 		}
+	});
+
+	it('puts the skip link before an announcement banner', () => {
+		const banner = createRawSnippet(() => ({ render: () => '<button type="button">Dismiss announcement</button>' }));
+		renderHeader({ banner });
+
+		const skip = screen.getByRole('link', { name: 'Skip to main content' });
+		const dismiss = screen.getByRole('button', { name: 'Dismiss announcement' });
+		expect(skip.compareDocumentPosition(dismiss) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 	});
 
 	it('renders a feedback utility button when a feedback handler is provided', async () => {

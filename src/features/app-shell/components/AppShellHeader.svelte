@@ -47,6 +47,7 @@
 		isDarkTheme: boolean;
 		onFeedback?: () => void;
 		onWhatsNew?: () => void;
+		banner?: Snippet;
 		children?: Snippet;
 	}
 
@@ -62,6 +63,7 @@
 		isDarkTheme,
 		onFeedback,
 		onWhatsNew,
+		banner,
 		children
 	}: Props = $props();
 
@@ -88,7 +90,7 @@
 	let notificationCountFailed = $state(false);
 	let notificationGeneration = 0;
 	let notificationCountRequest = 0;
-	let notificationCountLoading = false;
+	let notificationCountLoading = $state(false);
 	let showLeaveOrganizationDialog = $state(false);
 	let leaveOrganizationConfirmText = $state('');
 	let localUnreadCount = $state(0);
@@ -341,7 +343,7 @@
 			});
 	});
 
-	$effect(() => {
+	$effect.pre(() => {
 		if (notificationsOpen) {
 			untrack(() => {
 				void loadNotifications();
@@ -353,12 +355,13 @@
 </script>
 
 <Tooltip.Provider>
-	<Sidebar.Provider class="below-banner relative min-h-0 overflow-hidden bg-background">
-		<a
-			href="#main-content"
-			class="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-4 focus:z-50 focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:shadow-md"
-			>Skip to main content</a
-		>
+	<a
+		href="#main-content"
+		class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-4 focus:z-50 focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:shadow-md"
+		>Skip to main content</a
+	>
+	{@render banner?.()}
+	<Sidebar.Provider class="below-banner min-h-0 overflow-hidden bg-background">
 		<Sidebar.Root collapsible="icon">
 			<Sidebar.Header>
 				<Sidebar.Menu>
@@ -622,7 +625,11 @@
 								<DropdownMenu.Item disabled>Could not load notifications. Reopen to retry.</DropdownMenu.Item>
 							{:else if notifications.length === 0}
 								<DropdownMenu.Item disabled>
-									{notificationCountFailed ? 'Could not load notifications. Reopen to retry.' : 'No notifications'}
+									{notificationCountLoading
+										? 'Loading notifications...'
+										: notificationCountFailed
+											? 'Could not load notifications. Reopen to retry.'
+											: 'No notifications'}
 								</DropdownMenu.Item>
 							{:else}
 								{#each notifications as notification (notification.id)}

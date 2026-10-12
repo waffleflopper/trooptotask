@@ -63,6 +63,28 @@
 	}
 </script>
 
+{#snippet menuItems(action: WorkspaceToolbarAction, choose: (action: () => void) => void)}
+	{#each action.menuItems ?? [] as item, index (`${action.id}-${item.label}-${index}`)}
+		{#if item.toggle}
+			<DropdownMenu.CheckboxItem
+				checked={item.active}
+				disabled={menuItemDisabled(item, action)}
+				onclick={() => handleMenuItemSelect(item, action)}
+			>
+				{item.label}
+			</DropdownMenu.CheckboxItem>
+		{:else}
+			<DropdownMenu.Item
+				disabled={menuItemDisabled(item, action)}
+				title={item.disabledReason ?? action.disabledReason}
+				onclick={() => choose(() => handleMenuItemSelect(item, action))}
+			>
+				{item.label}
+			</DropdownMenu.Item>
+		{/if}
+	{/each}
+{/snippet}
+
 <div data-slot="workspace-toolbar-actions" data-label={ariaLabel} class="contents">
 	{#each visibleActions as action (action.id)}
 		{#if action.menuItems?.length}
@@ -80,25 +102,7 @@
 					</Button>
 				{/snippet}
 				{#snippet children(choose)}
-					{#each action.menuItems as item, index (`${action.id}-${item.label}-${index}`)}
-						{#if item.toggle}
-							<DropdownMenu.CheckboxItem
-								checked={item.active}
-								disabled={menuItemDisabled(item, action)}
-								onclick={() => handleMenuItemSelect(item, action)}
-							>
-								{item.label}
-							</DropdownMenu.CheckboxItem>
-						{:else}
-							<DropdownMenu.Item
-								disabled={menuItemDisabled(item, action)}
-								title={item.disabledReason ?? action.disabledReason}
-								onclick={() => choose(() => handleMenuItemSelect(item, action))}
-							>
-								{item.label}
-							</DropdownMenu.Item>
-						{/if}
-					{/each}
+					{@render menuItems(action, choose)}
 				{/snippet}
 			</WorkspaceToolbarMenu>
 		{:else}
@@ -126,7 +130,12 @@
 			{/snippet}
 			{#snippet children(choose)}
 				{#each overflowActions as action (action.id)}
-					{#if action.toggle}
+					{#if action.menuItems?.length}
+						<DropdownMenu.Group>
+							<DropdownMenu.GroupHeading>{action.label}</DropdownMenu.GroupHeading>
+							{@render menuItems(action, choose)}
+						</DropdownMenu.Group>
+					{:else if action.toggle}
 						<DropdownMenu.CheckboxItem
 							checked={action.active}
 							disabled={action.disabled}

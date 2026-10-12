@@ -30,12 +30,7 @@
 
 {#if streamedTraining && isPromiseLike(streamedTraining)}
 	{#await streamedTraining}
-		<section
-			class="flex items-center justify-center gap-2 p-6 text-muted-foreground"
-			aria-busy="true"
-			aria-live="polite"
-			role="status"
-		>
+		<section class="flex items-center justify-center gap-2 p-6 text-muted-foreground" aria-live="polite" role="status">
 			<Spinner class="size-4" />
 			<p>Loading training types...</p>
 		</section>
@@ -43,7 +38,6 @@
 		{#if storesPending}
 			<section
 				class="flex items-center justify-center gap-2 p-6 text-muted-foreground"
-				aria-busy="true"
 				aria-live="polite"
 				role="status"
 			>
@@ -59,12 +53,7 @@
 		<!-- The Training layout observes this same source and shows WorkspaceLoadError. -->
 	{/await}
 {:else if immediateWorkspacePending}
-	<section
-		class="flex items-center justify-center gap-2 p-6 text-muted-foreground"
-		aria-busy="true"
-		aria-live="polite"
-		role="status"
-	>
+	<section class="flex items-center justify-center gap-2 p-6 text-muted-foreground" aria-live="polite" role="status">
 		<Spinner class="size-4" />
 		<p>Loading training types...</p>
 	</section>

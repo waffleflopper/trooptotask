@@ -1,21 +1,15 @@
 <script lang="ts">
 	import { calendarWorkspaceHydrator } from '$features/calendar/calendarWorkspaceHydration.svelte';
 	import type { CalendarWorkspaceResult, CalendarWorkspaceRestricted } from '$features/calendar';
-	import { throwRenderError } from '$lib/utils/streamedRouteData';
 	import { hydrateStreamedWorkspace } from '$lib/utils/streamedWorkspaceHydrator';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import WorkspaceAccessRestricted from '../WorkspaceAccessRestricted.svelte';
+	import WorkspaceLoadError from '../WorkspaceLoadError.svelte';
 
 	let { children, data } = $props();
 	const workspace = $derived(data.calendar?.data);
 	let settled = $state.raw<{ workspace: unknown; error: Error | null; accessRestricted: boolean } | null>(null);
 	const current = $derived(settled?.workspace === workspace ? settled : null);
-	const renderHydrationError = $derived.by(() => {
-		if (current?.error) {
-			throwRenderError(current.error, 'Failed to hydrate calendar workspace');
-		}
-		return null;
-	});
 
 	$effect(() => {
 		const requestedWorkspace = workspace;
@@ -47,13 +41,13 @@
 </script>
 
 {#if current?.error}
-	{renderHydrationError}
+	<WorkspaceLoadError subject="Calendar" />
 {:else if current?.accessRestricted}
 	<WorkspaceAccessRestricted />
 {:else if current || workspace == null}
 	{@render children()}
 {:else}
-	<section class="grid gap-4 p-5 sm:px-6 sm:pb-6" role="status" aria-live="polite" aria-busy="true">
+	<section class="grid gap-4 p-5 sm:px-6 sm:pb-6" role="status" aria-live="polite">
 		<p class="m-0 text-sm text-muted-foreground">Loading Calendar data</p>
 		<Skeleton class="h-24 w-full rounded-lg" aria-hidden="true" />
 	</section>

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/svelte';
+import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import Page from './+page.svelte';
 import { createReadyAppShellRouteData } from '../../appShell.test-support';
 import { createClientAccess } from '$lib/access/clientAccess';
@@ -73,4 +73,20 @@ it('loads the visible month for the shell Organization from a streamed, differen
 		(await screen.findByRole('button', { name: 'Select Staff Duty assignee for 2026-09-22' })).textContent
 	).toContain('Smith');
 	expect(fetchRange).toHaveBeenCalledWith('/org/org-1/api/calendar-range?rangeStart=2026-09-01&rangeEnd=2026-10-31');
+});
+
+it('settles on nothing when the streamed workspace rejects, leaving the load error to the Calendar layout', async () => {
+	const rejected = Promise.reject(new Error('availability failed'));
+	rejected.catch(() => {});
+
+	const view = render(Page, {
+		data: {
+			...createReadyAppShellRouteData({ orgId: 'org-1', orgName: 'Test Unit' }),
+			calendar: { data: rejected }
+		}
+	});
+	expect(screen.getByText('Loading assignment planner...')).toBeTruthy();
+	await waitFor(() => expect(screen.queryByText('Loading assignment planner...')).toBeNull());
+
+	expect(view.container.textContent).toBe('');
 });

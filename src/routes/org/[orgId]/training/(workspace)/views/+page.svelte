@@ -57,12 +57,7 @@
 </svelte:head>
 
 {#if workspacePending}
-	<section
-		class="flex items-center justify-center gap-2 p-6 text-muted-foreground"
-		aria-busy="true"
-		aria-live="polite"
-		role="status"
-	>
+	<section class="flex items-center justify-center gap-2 p-6 text-muted-foreground" aria-live="polite" role="status">
 		<Spinner class="size-4" />
 		<p>Loading training views...</p>
 	</section>

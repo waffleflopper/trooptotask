@@ -46,6 +46,8 @@ export const defaultStyleSelectors = [
 	'[data-slot="workspace-toolbar"] [data-slot="select-trigger"]',
 	'[data-slot="workspace-toolbar"] [data-slot="input-group"]',
 	'[data-slot="workspace-toolbar"] [data-workspace-toolbar-action-label]',
+	'[data-slot="workspace-toolbar"] [data-toolbar-item] [data-slot="button"]',
+	'[data-slot="workspace-toolbar"] [data-toolbar-more] [data-slot="button"]',
 	'[data-slot="empty-title"]',
 	'[role="listbox"]',
 	'[role="option"]',

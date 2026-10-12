@@ -10,7 +10,7 @@ Members meet the shared type-management workspace, bulk-import workspace, readin
 - `report-chart`: Critical Tasks Reports render Bar, Line and ChartTable charts, Training Reports renders the Forecast chart, and the platform admin dashboard renders a Bar chart.
 - `requirement-status-badge`: the Training matrix, record modal and Critical Tasks screens render Current, Expiring, Expiring Soon, Expired, Exempt, N/A, Not Done and Not Required.
 - `route-tabs`: Organization settings, Personnel detail and Account pages render link navigation as tabs, including count badges.
-- `workspace-toolbar`: Personnel, Training and Critical Tasks toolbars narrow their select and search and hide action labels by container width.
+- `workspace-toolbar`: Critical Tasks renders one fitted row at every width, folding its least important controls into `More Critical Tasks controls` and its search into an icon last. Personnel, Training and the other pages still narrow their select and search and hide action labels by container width.
 - `shared-defects`: empty-state titles are headings, an Organization page has one `main` landmark, a dialog has one Close control, and the type-management grid moves between rows with arrow keys.
 
 ## How to get to it (user POV)
@@ -42,7 +42,7 @@ Expected results come from the issue's acceptance and the [component contracts](
 
 5. Keyboard, from a real `focus()` on a control followed by native `press_key`. Types, Views and Templates: Tab order, ArrowDown/ArrowUp/Home/End and the disclosure trigger `button` with Enter and Space, reading its `aria-expanded` after each key. Route tabs: Tab, ArrowLeft and ArrowRight. Record the focused element's tag, role and name, and the `aria-selected` of its `row`, after each key. Right moves from a row to its actions, Left back, and Enter selects the row. After a successful create, `document.activeElement` is the new row. At 390 wide the list and detail take turns: selecting a row leaves `document.activeElement` on the detail heading (`tabindex="-1"`), Back leaves it on the selected row, and a successful create leaves it on the new item's detail heading.
 6. Shared defects: count `main` and nested `main` on an Organization page and an admin page; read the tag of each `[data-slot="empty-title"]` in the empty states; read the Close controls of the Training roster dialog.
-7. Toolbar: read the `workspace-toolbar`, its select trigger, input group and action label at 1280, 820 and 390 widths.
+7. Toolbar: read the `workspace-toolbar`, its select trigger, input group and action label at 1280, 820 and 390 widths. The Critical Tasks toolbar is one row at all three widths (no action labels to hide); read its row buttons and More button through the default `[data-toolbar-item]`/`[data-toolbar-more]` selectors, which skip the hidden measuring copies, and prove the folding with `toolbar-sweep`. The other pages' toolbars are unchanged.
 8. Failure states: `network arm-fail` for the Types and Templates create, then `network restore`.
 
 Run `node --test .agents/skills/verify-trooptotask/helpers/style-probe.test.mjs` for the probe and diff boundaries.
@@ -53,5 +53,5 @@ Run `node --test .agents/skills/verify-trooptotask/helpers/style-probe.test.mjs`
 - The theme belongs to the browser context. Account pages have no Toggle theme control; set the theme on an Organization page first and read `html[data-theme]`.
 - Candidate contract: every page, including Account and the Organization suspended and session-unavailable states, has exactly one `main`. The D09 baseline observed otherwise: Organization pages nested `main#main-content` in the shell `main` (the Training matrix had three) and Account pages had none. Admin routes already had one.
 - The Critical Tasks Library denies `ictOperator`; use `ictConfigurator` for the library itself and keep the denial as its own state.
-- At 390 wide the import actions live in a `More ... actions` menu.
+- At 390 wide the import actions of Personnel, Training and Calendar live in a `More ... actions` menu. Critical Tasks uses `More Critical Tasks controls`, which also holds its view, filters and Reports.
 - The probe caps each selector at 200 elements. Large readiness sets compare the first 200; state the count.

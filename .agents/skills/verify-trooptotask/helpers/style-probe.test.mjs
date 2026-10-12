@@ -54,6 +54,28 @@ test('probe ignores a toolbar measuring copy and keeps the live match', async (t
 	assert.equal(result.selectors[0].elements[0].text, 'Export');
 });
 
+test('default selectors read the data toolbar row and More buttons without its measuring copies', async (t) => {
+	const window = page(
+		'',
+		'<div data-slot="workspace-toolbar" role="toolbar"><div data-toolbar-row>' +
+			'<div data-toolbar-item="reports"><a data-slot="button">Reports</a></div>' +
+			'<div data-toolbar-more><button data-slot="button" aria-label="More Critical Tasks controls"></button></div>' +
+			'<div data-toolbar-item="record-completion"><button data-slot="button">Record Completion</button></div></div>' +
+			'<div data-toolbar-measure><div data-toolbar-item="reports"><a data-slot="button">Reports</a></div>' +
+			'<div data-toolbar-more><button data-slot="button"></button></div></div></div>'
+	);
+	t.after(() => window.happyDOM.close());
+	const result = read(window, defaultStyleSelectors);
+	const items = result.selectors.find((s) => s.selector.endsWith('[data-toolbar-item] [data-slot="button"]'));
+	const more = result.selectors.find((s) => s.selector.endsWith('[data-toolbar-more] [data-slot="button"]'));
+	assert.deepEqual(
+		items.elements.map((e) => e.text),
+		['Reports', 'Record Completion']
+	);
+	assert.equal(more.count, 1);
+	assert.equal(more.elements[0].attributes['aria-label'], 'More Critical Tasks controls');
+});
+
 test('probe leaves the page unchanged and survives an invalid selector', async (t) => {
 	const window = page('', '<div data-slot="x" role="listbox"></div>');
 	t.after(() => window.happyDOM.close());

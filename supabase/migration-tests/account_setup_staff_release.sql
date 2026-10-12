@@ -7,9 +7,9 @@ INSERT INTO auth.users (id,email) VALUES
  ('b3000000-0000-4000-8000-000000000001','upgrade-support@example.test');
 INSERT INTO public.platform_admins (id,user_id,role,is_active) VALUES
  ('b3000000-0000-4000-8000-000000000011','b3000000-0000-4000-8000-000000000001','support',true);
-INSERT INTO public.access_requests (id,email,name,status) VALUES
- ('b3000000-0000-4000-8000-000000000101','upgrade-release@example.test','Held request','approved'),
- ('b3000000-0000-4000-8000-000000000102','upgrade-release@example.test','Fresh request','approved');
+INSERT INTO public.access_requests (id,email,name,status, approval_basis) VALUES
+ ('b3000000-0000-4000-8000-000000000101','upgrade-release@example.test','Held request','approved', 'platform_review'),
+ ('b3000000-0000-4000-8000-000000000102','upgrade-release@example.test','Fresh request','approved', 'platform_review');
 INSERT INTO public.account_setup_links (id,access_request_id,token_hash,expires_at,claimed_at) VALUES
  ('b3000000-0000-4000-8000-000000000201','b3000000-0000-4000-8000-000000000101','upgrade-release-held-hash','2030-01-02T00:00:00Z','2030-01-01T00:00:00Z'),
  ('b3000000-0000-4000-8000-000000000202','b3000000-0000-4000-8000-000000000102','upgrade-release-fresh-hash','2030-01-02T00:00:00Z',NULL);

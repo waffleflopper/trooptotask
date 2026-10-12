@@ -16,9 +16,9 @@ SELECT dblink_exec('renewal',$cleanup$
  ('e4000000-0000-4000-8000-000000000001','e4000000-0000-4000-8000-000000000002');
  $cleanup$);
 SELECT dblink_exec('renewal',$fixture$
- INSERT INTO public.access_requests(id,email,name,status) VALUES
- ('e4000000-0000-4000-8000-000000000001','renewal-race@example.test','Held','approved'),
- ('e4000000-0000-4000-8000-000000000002','renewal-race@example.test','Fresh','approved');
+ INSERT INTO public.access_requests(id,email,name,status, approval_basis) VALUES
+ ('e4000000-0000-4000-8000-000000000001','renewal-race@example.test','Held','approved', 'platform_review'),
+ ('e4000000-0000-4000-8000-000000000002','renewal-race@example.test','Fresh','approved', 'platform_review');
  INSERT INTO public.account_setup_links(id,access_request_id,token_hash,expires_at) VALUES
  ('e5000000-0000-4000-8000-000000000001','e4000000-0000-4000-8000-000000000001','race-held','2030-01-01'),
  ('e5000000-0000-4000-8000-000000000002','e4000000-0000-4000-8000-000000000002','race-target','2030-01-01');

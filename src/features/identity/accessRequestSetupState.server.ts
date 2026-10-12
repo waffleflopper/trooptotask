@@ -1,4 +1,9 @@
-import type { AccessRequestSetupLink, AccessRequestAuthEmailOutbox, AccessRequestSetupState } from './contracts';
+import type {
+	AccessRequestSetupLink,
+	AccessRequestAuthEmailOutbox,
+	AccessRequestSetupState,
+	AccessRequestStatus
+} from './contracts';
 export type { AccessRequestSetupLink, AccessRequestAuthEmailOutbox } from './contracts';
 
 /**
@@ -10,6 +15,7 @@ export type { AccessRequestSetupLink, AccessRequestAuthEmailOutbox } from './con
 export const ACCOUNT_SETUP_RECOVERY_LINK_LABEL = "Didn't get your setup link?";
 
 export interface AccessRequestSetupStateSource {
+	status: AccessRequestStatus;
 	setup_completed_at: string | null;
 	account_setup_links: AccessRequestSetupLink | AccessRequestSetupLink[] | null;
 	auth_email_outbox: AccessRequestAuthEmailOutbox | AccessRequestAuthEmailOutbox[] | null;
@@ -52,6 +58,7 @@ export function findLatestAccessRequestSetupDelivery(
  * organization-facing vocabulary. Neither re-derives it.
  */
 export function classifyAccessRequestSetupState(input: {
+	status: AccessRequestStatus;
 	setupCompletedAt: string | null;
 	latestLink: AccessRequestSetupLink | null;
 	latestDelivery: AccessRequestAuthEmailOutbox | null;
@@ -60,6 +67,7 @@ export function classifyAccessRequestSetupState(input: {
 	const { latestLink, latestDelivery } = input;
 
 	if (input.setupCompletedAt || latestLink?.used_at) return 'completed';
+	if (input.status === 'rescinded') return 'rescinded';
 	if (!latestLink) return 'not_sent';
 	if (latestLink.failed_at) return 'failed';
 	if (latestLink.claimed_at) return 'claimed';
@@ -85,6 +93,7 @@ export function resolveAccessRequestSetupState(
 	const deliveries = normalizeAccessRequestSetupDeliveries(source.auth_email_outbox);
 
 	return classifyAccessRequestSetupState({
+		status: source.status,
 		setupCompletedAt: source.setup_completed_at,
 		latestLink: links[0] ?? null,
 		latestDelivery: findLatestAccessRequestSetupDelivery(links, deliveries),

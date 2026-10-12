@@ -3,12 +3,13 @@ import {
 	resolveAccessRequestSetupState,
 	type AccessRequestAuthEmailOutbox,
 	type AccessRequestSetupLink,
-	type AccessRequestSetupState
+	type AccessRequestSetupState,
+	type AccessRequestStatus
 } from '$features/identity/index.server';
 import type { OrganizationInvitationSetupStateLookupPort } from './contracts';
 
 const SETUP_STATE_SELECT =
-	'organization_invitation_id, access_requests(email, setup_completed_at, account_setup_links(id, created_at, expires_at, claimed_at, failed_at, failure_reason, used_at, revoked_at, revocation_reason), auth_email_outbox(id, setup_link_id, status, attempt_count, last_error, created_at, updated_at, sent_at))';
+	'organization_invitation_id, access_requests(email, status, setup_completed_at, account_setup_links(id, created_at, expires_at, claimed_at, failed_at, failure_reason, used_at, revoked_at, revocation_reason), auth_email_outbox(id, setup_link_id, status, attempt_count, last_error, created_at, updated_at, sent_at))';
 
 interface InvitationSetupStateRow {
 	organization_invitation_id: string;
@@ -17,6 +18,7 @@ interface InvitationSetupStateRow {
 
 interface AccessRequestSetupSourceRow {
 	email: string;
+	status: AccessRequestStatus;
 	setup_completed_at: string | null;
 	account_setup_links: AccessRequestSetupLink | AccessRequestSetupLink[] | null;
 	auth_email_outbox: AccessRequestAuthEmailOutbox | AccessRequestAuthEmailOutbox[] | null;

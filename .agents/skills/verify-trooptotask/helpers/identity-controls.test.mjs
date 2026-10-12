@@ -186,7 +186,16 @@ test('fault commands accept only the named provider faults', () => {
 function accessClient() {
 	const selects = [];
 	const tables = {
-		access_requests: [{ id: 'r1', email: 'a@example.test', status: 'approved', reviewed_by: 'u1' }],
+		access_requests: [
+			{
+				id: 'r1',
+				email: 'a@example.test',
+				status: 'approved',
+				approval_basis: 'organization_invitation',
+				setup_grant_live: false,
+				reviewed_by: 'u1'
+			}
+		],
 		account_setup_links: [{ id: 'l1', access_request_id: 'r1' }],
 		access_request_organization_invitation_links: [
 			{ id: 'k1', access_request_id: 'r1', organization_invitation_id: 'i1' },
@@ -217,7 +226,10 @@ test('access-request readback adds review, invitation bridge rows and invitation
 	const client = accessClient();
 	const result = await readAccessRequests(client, 'a@example.test');
 	assert.equal(result.count, 1);
-	assert.equal(result.rows[0].reviewed_by, 'u1');
+	assert.deepEqual(
+		[result.rows[0].reviewed_by, result.rows[0].approval_basis, result.rows[0].setup_grant_live],
+		['u1', 'organization_invitation', false]
+	);
 	assert.deepEqual(
 		result.invitationLinks.map(({ id, invitation_status }) => [id, invitation_status]),
 		[
@@ -225,6 +237,7 @@ test('access-request readback adds review, invitation bridge rows and invitation
 			['k2', null]
 		]
 	);
+	assert.match(client.selects[0][1], /status,approval_basis,setup_grant_live,/);
 	assert.equal(
 		client.selects.some(([, columns]) => columns.includes('token_hash')),
 		false

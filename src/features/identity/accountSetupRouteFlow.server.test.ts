@@ -431,8 +431,16 @@ describe('createAccountSetupRouteFlow', () => {
 	});
 	it.each([
 		['expired', 'This Account Setup Link has expired. Request a fresh setup link and use the newest email.'],
-		['replaced', 'This Account Setup Link was replaced. Check your inbox for the newest setup email.']
-	] as const)('maps %s raw-token states to recovery without reading a request', async (status, message) => {
+		['replaced', 'This Account Setup Link was replaced. Check your inbox for the newest setup email.'],
+		[
+			'revoked',
+			'This Account Setup Link is no longer valid because the access it was sent for was withdrawn. Contact the person who invited you or platform support if you still need access.'
+		],
+		[
+			'access-request-not-approved',
+			'This Account Setup Link is no longer valid because the access it was sent for was withdrawn. Contact the person who invited you or platform support if you still need access.'
+		]
+	] as const)('maps %s raw-token states to their page copy without reading a request', async (status, message) => {
 		const { flow, setupLinks, store } = makeFlow();
 		setupLinks.validateToken.mockResolvedValueOnce({ status });
 		await expect(
@@ -445,6 +453,61 @@ describe('createAccountSetupRouteFlow', () => {
 			})
 		).resolves.toEqual({ state: status, message, clearSession: true });
 		expect(store.getAccessRequest).not.toHaveBeenCalled();
+	});
+
+	it('refuses a tokenless setup session for an unclaimed link once its grant is dead', async () => {
+		const { flow, store } = makeFlow();
+		store.getAccessRequest.mockResolvedValueOnce({
+			id: 'request-1',
+			email: 'soldier@example.mil',
+			status: 'approved',
+			setupCompletedAt: null,
+			setupGrantLive: false
+		});
+		store.getSetupLink.mockResolvedValueOnce(makeSetupLink());
+
+		await expect(
+			flow.resolveLoad({
+				session: null,
+				authFlow: null,
+				mfaPending: false,
+				rawToken: '',
+				setupSession: makeSetupSession()
+			})
+		).resolves.toEqual({
+			state: 'access-request-not-approved',
+			message:
+				'This Account Setup Link is no longer valid because the access it was sent for was withdrawn. Contact the person who invited you or platform support if you still need access.',
+			clearSession: true
+		});
+	});
+
+	it('reads a tokenless setup session on a cleanup-revoked link as expired', async () => {
+		const { flow, store } = makeFlow();
+		store.getAccessRequest.mockResolvedValueOnce({
+			id: 'request-1',
+			email: 'soldier@example.mil',
+			status: 'approved',
+			setupCompletedAt: null,
+			setupGrantLive: true
+		});
+		store.getSetupLink.mockResolvedValueOnce(
+			makeSetupLink({ revokedAt: new Date('2026-05-18T12:01:00.000Z'), revocationReason: 'cleanup' })
+		);
+
+		await expect(
+			flow.resolveLoad({
+				session: null,
+				authFlow: null,
+				mfaPending: false,
+				rawToken: '',
+				setupSession: makeSetupSession()
+			})
+		).resolves.toEqual({
+			state: 'expired',
+			message: 'This Account Setup Link has expired. Request a fresh setup link and use the newest email.',
+			clearSession: true
+		});
 	});
 
 	it('rejects a no-longer-approved tokenless setup session before reading its link', async () => {
@@ -465,7 +528,8 @@ describe('createAccountSetupRouteFlow', () => {
 			})
 		).resolves.toEqual({
 			state: 'access-request-not-approved',
-			message: 'This Account Setup Link is no longer approved. Request access again or contact support.',
+			message:
+				'This Account Setup Link is no longer valid because the access it was sent for was withdrawn. Contact the person who invited you or platform support if you still need access.',
 			clearSession: true
 		});
 		expect(store.getSetupLink).not.toHaveBeenCalled();
@@ -543,7 +607,7 @@ describe('createAccountSetupRouteFlow', () => {
 		['replaced', 'This Account Setup Link was replaced. Check your inbox for the newest setup email.'],
 		[
 			'access-request-not-approved',
-			'This Account Setup Link is no longer approved. Request access again or contact support.'
+			'This Account Setup Link is no longer valid because the access it was sent for was withdrawn. Contact the person who invited you or platform support if you still need access.'
 		],
 		['used', 'This setup link has already been used. Sign in or reset your password if you need access.']
 	] as const)('reports pre-claim %s without claiming audit', async (status, error) => {

@@ -13,6 +13,7 @@ export function adminBadgeVariant(value: string | null | undefined): BadgeVarian
 			return 'success';
 		case 'suspended':
 		case 'rejected':
+		case 'rescinded':
 		case 'critical':
 		case 'bug':
 		case 'maintenance':

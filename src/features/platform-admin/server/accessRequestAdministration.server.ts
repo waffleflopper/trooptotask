@@ -20,6 +20,7 @@ import {
 import {
 	PLATFORM_ACCESS_REQUEST_APPROVE_ACTION,
 	PLATFORM_ACCESS_REQUEST_REJECT_ACTION,
+	PLATFORM_ACCESS_REQUEST_RESCIND_ACTION,
 	PLATFORM_ACCESS_REQUEST_RESEND_SETUP_ACTION,
 	type SensitiveActionAuthorizer
 } from '$features/identity/contracts';
@@ -41,6 +42,7 @@ import type {
 	PlatformAccessRequestAdminItem,
 	PlatformAccessRequestAdminSendResult,
 	PlatformAccessRequestAdminRejectResult,
+	PlatformAccessRequestAdminRescindResult,
 	PlatformAccessRequestAdministration,
 	PlatformAccessRequestAdministrationStore,
 	PlatformAccessRequestAdministrationAuditEvent
@@ -48,7 +50,12 @@ import type {
 export type * from '../accessRequestTypes';
 
 interface PlatformAccessRequestGovernorNotifier {
-	notifyInvitationBlocked(input: { organizationId: string; adminUserId: string; email: string }): Promise<void>;
+	notifyInvitationBlocked(input: {
+		organizationId: string;
+		adminUserId: string;
+		email: string;
+		reason: 'rejected' | 'rescinded';
+	}): Promise<void>;
 }
 
 export interface PlatformAccessRequestAdministrationDependencies {
@@ -108,12 +115,15 @@ function resolveSetupState(
 	| 'invitation_origins'
 	| 'auto_approved'
 	| 'auto_approval_detail'
+	| 'approval_basis'
+	| 'setup_grant_withdrawn'
 > {
 	const links = normalizeAccessRequestSetupLinks(request.account_setup_links);
 	const deliveries = normalizeAccessRequestSetupDeliveries(request.auth_email_outbox);
 	const latestLink = links[0] ?? null;
 	const latestDelivery = findLatestAccessRequestSetupDelivery(links, deliveries);
 	const setupState = classifyAccessRequestSetupState({
+		status: request.status,
 		setupCompletedAt: request.setup_completed_at,
 		latestLink,
 		latestDelivery,
@@ -131,7 +141,13 @@ function resolveSetupState(
 					detail:
 						'A setup attempt may still be running. If it stalls, staff must confirm its Auth operation has ended before releasing the claim. Sending another setup link will not unlock it.'
 				}
-		: getSetupStateCopy(setupState, latestLink);
+		: isSetupGrantWithdrawn(request)
+			? {
+					label: 'Invitation withdrawn',
+					detail:
+						'Every Organization Invitation behind this approval was revoked or blocked, so no setup link can be sent or used. A new invitation from an Organization restores it.'
+				}
+			: getSetupStateCopy(setupState, latestLink);
 
 	return {
 		setup_state: setupState,
@@ -165,6 +181,12 @@ function getSetupStateCopy(
 	latestLink: AccessRequestSetupLink | null
 ): { label: string; detail: string } {
 	switch (setupState) {
+		case 'rescinded':
+			return {
+				label: 'Rescinded',
+				detail:
+					'Platform access was rescinded before account setup finished. Unused setup links were revoked and linked pending invitations were blocked.'
+			};
 		case 'completed':
 			return {
 				label: 'Completed',
@@ -232,26 +254,31 @@ function findApprovingInvitationOrigin(request: PlatformAccessRequestAdminRow): 
 	return beforeReview[0] ?? newestFirst[newestFirst.length - 1];
 }
 
-/**
- * An invite-origin request is auto-approved when the reviewer on record is the inviter itself
- * (ADR 0012). A platform admin who approved such a request by hand stays the reviewer, so the
- * comparison — not the mere presence of an invitation origin — is what separates the two.
- */
+/** The recorded approval basis decides provenance; the origins only name the approving Organization. */
 function resolveAutoApproval(request: PlatformAccessRequestAdminRow): {
 	auto_approved: boolean;
 	auto_approval_detail: string | null;
 } {
-	if (request.status !== 'approved' || !request.reviewed_by) {
+	if (request.approval_basis !== 'organization_invitation') {
 		return { auto_approved: false, auto_approval_detail: null };
 	}
 
 	const approvingOrigin = findApprovingInvitationOrigin(request);
-	if (!approvingOrigin) return { auto_approved: false, auto_approval_detail: null };
-
 	return {
 		auto_approved: true,
-		auto_approval_detail: `Auto-approved via invite from ${approvingOrigin.organization_name}. Invited by ${approvingOrigin.inviter_label}; no platform admin reviewed this request.`
+		auto_approval_detail: approvingOrigin
+			? `Auto-approved via invite from ${approvingOrigin.organization_name}. Invited by ${approvingOrigin.inviter_label}; no platform admin reviewed this request.`
+			: 'Auto-approved via an Organization Invitation that is no longer on record; no platform admin reviewed this request.'
 	};
+}
+
+function isSetupGrantWithdrawn(request: PlatformAccessRequestAdminRow): boolean {
+	return (
+		request.status === 'approved' &&
+		request.approval_basis === 'organization_invitation' &&
+		!request.setup_completed_at &&
+		!request.setup_grant_live
+	);
 }
 
 function heldClaimsByEmail(
@@ -286,11 +313,13 @@ function shapeListItem(
 		heard_about_label: getAccessRequestHeardAboutLabel(request.heard_about),
 		heard_about_details: request.heard_about_details,
 		status: request.status,
+		approval_basis: request.approval_basis,
 		created_at: request.created_at,
 		reviewed_at: request.reviewed_at,
 		setup_completed_at: request.setup_completed_at,
 		invitation_origins: request.invitation_origins,
 		...resolveAutoApproval(request),
+		setup_grant_withdrawn: isSetupGrantWithdrawn(request),
 		...resolveSetupState(request, now, heldClaim)
 	};
 }
@@ -327,13 +356,15 @@ async function notifyGovernorsOfBlockedInvitations(input: {
 	notifyGovernors: PlatformAccessRequestGovernorNotifier;
 	adminUserId: string;
 	blockedInvitations: BlockedOrganizationInvitation[];
+	reason: 'rejected' | 'rescinded';
 }): Promise<void> {
 	for (const invitation of input.blockedInvitations) {
 		try {
 			await input.notifyGovernors.notifyInvitationBlocked({
 				organizationId: invitation.organizationId,
 				adminUserId: input.adminUserId,
-				email: invitation.email
+				email: invitation.email,
+				reason: input.reason
 			});
 		} catch (error) {
 			console.error('[platform-access-request-administration]', {
@@ -467,15 +498,23 @@ async function issueSetupLink(
 	});
 }
 
-async function authorizeReject(
+/** Reject and rescind withdraw platform access, so both pass the same step-up check. */
+async function authorizeWithdrawal(
 	deps: PlatformAccessRequestAdministrationDependencies,
 	input: {
+		action: 'reject' | 'rescind';
 		accessRequestId: string;
 		actorUserId: string;
 	}
-): Promise<{ ok: true } | { ok: false; result: PlatformAccessRequestAdminRejectResult }> {
+): Promise<
+	| { ok: true }
+	| {
+			ok: false;
+			result: Extract<PlatformAccessRequestAdminRejectResult, { status: 'authorization_denied' }>;
+	  }
+> {
 	const decision = await deps.sensitiveActionAuthorizer.authorize({
-		action: PLATFORM_ACCESS_REQUEST_REJECT_ACTION,
+		action: input.action === 'reject' ? PLATFORM_ACCESS_REQUEST_REJECT_ACTION : PLATFORM_ACCESS_REQUEST_RESCIND_ACTION,
 		actorUserId: input.actorUserId,
 		target: { type: 'access_request', id: input.accessRequestId }
 	});
@@ -486,7 +525,10 @@ async function authorizeReject(
 	}
 
 	deps.audit({
-		action: 'access_request.rejection_authorization_denied',
+		action:
+			input.action === 'reject'
+				? 'access_request.rejection_authorization_denied'
+				: 'access_request.rescission_authorization_denied',
 		resourceType: 'access_request',
 		resourceId: input.accessRequestId,
 		details: {
@@ -626,7 +668,7 @@ export function createPlatformAccessRequestAdministration(
 
 		async reject(input) {
 			try {
-				const authorization = await authorizeReject(deps, input);
+				const authorization = await authorizeWithdrawal(deps, { ...input, action: 'reject' });
 				if (!authorization.ok) return authorization.result;
 
 				const rejectResult = await deps.store.rejectPendingAccessRequestAndBlockLinkedInvitations(input);
@@ -646,12 +688,49 @@ export function createPlatformAccessRequestAdministration(
 				await notifyGovernorsOfBlockedInvitations({
 					notifyGovernors: deps.notifyGovernors,
 					adminUserId: input.actorUserId,
-					blockedInvitations: rejectResult.blockedInvitations
+					blockedInvitations: rejectResult.blockedInvitations,
+					reason: 'rejected'
 				});
 
 				return { status: 'rejected' };
 			} catch (error) {
 				logProviderFailure('reject', error);
+				return { status: 'failed' };
+			}
+		},
+
+		async rescind(input): Promise<PlatformAccessRequestAdminRescindResult> {
+			try {
+				const authorization = await authorizeWithdrawal(deps, { ...input, action: 'rescind' });
+				if (!authorization.ok) return authorization.result;
+
+				const rescindResult = await deps.store.rescindApprovedAccessRequestAndBlockLinkedInvitations(input);
+
+				if (rescindResult.status === 'not_found') return { status: 'not_approved' };
+				if (rescindResult.status === 'completed') return { status: 'setup_completed' };
+				if (rescindResult.status === 'claim-held') return { status: 'claim_held' };
+				if (rescindResult.status === 'failed') return { status: 'failed' };
+
+				deps.audit({
+					action: 'access_request.rescinded',
+					resourceType: 'access_request',
+					resourceId: input.accessRequestId,
+					details: {
+						blockedInvitationCount: rescindResult.blockedInvitations.length
+					},
+					severity: 'warning'
+				});
+
+				await notifyGovernorsOfBlockedInvitations({
+					notifyGovernors: deps.notifyGovernors,
+					adminUserId: input.actorUserId,
+					blockedInvitations: rescindResult.blockedInvitations,
+					reason: 'rescinded'
+				});
+
+				return { status: 'rescinded' };
+			} catch (error) {
+				logProviderFailure('rescind', error);
 				return { status: 'failed' };
 			}
 		}

@@ -85,7 +85,8 @@ function tokenStateMessage(state: string): string {
 		case 'expired':
 			return 'This Account Setup Link has expired. Request a fresh setup link and use the newest email.';
 		case 'revoked':
-			return 'This Account Setup Link was replaced. Check your inbox for the newest setup email.';
+		case 'access-request-not-approved':
+			return 'This Account Setup Link is no longer valid because the access it was sent for was withdrawn. Contact the person who invited you or platform support if you still need access.';
 		case 'replaced':
 			return 'This Account Setup Link was replaced. Check your inbox for the newest setup email.';
 		case 'claimed':
@@ -98,8 +99,6 @@ function tokenStateMessage(state: string): string {
 		case 'used':
 		case 'access-request-completed':
 			return 'This setup link has already been used. Sign in or reset your password if you need access.';
-		case 'access-request-not-approved':
-			return 'This Account Setup Link is no longer approved. Request access again or contact support.';
 		case 'session-expired':
 			return 'This setup session has expired. Open the newest setup email or request a fresh setup link.';
 		default:
@@ -107,10 +106,17 @@ function tokenStateMessage(state: string): string {
 	}
 }
 
+/** Cleanup only revokes links that already expired, so it reads as expiry rather than withdrawal. */
+function revokedLinkState(link: AccountSetupLinkRecord): 'replaced' | 'expired' | 'revoked' {
+	if (link.revocationReason === 'replaced') return 'replaced';
+	if (link.revocationReason === 'cleanup') return 'expired';
+	return 'revoked';
+}
+
 function getSetupLinkState(link: AccountSetupLinkRecord, now: Date): string {
 	if (link.usedAt) return 'used';
 	if (link.failedAt) return 'failed';
-	if (link.revokedAt) return link.revocationReason === 'replaced' ? 'replaced' : 'revoked';
+	if (link.revokedAt) return revokedLinkState(link);
 	if (link.expiresAt <= now) return 'expired';
 	if (link.claimedAt) return 'claimed';
 	return 'valid';
@@ -352,6 +358,14 @@ export function createAccountSetupRouteFlow(dependencies: AccountSetupRouteFlowD
 				return {
 					state: setupLinkState as AccountSetupPageState,
 					message: tokenStateMessage(setupLinkState),
+					clearSession: true
+				};
+			}
+
+			if (!accessRequest.setupGrantLive) {
+				return {
+					state: 'access-request-not-approved',
+					message: tokenStateMessage('access-request-not-approved'),
 					clearSession: true
 				};
 			}

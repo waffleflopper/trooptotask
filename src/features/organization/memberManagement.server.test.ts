@@ -75,7 +75,7 @@ function createAccountSetupIssuancePorts(
 	options: {
 		createResult?: CreateAccountSetupLinkResult;
 		createError?: unknown;
-		revokedLinks?: AccountSetupLinkRecord[];
+		revokedLinkIds?: string[];
 		deliveryStatus?: 'sent' | 'failed';
 	} = {}
 ): {
@@ -102,7 +102,7 @@ function createAccountSetupIssuancePorts(
 						setupPath: '/auth/setup-account?token=raw-setup-token',
 						expiresAt: new Date('2026-06-05T12:00:00.000Z'),
 						link: setupLinkRecord({ accessRequestId }),
-						revokedLinks: options.revokedLinks ?? []
+						revokedLinkIds: options.revokedLinkIds ?? []
 					}
 				);
 			}
@@ -134,6 +134,7 @@ function createOrganizationSettingsMemberManagementPort(
 		existingUserAccount?: { id: string; email: string; emailConfirmed?: boolean } | null;
 		accessRequestBridgeResult?:
 			| { status: 'created' | 'linked' | 'already-linked'; accessRequestId: string }
+			| { status: 'invitation-not-pending' }
 			| { status: 'failed'; message: string }
 			| null;
 		revokeInvitationResult?: {
@@ -813,6 +814,46 @@ describe('inviteOrganizationMember', () => {
 		});
 	});
 
+	it('reports a withdrawn invitation without blocking it again when the bridge finds it no longer pending', async () => {
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({
+			existingUserAccount: null,
+			accessRequestBridgeResult: { status: 'invitation-not-pending' }
+		});
+		const issuance = createAccountSetupIssuancePorts();
+
+		await expect(
+			inviteOrganizationMember(
+				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port, ...issuance },
+				{
+					email: 'new.user@example.com',
+					membershipRole: 'member',
+					memberAccess: memberAccess({ memberPreset: 'viewer' }),
+					actorEmail: 'actor@example.com'
+				}
+			)
+		).rejects.toMatchObject({
+			status: 409,
+			message:
+				'The invitation was withdrawn or expired before platform access setup could be linked. Send a new invitation.'
+		});
+
+		expect(port.blockedInvitations).toEqual([]);
+		expect(issuance.setupLinkRequests).toEqual([]);
+		expect(ctx.auditPort.events).toContainEqual({
+			action: 'member.invite_access_request_link_failed',
+			resourceType: 'organization',
+			details: {
+				email: 'new.user@example.com',
+				invitationId: 'invite-created',
+				reason: 'invitation-not-pending',
+				blocked: false
+			},
+			severity: 'warning'
+		});
+		expect(ctx.notificationPort.notifications).toEqual([]);
+	});
+
 	it('blocks the created invitation and fails when non-user Access Request linking fails', async () => {
 		const ctx = createTestContext();
 		const port = createOrganizationSettingsMemberManagementPort({
@@ -832,7 +873,8 @@ describe('inviteOrganizationMember', () => {
 			)
 		).rejects.toMatchObject({
 			status: 500,
-			message: 'Invitation could not be created because platform access setup could not be linked'
+			message: 'Invitation could not be created because platform access setup could not be linked',
+			publicMessage: true
 		});
 
 		expect(port.createdInvitations).toHaveLength(1);
@@ -919,7 +961,7 @@ describe('inviteOrganizationMember', () => {
 			accessRequestBridgeResult: { status: 'linked', accessRequestId: 'access-request-1' }
 		});
 		const issuance = createAccountSetupIssuancePorts({
-			revokedLinks: [setupLinkRecord({ id: 'setup-link-0', accessRequestId: 'access-request-1' })]
+			revokedLinkIds: ['setup-link-0']
 		});
 
 		await inviteOrganizationMember(
@@ -1065,7 +1107,8 @@ describe('inviteOrganizationMember', () => {
 			)
 		).rejects.toMatchObject({
 			status: 500,
-			message: 'Invitation could not be created because the account setup link could not be issued'
+			message: 'Invitation could not be created because the account setup link could not be issued',
+			publicMessage: true
 		});
 
 		expect(port.blockedInvitations).toEqual([
@@ -1089,6 +1132,38 @@ describe('inviteOrganizationMember', () => {
 			severity: 'warning'
 		});
 		expect(ctx.notificationPort.notifications).toEqual([]);
+	});
+
+	it('says the invitation is still pending when issuance and the cleanup block both fail', async () => {
+		const ctx = createTestContext();
+		const port = createOrganizationSettingsMemberManagementPort({
+			existingUserAccount: null,
+			blockInvitationResult: { status: 'failed', message: 'block write failed' }
+		});
+		const issuance = createAccountSetupIssuancePorts({ createResult: { status: 'access-request-not-approved' } });
+
+		await expect(
+			inviteOrganizationMember(
+				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port, ...issuance },
+				{
+					email: 'new.user@example.com',
+					membershipRole: 'member',
+					memberAccess: memberAccess({ memberPreset: 'viewer' }),
+					actorEmail: 'actor@example.com'
+				}
+			)
+		).rejects.toMatchObject({
+			status: 500,
+			message:
+				'The account setup link could not be issued, and the invitation is still pending. Revoke it from Pending Invitations.',
+			publicMessage: true
+		});
+		expect(ctx.auditPort.events).toContainEqual({
+			action: 'member.invite_account_setup_link_block_failed',
+			resourceType: 'organization',
+			details: { email: 'new.user@example.com', invitationId: 'invite-created', reason: 'block write failed' },
+			severity: 'critical'
+		});
 	});
 
 	it('blocks the created invitation and fails when the setup link provider throws', async () => {
@@ -1942,7 +2017,9 @@ describe('revokeOrganizationInvitation', () => {
 		]);
 	});
 
-	it('leaves the Access Request and its setup link intact so revoke-then-re-invite works', async () => {
+	it('leaves the Access Request row to the database grant so a re-invite revives setup', async () => {
+		// Revocation ends the derived grant inside revoke_organization_invitation; no request write
+		// happens here. A later invite links the same request again and issues a fresh setup link.
 		const ctx = createTestContext({ auth: { orgId: 'org-1' } });
 		const port = createOrganizationSettingsMemberManagementPort({ existingUserAccount: null });
 		const issuance = createAccountSetupIssuancePorts();

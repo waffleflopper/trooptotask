@@ -1,13 +1,7 @@
 export const MAIL_KINDS = Object.freeze(['account-setup', 'auth', 'invitation']);
 export const PROVIDER_FAULTS = Object.freeze({
-	'setup-link-create': [
-		['POST', '/rest/v1/account_setup_links'],
-		['POST', '/rest/v1/rpc/issue_account_setup_link']
-	],
-	'invitation-access-link': [
-		['POST', '/rest/v1/access_request_organization_invitation_links'],
-		['POST', '/rest/v1/rpc/link_organization_invitation_access_request']
-	],
+	'setup-link-create': [['POST', '/rest/v1/rpc/issue_account_setup_link']],
+	'invitation-access-link': [['POST', '/rest/v1/rpc/link_organization_invitation_access_request']],
 	'invitation-block': [['PATCH', '/rest/v1/organization_invitations']]
 });
 const MAIL_URL = 'https://api.resend.com/emails';

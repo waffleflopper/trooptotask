@@ -23,7 +23,8 @@ async function claimedAttempt(email, label) {
 			id: requestId,
 			email,
 			name: label,
-			status: 'approved'
+			status: 'approved',
+			approval_basis: 'platform_review'
 		}),
 		`${label} request`
 	);

@@ -14,7 +14,7 @@ UNION ALL
 SELECT 'public.platform_admins', id, to_jsonb(row_value)
   FROM public.platform_admins AS row_value WHERE id = 'b4000000-0000-4000-8000-000000000011'
 UNION ALL
-SELECT 'public.access_requests', id, to_jsonb(row_value)
+SELECT 'public.access_requests', id, to_jsonb(row_value) - 'approval_basis'
   FROM public.access_requests AS row_value
   WHERE id IN ('b4000000-0000-4000-8000-000000000101', 'b4000000-0000-4000-8000-000000000102',
                'b4000000-0000-4000-8000-000000000103')
@@ -24,6 +24,11 @@ SELECT 'public.account_setup_links', id, to_jsonb(row_value)
   WHERE id IN ('b4000000-0000-4000-8000-000000000201', 'b4000000-0000-4000-8000-000000000202',
                'b4000000-0000-4000-8000-000000000203');
 SELECT is((SELECT count(*)::integer FROM current_rows), 8, 'all eight historical rows still exist');
+SELECT is((SELECT count(*)::integer FROM public.access_requests
+           WHERE id IN ('b4000000-0000-4000-8000-000000000101', 'b4000000-0000-4000-8000-000000000102',
+                        'b4000000-0000-4000-8000-000000000103')
+             AND approval_basis = 'platform_review'),
+          3, 'historical approvals without an invitation origin are platform reviewed');
 SELECT is((SELECT count(*)::integer FROM public.account_setup_attempts
            WHERE setup_link_id IN ('b4000000-0000-4000-8000-000000000201',
                                    'b4000000-0000-4000-8000-000000000202')),
@@ -31,7 +36,7 @@ SELECT is((SELECT count(*)::integer FROM public.account_setup_attempts
 SELECT results_eq(
   $$ SELECT table_name, row_id, row_data FROM current_rows ORDER BY table_name, row_id $$,
   $$ SELECT table_name, row_id, row_data FROM upgrade_fixture.before_rows ORDER BY table_name, row_id $$,
-  'migration preserves exact Auth, staff, Access Request and setup-link identities and values');
+  'migration preserves exact Auth, staff, Access Request and setup-link identities and values apart from the added approval basis');
 
 SELECT ok(NOT has_table_privilege('authenticated', 'public.account_setup_links', 'UPDATE')
        AND NOT has_table_privilege('anon', 'public.account_setup_links', 'UPDATE'),

@@ -64,6 +64,8 @@ function makeReviewedRequest(overrides: Partial<ReviewedRequest>): ReviewedReque
 		invitation_origins: [],
 		auto_approved: false,
 		auto_approval_detail: null,
+		approval_basis: 'platform_review',
+		setup_grant_withdrawn: false,
 		...overrides
 	};
 }
@@ -562,21 +564,88 @@ describe('admin access request setup support UI', () => {
 		);
 	});
 
-	it('adds no platform-admin action to an auto-approved request beyond the existing setup resend', async () => {
+	it('offers Rescind beside the setup resend on an approved incomplete request and shows its refusal', async () => {
+		const view = render(Page, {
+			props: {
+				data: {
+					session: null,
+					adminUserId: 'admin-1',
+					adminEmail: 'admin@example.mil',
+					adminRole: 'super_admin',
+					accessiblePages: ['access-requests'],
+					visibleNavGroups: [],
+					pending: [],
+					reviewed: [
+						makeReviewedRequest({
+							id: 'auto-approved-actions',
+							approval_basis: 'organization_invitation',
+							auto_approved: true,
+							auto_approval_detail:
+								'Auto-approved via invite from Bravo Company. Invited by Avery Jones; no platform admin reviewed this request.',
+							invitation_origins: [makeInvitationOrigin({ organization_name: 'Bravo Company' })]
+						})
+					]
+				},
+				form: null
+			}
+		});
+		await fireEvent.click(screen.getByRole('tab', { name: /Reviewed/ }));
+		const scope = within(screen.getByText('Test Soldier').closest('[data-slot="card"]') as HTMLElement);
+
+		expect(scope.getAllByRole('button').map((button) => button.textContent?.trim())).toEqual([
+			'Send Fresh Setup',
+			'Rescind'
+		]);
+		const rescind = scope.getByRole('button', { name: 'Rescind Test Soldier' });
+		expect(new FormData(rescind.closest('form')!).get('requestId')).toBe('auto-approved-actions');
+
+		const refusal =
+			'A setup attempt holds a claim on this request. Confirm its Auth operation has ended and release the claim before rescinding.';
+		const finish = await submitReview('Rescind Test Soldier');
+		await act(() =>
+			finish({ type: 'failure', status: 409, data: { error: refusal } }, async () => {
+				await view.rerender({ form: { error: refusal } });
+			})
+		);
+
+		expect(screen.getByRole('alert').textContent).toContain(refusal);
+	});
+
+	it('marks an invitation approval whose invitations were all withdrawn and offers no setup send', async () => {
 		await renderReviewed([
 			makeReviewedRequest({
-				id: 'auto-approved-actions',
-				auto_approved: true,
-				auto_approval_detail:
-					'Auto-approved via invite from Bravo Company. Invited by Avery Jones; no platform admin reviewed this request.',
-				invitation_origins: [makeInvitationOrigin({ organization_name: 'Bravo Company' })]
+				id: 'withdrawn',
+				approval_basis: 'organization_invitation',
+				setup_grant_withdrawn: true,
+				setup_state_label: 'Invitation withdrawn',
+				setup_state_detail:
+					'Every Organization Invitation behind this approval was revoked or blocked, so no setup link can be sent or used. A new invitation from an Organization restores it.'
 			})
 		]);
 
-		const card = screen.getByText('Test Soldier').closest('[data-slot="card"]');
-		const scope = within(card as HTMLElement);
+		const scope = within(screen.getByText('Test Soldier').closest('[data-slot="card"]') as HTMLElement);
 
-		expect(scope.getAllByRole('button').map((button) => button.textContent?.trim())).toEqual(['Send Fresh Setup']);
+		expect(scope.getByText('Setup Invitation withdrawn')).toBeTruthy();
+		expect(scope.getByText(/no setup link can be sent or used/)).toBeTruthy();
+		expect(scope.getAllByRole('button').map((button) => button.textContent?.trim())).toEqual(['Rescind']);
+	});
+
+	it('shows a rescinded request as closed with no further actions', async () => {
+		await renderReviewed([
+			makeReviewedRequest({
+				id: 'rescinded',
+				status: 'rescinded',
+				setup_state: 'rescinded',
+				setup_state_label: 'Rescinded',
+				setup_state_detail:
+					'Platform access was rescinded before account setup finished. Unused setup links were revoked and linked pending invitations were blocked.'
+			})
+		]);
+
+		const scope = within(screen.getByText('Test Soldier').closest('[data-slot="card"]') as HTMLElement);
+
+		expect(scope.getByText(/Platform access was rescinded before account setup finished/)).toBeTruthy();
+		expect(scope.queryAllByRole('button')).toEqual([]);
 	});
 
 	it('does not show invitation-origin context for ordinary access requests', async () => {

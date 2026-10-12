@@ -1,4 +1,9 @@
-import type { AccountSetupLinkRecord } from './accountSetupLinks.server';
+import type {
+	AccountSetupLinkAccessRequest,
+	AccountSetupLinkRecord,
+	CreateAccountSetupLinkInput,
+	IssueAccountSetupLinkResult
+} from './accountSetupLinks.server';
 import type {
 	AuthEmailOutboxRecord,
 	AuthEmailOutboxStore,
@@ -28,6 +33,36 @@ export function accountSetupLinkFixture(overrides: Partial<AccountSetupLinkRecor
 		revocationReason: null,
 		...overrides
 	};
+}
+
+/** In-memory twin of `issue_account_setup_link` for service tests; the RPC owns atomicity and locking. */
+export function issueSetupLinkInMemory(
+	request: Pick<AccountSetupLinkAccessRequest, 'status' | 'setupCompletedAt' | 'setupGrantLive'> | null | undefined,
+	links: AccountSetupLinkRecord[],
+	input: CreateAccountSetupLinkInput,
+	id: string
+): IssueAccountSetupLinkResult {
+	if (!request) return { status: 'access-request-missing' };
+	if (request.status !== 'approved') return { status: 'access-request-not-approved' };
+	if (request.setupCompletedAt) return { status: 'access-request-completed' };
+	if (!request.setupGrantLive) return { status: 'access-request-not-approved' };
+	const revokedLinkIds: string[] = [];
+	for (const link of links) {
+		if (link.accessRequestId === input.accessRequestId && !link.claimedAt && !link.usedAt && !link.revokedAt) {
+			link.revokedAt = input.createdAt;
+			link.revocationReason = 'replaced';
+			revokedLinkIds.push(link.id);
+		}
+	}
+	const link = accountSetupLinkFixture({
+		id,
+		accessRequestId: input.accessRequestId,
+		tokenHash: input.tokenHash,
+		expiresAt: input.expiresAt,
+		createdAt: input.createdAt
+	});
+	links.push(link);
+	return { status: 'created', link, revokedLinkIds };
 }
 
 export function authEmailOutboxRecordFixture(

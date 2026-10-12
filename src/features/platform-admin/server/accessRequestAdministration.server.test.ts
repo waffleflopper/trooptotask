@@ -52,10 +52,12 @@ function makeAccessRequestRow(overrides: Partial<PlatformAccessRequestAdminRow> 
 		heard_about: 'other',
 		heard_about_details: null,
 		status: 'approved',
+		approval_basis: 'platform_review',
 		created_at: '2026-05-18T12:00:00.000Z',
 		reviewed_at: '2026-05-18T13:00:00.000Z',
 		reviewed_by: 'platform-admin-1',
 		setup_completed_at: null,
+		setup_grant_live: true,
 		account_setup_links: null,
 		auth_email_outbox: null,
 		invitation_origins: [],
@@ -124,7 +126,7 @@ function createCreatedSetupResult(
 		setupPath: '/auth/setup-account?token=raw-token',
 		expiresAt: new Date('2026-06-01T12:00:00.000Z'),
 		link: makeSetupRecord(),
-		revokedLinks: [],
+		revokedLinkIds: [],
 		...overrides
 	};
 }
@@ -149,6 +151,10 @@ function makeStore(
 		}),
 		rejectPendingAccessRequestAndBlockLinkedInvitations: vi.fn().mockResolvedValue({
 			status: 'rejected',
+			blockedInvitations: []
+		}),
+		rescindApprovedAccessRequestAndBlockLinkedInvitations: vi.fn().mockResolvedValue({
+			status: 'rescinded',
 			blockedInvitations: []
 		}),
 		...overrides
@@ -187,7 +193,7 @@ function makeDeps(overrides: Partial<PlatformAccessRequestAdministrationDependen
 }
 
 describe('Platform Access Request Administration', () => {
-	it.each(['approve', 'resendSetup', 'reject'] as const)(
+	it.each(['approve', 'resendSetup', 'reject', 'rescind'] as const)(
 		'requires a valid suspension result before %s and permits a safe retry',
 		async (action) => {
 			const rpc = vi.fn().mockRejectedValue(new Error('private provider failure'));
@@ -225,6 +231,7 @@ describe('Platform Access Request Administration', () => {
 			});
 			expect(deps.store.markPendingRequestApproved).not.toHaveBeenCalled();
 			expect(deps.store.rejectPendingAccessRequestAndBlockLinkedInvitations).not.toHaveBeenCalled();
+			expect(deps.store.rescindApprovedAccessRequestAndBlockLinkedInvitations).not.toHaveBeenCalled();
 			expect(deps.checkSetupRateLimit).not.toHaveBeenCalled();
 			expect(deps.setupLinks.createForAccessRequest).not.toHaveBeenCalled();
 			expect(deps.setupDelivery.send).not.toHaveBeenCalled();
@@ -239,9 +246,14 @@ describe('Platform Access Request Administration', () => {
 			);
 
 			rpc.mockResolvedValue({ data: false, error: null });
-			await expect(execute()).resolves.toMatchObject({ status: action === 'reject' ? 'rejected' : 'sent' });
+			const withdrawn = { reject: 'rejected', rescind: 'rescinded' } as const;
+			await expect(execute()).resolves.toMatchObject({
+				status: action === 'reject' || action === 'rescind' ? withdrawn[action] : 'sent'
+			});
 			if (action === 'reject') {
 				expect(deps.store.rejectPendingAccessRequestAndBlockLinkedInvitations).toHaveBeenCalledOnce();
+			} else if (action === 'rescind') {
+				expect(deps.store.rescindApprovedAccessRequestAndBlockLinkedInvitations).toHaveBeenCalledOnce();
 			} else {
 				expect(deps.setupLinks.createForAccessRequest).toHaveBeenCalledOnce();
 				expect(deps.setupDelivery.send).toHaveBeenCalledOnce();
@@ -448,6 +460,7 @@ describe('Platform Access Request Administration', () => {
 	it('marks an Access Request the inviting Organization admin approved as auto-approved, naming the Organization and inviter', async () => {
 		const row = makeAccessRequestRow({
 			id: 'auto-approved',
+			approval_basis: 'organization_invitation',
 			reviewed_by: 'leader-1',
 			invitation_origins: [makeInvitationOrigin({ organization_name: 'Bravo Company', inviter_label: 'Avery Jones' })]
 		});
@@ -465,6 +478,7 @@ describe('Platform Access Request Administration', () => {
 	it('credits the inviter who actually approved when several Organizations invited the same person', async () => {
 		const row = makeAccessRequestRow({
 			id: 'multi-origin',
+			approval_basis: 'organization_invitation',
 			reviewed_by: 'leader-2',
 			invitation_origins: [
 				makeInvitationOrigin({
@@ -490,6 +504,7 @@ describe('Platform Access Request Administration', () => {
 	it('credits the Organization whose invite did the approving when one person invited from two', async () => {
 		const row = makeAccessRequestRow({
 			id: 'same-inviter-two-orgs',
+			approval_basis: 'organization_invitation',
 			reviewed_by: 'leader-1',
 			reviewed_at: '2026-05-18T13:00:00.000Z',
 			invitation_origins: [
@@ -511,6 +526,7 @@ describe('Platform Access Request Administration', () => {
 	it('credits the later invite when the earlier one left the request pending', async () => {
 		const row = makeAccessRequestRow({
 			id: 'approved-on-second-invite',
+			approval_basis: 'organization_invitation',
 			reviewed_by: 'leader-1',
 			reviewed_at: '2026-05-19T09:00:01.000Z',
 			invitation_origins: [
@@ -542,6 +558,95 @@ describe('Platform Access Request Administration', () => {
 		expect(result.reviewed[0]).toMatchObject({
 			auto_approved: false,
 			auto_approval_detail: null
+		});
+	});
+
+	it('trusts the recorded platform review even when the reviewer also invited the person', async () => {
+		const row = makeAccessRequestRow({
+			id: 'reviewer-also-invited',
+			approval_basis: 'platform_review',
+			reviewed_by: 'leader-1',
+			invitation_origins: [makeInvitationOrigin()]
+		});
+		const { admin } = makeDeps({ store: makeStore({ listAccessRequests: vi.fn().mockResolvedValue([row]) }) });
+
+		const result = await admin.list({ now });
+
+		expect(result.reviewed[0]).toMatchObject({ auto_approved: false, auto_approval_detail: null });
+	});
+
+	it('names an invitation approval whose origin is gone without inventing an Organization', async () => {
+		const row = makeAccessRequestRow({
+			id: 'origin-deleted',
+			approval_basis: 'organization_invitation',
+			reviewed_by: 'leader-1',
+			setup_grant_live: false
+		});
+		const { admin } = makeDeps({ store: makeStore({ listAccessRequests: vi.fn().mockResolvedValue([row]) }) });
+
+		const result = await admin.list({ now });
+
+		expect(result.reviewed[0]).toMatchObject({
+			auto_approved: true,
+			auto_approval_detail:
+				'Auto-approved via an Organization Invitation that is no longer on record; no platform admin reviewed this request.',
+			setup_grant_withdrawn: true
+		});
+	});
+
+	it('shows platform staff an invitation approval whose every invitation was withdrawn', async () => {
+		const rows = [
+			makeAccessRequestRow({
+				id: 'withdrawn',
+				approval_basis: 'organization_invitation',
+				reviewed_by: 'leader-1',
+				setup_grant_live: false,
+				invitation_origins: [makeInvitationOrigin()],
+				account_setup_links: [makeSetupLink()]
+			}),
+			makeAccessRequestRow({ id: 'platform-reviewed', setup_grant_live: true }),
+			makeAccessRequestRow({
+				id: 'completed-invite',
+				approval_basis: 'organization_invitation',
+				reviewed_by: 'leader-1',
+				setup_completed_at: '2026-05-19T12:00:00.000Z',
+				setup_grant_live: false,
+				invitation_origins: [makeInvitationOrigin()]
+			})
+		];
+		const { admin } = makeDeps({ store: makeStore({ listAccessRequests: vi.fn().mockResolvedValue(rows) }) });
+
+		const result = await admin.list({ now });
+
+		expect(
+			result.reviewed.map((request) => [request.id, request.setup_grant_withdrawn, request.setup_state_label])
+		).toEqual([
+			['withdrawn', true, 'Invitation withdrawn'],
+			['platform-reviewed', false, 'Not sent'],
+			['completed-invite', false, 'Completed']
+		]);
+		expect(result.reviewed[0].setup_state_detail).toBe(
+			'Every Organization Invitation behind this approval was revoked or blocked, so no setup link can be sent or used. A new invitation from an Organization restores it.'
+		);
+	});
+
+	it('reports a rescinded request as rescinded rather than as a replaceable setup link', async () => {
+		const row = makeAccessRequestRow({
+			id: 'rescinded',
+			status: 'rescinded',
+			setup_grant_live: false,
+			account_setup_links: [makeSetupLink({ revoked_at: '2026-05-20T12:00:00.000Z', revocation_reason: 'manual' })]
+		});
+		const { admin } = makeDeps({ store: makeStore({ listAccessRequests: vi.fn().mockResolvedValue([row]) }) });
+
+		const result = await admin.list({ now });
+
+		expect(result.reviewed[0]).toMatchObject({
+			status: 'rescinded',
+			setup_state: 'rescinded',
+			setup_state_label: 'Rescinded',
+			setup_state_detail:
+				'Platform access was rescinded before account setup finished. Unused setup links were revoked and linked pending invitations were blocked.'
 		});
 	});
 
@@ -615,7 +720,7 @@ describe('Platform Access Request Administration', () => {
 				createForAccessRequest: vi.fn().mockResolvedValue(
 					createCreatedSetupResult({
 						link: makeSetupRecord({ id: 'link-2' }),
-						revokedLinks: [revokedLink]
+						revokedLinkIds: [revokedLink.id]
 					})
 				)
 			}
@@ -795,7 +900,7 @@ describe('Platform Access Request Administration', () => {
 					createCreatedSetupResult({
 						setupPath: '/auth/setup-account?token=fresh-token',
 						link: makeSetupRecord({ id: 'link-2' }),
-						revokedLinks: [makeSetupRecord({ id: 'link-1' })]
+						revokedLinkIds: ['link-1']
 					})
 				)
 			},
@@ -886,7 +991,8 @@ describe('Platform Access Request Administration', () => {
 		expect(deps.notifyGovernors.notifyInvitationBlocked).toHaveBeenCalledWith({
 			organizationId: 'org-1',
 			adminUserId: 'admin-1',
-			email: 'invitee@example.com'
+			email: 'invitee@example.com',
+			reason: 'rejected'
 		});
 		expect(deps.audit).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -966,5 +1072,85 @@ describe('Platform Access Request Administration', () => {
 				severity: 'warning'
 			})
 		);
+	});
+
+	it('rescinds an approved incomplete request, blocks its pending invitations and tells their governors', async () => {
+		const { admin, deps } = makeDeps({
+			sensitiveActionAuthorizer: {
+				authorize: vi.fn().mockResolvedValue(allowedDecision('platform.accessRequest.rescind'))
+			},
+			store: makeStore({
+				rescindApprovedAccessRequestAndBlockLinkedInvitations: vi.fn().mockResolvedValue({
+					status: 'rescinded',
+					blockedInvitations: [
+						{
+							id: 'invite-1',
+							organizationId: 'org-1',
+							email: 'invitee@example.com',
+							blockedAt: '2026-05-22T12:00:00.000Z'
+						}
+					]
+				})
+			})
+		});
+
+		expect(await admin.rescind({ accessRequestId: 'request-1', actorUserId: 'admin-1' })).toEqual({
+			status: 'rescinded'
+		});
+		expect(vi.mocked(deps.audit).mock.calls.map(([event]) => event)).toEqual([
+			{
+				action: 'access_request.rescinded',
+				resourceType: 'access_request',
+				resourceId: 'request-1',
+				details: { blockedInvitationCount: 1 },
+				severity: 'warning'
+			}
+		]);
+		expect(vi.mocked(deps.notifyGovernors.notifyInvitationBlocked).mock.calls).toEqual([
+			[{ organizationId: 'org-1', adminUserId: 'admin-1', email: 'invitee@example.com', reason: 'rescinded' }]
+		]);
+	});
+
+	it('requires a fresh step-up before rescinding and leaves the request untouched when denied', async () => {
+		const rescindApprovedAccessRequestAndBlockLinkedInvitations = vi.fn();
+		const { admin, deps } = makeDeps({
+			sensitiveActionAuthorizer: {
+				authorize: vi.fn().mockResolvedValue({
+					...allowedDecision('platform.accessRequest.rescind'),
+					allowed: false,
+					reason: 'denied.staleSession',
+					nextAssuranceLevel: 'aal2',
+					requiresStepUp: true
+				})
+			},
+			store: makeStore({ rescindApprovedAccessRequestAndBlockLinkedInvitations })
+		});
+
+		expect(await admin.rescind({ accessRequestId: 'request-1', actorUserId: 'admin-1' })).toMatchObject({
+			status: 'authorization_denied',
+			failure: { reason: 'denied.staleSession', requiresStepUp: true, stepUpPath: '/auth/mfa-verify' }
+		});
+		expect(rescindApprovedAccessRequestAndBlockLinkedInvitations).not.toHaveBeenCalled();
+		expect(vi.mocked(deps.audit).mock.calls.map(([event]) => [event.action, event.severity])).toEqual([
+			['access_request.rescission_authorization_denied', 'warning']
+		]);
+	});
+
+	it.each([
+		['claim-held', 'claim_held'],
+		['completed', 'setup_completed'],
+		['not_found', 'not_approved']
+	] as const)('refuses to rescind a %s request without auditing a rescission', async (storeStatus, status) => {
+		const { admin, deps } = makeDeps({
+			store: makeStore({
+				rescindApprovedAccessRequestAndBlockLinkedInvitations: vi
+					.fn()
+					.mockResolvedValue({ status: storeStatus, blockedInvitations: [] })
+			})
+		});
+
+		expect(await admin.rescind({ accessRequestId: 'request-1', actorUserId: 'admin-1' })).toEqual({ status });
+		expect(deps.audit).not.toHaveBeenCalled();
+		expect(deps.notifyGovernors.notifyInvitationBlocked).not.toHaveBeenCalled();
 	});
 });

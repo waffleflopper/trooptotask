@@ -49,7 +49,7 @@ export async function createPlatformAccessRequestOperations(event: RequestEvent)
 				notifications.notifyAdmins(input.organizationId, actor.userId, {
 					type: 'member_invite_blocked',
 					title: 'Invitation Blocked',
-					message: `"${input.email}" can no longer use the organization invitation because platform access was rejected.`,
+					message: `"${input.email}" can no longer use the organization invitation because platform access was ${input.reason}.`,
 					link: `/org/${input.organizationId}/settings`
 				})
 		}
@@ -60,6 +60,7 @@ export async function createPlatformAccessRequestOperations(event: RequestEvent)
 			administration.approve({ accessRequestId, actorUserId: actor.userId, publicOrigin: event.url.origin }),
 		resendSetup: (accessRequestId: string) =>
 			administration.resendSetup({ accessRequestId, actorUserId: actor.userId, publicOrigin: event.url.origin }),
-		reject: (accessRequestId: string) => administration.reject({ accessRequestId, actorUserId: actor.userId })
+		reject: (accessRequestId: string) => administration.reject({ accessRequestId, actorUserId: actor.userId }),
+		rescind: (accessRequestId: string) => administration.rescind({ accessRequestId, actorUserId: actor.userId })
 	};
 }

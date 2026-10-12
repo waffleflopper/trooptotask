@@ -2,9 +2,9 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SELECT no_plan();
-INSERT INTO public.access_requests (id,email,name,status)
-VALUES ('a1000000-0000-4000-8000-000000000001','claim@example.test','Claim','approved'),
-       ('a1000000-0000-4000-8000-000000000002','other@example.test','Other','approved');
+INSERT INTO public.access_requests (id,email,name,status, approval_basis)
+VALUES ('a1000000-0000-4000-8000-000000000001','claim@example.test','Claim','approved', 'platform_review'),
+       ('a1000000-0000-4000-8000-000000000002','other@example.test','Other','approved', 'platform_review');
 INSERT INTO public.account_setup_links (id,access_request_id,token_hash,expires_at)
 VALUES ('a1000000-0000-4000-8000-000000000011','a1000000-0000-4000-8000-000000000001','synthetic-claim-hash','2030-01-02T00:00:00Z');
 SELECT ok(has_table_privilege('anon', 'public.account_setup_links', 'SELECT'), 'anon retains governed setup-link SELECT');
@@ -38,7 +38,7 @@ RESET ROLE;
 SELECT is((SELECT claimed_at FROM public.account_setup_links WHERE id='a1000000-0000-4000-8000-000000000011'),(SELECT claimed_at FROM claim_before),'denial preserves prior claim state');
 ROLLBACK TO scenario;
 SAVEPOINT scenario;
-UPDATE public.access_requests SET status='pending' WHERE id='a1000000-0000-4000-8000-000000000001';
+UPDATE public.access_requests SET status='pending', approval_basis=NULL WHERE id='a1000000-0000-4000-8000-000000000001';
 CREATE TEMP TABLE claim_before ON COMMIT DROP AS SELECT claimed_at FROM public.account_setup_links WHERE id='a1000000-0000-4000-8000-000000000011';
 SET LOCAL ROLE service_role;
 SELECT is((SELECT claim_status FROM public.claim_account_setup_link_for_session('a1000000-0000-4000-8000-000000000011','a1000000-0000-4000-8000-000000000001','2030-01-01T00:00:00Z')),'access-request-not-approved','pending requests cannot claim');
@@ -46,7 +46,7 @@ RESET ROLE;
 SELECT is((SELECT claimed_at FROM public.account_setup_links WHERE id='a1000000-0000-4000-8000-000000000011'),(SELECT claimed_at FROM claim_before),'denial preserves prior claim state');
 ROLLBACK TO scenario;
 SAVEPOINT scenario;
-UPDATE public.access_requests SET status='rejected' WHERE id='a1000000-0000-4000-8000-000000000001';
+UPDATE public.access_requests SET status='rejected', approval_basis=NULL WHERE id='a1000000-0000-4000-8000-000000000001';
 CREATE TEMP TABLE claim_before ON COMMIT DROP AS SELECT claimed_at FROM public.account_setup_links WHERE id='a1000000-0000-4000-8000-000000000011';
 SET LOCAL ROLE service_role;
 SELECT is((SELECT claim_status FROM public.claim_account_setup_link_for_session('a1000000-0000-4000-8000-000000000011','a1000000-0000-4000-8000-000000000001','2030-01-01T00:00:00Z')),'access-request-not-approved','rejected requests cannot claim');
@@ -103,8 +103,8 @@ SELECT is((SELECT setup_completed_at FROM public.access_requests WHERE id='a1000
 -- approved Access Request for the same normalized email, even after expiry and revocation.
 INSERT INTO public.account_setup_links (id,access_request_id,token_hash,expires_at)
 VALUES ('a1000000-0000-4000-8000-000000000012','a1000000-0000-4000-8000-000000000001','synthetic-replacement-hash','2030-01-02T00:00:00Z');
-INSERT INTO public.access_requests (id,email,name,status)
-VALUES ('a1000000-0000-4000-8000-000000000003','claim@example.test','Same email','approved');
+INSERT INTO public.access_requests (id,email,name,status, approval_basis)
+VALUES ('a1000000-0000-4000-8000-000000000003','claim@example.test','Same email','approved', 'platform_review');
 INSERT INTO public.account_setup_links (id,access_request_id,token_hash,expires_at)
 VALUES ('a1000000-0000-4000-8000-000000000013','a1000000-0000-4000-8000-000000000003','synthetic-other-request-hash','2030-01-02T00:00:00Z');
 SET LOCAL ROLE service_role;

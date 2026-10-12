@@ -13,12 +13,12 @@ SELECT dblink_exec('contender', $$ SET statement_timeout = '10s' $$);
 SELECT dblink_exec('winner',$fixture$ INSERT INTO auth.users(id,email) VALUES ('a4000000-0000-4000-8000-000000000001','race-owner@example.test'),('a4000000-0000-4000-8000-000000000002','race-invitee@example.test');
 INSERT INTO public.platform_admins(id,user_id,role,is_active) VALUES ('a4000000-0000-4000-8000-000000000501','a4000000-0000-4000-8000-000000000001','support',true);
 INSERT INTO public.organizations(id,name,created_by) VALUES ('a4000000-0000-4000-8000-000000000101','Concurrent Invitation','a4000000-0000-4000-8000-000000000001');
-INSERT INTO public.access_requests(id,email,name,status) VALUES
-('a4000000-0000-4000-8000-000000000201','race-invitee@example.test','Concurrent Setup','approved'),
-('a4000000-0000-4000-8000-000000000202','shared-claim@example.test','First same-email request','approved'),
-('a4000000-0000-4000-8000-000000000203','shared-claim@example.test','Second same-email request','approved'),
-('a4000000-0000-4000-8000-000000000204','shared-claim@example.test','Post-release same-email request','approved'),
-('a4000000-0000-4000-8000-000000000205','shared-claim@example.test','Rollback contender request','approved');
+INSERT INTO public.access_requests(id,email,name,status, approval_basis) VALUES
+('a4000000-0000-4000-8000-000000000201','race-invitee@example.test','Concurrent Setup','approved', 'platform_review'),
+('a4000000-0000-4000-8000-000000000202','shared-claim@example.test','First same-email request','approved', 'platform_review'),
+('a4000000-0000-4000-8000-000000000203','shared-claim@example.test','Second same-email request','approved', 'platform_review'),
+('a4000000-0000-4000-8000-000000000204','shared-claim@example.test','Post-release same-email request','approved', 'platform_review'),
+('a4000000-0000-4000-8000-000000000205','shared-claim@example.test','Rollback contender request','approved', 'platform_review');
 INSERT INTO public.account_setup_links(id,access_request_id,token_hash,expires_at) VALUES
 ('a4000000-0000-4000-8000-000000000301','a4000000-0000-4000-8000-000000000201','synthetic-race-hash',now()+interval '1 day'),
 ('a4000000-0000-4000-8000-000000000302','a4000000-0000-4000-8000-000000000202','synthetic-same-email-first-hash',now()+interval '1 day'),

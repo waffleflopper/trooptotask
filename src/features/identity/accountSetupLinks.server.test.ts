@@ -5,6 +5,7 @@ import {
 	type AccountSetupLinkRecord,
 	type AccountSetupLinkStore
 } from './accountSetupLinks.server';
+import { issueSetupLinkInMemory } from './accountSetupFixtures.server';
 
 function makeStore(accessRequests: AccountSetupLinkAccessRequest[] = []): AccountSetupLinkStore & {
 	links: AccountSetupLinkRecord[];
@@ -24,39 +25,9 @@ function makeStore(accessRequests: AccountSetupLinkAccessRequest[] = []): Accoun
 		async getAccessRequest(id) {
 			return requests.get(id) ?? null;
 		},
-		async revokeUnusedLinksForAccessRequest(accessRequestId, revokedAt) {
-			const revoked: AccountSetupLinkRecord[] = [];
-			for (const link of links) {
-				if (link.accessRequestId === accessRequestId && !link.claimedAt && !link.usedAt && !link.revokedAt) {
-					link.revokedAt = revokedAt;
-					link.revocationReason = 'replaced';
-					revoked.push(link);
-				}
-			}
-			return revoked;
-		},
-		async insertSetupLink(input) {
-			if (this.failInsertUnique) {
-				throw {
-					code: '23505',
-					message: 'duplicate key value violates unique constraint "account_setup_links_one_active_per_request_idx"'
-				};
-			}
-			const link: AccountSetupLinkRecord = {
-				id: `link-${links.length + 1}`,
-				accessRequestId: input.accessRequestId,
-				tokenHash: input.tokenHash,
-				expiresAt: input.expiresAt,
-				createdAt: input.createdAt,
-				claimedAt: null,
-				failedAt: null,
-				failureReason: null,
-				usedAt: null,
-				revokedAt: null,
-				revocationReason: null
-			};
-			links.push(link);
-			return link;
+		async issueSetupLink(input) {
+			if (this.failInsertUnique) return { status: 'concurrent-create' };
+			return issueSetupLinkInMemory(requests.get(input.accessRequestId), links, input, `link-${links.length + 1}`);
 		},
 		async findByTokenHash(tokenHash) {
 			return links.find((link) => link.tokenHash === tokenHash) ?? null;
@@ -70,7 +41,7 @@ function makeStore(accessRequests: AccountSetupLinkAccessRequest[] = []): Accoun
 			if (!link || link.accessRequestId !== input.accessRequestId || !request) return { status: 'missing' };
 			// This fake prioritizes access-request outcomes for focused service tests; the database RPC owns exact status ordering.
 			if (request.setupCompletedAt) return { status: 'access-request-completed' };
-			if (request.status !== 'approved') return { status: 'access-request-not-approved' };
+			if (request.status !== 'approved' || !request.setupGrantLive) return { status: 'access-request-not-approved' };
 			if (link.usedAt) return { status: 'used' };
 			if (link.failedAt) return { status: 'failed' };
 			if (link.claimedAt) return { status: 'claimed' };
@@ -131,7 +102,8 @@ function makeStore(accessRequests: AccountSetupLinkAccessRequest[] = []): Accoun
 const approvedRequest: AccountSetupLinkAccessRequest = {
 	id: 'request-1',
 	status: 'approved',
-	setupCompletedAt: null
+	setupCompletedAt: null,
+	setupGrantLive: true
 };
 
 describe('Account Setup Links', () => {
@@ -172,7 +144,7 @@ describe('Account Setup Links', () => {
 		expect(store.links).toHaveLength(2);
 		expect(result).toMatchObject({
 			status: 'created',
-			revokedLinks: [expect.objectContaining({ id: store.links[0].id, revocationReason: 'replaced' })]
+			revokedLinkIds: ['link-1']
 		});
 		expect(store.links[0].revokedAt).toEqual(new Date('2026-05-19T12:00:00.000Z'));
 		expect(store.links[0].revocationReason).toBe('replaced');
@@ -313,6 +285,37 @@ describe('Account Setup Links', () => {
 		expect(store.links[0].claimedAt).toBeNull();
 	});
 
+	it('refuses issuance and an unclaimed link once the grant is dead, while an admitted claim stays recoverable', async () => {
+		const request: AccountSetupLinkAccessRequest = { ...approvedRequest };
+		const store = makeStore([request]);
+		const service = createAccountSetupLinkService(store, {
+			now: () => new Date('2026-05-18T12:00:00.000Z'),
+			generateToken: () => 'withdrawn-token'
+		});
+		await service.createForAccessRequest('request-1');
+
+		request.setupGrantLive = false;
+
+		expect(await service.validateToken('withdrawn-token')).toEqual({ status: 'access-request-not-approved' });
+		expect(await service.createForAccessRequest('request-1')).toEqual({ status: 'access-request-not-approved' });
+		expect(store.links).toHaveLength(1);
+		store.links[0].claimedAt = new Date('2026-05-18T11:59:00.000Z');
+		expect(await service.validateToken('withdrawn-token')).toMatchObject({ status: 'claimed', link: { id: 'link-1' } });
+	});
+
+	it('reads a cleanup revocation as expiry, since cleanup only revokes expired links', async () => {
+		const store = makeStore([approvedRequest]);
+		const service = createAccountSetupLinkService(store, {
+			now: () => new Date('2026-05-18T12:00:00.000Z'),
+			generateToken: () => 'cleaned-token'
+		});
+		await service.createForAccessRequest('request-1');
+		store.links[0].revokedAt = new Date('2026-05-18T12:00:00.000Z');
+		store.links[0].revocationReason = 'cleanup';
+
+		expect(await service.validateToken('cleaned-token')).toEqual({ status: 'expired' });
+	});
+
 	it('claims and completes a valid token once and exposes cleanup eligibility without deleting User Accounts or Access Requests', async () => {
 		const store = makeStore([approvedRequest]);
 		const service = createAccountSetupLinkService(store, {
@@ -377,7 +380,8 @@ describe('Account Setup Links', () => {
 		const completedRequest: AccountSetupLinkAccessRequest = {
 			id: 'request-completed',
 			status: 'approved',
-			setupCompletedAt: '2026-05-18T12:00:00.000Z'
+			setupCompletedAt: '2026-05-18T12:00:00.000Z',
+			setupGrantLive: false
 		};
 		const store = makeStore([approvedRequest, completedRequest]);
 		const service = createAccountSetupLinkService(store, {

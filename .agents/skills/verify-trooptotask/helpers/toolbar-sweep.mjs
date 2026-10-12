@@ -113,7 +113,8 @@ const signature = (read) => `${read.ids.join(',')}|${read.search}|${read.more}`;
 const widthKey = (read) => String(Math.round(read.contentWidth * 2) / 2);
 
 // Pure. `down` and `up` are steps `{ width, read, holds }`; `expect` lists the ids in the order they must fold.
-export function checkSweep({ down, up }, { expect }) {
+// `pinned` lists the ids that must be on the row, and `search` says search must be present, in every read.
+export function checkSweep({ down, up }, { expect, pinned = [], search = false }) {
 	const failures = [];
 	const fail = (check, width, detail) => failures.push({ check, width, detail });
 	const steps = [
@@ -130,7 +131,6 @@ export function checkSweep({ down, up }, { expect }) {
 		return { ok: false, failures, foldedAt: {}, restoredAt: {} };
 	}
 
-	const pinned = down[0].read.ids.filter((id) => !expect.includes(id));
 	const foldedIn = (read) => expect.filter((id) => !read.ids.includes(id));
 	const missing = expect.filter((id) => !down[0].read.ids.includes(id));
 	if (missing.length)
@@ -155,7 +155,10 @@ export function checkSweep({ down, up }, { expect }) {
 			);
 		if (read.clipped.length)
 			fail('inside-row', width, `${read.clipped.join(', ')} extend outside the row's content box.`);
-		for (const id of pinned.filter((p) => !read.ids.includes(p))) fail('pinned', width, `${id} left the row.`);
+		const parts = [read, ...step.holds];
+		for (const id of pinned.filter((p) => parts.some((part) => !part.ids.includes(p))))
+			fail('pinned', width, `${id} is not on the row.`);
+		if (search && parts.some((part) => part.search === 'none')) fail('search-present', width, 'Search reads none.');
 
 		const folded = foldedIn(read);
 		if (folded.join() !== expect.slice(0, folded.length).join())
@@ -227,6 +230,53 @@ export function checkSweep({ down, up }, { expect }) {
 	return { ok: failures.length === 0, failures, foldedAt, restoredAt };
 }
 
+const usage =
+	'Use toolbar-sweep PAGE TOOLBAR_LABEL RUN_DIR --expect ID,ID,... [--pinned ID,ID,...] [--search] [--from 1440] [--to 390] [--step 2] [--height 900] [--record NAME].';
+const valueFlags = ['expect', 'pinned', 'from', 'to', 'step', 'height', 'record'];
+const idList = (value) => (value ?? '').split(',').filter(Boolean);
+
+export function parseSweepArguments([page, label, runName, ...flags]) {
+	const options = {};
+	let search = false;
+	for (let i = 0; i < flags.length; i++) {
+		const name = flags[i].startsWith('--') ? flags[i].slice(2) : '';
+		if (name === 'search' && !search) search = true;
+		else if (valueFlags.includes(name) && !(name in options) && flags[i + 1] && !flags[i + 1].startsWith('--'))
+			options[name] = flags[++i];
+		else throw new Error(usage);
+	}
+	const pageId = Number(page);
+	const [from, to, step, height] = [
+		options.from ?? '1440',
+		options.to ?? '390',
+		options.step ?? '2',
+		options.height ?? '900'
+	].map(Number);
+	const expectIds = idList(options.expect);
+	const pinnedIds = idList(options.pinned);
+	if (!Number.isInteger(pageId) || pageId < 1 || !label || !runName || !expectIds.length) throw new Error(usage);
+	if (![from, to, step, height].every(Number.isInteger) || to < 200 || from < to || step < 1 || height < 200)
+		throw new Error('Use whole numbers with 200 <= --to <= --from, --step >= 1 and --height >= 200.');
+	const ids = [...expectIds, ...pinnedIds];
+	if (ids.some((id) => !/^[\w.-]+$/.test(id)) || new Set(ids).size !== ids.length)
+		throw new Error('--expect and --pinned take distinct toolbar item ids separated by commas.');
+	if (options.record !== undefined && !/^[\w-][\w.-]*$/.test(options.record))
+		throw new Error('--record takes a plain file name without an extension or directory.');
+	return {
+		pageId,
+		label,
+		runName,
+		expectIds,
+		pinnedIds,
+		search,
+		from,
+		to,
+		step,
+		height,
+		recordName: options.record
+	};
+}
+
 export function sweepWidths(from, to, step) {
 	const widths = [];
 	for (let w = from; w > to; w -= step) widths.push(w);
@@ -236,8 +286,21 @@ export function sweepWidths(from, to, step) {
 
 // `page` is `{ resize(width, height), read(), startRecording(file), stopRecording() }`. The recording stops,
 // the viewport returns to 1280x800 and the trace is written even when the drive throws.
-export async function runSweep({ page, expect, from, to, step, height, recording, write, sleep, progress = () => {} }) {
-	const result = { expect, from, to, step, height, recording: null, error: null, down: [], up: [] };
+export async function runSweep({
+	page,
+	expect,
+	pinned = [],
+	search = false,
+	from,
+	to,
+	step,
+	height,
+	recording,
+	write,
+	sleep,
+	progress = () => {}
+}) {
+	const result = { expect, pinned, search, from, to, step, height, recording: null, error: null, down: [], up: [] };
 	const widths = sweepWidths(from, to, step);
 	let previous;
 	const measure = async (width) => {
@@ -283,7 +346,7 @@ export async function runSweep({ page, expect, from, to, step, height, recording
 			result.restoreError = error.message;
 		}
 		result.verdict = result.down.length
-			? checkSweep(result, { expect })
+			? checkSweep(result, { expect, pinned, search })
 			: { ok: false, failures: [], foldedAt: {}, restoredAt: {} };
 		if (result.error)
 			result.verdict = {

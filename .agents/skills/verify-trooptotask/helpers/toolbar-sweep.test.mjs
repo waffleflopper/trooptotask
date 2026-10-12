@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import { Window } from 'happy-dom';
 import {
 	checkSweep,
+	parseSweepArguments,
 	readToolbar,
 	restoreViewport,
 	runSweep,
@@ -66,10 +67,11 @@ function sweep(rows = table) {
 		.map((row) => step(row));
 	return { down, up };
 }
-const checks = (trace) => checkSweep(trace, { expect }).failures.map((f) => f.check);
+const rules = { expect, pinned, search: true };
+const checks = (trace) => checkSweep(trace, rules).failures.map((f) => f.check);
 
 test('accepts a reversible one-at-a-time sweep and reports where each control folds and returns', () => {
-	const verdict = checkSweep(sweep(), { expect });
+	const verdict = checkSweep(sweep(), rules);
 	assert.deepEqual(verdict.failures, []);
 	assert.equal(verdict.ok, true);
 	assert.deepEqual(verdict.foldedAt, {
@@ -185,11 +187,43 @@ test('rejects the pinned primary control leaving the row', () => {
 	const trace = sweep();
 	trace.down[8].read.ids = trace.down[8].read.ids.filter((id) => id !== 'record');
 	assert.deepEqual(
-		checkSweep(trace, { expect })
+		checkSweep(trace, rules)
 			.failures.filter((f) => f.check === 'pinned')
 			.map((f) => f.width),
 		[600]
 	);
+});
+
+const everyRead = (trace) => [...trace.down, ...trace.up].flatMap((entry) => [entry.read, ...entry.holds]);
+
+test('rejects a pinned primary control that is missing from every read', () => {
+	const trace = sweep();
+	for (const entry of everyRead(trace)) entry.ids = entry.ids.filter((id) => id !== 'record');
+	const failures = checkSweep(trace, rules).failures.filter((f) => f.check === 'pinned');
+	assert.equal(failures.length, trace.down.length + trace.up.length);
+	assert.equal(failures[0].detail, 'record is not on the row.');
+	assert.deepEqual(checkSweep(trace, { expect }).failures, [], 'nothing is pinned unless the run names it');
+});
+
+test('rejects a pinned control missing from a hold read alone', () => {
+	const trace = sweep();
+	trace.down[1].holds[2].ids = trace.down[1].holds[2].ids.filter((id) => id !== 'record');
+	assert.deepEqual(
+		checkSweep(trace, rules).failures.map((f) => [f.check, f.width]),
+		[
+			['pinned', 1300],
+			['stable', 1300]
+		]
+	);
+});
+
+test('rejects a run that requires search when search reads none in every read', () => {
+	const trace = sweep();
+	for (const entry of everyRead(trace)) entry.search = 'none';
+	const failures = checkSweep(trace, rules).failures.filter((f) => f.check === 'search-present');
+	assert.equal(failures.length, trace.down.length + trace.up.length);
+	assert.equal(failures[0].detail, 'Search reads none.');
+	assert.deepEqual(checkSweep(trace, { expect, pinned }).failures, [], 'search is optional unless the run requires it');
 });
 
 test('rejects different state at the same content width going down and coming up', () => {
@@ -532,4 +566,80 @@ test('fails the verdict when the recording cannot be stopped, yet still restores
 	assert.deepEqual(result.verdict.failures.at(-1), { check: 'recording', width: null, detail: 'ffmpeg exited' });
 	assert.equal(p.log.at(-1), 'resize 1280x800');
 	assert.equal(written.length, 1);
+});
+
+const runArgs = ['1', 'Critical Tasks controls', 'run', '--expect', 'export,reports'];
+
+test('parses the pinned ids and the search requirement, which default to none', () => {
+	const defaults = parseSweepArguments(runArgs);
+	assert.deepEqual(defaults, {
+		pageId: 1,
+		label: 'Critical Tasks controls',
+		runName: 'run',
+		expectIds: ['export', 'reports'],
+		pinnedIds: [],
+		search: false,
+		from: 1440,
+		to: 390,
+		step: 2,
+		height: 900,
+		recordName: undefined
+	});
+	const explicit = parseSweepArguments([
+		...runArgs,
+		'--pinned',
+		'record,add',
+		'--search',
+		'--step',
+		'1',
+		'--record',
+		'sweep'
+	]);
+	assert.deepEqual(
+		[explicit.pinnedIds, explicit.search, explicit.step, explicit.recordName],
+		[['record', 'add'], true, 1, 'sweep']
+	);
+	assert.equal(parseSweepArguments(['1', 'Controls', 'run', '--search', '--expect', 'export']).search, true);
+});
+
+test('rejects a pinned id that is also expected to fold, a value on --search, and repeated or unknown flags', () => {
+	for (const flags of [
+		['--pinned', 'export'],
+		['--pinned', 'a,a'],
+		['--search', 'yes'],
+		['--search', '--search'],
+		['--pinned'],
+		['--pinned', '--search'],
+		['--unknown', 'x']
+	])
+		assert.throws(() => parseSweepArguments([...runArgs, ...flags]), /toolbar-sweep|distinct/, flags.join(' '));
+});
+
+test('carries the pinned ids and search requirement into the trace and the verdict', async () => {
+	const rows = [
+		[1440, 0, 'field'],
+		[1340, 1, 'field']
+	];
+	const written = [];
+	const result = await runSweep({
+		page: fakePage(rows),
+		expect: expect.slice(0, 1),
+		pinned: ['record', 'missing-one'],
+		search: true,
+		from: 1440,
+		to: 1340,
+		step: 100,
+		height: 900,
+		write: async (r) => written.push(r),
+		sleep: async () => {}
+	});
+	assert.deepEqual([result.pinned, result.search], [['record', 'missing-one'], true]);
+	assert.deepEqual(
+		result.verdict.failures.map((f) => [f.check, f.width, f.detail]),
+		[
+			['pinned', 1440, 'missing-one is not on the row.'],
+			['pinned', 1340, 'missing-one is not on the row.'],
+			['pinned', 1440, 'missing-one is not on the row.']
+		]
+	);
 });

@@ -26,7 +26,7 @@ import { seedDeletionSources, requestDeletion, requestPersonnelArchiveBatch } fr
 import { requestOnboarding, readOnboardingRequests } from './onboarding-request.mjs';
 import { installFeedbackControl } from './feedback-control.mjs';
 import { readStyleProbe, diffStyleProbes, styleProperties, resolveStyleSelectors } from './style-probe.mjs';
-import { runSweep, toolbarReadSource } from './toolbar-sweep.mjs';
+import { parseSweepArguments, runSweep, toolbarReadSource } from './toolbar-sweep.mjs';
 import { observePrint } from './print-observation.mjs';
 import { seedPersonnelRetention, readRetentionFiles } from './personnel-retention.mjs';
 import { seedArtifactRetention } from './artifact-retention.mjs';
@@ -2671,34 +2671,8 @@ async function main() {
 		return;
 	}
 	if (command === 'toolbar-sweep') {
-		const usage =
-			'Use toolbar-sweep PAGE TOOLBAR_LABEL RUN_DIR --expect ID,ID,... [--from 1440] [--to 390] [--step 2] [--height 900] [--record NAME].';
-		const [page, label, runName, ...flags] = args;
-		const option = (name, fallback) => {
-			const at = flags.indexOf(`--${name}`);
-			if (at < 0) return fallback;
-			if (flags[at + 1] === undefined || flags[at + 1].startsWith('--')) throw new Error(usage);
-			return flags[at + 1];
-		};
-		const known = ['expect', 'from', 'to', 'step', 'height', 'record'];
-		for (let i = 0; i < flags.length; i += 2)
-			if (!flags[i].startsWith('--') || !known.includes(flags[i].slice(2))) throw new Error(usage);
-		const pageId = Number(page);
-		const [from, to, step, height] = [
-			option('from', '1440'),
-			option('to', '390'),
-			option('step', '2'),
-			option('height', '900')
-		].map(Number);
-		const expectIds = (option('expect', '') || '').split(',').filter(Boolean);
-		const recordName = option('record');
-		if (!Number.isInteger(pageId) || pageId < 1 || !label || !runName || !expectIds.length) throw new Error(usage);
-		if (![from, to, step, height].every(Number.isInteger) || to < 200 || from < to || step < 1 || height < 200)
-			throw new Error('Use whole numbers with 200 <= --to <= --from, --step >= 1 and --height >= 200.');
-		if (expectIds.some((id) => !/^[\w.-]+$/.test(id)) || new Set(expectIds).size !== expectIds.length)
-			throw new Error('--expect takes distinct toolbar item ids separated by commas.');
-		if (recordName !== undefined && !/^[\w-][\w.-]*$/.test(recordName))
-			throw new Error('--record takes a plain file name without an extension or directory.');
+		const { pageId, label, runName, expectIds, pinnedIds, search, from, to, step, height, recordName } =
+			parseSweepArguments(args);
 		const runDir = path.resolve(runName);
 		if (!(await isUnderEvidence(runDir, evidenceRoot)))
 			throw new Error('RUN_DIR must be a directory under the skill evidence directory.');
@@ -2732,6 +2706,8 @@ async function main() {
 		const result = await runSweep({
 			page: driven,
 			expect: expectIds,
+			pinned: pinnedIds,
+			search,
 			from,
 			to,
 			step,

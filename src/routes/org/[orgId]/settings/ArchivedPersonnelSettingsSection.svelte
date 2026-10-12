@@ -36,7 +36,7 @@
 	>
 		<div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
 			<div class="grid gap-1">
-				<h2 id="archived-records-heading" class="font-heading text-lg font-semibold tracking-tight">
+				<h2 id="archived-records-heading" tabindex="-1" class="font-heading text-lg font-semibold tracking-tight">
 					Archived Records
 				</h2>
 				<p class="text-sm text-muted-foreground">

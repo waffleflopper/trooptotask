@@ -477,3 +477,19 @@ Before application release, Robert completes these operator steps:
 3. Merge the closing PR immediately afterward so Vercel deploys the new application. Verify one new-person invitation and one platform approval through ordinary use after release.
 
 Repository CI operates disposable local databases and performs no remote migration. External production deployment settings are uninspected. No fixture, test, provider probe or synthetic SQL contract belongs on the hosted database.
+
+## Phase 11 D02 recoverable Organization creation
+
+Robert applies [`supabase/migrations/20261012000200_recoverable_organization_creation.sql`](../../supabase/migrations/20261012000200_recoverable_organization_creation.sql), SHA-256 `6509d858625806f193782bfee04045b22db640d4615cea3a5845080ce450fdbd`, through his normal ordered migration procedure. Its repository predecessor is D01's `20261012000100`; the agent has not inspected the hosted ledger.
+
+Applying it creates `organization_creation_requests` with RLS on and no grants, creates `create_organization`, and drops `create_org_with_owner`. It rewrites and deletes no rows. Existing Organizations, including any incomplete ones left by the old provisioning, are unchanged.
+
+The two sides are not compatible in either order. After the migration, the old application's Organization creation fails before it writes anything because its RPC no longer exists. The new application calls `create_organization`, so deploying it first fails every creation the same way. Nothing else depends on either function. Keep the window short.
+
+Before application release, Robert completes these operator steps:
+
+1. Confirm the intended release revision, migration chain and backup.
+2. Apply only the reviewed migration through the existing ordered process. Record its version, hash and outcome privately.
+3. Merge the closing PR immediately afterward so Vercel deploys the new application. Verify one Organization creation through ordinary use after release.
+
+Repository CI operates disposable local databases and performs no remote migration. External production deployment settings are uninspected. No fixture, test, provider probe or synthetic SQL contract belongs on the hosted database.

@@ -1,76 +1,71 @@
 import { describe, expect, it } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
 import { createSupabaseOrganizationCreationPort } from './provisioningProvider.server';
+import type { OrganizationDefaults } from './provisioning.server';
+
+const defaults: OrganizationDefaults = {
+	groups: [{ name: 'Leadership', sort_order: 0 }],
+	status_types: [{ name: 'Leave', color: '#48bb78', text_color: '#ffffff', sort_order: 0 }],
+	assignment_types: [{ name: 'Staff Duty', short_name: 'SD', assign_to: 'personnel', color: '#dc2626', sort_order: 0 }],
+	special_days: [{ date: '2026-01-01', name: "New Year's Day", type: 'federal-holiday' }],
+	rank_catalog: [
+		{
+			code: 'SGT',
+			label: 'Sergeant',
+			service: 'army',
+			category: 'enlisted',
+			pay_grade: 'E-5',
+			state: 'active',
+			source: 'built-in',
+			sort_order: 0
+		}
+	]
+};
+const requestId = '6f0c6c9e-7a53-4d1b-9a4e-2f3f0f9f0a11';
 
 function httpPort(handle: (request: Request) => Promise<Response>) {
 	const supabase = createClient('http://127.0.0.1:9', 'synthetic-anon-key', {
 		auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
 		global: { fetch: (input, init) => handle(new Request(input, init)) }
 	});
-	return createSupabaseOrganizationCreationPort({ supabase } as never);
+	return createSupabaseOrganizationCreationPort({ supabase } as never, defaults);
 }
 
 describe('Organization creation provider boundary', () => {
-	it.each([
-		['created', 200, 'org-created', { orgId: 'org-created', errorMessage: null }],
-		[
-			'owner denied',
-			403,
-			{ code: '42501', message: 'Owner insert denied' },
-			{ orgId: null, errorMessage: 'Owner insert denied' }
-		],
-		['missing result', 200, null, { orgId: null, errorMessage: null }]
-	] as const)('maps %s through the authenticated owner-creation RPC', async (_, status, body, expected) => {
+	it('sends one authenticated create_organization call carrying the name, request id and defaults', async () => {
 		const requests: Array<{ path: string; method: string; body: unknown }> = [];
 		const port = httpPort(async (request) => {
 			requests.push({ path: new URL(request.url).pathname, method: request.method, body: await request.json() });
-			return Response.json(body, { status });
+			return Response.json('org-created');
 		});
-		expect(await port.createOrganizationWithOwner('Alpha Company')).toEqual(expected);
-		// The RPC derives ownership from the authenticated session, never a supplied actor.
+
+		expect(await port.createOrganization({ name: 'Alpha Company', requestId })).toEqual({ orgId: 'org-created' });
 		expect(requests).toEqual([
-			{ path: '/rest/v1/rpc/create_org_with_owner', method: 'POST', body: { p_name: 'Alpha Company' } }
-		]);
-	});
-
-	it('updates only the requested owner membership, preserving another actor and another Organization', async () => {
-		const memberships = [
-			{ organization_id: 'org-1', user_id: 'user-1', email: 'old@example.test' },
-			{ organization_id: 'org-1', user_id: 'user-2', email: 'member@example.test' },
-			{ organization_id: 'org-2', user_id: 'user-1', email: 'sibling@example.test' }
-		];
-		const port = httpPort(async (request) => {
-			const url = new URL(request.url);
-			expect(url.pathname).toBe('/rest/v1/organization_memberships');
-			expect(request.method).toBe('PATCH');
-			const patch = await request.json();
-			for (const row of memberships) {
-				const matches = [...url.searchParams].every(([key, value]) => row[key as keyof typeof row] === value.slice(3));
-				if (matches) Object.assign(row, patch);
+			{
+				path: '/rest/v1/rpc/create_organization',
+				method: 'POST',
+				body: { p_name: 'Alpha Company', p_request_id: requestId, p_defaults: defaults }
 			}
-			return new Response(null, { status: 204 });
-		});
-		expect(
-			await port.updateOwnerMembershipEmail({ organizationId: 'org-1', userId: 'user-1', email: 'owner@example.test' })
-		).toBeNull();
-		expect(memberships).toEqual([
-			{ organization_id: 'org-1', user_id: 'user-1', email: 'owner@example.test' },
-			{ organization_id: 'org-1', user_id: 'user-2', email: 'member@example.test' },
-			{ organization_id: 'org-2', user_id: 'user-1', email: 'sibling@example.test' }
 		]);
 	});
 
-	it('reports a denied owner email update without broadening the target', async () => {
-		const port = httpPort(async (request) => {
-			const url = new URL(request.url);
-			expect(url.pathname).toBe('/rest/v1/organization_memberships');
-			expect(url.searchParams.get('organization_id')).toBe('eq.org-1');
-			expect(url.searchParams.get('user_id')).toBe('eq.user-1');
-			expect(await request.json()).toEqual({ email: 'owner@example.test' });
-			return Response.json({ code: '42501', message: 'Write denied' }, { status: 403 });
+	it.each([
+		[
+			'provider denial',
+			() => Response.json({ code: '42501', message: 'Owner insert denied' }, { status: 403 }),
+			'Owner insert denied'
+		],
+		['unacknowledged result', () => Response.json(null), 'The provider did not return an Organization id']
+	] as const)('reports %s as a failure without an Organization id', async (_, respond, failure) => {
+		const port = httpPort(async () => respond());
+		expect(await port.createOrganization({ name: 'Alpha Company', requestId })).toEqual({ failure });
+	});
+
+	it('reports a thrown transport error as a failure', async () => {
+		const port = httpPort(async () => {
+			throw new Error('socket closed');
 		});
-		expect(
-			await port.updateOwnerMembershipEmail({ organizationId: 'org-1', userId: 'user-1', email: 'owner@example.test' })
-		).toBe('Write denied');
+		const result = await port.createOrganization({ name: 'Alpha Company', requestId });
+		expect(result).toEqual({ failure: expect.stringContaining('socket closed') });
 	});
 });

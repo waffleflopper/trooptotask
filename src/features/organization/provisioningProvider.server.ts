@@ -1,28 +1,23 @@
-import type { OrgProvisioningCreateResult, OrgProvisioningPort } from './provisioning.server';
+import type { OrganizationDefaults, OrgProvisioningPort } from './provisioning.server';
 
 export function createSupabaseOrganizationCreationPort(
-	locals: Pick<App.Locals, 'supabase'>
-): Pick<OrgProvisioningPort, 'createOrganizationWithOwner' | 'updateOwnerMembershipEmail'> {
-	const supabase = locals.supabase;
-
+	locals: Pick<App.Locals, 'supabase'>,
+	defaults: OrganizationDefaults
+): OrgProvisioningPort {
 	return {
-		async createOrganizationWithOwner(name): Promise<OrgProvisioningCreateResult> {
-			const { data, error } = await supabase.rpc('create_org_with_owner', { p_name: name });
-
-			return {
-				orgId: data ?? null,
-				errorMessage: error?.message ?? null
-			};
-		},
-
-		async updateOwnerMembershipEmail(input) {
-			const { error } = await supabase
-				.from('organization_memberships')
-				.update({ email: input.email })
-				.eq('organization_id', input.organizationId)
-				.eq('user_id', input.userId);
-
-			return error?.message ?? null;
+		async createOrganization({ name, requestId }) {
+			try {
+				const { data, error } = await locals.supabase.rpc('create_organization', {
+					p_name: name,
+					p_request_id: requestId,
+					p_defaults: defaults
+				});
+				if (error) return { failure: error.message };
+				if (typeof data !== 'string') return { failure: 'The provider did not return an Organization id' };
+				return { orgId: data };
+			} catch (error) {
+				return { failure: error instanceof Error ? error.message : String(error) };
+			}
 		}
 	};
 }

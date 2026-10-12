@@ -1,175 +1,68 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { provisionOrganization, type OrgProvisioningPort } from './provisioning.server';
+import {
+	ORGANIZATION_CREATION_UNCONFIRMED_MESSAGE,
+	provisionOrganization,
+	type OrgProvisioningPort
+} from './provisioning.server';
 
-function createOrgProvisioningPort(
-	options: {
-		createResult?: { orgId: string | null; errorMessage: string | null };
-		rankCatalogError?: string | null;
-	} = {}
-): OrgProvisioningPort & {
-	createRequests: string[];
-	ownerEmailUpdates: Array<{ organizationId: string; userId: string; email: string | undefined }>;
-	groupSeeds: string[];
-	statusTypeSeeds: string[];
-	assignmentTypeSeeds: string[];
-	federalHolidaySeeds: string[];
-	rankCatalogSeeds: string[];
-} {
-	const createRequests: string[] = [];
-	const ownerEmailUpdates: Array<{ organizationId: string; userId: string; email: string | undefined }> = [];
-	const groupSeeds: string[] = [];
-	const statusTypeSeeds: string[] = [];
-	const assignmentTypeSeeds: string[] = [];
-	const federalHolidaySeeds: string[] = [];
-	const rankCatalogSeeds: string[] = [];
+const requestId = '6f0c6c9e-7a53-4d1b-9a4e-2f3f0f9f0a11';
 
+function port(result: Awaited<ReturnType<OrgProvisioningPort['createOrganization']>> = { orgId: 'org-1' }) {
+	const requests: Array<{ name: string; requestId: string }> = [];
 	return {
-		createRequests,
-		ownerEmailUpdates,
-		groupSeeds,
-		statusTypeSeeds,
-		assignmentTypeSeeds,
-		federalHolidaySeeds,
-		rankCatalogSeeds,
-		async createOrganizationWithOwner(name) {
-			createRequests.push(name);
-			return options.createResult ?? { orgId: 'org-1', errorMessage: null };
-		},
-		async updateOwnerMembershipEmail(input) {
-			ownerEmailUpdates.push(input);
-			return null;
-		},
-		async seedDefaultGroups(organizationId) {
-			groupSeeds.push(organizationId);
-			return null;
-		},
-		async seedDefaultStatusTypes(organizationId) {
-			statusTypeSeeds.push(organizationId);
-			return null;
-		},
-		async seedDefaultAssignmentTypes(organizationId) {
-			assignmentTypeSeeds.push(organizationId);
-			return null;
-		},
-		async seedFederalHolidays(organizationId) {
-			federalHolidaySeeds.push(organizationId);
-			return null;
-		},
-		async seedDefaultRankCatalog(organizationId) {
-			rankCatalogSeeds.push(organizationId);
-			return options.rankCatalogError ?? null;
+		requests,
+		async createOrganization(input: { name: string; requestId: string }) {
+			requests.push(input);
+			return result;
 		}
 	};
 }
 
 describe('provisionOrganization', () => {
-	afterEach(() => {
-		vi.restoreAllMocks();
-		vi.useRealTimers();
-	});
+	afterEach(() => vi.restoreAllMocks());
 
-	it('creates retained defaults for the new Organization with independent calendar and rank examples', async () => {
-		const port = createOrgProvisioningPort();
-		const result = await provisionOrganization(port, {
-			name: '  Alpha   Company  ',
-			userId: 'user-1',
-			email: 'OWNER@EXAMPLE.COM'
+	it('creates the Organization once with the cleaned name and the submission request id', async () => {
+		const creation = port();
+		expect(await provisionOrganization(creation, { name: '  Alpha   Company  ', requestId })).toEqual({
+			orgId: 'org-1'
 		});
-
-		expect(result).toEqual({ orgId: 'org-1' });
-		expect(port.createRequests).toEqual(['Alpha Company']);
-		expect(port.ownerEmailUpdates).toEqual([
-			{
-				organizationId: 'org-1',
-				userId: 'user-1',
-				email: 'owner@example.com'
-			}
-		]);
-		expect(port.groupSeeds).toEqual(['org-1']);
-		expect(port.statusTypeSeeds).toEqual(['org-1']);
-		expect(port.assignmentTypeSeeds).toEqual(['org-1']);
-		expect(port.federalHolidaySeeds).toEqual(['org-1']);
-		expect(port.rankCatalogSeeds).toEqual(['org-1']);
+		expect(creation.requests).toEqual([{ name: 'Alpha Company', requestId }]);
 	});
 
-	it('collapses repeated internal whitespace before creating the organization', async () => {
-		const port = createOrgProvisioningPort();
-
-		await provisionOrganization(port, {
-			name: '  1st   Platoon    HQ  ',
-			userId: 'user-1',
-			email: 'owner@example.com'
-		});
-
-		expect(port.createRequests).toEqual(['1st Platoon HQ']);
+	it('accepts a name at the 100-character boundary and clips beyond it', async () => {
+		const creation = port();
+		await provisionOrganization(creation, { name: 'A'.repeat(100), requestId });
+		await provisionOrganization(creation, { name: 'B'.repeat(101), requestId });
+		expect(creation.requests.map((request) => request.name)).toEqual(['A'.repeat(100), 'B'.repeat(100)]);
 	});
 
-	it('accepts a name at the 100-character boundary without data loss', async () => {
-		const port = createOrgProvisioningPort();
-		const name = 'A'.repeat(100);
-		await provisionOrganization(port, { name, userId: 'user-1' });
-		expect(port.createRequests).toEqual([name]);
-	});
-
-	it('rejects blank organization names before any provider work starts', async () => {
-		const port = createOrgProvisioningPort();
-
-		await expect(
-			provisionOrganization(port, {
-				name: '   ',
-				userId: 'user-1',
-				email: 'owner@example.com'
-			})
-		).rejects.toMatchObject({
+	it('rejects blank names before any provider work starts', async () => {
+		const creation = port();
+		await expect(provisionOrganization(creation, { name: '   ', requestId })).rejects.toMatchObject({
 			status: 400,
 			message: 'Organization name is required'
 		});
-
-		expect(port.createRequests).toEqual([]);
+		expect(creation.requests).toEqual([]);
 	});
 
-	it('fails the request when organization creation itself fails', async () => {
-		const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-		const port = createOrgProvisioningPort({
-			createResult: {
-				orgId: null,
-				errorMessage: 'Failed to create organization'
-			}
+	it('fails with a safe retry message and logs the provider text only server-side', async () => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const creation = port({ failure: 'duplicate key value violates unique constraint "organization_rank_catalog"' });
+
+		const failure = await provisionOrganization(creation, { name: 'Alpha Company', requestId }).catch(
+			(error: unknown) => error
+		);
+
+		expect(failure).toMatchObject({
+			status: 503,
+			message:
+				"We couldn't confirm that your Organization was created. Select Create Organization again to finish. Retrying won't create a duplicate.",
+			publicMessage: true
 		});
-
-		await expect(
-			provisionOrganization(port, {
-				name: 'Alpha Company',
-				userId: 'user-1',
-				email: 'owner@example.com'
-			})
-		).rejects.toMatchObject({
-			status: 500,
-			message: 'Failed to create organization'
-		});
-
-		expect(consoleErrorSpy).toHaveBeenCalledWith('Organization creation error:', 'Failed to create organization');
-		expect(port.groupSeeds).toEqual([]);
-	});
-
-	it('fails the request when the default rank catalog cannot be seeded', async () => {
-		const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-		const port = createOrgProvisioningPort({
-			rankCatalogError: 'rank catalog failed'
-		});
-
-		await expect(
-			provisionOrganization(port, {
-				name: 'Alpha Company',
-				userId: 'user-1',
-				email: 'owner@example.com'
-			})
-		).rejects.toMatchObject({
-			status: 500,
-			message: 'rank catalog failed'
-		});
-
-		expect(port.rankCatalogSeeds).toHaveLength(1);
-		expect(consoleErrorSpy).toHaveBeenCalledWith('Rank catalog seed error:', 'rank catalog failed');
+		expect((failure as Error).message).toBe(ORGANIZATION_CREATION_UNCONFIRMED_MESSAGE);
+		expect(consoleError).toHaveBeenCalledWith(
+			'Organization creation error:',
+			'duplicate key value violates unique constraint "organization_rank_catalog"'
+		);
 	});
 });

@@ -225,6 +225,9 @@ test('each named fault matches only its allowlisted writes on the owned provider
 				providerInput('organization_invitations', { method: 'PATCH', body: JSON.stringify({ status: 'blocked' }) }),
 				['PATCH', '/rest/v1/organization_invitations']
 			]
+		],
+		'org-create': [
+			[providerInput('rpc/create_organization', { method: 'POST' }), ['POST', '/rest/v1/rpc/create_organization']]
 		]
 	};
 	for (const [name, matching] of Object.entries(cases)) {
@@ -270,6 +273,32 @@ test('other writes, reads, origins and foreign operations pass through without c
 		body: JSON.stringify({ status: 'blocked' })
 	});
 	assert.equal((await control.fetch(blocked)).status, 503);
+});
+
+test('a lost-acknowledgment fault lets the provider commit, then replaces its reply with a 503', async () => {
+	const { control, passed } = faults();
+	control.command('fault-arm', { name: 'org-create-lost-ack' });
+	const create = providerInput('rpc/create_organization', { method: 'POST', body: '{"p_name":"Unit"}' });
+	const response = await control.fetch(...create);
+	assert.equal(response.status, 503);
+	assert.equal((await response.json()).code, 'T2T_VERIFY_PROVIDER_FAULT');
+	assert.deepEqual(passed, [create]);
+	assert.deepEqual(control.command('fault-state').controls['org-create-lost-ack'].call, {
+		method: 'POST',
+		path: '/rest/v1/rpc/create_organization',
+		providerStatus: 200
+	});
+	assert.equal(await (await control.fetch(...create)).text(), 'real');
+});
+
+test('a pre-commit org-create fault never reaches the provider; other writes pass', async () => {
+	const { control, passed } = faults();
+	control.command('fault-arm', { name: 'org-create' });
+	for (const table of ['groups', 'organization_memberships', 'rpc/create_organizations'])
+		assert.equal(await (await control.fetch(...providerInput(table, { method: 'POST' }))).text(), 'real');
+	assert.equal(passed.length, 3);
+	assert.equal((await control.fetch(...providerInput('rpc/create_organization', { method: 'POST' }))).status, 503);
+	assert.equal(passed.length, 3);
 });
 
 test('a fault fires on the selected ordinal once and stays dormant until restored and re-armed', async () => {

@@ -103,10 +103,7 @@
 		return undefined;
 	}
 	const groupFilterOptions = $derived(
-		activeRosterView.groupFilterOptions.map((option) => ({
-			value: option.value,
-			label: option.value ? option.label : 'Group: All'
-		}))
+		activeRosterView.groupFilterOptions.map(({ value, label }) => ({ value, label }))
 	);
 	const effectiveSelectedGroupId = $derived(
 		selectedGroupId && groupFilterOptions.some((option) => option.value === selectedGroupId) ? selectedGroupId : ''
@@ -233,11 +230,11 @@
 			{
 				kind: 'toggle',
 				id: 'gaps',
-				label: 'Show gaps only',
+				label: 'Gaps only',
 				pressed: gapsOnly,
 				onPressedChange: (pressed) => (gapsOnly = pressed)
 			},
-			{ kind: 'action', id: 'reports', label: 'Reports', href: reportsHref, icon: 'chart' }
+			{ kind: 'action', id: 'reports', label: 'Reports', href: reportsHref }
 		];
 
 		if (canConfigureLibrary) {
@@ -245,8 +242,7 @@
 				kind: 'action',
 				id: 'task-library',
 				label: 'Task Library',
-				href: taskLibraryHref,
-				icon: 'book-open'
+				href: taskLibraryHref
 			});
 		}
 		if (canInputTask) {
@@ -287,7 +283,7 @@
 					id: 'record-completion',
 					label: 'Record Completion',
 					onclick: handleToolbarTaskInput,
-					icon: 'clipboard-check',
+					icon: 'plus',
 					disabled: !canOpenCompletionInput,
 					disabledReason: completionInputDisabledReason('Add personnel and active tasks before recording a completion.')
 				}

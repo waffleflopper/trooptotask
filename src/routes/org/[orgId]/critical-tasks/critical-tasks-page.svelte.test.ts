@@ -767,7 +767,7 @@ describe('critical tasks page', () => {
 		const alpha = await screen.findByRole('option', { name: /Alpha/ });
 		await fireEvent.pointerUp(alpha);
 		expect(group.textContent).toContain('Alpha');
-		await fireEvent.click(screen.getByRole('button', { name: 'Show gaps only' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Gaps only' }));
 		await fireEvent.input(screen.getByRole('searchbox', { name: 'Search by name, rank, or MOS' }), {
 			target: { value: '  smith ' }
 		});
@@ -818,7 +818,7 @@ describe('critical tasks page', () => {
 		more.focus();
 		await fireEvent.keyDown(more, { key: 'Enter' });
 		const menu = await screen.findByRole('menu');
-		expect(within(menu).getByRole('menuitem', { name: 'Group, Group: All' })).toBeTruthy();
+		expect(within(menu).getByRole('menuitem', { name: 'Group, All groups' })).toBeTruthy();
 		expect(within(menu).getByRole('menuitem', { name: 'Export Excel' })).toBeTruthy();
 		expect(within(menu).getByRole('menuitem', { name: 'Reports' })).toBeTruthy();
 		expect(within(menu).queryByRole('menuitem', { name: 'Task Library' })).toBeNull();

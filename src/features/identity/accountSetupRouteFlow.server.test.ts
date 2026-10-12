@@ -482,33 +482,41 @@ describe('createAccountSetupRouteFlow', () => {
 		});
 	});
 
-	it('reads a tokenless setup session on a cleanup-revoked link as expired', async () => {
-		const { flow, store } = makeFlow();
-		store.getAccessRequest.mockResolvedValueOnce({
-			id: 'request-1',
-			email: 'soldier@example.mil',
-			status: 'approved',
-			setupCompletedAt: null,
-			setupGrantLive: true
-		});
-		store.getSetupLink.mockResolvedValueOnce(
-			makeSetupLink({ revokedAt: new Date('2026-05-18T12:01:00.000Z'), revocationReason: 'cleanup' })
-		);
+	it.each([
+		['cleanup', 'expired', 'This Account Setup Link has expired. Request a fresh setup link and use the newest email.'],
+		[
+			'manual',
+			'revoked',
+			'This Account Setup Link is no longer valid because the access it was sent for was withdrawn. Contact the person who invited you or platform support if you still need access.'
+		],
+		['replaced', 'replaced', 'This Account Setup Link was replaced. Check your inbox for the newest setup email.'],
+		[null, 'replaced', 'This Account Setup Link was replaced. Check your inbox for the newest setup email.']
+	] as const)(
+		'reads a tokenless setup session on a %s-revoked link as %s',
+		async (revocationReason, state, message) => {
+			const { flow, store } = makeFlow();
+			store.getAccessRequest.mockResolvedValueOnce({
+				id: 'request-1',
+				email: 'soldier@example.mil',
+				status: 'approved',
+				setupCompletedAt: null,
+				setupGrantLive: true
+			});
+			store.getSetupLink.mockResolvedValueOnce(
+				makeSetupLink({ revokedAt: new Date('2026-05-18T12:01:00.000Z'), revocationReason })
+			);
 
-		await expect(
-			flow.resolveLoad({
-				session: null,
-				authFlow: null,
-				mfaPending: false,
-				rawToken: '',
-				setupSession: makeSetupSession()
-			})
-		).resolves.toEqual({
-			state: 'expired',
-			message: 'This Account Setup Link has expired. Request a fresh setup link and use the newest email.',
-			clearSession: true
-		});
-	});
+			await expect(
+				flow.resolveLoad({
+					session: null,
+					authFlow: null,
+					mfaPending: false,
+					rawToken: '',
+					setupSession: makeSetupSession()
+				})
+			).resolves.toEqual({ state, message, clearSession: true });
+		}
+	);
 
 	it('rejects a no-longer-approved tokenless setup session before reading its link', async () => {
 		const { flow, store } = makeFlow();

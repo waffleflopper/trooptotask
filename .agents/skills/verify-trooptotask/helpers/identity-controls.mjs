@@ -119,7 +119,6 @@ export function faultRequest(args) {
 	return { command: 'fault', action, name, ...(ordinal === undefined ? {} : { ordinal: Number(ordinal) }) };
 }
 
-// `setup_grant_live` is the computed field that reads `access_request_setup_grant_is_live`.
 const accessRequestColumns =
 	'id,email,name,reason,heard_about,heard_about_details,status,approval_basis,setup_grant_live,created_at,reviewed_at,reviewed_by,setup_user_id,setup_completed_at';
 

@@ -11,19 +11,15 @@ import {
 	type AuthEmailOutboxStore
 } from './authEmailOutbox.server';
 import { addUtcDays } from './accountSetupDates';
+import { isSetupGrantWithdrawn } from './accessRequestSetupState.server';
 import { makePublicAppUrl } from './publicAppOrigin.server';
 import { getAdminClient } from '$lib/server/supabase';
-import {
-	ACCESS_REQUEST_SETUP_RENEWAL_DAYS,
-	type AccessRequestApprovalBasis,
-	type AccessRequestStatus
-} from './contracts';
+import { ACCESS_REQUEST_SETUP_RENEWAL_DAYS, type AccessRequestStatus } from './contracts';
 
 export interface AccessRequestSetupRequest {
 	id: string;
 	email: string;
 	status: AccessRequestStatus;
-	approvalBasis: AccessRequestApprovalBasis | null;
 	createdAt: Date;
 	reviewedAt: Date | null;
 	setupCompletedAt: Date | null;
@@ -72,7 +68,6 @@ interface AccessRequestRow {
 	id: string;
 	email: string;
 	status: AccessRequestStatus;
-	approval_basis: AccessRequestApprovalBasis | null;
 	created_at: string;
 	reviewed_at: string | null;
 	setup_completed_at: string | null;
@@ -88,7 +83,6 @@ function mapAccessRequest(row: AccessRequestRow): AccessRequestSetupRequest {
 		id: row.id,
 		email: row.email,
 		status: row.status,
-		approvalBasis: row.approval_basis,
 		createdAt: new Date(row.created_at),
 		reviewedAt: row.reviewed_at ? new Date(row.reviewed_at) : null,
 		setupCompletedAt: row.setup_completed_at ? new Date(row.setup_completed_at) : null,
@@ -111,19 +105,6 @@ function isApprovedIncompleteRenewable(request: AccessRequestSetupRequest, now: 
 
 	const renewalStartedAt = request.reviewedAt ?? request.createdAt;
 	return now <= addUtcDays(renewalStartedAt, ACCESS_REQUEST_SETUP_RENEWAL_DAYS);
-}
-
-/**
- * An Organization's vouch that was withdrawn before setup. No platform reviewer judged the
- * person, so it does not stand in the way of applying for reviewed access (ADR 0012).
- */
-function isWithdrawnInvitationApproval(request: AccessRequestSetupRequest): boolean {
-	return (
-		request.status === 'approved' &&
-		request.approvalBasis === 'organization_invitation' &&
-		!request.setupCompletedAt &&
-		!request.setupGrantLive
-	);
 }
 
 export function createAccessRequestSetupDeliveryService(
@@ -197,7 +178,7 @@ export function createAccessRequestSetupDeliveryService(
 				}
 			}
 
-			if (existingRequests.some((request) => !isWithdrawnInvitationApproval(request))) {
+			if (existingRequests.some((request) => !isSetupGrantWithdrawn(request))) {
 				return { status: 'no-public-action' };
 			}
 
@@ -238,7 +219,7 @@ export function createSupabaseAccessRequestSetupDeliveryStore(client: SupabaseCl
 		async listAccessRequestsByEmail(email) {
 			const { data, error } = await client
 				.from('access_requests')
-				.select('id, email, status, approval_basis, created_at, reviewed_at, setup_completed_at, setup_grant_live')
+				.select('id, email, status, created_at, reviewed_at, setup_completed_at, setup_grant_live')
 				.eq('email', normalizeEmail(email));
 
 			if (error) {

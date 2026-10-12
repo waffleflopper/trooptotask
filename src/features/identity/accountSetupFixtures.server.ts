@@ -35,7 +35,6 @@ export function accountSetupLinkFixture(overrides: Partial<AccountSetupLinkRecor
 	};
 }
 
-/** In-memory twin of `issue_account_setup_link` for service tests; the RPC owns atomicity and locking. */
 export function issueSetupLinkInMemory(
 	request: Pick<AccountSetupLinkAccessRequest, 'status' | 'setupCompletedAt' | 'setupGrantLive'> | null | undefined,
 	links: AccountSetupLinkRecord[],

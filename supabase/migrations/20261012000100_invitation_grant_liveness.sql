@@ -1,8 +1,3 @@
--- Invitation-origin platform access is a derived grant (ADR 0012, drift D-10).
--- An approval records its basis. An Organization Invitation basis stays live only
--- while a linked invitation has not been revoked or blocked. Every point that mints,
--- admits or offers a setup credential checks the grant.
-
 ALTER TABLE "public"."access_requests" DROP CONSTRAINT "access_requests_status_check";
 ALTER TABLE "public"."access_requests"
 	ADD CONSTRAINT "access_requests_status_check"
@@ -13,25 +8,22 @@ ALTER TABLE "public"."access_requests"
 	ADD CONSTRAINT "access_requests_approval_basis_check"
 	CHECK ("approval_basis" IS NULL OR "approval_basis" = ANY (ARRAY['platform_review'::text, 'organization_invitation'::text]));
 
--- Platform approval writes an `access_request.approved` audit event. An invite bridge
--- approves right after creating its invitation, so a matching origin that does not
--- post-date the review by more than five minutes of clock skew is the invitation basis.
--- Anything else is a hand approval.
+WITH "platform_reviewed" AS (
+	SELECT "audit_logs"."resource_id" AS "access_request_id"
+	FROM "public"."audit_logs"
+	WHERE "audit_logs"."action" = 'access_request.approved'
+),
+"invitation_vouched" AS (
+	SELECT "link"."access_request_id"
+	FROM "public"."access_request_organization_invitation_links" AS "link"
+	JOIN "public"."access_requests" AS "request" ON "request"."id" = "link"."access_request_id"
+	WHERE "link"."invited_by" = "request"."reviewed_by"
+		AND "link"."invited_at" <= "request"."reviewed_at" + interval '5 minutes'
+)
 UPDATE "public"."access_requests" AS "request"
 SET "approval_basis" = CASE
-	WHEN EXISTS (
-		SELECT 1
-		FROM "public"."audit_logs"
-		WHERE "audit_logs"."resource_id" = "request"."id"
-			AND "audit_logs"."action" = 'access_request.approved'
-	) THEN 'platform_review'
-	WHEN EXISTS (
-		SELECT 1
-		FROM "public"."access_request_organization_invitation_links" AS "link"
-		WHERE "link"."access_request_id" = "request"."id"
-			AND "link"."invited_by" = "request"."reviewed_by"
-			AND "link"."invited_at" <= "request"."reviewed_at" + interval '5 minutes'
-	) THEN 'organization_invitation'
+	WHEN "request"."id" IN (SELECT "access_request_id" FROM "platform_reviewed") THEN 'platform_review'
+	WHEN "request"."id" IN (SELECT "access_request_id" FROM "invitation_vouched") THEN 'organization_invitation'
 	ELSE 'platform_review'
 END
 WHERE "request"."status" = 'approved';
@@ -90,8 +82,6 @@ REVOKE ALL ON FUNCTION "public"."setup_grant_live"("public"."access_requests") F
 REVOKE ALL ON FUNCTION "public"."setup_grant_live"("public"."access_requests") FROM "authenticated";
 GRANT EXECUTE ON FUNCTION "public"."setup_grant_live"("public"."access_requests") TO "service_role";
 
--- Replaces unclaimed links and inserts the new one in one transaction. A unique
--- violation means a concurrent issuer won; its link stays and this call changes nothing.
 CREATE OR REPLACE FUNCTION "public"."issue_account_setup_link"(
 	"p_access_request_id" uuid,
 	"p_token_hash" text,
@@ -174,8 +164,6 @@ REVOKE ALL ON FUNCTION "public"."issue_account_setup_link"(uuid, text, timestamp
 REVOKE ALL ON FUNCTION "public"."issue_account_setup_link"(uuid, text, timestamp with time zone, timestamp with time zone) FROM "authenticated";
 GRANT EXECUTE ON FUNCTION "public"."issue_account_setup_link"(uuid, text, timestamp with time zone, timestamp with time zone) TO "service_role";
 
--- Bridges a just-created invitation to the invitee's Access Request. The bridge key
--- differs from the claim key, so a claim's request-then-advisory order cannot invert.
 CREATE OR REPLACE FUNCTION "public"."link_organization_invitation_access_request"(
 	"p_invitation_id" uuid,
 	"p_organization_id" uuid,
@@ -199,6 +187,8 @@ DECLARE
 	"linked_request_id" uuid;
 	"created_request" boolean := false;
 BEGIN
+	PERFORM pg_advisory_xact_lock(hashtextextended('access-request-invitation-bridge:' || "invitee_email", 0));
+
 	SELECT "link"."access_request_id"
 	INTO "linked_request_id"
 	FROM "public"."access_request_organization_invitation_links" AS "link"
@@ -209,8 +199,6 @@ BEGIN
 		RETURN;
 	END IF;
 
-	-- No invitation lock: a revoke that commits after this read still kills the grant
-	-- through derivation.
 	PERFORM 1
 	FROM "public"."organization_invitations" AS "invitation"
 	WHERE "invitation"."id" = "p_invitation_id"
@@ -223,25 +211,25 @@ BEGIN
 		RETURN;
 	END IF;
 
-	PERFORM pg_advisory_xact_lock(hashtextextended('access-request-invitation-bridge:' || "invitee_email", 0));
-
-	SELECT "request"."id"
-	INTO "request_id"
-	FROM "public"."access_requests" AS "request"
-	WHERE "request"."email" = "invitee_email"
-		AND (
-			"request"."status" = 'pending'
-			OR (
-				"request"."status" = 'approved'
-				AND "request"."setup_completed_at" IS NULL
-				AND coalesce("request"."reviewed_at", "request"."created_at") >= now() - interval '90 days'
+	FOR "attempt" IN 1..3 LOOP
+		SELECT "request"."id"
+		INTO "request_id"
+		FROM "public"."access_requests" AS "request"
+		WHERE "request"."email" = "invitee_email"
+			AND (
+				"request"."status" = 'pending'
+				OR (
+					"request"."status" = 'approved'
+					AND "request"."setup_completed_at" IS NULL
+					AND coalesce("request"."reviewed_at", "request"."created_at") >= now() - interval '90 days'
+				)
 			)
-		)
-	ORDER BY ("request"."status" = 'pending') DESC, "request"."reviewed_at" DESC NULLS LAST, "request"."created_at" DESC
-	LIMIT 1
-	FOR UPDATE;
+		ORDER BY ("request"."status" = 'pending') DESC, "request"."reviewed_at" DESC NULLS LAST, "request"."created_at" DESC
+		LIMIT 1
+		FOR UPDATE;
 
-	IF "request_id" IS NULL THEN
+		EXIT WHEN "request_id" IS NOT NULL;
+
 		INSERT INTO "public"."access_requests" ("email", "name", "reason", "heard_about", "heard_about_details")
 		VALUES (
 			"invitee_email",
@@ -253,17 +241,14 @@ BEGIN
 		ON CONFLICT (lower("email")) WHERE "status" = 'pending' DO NOTHING
 		RETURNING "access_requests"."id" INTO "request_id";
 
-		IF "request_id" IS NULL THEN
-			-- A public submission inserted the pending row without the bridge key.
-			SELECT "request"."id"
-			INTO "request_id"
-			FROM "public"."access_requests" AS "request"
-			WHERE "request"."email" = "invitee_email"
-				AND "request"."status" = 'pending'
-			FOR UPDATE;
-		ELSE
+		IF "request_id" IS NOT NULL THEN
 			"created_request" := true;
+			EXIT;
 		END IF;
+	END LOOP;
+
+	IF "request_id" IS NULL THEN
+		RAISE EXCEPTION 'Access Request for invitation % could not be found or created', "p_invitation_id";
 	END IF;
 
 	INSERT INTO "public"."access_request_organization_invitation_links" (
@@ -289,21 +274,8 @@ BEGIN
 		coalesce("p_capability_overrides", '{}'::jsonb),
 		"p_access_scope_kind",
 		coalesce("p_access_scope_group_ids", ARRAY[]::uuid[])
-	)
-	ON CONFLICT ("organization_invitation_id") DO NOTHING;
+	);
 
-	IF NOT FOUND THEN
-		SELECT "link"."access_request_id"
-		INTO "linked_request_id"
-		FROM "public"."access_request_organization_invitation_links" AS "link"
-		WHERE "link"."organization_invitation_id" = "p_invitation_id";
-
-		RETURN QUERY SELECT 'already-linked'::text, "linked_request_id";
-		RETURN;
-	END IF;
-
-	-- The inviting governor is the reviewer: their invitation is the vouching. A row a
-	-- platform reviewer or an earlier invitation already approved keeps its basis.
 	UPDATE "public"."access_requests"
 	SET
 		"status" = 'approved',
@@ -322,8 +294,6 @@ REVOKE ALL ON FUNCTION "public"."link_organization_invitation_access_request"(uu
 REVOKE ALL ON FUNCTION "public"."link_organization_invitation_access_request"(uuid, uuid, text, uuid, timestamp with time zone, text, text, jsonb, text, uuid[]) FROM "authenticated";
 GRANT EXECUTE ON FUNCTION "public"."link_organization_invitation_access_request"(uuid, uuid, text, uuid, timestamp with time zone, text, text, jsonb, text, uuid[]) TO "service_role";
 
--- Platform rescind withdraws an approved, incomplete request of either basis. The
--- approval basis and reviewer stay on the row; the audit trail records the rescind.
 CREATE OR REPLACE FUNCTION "public"."rescind_access_request_and_block_linked_invitations"(
 	"p_access_request_id" uuid,
 	"p_reviewer_id" uuid
@@ -358,7 +328,6 @@ BEGIN
 		RETURN;
 	END IF;
 
-	-- A held claim may still be writing Auth; the operator follows the claim runbook first.
 	IF EXISTS (
 		SELECT 1
 		FROM "public"."account_setup_links"
@@ -454,8 +423,6 @@ REVOKE ALL ON FUNCTION "public"."rescind_access_request_and_block_linked_invitat
 REVOKE ALL ON FUNCTION "public"."rescind_access_request_and_block_linked_invitations"(uuid, uuid) FROM "authenticated";
 GRANT EXECUTE ON FUNCTION "public"."rescind_access_request_and_block_linked_invitations"(uuid, uuid) TO "service_role";
 
--- The claim keeps its lock order and statuses. A dead grant reports the existing
--- `access-request-not-approved`, after the completed check it always followed.
 CREATE OR REPLACE FUNCTION "public"."claim_account_setup_link_for_session"(
 	"p_setup_link_id" uuid,
 	"p_access_request_id" uuid,
@@ -484,7 +451,6 @@ DECLARE
 	normalized_email text;
 	other_claim_in_progress boolean;
 BEGIN
-	-- Lock the request before the email-scoped advisory lock, then the target link.
 	-- The separate scan below gets a fresh READ COMMITTED snapshot after any
 	-- transaction that held the advisory lock has committed.
 	SELECT *

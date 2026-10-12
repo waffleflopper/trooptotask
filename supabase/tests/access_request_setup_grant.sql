@@ -1,5 +1,3 @@
--- Invitation-origin platform access is a derived grant: issuance, claim, the invite
--- bridge and platform rescind all read it; only deliberate withdrawal kills it.
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SELECT no_plan();
@@ -39,7 +37,6 @@ CREATE FUNCTION pg_temp.as_owner(p_user uuid, p_email text) RETURNS void LANGUAG
  SELECT set_config('request.jwt.claims',json_build_object('sub',p_user,'email',p_email)::text,true);
 $$;
 
--- Privileges
 SELECT ok(
  has_function_privilege('service_role','public.access_request_setup_grant_is_live(uuid)','EXECUTE')
  AND has_function_privilege('service_role','public.issue_account_setup_link(uuid,text,timestamp with time zone,timestamp with time zone)','EXECUTE')
@@ -60,7 +57,6 @@ SELECT ok(NOT (
  OR has_function_privilege('anon','public.setup_grant_live(public.access_requests)','EXECUTE')),
  'browser roles cannot call any grant function');
 
--- Approval basis CHECK
 SELECT throws_ok($$ INSERT INTO public.access_requests(email,name,status) VALUES ('grant-nobasis@example.test','No basis','approved') $$,
  '23514',NULL,'an approved row without a basis is refused');
 SELECT throws_ok($$ INSERT INTO public.access_requests(email,name,status,approval_basis) VALUES ('grant-pendingbasis@example.test','Pending basis','pending','platform_review') $$,
@@ -70,7 +66,6 @@ SELECT throws_ok($$ INSERT INTO public.access_requests(email,name,status) VALUES
 SELECT throws_ok($$ INSERT INTO public.access_requests(email,name,status,approval_basis) VALUES ('grant-badbasis@example.test','Bad basis','approved','self_service') $$,
  '23514',NULL,'an unknown basis is refused');
 
--- First-time bridge
 SELECT pg_temp.invite('f1000000-0000-4000-8000-000000000301','f1000000-0000-4000-8000-000000000101','grant-new@example.test','f1000000-0000-4000-8000-000000000001');
 SELECT is((SELECT bridge_status FROM pg_temp.bridge('f1000000-0000-4000-8000-000000000301','f1000000-0000-4000-8000-000000000101','Grant-New@Example.Test ','f1000000-0000-4000-8000-000000000001')),
  'created','first invitation for a new email creates the Access Request');
@@ -89,17 +84,15 @@ SELECT is((SELECT access_request_id FROM pg_temp.bridge('f1000000-0000-4000-8000
  pg_temp.request_for('grant-new@example.test'),'bridge replay returns the linked request');
 SELECT ok(public.access_request_setup_grant_is_live(pg_temp.request_for('grant-new@example.test')),'pending invitation keeps the grant live');
 
--- Issuance replaces atomically
 SELECT is((SELECT issue_status FROM pg_temp.issue(pg_temp.request_for('grant-new@example.test'),'grant-new-hash-1')),'created','live grant issues a link');
 SELECT is((SELECT revoked_setup_link_ids FROM pg_temp.issue(pg_temp.request_for('grant-new@example.test'),'grant-new-hash-2')),
  ARRAY[(SELECT id FROM public.account_setup_links WHERE token_hash='grant-new-hash-1')],'a fresh issue reports the link it replaced');
 SELECT is((SELECT revocation_reason FROM public.account_setup_links WHERE token_hash='grant-new-hash-1'),'replaced','replaced link is revoked as replaced');
 SELECT is((SELECT issue_status FROM pg_temp.issue(pg_temp.request_for('grant-new@example.test'),'grant-new-hash-2')),
- 'concurrent-create','unique violation reports concurrent-create');
+ 'concurrent-create','an insert refused by a unique index reports concurrent-create');
 SELECT ok((SELECT revoked_at IS NULL FROM public.account_setup_links WHERE token_hash='grant-new-hash-2'),
- 'a failed insert rolls back the revocation it attempted');
+ 'a refused insert rolls back the revocation it attempted');
 
--- Sibling Organization shares the request and survives the first revoke
 SELECT pg_temp.invite('f1000000-0000-4000-8000-000000000302','f1000000-0000-4000-8000-000000000102','grant-new@example.test','f1000000-0000-4000-8000-000000000002');
 SELECT results_eq($$ SELECT * FROM pg_temp.bridge('f1000000-0000-4000-8000-000000000302','f1000000-0000-4000-8000-000000000102','grant-new@example.test','f1000000-0000-4000-8000-000000000002') $$,
  $$ SELECT 'linked'::text, pg_temp.request_for('grant-new@example.test') $$,'second Organization links the same request');
@@ -112,7 +105,6 @@ RESET ROLE;
 SELECT ok(public.access_request_setup_grant_is_live(pg_temp.request_for('grant-new@example.test')),'sibling Organization invitation keeps the grant live');
 SELECT ok((SELECT revoked_at IS NULL FROM public.account_setup_links WHERE token_hash='grant-new-hash-2'),'revoking one Organization leaves the active link');
 
--- The last vouch withdrawn kills the grant at issuance and claim
 UPDATE public.organization_invitations SET status='blocked', blocked_at=now(), blocked_by='f1000000-0000-4000-8000-000000000002'
  WHERE id='f1000000-0000-4000-8000-000000000302';
 SELECT ok(NOT public.access_request_setup_grant_is_live(pg_temp.request_for('grant-new@example.test')),'no live invitation means no grant');
@@ -127,17 +119,14 @@ SELECT ok((SELECT claimed_at IS NULL FROM public.account_setup_links WHERE token
 SELECT results_eq($$ SELECT status,approval_basis FROM public.access_requests WHERE email='grant-new@example.test' $$,
  $$ VALUES ('approved'::text,'organization_invitation'::text) $$,'withdrawal leaves the request row intact');
 
--- Re-invitation revives the same request
 SELECT pg_temp.invite('f1000000-0000-4000-8000-000000000303','f1000000-0000-4000-8000-000000000101','grant-new@example.test','f1000000-0000-4000-8000-000000000001');
 SELECT is((SELECT bridge_status FROM pg_temp.bridge('f1000000-0000-4000-8000-000000000303','f1000000-0000-4000-8000-000000000101','grant-new@example.test','f1000000-0000-4000-8000-000000000001')),
  'linked','re-invitation links the existing approved request');
 SELECT ok(public.access_request_setup_grant_is_live(pg_temp.request_for('grant-new@example.test')),'a new live invitation revives the grant');
 
--- Expiry is not withdrawal
 UPDATE public.organization_invitations SET status='expired', expired_at=now() WHERE id='f1000000-0000-4000-8000-000000000303';
 SELECT ok(public.access_request_setup_grant_is_live(pg_temp.request_for('grant-new@example.test')),'an expired invitation keeps the renewal grant');
 
--- Bridge refuses an invitation that is no longer pending
 SELECT pg_temp.invite('f1000000-0000-4000-8000-000000000304','f1000000-0000-4000-8000-000000000101','grant-late@example.test','f1000000-0000-4000-8000-000000000001');
 UPDATE public.organization_invitations SET status='revoked', revoked_at=now(), revoked_by='f1000000-0000-4000-8000-000000000001'
  WHERE id='f1000000-0000-4000-8000-000000000304';
@@ -148,7 +137,6 @@ SELECT pg_temp.invite('f1000000-0000-4000-8000-000000000305','f1000000-0000-4000
 SELECT is((SELECT bridge_status FROM pg_temp.bridge('f1000000-0000-4000-8000-000000000305','f1000000-0000-4000-8000-000000000102','grant-wrong-org@example.test','f1000000-0000-4000-8000-000000000002')),
  'invitation-not-pending','another Organization cannot bridge the invitation');
 
--- Bridge reuses a public pending request; a block after issuance failure kills it
 INSERT INTO public.access_requests(id,email,name,status) VALUES ('f1000000-0000-4000-8000-000000000401','grant-public@example.test','Public applicant','pending');
 SELECT pg_temp.invite('f1000000-0000-4000-8000-000000000306','f1000000-0000-4000-8000-000000000101','grant-public@example.test','f1000000-0000-4000-8000-000000000001');
 SELECT results_eq($$ SELECT * FROM pg_temp.bridge('f1000000-0000-4000-8000-000000000306','f1000000-0000-4000-8000-000000000101','grant-public@example.test','f1000000-0000-4000-8000-000000000001') $$,
@@ -160,7 +148,6 @@ UPDATE public.organization_invitations SET status='blocked', blocked_at=now(), b
 SELECT is((SELECT issue_status FROM pg_temp.issue('f1000000-0000-4000-8000-000000000401','grant-public-hash')),'access-request-not-approved',
  'a blocked invitation leaves no mintable credential');
 
--- An independent platform approval survives a failed invitation
 INSERT INTO public.access_requests(id,email,name,status,approval_basis,reviewed_by,reviewed_at)
  VALUES ('f1000000-0000-4000-8000-000000000402','grant-reviewed@example.test','Reviewed','approved','platform_review','f1000000-0000-4000-8000-000000000003',now());
 SELECT pg_temp.invite('f1000000-0000-4000-8000-000000000307','f1000000-0000-4000-8000-000000000101','grant-reviewed@example.test','f1000000-0000-4000-8000-000000000001');
@@ -173,14 +160,12 @@ SELECT results_eq($$ SELECT approval_basis,reviewed_by FROM public.access_reques
 SELECT is((SELECT issue_status FROM pg_temp.issue('f1000000-0000-4000-8000-000000000402','grant-reviewed-hash')),'created',
  'platform review stays live after the invitation fails');
 
--- Completed setup is never live
 INSERT INTO public.access_requests(id,email,name,status,approval_basis,setup_completed_at,setup_user_id)
  VALUES ('f1000000-0000-4000-8000-000000000403','grant-completed@example.test','Completed','approved','platform_review',now(),'f1000000-0000-4000-8000-000000000004');
 SELECT ok(NOT public.access_request_setup_grant_is_live('f1000000-0000-4000-8000-000000000403'),'completed setup has no live grant');
 SELECT is((SELECT issue_status FROM pg_temp.issue('f1000000-0000-4000-8000-000000000403','grant-completed-hash')),'access-request-completed','completed request reports completion');
 SELECT is((SELECT issue_status FROM pg_temp.issue('f1000000-0000-4000-8000-000000000999','grant-missing-hash')),'access-request-missing','missing request reports missing');
 
--- Platform rescind
 SELECT is((SELECT rescind_status FROM public.rescind_access_request_and_block_linked_invitations('f1000000-0000-4000-8000-000000000403','f1000000-0000-4000-8000-000000000003')),
  'completed','rescind refuses a completed request');
 SELECT is((SELECT status FROM public.access_requests WHERE id='f1000000-0000-4000-8000-000000000403'),'approved','refused rescind leaves the completed request approved');
@@ -232,7 +217,6 @@ SELECT is((SELECT issue_status FROM pg_temp.issue(pg_temp.request_for('grant-res
 SELECT is((SELECT rescind_status FROM public.rescind_access_request_and_block_linked_invitations(pg_temp.request_for('grant-rescind@example.test'),'f1000000-0000-4000-8000-000000000003')),
  'not_found','rescind replay is refused');
 
--- A later invitation after rescind starts a new request instead of reviving the rescinded one
 SELECT pg_temp.invite('f1000000-0000-4000-8000-000000000310','f1000000-0000-4000-8000-000000000101','grant-rescind@example.test','f1000000-0000-4000-8000-000000000001');
 SELECT is((SELECT bridge_status FROM pg_temp.bridge('f1000000-0000-4000-8000-000000000310','f1000000-0000-4000-8000-000000000101','grant-rescind@example.test','f1000000-0000-4000-8000-000000000001')),
  'created','invitation after rescind creates a new request');

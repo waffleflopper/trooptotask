@@ -1,4 +1,3 @@
--- Two committed sessions race the writers that share an invitation-origin grant.
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 CREATE EXTENSION IF NOT EXISTS dblink WITH SCHEMA extensions;
@@ -56,10 +55,11 @@ SELECT dblink_exec('first',$fixture$
   ('f2000000-0000-4000-8000-000000000305','f2000000-0000-4000-8000-000000000101','race-issue@example.test','f2000000-0000-4000-8000-000000000001',now()+interval '14 days','member','organization'),
   ('f2000000-0000-4000-8000-000000000306','f2000000-0000-4000-8000-000000000101','race-claim@example.test','f2000000-0000-4000-8000-000000000001',now()+interval '14 days','member','organization'),
   ('f2000000-0000-4000-8000-000000000307','f2000000-0000-4000-8000-000000000101','race-sibling@example.test','f2000000-0000-4000-8000-000000000001',now()+interval '14 days','member','organization'),
-  ('f2000000-0000-4000-8000-000000000308','f2000000-0000-4000-8000-000000000102','race-sibling@example.test','f2000000-0000-4000-8000-000000000002',now()+interval '14 days','member','organization');
+  ('f2000000-0000-4000-8000-000000000308','f2000000-0000-4000-8000-000000000102','race-sibling@example.test','f2000000-0000-4000-8000-000000000002',now()+interval '14 days','member','organization'),
+  ('f2000000-0000-4000-8000-000000000309','f2000000-0000-4000-8000-000000000101','race-issuers@example.test','f2000000-0000-4000-8000-000000000001',now()+interval '14 days','member','organization'),
+  ('f2000000-0000-4000-8000-000000000310','f2000000-0000-4000-8000-000000000101','race-retry@example.test','f2000000-0000-4000-8000-000000000001',now()+interval '14 days','member','organization');
 $fixture$);
 
--- Two Organizations bridge a new email at once and share one request
 SELECT dblink_exec('first','BEGIN');
 SELECT is((SELECT status FROM dblink('first',pg_temp.bridge_sql('f2000000-0000-4000-8000-000000000301','f2000000-0000-4000-8000-000000000101','race-pair@example.test','f2000000-0000-4000-8000-000000000001'))
  AS result(status text, request_id uuid)),'created','first bridge creates the request inside its transaction');
@@ -73,7 +73,6 @@ SELECT is((SELECT count(DISTINCT access_request_id)::integer FROM public.access_
  WHERE organization_invitation_id IN ('f2000000-0000-4000-8000-000000000301','f2000000-0000-4000-8000-000000000302')),1,
  'both invitations link the same request');
 
--- Bridge waits for rescind and then starts a fresh request
 SELECT * FROM dblink('first',pg_temp.bridge_sql('f2000000-0000-4000-8000-000000000303','f2000000-0000-4000-8000-000000000101','race-rescind@example.test','f2000000-0000-4000-8000-000000000001')) AS bridged(status text, request_id uuid);
 CREATE TEMP TABLE rescinded_request AS SELECT id FROM public.access_requests WHERE email='race-rescind@example.test';
 SELECT dblink_exec('first','BEGIN');
@@ -90,7 +89,6 @@ SELECT results_eq($$ SELECT status,approval_basis FROM public.access_requests WH
 SELECT isnt((SELECT access_request_id FROM public.access_request_organization_invitation_links WHERE organization_invitation_id='f2000000-0000-4000-8000-000000000304'),
  (SELECT id FROM rescinded_request),'the later invitation is not linked to the rescinded request');
 
--- Rescind waits for an in-flight issuance and revokes the link it minted
 SELECT * FROM dblink('first',pg_temp.bridge_sql('f2000000-0000-4000-8000-000000000305','f2000000-0000-4000-8000-000000000101','race-issue@example.test','f2000000-0000-4000-8000-000000000001')) AS bridged(status text, request_id uuid);
 SELECT dblink_exec('first','BEGIN');
 SELECT is((SELECT status FROM dblink('first',$q$ SELECT issue_status FROM public.issue_account_setup_link(
@@ -105,7 +103,6 @@ SELECT * FROM dblink_get_result('second') AS result(status text);
 SELECT ok((SELECT revoked_at IS NOT NULL AND revocation_reason='manual' FROM public.account_setup_links WHERE token_hash='race-issue-hash'),
  'rescind revokes the link issuance just minted');
 
--- An Organization revoke never waits on a claim; the admitted claim finishes
 SELECT * FROM dblink('first',pg_temp.bridge_sql('f2000000-0000-4000-8000-000000000306','f2000000-0000-4000-8000-000000000101','race-claim@example.test','f2000000-0000-4000-8000-000000000001')) AS bridged(status text, request_id uuid);
 SELECT * FROM dblink('first',$q$ SELECT issue_status FROM public.issue_account_setup_link(
  (SELECT id FROM public.access_requests WHERE email='race-claim@example.test'),'race-claim-hash',now()+interval '14 days',now()) $q$) AS issued(status text);
@@ -128,7 +125,6 @@ SELECT ok((SELECT claimed_at IS NOT NULL AND revoked_at IS NULL FROM public.acco
 SELECT ok(NOT public.access_request_setup_grant_is_live((SELECT id FROM public.access_requests WHERE email='race-claim@example.test')),
  'the revoke leaves no grant for later issuance');
 
--- Revoking one Organization while the sibling issues leaves the sibling's link live
 SELECT * FROM dblink('first',pg_temp.bridge_sql('f2000000-0000-4000-8000-000000000307','f2000000-0000-4000-8000-000000000101','race-sibling@example.test','f2000000-0000-4000-8000-000000000001')) AS bridged(status text, request_id uuid);
 SELECT * FROM dblink('first',pg_temp.bridge_sql('f2000000-0000-4000-8000-000000000308','f2000000-0000-4000-8000-000000000102','race-sibling@example.test','f2000000-0000-4000-8000-000000000002')) AS bridged(status text, request_id uuid);
 SELECT dblink_exec('first','BEGIN');
@@ -150,6 +146,37 @@ SELECT is((SELECT status FROM dblink('first',$q$ SELECT claim_status FROM public
  (SELECT id FROM public.account_setup_links WHERE token_hash='race-sibling-hash'),
  (SELECT id FROM public.access_requests WHERE email='race-sibling@example.test'),now()) $q$) AS result(status text)),
  'claim-started','the sibling link remains claimable');
+
+SELECT * FROM dblink('first',pg_temp.bridge_sql('f2000000-0000-4000-8000-000000000309','f2000000-0000-4000-8000-000000000101','race-issuers@example.test','f2000000-0000-4000-8000-000000000001')) AS bridged(status text, request_id uuid);
+SELECT dblink_exec('first','BEGIN');
+SELECT is((SELECT status FROM dblink('first',$q$ SELECT issue_status FROM public.issue_account_setup_link(
+ (SELECT id FROM public.access_requests WHERE email='race-issuers@example.test'),'race-issuers-hash-first',now()+interval '14 days',now()) $q$)
+ AS result(status text)),'created','first issuer inserts its link inside its transaction');
+SELECT dblink_send_query('second',$q$ SELECT issue_status FROM public.issue_account_setup_link(
+ (SELECT id FROM public.access_requests WHERE email='race-issuers@example.test'),'race-issuers-hash-second',now()+interval '14 days',now()) $q$);
+SELECT ok(pg_temp.second_waits(),'second issuer with a distinct token waits on the one-active-link index');
+SELECT dblink_exec('first','COMMIT');
+SELECT is((SELECT status FROM dblink_get_result('second') AS result(status text) LIMIT 1),'concurrent-create',
+ 'second issuer reports concurrent-create');
+SELECT * FROM dblink_get_result('second') AS result(status text);
+SELECT results_eq($$ SELECT token_hash,revoked_at IS NULL FROM public.account_setup_links
+   WHERE access_request_id=(SELECT id FROM public.access_requests WHERE email='race-issuers@example.test') $$,
+ $$ VALUES ('race-issuers-hash-first'::text,true) $$,'the winning link persists unrevoked and the loser left no row');
+
+SELECT dblink_exec('first','BEGIN');
+SELECT is((SELECT status FROM dblink('first',pg_temp.bridge_sql('f2000000-0000-4000-8000-000000000310','f2000000-0000-4000-8000-000000000101','race-retry@example.test','f2000000-0000-4000-8000-000000000001'))
+ AS result(status text, request_id uuid)),'created','first bridge attempt creates the request inside its transaction');
+SELECT dblink_send_query('second',pg_temp.bridge_sql('f2000000-0000-4000-8000-000000000310','f2000000-0000-4000-8000-000000000101','race-retry@example.test','f2000000-0000-4000-8000-000000000001'));
+SELECT ok(pg_temp.second_waits(),'retried bridge for the same invitation waits on the bridge key');
+SELECT dblink_exec('first','COMMIT');
+SELECT results_eq($$ SELECT status, request_id FROM dblink_get_result('second') AS result(status text, request_id uuid) $$,
+ $$ SELECT 'already-linked'::text, id FROM public.access_requests WHERE email='race-retry@example.test' $$,
+ 'retried bridge returns the committed link');
+SELECT * FROM dblink_get_result('second') AS result(status text, request_id uuid);
+SELECT results_eq($$ SELECT status FROM public.access_requests WHERE email='race-retry@example.test' $$,
+ $$ VALUES ('approved'::text) $$,'a concurrent retry leaves one approved request and no extra pending row');
+SELECT is((SELECT count(*)::integer FROM public.access_request_organization_invitation_links
+ WHERE organization_invitation_id='f2000000-0000-4000-8000-000000000310'),1,'a concurrent retry leaves one link');
 
 SELECT pg_temp.cleanup();
 SELECT dblink_disconnect('first');

@@ -1,6 +1,8 @@
 import { createAccountSetupCompletionService, type AccountSetupCompletionStore } from './accountSetupCompletion.server';
 import {
 	createAccountSetupLinkService,
+	isUnclaimedLinkGrantWithdrawn,
+	revokedSetupLinkStatus,
 	type AccountSetupLinkRecord,
 	type ValidateAccountSetupLinkResult
 } from './accountSetupLinks.server';
@@ -106,17 +108,13 @@ function tokenStateMessage(state: string): string {
 	}
 }
 
-/** Cleanup only revokes links that already expired, so it reads as expiry rather than withdrawal. */
-function revokedLinkState(link: AccountSetupLinkRecord): 'replaced' | 'expired' | 'revoked' {
-	if (link.revocationReason === 'replaced') return 'replaced';
-	if (link.revocationReason === 'cleanup') return 'expired';
-	return 'revoked';
-}
-
-function getSetupLinkState(link: AccountSetupLinkRecord, now: Date): string {
+function getSetupLinkState(
+	link: AccountSetupLinkRecord,
+	now: Date
+): 'used' | 'failed' | 'expired' | 'revoked' | 'replaced' | 'claimed' | 'valid' {
 	if (link.usedAt) return 'used';
 	if (link.failedAt) return 'failed';
-	if (link.revokedAt) return revokedLinkState(link);
+	if (link.revokedAt) return revokedSetupLinkStatus(link.revocationReason);
 	if (link.expiresAt <= now) return 'expired';
 	if (link.claimedAt) return 'claimed';
 	return 'valid';
@@ -362,7 +360,7 @@ export function createAccountSetupRouteFlow(dependencies: AccountSetupRouteFlowD
 				};
 			}
 
-			if (!accessRequest.setupGrantLive) {
+			if (isUnclaimedLinkGrantWithdrawn(setupLinkState, accessRequest)) {
 				return {
 					state: 'access-request-not-approved',
 					message: tokenStateMessage('access-request-not-approved'),

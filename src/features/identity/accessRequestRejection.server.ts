@@ -92,7 +92,6 @@ export async function rejectAccessRequestAndBlockLinkedInvitations(
 	return { status: 'rejected', blockedInvitations: mapBlockedInvitations(rows) };
 }
 
-/** Withdraws an approved, incomplete Access Request of either approval basis (ADR 0012). */
 export async function rescindAccessRequestAndBlockLinkedInvitations(
 	supabase: SupabaseClient,
 	input: { accessRequestId: string; reviewerId: string }

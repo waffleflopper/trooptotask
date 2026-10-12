@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { env } from '$env/dynamic/private';
 import { addUtcDays } from './accountSetupDates';
 import { getAdminClient } from '$lib/server/supabase';
+import { isSetupGrantWithdrawn } from './accessRequestSetupState.server';
 import type { AccessRequestStatus, AccountSetupLinkRevocationReason, AccountSetupLinkFailureReason } from './contracts';
 export type { AccountSetupLinkRevocationReason, AccountSetupLinkFailureReason } from './contracts';
 
@@ -33,7 +34,6 @@ export interface AccountSetupLinkAccessRequest {
 	lastName?: string | null;
 	status: AccessRequestStatus;
 	setupCompletedAt: Date | string | null;
-	/** The derived grant: whether this request may still mint or admit a setup credential (ADR 0012). */
 	setupGrantLive: boolean;
 }
 
@@ -304,6 +304,27 @@ function mapIssueRpcRow(
 	};
 }
 
+export function revokedSetupLinkStatus(
+	reason: AccountSetupLinkRevocationReason | null
+): 'expired' | 'revoked' | 'replaced' {
+	switch (reason) {
+		case 'cleanup':
+			return 'expired';
+		case 'manual':
+			return 'revoked';
+		case 'replaced':
+		case null:
+			return 'replaced';
+	}
+}
+
+export function isUnclaimedLinkGrantWithdrawn(
+	linkStatus: 'valid' | 'claimed',
+	accessRequest: AccountSetupLinkAccessRequest
+): boolean {
+	return linkStatus === 'valid' && isSetupGrantWithdrawn(accessRequest);
+}
+
 function getValidationStatus(link: AccountSetupLinkRecord | null, now: Date): ValidateAccountSetupLinkResult {
 	if (!link) {
 		return { status: 'missing' };
@@ -318,11 +339,7 @@ function getValidationStatus(link: AccountSetupLinkRecord | null, now: Date): Va
 	}
 
 	if (link.revokedAt) {
-		if (link.revocationReason === 'replaced') {
-			return { status: 'replaced' };
-		}
-		// Cleanup only revokes links that already expired.
-		return { status: link.revocationReason === 'cleanup' ? 'expired' : 'revoked' };
+		return { status: revokedSetupLinkStatus(link.revocationReason) };
 	}
 
 	if (link.expiresAt <= now) {
@@ -469,9 +486,7 @@ export function createAccountSetupLinkService(
 				return { status: 'access-request-not-approved' };
 			}
 
-			// A claim admitted while the grant was live finishes; only an unclaimed link must
-			// still be backed by a live grant before the setup page offers it.
-			if (validation.status === 'valid' && !accessRequest.setupGrantLive) {
+			if (isUnclaimedLinkGrantWithdrawn(validation.status, accessRequest)) {
 				return { status: 'access-request-not-approved' };
 			}
 

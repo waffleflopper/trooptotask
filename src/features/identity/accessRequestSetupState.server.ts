@@ -84,6 +84,14 @@ export function classifyAccessRequestSetupState(input: {
 	return 'pending';
 }
 
+export function isSetupGrantWithdrawn(request: {
+	status: AccessRequestStatus;
+	setupCompletedAt: Date | string | null;
+	setupGrantLive: boolean;
+}): boolean {
+	return request.status === 'approved' && !request.setupCompletedAt && !request.setupGrantLive;
+}
+
 /** {@link classifyAccessRequestSetupState} over raw joined rows. */
 export function resolveAccessRequestSetupState(
 	source: AccessRequestSetupStateSource,

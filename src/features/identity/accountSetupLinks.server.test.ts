@@ -232,9 +232,16 @@ describe('Account Setup Links', () => {
 
 		store.links[0].expiresAt = new Date('2026-05-30T12:00:00.000Z');
 		store.links[0].revokedAt = new Date('2026-05-18T13:00:00.000Z');
+		store.links[0].revocationReason = 'manual';
 		expect(await service.validateToken('valid-token')).toEqual({ status: 'revoked' });
 
+		store.links[0].revocationReason = 'cleanup';
+		expect(await service.validateToken('valid-token')).toEqual({ status: 'expired' });
+
 		store.links[0].revocationReason = 'replaced';
+		expect(await service.validateToken('valid-token')).toEqual({ status: 'replaced' });
+
+		store.links[0].revocationReason = null;
 		expect(await service.validateToken('valid-token')).toEqual({ status: 'replaced' });
 
 		store.links[0].revokedAt = null;

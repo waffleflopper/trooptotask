@@ -2,6 +2,7 @@ import { getAccessRequestHeardAboutLabel } from '$features/identity/contracts';
 import {
 	classifyAccessRequestSetupState,
 	findLatestAccessRequestSetupDelivery,
+	isSetupGrantWithdrawn,
 	normalizeAccessRequestSetupDeliveries,
 	normalizeAccessRequestSetupLinks,
 	type AccessRequestSetupLink,
@@ -141,7 +142,7 @@ function resolveSetupState(
 					detail:
 						'A setup attempt may still be running. If it stalls, staff must confirm its Auth operation has ended before releasing the claim. Sending another setup link will not unlock it.'
 				}
-		: isSetupGrantWithdrawn(request)
+		: isRowSetupGrantWithdrawn(request)
 			? {
 					label: 'Invitation withdrawn',
 					detail:
@@ -254,7 +255,6 @@ function findApprovingInvitationOrigin(request: PlatformAccessRequestAdminRow): 
 	return beforeReview[0] ?? newestFirst[newestFirst.length - 1];
 }
 
-/** The recorded approval basis decides provenance; the origins only name the approving Organization. */
 function resolveAutoApproval(request: PlatformAccessRequestAdminRow): {
 	auto_approved: boolean;
 	auto_approval_detail: string | null;
@@ -272,13 +272,12 @@ function resolveAutoApproval(request: PlatformAccessRequestAdminRow): {
 	};
 }
 
-function isSetupGrantWithdrawn(request: PlatformAccessRequestAdminRow): boolean {
-	return (
-		request.status === 'approved' &&
-		request.approval_basis === 'organization_invitation' &&
-		!request.setup_completed_at &&
-		!request.setup_grant_live
-	);
+function isRowSetupGrantWithdrawn(request: PlatformAccessRequestAdminRow): boolean {
+	return isSetupGrantWithdrawn({
+		status: request.status,
+		setupCompletedAt: request.setup_completed_at,
+		setupGrantLive: request.setup_grant_live
+	});
 }
 
 function heldClaimsByEmail(
@@ -319,7 +318,7 @@ function shapeListItem(
 		setup_completed_at: request.setup_completed_at,
 		invitation_origins: request.invitation_origins,
 		...resolveAutoApproval(request),
-		setup_grant_withdrawn: isSetupGrantWithdrawn(request),
+		setup_grant_withdrawn: isRowSetupGrantWithdrawn(request),
 		...resolveSetupState(request, now, heldClaim)
 	};
 }
@@ -498,7 +497,6 @@ async function issueSetupLink(
 	});
 }
 
-/** Reject and rescind withdraw platform access, so both pass the same step-up check. */
 async function authorizeWithdrawal(
 	deps: PlatformAccessRequestAdministrationDependencies,
 	input: {

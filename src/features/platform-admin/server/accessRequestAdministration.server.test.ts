@@ -1,18 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-	createPlatformAccessRequestAdministration,
-	type AccessRequestAuthEmailOutbox,
-	type AccessRequestSetupLink,
-	type PlatformAccessRequestAdministrationDependencies,
-	type PlatformAccessRequestAdministrationStore,
-	type PlatformAccessRequestAdminRow
+import type {
+	AccessRequestAuthEmailOutbox,
+	AccessRequestSetupLink,
+	PlatformAccessRequestAdminRow
 } from './accessRequestAdministration.server';
+import {
+	allowedDecision,
+	createCreatedSetupResult,
+	makeDeps,
+	makeSetupRecord,
+	makeStore,
+	now
+} from './accessRequestAdministration.test-support.server';
 import type { AccessRequestInvitationOrigin } from '../accessRequestTypes';
-import type { AccountSetupLinkRecord, CreateAccountSetupLinkResult } from '$features/identity/index.server';
-import { type SensitiveActionDecision } from '$features/identity/contracts';
 import { createSupabaseSensitiveActionAuthorizer } from '$features/identity/index.server';
-
-const now = new Date('2026-05-22T12:00:00.000Z');
 
 function makeSetupLink(overrides: Partial<AccessRequestSetupLink> = {}): AccessRequestSetupLink {
 	return {
@@ -82,114 +83,6 @@ function makeInvitationOrigin(overrides: Partial<AccessRequestInvitationOrigin> 
 		intended_access_label: 'Member preset: Viewer',
 		...overrides
 	};
-}
-
-function makeSetupRecord(overrides: Partial<AccountSetupLinkRecord> = {}): AccountSetupLinkRecord {
-	return {
-		id: 'link-1',
-		accessRequestId: 'request-1',
-		tokenHash: 'hash',
-		expiresAt: new Date('2026-06-01T12:00:00.000Z'),
-		createdAt: new Date('2026-05-18T13:00:00.000Z'),
-		claimedAt: null,
-		failedAt: null,
-		failureReason: null,
-		usedAt: null,
-		revokedAt: null,
-		revocationReason: null,
-		...overrides
-	};
-}
-
-function allowedDecision(action = 'platform.accessRequest.approve'): SensitiveActionDecision {
-	return {
-		allowed: true,
-		action: action as SensitiveActionDecision['action'],
-		reason: 'allowed.recentSession',
-		actorUserId: 'admin-1',
-		target: { type: 'access_request', id: 'request-1' },
-		currentAssuranceLevel: 'aal1',
-		nextAssuranceLevel: 'aal1',
-		sessionAgeMs: 60_000,
-		recentSessionWindowMs: 900_000,
-		requiresStepUp: false
-	};
-}
-
-function createCreatedSetupResult(
-	overrides: Partial<Extract<CreateAccountSetupLinkResult, { status: 'created' }>> = {}
-) {
-	return {
-		status: 'created' as const,
-		accessRequestId: 'request-1',
-		rawToken: 'raw-token',
-		setupPath: '/auth/setup-account?token=raw-token',
-		expiresAt: new Date('2026-06-01T12:00:00.000Z'),
-		link: makeSetupRecord(),
-		revokedLinkIds: [],
-		...overrides
-	};
-}
-
-function makeStore(
-	overrides: Partial<PlatformAccessRequestAdministrationStore> = {}
-): PlatformAccessRequestAdministrationStore {
-	return {
-		listAccessRequests: vi.fn().mockResolvedValue([]),
-		getPendingAccessRequestForApproval: vi.fn().mockResolvedValue({
-			id: 'request-1',
-			email: 'Soldier@Example.mil',
-			status: 'pending',
-			setup_completed_at: null
-		}),
-		markPendingRequestApproved: vi.fn().mockResolvedValue('approved'),
-		getApprovedAccessRequestForResend: vi.fn().mockResolvedValue({
-			id: 'request-1',
-			email: 'soldier@example.mil',
-			status: 'approved',
-			setup_completed_at: null
-		}),
-		rejectPendingAccessRequestAndBlockLinkedInvitations: vi.fn().mockResolvedValue({
-			status: 'rejected',
-			blockedInvitations: []
-		}),
-		rescindApprovedAccessRequestAndBlockLinkedInvitations: vi.fn().mockResolvedValue({
-			status: 'rescinded',
-			blockedInvitations: []
-		}),
-		...overrides
-	};
-}
-
-function makeDeps(overrides: Partial<PlatformAccessRequestAdministrationDependencies> = {}) {
-	const store = makeStore(overrides.store);
-	const deps: PlatformAccessRequestAdministrationDependencies = {
-		store,
-		setupLinks: {
-			createForAccessRequest: vi.fn().mockResolvedValue(createCreatedSetupResult())
-		},
-		setupDelivery: {
-			send: vi.fn().mockResolvedValue({
-				status: 'sent',
-				outbox: { id: 'outbox-1', status: 'sent' }
-			})
-		},
-		sensitiveActionAuthorizer: {
-			authorize: vi.fn().mockResolvedValue(allowedDecision())
-		},
-		checkSetupRateLimit: vi.fn().mockResolvedValue({
-			limited: false,
-			action: 'approval',
-			checks: []
-		}),
-		audit: vi.fn(),
-		notifyGovernors: {
-			notifyInvitationBlocked: vi.fn().mockResolvedValue(undefined)
-		},
-		now: () => now,
-		...overrides
-	};
-	return { deps, admin: createPlatformAccessRequestAdministration(deps) };
 }
 
 describe('Platform Access Request Administration', () => {
@@ -1072,85 +965,5 @@ describe('Platform Access Request Administration', () => {
 				severity: 'warning'
 			})
 		);
-	});
-
-	it('rescinds an approved incomplete request, blocks its pending invitations and tells their governors', async () => {
-		const { admin, deps } = makeDeps({
-			sensitiveActionAuthorizer: {
-				authorize: vi.fn().mockResolvedValue(allowedDecision('platform.accessRequest.rescind'))
-			},
-			store: makeStore({
-				rescindApprovedAccessRequestAndBlockLinkedInvitations: vi.fn().mockResolvedValue({
-					status: 'rescinded',
-					blockedInvitations: [
-						{
-							id: 'invite-1',
-							organizationId: 'org-1',
-							email: 'invitee@example.com',
-							blockedAt: '2026-05-22T12:00:00.000Z'
-						}
-					]
-				})
-			})
-		});
-
-		expect(await admin.rescind({ accessRequestId: 'request-1', actorUserId: 'admin-1' })).toEqual({
-			status: 'rescinded'
-		});
-		expect(vi.mocked(deps.audit).mock.calls.map(([event]) => event)).toEqual([
-			{
-				action: 'access_request.rescinded',
-				resourceType: 'access_request',
-				resourceId: 'request-1',
-				details: { blockedInvitationCount: 1 },
-				severity: 'warning'
-			}
-		]);
-		expect(vi.mocked(deps.notifyGovernors.notifyInvitationBlocked).mock.calls).toEqual([
-			[{ organizationId: 'org-1', adminUserId: 'admin-1', email: 'invitee@example.com', reason: 'rescinded' }]
-		]);
-	});
-
-	it('requires a fresh step-up before rescinding and leaves the request untouched when denied', async () => {
-		const rescindApprovedAccessRequestAndBlockLinkedInvitations = vi.fn();
-		const { admin, deps } = makeDeps({
-			sensitiveActionAuthorizer: {
-				authorize: vi.fn().mockResolvedValue({
-					...allowedDecision('platform.accessRequest.rescind'),
-					allowed: false,
-					reason: 'denied.staleSession',
-					nextAssuranceLevel: 'aal2',
-					requiresStepUp: true
-				})
-			},
-			store: makeStore({ rescindApprovedAccessRequestAndBlockLinkedInvitations })
-		});
-
-		expect(await admin.rescind({ accessRequestId: 'request-1', actorUserId: 'admin-1' })).toMatchObject({
-			status: 'authorization_denied',
-			failure: { reason: 'denied.staleSession', requiresStepUp: true, stepUpPath: '/auth/mfa-verify' }
-		});
-		expect(rescindApprovedAccessRequestAndBlockLinkedInvitations).not.toHaveBeenCalled();
-		expect(vi.mocked(deps.audit).mock.calls.map(([event]) => [event.action, event.severity])).toEqual([
-			['access_request.rescission_authorization_denied', 'warning']
-		]);
-	});
-
-	it.each([
-		['claim-held', 'claim_held'],
-		['completed', 'setup_completed'],
-		['not_found', 'not_approved']
-	] as const)('refuses to rescind a %s request without auditing a rescission', async (storeStatus, status) => {
-		const { admin, deps } = makeDeps({
-			store: makeStore({
-				rescindApprovedAccessRequestAndBlockLinkedInvitations: vi
-					.fn()
-					.mockResolvedValue({ status: storeStatus, blockedInvitations: [] })
-			})
-		});
-
-		expect(await admin.rescind({ accessRequestId: 'request-1', actorUserId: 'admin-1' })).toEqual({ status });
-		expect(deps.audit).not.toHaveBeenCalled();
-		expect(deps.notifyGovernors.notifyInvitationBlocked).not.toHaveBeenCalled();
 	});
 });

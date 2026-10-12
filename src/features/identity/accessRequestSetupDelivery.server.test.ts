@@ -322,7 +322,6 @@ describe('access request setup delivery', () => {
 			accessRequestFixture({ id: 'platform-reviewed', createdAt: new Date('2026-05-01T12:00:00.000Z') }),
 			accessRequestFixture({
 				id: 'invitation-withdrawn',
-				approvalBasis: 'organization_invitation',
 				setupGrantLive: false,
 				createdAt: new Date('2026-05-10T12:00:00.000Z')
 			})
@@ -337,9 +336,7 @@ describe('access request setup delivery', () => {
 	});
 
 	it('lets a person whose invitation was withdrawn apply for reviewed access', async () => {
-		const store = createAccessRequestSetupDeliveryStore([
-			accessRequestFixture({ approvalBasis: 'organization_invitation', setupGrantLive: false })
-		]);
+		const store = createAccessRequestSetupDeliveryStore([accessRequestFixture({ setupGrantLive: false })]);
 		const { service, sendSetupEmail } = makeService(store);
 
 		expect(await service.submitAccessRequest(makeSubmission())).toEqual({ status: 'pending-created' });
@@ -350,9 +347,8 @@ describe('access request setup delivery', () => {
 
 	it('keeps a rescinded or rejected request blocking reviewed resubmission', async () => {
 		for (const request of [
-			accessRequestFixture({ status: 'rescinded', approvalBasis: 'organization_invitation', setupGrantLive: false }),
-			accessRequestFixture({ status: 'rescinded', approvalBasis: 'platform_review', setupGrantLive: false }),
-			accessRequestFixture({ status: 'rejected', approvalBasis: null, setupGrantLive: false })
+			accessRequestFixture({ status: 'rescinded', setupGrantLive: false }),
+			accessRequestFixture({ status: 'rejected', setupGrantLive: false })
 		]) {
 			const store = createAccessRequestSetupDeliveryStore([request]);
 			const { service } = makeService(store);
@@ -368,7 +364,7 @@ describe('access request setup delivery', () => {
 			[accessRequestFixture({ setupCompletedAt: new Date('2026-05-03T12:00:00.000Z') })],
 			[accessRequestFixture({ status: 'rejected' })],
 			[accessRequestFixture({ status: 'rescinded' })],
-			[accessRequestFixture({ approvalBasis: 'organization_invitation', setupGrantLive: false })],
+			[accessRequestFixture({ setupGrantLive: false })],
 			[accessRequestFixture({ status: 'pending' })],
 			[
 				accessRequestFixture({

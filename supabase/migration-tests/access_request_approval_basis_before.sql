@@ -1,5 +1,3 @@
--- Approved Access Requests from each historical acquisition path, loaded before the
--- approval basis exists so the upgrade backfill classifies real rows.
 BEGIN;
 DO $$
 BEGIN

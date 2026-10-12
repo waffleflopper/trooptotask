@@ -13,7 +13,6 @@ export function accessRequestFixture(overrides: Partial<AccessRequestSetupReques
 		id: 'request-1',
 		email: 'test@example.com',
 		status: 'approved',
-		approvalBasis: 'platform_review',
 		createdAt: AUTH_WORKFLOW_CREATED_AT,
 		reviewedAt: AUTH_WORKFLOW_REVIEWED_AT,
 		setupCompletedAt: null,

@@ -90,6 +90,7 @@ export {
 export {
 	classifyAccessRequestSetupState,
 	findLatestAccessRequestSetupDelivery,
+	isSetupGrantWithdrawn,
 	normalizeAccessRequestSetupDeliveries,
 	normalizeAccessRequestSetupLinks,
 	resolveAccessRequestSetupState,

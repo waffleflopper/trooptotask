@@ -69,7 +69,6 @@ export interface PlatformAccessRequestAdminItem {
 	invitation_origins: AccessRequestInvitationOrigin[];
 	auto_approved: boolean;
 	auto_approval_detail: string | null;
-	/** An Organization Invitation approval whose every linked invitation was revoked or blocked. */
 	setup_grant_withdrawn: boolean;
 }
 

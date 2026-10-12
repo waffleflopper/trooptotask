@@ -702,45 +702,6 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 		});
 	});
 
-	it('blocks a just-created invitation when the non-user Access Request bridge fails', async () => {
-		const { builder, calls } = createInvitationExpiryBuilder();
-		const adminSupabase = {
-			from: vi.fn(() => builder)
-		};
-		const port = createSupabaseOrgSettingsMemberManagementPort(
-			{
-				supabase: { from: vi.fn() }
-			} as never,
-			{ getAdminClient: () => adminSupabase as never }
-		);
-
-		await expect(
-			port.blockInvitationAfterAccessRequestBridgeFailure({
-				organizationId: 'org-1',
-				invitationId: 'invite-1',
-				blockedBy: 'owner-1',
-				reason: 'access request store unavailable'
-			})
-		).resolves.toEqual({ status: 'blocked' });
-
-		expect(adminSupabase.from).toHaveBeenCalledWith('organization_invitations');
-		expect(calls).toContainEqual({
-			method: 'update',
-			args: [
-				expect.objectContaining({
-					status: 'blocked',
-					blocked_at: expect.any(String),
-					blocked_by: 'owner-1'
-				})
-			]
-		});
-		expect(calls).toContainEqual({ method: 'eq', args: ['id', 'invite-1'] });
-		expect(calls).toContainEqual({ method: 'eq', args: ['organization_id', 'org-1'] });
-		expect(calls).toContainEqual({ method: 'eq', args: ['status', 'pending'] });
-		expect(calls).toContainEqual({ method: 'select', args: ['id'] });
-		expect(calls).toContainEqual({ method: 'single', args: [] });
-	});
-
 	it('revokes invitations through the lifecycle transition RPC', async () => {
 		const { builder, calls } = createRpcBuilder({
 			data: {
@@ -956,10 +917,11 @@ describe('invitation Organization isolation', () => {
 							return !filter || filter === `eq.${row[field]}`;
 						})
 					);
+					if (url.searchParams.get('id') === 'eq.unreachable') {
+						return Response.json({ code: '08006', message: 'connection failure' }, { status: 503 });
+					}
 					for (const row of selected) Object.assign(row, JSON.parse(String(init?.body)));
-					return selected.length === 1
-						? Response.json({ id: selected[0].id })
-						: Response.json({ code: 'PGRST116', message: 'No matching row' }, { status: 406 });
+					return Response.json(selected.map((row) => ({ id: row.id })));
 				}
 			}
 		});
@@ -972,8 +934,10 @@ describe('invitation Organization isolation', () => {
 				reason: 'issuance failed'
 			});
 		expect(await block('failed')).toEqual({ status: 'blocked' });
-		expect(await block('sibling')).toMatchObject({ status: 'failed' });
-		expect(await block('accepted')).toMatchObject({ status: 'failed' });
+		expect(await block('failed')).toEqual({ status: 'not-pending' });
+		expect(await block('sibling')).toEqual({ status: 'not-pending' });
+		expect(await block('accepted')).toEqual({ status: 'not-pending' });
+		expect(await block('unreachable')).toEqual({ status: 'failed', message: 'connection failure' });
 		expect(rows[0]).toMatchObject({ id: 'failed', status: 'blocked', blocked_by: 'owner-a' });
 		expect(rows.slice(1)).toEqual(before.slice(1));
 	});

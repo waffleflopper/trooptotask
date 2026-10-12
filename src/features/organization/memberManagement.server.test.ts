@@ -144,7 +144,7 @@ function createOrganizationSettingsMemberManagementPort(
 		pendingInvitationById?: { id: string; email: string } | null;
 		pendingInvitationByIdStatus?: 'pending' | 'expired';
 		pendingInvitationRequiresAccountSetup?: boolean;
-		blockInvitationResult?: { status: 'blocked' } | { status: 'failed'; message: string };
+		blockInvitationResult?: { status: 'blocked' } | { status: 'not-pending' } | { status: 'failed'; message: string };
 		membership?: {
 			userId: string | null;
 			role: string | null;
@@ -900,6 +900,78 @@ describe('inviteOrganizationMember', () => {
 		expect(ctx.notificationPort.notifications).toEqual([]);
 	});
 
+	it.each([
+		{
+			blockInvitationResult: { status: 'not-pending' } as const,
+			failure: { status: 409, message: 'This invitation was withdrawn while it was being created.' },
+			severity: 'warning'
+		},
+		{
+			blockInvitationResult: { status: 'failed', message: 'block write failed' } as const,
+			failure: {
+				status: 500,
+				message:
+					'Platform access setup could not be linked. Check Pending Invitations and revoke the invitation if it is still listed.',
+				publicMessage: true
+			},
+			severity: 'critical'
+		}
+	])(
+		'reports a $blockInvitationResult.status cleanup block after Access Request linking fails',
+		async ({ blockInvitationResult, failure, severity }) => {
+			const ctx = createTestContext();
+			const port = createOrganizationSettingsMemberManagementPort({
+				existingUserAccount: null,
+				accessRequestBridgeResult: { status: 'failed', message: 'access request store unavailable' },
+				blockInvitationResult
+			});
+			const issuance = createAccountSetupIssuancePorts();
+
+			await expect(
+				inviteOrganizationMember(
+					{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port, ...issuance },
+					{
+						email: 'new.user@example.com',
+						membershipRole: 'member',
+						memberAccess: memberAccess({ memberPreset: 'viewer' }),
+						actorEmail: 'actor@example.com'
+					}
+				)
+			).rejects.toMatchObject(failure);
+			expect(issuance.setupLinkRequests).toEqual([]);
+			expect(ctx.auditPort.events).toContainEqual({
+				action: 'member.invite_access_request_link_failed',
+				resourceType: 'organization',
+				details: {
+					email: 'new.user@example.com',
+					invitationId: 'invite-created',
+					reason: 'access request store unavailable',
+					blocked: false
+				},
+				severity
+			});
+			expect(
+				ctx.auditPort.events.filter((event) => event.action === 'member.invite_access_request_link_block_failed')
+			).toEqual(
+				blockInvitationResult.status === 'failed'
+					? [
+							{
+								action: 'member.invite_access_request_link_block_failed',
+								resourceType: 'organization',
+								details: {
+									email: 'new.user@example.com',
+									invitationId: 'invite-created',
+									reason: 'block write failed'
+								},
+								severity: 'critical'
+							}
+						]
+					: []
+			);
+			expect(ctx.notificationPort.notifications).toEqual([]);
+		}
+	);
+
 	it('issues and delivers an Account Setup Link for the bridged Access Request with no platform-admin action', async () => {
 		const ctx = createTestContext();
 		const port = createOrganizationSettingsMemberManagementPort({
@@ -1134,37 +1206,73 @@ describe('inviteOrganizationMember', () => {
 		expect(ctx.notificationPort.notifications).toEqual([]);
 	});
 
-	it('says the invitation is still pending when issuance and the cleanup block both fail', async () => {
-		const ctx = createTestContext();
-		const port = createOrganizationSettingsMemberManagementPort({
-			existingUserAccount: null,
-			blockInvitationResult: { status: 'failed', message: 'block write failed' }
-		});
-		const issuance = createAccountSetupIssuancePorts({ createResult: { status: 'access-request-not-approved' } });
-
-		await expect(
-			inviteOrganizationMember(
-				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port, ...issuance },
-				{
-					email: 'new.user@example.com',
-					membershipRole: 'member',
-					memberAccess: memberAccess({ memberPreset: 'viewer' }),
-					actorEmail: 'actor@example.com'
-				}
-			)
-		).rejects.toMatchObject({
-			status: 500,
-			message:
-				'The account setup link could not be issued, and the invitation is still pending. Revoke it from Pending Invitations.',
-			publicMessage: true
-		});
-		expect(ctx.auditPort.events).toContainEqual({
-			action: 'member.invite_account_setup_link_block_failed',
-			resourceType: 'organization',
-			details: { email: 'new.user@example.com', invitationId: 'invite-created', reason: 'block write failed' },
+	it.each([
+		{
+			blockInvitationResult: { status: 'not-pending' } as const,
+			failure: { status: 409, message: 'This invitation was withdrawn while it was being created.' },
+			severity: 'warning'
+		},
+		{
+			blockInvitationResult: { status: 'failed', message: 'block write failed' } as const,
+			failure: {
+				status: 500,
+				message:
+					'The account setup link could not be issued. Check Pending Invitations and revoke the invitation if it is still listed.',
+				publicMessage: true
+			},
 			severity: 'critical'
-		});
-	});
+		}
+	])(
+		'reports a $blockInvitationResult.status cleanup block after setup link issuance fails',
+		async ({ blockInvitationResult, failure, severity }) => {
+			const ctx = createTestContext();
+			const port = createOrganizationSettingsMemberManagementPort({ existingUserAccount: null, blockInvitationResult });
+			const issuance = createAccountSetupIssuancePorts({ createResult: { status: 'access-request-not-approved' } });
+
+			await expect(
+				inviteOrganizationMember(
+					{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port, ...issuance },
+					{
+						email: 'new.user@example.com',
+						membershipRole: 'member',
+						memberAccess: memberAccess({ memberPreset: 'viewer' }),
+						actorEmail: 'actor@example.com'
+					}
+				)
+			).rejects.toMatchObject(failure);
+			expect(ctx.auditPort.events).toContainEqual({
+				action: 'member.invite_account_setup_link_not_created',
+				resourceType: 'organization',
+				details: {
+					email: 'new.user@example.com',
+					invitationId: 'invite-created',
+					accessRequestId: 'access-request-1',
+					reason: 'access-request-not-approved',
+					blocked: false
+				},
+				severity
+			});
+			expect(
+				ctx.auditPort.events.filter((event) => event.action === 'member.invite_account_setup_link_block_failed')
+			).toEqual(
+				blockInvitationResult.status === 'failed'
+					? [
+							{
+								action: 'member.invite_account_setup_link_block_failed',
+								resourceType: 'organization',
+								details: {
+									email: 'new.user@example.com',
+									invitationId: 'invite-created',
+									reason: 'block write failed'
+								},
+								severity: 'critical'
+							}
+						]
+					: []
+			);
+			expect(ctx.notificationPort.notifications).toEqual([]);
+		}
+	);
 
 	it('blocks the created invitation and fails when the setup link provider throws', async () => {
 		const ctx = createTestContext();
@@ -2018,8 +2126,6 @@ describe('revokeOrganizationInvitation', () => {
 	});
 
 	it('leaves the Access Request row to the database grant so a re-invite revives setup', async () => {
-		// Revocation ends the derived grant inside revoke_organization_invitation; no request write
-		// happens here. A later invite links the same request again and issues a fresh setup link.
 		const ctx = createTestContext({ auth: { orgId: 'org-1' } });
 		const port = createOrganizationSettingsMemberManagementPort({ existingUserAccount: null });
 		const issuance = createAccountSetupIssuancePorts();

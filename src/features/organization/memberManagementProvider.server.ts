@@ -150,8 +150,6 @@ export function createSupabaseOrgSettingsMemberManagementPort(
 		},
 
 		async createOrLinkApprovedAccessRequestForInvitation(input) {
-			// One transaction finds or creates the request, links this invitation and approves it
-			// with the invitation basis, serialized per email against concurrent first-time invites.
 			const { data, error } = await getAdminClientFn()
 				.rpc('link_organization_invitation_access_request', {
 					p_invitation_id: input.invitationId,
@@ -197,13 +195,13 @@ export function createSupabaseOrgSettingsMemberManagementPort(
 				.eq('organization_id', input.organizationId)
 				.eq('status', 'pending')
 				.select('id')
-				.single<OrganizationInvitationLookupRow>();
+				.returns<OrganizationInvitationLookupRow[]>();
 
 			if (error || !data) {
 				return { status: 'failed', message: error?.message ?? 'Invitation could not be blocked' };
 			}
 
-			return { status: 'blocked' };
+			return data.length > 0 ? { status: 'blocked' } : { status: 'not-pending' };
 		},
 
 		async revokeInvitation(orgId, inviteId) {

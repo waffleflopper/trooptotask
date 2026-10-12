@@ -1,8 +1,19 @@
 export const MAIL_KINDS = Object.freeze(['account-setup', 'auth', 'invitation']);
+const write = (method, path, options = {}) => Object.freeze({ method, path, ...options });
+const ORGANIZATION_CREATE = ['/rest/v1/rpc/create_org_with_owner', '/rest/v1/rpc/create_organization'];
+// `bodyStatus` narrows a write to one requested status; `afterCommit` lets the provider commit, then loses its reply.
 export const PROVIDER_FAULTS = Object.freeze({
-	'setup-link-create': [['POST', '/rest/v1/rpc/issue_account_setup_link']],
-	'invitation-access-link': [['POST', '/rest/v1/rpc/link_organization_invitation_access_request']],
-	'invitation-block': [['PATCH', '/rest/v1/organization_invitations']]
+	'setup-link-create': [write('POST', '/rest/v1/rpc/issue_account_setup_link')],
+	'invitation-access-link': [write('POST', '/rest/v1/rpc/link_organization_invitation_access_request')],
+	'invitation-block': [write('PATCH', '/rest/v1/organization_invitations', { bodyStatus: 'blocked' })],
+	'org-create': ORGANIZATION_CREATE.map((path) => write('POST', path)),
+	'org-create-lost-ack': ORGANIZATION_CREATE.map((path) => write('POST', path, { afterCommit: true })),
+	'org-owner-email': [write('PATCH', '/rest/v1/organization_memberships')],
+	'org-groups': [write('POST', '/rest/v1/groups')],
+	'org-status-types': [write('POST', '/rest/v1/status_types')],
+	'org-assignment-types': [write('POST', '/rest/v1/assignment_types')],
+	'org-holidays': [write('POST', '/rest/v1/special_days')],
+	'org-ranks': [write('POST', '/rest/v1/organization_rank_catalog')]
 });
 const MAIL_URL = 'https://api.resend.com/emails';
 const MAX_MESSAGES = 200;
@@ -47,6 +58,14 @@ async function bodyText(input, init) {
 	const body = init?.body ?? (input instanceof Request ? await input.clone().text() : undefined);
 	if (typeof body === 'string') return body;
 	return body instanceof Uint8Array ? new TextDecoder().decode(body) : null;
+}
+
+async function requestStatus(input, init) {
+	try {
+		return JSON.parse(await bodyText(input, init)).status ?? null;
+	} catch {
+		return null;
+	}
 }
 
 const json = (status, body) =>
@@ -220,34 +239,40 @@ export function createProviderFaultController({ providerUrl, fetch: originalFetc
 		};
 	}
 
+	async function armedWrite(request, input, init) {
+		let status;
+		for (const [name, writes] of Object.entries(PROVIDER_FAULTS)) {
+			if (active.get(name)?.triggered !== false) continue;
+			for (const entry of writes) {
+				if (entry.method !== request.method || entry.path !== request.url.pathname) continue;
+				if (entry.bodyStatus) {
+					status ??= await requestStatus(input, init);
+					if (status !== entry.bodyStatus) continue;
+				}
+				return { name, entry };
+			}
+		}
+		return null;
+	}
+
 	async function faultFetch(input, init) {
 		if (![...active.values()].some((control) => !control.triggered)) return originalFetch(input, init);
 		const request = describe(input, init);
 		if (!request || request.url.origin !== origin || request.url.username || request.url.password)
 			return originalFetch(input, init);
-		const name = Object.keys(PROVIDER_FAULTS).find(
-			(candidate) =>
-				active.get(candidate)?.triggered === false &&
-				PROVIDER_FAULTS[candidate].some(
-					([method, pathname]) => method === request.method && pathname === request.url.pathname
-				)
-		);
+		const { name, entry } = (await armedWrite(request, input, init)) ?? {};
 		if (!name) return originalFetch(input, init);
-		if (request.method === 'PATCH') {
-			let status;
-			try {
-				status = JSON.parse(await bodyText(input, init)).status;
-			} catch {
-				status = undefined;
-			}
-			if (status !== 'blocked') return originalFetch(input, init);
-		}
 		const control = active.get(name);
 		control.matches++;
 		if (control.matches !== control.ordinal) return originalFetch(input, init);
 		control.triggered = true;
 		control.phase = 'faulted';
 		control.call = { method: request.method, path: request.url.pathname };
+		if (entry.afterCommit) {
+			const committed = await originalFetch(input, init);
+			await committed.arrayBuffer();
+			control.call.providerStatus = committed.status;
+		}
 		return json(503, {
 			code: 'T2T_VERIFY_PROVIDER_FAULT',
 			message: 'Synthetic verification provider fault',

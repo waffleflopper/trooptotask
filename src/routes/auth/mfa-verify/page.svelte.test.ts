@@ -95,6 +95,14 @@ it.each(['invalid code', 'provider unavailable', 'network failure', 'invalid suc
 	}
 );
 
+it('ends the sign-out sentence with no space before its period', () => {
+	render(Page);
+
+	const sentence = screen.getByRole('button', { name: 'sign out' }).closest('div')!;
+
+	expect(sentence.textContent?.replace(/\s+/g, ' ').trim()).toBe('Leave this verification step and sign out.');
+});
+
 it('lets the user submit sign-out to the existing POST action', async () => {
 	const { container } = render(Page);
 	const submissions: { method: string; pathname: string }[] = [];

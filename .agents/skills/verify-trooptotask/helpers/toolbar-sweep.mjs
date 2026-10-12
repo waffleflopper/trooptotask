@@ -67,7 +67,9 @@ export function readToolbar(target, label) {
 		...liveItems().map((n) => [n.getAttribute('data-toolbar-item'), n]),
 		...[...root.querySelectorAll('[data-toolbar-more]')]
 			.filter((n) => !n.closest('[data-toolbar-measure]'))
-			.map((n) => ['more', n])
+			.map((n) => ['more', n]),
+		// Everything else on the row is the live search control: the field, the icon, or the open field and Close.
+		...[...row.children].filter((n) => !n.matches('[data-toolbar-item], [data-toolbar-more]')).map((n) => ['search', n])
 	];
 	const boxes = parts.map(([id, n]) => ({ id, rect: n.getBoundingClientRect() }));
 	// Rows compare by vertical centre: a 32px button beside a 36px field has different tops on one row.
@@ -84,7 +86,9 @@ export function readToolbar(target, label) {
 		contentWidth,
 		rowCount: rows.length,
 		tops: rows.map((c) => Math.round(c)),
-		clipped: boxes.filter(({ rect }) => rect.right > contentRight + 0.5).map(({ id }) => id),
+		clipped: boxes
+			.filter(({ rect }) => rect.left < contentLeft - 0.5 || rect.right > contentRight + 0.5)
+			.map(({ id }) => id),
 		rowClientWidth: row.clientWidth,
 		rowScrollWidth: row.scrollWidth,
 		rootClientWidth: root.clientWidth,
@@ -149,7 +153,8 @@ export function checkSweep({ down, up }, { expect }) {
 				width,
 				`row ${read.rowScrollWidth}/${read.rowClientWidth}, root ${read.rootScrollWidth}/${read.rootClientWidth}.`
 			);
-		if (read.clipped.length) fail('inside-row', width, `${read.clipped.join(', ')} extend past the row's right edge.`);
+		if (read.clipped.length)
+			fail('inside-row', width, `${read.clipped.join(', ')} extend outside the row's content box.`);
 		for (const id of pinned.filter((p) => !read.ids.includes(p))) fail('pinned', width, `${id} left the row.`);
 
 		const folded = foldedIn(read);

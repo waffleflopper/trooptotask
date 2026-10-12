@@ -356,6 +356,50 @@ test('reads one row, the row content width and a control past the row edge from 
 	assert.equal(result.rowScrollWidth, 640);
 });
 
+const searchField = '<div data-search-field><input type="search" aria-label="Search"></div>';
+function laidOut(window, place, { clientWidth = 500 } = {}) {
+	const row = window.document.querySelector('[data-toolbar-row]');
+	Object.defineProperty(row, 'clientWidth', { value: clientWidth });
+	Object.defineProperty(row, 'scrollWidth', { value: clientWidth });
+	const box = (left, right, top = 100) => ({ left, right, top, bottom: top + 32, width: right - left, height: 32 });
+	row.getBoundingClientRect = () => box(0, clientWidth);
+	for (const [selector, rect] of Object.entries(place)) row.querySelector(selector).getBoundingClientRect = () => rect;
+	return box;
+}
+
+test('counts the search control as a row part, so a search field on a second row is two rows', async (t) => {
+	const window = page(fitted(['export', 'record'], searchField));
+	t.after(() => window.happyDOM.close());
+	const box = laidOut(window, {});
+	const row = window.document.querySelector('[data-toolbar-row]');
+	row.querySelector('[data-toolbar-item="export"]').getBoundingClientRect = () => box(0, 100);
+	row.querySelector('[data-toolbar-item="record"]').getBoundingClientRect = () => box(106, 266);
+	row.querySelector('[data-search-field]').getBoundingClientRect = () => box(0, 320, 140);
+	const result = readToolbar(window, 'Controls');
+	assert.equal(result.rowCount, 2);
+	assert.deepEqual(result.tops, [116, 156]);
+	assert.ok(
+		checkSweep(
+			{ down: [{ width: 1440, read: { ...read(1440, 0, 'field'), ...result }, holds: [] }], up: [] },
+			{ expect }
+		).failures.some((f) => f.check === 'one-row')
+	);
+});
+
+test('reports a control past either edge of the row content box, search included', async (t) => {
+	const window = page(fitted(['export', 'record'], searchField));
+	t.after(() => window.happyDOM.close());
+	const box = laidOut(window, {});
+	const row = window.document.querySelector('[data-toolbar-row]');
+	row.querySelector('[data-toolbar-item="export"]').getBoundingClientRect = () => box(-50, 50);
+	row.querySelector('[data-toolbar-item="record"]').getBoundingClientRect = () => box(56, 216);
+	row.querySelector('[data-search-field]').getBoundingClientRect = () => box(222, 520);
+	assert.deepEqual(readToolbar(window, 'Controls').clipped, ['export', 'search']);
+	row.querySelector('[data-toolbar-item="export"]').getBoundingClientRect = () => box(0, 50);
+	row.querySelector('[data-search-field]').getBoundingClientRect = () => box(222, 500);
+	assert.deepEqual(readToolbar(window, 'Controls').clipped, []);
+});
+
 test('the injected page source reads only on the owned origin after fonts and two frames', () => {
 	const source = toolbarReadSource('Critical Tasks controls', 'http://127.0.0.1:4100');
 	assert.match(source, /location\.origin !== "http:\/\/127\.0\.0\.1:4100"/);

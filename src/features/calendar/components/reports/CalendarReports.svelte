@@ -6,7 +6,7 @@
 	import PersonnelTempo from './PersonnelTempo.svelte';
 	import AssignmentCoverage from './AssignmentCoverage.svelte';
 	import GroupReadiness from './GroupReadiness.svelte';
-	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar';
+	import { WorkspaceToolbar, type ToolbarAction, type ToolbarItem } from '$lib/components/patterns/workspace-toolbar';
 
 	interface Props {
 		orgId: string;
@@ -33,34 +33,37 @@
 		{ value: 'assignment-coverage', label: 'Assignment load by person' },
 		{ value: 'group-readiness', label: 'Group availability by day' }
 	];
-	const relatedLinks = $derived([{ label: 'Calendar', href: `/org/${orgUrlSegment}/calendar` }]);
+
+	let activeReport = $state<{ exportAction(): ToolbarAction | undefined } | null>(null);
+	const exportAction = $derived(activeReport?.exportAction());
+
+	const toolbarItems = $derived<ToolbarItem[]>([
+		{
+			kind: 'select',
+			id: 'report-type',
+			label: 'Report type',
+			options: reportOptions,
+			value: selectedReport,
+			defaultValue: 'status-days',
+			onValueChange: (value) => (selectedReport = value as ReportType)
+		},
+		...(exportAction ? [exportAction] : []),
+		{ kind: 'action', id: 'calendar', label: 'Calendar', href: `/org/${orgUrlSegment}/calendar` }
+	]);
 </script>
 
 <div class="flex flex-col gap-4">
-	<WorkspaceToolbar.Root ariaLabel="Calendar report controls">
-		<WorkspaceToolbar.Group label="Calendar report type" activeCount={selectedReport !== 'status-days' ? 1 : 0}>
-			<WorkspaceToolbar.Select
-				ariaLabel="Report type"
-				options={reportOptions}
-				value={selectedReport}
-				onValueChange={(value) => (selectedReport = value as ReportType)}
-			/>
-		</WorkspaceToolbar.Group>
-
-		<WorkspaceToolbar.Group label="Related calendar pages" zone="actions">
-			<WorkspaceToolbar.Nav ariaLabel="Related calendar pages" items={relatedLinks} />
-		</WorkspaceToolbar.Group>
-	</WorkspaceToolbar.Root>
+	<WorkspaceToolbar ariaLabel="Calendar report controls" items={toolbarItems} />
 
 	{#if selectedReport === 'status-days'}
-		<StatusDaysSummary {orgId} {personnel} {statusTypes} {groups} />
+		<StatusDaysSummary bind:this={activeReport} {orgId} {personnel} {statusTypes} {groups} />
 	{:else if selectedReport === 'availability-forecast'}
-		<AvailabilityForecast {orgId} {personnel} {statusTypes} {groups} />
+		<AvailabilityForecast bind:this={activeReport} {orgId} {personnel} {statusTypes} {groups} />
 	{:else if selectedReport === 'personnel-tempo'}
-		<PersonnelTempo {orgId} {personnel} {statusTypes} {groups} />
+		<PersonnelTempo bind:this={activeReport} {orgId} {personnel} {statusTypes} {groups} />
 	{:else if selectedReport === 'assignment-coverage'}
-		<AssignmentCoverage {orgId} {personnel} {statusTypes} {groups} />
+		<AssignmentCoverage bind:this={activeReport} {orgId} {personnel} {statusTypes} {groups} />
 	{:else if selectedReport === 'group-readiness'}
-		<GroupReadiness {orgId} {personnel} {statusTypes} {groups} />
+		<GroupReadiness bind:this={activeReport} {orgId} {personnel} {statusTypes} {groups} />
 	{/if}
 </div>

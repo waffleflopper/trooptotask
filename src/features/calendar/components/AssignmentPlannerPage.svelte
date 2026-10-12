@@ -1,5 +1,6 @@
 <script lang="ts">
-	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar';
+	import * as PageShell from '$lib/components/patterns/page-shell';
+	import { WorkspaceToolbar, type ToolbarItem } from '$lib/components/patterns/workspace-toolbar';
 	import { CalendarRangeCoordinator } from '../contexts/CalendarRangeCoordinator.svelte';
 	import { createVisibleCalendarRange, getCalendarRangeGaps } from '../utils/calendarRange';
 	import { buildCalendarAnchorCookie } from '../utils/calendarAnchorDate';
@@ -77,18 +78,14 @@
 		}).scoped(org.scopeSet, { status: 'active' })
 	);
 	const scopedPBG = $derived(rosterView.personnelByGroup);
-	const relatedLinks = $derived([{ label: 'Calendar', href: `/org/${orgUrlSegment}/calendar` }]);
+	const toolbarItems = $derived<ToolbarItem[]>([
+		{ kind: 'action', id: 'calendar', label: 'Calendar', href: `/org/${orgUrlSegment}/calendar` }
+	]);
 </script>
 
 <div class="mx-auto flex max-w-[1600px] flex-col gap-4 px-4 py-4 sm:px-6 sm:pb-6">
-	<WorkspaceToolbar.Root ariaLabel="Assignment planner controls">
-		<WorkspaceToolbar.Group label="Assignment planner context" zone="meta">
-			<WorkspaceToolbar.Meta>Manual monthly coverage planning</WorkspaceToolbar.Meta>
-		</WorkspaceToolbar.Group>
-		<WorkspaceToolbar.Group label="Related calendar pages" zone="actions">
-			<WorkspaceToolbar.Nav ariaLabel="Related calendar pages" items={relatedLinks} />
-		</WorkspaceToolbar.Group>
-	</WorkspaceToolbar.Root>
+	<PageShell.Header title="Assignment Planner" subtitle="Manual monthly coverage planning" />
+	<WorkspaceToolbar ariaLabel="Assignment planner controls" items={toolbarItems} />
 
 	{#if !canMutate}
 		<section class="bg-card text-muted-foreground rounded-lg border px-6 py-8 text-center">

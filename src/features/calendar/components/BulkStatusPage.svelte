@@ -1,8 +1,6 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import { Button } from '$lib/components/ui/button';
-	import * as ButtonGroup from '$lib/components/ui/button-group';
-	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar';
+	import { WorkspaceToolbar, type ToolbarItem } from '$lib/components/patterns/workspace-toolbar';
 	import BulkStatusAdd from './BulkStatusAdd.svelte';
 	import BulkStatusRemove from './BulkStatusRemove.svelte';
 	import BulkStatusImport from './BulkStatusImport.svelte';
@@ -44,7 +42,7 @@
 	const workspaceData = $derived(data.calendar?.data ?? data);
 	// ---- Tab management ----
 	type Tab = 'add' | 'remove' | 'import';
-	const TABS: { label: string; value: Tab }[] = [
+	const TABS: { value: Tab; label: string }[] = [
 		{ value: 'add', label: 'Add' },
 		{ value: 'remove', label: 'Remove' },
 		{ value: 'import', label: 'Import' }
@@ -56,7 +54,7 @@
 		return 'add';
 	});
 
-	function switchTab(tab: Tab) {
+	function switchTab(tab: string) {
 		const url = new URL(page.url);
 		url.searchParams.set('tab', tab);
 		const target = `${url.pathname}${url.search}` as `/org/${string}/calendar/bulk?${string}`;
@@ -74,7 +72,21 @@
 	);
 	const scopedPBG = $derived(rosterView.personnelByGroup);
 	const allPersonnelFlat = $derived(rosterView.flatPersonnel);
-	const relatedLinks = $derived([{ label: 'Calendar', href: `/org/${orgUrlSegment}/calendar` }]);
+	const toolbarItems = $derived<ToolbarItem[]>([
+		...(canMutate
+			? [
+					{
+						kind: 'view',
+						id: 'bulk-section',
+						label: 'Bulk status sections',
+						options: TABS,
+						value: activeTab,
+						onValueChange: switchTab
+					} satisfies ToolbarItem
+				]
+			: []),
+		{ kind: 'action', id: 'calendar', label: 'Calendar', href: `/org/${orgUrlSegment}/calendar` }
+	]);
 
 	// Each mounted scope owns its pending range loads, even after A → B → A.
 	let active = true;
@@ -119,27 +131,7 @@
 </script>
 
 <div class="mx-auto flex max-w-[1480px] flex-col gap-4 px-4 py-4 sm:px-6 sm:pb-6">
-	<WorkspaceToolbar.Root ariaLabel="Bulk status controls">
-		{#if canMutate}
-			<WorkspaceToolbar.Group label="Bulk status sections">
-				<ButtonGroup.Root>
-					{#each TABS as tab (tab.value)}
-						<Button
-							variant={activeTab === tab.value ? 'secondary' : 'outline'}
-							aria-pressed={activeTab === tab.value}
-							onclick={() => switchTab(tab.value)}
-						>
-							{tab.label}
-						</Button>
-					{/each}
-				</ButtonGroup.Root>
-			</WorkspaceToolbar.Group>
-		{/if}
-
-		<WorkspaceToolbar.Group label="Related calendar pages" zone="actions">
-			<WorkspaceToolbar.Nav ariaLabel="Related calendar pages" items={relatedLinks} />
-		</WorkspaceToolbar.Group>
-	</WorkspaceToolbar.Root>
+	<WorkspaceToolbar ariaLabel="Bulk status controls" items={toolbarItems} />
 
 	{#if !canMutate}
 		<section class="bg-card text-muted-foreground rounded-lg border px-6 py-8 text-center sm:px-8 sm:py-12">

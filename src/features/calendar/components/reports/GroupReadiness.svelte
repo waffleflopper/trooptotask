@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { ToolbarAction } from '$lib/components/patterns/workspace-toolbar';
 	import type { Personnel } from '$features/personnel/contracts';
 	import type { StatusType } from '$features/calendar/contracts';
 	import { Button } from '$lib/components/ui/button/index.js';
@@ -155,6 +156,22 @@
 		if (!report.result) return;
 		return exportGroupReadinessWorkbook(report.result, startDate, endDate);
 	}
+
+	const readyExport = $derived<ToolbarAction | undefined>(
+		report.result && report.status !== 'loading' && report.status !== 'error'
+			? {
+					kind: 'action',
+					id: 'export',
+					label: 'Export group availability',
+					icon: 'download',
+					onclick: handleExportExcel
+				}
+			: undefined
+	);
+
+	export function exportAction(): ToolbarAction | undefined {
+		return readyExport;
+	}
 </script>
 
 <ReportWorkspace.Root ariaLabel="Group availability by day report">
@@ -216,10 +233,6 @@
 			ariaLabel="Group availability heat map"
 			emptyMessage="No group availability to report."
 		>
-			{#snippet actions()}
-				<ReportWorkspace.ExportAction label="Export group availability" onclick={handleExportExcel} />
-			{/snippet}
-
 			{#snippet summary()}
 				{#if reportSummary}
 					<ReportWorkspace.SummaryStrip

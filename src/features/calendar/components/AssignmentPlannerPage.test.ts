@@ -106,11 +106,12 @@ describe('AssignmentPlannerPage', () => {
 		cleanup();
 	});
 
-	it('renders the planner with floating toolbar actions', () => {
+	it('names the planner in its page header and links back to Calendar from the toolbar', () => {
 		renderPage();
 
-		expect(screen.getByLabelText('Assignment planner controls')).toBeTruthy();
+		expect(screen.getByRole('heading', { level: 1, name: 'Assignment Planner' })).toBeTruthy();
 		expect(screen.getByText('Manual monthly coverage planning')).toBeTruthy();
+		expect(screen.getByRole('toolbar', { name: 'Assignment planner controls' })).toBeTruthy();
 		expect(screen.queryByRole('link', { name: 'Duty Rosters' })).toBeNull();
 		expect(screen.getByRole('link', { name: 'Calendar' }).getAttribute('href')).toBe('/org/org-1/calendar');
 		expect(screen.getByText('Quick Fill')).toBeTruthy();

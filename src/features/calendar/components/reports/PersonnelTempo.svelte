@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { ToolbarAction } from '$lib/components/patterns/workspace-toolbar';
 	import type { Personnel } from '$features/personnel/contracts';
 	import type { StatusType } from '$features/calendar/contracts';
 	import { Button } from '$lib/components/ui/button/index.js';
@@ -171,6 +172,16 @@
 		if (!report.result) return;
 		return exportPersonnelTempoWorkbook(report.result, displayColumns, startDate, endDate);
 	}
+
+	const readyExport = $derived<ToolbarAction | undefined>(
+		report.result && report.status !== 'loading' && report.status !== 'error'
+			? { kind: 'action', id: 'export', label: 'Export away days', icon: 'download', onclick: handleExportExcel }
+			: undefined
+	);
+
+	export function exportAction(): ToolbarAction | undefined {
+		return readyExport;
+	}
 </script>
 
 <ReportWorkspace.Root ariaLabel="Away days by person report">
@@ -227,10 +238,6 @@
 			ariaLabel="Away days by person"
 			emptyMessage="No selected away statuses fall in this date range. Try more statuses or a wider range."
 		>
-			{#snippet actions()}
-				<ReportWorkspace.ExportAction label="Export away days" onclick={handleExportExcel} />
-			{/snippet}
-
 			{#snippet summary()}
 				{#if reportSummary}
 					<ReportWorkspace.SummaryStrip

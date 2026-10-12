@@ -5,9 +5,11 @@
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { downloadBlob } from '$lib/utils/downloadBlob';
 	import { Button } from '$lib/components/ui/button';
-	import * as ButtonGroup from '$lib/components/ui/button-group';
-	import { Toggle } from '$lib/components/ui/toggle';
-	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar';
+	import {
+		WorkspaceToolbar,
+		type ToolbarItem,
+		type WorkspaceToolbarProps
+	} from '$lib/components/patterns/workspace-toolbar';
 	import { createRosterReadModel } from '$features/personnel/contracts';
 	import { getAppShellContext } from '$features/app-shell';
 	import { rosterStore } from '$features/personnel';
@@ -27,7 +29,6 @@
 		type IctTask,
 		type PersonnelIctCompletion
 	} from '$features/critical-tasks';
-	import type { WorkspaceToolbarAction } from '$lib/components/patterns/workspace-toolbar';
 	import type { Personnel } from '$features/personnel/contracts';
 
 	let { data } = $props();
@@ -114,9 +115,6 @@
 		{ value: 'alphabetical', label: 'A-Z' },
 		{ value: 'by-group', label: 'Group' }
 	];
-	const activeFilterCount = $derived(
-		(effectiveSelectedGroupId ? 1 : 0) + (gapsOnly ? 1 : 0) + (personnelSearch.trim() ? 1 : 0)
-	);
 	const filteredPersonnel = $derived(
 		rosterReadModel.scoped(org.scopeSet, { status: 'active', search: personnelSearch }).flatPersonnel
 	);
@@ -210,69 +208,91 @@
 		}
 	}
 
-	const toolbarActionItems = $derived.by<WorkspaceToolbarAction[]>(() => {
-		const items: WorkspaceToolbarAction[] = [
+	const toolbarItems = $derived.by<ToolbarItem[]>(() => {
+		const items: ToolbarItem[] = [
 			{
-				id: 'export-excel',
-				label: matrixExportLoading ? 'Exporting...' : 'Export Excel',
-				onclick: exportMatrixExcel,
-				icon: 'download',
-				priority: 'low',
-				variant: 'default',
-				disabled: matrixExportLoading || loading,
-				disabledReason: loading ? 'Export unavailable while loading.' : undefined
-			}
+				kind: 'view',
+				id: 'matrix-view',
+				label: 'Critical Tasks matrix view mode',
+				options: matrixViewOptions,
+				value: viewMode,
+				onValueChange: (value) => {
+					if (value === 'alphabetical' || value === 'by-group') viewMode = value;
+				}
+			},
+			{
+				kind: 'select',
+				id: 'group',
+				label: 'Group',
+				ariaLabel: 'Critical Tasks group filter',
+				options: groupFilterOptions,
+				value: effectiveSelectedGroupId,
+				defaultValue: '',
+				onValueChange: (value) => (selectedGroupId = value)
+			},
+			{
+				kind: 'toggle',
+				id: 'gaps',
+				label: 'Show gaps only',
+				pressed: gapsOnly,
+				onPressedChange: (pressed) => (gapsOnly = pressed)
+			},
+			{ kind: 'action', id: 'reports', label: 'Reports', href: reportsHref, icon: 'chart' }
 		];
 
+		if (canConfigureLibrary) {
+			items.push({
+				kind: 'action',
+				id: 'task-library',
+				label: 'Task Library',
+				href: taskLibraryHref,
+				icon: 'book-open'
+			});
+		}
 		if (canInputTask) {
 			items.push({
+				kind: 'action',
 				id: 'import-completions',
 				label: 'Import Completions',
 				onclick: handleCompletionImportOpen,
 				icon: 'upload',
-				priority: 'normal',
-				variant: 'default',
 				disabled: !canOpenCompletionInput,
 				disabledReason: completionInputDisabledReason('Add personnel and active tasks before importing completions.')
 			});
 		}
-
-		if (canConfigureLibrary) {
-			items.push({
-				id: 'task-library',
-				label: 'Task Library',
-				href: taskLibraryHref,
-				icon: 'book-open',
-				priority: 'normal',
-				variant: 'default'
-			});
-		}
-
 		items.push({
-			id: 'reports',
-			label: 'Reports',
-			href: reportsHref,
-			icon: 'chart',
-			priority: 'high',
-			variant: 'default'
+			kind: 'action',
+			id: 'export-excel',
+			label: matrixExportLoading ? 'Exporting...' : 'Export Excel',
+			onclick: exportMatrixExcel,
+			icon: 'download',
+			loading: matrixExportLoading,
+			disabled: matrixExportLoading || loading,
+			disabledReason: loading ? 'Export unavailable while loading.' : undefined
 		});
-
-		if (canInputTask) {
-			items.push({
-				id: 'record-completion',
-				label: 'Record Completion',
-				onclick: handleToolbarTaskInput,
-				icon: 'clipboard-check',
-				priority: 'critical',
-				overflow: 'never',
-				variant: 'primary',
-				disabled: !canOpenCompletionInput,
-				disabledReason: completionInputDisabledReason('Add personnel and active tasks before recording a completion.')
-			});
-		}
-
 		return items;
 	});
+
+	const toolbarSearch = $derived({
+		label: 'Search by name, rank, or MOS',
+		placeholder: 'Search name, rank, MOS...',
+		value: personnelSearch,
+		onValueChange: (value: string) => (personnelSearch = value)
+	} satisfies NonNullable<WorkspaceToolbarProps['search']>);
+
+	const toolbarPrimary = $derived.by<WorkspaceToolbarProps['primary']>(() =>
+		canInputTask
+			? {
+					kind: 'action',
+					id: 'record-completion',
+					label: 'Record Completion',
+					onclick: handleToolbarTaskInput,
+					icon: 'clipboard-check',
+					disabled: !canOpenCompletionInput,
+					disabledReason: completionInputDisabledReason('Add personnel and active tasks before recording a completion.')
+				}
+			: undefined
+	);
 
 	async function handleCompletionSave(
 		saveData: Omit<PersonnelIctCompletion, 'id' | 'loggedBy' | 'createdAt'>,
@@ -305,53 +325,12 @@
 		</section>
 	{:else}
 		<div class="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-3 md:p-4">
-			<WorkspaceToolbar.Root ariaLabel="Critical Tasks controls" wrap>
-				<WorkspaceToolbar.Group
-					label="Critical Tasks filters"
-					activeCount={activeFilterCount}
-					data-testid="critical-tasks-filter-group"
-				>
-					<ButtonGroup.Root aria-label="Critical Tasks matrix view mode">
-						{#each matrixViewOptions as option (option.value)}
-							<Button
-								variant={viewMode === option.value ? 'secondary' : 'outline'}
-								aria-pressed={viewMode === option.value}
-								onclick={() => (viewMode = option.value as 'alphabetical' | 'by-group')}
-							>
-								{option.label}
-							</Button>
-						{/each}
-					</ButtonGroup.Root>
-					<WorkspaceToolbar.Select
-						ariaLabel="Critical Tasks group filter"
-						options={groupFilterOptions}
-						value={effectiveSelectedGroupId}
-						onValueChange={(value) => (selectedGroupId = value)}
-					/>
-					<Toggle
-						variant="outline"
-						pressed={gapsOnly}
-						title={gapsOnly ? 'Showing gaps only' : 'Show gaps only'}
-						onPressedChange={(pressed) => (gapsOnly = pressed)}
-					>
-						Show gaps only
-					</Toggle>
-					<WorkspaceToolbar.Search
-						testId="critical-tasks-search"
-						ariaLabel="Search by name, rank, or MOS"
-						placeholder="Search name, rank, MOS..."
-						bind:value={personnelSearch}
-					/>
-				</WorkspaceToolbar.Group>
-
-				<WorkspaceToolbar.Group label="Critical Tasks actions" zone="actions">
-					<WorkspaceToolbar.Actions
-						actions={toolbarActionItems}
-						ariaLabel="Critical Tasks actions"
-						overflowAriaLabel="More Critical Tasks actions"
-					/>
-				</WorkspaceToolbar.Group>
-			</WorkspaceToolbar.Root>
+			<WorkspaceToolbar
+				ariaLabel="Critical Tasks controls"
+				items={toolbarItems}
+				search={toolbarSearch}
+				primary={toolbarPrimary}
+			/>
 
 			{#if matrixExportError}
 				<Alert.Root variant="destructive">

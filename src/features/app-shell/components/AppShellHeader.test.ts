@@ -444,6 +444,30 @@ describe('notification recovery', () => {
 		expect(screen.getByRole('button', { name: '2 unread notifications' })).toBeTruthy();
 		expect(goto).not.toHaveBeenCalled();
 	});
+
+	it.each(['HTTP', 'transport', 'application'])(
+		'does not report an empty inbox after a %s notification count failure, and recovers on reopen',
+		async (failure) => {
+			let countRequests = 0;
+			vi.mocked(fetch).mockImplementation(async (input) => {
+				if (!String(input).includes('notification-count')) return notificationResponse([]);
+				if (++countRequests === 1) {
+					if (failure === 'transport') throw new Error('Connection failed');
+					if (failure === 'application') return notificationResponse({ ok: false });
+					return notificationResponse(null, false);
+				}
+				return notificationResponse({ ok: true, unreadNotificationCount: 0 });
+			});
+			renderHeader();
+			await fireEvent.click(screen.getByRole('button', { name: 'Notifications' }));
+			await screen.findByRole('menuitem', { name: /Could not load notifications/ });
+			expect(screen.queryByRole('menuitem', { name: 'No notifications' })).toBeNull();
+			await fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+			await fireEvent.click(screen.getByRole('button', { name: 'Notifications' }));
+			await screen.findByRole('menuitem', { name: 'No notifications' });
+			expect(countRequests).toBe(2);
+		}
+	);
 });
 
 describe('AppShellHeader', () => {

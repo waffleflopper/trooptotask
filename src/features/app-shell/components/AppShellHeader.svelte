@@ -85,6 +85,7 @@
 	let notificationsLoading = $state(false);
 	let notificationsWriting = $state(false);
 	let notificationsLoadFailed = $state(false);
+	let notificationCountFailed = $state(false);
 	let notificationGeneration = 0;
 	let notificationCountRequest = 0;
 	let notificationCountLoading = false;
@@ -191,26 +192,24 @@
 	async function loadUnreadNotificationCount(segment: string, scope: string, generation: number) {
 		const request = ++notificationCountRequest;
 		notificationCountLoading = true;
+		const isCurrent = () => isCurrentNotificationRequest(scope, generation) && request === notificationCountRequest;
 		try {
 			const response = await fetch(`/org/${segment}/api/app-shell-chrome?part=notification-count`);
-			if (!response.ok) return;
-
-			const result = await response.json();
-			if (
-				isCurrentNotificationRequest(scope, generation) &&
-				request === notificationCountRequest &&
-				result.ok &&
-				typeof result.unreadNotificationCount === 'number'
-			) {
+			const result = response.ok ? await response.json() : null;
+			if (!isCurrent()) return;
+			if (result?.ok && typeof result.unreadNotificationCount === 'number') {
 				localUnreadCount = result.unreadNotificationCount;
+				notificationCountFailed = false;
+			} else {
+				notificationCountFailed = true;
 			}
 		} catch {
-			if (isCurrentNotificationRequest(scope, generation) && request === notificationCountRequest) {
+			if (isCurrent()) {
 				localUnreadCount = 0;
+				notificationCountFailed = true;
 			}
 		} finally {
-			if (isCurrentNotificationRequest(scope, generation) && request === notificationCountRequest)
-				notificationCountLoading = false;
+			if (isCurrent()) notificationCountLoading = false;
 		}
 	}
 
@@ -326,6 +325,7 @@
 		notificationsLoading = false;
 		notificationsWriting = false;
 		notificationsLoadFailed = false;
+		notificationCountFailed = false;
 		notificationsOpen = false;
 		localUnreadCount = 0;
 		void loadUnreadNotificationCount(orgUrlSegment, scope, generation);
@@ -345,6 +345,8 @@
 		if (notificationsOpen) {
 			untrack(() => {
 				void loadNotifications();
+				if (notificationCountFailed)
+					void loadUnreadNotificationCount(orgUrlSegment, notificationScope, notificationGeneration);
 			});
 		}
 	});
@@ -619,7 +621,9 @@
 							{:else if notificationsLoadFailed}
 								<DropdownMenu.Item disabled>Could not load notifications. Reopen to retry.</DropdownMenu.Item>
 							{:else if notifications.length === 0}
-								<DropdownMenu.Item disabled>No notifications</DropdownMenu.Item>
+								<DropdownMenu.Item disabled>
+									{notificationCountFailed ? 'Could not load notifications. Reopen to retry.' : 'No notifications'}
+								</DropdownMenu.Item>
 							{:else}
 								{#each notifications as notification (notification.id)}
 									<DropdownMenu.Item onclick={() => openNotification(notification)} disabled={notificationsWriting}>

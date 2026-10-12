@@ -428,6 +428,21 @@ describe('WorkspaceToolbar', () => {
 		expect(document.activeElement).toBe(field);
 	});
 
+	it('keeps focus on More while a new row item waits for its first measurement', async () => {
+		const { rerender } = render(DataToolbarTest, { props: { withArchive: false } });
+		await layOut(600);
+
+		const more = within(toolbar()).getByRole('button', { name: 'More Roster controls' });
+		more.focus();
+
+		await rerender({ withArchive: false, withExport: true });
+		await tick();
+		expect(document.activeElement, 'More stays mounted while Export is unmeasured').toBe(more);
+
+		await layOut(600);
+		expect(document.activeElement).toBe(within(toolbar()).getByRole('button', { name: 'More Roster controls' }));
+	});
+
 	it('moves focus from Close search to the field when the row widens during phone search', async () => {
 		render(DataToolbarTest);
 		await layOut(291);

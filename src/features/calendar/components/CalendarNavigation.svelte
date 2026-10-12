@@ -1,5 +1,4 @@
 <script lang="ts">
-	import CalendarDaysIcon from '@lucide/svelte/icons/calendar-days';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import MonthYearPicker from './MonthYearPicker.svelte';
@@ -10,8 +9,6 @@
 		onPrev: () => void;
 		onNext: () => void;
 		onGoToToday: () => void;
-		viewMode?: 'month' | '3-month';
-		onToggleViewMode?: () => void;
 		prevLabel?: string;
 		nextLabel?: string;
 		titleTestId?: string;
@@ -25,8 +22,6 @@
 		onPrev,
 		onNext,
 		onGoToToday,
-		viewMode = 'month',
-		onToggleViewMode,
 		prevLabel = 'Prev',
 		nextLabel = 'Next',
 		titleTestId,
@@ -108,19 +103,5 @@
 			<ChevronRightIcon aria-hidden="true" />
 		</Button>
 	</div>
-	<div class="flex flex-wrap items-center gap-2">
-		{#if onToggleViewMode}
-			<Button
-				variant={viewMode === '3-month' ? 'secondary' : 'outline'}
-				size="sm"
-				data-testid="calendar-view-toggle"
-				onclick={onToggleViewMode}
-				title={viewMode === 'month' ? 'Switch to 3-month view' : 'Switch to month view'}
-			>
-				<CalendarDaysIcon aria-hidden="true" />
-				3-Month
-			</Button>
-		{/if}
-		<Button size="sm" onclick={onGoToToday}>Today</Button>
-	</div>
+	<Button size="sm" onclick={onGoToToday}>Today</Button>
 </div>

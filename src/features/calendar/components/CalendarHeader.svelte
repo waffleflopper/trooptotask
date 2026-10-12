@@ -15,8 +15,6 @@
 		onDateClick?: (date: Date) => void;
 		scrollLeft?: number;
 		scrollbarWidth?: number;
-		viewMode?: 'month' | '3-month';
-		onToggleViewMode?: () => void;
 	}
 
 	let {
@@ -30,9 +28,7 @@
 		onNavigateToMonth,
 		onDateClick,
 		scrollLeft = 0,
-		scrollbarWidth = 0,
-		viewMode = 'month',
-		onToggleViewMode
+		scrollbarWidth = 0
 	}: Props = $props();
 
 	let dateHeadersEl: HTMLDivElement;
@@ -50,8 +46,6 @@
 		onPrev={onPrevMonth}
 		onNext={onNextMonth}
 		{onGoToToday}
-		{viewMode}
-		{onToggleViewMode}
 		titleTestId="calendar-month-label"
 		pickerYear={year}
 		pickerMonth={month}

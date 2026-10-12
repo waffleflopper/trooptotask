@@ -9,14 +9,10 @@
 		DailyAssignment
 	} from '$features/calendar/contracts';
 	import { formatDate, getMonthDates, getMonthName, addMonths } from '$lib/utils/dates';
-	import { exportQuarterToExcel, printQuarterCalendar } from '../utils/calendarExport';
 	import CalendarNavigation from './CalendarNavigation.svelte';
 	import { buildCalendarRenderState } from '$features/calendar/utils/calendarRenderState';
 	import { buildVirtualRowLayout, getVisibleVirtualRows } from '$features/calendar/utils/virtualRows';
-	import FileSpreadsheetIcon from '@lucide/svelte/icons/file-spreadsheet';
-	import PrinterIcon from '@lucide/svelte/icons/printer';
 	import { Button } from '$lib/components/ui/button';
-	import { toastStore } from '$lib/stores/toast.svelte';
 
 	const PERSONNEL_COLUMN_WIDTH = 200;
 	const GROUP_ROW_HEIGHT = 18;
@@ -40,7 +36,6 @@
 		assignments: DailyAssignment[];
 		groups?: readonly Group[];
 		onDateColumnClick?: (date: Date) => void;
-		onToggleViewMode?: () => void;
 	}
 
 	let {
@@ -53,8 +48,7 @@
 		assignmentTypes,
 		assignments,
 		groups = [],
-		onDateColumnClick,
-		onToggleViewMode
+		onDateColumnClick
 	}: Props = $props();
 
 	const viewStartDate = $derived(new Date(startDate.getFullYear(), startDate.getMonth(), 1));
@@ -197,32 +191,6 @@
 	function goToMonth(year: number, month: number) {
 		onStartDateChange(new Date(year, month, 1));
 	}
-
-	function handleExportExcel() {
-		exportQuarterToExcel(viewStartDate, {
-			personnelByGroup,
-			availabilityEntries,
-			statusTypes,
-			specialDays,
-			assignmentTypes,
-			assignments
-		});
-	}
-
-	async function handleExportPDF() {
-		try {
-			await printQuarterCalendar(viewStartDate, {
-				personnelByGroup,
-				availabilityEntries,
-				statusTypes,
-				specialDays,
-				assignmentTypes,
-				assignments
-			});
-		} catch (err) {
-			toastStore.error(err instanceof Error ? err.message : 'PDF export failed');
-		}
-	}
 </script>
 
 <div
@@ -236,8 +204,6 @@
 		onPrev={prevQuarter}
 		onNext={nextQuarter}
 		onGoToToday={goToToday}
-		viewMode="3-month"
-		{onToggleViewMode}
 		prevLabel="Prev 3 Months"
 		nextLabel="Next 3 Months"
 		titleTestId="long-range-date-label"
@@ -367,28 +333,16 @@
 		</div>
 	</div>
 
-	<div class="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t bg-muted/30 px-4 py-3 sm:px-5">
-		<div class="hidden flex-wrap items-center gap-2 text-sm sm:flex">
-			<span class="font-mono text-xs font-semibold tracking-widest text-muted-foreground uppercase">Status:</span>
-			{#each statusTypes as status (status.id)}
-				<span
-					class="flex items-center gap-2 rounded-lg border bg-card px-2 py-1 font-mono text-xs tracking-wider text-muted-foreground uppercase"
-				>
-					<span class="size-2 rounded-[2px] inset-ring inset-ring-foreground/10" style:background-color={status.color}
-					></span>
-					{status.name}
-				</span>
-			{/each}
-		</div>
-		<div class="ml-auto flex shrink-0 items-center gap-2">
-			<Button variant="outline" size="sm" onclick={handleExportExcel} title="Export to Excel">
-				<FileSpreadsheetIcon aria-hidden="true" />
-				Excel
-			</Button>
-			<Button variant="outline" size="sm" onclick={handleExportPDF} title="Print / PDF">
-				<PrinterIcon aria-hidden="true" />
-				PDF
-			</Button>
-		</div>
+	<div class="hidden shrink-0 flex-wrap items-center gap-2 border-t bg-muted/30 px-4 py-3 text-sm sm:flex sm:px-5">
+		<span class="font-mono text-xs font-semibold tracking-widest text-muted-foreground uppercase">Status:</span>
+		{#each statusTypes as status (status.id)}
+			<span
+				class="flex items-center gap-2 rounded-lg border bg-card px-2 py-1 font-mono text-xs tracking-wider text-muted-foreground uppercase"
+			>
+				<span class="size-2 rounded-[2px] inset-ring inset-ring-foreground/10" style:background-color={status.color}
+				></span>
+				{status.name}
+			</span>
+		{/each}
 	</div>
 </div>

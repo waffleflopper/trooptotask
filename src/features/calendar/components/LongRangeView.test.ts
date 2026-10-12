@@ -21,7 +21,6 @@ type LongRangeViewProps = {
 	assignmentTypes: AssignmentType[];
 	assignments: DailyAssignment[];
 	onDateColumnClick?: (date: Date) => void;
-	onToggleViewMode?: () => void;
 };
 
 const personnel: Personnel[] = [
@@ -84,20 +83,12 @@ describe('LongRangeView', () => {
 		vi.clearAllMocks();
 	});
 
-	it('renders the shared view toggle in the calendar header area', () => {
-		renderView({ onToggleViewMode: vi.fn() });
+	it('names the shown quarter and keeps the legend without exports of its own', () => {
+		renderView();
 
-		expect(screen.getByTestId('calendar-view-toggle')).toBeTruthy();
 		expect(screen.getByTestId('long-range-date-label').textContent).toContain('March 2026');
-	});
-
-	it('toggles back to month view from the shared header control', async () => {
-		const onToggleViewMode = vi.fn();
-		renderView({ onToggleViewMode });
-
-		await fireEvent.click(screen.getByTestId('calendar-view-toggle'));
-
-		expect(onToggleViewMode).toHaveBeenCalledTimes(1);
+		expect(screen.getByText('Leave')).toBeTruthy();
+		expect(screen.queryByRole('button', { name: /Excel|PDF|3-Month/ })).toBeNull();
 	});
 
 	it('names each date column with its full date and jumps to that date', async () => {

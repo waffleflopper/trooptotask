@@ -2,7 +2,7 @@
 import { createRawSnippet, getAllContexts, mount, unmount, untrack } from 'svelte';
 import { AccountPreferencesProvider } from '$features/identity';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import {
 	calendarStore,
 	CALENDAR_ANCHOR_COOKIE,
@@ -270,7 +270,9 @@ describe('calendar page', () => {
 		document.cookie = `${CALENDAR_ANCHOR_COOKIE}=; Max-Age=0; Path=/`;
 		render(WithPreferences, { props: { data: makePageData() } });
 
-		await fireEvent.click(screen.getByTestId('calendar-view-toggle'));
+		await fireEvent.click(
+			within(screen.getByRole('toolbar', { name: 'Calendar controls' })).getByRole('button', { name: '3-Month' })
+		);
 		expect(loadCalendarRangeMock).not.toHaveBeenCalled();
 		await fireEvent.click(screen.getByRole('button', { name: 'Next 3 Months' }));
 

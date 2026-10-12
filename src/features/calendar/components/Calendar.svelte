@@ -59,8 +59,6 @@
 		onPinToggle?: (group: string) => void;
 		onDateClick?: (date: Date) => void;
 		personnelHref?: string;
-		viewMode?: 'month' | '3-month';
-		onToggleViewMode?: () => void;
 	}
 
 	let {
@@ -91,9 +89,7 @@
 		onPersonClick,
 		onPinToggle,
 		onDateClick,
-		personnelHref,
-		viewMode = 'month',
-		onToggleViewMode
+		personnelHref
 	}: Props = $props();
 
 	const collapsedGroups = new SvelteSet<string>();
@@ -224,8 +220,6 @@
 		onDateClick={canEditAssignments ? onDateClick : undefined}
 		{scrollLeft}
 		{scrollbarWidth}
-		{viewMode}
-		{onToggleViewMode}
 	/>
 
 	<div

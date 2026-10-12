@@ -2,7 +2,8 @@
 import { createClientAccess } from '$lib/access/clientAccess';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
+import { stubWorkspaceToolbarLayout } from '$lib/test-support/workspaceToolbarLayout';
 import CalendarPageView from './CalendarPageView.svelte';
 import { CalendarPageContext, type CalendarPageData } from '../contexts/CalendarPageContext.svelte';
 import { availabilityStore } from '$features/calendar/stores/availability.svelte';
@@ -13,15 +14,14 @@ import { calendarStore } from '../stores/calendar.svelte';
 import { groupsStore } from '$features/personnel';
 import type { Personnel } from '$features/personnel/contracts';
 
-const { exportMonthToExcelMock, printMonthCalendarMock } = vi.hoisted(() => ({
-	exportMonthToExcelMock: vi.fn(),
-	printMonthCalendarMock: vi.fn()
+const exportMocks = vi.hoisted(() => ({
+	exportMonthToExcel: vi.fn(),
+	printMonthCalendar: vi.fn(),
+	exportQuarterToExcel: vi.fn(),
+	printQuarterCalendar: vi.fn()
 }));
 
-vi.mock('$features/calendar/utils/calendarExport', () => ({
-	exportMonthToExcel: exportMonthToExcelMock,
-	printMonthCalendar: printMonthCalendarMock
-}));
+vi.mock('$features/calendar/utils/calendarExport', () => exportMocks);
 
 vi.mock('$features/calendar/stores/availability.svelte', () => ({
 	availabilityStore: { items: [], loading: false, load: vi.fn() }
@@ -43,8 +43,31 @@ vi.mock('$features/personnel', async (importOriginal) => ({
 afterEach(() => {
 	cleanup();
 	vi.useRealTimers();
+	vi.unstubAllGlobals();
+	vi.clearAllMocks();
 	calendarStore.goToToday();
 });
+
+function toolbar(): HTMLElement {
+	return screen.getByRole('toolbar', { name: 'Calendar controls' });
+}
+
+async function showView(name: 'Month' | '3-Month'): Promise<void> {
+	await fireEvent.click(within(toolbar()).getByRole('button', { name }));
+}
+
+async function openMore(): Promise<HTMLElement> {
+	const trigger = within(toolbar()).getByRole('button', { name: 'More Calendar controls' });
+	trigger.focus();
+	await fireEvent.keyDown(trigger, { key: 'Enter' });
+	return screen.findByRole('menu');
+}
+
+async function chooseFromMore(name: string): Promise<void> {
+	const menu = await openMore();
+	await fireEvent.click(within(menu).getByRole('menuitem', { name }));
+	await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+}
 
 const mutableAvailabilityStore = availabilityStore as unknown as { loading: boolean };
 const mutableDailyAssignmentsStore = dailyAssignmentsStore as unknown as { loading: boolean };
@@ -157,10 +180,10 @@ describe('CalendarPageView', () => {
 		const ctx = makeContext(mockData, makeMockOrg());
 		render(CalendarPageView, { props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' } } });
 
-		await fireEvent.click(screen.getByTestId('calendar-view-toggle'));
+		await showView('3-Month');
 		await fireEvent.click(screen.getByRole('button', { name: 'Today' }));
 		expect(screen.getByRole('button', { name: /September 2026.*November 2026/ })).toBeTruthy();
-		await fireEvent.click(screen.getByTestId('calendar-view-toggle'));
+		await showView('Month');
 		expect(screen.getByRole('button', { name: /September 2026/ })).toBeTruthy();
 	});
 
@@ -170,19 +193,19 @@ describe('CalendarPageView', () => {
 		const ctx = makeContext(mockData, makeMockOrg());
 		render(CalendarPageView, { props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' } } });
 
-		await fireEvent.click(screen.getByTestId('calendar-view-toggle'));
+		await showView('3-Month');
 		await fireEvent.click(screen.getByRole('button', { name: 'Next 3 Months' }));
-		await fireEvent.click(screen.getByTestId('calendar-view-toggle'));
+		await showView('Month');
 		expect(screen.getByRole('button', { name: /March 2027/ })).toBeTruthy();
-		await fireEvent.click(screen.getByTestId('calendar-view-toggle'));
+		await showView('3-Month');
 		await fireEvent.click(screen.getByRole('button', { name: 'Prev 3 Months' }));
-		await fireEvent.click(screen.getByTestId('calendar-view-toggle'));
+		await showView('Month');
 		expect(screen.getByRole('button', { name: /December 2026/ })).toBeTruthy();
-		await fireEvent.click(screen.getByTestId('calendar-view-toggle'));
+		await showView('3-Month');
 		await fireEvent.click(screen.getByTestId('long-range-date-label'));
 		await fireEvent.click(screen.getByRole('button', { name: 'Next year' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Jan' }));
-		await fireEvent.click(screen.getByTestId('calendar-view-toggle'));
+		await showView('Month');
 		expect(screen.getByRole('button', { name: /January 2027/ })).toBeTruthy();
 	});
 
@@ -217,5 +240,114 @@ describe('CalendarPageView', () => {
 		expect(screen.getByRole('button', { name: /Bravo/ })).toBeTruthy();
 		expect(screen.queryByRole('button', { name: /Smith, Alice/ })).toBeNull();
 		expect(screen.queryByRole('button', { name: /Alpha/ })).toBeNull();
+	});
+
+	it('marks the shown calendar view as pressed in the toolbar', async () => {
+		mutableAvailabilityStore.loading = false;
+		const ctx = makeContext(mockData, makeMockOrg());
+		render(CalendarPageView, { props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' } } });
+
+		const view = within(toolbar()).getByRole('group', { name: 'Calendar view' });
+		expect(within(view).getByRole('button', { name: 'Month' }).getAttribute('aria-pressed')).toBe('true');
+		await showView('3-Month');
+		expect(within(view).getByRole('button', { name: '3-Month' }).getAttribute('aria-pressed')).toBe('true');
+		expect(screen.getByTestId('long-range-date-label')).toBeTruthy();
+	});
+
+	it('reaches every Calendar control an admin may use from More when the row folds', async () => {
+		mutableAvailabilityStore.loading = false;
+		const layOut = stubWorkspaceToolbarLayout();
+		calendarStore.goToMonth(2026, 11);
+		const ctx = makeContext(mockData, makeMockOrg({ userRole: 'owner' }));
+		render(CalendarPageView, { props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' } } });
+		await layOut(1);
+
+		expect(within(toolbar()).queryByRole('link', { name: 'Reports' })).toBeNull();
+		expect(within(toolbar()).getByRole('button', { name: 'Bulk Status' }), 'the primary stays on the row').toBeTruthy();
+		const menu = await openMore();
+		expect(within(menu).getByRole('menuitemradio', { name: '3-Month' })).toBeTruthy();
+		expect(within(menu).getByRole('menuitem', { name: 'Group, Group: All' })).toBeTruthy();
+		expect(within(menu).getByRole('menuitem', { name: 'Planning' })).toBeTruthy();
+		expect(within(menu).getByRole('menuitem', { name: 'Reports' })).toBeTruthy();
+		expect(within(menu).getByRole('menuitem', { name: 'Settings' })).toBeTruthy();
+		await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Export to Excel' }));
+		await waitFor(() => expect(exportMocks.exportMonthToExcel).toHaveBeenCalledTimes(1));
+		expect(exportMocks.exportMonthToExcel.mock.calls[0].slice(0, 2)).toEqual([2026, 11]);
+	});
+
+	it('filters the roster from the folded Group submenu', async () => {
+		mutableAvailabilityStore.loading = false;
+		const layOut = stubWorkspaceToolbarLayout();
+		const data = { ...mockData, personnel: filterPersonnel, allPersonnel: filterPersonnel };
+		const ctx = makeContext(data, makeMockOrg());
+		render(CalendarPageView, { props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' } } });
+		await layOut(1);
+
+		const menu = await openMore();
+		const group = within(menu).getByRole('menuitem', { name: 'Group, Group: All' });
+		group.focus();
+		await fireEvent.keyDown(group, { key: 'ArrowRight' });
+		await fireEvent.click(await screen.findByRole('menuitemradio', { name: 'Bravo (1)' }));
+
+		await waitFor(() => expect(screen.queryByRole('button', { name: /Smith, Alice/ })).toBeNull());
+		expect(screen.getByRole('button', { name: /Jones, Bob$/ })).toBeTruthy();
+		expect(ctx.calendarGroupFilter).toBe('g2');
+	});
+
+	it('keeps Calendar operations a viewer may not use off the row and out of More', async () => {
+		mutableAvailabilityStore.loading = false;
+		const layOut = stubWorkspaceToolbarLayout();
+		const ctx = makeContext(mockData, makeMockOrg());
+		render(CalendarPageView, { props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' } } });
+		await layOut(1);
+
+		expect(screen.queryByRole('button', { name: 'Bulk Status' })).toBeNull();
+		const menu = await openMore();
+		expect(within(menu).getByRole('menuitem', { name: 'Reports' })).toBeTruthy();
+		expect(within(menu).queryByRole('menuitem', { name: 'Planning' })).toBeNull();
+		expect(within(menu).queryByRole('menuitem', { name: 'Settings' })).toBeNull();
+		expect(within(menu).queryByRole('menuitem', { name: 'Bulk Status' })).toBeNull();
+	});
+
+	it('keeps display toggles and exports in More while the row has room', async () => {
+		mutableAvailabilityStore.loading = false;
+		const layOut = stubWorkspaceToolbarLayout();
+		const ctx = makeContext(mockData, makeMockOrg());
+		render(CalendarPageView, { props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' } } });
+		await layOut(4000);
+
+		expect(within(toolbar()).getByRole('link', { name: 'Reports' })).toBeTruthy();
+		expect(within(toolbar()).queryByRole('button', { name: 'Show Status Text' })).toBeNull();
+		const menu = await openMore();
+		expect(within(menu).getByRole('menuitem', { name: 'Print / PDF' })).toBeTruthy();
+		await fireEvent.click(within(menu).getByRole('menuitemcheckbox', { name: 'Show Status Text' }));
+		expect(ctx.showStatusText).toBe(true);
+
+		await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+		const reopened = await openMore();
+		expect(
+			within(reopened).getByRole('menuitemcheckbox', { name: 'Show Status Text' }).getAttribute('aria-checked')
+		).toBe('true');
+	});
+
+	it('exports the shown quarter from the toolbar in 3-month view', async () => {
+		mutableAvailabilityStore.loading = false;
+		calendarStore.goToMonth(2026, 11);
+		const ctx = makeContext(mockData, makeMockOrg());
+		render(CalendarPageView, { props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' } } });
+		await showView('3-Month');
+
+		await chooseFromMore('Export to Excel');
+		await waitFor(() => expect(exportMocks.exportQuarterToExcel).toHaveBeenCalledTimes(1));
+		expect(exportMocks.exportQuarterToExcel.mock.calls[0][0]).toEqual(new Date(2026, 11, 1));
+
+		await chooseFromMore('Print / PDF');
+		await waitFor(() => expect(exportMocks.printQuarterCalendar).toHaveBeenCalledTimes(1));
+		expect(exportMocks.printQuarterCalendar.mock.calls[0][0]).toEqual(new Date(2026, 11, 1));
+		expect(exportMocks.exportMonthToExcel).not.toHaveBeenCalled();
+		expect(
+			screen.queryByRole('button', { name: 'Excel' }),
+			'the long-range footer has no export of its own'
+		).toBeNull();
 	});
 });

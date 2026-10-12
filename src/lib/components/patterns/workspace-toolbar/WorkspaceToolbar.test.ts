@@ -139,6 +139,20 @@ describe('WorkspaceToolbar', () => {
 		expect(moreButton()).toBeTruthy();
 	});
 
+	it('keeps a menu-only toggle in More and marks More only when it leaves its default', async () => {
+		render(DataToolbarTest, { props: { withArchive: false, withDisplayOption: true } });
+		await layOut(2000);
+
+		expect(within(toolbar()).queryByRole('button', { name: 'Show roles' })).toBeNull();
+		expect(within(toolbar()).getByRole('button', { name: 'Import' }), 'every other control fits').toBeTruthy();
+		expect(description(moreButton()), 'pressed at its default').toBe('');
+
+		await openMore();
+		await fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Show roles' }));
+		expect(output('Roles value')).toBe('off');
+		await waitFor(() => expect(description(moreButton())).toBe('Hidden filters active: Show roles'));
+	});
+
 	it('keeps measuring copies out of accessible queries and tab order', async () => {
 		render(DataToolbarTest);
 		await layOut(972);

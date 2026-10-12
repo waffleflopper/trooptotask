@@ -17,6 +17,7 @@
 	import { fitToolbar, type FitResult } from './fit-toolbar.js';
 	import {
 		isFilterActive,
+		isMenuOnly,
 		sectionOf,
 		type ToolbarAction,
 		type ToolbarFilter,
@@ -63,7 +64,7 @@
 	const filters = $derived(items.filter((item): item is ToolbarFilter => sectionOf(item) === 'filters'));
 	// The most important action sits next to More and the primary, so the row reads actions in reverse rank.
 	const actions = $derived(items.filter((item): item is ToolbarAction => sectionOf(item) === 'actions').reverse());
-	const rowCandidates = $derived(items.filter((item) => !(item.kind === 'action' && item.menuOnly)));
+	const rowCandidates = $derived(items.filter((item) => !isMenuOnly(item)));
 
 	let lastFit: FitResult | null = null;
 	const fit = $derived.by((): FitResult | null => {
@@ -86,7 +87,7 @@
 				id: item.id,
 				width: measured.items[item.id] ?? 0,
 				section: sectionOf(item),
-				menuOnly: item.kind === 'action' && Boolean(item.menuOnly)
+				menuOnly: isMenuOnly(item)
 			})),
 			...(search
 				? { searchMinWidth: measured.searchField, searchIconWidth: measured.searchIcon }

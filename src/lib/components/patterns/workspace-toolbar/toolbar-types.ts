@@ -44,9 +44,12 @@ export type ToolbarMultiSelect = ItemIdentity & {
 	onValuesChange: (values: string[]) => void;
 };
 
+/** A `menuOnly` toggle is a display option that always lives in More; `defaultPressed` keeps it from marking More. */
 export type ToolbarToggle = ItemIdentity & {
 	kind: 'toggle';
 	pressed: boolean;
+	defaultPressed?: boolean;
+	menuOnly?: boolean;
 	onPressedChange: (pressed: boolean) => void;
 };
 
@@ -80,6 +83,10 @@ export function sectionOf(item: ToolbarItem): ToolbarSection {
 	}
 }
 
+export function isMenuOnly(item: ToolbarItem): boolean {
+	return (item.kind === 'action' || item.kind === 'toggle') && Boolean(item.menuOnly);
+}
+
 export function isFilterActive(filter: ToolbarFilter): boolean {
 	switch (filter.kind) {
 		case 'select':
@@ -90,6 +97,6 @@ export function isFilterActive(filter: ToolbarFilter): boolean {
 			return values.size !== defaults.size || [...values].some((value) => !defaults.has(value));
 		}
 		case 'toggle':
-			return filter.pressed;
+			return filter.pressed !== (filter.defaultPressed ?? false);
 	}
 }

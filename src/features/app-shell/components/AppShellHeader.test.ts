@@ -271,16 +271,16 @@ describe('responsive sidebar interaction', () => {
 		expect(screen.getByRole('dialog', { name: 'Sidebar' })).toBeTruthy();
 	});
 
-	it('opens and dismisses the Dashboard tooltip on desktop Home hover', async () => {
+	it('names the collapsed Home link tooltip after the link and dismisses it with Escape', async () => {
 		setWindowSize(1024, 768);
 		renderHeader();
 		await fireEvent.click(within(screen.getByRole('banner')).getByRole('button', { name: 'Toggle Sidebar' }));
 		const home = screen.getByRole('link', { name: 'Home' });
 		await fireEvent.pointerEnter(home, { pointerType: 'mouse' });
 		await fireEvent.pointerMove(home, { pointerType: 'mouse' });
-		await screen.findByText('Dashboard');
+		expect((await screen.findByRole('tooltip')).textContent?.trim()).toBe('Home');
 		await fireEvent.keyDown(home, { key: 'Escape' });
-		await waitFor(() => expect(screen.queryByText('Dashboard')).toBeNull());
+		await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull());
 		expect(home.getAttribute('href')).toBe('/org/org-1');
 	});
 
@@ -290,13 +290,11 @@ describe('responsive sidebar interaction', () => {
 		renderHeader();
 		await fireEvent.click(within(screen.getByRole('banner')).getByRole('button', { name: 'Toggle Sidebar' }));
 		const home = screen.getByRole('link', { name: 'Home' });
-		const breadcrumbs = screen.getByLabelText('Current section');
-		const tooltipCaption = () => screen.queryAllByText('Dashboard').find((element) => !breadcrumbs.contains(element));
 		await fireEvent.pointerEnter(home, { pointerType: 'mouse' });
 		await fireEvent.pointerMove(home, { pointerType: 'mouse' });
-		await waitFor(() => expect(tooltipCaption()).toBeTruthy());
+		await screen.findByRole('tooltip');
 		await fireEvent.click(home);
-		await waitFor(() => expect(tooltipCaption()).toBeUndefined());
+		await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull());
 	});
 });
 

@@ -147,3 +147,17 @@ it('keeps a provider outage as a form alert that does not mark the code invalid'
 	expect(code).toBeValid();
 	expect(code).toHaveAccessibleDescription('Enter the current code from your authenticator app.');
 });
+
+it.each([
+	['a rejected code', 401],
+	['a provider failure', 503]
+])('returns focus to the code field after %s', async (_name, status) => {
+	vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ error: 'Verification failed' }, { status })));
+	render(Page);
+	const code = screen.getByLabelText('Verification Code');
+	await fireEvent.input(code, { target: { value: '123456' } });
+	await fireEvent.click(screen.getByRole('button', { name: 'Verify' }));
+
+	await waitFor(() => expect(code).toHaveFocus());
+	expect(code).not.toBeDisabled();
+});

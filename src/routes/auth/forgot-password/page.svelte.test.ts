@@ -1,13 +1,26 @@
 // @vitest-environment happy-dom
 import '@testing-library/jest-dom/vitest';
 import { afterEach, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import Page from './+page.svelte';
 
-const { pageState } = vi.hoisted(() => ({ pageState: { status: 400 } }));
-vi.mock('$app/forms', () => ({ enhance: () => ({ destroy: () => {} }) }));
+type EnhanceSubmit = (input: {
+	formData: FormData;
+	cancel: () => void;
+}) => Promise<(result: { update: () => Promise<void> }) => Promise<void>>;
+const { pageState, enhanceMock } = vi.hoisted(() => ({
+	pageState: { status: 400 },
+	enhanceMock: { implementation: null as null | ((node: HTMLFormElement, submit: EnhanceSubmit) => unknown) }
+}));
+vi.mock('$app/forms', () => ({
+	enhance: (node: HTMLFormElement, submit: EnhanceSubmit) =>
+		enhanceMock.implementation?.(node, submit) ?? { destroy: () => {} }
+}));
 vi.mock('$app/state', () => ({ page: pageState }));
-afterEach(cleanup);
+afterEach(() => {
+	cleanup();
+	enhanceMock.implementation = null;
+});
 
 it('ties a server-rejected email to its field, including a native submission, and keeps a rate limit as a form alert', async () => {
 	const view = render(Page, {
@@ -25,4 +38,24 @@ it('ties a server-rejected email to its field, including a native submission, an
 	await view.rerender({ form: { error: 'Too many requests.', email: 'person@example' } });
 	expect(email).toBeValid();
 	expect(screen.getByRole('alert')).toHaveTextContent('Too many requests.');
+});
+
+it('moves focus to the confirmation once the reset link is sent', async () => {
+	enhanceMock.implementation = (node, submit) => {
+		node.addEventListener('submit', async (event) => {
+			event.preventDefault();
+			const finish = await submit({ formData: new FormData(node), cancel: () => {} });
+			await finish({
+				update: async () => {
+					await view.rerender({ form: { success: true, email: 'person@example.com' } });
+				}
+			});
+		});
+		return { destroy: () => {} };
+	};
+	const view = render(Page, { props: { form: null } });
+	await fireEvent.submit(screen.getByRole('button', { name: 'Send Reset Link' }).closest('form')!);
+
+	await waitFor(() => expect(screen.getByRole('status')).toHaveFocus());
+	expect(screen.getByRole('status')).toHaveTextContent('Check your email');
 });

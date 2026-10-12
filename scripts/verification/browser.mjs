@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import path from 'node:path';
 import { Blocked, sleep } from './core.mjs';
 
 // Reuse normally signed-in isolated contexts within one owned browser.
@@ -16,6 +17,17 @@ export function assertOwnedNavigation(name, args, ownedOrigins) {
 		throw new Blocked(
 			'URL_NOT_OWNED',
 			'Navigation requires an absolute URL on the owned app or provider origin, without credentials. Use doctor for the app origin.'
+		);
+}
+
+// Recordings are evidence: they stay under the owned evidence directory as .webm or .mp4.
+export function assertRecordingPath(name, args, evidenceDirectory) {
+	if (name !== 'screencast_start') return;
+	const target = typeof args.filePath === 'string' ? path.resolve(args.filePath) : '';
+	if (!target.startsWith(evidenceDirectory + path.sep) || !/\.(webm|mp4)$/i.test(target))
+		throw new Blocked(
+			'RECORDING_PATH',
+			'screencast_start needs a filePath ending in .webm or .mp4 under .verification/evidence/.'
 		);
 }
 

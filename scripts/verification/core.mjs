@@ -190,26 +190,42 @@ export function cleanEnvironment() {
 			.map((key) => [key, process.env[key]])
 	);
 }
+export async function onPath(binary, searchPath = process.env.PATH ?? '') {
+	for (const directory of searchPath.split(path.delimiter)) {
+		try {
+			await fs.access(path.join(directory, binary), 1);
+			return path.join(directory, binary);
+		} catch {
+			/* Next PATH entry. */
+		}
+	}
+	return undefined;
+}
+// Screencast needs ffmpeg on the PATH the owned DevTools process receives, which is the clean allowlist.
+export async function recording(searchPath = cleanEnvironment().PATH) {
+	const ffmpeg = await onPath('ffmpeg', searchPath);
+	return ffmpeg
+		? { available: true, ffmpeg }
+		: {
+				available: false,
+				message:
+					'ffmpeg is not on the clean PATH, so screencast_start cannot record. Install ffmpeg to produce video evidence.'
+			};
+}
+export function recordingTransition(name, result) {
+	const text = result?.content?.map((part) => part.text ?? '').join('\n') ?? '';
+	if (name === 'screencast_start' && text.includes('Screencast recording started')) return 'started';
+	if (name === 'screencast_stop' && text.includes('The screencast recording has been stopped')) return 'stopped';
+	return null;
+}
 export async function browser(provision = false) {
 	const cacheDir = path.join(root, 'browsers');
 	const buildId = '154.0.8037.57';
 	const cached = computeExecutablePath({ browser: Browser.CHROME, buildId, cacheDir });
 	for (const binary of [cached, 'google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser']) {
 		try {
-			let executable = binary;
-			if (!path.isAbsolute(binary)) {
-				executable = undefined;
-				for (const directory of process.env.PATH.split(path.delimiter)) {
-					try {
-						await fs.access(path.join(directory, binary), 1);
-						executable = path.join(directory, binary);
-						break;
-					} catch {
-						/* Next PATH entry. */
-					}
-				}
-				if (!executable) continue;
-			}
+			const executable = path.isAbsolute(binary) ? binary : await onPath(binary);
+			if (!executable) continue;
 			const { stdout } = await execute(executable, ['--version'], { env: cleanEnvironment() });
 			const major = Number(stdout.match(/(\d+)\./)?.[1]);
 			if (major >= 149) return { executable, version: stdout.trim(), provisioned: binary === cached };

@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { runInNewContext } from 'node:vm';
-import { assertOwnedNavigation, driver } from './browser.mjs';
+import { assertOwnedNavigation, assertRecordingPath, driver } from './browser.mjs';
 
 const origins = ['http://127.0.0.1:4100', 'http://127.0.0.1:5400'];
 
@@ -22,6 +22,26 @@ it('permits only owned absolute navigation while retaining native reload and ins
 	}
 	expect(() => assertOwnedNavigation('navigate_page', { type: 'reload' }, origins)).not.toThrow();
 	expect(() => assertOwnedNavigation('take_snapshot', { pageId: 7 }, origins)).not.toThrow();
+});
+
+it('admits a recording only as a webm or mp4 under the owned evidence directory', () => {
+	const evidence = '/repo/.verification/evidence';
+	for (const filePath of [
+		`${evidence}/verify-trooptotask/run/sweep.webm`,
+		`${evidence}/verify-trooptotask/run/sweep.MP4`
+	])
+		expect(() => assertRecordingPath('screencast_start', { filePath }, evidence)).not.toThrow();
+	for (const args of [
+		{},
+		{ filePath: '/tmp/sweep.webm' },
+		{ filePath: `${evidence}/../browsers/sweep.webm` },
+		{ filePath: `${evidence}-other/sweep.webm` },
+		{ filePath: `${evidence}/run/sweep.gif` }
+	])
+		expect(() => assertRecordingPath('screencast_start', args, evidence)).toThrowError(
+			expect.objectContaining({ code: 'RECORDING_PATH' })
+		);
+	expect(() => assertRecordingPath('screencast_stop', {}, evidence)).not.toThrow();
 });
 
 it('signs a synthetic actor in through the visible login form before returning its page', async () => {

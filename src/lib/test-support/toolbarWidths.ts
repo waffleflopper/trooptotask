@@ -1,0 +1,60 @@
+import { fireEvent, screen } from '@testing-library/svelte';
+import { tick } from 'svelte';
+import { vi } from 'vitest';
+
+type Observer = { callback: ResizeObserverCallback; targets: Element[] };
+
+export type ToolbarWidths = {
+	/** Delivers one layout: the live row is `row` wide and every other measured control is `control` wide. */
+	layOut(row: number, control?: number): Promise<void>;
+	foldAll(): Promise<void>;
+};
+
+/** Stubs `ResizeObserver` before a toolbar mounts, because happy-dom never measures anything. */
+export function stubToolbarWidths(): ToolbarWidths {
+	const observers: Observer[] = [];
+	vi.stubGlobal(
+		'ResizeObserver',
+		class {
+			targets: Element[] = [];
+			constructor(callback: ResizeObserverCallback) {
+				observers.push({ callback, targets: this.targets });
+			}
+			observe(target: Element) {
+				this.targets.push(target);
+			}
+			unobserve(target: Element) {
+				this.targets.splice(this.targets.indexOf(target), 1);
+			}
+			disconnect() {
+				this.targets.length = 0;
+			}
+		}
+	);
+
+	async function layOut(row: number, control = 40): Promise<void> {
+		for (const { callback, targets } of observers) {
+			const entries = targets.map((target) => {
+				const box = [{ inlineSize: target.hasAttribute('data-toolbar-row') ? row : control, blockSize: 32 }];
+				return { target, borderBoxSize: box, contentBoxSize: box };
+			});
+			callback(entries as unknown as ResizeObserverEntry[], {} as ResizeObserver);
+		}
+		await tick();
+	}
+
+	return { layOut, foldAll: () => layOut(1) };
+}
+
+export async function openToolbarMore(toolbarLabel: string): Promise<HTMLElement> {
+	const trigger = screen.getByRole('button', { name: `More ${toolbarLabel}` });
+	trigger.focus();
+	await fireEvent.keyDown(trigger, { key: 'Enter' });
+	return screen.findByRole('menu');
+}
+
+export async function openToolbarSubmenu(name: string): Promise<void> {
+	const trigger = screen.getByRole('menuitem', { name });
+	trigger.focus();
+	await fireEvent.keyDown(trigger, { key: 'ArrowRight' });
+}

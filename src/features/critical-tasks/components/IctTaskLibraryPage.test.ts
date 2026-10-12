@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { createClientAccess, type ClientAccessFacts } from '$lib/access/clientAccess';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
+import { openToolbarMore, openToolbarSubmenu, stubToolbarWidths } from '$lib/test-support/toolbarWidths';
 import { cleanup, fireEvent, render, screen, waitFor, within, act } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import IctTaskLibraryPage from './IctTaskLibraryPage.svelte';
@@ -121,15 +122,96 @@ describe('IctTaskLibraryPage', () => {
 		expect(screen.queryByText('181-105-9999')).toBeNull();
 	});
 
-	it('orders library filters before search', () => {
+	it('orders the status view, search, the MOS filter, Import CSV and New Task along the row', () => {
 		render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
 
-		const activeToggle = screen.getByRole('button', { name: 'Active' });
-		const mosFilter = screen.getByLabelText('MOS');
-		const search = screen.getByLabelText('Search');
+		const row = within(screen.getByRole('toolbar', { name: 'ICT task library controls' }));
+		const order = [
+			row.getByRole('button', { name: 'Active' }),
+			row.getByRole('searchbox', { name: 'Search' }),
+			row.getByRole('button', { name: 'MOS' }),
+			row.getByRole('button', { name: 'Import CSV' }),
+			row.getByRole('button', { name: 'New Task' })
+		];
 
-		expect(activeToggle.compareDocumentPosition(mosFilter) & 4).toBeTruthy();
-		expect(mosFilter.compareDocumentPosition(search) & 4).toBeTruthy();
+		for (const [index, control] of order.slice(1).entries()) {
+			expect(order[index].compareDocumentPosition(control) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+		}
+	});
+
+	describe('when the toolbar folds', () => {
+		const toolbarName = 'ICT task library controls';
+
+		afterEach(() => vi.unstubAllGlobals());
+
+		async function renderFolded() {
+			const widths = stubToolbarWidths();
+			ictTasksStore.load([activeTask, infantryTask, archivedTask], 'org-1');
+			render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+			await widths.foldAll();
+		}
+
+		it('switches between active and archived tasks from the status radio group in More', async () => {
+			await renderFolded();
+			const row = within(screen.getByRole('toolbar', { name: toolbarName }));
+			expect(row.queryByRole('button', { name: 'Archived' })).toBeNull();
+			expect(row.getByRole('button', { name: 'New Task' })).toBeTruthy();
+
+			const menu = await openToolbarMore(toolbarName);
+			const status = within(menu).getByRole('group', { name: 'Filter ICT tasks by status' });
+			expect(within(status).getByRole('menuitemradio', { name: 'Active' }).getAttribute('aria-checked')).toBe('true');
+			await fireEvent.click(within(status).getByRole('menuitemradio', { name: 'Archived' }));
+
+			expect(await screen.findByText('Archived Tasks')).toBeTruthy();
+			expect(within(screen.getByRole('list', { name: 'ICT task library' })).getByText('Archived task')).toBeTruthy();
+			await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+			await openToolbarMore(toolbarName);
+			expect(screen.getByRole('menuitem', { name: 'Clear filters' })).toBeTruthy();
+		});
+
+		it('filters by MOS from the folded submenu and clears the filter from More', async () => {
+			await renderFolded();
+			const taskList = () => screen.getByRole('list', { name: 'ICT task library' });
+
+			await openToolbarMore(toolbarName);
+			await openToolbarSubmenu('MOS, All MOS');
+			await fireEvent.click(await screen.findByRole('menuitemradio', { name: '11B' }));
+			expect(within(taskList()).getByText('React to contact')).toBeTruthy();
+			expect(within(taskList()).queryByText('Perform tactical combat casualty care')).toBeNull();
+
+			await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+			await openToolbarMore(toolbarName);
+			await fireEvent.click(screen.getByRole('menuitem', { name: 'Clear filters' }));
+			await waitFor(() => expect(within(taskList()).getByText('Perform tactical combat casualty care')).toBeTruthy());
+		});
+
+		it('opens the import workspace from More and returns focus to More when it closes', async () => {
+			await renderFolded();
+
+			await openToolbarMore(toolbarName);
+			await fireEvent.click(screen.getByRole('menuitem', { name: 'Import CSV' }));
+			expect(await screen.findByRole('heading', { name: 'Import ICT Tasks' })).toBeTruthy();
+
+			await fireEvent.click(
+				within(screen.getByRole('region', { name: 'ICT task import workspace' })).getByRole('button', {
+					name: 'Cancel'
+				})
+			);
+			await waitFor(() =>
+				expect(document.activeElement).toBe(screen.getByRole('button', { name: `More ${toolbarName}` }))
+			);
+		});
+
+		it('disables Import CSV in More with the same loading state as the row', async () => {
+			const widths = stubToolbarWidths();
+			personnelIctCompletionsStore.load(completions, 'org-other');
+			render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+			await widths.foldAll();
+
+			await openToolbarMore(toolbarName);
+			expect(screen.getByRole('menuitem', { name: 'Import CSV' }).getAttribute('aria-disabled')).toBe('true');
+			expect((screen.getByRole('button', { name: 'New Task' }) as HTMLButtonElement).disabled).toBe(true);
+		});
 	});
 
 	it('denies library configuration to Critical Tasks viewers', () => {

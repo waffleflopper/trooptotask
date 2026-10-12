@@ -2,15 +2,17 @@
 	import { onDestroy, tick } from 'svelte';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
-	import * as ButtonGroup from '$lib/components/ui/button-group';
 	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import * as Empty from '$lib/components/ui/empty';
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { Textarea } from '$lib/components/ui/textarea';
-	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar';
-	import type { WorkspaceToolbarAction } from '$lib/components/patterns/workspace-toolbar';
+	import {
+		WorkspaceToolbar,
+		type ToolbarItem,
+		type WorkspaceToolbarProps
+	} from '$lib/components/patterns/workspace-toolbar';
 	import { ICT_TASK_CODE_EXISTS_MESSAGE, type CriticalTasksPageAccess } from '../contracts';
 	import IctTaskBulkImport from '$features/critical-tasks/components/IctTaskBulkImport.svelte';
 	import CriticalTasksDefaults from '$features/critical-tasks/components/CriticalTasksDefaults.svelte';
@@ -109,9 +111,6 @@
 	});
 	const toolbarMosFilterOptions = $derived([{ value: '', label: 'All MOS' }, ...mosFilterOptions]);
 	const filtersActive = $derived(Boolean(taskSearch.trim() || selectedMos || taskStatusFilter !== 'active'));
-	const toolbarActiveFilterCount = $derived(
-		(taskStatusFilter !== 'active' ? 1 : 0) + (selectedMos ? 1 : 0) + (taskSearch.trim() ? 1 : 0)
-	);
 	const filteredTasks = $derived(
 		visibleTasks.filter((task) => matchesTaskSearch(task, taskSearch) && matchesSelectedMos(task))
 	);
@@ -122,47 +121,74 @@
 	const canReorderTasks = $derived(
 		canManage && taskStatusFilter === 'active' && !editing && !creating && !importingTasks && !filtersActive
 	);
-	const toolbarActionItems = $derived.by<WorkspaceToolbarAction[]>(() => {
-		const items: WorkspaceToolbarAction[] = [];
+	const toolbarItems = $derived.by<ToolbarItem[]>(() => {
+		const items: ToolbarItem[] = [
+			{
+				kind: 'view',
+				id: 'status',
+				label: 'Filter ICT tasks by status',
+				options: taskStatusOptions,
+				value: taskStatusFilter,
+				onValueChange: (value) => (taskStatusFilter = value as 'active' | 'archived')
+			},
+			{
+				kind: 'select',
+				id: 'mos',
+				label: 'MOS',
+				options: toolbarMosFilterOptions,
+				value: selectedMos,
+				defaultValue: '',
+				onValueChange: (value) => (selectedMos = value)
+			}
+		];
 
 		if (filtersActive) {
-			items.push({
-				id: 'clear-filters',
-				label: 'Clear filters',
-				onclick: clearTaskFilters,
-				priority: 'normal',
-				variant: 'default'
-			});
+			items.push({ kind: 'action', id: 'clear-filters', label: 'Clear filters', onclick: clearTaskFilters });
 		}
 
 		if (canManage) {
-			items.push(
-				{
-					id: 'import-csv',
-					label: 'Import CSV',
-					onclick: startImport,
-					icon: 'upload',
-					disabled: loading || creating || editing || importingTasks,
-					disabledReason: loading ? 'Critical Tasks are still loading.' : undefined,
-					priority: 'normal',
-					variant: 'default'
-				},
-				{
+			items.push({
+				kind: 'action',
+				id: 'import-csv',
+				label: 'Import CSV',
+				onclick: startImport,
+				icon: 'upload',
+				disabled: loading || creating || editing || importingTasks,
+				disabledReason: loading ? 'Critical Tasks are still loading.' : undefined
+			});
+		}
+
+		return items;
+	});
+
+	const toolbarSearch = $derived({
+		label: 'Search',
+		placeholder: 'Search task number or title...',
+		value: taskSearch,
+		onValueChange: (value: string) => (taskSearch = value)
+	} satisfies NonNullable<WorkspaceToolbarProps['search']>);
+
+	const toolbarPrimary = $derived<WorkspaceToolbarProps['primary']>(
+		canManage
+			? {
+					kind: 'action',
 					id: 'new-task',
 					label: 'New Task',
 					onclick: startCreate,
 					icon: 'clipboard-check',
 					disabled: loading || creating || editing || importingTasks,
-					disabledReason: loading ? 'Critical Tasks are still loading.' : undefined,
-					priority: 'critical',
-					overflow: 'never',
-					variant: 'primary'
+					disabledReason: loading ? 'Critical Tasks are still loading.' : undefined
 				}
-			);
-		}
+			: undefined
+	);
 
-		return items;
-	});
+	function toolbarControlOrMore(id: string): HTMLElement | null | undefined {
+		const row = pageRoot?.querySelector('[data-toolbar-row]');
+		return (
+			row?.querySelector<HTMLElement>(`[data-toolbar-item="${id}"] button`) ??
+			row?.querySelector<HTMLElement>('[data-toolbar-more] button')
+		);
+	}
 
 	$effect(() => {
 		if (selectedMos && !mosFilterOptions.some((option) => option.value === selectedMos)) {
@@ -285,7 +311,7 @@
 		formError = '';
 		fieldErrors = {};
 		await tick();
-		(wasCreating ? pageRoot?.querySelector<HTMLElement>('button[aria-label="New Task"]') : editButton)?.focus();
+		(wasCreating ? toolbarControlOrMore('new-task') : editButton)?.focus();
 	}
 
 	async function startImport() {
@@ -305,10 +331,7 @@
 	async function cancelImport() {
 		importingTasks = false;
 		await tick();
-		const importTrigger =
-			pageRoot?.querySelector<HTMLElement>('button[aria-label="Import CSV"]') ??
-			pageRoot?.querySelector<HTMLElement>('button[aria-label="More ICT task library actions"]');
-		importTrigger?.focus();
+		toolbarControlOrMore('import-csv')?.focus();
 	}
 
 	function parseWholeNumber(value: string, min: number): number | null {
@@ -473,44 +496,12 @@
 	</section>
 {:else}
 	<div class="flex flex-col gap-4 p-4" bind:this={pageRoot}>
-		<WorkspaceToolbar.Root ariaLabel="ICT task library controls" wrap>
-			<WorkspaceToolbar.Group
-				label="ICT task library filters"
-				activeCount={toolbarActiveFilterCount}
-				data-testid="ict-library-filters"
-			>
-				<ButtonGroup.Root aria-label="Filter ICT tasks by status">
-					{#each taskStatusOptions as option (option.value)}
-						<Button
-							variant={taskStatusFilter === option.value ? 'secondary' : 'outline'}
-							aria-pressed={taskStatusFilter === option.value}
-							onclick={() => (taskStatusFilter = option.value as 'active' | 'archived')}
-						>
-							{option.label}
-						</Button>
-					{/each}
-				</ButtonGroup.Root>
-				<WorkspaceToolbar.Select
-					ariaLabel="MOS"
-					options={toolbarMosFilterOptions}
-					value={selectedMos}
-					onValueChange={(value) => (selectedMos = value)}
-				/>
-				<WorkspaceToolbar.Search
-					ariaLabel="Search"
-					placeholder="Search task number or title..."
-					bind:value={taskSearch}
-				/>
-			</WorkspaceToolbar.Group>
-
-			<WorkspaceToolbar.Group label="ICT task library actions" zone="actions">
-				<WorkspaceToolbar.Actions
-					actions={toolbarActionItems}
-					ariaLabel="ICT task library actions"
-					overflowAriaLabel="More ICT task library actions"
-				/>
-			</WorkspaceToolbar.Group>
-		</WorkspaceToolbar.Root>
+		<WorkspaceToolbar
+			ariaLabel="ICT task library controls"
+			items={toolbarItems}
+			search={toolbarSearch}
+			primary={toolbarPrimary}
+		/>
 
 		{#if loading}
 			<section

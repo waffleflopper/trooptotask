@@ -9,10 +9,11 @@
 	import { ratingSchemeStore } from '$features/rating-scheme/stores/ratingScheme.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import * as Alert from '$lib/components/ui/alert';
-	import { Button } from '$lib/components/ui/button';
-	import * as ButtonGroup from '$lib/components/ui/button-group';
-	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar';
-	import type { WorkspaceToolbarAction } from '$lib/components/patterns/workspace-toolbar';
+	import {
+		WorkspaceToolbar,
+		type ToolbarItem,
+		type WorkspaceToolbarProps
+	} from '$lib/components/patterns/workspace-toolbar';
 	import RatingSchemeTableView from '$features/rating-scheme/components/RatingSchemeTableView.svelte';
 	import RatingSchemeGroupedView from '$features/rating-scheme/components/RatingSchemeGroupedView.svelte';
 	import EvalBadge from '$features/rating-scheme/components/EvalBadge.svelte';
@@ -46,7 +47,7 @@
 	async function restoreFocusAfterEntryDialog(opener: Element | null, entryId: string | null) {
 		await tick();
 		const row = entryId ? workspace?.querySelector(`[data-rating-entry-id="${CSS.escape(entryId)}"]`) : null;
-		const addEntry = workspace?.querySelector('button[aria-label="Add Entry"]');
+		const addEntry = workspace?.querySelector('[data-toolbar-row] [data-toolbar-item="add-entry"] button');
 		const target = opener?.isConnected ? opener : (row ?? addEntry);
 		if (target instanceof HTMLElement) target.focus();
 	}
@@ -79,55 +80,92 @@
 	const canUseRatingSchemeWriteActions = $derived(ratingSchemeWriteAffordance.allowed);
 	const ratingStats = $derived(ctx.ratingStats);
 	const ratingShownLabel = $derived(`${ctx.filteredRatingEntries.length} of ${ratingSchemeStore.items.length} shown`);
-	const activeFilterCount = $derived(
-		(ctx.evalTypeFilter !== 'all' ? 1 : 0) +
-			(ctx.ratingFilter !== 'active' ? 1 : 0) +
-			(ctx.hasAnyWorkflowStatus && ctx.workflowFilter !== 'all' ? 1 : 0) +
-			(ctx.ratingViewMode !== 'grouped' ? 1 : 0)
-	);
 	const ratingMetricItems = $derived([
 		{ id: 'overdue', label: 'Overdue', value: ratingStats.overdue, status: 'overdue' as RatingDueStatus },
 		{ id: 'due-60', label: '60d', value: ratingStats['due-60'], status: 'due-60' as RatingDueStatus },
 		{ id: 'due-30', label: '30d', value: ratingStats['due-30'], status: 'due-30' as RatingDueStatus }
 	]);
-	const ratingActionItems = $derived.by<WorkspaceToolbarAction[]>(() => {
-		const items: WorkspaceToolbarAction[] = [
+	async function exportEntries(): Promise<void> {
+		exportLoading = true;
+		try {
+			const { exportRatingScheme } = await import('$features/rating-scheme/utils/ratingSchemeExport');
+			await exportRatingScheme(ctx.filteredRatingEntries, personnelLookup);
+		} catch (err) {
+			toastStore.error(err instanceof Error ? err.message : 'Export failed');
+		} finally {
+			exportLoading = false;
+		}
+	}
+
+	const toolbarItems = $derived.by<ToolbarItem[]>(() => {
+		const items: ToolbarItem[] = [
 			{
-				id: 'export',
-				label: exportLoading ? 'Exporting...' : 'Export',
-				onclick: async () => {
-					exportLoading = true;
-					try {
-						const { exportRatingScheme } = await import('$features/rating-scheme/utils/ratingSchemeExport');
-						await exportRatingScheme(ctx.filteredRatingEntries, personnelLookup);
-					} catch (err) {
-						toastStore.error(err instanceof Error ? err.message : 'Export failed');
-					} finally {
-						exportLoading = false;
-					}
-				},
-				disabled: exportLoading,
-				icon: 'download',
-				priority: 'normal',
-				variant: 'default'
+				kind: 'view',
+				id: 'view-mode',
+				label: 'Evaluation view mode',
+				options: ratingViewOptions,
+				value: ctx.ratingViewMode,
+				onValueChange: (value) => (ctx.ratingViewMode = value as 'grouped' | 'table')
+			},
+			{
+				kind: 'select',
+				id: 'eval-type',
+				label: 'Evaluation type',
+				ariaLabel: 'Evaluation type filter',
+				options: evalTypeFilterOptions,
+				value: ctx.evalTypeFilter,
+				defaultValue: 'all',
+				onValueChange: (value) => (ctx.evalTypeFilter = value as 'all' | 'OER' | 'NCOER' | 'WOER')
+			},
+			{
+				kind: 'select',
+				id: 'status',
+				label: 'Evaluation status',
+				ariaLabel: 'Evaluation status filter',
+				options: ratingFilterOptions,
+				value: ctx.ratingFilter,
+				defaultValue: 'active',
+				onValueChange: (value) => (ctx.ratingFilter = value as 'active' | 'completed' | 'change-of-rater' | 'all')
 			}
 		];
 
-		if (showRatingSchemeWriteActions) {
+		if (ctx.hasAnyWorkflowStatus) {
 			items.push({
-				id: 'add-entry',
-				label: 'Add Entry',
-				onclick: () => ctx.handleAddRatingEntry(),
-				disabled: !canUseRatingSchemeWriteActions,
-				disabledReason: canUseRatingSchemeWriteActions ? undefined : ratingSchemeWriteAffordance.explanation,
-				priority: 'critical',
-				overflow: 'never',
-				variant: 'primary'
+				kind: 'select',
+				id: 'workflow',
+				label: 'Evaluation workflow',
+				ariaLabel: 'Evaluation workflow filter',
+				options: workflowFilterOptions,
+				value: ctx.workflowFilter,
+				defaultValue: 'all',
+				onValueChange: setWorkflowFilter
 			});
 		}
 
+		items.push({
+			kind: 'action',
+			id: 'export',
+			label: exportLoading ? 'Exporting...' : 'Export',
+			icon: 'download',
+			onclick: exportEntries,
+			loading: exportLoading
+		});
+
 		return items;
 	});
+
+	const toolbarPrimary = $derived.by<WorkspaceToolbarProps['primary']>(() =>
+		showRatingSchemeWriteActions
+			? {
+					kind: 'action',
+					id: 'add-entry',
+					label: 'Add Entry',
+					onclick: () => ctx.handleAddRatingEntry(),
+					disabled: !canUseRatingSchemeWriteActions,
+					disabledReason: canUseRatingSchemeWriteActions ? undefined : ratingSchemeWriteAffordance.explanation
+				}
+			: undefined
+	);
 </script>
 
 <svelte:head>
@@ -147,54 +185,7 @@
 	{:else}
 		<div class="flex min-h-0 flex-1 overflow-hidden p-4 md:p-6">
 			<section class="flex min-h-0 w-full flex-col gap-4 overflow-hidden">
-				<WorkspaceToolbar.Root ariaLabel="Evaluation controls" wrap>
-					<WorkspaceToolbar.Group
-						label="Evaluation filters"
-						activeCount={activeFilterCount}
-						data-testid="evaluation-filters"
-					>
-						<ButtonGroup.Root aria-label="Evaluation view mode">
-							{#each ratingViewOptions as option (option.value)}
-								<Button
-									variant={ctx.ratingViewMode === option.value ? 'secondary' : 'outline'}
-									aria-pressed={ctx.ratingViewMode === option.value}
-									onclick={() => (ctx.ratingViewMode = option.value as 'grouped' | 'table')}
-								>
-									{option.label}
-								</Button>
-							{/each}
-						</ButtonGroup.Root>
-						<WorkspaceToolbar.Select
-							ariaLabel="Evaluation type filter"
-							options={evalTypeFilterOptions}
-							value={ctx.evalTypeFilter}
-							onValueChange={(value) => (ctx.evalTypeFilter = value as 'all' | 'OER' | 'NCOER' | 'WOER')}
-						/>
-						<WorkspaceToolbar.Select
-							ariaLabel="Evaluation status filter"
-							options={ratingFilterOptions}
-							value={ctx.ratingFilter}
-							onValueChange={(value) =>
-								(ctx.ratingFilter = value as 'active' | 'completed' | 'change-of-rater' | 'all')}
-						/>
-						{#if ctx.hasAnyWorkflowStatus}
-							<WorkspaceToolbar.Select
-								ariaLabel="Evaluation workflow filter"
-								options={workflowFilterOptions}
-								value={ctx.workflowFilter}
-								onValueChange={setWorkflowFilter}
-							/>
-						{/if}
-					</WorkspaceToolbar.Group>
-
-					<WorkspaceToolbar.Group label="Evaluation actions" zone="actions">
-						<WorkspaceToolbar.Actions
-							actions={ratingActionItems}
-							ariaLabel="Evaluation actions"
-							overflowAriaLabel="More evaluation actions"
-						/>
-					</WorkspaceToolbar.Group>
-				</WorkspaceToolbar.Root>
+				<WorkspaceToolbar ariaLabel="Evaluation controls" items={toolbarItems} primary={toolbarPrimary} />
 
 				<div class="min-h-0 flex-1 overflow-auto rounded-lg border bg-card text-card-foreground">
 					<div

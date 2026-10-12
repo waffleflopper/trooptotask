@@ -4,8 +4,11 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as DataTable from '$lib/components/ui/data-table';
 	import type { ColumnDef } from '$lib/components/ui/data-table';
-	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar';
-	import type { WorkspaceToolbarAction } from '$lib/components/patterns/workspace-toolbar';
+	import {
+		WorkspaceToolbar,
+		type ToolbarItem,
+		type WorkspaceToolbarProps
+	} from '$lib/components/patterns/workspace-toolbar';
 	import type { CriticalTasksPageAccess } from '../contracts';
 	import IctCompletionModal from '$features/critical-tasks/components/IctCompletionModal.svelte';
 	import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
@@ -118,9 +121,6 @@
 	const currentUserDisplayName = $derived(data.viewer?.displayName ?? null);
 	const applicableTaskOptions = $derived(activeRows.map((row) => row.task));
 	const canInputTask = $derived(canRecordCompletion && applicableTaskOptions.length > 0);
-	const activeFilterCount = $derived(
-		(statusFilter !== 'all' ? 1 : 0) + (categoryFilter !== 'all' ? 1 : 0) + (taskSearch.trim() ? 1 : 0)
-	);
 	const recordContextItems = $derived.by(() => {
 		const items = [
 			history.personnel.mos ? `MOS ${history.personnel.mos}` : 'No MOS',
@@ -402,33 +402,47 @@
 		showTaskInputModal = true;
 	}
 
-	const toolbarActionItems = $derived.by<WorkspaceToolbarAction[]>(() => {
-		const items: WorkspaceToolbarAction[] = [];
+	const toolbarItems = $derived<ToolbarItem[]>([
+		{
+			kind: 'select',
+			id: 'status',
+			label: 'Status',
+			options: statusFilterOptions,
+			value: statusFilter,
+			defaultValue: 'all',
+			onValueChange: (value) => (statusFilter = value as IctStatusFilter)
+		},
+		{
+			kind: 'select',
+			id: 'category',
+			label: 'Category',
+			options: categoryFilterOptions,
+			value: categoryFilter,
+			defaultValue: 'all',
+			onValueChange: (value) => (categoryFilter = value)
+		},
+		{ kind: 'action', id: 'print-record', label: 'Print Record', icon: 'printer', onclick: handlePrint }
+	]);
 
-		items.push({
-			id: 'print-record',
-			label: 'Print Record',
-			icon: 'printer',
-			onclick: handlePrint,
-			priority: 'normal',
-			variant: 'default'
-		});
+	const toolbarSearch = $derived({
+		label: 'Filter by task ID or name',
+		placeholder: 'Filter by task ID or name...',
+		value: taskSearch,
+		onValueChange: (value: string) => (taskSearch = value)
+	} satisfies NonNullable<WorkspaceToolbarProps['search']>);
 
-		if (canRecordCompletion) {
-			items.push({
-				id: 'input-task',
-				label: 'Input Task',
-				icon: 'clipboard-check',
-				onclick: handleTaskInput,
-				disabled: !canInputTask,
-				priority: 'critical',
-				overflow: 'never',
-				variant: 'primary'
-			});
-		}
-
-		return items;
-	});
+	const toolbarPrimary = $derived<WorkspaceToolbarProps['primary']>(
+		canRecordCompletion
+			? {
+					kind: 'action',
+					id: 'input-task',
+					label: 'Input Task',
+					icon: 'clipboard-check',
+					onclick: handleTaskInput,
+					disabled: !canInputTask
+				}
+			: undefined
+	);
 </script>
 
 {#snippet activeCell(row: ActiveTaskRow, column: ColumnDef<ActiveTaskRow>)}
@@ -520,39 +534,12 @@
 </svelte:head>
 
 <div class="mx-auto flex max-w-[1480px] flex-col gap-5 p-4 text-foreground sm:p-5">
-	<WorkspaceToolbar.Root ariaLabel="Personnel critical task controls" wrap>
-		<WorkspaceToolbar.Group
-			label="Applicable task filters"
-			activeCount={activeFilterCount}
-			data-testid="ict-detail-filters"
-		>
-			<WorkspaceToolbar.Select
-				ariaLabel="Status"
-				options={statusFilterOptions}
-				value={statusFilter}
-				onValueChange={(value) => (statusFilter = value as IctStatusFilter)}
-			/>
-			<WorkspaceToolbar.Select
-				ariaLabel="Category"
-				options={categoryFilterOptions}
-				value={categoryFilter}
-				onValueChange={(value) => (categoryFilter = value)}
-			/>
-			<WorkspaceToolbar.Search
-				ariaLabel="Filter by task ID or name"
-				placeholder="Filter by task ID or name..."
-				bind:value={taskSearch}
-			/>
-		</WorkspaceToolbar.Group>
-
-		<WorkspaceToolbar.Group label="Personnel critical task actions" zone="actions">
-			<WorkspaceToolbar.Actions
-				actions={toolbarActionItems}
-				ariaLabel="Personnel critical task actions"
-				overflowAriaLabel="More personnel critical task actions"
-			/>
-		</WorkspaceToolbar.Group>
-	</WorkspaceToolbar.Root>
+	<WorkspaceToolbar
+		ariaLabel="Personnel critical task controls"
+		items={toolbarItems}
+		search={toolbarSearch}
+		primary={toolbarPrimary}
+	/>
 
 	{#if recordContextItems.length > 0}
 		<section

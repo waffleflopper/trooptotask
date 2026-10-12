@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { createClientAccess } from '$lib/access/clientAccess';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import RatingSchemePageView from './RatingSchemePageView.svelte';
@@ -9,9 +9,10 @@ import { RatingSchemePageContext, type RatingSchemePageData } from '../contexts/
 import { ratingSchemeStore } from '../stores/ratingScheme.svelte';
 import type { RatingSchemeEntry } from '../rating-scheme.types';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
+import { openToolbarMore, openToolbarSubmenu, stubToolbarWidths } from '$lib/test-support/toolbarWidths';
 
 const { exportRatingSchemeMock } = vi.hoisted(() => ({
-	exportRatingSchemeMock: vi.fn(async () => undefined)
+	exportRatingSchemeMock: vi.fn(async (_entries: unknown[], _personnel: unknown[]) => undefined)
 }));
 
 vi.mock('$features/rating-scheme/utils/ratingSchemeExport', () => ({
@@ -59,15 +60,19 @@ const entries: RatingSchemeEntry[] = [
 	}
 ];
 
-function makeOrg() {
+const personnelLookup = [
+	{ id: 'p1', rank: 'SGT', firstName: 'Jane', lastName: 'Smith' },
+	{ id: 'p2', rank: 'CPT', firstName: 'Alex', lastName: 'Jones' }
+];
+
+function makeOrg(ratingScheme: 'view' | 'operate' = 'operate') {
 	return createClientAccess({
 		membershipRole: 'member',
-		capabilityMap: { ...createCapabilityMap('none'), ratingScheme: 'operate' }
+		capabilityMap: { ...createCapabilityMap('none'), ratingScheme }
 	});
 }
 
-function makeContext(modals = new ModalRegistry()): RatingSchemePageContext {
-	const org = makeOrg();
+function makeContext(modals = new ModalRegistry(), org = makeOrg()): RatingSchemePageContext {
 	const data: RatingSchemePageData = {
 		orgId: 'org-1',
 		orgName: 'Test Org',
@@ -214,5 +219,107 @@ describe('RatingSchemePageView', () => {
 		expect(within(scrollRegion).getByRole('table')).toBeTruthy();
 		expect(screen.getByText('SGT Smith, Jane')).toBeTruthy();
 		expect(screen.getByText('CPT Jones, Alex')).toBeTruthy();
+	});
+
+	it('filters the entries by evaluation type from the row', async () => {
+		render(RatingSchemePageView, { props: { ctx: makeContext(), personnelLookup } });
+
+		const type = screen.getByRole('button', { name: 'Evaluation type filter' });
+		type.focus();
+		await fireEvent.keyDown(type, { key: 'ArrowDown' });
+		await fireEvent.pointerUp(await screen.findByRole('option', { name: 'OER' }));
+
+		expect(screen.getByText('1 of 2 shown')).toBeTruthy();
+		expect(screen.getByRole('button', { name: /CPT Jones/ })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: /SGT Smith/ })).toBeNull();
+	});
+
+	it('shows the workflow filter only when an entry has a workflow status', () => {
+		render(RatingSchemePageView, { props: { ctx: makeContext(), personnelLookup } });
+		expect(screen.getByRole('button', { name: 'Evaluation workflow filter' })).toBeTruthy();
+		cleanup();
+
+		const withoutWorkflow = entries.map((entry) => ({ ...entry, workflowStatus: null }));
+		const ctx = new RatingSchemePageContext(
+			{ orgId: 'org-1', orgName: 'Test Org', ratingSchemeEntries: withoutWorkflow },
+			new ModalRegistry(),
+			makeOrg(),
+			withoutWorkflow
+		);
+		render(RatingSchemePageView, { props: { ctx, personnelLookup } });
+		expect(screen.queryByRole('button', { name: 'Evaluation workflow filter' })).toBeNull();
+	});
+
+	describe('when the toolbar folds', () => {
+		const toolbarName = 'Evaluation controls';
+
+		afterEach(() => vi.unstubAllGlobals());
+
+		it('keeps the view, every filter and Export working from More with Add Entry pinned on the row', async () => {
+			const widths = stubToolbarWidths();
+			render(RatingSchemePageView, { props: { ctx: makeContext(), personnelLookup } });
+			await widths.foldAll();
+
+			const row = within(screen.getByRole('toolbar', { name: toolbarName }));
+			expect(row.queryByRole('button', { name: 'Export' })).toBeNull();
+			expect(row.queryByRole('button', { name: 'Table' })).toBeNull();
+			expect(row.getByRole('button', { name: 'Add Entry' })).toBeTruthy();
+
+			const menu = await openToolbarMore(toolbarName);
+			for (const name of [
+				'Evaluation type, Eval Type: All',
+				'Evaluation status, Status: Active',
+				'Evaluation workflow, Workflow: All'
+			]) {
+				expect(within(menu).getByRole('menuitem', { name })).toBeTruthy();
+			}
+			await fireEvent.click(
+				within(within(menu).getByRole('group', { name: 'Evaluation view mode' })).getByRole('menuitemradio', {
+					name: 'Table'
+				})
+			);
+			expect(await screen.findByRole('columnheader', { name: /Rated Individual/ })).toBeTruthy();
+
+			await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+			await openToolbarMore(toolbarName);
+			await openToolbarSubmenu('Evaluation type, Eval Type: All');
+			await fireEvent.click(await screen.findByRole('menuitemradio', { name: 'NCOER' }));
+			expect(screen.getByText('1 of 2 shown')).toBeTruthy();
+
+			await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+			await openToolbarMore(toolbarName);
+			expect(screen.getByRole('menuitem', { name: 'Evaluation type, NCOER' })).toBeTruthy();
+			await fireEvent.click(screen.getByRole('menuitem', { name: 'Export' }));
+			await waitFor(() => expect(exportRatingSchemeMock).toHaveBeenCalledTimes(1));
+			expect(exportRatingSchemeMock.mock.calls[0]?.[0]).toHaveLength(1);
+		});
+
+		it('shows the filter dot on More while a folded filter is not at its default', async () => {
+			const widths = stubToolbarWidths();
+			const ctx = makeContext();
+			render(RatingSchemePageView, { props: { ctx, personnelLookup } });
+			await widths.foldAll();
+			const more = () => screen.getByRole('button', { name: `More ${toolbarName}` });
+			expect(more().getAttribute('aria-describedby')).toBeNull();
+
+			ctx.ratingFilter = 'completed';
+			await tick();
+
+			const description = document.getElementById(more().getAttribute('aria-describedby') ?? '');
+			expect(description?.textContent).toBe('Hidden filters active: Evaluation status');
+		});
+
+		it('offers a viewer neither Add Entry on the row nor in More', async () => {
+			const widths = stubToolbarWidths();
+			render(RatingSchemePageView, {
+				props: { ctx: makeContext(new ModalRegistry(), makeOrg('view')), personnelLookup }
+			});
+			await widths.foldAll();
+
+			expect(screen.queryByRole('button', { name: 'Add Entry' })).toBeNull();
+			await openToolbarMore(toolbarName);
+			expect(screen.queryByRole('menuitem', { name: 'Add Entry' })).toBeNull();
+			expect(screen.getByRole('menuitem', { name: 'Export' })).toBeTruthy();
+		});
 	});
 });

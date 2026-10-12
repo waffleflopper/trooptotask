@@ -69,8 +69,15 @@
 			bind:this={nameFormEl}
 			method="POST"
 			action="?/updateName"
-			use:enhance={({ cancel }) =>
-				workspace.submitName(cancel, () => [editButton, form?.error ? nameInput : nameSaveButton, nameInput])}
+			use:enhance={({ cancel }) => {
+				const settle = workspace.submitName(cancel, () => [
+					editButton,
+					form?.error ? nameInput : nameSaveButton,
+					nameInput
+				]);
+				if (settle) form = null;
+				return settle;
+			}}
 		>
 			{#if form?.nameSuccess && !workspace.nameEditing}
 				<Alert.Root variant="success" role="status" class="mb-3">
@@ -140,13 +147,16 @@
 			bind:this={slugFormEl}
 			method="POST"
 			action={workspace.slugFormAction}
-			use:enhance={({ cancel }) =>
-				workspace.submitSlug(cancel, (action) => () => [
+			use:enhance={({ cancel }) => {
+				const settle = workspace.submitSlug(cancel, (action) => () => [
 					form?.slugError ? slugInput : null,
 					action === 'clear' ? slugResetButton : null,
 					slugSaveButton,
 					slugInput
-				])}
+				]);
+				if (settle) form = null;
+				return settle;
+			}}
 		>
 			<div class="grid gap-3">
 				<div class="grid gap-1">

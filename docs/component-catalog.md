@@ -184,7 +184,7 @@ Props: `id?: string`, `value?: string` (bindable ISO `YYYY-MM-DD`), `placeholder
 
 ## `patterns/workspace-toolbar`
 
-`patterns/workspace-toolbar` is the shared toolbar used by authenticated production routes. The named `WorkspaceToolbar` export is data driven. A route describes its controls as ranked data and the toolbar decides what fits on one row. Everything that does not fit folds into one More menu.
+`patterns/workspace-toolbar` is the shared toolbar used by authenticated production routes. The named `WorkspaceToolbar` export is data-driven. A route describes its controls as ranked data and the toolbar decides what fits on one row. Everything that does not fit folds into one More menu.
 
 ```svelte
 <script lang="ts">
@@ -235,7 +235,7 @@ Every item has a unique `id` and a visible `label`. An optional `ariaLabel` keep
 Rank rule:
 
 - `items` order is the only ranking. There is no priority number and no per-route breakpoint.
-- The row renders view, search, filters, actions, More and primary. Actions render in reverse rank, so the highest ranked action sits next to the primary. The first trailing control aligns right.
+- The row renders view, search, filters, actions, More and primary. Actions render in reverse rank, so the highest-ranked action sits next to the primary. The first trailing control aligns right.
 
 Fold rule:
 

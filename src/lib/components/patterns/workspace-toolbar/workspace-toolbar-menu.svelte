@@ -6,9 +6,10 @@
 		label: string;
 		trigger: Snippet<[Record<string, unknown>]>;
 		children: Snippet<[(action: () => void) => void]>;
+		contentClass?: string;
 	};
 
-	let { label, trigger, children }: Props = $props();
+	let { label, trigger, children, contentClass }: Props = $props();
 
 	// A closing menu keeps its pointer handlers through the exit animation and pulls focus back into
 	// itself, so a chosen action runs once this menu has closed, or once it unmounts mid-close.
@@ -40,7 +41,7 @@
 			{@render trigger(props)}
 		{/snippet}
 	</DropdownMenu.Trigger>
-	<DropdownMenu.Content align="end">
+	<DropdownMenu.Content align="end" class={contentClass}>
 		<DropdownMenu.Label>{label}</DropdownMenu.Label>
 		{@render children(choose)}
 	</DropdownMenu.Content>

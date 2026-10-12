@@ -90,7 +90,7 @@ function renderLayout(
 		props: {
 			children,
 			data: {
-				session: null,
+				viewer: null,
 				adminUserId: 'admin-1',
 				adminEmail: 'admin@example.test',
 				adminRole: 'billing',

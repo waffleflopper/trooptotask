@@ -22,7 +22,7 @@ const invitation = {
 };
 
 function invitationData(pendingInvitations = [invitation]) {
-	return { session: null, organizations: [], pendingInvitations };
+	return { viewer: null, organizations: [], pendingInvitations };
 }
 
 async function respond(action: string, result: ActionResult, applyForm: (form: unknown) => Promise<void>) {
@@ -76,7 +76,7 @@ describe('/dashboard page', () => {
 			render(Page, {
 				props: {
 					data: {
-						session: null,
+						viewer: null,
 						organizations: [{ id: 'org-1', name: 'Alpha Company', role: 'admin' }],
 						pendingInvitations: []
 					},
@@ -95,7 +95,7 @@ describe('/dashboard page', () => {
 		render(Page, {
 			props: {
 				data: {
-					session: null,
+					viewer: null,
 					organizations: [{ id: 'org-1', name: 'Alpha Company', role: 'admin', urlSegment: '1-11-bde' }],
 					pendingInvitations: []
 				},

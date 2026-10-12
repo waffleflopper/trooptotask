@@ -19,13 +19,13 @@ afterEach(() => {
 });
 
 it('keeps the shared wordmark as a home link on account access', () => {
-	render(Page, { data: { session: null, reauth: false, nextPath: null }, form: null });
+	render(Page, { data: { viewer: null, reauth: false, nextPath: null }, form: null });
 	expect(screen.getByRole('link', { name: /Troop To Task Unit Readiness Platform/i })).toHaveAttribute('href', '/');
 });
 
 it('submits the supplied continuation unchanged before and after a rejected login', async () => {
 	const nextPath = '/org/alpha/calendar?view=month&label=A%26B#today';
-	const data = { session: null, reauth: true, nextPath };
+	const data = { viewer: null, reauth: true, nextPath };
 	const page = render(Page, { data, form: null });
 	const email = screen.getByLabelText(/Email Address/);
 	await fireEvent.input(email, { target: { value: 'owner@example.test' } });
@@ -39,7 +39,7 @@ it('submits the supplied continuation unchanged before and after a rejected logi
 });
 
 it('serializes submissions, contains transport errors and keeps entered credentials for retry', async () => {
-	render(Page, { data: { session: null, reauth: false, nextPath: '/account/security' }, form: null });
+	render(Page, { data: { viewer: null, reauth: false, nextPath: '/account/security' }, form: null });
 	const email = screen.getByLabelText(/Email Address/);
 	const password = screen.getByLabelText(/^Password/);
 	await fireEvent.input(email, { target: { value: 'owner@example.test' } });

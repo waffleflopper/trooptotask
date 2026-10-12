@@ -527,22 +527,7 @@ describe('IctPersonnelDetailPage', () => {
 				org,
 				data: {
 					orgId: 'org-1',
-					session: {
-						access_token: 'access-token',
-						refresh_token: 'refresh-token',
-						expires_in: 3600,
-						token_type: 'bearer',
-						user: {
-							id: 'user-1',
-							app_metadata: {},
-							aud: 'authenticated',
-							created_at: '2026-04-01T00:00:00.000Z',
-							user_metadata: {
-								rank: 'SFC',
-								full_name: 'Taylor Example'
-							}
-						}
-					},
+					viewer: { displayName: 'SFC Taylor Example' },
 					criticalTasks: criticalTasksLayoutData,
 					criticalTasksPersonnelHistory: {
 						...history,

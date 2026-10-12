@@ -29,7 +29,7 @@ describe.each(['security', 'recovery', 'invite'] as const)('%s confirmed complet
 						hasMFA: true,
 						currentEmail: 'synthetic@example.test',
 						pendingEmail: null,
-						session: null,
+						viewer: null,
 						accountPathname: '/account/security'
 					} as PageData,
 					form: null

@@ -23,7 +23,7 @@ afterEach(() => {
 
 function makePageData(overrides: Partial<PageData> = {}): PageData {
 	return {
-		session: null,
+		viewer: null,
 		emailConfirmed: true,
 		userEmail: 'owner@example.com',
 		emailConfirmationMessage: undefined,

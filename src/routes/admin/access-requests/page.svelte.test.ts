@@ -99,7 +99,7 @@ async function renderReviewed(requests: ReviewedRequest[]) {
 	render(Page, {
 		props: {
 			data: {
-				session: null,
+				viewer: null,
 				adminUserId: 'admin-1',
 				adminEmail: 'admin@example.mil',
 				adminRole: 'super_admin',
@@ -136,7 +136,7 @@ function renderPending(requests: PendingRequest[]) {
 	return render(Page, {
 		props: {
 			data: {
-				session: null,
+				viewer: null,
 				adminUserId: 'admin-1',
 				adminEmail: 'admin@example.mil',
 				adminRole: 'super_admin',
@@ -568,7 +568,7 @@ describe('admin access request setup support UI', () => {
 		const view = render(Page, {
 			props: {
 				data: {
-					session: null,
+					viewer: null,
 					adminUserId: 'admin-1',
 					adminEmail: 'admin@example.mil',
 					adminRole: 'super_admin',

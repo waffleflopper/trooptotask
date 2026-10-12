@@ -126,29 +126,7 @@
 	let matrixExportLoading = $state(false);
 	let matrixExportError = $state('');
 
-	function readMetadataString(record: unknown, key: string): string | null {
-		if (!record || typeof record !== 'object') return null;
-		const value = (record as Record<string, unknown>)[key];
-		return typeof value === 'string' && value.trim() ? value.trim() : null;
-	}
-
-	function getCurrentUserDisplayName(): string | null {
-		const userMetadata = data.session?.user?.user_metadata;
-		const rank = readMetadataString(userMetadata, 'rank');
-		const fullName =
-			readMetadataString(userMetadata, 'full_name') ??
-			readMetadataString(userMetadata, 'name') ??
-			[readMetadataString(userMetadata, 'first_name'), readMetadataString(userMetadata, 'last_name')]
-				.filter((value): value is string => !!value)
-				.join(' ')
-				.trim() ??
-			null;
-
-		if (!fullName) return null;
-		return [rank, fullName].filter(Boolean).join(' ');
-	}
-
-	const currentUserDisplayName = $derived(getCurrentUserDisplayName());
+	const currentUserDisplayName = $derived(data.viewer?.displayName ?? null);
 
 	function handleMatrixCellSelection(selection: ActiveCompletionCell): void {
 		if (!canRecordCompletion) return;

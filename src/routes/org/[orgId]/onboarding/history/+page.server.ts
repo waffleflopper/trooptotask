@@ -13,7 +13,6 @@ export const load: PageServerLoad = async ({ params, locals, cookies, depends })
 		fn: (ctx) => fetchOnboardingWorkspace(ctx, { mode: 'history' })
 	});
 	return {
-		session: locals.session,
 		history: { onboardings: data.onboardings, personnel: data.personnel, templates: data.onboardingTemplates }
 	};
 };

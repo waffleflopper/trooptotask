@@ -75,7 +75,7 @@ function workspace(userId = 'user-a', orgId = 'org-a', sessionId = 'session-1') 
 		preferences: getDefaultUserOrgPreferences(),
 		announcements: []
 	};
-	return { session: null, shell, identitySessionScope: { userId, sessionId } } satisfies LayoutData;
+	return { viewer: null, shell, identitySessionScope: { userId, sessionId } } satisfies LayoutData;
 }
 function statusCheckbox() {
 	return screen.getByRole('checkbox', { name: 'Show status text' }) as HTMLInputElement;
@@ -328,7 +328,7 @@ describe('organization layout suspended contact', () => {
 		render(Layout, {
 			children,
 			data: {
-				session: null,
+				viewer: null,
 				identitySessionScope: null,
 				shell: {
 					kind: 'suspended',
@@ -346,7 +346,7 @@ describe('organization layout suspended contact', () => {
 		render(Layout, {
 			children,
 			data: {
-				session: null,
+				viewer: null,
 				identitySessionScope: null,
 				shell: {
 					kind: 'suspended',

@@ -1,17 +1,17 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import type { MfaActionResponse } from '$features/identity/contracts';
-import { verifyIdentityMfa } from '$features/identity/index.server';
+import { MFA_CODE_RATE_LIMIT_MESSAGE, verifyIdentityMfa } from '$features/identity/index.server';
 
-function reply(body: MfaActionResponse, status: number) {
-	return json(body, { status });
+function reply(body: MfaActionResponse, status: number, headers?: HeadersInit) {
+	return json(body, { status, headers });
 }
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	const body: unknown = await request.json().catch(() => null);
 	const code = body && typeof body === 'object' && 'code' in body ? body.code : undefined;
 	const result = await verifyIdentityMfa(locals, code);
-	switch (result) {
+	switch (result.status) {
 		case 'verified':
 			return reply({ ok: true }, 200);
 		case 'invalid':
@@ -25,6 +25,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		case 'unconfirmed':
 			return reply({ error: 'Unable to verify the MFA code. Try again.' }, 503);
 		case 'unavailable':
+			return reply({ error: 'Unable to verify MFA. Try again.' }, 503);
+		case 'limited':
+			return reply({ error: MFA_CODE_RATE_LIMIT_MESSAGE }, 429, { 'Retry-After': String(result.retryAfterSeconds) });
+		case 'limit-unavailable':
 			return reply({ error: 'Unable to verify MFA. Try again.' }, 503);
 	}
 };

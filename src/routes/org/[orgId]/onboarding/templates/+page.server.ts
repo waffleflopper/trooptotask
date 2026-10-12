@@ -13,5 +13,5 @@ export const load: PageServerLoad = async ({ params, locals, cookies, depends })
 		fn: async () => undefined
 	});
 
-	return { session: locals.session, orgId };
+	return { orgId };
 };

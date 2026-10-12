@@ -23,7 +23,7 @@ describe('account profile page', () => {
 		render(ProfilePage, {
 			props: {
 				data: {
-					session: null,
+					viewer: null,
 					accountPathname: '/account/profile',
 					profile: {
 						userId: 'user-1',
@@ -48,7 +48,7 @@ describe('account profile page', () => {
 		render(ProfilePage, {
 			props: {
 				data: {
-					session: null,
+					viewer: null,
 					accountPathname: '/account/profile',
 					profile: { userId: 'user-1', firstName: 'Emma', lastName: 'Hayes', rank: 'SGT' },
 					ranks: ['CPT', 'SGT', 'SFC']
@@ -68,7 +68,7 @@ describe('account profile page', () => {
 		render(ProfilePage, {
 			props: {
 				data: {
-					session: null,
+					viewer: null,
 					accountPathname: '/account/profile',
 					profile: null,
 					ranks: ['CPT', 'SGT']
@@ -83,7 +83,7 @@ describe('account profile page', () => {
 	it('flags the empty rank only after a failed submit, and clears it once a rank is chosen', async () => {
 		render(ProfilePage, {
 			props: {
-				data: { session: null, accountPathname: '/account/profile', profile: null, ranks: ['CPT', 'SGT'] },
+				data: { viewer: null, accountPathname: '/account/profile', profile: null, ranks: ['CPT', 'SGT'] },
 				form: null
 			}
 		});

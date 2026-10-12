@@ -39,10 +39,10 @@ function adminData(
 	actorId: string
 ): Pick<
 	AnnouncementData,
-	'session' | 'adminUserId' | 'visibleNavGroups' | 'adminEmail' | 'adminRole' | 'accessiblePages'
+	'viewer' | 'adminUserId' | 'visibleNavGroups' | 'adminEmail' | 'adminRole' | 'accessiblePages'
 > {
 	return {
-		session: null,
+		viewer: null,
 		adminUserId: actorId,
 		visibleNavGroups: [],
 		adminEmail: 'admin@example.test',

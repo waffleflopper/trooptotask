@@ -14,7 +14,7 @@ const member = {
 };
 
 function bodyLinks(user: typeof member | null) {
-	const { container } = render(Page, { props: { data: { session: null, user } } });
+	const { container } = render(Page, { props: { data: { viewer: null, user } } });
 	return within(container.querySelector('main')!);
 }
 

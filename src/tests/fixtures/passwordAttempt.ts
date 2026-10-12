@@ -7,16 +7,24 @@ export const attemptStore = {
 	row: null as (PasswordAttempt & { actor: string; session: string }) | null,
 	committed: true,
 	unavailable: false,
-	rpc: vi.fn(async (_name: string, args: Record<string, string | null>) => {
+	rpc: vi.fn(async (name: string, args: Record<string, string | null>) => {
+		if (name === 'check_durable_rate_limit') return { data: [{ limited: false, retry_after_ms: 0 }], error: null };
 		if (attemptStore.unavailable) return { error: { message: 'private database failure' }, data: null };
-		let row = attemptStore.row;
+		let row = attemptStore.row?.actor === args.p_actor ? attemptStore.row : null;
+		if (
+			row?.state === 'complete' &&
+			['read', 'begin', 'restart'].includes(args.p_action!) &&
+			(row.session !== args.p_session || row.expiresAt <= Date.now() / 1000)
+		) {
+			if (args.p_action !== 'read') attemptStore.row = null;
+			row = null;
+		}
 		if (
 			args.p_action === 'restart' &&
 			row &&
-			row.actor === args.p_actor &&
 			((row.session === args.p_session && row.state === 'failed') ||
 				(row.session === args.p_session && row.state === 'complete' && !args.p_flow) ||
-				(row.session !== args.p_session && (row.state === 'complete' || row.expiresAt <= Date.now() / 1000)))
+				(row.session !== args.p_session && row.expiresAt <= Date.now() / 1000))
 		) {
 			attemptStore.row = null;
 			row = null;
@@ -35,7 +43,7 @@ export const attemptStore = {
 			attemptStore.row = row;
 			acquired = true;
 		}
-		if (!row || row.actor !== args.p_actor) return { data: { state: null }, error: null };
+		if (!row) return { data: { state: null }, error: null };
 		if (
 			row.session !== args.p_session ||
 			row.expiresAt <= Date.now() / 1000 ||

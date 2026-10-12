@@ -62,7 +62,7 @@ Design reviews: two models rejected the first event-driven release design and co
 
 **Residual limits.** Invitation expiry stays unverified live (no safe fixture); SQL proves expiry is not withdrawal. Competing issuance and retried bridges are proven by two-session SQL, not UI. When both the bridge and its cleanup block fail, the pending invitation's funnel row reads `Waiting on them to accept` because no Access Request exists to distinguish it from an existing account; the owner's failure message already directs them to revoke. Independent acceptance is recorded in the PR.
 
-**Release.** The migration adds a column, a status value, a CHECK and functions, and backfills `approval_basis`; it is append-only and not run by repository CI or Vercel. Apply it before deploying the application: the new code calls the new RPCs. Existing residue becomes dead at deploy without a data rewrite.
+**Release.** The migration adds a column, a status value, a CHECK and functions, and backfills `approval_basis`; it is append-only and not run by repository CI or Vercel. Apply it before deploying the application: the new code calls the new RPCs. Existing residue loses its grant as soon as the migration applies, without a data rewrite.
 
 ## Phase 10 integrated phase check
 

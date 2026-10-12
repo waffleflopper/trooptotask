@@ -394,7 +394,10 @@
 								class="flex flex-col gap-3 border-b border-border bg-muted/30 p-3 sm:flex-row sm:items-center sm:justify-between"
 							>
 								<div class="flex min-w-0 flex-wrap items-center gap-2">
-									<Badge style={`background-color: ${type.color}`}>{type.name}</Badge>
+									<Badge variant="outline">
+										<span class="size-2 rounded-sm" style:background-color={type.color} aria-hidden="true"></span>
+										{type.name}
+									</Badge>
 									<TrainingStatusBadge status={status.status} />
 								</div>
 								{#if !state?.isEditing}
@@ -571,7 +574,6 @@
 		title="Remove Training Record"
 		message="Are you sure you want to remove this training record?"
 		confirmLabel="Delete"
-		variant="danger"
 		onConfirm={doRemoveTraining}
 		onCancel={() => (confirmRemoveTypeId = null)}
 	/>
@@ -583,7 +585,7 @@
 		title="Mark All Completed"
 		message="Mark {count} trainings as completed today? (Expiration-date-only trainings must be set individually)"
 		confirmLabel="Mark All"
-		variant="warning"
+		variant="default"
 		onConfirm={() => saving.run(doMarkAllCompleted)}
 		onCancel={() => (showMarkAllConfirm = false)}
 	/>

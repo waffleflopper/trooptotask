@@ -212,7 +212,7 @@
 						<DatePicker id="removeEndDate" bind:value={endDate} placeholder="Select end date" />
 						{#if range.dayCount > 0}
 							<div class="flex items-center gap-2 text-xs">
-								<span class="font-semibold text-accent">{range.dayCount}</span>
+								<span class="font-semibold text-accent-text">{range.dayCount}</span>
 								<span class="text-muted-foreground">{range.dayCount === 1 ? 'day selected' : 'days selected'}</span>
 							</div>
 						{/if}

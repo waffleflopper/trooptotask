@@ -225,7 +225,7 @@
 </svelte:head>
 
 {#if !hydrated}
-	<section class="flex items-center justify-center gap-2 p-6 text-muted-foreground" aria-busy="true" role="status">
+	<section class="flex items-center justify-center gap-2 p-6 text-muted-foreground" role="status">
 		<Spinner />
 		<p>Loading onboarding templates...</p>
 	</section>
@@ -623,7 +623,6 @@
 			? ' This will also delete all steps in this template.'
 			: ''}"
 		confirmLabel="Delete"
-		variant="danger"
 		onConfirm={handleConfirmDelete}
 		onCancel={() => workspace.cancelDelete()}
 	>

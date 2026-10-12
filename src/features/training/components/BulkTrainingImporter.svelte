@@ -377,10 +377,9 @@
 					<BulkImportWorkspace.InputPanel title="Available training types">
 						<div class="flex flex-wrap gap-2">
 							{#each trainingTypes as type (type.id)}
-								<Badge
-									class="h-auto max-w-full text-left break-words whitespace-normal"
-									style={`background-color: ${type.color}`}
-								>
+								<Badge variant="outline" class="h-auto max-w-full text-left break-words whitespace-normal">
+									<span class="size-2 shrink-0 rounded-sm" style:background-color={type.color} aria-hidden="true"
+									></span>
 									{type.name}{type.expirationMonths === null ? ' *' : ''}
 								</Badge>
 							{/each}

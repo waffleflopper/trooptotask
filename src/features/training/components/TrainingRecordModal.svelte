@@ -187,7 +187,10 @@
 			<fieldset class="grid min-w-0 gap-4" disabled={isSaving}>
 				<section class="grid gap-3 rounded-lg border border-border bg-card p-4">
 					<div class="flex flex-wrap items-center gap-2">
-						<Badge style={`background-color: ${trainingType.color}`}>{trainingType.name}</Badge>
+						<Badge variant="outline">
+							<span class="size-2 rounded-sm" style:background-color={trainingType.color} aria-hidden="true"></span>
+							{trainingType.name}
+						</Badge>
 						{#if neverExpires}
 							<Badge variant="outline">Never Expires</Badge>
 						{:else if expirationDateOnly}
@@ -308,7 +311,6 @@
 		title="Delete Training Record"
 		message="Are you sure you want to delete this training record?"
 		confirmLabel="Delete"
-		variant="danger"
 		onConfirm={doRemove}
 		onCancel={() => (showRemoveConfirm = false)}
 	/>

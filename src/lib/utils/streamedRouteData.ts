@@ -57,7 +57,3 @@ export function observeDeferred<T>(promise: Promise<T>, options: ObserveDeferred
 			options.onReject?.(normalizeDeferredError(error, options.fallbackMessage));
 		});
 }
-
-export function throwRenderError(error: unknown, fallbackMessage: string): never {
-	throw normalizeDeferredError(error, fallbackMessage);
-}

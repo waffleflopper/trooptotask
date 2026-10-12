@@ -364,7 +364,7 @@
 		title="Clear Assignments"
 		message="Clear all assignments for this type for the entire month?"
 		confirmLabel="Clear All"
-		variant="warning"
+		variant="default"
 		onConfirm={doClearAll}
 		onCancel={() => (clearTypeId = null)}
 	/>

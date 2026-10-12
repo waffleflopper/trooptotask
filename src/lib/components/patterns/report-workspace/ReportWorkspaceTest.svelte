@@ -1,6 +1,5 @@
 <script lang="ts">
 	import * as ReportWorkspace from './index.js';
-	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 
 	const rows = [
@@ -15,29 +14,6 @@
 </script>
 
 <ReportWorkspace.Root ariaLabel="Readiness report workspace">
-	<ReportWorkspace.Header
-		title="Readiness report"
-		description="Current personnel readiness by group."
-		meta={[
-			{ label: 'Rows', value: 2 },
-			{ label: 'Updated', value: 'Today' }
-		]}
-	/>
-
-	<ReportWorkspace.Toolbar ariaLabel="Readiness report controls">
-		<WorkspaceToolbar.Group label="Report filters" activeCount={1}>
-			<Button variant="outline">Group: HQ</Button>
-		</WorkspaceToolbar.Group>
-		<WorkspaceToolbar.Group label="Report actions" zone="actions">
-			<ReportWorkspace.ExportActions>
-				<ReportWorkspace.ExportAction label="Export workbook" href="/export.xlsx" />
-				<ReportWorkspace.ExportAction label="Export PDF" disabledReason="Select a date range first" />
-				<ReportWorkspace.ExportAction label="Export XLSX" state="loading" loadingLabel="Preparing XLSX" />
-				<ReportWorkspace.ExportAction label="Export packet" state="error" errorReason="Export service is unavailable" />
-			</ReportWorkspace.ExportActions>
-		</WorkspaceToolbar.Group>
-	</ReportWorkspace.Toolbar>
-
 	<ReportWorkspace.Filters title="Report configuration" description="Choose the scope and date range.">
 		<Button variant="outline">Last 30 days</Button>
 		{#snippet dateRange()}
@@ -49,10 +25,16 @@
 	</ReportWorkspace.Filters>
 
 	<ReportWorkspace.Content layout="split">
-		<ReportWorkspace.Chart title="Readiness trend" ariaLabel="Readiness trend chart">
+		<ReportWorkspace.Section title="Readiness trend">
 			<div>Chart region</div>
-		</ReportWorkspace.Chart>
+		</ReportWorkspace.Section>
 		<ReportWorkspace.Table title="Readiness rows" data={rows} {columns} ariaLabel="Readiness rows table">
+			{#snippet actions()}
+				<ReportWorkspace.ExportAction label="Export workbook" href="/export.xlsx" />
+				<ReportWorkspace.ExportAction label="Export PDF" disabledReason="Select a date range first" />
+				<ReportWorkspace.ExportAction label="Export XLSX" state="loading" loadingLabel="Preparing XLSX" />
+				<ReportWorkspace.ExportAction label="Export packet" state="error" errorReason="Export service is unavailable" />
+			{/snippet}
 			{#snippet summary()}
 				<ReportWorkspace.SummaryStrip
 					topRisk="Maya Chen · Action"

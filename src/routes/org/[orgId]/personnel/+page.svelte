@@ -9,7 +9,7 @@
 	} from '$features/personnel';
 	import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 	import { getAppShellContext } from '$features/app-shell';
-	import { isPromiseLike, observeDeferred, throwRenderError } from '$lib/utils/streamedRouteData';
+	import { isPromiseLike, observeDeferred } from '$lib/utils/streamedRouteData';
 	import type { PersonnelWorkspaceData, PersonnelWorkspaceResult } from '$features/personnel/contracts';
 
 	import { requestPersonnelArchiveApproval as requestArchiveApproval } from '$lib/personnelArchiveRequestDelivery';
@@ -73,7 +73,7 @@
 
 {#key data.shell.org.id}
 	{#if loadError && loadError.orgId === data.shell.org.id && !workspace}
-		{throwRenderError(loadError.error, 'Failed to load personnel workspace')}
+		<!-- The Personnel layout observes this same source and shows WorkspaceLoadError. -->
 	{:else if workspace}
 		{@const ctx = createContext(workspace.data)}
 		<PersonnelPageView {ctx} {requestArchiveApproval} />

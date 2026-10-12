@@ -585,7 +585,7 @@
 		title="Archive Personnel"
 		message={workspace.archiveMessage}
 		confirmLabel="Archive"
-		variant="warning"
+		variant="default"
 		loading={workspace.archiveSubmitting}
 		onConfirm={workspace.confirmArchive}
 		onCancel={() => (workspace.showArchiveConfirm = false)}

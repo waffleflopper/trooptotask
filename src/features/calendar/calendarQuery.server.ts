@@ -138,6 +138,11 @@ export async function fetchCalendarBootstrap(
 	});
 	const specialDays = listSpecialDaysInRange(ctx.calendarCatalogs, specialDaysRange);
 	const dailyAssignments = listDailyAssignments(ctx, input, calendarScope);
+	// Handle early rejections until streaming attaches its consumers. The returned
+	// original promises still reject, so hydration can show the source error.
+	void availabilityEntries.catch(() => undefined);
+	void specialDays.catch(() => undefined);
+	void dailyAssignments.catch(() => undefined);
 
 	const [assignmentTypes, pinnedGroups, personnel, groups, statusTypes, warningWindow] = await Promise.all([
 		listAssignmentTypes(ctx.calendarCatalogs),

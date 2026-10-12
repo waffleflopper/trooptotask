@@ -738,7 +738,7 @@
 		title={bulkRankStateTitle(pendingBulkRankState)}
 		message={bulkRankStateMessage(pendingBulkRankState)}
 		confirmLabel={bulkRankStateConfirmLabel(pendingBulkRankState)}
-		variant="warning"
+		variant="default"
 		onConfirm={confirmBulkRankState}
 		onCancel={() => cancelConfirmation(() => (pendingBulkRankState = null))}
 	>
@@ -751,7 +751,7 @@
 		title={`Retire ${pendingRankRetire.code}`}
 		message={`${pendingRankRetire.code} ${pendingRankRetire.label} will be hidden from future rank selection. Existing Personnel records and historical references stay intact.`}
 		confirmLabel="Retire rank"
-		variant="warning"
+		variant="default"
 		onConfirm={confirmRankRetire}
 		onCancel={() => cancelConfirmation(() => (pendingRankRetire = null))}
 	>

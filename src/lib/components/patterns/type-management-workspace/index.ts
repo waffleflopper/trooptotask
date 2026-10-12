@@ -16,7 +16,6 @@ import Description from './description.svelte';
 import ColorInput from './color-input.svelte';
 import MobileBack from './mobile-back.svelte';
 import Disclosure from './disclosure.svelte';
-import ChoiceGroup from './choice-group.svelte';
 import { focusEnabledSibling } from './focus-enabled-sibling.js';
 
 export {
@@ -38,6 +37,5 @@ export {
 	ColorInput,
 	MobileBack,
 	Disclosure,
-	ChoiceGroup,
 	focusEnabledSibling
 };

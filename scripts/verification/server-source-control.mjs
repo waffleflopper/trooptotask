@@ -3,6 +3,7 @@
 import { createServer } from 'node:http';
 import * as fs from 'node:fs/promises';
 import path from 'node:path';
+import { createMailSink, createProviderFaultController, providerOrigin } from './outbound-controls.mjs';
 
 export const SERVER_SOURCE_TABLES = Object.freeze([
 	'personnel_onboardings',
@@ -17,22 +18,6 @@ export const SERVER_SOURCE_TABLES = Object.freeze([
 	'organizations'
 ]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-
-function providerOrigin(value) {
-	const url = new URL(value);
-	if (
-		url.protocol !== 'http:' ||
-		url.hostname !== '127.0.0.1' ||
-		!url.port ||
-		url.username ||
-		url.password ||
-		url.pathname !== '/' ||
-		url.search ||
-		url.hash
-	)
-		throw new Error('Source controls require the exact owned loopback provider origin.');
-	return url.origin;
-}
 
 export function createServerSourceController({ providerUrl, orgId, fetch: originalFetch }) {
 	const origin = providerOrigin(providerUrl);
@@ -182,7 +167,22 @@ export function createServerSourceController({ providerUrl, orgId, fetch: origin
 export async function startServerSourceControl(config) {
 	if (!UUID.test(config.sessionId) || !/^[0-9a-f]{64}$/.test(config.token))
 		throw new Error('Invalid source control identity.');
-	const controller = createServerSourceController({ ...config, fetch: globalThis.fetch });
+	const source = createServerSourceController({ ...config, fetch: globalThis.fetch });
+	const faults = createProviderFaultController({ providerUrl: config.providerUrl, fetch: source.fetch });
+	const mail = config.mailApiKey ? createMailSink({ apiKey: config.mailApiKey, fetch: faults.fetch }) : null;
+	const outboundFetch = mail?.fetch ?? faults.fetch;
+	function command(action, options) {
+		if (action.startsWith('mail-')) {
+			if (!mail) throw new Error('Owned mail sink is not configured.');
+			return mail.command(action, options);
+		}
+		return action.startsWith('fault-') ? faults.command(action, options) : source.command(action, options);
+	}
+	function restoreAll() {
+		source.command('restore');
+		faults.command('fault-restore');
+		mail?.command('mail-restore');
+	}
 	const server = createServer((request, response) => {
 		if (
 			request.method !== 'POST' ||
@@ -203,7 +203,7 @@ export async function startServerSourceControl(config) {
 			let result;
 			try {
 				const { action, ...options } = JSON.parse(body);
-				result = controller.command(action, options);
+				result = command(action, options);
 			} catch {
 				result = { status: 'BLOCKED', message: 'Invalid or conflicting owned server source control.' };
 			}
@@ -217,12 +217,12 @@ export async function startServerSourceControl(config) {
 		server.listen(0, '127.0.0.1', resolve);
 	});
 	const originalFetch = globalThis.fetch;
-	globalThis.fetch = controller.fetch;
+	globalThis.fetch = outboundFetch;
 	return {
 		port: server.address().port,
 		async close() {
-			controller.command('restore');
-			if (globalThis.fetch === controller.fetch) globalThis.fetch = originalFetch;
+			restoreAll();
+			if (globalThis.fetch === outboundFetch) globalThis.fetch = originalFetch;
 			await new Promise((resolve) => server.close(resolve));
 		}
 	};

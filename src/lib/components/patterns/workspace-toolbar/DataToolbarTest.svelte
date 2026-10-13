@@ -6,6 +6,7 @@
 		withExport?: boolean;
 		withDisplayOption?: boolean;
 		abbreviateViewOptions?: boolean;
+		destructivePrimary?: boolean;
 		initialSearch?: string;
 		initialStatus?: string[];
 		statusDefaults?: string[];
@@ -21,6 +22,7 @@
 		withExport = false,
 		withDisplayOption = false,
 		abbreviateViewOptions = false,
+		destructivePrimary = false,
 		initialSearch = '',
 		initialStatus = [],
 		statusDefaults = [],
@@ -148,7 +150,14 @@
 		value: search,
 		onValueChange: (value) => (search = value)
 	}}
-	primary={{ kind: 'action', id: 'add', label: 'Add status', icon: 'plus', onclick: () => log('add') }}
+	primary={{
+		kind: 'action',
+		id: 'add',
+		label: 'Add status',
+		icon: 'plus',
+		destructive: destructivePrimary,
+		onclick: () => log('add')
+	}}
 />
 
 <output aria-label="View value">{view}</output>

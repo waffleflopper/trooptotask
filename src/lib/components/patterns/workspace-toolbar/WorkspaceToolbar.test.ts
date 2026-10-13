@@ -596,6 +596,18 @@ describe('WorkspaceToolbar', () => {
 		expect([document.activeElement, importButton.getAttribute('aria-busy')]).toEqual([importButton, null]);
 	});
 
+	it('styles a destructive row action as destructive and leaves the others default', async () => {
+		render(DataToolbarTest, { props: { destructivePrimary: true } });
+		await layOut(972);
+
+		const add = within(toolbar()).getByRole('button', { name: 'Add status' });
+		const importButton = within(toolbar()).getByRole('button', { name: 'Import' });
+		expect([
+			add.classList.contains('text-destructive-text'),
+			importButton.classList.contains('text-destructive-text')
+		]).toEqual([true, false]);
+	});
+
 	it('explains a disabled action by title and description', async () => {
 		render(DataToolbarTest, { props: { importDisabledReason: 'Roster is still loading.' } });
 		await layOut(972);

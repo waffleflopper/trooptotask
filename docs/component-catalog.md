@@ -249,7 +249,7 @@ More rendering:
 
 - More lists folded items under View, Filters and Actions headings, separated, in that order.
 - A folded `select` or `multiSelect` becomes a submenu. Its trigger shows the current value and an accent dot when the filter is active. A folded `toggle` becomes a checkbox item.
-- Folded actions keep row order, with menu-only actions after them. Destructive actions sit last after a separator, in every menu and submenu.
+- Folded actions keep row order, with menu-only actions after them. Destructive actions sit last after a separator, in every menu and submenu, and take the destructive button style on the row.
 - When a folded filter is active, the More trigger shows a dot and is described as `Hidden filters active: …`.
 - A chosen action runs after its menu has finished closing, so an action that moves focus into page content keeps it. If More unmounts before its close finishes, the action runs then. If the whole toolbar unmounts, the action is dropped.
 - When a focused control or an open menu folds, focus moves to More. When More disappears, focus moves to the first returning control.

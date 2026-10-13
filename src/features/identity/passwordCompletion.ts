@@ -1,5 +1,3 @@
-import type { PasswordCompletionState } from './contracts';
-
 const SAVED_STATES = ['started', 'pending', 'failed', 'expired', 'unavailable'] as const;
 
 // A reconciliation reply names the saved outcome; only an unrecognized one is unknown.

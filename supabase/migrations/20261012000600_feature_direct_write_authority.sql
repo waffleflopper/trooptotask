@@ -560,7 +560,8 @@ USING (
 	AND onboarding_private.onboarding_parent_scope_matches(organization_id, onboarding_id)
 );
 
--- Client updates follow the app's operations. A packet completes or cancels
+-- Client updates follow the app's operations. A configure member may only clear
+-- a packet's template; switching runs through reconciliation. A packet completes or cancels
 -- from in progress and reopens from cancelled, and the database dates the
 -- transition. A checkbox step toggles, a Paperwork step saves one of its
 -- stages and is complete exactly at the last, and Training completion stays
@@ -577,9 +578,10 @@ BEGIN
 	END IF;
 	IF TG_TABLE_NAME = 'personnel_onboardings' THEN
 		IF NEW.template_id IS DISTINCT FROM OLD.template_id
-			AND NOT public.member_access_has_capability(NEW.organization_id, 'onboarding', 'configure')
+			AND (NEW.template_id IS NOT NULL
+				OR NOT public.member_access_has_capability(NEW.organization_id, 'onboarding', 'configure'))
 		THEN
-			RAISE EXCEPTION 'Changing an onboarding template requires configure access' USING ERRCODE = '42501';
+			RAISE EXCEPTION 'Only a configure member clears an onboarding template directly; switching runs through reconciliation' USING ERRCODE = '42501';
 		END IF;
 		IF NEW.status IS DISTINCT FROM OLD.status THEN
 			IF (OLD.status, NEW.status) NOT IN (('in_progress', 'completed'), ('in_progress', 'cancelled'), ('cancelled', 'in_progress')) THEN

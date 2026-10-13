@@ -347,6 +347,9 @@
 				variant={view.value === option.value ? 'secondary' : 'outline'}
 				aria-pressed={view.value === option.value}
 				aria-label={option.ariaLabel}
+				disabled={view.disabled}
+				title={live ? view.disabledReason : undefined}
+				aria-describedby={live && view.disabledReason ? reasonId(view.id) : undefined}
 				tabindex={live ? undefined : -1}
 				onclick={live ? () => view.onValueChange(option.value) : undefined}
 			>
@@ -354,6 +357,9 @@
 			</Button>
 		{/each}
 	</ButtonGroup.Root>
+	{#if live && view.disabledReason}
+		<span id={reasonId(view.id)} class="sr-only">{view.disabledReason}</span>
+	{/if}
 {/snippet}
 
 {#snippet selectControl(item: ToolbarSelect, live: boolean)}

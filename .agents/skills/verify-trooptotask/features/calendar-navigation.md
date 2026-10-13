@@ -48,6 +48,7 @@ Preconditions: doctor passes; `$V fixture` supplies fixed September/March record
 
 ## Gotchas
 
+- Sweep `Calendar controls` as `calendarConfigure`. Operate actors have no `calendar-settings`, so the sweep fails its start check at any `--from`. Use `$V toolbar-sweep PAGE "Calendar controls" RUN_DIR --expect calendar-settings,calendar-reports,planning,group,calendar-view --pinned bulk-status --search --more-always --step 4`. Settings folds at about 1192 and the Month and 3-Month view at about 780.
 - Month labels depend on the test date; compare before and after instead of hardcoding September 2026.
 - Month day cells are named `RANK Last, First, Weekday, Month D, YYYY` and long-range day numbers by their full date, so a cell can be found by name in a snapshot. Use named toolbar controls for navigation and the latest snapshot for any cell interaction.
 - If the Group select's options are absent from the accessibility snapshot, open the named filter and use native `press_key` with `ArrowDown`/`ArrowUp` and `Enter`. Confirm the selected label and resulting Person rows after it settles; a DOM `.click()` on its custom option does not reliably select it.

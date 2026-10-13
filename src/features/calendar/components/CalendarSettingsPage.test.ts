@@ -4,7 +4,7 @@ import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import CalendarSettingsPage from './CalendarSettingsPage.svelte';
-import { stubWorkspaceToolbarLayout } from '$lib/test-support/workspaceToolbarLayout';
+import { stubToolbarWidths } from '$lib/test-support/toolbarWidths';
 import { toastStore } from '$lib/stores/toast.svelte';
 import type { AssignmentType, SpecialDay, StatusType } from '$features/calendar/contracts';
 
@@ -126,7 +126,7 @@ describe('CalendarSettingsPage', () => {
 	});
 
 	it('filters the section from the toolbar and keeps Add new pinned when Back to Calendar folds into More', async () => {
-		const layOut = stubWorkspaceToolbarLayout();
+		const { layOut } = stubToolbarWidths();
 		statusTypesStoreMock.items = [
 			{ id: 'leave', name: 'Leave', color: '#2563eb', textColor: '#ffffff' },
 			{ id: 'tdy', name: 'TDY', color: '#16a34a', textColor: '#ffffff' }

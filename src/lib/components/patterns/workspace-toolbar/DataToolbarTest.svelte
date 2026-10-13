@@ -12,6 +12,7 @@
 		statusDefaults?: string[];
 		importLoading?: boolean;
 		importDisabledReason?: string;
+		viewDisabledReason?: string;
 		planningDisabled?: boolean;
 		reportsDisabled?: boolean;
 		onRun?: (name: string) => void;
@@ -28,6 +29,7 @@
 		statusDefaults = [],
 		importLoading = false,
 		importDisabledReason,
+		viewDisabledReason,
 		planningDisabled = false,
 		reportsDisabled = false,
 		onRun
@@ -60,6 +62,8 @@
 					: { value: 'long-range', label: 'Long range' }
 			],
 			value: view,
+			disabled: Boolean(viewDisabledReason),
+			disabledReason: viewDisabledReason,
 			onValueChange: (value) => (view = value)
 		},
 		{

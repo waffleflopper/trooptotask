@@ -2,7 +2,7 @@
 import { cleanup, render } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
 import WorkspaceToolbarIcon from './workspace-toolbar-icon.svelte';
-import type { WorkspaceToolbarIcon as IconName } from './types';
+import type { WorkspaceToolbarIcon as IconName } from './toolbar-types';
 
 afterEach(() => {
 	cleanup();

@@ -105,7 +105,7 @@
 	<Field.Description>Search by last name.</Field.Description>
 </Field.Root>
 
-<div role="toolbar" aria-label="Shared form toolbar">
+<div role="group" aria-label="Shared form filters">
 	<Combobox.Root items={filters} multiple name="groupIds" bind:value={selectedFilters} label="Groups">
 		<Combobox.Chips>
 			<Combobox.Value>

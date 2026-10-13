@@ -13,7 +13,7 @@
 	import Settings from '@lucide/svelte/icons/settings';
 	import Upload from '@lucide/svelte/icons/upload';
 	import UserPlus from '@lucide/svelte/icons/user-plus';
-	import type { WorkspaceToolbarIcon } from './types.js';
+	import type { WorkspaceToolbarIcon } from './toolbar-types.js';
 
 	type Props = {
 		icon?: WorkspaceToolbarIcon;

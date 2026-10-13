@@ -3,7 +3,7 @@ import { createClientAccess, type ClientAccessFacts } from '$lib/access/clientAc
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, act, within } from '@testing-library/svelte';
-import { stubWorkspaceToolbarLayout } from '$lib/test-support/workspaceToolbarLayout';
+import { stubToolbarWidths } from '$lib/test-support/toolbarWidths';
 import BulkStatusPage from './BulkStatusPage.svelte';
 
 const { gotoMock, loadCalendarRangeMock, mergeCalendarRangeIntoStoresMock, pageMock } = vi.hoisted(() => ({
@@ -142,7 +142,7 @@ describe('BulkStatusPage', () => {
 	});
 
 	it('switches sections and opens Calendar from More when the row folds', async () => {
-		const layOut = stubWorkspaceToolbarLayout();
+		const { layOut } = stubToolbarWidths();
 		renderPage();
 		await layOut(1);
 

@@ -223,6 +223,29 @@ describe('WorkspaceToolbar', () => {
 		expect(description(moreButton()), 'a view is never a hidden filter').toBe('');
 	});
 
+	it('blocks a disabled view on the row and in More, and explains why', async () => {
+		render(DataToolbarTest, { props: { viewDisabledReason: 'An import is running.' } });
+		await layOut(972);
+
+		const longRange = within(toolbar()).getByRole<HTMLButtonElement>('button', { name: 'Long range' });
+		expect([longRange.disabled, longRange.title, description(longRange)]).toEqual([
+			true,
+			'An import is running.',
+			'An import is running.'
+		]);
+		await fireEvent.click(longRange);
+		expect(output('View value')).toBe('month');
+
+		await layOut(411);
+		await openMore();
+		const option = within(screen.getByRole('group', { name: 'View mode' })).getByRole('menuitemradio', {
+			name: 'Long range'
+		});
+		expect([option.getAttribute('aria-disabled'), option.title]).toEqual(['true', 'An import is running.']);
+		await fireEvent.click(option);
+		expect(output('View value')).toBe('month');
+	});
+
 	it('changes a folded select from its submenu by keyboard', async () => {
 		render(DataToolbarTest);
 		await layOut(521);

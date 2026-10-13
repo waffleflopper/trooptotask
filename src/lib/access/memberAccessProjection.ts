@@ -50,8 +50,7 @@ export function projectEffectiveMemberAccess(row: MemberAccessProjectionRow): Ef
 				membershipRole: role,
 				memberPreset: 'editor' as const,
 				capabilityMap: createCapabilityMap('configure'),
-				scopeSet: { kind: 'organization' } as ScopeSet,
-				canManageMembers: true
+				scopeSet: { kind: 'organization' } as ScopeSet
 			}
 		: resolveStoredMemberAccessShape({
 				membershipRole: role,
@@ -65,7 +64,7 @@ export function projectEffectiveMemberAccess(row: MemberAccessProjectionRow): Ef
 		isOwner,
 		isAdmin,
 		isPrivileged,
-		canManageMembers: accessShape.canManageMembers,
+		canManageMembers: isPrivileged,
 		memberPreset: accessShape.memberPreset,
 		capabilityMap: accessShape.capabilityMap,
 		scopeSet: accessShape.scopeSet

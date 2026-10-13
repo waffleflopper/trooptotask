@@ -16,7 +16,6 @@ function actor(overrides: Partial<RatingSchemeDueActor> = {}): RatingSchemeDueAc
 		orgId: 'org-a',
 		role: 'member',
 		isPrivileged: false,
-		canManageMembers: false,
 		capabilityMap: {
 			calendar: 'none',
 			personnel: 'none',
@@ -159,7 +158,6 @@ describe('Rating Scheme due projection', () => {
 				...reader,
 				role,
 				isPrivileged: true,
-				canManageMembers: true,
 				scopeSet: { kind: 'organization' },
 				capabilityMap: {
 					calendar: 'configure',

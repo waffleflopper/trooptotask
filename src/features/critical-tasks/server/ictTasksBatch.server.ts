@@ -14,7 +14,7 @@ const MAX_BATCH_SIZE = 500;
 
 interface IctTaskBatchContext {
 	auth: Pick<OrganizationAccessGrant, 'orgId' | 'role' | 'capabilityMap' | 'scopeSet'> &
-		Partial<Pick<OrganizationAccessGrant, 'userId' | 'canManageMembers'>>;
+		Partial<Pick<OrganizationAccessGrant, 'userId'>>;
 	audit: PolicyAuditSink;
 	criticalTaskLibrary: Pick<
 		CriticalTaskLibraryPersistence,

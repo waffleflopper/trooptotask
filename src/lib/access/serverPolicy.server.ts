@@ -15,7 +15,7 @@ import { scopeSetResourceForGroupId } from './scopeSetAccess';
 import { fail } from '$lib/errors';
 
 type PolicyActor = Pick<OrganizationAccessGrant, 'role' | 'capabilityMap' | 'scopeSet'> &
-	Partial<Pick<OrganizationAccessGrant, 'userId' | 'canManageMembers'>>;
+	Partial<Pick<OrganizationAccessGrant, 'userId'>>;
 
 interface PolicyEvaluationPorts {
 	auth: PolicyActor;
@@ -47,7 +47,6 @@ async function buildAuthoritativePolicyInput(
 		decisionKind: 'server-authoritative',
 		actor: {
 			membershipRole: ports.auth.role,
-			canManageMembers: ports.auth.canManageMembers,
 			userId: ports.auth.userId
 		},
 		action,
@@ -180,7 +179,7 @@ function featurePolicyDenialMessage(reasonCode: PolicyReasonCode, lane: string):
 }
 
 interface GovernancePolicyPorts {
-	auth: Pick<OrganizationAccessGrant, 'role' | 'canManageMembers'>;
+	auth: Pick<OrganizationAccessGrant, 'role'>;
 	audit: PolicyAuditSink;
 }
 

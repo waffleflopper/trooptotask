@@ -19,7 +19,7 @@ export function createSupabasePersonnelGovernanceDeletionPort(
 		async deleteApprovedCounselingRecord(actor, requestId, recordId, reviewedAt) {
 			const decision = evaluatePolicyDecision({
 				decisionKind: 'server-authoritative',
-				actor: { membershipRole: actor.role, canManageMembers: actor.canManageMembers, userId: actor.userId },
+				actor: { membershipRole: actor.role, userId: actor.userId },
 				action: POLICY_ACTION_CATALOG.organization.reviewDeletionRequests,
 				capabilityMap: actor.capabilityMap,
 				scopeSet: { kind: 'organization' },

@@ -833,7 +833,7 @@ function createInMemoryCalendarAvailabilityRemovalPort(
 
 async function inMemoryPersonnelRows(
 	rawStore: FixtureRowStore,
-	actor: OrganizationAccessGrant,
+	actor: Pick<OrganizationAccessGrant, 'orgId' | 'scopeSet'>,
 	status: 'active' | 'all',
 	ids?: string[]
 ) {

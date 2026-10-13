@@ -40,7 +40,6 @@ export interface MemberAccessShape {
 	memberPreset: MemberPreset;
 	capabilityMap: CapabilityMap;
 	scopeSet: ScopeSet;
-	canManageMembers: boolean;
 }
 
 export interface StoredMemberAccessInput {
@@ -48,7 +47,6 @@ export interface StoredMemberAccessInput {
 	memberPreset: StoredMemberPreset;
 	capabilityOverrides?: CapabilityOverrideMap | null;
 	scopeSet?: ScopeSet | null;
-	canManageMembers?: boolean | null;
 }
 
 export interface MemberAccessStorage {
@@ -62,7 +60,6 @@ export interface TargetMemberAccessInput {
 	memberPreset: string;
 	capabilityOverrides?: CapabilityOverrideMap | null;
 	scopeSet?: ScopeSet | null;
-	canManageMembers?: boolean | null;
 }
 
 export interface SerializedScopeSetStorage {
@@ -92,9 +89,7 @@ export function resolveStoredMemberAccessShape(input: StoredMemberAccessInput): 
 		membershipRole: input.membershipRole,
 		memberPreset,
 		capabilityMap,
-		scopeSet: normalizeScopeSet(input.scopeSet),
-		canManageMembers:
-			input.membershipRole === 'owner' || input.membershipRole === 'admin' || input.canManageMembers === true
+		scopeSet: normalizeScopeSet(input.scopeSet)
 	};
 }
 
@@ -104,8 +99,7 @@ export function targetMemberAccessToStorage(input: TargetMemberAccessInput): Mem
 		membershipRole: input.membershipRole ?? 'member',
 		memberPreset,
 		capabilityOverrides: input.capabilityOverrides,
-		scopeSet: input.scopeSet,
-		canManageMembers: input.canManageMembers
+		scopeSet: input.scopeSet
 	});
 
 	return {

@@ -18,7 +18,6 @@ export interface TargetMemberAccessCommand {
 	memberPreset: StoredMemberPreset;
 	capabilityOverrides: CapabilityOverrideMap;
 	scopeSet: ScopeSet;
-	canManageMembers?: boolean;
 }
 
 export interface MemberAccessEditCommand {
@@ -85,8 +84,7 @@ function normalizeMemberAccessStorageCommand(command: {
 		membershipRole: command.membershipRole,
 		memberPreset: memberAccess.memberPreset,
 		capabilityOverrides: memberAccess.capabilityOverrides,
-		scopeSet,
-		canManageMembers: memberAccess.canManageMembers
+		scopeSet
 	});
 }
 

@@ -7,7 +7,6 @@ interface ApprovedRatingSchemeDeletionActor {
 	readonly userId: string;
 	readonly orgId: string;
 	readonly role: 'owner' | 'admin' | 'member';
-	readonly canManageMembers: boolean;
 	readonly capabilityMap: CapabilityMap;
 }
 
@@ -33,7 +32,7 @@ export function createApprovedRatingSchemeDeletionPort(
 		async deleteApprovedRatingSchemeEntry(actor, requestId, entryId) {
 			const decision = evaluatePolicyDecision({
 				decisionKind: 'server-authoritative',
-				actor: { membershipRole: actor.role, canManageMembers: actor.canManageMembers, userId: actor.userId },
+				actor: { membershipRole: actor.role, userId: actor.userId },
 				action: POLICY_ACTION_CATALOG.organization.reviewDeletionRequests,
 				capabilityMap: actor.capabilityMap,
 				scopeSet: { kind: 'organization' },

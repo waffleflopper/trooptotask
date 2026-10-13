@@ -290,7 +290,11 @@ describe('request membership admission through real request construction', () =>
 		const before = structuredClone(f.tables.personnel);
 		await expect(write(event(f.locals, 'missing'))).rejects.toMatchObject({ status: 404 });
 		f.state.failedTable = 'organizations';
-		await expect(write(event(f.locals, 'alpha'))).rejects.toMatchObject({ status: 500 });
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		await expect(write(event(f.locals, 'alpha'))).rejects.toMatchObject({
+			status: 503,
+			body: { message: 'Unable to verify Organization status' }
+		});
 		expect(f.tables.personnel).toEqual(before);
 	});
 

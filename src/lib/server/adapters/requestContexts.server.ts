@@ -88,7 +88,6 @@ import {
 } from '$lib/audit/index.server';
 import { createSupabaseAccountSetupLinkIssuancePorts } from '$features/identity/index.server';
 import { getAdminClient } from '$lib/server/supabase';
-import { validateUUID } from '$lib/server/validation';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { RequestEvent } from '@sveltejs/kit';
 import { error } from '@sveltejs/kit';
@@ -107,7 +106,7 @@ import {
 } from '$features/onboarding/index.server';
 import {
 	loadPersonnelDocumentStorageCapBytes,
-	resolveOrganizationRouteIdentity
+	requireActiveOrganization
 } from '$features/organization/index.server';
 import type { LeaderNoteContext, PersonnelArtifactsContext } from '$features/personnel/index.server';
 
@@ -134,13 +133,6 @@ export function getAdmittedRequestClient(locals: App.Locals): { supabase: Supaba
 	return { supabase: locals.supabase, userId: locals.actor.userId };
 }
 
-async function canonicalOrganizationId(supabase: SupabaseClient, segment: string): Promise<string> {
-	if (validateUUID(segment)) return segment;
-	const identity = await resolveOrganizationRouteIdentity(supabase, segment);
-	if (!identity) throw error(404, 'Organization not found');
-	return identity.id;
-}
-
 async function createOrganizationRequest(
 	locals: App.Locals,
 	supabase: SupabaseClient,
@@ -163,7 +155,7 @@ async function createOrganizationRequest(
 
 export async function buildRouteRequest(event: RequestEvent): Promise<AdmittedOrganizationRequest> {
 	const { supabase, userId } = getAdmittedRequestClient(event.locals);
-	const orgId = await canonicalOrganizationId(supabase, event.params.orgId as string);
+	const orgId = await requireActiveOrganization(event.locals, event.params.orgId as string);
 	return createOrganizationRequest(
 		event.locals,
 		supabase,
@@ -175,7 +167,7 @@ export async function buildRouteRequest(event: RequestEvent): Promise<AdmittedOr
 
 export async function buildLayoutRequest(locals: App.Locals, orgId: string): Promise<AdmittedOrganizationRequest> {
 	const { supabase, userId } = getAdmittedRequestClient(locals);
-	const canonicalOrgId = await canonicalOrganizationId(supabase, orgId);
+	const canonicalOrgId = await requireActiveOrganization(locals, orgId);
 	return createOrganizationRequest(locals, supabase, userId, canonicalOrgId, { log() {} });
 }
 

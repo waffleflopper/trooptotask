@@ -84,8 +84,12 @@ export async function probeAdmission({ origin, providerUrl, anonKey, email, pass
 		headers: { apikey: anonKey, Authorization: `Bearer ${genuine.access_token}` }
 	});
 	const signOut = { scope: 'local', status: logout.status };
+	if (!logout.ok)
+		throw new Error(
+			`The probe's genuine session was not revoked (provider status ${logout.status}).` +
+				(failure ? ` The probe also failed: ${failure instanceof Error ? failure.message : 'unknown error'}.` : '')
+		);
 	if (failure) throw failure;
-	if (!logout.ok) throw new Error(`The probe's genuine session was not revoked (provider status ${logout.status}).`);
 	const replay = await fetch(`${origin}${PATHS[0]}`, {
 		redirect: 'manual',
 		headers: { cookie: `${name}=${genuineCookie}` }

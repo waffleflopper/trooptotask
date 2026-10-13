@@ -75,5 +75,9 @@ test('the probe still revokes the genuine session when a request fails, and refu
 	};
 	await assert.rejects(probeAdmission({ ...input, fetch: failing(204, true) }), /app unreachable/);
 	await assert.rejects(probeAdmission({ ...input, fetch: failing(503, false) }), /not revoked \(provider status 503\)/);
-	assert.deepEqual(logouts, [204, 503]);
+	await assert.rejects(
+		probeAdmission({ ...input, fetch: failing(503, true) }),
+		/not revoked \(provider status 503\)\. The probe also failed: app unreachable\./
+	);
+	assert.deepEqual(logouts, [204, 503, 503]);
 });

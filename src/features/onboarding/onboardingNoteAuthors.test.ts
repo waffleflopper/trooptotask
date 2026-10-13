@@ -41,7 +41,7 @@ describe('note authors', () => {
 		expect(noteAuthorIds([first, second], 'viewer')).toEqual(['alvarez', 'whitaker', 'kim']);
 	});
 
-	it('keeps only the labels of authors on the packets it is given, never a bare user id', () => {
+	it('keeps only the labels of authors on the packets it is given, naming a member without a label "Member"', () => {
 		const labels = new Map([
 			['alvarez', 'SSG Alvarez'],
 			['stranger', 'Not on these packets'],
@@ -50,7 +50,7 @@ describe('note authors', () => {
 
 		expect(
 			pickNoteAuthorLabels([packetWithNotes([note('alvarez'), note('gone'), note('nameless')])], labels, 'viewer')
-		).toEqual({ alvarez: 'SSG Alvarez' });
+		).toEqual({ alvarez: 'SSG Alvarez', nameless: 'Member' });
 	});
 
 	it('names the viewer "You", known authors by label, and anyone else a former member', () => {

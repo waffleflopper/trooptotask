@@ -1,6 +1,7 @@
 import type { PersonnelOnboarding } from './onboarding.types';
 
 export const FORMER_MEMBER_LABEL = 'Former member';
+export const UNNAMED_MEMBER_LABEL = 'Member';
 
 /** Display names by user id, for the note authors a viewer may see. */
 export type NoteAuthorLabels = Readonly<Record<string, string>>;
@@ -20,7 +21,7 @@ export function noteAuthorIds(packets: readonly PersonnelOnboarding[], viewerUse
 
 /**
  * The labels found for the authors present on these packets, as plain data for the client.
- * A member with no email or name is labelled by their user id, which is never shown.
+ * A member with no email or name comes back labelled by their user id, which is never shown.
  */
 export function pickNoteAuthorLabels(
 	packets: readonly PersonnelOnboarding[],
@@ -30,7 +31,7 @@ export function pickNoteAuthorLabels(
 	const picked: Record<string, string> = {};
 	for (const userId of noteAuthorIds(packets, viewerUserId)) {
 		const label = labels.get(userId);
-		if (label !== undefined && label !== userId) picked[userId] = label;
+		if (label !== undefined) picked[userId] = label === userId ? UNNAMED_MEMBER_LABEL : label;
 	}
 	return picked;
 }

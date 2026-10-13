@@ -7,7 +7,6 @@ export { default as Section } from './report-workspace-section.svelte';
 export { default as SummaryStrip, type SummaryStripTone } from './report-workspace-summary-strip.svelte';
 export { default as Table } from './report-workspace-table.svelte';
 export { default as State } from './report-workspace-state.svelte';
-export { default as ExportAction } from './report-workspace-export-action.svelte';
 export { default as DateRangeField } from './DateRangeField.svelte';
 export { createMultiSelect, type MultiSelect } from './createMultiSelect.svelte';
 export { createReportRun, type ReportRun, type ReportRunStatus } from './createReportRun.svelte';

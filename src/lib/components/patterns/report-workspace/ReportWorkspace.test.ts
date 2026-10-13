@@ -8,21 +8,6 @@ import * as ReportWorkspace from './index.js';
 afterEach(() => cleanup());
 
 describe('ReportWorkspace', () => {
-	it('renders export actions with disabled and error reasons', () => {
-		render(ReportWorkspaceTest);
-
-		expect(screen.getByRole('link', { name: 'Export workbook' })).toHaveAttribute('href', '/export.xlsx');
-
-		const disabledExport = screen.getByRole('button', { name: 'Export PDF: Select a date range first' });
-		expect(disabledExport).toBeDisabled();
-		expect(disabledExport).toHaveAttribute('title', 'Select a date range first');
-
-		expect(screen.getByRole('button', { name: 'Export XLSX' })).toHaveTextContent('Preparing XLSX');
-		const erroredExport = screen.getByRole('button', { name: 'Export packet: Export service is unavailable' });
-		expect(erroredExport).toBeDisabled();
-		expect(erroredExport).toHaveAttribute('title', 'Export service is unavailable');
-	});
-
 	it('renders filter, table, loading, no-data, and error states', () => {
 		render(ReportWorkspaceTest);
 

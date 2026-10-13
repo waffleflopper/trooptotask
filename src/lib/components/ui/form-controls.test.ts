@@ -112,8 +112,8 @@ describe('shared form controls', () => {
 	it('supports multi-select add, remove, selected count, hidden inputs, no-results, and keyboard backspace behavior', async () => {
 		render(FormControlsTest);
 
-		const toolbar = screen.getByRole('toolbar', { name: /shared form toolbar/i });
-		const input = within(toolbar).getByRole('combobox', { name: /groups/i });
+		const filters = screen.getByRole('group', { name: /shared form filters/i });
+		const input = within(filters).getByRole('combobox', { name: /groups/i });
 		expect(screen.getByTestId('selected-count').textContent).toBe('1 selected');
 		expect(
 			Array.from(document.querySelectorAll('input[name="groupIds"]')).map((input) => (input as HTMLInputElement).value)

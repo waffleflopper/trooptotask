@@ -14,7 +14,6 @@
 		SortDirection
 	} from './types.js';
 	import DataTableView from './data-table-view.svelte';
-	import DataTableSearch from './data-table-search.svelte';
 	import { useDataTable } from './useDataTable.svelte';
 
 	type Props = {
@@ -29,8 +28,6 @@
 		ariaLabel?: string;
 		emptyMessage?: string;
 		emptyLevel?: EmptyTitleLevel;
-		showSearch?: boolean;
-		searchPlaceholder?: string;
 		rowKey?: (row: T, index: number) => RowKey;
 		onRowClick?: (row: T) => void;
 		rowActionLabel?: (row: T) => string;
@@ -66,8 +63,6 @@
 		ariaLabel,
 		emptyMessage,
 		emptyLevel,
-		showSearch = false,
-		searchPlaceholder,
 		rowKey,
 		onRowClick,
 		rowActionLabel,
@@ -114,15 +109,6 @@
 	}
 </script>
 
-{#snippet combinedToolbar(table: DataTableState<T>)}
-	{#if toolbar}
-		{@render toolbar(table)}
-	{/if}
-	{#if showSearch}
-		<DataTableSearch {table} ariaLabel={searchPlaceholder ?? 'Search table'} placeholder={searchPlaceholder} />
-	{/if}
-{/snippet}
-
 <DataTableView
 	{table}
 	{ariaLabel}
@@ -145,6 +131,6 @@
 	{rowDetailVisible}
 	{headerCell}
 	{groupHeader}
-	toolbar={toolbar || showSearch ? combinedToolbar : undefined}
+	{toolbar}
 	{footer}
 />

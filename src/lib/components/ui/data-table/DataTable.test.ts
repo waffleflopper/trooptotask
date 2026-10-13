@@ -99,18 +99,6 @@ describe('shadcn DataTable foundation', () => {
 		expect(nameCells.map((cell) => cell.textContent)).toEqual(['Charlie', 'Bob', 'Alice']);
 	});
 
-	test('filters rows when shared search is enabled', async () => {
-		render(Table, { props: { data: testData, columns, showSearch: true, searchPlaceholder: 'Find personnel' } });
-
-		await fireEvent.input(screen.getByRole('searchbox', { name: 'Find personnel' }), {
-			target: { value: 'bob' }
-		});
-
-		expect(screen.getByText('Bob')).toBeTruthy();
-		expect(screen.queryByText('Alice')).toBeNull();
-		expect(screen.queryByText('Charlie')).toBeNull();
-	});
-
 	test('paginates shared rows', async () => {
 		const data = [
 			...testData,

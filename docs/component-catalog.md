@@ -18,7 +18,7 @@ Read the [UI foundation](#ui-foundation), then the entry for the component being
 | [`ui/badge`](#uibadge)                                                     | `Badge`; `badgeVariants`                                                                                                                            | Status labels in most features.                                                                                                                                       |
 | `ui/breadcrumb`                                                            | `Root`, `List`, `Item`, `Link`, `Page`, `Separator`, `Ellipsis`                                                                                     | App shell header.                                                                                                                                                     |
 | [`ui/button`](#uibutton)                                                   | `Button`; `buttonVariants`                                                                                                                          | Every feature.                                                                                                                                                        |
-| `ui/button-group`                                                          | `Root`, `Text`, `Separator`; `buttonGroupVariants`                                                                                                  | View toggles in Calendar bulk status, the Critical Tasks matrix and the Training matrix; `WorkspaceToolbar.Nav`.                                                      |
+| `ui/button-group`                                                          | `Root`, `Text`, `Separator`; `buttonGroupVariants`                                                                                                  | The fitted `WorkspaceToolbar` view items.                                                      |
 | `ui/calendar`                                                              | `Calendar` and its month-grid parts                                                                                                                 | Foundation primitive, used by [`ui/date-picker`](#uidate-picker).                                                                                                     |
 | `ui/card`                                                                  | `Root`, `Header`, `Title`, `Description`, `Content`, `Footer`                                                                                       | Account, platform admin, Calendar bulk status, Critical Tasks reports, Dashboard overview, Onboarding, Sign-in rosters, organization creation and the suspended page. |
 | `ui/chart`                                                                 | `Container`, `Tooltip`; `ChartConfig`                                                                                                               | Foundation primitive, used by [`patterns/report-chart`](#patternsreport-chart).                                                                                       |
@@ -27,21 +27,21 @@ Read the [UI foundation](#ui-foundation), then the entry for the component being
 | [`ui/combobox`](#uicombobox)                                               | `Root`, `Trigger`, `Content`, `Search`, `List`, `Item`, `Empty`, `Value`, `Chips`, `ChipsInput`, `Chip`                                             | Calendar assignments, Critical Tasks completion, Onboarding start, Personnel and Rating Scheme.                                                                       |
 | [`ui/command`](#uicommand)                                                 | `Root`, `Input`, `List`, `Viewport`, `Group`, `Item`, `LinkItem`, `Empty`, `Loading`, `Separator`, `Shortcut`, `Dialog`                             | Platform admin search; `ui/combobox`.                                                                                                                                 |
 | [`ui/confirm-dialog`](#uiconfirm-dialog)                                   | `ConfirmDialog`                                                                                                                                     | Confirmations in most features.                                                                                                                                       |
-| [`ui/data-table`](#uidata-table)                                           | `DataTable`, `Search`, `SelectionCheckbox`, `BulkActions`, `RowActions`, `useDataTable`, `useDataTableSelection`                                    | Calendar, Critical Tasks, Personnel, Rating Scheme, Training and Organization settings; report and bulk import tables.                                                |
+| [`ui/data-table`](#uidata-table)                                           | `DataTable`, `SelectionCheckbox`, `RowActions`, `useDataTable`, `useDataTableSelection`                                    | Calendar, Critical Tasks, Personnel, Rating Scheme, Training and Organization settings; report and bulk import tables.                                                |
 | [`ui/date-picker`](#uidate-picker)                                         | `DatePicker`                                                                                                                                        | Date fields in Calendar, Critical Tasks, Onboarding, Personnel, Rating Scheme, Sign-in rosters and Training.                                                          |
 | `ui/dialog`                                                                | `Root`, `Content`, `Header`, `Footer`, `Title`, `Description`, `Trigger`, `Close`, `Overlay`, `Portal`; `focusAfterDialogCloses`, `keepFocusInside` | Foundation for `ui/app-dialog`, `ui/alert-dialog` and `ui/sheet`. Personnel archived artifacts and Ranks settings call `focusAfterDialogCloses`.                      |
 | `ui/dropdown-menu`                                                         | `Root`, `Trigger`, `Content`, `Item`, `CheckboxItem`, `RadioGroup`, `RadioItem`, `Group`, `Label`, `Separator`, `Sub` parts                         | App shell user menu; workspace toolbar actions and multi-select; `DataTable.RowActions`.                                                                              |
 | [`ui/empty`](#uiempty)                                                     | `Root`, `Header`, `Media`, `Title`, `Description`, `Content`                                                                                        | Empty and error states in most features and every error boundary.                                                                                                     |
 | [`ui/field`](#shared-form-controls)                                        | `Root`, `Control`, `Label`, `Description`, `Error`, `Title`, `Set`, `Legend`, `Group`, `Content`, `Separator`                                       | Forms in most features.                                                                                                                                               |
 | [`ui/input`](#shared-form-controls)                                        | `Root`                                                                                                                                              | Forms in most features.                                                                                                                                               |
-| `ui/input-group`                                                           | `Root`, `Addon`, `Button`, `Input`, `Text`, `Textarea`                                                                                              | Foundation primitive, used by `WorkspaceToolbar.Search`, `Command.Input` and `DataTable.Search`.                                                                      |
+| `ui/input-group`                                                           | `Root`, `Addon`, `Button`, `Input`, `Text`, `Textarea`                                                                                              | Foundation primitive, used by the `WorkspaceToolbar` search field and `Command.Input`.                                                                      |
 | `ui/label`                                                                 | `Root`                                                                                                                                              | App shell header, Calendar closures, Feedback, Organization danger zone and members settings; `Field.Label`.                                                          |
 | [`ui/native-select`](#shared-form-controls)                                | `Root`, `Option`, `OptGroup`                                                                                                                        | Plain form choices in Calendar, Critical Tasks, Personnel import, platform admin, Account Profile and Ranks settings.                                                 |
 | [`ui/operational-matrix`](#uioperational-matrix)                           | See its section                                                                                                                                     | Critical Tasks matrix and readiness table, Training matrix and Training Reports.                                                                                      |
 | `ui/popover`                                                               | `Root`, `Trigger`, `Content`, `Header`, `Title`, `Description`, `Close`, `Portal`                                                                   | Foundation primitive, used by `ui/combobox` and `ui/date-picker`.                                                                                                     |
 | `ui/progress`                                                              | `Root`                                                                                                                                              | Critical Tasks reports, Dashboard overview and Onboarding; `BulkImportWorkspace.ProgressState`.                                                                       |
 | [`ui/radio-group`](#shared-form-controls)                                  | `Root`, `Item`                                                                                                                                      | Calendar assignment settings, Sign-in rosters, Training types, Onboarding templates and members settings.                                                             |
-| [`ui/select`](#shared-form-controls)                                       | `Root`, `Trigger`, `Content`, `Item`, `Group`, `GroupHeading`, `Label`, `Separator`, scroll buttons, `Portal`                                       | Calendar, Feedback, Onboarding, Organization, Rating Scheme, access requests and members settings; `WorkspaceToolbar.Select`.                                         |
+| [`ui/select`](#shared-form-controls)                                       | `Root`, `Trigger`, `Content`, `Item`, `Group`, `GroupHeading`, `Label`, `Separator`, scroll buttons, `Portal`                                       | Calendar, Feedback, Onboarding, Organization, Rating Scheme, access requests and members settings; `WorkspaceToolbar` select items.                                         |
 | `ui/separator`                                                             | `Root`                                                                                                                                              | App shell header, Critical Tasks reports, Dashboard overview, Organization and data export settings, platform admin and Ranks settings.                               |
 | `ui/sheet`                                                                 | `Root`, `Trigger`, `Content`, `Header`, `Footer`, `Title`, `Description`, `Close`, `Overlay`, `Portal`                                              | Onboarding detail sheet and members settings; the mobile `ui/sidebar`.                                                                                                |
 | `ui/sidebar`                                                               | `Provider`, `Root`, `Inset`, `Rail`, `Header`, `Content`, `Footer`, `Group` and `Menu` parts; `useSidebar`                                          | App shell navigation and header; platform admin layout.                                                                                                               |
@@ -110,7 +110,6 @@ The Web UI Foundation's public [`toastStore`](../src/lib/stores/toast.svelte.ts)
 <script lang="ts">
 	import * as PageShell from '$lib/components/patterns/page-shell';
 	import { Badge } from '$lib/components/ui/badge';
-	import { Button } from '$lib/components/ui/button';
 
 	const tabs = [
 		{ label: 'Overview', href: '/account/profile', active: true },
@@ -122,10 +121,6 @@ The Web UI Foundation's public [`toastStore`](../src/lib/stores/toast.svelte.ts)
 	<PageShell.Header title="Training Readiness" subtitle="Review training completion and upcoming requirements.">
 		{#snippet meta()}
 			<Badge variant="success">Active</Badge>
-		{/snippet}
-		{#snippet actions()}
-			<Button>Record Training</Button>
-			<Button variant="outline">View History</Button>
 		{/snippet}
 	</PageShell.Header>
 
@@ -142,7 +137,7 @@ The Web UI Foundation's public [`toastStore`](../src/lib/stores/toast.svelte.ts)
 Public components:
 
 - `Root`: authenticated page content scroller. Props: `density?: 'default' | 'compact'`, `width?: 'full' | 'content' | 'wide'`, `bodyClass?`, `children?`.
-- `Header`: page header. Props: `title`, `subtitle?`, snippets `back`, `meta`, `actions`, and `overflow`.
+- `Header`: page header. Props: `title`, `subtitle?`, snippets `back` and `meta`.
 - `Tabs`: route-level navigation links. Props: `items?`, `label?`. Items support `label`, `href` (required), `active`, `badge`, `badgeLabel`, `badgeVariant`, and `disabled`. The active link carries `aria-current="page"`; a disabled item renders as non-interactive text. Use `ui/tabs` for in-page views. Each tab shows the app focus ring. When a bare count would be ambiguous, set `badgeLabel` (for example `2 pending requests`); assistive technology then hears that text in place of the badge.
 - `FactGrid`: dense fact layout. Props: `layout?: 'stack' | 'two' | 'three' | 'rail'`, `children?`.
 - `Metric`: compact bordered metric tile. Props: `label`, `value`, `detail?`, `tone?`, `children?`.
@@ -151,7 +146,7 @@ Rules:
 
 - Use `Root` inside the authenticated shell/sidebar inset so page content scrolls inside the shell and the app breadcrumb/header remains outside the route scroller.
 - The shell owns the page's only `main` landmark. `ui/sidebar`'s `Inset` renders a `div`; the Organization shell's `main#main-content` (the skip-link target) and the platform admin layout's `main` wrap page content below their headers. Route content renders a `div` root, never another `main`.
-- Use `Header` for route-local title, subtitle, meta, and actions. Do not duplicate the authenticated app breadcrumb bar inside route content.
+- Use `Header` for route-local title, subtitle and metadata such as badges and status text. Page commands go in the page's `WorkspaceToolbar`. Do not duplicate the authenticated app breadcrumb bar inside route content.
 - Use `Tabs` for route-level Overview/History/Settings style navigation.
 - Use `FactGrid` and `Metric` for dense operational summaries instead of route-local summary wrappers.
 - Routes may configure labels, values, actions, links, disabled/loading state, status badges, and snippets. Routes must not visually retune these primitives with local spacing, radius, color, border, density, or typography overrides unless explicitly approved.
@@ -283,21 +278,6 @@ Rules:
 
 Consumers: the Calendar month view, assignment planner, bulk status, reports, settings and roster picker; the Critical Tasks matrix, soldier record, reports and task library; Evals; the Training matrix, reports (with the Hot-spot grid's Rows by section toolbar), types and views, including the type and view detail panes; Organization settings Ranks, Members and Logs, Account, and the Dashboard; the Personnel roster, its bulk archive and paused grouped-roster search, the Personnel record header, Personnel import and every bulk import preview's selection; the Onboarding pipeline, History, templates and template detail; and the platform admin dashboard, Users, Organizations, Organization detail, User detail, Audit Log and Announcements. A new route toolbar starts from `WorkspaceToolbar`. A change to the toolbar is verified on its consumers at narrow and wide widths.
 
-### Legacy composition API (temporary)
-
-The namespace parts below remain until the remaining consumers migrate. Slice 7 of #1624 removes them. Do not start a new toolbar from them.
-
-- `WorkspaceToolbar.Root`: the legacy shell. Props: `ariaLabel: string`, `wrap?: boolean`, `children?: Snippet`, plus normal `div` attributes. It renders `role="toolbar"` as one fixed-height `flex-nowrap` row with hidden horizontal overflow as a last resort. `wrap` lets groups flow onto further rows. The shell is a size container that uses the `toolbar-compact` and `toolbar-narrow` variants from `src/app.css`.
-- `WorkspaceToolbar.Group`: the labeled control/action boundary. Props: `label: string`, `activeCount?: number`, `zone?: 'controls' | 'actions' | 'meta'`, `children?: Snippet`, plus normal `div` attributes. `activeCount` is included in the accessible group label. The `actions` zone aligns to the toolbar's right edge.
-- `WorkspaceToolbar.Select`: single-choice `ui/select`. Props: `ariaLabel`, `options: { value, label }[]`, `value`, `disabled?`, `onValueChange`.
-- `WorkspaceToolbar.MultiSelect`: checkbox dropdown for several values. Props: `ariaLabel`, `label`, `options`, `value: string[]`, `disabled?`, `onChange`.
-- `WorkspaceToolbar.Search`: compact `ui/input-group` search. Props: `value` (bindable), `ariaLabel`, `placeholder?`, `testId?`, `onValueChange?`.
-- `WorkspaceToolbar.Nav`: link group for sibling workspace views. Props: `ariaLabel`, `items: { label, href }[]`.
-- `WorkspaceToolbar.Actions`: command buttons with dropdown overflow. Props: `actions: WorkspaceToolbarAction[]`, `ariaLabel?`, `overflowAriaLabel`. Each action sets `priority`, `displayMode`, `overflow`, `variant`, `icon`, `menuItems`, `toggle` and disabled reasons. An action chosen from one of its menus runs after that menu has finished closing.
-- `WorkspaceToolbar.Meta`: compact passive metadata. Props: `tone?: 'neutral' | 'warning' | 'success'`, `children?: Snippet`, plus normal `div` attributes.
-
-Legacy consumers: none.
-
 ---
 
 ## `ui/toggle-group`
@@ -321,7 +301,7 @@ Legacy consumers: none.
 </ToggleGroup.Root>
 ```
 
-- Use it for a small, always-visible single choice whose options fit inline. Use `WorkspaceToolbar.Select` when the options are many or data-driven.
+- Use it for a small, always-visible single choice whose options fit inline. Use a `WorkspaceToolbar` `select` item when the options are many or data-driven.
 - A `single` group emits an empty value when the pressed item is clicked again; ignore it so one option stays selected.
 - Give the group an `aria-label` and give abbreviated items a full `aria-label`.
 
@@ -329,7 +309,7 @@ Legacy consumers: none.
 
 ## `patterns/report-workspace`
 
-`patterns/report-workspace` is the shared shadcn-svelte-backed foundation for operational report pages and report sections. It standardizes report structure, filter/configuration panels, report sections and tables, report states, run state and export actions without owning feature calculations.
+`patterns/report-workspace` is the shared shadcn-svelte-backed foundation for operational report pages and report sections. It standardizes report structure, filter/configuration panels, report sections and tables, report states and run state without owning feature calculations.
 
 ```svelte
 <script lang="ts">
@@ -348,9 +328,6 @@ Legacy consumers: none.
 		<ReportWorkspace.State state="loading" title="Counting readiness" />
 	{:else if report.result}
 		<ReportWorkspace.Table title="Detail rows" data={report.result.rows} {columns} ariaLabel="Readiness detail rows">
-			{#snippet actions()}
-				<ReportWorkspace.ExportAction label="Export workbook" onclick={exportWorkbook} />
-			{/snippet}
 			{#snippet summary()}
 				<ReportWorkspace.SummaryStrip
 					topRisk="Alpha · 68% ready"
@@ -374,16 +351,15 @@ Public components:
 - `Content`: report section layout. Props: `layout?: 'stack' | 'split'`. Critical Tasks reports use `split`.
 - `Section`: generic bounded report section. Props: `title`, `description?`, `meta?`, `actions?`, `summary?`, `variant?: 'card' | 'briefing'`, `eyebrow?`. The default `card` is a bordered card. `briefing` is an open section under a 2px foreground rule with a small-caps `eyebrow`, a heading-font title and a description capped at 560px; its `actions` stack at the top right. Each briefing column is its own section so stacked columns keep their rules.
 - `SummaryStrip`: compact operational summary band for completed report results. Props: `topRisk`, `population`, `parameters`, `findings`, `riskTone?: 'default' | 'warning' | 'danger' | 'success'`, `ariaLabel?`. Use inside the `summary` snippet so the strip sits between the section header and result body, not as a nested card.
-- `Table`: DataTable-backed report table section. Props include `data`, `columns`, `table`, `ariaLabel`, `emptyMessage`, `loading`, `showSearch`, `searchPlaceholder`, `pageSize`, and cell/row/header/summary snippets.
+- `Table`: DataTable-backed report table section. Props include `data`, `columns`, `table`, `ariaLabel`, `emptyMessage`, `loading`, `pageSize`, and cell/row/header/summary snippets. Report exports are actions in the report's `WorkspaceToolbar`.
 - `State`: shared `loading`, `no-data`, and `error` report states. `level?: 2 | 3 | 4` sets the no-data heading level; the default `4` fits a state inside a report section, and a page-level state passes `2`.
-- `ExportAction`: shared export command. Props: `label`, `state?: 'ready' | 'loading' | 'disabled' | 'error'`, `disabledReason?`, `errorReason?`, `loading?`, `loadingLabel?`, plus button props such as `href`. Calendar reports render it in their `Table` `actions` snippet.
 - `DateRangeField`: start and end date pickers with optional preset buttons. Props: `start` and `end` (bindable ISO dates), `presets?: DateRangePreset[]`, `onCustom?`. Presets are `{ id, label, getRange }`. `WEEK_PRESETS`, `FORECAST_PRESET` and `createYearPresets(referenceDate?)` supply the Calendar report presets; `formatLocalDate(date)` formats a local `YYYY-MM-DD`.
 - `createReportRun({ validate, load, compute })`: run state for a report that loads on request. It exposes `status` (`idle`, `loading`, `ready` or `error`), `result`, `error`, `canRun`, `run()` and `reset()`.
 - `createMultiSelect(options)`: selection state over a reactive option list. It exposes `options`, `selectedIds`, `allSelected`, `count`, `toggle(id)`, `toggleAll()` and `has(id)`, and pairs with `OptionChips` and `OptionList`.
 
 Shared components own:
 
-- Report page/section structure, spacing, borders, responsive wrapping, state presentation, disabled export affordance, and DataTable section framing.
+- Report page/section structure, spacing, borders, responsive wrapping, state presentation, and DataTable section framing.
 - Composition with `ui/data-table`, `date-picker`, `field`, `toggle`, `checkbox`, shadcn `button`, `empty`, `alert`, and `spinner`.
 
 Routes configure:
@@ -392,8 +368,7 @@ Routes configure:
 
 Report/export state guidance:
 
-- Keep disabled export actions visible when their presence explains unavailable work. Use `disabledReason` for the user-facing reason.
-- Prefer `state` for durable export state. Use `state="ready"` for available exports, `state="loading"` while a file is being prepared, `state="disabled"` with `disabledReason` when user input is missing, and `state="error"` with `errorReason` when export infrastructure failed.
+- Keep disabled export actions visible in the report's `WorkspaceToolbar` when their presence explains unavailable work. Use `disabledReason` for the user-facing reason.
 - Use `State state="no-data"` for valid reports with no matching rows, not for permission errors.
 - Use `State state="error"` for load or refresh failures. Feature code owns retry behavior.
 - Do not move report calculations, filtering, authorization, export generation, or date semantics into shared UI.
@@ -720,7 +695,7 @@ The landing page FAQ is `ui/accordion` (`type="single"`, one answer open, the op
 
 See [`patterns/workspace-toolbar`](#patternsworkspace-toolbar) for the shared API and composition rules.
 
-Use `WorkspaceToolbar.Root` as the route toolbar root, `WorkspaceToolbar.Group` for control/action/meta boundaries, shadcn `ButtonGroup` plus `Button` for mutually exclusive view modes, shadcn `Toggle` for independent boolean toolbar state, shadcn `Select`/`InputGroup` through the shared workspace toolbar helpers for filters and search, and `WorkspaceToolbar.Actions` for command buttons plus dropdown overflow.
+Every route toolbar is one `WorkspaceToolbar` that takes ranked `view`, `select`, `multiSelect`, `toggle` and `action` items, plus `search` and `primary`. Do not compose a toolbar from raw `ButtonGroup`, `Toggle`, `Select` or `InputGroup` controls.
 
 Configure route behavior through the shared API; extensions follow the [UI system](agents/ui-system.md#default-ui-rules).
 
@@ -959,7 +934,6 @@ Rules:
 - Use validation errors over hints when both exist. Render the error as `Field.Error` inside the control's `Field.Root` so the association and `aria-invalid` follow it; an alert elsewhere in the dialog is not associated.
 - Required markers are visual only with `aria-hidden="true"`; keep native `required` on native controls where submission validation matters.
 - Disabled and read-only states come from the shared controls. Do not add local opacity, colors, borders, spacing, or typography to route code.
-- Toolbar-compact usage should compose the same controls inside `WorkspaceToolbar.Group`, using shared active counts rather than visual route overrides.
 
 ## `ui/combobox`
 
@@ -1000,7 +974,7 @@ Props: `Root` accepts `items: readonly (string | { value: string; label?: string
 - When `name` is provided, `Combobox.Root` renders hidden inputs for native form submission. Single-select renders one hidden input; multi-select renders one hidden input per selected value using the same name.
 - Use `loading` and `loadingText` for async option fetches. Keep the loading copy generic and route-owned; the visual loading state stays in the shared component.
 - `Combobox.Trigger` opens by ArrowDown, Enter or Space. Popup search (or the option container when search is omitted) receives focus; Arrow keys navigate enabled options, Enter commits the option's value and closes single selection, and Escape dismisses without a value change and returns focus to the trigger. The popup is nonmodal by default: outside interaction dismisses without stealing focus; an explicit Content `trapFocus` override remains available.
-- `multiple` with `Chips`, `ChipsInput` and `Chip` is a foundation mode with no production consumer. Production multi-selects use `WorkspaceToolbar.MultiSelect` or `ReportWorkspace.OptionChips`. In that mode one Command context owns both the inline input and the popup. Do not move the context into Content or add a second Command root.
+- `multiple` with `Chips`, `ChipsInput` and `Chip` is a foundation mode with no production consumer. Production multi-selects use a `WorkspaceToolbar` `multiSelect` item or `ReportWorkspace.OptionChips`. In that mode one Command context owns both the inline input and the popup. Do not move the context into Content or add a second Command root.
 - Visual changes belong in shared combobox source only.
 
 ## `ui/empty`
@@ -1075,11 +1049,7 @@ The component owns the repeated visual structure: page workspace spacing, list/d
 		<TypeWorkspace.Detail mobileHidden={!mobileDetailOpen}>
 			<TypeWorkspace.MobileBack onclick={showList}>Training types</TypeWorkspace.MobileBack>
 			<TypeWorkspace.Stack>
-				<TypeWorkspace.DetailHeader title="Annual Qualification" color="#8a5800">
-					{#snippet actions()}
-						<Button variant="outline" size="sm" type="button">Edit</Button>
-					{/snippet}
-				</TypeWorkspace.DetailHeader>
+				<TypeWorkspace.DetailHeader title="Annual Qualification" color="#8a5800" />
 
 				<TypeWorkspace.FormSection title="Basics">
 					<!-- route-owned Field/Input controls -->
@@ -1161,14 +1131,14 @@ Preserve loading-state dimensions with Tailwind utilities on `Skeleton` and mark
 
 ## `ui/data-table`
 
-Composable shadcn-svelte DataTable foundation built from the calibrated `ui/table`, `checkbox`, `dropdown-menu`, `skeleton`, `empty`, `input-group` and `button` primitives. Calendar, Critical Tasks, Personnel, Rating Scheme, Training and Organization settings tables use it, as do `ReportWorkspace.Table` and `BulkImportWorkspace.PreviewTable`.
+Composable shadcn-svelte DataTable foundation built from the calibrated `ui/table`, `checkbox`, `dropdown-menu`, `skeleton`, `empty` and `button` primitives. Calendar, Critical Tasks, Personnel, Rating Scheme, Training and Organization settings tables use it, as do `ReportWorkspace.Table` and `BulkImportWorkspace.PreviewTable`.
 
-The DataTable API is deliberately modular. Simple tables can render only `DataTable`; richer tables can opt into search, pagination, row actions, bulk selection, loading, grouping, dense layout, and toolbar controls one piece at a time.
+The DataTable API is deliberately modular. Simple tables can render only `DataTable`; richer tables can opt into pagination, row actions, bulk selection, loading, grouping, dense layout, and a `WorkspaceToolbar` in the `toolbar` snippet one piece at a time.
 
 ```svelte
 <script lang="ts">
 	import * as DataTable from '$lib/components/ui/data-table';
-	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar';
+	import { WorkspaceToolbar } from '$lib/components/patterns/workspace-toolbar';
 	import type { ColumnDef } from '$lib/components/ui/data-table';
 
 	const columns: ColumnDef<Person>[] = [
@@ -1186,7 +1156,6 @@ The DataTable API is deliberately modular. Simple tables can render only `DataTa
 	data={personnel}
 	{columns}
 	ariaLabel="Personnel roster"
-	showSearch
 	pageSize={25}
 	onRowClick={(row) => openPerson(row)}
 	rowActionLabel={(row) => `Open ${row.name}`}
@@ -1194,11 +1163,16 @@ The DataTable API is deliberately modular. Simple tables can render only `DataTa
 	stickyHeader
 >
 	{#snippet toolbar(table)}
-		<WorkspaceToolbar.Root ariaLabel="Personnel table controls">
-			<WorkspaceToolbar.Group label="Search" class="min-w-0 shrink">
-				<DataTable.Search {table} ariaLabel="Search personnel" />
-			</WorkspaceToolbar.Group>
-		</WorkspaceToolbar.Root>
+		<WorkspaceToolbar
+			ariaLabel="Personnel table controls"
+			items={[]}
+			search={{
+				label: 'Search personnel',
+				placeholder: 'Search...',
+				value: table.search,
+				onValueChange: table.setSearch
+			}}
+		/>
 	{/snippet}
 
 	{#snippet cell(row, col)}
@@ -1214,14 +1188,12 @@ The DataTable API is deliberately modular. Simple tables can render only `DataTa
 Exports:
 
 - `DataTable`: convenience shell that creates an internal `useDataTable` state when `data` and `columns` are passed.
-- `Search`: shared search input wired to `DataTableState<T>`.
 - `SelectionCheckbox`: row/header checkbox primitive for table selection.
-- `BulkActions`: selected-count region for toolbar/bulk commands.
 - `RowActions`: shared dropdown-menu row action trigger.
 - `useDataTable`: headless sort/filter/pagination/grouping state.
 - `useDataTableSelection`: headless row selection and bulk-selection state.
 
-`DataTable` props: `data?: T[]`, `columns?: ColumnDef<T>[]`, `table?: DataTableState<T>`, `initialSortKey?: string`, `initialSortDirection?: SortDirection`, `pageSize?: number`, `groupBy?: GroupDef<T>`, `filterFn?: (row: T, query: string) => boolean`, `ariaLabel?: string`, `emptyMessage?: string`, `emptyLevel?: 2 | 3 | 4` (heading level of the empty message, default `3`), `showSearch?: boolean`, `searchPlaceholder?: string`, `rowKey?: (row: T, index: number) => string | number`, `onRowClick?: (row: T) => void`, `rowActionLabel?: (row: T) => string`, `disabledRow?: (row: T) => boolean`, `rowDetailVisible?: (row: T) => boolean`, `loading?: boolean`, `loadingRows?: number`, `density?: 'default' | 'dense'`, `compact?: boolean`, `striped?: boolean`, `stickyHeader?: boolean`, `stickyFirstColumn?: boolean`, `maxHeight?: string`, `scrollRegionLabel?: string`
+`DataTable` props: `data?: T[]`, `columns?: ColumnDef<T>[]`, `table?: DataTableState<T>`, `initialSortKey?: string`, `initialSortDirection?: SortDirection`, `pageSize?: number`, `groupBy?: GroupDef<T>`, `filterFn?: (row: T, query: string) => boolean`, `ariaLabel?: string`, `emptyMessage?: string`, `emptyLevel?: 2 | 3 | 4` (heading level of the empty message, default `3`), `rowKey?: (row: T, index: number) => string | number`, `onRowClick?: (row: T) => void`, `rowActionLabel?: (row: T) => string`, `disabledRow?: (row: T) => boolean`, `rowDetailVisible?: (row: T) => boolean`, `loading?: boolean`, `loadingRows?: number`, `density?: 'default' | 'dense'`, `compact?: boolean`, `striped?: boolean`, `stickyHeader?: boolean`, `stickyFirstColumn?: boolean`, `maxHeight?: string`, `scrollRegionLabel?: string`
 
 Pass `scrollRegionLabel` when a wide table can scroll sideways. It names the scroll container as a focusable `region` (`Table.Root` takes the same prop) so keyboard users can scroll it.
 

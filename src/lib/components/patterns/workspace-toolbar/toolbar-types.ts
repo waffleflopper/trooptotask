@@ -1,5 +1,20 @@
 import type { ToolbarSection } from './fit-toolbar.js';
-import type { WorkspaceToolbarIcon } from './types.js';
+
+export type WorkspaceToolbarIcon =
+	| 'archive'
+	| 'arrow-left'
+	| 'book-open'
+	| 'calendar-days'
+	| 'chart'
+	| 'clipboard-check'
+	| 'clipboard-list'
+	| 'download'
+	| 'file-plus'
+	| 'plus'
+	| 'printer'
+	| 'settings'
+	| 'upload'
+	| 'user-plus';
 
 /** On a view option, `ariaLabel` names the row button and the More radio item shows it instead of `label`. */
 export type ToolbarOption = { value: string; label: string; ariaLabel?: string };

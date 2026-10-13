@@ -24,6 +24,7 @@ export type DashboardInvitationAcceptStatus =
 	| 'setup_required'
 	| 'expired'
 	| 'blocked'
+	| 'unavailable'
 	| 'already_member'
 	| 'already_accepted'
 	| 'failed';
@@ -167,6 +168,9 @@ export async function acceptDashboardInvitation(
 	}
 	if (accepted.status === 'blocked') {
 		fail(400, 'This organization invitation is no longer available because platform access was rejected');
+	}
+	if (accepted.status === 'unavailable') {
+		fail(400, 'This Organization invitation is unavailable. Ask the inviting Organization for help.');
 	}
 	if (accepted.status === 'already_member') {
 		fail(400, 'You are already a member of this organization');

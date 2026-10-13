@@ -113,6 +113,7 @@ function normalizeAcceptStatus(
 		status === 'setup_required' ||
 		status === 'expired' ||
 		status === 'blocked' ||
+		status === 'unavailable' ||
 		status === 'already_member' ||
 		status === 'already_accepted'
 	) {

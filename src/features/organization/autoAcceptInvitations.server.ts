@@ -47,7 +47,7 @@ export async function autoAcceptOrgInvites(
 			const status = row.accept_status;
 			if (status === 'setup_required' && row.accepted_organization_id === null)
 				throw new InvitationAcceptanceError(accepted, 'setup_required');
-			if (status === 'not_found' && row.accepted_organization_id === null) {
+			if ((status === 'not_found' || status === 'unavailable') && row.accepted_organization_id === null) {
 				unavailable++;
 				continue;
 			}

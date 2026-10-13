@@ -879,7 +879,10 @@ async function main() {
 							? [
 									'STEPS',
 									'No templates yet.',
-									'Onboarding Pipeline',
+									'In processing',
+									'No active onboardings',
+									'Set up onboarding',
+									'Onboarding not configured',
 									'Onboarding History',
 									'Access restricted',
 									"You don't have permission to view this page"

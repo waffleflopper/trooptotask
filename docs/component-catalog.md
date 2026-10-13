@@ -281,7 +281,7 @@ Rules:
 - Compose route-specific behavior under the [shared UI composition rules](agents/ui-system.md#default-ui-rules); keep toolbar appearance and reusable APIs owned by the shared component.
 - If an authorized route change needs behavior this API cannot express, implement and verify the smallest shared API extension, update affected consumers and document its usage here.
 
-Consumers: the Critical Tasks matrix, soldier record, reports and task library, Evals, and the Training matrix, reports (with the Hot-spot grid's Rows by section toolbar), types and views, including the type and view detail panes. A new route toolbar starts from `WorkspaceToolbar`. A change to the toolbar is verified on its consumers at narrow and wide widths.
+Consumers: the Calendar month view, assignment planner, bulk status, reports, settings and roster picker; the Critical Tasks matrix, soldier record, reports and task library; Evals; and the Training matrix, reports (with the Hot-spot grid's Rows by section toolbar), types and views, including the type and view detail panes. A new route toolbar starts from `WorkspaceToolbar`. A change to the toolbar is verified on its consumers at narrow and wide widths.
 
 ### Legacy composition API (temporary)
 
@@ -296,7 +296,7 @@ The namespace parts below remain until the remaining consumers migrate. Slice 7 
 - `WorkspaceToolbar.Actions`: command buttons with dropdown overflow. Props: `actions: WorkspaceToolbarAction[]`, `ariaLabel?`, `overflowAriaLabel`. Each action sets `priority`, `displayMode`, `overflow`, `variant`, `icon`, `menuItems`, `toggle` and disabled reasons. An action chosen from one of its menus runs after that menu has finished closing.
 - `WorkspaceToolbar.Meta`: compact passive metadata. Props: `tone?: 'neutral' | 'warning' | 'success'`, `children?: Snippet`, plus normal `div` attributes.
 
-Legacy consumers: the Calendar month view, assignment planner, bulk status and reports; Onboarding History and templates; Personnel; and Ranks settings.
+Legacy consumers: Onboarding History and templates, Personnel, and Ranks settings.
 
 ---
 

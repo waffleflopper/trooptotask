@@ -25,8 +25,8 @@
 	<ul class="grid gap-2" aria-label={`${step.stepName} notes`}>
 		{#each notes as note, index (index)}
 			<li class="grid gap-0.5">
-				<p class="text-sm italic text-foreground">{note.text}</p>
-				<p class="font-mono text-xs text-muted-foreground">
+				<p class="text-sm italic wrap-anywhere text-foreground">{note.text}</p>
+				<p class="font-mono text-xs wrap-anywhere text-muted-foreground">
 					{ctx.noteAuthorName(note.userId)} · {formatTimestamp(note.timestamp)}
 				</p>
 			</li>

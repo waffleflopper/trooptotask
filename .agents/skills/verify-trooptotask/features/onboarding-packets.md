@@ -72,6 +72,16 @@ As `onboardingConfigure` at 1280, then 390, light and dark:
 8. **Access.** `onboardingView`: the line `View only. You can't change onboarding steps, so the cells open details only.`, every non-missing cell is a button labelled `... Read only. Select for details` that opens a popover with the headline, the stage list and the notes but no Add note, Advance or Mark controls and no write request; checkbox cells open the popover instead of checking; no Close out. `trainingOnboardingView` (Onboarding and Training view) gets `Record training` in the popover of an open Training cell, with no other action; `trainingOnboarding` also checks and advances. `onboardingScoped` sees only Alpha rows. `onboardingEmpty` sees `No active onboardings`. `viewer` gets the 403 page.
 9. **No template.** `1 packet has no template. Open it in List view to assign one.` appears under the grids while `Matrixbare` is visible.
 
+## Long text
+
+`$V seed onboarding-long-text` creates one tagged Alpha Person on a `Long Text <tag>` template whose steps are three checkboxes (one with a very long name), Training and a last Paperwork step. The Paperwork stages are `Needs to log in to https://qflowwest.health.mil/QFlow and request access`, `Started (leave note, have 90 days to complete)` and `Place a ticket (gsc.health.mil) to align to Kamisha's team`, current at stage 2, with an unbroken-URL note. `clean-seeds` removes all of it.
+
+As `onboardingConfigure` at 1280, then 390, light and dark: nothing may scroll sideways and every stage, step name, note, done-list line and subtitle wraps in full.
+
+1. **List panel.** Open the packet, then `Paperwork: Access Requests <tag>`. In `Onboarding packet`'s scroll container `scrollWidth` equals `clientWidth`, the three stage rows wrap, and `Advance` and the day count stay on their rows. Expand the `done` line and the done Paperwork step: still no horizontal scroll. Tab walks `Set ... to <stage>` then `Advance ...` in order, and Enter on `Advance` completes the step.
+2. **Matrix popover.** Switch to Matrix (at 390 through `More Onboarding controls`) and choose the rightmost cell. `document.documentElement.scrollWidth` equals `clientWidth` and the `dialog`'s `getBoundingClientRect()` lies inside `[0, innerWidth] × [0, innerHeight]`; a popover taller than the room scrolls inside itself.
+3. **History.** Complete the packet (`Close out` → `Mark Complete`), open History and expand its row: the Final packet column and the note stay inside their columns.
+
 ## Supported step operations and inactive removal
 
 Freeze helper, recipe and observation inputs before the unchanged baseline and matching final runs. Capture complete selected original A/B Person, Training, packet/progress and template/definition rows before seeding; these are privileged readbacks, not ordinary authorization. Use `seed onboarding-history` for known terminal/inactive witnesses and `seed onboarding-legacy` for a dedicated unarchived Alpha Person with an in-progress null-template packet. History's unarchived Alpha is completed, so it cannot be reopened through the cancelled-only API.

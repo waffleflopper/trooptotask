@@ -107,7 +107,7 @@
 	>
 		<div class="flex items-start gap-2">
 			{#if step.stepType === 'checkbox'}{@render openMarker(step)}{/if}
-			<h4 class="min-w-0 flex-1 font-semibold">{step.stepName}</h4>
+			<h4 class="min-w-0 flex-1 font-semibold wrap-anywhere">{step.stepName}</h4>
 			{@render typeLabel(step)}
 		</div>
 		{#if step.stepType === 'paperwork'}
@@ -129,14 +129,14 @@
 			<Button
 				variant="ghost"
 				size="none"
-				class="justify-start p-0 text-left text-sm"
+				class="min-w-0 justify-start p-0 text-left text-sm whitespace-normal wrap-anywhere"
 				aria-expanded={false}
 				onclick={() => (openCardId = step.id)}
 			>
 				{step.stepName}
 			</Button>
 			{#if step.stepType === 'paperwork'}
-				<span class="text-xs text-muted-foreground">{stageLine(step)}</span>
+				<span class="text-xs wrap-anywhere text-muted-foreground">{stageLine(step)}</span>
 			{:else if step.stepType === 'training'}
 				{@render trainingLink()}
 			{/if}
@@ -149,11 +149,11 @@
 	<div class="grid gap-3 border-b border-border p-4">
 		<div class="flex items-start gap-2">
 			<div class="grid min-w-0 flex-1 gap-1">
-				<p class="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+				<p class="font-mono text-xs uppercase tracking-wider wrap-anywhere text-muted-foreground">
 					Packet · {ctx.getTemplateName(onboarding.templateId)}
 				</p>
 				{@render heading(ctx.getPersonName(onboarding.personnelId))}
-				<p class="text-sm text-muted-foreground">{subtitle}</p>
+				<p class="text-sm wrap-anywhere text-muted-foreground">{subtitle}</p>
 			</div>
 			{#if onClose}
 				<Button variant="ghost" size="icon-sm" aria-label="Close packet" onclick={onClose}><X /></Button>
@@ -179,7 +179,7 @@
 		</div>
 	</div>
 
-	<div class="grid min-h-0 flex-1 content-start gap-4 overflow-y-auto p-4">
+	<div class="grid min-h-0 flex-1 grid-cols-1 content-start gap-4 overflow-y-auto p-4">
 		{#if resyncError}
 			<Alert.Root variant="destructive">
 				<CircleAlert />
@@ -214,7 +214,7 @@
 							class="w-full items-start justify-start gap-2 py-1 text-left"
 						>
 							<Check class="mt-0.5 size-4 shrink-0 text-success-foreground" aria-hidden="true" />
-							<span class="min-w-0 flex-1 text-sm whitespace-normal text-muted-foreground">
+							<span class="min-w-0 flex-1 text-sm whitespace-normal wrap-anywhere text-muted-foreground">
 								{doneSteps.length} done · {doneSteps.map((s) => s.stepName).join(', ')}
 							</span>
 							<ChevronDown
@@ -227,28 +227,29 @@
 				<Collapsible.Content class="grid pt-1">
 					{#each doneSteps as step (step.id)}
 						<div class="grid gap-2 border-b border-border py-2 last:border-b-0">
-							<div class="flex items-center gap-2">
+							<div class="flex items-start gap-2">
 								{#if step.stepType === 'checkbox' && canManage}
 									<Checkbox
 										checked={true}
+										class="mt-0.5"
 										aria-label={`Mark ${step.stepName} incomplete`}
 										onCheckedChange={() => ctx.handleToggleCheckbox(step)}
 									/>
 								{:else}
-									<Check class="size-4 shrink-0 text-success-foreground" aria-hidden="true" />
+									<Check class="mt-0.5 size-4 shrink-0 text-success-foreground" aria-hidden="true" />
 								{/if}
 								{#if step.stepType === 'paperwork'}
 									<Button
 										variant="ghost"
 										size="none"
-										class="min-w-0 flex-1 justify-start p-0 text-left text-sm text-muted-foreground"
+										class="min-w-0 flex-1 justify-start p-0 text-left text-sm whitespace-normal wrap-anywhere text-muted-foreground"
 										aria-expanded={doneExpandedId === step.id}
 										onclick={() => (doneExpandedId = doneExpandedId === step.id ? null : step.id)}
 									>
 										{step.stepName}
 									</Button>
 								{:else}
-									<span class="min-w-0 flex-1 text-sm text-muted-foreground">{step.stepName}</span>
+									<span class="min-w-0 flex-1 text-sm wrap-anywhere text-muted-foreground">{step.stepName}</span>
 								{/if}
 								{@render typeLabel(step)}
 							</div>

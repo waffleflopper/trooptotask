@@ -334,6 +334,89 @@ export async function seedOnboarding({ client, fixture, kind, tag, ownedState, s
 				]
 			]
 		);
+	} else if (kind === 'onboarding-long-text') {
+		const orgA = fixture.ids.orgA;
+		const template = { id: randomUUID(), organization_id: orgA, name: 'Long Text ' + tag, description: null };
+		const stages = [
+			'Needs to log in to https://qflowwest.health.mil/QFlow and request access',
+			'Started (leave note, have 90 days to complete)',
+			"Place a ticket (gsc.health.mil) to align to Kamisha's team"
+		];
+		const checkboxNames = [
+			'Military Email Address',
+			'HIPAA JKO',
+			'Common Access Card Registration and Defense Travel System Account'
+		];
+		const steps = [
+			...checkboxNames.map((name) => [name, 'checkbox', null, null]),
+			['Required Training ' + tag, 'training', null, fixture.ids.trainingRequired],
+			['Paperwork: Access Requests ' + tag, 'paperwork', stages, null]
+		];
+		const templateSteps = steps.map(([name, step_type, stepStages, training_type_id], sort_order) => ({
+			id: randomUUID(),
+			organization_id: orgA,
+			template_id: template.id,
+			name,
+			description: null,
+			step_type,
+			training_type_id,
+			stages: stepStages,
+			sort_order
+		}));
+		people = [
+			{
+				id: randomUUID(),
+				organization_id: orgA,
+				group_id: fixture.ids.groupA,
+				rank: 'SPC',
+				first_name: 'Synthetic',
+				last_name: 'Longtext' + tag,
+				slug: 'map-longtext-' + tag
+			}
+		];
+		packets = [
+			{
+				id: randomUUID(),
+				organization_id: orgA,
+				personnel_id: people[0].id,
+				template_id: template.id,
+				started_at: new Date(Date.now() - 3 * 86400000).toISOString().slice(0, 10),
+				status: 'in_progress',
+				completed_at: null,
+				cancelled_at: null,
+				key: 'longtext'
+			}
+		];
+		progress = steps.map(([step_name, step_type, stepStages, training_type_id], sort_order) => ({
+			id: randomUUID(),
+			organization_id: orgA,
+			onboarding_id: packets[0].id,
+			template_step_id: templateSteps[sort_order].id,
+			step_name,
+			step_type,
+			training_type_id,
+			sort_order,
+			active: true,
+			completed: step_type === 'checkbox',
+			stages: stepStages,
+			current_stage: step_type === 'paperwork' ? stages[1] : null,
+			progress_changed_at: new Date(Date.now() - 2 * 86400000).toISOString(),
+			notes:
+				step_type === 'paperwork'
+					? [
+							{
+								text: 'Requested access at https://qflowwest.health.mil/QFlow/Requests/NewAccessRequest?ticket=' + tag,
+								timestamp: recentAt,
+								userId: fixture.actors.onboardingConfigure.id
+							}
+						]
+					: []
+		}));
+		batches.push(
+			['personnel', people],
+			['onboarding_templates', [template]],
+			['onboarding_template_steps', templateSteps]
+		);
 	} else if (kind === 'onboarding-history') {
 		const startedAt = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
 		const examples = [

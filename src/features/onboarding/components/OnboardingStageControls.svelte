@@ -34,7 +34,7 @@
 	<span
 		aria-hidden="true"
 		class={[
-			'flex size-4 shrink-0 items-center justify-center rounded-full border',
+			'mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border',
 			state === 'cleared' && 'border-foreground bg-foreground text-background',
 			state === 'current' && (stalled ? 'border-2 border-warning' : 'border-2 border-primary'),
 			state === 'upcoming' && 'border-dashed border-muted-foreground'
@@ -58,7 +58,7 @@
 	{/if}
 {/snippet}
 
-<ol class="grid gap-0.5" aria-label={`${step.stepName} stages`}>
+<ol class="grid grid-cols-1 gap-0.5" aria-label={`${step.stepName} stages`}>
 	{#each stages as stage, index (index)}
 		{@const state = stateOf(index)}
 		<li class="flex min-h-8 items-center gap-2" aria-current={state === 'current' ? 'step' : undefined}>
@@ -66,17 +66,17 @@
 				<Button
 					variant="ghost"
 					size="none"
-					class="min-h-8 min-w-0 flex-1 justify-start gap-2 px-1 text-left"
+					class="min-h-8 min-w-0 flex-1 items-start justify-start gap-2 px-1 py-1.5 text-left whitespace-normal"
 					onclick={() => onSelect(stage)}
 					aria-label={`Set ${step.stepName} to ${stage}`}
 				>
 					{@render marker(state)}
-					<span class={['truncate text-sm', state === 'current' && 'font-semibold']}>{stage}</span>
+					<span class={['min-w-0 text-sm wrap-anywhere', state === 'current' && 'font-semibold']}>{stage}</span>
 				</Button>
 			{:else}
-				<span class="flex min-w-0 flex-1 items-center gap-2 px-1">
+				<span class="flex min-w-0 flex-1 items-start gap-2 px-1 py-1.5">
 					{@render marker(state)}
-					<span class={['truncate text-sm', state === 'current' && 'font-semibold']}>{stage}</span>
+					<span class={['min-w-0 text-sm wrap-anywhere', state === 'current' && 'font-semibold']}>{stage}</span>
 				</span>
 			{/if}
 			{@render status(stage, index, state)}

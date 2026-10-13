@@ -23,8 +23,12 @@
 
 <div class="grid gap-3">
 	<div class="grid gap-0.5">
-		<p class="font-mono text-xs uppercase tracking-wider text-muted-foreground">{surname} · {step.stepName}</p>
-		<p class={['text-sm font-semibold', stalled && 'text-warning-foreground']}>{stepHeadline(step, today)}</p>
+		<p class="font-mono text-xs uppercase tracking-wider wrap-anywhere text-muted-foreground">
+			{surname} · {step.stepName}
+		</p>
+		<p class={['text-sm font-semibold wrap-anywhere', stalled && 'text-warning-foreground']}>
+			{stepHeadline(step, today)}
+		</p>
 	</div>
 
 	{#if step.stepType === 'paperwork'}

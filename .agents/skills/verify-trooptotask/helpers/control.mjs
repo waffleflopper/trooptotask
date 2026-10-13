@@ -1584,6 +1584,7 @@ async function main() {
 				'onboarding-consumers',
 				'onboarding-status',
 				'onboarding-matrix',
+				'onboarding-long-text',
 				'onboarding-retention',
 				'onboarding-retention-1001',
 				'audit',

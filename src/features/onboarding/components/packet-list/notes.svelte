@@ -16,8 +16,8 @@
 		<ul aria-labelledby={headingId} class="grid gap-3">
 			{#each notes as note, index (index)}
 				<li class="grid gap-1 border-l-2 border-border pl-3">
-					<p class="text-sm italic text-foreground">“{note.text}”</p>
-					<p class="text-xs text-muted-foreground">{note.byline}</p>
+					<p class="text-sm italic wrap-anywhere text-foreground">“{note.text}”</p>
+					<p class="text-xs wrap-anywhere text-muted-foreground">{note.byline}</p>
 				</li>
 			{/each}
 		</ul>

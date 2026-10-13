@@ -127,8 +127,9 @@
 		<Popover.Root open onOpenChange={(open) => !open && (target = null)}>
 			<Popover.Content
 				customAnchor={target.anchor}
-				class="w-80"
+				class="max-h-(--bits-popover-content-available-height) w-80 max-w-(--bits-popover-content-available-width) overflow-y-auto"
 				align="start"
+				collisionPadding={8}
 				role="dialog"
 				aria-label={`${ctx.getPersonName(active.packet.personnelId)}: ${active.cell.step.stepName}`}
 				onCloseAutoFocus={returnFocus}

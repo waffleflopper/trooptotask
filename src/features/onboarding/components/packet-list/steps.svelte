@@ -32,13 +32,15 @@
 				{/if}
 				<span class="sr-only">{step.done ? 'Done:' : 'Open:'}</span>
 				<span class="grid min-w-0 flex-1 gap-0.5">
-					<span class="text-sm">{step.name}</span>
+					<span class="text-sm wrap-anywhere">{step.name}</span>
 					{#if removal(step)}
 						<span class="text-xs">{removal(step)}</span>
 					{/if}
 				</span>
 				{#if step.stage}
-					<span class="shrink-0 font-mono text-xs text-muted-foreground">{step.stage}</span>
+					<span class="max-w-2/5 shrink-0 text-right font-mono text-xs wrap-anywhere text-muted-foreground"
+						>{step.stage}</span
+					>
 				{/if}
 			</li>
 		{/each}

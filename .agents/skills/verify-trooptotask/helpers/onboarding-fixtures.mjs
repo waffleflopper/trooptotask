@@ -218,6 +218,122 @@ export async function seedOnboarding({ client, fixture, kind, tag, ownedState, s
 			}));
 		});
 		batches.push(['personnel', people]);
+	} else if (kind === 'onboarding-matrix') {
+		const daysAgo = (days) => new Date(Date.now() - days * 86400000).toISOString();
+		const dateAgo = (days) => daysAgo(days).slice(0, 10);
+		const orgA = fixture.ids.orgA;
+		const reserve = { id: randomUUID(), organization_id: orgA, name: 'Matrix Reserve ' + tag, description: null };
+		const reserveSteps = [
+			['Reserve Briefing ' + tag, 'checkbox', null],
+			['Reserve Records ' + tag, 'paperwork', ['Filed', 'Cleared']]
+		].map(([name, step_type, stages], sort_order) => ({
+			id: randomUUID(),
+			organization_id: orgA,
+			template_id: reserve.id,
+			name,
+			description: null,
+			step_type,
+			training_type_id: null,
+			stages,
+			sort_order
+		}));
+		const standardSteps = [
+			fixture.ids.onboardingCheckbox,
+			fixture.ids.onboardingPaperwork,
+			fixture.ids.onboardingTraining
+		];
+		// One Standard grid with a stalled, a ready (its Training step has a record), a missing-step and a fresh packet, plus a Reserve grid and a packet with no template.
+		const examples = [
+			['stalled', 'groupA', 'standard', 20, { done: [true, false, false], stage: 'Reviewed', changed: 9 }],
+			['ready', 'groupA', 'standard', 10, { done: [true, true, true], stage: 'Filed', changed: 3 }],
+			['missing', 'groupB', 'standard', 6, { done: [false, false], stage: 'Submitted', changed: 2, skipLast: true }],
+			['fresh', 'groupA', 'standard', 0, { done: [false, false, false], stage: null, changed: 0 }],
+			['reserve', 'groupA', 'reserve', 3, { done: [false, false], stage: 'Filed', changed: 1 }],
+			['bare', 'groupA', null, 2, { done: [false], stage: null, changed: 0 }]
+		];
+		people = examples.map(([key, group]) => ({
+			id: randomUUID(),
+			organization_id: orgA,
+			group_id: fixture.ids[group],
+			rank: 'SPC',
+			first_name: 'Synthetic',
+			last_name: 'Matrix' + key + tag,
+			slug: 'map-matrix-' + key + '-' + tag
+		}));
+		packets = examples.map(([key, _group, template, started], index) => ({
+			id: randomUUID(),
+			organization_id: orgA,
+			personnel_id: people[index].id,
+			template_id:
+				template === 'standard' ? fixture.ids.onboardingTemplate : template === 'reserve' ? reserve.id : null,
+			started_at: dateAgo(started),
+			status: 'in_progress',
+			completed_at: null,
+			cancelled_at: null,
+			key
+		}));
+		progress = packets.flatMap((packet, index) => {
+			const { done, stage, changed, skipLast } = examples[index][4];
+			const template = examples[index][2];
+			const steps =
+				template === 'standard'
+					? [
+							['Verification Orientation', 'checkbox', null, standardSteps[0]],
+							['Verification Paperwork', 'paperwork', ['Submitted', 'Reviewed', 'Filed'], standardSteps[1]],
+							['Verification Training Step', 'training', null, standardSteps[2]]
+						]
+					: template === 'reserve'
+						? [
+								[reserveSteps[0].name, 'checkbox', null, reserveSteps[0].id],
+								[reserveSteps[1].name, 'paperwork', ['Filed', 'Cleared'], reserveSteps[1].id]
+							]
+						: [['Bare Checkbox ' + tag, 'checkbox', null, null]];
+			return steps
+				.slice(0, skipLast ? steps.length - 1 : steps.length)
+				.map(([step_name, step_type, stages, template_step_id], sort_order) => ({
+					id: randomUUID(),
+					organization_id: orgA,
+					onboarding_id: packet.id,
+					template_step_id,
+					step_name,
+					step_type,
+					training_type_id: step_type === 'training' ? fixture.ids.trainingRequired : null,
+					sort_order,
+					active: true,
+					completed: done[sort_order],
+					stages,
+					current_stage: step_type === 'paperwork' ? stage : null,
+					progress_changed_at: step_type === 'paperwork' ? daysAgo(changed) : daysAgo(examples[index][3]),
+					notes:
+						packet.key === 'stalled' && step_type === 'paperwork'
+							? [
+									{
+										text: 'Finance needs a re-signed form ' + tag,
+										timestamp: daysAgo(4),
+										userId: fixture.actors.onboardingConfigure.id
+									}
+								]
+							: []
+				}));
+		});
+		batches.push(
+			['personnel', people],
+			['onboarding_templates', [reserve]],
+			['onboarding_template_steps', reserveSteps],
+			[
+				'personnel_trainings',
+				[
+					{
+						id: randomUUID(),
+						organization_id: orgA,
+						personnel_id: people[1].id,
+						training_type_id: fixture.ids.trainingRequired,
+						completion_date: fixture.dates.trainingCompleted,
+						expiration_date: fixture.dates.trainingExpires
+					}
+				]
+			]
+		);
 	} else if (kind === 'onboarding-history') {
 		const startedAt = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
 		const examples = [
@@ -441,6 +557,7 @@ export async function seedOnboarding({ client, fixture, kind, tag, ownedState, s
 		...(kind === 'onboarding-start'
 			? { person: people[0], templateId: fixture.ids.onboardingTemplate, training: batches[1][1] }
 			: {}),
-		...(kind === 'onboarding-legacy' ? { person: batches[0][1][0] } : {})
+		...(kind === 'onboarding-legacy' ? { person: batches[0][1][0] } : {}),
+		...(kind === 'onboarding-matrix' ? { templates: batches[1][1], templateSteps: batches[2][1] } : {})
 	};
 }

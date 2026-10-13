@@ -22,6 +22,7 @@
 	import SearchX from '@lucide/svelte/icons/search-x';
 	import OnboardingPacketRow from './OnboardingPacketRow.svelte';
 	import OnboardingPacketPanel from './OnboardingPacketPanel.svelte';
+	import OnboardingMatrixView from './OnboardingMatrixView.svelte';
 
 	interface Props {
 		ctx: OnboardingPageContext;
@@ -31,6 +32,11 @@
 	let { ctx, typicalDaysToFinish }: Props = $props();
 
 	const ALL_GROUPS = 'all';
+	type View = 'list' | 'matrix';
+	const VIEW_OPTIONS = [
+		{ value: 'list', label: 'List' },
+		{ value: 'matrix', label: 'Matrix' }
+	];
 	const STRIP_SIZE = 4;
 
 	const today = todayIn(Intl.DateTimeFormat().resolvedOptions().timeZone, new Date());
@@ -40,6 +46,7 @@
 	let search = $state('');
 	let groupId = $state(ALL_GROUPS);
 	let selectedId = $state<string | null>(null);
+	let view = $state<View>('list');
 
 	const active = $derived(ctx.filteredOnboardings);
 	const stalledTotal = $derived(
@@ -60,7 +67,8 @@
 	const summaries = $derived(
 		visible.map((onboarding) => summarizePacket(onboarding, today)).sort(comparePacketSummaries)
 	);
-	const waiting = $derived(waitingBySteps(visible, today).slice(0, STRIP_SIZE));
+	const allWaiting = $derived(waitingBySteps(visible, today));
+	const waiting = $derived(allWaiting.slice(0, STRIP_SIZE));
 
 	const subtitleParts = $derived.by(() => {
 		const parts: { text: string; stalled?: boolean }[] = [];
@@ -106,7 +114,18 @@
 	}
 
 	const toolbarItems = $derived.by<ToolbarItem[]>(() => {
-		const items: ToolbarItem[] = [];
+		const items: ToolbarItem[] = [
+			{
+				kind: 'view',
+				id: 'view',
+				label: 'Onboarding view',
+				options: VIEW_OPTIONS,
+				value: view,
+				onValueChange: (value) => {
+					if (value === 'list' || value === 'matrix') view = value;
+				}
+			}
+		];
 		if (ctx.groups.length > 0) {
 			items.push({
 				kind: 'select',
@@ -273,11 +292,16 @@
 							<Button variant="outline" onclick={clearFilters}>Clear filters</Button>
 						</Empty.Content>
 					</Empty.Root>
+				{:else if view === 'matrix'}
+					<OnboardingMatrixView {ctx} packets={visible} {today} />
 				{:else}
 					<section class="grid gap-3" aria-labelledby="onboarding-waiting-title">
 						<div class="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b-2 border-foreground pb-2">
 							<h2 id="onboarding-waiting-title" class="font-heading text-xl font-semibold">Where people are waiting</h2>
 							<p class="font-mono text-xs text-muted-foreground">Soldiers on each open step</p>
+							<Button variant="link" size="none" class="ml-auto h-auto p-0 text-sm" onclick={() => (view = 'matrix')}>
+								All {allWaiting.length} steps
+							</Button>
 						</div>
 						<ul class="grid grid-cols-2 gap-px md:grid-cols-4">
 							{#each waiting as step (step.stepName)}
@@ -321,14 +345,14 @@
 				{/if}
 			</div>
 
-			{#if selected && wide.current}
+			{#if selected && view === 'list' && wide.current}
 				<aside class="flex w-96 shrink-0 flex-col border-l border-border bg-card">
 					{@render panel(selected, false)}
 				</aside>
 			{/if}
 		</div>
 
-		{#if selected && !wide.current}
+		{#if selected && view === 'list' && !wide.current}
 			<Sheet.Root open={true} onOpenChange={(open) => !open && closePanel()}>
 				<Sheet.Content side="right" class="w-full gap-0 p-0 sm:max-w-md" showCloseButton={false}>
 					<Sheet.Description class="sr-only">Onboarding packet</Sheet.Description>

@@ -468,6 +468,10 @@ export class OnboardingPageContext {
 		return onboardingTemplateStore.templates;
 	}
 
+	get templateSteps() {
+		return onboardingTemplateStore.allSteps;
+	}
+
 	private get rosterView(): RosterReadModelView {
 		return this.#rosterView;
 	}

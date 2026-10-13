@@ -85,7 +85,7 @@ INSERT INTO public.onboarding_step_progress (
  '[{"text":"Retry note","timestamp":"2030-01-01T00:00:00Z","userId":"d1503000-0000-4000-8000-000000000002"}]');
 
 SELECT is((SELECT prosecdef FROM pg_proc WHERE oid = 'public.reconcile_onboarding_packet(uuid,uuid,uuid)'::regprocedure),
-  false, 'reconciliation uses ordinary caller permissions');
+  true, 'reconciliation is the command that writes step shape after checking the caller');
 SELECT ok(has_function_privilege('authenticated', 'public.reconcile_onboarding_packet(uuid,uuid,uuid)', 'EXECUTE'),
   'authenticated callers can request reconciliation');
 SELECT ok(NOT has_function_privilege('anon', 'public.reconcile_onboarding_packet(uuid,uuid,uuid)', 'EXECUTE'),

@@ -20,6 +20,13 @@ INSERT INTO public.personnel(id,organization_id,rank,last_name,first_name,slug,a
 INSERT INTO public.counseling_records(id,organization_id,personnel_id,date_conducted,subject,title,uploaded_by,file_path) VALUES
 ('f4600000-0000-4000-8000-000000000501','f4600000-0000-4000-8000-000000000101','f4600000-0000-4000-8000-000000000301',
   '2030-01-01','Legacy','Legacy path','fixture','legacy/counseling.pdf');
+INSERT INTO public.personnel_documents(id,organization_id,personnel_id,title,file_path,file_size_bytes,content_type,uploaded_by) VALUES
+('f4600000-0000-4000-8000-000000000511','f4600000-0000-4000-8000-000000000101','f4600000-0000-4000-8000-000000000301','Saved document',
+  'f4600000-0000-4000-8000-000000000101/personnel/f4600000-0000-4000-8000-000000000301/documents/saved.pdf',128,'application/pdf','fixture');
+INSERT INTO storage.objects(id,bucket_id,name,owner,owner_id,metadata) VALUES
+('f4600000-0000-4000-8000-000000000541','personnel-documents',
+  'f4600000-0000-4000-8000-000000000101/personnel/f4600000-0000-4000-8000-000000000301/documents/saved.pdf',
+  'f4600000-0000-4000-8000-000000000001','f4600000-0000-4000-8000-000000000001','{}'::jsonb);
 INSERT INTO public.personnel_onboardings(id,organization_id,personnel_id,status) VALUES
 ('f4600000-0000-4000-8000-000000000701','f4600000-0000-4000-8000-000000000101','f4600000-0000-4000-8000-000000000301','in_progress');
 INSERT INTO public.onboarding_step_progress(id,organization_id,onboarding_id,step_name,step_type,sort_order,completed,notes) VALUES

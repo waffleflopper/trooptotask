@@ -11,6 +11,9 @@ SELECT results_eq(
   $$ SELECT * FROM upgrade_fixture.feature_writes_before_rows ORDER BY table_name,row_id $$,
   'the upgrade keeps saved Personnel, counseling paths, packets, notes and requests');
 SELECT ok(to_regprocedure('public.is_full_editor_for_org(uuid)') IS NULL, 'the legacy full-editor helper is removed');
+SELECT ok(to_regprocedure('public.onboarding_personnel_scope_matches(uuid,uuid)') IS NULL
+  AND to_regprocedure('public.onboarding_parent_scope_matches(uuid,uuid)') IS NULL,
+  'Onboarding scope checks are no longer API calls');
 SELECT ok(NOT has_table_privilege('authenticated','public.deletion_requests','INSERT')
   AND NOT has_table_privilege('anon','public.deletion_requests','INSERT'),
   'client roles can no longer create deletion requests directly');
@@ -33,7 +36,20 @@ SELECT is(
 SELECT throws_ok(
   $$ UPDATE public.onboarding_step_progress SET notes='[]' WHERE id='f4600000-0000-4000-8000-000000000711' $$,
   '42501', NULL, 'saved notes cannot be replaced directly');
+SELECT throws_ok(
+  $$ INSERT INTO public.onboarding_step_progress(organization_id,onboarding_id,step_name,step_type)
+    VALUES ('f4600000-0000-4000-8000-000000000101','f4600000-0000-4000-8000-000000000701','Custom','checkbox') $$,
+  '42501', NULL, 'an operate member cannot add a step to a saved packet');
+SELECT is((SELECT count(*)::integer FROM public.personnel_onboardings WHERE id='f4600000-0000-4000-8000-000000000701'),1,
+  'an operate member still reads the saved packet through the moved scope checks');
+SELECT set_config('storage.allow_delete_query','true',true);
+WITH removed AS (
+  DELETE FROM storage.objects WHERE id='f4600000-0000-4000-8000-000000000541' RETURNING id
+) SELECT is((SELECT count(*)::integer FROM removed),0,'an operate member cannot remove a saved active document file through Storage');
 SELECT set_config('request.jwt.claim.sub','f4600000-0000-4000-8000-000000000001',true);
+WITH removed AS (
+  DELETE FROM storage.objects WHERE id='f4600000-0000-4000-8000-000000000541' RETURNING id
+) SELECT is((SELECT count(*)::integer FROM removed),1,'the owner still removes a saved file for Organization cleanup');
 WITH changed AS (
   UPDATE public.counseling_records SET title='Edited legacy path' WHERE id='f4600000-0000-4000-8000-000000000501' RETURNING id
 ) SELECT is((SELECT count(*)::integer FROM changed),1,'a saved counseling path outside the bound prefix stays editable');

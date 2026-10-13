@@ -90,7 +90,7 @@
 					<Button
 						variant="link"
 						size="none"
-						class="h-auto justify-start p-0 text-xs"
+						class="h-auto justify-start p-0 text-xs underline"
 						aria-label={`Close out ${ctx.getPersonName(packet.personnelId)}`}
 						onclick={() => ctx.promptCompleteOnboarding(packet.id)}
 					>

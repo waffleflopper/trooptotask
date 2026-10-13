@@ -46,7 +46,13 @@
 				requiresMfa = true;
 				return;
 			}
-			if (result?.code === 'password_reconciliation_required') currentState = reconciledPasswordState(result);
+			if (result?.code === 'password_reconciliation_required') {
+				currentState = reconciledPasswordState(result);
+				if (currentState === 'complete') {
+					await oncomplete();
+					return;
+				}
+			}
 			if (!response.ok || result?.ok !== true || result.error !== undefined) {
 				error =
 					typeof result?.error === 'string'

@@ -154,6 +154,7 @@
 			if (updateResult?.code === 'password_reconciliation_required') {
 				completion = reconciledPasswordState(updateResult);
 				password = confirmPassword = '';
+				if (completion === 'complete') finishPassword();
 				return;
 			}
 			if (hasPendingPasswordCompletion(updateResponse, updateResult)) {

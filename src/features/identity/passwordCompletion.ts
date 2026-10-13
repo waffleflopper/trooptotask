@@ -1,4 +1,4 @@
-const SAVED_STATES = ['started', 'pending', 'failed', 'expired', 'unavailable'] as const;
+const SAVED_STATES = ['started', 'pending', 'complete', 'failed', 'expired', 'unavailable'] as const;
 
 // A reconciliation reply names the saved outcome; only an unrecognized one is unknown.
 export function reconciledPasswordState(payload: unknown): (typeof SAVED_STATES)[number] {

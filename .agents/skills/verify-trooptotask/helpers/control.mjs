@@ -28,6 +28,7 @@ import { installFeedbackControl } from './feedback-control.mjs';
 import { readStyleProbe, diffStyleProbes, styleProperties, resolveStyleSelectors } from './style-probe.mjs';
 import { parseSweepArguments, runSweep, toolbarReadSource } from './toolbar-sweep.mjs';
 import { observePrint } from './print-observation.mjs';
+import { probeAdmission } from './admission-probe.mjs';
 import { seedPersonnelRetention, readRetentionFiles } from './personnel-retention.mjs';
 import { seedArtifactRetention } from './artifact-retention.mjs';
 import { seedMaintenance, readMaintenance } from './maintenance-fixtures.mjs';
@@ -604,6 +605,31 @@ async function main() {
 		const { factor, code } = await environment('totp-code', session, fixture.actors[role].id);
 		await fillPrivate(pageId, label, occurrence, code);
 		note({ pageId, role, label, occurrence: occurrence ?? 1, factor, filled: true });
+		return;
+	}
+	if (command === 'session-count') {
+		const [role] = args;
+		if (!fixture.identityActors.includes(role)) throw new Error('Use session-count IDENTITY_ROLE.');
+		const result = await environment('session-count', session, fixture.actors[role].id);
+		note({ role, sessions: result.sessions });
+		return;
+	}
+	if (command === 'admission-probe') {
+		const [role, otherRole] = args;
+		if (!fixture.actors[role]?.password || !fixture.actors[otherRole]?.id || role === otherRole)
+			throw new Error('Use admission-probe ROLE OTHER_ROLE with two synthetic actors.');
+		const config = await readJSON(path.join(session, 'provider.json'));
+		note(
+			await probeAdmission({
+				origin: doctor.origin,
+				providerUrl: config.API_URL,
+				anonKey: config.ANON_KEY,
+				email: fixture.actors[role].email,
+				password: fixture.actors[role].password,
+				otherUserId: fixture.actors[otherRole].id,
+				fetch
+			})
+		);
 		return;
 	}
 	if (command === 'session-age') {
@@ -2775,7 +2801,7 @@ async function main() {
 		return;
 	}
 	throw new Error(
-		'Use fixture, actor, rows, access-request, auth-link, setup-link, mail, mail-link, fault, mfa-code, session-age, password, password-commit, settings-request, deletion-request, personnel-archive-batch, deletion-review-failure, audit-training-update, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, private-buckets, roster-files, roster-replace, signed-download, calendar-grant, dashboard-access, server-source, seed, clean-seeds, retention, network, busy, export, print, style-probe, style-diff, toolbar-sweep, or workbook.'
+		'Use fixture, actor, rows, access-request, auth-link, setup-link, mail, mail-link, fault, mfa-code, session-age, session-count, admission-probe, password, password-commit, settings-request, deletion-request, personnel-archive-batch, deletion-review-failure, audit-training-update, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, private-buckets, roster-files, roster-replace, signed-download, calendar-grant, dashboard-access, server-source, seed, clean-seeds, retention, network, busy, export, print, style-probe, style-diff, toolbar-sweep, or workbook.'
 	);
 }
 

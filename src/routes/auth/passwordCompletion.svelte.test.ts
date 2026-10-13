@@ -155,6 +155,45 @@ describe.each(['security', 'recovery', 'invite'] as const)('%s confirmed complet
 		expect(screen.getByText('This attempt did not commit. Start a new password update to try again.')).toBeVisible();
 		expect(screen.queryByText(/outcome is unknown/)).toBeNull();
 	});
+	it('finishes when the first reply reports an update another tab already completed', async () => {
+		const finalized = vi.fn();
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (url, init) => {
+				if (url === '/api/auth/mfa/status') return Response.json({ currentLevel: 'aal2', nextLevel: 'aal2' });
+				if (url === '/api/auth/finalize-invite') {
+					finalized();
+					return Response.json({ ok: true, activated: true, unavailable: 0 });
+				}
+				if (JSON.parse(init.body).password)
+					return Response.json(
+						{
+							ok: false,
+							code: 'password_reconciliation_required',
+							state: 'complete',
+							error: 'Check the saved password update before continuing.'
+						},
+						{ status: 409 }
+					);
+				throw Error(`Unexpected ${url}`);
+			})
+		);
+		mount();
+		const password = await screen.findByLabelText(flow === 'invite' ? /^Password/ : /^New [Pp]assword/);
+		await fireEvent.input(password, { target: { value: 'NewPassword12' } });
+		await fireEvent.input(screen.getByLabelText(/^Confirm/), { target: { value: 'NewPassword12' } });
+		if (flow === 'security')
+			await fireEvent.input(document.getElementById('current-password')!, { target: { value: 'OldPassword12' } });
+		await fireEvent.submit(password.closest('form')!);
+		const finished = {
+			security: 'Your password is updated and other sessions have been signed out.',
+			recovery: 'Password updated',
+			invite: 'Account activated'
+		}[flow];
+		expect((await screen.findAllByText(finished))[0]).toBeVisible();
+		expect(screen.queryByText(/outcome is unknown/)).toBeNull();
+		expect(finalized).toHaveBeenCalledTimes(flow === 'invite' ? 1 : 0);
+	});
 	it('reconciles a lost initial response after reload and requires an explicit restart after fencing', async () => {
 		const requests: Record<string, unknown>[] = [];
 		vi.stubGlobal(

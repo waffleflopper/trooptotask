@@ -441,6 +441,18 @@ class SessionAgeTests(unittest.TestCase):
         self.assertEqual(owned.call_count, 1)
 
 
+class SessionCountTests(unittest.TestCase):
+    def test_counts_only_a_canonical_synthetic_account(self):
+        database = Mock()
+        database.count_sessions.return_value = 2
+        with patch.object(environment, "OwnedDatabase", return_value=database) as owned:
+            self.assertEqual(environment.session_count(Path("/unused"), USER), {"status": "PASS", "sessions": 2})
+            with self.assertRaises(environment.Blocked):
+                environment.session_count(Path("/unused"), ORG_A.upper())
+        database.count_sessions.assert_called_once_with(USER)
+        self.assertEqual(owned.call_count, 1)
+
+
 class VerificationAuthConfigTests(unittest.TestCase):
     def test_enables_only_totp_and_owned_redirects(self):
         source = tomllib.loads((Path(__file__).resolve().parents[2] / "supabase/config.toml").read_text())

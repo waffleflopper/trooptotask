@@ -129,6 +129,10 @@
 			if (updateResult?.code === 'password_reconciliation_required') {
 				completion = reconciledPasswordState(updateResult);
 				password = confirmPassword = '';
+				if (completion !== 'complete') return;
+				completion = null;
+				passwordSet = true;
+				await finalizeInvite();
 				return;
 			}
 			if (hasPendingPasswordCompletion(updateResponse, updateResult)) {

@@ -225,6 +225,14 @@ class OwnedDatabase:
         """).strip()
         return json.loads(output) if output else None
 
+    def count_sessions(self, user_id):
+        output = self._execute(f"""
+            SET statement_timeout = '10s';
+            SELECT count(*) FROM auth.sessions s JOIN auth.users u ON u.id = s.user_id
+            WHERE u.id = '{user_id}'::uuid AND u.email LIKE '%@example.test';
+        """).strip()
+        return int(output or 0)
+
     def age_sessions(self, user_id, hours):
         output = self._execute(f"""
             SET statement_timeout = '10s';
@@ -436,6 +444,11 @@ def session_age(session, user_id, hours):
     return {"status": "PASS", "sessions": aged, "hours": int(hours)}
 
 
+def session_count(session, user_id):
+    user_id = canonical_uuid(user_id)
+    return {"status": "PASS", "sessions": OwnedDatabase(session).count_sessions(user_id)}
+
+
 def verification_auth_config(config, origin):
     config["auth"]["site_url"] = origin
     config["auth"]["additional_redirect_urls"] = [origin]
@@ -542,6 +555,9 @@ def main():
     code = subcommands.add_parser("totp-code", help="Return only the current code for one synthetic account's newest TOTP factor")
     code.add_argument("session")
     code.add_argument("user_id")
+    count = subcommands.add_parser("session-count", help="Count one synthetic account's provider sessions")
+    count.add_argument("session")
+    count.add_argument("user_id")
     age = subcommands.add_parser("session-age", help="Move one synthetic account's provider session starts back 1-48 hours")
     age.add_argument("session")
     age.add_argument("user_id")
@@ -551,6 +567,8 @@ def main():
         session = private_session(args.session)
         if args.command == "totp-code":
             result = totp_code(session, args.user_id)
+        elif args.command == "session-count":
+            result = session_count(session, args.user_id)
         elif args.command == "session-age":
             result = session_age(session, args.user_id, args.hours)
         elif args.command == "deletion-review-failure":

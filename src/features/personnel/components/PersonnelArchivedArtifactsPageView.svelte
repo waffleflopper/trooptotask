@@ -17,6 +17,7 @@
 	let error = $state('');
 	let pendingDelete = $state<{ record: PersonnelArchivedArtifact; url: string } | null>(null);
 	let deleteError = $state('');
+	let notice = $state('');
 	let recordList = $state<HTMLElement | null>(null);
 
 	function formatDate(value: string | null | undefined) {
@@ -72,11 +73,15 @@
 	// The confirmation stays open until the request settles; a failure keeps it open to retry or cancel.
 	async function remove({ record, url }: { record: PersonnelArchivedArtifact; url: string }) {
 		deleteError = '';
+		notice = '';
 		actionKey = `${record.kind}:${record.id}`;
 		const index = records.findIndex((item) => item.id === record.id && item.kind === record.kind);
 		try {
 			const response = await fetch(url, { method: 'DELETE' });
 			if (!response.ok) throw new Error('Unable to delete archived item.');
+			const body: unknown = await response.json().catch(() => null);
+			if (body && typeof body === 'object' && 'fileCleanup' in body && body.fileCleanup === 'pending')
+				notice = `Deleted ${titleFor(record)}. Its stored file will be removed automatically.`;
 			localRecords = records.filter((item) => item.id !== record.id || item.kind !== record.kind);
 			pendingDelete = null;
 			focusAfterDialogCloses(() => {
@@ -103,6 +108,11 @@
 			{#if error}
 				<Alert.Root variant="destructive">
 					<Alert.Description>{error}</Alert.Description>
+				</Alert.Root>
+			{/if}
+			{#if notice}
+				<Alert.Root role="status">
+					<Alert.Description>{notice}</Alert.Description>
 				</Alert.Root>
 			{/if}
 			{#if records.length === 0}

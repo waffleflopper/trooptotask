@@ -32,12 +32,12 @@ async function runArchiveRetentionCleanupEndpoint(input: ArchiveRetentionEndpoin
 
 export const GET: RequestHandler = async ({ request }) => {
 	assertCronEndpointAuthorized(request.headers.get('authorization'), [env.CLEANUP_SECRET, env.CRON_SECRET]);
-	const { settings, criticalTasks, assignmentTypes, artifacts, personnel, notifications } =
+	const { settings, criticalTasks, assignmentTypes, artifacts, personnel, files, notifications } =
 		createArchiveRetentionSources();
 
 	return runArchiveRetentionCleanupEndpoint({
 		loadOrgConfigs: () => settings.listConfigurations(),
 		runCleanup: (configs) =>
-			cleanupArchivedRecords({ criticalTasks, assignmentTypes, artifacts, personnel, notifications }, configs)
+			cleanupArchivedRecords({ criticalTasks, assignmentTypes, artifacts, personnel, files, notifications }, configs)
 	});
 };

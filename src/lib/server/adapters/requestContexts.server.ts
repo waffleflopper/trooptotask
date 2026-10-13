@@ -687,7 +687,7 @@ export function createRequestDashboardSummaryContext(request: AdmittedOrganizati
 	};
 }
 
-/** Approved Deletion Request effects. Counseling rechecks the pending request before removing its file. */
+/** Approved Deletion Request effects. Counseling removes its file only after the approval commits. */
 export function createApprovedDeletionEffects(
 	ctx: ReturnType<typeof createRequestDeletionReviewContext>,
 	requirePending: (

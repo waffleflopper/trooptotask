@@ -4,6 +4,7 @@ import { fail } from '$lib/errors';
 import type { DeletionRequest } from './contracts';
 import type { ApprovedDeletionEffects, DeletionRequestStore } from './contracts.server';
 import type { NotificationDeliveryPort } from '$features/notifications/contracts';
+import type { FileCleanup } from '$features/organization/contracts';
 import { subjectDetails, reviewerDetails } from '$lib/audit/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { requireGovernancePolicy } from '$lib/access/index.server';
@@ -43,7 +44,7 @@ export async function approveDeletionRequest(
 	ctx: DeletionRequestReviewContext,
 	requestId: string,
 	effects: ApprovedDeletionEffects
-): Promise<void> {
+): Promise<{ fileCleanup: FileCleanup }> {
 	await requireGovernancePolicy(ctx, POLICY_ACTION_CATALOG.organization.reviewDeletionRequests);
 
 	const request = await fetchPendingRequest(ctx, requestId);
@@ -57,6 +58,7 @@ export async function approveDeletionRequest(
 	}
 
 	const reviewedAt = new Date().toISOString();
+	let fileCleanup: FileCleanup = 'complete';
 	if (resourceType === 'personnel') {
 		await effects.archivePersonnel(resourceId);
 		// Archival is idempotent, so a request whose status write fails can be approved again.
@@ -74,7 +76,8 @@ export async function approveDeletionRequest(
 			rating_scheme_entry: effects.approveRatingEntry,
 			counseling_record: effects.approveCounseling
 		}[resourceType];
-		await approveDeletion(boundRequestId, resourceId, reviewedAt);
+		const outcome = await approveDeletion(boundRequestId, resourceId, reviewedAt);
+		if (outcome) fileCleanup = outcome.fileCleanup;
 	}
 
 	// Notify the requester
@@ -101,6 +104,7 @@ export async function approveDeletionRequest(
 			})
 		}
 	});
+	return { fileCleanup };
 }
 
 export async function denyDeletionRequest(

@@ -206,6 +206,33 @@ function faults() {
 	return { control, passed };
 }
 
+test('artifact faults distinguish failed cleanup from a committed write with a lost reply', async () => {
+	for (const [name, method, endpoint, committed] of [
+		['document-file-remove', 'DELETE', '/storage/v1/object/personnel-documents', false],
+		['document-file-remove-lost-ack', 'DELETE', '/storage/v1/object/personnel-documents', true],
+		['counseling-file-remove', 'DELETE', '/storage/v1/object/counseling-files', false],
+		['counseling-file-remove-lost-ack', 'DELETE', '/storage/v1/object/counseling-files', true],
+		['document-attach-lost-ack', 'POST', '/rest/v1/personnel_documents', true],
+		['counseling-attach-lost-ack', 'POST', '/rest/v1/counseling_records', true]
+	]) {
+		const { control, passed } = faults();
+		control.command('fault-arm', { name });
+		for (const [url, requestMethod] of [
+			[`http://127.0.0.1:56322${endpoint}`, method],
+			[`${providerUrl}${endpoint}`, 'GET'],
+			[`${providerUrl}${endpoint}/unrelated`, method]
+		]) {
+			assert.equal((await control.fetch(url, { method: requestMethod })).status, 200);
+		}
+		assert.equal(control.command('fault-state').controls[name].matches, 0);
+		passed.length = 0;
+		assert.equal((await control.fetch(`${providerUrl}${endpoint}`, { method })).status, 503);
+		assert.equal(passed.length, committed ? 1 : 0);
+		assert.equal(control.command('fault-state').controls[name].call.providerStatus, committed ? 200 : undefined);
+		assert.equal((await control.fetch(`${providerUrl}${endpoint}`, { method })).status, 200);
+	}
+});
+
 test('each named fault matches only its allowlisted writes on the owned provider', async () => {
 	const cases = {
 		'setup-link-create': [

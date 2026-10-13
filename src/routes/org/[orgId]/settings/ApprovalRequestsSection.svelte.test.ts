@@ -7,7 +7,7 @@ import ApprovalRequestsSection from './ApprovalRequestsSection.svelte';
 import type { DeletionRequestApproval } from '$features/deletion-requests/contracts';
 
 const navigation = vi.hoisted(() => ({ invalidateAll: vi.fn() }));
-const feedback = vi.hoisted(() => ({ error: vi.fn(), warning: vi.fn(), success: vi.fn() }));
+const feedback = vi.hoisted(() => ({ error: vi.fn(), warning: vi.fn(), success: vi.fn(), info: vi.fn() }));
 vi.mock('$app/navigation', () => ({
 	invalidateAll: navigation.invalidateAll
 }));
@@ -192,6 +192,18 @@ describe('ApprovalRequestsSection', () => {
 			expect(screen.queryByText('Archived record A')).toBeNull();
 		}
 	);
+
+	it('says when an approved deletion still has file cleanup pending', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue(Response.json({ success: true, fileCleanup: 'pending' }, { status: 200 }))
+		);
+		mount();
+		await fireEvent.click(card('Archived record A').getByRole('button', { name: 'Approve Archived record A' }));
+		await waitFor(() => expect(navigation.invalidateAll).toHaveBeenCalledOnce());
+		expect(feedback.info).toHaveBeenCalledWith(expect.stringMatching(/file/i));
+		expect(feedback.error).not.toHaveBeenCalled();
+	});
 
 	it('preserves an unrelated denial draft when a different request is acknowledged', async () => {
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 200 })));

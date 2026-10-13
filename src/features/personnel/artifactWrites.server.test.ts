@@ -154,16 +154,14 @@ describe('Person-bound artifact writes', () => {
 		const file = new File(['pdf'], 'record.pdf', { type: 'application/pdf' });
 		const path = 'a1300000-0000-4000-8000-000000000001/counseling-records/person-1/record.pdf';
 		await writer.uploadFile('counseling', path, file);
-		await writer.removeFile('counseling', path);
 		expect(admin.storage.from).toHaveBeenCalledWith('counseling-files');
 		expect(admin.storageBucket.upload).toHaveBeenCalledWith(path, file, { upsert: false });
-		expect(admin.storageBucket.remove).toHaveBeenCalledWith([path]);
 		await expect(
-			writer.removeFile('document', 'a1300000-0000-4000-8000-000000000001/personnel/person-2/documents/x.pdf')
+			writer.uploadFile('document', 'a1300000-0000-4000-8000-000000000001/personnel/person-2/documents/x.pdf', file)
 		).rejects.toMatchObject({
 			status: 400
 		});
-		expect(admin.storageBucket.remove).toHaveBeenCalledTimes(1);
+		expect(admin.storageBucket.upload).toHaveBeenCalledTimes(1);
 	});
 
 	it('rejects an archive batch containing any out-of-Group Person before opening the service client', async () => {
@@ -214,10 +212,7 @@ describe('Person-bound artifact writes', () => {
 // tests and the actual SQL/RLS/native provider proofs.
 describe('Person-bound registered Storage transport', () => {
 	const kinds = ['document', 'counseling'] as const;
-	function finite(
-		kind: (typeof kinds)[number],
-		fault: 'upload-lost' | 'upload-key' | 'remove-empty' | 'remove-lost' | 'remove-array-like'
-	) {
+	function finite(kind: (typeof kinds)[number], fault: 'upload-lost' | 'upload-key') {
 		const actor = member('operate');
 		const bucket = kind === 'document' ? 'personnel-documents' : 'counseling-files';
 		const path =
@@ -251,12 +246,6 @@ describe('Person-bound registered Storage transport', () => {
 					Key: fault === 'upload-key' ? `${bucket}/wrong.pdf` : `${bucket}/${path}`
 				});
 			}
-			if (init?.method === 'DELETE' && url.pathname === `/storage/v1/object/${bucket}`) {
-				if (fault === 'remove-lost') throw new TypeError('Removal outcome unknown');
-				if (fault === 'remove-empty') return Response.json([]);
-				if (fault === 'remove-array-like') return Response.json({ length: 1, 0: { name: path } });
-				throw new Error('Unexpected removal');
-			}
 			throw new Error('Unexpected finite provider operation');
 		};
 		const client = createClient('http://artifact-upload.invalid', 'synthetic-key', {
@@ -285,14 +274,195 @@ describe('Person-bound registered Storage transport', () => {
 			}
 		}
 	);
-	it.each(kinds)('rejects unacknowledged %s compensation without releasing its registration', async (kind) => {
-		for (const fault of ['remove-empty', 'remove-lost', 'remove-array-like'] as const) {
-			const run = finite(kind, fault);
-			const writer = await run.writer;
-			await writer.uploadFile(kind, run.path, new File(['%PDF-1.7'], 'unique.pdf', { type: 'application/pdf' }));
-			await expect(writer.removeFile(kind, run.path)).rejects.toThrow();
-			expect(run.registrations.size).toBe(1);
-			expect(run.files.get(run.path)).toBe('%PDF-1.7');
+});
+
+describe('Person-bound file retirement transport', () => {
+	const actor = member('operate');
+	const PERSON = 'a1300000-0000-4000-8000-0000000000a1';
+	const OTHER_PERSON = 'a1300000-0000-4000-8000-0000000000b2';
+	const OTHER_ORG = 'a1300000-0000-4000-8000-0000000000c3';
+	const owned = {
+		document: { bucket: 'personnel-documents', path: `${actor.orgId}/personnel/${PERSON}/documents/unique.pdf` },
+		counseling: { bucket: 'counseling-files', path: `${actor.orgId}/counseling-records/${PERSON}/unique.pdf` }
+	} as const;
+	const path = owned.document.path;
+	const stored = `personnel-documents/${path}`;
+	function committedSqlModel(options: {
+		rows?: unknown;
+		attachedId?: string | null;
+		files?: string[];
+		storage?: 'ok' | 'lost';
+		personnelId?: string;
+	}) {
+		const files = new Set(options.files ?? []);
+		const completed: string[] = [];
+		const calls: Array<{ name: string; args: Record<string, unknown> }> = [];
+		const transport: typeof fetch = async (resource, init) => {
+			const url = new URL(String(resource));
+			if (url.pathname === '/rest/v1/personnel') return Response.json({ group_id: 'alpha' });
+			const args = init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : {};
+			if (url.pathname.startsWith('/rest/v1/rpc/')) {
+				const name = url.pathname.slice('/rest/v1/rpc/'.length);
+				calls.push({ name, args });
+				if (name === 'delete_archived_personnel_artifact') return Response.json(options.rows ?? []);
+				if (name === 'reconcile_personnel_file_attachment')
+					return options.attachedId === 'held-elsewhere'
+						? Response.json(
+								{ code: '23505', message: 'This stored file is attached to another record' },
+								{ status: 409 }
+							)
+						: Response.json(options.attachedId ?? null);
+				if (name === 'complete_organization_file_retirements') {
+					completed.push(...(args.p_object_names as string[]).map((name) => `${args.p_bucket_id}/${name}`));
+					return Response.json((args.p_object_names as string[]).length);
+				}
+			}
+			const bucket = init?.method === 'DELETE' && /^\/storage\/v1\/object\/([^/]+)$/.exec(url.pathname)?.[1];
+			if (bucket) {
+				calls.push({ name: `DELETE ${bucket}`, args });
+				if (options.storage === 'lost') throw new TypeError('Removal outcome unknown');
+				const { prefixes } = args as { prefixes: string[] };
+				return Response.json(prefixes.filter((name) => files.delete(`${bucket}/${name}`)).map((name) => ({ name })));
+			}
+			throw new Error(`Unexpected finite provider operation ${init?.method} ${url.pathname}`);
+		};
+		const client = createClient('http://artifact-retirement.invalid', 'synthetic-key', {
+			auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+			global: { fetch: transport }
+		});
+		return {
+			files,
+			completed,
+			calls,
+			writer: createSupabasePersonnelArtifactWritePort(client, () => client).forPerson(
+				actor,
+				options.personnelId ?? PERSON
+			)
+		};
+	}
+	const deleteArchived = async (
+		run: ReturnType<typeof committedSqlModel>,
+		kind: 'document' | 'counseling' = 'document'
+	) => (await run.writer).deleteArchivedFileArtifact(kind, 'doc-1', '2026-10-01T00:00:00+00:00');
+	const pending = { deleted: true, bucket_id: 'personnel-documents', object_name: path, file_removed: false };
+
+	it('deletes an archived metadata-only document whose bytes are already absent', async () => {
+		const run = committedSqlModel({ rows: [pending] });
+		await expect(deleteArchived(run)).resolves.toEqual({ deleted: true, fileCleanup: 'complete' });
+		expect(run.calls[0]).toEqual({
+			name: 'delete_archived_personnel_artifact',
+			args: {
+				p_organization_id: actor.orgId,
+				p_personnel_id: PERSON,
+				p_kind: 'document',
+				p_artifact_id: 'doc-1',
+				p_archived_at: '2026-10-01T00:00:00+00:00'
+			}
+		});
+		expect(run.completed).toEqual([stored]);
+	});
+
+	it.each(['document', 'counseling'] as const)(
+		'confirms each %s receipt state SQL emits, removing only a pending retired key',
+		async (kind) => {
+			const { bucket, path } = owned[kind];
+			const key = `${bucket}/${path}`;
+			const unretired = committedSqlModel({
+				rows: [{ deleted: true, bucket_id: null, object_name: null, file_removed: true }],
+				files: [key]
+			});
+			await expect(deleteArchived(unretired, kind)).resolves.toEqual({ deleted: true, fileCleanup: 'complete' });
+			const drained = committedSqlModel({
+				rows: [{ deleted: false, bucket_id: bucket, object_name: null, file_removed: true }],
+				files: [key]
+			});
+			await expect(deleteArchived(drained, kind)).resolves.toEqual({ deleted: false, fileCleanup: 'complete' });
+			for (const run of [unretired, drained]) {
+				expect(run.calls.map((call) => call.name)).toEqual(['delete_archived_personnel_artifact']);
+				expect(run.files).toEqual(new Set([key]));
+			}
+
+			const retry = committedSqlModel({
+				rows: [{ deleted: false, bucket_id: bucket, object_name: path, file_removed: false }],
+				files: [key]
+			});
+			await expect(deleteArchived(retry, kind)).resolves.toEqual({ deleted: false, fileCleanup: 'complete' });
+			expect(retry.files).toEqual(new Set());
+			expect(retry.completed).toEqual([key]);
 		}
+	);
+
+	it('accepts the lowercase SQL key when the route names the Person in uppercase', async () => {
+		const run = committedSqlModel({ rows: [pending], files: [stored], personnelId: PERSON.toUpperCase() });
+		await expect(deleteArchived(run)).resolves.toEqual({ deleted: true, fileCleanup: 'complete' });
+		expect(run.files).toEqual(new Set());
+		expect(run.completed).toEqual([stored]);
+	});
+
+	const foreignPerson = `${actor.orgId}/personnel/${OTHER_PERSON}/documents/unique.pdf`;
+	const foreignOrg = `${OTHER_ORG}/personnel/${PERSON}/documents/unique.pdf`;
+	const dotted = `${actor.orgId}/personnel/${PERSON}/documents/../../${OTHER_PERSON}/documents/unique.pdf`;
+	it.each([
+		['a pending row without a key', [{ ...pending, object_name: null }]],
+		['a pending row without a bucket', [{ ...pending, bucket_id: null }]],
+		['a pending row without a target', [{ ...pending, bucket_id: null, object_name: null }]],
+		['a completed row that still names a key', [{ ...pending, file_removed: true }]],
+		['the other family bucket', [{ ...pending, bucket_id: 'counseling-files' }]],
+		['another Person key', [{ ...pending, object_name: foreignPerson }]],
+		['another Organization key', [{ ...pending, object_name: foreignOrg }]],
+		['a counseling-family key', [{ ...pending, object_name: owned.counseling.path }]],
+		['a dot-segment key', [{ ...pending, object_name: dotted }]],
+		['a non-string key', [{ ...pending, object_name: 42 }]],
+		['missing target fields', [{ deleted: true, file_removed: false }]],
+		['no deleted flag', [{ bucket_id: 'personnel-documents', object_name: path, file_removed: false }]],
+		['a non-boolean deleted flag', [{ ...pending, deleted: 'true' }]],
+		['a non-array body', pending]
+	])('rejects a receipt with %s and leaves every stored file and retirement untouched', async (_label, rows) => {
+		const protectedFiles = [
+			stored,
+			`counseling-files/${path}`,
+			`personnel-documents/${foreignPerson}`,
+			`personnel-documents/${foreignOrg}`,
+			`personnel-documents/${owned.counseling.path}`,
+			`personnel-documents/${dotted}`
+		];
+		const run = committedSqlModel({ rows, files: protectedFiles });
+		await expect(deleteArchived(run)).rejects.toThrow('File artifact deletion was not acknowledged');
+		expect(run.calls.map((call) => call.name)).toEqual(['delete_archived_personnel_artifact']);
+		expect(run.files).toEqual(new Set(protectedFiles));
+	});
+
+	it('reports pending cleanup when the removal response is lost', async () => {
+		const run = committedSqlModel({ rows: [pending], files: [stored], storage: 'lost' });
+		await expect(deleteArchived(run)).resolves.toEqual({ deleted: true, fileCleanup: 'pending' });
+		expect(run.files).toEqual(new Set([stored]));
+		expect(run.completed).toEqual([]);
+	});
+
+	it('returns no deletion when neither the conditional delete nor a receipt applies', async () => {
+		const run = committedSqlModel({ rows: [] });
+		await expect(deleteArchived(run)).resolves.toBeNull();
+	});
+
+	it('returns an attached artifact without touching its bytes, or retires and removes an unattached key', async () => {
+		const attached = committedSqlModel({ attachedId: 'doc-7', files: [stored] });
+		await expect((await attached.writer).reconcileFileAttachment('document', path)).resolves.toBe('doc-7');
+		expect(attached.files).toEqual(new Set([stored]));
+		const unattached = committedSqlModel({ attachedId: null, files: [stored] });
+		await expect((await unattached.writer).reconcileFileAttachment('document', path)).resolves.toBeNull();
+		expect(unattached.files).toEqual(new Set());
+		expect(unattached.completed).toEqual([stored]);
+		await expect((await unattached.writer).reconcileFileAttachment('document', foreignPerson)).rejects.toMatchObject({
+			status: 400
+		});
+	});
+
+	it('keeps the bytes of a key another record still references when reconciliation refuses it', async () => {
+		const run = committedSqlModel({ attachedId: 'held-elsewhere', files: [stored] });
+		await expect((await run.writer).reconcileFileAttachment('document', path)).rejects.toThrow(
+			'This stored file is attached to another record'
+		);
+		expect(run.files).toEqual(new Set([stored]));
+		expect(run.completed).toEqual([]);
 	});
 });

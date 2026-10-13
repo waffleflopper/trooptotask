@@ -33,7 +33,7 @@ function renderView(records: PersonnelArchivedArtifact[]) {
 
 function heldFetch() {
 	const requests: Array<{ url: string; method: string | undefined }> = [];
-	const settlers: Array<(response: { ok: boolean }) => void> = [];
+	const settlers: Array<(response: { ok: boolean; json(): Promise<unknown> }) => void> = [];
 	vi.stubGlobal(
 		'fetch',
 		vi.fn((url: string, init?: { method?: string }) => {
@@ -41,7 +41,11 @@ function heldFetch() {
 			return new Promise((resolve) => settlers.push(resolve));
 		})
 	);
-	return { requests, settle: (index: number, ok: boolean) => settlers[index]({ ok }) };
+	return {
+		requests,
+		settle: (index: number, ok: boolean, body: unknown = { success: ok }) =>
+			settlers[index]({ ok, json: async () => body })
+	};
 }
 
 async function openDelete(title: string) {
@@ -64,6 +68,36 @@ afterEach(() => {
 });
 
 describe('archived item deletion', () => {
+	it('says when a deleted document still has file cleanup pending', async () => {
+		const held = heldFetch();
+		renderView([
+			{
+				kind: 'document',
+				id: 'd1',
+				personnelId: 'person-1',
+				title: 'Signed form',
+				fileName: 'form.pdf',
+				fileSizeBytes: 10,
+				contentType: 'application/pdf',
+				uploadedBy: 'SGT Lead',
+				createdAt: '2026-01-01T00:00:00Z',
+				archivedAt: '2026-02-01T00:00:00Z'
+			},
+			note('n1', 'Note')
+		]);
+
+		await confirmDelete(await openDelete('Signed form'));
+		held.settle(0, true, { success: true, fileCleanup: 'pending' });
+		await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+		expect(screen.getByRole('status').textContent).toContain('Signed form');
+		expect(screen.queryByRole('alert')).toBeNull();
+
+		await confirmDelete(await openDelete('Note'));
+		held.settle(1, true, { success: true });
+		await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+		expect(screen.queryByRole('status')).toBeNull();
+	});
+
 	it('keeps the confirmation open and busy until the request settles, then closes it', async () => {
 		const held = heldFetch();
 		renderView([note('n1', 'First note'), note('n2', 'Second note')]);

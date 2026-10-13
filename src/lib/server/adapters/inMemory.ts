@@ -17,6 +17,7 @@ import type {
 import type { OnboardingCatalogPersistence, OnboardingWorkflowPersistence } from '$features/onboarding/contracts';
 import type { TrainingCatalogPersistence, TrainingCompletionPersistence } from '$features/training/contracts';
 import { loadOrganizationMemberLabels, type OrganizationMemberLabelRow } from '$features/organization/index.server';
+import type { FileCleanup } from '$features/organization/contracts';
 import {
 	createInMemoryPersonnelRecordPersistence,
 	createInMemoryPersonnelRosterReader,
@@ -879,6 +880,19 @@ function createInMemoryPersonnelArtifactWritePort(
 	rawStore: FixtureRowStore,
 	storage: StoragePort
 ): PersonnelArtifactWritePort {
+	const retiredKeys = new Map<string, 'pending' | 'removed'>();
+	const deletionReceipts = new Map<string, { personnelId: string; retiredKey: string | null }>();
+	async function removeRetired(key: string | null): Promise<FileCleanup> {
+		if (!key || retiredKeys.get(key) !== 'pending') return 'complete';
+		const [bucket, ...path] = key.split('/');
+		try {
+			await storage.remove(bucket, [path.join('/')]);
+		} catch {
+			return 'pending';
+		}
+		retiredKeys.set(key, 'removed');
+		return 'complete';
+	}
 	return {
 		async findCounselingPersonId(actor, recordId) {
 			const row = await rawStore.findOne<{ personnel_id: string }>('counseling_records', actor.orgId, { id: recordId });
@@ -901,6 +915,22 @@ function createInMemoryPersonnelArtifactWritePort(
 				(!person.group_id || !actor.scopeSet.groupIds.includes(person.group_id))
 			) {
 				throw new RequestFailure(403, 'You do not have access to records outside your assigned scope');
+			}
+			const fileTable = (kind: 'counseling' | 'document') =>
+				kind === 'counseling' ? 'counseling_records' : 'personnel_documents';
+			const fileBucket = (kind: 'counseling' | 'document') =>
+				kind === 'counseling' ? 'counseling-files' : 'personnel-documents';
+			const filePrefix = (kind: 'counseling' | 'document') =>
+				kind === 'counseling'
+					? `${actor.orgId}/counseling-records/${personnelId}/`
+					: `${actor.orgId}/personnel/${personnelId}/documents/`;
+			const hasDotSegment = (path: string) => path.split('/').some((part) => part === '.' || part === '..');
+			async function retireUnreferenced(kind: 'counseling' | 'document', path: string) {
+				const key = `${fileBucket(kind)}/${path}`;
+				if (retiredKeys.has(key) || (await rawStore.findOne(fileTable(kind), actor.orgId, { file_path: path })))
+					return null;
+				retiredKeys.set(key, 'pending');
+				return key;
 			}
 			const rows = {
 				find<T>(table: string, id: string) {
@@ -943,24 +973,54 @@ function createInMemoryPersonnelArtifactWritePort(
 					if (!path.startsWith(prefix) || path.length === prefix.length) {
 						throw new RequestFailure(400, 'Artifact file path is outside the authorized Person');
 					}
-					await storage.upload(kind === 'counseling' ? 'counseling-files' : 'personnel-documents', path, file);
+					if (retiredKeys.has(`${fileBucket(kind)}/${path}`))
+						throw new Error('This stored file was deleted and cannot be reused');
+					await storage.upload(fileBucket(kind), path, file);
 					return { async complete() {} };
 				},
-				async removeFile(kind: 'counseling' | 'document', path: string) {
-					const prefix =
-						kind === 'counseling'
-							? `${actor.orgId}/counseling-records/${personnelId}/`
-							: `${actor.orgId}/personnel/${personnelId}/documents/`;
-					if (!path.startsWith(prefix) || path.length === prefix.length) {
+				async deleteArchivedFileArtifact(kind: 'counseling' | 'document', id: string, archivedAt: string | null) {
+					const table = fileTable(kind);
+					const receiptKey = `${actor.orgId}:${kind}:${id}`;
+					const row = await rawStore.findOne<{ archived_at: string | null; file_path: string | null }>(
+						table,
+						actor.orgId,
+						{ id, personnel_id: personnelId }
+					);
+					const deleted = !!row && archivedAt !== null && row.archived_at === archivedAt;
+					if (deleted) {
+						await rawStore.delete(table, actor.orgId, id);
+						const owned = row.file_path?.startsWith(filePrefix(kind)) && !hasDotSegment(row.file_path);
+						deletionReceipts.set(receiptKey, {
+							personnelId,
+							retiredKey: owned ? await retireUnreferenced(kind, row.file_path!) : null
+						});
+					}
+					const receipt = deletionReceipts.get(receiptKey);
+					if (!receipt || receipt.personnelId !== personnelId) return null;
+					return { deleted, fileCleanup: await removeRetired(receipt.retiredKey) };
+				},
+				async reconcileFileAttachment(kind: 'counseling' | 'document', path: string) {
+					if (!path.startsWith(filePrefix(kind)) || hasDotSegment(path)) {
 						throw new RequestFailure(400, 'Artifact file path is outside the authorized Person');
 					}
-					await storage.remove(kind === 'counseling' ? 'counseling-files' : 'personnel-documents', [path]);
+					const attached = await rawStore.findOne<{ id: string }>(fileTable(kind), actor.orgId, {
+						personnel_id: personnelId,
+						file_path: path
+					});
+					if (attached) return attached.id;
+					await removeRetired(await retireUnreferenced(kind, path));
+					return null;
+				},
+				async assertAttachable(kind: 'counseling' | 'document', path: string) {
+					if (retiredKeys.has(`${fileBucket(kind)}/${path}`))
+						throw new Error('This stored file was deleted and cannot be attached');
 				}
 			};
 			return {
 				findCounseling: (id) => rows.find<CounselingRecordRow>('counseling_records', id),
-				createCounseling: (input) =>
-					rows.insert<CounselingRecordRow>('counseling_records', {
+				async createCounseling(input) {
+					await rows.assertAttachable('counseling', input.filePath);
+					return rows.insert<CounselingRecordRow>('counseling_records', {
 						date_conducted: input.dateConducted,
 						title: input.title,
 						subject: input.title,
@@ -970,23 +1030,24 @@ function createInMemoryPersonnelArtifactWritePort(
 						file_path: input.filePath,
 						status: 'completed',
 						created_at: input.createdAt
-					}),
+					});
+				},
 				setCounselingArchivedAt: (id, archivedAt) =>
 					rows.update<CounselingRecordRow>('counseling_records', id, { archived_at: archivedAt }),
-				deleteCounseling: (id) => rows.delete('counseling_records', id),
 				findDocument: (id) => rows.find<PersonnelDocumentRow>('personnel_documents', id),
-				createDocument: (input) =>
-					rows.insert<PersonnelDocumentRow>('personnel_documents', {
+				async createDocument(input) {
+					await rows.assertAttachable('document', input.filePath);
+					return rows.insert<PersonnelDocumentRow>('personnel_documents', {
 						title: input.title,
 						file_path: input.filePath,
 						file_size_bytes: input.fileSizeBytes,
 						content_type: input.contentType,
 						uploaded_by: input.uploadedBy,
 						created_at: input.createdAt
-					}),
+					});
+				},
 				setDocumentArchivedAt: (id, archivedAt) =>
 					rows.update<PersonnelDocumentRow>('personnel_documents', id, { archived_at: archivedAt }),
-				deleteDocument: (id) => rows.delete('personnel_documents', id),
 				findFollowUp: (id) => rows.find<FollowUpRow>('personnel_follow_ups', id),
 				createFollowUp: (input) =>
 					rows.insert<FollowUpRow>('personnel_follow_ups', {
@@ -1021,7 +1082,8 @@ function createInMemoryPersonnelArtifactWritePort(
 				deleteLeaderNote: (id) => rows.delete('leader_notes', id),
 				sumActiveDocumentBytes: rows.sumActiveDocumentBytes,
 				uploadFile: rows.uploadFile,
-				removeFile: rows.removeFile
+				deleteArchivedFileArtifact: rows.deleteArchivedFileArtifact,
+				reconcileFileAttachment: rows.reconcileFileAttachment
 			};
 		},
 		async forPeople(actor, personnelIds) {

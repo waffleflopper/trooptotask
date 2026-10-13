@@ -24,7 +24,7 @@ export interface PersonnelPageAccess {
 	) => PersonnelAffordance;
 }
 
-import type { OrganizationFileUploadRegistration } from '$features/organization/contracts';
+import type { FileCleanup, OrganizationFileUploadRegistration } from '$features/organization/contracts';
 import { z } from 'zod';
 import type { OrganizationAccessGrant, ScopeSet } from '$lib/access/memberAccessShape';
 import type { Personnel, PersonnelLookup } from './personnel.types';
@@ -219,11 +219,9 @@ export interface PersonnelArtifactWriter {
 	findCounseling(id: string): Promise<CounselingRecordRow | null>;
 	createCounseling(input: CounselingCreate): Promise<CounselingRecordRow>;
 	setCounselingArchivedAt(id: string, archivedAt: string | null): Promise<CounselingRecordRow>;
-	deleteCounseling(id: string): Promise<void>;
 	findDocument(id: string): Promise<PersonnelDocumentRow | null>;
 	createDocument(input: DocumentCreate): Promise<PersonnelDocumentRow>;
 	setDocumentArchivedAt(id: string, archivedAt: string | null): Promise<PersonnelDocumentRow>;
-	deleteDocument(id: string): Promise<void>;
 	findFollowUp(id: string): Promise<FollowUpRow | null>;
 	createFollowUp(input: FollowUpCreate): Promise<FollowUpRow>;
 	patchFollowUp(id: string, input: FollowUpPatch): Promise<FollowUpRow>;
@@ -235,7 +233,18 @@ export interface PersonnelArtifactWriter {
 	sumActiveDocumentBytes(): Promise<number>;
 	/** The server implementation accepts only a File after runtime validation. */
 	uploadFile(kind: 'counseling' | 'document', path: string, file: unknown): Promise<OrganizationFileUploadRegistration>;
-	removeFile(kind: 'counseling' | 'document', path: string): Promise<void>;
+	/**
+	 * Deletes the record only while it is still archived at `archivedAt`. A
+	 * retry after the record is gone answers from its deletion receipt; null
+	 * means neither applies.
+	 */
+	deleteArchivedFileArtifact(
+		kind: 'counseling' | 'document',
+		id: string,
+		archivedAt: string | null
+	): Promise<{ deleted: boolean; fileCleanup: FileCleanup } | null>;
+	/** After an unconfirmed attachment: the record holding `path`, or null once the key is retired. */
+	reconcileFileAttachment(kind: 'counseling' | 'document', path: string): Promise<string | null>;
 }
 
 export interface PersonnelArtifactWritePort {
@@ -256,7 +265,7 @@ export interface PersonnelGovernanceDeletionPort {
 		requestId: string,
 		recordId: string,
 		reviewedAt: string
-	): Promise<void>;
+	): Promise<{ fileCleanup: FileCleanup }>;
 }
 
 /** Raw Personnel history included only in an authorized Organization data export. */

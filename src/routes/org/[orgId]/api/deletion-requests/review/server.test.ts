@@ -112,7 +112,7 @@ describe('POST /api/deletion-requests/review', () => {
 				{ id: 'request-1', action: 'approve' },
 				() => ctx
 			)
-		).resolves.toEqual({ success: true });
+		).resolves.toEqual({ success: true, fileCleanup: 'complete' });
 		await expect(ctx.rawStore.findMany('personnel_trainings', ctx.auth.orgId)).resolves.toEqual([
 			{ id: 'completion-2', organization_id: ctx.auth.orgId }
 		]);
@@ -149,7 +149,11 @@ describe('POST /api/deletion-requests/review', () => {
 			{ id: 'record-1', organization_id: 'other-org', personnel_id: 'person-2' }
 		]);
 
-		const approveCounseling = approveWith(ctx, 'counseling_records', 'counseling_record');
+		const deleteCounseling = approveWith(ctx, 'counseling_records', 'counseling_record');
+		const approveCounseling = async (requestId: string, id: string, reviewedAt: string) => {
+			await deleteCounseling(requestId, id, reviewedAt);
+			return { fileCleanup: 'pending' as const };
+		};
 		await expect(
 			handleUseCaseRequest(
 				configFor(ctx, { approveCounseling }),
@@ -158,7 +162,8 @@ describe('POST /api/deletion-requests/review', () => {
 				() => ctx
 			)
 		).resolves.toEqual({
-			success: true
+			success: true,
+			fileCleanup: 'pending'
 		});
 		expect(await ctx.rawStore.findOne('counseling_records', ctx.auth.orgId, { id: 'record-1' })).toBeNull();
 		expect(await ctx.rawStore.findOne('counseling_records', 'other-org', { id: 'record-1' })).not.toBeNull();
@@ -204,7 +209,7 @@ describe('POST /api/deletion-requests/review', () => {
 				},
 				() => ctx
 			)
-		).resolves.toEqual({ success: true });
+		).resolves.toEqual({ success: true, fileCleanup: 'complete' });
 		expect(approveTrainingType).toHaveBeenCalledWith('request-1', 'type-1', expect.any(String));
 		expect(await ctx.rawStore.findOne('training_types', ctx.auth.orgId, { id: 'type-1' })).toBeNull();
 		expect(await ctx.rawStore.findOne('deletion_requests', ctx.auth.orgId, { id: 'request-1' })).toMatchObject({

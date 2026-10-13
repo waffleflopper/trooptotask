@@ -16,6 +16,64 @@ Two independent read-only planning reviews covered security and reliability scop
 
 The owner directs use of current branch `chore/plan-stabilization-phase` and this worktree for D01. Only TODO/EVIDENCE planning edits remain local, to travel with D01's first substantive PR. State is READY, then STOP before implementation. No commit, push, PR, merge, deployment or later phase is authorized here. Repository CI performs no remote migration; Vercel may deploy on publication/merge and external deployment settings remain unverified. Existing RELEASE obligations still apply.
 
+## 11-04 D03 identity and web boundary repairs
+
+**In progress.** Child [#1641](https://github.com/waffleflopper/trooptotask/issues/1641) stays open. This first PR (`Refs #1641`) repairs the four defects the audit demonstrated. The remaining acceptance needs new provider fault controls, listed under **Remaining for #1641**, and has its own outcome.
+
+**Audit.** Three read-only source audits (web request boundaries; secrets, serialized data, logs and deployment; session, MFA and password admission) were followed by live reproduction. Two audits independently found the serialized session. Redirect validation found no open redirect (`//`, `/\`, scheme and dot-segment variants all fall back). SvelteKit's origin check covers every form action. JSON endpoints need a cross-site request that carries `SameSite=Lax` cookies, which browsers do not send. Cron routes compare their secret in constant time and fail closed. Privileged clients and private environment variables appear only in server modules. Repository CI and Vercel run no migration.
+
+**Baseline** on unchanged main `7060a4c5e` (digest `5dcbca5d`, worker 1, Chromium 152). Archive [`11-04-baseline.tar.gz`](https://github.com/waffleflopper/trooptotask/releases/download/evidence/11-04-baseline.tar.gz), SHA-256 `0b1baef65deede48a58a9d5b87c1a26581e13e93bc1914ae10a3a57b568d238f`, 10 inventoried files.
+
+| Case                    | Intended                                   | Observed before repair                                                                                                                                  | Result   |
+| ----------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| B1 F07 CSP requests     | No app request blocked; no local origin    | 11 signed-in pages: no blocked connection, image, frame or font. Production CSP has no local origin and the browser has no provider client              | PASS     |
+| B2 Serialized session   | Tokens stay in HttpOnly cookies            | `access_token` and `refresh_token` in every page's HTML and `__data.json`; `document.cookie` empty. Onboarding history and templates also returned them | FAIL     |
+| B3 Stale password state | A later sign-in gets a fresh password form | `This attempt expired or belongs to another session…` with Start new password update (the Phase 10 observation)                                         | FAIL     |
+| B4 MFA code rate        | A limit per account                        | 40 wrong codes to `/api/auth/mfa/verify` in seconds, all 401; only the general 60 per minute per address applies                                        | FAIL     |
+| B5 Encoded path         | `/%61uth/login` spends the `/auth/` budget | 12 sign-in POSTs through `/%61uth/login` all reached the action, past the 10 per 15 minutes limit                                                       | FAIL     |
+| B6 Early responses      | Security headers                           | Hook redirects (303) carry none; they have no body                                                                                                      | Recorded |
+
+Each Organization document also reports one `script-src` violation for `eval`. It is Zod 4's capability probe, `Function('')` inside `try`, which falls back to its non-eval parser. It is expected, not a blocked app request.
+
+**Root causes and repair.**
+
+- B2: `src/routes/+layout.server.ts` returned `locals.session`, and `App.PageData` typed it, so two Onboarding loads returned it to satisfy the type. The root layout now returns Identity's `IdentityViewer` (`userId`, `displayName`) only for an admitted actor. Members marks the current member by user ID instead of email. Critical Tasks reads the validator display name from `viewer`, removing two copies of the metadata parsing. The universal root `+layout.ts` and its test are deleted.
+- B3: `password_change_attempt` returned `expired` for any attempt from another session before considering its state, so even a read of a completed attempt failed. Migration `20261012000300_retire_completed_password_attempts.sql` treats a completed attempt from another session, or past its expiry, as retired history. Reads report no attempt and keep the row, so its own session can still finalize an invite. Begin and restart replace it with a new attempt ID, which keeps fencing its old provider markers. Unfinished attempts keep their binding. The TypeScript fake in `src/tests/fixtures/passwordAttempt.ts` mirrors the rule.
+- B4: codes for a verified factor (sign-in challenge and MFA disable) pass `admitMfaCodeAttempt` first: the existing durable limiter, 10 per account per 15 minutes, with no address dimension so a unit sharing one network does not exhaust it. Exhaustion returns 429 with `Retry-After`; an unavailable limiter denies with 503.
+- B5: the process-local limiter matched `event.url.pathname`, which stays percent-encoded, while SvelteKit routes the decoded path. It now decodes the path the same way before matching.
+- F07: the dead DEV-only `http://127.0.0.1:54321` connect source is removed, and so is `https://*.supabase.co`, which no browser code uses and which allowed sending data to any Supabase project. The production CSP gains no local origin.
+
+**Checks** on `431774778`. Format, lint (three pre-existing warnings), governance, `svelte-check` (0 errors) pass. `npm run test`: 7,844 pass. `scripts/module-boundaries.test.ts` times out at 5 s under full-suite load on this workstation and passes alone in 3.2 s; current-head CI owns the full suite. `scripts/ci/database.py` (Supabase CLI 2.101.0, disposable ports): fresh replay of 173 migrations and the staged upgrade of 143, 98 pg_prove files passing and none failing. `password_attempt_reconciliation.sql` has 47 assertions, including another session reading a completed attempt as absent while the row stays, a later sign-in beginning a new attempt with a new ID, an expired completed attempt reading as absent, and unfinished expiry surviving reload.
+
+**Final live journeys.** Candidate `431774778` (digest `b699b2ed`, worker 1, Chromium 152). Archive [`11-04-final.tar.gz`](https://github.com/waffleflopper/trooptotask/releases/download/evidence/11-04-final.tar.gz), SHA-256 `b102bb7c242f3b3222d21ba1a5cdfa5f091e86620590f0c7f0cb4433f52c02aa`, 22 inventoried files.
+
+| Baseline case | Final                                                                                                                                                                                                                                                       | Evidence |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| B1            | `connect-src 'self' https://vitals.vercel-insights.com`; 12 pages report only Zod's `eval` probe                                                                                                                                                            | F1, F2   |
+| B2            | No token field or `session` key in HTML or `__data.json` on 7 routes, including Onboarding history and templates as `onboardingConfigure`; no readable cookie. Root data is only `viewer`. The owner's Members page shows one `You`, on their own row of 68 | F3, F4   |
+| B3            | The completing session keeps its completed state after reload. A new sign-in's Security shows the empty password form, and a second change there succeeds                                                                                                   | F5       |
+| B4            | A correct code admits. After 10 codes in the window, the 11th returns 429 with `Too many authenticator codes. Please wait before trying again.` and `Retry-After: 856`; the current code is then refused too and the page stays on the challenge            | F6       |
+| B5            | `/%61uth/login` spent the remaining budget: 3 × 200, then 3 × 429, and plain `/auth/login` is 429                                                                                                                                                           | F7       |
+
+The first manager page-data read hit the general 60 per minute limit after the CSP sweep and returned 429 everywhere. It is kept in the archive as invalid and was repeated after the window. Synthetic accounts carry no name metadata, so the live `displayName` is null, as the old source also gave; component tests cover a named validator.
+
+**Recorded, not repaired.** These have no demonstrated unsafe effect:
+
+- Hook redirects, the 429 response and hook-thrown errors carry no security headers.
+- A cross-site JSON write without `Content-Type` bypasses SvelteKit's origin check, but arrives without the `SameSite=Lax` session.
+- `SignInRosterModal` opens a signed scan without `noopener`.
+- `/api/access-requests` and `/auth/renew-invite` log raw provider error objects.
+- `.gitignore` omits `.env.production`-style names.
+- Each 429 writes an audit row.
+
+Sign-in has no per-account limit; adding one would let anyone lock a known address out, which is a product decision. A suspended account can still change its own password through `/api/auth/update-password`; the documented suspension exceptions keep `/auth` and `/api/auth` reachable, and this grants no app access, so current behavior stays.
+
+**Owner checks.** Hosted Supabase sign-in and token-verification limits, Site URL and redirect allowlist for the email-change link, any custom provider domain, and Vercel's `X-Forwarded-For` handling are not inspected.
+
+**Remaining for #1641.** Revocation acknowledgment failure: a `pending` attempt can expire without another `signOut('others')`, and whether GoTrue revokes other sessions on password change is unverified; this needs a provider revocation fault control. Original session age and step-up expiry need live or fixed-time proof. Lost password and setup provider responses with resumed attempts need their recipe steps rerun against this candidate. `confirm-sensitive-action` replaces the session without revoking the old one. Each item ends with a repair or a recorded disposition.
+
+**Release.** See [RELEASE](RELEASE.md#phase-11-d03-identity-and-web-boundary-repairs).
+
 ## 11-03 D02 recoverable Organization creation
 
 **Ready to close.** Child [#1640](https://github.com/waffleflopper/trooptotask/issues/1640) closes on merge of the single PR from `chore/stabilize-1640`. Controls, baseline and repair travel together because the controls are a small extension of D01's provider faults and the repair removes every write they target.

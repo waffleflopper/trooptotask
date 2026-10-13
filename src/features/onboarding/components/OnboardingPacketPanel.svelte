@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import type { OnboardingPageContext } from '../contexts/OnboardingPageContext.svelte';
-	import { STEP_TYPE_LABELS, formatTimestamp } from '../contexts/OnboardingPageContext.svelte';
+	import { STEP_TYPE_LABELS } from '../contexts/OnboardingPageContext.svelte';
 	import type { OnboardingStepProgress, PersonnelOnboarding } from '../onboarding.types';
 	import { clockLabel, isStepStalled, summarizePacket, type Today } from '../onboardingStatus';
 	import { formatDisplayDate } from '$lib/utils/dates';
@@ -10,13 +10,14 @@
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import * as Collapsible from '$lib/components/ui/collapsible';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
-	import { Textarea } from '$lib/components/ui/textarea';
 	import Check from '@lucide/svelte/icons/check';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import CircleAlert from '@lucide/svelte/icons/circle-alert';
 	import Ellipsis from '@lucide/svelte/icons/ellipsis';
 	import X from '@lucide/svelte/icons/x';
 	import OnboardingStageControls from './OnboardingStageControls.svelte';
+	import { NoteDraft } from './noteDraft.svelte';
+	import OnboardingStepNotes from './OnboardingStepNotes.svelte';
 
 	interface Props {
 		ctx: OnboardingPageContext;
@@ -60,11 +61,7 @@
 	let openCardId = $state<string | undefined>(undefined);
 	let doneExpandedId = $state<string | null>(null);
 	let doneOpen = $state(false);
-	let noteStepId = $state<string | null>(null);
-	let noteText = $state('');
-	let savingNote = $state(false);
-	/** Identifies the draft a pending save belongs to, so a finished save closes only its own draft. */
-	let noteDraft = 0;
+	const noteDraft = new NoteDraft();
 
 	const cardId = $derived(
 		openCardId && openSteps.some((step) => step.id === openCardId) ? openCardId : (summary.focus?.id ?? null)
@@ -74,29 +71,6 @@
 		const stages = step.stages ?? [];
 		if (step.currentStage === null) return `Not started · ${stages.length} stages`;
 		return `${step.currentStage} · stage ${stages.indexOf(step.currentStage) + 1} of ${stages.length}`;
-	}
-
-	function openNote(step: OnboardingStepProgress) {
-		noteDraft++;
-		noteStepId = step.id;
-		noteText = '';
-		savingNote = false;
-	}
-
-	function cancelNote() {
-		noteDraft++;
-		noteStepId = null;
-	}
-
-	async function saveNote(step: OnboardingStepProgress) {
-		const text = noteText.trim();
-		if (!text) return;
-		const draft = noteDraft;
-		savingNote = true;
-		const saved = await ctx.handleAddNote(step, text);
-		if (draft !== noteDraft) return;
-		savingNote = false;
-		if (saved) noteStepId = null;
 	}
 </script>
 
@@ -124,40 +98,6 @@
 	{/if}
 {/snippet}
 
-{#snippet notes(step: OnboardingStepProgress)}
-	{#if step.notes.length > 0}
-		<ul class="grid gap-2" aria-label={`${step.stepName} notes`}>
-			{#each step.notes as note, index (index)}
-				<li class="grid gap-0.5">
-					<p class="text-sm italic text-foreground">{note.text}</p>
-					<p class="font-mono text-xs text-muted-foreground">{formatTimestamp(note.timestamp)}</p>
-				</li>
-			{/each}
-		</ul>
-	{/if}
-	{#if canManage}
-		{#if noteStepId === step.id}
-			<form
-				class="grid gap-2"
-				onsubmit={(event) => {
-					event.preventDefault();
-					void saveNote(step);
-				}}
-			>
-				<Textarea bind:value={noteText} aria-label={`Note for ${step.stepName}`} rows={2} />
-				<div class="flex justify-end gap-2">
-					<Button type="button" variant="ghost" size="sm" onclick={cancelNote}>Cancel</Button>
-					<Button type="submit" size="sm" disabled={savingNote || !noteText.trim()}>Save note</Button>
-				</div>
-			</form>
-		{:else}
-			<Button variant="link" size="none" class="justify-self-end p-0 text-sm" onclick={() => openNote(step)}>
-				Add note
-			</Button>
-		{/if}
-	{/if}
-{/snippet}
-
 {#snippet stepCard(step: OnboardingStepProgress)}
 	<div
 		class={[
@@ -178,7 +118,7 @@
 				{@render trainingLink()}
 			</div>
 		{/if}
-		{@render notes(step)}
+		<OnboardingStepNotes {ctx} {step} {canManage} draft={noteDraft} />
 	</div>
 {/snippet}
 

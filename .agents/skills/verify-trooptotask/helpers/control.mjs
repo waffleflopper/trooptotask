@@ -1559,6 +1559,7 @@ async function main() {
 				'onboarding-history',
 				'onboarding-consumers',
 				'onboarding-status',
+				'onboarding-matrix',
 				'onboarding-retention',
 				'onboarding-retention-1001',
 				'audit',

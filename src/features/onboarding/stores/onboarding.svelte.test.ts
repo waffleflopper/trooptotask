@@ -1117,6 +1117,38 @@ describe('onboardingStore step progress time and notes', () => {
 		expect(onboardingStore.getById('ob-1')?.steps[0]).toEqual({ ...paperworkOnboarding.steps[0], notes: savedNotes });
 	});
 
+	describe('overlapping note saves', () => {
+		const first = { text: 'First', timestamp: '2026-10-13T15:00:01.000Z', userId: 'operator' };
+		const second = { text: 'Second', timestamp: '2026-10-13T15:00:02.000Z', userId: 'operator' };
+		const saved = paperworkOnboarding.steps[0].notes;
+
+		it.each([
+			['in order', [0, 1]],
+			['out of order', [1, 0]]
+		])('keeps both notes when the answers arrive %s', async (_label, order) => {
+			const firstResponse = deferredResponse();
+			const secondResponse = deferredResponse();
+			vi.stubGlobal(
+				'fetch',
+				vi.fn().mockReturnValueOnce(firstResponse.promise).mockReturnValueOnce(secondResponse.promise)
+			);
+
+			const firstSave = onboardingStore.addNote('step-1', 'First');
+			const secondSave = onboardingStore.addNote('step-1', 'Second');
+			const answers = [
+				() => firstResponse.respond(Response.json({ id: 'step-1', notes: [...saved, first] })),
+				() => secondResponse.respond(Response.json({ id: 'step-1', notes: [...saved, first, second] }))
+			];
+			for (const index of order) {
+				answers[index]();
+				await Promise.resolve();
+			}
+			await expect(Promise.all([firstSave, secondSave])).resolves.toEqual([true, true]);
+
+			expect(onboardingStore.getById('ob-1')?.steps[0].notes).toEqual([...saved, first, second]);
+		});
+	});
+
 	it('keeps the saved notes when adding a note fails', async () => {
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(new Response(null, { status: 500 })));
 

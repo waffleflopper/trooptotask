@@ -73,7 +73,7 @@ For durable publication, follow [artifact packaging](../../../../docs/architectu
 ### Onboarding
 
 - [Onboarding templates and configuration](onboarding-templates.md): template/step lifecycle, ordering, duplication, independent lookups, linked history, scope and failure/retry.
-- [Onboarding packets, progress and history](onboarding-packets.md): start, packet status and stalled-first order, checkbox/paperwork/Training progress, notes, lifecycle, template reconciliation, scope and failure recovery.
+- [Onboarding packets, progress and history](onboarding-packets.md): start, packet status and stalled-first order, checkbox/paperwork/Training progress, notes, lifecycle, template reconciliation, the List/Matrix view, scope and failure recovery.
 - [Onboarding and Sign-in Roster states](onboarding-roster-states.md): list rows, packet panel, stage controls, History, Templates and roster modal controls, and per-screen loading, empty, no-match, error, denied, narrow and dark states.
 
 ### Evals

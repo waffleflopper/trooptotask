@@ -242,13 +242,15 @@ SELECT throws_ok($$ UPDATE public.personnel_documents SET personnel_id = 'f40000
 
 -- Stored artifact files are removed by the server after archive-before-delete;
 -- an Organization owner still removes retained files during cleanup.
-SELECT pg_temp.act_as('f4000000-0000-4000-8000-000000000002');
+SELECT pg_temp.act_as('f4000000-0000-4000-8000-000000000003');
+SELECT is((SELECT count(*)::integer FROM storage.objects WHERE id::text LIKE 'f4000000-%'), 4,
+	'a Personnel configurator reads the in-Group document and counseling files');
 WITH removed AS (
 	DELETE FROM storage.objects WHERE id IN ('f4000000-0000-4000-8000-000000000541', 'f4000000-0000-4000-8000-000000000543') RETURNING id
-) SELECT is((SELECT count(*)::integer FROM removed), 0, 'a Personnel operator cannot remove an active document or counseling file through Storage');
+) SELECT is((SELECT count(*)::integer FROM removed), 0, 'a Personnel configurator cannot remove an active document or counseling file through Storage');
 WITH removed AS (
 	DELETE FROM storage.objects WHERE id IN ('f4000000-0000-4000-8000-000000000542', 'f4000000-0000-4000-8000-000000000544') RETURNING id
-) SELECT is((SELECT count(*)::integer FROM removed), 0, 'a Personnel operator cannot remove an archived artifact file outside the server deletion');
+) SELECT is((SELECT count(*)::integer FROM removed), 0, 'a Personnel configurator cannot remove a deleted record''s file outside the server deletion');
 SELECT pg_temp.act_as('f4000000-0000-4000-8000-000000000001');
 WITH removed AS (
 	DELETE FROM storage.objects WHERE id = 'f4000000-0000-4000-8000-000000000543' RETURNING id
@@ -323,7 +325,7 @@ SELECT is(
 	'[["f4000000-0000-4000-8000-000000000611","Alpha Step","checkbox",null,"0","false","true"],["f4000000-0000-4000-8000-000000000612","Alpha CLS","training","f4000000-0000-4000-8000-000000000401","10","true","true"]]'::jsonb,
 	'an Onboarding operator starts a packet with exactly its prepared template steps');
 SELECT throws_ok($$ SELECT public.reconcile_onboarding_packet('f4000000-0000-4000-8000-000000000101',
-	(SELECT id FROM public.personnel_onboardings WHERE personnel_id = 'f4000000-0000-4000-8000-000000000306'), 'f4000000-0000-4000-8000-000000000602') $$,
+	(SELECT id FROM public.personnel_onboardings WHERE personnel_id = 'f4000000-0000-4000-8000-000000000306' AND status = 'in_progress'), 'f4000000-0000-4000-8000-000000000602') $$,
 	'42501', NULL, 'an Onboarding operator cannot reconcile a packet to another template');
 SELECT is(
 	(SELECT public.append_onboarding_step_note('f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000713', 'Own note') -> 'notes' -> 1 ->> 'userId'),
@@ -334,7 +336,7 @@ SELECT pg_temp.act_as('f4000000-0000-4000-8000-000000000003');
 SELECT is(
 	(SELECT jsonb_agg(jsonb_build_array(step ->> 'template_step_id', step ->> 'step_name', step ->> 'step_type', step -> 'stages', step ->> 'sort_order', step ->> 'current_stage', step ->> 'active') ORDER BY (step ->> 'active')::boolean DESC, (step ->> 'sort_order')::integer)
 		FROM jsonb_array_elements(public.reconcile_onboarding_packet('f4000000-0000-4000-8000-000000000101',
-			(SELECT id FROM public.personnel_onboardings WHERE personnel_id = 'f4000000-0000-4000-8000-000000000306'), 'f4000000-0000-4000-8000-000000000602') -> 'steps') AS step),
+			(SELECT id FROM public.personnel_onboardings WHERE personnel_id = 'f4000000-0000-4000-8000-000000000306' AND status = 'in_progress'), 'f4000000-0000-4000-8000-000000000602') -> 'steps') AS step),
 	'[["f4000000-0000-4000-8000-000000000621","Replacement Paperwork","paperwork",["Submitted","Filed"],"10","Submitted","true"],["f4000000-0000-4000-8000-000000000622","Replacement Check","checkbox",null,"20",null,"true"],["f4000000-0000-4000-8000-000000000611","Alpha Step","checkbox",null,"0",null,"false"],["f4000000-0000-4000-8000-000000000612","Alpha CLS","training",null,"10",null,"false"]]'::jsonb,
 	'an Onboarding configurator reconciles a packet to its new template steps');
 SELECT is(

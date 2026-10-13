@@ -4,7 +4,7 @@ RESET ROLE;
 SELECT set_config('request.jwt.claim.sub', '', false);
 INSERT INTO auth.users(id,email)
 SELECT ('f4600000-0000-4000-8000-' || lpad(n::text,12,'0'))::uuid,
-  'feature-writes-upgrade-' || n || '@example.test' FROM generate_series(1,2) n;
+  'feature-writes-upgrade-' || n || '@example.test' FROM generate_series(1,3) n;
 INSERT INTO public.organizations(id,name,created_by) VALUES
 ('f4600000-0000-4000-8000-000000000101','Feature Writes Upgrade','f4600000-0000-4000-8000-000000000001');
 INSERT INTO public.organization_memberships(
@@ -12,7 +12,9 @@ INSERT INTO public.organization_memberships(
 ) VALUES
 ('f4600000-0000-4000-8000-000000000101','f4600000-0000-4000-8000-000000000001','owner','editor','{}','organization',ARRAY[]::uuid[]),
 ('f4600000-0000-4000-8000-000000000101','f4600000-0000-4000-8000-000000000002','member','viewer',
-  '{"personnel":"operate","onboarding":"operate"}','organization',ARRAY[]::uuid[]);
+  '{"personnel":"operate","onboarding":"operate"}','organization',ARRAY[]::uuid[]),
+('f4600000-0000-4000-8000-000000000101','f4600000-0000-4000-8000-000000000003','member','viewer',
+  '{"personnel":"configure"}','organization',ARRAY[]::uuid[]);
 INSERT INTO public.personnel(id,organization_id,rank,last_name,first_name,slug,archived_at) VALUES
 ('f4600000-0000-4000-8000-000000000301','f4600000-0000-4000-8000-000000000101','SGT','Active','Avery','feature-upgrade-active',NULL),
 ('f4600000-0000-4000-8000-000000000302','f4600000-0000-4000-8000-000000000101','SPC','Archived','Blake','feature-upgrade-archived','2029-01-01T00:00:00Z');

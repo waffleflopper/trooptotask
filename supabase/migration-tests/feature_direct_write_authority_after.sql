@@ -43,9 +43,12 @@ SELECT throws_ok(
 SELECT is((SELECT count(*)::integer FROM public.personnel_onboardings WHERE id='f4600000-0000-4000-8000-000000000701'),1,
   'an operate member still reads the saved packet through the moved scope checks');
 SELECT set_config('storage.allow_delete_query','true',true);
+SELECT set_config('request.jwt.claim.sub','f4600000-0000-4000-8000-000000000003',true);
+SELECT is((SELECT count(*)::integer FROM storage.objects WHERE id='f4600000-0000-4000-8000-000000000541'),1,
+  'a Personnel configurator reads the saved document file');
 WITH removed AS (
   DELETE FROM storage.objects WHERE id='f4600000-0000-4000-8000-000000000541' RETURNING id
-) SELECT is((SELECT count(*)::integer FROM removed),0,'an operate member cannot remove a saved active document file through Storage');
+) SELECT is((SELECT count(*)::integer FROM removed),0,'a Personnel configurator cannot remove a saved active document file through Storage');
 SELECT set_config('request.jwt.claim.sub','f4600000-0000-4000-8000-000000000001',true);
 WITH removed AS (
   DELETE FROM storage.objects WHERE id='f4600000-0000-4000-8000-000000000541' RETURNING id

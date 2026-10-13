@@ -74,6 +74,32 @@ describe('buildHistory', () => {
 		]);
 	});
 
+	it('orders packets finished on the same day by the time they were cancelled, latest first', () => {
+		const { rows } = buildHistory(
+			[
+				cancelled('a-morning', '2026-09-01', '2026-09-28T09:00:00Z'),
+				cancelled('z-evening', '2026-09-01', '2026-09-28T17:00:00Z'),
+				cancelled('m-noon', '2026-09-01', '2026-09-28T12:30:00Z')
+			],
+			TODAY
+		);
+
+		expect(rows.map((row) => [row.packet.id, row.finishedOn])).toEqual([
+			['z-evening', '2026-09-28'],
+			['m-noon', '2026-09-28'],
+			['a-morning', '2026-09-28']
+		]);
+	});
+
+	it('puts a packet cancelled during a day above one completed that day, whose time is not recorded', () => {
+		const { rows } = buildHistory(
+			[completed('done', '2026-09-01', '2026-09-28'), cancelled('stopped', '2026-09-01', '2026-09-28T09:00:00Z')],
+			TODAY
+		);
+
+		expect(rows.map((row) => row.packet.id)).toEqual(['stopped', 'done']);
+	});
+
 	it('counts days taken from start date to finish date, for cancelled packets too', () => {
 		const { rows } = buildHistory(
 			[completed('done', '2026-09-01', '2026-09-30'), cancelled('stopped', '2026-08-21', '2026-08-28T10:00:00Z')],

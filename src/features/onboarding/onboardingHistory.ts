@@ -31,7 +31,7 @@ export interface HistoryOverview {
 }
 
 export interface History {
-	/** Most recently finished first. */
+	/** Most recently finished first, by the full cancellation time where there is one. */
 	rows: HistoryRow[];
 	overview: HistoryOverview;
 }
@@ -67,10 +67,16 @@ export interface HistoryNote {
 	text: string;
 }
 
+/** When the outcome was recorded: the cancellation time, or the completion date, which has no time of day. */
+function finishedAt(packet: PersonnelOnboarding): string {
+	return (packet.status === 'cancelled' ? packet.cancelledAt : packet.completedAt) ?? packet.startedAt;
+}
+
 function finishedOn(packet: PersonnelOnboarding): string {
-	const finish = packet.status === 'cancelled' ? packet.cancelledAt : packet.completedAt;
-	if (finish === null) return packet.startedAt;
-	return packet.status === 'cancelled' ? new Date(finish).toISOString().slice(0, 10) : finish;
+	const finish = finishedAt(packet);
+	return packet.status === 'cancelled' && packet.cancelledAt !== null
+		? new Date(finish).toISOString().slice(0, 10)
+		: finish;
 }
 
 function isFinished(packet: PersonnelOnboarding): packet is PersonnelOnboarding & { status: HistoryOutcome } {
@@ -98,7 +104,10 @@ export function buildHistory(packets: readonly PersonnelOnboarding[], todayDate:
 				total
 			};
 		})
-		.sort((a, b) => b.finishedOn.localeCompare(a.finishedOn) || a.packet.id.localeCompare(b.packet.id));
+		.sort(
+			(a, b) =>
+				Date.parse(finishedAt(b.packet)) - Date.parse(finishedAt(a.packet)) || a.packet.id.localeCompare(b.packet.id)
+		);
 
 	const recent = rows.filter((row) => row.finishedOn >= since && row.finishedOn <= todayDate);
 	return {

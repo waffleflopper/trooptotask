@@ -68,7 +68,8 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261012000500_suspension_sql_admission.sql",
     "20261012000600_feature_direct_write_authority.sql",
     "20261012000700_group_catalog_scope.sql",
-    "20261013000100_onboarding_step_progress_changed_at.sql",
+    "20261013000100_personnel_file_retirement.sql",
+    "20261013000200_onboarding_step_progress_changed_at.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",
@@ -99,6 +100,7 @@ STAGED_UPGRADE_FIXTURES = (
     "suspension_sql_admission_before.sql",
     "feature_direct_write_authority_before.sql",
     "group_catalog_scope_before.sql",
+    "personnel_file_retirement_before.sql",
 )
 STAGED_UPGRADE_CONTRACTS = (
     "account_setup_populated_after.sql",
@@ -131,6 +133,7 @@ STAGED_UPGRADE_CONTRACTS = (
     "suspension_sql_admission_after.sql",
     "feature_direct_write_authority_after.sql",
     "group_catalog_scope_after.sql",
+    "personnel_file_retirement_after.sql",
 )
 
 _receipt = None

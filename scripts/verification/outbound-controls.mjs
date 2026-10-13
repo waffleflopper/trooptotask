@@ -3,6 +3,12 @@ const write = (method, path, options = {}) => Object.freeze({ method, path, ...o
 // `query` and `body` narrow a call to exact top-level values (`true` only requires the body key);
 // `afterCommit` lets the provider commit, then loses its reply.
 export const PROVIDER_FAULTS = Object.freeze({
+	'document-file-remove': [write('DELETE', '/storage/v1/object/personnel-documents')],
+	'document-file-remove-lost-ack': [write('DELETE', '/storage/v1/object/personnel-documents', { afterCommit: true })],
+	'counseling-file-remove': [write('DELETE', '/storage/v1/object/counseling-files')],
+	'counseling-file-remove-lost-ack': [write('DELETE', '/storage/v1/object/counseling-files', { afterCommit: true })],
+	'document-attach-lost-ack': [write('POST', '/rest/v1/personnel_documents', { afterCommit: true })],
+	'counseling-attach-lost-ack': [write('POST', '/rest/v1/counseling_records', { afterCommit: true })],
 	'setup-link-create': [write('POST', '/rest/v1/rpc/issue_account_setup_link')],
 	'invitation-access-link': [write('POST', '/rest/v1/rpc/link_organization_invitation_access_request')],
 	'invitation-block': [write('PATCH', '/rest/v1/organization_invitations', { body: { status: 'blocked' } })],

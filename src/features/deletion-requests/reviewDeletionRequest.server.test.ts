@@ -71,7 +71,10 @@ function effectsFor(
 		approveTrainingType: transactionalApproval(ctx, 'training_types', 'training_type'),
 		approveTrainingRecord: transactionalApproval(ctx, 'personnel_trainings', 'personnel_training'),
 		approveRatingEntry: transactionalApproval(ctx, 'rating_scheme_entries', 'rating_scheme_entry'),
-		approveCounseling: transactionalApproval(ctx, 'counseling_records', 'counseling_record'),
+		approveCounseling: async (requestId, id, reviewedAt) => {
+			await transactionalApproval(ctx, 'counseling_records', 'counseling_record')(requestId, id, reviewedAt);
+			return { fileCleanup: 'pending' };
+		},
 		...overrides
 	};
 }
@@ -313,7 +316,9 @@ describe('approveDeletionRequest', () => {
 		seedPendingRequest(ctx, { resource_type: 'counseling_record', resource_id: 'cr-1' });
 		ctx.store.seed('counseling_records', [{ id: 'cr-1', organization_id: 'test-org', personnel_id: 'p-1' }]);
 
-		await approveDeletionRequest({ ...ctx, store: ctx.requests }, 'dr-1', effectsFor(ctx));
+		await expect(approveDeletionRequest({ ...ctx, store: ctx.requests }, 'dr-1', effectsFor(ctx))).resolves.toEqual({
+			fileCleanup: 'pending'
+		});
 
 		expect(await ctx.store.findOne('counseling_records', 'test-org', { id: 'cr-1' })).toBeNull();
 		expect(await ctx.store.findOne('deletion_requests', 'test-org', { id: 'dr-1' })).toMatchObject({
@@ -382,9 +387,9 @@ describe('approveDeletionRequest', () => {
 		expect(ctx.notifications.notifications).toEqual([]);
 		expect(ctx.audit.events).toEqual([]);
 
-		await expect(
-			approveDeletionRequest({ ...ctx, store: ctx.requests }, 'dr-1', effectsFor(ctx))
-		).resolves.toBeUndefined();
+		await expect(approveDeletionRequest({ ...ctx, store: ctx.requests }, 'dr-1', effectsFor(ctx))).resolves.toEqual({
+			fileCleanup: 'pending'
+		});
 		await expect(ctx.store.findOne('counseling_records', 'test-org', { id: 'cr-1' })).resolves.toBeNull();
 		await expect(ctx.store.findOne('deletion_requests', 'test-org', { id: 'dr-1' })).resolves.toMatchObject({
 			status: 'approved'
@@ -590,9 +595,9 @@ describe('approveDeletionRequest', () => {
 			throw new Error('notification failed');
 		};
 
-		await expect(
-			approveDeletionRequest({ ...ctx, store: ctx.requests }, 'dr-1', effectsFor(ctx))
-		).resolves.toBeUndefined();
+		await expect(approveDeletionRequest({ ...ctx, store: ctx.requests }, 'dr-1', effectsFor(ctx))).resolves.toEqual({
+			fileCleanup: 'complete'
+		});
 
 		const request = await ctx.store.findOne<Record<string, unknown>>('deletion_requests', 'test-org', { id: 'dr-1' });
 		expect(request).toMatchObject({ status: 'approved' });

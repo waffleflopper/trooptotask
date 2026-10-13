@@ -307,8 +307,7 @@ describe('personnel documents', () => {
 		).rejects.toMatchObject({ status: 409 });
 	});
 
-	it('retains row-before-file deletion and suppresses the success audit when Storage fails', async () => {
-		const ctx = configureContext();
+	async function archivedDocument(ctx: ReturnType<typeof configureContext>) {
 		seedPersonnel(ctx);
 		const context = testPersonnelArtifactsContext(ctx);
 		const created = await createPersonnelDocument(context, {
@@ -316,17 +315,110 @@ describe('personnel documents', () => {
 			file: new File([PDF_BYTES], 'signed.pdf', { type: 'application/pdf' })
 		});
 		await archivePersonnelDocument(context, { personnelId: 'person-1', documentId: created.id });
-		const priorEvents = [...ctx.auditPort.events];
+		return { context, created };
+	}
+
+	it('reports a committed deletion with pending file cleanup and completes it on retry', async () => {
+		const ctx = configureContext();
+		const { context, created } = await archivedDocument(ctx);
+		const remove = ctx.storagePort.remove;
 		ctx.storagePort.remove = async () => {
-			expect(await ctx.rawStore.findOne('personnel_documents', ctx.auth.orgId, { id: created.id })).toBeNull();
 			throw new Error('Storage unavailable');
 		};
-		await expect(deletePersonnelDocument(context, { personnelId: 'person-1', documentId: created.id })).rejects.toThrow(
-			'Storage unavailable'
-		);
+		await expect(
+			deletePersonnelDocument(context, { personnelId: 'person-1', documentId: created.id })
+		).resolves.toEqual({ fileCleanup: 'pending' });
 		expect(await ctx.rawStore.findOne('personnel_documents', ctx.auth.orgId, { id: created.id })).toBeNull();
 		expect(ctx.storagePort.files).toHaveLength(1);
-		expect(ctx.auditPort.events).toEqual(priorEvents);
+		expect(ctx.auditPort.events.filter((event) => event.action === 'personnel.document.deleted')).toHaveLength(1);
+
+		ctx.storagePort.remove = remove;
+		await expect(
+			deletePersonnelDocument(context, { personnelId: 'person-1', documentId: created.id })
+		).resolves.toEqual({ fileCleanup: 'complete' });
+		expect(ctx.storagePort.files).toEqual([]);
+		expect(ctx.auditPort.events.filter((event) => event.action === 'personnel.document.deleted')).toHaveLength(1);
+	});
+
+	it('deletes a metadata-only archived document whose file is already absent', async () => {
+		const ctx = configureContext();
+		const { context, created } = await archivedDocument(ctx);
+		ctx.storagePort.files.length = 0;
+		await expect(
+			deletePersonnelDocument(context, { personnelId: 'person-1', documentId: created.id })
+		).resolves.toEqual({ fileCleanup: 'complete' });
+		expect(await ctx.rawStore.findOne('personnel_documents', ctx.auth.orgId, { id: created.id })).toBeNull();
+	});
+
+	it('answers a retried deletion from its durable receipt only while the Person remains accessible', async () => {
+		const ctx = configureContext();
+		const { context, created } = await archivedDocument(ctx);
+		await deletePersonnelDocument(context, { personnelId: 'person-1', documentId: created.id });
+		await expect(
+			deletePersonnelDocument(context, { personnelId: 'person-1', documentId: created.id })
+		).resolves.toEqual({ fileCleanup: 'complete' });
+		await expect(
+			deletePersonnelDocument(context, { personnelId: 'person-1', documentId: 'never-existed' })
+		).rejects.toMatchObject({ status: 404 });
+		await ctx.rawStore.delete('personnel', ctx.auth.orgId, 'person-1');
+		await expect(
+			deletePersonnelDocument(context, { personnelId: 'person-1', documentId: created.id })
+		).rejects.toMatchObject({ status: 404 });
+	});
+
+	it('keeps a document restored or re-archived after the delete read it', async () => {
+		for (const winner of [null, '2026-10-13T00:00:00.000Z']) {
+			const ctx = configureContext();
+			const { context, created } = await archivedDocument(ctx);
+			const admitted = context.writerFor.bind(context);
+			context.writerFor = async (id) => {
+				const writer = await admitted(id);
+				return {
+					...writer,
+					async findDocument(documentId: string) {
+						const row = structuredClone(await writer.findDocument(documentId));
+						await ctx.rawStore.update('personnel_documents', ctx.auth.orgId, documentId, { archived_at: winner });
+						return row;
+					}
+				};
+			};
+			await expect(
+				deletePersonnelDocument(context, { personnelId: 'person-1', documentId: created.id })
+			).rejects.toMatchObject({ status: 409 });
+			expect(await ctx.rawStore.findOne('personnel_documents', ctx.auth.orgId, { id: created.id })).toMatchObject({
+				archived_at: winner
+			});
+			expect(ctx.storagePort.files).toHaveLength(1);
+		}
+	});
+
+	it('keeps bytes still referenced by another historical document', async () => {
+		const ctx = configureContext();
+		const { context, created } = await archivedDocument(ctx);
+		const row = await ctx.rawStore.findOne<{ file_path: string }>('personnel_documents', ctx.auth.orgId, {
+			id: created.id
+		});
+		ctx.store.seed('personnel_documents', [
+			{
+				id: 'shared-document',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'person-1',
+				title: 'Shared',
+				file_path: row!.file_path,
+				file_size_bytes: PDF_BYTES.byteLength,
+				content_type: 'application/pdf',
+				uploaded_by: '1SG',
+				created_at: '2026-04-01T10:00:00Z',
+				archived_at: null
+			}
+		]);
+		await expect(
+			deletePersonnelDocument(context, { personnelId: 'person-1', documentId: created.id })
+		).resolves.toEqual({ fileCleanup: 'complete' });
+		expect(ctx.storagePort.files).toHaveLength(1);
+		await expect(
+			createPersonnelDocumentDownloadUrl(context, { personnelId: 'person-1', documentId: 'shared-document' })
+		).resolves.toMatchObject({ url: expect.stringContaining(row!.file_path) });
 	});
 
 	it('does not mutate a document belonging to another Person in the same Organization', async () => {

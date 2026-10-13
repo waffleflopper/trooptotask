@@ -134,7 +134,7 @@ const artifactWrites = [
 			}),
 		find: (w: PersonnelArtifactWriter, id: string) => w.findCounseling(id),
 		archive: (w: PersonnelArtifactWriter, id: string, at: string | null) => w.setCounselingArchivedAt(id, at),
-		remove: (w: PersonnelArtifactWriter, id: string) => w.deleteCounseling(id)
+		remove: null
 	},
 	{
 		name: 'document',
@@ -151,7 +151,7 @@ const artifactWrites = [
 			}),
 		find: (w: PersonnelArtifactWriter, id: string) => w.findDocument(id),
 		archive: (w: PersonnelArtifactWriter, id: string, at: string | null) => w.setDocumentArchivedAt(id, at),
-		remove: (w: PersonnelArtifactWriter, id: string) => w.deleteDocument(id)
+		remove: null
 	},
 	{
 		name: 'follow-up',
@@ -221,14 +221,16 @@ describe('finite Personnel artifact SDK writes', () => {
 			const persisted = service.state.rows[c.table].find((r) => r.id === 'saved-1');
 			expect(persisted).toMatchObject({ organization_id: 'org-a', personnel_id: 'person-a' });
 			expect(service.state.rows[c.table].filter((r) => r.id !== 'saved-1')).toEqual(witnesses);
-			await c.remove(writer, 'saved-1');
-			expect(await c.find(writer, 'saved-1')).toBeNull();
-			expect(service.state.rows[c.table]).toEqual(witnesses);
+			if (c.remove) {
+				await c.remove(writer, 'saved-1');
+				expect(await c.find(writer, 'saved-1')).toBeNull();
+				expect(service.state.rows[c.table]).toEqual(witnesses);
+			}
 			service.state.failure = () => ({ code: '42501', message: 'Artifact write denied', status: 403 });
 			await expect(c.create(writer)).rejects.toThrow('Artifact write denied');
 			await expect(c.archive(writer, 'foreign', null)).rejects.toThrow('Artifact write denied');
-			await expect(c.remove(writer, 'foreign')).rejects.toThrow('Artifact write denied');
-			expect(service.state.rows[c.table]).toEqual(witnesses);
+			if (c.remove) await expect(c.remove(writer, 'foreign')).rejects.toThrow('Artifact write denied');
+			expect(service.state.rows[c.table].filter((r) => r.id !== 'saved-1')).toEqual(witnesses);
 		}
 	);
 	it('denies missing and out-of-Group parents before privileged construction', async () => {

@@ -1,4 +1,5 @@
 import type { DeletionRequest, PendingDeletionRequestSummary } from './contracts';
+import type { FileCleanup } from '$features/organization/contracts';
 
 export interface PendingDeletionTarget {
 	resourceType: string;
@@ -51,13 +52,14 @@ export interface DeletionRequestSubmissionPort {
  * type, Training record and Rating entry approvals delete the target and approve
  * the request in one transaction, so a target missing from the Organization
  * leaves the request pending. Personnel approval archives the Person, then
- * writes the request status separately. Counseling approval removes the stored
- * file before the transaction that deletes the record and approves the request.
+ * writes the request status separately. Counseling approval deletes the record
+ * and approves the request in one transaction, then removes the stored file or
+ * leaves it for scheduled cleanup.
  */
 export interface ApprovedDeletionEffects {
 	archivePersonnel(personnelId: string): Promise<void>;
 	approveTrainingType(requestId: string, typeId: string, reviewedAt: string): Promise<void>;
 	approveTrainingRecord(requestId: string, recordId: string, reviewedAt: string): Promise<void>;
 	approveRatingEntry(requestId: string, entryId: string, reviewedAt: string): Promise<void>;
-	approveCounseling(requestId: string, recordId: string, reviewedAt: string): Promise<void>;
+	approveCounseling(requestId: string, recordId: string, reviewedAt: string): Promise<{ fileCleanup: FileCleanup }>;
 }

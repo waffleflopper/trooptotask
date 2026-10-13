@@ -1,8 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { evaluatePolicyDecision, POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { createSupabaseStorageAdapter } from '$lib/server/adapters/supabaseStorage';
 import type { PersonnelGovernanceDeletionPort } from './contracts';
-import { artifactFileTarget } from './artifactWrites.server';
+import { finishFileCleanup, parseFileDeletion, type FileDeletion } from './artifactWrites.server';
 import { fail } from '$lib/errors';
 
 /** An Organization reviewer can delete exactly one of its counseling records. */
@@ -40,11 +39,6 @@ export function createSupabasePersonnelGovernanceDeletionPort(
 			if (readError) throw new Error(readError.message);
 			if (!row) fail(404, 'Counseling record not found');
 
-			if (row.file_path) {
-				const bucket = artifactFileTarget('counseling', actor.orgId, row.personnel_id, row.file_path);
-				await createSupabaseStorageAdapter(admin).remove(bucket, [row.file_path]);
-			}
-
 			const { error } = await admin.rpc('approve_counseling_deletion_request', {
 				p_organization_id: actor.orgId,
 				p_request_id: requestId,
@@ -55,6 +49,27 @@ export function createSupabasePersonnelGovernanceDeletionPort(
 			});
 			if (error?.code === 'P0002') fail(404, error.message);
 			if (error) throw new Error(error.message);
+
+			const receipt = await admin.rpc('personnel_file_artifact_deletion', {
+				p_organization_id: actor.orgId,
+				p_personnel_id: row.personnel_id,
+				p_kind: 'counseling',
+				p_artifact_id: recordId
+			});
+			let deletion: FileDeletion | null = null;
+			try {
+				deletion = receipt.error
+					? null
+					: parseFileDeletion(receipt.data, {
+							kind: 'counseling',
+							orgId: actor.orgId,
+							personnelId: row.personnel_id,
+							expectedPath: row.file_path
+						});
+			} catch {
+				return { fileCleanup: 'pending' };
+			}
+			return { fileCleanup: deletion ? await finishFileCleanup(admin, deletion) : 'pending' };
 		}
 	};
 }

@@ -1095,6 +1095,29 @@ async function main() {
 		note({ organization, ...Object.fromEntries(results) });
 		return;
 	}
+	if (command === 'artifact-deletion') {
+		const [orgKey, personnelId, kind, artifactId] = args;
+		const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+		if (
+			args.length !== 4 ||
+			!uuid.test(personnelId ?? '') ||
+			!uuid.test(artifactId ?? '') ||
+			!['document', 'counseling'].includes(kind)
+		)
+			throw new Error('Use artifact-deletion orgA|orgB PERSON_ID document|counseling ARTIFACT_ID.');
+		const organizationId = org(orgKey);
+		const client = await provider();
+		const receipt = checked(
+			await client.rpc('personnel_file_artifact_deletion', {
+				p_organization_id: organizationId,
+				p_personnel_id: personnelId,
+				p_kind: kind,
+				p_artifact_id: artifactId
+			})
+		);
+		note({ organization: orgKey, personnelId, kind, artifactId, receipt });
+		return;
+	}
 	if (command === 'artifact-files') {
 		const [orgKey, personnelId, ...recordedPaths] = args;
 		if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(personnelId ?? ''))
@@ -2808,7 +2831,7 @@ async function main() {
 		return;
 	}
 	throw new Error(
-		'Use fixture, actor, rows, access-request, auth-link, setup-link, mail, mail-link, fault, mfa-code, session-age, session-count, admission-probe, password, password-commit, settings-request, deletion-request, personnel-archive-batch, deletion-review-failure, audit-training-update, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, private-buckets, roster-files, roster-replace, signed-download, calendar-grant, dashboard-access, server-source, seed, clean-seeds, retention, network, busy, export, print, style-probe, style-diff, toolbar-sweep, or workbook.'
+		'Use fixture, actor, rows, access-request, auth-link, setup-link, mail, mail-link, fault, mfa-code, session-age, session-count, admission-probe, password, password-commit, settings-request, deletion-request, personnel-archive-batch, deletion-review-failure, audit-training-update, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, artifact-deletion, private-buckets, roster-files, roster-replace, signed-download, calendar-grant, dashboard-access, server-source, seed, clean-seeds, retention, network, busy, export, print, style-probe, style-diff, toolbar-sweep, or workbook.'
 	);
 }
 

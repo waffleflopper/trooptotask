@@ -347,7 +347,7 @@ describe('personnel counseling records', () => {
 		).rejects.toMatchObject({ status: 409 });
 	});
 
-	it('retains row-before-file deletion and suppresses the success audit when Storage fails', async () => {
+	it('reports a committed deletion with pending file cleanup and completes it on retry', async () => {
 		const ctx = configureContext();
 		seedPersonnel(ctx);
 		const context = testPersonnelArtifactsContext(ctx);
@@ -358,17 +358,24 @@ describe('personnel counseling records', () => {
 			file: new File(VALID_PDF_BYTES, 'signed.pdf', { type: 'application/pdf' })
 		});
 		await archivePersonnelCounselingRecord(context, { personnelId: 'person-1', recordId: created.id });
-		const priorEvents = [...ctx.auditPort.events];
+		const remove = ctx.storagePort.remove;
 		ctx.storagePort.remove = async () => {
-			expect(await ctx.rawStore.findOne('counseling_records', ctx.auth.orgId, { id: created.id })).toBeNull();
 			throw new Error('Storage unavailable');
 		};
 		await expect(
 			deletePersonnelCounselingRecord(context, { personnelId: 'person-1', recordId: created.id })
-		).rejects.toThrow('Storage unavailable');
+		).resolves.toEqual({ fileCleanup: 'pending' });
 		expect(await ctx.rawStore.findOne('counseling_records', ctx.auth.orgId, { id: created.id })).toBeNull();
 		expect(ctx.storagePort.files).toHaveLength(1);
-		expect(ctx.auditPort.events).toEqual(priorEvents);
+
+		ctx.storagePort.remove = remove;
+		await expect(
+			deletePersonnelCounselingRecord(context, { personnelId: 'person-1', recordId: created.id })
+		).resolves.toEqual({ fileCleanup: 'complete' });
+		expect(ctx.storagePort.files).toEqual([]);
+		expect(ctx.auditPort.events.filter((event) => event.action === 'personnel.counseling_record.deleted')).toHaveLength(
+			1
+		);
 	});
 
 	it('does not mutate a counseling belonging to another Person in the same Organization', async () => {

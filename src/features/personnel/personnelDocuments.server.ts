@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { PersonnelArtifactArchiveState, PersonnelDocument } from './contracts';
 import type { PersonnelArtifactWriter } from '$features/personnel/contracts';
+import type { FileCleanup } from '$features/organization/contracts';
 import { derivePersonnelDocumentTitle } from '$features/personnel/utils/documentTitles';
 import { fail } from '$lib/errors';
 import { hasPdfFileSignature } from '$lib/storage/fileSignatures';
@@ -12,7 +13,6 @@ import {
 	type PersonnelDocumentRow
 } from './personnelArtifactContext.server';
 
-export const PERSONNEL_DOCUMENTS_BUCKET = 'personnel-documents';
 export const MAX_PERSONNEL_DOCUMENT_BYTES = 10 * 1024 * 1024;
 
 const ACCEPTED_DOCUMENT_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/heic', 'image/heif']);
@@ -130,7 +130,7 @@ export async function createPersonnelDocument(
 	const filePath = `${ctx.actor.orgId}/personnel/${input.personnelId}/documents/${crypto.randomUUID()}-${filename}`;
 	const upload = await writer.uploadFile('document', filePath, rawInput.file);
 
-	let row: PersonnelDocumentRow;
+	let row: PersonnelDocumentRow | null;
 	try {
 		row = await writer.createDocument({
 			title: derivePersonnelDocumentTitle({ title: input.title, filename: rawInput.file.name }),
@@ -149,9 +149,12 @@ export async function createPersonnelDocument(
 		)
 			throw new Error('Uploaded artifact attachment was not acknowledged');
 	} catch (error) {
-		await writer.removeFile('document', filePath);
-		await upload.complete();
-		throw error;
+		const attachedId = await writer.reconcileFileAttachment('document', filePath);
+		row = attachedId ? await writer.findDocument(attachedId) : null;
+		if (!row) {
+			await upload.complete();
+			throw error;
+		}
 	}
 	await upload.complete();
 
@@ -209,12 +212,15 @@ export async function restorePersonnelDocument(
 export async function deletePersonnelDocument(
 	ctx: PersonnelArtifactsContext,
 	input: { personnelId: string; documentId: string }
-): Promise<void> {
-	const { writer, row } = await loadDocumentForWrite(ctx, input.personnelId, input.documentId);
-	if (!row.archived_at) fail(409, 'Archive documents before deleting them');
-	await writer.deleteDocument(input.documentId);
-	await writer.removeFile('document', row.file_path);
-	ctx.audit.log({ action: 'personnel.document.deleted', resourceType: 'personnel', resourceId: input.personnelId });
+): Promise<{ fileCleanup: FileCleanup }> {
+	const writer = await personnelArtifactWriter(ctx, input.personnelId);
+	const row = await writer.findDocument(input.documentId);
+	if (row && !row.archived_at) fail(409, 'Archive documents before deleting them');
+	const result = await writer.deleteArchivedFileArtifact('document', input.documentId, row?.archived_at ?? null);
+	if (!result) fail(row ? 409 : 404, row ? 'Document changed before it was deleted' : 'Document not found');
+	if (result.deleted)
+		ctx.audit.log({ action: 'personnel.document.deleted', resourceType: 'personnel', resourceId: input.personnelId });
+	return { fileCleanup: result.fileCleanup };
 }
 
 function fileNameFromPath(path: string): string {

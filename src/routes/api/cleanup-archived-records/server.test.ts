@@ -11,6 +11,12 @@ const { getAdminClient, env } = vi.hoisted(() => ({
 vi.mock('$lib/server/supabase', () => ({ getAdminClient }));
 vi.mock('$env/dynamic/private', () => ({ env }));
 
+const artifactTables = new Set(['personnel_follow_ups', 'counseling_records', 'personnel_documents', 'leader_notes']);
+
+function deletedCount(count: number) {
+	return new Response(null, { status: 204, headers: { 'content-range': `*/${count}` } });
+}
+
 function request(authorization?: string) {
 	return {
 		request: new Request('https://example.test/api/cleanup-archived-records', {
@@ -100,6 +106,16 @@ function retentionProvider(table: 'leader_notes' | 'personnel_onboardings' | 'pe
 						throw new Error('Parent deletion is outside the requested Organization');
 					state.deleted = true;
 					return Response.json(1);
+				}
+				if (resource === 'list_pending_organization_file_retirements' && method === 'POST') return Response.json([]);
+				if (method === 'DELETE' && artifactTables.has(resource!)) {
+					const expired =
+						resource === table &&
+						url.searchParams.get('organization_id') === 'eq.org-1' &&
+						url.searchParams.getAll('archived_at').some((filter) => filter.startsWith('lt.')) &&
+						!state.deleted;
+					if (expired) state.deleted = true;
+					return deletedCount(expired ? 1 : 0);
 				}
 				if (resource === table) {
 					const scoped = url.searchParams.get('organization_id') === 'eq.org-1';
@@ -249,7 +265,9 @@ function organizationEnumerationProvider(count: number) {
 					state.criticalTaskOrganizations.push(p_org_id);
 					return Response.json(0);
 				}
-				if (method !== 'GET' || !url.pathname.startsWith('/rest/v1/')) {
+				if (table === 'list_pending_organization_file_retirements' && method === 'POST') return Response.json([]);
+				const emptyArtifactDelete = method === 'DELETE' && artifactTables.has(table);
+				if ((method !== 'GET' && !emptyArtifactDelete) || !url.pathname.startsWith('/rest/v1/')) {
 					state.unexpectedEffects.push({ method, path: url.pathname });
 					throw new Error('Empty discovery fixture must not mutate rows or invoke Storage');
 				}
@@ -283,7 +301,7 @@ function organizationEnumerationProvider(count: number) {
 					throw new Error('Resource discovery must target a known Organization');
 				}
 				state.resourceReads.push({ table, organizationId, query: url.search });
-				return Response.json([]);
+				return emptyArtifactDelete ? deletedCount(0) : Response.json([]);
 			}
 		}
 	});

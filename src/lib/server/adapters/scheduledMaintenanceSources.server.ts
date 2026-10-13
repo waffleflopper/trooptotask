@@ -1,4 +1,3 @@
-import { createSupabaseStorageAdapter } from '$lib/server/adapters/supabaseStorage';
 import { getAdminClient } from '$lib/server/supabase';
 import { cleanupAuditLogs } from '$lib/audit/index.server';
 import { createSupabaseAssignmentTypeRetention } from '$features/calendar/index.server';
@@ -7,7 +6,8 @@ import { createSupabaseNotificationDelivery } from '$features/notifications/inde
 import { createSupabaseOnboardingRetentionSource } from '$features/onboarding/index.server';
 import {
 	createSupabaseOrganizationAdministratorRecipients,
-	createSupabaseOrganizationRetentionSettingsReader
+	createSupabaseOrganizationRetentionSettingsReader,
+	drainRetiredOrganizationFiles
 } from '$features/organization/index.server';
 import {
 	createSupabasePersonnelArtifactRetentionSource,
@@ -27,13 +27,13 @@ function createRequiredNotificationDelivery(admin: ReturnType<typeof getAdminCli
 
 export function createArchiveRetentionSources() {
 	const admin = getAdminClient();
-	const storage = createSupabaseStorageAdapter(admin);
 	return {
 		settings: createSupabaseOrganizationRetentionSettingsReader(admin),
 		criticalTasks: createSupabaseCriticalTaskRetentionSource(admin),
 		assignmentTypes: createSupabaseAssignmentTypeRetention(admin),
-		artifacts: createSupabasePersonnelArtifactRetentionSource(admin, storage),
-		personnel: createSupabasePersonnelRetentionSource(admin, storage),
+		artifacts: createSupabasePersonnelArtifactRetentionSource(admin),
+		personnel: createSupabasePersonnelRetentionSource(admin),
+		files: { drainRetiredFiles: () => drainRetiredOrganizationFiles(admin) },
 		notifications: createRequiredNotificationDelivery(admin)
 	};
 }

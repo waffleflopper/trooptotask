@@ -1,5 +1,11 @@
 <script lang="ts">
-	import { OnboardingPageContext, OnboardingActiveView, MODAL_IDS, loadOnboardingModals } from '$features/onboarding';
+	import {
+		OnboardingPageContext,
+		OnboardingActiveView,
+		MODAL_IDS,
+		loadOnboardingModals,
+		noteAuthorLookup
+	} from '$features/onboarding';
 	import type { OnboardingWorkspaceResult } from '$features/onboarding/contracts';
 	import { untrack } from 'svelte';
 	import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
@@ -57,7 +63,11 @@
 	});
 
 	const workspacePending = $derived(!!data.onboarding?.data && onboardingBootstrap === null && loadError === null);
-	const ctx = $derived(onboardingBootstrap ? new OnboardingPageContext(modals, org) : null);
+	const ctx = $derived(
+		onboardingBootstrap
+			? new OnboardingPageContext(modals, org, noteAuthorLookup(onboardingBootstrap.data.noteAuthors, org.userId))
+			: null
+	);
 	$effect(() => {
 		const context = ctx;
 		return () => context?.dispose();

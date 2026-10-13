@@ -411,6 +411,81 @@ export async function seedOnboarding({ client, fixture, kind, tag, ownedState, s
 				]
 			]
 		);
+	} else if (kind === 'onboarding-history-view') {
+		const daysAgo = (days) => new Date(Date.now() - days * 86400000).toISOString();
+		const dateAgo = (days) => daysAgo(days).slice(0, 10);
+		const secondTemplate = {
+			id: randomUUID(),
+			organization_id: fixture.ids.orgA,
+			name: 'History PCS In-Processing ' + tag,
+			description: 'Temporary second template for the History filters'
+		};
+		const examples = [
+			// key, group, template, started days ago, finished days ago, status
+			['alphaFast', 'groupA', 'onboardingTemplate', 40, 31, 'completed'],
+			['alphaMid', 'groupA', secondTemplate.id, 50, 39, 'completed'],
+			['bravoMid', 'groupB', 'onboardingTemplate', 45, 32, 'completed'],
+			['bravoSlow', 'groupB', secondTemplate.id, 80, 34, 'completed'],
+			['alphaCancelled', 'groupA', 'onboardingTemplate', 20, 12, 'cancelled'],
+			['bravoOld', 'groupB', 'onboardingTemplate', 130, 120, 'completed'],
+			['bravoCancelledLate', 'groupB', 'onboardingTemplate', 15, 12, 'cancelled']
+		];
+		people = examples.map(([key, group]) => ({
+			id: randomUUID(),
+			organization_id: fixture.ids.orgA,
+			group_id: fixture.ids[group],
+			rank: key.startsWith('alpha') ? 'SGT' : 'SPC',
+			first_name: key,
+			last_name: 'HistoryView' + tag,
+			mos: key.endsWith('Mid') ? '68W' : '11B',
+			slug: 'map-history-view-' + key.toLowerCase() + '-' + tag
+		}));
+		packets = examples.map(([key, _group, template, started, finished, status], index) => ({
+			id: randomUUID(),
+			organization_id: fixture.ids.orgA,
+			personnel_id: people[index].id,
+			template_id: fixture.ids[template] ?? template,
+			started_at: dateAgo(started),
+			completed_at: status === 'completed' ? dateAgo(finished) : null,
+			// Both cancellations fall on one day, so their order shows in the list.
+			cancelled_at:
+				status === 'cancelled' ? dateAgo(finished) + (key === 'alphaCancelled' ? 'T09:00:00Z' : 'T17:00:00Z') : null,
+			status,
+			key
+		}));
+		const former = randomUUID();
+		// orgAdmin's membership carries an email, which is the label the app shows for it.
+		const authors = [fixture.actors.onboardingConfigure.id, fixture.actors.orgAdmin.id, former];
+		progress = packets.flatMap((packet, packetIndex) =>
+			[
+				['Checkbox', 'checkbox', true, true, null],
+				['Paperwork', 'paperwork', false, true, 'Reviewed'],
+				['Removed pending', 'checkbox', false, false, null],
+				['Removed paperwork', 'paperwork', false, false, 'Reviewed']
+			].map(([label, step_type, completed, active, current_stage], sort_order) => ({
+				id: randomUUID(),
+				organization_id: packet.organization_id,
+				onboarding_id: packet.id,
+				template_step_id: null,
+				step_name: label + ' ' + packet.key,
+				step_type,
+				training_type_id: null,
+				stages: step_type === 'paperwork' ? ['Submitted', 'Reviewed', 'Filed'] : null,
+				current_stage,
+				sort_order,
+				completed,
+				active,
+				notes:
+					packetIndex === 0 || (packetIndex === 4 && sort_order === 0)
+						? authors.map((userId, noteIndex) => ({
+								text: 'History view note ' + noteIndex + ' ' + packet.key + ' ' + label,
+								timestamp: daysAgo(35 - noteIndex),
+								userId
+							}))
+						: []
+			}))
+		);
+		batches.push(['onboarding_templates', [secondTemplate]], ['personnel', people]);
 	} else {
 		const completedCount = kind === 'onboarding-retention-1001' ? 1001 : 1;
 		const examples = [
@@ -478,6 +553,7 @@ export async function seedOnboarding({ client, fixture, kind, tag, ownedState, s
 		progress,
 		...(people ? { people } : {}),
 		...(kind === 'onboarding-history' ? { training: batches[1][1] } : {}),
+		...(kind === 'onboarding-history-view' ? { template: batches[0][1][0] } : {}),
 		...(kind === 'onboarding-start'
 			? { person: people[0], templateId: fixture.ids.onboardingTemplate, training: batches[1][1] }
 			: {}),

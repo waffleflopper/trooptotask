@@ -49,6 +49,153 @@ describe('fetchOnboardingBootstrap', () => {
 		}
 	});
 
+	describe('note authors', () => {
+		const ALVAREZ = '11111111-1111-4111-8111-111111111111';
+		const WHITAKER = '22222222-2222-4222-8222-222222222222';
+		const FORMER = '33333333-3333-4333-8333-333333333333';
+		const VIEWER = '44444444-4444-4444-8444-444444444444';
+
+		function stepWithNotes(id: string, onboardingId: string, ...authors: string[]) {
+			return {
+				id,
+				onboarding_id: onboardingId,
+				step_name: 'Finance in-processing',
+				step_type: 'checkbox',
+				sort_order: 0,
+				completed: false,
+				active: true,
+				progress_changed_at: '2026-10-01T12:00:00Z',
+				notes: authors.map((userId) => ({ text: 'Called Finance.', timestamp: '2026-10-02T12:00:00Z', userId }))
+			};
+		}
+
+		function seedMembersAndNotes(ctx: ReturnType<typeof createWritePortsContext>) {
+			ctx.store.seed('organization_memberships', [
+				{ id: 'm1', organization_id: ORG, user_id: ALVAREZ, email: 'alvarez@example.mil' },
+				{ id: 'm2', organization_id: ORG, user_id: WHITAKER, email: 'whitaker@example.mil' },
+				{ id: 'm3', organization_id: ORG, user_id: VIEWER, email: 'viewer@example.mil' }
+			]);
+			ctx.store.seed('personnel_onboardings', [
+				makeOnboardingRow({
+					id: 'ob1',
+					status: 'completed',
+					completed_at: '2026-10-05',
+					onboarding_step_progress: [stepWithNotes('s1', 'ob1', ALVAREZ, WHITAKER, ALVAREZ, FORMER, VIEWER)]
+				})
+			]);
+		}
+
+		it('names each author on the packets once and leaves the viewer and former members unnamed', async () => {
+			const ctx = createWritePortsContext({ auth: { orgId: ORG, userId: VIEWER } });
+			seedMembersAndNotes(ctx);
+			const findMemberLabels = vi.spyOn(ctx.organizationSettings, 'findMemberLabels');
+
+			const result = await fetchOnboardingBootstrap(ctx, { mode: 'history' });
+
+			expect(result.noteAuthors).toEqual({ [ALVAREZ]: 'alvarez@example.mil', [WHITAKER]: 'whitaker@example.mil' });
+			expect(findMemberLabels).toHaveBeenCalledTimes(1);
+			expect(findMemberLabels).toHaveBeenCalledWith(ORG, [ALVAREZ, WHITAKER, FORMER]);
+		});
+
+		it('starts the name lookup while the other reads are still running', async () => {
+			const ctx = createWritePortsContext({ auth: { orgId: ORG, userId: VIEWER } });
+			seedMembersAndNotes(ctx);
+			let lookupStarted!: () => void;
+			const started = new Promise<void>((resolve) => (lookupStarted = resolve));
+			const findMemberLabels = ctx.organizationSettings.findMemberLabels;
+			const listRoster = ctx.personnelOnboardingRoster.listRoster;
+
+			// The roster read cannot finish until the lookup has begun, so a lookup after the reads would never run.
+			const result = await fetchOnboardingBootstrap(
+				{
+					...ctx,
+					personnelOnboardingRoster: {
+						listRoster: async (...args) => {
+							await started;
+							return listRoster(...args);
+						}
+					},
+					organizationSettings: {
+						...ctx.organizationSettings,
+						findMemberLabels: (...args) => {
+							lookupStarted();
+							return findMemberLabels(...args);
+						}
+					}
+				},
+				{ mode: 'history' }
+			);
+
+			expect(Object.keys(result.noteAuthors)).toEqual([ALVAREZ, WHITAKER]);
+		});
+
+		it('names no one outside the packets a Group-scoped member sees', async () => {
+			const ctx = createWritePortsContext({
+				auth: { orgId: ORG, userId: VIEWER, scopeSet: { kind: 'groups', groupIds: ['g1'] } }
+			});
+			seedMembersAndNotes(ctx);
+			ctx.store.seed('personnel', [
+				{ id: 'p1', organization_id: ORG, group_id: 'g2', rank: 'SGT', archived_at: null, groups: { name: 'Bravo' } }
+			]);
+
+			const result = await fetchOnboardingBootstrap(ctx, { mode: 'history' });
+
+			expect(result.onboardings).toEqual([]);
+			expect(result.noteAuthors).toEqual({});
+		});
+
+		it('still loads the packets when the names cannot be read', async () => {
+			const ctx = createWritePortsContext({ auth: { orgId: ORG, userId: VIEWER } });
+			seedMembersAndNotes(ctx);
+			const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+			try {
+				const result = await fetchOnboardingBootstrap(
+					{
+						...ctx,
+						organizationSettings: {
+							...ctx.organizationSettings,
+							findMemberLabels: () => Promise.reject(new Error('permission denied'))
+						}
+					},
+					{ mode: 'history' }
+				);
+
+				expect(result.onboardings.map((onboarding) => onboarding.id)).toEqual(['ob1']);
+				expect(result.noteAuthors).toEqual({});
+			} finally {
+				logged.mockRestore();
+			}
+		});
+	});
+
+	describe('archive retention', () => {
+		it.each([
+			{ stored: 24, shown: 24 },
+			{ stored: null, shown: 36 },
+			{ stored: 0, shown: 36 }
+		])(
+			'gives History the $shown months the cleanup job keeps packets for when $stored is saved',
+			async ({ stored, shown }) => {
+				const ctx = createWritePortsContext({ auth: { orgId: ORG } });
+				ctx.store.seed('organizations', [{ id: ORG, archive_retention_months: stored }]);
+
+				const result = await fetchOnboardingBootstrap(ctx, { mode: 'history' });
+
+				expect(result.archiveRetentionMonths).toBe(shown);
+			}
+		);
+
+		it('does not read it for the Active page', async () => {
+			const ctx = createWritePortsContext({ auth: { orgId: ORG } });
+			const findArchiveRetentionMonths = vi.spyOn(ctx.organizationSettings, 'findArchiveRetentionMonths');
+
+			const result = await fetchOnboardingBootstrap(ctx, { mode: 'active' });
+
+			expect(result.archiveRetentionMonths).toBeNull();
+			expect(findArchiveRetentionMonths).not.toHaveBeenCalled();
+		});
+	});
+
 	it('supplies the Organization rank catalog for Personnel creation without foreign entries', async () => {
 		const ctx = createWritePortsContext({ auth: { orgId: ORG } });
 		ctx.store.seed('organization_rank_catalog', [

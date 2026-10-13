@@ -4,19 +4,13 @@
 
 	let {
 		value,
-		children,
-		...restProps
+		children
 	}: {
 		value: string;
 		children?: Snippet;
 	} = $props();
 </script>
 
-<Accordion.Item
-	{value}
-	data-slot="onboarding-packet-item"
-	class="overflow-hidden rounded-lg border border-border bg-card text-card-foreground transition-colors hover:shadow-sm data-[state=open]:border-primary"
-	{...restProps}
->
+<Accordion.Item {value} data-slot="onboarding-packet-item" class="border-b border-border last:border-b-0">
 	{@render children?.()}
 </Accordion.Item>

@@ -17,6 +17,7 @@ import type {
 import type { Personnel } from '$features/personnel/contracts';
 import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
 import { getProgress } from '../onboardingProgress';
+import { FORMER_MEMBER_LABEL, type NoteAuthorLookup } from '../onboardingNoteAuthors';
 export { getProgress } from '../onboardingProgress';
 
 const ONBOARDING_POLICY_ACTIONS = POLICY_ACTION_CATALOG.onboarding;
@@ -110,10 +111,18 @@ export class OnboardingPageContext {
 			: rosterStore.readModel().scoped(this.#org.scopeSet, { status: 'active' })
 	);
 
-	constructor(modals: ModalRegistry, org: OnboardingPageAccess) {
+	/** Who wrote a note: "You", the author's name, or "Former member" when no name is known. */
+	readonly noteAuthorName: NoteAuthorLookup;
+
+	constructor(
+		modals: ModalRegistry,
+		org: OnboardingPageAccess,
+		noteAuthorName: NoteAuthorLookup = () => FORMER_MEMBER_LABEL
+	) {
 		this.modals = modals;
 		this.#org = org;
 		this.orgId = org.orgId;
+		this.noteAuthorName = noteAuthorName;
 	}
 
 	// ── Permission flags (advisory feature policy) ─────────────

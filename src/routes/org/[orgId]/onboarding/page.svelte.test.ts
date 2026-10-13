@@ -106,7 +106,9 @@ function makeBootstrap(): OnboardingWorkspaceResult {
 			trainingTypes: [],
 			rankCatalogUnavailable: false,
 			rankCatalog: [],
-			typicalDaysToFinish: null
+			typicalDaysToFinish: null,
+			noteAuthors: {},
+			archiveRetentionMonths: null
 		},
 		hydration: {
 			orgId: 'org-1',

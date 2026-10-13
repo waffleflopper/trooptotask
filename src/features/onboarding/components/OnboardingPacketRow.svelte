@@ -84,7 +84,7 @@
 		</span>
 	</span>
 	<span class="grid shrink-0 justify-items-end gap-1 sm:flex sm:items-center sm:gap-3">
-		<span class="order-2 grid w-full gap-1.5 sm:order-1 sm:w-24">
+		<span class="order-2 grid w-full gap-1.5 sm:order-1 sm:w-24 sm:shrink-0">
 			<span class="text-right font-mono text-xs">{summary.done} of {summary.total}</span>
 			<span aria-hidden="true" class="h-1 overflow-hidden rounded-full bg-muted">
 				<span

@@ -484,6 +484,23 @@ describe('Onboarding packet panel', () => {
 		expect(draft.value).toBe('Second');
 	});
 
+	it('keeps an unsaved note draft when another step is expanded and then closed again', async () => {
+		const badge = step('packet-1', { id: 'step-2', templateStepId: null, stepName: 'Badge', sortOrder: 1 });
+		onboardingStore.load([{ ...packet, steps: [packet.steps[0], badge] }], 'org-1');
+		mount();
+		const dialog = await openPacket('SGT Smith, Jane');
+
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Add note' }));
+		await fireEvent.input(within(dialog).getByRole('textbox', { name: 'Note for Verify ID card' }), {
+			target: { value: 'Call finance Monday' }
+		});
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Badge' }));
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Verify ID card' }));
+
+		const draft = within(dialog).getByRole('textbox', { name: 'Note for Verify ID card' }) as HTMLTextAreaElement;
+		expect(draft.value).toBe('Call finance Monday');
+	});
+
 	it('returns to the focus step once the expanded step is completed', async () => {
 		const badge = step('packet-1', { id: 'step-2', templateStepId: null, stepName: 'Badge', sortOrder: 1 });
 		onboardingStore.load([{ ...packet, steps: [packet.steps[0], badge] }], 'org-1');

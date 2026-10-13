@@ -4,6 +4,7 @@
 	import type { OnboardingStepProgress } from '../onboarding.types';
 	import { Button } from '$lib/components/ui/button';
 	import { Textarea } from '$lib/components/ui/textarea';
+	import { NoteDraft } from './noteDraft.svelte';
 
 	interface Props {
 		ctx: OnboardingPageContext;
@@ -11,40 +12,13 @@
 		canManage: boolean;
 		/** Shows only the newest note, for places too small for the whole thread. */
 		latestOnly?: boolean;
+		/** Held by the caller when the draft must survive this component being replaced. */
+		draft?: NoteDraft;
 	}
 
-	let { ctx, step, canManage, latestOnly = false }: Props = $props();
+	let { ctx, step, canManage, latestOnly = false, draft = new NoteDraft() }: Props = $props();
 
 	const notes = $derived(latestOnly ? step.notes.slice(-1) : step.notes);
-
-	let adding = $state(false);
-	let text = $state('');
-	let saving = $state(false);
-	/** Identifies the draft a pending save belongs to, so a finished save closes only its own draft. */
-	let draft = 0;
-
-	function open() {
-		draft++;
-		adding = true;
-		text = '';
-		saving = false;
-	}
-
-	function cancel() {
-		draft++;
-		adding = false;
-	}
-
-	async function save() {
-		const trimmed = text.trim();
-		if (!trimmed) return;
-		const current = draft;
-		saving = true;
-		const saved = await ctx.handleAddNote(step, trimmed);
-		if (current !== draft) return;
-		saving = false;
-		if (saved) adding = false;
-	}
 </script>
 
 {#if notes.length > 0}
@@ -58,21 +32,21 @@
 	</ul>
 {/if}
 {#if canManage}
-	{#if adding}
+	{#if draft.stepId === step.id}
 		<form
 			class="grid gap-2"
 			onsubmit={(event) => {
 				event.preventDefault();
-				void save();
+				void draft.save(step, ctx.handleAddNote.bind(ctx));
 			}}
 		>
-			<Textarea bind:value={text} aria-label={`Note for ${step.stepName}`} rows={2} />
+			<Textarea bind:value={draft.text} aria-label={`Note for ${step.stepName}`} rows={2} />
 			<div class="flex justify-end gap-2">
-				<Button type="button" variant="ghost" size="sm" onclick={cancel}>Cancel</Button>
-				<Button type="submit" size="sm" disabled={saving || !text.trim()}>Save note</Button>
+				<Button type="button" variant="ghost" size="sm" onclick={() => draft.cancel()}>Cancel</Button>
+				<Button type="submit" size="sm" disabled={draft.saving || !draft.text.trim()}>Save note</Button>
 			</div>
 		</form>
 	{:else}
-		<Button variant="link" size="none" class="justify-self-end p-0 text-sm" onclick={open}>Add note</Button>
+		<Button variant="link" size="none" class="justify-self-end p-0 text-sm" onclick={() => draft.open(step.id)}>Add note</Button>
 	{/if}
 {/if}

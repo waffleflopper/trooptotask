@@ -16,6 +16,7 @@
 	import Ellipsis from '@lucide/svelte/icons/ellipsis';
 	import X from '@lucide/svelte/icons/x';
 	import OnboardingStageControls from './OnboardingStageControls.svelte';
+	import { NoteDraft } from './noteDraft.svelte';
 	import OnboardingStepNotes from './OnboardingStepNotes.svelte';
 
 	interface Props {
@@ -60,6 +61,7 @@
 	let openCardId = $state<string | undefined>(undefined);
 	let doneExpandedId = $state<string | null>(null);
 	let doneOpen = $state(false);
+	const noteDraft = new NoteDraft();
 
 	const cardId = $derived(
 		openCardId && openSteps.some((step) => step.id === openCardId) ? openCardId : (summary.focus?.id ?? null)
@@ -116,7 +118,7 @@
 				{@render trainingLink()}
 			</div>
 		{/if}
-		<OnboardingStepNotes {ctx} {step} {canManage} />
+		<OnboardingStepNotes {ctx} {step} {canManage} draft={noteDraft} />
 	</div>
 {/snippet}
 

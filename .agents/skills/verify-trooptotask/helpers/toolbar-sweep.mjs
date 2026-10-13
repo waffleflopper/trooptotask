@@ -164,6 +164,10 @@ export function checkSweep({ down, up }, { expect, pinned = [], search = false, 
 		if (folded.join() !== expect.slice(0, folded.length).join())
 			fail('order', width, `Folded ${folded.join(', ') || 'nothing'}; the order is ${expect.join(', ')}.`);
 		if (moreAlways && !read.more) fail('more', width, 'More is absent; --more-always requires it at every width.');
+		if (moreAlways && !expect.length) {
+			const left = down[0].read.ids.filter((id) => !read.ids.includes(id));
+			if (left.length) fail('no-fold', width, `${left.join(', ')} left the row; with no --expect nothing may fold.`);
+		}
 		if (!moreAlways && read.more !== folded.length > 0)
 			fail('more', width, `More is ${read.more ? 'present' : 'absent'} with ${folded.length} folded.`);
 		if (read.search === 'icon' && folded.length < expect.length)
@@ -232,7 +236,7 @@ export function checkSweep({ down, up }, { expect, pinned = [], search = false, 
 }
 
 const usage =
-	'Use toolbar-sweep PAGE TOOLBAR_LABEL RUN_DIR (--expect ID,ID,... | --no-fold --pinned ID,ID,...) [--pinned ID,ID,...] [--search] [--more-always] [--from 1440] [--to 390] [--step 2] [--height 900] [--record NAME].';
+	'Use toolbar-sweep PAGE TOOLBAR_LABEL RUN_DIR (--expect ID,ID,... | --no-fold --pinned ID,ID,... | --more-always --pinned ID,ID,...) [--pinned ID,ID,...] [--search] [--more-always] [--from 1440] [--to 390] [--step 2] [--height 900] [--record NAME].';
 const valueFlags = ['expect', 'pinned', 'from', 'to', 'step', 'height', 'record'];
 const idList = (value) => (value ?? '').split(',').filter(Boolean);
 
@@ -264,7 +268,8 @@ export function parseSweepArguments([page, label, runName, ...flags]) {
 		throw new Error(
 			'--no-fold and --more-always cannot be combined: one requires More to be absent at every width and the other present.'
 		);
-	if (noFold ? expectIds.length || !pinnedIds.length : !expectIds.length) throw new Error(usage);
+	const pinnedMoreOnly = moreAlways && !noFold && !expectIds.length && pinnedIds.length > 0;
+	if (noFold ? expectIds.length || !pinnedIds.length : !expectIds.length && !pinnedMoreOnly) throw new Error(usage);
 	if (![from, to, step, height].every(Number.isInteger) || to < 200 || from < to || step < 1 || height < 200)
 		throw new Error('Use whole numbers with 200 <= --to <= --from, --step >= 1 and --height >= 200.');
 	const ids = [...expectIds, ...pinnedIds];

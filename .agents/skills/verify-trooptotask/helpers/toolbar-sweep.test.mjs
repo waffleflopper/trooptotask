@@ -695,6 +695,57 @@ test('rejects --no-fold together with --more-always, which contradict each other
 		);
 });
 
+test('parses --more-always with --pinned and no --expect as a sweep where nothing folds and More stays', () => {
+	const parsed = parseSweepArguments(['1', 'Controls', 'run', '--more-always', '--pinned', 'transfer']);
+	assert.deepEqual([parsed.expectIds, parsed.pinnedIds, parsed.moreAlways], [[], ['transfer'], true]);
+	for (const flags of [['--more-always'], ['--pinned', 'transfer', '--search'], ['--more-always', '--pinned']])
+		assert.throws(() => parseSweepArguments(['1', 'Controls', 'run', ...flags]), /toolbar-sweep/, flags.join(' '));
+});
+
+test('a more-always sweep with no --expect accepts a row that never folds and rejects an absent More, a folded id or a missing pinned id', () => {
+	const rows = [1440, 1000, 700, 390].map((width) => [width, 1, 'none']);
+	const rules = { expect: [], pinned: ['transfer'], moreAlways: true };
+	const trace = () => ({
+		down: rows.map((row) => ({ width: row[0], read: read(...row, { ids: ['transfer', 'extra'] }), holds: [] })),
+		up: [...rows]
+			.reverse()
+			.slice(1)
+			.map((row) => ({ width: row[0], read: read(...row, { ids: ['transfer', 'extra'] }), holds: [] }))
+	});
+	assert.deepEqual(checkSweep(trace(), rules).failures, []);
+
+	const noMore = trace();
+	noMore.down[2].read.more = false;
+	assert.deepEqual(
+		checkSweep(noMore, rules).failures.map((f) => [f.check, f.width]),
+		[
+			['more', 700],
+			['same-width', 700]
+		]
+	);
+
+	const folded = trace();
+	folded.down[2].read.ids = ['transfer'];
+	assert.deepEqual(
+		checkSweep(folded, rules)
+			.failures.filter((f) => f.check === 'no-fold')
+			.map((f) => [f.width, f.detail]),
+		[[700, 'extra left the row; with no --expect nothing may fold.']]
+	);
+
+	const lost = trace();
+	lost.down[3].read.ids = ['extra'];
+	assert.deepEqual(
+		checkSweep(lost, rules)
+			.failures.filter((f) => ['pinned', 'no-fold'].includes(f.check))
+			.map((f) => [f.check, f.width]),
+		[
+			['pinned', 390],
+			['no-fold', 390]
+		]
+	);
+});
+
 test('a no-fold sweep accepts a row that never folds and rejects More or a missing pinned id', () => {
 	const rows = [1440, 1000, 700, 390].map((width) => [width, 0, 'none']);
 	const none = { expect: [], pinned: ['record'] };

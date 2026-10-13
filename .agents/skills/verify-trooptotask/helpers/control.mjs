@@ -1557,6 +1557,7 @@ async function main() {
 				'onboarding-legacy',
 				'onboarding-start',
 				'onboarding-history',
+				'onboarding-history-view',
 				'onboarding-consumers',
 				'onboarding-status',
 				'onboarding-retention',

@@ -81,6 +81,6 @@ WHERE table_schema = 'public' AND table_name IN ('personnel', 'personnel_follow_
 CREATE TABLE upgrade_fixture.atomic_personnel_lifecycle_before_grants AS
   SELECT * FROM upgrade_fixture.atomic_personnel_lifecycle_current_grants;
 CREATE TABLE upgrade_fixture.atomic_personnel_lifecycle_baseline AS
-SELECT NOT EXISTS (SELECT 1 FROM supabase_migrations.schema_migrations WHERE version IN ('20261013000200', '20261013000300'))
+SELECT NOT EXISTS (SELECT 1 FROM supabase_migrations.schema_migrations WHERE version IN ('20261013000300', '20261013000400'))
   AND to_regprocedure('public.archive_personnel(uuid, uuid[], timestamptz)') IS NULL
   AND to_regprocedure('public.submit_deletion_request(uuid, uuid, text, text, uuid, text, text)') IS NULL AS migration_absent;

@@ -17,7 +17,7 @@ $$;
 
 SELECT ok((SELECT migration_absent FROM upgrade_fixture.atomic_personnel_lifecycle_baseline),
   'saved lifecycle states precede both migrations and their commands');
-SELECT is((SELECT count(*)::integer FROM supabase_migrations.schema_migrations WHERE version IN ('20261013000200', '20261013000300')),
+SELECT is((SELECT count(*)::integer FROM supabase_migrations.schema_migrations WHERE version IN ('20261013000300', '20261013000400')),
   2, 'both migrations are recorded after populated upgrade');
 SELECT results_eq($$ SELECT * FROM upgrade_fixture.atomic_personnel_lifecycle_current_rows ORDER BY 1, 2 $$,
   $$ SELECT * FROM upgrade_fixture.atomic_personnel_lifecycle_before_rows ORDER BY 1, 2 $$,

@@ -69,8 +69,8 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261012000600_feature_direct_write_authority.sql",
     "20261012000700_group_catalog_scope.sql",
     "20261013000100_personnel_file_retirement.sql",
-    "20261013000200_atomic_deletion_request_submission.sql",
-    "20261013000300_atomic_personnel_lifecycle.sql",
+    "20261013000300_atomic_deletion_request_submission.sql",
+    "20261013000400_atomic_personnel_lifecycle.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",

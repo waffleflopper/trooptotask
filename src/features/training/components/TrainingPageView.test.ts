@@ -21,7 +21,13 @@ import * as workbookHelpers from '$lib/utils/workbook';
 import { tick } from 'svelte';
 import { fromStore, writable } from 'svelte/store';
 import { goto } from '$app/navigation';
-import { describedBy, openMoreMenu, openSubmenu, stubToolbarLayout } from './toolbarFold.testing';
+import {
+	openToolbarMore,
+	openToolbarSubmenu,
+	stubToolbarWidths,
+	toolbarDescription,
+	type ToolbarWidths
+} from '$lib/test-support/toolbarWidths';
 
 vi.mock('$app/navigation', () => ({
 	goto: vi.fn(),
@@ -198,7 +204,7 @@ describe('TrainingPageView', () => {
 		expect(status.hasAttribute('aria-busy')).toBe(false);
 		const exportButton = screen.getByRole('button', { name: 'Export Excel' }) as HTMLButtonElement;
 		expect(exportButton.disabled).toBe(true);
-		expect(describedBy(exportButton)).toBe('Export unavailable while loading.');
+		expect(toolbarDescription(exportButton)).toBe('Export unavailable while loading.');
 	});
 
 	it.each([
@@ -216,7 +222,7 @@ describe('TrainingPageView', () => {
 
 		const exportButton = screen.getByRole('button', { name: 'Export Excel' }) as HTMLButtonElement;
 		expect(exportButton.disabled).toBe(true);
-		expect(describedBy(exportButton)).toBe(reason);
+		expect(toolbarDescription(exportButton)).toBe(reason);
 	});
 
 	it('gives Export Excel no reason while it is available', () => {
@@ -226,7 +232,7 @@ describe('TrainingPageView', () => {
 
 		const exportButton = screen.getByRole('button', { name: 'Export Excel' }) as HTMLButtonElement;
 		expect(exportButton.disabled).toBe(false);
-		expect(describedBy(exportButton)).toBe('');
+		expect(toolbarDescription(exportButton)).toBe('');
 	});
 
 	it('retains a failed completion draft and updates the matrix after a successful retry', async () => {
@@ -526,13 +532,13 @@ describe('TrainingPageView', () => {
 	);
 
 	describe('toolbar folded into More', () => {
-		let layout: ReturnType<typeof stubToolbarLayout>;
+		let widths: ToolbarWidths;
 
 		beforeEach(() => {
-			layout = stubToolbarLayout();
+			widths = stubToolbarWidths();
 		});
 
-		afterEach(() => layout.restore());
+		afterEach(() => vi.unstubAllGlobals());
 
 		const toolbar = () => screen.getByRole('toolbar', { name: 'Training controls' });
 
@@ -540,11 +546,11 @@ describe('TrainingPageView', () => {
 			render(TrainingPageView, {
 				props: { ctx: makeCtx('by-group') as unknown as TrainingPageContext, modals: new ModalRegistry() }
 			});
-			await layout.resize(1);
+			await widths.foldAll();
 
 			expect(within(toolbar()).getByRole('link', { name: 'Manage Types' })).toBeTruthy();
 			expect(within(toolbar()).queryByRole('button', { name: 'Training matrix view mode' })).toBeNull();
-			const menu = await openMoreMenu('Training controls');
+			const menu = await openToolbarMore('Training controls');
 			for (const name of ['Reports', 'Sign-In Rosters', 'Export Excel', 'Import', 'Manage Views']) {
 				expect(within(menu).getByRole('menuitem', { name }), name).toBeTruthy();
 			}
@@ -554,9 +560,9 @@ describe('TrainingPageView', () => {
 			const ctx = makeCtx('by-group');
 			render(TrainingPageView, { props: { ctx: ctx as unknown as TrainingPageContext, modals: new ModalRegistry() } });
 			expect(screen.getByRole('button', { name: 'Group' }).getAttribute('aria-pressed')).toBe('true');
-			await layout.resize(1);
+			await widths.foldAll();
 
-			const menu = await openMoreMenu('Training controls');
+			const menu = await openToolbarMore('Training controls');
 			const views = within(menu).getByRole('group', { name: 'Training matrix view mode' });
 			expect(within(views).getByRole('menuitemradio', { name: 'Group' }).getAttribute('aria-checked')).toBe('true');
 			await fireEvent.click(within(views).getByRole('menuitemradio', { name: 'A-Z' }));
@@ -580,15 +586,15 @@ describe('TrainingPageView', () => {
 			);
 			const ctx = makeCtx('by-group');
 			render(TrainingPageView, { props: { ctx: ctx as unknown as TrainingPageContext, modals: new ModalRegistry() } });
-			await layout.resize(1);
+			await widths.foldAll();
 
-			await openMoreMenu('Training controls');
-			await openSubmenu('Training view, All Trainings');
+			await openToolbarMore('Training controls');
+			await openToolbarSubmenu('Training view, All Trainings');
 			await fireEvent.click(await screen.findByRole('menuitemradio', { name: 'Focus' }));
 			expect(ctx.setSelectedViewId).toHaveBeenCalledWith('focus');
 
-			await openMoreMenu('Training controls');
-			await openSubmenu('Group, Group: All');
+			await openToolbarMore('Training controls');
+			await openToolbarSubmenu('Group, Group: All');
 			await fireEvent.click(await screen.findByRole('menuitemradio', { name: 'Bravo' }));
 			expect(ctx.setSelectedGroupId).toHaveBeenCalledWith('group-2');
 		});
@@ -596,10 +602,10 @@ describe('TrainingPageView', () => {
 		it('flags a hidden saved view or group filter on More', async () => {
 			const ctx = makeCtx('by-group', { selectedGroupId: 'group-1' });
 			render(TrainingPageView, { props: { ctx: ctx as unknown as TrainingPageContext, modals: new ModalRegistry() } });
-			await layout.resize(1);
+			await widths.foldAll();
 
 			const more = screen.getByRole('button', { name: 'More Training controls' });
-			expect(describedBy(more)).toBe('Hidden filters active: Group');
+			expect(toolbarDescription(more)).toBe('Hidden filters active: Group');
 		});
 
 		it('opens Sign-In Rosters and follows Reports from More', async () => {
@@ -608,14 +614,14 @@ describe('TrainingPageView', () => {
 			render(TrainingPageView, {
 				props: { ctx: makeCtx('by-group') as unknown as TrainingPageContext, modals }
 			});
-			await layout.resize(1);
+			await widths.foldAll();
 
-			let menu = await openMoreMenu('Training controls');
+			let menu = await openToolbarMore('Training controls');
 			await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Sign-In Rosters' }));
 			await waitFor(() => expect(open).toHaveBeenCalledWith('sign-in-rosters'));
 
 			await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
-			menu = await openMoreMenu('Training controls');
+			menu = await openToolbarMore('Training controls');
 			await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Reports' }));
 			await waitFor(() => expect(goto).toHaveBeenCalledWith('/org/org-1/training/reports'));
 		});
@@ -623,9 +629,9 @@ describe('TrainingPageView', () => {
 		it('exports from More with the same busy and disabled states as the row', async () => {
 			const { filenames } = captureDownload();
 			render(TrainingPageView, { props: { ctx: exportContext(), modals: new ModalRegistry() } });
-			await layout.resize(1);
+			await widths.foldAll();
 
-			const menu = await openMoreMenu('Training controls');
+			const menu = await openToolbarMore('Training controls');
 			await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Export Excel' }));
 
 			await waitFor(() => expect(filenames).toHaveLength(1));
@@ -638,9 +644,9 @@ describe('TrainingPageView', () => {
 					modals: new ModalRegistry()
 				}
 			});
-			await layout.resize(1);
+			await widths.foldAll();
 
-			const menu = await openMoreMenu('Training controls');
+			const menu = await openToolbarMore('Training controls');
 			const item = within(menu).getByRole('menuitem', { name: 'Export Excel' });
 			expect(item.getAttribute('aria-disabled')).toBe('true');
 			expect(item.getAttribute('title')).toBe('No personnel to export.');
@@ -649,11 +655,11 @@ describe('TrainingPageView', () => {
 		it('offers a member without Training configuration no config command anywhere on the toolbar', async () => {
 			const ctx = makeCtx('by-group', { canManageConfig: false, canBulkImport: false });
 			render(TrainingPageView, { props: { ctx: ctx as unknown as TrainingPageContext, modals: new ModalRegistry() } });
-			await layout.resize(1);
+			await widths.foldAll();
 
 			expect(screen.queryByRole('button', { name: 'Manage Types' })).toBeNull();
 			expect(screen.queryByRole('link', { name: 'Manage Types' })).toBeNull();
-			const menu = await openMoreMenu('Training controls');
+			const menu = await openToolbarMore('Training controls');
 			expect(within(menu).queryByRole('menuitem', { name: 'Manage Views' })).toBeNull();
 			expect(within(menu).queryByRole('menuitem', { name: 'Import' })).toBeNull();
 			expect(within(menu).getByRole('menuitem', { name: 'Reports' })).toBeTruthy();

@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { goto } from '$app/navigation';
-import { describedBy, openMoreMenu, stubToolbarLayout } from './toolbarFold.testing';
+import { openToolbarMore, stubToolbarWidths, toolbarDescription } from '$lib/test-support/toolbarWidths';
 import TrainingViewsPage from './TrainingViewsPage.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
@@ -244,38 +244,38 @@ describe('TrainingViewsPage', () => {
 			name: 'New View'
 		}) as HTMLButtonElement;
 		expect(newView.disabled).toBe(true);
-		expect(describedBy(newView)).toBe('Finish the current edit first');
+		expect(toolbarDescription(newView)).toBe('Finish the current edit first');
 		expect(screen.queryByRole('toolbar', { name: 'Training view detail controls' })).toBeNull();
 	});
 
 	it('moves Back to Matrix into More before New View and still navigates from there', async () => {
-		const layout = stubToolbarLayout();
+		const widths = stubToolbarWidths();
 		try {
 			render(TrainingViewsPage, { props: { org } });
-			await layout.resize(1);
+			await widths.foldAll();
 
 			const toolbar = screen.getByRole('toolbar', { name: 'Training view controls' });
 			expect(within(toolbar).queryByRole('link', { name: 'Back to Matrix' })).toBeNull();
 			expect(within(toolbar).getByRole('button', { name: 'New View' })).toBeTruthy();
 
-			const menu = await openMoreMenu('Training view controls');
+			const menu = await openToolbarMore('Training view controls');
 			await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Back to Matrix' }));
 			await waitFor(() => expect(goto).toHaveBeenCalledWith('/org/org-1/training'));
 		} finally {
-			layout.restore();
+			vi.unstubAllGlobals();
 		}
 	});
 
 	it('keeps Edit on the detail toolbar when it has no room', async () => {
-		const layout = stubToolbarLayout();
+		const widths = stubToolbarWidths();
 		try {
 			render(TrainingViewsPage, { props: { org } });
-			await layout.resize(1);
+			await widths.foldAll();
 
 			expect(screen.getByRole('button', { name: 'Edit' })).toBeTruthy();
 			expect(screen.queryByRole('button', { name: 'More Training view detail controls' })).toBeNull();
 		} finally {
-			layout.restore();
+			vi.unstubAllGlobals();
 		}
 	});
 });

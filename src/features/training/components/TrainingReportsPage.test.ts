@@ -12,7 +12,12 @@ import {
 	type TrainingBriefingReportInput
 } from '../contracts';
 import { buildTrainingBriefing } from '../utils/trainingBriefing';
-import { openMoreMenu, openSubmenu, stubToolbarLayout } from './toolbarFold.testing';
+import {
+	openToolbarMore,
+	openToolbarSubmenu,
+	stubToolbarWidths,
+	type ToolbarWidths
+} from '$lib/test-support/toolbarWidths';
 import TrainingReportsPage from './TrainingReportsPage.svelte';
 
 const { replaceState } = vi.hoisted(() => ({ replaceState: vi.fn() }));
@@ -698,25 +703,25 @@ describe('Training Reports briefing page', () => {
 	});
 
 	describe('controls folded into More', () => {
-		let layout: ReturnType<typeof stubToolbarLayout>;
+		let widths: ToolbarWidths;
 
 		beforeEach(() => {
-			layout = stubToolbarLayout();
+			widths = stubToolbarWidths();
 		});
 
-		afterEach(() => layout.restore());
+		afterEach(() => vi.unstubAllGlobals());
 
 		const controls = 'Training report controls';
 
 		it('keeps Print brief on the row and moves every other control into More', async () => {
 			renderPage();
-			await layout.resize(1);
+			await widths.foldAll();
 
 			const toolbar = screen.getByRole('toolbar', { name: controls });
 			expect(within(toolbar).getByRole('button', { name: 'Print brief' })).toBeTruthy();
 			expect(within(toolbar).queryByRole('button', { name: 'Export Excel' })).toBeNull();
 			expect(within(toolbar).queryByRole('button', { name: '30 days' })).toBeNull();
-			const menu = await openMoreMenu(controls);
+			const menu = await openToolbarMore(controls);
 			expect(within(menu).getByRole('menuitem', { name: 'Export Excel' })).toBeTruthy();
 			expect(within(menu).getByRole('group', { name: 'Forecast horizon' })).toBeTruthy();
 			for (const name of ['View, All training', 'Group, All groups', 'Rank, All ranks', 'MOS', 'Duty role', 'Types']) {
@@ -727,9 +732,9 @@ describe('Training Reports briefing page', () => {
 		it('changes the horizon from its radio group and writes it to the address', async () => {
 			const fetchImpl = vi.fn<typeof fetch>(async () => Response.json(reportFor({ horizonDays: 30 })));
 			renderPage(fetchImpl);
-			await layout.resize(1);
+			await widths.foldAll();
 
-			const menu = await openMoreMenu(controls);
+			const menu = await openToolbarMore(controls);
 			const horizon = within(menu).getByRole('group', { name: 'Forecast horizon' });
 			expect(within(horizon).getByRole('menuitemradio', { name: '90 days' }).getAttribute('aria-checked')).toBe('true');
 			await fireEvent.click(within(horizon).getByRole('menuitemradio', { name: '30 days' }));
@@ -742,17 +747,17 @@ describe('Training Reports briefing page', () => {
 		it('filters by group from its submenu and offers Clear filters afterwards', async () => {
 			const fetchImpl = vi.fn<typeof fetch>(async () => Response.json(reportFor({ groupId: 'alpha' })));
 			renderPage(fetchImpl);
-			await layout.resize(1);
+			await widths.foldAll();
 
-			let menu = await openMoreMenu(controls);
+			let menu = await openToolbarMore(controls);
 			expect(within(menu).queryByRole('menuitem', { name: 'Clear filters' })).toBeNull();
-			await openSubmenu('Group, All groups');
+			await openToolbarSubmenu('Group, All groups');
 			await fireEvent.click(await screen.findByRole('menuitemradio', { name: 'Alpha' }));
 
 			expect(fetchImpl).toHaveBeenCalledWith('/org/org-1/api/training-reports?group=alpha', expect.anything());
 			await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
 			await waitFor(() => expect(screen.getByRole('button', { name: `More ${controls}` })).toBeTruthy());
-			menu = await openMoreMenu(controls);
+			menu = await openToolbarMore(controls);
 			expect(within(menu).getByRole('menuitem', { name: 'Group, Alpha' })).toBeTruthy();
 			expect(within(menu).getByRole('menuitem', { name: 'Clear filters' })).toBeTruthy();
 		});
@@ -760,10 +765,10 @@ describe('Training Reports briefing page', () => {
 		it('picks several MOS values without closing the menu', async () => {
 			const fetchImpl = vi.fn<typeof fetch>(async () => Response.json(reportFor({ mos: ['68W'] })));
 			renderPage(fetchImpl);
-			await layout.resize(1);
+			await widths.foldAll();
 
-			await openMoreMenu(controls);
-			await openSubmenu('MOS');
+			await openToolbarMore(controls);
+			await openToolbarSubmenu('MOS');
 			const option = await screen.findByRole('menuitemcheckbox', { name: '68W' });
 			option.focus();
 			await fireEvent.keyDown(option, { key: ' ' });
@@ -778,10 +783,10 @@ describe('Training Reports briefing page', () => {
 				vi.fn<typeof fetch>(() => new Promise<Response>((respond) => pending.push(respond))),
 				reportFor({ groupId: 'alpha' })
 			);
-			await layout.resize(1);
+			await widths.foldAll();
 			const briefing = screen.getByRole('region', { name: 'Training readiness briefing' });
 
-			const menu = await openMoreMenu(controls);
+			const menu = await openToolbarMore(controls);
 			await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Clear filters' }));
 
 			await waitFor(() => expect(document.activeElement).toBe(briefing));
@@ -793,9 +798,9 @@ describe('Training Reports briefing page', () => {
 			vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: () => 'blob:report', revokeObjectURL: () => {} }));
 			const fetchImpl = vi.fn<typeof fetch>(async () => new Response(new Blob(['xlsx'])));
 			renderPage(fetchImpl);
-			await layout.resize(1);
+			await widths.foldAll();
 
-			const menu = await openMoreMenu(controls);
+			const menu = await openToolbarMore(controls);
 			await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Export Excel' }));
 
 			await waitFor(() => expect(fetchImpl).toHaveBeenCalledWith('/org/org-1/api/training-reports/export'));
@@ -844,8 +849,8 @@ describe('Training Reports briefing page', () => {
 			expect(await screen.findByRole('table', { name: 'MOS by training type readiness' })).toBeTruthy();
 			expect(replaceState).toHaveBeenLastCalledWith('/org/org-1/training/reports?rowsBy=mos', expect.anything());
 
-			await layout.resize(1);
-			const menu = await openMoreMenu('Hot-spot grid controls');
+			await widths.foldAll();
+			const menu = await openToolbarMore('Hot-spot grid controls');
 			await fireEvent.click(within(menu).getByRole('menuitemradio', { name: 'Duty role' }));
 			expect(fetchImpl).toHaveBeenLastCalledWith('/org/org-1/api/training-reports?rowsBy=role', expect.anything());
 		});

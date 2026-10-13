@@ -9,7 +9,7 @@ import { personnelTrainingsStore } from '$features/training/stores/personnelTrai
 import type { RankCatalogEntry } from '$features/personnel/contracts';
 import type { Personnel } from '$features/personnel/contracts';
 import type { PersonnelTraining, TrainingType } from '$features/training/training.types';
-import { describedBy, stubToolbarLayout } from './toolbarFold.testing';
+import { stubToolbarWidths, toolbarDescription } from '$lib/test-support/toolbarWidths';
 
 const viewer = {
 	orgId: 'org-1',
@@ -384,21 +384,21 @@ describe('TrainingTypesPage', () => {
 
 		const newType = within(toolbar()).getByRole('button', { name: '+ New Type' }) as HTMLButtonElement;
 		expect(newType.disabled).toBe(true);
-		expect(describedBy(newType)).toBe('Finish the current edit first');
+		expect(toolbarDescription(newType)).toBe('Finish the current edit first');
 		expect(screen.queryByRole('toolbar', { name: 'Training type detail controls' })).toBeNull();
 	});
 
 	it('keeps New Type and Edit on their rows when the toolbars have no room', async () => {
-		const layout = stubToolbarLayout();
+		const widths = stubToolbarWidths();
 		try {
 			render(TrainingTypesPage, { props: { org, data: { personnel } } });
-			await layout.resize(1);
+			await widths.foldAll();
 
 			expect(screen.getByRole('button', { name: '+ New Type' })).toBeTruthy();
 			expect(screen.getByRole('button', { name: 'Edit' })).toBeTruthy();
 			expect(screen.queryByRole('button', { name: /^More/ })).toBeNull();
 		} finally {
-			layout.restore();
+			vi.unstubAllGlobals();
 		}
 	});
 

@@ -41,6 +41,8 @@ export type ToolbarView = ItemIdentity & {
 	kind: 'view';
 	options: ToolbarOption[];
 	value: string;
+	disabled?: boolean;
+	disabledReason?: string;
 	onValueChange: (value: string) => void;
 };
 

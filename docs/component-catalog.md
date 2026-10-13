@@ -219,7 +219,7 @@ Props (`WorkspaceToolbarProps`):
 
 Item kinds (`toolbar-types.ts`):
 
-- `view`: a mutually exclusive mode. The row shows a `ButtonGroup` with `aria-pressed`. More shows a radio group.
+- `view`: a mutually exclusive mode. The row shows a `ButtonGroup` with `aria-pressed`. More shows a radio group. Optional `disabled` and `disabledReason` block every option on the row and in More, and the reason titles and describes them.
 - `select`: one value with a required `defaultValue`. It is active when its value differs from the default.
 - `multiSelect`: several values with optional `defaultValues`. It is active when its set differs from the defaults, in any order.
 - `toggle`: one boolean with optional `defaultPressed`, which defaults to `false`. It is active when `pressed` differs from the default. A `menuOnly` toggle is a display option that always lives in More.

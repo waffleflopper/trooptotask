@@ -2,7 +2,8 @@
 import { createClientAccess, type ClientAccessFacts } from '$lib/access/clientAccess';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { fireEvent, render, screen, cleanup, waitFor, act } from '@testing-library/svelte';
+import { fireEvent, render, screen, cleanup, waitFor, act, within } from '@testing-library/svelte';
+import { stubWorkspaceToolbarLayout } from '$lib/test-support/workspaceToolbarLayout';
 import AssignmentPlannerPage from './AssignmentPlannerPage.svelte';
 import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
@@ -11,6 +12,13 @@ import { groupCatalogHydration } from '$features/personnel';
 import type { CalendarOperationsPageAccess } from '../contracts';
 import type { Personnel } from '$features/personnel/contracts';
 import type { AssignmentType } from '$features/calendar/contracts';
+
+const gotoMock = vi.hoisted(() => vi.fn());
+
+vi.mock('$app/navigation', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$app/navigation')>()),
+	goto: gotoMock
+}));
 
 function makeOrg(overrides: Partial<ClientAccessFacts> = {}) {
 	return {
@@ -104,6 +112,8 @@ describe('AssignmentPlannerPage', () => {
 
 	afterEach(() => {
 		cleanup();
+		vi.unstubAllGlobals();
+		gotoMock.mockClear();
 	});
 
 	it('names the planner in its page header and links back to Calendar from the toolbar', () => {
@@ -116,6 +126,21 @@ describe('AssignmentPlannerPage', () => {
 		expect(screen.getByRole('link', { name: 'Calendar' }).getAttribute('href')).toBe('/org/org-1/calendar');
 		expect(screen.getByText('Quick Fill')).toBeTruthy();
 		expect(screen.queryByRole('dialog')).toBeNull();
+	});
+
+	it('opens Calendar from More when the row folds', async () => {
+		const layOut = stubWorkspaceToolbarLayout();
+		renderPage();
+		await layOut(1);
+
+		const toolbar = screen.getByRole('toolbar', { name: 'Assignment planner controls' });
+		expect(within(toolbar).queryByRole('link', { name: 'Calendar' })).toBeNull();
+		const more = within(toolbar).getByRole('button', { name: 'More Assignment planner controls' });
+		more.focus();
+		await fireEvent.keyDown(more, { key: 'Enter' });
+		await fireEvent.click(within(await screen.findByRole('menu')).getByRole('menuitem', { name: 'Calendar' }));
+
+		await waitFor(() => expect(gotoMock).toHaveBeenCalledWith('/org/org-1/calendar'));
 	});
 
 	it('shows all personnel in searchable assignment dropdowns regardless of assignment type shortName', async () => {

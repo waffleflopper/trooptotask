@@ -20,11 +20,12 @@ function createMockSupabase(invitations: Array<{ id: string }> = [], rpcStatuses
 		}),
 		rpc: vi.fn((fn: string, args: { p_invitation_id: string }) => {
 			rpcCalls.push({ fn, args });
+			const status = rpcStatuses[args.p_invitation_id] ?? 'accepted';
 			return {
 				single: vi.fn().mockResolvedValue({
 					data: {
-						accept_status: rpcStatuses[args.p_invitation_id] ?? 'accepted',
-						accepted_organization_id: 'org-1'
+						accept_status: status,
+						accepted_organization_id: status === 'unavailable' ? null : 'org-1'
 					},
 					error: null
 				})
@@ -74,5 +75,16 @@ describe('autoAcceptOrgInvites', () => {
 
 		expect(result).toEqual({ accepted: 1, unavailable: 2 });
 		expect(supabase.rpc).toHaveBeenCalledTimes(4);
+	});
+
+	it('counts an invitation the database holds for a suspension as unavailable', async () => {
+		const supabase = createMockSupabase([{ id: 'accepted' }, { id: 'suspended' }], {
+			accepted: 'accepted',
+			suspended: 'unavailable'
+		});
+
+		const result = await autoAcceptOrgInvites({ supabase } as any, 'test@example.com');
+
+		expect(result).toEqual({ accepted: 1, unavailable: 1 });
 	});
 });

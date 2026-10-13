@@ -318,6 +318,22 @@ describe('acceptDashboardInvitation', () => {
 		});
 	});
 
+	it('returns a clear unavailable failure when a suspension holds the invitation', async () => {
+		const port = createDashboardOrgAccessPort({
+			acceptResult: { status: 'unavailable', organizationId: null }
+		});
+
+		await expect(
+			acceptDashboardInvitation(
+				{ dashboard: port, notifications: createTestNotificationPort() },
+				{ invitationId: 'invite-1', userId: 'user-1', email: 'user@example.com' }
+			)
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'This Organization invitation is unavailable. Ask the inviting Organization for help.'
+		});
+	});
+
 	it('accepts through the atomic transition and notifies admins', async () => {
 		const port = createDashboardOrgAccessPort({
 			acceptResult: { status: 'accepted', organizationId: 'org-1' }
@@ -594,6 +610,7 @@ describe('dashboard invitation denial effects', () => {
 		['accept', 'already_member', 400],
 		['accept', 'not_found', 404],
 		['accept', 'blocked', 400],
+		['accept', 'unavailable', 400],
 		['accept', 'setup_required', 400],
 		['accept', 'failed', 500],
 		['decline', 'already_accepted', 400],

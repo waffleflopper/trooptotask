@@ -179,6 +179,20 @@ describe('createSupabaseDashboardOrgAccessPort', () => {
 		expect(result).toEqual({ status: 'setup_required', organizationId: null });
 	});
 
+	it('preserves unavailable invitation acceptance status from the database transition', async () => {
+		const { builder } = createRpcBuilder({
+			data: { accept_status: 'unavailable', accepted_organization_id: null },
+			error: null
+		});
+		const port = createSupabaseDashboardOrgAccessPort({
+			supabase: { rpc: vi.fn(() => builder), from: vi.fn() }
+		} as never);
+
+		await expect(
+			port.acceptInvitation({ invitationId: 'invite-1', userId: 'user-1', email: 'user@example.com' })
+		).resolves.toEqual({ status: 'unavailable', organizationId: null });
+	});
+
 	it('preserves blocked invitation acceptance status from the database transition', async () => {
 		const { builder } = createRpcBuilder({
 			data: {

@@ -243,11 +243,18 @@ with tempfile.TemporaryDirectory() as directory:
                         else '0::/user.slice/app.scope\n')
                     (process / 'cwd').symlink_to(workdir if options['cwd'] == 'project' else root)
                     real_readlink = os.readlink
+                    real_read_text = Path.read_text
+                    unreadable_stats = set()
 
                     def readlink(path, *args, **kwargs):
                         if options['cwd'] == 'denied' and Path(path) == process / 'cwd':
                             raise PermissionError(errno.EACCES, 'Permission denied', str(path))
                         return real_readlink(path, *args, **kwargs)
+
+                    def read_text(path, *args, **kwargs):
+                        if path in unreadable_stats:
+                            raise PermissionError(errno.EACCES, 'Permission denied', str(path))
+                        return real_read_text(path, *args, **kwargs)
 
                     def docker_model(command, _cwd, **_kwargs):
                         if '--filter' in command:
@@ -264,7 +271,7 @@ with tempfile.TemporaryDirectory() as directory:
                             elif kind == 'container' and options['during_inventory'] == 'vanish':
                                 stat_file.unlink(missing_ok=True)
                             elif kind == 'container' and options['during_inventory'] == 'unreadable':
-                                stat_file.chmod(0)
+                                unreadable_stats.add(stat_file)
                         elif command[:3] == ['docker', 'rm', '--force']:
                             resources['container'][:] = [x for x in resources['container'] if x['Id'] not in command[3:]]
                             for network in resources['network']:
@@ -282,7 +289,7 @@ with tempfile.TemporaryDirectory() as directory:
                         return subprocess.CompletedProcess(command, 0, stdout=stdout)
 
                     with (patch.object(database, 'run', docker_model), patch.object(database, '_receipt', receipt),
-                          patch.object(os, 'readlink', readlink)):
+                          patch.object(os, 'readlink', readlink), patch.object(Path, 'read_text', read_text)):
                         if allowed:
                             database.cleanup_owned_projects(receipt, producer_may_run=True)
                         else:

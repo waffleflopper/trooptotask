@@ -164,8 +164,8 @@ export function checkSweep({ down, up }, { expect, pinned = [], search = false, 
 		if (folded.join() !== expect.slice(0, folded.length).join())
 			fail('order', width, `Folded ${folded.join(', ') || 'nothing'}; the order is ${expect.join(', ')}.`);
 		if (moreAlways && !read.more) fail('more', width, 'More is absent; --more-always requires it at every width.');
-		if (moreAlways && !expect.length) {
-			const left = down[0].read.ids.filter((id) => !read.ids.includes(id));
+		if (!expect.length) {
+			const left = down[0].read.ids.filter((id) => parts.some((part) => !part.ids.includes(id)));
 			if (left.length) fail('no-fold', width, `${left.join(', ')} left the row; with no --expect nothing may fold.`);
 		}
 		if (!moreAlways && read.more !== folded.length > 0)

@@ -772,7 +772,10 @@ test('a no-fold sweep accepts a row that never folds and rejects More or a missi
 	lost.down[3].read.ids = [];
 	assert.deepEqual(
 		checkSweep(lost, none).failures.map((f) => [f.check, f.width]),
-		[['pinned', 390]]
+		[
+			['pinned', 390],
+			['no-fold', 390]
+		]
 	);
 });
 
@@ -828,4 +831,55 @@ test('a search-only no-fold sweep accepts search at every width and rejects More
 	folded.down[3].read.ids = [];
 	folded.down[3].read.more = true;
 	assert.ok(checkSweep(folded, searchOnly).failures.some((f) => f.check === 'more' && f.width === 390));
+});
+
+test('every no-fold form rejects a row item that leaves the row and comes back while widening', () => {
+	const rows = [1440, 1000, 700, 390];
+	const forms = [
+		['--no-fold --pinned', { expect: [], pinned: ['record'] }, false],
+		['--no-fold --search', { expect: [], pinned: [], search: true }, false],
+		['--more-always --pinned', { expect: [], pinned: ['record'], moreAlways: true }, true]
+	];
+	for (const [form, rules, more] of forms) {
+		const view = (width, present) =>
+			read(width, 0, 'field', {
+				ids: present ? ['record', 'filter'] : ['record'],
+				more,
+				contentWidth: width
+			});
+		const trace = {
+			down: rows.map((width) => ({ width, read: view(width, width > 700), holds: [] })),
+			up: [700, 1000, 1440].map((width) => ({ width, read: view(width, width > 700), holds: [] }))
+		};
+		const failures = checkSweep(trace, rules).failures;
+		assert.deepEqual(
+			failures.map((f) => [f.check, f.width, f.detail]),
+			[
+				['no-fold', 700, 'filter left the row; with no --expect nothing may fold.'],
+				['no-fold', 390, 'filter left the row; with no --expect nothing may fold.'],
+				['no-fold', 700, 'filter left the row; with no --expect nothing may fold.']
+			],
+			form
+		);
+	}
+});
+
+test('a no-fold form rejects a row item that leaves the row only during a hold read', () => {
+	const rows = [1440, 1000, 700, 390];
+	const view = (width, present) =>
+		read(width, 0, 'field', { ids: present ? ['record', 'filter'] : ['record'], more: false, contentWidth: width });
+	const trace = {
+		down: rows.map((width) => ({
+			width,
+			read: view(width, true),
+			holds: width === 700 ? [view(width, false)] : []
+		})),
+		up: []
+	};
+	assert.deepEqual(
+		checkSweep(trace, { expect: [], pinned: ['record'] })
+			.failures.filter((f) => f.check === 'no-fold')
+			.map((f) => [f.width, f.detail]),
+		[[700, 'filter left the row; with no --expect nothing may fold.']]
+	);
 });

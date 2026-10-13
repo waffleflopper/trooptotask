@@ -28,7 +28,7 @@ export { OnboardingPageContext, MODAL_IDS } from './contexts/OnboardingPageConte
 
 export { onboardingWorkspaceHydrator } from './onboardingWorkspaceHydration.svelte';
 
-export { default as OnboardingKanbanView } from './components/OnboardingKanbanView.svelte';
+export { default as OnboardingActiveView } from './components/OnboardingActiveView.svelte';
 export { default as OnboardingHistoryPage } from './components/OnboardingHistoryPage.svelte';
 
 /** Keep packet dialogs lazy behind their consumed Web entry. */

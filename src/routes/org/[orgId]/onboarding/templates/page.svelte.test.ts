@@ -122,13 +122,24 @@ describe('onboarding templates page', () => {
 		expect(await screen.findByRole('heading', { name: 'Edit Onboarding Template' })).toBeTruthy();
 	});
 
-	it('leaves no detail toolbar for a viewer', async () => {
+	it('shows a viewer the Onboarding link and no template actions, on the row and in More', async () => {
 		canConfigure = false;
+		const widths = stubToolbarWidths();
 		await renderTemplatesPage();
 
 		expect(screen.getByRole('heading', { name: 'Standard Arrival' })).toBeTruthy();
 		expect(screen.queryByRole('toolbar', { name: 'Onboarding template detail controls' })).toBeNull();
 		expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
+
+		const toolbarName = 'Onboarding template controls';
+		const row = within(screen.getByRole('toolbar', { name: toolbarName }));
+		expect(row.getByRole('link', { name: 'Onboarding' }).getAttribute('href')).toBe('/org/org-1/onboarding');
+		expect(row.queryByRole('button', { name: 'Add Template' })).toBeNull();
+
+		await widths.foldAll();
+		const menu = await openToolbarMore(toolbarName);
+		expect(within(menu).getByRole('menuitem', { name: 'Onboarding' })).toBeTruthy();
+		expect(within(menu).queryByRole('menuitem', { name: 'Add Template' })).toBeNull();
 	});
 
 	it('preserves add template disabled state while adding', async () => {

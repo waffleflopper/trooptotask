@@ -461,7 +461,7 @@ describe('PersonnelPageView', () => {
 
 			const menu = await openToolbarMore(toolbarName);
 			expect(within(menu).getByRole('group', { name: 'Roster sort mode' })).toBeTruthy();
-			for (const name of ['Manage Groups', 'Archive', 'Import']) {
+			for (const name of ['Manage Groups', 'Archive', 'Import', 'Add Person']) {
 				expect(within(menu).queryByRole('menuitem', { name })).toBeNull();
 			}
 			expect(screen.queryByRole('button', { name: 'Add Person' })).toBeNull();

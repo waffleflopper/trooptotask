@@ -100,5 +100,6 @@ describe('Onboarding pipeline toolbar', () => {
 		const menu = await openToolbarMore(toolbarName);
 		expect(within(menu).getByRole('menuitem', { name: 'History' })).toBeTruthy();
 		expect(within(menu).queryByRole('menuitem', { name: 'Templates' })).toBeNull();
+		expect(within(menu).queryByRole('menuitem', { name: 'Start Onboarding' })).toBeNull();
 	});
 });

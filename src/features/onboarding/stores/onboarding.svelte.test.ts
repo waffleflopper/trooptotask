@@ -1128,7 +1128,10 @@ describe('onboardingStore step progress time and notes', () => {
 		])('keeps both notes when the answers arrive %s', async (_label, order) => {
 			const firstResponse = deferredResponse();
 			const secondResponse = deferredResponse();
-			vi.stubGlobal('fetch', vi.fn().mockReturnValueOnce(firstResponse.promise).mockReturnValueOnce(secondResponse.promise));
+			vi.stubGlobal(
+				'fetch',
+				vi.fn().mockReturnValueOnce(firstResponse.promise).mockReturnValueOnce(secondResponse.promise)
+			);
 
 			const firstSave = onboardingStore.addNote('step-1', 'First');
 			const secondSave = onboardingStore.addNote('step-1', 'Second');

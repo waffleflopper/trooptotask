@@ -57,7 +57,8 @@
 
 	/** A manageable checkbox step checks in place. Every other cell opens its popover, read-only when the member cannot manage it. */
 	function select(row: MatrixRow, column: MatrixColumn, cell: MatrixCell) {
-		if (cell.kind === 'open' && cell.step.stepType === 'checkbox' && canManage(row)) void ctx.handleToggleCheckbox(cell.step);
+		if (cell.kind === 'open' && cell.step.stepType === 'checkbox' && canManage(row))
+			void ctx.handleToggleCheckbox(cell.step);
 		else onOpenCell(row.summary.packet.id, column.id);
 	}
 

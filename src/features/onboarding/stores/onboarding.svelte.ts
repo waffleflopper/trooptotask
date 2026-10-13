@@ -414,9 +414,7 @@ function enhance(
 				const result: OnboardingNoteAppendResult = await res.json();
 				if (version !== organizationVersion) return false;
 				commitStepUpdate(mutation, (steps) =>
-					steps.map((step) =>
-						step.id === stepId ? { ...step, notes: mergeNotes(step.notes, result.notes) } : step
-					)
+					steps.map((step) => (step.id === stepId ? { ...step, notes: mergeNotes(step.notes, result.notes) } : step))
 				);
 				return true;
 			} catch {

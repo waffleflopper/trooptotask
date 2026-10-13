@@ -47,6 +47,8 @@
 			</div>
 		</form>
 	{:else}
-		<Button variant="link" size="none" class="justify-self-end p-0 text-sm" onclick={() => draft.open(step.id)}>Add note</Button>
+		<Button variant="link" size="none" class="justify-self-end p-0 text-sm" onclick={() => draft.open(step.id)}
+			>Add note</Button
+		>
 	{/if}
 {/if}

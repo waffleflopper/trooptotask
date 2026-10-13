@@ -617,7 +617,9 @@ describe('Onboarding Matrix without manage access', () => {
 
 		expect(screen.getByText(/View only\. You can't change onboarding steps/)).toBeTruthy();
 		const readOnly = within(standard).getByLabelText('CPL Jones, Alex, Brief: open. Read only. Select for details');
-		expect(readOnly.closest('td')!.getAttribute('title')).toBe("Read only. You can't manage onboarding for this Soldier.");
+		expect(readOnly.closest('td')!.getAttribute('title')).toBe(
+			"Read only. You can't manage onboarding for this Soldier."
+		);
 		expect(within(standard).getByText('All 3 steps done')).toBeTruthy();
 		expect(within(standard).queryByText('All done · Close out')).toBeNull();
 
@@ -635,10 +637,7 @@ describe('Onboarding Matrix without manage access', () => {
 			.mockResolvedValue(Response.json({ completed: true, currentStage: null, progressChangedAt: NOW }));
 		vi.stubGlobal('fetch', fetchMock);
 		onboardingStore.load(
-			[
-				{ ...packets[0], steps: [progress('p-smith', 'Brief'), ...packets[0].steps.slice(1)] },
-				...packets.slice(1)
-			],
+			[{ ...packets[0], steps: [progress('p-smith', 'Brief'), ...packets[0].steps.slice(1)] }, ...packets.slice(1)],
 			'org-1'
 		);
 		const ctx = new OnboardingPageContext(new ModalRegistry(), {

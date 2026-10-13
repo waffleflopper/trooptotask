@@ -11,7 +11,7 @@ A Calendar operator applies a status to selected people, imports reviewed rows, 
 
 ## How to get to it (user POV)
 
-From `Calendar`, choose `Bulk Status` and one of `Add Bulk`, `Remove Bulk` or `Import CSV`. The `Bulk status sections` view in `Bulk status controls` switches between Add, Remove and Import and keeps the choice in the `tab` query; at narrow widths it and the `Calendar` link move into `More Bulk status controls`. Add, Remove and Import lead to `Review & Confirm`, `Review Matching Entries`, or `Parse`/`Next` respectively. The operator needs Calendar operate access and a scope that includes the selected people; the Import tab accepts pasted CSV. The seeded Able/Baker/Unassigned records belong to A, while Foreign belongs to B.
+From `Calendar`, choose `Bulk Status` and one of `Add Bulk`, `Remove Bulk` or `Import CSV`. The `Bulk status sections` view in `Bulk status controls` switches between Add, Remove and Import and keeps the choice in the `tab` query; on a viewport narrower than about 320px the `Calendar` link and then the view move into `More Bulk status controls`. Add, Remove and Import lead to `Review & Confirm`, `Review Matching Entries`, or `Parse`/`Next` respectively. The operator needs Calendar operate access and a scope that includes the selected people; the Import tab accepts pasted CSV. The seeded Able/Baker/Unassigned records belong to A, while Foreign belongs to B.
 
 ## Driving it with verify:app
 

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { createSupabaseSignInRosterPersonnelLookupPort } from './signInRosterPersonnelLookup.server';
 
 function createPersonnelQueryMock(result: unknown) {
@@ -24,7 +24,69 @@ function createPersonnelQueryMock(result: unknown) {
 	return { supabase, query };
 }
 
+function createPersonnelRestFake(rows: Record<string, unknown>[]) {
+	const inList = (url: URL, column: string) =>
+		url.searchParams
+			.get(column)
+			?.match(/^in\.\((.*)\)$/)?.[1]
+			.split(',')
+			.map((value) => value.replace(/^"|"$/g, ''));
+	return createClient('http://127.0.0.1:9', 'synthetic-anon-key', {
+		auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+		global: {
+			fetch: async (input) => {
+				const url = new URL(String(input));
+				const orgId = url.searchParams.get('organization_id')?.replace(/^eq\./, '');
+				const ids = inList(url, 'id');
+				const groupIds = inList(url, 'group_id');
+				return Response.json(
+					rows.filter(
+						(row) =>
+							row.organization_id === orgId &&
+							(!ids || ids.includes(row.id as string)) &&
+							(!groupIds || groupIds.includes(row.group_id as string))
+					)
+				);
+			}
+		}
+	});
+}
+
 describe('SupabaseSignInRosterPersonnelLookupPort', () => {
+	it('finds out-of-Group People no more than unknown IDs for a Group-scoped actor', async () => {
+		const supabase = createPersonnelRestFake([
+			{
+				id: 'p-alpha',
+				organization_id: 'org-1',
+				rank: 'SGT',
+				last_name: 'Smith',
+				first_name: 'Jane',
+				group_id: 'group-alpha',
+				groups: { name: 'Alpha' }
+			},
+			{
+				id: 'p-bravo',
+				organization_id: 'org-1',
+				rank: 'SSG',
+				last_name: 'Jones',
+				first_name: 'Avery',
+				group_id: 'group-bravo',
+				groups: { name: 'Bravo' }
+			}
+		]);
+		const port = createSupabaseSignInRosterPersonnelLookupPort(() => supabase);
+
+		await expect(
+			port.findPersonnelForRosterSnapshot('org-1', { kind: 'groups', groupIds: ['group-alpha'] }, [
+				'p-alpha',
+				'p-bravo',
+				'p-missing'
+			])
+		).resolves.toEqual([
+			{ id: 'p-alpha', rank: 'SGT', lastName: 'Smith', firstName: 'Jane', groupId: 'group-alpha', groupName: 'Alpha' }
+		]);
+	});
+
 	it('loads roster snapshot personnel through the admin client and maps group names', async () => {
 		const { supabase, query } = createPersonnelQueryMock({
 			data: [

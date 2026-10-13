@@ -3,10 +3,23 @@ import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { testLeaderNoteContext } from '$features/personnel/leaderNotes.testHelper';
 import { listPersonnelArchivedArtifacts } from './personnelArchivedArtifacts.server';
-import { deletePersonnelFollowUp, restorePersonnelFollowUp } from './personnelFollowUps.server';
-import { deletePersonnelCounselingRecord, restorePersonnelCounselingRecord } from './personnelCounselingRecords.server';
-import { deletePersonnelDocument, restorePersonnelDocument } from './personnelDocuments.server';
-import { deletePersonnelLeaderNote, restorePersonnelLeaderNote } from '$features/personnel/index.server';
+import {
+	archivePersonnelFollowUp,
+	deletePersonnelFollowUp,
+	restorePersonnelFollowUp,
+	setPersonnelFollowUpStatus
+} from './personnelFollowUps.server';
+import {
+	archivePersonnelCounselingRecord,
+	deletePersonnelCounselingRecord,
+	restorePersonnelCounselingRecord
+} from './personnelCounselingRecords.server';
+import { archivePersonnelDocument, deletePersonnelDocument, restorePersonnelDocument } from './personnelDocuments.server';
+import {
+	archivePersonnelLeaderNote,
+	deletePersonnelLeaderNote,
+	restorePersonnelLeaderNote
+} from '$features/personnel/index.server';
 
 function seedPersonnel(ctx: ReturnType<typeof createTestContext>) {
 	ctx.store.seed('personnel', [
@@ -288,5 +301,78 @@ describe('personnel archived artifacts', () => {
 		);
 
 		expect(artifacts.map((artifact) => artifact.id)).toEqual(['follow-up-new-archive', 'follow-up-old-archive']);
+	});
+});
+
+describe('personnel artifact lifecycle responses', () => {
+	const personnelOperator = {
+		role: 'member' as const,
+		isPrivileged: false,
+		capabilityMap: {
+			calendar: 'none' as const,
+			personnel: 'operate' as const,
+			training: 'none' as const,
+			criticalTasks: 'none' as const,
+			onboarding: 'none' as const,
+			ratingScheme: 'none' as const
+		}
+	};
+
+	it('return only lifecycle state to Personnel operators who cannot read sensitive records', async () => {
+		const ctx = createTestContext({ auth: personnelOperator });
+		seedPersonnel(ctx);
+		seedActiveAndArchivedArtifacts(ctx);
+		const artifacts = testPersonnelArtifactsContext(ctx);
+		const notes = testLeaderNoteContext(ctx);
+
+		await expect(
+			archivePersonnelLeaderNote(notes, { personnelId: 'person-1', noteId: 'note-active' })
+		).resolves.toEqual({ id: 'note-active', archivedAt: expect.any(String) });
+		await expect(
+			restorePersonnelLeaderNote(notes, { personnelId: 'person-1', noteId: 'note-archived' })
+		).resolves.toEqual({ id: 'note-archived', archivedAt: null });
+		await expect(
+			archivePersonnelCounselingRecord(artifacts, { personnelId: 'person-1', recordId: 'counseling-active' })
+		).resolves.toEqual({ id: 'counseling-active', archivedAt: expect.any(String) });
+		await expect(
+			restorePersonnelCounselingRecord(artifacts, { personnelId: 'person-1', recordId: 'counseling-archived' })
+		).resolves.toEqual({ id: 'counseling-archived', archivedAt: null });
+		await expect(
+			archivePersonnelDocument(artifacts, { personnelId: 'person-1', documentId: 'document-active' })
+		).resolves.toEqual({ id: 'document-active', archivedAt: expect.any(String) });
+		await expect(
+			restorePersonnelDocument(artifacts, { personnelId: 'person-1', documentId: 'document-archived' })
+		).resolves.toEqual({ id: 'document-archived', archivedAt: null });
+		await expect(
+			setPersonnelFollowUpStatus(artifacts, {
+				personnelId: 'person-1',
+				followUpId: 'follow-up-active',
+				status: 'completed'
+			})
+		).resolves.toEqual({ id: 'follow-up-active', status: 'completed', archivedAt: null });
+		await expect(
+			archivePersonnelFollowUp(artifacts, { personnelId: 'person-1', followUpId: 'follow-up-active' })
+		).resolves.toEqual({ id: 'follow-up-active', status: 'archived', archivedAt: expect.any(String) });
+		await expect(
+			restorePersonnelFollowUp(artifacts, { personnelId: 'person-1', followUpId: 'follow-up-archived' })
+		).resolves.toEqual({ id: 'follow-up-archived', status: 'open', archivedAt: null });
+	});
+
+	it('return the full follow-up to sensitive-record readers so their follow-up list refreshes', async () => {
+		const ctx = createTestContext();
+		seedPersonnel(ctx);
+		seedActiveAndArchivedArtifacts(ctx);
+
+		await expect(
+			restorePersonnelFollowUp(testPersonnelArtifactsContext(ctx), {
+				personnelId: 'person-1',
+				followUpId: 'follow-up-archived'
+			})
+		).resolves.toMatchObject({
+			id: 'follow-up-archived',
+			title: 'Archived follow-up',
+			status: 'open',
+			archivedAt: null
+		});
 	});
 });

@@ -584,7 +584,7 @@ describe('/api/sign-in-rosters route config', () => {
 				},
 				() => selectRosterCreationContext(scoped)
 			)
-		).rejects.toMatchObject({ status: 403, message: 'You do not have access to personnel outside your group' });
+		).rejects.toMatchObject({ status: 400, message: 'Personnel selection includes unknown personnel' });
 		await expect(scoped.rawStore.findMany('sign_in_rosters', scoped.auth.orgId)).resolves.toHaveLength(0);
 	});
 

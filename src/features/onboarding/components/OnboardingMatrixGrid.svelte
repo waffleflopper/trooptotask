@@ -55,9 +55,9 @@
 		return clock.kind === 'day' ? String(clock.day) : `in ${clock.days}d`;
 	}
 
-	/** A checkbox step checks in place. Every other cell opens its popover. */
+	/** A manageable checkbox step checks in place. Every other cell opens its popover, read-only when the member cannot manage it. */
 	function select(row: MatrixRow, column: MatrixColumn, cell: MatrixCell) {
-		if (cell.kind === 'open' && cell.step.stepType === 'checkbox') void ctx.handleToggleCheckbox(cell.step);
+		if (cell.kind === 'open' && cell.step.stepType === 'checkbox' && canManage(row)) void ctx.handleToggleCheckbox(cell.step);
 		else onOpenCell(row.summary.packet.id, column.id);
 	}
 
@@ -65,7 +65,7 @@
 		const name = ctx.getPersonName(row.summary.packet.personnelId);
 		const base = `${name}, ${describeCell(cell, column.name)}`;
 		if (cell.kind === 'missing') return `${base}. Sync the packet to add it`;
-		if (!canManage(row)) return `${base}. Read only`;
+		if (!canManage(row)) return `${base}. Read only. Select for details`;
 		if (cell.kind === 'open' && cell.step.stepType === 'checkbox') return `${base}. Select to mark complete`;
 		return `${base}. Select for details`;
 	}
@@ -183,7 +183,7 @@
 								<OperationalMatrix.Cell
 									row={matrixRows[rowIndex]}
 									column={matrixColumns[index]}
-									readOnly={cell.kind === 'missing' || !canManage(row)}
+									readOnly={cell.kind === 'missing'}
 									ariaLabel={cellLabel(row, column, cell)}
 									title={cellTitle(row, cell)}
 									onSelect={() => select(row, column, cell)}

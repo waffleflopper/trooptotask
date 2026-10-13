@@ -8,7 +8,8 @@ import OnboardingModals from './OnboardingModals.svelte';
 import { OnboardingPageContext } from '../contexts/OnboardingPageContext.svelte';
 import { onboardingStore } from '../stores/onboarding.svelte';
 import { onboardingTemplateStore } from '../stores/onboardingTemplate.svelte';
-import { personnelRosterHydration } from '$features/personnel';
+import { groupCatalogHydration, personnelRosterHydration } from '$features/personnel';
+import { stubToolbarWidths } from '$lib/test-support/toolbarWidths';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { OnboardingStepProgress, OnboardingTemplateStep, PersonnelOnboarding } from '../onboarding.types';
 
@@ -128,6 +129,12 @@ async function showMatrix() {
 	await fireEvent.click(screen.getByRole('button', { name: 'Matrix' }));
 }
 
+async function openGroupMenu() {
+	const trigger = screen.getByRole('button', { name: 'Group' });
+	trigger.focus();
+	await fireEvent.keyDown(trigger, { key: 'Enter' });
+}
+
 function grid(template: string) {
 	return screen.getByRole('table', { name: `${template} packet` });
 }
@@ -170,6 +177,7 @@ afterEach(async () => {
 	onboardingStore.load([], 'reset');
 	onboardingTemplateStore.load([], [], 'reset');
 	personnelRosterHydration.load([], 'reset');
+	groupCatalogHydration.load([], 'reset');
 });
 
 describe('Onboarding Matrix view', () => {
@@ -274,8 +282,42 @@ describe('Onboarding Matrix view', () => {
 	});
 
 	it('applies the search and Group filter to the grids and keeps the header and toolbar', async () => {
+		groupCatalogHydration.load(
+			[
+				{ id: 'g-alpha', name: 'Alpha', sortOrder: 0 },
+				{ id: 'g-bravo', name: 'Bravo', sortOrder: 1 }
+			],
+			'org-1'
+		);
+		personnelRosterHydration.load(
+			[
+				{ ...person('person-1', 'SGT', 'Smith', 'Jane'), groupId: 'g-alpha', groupName: 'Alpha' },
+				{ ...person('person-2', 'CPL', 'Jones', 'Alex'), groupId: 'g-alpha', groupName: 'Alpha' },
+				{ ...person('person-3', 'SPC', 'Lee', 'Pat', '68W'), groupId: 'g-alpha', groupName: 'Alpha' },
+				{ ...person('person-4', 'PFC', 'Diaz', 'Sam'), groupId: 'g-bravo', groupName: 'Bravo' },
+				person('person-5', 'PV2', 'Park', 'Kim')
+			],
+			'org-1'
+		);
+		const { layOut } = stubToolbarWidths();
 		mount();
+		await layOut(4000);
 		await showMatrix();
+
+		await openGroupMenu();
+		await fireEvent.pointerUp(await screen.findByRole('option', { name: 'Bravo' }));
+
+		await waitFor(() => expect(screen.queryByRole('table', { name: 'Standard packet' })).toBeNull());
+		expect(within(grid('Reserve')).getByText('PFC Diaz, Sam')).toBeTruthy();
+
+		await openGroupMenu();
+		await fireEvent.pointerUp(await screen.findByRole('option', { name: 'Alpha' }));
+
+		await waitFor(() => expect(screen.queryByRole('table', { name: 'Reserve packet' })).toBeNull());
+		expect(within(grid('Standard')).getByText('SGT Smith, Jane')).toBeTruthy();
+
+		await openGroupMenu();
+		await fireEvent.pointerUp(await screen.findByRole('option', { name: 'All groups' }));
 
 		await fireEvent.input(screen.getByRole('searchbox', { name: 'Search by name, rank, or MOS' }), {
 			target: { value: 'diaz' }
@@ -566,16 +608,70 @@ describe('Onboarding Matrix late responses', () => {
 });
 
 describe('Onboarding Matrix without manage access', () => {
-	it('shows read-only cells and says why instead of offering actions', async () => {
+	it('opens read-only detail popovers and offers no actions to a viewer', async () => {
+		const fetchMock = vi.fn();
+		vi.stubGlobal('fetch', fetchMock);
 		mount(access(createCapabilityMap('view'), 'member'));
 		await showMatrix();
 		const standard = grid('Standard');
 
 		expect(screen.getByText(/View only\. You can't change onboarding steps/)).toBeTruthy();
-		expect(within(standard).queryAllByRole('button')).toEqual([]);
-		const readOnly = within(standard).getByLabelText('CPL Jones, Alex, Brief: open. Read only').closest('td')!;
-		expect(readOnly.getAttribute('title')).toBe("Read only. You can't manage onboarding for this Soldier.");
+		const readOnly = within(standard).getByLabelText('CPL Jones, Alex, Brief: open. Read only. Select for details');
+		expect(readOnly.closest('td')!.getAttribute('title')).toBe("Read only. You can't manage onboarding for this Soldier.");
 		expect(within(standard).getByText('All 3 steps done')).toBeTruthy();
 		expect(within(standard).queryByText('All done · Close out')).toBeNull();
+
+		await fireEvent.click(readOnly);
+
+		const popover = await screen.findByRole('dialog', { name: 'CPL Jones, Alex: Brief' });
+		expect(within(popover).queryByRole('button', { name: /Add note|Advance|Mark/ })).toBeNull();
+		expect(fetchMock).not.toHaveBeenCalled();
+		expect(onboardingStore.getById('p-jones')?.steps[0].completed).toBe(false);
+	});
+
+	it('applies manage access to each Soldier, and the Training link to the member', async () => {
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValue(Response.json({ completed: true, currentStage: null, progressChangedAt: NOW }));
+		vi.stubGlobal('fetch', fetchMock);
+		onboardingStore.load(
+			[
+				{ ...packets[0], steps: [progress('p-smith', 'Brief'), ...packets[0].steps.slice(1)] },
+				...packets.slice(1)
+			],
+			'org-1'
+		);
+		const ctx = new OnboardingPageContext(new ModalRegistry(), {
+			orgId: 'org-1',
+			orgUrlSegment: 'org-1',
+			...createClientAccess({
+				membershipRole: 'member',
+				capabilityMap: { ...createCapabilityMap('none'), onboarding: 'operate', training: 'view' }
+			})
+		});
+		vi.spyOn(ctx, 'canManageOnboarding').mockImplementation((onboarding) => onboarding.id === 'p-jones');
+		mount(ctx);
+		await showMatrix();
+		const standard = grid('Standard');
+
+		await fireEvent.click(cell(standard, 'SGT Smith, Jane, Brief: open. Read only. Select for details'));
+		let popover = await screen.findByRole('dialog', { name: 'SGT Smith, Jane: Brief' });
+		expect(within(popover).queryByRole('button', { name: /Add note|Advance|Mark/ })).toBeNull();
+		expect(fetchMock).not.toHaveBeenCalled();
+		await fireEvent.keyDown(popover, { key: 'Escape' });
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+		await fireEvent.click(cell(standard, 'SGT Smith, Jane, SHARP: open. Read only. Select for details'));
+		popover = await screen.findByRole('dialog', { name: 'SGT Smith, Jane: SHARP' });
+		expect(within(popover).getByRole('link', { name: 'Record training' }).getAttribute('href')).toBe(
+			'/org/org-1/training'
+		);
+		expect(within(popover).queryByRole('button', { name: 'Add note' })).toBeNull();
+		await fireEvent.keyDown(popover, { key: 'Escape' });
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+		await fireEvent.click(cell(standard, 'CPL Jones, Alex, Brief: open. Select to mark complete'));
+		await waitFor(() => expect(onboardingStore.getById('p-jones')?.steps[0].completed).toBe(true));
+		expect(fetchMock).toHaveBeenCalledTimes(1);
 	});
 });

@@ -91,8 +91,8 @@
 	{#if rows.length > 0 && manageable < rows.length}
 		<p class="text-sm text-muted-foreground">
 			{manageable === 0
-				? "View only. You can't change onboarding steps, so the cells are read-only."
-				: "Cells for Soldiers outside your groups are read-only. You can't manage their onboarding."}
+				? "View only. You can't change onboarding steps, so the cells open details only."
+				: "Cells for Soldiers outside your groups open details only. You can't manage their onboarding."}
 		</p>
 	{/if}
 

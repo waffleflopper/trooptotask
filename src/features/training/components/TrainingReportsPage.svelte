@@ -221,7 +221,11 @@
 				kind: 'view',
 				id: 'horizon',
 				label: 'Forecast horizon',
-				options: TRAINING_BRIEFING_HORIZONS.map((days) => ({ value: String(days), label: `${days} days` })),
+				options: TRAINING_BRIEFING_HORIZONS.map((days) => ({
+					value: String(days),
+					label: `${days} D`,
+					ariaLabel: `${days} days`
+				})),
 				value: String(selected.horizonDays),
 				onValueChange: (value) => update({ horizonDays: Number(value) as TrainingBriefingHorizon })
 			},

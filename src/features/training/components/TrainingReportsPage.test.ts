@@ -147,6 +147,18 @@ describe('Training Reports briefing page', () => {
 		expect(fetchImpl).not.toHaveBeenCalled();
 	});
 
+	it('shows the horizons as 30 D on the row and names them 30 days', () => {
+		renderPage(vi.fn<typeof fetch>(async () => Response.json(reportFor())));
+
+		const horizon = screen.getByRole('group', { name: 'Forecast horizon' });
+		expect(
+			within(horizon)
+				.getAllByRole('button')
+				.map((button) => button.textContent?.trim())
+		).toEqual(['30 D', '60 D', '90 D', '180 D']);
+		expect(within(horizon).getByRole('button', { name: '180 days' })).toBeTruthy();
+	});
+
 	it('refetches the briefing when the horizon changes and keeps focus on the control', async () => {
 		const fetchImpl = vi.fn<typeof fetch>(async () => Response.json(reportFor({ horizonDays: 30 })));
 		renderPage(fetchImpl);

@@ -54,19 +54,15 @@
 			.join(' · ')
 	);
 
-	/** Undefined shows the focus step as the open card; null collapses every open step. */
-	let openCardId = $state<string | null | undefined>(undefined);
+	/** Undefined shows the focus step as the open card. */
+	let openCardId = $state<string | undefined>(undefined);
 	let doneExpandedId = $state<string | null>(null);
 	let doneOpen = $state(false);
 	let noteStepId = $state<string | null>(null);
 	let noteText = $state('');
 	let savingNote = $state(false);
 
-	const cardId = $derived(openCardId === undefined ? (summary.focus?.id ?? null) : openCardId);
-
-	function toggleExpanded(step: OnboardingStepProgress) {
-		openCardId = cardId === step.id ? null : step.id;
-	}
+	const cardId = $derived(openCardId ?? summary.focus?.id ?? null);
 
 	function stageLine(step: OnboardingStepProgress) {
 		const stages = step.stages ?? [];
@@ -156,15 +152,7 @@
 	>
 		<div class="flex items-start gap-2">
 			{#if step.stepType === 'checkbox'}{@render openMarker(step)}{/if}
-			<Button
-				variant="ghost"
-				size="none"
-				class="min-w-0 flex-1 justify-start p-0 text-left font-semibold"
-				aria-expanded={true}
-				onclick={() => toggleExpanded(step)}
-			>
-				{step.stepName}
-			</Button>
+			<h4 class="min-w-0 flex-1 font-semibold">{step.stepName}</h4>
 			{@render typeLabel(step)}
 		</div>
 		{#if step.stepType === 'paperwork'}
@@ -188,7 +176,7 @@
 				size="none"
 				class="justify-start p-0 text-left text-sm"
 				aria-expanded={false}
-				onclick={() => toggleExpanded(step)}
+				onclick={() => (openCardId = step.id)}
 			>
 				{step.stepName}
 			</Button>

@@ -36,12 +36,12 @@ For each saved mutation preserve before/action/after snapshots, screenshot, requ
 
 `$V seed onboarding-status` creates four tagged People with active packets on the seeded template. Each packet has a `Status Orientation <tag>` checkbox and a `Status Finance <tag>` paperwork step (Submitted, Reviewed, Filed). The seed backdates `progress_changed_at` and `started_at` so the list shows one packet per status:
 
-| Person                   | Group | Status   | Why                                                      |
-| ------------------------ | ----- | -------- | -------------------------------------------------------- |
-| `SPC StatusStalled<tag>` | Alpha | Stalled  | Finance has sat at Reviewed for exactly 7 days           |
-| `SPC StatusReady<tag>`   | Alpha | Ready    | Both steps are done                                      |
-| `SPC StatusOnTrack<tag>` | Bravo | On track | Orientation is done; Finance has sat at Submitted 6 days |
-| `SPC StatusNew<tag>`     | Alpha | New      | Nothing is done; the packet started today                |
+| Person                              | Group | Status   | Why                                                      |
+| ----------------------------------- | ----- | -------- | -------------------------------------------------------- |
+| `SPC Statusstalled<tag>, Synthetic` | Alpha | Stalled  | Finance has sat at Reviewed for exactly 7 days           |
+| `SPC Statusready<tag>, Synthetic`   | Alpha | Ready    | Both steps are done                                      |
+| `SPC StatusonTrack<tag>, Synthetic` | Bravo | On track | Orientation is done; Finance has sat at Submitted 6 days |
+| `SPC Statusnew<tag>, Synthetic`     | Alpha | New      | Nothing is done; the packet started today                |
 
 It also records three completed packets for the first three People, started 30 days ago and finished after 8, 10 and 12 days. With no other completion in the last 90 days, the header reads `Typically 10 days to finish`; otherwise compare against the median of the actual completions. `clean-seeds` removes all of it.
 

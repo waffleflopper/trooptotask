@@ -44,7 +44,7 @@ CREATE TEMP VIEW training_catalog_current_rows AS
       'c8100000-0000-4000-8000-000000000801', 'c8100000-0000-4000-8000-000000000802',
       'c8100000-0000-4000-8000-000000000803')
   UNION ALL
-  SELECT 'step_progress', id, to_jsonb(p) FROM public.onboarding_step_progress p
+  SELECT 'step_progress', id, to_jsonb(p) - 'progress_changed_at' FROM public.onboarding_step_progress p
     WHERE id IN (
       'c8100000-0000-4000-8000-000000001001', 'c8100000-0000-4000-8000-000000001002',
       'c8100000-0000-4000-8000-000000001003');

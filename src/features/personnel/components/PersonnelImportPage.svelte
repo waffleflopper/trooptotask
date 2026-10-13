@@ -380,6 +380,8 @@
 			label: 'Import mode',
 			options: importModeOptions,
 			value: importMode,
+			disabled: runningImport,
+			disabledReason: runningImport ? 'Wait for the import to finish before switching modes.' : undefined,
 			onValueChange: (value) => {
 				if (value === 'create' || value === 'merge') setImportMode(value);
 			}
@@ -388,7 +390,7 @@
 	]);
 
 	function setImportMode(mode: ImportMode) {
-		if (runningImport || importMode === mode) return;
+		if (importMode === mode) return;
 		importMode = mode;
 		resetImportState();
 	}

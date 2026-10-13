@@ -2,7 +2,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 
-SELECT plan(84);
+SELECT plan(85);
 
 INSERT INTO auth.users (id, aud, role, email, email_confirmed_at)
 SELECT ('c6420000-0000-4000-8000-0000000000' || n)::uuid, 'authenticated', 'authenticated',
@@ -495,6 +495,14 @@ SELECT lives_ok(
 			'c6420000-0000-4000-8000-000000000002', now() + interval '7 days', 'member', 'viewer') $$,
 	'an admin can invite a member'
 );
+SELECT throws_ok(
+	$$ INSERT INTO public.organization_invitations (organization_id, email, invited_by, expires_at, role, member_preset)
+		VALUES ('c6420000-0000-4000-8000-0000000001aa', 'admin-attributes-owner@example.test',
+			'c6420000-0000-4000-8000-000000000001', now() + interval '7 days', 'member', 'viewer') $$,
+	'42501',
+	'new row violates row-level security policy for table "organization_invitations"',
+	'an admin cannot attribute an invitation to another inviter'
+);
 RESET ROLE;
 SELECT pg_temp.act_as('01');
 SET LOCAL ROLE authenticated;
@@ -516,7 +524,8 @@ RESET ROLE;
 SELECT is(
 	(SELECT jsonb_object_agg(email, role) FROM public.organization_invitations
 		WHERE email IN ('admin-invites-owner@example.test', 'admin-invites-admin@example.test',
-			'admin-invites-member@example.test', 'owner-invites-owner@example.test', 'owner-invites-admin@example.test')),
+			'admin-invites-member@example.test', 'admin-attributes-owner@example.test', 'owner-invites-owner@example.test',
+			'owner-invites-admin@example.test')),
 	'{"admin-invites-member@example.test": "member", "owner-invites-admin@example.test": "admin"}'::jsonb,
 	'only the permitted invitations persist'
 );

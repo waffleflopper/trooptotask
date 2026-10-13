@@ -126,8 +126,7 @@ function fixture(member: OrganizationMembershipFacts = membership) {
 						});
 					}
 					const table = url.pathname.split('/').at(-1)!;
-					// No receipt exists for an artifact this fixture never deleted.
-					if (receiptLookup({ path: url.pathname, body })) return Response.json([]);
+					if (isDeletionReceiptRead({ path: url.pathname, body })) return Response.json([]);
 					if (!(table in tables)) throw new Error(`Unexpected table: ${table}`);
 					if (table === state.failedTable) return Response.json({ message: 'synthetic read failure' }, { status: 500 });
 					if (method === 'POST') {
@@ -209,8 +208,7 @@ const operations: { name: string; handler: RequestHandler; method: string; id: s
 	}
 ];
 
-/** A delete without an archived timestamp can only read a prior deletion receipt. */
-function receiptLookup(request: { path: string; body: unknown }) {
+function isDeletionReceiptRead(request: { path: string; body: unknown }) {
 	return (
 		request.path.endsWith('/rpc/delete_archived_personnel_artifact') &&
 		(request.body as { p_archived_at?: unknown } | undefined)?.p_archived_at === null
@@ -221,9 +219,9 @@ function expectNoPrivateEffects(f: ReturnType<typeof fixture>, before: Record<st
 	expect(f.tables.personnel_documents).toEqual(before.personnel_documents);
 	expect(f.tables.sign_in_rosters).toEqual(before.sign_in_rosters);
 	expect(f.requests.filter((r) => r.path.startsWith('/storage/'))).toEqual([]);
-	expect(f.requests.filter((r) => r.method !== 'GET' && !r.path.endsWith('/audit_logs') && !receiptLookup(r))).toEqual(
-		[]
-	);
+	expect(
+		f.requests.filter((r) => r.method !== 'GET' && !r.path.endsWith('/audit_logs') && !isDeletionReceiptRead(r))
+	).toEqual([]);
 }
 
 afterEach(() => vi.restoreAllMocks());

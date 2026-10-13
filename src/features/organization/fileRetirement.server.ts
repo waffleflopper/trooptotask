@@ -26,7 +26,10 @@ export async function removeRetiredOrganizationFiles(
 	for (const [bucket, names] of byBucket) {
 		try {
 			await storage.remove(bucket, names);
-			const completed = await admin.rpc('complete_organization_file_retirements', { p_object_names: names });
+			const completed = await admin.rpc('complete_organization_file_retirements', {
+				p_bucket_id: bucket,
+				p_object_names: names
+			});
 			if (completed.error) cleanup = 'pending';
 		} catch {
 			cleanup = 'pending';
@@ -49,7 +52,6 @@ export async function drainRetiredOrganizationFiles(
 		if ((await removeRetiredOrganizationFiles(admin, files)) === 'complete') {
 			removed += files.length;
 		} else {
-			// One bad key must not hold back the rest of its page.
 			let pageRemoved = 0;
 			for (const file of files) {
 				if ((await removeRetiredOrganizationFiles(admin, [file])) === 'complete') pageRemoved++;

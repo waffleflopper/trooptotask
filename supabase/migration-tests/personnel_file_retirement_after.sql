@@ -1,5 +1,3 @@
--- Populated predecessor upgrade: saved rows are unchanged and unretired, and
--- deleting them afterward retires only owned keys with no other reference.
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SELECT no_plan();

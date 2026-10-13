@@ -276,11 +276,10 @@ describe('Person-bound registered Storage transport', () => {
 	);
 });
 
-// A finite model of the committed SQL deletion and reconciliation results.
 describe('Person-bound file retirement transport', () => {
 	const actor = member('operate');
 	const path = `${actor.orgId}/personnel/person-1/documents/unique.pdf`;
-	function finite(options: {
+	function committedSqlModel(options: {
 		receipt?: { deleted: boolean; bucket_id: string | null; object_name: string | null; file_removed: boolean } | null;
 		attachedId?: string | null;
 		files?: string[];
@@ -300,7 +299,7 @@ describe('Person-bound file retirement transport', () => {
 					return Response.json(options.receipt ? [options.receipt] : []);
 				if (name === 'reconcile_personnel_file_attachment') return Response.json(options.attachedId ?? null);
 				if (name === 'complete_organization_file_retirements') {
-					completed.push(...(args.p_object_names as string[]));
+					completed.push(...(args.p_object_names as string[]).map((name) => `${args.p_bucket_id}/${name}`));
 					return Response.json((args.p_object_names as string[]).length);
 				}
 			}
@@ -325,7 +324,7 @@ describe('Person-bound file retirement transport', () => {
 	const pending = { deleted: true, bucket_id: 'personnel-documents', object_name: path, file_removed: false };
 
 	it('deletes an archived metadata-only document whose bytes are already absent', async () => {
-		const run = finite({ receipt: pending });
+		const run = committedSqlModel({ receipt: pending });
 		await expect(
 			(await run.writer).deleteArchivedFileArtifact('document', 'doc-1', '2026-10-01T00:00:00+00:00')
 		).resolves.toEqual({ deleted: true, fileCleanup: 'complete' });
@@ -339,11 +338,11 @@ describe('Person-bound file retirement transport', () => {
 				p_archived_at: '2026-10-01T00:00:00+00:00'
 			}
 		});
-		expect(run.completed).toEqual([path]);
+		expect(run.completed).toEqual([`personnel-documents/${path}`]);
 	});
 
 	it('reports pending cleanup when the removal response is lost', async () => {
-		const run = finite({ receipt: pending, files: [path], storage: 'lost' });
+		const run = committedSqlModel({ receipt: pending, files: [path], storage: 'lost' });
 		await expect(
 			(await run.writer).deleteArchivedFileArtifact('document', 'doc-1', '2026-10-01T00:00:00+00:00')
 		).resolves.toEqual({ deleted: true, fileCleanup: 'pending' });
@@ -352,20 +351,20 @@ describe('Person-bound file retirement transport', () => {
 	});
 
 	it('returns no deletion when neither the conditional delete nor a receipt applies', async () => {
-		const run = finite({ receipt: null });
+		const run = committedSqlModel({ receipt: null });
 		await expect(
 			(await run.writer).deleteArchivedFileArtifact('document', 'doc-1', '2026-10-01T00:00:00+00:00')
 		).resolves.toBeNull();
 	});
 
 	it('returns an attached artifact without touching its bytes, or retires and removes an unattached key', async () => {
-		const attached = finite({ attachedId: 'doc-7', files: [path] });
+		const attached = committedSqlModel({ attachedId: 'doc-7', files: [path] });
 		await expect((await attached.writer).reconcileFileAttachment('document', path)).resolves.toBe('doc-7');
 		expect(attached.files).toEqual(new Set([path]));
-		const unattached = finite({ attachedId: null, files: [path] });
+		const unattached = committedSqlModel({ attachedId: null, files: [path] });
 		await expect((await unattached.writer).reconcileFileAttachment('document', path)).resolves.toBeNull();
 		expect(unattached.files).toEqual(new Set());
-		expect(unattached.completed).toEqual([path]);
+		expect(unattached.completed).toEqual([`personnel-documents/${path}`]);
 		await expect(
 			(await unattached.writer).reconcileFileAttachment('document', `${actor.orgId}/personnel/person-2/documents/x.pdf`)
 		).rejects.toMatchObject({ status: 400 });

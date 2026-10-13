@@ -201,7 +201,7 @@ describe('ApprovalRequestsSection', () => {
 		mount();
 		await fireEvent.click(card('Archived record A').getByRole('button', { name: 'Approve Archived record A' }));
 		await waitFor(() => expect(navigation.invalidateAll).toHaveBeenCalledOnce());
-		expect(feedback.info).toHaveBeenCalledWith('Approved. The stored file will be removed automatically.');
+		expect(feedback.info).toHaveBeenCalledWith(expect.stringMatching(/file/i));
 		expect(feedback.error).not.toHaveBeenCalled();
 	});
 

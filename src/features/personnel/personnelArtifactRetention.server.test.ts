@@ -30,11 +30,6 @@ function rowFor(family: Family, index: number, org: string, archived: string | n
 	};
 }
 
-/**
- * Actual SDK serialization against a finite REST model that evaluates each
- * mutation's predicates against current rows, as PostgreSQL rechecks a waited
- * row. File capture is a database trigger proven by the SQL contracts.
- */
 function fixture(family: Family, count: number) {
 	const expired = Array.from({ length: count }, (_, index) => rowFor(family, index + 1, ORG, EXPIRED));
 	const retained = [

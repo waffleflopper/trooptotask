@@ -23,10 +23,6 @@ function personId(index: number) {
 	return `d1204100-0000-4000-8000-${index.toString(16).padStart(12, '0')}`;
 }
 
-/**
- * Real SDK serialization against a finite REST model. Child file capture is a
- * database trigger proven by the SQL contracts, so this source never calls Storage.
- */
 function fixture() {
 	const state = {
 		personnel: [

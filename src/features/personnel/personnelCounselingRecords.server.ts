@@ -109,8 +109,6 @@ export async function createPersonnelCounselingRecord(
 		)
 			throw new Error('Uploaded artifact attachment was not acknowledged');
 	} catch (error) {
-		// A lost reply may hide a committed attachment. Keep it; otherwise the
-		// key is retired before the registration ends.
 		const attachedId = await writer.reconcileFileAttachment('counseling', filePath);
 		row = attachedId ? await writer.findCounseling(attachedId) : null;
 		if (!row) {

@@ -1,6 +1,3 @@
--- Deleting or detaching a Personnel file record retires its own unshared key
--- in the same transaction. A retired key never accepts a new upload,
--- Storage write or record, and cleanup completion keeps only its digest.
 BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
@@ -36,7 +33,6 @@ $$;
 CREATE FUNCTION pg_temp.counsel(p_person text, p_name text) RETURNS text LANGUAGE sql AS $$
 	SELECT 'f6430000-0000-4000-8000-000000000101/counseling-records/f6430000-0000-4000-8000-000000000' || p_person || '/' || p_name
 $$;
--- 'pending' until cleanup completes, then 'removed'; NULL when never retired.
 CREATE FUNCTION pg_temp.retirement(p_bucket text, p_name text) RETURNS text LANGUAGE sql AS $$
 	SELECT CASE WHEN object_name IS NULL THEN 'removed' ELSE 'pending' END
 	FROM organization_private.file_retirements
@@ -89,7 +85,7 @@ SELECT is(
 			'public.personnel_file_artifact_deletion(uuid, uuid, text, uuid)',
 			'public.reconcile_personnel_file_attachment(uuid, uuid, text, text)',
 			'public.list_pending_organization_file_retirements(integer)',
-			'public.complete_organization_file_retirements(text[])'
+			'public.complete_organization_file_retirements(text, text[])'
 		]) AS signature ORDER BY role_name, signature),
 	ARRAY[false, false, false, false, false, false, false, false, false, false, true, true, true, true, true],
 	'only the server service role runs file retirement commands');
@@ -103,7 +99,6 @@ SELECT is(
 	ARRAY[false, false, false, false],
 	'no API role reads retired keys or deletion receipts directly');
 
--- An ordinary authorized delete and path change retire the record's own key.
 SELECT pg_temp.act_as('f6430000-0000-4000-8000-000000000002');
 WITH removed AS (
 	DELETE FROM public.personnel_documents WHERE id = 'f6430000-0000-4000-8000-000000000511' RETURNING id
@@ -117,6 +112,12 @@ SELECT throws_ok($$ INSERT INTO public.personnel_documents (organization_id, per
 	'23514', 'This stored file was deleted and cannot be attached', 'a direct insert cannot reattach a deleted file');
 SELECT throws_ok($$ UPDATE public.personnel_documents SET file_path = pg_temp.doc('301', 'before-move.pdf') WHERE id = 'f6430000-0000-4000-8000-000000000516' $$,
 	'23514', 'This stored file was deleted and cannot be attached', 'a direct update cannot point back at a detached file');
+SELECT throws_ok($$ UPDATE public.personnel_documents SET id = 'f6430000-0000-4000-8000-000000000526', file_path = pg_temp.doc('301', 'direct.pdf')
+	WHERE id = 'f6430000-0000-4000-8000-000000000516' $$,
+	'23514', 'Personnel file record identity cannot change', 'a direct update cannot swap a document id to claim a deleted file');
+SELECT throws_ok($$ UPDATE public.counseling_records SET id = 'f6430000-0000-4000-8000-000000000536', file_path = pg_temp.counsel('301', 'direct.pdf')
+	WHERE id = 'f6430000-0000-4000-8000-000000000532' $$,
+	'23514', 'Personnel file record identity cannot change', 'a direct update cannot swap a counseling id to claim a deleted file');
 SELECT pg_temp.act_as_fixture();
 SELECT is(
 	ARRAY[
@@ -128,13 +129,24 @@ SELECT is(
 	ARRAY['pending', 'pending', 'pending', NULL],
 	'deleted and detached keys are pending removal while the new path stays live');
 SELECT results_eq(
-	$$ SELECT artifact_kind, artifact_id::text, key_digest IS NOT NULL FROM organization_private.file_artifact_deletions
+	$$ SELECT artifact_kind, artifact_id::text, retired_key_digest IS NOT NULL FROM organization_private.file_artifact_deletions
 		WHERE organization_id = 'f6430000-0000-4000-8000-000000000101' ORDER BY artifact_id $$,
 	$$ VALUES ('document', 'f6430000-0000-4000-8000-000000000511', true), ('counseling', 'f6430000-0000-4000-8000-000000000531', true),
 		('counseling', 'f6430000-0000-4000-8000-000000000533', false) $$,
 	'each deleted record leaves a receipt naming the key it retired');
+SELECT throws_ok($$ INSERT INTO public.personnel_documents (id, organization_id, personnel_id, title, file_path, file_size_bytes, content_type, uploaded_by)
+	VALUES ('f6430000-0000-4000-8000-000000000511', 'f6430000-0000-4000-8000-000000000101', 'f6430000-0000-4000-8000-000000000301', 'Reused', pg_temp.doc('301', 'reused.pdf'), 1, 'application/pdf', 'fixture') $$,
+	'23505', 'A deleted Personnel file record id cannot be reused', 'a deleted document id cannot return for its Person');
+SELECT throws_ok($$ INSERT INTO public.personnel_documents (id, organization_id, personnel_id, title, file_path, file_size_bytes, content_type, uploaded_by)
+	VALUES ('f6430000-0000-4000-8000-000000000511', 'f6430000-0000-4000-8000-000000000101', 'f6430000-0000-4000-8000-000000000302', 'Reused', pg_temp.doc('302', 'reused.pdf'), 1, 'application/pdf', 'fixture') $$,
+	'23505', 'A deleted Personnel file record id cannot be reused', 'a deleted document id cannot return for another Person');
+SELECT throws_ok($$ INSERT INTO public.counseling_records (id, organization_id, personnel_id, date_conducted, subject, title, uploaded_by, file_path)
+	VALUES ('f6430000-0000-4000-8000-000000000531', 'f6430000-0000-4000-8000-000000000101', 'f6430000-0000-4000-8000-000000000301', '2030-01-01', 'Reused', 'Reused', 'fixture', pg_temp.counsel('301', 'reused.pdf')) $$,
+	'23505', 'A deleted Personnel file record id cannot be reused', 'a deleted counseling id cannot return for its Person');
+SELECT throws_ok($$ INSERT INTO public.counseling_records (id, organization_id, personnel_id, date_conducted, subject, title, uploaded_by, file_path)
+	VALUES ('f6430000-0000-4000-8000-000000000533', 'f6430000-0000-4000-8000-000000000101', 'f6430000-0000-4000-8000-000000000302', '2030-01-01', 'Reused', 'Reused', 'fixture', pg_temp.counsel('302', 'reused.pdf')) $$,
+	'23505', 'A deleted Personnel file record id cannot be reused', 'a deleted fileless counseling id cannot return for another Person');
 
--- Bytes another record still references, or outside the record's own Person, are never retired.
 DELETE FROM public.personnel_documents WHERE id IN ('f6430000-0000-4000-8000-000000000512', 'f6430000-0000-4000-8000-000000000514', 'f6430000-0000-4000-8000-000000000515');
 SELECT is(
 	ARRAY[
@@ -148,7 +160,6 @@ DELETE FROM public.personnel_documents WHERE id = 'f6430000-0000-4000-8000-00000
 SELECT is(pg_temp.retirement('personnel-documents', pg_temp.doc('301', 'shared.pdf')), 'pending',
 	'the last historical reference retires a shared key');
 
--- Cascades and scheduled retention retire keys too; a deleted Person leaves no receipt.
 DELETE FROM public.personnel WHERE id = 'f6430000-0000-4000-8000-000000000302';
 SELECT pg_temp.act_as_service();
 SELECT is(public.delete_expired_personnel('f6430000-0000-4000-8000-000000000101', ARRAY['f6430000-0000-4000-8000-000000000303']::uuid[], '2021-01-01T00:00:00Z'), 1,
@@ -172,7 +183,6 @@ SELECT is((SELECT count(*)::integer FROM organization_private.file_artifact_dele
 	WHERE personnel_id IN ('f6430000-0000-4000-8000-000000000302', 'f6430000-0000-4000-8000-000000000303')), 0,
 	'records removed with their Person leave no receipt');
 
--- Counseling approval retires the key in its own transaction and reports it.
 SELECT pg_temp.act_as_service();
 SELECT lives_ok($$ SELECT public.approve_counseling_deletion_request('f6430000-0000-4000-8000-000000000101', 'f6430000-0000-4000-8000-000000000801',
 	'f6430000-0000-4000-8000-000000000532', 'f6430000-0000-4000-8000-000000000001', '2030-02-01T00:00:00Z', pg_temp.counsel('301', 'approved.pdf')) $$,
@@ -187,7 +197,6 @@ SELECT is_empty(
 		'f6430000-0000-4000-8000-000000000301', 'counseling', 'f6430000-0000-4000-8000-000000000532') $$,
 	'a receipt is not readable through another Organization');
 
--- The archived delete applies only to the exact record state the caller read.
 SELECT is_empty(
 	$$ SELECT * FROM public.delete_archived_personnel_artifact('f6430000-0000-4000-8000-000000000101', 'f6430000-0000-4000-8000-000000000301',
 		'document', 'f6430000-0000-4000-8000-000000000517', '2030-01-01T00:00:00Z') $$,
@@ -211,7 +220,6 @@ SELECT is_empty(
 		'document', 'f6430000-0000-4000-8000-000000000523', NULL) $$,
 	'an active record is not deleted');
 
--- An unattached key is retired at reconciliation; an attached key returns its record.
 SELECT is(public.reconcile_personnel_file_attachment('f6430000-0000-4000-8000-000000000101', 'f6430000-0000-4000-8000-000000000301',
 	'document', pg_temp.doc('301', 'attached.pdf')), 'f6430000-0000-4000-8000-000000000523'::uuid, 'reconciliation returns the attached record');
 SELECT is(public.reconcile_personnel_file_attachment('f6430000-0000-4000-8000-000000000101', 'f6430000-0000-4000-8000-000000000301',
@@ -227,7 +235,6 @@ SELECT is(
 	ARRAY[NULL, 'pending'],
 	'only the unattached key is retired');
 
--- A retired key admits no upload registration or Storage write, even from a fixture.
 SELECT pg_temp.act_as_service();
 SELECT throws_ok($$ SELECT public.register_organization_file_upload('f6430000-0000-4000-8000-000000000601', 'f6430000-0000-4000-8000-000000000101',
 	'f6430000-0000-4000-8000-000000000001', 'personnel-documents', pg_temp.doc('301', 'direct.pdf')) $$,
@@ -247,7 +254,6 @@ DELETE FROM organization_private.file_uploads WHERE id = 'f6430000-0000-4000-800
 SELECT set_config('storage.allow_delete_query', 'true', true);
 DELETE FROM storage.objects WHERE id = 'f6430000-0000-4000-8000-000000000703';
 
--- Workers list pending keys oldest-attempt first and completion clears the name.
 UPDATE organization_private.file_retirements SET attempted_at = now() WHERE object_name IS NOT NULL AND object_name NOT LIKE 'f6430000-%';
 SELECT pg_temp.act_as_service();
 CREATE TEMP TABLE first_page ON COMMIT DROP AS SELECT * FROM public.list_pending_organization_file_retirements(3);
@@ -255,9 +261,11 @@ CREATE TEMP TABLE second_page ON COMMIT DROP AS SELECT * FROM public.list_pendin
 SELECT is((SELECT count(*)::integer FROM first_page), 3, 'a bounded page lists pending keys');
 SELECT is_empty($$ SELECT object_name FROM first_page INTERSECT SELECT object_name FROM second_page $$,
 	'a listed key moves behind keys not yet tried');
-SELECT is(public.complete_organization_file_retirements(ARRAY[pg_temp.doc('301', 'direct.pdf'), pg_temp.counsel('301', 'direct.pdf'), 'never-retired']), 2,
-	'completion counts only pending keys');
-SELECT is(public.complete_organization_file_retirements(ARRAY[pg_temp.doc('301', 'direct.pdf')]), 0, 'completion is idempotent');
+SELECT is(public.complete_organization_file_retirements('personnel-documents', ARRAY[pg_temp.doc('301', 'direct.pdf'), pg_temp.counsel('301', 'direct.pdf'), 'never-retired']), 1,
+	'completion counts only pending keys in its own bucket');
+SELECT is(public.complete_organization_file_retirements('counseling-files', ARRAY[pg_temp.counsel('301', 'direct.pdf')]), 1,
+	'a key left pending by another bucket completes through its own bucket');
+SELECT is(public.complete_organization_file_retirements('personnel-documents', ARRAY[pg_temp.doc('301', 'direct.pdf')]), 0, 'completion is idempotent');
 SELECT throws_ok($$ SELECT public.register_organization_file_upload('f6430000-0000-4000-8000-000000000603', 'f6430000-0000-4000-8000-000000000101',
 	'f6430000-0000-4000-8000-000000000001', 'personnel-documents', pg_temp.doc('301', 'direct.pdf')) $$,
 	'23514', 'This stored file was deleted and cannot be reused', 'a completed key stays fenced');
@@ -273,7 +281,6 @@ SELECT results_eq(
 	$$ VALUES (false, true) $$,
 	'the receipt reports completed cleanup');
 
--- Organization deletion keeps its file guards and leaves no live receipt reader.
 SELECT set_config('storage.allow_delete_query', 'true', true);
 DELETE FROM public.organizations WHERE id = 'f6430000-0000-4000-8000-000000000102';
 SELECT is((SELECT count(*)::integer FROM public.organizations WHERE id = 'f6430000-0000-4000-8000-000000000102'), 0,

@@ -50,8 +50,6 @@ export function createSupabasePersonnelGovernanceDeletionPort(
 			if (error?.code === 'P0002') fail(404, error.message);
 			if (error) throw new Error(error.message);
 
-			// The approval committed and retired the record's key. Its bytes go now
-			// when Storage confirms, otherwise with scheduled cleanup.
 			const receipt = await admin.rpc('personnel_file_artifact_deletion', {
 				p_organization_id: actor.orgId,
 				p_personnel_id: row.personnel_id,

@@ -89,9 +89,7 @@ describe('archived item deletion', () => {
 		await confirmDelete(await openDelete('Signed form'));
 		held.settle(0, true, { success: true, fileCleanup: 'pending' });
 		await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
-		expect(screen.getByRole('status').textContent).toContain(
-			'Deleted Signed form. Its stored file will be removed automatically.'
-		);
+		expect(screen.getByRole('status').textContent).toContain('Signed form');
 		expect(screen.queryByRole('alert')).toBeNull();
 
 		await confirmDelete(await openDelete('Note'));

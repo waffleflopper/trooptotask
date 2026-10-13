@@ -213,8 +213,7 @@ describe('main archive endpoint Personnel source delivery', () => {
 });
 
 // Actual SDK, handlers and downstream discovery adapters. Empty resource cohorts
-// isolate complete Organization dispatch from each owner's deletion behavior;
-// artifact families discover by a conditional delete that matches nothing.
+// isolate complete Organization dispatch from each owner's deletion behavior.
 const discoveryTables = new Set([
 	'personnel_follow_ups',
 	'counseling_records',

@@ -149,8 +149,6 @@ export async function createPersonnelDocument(
 		)
 			throw new Error('Uploaded artifact attachment was not acknowledged');
 	} catch (error) {
-		// A lost reply may hide a committed attachment. Keep it; otherwise the
-		// key is retired before the registration ends.
 		const attachedId = await writer.reconcileFileAttachment('document', filePath);
 		row = attachedId ? await writer.findDocument(attachedId) : null;
 		if (!row) {

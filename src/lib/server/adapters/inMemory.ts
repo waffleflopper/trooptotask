@@ -880,19 +880,17 @@ function createInMemoryPersonnelArtifactWritePort(
 	rawStore: FixtureRowStore,
 	storage: StoragePort
 ): PersonnelArtifactWritePort {
-	// The SQL triggers own these in production: retired file keys (true once
-	// removed) and deletion receipts.
-	const retiredKeys = new Map<string, boolean>();
+	const retiredKeys = new Map<string, 'pending' | 'removed'>();
 	const deletionReceipts = new Map<string, { personnelId: string; retiredKey: string | null }>();
 	async function removeRetired(key: string | null): Promise<FileCleanup> {
-		if (!key || retiredKeys.get(key) !== false) return 'complete';
+		if (!key || retiredKeys.get(key) !== 'pending') return 'complete';
 		const [bucket, ...path] = key.split('/');
 		try {
 			await storage.remove(bucket, [path.join('/')]);
 		} catch {
 			return 'pending';
 		}
-		retiredKeys.set(key, true);
+		retiredKeys.set(key, 'removed');
 		return 'complete';
 	}
 	return {
@@ -931,7 +929,7 @@ function createInMemoryPersonnelArtifactWritePort(
 				const key = `${fileBucket(kind)}/${path}`;
 				if (retiredKeys.has(key) || (await rawStore.findOne(fileTable(kind), actor.orgId, { file_path: path })))
 					return null;
-				retiredKeys.set(key, false);
+				retiredKeys.set(key, 'pending');
 				return key;
 			}
 			const rows = {

@@ -24,12 +24,6 @@ function admin(personnel: 'none' | 'configure' = 'none') {
 	});
 }
 
-/**
- * A finite PostgREST/Storage model of the committed SQL contract: approval
- * deletes the row and completes the request atomically, and the row trigger
- * retires only a key under the Person's own prefix. Real SQL proves that
- * contract separately; this checks the server sequence and its outcome.
- */
 function provider(filePath: string | null = FILE_PATH) {
 	const state = {
 		record: { personnel_id: 'person-1', file_path: filePath } as {
@@ -38,7 +32,7 @@ function provider(filePath: string | null = FILE_PATH) {
 		} | null,
 		pending: true,
 		files: new Set([FILE_PATH, FOREIGN_PATH]),
-		retired: new Map<string, boolean>(),
+		retired: new Map<string, 'pending' | 'removed'>(),
 		receipt: null as { bucket_id: string | null; object_name: string | null } | null,
 		approvalFault: null as null | 'constraint' | 'lost-race',
 		storageFault: false,
@@ -66,7 +60,7 @@ function provider(filePath: string | null = FILE_PATH) {
 					if (!state.pending || !state.record || body.p_expected_file_path !== state.record.file_path)
 						return Response.json({ code: 'P0002', message: 'Pending deletion request not found' }, { status: 404 });
 					const owned = state.record.file_path?.startsWith(`${ORG}/counseling-records/person-1/`) ?? false;
-					if (owned) state.retired.set(state.record.file_path!, false);
+					if (owned) state.retired.set(state.record.file_path!, 'pending');
 					state.receipt = owned
 						? { bucket_id: 'counseling-files', object_name: state.record.file_path }
 						: { bucket_id: null, object_name: null };
@@ -83,12 +77,15 @@ function provider(filePath: string | null = FILE_PATH) {
 					});
 					if (!state.receipt) return Response.json([]);
 					const key = state.receipt.object_name;
-					return Response.json([{ ...state.receipt, file_removed: key === null || state.retired.get(key) === true }]);
+					return Response.json([
+						{ ...state.receipt, file_removed: key === null || state.retired.get(key) === 'removed' }
+					]);
 				}
 				if (url.pathname === '/rest/v1/rpc/complete_organization_file_retirements') {
 					let completed = 0;
 					for (const name of body.p_object_names as string[])
-						if (state.retired.get(name) === false) (state.retired.set(name, true), completed++);
+						if (body.p_bucket_id === 'counseling-files' && state.retired.get(name) === 'pending')
+							(state.retired.set(name, 'removed'), completed++);
 					return Response.json(completed);
 				}
 				if (method === 'DELETE' && url.pathname === '/storage/v1/object/counseling-files') {
@@ -134,7 +131,7 @@ describe('Organization-approved counseling deletion', () => {
 		expect(run.requirePending).toHaveBeenCalledWith(ORG, 'request-1', 'counseling_record', 'record-1');
 		expect(run.state).toMatchObject({ record: null, pending: false });
 		expect([...run.state.files]).toEqual([FOREIGN_PATH]);
-		expect(run.state.retired.get(FILE_PATH)).toBe(true);
+		expect(run.state.retired.get(FILE_PATH)).toBe('removed');
 		const approval = run.state.calls.indexOf('POST /rest/v1/rpc/approve_counseling_deletion_request');
 		const removal = run.state.calls.indexOf('DELETE /storage/v1/object/counseling-files');
 		expect(approval).toBeGreaterThan(-1);
@@ -167,7 +164,7 @@ describe('Organization-approved counseling deletion', () => {
 		await expect(run.approve()).resolves.toEqual({ fileCleanup: 'pending' });
 		expect(run.state).toMatchObject({ record: null, pending: false });
 		expect(run.state.files.has(FILE_PATH)).toBe(true);
-		expect(run.state.retired.get(FILE_PATH)).toBe(false);
+		expect(run.state.retired.get(FILE_PATH)).toBe('pending');
 	});
 
 	it('approves a record whose historical path is outside its Person without removing those bytes', async () => {

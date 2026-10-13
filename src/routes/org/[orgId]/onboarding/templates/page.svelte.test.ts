@@ -722,17 +722,15 @@ describe('onboarding templates page', () => {
 			showSinglePane();
 			vi.stubGlobal(
 				'fetch',
-				vi
-					.fn()
-					.mockResolvedValue(
-						Response.json({
-							id: 'saved-template',
-							orgId: 'org-1',
-							name: 'Fresh checklist',
-							description: null,
-							createdAt: '2026-01-02'
-						})
-					)
+				vi.fn().mockResolvedValue(
+					Response.json({
+						id: 'saved-template',
+						orgId: 'org-1',
+						name: 'Fresh checklist',
+						description: null,
+						createdAt: '2026-01-02'
+					})
+				)
 			);
 			await renderTemplatesPage({ templates: [alpha], templateSteps: [] });
 			await fireEvent.click(screen.getByRole('button', { name: 'New template' }));

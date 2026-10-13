@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import { createRawSnippet } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { stubToolbarWidths } from '$lib/test-support/toolbarWidths';
+import { openToolbarMore, stubToolbarWidths } from '$lib/test-support/toolbarWidths';
 import Layout from './+layout.svelte';
 
 const navigation = vi.hoisted(() => ({ goto: vi.fn() }));
@@ -52,15 +52,28 @@ describe('account layout toolbar', () => {
 		expect(back).not.toHaveBeenCalled();
 	});
 
-	it('keeps Back on the row without a More menu when the toolbar is as narrow as it gets', async () => {
+	it('shows Back as an outline button, not the filled call to action', async () => {
+		const widths = stubToolbarWidths();
+		stubHistory(2);
+		renderLayout();
+		await widths.layOut(1000);
+
+		const back = within(screen.getByRole('toolbar', { name: 'Account controls' })).getByRole('button', {
+			name: 'Back'
+		});
+		expect(back.className).not.toContain('bg-primary');
+	});
+
+	it('folds Back into More like any other action when the toolbar is as narrow as it gets', async () => {
 		const widths = stubToolbarWidths();
 		const back = stubHistory(2);
 		renderLayout();
 		await widths.foldAll();
 
 		const toolbar = within(screen.getByRole('toolbar', { name: 'Account controls' }));
-		expect(toolbar.queryByRole('button', { name: 'More Account controls' })).toBeNull();
-		await fireEvent.click(toolbar.getByRole('button', { name: 'Back' }));
+		expect(toolbar.queryByRole('button', { name: 'Back' })).toBeNull();
+		const menu = await openToolbarMore('Account controls');
+		await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Back' }));
 		expect(back).toHaveBeenCalledOnce();
 	});
 

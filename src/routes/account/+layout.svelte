@@ -41,8 +41,7 @@
 		/>
 		<WorkspaceToolbar
 			ariaLabel="Account controls"
-			items={[]}
-			primary={{ kind: 'action', id: 'back', label: 'Back', icon: 'arrow-left', onclick: goBack }}
+			items={[{ kind: 'action', id: 'back', label: 'Back', icon: 'arrow-left', onclick: goBack }]}
 		/>
 		<PageShell.Tabs items={tabs} label="Account sections" />
 		{@render children()}

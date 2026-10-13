@@ -139,10 +139,7 @@
 
 <DataTableRoot density={resolvedDensity} {striped} {stickyHeader} {stickyFirstColumn} {maxHeight}>
 	{#if toolbar}
-		<div
-			data-slot="data-table-toolbar"
-			class="border-b border-border bg-muted/20 p-2 [&_[data-slot=workspace-toolbar]]:h-auto [&_[data-slot=workspace-toolbar]]:rounded-none [&_[data-slot=workspace-toolbar]]:border-0 [&_[data-slot=workspace-toolbar]]:bg-transparent [&_[data-slot=workspace-toolbar]]:p-0 [&_[data-slot=workspace-toolbar]]:shadow-none"
-		>
+		<div data-slot="data-table-toolbar" class="border-b border-border bg-muted/20 p-2">
 			{@render toolbar(table)}
 		</div>
 	{/if}

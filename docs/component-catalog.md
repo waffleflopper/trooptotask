@@ -18,7 +18,7 @@ Read the [UI foundation](#ui-foundation), then the entry for the component being
 | [`ui/badge`](#uibadge)                                                     | `Badge`; `badgeVariants`                                                                                                                            | Status labels in most features.                                                                                                                                       |
 | `ui/breadcrumb`                                                            | `Root`, `List`, `Item`, `Link`, `Page`, `Separator`, `Ellipsis`                                                                                     | App shell header.                                                                                                                                                     |
 | [`ui/button`](#uibutton)                                                   | `Button`; `buttonVariants`                                                                                                                          | Every feature.                                                                                                                                                        |
-| `ui/button-group`                                                          | `Root`, `Text`, `Separator`; `buttonGroupVariants`                                                                                                  | View toggles in Calendar bulk status, the Critical Tasks matrix, Personnel and the Training matrix; `WorkspaceToolbar.Nav`.                                           |
+| `ui/button-group`                                                          | `Root`, `Text`, `Separator`; `buttonGroupVariants`                                                                                                  | View toggles in Calendar bulk status, the Critical Tasks matrix and the Training matrix; `WorkspaceToolbar.Nav`.                                                      |
 | `ui/calendar`                                                              | `Calendar` and its month-grid parts                                                                                                                 | Foundation primitive, used by [`ui/date-picker`](#uidate-picker).                                                                                                     |
 | `ui/card`                                                                  | `Root`, `Header`, `Title`, `Description`, `Content`, `Footer`                                                                                       | Account, platform admin, Calendar bulk status, Critical Tasks reports, Dashboard overview, Onboarding, Sign-in rosters, organization creation and the suspended page. |
 | `ui/chart`                                                                 | `Container`, `Tooltip`; `ChartConfig`                                                                                                               | Foundation primitive, used by [`patterns/report-chart`](#patternsreport-chart).                                                                                       |
@@ -249,7 +249,7 @@ More rendering:
 
 - More lists folded items under View, Filters and Actions headings, separated, in that order.
 - A folded `select` or `multiSelect` becomes a submenu. Its trigger shows the current value and an accent dot when the filter is active. A folded `toggle` becomes a checkbox item.
-- Folded actions keep row order, with menu-only actions after them. Destructive actions sit last after a separator, in every menu and submenu.
+- Folded actions keep row order, with menu-only actions after them. Destructive actions sit last after a separator, in every menu and submenu, and take the destructive button style on the row.
 - When a folded filter is active, the More trigger shows a dot and is described as `Hidden filters active: …`.
 - A chosen action runs after its menu has finished closing, so an action that moves focus into page content keeps it. If More unmounts before its close finishes, the action runs then. If the whole toolbar unmounts, the action is dropped.
 - When a focused control or an open menu folds, focus moves to More. When More disappears, focus moves to the first returning control.
@@ -281,7 +281,7 @@ Rules:
 - Compose route-specific behavior under the [shared UI composition rules](agents/ui-system.md#default-ui-rules); keep toolbar appearance and reusable APIs owned by the shared component.
 - If an authorized route change needs behavior this API cannot express, implement and verify the smallest shared API extension, update affected consumers and document its usage here.
 
-Consumers: the Calendar month view, assignment planner, bulk status, reports, settings and roster picker; the Critical Tasks matrix, soldier record, reports and task library; Evals; the Training matrix, reports (with the Hot-spot grid's Rows by section toolbar), types and views, including the type and view detail panes; Organization settings Ranks, Members and Logs, Account, and the Dashboard; and the platform admin dashboard, Users, Organizations, Organization detail, User detail, Audit Log and Announcements. A new route toolbar starts from `WorkspaceToolbar`. A change to the toolbar is verified on its consumers at narrow and wide widths.
+Consumers: the Calendar month view, assignment planner, bulk status, reports, settings and roster picker; the Critical Tasks matrix, soldier record, reports and task library; Evals; the Training matrix, reports (with the Hot-spot grid's Rows by section toolbar), types and views, including the type and view detail panes; Organization settings Ranks, Members and Logs, Account, and the Dashboard; the Personnel roster, its bulk archive and paused grouped-roster search, the Personnel record header, Personnel import and every bulk import preview's selection; the Onboarding pipeline, History, templates and template detail; and the platform admin dashboard, Users, Organizations, Organization detail, User detail, Audit Log and Announcements. A new route toolbar starts from `WorkspaceToolbar`. A change to the toolbar is verified on its consumers at narrow and wide widths.
 
 ### Legacy composition API (temporary)
 
@@ -296,7 +296,7 @@ The namespace parts below remain until the remaining consumers migrate. Slice 7 
 - `WorkspaceToolbar.Actions`: command buttons with dropdown overflow. Props: `actions: WorkspaceToolbarAction[]`, `ariaLabel?`, `overflowAriaLabel`. Each action sets `priority`, `displayMode`, `overflow`, `variant`, `icon`, `menuItems`, `toggle` and disabled reasons. An action chosen from one of its menus runs after that menu has finished closing.
 - `WorkspaceToolbar.Meta`: compact passive metadata. Props: `tone?: 'neutral' | 'warning' | 'success'`, `children?: Snippet`, plus normal `div` attributes.
 
-Legacy consumers: Onboarding History and templates, and Personnel.
+Legacy consumers: none.
 
 ---
 

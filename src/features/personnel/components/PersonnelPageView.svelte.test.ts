@@ -8,6 +8,7 @@ import type { PersonnelPageContext } from '$features/personnel/contexts/Personne
 import type { UpcomingLossRecord } from '$features/personnel/contracts';
 import type { ClientAffordance } from '$lib/access/clientAccess';
 import type { RequestPersonnelArchiveApproval } from '../utils/archivePersonnel';
+import { openToolbarMore, stubToolbarWidths } from '$lib/test-support/toolbarWidths';
 
 const requestArchiveApproval: RequestPersonnelArchiveApproval = async () => false;
 
@@ -260,8 +261,9 @@ describe('PersonnelPageView', () => {
 			props: { ctx, requestArchiveApproval }
 		});
 
-		expect(screen.getByRole('group', { name: 'Roster sort mode' })).toBeTruthy();
-		expect(screen.getByTestId('personnel-search')).toBeTruthy();
+		const toolbar = within(screen.getByRole('toolbar', { name: 'Personnel controls' }));
+		expect(toolbar.getByRole('group', { name: 'Roster sort mode' })).toBeTruthy();
+		expect(toolbar.getByRole('searchbox', { name: 'Search by name, rank, MOS, role, or group' })).toBeTruthy();
 	});
 
 	it('keeps primary personnel actions visible in the floating toolbar for editors', () => {
@@ -369,7 +371,9 @@ describe('PersonnelPageView', () => {
 			props: { ctx, requestArchiveApproval }
 		});
 
-		await fireEvent.input(screen.getByTestId('personnel-search'), { target: { value: 'Luis Garcia' } });
+		await fireEvent.input(screen.getByRole('searchbox', { name: 'Search by name, rank, MOS, role, or group' }), {
+			target: { value: 'Luis Garcia' }
+		});
 
 		expect(screen.getByText('Garcia, Luis')).toBeTruthy();
 		expect(screen.queryByText('Smith, Jane')).toBeNull();
@@ -394,6 +398,101 @@ describe('PersonnelPageView', () => {
 		expect(screen.getByRole('button', { name: 'A-Z' }).getAttribute('aria-pressed')).toBe('false');
 		expect(screen.getByRole('button', { name: 'Group' }).getAttribute('aria-pressed')).toBe('true');
 		expect(screen.getByRole('button', { name: 'Pin Alpha' })).toBeTruthy();
+	});
+
+	describe('when the toolbar folds', () => {
+		const toolbarName = 'Personnel controls';
+
+		function editorCtx(): PersonnelPageContext {
+			return {
+				...makeCtx(),
+				canAddPersonnel: true,
+				canImportPersonnel: true,
+				canManageGroups: true,
+				canArchivePersonnelRecord: () => true,
+				personnelArchiveAffordance: () => allowedAffordance()
+			} as unknown as PersonnelPageContext;
+		}
+
+		it('keeps Add Person on the row and runs the view switch, Manage Groups and Archive from More', async () => {
+			const widths = stubToolbarWidths();
+			const ctx = editorCtx();
+			render(PersonnelPageView, { props: { ctx, requestArchiveApproval } });
+			await widths.foldAll();
+
+			const row = within(screen.getByRole('toolbar', { name: toolbarName }));
+			expect(row.queryByRole('button', { name: 'Manage Groups' })).toBeNull();
+			expect(row.queryByRole('group', { name: 'Roster sort mode' })).toBeNull();
+			await fireEvent.click(row.getByRole('button', { name: 'Add Person' }));
+			expect(ctx.handleAdd).toHaveBeenCalledTimes(1);
+
+			let menu = await openToolbarMore(toolbarName);
+			const sort = within(within(menu).getByRole('group', { name: 'Roster sort mode' }));
+			expect(sort.getByRole('menuitemradio', { name: 'A-Z' }).getAttribute('aria-checked')).toBe('true');
+			await fireEvent.click(sort.getByRole('menuitemradio', { name: 'Group' }));
+			expect(ctx.viewMode).toBe('by-group');
+
+			await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+			menu = await openToolbarMore(toolbarName);
+			await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Manage Groups' }));
+			await waitFor(() => expect(ctx.openGroupManager).toHaveBeenCalledTimes(1));
+
+			await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+			menu = await openToolbarMore(toolbarName);
+			await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Archive' }));
+			expect(await screen.findByText('0 of 1 selected')).toBeTruthy();
+		});
+
+		it('opens the import route when Import is chosen from More', async () => {
+			const widths = stubToolbarWidths();
+			render(PersonnelPageView, { props: { ctx: editorCtx(), requestArchiveApproval } });
+			await widths.foldAll();
+
+			const menu = await openToolbarMore(toolbarName);
+			await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Import' }));
+
+			await waitFor(() => expect(gotoMock).toHaveBeenCalledWith('/org/org-1/personnel/import'));
+		});
+
+		it('keeps actions a roster viewer may not use out of More', async () => {
+			const widths = stubToolbarWidths();
+			render(PersonnelPageView, { props: { ctx: makeCtx(), requestArchiveApproval } });
+			await widths.foldAll();
+
+			const menu = await openToolbarMore(toolbarName);
+			expect(within(menu).getByRole('group', { name: 'Roster sort mode' })).toBeTruthy();
+			for (const name of ['Manage Groups', 'Archive', 'Import', 'Add Person']) {
+				expect(within(menu).queryByRole('menuitem', { name })).toBeNull();
+			}
+			expect(screen.queryByRole('button', { name: 'Add Person' })).toBeNull();
+		});
+
+		it('selects and clears archive rows from the folded bulk archive toolbar and blocks Confirm Archive until one is chosen', async () => {
+			const widths = stubToolbarWidths();
+			render(PersonnelPageView, { props: { ctx: archiveCtx(), requestArchiveApproval } });
+			await fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
+			await widths.foldAll();
+
+			const bulk = within(screen.getByRole('toolbar', { name: 'Bulk archive controls' }));
+			expect(bulk.queryByRole('button', { name: 'Select shown' })).toBeNull();
+			const confirm = bulk.getByRole('button', { name: 'Confirm Archive' });
+			expect(confirm.hasAttribute('disabled')).toBe(true);
+
+			let menu = await openToolbarMore('Bulk archive controls');
+			await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Select shown' }));
+			expect(await screen.findByText('1 of 1 selected')).toBeTruthy();
+			expect(confirm.hasAttribute('disabled')).toBe(false);
+
+			await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+			menu = await openToolbarMore('Bulk archive controls');
+			await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Clear' }));
+			expect(await screen.findByText('0 of 1 selected')).toBeTruthy();
+
+			await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+			menu = await openToolbarMore('Bulk archive controls');
+			await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Cancel' }));
+			await waitFor(() => expect(screen.queryByRole('toolbar', { name: 'Bulk archive controls' })).toBeNull());
+		});
 	});
 
 	it('shows a pin immediately and restores the button after a denied save', async () => {
@@ -649,6 +748,32 @@ describe('PersonnelPageView', () => {
 		);
 		await waitFor(() => expect(invalidateAllMock).toHaveBeenCalled());
 		expect(screen.queryByText('Smith, Jane')).toBeNull();
+	});
+
+	it('offers Select shown only once the paused grouped roster gives way to the A-Z view', async () => {
+		personnelStore.load(
+			Array.from({ length: 251 }, (_, index) => makePerson(index + 1)),
+			'org-1'
+		);
+		const ctx = Object.assign(makeCtx(), {
+			canArchivePersonnelRecord: () => true,
+			personnelArchiveAffordance: () => allowedAffordance()
+		}) as unknown as PersonnelPageContext;
+		ctx.viewMode = 'by-group';
+
+		render(PersonnelPageView, {
+			props: { ctx, requestArchiveApproval }
+		});
+
+		expect(screen.getByText('Grouped roster paused')).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
+		const bulk = within(screen.getByRole('toolbar', { name: 'Bulk archive controls' }));
+		expect(bulk.queryByRole('button', { name: 'Select shown' })).toBeNull();
+		expect(bulk.getByRole('button', { name: 'Clear' })).toBeTruthy();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Use A-Z View' }));
+		await fireEvent.click(bulk.getByRole('button', { name: 'Select shown' }));
+		expect(screen.getByText('75 of 251 selected')).toBeTruthy();
 	});
 
 	it('selects only the current A-Z page when selecting shown archive rows', async () => {

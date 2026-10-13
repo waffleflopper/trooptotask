@@ -6,8 +6,11 @@
 	import Plus from '@lucide/svelte/icons/plus';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import { tick, untrack } from 'svelte';
-	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar';
-	import type { WorkspaceToolbarAction, WorkspaceToolbarNavItem } from '$lib/components/patterns/workspace-toolbar';
+	import {
+		WorkspaceToolbar,
+		type ToolbarItem,
+		type WorkspaceToolbarProps
+	} from '$lib/components/patterns/workspace-toolbar';
 	import { Badge, type BadgeVariant } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as Empty from '$lib/components/ui/empty';
@@ -111,24 +114,24 @@
 		};
 	});
 
-	const onboardingNavItems = $derived<WorkspaceToolbarNavItem[]>([
-		{ label: 'Onboarding', href: `/org/${orgUrlSegment}/onboarding` }
+	const toolbarItems = $derived<ToolbarItem[]>([
+		{ kind: 'action', id: 'onboarding', label: 'Onboarding', href: `/org/${orgUrlSegment}/onboarding` }
 	]);
-	const templateToolbarActions = $derived.by<WorkspaceToolbarAction[]>(() => {
-		if (!model.canMutate) return [];
-		return [
-			{
-				id: 'add-template',
-				label: 'Add Template',
-				onclick: () => workspace.startCreateTemplate(),
-				disabled: model.templateActionDisabled,
-				icon: 'plus',
-				priority: 'critical',
-				overflow: 'never',
-				variant: 'primary'
-			}
-		];
-	});
+	const toolbarPrimary = $derived.by<WorkspaceToolbarProps['primary']>(() =>
+		model.canMutate
+			? {
+					kind: 'action',
+					id: 'add-template',
+					label: 'Add Template',
+					icon: 'plus',
+					onclick: () => workspace.startCreateTemplate(),
+					disabled: model.templateActionDisabled
+				}
+			: undefined
+	);
+	const detailToolbarItems = $derived<ToolbarItem[]>(
+		model.canMutate ? [{ kind: 'action', id: 'edit', label: 'Edit', onclick: () => workspace.startEditTemplate() }] : []
+	);
 
 	const STEP_TYPE_VARIANTS: Record<OnboardingStepType, BadgeVariant> = {
 		checkbox: 'secondary',
@@ -235,21 +238,7 @@
 	aria-label="Onboarding template management workspace"
 	class={hydrated ? 'overflow-hidden' : 'hidden'}
 >
-	<WorkspaceToolbar.Root ariaLabel="Onboarding template controls">
-		<WorkspaceToolbar.Group label="Onboarding sections">
-			<WorkspaceToolbar.Nav ariaLabel="Onboarding sections" items={onboardingNavItems} />
-		</WorkspaceToolbar.Group>
-
-		{#if templateToolbarActions.length > 0}
-			<WorkspaceToolbar.Group label="Onboarding template actions" zone="actions">
-				<WorkspaceToolbar.Actions
-					actions={templateToolbarActions}
-					ariaLabel="Onboarding template actions"
-					overflowAriaLabel="More onboarding template actions"
-				/>
-			</WorkspaceToolbar.Group>
-		{/if}
-	</WorkspaceToolbar.Root>
+	<WorkspaceToolbar ariaLabel="Onboarding template controls" items={toolbarItems} primary={toolbarPrimary} />
 
 	{#if model.error && !model.confirmDelete}
 		<Alert.Root variant="destructive">
@@ -401,15 +390,10 @@
 			{:else if model.selectedTemplate}
 				<div class="min-h-0 flex-1 overflow-y-auto pr-2 pb-8 [scrollbar-gutter:stable]">
 					<TypeWorkspace.Stack>
-						<TypeWorkspace.DetailHeader title={model.selectedTemplate.name}>
-							{#snippet actions()}
-								{#if model.canMutate}
-									<Button variant="outline" size="sm" type="button" onclick={() => workspace.startEditTemplate()}>
-										Edit
-									</Button>
-								{/if}
-							{/snippet}
-						</TypeWorkspace.DetailHeader>
+						<TypeWorkspace.DetailHeader title={model.selectedTemplate.name} />
+						{#if detailToolbarItems.length > 0}
+							<WorkspaceToolbar ariaLabel="Onboarding template detail controls" items={detailToolbarItems} />
+						{/if}
 
 						<TypeWorkspace.Description>
 							{model.selectedTemplate.description ?? 'No description has been added for this onboarding template.'}

@@ -4,19 +4,20 @@
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { pinnedGroupsStore } from '../stores/pinnedGroups.svelte';
 	import ArchiveIcon from '@lucide/svelte/icons/archive';
-	import DownloadIcon from '@lucide/svelte/icons/download';
 	import PinIcon from '@lucide/svelte/icons/pin';
 	import UsersIcon from '@lucide/svelte/icons/users';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
-	import * as ButtonGroup from '$lib/components/ui/button-group';
 	import * as DataTable from '$lib/components/ui/data-table';
 	import * as Empty from '$lib/components/ui/empty/index.js';
-	import { Input } from '$lib/components/ui/input';
 	import { Toggle } from '$lib/components/ui/toggle';
 	import { useDataTable } from '$lib/components/ui/data-table';
 	import type { ColumnDef } from '$lib/components/ui/data-table';
-	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar';
+	import {
+		WorkspaceToolbar,
+		type ToolbarItem,
+		type WorkspaceToolbarProps
+	} from '$lib/components/patterns/workspace-toolbar';
 	import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
 	import type { Personnel } from '../personnel.types';
 	import type { RequestPersonnelArchiveApproval } from '../utils/archivePersonnel';
@@ -59,9 +60,6 @@
 	);
 	const canBulkArchivePersonnel = $derived(
 		visibleAllActivePersonnel.some((person) => ctx.canArchivePersonnelRecord(person))
-	);
-	const hasPersonnelActions = $derived(
-		canImportPersonnel || canManageGroups || canAddPersonnel || canBulkArchivePersonnel
 	);
 
 	// Personnel DataTable setup
@@ -127,7 +125,6 @@
 	let bulkArchiveSubmitting = $state(false);
 	let showBulkArchiveConfirm = $state(false);
 	let selectedArchiveIds = new SvelteSet<string>();
-	const activeRosterFilterCount = $derived((ctx.viewMode !== 'alphabetical' ? 1 : 0) + (rosterSearch.trim() ? 1 : 0));
 	const shouldGateGroupedRoster = $derived(
 		ctx.viewMode === 'by-group' && !rosterSearch.trim() && groupedTable.totalRows > GROUPED_ROSTER_RENDER_LIMIT
 	);
@@ -160,10 +157,6 @@
 	function setRosterSearch(value: string): void {
 		rosterSearch = value;
 		ctx.searchQuery = value;
-	}
-
-	function handleRosterSearchInput(event: Event): void {
-		setRosterSearch((event.currentTarget as HTMLInputElement).value);
 	}
 
 	function getPersonnelRowActionLabel(person: Personnel): string {
@@ -202,8 +195,7 @@
 
 	function selectVisibleArchiveRows(): void {
 		if (bulkArchiveSubmitting) return;
-		const table = ctx.viewMode === 'alphabetical' ? azTable : groupedTable;
-		for (const person of table.rows) {
+		for (const person of activeTable.rows) {
 			if (ctx.canArchivePersonnelRecord(person)) selectedArchiveIds.add(person.id);
 		}
 	}
@@ -278,6 +270,98 @@
 			if (isCurrent()) bulkArchiveSubmitting = false;
 		}
 	}
+
+	const toolbarItems = $derived.by<ToolbarItem[]>(() => {
+		const items: ToolbarItem[] = [
+			{
+				kind: 'view',
+				id: 'roster-view',
+				label: 'Roster sort mode',
+				options: rosterViewOptions,
+				value: ctx.viewMode,
+				onValueChange: (value) => {
+					if (value === 'alphabetical' || value === 'by-group') ctx.viewMode = value;
+				}
+			}
+		];
+		if (canManageGroups) {
+			items.push({
+				kind: 'action',
+				id: 'manage-groups',
+				label: 'Manage Groups',
+				onclick: () => ctx.openGroupManager()
+			});
+		}
+		if (canBulkArchivePersonnel) {
+			items.push({
+				kind: 'action',
+				id: 'archive',
+				label: 'Archive',
+				icon: 'archive',
+				onclick: toggleArchiveMode,
+				disabled: bulkArchiveSubmitting
+			});
+		}
+		if (canImportPersonnel) {
+			items.push({
+				kind: 'action',
+				id: 'import',
+				label: 'Import',
+				icon: 'download',
+				href: `/org/${orgUrlSegment}/personnel/import`
+			});
+		}
+		return items;
+	});
+
+	const toolbarSearch = $derived({
+		label: 'Search by name, rank, MOS, role, or group',
+		placeholder: 'Search name, rank, MOS, role, or group...',
+		value: rosterSearch,
+		onValueChange: setRosterSearch
+	} satisfies NonNullable<WorkspaceToolbarProps['search']>);
+
+	const toolbarPrimary = $derived.by<WorkspaceToolbarProps['primary']>(() =>
+		canAddPersonnel
+			? { kind: 'action', id: 'add-person', label: 'Add Person', onclick: () => ctx.handleAdd() }
+			: undefined
+	);
+
+	const bulkArchiveItems = $derived.by<ToolbarItem[]>(() => {
+		const items: ToolbarItem[] = [
+			{ kind: 'action', id: 'cancel', label: 'Cancel', onclick: cancelArchiveMode, disabled: bulkArchiveSubmitting }
+		];
+		if (visibleAllActivePersonnel.length > 0) {
+			if (!shouldGateGroupedRoster) {
+				items.push({
+					kind: 'action',
+					id: 'select-shown',
+					label: 'Select shown',
+					onclick: selectVisibleArchiveRows,
+					disabled: bulkArchiveSubmitting
+				});
+			}
+			items.push({
+				kind: 'action',
+				id: 'clear',
+				label: 'Clear',
+				onclick: clearArchiveSelection,
+				disabled: bulkArchiveSubmitting
+			});
+		}
+		return items;
+	});
+
+	const bulkArchivePrimary = $derived<WorkspaceToolbarProps['primary']>({
+		kind: 'action',
+		id: 'confirm-archive',
+		label: 'Confirm Archive',
+		destructive: true,
+		onclick: () => (showBulkArchiveConfirm = true),
+		disabled: selectedArchiveIds.size === 0 || bulkArchiveSubmitting
+	});
+
+	const activeTable = $derived(ctx.viewMode === 'alphabetical' ? azTable : groupedTable);
 </script>
 
 <svelte:head>
@@ -296,79 +380,21 @@
 		</div>
 	{:else}
 		<div class="flex min-h-0 flex-col gap-4 overflow-hidden px-6 pt-4 pb-5 max-sm:p-3">
-			<WorkspaceToolbar.Root ariaLabel="Personnel controls" wrap>
-				<WorkspaceToolbar.Group
-					label="Roster filters"
-					activeCount={activeRosterFilterCount}
-					data-testid="personnel-roster-filters"
-				>
-					<ButtonGroup.Root aria-label="Roster sort mode">
-						{#each rosterViewOptions as option (option.value)}
-							<Button
-								variant={ctx.viewMode === option.value ? 'secondary' : 'outline'}
-								aria-pressed={ctx.viewMode === option.value}
-								onclick={() => (ctx.viewMode = option.value as 'alphabetical' | 'by-group')}
-							>
-								{option.label}
-							</Button>
-						{/each}
-					</ButtonGroup.Root>
-					<WorkspaceToolbar.Search
-						testId="personnel-search"
-						ariaLabel="Search by name, rank, MOS, role, or group"
-						placeholder="Search name, rank, MOS, role, or group..."
-						value={rosterSearch}
-						onValueChange={setRosterSearch}
-					/>
-				</WorkspaceToolbar.Group>
+			<WorkspaceToolbar
+				ariaLabel="Personnel controls"
+				items={toolbarItems}
+				search={toolbarSearch}
+				primary={toolbarPrimary}
+			/>
 
-				{#if hasPersonnelActions}
-					<WorkspaceToolbar.Group label="Personnel actions" zone="actions">
-						{#if canImportPersonnel}
-							<Button variant="outline" href={resolve(`/org/${orgUrlSegment}/personnel/import`)}>
-								<DownloadIcon aria-hidden="true" />
-								Import
-							</Button>
-						{/if}
-						{#if canBulkArchivePersonnel}
-							<Button
-								variant={bulkArchiveMode ? 'secondary' : 'outline'}
-								disabled={bulkArchiveSubmitting}
-								onclick={toggleArchiveMode}
-							>
-								<ArchiveIcon aria-hidden="true" />
-								Archive
-							</Button>
-						{/if}
-						{#if canManageGroups}
-							<Button variant="secondary" onclick={() => ctx.openGroupManager()}>Manage Groups</Button>
-						{/if}
-						{#if canAddPersonnel}
-							<Button onclick={() => ctx.handleAdd()}>Add Person</Button>
-						{/if}
-					</WorkspaceToolbar.Group>
-				{/if}
-			</WorkspaceToolbar.Root>
-
-			{#if bulkArchiveMode && selectedArchiveIds.size > 0 && visibleAllActivePersonnel.length === 0}
-				<div class="flex flex-wrap items-center justify-between gap-2">
-					<p class="text-sm text-muted-foreground">{selectedArchiveIds.size} selected for retry</p>
-					<div class="flex flex-wrap gap-2">
-						<Button
-							type="button"
-							variant="outline"
-							size="sm"
-							disabled={bulkArchiveSubmitting}
-							onclick={cancelArchiveMode}>Cancel</Button
-						>
-						<Button
-							type="button"
-							variant="destructive"
-							size="sm"
-							disabled={bulkArchiveSubmitting}
-							onclick={() => (showBulkArchiveConfirm = true)}>Confirm Archive</Button
-						>
-					</div>
+			{#if bulkArchiveMode}
+				<div class="grid gap-2">
+					<p class="text-sm text-muted-foreground" aria-live="polite">
+						{visibleAllActivePersonnel.length === 0
+							? `${selectedArchiveIds.size} selected for retry`
+							: `${selectedArchiveIds.size} of ${activeTable.totalRows} selected`}
+					</p>
+					<WorkspaceToolbar ariaLabel="Bulk archive controls" items={bulkArchiveItems} primary={bulkArchivePrimary} />
 				</div>
 			{/if}
 
@@ -400,17 +426,23 @@
 							this page fast.
 						</p>
 					</div>
-					<div
-						class="flex min-w-[min(100%,300px)] flex-[0_1_420px] items-center gap-2 max-sm:flex-auto max-sm:flex-col max-sm:items-stretch"
-					>
-						<Input
-							type="search"
-							aria-label="Search by name, rank, MOS, role, or group"
-							placeholder="Search roster..."
-							value={rosterSearch}
-							oninput={handleRosterSearchInput}
+					<div class="min-w-[min(100%,300px)] flex-[0_1_420px] max-sm:flex-auto">
+						<WorkspaceToolbar
+							ariaLabel="Grouped roster controls"
+							items={[]}
+							search={{
+								label: 'Search by name, rank, MOS, role, or group',
+								placeholder: 'Search roster...',
+								value: rosterSearch,
+								onValueChange: setRosterSearch
+							}}
+							primary={{
+								kind: 'action',
+								id: 'use-az-view',
+								label: 'Use A-Z View',
+								onclick: () => (ctx.viewMode = 'alphabetical')
+							}}
 						/>
-						<Button size="sm" type="button" onclick={() => (ctx.viewMode = 'alphabetical')}>Use A-Z View</Button>
 					</div>
 				</div>
 			{:else}
@@ -418,7 +450,7 @@
 					class="flex min-h-0 min-w-0 flex-1 [&_[data-slot='data-table']]:min-h-0 [&_[data-slot='data-table']]:w-full [&_[data-slot='data-table']]:flex-1"
 				>
 					<DataTable.DataTable
-						table={ctx.viewMode === 'alphabetical' ? azTable : groupedTable}
+						table={activeTable}
 						columns={personnelColumns}
 						onRowClick={handleRowClick}
 						rowActionLabel={bulkArchiveMode
@@ -429,46 +461,6 @@
 						emptyLevel={2}
 						maxHeight="100%"
 					>
-						{#snippet toolbar(tbl)}
-							{#if bulkArchiveMode}
-								<div class="flex flex-wrap items-center justify-between gap-2">
-									<DataTable.BulkActions selectedCount={selectedArchiveIds.size} totalCount={tbl.totalRows}>
-										<Button
-											type="button"
-											variant="outline"
-											size="sm"
-											disabled={bulkArchiveSubmitting}
-											onclick={selectVisibleArchiveRows}>Select shown</Button
-										>
-										<Button
-											type="button"
-											variant="outline"
-											size="sm"
-											disabled={bulkArchiveSubmitting}
-											onclick={clearArchiveSelection}>Clear</Button
-										>
-									</DataTable.BulkActions>
-									<div class="flex flex-wrap gap-2">
-										<Button
-											type="button"
-											variant="outline"
-											size="sm"
-											disabled={bulkArchiveSubmitting}
-											onclick={cancelArchiveMode}>Cancel</Button
-										>
-										<Button
-											type="button"
-											variant="destructive"
-											size="sm"
-											disabled={selectedArchiveIds.size === 0 || bulkArchiveSubmitting}
-											onclick={() => (showBulkArchiveConfirm = true)}
-										>
-											Confirm Archive
-										</Button>
-									</div>
-								</div>
-							{/if}
-						{/snippet}
 						{#snippet cell(row, col)}
 							{@const lossRecord = upcomingLossMap.get(row.id)}
 							{#if col.key === 'select'}

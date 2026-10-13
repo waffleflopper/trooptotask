@@ -8,6 +8,13 @@ import type { ScopeSet } from '$lib/access/memberAccessShape';
 import type { OnboardingTemplate, OnboardingTemplateStep } from '$features/onboarding/contracts';
 import { onboardingTemplateStore } from '$features/onboarding';
 import { createReadyAppShellRouteData } from '../../appShell.test-support';
+import { openToolbarMore, stubToolbarWidths } from '$lib/test-support/toolbarWidths';
+
+const { gotoMock } = vi.hoisted(() => ({ gotoMock: vi.fn() }));
+vi.mock('$app/navigation', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$app/navigation')>()),
+	goto: gotoMock
+}));
 
 let canConfigure = true;
 let scopeSet: ScopeSet = { kind: 'organization' };
@@ -30,6 +37,7 @@ afterEach(() => {
 	canConfigure = true;
 	scopeSet = { kind: 'organization' };
 	vi.unstubAllGlobals();
+	gotoMock.mockReset();
 	onboardingTemplateStore.load([], [], 'org-test-reset');
 });
 
@@ -81,6 +89,59 @@ function renderPage() {
 }
 
 describe('onboarding templates page', () => {
+	it('links back to the Onboarding pipeline from the row and from More, with Add Template pinned', async () => {
+		const widths = stubToolbarWidths();
+		await renderTemplatesPage();
+
+		const toolbarName = 'Onboarding template controls';
+		const row = within(screen.getByRole('toolbar', { name: toolbarName }));
+		expect(row.getByRole('link', { name: 'Onboarding' }).getAttribute('href')).toBe('/org/org-1/onboarding');
+
+		await widths.foldAll();
+		expect(row.queryByRole('link', { name: 'Onboarding' })).toBeNull();
+		expect(row.getByRole('button', { name: 'Add Template' })).toBeTruthy();
+		const menu = await openToolbarMore(toolbarName);
+		await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Onboarding' }));
+		await waitFor(() => expect(gotoMock).toHaveBeenCalledWith('/org/org-1/onboarding'));
+	});
+
+	it('edits the selected template from its detail toolbar, also when Edit folds into More', async () => {
+		const widths = stubToolbarWidths();
+		await renderTemplatesPage();
+
+		const detailName = 'Onboarding template detail controls';
+		await fireEvent.click(
+			within(screen.getByRole('toolbar', { name: detailName })).getByRole('button', { name: 'Edit' })
+		);
+		expect(await screen.findByRole('heading', { name: 'Edit Onboarding Template' })).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+		await widths.foldAll();
+		const menu = await openToolbarMore(detailName);
+		await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Edit' }));
+		expect(await screen.findByRole('heading', { name: 'Edit Onboarding Template' })).toBeTruthy();
+	});
+
+	it('shows a viewer the Onboarding link and no template actions, on the row and in More', async () => {
+		canConfigure = false;
+		const widths = stubToolbarWidths();
+		await renderTemplatesPage();
+
+		expect(screen.getByRole('heading', { name: 'Standard Arrival' })).toBeTruthy();
+		expect(screen.queryByRole('toolbar', { name: 'Onboarding template detail controls' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
+
+		const toolbarName = 'Onboarding template controls';
+		const row = within(screen.getByRole('toolbar', { name: toolbarName }));
+		expect(row.getByRole('link', { name: 'Onboarding' }).getAttribute('href')).toBe('/org/org-1/onboarding');
+		expect(row.queryByRole('button', { name: 'Add Template' })).toBeNull();
+
+		await widths.foldAll();
+		const menu = await openToolbarMore(toolbarName);
+		expect(within(menu).getByRole('menuitem', { name: 'Onboarding' })).toBeTruthy();
+		expect(within(menu).queryByRole('menuitem', { name: 'Add Template' })).toBeNull();
+	});
+
 	it('preserves add template disabled state while adding', async () => {
 		await renderTemplatesPage();
 

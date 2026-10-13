@@ -6,6 +6,7 @@ import PersonnelImportPage from './PersonnelImportPage.svelte';
 import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '../personnel.types';
 import type { RankCatalogEntry } from '$features/personnel/contracts';
+import { openToolbarMore, stubToolbarWidths } from '$lib/test-support/toolbarWidths';
 
 const { beforeNavigateMock, gotoMock, invalidateAllMock, parseFileMock } = vi.hoisted(() => ({
 	beforeNavigateMock: vi.fn(),
@@ -276,6 +277,62 @@ describe('PersonnelImportPage', () => {
 		await waitFor(() => expect(screen.getByText('Skipped')).toBeInTheDocument());
 		expect(screen.getByText(/Matched personnel already has the requested values/)).toBeInTheDocument();
 		expect(screen.getByText('Import complete')).toBeInTheDocument();
+	});
+
+	it('switches the import mode and returns to Personnel from the toolbar row', async () => {
+		renderPage();
+
+		const row = within(screen.getByRole('toolbar', { name: 'Personnel import controls' }));
+		expect(row.getByRole('link', { name: 'Personnel' })).toHaveAttribute('href', '/org/org-1/personnel');
+		const mode = within(row.getByRole('group', { name: 'Import mode' }));
+		expect(mode.getByRole('button', { name: 'Add new' })).toHaveAttribute('aria-pressed', 'true');
+
+		await fireEvent.click(mode.getByRole('button', { name: 'Backfill ETS/DEROS' }));
+
+		expect(mode.getByRole('button', { name: 'Backfill ETS/DEROS' })).toHaveAttribute('aria-pressed', 'true');
+		expect(screen.getByRole('heading', { name: 'Backfill ETS/DEROS from one file' })).toBeInTheDocument();
+	});
+
+	it('switches the import mode and returns to Personnel from More when the toolbar folds', async () => {
+		const widths = stubToolbarWidths();
+		renderPage();
+		await widths.foldAll();
+
+		const toolbarName = 'Personnel import controls';
+		let menu = await openToolbarMore(toolbarName);
+		await fireEvent.click(
+			within(within(menu).getByRole('group', { name: 'Import mode' })).getByRole('menuitemradio', {
+				name: 'Backfill ETS/DEROS'
+			})
+		);
+		expect(screen.getByRole('heading', { name: 'Backfill ETS/DEROS from one file' })).toBeInTheDocument();
+
+		await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+		menu = await openToolbarMore(toolbarName);
+		await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Personnel' }));
+		await waitFor(() => expect(gotoMock).toHaveBeenCalledWith('/org/org-1/personnel'));
+	});
+
+	it('clears the preview selection from the folded selection toolbar', async () => {
+		const widths = stubToolbarWidths();
+		parseFileMock.mockResolvedValue([
+			['Rank', 'Last Name', 'First Name', 'Group'],
+			['SGT', 'Smith', 'John', 'Alpha Team'],
+			['CPL', 'Taylor', 'Pat', 'Alpha Team']
+		]);
+		renderPage();
+		const input = document.querySelector<HTMLInputElement>('#fileUpload');
+		await fireEvent.change(input!, {
+			target: { files: [new File(['records'], 'personnel.csv', { type: 'text/csv' })] }
+		});
+		await fireEvent.click(await screen.findByRole('button', { name: /Preview 2 Rows/i }));
+		await widths.foldAll();
+		expect(screen.getAllByText('2 of 2 selected').length).toBeGreaterThan(0);
+
+		const menu = await openToolbarMore('Personnel import preview selection controls');
+		await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Clear' }));
+
+		await waitFor(() => expect(screen.getAllByText('0 of 2 selected').length).toBeGreaterThan(0));
 	});
 
 	it('shows template guidance before upload', () => {
@@ -794,6 +851,40 @@ describe('PersonnelImportPage', () => {
 		await fireEvent.click(await screen.findByRole('button', { name: 'Return to Personnel' }));
 
 		expect(gotoMock).toHaveBeenCalledWith('/org/org-1/personnel', { invalidateAll: true });
+	});
+
+	it('keeps the import mode while an import is running', async () => {
+		let resolveFetch: (response: Response) => void = () => {};
+		const fetchMock = vi.fn(
+			() =>
+				new Promise<Response>((resolve) => {
+					resolveFetch = resolve;
+				})
+		);
+		vi.stubGlobal('fetch', fetchMock);
+		parseFileMock.mockResolvedValue([
+			['Rank', 'Last Name', 'First Name'],
+			['SGT', 'Smith', 'John']
+		]);
+		renderPage();
+
+		const input = document.querySelector<HTMLInputElement>('#fileUpload');
+		await fireEvent.change(input!, {
+			target: { files: [new File(['records'], 'personnel.csv', { type: 'text/csv' })] }
+		});
+		await fireEvent.click(await screen.findByRole('button', { name: /Preview 1 Rows/i }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Import checked rows' }));
+		const mode = within(
+			within(screen.getByRole('toolbar', { name: 'Personnel import controls' })).getByRole('group', {
+				name: 'Import mode'
+			})
+		);
+		await fireEvent.click(mode.getByRole('button', { name: 'Backfill ETS/DEROS' }));
+
+		expect(mode.getByRole('button', { name: 'Add new' })).toHaveAttribute('aria-pressed', 'true');
+		resolveFetch(new Response(JSON.stringify({ inserted: [{}], errors: [] }), { status: 200 }));
+		await screen.findByText('Import complete');
+		expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/personnel/batch', expect.any(Object));
 	});
 
 	it('cancels navigation attempts while an import is running', async () => {

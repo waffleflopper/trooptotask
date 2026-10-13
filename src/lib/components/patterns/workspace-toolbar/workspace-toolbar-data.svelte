@@ -295,7 +295,7 @@
 	props: Record<string, unknown> = {}
 )}
 	<Button
-		{variant}
+		variant={action.destructive ? 'destructive' : variant}
 		href={action.href}
 		disabled={action.disabled}
 		title={live ? action.disabledReason : undefined}

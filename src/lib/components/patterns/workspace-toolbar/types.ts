@@ -1,4 +1,5 @@
 export type WorkspaceToolbarIcon =
+	| 'archive'
 	| 'arrow-left'
 	| 'book-open'
 	| 'calendar-days'
@@ -6,10 +7,12 @@ export type WorkspaceToolbarIcon =
 	| 'clipboard-check'
 	| 'clipboard-list'
 	| 'download'
+	| 'file-plus'
 	| 'plus'
 	| 'printer'
 	| 'settings'
-	| 'upload';
+	| 'upload'
+	| 'user-plus';
 
 export type WorkspaceToolbarActionVariant = 'default' | 'primary' | 'secondary' | 'danger';
 

@@ -1,15 +1,22 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, within } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { createRawSnippet } from 'svelte';
 import type { Personnel } from '$features/personnel/contracts';
+import { openToolbarMore, stubToolbarWidths } from '$lib/test-support/toolbarWidths';
 
 const page = vi.hoisted(() => ({ route: { id: '' } }));
 vi.mock('$app/state', () => ({ page }));
+const { gotoMock } = vi.hoisted(() => ({ gotoMock: vi.fn() }));
+vi.mock('$app/navigation', () => ({ goto: gotoMock }));
 
 import Layout from './+layout.svelte';
 
-afterEach(() => cleanup());
+afterEach(() => {
+	cleanup();
+	vi.unstubAllGlobals();
+	gotoMock.mockReset();
+});
 
 const person: Personnel = {
 	id: 'person-1',
@@ -55,5 +62,41 @@ describe('Personnel detail section navigation', () => {
 		const marked = links.filter((link) => link.getAttribute('aria-current') === 'page');
 		expect(marked.map((link) => link.textContent?.trim())).toEqual([current]);
 		expect(marked[0].getAttribute('href')).toBe(href);
+	});
+});
+
+describe('Personnel record toolbar', () => {
+	const toolbarName = 'Personnel record controls';
+
+	it('links Roster, Upload PDF and Add note to their pages', () => {
+		renderAt('/org/[orgId]/personnel/[personnelSlug]');
+
+		const row = within(screen.getByRole('toolbar', { name: toolbarName }));
+		expect(row.getByRole('link', { name: 'Roster' }).getAttribute('href')).toBe('/org/unit/personnel');
+		expect(row.getByRole('link', { name: 'Upload PDF' }).getAttribute('href')).toBe(
+			'/org/unit/personnel/smith-jane/documents'
+		);
+		expect(row.getByRole('link', { name: 'Add note' }).getAttribute('href')).toBe(
+			'/org/unit/personnel/smith-jane/notes'
+		);
+	});
+
+	it('opens Roster and Upload PDF from More while Add note stays on the row', async () => {
+		const widths = stubToolbarWidths();
+		renderAt('/org/[orgId]/personnel/[personnelSlug]');
+		await widths.foldAll();
+
+		const row = within(screen.getByRole('toolbar', { name: toolbarName }));
+		expect(row.queryByRole('link', { name: 'Roster' })).toBeNull();
+		expect(row.getByRole('link', { name: 'Add note' })).toBeTruthy();
+
+		let menu = await openToolbarMore(toolbarName);
+		await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Upload PDF' }));
+		await waitFor(() => expect(gotoMock).toHaveBeenCalledWith('/org/unit/personnel/smith-jane/documents'));
+
+		await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+		menu = await openToolbarMore(toolbarName);
+		await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Roster' }));
+		await waitFor(() => expect(gotoMock).toHaveBeenCalledWith('/org/unit/personnel'));
 	});
 });

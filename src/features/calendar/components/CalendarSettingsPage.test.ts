@@ -128,9 +128,9 @@ describe('CalendarSettingsPage', () => {
 	it('filters the section from the toolbar and keeps Add new pinned when Back to Calendar folds into More', async () => {
 		const layOut = stubWorkspaceToolbarLayout();
 		statusTypesStoreMock.items = [
-			{ id: 'leave', name: 'Leave', color: '#2563eb', textColor: '#ffffff', sortOrder: 0 },
-			{ id: 'tdy', name: 'TDY', color: '#16a34a', textColor: '#ffffff', sortOrder: 1 }
-		] as StatusType[];
+			{ id: 'leave', name: 'Leave', color: '#2563eb', textColor: '#ffffff' },
+			{ id: 'tdy', name: 'TDY', color: '#16a34a', textColor: '#ffffff' }
+		];
 		render(CalendarSettingsPage, { props: { org } });
 		await layOut(2000);
 

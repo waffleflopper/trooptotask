@@ -1,4 +1,4 @@
-import type { ToolbarAction, ToolbarItem, ToolbarOption } from '$lib/components/patterns/workspace-toolbar';
+import type { ToolbarItem, ToolbarOption, WorkspaceToolbarProps } from '$lib/components/patterns/workspace-toolbar';
 
 export type CalendarViewMode = 'month' | '3-month';
 
@@ -28,7 +28,10 @@ const viewOptions: ToolbarOption[] = [
 	{ value: '3-month', label: '3-Month' }
 ];
 
-export function buildCalendarToolbar(input: CalendarToolbarInput): { items: ToolbarItem[]; primary?: ToolbarAction } {
+export function buildCalendarToolbar(input: CalendarToolbarInput): {
+	items: ToolbarItem[];
+	primary: WorkspaceToolbarProps['primary'];
+} {
 	const calendarHref = `/org/${input.orgUrlSegment}/calendar`;
 	const items: ToolbarItem[] = [
 		{
@@ -115,7 +118,7 @@ export function buildCalendarToolbar(input: CalendarToolbarInput): { items: Tool
 		{ kind: 'action', id: 'print-pdf', label: 'Print / PDF', menuOnly: true, onclick: input.onExportPDF }
 	);
 
-	const primary: ToolbarAction | undefined = input.canManageAvailability
+	const primary: WorkspaceToolbarProps['primary'] = input.canManageAvailability
 		? {
 				kind: 'action',
 				id: 'bulk-status',

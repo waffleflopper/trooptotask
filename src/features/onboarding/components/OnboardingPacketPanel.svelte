@@ -3,7 +3,7 @@
 	import type { OnboardingPageContext } from '../contexts/OnboardingPageContext.svelte';
 	import { STEP_TYPE_LABELS, formatTimestamp } from '../contexts/OnboardingPageContext.svelte';
 	import type { OnboardingStepProgress, PersonnelOnboarding } from '../onboarding.types';
-	import { isStepStalled, summarizePacket, type Today } from '../onboardingStatus';
+	import { clockLabel, isStepStalled, summarizePacket, type Today } from '../onboardingStatus';
 	import { formatDisplayDate } from '$lib/utils/dates';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
@@ -48,21 +48,27 @@
 		[
 			ctx.getPersonGroupName(onboarding.personnelId),
 			person?.mos || null,
-			`started ${formatDisplayDate(onboarding.startedAt)}, day ${summary.day}`
+			summary.clock.kind === 'day'
+				? `started ${formatDisplayDate(onboarding.startedAt)}, day ${summary.clock.day}`
+				: `${clockLabel(summary.clock)} (${formatDisplayDate(onboarding.startedAt)})`
 		]
 			.filter(Boolean)
 			.join(' · ')
 	);
 
-	/** Undefined shows the focus step as the open card. */
+	/** Undefined shows the focus step as the open card. Ignored once that step is no longer open. */
 	let openCardId = $state<string | undefined>(undefined);
 	let doneExpandedId = $state<string | null>(null);
 	let doneOpen = $state(false);
 	let noteStepId = $state<string | null>(null);
 	let noteText = $state('');
 	let savingNote = $state(false);
+	/** Identifies the draft a pending save belongs to, so a finished save closes only its own draft. */
+	let noteDraft = 0;
 
-	const cardId = $derived(openCardId ?? summary.focus?.id ?? null);
+	const cardId = $derived(
+		openCardId && openSteps.some((step) => step.id === openCardId) ? openCardId : (summary.focus?.id ?? null)
+	);
 
 	function stageLine(step: OnboardingStepProgress) {
 		const stages = step.stages ?? [];
@@ -71,15 +77,24 @@
 	}
 
 	function openNote(step: OnboardingStepProgress) {
+		noteDraft++;
 		noteStepId = step.id;
 		noteText = '';
+		savingNote = false;
+	}
+
+	function cancelNote() {
+		noteDraft++;
+		noteStepId = null;
 	}
 
 	async function saveNote(step: OnboardingStepProgress) {
 		const text = noteText.trim();
 		if (!text) return;
+		const draft = noteDraft;
 		savingNote = true;
 		const saved = await ctx.handleAddNote(step, text);
+		if (draft !== noteDraft) return;
 		savingNote = false;
 		if (saved) noteStepId = null;
 	}
@@ -131,7 +146,7 @@
 			>
 				<Textarea bind:value={noteText} aria-label={`Note for ${step.stepName}`} rows={2} />
 				<div class="flex justify-end gap-2">
-					<Button type="button" variant="ghost" size="sm" onclick={() => (noteStepId = null)}>Cancel</Button>
+					<Button type="button" variant="ghost" size="sm" onclick={cancelNote}>Cancel</Button>
 					<Button type="submit" size="sm" disabled={savingNote || !noteText.trim()}>Save note</Button>
 				</div>
 			</form>

@@ -80,6 +80,10 @@ function mount(rankCatalog: RankCatalogEntry[] = [], rankCatalogUnavailable = fa
 	return ctx;
 }
 
+function subtitleText() {
+	return document.querySelector('[data-slot="page-header"] p')?.textContent?.replace(/\s+/g, ' ').trim();
+}
+
 function rows() {
 	return within(screen.getByRole('list', { name: 'Soldiers in processing' })).getAllByRole('button');
 }
@@ -117,7 +121,10 @@ beforeEach(() => {
 		'org-1'
 	);
 	onboardingTemplateStore.load(
-		[{ id: 'template-1', orgId: 'org-1', name: 'Inprocessing', description: null, createdAt: '2026-06-01' }],
+		[
+			{ id: 'template-1', orgId: 'org-1', name: 'Inprocessing', description: null, createdAt: '2026-06-01' },
+			{ id: 'template-2', orgId: 'org-1', name: 'Reserve inprocessing', description: null, createdAt: '2026-06-02' }
+		],
 		[
 			{
 				id: 'template-step-1',
@@ -155,7 +162,7 @@ describe('Onboarding Active list', () => {
 		startedAt: '2026-06-01',
 		steps: [
 			step('packet-2', { id: 'packet-2-id', completed: true }),
-			finance('packet-2', { progressChangedAt: '2026-06-08T12:00:00.000Z' })
+			finance('packet-2', { templateStepId: 'template-1-finance', progressChangedAt: '2026-06-08T12:00:00.000Z' })
 		]
 	};
 	const ready: PersonnelOnboarding = {
@@ -169,10 +176,11 @@ describe('Onboarding Active list', () => {
 		...packet,
 		id: 'packet-4',
 		personnelId: 'person-4',
+		templateId: 'template-2',
 		startedAt: '2026-06-05',
 		steps: [
 			step('packet-4', { id: 'packet-4-id', completed: true }),
-			finance('packet-4', { progressChangedAt: '2026-06-09T12:00:00.000Z' })
+			finance('packet-4', { templateStepId: 'template-2-finance', progressChangedAt: '2026-06-09T12:00:00.000Z' })
 		]
 	};
 
@@ -192,10 +200,57 @@ describe('Onboarding Active list', () => {
 			'On track PFC Diaz, Sam Finance At Finance · 6 days 1 of 2 Day 11',
 			'New SGT Smith, Jane Verify ID card Started today 0 of 1 Day 1'
 		]);
-		expect(screen.getByText('4 Soldiers in processing · 1 stalled')).toBeTruthy();
+		expect(subtitleText()).toBe('4 Soldiers in processing · 1 stalled');
 	});
 
-	it('counts each open step across packets in the waiting strip', () => {
+	it('shows the stalled count in the warning colour and drops it when nothing is stalled', () => {
+		mount();
+		expect(screen.getByText('1 stalled', { selector: '[data-slot="page-header"] span' }).className).toContain(
+			'text-warning-foreground'
+		);
+		cleanup();
+
+		onboardingStore.load([packet, ready], 'org-1');
+		mount();
+		expect(subtitleText()).toBe('2 Soldiers in processing');
+		expect(screen.queryByText('1 stalled', { selector: '[data-slot="page-header"] span' })).toBeNull();
+	});
+
+	it('closes the open packet when a search or Group filter hides it and leaves it closed', async () => {
+		mount();
+		await openPacket('CPL Jones, Alex');
+
+		await fireEvent.input(screen.getByRole('searchbox', { name: 'Search by name, rank, or MOS' }), {
+			target: { value: '68w' }
+		});
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+		await fireEvent.input(screen.getByRole('searchbox', { name: 'Search by name, rank, or MOS' }), {
+			target: { value: '' }
+		});
+		expect(rows()).toHaveLength(4);
+		expect(screen.queryByRole('dialog')).toBeNull();
+	});
+
+	it('shows a start date in the future as a countdown in the row and the packet', async () => {
+		onboardingStore.load(
+			[
+				{ ...packet, startedAt: '2026-06-18' },
+				{ ...onTrack, startedAt: '2026-06-16' }
+			],
+			'org-1'
+		);
+		mount();
+
+		expect(rows().map((row) => row.textContent?.replace(/\s+/g, ' ').trim())).toEqual([
+			'On track PFC Diaz, Sam Finance At Finance · 6 days 1 of 2 Starts tomorrow',
+			'New SGT Smith, Jane Verify ID card 0 of 1 Starts in 3 days'
+		]);
+		const dialog = await openPacket('SGT Smith, Jane');
+		expect(within(dialog).getByText('Starts in 3 days (Jun 18, 2026)')).toBeTruthy();
+	});
+
+	it('counts a step name once across packets from two templates in the waiting strip', () => {
 		mount();
 
 		const strip = screen.getByRole('region', { name: 'Where people are waiting' });
@@ -403,6 +458,52 @@ describe('Onboarding packet panel', () => {
 		expect(onboardingStore.getById('packet-1')).toEqual(packet);
 	});
 
+	it('keeps a newer note draft open when an earlier note save finishes', async () => {
+		const badge = step('packet-1', { id: 'step-2', templateStepId: null, stepName: 'Badge', sortOrder: 1 });
+		onboardingStore.load([{ ...packet, steps: [packet.steps[0], badge] }], 'org-1');
+		let finish!: (response: Response) => void;
+		vi.stubGlobal('fetch', vi.fn().mockReturnValueOnce(new Promise<Response>((resolve) => (finish = resolve))));
+		mount();
+		const dialog = await openPacket('SGT Smith, Jane');
+
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Add note' }));
+		await fireEvent.input(within(dialog).getByRole('textbox', { name: 'Note for Verify ID card' }), {
+			target: { value: 'First' }
+		});
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Save note' }));
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Badge' }));
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Add note' }));
+		await fireEvent.input(within(dialog).getByRole('textbox', { name: 'Note for Badge' }), {
+			target: { value: 'Second' }
+		});
+
+		finish(Response.json({ id: 'step-1', notes: [{ text: 'First', timestamp: NOW, userId: 'user-1' }] }));
+		await waitFor(() => expect(onboardingStore.getById('packet-1')?.steps[0].notes).toHaveLength(1));
+
+		const draft = within(dialog).getByRole('textbox', { name: 'Note for Badge' }) as HTMLTextAreaElement;
+		expect(draft.value).toBe('Second');
+	});
+
+	it('returns to the focus step once the expanded step is completed', async () => {
+		const badge = step('packet-1', { id: 'step-2', templateStepId: null, stepName: 'Badge', sortOrder: 1 });
+		onboardingStore.load([{ ...packet, steps: [packet.steps[0], badge] }], 'org-1');
+		vi.stubGlobal(
+			'fetch',
+			vi
+				.fn()
+				.mockResolvedValue(Response.json({ id: 'step-2', completed: true, currentStage: null, progressChangedAt: NOW }))
+		);
+		mount();
+		const dialog = await openPacket('SGT Smith, Jane');
+
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Badge' }));
+		expect(within(dialog).getByRole('heading', { level: 4, name: 'Badge' })).toBeTruthy();
+		await fireEvent.click(within(dialog).getByRole('checkbox', { name: 'Mark Badge complete' }));
+
+		await waitFor(() => expect(within(dialog).queryByRole('heading', { level: 4, name: 'Badge' })).toBeNull());
+		expect(within(dialog).getByRole('heading', { level: 4, name: 'Verify ID card' })).toBeTruthy();
+	});
+
 	it('warns before closing out with open steps and retries after a failed save', async () => {
 		const feedback = vi.spyOn(toastStore, 'error');
 		vi.stubGlobal(
@@ -513,6 +614,22 @@ describe('Onboarding packet panel', () => {
 		const menu = await openMenu(screen.getByRole('dialog', { name: 'SGT Smith, Jane' }));
 		expect(within(menu).getByRole('menuitem', { name: 'Switch template' })).toBeTruthy();
 		expect(within(menu).queryByRole('menuitem', { name: 'Assign template' })).toBeNull();
+	});
+
+	it('keeps focus in the packet when Assign template saves and the menu offers Switch template', async () => {
+		onboardingStore.load([{ ...packet, templateId: null }], 'org-1');
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ templateId: 'template-1', steps: packet.steps })));
+		mount();
+		const dialog = await openPacket('SGT Smith, Jane');
+
+		await chooseMenuItem(dialog, 'Assign template');
+		const assign = await screen.findByRole('dialog', { name: 'Assign Template' });
+		await fireEvent.click(within(assign).getByRole('button', { name: 'Assign Template' }));
+		await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Assign Template' })).toBeNull());
+
+		await waitFor(() =>
+			expect(document.activeElement).toBe(within(dialog).getByRole('button', { name: 'More packet actions' }))
+		);
 	});
 
 	it('gives a member who cannot manage read-only step content instead of disabled controls', async () => {

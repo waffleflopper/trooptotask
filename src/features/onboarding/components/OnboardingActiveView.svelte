@@ -62,15 +62,15 @@
 	);
 	const waiting = $derived(waitingBySteps(visible, today).slice(0, STRIP_SIZE));
 
-	const subtitle = $derived(
-		[
-			active.length > 0 && `${active.length} ${active.length === 1 ? 'Soldier' : 'Soldiers'} in processing`,
-			stalledTotal > 0 && `${stalledTotal} stalled`,
-			typicalDaysToFinish !== null && `Typically ${typicalDaysToFinish} days to finish`
-		]
-			.filter(Boolean)
-			.join(' · ') || undefined
-	);
+	const subtitleParts = $derived.by(() => {
+		const parts: { text: string; stalled?: boolean }[] = [];
+		if (active.length > 0)
+			parts.push({ text: `${active.length} ${active.length === 1 ? 'Soldier' : 'Soldiers'} in processing` });
+		if (stalledTotal > 0) parts.push({ text: `${stalledTotal} stalled`, stalled: true });
+		if (typicalDaysToFinish !== null)
+			parts.push({ text: `Typically ${Math.round(typicalDaysToFinish)} days to finish` });
+		return parts;
+	});
 
 	const selected = $derived(
 		selectedId
@@ -95,6 +95,11 @@
 		if (id) document.querySelector<HTMLElement>(`[data-onboarding-id="${CSS.escape(id)}"]`)?.focus();
 	}
 
+	function closePanelIfFiltered() {
+		if (selectedId && active.some((onboarding) => onboarding.id === selectedId && !matches(onboarding)))
+			selectedId = null;
+	}
+
 	function clearFilters() {
 		search = '';
 		groupId = ALL_GROUPS;
@@ -113,7 +118,10 @@
 				],
 				value: groupId,
 				defaultValue: ALL_GROUPS,
-				onValueChange: (value) => (groupId = value)
+				onValueChange: (value) => {
+					groupId = value;
+					closePanelIfFiltered();
+				}
 			});
 		}
 		items.push({ kind: 'action', id: 'history', label: 'History', href: ctx.historyUrl });
@@ -126,7 +134,10 @@
 		label: 'Search by name, rank, or MOS',
 		placeholder: 'Search name, rank, MOS...',
 		value: search,
-		onValueChange: (value: string) => (search = value)
+		onValueChange: (value: string) => {
+			search = value;
+			closePanelIfFiltered();
+		}
 	} satisfies NonNullable<WorkspaceToolbarProps['search']>);
 
 	const toolbarPrimary = $derived.by<WorkspaceToolbarProps['primary']>(() =>
@@ -143,6 +154,13 @@
 			: undefined
 	);
 </script>
+
+{#snippet subtitle()}
+	{#each subtitleParts as part, index (part.text)}
+		{#if index > 0}{' · '}{/if}
+		{#if part.stalled}<span class="text-warning-foreground">{part.text}</span>{:else}{part.text}{/if}
+	{/each}
+{/snippet}
 
 {#snippet panel(onboarding: PersonnelOnboarding, inSheet: boolean)}
 	{#key onboarding.id}
@@ -173,7 +191,7 @@
 		</div>
 	{:else}
 		<div class="grid shrink-0 gap-4 border-b border-border p-3 md:px-6 md:pt-6 md:pb-4">
-			<PageShell.Header title="Onboarding" {subtitle} />
+			<PageShell.Header title="Onboarding" subtitle={subtitleParts.length > 0 ? subtitle : undefined} />
 			<WorkspaceToolbar
 				ariaLabel="Onboarding controls"
 				items={toolbarItems}

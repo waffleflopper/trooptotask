@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { DetailLine, PacketStatus, PacketSummary } from '../onboardingStatus';
+	import { clockLabel, type DetailLine, type PacketStatus, type PacketSummary } from '../onboardingStatus';
 	import { Button } from '$lib/components/ui/button';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 
@@ -83,15 +83,19 @@
 			{/if}
 		</span>
 	</span>
-	<span class="hidden w-24 shrink-0 gap-1.5 sm:grid">
-		<span class="text-right font-mono text-xs">{summary.done} of {summary.total}</span>
-		<span aria-hidden="true" class="h-1 overflow-hidden rounded-full bg-muted">
-			<span
-				class={['block h-full', summary.status === 'ready' ? 'bg-success' : 'bg-foreground']}
-				style:width={`${summary.total ? (100 * summary.done) / summary.total : 0}%`}
-			></span>
+	<span class="grid shrink-0 justify-items-end gap-1 sm:flex sm:items-center sm:gap-3">
+		<span class="order-2 grid w-full gap-1.5 sm:order-1 sm:w-24">
+			<span class="text-right font-mono text-xs">{summary.done} of {summary.total}</span>
+			<span aria-hidden="true" class="h-1 overflow-hidden rounded-full bg-muted">
+				<span
+					class={['block h-full', summary.status === 'ready' ? 'bg-success' : 'bg-foreground']}
+					style:width={`${summary.total ? (100 * summary.done) / summary.total : 0}%`}
+				></span>
+			</span>
+		</span>
+		<span class="order-1 min-w-14 text-right font-mono text-xs whitespace-nowrap sm:order-2">
+			{clockLabel(summary.clock)}
 		</span>
 	</span>
-	<span class="w-14 shrink-0 text-right font-mono text-xs">Day {summary.day}</span>
 	<ChevronRight class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
 </Button>

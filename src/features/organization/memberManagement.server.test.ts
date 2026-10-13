@@ -154,6 +154,7 @@ function createOrganizationSettingsMemberManagementPort(
 		removeMembershipError?: string | null;
 		updateMembershipError?: string | null;
 		orgName?: string | null;
+		organizationGroupIds?: string[];
 	} = {}
 ): OrganizationSettingsMemberManagementPort & {
 	invitationLookups: Array<{ orgId: string; email: string }>;
@@ -250,6 +251,10 @@ function createOrganizationSettingsMemberManagementPort(
 		},
 		async getOrganizationName() {
 			return options.orgName ?? null;
+		},
+		async findOrganizationGroupIds(_orgId, groupIds) {
+			const known = options.organizationGroupIds;
+			return known ? groupIds.filter((id) => known.includes(id)) : groupIds;
 		}
 	};
 }
@@ -267,7 +272,31 @@ const inviteOrganizationMember = (
 		{ origin: INVITE_ORIGIN, ...input }
 	);
 
+const ORGANIZATION_GROUP_ID = '22222222-2222-4222-8222-222222222222';
+const FOREIGN_GROUP_ID = '33333333-3333-4333-8333-333333333333';
+
 describe('inviteOrganizationMember', () => {
+	it('rejects Group scopes naming groups outside the organization before creating invitations', async () => {
+		const ctx = createTestContext({ auth: { userId: 'actor-1', orgId: 'org-1', role: 'admin' } });
+		const port = createOrganizationSettingsMemberManagementPort({ organizationGroupIds: [ORGANIZATION_GROUP_ID] });
+
+		await expect(
+			inviteOrganizationMember(
+				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+				{
+					email: 'new.user@example.com',
+					membershipRole: 'member',
+					memberAccess: memberAccess({
+						scopeSet: { kind: 'groups', groupIds: [ORGANIZATION_GROUP_ID, FOREIGN_GROUP_ID] }
+					}),
+					actorEmail: 'actor@example.com'
+				}
+			)
+		).rejects.toMatchObject({ status: 400, message: 'Select groups from this organization' });
+
+		expect(port.createdInvitations).toEqual([]);
+	});
+
 	it('denies high-access members who are not admin or owner before creating invitations', async () => {
 		const ctx = createTestContext({
 			auth: {
@@ -2705,6 +2734,28 @@ describe('leaveOrganization', () => {
 });
 
 describe('updateOrganizationMemberAccess', () => {
+	it('rejects Group scopes naming groups outside the organization before updating access', async () => {
+		const ctx = createTestContext({ auth: { userId: 'actor-1', orgId: 'org-1', role: 'admin' } });
+		const port = createOrganizationSettingsMemberManagementPort({
+			membership: { userId: 'member-1', role: 'member', email: 'member@example.com' },
+			organizationGroupIds: [ORGANIZATION_GROUP_ID]
+		});
+
+		await expect(
+			updateOrganizationMemberAccess(
+				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+				{
+					membershipId: '11111111-1111-4111-8111-111111111111',
+					membershipRole: 'member',
+					memberAccess: memberAccess({ scopeSet: { kind: 'groups', groupIds: [FOREIGN_GROUP_ID] } }),
+					actorEmail: 'actor@example.com'
+				}
+			)
+		).rejects.toMatchObject({ status: 400, message: 'Select groups from this organization' });
+
+		expect(port.updatedMemberships).toEqual([]);
+	});
+
 	it('rejects member access updates without a submitted Member Preset before updating access', async () => {
 		const ctx = createTestContext({
 			auth: {

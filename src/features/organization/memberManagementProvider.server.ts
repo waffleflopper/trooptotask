@@ -288,6 +288,21 @@ export function createSupabaseOrgSettingsMemberManagementPort(
 			}
 
 			return data.name ?? null;
+		},
+
+		async findOrganizationGroupIds(orgId, groupIds) {
+			const { data, error } = await supabase
+				.from('groups')
+				.select('id')
+				.eq('organization_id', orgId)
+				.in('id', groupIds)
+				.returns<Array<{ id: string }>>();
+
+			if (error) {
+				throw new Error('Organization groups could not be checked');
+			}
+
+			return (data ?? []).map((row) => row.id);
 		}
 	};
 }

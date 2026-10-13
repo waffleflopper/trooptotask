@@ -115,6 +115,60 @@ RETURNS boolean
 	) AND "public"."organization_access_admitted"("p_organization_id");
 $$;
 
+-- Authenticated accounts can call the Onboarding reference helpers directly, so
+-- each answers only for an admitted member and is not an existence oracle.
+-- onboarding_parent_scope_matches inherits this through the Personnel helper.
+CREATE OR REPLACE FUNCTION "public"."onboarding_personnel_scope_matches"(
+	"p_organization_id" uuid,
+	"p_personnel_id" uuid
+) RETURNS boolean
+	LANGUAGE "sql" STABLE SECURITY DEFINER
+	SET "search_path" TO ''
+	AS $$
+	SELECT "public"."is_org_member"("p_organization_id") AND EXISTS (
+		SELECT 1 FROM "public"."personnel" "p"
+		WHERE "p"."id" = "p_personnel_id" AND "p"."organization_id" = "p_organization_id"
+			AND (
+				("p"."group_id" IS NOT NULL AND "public"."member_access_group_scope_matches"("p_organization_id", "p"."group_id"))
+				OR ("p"."group_id" IS NULL AND EXISTS (
+					SELECT 1 FROM "public"."organization_memberships" "m"
+					WHERE "m"."organization_id" = "p_organization_id" AND "m"."user_id" = "auth"."uid"()
+						AND ("m"."role" IN ('owner', 'admin') OR "m"."access_scope_kind" = 'organization')
+				))
+			)
+	);
+$$;
+
+CREATE OR REPLACE FUNCTION "public"."onboarding_template_reference_matches"(
+	"p_organization_id" uuid,
+	"p_template_id" uuid
+) RETURNS boolean
+	LANGUAGE "sql" STABLE SECURITY DEFINER
+	SET "search_path" TO ''
+	AS $$
+	SELECT "public"."is_org_member"("p_organization_id") AND ("p_template_id" IS NULL OR EXISTS (
+		SELECT 1 FROM "public"."onboarding_templates" "t"
+		WHERE "t"."id" = "p_template_id" AND "t"."organization_id" = "p_organization_id"
+	));
+$$;
+
+CREATE OR REPLACE FUNCTION "public"."onboarding_step_references_match"(
+	"p_organization_id" uuid,
+	"p_template_step_id" uuid,
+	"p_training_type_id" uuid
+) RETURNS boolean
+	LANGUAGE "sql" STABLE SECURITY DEFINER
+	SET "search_path" TO ''
+	AS $$
+	SELECT "public"."is_org_member"("p_organization_id") AND ("p_template_step_id" IS NULL OR EXISTS (
+		SELECT 1 FROM "public"."onboarding_template_steps" "s"
+		WHERE "s"."id" = "p_template_step_id" AND "s"."organization_id" = "p_organization_id"
+	)) AND ("p_training_type_id" IS NULL OR EXISTS (
+		SELECT 1 FROM "public"."training_types" "t"
+		WHERE "t"."id" = "p_training_type_id" AND "t"."organization_id" = "p_organization_id"
+	));
+$$;
+
 -- The suspended shell and the dashboard list read only the Organization row and
 -- the caller's own membership, so those two reads stay outside admission.
 DROP POLICY "Users can view organizations they are members of" ON "public"."organizations";

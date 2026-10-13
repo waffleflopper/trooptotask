@@ -4,7 +4,11 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import { SENSITIVE_FILE_BUCKET } from '$lib/storage/sensitiveFiles';
-import { registerOrganizationFileUpload, removeRetiredOrganizationFiles } from '$features/organization/index.server';
+import {
+	registerOrganizationFileUpload,
+	removeRetiredOrganizationFiles,
+	type RetiredOrganizationFile
+} from '$features/organization/index.server';
 import type { FileCleanup } from '$features/organization/contracts';
 import type {
 	PersonnelArtifactArchiveWriter,
@@ -45,40 +49,70 @@ function assertArtifactTable(table: string): void {
 	if (!ARTIFACT_TABLES.has(table)) fail(400, 'Unsupported Personnel artifact table');
 }
 
-export function artifactFileTarget(kind: 'counseling' | 'document', orgId: string, personnelId: string, path: string) {
+type ArtifactFileKind = 'counseling' | 'document';
+
+function artifactFileOwned(kind: ArtifactFileKind, orgId: string, personnelId: string, path: string): boolean {
 	const prefix =
 		kind === 'counseling'
 			? `${orgId}/counseling-records/${personnelId}/`
 			: `${orgId}/personnel/${personnelId}/documents/`;
-	if (
-		!path.startsWith(prefix) ||
-		path.length === prefix.length ||
-		path.split('/').some((part) => part === '..' || part === '.')
-	) {
+	return (
+		path.startsWith(prefix) &&
+		path.length > prefix.length &&
+		!path.split('/').some((part) => part === '..' || part === '.')
+	);
+}
+
+const artifactBucket = (kind: ArtifactFileKind) =>
+	kind === 'counseling' ? SENSITIVE_FILE_BUCKET : 'personnel-documents';
+
+export function artifactFileTarget(kind: ArtifactFileKind, orgId: string, personnelId: string, path: string) {
+	if (!artifactFileOwned(kind, orgId, personnelId, path))
 		fail(400, 'Artifact file path is outside the authorized Person');
+	return artifactBucket(kind);
+}
+
+interface FileDeletionOwner {
+	kind: ArtifactFileKind;
+	orgId: string;
+	personnelId: string;
+	/** The deleted artifact's file path when known; null when it had none. */
+	expectedPath?: string | null;
+}
+
+export interface FileDeletion {
+	/** Null when the RPC reports no `deleted` column. */
+	deleted: boolean | null;
+	/** The owned key still holding bytes, or null when nothing remains to remove. */
+	retired: RetiredOrganizationFile | null;
+}
+
+/** Accepts only receipt rows the SQL can emit for this owner; null only for no receipt. */
+export function parseFileDeletion(data: unknown, owner: FileDeletionOwner): FileDeletion | null {
+	if (Array.isArray(data) && data.length === 0) return null;
+	const row: unknown = Array.isArray(data) && data.length === 1 ? data[0] : null;
+	if (typeof row !== 'object' || row === null) throw new Error('File artifact deletion was not acknowledged');
+	const { deleted = null, bucket_id: bucket, object_name: key, file_removed: removed } = row as Record<string, unknown>;
+	const expectedBucket = artifactBucket(owner.kind);
+	if (deleted === null || typeof deleted === 'boolean') {
+		if (removed === true && key === null && (bucket === null || bucket === expectedBucket))
+			return { deleted, retired: null };
+		// SQL derives owned prefixes from uuid::text, which is lowercase whatever the route casing.
+		if (
+			removed === false &&
+			bucket === expectedBucket &&
+			typeof key === 'string' &&
+			artifactFileOwned(owner.kind, owner.orgId.toLowerCase(), owner.personnelId.toLowerCase(), key) &&
+			(owner.expectedPath === undefined || key === owner.expectedPath)
+		)
+			return { deleted, retired: { bucket_id: expectedBucket, object_name: key } };
 	}
-	return kind === 'counseling' ? SENSITIVE_FILE_BUCKET : 'personnel-documents';
-}
-
-interface FileDeletionReceipt {
-	deleted?: boolean;
-	bucket_id: string | null;
-	object_name: string | null;
-	file_removed: boolean;
-}
-
-export function parseFileDeletion(data: unknown): FileDeletionReceipt | null {
-	if (!Array.isArray(data) || data.length === 0) return null;
-	const [receipt] = data as FileDeletionReceipt[];
-	if (data.length !== 1 || typeof receipt?.file_removed !== 'boolean')
-		throw new Error('File artifact deletion was not acknowledged');
-	return receipt;
+	throw new Error('File artifact deletion was not acknowledged');
 }
 
 /** Removes a deletion's retired bytes now when possible; scheduled cleanup owns the rest. */
-export async function finishFileCleanup(admin: SupabaseClient, receipt: FileDeletionReceipt): Promise<FileCleanup> {
-	if (receipt.file_removed || !receipt.bucket_id || !receipt.object_name) return 'complete';
-	return removeRetiredOrganizationFiles(admin, [{ bucket_id: receipt.bucket_id, object_name: receipt.object_name }]);
+export async function finishFileCleanup(admin: SupabaseClient, deletion: FileDeletion): Promise<FileCleanup> {
+	return deletion.retired ? removeRetiredOrganizationFiles(admin, [deletion.retired]) : 'complete';
 }
 
 /** Bind service-role operations to a Person only after the request actor is admitted. */
@@ -343,9 +377,10 @@ export function createSupabasePersonnelArtifactWritePort(
 						p_archived_at: archivedAt
 					});
 					if (error) throw new Error(error.message);
-					const receipt = parseFileDeletion(data);
-					if (!receipt) return null;
-					return { deleted: receipt.deleted === true, fileCleanup: await finishFileCleanup(admin, receipt) };
+					const deletion = parseFileDeletion(data, { kind, orgId: actor.orgId, personnelId });
+					if (!deletion) return null;
+					if (deletion.deleted === null) throw new Error('File artifact deletion was not acknowledged');
+					return { deleted: deletion.deleted, fileCleanup: await finishFileCleanup(admin, deletion) };
 				},
 				async reconcileFileAttachment(kind, path) {
 					const bucket = artifactFileTarget(kind, actor.orgId, personnelId, path);

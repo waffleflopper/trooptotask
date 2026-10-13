@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { evaluatePolicyDecision, POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { PersonnelGovernanceDeletionPort } from './contracts';
-import { finishFileCleanup, parseFileDeletion } from './artifactWrites.server';
+import { finishFileCleanup, parseFileDeletion, type FileDeletion } from './artifactWrites.server';
 import { fail } from '$lib/errors';
 
 /** An Organization reviewer can delete exactly one of its counseling records. */
@@ -56,9 +56,16 @@ export function createSupabasePersonnelGovernanceDeletionPort(
 				p_kind: 'counseling',
 				p_artifact_id: recordId
 			});
-			let deletion = null;
+			let deletion: FileDeletion | null = null;
 			try {
-				deletion = receipt.error ? null : parseFileDeletion(receipt.data);
+				deletion = receipt.error
+					? null
+					: parseFileDeletion(receipt.data, {
+							kind: 'counseling',
+							orgId: actor.orgId,
+							personnelId: row.personnel_id,
+							expectedPath: row.file_path
+						});
 			} catch {
 				return { fileCleanup: 'pending' };
 			}

@@ -7,6 +7,7 @@ import { createSupabasePersonnelGovernanceDeletionPort } from './governanceDelet
 const ORG = 'org-1';
 const FILE_PATH = 'org-1/counseling-records/person-1/counseling.pdf';
 const FOREIGN_PATH = 'org-2/counseling-records/person-1/other.pdf';
+const SIBLING_PATH = 'org-1/counseling-records/person-1/sibling.pdf';
 const REVIEWED_AT = '2026-01-01T00:00:00.000Z';
 
 function admin(personnel: 'none' | 'configure' = 'none') {
@@ -25,6 +26,19 @@ function admin(personnel: 'none' | 'configure' = 'none') {
 	});
 }
 
+type ReceiptRow = { bucket_id: string | null; object_name: string | null; file_removed: boolean };
+const RECEIPT_FAULTS = {
+	empty: () => [],
+	malformed: (row: ReceiptRow) => [{ ...row, file_removed: 'false' }],
+	duplicate: (row: ReceiptRow) => [row, row],
+	'a pending row without a key': (row: ReceiptRow) => [{ ...row, object_name: null }],
+	'a completed row that still names a key': (row: ReceiptRow) => [{ ...row, file_removed: true }],
+	'the document bucket': (row: ReceiptRow) => [{ ...row, bucket_id: 'personnel-documents' }],
+	'another Organization key': (row: ReceiptRow) => [{ ...row, object_name: FOREIGN_PATH }],
+	'a sibling key of the same Person': (row: ReceiptRow) => [{ ...row, object_name: SIBLING_PATH }],
+	'a forged owned key': () => [{ bucket_id: 'counseling-files', object_name: FILE_PATH, file_removed: false }]
+};
+
 function provider(filePath: string | null = FILE_PATH) {
 	const state = {
 		record: { personnel_id: 'person-1', file_path: filePath } as {
@@ -32,11 +46,12 @@ function provider(filePath: string | null = FILE_PATH) {
 			file_path: string | null;
 		} | null,
 		pending: true,
-		files: new Set([FILE_PATH, FOREIGN_PATH]),
+		files: new Set([FILE_PATH, FOREIGN_PATH, SIBLING_PATH]),
 		retired: new Map<string, 'pending' | 'removed'>(),
 		receipt: null as { bucket_id: string | null; object_name: string | null } | null,
 		approvalFault: null as null | 'constraint' | 'lost-race',
-		receiptFault: null as null | 'unavailable' | 'empty' | 'malformed' | 'duplicate',
+		receiptFault: null as null | 'unavailable' | keyof typeof RECEIPT_FAULTS,
+		drainedBeforeReceipt: false,
 		storageFault: false,
 		readFault: false,
 		calls: [] as string[]
@@ -79,12 +94,12 @@ function provider(filePath: string | null = FILE_PATH) {
 					});
 					if (state.receiptFault === 'unavailable')
 						return Response.json({ message: 'receipt unavailable' }, { status: 503 });
-					if (!state.receipt || state.receiptFault === 'empty') return Response.json([]);
+					if (!state.receipt) return Response.json([]);
 					const key = state.receipt.object_name;
-					const row = { ...state.receipt, file_removed: key === null || state.retired.get(key) === 'removed' };
-					if (state.receiptFault === 'malformed') return Response.json([{ ...row, file_removed: 'false' }]);
-					if (state.receiptFault === 'duplicate') return Response.json([row, row]);
-					return Response.json([row]);
+					if (state.drainedBeforeReceipt && key) (state.files.delete(key), state.retired.set(key, 'removed'));
+					const removed = key === null || state.retired.get(key) === 'removed';
+					const row = { bucket_id: state.receipt.bucket_id, object_name: removed ? null : key, file_removed: removed };
+					return Response.json(state.receiptFault ? RECEIPT_FAULTS[state.receiptFault](row) : [row]);
 				}
 				if (url.pathname === '/rest/v1/rpc/list_pending_organization_file_retirements') {
 					return Response.json(
@@ -100,10 +115,11 @@ function provider(filePath: string | null = FILE_PATH) {
 							(state.retired.set(name, 'removed'), completed++);
 					return Response.json(completed);
 				}
-				if (method === 'DELETE' && url.pathname === '/storage/v1/object/counseling-files') {
+				if (method === 'DELETE' && url.pathname.startsWith('/storage/v1/object/')) {
 					if (state.storageFault) return Response.json({ message: 'Unavailable' }, { status: 503 });
 					const { prefixes } = body as { prefixes: string[] };
-					return Response.json(prefixes.filter((path) => state.files.delete(path)).map((name) => ({ name })));
+					const stored = url.pathname === '/storage/v1/object/counseling-files' ? state.files : new Set<string>();
+					return Response.json(prefixes.filter((path) => stored.delete(path)).map((name) => ({ name })));
 				}
 				throw new Error(`Unexpected finite provider request ${method} ${url.pathname}`);
 			}
@@ -143,7 +159,7 @@ describe('Organization-approved counseling deletion', () => {
 		await expect(run.approve()).resolves.toEqual({ fileCleanup: 'complete' });
 		expect(run.requirePending).toHaveBeenCalledWith(ORG, 'request-1', 'counseling_record', 'record-1');
 		expect(run.state).toMatchObject({ record: null, pending: false });
-		expect([...run.state.files]).toEqual([FOREIGN_PATH]);
+		expect(run.state.files).toEqual(new Set([FOREIGN_PATH, SIBLING_PATH]));
 		expect(run.state.retired.get(FILE_PATH)).toBe('removed');
 		const approval = run.state.calls.indexOf('POST /rest/v1/rpc/approve_counseling_deletion_request');
 		const removal = run.state.calls.indexOf('DELETE /storage/v1/object/counseling-files');
@@ -180,14 +196,25 @@ describe('Organization-approved counseling deletion', () => {
 		expect(run.state.retired.get(FILE_PATH)).toBe('pending');
 	});
 
-	it.each(['unavailable', 'empty', 'malformed', 'duplicate'] as const)(
+	it.each([
+		'unavailable',
+		'empty',
+		'malformed',
+		'duplicate',
+		'a pending row without a key',
+		'a completed row that still names a key',
+		'the document bucket',
+		'another Organization key',
+		'a sibling key of the same Person'
+	] as const)(
 		'reports pending cleanup for a committed approval whose receipt is %s, leaving the retired key for scheduled cleanup',
 		async (fault) => {
 			const run = provider();
 			run.state.receiptFault = fault;
 			await expect(run.approve()).resolves.toEqual({ fileCleanup: 'pending' });
 			expect(run.state).toMatchObject({ record: null, pending: false });
-			expect(run.state.files.has(FILE_PATH)).toBe(true);
+			expect(run.state.files).toEqual(new Set([FILE_PATH, FOREIGN_PATH, SIBLING_PATH]));
+			expect(run.state.calls.filter((call) => call.startsWith('DELETE '))).toEqual([]);
 			expect(run.state.retired.get(FILE_PATH)).toBe('pending');
 			await expect(run.approve()).rejects.toMatchObject({ status: 404 });
 
@@ -196,10 +223,30 @@ describe('Organization-approved counseling deletion', () => {
 				failed: 0,
 				limitReached: false
 			});
-			expect([...run.state.files]).toEqual([FOREIGN_PATH]);
+			expect(run.state.files).toEqual(new Set([FOREIGN_PATH, SIBLING_PATH]));
 			expect(run.state.retired.get(FILE_PATH)).toBe('removed');
 		}
 	);
+
+	it('reports pending without Storage effects when a record without a file receives an owned key', async () => {
+		const run = provider(null);
+		run.state.receiptFault = 'a forged owned key';
+		await expect(run.approve()).resolves.toEqual({ fileCleanup: 'pending' });
+		expect(run.state).toMatchObject({ record: null, pending: false });
+		expect(run.state.files).toEqual(new Set([FILE_PATH, FOREIGN_PATH, SIBLING_PATH]));
+		expect(run.state.calls.filter((call) => call.startsWith('DELETE '))).toEqual([]);
+		expect(run.state.retired).toEqual(new Map());
+	});
+
+	it('confirms a retirement that scheduled cleanup completed before the receipt read', async () => {
+		const run = provider();
+		run.state.drainedBeforeReceipt = true;
+		await expect(run.approve()).resolves.toEqual({ fileCleanup: 'complete' });
+		expect(run.state).toMatchObject({ record: null, pending: false });
+		expect(run.state.files).toEqual(new Set([FOREIGN_PATH, SIBLING_PATH]));
+		expect(run.state.calls.filter((call) => call.startsWith('DELETE '))).toEqual([]);
+		expect(run.state.retired.get(FILE_PATH)).toBe('removed');
+	});
 
 	it('approves a record whose historical path is outside its Person without removing those bytes', async () => {
 		const run = provider(FOREIGN_PATH);

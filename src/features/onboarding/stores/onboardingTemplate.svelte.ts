@@ -1,4 +1,5 @@
 import { untrack } from 'svelte';
+import { SvelteSet } from 'svelte/reactivity';
 import type { TrainingType } from '$features/training/contracts';
 import type { OnboardingStepType, OnboardingTemplate, OnboardingTemplateStep } from '../contracts';
 
@@ -281,7 +282,7 @@ export class OnboardingTemplateWorkspace {
 	#adapter!: OnboardingTemplateWorkspaceAdapter;
 	#organizationRevision = 0;
 	#stepDraftBaseline = '';
-	#reorderingTemplates = new Set<string>();
+	#reorderingTemplates = new SvelteSet<string>();
 	#stepEditorSession = 0;
 
 	constructor(

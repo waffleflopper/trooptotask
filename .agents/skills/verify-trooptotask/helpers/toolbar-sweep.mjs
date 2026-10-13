@@ -114,7 +114,8 @@ const widthKey = (read) => String(Math.round(read.contentWidth * 2) / 2);
 
 // Pure. `down` and `up` are steps `{ width, read, holds }`; `expect` lists the ids in the order they must fold.
 // `pinned` lists the ids that must be on the row, and `search` says search must be present, in every read.
-export function checkSweep({ down, up }, { expect, pinned = [], search = false }) {
+// `moreAlways` is for a toolbar with menu-only items: More must then be present at every width.
+export function checkSweep({ down, up }, { expect, pinned = [], search = false, moreAlways = false }) {
 	const failures = [];
 	const fail = (check, width, detail) => failures.push({ check, width, detail });
 	const steps = [
@@ -163,7 +164,8 @@ export function checkSweep({ down, up }, { expect, pinned = [], search = false }
 		const folded = foldedIn(read);
 		if (folded.join() !== expect.slice(0, folded.length).join())
 			fail('order', width, `Folded ${folded.join(', ') || 'nothing'}; the order is ${expect.join(', ')}.`);
-		if (read.more !== folded.length > 0)
+		if (moreAlways && !read.more) fail('more', width, 'More is absent; --more-always requires it at every width.');
+		if (!moreAlways && read.more !== folded.length > 0)
 			fail('more', width, `More is ${read.more ? 'present' : 'absent'} with ${folded.length} folded.`);
 		if (read.search === 'icon' && folded.length < expect.length)
 			fail(
@@ -231,16 +233,18 @@ export function checkSweep({ down, up }, { expect, pinned = [], search = false }
 }
 
 const usage =
-	'Use toolbar-sweep PAGE TOOLBAR_LABEL RUN_DIR --expect ID,ID,... [--pinned ID,ID,...] [--search] [--from 1440] [--to 390] [--step 2] [--height 900] [--record NAME].';
+	'Use toolbar-sweep PAGE TOOLBAR_LABEL RUN_DIR --expect ID,ID,... [--pinned ID,ID,...] [--search] [--more-always] [--from 1440] [--to 390] [--step 2] [--height 900] [--record NAME].';
 const valueFlags = ['expect', 'pinned', 'from', 'to', 'step', 'height', 'record'];
 const idList = (value) => (value ?? '').split(',').filter(Boolean);
 
 export function parseSweepArguments([page, label, runName, ...flags]) {
 	const options = {};
 	let search = false;
+	let moreAlways = false;
 	for (let i = 0; i < flags.length; i++) {
 		const name = flags[i].startsWith('--') ? flags[i].slice(2) : '';
 		if (name === 'search' && !search) search = true;
+		else if (name === 'more-always' && !moreAlways) moreAlways = true;
 		else if (valueFlags.includes(name) && !(name in options) && flags[i + 1] && !flags[i + 1].startsWith('--'))
 			options[name] = flags[++i];
 		else throw new Error(usage);
@@ -269,6 +273,7 @@ export function parseSweepArguments([page, label, runName, ...flags]) {
 		expectIds,
 		pinnedIds,
 		search,
+		moreAlways,
 		from,
 		to,
 		step,
@@ -291,6 +296,7 @@ export async function runSweep({
 	expect,
 	pinned = [],
 	search = false,
+	moreAlways = false,
 	from,
 	to,
 	step,
@@ -300,7 +306,20 @@ export async function runSweep({
 	sleep,
 	progress = () => {}
 }) {
-	const result = { expect, pinned, search, from, to, step, height, recording: null, error: null, down: [], up: [] };
+	const result = {
+		expect,
+		pinned,
+		search,
+		moreAlways,
+		from,
+		to,
+		step,
+		height,
+		recording: null,
+		error: null,
+		down: [],
+		up: []
+	};
 	const widths = sweepWidths(from, to, step);
 	let previous;
 	const measure = async (width) => {
@@ -346,7 +365,7 @@ export async function runSweep({
 			result.restoreError = error.message;
 		}
 		result.verdict = result.down.length
-			? checkSweep(result, { expect, pinned, search })
+			? checkSweep(result, { expect, pinned, search, moreAlways })
 			: { ok: false, failures: [], foldedAt: {}, restoredAt: {} };
 		if (result.error)
 			result.verdict = {

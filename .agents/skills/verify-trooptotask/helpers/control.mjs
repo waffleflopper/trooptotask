@@ -2705,7 +2705,7 @@ async function main() {
 		return;
 	}
 	if (command === 'toolbar-sweep') {
-		const { pageId, label, runName, expectIds, pinnedIds, search, from, to, step, height, recordName } =
+		const { pageId, label, runName, expectIds, pinnedIds, search, moreAlways, from, to, step, height, recordName } =
 			parseSweepArguments(args);
 		const runDir = path.resolve(runName);
 		if (!(await isUnderEvidence(runDir, evidenceRoot)))
@@ -2742,6 +2742,7 @@ async function main() {
 			expect: expectIds,
 			pinned: pinnedIds,
 			search,
+			moreAlways,
 			from,
 			to,
 			step,

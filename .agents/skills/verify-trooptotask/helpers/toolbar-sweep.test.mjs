@@ -268,6 +268,25 @@ test('rejects a second row, overflow, a clipped control and a missing or prematu
 	);
 });
 
+test('with --more-always accepts More at every width and still rejects a read without it', () => {
+	const trace = sweep();
+	for (const s of [...trace.down, ...trace.up]) for (const r of [s.read, ...s.holds]) r.more = true;
+	assert.deepEqual(
+		checkSweep(trace, rules)
+			.failures.filter((f) => f.check === 'more')
+			.map((f) => f.width),
+		[1440, 1440]
+	);
+	assert.deepEqual(checkSweep(trace, { ...rules, moreAlways: true }).failures, []);
+	trace.up[2].read.more = false;
+	assert.deepEqual(
+		checkSweep(trace, { ...rules, moreAlways: true })
+			.failures.filter((f) => f.check === 'more')
+			.map((f) => [f.width, f.detail]),
+		[[800, 'More is absent; --more-always requires it at every width.']]
+	);
+});
+
 test('tolerates half a pixel of browser rounding in scroll width', () => {
 	const trace = sweep();
 	trace.down[2].read.rowScrollWidth = trace.down[2].read.rowClientWidth + 0.5;
@@ -579,6 +598,7 @@ test('parses the pinned ids and the search requirement, which default to none', 
 		expectIds: ['export', 'reports'],
 		pinnedIds: [],
 		search: false,
+		moreAlways: false,
 		from: 1440,
 		to: 390,
 		step: 2,
@@ -600,6 +620,7 @@ test('parses the pinned ids and the search requirement, which default to none', 
 		[['record', 'add'], true, 1, 'sweep']
 	);
 	assert.equal(parseSweepArguments(['1', 'Controls', 'run', '--search', '--expect', 'export']).search, true);
+	assert.equal(parseSweepArguments([...runArgs, '--more-always']).moreAlways, true);
 });
 
 test('rejects a pinned id that is also expected to fold, a value on --search, and repeated or unknown flags', () => {
@@ -608,6 +629,8 @@ test('rejects a pinned id that is also expected to fold, a value on --search, an
 		['--pinned', 'a,a'],
 		['--search', 'yes'],
 		['--search', '--search'],
+		['--more-always', 'yes'],
+		['--more-always', '--more-always'],
 		['--pinned'],
 		['--pinned', '--search'],
 		['--unknown', 'x']
@@ -615,7 +638,7 @@ test('rejects a pinned id that is also expected to fold, a value on --search, an
 		assert.throws(() => parseSweepArguments([...runArgs, ...flags]), /toolbar-sweep|distinct/, flags.join(' '));
 });
 
-test('carries the pinned ids and search requirement into the trace and the verdict', async () => {
+test('carries the pinned ids, search and more-always requirements into the trace and the verdict', async () => {
 	const rows = [
 		[1440, 0, 'field'],
 		[1340, 1, 'field']
@@ -626,6 +649,7 @@ test('carries the pinned ids and search requirement into the trace and the verdi
 		expect: expect.slice(0, 1),
 		pinned: ['record', 'missing-one'],
 		search: true,
+		moreAlways: true,
 		from: 1440,
 		to: 1340,
 		step: 100,
@@ -633,13 +657,15 @@ test('carries the pinned ids and search requirement into the trace and the verdi
 		write: async (r) => written.push(r),
 		sleep: async () => {}
 	});
-	assert.deepEqual([result.pinned, result.search], [['record', 'missing-one'], true]);
+	assert.deepEqual([result.pinned, result.search, result.moreAlways], [['record', 'missing-one'], true, true]);
 	assert.deepEqual(
 		result.verdict.failures.map((f) => [f.check, f.width, f.detail]),
 		[
 			['pinned', 1440, 'missing-one is not on the row.'],
+			['more', 1440, 'More is absent; --more-always requires it at every width.'],
 			['pinned', 1340, 'missing-one is not on the row.'],
-			['pinned', 1440, 'missing-one is not on the row.']
+			['pinned', 1440, 'missing-one is not on the row.'],
+			['more', 1440, 'More is absent; --more-always requires it at every width.']
 		]
 	);
 });

@@ -311,7 +311,8 @@ export async function seedOnboarding({ client, fixture, kind, tag, ownedState, s
 			['bravoMid', 'groupB', 'onboardingTemplate', 45, 32, 'completed'],
 			['bravoSlow', 'groupB', secondTemplate.id, 80, 34, 'completed'],
 			['alphaCancelled', 'groupA', 'onboardingTemplate', 20, 12, 'cancelled'],
-			['bravoOld', 'groupB', 'onboardingTemplate', 130, 120, 'completed']
+			['bravoOld', 'groupB', 'onboardingTemplate', 130, 120, 'completed'],
+			['bravoCancelledLate', 'groupB', 'onboardingTemplate', 15, 12, 'cancelled']
 		];
 		people = examples.map(([key, group]) => ({
 			id: randomUUID(),
@@ -330,7 +331,9 @@ export async function seedOnboarding({ client, fixture, kind, tag, ownedState, s
 			template_id: fixture.ids[template] ?? template,
 			started_at: dateAgo(started),
 			completed_at: status === 'completed' ? dateAgo(finished) : null,
-			cancelled_at: status === 'cancelled' ? daysAgo(finished) : null,
+			// Both cancellations fall on one day, so their order shows in the list.
+			cancelled_at:
+				status === 'cancelled' ? dateAgo(finished) + (key === 'alphaCancelled' ? 'T09:00:00Z' : 'T17:00:00Z') : null,
 			status,
 			key
 		}));
@@ -341,7 +344,8 @@ export async function seedOnboarding({ client, fixture, kind, tag, ownedState, s
 			[
 				['Checkbox', 'checkbox', true, true, null],
 				['Paperwork', 'paperwork', false, true, 'Reviewed'],
-				['Removed pending', 'checkbox', false, false, null]
+				['Removed pending', 'checkbox', false, false, null],
+				['Removed paperwork', 'paperwork', false, false, 'Reviewed']
 			].map(([label, step_type, completed, active, current_stage], sort_order) => ({
 				id: randomUUID(),
 				organization_id: packet.organization_id,

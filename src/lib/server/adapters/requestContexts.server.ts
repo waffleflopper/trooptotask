@@ -104,10 +104,7 @@ import {
 	createSupabaseOnboardingCatalogPersistence,
 	createSupabaseOnboardingWorkflowPersistence
 } from '$features/onboarding/index.server';
-import {
-	loadPersonnelDocumentStorageCapBytes,
-	requireActiveOrganization
-} from '$features/organization/index.server';
+import { loadPersonnelDocumentStorageCapBytes, requireActiveOrganization } from '$features/organization/index.server';
 import type { LeaderNoteContext, PersonnelArtifactsContext } from '$features/personnel/index.server';
 
 import { readOrganizationMembershipForRequest } from '$features/organization/index.server';

@@ -260,6 +260,10 @@ export function parseSweepArguments([page, label, runName, ...flags]) {
 	const expectIds = idList(options.expect);
 	const pinnedIds = idList(options.pinned);
 	if (!Number.isInteger(pageId) || pageId < 1 || !label || !runName) throw new Error(usage);
+	if (noFold && moreAlways)
+		throw new Error(
+			'--no-fold and --more-always cannot be combined: one requires More to be absent at every width and the other present.'
+		);
 	if (noFold ? expectIds.length || !pinnedIds.length : !expectIds.length) throw new Error(usage);
 	if (![from, to, step, height].every(Number.isInteger) || to < 200 || from < to || step < 1 || height < 200)
 		throw new Error('Use whole numbers with 200 <= --to <= --from, --step >= 1 and --height >= 200.');

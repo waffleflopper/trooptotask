@@ -683,6 +683,18 @@ test('parses --no-fold as an expectation-free sweep that must pin something', ()
 		assert.throws(() => parseSweepArguments(['1', 'Controls', 'run', ...flags]), /toolbar-sweep/, flags.join(' '));
 });
 
+test('rejects --no-fold together with --more-always, which contradict each other', () => {
+	for (const flags of [
+		['--no-fold', '--more-always', '--pinned', 'record'],
+		['--more-always', '--pinned', 'record', '--no-fold']
+	])
+		assert.throws(
+			() => parseSweepArguments(['1', 'Controls', 'run', ...flags]),
+			/--no-fold.*--more-always.*cannot be combined/,
+			flags.join(' ')
+		);
+});
+
 test('a no-fold sweep accepts a row that never folds and rejects More or a missing pinned id', () => {
 	const rows = [1440, 1000, 700, 390].map((width) => [width, 0, 'none']);
 	const none = { expect: [], pinned: ['record'] };

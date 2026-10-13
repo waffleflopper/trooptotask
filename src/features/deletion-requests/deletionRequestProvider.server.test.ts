@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { createDeletionRequest } from './createDeletionRequest.server';
-import { createSupabaseDeletionRequestStore } from './deletionRequestProvider.server';
+import {
+	createSupabaseDeletionRequestStore,
+	createSupabaseDeletionRequestSubmission
+} from './deletionRequestProvider.server';
 import { deletionRequestTestProvider, savedRequest } from './deletionRequestTestProvider.server';
 
 const target = { resourceType: 'training_type', resourceId: 'type-own' };
@@ -36,8 +39,8 @@ describe('ordinary deletion request provider', () => {
 				resource_id: 'person'
 			})
 		);
-		const provider = deletionRequestTestProvider(rows, ctx.auth.userId);
-		const store = createSupabaseDeletionRequestStore(provider.client);
+		const provider = deletionRequestTestProvider(rows);
+		const store = createSupabaseDeletionRequestSubmission(() => provider.client);
 		await expect(
 			createDeletionRequest(
 				{ ...ctx, store },
@@ -61,7 +64,7 @@ describe('ordinary deletion request provider', () => {
 		provider.state.failure = { method: 'GET', message: 'pending lookup unavailable' };
 		await expect(
 			createDeletionRequest(
-				{ ...ctx, store: createSupabaseDeletionRequestStore(provider.client) },
+				{ ...ctx, store: createSupabaseDeletionRequestSubmission(() => provider.client) },
 				{
 					resourceType: 'personnel',
 					resourceId: 'person',
@@ -91,14 +94,24 @@ describe('ordinary deletion request provider', () => {
 			expect(await store.findPendingById('org-a', id)).toBeNull();
 		expect(await store.findPendingById('org-a', 'own', { ...target, resourceId: 'other' })).toBeNull();
 		expect(await store.findPendingById('org-a', 'own', { ...target, resourceType: 'personnel' })).toBeNull();
-		expect(await store.findPendingByResource('org-a', 'training_type', 'type-own')).toEqual({ id: 'own' });
-		expect(await store.findPendingByResource('org-a', 'training_type', 'type-terminal')).toBeNull();
+	});
+
+	it('finds a pending request on the same target whoever filed it, ignoring foreign and terminal rows', async () => {
+		const provider = deletionRequestTestProvider([
+			savedRequest('peer', { requested_by: 'peer' }),
+			savedRequest('foreign', { organization_id: 'org-b' }),
+			savedRequest('terminal', { status: 'approved' })
+		]);
+		const submissions = createSupabaseDeletionRequestSubmission(() => provider.client);
+		expect(await submissions.findPendingByResource('org-a', 'training_type', 'type-peer')).toEqual({ id: 'peer' });
+		expect(await submissions.findPendingByResource('org-a', 'training_type', 'type-foreign')).toBeNull();
+		expect(await submissions.findPendingByResource('org-a', 'training_type', 'type-terminal')).toBeNull();
 	});
 
 	it('stores only the creation fields and returns retained requester/history metadata', async () => {
 		const provider = deletionRequestTestProvider();
-		const store = createSupabaseDeletionRequestStore(provider.client);
-		const row = await store.createRequest('org-a', {
+		const submissions = createSupabaseDeletionRequestSubmission(() => provider.client);
+		const row = await submissions.createRequest('org-a', {
 			requestedBy: 'requester-a',
 			requesterEmail: 'created@example.test',
 			resourceType: 'personnel',

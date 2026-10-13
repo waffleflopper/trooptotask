@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type { DeletionRequest } from './contracts';
-import type { DeletionRequestStore } from './contracts.server';
+import type { DeletionRequestStore, DeletionRequestSubmissionPort } from './contracts.server';
 import { TABLE } from './deletionRequestSupport.server';
 
 /** The supplied request-user client preserves RLS; this factory creates no privileged client. */
@@ -18,39 +18,6 @@ export function createSupabaseDeletionRequestStore(supabase: SupabaseClient): De
 			const { data, error } = await query.maybeSingle();
 			if (error) throw new Error(error.message);
 			return data as DeletionRequest | null;
-		},
-		async findPendingByResource(orgId, resourceType, resourceId) {
-			const { data, error } = await supabase
-				.from(TABLE)
-				.select('id')
-				.eq('organization_id', orgId)
-				.eq('resource_type', resourceType)
-				.eq('resource_id', resourceId)
-				.eq('status', 'pending')
-				.limit(1)
-				.maybeSingle();
-			if (error) throw new Error(error.message);
-			return data as { id: string } | null;
-		},
-		async createRequest(orgId, input) {
-			const { data, error } = await supabase
-				.from(TABLE)
-				.insert({
-					organization_id: orgId,
-					requested_by: input.requestedBy,
-					requested_by_email: input.requesterEmail,
-					resource_type: input.resourceType,
-					resource_id: input.resourceId,
-					resource_description: input.description,
-					resource_url: input.resourceUrl,
-					status: 'pending'
-				})
-				.select('*')
-				.single();
-			if (error) throw new Error(error.message);
-			if (!data || typeof data.id !== 'string' || !data.id)
-				throw new Error('Deletion request creation was not acknowledged');
-			return data as DeletionRequest;
 		},
 		async listRequests(orgId, filter) {
 			const result = await selectAllSupabaseRows<DeletionRequest>(async (from, to) => {
@@ -103,6 +70,47 @@ export function createSupabaseDeletionRequestStore(supabase: SupabaseClient): De
 			);
 			if (result.error) throw new Error((result.error as { message: string }).message);
 			return result.data ?? [];
+		}
+	};
+}
+
+/** Service-role creation; the caller binds the Organization and requester from the admitted actor. */
+export function createSupabaseDeletionRequestSubmission(
+	getClient: () => SupabaseClient
+): DeletionRequestSubmissionPort {
+	return {
+		async findPendingByResource(orgId, resourceType, resourceId) {
+			const { data, error } = await getClient()
+				.from(TABLE)
+				.select('id')
+				.eq('organization_id', orgId)
+				.eq('resource_type', resourceType)
+				.eq('resource_id', resourceId)
+				.eq('status', 'pending')
+				.limit(1)
+				.maybeSingle();
+			if (error) throw new Error(error.message);
+			return data as { id: string } | null;
+		},
+		async createRequest(orgId, input) {
+			const { data, error } = await getClient()
+				.from(TABLE)
+				.insert({
+					organization_id: orgId,
+					requested_by: input.requestedBy,
+					requested_by_email: input.requesterEmail,
+					resource_type: input.resourceType,
+					resource_id: input.resourceId,
+					resource_description: input.description,
+					resource_url: input.resourceUrl,
+					status: 'pending'
+				})
+				.select('*')
+				.single();
+			if (error) throw new Error(error.message);
+			if (!data || typeof data.id !== 'string' || !data.id)
+				throw new Error('Deletion request creation was not acknowledged');
+			return data as DeletionRequest;
 		}
 	};
 }

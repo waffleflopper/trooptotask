@@ -1,6 +1,7 @@
 import {
 	createSupabaseDeletionRequestCancellation,
-	createSupabaseDeletionRequestStore
+	createSupabaseDeletionRequestStore,
+	createSupabaseDeletionRequestSubmission
 } from '$features/deletion-requests/index.server';
 import {
 	createFeedbackSubmission,
@@ -52,6 +53,11 @@ export function createRequestAccountAnnouncementDismissals(locals: Pick<App.Loca
 /** Bind only the ordinary authenticated request client to the owned workflow. */
 export function createRequestDeletionRequestStore(locals: Pick<App.Locals, 'supabase'>) {
 	return createSupabaseDeletionRequestStore(locals.supabase);
+}
+
+/** Client roles cannot insert requests; creation runs after the owning feature describes the target. */
+export function createRequestDeletionRequestSubmission() {
+	return createSupabaseDeletionRequestSubmission(getAdminClient);
 }
 
 export function createRequestDeletionRequestCancellation(locals: Pick<App.Locals, 'supabase'>) {

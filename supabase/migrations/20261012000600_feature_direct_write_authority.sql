@@ -318,17 +318,11 @@ CREATE TRIGGER require_onboarding_configuration_authority
 	BEFORE UPDATE ON public.onboarding_step_progress
 	FOR EACH ROW EXECUTE FUNCTION organization_private.require_onboarding_configuration_authority();
 
--- Deletion requests start pending. Requesters cancel through
--- cancel_own_deletion_request, which keeps the request history.
-ALTER POLICY "deletion_requests_insert_own" ON "public"."deletion_requests"
-	WITH CHECK (
-		"requested_by" = (SELECT "auth"."uid"())
-		AND "status" = 'pending'
-		AND "reviewed_by" IS NULL
-		AND "reviewed_at" IS NULL
-		AND "denial_reason" IS NULL
-		AND "public"."is_org_member"("organization_id")
-	);
+-- The server creates deletion requests after the owning feature loads the
+-- target with the requester's access and describes it. Requesters cancel
+-- through cancel_own_deletion_request, which keeps the request history.
+DROP POLICY "deletion_requests_insert_own" ON "public"."deletion_requests";
+REVOKE INSERT ON TABLE "public"."deletion_requests" FROM "anon", "authenticated";
 DROP POLICY "deletion_requests_delete_own" ON "public"."deletion_requests";
 
 -- The pre-lane full-editor helper has no remaining callers.

@@ -15,6 +15,23 @@ export interface DeletionRequestReview {
 /** Named operations over the admitted ordinary request client's visible rows. */
 export interface DeletionRequestStore {
 	findPendingById(orgId: string, requestId: string, target?: PendingDeletionTarget): Promise<DeletionRequest | null>;
+	listRequests(orgId: string, filter: { status?: string; requestedBy?: string }): Promise<DeletionRequest[]>;
+	readPendingSummary(orgId: string, requestedBy?: string): Promise<PendingDeletionRequestSummary>;
+	completePendingReview(
+		orgId: string,
+		requestId: string,
+		target: PendingDeletionTarget,
+		review: DeletionRequestReview
+	): Promise<boolean>;
+	listExportRows(orgId: string): Promise<Record<string, unknown>[]>;
+}
+
+/**
+ * Requests are created only after the owning feature loads the target with the
+ * requester's access. The provider sees every pending request in the
+ * Organization, so a duplicate filed by another member is still found.
+ */
+export interface DeletionRequestSubmissionPort {
 	findPendingByResource(orgId: string, resourceType: string, resourceId: string): Promise<{ id: string } | null>;
 	createRequest(
 		orgId: string,
@@ -27,15 +44,6 @@ export interface DeletionRequestStore {
 			resourceUrl: string | null;
 		}
 	): Promise<DeletionRequest>;
-	listRequests(orgId: string, filter: { status?: string; requestedBy?: string }): Promise<DeletionRequest[]>;
-	readPendingSummary(orgId: string, requestedBy?: string): Promise<PendingDeletionRequestSummary>;
-	completePendingReview(
-		orgId: string,
-		requestId: string,
-		target: PendingDeletionTarget,
-		review: DeletionRequestReview
-	): Promise<boolean>;
-	listExportRows(orgId: string): Promise<Record<string, unknown>[]>;
 }
 
 /**

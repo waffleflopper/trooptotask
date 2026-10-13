@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { restorePersonnelRecord } from '$features/personnel/index.server';
 import { archivePersonnelBatch as deliverArchivePersonnelBatch } from './personnelArchiveBatchDelivery';
-import { createSupabaseDeletionRequestStore } from '$features/deletion-requests/index.server';
+import { createSupabaseDeletionRequestSubmission } from '$features/deletion-requests/index.server';
 import {
 	createDeletionRequestTestStore,
 	deletionRequestTestProvider,
@@ -31,7 +31,7 @@ function freshCopies(store: TestDataStore): TestDataStore {
 }
 
 describe('Personnel — archive batch', () => {
-	it('acknowledges an already-pending target with multiple visible rows without creating requests or archiving', async () => {
+	it('acknowledges an already-pending target with multiple pending rows without creating requests or archiving', async () => {
 		const ctx = createTestContext({
 			auth: {
 				role: 'member',
@@ -56,12 +56,12 @@ describe('Personnel — archive batch', () => {
 				resource_id: person.id
 			})
 		);
-		const provider = deletionRequestTestProvider(rows, ctx.auth.userId);
+		const provider = deletionRequestTestProvider(rows);
 		await expect(
 			deliverArchivePersonnelBatch(
 				ctx,
 				{ ids: [person.id], userEmail: 'member@example.test' },
-				createSupabaseDeletionRequestStore(provider.client)
+				createSupabaseDeletionRequestSubmission(() => provider.client)
 			)
 		).resolves.toEqual({ archivedIds: [], approvalRequestedIds: [person.id], errors: [] });
 		expect(provider.state.rows).toEqual(rows);

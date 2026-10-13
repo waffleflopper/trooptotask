@@ -3,7 +3,8 @@ import {
 	createDeletionRequest,
 	listDeletionRequests,
 	type DeletionRequestCancellationPort,
-	type DeletionRequestStore
+	type DeletionRequestStore,
+	type DeletionRequestSubmissionPort
 } from '$features/deletion-requests/index.server';
 import type { DeletionRequest } from '$features/deletion-requests/contracts';
 import { describeCounselingDeletionRequest, describePersonnelArchiveRequest } from '$features/personnel/index.server';
@@ -17,6 +18,7 @@ import { fail } from '$lib/errors';
 import {
 	createRequestDeletionRequestCancellation,
 	createRequestDeletionRequestStore,
+	createRequestDeletionRequestSubmission,
 	handle,
 	type RouteConfig
 } from '$lib/server/adapters/httpAdapter';
@@ -69,7 +71,7 @@ const describeTarget: Record<
 };
 
 export function _createPostConfig(
-	store: DeletionRequestStore
+	submissions: DeletionRequestSubmissionPort
 ): RouteConfig<SubmissionInput, DeletionRequest, SubmissionContext> {
 	return {
 		context: createRequestDeletionRequestSubmissionContext,
@@ -83,7 +85,7 @@ export function _createPostConfig(
 		fn: async (ctx, input) => {
 			const target = await describeTarget[input.resourceType](ctx, input.resourceId);
 			return createDeletionRequest(
-				{ auth: ctx.auth, audit: ctx.audit, store, notifications: ctx.notifications },
+				{ auth: ctx.auth, audit: ctx.audit, store: submissions, notifications: ctx.notifications },
 				{
 					resourceType: input.resourceType,
 					resourceId: input.resourceId,
@@ -118,7 +120,7 @@ export function _createDeleteConfig(
 export const GET: RequestHandler = (event) =>
 	handle(_createGetConfig(createRequestDeletionRequestStore(event.locals)))(event);
 export const POST: RequestHandler = (event) =>
-	handle(_createPostConfig(createRequestDeletionRequestStore(event.locals)))(event);
+	handle(_createPostConfig(createRequestDeletionRequestSubmission()))(event);
 export const DELETE: RequestHandler = (event) =>
 	handle(
 		_createDeleteConfig(

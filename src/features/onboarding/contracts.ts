@@ -14,6 +14,7 @@ export interface OnboardingPageAccess {
 
 import type { Group, OrganizationRankCatalogEntry } from '$features/personnel/contracts';
 import type { TrainingType } from '$features/training/contracts';
+import type { NoteAuthorLabels } from './onboardingNoteAuthors';
 import type { Personnel } from '$features/personnel/contracts';
 export { getProgress } from './onboardingProgress';
 import type {
@@ -51,6 +52,10 @@ export interface OnboardingBootstrap {
 	rankCatalogUnavailable: boolean;
 	/** Median days to finish over recent completed packets, or null below three. */
 	typicalDaysToFinish: number | null;
+	/** Display names of the people who wrote notes on these packets, by user id. */
+	noteAuthors: NoteAuthorLabels;
+	/** Months the Organization keeps finished packets. Read for History only; null elsewhere. */
+	archiveRetentionMonths: number | null;
 }
 export type OnboardingWorkspaceData = OnboardingBootstrap;
 export type OnboardingWorkspaceHydrationMode = 'replace' | 'preserve-client';

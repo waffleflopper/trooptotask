@@ -1834,6 +1834,7 @@ export function createWritePortsContext(options?: TestContextOptions) {
 		rawStore,
 		auth,
 		audit: createTestAuditPort(),
+		organizationSettings: createInMemoryOrganizationSettingsReader(rawStore),
 		calendarAssignmentReplacement: createInMemoryCalendarAssignmentReplacementPort(rawStore),
 		availabilityRemoval: createInMemoryCalendarAvailabilityRemovalPort(rawStore, store, auth.orgId),
 		onboardingReconciliation: options?.onboardingReconciliation ?? unavailableOnboardingReconciliation(),

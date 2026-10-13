@@ -26,6 +26,8 @@ export type {
 // Context
 export { OnboardingPageContext, MODAL_IDS } from './contexts/OnboardingPageContext.svelte';
 
+export { noteAuthorLookup } from './onboardingNoteAuthors';
+
 export { onboardingWorkspaceHydrator } from './onboardingWorkspaceHydration.svelte';
 
 export { default as OnboardingActiveView } from './components/OnboardingActiveView.svelte';

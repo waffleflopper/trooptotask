@@ -1,5 +1,6 @@
 import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
+import type { OrganizationSettingsReader } from '$features/organization/contracts';
 import type { PersonnelOnboardingRosterPort } from '$features/personnel/contracts';
 import type { TrainingOnboardingReferencesPort } from '$features/training/contracts';
 import type {
@@ -68,6 +69,8 @@ export interface OnboardingTrainingPorts extends OnboardingResourcePorts {
 export interface OnboardingQueryPorts extends OnboardingPolicyPorts {
 	readonly onboardingCatalog: Pick<OnboardingCatalogPersistence, 'listTemplates' | 'listSteps'>;
 	readonly onboardingWorkflow: Pick<OnboardingWorkflowPersistence, 'listPackets' | 'listCompletionsSince'>;
+	/** Read as the viewer, so Organization Row Level Security decides which members and settings they see. */
+	readonly organizationSettings: Pick<OrganizationSettingsReader, 'findMemberLabels' | 'findArchiveRetentionMonths'>;
 	readonly loadRankCatalog: () => Promise<import('$features/personnel/contracts').OrganizationRankCatalogEntry[]>;
 	readonly personnelOnboardingRoster: Pick<PersonnelOnboardingRosterPort, 'listRoster'>;
 	readonly trainingOnboardingReferences: Pick<TrainingOnboardingReferencesPort, 'listTypes' | 'completedTypeIds'>;

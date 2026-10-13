@@ -7,6 +7,8 @@ import { personnelScopeResource, type GroupPersistence } from '$features/personn
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { evaluateFeaturePolicy } from '$lib/access/index.server';
 import { typicalDaysToFinish, typicalWindowStart } from '../onboardingStatus';
+import { noteAuthorIds, pickNoteAuthorLabels } from '../onboardingNoteAuthors';
+import { normalizeRetentionMonths } from './onboardingRetention.server';
 
 export interface FetchOnboardingBootstrapOptions {
 	mode?: OnboardingBootstrapMode;
@@ -68,6 +70,19 @@ async function readCompletedTrainingTypeIdsByPersonnelId(
 	return ctx.trainingOnboardingReferences.completedTypeIds(ctx.auth, personnelIds, trainingTypeIds);
 }
 
+/** Names are decoration on the notes, so a failed lookup leaves them unnamed rather than failing the page. */
+async function readNoteAuthorLabels(
+	ctx: OnboardingQueryPorts,
+	packets: PersonnelOnboarding[]
+): Promise<Map<string, string>> {
+	try {
+		return await ctx.organizationSettings.findMemberLabels(ctx.auth.orgId, noteAuthorIds(packets, ctx.auth.userId));
+	} catch {
+		console.error('[onboarding-workspace] Note author names unavailable', { organizationId: ctx.auth.orgId });
+		return new Map();
+	}
+}
+
 export async function fetchOnboardingBootstrap(
 	ctx: OnboardingQueryPorts & { readonly groups: Pick<GroupPersistence, 'listCatalog'> },
 	options: FetchOnboardingBootstrapOptions = {}
@@ -85,6 +100,11 @@ export async function fetchOnboardingBootstrap(
 	const recentCompletions =
 		mode === 'active' ? ctx.onboardingWorkflow.listCompletionsSince(typicalWindowStart(today)) : null;
 
+	const packetsRead = ctx.onboardingWorkflow.listPackets(mode);
+	// Authors are known once packets arrive, so their names load alongside the remaining reads.
+	const noteAuthorLabelsRead = packetsRead.then((packets) => readNoteAuthorLabels(ctx, packets));
+	const retentionRead = mode === 'history' ? ctx.organizationSettings.findArchiveRetentionMonths(ctx.auth.orgId) : null;
+
 	const [
 		templateData,
 		allOnboardings,
@@ -93,16 +113,20 @@ export async function fetchOnboardingBootstrap(
 		trainingTypeRows,
 		scopePersonnel,
 		personnelCreationRanks,
-		completions
+		completions,
+		noteAuthorLabels,
+		retentionMonths
 	] = await Promise.all([
 		fetchOnboardingTemplatesData(ctx),
-		ctx.onboardingWorkflow.listPackets(mode),
+		packetsRead,
 		ctx.personnelOnboardingRoster.listRoster(ctx.auth, mode === 'history' ? 'all' : 'active'),
 		ctx.groups.listCatalog(),
 		ctx.trainingOnboardingReferences.listTypes(ctx.auth),
 		scopedAllPersonnel,
 		loadPersonnelCreationRanks(ctx),
-		recentCompletions
+		recentCompletions,
+		noteAuthorLabelsRead,
+		retentionRead
 	]);
 
 	const templates = templateData.templates;
@@ -147,6 +171,9 @@ export async function fetchOnboardingBootstrap(
 		typicalDaysToFinish: typicalDaysToFinish(
 			completions?.map((completion) => ({ status: 'completed' as const, ...completion })) ?? onboardings,
 			today
-		)
+		),
+		// Only authors of packets this member's scope shows keep a name.
+		noteAuthors: pickNoteAuthorLabels(onboardings, noteAuthorLabels, ctx.auth.userId),
+		archiveRetentionMonths: mode === 'history' ? normalizeRetentionMonths(retentionMonths) : null
 	};
 }

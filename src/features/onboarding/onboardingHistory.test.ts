@@ -173,7 +173,11 @@ describe('filterHistoryRows', () => {
 			{ ...completed('ortiz', '2026-09-01', '2026-09-30'), templateId: 'standard' },
 			{ ...completed('kim', '2026-09-03', '2026-09-21'), templateId: 'standard' },
 			{ ...completed('shah', '2026-08-25', '2026-09-10'), templateId: 'officer' },
-			{ ...cancelled('stopped', '2026-08-21', '2026-08-28T10:00:00Z'), personnelId: 'person-kim', templateId: 'standard' }
+			{
+				...cancelled('stopped', '2026-08-21', '2026-08-28T10:00:00Z'),
+				personnelId: 'person-kim',
+				templateId: 'standard'
+			}
 		],
 		TODAY
 	);
@@ -245,7 +249,14 @@ describe('finalSteps', () => {
 					currentStage: 'Pay start confirmed',
 					sortOrder: 1
 				}),
-				step({ id: 'open', stepName: 'Open', stepType: 'training', completed: false, sortOrder: 3, currentStage: 'ignored' })
+				step({
+					id: 'open',
+					stepName: 'Open',
+					stepType: 'training',
+					completed: false,
+					sortOrder: 3,
+					currentStage: 'ignored'
+				})
 			])
 		);
 

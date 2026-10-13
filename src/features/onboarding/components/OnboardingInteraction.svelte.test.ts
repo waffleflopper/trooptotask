@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import OnboardingActiveView from './OnboardingActiveView.svelte';
 import OnboardingModals from './OnboardingModals.svelte';
 import { OnboardingPageContext } from '../contexts/OnboardingPageContext.svelte';
+import { noteAuthorLookup } from '../onboardingNoteAuthors';
 import { onboardingStore } from '../stores/onboarding.svelte';
 import { onboardingTemplateStore } from '../stores/onboardingTemplate.svelte';
 import { personnelRosterHydration } from '$features/personnel';
@@ -66,12 +67,20 @@ function person(id: string, rank: string, lastName: string, firstName: string, m
 	return { id, rank, lastName, firstName, mos, clinicRole: '', groupId: null, groupName: '' };
 }
 
-function access(capabilityMap = createCapabilityMap('configure'), membershipRole: 'owner' | 'member' = 'owner') {
-	return new OnboardingPageContext(new ModalRegistry(), {
-		orgId: 'org-1',
-		orgUrlSegment: 'org-1',
-		...createClientAccess({ membershipRole, capabilityMap })
-	});
+function access(
+	capabilityMap = createCapabilityMap('configure'),
+	membershipRole: 'owner' | 'member' = 'owner',
+	noteAuthorName?: ConstructorParameters<typeof OnboardingPageContext>[2]
+) {
+	return new OnboardingPageContext(
+		new ModalRegistry(),
+		{
+			orgId: 'org-1',
+			orgUrlSegment: 'org-1',
+			...createClientAccess({ membershipRole, capabilityMap })
+		},
+		noteAuthorName
+	);
 }
 
 function mount(rankCatalog: RankCatalogEntry[] = [], rankCatalogUnavailable = false, ctx = access()) {
@@ -440,6 +449,46 @@ describe('Onboarding packet panel', () => {
 				body: JSON.stringify({ action: 'addNote', stepId: 'step-1', text: 'Waiting on DEERS appointment' })
 			})
 		);
+	});
+
+	it('names who wrote each note on the open step', async () => {
+		const note = (userId: string, text: string) => ({ text, timestamp: NOW, userId });
+		onboardingStore.load(
+			[
+				{
+					...packet,
+					steps: [
+						{
+							...packet.steps[0],
+							notes: [
+								note('user-alvarez', 'Finance lost the packet'),
+								note('user-viewer', 'Resubmitted it'),
+								note('user-gone', 'Called twice')
+							]
+						}
+					]
+				}
+			],
+			'org-1'
+		);
+		const ctx = access(
+			createCapabilityMap('configure'),
+			'owner',
+			noteAuthorLookup({ 'user-alvarez': 'SSG Alvarez' }, 'user-viewer')
+		);
+		mount([], false, ctx);
+		const dialog = await openPacket('SGT Smith, Jane');
+
+		const notes = within(within(dialog).getByRole('list', { name: 'Verify ID card notes' })).getAllByRole('listitem');
+
+		expect(
+			notes.map((item) =>
+				item.textContent
+					?.replace(/\s+/g, ' ')
+					.replace(/ · .*$/, '')
+					.trim()
+			)
+		).toEqual(['Finance lost the packet SSG Alvarez', 'Resubmitted it You', 'Called twice Former member']);
 	});
 
 	it('keeps the note draft and reports a failed save', async () => {

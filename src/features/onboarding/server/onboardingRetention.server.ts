@@ -36,7 +36,8 @@ function chunksOf<T>(items: T[], size: number): T[][] {
 	return chunks;
 }
 
-function normalizeRetentionMonths(retentionMonths: number | null | undefined): number {
+/** The months the cleanup job keeps finished packets for, whatever the Organization row holds. */
+export function normalizeRetentionMonths(retentionMonths: number | null | undefined): number {
 	if (retentionMonths == null || !Number.isFinite(retentionMonths) || retentionMonths <= 0) {
 		return DEFAULT_ARCHIVE_RETENTION_MONTHS;
 	}

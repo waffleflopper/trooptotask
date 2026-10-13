@@ -39,7 +39,8 @@ INSERT INTO public.personnel (id, organization_id, group_id, rank, first_name, l
 	('f4000000-0000-4000-8000-000000000301', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000201', 'SGT', 'Avery', 'Active', 'feature-writes-active', NULL),
 	('f4000000-0000-4000-8000-000000000302', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000201', 'SPC', 'Blake', 'Archived', 'feature-writes-archived', '2029-01-01T00:00:00Z'),
 	('f4000000-0000-4000-8000-000000000303', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000201', 'PFC', 'Casey', 'Retired', 'feature-writes-retired', '2029-01-01T00:00:00Z'),
-	('f4000000-0000-4000-8000-000000000304', 'f4000000-0000-4000-8000-000000000102', 'f4000000-0000-4000-8000-000000000203', 'SSG', 'Drew', 'Foreign', 'feature-writes-foreign', NULL);
+	('f4000000-0000-4000-8000-000000000304', 'f4000000-0000-4000-8000-000000000102', 'f4000000-0000-4000-8000-000000000203', 'SSG', 'Drew', 'Foreign', 'feature-writes-foreign', NULL),
+	('f4000000-0000-4000-8000-000000000305', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000202', 'CPL', 'Emery', 'Bravo', 'feature-writes-bravo', NULL);
 
 INSERT INTO public.training_types (id, organization_id, name) VALUES
 	('f4000000-0000-4000-8000-000000000401', 'f4000000-0000-4000-8000-000000000101', 'Alpha CLS'),
@@ -259,20 +260,23 @@ SELECT is(
 	ARRAY[false, false, false, false, false, false],
 	'an unrelated account cannot tell saved template, step or Training type IDs from missing ones');
 
--- Deletion requests start pending and leave history through cancellation.
+-- Deletion requests are created only by the server submission path, which
+-- loads the target with the requester's access and writes its description.
 SELECT pg_temp.act_as('f4000000-0000-4000-8000-000000000006');
-SELECT throws_ok($$ INSERT INTO public.deletion_requests (organization_id, requested_by, requested_by_email, resource_type, resource_id, resource_description, status)
+SELECT throws_ok($$ INSERT INTO public.deletion_requests (organization_id, requested_by, requested_by_email, resource_type, resource_id, resource_description, resource_url)
 	VALUES ('f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000006', 'feature-writes-viewer@example.test',
-		'personnel', 'f4000000-0000-4000-8000-000000000302', 'Archive SPC Archived, Blake', 'approved') $$,
-	'42501', NULL, 'a requester cannot create an approved request');
-SELECT throws_ok($$ INSERT INTO public.deletion_requests (organization_id, requested_by, requested_by_email, resource_type, resource_id, resource_description, reviewed_by, reviewed_at)
-	VALUES ('f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000006', 'feature-writes-viewer@example.test',
-		'personnel', 'f4000000-0000-4000-8000-000000000302', 'Archive SPC Archived, Blake', 'f4000000-0000-4000-8000-000000000004', '2030-01-01T00:00:00Z') $$,
-	'42501', NULL, 'a requester cannot create a request with review fields');
-SELECT lives_ok($$ INSERT INTO public.deletion_requests (organization_id, requested_by, requested_by_email, resource_type, resource_id, resource_description)
-	VALUES ('f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000006', 'feature-writes-viewer@example.test',
-		'personnel_training', 'f4000000-0000-4000-8000-000000000411', 'Alpha CLS record for SGT Active') $$,
-	'a requester creates a pending request');
+		'personnel_training', 'f4000000-0000-4000-8000-000000000411', 'Routine cleanup', 'https://attacker.example/review') $$,
+	'42501', NULL, 'a member cannot file a request for a saved record with forged text and link');
+SELECT pg_temp.act_as('f4000000-0000-4000-8000-000000000002');
+SELECT throws_ok($$ INSERT INTO public.deletion_requests (organization_id, requested_by, requested_by_email, resource_type, resource_id, resource_description)
+	VALUES ('f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000002', 'feature-writes-operator@example.test',
+		'personnel', 'f4000000-0000-4000-8000-000000000305', 'Archive CPL Bravo, Emery') $$,
+	'42501', NULL, 'a Group operator cannot file a request for a Person outside their Group');
+SELECT throws_ok($$ INSERT INTO public.deletion_requests (organization_id, requested_by, requested_by_email, resource_type, resource_id, resource_description)
+	VALUES ('f4000000-0000-4000-8000-000000000102', 'f4000000-0000-4000-8000-000000000002', 'feature-writes-operator@example.test',
+		'personnel', 'f4000000-0000-4000-8000-000000000304', 'Archive SSG Foreign, Drew') $$,
+	'42501', NULL, 'a member cannot file a request in another Organization');
+SELECT pg_temp.act_as('f4000000-0000-4000-8000-000000000006');
 SAVEPOINT requester_delete;
 WITH removed AS (
 	DELETE FROM public.deletion_requests WHERE id = 'f4000000-0000-4000-8000-000000000801' RETURNING id
@@ -281,6 +285,18 @@ ROLLBACK TO SAVEPOINT requester_delete;
 SELECT ok(public.cancel_own_deletion_request('f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000801'),
 	'a requester cancels their pending request through the command');
 
+RESET ROLE;
+
+SELECT ok(NOT has_table_privilege('authenticated', 'public.deletion_requests', 'INSERT')
+		AND NOT has_table_privilege('anon', 'public.deletion_requests', 'INSERT')
+		AND NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'deletion_requests' AND cmd = 'INSERT'),
+	'client roles have no direct path to create a deletion request');
+SET LOCAL ROLE service_role;
+SELECT lives_ok($$ INSERT INTO public.deletion_requests (id, organization_id, requested_by, requested_by_email, resource_type, resource_id, resource_description, resource_url)
+	VALUES ('f4000000-0000-4000-8000-000000000802', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000006',
+		'feature-writes-viewer@example.test', 'personnel_training', 'f4000000-0000-4000-8000-000000000411',
+		'Alpha CLS record for SGT Active', '/org/f4000000-0000-4000-8000-000000000101/training') $$,
+	'the server submission path creates a pending request');
 RESET ROLE;
 
 SELECT ok(to_regprocedure('public.is_full_editor_for_org(uuid)') IS NULL,
@@ -299,7 +315,7 @@ SELECT results_eq(
 	UNION ALL SELECT 'packet:' || id || ':' || template_id || ':' || status FROM public.personnel_onboardings WHERE organization_id = 'f4000000-0000-4000-8000-000000000101'
 	UNION ALL SELECT 'step:' || id || ':' || step_name || ':' || active || ':' || completed || ':' || jsonb_array_length(notes)
 		FROM public.onboarding_step_progress WHERE organization_id = 'f4000000-0000-4000-8000-000000000101' AND step_name <> 'Seeded'
-	UNION ALL SELECT 'request:' || id || ':' || status FROM public.deletion_requests WHERE id = 'f4000000-0000-4000-8000-000000000801'
+	UNION ALL SELECT 'request:' || id || ':' || resource_id || ':' || status FROM public.deletion_requests WHERE organization_id IN ('f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000102')
 	ORDER BY 1
 	$$,
 	$$ VALUES
@@ -310,8 +326,10 @@ SELECT results_eq(
 		('packet:f4000000-0000-4000-8000-000000000701:f4000000-0000-4000-8000-000000000601:in_progress'),
 		('personnel:f4000000-0000-4000-8000-000000000301:Edited:active'),
 		('personnel:f4000000-0000-4000-8000-000000000302:Blake:2029-01-01 00:00:00+00'),
+		('personnel:f4000000-0000-4000-8000-000000000305:Emery:active'),
 		('rating:f4000000-0000-4000-8000-000000000421'),
-		('request:f4000000-0000-4000-8000-000000000801:cancelled'),
+		('request:f4000000-0000-4000-8000-000000000801:f4000000-0000-4000-8000-000000000301:cancelled'),
+		('request:f4000000-0000-4000-8000-000000000802:f4000000-0000-4000-8000-000000000411:pending'),
 		('step:f4000000-0000-4000-8000-000000000711:Alpha Step:true:true:0'),
 		('step:f4000000-0000-4000-8000-000000000713:Noted Step:true:false:2'),
 		('training:f4000000-0000-4000-8000-000000000411')

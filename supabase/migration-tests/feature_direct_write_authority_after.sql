@@ -11,6 +11,9 @@ SELECT results_eq(
   $$ SELECT * FROM upgrade_fixture.feature_writes_before_rows ORDER BY table_name,row_id $$,
   'the upgrade keeps saved Personnel, counseling paths, packets, notes and requests');
 SELECT ok(to_regprocedure('public.is_full_editor_for_org(uuid)') IS NULL, 'the legacy full-editor helper is removed');
+SELECT ok(NOT has_table_privilege('authenticated','public.deletion_requests','INSERT')
+  AND NOT has_table_privilege('anon','public.deletion_requests','INSERT'),
+  'client roles can no longer create deletion requests directly');
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','f4600000-0000-4000-8000-000000000002',true);
 SELECT throws_ok(

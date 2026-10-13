@@ -237,6 +237,33 @@ describe('/api/deletion-requests route config', () => {
 		}
 	});
 
+	it('keeps one pending request per target, including one another member filed', async () => {
+		const requester = createRequesterContext();
+		const orgId = requester.ctx.auth.orgId;
+		requester.ctx.rawStore.seed('deletion_requests', [
+			{
+				id: '0a200000-0000-4000-8000-000000000001',
+				organization_id: orgId,
+				requested_by: 'another-member',
+				resource_type: 'personnel_training',
+				resource_id: RECORD_ALPHA,
+				resource_description: 'CLS record for SGT Smith',
+				resource_url: `/org/${orgId}/training`,
+				status: 'pending'
+			}
+		]);
+
+		const first = await submit(requester, { resourceType: 'personnel', resourceId: PERSON_ALPHA });
+		const repeat = await submit(requester, { resourceType: 'personnel', resourceId: PERSON_ALPHA });
+		const peerDuplicate = await submit(requester, { resourceType: 'personnel_training', resourceId: RECORD_ALPHA });
+
+		expect([first.status, repeat.status, peerDuplicate.status]).toEqual([201, 409, 409]);
+		expect(await savedRequests(requester)).toEqual([
+			['personnel_training', RECORD_ALPHA, 'CLS record for SGT Smith', `/org/${orgId}/training`, 'pending'],
+			['personnel', PERSON_ALPHA, 'Archive SGT Smith, Jane', `/org/${orgId}/personnel`, 'pending']
+		]);
+	});
+
 	it('rejects unknown request types and malformed IDs', async () => {
 		const requester = createRequesterContext();
 

@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { ScopeSet } from '$lib/access/memberAccessShape';
 import type { SignInRosterPersonnelLookupPort, SignInRosterPersonnelLookupRecord } from './contracts';
+import { queryScopedPersonnelRows } from './scopedRosterQuery.server';
 
 interface SupabaseSignInRosterPersonnelRow {
 	id: string;
@@ -16,21 +18,16 @@ export function createSupabaseSignInRosterPersonnelLookupPort(
 	return {
 		async findPersonnelForRosterSnapshot(
 			orgId: string,
+			scopeSet: ScopeSet,
 			personnelIds: string[]
 		): Promise<SignInRosterPersonnelLookupRecord[]> {
-			if (personnelIds.length === 0) return [];
+			const rows = await queryScopedPersonnelRows(getAdminClient, orgId, scopeSet, {
+				select: 'id, rank, last_name, first_name, group_id, groups:groups!personnel_organization_group_fkey(name)',
+				status: 'all',
+				ids: personnelIds
+			});
 
-			const { data, error } = await getAdminClient()
-				.from('personnel')
-				.select('id, rank, last_name, first_name, group_id, groups:groups!personnel_organization_group_fkey(name)')
-				.eq('organization_id', orgId)
-				.in('id', personnelIds);
-
-			if (error) {
-				throw new Error(error.message);
-			}
-
-			return ((data ?? []) as SupabaseSignInRosterPersonnelRow[]).map((row) => ({
+			return (rows as unknown as SupabaseSignInRosterPersonnelRow[]).map((row) => ({
 				id: row.id,
 				rank: row.rank ?? null,
 				lastName: row.last_name ?? null,

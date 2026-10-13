@@ -1,6 +1,6 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import { evaluatePolicyDecision, POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import type { RatingSchemePersistence } from '../contracts';
 import { fail } from '$lib/errors';
 
 interface ApprovedRatingSchemeDeletionActor {
@@ -11,25 +11,20 @@ interface ApprovedRatingSchemeDeletionActor {
 }
 
 export interface ApprovedRatingSchemeDeletionPort {
-	deleteApprovedRatingSchemeEntry(
+	approveRatingSchemeEntryDeletion(
 		actor: ApprovedRatingSchemeDeletionActor,
 		requestId: string,
-		entryId: string
+		entryId: string,
+		reviewedAt: string
 	): Promise<void>;
 }
 
-/** Review authority and the exact pending request precede deletion under the request's Rating RLS. */
-export function createApprovedRatingSchemeDeletionPort(
-	ratingScheme: Pick<RatingSchemePersistence, 'delete'>,
-	requirePending: (
-		orgId: string,
-		requestId: string,
-		resourceType: 'rating_scheme_entry',
-		resourceId: string
-	) => Promise<void>
+/** Delete an entry and approve its pending Organization review in one database command. */
+export function createSupabaseApprovedRatingSchemeDeletionPort(
+	getAdminClient: () => SupabaseClient
 ): ApprovedRatingSchemeDeletionPort {
 	return {
-		async deleteApprovedRatingSchemeEntry(actor, requestId, entryId) {
+		async approveRatingSchemeEntryDeletion(actor, requestId, entryId, reviewedAt) {
 			const decision = evaluatePolicyDecision({
 				decisionKind: 'server-authoritative',
 				actor: { membershipRole: actor.role, userId: actor.userId },
@@ -40,11 +35,16 @@ export function createApprovedRatingSchemeDeletionPort(
 			});
 			if (!actor.userId || !actor.orgId || !decision.allowed) fail(403, 'Deletion review access denied');
 
-			await requirePending(actor.orgId, requestId, 'rating_scheme_entry', entryId);
-
-			await ratingScheme.delete(entryId);
-			// A preceding deletion can persist when the coordinator's request-status write fails.
-			// Retrying that same pending request must still complete its status transition.
+			const { error } = await getAdminClient().rpc('approve_record_deletion_request', {
+				p_organization_id: actor.orgId,
+				p_request_id: requestId,
+				p_resource_type: 'rating_scheme_entry',
+				p_resource_id: entryId,
+				p_reviewer_id: actor.userId,
+				p_reviewed_at: reviewedAt
+			});
+			if (error?.code === 'P0002') fail(404, error.message);
+			if (error) throw new Error(error.message);
 		}
 	};
 }

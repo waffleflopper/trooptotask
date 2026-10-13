@@ -1,5 +1,5 @@
 import type { DeletionRequest } from './contracts';
-import type { DeletionRequestStore } from './contracts.server';
+import type { DeletionRequestStore, DeletionRequestSubmissionPort } from './contracts.server';
 
 export { deletionRequestTestProvider, savedRequest } from './deletionRequestTestProvider.server';
 
@@ -16,7 +16,9 @@ interface SyntheticRequestRows {
 }
 
 /** Test-only named adapter over a caller's existing synthetic rows; no policy or production composition. */
-export function createDeletionRequestTestStore(backing: SyntheticRequestRows): DeletionRequestStore {
+export function createDeletionRequestTestStore(
+	backing: SyntheticRequestRows
+): DeletionRequestStore & DeletionRequestSubmissionPort {
 	const table = 'deletion_requests';
 	return {
 		findPendingById(orgId, requestId, target) {

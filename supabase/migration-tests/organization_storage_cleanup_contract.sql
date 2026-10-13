@@ -116,9 +116,15 @@ SELECT set_config('request.jwt.claim.sub', 'fa170000-0000-4000-8000-000000000003
 WITH changed AS (UPDATE storage.objects SET metadata = '{"size":128}'
   WHERE id IN ('fa170000-0000-4000-8000-000000000701', 'fa170000-0000-4000-8000-000000000702') RETURNING id)
 SELECT is((SELECT count(*)::integer FROM changed), 2, 'existing configurator can edit both newly uploaded live-parent files');
+-- The server removes artifact files after archive-before-delete.
 WITH removed AS (DELETE FROM storage.objects
   WHERE id IN ('fa170000-0000-4000-8000-000000000701', 'fa170000-0000-4000-8000-000000000702') RETURNING id)
-SELECT is((SELECT count(*)::integer FROM removed), 2, 'existing configurator can remove both live-parent files');
+SELECT is((SELECT count(*)::integer FROM removed), 0, 'existing configurator cannot remove live-parent files through Storage');
+RESET ROLE;
+SET LOCAL ROLE service_role;
+WITH removed AS (DELETE FROM storage.objects
+  WHERE id IN ('fa170000-0000-4000-8000-000000000701', 'fa170000-0000-4000-8000-000000000702') RETURNING id)
+SELECT is((SELECT count(*)::integer FROM removed), 2, 'the server removes both live-parent files');
 RESET ROLE;
 
 -- Direct Storage does not run application admission. Test the added scope's

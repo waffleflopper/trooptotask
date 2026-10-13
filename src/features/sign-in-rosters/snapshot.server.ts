@@ -47,8 +47,6 @@ export async function prepareSignInRosterSnapshot(
 		fail(400, 'Personnel selection includes unknown personnel');
 	}
 
-	assertPersonnelRowsWithinScope(ctx.scopeSet, rows);
-
 	const groupNames = await loadGroupNames(ctx, rows);
 	const sortBy = input.sortBy === 'rank' ? 'rank' : 'alphabetical';
 	const rankCatalog = sortBy === 'rank' ? await ctx.loadRankCatalog() : [];
@@ -109,7 +107,7 @@ function validatePersonnelIds(values: unknown[], invalidMessage: string): string
 
 async function loadPersonnelRows(ctx: SignInRosterSnapshotContext, personnelIds: string[]): Promise<PersonnelRow[]> {
 	if (!ctx.personnelLookup) throw new Error('Sign-in roster Personnel lookup is unavailable');
-	const rows = await ctx.personnelLookup.findPersonnelForRosterSnapshot(ctx.orgId, personnelIds);
+	const rows = await ctx.personnelLookup.findPersonnelForRosterSnapshot(ctx.orgId, ctx.scopeSet, personnelIds);
 	const order = new Map(personnelIds.map((id, index) => [id, index]));
 	return rows.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
 }
@@ -132,17 +130,6 @@ async function loadGroupNames(ctx: SignInRosterSnapshotContext, rows: PersonnelR
 		names.set(id, name);
 	}
 	return names;
-}
-
-function assertPersonnelRowsWithinScope(scopeSet: ScopeSet, rows: PersonnelRow[]): void {
-	if (scopeSet.kind === 'organization') return;
-
-	const allowedGroups = new Set(scopeSet.groupIds);
-	for (const row of rows) {
-		if (!row.groupId || !allowedGroups.has(row.groupId)) {
-			fail(403, 'You do not have access to personnel outside your group');
-		}
-	}
 }
 
 function scopeGroupIdsForRows(rows: PersonnelRow[]): string[] {

@@ -1,8 +1,8 @@
-import type { DeletionRequestStore } from '$features/deletion-requests/index.server';
+import type { DeletionRequestSubmissionPort } from '$features/deletion-requests/index.server';
 import type { ArchivePersonnelBatchResult } from '$features/personnel/contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';
-import { createRequestDeletionRequestStore, handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { createRequestDeletionRequestSubmission, handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { createRequestPersonnelArchiveBatchContext } from '$lib/server/adapters/requestContexts.server';
 import { archivePersonnelBatch } from '$lib/server/personnelArchiveBatchDelivery';
 import { validateUUID } from '$lib/server/validation';
@@ -15,7 +15,7 @@ interface ArchivePersonnelBatchRouteInput {
 }
 
 export function _createPostConfig(
-	store: DeletionRequestStore
+	submissions: DeletionRequestSubmissionPort
 ): RouteConfig<
 	ArchivePersonnelBatchRouteInput,
 	ArchivePersonnelBatchResult,
@@ -39,10 +39,10 @@ export function _createPostConfig(
 				userEmail: event.locals.user?.email ?? 'unknown'
 			};
 		},
-		fn: (ctx, input) => archivePersonnelBatch(ctx, input, store),
+		fn: (ctx, input) => archivePersonnelBatch(ctx, input, submissions),
 		formatOutput: (result) => json(result)
 	};
 }
 
 export const POST: RequestHandler = (event) =>
-	handle(_createPostConfig(createRequestDeletionRequestStore(event.locals)))(event);
+	handle(_createPostConfig(createRequestDeletionRequestSubmission()))(event);

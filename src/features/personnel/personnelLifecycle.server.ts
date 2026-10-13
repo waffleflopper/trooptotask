@@ -77,6 +77,33 @@ export async function archivePersonnelRecord(ctx: PersonnelLifecycleContext, id:
 	});
 }
 
+/** Describes an archive request from the Person the requester may manage. */
+export async function describePersonnelArchiveRequest(
+	ctx: Pick<PersonnelLifecycleContext, 'auth' | 'audit'> & {
+		personnel: Pick<PersonnelRecordPersistence, 'findWriteReference'>;
+	},
+	id: string
+): Promise<{ description: string; url: string }> {
+	await requireFeaturePolicy(
+		ctx,
+		POLICY_ACTION_CATALOG.personnel.manageRecords,
+		{ kind: 'unscoped' },
+		AUDIT_RESOURCE,
+		id
+	);
+	const person = await ctx.personnel.findWriteReference(id);
+	if (!person) fail(404, 'Personnel not found');
+	await requireFeaturePolicy(
+		ctx,
+		POLICY_ACTION_CATALOG.personnel.manageRecords,
+		policyResourceForGroup(person.groupId),
+		AUDIT_RESOURCE,
+		id
+	);
+	if (person.archivedAt) fail(400, 'Personnel is already archived');
+	return { description: `Archive ${personnelName(person)}`, url: `/org/${ctx.auth.orgId}/personnel` };
+}
+
 export async function restorePersonnelRecord(ctx: PersonnelLifecycleContext, id: string) {
 	if (!id) fail(400, 'Missing id');
 

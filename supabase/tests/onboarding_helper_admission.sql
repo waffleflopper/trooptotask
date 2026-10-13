@@ -38,12 +38,12 @@ CREATE FUNCTION pg_temp.alpha_helper_answers(p_user_id uuid) RETURNS boolean[]
 LANGUAGE sql AS $$
 	SELECT set_config('request.jwt.claim.sub', p_user_id::text, true);
 	SELECT ARRAY[
-		public.onboarding_personnel_scope_matches('f3100000-0000-4000-8000-000000000101', 'f3100000-0000-4000-8000-000000000401'),
-		public.onboarding_parent_scope_matches('f3100000-0000-4000-8000-000000000101', 'f3100000-0000-4000-8000-000000000501'),
-		public.onboarding_template_reference_matches('f3100000-0000-4000-8000-000000000101', 'f3100000-0000-4000-8000-000000000601'),
-		public.onboarding_template_reference_matches('f3100000-0000-4000-8000-000000000101', NULL),
-		public.onboarding_step_references_match('f3100000-0000-4000-8000-000000000101', 'f3100000-0000-4000-8000-000000000701', 'f3100000-0000-4000-8000-000000000801'),
-		public.onboarding_step_references_match('f3100000-0000-4000-8000-000000000101', NULL, NULL)
+		onboarding_private.onboarding_personnel_scope_matches('f3100000-0000-4000-8000-000000000101', 'f3100000-0000-4000-8000-000000000401'),
+		onboarding_private.onboarding_parent_scope_matches('f3100000-0000-4000-8000-000000000101', 'f3100000-0000-4000-8000-000000000501'),
+		onboarding_private.onboarding_template_reference_matches('f3100000-0000-4000-8000-000000000101', 'f3100000-0000-4000-8000-000000000601'),
+		onboarding_private.onboarding_template_reference_matches('f3100000-0000-4000-8000-000000000101', NULL),
+		onboarding_private.onboarding_step_references_match('f3100000-0000-4000-8000-000000000101', 'f3100000-0000-4000-8000-000000000701', 'f3100000-0000-4000-8000-000000000801'),
+		onboarding_private.onboarding_step_references_match('f3100000-0000-4000-8000-000000000101', NULL, NULL)
 	];
 $$;
 

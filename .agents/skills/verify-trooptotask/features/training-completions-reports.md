@@ -5,7 +5,7 @@ A member records a Soldier's Training, checks the saved completion after reload,
 ## Sub-features
 
 - `completion-lifecycle`: add, edit, cancel and remove a completion through a matrix cell or the Person editor; dates, notes, certificate URL and the existing record ID survive ordinary updates and reload.
-- `completion-recovery`: failed saves and removals leave stored facts unchanged, show useful feedback and allow retry; an operate-only deletion request is distinct from a completed deletion.
+- `completion-recovery`: failed saves and removals leave stored facts unchanged, show useful feedback and allow retry; an operate-only deletion request is distinct from a completed deletion. Direct SQL deletion of a completion also needs Training configure.
 - `completion-import`: preview valid and invalid CSV rows, correct a row, import selected records, and repeat an import without creating duplicate completion identities.
 - `matrix-and-report`: Required and targeted applicability, dated status, the briefing's Bottom line, Forecast, Hot-spot grid, Type risk bars and Focus areas, URL-kept filters and the Affected soldiers drill-down from a cell or focus link agree with independently counted examples; Optional Training remains visible in the matrix without entering required readiness.
 - `matrix-export`: the main Training page exports one alphabetical row per authorized Person in the selected Group and every Training type in catalog order, including columns hidden by a saved view. Cells retain saved dates or state exemption, missing, not required, or completion without a date. Expiration-only and completion-only columns identify their meaning in the header.

@@ -15,6 +15,23 @@ export interface DeletionRequestReview {
 /** Named operations over the admitted ordinary request client's visible rows. */
 export interface DeletionRequestStore {
 	findPendingById(orgId: string, requestId: string, target?: PendingDeletionTarget): Promise<DeletionRequest | null>;
+	listRequests(orgId: string, filter: { status?: string; requestedBy?: string }): Promise<DeletionRequest[]>;
+	readPendingSummary(orgId: string, requestedBy?: string): Promise<PendingDeletionRequestSummary>;
+	completePendingReview(
+		orgId: string,
+		requestId: string,
+		target: PendingDeletionTarget,
+		review: DeletionRequestReview
+	): Promise<boolean>;
+	listExportRows(orgId: string): Promise<Record<string, unknown>[]>;
+}
+
+/**
+ * Requests are created only after the owning feature loads the target with the
+ * requester's access. The provider sees every pending request in the
+ * Organization, so a duplicate filed by another member is still found.
+ */
+export interface DeletionRequestSubmissionPort {
 	findPendingByResource(orgId: string, resourceType: string, resourceId: string): Promise<{ id: string } | null>;
 	createRequest(
 		orgId: string,
@@ -27,22 +44,20 @@ export interface DeletionRequestStore {
 			resourceUrl: string | null;
 		}
 	): Promise<DeletionRequest>;
-	listRequests(orgId: string, filter: { status?: string; requestedBy?: string }): Promise<DeletionRequest[]>;
-	readPendingSummary(orgId: string, requestedBy?: string): Promise<PendingDeletionRequestSummary>;
-	completePendingReview(
-		orgId: string,
-		requestId: string,
-		target: PendingDeletionTarget,
-		review: DeletionRequestReview
-	): Promise<boolean>;
-	listExportRows(orgId: string): Promise<Record<string, unknown>[]>;
 }
 
-/** Delivery closes over the admitted actor and source-owned operations. */
+/**
+ * Delivery closes over the admitted actor and source-owned operations. Training
+ * type, Training record and Rating entry approvals delete the target and approve
+ * the request in one transaction, so a target missing from the Organization
+ * leaves the request pending. Personnel approval archives the Person, then
+ * writes the request status separately. Counseling approval removes the stored
+ * file before the transaction that deletes the record and approves the request.
+ */
 export interface ApprovedDeletionEffects {
 	archivePersonnel(personnelId: string): Promise<void>;
-	deleteTrainingType(requestId: string, typeId: string): Promise<void>;
-	deleteTrainingRecord(requestId: string, recordId: string): Promise<void>;
-	deleteRatingEntry(requestId: string, entryId: string): Promise<void>;
+	approveTrainingType(requestId: string, typeId: string, reviewedAt: string): Promise<void>;
+	approveTrainingRecord(requestId: string, recordId: string, reviewedAt: string): Promise<void>;
+	approveRatingEntry(requestId: string, entryId: string, reviewedAt: string): Promise<void>;
 	approveCounseling(requestId: string, recordId: string, reviewedAt: string): Promise<void>;
 }

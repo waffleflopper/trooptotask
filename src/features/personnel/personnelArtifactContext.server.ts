@@ -3,7 +3,7 @@ export type { CounselingRecordRow, PersonnelDocumentRow, FollowUpRow } from './p
 import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
+import { evaluateFeaturePolicy, policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
 import { fail } from '$lib/errors';
 import type { PersonnelArtifactWriter } from './contracts';
 
@@ -67,6 +67,21 @@ async function requireAccessUncached(
 		personnelId
 	);
 	await ctx.scope.requireGroupAccess(personnelId);
+}
+
+/** Whether a write may answer with the sensitive record it changed. */
+export async function canReadSensitivePersonnelArtifacts(
+	ctx: PersonnelArtifactsContext,
+	personnelId: string
+): Promise<boolean> {
+	const groupId = await ctx.persistence.findPersonnelGroup(personnelId);
+	if (groupId === undefined) return false;
+	const decision = await evaluateFeaturePolicy(
+		{ auth: ctx.actor },
+		POLICY_ACTION_CATALOG.personnel.readSensitiveRecords,
+		policyResourceForGroup(groupId)
+	);
+	return decision.allowed;
 }
 
 export async function personnelArtifactWriter(

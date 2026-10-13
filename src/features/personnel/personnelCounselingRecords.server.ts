@@ -1,5 +1,14 @@
 import { z } from 'zod';
-import type { PersonnelCounselingRecord } from './contracts';
+import type {
+	PersonnelArtifactArchiveState,
+	PersonnelArtifactWritePort,
+	PersonnelCounselingRecord,
+	PersonnelRecordPersistence
+} from './contracts';
+import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
+import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
 import { fail } from '$lib/errors';
 import { hasPdfFileSignature } from '$lib/storage/fileSignatures';
 import {
@@ -131,7 +140,7 @@ async function loadCounselingForWrite(ctx: PersonnelArtifactsContext, personnelI
 export async function archivePersonnelCounselingRecord(
 	ctx: PersonnelArtifactsContext,
 	input: { personnelId: string; recordId: string }
-): Promise<PersonnelCounselingRecord> {
+): Promise<PersonnelArtifactArchiveState> {
 	const { writer, row: existing } = await loadCounselingForWrite(ctx, input.personnelId, input.recordId);
 	if (existing.archived_at) fail(409, 'Counseling record is already archived');
 	const row = await writer.setCounselingArchivedAt(input.recordId, new Date().toISOString());
@@ -140,13 +149,13 @@ export async function archivePersonnelCounselingRecord(
 		resourceType: 'personnel',
 		resourceId: input.personnelId
 	});
-	return mapCounselingRow(row, await ctx.contributorLabels(row.uploaded_by ? [row.uploaded_by] : []));
+	return { id: row.id, archivedAt: row.archived_at ?? null };
 }
 
 export async function restorePersonnelCounselingRecord(
 	ctx: PersonnelArtifactsContext,
 	input: { personnelId: string; recordId: string }
-): Promise<PersonnelCounselingRecord> {
+): Promise<PersonnelArtifactArchiveState> {
 	const { writer } = await loadCounselingForWrite(ctx, input.personnelId, input.recordId);
 	const row = await writer.setCounselingArchivedAt(input.recordId, null);
 	ctx.audit.log({
@@ -154,7 +163,7 @@ export async function restorePersonnelCounselingRecord(
 		resourceType: 'personnel',
 		resourceId: input.personnelId
 	});
-	return mapCounselingRow(row, await ctx.contributorLabels(row.uploaded_by ? [row.uploaded_by] : []));
+	return { id: row.id, archivedAt: row.archived_at ?? null };
 }
 
 export async function deletePersonnelCounselingRecord(
@@ -170,6 +179,29 @@ export async function deletePersonnelCounselingRecord(
 		resourceType: 'personnel',
 		resourceId: input.personnelId
 	});
+}
+
+/** Describes a deletion request from the counseling record of a Person the requester may manage. */
+export async function describeCounselingDeletionRequest(
+	ctx: {
+		auth: OrganizationAccessGrant;
+		audit: PolicyAuditSink;
+		personnel: Pick<PersonnelRecordPersistence, 'findWriteReference'>;
+		personnelArtifactWrites: Pick<PersonnelArtifactWritePort, 'findCounselingPersonId'>;
+	},
+	id: string
+): Promise<{ description: string; url: string }> {
+	const action = POLICY_ACTION_CATALOG.personnel.manageRecords;
+	await requireFeaturePolicy(ctx, action, { kind: 'unscoped' }, 'counseling_record', id);
+	const personnelId = await ctx.personnelArtifactWrites.findCounselingPersonId(ctx.auth, id);
+	// The scoped Personnel read hides an out-of-scope Person like a missing record.
+	const person = personnelId ? await ctx.personnel.findWriteReference(personnelId) : null;
+	if (!person) fail(404, 'Counseling record not found');
+	await requireFeaturePolicy(ctx, action, policyResourceForGroup(person.groupId), 'counseling_record', id);
+	return {
+		description: `Counseling record for ${person.rank} ${person.lastName}`,
+		url: `/org/${ctx.auth.orgId}/personnel`
+	};
 }
 
 function fileNameFromPath(path: string): string {

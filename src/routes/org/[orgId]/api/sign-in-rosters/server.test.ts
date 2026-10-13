@@ -44,8 +44,13 @@ function seedPersonnel(ctx: ReturnType<typeof createRosterTestContext>) {
 		}
 	];
 	ctx.personnelLookup = {
-		findPersonnelForRosterSnapshot: async (orgId, personnelIds) =>
-			personnel.filter((row) => row.orgId === orgId && personnelIds.includes(row.id))
+		findPersonnelForRosterSnapshot: async (orgId, scopeSet, personnelIds) =>
+			personnel.filter(
+				(row) =>
+					row.orgId === orgId &&
+					personnelIds.includes(row.id) &&
+					(scopeSet.kind === 'organization' || (row.groupId !== null && scopeSet.groupIds.includes(row.groupId)))
+			)
 	};
 }
 
@@ -253,7 +258,7 @@ describe('/api/sign-in-rosters route config', () => {
 			() => selectRosterCreationContext(ctx)
 		)) as Record<string, unknown>;
 
-		expect(findPersonnelForRosterSnapshot).toHaveBeenCalledWith(ctx.auth.orgId, ['p-alpha']);
+		expect(findPersonnelForRosterSnapshot).toHaveBeenCalledWith(ctx.auth.orgId, ctx.auth.scopeSet, ['p-alpha']);
 		expect(result).toMatchObject({
 			title: 'Annual AT Sign-In',
 			sortBy: 'rank'
@@ -584,7 +589,7 @@ describe('/api/sign-in-rosters route config', () => {
 				},
 				() => selectRosterCreationContext(scoped)
 			)
-		).rejects.toMatchObject({ status: 403, message: 'You do not have access to personnel outside your group' });
+		).rejects.toMatchObject({ status: 400, message: 'Personnel selection includes unknown personnel' });
 		await expect(scoped.rawStore.findMany('sign_in_rosters', scoped.auth.orgId)).resolves.toHaveLength(0);
 	});
 

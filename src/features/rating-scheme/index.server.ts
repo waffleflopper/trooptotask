@@ -4,13 +4,14 @@ export { loadRatingSchemeWorkspace } from './server/ratingSchemeWorkspaceQuery.s
 export { loadRatingSchemeReadinessLane } from './server/personnelRatingSchemeReadiness.server';
 export { createSupabaseRatingSchemeExportReader, countRatingSchemeEntries } from './server/ratingSchemeRead.server';
 export {
-	createApprovedRatingSchemeDeletionPort,
+	createSupabaseApprovedRatingSchemeDeletionPort,
 	type ApprovedRatingSchemeDeletionPort
 } from './server/approvedRatingSchemeDeletion.server';
 export {
 	createRatingSchemeEntry,
 	updateRatingSchemeEntry,
 	removeRatingSchemeEntry,
+	describeRatingSchemeEntryDeletionRequest,
 	ratingSchemeEntryCreateSchema,
 	ratingSchemeEntryUpdateSchema
 } from './server/ratingSchemeEntryOperations.server';

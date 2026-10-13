@@ -42,6 +42,16 @@ export interface PersonnelFollowUp {
 	archivedAt?: string | null;
 }
 
+/** Lifecycle writes return only what a manager without sensitive reads may know. */
+export interface PersonnelArtifactArchiveState {
+	id: string;
+	archivedAt: string | null;
+}
+
+export interface PersonnelFollowUpLifecycleState extends PersonnelArtifactArchiveState {
+	status: PersonnelFollowUpStatus;
+}
+
 export type PersonnelArchivedArtifact =
 	| ({ kind: 'follow-up' } & PersonnelFollowUp)
 	| ({ kind: 'counseling' } & PersonnelCounselingRecord & { archivedAt: string | null })

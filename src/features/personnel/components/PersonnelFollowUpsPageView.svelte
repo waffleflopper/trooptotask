@@ -86,8 +86,8 @@
 				body: JSON.stringify({ status })
 			});
 			if (!response.ok) throw new Error('Unable to update follow-up.');
-			const updated = (await response.json()) as PersonnelFollowUp;
-			followUps.upsert(updated);
+			const updated = (await response.json()) as Partial<PersonnelFollowUp>;
+			followUps.upsert({ ...record, ...updated });
 			if (status === 'archived') {
 				archivedRecordIds = [...archivedRecordIds, record.id];
 				if (editingId === record.id) resetForm();

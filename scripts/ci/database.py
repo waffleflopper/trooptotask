@@ -66,6 +66,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261012000100_invitation_grant_liveness.sql",
     "20261012000400_governance_direct_write_authority.sql",
     "20261012000500_suspension_sql_admission.sql",
+    "20261012000600_feature_direct_write_authority.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",
@@ -94,6 +95,7 @@ STAGED_UPGRADE_FIXTURES = (
     "access_request_approval_basis_before.sql",
     "governance_direct_writes_before.sql",
     "suspension_sql_admission_before.sql",
+    "feature_direct_write_authority_before.sql",
 )
 STAGED_UPGRADE_CONTRACTS = (
     "account_setup_populated_after.sql",
@@ -124,6 +126,7 @@ STAGED_UPGRADE_CONTRACTS = (
     "access_request_approval_basis_after.sql",
     "governance_direct_writes_after.sql",
     "suspension_sql_admission_after.sql",
+    "feature_direct_write_authority_after.sql",
 )
 
 _receipt = None

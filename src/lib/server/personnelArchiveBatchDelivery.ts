@@ -10,7 +10,7 @@ type PersonnelArchiveBatchDeliveryContext = Parameters<typeof preparePersonnelAr
 export async function archivePersonnelBatch(
 	ctx: PersonnelArchiveBatchDeliveryContext,
 	input: { ids: string[]; userEmail: string },
-	requestStore: Parameters<typeof createDeletionRequest>[0]['store']
+	submissions: Parameters<typeof createDeletionRequest>[0]['store']
 ): Promise<ArchivePersonnelBatchResult> {
 	const batch = await preparePersonnelArchiveBatch(ctx, input.ids);
 	const result: ArchivePersonnelBatchResult = { archivedIds: [], approvalRequestedIds: [], errors: [] };
@@ -23,7 +23,7 @@ export async function archivePersonnelBatch(
 		} else {
 			try {
 				await createDeletionRequest(
-					{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, store: requestStore },
+					{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, store: submissions },
 					{
 						resourceType: 'personnel',
 						resourceId: id,

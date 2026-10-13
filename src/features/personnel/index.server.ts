@@ -78,6 +78,7 @@ export {
 	restorePersonnelRecord,
 	permanentlyDeletePersonnelRecord,
 	archiveApprovedPersonnelRecord,
+	describePersonnelArchiveRequest,
 	preparePersonnelArchiveBatch
 } from './personnelLifecycle.server';
 
@@ -105,7 +106,8 @@ export {
 	createPersonnelCounselingRecord,
 	archivePersonnelCounselingRecord,
 	restorePersonnelCounselingRecord,
-	deletePersonnelCounselingRecord
+	deletePersonnelCounselingRecord,
+	describeCounselingDeletionRequest
 } from './personnelCounselingRecords.server';
 export type { PersonnelCounselingRecordInput } from './personnelCounselingRecords.server';
 export {

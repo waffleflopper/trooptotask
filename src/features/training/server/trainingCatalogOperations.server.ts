@@ -1,11 +1,13 @@
 import { error } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { requireFeaturePolicy } from '$lib/access/index.server';
+import { fail } from '$lib/errors';
 import type { SavedTrainingType, SavedTrainingView } from '../contracts';
 import type {
 	TrainingTypeCreateContext,
 	TrainingTypeUpdateContext,
 	TrainingTypeDeleteContext,
+	TrainingTypeDeletionRequestContext,
 	TrainingViewCreateContext,
 	TrainingViewUpdateContext,
 	TrainingViewDeleteContext
@@ -58,6 +60,17 @@ export async function deleteTrainingType(ctx: TrainingTypeDeleteContext, id: str
 	await ctx.trainingCatalog.deleteType(id);
 	ctx.audit.log({ action: 'training_type.deleted', resourceType: 'training_type', resourceId: id });
 	await ctx.notifyTrainingTypeDeleted();
+}
+
+/** Describes a deletion request from the Organization type the requester may configure. */
+export async function describeTrainingTypeDeletionRequest(
+	ctx: TrainingTypeDeletionRequestContext,
+	id: string
+): Promise<{ description: string; url: string }> {
+	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'training_type', id);
+	const type = (await ctx.trainingCatalog.listTypeLabels()).find((label) => label.id === id);
+	if (!type) fail(404, 'Training type not found');
+	return { description: `Training type ${type.name}`, url: `/org/${ctx.auth.orgId}/training` };
 }
 
 export async function createTrainingView(

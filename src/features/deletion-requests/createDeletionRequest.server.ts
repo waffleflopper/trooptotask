@@ -6,13 +6,13 @@ import { requireIdentityOwnedPolicy } from '$lib/access/index.server';
 import { subjectDetails } from '$lib/audit/index.server';
 import type { NotificationDeliveryPort } from '$features/notifications/contracts';
 import type { DeletionRequest, DeletionRequestResourceType } from './contracts';
-import type { DeletionRequestStore } from './contracts.server';
+import type { DeletionRequestSubmissionPort } from './contracts.server';
 import { AUDIT_RESOURCE, fireAndForgetNotification, isSupportedResourceType } from './deletionRequestSupport.server';
 
 export interface DeletionRequestCreationContext {
 	auth: Pick<OrganizationAccessGrant, 'userId' | 'role' | 'capabilityMap' | 'scopeSet'> & { orgId: string };
 	audit: PolicyAuditSink;
-	store: Pick<DeletionRequestStore, 'findPendingByResource' | 'createRequest'>;
+	store: DeletionRequestSubmissionPort;
 	notifications: Pick<NotificationDeliveryPort, 'notifyAdmins'>;
 }
 

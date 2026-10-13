@@ -340,6 +340,16 @@ export function createSupabasePersonnelArtifactWritePort(
 			};
 			return writer;
 		},
+		async findCounselingPersonId(actor, recordId) {
+			const { data, error } = await getAdminClient()
+				.from('counseling_records')
+				.select('personnel_id')
+				.eq('organization_id', actor.orgId)
+				.eq('id', recordId)
+				.maybeSingle();
+			if (error) throw new Error(error.message);
+			return (data?.personnel_id as string | undefined) ?? null;
+		},
 		async forPeople(actor, personnelIds, action): Promise<PersonnelArtifactArchiveWriter> {
 			const ids = [...new Set(personnelIds)];
 			if (ids.length === 0) fail(400, 'At least one Person is required');

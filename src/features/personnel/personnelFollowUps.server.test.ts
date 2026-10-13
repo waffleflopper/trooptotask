@@ -96,10 +96,8 @@ describe('personnel follow-ups', () => {
 			status: 'open',
 			createdBy: 'leader@example.com'
 		});
-		expect(completed.status).toBe('completed');
-		expect(completed.completedAt).toBeTruthy();
-		expect(reopened.status).toBe('open');
-		expect(reopened.completedAt).toBeNull();
+		expect(completed).toMatchObject({ status: 'completed', completedAt: expect.any(String) });
+		expect(reopened).toMatchObject({ status: 'open', completedAt: null });
 		expect(edited).toMatchObject({
 			title: 'Complete BLC packet update',
 			notes: 'Confirm signatures and dates',

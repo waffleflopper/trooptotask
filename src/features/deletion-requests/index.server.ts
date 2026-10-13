@@ -6,7 +6,10 @@ export type {
 	DeletionRequestCancellationContext
 } from './cancelDeletionRequest.server';
 export { createSupabaseDeletionRequestCancellation } from './cancellationProvider.server';
-export { createSupabaseDeletionRequestStore } from './deletionRequestProvider.server';
+export {
+	createSupabaseDeletionRequestStore,
+	createSupabaseDeletionRequestSubmission
+} from './deletionRequestProvider.server';
 export {
 	listDeletionRequests,
 	readPendingDeletionRequestSummary,
@@ -19,6 +22,7 @@ export type { DeletionRequestReviewContext } from './reviewDeletionRequest.serve
 export type {
 	ApprovedDeletionEffects,
 	DeletionRequestStore,
+	DeletionRequestSubmissionPort,
 	PendingDeletionTarget,
 	DeletionRequestReview
 } from './contracts.server';

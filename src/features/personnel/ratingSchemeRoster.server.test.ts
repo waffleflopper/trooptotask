@@ -103,26 +103,57 @@ describe('Personnel Rating Scheme roster port', () => {
 
 	it('resolves only same-Organization and in-Group write references, including archived People', async () => {
 		const rows = [
-			{ id: 'alpha', organization_id: 'org-1', group_id: 'group-1', archived_at: null },
-			{ id: 'archived-alpha', organization_id: 'org-1', group_id: 'group-1', archived_at: '2026-01-01' },
+			{
+				id: 'alpha',
+				organization_id: 'org-1',
+				group_id: 'group-1',
+				rank: 'SGT',
+				last_name: 'Alpha',
+				archived_at: null
+			},
+			{
+				id: 'archived-alpha',
+				organization_id: 'org-1',
+				group_id: 'group-1',
+				rank: 'SPC',
+				last_name: 'Archived',
+				archived_at: '2026-01-01'
+			},
 			{ id: 'bravo', organization_id: 'org-1', group_id: 'group-2', archived_at: null },
-			{ id: 'unassigned', organization_id: 'org-1', group_id: null, archived_at: null },
+			{
+				id: 'unassigned',
+				organization_id: 'org-1',
+				group_id: null,
+				rank: 'PFC',
+				last_name: 'Loose',
+				archived_at: null
+			},
 			{ id: 'foreign', organization_id: 'org-2', group_id: 'group-1', archived_at: null }
 		];
 		const port = createSupabasePersonnelRatingSchemeRosterPort({} as SupabaseClient, createPersonnelClient(rows));
 		const groupActor = ratingSchemeActor({ kind: 'groups', groupIds: ['group-1'] });
 		groupActor.capabilityMap.ratingScheme = 'operate';
 
-		await expect(port.findRatedPersonGroupForWrite(groupActor, 'alpha')).resolves.toEqual({ groupId: 'group-1' });
-		await expect(port.findRatedPersonGroupForWrite(groupActor, 'archived-alpha')).resolves.toEqual({
-			groupId: 'group-1'
+		await expect(port.findRatedPersonForWrite(groupActor, 'alpha')).resolves.toEqual({
+			groupId: 'group-1',
+			rank: 'SGT',
+			lastName: 'Alpha'
+		});
+		await expect(port.findRatedPersonForWrite(groupActor, 'archived-alpha')).resolves.toEqual({
+			groupId: 'group-1',
+			rank: 'SPC',
+			lastName: 'Archived'
 		});
 		for (const id of ['bravo', 'unassigned', 'foreign']) {
-			await expect(port.findRatedPersonGroupForWrite(groupActor, id)).resolves.toBeNull();
+			await expect(port.findRatedPersonForWrite(groupActor, id)).resolves.toBeNull();
 		}
 		const orgActor = ratingSchemeActor();
 		orgActor.capabilityMap.ratingScheme = 'operate';
-		await expect(port.findRatedPersonGroupForWrite(orgActor, 'unassigned')).resolves.toEqual({ groupId: null });
+		await expect(port.findRatedPersonForWrite(orgActor, 'unassigned')).resolves.toEqual({
+			groupId: null,
+			rank: 'PFC',
+			lastName: 'Loose'
+		});
 	});
 
 	it('denies missing Rating Scheme write capability before admin access and opens no client for empty Group scope', async () => {
@@ -131,12 +162,12 @@ describe('Personnel Rating Scheme roster port', () => {
 			{} as SupabaseClient,
 			getAdminClient as () => SupabaseClient
 		);
-		await expect(port.findRatedPersonGroupForWrite(ratingSchemeActor(), 'alpha')).rejects.toMatchObject({
+		await expect(port.findRatedPersonForWrite(ratingSchemeActor(), 'alpha')).rejects.toMatchObject({
 			status: 403
 		});
 		const emptyActor = ratingSchemeActor({ kind: 'groups', groupIds: [] });
 		emptyActor.capabilityMap.ratingScheme = 'operate';
-		await expect(port.findRatedPersonGroupForWrite(emptyActor, 'alpha')).resolves.toBeNull();
+		await expect(port.findRatedPersonForWrite(emptyActor, 'alpha')).resolves.toBeNull();
 		expect(getAdminClient).not.toHaveBeenCalled();
 	});
 });

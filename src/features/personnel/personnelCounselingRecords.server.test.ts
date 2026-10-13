@@ -139,7 +139,7 @@ describe('personnel counseling records', () => {
 			personnelId: 'person-1',
 			recordId: 'record-1'
 		});
-		expect(archived.status).toBe('archived');
+		expect(archived).toEqual({ id: 'record-1', archivedAt: expect.any(String) });
 		await expect(
 			archivePersonnelCounselingRecord(testPersonnelArtifactsContext(ctx), {
 				personnelId: 'person-1',
@@ -157,7 +157,7 @@ describe('personnel counseling records', () => {
 			personnelId: 'person-1',
 			recordId: 'record-1'
 		});
-		expect(restored.status).toBe('uploaded');
+		expect(restored).toEqual({ id: 'record-1', archivedAt: null });
 		await expect(
 			deletePersonnelCounselingRecord(testPersonnelArtifactsContext(ctx), {
 				personnelId: 'person-1',

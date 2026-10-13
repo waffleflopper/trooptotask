@@ -536,6 +536,15 @@ SELECT is(
 	0,
 	'group-scoped Personnel configurator cannot update follow ups for unassigned personnel'
 );
+-- Permanent deletion follows archiving, so scope decides these deletes.
+RESET ROLE;
+UPDATE public.personnel_follow_ups SET status = 'archived', archived_at = now()
+WHERE id IN (
+	'60000000-0000-4000-8000-000000069004',
+	'60000000-0000-4000-8000-000000069002',
+	'60000000-0000-4000-8000-000000069006'
+);
+SET LOCAL ROLE authenticated;
 WITH deleted AS (
 	DELETE FROM public.personnel_follow_ups
 	WHERE id = '60000000-0000-4000-8000-000000069004'
@@ -641,6 +650,10 @@ SELECT is(
 	0,
 	'group-scoped Personnel configurator cannot update documents for another same-org group'
 );
+RESET ROLE;
+UPDATE public.personnel_documents SET archived_at = now()
+WHERE id IN ('70000000-0000-4000-8000-000000069004', '70000000-0000-4000-8000-000000069002');
+SET LOCAL ROLE authenticated;
 WITH deleted AS (
 	DELETE FROM public.personnel_documents
 	WHERE id = '70000000-0000-4000-8000-000000069004'

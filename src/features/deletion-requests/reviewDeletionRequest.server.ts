@@ -56,22 +56,25 @@ export async function approveDeletionRequest(
 		fail(400, `Unsupported resource type: ${resourceType}`);
 	}
 
-	if (resourceType === 'counseling_record') {
-		// The source-owned 012 transaction acknowledges its row and request status together.
-		await effects.approveCounseling(boundRequestId, resourceId, new Date().toISOString());
-	} else {
-		if (resourceType === 'personnel') await effects.archivePersonnel(resourceId);
-		else if (resourceType === 'training_type') await effects.deleteTrainingType(boundRequestId, resourceId);
-		else if (resourceType === 'personnel_training') await effects.deleteTrainingRecord(boundRequestId, resourceId);
-		else if (resourceType === 'rating_scheme_entry') await effects.deleteRatingEntry(boundRequestId, resourceId);
-		// Effects can persist even if another terminal writer wins this status transition.
+	const reviewedAt = new Date().toISOString();
+	if (resourceType === 'personnel') {
+		await effects.archivePersonnel(resourceId);
+		// Archival is idempotent, so a request whose status write fails can be approved again.
 		const completed = await ctx.store.completePendingReview(
 			ctx.auth.orgId,
 			boundRequestId,
 			{ resourceType, resourceId },
-			{ status: 'approved', reviewedBy: ctx.auth.userId, reviewedAt: new Date().toISOString(), denialReason: null }
+			{ status: 'approved', reviewedBy: ctx.auth.userId, reviewedAt, denialReason: null }
 		);
 		if (!completed) fail(404, 'Pending deletion request not found');
+	} else {
+		const approveDeletion = {
+			training_type: effects.approveTrainingType,
+			personnel_training: effects.approveTrainingRecord,
+			rating_scheme_entry: effects.approveRatingEntry,
+			counseling_record: effects.approveCounseling
+		}[resourceType];
+		await approveDeletion(boundRequestId, resourceId, reviewedAt);
 	}
 
 	// Notify the requester

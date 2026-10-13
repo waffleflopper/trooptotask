@@ -103,6 +103,15 @@ function enhance(
 		}
 	}
 
+	/** The database restarts the step's clock only when it moves, so a click on where it already is keeps its time. */
+	function withProgress(
+		step: OnboardingStepProgress,
+		next: Pick<OnboardingStepProgress, 'completed' | 'currentStage'>
+	): OnboardingStepProgress {
+		const moved = next.completed !== step.completed || next.currentStage !== step.currentStage;
+		return { ...step, ...next, progressChangedAt: moved ? new Date().toISOString() : step.progressChangedAt };
+	}
+
 	function applyStepMutation(stepId: string, update: StepMutation['update'], progress = false) {
 		const onboarding = getDisplay().find((o) => o.steps.some((s) => s.id === stepId));
 		if (!onboarding) return null;
@@ -299,7 +308,7 @@ function enhance(
 			const version = organizationVersion;
 			const mutation = applyStepUpdate(
 				stepId,
-				(s) => ({ ...s, completed, progressChangedAt: new Date().toISOString() }),
+				(s) => withProgress(s, { completed, currentStage: s.currentStage }),
 				true
 			);
 			if (!mutation) return false;
@@ -346,7 +355,7 @@ function enhance(
 
 			const mutation = applyStepUpdate(
 				stepId,
-				(s) => ({ ...s, currentStage: stageName, completed: isLast, progressChangedAt: new Date().toISOString() }),
+				(s) => withProgress(s, { completed: isLast, currentStage: stageName }),
 				true
 			);
 			if (!mutation) return false;

@@ -1085,6 +1085,21 @@ describe('onboardingStore step progress time and notes', () => {
 		});
 	});
 
+	it('keeps the step time while a click on its current stage is pending', async () => {
+		const response = deferredResponse();
+		vi.stubGlobal('fetch', vi.fn().mockReturnValueOnce(response.promise));
+
+		const advanced = onboardingStore.advanceStage('step-1', 'Submitted');
+		expect(onboardingStore.getById('ob-1')?.steps[0]).toMatchObject({
+			currentStage: 'Submitted',
+			progressChangedAt: SAVED_AT
+		});
+
+		response.respond(Response.json({ completed: false, currentStage: 'Submitted', progressChangedAt: SAVED_AT }));
+		await expect(advanced).resolves.toBe(true);
+		expect(onboardingStore.getById('ob-1')?.steps[0].progressChangedAt).toBe(SAVED_AT);
+	});
+
 	it('adds the saved note without moving the step', async () => {
 		const savedNotes = [
 			...paperworkOnboarding.steps[0].notes,

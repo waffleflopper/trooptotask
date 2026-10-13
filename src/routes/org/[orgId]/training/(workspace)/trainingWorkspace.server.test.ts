@@ -179,18 +179,23 @@ describe('streamTrainingWorkspaceBootstrap', () => {
 		};
 		mockCtx.auth.scopeSet = { kind: 'groups', groupIds: ['group-alpha'] };
 		listRosterCandidatesMock.mockResolvedValue(personnel);
-		findManyMock.mockImplementation((table: string) =>
-			table === 'personnel'
-				? Promise.reject(new Error('Personnel SELECT denied for this Training-only actor'))
-				: Promise.resolve(
-						table === 'groups'
-							? [
-									{ id: 'group-alpha', name: 'Alpha', sort_order: 0 },
-									{ id: 'group-bravo', name: 'Bravo', sort_order: 1 }
-								]
-							: []
-					)
+		const savedGroups = [
+			{ id: 'group-alpha', name: 'Alpha', sort_order: 0 },
+			{ id: 'group-bravo', name: 'Bravo', sort_order: 1 }
+		];
+		findManyMock.mockImplementation(
+			(table: string, _orgId: string, _filters: unknown, options?: { inFilters?: { id?: string[] } }) =>
+				table === 'personnel'
+					? Promise.reject(new Error('Personnel SELECT denied for this Training-only actor'))
+					: Promise.resolve(
+							table === 'groups'
+								? savedGroups.filter((row) => !options?.inFilters?.id || options.inFilters.id.includes(row.id))
+								: []
+						)
 		);
+		const scopedStore = createInMemoryDataStore();
+		scopedStore.findMany = findManyMock;
+		mockCtx.groups = createInMemoryGroupPersistence(scopedStore, mockCtx.auth.orgId, mockCtx.auth.scopeSet);
 
 		const routeData = await streamTrainingWorkspaceBootstrap({
 			locals: {} as App.Locals,
@@ -201,8 +206,7 @@ describe('streamTrainingWorkspaceBootstrap', () => {
 
 		await expect(workspace.data.personnel).resolves.toEqual(personnel);
 		await expect(workspace.data.groups).resolves.toEqual([
-			expect.objectContaining({ id: 'group-alpha', name: 'Alpha' }),
-			expect.objectContaining({ id: 'group-bravo', name: 'Bravo' })
+			expect.objectContaining({ id: 'group-alpha', name: 'Alpha' })
 		]);
 		expect(listRosterCandidatesMock).toHaveBeenCalledWith(mockCtx.auth);
 		await expect(workspace.data.rankCatalog).resolves.toEqual([]);

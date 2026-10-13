@@ -14,6 +14,9 @@ export type TrainingTypeDeleteContext = Omit<TrainingTypeCreateContext, 'trainin
 	readonly trainingCatalog: Pick<TrainingCatalogPersistence, 'deleteType'>;
 	readonly notifyTrainingTypeDeleted: () => Promise<void>;
 };
+export type TrainingTypeDeletionRequestContext = Omit<TrainingTypeCreateContext, 'trainingCatalog'> & {
+	readonly trainingCatalog: Pick<TrainingCatalogPersistence, 'listTypeLabels'>;
+};
 
 export type TrainingViewCreateContext = Omit<TrainingTypeCreateContext, 'trainingCatalog'> & {
 	readonly trainingCatalog: Pick<TrainingCatalogPersistence, 'createView'>;

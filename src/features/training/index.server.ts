@@ -4,6 +4,7 @@ export {
 	createTrainingType,
 	updateTrainingType,
 	deleteTrainingType,
+	describeTrainingTypeDeletionRequest,
 	createTrainingView,
 	updateTrainingView,
 	deleteTrainingView

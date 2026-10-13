@@ -880,6 +880,10 @@ function createInMemoryPersonnelArtifactWritePort(
 	storage: StoragePort
 ): PersonnelArtifactWritePort {
 	return {
+		async findCounselingPersonId(actor, recordId) {
+			const row = await rawStore.findOne<{ personnel_id: string }>('counseling_records', actor.orgId, { id: recordId });
+			return row?.personnel_id ?? null;
+		},
 		async forPerson(actor, personnelId) {
 			const person = await rawStore.findOne<{ group_id: string | null }>('personnel', actor.orgId, {
 				id: personnelId

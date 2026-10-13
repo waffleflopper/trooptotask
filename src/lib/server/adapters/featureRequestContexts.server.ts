@@ -5,6 +5,7 @@ import { getAdminClient } from '$lib/server/supabase';
 import {
 	loadOrganizationRankCatalog,
 	createSupabasePersonnelRecordPersistence,
+	createSupabasePersonnelArtifactWritePort,
 	createSupabaseRankCatalogPersistence,
 	createSupabaseGroupPersistence,
 	createSupabaseSelfPinPersistence,
@@ -23,6 +24,7 @@ import type {
 	updateTrainingRecord,
 	deleteTrainingRecord,
 	describeTrainingRecordDeletionRequest,
+	describeTrainingTypeDeletionRequest,
 	importTrainingRecords,
 	deleteTrainingType,
 	fetchTrainingBriefingReport,
@@ -51,7 +53,10 @@ import type {
 	loadRatingSchemeWorkspace,
 	removeRatingSchemeEntry
 } from '$features/rating-scheme/index.server';
-import type { describePersonnelArchiveRequest } from '$features/personnel/index.server';
+import type {
+	describeCounselingDeletionRequest,
+	describePersonnelArchiveRequest
+} from '$features/personnel/index.server';
 import { createSupabaseRatingSchemePersistence } from '$features/rating-scheme/index.server';
 import {
 	createSupabaseOnboardingReconciliationPort,
@@ -227,6 +232,7 @@ export function createRequestDeletionRequestSubmissionContext(request: AdmittedO
 		auth: request.auth,
 		audit: request.audit,
 		personnel: createSupabasePersonnelRecordPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet),
+		personnelArtifactWrites: createSupabasePersonnelArtifactWritePort(request.supabase, getAdminClient),
 		trainingCatalog: createSupabaseTrainingCatalogPersistence(request.supabase, request.auth.orgId),
 		trainingCompletions: createSupabaseTrainingCompletionPersistence(request.supabase, request.auth.orgId),
 		personnelTrainingRoster: createSupabasePersonnelTrainingRosterPort(getAdminClient),
@@ -234,7 +240,9 @@ export function createRequestDeletionRequestSubmissionContext(request: AdmittedO
 		personnelRatingSchemeRoster: createSupabasePersonnelRatingSchemeRosterPort(request.supabase, getAdminClient)
 	} satisfies Parameters<typeof describePersonnelArchiveRequest>[0] &
 		Parameters<typeof describeTrainingRecordDeletionRequest>[0] &
-		Parameters<typeof describeRatingSchemeEntryDeletionRequest>[0];
+		Parameters<typeof describeRatingSchemeEntryDeletionRequest>[0] &
+		Parameters<typeof describeTrainingTypeDeletionRequest>[0] &
+		Parameters<typeof describeCounselingDeletionRequest>[0];
 	return { ...owners, notifications: createRequestNotificationDelivery() };
 }
 

@@ -239,6 +239,8 @@ export interface PersonnelArtifactWriter {
 }
 
 export interface PersonnelArtifactWritePort {
+	/** The caller admits the requester against the returned Person before revealing anything about it. */
+	findCounselingPersonId(actor: PersonnelRosterActor, recordId: string): Promise<string | null>;
 	forPerson(actor: PersonnelRosterActor, personnelId: string): Promise<PersonnelArtifactWriter>;
 	forPeople(
 		actor: PersonnelRosterActor,

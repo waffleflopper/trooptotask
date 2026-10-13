@@ -216,6 +216,25 @@ describe('admin organizations page', () => {
 		});
 	});
 
+	it('keeps a typed trailing space when the server trims the committed search, then still follows Back', async () => {
+		vi.useFakeTimers();
+		try {
+			const pagination = { page: 1, pageSize: 25, totalCount: 90, totalPages: 4, q: '', status: 'all' };
+			const view = renderOrganizationsPage({ pagination });
+			const search = () => screen.getByRole('searchbox', { name: 'Search' });
+			await fireEvent.input(search(), { target: { value: 'acme ' } });
+			await vi.advanceTimersByTimeAsync(300);
+
+			await view.rerender({ data: organizationsData({ pagination: { ...pagination, q: 'acme' } }) });
+			expect(search(), 'the server trims q, but the box keeps the space being typed').toHaveProperty('value', 'acme ');
+
+			await view.rerender({ data: organizationsData({ pagination }) });
+			expect(search(), 'Back to an empty search empties the box').toHaveProperty('value', '');
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
 	it('changes a filter folded into More from its submenu and keeps it reachable by name', async () => {
 		const toolbarWidths = stubToolbarWidths();
 		renderOrganizationsPage({

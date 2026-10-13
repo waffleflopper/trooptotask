@@ -10,7 +10,7 @@ export interface OrganizationAdmissionRequest {
 
 /**
  * Check fresh Organization status with the caller's RLS-scoped client and return its canonical id.
- * The result is shared by every consumer of the same request.
+ * The result is shared by every consumer of the same request and Organization route segment.
  */
 export function requireActiveOrganization(request: OrganizationAdmissionRequest, segment: string): Promise<string> {
 	const admissions = (request.organizationAdmissions ??= new Map());

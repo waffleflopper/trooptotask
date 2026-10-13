@@ -10,6 +10,7 @@ afterEach(() => {
 
 describe('WorkspaceToolbarIcon', () => {
 	it.each([
+		['arrow-left', 'lucide-arrow-left'],
 		['book-open', 'lucide-book-open'],
 		['calendar-days', 'lucide-calendar-days'],
 		['chart', 'lucide-chart-column'],

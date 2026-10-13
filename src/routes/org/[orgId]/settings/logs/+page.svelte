@@ -1,6 +1,7 @@
 <script lang="ts">
 	import * as DataTable from '$lib/components/ui/data-table/index.js';
 	import { useDataTable, type ColumnDef } from '$lib/components/ui/data-table/index.js';
+	import { WorkspaceToolbar } from '$lib/components/patterns/workspace-toolbar/index.js';
 	import type { PageProps } from './$types';
 	import type { LogsSettingsData } from '../settingsSectionTypes';
 	import { formatAuditTimestamp, getAuditActionParts } from '../settingsWorkspaceFormatters';
@@ -70,13 +71,22 @@
 				<p class="text-sm text-muted-foreground">{auditLog.last30DaysCount} entries in the last 30 days</p>
 			</div>
 
+			<WorkspaceToolbar
+				ariaLabel="Audit log controls"
+				items={[]}
+				search={{
+					label: 'Search audit log',
+					placeholder: 'Search audit log',
+					value: auditTable.search,
+					onValueChange: auditTable.setSearch
+				}}
+			/>
+
 			<DataTable.DataTable
 				table={auditTable}
 				ariaLabel="Organization audit log entries"
 				emptyMessage={searchTerm ? `No audit log entries match "${searchTerm}".` : 'No audit log entries yet.'}
 				density="dense"
-				showSearch
-				searchPlaceholder="Search audit log"
 			>
 				{#snippet cell(log: AuditLogPage['logs'][number], column: ColumnDef<AuditLogPage['logs'][number]>)}
 					{#if column.key === 'time'}

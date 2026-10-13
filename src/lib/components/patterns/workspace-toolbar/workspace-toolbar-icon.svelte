@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import BarChart3 from '@lucide/svelte/icons/bar-chart-3';
 	import BookOpen from '@lucide/svelte/icons/book-open';
 	import CalendarDays from '@lucide/svelte/icons/calendar-days';
@@ -20,6 +21,7 @@
 	let { icon, reserve = false }: Props = $props();
 
 	const icons = {
+		'arrow-left': ArrowLeft,
 		'book-open': BookOpen,
 		'calendar-days': CalendarDays,
 		chart: BarChart3,

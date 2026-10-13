@@ -8,7 +8,7 @@
 	import * as Alert from '$lib/components/ui/alert';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
+	import { WorkspaceToolbar } from '$lib/components/patterns/workspace-toolbar';
 	import { themeStore } from '$lib/stores/theme.svelte';
 	import { formatRelativeDate } from '$lib/utils/dates';
 	import { settleAction } from '$lib/utils/settleAction';
@@ -202,11 +202,15 @@
 				</div>
 
 				{#if data.organizations.length > 4}
-					<Input
-						type="search"
-						placeholder="Filter organizations..."
-						bind:value={orgFilter}
-						aria-label="Filter organizations"
+					<WorkspaceToolbar
+						ariaLabel="Organization controls"
+						items={[]}
+						search={{
+							label: 'Filter organizations',
+							placeholder: 'Filter organizations...',
+							value: orgFilter,
+							onValueChange: (value) => (orgFilter = value)
+						}}
 					/>
 				{/if}
 

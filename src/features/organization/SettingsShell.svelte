@@ -78,8 +78,6 @@
 	>
 		{#snippet meta()}
 			<Badge variant="outline">{currentMember?.isOwner ? 'Owner access' : 'Admin access'}</Badge>
-		{/snippet}
-		{#snippet actions()}
 			<p role="status" class="flex items-center gap-2 text-sm text-muted-foreground">
 				{#if loadingTab}
 					<Spinner role="presentation" aria-hidden="true" />

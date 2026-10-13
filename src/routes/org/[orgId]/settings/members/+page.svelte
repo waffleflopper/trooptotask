@@ -2,7 +2,7 @@
 	import { enhance } from '$app/forms';
 	import { onDestroy } from 'svelte';
 	import type { PageProps } from './$types';
-	import { Edit, RefreshCw, Search, Trash2 } from '@lucide/svelte';
+	import { Edit, RefreshCw, Trash2 } from '@lucide/svelte';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import { explainPolicyReasonCode } from '$lib/access/policyDecisionExplanations';
 	import { redirectToSensitiveActionStepUp } from '$features/identity';
@@ -17,6 +17,7 @@
 	import * as RadioGroup from '$lib/components/ui/radio-group/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
 	import * as Sheet from '$lib/components/ui/sheet/index.js';
+	import { WorkspaceToolbar } from '$lib/components/patterns/workspace-toolbar/index.js';
 	import { formatRelativeDate } from '$lib/utils/dates';
 	import { settleAction } from '$lib/utils/settleAction';
 	import { toastStore } from '$lib/stores/toast.svelte';
@@ -289,7 +290,7 @@
 	{/if}
 
 	<div class="rounded-lg border bg-card text-card-foreground">
-		<div class="flex flex-col gap-3 border-b p-4 md:flex-row md:items-center md:justify-between">
+		<div class="flex items-center justify-between gap-3 p-4">
 			<div>
 				<h3 bind:this={membersHeading} tabindex="-1" class="font-medium outline-none">Organization members</h3>
 				<p class="text-sm text-muted-foreground">
@@ -297,20 +298,19 @@
 					{pluralize('member', membersSection.rows.length)}
 				</p>
 			</div>
-			<div class="flex flex-wrap items-center gap-3">
-				<div class="relative">
-					<Label for="member-filter" class="sr-only">Filter members</Label>
-					<Search class="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-					<Input
-						id="member-filter"
-						type="search"
-						placeholder="Filter members..."
-						class="h-8 w-48 pl-8 text-sm"
-						bind:value={memberSearch}
-					/>
-				</div>
-				<Badge variant="outline">{membersSection.invitations.length} pending invitations</Badge>
-			</div>
+			<Badge variant="outline">{membersSection.invitations.length} pending invitations</Badge>
+		</div>
+		<div class="border-b px-4 pb-4">
+			<WorkspaceToolbar
+				ariaLabel="Member controls"
+				items={[]}
+				search={{
+					label: 'Filter members',
+					placeholder: 'Filter members...',
+					value: memberSearch,
+					onValueChange: (value) => (memberSearch = value)
+				}}
+			/>
 		</div>
 
 		{#if memberRequestError || form?.memberError || form?.accessSuccess}

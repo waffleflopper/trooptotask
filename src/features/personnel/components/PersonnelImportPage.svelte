@@ -11,6 +11,7 @@
 	import type { Personnel } from '../personnel.types';
 	import type { RankCatalogEntry } from '$features/personnel/contracts';
 	import * as BulkImportWorkspace from '$lib/components/patterns/bulk-import-workspace';
+	import { WorkspaceToolbar, type ToolbarItem } from '$lib/components/patterns/workspace-toolbar';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -27,7 +28,6 @@
 	import { useDataTableSelection, type ColumnDef as DataTableColumnDef } from '$lib/components/ui/data-table';
 	import { onMount, tick } from 'svelte';
 	import AlertCircleIcon from '@lucide/svelte/icons/alert-circle';
-	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 
 	interface Props {
@@ -368,6 +368,25 @@
 		importStep = 'input';
 	}
 
+	const importModeOptions = [
+		{ value: 'create', label: 'Add new' },
+		{ value: 'merge', label: 'Backfill ETS/DEROS' }
+	];
+
+	const toolbarItems = $derived<ToolbarItem[]>([
+		{
+			kind: 'view',
+			id: 'import-mode',
+			label: 'Import mode',
+			options: importModeOptions,
+			value: importMode,
+			onValueChange: (value) => {
+				if (value === 'create' || value === 'merge') setImportMode(value);
+			}
+		},
+		{ kind: 'action', id: 'personnel', label: 'Personnel', icon: 'arrow-left', href: `/org/${orgUrlSegment}/personnel` }
+	]);
+
 	function setImportMode(mode: ImportMode) {
 		if (importMode === mode) return;
 		importMode = mode;
@@ -476,49 +495,23 @@
 
 <div class="flex h-full min-h-0 flex-col overflow-auto bg-background">
 	<div class="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-5 px-6 py-5 max-sm:px-3">
+		<WorkspaceToolbar ariaLabel="Personnel import controls" items={toolbarItems} />
+
 		<header class="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-4">
-			<div class="grid gap-2">
-				<Button variant="ghost" size="sm" href={rosterPath} class="w-fit">
-					<ArrowLeftIcon aria-hidden="true" />
-					Personnel
-				</Button>
-				<div class="grid gap-1">
-					<p class="text-xs font-medium tracking-widest text-muted-foreground uppercase">Personnel import</p>
-					<h1 class="text-2xl font-semibold tracking-tight text-foreground">{inputTitle}</h1>
-					<p class="max-w-3xl text-sm leading-relaxed text-muted-foreground">{inputDescription}</p>
-				</div>
+			<div class="grid gap-1">
+				<p class="text-xs font-medium tracking-widest text-muted-foreground uppercase">Personnel import</p>
+				<h1 class="text-2xl font-semibold tracking-tight text-foreground">{inputTitle}</h1>
+				<p class="max-w-3xl text-sm leading-relaxed text-muted-foreground">{inputDescription}</p>
 			</div>
 
-			<div class="grid min-w-[220px] gap-2 text-sm">
-				<div class="flex flex-wrap justify-end gap-2">
-					<Button
-						variant={importMode === 'create' ? 'secondary' : 'outline'}
-						size="sm"
-						type="button"
-						aria-pressed={importMode === 'create'}
-						onclick={() => setImportMode('create')}
-					>
-						Add new
-					</Button>
-					<Button
-						variant={importMode === 'merge' ? 'secondary' : 'outline'}
-						size="sm"
-						type="button"
-						aria-pressed={importMode === 'merge'}
-						onclick={() => setImportMode('merge')}
-					>
-						Backfill ETS/DEROS
-					</Button>
+			<div class="grid min-w-[220px] grid-cols-2 gap-2 text-sm">
+				<div class="rounded-lg border bg-card p-3">
+					<div class="text-xs text-muted-foreground">Active roster</div>
+					<div class="mt-1 text-lg font-semibold">{activePersonnelCount}</div>
 				</div>
-				<div class="grid grid-cols-2 gap-2">
-					<div class="rounded-lg border bg-card p-3">
-						<div class="text-xs text-muted-foreground">Active roster</div>
-						<div class="mt-1 text-lg font-semibold">{activePersonnelCount}</div>
-					</div>
-					<div class="rounded-lg border bg-card p-3">
-						<div class="text-xs text-muted-foreground">Known groups</div>
-						<div class="mt-1 text-lg font-semibold">{groups.length}</div>
-					</div>
+				<div class="rounded-lg border bg-card p-3">
+					<div class="text-xs text-muted-foreground">Known groups</div>
+					<div class="mt-1 text-lg font-semibold">{groups.length}</div>
 				</div>
 			</div>
 		</header>

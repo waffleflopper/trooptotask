@@ -7,7 +7,7 @@
 	} from '$lib/components/ui/data-table/index.js';
 	import * as DataTable from '$lib/components/ui/data-table/index.js';
 	import type { EmptyTitleLevel } from '$lib/components/ui/empty/index.js';
-	import { Button } from '$lib/components/ui/button/index.js';
+	import { WorkspaceToolbar } from '$lib/components/patterns/workspace-toolbar/index.js';
 	import RowStatus from './bulk-import-row-status.svelte';
 	import type {
 		BulkImportPreviewCellPresentation,
@@ -142,28 +142,35 @@
 	{/if}
 {/snippet}
 
-{#snippet toolbar()}
-	{#if selection}
-		<DataTable.BulkActions selectedCount={selection.selectedCount} totalCount={rows.length}>
-			{#if selectedCountLabel}
-				<span class="text-sm text-muted-foreground">{selectedCountLabel(selection.selectedCount, rows.length)}</span>
-			{/if}
-			<Button variant="outline" size="sm" onclick={() => selection.clear()} disabled={selection.selectedCount === 0}>
-				Clear
-			</Button>
-		</DataTable.BulkActions>
-	{/if}
-{/snippet}
-
 <div
 	data-slot="bulk-import-preview-table"
 	data-cell-presentation={cellPresentation}
 	class={[
-		'[&_[data-slot=data-table-toolbar]]:bg-card',
+		'grid gap-2',
 		cellPresentation === 'editable-grid' &&
 			'[&_[data-slot=table-container]]:pb-20 [&_[data-slot=input]]:h-7 [&_[data-slot=input]]:rounded-md [&_[data-slot=input]]:border-transparent [&_[data-slot=input]]:bg-transparent [&_[data-slot=input]]:px-2 [&_[data-slot=input]]:text-sm [&_[data-slot=input]]:shadow-none hover:[&_[data-slot=input]]:border-input [&_[data-slot=input]:focus-visible]:border-ring'
 	]}
 >
+	{#if selection}
+		<p class="flex flex-wrap gap-x-3 text-sm text-muted-foreground" aria-live="polite">
+			<span>{selection.selectedCount} of {rows.length} selected</span>
+			{#if selectedCountLabel}
+				<span>{selectedCountLabel(selection.selectedCount, rows.length)}</span>
+			{/if}
+		</p>
+		<WorkspaceToolbar
+			ariaLabel="{ariaLabel} selection controls"
+			items={[
+				{
+					kind: 'action',
+					id: 'clear',
+					label: 'Clear',
+					onclick: () => selection.clear(),
+					disabled: selection.selectedCount === 0
+				}
+			]}
+		/>
+	{/if}
 	<DataTable.DataTable
 		data={rows}
 		columns={previewColumns}
@@ -177,6 +184,5 @@
 		maxHeight="30rem"
 		cell={selectionCell}
 		headerCell={selectionHeader}
-		toolbar={selection ? toolbar : undefined}
 	/>
 </div>

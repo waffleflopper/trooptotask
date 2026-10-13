@@ -1,11 +1,9 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { Button } from '$lib/components/ui/button';
 	import * as PageShell from '$lib/components/patterns/page-shell';
+	import { WorkspaceToolbar, type ToolbarItem } from '$lib/components/patterns/workspace-toolbar';
 	import type { RouteTabItem } from '$lib/components/patterns/page-shell';
 	import type { PersonnelDetailHeader } from '$features/personnel/contracts';
-	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
-	import FilePlus2Icon from '@lucide/svelte/icons/file-plus-2';
 
 	interface LayoutData {
 		shell:
@@ -39,37 +37,35 @@
 			})
 		)
 	);
+	const toolbarItems = $derived<ToolbarItem[]>([
+		{ kind: 'action', id: 'upload-pdf', label: 'Upload PDF', icon: 'file-plus', href: `${detailBasePath}/documents` },
+		{ kind: 'action', id: 'roster', label: 'Roster', icon: 'arrow-left', href: `/org/${orgUrlSegment}/personnel` }
+	]);
 </script>
 
 <section class="flex min-h-full flex-col bg-background text-foreground">
 	<header class="px-6 pt-5">
-		<div class="flex flex-wrap items-start justify-between gap-4">
-			<div class="flex min-w-0 items-center gap-4">
-				<div
-					class="grid size-20 shrink-0 place-items-center rounded-md border bg-muted text-2xl font-semibold"
-					aria-hidden="true"
-				>
-					{initials}
-				</div>
-				<div class="min-w-0">
-					<p class="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Personnel view</p>
-					<h1 class="mt-1 text-3xl font-semibold tracking-tight text-foreground">{displayName}</h1>
-					<p class="mt-1 text-sm text-muted-foreground">
-						{person.groupName || shell.org.name} / {person.mos || 'No MOS'} / {person.clinicRole || 'No duty role'}
-					</p>
-				</div>
+		<div class="flex min-w-0 items-center gap-4">
+			<div
+				class="grid size-20 shrink-0 place-items-center rounded-md border bg-muted text-2xl font-semibold"
+				aria-hidden="true"
+			>
+				{initials}
 			</div>
-			<div class="flex flex-wrap items-center gap-2">
-				<Button href={`/org/${orgUrlSegment}/personnel`} variant="outline" size="sm">
-					<ArrowLeftIcon aria-hidden="true" size={15} />
-					Roster
-				</Button>
-				<Button href={`${detailBasePath}/documents`} variant="outline" size="sm">
-					<FilePlus2Icon aria-hidden="true" size={15} />
-					Upload PDF
-				</Button>
-				<Button href={`${detailBasePath}/notes`} size="sm">Add note</Button>
+			<div class="min-w-0">
+				<p class="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Personnel view</p>
+				<h1 class="mt-1 text-3xl font-semibold tracking-tight text-foreground">{displayName}</h1>
+				<p class="mt-1 text-sm text-muted-foreground">
+					{person.groupName || shell.org.name} / {person.mos || 'No MOS'} / {person.clinicRole || 'No duty role'}
+				</p>
 			</div>
+		</div>
+		<div class="mt-4">
+			<WorkspaceToolbar
+				ariaLabel="Personnel record controls"
+				items={toolbarItems}
+				primary={{ kind: 'action', id: 'add-note', label: 'Add note', href: `${detailBasePath}/notes` }}
+			/>
 		</div>
 		<PageShell.Tabs class="mt-5" items={sectionTabs} label="Personnel detail sections" />
 	</header>

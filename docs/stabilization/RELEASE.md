@@ -503,3 +503,13 @@ Applying it replaces `password_change_attempt` with the same signature and grant
 The two sides are compatible in either order. The application calls the function exactly as before, so until the migration runs a later sign-in still sees the stale password message. The MFA code limit uses the existing `check_durable_rate_limit` function, and the session, CSP and request-limit changes need no schema. Apply the migration whenever convenient after merge, then confirm through ordinary use that a fresh sign-in's Account Security shows the password form after an earlier change.
 
 Repository CI operates disposable local databases and performs no remote migration. External production deployment settings are uninspected.
+
+## Phase 11 D04 governance direct-write authority
+
+Robert applies [`supabase/migrations/20261012000400_governance_direct_write_authority.sql`](../../supabase/migrations/20261012000400_governance_direct_write_authority.sql), SHA-256 `5d30cd4a4bc165bed0d8d1a067fcdc3c9ee92ed4b297901e8b360b08157eaae5`, through his normal ordered migration procedure. Its repository predecessor is D03's `20261012000300`; the agent has not inspected the hosted ledger.
+
+Applying it replaces the membership, Organization and invitation write policies and column grants, adds `current_session_sensitive_action_assured`, a scope-Group trigger on memberships and invitations, and replaces `can_export_organization_data` and `transfer_org_ownership` with the same signatures. It revokes any pending invitation that carries the `owner` role and rewrites no other row. Direct authenticated writes lose the governance paths the application never used; every supported writer keeps working.
+
+The two sides are compatible in either order. The application already writes only the granted columns through the request client, uses RPCs or the service role elsewhere, and checks step-up before the four assured paths. Before the migration, a member with the legacy `canManageMembers` override can still read the rank catalog directly. Apply the migration after merge, then confirm through ordinary use that an owner can invite a member and save member access.
+
+Repository CI operates disposable local databases and performs no remote migration. External production deployment settings are uninspected.

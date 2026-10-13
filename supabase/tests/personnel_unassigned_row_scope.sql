@@ -54,11 +54,13 @@ SELECT throws_ok($$ UPDATE public.personnel SET group_id = NULL
 ROLLBACK TO SAVEPOINT denied_group_writes;
 WITH changed AS (UPDATE public.personnel SET first_name = 'Edited' WHERE id = 'd6000000-0000-4000-8000-000000000302' RETURNING id)
 SELECT is(count(*)::integer, 1, 'Group member can edit archived in-Group Person') FROM changed;
+SAVEPOINT group_import;
 SELECT lives_ok($$ INSERT INTO public.personnel (organization_id, group_id, rank, first_name, last_name, slug)
   VALUES ('d6000000-0000-4000-8000-000000000101', 'd6000000-0000-4000-8000-000000000201', 'SPC', 'New', 'Alpha', 'personnel-scope-new-alpha') $$,
-  'Group member can create assigned in-Group Person');
+  'Group member can import assigned in-Group Person');
 WITH removed AS (DELETE FROM public.personnel WHERE slug = 'personnel-scope-new-alpha' RETURNING id)
-SELECT is(count(*)::integer, 1, 'Group member can delete in-Group Person') FROM removed;
+SELECT is(count(*)::integer, 0, 'Group operate member cannot permanently delete in-Group Person') FROM removed;
+ROLLBACK TO SAVEPOINT group_import;
 
 SELECT set_config('request.jwt.claim.sub', 'd6000000-0000-4000-8000-000000000005', true);
 SELECT is((SELECT count(*)::integer FROM public.personnel), 2, 'Group viewer reads in-Group active and archived Personnel');

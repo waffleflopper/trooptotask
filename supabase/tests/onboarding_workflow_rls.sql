@@ -69,10 +69,14 @@ SELECT is((SELECT count(*)::integer FROM public.personnel_onboardings), 3, 'Onbo
 SELECT is((SELECT count(*)::integer FROM public.onboarding_step_progress), 3, 'Onboarding-only operator reads step progress');
 SELECT lives_ok($$ UPDATE public.personnel_onboardings SET status = 'completed' WHERE id = 'a5000000-0000-4000-8000-000000000702' $$, 'Onboarding-only operator updates workflow');
 SELECT lives_ok($$ UPDATE public.onboarding_step_progress SET completed = true WHERE id = 'a5000000-0000-4000-8000-000000000801' $$, 'Onboarding-only operator updates progress');
+SAVEPOINT operator_workflow_rows;
 SELECT lives_ok($$ INSERT INTO public.personnel_onboardings (id, organization_id, personnel_id, status) VALUES ('a5000000-0000-4000-8000-000000000705', 'a5000000-0000-4000-8000-000000000101', 'a5000000-0000-4000-8000-000000000301', 'cancelled') $$, 'Onboarding-only operator inserts workflow');
-SELECT lives_ok($$ INSERT INTO public.onboarding_step_progress (id, organization_id, onboarding_id, step_name, step_type) VALUES ('a5000000-0000-4000-8000-000000000805', 'a5000000-0000-4000-8000-000000000101', 'a5000000-0000-4000-8000-000000000705', 'New', 'checkbox') $$, 'Onboarding-only operator inserts progress');
-SELECT lives_ok($$ DELETE FROM public.onboarding_step_progress WHERE id = 'a5000000-0000-4000-8000-000000000805' $$, 'Onboarding-only operator deletes progress');
-SELECT lives_ok($$ DELETE FROM public.personnel_onboardings WHERE id = 'a5000000-0000-4000-8000-000000000705' $$, 'Onboarding-only operator deletes workflow');
+SELECT lives_ok($$ INSERT INTO public.onboarding_step_progress (id, organization_id, onboarding_id, step_name, step_type, active) VALUES ('a5000000-0000-4000-8000-000000000805', 'a5000000-0000-4000-8000-000000000101', 'a5000000-0000-4000-8000-000000000705', 'New', 'checkbox', false) $$, 'Onboarding-only operator inserts progress');
+WITH removed AS (DELETE FROM public.onboarding_step_progress WHERE id = 'a5000000-0000-4000-8000-000000000805' RETURNING id)
+SELECT is(count(*)::integer, 1, 'Onboarding-only operator deletes inactive progress') FROM removed;
+WITH removed AS (DELETE FROM public.personnel_onboardings WHERE id = 'a5000000-0000-4000-8000-000000000705' RETURNING id)
+SELECT is(count(*)::integer, 0, 'Onboarding-only operator cannot delete workflow') FROM removed;
+ROLLBACK TO SAVEPOINT operator_workflow_rows;
 
 SELECT set_config('request.jwt.claim.sub', 'a5000000-0000-4000-8000-000000000002', true);
 SELECT is((SELECT count(*)::integer FROM public.personnel_onboardings), 3, 'Onboarding viewer reads workflow');

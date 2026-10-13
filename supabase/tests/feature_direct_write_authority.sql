@@ -1,0 +1,322 @@
+-- Direct feature-record writes follow the same operation rules as the app:
+-- Personnel lifecycle needs configure and archive-before-delete, approval-gated
+-- deletes keep their stronger authority, Onboarding configuration and note
+-- authorship stay with their commands, and deletion requests start pending.
+BEGIN;
+
+CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
+
+SELECT no_plan();
+
+INSERT INTO auth.users (id, email) VALUES
+	('f4000000-0000-4000-8000-000000000001', 'feature-writes-owner@example.test'),
+	('f4000000-0000-4000-8000-000000000002', 'feature-writes-operator@example.test'),
+	('f4000000-0000-4000-8000-000000000003', 'feature-writes-configurator@example.test'),
+	('f4000000-0000-4000-8000-000000000004', 'feature-writes-admin@example.test'),
+	('f4000000-0000-4000-8000-000000000005', 'feature-writes-unrelated@example.test'),
+	('f4000000-0000-4000-8000-000000000006', 'feature-writes-viewer@example.test');
+
+INSERT INTO public.organizations (id, name, created_by) VALUES
+	('f4000000-0000-4000-8000-000000000101', 'Feature Writes Alpha', 'f4000000-0000-4000-8000-000000000001'),
+	('f4000000-0000-4000-8000-000000000102', 'Feature Writes Bravo', 'f4000000-0000-4000-8000-000000000005');
+
+INSERT INTO public.groups (id, organization_id, name) VALUES
+	('f4000000-0000-4000-8000-000000000201', 'f4000000-0000-4000-8000-000000000101', 'Alpha'),
+	('f4000000-0000-4000-8000-000000000202', 'f4000000-0000-4000-8000-000000000101', 'Bravo'),
+	('f4000000-0000-4000-8000-000000000203', 'f4000000-0000-4000-8000-000000000102', 'Foreign');
+
+INSERT INTO public.organization_memberships (organization_id, user_id, role, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids) VALUES
+	('f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000001', 'owner', 'editor', '{}', 'organization', ARRAY[]::uuid[]),
+	('f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000002', 'member', 'viewer',
+		'{"personnel":"operate","training":"operate","ratingScheme":"operate","onboarding":"operate"}', 'groups', ARRAY['f4000000-0000-4000-8000-000000000201']::uuid[]),
+	('f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000003', 'member', 'viewer',
+		'{"personnel":"configure","training":"configure","ratingScheme":"configure","onboarding":"configure"}', 'groups', ARRAY['f4000000-0000-4000-8000-000000000201']::uuid[]),
+	('f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000004', 'admin', 'editor', '{}', 'organization', ARRAY[]::uuid[]),
+	('f4000000-0000-4000-8000-000000000102', 'f4000000-0000-4000-8000-000000000005', 'owner', 'editor', '{}', 'organization', ARRAY[]::uuid[]),
+	('f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000006', 'member', 'viewer', '{}', 'organization', ARRAY[]::uuid[]);
+
+INSERT INTO public.personnel (id, organization_id, group_id, rank, first_name, last_name, slug, archived_at) VALUES
+	('f4000000-0000-4000-8000-000000000301', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000201', 'SGT', 'Avery', 'Active', 'feature-writes-active', NULL),
+	('f4000000-0000-4000-8000-000000000302', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000201', 'SPC', 'Blake', 'Archived', 'feature-writes-archived', '2029-01-01T00:00:00Z'),
+	('f4000000-0000-4000-8000-000000000303', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000201', 'PFC', 'Casey', 'Retired', 'feature-writes-retired', '2029-01-01T00:00:00Z'),
+	('f4000000-0000-4000-8000-000000000304', 'f4000000-0000-4000-8000-000000000102', 'f4000000-0000-4000-8000-000000000203', 'SSG', 'Drew', 'Foreign', 'feature-writes-foreign', NULL);
+
+INSERT INTO public.training_types (id, organization_id, name) VALUES
+	('f4000000-0000-4000-8000-000000000401', 'f4000000-0000-4000-8000-000000000101', 'Alpha CLS'),
+	('f4000000-0000-4000-8000-000000000402', 'f4000000-0000-4000-8000-000000000101', 'Alpha Range');
+
+INSERT INTO public.personnel_trainings (id, organization_id, personnel_id, training_type_id, completion_date) VALUES
+	('f4000000-0000-4000-8000-000000000411', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000301', 'f4000000-0000-4000-8000-000000000401', '2030-01-01'),
+	('f4000000-0000-4000-8000-000000000412', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000301', 'f4000000-0000-4000-8000-000000000402', '2030-02-01');
+
+INSERT INTO public.rating_scheme_entries (id, organization_id, rated_person_id, eval_type, rater_person_id, rating_period_start, rating_period_end, status) VALUES
+	('f4000000-0000-4000-8000-000000000421', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000301', 'NCOER', 'f4000000-0000-4000-8000-000000000301', '2030-01-01', '2030-12-31', 'active'),
+	('f4000000-0000-4000-8000-000000000422', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000301', 'NCOER', 'f4000000-0000-4000-8000-000000000301', '2031-01-01', '2031-12-31', 'active');
+
+INSERT INTO public.counseling_records (id, organization_id, personnel_id, date_conducted, subject, title, uploaded_by, archived_at) VALUES
+	('f4000000-0000-4000-8000-000000000501', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000301', '2030-01-01', 'Active counseling', 'Active counseling', 'fixture', NULL),
+	('f4000000-0000-4000-8000-000000000502', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000301', '2030-01-02', 'Archived counseling', 'Archived counseling', 'fixture', '2030-03-01T00:00:00Z');
+INSERT INTO public.personnel_documents (id, organization_id, personnel_id, title, file_path, file_size_bytes, content_type, uploaded_by, archived_at) VALUES
+	('f4000000-0000-4000-8000-000000000511', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000301', 'Active document',
+		'f4000000-0000-4000-8000-000000000101/personnel/f4000000-0000-4000-8000-000000000301/documents/active.pdf', 128, 'application/pdf', 'fixture', NULL),
+	('f4000000-0000-4000-8000-000000000512', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000301', 'Archived document',
+		'f4000000-0000-4000-8000-000000000101/personnel/f4000000-0000-4000-8000-000000000301/documents/archived.pdf', 128, 'application/pdf', 'fixture', '2030-03-01T00:00:00Z');
+INSERT INTO public.leader_notes (id, organization_id, personnel_id, author, text, archived_at) VALUES
+	('f4000000-0000-4000-8000-000000000521', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000301', 'fixture', 'Active note', NULL),
+	('f4000000-0000-4000-8000-000000000522', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000301', 'fixture', 'Archived note', '2030-03-01T00:00:00Z');
+INSERT INTO public.personnel_follow_ups (id, organization_id, personnel_id, title, notes, due_date, status, created_by, archived_at) VALUES
+	('f4000000-0000-4000-8000-000000000531', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000301', 'Open follow-up', 'Private', '2030-02-01', 'open', 'fixture', NULL),
+	('f4000000-0000-4000-8000-000000000532', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000301', 'Archived follow-up', 'Private', '2030-02-01', 'archived', 'fixture', '2030-03-01T00:00:00Z');
+
+INSERT INTO public.onboarding_templates (id, organization_id, name) VALUES
+	('f4000000-0000-4000-8000-000000000601', 'f4000000-0000-4000-8000-000000000101', 'Alpha Packet'),
+	('f4000000-0000-4000-8000-000000000602', 'f4000000-0000-4000-8000-000000000101', 'Alpha Replacement'),
+	('f4000000-0000-4000-8000-000000000603', 'f4000000-0000-4000-8000-000000000102', 'Foreign Packet');
+INSERT INTO public.onboarding_template_steps (id, organization_id, template_id, name, step_type) VALUES
+	('f4000000-0000-4000-8000-000000000611', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000601', 'Alpha Step', 'checkbox');
+INSERT INTO public.personnel_onboardings (id, organization_id, personnel_id, template_id, status) VALUES
+	('f4000000-0000-4000-8000-000000000701', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000301', 'f4000000-0000-4000-8000-000000000601', 'in_progress');
+INSERT INTO public.onboarding_step_progress (id, organization_id, onboarding_id, template_step_id, step_name, step_type, active, notes) VALUES
+	('f4000000-0000-4000-8000-000000000711', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000701', 'f4000000-0000-4000-8000-000000000611', 'Alpha Step', 'checkbox', true, '[]'),
+	('f4000000-0000-4000-8000-000000000712', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000701', NULL, 'Removed Step', 'checkbox', false, '[]'),
+	('f4000000-0000-4000-8000-000000000713', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000701', NULL, 'Noted Step', 'checkbox', true,
+		'[{"text":"Original","timestamp":"2030-01-01T00:00:00.000Z","userId":"f4000000-0000-4000-8000-000000000001"}]');
+
+INSERT INTO public.deletion_requests (id, organization_id, requested_by, requested_by_email, resource_type, resource_id, resource_description, status) VALUES
+	('f4000000-0000-4000-8000-000000000801', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000006', 'feature-writes-viewer@example.test',
+		'personnel', 'f4000000-0000-4000-8000-000000000301', 'Archive SGT Active, Avery', 'pending');
+
+CREATE FUNCTION pg_temp.act_as(p_user_id uuid) RETURNS void
+LANGUAGE sql AS $$
+	SELECT set_config('request.jwt.claim.sub', p_user_id::text, true),
+		set_config('request.jwt.claims', json_build_object('sub', p_user_id, 'role', 'authenticated')::text, true);
+$$;
+
+SET LOCAL ROLE authenticated;
+
+-- Personnel lifecycle: operate edits and imports; configure archives, restores
+-- and permanently deletes only archived People.
+SELECT pg_temp.act_as('f4000000-0000-4000-8000-000000000002');
+WITH changed AS (
+	UPDATE public.personnel SET first_name = 'Edited' WHERE id = 'f4000000-0000-4000-8000-000000000301' RETURNING id
+) SELECT is((SELECT count(*)::integer FROM changed), 1, 'a Group operator still edits an in-Group Person');
+SELECT throws_ok($$ UPDATE public.personnel SET archived_at = '2030-06-01T00:00:00Z' WHERE id = 'f4000000-0000-4000-8000-000000000301' $$,
+	'42501', NULL, 'a Group operator cannot archive a Person directly');
+SELECT throws_ok($$ UPDATE public.personnel SET archived_at = NULL WHERE id = 'f4000000-0000-4000-8000-000000000302' $$,
+	'42501', NULL, 'a Group operator cannot restore a Person directly');
+SAVEPOINT operator_person_delete;
+WITH removed AS (
+	DELETE FROM public.personnel WHERE id IN ('f4000000-0000-4000-8000-000000000301', 'f4000000-0000-4000-8000-000000000302') RETURNING id
+) SELECT is((SELECT count(*)::integer FROM removed), 0, 'a Group operator cannot permanently delete active or archived People');
+ROLLBACK TO SAVEPOINT operator_person_delete;
+SELECT lives_ok($$ INSERT INTO public.personnel (organization_id, group_id, rank, first_name, last_name, slug)
+	VALUES ('f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000201', 'PV2', 'Imported', 'Alpha', 'feature-writes-imported') $$,
+	'a Group operator imports a new in-Group Person');
+SELECT throws_ok($$ INSERT INTO public.personnel (organization_id, group_id, rank, first_name, last_name, slug, archived_at)
+	VALUES ('f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000201', 'PV2', 'Archived', 'Import', 'feature-writes-archived-import', '2030-01-01T00:00:00Z') $$,
+	'42501', NULL, 'a Group operator cannot create an already archived Person');
+
+SELECT pg_temp.act_as('f4000000-0000-4000-8000-000000000003');
+WITH archived AS (
+	UPDATE public.personnel SET archived_at = '2030-06-01T00:00:00Z' WHERE id = 'f4000000-0000-4000-8000-000000000301' RETURNING id
+) SELECT is((SELECT count(*)::integer FROM archived), 1, 'a Group configurator archives an in-Group Person');
+WITH restored AS (
+	UPDATE public.personnel SET archived_at = NULL WHERE id = 'f4000000-0000-4000-8000-000000000301' RETURNING id
+) SELECT is((SELECT count(*)::integer FROM restored), 1, 'a Group configurator restores an in-Group Person');
+SAVEPOINT configurator_active_delete;
+WITH removed AS (
+	DELETE FROM public.personnel WHERE id = 'f4000000-0000-4000-8000-000000000301' RETURNING id
+) SELECT is((SELECT count(*)::integer FROM removed), 0, 'permanent deletion requires an archived Person');
+ROLLBACK TO SAVEPOINT configurator_active_delete;
+WITH removed AS (
+	DELETE FROM public.personnel WHERE id = 'f4000000-0000-4000-8000-000000000303' RETURNING id
+) SELECT is((SELECT count(*)::integer FROM removed), 1, 'a Group configurator permanently deletes an archived in-Group Person');
+
+-- Approval-gated hard deletes keep their app authority.
+SELECT pg_temp.act_as('f4000000-0000-4000-8000-000000000002');
+WITH removed AS (
+	DELETE FROM public.personnel_trainings WHERE id = 'f4000000-0000-4000-8000-000000000411' RETURNING id
+) SELECT is((SELECT count(*)::integer FROM removed), 0, 'a Training operator cannot hard-delete a training record');
+WITH removed AS (
+	DELETE FROM public.rating_scheme_entries WHERE id = 'f4000000-0000-4000-8000-000000000421' RETURNING id
+) SELECT is((SELECT count(*)::integer FROM removed), 0, 'a Rating Scheme operator cannot delete an entry');
+
+SELECT pg_temp.act_as('f4000000-0000-4000-8000-000000000003');
+WITH removed AS (
+	DELETE FROM public.personnel_trainings WHERE id = 'f4000000-0000-4000-8000-000000000412' RETURNING id
+) SELECT is((SELECT count(*)::integer FROM removed), 1, 'a Training configurator hard-deletes an in-Group training record');
+WITH removed AS (
+	DELETE FROM public.rating_scheme_entries WHERE id = 'f4000000-0000-4000-8000-000000000421' RETURNING id
+) SELECT is((SELECT count(*)::integer FROM removed), 0, 'Rating Scheme configure without governance cannot delete an entry');
+WITH
+	counseling AS (DELETE FROM public.counseling_records WHERE id = 'f4000000-0000-4000-8000-000000000501' RETURNING id),
+	documents AS (DELETE FROM public.personnel_documents WHERE id = 'f4000000-0000-4000-8000-000000000511' RETURNING id),
+	notes AS (DELETE FROM public.leader_notes WHERE id = 'f4000000-0000-4000-8000-000000000521' RETURNING id),
+	follow_ups AS (DELETE FROM public.personnel_follow_ups WHERE id = 'f4000000-0000-4000-8000-000000000531' RETURNING id)
+SELECT is(
+	ARRAY[(SELECT count(*) FROM counseling), (SELECT count(*) FROM documents), (SELECT count(*) FROM notes), (SELECT count(*) FROM follow_ups)],
+	ARRAY[0, 0, 0, 0]::bigint[],
+	'active counseling records, documents, leader notes and follow-ups must be archived before deletion');
+WITH
+	counseling AS (DELETE FROM public.counseling_records WHERE id = 'f4000000-0000-4000-8000-000000000502' RETURNING id),
+	documents AS (DELETE FROM public.personnel_documents WHERE id = 'f4000000-0000-4000-8000-000000000512' RETURNING id),
+	notes AS (DELETE FROM public.leader_notes WHERE id = 'f4000000-0000-4000-8000-000000000522' RETURNING id),
+	follow_ups AS (DELETE FROM public.personnel_follow_ups WHERE id = 'f4000000-0000-4000-8000-000000000532' RETURNING id)
+SELECT is(
+	ARRAY[(SELECT count(*) FROM counseling), (SELECT count(*) FROM documents), (SELECT count(*) FROM notes), (SELECT count(*) FROM follow_ups)],
+	ARRAY[1, 1, 1, 1]::bigint[],
+	'archived counseling records, documents, leader notes and follow-ups can be deleted');
+
+SELECT pg_temp.act_as('f4000000-0000-4000-8000-000000000004');
+WITH removed AS (
+	DELETE FROM public.rating_scheme_entries WHERE id = 'f4000000-0000-4000-8000-000000000422' RETURNING id
+) SELECT is((SELECT count(*)::integer FROM removed), 1, 'an admin deletes a Rating Scheme entry');
+
+-- Stored artifact files stay under their own Organization and Person.
+SELECT pg_temp.act_as('f4000000-0000-4000-8000-000000000002');
+SELECT throws_ok($$ INSERT INTO public.counseling_records (organization_id, personnel_id, date_conducted, subject, title, uploaded_by, file_path)
+	VALUES ('f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000301', '2030-04-01', 'Crafted', 'Crafted', 'fixture',
+		'f4000000-0000-4000-8000-000000000102/counseling-records/f4000000-0000-4000-8000-000000000304/foreign.pdf') $$,
+	'23514', NULL, 'a counseling file path cannot point at another Organization');
+SELECT throws_ok($$ INSERT INTO public.personnel_documents (organization_id, personnel_id, title, file_path, file_size_bytes, content_type, uploaded_by)
+	VALUES ('f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000301', 'Crafted',
+		'f4000000-0000-4000-8000-000000000101/personnel/f4000000-0000-4000-8000-000000000301/documents/../../f4000000-0000-4000-8000-000000000302/documents/other.pdf', 128, 'application/pdf', 'fixture') $$,
+	'23514', NULL, 'a document file path cannot traverse to another Person');
+SELECT lives_ok($$ INSERT INTO public.counseling_records (organization_id, personnel_id, date_conducted, subject, title, uploaded_by, file_path)
+	VALUES ('f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000301', '2030-04-01', 'Bound', 'Bound', 'fixture',
+		'f4000000-0000-4000-8000-000000000101/counseling-records/f4000000-0000-4000-8000-000000000301/bound.pdf') $$,
+	'a counseling file path under its own Person is accepted');
+SELECT pg_temp.act_as('f4000000-0000-4000-8000-000000000003');
+SELECT throws_ok($$ UPDATE public.personnel_documents SET personnel_id = 'f4000000-0000-4000-8000-000000000302'
+	WHERE id = 'f4000000-0000-4000-8000-000000000511' $$,
+	'23514', NULL, 'a document cannot move to another Person while its file stays behind');
+
+-- Onboarding: operate changes progress and lifecycle status; template
+-- choice, step shape and removal of active work need configure commands.
+SELECT pg_temp.act_as('f4000000-0000-4000-8000-000000000002');
+SELECT throws_ok($$ UPDATE public.personnel_onboardings SET template_id = 'f4000000-0000-4000-8000-000000000602'
+	WHERE id = 'f4000000-0000-4000-8000-000000000701' $$,
+	'42501', NULL, 'an Onboarding operator cannot switch a packet template directly');
+SAVEPOINT operator_lifecycle;
+WITH changed AS (
+	UPDATE public.personnel_onboardings SET status = 'cancelled', cancelled_at = '2030-05-01T00:00:00Z'
+	WHERE id = 'f4000000-0000-4000-8000-000000000701' RETURNING id
+) SELECT is((SELECT count(*)::integer FROM changed), 1, 'an Onboarding operator still cancels a packet');
+ROLLBACK TO SAVEPOINT operator_lifecycle;
+SAVEPOINT operator_packet_delete;
+WITH removed AS (
+	DELETE FROM public.personnel_onboardings WHERE id = 'f4000000-0000-4000-8000-000000000701' RETURNING id
+) SELECT is((SELECT count(*)::integer FROM removed), 0, 'an Onboarding operator cannot delete a packet and its active steps');
+ROLLBACK TO SAVEPOINT operator_packet_delete;
+WITH removed AS (
+	DELETE FROM public.onboarding_step_progress WHERE id = 'f4000000-0000-4000-8000-000000000711' RETURNING id
+) SELECT is((SELECT count(*)::integer FROM removed), 0, 'an Onboarding operator cannot remove an active step');
+WITH removed AS (
+	DELETE FROM public.onboarding_step_progress WHERE id = 'f4000000-0000-4000-8000-000000000712' RETURNING id
+) SELECT is((SELECT count(*)::integer FROM removed), 1, 'an Onboarding operator removes an inactive step');
+SELECT throws_ok($$ UPDATE public.onboarding_step_progress SET active = false WHERE id = 'f4000000-0000-4000-8000-000000000711' $$,
+	'42501', NULL, 'an Onboarding operator cannot deactivate a step directly');
+SELECT throws_ok($$ UPDATE public.onboarding_step_progress SET step_name = 'Renamed' WHERE id = 'f4000000-0000-4000-8000-000000000711' $$,
+	'42501', NULL, 'an Onboarding operator cannot rename a step directly');
+WITH changed AS (
+	UPDATE public.onboarding_step_progress SET completed = true WHERE id = 'f4000000-0000-4000-8000-000000000711' RETURNING id
+) SELECT is((SELECT count(*)::integer FROM changed), 1, 'an Onboarding operator still completes a step');
+SELECT throws_ok($$ UPDATE public.onboarding_step_progress
+	SET notes = '[{"text":"Forged","timestamp":"2030-01-01T00:00:00.000Z","userId":"f4000000-0000-4000-8000-000000000001"}]'
+	WHERE id = 'f4000000-0000-4000-8000-000000000713' $$,
+	'42501', NULL, 'an Onboarding operator cannot replace saved notes');
+SELECT throws_ok($$ UPDATE public.onboarding_step_progress
+	SET notes = notes || '[{"text":"Forged","timestamp":"2030-01-02T00:00:00.000Z","userId":"f4000000-0000-4000-8000-000000000001"}]'
+	WHERE id = 'f4000000-0000-4000-8000-000000000713' $$,
+	'42501', NULL, 'an Onboarding operator cannot append a note under another author');
+SELECT throws_ok($$ INSERT INTO public.onboarding_step_progress (organization_id, onboarding_id, step_name, step_type, notes)
+	VALUES ('f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000701', 'Seeded', 'checkbox',
+		'[{"text":"Forged","timestamp":"2030-01-01T00:00:00.000Z","userId":"f4000000-0000-4000-8000-000000000001"}]') $$,
+	'42501', NULL, 'an Onboarding operator cannot create a step with notes');
+SELECT is(
+	(SELECT public.append_onboarding_step_note('f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000713', 'Own note') -> 'notes' -> 1 ->> 'userId'),
+	'f4000000-0000-4000-8000-000000000002',
+	'an Onboarding operator appends an attributed note through the command');
+SELECT is(
+	ARRAY[
+		public.onboarding_template_reference_matches('f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000601'),
+		public.onboarding_template_reference_matches('f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000603')
+	],
+	ARRAY[true, false],
+	'an in-Organization operator matches its own template and not a foreign one');
+
+-- Reference helpers reveal nothing to accounts outside the Organization.
+SELECT pg_temp.act_as('f4000000-0000-4000-8000-000000000005');
+SELECT is(
+	ARRAY[
+		public.onboarding_template_reference_matches('f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000601'),
+		public.onboarding_template_reference_matches('f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000699'),
+		public.onboarding_step_references_match('f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000611', NULL),
+		public.onboarding_step_references_match('f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000699', NULL),
+		public.onboarding_step_references_match('f4000000-0000-4000-8000-000000000101', NULL, 'f4000000-0000-4000-8000-000000000401'),
+		public.onboarding_step_references_match('f4000000-0000-4000-8000-000000000101', NULL, 'f4000000-0000-4000-8000-000000000499')
+	],
+	ARRAY[false, false, false, false, false, false],
+	'an unrelated account cannot tell saved template, step or Training type IDs from missing ones');
+
+-- Deletion requests start pending and leave history through cancellation.
+SELECT pg_temp.act_as('f4000000-0000-4000-8000-000000000006');
+SELECT throws_ok($$ INSERT INTO public.deletion_requests (organization_id, requested_by, requested_by_email, resource_type, resource_id, resource_description, status)
+	VALUES ('f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000006', 'feature-writes-viewer@example.test',
+		'personnel', 'f4000000-0000-4000-8000-000000000302', 'Archive SPC Archived, Blake', 'approved') $$,
+	'42501', NULL, 'a requester cannot create an approved request');
+SELECT throws_ok($$ INSERT INTO public.deletion_requests (organization_id, requested_by, requested_by_email, resource_type, resource_id, resource_description, reviewed_by, reviewed_at)
+	VALUES ('f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000006', 'feature-writes-viewer@example.test',
+		'personnel', 'f4000000-0000-4000-8000-000000000302', 'Archive SPC Archived, Blake', 'f4000000-0000-4000-8000-000000000004', '2030-01-01T00:00:00Z') $$,
+	'42501', NULL, 'a requester cannot create a request with review fields');
+SELECT lives_ok($$ INSERT INTO public.deletion_requests (organization_id, requested_by, requested_by_email, resource_type, resource_id, resource_description)
+	VALUES ('f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000006', 'feature-writes-viewer@example.test',
+		'personnel_training', 'f4000000-0000-4000-8000-000000000411', 'Alpha CLS record for SGT Active') $$,
+	'a requester creates a pending request');
+SAVEPOINT requester_delete;
+WITH removed AS (
+	DELETE FROM public.deletion_requests WHERE id = 'f4000000-0000-4000-8000-000000000801' RETURNING id
+) SELECT is((SELECT count(*)::integer FROM removed), 0, 'a requester cannot delete their pending request');
+ROLLBACK TO SAVEPOINT requester_delete;
+SELECT ok(public.cancel_own_deletion_request('f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000801'),
+	'a requester cancels their pending request through the command');
+
+RESET ROLE;
+
+SELECT ok(to_regprocedure('public.is_full_editor_for_org(uuid)') IS NULL,
+	'the unused legacy full-editor helper no longer exists');
+
+SELECT results_eq(
+	$$
+	SELECT 'personnel:' || id || ':' || first_name || ':' || COALESCE(archived_at::text, 'active') FROM public.personnel
+		WHERE organization_id = 'f4000000-0000-4000-8000-000000000101' AND slug NOT LIKE 'feature-writes-imported%'
+	UNION ALL SELECT 'training:' || id FROM public.personnel_trainings WHERE organization_id = 'f4000000-0000-4000-8000-000000000101'
+	UNION ALL SELECT 'rating:' || id FROM public.rating_scheme_entries WHERE organization_id = 'f4000000-0000-4000-8000-000000000101'
+	UNION ALL SELECT 'counseling:' || id FROM public.counseling_records WHERE organization_id = 'f4000000-0000-4000-8000-000000000101' AND title <> 'Bound'
+	UNION ALL SELECT 'document:' || id || ':' || personnel_id FROM public.personnel_documents WHERE organization_id = 'f4000000-0000-4000-8000-000000000101'
+	UNION ALL SELECT 'note:' || id FROM public.leader_notes WHERE organization_id = 'f4000000-0000-4000-8000-000000000101'
+	UNION ALL SELECT 'follow-up:' || id FROM public.personnel_follow_ups WHERE organization_id = 'f4000000-0000-4000-8000-000000000101'
+	UNION ALL SELECT 'packet:' || id || ':' || template_id || ':' || status FROM public.personnel_onboardings WHERE organization_id = 'f4000000-0000-4000-8000-000000000101'
+	UNION ALL SELECT 'step:' || id || ':' || step_name || ':' || active || ':' || completed || ':' || jsonb_array_length(notes)
+		FROM public.onboarding_step_progress WHERE organization_id = 'f4000000-0000-4000-8000-000000000101' AND step_name <> 'Seeded'
+	UNION ALL SELECT 'request:' || id || ':' || status FROM public.deletion_requests WHERE id = 'f4000000-0000-4000-8000-000000000801'
+	ORDER BY 1
+	$$,
+	$$ VALUES
+		('counseling:f4000000-0000-4000-8000-000000000501'),
+		('document:f4000000-0000-4000-8000-000000000511:f4000000-0000-4000-8000-000000000301'),
+		('follow-up:f4000000-0000-4000-8000-000000000531'),
+		('note:f4000000-0000-4000-8000-000000000521'),
+		('packet:f4000000-0000-4000-8000-000000000701:f4000000-0000-4000-8000-000000000601:in_progress'),
+		('personnel:f4000000-0000-4000-8000-000000000301:Edited:active'),
+		('personnel:f4000000-0000-4000-8000-000000000302:Blake:2029-01-01 00:00:00+00'),
+		('rating:f4000000-0000-4000-8000-000000000421'),
+		('request:f4000000-0000-4000-8000-000000000801:cancelled'),
+		('step:f4000000-0000-4000-8000-000000000711:Alpha Step:true:true:0'),
+		('step:f4000000-0000-4000-8000-000000000713:Noted Step:true:false:2'),
+		('training:f4000000-0000-4000-8000-000000000411')
+	$$,
+	'denied direct writes leave exact saved rows while permitted writes persist');
+
+SELECT * FROM finish();
+ROLLBACK;

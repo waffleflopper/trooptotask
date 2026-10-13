@@ -37,7 +37,8 @@ const packet: PersonnelOnboarding = {
 			completed: false,
 			currentStage: null,
 			notes: [],
-			active: true
+			active: true,
+			progressChangedAt: '2026-09-01T12:00:00.000Z'
 		}
 	]
 };
@@ -836,7 +837,8 @@ describe('Onboarding retained interactions', () => {
 				stepName: 'Verify ID card',
 				stepType: 'checkbox',
 				completed: true,
-				currentStage: null
+				currentStage: null,
+				progressChangedAt: '2026-10-13T12:00:00.000Z'
 			})
 		);
 		await toggle.mock.results[1].value;
@@ -847,7 +849,7 @@ describe('Onboarding retained interactions', () => {
 		);
 		expect(onboardingStore.getById('packet-1')).toEqual({
 			...packet,
-			steps: [{ ...packet.steps[0], completed: true }]
+			steps: [{ ...packet.steps[0], completed: true, progressChangedAt: '2026-10-13T12:00:00.000Z' }]
 		});
 		expect(fetchMock).toHaveBeenLastCalledWith(
 			'/org/org-1/api/onboarding-steps',

@@ -18,6 +18,7 @@ function makePaperworkStep(overrides: Partial<OnboardingStepProgress> = {}): Onb
 		notes: [],
 		templateStepId: 'template-step-1',
 		active: true,
+		progressChangedAt: '2026-09-01T12:00:00.000Z',
 		...overrides
 	};
 }

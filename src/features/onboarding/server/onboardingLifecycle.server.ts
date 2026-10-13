@@ -123,7 +123,8 @@ export async function startOnboarding(ctx: OnboardingTrainingPorts, input: Start
 			currentStage: step.current_stage,
 			notes: step.notes,
 			templateStepId: step.template_step_id,
-			active: step.active
+			active: step.active,
+			progressChangedAt: step.progress_changed_at
 		}))
 	};
 }

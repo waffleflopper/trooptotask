@@ -44,6 +44,7 @@ function makeStep(overrides: Partial<OnboardingStepProgress> = {}): OnboardingSt
 		notes: [],
 		templateStepId: 'tpl-step-1',
 		active: true,
+		progressChangedAt: '2026-09-01T12:00:00.000Z',
 		...overrides
 	};
 }

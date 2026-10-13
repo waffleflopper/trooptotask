@@ -3,6 +3,12 @@ import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type { OnboardingWorkflowPersistence } from '../contracts';
 import { PACKET_FIELDS, toPacket, type PacketRow, type ProgressRow } from './onboardingPersistenceMapping.server';
 
+type CompletionRow = { id: string; started_at: string; completed_at: string };
+type SavedProgressRow = Pick<
+	ProgressRow,
+	'id' | 'onboarding_id' | 'step_name' | 'step_type' | 'completed' | 'current_stage' | 'progress_changed_at'
+>;
+
 export function createSupabaseOnboardingWorkflowPersistence(
 	client: SupabaseClient,
 	orgId: string
@@ -18,6 +24,22 @@ export function createSupabaseOnboardingWorkflowPersistence(
 			});
 			if (result.error) throw new Error((result.error as { message: string }).message);
 			return (result.data ?? []).map(toPacket);
+		},
+		async listCompletionsSince(since) {
+			const result = await selectAllSupabaseRows<CompletionRow>(async (from, to) => {
+				const { data, error } = await client
+					.from('personnel_onboardings')
+					.select('id, started_at, completed_at')
+					.eq('organization_id', orgId)
+					.eq('status', 'completed')
+					.gte('completed_at', since)
+					.order('id', { ascending: true })
+					.range(from, to)
+					.returns<CompletionRow[]>();
+				return { data, error };
+			});
+			if (result.error) throw new Error((result.error as { message: string }).message);
+			return (result.data ?? []).map((row) => ({ startedAt: row.started_at, completedAt: row.completed_at }));
 		},
 		async listSavedActivePackets() {
 			const result = await selectAllSupabaseRows<PacketRow>(async (from, to) => {
@@ -123,10 +145,8 @@ export function createSupabaseOnboardingWorkflowPersistence(
 				.update({ completed })
 				.eq('organization_id', orgId)
 				.eq('id', stepId)
-				.select('id, onboarding_id, step_name, step_type, completed, current_stage')
-				.single<
-					Pick<ProgressRow, 'id' | 'onboarding_id' | 'step_name' | 'step_type' | 'completed' | 'current_stage'>
-				>();
+				.select('id, onboarding_id, step_name, step_type, completed, current_stage, progress_changed_at')
+				.single<SavedProgressRow>();
 			if (error) throw new Error(error.message);
 			return {
 				id: data.id,
@@ -134,7 +154,8 @@ export function createSupabaseOnboardingWorkflowPersistence(
 				stepName: data.step_name,
 				stepType: data.step_type,
 				completed: data.completed,
-				currentStage: data.current_stage ?? null
+				currentStage: data.current_stage ?? null,
+				progressChangedAt: data.progress_changed_at
 			};
 		},
 		async savePaperworkProgress(stepId, currentStage, completed) {
@@ -143,10 +164,8 @@ export function createSupabaseOnboardingWorkflowPersistence(
 				.update({ current_stage: currentStage, completed })
 				.eq('organization_id', orgId)
 				.eq('id', stepId)
-				.select('id, onboarding_id, step_name, step_type, completed, current_stage')
-				.single<
-					Pick<ProgressRow, 'id' | 'onboarding_id' | 'step_name' | 'step_type' | 'completed' | 'current_stage'>
-				>();
+				.select('id, onboarding_id, step_name, step_type, completed, current_stage, progress_changed_at')
+				.single<SavedProgressRow>();
 			if (error) throw new Error(error.message);
 			return {
 				id: data.id,
@@ -154,7 +173,8 @@ export function createSupabaseOnboardingWorkflowPersistence(
 				stepName: data.step_name,
 				stepType: data.step_type,
 				completed: data.completed,
-				currentStage: data.current_stage ?? null
+				currentStage: data.current_stage ?? null,
+				progressChangedAt: data.progress_changed_at
 			};
 		},
 		async clearPacketTemplate(id) {

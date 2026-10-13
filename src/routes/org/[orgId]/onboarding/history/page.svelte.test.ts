@@ -99,7 +99,8 @@ describe('onboarding history page', () => {
 							currentStage,
 							notes: [],
 							templateStepId: null,
-							active: true
+							active: true,
+							progressChangedAt: '2026-09-01T12:00:00.000Z'
 						}
 					]
 				}

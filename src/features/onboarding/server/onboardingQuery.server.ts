@@ -6,6 +6,7 @@ import type { OnboardingQueryPorts } from './onboardingPorts.server';
 import { personnelScopeResource, type GroupPersistence } from '$features/personnel/contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { evaluateFeaturePolicy } from '$lib/access/index.server';
+import { typicalDaysToFinish, typicalWindowStart } from '../onboardingStatus';
 
 export interface FetchOnboardingBootstrapOptions {
 	mode?: OnboardingBootstrapMode;
@@ -78,17 +79,31 @@ export async function fetchOnboardingBootstrap(
 		ctx.auth.scopeSet.kind === 'groups' && mode === 'all'
 			? ctx.personnelOnboardingRoster.listRoster(ctx.auth, 'all')
 			: null;
+	// completed_at is a UTC calendar date, so the window ends on today's UTC date.
+	const today = new Date().toISOString().slice(0, 10);
+	// Active loads only open packets, so it reads completed dates separately.
+	const recentCompletions =
+		mode === 'active' ? ctx.onboardingWorkflow.listCompletionsSince(typicalWindowStart(today)) : null;
 
-	const [templateData, allOnboardings, personnel, groups, trainingTypeRows, scopePersonnel, personnelCreationRanks] =
-		await Promise.all([
-			fetchOnboardingTemplatesData(ctx),
-			ctx.onboardingWorkflow.listPackets(mode),
-			ctx.personnelOnboardingRoster.listRoster(ctx.auth, mode === 'history' ? 'all' : 'active'),
-			ctx.groups.listCatalog(),
-			ctx.trainingOnboardingReferences.listTypes(ctx.auth),
-			scopedAllPersonnel,
-			loadPersonnelCreationRanks(ctx)
-		]);
+	const [
+		templateData,
+		allOnboardings,
+		personnel,
+		groups,
+		trainingTypeRows,
+		scopePersonnel,
+		personnelCreationRanks,
+		completions
+	] = await Promise.all([
+		fetchOnboardingTemplatesData(ctx),
+		ctx.onboardingWorkflow.listPackets(mode),
+		ctx.personnelOnboardingRoster.listRoster(ctx.auth, mode === 'history' ? 'all' : 'active'),
+		ctx.groups.listCatalog(),
+		ctx.trainingOnboardingReferences.listTypes(ctx.auth),
+		scopedAllPersonnel,
+		loadPersonnelCreationRanks(ctx),
+		recentCompletions
+	]);
 
 	const templates = templateData.templates;
 	const templateSteps = templateData.templateSteps;
@@ -128,6 +143,10 @@ export async function fetchOnboardingBootstrap(
 		personnel,
 		groups,
 		trainingTypes,
-		...personnelCreationRanks
+		...personnelCreationRanks,
+		typicalDaysToFinish: typicalDaysToFinish(
+			completions?.map((completion) => ({ status: 'completed' as const, ...completion })) ?? onboardings,
+			today
+		)
 	};
 }

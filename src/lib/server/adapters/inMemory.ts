@@ -197,6 +197,7 @@ function createTestOnboardingPersistence(store: FixtureRowStore, orgId: string, 
 			options?.onboardingWorkflowFactory?.(store, orgId) ??
 			({
 				listPackets: unavailable,
+				listCompletionsSince: unavailable,
 				listSavedActivePackets: unavailable,
 				findPacketReference: unavailable,
 				findStepReference: unavailable,

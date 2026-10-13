@@ -43,6 +43,8 @@ export interface OnboardingStepProgress {
 	notes: OnboardingStepNote[];
 	templateStepId: string | null;
 	active: boolean;
+	/** When `completed` or `currentStage` last changed; notes do not count. */
+	progressChangedAt: string;
 }
 
 export interface PersonnelOnboarding {

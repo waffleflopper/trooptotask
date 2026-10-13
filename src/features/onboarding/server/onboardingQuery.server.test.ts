@@ -20,6 +20,35 @@ function makeOnboardingRow(overrides: Record<string, unknown> = {}): Record<stri
 }
 
 describe('fetchOnboardingBootstrap', () => {
+	it('gives the Active page the median days to finish over packets completed in the last 90 days', async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date('2026-10-13T12:00:00.000Z'));
+		try {
+			const ctx = createWritePortsContext({ auth: { orgId: ORG } });
+			ctx.store.seed('personnel', [{ id: 'p1', organization_id: ORG, rank: 'SPC', archived_at: null }]);
+			ctx.store.seed('personnel_onboardings', [
+				makeOnboardingRow(),
+				makeOnboardingRow({ id: 'ten', status: 'completed', started_at: '2026-09-01', completed_at: '2026-09-11' }),
+				makeOnboardingRow({ id: 'twenty', status: 'completed', started_at: '2026-09-01', completed_at: '2026-09-21' }),
+				makeOnboardingRow({ id: 'twelve', status: 'completed', started_at: '2026-10-01', completed_at: '2026-10-13' }),
+				makeOnboardingRow({ id: 'too-old', status: 'completed', started_at: '2026-05-01', completed_at: '2026-07-15' }),
+				makeOnboardingRow({
+					id: 'cancelled',
+					status: 'cancelled',
+					started_at: '2026-01-01',
+					cancelled_at: '2026-10-01'
+				})
+			]);
+
+			const result = await fetchOnboardingBootstrap(ctx, { mode: 'active' });
+
+			expect(result.onboardings.map((onboarding) => onboarding.id)).toEqual(['ob1']);
+			expect(result.typicalDaysToFinish).toBe(12);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
 	it('supplies the Organization rank catalog for Personnel creation without foreign entries', async () => {
 		const ctx = createWritePortsContext({ auth: { orgId: ORG } });
 		ctx.store.seed('organization_rank_catalog', [

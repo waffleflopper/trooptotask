@@ -9,9 +9,9 @@
 	const uid = $props.id();
 	const headingId = `final-packet-${uid}`;
 
-	function detail(step: FinalStep): string {
-		const removal = step.removed ? (step.done ? 'Previously completed' : 'Removed from template') : null;
-		return [step.stage, removal].filter(Boolean).join(' · ');
+	function removal(step: FinalStep): string | null {
+		if (!step.removed) return null;
+		return step.done ? 'Previously completed' : 'Removed from template';
 	}
 </script>
 
@@ -31,9 +31,14 @@
 					<Circle aria-hidden="true" class="size-3.5 shrink-0 text-muted-foreground/60" />
 				{/if}
 				<span class="sr-only">{step.done ? 'Done:' : 'Open:'}</span>
-				<span class="min-w-0 flex-1 text-sm">{step.name}</span>
-				{#if detail(step)}
-					<span class="font-mono text-xs text-muted-foreground">{detail(step)}</span>
+				<span class="grid min-w-0 flex-1 gap-0.5">
+					<span class="text-sm">{step.name}</span>
+					{#if removal(step)}
+						<span class="text-xs">{removal(step)}</span>
+					{/if}
+				</span>
+				{#if step.stage}
+					<span class="shrink-0 font-mono text-xs text-muted-foreground">{step.stage}</span>
 				{/if}
 			</li>
 		{/each}

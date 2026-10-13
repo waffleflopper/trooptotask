@@ -25,8 +25,8 @@ describe('final packet steps', () => {
 			])
 		).toEqual([
 			'Open: Sign orders Reviewed',
-			'Open: Legacy form Reviewed · Removed from template',
-			'Done: Old waiver Filed · Previously completed'
+			'Open: Legacy form Removed from template Reviewed',
+			'Done: Old waiver Previously completed Filed'
 		]);
 	});
 

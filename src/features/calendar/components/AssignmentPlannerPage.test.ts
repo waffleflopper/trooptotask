@@ -171,7 +171,10 @@ describe('AssignmentPlannerPage', () => {
 			allPersonnel: personnel
 		});
 
-		expect(screen.getByText('Access restricted.')).toBeTruthy();
+		expect(screen.getAllByRole('heading', { level: 1 }).map((h) => h.textContent?.trim())).toEqual([
+			'Assignment Planner'
+		]);
+		expect(screen.getByRole('heading', { level: 2, name: 'Access restricted.' })).toBeTruthy();
 		expect(screen.getByText(/Calendar operation access is required to manage monthly assignments\./)).toBeTruthy();
 	});
 

@@ -89,7 +89,7 @@
 
 	{#if !canMutate}
 		<section class="bg-card text-muted-foreground rounded-lg border px-6 py-8 text-center">
-			<h1 class="font-display mb-2 text-2xl tracking-wide uppercase">Access restricted.</h1>
+			<h2 class="font-display mb-2 text-2xl tracking-wide uppercase">Access restricted.</h2>
 			<p class="leading-relaxed">Calendar operation access is required to manage monthly assignments.</p>
 		</section>
 	{:else}

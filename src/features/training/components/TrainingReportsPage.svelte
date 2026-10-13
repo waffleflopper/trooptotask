@@ -514,8 +514,11 @@
 						/>
 					{/snippet}
 
-					<div class="mb-3">
-						<WorkspaceToolbar ariaLabel="Hot-spot grid controls" items={rowsByItems} />
+					<div class="mb-3 flex items-center gap-2">
+						<span class="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">Rows by</span>
+						<div class="min-w-0 flex-1">
+							<WorkspaceToolbar ariaLabel="Hot-spot grid controls" items={rowsByItems} />
+						</div>
 					</div>
 
 					<OperationalMatrix.Root rows={matrixRows} columns={matrixColumns} {selectedCell}>

@@ -159,6 +159,15 @@ describe('Training Reports briefing page', () => {
 		expect(within(horizon).getByRole('button', { name: '180 days' })).toBeTruthy();
 	});
 
+	it('shows the Rows by caption beside the hot-spot grid toolbar and keeps the view group named', () => {
+		renderPage(vi.fn<typeof fetch>(async () => Response.json(reportFor())));
+
+		const hotSpots = screen.getByRole('toolbar', { name: 'Hot-spot grid controls' });
+		expect(within(hotSpots).getByRole('group', { name: 'Rows by' })).toBeTruthy();
+		const caption = screen.getByText('Rows by');
+		expect(hotSpots.contains(caption)).toBe(false);
+	});
+
 	it('refetches the briefing when the horizon changes and keeps focus on the control', async () => {
 		const fetchImpl = vi.fn<typeof fetch>(async () => Response.json(reportFor({ horizonDays: 30 })));
 		renderPage(fetchImpl);

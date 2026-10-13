@@ -61,6 +61,32 @@ describe('patterns/reorder-list', () => {
 		expect(screen.getByRole('status').textContent).toBe('Orientation moved to position 3 of 3');
 	});
 
+	it('ignores the rows of a list nested inside a row when it places a drop', async () => {
+		render(ReorderListTest, { props: { nested: true } });
+		const tops: Record<string, [number, number]> = {
+			Orientation: [0, 120],
+			N1: [10, 40],
+			N2: [50, 40],
+			Paperwork: [120, 40],
+			Training: [160, 40]
+		};
+		for (const row of document.querySelectorAll<HTMLElement>('[data-reorder-id]')) {
+			const [top, height] = tops[row.dataset.reorderId!];
+			row.getBoundingClientRect = () => ({ top, height, bottom: top + height }) as DOMRect;
+		}
+		const grip = screen.getByRole('button', { name: 'Reorder Training' });
+
+		await fireEvent.pointerDown(grip, { button: 0, pointerId: 1, pointerType: 'mouse' });
+		await fireEvent.pointerMove(grip, { clientY: 100, pointerId: 1 });
+		await fireEvent.pointerUp(grip, { pointerId: 1 });
+		await tick();
+
+		const outer = [...screen.getByRole('list', { name: 'Steps' }).children].map(
+			(row) => (row as HTMLElement).dataset.reorderId
+		);
+		expect(outer).toEqual(['Orientation', 'Training', 'Paperwork']);
+	});
+
 	it('leaves the order alone when the drag ends where it began or is cancelled', async () => {
 		const onmoved = vi.fn();
 		render(ReorderListTest, { props: { onmoved } });

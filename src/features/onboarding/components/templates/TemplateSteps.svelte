@@ -62,12 +62,15 @@
 							{/if}
 							<span class="mt-0.5 min-w-6 font-mono text-xs text-muted-foreground">{stepPosition(index)}</span>
 							<div class="grid min-w-0 flex-1 gap-0.5">
+								<span class="font-mono text-xs tracking-wider text-muted-foreground uppercase sm:hidden">
+									{STEP_TYPE_LABELS[step.stepType]}
+								</span>
 								<span class="truncate text-sm font-semibold text-foreground">{step.name}</span>
 								{#if detail(step)}
 									<span class="text-sm text-muted-foreground">{detail(step)}</span>
 								{/if}
 							</div>
-							<span class="mt-0.5 font-mono text-xs tracking-wider text-muted-foreground uppercase max-sm:hidden">
+							<span class="mt-0.5 w-20 font-mono text-xs tracking-wider text-muted-foreground uppercase max-sm:hidden">
 								{STEP_TYPE_LABELS[step.stepType]}
 							</span>
 							{#if model.canMutate}

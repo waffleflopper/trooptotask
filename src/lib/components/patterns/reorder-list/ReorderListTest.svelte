@@ -1,10 +1,15 @@
 <script lang="ts">
 	import { ReorderGrip, ReorderItem, ReorderList } from './index.js';
 
-	let { onmoved }: { onmoved?: (order: string[]) => void } = $props();
+	let { onmoved, nested = false }: { onmoved?: (order: string[]) => void; nested?: boolean } = $props();
 
 	let order = $state(['Orientation', 'Paperwork', 'Training']);
 	const entries = $derived(order.map((name) => ({ id: name, label: name })));
+
+	const subEntries = [
+		{ id: 'N1', label: 'Sub one' },
+		{ id: 'N2', label: 'Sub two' }
+	];
 
 	function move(id: string, toIndex: number) {
 		const next = order.filter((name) => name !== id);
@@ -19,6 +24,16 @@
 		<ReorderItem id={name}>
 			<ReorderGrip />
 			<span>{name}</span>
+			{#if nested && name === 'Orientation'}
+				<ReorderList entries={subEntries} onmove={() => {}} aria-label="Sub steps">
+					{#each subEntries as sub (sub.id)}
+						<ReorderItem id={sub.id}>
+							<ReorderGrip />
+							<span>{sub.label}</span>
+						</ReorderItem>
+					{/each}
+				</ReorderList>
+			{/if}
 		</ReorderItem>
 	{/each}
 </ReorderList>

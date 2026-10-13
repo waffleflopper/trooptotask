@@ -48,7 +48,7 @@ export class ReorderController {
 		const moving = this.#onmove(id, to);
 		await tick();
 		this.#root()
-			?.querySelector<HTMLElement>(`[data-reorder-id="${CSS.escape(id)}"] [data-reorder-grip]`)
+			?.querySelector<HTMLElement>(`:scope > [data-reorder-id="${CSS.escape(id)}"] [data-reorder-grip]`)
 			?.focus();
 		await moving;
 	}
@@ -107,7 +107,7 @@ export class ReorderController {
 	}
 
 	#rows(): HTMLElement[] {
-		return [...(this.#root()?.querySelectorAll<HTMLElement>('[data-reorder-id]') ?? [])];
+		return [...(this.#root()?.querySelectorAll<HTMLElement>(':scope > [data-reorder-id]') ?? [])];
 	}
 
 	#endDrag(): void {

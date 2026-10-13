@@ -375,7 +375,7 @@ describe('onboarding templates page', () => {
 			stages: ['Submitted', 'Reviewed']
 		});
 		expect(screen.getByText('Submitted → Reviewed')).toBeTruthy();
-		expect(screen.getByText('Paperwork')).toBeTruthy();
+		expect(screen.getAllByText('Paperwork').length).toBeGreaterThan(0);
 	});
 
 	it('describes a Training step with the type it links to', async () => {

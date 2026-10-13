@@ -5,7 +5,7 @@ import {
 	archiveApprovedPersonnelRecord,
 	createSupabasePersonnelGovernanceDeletionPort
 } from '$features/personnel/index.server';
-import { createApprovedRatingSchemeDeletionPort } from '$features/rating-scheme/index.server';
+import { createSupabaseApprovedRatingSchemeDeletionPort } from '$features/rating-scheme/index.server';
 import { createSupabaseApprovedTrainingDeletionPort } from '$features/training/index.server';
 import { createSupabaseDashboardExportReader } from '$features/dashboard/index.server';
 import {
@@ -642,7 +642,6 @@ export function createRequestOrganizationExportContext(request: AdmittedOrganiza
 export function createRequestDeletionReviewContext(request: AdmittedOrganizationRequest) {
 	return {
 		...createRequestPersonnelLifecycleContext(request),
-		ratingScheme: createSupabaseRatingSchemePersistence(request.supabase, request.auth.orgId),
 		notifications: createRequestNotificationDelivery()
 	};
 }
@@ -685,7 +684,7 @@ export function createRequestDashboardSummaryContext(request: AdmittedOrganizati
 	};
 }
 
-/** Approved Deletion Request effects; each source owner rechecks the pending request before its service-role delete. */
+/** Approved Deletion Request effects. Counseling rechecks the pending request before removing its file. */
 export function createApprovedDeletionEffects(
 	ctx: ReturnType<typeof createRequestDeletionReviewContext>,
 	requirePending: (
@@ -695,14 +694,17 @@ export function createApprovedDeletionEffects(
 		resourceId: string
 	) => Promise<void>
 ): ApprovedDeletionEffects {
-	const training = createSupabaseApprovedTrainingDeletionPort(getAdminClient, requirePending);
-	const rating = createApprovedRatingSchemeDeletionPort(ctx.ratingScheme, requirePending);
+	const training = createSupabaseApprovedTrainingDeletionPort(getAdminClient);
+	const rating = createSupabaseApprovedRatingSchemeDeletionPort(getAdminClient);
 	const counseling = createSupabasePersonnelGovernanceDeletionPort(getAdminClient, requirePending);
 	return {
 		archivePersonnel: (id) => archiveApprovedPersonnelRecord(ctx, id),
-		deleteTrainingType: (requestId, id) => training.deleteApprovedTrainingType(ctx.auth, requestId, id),
-		deleteTrainingRecord: (requestId, id) => training.deleteApprovedTrainingRecord(ctx.auth, requestId, id),
-		deleteRatingEntry: (requestId, id) => rating.deleteApprovedRatingSchemeEntry(ctx.auth, requestId, id),
+		approveTrainingType: (requestId, id, reviewedAt) =>
+			training.approveTrainingTypeDeletion(ctx.auth, requestId, id, reviewedAt),
+		approveTrainingRecord: (requestId, id, reviewedAt) =>
+			training.approveTrainingRecordDeletion(ctx.auth, requestId, id, reviewedAt),
+		approveRatingEntry: (requestId, id, reviewedAt) =>
+			rating.approveRatingSchemeEntryDeletion(ctx.auth, requestId, id, reviewedAt),
 		approveCounseling: (requestId, id, reviewedAt) =>
 			counseling.deleteApprovedCounselingRecord(ctx.auth, requestId, id, reviewedAt)
 	};

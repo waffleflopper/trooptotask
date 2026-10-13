@@ -334,4 +334,57 @@ DROP POLICY "deletion_requests_delete_own" ON "public"."deletion_requests";
 -- The pre-lane full-editor helper has no remaining callers.
 DROP FUNCTION "public"."is_full_editor_for_org"(uuid);
 
+-- Approved Training and Rating deletions remove the named target and approve
+-- the request in one transaction. A missing, foreign or already-removed
+-- target, or a request that is no longer pending, leaves both unchanged.
+CREATE FUNCTION public.approve_record_deletion_request(
+	p_organization_id uuid,
+	p_request_id uuid,
+	p_resource_type text,
+	p_resource_id uuid,
+	p_reviewer_id uuid,
+	p_reviewed_at timestamptz
+) RETURNS void
+LANGUAGE plpgsql SECURITY INVOKER
+SET search_path = ''
+AS $$
+BEGIN
+	IF p_resource_type = 'training_type' THEN
+		DELETE FROM public.training_types
+		WHERE organization_id = p_organization_id AND id = p_resource_id;
+	ELSIF p_resource_type = 'personnel_training' THEN
+		DELETE FROM public.personnel_trainings
+		WHERE organization_id = p_organization_id AND id = p_resource_id;
+	ELSIF p_resource_type = 'rating_scheme_entry' THEN
+		DELETE FROM public.rating_scheme_entries
+		WHERE organization_id = p_organization_id AND id = p_resource_id;
+	ELSE
+		RAISE EXCEPTION 'Unsupported deletion resource type' USING ERRCODE = '22023';
+	END IF;
+
+	IF NOT FOUND THEN
+		RAISE EXCEPTION 'Deletion target not found' USING ERRCODE = 'P0002';
+	END IF;
+
+	UPDATE public.deletion_requests
+	SET status = 'approved',
+		reviewed_by = p_reviewer_id,
+		reviewed_at = p_reviewed_at,
+		denial_reason = NULL
+	WHERE organization_id = p_organization_id
+		AND id = p_request_id
+		AND resource_type = p_resource_type
+		AND resource_id = p_resource_id
+		AND status = 'pending';
+
+	IF NOT FOUND THEN
+		RAISE EXCEPTION 'Pending deletion request not found' USING ERRCODE = 'P0002';
+	END IF;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.approve_record_deletion_request(uuid, uuid, text, uuid, uuid, timestamptz)
+	FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.approve_record_deletion_request(uuid, uuid, text, uuid, uuid, timestamptz)
+	TO service_role;
+
 NOTIFY pgrst, 'reload schema';

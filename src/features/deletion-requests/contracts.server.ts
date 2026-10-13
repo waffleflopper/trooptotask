@@ -38,11 +38,15 @@ export interface DeletionRequestStore {
 	listExportRows(orgId: string): Promise<Record<string, unknown>[]>;
 }
 
-/** Delivery closes over the admitted actor and source-owned operations. */
+/**
+ * Delivery closes over the admitted actor and source-owned operations. Every
+ * deletion approval removes its target and approves the request together, so
+ * a target missing from the Organization leaves the request pending.
+ */
 export interface ApprovedDeletionEffects {
 	archivePersonnel(personnelId: string): Promise<void>;
-	deleteTrainingType(requestId: string, typeId: string): Promise<void>;
-	deleteTrainingRecord(requestId: string, recordId: string): Promise<void>;
-	deleteRatingEntry(requestId: string, entryId: string): Promise<void>;
+	approveTrainingType(requestId: string, typeId: string, reviewedAt: string): Promise<void>;
+	approveTrainingRecord(requestId: string, recordId: string, reviewedAt: string): Promise<void>;
+	approveRatingEntry(requestId: string, entryId: string, reviewedAt: string): Promise<void>;
 	approveCounseling(requestId: string, recordId: string, reviewedAt: string): Promise<void>;
 }

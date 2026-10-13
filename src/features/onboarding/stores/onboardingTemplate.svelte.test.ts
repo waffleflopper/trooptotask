@@ -205,7 +205,10 @@ describe('OnboardingTemplateWorkspace', () => {
 			(_templateId: string, ids: string[]) =>
 				new Promise<OnboardingTemplateWorkspaceResult<OnboardingTemplateStep[]>>((resolve) =>
 					answers.push(() =>
-						resolve({ ok: true, value: ids.map((id, sortOrder) => ({ ...three.find((s) => s.id === id)!, sortOrder })) })
+						resolve({
+							ok: true,
+							value: ids.map((id, sortOrder) => ({ ...three.find((s) => s.id === id)!, sortOrder }))
+						})
 					)
 				)
 		);

@@ -41,7 +41,12 @@ describe('syncing the active packets on a template', () => {
 	it('reports packets that failed to sync, and packets the server counted but this client does not hold', async () => {
 		const resync = vi.fn(async (id: string) => ({ success: id !== 'a' }));
 
-		const result = await syncTemplatePackets({ packets: packets.slice(0, 3), counted: 4, mayManage: () => true, resync });
+		const result = await syncTemplatePackets({
+			packets: packets.slice(0, 3),
+			counted: 4,
+			mayManage: () => true,
+			resync
+		});
 
 		expect(describeTemplateSync(result)).toBe('Synced 2 of 4. 2 could not be synced. Try again.');
 	});
@@ -55,7 +60,9 @@ describe('syncing the active packets on a template', () => {
 			resync
 		});
 
-		expect(describeTemplateSync(result)).toBe('Synced 2 of 4. 1 is outside your access. 1 could not be synced. Try again.');
+		expect(describeTemplateSync(result)).toBe(
+			'Synced 2 of 4. 1 is outside your access. 1 could not be synced. Try again.'
+		);
 	});
 
 	it('uses singular wording for one packet and says when there is nothing to sync', async () => {

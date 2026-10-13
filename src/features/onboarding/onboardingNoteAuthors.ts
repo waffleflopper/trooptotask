@@ -18,7 +18,10 @@ export function noteAuthorIds(packets: readonly PersonnelOnboarding[], viewerUse
 	return [...authors];
 }
 
-/** The labels found for the authors present on these packets, as plain data for the client. */
+/**
+ * The labels found for the authors present on these packets, as plain data for the client.
+ * A member with no email or name is labelled by their user id, which is never shown.
+ */
 export function pickNoteAuthorLabels(
 	packets: readonly PersonnelOnboarding[],
 	labels: ReadonlyMap<string, string>,
@@ -27,7 +30,7 @@ export function pickNoteAuthorLabels(
 	const picked: Record<string, string> = {};
 	for (const userId of noteAuthorIds(packets, viewerUserId)) {
 		const label = labels.get(userId);
-		if (label !== undefined) picked[userId] = label;
+		if (label !== undefined && label !== userId) picked[userId] = label;
 	}
 	return picked;
 }

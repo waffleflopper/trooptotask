@@ -7,16 +7,20 @@ SELECT set_config('request.jwt.claims', '{}', false);
 SELECT set_config('request.jwt', '', false);
 INSERT INTO auth.users(id,email)
 SELECT ('c6421000-0000-4000-8000-' || lpad(n::text,12,'0'))::uuid,
-  'governance-upgrade-' || n || '@example.test' FROM generate_series(1,6) n;
+  'governance-upgrade-' || n || '@example.test' FROM generate_series(1,7) n;
 INSERT INTO public.organizations(id,name,created_by) VALUES
-('c6421000-0000-4000-8000-000000000101','Governance Upgrade','c6421000-0000-4000-8000-000000000001');
+('c6421000-0000-4000-8000-000000000101','Governance Upgrade','c6421000-0000-4000-8000-000000000001'),
+('c6421000-0000-4000-8000-000000000102','Governance Upgrade Other','c6421000-0000-4000-8000-000000000001');
+INSERT INTO public.groups(id,organization_id,name) VALUES
+('c6421000-0000-4000-8000-000000000202','c6421000-0000-4000-8000-000000000102','Other Organization Group');
 INSERT INTO public.organization_memberships(
   id,organization_id,user_id,role,member_preset,capability_overrides,access_scope_kind,access_scope_group_ids
 ) VALUES
 ('c6421000-0000-4000-8000-000000000301','c6421000-0000-4000-8000-000000000101','c6421000-0000-4000-8000-000000000001','owner','viewer','{}','organization',ARRAY[]::uuid[]),
 ('c6421000-0000-4000-8000-000000000302','c6421000-0000-4000-8000-000000000101','c6421000-0000-4000-8000-000000000002','admin','viewer','{}','organization',ARRAY[]::uuid[]),
 ('c6421000-0000-4000-8000-000000000303','c6421000-0000-4000-8000-000000000101','c6421000-0000-4000-8000-000000000003','member','editor','{}','organization',ARRAY[]::uuid[]),
-('c6421000-0000-4000-8000-000000000304','c6421000-0000-4000-8000-000000000101','c6421000-0000-4000-8000-000000000004','member','viewer','{"canManageMembers":true}','organization',ARRAY[]::uuid[]);
+('c6421000-0000-4000-8000-000000000304','c6421000-0000-4000-8000-000000000101','c6421000-0000-4000-8000-000000000004','member','viewer','{"canManageMembers":true}','organization',ARRAY[]::uuid[]),
+('c6421000-0000-4000-8000-000000000305','c6421000-0000-4000-8000-000000000101','c6421000-0000-4000-8000-000000000007','member','operator','{}','groups',ARRAY['c6421000-0000-4000-8000-000000000202']::uuid[]);
 INSERT INTO public.organization_invitations(
   id,organization_id,email,invited_by,status,expires_at,role,member_preset,
   capability_overrides,access_scope_kind,access_scope_group_ids,revoked_at

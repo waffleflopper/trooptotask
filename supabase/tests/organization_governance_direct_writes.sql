@@ -95,7 +95,10 @@ CREATE FUNCTION pg_temp.act_as(p_user text) RETURNS void LANGUAGE sql AS $$
 	SELECT set_config('request.jwt.claims', jsonb_build_object(
 		'sub', 'c6420000-0000-4000-8000-0000000000' || p_user,
 		'email', 'governance-' || p_user || '@example.test',
-		'role', 'authenticated')::text, true);
+		'role', 'authenticated',
+		'aal', 'aal1',
+		'amr', jsonb_build_array(jsonb_build_object(
+			'method', 'password', 'timestamp', floor(extract(epoch FROM now()))::bigint - 60)))::text, true);
 $$;
 
 CREATE FUNCTION pg_temp.unchanged(p_ids text[]) RETURNS boolean LANGUAGE sql AS $$

@@ -92,6 +92,7 @@ SELECT throws_ok($$SELECT public.platform_transfer_org_ownership('d2103000-0000-
 RESET ROLE;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','d2103000-0000-4000-8000-000000000006',true);
+SELECT set_config('request.jwt.claims','{"aal":"aal2"}',true);
 SELECT throws_ok($$SELECT public.transfer_org_ownership('d2103000-0000-4000-8000-000000000101','d2103000-0000-4000-8000-000000000007')$$,'P0001','synthetic promotion storage failure','ordinary promotion failure aborts the whole transfer');
 RESET ROLE;
 SELECT results_eq($$SELECT id,to_jsonb(m) FROM public.organization_memberships m WHERE organization_id='d2103000-0000-4000-8000-000000000101' ORDER BY id$$,

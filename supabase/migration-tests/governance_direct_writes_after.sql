@@ -46,6 +46,13 @@ SELECT throws_ok(
     WHERE id='c6421000-0000-4000-8000-000000000101' $$,
   '42501', NULL, 'the upgraded admin cannot rewrite the organization creator');
 RESET ROLE;
+SET LOCAL ROLE service_role;
+SELECT throws_ok(
+  $$ UPDATE public.organization_memberships SET access_scope_group_ids=access_scope_group_ids
+    WHERE id='c6421000-0000-4000-8000-000000000305' $$,
+  '23503', 'Access scope Groups must belong to the Organization',
+  'a saved scope naming another Organization''s Group cannot be written again after upgrade');
+RESET ROLE;
 SELECT results_eq(
   $$ SELECT * FROM upgrade_fixture.governance_direct_writes_current_rows
     WHERE row_id<>'c6421000-0000-4000-8000-000000000501' ORDER BY table_name,row_id $$,

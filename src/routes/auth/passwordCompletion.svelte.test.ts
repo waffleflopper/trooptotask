@@ -131,6 +131,30 @@ describe.each(['security', 'recovery', 'invite'] as const)('%s confirmed complet
 		expect(screen.queryByLabelText(/^Confirm/)).toBeNull();
 		expect(fetchMock).not.toHaveBeenCalled();
 	});
+	it('reports a fenced first attempt directly instead of an unknown outcome', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (url, init) => {
+				if (url === '/api/auth/mfa/status') return Response.json({ currentLevel: 'aal2', nextLevel: 'aal2' });
+				if (JSON.parse(init.body).password)
+					return Response.json(
+						{ ok: false, code: 'password_reconciliation_required', state: 'failed', error: 'Attempt fenced' },
+						{ status: 409 }
+					);
+				throw Error(`Unexpected ${url}`);
+			})
+		);
+		mount();
+		const password = await screen.findByLabelText(flow === 'invite' ? /^Password/ : /^New [Pp]assword/);
+		await fireEvent.input(password, { target: { value: 'NewPassword12' } });
+		await fireEvent.input(screen.getByLabelText(/^Confirm/), { target: { value: 'NewPassword12' } });
+		if (flow === 'security')
+			await fireEvent.input(document.getElementById('current-password')!, { target: { value: 'OldPassword12' } });
+		await fireEvent.submit(password.closest('form')!);
+		expect(await screen.findByRole('button', { name: 'Start new password update' })).toBeEnabled();
+		expect(screen.getByText('This attempt did not commit. Start a new password update to try again.')).toBeVisible();
+		expect(screen.queryByText(/outcome is unknown/)).toBeNull();
+	});
 	it('reconciles a lost initial response after reload and requires an explicit restart after fencing', async () => {
 		const requests: Record<string, unknown>[] = [];
 		vi.stubGlobal(

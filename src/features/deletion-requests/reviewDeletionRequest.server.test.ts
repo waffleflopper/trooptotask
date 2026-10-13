@@ -6,7 +6,6 @@ import { createDeletionRequestTestStore } from './testing.server';
 import { archiveApprovedPersonnelRecord } from '$features/personnel/index.server';
 import { fail } from '$lib/errors';
 import type { ApprovedDeletionEffects } from './contracts.server';
-import type { ApprovedTrainingDeletionPort } from '$features/training/index.server';
 
 function buildContext(overrides?: Parameters<typeof createWriteWithNotificationsPortsContext>[0]) {
 	const ctx = createWriteWithNotificationsPortsContext(overrides);
@@ -34,111 +33,56 @@ function seedPendingRequest(ctx: ReturnType<typeof buildContext>, overrides?: Re
 	]);
 }
 
-function effectsFor(
-	ctx: ReturnType<typeof buildContext>,
-	training: Partial<ApprovedTrainingDeletionPort> = {}
-): ApprovedDeletionEffects {
-	return {
-		archivePersonnel: (id) => archiveApprovedPersonnelRecord(ctx, id),
-		deleteTrainingType: (requestId, id) =>
-			training.deleteApprovedTrainingType
-				? training.deleteApprovedTrainingType(ctx.auth, requestId, id)
-				: ctx.store.deleteWhere('training_types', ctx.auth.orgId, { id }),
-		deleteTrainingRecord: (requestId, id) =>
-			training.deleteApprovedTrainingRecord
-				? training.deleteApprovedTrainingRecord(ctx.auth, requestId, id)
-				: ctx.store.deleteWhere('personnel_trainings', ctx.auth.orgId, { id }),
-		deleteRatingEntry: (_requestId, id) => ctx.store.deleteWhere('rating_scheme_entries', ctx.auth.orgId, { id }),
-		// The workflow fake acknowledges this effect's pair together. SQL/provider tests own actual atomicity.
-		approveCounseling: async (requestId, id, reviewedAt) => {
-			const before = structuredClone(
-				await ctx.store.findOne<Record<string, unknown>>('deletion_requests', ctx.auth.orgId, {
-					id: requestId,
-					status: 'pending',
-					resource_type: 'counseling_record',
-					resource_id: id
-				})
-			);
-			const source = await ctx.store.findOne('counseling_records', ctx.auth.orgId, { id });
-			if (!before || !source) fail(404, 'Counseling record not found');
-			await ctx.store.update('deletion_requests', ctx.auth.orgId, requestId, {
-				status: 'approved',
-				reviewed_by: ctx.auth.userId,
-				reviewed_at: reviewedAt,
-				denial_reason: null
-			});
-			try {
-				await ctx.store.delete('counseling_records', ctx.auth.orgId, id);
-			} catch (error) {
-				await ctx.store.update('deletion_requests', ctx.auth.orgId, requestId, before);
-				throw error;
-			}
+// The workflow fake acknowledges each record approval's pair together. SQL/provider tests own actual atomicity.
+function transactionalApproval(ctx: ReturnType<typeof buildContext>, table: string, resourceType: string) {
+	return async (requestId: string, id: string, reviewedAt: string) => {
+		const before = structuredClone(
+			await ctx.store.findOne<Record<string, unknown>>('deletion_requests', ctx.auth.orgId, {
+				id: requestId,
+				status: 'pending',
+				resource_type: resourceType,
+				resource_id: id
+			})
+		);
+		const source = await ctx.store.findOne(table, ctx.auth.orgId, { id });
+		if (!source) fail(404, 'Deletion target not found');
+		if (!before) fail(404, 'Pending deletion request not found');
+		await ctx.store.update('deletion_requests', ctx.auth.orgId, requestId, {
+			status: 'approved',
+			reviewed_by: ctx.auth.userId,
+			reviewed_at: reviewedAt,
+			denial_reason: null
+		});
+		try {
+			await ctx.store.delete(table, ctx.auth.orgId, id);
+		} catch (error) {
+			await ctx.store.update('deletion_requests', ctx.auth.orgId, requestId, before);
+			throw error;
 		}
 	};
 }
 
+function effectsFor(
+	ctx: ReturnType<typeof buildContext>,
+	overrides: Partial<ApprovedDeletionEffects> = {}
+): ApprovedDeletionEffects {
+	return {
+		archivePersonnel: (id) => archiveApprovedPersonnelRecord(ctx, id),
+		approveTrainingType: transactionalApproval(ctx, 'training_types', 'training_type'),
+		approveTrainingRecord: transactionalApproval(ctx, 'personnel_trainings', 'personnel_training'),
+		approveRatingEntry: transactionalApproval(ctx, 'rating_scheme_entries', 'rating_scheme_entry'),
+		approveCounseling: transactionalApproval(ctx, 'counseling_records', 'counseling_record'),
+		...overrides
+	};
+}
+
 describe('approveDeletionRequest', () => {
-	it('retries completion approval when its status write fails after the completion was deleted', async () => {
-		const ctx = buildContext({
-			auth: {
-				role: 'admin',
-				isPrivileged: true,
-				capabilityMap: {
-					calendar: 'none',
-					personnel: 'none',
-					training: 'none',
-					criticalTasks: 'none',
-					onboarding: 'none',
-					ratingScheme: 'none'
-				}
-			}
-		});
-		seedPendingRequest(ctx, { resource_type: 'personnel_training', resource_id: 'completion-1' });
-		ctx.store.seed('personnel_trainings', [
-			{ id: 'completion-1', organization_id: ctx.auth.orgId },
-			{ id: 'completion-2', organization_id: ctx.auth.orgId }
-		]);
-		// Production DELETE is idempotent; the shared in-memory delete rejects missing IDs.
-		vi.spyOn(ctx.store, 'delete').mockImplementation((table, orgId, id) => ctx.store.deleteWhere(table, orgId, { id }));
-		const update = ctx.store.update;
-		let failOnce = true;
-		vi.spyOn(ctx.store, 'update').mockImplementation(async (table, orgId, id, data, select) => {
-			if (table === 'deletion_requests' && id === 'dr-1' && data.status === 'approved' && failOnce) {
-				failOnce = false;
-				throw new Error('status write failed');
-			}
-			return update(table, orgId, id, data, select);
-		});
-
-		await expect(approveDeletionRequest({ ...ctx, store: ctx.requests }, 'dr-1', effectsFor(ctx))).rejects.toThrow(
-			'status write failed'
-		);
-		await expect(ctx.store.findOne('personnel_trainings', ctx.auth.orgId, { id: 'completion-1' })).resolves.toBeNull();
-		await expect(ctx.store.findOne('deletion_requests', ctx.auth.orgId, { id: 'dr-1' })).resolves.toMatchObject({
-			status: 'pending'
-		});
-		expect(ctx.notifications.notifications).toEqual([]);
-		expect(ctx.audit.events).toEqual([]);
-
-		await expect(
-			approveDeletionRequest({ ...ctx, store: ctx.requests }, 'dr-1', effectsFor(ctx))
-		).resolves.toBeUndefined();
-		await expect(ctx.store.findMany('personnel_trainings', ctx.auth.orgId)).resolves.toEqual([
-			{ id: 'completion-2', organization_id: ctx.auth.orgId }
-		]);
-		await expect(ctx.store.findOne('deletion_requests', ctx.auth.orgId, { id: 'dr-1' })).resolves.toMatchObject({
-			status: 'approved'
-		});
-		expect(ctx.notifications.notifications).toHaveLength(1);
-		expect(ctx.audit.events.map((event) => event.action)).toEqual(['deletion_request.approved']);
-	});
-
 	it('keeps completion approval pending without success effects when Training deletion fails', async () => {
 		const ctx = buildContext();
 		seedPendingRequest(ctx, { resource_type: 'personnel_training', resource_id: 'completion-1' });
 		ctx.store.seed('personnel_trainings', [{ id: 'completion-1', organization_id: ctx.auth.orgId }]);
 		const trainingDeletion = effectsFor(ctx, {
-			deleteApprovedTrainingRecord: async () => {
+			approveTrainingRecord: async () => {
 				throw new Error('completion delete unavailable');
 			}
 		});
@@ -172,17 +116,12 @@ describe('approveDeletionRequest', () => {
 		});
 		seedPendingRequest(ctx, { resource_type: 'training_type', resource_id: 'type-1' });
 		ctx.store.seed('training_types', [{ id: 'type-1', organization_id: ctx.auth.orgId, name: 'CPR' }]);
-		const deleteApprovedTrainingType = vi.fn(async (_actor, _requestId, typeId: string) => {
-			await ctx.store.delete('training_types', ctx.auth.orgId, typeId);
-		});
+		const effects = effectsFor(ctx);
+		const approveTrainingType = vi.fn(effects.approveTrainingType);
 
-		await approveDeletionRequest(
-			{ ...ctx, store: ctx.requests },
-			'dr-1',
-			effectsFor(ctx, { deleteApprovedTrainingType })
-		);
+		await approveDeletionRequest({ ...ctx, store: ctx.requests }, 'dr-1', { ...effects, approveTrainingType });
 
-		expect(deleteApprovedTrainingType).toHaveBeenCalledWith(ctx.auth, 'dr-1', 'type-1');
+		expect(approveTrainingType).toHaveBeenCalledWith('dr-1', 'type-1', expect.any(String));
 		expect(await ctx.store.findOne('training_types', ctx.auth.orgId, { id: 'type-1' })).toBeNull();
 		expect(await ctx.store.findOne('deletion_requests', ctx.auth.orgId, { id: 'dr-1' })).toMatchObject({
 			status: 'approved'
@@ -194,12 +133,12 @@ describe('approveDeletionRequest', () => {
 	it('leaves a Training type request pending without success side effects when the owned effect fails', async () => {
 		const ctx = buildContext();
 		seedPendingRequest(ctx, { resource_type: 'training_type', resource_id: 'type-1' });
-		const deleteApprovedTrainingType = vi.fn(async () => {
+		const approveTrainingType = vi.fn(async () => {
 			throw new Error('Training type delete blocked by foreign reference');
 		});
 
 		await expect(
-			approveDeletionRequest({ ...ctx, store: ctx.requests }, 'dr-1', effectsFor(ctx, { deleteApprovedTrainingType }))
+			approveDeletionRequest({ ...ctx, store: ctx.requests }, 'dr-1', effectsFor(ctx, { approveTrainingType }))
 		).rejects.toThrow('Training type delete blocked by foreign reference');
 		expect(await ctx.store.findOne('deletion_requests', ctx.auth.orgId, { id: 'dr-1' })).toMatchObject({
 			status: 'pending'
@@ -597,17 +536,22 @@ describe('approveDeletionRequest', () => {
 		}
 	});
 
-	it('leaves a Personnel request pending when its target belongs to another Organization', async () => {
+	it.each([
+		['belongs to another Organization', 'foreign-org'],
+		['is missing', null]
+	])('leaves a Personnel request pending when its target %s', async (_case, foreignOrg) => {
 		const ctx = buildContext();
 		seedPendingRequest(ctx);
-		const foreign = { id: 'person-1', organization_id: 'foreign-org', archived_at: null };
-		ctx.store.seed('personnel', [structuredClone(foreign)]);
+		const foreign = { id: 'person-1', organization_id: foreignOrg, archived_at: null };
+		if (foreignOrg) ctx.store.seed('personnel', [structuredClone(foreign)]);
 		await expect(
 			approveDeletionRequest({ ...ctx, store: ctx.requests }, 'dr-1', effectsFor(ctx))
-		).rejects.toMatchObject({ status: 404 });
-		expect(await ctx.rawStore!.findOne('personnel', 'foreign-org', { id: 'person-1' })).toEqual(foreign);
+		).rejects.toMatchObject({ status: 404, message: 'Personnel not found' });
+		if (foreignOrg) expect(await ctx.rawStore!.findOne('personnel', foreignOrg, { id: 'person-1' })).toEqual(foreign);
 		expect(await ctx.store.findOne('deletion_requests', ctx.auth.orgId, { id: 'dr-1' })).toMatchObject({
-			status: 'pending'
+			status: 'pending',
+			reviewed_by: null,
+			reviewed_at: null
 		});
 		expect(ctx.notifications.notifications).toEqual([]);
 		expect(ctx.audit.events).toEqual([]);
@@ -841,34 +785,20 @@ describe('conditional review result', () => {
 		});
 	});
 
-	it('preserves a cancellation that wins after approval source effect without claiming effect rollback', async () => {
+	it.each([
+		['counseling_record', 'counseling_records'],
+		['training_type', 'training_types'],
+		['personnel_training', 'personnel_trainings'],
+		['rating_scheme_entry', 'rating_scheme_entries']
+	])('does not write the status again after a %s approval acknowledges it', async (resourceType, table) => {
 		const ctx = buildContext();
-		seedPendingRequest(ctx, { resource_type: 'training_type', resource_id: 'type-1' });
-		ctx.store.seed('training_types', [{ id: 'type-1', organization_id: 'test-org' }]);
-		const effects = effectsFor(ctx);
-		effects.deleteTrainingType = async () => {
-			await ctx.store.delete('training_types', 'test-org', 'type-1');
-			await ctx.store.update('deletion_requests', 'test-org', 'dr-1', { status: 'cancelled' });
-		};
-		await expect(approveDeletionRequest({ ...ctx, store: ctx.requests }, 'dr-1', effects)).rejects.toMatchObject({
-			status: 404
-		});
-		expect(await ctx.store.findOne('deletion_requests', 'test-org', { id: 'dr-1' })).toMatchObject({
-			status: 'cancelled'
-		});
-		expect(await ctx.store.findOne('training_types', 'test-org', { id: 'type-1' })).toBeNull();
-		expect(ctx.audit.events).toEqual([]);
-		expect(ctx.notifications.notifications).toEqual([]);
-	});
-
-	it('does not perform a second owner status write after acknowledged counseling completion', async () => {
-		const ctx = buildContext();
-		seedPendingRequest(ctx, { resource_type: 'counseling_record', resource_id: 'cr-1' });
-		ctx.store.seed('counseling_records', [{ id: 'cr-1', organization_id: 'test-org' }]);
+		seedPendingRequest(ctx, { resource_type: resourceType, resource_id: 'target-1' });
+		ctx.store.seed(table, [{ id: 'target-1', organization_id: 'test-org' }]);
 		ctx.requests.completePendingReview = async () => {
 			throw new Error('Unexpected second transition');
 		};
 		await approveDeletionRequest({ ...ctx, store: ctx.requests }, 'dr-1', effectsFor(ctx));
+		expect(await ctx.store.findOne(table, 'test-org', { id: 'target-1' })).toBeNull();
 		expect(await ctx.store.findOne('deletion_requests', 'test-org', { id: 'dr-1' })).toMatchObject({
 			status: 'approved',
 			reviewed_by: ctx.auth.userId
@@ -907,20 +837,21 @@ describe('canonical saved request identity', () => {
 			const ctx = buildContext();
 			const id = 'abcdef12-3456-4789-abcd-123456789abc';
 			seedPendingRequest(ctx, { id, resource_type: 'training_type', resource_id: 'type-1' });
+			ctx.store.seed('training_types', [{ id: 'type-1', organization_id: 'test-org' }]);
 			const row = await ctx.requests.findPendingById(ctx.auth.orgId, id);
 			vi.spyOn(ctx.requests, 'findPendingById').mockResolvedValue(row);
 			const effects = effectsFor(ctx);
-			const deleteTrainingType = vi.fn().mockResolvedValue(undefined);
+			const approveTrainingType = vi.fn(effects.approveTrainingType);
 			if (action === 'approve')
 				await approveDeletionRequest({ ...ctx, store: ctx.requests }, id.toUpperCase(), {
 					...effects,
-					deleteTrainingType
+					approveTrainingType
 				});
 			else await denyDeletionRequest({ ...ctx, store: ctx.requests }, id.toUpperCase(), 'Saved reason');
 			expect(await ctx.store.findOne('deletion_requests', ctx.auth.orgId, { id })).toMatchObject({
 				status: action === 'approve' ? 'approved' : 'denied'
 			});
-			if (action === 'approve') expect(deleteTrainingType).toHaveBeenCalledWith(id, 'type-1');
+			if (action === 'approve') expect(approveTrainingType).toHaveBeenCalledWith(id, 'type-1', expect.any(String));
 			expect(ctx.audit.events).toContainEqual(
 				expect.objectContaining({
 					resourceId: id,

@@ -9,7 +9,7 @@ SELECT is((SELECT count(*)::integer FROM supabase_migrations.schema_migrations W
 SELECT results_eq(
   $$ SELECT * FROM upgrade_fixture.feature_writes_current_rows ORDER BY table_name,row_id $$,
   $$ SELECT * FROM upgrade_fixture.feature_writes_before_rows ORDER BY table_name,row_id $$,
-  'the upgrade keeps saved Personnel, counseling paths, packets and notes');
+  'the upgrade keeps saved Personnel, counseling paths, packets, notes and requests');
 SELECT ok(to_regprocedure('public.is_full_editor_for_org(uuid)') IS NULL, 'the legacy full-editor helper is removed');
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','f4600000-0000-4000-8000-000000000002',true);
@@ -37,5 +37,15 @@ WITH changed AS (
 WITH removed AS (
   DELETE FROM public.personnel WHERE id='f4600000-0000-4000-8000-000000000302' RETURNING id
 ) SELECT is((SELECT count(*)::integer FROM removed),1,'the owner permanently deletes a saved archived Person');
+RESET ROLE;
+SET LOCAL ROLE service_role;
+SELECT throws_ok(
+  $$ SELECT public.approve_record_deletion_request('f4600000-0000-4000-8000-000000000101',
+    'f4600000-0000-4000-8000-000000000801','personnel_training','f4600000-0000-4000-8000-000000000899',
+    'f4600000-0000-4000-8000-000000000001','2030-02-01T00:00:00Z') $$,
+  'P0002', 'Deletion target not found', 'a saved request for a missing record cannot be approved');
+RESET ROLE;
+SELECT is((SELECT status FROM public.deletion_requests WHERE id='f4600000-0000-4000-8000-000000000801'),'pending',
+  'the saved request stays pending for review');
 SELECT * FROM finish();
 ROLLBACK;

@@ -26,11 +26,17 @@ INSERT INTO public.onboarding_step_progress(id,organization_id,onboarding_id,ste
 ('f4600000-0000-4000-8000-000000000711','f4600000-0000-4000-8000-000000000101','f4600000-0000-4000-8000-000000000701',
   'Orientation','checkbox',1,false,
   '[{"text":"Saved note","timestamp":"2030-01-01T00:00:00Z","userId":"f4600000-0000-4000-8000-000000000001"}]');
+-- A request saved before submission binding names a Training record that
+-- never existed in its Organization.
+INSERT INTO public.deletion_requests(id,organization_id,requested_by,requested_by_email,resource_type,resource_id,resource_description) VALUES
+('f4600000-0000-4000-8000-000000000801','f4600000-0000-4000-8000-000000000101','f4600000-0000-4000-8000-000000000002',
+  'feature-writes-upgrade-2@example.test','personnel_training','f4600000-0000-4000-8000-000000000899','Unbound record');
 CREATE VIEW upgrade_fixture.feature_writes_current_rows AS
 SELECT 'personnel'::text table_name,id::text row_id,to_jsonb(r) row_data FROM public.personnel r WHERE id::text LIKE 'f4600000-%'
 UNION ALL SELECT 'counseling',id::text,to_jsonb(r) FROM public.counseling_records r WHERE id::text LIKE 'f4600000-%'
 UNION ALL SELECT 'onboarding',id::text,to_jsonb(r) FROM public.personnel_onboardings r WHERE id::text LIKE 'f4600000-%'
-UNION ALL SELECT 'step',id::text,to_jsonb(r) FROM public.onboarding_step_progress r WHERE id::text LIKE 'f4600000-%';
+UNION ALL SELECT 'step',id::text,to_jsonb(r) FROM public.onboarding_step_progress r WHERE id::text LIKE 'f4600000-%'
+UNION ALL SELECT 'request',id::text,to_jsonb(r) FROM public.deletion_requests r WHERE id::text LIKE 'f4600000-%';
 CREATE TABLE upgrade_fixture.feature_writes_before_rows AS
   SELECT * FROM upgrade_fixture.feature_writes_current_rows;
 CREATE TABLE upgrade_fixture.feature_writes_baseline AS

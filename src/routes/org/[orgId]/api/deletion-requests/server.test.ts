@@ -22,8 +22,19 @@ const RECORD_BRAVO = '0d000000-0000-4000-8000-000000000002';
 const ENTRY_ALPHA = '0e000000-0000-4000-8000-000000000001';
 const ENTRY_BRAVO = '0e000000-0000-4000-8000-000000000002';
 const MISSING = '0f000000-0000-4000-8000-000000000001';
+const FOREIGN_PERSON = '0b000000-0000-4000-8000-000000000009';
+const FOREIGN_TYPE = '0c000000-0000-4000-8000-000000000009';
+const COUNSELING_ALPHA = '0a100000-0000-4000-8000-000000000001';
+const COUNSELING_BRAVO = '0a100000-0000-4000-8000-000000000002';
+const COUNSELING_FOREIGN = '0a100000-0000-4000-8000-000000000009';
 
-function createRequesterContext(personnel: 'view' | 'operate' = 'operate') {
+function createRequesterContext(
+	personnel: 'view' | 'operate' = 'operate',
+	{
+		training = 'operate',
+		groups = [GROUP_ALPHA]
+	}: { training?: 'operate' | 'configure'; groups?: string[] | null } = {}
+) {
 	const ctx = createRatingSchemeTestContext(
 		withTrainingPersistence({
 			auth: {
@@ -32,16 +43,33 @@ function createRequesterContext(personnel: 'view' | 'operate' = 'operate') {
 				capabilityMap: {
 					calendar: 'none',
 					personnel,
-					training: 'operate',
+					training,
 					criticalTasks: 'none',
 					onboarding: 'none',
 					ratingScheme: 'operate'
 				},
-				scopeSet: { kind: 'groups', groupIds: [GROUP_ALPHA] }
+				scopeSet: groups ? { kind: 'groups', groupIds: groups } : { kind: 'organization' }
 			}
 		})
 	);
 	const orgId = ctx.auth.orgId;
+	ctx.rawStore.seed('personnel', [
+		{
+			id: FOREIGN_PERSON,
+			organization_id: 'other-org',
+			group_id: null,
+			rank: 'PFC',
+			last_name: 'Foreign',
+			first_name: 'Casey',
+			archived_at: null
+		}
+	]);
+	ctx.rawStore.seed('training_types', [{ id: FOREIGN_TYPE, organization_id: 'other-org', name: 'Foreign CLS' }]);
+	ctx.rawStore.seed('counseling_records', [
+		{ id: COUNSELING_ALPHA, organization_id: orgId, personnel_id: PERSON_ALPHA, title: 'Quarterly' },
+		{ id: COUNSELING_BRAVO, organization_id: orgId, personnel_id: PERSON_BRAVO, title: 'Quarterly' },
+		{ id: COUNSELING_FOREIGN, organization_id: 'other-org', personnel_id: FOREIGN_PERSON, title: 'Quarterly' }
+	]);
 	ctx.rawStore.seed('personnel', [
 		{
 			id: PERSON_ALPHA,
@@ -167,16 +195,57 @@ describe('/api/deletion-requests route config', () => {
 		expect(await savedRequests(viewer)).toEqual([]);
 	});
 
-	it('accepts only request types an app workflow submits', async () => {
+	it('describes retained Training type and counseling requests from the loaded resource', async () => {
+		const requester = createRequesterContext('operate', { training: 'configure', groups: null });
+		const orgId = requester.ctx.auth.orgId;
+		const forged = { resourceDescription: 'Routine cleanup', resourceUrl: 'https://attacker.example/review' };
+
+		const type = await submit(requester, { resourceType: 'training_type', resourceId: TRAINING_TYPE, ...forged });
+		const counseling = await submit(requester, {
+			resourceType: 'counseling_record',
+			resourceId: COUNSELING_ALPHA,
+			...forged
+		});
+
+		expect([type.status, counseling.status]).toEqual([201, 201]);
+		expect(await savedRequests(requester)).toEqual([
+			['training_type', TRAINING_TYPE, 'Training type CLS', `/org/${orgId}/training`, 'pending'],
+			['counseling_record', COUNSELING_ALPHA, 'Counseling record for SGT Smith', `/org/${orgId}/personnel`, 'pending']
+		]);
+	});
+
+	it('creates no Training type or counseling request without authority, outside scope, foreign or unknown', async () => {
+		const organizationWide = createRequesterContext('operate', { training: 'configure', groups: null });
+		const groupConfigure = createRequesterContext('operate', { training: 'configure' });
+		const trainingOperator = createRequesterContext('operate', { groups: null });
+		const personnelViewer = createRequesterContext('view', { groups: null });
+
+		const outcomes = [
+			await submit(groupConfigure, { resourceType: 'training_type', resourceId: TRAINING_TYPE }),
+			await submit(trainingOperator, { resourceType: 'training_type', resourceId: TRAINING_TYPE }),
+			await submit(organizationWide, { resourceType: 'training_type', resourceId: FOREIGN_TYPE }),
+			await submit(organizationWide, { resourceType: 'training_type', resourceId: MISSING }),
+			await submit(groupConfigure, { resourceType: 'counseling_record', resourceId: COUNSELING_BRAVO }),
+			await submit(personnelViewer, { resourceType: 'counseling_record', resourceId: COUNSELING_ALPHA }),
+			await submit(organizationWide, { resourceType: 'counseling_record', resourceId: COUNSELING_FOREIGN }),
+			await submit(organizationWide, { resourceType: 'counseling_record', resourceId: MISSING })
+		].map((outcome) => outcome.status);
+
+		expect(outcomes).toEqual([403, 403, 404, 404, 404, 403, 404, 404]);
+		for (const requester of [organizationWide, groupConfigure, trainingOperator, personnelViewer]) {
+			expect(await savedRequests(requester)).toEqual([]);
+		}
+	});
+
+	it('rejects unknown request types and malformed IDs', async () => {
 		const requester = createRequesterContext();
 
 		const outcomes = [
-			await submit(requester, { resourceType: 'counseling_record', resourceId: RECORD_ALPHA }),
-			await submit(requester, { resourceType: 'training_type', resourceId: TRAINING_TYPE }),
+			await submit(requester, { resourceType: 'calendar_event', resourceId: RECORD_ALPHA }),
 			await submit(requester, { resourceType: 'personnel', resourceId: 'not-a-uuid' })
 		].map((outcome) => outcome.status);
 
-		expect(outcomes).toEqual([400, 400, 400]);
+		expect(outcomes).toEqual([400, 400]);
 		expect(await savedRequests(requester)).toEqual([]);
 	});
 });

@@ -50,7 +50,8 @@ INSERT INTO public.personnel (id, organization_id, group_id, rank, first_name, l
 
 INSERT INTO public.training_types (id, organization_id, name) VALUES
 	('f4000000-0000-4000-8000-000000000401', 'f4000000-0000-4000-8000-000000000101', 'Alpha CLS'),
-	('f4000000-0000-4000-8000-000000000402', 'f4000000-0000-4000-8000-000000000101', 'Alpha Range');
+	('f4000000-0000-4000-8000-000000000402', 'f4000000-0000-4000-8000-000000000101', 'Alpha Range'),
+	('f4000000-0000-4000-8000-000000000403', 'f4000000-0000-4000-8000-000000000101', 'Alpha Ruck');
 
 INSERT INTO public.personnel_trainings (id, organization_id, personnel_id, training_type_id, completion_date) VALUES
 	('f4000000-0000-4000-8000-000000000411', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000301', 'f4000000-0000-4000-8000-000000000401', '2030-01-01'),
@@ -97,12 +98,18 @@ INSERT INTO public.onboarding_template_steps (id, organization_id, template_id, 
 INSERT INTO public.personnel_onboardings (id, organization_id, personnel_id, template_id, status) VALUES
 	('f4000000-0000-4000-8000-000000000701', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000301', 'f4000000-0000-4000-8000-000000000601', 'in_progress'),
 	('f4000000-0000-4000-8000-000000000702', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000305', 'f4000000-0000-4000-8000-000000000601', 'in_progress');
+INSERT INTO public.personnel_onboardings (id, organization_id, personnel_id, template_id, status, started_at, completed_at, cancelled_at) VALUES
+	('f4000000-0000-4000-8000-000000000703', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000301', 'f4000000-0000-4000-8000-000000000601', 'completed', '2030-03-01', '2030-04-01', NULL),
+	('f4000000-0000-4000-8000-000000000704', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000301', 'f4000000-0000-4000-8000-000000000601', 'cancelled', '2030-03-01', NULL, '2030-04-02T00:00:00Z');
 INSERT INTO public.onboarding_step_progress (id, organization_id, onboarding_id, template_step_id, step_name, step_type, active, notes) VALUES
 	('f4000000-0000-4000-8000-000000000711', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000701', 'f4000000-0000-4000-8000-000000000611', 'Alpha Step', 'checkbox', true, '[]'),
 	('f4000000-0000-4000-8000-000000000712', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000701', NULL, 'Removed Step', 'checkbox', false, '[]'),
 	('f4000000-0000-4000-8000-000000000713', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000701', NULL, 'Noted Step', 'checkbox', true,
 		'[{"text":"Original","timestamp":"2030-01-01T00:00:00.000Z","userId":"f4000000-0000-4000-8000-000000000001"}]'),
 	('f4000000-0000-4000-8000-000000000714', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000702', 'f4000000-0000-4000-8000-000000000611', 'Bravo Step', 'checkbox', true, '[]');
+INSERT INTO public.onboarding_step_progress (id, organization_id, onboarding_id, step_name, step_type, training_type_id, stages, current_stage, sort_order) VALUES
+	('f4000000-0000-4000-8000-000000000715', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000701', 'Alpha Ruck', 'training', 'f4000000-0000-4000-8000-000000000403', NULL, NULL, 20),
+	('f4000000-0000-4000-8000-000000000716', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000701', 'Alpha Paperwork', 'paperwork', NULL, '["Submitted","Filed"]', 'Submitted', 30);
 
 INSERT INTO public.deletion_requests (id, organization_id, requested_by, requested_by_email, resource_type, resource_id, resource_description, status) VALUES
 	('f4000000-0000-4000-8000-000000000801', 'f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000006', 'feature-writes-viewer@example.test',
@@ -331,6 +338,89 @@ SELECT is(
 	'f4000000-0000-4000-8000-000000000002',
 	'an Onboarding operator appends an attributed note through the command');
 
+-- Direct progress and lifecycle updates follow the app's operations. A
+-- checkbox step toggles, a Paperwork step saves one of its stages and is
+-- complete exactly at the last, and Training completion stays with Start and
+-- reconciliation. A packet completes or cancels from in progress and reopens
+-- from cancelled, and the database dates each transition.
+SELECT throws_ok($$ UPDATE public.onboarding_step_progress SET completed = true WHERE id = 'f4000000-0000-4000-8000-000000000715' $$,
+	'42501', NULL, 'an Onboarding operator cannot complete a Training step the Person has no record for');
+SELECT throws_ok($$ UPDATE public.onboarding_step_progress SET current_stage = 'Signed' WHERE id = 'f4000000-0000-4000-8000-000000000715' $$,
+	'42501', NULL, 'an Onboarding operator cannot give a Training step a stage');
+SELECT throws_ok($$ UPDATE public.onboarding_step_progress SET current_stage = 'Invented' WHERE id = 'f4000000-0000-4000-8000-000000000716' $$,
+	'42501', NULL, 'an Onboarding operator cannot save a Paperwork stage the step does not define');
+SELECT throws_ok($$ UPDATE public.onboarding_step_progress SET current_stage = NULL WHERE id = 'f4000000-0000-4000-8000-000000000716' $$,
+	'42501', NULL, 'an Onboarding operator cannot clear a Paperwork stage');
+SELECT throws_ok($$ UPDATE public.onboarding_step_progress SET completed = true WHERE id = 'f4000000-0000-4000-8000-000000000716' $$,
+	'42501', NULL, 'an Onboarding operator cannot complete a Paperwork step before its last stage');
+SELECT throws_ok($$ UPDATE public.onboarding_step_progress SET current_stage = 'Filed' WHERE id = 'f4000000-0000-4000-8000-000000000716' $$,
+	'42501', NULL, 'an Onboarding operator cannot reach the last Paperwork stage without completing the step');
+SELECT throws_ok($$ UPDATE public.onboarding_step_progress SET current_stage = 'Filed' WHERE id = 'f4000000-0000-4000-8000-000000000711' $$,
+	'42501', NULL, 'an Onboarding operator cannot give a checkbox step a stage');
+SELECT throws_ok($$ UPDATE public.onboarding_step_progress SET updated_at = '2020-01-01T00:00:00Z' WHERE id = 'f4000000-0000-4000-8000-000000000711' $$,
+	'42501', NULL, 'an Onboarding operator cannot rewrite when a step was saved');
+SELECT throws_ok($$ UPDATE public.personnel_onboardings SET status = 'in_progress', completed_at = NULL WHERE id = 'f4000000-0000-4000-8000-000000000703' $$,
+	'42501', NULL, 'an Onboarding operator cannot reopen a completed packet');
+SELECT throws_ok($$ UPDATE public.personnel_onboardings SET status = 'cancelled', cancelled_at = '2030-05-01T00:00:00Z' WHERE id = 'f4000000-0000-4000-8000-000000000703' $$,
+	'42501', NULL, 'an Onboarding operator cannot cancel a completed packet');
+SELECT throws_ok($$ UPDATE public.personnel_onboardings SET status = 'completed', completed_at = '2030-05-01' WHERE id = 'f4000000-0000-4000-8000-000000000704' $$,
+	'42501', NULL, 'an Onboarding operator cannot complete a cancelled packet');
+SELECT throws_ok($$ UPDATE public.personnel_onboardings SET completed_at = '2020-01-01' WHERE id = 'f4000000-0000-4000-8000-000000000703' $$,
+	'42501', NULL, 'an Onboarding operator cannot backdate a completed packet');
+SELECT throws_ok($$ UPDATE public.personnel_onboardings SET cancelled_at = '2020-01-01T00:00:00Z' WHERE id = 'f4000000-0000-4000-8000-000000000704' $$,
+	'42501', NULL, 'an Onboarding operator cannot backdate a cancelled packet');
+SELECT throws_ok($$ UPDATE public.personnel_onboardings SET completed_at = '2030-04-01' WHERE id = 'f4000000-0000-4000-8000-000000000701' $$,
+	'42501', NULL, 'an Onboarding operator cannot date an in-progress packet''s completion');
+SELECT throws_ok($$ UPDATE public.personnel_onboardings SET started_at = '2020-01-01' WHERE id = 'f4000000-0000-4000-8000-000000000701' $$,
+	'42501', NULL, 'an Onboarding operator cannot change when a packet started');
+SELECT results_eq(
+	$$ SELECT id::text, status, completed_at, cancelled_at, started_at FROM public.personnel_onboardings
+		WHERE id IN ('f4000000-0000-4000-8000-000000000701', 'f4000000-0000-4000-8000-000000000703', 'f4000000-0000-4000-8000-000000000704') ORDER BY id $$,
+	$$ VALUES ('f4000000-0000-4000-8000-000000000701', 'in_progress', NULL::date, NULL::timestamptz, CURRENT_DATE),
+		('f4000000-0000-4000-8000-000000000703', 'completed', '2030-04-01'::date, NULL::timestamptz, '2030-03-01'::date),
+		('f4000000-0000-4000-8000-000000000704', 'cancelled', NULL::date, '2030-04-02T00:00:00Z'::timestamptz, '2030-03-01'::date) $$,
+	'rejected Onboarding lifecycle updates leave each packet''s saved status and dates');
+SELECT results_eq(
+	$$ SELECT id::text, completed, current_stage, updated_at = now() FROM public.onboarding_step_progress
+		WHERE id IN ('f4000000-0000-4000-8000-000000000711', 'f4000000-0000-4000-8000-000000000715', 'f4000000-0000-4000-8000-000000000716') ORDER BY id $$,
+	$$ VALUES ('f4000000-0000-4000-8000-000000000711', true, NULL::text, true), ('f4000000-0000-4000-8000-000000000715', false, NULL::text, true), ('f4000000-0000-4000-8000-000000000716', false, 'Submitted', true) $$,
+	'rejected Onboarding progress updates leave each step''s saved completion and stage');
+SAVEPOINT operator_progress;
+WITH changed AS (
+	UPDATE public.onboarding_step_progress SET current_stage = 'Filed', completed = true WHERE id = 'f4000000-0000-4000-8000-000000000716' RETURNING current_stage, completed
+) SELECT is((SELECT jsonb_agg(jsonb_build_array(current_stage, completed)) FROM changed), '[["Filed",true]]'::jsonb,
+	'an Onboarding operator completes a Paperwork step at its last stage');
+WITH changed AS (
+	UPDATE public.onboarding_step_progress SET current_stage = 'Submitted', completed = false WHERE id = 'f4000000-0000-4000-8000-000000000716' RETURNING current_stage, completed
+) SELECT is((SELECT jsonb_agg(jsonb_build_array(current_stage, completed)) FROM changed), '[["Submitted",false]]'::jsonb,
+	'an Onboarding operator moves a Paperwork step back to an earlier stage');
+WITH changed AS (
+	UPDATE public.onboarding_step_progress SET completed = false WHERE id = 'f4000000-0000-4000-8000-000000000711' RETURNING current_stage, completed
+) SELECT is((SELECT jsonb_agg(jsonb_build_array(current_stage, completed)) FROM changed), '[[null,false]]'::jsonb,
+	'an Onboarding operator unchecks a checkbox step');
+ROLLBACK TO SAVEPOINT operator_progress;
+SAVEPOINT operator_transitions;
+WITH changed AS (
+	UPDATE public.personnel_onboardings SET status = 'completed', completed_at = '2020-01-01', cancelled_at = NULL
+	WHERE id = 'f4000000-0000-4000-8000-000000000701' AND status = 'in_progress' RETURNING status, completed_at, cancelled_at
+) SELECT is((SELECT row(status, completed_at, cancelled_at)::text FROM changed),
+	row('completed', (now() AT TIME ZONE 'UTC')::date, NULL::timestamptz)::text,
+	'an Onboarding operator completes a packet with incomplete steps on the database''s UTC date');
+ROLLBACK TO SAVEPOINT operator_transitions;
+WITH changed AS (
+	UPDATE public.personnel_onboardings SET status = 'cancelled', cancelled_at = '2020-01-01T00:00:00Z', completed_at = NULL
+	WHERE id = 'f4000000-0000-4000-8000-000000000701' AND status = 'in_progress' RETURNING status, completed_at, cancelled_at
+) SELECT is((SELECT row(status, completed_at, cancelled_at)::text FROM changed),
+	row('cancelled', NULL::date, now())::text,
+	'an Onboarding operator cancels a packet at the database time');
+WITH changed AS (
+	UPDATE public.personnel_onboardings SET status = 'in_progress', cancelled_at = NULL, completed_at = NULL
+	WHERE id = 'f4000000-0000-4000-8000-000000000701' AND status = 'cancelled' RETURNING status, completed_at, cancelled_at
+) SELECT is((SELECT row(status, completed_at, cancelled_at)::text FROM changed),
+	row('in_progress', NULL::date, NULL::timestamptz)::text,
+	'an Onboarding operator reopens a cancelled packet with no saved completion or cancellation');
+ROLLBACK TO SAVEPOINT operator_transitions;
+
 SELECT pg_temp.act_as('f4000000-0000-4000-8000-000000000003');
 SELECT is(
 	(SELECT jsonb_agg(jsonb_build_array(step ->> 'template_step_id', step ->> 'step_name', step ->> 'step_type', step -> 'stages', step ->> 'sort_order', step ->> 'current_stage', step ->> 'active') ORDER BY (step ->> 'active')::boolean DESC, (step ->> 'sort_order')::integer)
@@ -338,6 +428,14 @@ SELECT is(
 			(SELECT id FROM public.personnel_onboardings WHERE personnel_id = 'f4000000-0000-4000-8000-000000000306' AND status = 'in_progress'), 'f4000000-0000-4000-8000-000000000602') -> 'steps') AS step),
 	'[["f4000000-0000-4000-8000-000000000621","Replacement Paperwork","paperwork",["Submitted","Filed"],"10","Submitted","true"],["f4000000-0000-4000-8000-000000000622","Replacement Check","checkbox",null,"20",null,"true"],["f4000000-0000-4000-8000-000000000611","Alpha Step","checkbox",null,"0",null,"false"],["f4000000-0000-4000-8000-000000000612","Alpha CLS","training",null,"10",null,"false"]]'::jsonb,
 	'an Onboarding configurator reconciles a packet to its new template steps');
+SELECT throws_ok($$ UPDATE public.onboarding_step_progress SET active = false WHERE id = 'f4000000-0000-4000-8000-000000000711' $$,
+	'42501', NULL, 'an Onboarding configurator deactivates a step only through reconciliation');
+SAVEPOINT configurator_template_clear;
+WITH changed AS (
+	UPDATE public.personnel_onboardings SET template_id = NULL WHERE id = 'f4000000-0000-4000-8000-000000000701' RETURNING template_id
+) SELECT is((SELECT jsonb_agg(template_id) FROM changed), '[null]'::jsonb,
+	'an Onboarding configurator clears a deleted template from its packets');
+ROLLBACK TO SAVEPOINT configurator_template_clear;
 SELECT is(
 	pg_temp.onboarding_rpc_answers('f4000000-0000-4000-8000-000000000305', 'f4000000-0000-4000-8000-000000000702',
 		'f4000000-0000-4000-8000-000000000601', 'f4000000-0000-4000-8000-000000000714', 'f4000000-0000-4000-8000-000000000611'),
@@ -433,6 +531,8 @@ SELECT results_eq(
 		('note:f4000000-0000-4000-8000-000000000521'),
 		('packet:f4000000-0000-4000-8000-000000000701:f4000000-0000-4000-8000-000000000601:in_progress'),
 		('packet:f4000000-0000-4000-8000-000000000702:f4000000-0000-4000-8000-000000000601:in_progress'),
+		('packet:f4000000-0000-4000-8000-000000000703:f4000000-0000-4000-8000-000000000601:completed'),
+		('packet:f4000000-0000-4000-8000-000000000704:f4000000-0000-4000-8000-000000000601:cancelled'),
 		('personnel:f4000000-0000-4000-8000-000000000301:Edited:active'),
 		('personnel:f4000000-0000-4000-8000-000000000302:Blake:2029-01-01 00:00:00+00'),
 		('personnel:f4000000-0000-4000-8000-000000000305:Emery:active'),
@@ -443,6 +543,8 @@ SELECT results_eq(
 		('step:f4000000-0000-4000-8000-000000000711:Alpha Step:true:true:0'),
 		('step:f4000000-0000-4000-8000-000000000713:Noted Step:true:false:2'),
 		('step:f4000000-0000-4000-8000-000000000714:Bravo Step:true:false:0'),
+		('step:f4000000-0000-4000-8000-000000000715:Alpha Ruck:true:false:0'),
+		('step:f4000000-0000-4000-8000-000000000716:Alpha Paperwork:true:false:0'),
 		('training:f4000000-0000-4000-8000-000000000411')
 	$$,
 	'denied direct writes leave exact saved rows while permitted writes persist');

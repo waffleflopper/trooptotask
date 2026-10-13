@@ -436,6 +436,12 @@ WITH changed AS (
 ) SELECT is((SELECT jsonb_agg(template_id) FROM changed), '[null]'::jsonb,
 	'an Onboarding configurator clears a deleted template from its packets');
 ROLLBACK TO SAVEPOINT configurator_template_clear;
+SELECT throws_ok($$ UPDATE public.personnel_onboardings SET template_id = 'f4000000-0000-4000-8000-000000000602'
+	WHERE id = 'f4000000-0000-4000-8000-000000000701' $$,
+	'42501', NULL, 'an Onboarding configurator switches an in-progress packet only through reconciliation');
+SELECT throws_ok($$ UPDATE public.personnel_onboardings SET template_id = 'f4000000-0000-4000-8000-000000000602'
+	WHERE id = 'f4000000-0000-4000-8000-000000000703' $$,
+	'42501', NULL, 'an Onboarding configurator cannot assign a template to a completed packet');
 SELECT is(
 	pg_temp.onboarding_rpc_answers('f4000000-0000-4000-8000-000000000305', 'f4000000-0000-4000-8000-000000000702',
 		'f4000000-0000-4000-8000-000000000601', 'f4000000-0000-4000-8000-000000000714', 'f4000000-0000-4000-8000-000000000611'),

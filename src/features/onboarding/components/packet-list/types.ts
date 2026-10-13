@@ -1,8 +1,7 @@
-import type { Snippet } from 'svelte';
+export type PacketOutcome = 'completed' | 'cancelled';
 
-export type PacketStepTone = 'checkbox' | 'training' | 'paperwork' | 'inactive' | 'neutral';
-export type PacketStepState = 'complete' | 'incomplete' | 'inactive' | 'pending';
-
-export interface ChildrenProps {
-	children?: Snippet;
+/** One note as the expanded row shows it: the words, and who wrote them where and when. */
+export interface PacketNoteEntry {
+	text: string;
+	byline: string;
 }

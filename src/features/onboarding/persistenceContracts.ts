@@ -84,10 +84,18 @@ export interface SavedOnboardingProgress {
 	stepType: OnboardingStepType;
 	completed: boolean;
 	currentStage: string | null;
+	progressChangedAt: string;
+}
+
+export interface OnboardingCompletion {
+	startedAt: string;
+	completedAt: string;
 }
 
 export interface OnboardingWorkflowPersistence {
 	listPackets(mode: OnboardingBootstrapMode): Promise<PersonnelOnboarding[]>;
+	/** Start and finish dates of packets completed on or after `since` (YYYY-MM-DD). */
+	listCompletionsSince(since: string): Promise<OnboardingCompletion[]>;
 	listSavedActivePackets(): Promise<PersonnelOnboarding[]>;
 	findPacketReference(id: string): Promise<OnboardingPacketReference | null>;
 	findStepReference(id: string): Promise<OnboardingProgressReference | null>;

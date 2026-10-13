@@ -44,7 +44,7 @@ CREATE VIEW upgrade_fixture.feature_writes_current_rows AS
 SELECT 'personnel'::text table_name,id::text row_id,to_jsonb(r) row_data FROM public.personnel r WHERE id::text LIKE 'f4600000-%'
 UNION ALL SELECT 'counseling',id::text,to_jsonb(r) FROM public.counseling_records r WHERE id::text LIKE 'f4600000-%'
 UNION ALL SELECT 'onboarding',id::text,to_jsonb(r) FROM public.personnel_onboardings r WHERE id::text LIKE 'f4600000-%'
-UNION ALL SELECT 'step',id::text,to_jsonb(r) FROM public.onboarding_step_progress r WHERE id::text LIKE 'f4600000-%'
+UNION ALL SELECT 'step',id::text,to_jsonb(r) - 'progress_changed_at' FROM public.onboarding_step_progress r WHERE id::text LIKE 'f4600000-%'
 UNION ALL SELECT 'request',id::text,to_jsonb(r) FROM public.deletion_requests r WHERE id::text LIKE 'f4600000-%';
 CREATE TABLE upgrade_fixture.feature_writes_before_rows AS
   SELECT * FROM upgrade_fixture.feature_writes_current_rows;

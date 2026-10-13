@@ -6,6 +6,9 @@ import type { OnboardingQueryPorts } from './onboardingPorts.server';
 import { personnelScopeResource, type GroupPersistence } from '$features/personnel/contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { evaluateFeaturePolicy } from '$lib/access/index.server';
+import { typicalDaysToFinish, typicalWindowStart } from '../onboardingStatus';
+import { noteAuthorIds, pickNoteAuthorLabels } from '../onboardingNoteAuthors';
+import { normalizeRetentionMonths } from './onboardingRetention.server';
 
 export interface FetchOnboardingBootstrapOptions {
 	mode?: OnboardingBootstrapMode;
@@ -67,6 +70,19 @@ async function readCompletedTrainingTypeIdsByPersonnelId(
 	return ctx.trainingOnboardingReferences.completedTypeIds(ctx.auth, personnelIds, trainingTypeIds);
 }
 
+/** Names are decoration on the notes, so a failed lookup leaves them unnamed rather than failing the page. */
+async function readNoteAuthorLabels(
+	ctx: OnboardingQueryPorts,
+	packets: PersonnelOnboarding[]
+): Promise<Map<string, string>> {
+	try {
+		return await ctx.organizationSettings.findMemberLabels(ctx.auth.orgId, noteAuthorIds(packets, ctx.auth.userId));
+	} catch {
+		console.error('[onboarding-workspace] Note author names unavailable', { organizationId: ctx.auth.orgId });
+		return new Map();
+	}
+}
+
 export async function fetchOnboardingBootstrap(
 	ctx: OnboardingQueryPorts & { readonly groups: Pick<GroupPersistence, 'listCatalog'> },
 	options: FetchOnboardingBootstrapOptions = {}
@@ -78,17 +94,40 @@ export async function fetchOnboardingBootstrap(
 		ctx.auth.scopeSet.kind === 'groups' && mode === 'all'
 			? ctx.personnelOnboardingRoster.listRoster(ctx.auth, 'all')
 			: null;
+	// completed_at is a UTC calendar date, so the window ends on today's UTC date.
+	const today = new Date().toISOString().slice(0, 10);
+	// Active loads only open packets, so it reads completed dates separately.
+	const recentCompletions =
+		mode === 'active' ? ctx.onboardingWorkflow.listCompletionsSince(typicalWindowStart(today)) : null;
 
-	const [templateData, allOnboardings, personnel, groups, trainingTypeRows, scopePersonnel, personnelCreationRanks] =
-		await Promise.all([
-			fetchOnboardingTemplatesData(ctx),
-			ctx.onboardingWorkflow.listPackets(mode),
-			ctx.personnelOnboardingRoster.listRoster(ctx.auth, mode === 'history' ? 'all' : 'active'),
-			ctx.groups.listCatalog(),
-			ctx.trainingOnboardingReferences.listTypes(ctx.auth),
-			scopedAllPersonnel,
-			loadPersonnelCreationRanks(ctx)
-		]);
+	const packetsRead = ctx.onboardingWorkflow.listPackets(mode);
+	// Authors are known once packets arrive, so their names load alongside the remaining reads.
+	const noteAuthorLabelsRead = packetsRead.then((packets) => readNoteAuthorLabels(ctx, packets));
+	const retentionRead = mode === 'history' ? ctx.organizationSettings.findArchiveRetentionMonths(ctx.auth.orgId) : null;
+
+	const [
+		templateData,
+		allOnboardings,
+		personnel,
+		groups,
+		trainingTypeRows,
+		scopePersonnel,
+		personnelCreationRanks,
+		completions,
+		noteAuthorLabels,
+		retentionMonths
+	] = await Promise.all([
+		fetchOnboardingTemplatesData(ctx),
+		packetsRead,
+		ctx.personnelOnboardingRoster.listRoster(ctx.auth, mode === 'history' ? 'all' : 'active'),
+		ctx.groups.listCatalog(),
+		ctx.trainingOnboardingReferences.listTypes(ctx.auth),
+		scopedAllPersonnel,
+		loadPersonnelCreationRanks(ctx),
+		recentCompletions,
+		noteAuthorLabelsRead,
+		retentionRead
+	]);
 
 	const templates = templateData.templates;
 	const templateSteps = templateData.templateSteps;
@@ -128,6 +167,13 @@ export async function fetchOnboardingBootstrap(
 		personnel,
 		groups,
 		trainingTypes,
-		...personnelCreationRanks
+		...personnelCreationRanks,
+		typicalDaysToFinish: typicalDaysToFinish(
+			completions?.map((completion) => ({ status: 'completed' as const, ...completion })) ?? onboardings,
+			today
+		),
+		// Only authors of packets this member's scope shows keep a name.
+		noteAuthors: pickNoteAuthorLabels(onboardings, noteAuthorLabels, ctx.auth.userId),
+		archiveRetentionMonths: mode === 'history' ? normalizeRetentionMonths(retentionMonths) : null
 	};
 }

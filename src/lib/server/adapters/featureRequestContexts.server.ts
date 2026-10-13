@@ -355,6 +355,7 @@ export function createRequestOnboardingWorkspaceContext(
 		auth: request.auth,
 		audit: request.audit,
 		onboardingWorkflow: createSupabaseOnboardingWorkflowPersistence(request.supabase, request.auth.orgId),
+		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase),
 		personnelOnboardingRoster: createSupabasePersonnelOnboardingRosterPort(getAdminClient),
 		trainingOnboardingReferences: createSupabaseTrainingOnboardingReferencesPort(getAdminClient)
 	};

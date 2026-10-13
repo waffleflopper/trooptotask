@@ -177,6 +177,23 @@ export function createSupabaseOnboardingWorkflowPersistence(
 				progressChangedAt: data.progress_changed_at
 			};
 		},
+		async countActivePacketsByTemplate() {
+			type TemplateCountRow = { id: string; personnel_onboardings: Array<{ count: number }> };
+			const result = await selectAllSupabaseRows<TemplateCountRow>(async (from, to) => {
+				const { data, error } = await client
+					.from('onboarding_templates')
+					.select('id, personnel_onboardings(count)')
+					.eq('organization_id', orgId)
+					.eq('personnel_onboardings.organization_id', orgId)
+					.eq('personnel_onboardings.status', 'in_progress')
+					.order('id', { ascending: true })
+					.range(from, to)
+					.returns<TemplateCountRow[]>();
+				return { data, error };
+			});
+			if (result.error) throw new Error((result.error as { message: string }).message);
+			return Object.fromEntries((result.data ?? []).map((row) => [row.id, row.personnel_onboardings[0]?.count ?? 0]));
+		},
 		async clearPacketTemplate(id) {
 			const { error } = await client
 				.from('personnel_onboardings')

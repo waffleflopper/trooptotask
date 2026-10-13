@@ -104,5 +104,7 @@ export interface OnboardingWorkflowPersistence {
 	saveCheckboxCompletion(stepId: string, completed: boolean): Promise<SavedOnboardingProgress>;
 	savePaperworkProgress(stepId: string, currentStage: string, completed: boolean): Promise<SavedOnboardingProgress>;
 	listPacketIdsUsingTemplate(templateId: string): Promise<string[]>;
+	/** In-progress packets per template, counted among the packets the requester may see. Templates without packets map to 0. */
+	countActivePacketsByTemplate(): Promise<Record<string, number>>;
 	clearPacketTemplate(id: string): Promise<void>;
 }

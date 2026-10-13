@@ -1,4 +1,5 @@
 import { untrack } from 'svelte';
+import { SvelteSet } from 'svelte/reactivity';
 import type { TrainingType } from '$features/training/contracts';
 import type { OnboardingStepType, OnboardingTemplate, OnboardingTemplateStep } from '../contracts';
 
@@ -116,6 +117,7 @@ export interface OnboardingTemplateWorkspaceModel {
 	stepTrainingTypeLabel: string;
 	canSaveTemplate: boolean;
 	canSaveStep: boolean;
+	stepDraftDirty: boolean;
 }
 
 let hydratedTemplates = $state.raw<OnboardingTemplate[]>([]);
@@ -279,6 +281,9 @@ export class OnboardingTemplateWorkspace {
 	#error = $state<OnboardingTemplateWorkspaceError | null>(null);
 	#adapter!: OnboardingTemplateWorkspaceAdapter;
 	#organizationRevision = 0;
+	#stepDraftBaseline = '';
+	#reorderingTemplates = new SvelteSet<string>();
+	#stepEditorSession = 0;
 
 	constructor(
 		organization: OnboardingTemplateWorkspaceOrganization,
@@ -324,7 +329,8 @@ export class OnboardingTemplateWorkspace {
 			error: this.#error,
 			stepTrainingTypeLabel: this.stepTrainingTypeLabel,
 			canSaveTemplate: this.canSaveTemplate,
-			canSaveStep: this.canSaveStep
+			canSaveStep: this.canSaveStep,
+			stepDraftDirty: this.stepDraftDirty
 		};
 	}
 
@@ -373,6 +379,12 @@ export class OnboardingTemplateWorkspace {
 		if (!this.canMutate || !this.stepDraft.name.trim() || this.#savingStep) return false;
 		if (this.stepDraft.stepType === 'training') return !!this.stepDraft.trainingTypeId;
 		return true;
+	}
+
+	/** True when the open step form (new or edited) differs from what it opened with. */
+	get stepDraftDirty(): boolean {
+		if (!this.#addingStep && !this.#editingStepId) return false;
+		return this.newStageName.trim() !== '' || JSON.stringify(this.stepDraft) !== this.#stepDraftBaseline;
 	}
 
 	get stepTrainingTypeLabel(): string {
@@ -550,11 +562,14 @@ export class OnboardingTemplateWorkspace {
 		this.cancelEditStep();
 		this.stepDraft = emptyStepDraft();
 		this.newStageName = '';
+		this.#stepDraftBaseline = JSON.stringify(this.stepDraft);
+		this.#stepEditorSession += 1;
 		this.#addingStep = true;
 	}
 
 	cancelAddStep(): void {
 		this.#error = null;
+		this.#stepEditorSession += 1;
 		this.#addingStep = false;
 		this.stepDraft = emptyStepDraft();
 		this.newStageName = '';
@@ -564,6 +579,7 @@ export class OnboardingTemplateWorkspace {
 		this.#error = null;
 		if (!this.canMutate || this.#creatingTemplate || this.#editingTemplate) return;
 		this.cancelAddStep();
+		this.#stepEditorSession += 1;
 		this.#editingStepId = step.id;
 		this.stepDraft = {
 			name: step.name,
@@ -572,11 +588,13 @@ export class OnboardingTemplateWorkspace {
 			trainingTypeId: step.trainingTypeId,
 			stages: step.stages ? [...step.stages] : []
 		};
+		this.#stepDraftBaseline = JSON.stringify(this.stepDraft);
 		this.newStageName = '';
 	}
 
 	cancelEditStep(): void {
 		this.#error = null;
+		this.#stepEditorSession += 1;
 		this.#editingStepId = null;
 		this.stepDraft = emptyStepDraft();
 		this.newStageName = '';
@@ -588,6 +606,7 @@ export class OnboardingTemplateWorkspace {
 		if (!selected) return validationError('Select a template before saving a step');
 
 		const revision = this.#organizationRevision;
+		const session = this.#stepEditorSession;
 		this.#savingStep = true;
 		this.#error = null;
 		try {
@@ -602,7 +621,7 @@ export class OnboardingTemplateWorkspace {
 				if (revision !== this.#organizationRevision) return organizationChanged();
 				if (!result.ok) return this.rememberError(result);
 				this.#steps = [...this.#steps, result.value];
-				this.cancelAddStep();
+				if (session === this.#stepEditorSession) this.cancelAddStep();
 				this.syncHydratedStore();
 				return result;
 			}
@@ -614,8 +633,11 @@ export class OnboardingTemplateWorkspace {
 			});
 			if (revision !== this.#organizationRevision) return organizationChanged();
 			if (!result.ok) return this.rememberError(result);
-			this.#steps = this.#steps.map((step) => (step.id === result.value.id ? result.value : step));
-			this.cancelEditStep();
+			// The answer predates any reorder made meanwhile, so the position shown stays.
+			this.#steps = this.#steps.map((step) =>
+				step.id === result.value.id ? { ...result.value, sortOrder: step.sortOrder } : step
+			);
+			if (session === this.#stepEditorSession) this.cancelEditStep();
 			this.syncHydratedStore();
 			return result;
 		} finally {
@@ -623,7 +645,8 @@ export class OnboardingTemplateWorkspace {
 		}
 	}
 
-	async moveStep(step: OnboardingTemplateStep, direction: 'up' | 'down'): Promise<OnboardingTemplateWorkspaceResult> {
+	/** Moves a step to `toIndex` at once and saves the order, folding moves made while that template's save is in flight into the next one. */
+	async reorderStep(stepId: string, toIndex: number): Promise<OnboardingTemplateWorkspaceResult> {
 		this.#error = null;
 		if (!this.canMutate)
 			return this.rememberError({
@@ -633,26 +656,54 @@ export class OnboardingTemplateWorkspace {
 		const selected = this.selectedTemplate;
 		if (!selected) return validationError('Select a template before reordering steps');
 		const ordered = this.selectedTemplateSteps;
-		const index = ordered.findIndex((item) => item.id === step.id);
-		if (index < 0) return validationError('Select a step before reordering');
-		const swapIndex = direction === 'up' ? index - 1 : index + 1;
-		if (swapIndex < 0 || swapIndex >= ordered.length) return { ok: true, value: undefined };
+		const from = ordered.findIndex((item) => item.id === stepId);
+		if (from < 0) return validationError('Select a step before reordering');
+		const target = Math.max(0, Math.min(toIndex, ordered.length - 1));
+		if (target === from) return { ok: true, value: undefined };
 
+		const templateId = selected.id;
 		const next = [...ordered];
-		[next[index], next[swapIndex]] = [next[swapIndex], next[index]];
-		const orderedStepIds = next.map((item) => item.id);
-		const revision = this.#organizationRevision;
-		const result = await this.adapter.reorderSteps(selected.id, orderedStepIds);
-		if (revision !== this.#organizationRevision) return organizationChanged();
-		if (!result.ok) return this.rememberError(result);
-
-		const reorderedById: Record<string, OnboardingTemplateStep> = Object.create(null);
-		for (const item of result.value) {
-			reorderedById[item.id] = item;
-		}
-		this.#steps = this.#steps.map((item) => reorderedById[item.id] ?? item);
+		next.splice(target, 0, ...next.splice(from, 1));
+		const confirmed = Object.fromEntries(ordered.map((item) => [item.id, item.sortOrder]));
+		const sortOrders = Object.fromEntries(next.map((item, index) => [item.id, index]));
+		this.#steps = this.#steps.map((item) =>
+			item.id in sortOrders ? { ...item, sortOrder: sortOrders[item.id] } : item
+		);
 		this.syncHydratedStore();
-		return { ok: true, value: undefined };
+		if (this.#reorderingTemplates.has(templateId)) return { ok: true, value: undefined };
+
+		this.#reorderingTemplates.add(templateId);
+		const revision = this.#organizationRevision;
+		const orderedIds = () =>
+			this.#steps
+				.filter((item) => item.templateId === templateId)
+				.sort((a, b) => a.sortOrder - b.sortOrder)
+				.map((item) => item.id);
+		const applyOrders = (orders: Record<string, number>) => {
+			this.#steps = this.#steps.map((item) => (item.id in orders ? { ...item, sortOrder: orders[item.id] } : item));
+			this.syncHydratedStore();
+		};
+		try {
+			let saved = confirmed;
+			for (;;) {
+				const sent = orderedIds();
+				const result = await this.adapter.reorderSteps(templateId, sent);
+				if (revision !== this.#organizationRevision) return organizationChanged();
+				if (!result.ok) {
+					applyOrders(saved);
+					return this.rememberError(result);
+				}
+				// Only the positions are the server's to acknowledge; names and fields saved meanwhile stay.
+				const acknowledged = Object.fromEntries(result.value.map((item) => [item.id, item.sortOrder]));
+				saved = { ...saved, ...acknowledged };
+				if (orderedIds().join() === sent.join()) {
+					applyOrders(acknowledged);
+					return { ok: true, value: undefined };
+				}
+			}
+		} finally {
+			this.#reorderingTemplates.delete(templateId);
+		}
 	}
 
 	addStage(): void {
@@ -666,11 +717,11 @@ export class OnboardingTemplateWorkspace {
 		this.stepDraft.stages = this.stepDraft.stages.filter((_, itemIndex) => itemIndex !== index);
 	}
 
-	moveStage(index: number, direction: 'up' | 'down'): void {
-		const newIndex = direction === 'up' ? index - 1 : index + 1;
-		if (newIndex < 0 || newIndex >= this.stepDraft.stages.length) return;
+	moveStage(from: number, to: number): void {
+		const target = Math.max(0, Math.min(to, this.stepDraft.stages.length - 1));
+		if (from < 0 || from >= this.stepDraft.stages.length || target === from) return;
 		const copy = [...this.stepDraft.stages];
-		[copy[index], copy[newIndex]] = [copy[newIndex], copy[index]];
+		copy.splice(target, 0, ...copy.splice(from, 1));
 		this.stepDraft.stages = copy;
 	}
 
@@ -679,9 +730,10 @@ export class OnboardingTemplateWorkspace {
 		this.#mobileDetailOpen = false;
 	}
 
-	getTemplateSummary(template: OnboardingTemplate): string {
+	getTemplateSummary(template: OnboardingTemplate, activePackets = 0): string {
 		const stepCount = this.#steps.filter((step) => step.templateId === template.id).length;
-		return `${stepCount} step${stepCount === 1 ? '' : 's'}`;
+		const steps = `${stepCount} step${stepCount === 1 ? '' : 's'}`;
+		return `${steps} · ${activePackets > 0 ? `${activePackets} active packet${activePackets === 1 ? '' : 's'}` : 'no active packets'}`;
 	}
 
 	private async deleteTemplate(templateId: string): Promise<OnboardingTemplateWorkspaceResult> {

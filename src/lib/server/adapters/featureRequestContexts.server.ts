@@ -72,6 +72,7 @@ import type {
 	advanceStage,
 	cancelOnboarding,
 	createOnboardingTemplateStep,
+	fetchOnboardingTemplateActivity,
 	fetchOnboardingWorkspace,
 	removeInactiveStep,
 	resyncOnboarding,
@@ -268,6 +269,12 @@ export function createRequestOnboardingTemplateStepContext(request: AdmittedOrga
 	} satisfies Parameters<typeof createOnboardingTemplateStep>[0] & {
 		trainingCatalog: ReturnType<typeof createSupabaseTrainingCatalogPersistence>;
 	};
+}
+
+export function createRequestOnboardingTemplateActivityContext(request: AdmittedOrganizationRequest) {
+	return {
+		onboardingWorkflow: createSupabaseOnboardingWorkflowPersistence(request.supabase, request.auth.orgId)
+	} satisfies Parameters<typeof fetchOnboardingTemplateActivity>[0];
 }
 
 export function createRequestOnboardingStartContext(

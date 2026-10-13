@@ -57,6 +57,7 @@ Read the [UI foundation](#ui-foundation), then the entry for the component being
 | [`patterns/bulk-import-workspace`](#patternsbulk-import-workspace)         | See its section                                                                                                                                     | Calendar, Critical Tasks, Personnel and Training imports.                                                                                                             |
 | [`patterns/page-shell`](#patternspage-shell)                               | `Root`, `Header`, `Tabs`, `FactGrid`, `Metric`                                                                                                      | Account, Organization settings, the person record, platform admin and Training Reports.                                                                               |
 | [`patterns/readiness-band`](#patternsreadiness-band)                       | `Cell`, `Legend`; `readinessBandTone`                                                                                                               | Critical Tasks and Training reports.                                                                                                                                  |
+| [`patterns/reorder-list`](#patternsreorder-list)                           | `ReorderList`, `ReorderItem`, `ReorderGrip`                                                                                                         | Onboarding template steps and paperwork stages.                                                                                                                       |
 | [`patterns/report-chart`](#patternsreport-chart)                           | See its section                                                                                                                                     | Critical Tasks reports, Training Reports and the platform admin dashboard.                                                                                            |
 | [`patterns/report-workspace`](#patternsreport-workspace)                   | See its section                                                                                                                                     | Calendar, Critical Tasks and Training reports.                                                                                                                        |
 | [`patterns/requirement-status-badge`](#patternsrequirement-status-badge)   | `RequirementStatusBadge`                                                                                                                            | Critical Tasks and Training status badges.                                                                                                                            |
@@ -1010,6 +1011,37 @@ No shared upload component exists. Upload workflows compose `Field`, `Input type
 - `DELETE` returns `200 OK`
 
 **Storage path convention**: `{orgId}/sign-in-rosters/{rosterId}/{uuid}-{sanitized-filename}`
+
+---
+
+## `patterns/reorder-list`
+
+A list whose rows move by a grip. A pointer drags the grip. With the grip focused, Arrow Up and Arrow Down move the row and a polite live region announces the new position ("Orientation moved to position 2 of 3"). Focus stays on the moved row's grip. Escape cancels a drag. It adds no drag-and-drop dependency and owns no order. The consumer updates its own order at once in `onmove`, then saves it.
+
+```svelte
+<script lang="ts">
+	import { ReorderGrip, ReorderItem, ReorderList } from '$lib/components/patterns/reorder-list';
+
+	const entries = $derived(steps.map((step) => ({ id: step.id, label: step.name })));
+</script>
+
+<ReorderList {entries} onmove={(id, toIndex) => store.reorder(id, toIndex)} aria-label="Steps">
+	{#each steps as step (step.id)}
+		<ReorderItem id={step.id} class="flex items-center gap-3">
+			<ReorderGrip />
+			<span>{step.name}</span>
+		</ReorderItem>
+	{/each}
+</ReorderList>
+```
+
+Rules:
+
+- `entries` lists every row in order. `label` names the row in the grip's accessible name ("Reorder {label}") and in the announcement.
+- A row that is not being reordered, such as an open editor, stays a `ReorderItem` without a grip so positions stay consistent.
+- Put anything that is not a row, such as an add button, outside `ReorderList`.
+
+Consumers: Onboarding template steps and the stage list of a paperwork step.
 
 ---
 

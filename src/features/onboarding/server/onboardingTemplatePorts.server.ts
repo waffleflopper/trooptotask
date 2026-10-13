@@ -7,6 +7,9 @@ export interface OnboardingTemplateReadContext {
 	readonly auth: OrganizationAccessGrant;
 	readonly onboardingCatalog: Pick<OnboardingCatalogPersistence, 'listTemplates' | 'listSteps'>;
 }
+export interface OnboardingTemplateActivityContext {
+	readonly onboardingWorkflow: Pick<OnboardingWorkflowPersistence, 'countActivePacketsByTemplate'>;
+}
 export interface OnboardingTemplateWriteContext {
 	readonly auth: OrganizationAccessGrant;
 	readonly audit: PolicyAuditSink;

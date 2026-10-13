@@ -206,6 +206,7 @@ function createTestOnboardingPersistence(store: FixtureRowStore, orgId: string, 
 				saveCheckboxCompletion: unavailable,
 				savePaperworkProgress: unavailable,
 				listPacketIdsUsingTemplate: unavailable,
+				countActivePacketsByTemplate: unavailable,
 				clearPacketTemplate: unavailable
 			} satisfies OnboardingWorkflowPersistence)
 	};

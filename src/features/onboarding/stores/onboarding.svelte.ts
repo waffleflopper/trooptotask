@@ -16,7 +16,7 @@
 import { defineStore } from '$lib/stores/core';
 import type { Store, StoreInternals } from '$lib/stores/core';
 import { formatToday } from '$lib/utils/dates';
-import type { PersonnelOnboarding, OnboardingStepProgress } from '../onboarding.types';
+import type { PersonnelOnboarding, OnboardingStepNote, OnboardingStepProgress } from '../onboarding.types';
 import type { OnboardingNoteAppendResult } from '../contracts';
 
 interface OnboardingExtensions extends Record<string, unknown> {
@@ -110,6 +110,15 @@ function enhance(
 	): OnboardingStepProgress {
 		const moved = next.completed !== step.completed || next.currentStage !== step.currentStage;
 		return { ...step, ...next, progressChangedAt: moved ? new Date().toISOString() : step.progressChangedAt };
+	}
+
+	/** Notes are append-only, so an answer older than what is already shown must not drop the newer notes. */
+	function mergeNotes(current: OnboardingStepNote[], saved: OnboardingStepNote[]): OnboardingStepNote[] {
+		const noteKey = (note: OnboardingStepNote) => `${note.timestamp}|${note.userId}|${note.text}`;
+		const known = new Set(current.map(noteKey));
+		const added = saved.filter((note) => !known.has(noteKey(note)));
+		if (!added.length) return current;
+		return [...current, ...added].sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp));
 	}
 
 	function applyStepMutation(stepId: string, update: StepMutation['update'], progress = false) {
@@ -405,7 +414,9 @@ function enhance(
 				const result: OnboardingNoteAppendResult = await res.json();
 				if (version !== organizationVersion) return false;
 				commitStepUpdate(mutation, (steps) =>
-					steps.map((step) => (step.id === stepId ? { ...step, notes: result.notes } : step))
+					steps.map((step) =>
+						step.id === stepId ? { ...step, notes: mergeNotes(step.notes, result.notes) } : step
+					)
 				);
 				return true;
 			} catch {

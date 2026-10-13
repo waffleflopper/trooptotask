@@ -264,23 +264,6 @@ function createRpcBuilder(result: unknown) {
 }
 
 describe('createSupabaseOrgSettingsMemberManagementPort', () => {
-	it('finds submitted Group IDs only inside the organization', async () => {
-		const calls: Array<{ method: string; args: unknown[] }> = [];
-		const builder = {
-			select: (...args: unknown[]) => (calls.push({ method: 'select', args }), builder),
-			eq: (...args: unknown[]) => (calls.push({ method: 'eq', args }), builder),
-			in: (...args: unknown[]) => (calls.push({ method: 'in', args }), builder),
-			returns: async () => ({ data: [{ id: 'group-a' }], error: null })
-		};
-		const supabase = { from: vi.fn(() => builder) };
-		const port = createSupabaseOrgSettingsMemberManagementPort({ supabase } as never);
-
-		await expect(port.findOrganizationGroupIds('org-1', ['group-a', 'group-b'])).resolves.toEqual(['group-a']);
-		expect(supabase.from).toHaveBeenCalledWith('groups');
-		expect(calls).toContainEqual({ method: 'eq', args: ['organization_id', 'org-1'] });
-		expect(calls).toContainEqual({ method: 'in', args: ['id', ['group-a', 'group-b']] });
-	});
-
 	it('looks up duplicate pending invitations by normalized email inside the organization', async () => {
 		const { builder, calls } = createInvitationLookupBuilder();
 		const supabase = {

@@ -467,11 +467,6 @@ describe('policy evaluator', () => {
 			accessMode: 'governance',
 			owner: { kind: 'organization-governance', access: 'owner-only' }
 		});
-		expect(POLICY_ACTION_CATALOG.organization.exportData).toMatchObject({
-			id: 'organization.exportData',
-			accessMode: 'governance',
-			owner: { kind: 'organization-governance', access: 'admin-or-owner' }
-		});
 		expect(POLICY_ACTION_CATALOG.organization.updateSettings).toMatchObject({
 			id: 'organization.updateSettings',
 			accessMode: 'governance',

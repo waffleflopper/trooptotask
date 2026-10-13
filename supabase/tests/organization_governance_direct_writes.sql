@@ -2,12 +2,12 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 
-SELECT plan(57);
+SELECT plan(84);
 
 INSERT INTO auth.users (id, aud, role, email, email_confirmed_at)
 SELECT ('c6420000-0000-4000-8000-0000000000' || n)::uuid, 'authenticated', 'authenticated',
 	'governance-' || n || '@example.test', now()
-FROM unnest(ARRAY['01','02','03','04','05','06','07','08','09','10','11','12','13']) AS n;
+FROM unnest(ARRAY['01','02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17']) AS n;
 
 INSERT INTO public.organizations (id, name, created_by, suspended_at)
 VALUES
@@ -18,7 +18,11 @@ VALUES
 	('c6420000-0000-4000-8000-0000000001dd', 'Governance Transfer', 'c6420000-0000-4000-8000-000000000001', NULL);
 
 INSERT INTO public.groups (id, organization_id, name)
-VALUES ('c6420000-0000-4000-8000-0000000002aa', 'c6420000-0000-4000-8000-0000000001aa', 'Alpha Group');
+VALUES
+	('c6420000-0000-4000-8000-0000000002aa', 'c6420000-0000-4000-8000-0000000001aa', 'Alpha Group'),
+	('c6420000-0000-4000-8000-0000000002ab', 'c6420000-0000-4000-8000-0000000001aa', 'Alpha Second Group'),
+	('c6420000-0000-4000-8000-0000000002ac', 'c6420000-0000-4000-8000-0000000001aa', 'Alpha Retired Group'),
+	('c6420000-0000-4000-8000-0000000002bb', 'c6420000-0000-4000-8000-0000000001bb', 'Bravo Group');
 
 INSERT INTO public.organization_memberships (
 	id, organization_id, user_id, role, member_preset, capability_overrides,
@@ -63,13 +67,27 @@ VALUES
 		'{"calendar":"none"}'::jsonb, 'groups', ARRAY['c6420000-0000-4000-8000-0000000002aa']::uuid[]),
 	('c6420000-0000-4000-8000-000000000409', 'c6420000-0000-4000-8000-0000000001aa', 'governance-09@example.test',
 		'c6420000-0000-4000-8000-000000000002', 'pending', now() + interval '7 days', 'member', 'viewer',
-		'{"calendar":"none"}'::jsonb, 'organization', ARRAY[]::uuid[]);
+		'{"calendar":"none"}'::jsonb, 'organization', ARRAY[]::uuid[]),
+	('c6420000-0000-4000-8000-000000000414', 'c6420000-0000-4000-8000-0000000001aa', 'governance-14@example.test',
+		'c6420000-0000-4000-8000-000000000001', 'pending', now() + interval '7 days', 'member', 'viewer',
+		'{"calendar":"none"}'::jsonb, 'groups', ARRAY['c6420000-0000-4000-8000-0000000002aa']::uuid[]),
+	('c6420000-0000-4000-8000-000000000415', 'c6420000-0000-4000-8000-0000000001aa', 'governance-15@example.test',
+		'c6420000-0000-4000-8000-000000000001', 'pending', now() + interval '7 days', 'member', 'viewer',
+		'{"calendar":"none"}'::jsonb, 'groups', ARRAY['c6420000-0000-4000-8000-0000000002aa']::uuid[]),
+	('c6420000-0000-4000-8000-000000000416', 'c6420000-0000-4000-8000-0000000001aa', 'governance-16@example.test',
+		'c6420000-0000-4000-8000-000000000001', 'pending', now() + interval '7 days', 'member', 'viewer',
+		'{}'::jsonb, 'organization', ARRAY[]::uuid[]),
+	('c6420000-0000-4000-8000-000000000417', 'c6420000-0000-4000-8000-0000000001aa', 'governance-17@example.test',
+		'c6420000-0000-4000-8000-000000000001', 'pending', now() + interval '7 days', 'member', 'operator',
+		'{}'::jsonb, 'groups', ARRAY['c6420000-0000-4000-8000-0000000002ac']::uuid[]);
 
 CREATE TEMP TABLE governance_before AS
 SELECT 'membership'::text AS kind, id, to_jsonb(m) AS row_data FROM public.organization_memberships m
 WHERE id::text LIKE 'c6420000-%'
 UNION ALL
-SELECT 'organization', id, to_jsonb(o) FROM public.organizations o WHERE id::text LIKE 'c6420000-%';
+SELECT 'organization', id, to_jsonb(o) FROM public.organizations o WHERE id::text LIKE 'c6420000-%'
+UNION ALL
+SELECT 'invitation', id, to_jsonb(i) FROM public.organization_invitations i WHERE id::text LIKE 'c6420000-%';
 
 CREATE FUNCTION pg_temp.act_as(p_user text) RETURNS void LANGUAGE sql AS $$
 	SELECT set_config('request.jwt.claim.sub', 'c6420000-0000-4000-8000-0000000000' || p_user, true);
@@ -88,6 +106,7 @@ CREATE FUNCTION pg_temp.unchanged(p_ids text[]) RETURNS boolean LANGUAGE sql AS 
 		SELECT jsonb_agg(row_data ORDER BY id) FROM (
 			SELECT id, to_jsonb(m) AS row_data FROM public.organization_memberships m
 			UNION ALL SELECT id, to_jsonb(o) FROM public.organizations o
+			UNION ALL SELECT id, to_jsonb(i) FROM public.organization_invitations i
 		) current_rows
 		WHERE id::text = ANY (SELECT 'c6420000-0000-4000-8000-000000000' || s FROM unnest(p_ids) s)
 	)
@@ -521,6 +540,220 @@ SELECT is(
 		WHERE organization_id = 'c6420000-0000-4000-8000-0000000001dd'),
 	'{"c6420000-0000-4000-8000-000000000001": "admin", "c6420000-0000-4000-8000-000000000013": "owner"}'::jsonb,
 	'ownership transfer swaps exactly the owner and the target'
+);
+
+-- Invitation lifecycle writers cannot rewrite the invitation they transition.
+
+SELECT pg_temp.act_as('14');
+SET LOCAL ROLE authenticated;
+SELECT throws_ok(
+	$$ UPDATE public.organization_invitations
+		SET status = 'declined', declined_at = now(), declined_by = auth.uid(),
+			organization_id = 'c6420000-0000-4000-8000-0000000001bb'
+		WHERE id = 'c6420000-0000-4000-8000-000000000414' $$,
+	'42501', 'permission denied for table organization_invitations',
+	'an invitee cannot move the invitation to another Organization while declining'
+);
+SELECT throws_ok(
+	$$ UPDATE public.organization_invitations
+		SET status = 'declined', declined_at = now(), declined_by = auth.uid(), role = 'admin'
+		WHERE id = 'c6420000-0000-4000-8000-000000000414' $$,
+	'42501', 'permission denied for table organization_invitations',
+	'an invitee cannot rewrite the invited role while declining'
+);
+SELECT throws_ok(
+	$$ UPDATE public.organization_invitations
+		SET status = 'declined', declined_at = now(), declined_by = auth.uid(), member_preset = 'editor',
+			capability_overrides = '{"personnel":"configure"}'::jsonb
+		WHERE id = 'c6420000-0000-4000-8000-000000000414' $$,
+	'42501', 'permission denied for table organization_invitations',
+	'an invitee cannot rewrite the invited access while declining'
+);
+SELECT throws_ok(
+	$$ UPDATE public.organization_invitations
+		SET status = 'declined', declined_at = now(), declined_by = auth.uid(), access_scope_kind = 'organization',
+			access_scope_group_ids = ARRAY[]::uuid[]
+		WHERE id = 'c6420000-0000-4000-8000-000000000414' $$,
+	'42501', 'permission denied for table organization_invitations',
+	'an invitee cannot rewrite the invited scope while declining'
+);
+SELECT throws_ok(
+	$$ UPDATE public.organization_invitations
+		SET status = 'declined', declined_at = now(), declined_by = auth.uid(),
+			invited_by = 'c6420000-0000-4000-8000-000000000014'
+		WHERE id = 'c6420000-0000-4000-8000-000000000414' $$,
+	'42501', 'permission denied for table organization_invitations',
+	'an invitee cannot rewrite the inviter while declining'
+);
+RESET ROLE;
+SELECT pg_temp.act_as('02');
+SET LOCAL ROLE authenticated;
+SELECT throws_ok(
+	$$ UPDATE public.organization_invitations
+		SET status = 'revoked', revoked_at = now(), revoked_by = auth.uid(), email = 'redirected@example.test'
+		WHERE id = 'c6420000-0000-4000-8000-000000000415' $$,
+	'42501', 'permission denied for table organization_invitations',
+	'a governor cannot redirect the invitation email while revoking'
+);
+SELECT throws_ok(
+	$$ UPDATE public.organization_invitations
+		SET status = 'revoked', revoked_at = now(), revoked_by = auth.uid(), role = 'admin',
+			capability_overrides = '{"personnel":"configure"}'::jsonb
+		WHERE id = 'c6420000-0000-4000-8000-000000000415' $$,
+	'42501', 'permission denied for table organization_invitations',
+	'a governor cannot rewrite the access snapshot while revoking'
+);
+RESET ROLE;
+SELECT ok(pg_temp.unchanged(ARRAY['414', '415']), 'rewriting lifecycle denials leave both invitations unchanged');
+
+SELECT pg_temp.act_as('14');
+SET LOCAL ROLE authenticated;
+WITH updated AS (
+	UPDATE public.organization_invitations SET status = 'declined', declined_at = now(), declined_by = auth.uid()
+	WHERE id = 'c6420000-0000-4000-8000-000000000414' RETURNING id
+)
+SELECT is((SELECT count(*)::integer FROM updated), 1, 'an invitee can decline their invitation');
+RESET ROLE;
+SELECT pg_temp.act_as('02');
+SET LOCAL ROLE authenticated;
+WITH updated AS (
+	UPDATE public.organization_invitations SET status = 'revoked', revoked_at = now(), revoked_by = auth.uid()
+	WHERE id = 'c6420000-0000-4000-8000-000000000415' RETURNING id
+)
+SELECT is((SELECT count(*)::integer FROM updated), 1, 'a governor can revoke a pending invitation');
+WITH updated AS (
+	UPDATE public.organization_invitations SET status = 'expired', expired_at = now()
+	WHERE id = 'c6420000-0000-4000-8000-000000000416' RETURNING id
+)
+SELECT is((SELECT count(*)::integer FROM updated), 1, 'a governor can expire a pending invitation');
+RESET ROLE;
+SELECT is(
+	(SELECT jsonb_object_agg(id, jsonb_build_array(status, organization_id, role, member_preset, access_scope_group_ids,
+		declined_by, revoked_by))
+		FROM public.organization_invitations
+		WHERE id IN ('c6420000-0000-4000-8000-000000000414', 'c6420000-0000-4000-8000-000000000415',
+			'c6420000-0000-4000-8000-000000000416')),
+	'{"c6420000-0000-4000-8000-000000000414": ["declined", "c6420000-0000-4000-8000-0000000001aa", "member", "viewer",
+			["c6420000-0000-4000-8000-0000000002aa"], "c6420000-0000-4000-8000-000000000014", null],
+		"c6420000-0000-4000-8000-000000000415": ["revoked", "c6420000-0000-4000-8000-0000000001aa", "member", "viewer",
+			["c6420000-0000-4000-8000-0000000002aa"], null, "c6420000-0000-4000-8000-000000000002"],
+		"c6420000-0000-4000-8000-000000000416": ["expired", "c6420000-0000-4000-8000-0000000001aa", "member", "viewer",
+			[], null, null]}'::jsonb,
+	'lifecycle transitions persist only their lifecycle fields'
+);
+
+-- Member access scopes name Groups only from the same Organization.
+
+SELECT pg_temp.act_as('02');
+SET LOCAL ROLE authenticated;
+SELECT throws_ok(
+	$$ UPDATE public.organization_memberships
+		SET access_scope_kind = 'groups', access_scope_group_ids = ARRAY['c6420000-0000-4000-8000-0000000002bb']::uuid[]
+		WHERE id = 'c6420000-0000-4000-8000-000000000304' $$,
+	'23503', 'Access scope Groups must belong to the Organization',
+	'a member scope cannot name another Organization''s Group'
+);
+SELECT throws_ok(
+	$$ UPDATE public.organization_memberships
+		SET access_scope_kind = 'groups', access_scope_group_ids =
+			ARRAY['c6420000-0000-4000-8000-0000000002aa', 'c6420000-0000-4000-8000-0000000002bb']::uuid[]
+		WHERE id = 'c6420000-0000-4000-8000-000000000304' $$,
+	'23503', 'Access scope Groups must belong to the Organization',
+	'a member scope cannot mix an own Group with another Organization''s Group'
+);
+RESET ROLE;
+SELECT ok(pg_temp.unchanged(ARRAY['304']), 'foreign scope denials leave the membership unchanged');
+
+SELECT pg_temp.act_as('02');
+SET LOCAL ROLE authenticated;
+WITH updated AS (
+	UPDATE public.organization_memberships
+	SET access_scope_kind = 'groups', access_scope_group_ids =
+		ARRAY['c6420000-0000-4000-8000-0000000002aa', 'c6420000-0000-4000-8000-0000000002ab']::uuid[]
+	WHERE id = 'c6420000-0000-4000-8000-000000000304' RETURNING access_scope_group_ids
+)
+SELECT is((SELECT access_scope_group_ids FROM updated),
+	ARRAY['c6420000-0000-4000-8000-0000000002aa', 'c6420000-0000-4000-8000-0000000002ab']::uuid[],
+	'a member scope can name the Organization''s own Groups');
+WITH updated AS (
+	UPDATE public.organization_memberships
+	SET access_scope_kind = 'organization', access_scope_group_ids = ARRAY[]::uuid[]
+	WHERE id = 'c6420000-0000-4000-8000-000000000304' RETURNING access_scope_kind, access_scope_group_ids
+)
+SELECT is((SELECT jsonb_build_array(access_scope_kind, access_scope_group_ids) FROM updated),
+	'["organization", []]'::jsonb, 'a member scope can return to the whole Organization');
+SELECT throws_ok(
+	$$ INSERT INTO public.organization_invitations (organization_id, email, invited_by, expires_at, role, member_preset,
+			access_scope_kind, access_scope_group_ids)
+		VALUES ('c6420000-0000-4000-8000-0000000001aa', 'foreign-scope@example.test', 'c6420000-0000-4000-8000-000000000002',
+			now() + interval '7 days', 'member', 'viewer', 'groups', ARRAY['c6420000-0000-4000-8000-0000000002bb']::uuid[]) $$,
+	'23503', 'Access scope Groups must belong to the Organization',
+	'an invitation scope cannot name another Organization''s Group'
+);
+SELECT throws_ok(
+	$$ INSERT INTO public.organization_invitations (organization_id, email, invited_by, expires_at, role, member_preset,
+			access_scope_kind, access_scope_group_ids)
+		VALUES ('c6420000-0000-4000-8000-0000000001aa', 'mixed-scope@example.test', 'c6420000-0000-4000-8000-000000000002',
+			now() + interval '7 days', 'member', 'viewer', 'groups',
+			ARRAY['c6420000-0000-4000-8000-0000000002aa', 'c6420000-0000-4000-8000-0000000002bb']::uuid[]) $$,
+	'23503', 'Access scope Groups must belong to the Organization',
+	'an invitation scope cannot mix an own Group with another Organization''s Group'
+);
+SELECT lives_ok(
+	$$ INSERT INTO public.organization_invitations (organization_id, email, invited_by, expires_at, role, member_preset,
+			access_scope_kind, access_scope_group_ids)
+		VALUES ('c6420000-0000-4000-8000-0000000001aa', 'own-scope@example.test', 'c6420000-0000-4000-8000-000000000002',
+			now() + interval '7 days', 'member', 'viewer', 'groups', ARRAY['c6420000-0000-4000-8000-0000000002ab']::uuid[]) $$,
+	'an invitation scope can name the Organization''s own Group'
+);
+RESET ROLE;
+SELECT is(
+	(SELECT jsonb_object_agg(email, access_scope_group_ids) FROM public.organization_invitations
+		WHERE email IN ('foreign-scope@example.test', 'mixed-scope@example.test', 'own-scope@example.test')),
+	'{"own-scope@example.test": ["c6420000-0000-4000-8000-0000000002ab"]}'::jsonb,
+	'only the own-Group invitation persists'
+);
+
+SET LOCAL ROLE service_role;
+SELECT throws_ok(
+	$$ INSERT INTO public.organization_memberships (organization_id, user_id, role, member_preset, email,
+			access_scope_kind, access_scope_group_ids)
+		VALUES ('c6420000-0000-4000-8000-0000000001aa', 'c6420000-0000-4000-8000-000000000016', 'member', 'viewer',
+			'governance-16@example.test', 'groups', ARRAY['c6420000-0000-4000-8000-0000000002bb']::uuid[]) $$,
+	'23503', 'Access scope Groups must belong to the Organization',
+	'service writers cannot store a membership scope with another Organization''s Group'
+);
+SELECT throws_ok(
+	$$ UPDATE public.organization_invitations SET organization_id = 'c6420000-0000-4000-8000-0000000001bb'
+		WHERE id = 'c6420000-0000-4000-8000-000000000417' $$,
+	'23503', 'Access scope Groups must belong to the Organization',
+	'moving an invitation cannot carry its Groups into another Organization'
+);
+RESET ROLE;
+SELECT is(
+	(SELECT count(*)::integer FROM public.organization_memberships
+		WHERE user_id = 'c6420000-0000-4000-8000-000000000016'),
+	0,
+	'the service-role foreign scope denial persists no membership'
+);
+SELECT ok(pg_temp.unchanged(ARRAY['417']), 'the invitation move denial leaves the invitation unchanged');
+
+DELETE FROM public.groups WHERE id = 'c6420000-0000-4000-8000-0000000002ac';
+SELECT pg_temp.act_as('17');
+SET LOCAL ROLE authenticated;
+SELECT is(
+	(SELECT accept_status FROM public.accept_organization_invitation('c6420000-0000-4000-8000-000000000417')),
+	'accepted',
+	'an invitation whose Group was later deleted can still be accepted'
+);
+RESET ROLE;
+SELECT is(
+	(SELECT jsonb_build_array(role, member_preset, access_scope_kind, access_scope_group_ids)
+		FROM public.organization_memberships
+		WHERE organization_id = 'c6420000-0000-4000-8000-0000000001aa'
+			AND user_id = 'c6420000-0000-4000-8000-000000000017'),
+	'["member", "operator", "groups", ["c6420000-0000-4000-8000-0000000002ac"]]'::jsonb,
+	'acceptance copies the saved scope snapshot'
 );
 
 SELECT * FROM finish();

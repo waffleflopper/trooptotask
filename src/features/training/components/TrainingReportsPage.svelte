@@ -17,8 +17,6 @@
 </script>
 
 <script lang="ts">
-	import Download from '@lucide/svelte/icons/download';
-	import Printer from '@lucide/svelte/icons/printer';
 	import { onDestroy, onMount, tick, untrack } from 'svelte';
 	import { replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -31,8 +29,11 @@
 	import { readinessBandTone } from '$lib/components/patterns/readiness-band/index.js';
 	import { ReportForecastChart } from '$lib/components/patterns/report-chart';
 	import * as ReportWorkspace from '$lib/components/patterns/report-workspace';
-	import * as ToggleGroup from '$lib/components/ui/toggle-group';
-	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar';
+	import {
+		WorkspaceToolbar,
+		type ToolbarItem,
+		type WorkspaceToolbarProps
+	} from '$lib/components/patterns/workspace-toolbar';
 	import { downloadBlob } from '$lib/utils/downloadBlob';
 	import { filenameFromContentDisposition } from '$lib/utils/workbook';
 	import {
@@ -214,6 +215,111 @@
 		void focusSection(BRIEFING_ID);
 	}
 
+	const toolbarItems = $derived.by<ToolbarItem[]>(() => {
+		const items: ToolbarItem[] = [
+			{
+				kind: 'view',
+				id: 'horizon',
+				label: 'Forecast horizon',
+				options: TRAINING_BRIEFING_HORIZONS.map((days) => ({
+					value: String(days),
+					label: `${days} D`,
+					ariaLabel: `${days} days`
+				})),
+				value: String(selected.horizonDays),
+				onValueChange: (value) => update({ horizonDays: Number(value) as TrainingBriefingHorizon })
+			},
+			{
+				kind: 'select',
+				id: 'view',
+				label: 'View',
+				ariaLabel: 'Filter by view',
+				options: viewOptions,
+				value: selected.viewId ?? '',
+				defaultValue: '',
+				onValueChange: (value) => update({ viewId: value || null, typeIds: [] })
+			},
+			{
+				kind: 'select',
+				id: 'group',
+				label: 'Group',
+				ariaLabel: 'Filter by group',
+				options: groupOptions,
+				value: selected.groupId ?? '',
+				defaultValue: '',
+				onValueChange: (value) => update({ groupId: value || null })
+			},
+			{
+				kind: 'select',
+				id: 'rank',
+				label: 'Rank',
+				ariaLabel: 'Filter by rank',
+				options: rankOptions,
+				value: selected.rank ?? '',
+				defaultValue: '',
+				onValueChange: (value) => update({ rank: value || null })
+			},
+			{
+				kind: 'multiSelect',
+				id: 'mos',
+				label: 'MOS',
+				ariaLabel: 'Filter by MOS',
+				options: mosOptions,
+				values: selected.mos,
+				onValuesChange: (mos) => update({ mos })
+			},
+			{
+				kind: 'multiSelect',
+				id: 'roles',
+				label: 'Duty role',
+				ariaLabel: 'Filter by duty role',
+				options: roleOptions,
+				values: selected.roles,
+				onValuesChange: (roles) => update({ roles })
+			},
+			{
+				kind: 'multiSelect',
+				id: 'types',
+				label: 'Types',
+				ariaLabel: 'Filter by training type',
+				options: typeOptions,
+				values: selected.typeIds,
+				onValuesChange: (typeIds) => update({ typeIds })
+			}
+		];
+		if (hasNonDefault)
+			items.push({ kind: 'action', id: 'clear-filters', label: 'Clear filters', onclick: clearFilters });
+		items.push({
+			kind: 'action',
+			id: 'export-excel',
+			label: exporting ? 'Exporting...' : 'Export Excel',
+			onclick: exportExcel,
+			icon: 'download',
+			loading: exporting,
+			disabled: exporting || bottomLine.soldierCount === 0
+		});
+		return items;
+	});
+
+	const toolbarPrimary = $derived<WorkspaceToolbarProps['primary']>({
+		kind: 'action',
+		id: 'print-brief',
+		label: 'Print brief',
+		onclick: () => printCycle.print(() => window.print()),
+		icon: 'printer'
+	});
+
+	const rowsByItems = $derived<ToolbarItem[]>([
+		{
+			kind: 'view',
+			id: 'rows-by',
+			label: 'Rows by',
+			options: Object.entries(ROWS_BY_LABEL).map(([value, label]) => ({ value, label })),
+			value: selected.rowsBy,
+			onValueChange: (value) => update({ rowsBy: value as BriefingRowsBy })
+		}
+	]);
+
 	function tone(readiness: BriefingReadiness): string {
 		return readinessBandTone[BAND_TIER[readiness.band]];
 	}
@@ -270,97 +376,14 @@
 		title="Training Reports"
 		subtitle={`${report.organizationName} · ${soldierLabel(bottomLine.soldierCount)} · as of ${bottomLine.asOfLabel}`}
 	>
-		{#snippet actions()}
-			<div class="flex flex-wrap items-center gap-2" role="group" aria-label="Training report actions">
-				<span class="min-w-30 text-right text-sm text-muted-foreground" role="status" aria-live="polite">
-					{loading ? 'Updating briefing' : ''}
-				</span>
-				{#if hasNonDefault}
-					<Button type="button" variant="secondary" size="sm" onclick={clearFilters}>Clear filters</Button>
-				{/if}
-				<Button
-					type="button"
-					variant="outline"
-					size="sm"
-					onclick={exportExcel}
-					disabled={exporting || bottomLine.soldierCount === 0}
-				>
-					<Download aria-hidden="true" />
-					{exporting ? 'Exporting...' : 'Export Excel'}
-				</Button>
-				<Button type="button" size="sm" onclick={() => printCycle.print(() => window.print())}>
-					<Printer aria-hidden="true" />
-					Print brief
-				</Button>
-			</div>
+		{#snippet meta()}
+			<span class="text-sm text-muted-foreground" role="status" aria-live="polite">
+				{loading ? 'Updating briefing' : ''}
+			</span>
 		{/snippet}
 	</PageShell.Header>
 
-	<WorkspaceToolbar.Root ariaLabel="Training report controls" wrap class="[&_[data-slot=toggle-group]]:shrink-0">
-		<WorkspaceToolbar.Group
-			label="Training report filters"
-			activeCount={activeFilterCount}
-			data-testid="training-report-filters"
-		>
-			<WorkspaceToolbar.Select
-				options={viewOptions}
-				value={selected.viewId ?? ''}
-				ariaLabel="Filter by view"
-				onValueChange={(value) => update({ viewId: value || null, typeIds: [] })}
-			/>
-			<WorkspaceToolbar.Select
-				options={groupOptions}
-				value={selected.groupId ?? ''}
-				ariaLabel="Filter by group"
-				onValueChange={(value) => update({ groupId: value || null })}
-			/>
-			<WorkspaceToolbar.Select
-				options={rankOptions}
-				value={selected.rank ?? ''}
-				ariaLabel="Filter by rank"
-				onValueChange={(value) => update({ rank: value || null })}
-			/>
-			<WorkspaceToolbar.MultiSelect
-				options={mosOptions}
-				value={selected.mos}
-				label="MOS"
-				ariaLabel="Filter by MOS"
-				onChange={(mos) => update({ mos })}
-			/>
-			<WorkspaceToolbar.MultiSelect
-				options={roleOptions}
-				value={selected.roles}
-				label="Duty role"
-				ariaLabel="Filter by duty role"
-				onChange={(roles) => update({ roles })}
-			/>
-			<WorkspaceToolbar.MultiSelect
-				options={typeOptions}
-				value={selected.typeIds}
-				label="Types"
-				ariaLabel="Filter by training type"
-				onChange={(typeIds) => update({ typeIds })}
-			/>
-		</WorkspaceToolbar.Group>
-
-		<WorkspaceToolbar.Group label="Forecast horizon">
-			<ToggleGroup.Root
-				type="single"
-				size="sm"
-				bind:value={
-					() => String(selected.horizonDays),
-					(value) => {
-						if (value) update({ horizonDays: Number(value) as TrainingBriefingHorizon });
-					}
-				}
-				aria-label="Forecast horizon"
-			>
-				{#each TRAINING_BRIEFING_HORIZONS as days (days)}
-					<ToggleGroup.Item value={String(days)} aria-label={`${days} days`}>{days} D</ToggleGroup.Item>
-				{/each}
-			</ToggleGroup.Root>
-		</WorkspaceToolbar.Group>
-	</WorkspaceToolbar.Root>
+	<WorkspaceToolbar ariaLabel="Training report controls" items={toolbarItems} primary={toolbarPrimary} />
 
 	{#if session.request.status === 'error'}
 		<ReportWorkspace.State
@@ -483,24 +506,6 @@
 					description={`% ready today. Color shows distance from the ${briefing.forecast.goalPercent}% goal. ▼ marks a drop of ${grid.dropAlertPoints}+ points by ${horizonEndLabel}.`}
 				>
 					{#snippet actions()}
-						<div class="flex items-center gap-2">
-							<span class="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">Rows by</span>
-							<ToggleGroup.Root
-								type="single"
-								size="sm"
-								bind:value={
-									() => selected.rowsBy,
-									(value) => {
-										if (value) update({ rowsBy: value as BriefingRowsBy });
-									}
-								}
-								aria-label="Rows by"
-							>
-								{#each Object.entries(ROWS_BY_LABEL) as [value, label] (value)}
-									<ToggleGroup.Item {value}>{label}</ToggleGroup.Item>
-								{/each}
-							</ToggleGroup.Root>
-						</div>
 						<ReadinessBand.Legend
 							palette="semantic"
 							ariaLabel={`Readiness bands for a ${briefing.forecast.goalPercent}% goal`}
@@ -508,6 +513,13 @@
 							dropLabel={`▼ ${grid.dropAlertPoints}+`}
 						/>
 					{/snippet}
+
+					<div class="mb-3 flex items-center gap-2">
+						<span class="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">Rows by</span>
+						<div class="min-w-0 flex-1">
+							<WorkspaceToolbar ariaLabel="Hot-spot grid controls" items={rowsByItems} />
+						</div>
+					</div>
 
 					<OperationalMatrix.Root rows={matrixRows} columns={matrixColumns} {selectedCell}>
 						<OperationalMatrix.Viewport ariaLabel="Hot-spot grid">

@@ -669,3 +669,58 @@ test('carries the pinned ids, search and more-always requirements into the trace
 		]
 	);
 });
+
+test('parses --no-fold as an expectation-free sweep that must pin something', () => {
+	const parsed = parseSweepArguments(['1', 'Controls', 'run', '--no-fold', '--pinned', 'new-type']);
+	assert.deepEqual([parsed.expectIds, parsed.pinnedIds], [[], ['new-type']]);
+	for (const flags of [
+		['--no-fold'],
+		['--no-fold', '--expect', 'export', '--pinned', 'record'],
+		['--no-fold', '--no-fold', '--pinned', 'record'],
+		['--no-fold', 'yes', '--pinned', 'record'],
+		['--pinned', 'record']
+	])
+		assert.throws(() => parseSweepArguments(['1', 'Controls', 'run', ...flags]), /toolbar-sweep/, flags.join(' '));
+});
+
+test('rejects --no-fold together with --more-always, which contradict each other', () => {
+	for (const flags of [
+		['--no-fold', '--more-always', '--pinned', 'record'],
+		['--more-always', '--pinned', 'record', '--no-fold']
+	])
+		assert.throws(
+			() => parseSweepArguments(['1', 'Controls', 'run', ...flags]),
+			/--no-fold.*--more-always.*cannot be combined/,
+			flags.join(' ')
+		);
+});
+
+test('a no-fold sweep accepts a row that never folds and rejects More or a missing pinned id', () => {
+	const rows = [1440, 1000, 700, 390].map((width) => [width, 0, 'none']);
+	const none = { expect: [], pinned: ['record'] };
+	const trace = () => ({
+		down: rows.map((row) => ({ width: row[0], read: read(...row, { ids: ['record'] }), holds: [] })),
+		up: [...rows]
+			.reverse()
+			.slice(1)
+			.map((row) => ({ width: row[0], read: read(...row, { ids: ['record'] }), holds: [] }))
+	});
+	assert.deepEqual(checkSweep(trace(), none).failures, []);
+
+	const withMore = trace();
+	withMore.down[2].read.more = true;
+	assert.deepEqual(
+		checkSweep(withMore, none).failures.map((f) => [f.check, f.width]),
+		[
+			['more', 700],
+			['same-width', 700]
+		]
+	);
+
+	const lost = trace();
+	lost.down[3].read.ids = [];
+	assert.deepEqual(
+		checkSweep(lost, none).failures.map((f) => [f.check, f.width]),
+		[['pinned', 390]]
+	);
+});

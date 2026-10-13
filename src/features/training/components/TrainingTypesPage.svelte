@@ -11,7 +11,7 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import * as TypeWorkspace from '$lib/components/patterns/type-management-workspace';
-	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar';
+	import { WorkspaceToolbar, type WorkspaceToolbarProps } from '$lib/components/patterns/workspace-toolbar';
 	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import type { Personnel } from '$features/personnel/contracts';
@@ -309,23 +309,27 @@
 	}
 
 	const typeActionDisabled = $derived(creating || editing);
+
+	const newTypeAction = $derived<WorkspaceToolbarProps['primary']>({
+		kind: 'action',
+		id: 'new-type',
+		label: '+ New Type',
+		onclick: startCreate,
+		disabled: typeActionDisabled,
+		disabledReason: typeActionDisabled ? 'Finish the current edit first' : undefined
+	});
+	const editTypeAction: NonNullable<WorkspaceToolbarProps['primary']> = {
+		kind: 'action',
+		id: 'edit-type',
+		label: 'Edit',
+		onclick: startEdit
+	};
 </script>
 
 <TypeWorkspace.Root aria-label="Training type management workspace" class="overflow-hidden">
-	<WorkspaceToolbar.Root ariaLabel="Training type controls">
-		{#if canMutate}
-			<WorkspaceToolbar.Group label="Training type actions" zone="actions">
-				<Button
-					type="button"
-					onclick={startCreate}
-					disabled={typeActionDisabled}
-					title={typeActionDisabled ? 'Finish the current edit first' : undefined}
-				>
-					+ New Type
-				</Button>
-			</WorkspaceToolbar.Group>
-		{/if}
-	</WorkspaceToolbar.Root>
+	{#if canMutate}
+		<WorkspaceToolbar ariaLabel="Training type controls" items={[]} primary={newTypeAction} />
+	{/if}
 
 	<TypeWorkspace.Layout>
 		<TypeWorkspace.List mobileHidden={mobileDetailOpen || creating || editing}>
@@ -503,13 +507,10 @@
 				</TypeWorkspace.FooterActions>
 			{:else if selectedType}
 				<TypeWorkspace.Stack>
-					<TypeWorkspace.DetailHeader title={selectedType.name} color={selectedType.color}>
-						{#snippet actions()}
-							{#if canMutate}
-								<Button variant="outline" size="sm" type="button" onclick={startEdit}>Edit</Button>
-							{/if}
-						{/snippet}
-					</TypeWorkspace.DetailHeader>
+					{#if canMutate}
+						<WorkspaceToolbar ariaLabel="Training type detail controls" items={[]} primary={editTypeAction} />
+					{/if}
+					<TypeWorkspace.DetailHeader title={selectedType.name} color={selectedType.color} />
 
 					<TypeWorkspace.Description>
 						{selectedType.description ?? 'No description has been added for this training type.'}

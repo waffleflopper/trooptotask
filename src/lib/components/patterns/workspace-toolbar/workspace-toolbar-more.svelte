@@ -112,7 +112,7 @@
 						onValueChange={view.onValueChange}
 					>
 						{#each view.options as option (option.value)}
-							<DropdownMenu.RadioItem value={option.value}>{option.label}</DropdownMenu.RadioItem>
+							<DropdownMenu.RadioItem value={option.value}>{option.ariaLabel ?? option.label}</DropdownMenu.RadioItem>
 						{/each}
 					</DropdownMenu.RadioGroup>
 				{/each}

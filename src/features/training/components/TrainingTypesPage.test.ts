@@ -9,6 +9,19 @@ import { personnelTrainingsStore } from '$features/training/stores/personnelTrai
 import type { RankCatalogEntry } from '$features/personnel/contracts';
 import type { Personnel } from '$features/personnel/contracts';
 import type { PersonnelTraining, TrainingType } from '$features/training/training.types';
+import { stubToolbarWidths, toolbarDescription } from '$lib/test-support/toolbarWidths';
+
+const viewer = {
+	orgId: 'org-1',
+	affordanceForFeatureAction: () => ({
+		allowed: false,
+		visible: true,
+		disabled: true,
+		reason: 'denied:capability',
+		explanation: '',
+		decision: {}
+	})
+} as unknown as import('../contracts').TrainingPageAccess;
 
 const org = {
 	orgId: 'org-1',
@@ -343,27 +356,50 @@ describe('TrainingTypesPage', () => {
 		expect(screen.getAllByRole('checkbox', { name: 'SSgt' }).length).toBeGreaterThan(0);
 	});
 
-	it('moves type management actions into the floating page toolbar', () => {
-		render(TrainingTypesPage, {
-			props: {
-				org,
-				data: {
-					training: {
-						data: {
-							trainingTypes: Promise.resolve([trainingType])
-						}
-					},
-					personnel
-				}
-			}
-		});
+	it('puts New Type in the page toolbar and Edit in the detail toolbar', () => {
+		render(TrainingTypesPage, { props: { org, data: { personnel } } });
 
-		const toolbar = screen.getByRole('toolbar', { name: 'Training type controls' });
+		const page = screen.getByRole('toolbar', { name: 'Training type controls' });
+		const detail = screen.getByRole('toolbar', { name: 'Training type detail controls' });
+		expect(within(page).getByRole('button', { name: '+ New Type' })).toBeTruthy();
+		expect(within(detail).getByRole('button', { name: 'Edit' })).toBeTruthy();
+		expect(within(detail).queryByRole('button', { name: '+ New Type' })).toBeNull();
+	});
 
-		expect(toolbar).toBeTruthy();
-		expect(screen.queryByTestId('page-toolbar')).toBeNull();
-		expect(screen.getByRole('button', { name: '+ New Type' })).toBeTruthy();
-		expect(screen.queryByText('1 configured')).toBeNull();
+	it('shows a viewer neither toolbar nor any command that changes a type', () => {
+		render(TrainingTypesPage, { props: { org: viewer, data: { personnel } } });
+
+		expect(screen.queryByRole('toolbar')).toBeNull();
+		expect(screen.queryByRole('button', { name: '+ New Type' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
+		expect(screen.getByRole('heading', { name: 'CPR', level: 3 })).toBeTruthy();
+	});
+
+	it('disables New Type with its reason while a type is being edited', async () => {
+		render(TrainingTypesPage, { props: { org, data: { personnel } } });
+		const toolbar = () => screen.getByRole('toolbar', { name: 'Training type controls' });
+		expect((within(toolbar()).getByRole('button', { name: '+ New Type' }) as HTMLButtonElement).disabled).toBe(false);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+
+		const newType = within(toolbar()).getByRole('button', { name: '+ New Type' }) as HTMLButtonElement;
+		expect(newType.disabled).toBe(true);
+		expect(toolbarDescription(newType)).toBe('Finish the current edit first');
+		expect(screen.queryByRole('toolbar', { name: 'Training type detail controls' })).toBeNull();
+	});
+
+	it('keeps New Type and Edit on their rows when the toolbars have no room', async () => {
+		const widths = stubToolbarWidths();
+		try {
+			render(TrainingTypesPage, { props: { org, data: { personnel } } });
+			await widths.foldAll();
+
+			expect(screen.getByRole('button', { name: '+ New Type' })).toBeTruthy();
+			expect(screen.getByRole('button', { name: 'Edit' })).toBeTruthy();
+			expect(screen.queryByRole('button', { name: /^More/ })).toBeNull();
+		} finally {
+			vi.unstubAllGlobals();
+		}
 	});
 
 	it.each([

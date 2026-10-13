@@ -58,3 +58,11 @@ export async function openToolbarSubmenu(name: string): Promise<void> {
 	trigger.focus();
 	await fireEvent.keyDown(trigger, { key: 'ArrowRight' });
 }
+
+export function toolbarDescription(element: HTMLElement): string {
+	return (element.getAttribute('aria-describedby') ?? '')
+		.split(' ')
+		.filter(Boolean)
+		.map((id) => document.getElementById(id)?.textContent ?? '')
+		.join(' ');
+}

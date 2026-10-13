@@ -13,7 +13,6 @@
 	import type { ColumnDef, GroupDef } from '$lib/components/ui/data-table';
 	import { useDataTable } from '$lib/components/ui/data-table';
 	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
 	import TrainingStatusBadge from './TrainingStatusBadge.svelte';
 	import TrainingStatusCell from './TrainingStatusCell.svelte';
 
@@ -23,7 +22,6 @@
 		trainings: PersonnelTraining[];
 		onCellClick?: (person: Personnel, type: TrainingType, training: PersonnelTraining | undefined) => void;
 		onPersonClick?: (person: Personnel) => void;
-		showSearch?: boolean;
 		groupBy?: GroupDef<Personnel>;
 	}
 
@@ -48,15 +46,7 @@
 		};
 	};
 
-	let {
-		personnel,
-		trainingTypes,
-		trainings,
-		onCellClick,
-		onPersonClick,
-		showSearch = false,
-		groupBy
-	}: Props = $props();
+	let { personnel, trainingTypes, trainings, onCellClick, onPersonClick, groupBy }: Props = $props();
 
 	const columns: ColumnDef<Personnel>[] = [
 		{
@@ -239,18 +229,6 @@
 {/snippet}
 
 <OperationalMatrix.Root rows={matrixRows} columns={matrixColumns} class="grid h-full min-h-0 gap-2">
-	{#if showSearch}
-		<div class="max-w-sm">
-			<Input
-				type="search"
-				aria-label="Search personnel"
-				placeholder="Search personnel..."
-				value={table.search}
-				oninput={(e) => table.setSearch(e.currentTarget.value)}
-			/>
-		</div>
-	{/if}
-
 	<div class="flex flex-wrap items-center gap-2" aria-label="Status legend">
 		{#each legendItems as item (item.status)}
 			<TrainingStatusBadge status={item.status} label={item.label} />

@@ -180,6 +180,22 @@ describe('WorkspaceToolbar', () => {
 		expect(screen.getByRole('menuitemcheckbox', { name: 'Gaps only' })).toBeTruthy();
 	});
 
+	it('shows an option label on the row, names it by its ariaLabel, and spells it out in More', async () => {
+		render(DataToolbarTest, { abbreviateViewOptions: true });
+		await layOut(972);
+
+		const row = within(toolbar());
+		const longRange = row.getByRole('button', { name: 'Long range' });
+		expect(longRange.textContent?.trim()).toBe('LR');
+		expect(row.getByRole('button', { name: 'Month' }).textContent?.trim()).toBe('Month');
+
+		await layOut(411);
+		await openMore();
+		const views = screen.getByRole('group', { name: 'View mode' });
+		expect(within(views).getByRole('menuitemradio', { name: 'Long range' })).toBeTruthy();
+		expect(within(views).queryByRole('menuitemradio', { name: 'LR' })).toBeNull();
+	});
+
 	it('switches a folded view from a radio group and keeps aria-pressed on the row', async () => {
 		render(DataToolbarTest);
 		await layOut(972);

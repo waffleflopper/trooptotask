@@ -276,7 +276,7 @@ Rules:
 
 - Rank items by importance to the route's main task. Do not hand-pick overflow or icon-only modes.
 - Use `menuOnly` for rare or destructive commands, and for display toggles, that should never take row space.
-- Keep disabled actions visible when their presence explains unavailable work, and give them a `disabledReason`. Loading actions show the shared spinner.
+- Keep disabled actions visible when their presence explains unavailable work, and give them a `disabledReason`. Loading actions show the shared spinner and stay focusable with `aria-disabled` and `aria-busy`; a press does nothing until the work settles.
 - Do not add route-local toolbar spacing, radius, borders, shadows, color, density, typography, or internal selector overrides.
 - Compose route-specific behavior under the [shared UI composition rules](agents/ui-system.md#default-ui-rules); keep toolbar appearance and reusable APIs owned by the shared component.
 - If an authorized route change needs behavior this API cannot express, implement and verify the smallest shared API extension, update affected consumers and document its usage here.

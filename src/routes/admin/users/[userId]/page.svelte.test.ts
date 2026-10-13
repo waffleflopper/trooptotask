@@ -125,7 +125,7 @@ describe('admin user detail page', () => {
 		const current = await submitAccountEmail('Send Password Reset');
 		const staleUpdate = vi.fn(async () => {});
 		await act(() => old({ type: 'failure', status: 500, data: { error: 'Old failure' } }, staleUpdate));
-		expect(screen.getByRole('button', { name: /Send Password Reset/ })).toHaveProperty('disabled', true);
+		expect(screen.getByRole('button', { name: /Send Password Reset/ }).getAttribute('aria-disabled')).toBe('true');
 		expect(staleUpdate).not.toHaveBeenCalled();
 		await act(() => current({ type: 'failure', status: 500, data: { error: 'Current failure' } }));
 		expect(screen.getByRole('button', { name: 'Send Password Reset' })).toHaveProperty('disabled', false);
@@ -339,12 +339,16 @@ describe('admin user detail page', () => {
 
 	it('shows Send Password Reset busy while the email is pending, ignores another request and refocuses it after', async () => {
 		render(Page, { props: { data: makePageData() } });
-		const button = screen.getByRole('button', { name: 'Send Password Reset' });
+		const button = screen.getByRole<HTMLButtonElement>('button', { name: 'Send Password Reset' });
 		button.focus();
 		const finish = await submitAccountEmail('Send Password Reset');
 
-		expect(button).toHaveProperty('disabled', true);
-		expect(button.getAttribute('aria-busy')).toBe('true');
+		expect([button.disabled, button.getAttribute('aria-disabled'), button.getAttribute('aria-busy')]).toEqual([
+			false,
+			'true',
+			'true'
+		]);
+		expect(document.activeElement).toBe(button);
 		const form = document.querySelector<HTMLFormElement>('form[action="?/resetPassword"]')!;
 		const cancel = vi.fn();
 		await forms.get('?/resetPassword')!({

@@ -13,17 +13,18 @@
 	import { getAppShellContext } from '$features/app-shell';
 	import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
 	import {
+		TemplateHeader,
+		TemplateSteps,
+		TemplateSyncNotice,
 		createOnboardingTemplateWorkspace,
+		describeTemplateSync,
 		onboardingStore,
 		onboardingTemplateStore,
-		type OnboardingTemplateDeleteTarget
+		syncTemplatePackets,
+		type OnboardingTemplateDeleteTarget,
+		type OnboardingTemplateStep,
+		type PersonnelOnboarding
 	} from '$features/onboarding';
-	import type { OnboardingTemplateStep } from '$features/onboarding/contracts';
-	import type { PersonnelOnboarding } from '$features/onboarding/onboarding.types';
-	import { describeTemplateSync, syncTemplatePackets } from '$features/onboarding/templateSync';
-	import TemplateHeader from '$features/onboarding/components/templates/TemplateHeader.svelte';
-	import TemplateSteps from '$features/onboarding/components/templates/TemplateSteps.svelte';
-	import TemplateSyncNotice from '$features/onboarding/components/templates/TemplateSyncNotice.svelte';
 	import { rosterStore } from '$features/personnel';
 	import { trainingTypeSource } from '$features/training';
 	import type { PageProps } from './$types';

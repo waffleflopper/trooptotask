@@ -26,6 +26,11 @@ export type {
 // Context
 export { OnboardingPageContext, MODAL_IDS } from './contexts/OnboardingPageContext.svelte';
 
+export { default as TemplateHeader } from './components/templates/TemplateHeader.svelte';
+export { default as TemplateSteps } from './components/templates/TemplateSteps.svelte';
+export { default as TemplateSyncNotice } from './components/templates/TemplateSyncNotice.svelte';
+export { describeTemplateSync, syncTemplatePackets } from './templateSync';
+
 export { onboardingWorkspaceHydrator } from './onboardingWorkspaceHydration.svelte';
 
 export { default as OnboardingKanbanView } from './components/OnboardingKanbanView.svelte';

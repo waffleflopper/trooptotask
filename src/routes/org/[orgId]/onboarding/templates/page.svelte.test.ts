@@ -5,9 +5,13 @@ import Page from './+page.svelte';
 import { createClientAccess } from '$lib/access/clientAccess';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import type { ScopeSet } from '$lib/access/memberAccessShape';
-import type { OnboardingTemplate, OnboardingTemplateStep } from '$features/onboarding/contracts';
-import type { PersonnelOnboarding } from '$features/onboarding/onboarding.types';
-import { onboardingStore, onboardingTemplateStore } from '$features/onboarding';
+import {
+	onboardingStore,
+	onboardingTemplateStore,
+	type OnboardingTemplate,
+	type OnboardingTemplateStep,
+	type PersonnelOnboarding
+} from '$features/onboarding';
 import { createReadyAppShellRouteData } from '../../appShell.test-support';
 import { openToolbarMore, stubToolbarWidths } from '$lib/test-support/toolbarWidths';
 

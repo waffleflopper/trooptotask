@@ -56,14 +56,16 @@ export async function probeAdmission({ origin, providerUrl, anonKey, email, pass
 	const genuine = await login.json();
 	if (!login.ok || typeof genuine?.access_token !== 'string') throw new Error('Provider sign-in for the probe failed.');
 	const name = authCookieName(providerUrl);
-	const forged = forgedSessions(genuine, otherUserId);
-	const cases = {
-		genuine: sessionCookie(genuine.access_token, genuine.refresh_token, genuine.expires_at),
-		malformed: 'base64-not-json',
-		...Object.fromEntries(Object.entries(forged).map(([key, value]) => [key, value.cookie]))
-	};
 	const results = [];
+	let forged;
+	let signOut;
 	try {
+		forged = forgedSessions(genuine, otherUserId);
+		const cases = {
+			genuine: sessionCookie(genuine.access_token, genuine.refresh_token, genuine.expires_at),
+			malformed: 'base64-not-json',
+			...Object.fromEntries(Object.entries(forged).map(([key, value]) => [key, value.cookie]))
+		};
 		for (const [label, value] of Object.entries(cases))
 			for (const path of PATHS) {
 				const response = await fetch(`${origin}${path}`, {
@@ -73,14 +75,17 @@ export async function probeAdmission({ origin, providerUrl, anonKey, email, pass
 				results.push({ case: label, path, status: response.status, location: response.headers.get('location') });
 			}
 	} finally {
-		await fetch(`${providerUrl}/auth/v1/logout?scope=global`, {
+		const logout = await fetch(`${providerUrl}/auth/v1/logout?scope=global`, {
 			method: 'POST',
 			headers: { apikey: anonKey, Authorization: `Bearer ${genuine.access_token}` }
 		});
+		signOut = { scope: 'global', status: logout.status };
+		if (!logout.ok) throw new Error(`The probe's genuine session was not revoked (provider status ${logout.status}).`);
 	}
 	return {
 		cookieName: name,
 		results,
+		genuineSessionSignOut: signOut,
 		forged: Object.fromEntries(
 			Object.entries(forged).map(([key, value]) => [key, { token: value.archived, claims: value.claims }])
 		)

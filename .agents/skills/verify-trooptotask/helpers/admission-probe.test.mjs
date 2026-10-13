@@ -46,4 +46,29 @@ test('the probe sends every case to each path with the provider cookie name and 
 	assert.equal(calls.at(-1).url, 'http://127.0.0.1:56321/auth/v1/logout?scope=global');
 	assert.ok(!JSON.stringify(result).includes('GENUINE-SIGNATURE'));
 	assert.ok(!JSON.stringify(result).includes('genuine-refresh'));
+	assert.deepEqual(result.genuineSessionSignOut, { scope: 'global', status: 204 });
+});
+
+test('the probe still revokes the genuine session when a request fails, and refuses an unconfirmed revocation', async () => {
+	const logouts = [];
+	const failing = (logoutStatus, requestFails) => async (url) => {
+		if (url.includes('/auth/v1/token')) return Response.json({ ...genuine });
+		if (url.includes('/auth/v1/logout')) {
+			logouts.push(logoutStatus);
+			return new Response(null, { status: logoutStatus });
+		}
+		if (requestFails) throw new Error('app unreachable');
+		return new Response(null, { status: 303, headers: { location: '/auth/login' } });
+	};
+	const input = {
+		origin: 'http://127.0.0.1:4000',
+		providerUrl: 'http://127.0.0.1:56321',
+		anonKey: 'anon',
+		email: 'a@example.test',
+		password: 'synthetic',
+		otherUserId: 'user-b'
+	};
+	await assert.rejects(probeAdmission({ ...input, fetch: failing(204, true) }), /app unreachable/);
+	await assert.rejects(probeAdmission({ ...input, fetch: failing(503, false) }), /not revoked \(provider status 503\)/);
+	assert.deepEqual(logouts, [204, 503]);
 });

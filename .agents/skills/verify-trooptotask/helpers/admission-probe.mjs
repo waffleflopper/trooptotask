@@ -59,10 +59,12 @@ export async function probeAdmission({ origin, providerUrl, anonKey, email, pass
 	const results = [];
 	let forged;
 	let failure;
+	let genuineCookie;
 	try {
 		forged = forgedSessions(genuine, otherUserId);
+		genuineCookie = sessionCookie(genuine.access_token, genuine.refresh_token, genuine.expires_at);
 		const cases = {
-			genuine: sessionCookie(genuine.access_token, genuine.refresh_token, genuine.expires_at),
+			genuine: genuineCookie,
 			malformed: 'base64-not-json',
 			...Object.fromEntries(Object.entries(forged).map(([key, value]) => [key, value.cookie]))
 		};
@@ -77,13 +79,18 @@ export async function probeAdmission({ origin, providerUrl, anonKey, email, pass
 	} catch (error) {
 		failure = error;
 	}
-	const logout = await fetch(`${providerUrl}/auth/v1/logout?scope=global`, {
+	const logout = await fetch(`${providerUrl}/auth/v1/logout?scope=local`, {
 		method: 'POST',
 		headers: { apikey: anonKey, Authorization: `Bearer ${genuine.access_token}` }
 	});
-	const signOut = { scope: 'global', status: logout.status };
+	const signOut = { scope: 'local', status: logout.status };
 	if (failure) throw failure;
 	if (!logout.ok) throw new Error(`The probe's genuine session was not revoked (provider status ${logout.status}).`);
+	const replay = await fetch(`${origin}${PATHS[0]}`, {
+		redirect: 'manual',
+		headers: { cookie: `${name}=${genuineCookie}` }
+	});
+	signOut.replayAfterSignOut = { path: PATHS[0], status: replay.status, location: replay.headers.get('location') };
 	return {
 		cookieName: name,
 		results,

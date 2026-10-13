@@ -43,10 +43,15 @@ test('the probe sends every case to each path with the provider cookie name and 
 		['genuine', 'malformed', 'badSignature', 'subjectSwap', 'algNone']
 	);
 	assert.ok(calls.filter((c) => c.cookie).every((c) => c.cookie.startsWith('sb-127-auth-token=')));
-	assert.equal(calls.at(-1).url, 'http://127.0.0.1:56321/auth/v1/logout?scope=global');
+	assert.ok(calls.some((c) => c.url === 'http://127.0.0.1:56321/auth/v1/logout?scope=local'));
+	assert.equal(calls.at(-1).url, 'http://127.0.0.1:4000/account/security');
 	assert.ok(!JSON.stringify(result).includes('GENUINE-SIGNATURE'));
 	assert.ok(!JSON.stringify(result).includes('genuine-refresh'));
-	assert.deepEqual(result.genuineSessionSignOut, { scope: 'global', status: 204 });
+	assert.deepEqual(result.genuineSessionSignOut, {
+		scope: 'local',
+		status: 204,
+		replayAfterSignOut: { path: '/account/security', status: 303, location: '/auth/login' }
+	});
 });
 
 test('the probe still revokes the genuine session when a request fails, and refuses an unconfirmed revocation', async () => {

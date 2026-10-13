@@ -77,6 +77,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	event.locals.actor = null;
 	event.locals.mfaPending = false;
 	event.locals.authFlow = null;
+	event.locals.organizationAdmissions = new Map();
 	event.locals.session = null;
 	event.locals.user = null;
 	// Public routes also need verified identity for conditional rendering.
@@ -124,7 +125,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const isOrganizationApi = event.route?.id?.startsWith('/org/[orgId]/api/');
 	const isWriteRequest = !['GET', 'HEAD', 'OPTIONS'].includes(event.request.method);
 	if (isOrganizationRoute && orgSegment && (isWriteRequest || isOrganizationApi)) {
-		await requireActiveOrganization(event.locals.supabase, orgSegment);
+		await requireActiveOrganization(event.locals, orgSegment);
 	}
 
 	const response = await resolve(event, {

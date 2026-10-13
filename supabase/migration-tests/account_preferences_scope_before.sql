@@ -44,7 +44,8 @@ SELECT c.relname object_name, jsonb_build_object(
   'columns', (SELECT jsonb_agg(to_jsonb(a) ORDER BY a.attnum) FROM pg_attribute a WHERE a.attrelid = c.oid AND a.attnum > 0)
 ) metadata
 FROM pg_class c WHERE c.oid IN ('public.getting_started_progress'::regclass, 'public.user_org_preferences'::regclass)
-UNION ALL SELECT 'is_org_member', jsonb_build_object('definition', pg_get_functiondef(p.oid), 'grants', p.proacl)
+-- Suspension SQL admission (20261012000500) later redefines the helper body.
+UNION ALL SELECT 'is_org_member', jsonb_build_object('grants', p.proacl)
 FROM pg_proc p WHERE p.oid = 'public.is_org_member(uuid)'::regprocedure
 UNION ALL SELECT 'preference_policies', jsonb_agg(to_jsonb(p) ORDER BY p.polname)
 FROM pg_policy p WHERE p.polrelid = 'public.user_org_preferences'::regclass;

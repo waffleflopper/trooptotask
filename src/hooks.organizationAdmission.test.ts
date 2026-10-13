@@ -301,15 +301,31 @@ describe('Organization admission denial and recovery', () => {
 		}
 	);
 
-	it('still dispatches page GETs to the suspended shell', async () => {
+	it('still dispatches page GETs to the suspended shell but denies their Organization data loads', async () => {
 		const f = fixture();
 		f.tables.organizations[0].suspended_at = SUSPENDED_AT;
 		const response = await handle({
 			event: f.event('alpha', 'GET', '/calendar'),
-			resolve: async (event) => Response.json(await f.load(event))
+			resolve: async (event) => {
+				await expect(buildLayoutRequest(event.locals, 'alpha')).rejects.toMatchObject({
+					status: 403,
+					body: { message: 'Organization is suspended' }
+				});
+				return Response.json(await f.load(event));
+			}
 		});
 		expect(response.status).toBe(200);
-		expect(await response.json()).toMatchObject({ shell: { kind: 'suspended', state: { orgSuspended: true } } });
+		expect(await response.json()).toMatchObject({
+			shell: { kind: 'suspended', org: { name: 'Alpha' }, state: { orgSuspended: true } }
+		});
+		expect(f.state.membershipReads).toBe(0);
+	});
+
+	it('reads Organization status once for a write and its request context', async () => {
+		const f = fixture();
+		f.tables.organization_memberships[0].role = 'owner';
+		expect((await handle({ event: f.event(), resolve: f.dispatch })).status).toBe(200);
+		expect(f.state.organizationReads).toBe(1);
 	});
 
 	it('rechecks suspension on every write and resumes after unsuspension without changing membership', async () => {

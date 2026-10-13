@@ -38,6 +38,7 @@ type Row = Record<string, unknown>;
 
 function fixture(member: OrganizationMembershipFacts = membership) {
 	const tables: Record<string, Row[]> = {
+		organizations: [{ id: ORG, suspended_at: null }],
 		organization_memberships: [{ ...member, user_id: USER, organization_id: ORG }],
 		personnel: [
 			{

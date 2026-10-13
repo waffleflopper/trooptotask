@@ -26,7 +26,8 @@ const OTHER_USER_ID = 'user-2';
 function createMembershipSupabase(membership: OrganizationMembershipFacts) {
 	const query = {
 		eq: vi.fn(),
-		single: vi.fn().mockResolvedValue({ data: membership })
+		single: vi.fn().mockResolvedValue({ data: membership }),
+		maybeSingle: vi.fn().mockResolvedValue({ data: { id: ORG_ID, suspended_at: null }, error: null })
 	};
 	query.eq.mockReturnValue(query);
 	return { from: vi.fn().mockReturnValue({ select: vi.fn().mockReturnValue(query) }) };
@@ -81,6 +82,7 @@ describe('request-bound rank catalogs', () => {
 					const url = new URL(request.url);
 					if (request.headers.get('authorization') !== 'Bearer synthetic-request-key')
 						return Response.json({ message: 'Ordinary authority required' }, { status: 403 });
+					if (url.pathname === '/rest/v1/organizations') return Response.json({ id: ORG_ID, suspended_at: null });
 					if (url.pathname === '/rest/v1/organization_memberships') return Response.json({ role: 'owner' });
 					if (url.pathname !== '/rest/v1/organization_rank_catalog')
 						return Response.json({ message: 'Unexpected catalog read' }, { status: 400 });
@@ -179,6 +181,7 @@ describe('request-bound export lifecycle persistence', () => {
 					const url = new URL(request.url);
 					if (request.headers.get('authorization') !== 'Bearer synthetic-request-key')
 						return Response.json({ message: 'Ordinary authority required' }, { status: 403 });
+					if (url.pathname === '/rest/v1/organizations') return Response.json({ id: ORG_ID, suspended_at: null });
 					if (url.pathname === '/rest/v1/organization_memberships' && request.method === 'GET')
 						return Response.json({ role: 'owner' });
 					if (url.pathname !== '/rest/v1/data_exports') throw new Error('Unexpected lifecycle transport');
@@ -242,6 +245,7 @@ describe('request-bound communications exports', () => {
 					fetch: async (input) => {
 						const url = new URL(String(input));
 						const table = url.pathname.split('/').at(-1)!;
+						if (table === 'organizations') return Response.json({ id: ORG_ID, suspended_at: null });
 						if (table === 'organization_memberships') {
 							if (
 								url.searchParams.get('user_id') !== `eq.${USER_ID}` ||

@@ -107,9 +107,12 @@ CREATE POLICY "Governors can create invitations"
 	FOR INSERT
 	TO "authenticated"
 	WITH CHECK (
-		("role" = 'member'::"public"."organization_role" AND "public"."can_manage_org_members"("organization_id"))
-		OR ("role" = 'admin'::"public"."organization_role" AND "public"."is_org_owner"("organization_id")
-			AND "public"."current_session_sensitive_action_assured"())
+		"invited_by" = (SELECT "auth"."uid"())
+		AND (
+			("role" = 'member'::"public"."organization_role" AND "public"."can_manage_org_members"("organization_id"))
+			OR ("role" = 'admin'::"public"."organization_role" AND "public"."is_org_owner"("organization_id")
+				AND "public"."current_session_sensitive_action_assured"())
+		)
 	);
 
 -- Decline, revoke and expiry change lifecycle state only. Acceptance and

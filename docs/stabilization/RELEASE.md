@@ -506,7 +506,7 @@ Repository CI operates disposable local databases and performs no remote migrati
 
 ## Phase 11 D04 governance direct-write authority
 
-Robert applies [`supabase/migrations/20261012000400_governance_direct_write_authority.sql`](../../supabase/migrations/20261012000400_governance_direct_write_authority.sql), SHA-256 `5d30cd4a4bc165bed0d8d1a067fcdc3c9ee92ed4b297901e8b360b08157eaae5`, through his normal ordered migration procedure. Its repository predecessor is D03's `20261012000300`; the agent has not inspected the hosted ledger.
+Robert applies [`supabase/migrations/20261012000400_governance_direct_write_authority.sql`](../../supabase/migrations/20261012000400_governance_direct_write_authority.sql), SHA-256 `ed1e44dc1d3f5e65de7766902b0198bd62fa6b6a846f1ba34dd15f147642f506`, through his normal ordered migration procedure. Its repository predecessor is D03's `20261012000300`; the agent has not inspected the hosted ledger.
 
 Applying it replaces the membership, Organization and invitation write policies and column grants, adds `current_session_sensitive_action_assured`, a scope-Group trigger on memberships and invitations, and replaces `can_export_organization_data` and `transfer_org_ownership` with the same signatures. It revokes any pending invitation that carries the `owner` role and rewrites no other row. Direct authenticated writes lose the governance paths the application never used; every supported writer keeps working.
 

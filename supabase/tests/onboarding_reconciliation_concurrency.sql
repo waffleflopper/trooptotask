@@ -319,6 +319,66 @@ SELECT is((SELECT template_id FROM dblink('fixture',$query$
   SELECT template_id::text FROM public.personnel_onboardings WHERE id='d1503000-0000-4000-8000-000000000701'
 $query$) AS result(template_id text)),'d1503000-0000-4000-8000-000000000401',
   'revoked Configure cannot replace the committed parent selection');
+-- A new step's insert can wait on the Organization row after every earlier
+-- check. Access lost during that wait denies the whole reconciliation.
+SELECT dblink_exec('fixture',$$SET statement_timeout='10s'$$);
+SELECT dblink_exec('fixture',$setup$
+  UPDATE public.organization_memberships SET capability_overrides='{"onboarding":"configure","personnel":"none","training":"none"}'
+  WHERE organization_id='d1503000-0000-4000-8000-000000000101' AND user_id='d1503000-0000-4000-8000-000000000007';
+  UPDATE public.personnel SET group_id='d1503000-0000-4000-8000-000000000201'
+  WHERE organization_id='d1503000-0000-4000-8000-000000000101' AND id='d1503000-0000-4000-8000-000000000301';
+  INSERT INTO public.onboarding_template_steps(id, organization_id, template_id, name, step_type, stages, sort_order, training_type_id)
+  VALUES ('d1503000-0000-4000-8000-000000000505', 'd1503000-0000-4000-8000-000000000101', 'd1503000-0000-4000-8000-000000000401', 'Late addition', 'checkbox', NULL, 50, NULL);
+$setup$);
+CREATE FUNCTION pg_temp.packet_rows() RETURNS jsonb LANGUAGE sql AS $$
+  SELECT value FROM dblink('fixture',$query$
+    SELECT jsonb_build_object(
+      'parents',(SELECT jsonb_agg(to_jsonb(po) ORDER BY id) FROM public.personnel_onboardings po
+        WHERE organization_id IN ('d1503000-0000-4000-8000-000000000101','d1503000-0000-4000-8000-000000000102')),
+      'steps',(SELECT jsonb_agg(to_jsonb(p) ORDER BY id) FROM public.onboarding_step_progress p
+        WHERE organization_id IN ('d1503000-0000-4000-8000-000000000101','d1503000-0000-4000-8000-000000000102'))
+    )
+  $query$) AS result(value jsonb);
+$$;
+CREATE TEMP TABLE before_final_insert AS SELECT pg_temp.packet_rows() AS value;
+
+SELECT dblink_exec('editor','BEGIN');
+SELECT * FROM dblink('editor',$$ SELECT id FROM public.organizations
+  WHERE id='d1503000-0000-4000-8000-000000000101' FOR UPDATE $$) AS held(id uuid);
+SELECT pg_temp.packet_begin('contender',7);
+SELECT dblink_send_query('contender',pg_temp.packet_call_sql(701));
+SELECT ok(pg_temp.packet_waits('contender','editor'),'Configure resync reaches its new-step insert and waits on the Organization row');
+SELECT dblink_exec('fixture',$revoke$
+  UPDATE public.organization_memberships SET capability_overrides='{"onboarding":"operate","personnel":"none","training":"none"}'
+  WHERE organization_id='d1503000-0000-4000-8000-000000000101' AND user_id='d1503000-0000-4000-8000-000000000007';
+$revoke$);
+SELECT dblink_exec('editor','ROLLBACK');
+SELECT * FROM dblink_get_result('contender',false) AS result(value jsonb);
+SELECT ok(dblink_error_message('contender') LIKE '%Onboarding configuration is not allowed%',
+  'Configure revoked during the new-step insert wait denies the reconciliation');
+SELECT * FROM dblink_get_result('contender',false) AS result(value jsonb);
+SELECT dblink_exec('contender','COMMIT');
+SELECT is(pg_temp.packet_rows(),(SELECT value FROM before_final_insert),
+  'the revoked reconciliation leaves every packet and step unchanged');
+
+SELECT dblink_exec('editor','BEGIN');
+SELECT * FROM dblink('editor',$$ SELECT id FROM public.organizations
+  WHERE id='d1503000-0000-4000-8000-000000000101' FOR UPDATE $$) AS held(id uuid);
+SELECT pg_temp.packet_begin('contender',5);
+SELECT dblink_send_query('contender',pg_temp.packet_call_sql(701));
+SELECT ok(pg_temp.packet_waits('contender','editor'),'Group Configure resync reaches its new-step insert and waits on the Organization row');
+SELECT dblink_exec('fixture',$move$
+  UPDATE public.personnel SET group_id='d1503000-0000-4000-8000-000000000202'
+  WHERE organization_id='d1503000-0000-4000-8000-000000000101' AND id='d1503000-0000-4000-8000-000000000301';
+$move$);
+SELECT dblink_exec('editor','ROLLBACK');
+SELECT * FROM dblink_get_result('contender',false) AS result(value jsonb);
+SELECT ok(dblink_error_message('contender') LIKE '%Onboarding configuration is not allowed%',
+  'a Person moved out of the caller Group during the new-step insert wait denies the reconciliation');
+SELECT * FROM dblink_get_result('contender',false) AS result(value jsonb);
+SELECT dblink_exec('contender','COMMIT');
+SELECT is(pg_temp.packet_rows(),(SELECT value FROM before_final_insert),
+  'the out-of-scope reconciliation leaves every packet and step unchanged');
 SELECT dblink_exec('fixture',$cleanup$
   DELETE FROM public.organizations WHERE id IN ('d1503000-0000-4000-8000-000000000101','d1503000-0000-4000-8000-000000000102');
   DELETE FROM auth.users WHERE id BETWEEN 'd1503000-0000-4000-8000-000000000001' AND 'd1503000-0000-4000-8000-000000000007';

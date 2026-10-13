@@ -316,14 +316,13 @@ SELECT throws_ok($$ INSERT INTO public.personnel_onboardings (organization_id, p
 	VALUES ('f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000306', 'f4000000-0000-4000-8000-000000000601', 'completed') $$,
 	'42501', NULL, 'an Onboarding operator cannot create a packet without its Start steps');
 SELECT is(
-	(SELECT jsonb_agg(jsonb_build_array(step ->> 'template_step_id', step ->> 'step_name', step ->> 'step_type', step ->> 'training_type_id', step ->> 'sort_order', step ->> 'completed', step ->> 'active') ORDER BY (step ->> 'sort_order')::integer)
+	(SELECT jsonb_agg(jsonb_build_array(step ->> 'template_step_id', step ->> 'step_name', step ->> 'step_type', step ->> 'training_type_id', step -> 'stages', step ->> 'sort_order', step ->> 'completed', step ->> 'active') ORDER BY (step ->> 'sort_order')::integer)
 		FROM jsonb_array_elements(public.start_onboarding_packet('f4000000-0000-4000-8000-000000000101', 'f4000000-0000-4000-8000-000000000306',
 			'f4000000-0000-4000-8000-000000000601', '2030-06-01', '[
-				{"template_step_id":"f4000000-0000-4000-8000-000000000611","step_name":"Alpha Step","step_type":"checkbox","training_type_id":null,"stages":null,"sort_order":0,"completed":false},
-				{"template_step_id":"f4000000-0000-4000-8000-000000000612","step_name":"Alpha CLS","step_type":"training","training_type_id":"f4000000-0000-4000-8000-000000000401","stages":null,"sort_order":10,"completed":true}
+				{"template_step_id":"f4000000-0000-4000-8000-000000000612","step_name":"Renamed CLS","step_type":"training","training_type_id":"f4000000-0000-4000-8000-000000000401","stages":["Forged"],"sort_order":-5,"completed":true}
 			]') -> 'steps') AS step),
-	'[["f4000000-0000-4000-8000-000000000611","Alpha Step","checkbox",null,"0","false","true"],["f4000000-0000-4000-8000-000000000612","Alpha CLS","training","f4000000-0000-4000-8000-000000000401","10","true","true"]]'::jsonb,
-	'an Onboarding operator starts a packet with exactly its prepared template steps');
+	'[["f4000000-0000-4000-8000-000000000611","Alpha Step","checkbox",null,null,"0","false","true"],["f4000000-0000-4000-8000-000000000612","Alpha CLS","training","f4000000-0000-4000-8000-000000000401",null,"10","false","true"]]'::jsonb,
+	'an Onboarding operator''s Start saves every template step as defined, with no Training completion the Person has not recorded');
 SELECT throws_ok($$ SELECT public.reconcile_onboarding_packet('f4000000-0000-4000-8000-000000000101',
 	(SELECT id FROM public.personnel_onboardings WHERE personnel_id = 'f4000000-0000-4000-8000-000000000306' AND status = 'in_progress'), 'f4000000-0000-4000-8000-000000000602') $$,
 	'42501', NULL, 'an Onboarding operator cannot reconcile a packet to another template');

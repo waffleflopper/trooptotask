@@ -146,12 +146,12 @@ const personState = (value, person) => {
 		progress: value.progress.filter((row) => parents.some((parent) => parent.id === row.onboarding_id))
 	};
 };
-function savedResponse(result, value, person, prepared = steps) {
+function savedResponse(result, value, person, templateSteps = steps) {
 	assert.equal(result.error, null);
 	assert.equal(result.status, 200);
 	const saved = personState(value, person);
 	assert.equal(saved.parents.length, 1);
-	assert.equal(saved.progress.length, prepared.length);
+	assert.equal(saved.progress.length, templateSteps.length);
 	assert.deepEqual(result.data.onboarding, saved.parents[0]);
 	assert.deepEqual(
 		result.data.steps,
@@ -166,15 +166,15 @@ function savedResponse(result, value, person, prepared = steps) {
 		assert.equal(row.active, true);
 		assert.deepEqual(row.notes, []);
 	}
-	if (prepared.length)
+	if (templateSteps.length)
 		assert.deepEqual(
 			saved.progress
 				.toSorted((a, b) => a.sort_order - b.sort_order)
 				.map(({ step_name, completed, current_stage }) => [step_name, completed, current_stage]),
 			[
-				['Prepared Orientation', false, null],
-				['Prepared Paperwork', false, 'Submitted'],
-				['Prepared expired Training', true, null]
+				['Current Prepared Orientation', false, null],
+				['Current Prepared Paperwork', false, 'Submitted'],
+				['Current Prepared expired Training', person === 301, null]
 			]
 		);
 }
@@ -377,8 +377,7 @@ try {
 	};
 	for (const [label, actor, prepared, template, code] of [
 		['view-denied', actors[4], steps, id(401), '42501'],
-		['foreign-template', actors[0], steps, id(402), 'P0002'],
-		['malformed-snapshot', actors[0], null, id(401), '22023']
+		['foreign-template', actors[0], steps, id(402), 'P0002']
 	]) {
 		const before = await state();
 		const result = await start(actor, 301, prepared, template);
@@ -407,8 +406,8 @@ try {
 
 	// First contender fails after parent/prior child; the awaiting second can win.
 	sql(`CREATE FUNCTION public.atomic_start_probe_fault() RETURNS trigger LANGUAGE plpgsql SET search_path='' AS $$ BEGIN
-    IF auth.uid()='${actors[0].userId}' AND NEW.step_name='Prepared Paperwork' AND EXISTS(SELECT 1 FROM public.personnel_onboardings WHERE id=NEW.onboarding_id AND personnel_id='${id(302)}') THEN
-      IF NOT EXISTS(SELECT 1 FROM public.onboarding_step_progress WHERE onboarding_id=NEW.onboarding_id AND step_name='Prepared Orientation') THEN RAISE EXCEPTION 'Missing partial fault witness' USING ERRCODE='XX000'; END IF;
+    IF auth.uid()='${actors[0].userId}' AND NEW.step_name='Current Prepared Paperwork' AND EXISTS(SELECT 1 FROM public.personnel_onboardings WHERE id=NEW.onboarding_id AND personnel_id='${id(302)}') THEN
+      IF NOT EXISTS(SELECT 1 FROM public.onboarding_step_progress WHERE onboarding_id=NEW.onboarding_id AND step_name='Current Prepared Orientation') THEN RAISE EXCEPTION 'Missing partial fault witness' USING ERRCODE='XX000'; END IF;
       RAISE EXCEPTION 'Controlled provider Start failure witnessed parent and prior child' USING ERRCODE='23514'; END IF; RETURN NEW; END; $$;
     CREATE TRIGGER atomic_start_probe_fault BEFORE INSERT ON public.onboarding_step_progress FOR EACH ROW EXECUTE FUNCTION public.atomic_start_probe_fault();`);
 	before = await state();

@@ -297,7 +297,13 @@ describe('Person-bound file retirement transport', () => {
 				calls.push({ name, args });
 				if (name === 'delete_archived_personnel_artifact')
 					return Response.json(options.receipt ? [options.receipt] : []);
-				if (name === 'reconcile_personnel_file_attachment') return Response.json(options.attachedId ?? null);
+				if (name === 'reconcile_personnel_file_attachment')
+					return options.attachedId === 'held-elsewhere'
+						? Response.json(
+								{ code: '23505', message: 'This stored file is attached to another record' },
+								{ status: 409 }
+							)
+						: Response.json(options.attachedId ?? null);
 				if (name === 'complete_organization_file_retirements') {
 					completed.push(...(args.p_object_names as string[]).map((name) => `${args.p_bucket_id}/${name}`));
 					return Response.json((args.p_object_names as string[]).length);
@@ -368,5 +374,14 @@ describe('Person-bound file retirement transport', () => {
 		await expect(
 			(await unattached.writer).reconcileFileAttachment('document', `${actor.orgId}/personnel/person-2/documents/x.pdf`)
 		).rejects.toMatchObject({ status: 400 });
+	});
+
+	it('keeps the bytes of a key another record still references when reconciliation refuses it', async () => {
+		const run = committedSqlModel({ attachedId: 'held-elsewhere', files: [path] });
+		await expect((await run.writer).reconcileFileAttachment('document', path)).rejects.toThrow(
+			'This stored file is attached to another record'
+		);
+		expect(run.files).toEqual(new Set([path]));
+		expect(run.completed).toEqual([]);
 	});
 });

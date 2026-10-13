@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
 import { createTestAuthContext } from '$lib/server/adapters/inMemory';
+import { drainRetiredOrganizationFiles } from '$features/organization/index.server';
 import { createSupabasePersonnelGovernanceDeletionPort } from './governanceDeletion.server';
 
 const ORG = 'org-1';
@@ -35,6 +36,7 @@ function provider(filePath: string | null = FILE_PATH) {
 		retired: new Map<string, 'pending' | 'removed'>(),
 		receipt: null as { bucket_id: string | null; object_name: string | null } | null,
 		approvalFault: null as null | 'constraint' | 'lost-race',
+		receiptFault: null as null | 'unavailable' | 'empty' | 'malformed' | 'duplicate',
 		storageFault: false,
 		readFault: false,
 		calls: [] as string[]
@@ -75,11 +77,21 @@ function provider(filePath: string | null = FILE_PATH) {
 						p_kind: 'counseling',
 						p_artifact_id: 'record-1'
 					});
-					if (!state.receipt) return Response.json([]);
+					if (state.receiptFault === 'unavailable')
+						return Response.json({ message: 'receipt unavailable' }, { status: 503 });
+					if (!state.receipt || state.receiptFault === 'empty') return Response.json([]);
 					const key = state.receipt.object_name;
-					return Response.json([
-						{ ...state.receipt, file_removed: key === null || state.retired.get(key) === 'removed' }
-					]);
+					const row = { ...state.receipt, file_removed: key === null || state.retired.get(key) === 'removed' };
+					if (state.receiptFault === 'malformed') return Response.json([{ ...row, file_removed: 'false' }]);
+					if (state.receiptFault === 'duplicate') return Response.json([row, row]);
+					return Response.json([row]);
+				}
+				if (url.pathname === '/rest/v1/rpc/list_pending_organization_file_retirements') {
+					return Response.json(
+						[...state.retired]
+							.filter(([, status]) => status === 'pending')
+							.map(([object_name]) => ({ bucket_id: 'counseling-files', object_name }))
+					);
 				}
 				if (url.pathname === '/rest/v1/rpc/complete_organization_file_retirements') {
 					let completed = 0;
@@ -103,6 +115,7 @@ function provider(filePath: string | null = FILE_PATH) {
 	const port = createSupabasePersonnelGovernanceDeletionPort(() => client, requirePending);
 	return {
 		state,
+		client,
 		requirePending,
 		approve: (actor = admin()) => port.deleteApprovedCounselingRecord(actor, 'request-1', 'record-1', REVIEWED_AT)
 	};
@@ -166,6 +179,27 @@ describe('Organization-approved counseling deletion', () => {
 		expect(run.state.files.has(FILE_PATH)).toBe(true);
 		expect(run.state.retired.get(FILE_PATH)).toBe('pending');
 	});
+
+	it.each(['unavailable', 'empty', 'malformed', 'duplicate'] as const)(
+		'reports pending cleanup for a committed approval whose receipt is %s, leaving the retired key for scheduled cleanup',
+		async (fault) => {
+			const run = provider();
+			run.state.receiptFault = fault;
+			await expect(run.approve()).resolves.toEqual({ fileCleanup: 'pending' });
+			expect(run.state).toMatchObject({ record: null, pending: false });
+			expect(run.state.files.has(FILE_PATH)).toBe(true);
+			expect(run.state.retired.get(FILE_PATH)).toBe('pending');
+			await expect(run.approve()).rejects.toMatchObject({ status: 404 });
+
+			await expect(drainRetiredOrganizationFiles(run.client)).resolves.toEqual({
+				removed: 1,
+				failed: 0,
+				limitReached: false
+			});
+			expect([...run.state.files]).toEqual([FOREIGN_PATH]);
+			expect(run.state.retired.get(FILE_PATH)).toBe('removed');
+		}
+	);
 
 	it('approves a record whose historical path is outside its Person without removing those bytes', async () => {
 		const run = provider(FOREIGN_PATH);

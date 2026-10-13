@@ -412,6 +412,9 @@ BEGIN
       ORDER BY created_at LIMIT 1;
   END IF;
   IF v_id IS NULL THEN
+    IF organization_private.artifact_file_referenced(p_kind, p_object_name) THEN
+      RAISE EXCEPTION 'This stored file is attached to another record' USING ERRCODE = '23505';
+    END IF;
     PERFORM organization_private.retire_unreferenced_file(p_kind, p_object_name);
   END IF;
   RETURN v_id;

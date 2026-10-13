@@ -25,7 +25,8 @@ INSERT INTO public.personnel (id, organization_id, group_id, rank, first_name, l
 	('f6430000-0000-4000-8000-000000000301', 'f6430000-0000-4000-8000-000000000101', 'f6430000-0000-4000-8000-000000000201', 'SGT', 'Avery', 'Kept', 'file-retirement-kept', NULL),
 	('f6430000-0000-4000-8000-000000000302', 'f6430000-0000-4000-8000-000000000101', 'f6430000-0000-4000-8000-000000000201', 'SPC', 'Blake', 'Removed', 'file-retirement-removed', NULL),
 	('f6430000-0000-4000-8000-000000000303', 'f6430000-0000-4000-8000-000000000101', 'f6430000-0000-4000-8000-000000000201', 'PFC', 'Casey', 'Expired', 'file-retirement-expired', '2020-01-01T00:00:00Z'),
-	('f6430000-0000-4000-8000-000000000304', 'f6430000-0000-4000-8000-000000000102', NULL, 'SSG', 'Drew', 'Bravo', 'file-retirement-bravo', NULL);
+	('f6430000-0000-4000-8000-000000000304', 'f6430000-0000-4000-8000-000000000102', NULL, 'SSG', 'Drew', 'Bravo', 'file-retirement-bravo', NULL),
+	('f6430000-0000-4000-8000-000000000305', 'f6430000-0000-4000-8000-000000000101', 'f6430000-0000-4000-8000-000000000201', 'CPL', 'Emery', 'Legacy', 'file-retirement-legacy', NULL);
 
 CREATE FUNCTION pg_temp.doc(p_person text, p_name text) RETURNS text LANGUAGE sql AS $$
 	SELECT 'f6430000-0000-4000-8000-000000000101/personnel/f6430000-0000-4000-8000-000000000' || p_person || '/documents/' || p_name
@@ -69,11 +70,14 @@ INSERT INTO public.personnel_documents (id, organization_id, personnel_id, title
 	('f6430000-0000-4000-8000-000000000519', 'f6430000-0000-4000-8000-000000000101', 'f6430000-0000-4000-8000-000000000301', 'Recent', pg_temp.doc('301', 'recent.pdf'), 1, 'application/pdf', 'fixture', '2030-01-01T00:00:00Z'),
 	('f6430000-0000-4000-8000-000000000521', 'f6430000-0000-4000-8000-000000000101', 'f6430000-0000-4000-8000-000000000302', 'Cascade', pg_temp.doc('302', 'cascade.pdf'), 1, 'application/pdf', 'fixture', NULL),
 	('f6430000-0000-4000-8000-000000000522', 'f6430000-0000-4000-8000-000000000101', 'f6430000-0000-4000-8000-000000000303', 'Expired parent', pg_temp.doc('303', 'expired.pdf'), 1, 'application/pdf', 'fixture', NULL),
-	('f6430000-0000-4000-8000-000000000523', 'f6430000-0000-4000-8000-000000000101', 'f6430000-0000-4000-8000-000000000301', 'Attached', pg_temp.doc('301', 'attached.pdf'), 1, 'application/pdf', 'fixture', NULL);
+	('f6430000-0000-4000-8000-000000000523', 'f6430000-0000-4000-8000-000000000101', 'f6430000-0000-4000-8000-000000000301', 'Attached', pg_temp.doc('301', 'attached.pdf'), 1, 'application/pdf', 'fixture', NULL),
+	('f6430000-0000-4000-8000-000000000524', 'f6430000-0000-4000-8000-000000000101', 'f6430000-0000-4000-8000-000000000305', 'Legacy cross-Person', pg_temp.doc('301', 'legacy.pdf'), 1, 'application/pdf', 'fixture', NULL),
+	('f6430000-0000-4000-8000-000000000525', 'f6430000-0000-4000-8000-000000000102', 'f6430000-0000-4000-8000-000000000304', 'Legacy foreign Organization', pg_temp.doc('301', 'legacy-foreign.pdf'), 1, 'application/pdf', 'fixture', NULL);
 INSERT INTO public.counseling_records (id, organization_id, personnel_id, date_conducted, subject, title, uploaded_by, file_path, archived_at) VALUES
 	('f6430000-0000-4000-8000-000000000531', 'f6430000-0000-4000-8000-000000000101', 'f6430000-0000-4000-8000-000000000301', '2030-01-01', 'Direct', 'Direct', 'fixture', pg_temp.counsel('301', 'direct.pdf'), '2030-01-01T00:00:00Z'),
 	('f6430000-0000-4000-8000-000000000532', 'f6430000-0000-4000-8000-000000000101', 'f6430000-0000-4000-8000-000000000301', '2030-01-01', 'Approved', 'Approved', 'fixture', pg_temp.counsel('301', 'approved.pdf'), NULL),
-	('f6430000-0000-4000-8000-000000000533', 'f6430000-0000-4000-8000-000000000101', 'f6430000-0000-4000-8000-000000000301', '2030-01-01', 'No file', 'No file', 'fixture', NULL, '2030-01-01T00:00:00Z');
+	('f6430000-0000-4000-8000-000000000533', 'f6430000-0000-4000-8000-000000000101', 'f6430000-0000-4000-8000-000000000301', '2030-01-01', 'No file', 'No file', 'fixture', NULL, '2030-01-01T00:00:00Z'),
+	('f6430000-0000-4000-8000-000000000534', 'f6430000-0000-4000-8000-000000000101', 'f6430000-0000-4000-8000-000000000305', '2030-01-01', 'Legacy', 'Legacy', 'fixture', pg_temp.counsel('301', 'legacy.pdf'), NULL);
 INSERT INTO public.deletion_requests (id, organization_id, requested_by, requested_by_email, resource_type, resource_id, resource_description) VALUES
 	('f6430000-0000-4000-8000-000000000801', 'f6430000-0000-4000-8000-000000000101', 'f6430000-0000-4000-8000-000000000002', 'file-retirement-configurator@example.test', 'counseling_record', 'f6430000-0000-4000-8000-000000000532', 'Approved');
 
@@ -226,14 +230,32 @@ SELECT is(public.reconcile_personnel_file_attachment('f6430000-0000-4000-8000-00
 	'document', pg_temp.doc('301', 'unattached.pdf')), NULL, 'reconciliation finds no record for an unattached key');
 SELECT throws_ok($$ SELECT public.reconcile_personnel_file_attachment('f6430000-0000-4000-8000-000000000101', 'f6430000-0000-4000-8000-000000000301',
 	'document', pg_temp.doc('304', 'other.pdf')) $$, '22023', 'Invalid Personnel file key', 'reconciliation rejects a key outside the Person');
+SELECT is(public.reconcile_personnel_file_attachment('f6430000-0000-4000-8000-000000000101', 'f6430000-0000-4000-8000-000000000301',
+	'document', pg_temp.doc('301', 'unattached.pdf')), NULL, 'reconciliation replays for a key it already retired');
+SELECT throws_ok($$ SELECT public.reconcile_personnel_file_attachment('f6430000-0000-4000-8000-000000000101', 'f6430000-0000-4000-8000-000000000301',
+	'document', pg_temp.doc('301', 'legacy.pdf')) $$, '23505', 'This stored file is attached to another record',
+	'reconciliation refuses a document key another Person still references');
+SELECT throws_ok($$ SELECT public.reconcile_personnel_file_attachment('f6430000-0000-4000-8000-000000000101', 'f6430000-0000-4000-8000-000000000301',
+	'counseling', pg_temp.counsel('301', 'legacy.pdf')) $$, '23505', 'This stored file is attached to another record',
+	'reconciliation refuses a counseling key another Person still references');
+SELECT throws_ok($$ SELECT public.reconcile_personnel_file_attachment('f6430000-0000-4000-8000-000000000101', 'f6430000-0000-4000-8000-000000000301',
+	'document', pg_temp.doc('301', 'legacy-foreign.pdf')) $$, '23505', 'This stored file is attached to another record',
+	'reconciliation refuses a document key a record in another Organization still references');
 SELECT throws_ok($$ INSERT INTO public.personnel_documents (organization_id, personnel_id, title, file_path, file_size_bytes, content_type, uploaded_by)
 	VALUES ('f6430000-0000-4000-8000-000000000101', 'f6430000-0000-4000-8000-000000000301', 'Late', pg_temp.doc('301', 'unattached.pdf'), 1, 'application/pdf', 'fixture') $$,
 	'23514', 'This stored file was deleted and cannot be attached', 'a late attachment cannot claim a reconciled key');
 SELECT pg_temp.act_as_fixture();
 SELECT is(
-	ARRAY[pg_temp.retirement('personnel-documents', pg_temp.doc('301', 'attached.pdf')), pg_temp.retirement('personnel-documents', pg_temp.doc('301', 'unattached.pdf'))],
-	ARRAY[NULL, 'pending'],
+	ARRAY[pg_temp.retirement('personnel-documents', pg_temp.doc('301', 'attached.pdf')), pg_temp.retirement('personnel-documents', pg_temp.doc('301', 'unattached.pdf')),
+		pg_temp.retirement('personnel-documents', pg_temp.doc('301', 'legacy.pdf')), pg_temp.retirement('counseling-files', pg_temp.counsel('301', 'legacy.pdf')),
+		pg_temp.retirement('personnel-documents', pg_temp.doc('301', 'legacy-foreign.pdf'))],
+	ARRAY[NULL, 'pending', NULL, NULL, NULL],
 	'only the unattached key is retired');
+SELECT is(
+	ARRAY(SELECT path FROM (SELECT file_path FROM public.personnel_documents WHERE id IN ('f6430000-0000-4000-8000-000000000524', 'f6430000-0000-4000-8000-000000000525')
+		UNION ALL SELECT file_path FROM public.counseling_records WHERE id = 'f6430000-0000-4000-8000-000000000534') AS kept(path) ORDER BY path COLLATE "C"),
+	ARRAY[pg_temp.counsel('301', 'legacy.pdf'), pg_temp.doc('301', 'legacy-foreign.pdf'), pg_temp.doc('301', 'legacy.pdf')],
+	'refused reconciliation keeps every other record''s reference');
 
 SELECT pg_temp.act_as_service();
 SELECT throws_ok($$ SELECT public.register_organization_file_upload('f6430000-0000-4000-8000-000000000601', 'f6430000-0000-4000-8000-000000000101',

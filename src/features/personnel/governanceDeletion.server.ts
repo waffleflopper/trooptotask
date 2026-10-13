@@ -56,9 +56,13 @@ export function createSupabasePersonnelGovernanceDeletionPort(
 				p_kind: 'counseling',
 				p_artifact_id: recordId
 			});
-			if (receipt.error) return { fileCleanup: 'pending' };
-			const deletion = parseFileDeletion(receipt.data);
-			return { fileCleanup: deletion ? await finishFileCleanup(admin, deletion) : 'complete' };
+			let deletion = null;
+			try {
+				deletion = receipt.error ? null : parseFileDeletion(receipt.data);
+			} catch {
+				return { fileCleanup: 'pending' };
+			}
+			return { fileCleanup: deletion ? await finishFileCleanup(admin, deletion) : 'pending' };
 		}
 	};
 }

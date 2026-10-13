@@ -157,7 +157,7 @@
 
 {#snippet subtitle()}
 	{#each subtitleParts as part, index (part.text)}
-		{#if index > 0}{' · '}{/if}
+		{#if index > 0}&nbsp;&middot;&nbsp;{/if}
 		{#if part.stalled}<span class="text-warning-foreground">{part.text}</span>{:else}{part.text}{/if}
 	{/each}
 {/snippet}

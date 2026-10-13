@@ -1,4 +1,5 @@
 export type WorkspaceToolbarIcon =
+	| 'arrow-left'
 	| 'book-open'
 	| 'calendar-days'
 	| 'chart'

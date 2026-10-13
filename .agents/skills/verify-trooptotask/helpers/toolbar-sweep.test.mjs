@@ -775,3 +775,57 @@ test('a no-fold sweep accepts a row that never folds and rejects More or a missi
 		[['pinned', 390]]
 	);
 });
+
+test('parses --no-fold --search with no --pinned as a sweep of a search-only toolbar', () => {
+	const parsed = parseSweepArguments(['1', 'Logs controls', 'run', '--no-fold', '--search']);
+	assert.deepEqual([parsed.expectIds, parsed.pinnedIds, parsed.search, parsed.moreAlways], [[], [], true, false]);
+	for (const flags of [
+		['--no-fold'],
+		['--search'],
+		['--no-fold', '--search', '--search'],
+		['--no-fold', '--search', '--more-always']
+	])
+		assert.throws(
+			() => parseSweepArguments(['1', 'Controls', 'run', ...flags]),
+			/toolbar-sweep|--no-fold/,
+			flags.join(' ')
+		);
+});
+
+test('a search-only no-fold sweep accepts search at every width and rejects More, a missing search or a folded item', () => {
+	const rows = [1440, 1000, 700, 390].map((width) => [width, 0, 'field']);
+	const searchOnly = { expect: [], pinned: [], search: true };
+	const trace = () => ({
+		down: rows.map((row) => ({ width: row[0], read: read(...row, { ids: [] }), holds: [] })),
+		up: [...rows]
+			.reverse()
+			.slice(1)
+			.map((row) => ({ width: row[0], read: read(...row, { ids: [] }), holds: [] }))
+	});
+	assert.deepEqual(checkSweep(trace(), searchOnly).failures, []);
+
+	const withMore = trace();
+	withMore.down[2].read.more = true;
+	assert.deepEqual(
+		checkSweep(withMore, searchOnly).failures.map((f) => [f.check, f.width]),
+		[
+			['more', 700],
+			['same-width', 700]
+		]
+	);
+
+	const noSearch = trace();
+	noSearch.down[3].read.search = 'none';
+	assert.deepEqual(
+		checkSweep(noSearch, searchOnly)
+			.failures.filter((f) => f.check === 'search-present')
+			.map((f) => f.width),
+		[390]
+	);
+
+	const folded = trace();
+	for (const step of folded.down) step.read.ids = ['filter'];
+	folded.down[3].read.ids = [];
+	folded.down[3].read.more = true;
+	assert.ok(checkSweep(folded, searchOnly).failures.some((f) => f.check === 'more' && f.width === 390));
+});

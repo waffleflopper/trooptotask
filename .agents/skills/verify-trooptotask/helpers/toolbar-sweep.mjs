@@ -236,7 +236,7 @@ export function checkSweep({ down, up }, { expect, pinned = [], search = false, 
 }
 
 const usage =
-	'Use toolbar-sweep PAGE TOOLBAR_LABEL RUN_DIR (--expect ID,ID,... | --no-fold --pinned ID,ID,... | --more-always --pinned ID,ID,...) [--pinned ID,ID,...] [--search] [--more-always] [--from 1440] [--to 390] [--step 2] [--height 900] [--record NAME].';
+	'Use toolbar-sweep PAGE TOOLBAR_LABEL RUN_DIR (--expect ID,ID,... | --no-fold (--pinned ID,ID,... | --search) | --more-always --pinned ID,ID,...) [--pinned ID,ID,...] [--search] [--more-always] [--from 1440] [--to 390] [--step 2] [--height 900] [--record NAME].';
 const valueFlags = ['expect', 'pinned', 'from', 'to', 'step', 'height', 'record'];
 const idList = (value) => (value ?? '').split(',').filter(Boolean);
 
@@ -269,7 +269,9 @@ export function parseSweepArguments([page, label, runName, ...flags]) {
 			'--no-fold and --more-always cannot be combined: one requires More to be absent at every width and the other present.'
 		);
 	const pinnedMoreOnly = moreAlways && !noFold && !expectIds.length && pinnedIds.length > 0;
-	if (noFold ? expectIds.length || !pinnedIds.length : !expectIds.length && !pinnedMoreOnly) throw new Error(usage);
+	const noFoldChecksSomething = pinnedIds.length > 0 || search;
+	if (noFold ? expectIds.length || !noFoldChecksSomething : !expectIds.length && !pinnedMoreOnly)
+		throw new Error(usage);
 	if (![from, to, step, height].every(Number.isInteger) || to < 200 || from < to || step < 1 || height < 200)
 		throw new Error('Use whole numbers with 200 <= --to <= --from, --step >= 1 and --height >= 200.');
 	const ids = [...expectIds, ...pinnedIds];

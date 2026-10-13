@@ -7,7 +7,6 @@ export interface SignInRosterFileActor {
 	orgId: string;
 	role: 'owner' | 'admin' | 'member';
 	isPrivileged: boolean;
-	canManageMembers: boolean;
 	capabilityMap: CapabilityMap;
 	scopeSet: ScopeSet;
 }

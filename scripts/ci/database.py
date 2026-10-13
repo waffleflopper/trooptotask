@@ -64,6 +64,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261004100618_training_readiness_goal.sql",
     "20261006000100_atomic_calendar_availability_removal.sql",
     "20261012000100_invitation_grant_liveness.sql",
+    "20261012000400_governance_direct_write_authority.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",
@@ -90,6 +91,7 @@ STAGED_UPGRADE_FIXTURES = (
     "training_readiness_goal_before.sql",
     "calendar_availability_removal_before.sql",
     "access_request_approval_basis_before.sql",
+    "governance_direct_writes_before.sql",
 )
 STAGED_UPGRADE_CONTRACTS = (
     "account_setup_populated_after.sql",
@@ -118,6 +120,7 @@ STAGED_UPGRADE_CONTRACTS = (
     "training_readiness_goal_after.sql",
     "calendar_availability_removal_after.sql",
     "access_request_approval_basis_after.sql",
+    "governance_direct_writes_after.sql",
 )
 
 _receipt = None

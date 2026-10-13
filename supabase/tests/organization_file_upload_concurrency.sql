@@ -62,7 +62,7 @@ CREATE TEMP TABLE d17_upload_results(case_name text,result jsonb);
 SELECT dblink_exec('d17_service', $$BEGIN; SET LOCAL ROLE service_role; SET LOCAL "request.jwt.claim.role" = 'service_role'$$);
 INSERT INTO d17_upload_results SELECT 'initial-admission',result FROM dblink('d17_service', $$SELECT d17_upload_test.capture($query$SELECT public.register_organization_file_upload('fa181000-0000-4000-8000-000000000601','fa181000-0000-4000-8000-000000000101','fa181000-0000-4000-8000-000000000001','personnel-documents','fa181000-0000-4000-8000-000000000101/held.pdf')$query$)$$) AS r(result jsonb);
 SELECT is((SELECT result->>'code' FROM d17_upload_results WHERE case_name='initial-admission'),'00000','the blocking admission succeeds before DELETE starts');
-SELECT dblink_exec('d17_owner', $$BEGIN; SET LOCAL ROLE authenticated; SET LOCAL "request.jwt.claim.role" = 'authenticated'; SET LOCAL "request.jwt.claim.sub" = 'fa181000-0000-4000-8000-000000000001'$$);
+SELECT dblink_exec('d17_owner', $$BEGIN; SET LOCAL ROLE authenticated; SET LOCAL "request.jwt.claim.role" = 'authenticated'; SET LOCAL "request.jwt.claims" = '{"aal":"aal2"}'; SET LOCAL "request.jwt.claim.sub" = 'fa181000-0000-4000-8000-000000000001'$$);
 SELECT dblink_send_query('d17_owner', $$SELECT d17_upload_test.capture($query$DELETE FROM public.organizations WHERE id='fa181000-0000-4000-8000-000000000101' AND name='D17 lock A'$query$)$$);
 SELECT ok(pg_temp.d17_wait('admit-before-delete','owner','service'),'ordinary DELETE actually waits behind admission');
 SELECT dblink_exec('d17_service','COMMIT');
@@ -75,7 +75,7 @@ SELECT is((SELECT count(*)::integer FROM organization_private.file_uploads WHERE
 
 -- Settlement and metadata commit together while DELETE has an earlier snapshot.
 SELECT dblink_exec('d17_holder', $$BEGIN; DO $body$ BEGIN PERFORM 1 FROM public.organizations WHERE id='fa181000-0000-4000-8000-000000000101' FOR UPDATE; END $body$;$$);
-SELECT dblink_exec('d17_owner', $$BEGIN; SET LOCAL ROLE authenticated; SET LOCAL "request.jwt.claim.role" = 'authenticated'; SET LOCAL "request.jwt.claim.sub" = 'fa181000-0000-4000-8000-000000000001'$$);
+SELECT dblink_exec('d17_owner', $$BEGIN; SET LOCAL ROLE authenticated; SET LOCAL "request.jwt.claim.role" = 'authenticated'; SET LOCAL "request.jwt.claims" = '{"aal":"aal2"}'; SET LOCAL "request.jwt.claim.sub" = 'fa181000-0000-4000-8000-000000000001'$$);
 SELECT dblink_send_query('d17_owner', $$SELECT d17_upload_test.capture($query$DELETE FROM public.organizations WHERE id='fa181000-0000-4000-8000-000000000101' AND name='D17 lock A'$query$)$$);
 SELECT ok(pg_temp.d17_wait('settle-before-delete','owner','holder'),'ordinary DELETE actually waits before settlement');
 SELECT dblink_exec('d17_holder', $$SET LOCAL ROLE service_role; SET LOCAL "request.jwt.claim.role" = 'service_role'; INSERT INTO storage.objects(id,bucket_id,name,version) VALUES('fa181000-0000-4000-8000-000000000501','personnel-documents','fa181000-0000-4000-8000-000000000101/held.pdf','synthetic-version')$$);
@@ -90,7 +90,7 @@ SELECT is((SELECT count(*)::integer FROM storage.objects WHERE id='fa181000-0000
 SELECT dblink_exec('d17_holder', $$BEGIN; SET LOCAL "storage.allow_delete_query" = 'true'; DELETE FROM storage.objects WHERE id='fa181000-0000-4000-8000-000000000501'; COMMIT$$);
 
 -- A winning parent deletion excludes the waiting begin before any byte call.
-SELECT dblink_exec('d17_owner', $$BEGIN; SET LOCAL ROLE authenticated; SET LOCAL "request.jwt.claim.role" = 'authenticated'; SET LOCAL "request.jwt.claim.sub" = 'fa181000-0000-4000-8000-000000000001'; DELETE FROM public.organizations WHERE id='fa181000-0000-4000-8000-000000000103'$$);
+SELECT dblink_exec('d17_owner', $$BEGIN; SET LOCAL ROLE authenticated; SET LOCAL "request.jwt.claim.role" = 'authenticated'; SET LOCAL "request.jwt.claims" = '{"aal":"aal2"}'; SET LOCAL "request.jwt.claim.sub" = 'fa181000-0000-4000-8000-000000000001'; DELETE FROM public.organizations WHERE id='fa181000-0000-4000-8000-000000000103'$$);
 SELECT dblink_exec('d17_service', $$BEGIN; SET LOCAL ROLE service_role; SET LOCAL "request.jwt.claim.role" = 'service_role'$$);
 SELECT dblink_send_query('d17_service', $$SELECT d17_upload_test.capture($query$SELECT public.register_organization_file_upload('fa181000-0000-4000-8000-000000000603','fa181000-0000-4000-8000-000000000103','fa181000-0000-4000-8000-000000000001','personnel-documents','fa181000-0000-4000-8000-000000000103/late.pdf')$query$)$$);
 SELECT ok(pg_temp.d17_wait('delete-before-admit','service','owner'),'new registration actually waits behind deletion');
@@ -104,11 +104,11 @@ SELECT is((SELECT count(*)::integer FROM public.organizations WHERE id='fa181000
 
 -- Authority changed while the final DELETE waited must also be read freshly.
 SELECT dblink_exec('d17_holder', $$BEGIN; DO $body$ BEGIN PERFORM 1 FROM public.organizations WHERE id='fa181000-0000-4000-8000-000000000101' FOR UPDATE; END $body$;$$);
-SELECT dblink_exec('d17_owner', $$BEGIN; SET LOCAL ROLE authenticated; SET LOCAL "request.jwt.claim.role" = 'authenticated'; SET LOCAL "request.jwt.claim.sub" = 'fa181000-0000-4000-8000-000000000001'$$);
+SELECT dblink_exec('d17_owner', $$BEGIN; SET LOCAL ROLE authenticated; SET LOCAL "request.jwt.claim.role" = 'authenticated'; SET LOCAL "request.jwt.claims" = '{"aal":"aal2"}'; SET LOCAL "request.jwt.claim.sub" = 'fa181000-0000-4000-8000-000000000001'$$);
 SELECT dblink_send_query('d17_owner', $$SELECT d17_upload_test.capture($query$DELETE FROM public.organizations WHERE id='fa181000-0000-4000-8000-000000000101' AND name='D17 lock A'$query$)$$);
 SELECT ok(pg_temp.d17_wait('owner-lost','owner','holder'),'final DELETE actually waits before ownership transfer');
 SELECT dblink_exec('d17_holder', $$SET LOCAL "request.jwt.claim.sub" = 'fa181000-0000-4000-8000-000000000001'$$);
-SELECT dblink_exec('d17_holder', $$SET LOCAL ROLE authenticated; SET LOCAL "request.jwt.claim.role" = 'authenticated'; SELECT public.transfer_org_ownership('fa181000-0000-4000-8000-000000000101','fa181000-0000-4000-8000-000000000002'); COMMIT$$);
+SELECT dblink_exec('d17_holder', $$SET LOCAL ROLE authenticated; SET LOCAL "request.jwt.claim.role" = 'authenticated'; SET LOCAL "request.jwt.claims" = '{"aal":"aal2"}'; SELECT public.transfer_org_ownership('fa181000-0000-4000-8000-000000000101','fa181000-0000-4000-8000-000000000002'); COMMIT$$);
 INSERT INTO d17_upload_results SELECT 'owner-lost',result FROM dblink_get_result('d17_owner') AS r(result jsonb);
 SELECT result FROM dblink_get_result('d17_owner') AS r(result jsonb);
 SELECT is((SELECT result->>'code' FROM d17_upload_results WHERE case_name='owner-lost'),'42501','former owner cannot complete a waited deletion');
@@ -118,7 +118,7 @@ SELECT dblink_exec('d17_holder', $$UPDATE public.organization_memberships SET ro
 
 -- A changed name is re-evaluated by the original conditional DELETE predicate.
 SELECT dblink_exec('d17_holder', $$BEGIN; UPDATE public.organizations SET name='D17 renamed while waiting' WHERE id='fa181000-0000-4000-8000-000000000101'$$);
-SELECT dblink_exec('d17_owner', $$BEGIN; SET LOCAL ROLE authenticated; SET LOCAL "request.jwt.claim.role" = 'authenticated'; SET LOCAL "request.jwt.claim.sub" = 'fa181000-0000-4000-8000-000000000001'$$);
+SELECT dblink_exec('d17_owner', $$BEGIN; SET LOCAL ROLE authenticated; SET LOCAL "request.jwt.claim.role" = 'authenticated'; SET LOCAL "request.jwt.claims" = '{"aal":"aal2"}'; SET LOCAL "request.jwt.claim.sub" = 'fa181000-0000-4000-8000-000000000001'$$);
 SELECT dblink_send_query('d17_owner', $$SELECT d17_upload_test.capture($query$DELETE FROM public.organizations WHERE id='fa181000-0000-4000-8000-000000000101' AND name='D17 lock A'$query$)$$);
 SELECT ok(pg_temp.d17_wait('name-changed','owner','holder'),'conditional DELETE actually waits behind rename');
 SELECT dblink_exec('d17_holder','COMMIT');
@@ -136,7 +136,7 @@ SELECT dblink_exec('d17_service','ROLLBACK');
 SELECT dblink_exec('d17_service', $$BEGIN ISOLATION LEVEL REPEATABLE READ; SET LOCAL ROLE service_role; SET LOCAL "request.jwt.claim.role" = 'service_role'; SET LOCAL "request.jwt.claim.sub" = 'fa181000-0000-4000-8000-000000000001'$$);
 INSERT INTO d17_upload_results SELECT 'repeatable-settle',result FROM dblink('d17_service', $$SELECT d17_upload_test.capture($query$SELECT public.settle_organization_file_upload('fa181000-0000-4000-8000-000000000604','fa181000-0000-4000-8000-000000000101','fa181000-0000-4000-8000-000000000001','personnel-documents','fa181000-0000-4000-8000-000000000101/strong.pdf')$query$)$$) AS r(result jsonb);
 SELECT dblink_exec('d17_service','ROLLBACK');
-SELECT dblink_exec('d17_owner', $$BEGIN ISOLATION LEVEL REPEATABLE READ; SET LOCAL ROLE authenticated; SET LOCAL "request.jwt.claim.role" = 'authenticated'; SET LOCAL "request.jwt.claim.sub" = 'fa181000-0000-4000-8000-000000000001'$$);
+SELECT dblink_exec('d17_owner', $$BEGIN ISOLATION LEVEL REPEATABLE READ; SET LOCAL ROLE authenticated; SET LOCAL "request.jwt.claim.role" = 'authenticated'; SET LOCAL "request.jwt.claims" = '{"aal":"aal2"}'; SET LOCAL "request.jwt.claim.sub" = 'fa181000-0000-4000-8000-000000000001'$$);
 INSERT INTO d17_upload_results SELECT 'repeatable-delete',result FROM dblink('d17_owner', $$SELECT d17_upload_test.capture($query$DELETE FROM public.organizations WHERE id='fa181000-0000-4000-8000-000000000101'$query$)$$) AS r(result jsonb);
 SELECT dblink_exec('d17_owner','ROLLBACK');
 SELECT dblink_exec('d17_service', $$BEGIN ISOLATION LEVEL SERIALIZABLE; SET LOCAL ROLE service_role; SET LOCAL "request.jwt.claim.role" = 'service_role'; SET LOCAL "request.jwt.claim.sub" = 'fa181000-0000-4000-8000-000000000001'$$);
@@ -145,7 +145,7 @@ SELECT dblink_exec('d17_service','ROLLBACK');
 SELECT dblink_exec('d17_service', $$BEGIN ISOLATION LEVEL SERIALIZABLE; SET LOCAL ROLE service_role; SET LOCAL "request.jwt.claim.role" = 'service_role'; SET LOCAL "request.jwt.claim.sub" = 'fa181000-0000-4000-8000-000000000001'$$);
 INSERT INTO d17_upload_results SELECT 'serializable-settle',result FROM dblink('d17_service', $$SELECT d17_upload_test.capture($query$SELECT public.settle_organization_file_upload('fa181000-0000-4000-8000-000000000604','fa181000-0000-4000-8000-000000000101','fa181000-0000-4000-8000-000000000001','personnel-documents','fa181000-0000-4000-8000-000000000101/strong.pdf')$query$)$$) AS r(result jsonb);
 SELECT dblink_exec('d17_service','ROLLBACK');
-SELECT dblink_exec('d17_owner', $$BEGIN ISOLATION LEVEL SERIALIZABLE; SET LOCAL ROLE authenticated; SET LOCAL "request.jwt.claim.role" = 'authenticated'; SET LOCAL "request.jwt.claim.sub" = 'fa181000-0000-4000-8000-000000000001'$$);
+SELECT dblink_exec('d17_owner', $$BEGIN ISOLATION LEVEL SERIALIZABLE; SET LOCAL ROLE authenticated; SET LOCAL "request.jwt.claim.role" = 'authenticated'; SET LOCAL "request.jwt.claims" = '{"aal":"aal2"}'; SET LOCAL "request.jwt.claim.sub" = 'fa181000-0000-4000-8000-000000000001'$$);
 INSERT INTO d17_upload_results SELECT 'serializable-delete',result FROM dblink('d17_owner', $$SELECT d17_upload_test.capture($query$DELETE FROM public.organizations WHERE id='fa181000-0000-4000-8000-000000000101'$query$)$$) AS r(result jsonb);
 SELECT dblink_exec('d17_owner','ROLLBACK');
 SELECT results_eq($$SELECT case_name,result->>'code' FROM d17_upload_results WHERE case_name LIKE 'repeatable-%' OR case_name LIKE 'serializable-%' ORDER BY 1$$,

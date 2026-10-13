@@ -154,6 +154,7 @@ function createOrganizationSettingsMemberManagementPort(
 		removeMembershipError?: string | null;
 		updateMembershipError?: string | null;
 		orgName?: string | null;
+		organizationGroupIds?: string[];
 	} = {}
 ): OrganizationSettingsMemberManagementPort & {
 	invitationLookups: Array<{ orgId: string; email: string }>;
@@ -250,6 +251,10 @@ function createOrganizationSettingsMemberManagementPort(
 		},
 		async getOrganizationName() {
 			return options.orgName ?? null;
+		},
+		async findOrganizationGroupIds(_orgId, groupIds) {
+			const known = options.organizationGroupIds;
+			return known ? groupIds.filter((id) => known.includes(id)) : groupIds;
 		}
 	};
 }
@@ -267,7 +272,31 @@ const inviteOrganizationMember = (
 		{ origin: INVITE_ORIGIN, ...input }
 	);
 
+const ORGANIZATION_GROUP_ID = '22222222-2222-4222-8222-222222222222';
+const FOREIGN_GROUP_ID = '33333333-3333-4333-8333-333333333333';
+
 describe('inviteOrganizationMember', () => {
+	it('rejects Group scopes naming groups outside the organization before creating invitations', async () => {
+		const ctx = createTestContext({ auth: { userId: 'actor-1', orgId: 'org-1', role: 'admin' } });
+		const port = createOrganizationSettingsMemberManagementPort({ organizationGroupIds: [ORGANIZATION_GROUP_ID] });
+
+		await expect(
+			inviteOrganizationMember(
+				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+				{
+					email: 'new.user@example.com',
+					membershipRole: 'member',
+					memberAccess: memberAccess({
+						scopeSet: { kind: 'groups', groupIds: [ORGANIZATION_GROUP_ID, FOREIGN_GROUP_ID] }
+					}),
+					actorEmail: 'actor@example.com'
+				}
+			)
+		).rejects.toMatchObject({ status: 400, message: 'Select groups from this organization' });
+
+		expect(port.createdInvitations).toEqual([]);
+	});
+
 	it('denies high-access members who are not admin or owner before creating invitations', async () => {
 		const ctx = createTestContext({
 			auth: {
@@ -350,52 +379,6 @@ describe('inviteOrganizationMember', () => {
 				severity: 'warning'
 			}
 		]);
-	});
-
-	it('does not treat member invitation feature-lane fields as member-management authority', async () => {
-		const ctx = createTestContext({
-			auth: {
-				userId: 'actor-1',
-				orgId: 'org-1',
-				role: 'admin'
-			}
-		});
-		const port = createOrganizationSettingsMemberManagementPort();
-
-		await expect(
-			inviteOrganizationMember(
-				{
-					auth: ctx.auth,
-					audit: ctx.audit,
-					notifications: ctx.notifications,
-					settings: port
-				},
-				{
-					email: 'new.manager@example.com',
-					membershipRole: 'member',
-					memberAccess: memberAccess({ canManageMembers: true }),
-					actorEmail: 'actor@example.com'
-				}
-			)
-		).resolves.toMatchObject({ inviteSuccess: true });
-
-		expect(port.createdInvitations).toHaveLength(1);
-		expect(port.createdInvitations[0]).toEqual({
-			organizationId: 'org-1',
-			email: 'new.manager@example.com',
-			invitedBy: 'actor-1',
-			role: 'member',
-			memberPreset: 'editor',
-			capabilityOverrides: {},
-			accessScopeKind: 'organization',
-			accessScopeGroupIds: []
-		});
-		expect(ctx.auditPort.events).not.toContainEqual(
-			expect.objectContaining({
-				action: 'policy.denied',
-				details: expect.objectContaining({ policyAction: 'organization.updateAdminAccess' })
-			})
-		);
 	});
 
 	it('requires recent assurance before creating high-privilege invitations', async () => {
@@ -1350,7 +1333,7 @@ describe('inviteOrganizationMember', () => {
 		]);
 	});
 
-	it('allows owners to create member-management invitations with an immutable access snapshot', async () => {
+	it('allows owners to create scoped member invitations with an immutable access snapshot', async () => {
 		const ctx = createTestContext({
 			auth: {
 				userId: 'owner-1',
@@ -1374,8 +1357,7 @@ describe('inviteOrganizationMember', () => {
 				memberAccess: memberAccess({
 					memberPreset: 'viewer',
 					capabilityOverrides: { personnel: 'configure' },
-					scopeSet: { kind: 'groups', groupIds: ['22222222-2222-4222-8222-222222222222'] },
-					canManageMembers: true
+					scopeSet: { kind: 'groups', groupIds: ['22222222-2222-4222-8222-222222222222'] }
 				}),
 				actorEmail: 'owner@example.com'
 			}
@@ -2752,6 +2734,28 @@ describe('leaveOrganization', () => {
 });
 
 describe('updateOrganizationMemberAccess', () => {
+	it('rejects Group scopes naming groups outside the organization before updating access', async () => {
+		const ctx = createTestContext({ auth: { userId: 'actor-1', orgId: 'org-1', role: 'admin' } });
+		const port = createOrganizationSettingsMemberManagementPort({
+			membership: { userId: 'member-1', role: 'member', email: 'member@example.com' },
+			organizationGroupIds: [ORGANIZATION_GROUP_ID]
+		});
+
+		await expect(
+			updateOrganizationMemberAccess(
+				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+				{
+					membershipId: '11111111-1111-4111-8111-111111111111',
+					membershipRole: 'member',
+					memberAccess: memberAccess({ scopeSet: { kind: 'groups', groupIds: [FOREIGN_GROUP_ID] } }),
+					actorEmail: 'actor@example.com'
+				}
+			)
+		).rejects.toMatchObject({ status: 400, message: 'Select groups from this organization' });
+
+		expect(port.updatedMemberships).toEqual([]);
+	});
+
 	it('rejects member access updates without a submitted Member Preset before updating access', async () => {
 		const ctx = createTestContext({
 			auth: {
@@ -2872,48 +2876,6 @@ describe('updateOrganizationMemberAccess', () => {
 				severity: 'warning'
 			}
 		]);
-	});
-
-	it('does not treat feature-lane member access fields as member-management authority', async () => {
-		const ctx = createTestContext({
-			auth: {
-				userId: 'actor-1',
-				orgId: 'org-1',
-				role: 'admin'
-			}
-		});
-		const port = createOrganizationSettingsMemberManagementPort({
-			membership: {
-				userId: 'member-1',
-				role: 'member',
-				email: 'member@example.com'
-			}
-		});
-
-		await expect(
-			updateOrganizationMemberAccess(
-				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
-				{
-					membershipId: '11111111-1111-4111-8111-111111111111',
-					membershipRole: 'member',
-					memberAccess: memberAccess({ canManageMembers: true }),
-					actorEmail: 'actor@example.com'
-				}
-			)
-		).resolves.toEqual({ accessSuccess: true });
-
-		expect(port.updatedMemberships).toEqual([
-			expect.objectContaining({
-				role: 'member',
-				memberPreset: 'editor'
-			})
-		]);
-		expect(ctx.auditPort.events).not.toContainEqual(
-			expect.objectContaining({
-				action: 'policy.denied',
-				details: expect.objectContaining({ policyAction: 'organization.updateAdminAccess' })
-			})
-		);
 	});
 
 	it('blocks owner access changes before auth escalation checks', async () => {
@@ -3100,7 +3062,7 @@ describe('updateOrganizationMemberAccess', () => {
 		);
 	});
 
-	it('does not require step-up when member feature-lane fields include legacy member-management intent', async () => {
+	it('does not require step-up for member feature-lane updates', async () => {
 		const ctx = createTestContext({
 			auth: {
 				userId: 'owner-1',
@@ -3128,7 +3090,7 @@ describe('updateOrganizationMemberAccess', () => {
 			{
 				membershipId: '11111111-1111-4111-8111-111111111111',
 				membershipRole: 'member',
-				memberAccess: memberAccess({ canManageMembers: true }),
+				memberAccess: memberAccess(),
 				actorEmail: 'owner@example.com'
 			}
 		);

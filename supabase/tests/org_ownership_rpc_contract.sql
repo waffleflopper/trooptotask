@@ -500,6 +500,7 @@ RESET ROLE;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000003001', true);
 SELECT set_config('request.jwt.claim.email', 'org-rpc-owner-3001@example.test', true);
+SELECT set_config('request.jwt.claims', '{"aal":"aal2"}', true);
 SELECT public.transfer_org_ownership(
 	current_setting('trooptotask.test.created_org_id')::uuid,
 	'10000000-0000-4000-8000-000000003002'

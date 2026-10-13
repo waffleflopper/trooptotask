@@ -467,11 +467,6 @@ describe('policy evaluator', () => {
 			accessMode: 'governance',
 			owner: { kind: 'organization-governance', access: 'owner-only' }
 		});
-		expect(POLICY_ACTION_CATALOG.organization.exportData).toMatchObject({
-			id: 'organization.exportData',
-			accessMode: 'governance',
-			owner: { kind: 'organization-governance', access: 'member-manager-or-admin' }
-		});
 		expect(POLICY_ACTION_CATALOG.organization.updateSettings).toMatchObject({
 			id: 'organization.updateSettings',
 			accessMode: 'governance',
@@ -507,7 +502,7 @@ describe('policy evaluator', () => {
 
 		const exportDataDeniedDecision = evaluatePolicyDecision({
 			decisionKind: 'server-authoritative',
-			actor: { membershipRole: 'member', canManageMembers: false },
+			actor: { membershipRole: 'member' },
 			action: POLICY_ACTION_CATALOG.organization.exportData,
 			capabilityMap: { ...baseCapabilityMap, personnel: 'configure' },
 			scopeSet: { kind: 'organization' },
@@ -517,13 +512,13 @@ describe('policy evaluator', () => {
 		expect(exportDataDeniedDecision).toMatchObject({
 			allowed: false,
 			reasonCode: 'denied:governance-role',
-			action: { owner: { kind: 'organization-governance', access: 'member-manager-or-admin' } }
+			action: { owner: { kind: 'organization-governance', access: 'admin-or-owner' } }
 		});
 		expect(exportDataDeniedDecision.matchedCapability).toBeUndefined();
 
 		const exportDataAllowedDecision = evaluatePolicyDecision({
 			decisionKind: 'server-authoritative',
-			actor: { membershipRole: 'member', canManageMembers: true },
+			actor: { membershipRole: 'admin' },
 			action: POLICY_ACTION_CATALOG.organization.exportData,
 			capabilityMap: { ...baseCapabilityMap, personnel: 'view' },
 			scopeSet: { kind: 'organization' },
@@ -533,7 +528,7 @@ describe('policy evaluator', () => {
 		expect(exportDataAllowedDecision).toMatchObject({
 			allowed: true,
 			reasonCode: 'allowed:governance',
-			action: { owner: { kind: 'organization-governance', access: 'member-manager-or-admin' } }
+			action: { owner: { kind: 'organization-governance', access: 'admin-or-owner' } }
 		});
 		expect(exportDataAllowedDecision.matchedCapability).toBeUndefined();
 	});

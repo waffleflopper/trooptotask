@@ -136,7 +136,6 @@ export interface RatingSchemeDueActor {
 	readonly orgId: string;
 	readonly role: MembershipRole;
 	readonly isPrivileged: boolean;
-	readonly canManageMembers: boolean;
 	readonly capabilityMap: CapabilityMap;
 	readonly scopeSet: ScopeSet;
 }

@@ -59,7 +59,7 @@ Lifecycle insert/update rejection, notification delivery failure, and concurrenc
 
 Run `$V actor orgMember settings/exports`, then repeat with `viewer` and `scoped`. Capture the actual Settings denial. From each signed-in owned page, run `$V export request PAGE orgA json` and `excel`. Preserve the exact status/body and unchanged A/B lifecycle/source rows. The shared policy may append `policy.denied` Audit warnings; require no export-success event or administrator notification and preserve original Audit rows. Feature configure or scoped Personnel access does not grant Organization governance.
 
-As `foreign`, attempt A's export endpoints and preserve denial with no new A lifecycle row or returned artifact. As `orgOwner`, attempt B's endpoints for the corresponding negative tenant control. The B owner's positive B download distinguishes a forbidden target from a broken endpoint. These direct authenticated requests are HTTP proof, separate from native download actions. Existing `canManageMembers` mock-context tests establish no real delegated member authority; current roles, permission evaluation, and lifecycle RLS own admission.
+As `foreign`, attempt A's export endpoints and preserve denial with no new A lifecycle row or returned artifact. As `orgOwner`, attempt B's endpoints for the corresponding negative tenant control. The B owner's positive B download distinguishes a forbidden target from a broken endpoint. These direct authenticated requests are HTTP proof, separate from native download actions. Export admits owners and admins only; a member carrying the legacy `canManageMembers` override is denied in route tests and by `can_export_organization_data`.
 
 ### Organization switching and delayed responses
 

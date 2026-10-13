@@ -2,7 +2,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 
-SELECT plan(26);
+SELECT plan(33);
 
 INSERT INTO auth.users (
 	instance_id,
@@ -89,6 +89,45 @@ VALUES
 		'authenticated',
 		'authenticated',
 		'rank-alpha-export-manager-1247@example.test',
+		'',
+		now(),
+		'{"provider": "email", "providers": ["email"]}'::jsonb,
+		'{}'::jsonb,
+		now(),
+		now()
+	),
+	(
+		'00000000-0000-0000-0000-000000000000',
+		'10000000-0000-4000-8000-000000124707',
+		'authenticated',
+		'authenticated',
+		'rank-alpha-string-flag-1247@example.test',
+		'',
+		now(),
+		'{"provider": "email", "providers": ["email"]}'::jsonb,
+		'{}'::jsonb,
+		now(),
+		now()
+	),
+	(
+		'00000000-0000-0000-0000-000000000000',
+		'10000000-0000-4000-8000-000000124708',
+		'authenticated',
+		'authenticated',
+		'rank-alpha-admin-1247@example.test',
+		'',
+		now(),
+		'{"provider": "email", "providers": ["email"]}'::jsonb,
+		'{}'::jsonb,
+		now(),
+		now()
+	),
+	(
+		'00000000-0000-0000-0000-000000000000',
+		'10000000-0000-4000-8000-000000124709',
+		'authenticated',
+		'authenticated',
+		'rank-nonmember-1247@example.test',
 		'',
 		now(),
 		'{"provider": "email", "providers": ["email"]}'::jsonb,
@@ -189,6 +228,28 @@ VALUES
 		'organization',
 		ARRAY[]::uuid[],
 		'rank-alpha-export-manager-1247@example.test'
+	),
+	(
+		'30000000-0000-4000-8000-000000124707',
+		'20000000-0000-4000-8000-000000124701',
+		'10000000-0000-4000-8000-000000124707',
+		'member',
+		'viewer',
+		'{"calendar":"none","personnel":"none","training":"none","criticalTasks":"none","onboarding":"none","ratingScheme":"none","canManageMembers":"true"}'::jsonb,
+		'organization',
+		ARRAY[]::uuid[],
+		'rank-alpha-string-flag-1247@example.test'
+	),
+	(
+		'30000000-0000-4000-8000-000000124708',
+		'20000000-0000-4000-8000-000000124701',
+		'10000000-0000-4000-8000-000000124708',
+		'admin',
+		'editor',
+		'{}'::jsonb,
+		'organization',
+		ARRAY[]::uuid[],
+		'rank-alpha-admin-1247@example.test'
 	);
 
 INSERT INTO public.organization_rank_catalog (
@@ -289,23 +350,94 @@ SELECT set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000124706
 SELECT set_config('request.jwt.claim.email', 'rank-alpha-export-manager-1247@example.test', true);
 
 SELECT is(
-	(
-		SELECT count(*)::integer
-		FROM public.organization_rank_catalog
-		WHERE code = 'ALPHA-SGT'
-	),
-	1,
-	'alpha delegated export manager can read alpha rank catalog entries for organization export'
+	public.can_export_organization_data('20000000-0000-4000-8000-000000124701'),
+	false,
+	'a member with a legacy boolean canManageMembers override has no export authority'
 );
 
 SELECT is(
 	(
 		SELECT count(*)::integer
 		FROM public.organization_rank_catalog
-		WHERE code = 'BRAVO-SGT'
+		WHERE code IN ('ALPHA-SGT', 'BRAVO-SGT')
 	),
 	0,
-	'alpha delegated export manager cannot read bravo rank catalog entries'
+	'a member with only a legacy boolean canManageMembers override cannot read any rank catalog'
+);
+
+RESET ROLE;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000124707', true);
+SELECT set_config('request.jwt.claim.email', 'rank-alpha-string-flag-1247@example.test', true);
+
+SELECT is(
+	public.can_export_organization_data('20000000-0000-4000-8000-000000124701'),
+	false,
+	'a member with a legacy string canManageMembers override has no export authority'
+);
+
+SELECT is(
+	(
+		SELECT count(*)::integer
+		FROM public.organization_rank_catalog
+		WHERE code IN ('ALPHA-SGT', 'BRAVO-SGT')
+	),
+	0,
+	'a member with only a legacy string canManageMembers override cannot read any rank catalog'
+);
+
+RESET ROLE;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000124708', true);
+SELECT set_config('request.jwt.claim.email', 'rank-alpha-admin-1247@example.test', true);
+
+SELECT is(
+	public.can_export_organization_data('20000000-0000-4000-8000-000000124701'),
+	true,
+	'alpha admin can export organization data'
+);
+
+SELECT is(
+	public.can_export_organization_data('20000000-0000-4000-8000-000000124702'),
+	false,
+	'alpha admin has no export authority in bravo'
+);
+
+SELECT is(
+	(
+		SELECT array_agg(code ORDER BY code)
+		FROM public.organization_rank_catalog
+		WHERE code IN ('ALPHA-SGT', 'BRAVO-SGT')
+	),
+	ARRAY['ALPHA-SGT']::text[],
+	'alpha admin reads only the alpha rank catalog'
+);
+
+RESET ROLE;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000124709', true);
+SELECT set_config('request.jwt.claim.email', 'rank-nonmember-1247@example.test', true);
+
+SELECT is(
+	(
+		SELECT count(*)::integer
+		FROM public.organization_rank_catalog
+		WHERE code IN ('ALPHA-SGT', 'BRAVO-SGT')
+	),
+	0,
+	'an authenticated nonmember cannot read any rank catalog'
+);
+
+RESET ROLE;
+SET LOCAL ROLE anon;
+SELECT set_config('request.jwt.claim.sub', '', true);
+SELECT set_config('request.jwt.claim.email', '', true);
+
+SELECT throws_ok(
+	$$ SELECT count(*) FROM public.organization_rank_catalog $$,
+	'42501',
+	'permission denied for table organization_rank_catalog',
+	'an anonymous request cannot read any rank catalog'
 );
 
 RESET ROLE;

@@ -22,6 +22,7 @@ SELECT diag('ORGANIZATION_FILE_UPLOAD_EFFECTIVE=' || jsonb_build_object(
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','fa180000-0000-4000-8000-000000000001',true);
 SELECT set_config('request.jwt.claim.role','authenticated',true);
+SELECT set_config('request.jwt.claims','{"aal":"aal2"}',true);
 SELECT ok(public.sensitive_file_object_is_writable('counseling-files','fa180000-0000-4000-8000-000000000101/counseling-records/fa180000-0000-4000-8000-000000000301/new.pdf'), 'owner retains scoped file-write admission');
 SELECT throws_ok($$INSERT INTO storage.objects(bucket_id,name) VALUES('counseling-files','fa180000-0000-4000-8000-000000000101/counseling-records/fa180000-0000-4000-8000-000000000301/new.pdf')$$,
   '42501',NULL,'ordinary raw upload cannot bypass registration');
@@ -59,6 +60,7 @@ SELECT throws_ok($$SELECT public.register_organization_file_upload('fa180000-000
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','fa180000-0000-4000-8000-000000000001',true);
 SELECT set_config('request.jwt.claim.role','authenticated',true);
+SELECT set_config('request.jwt.claims','{"aal":"aal2"}',true);
 SELECT throws_ok($$INSERT INTO storage.objects(bucket_id,name) VALUES('counseling-files','fa180000-0000-4000-8000-000000000101/counseling-records/fa180000-0000-4000-8000-000000000301/new.pdf')$$,
   '42501',NULL,'ordinary upload cannot borrow an active server registration');
 RESET ROLE;
@@ -92,6 +94,7 @@ ROLLBACK TO SAVEPOINT retained_metadata_edit;
 RESET ROLE;
 SELECT set_config('request.jwt.claim.sub','fa180000-0000-4000-8000-000000000002',true);
 SELECT set_config('request.jwt.claim.role','authenticated',true);
+SELECT set_config('request.jwt.claims','{"aal":"aal2"}',true);
 SET LOCAL ROLE authenticated;
 WITH removed AS(DELETE FROM public.organizations WHERE id='fa180000-0000-4000-8000-000000000101' RETURNING id)
 SELECT is(count(*)::integer,0,'admin cannot delete the now-empty Organization') FROM removed;

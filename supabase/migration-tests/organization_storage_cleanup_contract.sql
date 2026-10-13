@@ -146,6 +146,7 @@ SELECT is((SELECT count(*)::integer FROM removed), 0, 'suspended Organization ca
 RESET ROLE;
 UPDATE public.organizations SET suspended_at = NULL WHERE id = 'fa170000-0000-4000-8000-000000000101';
 SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claims', '{"aal":"aal2"}', true);
 SELECT public.transfer_org_ownership('fa170000-0000-4000-8000-000000000101', 'fa170000-0000-4000-8000-000000000002');
 SELECT is((SELECT count(*)::integer FROM storage.objects
   WHERE id BETWEEN 'fa170000-0000-4000-8000-000000000504' AND 'fa170000-0000-4000-8000-000000000508'),

@@ -134,6 +134,8 @@ export interface OrganizationSettingsMemberManagementPort {
 	removeMembership(orgId: string, membershipId: string, expectedRole: EditableMembershipRole): Promise<string | null>;
 	updateMembership(input: OrganizationMembershipUpdateInput): Promise<string | null>;
 	getOrganizationName(orgId: string): Promise<string | null>;
+	/** Returns the subset of `groupIds` that name groups in the organization. */
+	findOrganizationGroupIds(orgId: string, groupIds: string[]): Promise<string[]>;
 }
 
 export interface OrganizationInvitationDeliveryPort {
@@ -235,6 +237,7 @@ export async function inviteOrganizationMember(
 		membershipRole,
 		memberAccess: input.memberAccess
 	});
+	await requireOrganizationGroups(ports, accessCommand.accessScopeGroupIds);
 	const existing = await ports.settings.findPendingInvitation(ports.auth.orgId, email);
 	if (existing) {
 		fail(400, 'An invitation for this email is already pending');
@@ -863,6 +866,7 @@ export async function updateOrganizationMemberAccess(
 		membershipRole: input.membershipRole,
 		memberAccess: input.memberAccess
 	});
+	await requireOrganizationGroups(ports, accessCommand.accessScopeGroupIds);
 	const updatesHighPrivilegeAccess =
 		isHighPrivilegeAccess(targetMembership?.role, targetMembership?.canManageMembers) ||
 		isHighPrivilegeAccess(accessCommand.role, false);
@@ -984,6 +988,14 @@ function auditDeniedSensitiveAction(
 		},
 		severity: 'warning'
 	});
+}
+
+async function requireOrganizationGroups(ports: OrganizationSettingsMemberManagementPorts, groupIds: string[]) {
+	if (groupIds.length === 0) return;
+	const found = new Set(await ports.settings.findOrganizationGroupIds(ports.auth.orgId, groupIds));
+	if (groupIds.some((id) => !found.has(id))) {
+		fail(400, 'Select groups from this organization');
+	}
 }
 
 function isHighPrivilegeAccess(role: string | null | undefined, canManageMembers: boolean | null | undefined): boolean {

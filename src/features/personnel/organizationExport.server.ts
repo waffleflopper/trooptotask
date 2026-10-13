@@ -12,7 +12,7 @@ function assertPersonnelOrganizationExportAccess(
 	if (!isPersonnelOrganizationExportTable(table)) throw new RequestFailure(400, 'Unsupported Personnel export table');
 	const decision = evaluatePolicyDecision({
 		decisionKind: 'server-authoritative',
-		actor: { membershipRole: actor.role, canManageMembers: actor.canManageMembers, userId: actor.userId },
+		actor: { membershipRole: actor.role, userId: actor.userId },
 		action: POLICY_ACTION_CATALOG.organization.exportData,
 		capabilityMap: actor.capabilityMap,
 		scopeSet: { kind: 'organization' },

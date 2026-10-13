@@ -3,8 +3,7 @@ import {
 	resolveStoredMemberAccessShape,
 	serializeScopeSetForStorage,
 	targetMemberAccessToStorage,
-	TARGET_MEMBER_PRESET_CAPABILITIES,
-	type MemberAccessShape
+	TARGET_MEMBER_PRESET_CAPABILITIES
 } from './memberAccessShape';
 
 describe('member access shape', () => {
@@ -37,21 +36,6 @@ describe('member access shape', () => {
 			ratingScheme: 'none'
 		});
 		expect(shape.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-alpha', 'group-bravo'] });
-		expect(shape.canManageMembers).toBe(false);
-	});
-
-	it('normalizes admin storage to governance authority with organization-wide configure access', () => {
-		const shape = resolveStoredMemberAccessShape({
-			membershipRole: 'admin',
-			memberPreset: 'viewer',
-			capabilityOverrides: { calendar: 'none' },
-			scopeSet: { kind: 'groups', groupIds: ['group-alpha'] }
-		});
-
-		expect(shape.memberPreset).toBe('viewer');
-		expect(shape.capabilityMap.calendar).toBe('none');
-		expect(shape.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-alpha'] });
-		expect(shape.canManageMembers).toBe(true);
 	});
 
 	it('serializes Scope Set for replacement storage', () => {
@@ -76,29 +60,5 @@ describe('member access shape', () => {
 			capabilityOverrides: { calendar: 'configure', ratingScheme: 'none' },
 			scopeSet: { kind: 'groups', groupIds: ['group-alpha', 'group-bravo'] }
 		});
-	});
-
-	it('represents target operate as capability levels instead of boolean edit flags', () => {
-		const shape: MemberAccessShape = {
-			membershipRole: 'member',
-			memberPreset: 'operator',
-			capabilityMap: {
-				calendar: 'operate',
-				personnel: 'operate',
-				training: 'operate',
-				criticalTasks: 'operate',
-				onboarding: 'operate',
-				ratingScheme: 'operate'
-			},
-			scopeSet: { kind: 'organization' },
-			canManageMembers: false
-		};
-
-		expect(shape.capabilityMap).toMatchObject({
-			calendar: 'operate',
-			personnel: 'operate',
-			ratingScheme: 'operate'
-		});
-		expect(shape.canManageMembers).toBe(false);
 	});
 });

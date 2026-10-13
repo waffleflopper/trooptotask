@@ -65,7 +65,6 @@ export interface TrainingOnboardingActor {
 	readonly orgId: string;
 	readonly role: 'owner' | 'admin' | 'member';
 	readonly isPrivileged: boolean;
-	readonly canManageMembers: boolean;
 	readonly capabilityMap: CapabilityMap;
 	readonly scopeSet: ScopeSet;
 }

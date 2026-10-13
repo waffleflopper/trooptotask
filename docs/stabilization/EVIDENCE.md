@@ -53,6 +53,8 @@ CodeRabbit completed its full 55-file review with one actionable minor finding. 
 
 The audit’s suggestion to close after one more transactional PR is not accepted yet. Its proposed deferrals of concurrent roster replacement, holiday reset and notification failure lack demonstrated acceptance. All remaining in-scope losses or false results must be resolved before a closing PR.
 
+**Base integration.** Before publication, fetched main advanced to `84370bc98` through the independent toolbar cleanup #1661. It was merged into the same branch as `d873ae3a4` without conflicts. The 55-file proposed PR diff is unchanged in scope; file-lifecycle application owners, migration and provider controls are unchanged by the base integration. The combined app requires a narrow Personnel navigation/archived-delete smoke because shared table/header composition changed. Existing SQL, Storage and pending-cleanup evidence remains applicable. Current-head CI will validate the combined source graph; no whole manual matrix repeat is justified.
+
 **Scope and verification still open.** The first file-lifecycle candidate awaits actual large-cohort proof, acceptance of the final reporting change, CodeRabbit follow-up and exact-head CI. The native guard/cleanup follow-up passed. Concurrent Personnel approval/submission, Onboarding mutations, Sign-in Roster replacement and the remaining retained-feature audit stay under #1643. Existing atomic counseling row/status, Training/Rating approvals and F02 retain their delivered credit; #1321 stays excluded. No implementation PR, application release or remote database action has occurred. All completed browser runs passed final doctor and owned cleanup.
 
 ## Phase 11 activation

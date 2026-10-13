@@ -50,7 +50,7 @@
 	<meta property="og:description" content="Built by someone who has lived the unit admin problem firsthand." />
 </svelte:head>
 
-<PublicShell user={data.user} active="about" showClassificationBar={false} showCta={false}>
+<PublicShell signedIn={data.signedIn} active="about" showClassificationBar={false} showCta={false}>
 	<section class="px-6 pt-[clamp(2.5rem,5vw,4.5rem)] text-foreground max-sm:px-4">
 		<div
 			class="mx-auto grid max-w-[1180px] grid-cols-[minmax(0,1fr)_minmax(260px,360px)] items-center gap-[clamp(2rem,6vw,5rem)] max-[920px]:grid-cols-1"
@@ -70,7 +70,7 @@
 					<Button href={resolve('/')} size="none" class={cn(buttonClass, 'border-primary')}
 						>See how TroopToTask works</Button
 					>
-					{#if data.user}
+					{#if data.signedIn}
 						<Button href={resolve('/dashboard?show=all')} variant="outline" size="none" class={buttonClass}
 							>Go to Dashboard</Button
 						>

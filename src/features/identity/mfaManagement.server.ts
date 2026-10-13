@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AdmittedActor } from './contracts';
+import { admitMfaCodeAttempt, type MfaCodeAdmission } from './mfaCodeRateLimit.server';
 
 type MfaManagementContext = { supabase: SupabaseClient; actor: AdmittedActor | null };
 
@@ -111,26 +112,32 @@ export async function disableIdentityMfa(
 	{ supabase, actor }: MfaManagementContext,
 	code: unknown
 ): Promise<
-	| 'disabled'
-	| 'invalid'
-	| 'no-factor'
-	| 'factors-unavailable'
-	| 'challenge-denied'
-	| 'challenge-unavailable'
-	| 'removal-denied'
-	| 'removal-unconfirmed'
-	| 'unavailable'
-	| 'unauthorized'
+	| {
+			status:
+				| 'disabled'
+				| 'invalid'
+				| 'no-factor'
+				| 'factors-unavailable'
+				| 'challenge-denied'
+				| 'challenge-unavailable'
+				| 'removal-denied'
+				| 'removal-unconfirmed'
+				| 'unavailable'
+				| 'unauthorized';
+	  }
+	| Exclude<MfaCodeAdmission, { status: 'admitted' }>
 > {
-	if (!actor?.userId) return 'unauthorized';
+	if (!actor?.userId) return { status: 'unauthorized' };
 	if (typeof code !== 'string' || !/^\d{6}$/.test(code)) {
-		return 'invalid';
+		return { status: 'invalid' };
 	}
+	const admission = await admitMfaCodeAttempt(actor.userId);
+	if (admission.status !== 'admitted') return admission;
 
 	try {
 		const { data: factors, error: lookupError } = await supabase.auth.mfa.listFactors();
 		if (lookupError || !factors) {
-			return 'factors-unavailable';
+			return { status: 'factors-unavailable' };
 		}
 		const verifiedFactor = factors.all.find(
 			(factor) =>
@@ -140,7 +147,7 @@ export async function disableIdentityMfa(
 				factor.id.trim()
 		);
 		if (!verifiedFactor) {
-			return 'no-factor';
+			return { status: 'no-factor' };
 		}
 
 		const { data: challenge, error: challengeError } = await supabase.auth.mfa.challengeAndVerify({
@@ -148,7 +155,7 @@ export async function disableIdentityMfa(
 			code
 		});
 		if (challengeError) {
-			return 'challenge-denied';
+			return { status: 'challenge-denied' };
 		}
 		if (
 			typeof challenge?.access_token !== 'string' ||
@@ -156,18 +163,18 @@ export async function disableIdentityMfa(
 			typeof challenge?.refresh_token !== 'string' ||
 			!challenge.refresh_token.trim()
 		) {
-			return 'challenge-unavailable';
+			return { status: 'challenge-unavailable' };
 		}
 
 		const { data: removed, error } = await supabase.auth.mfa.unenroll({ factorId: verifiedFactor.id });
 		if (error) {
-			return 'removal-denied';
+			return { status: 'removal-denied' };
 		}
 		if (removed?.id !== verifiedFactor.id) {
-			return 'removal-unconfirmed';
+			return { status: 'removal-unconfirmed' };
 		}
-		return 'disabled';
+		return { status: 'disabled' };
 	} catch {
-		return 'unavailable';
+		return { status: 'unavailable' };
 	}
 }

@@ -52,13 +52,23 @@ const rules: RateLimitRule[] = [
 	{ pattern: /.*/, windowMs: 60 * 1000, maxRequests: 60 }
 ];
 
+// SvelteKit routes the decoded path, so /%61uth/login must spend the /auth/ budget.
+function routedPathname(pathname: string): string {
+	try {
+		return pathname.split('%25').map(decodeURI).join('%25');
+	} catch {
+		return pathname;
+	}
+}
+
 export function checkRateLimit(
 	ip: string,
 	pathname: string,
 	method: string
 ): { limited: false } | { limited: true; retryAfterMs: number } {
+	const routed = routedPathname(pathname);
 	for (const rule of rules) {
-		if (!rule.pattern.test(pathname)) continue;
+		if (!rule.pattern.test(routed)) continue;
 		if (rule.methods && !rule.methods.includes(method)) continue;
 
 		const key = `${ip}:${rule.pattern.source}`;

@@ -1,5 +1,6 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient, User } from '@supabase/supabase-js';
 import type { MfaStatus } from './contracts';
+import { admitMfaCodeAttempt, type MfaCodeAdmission } from './mfaCodeRateLimit.server';
 
 // Completion operations accept the hook-verified request client even while MFA
 // is pending; they never mint an actor or expose the provider's credentials.
@@ -31,13 +32,19 @@ export async function readIdentityMfaStatus({
 }
 
 export async function verifyIdentityMfa(
-	{ supabase }: { supabase: SupabaseClient },
+	{ supabase, user }: { supabase: SupabaseClient; user: User | null },
 	code: unknown
-): Promise<'verified' | 'invalid' | 'no-factor' | 'factors-unavailable' | 'denied' | 'unconfirmed' | 'unavailable'> {
-	if (typeof code !== 'string' || !/^\d{6}$/.test(code)) return 'invalid';
+): Promise<
+	| { status: 'verified' | 'invalid' | 'no-factor' | 'factors-unavailable' | 'denied' | 'unconfirmed' | 'unavailable' }
+	| Exclude<MfaCodeAdmission, { status: 'admitted' }>
+> {
+	if (typeof code !== 'string' || !/^\d{6}$/.test(code)) return { status: 'invalid' };
+	if (!user?.id) return { status: 'unavailable' };
+	const admission = await admitMfaCodeAttempt(user.id);
+	if (admission.status !== 'admitted') return admission;
 	try {
 		const { data: factors, error: lookupError } = await supabase.auth.mfa.listFactors();
-		if (lookupError || !factors) return 'factors-unavailable';
+		if (lookupError || !factors) return { status: 'factors-unavailable' };
 		const verifiedFactor = factors.all.find(
 			(factor) =>
 				factor.factor_type === 'totp' &&
@@ -45,23 +52,23 @@ export async function verifyIdentityMfa(
 				typeof factor.id === 'string' &&
 				factor.id.trim()
 		);
-		if (!verifiedFactor) return 'no-factor';
+		if (!verifiedFactor) return { status: 'no-factor' };
 
 		const { data: challenge, error: challengeError } = await supabase.auth.mfa.challengeAndVerify({
 			factorId: verifiedFactor.id,
 			code
 		});
-		if (challengeError) return 'denied';
+		if (challengeError) return { status: 'denied' };
 		if (
 			typeof challenge?.access_token !== 'string' ||
 			!challenge.access_token.trim() ||
 			typeof challenge?.refresh_token !== 'string' ||
 			!challenge.refresh_token.trim()
 		) {
-			return 'unconfirmed';
+			return { status: 'unconfirmed' };
 		}
-		return 'verified';
+		return { status: 'verified' };
 	} catch {
-		return 'unavailable';
+		return { status: 'unavailable' };
 	}
 }

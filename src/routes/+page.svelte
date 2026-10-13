@@ -12,7 +12,7 @@
 	let revealEnabled = $state(false);
 
 	const action = $derived(
-		data.user
+		data.signedIn
 			? { href: resolve('/dashboard?show=all'), label: 'Go to Dashboard' }
 			: { href: resolve('/auth/request-access'), label: 'Request Access' }
 	);
@@ -200,7 +200,7 @@
 {/snippet}
 
 <PublicShell
-	user={data.user}
+	signedIn={data.signedIn}
 	bodyClass={revealEnabled ? 'reveal-enabled' : ''}
 	showClassificationBar={false}
 	navOverlay={true}

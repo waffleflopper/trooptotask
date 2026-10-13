@@ -10,14 +10,14 @@ afterEach(() => {
 
 describe('privacy page contact', () => {
 	it('keeps the shared wordmark as a home link on public pages', () => {
-		render(Page, { props: { data: { session: null, user: null } } });
+		render(Page, { props: { data: { viewer: null, signedIn: false } } });
 		expect(screen.getByRole('link', { name: /Troop To Task Unit Readiness Platform/i })).toHaveAttribute('href', '/');
 	});
 
 	it('offers staff-assisted account deletion through the privacy mailbox', () => {
 		render(Page, {
 			props: {
-				data: { session: null, user: null }
+				data: { viewer: null, signedIn: false }
 			}
 		});
 

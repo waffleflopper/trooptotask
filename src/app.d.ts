@@ -1,5 +1,5 @@
 import type { Session, SupabaseClient } from '@supabase/supabase-js';
-import type { AdmittedActor, PendingAuthFlow } from '$features/identity/contracts';
+import type { AdmittedActor, IdentityViewer, PendingAuthFlow } from '$features/identity/contracts';
 import type { MembershipRequestCache } from '$lib/access/requestMembershipCache.server';
 
 declare global {
@@ -13,7 +13,7 @@ declare global {
 			authFlow: PendingAuthFlow;
 		}
 		interface PageData {
-			session: Session | null;
+			viewer?: IdentityViewer | null;
 		}
 	}
 }

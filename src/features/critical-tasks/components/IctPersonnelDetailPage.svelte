@@ -43,15 +43,7 @@
 					} | null;
 				} | null;
 			};
-			session?:
-				| (Record<string, unknown> & {
-						user?:
-							| (Record<string, unknown> & {
-									user_metadata?: unknown;
-							  })
-							| null;
-				  })
-				| null;
+			viewer?: { displayName: string | null } | null;
 		};
 	}
 
@@ -105,28 +97,6 @@
 		return a.sortOrder - b.sortOrder || a.taskCode.localeCompare(b.taskCode);
 	}
 
-	function readMetadataString(record: unknown, key: string): string | null {
-		if (!record || typeof record !== 'object') return null;
-		const value = (record as Record<string, unknown>)[key];
-		return typeof value === 'string' && value.trim() ? value.trim() : null;
-	}
-
-	function getCurrentUserDisplayName(): string | null {
-		const userMetadata = data.session?.user?.user_metadata;
-		const rank = readMetadataString(userMetadata, 'rank');
-		const fullName =
-			readMetadataString(userMetadata, 'full_name') ??
-			readMetadataString(userMetadata, 'name') ??
-			[readMetadataString(userMetadata, 'first_name'), readMetadataString(userMetadata, 'last_name')]
-				.filter((value): value is string => !!value)
-				.join(' ')
-				.trim() ??
-			null;
-
-		if (!fullName) return null;
-		return [rank, fullName].filter(Boolean).join(' ');
-	}
-
 	const activeRows = $derived.by<ActiveTaskRow[]>(() =>
 		getActiveIctTasksForLibrary(ictTasksStore.items)
 			.filter((task) => isIctTaskApplicableToMos(task, history.personnel.mos))
@@ -145,7 +115,7 @@
 			? history.rows
 			: history.rows.filter((row) => row.taskArchivedAt !== null || row.task === null)
 	);
-	const currentUserDisplayName = $derived(getCurrentUserDisplayName());
+	const currentUserDisplayName = $derived(data.viewer?.displayName ?? null);
 	const applicableTaskOptions = $derived(activeRows.map((row) => row.task));
 	const canInputTask = $derived(canRecordCompletion && applicableTaskOptions.length > 0);
 	const activeFilterCount = $derived(

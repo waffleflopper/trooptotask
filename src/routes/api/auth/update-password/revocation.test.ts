@@ -152,8 +152,6 @@ it('starts another recovery immediately after a completed change in a previous s
 	const h = fixture();
 	expect((await POST(h.event())).status).toBe(200);
 	h.locals.session.access_token = passwordSessionToken('actor', 'fresh', '00000000-0000-4000-8000-000000000002');
-	expect(await h.state()).toBe('expired');
-	expect((await POST(h.event({ action: 'restart' }))).status).toBe(200);
 	expect(await h.state()).toBeNull();
 	expect((await POST(h.event({ password: 'FreshRecovery12' }))).status).toBe(200);
 	expect(h.auth.updateUser).toHaveBeenLastCalledWith({

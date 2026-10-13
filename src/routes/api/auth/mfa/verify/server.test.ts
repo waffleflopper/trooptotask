@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import { POST } from './+server';
+const durableLimit = vi.hoisted(() => ({
+	check: vi.fn(async (..._args: unknown[]) => ({
+		data: [{ limited: false, retry_after_ms: 0 }],
+		error: null as unknown
+	}))
+}));
+vi.mock('$lib/server/supabase', () => ({ getAdminClient: () => ({ rpc: durableLimit.check }) }));
 
 describe('POST /api/auth/mfa/verify', () => {
 	it('verifies the code against the current verified TOTP factor', async () => {
@@ -23,6 +30,7 @@ describe('POST /api/auth/mfa/verify', () => {
 				body: JSON.stringify({ code: '123456' })
 			}),
 			locals: {
+				user: { id: 'synthetic-user' },
 				supabase: {
 					auth: {
 						mfa: {
@@ -53,6 +61,7 @@ describe('POST /api/auth/mfa/verify', () => {
 				body: JSON.stringify({ code: '12ab' })
 			}),
 			locals: {
+				user: { id: 'synthetic-user' },
 				supabase: {
 					auth: {
 						mfa: {
@@ -87,6 +96,7 @@ describe('POST /api/auth/mfa/verify', () => {
 				body: JSON.stringify({ code: '123456' })
 			}),
 			locals: {
+				user: { id: 'synthetic-user' },
 				supabase: {
 					auth: {
 						mfa: {
@@ -122,6 +132,7 @@ describe('POST /api/auth/mfa/verify', () => {
 				body: JSON.stringify({ code: '000000' })
 			}),
 			locals: {
+				user: { id: 'synthetic-user' },
 				supabase: {
 					auth: {
 						mfa: {
@@ -167,7 +178,7 @@ describe('verified-factor challenge boundary', () => {
 					headers: { 'Content-Type': 'application/json' },
 					body
 				}),
-				locals: { supabase: { auth: { mfa } } }
+				locals: { user: { id: 'synthetic-user' }, supabase: { auth: { mfa } } }
 			} as unknown as Parameters<typeof POST>[0]);
 		return { factors, session, tokens, mfa, request };
 	}
@@ -266,4 +277,46 @@ describe('verified-factor challenge boundary', () => {
 			expect(h.session.currentLevel).toBe('aal1');
 		}
 	);
+});
+
+describe('authenticator code limit on sign-in verification', () => {
+	async function verifyWhile(limit: { data: unknown; error: unknown }) {
+		durableLimit.check.mockResolvedValueOnce(limit as never);
+		const listFactors = vi.fn();
+		const challengeAndVerify = vi.fn();
+		const response = await POST({
+			request: new Request('http://localhost/api/auth/mfa/verify', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ code: '123456' })
+			}),
+			locals: { user: { id: 'synthetic-user' }, supabase: { auth: { mfa: { listFactors, challengeAndVerify } } } }
+		} as unknown as Parameters<typeof POST>[0]);
+		return { response, listFactors, challengeAndVerify };
+	}
+
+	it('asks the account to wait without checking the code once its attempts are spent', async () => {
+		const { response, listFactors, challengeAndVerify } = await verifyWhile({
+			data: [{ limited: true, retry_after_ms: 411_200 }],
+			error: null
+		});
+
+		expect(response.status).toBe(429);
+		expect(response.headers.get('Retry-After')).toBe('412');
+		expect(await response.json()).toEqual({ error: 'Too many authenticator codes. Please wait before trying again.' });
+		expect(durableLimit.check).toHaveBeenLastCalledWith(
+			'check_durable_rate_limit',
+			expect.objectContaining({ p_window_seconds: 900, p_max_requests: 10 })
+		);
+		expect(listFactors).not.toHaveBeenCalled();
+		expect(challengeAndVerify).not.toHaveBeenCalled();
+	});
+
+	it('does not check the code when the limit cannot be read', async () => {
+		const { response, challengeAndVerify } = await verifyWhile({ data: null, error: { message: 'unavailable' } });
+
+		expect(response.status).toBe(503);
+		expect(await response.json()).toEqual({ error: 'Unable to verify MFA. Try again.' });
+		expect(challengeAndVerify).not.toHaveBeenCalled();
+	});
 });

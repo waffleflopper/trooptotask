@@ -17,7 +17,7 @@ afterEach(() => {
 
 function organizationsData(data: Partial<PageProps['data']>): PageProps['data'] {
 	const baseData: PageProps['data'] = {
-		session: null,
+		viewer: null,
 		adminUserId: 'admin-1',
 		adminEmail: 'admin@example.test',
 		adminRole: 'support',

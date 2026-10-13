@@ -44,7 +44,7 @@ it('shows a throttled confirmation attempt and keeps the explicit invite button 
 	});
 	render(Page, {
 		data: {
-			session: null,
+			viewer: null,
 			confirmation: {
 				status: 'valid',
 				tokenHash: 'synthetic-invite-token',

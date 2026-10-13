@@ -25,7 +25,7 @@ afterEach(() => {
 it('ties a server-rejected email to its field, including a native submission, and keeps a rate limit as a form alert', async () => {
 	const view = render(Page, {
 		props: {
-			data: { session: null, email: '' },
+			data: { viewer: null, email: '' },
 			form: { error: 'Enter a valid email address', email: 'person@example' }
 		}
 	});
@@ -39,7 +39,7 @@ it('ties a server-rejected email to its field, including a native submission, an
 
 	pageState.status = 429;
 	await view.rerender({
-		data: { session: null, email: '' },
+		data: { viewer: null, email: '' },
 		form: { error: 'Too many requests.', email: 'person@example' }
 	});
 	expect(email).toBeValid();
@@ -54,7 +54,7 @@ it('moves focus to the confirmation once the fresh setup link is requested', asy
 			await finish({
 				update: async () => {
 					await view.rerender({
-						data: { session: null, email: '' },
+						data: { viewer: null, email: '' },
 						form: { success: true, email: 'person@example.com' }
 					});
 				}
@@ -62,7 +62,7 @@ it('moves focus to the confirmation once the fresh setup link is requested', asy
 		});
 		return { destroy: () => {} };
 	};
-	const view = render(Page, { props: { data: { session: null, email: '' }, form: null } });
+	const view = render(Page, { props: { data: { viewer: null, email: '' }, form: null } });
 	await fireEvent.submit(screen.getByRole('button', { name: 'Email Me a Fresh Setup Link' }).closest('form')!);
 
 	await waitFor(() => expect(screen.getByRole('status')).toHaveFocus());

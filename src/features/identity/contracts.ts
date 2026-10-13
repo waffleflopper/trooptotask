@@ -5,6 +5,13 @@ export interface AdmittedActor {
 
 export type PendingAuthFlow = 'recovery' | 'invite' | null;
 
+// The only identity facts serialized to the browser. Provider sessions and
+// tokens stay in HttpOnly cookies on the server.
+export interface IdentityViewer {
+	readonly userId: string;
+	readonly displayName: string | null;
+}
+
 export {
 	getDefaultUserOrgPreferences,
 	mergeUserOrgPreferences,

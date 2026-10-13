@@ -16,6 +16,17 @@ afterEach(() => {
 });
 
 describe('global in-memory rate limits', () => {
+	it('counts percent-encoded spellings of a path against the same limit', () => {
+		const ip = '198.51.100.43';
+
+		for (let attempt = 0; attempt < 5; attempt += 1) {
+			expect(checkRateLimit(ip, '/auth/login', 'POST')).toEqual({ limited: false });
+			expect(checkRateLimit(ip, '/%61uth/login', 'POST')).toEqual({ limited: false });
+		}
+		expect(checkRateLimit(ip, '/%61%75th/login', 'POST')).toMatchObject({ limited: true });
+		expect(checkRateLimit(ip, '/org/x/%61pi/personnel', 'PUT')).toEqual({ limited: false });
+	});
+
 	it('leaves Access Request submission to the route-level durable limiter', () => {
 		const ip = '198.51.100.42';
 

@@ -10,7 +10,7 @@ afterEach(() => {
 function renderTermsPage() {
 	return render(Page, {
 		props: {
-			data: { session: null, user: null }
+			data: { viewer: null, signedIn: false }
 		}
 	});
 }

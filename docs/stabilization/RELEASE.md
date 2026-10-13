@@ -493,3 +493,13 @@ Before application release, Robert completes these operator steps:
 3. Merge the closing PR immediately afterward so Vercel deploys the new application. Verify one Organization creation through ordinary use after release.
 
 Repository CI operates disposable local databases and performs no remote migration. External production deployment settings are uninspected. No fixture, test, provider probe or synthetic SQL contract belongs on the hosted database.
+
+## Phase 11 D03 identity and web boundary repairs
+
+Robert applies [`supabase/migrations/20261012000300_retire_completed_password_attempts.sql`](../../supabase/migrations/20261012000300_retire_completed_password_attempts.sql), SHA-256 `53cec374a6f9e588047b047323665a6331016499ad5ed7573927db0674224a45`, through his normal ordered migration procedure. Its repository predecessor is D02's `20261012000200`; the agent has not inspected the hosted ledger.
+
+Applying it replaces `password_change_attempt` with the same signature and grants. It rewrites and deletes no rows; completed attempts are only replaced when their user next begins or restarts a password update.
+
+The two sides are compatible in either order. The application calls the function exactly as before, so until the migration runs a later sign-in still sees the stale password message. The MFA code limit uses the existing `check_durable_rate_limit` function, and the session, CSP and request-limit changes need no schema. Apply the migration whenever convenient after merge, then confirm through ordinary use that a fresh sign-in's Account Security shows the password form after an earlier change.
+
+Repository CI operates disposable local databases and performs no remote migration. External production deployment settings are uninspected.

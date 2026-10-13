@@ -8,15 +8,17 @@ export { signOutIdentity } from './signOut.server';
 export { loginIdentity } from './login.server';
 
 export { readIdentityAdmission } from './admission.server';
+export { getIdentityViewer } from './viewer.server';
 export {
 	getIdentitySessionScope,
 	getAuthenticatedRedirectPath,
 	getPendingAuthFlowCookieName,
-	getPublicPageUser,
+	isPublicPageSignedIn,
 	setCompletedAuthFlowCookie,
 	setPendingAuthFlowCookie
 } from './mfaGate.server';
 export { readIdentityMfaStatus, verifyIdentityMfa } from './mfa.server';
+export { MFA_CODE_RATE_LIMIT_MESSAGE } from './mfaCodeRateLimit.server';
 export {
 	enrollIdentityMfa,
 	verifyIdentityMfaEnrollment,

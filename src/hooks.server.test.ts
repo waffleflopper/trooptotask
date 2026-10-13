@@ -81,9 +81,11 @@ describe('server auth hook', () => {
 			expect.arrayContaining(["'self'", "'unsafe-inline'", 'https://va.vercel-scripts.com'])
 		);
 		expect(directives.get('script-src')).not.toEqual(expect.arrayContaining(['https://js.stripe.com']));
+		// The browser has no provider client; only the server talks to Supabase.
 		expect(directives.get('connect-src')).toEqual(
-			expect.arrayContaining(["'self'", 'https://*.supabase.co', 'https://vitals.vercel-insights.com'])
+			expect.arrayContaining(["'self'", 'https://vitals.vercel-insights.com'])
 		);
+		expect(directives.get('connect-src')?.filter((source) => /supabase|:5\d{4}/.test(source))).toEqual([]);
 		expect(response.headers.get('X-Frame-Options')).toBe('DENY');
 		expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff');
 	});

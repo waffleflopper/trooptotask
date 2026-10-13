@@ -5,7 +5,7 @@
 	import PublicSiteNav from './PublicSiteNav.svelte';
 
 	interface Props {
-		user?: unknown;
+		signedIn?: boolean;
 		active?: 'about' | 'security';
 		bodyClass?: string;
 		showFaqLink?: boolean;
@@ -17,7 +17,7 @@
 	}
 
 	let {
-		user,
+		signedIn = false,
 		active,
 		bodyClass = '',
 		showFaqLink = false,
@@ -40,14 +40,14 @@
 		</div>
 	{/if}
 
-	<PublicSiteNav {user} {active} {showFaqLink} overlay={navOverlay} scrolled={navScrolled} />
+	<PublicSiteNav {signedIn} {active} {showFaqLink} overlay={navOverlay} scrolled={navScrolled} />
 
 	<main class={bodyClass || undefined}>
 		{@render children()}
 	</main>
 
 	{#if showCta}
-		<PublicCta {user} />
+		<PublicCta {signedIn} />
 	{/if}
 
 	<PublicFooter />

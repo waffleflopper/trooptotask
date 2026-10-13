@@ -90,7 +90,7 @@ const pendingInvite = {
 
 function pageData(canInvite = false, invitations: unknown[] = []) {
 	return {
-		session: { user: { email: 'owner@example.com' } },
+		viewer: { userId: 'user-owner', displayName: null },
 		membersSettings: {
 			currentMember: { isOwner: true },
 			sections: {
@@ -129,6 +129,13 @@ afterEach(() => {
 });
 
 describe('members settings page', () => {
+	it("marks only the viewer's own membership as You", () => {
+		renderPage();
+
+		expect(within(memberRow('owner@example.com')).getByText('You')).toBeTruthy();
+		expect(within(memberRow('alpha@example.com')).queryByText('You')).toBeNull();
+	});
+
 	it('keeps a member removal from being submitted again while it is pending', async () => {
 		renderPage();
 		const row = memberRow('alpha@example.com');

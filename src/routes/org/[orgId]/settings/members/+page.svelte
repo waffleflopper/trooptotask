@@ -83,7 +83,8 @@
 	const capabilityOptions = memberAccess.capabilityOptions;
 	const governanceRoleExplanation = explainPolicyReasonCode('denied:governance-role');
 	const inviteLoading = $derived(invitationPending && invitationOwner === NEW_INVITATION);
-	const sessionEmail = $derived((data.session as { user?: { email?: string | null } } | null | undefined)?.user?.email);
+	// Settings page data unions with an empty record, which hides root layout keys from its type.
+	const viewerUserId = $derived((data as { viewer?: { userId: string } | null }).viewer?.userId);
 
 	const invitationEnhance: SubmitFunction = ({ formData, submitter, cancel }) => {
 		if (invitationPending) return cancel();
@@ -151,7 +152,7 @@
 	}
 
 	function isCurrentMember(member: SettingsMemberAccessRow): boolean {
-		return Boolean(sessionEmail && member.email === sessionEmail);
+		return member.userId === viewerUserId;
 	}
 
 	function getPresetLabel(value: string | null | undefined): string {

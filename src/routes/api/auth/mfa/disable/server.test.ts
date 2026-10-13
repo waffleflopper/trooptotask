@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import { POST } from './+server';
+const durableLimit = vi.hoisted(() => ({
+	check: vi.fn(async (..._args: unknown[]) => ({
+		data: [{ limited: false, retry_after_ms: 0 }],
+		error: null as unknown
+	}))
+}));
+vi.mock('$lib/server/supabase', () => ({ getAdminClient: () => ({ rpc: durableLimit.check }) }));
 
 describe('POST /api/auth/mfa/disable', () => {
 	it('disables the currently verified TOTP factor after a fresh TOTP challenge', async () => {
@@ -345,4 +352,28 @@ describe('fresh-challenge disable boundary', () => {
 			expect((await h.request()).status).toBe(503);
 		}
 	);
+});
+
+describe('authenticator code limit on MFA removal', () => {
+	it('keeps the factor and asks the account to wait once its attempts are spent', async () => {
+		durableLimit.check.mockResolvedValueOnce({ data: [{ limited: true, retry_after_ms: 60_000 }], error: null });
+		const challengeAndVerify = vi.fn();
+		const unenroll = vi.fn();
+		const response = await POST({
+			request: new Request('http://localhost/api/auth/mfa/disable', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ code: '123456' })
+			}),
+			locals: {
+				actor: { userId: 'synthetic-user' },
+				supabase: { auth: { mfa: { listFactors: vi.fn(), challengeAndVerify, unenroll } } }
+			}
+		} as unknown as Parameters<typeof POST>[0]);
+
+		expect(response.status).toBe(429);
+		expect(response.headers.get('Retry-After')).toBe('60');
+		expect(challengeAndVerify).not.toHaveBeenCalled();
+		expect(unenroll).not.toHaveBeenCalled();
+	});
 });

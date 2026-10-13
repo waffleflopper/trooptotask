@@ -1,13 +1,13 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { MFA_DISABLE_CODE_REJECTED_MESSAGE } from '$features/identity/contracts';
-import { disableIdentityMfa } from '$features/identity/index.server';
+import { disableIdentityMfa, MFA_CODE_RATE_LIMIT_MESSAGE } from '$features/identity/index.server';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	const body: unknown = await request.json().catch(() => null);
 	const code = body && typeof body === 'object' && 'code' in body ? body.code : undefined;
 	const result = await disableIdentityMfa(locals, code);
-	switch (result) {
+	switch (result.status) {
 		case 'disabled':
 			return json({ ok: true }, { status: 200 });
 		case 'invalid':
@@ -28,5 +28,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			return json({ error: 'Unable to disable MFA. Reload to check its status before retrying.' }, { status: 503 });
 		case 'unauthorized':
 			return json({ error: 'Please sign in before managing MFA.' }, { status: 401 });
+		case 'limited':
+			return json(
+				{ error: MFA_CODE_RATE_LIMIT_MESSAGE },
+				{ status: 429, headers: { 'Retry-After': String(result.retryAfterSeconds) } }
+			);
+		case 'limit-unavailable':
+			return json({ error: 'Unable to disable MFA. Reload to check its status before retrying.' }, { status: 503 });
 	}
 };

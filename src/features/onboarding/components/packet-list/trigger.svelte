@@ -3,18 +3,16 @@
 	import type { Snippet } from 'svelte';
 
 	let {
-		children,
-		...restProps
+		children
 	}: {
 		children?: Snippet;
 	} = $props();
 </script>
 
 <Accordion.Trigger
-	level={2}
+	level={3}
 	data-slot="onboarding-packet-trigger"
-	class="min-w-0 items-center gap-2 rounded-none border-0 bg-card px-4 py-3 text-card-foreground hover:bg-muted/40 hover:no-underline data-[state=open]:bg-muted/25 max-sm:px-3"
-	{...restProps}
+	class="items-center gap-4 rounded-none border-0 border-l-3 border-l-transparent bg-card px-3.5 py-3 text-base font-normal hover:bg-muted/60 hover:no-underline aria-expanded:border-l-foreground aria-expanded:bg-muted"
 >
 	{@render children?.()}
 </Accordion.Trigger>

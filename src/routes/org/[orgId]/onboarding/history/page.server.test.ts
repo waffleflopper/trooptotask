@@ -30,7 +30,14 @@ describe('Onboarding History page load', () => {
 		});
 		const orgId = state.ctx.auth.orgId;
 		state.ctx.store.seed('personnel_onboardings', [
-			{ id: 'closed', organization_id: orgId, personnel_id: 'p-1', status: 'completed', started_at: '2026-01-01' },
+			{
+				id: 'closed',
+				organization_id: orgId,
+				personnel_id: 'p-1',
+				status: 'completed',
+				started_at: '2026-01-01',
+				completed_at: '2026-01-10'
+			},
 			{ id: 'open', organization_id: orgId, personnel_id: 'p-1', status: 'in_progress', started_at: '2026-02-01' }
 		]);
 		const depends = vi.fn();
@@ -40,9 +47,12 @@ describe('Onboarding History page load', () => {
 			locals: { session: null },
 			cookies: {},
 			depends
-		} as never)) as unknown as { history: { onboardings: Array<{ id: string }> } };
+		} as never)) as unknown as {
+			history: { onboardings: Array<{ id: string }>; archiveRetentionMonths: number | null };
+		};
 
 		expect(result.history.onboardings.map((o) => o.id)).toEqual(['closed']);
+		expect(result.history.archiveRetentionMonths).toBe(36);
 		expect(depends).toHaveBeenCalledWith('app:org-core', 'app:onboarding-data');
 	});
 });

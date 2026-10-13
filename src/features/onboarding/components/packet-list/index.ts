@@ -1,14 +1,9 @@
 export { default as Root } from './root.svelte';
+export { default as Header } from './header.svelte';
 export { default as Item } from './item.svelte';
 export { default as Trigger } from './trigger.svelte';
 export { default as Summary } from './summary.svelte';
-export { default as SummaryTitle } from './summary-title.svelte';
-export { default as Progress } from './progress.svelte';
 export { default as Content } from './content.svelte';
-export { default as StepList } from './step-list.svelte';
-export { default as Step } from './step.svelte';
-export { default as StatusIcon } from './status-icon.svelte';
+export { default as Steps } from './steps.svelte';
 export { default as Notes } from './notes.svelte';
-export { default as Note } from './note.svelte';
-export type { PacketStepState, PacketStepTone } from './types';
-export { default as Stages } from './stages.svelte';
+export type { PacketNoteEntry, PacketOutcome } from './types';

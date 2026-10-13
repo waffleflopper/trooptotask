@@ -296,7 +296,7 @@
 			onclick: exportExcel,
 			icon: 'download',
 			loading: exporting,
-			disabled: exporting || bottomLine.soldierCount === 0
+			disabled: bottomLine.soldierCount === 0
 		});
 		return items;
 	});

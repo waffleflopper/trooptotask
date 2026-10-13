@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
 import { frameworkOutcome } from '$lib/test-support/sveltekitEnhance';
+import { openToolbarMore, stubToolbarWidths } from '$lib/test-support/toolbarWidths';
 import Announcements from './announcements/+page.svelte';
 import Feedback from './feedback/+page.svelte';
 import Dashboard from './+page.svelte';
@@ -10,12 +11,14 @@ import type { PageData as AnnouncementData } from './announcements/$types';
 import type { PageData as FeedbackData } from './feedback/$types';
 import type { PageData as DashboardData } from './$types';
 
-const { forms, invalidateAll, navigation } = vi.hoisted(() => ({
+const { forms, invalidateAll, navigation, gotoMock } = vi.hoisted(() => ({
+	gotoMock: vi.fn(),
 	forms: new Map<string, SubmitFunction>(),
 	invalidateAll: vi.fn(),
 	navigation: [] as Array<() => void>
 }));
 vi.mock('$app/navigation', () => ({
+	goto: gotoMock,
 	invalidateAll,
 	beforeNavigate: (callback: () => void) => navigation.push(callback)
 }));
@@ -200,6 +203,18 @@ describe('announcement form ownership', () => {
 		await waitFor(() =>
 			expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Create Announcement' }))
 		);
+	});
+
+	it('offers Create Announcement from the toolbar only while the create form is closed', async () => {
+		render(Announcements, { props: { data: announcementData(), form: null } });
+		expect(
+			within(screen.getByRole('toolbar', { name: 'Announcements controls' })).getByRole('button', {
+				name: 'Create Announcement'
+			})
+		).toBeTruthy();
+		await openAnnouncement();
+		expect(screen.queryByRole('toolbar', { name: 'Announcements controls' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Create Announcement' })).toBeNull();
 	});
 
 	it('focuses Title on open and Create Announcement on cancel and after a save', async () => {
@@ -523,6 +538,54 @@ describe('Dashboard admitted navigation', () => {
 			else expect(screen.getByText(/Use global admin search/)).toBeTruthy();
 		}
 	);
+
+	function renderDashboard(role: DashboardData['adminRole'], pages: DashboardData['accessiblePages']) {
+		render(Dashboard, {
+			props: {
+				data: {
+					...adminData('admin-a'),
+					adminRole: role,
+					accessiblePages: pages,
+					userStats: { total: 3, last_30_days: 1 },
+					totalOrganizations: 2,
+					pendingAccessRequests: 0,
+					pendingFeedback: 0,
+					signupTrend: [],
+					recentActivity: []
+				}
+			}
+		});
+	}
+
+	it('links Audit Log and Inspect Users from the toolbar, and Audit Log still works from More', async () => {
+		const toolbarWidths = stubToolbarWidths();
+		renderDashboard('super_admin', ['dashboard', 'users', 'audit']);
+		const toolbar = within(screen.getByRole('toolbar', { name: 'Admin Dashboard controls' }));
+		expect(toolbar.getByRole('link', { name: 'Audit Log' }).getAttribute('href')).toBe('/admin/audit');
+		expect(toolbar.getByRole('link', { name: 'Inspect Users' }).getAttribute('href')).toBe('/admin/users');
+
+		await toolbarWidths.foldAll();
+		expect(toolbar.queryByRole('link', { name: 'Audit Log' })).toBeNull();
+		expect(toolbar.getByRole('link', { name: 'Inspect Users' })).toBeTruthy();
+		const menu = within(await openToolbarMore('Admin Dashboard controls'));
+		await fireEvent.click(menu.getByRole('menuitem', { name: 'Audit Log' }));
+		await waitFor(() => expect(gotoMock).toHaveBeenCalledWith('/admin/audit'));
+	});
+
+	it.each([
+		{ pages: ['dashboard', 'users'], audit: false, users: true },
+		{ pages: ['dashboard', 'audit'], audit: true, users: false }
+	] as const)('shows only the toolbar controls admitted for $pages', ({ pages, audit, users }) => {
+		renderDashboard('support', [...pages]);
+		const toolbar = within(screen.getByRole('toolbar', { name: 'Admin Dashboard controls' }));
+		expect(toolbar.queryByRole('link', { name: 'Audit Log' }) !== null).toBe(audit);
+		expect(toolbar.queryByRole('link', { name: 'Inspect Users' }) !== null).toBe(users);
+	});
+
+	it('renders no toolbar when no destination is admitted', () => {
+		renderDashboard('billing', ['dashboard']);
+		expect(screen.queryByRole('toolbar')).toBeNull();
+	});
 
 	it('gives the signup chart a canonical data table', () => {
 		render(Dashboard, {

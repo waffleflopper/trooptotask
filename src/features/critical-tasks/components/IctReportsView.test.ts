@@ -409,7 +409,7 @@ describe('IctReportsView', () => {
 		expect(screen.queryByRole('button', { name: 'Clear filters' })).toBeNull();
 	});
 
-	it('shows Export Excel as busy and disabled while the workbook downloads', async () => {
+	it('keeps Export Excel focused and busy while the workbook downloads, refusing another press', async () => {
 		let release!: (response: unknown) => void;
 		vi.mocked(fetch).mockImplementationOnce(
 			() => new Promise((resolve) => (release = resolve)) as unknown as ReturnType<typeof fetch>
@@ -418,11 +418,20 @@ describe('IctReportsView', () => {
 			props: { orgId: 'org-1', reportScope: makeReportScope(), initialDashboard }
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Export Excel' }));
+		const exportButton = screen.getByRole<HTMLButtonElement>('button', { name: 'Export Excel' });
+		exportButton.focus();
+		await fireEvent.click(exportButton);
 
-		const busy = await screen.findByRole('button', { name: 'Exporting...' });
-		expect((busy as HTMLButtonElement).disabled).toBe(true);
-		expect(busy.getAttribute('aria-busy')).toBe('true');
+		const busy = await screen.findByRole<HTMLButtonElement>('button', { name: 'Exporting...' });
+		expect([busy, busy.disabled, busy.getAttribute('aria-disabled'), busy.getAttribute('aria-busy')]).toEqual([
+			exportButton,
+			false,
+			'true',
+			'true'
+		]);
+		expect(document.activeElement).toBe(busy);
+		await fireEvent.click(busy);
+		expect(fetch).toHaveBeenCalledOnce();
 		release({ ok: false });
 		expect(await screen.findByText('Failed to export critical task report')).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Export Excel' })).toBeTruthy();

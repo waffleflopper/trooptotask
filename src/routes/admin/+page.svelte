@@ -4,6 +4,11 @@
 	import * as Card from '$lib/components/ui/card';
 	import * as Empty from '$lib/components/ui/empty';
 	import * as PageShell from '$lib/components/patterns/page-shell';
+	import {
+		WorkspaceToolbar,
+		type ToolbarItem,
+		type WorkspaceToolbarProps
+	} from '$lib/components/patterns/workspace-toolbar';
 	import { Separator } from '$lib/components/ui/separator';
 	import * as Table from '$lib/components/ui/table';
 	import { REPORT_CHART_SERIES, buildReportCountTicks } from '$lib/components/patterns/report-chart';
@@ -33,6 +38,16 @@
 			color: REPORT_CHART_SERIES[1].color
 		}
 	];
+	const toolbarItems = $derived<ToolbarItem[]>(
+		data.accessiblePages.includes('audit')
+			? [{ kind: 'action', id: 'audit-log', label: 'Audit Log', href: '/admin/audit' }]
+			: []
+	);
+	const toolbarPrimary = $derived<WorkspaceToolbarProps['primary']>(
+		data.accessiblePages.includes('users')
+			? { kind: 'action', id: 'inspect-users', label: 'Inspect Users', href: '/admin/users' }
+			: undefined
+	);
 	const quickActions = $derived(
 		[
 			{ page: 'users', href: '/admin/users', label: 'Search Users' },
@@ -48,12 +63,11 @@
 </svelte:head>
 
 <PageShell.Root width="wide">
-	<PageShell.Header title="Admin Dashboard" subtitle="Track platform growth and the trust queue from one place.">
-		{#snippet actions()}
-			{#if data.accessiblePages.includes('audit')}<Button href="/admin/audit" variant="outline">Audit Log</Button>{/if}
-			{#if data.accessiblePages.includes('users')}<Button href="/admin/users">Inspect Users</Button>{/if}
-		{/snippet}
-	</PageShell.Header>
+	<PageShell.Header title="Admin Dashboard" subtitle="Track platform growth and the trust queue from one place." />
+
+	{#if toolbarItems.length > 0 || toolbarPrimary}
+		<WorkspaceToolbar ariaLabel="Admin Dashboard controls" items={toolbarItems} primary={toolbarPrimary} />
+	{/if}
 
 	{#if totalPending > 0}
 		<div class="grid gap-3 md:grid-cols-2">

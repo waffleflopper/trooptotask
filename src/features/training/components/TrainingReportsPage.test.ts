@@ -827,15 +827,21 @@ describe('Training Reports briefing page', () => {
 			await waitFor(() => expect(fetchImpl).toHaveBeenCalledWith('/org/org-1/api/training-reports/export'));
 		});
 
-		it('disables Export Excel while the workbook is being made and while no soldier is in scope', async () => {
+		it('keeps Export Excel focused and busy while the workbook is made, and disables it with no soldier in scope', async () => {
 			vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: () => 'blob:report', revokeObjectURL: () => {} }));
 			const pending: Array<(response: Response) => void> = [];
 			renderPage(vi.fn<typeof fetch>(() => new Promise<Response>((respond) => pending.push(respond))));
 
-			await fireEvent.click(screen.getByRole('button', { name: 'Export Excel' }));
+			const button = screen.getByRole('button', { name: 'Export Excel' });
+			button.focus();
+			await fireEvent.click(button);
 			const exporting = screen.getByRole('button', { name: 'Exporting...' }) as HTMLButtonElement;
-			expect(exporting.disabled).toBe(true);
-			expect(exporting.getAttribute('aria-busy')).toBe('true');
+			expect([
+				exporting === document.activeElement,
+				exporting.disabled,
+				exporting.getAttribute('aria-disabled'),
+				exporting.getAttribute('aria-busy')
+			]).toEqual([true, false, 'true', 'true']);
 			pending[0](new Response(new Blob(['xlsx'])));
 			await waitFor(() => expect(screen.getByRole('button', { name: 'Export Excel' })).toBeTruthy());
 			cleanup();

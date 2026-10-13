@@ -127,6 +127,15 @@ describe('WorkspaceToolbar', () => {
 		expect(screen.getByRole('menuitem', { name: 'Archive' })).toBeTruthy();
 	});
 
+	it('announces a disabled link action as disabled', async () => {
+		render(DataToolbarTest, { props: { withArchive: false, reportsDisabled: true } });
+		await layOut(940);
+
+		const reports = within(toolbar()).getByRole('link', { name: 'Reports' });
+		expect(reports.getAttribute('aria-disabled')).toBe('true');
+		expect(reports.hasAttribute('href')).toBe(false);
+	});
+
 	it('has no More button when everything fits and nothing is menu-only', async () => {
 		render(DataToolbarTest, { props: { withArchive: false } });
 		await layOut(940);
@@ -555,7 +564,11 @@ describe('WorkspaceToolbar', () => {
 		await layOut(972);
 
 		const importButton = within(toolbar()).getByRole<HTMLButtonElement>('button', { name: 'Import' });
-		expect([importButton.disabled, importButton.getAttribute('aria-busy')]).toEqual([true, 'true']);
+		expect([
+			importButton.disabled,
+			importButton.getAttribute('aria-disabled'),
+			importButton.getAttribute('aria-busy')
+		]).toEqual([false, 'true', 'true']);
 		await fireEvent.click(importButton);
 
 		await layOut(871);
@@ -565,6 +578,22 @@ describe('WorkspaceToolbar', () => {
 		await fireEvent.click(item);
 		await tick();
 		expect(output('Runs')).toBe('none');
+	});
+
+	it('keeps a busy action focusable while it runs nothing, and after it settles', async () => {
+		const view = render(DataToolbarTest);
+		await layOut(972);
+		const importButton = within(toolbar()).getByRole<HTMLButtonElement>('button', { name: 'Import' });
+		importButton.focus();
+
+		await view.rerender({ importLoading: true });
+		expect([document.activeElement, importButton.disabled]).toEqual([importButton, false]);
+		await fireEvent.keyDown(importButton, { key: 'Enter' });
+		await fireEvent.click(importButton);
+		expect(output('Runs')).toBe('none');
+
+		await view.rerender({ importLoading: false });
+		expect([document.activeElement, importButton.getAttribute('aria-busy')]).toEqual([importButton, null]);
 	});
 
 	it('explains a disabled action by title and description', async () => {

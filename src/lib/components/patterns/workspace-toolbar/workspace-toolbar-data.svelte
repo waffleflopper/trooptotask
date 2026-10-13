@@ -269,6 +269,12 @@
 		else action?.onclick?.();
 	}
 
+	// A busy action keeps focus, so it refuses presses itself instead of being natively disabled.
+	function press(event: MouseEvent, action: ToolbarAction): void {
+		if (action.loading) event.preventDefault();
+		else action.onclick?.();
+	}
+
 	function optionLabel(item: ToolbarSelect, value: string): string {
 		return item.options.find((option) => option.value === value)?.label ?? item.label;
 	}
@@ -291,13 +297,14 @@
 	<Button
 		{variant}
 		href={action.href}
-		disabled={action.disabled || action.loading}
+		disabled={action.disabled}
 		title={live ? action.disabledReason : undefined}
 		aria-label={action.ariaLabel}
+		aria-disabled={action.loading || action.disabled || undefined}
 		aria-busy={action.loading || undefined}
 		aria-describedby={live && action.disabledReason ? reasonId(action.id) : undefined}
 		tabindex={live ? undefined : -1}
-		onclick={live ? action.onclick : undefined}
+		onclick={live ? (event: MouseEvent) => press(event, action) : undefined}
 		{...props}
 	>
 		{#if action.loading}

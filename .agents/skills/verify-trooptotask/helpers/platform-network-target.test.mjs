@@ -115,6 +115,24 @@ test('account control resolves only a named fixture and exact support action', (
 	assert.throws(() => platformFormNetworkTarget('admin-account/orgInvitee/resetPassword', fixture, null));
 });
 
+test('account control resolves the seeded pending account by its recorded ID', () => {
+	const pending = '30000000-0000-4000-8000-000000000001';
+	assert.deepEqual(
+		platformFormNetworkTarget('admin-account/pendingUser/resendInvite', fixture, {
+			...seed,
+			pendingUser: { id: pending }
+		}),
+		{
+			suffix: `/admin/users/${pending}`,
+			search: '?/resendInvite',
+			failureField: 'error',
+			sameOrigin: true,
+			requestTarget: null
+		}
+	);
+	assert.throws(() => platformFormNetworkTarget('admin-account/pendingUser/resetPassword', fixture, seed));
+});
+
 for (const bodyKind of ['form', 'urlencoded', 'request']) {
 	test(`Access Request held failure targets only the saved request (${bodyKind})`, async () => {
 		let dispatched = 0;

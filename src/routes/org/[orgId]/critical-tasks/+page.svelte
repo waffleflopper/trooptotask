@@ -241,7 +241,7 @@
 			onclick: exportMatrixExcel,
 			icon: 'download',
 			loading: matrixExportLoading,
-			disabled: matrixExportLoading || loading,
+			disabled: loading,
 			disabledReason: loading ? 'Export unavailable while loading.' : undefined
 		});
 		return items;

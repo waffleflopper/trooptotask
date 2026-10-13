@@ -433,9 +433,14 @@ describe('TrainingPageView', () => {
 		const pending = holdWorkbook();
 		render(TrainingPageView, { props: { ctx, modals: new ModalRegistry() } });
 		const button = screen.getByRole('button', { name: 'Export Excel' });
+		button.focus();
 		await Promise.all([fireEvent.click(button), fireEvent.click(button)]);
 		await pending.generated;
-		expect((screen.getByRole('button', { name: 'Exporting...' }) as HTMLButtonElement).disabled).toBe(true);
+		const exporting = screen.getByRole('button', { name: 'Exporting...' }) as HTMLButtonElement;
+		expect([exporting === document.activeElement, exporting.disabled, exporting.getAttribute('aria-disabled')]).toEqual(
+			[true, false, 'true']
+		);
+		await fireEvent.click(exporting);
 		personnelTrainingsStore.items[0].completionDate = '2040-01-01';
 		ctx.setSelectedGroupId('group-2');
 		pending.release();

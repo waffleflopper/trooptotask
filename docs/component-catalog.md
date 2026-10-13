@@ -70,7 +70,7 @@ This catalog is the reference for TroopToTask's shadcn-svelte and Tailwind v4 UI
 
 The [family contract](ui-foundation-provenance.md) governs retention, moves and removals. Domain UI lives with its feature: Calendar owns its date cells and status badge, and Onboarding owns its kanban board and paperwork stage display. Those components are documented by their feature code, not here.
 
-Platform admin has no admin-specific CSS. `/admin/**` composes the shared sidebar, page-shell, card, field, command, tabs, collapsible, alert, confirm-dialog, empty, badge, button, input, select, textarea and table primitives with Tailwind layout utilities. Its sidebar is a named navigation that marks the current page with `aria-current`. Users, Organizations and Audit Log page with the admin-owned `AdminPager`, which keeps focus on Previous or Next across the navigation. Admin forms settle through `settleAction`: a success may confirm with `toastStore`, and a failure stays in an inline `Alert` beside its action.
+Platform admin has no admin-specific CSS. `/admin/**` composes the shared sidebar, page-shell, card, field, command, tabs, collapsible, alert, confirm-dialog, empty, badge, button, input, select, textarea and table primitives with Tailwind layout utilities. Its sidebar is a named navigation that marks the current page with `aria-current`. Users, Organizations and Audit Log page with the admin-owned `AdminPager`, which keeps focus on Previous or Next across the navigation. Users and Organizations apply their search and filters through URL query state with no Apply button; typed search commits after a 300 ms pause through `createAdminUrlSearch`. Admin forms settle through `settleAction`: a success may confirm with `toastStore`, and a failure stays in an inline `Alert` beside its action.
 
 Composition and visual ownership follow the [UI system](agents/ui-system.md#default-ui-rules). Within authorized UI work, extend shared APIs or add centrally owned variants and update affected consumers and this catalog. Preserve existing consumer behavior; route-local visual exceptions require Robert's explicit approval.
 
@@ -276,12 +276,12 @@ Rules:
 
 - Rank items by importance to the route's main task. Do not hand-pick overflow or icon-only modes.
 - Use `menuOnly` for rare or destructive commands, and for display toggles, that should never take row space.
-- Keep disabled actions visible when their presence explains unavailable work, and give them a `disabledReason`. Loading actions show the shared spinner.
+- Keep disabled actions visible when their presence explains unavailable work, and give them a `disabledReason`. Loading actions show the shared spinner and stay focusable with `aria-disabled` and `aria-busy`; a press does nothing until the work settles.
 - Do not add route-local toolbar spacing, radius, borders, shadows, color, density, typography, or internal selector overrides.
 - Compose route-specific behavior under the [shared UI composition rules](agents/ui-system.md#default-ui-rules); keep toolbar appearance and reusable APIs owned by the shared component.
 - If an authorized route change needs behavior this API cannot express, implement and verify the smallest shared API extension, update affected consumers and document its usage here.
 
-Consumers: the Calendar month view, assignment planner, bulk status, reports, settings and roster picker; the Critical Tasks matrix, soldier record, reports and task library; Evals; the Training matrix, reports (with the Hot-spot grid's Rows by section toolbar), types and views, including the type and view detail panes; and Organization settings Ranks, Members and Logs, Account, and the Dashboard. A new route toolbar starts from `WorkspaceToolbar`. A change to the toolbar is verified on its consumers at narrow and wide widths.
+Consumers: the Calendar month view, assignment planner, bulk status, reports, settings and roster picker; the Critical Tasks matrix, soldier record, reports and task library; Evals; the Training matrix, reports (with the Hot-spot grid's Rows by section toolbar), types and views, including the type and view detail panes; Organization settings Ranks, Members and Logs, Account, and the Dashboard; and the platform admin dashboard, Users, Organizations, Organization detail, User detail, Audit Log and Announcements. A new route toolbar starts from `WorkspaceToolbar`. A change to the toolbar is verified on its consumers at narrow and wide widths.
 
 ### Legacy composition API (temporary)
 

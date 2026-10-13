@@ -696,6 +696,30 @@ describe('critical tasks page', () => {
 		expect(screen.queryByText('No personnel yet.')).toBeNull();
 	});
 
+	it('keeps Export Excel focused and busy while the matrix downloads, refusing another press', async () => {
+		personnelStore.load([person()], 'org-1');
+		groupCatalogHydration.load([alphaGroup], 'org-1');
+		ictTasksStore.load([ictTask], 'org-1');
+		personnelIctCompletionsStore.load([], 'org-1');
+		const fetchMock = vi.fn(() => new Promise<Response>(() => {}));
+		vi.stubGlobal('fetch', fetchMock);
+
+		render(Page, { props: { data: { orgId: 'org-1' } } });
+		const button = screen.getByRole<HTMLButtonElement>('button', { name: 'Export Excel' });
+		button.focus();
+		await fireEvent.click(button);
+
+		const exporting = await screen.findByRole<HTMLButtonElement>('button', { name: 'Exporting...' });
+		expect([
+			exporting === document.activeElement,
+			exporting.disabled,
+			exporting.getAttribute('aria-disabled'),
+			exporting.getAttribute('aria-busy')
+		]).toEqual([true, false, 'true', 'true']);
+		await fireEvent.click(exporting);
+		expect(fetchMock).toHaveBeenCalledOnce();
+	});
+
 	it('reports a failed matrix export as an alert whose Retry requests the export again', async () => {
 		personnelStore.load([person()], 'org-1');
 		groupCatalogHydration.load([alphaGroup], 'org-1');

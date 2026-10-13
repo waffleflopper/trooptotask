@@ -38,6 +38,37 @@ test('interrupted setup retains every exact target before its first write', asyn
 	);
 	assert.deepEqual(ownedState.platform, saved);
 });
+test('setup creates one unconfirmed account whose ID is recorded before the provider creates it', async () => {
+	const ownedState = {};
+	let saved;
+	const created = [];
+	const client = {
+		from: () => ({ insert: async () => ({ error: null }) }),
+		auth: {
+			admin: {
+				createUser: async (attributes) => {
+					assert.deepEqual(saved.pendingUser, { id: attributes.id, email: attributes.email });
+					created.push(attributes);
+					return { data: { user: { id: attributes.id } }, error: null };
+				}
+			}
+		}
+	};
+	await seedPlatform({
+		client,
+		fixture,
+		tag: 'witness',
+		ownedState,
+		save: async (state) => {
+			saved = structuredClone(state.platform);
+		}
+	});
+	assert.equal(created.length, 1);
+	assert.equal(created[0].email, 'platform-pending-witness@example.test');
+	assert.equal(created[0].email_confirm, false);
+	assert.equal(ownedState.platform.pendingUser.id, created[0].id);
+});
+
 test('cleanup refuses to hide an unrestored fixture User suspension', async () => {
 	let deletes = 0;
 	const ownedState = { platform: { memberships: [{ user_id: 'user-1' }] } };
@@ -235,6 +266,83 @@ test('cleanup removes its activity while retaining unrelated and earlier audit h
 	);
 	assert.equal(ownedState.platform, undefined);
 });
+
+for (const [outcome, deleteError] of [
+	['an existing', null],
+	['a never-created', { message: 'User not found', status: 404 }]
+])
+	test(`cleanup deletes ${outcome} pending account and its audit rows by recorded ID`, async () => {
+		const pendingUser = { id: 'pending-user', email: 'platform-pending-witness@example.test' };
+		const rows = {
+			audit_logs: [
+				{ id: 'resend-event', org_id: null, resource_id: pendingUser.id, timestamp: '2026-10-03T00:01:00Z' },
+				{ id: 'unrelated-event', org_id: null, resource_id: 'sentinel', timestamp: '2026-10-03T00:01:00Z' }
+			]
+		};
+		const deletedUsers = [];
+		const client = {
+			from(table) {
+				let mutation = false;
+				const filters = [];
+				const query = {
+					select: () => query,
+					delete() {
+						mutation = true;
+						return query;
+					},
+					eq(key, value) {
+						filters.push((row) => row[key] === value);
+						return query;
+					},
+					in(key, values) {
+						filters.push((row) => values.includes(row[key]));
+						return query;
+					},
+					gte(key, value) {
+						filters.push((row) => row[key] >= value);
+						return query;
+					},
+					or(expression) {
+						filters.push((row) => splitFilters(expression).some((part) => matchesFilter(row, part)));
+						return query;
+					},
+					then(resolve) {
+						const matched = (rows[table] ?? []).filter((row) => filters.every((filter) => filter(row)));
+						if (mutation) rows[table] = (rows[table] ?? []).filter((row) => !matched.includes(row));
+						return Promise.resolve(resolve({ data: matched }));
+					}
+				};
+				return query;
+			},
+			auth: {
+				admin: {
+					deleteUser: async (id) => {
+						deletedUsers.push(id);
+						return { data: null, error: deleteError };
+					}
+				}
+			}
+		};
+		const ownedState = {
+			platform: {
+				organization: { id: 'temporary-org' },
+				requests: { approve: { id: 'request' } },
+				invitation: { id: 'invitation' },
+				link: { id: 'link' },
+				memberships: [],
+				pendingUser,
+				seededAt: '2026-10-03T00:00:00Z'
+			}
+		};
+		const result = await cleanPlatform({ client, fixture, ownedState, save: async () => {} });
+		assert.deepEqual(deletedUsers, ['pending-user']);
+		assert.deepEqual(result.removedAuditIds, ['resend-event']);
+		assert.deepEqual(
+			rows.audit_logs.map(({ id }) => id),
+			['unrelated-event']
+		);
+		assert.equal(ownedState.platform, undefined);
+	});
 
 test('recording User audit IDs persists only the explicit observed event, not other matching history', async () => {
 	const observedId = '11111111-1111-4111-8111-111111111111';

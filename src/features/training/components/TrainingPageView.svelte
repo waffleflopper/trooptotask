@@ -51,12 +51,10 @@
 			trainingViewsStore.loading ||
 			personnelTrainingsStore.loading
 	);
-	const exportDisabled = $derived(
-		loading ||
-			exportState.status === 'exporting' ||
-			ctx.filteredPersonnel.length === 0 ||
-			trainingTypesStore.items.length === 0
+	const exportUnavailable = $derived(
+		loading || ctx.filteredPersonnel.length === 0 || trainingTypesStore.items.length === 0
 	);
+	const exportDisabled = $derived(exportUnavailable || exportState.status === 'exporting');
 	const exportDisabledReason = $derived.by(() => {
 		if (exportState.status === 'exporting') return undefined;
 		if (loading) return 'Export unavailable while loading.';
@@ -165,7 +163,7 @@
 				onclick: () => void exportExcel(),
 				icon: 'download',
 				loading: exportState.status === 'exporting',
-				disabled: exportDisabled,
+				disabled: exportUnavailable,
 				disabledReason: exportDisabledReason
 			}
 		];

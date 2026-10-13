@@ -12,6 +12,7 @@
 		importLoading?: boolean;
 		importDisabledReason?: string;
 		planningDisabled?: boolean;
+		reportsDisabled?: boolean;
 		onRun?: (name: string) => void;
 	};
 
@@ -26,6 +27,7 @@
 		importLoading = false,
 		importDisabledReason,
 		planningDisabled = false,
+		reportsDisabled = false,
 		onRun
 	}: Props = $props();
 
@@ -97,7 +99,7 @@
 					} satisfies ToolbarItem
 				]
 			: []),
-		{ kind: 'action', id: 'reports', label: 'Reports', href: '/reports', icon: 'chart' },
+		{ kind: 'action', id: 'reports', label: 'Reports', href: '/reports', icon: 'chart', disabled: reportsDisabled },
 		{
 			kind: 'action',
 			id: 'planning',

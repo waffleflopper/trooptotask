@@ -8,12 +8,16 @@
 	import { formatDisplayDate, formatDisplayDateTime } from '$lib/utils/dates';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Badge } from '$lib/components/ui/badge';
-	import { Spinner } from '$lib/components/ui/spinner';
 	import SuspendModal from '$features/platform-admin/components/SuspendModal.svelte';
 	import { adminBadgeVariant, formatAdminLabel } from '$features/platform-admin/components/adminTheme';
 	import * as Card from '$lib/components/ui/card';
 	import * as Empty from '$lib/components/ui/empty';
 	import * as PageShell from '$lib/components/patterns/page-shell';
+	import {
+		WorkspaceToolbar,
+		type ToolbarItem,
+		type WorkspaceToolbarProps
+	} from '$lib/components/patterns/workspace-toolbar';
 	import * as Table from '$lib/components/ui/table';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { settleAction } from '$lib/utils/settleAction';
@@ -24,6 +28,8 @@
 	let sendingReset = $state(false);
 	let sendingInvite = $state(false);
 	let emailError = $state<string | null>(null);
+	let resetForm = $state<HTMLFormElement | null>(null);
+	let inviteForm = $state<HTMLFormElement | null>(null);
 	let navigationLifetime = $state(0);
 	const canSuspend = $derived(data.adminRole === 'super_admin');
 
@@ -77,10 +83,19 @@
 						else if (result.type === 'success' && typeof result.data?.message === 'string')
 							toastStore.success(result.data.message);
 					},
-					focus: () => [submitter]
+					focus: () => [submitter, toolbarControlOrMore(kind === 'reset' ? 'reset-password' : 'resend-invite')]
 				});
 			};
 		};
+
+	function toolbarControlOrMore(id: string): HTMLElement | null {
+		const toolbar = document.querySelector(`[data-slot="workspace-toolbar"][aria-label="${toolbarLabel}"]`);
+		return (
+			toolbar?.querySelector<HTMLElement>(`[data-toolbar-row] [data-toolbar-item="${id}"] button`) ??
+			toolbar?.querySelector<HTMLElement>('[data-toolbar-more] button') ??
+			null
+		);
+	}
 
 	async function handleSuspendComplete(lifetime: number, targetId: string, isSuspended: boolean) {
 		if (targetId !== data.user.id || lifetime !== navigationLifetime) return;
@@ -91,7 +106,38 @@
 		toastStore.success(isSuspended ? 'User suspended' : 'User unsuspended');
 	}
 
-	const initials = $derived(data.user.email.slice(0, 2).toUpperCase());
+	const toolbarLabel = 'User controls';
+	const toolbarItems = $derived.by<ToolbarItem[]>(() => {
+		const items: ToolbarItem[] = [];
+		if (data.user.emailConfirmationStatus === 'pending') {
+			items.push({
+				kind: 'action',
+				id: 'resend-invite',
+				label: 'Resend Invite',
+				loading: sendingInvite,
+				onclick: () => inviteForm?.requestSubmit()
+			});
+		}
+		if (canSuspend) {
+			items.push({
+				kind: 'action',
+				id: 'suspend',
+				label: data.isSuspended ? 'Unsuspend User' : 'Suspend User',
+				destructive: !data.isSuspended,
+				menuOnly: true,
+				onclick: () => (showSuspendModal = true)
+			});
+		}
+		return items;
+	});
+	const toolbarPrimary = $derived<WorkspaceToolbarProps['primary']>({
+		kind: 'action',
+		id: 'reset-password',
+		label: 'Send Password Reset',
+		loading: sendingReset,
+		onclick: () => resetForm?.requestSubmit()
+	});
+
 	const emailConfirmationLabel = $derived(data.user.emailConfirmationStatus === 'confirmed' ? 'Confirmed' : 'Pending');
 	const emailConfirmationDetail = $derived(
 		data.user.emailConfirmedAt
@@ -119,11 +165,6 @@
 			<Badge variant={data.user.emailConfirmationStatus === 'confirmed' ? 'success' : 'warning'}>
 				Email {data.user.emailConfirmationStatus}
 			</Badge>
-		{/snippet}
-		{#snippet actions()}
-			<div class="flex size-12 items-center justify-center rounded-full border bg-muted text-sm font-semibold">
-				{initials}
-			</div>
 			<Badge variant={adminBadgeVariant(data.isSuspended ? 'suspended' : 'active')}>
 				{data.isSuspended ? 'Suspended' : 'Active'}
 			</Badge>
@@ -140,29 +181,23 @@
 		<PageShell.Metric label="Email Confirmation" value={emailConfirmationLabel} detail={emailConfirmationDetail} />
 	</PageShell.FactGrid>
 
-	<div class="flex flex-wrap gap-2">
-		<form method="POST" action="?/resetPassword" use:enhance={accountEmailEnhance('reset')}>
-			<Button type="submit" variant="outline" aria-disabled={sendingReset} aria-busy={sendingReset}>
-				{#if sendingReset}<Spinner color="currentColor" />{/if}
-				Send Password Reset
-			</Button>
-		</form>
-
-		{#if data.user.emailConfirmationStatus === 'pending'}
-			<form method="POST" action="?/resendInvite" use:enhance={accountEmailEnhance('invite')}>
-				<Button type="submit" variant="outline" aria-disabled={sendingInvite} aria-busy={sendingInvite}>
-					{#if sendingInvite}<Spinner color="currentColor" />{/if}
-					Resend Invite
-				</Button>
-			</form>
-		{/if}
-
-		{#if canSuspend}
-			<Button variant={data.isSuspended ? 'outline' : 'destructive'} onclick={() => (showSuspendModal = true)}>
-				{data.isSuspended ? 'Unsuspend User' : 'Suspend User'}
-			</Button>
-		{/if}
-	</div>
+	<WorkspaceToolbar ariaLabel={toolbarLabel} items={toolbarItems} primary={toolbarPrimary} />
+	<form
+		bind:this={resetForm}
+		method="POST"
+		action="?/resetPassword"
+		use:enhance={accountEmailEnhance('reset')}
+		hidden
+	></form>
+	{#if data.user.emailConfirmationStatus === 'pending'}
+		<form
+			bind:this={inviteForm}
+			method="POST"
+			action="?/resendInvite"
+			use:enhance={accountEmailEnhance('invite')}
+			hidden
+		></form>
+	{/if}
 
 	{#if emailError}
 		<Alert.Root variant="destructive">

@@ -10,6 +10,7 @@ afterEach(() => {
 
 describe('WorkspaceToolbarIcon', () => {
 	it.each([
+		['archive', 'lucide-archive'],
 		['arrow-left', 'lucide-arrow-left'],
 		['book-open', 'lucide-book-open'],
 		['calendar-days', 'lucide-calendar-days'],
@@ -17,10 +18,12 @@ describe('WorkspaceToolbarIcon', () => {
 		['clipboard-check', 'lucide-clipboard-check'],
 		['clipboard-list', 'lucide-clipboard-list'],
 		['download', 'lucide-download'],
+		['file-plus', 'lucide-file-plus-corner'],
 		['plus', 'lucide-plus'],
 		['printer', 'lucide-printer'],
 		['settings', 'lucide-settings'],
-		['upload', 'lucide-upload']
+		['upload', 'lucide-upload'],
+		['user-plus', 'lucide-user-plus']
 	] as [IconName, string][])('renders %s as a hidden %s icon', (icon, lucideClass) => {
 		const { container } = render(WorkspaceToolbarIcon, { props: { icon } });
 

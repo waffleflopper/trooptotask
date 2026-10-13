@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
 	import * as Tabs from '$lib/components/ui/tabs';
+	import { WorkspaceToolbar, type ToolbarItem } from '$lib/components/patterns/workspace-toolbar';
 	import type { CalendarSettingsPageAccess } from '../contracts';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
@@ -13,8 +13,6 @@
 	import CalendarStatusSettingsSection from '$features/calendar/components/CalendarStatusSettingsSection.svelte';
 	import CalendarOff from '@lucide/svelte/icons/calendar-off';
 	import Palette from '@lucide/svelte/icons/palette';
-	import Plus from '@lucide/svelte/icons/plus';
-	import Search from '@lucide/svelte/icons/search';
 	import Settings from '@lucide/svelte/icons/settings';
 	import Users from '@lucide/svelte/icons/users';
 
@@ -57,6 +55,10 @@
 			getCount: () => specialDaysStore.items.length
 		}
 	];
+
+	const toolbarItems = $derived<ToolbarItem[]>([
+		{ kind: 'action', id: 'back-to-calendar', label: 'Back to Calendar', href: `/org/${orgUrlSegment}/calendar` }
+	]);
 
 	const activeSectionDef = $derived(sectionDefs.find((s) => s.key === activeSection) ?? sectionDefs[0]);
 
@@ -109,38 +111,27 @@
 					{/each}
 				</Tabs.List>
 			</div>
-
-			<div class="border-t border-border px-4 py-3">
-				<Button variant="outline" size="sm" class="w-full" href={`/org/${orgUrlSegment}/calendar`}>
-					Back to Calendar
-				</Button>
-			</div>
 		</aside>
 
 		<div class="flex min-w-0 flex-1 flex-col overflow-hidden">
-			<div class="flex flex-wrap items-center justify-between gap-4 border-b border-border px-6 py-4">
+			<div class="flex flex-col gap-3 border-b border-border px-6 py-4">
 				<div>
 					<h3 class="text-base font-semibold">{activeSectionDef.label}</h3>
 					<p class="text-sm text-muted-foreground">{activeSectionDef.description}</p>
 				</div>
-				<div class="flex min-w-0 flex-wrap items-center gap-2">
-					<div class="relative min-w-0">
-						<Search class="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-						<Input
-							type="text"
-							placeholder="Filter..."
-							aria-label="Filter {activeSectionDef.label}"
-							class="w-48 max-w-full pl-8"
-							bind:value={searchQuery}
-						/>
-					</div>
-					{#if canMutate}
-						<Button size="sm" onclick={openAddForActiveSection}>
-							<Plus />
-							Add new
-						</Button>
-					{/if}
-				</div>
+				<WorkspaceToolbar
+					ariaLabel="Calendar settings controls"
+					items={toolbarItems}
+					search={{
+						label: `Filter ${activeSectionDef.label}`,
+						placeholder: 'Filter...',
+						value: searchQuery,
+						onValueChange: (value) => (searchQuery = value)
+					}}
+					primary={canMutate
+						? { kind: 'action', id: 'add-new', label: 'Add new', icon: 'plus', onclick: openAddForActiveSection }
+						: undefined}
+				/>
 			</div>
 
 			<Tabs.Content value="status" class="overflow-y-auto p-6">

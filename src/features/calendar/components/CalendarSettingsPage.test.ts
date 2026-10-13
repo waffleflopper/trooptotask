@@ -4,6 +4,7 @@ import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import CalendarSettingsPage from './CalendarSettingsPage.svelte';
+import { stubWorkspaceToolbarLayout } from '$lib/test-support/workspaceToolbarLayout';
 import { toastStore } from '$lib/stores/toast.svelte';
 import type { AssignmentType, SpecialDay, StatusType } from '$features/calendar/contracts';
 
@@ -121,6 +122,33 @@ describe('CalendarSettingsPage', () => {
 
 		expect(screen.getByText('Access restricted.')).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'View calendar' }).getAttribute('href')).toBe('/org/org-1/calendar');
+		expect(screen.queryByRole('toolbar', { name: 'Calendar settings controls' })).toBeNull();
+	});
+
+	it('filters the section from the toolbar and keeps Add new pinned when Back to Calendar folds into More', async () => {
+		const layOut = stubWorkspaceToolbarLayout();
+		statusTypesStoreMock.items = [
+			{ id: 'leave', name: 'Leave', color: '#2563eb', textColor: '#ffffff', sortOrder: 0 },
+			{ id: 'tdy', name: 'TDY', color: '#16a34a', textColor: '#ffffff', sortOrder: 1 }
+		] as StatusType[];
+		render(CalendarSettingsPage, { props: { org } });
+		await layOut(2000);
+
+		const toolbar = screen.getByRole('toolbar', { name: 'Calendar settings controls' });
+		await fireEvent.input(within(toolbar).getByRole('searchbox', { name: 'Filter Status Types' }), {
+			target: { value: 'tdy' }
+		});
+		await waitFor(() => expect(screen.queryByText('Leave')).toBeNull());
+		expect(screen.getAllByText('TDY').length).toBeGreaterThan(0);
+
+		await layOut(1);
+		expect(within(toolbar).queryByRole('link', { name: 'Back to Calendar' })).toBeNull();
+		expect(within(toolbar).getByRole('button', { name: 'Add new' })).toBeTruthy();
+		const more = within(toolbar).getByRole('button', { name: 'More Calendar settings controls' });
+		more.focus();
+		await fireEvent.keyDown(more, { key: 'Enter' });
+		expect(within(await screen.findByRole('menu')).getByRole('menuitem', { name: 'Back to Calendar' })).toBeTruthy();
+		vi.unstubAllGlobals();
 	});
 
 	it('allows Calendar configure capability', () => {

@@ -3,7 +3,7 @@ import { createClientAccess } from '$lib/access/clientAccess';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
-import { stubWorkspaceToolbarLayout } from '$lib/test-support/workspaceToolbarLayout';
+import { stubToolbarWidths } from '$lib/test-support/toolbarWidths';
 import CalendarPageView from './CalendarPageView.svelte';
 import { CalendarPageContext, type CalendarPageData } from '../contexts/CalendarPageContext.svelte';
 import { availabilityStore } from '$features/calendar/stores/availability.svelte';
@@ -262,7 +262,7 @@ describe('CalendarPageView', () => {
 
 	it('reaches every Calendar control an admin may use from More when the row folds', async () => {
 		mutableAvailabilityStore.loading = false;
-		const layOut = stubWorkspaceToolbarLayout();
+		const { layOut } = stubToolbarWidths();
 		calendarStore.goToMonth(2026, 11);
 		const ctx = makeContext(mockData, makeMockOrg({ userRole: 'owner' }));
 		render(CalendarPageView, { props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' } } });
@@ -283,7 +283,7 @@ describe('CalendarPageView', () => {
 
 	it('sends Planning, Reports and Settings to their Calendar routes from the row and from More', async () => {
 		mutableAvailabilityStore.loading = false;
-		const layOut = stubWorkspaceToolbarLayout();
+		const { layOut } = stubToolbarWidths();
 		const ctx = makeContext(mockData, makeMockOrg({ userRole: 'owner' }));
 		render(CalendarPageView, { props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' } } });
 		await layOut(4000);
@@ -313,7 +313,7 @@ describe('CalendarPageView', () => {
 
 	it('filters the roster from the folded Group submenu', async () => {
 		mutableAvailabilityStore.loading = false;
-		const layOut = stubWorkspaceToolbarLayout();
+		const { layOut } = stubToolbarWidths();
 		const data = { ...mockData, personnel: filterPersonnel, allPersonnel: filterPersonnel };
 		const ctx = makeContext(data, makeMockOrg());
 		render(CalendarPageView, { props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' } } });
@@ -332,7 +332,7 @@ describe('CalendarPageView', () => {
 
 	it('keeps Calendar operations a viewer may not use off the row and out of More', async () => {
 		mutableAvailabilityStore.loading = false;
-		const layOut = stubWorkspaceToolbarLayout();
+		const { layOut } = stubToolbarWidths();
 		const ctx = makeContext(mockData, makeMockOrg());
 		render(CalendarPageView, { props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' } } });
 		await layOut(1);
@@ -347,7 +347,7 @@ describe('CalendarPageView', () => {
 
 	it('keeps display toggles and exports in More while the row has room', async () => {
 		mutableAvailabilityStore.loading = false;
-		const layOut = stubWorkspaceToolbarLayout();
+		const { layOut } = stubToolbarWidths();
 		const ctx = makeContext(mockData, makeMockOrg());
 		render(CalendarPageView, { props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' } } });
 		await layOut(4000);

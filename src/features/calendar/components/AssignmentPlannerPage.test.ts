@@ -3,7 +3,7 @@ import { createClientAccess, type ClientAccessFacts } from '$lib/access/clientAc
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { fireEvent, render, screen, cleanup, waitFor, act, within } from '@testing-library/svelte';
-import { stubWorkspaceToolbarLayout } from '$lib/test-support/workspaceToolbarLayout';
+import { stubToolbarWidths } from '$lib/test-support/toolbarWidths';
 import AssignmentPlannerPage from './AssignmentPlannerPage.svelte';
 import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
@@ -129,7 +129,7 @@ describe('AssignmentPlannerPage', () => {
 	});
 
 	it('opens Calendar from More when the row folds', async () => {
-		const layOut = stubWorkspaceToolbarLayout();
+		const { layOut } = stubToolbarWidths();
 		renderPage();
 		await layOut(1);
 

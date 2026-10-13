@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { useDataTableSelection } from '$lib/components/ui/data-table';
-import { stubWorkspaceToolbarLayout } from '$lib/test-support/workspaceToolbarLayout';
+import { stubToolbarWidths } from '$lib/test-support/toolbarWidths';
 import type { Personnel } from '$features/personnel/contracts';
 import type { DataTableSelectionState } from '$lib/components/ui/data-table';
 import RosterPicker from './RosterPicker.svelte';
@@ -86,7 +86,7 @@ describe('RosterPicker', () => {
 	});
 
 	it('keeps search on the row and runs Select shown from More when the row folds', async () => {
-		const layOut = stubWorkspaceToolbarLayout();
+		const { layOut } = stubToolbarWidths();
 		const selection = renderPicker();
 		await layOut(1);
 

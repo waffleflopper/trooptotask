@@ -26,6 +26,7 @@ interface StepResult {
 	stepType: string;
 	completed: boolean;
 	currentStage: string | null;
+	progressChangedAt: string;
 }
 
 interface AdvanceStageInput {
@@ -69,7 +70,8 @@ export async function advanceStage(ctx: OnboardingWorkflowPorts, input: AdvanceS
 		stepName: updated.stepName,
 		stepType: updated.stepType,
 		completed: updated.completed,
-		currentStage: updated.currentStage
+		currentStage: updated.currentStage,
+		progressChangedAt: updated.progressChangedAt
 	};
 }
 
@@ -149,6 +151,7 @@ export async function toggleCheckbox(ctx: OnboardingWorkflowPorts, input: Toggle
 		stepName: updated.stepName,
 		stepType: updated.stepType,
 		completed: updated.completed,
-		currentStage: updated.currentStage
+		currentStage: updated.currentStage,
+		progressChangedAt: updated.progressChangedAt
 	};
 }

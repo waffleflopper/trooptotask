@@ -47,7 +47,8 @@ describe('/api/onboarding-resync route config', () => {
 								completed: false,
 								current_stage: null,
 								notes: [],
-								active: false
+								active: false,
+								progress_changed_at: '2026-09-01T12:00:00.000Z'
 							}
 						]
 					};

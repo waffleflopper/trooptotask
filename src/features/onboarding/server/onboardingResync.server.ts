@@ -27,6 +27,7 @@ interface ResyncStepResult {
 	currentStage: string | null;
 	notes: Array<{ text: string; timestamp: string; userId: string }>;
 	active: boolean;
+	progressChangedAt: string;
 }
 
 interface ResyncResult {
@@ -48,7 +49,8 @@ function mapToResult(row: OnboardingReconciliationStepRow): ResyncStepResult {
 		completed: row.completed,
 		currentStage: row.current_stage,
 		notes: row.notes,
-		active: row.active
+		active: row.active,
+		progressChangedAt: row.progress_changed_at
 	};
 }
 

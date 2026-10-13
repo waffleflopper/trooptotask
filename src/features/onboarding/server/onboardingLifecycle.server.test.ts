@@ -123,7 +123,8 @@ const savedPacket: OnboardingPacketCreationResult = {
 			completed: false,
 			current_stage: null,
 			notes: [],
-			active: true
+			active: true,
+			progress_changed_at: '2026-09-01T12:00:00.000Z'
 		},
 		{
 			id: 'saved-paperwork',
@@ -137,7 +138,8 @@ const savedPacket: OnboardingPacketCreationResult = {
 			completed: false,
 			current_stage: 'with soldier',
 			notes: [],
-			active: true
+			active: true,
+			progress_changed_at: '2026-09-01T12:00:00.000Z'
 		},
 		{
 			id: 'saved-training',
@@ -151,7 +153,8 @@ const savedPacket: OnboardingPacketCreationResult = {
 			completed: false,
 			current_stage: null,
 			notes: [],
-			active: true
+			active: true,
+			progress_changed_at: '2026-09-01T12:00:00.000Z'
 		}
 	]
 };
@@ -238,7 +241,8 @@ describe('startOnboarding', () => {
 					completed: false,
 					currentStage: null,
 					notes: [],
-					active: true
+					active: true,
+					progressChangedAt: '2026-09-01T12:00:00.000Z'
 				},
 				{
 					id: 'saved-paperwork',
@@ -252,7 +256,8 @@ describe('startOnboarding', () => {
 					completed: false,
 					currentStage: 'with soldier',
 					notes: [],
-					active: true
+					active: true,
+					progressChangedAt: '2026-09-01T12:00:00.000Z'
 				},
 				{
 					id: 'saved-training',
@@ -266,7 +271,8 @@ describe('startOnboarding', () => {
 					completed: false,
 					currentStage: null,
 					notes: [],
-					active: true
+					active: true,
+					progressChangedAt: '2026-09-01T12:00:00.000Z'
 				}
 			]
 		});

@@ -144,6 +144,80 @@ export async function seedOnboarding({ client, fixture, kind, tag, ownedState, s
 			}));
 		});
 		batches.push(['personnel', people]);
+	} else if (kind === 'onboarding-status') {
+		const daysAgo = (days) => new Date(Date.now() - days * 86400000).toISOString();
+		const dateAgo = (days) => daysAgo(days).slice(0, 10);
+		// Each active packet pins one List status; the paperwork step's progress time sets its days at stage.
+		const examples = [
+			['stalled', 'groupA', 20, { completed: false, current_stage: 'Reviewed', changed: 7 }],
+			['ready', 'groupA', 10, { completed: true, current_stage: 'Filed', changed: 3 }],
+			['onTrack', 'groupB', 9, { completed: false, current_stage: 'Submitted', changed: 6 }],
+			['new', 'groupA', 0, { completed: false, current_stage: null, changed: 0 }]
+		];
+		people = examples.map(([key, group]) => ({
+			id: randomUUID(),
+			organization_id: fixture.ids.orgA,
+			group_id: fixture.ids[group],
+			rank: 'SPC',
+			first_name: 'Synthetic',
+			last_name: 'Status' + key + tag,
+			slug: 'map-status-' + key.toLowerCase() + '-' + tag
+		}));
+		const active = examples.map(([key, _group, started], index) => ({
+			id: randomUUID(),
+			organization_id: fixture.ids.orgA,
+			personnel_id: people[index].id,
+			template_id: fixture.ids.onboardingTemplate,
+			started_at: dateAgo(started),
+			status: 'in_progress',
+			completed_at: null,
+			cancelled_at: null,
+			key
+		}));
+		// Three finished packets inside the 90-day window give a typical figure of 10 days.
+		const finished = [8, 10, 12].map((days, index) => ({
+			id: randomUUID(),
+			organization_id: fixture.ids.orgA,
+			personnel_id: people[index].id,
+			template_id: fixture.ids.onboardingTemplate,
+			started_at: dateAgo(30),
+			status: 'completed',
+			completed_at: dateAgo(30 - days),
+			cancelled_at: null,
+			key: 'finished' + days
+		}));
+		packets = [...active, ...finished];
+		progress = active.flatMap((packet, index) => {
+			const paperwork = examples[index][3];
+			return [
+				{
+					step_name: 'Status Orientation ' + tag,
+					step_type: 'checkbox',
+					completed: packet.key !== 'new',
+					stages: null,
+					current_stage: null,
+					progress_changed_at: daysAgo(examples[index][2])
+				},
+				{
+					step_name: 'Status Finance ' + tag,
+					step_type: 'paperwork',
+					completed: paperwork.completed,
+					stages: ['Submitted', 'Reviewed', 'Filed'],
+					current_stage: paperwork.current_stage,
+					progress_changed_at: daysAgo(paperwork.changed)
+				}
+			].map((step, sort_order) => ({
+				id: randomUUID(),
+				organization_id: fixture.ids.orgA,
+				onboarding_id: packet.id,
+				template_step_id: null,
+				sort_order,
+				active: true,
+				notes: [],
+				...step
+			}));
+		});
+		batches.push(['personnel', people]);
 	} else if (kind === 'onboarding-history') {
 		const startedAt = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
 		const examples = [

@@ -5,6 +5,7 @@
  * - `startOnboarding(personnelId, startedAt, templateId)` — success requires a saved configured template; unavailable selections may be sent as null and return failure
  * - `toggleCheckbox(stepId, completed)` — marks a step complete/incomplete
  * - `advanceStage(stepId, stageName)` — advances a multi-stage step (e.g., training steps)
+ * - `addNote(stepId, text)` — appends an attributed note to a step
  * - `resync(onboardingId)` — reconciles steps when the template was edited after start
  * - `switchTemplate(onboardingId, newTemplateId)` — reassigns to a different template
  * - `cancelOnboarding(id)` / `completeOnboarding(id)` — lifecycle transitions
@@ -16,6 +17,7 @@ import { defineStore } from '$lib/stores/core';
 import type { Store, StoreInternals } from '$lib/stores/core';
 import { formatToday } from '$lib/utils/dates';
 import type { PersonnelOnboarding, OnboardingStepProgress } from '../onboarding.types';
+import type { OnboardingNoteAppendResult } from '../contracts';
 
 interface OnboardingExtensions extends Record<string, unknown> {
 	readonly activeList: PersonnelOnboarding[];
@@ -32,6 +34,7 @@ interface OnboardingExtensions extends Record<string, unknown> {
 	) => Promise<PersonnelOnboarding | null>;
 	toggleCheckbox: (stepId: string, completed: boolean) => Promise<boolean>;
 	advanceStage: (stepId: string, stageName: string) => Promise<boolean>;
+	addNote: (stepId: string, text: string) => Promise<boolean>;
 	removeDeprecatedStep: (stepId: string) => Promise<boolean>;
 	resync: (onboardingId: string) => Promise<{ success: boolean; error?: string }>;
 	switchTemplate: (onboardingId: string, newTemplateId: string) => Promise<{ success: boolean; error?: string }>;
@@ -98,6 +101,15 @@ function enhance(
 				data: updatedSteps ? { steps: updatedSteps } : {}
 			});
 		}
+	}
+
+	/** The database restarts the step's clock only when it moves, so a click on where it already is keeps its time. */
+	function withProgress(
+		step: OnboardingStepProgress,
+		next: Pick<OnboardingStepProgress, 'completed' | 'currentStage'>
+	): OnboardingStepProgress {
+		const moved = next.completed !== step.completed || next.currentStage !== step.currentStage;
+		return { ...step, ...next, progressChangedAt: moved ? new Date().toISOString() : step.progressChangedAt };
 	}
 
 	function applyStepMutation(stepId: string, update: StepMutation['update'], progress = false) {
@@ -294,7 +306,11 @@ function enhance(
 
 		async toggleCheckbox(stepId: string, completed: boolean): Promise<boolean> {
 			const version = organizationVersion;
-			const mutation = applyStepUpdate(stepId, (s) => ({ ...s, completed }), true);
+			const mutation = applyStepUpdate(
+				stepId,
+				(s) => withProgress(s, { completed, currentStage: s.currentStage }),
+				true
+			);
 			if (!mutation) return false;
 
 			try {
@@ -304,11 +320,19 @@ function enhance(
 					body: JSON.stringify({ action: 'toggleCheckbox', stepId, completed })
 				});
 				if (!res.ok) throw new Error('Failed to toggle checkbox');
-				const result: Pick<OnboardingStepProgress, 'completed' | 'currentStage'> = await res.json();
+				const result: Pick<OnboardingStepProgress, 'completed' | 'currentStage' | 'progressChangedAt'> =
+					await res.json();
 				if (version !== organizationVersion) return false;
 				commitStepUpdate(mutation, (steps) =>
 					steps.map((step) =>
-						step.id === stepId ? { ...step, completed: result.completed, currentStage: result.currentStage } : step
+						step.id === stepId
+							? {
+									...step,
+									completed: result.completed,
+									currentStage: result.currentStage,
+									progressChangedAt: result.progressChangedAt
+								}
+							: step
 					)
 				);
 				return true;
@@ -329,7 +353,11 @@ function enhance(
 			const stages = step.stages ?? [];
 			const isLast = stageName === stages[stages.length - 1];
 
-			const mutation = applyStepUpdate(stepId, (s) => ({ ...s, currentStage: stageName, completed: isLast }), true);
+			const mutation = applyStepUpdate(
+				stepId,
+				(s) => withProgress(s, { completed: isLast, currentStage: stageName }),
+				true
+			);
 			if (!mutation) return false;
 
 			try {
@@ -339,12 +367,45 @@ function enhance(
 					body: JSON.stringify({ action: 'advanceStage', stepId, stageName })
 				});
 				if (!res.ok) throw new Error('Failed to advance stage');
-				const result: Pick<OnboardingStepProgress, 'completed' | 'currentStage'> = await res.json();
+				const result: Pick<OnboardingStepProgress, 'completed' | 'currentStage' | 'progressChangedAt'> =
+					await res.json();
 				if (version !== organizationVersion) return false;
 				commitStepUpdate(mutation, (steps) =>
 					steps.map((step) =>
-						step.id === stepId ? { ...step, completed: result.completed, currentStage: result.currentStage } : step
+						step.id === stepId
+							? {
+									...step,
+									completed: result.completed,
+									currentStage: result.currentStage,
+									progressChangedAt: result.progressChangedAt
+								}
+							: step
 					)
+				);
+				return true;
+			} catch {
+				if (version !== organizationVersion) return false;
+				resolveStepMutation(mutation);
+				return false;
+			}
+		},
+
+		async addNote(stepId: string, text: string): Promise<boolean> {
+			const version = organizationVersion;
+			const mutation = applyStepUpdate(stepId, (step) => step);
+			if (!mutation) return false;
+
+			try {
+				const res = await fetch(apiUrl('onboarding-steps'), {
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ action: 'addNote', stepId, text })
+				});
+				if (!res.ok) throw new Error('Failed to add note');
+				const result: OnboardingNoteAppendResult = await res.json();
+				if (version !== organizationVersion) return false;
+				commitStepUpdate(mutation, (steps) =>
+					steps.map((step) => (step.id === stepId ? { ...step, notes: result.notes } : step))
 				);
 				return true;
 			} catch {

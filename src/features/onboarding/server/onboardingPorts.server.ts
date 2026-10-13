@@ -67,7 +67,7 @@ export interface OnboardingTrainingPorts extends OnboardingResourcePorts {
 
 export interface OnboardingQueryPorts extends OnboardingPolicyPorts {
 	readonly onboardingCatalog: Pick<OnboardingCatalogPersistence, 'listTemplates' | 'listSteps'>;
-	readonly onboardingWorkflow: Pick<OnboardingWorkflowPersistence, 'listPackets'>;
+	readonly onboardingWorkflow: Pick<OnboardingWorkflowPersistence, 'listPackets' | 'listCompletionsSince'>;
 	readonly loadRankCatalog: () => Promise<import('$features/personnel/contracts').OrganizationRankCatalogEntry[]>;
 	readonly personnelOnboardingRoster: Pick<PersonnelOnboardingRosterPort, 'listRoster'>;
 	readonly trainingOnboardingReferences: Pick<TrainingOnboardingReferencesPort, 'listTypes' | 'completedTypeIds'>;

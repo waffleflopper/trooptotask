@@ -196,6 +196,21 @@ export class OnboardingPageContext {
 		return this.rosterView.groupName(personnelId);
 	}
 
+	getPerson(personnelId: string): Personnel | undefined {
+		return this.rosterView.getById(personnelId);
+	}
+
+	/** The Soldier's personnel record, when this member may read it (the record page requires sensitive-record reads). */
+	profileUrl(personnelId: string): string | null {
+		const person = this.rosterView.getById(personnelId);
+		if (!person?.slug) return null;
+		const allowed = this.#org.affordanceForFeatureAction(
+			POLICY_ACTION_CATALOG.personnel.readSensitiveRecords,
+			this.getPersonnelPolicyResource(personnelId)
+		).visible;
+		return allowed ? `/org/${this.#org.orgUrlSegment ?? this.#org.orgId}/personnel/${person.slug}` : null;
+	}
+
 	getPersonnelPolicyResource(personnelId: string): PolicyResource {
 		const personnel = this.rosterView.getById(personnelId);
 		return personnel?.groupId ? { kind: 'group', groupId: personnel.groupId } : { kind: 'organization' };
@@ -270,6 +285,14 @@ export class OnboardingPageContext {
 		if (!this.#isCurrent(version)) return;
 		const saved = await onboardingStore.advanceStage(step.id, stageName);
 		if (this.#isCurrent(version) && !saved) toastStore.error('Could not update this stage. Try again.');
+	}
+
+	async handleAddNote(step: OnboardingStepProgress, text: string): Promise<boolean> {
+		const version = onboardingStore.organizationVersion;
+		if (!this.#isCurrent(version)) return false;
+		const saved = await onboardingStore.addNote(step.id, text);
+		if (this.#isCurrent(version) && !saved) toastStore.error('Could not add this note. Try again.');
+		return saved;
 	}
 
 	async handleCancelOnboarding(id: string) {

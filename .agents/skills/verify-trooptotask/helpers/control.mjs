@@ -132,7 +132,7 @@ const tableSelect = {
 	personnel_onboardings:
 		'id,organization_id,personnel_id,template_id,started_at,completed_at,cancelled_at,status,created_at',
 	onboarding_step_progress:
-		'id,organization_id,onboarding_id,template_step_id,step_name,step_type,training_type_id,stages,sort_order,completed,current_stage,notes,active,updated_at',
+		'id,organization_id,onboarding_id,template_step_id,step_name,step_type,training_type_id,stages,sort_order,completed,current_stage,notes,active,progress_changed_at,updated_at',
 	deletion_requests:
 		'id,organization_id,requested_by,requested_by_email,resource_type,resource_id,resource_description,resource_url,status,denial_reason,reviewed_by,reviewed_at,created_at',
 	rating_scheme_entries:
@@ -879,7 +879,10 @@ async function main() {
 							? [
 									'STEPS',
 									'No templates yet.',
-									'Onboarding Pipeline',
+									'In processing',
+									'No active onboardings',
+									'Set up onboarding',
+									'Onboarding not configured',
 									'Onboarding History',
 									'Access restricted',
 									"You don't have permission to view this page"
@@ -1555,6 +1558,7 @@ async function main() {
 				'onboarding-start',
 				'onboarding-history',
 				'onboarding-consumers',
+				'onboarding-status',
 				'onboarding-retention',
 				'onboarding-retention-1001',
 				'audit',

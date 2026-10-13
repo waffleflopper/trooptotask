@@ -49,6 +49,8 @@ export interface OnboardingBootstrap {
 	trainingTypes: TrainingType[];
 	rankCatalog: OrganizationRankCatalogEntry[];
 	rankCatalogUnavailable: boolean;
+	/** Median days to finish over recent completed packets, or null below three. */
+	typicalDaysToFinish: number | null;
 }
 export type OnboardingWorkspaceData = OnboardingBootstrap;
 export type OnboardingWorkspaceHydrationMode = 'replace' | 'preserve-client';
@@ -98,6 +100,7 @@ export interface OnboardingReconciliationStepRow {
 	current_stage: string | null;
 	notes: Array<{ text: string; timestamp: string; userId: string }>;
 	active: boolean;
+	progress_changed_at: string;
 }
 
 export interface OnboardingReconciliationResult {

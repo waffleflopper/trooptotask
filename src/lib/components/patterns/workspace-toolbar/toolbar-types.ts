@@ -44,7 +44,6 @@ export type ToolbarMultiSelect = ItemIdentity & {
 	onValuesChange: (values: string[]) => void;
 };
 
-/** A `menuOnly` toggle is a display option that always lives in More; `defaultPressed` keeps it from marking More. */
 export type ToolbarToggle = ItemIdentity & {
 	kind: 'toggle';
 	pressed: boolean;

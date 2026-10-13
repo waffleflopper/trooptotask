@@ -3,12 +3,9 @@ import { vi } from 'vitest';
 
 type Observer = { callback: ResizeObserverCallback; targets: Set<Element> };
 
-/**
- * Replaces ResizeObserver so a test can lay every WorkspaceToolbar out at one row width.
- * Each control measures `controlWidth`; `layOut(1)` folds everything a toolbar can fold.
- * Undo with `vi.unstubAllGlobals()`.
- */
-export function stubWorkspaceToolbarLayout(controlWidth = 40): (rowWidth: number) => Promise<void> {
+export type LayOutToolbar = (rowWidth: number) => Promise<void>;
+
+export function stubWorkspaceToolbarLayout(controlWidth = 40): LayOutToolbar {
 	const observers = new Set<Observer>();
 	vi.stubGlobal(
 		'ResizeObserver',

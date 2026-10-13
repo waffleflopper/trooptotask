@@ -114,7 +114,6 @@ const widthKey = (read) => String(Math.round(read.contentWidth * 2) / 2);
 
 // Pure. `down` and `up` are steps `{ width, read, holds }`; `expect` lists the ids in the order they must fold.
 // `pinned` lists the ids that must be on the row, and `search` says search must be present, in every read.
-// `moreAlways` is for a toolbar with menu-only items: More must then be present at every width.
 export function checkSweep({ down, up }, { expect, pinned = [], search = false, moreAlways = false }) {
 	const failures = [];
 	const fail = (check, width, detail) => failures.push({ check, width, detail });

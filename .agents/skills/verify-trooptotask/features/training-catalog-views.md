@@ -12,7 +12,7 @@ An Organization Training configurator defines requirements and saved matrix layo
 
 ## How to get to it (user POV)
 
-Choose `Training` in the Organization navigation. In the Training actions toolbar, open `Manage Types` or `Manage Views`. On the matrix, choose the named saved view in `Training view filter` and switch the Group selector between all available Groups and Alpha. A direct link (a full page load) to `training/types` or `training/views` must enforce the same access rules as visible navigation. Moving between the matrix, `Manage Types` and `Manage Views` reuses the loaded workspace and is not access proof.
+Choose `Training` in the Organization navigation. In the `Training controls` toolbar, open `Manage Types` (the primary action, always on the row) or `Manage Views` (the first control to fold into `More Training controls` as the page narrows; find it with the [shared UI recipe](shared-ui.md#find-a-toolbar-control-on-the-row-or-in-more)). Manage Types shows a `Training type controls` toolbar holding `+ New Type` and, in the detail pane, `Training type detail controls` holding `Edit`. Manage Views shows `Training view controls` with the `Back to Matrix` link and `New View`, and `Training view detail controls` with `Edit`; read-only members see none of the create or edit actions. On the matrix, choose the named saved view in `Training view filter` and switch the Group selector between all available Groups and Alpha. A direct link (a full page load) to `training/types` or `training/views` must enforce the same access rules as visible navigation. Moving between the matrix, `Manage Types` and `Manage Views` reuses the loaded workspace and is not access proof.
 
 ## Driving it with verify:app
 

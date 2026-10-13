@@ -15,7 +15,7 @@ A Training member creates a printable attendance roster from the current Personn
 
 ## How to get to it (user POV)
 
-Sign in to Organization A, choose `Training` in the Organization navigation, then `Sign-In Rosters` in the page actions or overflow menu. Choose `New Roster`, enter a title, adjust rank/Group, date, sort and layout choices, then choose `Generate & Print`. Open the saved row to `Re-print`, attach a `Signed Scan`, download its named file, remove the scan, or delete the roster after confirmation.
+Sign in to Organization A, choose `Training` in the Organization navigation, then `Sign-In Rosters` in the `Training controls` toolbar (in `More Training controls` when it has folded). Choose `New Roster`, enter a title, adjust rank/Group, date, sort and layout choices, then choose `Generate & Print`. Open the saved row to `Re-print`, attach a `Signed Scan`, download its named file, remove the scan, or delete the roster after confirmation.
 
 ## Driving it with verify:app
 

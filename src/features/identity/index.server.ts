@@ -47,7 +47,6 @@ export {
 	sensitiveActionFailureFields,
 	throwSensitiveActionFailure
 } from './sensitiveActionAuthorizer.server';
-export { confirmSensitiveIdentity } from './confirmSensitiveIdentity.server';
 
 export {
 	passwordAttempt,

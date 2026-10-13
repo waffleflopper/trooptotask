@@ -4,6 +4,7 @@
 		PasswordMfaChallenge,
 		passwordRequirements,
 		hasPendingPasswordCompletion,
+		reconciledPasswordState,
 		PASSWORD_MISMATCH_MESSAGE,
 		validatePassword
 	} from '$features/identity';
@@ -45,18 +46,20 @@
 
 	async function readJsonResult(
 		response: Response
-	): Promise<{ ok: boolean; error?: string; code?: string; passwordUpdated?: boolean }> {
+	): Promise<{ ok: boolean; error?: string; code?: string; state?: unknown; passwordUpdated?: boolean }> {
 		try {
 			const payload = (await response.json()) as {
 				ok?: boolean;
 				error?: string;
 				code?: string;
+				state?: unknown;
 				passwordUpdated?: boolean;
 			};
 			return {
 				ok: response.ok && payload?.ok === true && payload.error === undefined,
 				error: typeof payload?.error === 'string' ? payload.error : undefined,
 				code: typeof payload?.code === 'string' ? payload.code : undefined,
+				state: payload?.state,
 				passwordUpdated: payload?.passwordUpdated === true
 			};
 		} catch {
@@ -149,8 +152,9 @@
 			}
 			const updateResult = await readJsonResult(updateResponse);
 			if (updateResult?.code === 'password_reconciliation_required') {
-				completion = 'started';
+				completion = reconciledPasswordState(updateResult);
 				password = confirmPassword = '';
+				if (completion === 'complete') finishPassword();
 				return;
 			}
 			if (hasPendingPasswordCompletion(updateResponse, updateResult)) {

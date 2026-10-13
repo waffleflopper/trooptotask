@@ -628,7 +628,7 @@ describe('server auth hook', () => {
 
 		it.each([
 			{ path: '/auth/login', limit: 10, windowMs: 900_000, anonymous: true },
-			{ path: '/api/auth/confirm-sensitive-action', limit: 60, windowMs: 60_000, anonymous: false }
+			{ path: '/api/auth/mfa/status', limit: 60, windowMs: 60_000, anonymous: false }
 		])(
 			'enforces $path before provider/dispatch effects and permits reset retries',
 			async ({ path, limit, windowMs, anonymous }) => {

@@ -53,8 +53,8 @@ const policies = [
 	{ name: 'admin announcements', path: '/admin/announcements', method: 'POST', limit: 20, windowMs: 60_000 },
 	{ name: 'announcement dismissal', path: '/api/announcements/dismiss', method: 'POST', limit: 20, windowMs: 60_000 },
 	{
-		name: 'password confirmation fallback',
-		path: '/api/auth/confirm-sensitive-action',
+		name: 'authenticated API fallback',
+		path: '/api/auth/mfa/status',
 		method: 'POST',
 		limit: 60,
 		windowMs: 60_000
@@ -110,7 +110,7 @@ it('method mismatches use the shared fallback budget without spending write budg
 	for (let attempt = 0; attempt < 60; attempt++) {
 		expect(checkRateLimit('198.51.100.1', '/auth/renew-invite', 'GET')).toEqual({ limited: false });
 	}
-	expect(checkRateLimit('198.51.100.1', '/api/auth/confirm-sensitive-action', 'POST')).toEqual({
+	expect(checkRateLimit('198.51.100.1', '/api/auth/mfa/status', 'POST')).toEqual({
 		limited: true,
 		retryAfterMs: 60_000
 	});

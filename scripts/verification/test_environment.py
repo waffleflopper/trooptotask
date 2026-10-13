@@ -418,6 +418,41 @@ class TotpCodeTests(unittest.TestCase):
         self.assertEqual(owned.call_count, 1)
 
 
+class SessionAgeTests(unittest.TestCase):
+    def test_ages_only_the_named_account_within_bounds(self):
+        database = Mock()
+        database.age_sessions.return_value = 2
+        with patch.object(environment, "OwnedDatabase", return_value=database):
+            self.assertEqual(environment.session_age(Path("/unused"), USER, "25"),
+                             {"status": "PASS", "sessions": 2, "hours": 25})
+        database.age_sessions.assert_called_once_with(USER, 25)
+
+    def test_out_of_range_hours_noncanonical_user_or_no_session_is_blocked(self):
+        database = Mock()
+        database.age_sessions.return_value = 0
+        with patch.object(environment, "OwnedDatabase", return_value=database) as owned:
+            for hours in ("0", "49", "-1", "1; DROP", "2.5"):
+                with self.assertRaises(environment.Blocked):
+                    environment.session_age(Path("/unused"), USER, hours)
+            with self.assertRaises(environment.Blocked):
+                environment.session_age(Path("/unused"), ORG_A.upper(), "25")
+            with self.assertRaises(environment.Blocked):
+                environment.session_age(Path("/unused"), USER, "25")
+        self.assertEqual(owned.call_count, 1)
+
+
+class SessionCountTests(unittest.TestCase):
+    def test_counts_only_a_canonical_synthetic_account(self):
+        database = Mock()
+        database.count_sessions.return_value = 2
+        with patch.object(environment, "OwnedDatabase", return_value=database) as owned:
+            self.assertEqual(environment.session_count(Path("/unused"), USER), {"status": "PASS", "sessions": 2})
+            with self.assertRaises(environment.Blocked):
+                environment.session_count(Path("/unused"), ORG_A.upper())
+        database.count_sessions.assert_called_once_with(USER)
+        self.assertEqual(owned.call_count, 1)
+
+
 class VerificationAuthConfigTests(unittest.TestCase):
     def test_enables_only_totp_and_owned_redirects(self):
         source = tomllib.loads((Path(__file__).resolve().parents[2] / "supabase/config.toml").read_text())

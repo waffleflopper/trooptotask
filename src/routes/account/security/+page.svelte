@@ -1,6 +1,7 @@
 <script lang="ts">
 	import {
 		hasPendingPasswordCompletion,
+		reconciledPasswordState,
 		PasswordCompletion,
 		PasswordMfaChallenge,
 		PASSWORD_MISMATCH_MESSAGE,
@@ -313,7 +314,7 @@
 			}
 			const payload = (await response.json()) as { ok?: boolean; error?: unknown; code?: string } | null;
 			if (payload?.code === 'password_reconciliation_required') {
-				completion = 'started';
+				completion = reconciledPasswordState(payload);
 				currentPassword = newPassword = confirmPassword = '';
 				return;
 			}

@@ -6,6 +6,7 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import AuthNotice from './AuthNotice.svelte';
 	import PasswordMfaChallenge from './PasswordMfaChallenge.svelte';
+	import { reconciledPasswordState } from './passwordCompletion';
 	let {
 		state: completionState,
 		oncomplete,
@@ -45,11 +46,13 @@
 				requiresMfa = true;
 				return;
 			}
-			if (
-				result?.code === 'password_reconciliation_required' &&
-				['started', 'pending', 'failed', 'expired', 'unavailable'].includes(result.state)
-			)
-				currentState = result.state;
+			if (result?.code === 'password_reconciliation_required') {
+				currentState = reconciledPasswordState(result);
+				if (currentState === 'complete') {
+					await oncomplete();
+					return;
+				}
+			}
 			if (!response.ok || result?.ok !== true || result.error !== undefined) {
 				error =
 					typeof result?.error === 'string'

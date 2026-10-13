@@ -275,6 +275,55 @@ test('other writes, reads, origins and foreign operations pass through without c
 	assert.equal((await control.fetch(blocked)).status, 503);
 });
 
+test('identity faults match only the password, revocation and setup calls they name', async () => {
+	const auth = (path, init) => [`${providerUrl}/auth/v1/${path}`, init];
+	const cases = {
+		'password-update': {
+			hit: auth('user', { method: 'PUT', body: JSON.stringify({ password: 'synthetic', data: {} }) }),
+			pass: [
+				auth('user', { method: 'PUT', body: JSON.stringify({ email: 'next@example.test' }) }),
+				auth('user', { method: 'GET' })
+			]
+		},
+		'password-reconcile': {
+			hit: providerInput('rpc/password_change_attempt', { method: 'POST', body: '{"p_action":"reconcile"}' }),
+			pass: [
+				providerInput('rpc/password_change_attempt', { method: 'POST', body: '{"p_action":"read"}' }),
+				providerInput('rpc/password_change_attempt', { method: 'POST', body: '{"p_action":"complete"}' })
+			]
+		},
+		'password-revocation': {
+			hit: auth('logout?scope=others', { method: 'POST' }),
+			pass: [
+				auth('logout?scope=global', { method: 'POST' }),
+				auth('logout?scope=local', { method: 'POST' }),
+				auth('logout', { method: 'POST' })
+			]
+		},
+		'setup-password': {
+			hit: auth('admin/users', { method: 'POST', body: '{}' }),
+			pass: [auth('admin/users/synthetic-user', { method: 'PUT', body: '{}' }), auth('admin/users', { method: 'GET' })]
+		},
+		'setup-reconcile': {
+			hit: providerInput('rpc/reconcile_account_setup_claim', { method: 'POST' }),
+			pass: [providerInput('rpc/claim_account_setup_link_for_session', { method: 'POST' })]
+		},
+		'setup-finalize': {
+			hit: providerInput('rpc/complete_account_setup_recovery', { method: 'POST' }),
+			pass: [providerInput('rpc/reconcile_account_setup_claim', { method: 'POST' })]
+		}
+	};
+	for (const [name, { hit, pass }] of Object.entries(cases)) {
+		const { control, passed } = faults();
+		control.command('fault-arm', { name });
+		for (const input of pass)
+			assert.equal(await (await control.fetch(...input)).text(), 'real', `${name} passes ${input[0]}`);
+		assert.equal((await control.fetch(...hit)).status, 503, `${name} faults its call`);
+		assert.equal(passed.length, pass.length);
+		assert.equal(control.command('fault-state').controls[name].matches, 1);
+	}
+});
+
 test('a lost-acknowledgment fault lets the provider commit, then replaces its reply with a 503', async () => {
 	const { control, passed } = faults();
 	control.command('fault-arm', { name: 'org-create-lost-ack' });
@@ -289,6 +338,20 @@ test('a lost-acknowledgment fault lets the provider commit, then replaces its re
 		providerStatus: 200
 	});
 	assert.equal(await (await control.fetch(...create)).text(), 'real');
+});
+
+test('a lost-acknowledgment fault returns a failed provider reply unchanged', async () => {
+	const control = createProviderFaultController({
+		providerUrl,
+		fetch: async () => new Response('{"message":"provider rejected"}', { status: 409 })
+	});
+	control.command('fault-arm', { name: 'setup-finalize-lost-ack' });
+	const response = await control.fetch(...providerInput('rpc/complete_account_setup_recovery', { method: 'POST' }));
+	assert.equal(response.status, 409);
+	assert.equal(await response.text(), '{"message":"provider rejected"}');
+	const receipt = control.command('fault-state').controls['setup-finalize-lost-ack'];
+	assert.equal(receipt.phase, 'provider-failed');
+	assert.equal(receipt.call.providerStatus, 409);
 });
 
 test('a pre-commit org-create fault never reaches the provider; other writes pass', async () => {

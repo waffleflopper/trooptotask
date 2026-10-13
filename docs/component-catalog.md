@@ -230,7 +230,7 @@ Item kinds (`toolbar-types.ts`):
 - `toggle`: one boolean with optional `defaultPressed`, which defaults to `false`. It is active when `pressed` differs from the default. A `menuOnly` toggle is a display option that always lives in More.
 - `action`: exactly one of `onclick`, `href` or `menuItems`, plus `icon`, `destructive`, `disabled`, `disabledReason`, `loading` and `menuOnly`. `href` navigates with `goto`. `menuItems` nest as submenus, and a disabled or loading parent blocks its children.
 
-Every item has a unique `id` and a visible `label`. An optional `ariaLabel` keeps an existing accessible name.
+Every item has a unique `id` and a visible `label`. An optional `ariaLabel` keeps an existing accessible name. A `view` option may also set `ariaLabel`: the row button shows `label` and takes `ariaLabel` as its name, and the More radio item shows `ariaLabel ?? label` (for example `30 D` on the row and `30 days` in the menu).
 
 Rank rule:
 

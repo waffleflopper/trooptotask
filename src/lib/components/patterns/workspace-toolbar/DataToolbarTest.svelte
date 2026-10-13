@@ -5,6 +5,7 @@
 		withArchive?: boolean;
 		withExport?: boolean;
 		withDisplayOption?: boolean;
+		abbreviateViewOptions?: boolean;
 		initialSearch?: string;
 		initialStatus?: string[];
 		statusDefaults?: string[];
@@ -18,6 +19,7 @@
 		withArchive = true,
 		withExport = false,
 		withDisplayOption = false,
+		abbreviateViewOptions = false,
 		initialSearch = '',
 		initialStatus = [],
 		statusDefaults = [],
@@ -49,7 +51,9 @@
 			label: 'View mode',
 			options: [
 				{ value: 'month', label: 'Month' },
-				{ value: 'long-range', label: 'Long range' }
+				abbreviateViewOptions
+					? { value: 'long-range', label: 'LR', ariaLabel: 'Long range' }
+					: { value: 'long-range', label: 'Long range' }
 			],
 			value: view,
 			onValueChange: (value) => (view = value)

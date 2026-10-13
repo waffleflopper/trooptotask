@@ -339,6 +339,7 @@
 			<Button
 				variant={view.value === option.value ? 'secondary' : 'outline'}
 				aria-pressed={view.value === option.value}
+				aria-label={option.ariaLabel}
 				tabindex={live ? undefined : -1}
 				onclick={live ? () => view.onValueChange(option.value) : undefined}
 			>

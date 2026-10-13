@@ -62,31 +62,34 @@ INSERT INTO public.onboarding_step_progress (id, organization_id, onboarding_id,
 ('a5000000-0000-4000-8000-000000000801', 'a5000000-0000-4000-8000-000000000101', 'a5000000-0000-4000-8000-000000000701', 'a5000000-0000-4000-8000-000000000501', 'One', 'checkbox'),
 ('a5000000-0000-4000-8000-000000000802', 'a5000000-0000-4000-8000-000000000101', 'a5000000-0000-4000-8000-000000000702', 'a5000000-0000-4000-8000-000000000501', 'Two', 'checkbox'),
 ('a5000000-0000-4000-8000-000000000803', 'a5000000-0000-4000-8000-000000000101', 'a5000000-0000-4000-8000-000000000703', 'a5000000-0000-4000-8000-000000000501', 'Free', 'checkbox');
+INSERT INTO public.onboarding_step_progress (id, organization_id, onboarding_id, step_name, step_type, active) VALUES
+('a5000000-0000-4000-8000-000000000804', 'a5000000-0000-4000-8000-000000000101', 'a5000000-0000-4000-8000-000000000701', 'Removed', 'checkbox', false);
 
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', 'a5000000-0000-4000-8000-000000000001', true);
 SELECT is((SELECT count(*)::integer FROM public.personnel_onboardings), 3, 'Onboarding-only operator reads own Organization workflows');
-SELECT is((SELECT count(*)::integer FROM public.onboarding_step_progress), 3, 'Onboarding-only operator reads step progress');
+SELECT is((SELECT count(*)::integer FROM public.onboarding_step_progress), 4, 'Onboarding-only operator reads step progress');
 SELECT lives_ok($$ UPDATE public.personnel_onboardings SET status = 'completed' WHERE id = 'a5000000-0000-4000-8000-000000000702' $$, 'Onboarding-only operator updates workflow');
 SELECT lives_ok($$ UPDATE public.onboarding_step_progress SET completed = true WHERE id = 'a5000000-0000-4000-8000-000000000801' $$, 'Onboarding-only operator updates progress');
+-- Start and reconcile are the only commands that create packets and steps.
+SELECT throws_ok($$ INSERT INTO public.personnel_onboardings (id, organization_id, personnel_id, status) VALUES ('a5000000-0000-4000-8000-000000000705', 'a5000000-0000-4000-8000-000000000101', 'a5000000-0000-4000-8000-000000000301', 'cancelled') $$, '42501', NULL, 'Onboarding-only operator cannot insert a workflow outside Start');
+SELECT throws_ok($$ INSERT INTO public.onboarding_step_progress (id, organization_id, onboarding_id, step_name, step_type, active) VALUES ('a5000000-0000-4000-8000-000000000805', 'a5000000-0000-4000-8000-000000000101', 'a5000000-0000-4000-8000-000000000701', 'New', 'checkbox', false) $$, '42501', NULL, 'Onboarding-only operator cannot insert progress outside Start or reconcile');
 SAVEPOINT operator_workflow_rows;
-SELECT lives_ok($$ INSERT INTO public.personnel_onboardings (id, organization_id, personnel_id, status) VALUES ('a5000000-0000-4000-8000-000000000705', 'a5000000-0000-4000-8000-000000000101', 'a5000000-0000-4000-8000-000000000301', 'cancelled') $$, 'Onboarding-only operator inserts workflow');
-SELECT lives_ok($$ INSERT INTO public.onboarding_step_progress (id, organization_id, onboarding_id, step_name, step_type, active) VALUES ('a5000000-0000-4000-8000-000000000805', 'a5000000-0000-4000-8000-000000000101', 'a5000000-0000-4000-8000-000000000705', 'New', 'checkbox', false) $$, 'Onboarding-only operator inserts progress');
-WITH removed AS (DELETE FROM public.onboarding_step_progress WHERE id = 'a5000000-0000-4000-8000-000000000805' RETURNING id)
+WITH removed AS (DELETE FROM public.onboarding_step_progress WHERE id = 'a5000000-0000-4000-8000-000000000804' RETURNING id)
 SELECT is(count(*)::integer, 1, 'Onboarding-only operator deletes inactive progress') FROM removed;
-WITH removed AS (DELETE FROM public.personnel_onboardings WHERE id = 'a5000000-0000-4000-8000-000000000705' RETURNING id)
+WITH removed AS (DELETE FROM public.personnel_onboardings WHERE id = 'a5000000-0000-4000-8000-000000000701' RETURNING id)
 SELECT is(count(*)::integer, 0, 'Onboarding-only operator cannot delete workflow') FROM removed;
 ROLLBACK TO SAVEPOINT operator_workflow_rows;
 
 SELECT set_config('request.jwt.claim.sub', 'a5000000-0000-4000-8000-000000000002', true);
 SELECT is((SELECT count(*)::integer FROM public.personnel_onboardings), 3, 'Onboarding viewer reads workflow');
-SELECT is((SELECT count(*)::integer FROM public.onboarding_step_progress), 3, 'Onboarding viewer reads progress');
+SELECT is((SELECT count(*)::integer FROM public.onboarding_step_progress), 4, 'Onboarding viewer reads progress');
 SELECT throws_ok($$ INSERT INTO public.personnel_onboardings (organization_id, personnel_id, status) VALUES ('a5000000-0000-4000-8000-000000000101', 'a5000000-0000-4000-8000-000000000301', 'cancelled') $$, '42501', NULL, 'Onboarding viewer cannot insert workflow');
 SELECT throws_ok($$ INSERT INTO public.onboarding_step_progress (organization_id, onboarding_id, step_name, step_type) VALUES ('a5000000-0000-4000-8000-000000000101', 'a5000000-0000-4000-8000-000000000701', 'Forbidden', 'checkbox') $$, '42501', NULL, 'Onboarding viewer cannot insert progress');
 
 SELECT set_config('request.jwt.claim.sub', 'a5000000-0000-4000-8000-000000000003', true);
 SELECT is((SELECT count(*)::integer FROM public.personnel_onboardings), 3, 'Personnel viewer retains Dashboard workflow reads');
-SELECT is((SELECT count(*)::integer FROM public.onboarding_step_progress), 3, 'Personnel viewer retains Dashboard progress reads');
+SELECT is((SELECT count(*)::integer FROM public.onboarding_step_progress), 4, 'Personnel viewer retains Dashboard progress reads');
 SELECT throws_ok($$ INSERT INTO public.personnel_onboardings (organization_id, personnel_id, status) VALUES ('a5000000-0000-4000-8000-000000000101', 'a5000000-0000-4000-8000-000000000301', 'cancelled') $$, '42501', NULL, 'Personnel-only operator cannot write Onboarding workflow');
 SELECT throws_ok($$ INSERT INTO public.onboarding_step_progress (organization_id, onboarding_id, step_name, step_type) VALUES ('a5000000-0000-4000-8000-000000000101', 'a5000000-0000-4000-8000-000000000701', 'Forbidden', 'checkbox') $$, '42501', NULL, 'Personnel-only operator cannot write Onboarding progress');
 
@@ -98,7 +101,7 @@ SELECT is((SELECT count(*)::integer FROM public.active_onboarding_calendar_perso
 
 SELECT set_config('request.jwt.claim.sub', 'a5000000-0000-4000-8000-000000000005', true);
 SELECT is((SELECT count(*)::integer FROM public.personnel_onboardings), 1, 'Group-scoped Onboarding operator sees only own Group');
-SELECT is((SELECT count(*)::integer FROM public.onboarding_step_progress), 1, 'Group-scoped operator cannot read other or unassigned progress');
+SELECT is((SELECT count(*)::integer FROM public.onboarding_step_progress), 2, 'Group-scoped operator cannot read other or unassigned progress');
 SELECT throws_ok($$ INSERT INTO public.personnel_onboardings (organization_id, personnel_id, status) VALUES ('a5000000-0000-4000-8000-000000000101', 'a5000000-0000-4000-8000-000000000303', 'cancelled') $$, '42501', NULL, 'Group-scoped operator cannot start unassigned Personnel workflow');
 SELECT throws_ok($$ INSERT INTO public.personnel_onboardings (organization_id, personnel_id, status) VALUES ('a5000000-0000-4000-8000-000000000101', 'a5000000-0000-4000-8000-000000000302', 'cancelled') $$, '42501', NULL, 'Group-scoped operator cannot start other Group workflow');
 

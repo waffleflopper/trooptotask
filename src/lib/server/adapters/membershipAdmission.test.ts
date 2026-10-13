@@ -12,6 +12,7 @@ import {
 } from './requestContexts.server';
 import { createSupabasePersonnelRecordPersistence } from '$features/personnel/index.server';
 import { handle, loadWithContext } from './httpAdapter';
+import { _createTrainingReportsPageLoad } from '../../../routes/org/[orgId]/training/reports/+page.server';
 
 const { adminClient } = vi.hoisted(() => ({ adminClient: vi.fn() }));
 vi.mock('$lib/server/supabase', async (importOriginal) => ({
@@ -378,5 +379,53 @@ describe('request membership admission through real request construction', () =>
 		const before = structuredClone(f.tables.personnel);
 		await expect(write(event(nextLocals))).rejects.toMatchObject({ status: 403 });
 		expect(f.tables.personnel).toEqual(before);
+	});
+});
+
+describe('Organization page data admission', () => {
+	const report = { rows: [{ personnelId: 'person-a', status: 'current' }] };
+	const trainingReportsLoad = _createTrainingReportsPageLoad({
+		fetchTrainingBriefingReport: async () => report as never
+	});
+	const pageEvent = (locals: App.Locals, orgId: string) =>
+		({
+			params: { orgId },
+			url: new URL(`http://app.invalid/org/${orgId}/training/reports/__data.json`),
+			locals,
+			cookies: {},
+			depends: () => {}
+		}) as never;
+
+	it.each(['alpha', ORG])('withholds a suspended Organization report addressed as %s', async (segment) => {
+		const f = fixture({ ...member, role: 'owner' });
+		expect(await trainingReportsLoad(pageEvent(f.locals, segment))).toEqual({ trainingReport: report });
+		const suspended = fixture({ ...member, role: 'owner' });
+		suspended.tables.organizations[0].suspended_at = '2026-09-01T00:00:00Z';
+		await expect(trainingReportsLoad(pageEvent(suspended.locals, segment))).rejects.toMatchObject({
+			status: 403,
+			body: { message: 'Organization is suspended' }
+		});
+		await expect(buildLayoutRequest(suspended.locals, segment)).rejects.toMatchObject({ status: 403 });
+		expect(suspended.state.membershipReads).toBe(0);
+	});
+
+	it('reads Organization status once for the shell and every page load in a request', async () => {
+		const f = fixture();
+		await Promise.all([buildLayoutRequest(f.locals, 'alpha'), buildLayoutRequest(f.locals, 'alpha')]);
+		await buildLayoutRequest(f.locals, 'alpha');
+		const organizationReads = f.fetch.mock.calls.filter(([input]) => String(input).includes('/organizations?'));
+		expect(organizationReads).toHaveLength(1);
+	});
+
+	it.each([
+		['unavailable', 503, 'Unable to verify Organization status'],
+		['missing', 404, 'Organization not found']
+	] as const)('denies a page load when Organization status is %s', async (kind, status, message) => {
+		const f = fixture();
+		if (kind === 'missing') f.tables.organizations = [];
+		else f.state.failedTable = 'organizations';
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		await expect(buildLayoutRequest(f.locals, ORG)).rejects.toMatchObject({ status, body: { message } });
+		expect(f.state.membershipReads).toBe(0);
 	});
 });

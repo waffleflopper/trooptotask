@@ -496,7 +496,7 @@ Repository CI operates disposable local databases and performs no remote migrati
 
 ## Phase 11 D03 identity and web boundary repairs
 
-Robert applies [`supabase/migrations/20261012000300_retire_completed_password_attempts.sql`](../../supabase/migrations/20261012000300_retire_completed_password_attempts.sql), SHA-256 `657366f3b79d3d8bbad6238ad4991c5cd44282bda8ab90a74a67e4ef4641efd2`, through his normal ordered migration procedure. Its repository predecessor is D02's `20261012000200`; the agent has not inspected the hosted ledger.
+Robert applies [`supabase/migrations/20261012000300_retire_completed_password_attempts.sql`](../../supabase/migrations/20261012000300_retire_completed_password_attempts.sql), SHA-256 `53cec374a6f9e588047b047323665a6331016499ad5ed7573927db0674224a45`, through his normal ordered migration procedure. Its repository predecessor is D02's `20261012000200`; the agent has not inspected the hosted ledger.
 
 Applying it replaces `password_change_attempt` with the same signature and grants. It rewrites and deletes no rows; completed attempts are only replaced when their user next begins or restarts a password update.
 

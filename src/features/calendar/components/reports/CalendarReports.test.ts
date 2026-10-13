@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Personnel } from '$features/personnel/contracts';
-import { stubWorkspaceToolbarLayout } from '$lib/test-support/workspaceToolbarLayout';
+import { stubToolbarWidths } from '$lib/test-support/toolbarWidths';
 import CalendarReports from './CalendarReports.svelte';
 
 const { exportGroupReadinessWorkbookMock } = vi.hoisted(() => ({ exportGroupReadinessWorkbookMock: vi.fn() }));
@@ -71,7 +71,7 @@ describe('CalendarReports', () => {
 	});
 
 	it('offers the report export in the toolbar only once a result exists, and runs it from More', async () => {
-		const layOut = stubWorkspaceToolbarLayout();
+		const { layOut } = stubToolbarWidths();
 		renderReports();
 		await layOut(1);
 

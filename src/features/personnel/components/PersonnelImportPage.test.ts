@@ -853,7 +853,7 @@ describe('PersonnelImportPage', () => {
 		expect(gotoMock).toHaveBeenCalledWith('/org/org-1/personnel', { invalidateAll: true });
 	});
 
-	it('keeps the import mode while an import is running', async () => {
+	it('disables the import mode with a reason while an import is running', async () => {
 		let resolveFetch: (response: Response) => void = () => {};
 		const fetchMock = vi.fn(
 			() =>
@@ -879,12 +879,18 @@ describe('PersonnelImportPage', () => {
 				name: 'Import mode'
 			})
 		);
+		for (const name of ['Add new', 'Backfill ETS/DEROS']) {
+			const option = mode.getByRole('button', { name });
+			expect(option).toBeDisabled();
+			expect(option).toHaveAccessibleDescription('Wait for the import to finish before switching modes.');
+		}
 		await fireEvent.click(mode.getByRole('button', { name: 'Backfill ETS/DEROS' }));
 
 		expect(mode.getByRole('button', { name: 'Add new' })).toHaveAttribute('aria-pressed', 'true');
 		resolveFetch(new Response(JSON.stringify({ inserted: [{}], errors: [] }), { status: 200 }));
 		await screen.findByText('Import complete');
 		expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/personnel/batch', expect.any(Object));
+		expect(mode.getByRole('button', { name: 'Backfill ETS/DEROS' })).toBeEnabled();
 	});
 
 	it('cancels navigation attempts while an import is running', async () => {

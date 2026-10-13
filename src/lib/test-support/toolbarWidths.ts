@@ -2,7 +2,7 @@ import { fireEvent, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { vi } from 'vitest';
 
-type Observer = { callback: ResizeObserverCallback; targets: Element[] };
+type Observer = { callback: ResizeObserverCallback; targets: Set<Element> };
 
 export type ToolbarWidths = {
 	/** Delivers one layout: the live row is `row` wide and every other measured control is `control` wide. */
@@ -12,29 +12,30 @@ export type ToolbarWidths = {
 
 /** Stubs `ResizeObserver` before a toolbar mounts, because happy-dom never measures anything. */
 export function stubToolbarWidths(): ToolbarWidths {
-	const observers: Observer[] = [];
+	const observers = new Set<Observer>();
 	vi.stubGlobal(
 		'ResizeObserver',
 		class {
-			targets: Element[] = [];
+			#observer: Observer;
 			constructor(callback: ResizeObserverCallback) {
-				observers.push({ callback, targets: this.targets });
+				this.#observer = { callback, targets: new Set() };
+				observers.add(this.#observer);
 			}
 			observe(target: Element) {
-				this.targets.push(target);
+				this.#observer.targets.add(target);
 			}
 			unobserve(target: Element) {
-				this.targets.splice(this.targets.indexOf(target), 1);
+				this.#observer.targets.delete(target);
 			}
 			disconnect() {
-				this.targets.length = 0;
+				observers.delete(this.#observer);
 			}
 		}
 	);
 
 	async function layOut(row: number, control = 40): Promise<void> {
 		for (const { callback, targets } of observers) {
-			const entries = targets.map((target) => {
+			const entries = [...targets].map((target) => {
 				const box = [{ inlineSize: target.hasAttribute('data-toolbar-row') ? row : control, blockSize: 32 }];
 				return { target, borderBoxSize: box, contentBoxSize: box };
 			});

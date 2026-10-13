@@ -17,9 +17,6 @@
 @import 'tw-animate-css';
 
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
-/* WorkspaceToolbar breakpoints. Registered in this order so the narrow rules sort after, and win over, the compact ones. */
-@custom-variant toolbar-compact (@container (max-width: 47.5rem));
-@custom-variant toolbar-narrow (@container (max-width: 35rem));
 
 @theme inline {
 	--color-background: var(--background);

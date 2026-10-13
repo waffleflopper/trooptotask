@@ -1,7 +1,6 @@
 <script lang="ts">
 	import DataTable from '../DataTable.svelte';
 	import DataTableSelectionCheckbox from '../data-table-selection-checkbox.svelte';
-	import DataTableBulkActions from '../data-table-bulk-actions.svelte';
 	import { useDataTableSelection } from '../useDataTableSelection.svelte';
 	import type { ColumnDef } from '../types.js';
 
@@ -31,7 +30,7 @@
 
 <DataTable {data} {columns} disabledRow={(row) => row.disabled ?? false}>
 	{#snippet toolbar()}
-		<DataTableBulkActions selectedCount={selection.selectedCount} totalCount={data.length} />
+		<p>{selection.selectedCount} of {data.length} selected</p>
 	{/snippet}
 	{#snippet headerCell(column: ColumnDef<Row>)}
 		{#if column.key === 'select'}

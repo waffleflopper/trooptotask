@@ -45,11 +45,7 @@
 		<TypeManagementWorkspace.Detail>
 			<TypeManagementWorkspace.MobileBack onclick={() => undefined}>Types</TypeManagementWorkspace.MobileBack>
 			<TypeManagementWorkspace.Stack>
-				<TypeManagementWorkspace.DetailHeader title="Annual Qualification" color="#8a5800">
-					{#snippet actions()}
-						<Button variant="outline" size="sm" type="button">Edit</Button>
-					{/snippet}
-				</TypeManagementWorkspace.DetailHeader>
+				<TypeManagementWorkspace.DetailHeader title="Annual Qualification" color="#8a5800" />
 				<TypeManagementWorkspace.FormSection title="Basics">
 					<p>Shared section chrome, route-owned controls.</p>
 				</TypeManagementWorkspace.FormSection>

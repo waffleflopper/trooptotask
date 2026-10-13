@@ -29,12 +29,6 @@
 			<div>Chart region</div>
 		</ReportWorkspace.Section>
 		<ReportWorkspace.Table title="Readiness rows" data={rows} {columns} ariaLabel="Readiness rows table">
-			{#snippet actions()}
-				<ReportWorkspace.ExportAction label="Export workbook" href="/export.xlsx" />
-				<ReportWorkspace.ExportAction label="Export PDF" disabledReason="Select a date range first" />
-				<ReportWorkspace.ExportAction label="Export XLSX" state="loading" loadingLabel="Preparing XLSX" />
-				<ReportWorkspace.ExportAction label="Export packet" state="error" errorReason="Export service is unavailable" />
-			{/snippet}
 			{#snippet summary()}
 				<ReportWorkspace.SummaryStrip
 					topRisk="Maya Chen · Action"

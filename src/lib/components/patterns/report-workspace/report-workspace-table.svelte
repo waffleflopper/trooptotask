@@ -22,8 +22,6 @@
 		ariaLabel?: string;
 		emptyMessage?: string;
 		loading?: boolean;
-		showSearch?: boolean;
-		searchPlaceholder?: string;
 		pageSize?: number;
 		density?: 'default' | 'dense';
 		cell?: DataTableCellSnippet<T>;
@@ -34,7 +32,6 @@
 		rowActionLabel?: (row: T) => string;
 		headerCell?: DataTableHeaderSnippet<T>;
 		footer?: DataTableStateSnippet<T>;
-		actions?: Snippet;
 		summary?: Snippet;
 	};
 
@@ -48,8 +45,6 @@
 		ariaLabel,
 		emptyMessage = 'No report rows.',
 		loading = false,
-		showSearch = false,
-		searchPlaceholder,
 		pageSize,
 		density = 'dense',
 		cell,
@@ -60,12 +55,11 @@
 		rowActionLabel,
 		headerCell,
 		footer,
-		actions,
 		summary
 	}: Props = $props();
 </script>
 
-<Section {title} {description} {meta} {actions} {summary}>
+<Section {title} {description} {meta} {summary}>
 	<DataTable.DataTable
 		{data}
 		{columns}
@@ -74,8 +68,6 @@
 		{emptyMessage}
 		emptyLevel={4}
 		{loading}
-		{showSearch}
-		{searchPlaceholder}
 		{pageSize}
 		{density}
 		{onRowClick}

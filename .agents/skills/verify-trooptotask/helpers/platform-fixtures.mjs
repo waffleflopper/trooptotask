@@ -66,13 +66,24 @@ export async function seedPlatform({ client, fixture, tag, ownedState, save }) {
 		access_scope_kind: 'organization',
 		access_scope_group_ids: []
 	}));
-	ownedState.platform = { organization, requests, invitation, link, memberships, seededAt: new Date().toISOString() };
+	// An unconfirmed account is the only one whose User detail offers Resend Invite.
+	const pendingUser = { id: randomUUID(), email: `platform-pending-${tag}@example.test` };
+	ownedState.platform = {
+		organization,
+		requests,
+		invitation,
+		link,
+		memberships,
+		pendingUser,
+		seededAt: new Date().toISOString()
+	};
 	await save(ownedState);
 	checked(await client.from('organizations').insert(organization));
 	checked(await client.from('organization_memberships').insert(memberships));
 	checked(await client.from('access_requests').insert(Object.values(requests)));
 	checked(await client.from('organization_invitations').insert(invitation));
 	checked(await client.from('access_request_organization_invitation_links').insert(link));
+	checked(await client.auth.admin.createUser({ ...pendingUser, email_confirm: false }));
 	return { ...ownedState.platform, boundary: 'Privileged synthetic prerequisites; no UI or authorization proof.' };
 }
 
@@ -96,10 +107,11 @@ export async function readPlatform({ client, fixture, ownedState }) {
 	if (!seed) throw new Error('Seed platform-admin first.');
 	const requestIds = Object.values(seed.requests).map(({ id }) => id);
 	const userIds = seed.memberships.map(({ user_id }) => user_id);
+	const pendingUserIds = seed.pendingUser ? [seed.pendingUser.id] : [];
 	// Reused fixture Users retain unrelated Identity history from the same run.
 	const auditFilters = [
 		`org_id.eq.${seed.organization.id}`,
-		`resource_id.in.(${[seed.organization.id, ...requestIds].join(',')})`,
+		`resource_id.in.(${[seed.organization.id, ...requestIds, ...pendingUserIds].join(',')})`,
 		...(userIds.length
 			? [`and(resource_id.in.(${userIds.join(',')}),action.in.(${PLATFORM_USER_AUDIT_ACTIONS.join(',')}))`]
 			: [])
@@ -113,6 +125,7 @@ export async function readPlatform({ client, fixture, ownedState }) {
 			}
 		])
 	);
+	if (seed.pendingUser) users.pendingUser = seed.pendingUser;
 	return {
 		users,
 		organization: checked(
@@ -226,7 +239,11 @@ export async function cleanPlatform({ client, fixture, ownedState, save }) {
 	);
 	if (suspended.length) throw new Error('Restore platform seed User suspensions before cleanup.');
 	const before = await readPlatform({ client, fixture, ownedState });
-	const ownedResources = [seed.organization.id, ...Object.values(seed.requests).map(({ id }) => id)];
+	const ownedResources = [
+		seed.organization.id,
+		...Object.values(seed.requests).map(({ id }) => id),
+		...(seed.pendingUser ? [seed.pendingUser.id] : [])
+	];
 	seed.auditIds = [
 		...new Set([
 			...(seed.auditIds ?? []),
@@ -248,6 +265,10 @@ export async function cleanPlatform({ client, fixture, ownedState, save }) {
 			)
 	);
 	checked(await client.from('organizations').delete().eq('id', seed.organization.id));
+	if (seed.pendingUser) {
+		const removed = await client.auth.admin.deleteUser(seed.pendingUser.id);
+		if (removed.error && removed.error.status !== 404) checked(removed);
+	}
 	const after = await readPlatform({ client, fixture, ownedState });
 	const retainedAudit = seed.auditIds.length
 		? checked(await client.from('audit_logs').select('id,org_id').in('id', seed.auditIds))

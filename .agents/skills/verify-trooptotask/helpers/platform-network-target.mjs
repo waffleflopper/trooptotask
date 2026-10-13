@@ -51,11 +51,17 @@ export function platformFormNetworkTarget(family, fixture, seed) {
 			sameOrigin: true
 		};
 	}
-	const account = /^admin-account\/(orgCreator|orgInvitee|orgMember)\/(resetPassword|resendInvite)$/.exec(family);
+	const account = /^admin-account\/(orgCreator|orgInvitee|orgMember|pendingUser)\/(resetPassword|resendInvite)$/.exec(
+		family
+	);
 	const access = /^admin-access\/(approve|reject|completed)\/(approve|reject|resend)$/.exec(family);
 	if (!account && !access) return null;
 	if (!seed) throw new Error('Seed platform-admin first.');
-	const id = account ? fixture.actors[account[1]]?.id : seed.requests[access[1]]?.id;
+	const id = account
+		? account[1] === 'pendingUser'
+			? seed.pendingUser?.id
+			: fixture.actors[account[1]]?.id
+		: seed.requests[access[1]]?.id;
 	if (!uuid.test(id ?? '')) throw new Error('Use a recorded platform target.');
 	return {
 		suffix: account ? `/admin/users/${id}` : '/admin/access-requests',

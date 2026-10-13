@@ -199,7 +199,8 @@ ALTER POLICY "Sensitive files are deletable by authorized editors" ON storage.ob
 
 -- Onboarding: operate starts packets, records progress, changes lifecycle
 -- status and deletes inactive steps. Template choice, step shape and
--- deactivating active steps belong to the configure-only reconcile command.
+-- deactivating active steps belong to the configure-only reconcile command;
+-- a configure member also clears a deleted template from packets directly.
 -- Only the start and reconcile commands create packets and steps. No client
 -- deletes a packet or an active step.
 
@@ -521,6 +522,12 @@ DROP POLICY "Onboarding operators can manage scoped workflows" ON public.personn
 DROP POLICY "Onboarding operators can manage scoped progress" ON public.onboarding_step_progress;
 REVOKE INSERT ON TABLE public.personnel_onboardings, public.onboarding_step_progress FROM anon, authenticated;
 
+-- Clients update only the columns the app's operations write. Start,
+-- reconciliation and service-role paths write the rest.
+REVOKE UPDATE ON TABLE public.personnel_onboardings, public.onboarding_step_progress FROM anon, authenticated;
+GRANT UPDATE (status, completed_at, cancelled_at, template_id) ON TABLE public.personnel_onboardings TO authenticated;
+GRANT UPDATE (completed, current_stage, notes) ON TABLE public.onboarding_step_progress TO authenticated;
+
 CREATE POLICY "Onboarding operators can update scoped workflows"
 ON public.personnel_onboardings FOR UPDATE TO authenticated
 USING (
@@ -553,9 +560,14 @@ USING (
 	AND onboarding_private.onboarding_parent_scope_matches(organization_id, onboarding_id)
 );
 
--- Notes change only by appending one note authored by the caller, as the
--- append command does. The command's server timestamp is not re-verified.
-CREATE FUNCTION organization_private.require_onboarding_configuration_authority() RETURNS trigger
+-- Client updates follow the app's operations. A packet completes or cancels
+-- from in progress and reopens from cancelled, and the database dates the
+-- transition. A checkbox step toggles, a Paperwork step saves one of its
+-- stages and is complete exactly at the last, and Training completion stays
+-- with Start and reconciliation. Notes change only by appending one note
+-- authored by the caller, as the append command does. The command's server
+-- timestamp is not re-verified.
+CREATE FUNCTION organization_private.require_onboarding_operation_rules() RETURNS trigger
 LANGUAGE plpgsql SECURITY INVOKER SET search_path = '' AS $$
 DECLARE
 	appended jsonb;
@@ -569,14 +581,28 @@ BEGIN
 		THEN
 			RAISE EXCEPTION 'Changing an onboarding template requires configure access' USING ERRCODE = '42501';
 		END IF;
+		IF NEW.status IS DISTINCT FROM OLD.status THEN
+			IF (OLD.status, NEW.status) NOT IN (('in_progress', 'completed'), ('in_progress', 'cancelled'), ('cancelled', 'in_progress')) THEN
+				RAISE EXCEPTION 'An onboarding cannot move from % to %', OLD.status, NEW.status USING ERRCODE = '42501';
+			END IF;
+			NEW.completed_at := CASE WHEN NEW.status = 'completed' THEN (now() AT TIME ZONE 'UTC')::date END;
+			NEW.cancelled_at := CASE WHEN NEW.status = 'cancelled' THEN now() END;
+		ELSIF (NEW.completed_at, NEW.cancelled_at) IS DISTINCT FROM (OLD.completed_at, OLD.cancelled_at) THEN
+			RAISE EXCEPTION 'Onboarding completion and cancellation dates change only with the status' USING ERRCODE = '42501';
+		END IF;
 		RETURN NEW;
 	END IF;
 
-	IF (NEW.template_step_id, NEW.active, NEW.step_name, NEW.step_type, NEW.training_type_id, NEW.stages, NEW.sort_order)
-		IS DISTINCT FROM (OLD.template_step_id, OLD.active, OLD.step_name, OLD.step_type, OLD.training_type_id, OLD.stages, OLD.sort_order)
-		AND NOT public.member_access_has_capability(NEW.organization_id, 'onboarding', 'configure')
+	IF (NEW.completed, NEW.current_stage) IS DISTINCT FROM (OLD.completed, OLD.current_stage)
+		AND (CASE NEW.step_type
+			WHEN 'checkbox' THEN NEW.current_stage IS NOT DISTINCT FROM OLD.current_stage
+			WHEN 'paperwork' THEN jsonb_typeof(NEW.stages) = 'array'
+				AND NEW.stages @> jsonb_build_array(NEW.current_stage)
+				AND NEW.completed = (NEW.current_stage = NEW.stages ->> -1)
+			ELSE false
+		END) IS NOT TRUE
 	THEN
-		RAISE EXCEPTION 'Changing an onboarding step requires configure access' USING ERRCODE = '42501';
+		RAISE EXCEPTION 'Onboarding progress does not match the % step', NEW.step_type USING ERRCODE = '42501';
 	END IF;
 	IF NEW.notes IS DISTINCT FROM OLD.notes THEN
 		appended := NEW.notes -> -1;
@@ -593,14 +619,14 @@ BEGIN
 	RETURN NEW;
 END;
 $$;
-REVOKE ALL ON FUNCTION organization_private.require_onboarding_configuration_authority()
+REVOKE ALL ON FUNCTION organization_private.require_onboarding_operation_rules()
 	FROM PUBLIC, anon, authenticated, service_role;
-CREATE TRIGGER require_onboarding_configuration_authority
-	BEFORE UPDATE OF template_id ON public.personnel_onboardings
-	FOR EACH ROW EXECUTE FUNCTION organization_private.require_onboarding_configuration_authority();
-CREATE TRIGGER require_onboarding_configuration_authority
+CREATE TRIGGER require_onboarding_operation_rules
+	BEFORE UPDATE ON public.personnel_onboardings
+	FOR EACH ROW EXECUTE FUNCTION organization_private.require_onboarding_operation_rules();
+CREATE TRIGGER require_onboarding_operation_rules
 	BEFORE UPDATE ON public.onboarding_step_progress
-	FOR EACH ROW EXECUTE FUNCTION organization_private.require_onboarding_configuration_authority();
+	FOR EACH ROW EXECUTE FUNCTION organization_private.require_onboarding_operation_rules();
 
 -- The server creates deletion requests after the owning feature loads the
 -- target with the requester's access and describes it. Requesters cancel

@@ -18,16 +18,19 @@
 	import * as Alert from '$lib/components/ui/alert/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import * as ButtonGroup from '$lib/components/ui/button-group/index.js';
 	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import * as DataTable from '$lib/components/ui/data-table/index.js';
-	import type { ColumnDef, DataTableRowAction, DataTableState } from '$lib/components/ui/data-table/index.js';
+	import { useDataTable, type ColumnDef, type DataTableRowAction } from '$lib/components/ui/data-table/index.js';
 	import * as Empty from '$lib/components/ui/empty/index.js';
 	import * as Field from '$lib/components/ui/field/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import * as NativeSelect from '$lib/components/ui/native-select/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
-	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar/index.js';
+	import {
+		WorkspaceToolbar,
+		type ToolbarItem,
+		type WorkspaceToolbarProps
+	} from '$lib/components/patterns/workspace-toolbar/index.js';
 	import type { RanksSettingsData } from './settingsSectionTypes';
 	import type { SettingsRankCatalogRow, SettingsRankServicePackOption } from './settingsSectionTypes';
 
@@ -341,6 +344,42 @@
 	const tableEmptyMessage = $derived(
 		`No ${stateFilter === 'all' ? '' : `${stateFilter} `}ranks match ${branchFilterLabel(branchFilter)}.`
 	);
+
+	const rankTable = useDataTable<SettingsRankCatalogRow>({
+		data: () => visibleRankRows,
+		columns: rankColumns,
+		initialSortKey: 'rank',
+		pageSize: 25,
+		rowKey: (entry) => entry.code
+	});
+
+	const rankToolbarItems = $derived<ToolbarItem[]>([
+		{
+			kind: 'view',
+			id: 'rank-state',
+			label: 'Filter ranks by state',
+			options: stateFilterOptions,
+			value: stateFilter,
+			onValueChange: (value) => (stateFilter = value as RankStateFilter)
+		},
+		{
+			kind: 'select',
+			id: 'rank-branch',
+			label: 'Branch',
+			ariaLabel: 'Filter ranks by branch',
+			options: branchFilterOptions,
+			value: branchFilter,
+			defaultValue: 'all',
+			onValueChange: (value) => (branchFilter = value as RankServiceFilter)
+		}
+	]);
+
+	const rankToolbarSearch = $derived({
+		label: 'Search ranks',
+		placeholder: 'Search ranks',
+		value: rankTable.search,
+		onValueChange: rankTable.setSearch
+	} satisfies NonNullable<WorkspaceToolbarProps['search']>);
 
 	function rankRowActions(entry: SettingsRankCatalogRow): DataTableRowAction<SettingsRankCatalogRow>[] {
 		const actions: DataTableRowAction<SettingsRankCatalogRow>[] = [];
@@ -701,12 +740,17 @@
 		class="grid gap-4 rounded-lg border bg-card p-4 text-card-foreground"
 		aria-labelledby="ranks-heading"
 	>
-		<div class="grid gap-1">
-			<h2 id="ranks-heading" tabindex="-1" class="font-heading text-lg font-semibold tracking-tight">Ranks</h2>
-			<p class="text-sm text-muted-foreground">
-				Active ranks are available for future selection and import matching; retired ranks are hidden from selection
-				while existing references are preserved.
-			</p>
+		<div class="flex items-start justify-between gap-3">
+			<div class="grid gap-1">
+				<h2 id="ranks-heading" tabindex="-1" class="font-heading text-lg font-semibold tracking-tight">Ranks</h2>
+				<p class="text-sm text-muted-foreground">
+					Active ranks are available for future selection and import matching; retired ranks are hidden from selection
+					while existing references are preserved.
+				</p>
+			</div>
+			{#if !hasNoRanks}
+				<Badge variant="outline">{rankTable.totalRows} shown</Badge>
+			{/if}
 		</div>
 
 		{#if hasNoRanks}
@@ -727,21 +771,17 @@
 				{/if}
 			</Empty.Root>
 		{:else}
+			<WorkspaceToolbar ariaLabel="Rank table controls" items={rankToolbarItems} search={rankToolbarSearch} />
 			<DataTable.DataTable
-				data={visibleRankRows}
-				columns={rankColumns}
+				table={rankTable}
 				ariaLabel="Organization ranks"
 				emptyMessage={tableEmptyMessage}
 				density="dense"
-				pageSize={25}
-				initialSortKey="rank"
-				rowKey={(entry) => entry.code}
 				onRowClick={toggleExpandedRank}
 				rowActionLabel={(entry) => `${isRankExpanded(entry) ? 'Hide' : 'Show'} details for ${entry.code}`}
 				cell={rankCell}
 				rowDetail={rankDetail}
 				rowDetailVisible={isRankExpanded}
-				toolbar={rankToolbar}
 			/>
 		{/if}
 	</section>
@@ -792,44 +832,6 @@
 			<Alert.Description>{rankError ?? CONFIRM_FAILURE_FALLBACK}</Alert.Description>
 		</Alert.Root>
 	{/if}
-{/snippet}
-
-{#snippet rankToolbar(table: DataTableState<SettingsRankCatalogRow>)}
-	<WorkspaceToolbar.Root ariaLabel="Rank table controls">
-		<WorkspaceToolbar.Group label="Search ranks">
-			<DataTable.Search {table} ariaLabel="Search ranks" placeholder="Search ranks" />
-		</WorkspaceToolbar.Group>
-		<WorkspaceToolbar.Group label="Filter ranks by state">
-			<ButtonGroup.Root aria-label="Filter ranks by state">
-				{#each stateFilterOptions as option (option.value)}
-					<Button
-						type="button"
-						size="sm"
-						variant={stateFilter === option.value ? 'secondary' : 'outline'}
-						aria-pressed={stateFilter === option.value}
-						onclick={() => (stateFilter = option.value)}
-					>
-						{option.label}
-					</Button>
-				{/each}
-			</ButtonGroup.Root>
-		</WorkspaceToolbar.Group>
-		<WorkspaceToolbar.Group label="Filter ranks by branch">
-			<NativeSelect.Root
-				id="rank-branch-filter"
-				size="sm"
-				bind:value={branchFilter}
-				aria-label="Filter ranks by branch"
-			>
-				{#each branchFilterOptions as option (option.value)}
-					<NativeSelect.Option value={option.value}>{option.label}</NativeSelect.Option>
-				{/each}
-			</NativeSelect.Root>
-		</WorkspaceToolbar.Group>
-		<WorkspaceToolbar.Group label="Rank count" zone="meta">
-			<WorkspaceToolbar.Meta>{table.totalRows} shown</WorkspaceToolbar.Meta>
-		</WorkspaceToolbar.Group>
-	</WorkspaceToolbar.Root>
 {/snippet}
 
 {#snippet rankCell(entry: SettingsRankCatalogRow, column: ColumnDef<SettingsRankCatalogRow>)}

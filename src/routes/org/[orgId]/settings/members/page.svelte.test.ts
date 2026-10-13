@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ActionResult } from '@sveltejs/kit';
 import type { SettingsMemberRow } from '$features/organization/contracts';
 import { frameworkOutcome } from '$lib/test-support/sveltekitEnhance';
+import { stubToolbarWidths } from '$lib/test-support/toolbarWidths';
 import Page from './+page.svelte';
 
 type HeldSubmission = (opts: { result: ActionResult; update: () => Promise<void> }) => Promise<void>;
@@ -505,5 +506,48 @@ describe('members settings page', () => {
 		await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Manage Access' })).toBeNull());
 		expect(screen.queryByRole('alert')).toBeNull();
 		expect(screen.getByText('Access updated.')).toBeTruthy();
+	});
+});
+
+describe('member filter toolbar', () => {
+	afterEach(() => vi.unstubAllGlobals());
+
+	it('keeps the pending-invitations count in the section header, outside the toolbar', () => {
+		renderPage(null, true, [pendingInvite]);
+
+		expect(screen.getByText('1 pending invitations')).toBeTruthy();
+		expect(within(screen.getByRole('toolbar', { name: 'Member controls' })).queryByText(/pending/)).toBeNull();
+	});
+
+	it('filters the member list by email and names the filter when nothing matches', async () => {
+		renderPage();
+		const filter = screen.getByRole('searchbox', { name: 'Filter members' });
+
+		await fireEvent.input(filter, { target: { value: 'ALPHA' } });
+		expect(screen.getByText('alpha@example.com', { ignore: '.sr-only' })).toBeTruthy();
+		expect(screen.queryByText('owner@example.com', { ignore: '.sr-only' })).toBeNull();
+
+		await fireEvent.input(filter, { target: { value: 'zulu' } });
+		expect(screen.getByText('No members matching "zulu"')).toBeTruthy();
+	});
+
+	it('filters from the collapsed search icon', async () => {
+		const widths = stubToolbarWidths();
+		renderPage();
+		await widths.foldAll();
+		expect(screen.queryByRole('searchbox', { name: 'Filter members' })).toBeNull();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Filter members' }));
+		await fireEvent.input(await screen.findByRole('searchbox', { name: 'Filter members' }), {
+			target: { value: 'alpha' }
+		});
+
+		expect(screen.queryByText('owner@example.com', { ignore: '.sr-only' })).toBeNull();
+		await fireEvent.keyDown(screen.getByRole('searchbox', { name: 'Filter members' }), { key: 'Escape' });
+		expect(screen.queryByText('owner@example.com', { ignore: '.sr-only' })).toBeNull();
+		const icon = screen.getByRole('button', { name: 'Filter members' });
+		expect(document.getElementById(icon.getAttribute('aria-describedby') ?? '')?.textContent).toBe(
+			'Search text: alpha'
+		);
 	});
 });

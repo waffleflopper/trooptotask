@@ -23,7 +23,7 @@ export function withPersonnelPersistence<
 		organizationPersonnel: createInMemoryPersonnelRecordPersistence(ordinary, ctx.auth.orgId),
 		roster: createInMemoryPersonnelRosterReader(ctx.store, ctx.auth.orgId),
 		organizationRoster: createInMemoryPersonnelRosterReader(ordinary, ctx.auth.orgId),
-		groups: createInMemoryGroupPersistence(ctx.store, ctx.auth.orgId),
+		groups: createInMemoryGroupPersistence(ctx.store, ctx.auth.orgId, ctx.auth.scopeSet),
 		selfPins: createInMemorySelfPinPersistence(ctx.store, ctx.auth.orgId, ctx.auth.userId),
 		loadRankCatalog: () => loadOrganizationRankCatalog({ auth: ctx.auth, rankCatalog: ctx.rankCatalog })
 	};

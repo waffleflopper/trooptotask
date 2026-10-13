@@ -325,7 +325,7 @@ export function createRequestPersonnelRecordContext(request: AdmittedOrganizatio
 		audit: request.audit,
 		personnel: createSupabasePersonnelRecordPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet),
 		organizationPersonnel: createSupabasePersonnelRecordPersistence(request.supabase, request.auth.orgId),
-		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId),
+		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet),
 		loadRankCatalog: () =>
 			loadOrganizationRankCatalog({ auth: request.auth, audit: request.audit, rankCatalog: rankCatalog })
 	};
@@ -345,7 +345,7 @@ export function createRequestGroupContext(request: AdmittedOrganizationRequest) 
 	return {
 		auth: request.auth,
 		audit: request.audit,
-		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId)
+		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet)
 	};
 }
 
@@ -426,7 +426,7 @@ export function createRequestPersonnelWorkspaceContext(request: AdmittedOrganiza
 	return {
 		...createRequestPersonnelRosterContext(request),
 		organizationRoster: createSupabasePersonnelRosterReader(request.supabase, request.auth.orgId),
-		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId),
+		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet),
 		selfPins: createSupabaseSelfPinPersistence(request.supabase, request.auth.orgId, request.auth.userId),
 		loadRankCatalog: () => loadOrganizationRankCatalog({ auth: request.auth, rankCatalog: rankCatalog }),
 		calendarCatalogs: createSupabaseCalendarCatalogPersistence(request.supabase, request.auth.orgId),
@@ -470,7 +470,7 @@ export function createRequestPersonnelExportContext(request: AdmittedOrganizatio
 		...createRequestAvailabilityContext(request),
 		calendarCatalogs: createSupabaseCalendarCatalogPersistence(request.supabase, request.auth.orgId),
 		organizationPersonnel: createSupabasePersonnelRecordPersistence(request.supabase, request.auth.orgId),
-		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId),
+		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet),
 		personnelWorkbookHistory: createSupabasePersonnelWorkbookHistoryReader(request.supabase, request.auth.orgId)
 	};
 }
@@ -529,7 +529,7 @@ export function createRequestCalendarCatalogDeletionContext(request: AdmittedOrg
 export function createRequestCalendarRangeContext(request: AdmittedOrganizationRequest) {
 	return {
 		...createRequestAvailabilityContext(request),
-		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId),
+		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet),
 		selfPins: createSupabaseSelfPinPersistence(request.supabase, request.auth.orgId, request.auth.userId),
 		calendarCatalogs: createSupabaseCalendarCatalogPersistence(request.supabase, request.auth.orgId),
 		calendarAssignments: createSupabaseCalendarAssignmentReader(request.supabase, request.auth.orgId)
@@ -547,7 +547,7 @@ export function createRequestCalendarWorkspaceContext(request: AdmittedOrganizat
 export function createRequestCalendarReportContext(request: AdmittedOrganizationRequest) {
 	return {
 		...createRequestCalendarCatalogContext(request),
-		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId),
+		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet),
 		personnelCalendarRoster: createSupabasePersonnelCalendarRosterPort(getAdminClient)
 	};
 }
@@ -572,7 +572,10 @@ export function createRequestSignInRosterCreationContext(request: AdmittedOrgani
 		scopeSet: request.auth.scopeSet,
 		personnelLookup: createSupabaseSignInRosterPersonnelLookupPort(getAdminClient),
 		findGroupNamesByIds: (groupIds: string[]) =>
-			findGroupNamesByIds({ groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId) }, groupIds),
+			findGroupNamesByIds(
+				{ groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet) },
+				groupIds
+			),
 		loadRankCatalog: () =>
 			loadOrganizationRankCatalog(
 				{ auth: request.auth, rankCatalog: rankCatalog },
@@ -674,7 +677,7 @@ export function createRequestDashboardSummaryContext(request: AdmittedOrganizati
 		auth: request.auth,
 		audit: request.audit,
 		rankCatalog: createSupabaseRankCatalogPersistence(request.supabase, request.auth.orgId),
-		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId),
+		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet),
 		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase),
 		criticalTasksReadModel: createSupabaseCriticalTasksReadModelAdapter(request.supabase),
 		criticalTaskLibrary: createSupabaseCriticalTaskLibraryPersistence(request.supabase, request.auth.orgId),

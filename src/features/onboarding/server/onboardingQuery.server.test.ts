@@ -408,7 +408,7 @@ describe('fetchOnboardingBootstrap', () => {
 		]);
 
 		const history = await fetchOnboardingBootstrap(ctx, { mode: 'history' });
-		expect(history.groups.map((group) => group.name)).toEqual(['Alpha', 'Bravo']);
+		expect(history.groups.map((group) => group.name)).toEqual(['Alpha']);
 		expect(history.personnel).toMatchObject([
 			{ id: 'archived-in-scope', archivedAt: '2026-08-01', groupName: 'Alpha' }
 		]);

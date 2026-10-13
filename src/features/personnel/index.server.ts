@@ -22,7 +22,7 @@ export { createSupabaseSignInRosterPersonnelLookupPort } from './signInRosterPer
 export type { PersonnelTrainingRosterPort } from './contracts';
 export { countArchivedPersonnel, loadRosterPersonnel } from './rosterRead.server';
 export { createSupabasePersonnelNamesReader } from './personnelNames.server';
-export { findGroupNamesByIds, listGroupCatalog } from './groupCatalog.server';
+export { findGroupNamesByIds, listGroupCatalog, visiblePinnedGroupNames } from './groupCatalog.server';
 export { createGroup, updateGroup, deleteGroup } from './groupOperations.server';
 export { listPinnedGroupNames } from './pinnedGroupNames.server';
 export { pinGroup, replacePinnedGroups, unpinGroup } from './pinnedGroupOperations.server';

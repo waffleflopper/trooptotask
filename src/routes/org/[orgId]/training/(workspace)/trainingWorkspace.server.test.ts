@@ -90,7 +90,7 @@ describe('streamTrainingWorkspaceBootstrap', () => {
 		mockCtx.loadRankCatalog = () => loadOrganizationRankCatalog(mockCtx as never, { authorization: 'training-view' });
 		mockCtx.trainingCatalog = createInMemoryTrainingCatalogPersistence(store, mockCtx.auth.orgId);
 		mockCtx.trainingCompletions = createInMemoryTrainingCompletionPersistence(store, mockCtx.auth.orgId);
-		mockCtx.groups = createInMemoryGroupPersistence(store, mockCtx.auth.orgId);
+		mockCtx.groups = createInMemoryGroupPersistence(store, mockCtx.auth.orgId, mockCtx.auth.scopeSet);
 		mockCtx.selfPins = createInMemorySelfPinPersistence(store, mockCtx.auth.orgId, mockCtx.auth.userId);
 		mockCtx.personnelTrainingRoster = {
 			listActiveForWorkspace: listRosterCandidatesMock,

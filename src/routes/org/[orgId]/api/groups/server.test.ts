@@ -94,4 +94,32 @@ describe('/api/groups', () => {
 		}
 		expect(await ctx.store.findMany('groups', ctx.auth.orgId)).toEqual([]);
 	});
+
+	it('denies Group writes to a Group-scoped Personnel configurer, including its own Group', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				canManageMembers: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'configure',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				},
+				scopeSet: { kind: 'groups', groupIds: [groupId] }
+			}
+		});
+		ctx.store.seed('groups', [{ id: groupId, organization_id: ctx.auth.orgId, name: 'Alpha', sort_order: 0 }]);
+		for (const run of [
+			() => handleUseCaseRequest(_postConfig, ctx, { name: 'Scoped Created' }, () => ctx),
+			() => handleUseCaseRequest(_putConfig, ctx, { id: groupId, name: 'Scoped Renamed' }, () => ctx),
+			() => handleUseCaseRequest(_deleteConfig, ctx, { id: groupId }, () => ctx)
+		]) {
+			await expect(run()).rejects.toMatchObject({ status: 403 });
+		}
+		expect(await ctx.store.findMany('groups', ctx.auth.orgId)).toMatchObject([{ id: groupId, name: 'Alpha' }]);
+	});
 });

@@ -100,7 +100,7 @@ export interface PersonnelRecordPersistence {
 }
 
 export interface GroupPersistence {
-	listCatalog(options?: { groupIds?: string[] }): Promise<Group[]>;
+	listCatalog(): Promise<Group[]>;
 	findReference(id: string): Promise<{ id: string } | null>;
 	findNamesByIds(ids: string[]): Promise<Map<string, string>>;
 	create(input: { name: string; sortOrder?: number }): Promise<Group>;

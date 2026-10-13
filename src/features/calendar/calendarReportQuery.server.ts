@@ -7,11 +7,7 @@ import { listAvailabilityEntries } from './availabilityRead.server';
 import { listDailyAssignments } from './dailyAssignmentRead.server';
 import { listStatusTypes } from './statusTypeRead.server';
 import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from './calendarPolicy.server';
-import {
-	requirePersonnelCalendarRoster,
-	resolveCalendarAssigneeScope,
-	resolveCalendarGroupScope
-} from './calendarScope.server';
+import { requirePersonnelCalendarRoster, resolveCalendarAssigneeScope } from './calendarScope.server';
 
 type CalendarReportPorts = Parameters<typeof requireCalendarPolicy>[0] &
 	Parameters<typeof requirePersonnelCalendarRoster>[0] & {
@@ -28,12 +24,10 @@ export interface CalendarReportData {
 export async function fetchCalendarReportData(ctx: CalendarReportPorts): Promise<CalendarReportData> {
 	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.viewReports);
 
-	const scope = resolveCalendarGroupScope(ctx);
-
 	const [allPersonnel, statusTypes, groups] = await Promise.all([
 		requirePersonnelCalendarRoster(ctx).listActive(ctx.auth),
 		listStatusTypes(ctx.calendarCatalogs),
-		ctx.groups.listCatalog({ groupIds: scope?.groupIds })
+		ctx.groups.listCatalog()
 	]);
 
 	return {

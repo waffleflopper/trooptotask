@@ -95,7 +95,7 @@ describe('loadPersonnelWorkspace', () => {
 		expect(result.groups.map((group) => group.name)).toEqual(['Earlier', 'Alpha', 'Bravo']);
 	});
 
-	it('returns only the Groups and pinned names in a Group-scoped member\'s scope', async () => {
+	it("returns only the Groups and pinned names in a Group-scoped member's scope", async () => {
 		const ctx = createQueryWithRawStorePortsContext({ auth: { scopeSet: { kind: 'groups', groupIds: ['g1'] } } });
 		seedPersonnel(ctx.store);
 		ctx.store.seed('groups', [{ id: 'g0', organization_id: ORG, name: 'Earlier', sort_order: -1 }]);
@@ -197,7 +197,7 @@ describe('loadPersonnelWorkspace', () => {
 		// The lookup path should not overexpose off-scope personnel either
 		expect(result.personnelLookup).toEqual([{ id: 'p1', rank: 'SGT', lastName: 'Smith', firstName: 'John' }]);
 		expect(result).not.toHaveProperty('allPersonnel');
-		expect(result.groups.map((g) => g.name)).toEqual(['Alpha', 'Bravo']);
+		expect(result.groups.map((g) => g.name)).toEqual(['Alpha']);
 		expect(result.statusTypes.map((s) => s.name)).toEqual(['Leave', 'TDY']);
 		expect(result.pinnedGroups).toEqual(['Alpha']);
 		expect(result).not.toHaveProperty('ratingSchemeEntries');
@@ -285,7 +285,7 @@ describe('loadPersonnelWorkspace — loss warning window', () => {
 });
 
 describe('Personnel workspace isolation and failures', () => {
-	it('keeps an explicit empty scope empty while retaining the Organization catalogs and own pins', async () => {
+	it('keeps an explicit empty scope empty, including Groups and pins, while retaining Organization catalogs', async () => {
 		const ctx = createQueryWithRawStorePortsContext({
 			auth: { scopeSet: { kind: 'groups', groupIds: [] } }
 		});
@@ -299,9 +299,9 @@ describe('Personnel workspace isolation and failures', () => {
 		expect(data.personnel).toEqual([]);
 		expect(data.personnelLookup).toEqual([]);
 		expect(data.awardTrackingAcknowledgedPersonnelIds).toEqual([]);
-		expect(data.groups.map((group) => group.name)).toEqual(['Alpha', 'Bravo']);
+		expect(data.groups).toEqual([]);
 		expect(data.rankCatalog.map((rank) => rank.code)).toEqual(['SGT', 'PO3']);
-		expect(data.pinnedGroups).toEqual(['Alpha']);
+		expect(data.pinnedGroups).toEqual([]);
 	});
 
 	it('does not expose foreign people, catalogs, acknowledgements or another member’s pins', async () => {

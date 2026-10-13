@@ -328,6 +328,10 @@ describe('fetchCalendarData', () => {
 
 	it('filters pinned groups by userId', async () => {
 		const ctx = buildCtx({ auth: { userId: 'user-a' } });
+		ctx.store.seed('groups', [
+			{ id: 'g1', organization_id: ORG, name: 'Alpha', sort_order: 0 },
+			{ id: 'g2', organization_id: ORG, name: 'Bravo', sort_order: 1 }
+		]);
 		ctx.store.seed('user_pinned_groups', [
 			{ id: 'pg1', organization_id: ORG, user_id: 'user-a', group_name: 'Alpha', sort_order: 0 },
 			{ id: 'pg2', organization_id: ORG, user_id: 'user-b', group_name: 'Bravo', sort_order: 0 }
@@ -412,7 +416,9 @@ describe('fetchCalendarBootstrap', () => {
 		['bootstrap', fetchCalendarBootstrap],
 		['page', fetchCalendarData]
 	] as const)('returns only in-scope pinned Group names on the %s read', async (_read, read) => {
-		const ctx = buildCtx({ auth: { role: 'member', isPrivileged: false, scopeSet: { kind: 'groups', groupIds: ['g1'] } } });
+		const ctx = buildCtx({
+			auth: { role: 'member', isPrivileged: false, scopeSet: { kind: 'groups', groupIds: ['g1'] } }
+		});
 		seedCalendarData(ctx.store);
 		ctx.store.seed('user_pinned_groups', [
 			{ id: 'pg2', organization_id: ORG, user_id: 'test-user', group_name: 'Bravo', sort_order: 1 }

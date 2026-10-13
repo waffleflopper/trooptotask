@@ -326,7 +326,7 @@ describe('Critical Tasks report queries', () => {
 		});
 	});
 
-	it('limits the report Group choices to a Group-scoped viewer\'s scope', async () => {
+	it("limits the report Group choices to a Group-scoped viewer's scope", async () => {
 		const ctx = createTestContext({
 			auth: {
 				scopeSet: { kind: 'groups', groupIds: ['group-alpha'] },

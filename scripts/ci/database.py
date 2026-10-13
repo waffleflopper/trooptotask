@@ -67,6 +67,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261012000400_governance_direct_write_authority.sql",
     "20261012000500_suspension_sql_admission.sql",
     "20261012000600_feature_direct_write_authority.sql",
+    "20261012000700_group_catalog_scope.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",
@@ -96,6 +97,7 @@ STAGED_UPGRADE_FIXTURES = (
     "governance_direct_writes_before.sql",
     "suspension_sql_admission_before.sql",
     "feature_direct_write_authority_before.sql",
+    "group_catalog_scope_before.sql",
 )
 STAGED_UPGRADE_CONTRACTS = (
     "account_setup_populated_after.sql",
@@ -127,6 +129,7 @@ STAGED_UPGRADE_CONTRACTS = (
     "governance_direct_writes_after.sql",
     "suspension_sql_admission_after.sql",
     "feature_direct_write_authority_after.sql",
+    "group_catalog_scope_after.sql",
 )
 
 _receipt = None

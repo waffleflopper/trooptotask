@@ -7,8 +7,8 @@ import type {
 	PersonnelAwardAcknowledgementPort
 } from './contracts';
 import { loadRosterPersonnel } from './rosterRead.server';
-import { listGroupCatalog } from './groupCatalog.server';
 import { listPinnedGroupNames } from './pinnedGroupNames.server';
+import { listGroupCatalog, visiblePinnedGroupNames } from './groupCatalog.server';
 import type { OrganizationRankCatalogEntry } from './rankCatalogContracts';
 import type { PersonnelRosterReader, GroupPersistence, SelfPinPersistence } from './contracts';
 import {
@@ -55,7 +55,7 @@ export async function loadPersonnelWorkspace(
 	await requireFeaturePolicy(ctx, POLICY_ACTION_CATALOG.personnel.viewRoster, { kind: 'unscoped' }, 'personnel');
 	if (!ctx.personnelAwardAcknowledgement) throw new Error('Personnel award acknowledgement port is required');
 
-	const [personnel, allPersonnel, groups, statusTypes, rankCatalog, pinnedGroups, configuredWarningDays, acknowledged] =
+	const [personnel, allPersonnel, groups, statusTypes, rankCatalog, pinnedNames, configuredWarningDays, acknowledged] =
 		await Promise.all([
 			loadRosterPersonnel(ctx, { status: 'active' }),
 			loadRosterPersonnel({ roster: ctx.organizationRoster }, { status: 'active' }),
@@ -67,6 +67,7 @@ export async function loadPersonnelWorkspace(
 			ctx.personnelAwardAcknowledgement.listAcknowledgedPersonnelIds(ctx.auth)
 		]);
 
+	const pinnedGroups = visiblePinnedGroupNames(pinnedNames, groups);
 	const scopedAllPersonnel = ctx.auth.scopeSet.kind === 'groups' ? personnel : allPersonnel;
 	const data: PersonnelWorkspaceData = {
 		personnel,

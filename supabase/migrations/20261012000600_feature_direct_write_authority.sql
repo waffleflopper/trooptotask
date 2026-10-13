@@ -497,6 +497,14 @@ BEGIN
     RAISE EXCEPTION 'Onboarding configuration is not allowed' USING ERRCODE = '42501';
   END IF;
 
+  -- A new step's foreign keys can wait on the Organization row. Access lost
+  -- during that wait rolls back every write above.
+  IF public.member_access_has_capability(p_organization_id, 'onboarding', 'configure') IS NOT TRUE
+    OR onboarding_private.onboarding_personnel_scope_matches(p_organization_id, packet.personnel_id) IS NOT TRUE
+  THEN
+    RAISE EXCEPTION 'Onboarding configuration is not allowed' USING ERRCODE = '42501';
+  END IF;
+
   SELECT coalesce(jsonb_agg(to_jsonb(progress) ORDER BY progress.sort_order, progress.id), '[]'::jsonb)
   INTO result_steps FROM public.onboarding_step_progress AS progress
   WHERE progress.organization_id = p_organization_id AND progress.onboarding_id = p_onboarding_id;

@@ -39,6 +39,11 @@ export { createSupabaseFeedbackOrganizationContextPort } from './feedbackOrganiz
 
 export { loadDangerSettings } from './dangerSettings.server';
 export { registerOrganizationFileUpload } from './fileUploadRegistration.server';
+export {
+	drainRetiredOrganizationFiles,
+	removeRetiredOrganizationFiles,
+	type RetiredOrganizationFile
+} from './fileRetirement.server';
 
 export { renameOrganization, updateOrganizationUrlSlug, clearOrganizationUrlSlug } from './profile.server';
 export type { OrganizationProfilePort } from './profile.server';

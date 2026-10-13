@@ -19,6 +19,7 @@ export interface ArchiveRetentionCleanupResult {
 	deletedCount: number;
 	orgsAffected: number;
 	families: ArchiveRetentionFamilyResult[];
+	files: { removed: number; failed: number };
 }
 
 interface ArchiveRetentionPorts {
@@ -26,6 +27,7 @@ interface ArchiveRetentionPorts {
 	artifacts: PersonnelArtifactRetentionSource;
 	personnel: PersonnelRetentionSource;
 	assignmentTypes: AssignmentTypeRetentionSource;
+	files: { drainRetiredFiles(): Promise<{ removed: number; failed: number }> };
 	notifications: Pick<NotificationDeliveryPort, 'notifyAdmins'>;
 }
 
@@ -109,33 +111,40 @@ export async function cleanupArchivedRecords(
 	const affectedOrgs = new Set<string>();
 	const now = options.now ?? new Date();
 
-	for (const org of orgConfigs) {
-		const cutoff = retentionCutoff(now, normalizeRetentionMonths(org.retentionMonths));
-		const orgFamilyResults: ArchiveRetentionFamilyResult[] = [];
+	try {
+		for (const org of orgConfigs) {
+			const cutoff = retentionCutoff(now, normalizeRetentionMonths(org.retentionMonths));
+			const orgFamilyResults: ArchiveRetentionFamilyResult[] = [];
 
-		for (const family of ARCHIVE_RETENTION_FAMILIES) {
-			const deletedCount = await family.cleanup(ports, org.id, cutoff);
-			if (deletedCount === 0) continue;
+			for (const family of ARCHIVE_RETENTION_FAMILIES) {
+				const deletedCount = await family.cleanup(ports, org.id, cutoff);
+				if (deletedCount === 0) continue;
 
-			const familyTotal = familyTotals.get(family.key);
-			if (familyTotal) familyTotal.deletedCount += deletedCount;
-			orgFamilyResults.push({
-				key: family.key,
-				table: family.table,
-				label: family.label,
-				deletedCount
-			});
+				const familyTotal = familyTotals.get(family.key);
+				if (familyTotal) familyTotal.deletedCount += deletedCount;
+				orgFamilyResults.push({
+					key: family.key,
+					table: family.table,
+					label: family.label,
+					deletedCount
+				});
+			}
+
+			if (orgFamilyResults.length > 0) {
+				affectedOrgs.add(org.id);
+				await ports.notifications.notifyAdmins(org.id, null, {
+					type: 'archive_auto_deleted',
+					title: 'Archived Records Auto-Deleted',
+					message: notificationMessage(orgFamilyResults)
+				});
+			}
 		}
-
-		if (orgFamilyResults.length > 0) {
-			affectedOrgs.add(org.id);
-			await ports.notifications.notifyAdmins(org.id, null, {
-				type: 'archive_auto_deleted',
-				title: 'Archived Records Auto-Deleted',
-				message: notificationMessage(orgFamilyResults)
-			});
-		}
+	} catch (error) {
+		// Files queued by any run, including this failed one, still get removed.
+		await ports.files.drainRetiredFiles().catch(() => undefined);
+		throw error;
 	}
+	const files = await ports.files.drainRetiredFiles();
 
 	const families = [...familyTotals.values()];
 	const deletedCount = families.reduce((sum, family) => sum + family.deletedCount, 0);
@@ -143,6 +152,7 @@ export async function cleanupArchivedRecords(
 	return {
 		deletedCount,
 		orgsAffected: affectedOrgs.size,
-		families
+		families,
+		files
 	};
 }

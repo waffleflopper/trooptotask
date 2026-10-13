@@ -10,12 +10,9 @@ import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
 import { fail } from '$lib/errors';
+import type { FileCleanup } from '$features/organization/contracts';
 import { hasPdfFileSignature } from '$lib/storage/fileSignatures';
-import {
-	buildSensitiveFilePath,
-	SENSITIVE_FILE_BUCKET,
-	validateSensitiveFileSelection
-} from '$lib/storage/sensitiveFiles';
+import { buildSensitiveFilePath, validateSensitiveFileSelection } from '$lib/storage/sensitiveFiles';
 import {
 	personnelArtifactWriter,
 	requirePersonnelArtifactAccess,
@@ -23,8 +20,6 @@ import {
 	type PersonnelArtifactsContext,
 	type CounselingRecordRow
 } from './personnelArtifactContext.server';
-
-export const COUNSELING_RECORDS_BUCKET = SENSITIVE_FILE_BUCKET;
 
 export interface PersonnelCounselingRecordInput {
 	personnelId: string;
@@ -95,7 +90,7 @@ export async function createPersonnelCounselingRecord(
 	});
 	const upload = await writer.uploadFile('counseling', filePath, rawInput.file);
 
-	let row: CounselingRecordRow;
+	let row: CounselingRecordRow | null;
 	try {
 		row = await writer.createCounseling({
 			dateConducted: input.dateConducted,
@@ -114,9 +109,14 @@ export async function createPersonnelCounselingRecord(
 		)
 			throw new Error('Uploaded artifact attachment was not acknowledged');
 	} catch (error) {
-		await writer.removeFile('counseling', filePath);
-		await upload.complete();
-		throw error;
+		// A lost reply may hide a committed attachment. Keep it; otherwise the
+		// key is retired before the registration ends.
+		const attachedId = await writer.reconcileFileAttachment('counseling', filePath);
+		row = attachedId ? await writer.findCounseling(attachedId) : null;
+		if (!row) {
+			await upload.complete();
+			throw error;
+		}
 	}
 	await upload.complete();
 
@@ -169,16 +169,20 @@ export async function restorePersonnelCounselingRecord(
 export async function deletePersonnelCounselingRecord(
 	ctx: PersonnelArtifactsContext,
 	input: { personnelId: string; recordId: string }
-): Promise<void> {
-	const { writer, row } = await loadCounselingForWrite(ctx, input.personnelId, input.recordId);
-	if (!row.archived_at) fail(409, 'Archive counseling records before deleting them');
-	await writer.deleteCounseling(input.recordId);
-	if (row.file_path) await writer.removeFile('counseling', row.file_path);
-	ctx.audit.log({
-		action: 'personnel.counseling_record.deleted',
-		resourceType: 'personnel',
-		resourceId: input.personnelId
-	});
+): Promise<{ fileCleanup: FileCleanup }> {
+	const writer = await personnelArtifactWriter(ctx, input.personnelId);
+	const row = await writer.findCounseling(input.recordId);
+	if (row && !row.archived_at) fail(409, 'Archive counseling records before deleting them');
+	const result = await writer.deleteArchivedFileArtifact('counseling', input.recordId, row?.archived_at ?? null);
+	if (!result)
+		fail(row ? 409 : 404, row ? 'Counseling record changed before it was deleted' : 'Counseling record not found');
+	if (result.deleted)
+		ctx.audit.log({
+			action: 'personnel.counseling_record.deleted',
+			resourceType: 'personnel',
+			resourceId: input.personnelId
+		});
+	return { fileCleanup: result.fileCleanup };
 }
 
 /** Describes a deletion request from the counseling record of a Person the requester may manage. */

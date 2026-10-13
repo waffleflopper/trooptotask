@@ -4,7 +4,8 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import { SENSITIVE_FILE_BUCKET } from '$lib/storage/sensitiveFiles';
-import { registerOrganizationFileUpload } from '$features/organization/index.server';
+import { registerOrganizationFileUpload, removeRetiredOrganizationFiles } from '$features/organization/index.server';
+import type { FileCleanup } from '$features/organization/contracts';
 import type {
 	PersonnelArtifactArchiveWriter,
 	PersonnelArtifactRef,
@@ -57,6 +58,27 @@ export function artifactFileTarget(kind: 'counseling' | 'document', orgId: strin
 		fail(400, 'Artifact file path is outside the authorized Person');
 	}
 	return kind === 'counseling' ? SENSITIVE_FILE_BUCKET : 'personnel-documents';
+}
+
+interface FileDeletionReceipt {
+	deleted?: boolean;
+	bucket_id: string | null;
+	object_name: string | null;
+	file_removed: boolean;
+}
+
+export function parseFileDeletion(data: unknown): FileDeletionReceipt | null {
+	if (!Array.isArray(data) || data.length === 0) return null;
+	const [receipt] = data as FileDeletionReceipt[];
+	if (data.length !== 1 || typeof receipt?.file_removed !== 'boolean')
+		throw new Error('File artifact deletion was not acknowledged');
+	return receipt;
+}
+
+/** Removes a deletion's retired bytes now when possible; scheduled cleanup owns the rest. */
+export async function finishFileCleanup(admin: SupabaseClient, receipt: FileDeletionReceipt): Promise<FileCleanup> {
+	if (receipt.file_removed || !receipt.bucket_id || !receipt.object_name) return 'complete';
+	return removeRetiredOrganizationFiles(admin, [{ bucket_id: receipt.bucket_id, object_name: receipt.object_name }]);
 }
 
 /** Bind service-role operations to a Person only after the request actor is admitted. */
@@ -133,15 +155,6 @@ export function createSupabasePersonnelArtifactWritePort(
 					if (error) throw new Error(error.message);
 					return counselingRow(data);
 				},
-				async deleteCounseling(id) {
-					const { error } = await admin
-						.from('counseling_records')
-						.delete()
-						.eq('organization_id', actor.orgId)
-						.eq('personnel_id', personnelId)
-						.eq('id', id);
-					if (error) throw new Error(error.message);
-				},
 				async findDocument(id) {
 					const { data, error } = await base('personnel_documents')
 						.select(PERSONNEL_DOCUMENTS_SELECT)
@@ -182,15 +195,6 @@ export function createSupabasePersonnelArtifactWritePort(
 						.single();
 					if (error) throw new Error(error.message);
 					return documentRow(data);
-				},
-				async deleteDocument(id) {
-					const { error } = await admin
-						.from('personnel_documents')
-						.delete()
-						.eq('organization_id', actor.orgId)
-						.eq('personnel_id', personnelId)
-						.eq('id', id);
-					if (error) throw new Error(error.message);
 				},
 				async findFollowUp(id) {
 					const { data, error } = await base('personnel_follow_ups')
@@ -330,12 +334,32 @@ export function createSupabasePersonnelArtifactWritePort(
 						throw new Error('Storage upload was not acknowledged');
 					return registration;
 				},
-				async removeFile(kind, path) {
+				async deleteArchivedFileArtifact(kind, id, archivedAt) {
+					const { data, error } = await admin.rpc('delete_archived_personnel_artifact', {
+						p_organization_id: actor.orgId,
+						p_personnel_id: personnelId,
+						p_kind: kind,
+						p_artifact_id: id,
+						p_archived_at: archivedAt
+					});
+					if (error) throw new Error(error.message);
+					const receipt = parseFileDeletion(data);
+					if (!receipt) return null;
+					return { deleted: receipt.deleted === true, fileCleanup: await finishFileCleanup(admin, receipt) };
+				},
+				async reconcileFileAttachment(kind, path) {
 					const bucket = artifactFileTarget(kind, actor.orgId, personnelId, path);
-					const { data, error } = await admin.storage.from(bucket).remove([path]);
-					if (error) throw new Error(`Storage remove failed: ${error.message}`);
-					if (!Array.isArray(data) || data.length !== 1 || data[0]?.name !== path)
-						throw new Error('Storage removal was not acknowledged');
+					const { data, error } = await admin.rpc('reconcile_personnel_file_attachment', {
+						p_organization_id: actor.orgId,
+						p_personnel_id: personnelId,
+						p_kind: kind,
+						p_object_name: path
+					});
+					if (error) throw new Error(error.message);
+					if (typeof data === 'string' && data) return data;
+					if (data !== null) throw new Error('File attachment reconciliation was not acknowledged');
+					await removeRetiredOrganizationFiles(admin, [{ bucket_id: bucket, object_name: path }]);
+					return null;
 				}
 			};
 			return writer;

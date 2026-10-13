@@ -10,6 +10,7 @@ import {
 	restorePersonnelDocument
 } from '$features/personnel/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import type { FileCleanup } from '$features/organization/contracts';
 
 function routeIds(event: RequestEvent): { personnelId: string; documentId: string } {
 	const personnelId = event.params.id;
@@ -40,7 +41,7 @@ export const _patchConfig: RouteConfig<
 
 export const _deleteConfig: RouteConfig<
 	{ personnelId: string; documentId: string },
-	{ success: true },
+	{ success: true; fileCleanup: FileCleanup },
 	ReturnType<typeof createRequestPersonnelArtifactsContext>
 > = {
 	context: createRequestPersonnelArtifactsContext,
@@ -48,10 +49,7 @@ export const _deleteConfig: RouteConfig<
 	policyAction: POLICY_ACTION_CATALOG.personnel.manageRecords,
 	policyResource: { kind: 'unscoped' },
 	parseInput: async (event) => routeIds(event),
-	fn: async (ctx, input) => {
-		await deletePersonnelDocument(ctx, input);
-		return { success: true };
-	},
+	fn: async (ctx, input) => ({ success: true, ...(await deletePersonnelDocument(ctx, input)) }),
 	formatOutput: (result) => json(result)
 };
 

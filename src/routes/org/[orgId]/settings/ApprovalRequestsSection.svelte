@@ -74,8 +74,12 @@
 				reviewError = { id, message: message || failureMessage };
 				return;
 			}
+			const body: unknown = await res.json().catch(() => null);
+			if (!active) return;
 			// HTTP acknowledgment is separate from refreshing the current read model.
 			reviewedIds.add(id);
+			if (body && typeof body === 'object' && 'fileCleanup' in body && body.fileCleanup === 'pending')
+				toastStore.info('Approved. The stored file will be removed automatically.');
 			if (denyingId === id) {
 				denyingId = null;
 				denialReason = '';

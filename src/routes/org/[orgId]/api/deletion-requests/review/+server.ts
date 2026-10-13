@@ -28,8 +28,9 @@ export function _reviewPostConfig(
 			if (!id || !action) fail(400, 'Missing required fields: id, action');
 			if (action !== 'approve' && action !== 'deny') fail(400, 'Action must be "approve" or "deny"');
 			const review = { auth: ctx.auth, audit: ctx.audit, store, notifications: ctx.notifications };
-			if (action === 'approve') await approveDeletionRequest(review, id as string, effectsFor(ctx));
-			else await denyDeletionRequest(review, id as string, denialReason as string | undefined);
+			if (action === 'approve')
+				return { success: true, ...(await approveDeletionRequest(review, id as string, effectsFor(ctx))) };
+			await denyDeletionRequest(review, id as string, denialReason as string | undefined);
 			return { success: true };
 		}
 	};

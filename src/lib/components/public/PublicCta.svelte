@@ -4,13 +4,13 @@
 	import { Button } from '$lib/components/ui/button';
 
 	interface Props {
-		user?: unknown;
+		signedIn?: boolean;
 	}
 
-	let { user }: Props = $props();
+	let { signedIn = false }: Props = $props();
 
 	const action = $derived(
-		user
+		signedIn
 			? { href: resolve('/dashboard?show=all'), label: 'Go to Dashboard' }
 			: { href: resolve('/auth/request-access'), label: 'Request Access' }
 	);

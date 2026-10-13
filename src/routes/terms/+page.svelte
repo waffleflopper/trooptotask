@@ -13,7 +13,7 @@
 	<meta name="description" content="Terms of Use for TroopToTask, a military personnel management platform." />
 </svelte:head>
 
-<PublicShell user={data.user}>
+<PublicShell signedIn={data.signedIn}>
 	<PublicPageHeader label="Terms of Use" meta="Effective Date: March 8, 2026">
 		{#snippet title()}Terms of <em>Use</em>{/snippet}
 		<p>

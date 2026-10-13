@@ -12,7 +12,7 @@ afterEach(() => {
 
 describe('public navigation', () => {
 	it('keeps anonymous page, FAQ and access destinations available', () => {
-		render(PublicSiteNav, { props: { user: null, showFaqLink: true } });
+		render(PublicSiteNav, { props: { signedIn: false, showFaqLink: true } });
 
 		expect(screen.getByRole('link', { name: /Troop To Task Unit Readiness Platform/i })).toHaveAttribute('href', '/');
 		expect(screen.getByRole('link', { name: 'About' })).toHaveAttribute('href', '/about');
@@ -23,7 +23,7 @@ describe('public navigation', () => {
 	});
 
 	it('offers the dashboard to an admitted user', () => {
-		render(PublicSiteNav, { props: { user: { id: 'synthetic-user' } } });
+		render(PublicSiteNav, { props: { signedIn: true } });
 
 		expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('href', '/dashboard?show=all');
 		expect(screen.queryByRole('link', { name: 'Sign In' })).not.toBeInTheDocument();
@@ -31,14 +31,14 @@ describe('public navigation', () => {
 	});
 
 	it('marks only the current page in the navigation', () => {
-		render(PublicSiteNav, { props: { user: null, active: 'security' } });
+		render(PublicSiteNav, { props: { signedIn: false, active: 'security' } });
 
 		expect(screen.getByRole('link', { name: 'Security' })).toHaveAttribute('aria-current', 'page');
 		expect(screen.getByRole('link', { name: 'About' })).not.toHaveAttribute('aria-current');
 	});
 
 	it('switches the app theme from the toggle button', async () => {
-		render(PublicSiteNav, { props: { user: null } });
+		render(PublicSiteNav, { props: { signedIn: false } });
 		themeStore.setTheme('light');
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Toggle theme' }));

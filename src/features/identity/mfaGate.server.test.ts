@@ -4,7 +4,7 @@ import {
 	getIdentitySessionScope,
 	getAuthenticatedRedirectPath,
 	getPendingAuthFlowCookieName,
-	getPublicPageUser,
+	isPublicPageSignedIn,
 	isPasswordAuthenticatedSession,
 	isMfaStepUpRequired,
 	readAuthSessionMarker,
@@ -40,9 +40,10 @@ describe('mfaGate', () => {
 	});
 
 	it('does not expose a fully-authenticated user shape to public pages while MFA is pending', () => {
-		expect(getPublicPageUser({ id: 'user-123' }, true, null)).toBeNull();
-		expect(getPublicPageUser({ id: 'user-123' }, false, 'recovery')).toBeNull();
-		expect(getPublicPageUser({ id: 'user-123' }, false, null)).toEqual({ id: 'user-123' });
+		expect(isPublicPageSignedIn({ id: 'user-123' }, true, null)).toBe(false);
+		expect(isPublicPageSignedIn({ id: 'user-123' }, false, 'recovery')).toBe(false);
+		expect(isPublicPageSignedIn({ id: 'user-123' }, false, null)).toBe(true);
+		expect(isPublicPageSignedIn(null, false, null)).toBe(false);
 	});
 
 	it('accepts a confirmed flow only for its verified user and session', () => {

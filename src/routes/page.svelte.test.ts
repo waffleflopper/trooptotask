@@ -12,7 +12,7 @@ afterEach(() => {
 describe('landing FAQ', () => {
 	it('opens one answer at a time and lets the open one close, without an intersection observer', async () => {
 		vi.stubGlobal('IntersectionObserver', undefined);
-		const { container } = render(Page, { props: { data: { viewer: null, user: null } } });
+		const { container } = render(Page, { props: { data: { viewer: null, signedIn: false } } });
 		const main = within(container.querySelector('main')!);
 		const first = main.getByRole('button', { name: /Are the calendar statuses fixed/i });
 		const second = main.getByRole('button', { name: /Can I scope access/i });
@@ -39,7 +39,7 @@ describe('landing FAQ', () => {
 
 	it('sends a visitor to reviewed access from the hero and the closing call to action', () => {
 		vi.stubGlobal('IntersectionObserver', undefined);
-		const { container } = render(Page, { props: { data: { viewer: null, user: null } } });
+		const { container } = render(Page, { props: { data: { viewer: null, signedIn: false } } });
 		const main = within(container.querySelector('main')!);
 
 		const links = main.getAllByRole('link', { name: 'Request Access' });
@@ -53,13 +53,7 @@ describe('landing FAQ', () => {
 			props: {
 				data: {
 					viewer: null,
-					user: {
-						id: 'synthetic-user',
-						app_metadata: {},
-						user_metadata: {},
-						aud: 'authenticated',
-						created_at: '2026-09-25T00:00:00Z'
-					}
+					signedIn: true
 				}
 			}
 		});

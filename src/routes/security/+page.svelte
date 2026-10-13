@@ -22,7 +22,7 @@
 	<meta name="description" content="Security practices and NIST 800-171 alignment information for Troop to Task." />
 </svelte:head>
 
-<PublicShell user={data.user} active="security">
+<PublicShell signedIn={data.signedIn} active="security">
 	<PublicPageHeader label="Security" meta="Last reviewed: May 2026">
 		{#snippet title()}Your data, <em>protected.</em>{/snippet}
 		<p>TroopToTask aligns with NIST SP 800-171 for the protection of Controlled Unclassified Information.</p>

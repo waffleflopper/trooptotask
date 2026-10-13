@@ -195,8 +195,8 @@ export function getAuthenticatedRedirectPath(authFlow: PendingAuthFlow, mfaPendi
 	return mfaPending ? '/auth/mfa-verify' : '/dashboard';
 }
 
-export function getPublicPageUser<T>(user: T | null, mfaPending: boolean, authFlow: PendingAuthFlow): T | null {
-	return authFlow || mfaPending ? null : user;
+export function isPublicPageSignedIn(user: unknown, mfaPending: boolean, authFlow: PendingAuthFlow): boolean {
+	return !!user && !mfaPending && !authFlow;
 }
 
 export function shouldRedirectIncompleteAuthSession(

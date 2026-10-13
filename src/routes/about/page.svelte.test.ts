@@ -5,29 +5,21 @@ import Page from './+page.svelte';
 
 afterEach(cleanup);
 
-const member = {
-	id: 'synthetic-user',
-	app_metadata: {},
-	user_metadata: {},
-	aud: 'authenticated',
-	created_at: '2026-09-25T00:00:00Z'
-};
-
-function bodyLinks(user: typeof member | null) {
-	const { container } = render(Page, { props: { data: { viewer: null, user } } });
+function bodyLinks(signedIn: boolean) {
+	const { container } = render(Page, { props: { data: { viewer: null, signedIn } } });
 	return within(container.querySelector('main')!);
 }
 
 describe('about page actions', () => {
 	it('offers reviewed access to a visitor', () => {
-		const main = bodyLinks(null);
+		const main = bodyLinks(false);
 
 		expect(main.getByRole('link', { name: 'Request access' }).getAttribute('href')).toBe('/auth/request-access');
 		expect(main.queryByRole('link', { name: 'Go to Dashboard' })).toBeNull();
 	});
 
 	it('sends a signed-in member to the dashboard instead of the access request', () => {
-		const main = bodyLinks(member);
+		const main = bodyLinks(true);
 
 		expect(main.getByRole('link', { name: 'Go to Dashboard' }).getAttribute('href')).toBe('/dashboard?show=all');
 		expect(main.queryByRole('link', { name: 'Request access' })).toBeNull();

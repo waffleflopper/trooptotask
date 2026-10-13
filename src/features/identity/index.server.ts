@@ -13,7 +13,7 @@ export {
 	getIdentitySessionScope,
 	getAuthenticatedRedirectPath,
 	getPendingAuthFlowCookieName,
-	getPublicPageUser,
+	isPublicPageSignedIn,
 	setCompletedAuthFlowCookie,
 	setPendingAuthFlowCookie
 } from './mfaGate.server';

@@ -14,7 +14,7 @@ export const attemptStore = {
 		if (
 			row?.state === 'complete' &&
 			['read', 'begin', 'restart'].includes(args.p_action!) &&
-			(row.session !== args.p_session || row.expiresAt <= Date.now() / 1000)
+			(row.session !== args.p_session || (row.expiresAt <= Date.now() / 1000 && !args.p_flow))
 		) {
 			if (args.p_action !== 'read') attemptStore.row = null;
 			row = null;

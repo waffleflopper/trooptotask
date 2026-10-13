@@ -8,14 +8,14 @@
 	import { cn } from '$lib/utils';
 
 	interface Props {
-		user?: unknown;
+		signedIn?: boolean;
 		active?: 'about' | 'security';
 		showFaqLink?: boolean;
 		overlay?: boolean;
 		scrolled?: boolean;
 	}
 
-	let { user, active, showFaqLink = false, overlay = false, scrolled = false }: Props = $props();
+	let { signedIn = false, active, showFaqLink = false, overlay = false, scrolled = false }: Props = $props();
 
 	// The nav is paper by default and floats over the dark hero until the page scrolls past it.
 	const tones = {
@@ -85,7 +85,7 @@
 					<MoonIcon aria-hidden="true" />
 				{/if}
 			</Button>
-			{#if user}
+			{#if signedIn}
 				<Button href={resolve('/dashboard?show=all')} variant="ghost" size="none" class={cn(actionClass, tone.outline)}
 					>Dashboard</Button
 				>

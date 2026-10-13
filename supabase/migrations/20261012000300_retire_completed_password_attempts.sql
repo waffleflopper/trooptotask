@@ -1,5 +1,5 @@
--- A completed attempt from another session, or past its expiry, is finished
--- history rather than a blocker. Reads treat it as absent without deleting it,
+-- A completed attempt from another session, or past its expiry outside a
+-- pending flow, is finished history rather than a blocker. Reads treat it as absent without deleting it,
 -- so its own session can still finalize an invite. Begin and restart replace it
 -- with a new attempt ID, which keeps rejecting its old provider markers.
 -- Unfinished attempts keep their session, flow and expiry binding.
@@ -20,8 +20,10 @@ BEGIN
   -- simultaneous password mutations from different sessions or app instances.
   PERFORM pg_advisory_xact_lock(hashtextextended(p_actor::text, 195));
   SELECT * INTO attempt FROM public.password_change_attempts WHERE actor = p_actor FOR UPDATE;
+  -- Inside a pending recovery or invite flow, an expired completion stays
+  -- expired: that flow skips current-password proof and must not mutate twice.
   IF p_action IN ('read', 'begin', 'restart') AND attempt.state = 'complete'
-    AND (attempt.session_id <> p_session OR attempt.expires_at <= clock_timestamp()) THEN
+    AND (attempt.session_id <> p_session OR (attempt.expires_at <= clock_timestamp() AND p_flow IS NULL)) THEN
     IF p_action <> 'read' THEN DELETE FROM public.password_change_attempts WHERE actor = p_actor; END IF;
     attempt := NULL;
   END IF;

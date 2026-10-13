@@ -654,8 +654,8 @@ export class OnboardingTemplateWorkspace {
 		const confirmed = this.#steps;
 		const next = [...ordered];
 		next.splice(target, 0, ...next.splice(from, 1));
-		const sortOrders = new Map(next.map((item, index) => [item.id, index]));
-		this.#steps = this.#steps.map((item) => ({ ...item, sortOrder: sortOrders.get(item.id) ?? item.sortOrder }));
+		const sortOrders = Object.fromEntries(next.map((item, index) => [item.id, index]));
+		this.#steps = this.#steps.map((item) => ({ ...item, sortOrder: sortOrders[item.id] ?? item.sortOrder }));
 		this.syncHydratedStore();
 		if (this.#reordering) return { ok: true, value: undefined };
 
@@ -673,16 +673,16 @@ export class OnboardingTemplateWorkspace {
 				const sent = orderedIds();
 				const result = await this.adapter.reorderSteps(templateId, sent);
 				if (revision !== this.#organizationRevision) return organizationChanged();
-				const serverRows = new Map(result.ok ? result.value.map((item) => [item.id, item]) : []);
+				const serverRows = Object.fromEntries((result.ok ? result.value : []).map((item) => [item.id, item]));
 				if (!result.ok) {
-					const restored = new Map(saved.map((item) => [item.id, item.sortOrder]));
-					this.#steps = this.#steps.map((item) => ({ ...item, sortOrder: restored.get(item.id) ?? item.sortOrder }));
+					const restored = Object.fromEntries(saved.map((item) => [item.id, item.sortOrder]));
+					this.#steps = this.#steps.map((item) => ({ ...item, sortOrder: restored[item.id] ?? item.sortOrder }));
 					this.syncHydratedStore();
 					return this.rememberError(result);
 				}
-				saved = saved.map((item) => serverRows.get(item.id) ?? item);
+				saved = saved.map((item) => serverRows[item.id] ?? item);
 				if (orderedIds().join() === sent.join()) {
-					this.#steps = this.#steps.map((item) => serverRows.get(item.id) ?? item);
+					this.#steps = this.#steps.map((item) => serverRows[item.id] ?? item);
 					this.syncHydratedStore();
 					return { ok: true, value: undefined };
 				}

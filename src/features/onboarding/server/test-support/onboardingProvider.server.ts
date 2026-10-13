@@ -91,7 +91,8 @@ export function onboardingProvider(initial: Partial<Record<OnboardingTable, Row[
 					for (const row of selected) Object.assign(row, body);
 				} else if (request.method === 'DELETE') {
 					rows[table] = rows[table].filter((row) => !selected.includes(row));
-				} else if (request.method !== 'GET' && request.method !== 'HEAD') throw new Error('Unexpected Onboarding provider method');
+				} else if (request.method !== 'GET' && request.method !== 'HEAD')
+					throw new Error('Unexpected Onboarding provider method');
 				const order = url.searchParams.get('order');
 				if (order) {
 					const fields = order.split(',').map((field) => field.split('.'));
@@ -154,8 +155,7 @@ export function onboardingProvider(initial: Partial<Record<OnboardingTable, Row[
 						return Response.json({ code: 'PGRST116', message: 'Expected one row' }, { status: 406 });
 					return Response.json(result[0]);
 				}
-				if (request.method === 'HEAD')
-					return new Response(null, { headers: { 'content-range': `*/${count}` } });
+				if (request.method === 'HEAD') return new Response(null, { headers: { 'content-range': `*/${count}` } });
 				if (request.method !== 'GET' && !request.headers.get('prefer')?.includes('return=representation'))
 					return new Response(null, { status: 204 });
 				return Response.json(result, {

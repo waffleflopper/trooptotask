@@ -1,4 +1,7 @@
-import type { OnboardingTemplateActivityContext, OnboardingTemplateReadContext } from './onboardingTemplatePorts.server';
+import type {
+	OnboardingTemplateActivityContext,
+	OnboardingTemplateReadContext
+} from './onboardingTemplatePorts.server';
 
 export async function fetchOnboardingTemplatesData(ctx: OnboardingTemplateReadContext) {
 	const [templates, templateSteps] = await Promise.all([

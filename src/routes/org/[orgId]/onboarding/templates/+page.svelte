@@ -8,6 +8,7 @@
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
 	import * as Empty from '$lib/components/ui/empty';
+	import * as PageShell from '$lib/components/patterns/page-shell';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import * as TypeWorkspace from '$lib/components/patterns/type-management-workspace';
 	import { getAppShellContext } from '$features/app-shell';
@@ -217,7 +218,10 @@
 	async function saveStep(): Promise<void> {
 		const stepId = model.editingStepId;
 		const result = await workspace.saveStep();
-		if (result.ok) await returnFocusFromStepForm(stepId);
+		// A form the user opened while this save was pending holds the focus now.
+		if (result.ok && !workspace.model.addingStep && !workspace.model.editingStepId) {
+			await returnFocusFromStepForm(stepId);
+		}
 	}
 
 	function cancelStep(): void {
@@ -278,127 +282,148 @@
 	</section>
 {/if}
 
-<TypeWorkspace.Root
-	aria-label="Onboarding template management workspace"
-	class={hydrated ? 'overflow-hidden' : 'hidden'}
->
-	<WorkspaceToolbar
-		ariaLabel="Onboarding template controls"
-		items={toolbarItems}
-		search={toolbarSearch}
-		primary={toolbarPrimary}
-	/>
+<div class={['flex h-full min-h-0 flex-col bg-background', !hydrated && 'hidden']}>
+	<div class="grid shrink-0 gap-4 border-b border-border p-3 md:px-6 md:pt-6 md:pb-4">
+		<PageShell.Header
+			title="Templates"
+			subtitle="The steps each new arrival works through. Edits apply to new packets right away; active packets update when you sync them."
+		/>
+		<WorkspaceToolbar
+			ariaLabel="Onboarding template controls"
+			items={toolbarItems}
+			search={toolbarSearch}
+			primary={toolbarPrimary}
+		/>
+	</div>
 
-	{#if model.error && !model.confirmDelete}
-		<Alert.Root variant="destructive">
-			<Alert.Description>{model.error.message}</Alert.Description>
-		</Alert.Root>
-	{/if}
+	<TypeWorkspace.Root aria-label="Onboarding template management workspace" class="min-h-0 flex-1 overflow-hidden">
+		{#if model.error && !model.confirmDelete}
+			<Alert.Root variant="destructive">
+				<Alert.Description>{model.error.message}</Alert.Description>
+			</Alert.Root>
+		{/if}
 
-	<TypeWorkspace.Layout>
-		<TypeWorkspace.List mobileHidden={model.mobileDetailOpen || model.creatingTemplate || model.editingTemplate}>
-			{#if model.templates.length === 0 && !model.creatingTemplate}
-				<Empty.Root>
-					<Empty.Header>
-						<Empty.Title level={3}>No templates yet.</Empty.Title>
-						<Empty.Description>Create one to get started.</Empty.Description>
-					</Empty.Header>
-					{#if model.canMutate}
-						<Empty.Content>
-							<Button
-								bind:ref={emptyAddTemplate}
-								variant="outline"
-								size="sm"
-								type="button"
-								onclick={() => workspace.startCreateTemplate()}
-							>
-								New template
-							</Button>
-						</Empty.Content>
-					{/if}
-				</Empty.Root>
-			{:else if visibleTemplates.length === 0}
-				<Empty.Root>
-					<Empty.Header>
-						<Empty.Title level={3}>No matches.</Empty.Title>
-						<Empty.Description>No template or step is named like "{query.trim()}".</Empty.Description>
-					</Empty.Header>
-				</Empty.Root>
-			{:else}
-				<TypeWorkspace.ItemList bind:this={templateList} aria-label="Onboarding templates">
-					{#each visibleTemplates as template (template.id)}
-						<TypeWorkspace.ListItem
-							selected={model.selectedTemplate?.id === template.id && !model.creatingTemplate}
-							title={template.name}
-							description={workspace.getTemplateSummary(template, activePacketsFor(template.id))}
-							onselect={() => workspace.selectTemplate(template.id)}
-							disabled={model.templateActionDisabled}
-						/>
-					{/each}
-				</TypeWorkspace.ItemList>
-			{/if}
-		</TypeWorkspace.List>
-
-		<TypeWorkspace.Detail
-			mobileHidden={!model.mobileDetailOpen && !model.creatingTemplate && !model.editingTemplate}
-			class={model.creatingTemplate || model.selectedTemplate ? 'flex flex-col overflow-hidden pr-0' : undefined}
-		>
-			{#if model.creatingTemplate || model.selectedTemplate}
-				<TypeWorkspace.MobileBack onclick={() => workspace.closeMobileDetail()}>Templates</TypeWorkspace.MobileBack>
-				<div class="min-h-0 flex-1 overflow-y-auto pr-2 pb-8 [scrollbar-gutter:stable]">
-					<TypeWorkspace.Stack>
-						<TemplateHeader
-							{workspace}
-							template={model.selectedTemplate}
-							stepCount={model.selectedTemplateSteps.length}
-							onsave={saveTemplate}
-							ondelete={() =>
-								model.selectedTemplate &&
-								requestDelete({ type: 'template', id: model.selectedTemplate.id, name: model.selectedTemplate.name })}
-							onduplicate={() => workspace.duplicateTemplate(model.selectedTemplate?.id)}
-						/>
-
-						{#if model.selectedTemplate && !model.creatingTemplate}
-							{#if selectedActivePackets > 0}
-								<TemplateSyncNotice
-									activePackets={selectedActivePackets}
-									{syncing}
-									ready={packetsReady}
-									result={syncMessage}
-									onsync={syncActivePackets}
-								/>
-							{/if}
-
-							<TypeWorkspace.FormSection title="Steps">
-								<p class="m-0 text-xs text-muted-foreground">
-									In the order Soldiers see them.
-									{#if model.canMutate}Drag the grip, or focus it and press Arrow Up or Arrow Down, to reorder.{/if}
-								</p>
-								<TemplateSteps
-									{workspace}
-									steps={model.selectedTemplateSteps}
-									trainingTypes={model.trainingTypes}
-									onedit={startEditStep}
-									onadd={startAddStep}
-									ondelete={(step) => requestDelete({ type: 'step', id: step.id, name: step.name })}
-									onsave={saveStep}
-									oncancel={cancelStep}
-								/>
-							</TypeWorkspace.FormSection>
+		<TypeWorkspace.Layout>
+			<TypeWorkspace.List
+				mobileHidden={model.mobileDetailOpen || model.creatingTemplate || model.editingTemplate}
+				class="grid content-start gap-3"
+			>
+				{#if model.templates.length > 0}
+					<div class="flex items-baseline justify-between gap-3 px-1">
+						<h2 class="font-heading text-xl font-semibold">Templates</h2>
+						<span class="font-mono text-xs text-muted-foreground">{visibleTemplates.length}</span>
+					</div>
+				{/if}
+				{#if model.templates.length === 0 && !model.creatingTemplate}
+					<Empty.Root>
+						<Empty.Header>
+							<Empty.Title level={3}>No templates yet.</Empty.Title>
+							<Empty.Description>Create one to get started.</Empty.Description>
+						</Empty.Header>
+						{#if model.canMutate}
+							<Empty.Content>
+								<Button
+									bind:ref={emptyAddTemplate}
+									variant="outline"
+									size="sm"
+									type="button"
+									onclick={() => workspace.startCreateTemplate()}
+								>
+									New template
+								</Button>
+							</Empty.Content>
 						{/if}
-					</TypeWorkspace.Stack>
-				</div>
-			{:else}
-				<Empty.Root>
-					<Empty.Header>
-						<Empty.Title level={3}>Select a template</Empty.Title>
-						<Empty.Description>Choose a template from the list to view details.</Empty.Description>
-					</Empty.Header>
-				</Empty.Root>
-			{/if}
-		</TypeWorkspace.Detail>
-	</TypeWorkspace.Layout>
-</TypeWorkspace.Root>
+					</Empty.Root>
+				{:else if visibleTemplates.length === 0}
+					<Empty.Root>
+						<Empty.Header>
+							<Empty.Title level={3}>No matches.</Empty.Title>
+							<Empty.Description>No template or step is named like "{query.trim()}".</Empty.Description>
+						</Empty.Header>
+					</Empty.Root>
+				{:else}
+					<TypeWorkspace.ItemList bind:this={templateList} aria-label="Onboarding templates">
+						{#each visibleTemplates as template (template.id)}
+							<TypeWorkspace.ListItem
+								selected={model.selectedTemplate?.id === template.id && !model.creatingTemplate}
+								title={template.name}
+								description={workspace.getTemplateSummary(template, activePacketsFor(template.id))}
+								onselect={() => workspace.selectTemplate(template.id)}
+								disabled={model.templateActionDisabled}
+							/>
+						{/each}
+					</TypeWorkspace.ItemList>
+				{/if}
+			</TypeWorkspace.List>
+
+			<TypeWorkspace.Detail
+				mobileHidden={!model.mobileDetailOpen && !model.creatingTemplate && !model.editingTemplate}
+				class={model.creatingTemplate || model.selectedTemplate ? 'flex flex-col overflow-hidden pr-0' : undefined}
+			>
+				{#if model.creatingTemplate || model.selectedTemplate}
+					<TypeWorkspace.MobileBack onclick={() => workspace.closeMobileDetail()}>Templates</TypeWorkspace.MobileBack>
+					<div class="min-h-0 flex-1 overflow-y-auto pr-2 pb-8 [scrollbar-gutter:stable]">
+						<TypeWorkspace.Stack>
+							<TemplateHeader
+								{workspace}
+								template={model.selectedTemplate}
+								stepCount={model.selectedTemplateSteps.length}
+								onsave={saveTemplate}
+								ondelete={() =>
+									model.selectedTemplate &&
+									requestDelete({ type: 'template', id: model.selectedTemplate.id, name: model.selectedTemplate.name })}
+								onduplicate={() => workspace.duplicateTemplate(model.selectedTemplate?.id)}
+							/>
+
+							{#if model.selectedTemplate && !model.creatingTemplate}
+								{#if selectedActivePackets > 0}
+									<TemplateSyncNotice
+										activePackets={selectedActivePackets}
+										{syncing}
+										ready={packetsReady}
+										result={syncMessage}
+										onsync={syncActivePackets}
+									/>
+								{/if}
+
+								<section class="grid gap-3" aria-labelledby="template-steps-title">
+									<div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+										<h3 id="template-steps-title" class="font-heading text-xl font-semibold">Steps</h3>
+										<p class="m-0 font-mono text-xs text-muted-foreground">
+											{model.canMutate
+												? 'in the order Soldiers see them · drag to reorder'
+												: 'in the order Soldiers see them'}
+										</p>
+										{#if model.canMutate}
+											<p class="sr-only">Focus a grip and press Arrow Up or Arrow Down to reorder.</p>
+										{/if}
+									</div>
+									<TemplateSteps
+										{workspace}
+										steps={model.selectedTemplateSteps}
+										trainingTypes={model.trainingTypes}
+										onedit={startEditStep}
+										onadd={startAddStep}
+										ondelete={(step) => requestDelete({ type: 'step', id: step.id, name: step.name })}
+										onsave={saveStep}
+										oncancel={cancelStep}
+									/>
+								</section>
+							{/if}
+						</TypeWorkspace.Stack>
+					</div>
+				{:else}
+					<Empty.Root>
+						<Empty.Header>
+							<Empty.Title level={3}>Select a template</Empty.Title>
+							<Empty.Description>Choose a template from the list to view details.</Empty.Description>
+						</Empty.Header>
+					</Empty.Root>
+				{/if}
+			</TypeWorkspace.Detail>
+		</TypeWorkspace.Layout>
+	</TypeWorkspace.Root>
+</div>
 
 {#if model.confirmDelete && ConfirmDialog}
 	<ConfirmDialog

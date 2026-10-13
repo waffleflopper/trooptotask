@@ -631,6 +631,133 @@ describe('onboarding templates page', () => {
 		expect(within(detail).getByRole('button', { name: 'Add step' })).toBeTruthy();
 	});
 
+	it('titles the page and heads the template list and the steps', async () => {
+		await renderTemplatesPage({ templateSteps: [step('step-1', 'First step', 0), step('step-2', 'Second step', 1)] });
+
+		expect(screen.getByRole('heading', { name: 'Templates', level: 1 })).toBeTruthy();
+		expect(screen.getByText(/active packets update when you sync them/)).toBeTruthy();
+		const list = screen.getByRole('heading', { name: 'Templates', level: 2 });
+		expect(list.parentElement?.textContent).toContain('1');
+		expect(screen.getByRole('heading', { name: 'Standard Arrival', level: 2 })).toBeTruthy();
+		const steps = screen.getByRole('heading', { name: 'Steps', level: 3 });
+		expect(steps.parentElement?.textContent).toContain('in the order Soldiers see them · drag to reorder');
+	});
+
+	it('marks the selected step type and moves the mark with the choice', async () => {
+		await renderTemplatesPage();
+		await fireEvent.click(screen.getByRole('button', { name: 'Add step' }));
+
+		const type = (name: string) => screen.getByRole('radio', { name });
+		expect(type('Checkbox').getAttribute('data-state')).toBe('on');
+		expect(type('Checkbox').className).toContain('data-[state=on]:bg-primary');
+		await fireEvent.click(type('Paperwork'));
+		expect(type('Paperwork').getAttribute('data-state')).toBe('on');
+		expect(type('Checkbox').getAttribute('data-state')).toBe('off');
+	});
+
+	it('keeps the step form opened while an earlier step save is pending', async () => {
+		let answer: () => void = () => {};
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(
+				() =>
+					new Promise<Response>((resolve) => {
+						answer = () => resolve(Response.json(step('step-1', 'Renamed counseling', 0)));
+					})
+			)
+		);
+		await renderTemplatesPage();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit Initial counseling' }));
+		await fireEvent.input(screen.getByRole('textbox', { name: 'Step name' }), {
+			target: { value: 'Renamed counseling' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Save step' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Add step' }));
+		await fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Discard' }));
+		await waitFor(() => expect(screen.getByRole('group', { name: 'New step' })).toBeTruthy());
+		await fireEvent.input(screen.getByRole('textbox', { name: 'Step name' }), { target: { value: 'Draft step' } });
+
+		answer();
+
+		await waitFor(() => expect(screen.getByText('Renamed counseling')).toBeTruthy());
+		const name = screen.getByRole('textbox', { name: 'Step name' }) as HTMLInputElement;
+		expect(name.value).toBe('Draft step');
+		expect(document.activeElement).toBe(name);
+	});
+
+	describe('when one pane shows at a time', () => {
+		const alpha = { ...standardArrival, id: 'template-1', name: 'Alpha Arrival' };
+		const bravo = { ...standardArrival, id: 'template-2', name: 'Bravo Arrival' };
+
+		function showSinglePane() {
+			vi.stubGlobal(
+				'matchMedia',
+				vi.fn((query: string) => ({
+					matches: query === '(width < 64rem)',
+					media: query,
+					addEventListener: () => {},
+					removeEventListener: () => {}
+				}))
+			);
+		}
+
+		it('moves focus to the template name when a template is selected, and back to its row on Templates', async () => {
+			showSinglePane();
+			await renderTemplatesPage({ templates: [alpha, bravo], templateSteps: [] });
+			const row = () =>
+				within(screen.getByRole('grid', { name: 'Onboarding templates' })).getByRole('row', { name: 'Bravo Arrival' });
+
+			await fireEvent.click(row());
+
+			await waitFor(() =>
+				expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Bravo Arrival', level: 2 }))
+			);
+			expect(document.activeElement?.getAttribute('tabindex')).toBe('-1');
+			await fireEvent.click(screen.getByRole('button', { name: 'Templates' }));
+			await waitFor(() => expect(document.activeElement).toBe(row()));
+		});
+
+		it('moves focus to the new template name after a create', async () => {
+			showSinglePane();
+			vi.stubGlobal(
+				'fetch',
+				vi
+					.fn()
+					.mockResolvedValue(
+						Response.json({
+							id: 'saved-template',
+							orgId: 'org-1',
+							name: 'Fresh checklist',
+							description: null,
+							createdAt: '2026-01-02'
+						})
+					)
+			);
+			await renderTemplatesPage({ templates: [alpha], templateSteps: [] });
+			await fireEvent.click(screen.getByRole('button', { name: 'New template' }));
+			await fireEvent.input(screen.getByRole('textbox', { name: 'Name' }), { target: { value: 'Fresh checklist' } });
+			await fireEvent.click(screen.getByRole('button', { name: 'Create template' }));
+
+			await waitFor(() =>
+				expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Fresh checklist', level: 2 }))
+			);
+		});
+
+		it('moves focus to a remaining template row after a delete', async () => {
+			showSinglePane();
+			vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ success: true })));
+			await renderTemplatesPage({ templates: [alpha, bravo], templateSteps: [] });
+			const rows = () => within(screen.getByRole('grid', { name: 'Onboarding templates' }));
+			await fireEvent.click(rows().getByRole('row', { name: 'Alpha Arrival' }));
+			await fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
+			await fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: /^Delete$/ }));
+			await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+
+			await waitFor(() => expect(document.activeElement).toBe(rows().getByRole('row', { name: 'Bravo Arrival' })));
+		});
+	});
+
 	describe('active packets', () => {
 		const alpha = packet('packet-1', 'person-1');
 		const bravo = packet('packet-2', 'person-2');

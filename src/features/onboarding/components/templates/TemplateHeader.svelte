@@ -108,7 +108,13 @@
 				{stepCount === 1 ? 'step' : 'steps'}
 			</p>
 			<div class="flex min-w-0 items-center gap-1">
-				<h2 class="m-0 truncate text-xl font-semibold text-foreground">{template.name}</h2>
+				<h2
+					tabindex="-1"
+					data-slot="type-management-workspace-detail-heading"
+					class="m-0 truncate font-heading text-2xl font-semibold text-foreground outline-none"
+				>
+					{template.name}
+				</h2>
 				{#if model.canMutate}
 					<Button
 						bind:ref={renameButton}

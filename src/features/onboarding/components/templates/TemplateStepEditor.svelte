@@ -92,17 +92,25 @@
 		</Field.Root>
 		<Field.Root>
 			<Field.Label id="step-type-label">Type</Field.Label>
-			<ToggleGroup.Root
-				type="single"
-				variant="outline"
-				aria-labelledby="step-type-label"
-				value={draft.stepType}
-				onValueChange={setType}
-			>
-				{#each STEP_TYPES as type (type)}
-					<ToggleGroup.Item value={type} aria-label={STEP_TYPE_LABELS[type]}>{STEP_TYPE_LABELS[type]}</ToggleGroup.Item>
-				{/each}
-			</ToggleGroup.Root>
+			<div>
+				<ToggleGroup.Root
+					type="single"
+					variant="outline"
+					aria-labelledby="step-type-label"
+					value={draft.stepType}
+					onValueChange={setType}
+				>
+					{#each STEP_TYPES as type (type)}
+						<ToggleGroup.Item
+							value={type}
+							aria-label={STEP_TYPE_LABELS[type]}
+							class="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:hover:bg-primary data-[state=on]:hover:text-primary-foreground"
+						>
+							{STEP_TYPE_LABELS[type]}
+						</ToggleGroup.Item>
+					{/each}
+				</ToggleGroup.Root>
+			</div>
 		</Field.Root>
 	</div>
 

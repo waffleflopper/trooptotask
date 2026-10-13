@@ -242,7 +242,7 @@ export async function seedOnboarding({ client, fixture, kind, tag, ownedState, s
 			fixture.ids.onboardingPaperwork,
 			fixture.ids.onboardingTraining
 		];
-		// One Standard grid with a stalled, a ready, a missing-step and a fresh packet, plus a Reserve grid and a packet with no template.
+		// One Standard grid with a stalled, a ready (its Training step has a record), a missing-step and a fresh packet, plus a Reserve grid and a packet with no template.
 		const examples = [
 			['stalled', 'groupA', 'standard', 20, { done: [true, false, false], stage: 'Reviewed', changed: 9 }],
 			['ready', 'groupA', 'standard', 10, { done: [true, true, true], stage: 'Filed', changed: 3 }],
@@ -319,7 +319,20 @@ export async function seedOnboarding({ client, fixture, kind, tag, ownedState, s
 		batches.push(
 			['personnel', people],
 			['onboarding_templates', [reserve]],
-			['onboarding_template_steps', reserveSteps]
+			['onboarding_template_steps', reserveSteps],
+			[
+				'personnel_trainings',
+				[
+					{
+						id: randomUUID(),
+						organization_id: orgA,
+						personnel_id: people[1].id,
+						training_type_id: fixture.ids.trainingRequired,
+						completion_date: fixture.dates.trainingCompleted,
+						expiration_date: fixture.dates.trainingExpires
+					}
+				]
+			]
 		);
 	} else if (kind === 'onboarding-history') {
 		const startedAt = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);

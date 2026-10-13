@@ -47,7 +47,7 @@ function context() {
 	const ctx = createTestContext({ auth: actor });
 	ctx.personnelRatingSchemeRoster = {
 		listActiveReferences: vi.fn().mockResolvedValue([person]),
-		findRatedPersonGroupForWrite: vi.fn(),
+		findRatedPersonForWrite: vi.fn(),
 		hasEvaluatorReferences: vi.fn()
 	};
 	return ctx;

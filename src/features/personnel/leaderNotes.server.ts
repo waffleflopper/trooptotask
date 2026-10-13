@@ -4,7 +4,11 @@ import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
-import { personnelLeaderNoteInputSchema, type PersonnelLeaderNote } from './contracts';
+import {
+	personnelLeaderNoteInputSchema,
+	type PersonnelArtifactArchiveState,
+	type PersonnelLeaderNote
+} from './contracts';
 import { fail } from '$lib/errors';
 
 export interface LeaderNoteCursor {
@@ -118,22 +122,22 @@ async function loadNote(ctx: LeaderNoteContext, personnelId: string, noteId: str
 export async function archivePersonnelLeaderNote(
 	ctx: LeaderNoteContext,
 	input: { personnelId: string; noteId: string }
-): Promise<PersonnelLeaderNote> {
+): Promise<PersonnelArtifactArchiveState> {
 	const existing = await loadNote(ctx, input.personnelId, input.noteId);
 	if (existing.archived_at) fail(409, 'Leader note is already archived');
 	const row = await ctx.persistence.update(input.personnelId, input.noteId, new Date().toISOString());
 	ctx.audit.log({ action: 'personnel.leader_note.archived', resourceType: 'personnel', resourceId: input.personnelId });
-	return (await mapRows(ctx, [row]))[0];
+	return { id: row.id, archivedAt: row.archived_at ?? null };
 }
 
 export async function restorePersonnelLeaderNote(
 	ctx: LeaderNoteContext,
 	input: { personnelId: string; noteId: string }
-): Promise<PersonnelLeaderNote> {
+): Promise<PersonnelArtifactArchiveState> {
 	await loadNote(ctx, input.personnelId, input.noteId);
 	const row = await ctx.persistence.update(input.personnelId, input.noteId, null);
 	ctx.audit.log({ action: 'personnel.leader_note.restored', resourceType: 'personnel', resourceId: input.personnelId });
-	return (await mapRows(ctx, [row]))[0];
+	return { id: row.id, archivedAt: row.archived_at ?? null };
 }
 
 export async function deletePersonnelLeaderNote(

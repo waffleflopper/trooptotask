@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { PersonnelCounselingRecord } from './contracts';
+import type { PersonnelArtifactArchiveState, PersonnelCounselingRecord } from './contracts';
 import { fail } from '$lib/errors';
 import { hasPdfFileSignature } from '$lib/storage/fileSignatures';
 import {
@@ -131,7 +131,7 @@ async function loadCounselingForWrite(ctx: PersonnelArtifactsContext, personnelI
 export async function archivePersonnelCounselingRecord(
 	ctx: PersonnelArtifactsContext,
 	input: { personnelId: string; recordId: string }
-): Promise<PersonnelCounselingRecord> {
+): Promise<PersonnelArtifactArchiveState> {
 	const { writer, row: existing } = await loadCounselingForWrite(ctx, input.personnelId, input.recordId);
 	if (existing.archived_at) fail(409, 'Counseling record is already archived');
 	const row = await writer.setCounselingArchivedAt(input.recordId, new Date().toISOString());
@@ -140,13 +140,13 @@ export async function archivePersonnelCounselingRecord(
 		resourceType: 'personnel',
 		resourceId: input.personnelId
 	});
-	return mapCounselingRow(row, await ctx.contributorLabels(row.uploaded_by ? [row.uploaded_by] : []));
+	return { id: row.id, archivedAt: row.archived_at ?? null };
 }
 
 export async function restorePersonnelCounselingRecord(
 	ctx: PersonnelArtifactsContext,
 	input: { personnelId: string; recordId: string }
-): Promise<PersonnelCounselingRecord> {
+): Promise<PersonnelArtifactArchiveState> {
 	const { writer } = await loadCounselingForWrite(ctx, input.personnelId, input.recordId);
 	const row = await writer.setCounselingArchivedAt(input.recordId, null);
 	ctx.audit.log({
@@ -154,7 +154,7 @@ export async function restorePersonnelCounselingRecord(
 		resourceType: 'personnel',
 		resourceId: input.personnelId
 	});
-	return mapCounselingRow(row, await ctx.contributorLabels(row.uploaded_by ? [row.uploaded_by] : []));
+	return { id: row.id, archivedAt: row.archived_at ?? null };
 }
 
 export async function deletePersonnelCounselingRecord(

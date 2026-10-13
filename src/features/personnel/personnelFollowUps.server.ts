@@ -1,7 +1,8 @@
 import { z } from 'zod';
-import type { PersonnelFollowUp } from './contracts';
+import type { PersonnelFollowUp, PersonnelFollowUpLifecycleState } from './contracts';
 import { fail } from '$lib/errors';
 import {
+	canReadSensitivePersonnelArtifacts,
 	personnelArtifactWriter,
 	requirePersonnelArtifactAccess,
 	resolveContributorLabel,
@@ -76,10 +77,21 @@ export async function createPersonnelFollowUp(
 	return mapFollowUpRow(row, labels);
 }
 
+async function followUpLifecycleResult(
+	ctx: PersonnelArtifactsContext,
+	personnelId: string,
+	row: FollowUpRow
+): Promise<PersonnelFollowUp | PersonnelFollowUpLifecycleState> {
+	if (!(await canReadSensitivePersonnelArtifacts(ctx, personnelId))) {
+		return { id: row.id, status: row.status, archivedAt: row.archived_at ?? null };
+	}
+	return mapFollowUpRow(row, await ctx.contributorLabels([row.created_by]));
+}
+
 export async function setPersonnelFollowUpStatus(
 	ctx: PersonnelArtifactsContext,
 	rawInput: unknown
-): Promise<PersonnelFollowUp> {
+): Promise<PersonnelFollowUp | PersonnelFollowUpLifecycleState> {
 	const parsed = personnelFollowUpStatusSchema.safeParse(rawInput);
 	if (!parsed.success) {
 		fail(400, parsed.error.issues.map((issue) => issue.message).join('; '));
@@ -108,8 +120,7 @@ export async function setPersonnelFollowUpStatus(
 		resourceId: input.personnelId
 	});
 
-	const labels = await ctx.contributorLabels([row.created_by]);
-	return mapFollowUpRow(row, labels);
+	return followUpLifecycleResult(ctx, input.personnelId, row);
 }
 
 export async function updatePersonnelFollowUp(
@@ -150,7 +161,7 @@ export async function updatePersonnelFollowUp(
 export async function archivePersonnelFollowUp(
 	ctx: PersonnelArtifactsContext,
 	rawInput: unknown
-): Promise<PersonnelFollowUp> {
+): Promise<PersonnelFollowUp | PersonnelFollowUpLifecycleState> {
 	return setPersonnelFollowUpStatus(ctx, {
 		...(typeof rawInput === 'object' && rawInput !== null ? rawInput : {}),
 		status: 'archived'
@@ -160,7 +171,7 @@ export async function archivePersonnelFollowUp(
 export async function restorePersonnelFollowUp(
 	ctx: PersonnelArtifactsContext,
 	rawInput: unknown
-): Promise<PersonnelFollowUp> {
+): Promise<PersonnelFollowUp | PersonnelFollowUpLifecycleState> {
 	const parsed = personnelFollowUpStatusSchema.safeParse({
 		...(typeof rawInput === 'object' && rawInput !== null ? rawInput : {}),
 		status: 'open'
@@ -182,8 +193,7 @@ export async function restorePersonnelFollowUp(
 		updatedAt: new Date().toISOString()
 	});
 	ctx.audit.log({ action: 'personnel.follow_up.restored', resourceType: 'personnel', resourceId: input.personnelId });
-	const labels = await ctx.contributorLabels([row.created_by]);
-	return mapFollowUpRow(row, labels);
+	return followUpLifecycleResult(ctx, input.personnelId, row);
 }
 
 export async function deletePersonnelFollowUp(ctx: PersonnelArtifactsContext, rawInput: unknown): Promise<void> {

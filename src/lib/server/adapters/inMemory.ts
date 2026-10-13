@@ -75,7 +75,8 @@ import type {
 	PersonnelOnboardingRosterPort,
 	PersonnelOrganizationExportPort,
 	PersonnelRatingSchemeRosterPort,
-	PersonnelTrainingRosterPort
+	PersonnelTrainingRosterPort,
+	PersonnelWriteSubject
 } from '$features/personnel/contracts';
 import type { RatingSchemeDuePort, RatingSchemePersistence } from '$features/rating-scheme/contracts';
 import type { SignInRosterFileWritePort } from '$features/sign-in-rosters/contracts';
@@ -1150,17 +1151,25 @@ function createInMemoryPersonnelOnboardingRosterPort(rawStore: FixtureRowStore):
 	};
 }
 
+function inMemoryPersonnelWriteSubject(row: Row): PersonnelWriteSubject {
+	return {
+		groupId: (row.group_id as string | null) ?? null,
+		rank: (row.rank as string | null) ?? '',
+		lastName: (row.last_name as string | null) ?? ''
+	};
+}
+
 function createInMemoryPersonnelTrainingRosterPort(rawStore: FixtureRowStore): PersonnelTrainingRosterPort {
 	const listActive = async (actor: OrganizationAccessGrant) =>
 		(await inMemoryPersonnelRows(rawStore, actor, 'active')).map(inMemoryPersonnelFromRow);
 	return {
 		listActiveForWorkspace: listActive,
 		listActiveForReports: listActive,
-		async findGroupIdsForWrites(actor, ids) {
+		async findWriteSubjects(actor, ids) {
 			return new Map(
 				(await inMemoryPersonnelRows(rawStore, actor, 'all', ids)).map((row) => [
 					row.id as string,
-					(row.group_id as string | null) ?? null
+					inMemoryPersonnelWriteSubject(row)
 				])
 			);
 		}
@@ -1221,9 +1230,9 @@ function createInMemoryPersonnelRatingSchemeRosterPort(rawStore: FixtureRowStore
 				firstName: (row.first_name as string) ?? ''
 			}));
 		},
-		async findRatedPersonGroupForWrite(actor, personnelId) {
+		async findRatedPersonForWrite(actor, personnelId) {
 			const rows = await inMemoryPersonnelRows(rawStore, actor, 'all', [personnelId]);
-			return rows[0] ? { groupId: (rows[0].group_id as string | null) ?? null } : null;
+			return rows[0] ? inMemoryPersonnelWriteSubject(rows[0]) : null;
 		},
 		async hasEvaluatorReferences(actor, personnelIds) {
 			const ids = [...new Set(personnelIds.map((id) => id.toLowerCase()))];

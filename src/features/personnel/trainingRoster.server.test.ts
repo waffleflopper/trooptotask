@@ -136,11 +136,18 @@ describe('Personnel Training roster', () => {
 
 	it('returns archived same-Group write references without leaking another Group or Organization', async () => {
 		const rows = [
-			{ id: 'archived-alpha', organization_id: 'org-1', group_id: 'group-1', archived_at: '2026-01-01' },
+			{
+				id: 'archived-alpha',
+				organization_id: 'org-1',
+				group_id: 'group-1',
+				rank: 'SPC',
+				last_name: 'Archived',
+				archived_at: '2026-01-01'
+			},
 			{ id: 'active-bravo', organization_id: 'org-1', group_id: 'group-2', archived_at: null },
 			{ id: 'other-org', organization_id: 'org-2', group_id: 'group-1', archived_at: null }
 		];
-		let filtered = rows;
+		let filtered: Array<Record<string, unknown>> = rows;
 		const query = {
 			select: () => query,
 			eq: (column: string, value: string) => {
@@ -158,19 +165,19 @@ describe('Personnel Training roster', () => {
 		const port = createSupabasePersonnelTrainingRosterPort(getAdminClient);
 
 		await expect(
-			port.findGroupIdsForWrites(
+			port.findWriteSubjects(
 				actor('operate'),
 				rows.map((row) => row.id)
 			)
-		).resolves.toEqual(new Map([['archived-alpha', 'group-1']]));
-		await expect(port.findGroupIdsForWrites(actor('operate', []), ['archived-alpha'])).resolves.toEqual(new Map());
+		).resolves.toEqual(new Map([['archived-alpha', { groupId: 'group-1', rank: 'SPC', lastName: 'Archived' }]]));
+		await expect(port.findWriteSubjects(actor('operate', []), ['archived-alpha'])).resolves.toEqual(new Map());
 		expect(getAdminClient).toHaveBeenCalledTimes(1);
 	});
 
 	it('denies write references to view-only members before the admin provider', async () => {
 		const getAdminClient = vi.fn();
 		const port = createSupabasePersonnelTrainingRosterPort(getAdminClient as () => SupabaseClient);
-		await expect(port.findGroupIdsForWrites(actor('view'), ['archived-alpha'])).rejects.toMatchObject({ status: 403 });
+		await expect(port.findWriteSubjects(actor('view'), ['archived-alpha'])).rejects.toMatchObject({ status: 403 });
 		expect(getAdminClient).not.toHaveBeenCalled();
 	});
 

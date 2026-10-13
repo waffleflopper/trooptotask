@@ -7,7 +7,7 @@
 import { POLICY_ACTION_CATALOG, type FeatureLanePolicyAction, type PolicyResource } from '$lib/access/policyEvaluator';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
-import type { PersonnelRatingSchemeRosterPort } from '$features/personnel/contracts';
+import type { PersonnelRatingSchemeRosterPort, PersonnelWriteSubject } from '$features/personnel/contracts';
 import type {
 	RatingSchemePersistence,
 	RatingSchemePatchValues,
@@ -27,7 +27,7 @@ export interface RatingSchemeEntryWriteContext {
 	readonly ratingScheme: Pick<RatingSchemePersistence, 'findWriteReference' | 'create' | 'update' | 'delete'>;
 	readonly personnelRatingSchemeRoster?: Pick<
 		PersonnelRatingSchemeRosterPort,
-		'findRatedPersonGroupForWrite' | 'hasEvaluatorReferences'
+		'findRatedPersonForWrite' | 'hasEvaluatorReferences'
 	>;
 }
 
@@ -43,6 +43,22 @@ const evaluatorFields = [
 	'reviewerPersonId'
 ] as const;
 
+async function ratedPersonForWrite(
+	ctx: RatingSchemeEntryWriteContext,
+	personnelId: string,
+	denialAction: FeatureLanePolicyAction
+): Promise<PersonnelWriteSubject> {
+	if (!ctx.personnelRatingSchemeRoster) throw new Error('Personnel Rating Scheme roster provider unavailable');
+	const person = await ctx.personnelRatingSchemeRoster.findRatedPersonForWrite(ctx.auth, personnelId);
+	if (!person) {
+		// The provider hides missing and out-of-scope People alike. Group members
+		// receive the usual policy denial; Organization-wide members get a 404.
+		await requireFeaturePolicy(ctx, denialAction, { kind: 'organization' }, AUDIT_RESOURCE, personnelId);
+		throw new RequestFailure(404, 'Rated person not found');
+	}
+	return person;
+}
+
 async function policyResourceForRatedPerson(
 	ctx: RatingSchemeEntryWriteContext,
 	personnelId: string | null | undefined,
@@ -51,17 +67,7 @@ async function policyResourceForRatedPerson(
 	if (!personnelId) {
 		return { kind: 'unscoped' };
 	}
-
-	if (!ctx.personnelRatingSchemeRoster) throw new Error('Personnel Rating Scheme roster provider unavailable');
-	const person = await ctx.personnelRatingSchemeRoster.findRatedPersonGroupForWrite(ctx.auth, personnelId);
-	if (!person) {
-		// The provider hides missing and out-of-scope People alike. Group members
-		// receive the usual policy denial; Organization-wide members get a 404.
-		await requireFeaturePolicy(ctx, denialAction, { kind: 'organization' }, AUDIT_RESOURCE, personnelId);
-		throw new RequestFailure(404, 'Rated person not found');
-	}
-
-	return policyResourceForGroup(person.groupId);
+	return policyResourceForGroup((await ratedPersonForWrite(ctx, personnelId, denialAction)).groupId);
 }
 
 async function findRatingSchemeEntry(
@@ -189,4 +195,25 @@ export async function removeRatingSchemeEntry(
 	});
 
 	await ctx.notifyRatingSchemeEntryDeleted();
+}
+
+/** Describes a deletion request from the entry the requester may ask to remove. */
+export async function describeRatingSchemeEntryDeletionRequest(
+	ctx: RatingSchemeEntryWriteContext,
+	id: string
+): Promise<{ description: string; url: string }> {
+	const action = POLICY_ACTION_CATALOG.ratingScheme.requestEntryDeletion;
+	const { ratedPersonId } = await findRatingSchemeEntry(ctx, id);
+	const person = ratedPersonId ? await ratedPersonForWrite(ctx, ratedPersonId, action) : null;
+	await requireFeaturePolicy(
+		ctx,
+		action,
+		person ? policyResourceForGroup(person.groupId) : { kind: 'unscoped' },
+		AUDIT_RESOURCE,
+		id
+	);
+	return {
+		description: person ? `Rating scheme entry for ${person.rank} ${person.lastName}` : 'Rating scheme entry',
+		url: `/org/${ctx.auth.orgId}/evals`
+	};
 }

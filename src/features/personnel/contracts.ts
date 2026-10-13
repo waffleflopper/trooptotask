@@ -166,7 +166,12 @@ export interface SignInRosterPersonnelLookupRecord {
 }
 
 export interface SignInRosterPersonnelLookupPort {
-	findPersonnelForRosterSnapshot(orgId: string, personnelIds: string[]): Promise<SignInRosterPersonnelLookupRecord[]>;
+	/** People outside the actor's scope are omitted like missing People. */
+	findPersonnelForRosterSnapshot(
+		orgId: string,
+		scopeSet: ScopeSet,
+		personnelIds: string[]
+	): Promise<SignInRosterPersonnelLookupRecord[]>;
 }
 
 export type PersonnelRosterActor = OrganizationAccessGrant;
@@ -183,20 +188,24 @@ export interface PersonnelOnboardingRosterPort {
 	findGroupIds(actor: PersonnelRosterActor, personnelIds: string[]): Promise<Map<string, string | null>>;
 }
 
+/** Scope anchor and display name of a Person admitted for a lane write. */
+export interface PersonnelWriteSubject {
+	groupId: string | null;
+	rank: string;
+	lastName: string;
+}
+
 /** Personnel facts exposed to the Training lane after purpose-specific authorization. */
 export interface PersonnelTrainingRosterPort {
 	listActiveForWorkspace(actor: PersonnelRosterActor): Promise<Personnel[]>;
 	listActiveForReports(actor: PersonnelRosterActor): Promise<Personnel[]>;
-	findGroupIdsForWrites(actor: PersonnelRosterActor, personnelIds: string[]): Promise<Map<string, string | null>>;
+	findWriteSubjects(actor: PersonnelRosterActor, personnelIds: string[]): Promise<Map<string, PersonnelWriteSubject>>;
 }
 
 /** Scoped Personnel references for the independently authorized Rating Scheme lane. */
 export interface PersonnelRatingSchemeRosterPort {
 	listActiveReferences(actor: PersonnelRosterActor): Promise<PersonnelLookup[]>;
-	findRatedPersonGroupForWrite(
-		actor: PersonnelRosterActor,
-		personnelId: string
-	): Promise<{ groupId: string | null } | null>;
+	findRatedPersonForWrite(actor: PersonnelRosterActor, personnelId: string): Promise<PersonnelWriteSubject | null>;
 	/** Evaluators may be archived or in another Group, but must belong to this Organization. */
 	hasEvaluatorReferences(actor: PersonnelRosterActor, personnelIds: string[]): Promise<boolean>;
 }
@@ -461,7 +470,9 @@ export type {
 	PersonnelDocument,
 	PersonnelFollowUpStatus,
 	PersonnelFollowUp,
-	PersonnelArchivedArtifact
+	PersonnelArchivedArtifact,
+	PersonnelArtifactArchiveState,
+	PersonnelFollowUpLifecycleState
 } from './personnelArtifact.types';
 
 export type { PersonnelSupportReader } from './supportReadTypes';

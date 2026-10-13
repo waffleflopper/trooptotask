@@ -380,8 +380,8 @@ describe('private resource HTTP admission and provider ownership', () => {
 	});
 
 	it.each([
-		{ id: 'person-c', status: 403 },
-		{ id: 'ungrouped', status: 403 },
+		{ id: 'person-c', status: 400 },
+		{ id: 'ungrouped', status: 400 },
 		{ id: 'foreign', status: 400 }
 	])('does not persist or return a privileged snapshot for $id', async ({ id, status }) => {
 		const f = fixture();

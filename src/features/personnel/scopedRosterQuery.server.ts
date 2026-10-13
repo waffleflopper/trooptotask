@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ScopeSet } from '$lib/access/memberAccessShape';
+import type { PersonnelWriteSubject } from './contracts';
 
 const PAGE_SIZE = 500;
 
@@ -32,4 +33,13 @@ export async function queryScopedPersonnelRows(
 		if (page.length < PAGE_SIZE) break;
 	}
 	return rows;
+}
+
+/** Maps a row selected with `group_id, rank, last_name`. */
+export function toPersonnelWriteSubject(row: Record<string, unknown>): PersonnelWriteSubject {
+	return {
+		groupId: (row.group_id as string | null) ?? null,
+		rank: (row.rank as string | null) ?? '',
+		lastName: (row.last_name as string | null) ?? ''
+	};
 }

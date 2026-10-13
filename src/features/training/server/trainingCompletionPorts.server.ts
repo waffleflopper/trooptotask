@@ -11,7 +11,7 @@ export type TrainingCompletionReadContext = {
 export type TrainingPersonnelWriteAuthority = {
 	readonly auth: OrganizationAccessGrant;
 	readonly audit: PolicyAuditSink;
-	readonly personnelTrainingRoster?: Pick<PersonnelTrainingRosterPort, 'findGroupIdsForWrites'>;
+	readonly personnelTrainingRoster?: Pick<PersonnelTrainingRosterPort, 'findWriteSubjects'>;
 };
 export type TrainingRecordCreateContext = TrainingPersonnelWriteAuthority & {
 	readonly trainingCatalog: Pick<TrainingCatalogPersistence, 'findTypeTiming'>;
@@ -23,6 +23,10 @@ export type TrainingRecordUpdateContext = TrainingPersonnelWriteAuthority & {
 };
 export type TrainingRecordDeleteContext = TrainingPersonnelWriteAuthority & {
 	readonly trainingCompletions: Pick<TrainingCompletionPersistence, 'findResource' | 'deleteRecord'>;
+};
+export type TrainingRecordDeletionRequestContext = TrainingPersonnelWriteAuthority & {
+	readonly trainingCatalog: Pick<TrainingCatalogPersistence, 'listTypeLabels'>;
+	readonly trainingCompletions: Pick<TrainingCompletionPersistence, 'findResource'>;
 };
 export type TrainingBatchContext = TrainingPersonnelWriteAuthority & {
 	readonly trainingCatalog: Pick<TrainingCatalogPersistence, 'listTypeImportReferences' | 'findTypeId' | 'patchType'>;

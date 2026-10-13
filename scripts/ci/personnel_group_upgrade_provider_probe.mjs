@@ -58,7 +58,7 @@ try {
 	assert.equal(data.find((row) => row.id === id(304)).groupName, '');
 
 	const snapshots = createSupabaseSignInRosterPersonnelLookupPort(() => service);
-	const rows = await snapshots.findPersonnelForRosterSnapshot(id(101), [
+	const rows = await snapshots.findPersonnelForRosterSnapshot(id(101), { kind: 'organization' }, [
 		id(301),
 		id(302),
 		id(303),
@@ -70,7 +70,7 @@ try {
 		rows.map(({ id, groupId, groupName }) => ({ id, groupId, groupName })).sort((a, b) => a.id.localeCompare(b.id)),
 		expected.map(({ id, groupId, groupName }) => ({ id, groupId, groupName: groupName || null }))
 	);
-	const foreign = await snapshots.findPersonnelForRosterSnapshot(id(102), [id(304), id(305)]);
+	const foreign = await snapshots.findPersonnelForRosterSnapshot(id(102), { kind: 'organization' }, [id(304), id(305)]);
 	assert.deepEqual(
 		foreign.map(({ id, groupId, groupName }) => ({ id, groupId, groupName })),
 		[{ id: id(305), groupId: id(203), groupName: 'Foreign Bravo Group' }]

@@ -3,6 +3,7 @@ import { _createDeleteConfig, _createPostConfig } from './+server';
 import { createDeletionRequestTestStore } from '$features/deletion-requests/testing.server';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { createTestContext as createRatingSchemeTestContext } from '$features/rating-scheme/server/ratingSchemePersistence.test-support.server';
+import { withTrainingPersistence } from '$features/training/server/trainingPersistence.test-support.server';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 
 const _deleteConfig = _createDeleteConfig(createDeletionRequestTestStore(createTestContext().store), {
@@ -23,21 +24,23 @@ const ENTRY_BRAVO = '0e000000-0000-4000-8000-000000000002';
 const MISSING = '0f000000-0000-4000-8000-000000000001';
 
 function createRequesterContext(personnel: 'view' | 'operate' = 'operate') {
-	const ctx = createRatingSchemeTestContext({
-		auth: {
-			role: 'member',
-			isPrivileged: false,
-			capabilityMap: {
-				calendar: 'none',
-				personnel,
-				training: 'operate',
-				criticalTasks: 'none',
-				onboarding: 'none',
-				ratingScheme: 'operate'
-			},
-			scopeSet: { kind: 'groups', groupIds: [GROUP_ALPHA] }
-		}
-	});
+	const ctx = createRatingSchemeTestContext(
+		withTrainingPersistence({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel,
+					training: 'operate',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'operate'
+				},
+				scopeSet: { kind: 'groups', groupIds: [GROUP_ALPHA] }
+			}
+		})
+	);
 	const orgId = ctx.auth.orgId;
 	ctx.rawStore.seed('personnel', [
 		{
@@ -78,7 +81,12 @@ async function submit(
 ): Promise<{ status: number; body: unknown }> {
 	const { ctx, config } = requester;
 	try {
-		const result = await handleUseCaseRequest(config, ctx, { userEmail: 'requester@example.test', ...input }, () => ctx);
+		const result = await handleUseCaseRequest(
+			config,
+			ctx,
+			{ userEmail: 'requester@example.test', ...input },
+			() => ctx
+		);
 		const response = config.formatOutput!(result);
 		return { status: response.status, body: await response.json() };
 	} catch (error) {

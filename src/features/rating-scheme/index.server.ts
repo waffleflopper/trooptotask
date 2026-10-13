@@ -11,6 +11,7 @@ export {
 	createRatingSchemeEntry,
 	updateRatingSchemeEntry,
 	removeRatingSchemeEntry,
+	describeRatingSchemeEntryDeletionRequest,
 	ratingSchemeEntryCreateSchema,
 	ratingSchemeEntryUpdateSchema
 } from './server/ratingSchemeEntryOperations.server';

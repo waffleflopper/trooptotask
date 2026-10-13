@@ -4,6 +4,7 @@ import { createRequestNotificationDelivery } from './requestContexts.server';
 import { getAdminClient } from '$lib/server/supabase';
 import {
 	loadOrganizationRankCatalog,
+	createSupabasePersonnelRecordPersistence,
 	createSupabaseRankCatalogPersistence,
 	createSupabaseGroupPersistence,
 	createSupabaseSelfPinPersistence,
@@ -21,6 +22,7 @@ import type {
 	createTrainingRecord,
 	updateTrainingRecord,
 	deleteTrainingRecord,
+	describeTrainingRecordDeletionRequest,
 	importTrainingRecords,
 	deleteTrainingType,
 	fetchTrainingBriefingReport,
@@ -45,9 +47,11 @@ import type {
 import type { CriticalTasksSettingsWritePort } from '$features/critical-tasks/contracts';
 import type {
 	createRatingSchemeEntry,
+	describeRatingSchemeEntryDeletionRequest,
 	loadRatingSchemeWorkspace,
 	removeRatingSchemeEntry
 } from '$features/rating-scheme/index.server';
+import type { describePersonnelArchiveRequest } from '$features/personnel/index.server';
 import { createSupabaseRatingSchemePersistence } from '$features/rating-scheme/index.server';
 import {
 	createSupabaseOnboardingReconciliationPort,
@@ -215,6 +219,23 @@ export function createRequestRatingSchemeDeletionContext(
 				message: 'A rating scheme entry was deleted.'
 			})
 	};
+}
+
+/** The feature that owns a request target describes it with the requester's access. */
+export function createRequestDeletionRequestSubmissionContext(request: AdmittedOrganizationRequest) {
+	const owners = {
+		auth: request.auth,
+		audit: request.audit,
+		personnel: createSupabasePersonnelRecordPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet),
+		trainingCatalog: createSupabaseTrainingCatalogPersistence(request.supabase, request.auth.orgId),
+		trainingCompletions: createSupabaseTrainingCompletionPersistence(request.supabase, request.auth.orgId),
+		personnelTrainingRoster: createSupabasePersonnelTrainingRosterPort(getAdminClient),
+		ratingScheme: createSupabaseRatingSchemePersistence(request.supabase, request.auth.orgId),
+		personnelRatingSchemeRoster: createSupabasePersonnelRatingSchemeRosterPort(request.supabase, getAdminClient)
+	} satisfies Parameters<typeof describePersonnelArchiveRequest>[0] &
+		Parameters<typeof describeTrainingRecordDeletionRequest>[0] &
+		Parameters<typeof describeRatingSchemeEntryDeletionRequest>[0];
+	return { ...owners, notifications: createRequestNotificationDelivery() };
 }
 
 export function createRequestRatingSchemeWorkspaceContext(

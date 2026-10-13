@@ -14,7 +14,11 @@ import {
 	deletePersonnelCounselingRecord,
 	restorePersonnelCounselingRecord
 } from './personnelCounselingRecords.server';
-import { archivePersonnelDocument, deletePersonnelDocument, restorePersonnelDocument } from './personnelDocuments.server';
+import {
+	archivePersonnelDocument,
+	deletePersonnelDocument,
+	restorePersonnelDocument
+} from './personnelDocuments.server';
 import {
 	archivePersonnelLeaderNote,
 	deletePersonnelLeaderNote,
@@ -244,7 +248,7 @@ describe('personnel archived artifacts', () => {
 				personnelId: 'person-1',
 				recordId: 'counseling-archived'
 			})
-		).resolves.toMatchObject({ id: 'counseling-archived', status: 'uploaded', archivedAt: null });
+		).resolves.toEqual({ id: 'counseling-archived', archivedAt: null });
 		await expect(
 			restorePersonnelDocument(testPersonnelArtifactsContext(ctx), {
 				personnelId: 'person-1',

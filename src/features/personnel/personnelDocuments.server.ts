@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { PersonnelDocument } from './contracts';
+import type { PersonnelArtifactArchiveState, PersonnelDocument } from './contracts';
 import type { PersonnelArtifactWriter } from '$features/personnel/contracts';
 import { derivePersonnelDocumentTitle } from '$features/personnel/utils/documentTitles';
 import { fail } from '$lib/errors';
@@ -188,22 +188,22 @@ async function loadDocumentForWrite(ctx: PersonnelArtifactsContext, personnelId:
 export async function archivePersonnelDocument(
 	ctx: PersonnelArtifactsContext,
 	input: { personnelId: string; documentId: string }
-): Promise<PersonnelDocument> {
+): Promise<PersonnelArtifactArchiveState> {
 	const { writer, row: existing } = await loadDocumentForWrite(ctx, input.personnelId, input.documentId);
 	if (existing.archived_at) fail(409, 'Document is already archived');
 	const row = await writer.setDocumentArchivedAt(input.documentId, new Date().toISOString());
 	ctx.audit.log({ action: 'personnel.document.archived', resourceType: 'personnel', resourceId: input.personnelId });
-	return mapDocumentRow(row, await ctx.contributorLabels(row.uploaded_by ? [row.uploaded_by] : []));
+	return { id: row.id, archivedAt: row.archived_at ?? null };
 }
 
 export async function restorePersonnelDocument(
 	ctx: PersonnelArtifactsContext,
 	input: { personnelId: string; documentId: string }
-): Promise<PersonnelDocument> {
+): Promise<PersonnelArtifactArchiveState> {
 	const { writer } = await loadDocumentForWrite(ctx, input.personnelId, input.documentId);
 	const row = await writer.setDocumentArchivedAt(input.documentId, null);
 	ctx.audit.log({ action: 'personnel.document.restored', resourceType: 'personnel', resourceId: input.personnelId });
-	return mapDocumentRow(row, await ctx.contributorLabels(row.uploaded_by ? [row.uploaded_by] : []));
+	return { id: row.id, archivedAt: row.archived_at ?? null };
 }
 
 export async function deletePersonnelDocument(

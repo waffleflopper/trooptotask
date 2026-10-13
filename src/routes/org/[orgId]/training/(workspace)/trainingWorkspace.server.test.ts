@@ -95,7 +95,7 @@ describe('streamTrainingWorkspaceBootstrap', () => {
 		mockCtx.personnelTrainingRoster = {
 			listActiveForWorkspace: listRosterCandidatesMock,
 			listActiveForReports: vi.fn(),
-			findGroupIdsForWrites: vi.fn()
+			findWriteSubjects: vi.fn()
 		};
 		listRosterCandidatesMock.mockResolvedValue([]);
 		loadWithContextMock.mockImplementation((_locals, _cookies, _orgId, config) => {

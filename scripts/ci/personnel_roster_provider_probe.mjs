@@ -25,6 +25,14 @@ const ids = {
 };
 const orgAll = [ids.activeA1, ids.archivedA1, ids.activeA2, ids.activeUnassigned, ids.archivedUnassigned];
 const groupAll = [ids.activeA1, ids.archivedA1];
+const lastNames = {
+	[ids.activeA1]: 'Able',
+	[ids.archivedA1]: 'Baker',
+	[ids.activeA2]: 'Clark',
+	[ids.activeUnassigned]: 'Davis',
+	[ids.archivedUnassigned]: 'Evans'
+};
+const writeSubject = (id, groupId) => ({ groupId, rank: 'SPC', lastName: lastNames[id] });
 const laneNames = ['calendar', 'personnel', 'training', 'criticalTasks', 'onboarding', 'ratingScheme'];
 const password = 'ProbeRoster9!';
 
@@ -284,29 +292,31 @@ try {
 	assert.deepEqual(idsOf(await training.listActiveForWorkspace(actors.trainingViewer.actor)), [ids.activeA1]);
 	assert.deepEqual(idsOf(await training.listActiveForReports(actors.trainingViewer.actor)), [ids.activeA1]);
 	assert.deepEqual(
-		await training.findGroupIdsForWrites(actors.trainingGroup.actor, [...orgAll, ids.foreign]),
-		new Map(groupAll.map((id) => [id, ids.groupA1]))
+		await training.findWriteSubjects(actors.trainingGroup.actor, [...orgAll, ids.foreign]),
+		new Map(groupAll.map((id) => [id, writeSubject(id, ids.groupA1)]))
 	);
 	assert.deepEqual(labeledIds(await training.listActiveForWorkspace(actors.trainingOrg.actor)), activeLabels);
 	assert.deepEqual(labeledIds(await training.listActiveForReports(actors.trainingOrg.actor)), activeLabels);
 	assert.deepEqual(
-		await training.findGroupIdsForWrites(actors.trainingOrg.actor, [...orgAll, ids.foreign]),
-		new Map([
-			[ids.activeA1, ids.groupA1],
-			[ids.archivedA1, ids.groupA1],
-			[ids.activeA2, ids.groupA2],
-			[ids.activeUnassigned, null],
-			[ids.archivedUnassigned, null]
-		])
+		await training.findWriteSubjects(actors.trainingOrg.actor, [...orgAll, ids.foreign]),
+		new Map(
+			[
+				[ids.activeA1, ids.groupA1],
+				[ids.archivedA1, ids.groupA1],
+				[ids.activeA2, ids.groupA2],
+				[ids.activeUnassigned, null],
+				[ids.archivedUnassigned, null]
+			].map(([id, groupId]) => [id, writeSubject(id, groupId)])
+		)
 	);
 	assert.deepEqual(idsOf(await training.listActiveForReports(actors.trainingForeign.actor)), [ids.foreign]);
-	assert.deepEqual(await training.findGroupIdsForWrites(actors.trainingForeign.actor, [ids.activeA1]), new Map());
+	assert.deepEqual(await training.findWriteSubjects(actors.trainingForeign.actor, [ids.activeA1]), new Map());
 	const emptyTraining = createSupabasePersonnelTrainingRosterPort(noAdminClient);
 	assert.deepEqual(await emptyTraining.listActiveForWorkspace(actors.trainingEmpty.actor), []);
-	assert.deepEqual(await emptyTraining.findGroupIdsForWrites(actors.trainingEmpty.actor, [ids.activeA1]), new Map());
+	assert.deepEqual(await emptyTraining.findWriteSubjects(actors.trainingEmpty.actor, [ids.activeA1]), new Map());
 	await assert.rejects(emptyTraining.listActiveForReports(actors.denied.actor), (error) => error.status === 403);
 	await assert.rejects(
-		emptyTraining.findGroupIdsForWrites(actors.trainingViewer.actor, [ids.activeA1]),
+		emptyTraining.findWriteSubjects(actors.trainingViewer.actor, [ids.activeA1]),
 		(error) => error.status === 403
 	);
 
@@ -343,7 +353,10 @@ try {
 	await assert.rejects(emptyCritical.listForBatchImport(actors.criticalViewer.actor), (error) => error.status === 403);
 
 	const snapshots = createSupabaseSignInRosterPersonnelLookupPort(() => service);
-	const snapshotRows = await snapshots.findPersonnelForRosterSnapshot(ids.orgA, [...orgAll, ids.foreign]);
+	const snapshotRows = await snapshots.findPersonnelForRosterSnapshot(ids.orgA, { kind: 'organization' }, [
+		...orgAll,
+		ids.foreign
+	]);
 	assert.deepEqual(
 		snapshotRows.map(({ id, groupName }) => [id, groupName]).sort(),
 		[
@@ -354,6 +367,12 @@ try {
 			[ids.archivedUnassigned, null]
 		].sort()
 	);
+	const groupSnapshotRows = await snapshots.findPersonnelForRosterSnapshot(
+		ids.orgA,
+		{ kind: 'groups', groupIds: [ids.groupA1] },
+		[...orgAll, ids.foreign]
+	);
+	assert.deepEqual(groupSnapshotRows.map(({ id }) => id).sort(), [...groupAll].sort());
 } finally {
 	await vite.close();
 	process.chdir(previousCwd);

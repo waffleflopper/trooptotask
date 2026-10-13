@@ -417,8 +417,8 @@ export class PersonnelDetailWorkspace {
 				}
 			);
 			if (!response.ok) throw new Error('Unable to update follow-up.');
-			const updated = (await response.json()) as PersonnelFollowUp;
-			this.followUps.upsert(updated);
+			const updated = (await response.json()) as Partial<PersonnelFollowUp>;
+			this.followUps.upsert({ ...followUp, ...updated });
 		} catch (caught) {
 			this.followUps.error = caught instanceof Error ? caught.message : 'Unable to update follow-up.';
 		} finally {

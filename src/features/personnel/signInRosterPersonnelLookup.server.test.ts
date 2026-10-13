@@ -2,28 +2,6 @@ import { describe, expect, it, vi } from 'vitest';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { createSupabaseSignInRosterPersonnelLookupPort } from './signInRosterPersonnelLookup.server';
 
-function createPersonnelQueryMock(result: unknown) {
-	const query = {
-		select: vi.fn(),
-		eq: vi.fn(),
-		is: vi.fn(),
-		in: vi.fn(),
-		order: vi.fn(),
-		then: vi.fn((resolve, reject) => Promise.resolve(result).then(resolve, reject))
-	};
-	query.select.mockReturnValue(query);
-	query.eq.mockReturnValue(query);
-	query.is.mockReturnValue(query);
-	query.in.mockReturnValue(query);
-	query.order.mockReturnValue(query);
-
-	const supabase = {
-		from: vi.fn().mockReturnValue(query)
-	};
-
-	return { supabase, query };
-}
-
 function createPersonnelRestFake(rows: Record<string, unknown>[]) {
 	const inList = (url: URL, column: string) =>
 		url.searchParams
@@ -87,57 +65,35 @@ describe('SupabaseSignInRosterPersonnelLookupPort', () => {
 		]);
 	});
 
-	it('loads roster snapshot personnel through the admin client and maps group names', async () => {
-		const { supabase, query } = createPersonnelQueryMock({
-			data: [
-				{
-					id: 'person-1',
-					rank: 'SGT',
-					last_name: 'Smith',
-					first_name: 'Jane',
-					group_id: 'group-1',
-					groups: { name: 'Alpha' }
-				},
-				{
-					id: 'person-2',
-					rank: null,
-					last_name: null,
-					first_name: null,
-					group_id: null,
-					groups: null
-				}
-			],
-			error: null
-		});
-		const getAdminClient = vi.fn(() => supabase as unknown as SupabaseClient);
-		const port = createSupabaseSignInRosterPersonnelLookupPort(getAdminClient);
-
-		const result = await port.findPersonnelForRosterSnapshot('org-1', ['person-1', 'person-2']);
-
-		expect(getAdminClient).toHaveBeenCalledOnce();
-		expect(supabase.from).toHaveBeenCalledWith('personnel');
-		expect(query.select).toHaveBeenCalledWith(
-			'id, rank, last_name, first_name, group_id, groups:groups!personnel_organization_group_fkey(name)'
-		);
-		expect(query.eq).toHaveBeenCalledWith('organization_id', 'org-1');
-		expect(query.in).toHaveBeenCalledWith('id', ['person-1', 'person-2']);
-		expect(result).toEqual([
+	it('maps names and Groups for an Organization-scoped actor', async () => {
+		const supabase = createPersonnelRestFake([
 			{
 				id: 'person-1',
+				organization_id: 'org-1',
 				rank: 'SGT',
-				lastName: 'Smith',
-				firstName: 'Jane',
-				groupId: 'group-1',
-				groupName: 'Alpha'
+				last_name: 'Smith',
+				first_name: 'Jane',
+				group_id: 'group-1',
+				groups: { name: 'Alpha' }
 			},
 			{
 				id: 'person-2',
+				organization_id: 'org-1',
 				rank: null,
-				lastName: null,
-				firstName: null,
-				groupId: null,
-				groupName: null
-			}
+				last_name: null,
+				first_name: null,
+				group_id: null,
+				groups: null
+			},
+			{ id: 'person-3', organization_id: 'org-2', rank: 'SPC', last_name: 'Foreign', group_id: null }
+		]);
+		const port = createSupabaseSignInRosterPersonnelLookupPort(() => supabase);
+
+		await expect(
+			port.findPersonnelForRosterSnapshot('org-1', { kind: 'organization' }, ['person-1', 'person-2', 'person-3'])
+		).resolves.toEqual([
+			{ id: 'person-1', rank: 'SGT', lastName: 'Smith', firstName: 'Jane', groupId: 'group-1', groupName: 'Alpha' },
+			{ id: 'person-2', rank: null, lastName: null, firstName: null, groupId: null, groupName: null }
 		]);
 	});
 
@@ -145,18 +101,20 @@ describe('SupabaseSignInRosterPersonnelLookupPort', () => {
 		const getAdminClient = vi.fn();
 		const port = createSupabaseSignInRosterPersonnelLookupPort(getAdminClient as () => SupabaseClient);
 
-		await expect(port.findPersonnelForRosterSnapshot('org-1', [])).resolves.toEqual([]);
+		await expect(port.findPersonnelForRosterSnapshot('org-1', { kind: 'organization' }, [])).resolves.toEqual([]);
 		expect(getAdminClient).not.toHaveBeenCalled();
 	});
 
 	it('throws query errors', async () => {
-		const { supabase } = createPersonnelQueryMock({
-			data: null,
-			error: { message: 'permission denied for table personnel' }
+		const supabase = createClient('http://127.0.0.1:9', 'synthetic-anon-key', {
+			auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+			global: {
+				fetch: async () => Response.json({ message: 'permission denied for table personnel' }, { status: 403 })
+			}
 		});
-		const port = createSupabaseSignInRosterPersonnelLookupPort(() => supabase as unknown as SupabaseClient);
+		const port = createSupabaseSignInRosterPersonnelLookupPort(() => supabase);
 
-		await expect(port.findPersonnelForRosterSnapshot('org-1', ['person-1'])).rejects.toThrow(
+		await expect(port.findPersonnelForRosterSnapshot('org-1', { kind: 'organization' }, ['person-1'])).rejects.toThrow(
 			'permission denied for table personnel'
 		);
 	});

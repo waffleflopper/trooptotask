@@ -4,7 +4,8 @@ import type {
 	TrainingPersonnelWriteAuthority,
 	TrainingRecordCreateContext,
 	TrainingRecordUpdateContext,
-	TrainingRecordDeleteContext
+	TrainingRecordDeleteContext,
+	TrainingRecordDeletionRequestContext
 } from './trainingCompletionPorts.server';
 import { calculateExpirationDate } from '../utils/trainingStatus';
 import type {
@@ -13,6 +14,7 @@ import type {
 	TrainingCompletionPatch,
 	TrainingCompletionPersistence
 } from '../contracts';
+import type { PersonnelWriteSubject } from '$features/personnel/contracts';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
 import { fail } from '$lib/errors';
 
@@ -29,11 +31,11 @@ function canHardDeleteTrainingRecord(ctx: TrainingPersonnelWriteAuthority, resou
 	}).allowed;
 }
 
-export async function policyResourcesForTrainingPersonnel(
+async function trainingWriteSubjects(
 	ctx: TrainingPersonnelWriteAuthority,
 	personnelIds: string[],
 	resourceId?: string
-): Promise<Map<string, PolicyResource>> {
+): Promise<Map<string, PersonnelWriteSubject>> {
 	await requireFeaturePolicy(
 		ctx,
 		POLICY_ACTION_CATALOG.training.recordCompletions,
@@ -42,10 +44,9 @@ export async function policyResourcesForTrainingPersonnel(
 		resourceId
 	);
 	if (!ctx.personnelTrainingRoster) throw new Error('Personnel Training roster provider unavailable');
-	const groupIds = await ctx.personnelTrainingRoster.findGroupIdsForWrites(ctx.auth, personnelIds);
-	const resources = new Map<string, PolicyResource>();
+	const subjects = await ctx.personnelTrainingRoster.findWriteSubjects(ctx.auth, personnelIds);
 	for (const id of personnelIds) {
-		if (!groupIds.has(id)) {
+		if (!subjects.has(id)) {
 			await requireFeaturePolicy(
 				ctx,
 				POLICY_ACTION_CATALOG.training.recordCompletions,
@@ -55,8 +56,18 @@ export async function policyResourcesForTrainingPersonnel(
 			);
 			fail(404, 'Personnel not found');
 		}
-		resources.set(id, policyResourceForGroup(groupIds.get(id)));
 	}
+	return subjects;
+}
+
+export async function policyResourcesForTrainingPersonnel(
+	ctx: TrainingPersonnelWriteAuthority,
+	personnelIds: string[],
+	resourceId?: string
+): Promise<Map<string, PolicyResource>> {
+	const subjects = await trainingWriteSubjects(ctx, personnelIds, resourceId);
+	const resources = new Map<string, PolicyResource>();
+	for (const id of personnelIds) resources.set(id, policyResourceForGroup(subjects.get(id)?.groupId));
 	return resources;
 }
 
@@ -222,4 +233,43 @@ export async function deleteTrainingRecord(
 		resourceType: AUDIT_RESOURCE,
 		resourceId: id
 	});
+}
+
+/** Describes a deletion request from the Training record the requester may change. */
+export async function describeTrainingRecordDeletionRequest(
+	ctx: TrainingRecordDeletionRequestContext,
+	id: string
+): Promise<{ description: string; url: string }> {
+	await requireFeaturePolicy(
+		ctx,
+		POLICY_ACTION_CATALOG.training.recordCompletions,
+		{ kind: 'unscoped' },
+		AUDIT_RESOURCE,
+		id
+	);
+	const record = await ctx.trainingCompletions.findResource(id);
+	if (!record?.personnelId) {
+		await requireFeaturePolicy(
+			ctx,
+			POLICY_ACTION_CATALOG.training.recordCompletions,
+			{ kind: 'organization' },
+			AUDIT_RESOURCE,
+			id
+		);
+		fail(404, 'Training record not found');
+	}
+	const person = (await trainingWriteSubjects(ctx, [record.personnelId], id)).get(record.personnelId);
+	if (!person) fail(404, 'Personnel not found');
+	await requireFeaturePolicy(
+		ctx,
+		POLICY_ACTION_CATALOG.training.recordCompletions,
+		policyResourceForGroup(person.groupId),
+		AUDIT_RESOURCE,
+		id
+	);
+	const typeName = (await ctx.trainingCatalog.listTypeLabels()).find((type) => type.id === record.trainingTypeId)?.name;
+	return {
+		description: `${typeName ?? 'Training'} record for ${person.rank} ${person.lastName}`,
+		url: `/org/${ctx.auth.orgId}/training`
+	};
 }

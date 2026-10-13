@@ -78,6 +78,7 @@ export {
 	restorePersonnelRecord,
 	permanentlyDeletePersonnelRecord,
 	archiveApprovedPersonnelRecord,
+	describePersonnelArchiveRequest,
 	preparePersonnelArchiveBatch
 } from './personnelLifecycle.server';
 

@@ -15,7 +15,8 @@ export { loadTrainingReadinessLane } from './server/personnelTrainingReadiness.s
 export {
 	createTrainingRecord,
 	updateTrainingRecord,
-	deleteTrainingRecord
+	deleteTrainingRecord,
+	describeTrainingRecordDeletionRequest
 } from './server/trainingCompletionOperations.server';
 export { importTrainingRecords } from './server/trainingCompletionBatch.server';
 export { listTrainingCompletions } from './server/trainingCompletionRead.server';

@@ -1,134 +1,109 @@
-import { describe, it, expect } from 'vitest';
-import { buildCalendarToolbarItems } from './calendarToolbarItems';
+import { describe, expect, it, vi } from 'vitest';
+import { buildCalendarToolbar, type CalendarToolbarInput } from './calendarToolbarItems';
 
-function makeInput(overrides: Partial<Parameters<typeof buildCalendarToolbarItems>[0]> = {}) {
+function makeInput(overrides: Partial<CalendarToolbarInput> = {}): CalendarToolbarInput {
 	return {
-		orgId: 'org1',
+		orgUrlSegment: '1-11-bde',
 		canManageAvailability: false,
 		canManageAssignments: false,
 		canManageConfig: false,
+		viewMode: 'month',
+		groupOptions: [{ value: '', label: 'Group: All' }],
+		groupFilter: '',
 		showStatusText: false,
-		showPersonnelRoles: true,
+		showPersonnelRoles: false,
 		showOnboardingToggle: false,
-		highlightOnboarding: false,
-		onToggleStatusText: () => {},
-		onTogglePersonnelRoles: () => {},
-		onToggleHighlightOnboarding: () => {},
-		onExportExcel: () => {},
-		onExportPDF: () => {},
+		highlightOnboarding: true,
+		onViewModeChange: vi.fn(),
+		onGroupFilterChange: vi.fn(),
+		onToggleStatusText: vi.fn(),
+		onTogglePersonnelRoles: vi.fn(),
+		onToggleHighlightOnboarding: vi.fn(),
+		onExportExcel: vi.fn(),
+		onExportPDF: vi.fn(),
 		...overrides
 	};
 }
 
-describe('buildCalendarToolbarItems', () => {
-	it("does not include Today's Summary in calendar overflow", () => {
-		const items = buildCalendarToolbarItems(makeInput());
-
-		expect(items.find((i) => i.label === "Today's Summary")).toBeUndefined();
-	});
-
-	it('includes onboarding as an active-aware overflow option only when available', () => {
-		const withoutOnboarding = buildCalendarToolbarItems(makeInput());
-		expect(withoutOnboarding.find((i) => i.label === 'Show Onboarding')).toBeUndefined();
-
-		const withOnboarding = buildCalendarToolbarItems(
-			makeInput({ showOnboardingToggle: true, highlightOnboarding: true })
+describe('buildCalendarToolbar', () => {
+	it('ranks a calendar admin toolbar with Bulk Status as the primary', () => {
+		const { items, primary } = buildCalendarToolbar(
+			makeInput({
+				canManageAvailability: true,
+				canManageAssignments: true,
+				canManageConfig: true,
+				showOnboardingToggle: true
+			})
 		);
-		const onboardingItem = withOnboarding.find((i) => i.label === 'Show Onboarding');
-		expect(onboardingItem).toBeDefined();
-		expect(onboardingItem!.overflow).toBe('always');
-		expect(onboardingItem!.toggle).toBe(true);
-		expect(onboardingItem!.active).toBe(true);
+
+		expect(items.map((item) => item.id)).toEqual([
+			'calendar-view',
+			'group',
+			'show-onboarding',
+			'show-status-text',
+			'show-personnel-roles',
+			'planning',
+			'calendar-reports',
+			'calendar-settings',
+			'export-excel',
+			'print-pdf'
+		]);
+		expect(primary?.label).toBe('Bulk Status');
+		expect(primary?.menuItems?.map((item) => item.href)).toEqual([
+			'/org/1-11-bde/calendar/bulk?tab=add',
+			'/org/1-11-bde/calendar/bulk?tab=remove',
+			'/org/1-11-bde/calendar/bulk?tab=import'
+		]);
 	});
 
-	it('includes Bulk Status dropdown for users with Calendar availability operation access', () => {
-		const items = buildCalendarToolbarItems(makeInput({ orgUrlSegment: '1-11-bde', canManageAvailability: true }));
-		const bulk = items.find((i) => i.label === 'Bulk Status');
-		expect(bulk).toBeDefined();
-		expect(bulk?.disabled).not.toBe(true);
-		expect(bulk?.menuItems?.some((item) => item.disabled)).toBe(false);
-		expect(bulk!.icon).toBe('clipboard-list');
-		expect(bulk!.displayMode).toBe('full');
-		expect(bulk!.menuItems).toHaveLength(3);
-		const labels = bulk!.menuItems!.map((i) => i.label);
-		expect(labels).toEqual(['Add Bulk', 'Remove Bulk', 'Import CSV']);
-		expect(bulk!.menuItems![0].href).toBe('/org/1-11-bde/calendar/bulk?tab=add');
-	});
+	it('points Planning, Reports and Settings at their Calendar routes', () => {
+		const { items } = buildCalendarToolbar(makeInput({ canManageAssignments: true, canManageConfig: true }));
+		const byId = (id: string) => items.find((item) => item.id === id);
 
-	it('does not include Bulk Status for plain members', () => {
-		const items = buildCalendarToolbarItems(makeInput());
-		expect(items.find((i) => i.label === 'Bulk Status')).toBeUndefined();
-	});
-
-	it('includes Planning dropdown with assignment planner for assignment operators', () => {
-		const items = buildCalendarToolbarItems(makeInput({ canManageAssignments: true }));
-		const planning = items.find((i) => i.label === 'Planning');
-		expect(planning).toBeDefined();
-		expect(planning?.disabled).not.toBe(true);
-		expect(planning?.menuItems?.some((item) => item.disabled)).toBe(false);
-		expect(planning!.icon).toBe('calendar-days');
-		expect(planning!.displayMode).toBe('full');
-		const labels = planning!.menuItems!.map((i) => i.label);
-		expect(labels).toEqual(['Assignment Planner']);
-	});
-
-	it('keeps Duty Rosters offline for Calendar administrators while preserving Assignment Planner', () => {
-		const items = buildCalendarToolbarItems(makeInput({ canManageAssignments: true, canManageConfig: true }));
-		const planning = items.find((i) => i.label === 'Planning');
-		expect(planning!.menuItems!.map((item) => item.href)).toEqual(['/org/org1/calendar/assignments']);
-	});
-
-	it('places Reports between Planning and Settings in calendar navigation actions', () => {
-		const items = buildCalendarToolbarItems(
-			makeInput({ orgUrlSegment: '1-11-bde', canManageAssignments: true, canManageConfig: true })
-		);
-		const navigationLabels = items
-			.filter((item) => ['Planning', 'Reports', 'Settings'].includes(item.label))
-			.map((item) => item.label);
-		const reports = items.find((i) => i.label === 'Reports');
-
-		expect(navigationLabels).toEqual(['Planning', 'Reports', 'Settings']);
-		expect(reports).toMatchObject({
-			id: 'calendar-reports',
-			href: '/org/1-11-bde/calendar/reports',
-			icon: 'chart',
-			displayMode: 'full'
+		expect(byId('planning')).toMatchObject({
+			label: 'Planning',
+			menuItems: [{ label: 'Assignment Planner', href: '/org/1-11-bde/calendar/assignments' }]
 		});
+		expect(byId('calendar-reports')).toMatchObject({ label: 'Reports', href: '/org/1-11-bde/calendar/reports' });
+		expect(byId('calendar-settings')).toMatchObject({ label: 'Settings', href: '/org/1-11-bde/calendar/settings' });
 	});
 
-	it('includes settings as the first low-priority action to compact for admins', () => {
-		const items = buildCalendarToolbarItems(makeInput({ canManageConfig: true }));
-		const settings = items.find((i) => i.label === 'Settings');
-		expect(settings).toBeDefined();
-		expect(settings!.icon).toBe('settings');
-		expect(settings!.displayMode).toBeUndefined();
-		expect(settings!.priority).toBe('low');
-		expect(settings!.variant).toBe('secondary');
-		expect(settings!.href).toBe('/org/org1/calendar/settings');
+	it('gives a plain viewer Reports, the exports and display toggles, and no primary', () => {
+		const { items, primary } = buildCalendarToolbar(makeInput());
+
+		expect(items.map((item) => item.id)).toEqual([
+			'calendar-view',
+			'group',
+			'show-status-text',
+			'show-personnel-roles',
+			'calendar-reports',
+			'export-excel',
+			'print-pdf'
+		]);
+		expect(primary).toBeUndefined();
 	});
 
-	it('keeps Reports available for plain calendar viewers without Planning or Settings', () => {
-		const items = buildCalendarToolbarItems(makeInput());
-		expect(items.find((i) => i.label === 'Planning')).toBeUndefined();
-		expect(items.find((i) => i.label === 'Reports')?.href).toBe('/org/org1/calendar/reports');
-		expect(items.find((i) => i.label === 'Settings')).toBeUndefined();
+	it('keeps exports and display toggles menu-only, with Show Onboarding on by default', () => {
+		const { items } = buildCalendarToolbar(makeInput({ showOnboardingToggle: true }));
+		const menuOnly = items.filter((item) => 'menuOnly' in item && item.menuOnly).map((item) => item.id);
+
+		expect(menuOnly).toEqual([
+			'show-onboarding',
+			'show-status-text',
+			'show-personnel-roles',
+			'export-excel',
+			'print-pdf'
+		]);
+		expect(items.find((item) => item.id === 'show-onboarding')).toMatchObject({ pressed: true, defaultPressed: true });
 	});
 
-	it('always includes Export to Excel, Print/PDF, and an active-aware Show Status Text toggle in overflow', () => {
-		const items = buildCalendarToolbarItems(makeInput({ showStatusText: true }));
-		const overflowItems = items.filter((i) => i.priority === 'low');
-		const overflowLabels = overflowItems.map((i) => i.label);
-		expect(overflowLabels).toContain('Export to Excel');
-		expect(overflowLabels).toContain('Print / PDF');
-		expect(overflowLabels).toContain('Show Status Text');
-		expect(overflowItems.find((i) => i.label === 'Show Status Text')?.active).toBe(true);
-		expect(overflowItems.find((i) => i.label === 'Show Status Text')?.toggle).toBe(true);
-	});
+	it('switches the view only to a known calendar view', () => {
+		const onViewModeChange = vi.fn();
+		const view = buildCalendarToolbar(makeInput({ onViewModeChange })).items[0];
+		if (view.kind !== 'view') throw new Error('the first item is the calendar view');
 
-	it('always includes an active-aware Show Personnel Roles toggle in overflow', () => {
-		const items = buildCalendarToolbarItems(makeInput({ showPersonnelRoles: false }));
-		const overflowItems = items.filter((i) => i.priority === 'low');
-		expect(overflowItems.find((i) => i.label === 'Show Personnel Roles')?.active).toBe(false);
-		expect(overflowItems.find((i) => i.label === 'Show Personnel Roles')?.toggle).toBe(true);
+		view.onValueChange('3-month');
+		view.onValueChange('year');
+		expect(onViewModeChange.mock.calls).toEqual([['3-month']]);
 	});
 });

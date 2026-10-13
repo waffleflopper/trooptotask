@@ -4,6 +4,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
 	import * as DataTable from '$lib/components/ui/data-table';
+	import { WorkspaceToolbar, type ToolbarItem } from '$lib/components/patterns/workspace-toolbar';
 	import { useDataTable, type ColumnDef, type DataTableSelectionState } from '$lib/components/ui/data-table';
 	import BulkStepHeading from './BulkStepHeading.svelte';
 
@@ -75,6 +76,11 @@
 		selection.clear();
 	}
 
+	const toolbarItems: ToolbarItem[] = [
+		{ kind: 'action', id: 'select-shown', label: 'Select shown', onclick: selectVisible },
+		{ kind: 'action', id: 'clear', label: 'Clear', onclick: selectNone }
+	];
+
 	function getGroupSelectionState(groupKey: string): 'none' | 'some' | 'all' {
 		const group = table.groups.find((g) => g.key === groupKey);
 		if (!group || group.rows.length === 0) return 'none';
@@ -100,24 +106,26 @@
 			title="Choose personnel"
 			description="Search by name, select an entire group, or click individual rows."
 		/>
+		<p class="text-sm text-muted-foreground">{selection.selectedCount} of {table.totalRows} selected</p>
+		<WorkspaceToolbar
+			ariaLabel="Roster picker controls"
+			items={toolbarItems}
+			search={{
+				label: 'Search by name, rank, MOS, or role...',
+				placeholder: 'Search by name, rank, MOS, or role...',
+				value: table.search,
+				onValueChange: (value) => table.setSearch(value)
+			}}
+		/>
 	</Card.Header>
 
 	<DataTable.DataTable
 		{columns}
 		{table}
 		compact
-		showSearch
-		searchPlaceholder="Search by name, rank, MOS, or role..."
 		emptyMessage="No personnel available"
 		onRowClick={(person) => selection.toggleRow(person, 0)}
 	>
-		{#snippet toolbar()}
-			<DataTable.BulkActions selectedCount={selection.selectedCount} totalCount={table.totalRows}>
-				<Button type="button" variant="outline" size="sm" onclick={selectVisible}>Select shown</Button>
-				<Button type="button" variant="outline" size="sm" onclick={selectNone}>Clear</Button>
-			</DataTable.BulkActions>
-		{/snippet}
-
 		{#snippet groupHeader(ctx)}
 			{@const selState = getGroupSelectionState(ctx.key)}
 			<DataTable.SelectionCheckbox

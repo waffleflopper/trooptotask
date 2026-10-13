@@ -4,6 +4,7 @@
 	type Props = {
 		withArchive?: boolean;
 		withExport?: boolean;
+		withDisplayOption?: boolean;
 		initialSearch?: string;
 		initialStatus?: string[];
 		statusDefaults?: string[];
@@ -16,6 +17,7 @@
 	let {
 		withArchive = true,
 		withExport = false,
+		withDisplayOption = false,
 		initialSearch = '',
 		initialStatus = [],
 		statusDefaults = [],
@@ -30,6 +32,7 @@
 	// svelte-ignore state_referenced_locally
 	let status = $state<string[]>(initialStatus);
 	let gaps = $state(false);
+	let roles = $state(true);
 	// svelte-ignore state_referenced_locally
 	let search = $state(initialSearch);
 	let runs = $state<string[]>([]);
@@ -77,6 +80,19 @@
 			onValuesChange: (values) => (status = values)
 		},
 		{ kind: 'toggle', id: 'gaps', label: 'Gaps only', pressed: gaps, onPressedChange: (pressed) => (gaps = pressed) },
+		...(withDisplayOption
+			? [
+					{
+						kind: 'toggle',
+						id: 'roles',
+						label: 'Show roles',
+						menuOnly: true,
+						defaultPressed: true,
+						pressed: roles,
+						onPressedChange: (pressed: boolean) => (roles = pressed)
+					} satisfies ToolbarItem
+				]
+			: []),
 		{ kind: 'action', id: 'reports', label: 'Reports', href: '/reports', icon: 'chart' },
 		{
 			kind: 'action',
@@ -133,5 +149,6 @@
 <output aria-label="Group value">{group || 'all'}</output>
 <output aria-label="Status value">{status.join(',') || 'none'}</output>
 <output aria-label="Gaps value">{gaps ? 'on' : 'off'}</output>
+<output aria-label="Roles value">{roles ? 'on' : 'off'}</output>
 <output aria-label="Search value">{search || 'empty'}</output>
 <output aria-label="Runs">{runs.join(' ') || 'none'}</output>

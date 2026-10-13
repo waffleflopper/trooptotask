@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { ToolbarAction } from '$lib/components/patterns/workspace-toolbar';
 	import type { Personnel } from '$features/personnel/contracts';
 	import type { StatusType } from '$features/calendar/contracts';
 	import { Button } from '$lib/components/ui/button/index.js';
@@ -194,6 +195,16 @@
 		if (!report.result) return;
 		return exportStatusDaysWorkbook(report.result, statusTypes, startDate, endDate);
 	}
+
+	const readyExport = $derived<ToolbarAction | undefined>(
+		report.result && report.status !== 'loading' && report.status !== 'error'
+			? { kind: 'action', id: 'export', label: 'Export status days', icon: 'download', onclick: handleExportExcel }
+			: undefined
+	);
+
+	export function exportAction(): ToolbarAction | undefined {
+		return readyExport;
+	}
 </script>
 
 <ReportWorkspace.Root ariaLabel="Status days by person report">
@@ -290,10 +301,6 @@
 			ariaLabel="Status days by person"
 			emptyMessage="No selected status entries fall in this date range. Try more statuses, more personnel, or a wider range."
 		>
-			{#snippet actions()}
-				<ReportWorkspace.ExportAction label="Export status days" onclick={handleExportExcel} />
-			{/snippet}
-
 			{#snippet summary()}
 				{#if reportSummary}
 					<ReportWorkspace.SummaryStrip

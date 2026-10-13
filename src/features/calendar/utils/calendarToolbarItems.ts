@@ -1,16 +1,21 @@
-import type { WorkspaceToolbarAction } from '$lib/components/patterns/workspace-toolbar';
+import type { ToolbarItem, ToolbarOption, WorkspaceToolbarProps } from '$lib/components/patterns/workspace-toolbar';
+
+export type CalendarViewMode = 'month' | '3-month';
 
 export interface CalendarToolbarInput {
-	orgId: string;
-	orgUrlSegment?: string;
+	orgUrlSegment: string;
 	canManageAvailability: boolean;
 	canManageAssignments: boolean;
 	canManageConfig: boolean;
+	viewMode: CalendarViewMode;
+	groupOptions: ToolbarOption[];
+	groupFilter: string;
 	showStatusText: boolean;
 	showPersonnelRoles: boolean;
 	showOnboardingToggle: boolean;
 	highlightOnboarding: boolean;
-	viewMode?: 'month' | '3-month';
+	onViewModeChange: (mode: CalendarViewMode) => void;
+	onGroupFilterChange: (value: string) => void;
 	onToggleStatusText: () => void;
 	onTogglePersonnelRoles: () => void;
 	onToggleHighlightOnboarding: () => void;
@@ -18,113 +23,114 @@ export interface CalendarToolbarInput {
 	onExportPDF: () => void;
 }
 
-function overflowToggle(id: string, label: string, active: boolean, onclick: () => void): WorkspaceToolbarAction {
-	return {
-		id,
-		label,
-		onclick,
-		toggle: true,
-		active,
-		priority: 'low',
-		overflow: 'always'
-	};
-}
+const viewOptions: ToolbarOption[] = [
+	{ value: 'month', label: 'Month' },
+	{ value: '3-month', label: '3-Month' }
+];
 
-export function buildCalendarToolbarItems(input: CalendarToolbarInput): WorkspaceToolbarAction[] {
-	const items: WorkspaceToolbarAction[] = [];
-	const orgRouteSegment = input.orgUrlSegment ?? input.orgId;
+export function buildCalendarToolbar(input: CalendarToolbarInput): {
+	items: ToolbarItem[];
+	primary: WorkspaceToolbarProps['primary'];
+} {
+	const calendarHref = `/org/${input.orgUrlSegment}/calendar`;
+	const items: ToolbarItem[] = [
+		{
+			kind: 'view',
+			id: 'calendar-view',
+			label: 'Calendar view',
+			options: viewOptions,
+			value: input.viewMode,
+			onValueChange: (value) => {
+				if (value === 'month' || value === '3-month') input.onViewModeChange(value);
+			}
+		},
+		{
+			kind: 'select',
+			id: 'group',
+			label: 'Group',
+			ariaLabel: 'Calendar group filter',
+			options: input.groupOptions,
+			value: input.groupFilter,
+			defaultValue: '',
+			onValueChange: input.onGroupFilterChange
+		}
+	];
 
-	if (input.canManageAvailability) {
+	if (input.showOnboardingToggle) {
 		items.push({
-			id: 'bulk-status',
-			label: 'Bulk Status',
-			icon: 'clipboard-list',
-			displayMode: 'full',
-			menuItems: [
-				{
-					label: 'Add Bulk',
-					href: `/org/${orgRouteSegment}/calendar/bulk?tab=add`
-				},
-				{
-					label: 'Remove Bulk',
-					href: `/org/${orgRouteSegment}/calendar/bulk?tab=remove`
-				},
-				{
-					label: 'Import CSV',
-					href: `/org/${orgRouteSegment}/calendar/bulk?tab=import`
-				}
-			]
+			kind: 'toggle',
+			id: 'show-onboarding',
+			label: 'Show Onboarding',
+			menuOnly: true,
+			defaultPressed: true,
+			pressed: input.highlightOnboarding,
+			onPressedChange: input.onToggleHighlightOnboarding
 		});
 	}
+	items.push(
+		{
+			kind: 'toggle',
+			id: 'show-status-text',
+			label: 'Show Status Text',
+			menuOnly: true,
+			pressed: input.showStatusText,
+			onPressedChange: input.onToggleStatusText
+		},
+		{
+			kind: 'toggle',
+			id: 'show-personnel-roles',
+			label: 'Show Personnel Roles',
+			menuOnly: true,
+			pressed: input.showPersonnelRoles,
+			onPressedChange: input.onTogglePersonnelRoles
+		}
+	);
 
 	if (input.canManageAssignments) {
 		items.push({
+			kind: 'action',
 			id: 'planning',
 			label: 'Planning',
 			icon: 'calendar-days',
-			displayMode: 'full',
 			menuItems: [
-				{
-					label: 'Assignment Planner',
-					href: `/org/${orgRouteSegment}/calendar/assignments`
-				}
+				{ kind: 'action', id: 'assignment-planner', label: 'Assignment Planner', href: `${calendarHref}/assignments` }
 			]
 		});
 	}
-
 	items.push({
+		kind: 'action',
 		id: 'calendar-reports',
 		label: 'Reports',
-		href: `/org/${orgRouteSegment}/calendar/reports`,
 		icon: 'chart',
-		displayMode: 'full'
+		href: `${calendarHref}/reports`
 	});
-
 	if (input.canManageConfig) {
 		items.push({
+			kind: 'action',
 			id: 'calendar-settings',
 			label: 'Settings',
-			href: `/org/${orgRouteSegment}/calendar/settings`,
 			icon: 'settings',
-			priority: 'low',
-			variant: 'secondary'
+			href: `${calendarHref}/settings`
 		});
 	}
-
-	if (input.viewMode !== '3-month') {
-		items.push(
-			{
-				id: 'export-excel',
-				label: 'Export to Excel',
-				onclick: input.onExportExcel,
-				priority: 'low',
-				overflow: 'always'
-			},
-			{
-				id: 'print-pdf',
-				label: 'Print / PDF',
-				onclick: input.onExportPDF,
-				priority: 'low',
-				overflow: 'always'
-			}
-		);
-	}
-
-	if (input.showOnboardingToggle) {
-		items.push(
-			overflowToggle('show-onboarding', 'Show Onboarding', input.highlightOnboarding, input.onToggleHighlightOnboarding)
-		);
-	}
-
 	items.push(
-		overflowToggle('show-status-text', 'Show Status Text', input.showStatusText, input.onToggleStatusText),
-		overflowToggle(
-			'show-personnel-roles',
-			'Show Personnel Roles',
-			input.showPersonnelRoles,
-			input.onTogglePersonnelRoles
-		)
+		{ kind: 'action', id: 'export-excel', label: 'Export to Excel', menuOnly: true, onclick: input.onExportExcel },
+		{ kind: 'action', id: 'print-pdf', label: 'Print / PDF', menuOnly: true, onclick: input.onExportPDF }
 	);
 
-	return items;
+	const primary: WorkspaceToolbarProps['primary'] = input.canManageAvailability
+		? {
+				kind: 'action',
+				id: 'bulk-status',
+				label: 'Bulk Status',
+				icon: 'clipboard-list',
+				menuItems: [
+					{ kind: 'action', id: 'bulk-add', label: 'Add Bulk', href: `${calendarHref}/bulk?tab=add` },
+					{ kind: 'action', id: 'bulk-remove', label: 'Remove Bulk', href: `${calendarHref}/bulk?tab=remove` },
+					{ kind: 'action', id: 'bulk-import', label: 'Import CSV', href: `${calendarHref}/bulk?tab=import` }
+				]
+			}
+		: undefined;
+
+	return { items, primary };
 }

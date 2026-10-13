@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { ToolbarAction } from '$lib/components/patterns/workspace-toolbar';
 	import type { Personnel } from '$features/personnel/contracts';
 	import type { AssignmentType, DailyAssignment } from '$features/calendar/contracts';
 	import { Button } from '$lib/components/ui/button/index.js';
@@ -212,6 +213,16 @@
 		if (!result || !runSnapshot) return;
 		return exportAssignmentCoverageWorkbook(result, displayTypes, runSnapshot.startDate, runSnapshot.endDate);
 	}
+
+	const readyExport = $derived<ToolbarAction | undefined>(
+		result && report.status !== 'loading' && report.status !== 'error'
+			? { kind: 'action', id: 'export', label: 'Export assignment load', icon: 'download', onclick: handleExportExcel }
+			: undefined
+	);
+
+	export function exportAction(): ToolbarAction | undefined {
+		return readyExport;
+	}
 </script>
 
 <ReportWorkspace.Root ariaLabel="Assignment load by person report">
@@ -263,10 +274,6 @@
 			ariaLabel="Assignment load by person"
 			emptyMessage="No personnel assignments fall in this date range. Try a wider date range."
 		>
-			{#snippet actions()}
-				<ReportWorkspace.ExportAction label="Export assignment load" onclick={handleExportExcel} />
-			{/snippet}
-
 			{#snippet summary()}
 				{#if reportSummary}
 					<ReportWorkspace.SummaryStrip

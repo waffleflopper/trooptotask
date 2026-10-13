@@ -3,12 +3,12 @@
 	import Calendar from '$features/calendar/components/Calendar.svelte';
 	import LongRangeView from '$features/calendar/components/LongRangeView.svelte';
 	import StatusLegend from '$features/calendar/components/StatusLegend.svelte';
-	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar';
+	import { WorkspaceToolbar } from '$lib/components/patterns/workspace-toolbar';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
 	import * as Empty from '$lib/components/ui/empty';
 	import { Skeleton } from '$lib/components/ui/skeleton';
-	import { buildCalendarToolbarItems } from '$features/calendar/utils/calendarToolbarItems';
+	import { buildCalendarToolbar } from '$features/calendar/utils/calendarToolbarItems';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
@@ -42,48 +42,56 @@
 		};
 	}
 
-	const toolbarItems = $derived(
-		buildCalendarToolbarItems({
-			orgId: data.orgId,
+	function quarterStart(): Date {
+		return new Date(calendarStore.year, calendarStore.month, 1);
+	}
+
+	async function exportExcel(): Promise<void> {
+		try {
+			const { exportMonthToExcel, exportQuarterToExcel } = await import('$features/calendar/utils/calendarExport');
+			if (ctx.viewMode === '3-month') await exportQuarterToExcel(quarterStart(), getExportData());
+			else await exportMonthToExcel(calendarStore.year, calendarStore.month, getExportData());
+		} catch (err) {
+			toastStore.error(err instanceof Error ? err.message : 'Excel export failed');
+		}
+	}
+
+	async function exportPDF(): Promise<void> {
+		try {
+			const { printMonthCalendar, printQuarterCalendar } = await import('$features/calendar/utils/calendarExport');
+			if (ctx.viewMode === '3-month') await printQuarterCalendar(quarterStart(), getExportData());
+			else await printMonthCalendar(calendarStore.year, calendarStore.month, getExportData());
+		} catch (err) {
+			toastStore.error(err instanceof Error ? err.message : 'PDF export failed');
+		}
+	}
+
+	const toolbar = $derived(
+		buildCalendarToolbar({
 			orgUrlSegment: data.orgUrlSegment ?? data.orgId,
 			canManageAvailability: ctx.canManageAvailability,
 			canManageAssignments: ctx.canManageAssignments,
 			canManageConfig: ctx.canManageConfig,
+			viewMode: ctx.viewMode,
+			groupOptions: ctx.groupFilterOptions.map((option) => ({
+				value: option.value,
+				label: option.value === '' ? 'Group: All' : `${option.label} (${option.count ?? 0})`
+			})),
+			groupFilter: ctx.calendarGroupFilter,
 			showStatusText: ctx.showStatusText,
 			showPersonnelRoles: ctx.showPersonnelRoles,
 			showOnboardingToggle: ctx.activeOnboardingPersonnelIds.length > 0,
 			highlightOnboarding: ctx.highlightOnboarding,
-			viewMode: ctx.viewMode,
+			onViewModeChange: (mode) => {
+				if (mode !== ctx.viewMode) ctx.toggleViewMode();
+			},
+			onGroupFilterChange: (value) => ctx.setCalendarGroupFilter(value),
 			onToggleStatusText: () => ctx.toggleShowStatusText(),
 			onTogglePersonnelRoles: () => ctx.toggleShowPersonnelRoles(),
 			onToggleHighlightOnboarding: () => ctx.toggleHighlightOnboarding(),
-			onExportExcel: async () => {
-				try {
-					const { exportMonthToExcel } = await import('$features/calendar/utils/calendarExport');
-					await exportMonthToExcel(calendarStore.year, calendarStore.month, getExportData());
-				} catch (err) {
-					toastStore.error(err instanceof Error ? err.message : 'Excel export failed');
-				}
-			},
-			onExportPDF: async () => {
-				try {
-					const { printMonthCalendar } = await import('$features/calendar/utils/calendarExport');
-					await printMonthCalendar(calendarStore.year, calendarStore.month, getExportData());
-				} catch (err) {
-					toastStore.error(err instanceof Error ? err.message : 'PDF export failed');
-				}
-			}
+			onExportExcel: exportExcel,
+			onExportPDF: exportPDF
 		})
-	);
-
-	const groupFilterOptions = $derived(
-		ctx.groupFilterOptions.map((option) => ({
-			value: option.value,
-			label: option.value === '' ? 'Group: All' : `${option.label} (${option.count ?? 0})`
-		}))
-	);
-	const activeCalendarFilterCount = $derived(
-		(ctx.calendarGroupFilter ? 1 : 0) + (ctx.calendarPersonnelSearch.trim() ? 1 : 0)
 	);
 
 	async function loadAvailabilityModal() {
@@ -140,34 +148,17 @@
 	{:else}
 		<div class="flex flex-1 overflow-hidden p-3 sm:px-6 sm:pt-4 sm:pb-5">
 			<section class="flex h-full w-full flex-col gap-3 overflow-hidden sm:gap-4">
-				<WorkspaceToolbar.Root ariaLabel="Calendar controls">
-					<WorkspaceToolbar.Group
-						label="Calendar filters"
-						activeCount={activeCalendarFilterCount}
-						data-testid="calendar-filters"
-					>
-						<WorkspaceToolbar.Select
-							ariaLabel="Calendar group filter"
-							options={groupFilterOptions}
-							value={ctx.calendarGroupFilter}
-							onValueChange={(value) => ctx.setCalendarGroupFilter(value)}
-						/>
-						<WorkspaceToolbar.Search
-							ariaLabel="Search by name, rank, MOS, role, or group"
-							placeholder="Search name, rank, MOS, role, or group..."
-							value={ctx.calendarPersonnelSearch}
-							onValueChange={(value) => ctx.setCalendarPersonnelSearch(value)}
-						/>
-					</WorkspaceToolbar.Group>
-
-					<WorkspaceToolbar.Group label="Calendar actions" zone="actions">
-						<WorkspaceToolbar.Actions
-							actions={toolbarItems}
-							ariaLabel="Calendar actions"
-							overflowAriaLabel="More Calendar actions"
-						/>
-					</WorkspaceToolbar.Group>
-				</WorkspaceToolbar.Root>
+				<WorkspaceToolbar
+					ariaLabel="Calendar controls"
+					items={toolbar.items}
+					primary={toolbar.primary}
+					search={{
+						label: 'Search by name, rank, MOS, role, or group',
+						placeholder: 'Search name, rank, MOS, role, or group...',
+						value: ctx.calendarPersonnelSearch,
+						onValueChange: (value) => ctx.setCalendarPersonnelSearch(value)
+					}}
+				/>
 
 				{#if rangeStatus === 'loading'}
 					<Alert.Root role="status" aria-live="polite">
@@ -194,7 +185,6 @@
 						assignments={dailyAssignmentsStore.assignments}
 						groups={groupsStore.items}
 						onDateColumnClick={(date) => ctx.navigateToMonth(date)}
-						onToggleViewMode={() => ctx.toggleViewMode()}
 					/>
 				{:else}
 					<Calendar
@@ -226,8 +216,6 @@
 						onPersonClick={(person) => ctx.handlePersonClick(person)}
 						onPinToggle={(group) => ctx.handlePinToggle(group)}
 						onDateClick={(date) => ctx.handleDateClick(date)}
-						viewMode={ctx.viewMode}
-						onToggleViewMode={() => ctx.toggleViewMode()}
 					/>
 					<StatusLegend statusTypes={statusTypesStore.items} />
 				{/if}

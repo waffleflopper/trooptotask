@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { ToolbarAction } from '$lib/components/patterns/workspace-toolbar';
 	import type { Personnel } from '$features/personnel/contracts';
 	import type { StatusType } from '$features/calendar/contracts';
 	import { Badge } from '$lib/components/ui/badge/index.js';
@@ -163,6 +164,16 @@
 		if (!report.result) return;
 		await exportAvailabilityForecastWorkbook(report.result, report.result.startDate, report.result.endDate);
 	}
+
+	const readyExport = $derived<ToolbarAction | undefined>(
+		report.result && report.status !== 'loading' && report.status !== 'error'
+			? { kind: 'action', id: 'export', label: 'Export availability', icon: 'download', onclick: handleExportExcel }
+			: undefined
+	);
+
+	export function exportAction(): ToolbarAction | undefined {
+		return readyExport;
+	}
 </script>
 
 <ReportWorkspace.Root ariaLabel="Availability by day report">
@@ -231,10 +242,6 @@
 					: `Availability for ${formatDisplayDate(day.date)}`}
 			rowDetailVisible={(day) => expandedDates.has(day.date)}
 		>
-			{#snippet actions()}
-				<ReportWorkspace.ExportAction label="Export availability" onclick={handleExportExcel} />
-			{/snippet}
-
 			{#snippet summary()}
 				{#if reportSummary}
 					<ReportWorkspace.SummaryStrip

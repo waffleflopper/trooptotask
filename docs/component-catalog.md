@@ -227,7 +227,7 @@ Item kinds (`toolbar-types.ts`):
 - `view`: a mutually exclusive mode. The row shows a `ButtonGroup` with `aria-pressed`. More shows a radio group.
 - `select`: one value with a required `defaultValue`. It is active when its value differs from the default.
 - `multiSelect`: several values with optional `defaultValues`. It is active when its set differs from the defaults, in any order.
-- `toggle`: one boolean. It is active when pressed.
+- `toggle`: one boolean with optional `defaultPressed`, which defaults to `false`. It is active when `pressed` differs from the default. A `menuOnly` toggle is a display option that always lives in More.
 - `action`: exactly one of `onclick`, `href` or `menuItems`, plus `icon`, `destructive`, `disabled`, `disabledReason`, `loading` and `menuOnly`. `href` navigates with `goto`. `menuItems` nest as submenus, and a disabled or loading parent blocks its children.
 
 Every item has a unique `id` and a visible `label`. An optional `ariaLabel` keeps an existing accessible name.
@@ -241,7 +241,7 @@ Fold rule:
 
 - The toolbar measures each control's natural width in a hidden copy and fits them to the row width.
 - Actions fold first, then filters, then views. Within each section the lowest ranked item folds first.
-- More takes room once something folds or a `menuOnly` action exists. With nothing folded and no menu-only action there is no More button.
+- More takes room once something folds or a `menuOnly` item exists. With nothing folded and no menu-only item there is no More button.
 - Search collapses to an icon button only after every item has folded. The primary and More never fold.
 - Before the first measurement every control renders on the row, and the root clips overflow.
 
@@ -275,7 +275,7 @@ Data attributes, for tests and the verification helpers:
 Rules:
 
 - Rank items by importance to the route's main task. Do not hand-pick overflow or icon-only modes.
-- Use `menuOnly` for rare or destructive commands that should never take row space.
+- Use `menuOnly` for rare or destructive commands, and for display toggles, that should never take row space.
 - Keep disabled actions visible when their presence explains unavailable work, and give them a `disabledReason`. Loading actions show the shared spinner.
 - Do not add route-local toolbar spacing, radius, borders, shadows, color, density, typography, or internal selector overrides.
 - Compose route-specific behavior under the [shared UI composition rules](agents/ui-system.md#default-ui-rules); keep toolbar appearance and reusable APIs owned by the shared component.

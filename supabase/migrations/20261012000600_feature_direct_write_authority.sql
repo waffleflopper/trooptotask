@@ -186,79 +186,396 @@ CREATE TRIGGER require_artifact_file_under_person
 	BEFORE INSERT OR UPDATE OF file_path, personnel_id, organization_id ON public.personnel_documents
 	FOR EACH ROW EXECUTE FUNCTION organization_private.require_artifact_file_under_person();
 
+-- The server removes a stored document or counseling file only after its record
+-- is archived and deleted. API callers keep sign-in roster file removal and
+-- owner Organization cleanup.
+DROP POLICY "Operators can delete personnel document files through scoped personnel access" ON storage.objects;
+ALTER POLICY "Sensitive files are deletable by authorized editors" ON storage.objects
+	USING (
+		public.storage_object_scope(name) = 'sign-in-rosters'
+		AND public.sensitive_file_object_is_writable(bucket_id, name)
+	);
+
 -- Onboarding: operate starts packets, records progress and changes lifecycle
 -- status. Template choice, step shape and removal of active work belong to the
--- configure-only reconcile command. Packets are removed only by retention.
--- Reference checks answer only for Onboarding operators of the Organization.
-CREATE OR REPLACE FUNCTION public.onboarding_template_reference_matches(
-	p_organization_id uuid, p_template_id uuid
+-- configure-only reconcile command. Packets and steps are created only by the
+-- start and reconcile commands and removed only by retention.
+
+-- Policies and commands ask whether a Person, packet, template or Training
+-- type is in scope. API callers cannot ask, so the answers reveal no IDs.
+CREATE SCHEMA onboarding_private;
+REVOKE ALL ON SCHEMA onboarding_private FROM PUBLIC, anon, service_role;
+GRANT USAGE ON SCHEMA onboarding_private TO authenticated;
+ALTER FUNCTION public.onboarding_personnel_scope_matches(uuid, uuid) SET SCHEMA onboarding_private;
+ALTER FUNCTION public.onboarding_parent_scope_matches(uuid, uuid) SET SCHEMA onboarding_private;
+ALTER FUNCTION public.onboarding_template_reference_matches(uuid, uuid) SET SCHEMA onboarding_private;
+ALTER FUNCTION public.onboarding_step_references_match(uuid, uuid, uuid) SET SCHEMA onboarding_private;
+
+CREATE OR REPLACE FUNCTION onboarding_private.onboarding_parent_scope_matches(
+  p_organization_id uuid, p_onboarding_id uuid
 ) RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = ''
 AS $$
-	SELECT public.can_edit_onboarding(p_organization_id) AND (p_template_id IS NULL OR EXISTS (
-		SELECT 1 FROM public.onboarding_templates t
-		WHERE t.id = p_template_id AND t.organization_id = p_organization_id
-	));
+  SELECT EXISTS (
+    SELECT 1 FROM public.personnel_onboardings po
+    WHERE po.id = p_onboarding_id AND po.organization_id = p_organization_id
+      AND onboarding_private.onboarding_personnel_scope_matches(p_organization_id, po.personnel_id)
+  );
 $$;
 
-CREATE OR REPLACE FUNCTION public.onboarding_step_references_match(
-	p_organization_id uuid, p_template_step_id uuid, p_training_type_id uuid
-) RETURNS boolean
+CREATE OR REPLACE FUNCTION public.active_onboarding_calendar_personnel_ids(p_organization_id uuid)
+RETURNS TABLE(personnel_id uuid)
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = ''
 AS $$
-	SELECT public.can_edit_onboarding(p_organization_id) AND (p_template_step_id IS NULL OR EXISTS (
-		SELECT 1 FROM public.onboarding_template_steps s
-		WHERE s.id = p_template_step_id AND s.organization_id = p_organization_id
-	)) AND (p_training_type_id IS NULL OR EXISTS (
-		SELECT 1 FROM public.training_types t
-		WHERE t.id = p_training_type_id AND t.organization_id = p_organization_id
-	));
+  SELECT DISTINCT po.personnel_id
+  FROM public.personnel_onboardings po
+  WHERE po.organization_id = p_organization_id AND po.status = 'in_progress'
+    AND public.can_view_calendar(p_organization_id)
+    AND onboarding_private.onboarding_personnel_scope_matches(p_organization_id, po.personnel_id)
+  ORDER BY po.personnel_id;
+$$;
+
+CREATE OR REPLACE FUNCTION public.append_onboarding_step_note(
+  p_organization_id uuid, p_step_id uuid, p_text text
+) RETURNS jsonb
+LANGUAGE plpgsql VOLATILE SECURITY INVOKER
+SET search_path = ''
+AS $$
+DECLARE
+  saved public.onboarding_step_progress%ROWTYPE;
+BEGIN
+  IF auth.uid() IS NULL OR p_organization_id IS NULL
+    OR public.can_edit_onboarding(p_organization_id) IS NOT TRUE
+  THEN
+    RAISE EXCEPTION 'Onboarding changes are not allowed' USING ERRCODE = '42501';
+  END IF;
+
+  -- Reconciliation locks parent then progress. This function does not explicitly
+  -- lock a parent; existing foreign keys can still acquire key-share locks.
+  SELECT progress.* INTO saved
+  FROM public.onboarding_step_progress AS progress
+  WHERE progress.organization_id = p_organization_id AND progress.id = p_step_id
+  FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Step not found' USING ERRCODE = 'P0002';
+  END IF;
+
+  -- This separate statement sees capability/Person scope committed during the
+  -- row-lock wait, rather than relying only on the earlier SELECT's RLS snapshot.
+  IF public.can_edit_onboarding(p_organization_id) IS NOT TRUE
+    OR onboarding_private.onboarding_parent_scope_matches(p_organization_id, saved.onboarding_id) IS NOT TRUE
+  THEN
+    RAISE EXCEPTION 'Onboarding changes are not allowed' USING ERRCODE = '42501';
+  END IF;
+  IF jsonb_typeof(saved.notes) IS DISTINCT FROM 'array' THEN
+    RAISE EXCEPTION 'Saved onboarding notes must be an array' USING ERRCODE = '22023';
+  END IF;
+
+  UPDATE public.onboarding_step_progress AS progress
+  SET notes = progress.notes || jsonb_build_array(jsonb_build_object(
+    'text', p_text,
+    'timestamp', to_char(clock_timestamp() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+    'userId', auth.uid()
+  ))
+  WHERE progress.organization_id = p_organization_id AND progress.id = p_step_id
+  RETURNING progress.* INTO saved;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Onboarding changes are not allowed' USING ERRCODE = '42501';
+  END IF;
+
+  RETURN jsonb_build_object('id', saved.id, 'notes', saved.notes);
+END;
+$$;
+
+-- Start and reconcile write packets and steps as their owner after checking
+-- the caller's admitted capability and Person scope, as RLS did before.
+CREATE OR REPLACE FUNCTION public.start_onboarding_packet(
+  p_organization_id uuid, p_personnel_id uuid, p_template_id uuid,
+  p_started_at date, p_steps jsonb
+) RETURNS jsonb
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  packet public.personnel_onboardings%ROWTYPE;
+  item jsonb;
+  definition_id uuid;
+  training_id uuid;
+  definition_ids uuid[] := ARRAY[]::uuid[];
+  step_order integer;
+  result_steps jsonb;
+BEGIN
+  IF auth.uid() IS NULL OR p_organization_id IS NULL
+    OR public.can_edit_onboarding(p_organization_id) IS NOT TRUE
+    OR onboarding_private.onboarding_personnel_scope_matches(p_organization_id, p_personnel_id) IS NOT TRUE
+  THEN
+    RAISE EXCEPTION 'Onboarding start is not allowed' USING ERRCODE = '42501';
+  END IF;
+  PERFORM 1 FROM public.onboarding_templates AS t
+  WHERE t.organization_id = p_organization_id AND t.id = p_template_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Onboarding template not found' USING ERRCODE = 'P0002';
+  END IF;
+  IF p_started_at IS NULL OR p_steps IS NULL OR jsonb_typeof(p_steps) <> 'array' THEN
+    RAISE EXCEPTION 'Invalid prepared Onboarding packet' USING ERRCODE = '22023';
+  END IF;
+
+  FOR item IN SELECT value FROM jsonb_array_elements(p_steps)
+  LOOP
+    IF jsonb_typeof(item) IS DISTINCT FROM 'object' THEN
+      RAISE EXCEPTION 'Invalid prepared Onboarding step' USING ERRCODE = '22023';
+    END IF;
+    IF (SELECT count(*) FROM jsonb_object_keys(item)) <> 7
+      OR jsonb_typeof(item->'template_step_id') IS DISTINCT FROM 'string'
+      OR jsonb_typeof(item->'step_name') IS DISTINCT FROM 'string'
+      OR jsonb_typeof(item->'step_type') IS DISTINCT FROM 'string'
+      OR item->>'step_type' NOT IN ('checkbox', 'paperwork', 'training')
+      OR coalesce(jsonb_typeof(item->'training_type_id'), '') NOT IN ('string', 'null')
+      OR coalesce(jsonb_typeof(item->'stages'), '') NOT IN ('array', 'null')
+      OR jsonb_typeof(item->'sort_order') IS DISTINCT FROM 'number'
+      OR item->>'sort_order' !~ '^-?[0-9]+$'
+      OR jsonb_typeof(item->'completed') IS DISTINCT FROM 'boolean'
+    THEN
+      RAISE EXCEPTION 'Invalid prepared Onboarding step' USING ERRCODE = '22023';
+    END IF;
+    IF jsonb_typeof(item->'stages') = 'array' AND EXISTS (
+      SELECT 1 FROM jsonb_array_elements(item->'stages') AS stage(value)
+      WHERE jsonb_typeof(stage.value) <> 'string'
+    ) THEN
+      RAISE EXCEPTION 'Invalid prepared Onboarding stages' USING ERRCODE = '22023';
+    END IF;
+    BEGIN
+      definition_id := (item->>'template_step_id')::uuid;
+      training_id := (item->>'training_type_id')::uuid;
+      step_order := (item->>'sort_order')::integer;
+    EXCEPTION WHEN invalid_text_representation OR numeric_value_out_of_range THEN
+      RAISE EXCEPTION 'Invalid prepared Onboarding step' USING ERRCODE = '22023';
+    END;
+    IF definition_id = ANY(definition_ids) THEN
+      RAISE EXCEPTION 'Duplicate prepared Onboarding step' USING ERRCODE = '22023';
+    END IF;
+    definition_ids := array_append(definition_ids, definition_id);
+    PERFORM 1 FROM public.onboarding_template_steps AS s
+    WHERE s.organization_id = p_organization_id AND s.template_id = p_template_id
+      AND s.id = definition_id;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Onboarding template step not found' USING ERRCODE = 'P0002';
+    END IF;
+    IF onboarding_private.onboarding_step_references_match(p_organization_id, definition_id, training_id) IS NOT TRUE THEN
+      RAISE EXCEPTION 'Onboarding start is not allowed' USING ERRCODE = '42501';
+    END IF;
+  END LOOP;
+
+  -- The existing partial unique index also governs simultaneous first starts.
+  -- Do not catch its named 23505 or an unexpected provider failure.
+  INSERT INTO public.personnel_onboardings (
+    organization_id, personnel_id, template_id, started_at, status, completed_at, cancelled_at
+  ) VALUES (
+    p_organization_id, p_personnel_id, p_template_id, p_started_at, 'in_progress', NULL, NULL
+  ) RETURNING * INTO packet;
+
+  -- The parent foreign keys can wait. Re-evaluate the current actor and Person
+  -- scope in a fresh statement after that wait, before writing any steps.
+  IF public.can_edit_onboarding(p_organization_id) IS NOT TRUE
+    OR onboarding_private.onboarding_personnel_scope_matches(p_organization_id, p_personnel_id) IS NOT TRUE
+  THEN
+    RAISE EXCEPTION 'Onboarding start is not allowed' USING ERRCODE = '42501';
+  END IF;
+
+  WITH saved AS (
+    INSERT INTO public.onboarding_step_progress (
+      organization_id, onboarding_id, template_step_id, step_name, step_type,
+      training_type_id, stages, sort_order, completed, current_stage, notes, active
+    ) SELECT p_organization_id, packet.id, s.template_step_id, s.step_name, s.step_type,
+      s.training_type_id, s.stages, s.sort_order,
+      s.step_type = 'training' AND s.training_type_id IS NOT NULL AND s.completed,
+      CASE WHEN s.step_type = 'paperwork' AND jsonb_typeof(s.stages) = 'array'
+        THEN s.stages->>0 ELSE NULL END, '[]'::jsonb, true
+    FROM jsonb_to_recordset(p_steps) AS s(
+      template_step_id uuid, step_name text, step_type text, training_type_id uuid,
+      stages jsonb, sort_order integer, completed boolean
+    ) ORDER BY s.sort_order, s.template_step_id
+    RETURNING *
+  ) SELECT coalesce(jsonb_agg(to_jsonb(saved) ORDER BY saved.sort_order, saved.id), '[]'::jsonb)
+    INTO result_steps FROM saved;
+
+  -- Child foreign keys can also wait after earlier inserts. Any access loss
+  -- here raises through the same transaction and rolls back parent and steps.
+  IF public.can_edit_onboarding(p_organization_id) IS NOT TRUE
+    OR onboarding_private.onboarding_personnel_scope_matches(p_organization_id, p_personnel_id) IS NOT TRUE
+  THEN
+    RAISE EXCEPTION 'Onboarding start is not allowed' USING ERRCODE = '42501';
+  END IF;
+  RETURN jsonb_build_object('onboarding', to_jsonb(packet), 'steps', result_steps);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.reconcile_onboarding_packet(
+  p_organization_id uuid, p_onboarding_id uuid, p_new_template_id uuid DEFAULT NULL
+) RETURNS jsonb
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  packet public.personnel_onboardings%ROWTYPE;
+  definition public.onboarding_template_steps%ROWTYPE;
+  saved public.onboarding_step_progress%ROWTYPE;
+  selected_template_id uuid;
+  matched_ids uuid[] := ARRAY[]::uuid[];
+  has_stages boolean;
+  reset_stage boolean;
+  result_steps jsonb;
+BEGIN
+  IF auth.uid() IS NULL OR p_organization_id IS NULL
+    OR public.member_access_has_capability(p_organization_id, 'onboarding', 'configure') IS NOT TRUE
+  THEN
+    RAISE EXCEPTION 'Onboarding configuration is not allowed' USING ERRCODE = '42501';
+  END IF;
+
+  -- Every reconciliation of this packet takes this lock before reading its
+  -- template or progress. An awaited resync derives the winner's current template.
+  SELECT po.* INTO packet
+  FROM public.personnel_onboardings AS po
+  WHERE po.organization_id = p_organization_id AND po.id = p_onboarding_id
+    AND onboarding_private.onboarding_personnel_scope_matches(p_organization_id, po.personnel_id)
+  FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Onboarding not found' USING ERRCODE = 'P0002';
+  END IF;
+
+  -- Capability and scope can change while the parent lock is awaited.
+  IF public.member_access_has_capability(p_organization_id, 'onboarding', 'configure') IS NOT TRUE
+    OR onboarding_private.onboarding_personnel_scope_matches(p_organization_id, packet.personnel_id) IS NOT TRUE
+  THEN
+    RAISE EXCEPTION 'Onboarding configuration is not allowed' USING ERRCODE = '42501';
+  END IF;
+  IF packet.status <> 'in_progress' THEN
+    RAISE EXCEPTION 'Only in-progress onboardings can be reconciled' USING ERRCODE = 'P0001';
+  END IF;
+
+  selected_template_id := coalesce(p_new_template_id, packet.template_id);
+  IF selected_template_id IS NULL THEN
+    RAISE EXCEPTION 'Cannot resync: template has been deleted' USING ERRCODE = 'P0001';
+  END IF;
+  PERFORM 1 FROM public.onboarding_templates AS t
+  WHERE t.organization_id = p_organization_id AND t.id = selected_template_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Onboarding template not found' USING ERRCODE = 'P0002';
+  END IF;
+
+  -- Wait for already-running progress edits before reading their saved values.
+  -- Metadata updates below never resend note arrays or checkbox completion.
+  PERFORM 1 FROM public.onboarding_step_progress AS progress
+  WHERE progress.organization_id = p_organization_id AND progress.onboarding_id = p_onboarding_id
+  ORDER BY progress.id FOR UPDATE;
+  IF public.member_access_has_capability(p_organization_id, 'onboarding', 'configure') IS NOT TRUE
+    OR onboarding_private.onboarding_personnel_scope_matches(p_organization_id, packet.personnel_id) IS NOT TRUE
+  THEN
+    RAISE EXCEPTION 'Onboarding configuration is not allowed' USING ERRCODE = '42501';
+  END IF;
+
+  FOR definition IN
+    SELECT s.* FROM public.onboarding_template_steps AS s
+    WHERE s.organization_id = p_organization_id AND s.template_id = selected_template_id
+    ORDER BY s.sort_order, s.id
+  LOOP
+    SELECT progress.* INTO saved
+    FROM public.onboarding_step_progress AS progress
+    WHERE progress.organization_id = p_organization_id AND progress.onboarding_id = p_onboarding_id
+      AND progress.template_step_id = definition.id AND NOT (progress.id = ANY(matched_ids))
+    ORDER BY progress.id LIMIT 1;
+
+    -- Only the transaction that observes an unassigned parent can adopt legacy
+    -- work. A deleted definition's null reference is history during normal resync.
+    IF NOT FOUND AND packet.template_id IS NULL THEN
+      SELECT progress.* INTO saved
+      FROM public.onboarding_step_progress AS progress
+      WHERE progress.organization_id = p_organization_id AND progress.onboarding_id = p_onboarding_id
+        AND progress.template_step_id IS NULL AND progress.active
+        AND progress.step_name = definition.name AND progress.step_type = definition.step_type
+        AND NOT (progress.id = ANY(matched_ids))
+      ORDER BY progress.id LIMIT 1;
+    END IF;
+
+    has_stages := definition.step_type = 'paperwork' AND CASE
+      WHEN jsonb_typeof(definition.stages) = 'array' THEN jsonb_array_length(definition.stages) > 0
+      ELSE false END;
+    IF saved.id IS NOT NULL THEN
+      reset_stage := has_stages AND saved.current_stage IS NOT NULL
+        AND NOT (definition.stages @> jsonb_build_array(saved.current_stage));
+      UPDATE public.onboarding_step_progress AS progress SET
+        template_step_id = definition.id, active = true,
+        step_name = definition.name, step_type = definition.step_type,
+        training_type_id = definition.training_type_id, stages = definition.stages,
+        sort_order = definition.sort_order,
+        current_stage = CASE WHEN reset_stage THEN definition.stages->>0 ELSE progress.current_stage END,
+        completed = CASE WHEN reset_stage THEN false ELSE progress.completed END
+      WHERE progress.organization_id = p_organization_id AND progress.onboarding_id = p_onboarding_id
+        AND progress.id = saved.id;
+      IF NOT FOUND THEN
+        RAISE EXCEPTION 'Onboarding configuration is not allowed' USING ERRCODE = '42501';
+      END IF;
+      matched_ids := array_append(matched_ids, saved.id);
+    ELSE
+      INSERT INTO public.onboarding_step_progress (
+        organization_id, onboarding_id, template_step_id, step_name, step_type,
+        training_type_id, stages, sort_order, completed, current_stage, notes, active
+      ) VALUES (
+        p_organization_id, p_onboarding_id, definition.id, definition.name, definition.step_type,
+        definition.training_type_id, definition.stages, definition.sort_order, false,
+        CASE WHEN has_stages THEN definition.stages->>0 ELSE NULL END, '[]'::jsonb, true
+      ) RETURNING * INTO saved;
+      matched_ids := array_append(matched_ids, saved.id);
+    END IF;
+  END LOOP;
+
+  UPDATE public.onboarding_step_progress AS progress SET active = false
+  WHERE progress.organization_id = p_organization_id AND progress.onboarding_id = p_onboarding_id
+    AND progress.active AND NOT (progress.id = ANY(matched_ids));
+  UPDATE public.personnel_onboardings AS po SET template_id = selected_template_id
+  WHERE po.organization_id = p_organization_id AND po.id = p_onboarding_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Onboarding configuration is not allowed' USING ERRCODE = '42501';
+  END IF;
+
+  SELECT coalesce(jsonb_agg(to_jsonb(progress) ORDER BY progress.sort_order, progress.id), '[]'::jsonb)
+  INTO result_steps FROM public.onboarding_step_progress AS progress
+  WHERE progress.organization_id = p_organization_id AND progress.onboarding_id = p_onboarding_id;
+  RETURN jsonb_build_object(
+    'onboarding_id', p_onboarding_id, 'template_id', selected_template_id,
+    'old_template_id', packet.template_id, 'steps', result_steps
+  );
+END;
 $$;
 
 DROP POLICY "Onboarding operators can manage scoped workflows" ON public.personnel_onboardings;
 DROP POLICY "Onboarding operators can manage scoped progress" ON public.onboarding_step_progress;
-
-CREATE POLICY "Onboarding operators can start scoped workflows"
-ON public.personnel_onboardings FOR INSERT TO authenticated
-WITH CHECK (
-	public.can_edit_onboarding(organization_id)
-	AND public.onboarding_personnel_scope_matches(organization_id, personnel_id)
-	AND public.onboarding_template_reference_matches(organization_id, template_id)
-);
+REVOKE INSERT ON TABLE public.personnel_onboardings, public.onboarding_step_progress FROM anon, authenticated;
 
 CREATE POLICY "Onboarding operators can update scoped workflows"
 ON public.personnel_onboardings FOR UPDATE TO authenticated
 USING (
 	public.can_edit_onboarding(organization_id)
-	AND public.onboarding_personnel_scope_matches(organization_id, personnel_id)
+	AND onboarding_private.onboarding_personnel_scope_matches(organization_id, personnel_id)
 )
 WITH CHECK (
 	public.can_edit_onboarding(organization_id)
-	AND public.onboarding_personnel_scope_matches(organization_id, personnel_id)
-	AND public.onboarding_template_reference_matches(organization_id, template_id)
-);
-
-CREATE POLICY "Onboarding operators can add scoped progress"
-ON public.onboarding_step_progress FOR INSERT TO authenticated
-WITH CHECK (
-	notes = '[]'::jsonb
-	AND public.can_edit_onboarding(organization_id)
-	AND public.onboarding_parent_scope_matches(organization_id, onboarding_id)
-	AND public.onboarding_step_references_match(organization_id, template_step_id, training_type_id)
+	AND onboarding_private.onboarding_personnel_scope_matches(organization_id, personnel_id)
+	AND onboarding_private.onboarding_template_reference_matches(organization_id, template_id)
 );
 
 CREATE POLICY "Onboarding operators can update scoped progress"
 ON public.onboarding_step_progress FOR UPDATE TO authenticated
 USING (
 	public.can_edit_onboarding(organization_id)
-	AND public.onboarding_parent_scope_matches(organization_id, onboarding_id)
+	AND onboarding_private.onboarding_parent_scope_matches(organization_id, onboarding_id)
 )
 WITH CHECK (
 	public.can_edit_onboarding(organization_id)
-	AND public.onboarding_parent_scope_matches(organization_id, onboarding_id)
-	AND public.onboarding_step_references_match(organization_id, template_step_id, training_type_id)
+	AND onboarding_private.onboarding_parent_scope_matches(organization_id, onboarding_id)
+	AND onboarding_private.onboarding_step_references_match(organization_id, template_step_id, training_type_id)
 );
 
 CREATE POLICY "Onboarding operators can remove inactive scoped progress"
@@ -266,7 +583,7 @@ ON public.onboarding_step_progress FOR DELETE TO authenticated
 USING (
 	NOT active
 	AND public.can_edit_onboarding(organization_id)
-	AND public.onboarding_parent_scope_matches(organization_id, onboarding_id)
+	AND onboarding_private.onboarding_parent_scope_matches(organization_id, onboarding_id)
 );
 
 -- Notes change only by appending one note authored by the caller, as the

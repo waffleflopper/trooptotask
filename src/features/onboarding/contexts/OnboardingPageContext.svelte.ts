@@ -200,12 +200,12 @@ export class OnboardingPageContext {
 		return this.rosterView.getById(personnelId);
 	}
 
-	/** The Soldier's personnel record, when this member may open it. */
+	/** The Soldier's personnel record, when this member may read it (the record page requires sensitive-record reads). */
 	profileUrl(personnelId: string): string | null {
 		const person = this.rosterView.getById(personnelId);
 		if (!person?.slug) return null;
 		const allowed = this.#org.affordanceForFeatureAction(
-			POLICY_ACTION_CATALOG.personnel.manageRecords,
+			POLICY_ACTION_CATALOG.personnel.readSensitiveRecords,
 			this.getPersonnelPolicyResource(personnelId)
 		).visible;
 		return allowed ? `/org/${this.#org.orgUrlSegment ?? this.#org.orgId}/personnel/${person.slug}` : null;

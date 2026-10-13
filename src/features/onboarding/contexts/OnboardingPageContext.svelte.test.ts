@@ -542,6 +542,52 @@ describe('OnboardingPageContext policy affordances', () => {
 	});
 });
 
+describe('OnboardingPageContext profileUrl', () => {
+	function contextWith(personnel: 'operate' | 'configure') {
+		personnelRosterHydration.load(
+			[
+				{
+					id: 'p-1',
+					rank: 'SGT',
+					firstName: 'Ada',
+					lastName: 'Lovelace',
+					slug: 'ada-lovelace',
+					mos: '',
+					clinicRole: '',
+					groupId: 'g-1',
+					groupName: 'Alpha'
+				},
+				{
+					id: 'p-2',
+					rank: 'SGT',
+					firstName: 'Grace',
+					lastName: 'Hopper',
+					slug: 'grace-hopper',
+					mos: '',
+					clinicRole: '',
+					groupId: 'g-2',
+					groupName: 'Bravo'
+				}
+			] as never,
+			'org-1'
+		);
+		return new OnboardingPageContext(
+			{ open: vi.fn() } as never,
+			makeOrgContext({ ...createCapabilityMap('none'), onboarding: 'operate', personnel })
+		);
+	}
+
+	it('hides the link from a Personnel operator because the record page reads sensitive records', () => {
+		expect(contextWith('operate').profileUrl('p-1')).toBeNull();
+	});
+
+	it('offers the link to a Personnel configurator for Soldiers in their Group only', () => {
+		const ctx = contextWith('configure');
+		expect(ctx.profileUrl('p-1')).toBe('/org/org-1/personnel/ada-lovelace');
+		expect(ctx.profileUrl('p-2')).toBeNull();
+	});
+});
+
 describe('OnboardingPageContext onboarding actions', () => {
 	it('returns success only for a confirmed current-Organization packet', async () => {
 		onboardingStore.load([], 'org-1');

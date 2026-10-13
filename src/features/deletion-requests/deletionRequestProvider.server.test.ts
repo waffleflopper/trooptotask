@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { createClient } from '@supabase/supabase-js';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { createDeletionRequest } from './createDeletionRequest.server';
 import {
@@ -16,68 +17,6 @@ const review = {
 };
 
 describe('ordinary deletion request provider', () => {
-	it('rejects creation without changing history when multiple visible pending rows already exist', async () => {
-		const ctx = createTestContext({
-			auth: {
-				role: 'member',
-				isPrivileged: false,
-				capabilityMap: {
-					calendar: 'none',
-					personnel: 'operate',
-					training: 'none',
-					criticalTasks: 'none',
-					onboarding: 'none',
-					ratingScheme: 'none'
-				}
-			}
-		});
-		const rows = ['first', 'second'].map((id) =>
-			savedRequest(id, {
-				organization_id: ctx.auth.orgId,
-				requested_by: ctx.auth.userId,
-				resource_type: 'personnel',
-				resource_id: 'person'
-			})
-		);
-		const provider = deletionRequestTestProvider(rows);
-		const store = createSupabaseDeletionRequestSubmission(() => provider.client);
-		await expect(
-			createDeletionRequest(
-				{ ...ctx, store },
-				{
-					resourceType: 'personnel',
-					resourceId: 'person',
-					resourceDescription: 'Saved person',
-					userEmail: 'member@example.test'
-				}
-			)
-		).rejects.toMatchObject({ status: 409 });
-		expect(provider.state.rows).toEqual(rows);
-		expect(provider.state.calls.every((request) => request.method === 'GET')).toBe(true);
-		expect(ctx.auditPort.events).toEqual([]);
-		expect(ctx.notificationPort.notifications).toEqual([]);
-	});
-
-	it('propagates a pending-existence provider failure without inserting or reporting success', async () => {
-		const ctx = createTestContext();
-		const provider = deletionRequestTestProvider();
-		provider.state.failure = { method: 'GET', message: 'pending lookup unavailable' };
-		await expect(
-			createDeletionRequest(
-				{ ...ctx, store: createSupabaseDeletionRequestSubmission(() => provider.client) },
-				{
-					resourceType: 'personnel',
-					resourceId: 'person',
-					resourceDescription: 'Saved person',
-					userEmail: 'member@example.test'
-				}
-			)
-		).rejects.toThrow('pending lookup unavailable');
-		expect(provider.state.rows).toEqual([]);
-		expect(ctx.auditPort.events).toEqual([]);
-		expect(ctx.notificationPort.notifications).toEqual([]);
-	});
-
 	it('returns only an exact matching pending tuple, retaining concealed/foreign/terminal rows', async () => {
 		const provider = deletionRequestTestProvider(
 			[
@@ -94,40 +33,6 @@ describe('ordinary deletion request provider', () => {
 			expect(await store.findPendingById('org-a', id)).toBeNull();
 		expect(await store.findPendingById('org-a', 'own', { ...target, resourceId: 'other' })).toBeNull();
 		expect(await store.findPendingById('org-a', 'own', { ...target, resourceType: 'personnel' })).toBeNull();
-	});
-
-	it('finds a pending request on the same target whoever filed it, ignoring foreign and terminal rows', async () => {
-		const provider = deletionRequestTestProvider([
-			savedRequest('peer', { requested_by: 'peer' }),
-			savedRequest('foreign', { organization_id: 'org-b' }),
-			savedRequest('terminal', { status: 'approved' })
-		]);
-		const submissions = createSupabaseDeletionRequestSubmission(() => provider.client);
-		expect(await submissions.findPendingByResource('org-a', 'training_type', 'type-peer')).toEqual({ id: 'peer' });
-		expect(await submissions.findPendingByResource('org-a', 'training_type', 'type-foreign')).toBeNull();
-		expect(await submissions.findPendingByResource('org-a', 'training_type', 'type-terminal')).toBeNull();
-	});
-
-	it('stores only the creation fields and returns retained requester/history metadata', async () => {
-		const provider = deletionRequestTestProvider();
-		const submissions = createSupabaseDeletionRequestSubmission(() => provider.client);
-		const row = await submissions.createRequest('org-a', {
-			requestedBy: 'requester-a',
-			requesterEmail: 'created@example.test',
-			resourceType: 'personnel',
-			resourceId: 'person',
-			description: 'Saved archival',
-			resourceUrl: null
-		});
-		expect(row).toEqual({
-			...savedRequest('insert-0'),
-			requested_by_email: 'created@example.test',
-			resource_type: 'personnel',
-			resource_id: 'person',
-			resource_description: 'Saved archival',
-			resource_url: null
-		});
-		expect(provider.state.rows).toEqual([row]);
 	});
 
 	it('reads every list/export page, preserving all terminal/raw fields and filtering arbitrary statuses', async () => {
@@ -236,5 +141,135 @@ describe('ordinary deletion request provider', () => {
 			)
 		).rejects.toThrow('write unavailable');
 		expect(provider.state.rows[0]).toEqual(savedRequest('request-0'));
+	});
+});
+
+function submissionRpc(reply: () => Response) {
+	const calls: Array<{ path: string; body: unknown }> = [];
+	const client = createClient('http://127.0.0.1:9', 'synthetic-key', {
+		auth: { persistSession: false, autoRefreshToken: false },
+		global: {
+			fetch: async (input, init) => {
+				const request = new Request(input, init);
+				calls.push({ path: new URL(request.url).pathname, body: await request.json() });
+				return reply();
+			}
+		}
+	});
+	return { calls, submissions: createSupabaseDeletionRequestSubmission(() => client) };
+}
+
+const submission = {
+	requestedBy: 'requester-a',
+	requesterEmail: 'created@example.test',
+	resourceType: 'personnel',
+	resourceId: 'person',
+	description: 'Saved archival',
+	resourceUrl: null
+};
+const createdRow = savedRequest('created', { resource_type: 'personnel', resource_id: 'person' });
+
+describe('deletion request submission provider', () => {
+	it('submits once through the atomic command with the admitted Organization and requester', async () => {
+		const { calls, submissions } = submissionRpc(() => Response.json({ outcome: 'created', request: createdRow }));
+		await expect(submissions.submitPending('org-a', submission)).resolves.toEqual({
+			outcome: 'created',
+			request: createdRow
+		});
+		expect(calls).toEqual([
+			{
+				path: '/rest/v1/rpc/submit_deletion_request',
+				body: {
+					p_organization_id: 'org-a',
+					p_requested_by: 'requester-a',
+					p_requester_email: 'created@example.test',
+					p_resource_type: 'personnel',
+					p_resource_id: 'person',
+					p_description: 'Saved archival',
+					p_resource_url: null
+				}
+			}
+		]);
+	});
+
+	it('acknowledges the saved request for a target submitted in another letter case', async () => {
+		const saved = savedRequest('created', {
+			resource_type: 'personnel',
+			resource_id: 'a1b2c3d4-0000-4000-8000-00000000abcd'
+		});
+		const { submissions } = submissionRpc(() => Response.json({ outcome: 'created', request: saved }));
+		await expect(
+			submissions.submitPending('org-a', { ...submission, resourceId: 'A1B2C3D4-0000-4000-8000-00000000ABCD' })
+		).resolves.toEqual({ outcome: 'created', request: saved });
+	});
+
+	it('reports a pending duplicate as 409 without success audit or notification', async () => {
+		const ctx = createTestContext();
+		const { calls, submissions } = submissionRpc(() => Response.json({ outcome: 'duplicate' }));
+		await expect(
+			createDeletionRequest(
+				{ ...ctx, store: submissions },
+				{
+					resourceType: 'personnel',
+					resourceId: 'person',
+					resourceDescription: 'Saved person',
+					userEmail: 'member@example.test'
+				}
+			)
+		).rejects.toMatchObject({ status: 409 });
+		expect(calls).toHaveLength(1);
+		expect(ctx.auditPort.events).toEqual([]);
+		expect(ctx.notificationPort.notifications).toEqual([]);
+	});
+
+	it.each([
+		['no reply', null],
+		['an unknown outcome', { outcome: 'saved' }],
+		['a created outcome without its request', { outcome: 'created' }],
+		[
+			'a request for another Organization',
+			{ outcome: 'created', request: { ...createdRow, organization_id: 'org-b' } }
+		],
+		['a request for another target', { outcome: 'created', request: { ...createdRow, resource_id: 'other' } }],
+		['a request from another requester', { outcome: 'created', request: { ...createdRow, requested_by: 'peer' } }],
+		['a terminal request', { outcome: 'created', request: { ...createdRow, status: 'approved' } }]
+	])('rejects %s as unacknowledged without success audit, notification or retry', async (_name, reply) => {
+		const ctx = createTestContext();
+		const { calls, submissions } = submissionRpc(() => Response.json(reply));
+		await expect(
+			createDeletionRequest(
+				{ ...ctx, store: submissions },
+				{
+					resourceType: 'personnel',
+					resourceId: 'person',
+					resourceDescription: 'Saved person',
+					userEmail: 'member@example.test'
+				}
+			)
+		).rejects.toThrow('Deletion request submission was not acknowledged');
+		expect(calls).toHaveLength(1);
+		expect(ctx.auditPort.events).toEqual([]);
+		expect(ctx.notificationPort.notifications).toEqual([]);
+	});
+
+	it('propagates a rejected command without success audit, notification or retry', async () => {
+		const ctx = createTestContext();
+		const { calls, submissions } = submissionRpc(() =>
+			Response.json({ code: '22023', message: 'Invalid deletion request submission' }, { status: 400 })
+		);
+		await expect(
+			createDeletionRequest(
+				{ ...ctx, store: submissions },
+				{
+					resourceType: 'personnel',
+					resourceId: 'person',
+					resourceDescription: 'Saved person',
+					userEmail: 'member@example.test'
+				}
+			)
+		).rejects.toThrow('Invalid deletion request submission');
+		expect(calls).toHaveLength(1);
+		expect(ctx.auditPort.events).toEqual([]);
+		expect(ctx.notificationPort.notifications).toEqual([]);
 	});
 });

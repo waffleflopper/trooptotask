@@ -205,9 +205,10 @@ describe('createDeletionRequest', () => {
 			status: 409
 		});
 
-		// No new record created
 		const stored = await ctx.store.findMany<Record<string, unknown>>('deletion_requests', 'test-org');
 		expect(stored).toHaveLength(1);
+		expect(ctx.audit.events).toEqual([]);
+		expect(ctx.notifications.notifications).toEqual([]);
 	});
 
 	it('allows Rating Scheme deletion requests through Rating Scheme policy decisions without Personnel access', async () => {
@@ -262,7 +263,7 @@ describe('createDeletionRequest', () => {
 describe('creation failure acknowledgement', () => {
 	it('propagates persistence failure without success audit or administrator notification', async () => {
 		const ctx = buildContext();
-		ctx.requests.createRequest = async () => {
+		ctx.requests.submitPending = async () => {
 			throw new Error('Request creation unavailable');
 		};
 		await expect(

@@ -3,7 +3,7 @@ import { createWriteWithNotificationsPortsContext } from '$lib/server/adapters/i
 import { approveDeletionRequest, denyDeletionRequest } from './reviewDeletionRequest.server';
 import { listDeletionRequests } from './deletionRequestReads.server';
 import { createDeletionRequestTestStore } from './testing.server';
-import { archiveApprovedPersonnelRecord } from '$features/personnel/index.server';
+import { approvePersonnelArchiveRequest } from '$features/personnel/index.server';
 import { fail } from '$lib/errors';
 import type { ApprovedDeletionEffects } from './contracts.server';
 
@@ -67,7 +67,8 @@ function effectsFor(
 	overrides: Partial<ApprovedDeletionEffects> = {}
 ): ApprovedDeletionEffects {
 	return {
-		archivePersonnel: (id) => archiveApprovedPersonnelRecord(ctx, id),
+		approvePersonnelArchive: (requestId, id, reviewedAt) =>
+			approvePersonnelArchiveRequest(ctx, requestId, id, reviewedAt),
 		approveTrainingType: transactionalApproval(ctx, 'training_types', 'training_type'),
 		approveTrainingRecord: transactionalApproval(ctx, 'personnel_trainings', 'personnel_training'),
 		approveRatingEntry: transactionalApproval(ctx, 'rating_scheme_entries', 'rating_scheme_entry'),
@@ -168,9 +169,6 @@ describe('approveDeletionRequest', () => {
 		});
 		seedPendingRequest(ctx);
 		ctx.store.seed('personnel', [{ id: 'person-1', organization_id: ctx.auth.orgId, group_id: null }]);
-		ctx.store.seed('leader_notes', [
-			{ id: 'note-1', organization_id: ctx.auth.orgId, personnel_id: 'person-1', archived_at: null }
-		]);
 
 		await approveDeletionRequest({ ...ctx, store: ctx.requests }, 'dr-1', effectsFor(ctx));
 		if (!ctx.rawStore) throw new Error('Expected raw provider store from the in-memory test context');
@@ -179,8 +177,9 @@ describe('approveDeletionRequest', () => {
 		});
 		expect(person?.archived_at).toEqual(expect.any(String));
 		await expect(ctx.store.findOne('personnel', ctx.auth.orgId, { id: 'person-1' })).resolves.toBeNull();
-		await expect(ctx.store.findOne('leader_notes', ctx.auth.orgId, { id: 'note-1' })).resolves.toMatchObject({
-			archived_at: person?.archived_at
+		await expect(ctx.rawStore.findOne('deletion_requests', ctx.auth.orgId, { id: 'dr-1' })).resolves.toMatchObject({
+			status: 'approved',
+			reviewed_at: person?.archived_at
 		});
 	});
 
@@ -192,18 +191,9 @@ describe('approveDeletionRequest', () => {
 		ctx.store.seed('personnel', [
 			{ id: 'person-1', organization_id: 'test-org', last_name: 'Smith', archived_at: null }
 		]);
-		ctx.store.seed('personnel_follow_ups', [
-			{ id: 'follow-up-1', organization_id: 'test-org', personnel_id: 'person-1', status: 'open', archived_at: null }
-		]);
-		ctx.store.seed('counseling_records', [
-			{ id: 'counseling-1', organization_id: 'test-org', personnel_id: 'person-1', archived_at: null }
-		]);
-		ctx.store.seed('personnel_documents', [
-			{ id: 'document-1', organization_id: 'test-org', personnel_id: 'person-1', archived_at: null }
-		]);
-		ctx.store.seed('leader_notes', [
-			{ id: 'note-1', organization_id: 'test-org', personnel_id: 'person-1', archived_at: null }
-		]);
+		ctx.requests.completePendingReview = async () => {
+			throw new Error('Unexpected second transition');
+		};
 
 		await approveDeletionRequest({ ...ctx, store: ctx.requests }, 'dr-1', effectsFor(ctx));
 
@@ -215,21 +205,8 @@ describe('approveDeletionRequest', () => {
 		});
 		expect(request!.reviewed_at).toBeTruthy();
 
-		// Personnel archived (archived_at set)
 		const person = await ctx.store.findOne<Record<string, unknown>>('personnel', 'test-org', { id: 'person-1' });
-		expect(person!.archived_at).toBeTruthy();
-		await expect(
-			ctx.store.findOne<Record<string, unknown>>('personnel_follow_ups', 'test-org', { id: 'follow-up-1' })
-		).resolves.toMatchObject({ status: 'archived', archived_at: person!.archived_at });
-		await expect(
-			ctx.store.findOne<Record<string, unknown>>('counseling_records', 'test-org', { id: 'counseling-1' })
-		).resolves.toMatchObject({ archived_at: person!.archived_at });
-		await expect(
-			ctx.store.findOne<Record<string, unknown>>('personnel_documents', 'test-org', { id: 'document-1' })
-		).resolves.toMatchObject({ archived_at: person!.archived_at });
-		await expect(
-			ctx.store.findOne<Record<string, unknown>>('leader_notes', 'test-org', { id: 'note-1' })
-		).resolves.toMatchObject({ archived_at: person!.archived_at });
+		expect(person!.archived_at).toBe(request!.reviewed_at);
 
 		// Notification created for the requester
 		const notifications = ctx.notifications.notifications;
@@ -398,148 +375,32 @@ describe('approveDeletionRequest', () => {
 		expect(ctx.audit.events).toHaveLength(1);
 	});
 
-	it('retains the archive event when approval is retried after the status write fails', async () => {
-		const ctx = buildContext({
-			auth: {
-				role: 'admin',
-				isPrivileged: true,
-				scopeSet: { kind: 'groups', groupIds: [] },
-				capabilityMap: {
-					calendar: 'none',
-					personnel: 'none',
-					training: 'none',
-					criticalTasks: 'none',
-					onboarding: 'none',
-					ratingScheme: 'none'
-				}
-			}
-		});
-		seedPendingRequest(ctx);
-		ctx.store.seed('personnel', [
-			{ id: 'person-1', organization_id: ctx.auth.orgId, group_id: null, archived_at: null }
-		]);
-		ctx.store.seed('leader_notes', [
-			{ id: 'note-1', organization_id: ctx.auth.orgId, personnel_id: 'person-1', archived_at: null },
-			{
-				id: 'note-independent',
-				organization_id: ctx.auth.orgId,
-				personnel_id: 'person-1',
-				archived_at: '2026-08-01T12:00:00.000Z'
-			}
-		]);
-		const update = ctx.store.update;
-		let failStatus = true;
-		ctx.store.update = (async (table, orgId, id, data, select) => {
-			if (table === 'deletion_requests' && failStatus) {
-				failStatus = false;
-				throw new Error('approval status unavailable');
-			}
-			return update(table, orgId, id, data, select);
-		}) as typeof ctx.store.update;
-		const archivedAt = '2026-09-30T14:00:00.000Z';
-		vi.useFakeTimers({ toFake: ['Date'] });
-		try {
-			vi.setSystemTime(new Date(archivedAt));
-			await expect(approveDeletionRequest({ ...ctx, store: ctx.requests }, 'dr-1', effectsFor(ctx))).rejects.toThrow(
-				'approval status unavailable'
-			);
-			expect(await ctx.store.findOne('deletion_requests', ctx.auth.orgId, { id: 'dr-1' })).toMatchObject({
-				status: 'pending'
-			});
+	it.each([
+		['rejects the command', () => Promise.reject(new Error('archive failed'))],
+		[
+			'does not acknowledge the command',
+			() => Promise.reject(new Error('Personnel archive approval was not acknowledged'))
+		]
+	])(
+		'leaves a Personnel request pending without success effects or retry when the database %s',
+		async (_case, reply) => {
+			const ctx = buildContext();
+			seedPendingRequest(ctx);
+			ctx.store.seed('personnel', [{ id: 'person-1', organization_id: 'test-org', archived_at: null }]);
+			const approveArchiveRequest = vi.fn(reply);
+			ctx.personnelLifecycle.approveArchiveRequest = approveArchiveRequest;
+
+			await expect(approveDeletionRequest({ ...ctx, store: ctx.requests }, 'dr-1', effectsFor(ctx))).rejects.toThrow();
+
+			expect(approveArchiveRequest).toHaveBeenCalledTimes(1);
+			expect(approveArchiveRequest).toHaveBeenCalledWith('dr-1', 'person-1', expect.any(String));
+			const request = await ctx.store.findOne<Record<string, unknown>>('deletion_requests', 'test-org', { id: 'dr-1' });
+			expect(request).toMatchObject({ status: 'pending', reviewed_at: null });
+			expect(await ctx.store.findOne('personnel', 'test-org', { id: 'person-1' })).toMatchObject({ archived_at: null });
 			expect(ctx.notifications.notifications).toEqual([]);
-			expect(ctx.audit.events).not.toContainEqual(expect.objectContaining({ action: 'deletion_request.approved' }));
-			vi.setSystemTime(new Date('2026-09-30T14:05:00.000Z'));
-			await approveDeletionRequest({ ...ctx, store: ctx.requests }, 'dr-1', effectsFor(ctx));
-			expect(await ctx.rawStore!.findOne('personnel', ctx.auth.orgId, { id: 'person-1' })).toMatchObject({
-				archived_at: archivedAt
-			});
-			expect(await ctx.store.findOne('leader_notes', ctx.auth.orgId, { id: 'note-1' })).toMatchObject({
-				archived_at: archivedAt
-			});
-			expect(await ctx.store.findOne('deletion_requests', ctx.auth.orgId, { id: 'dr-1' })).toMatchObject({
-				status: 'approved'
-			});
-			expect(ctx.notifications.notifications).toHaveLength(1);
-			expect(await ctx.store.findOne('leader_notes', ctx.auth.orgId, { id: 'note-independent' })).toMatchObject({
-				archived_at: '2026-08-01T12:00:00.000Z'
-			});
-		} finally {
-			vi.useRealTimers();
+			expect(ctx.audit.events).toEqual([]);
 		}
-	});
-
-	it('leaves personnel deletion requests pending when archival fails', async () => {
-		const ctx = buildContext();
-		seedPendingRequest(ctx);
-		ctx.store.seed('personnel', [{ id: 'person-1', organization_id: 'test-org', archived_at: null }]);
-		const update = ctx.store.update;
-		ctx.store.update = (async (table, orgId, id, data, select) => {
-			if (table === 'personnel' && id === 'person-1') {
-				throw new Error('archive failed');
-			}
-			return update(table, orgId, id, data, select);
-		}) as typeof ctx.store.update;
-
-		await expect(approveDeletionRequest({ ...ctx, store: ctx.requests }, 'dr-1', effectsFor(ctx))).rejects.toThrow(
-			'archive failed'
-		);
-
-		const request = await ctx.store.findOne<Record<string, unknown>>('deletion_requests', 'test-org', { id: 'dr-1' });
-		expect(request).toMatchObject({ status: 'pending' });
-		expect(request!.reviewed_at).toBeNull();
-	});
-
-	it('keeps approval pending without success notification or audit when its note effect fails', async () => {
-		const ctx = buildContext();
-		seedPendingRequest(ctx);
-		ctx.store.seed('personnel', [{ id: 'person-1', organization_id: 'test-org', archived_at: null }]);
-		ctx.store.seed('leader_notes', [
-			{ id: 'note-1', organization_id: 'test-org', personnel_id: 'person-1', archived_at: null }
-		]);
-		const update = ctx.store.update;
-		ctx.store.update = (async (table, orgId, id, data, select) => {
-			if (table === 'leader_notes') throw new Error('note archive failed');
-			return update(table, orgId, id, data, select);
-		}) as typeof ctx.store.update;
-
-		await expect(approveDeletionRequest({ ...ctx, store: ctx.requests }, 'dr-1', effectsFor(ctx))).rejects.toThrow(
-			'note archive failed'
-		);
-
-		await expect(ctx.store.findOne('deletion_requests', 'test-org', { id: 'dr-1' })).resolves.toMatchObject({
-			status: 'pending'
-		});
-		await expect(ctx.store.findOne('leader_notes', 'test-org', { id: 'note-1' })).resolves.toMatchObject({
-			archived_at: null
-		});
-		// The existing cascade is not transactional: its earlier parent write persists.
-		await expect(ctx.store.findOne('personnel', 'test-org', { id: 'person-1' })).resolves.toMatchObject({
-			archived_at: expect.any(String)
-		});
-		expect(ctx.notifications.notifications).toEqual([]);
-		expect(ctx.audit.events).not.toContainEqual(expect.objectContaining({ action: 'deletion_request.approved' }));
-		const original = structuredClone(
-			await ctx.rawStore!.findOne<{ archived_at: string }>('personnel', ctx.auth.orgId, {
-				id: 'person-1'
-			})
-		);
-		ctx.store.update = update;
-		vi.useFakeTimers({ toFake: ['Date'] });
-		try {
-			vi.setSystemTime(new Date('2026-10-01T14:00:00.000Z'));
-			await approveDeletionRequest({ ...ctx, store: ctx.requests }, 'dr-1', effectsFor(ctx));
-			expect(await ctx.rawStore!.findOne('personnel', ctx.auth.orgId, { id: 'person-1' })).toEqual(original);
-			expect(await ctx.store.findOne('leader_notes', ctx.auth.orgId, { id: 'note-1' })).toMatchObject({
-				archived_at: original!.archived_at
-			});
-			expect(await ctx.store.findOne('deletion_requests', ctx.auth.orgId, { id: 'dr-1' })).toMatchObject({
-				status: 'approved'
-			});
-			expect(ctx.notifications.notifications).toHaveLength(1);
-		} finally {
-			vi.useRealTimers();
-		}
-	});
+	);
 
 	it.each([
 		['belongs to another Organization', 'foreign-org'],
@@ -774,6 +635,7 @@ describe('conditional review result', () => {
 		seedPendingRequest(ctx);
 		ctx.store.seed('personnel', [{ id: 'person-1', organization_id: 'test-org', archived_at: null }]);
 		ctx.requests.completePendingReview = async () => false;
+		ctx.personnelLifecycle.approveArchiveRequest = async () => fail(404, 'Pending deletion request not found');
 		const operation =
 			action === 'approve'
 				? approveDeletionRequest({ ...ctx, store: ctx.requests }, 'dr-1', effectsFor(ctx))
@@ -784,9 +646,8 @@ describe('conditional review result', () => {
 		});
 		expect(ctx.notifications.notifications).toEqual([]);
 		expect(ctx.audit.events.some((event) => event.action.startsWith('deletion_request.'))).toBe(false);
-		// Approval retains effect-before-status; denial has no source effect.
 		expect(await ctx.rawStore!.findOne('personnel', 'test-org', { id: 'person-1' })).toMatchObject({
-			archived_at: action === 'approve' ? expect.any(String) : null
+			archived_at: null
 		});
 	});
 
@@ -821,6 +682,9 @@ describe('review persistence failure', () => {
 			ctx.store.seed('personnel', [{ id: 'person-1', organization_id: 'test-org', archived_at: null }]);
 			const before = structuredClone(await ctx.store.findOne('deletion_requests', 'test-org', { id: 'dr-1' }));
 			ctx.requests.completePendingReview = async () => {
+				throw new Error('Review status unavailable');
+			};
+			ctx.personnelLifecycle.approveArchiveRequest = async () => {
 				throw new Error('Review status unavailable');
 			};
 			const operation =

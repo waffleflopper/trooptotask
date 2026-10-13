@@ -10,12 +10,7 @@ import {
 	type RetiredOrganizationFile
 } from '$features/organization/index.server';
 import type { FileCleanup } from '$features/organization/contracts';
-import type {
-	PersonnelArtifactArchiveWriter,
-	PersonnelArtifactRef,
-	PersonnelArtifactWritePort,
-	PersonnelArtifactWriter
-} from './contracts';
+import type { PersonnelArtifactWritePort, PersonnelArtifactWriter } from './contracts';
 import { fail } from '$lib/errors';
 
 type ArtifactTable = 'counseling_records' | 'personnel_documents' | 'personnel_follow_ups' | 'leader_notes';
@@ -408,86 +403,6 @@ export function createSupabasePersonnelArtifactWritePort(
 				.maybeSingle();
 			if (error) throw new Error(error.message);
 			return (data?.personnel_id as string | undefined) ?? null;
-		},
-		async forPeople(actor, personnelIds, action): Promise<PersonnelArtifactArchiveWriter> {
-			const ids = [...new Set(personnelIds)];
-			if (ids.length === 0) fail(400, 'At least one Person is required');
-			const result = await selectAllSupabaseRows<{ id: string; group_id: string | null }>(async (from, to) => {
-				const { data, error } = await requestClient
-					.from('personnel')
-					.select('id, group_id')
-					.eq('organization_id', actor.orgId)
-					.in('id', ids)
-					.order('id', { ascending: true })
-					.range(from, to);
-				return { data, error };
-			});
-			if (result.error) throw new Error((result.error as { message?: string }).message ?? 'Personnel lookup failed');
-			const people = result.data ?? [];
-			if (people.length !== ids.length) fail(404, 'Personnel record not found');
-			for (const person of people) {
-				await requireFeaturePolicy(
-					{ auth: actor },
-					action === 'archive'
-						? POLICY_ACTION_CATALOG.personnel.archiveRecords
-						: POLICY_ACTION_CATALOG.personnel.restoreRecords,
-					policyResourceForGroup(person.group_id),
-					'personnel',
-					person.id
-				);
-			}
-			const allowed = new Set(ids);
-			const admin = getAdminClient();
-			const listCandidates = async (
-				table: ArtifactTable,
-				archivedAt: string | null,
-				status?: 'open'
-			): Promise<PersonnelArtifactRef[]> => {
-				const rows: PersonnelArtifactRef[] = [];
-				for (let from = 0; ; from += 1000) {
-					let query = admin
-						.from(table)
-						.select('id,personnel_id')
-						.eq('organization_id', actor.orgId)
-						.in('personnel_id', ids);
-					query = archivedAt === null ? query.is('archived_at', null) : query.eq('archived_at', archivedAt);
-					if (status) query = query.eq('status', status);
-					const { data, error } = await query.order('id', { ascending: true }).range(from, from + 999);
-					if (error) throw new Error(error.message);
-					const page = data ?? [];
-					rows.push(...page.map((row) => ({ id: row.id, personnelId: row.personnel_id })));
-					if (page.length < 1000) return rows;
-				}
-			};
-			const update = async (
-				table: ArtifactTable,
-				row: PersonnelArtifactRef,
-				archivedAt: string | null,
-				followUp = false
-			) => {
-				if (!allowed.has(row.personnelId)) fail(403, 'Artifact Person is outside the authorized batch');
-				const { error } = await admin
-					.from(table)
-					.update({
-						archived_at: archivedAt,
-						...(followUp ? { status: archivedAt === null ? 'open' : 'archived' } : {})
-					})
-					.eq('organization_id', actor.orgId)
-					.eq('personnel_id', row.personnelId)
-					.eq('id', row.id);
-				if (error) throw new Error(error.message);
-			};
-			return {
-				listFollowUpArchiveCandidates: (archivedAt) =>
-					listCandidates('personnel_follow_ups', archivedAt, archivedAt === null ? 'open' : undefined),
-				listCounselingArchiveCandidates: (archivedAt) => listCandidates('counseling_records', archivedAt),
-				listDocumentArchiveCandidates: (archivedAt) => listCandidates('personnel_documents', archivedAt),
-				listLeaderNoteArchiveCandidates: (archivedAt) => listCandidates('leader_notes', archivedAt),
-				setFollowUpArchivedState: (row, archivedAt) => update('personnel_follow_ups', row, archivedAt, true),
-				setCounselingArchivedAt: (row, archivedAt) => update('counseling_records', row, archivedAt),
-				setDocumentArchivedAt: (row, archivedAt) => update('personnel_documents', row, archivedAt),
-				setLeaderNoteArchivedAt: (row, archivedAt) => update('leader_notes', row, archivedAt)
-			};
 		}
 	};
 }

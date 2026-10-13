@@ -12,7 +12,7 @@ function configFor(ctx: ReturnType<typeof createTestContext>, effects: Partial<A
 		throw new Error('Unexpected source effect');
 	};
 	return _reviewPostConfig(store, () => ({
-		archivePersonnel: unexpected,
+		approvePersonnelArchive: unexpected,
 		approveTrainingType: unexpected,
 		approveTrainingRecord: unexpected,
 		approveRatingEntry: unexpected,

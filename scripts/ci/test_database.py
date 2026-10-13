@@ -173,6 +173,132 @@ with tempfile.TemporaryDirectory() as directory:
                         self.assertTrue(receipt.path.exists())
                         self.assertTrue(workdir.exists())
 
+    def test_denied_cwd_is_excluded_only_for_older_or_owned_init_processes(self):
+        older, equal, newer = 'older', 'equal', 'newer'
+        cases = (
+            ('older host process', dict(start=older), True),
+            ('older PID reused by newer process', dict(start=older, during_inventory='reuse'), False),
+            ('older stat unreadable', dict(start=older, during_inventory='unreadable'), False),
+            ('older in command group', dict(start=older, group=True), False),
+            ('older readable cwd in project', dict(start=older, cwd='project'), False),
+            ('equal host process', dict(start=equal), False),
+            ('newer host process', dict(start=newer), False),
+            ('owned database init', dict(init='db'), True),
+            ('owned mounted test runner init', dict(init='runner'), True),
+            ('owned init cgroup names unowned container', dict(init='db', cgroup='sentinel'), False),
+            ('owned init records another PID', dict(init='db', init_pid=4343), False),
+            ('owned init stopped', dict(init='db', running=False), False),
+            ('unowned container init', dict(init='sentinel'), False),
+            ('owned init PID reused', dict(init='db', during_inventory='reuse'), False),
+            ('owned init vanished', dict(init='db', during_inventory='vanish'), False),
+        )
+        pid, group_pid = 4242, 4141
+        for case, options, allowed in cases:
+            options = {'start': newer, 'during_inventory': None, 'group': False, 'cwd': 'denied',
+                       'init': None, 'init_pid': pid, 'running': True, **options}
+            options.setdefault('cgroup', options['init'])
+            with self.subTest(case=case), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                environment = {'RUNNER_TEMP': str(root), 'GITHUB_RUN_ID': '123', 'GITHUB_RUN_ATTEMPT': '1',
+                               'GITHUB_JOB': 'database', 'GITHUB_REPOSITORY': 'example/synthetic'}
+                view = root / 'processes'
+                view.mkdir()
+                with patch.dict(os.environ, environment), patch.object(database, 'PROC_ROOT', view):
+                    workdir, receipt = self.make_receipt(root)
+                    command = {'pid': group_pid, 'start': '1'}
+                    receipt.data['command'] = command
+                    receipt.save()
+                    producer_start = int(receipt.data['producer']['start'])
+                    start = {older: 1, equal: producer_start, newer: producer_start + 1}[options['start']]
+                    labels = {'com.supabase.cli.project': workdir.name, 'com.docker.compose.project': workdir.name}
+                    ids = {'db': 'a' * 64, 'runner': 'b' * 64, 'sentinel': 'c' * 64}
+                    resources = {
+                        'container': [
+                            {'Id': ids['db'], 'Name': '/supabase_db_' + workdir.name, 'Config': {'Labels': labels}},
+                            {'Id': ids['runner'], 'Name': '/relaxed_archimedes',
+                             'Config': {'Labels': labels, 'Image': 'public.ecr.aws/supabase/pg_prove:3.36'}},
+                            {'Id': ids['sentinel'], 'Name': '/supabase_db_existing-local',
+                             'Config': {'Labels': {'com.supabase.cli.project': 'existing-local'}}},
+                        ],
+                        'volume': [{'Name': 'supabase_db_' + workdir.name, 'Labels': labels}],
+                        'network': [{'Name': 'supabase_network_' + workdir.name, 'Labels': labels,
+                                     'Containers': {ids['db']: {}, ids['runner']: {}}}],
+                    }
+                    for row in resources['container']:
+                        if options['init'] and row['Id'] == ids[options['init']]:
+                            row['State'] = {'Running': options['running'], 'Pid': options['init_pid']}
+                    saved = json.loads(json.dumps(resources))
+
+                    process = view / str(pid)
+                    process.mkdir()
+                    stat_file = process / 'stat'
+
+                    def write_stat(ticks):
+                        pgrp = group_pid if options['group'] else pid
+                        stat_file.write_text(f'{pid} (synthetic) S 1 {pgrp} ' + '0 ' * 16 + str(ticks))
+
+                    write_stat(start)
+                    (process / 'cgroup').write_text(
+                        f"0::/system.slice/docker-{ids[options['cgroup']]}.scope\n" if options['cgroup']
+                        else '0::/user.slice/app.scope\n')
+                    (process / 'cwd').symlink_to(workdir if options['cwd'] == 'project' else root)
+                    real_readlink = os.readlink
+
+                    def readlink(path, *args, **kwargs):
+                        if options['cwd'] == 'denied' and Path(path) == process / 'cwd':
+                            raise PermissionError(errno.EACCES, 'Permission denied', str(path))
+                        return real_readlink(path, *args, **kwargs)
+
+                    def docker_model(command, _cwd, **_kwargs):
+                        if '--filter' in command:
+                            kind = 'container' if command[1] == 'ps' else command[1]
+                            key, value = command[command.index('--filter') + 1].split('=', 1)
+                            selected = [x for x in resources[kind] if (value in x['Name'] if key == 'name'
+                                        else (x['Config']['Labels'] if kind == 'container' else x['Labels']).get(value.split('=', 1)[0]) == value.split('=', 1)[1])]
+                            stdout = '\n'.join(x['Id'] if kind == 'container' else x['Name'] for x in selected)
+                        elif command[:1] == ['docker'] and command[2] == 'inspect':
+                            kind = command[1]
+                            stdout = json.dumps([x for x in resources[kind] if (x['Id'] if kind == 'container' else x['Name']) in command[3:]])
+                            if kind == 'container' and options['during_inventory'] == 'reuse':
+                                write_stat(producer_start + 2)
+                            elif kind == 'container' and options['during_inventory'] == 'vanish':
+                                stat_file.unlink(missing_ok=True)
+                            elif kind == 'container' and options['during_inventory'] == 'unreadable':
+                                stat_file.chmod(0)
+                        elif command[:3] == ['docker', 'rm', '--force']:
+                            resources['container'][:] = [x for x in resources['container'] if x['Id'] not in command[3:]]
+                            for network in resources['network']:
+                                for identity in command[3:]:
+                                    network['Containers'].pop(identity, None)
+                            stdout = ''
+                        elif command[:2] == ['supabase', 'stop']:
+                            for kind in resources:
+                                resources[kind][:] = [x for x in resources[kind] if (x['Config']['Labels'] if kind == 'container' else x['Labels']).get('com.supabase.cli.project') != workdir.name]
+                            stdout = ''
+                        else:
+                            self.fail(str(command))
+                        database._receipt.data['command'] = None
+                        database._receipt.save()
+                        return subprocess.CompletedProcess(command, 0, stdout=stdout)
+
+                    with (patch.object(database, 'run', docker_model), patch.object(database, '_receipt', receipt),
+                          patch.object(os, 'readlink', readlink)):
+                        if allowed:
+                            database.cleanup_owned_projects(receipt, producer_may_run=True)
+                        else:
+                            with self.assertRaises(RuntimeError):
+                                database.cleanup_owned_projects(receipt, producer_may_run=True)
+                    if allowed:
+                        self.assertEqual(resources, {'container': [saved['container'][2]], 'volume': [], 'network': []})
+                        self.assertFalse(receipt.path.exists())
+                        self.assertFalse(workdir.exists())
+                    else:
+                        self.assertEqual(resources, saved)
+                        self.assertTrue(receipt.path.exists())
+                        self.assertTrue(workdir.exists())
+                    if options['group']:
+                        self.assertEqual(json.loads(receipt.path.read_text())['command'], command)
+
     def test_interrupted_directory_removal_resumes_after_deleted_cwd_writer_stops(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

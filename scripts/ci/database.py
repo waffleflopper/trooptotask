@@ -69,6 +69,8 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261012000600_feature_direct_write_authority.sql",
     "20261012000700_group_catalog_scope.sql",
     "20261013000100_personnel_file_retirement.sql",
+    "20261013000200_atomic_deletion_request_submission.sql",
+    "20261013000300_atomic_personnel_lifecycle.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",
@@ -100,6 +102,7 @@ STAGED_UPGRADE_FIXTURES = (
     "feature_direct_write_authority_before.sql",
     "group_catalog_scope_before.sql",
     "personnel_file_retirement_before.sql",
+    "atomic_personnel_lifecycle_before.sql",
 )
 STAGED_UPGRADE_CONTRACTS = (
     "account_setup_populated_after.sql",
@@ -133,6 +136,7 @@ STAGED_UPGRADE_CONTRACTS = (
     "feature_direct_write_authority_after.sql",
     "group_catalog_scope_after.sql",
     "personnel_file_retirement_after.sql",
+    "atomic_personnel_lifecycle_after.sql",
 )
 
 _receipt = None
@@ -148,7 +152,7 @@ def process_identity(pid):
     return {'pid': pid, 'start': fields[19]}
 
 
-def live_processes(workdir=None, group=None):
+def live_processes(workdir=None, group=None, denied=None):
     for proc in PROC_ROOT.iterdir():
         if not proc.name.isdigit():
             continue
@@ -162,11 +166,30 @@ def live_processes(workdir=None, group=None):
                 yield int(proc.name)
                 continue
             if workdir is not None:
-                cwd = Path(os.readlink(proc / 'cwd').removesuffix(' (deleted)'))
+                try:
+                    link = os.readlink(proc / 'cwd')
+                except PermissionError:
+                    if denied is None:
+                        raise
+                    denied[int(proc.name)] = int(fields[19])
+                    continue
+                cwd = Path(link.removesuffix(' (deleted)'))
                 if cwd == workdir or workdir in cwd.parents:
                     yield int(proc.name)
         except (FileNotFoundError, ProcessLookupError):
             continue
+
+
+def denied_cwd_excluded(pid, start, producer_start, inits):
+    proc = PROC_ROOT / str(pid)
+    try:
+        cgroup = (proc / 'cgroup').read_text() if start >= producer_start else ''
+        # Identity is read last, so an unchanged start proves the scanned process supplied the cgroup.
+        current = int((proc / 'stat').read_text().rsplit(')', 1)[1].split()[19])
+    except OSError:
+        return False
+    # Producer descendants start no earlier than the producer and never outlive the boot.
+    return current == start and (start < producer_start or (pid in inits and inits[pid] in cgroup))
 
 
 def quiesce(process):
@@ -253,7 +276,7 @@ class JobReceipt:
 
 
 def owned_resources(execute, workdir, project_id):
-    resources = {'testContainer': []}
+    resources = {'testContainer': [], 'init': {}}
     for kind, command in (('container', ['docker', 'ps', '-a', '--no-trunc']),
                           ('volume', ['docker', 'volume', 'ls']),
                           ('network', ['docker', 'network', 'ls'])):
@@ -283,6 +306,8 @@ def owned_resources(execute, workdir, project_id):
             if test_runner:
                 resources['testContainer'].append(identity)
             if kind == 'container':
+                if item.get('State', {}).get('Running'):
+                    resources['init'][item['State']['Pid']] = identity
                 print(json.dumps({'project': project_id, 'container': name,
                                   'imageId': item.get('Image'), 'image': item.get('Config', {}).get('Image'),
                                   'hostMachine': os.uname().machine}), flush=True)
@@ -319,10 +344,16 @@ def cleanup_owned_projects(receipt, *, producer_may_run=False):
                     or config['db']['seed'] != {'enabled': False, 'sql_paths': []}):
                 raise ValueError('Disposable project configuration changed')
         group = receipt.data['command']['pid'] if receipt.data['command'] else None
-        if list(live_processes(workdir, group)):
+        denied = {}
+        if list(live_processes(workdir, group, denied)):
             raise RuntimeError('Owned startup processes are still running')
         inspection_directory = workdir if present else receipt.path.parent
         resources = owned_resources(execute, inspection_directory, project['id'])
+        if denied:
+            producer_start = int(receipt.data['producer']['start'])
+            if not all(denied_cwd_excluded(pid, start, producer_start, resources['init'])
+                       for pid, start in denied.items()):
+                raise RuntimeError('A process with an unreadable working directory may be an owned startup process')
         if project['resourcesAbsent']:
             if any(resources.values()):
                 raise RuntimeError('Docker resources reappeared after verified cleanup')

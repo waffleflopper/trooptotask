@@ -1555,6 +1555,7 @@ async function main() {
 				'onboarding-start',
 				'onboarding-history',
 				'onboarding-consumers',
+				'onboarding-status',
 				'onboarding-retention',
 				'onboarding-retention-1001',
 				'audit',

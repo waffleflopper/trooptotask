@@ -1,30 +1,32 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/stores';
 	import { formatDisplayDate } from '$lib/utils/dates';
 	import { Badge } from '$lib/components/ui/badge';
 	import AdminPager from '$features/platform-admin/components/AdminPager.svelte';
+	import { createAdminUrlSearch } from '$features/platform-admin/components/adminUrlSearch.svelte';
 	import { adminBadgeVariant } from '$features/platform-admin/components/adminTheme';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import * as Alert from '$lib/components/ui/alert';
 	import * as Card from '$lib/components/ui/card';
 	import * as Empty from '$lib/components/ui/empty';
-	import * as Field from '$lib/components/ui/field';
 	import * as PageShell from '$lib/components/patterns/page-shell';
+	import { WorkspaceToolbar } from '$lib/components/patterns/workspace-toolbar';
 	import * as Table from '$lib/components/ui/table';
 
 	let { data } = $props();
-	let searchInput = $derived(data.search);
 
-	function applyFilters() {
-		const params = new SvelteURLSearchParams();
-		if (searchInput) params.set('search', searchInput);
-		params.set('page', '1');
-		goto(resolve(`/admin/users?${params.toString()}`), { keepFocus: true });
-	}
+	const search = createAdminUrlSearch(
+		() => data.search,
+		(value) => {
+			const params = new SvelteURLSearchParams();
+			if (value) params.set('search', value);
+			params.set('page', '1');
+			goto(resolve(`/admin/users?${params.toString()}`), { keepFocus: true });
+		}
+	);
 
 	function pageHref(pageNum: number) {
 		const params = new SvelteURLSearchParams($page.url.searchParams);
@@ -48,9 +50,6 @@
 		{#snippet meta()}
 			<Badge variant="secondary">Identity Ledger</Badge>
 		{/snippet}
-		{#snippet actions()}
-			<Button href="/admin/access-requests">Open Access Requests</Button>
-		{/snippet}
 	</PageShell.Header>
 
 	<PageShell.FactGrid layout="two">
@@ -71,25 +70,19 @@
 		</Alert.Root>
 	{/if}
 
+	<WorkspaceToolbar
+		ariaLabel="Users controls"
+		items={[]}
+		search={{
+			label: 'Search',
+			placeholder: 'Search by email...',
+			value: search.value,
+			onValueChange: search.setValue
+		}}
+		primary={{ kind: 'action', id: 'access-requests', label: 'Open Access Requests', href: '/admin/access-requests' }}
+	/>
+
 	<Card.Root>
-		<Card.Header class="gap-3 sm:flex-row sm:items-end sm:justify-between">
-			<form
-				class="grid gap-3 sm:grid-cols-[minmax(16rem,1fr)_auto] sm:items-end"
-				onsubmit={(event) => {
-					event.preventDefault();
-					applyFilters();
-				}}
-			>
-				<Field.Root>
-					<Field.Label for="users-search">Search</Field.Label>
-					<Field.Control>
-						<Input id="users-search" type="text" placeholder="Search by email..." bind:value={searchInput} />
-					</Field.Control>
-				</Field.Root>
-				<Button type="submit" variant="outline">Apply</Button>
-			</form>
-			<p class="text-sm text-muted-foreground">{data.users.length} shown</p>
-		</Card.Header>
 		<Card.Content class="overflow-x-auto">
 			<Table.Root>
 				<Table.Header>
@@ -141,6 +134,7 @@
 				</Table.Body>
 			</Table.Root>
 		</Card.Content>
+		<Card.Footer class="text-sm text-muted-foreground">{data.users.length} shown</Card.Footer>
 	</Card.Root>
 
 	<AdminPager page={data.page} {totalPages} {pageHref} />

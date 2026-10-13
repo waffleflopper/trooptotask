@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ComponentProps } from 'svelte';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
+import { openToolbarMore, openToolbarSubmenu, stubToolbarWidths } from '$lib/test-support/toolbarWidths';
 
 const { goto } = vi.hoisted(() => ({ goto: vi.fn(async () => {}) }));
 vi.mock('$app/navigation', () => ({ goto }));
@@ -143,38 +144,71 @@ describe('admin organizations page', () => {
 		]);
 	});
 
-	it('keeps search, page size and suspension status when navigating the Organization index', () => {
+	it('shows the search, page size and suspension status held in the URL', () => {
 		renderOrganizationsPage({
-			pagination: { page: 2, pageSize: 25, totalCount: 60, totalPages: 3, q: 'Able & Baker', status: 'suspended' }
+			pagination: { page: 2, pageSize: 50, totalCount: 60, totalPages: 2, q: 'Able & Baker', status: 'suspended' }
 		});
-		expect(screen.getByRole('searchbox', { name: 'Search' })).toHaveProperty('value', 'Able & Baker');
-		expect(screen.getByRole('combobox', { name: 'Status' })).toHaveProperty('value', 'suspended');
-		expect(screen.getByRole('combobox', { name: 'Rows' })).toHaveProperty('value', '25');
+		const toolbar = within(screen.getByRole('toolbar', { name: 'Organizations controls' }));
+		expect(toolbar.getByRole('searchbox', { name: 'Search' })).toHaveProperty('value', 'Able & Baker');
+		expect(toolbar.getByRole('button', { name: 'Status' }).textContent).toContain('Suspended');
+		expect(toolbar.getByRole('button', { name: 'Rows' }).textContent).toContain('50');
+		expect(screen.queryByRole('button', { name: 'Apply' })).toBeNull();
 	});
 
-	it('applies the filters from the first page and keeps focus on the control that applied them', async () => {
+	async function chooseOption(trigger: HTMLElement, option: string) {
+		trigger.focus();
+		await fireEvent.keyDown(trigger, { key: 'ArrowDown' });
+		await fireEvent.pointerUp(await screen.findByRole('option', { name: option }));
+	}
+
+	it('applies each filter from the first page when it changes and keeps the other filters', async () => {
 		renderOrganizationsPage({
-			pagination: { page: 3, pageSize: 25, totalCount: 90, totalPages: 4, q: '', status: 'all' }
+			pagination: { page: 3, pageSize: 25, totalCount: 90, totalPages: 4, q: 'Able', status: 'all' }
 		});
-		const search = screen.getByRole('searchbox', { name: 'Search' });
-		await fireEvent.input(search, { target: { value: 'Able & Baker' } });
-		await fireEvent.change(screen.getByRole('combobox', { name: 'Rows' }), { target: { value: '50' } });
-		await fireEvent.change(screen.getByRole('combobox', { name: 'Status' }), { target: { value: 'suspended' } });
-
-		search.focus();
-		await fireEvent.submit(search.closest('form')!);
-		expect(goto).toHaveBeenLastCalledWith('/admin/organizations?page=1&pageSize=50&q=Able+%26+Baker&status=suspended', {
+		await chooseOption(screen.getByRole('button', { name: 'Status' }), 'Suspended');
+		expect(goto).toHaveBeenLastCalledWith('/admin/organizations?page=1&pageSize=25&q=Able&status=suspended', {
 			keepFocus: true
 		});
-
-		const apply = screen.getByRole('button', { name: 'Apply' });
-		apply.focus();
-		await fireEvent.click(apply);
+		await chooseOption(screen.getByRole('button', { name: 'Rows' }), '50');
+		expect(goto).toHaveBeenLastCalledWith('/admin/organizations?page=1&pageSize=50&q=Able', { keepFocus: true });
 		expect(goto).toHaveBeenCalledTimes(2);
-		expect(goto).toHaveBeenLastCalledWith('/admin/organizations?page=1&pageSize=50&q=Able+%26+Baker&status=suspended', {
-			keepFocus: true
+	});
+
+	it('applies the search once typing pauses and keeps the status and page size', async () => {
+		vi.useFakeTimers();
+		try {
+			renderOrganizationsPage({
+				pagination: { page: 3, pageSize: 50, totalCount: 90, totalPages: 2, q: '', status: 'active' }
+			});
+			const search = screen.getByRole('searchbox', { name: 'Search' });
+			search.focus();
+			await fireEvent.input(search, { target: { value: 'Able & Baker' } });
+			expect(goto).not.toHaveBeenCalled();
+			await vi.advanceTimersByTimeAsync(300);
+			expect(goto).toHaveBeenCalledOnce();
+			expect(goto).toHaveBeenLastCalledWith('/admin/organizations?page=1&pageSize=50&q=Able+%26+Baker&status=active', {
+				keepFocus: true
+			});
+			expect(document.activeElement).toBe(search);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('changes a filter folded into More from its submenu and keeps it reachable by name', async () => {
+		const toolbarWidths = stubToolbarWidths();
+		renderOrganizationsPage({
+			pagination: { page: 2, pageSize: 25, totalCount: 90, totalPages: 4, q: '', status: 'all' }
 		});
-		expect(document.activeElement).toBe(apply);
+		await toolbarWidths.foldAll();
+		const toolbar = within(screen.getByRole('toolbar', { name: 'Organizations controls' }));
+		expect(toolbar.queryByRole('button', { name: 'Status' })).toBeNull();
+		expect(toolbar.queryByRole('button', { name: 'Rows' })).toBeNull();
+
+		await openToolbarMore('Organizations controls');
+		await openToolbarSubmenu('Rows, 25');
+		await fireEvent.click(await screen.findByRole('menuitemradio', { name: '100' }));
+		expect(goto).toHaveBeenLastCalledWith('/admin/organizations?page=1&pageSize=100', { keepFocus: true });
 	});
 
 	it('pages through the Organization index with buttons that keep focus and the filters', async () => {

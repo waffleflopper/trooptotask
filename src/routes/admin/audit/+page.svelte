@@ -7,9 +7,8 @@
 	import * as Card from '$lib/components/ui/card';
 	import * as Collapsible from '$lib/components/ui/collapsible';
 	import * as Empty from '$lib/components/ui/empty';
-	import * as Field from '$lib/components/ui/field';
-	import { NativeSelect } from '$lib/components/ui/native-select';
 	import * as PageShell from '$lib/components/patterns/page-shell';
+	import { WorkspaceToolbar, type ToolbarItem } from '$lib/components/patterns/workspace-toolbar';
 	import * as Table from '$lib/components/ui/table';
 	import { formatDisplayDateTime } from '$lib/utils/dates';
 	import AdminPager from '$features/platform-admin/components/AdminPager.svelte';
@@ -33,6 +32,35 @@
 	}
 
 	const totalPages = $derived(Math.ceil(data.totalCount / data.limit));
+
+	const toolbarItems = $derived<ToolbarItem[]>([
+		{
+			kind: 'select',
+			id: 'action',
+			label: 'Action',
+			options: [
+				{ value: '', label: 'All actions' },
+				...data.availableActions.map((action: string) => ({ value: action, label: formatAdminLabel(action) }))
+			],
+			value: data.actionFilter,
+			defaultValue: '',
+			onValueChange: (value) => setParam('action', value)
+		},
+		{
+			kind: 'select',
+			id: 'severity',
+			label: 'Severity',
+			options: [
+				{ value: '', label: 'All severities' },
+				{ value: 'info', label: 'Info' },
+				{ value: 'warning', label: 'Warning' },
+				{ value: 'critical', label: 'Critical' }
+			],
+			value: data.severityFilter,
+			defaultValue: '',
+			onValueChange: (value) => setParam('severity', value)
+		}
+	]);
 </script>
 
 <svelte:head>
@@ -54,39 +82,7 @@
 		/>
 	</PageShell.FactGrid>
 
-	<Card.Root>
-		<Card.Content class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-			<div class="grid flex-1 gap-4 sm:grid-cols-2">
-				<Field.Root>
-					<Field.Label for="action-filter">Action</Field.Label>
-					<NativeSelect
-						id="action-filter"
-						value={data.actionFilter}
-						onchange={(event) => setParam('action', event.currentTarget.value)}
-					>
-						<option value="">All actions</option>
-						{#each data.availableActions as action (action)}
-							<option value={action}>{formatAdminLabel(action)}</option>
-						{/each}
-					</NativeSelect>
-				</Field.Root>
-				<Field.Root>
-					<Field.Label for="severity-filter">Severity</Field.Label>
-					<NativeSelect
-						id="severity-filter"
-						value={data.severityFilter}
-						onchange={(event) => setParam('severity', event.currentTarget.value)}
-					>
-						<option value="">All severities</option>
-						<option value="info">Info</option>
-						<option value="warning">Warning</option>
-						<option value="critical">Critical</option>
-					</NativeSelect>
-				</Field.Root>
-			</div>
-			<span class="text-sm text-muted-foreground">{data.logs.length} entries shown</span>
-		</Card.Content>
-	</Card.Root>
+	<WorkspaceToolbar ariaLabel="Audit Log controls" items={toolbarItems} />
 
 	<Card.Root class="overflow-hidden">
 		<div class="overflow-x-auto">
@@ -189,6 +185,7 @@
 				</Table.Body>
 			</Table.Root>
 		</div>
+		<Card.Footer class="text-sm text-muted-foreground">{data.logs.length} entries shown</Card.Footer>
 	</Card.Root>
 
 	<AdminPager page={data.page} {totalPages} {pageHref} />

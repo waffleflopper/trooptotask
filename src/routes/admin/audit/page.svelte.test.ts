@@ -1,19 +1,28 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
+import { openToolbarMore, openToolbarSubmenu, stubToolbarWidths } from '$lib/test-support/toolbarWidths';
 import AuditPage from './+page.svelte';
 import type { PageData } from './$types';
 
-const { goto } = vi.hoisted(() => ({ goto: vi.fn(async () => {}) }));
+const { goto, current } = vi.hoisted(() => ({
+	goto: vi.fn(async () => {}),
+	current: { url: 'http://localhost/admin/audit?page=2' }
+}));
 vi.mock('$app/navigation', () => ({ goto }));
-vi.mock('$app/stores', async () => {
-	const { readable } = await import('svelte/store');
-	return { page: readable({ url: new URL('http://localhost/admin/audit?page=2') }) };
-});
+vi.mock('$app/stores', () => ({
+	page: {
+		subscribe(run: (value: { url: URL }) => void) {
+			run({ url: new URL(current.url) });
+			return () => {};
+		}
+	}
+}));
 
 afterEach(() => {
 	cleanup();
 	goto.mockClear();
+	current.url = 'http://localhost/admin/audit?page=2';
 });
 
 const data = {
@@ -52,13 +61,49 @@ describe('platform Audit page', () => {
 		expect(panel?.textContent).toContain('masked detail');
 	});
 
-	it('keeps focus on a filter while it navigates to the first filtered page', async () => {
+	async function chooseOption(trigger: HTMLElement, option: string) {
+		trigger.focus();
+		await fireEvent.keyDown(trigger, { key: 'ArrowDown' });
+		await fireEvent.pointerUp(await screen.findByRole('option', { name: option }));
+	}
+
+	it('applies a filter on change from the first page and keeps focus on it', async () => {
 		render(AuditPage, { data });
-		const severity = screen.getByLabelText('Severity') as HTMLSelectElement;
-		severity.focus();
+		const severity = within(screen.getByRole('toolbar', { name: 'Audit Log controls' })).getByRole('button', {
+			name: 'Severity'
+		});
 
-		await fireEvent.change(severity, { target: { value: 'info' } });
+		await chooseOption(severity, 'Info');
 
+		expect(goto).toHaveBeenCalledOnce();
 		expect(goto).toHaveBeenCalledWith('/admin/audit?page=1&severity=info', { keepFocus: true });
+		expect(screen.queryByRole('button', { name: 'Apply' })).toBeNull();
+	});
+
+	it('keeps the other filter when one changes and drops a filter chosen back to All', async () => {
+		const filtered = { ...data, actionFilter: 'verification.audit_a', severityFilter: 'info' } as unknown as PageData;
+		current.url = 'http://localhost/admin/audit?page=4&action=verification.audit_a&severity=info';
+		render(AuditPage, { data: filtered });
+		const toolbar = within(screen.getByRole('toolbar', { name: 'Audit Log controls' }));
+		expect(toolbar.getByRole('button', { name: 'Action' }).textContent).toContain('Verification.Audit A');
+		expect(toolbar.getByRole('button', { name: 'Severity' }).textContent).toContain('Info');
+
+		await chooseOption(toolbar.getByRole('button', { name: 'Severity' }), 'All severities');
+
+		expect(goto).toHaveBeenLastCalledWith('/admin/audit?page=1&action=verification.audit_a', { keepFocus: true });
+	});
+
+	it('changes the Action filter from More when the row folds it', async () => {
+		const toolbarWidths = stubToolbarWidths();
+		render(AuditPage, { data });
+		await toolbarWidths.foldAll();
+		const toolbar = within(screen.getByRole('toolbar', { name: 'Audit Log controls' }));
+		expect(toolbar.queryByRole('button', { name: 'Action' })).toBeNull();
+
+		await openToolbarMore('Audit Log controls');
+		await openToolbarSubmenu('Action, All actions');
+		await fireEvent.click(await screen.findByRole('menuitemradio', { name: 'Verification.Audit A' }));
+
+		expect(goto).toHaveBeenLastCalledWith('/admin/audit?page=1&action=verification.audit_a', { keepFocus: true });
 	});
 });

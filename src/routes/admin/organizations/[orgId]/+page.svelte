@@ -12,6 +12,11 @@
 	import * as Card from '$lib/components/ui/card';
 	import * as Empty from '$lib/components/ui/empty';
 	import * as PageShell from '$lib/components/patterns/page-shell';
+	import {
+		WorkspaceToolbar,
+		type ToolbarItem,
+		type WorkspaceToolbarProps
+	} from '$lib/components/patterns/workspace-toolbar';
 	import * as Table from '$lib/components/ui/table';
 
 	let { data }: { data: PageData } = $props();
@@ -20,6 +25,25 @@
 	let showTransferModal = $state(false);
 	let navigationLifetime = $state(0);
 	const canAdminister = $derived(data.adminRole === 'super_admin');
+	const toolbarItems = $derived<ToolbarItem[]>(
+		canAdminister
+			? [
+					{
+						kind: 'action',
+						id: 'suspend',
+						label: data.org.isSuspended ? 'Unsuspend' : 'Suspend',
+						destructive: !data.org.isSuspended,
+						menuOnly: true,
+						onclick: () => (showSuspendModal = true)
+					}
+				]
+			: []
+	);
+	const toolbarPrimary = $derived<WorkspaceToolbarProps['primary']>(
+		canAdminister
+			? { kind: 'action', id: 'transfer', label: 'Transfer Ownership', onclick: () => (showTransferModal = true) }
+			: undefined
+	);
 
 	beforeNavigate(() => {
 		navigationLifetime += 1;
@@ -89,8 +113,6 @@
 		{/snippet}
 		{#snippet meta()}
 			<Badge variant="secondary">Organization Record</Badge>
-		{/snippet}
-		{#snippet actions()}
 			<Badge variant={adminBadgeVariant(data.org.isSuspended ? 'suspended' : 'active')}>
 				{data.org.isSuspended ? 'Suspended' : 'Active'}
 			</Badge>
@@ -98,12 +120,7 @@
 	</PageShell.Header>
 
 	{#if canAdminister}
-		<div class="flex flex-wrap gap-2">
-			<Button variant="outline" onclick={() => (showTransferModal = true)}>Transfer Ownership</Button>
-			<Button variant={data.org.isSuspended ? 'outline' : 'destructive'} onclick={() => (showSuspendModal = true)}>
-				{data.org.isSuspended ? 'Unsuspend' : 'Suspend'}
-			</Button>
-		</div>
+		<WorkspaceToolbar ariaLabel="Organization controls" items={toolbarItems} primary={toolbarPrimary} />
 	{/if}
 
 	<div class="grid gap-4 lg:grid-cols-2">

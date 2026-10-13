@@ -13,6 +13,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { NativeSelect } from '$lib/components/ui/native-select';
 	import * as PageShell from '$lib/components/patterns/page-shell';
+	import { WorkspaceToolbar } from '$lib/components/patterns/workspace-toolbar';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { formatDisplayDate } from '$lib/utils/dates';
@@ -33,7 +34,6 @@
 	let editorLifetime = 0;
 	let requestId = 0;
 	let currentActor = untrack(() => data.adminUserId);
-	let createButton = $state<HTMLButtonElement | null>(null);
 	let titleInput = $state<HTMLInputElement | null>(null);
 	let reloadButton = $state<HTMLButtonElement | null>(null);
 	let deleteRequest = $state<{ title: string; form: HTMLFormElement; submitter: HTMLElement | null } | null>(null);
@@ -57,12 +57,19 @@
 		}
 	});
 
+	const toolbarLabel = 'Announcements controls';
+	function createButton(): HTMLElement | null {
+		return document.querySelector<HTMLElement>(
+			`[data-slot="workspace-toolbar"][aria-label="${toolbarLabel}"] [data-toolbar-item="create"] button`
+		);
+	}
+
 	async function setCreateForm(open: boolean) {
 		editorLifetime += 1;
 		actionError = null;
 		showCreateForm = open;
 		await tick();
-		(open ? titleInput : createButton)?.focus();
+		(open ? titleInput : createButton())?.focus();
 	}
 
 	function confirmDelete() {
@@ -95,7 +102,7 @@
 		if (!isCurrent()) return;
 		pending = null;
 		await tick();
-		if (isCurrent()) restoreFocus([reloadButton, createButton, titleInput]);
+		if (isCurrent()) restoreFocus([reloadButton, createButton(), titleInput]);
 	}
 
 	const submitAnnouncement =
@@ -145,7 +152,7 @@
 							showCreateForm = false;
 						}
 					},
-					focus: () => [submitter, reloadButton, createButton, titleInput]
+					focus: () => [submitter, reloadButton, createButton(), titleInput]
 				});
 			};
 		};
@@ -166,13 +173,15 @@
 	<PageShell.Header
 		title="Announcements"
 		subtitle="Publish and retire platform-wide messages from the internal admin workspace."
-	>
-		{#snippet actions()}
-			{#if !showCreateForm}
-				<Button bind:ref={createButton} onclick={() => setCreateForm(true)}>Create Announcement</Button>
-			{/if}
-		{/snippet}
-	</PageShell.Header>
+	/>
+
+	{#if !showCreateForm}
+		<WorkspaceToolbar
+			ariaLabel={toolbarLabel}
+			items={[]}
+			primary={{ kind: 'action', id: 'create', label: 'Create Announcement', onclick: () => setCreateForm(true) }}
+		/>
+	{/if}
 
 	{#if displayedError}
 		<Alert.Root variant="destructive">

@@ -4,16 +4,14 @@
 	import { TriangleAlert } from '@lucide/svelte';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Badge } from '$lib/components/ui/badge';
-	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
 	import * as Empty from '$lib/components/ui/empty';
-	import * as Field from '$lib/components/ui/field';
-	import { Input } from '$lib/components/ui/input';
-	import { NativeSelect } from '$lib/components/ui/native-select';
 	import * as PageShell from '$lib/components/patterns/page-shell';
+	import { WorkspaceToolbar, type ToolbarItem } from '$lib/components/patterns/workspace-toolbar';
 	import * as Table from '$lib/components/ui/table';
 	import { formatDisplayDate } from '$lib/utils/dates';
 	import AdminPager from '$features/platform-admin/components/AdminPager.svelte';
+	import { createAdminUrlSearch } from '$features/platform-admin/components/adminUrlSearch.svelte';
 	import { adminBadgeVariant, formatAdminLabel } from '$features/platform-admin/components/adminTheme';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import type { PageData } from './$types';
@@ -59,18 +57,48 @@
 		return `${organizationsRouteRoot}?${params.toString()}`;
 	}
 
-	function applyFilters(event: SubmitEvent & { currentTarget: HTMLFormElement }) {
-		event.preventDefault();
-		const form = new FormData(event.currentTarget);
+	function applyFilters(next: { q: string; pageSize: string; status: string }) {
 		const params = new SvelteURLSearchParams();
 		params.set('page', '1');
-		params.set('pageSize', String(form.get('pageSize')));
-		const q = String(form.get('q') ?? '');
-		if (q) params.set('q', q);
-		const status = String(form.get('status') ?? 'all');
-		if (status !== 'all') params.set('status', status);
+		params.set('pageSize', next.pageSize);
+		if (next.q) params.set('q', next.q);
+		if (next.status !== 'all') params.set('status', next.status);
 		goto(resolve(`/admin/organizations?${params.toString()}`), { keepFocus: true });
 	}
+
+	const search = createAdminUrlSearch(
+		() => data.pagination.q,
+		(q) => applyFilters({ q, pageSize: String(data.pagination.pageSize), status: statusFilter })
+	);
+
+	const toolbarItems = $derived<ToolbarItem[]>([
+		{
+			kind: 'select',
+			id: 'status',
+			label: 'Status',
+			options: [
+				{ value: 'all', label: 'All statuses' },
+				{ value: 'active', label: 'Active' },
+				{ value: 'suspended', label: 'Suspended' }
+			],
+			value: statusFilter,
+			defaultValue: 'all',
+			onValueChange: (status) => applyFilters({ q: search.value, pageSize: String(data.pagination.pageSize), status })
+		},
+		{
+			kind: 'select',
+			id: 'rows',
+			label: 'Rows',
+			options: [
+				{ value: '25', label: '25' },
+				{ value: '50', label: '50' },
+				{ value: '100', label: '100' }
+			],
+			value: String(data.pagination.pageSize),
+			defaultValue: '25',
+			onValueChange: (pageSize) => applyFilters({ q: search.value, pageSize, status: statusFilter })
+		}
+	]);
 
 	function nextActivationStep(item: ActivationOrganization): string {
 		return item.nextSteps[0] ?? 'Activation milestones are complete.';
@@ -209,45 +237,16 @@
 		</Card.Content>
 	</Card.Root>
 
-	<Card.Root>
-		<Card.Content class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-			<form
-				method="GET"
-				action={organizationsRouteRoot}
-				onsubmit={applyFilters}
-				class="grid flex-1 gap-3 xl:grid-cols-[minmax(16rem,1fr)_9rem_minmax(10rem,1fr)_auto] xl:items-end"
-			>
-				<Field.Root>
-					<Field.Label for="org-search">Search</Field.Label>
-					<Input
-						id="org-search"
-						name="q"
-						type="search"
-						placeholder="Search by organization name..."
-						value={data.pagination.q}
-					/>
-				</Field.Root>
-				<Field.Root>
-					<Field.Label for="org-page-size">Rows</Field.Label>
-					<NativeSelect id="org-page-size" name="pageSize" value={String(data.pagination.pageSize)}>
-						<option value="25">25</option>
-						<option value="50">50</option>
-						<option value="100">100</option>
-					</NativeSelect>
-				</Field.Root>
-				<Field.Root>
-					<Field.Label for="status-filter">Status</Field.Label>
-					<NativeSelect id="status-filter" name="status" value={statusFilter}>
-						<option value="all">All statuses</option>
-						<option value="active">Active</option>
-						<option value="suspended">Suspended</option>
-					</NativeSelect>
-				</Field.Root>
-				<Button type="submit" variant="outline">Apply</Button>
-			</form>
-			<span class="text-sm text-muted-foreground">{data.organizations.length} shown</span>
-		</Card.Content>
-	</Card.Root>
+	<WorkspaceToolbar
+		ariaLabel="Organizations controls"
+		items={toolbarItems}
+		search={{
+			label: 'Search',
+			placeholder: 'Search by organization name...',
+			value: search.value,
+			onValueChange: search.setValue
+		}}
+	/>
 
 	<Card.Root class="overflow-hidden">
 		<div class="overflow-x-auto">
@@ -302,6 +301,7 @@
 				</Table.Body>
 			</Table.Root>
 		</div>
+		<Card.Footer class="text-sm text-muted-foreground">{data.organizations.length} shown</Card.Footer>
 	</Card.Root>
 
 	{#if data.pagination.totalCount > 0}

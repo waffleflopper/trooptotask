@@ -11,6 +11,7 @@ vi.mock('../../../../../node_modules/@sveltejs/kit/src/runtime/client/client.js'
 	...(await importOriginal<Record<string, unknown>>()),
 	app: { decoders: {} }
 }));
+import { openToolbarMore } from '$lib/test-support/toolbarWidths';
 import Page from './+page.svelte';
 import type { PageData } from './$types';
 
@@ -44,6 +45,12 @@ function renderDetail(isSuspended = false) {
 	return render(Page, { props: { data: makePageData(isSuspended) } });
 }
 
+async function chooseSuspension(action: 'Suspend' | 'Unsuspend') {
+	await openToolbarMore('Organization controls');
+	await fireEvent.click(screen.getByRole('menuitem', { name: action }));
+	return screen.findByRole('dialog');
+}
+
 async function startTransfer() {
 	await fireEvent.click(screen.getByRole('button', { name: 'Transfer Ownership' }));
 	const dialog = within(screen.getByRole('dialog'));
@@ -61,7 +68,25 @@ describe('admin organization detail', () => {
 		render(Page, { props: { data: makePageData(false, { adminRole: 'support' }) } });
 		expect(screen.getByRole('link', { name: 'member@example.test' })).toBeTruthy();
 		expect(screen.queryByRole('button', { name: 'Transfer Ownership' })).toBeNull();
-		expect(screen.queryByRole('button', { name: 'Suspend' })).toBeNull();
+		expect(screen.queryByRole('toolbar', { name: 'Organization controls' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'More Organization controls' })).toBeNull();
+	});
+
+	it('keeps Transfer Ownership on the row and Suspend last in More, with the status in the header', async () => {
+		renderDetail();
+		const toolbar = within(screen.getByRole('toolbar', { name: 'Organization controls' }));
+		expect(toolbar.getByRole('button', { name: 'Transfer Ownership' })).toBeTruthy();
+		expect(toolbar.queryByRole('button', { name: 'Suspend' })).toBeNull();
+		const menu = within(await openToolbarMore('Organization controls'));
+		expect(menu.getAllByRole('menuitem').map((item) => item.textContent?.trim())).toEqual(['Suspend']);
+		expect(screen.getByRole('heading', { level: 1 }).parentElement?.textContent).toContain('Active');
+	});
+
+	it('offers Unsuspend for a suspended Organization and shows the status in the header', async () => {
+		renderDetail(true);
+		const menu = within(await openToolbarMore('Organization controls'));
+		expect(menu.getAllByRole('menuitem').map((item) => item.textContent?.trim())).toEqual(['Unsuspend']);
+		expect(screen.getByRole('heading', { level: 1 }).parentElement?.textContent).toContain('Suspended');
 	});
 	it('opens ownership transfer with eligible members and requires name confirmation', async () => {
 		renderDetail();
@@ -86,8 +111,7 @@ describe('admin organization detail', () => {
 	it.each([false, true])('opens the retained suspension action for suspended=%s', async (suspended) => {
 		renderDetail(suspended);
 		const action = suspended ? 'Unsuspend' : 'Suspend';
-		await fireEvent.click(screen.getByRole('button', { name: action }));
-		const dialog = within(screen.getByRole('dialog'));
+		const dialog = within(await chooseSuspension(action));
 		expect(dialog.getByRole('button', { name: action })).toBeEnabled();
 		await fireEvent.click(dialog.getByRole('button', { name: 'Cancel' }));
 		expect(screen.queryByRole('dialog')).toBeNull();
@@ -99,10 +123,11 @@ describe('admin organization detail', () => {
 		invalidateAll.mockImplementation(async () => {
 			await view.rerender({ data: makePageData(true) });
 		});
-		await fireEvent.click(screen.getByRole('button', { name: 'Suspend' }));
+		await chooseSuspension('Suspend');
 		await fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Suspend' }));
 		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-		expect(screen.getByRole('button', { name: 'Unsuspend' })).toBeTruthy();
+		await openToolbarMore('Organization controls');
+		expect(screen.getByRole('menuitem', { name: 'Unsuspend' })).toBeTruthy();
 		expect(invalidateAll).toHaveBeenCalledTimes(1);
 	});
 
@@ -113,7 +138,7 @@ describe('admin organization detail', () => {
 		invalidateAll.mockImplementation(async () => {
 			await view.rerender({ data: makePageData() });
 		});
-		await fireEvent.click(screen.getByRole('button', { name: 'Suspend' }));
+		await chooseSuspension('Suspend');
 		await fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Suspend' }));
 		await screen.findByRole('button', { name: 'Reload details' });
 		await fireEvent.click(screen.getByRole('button', { name: 'Reload details' }));
@@ -184,7 +209,7 @@ describe('admin organization detail', () => {
 			const view = renderDetail();
 			if (command === 'transfer') await startTransfer();
 			else {
-				await fireEvent.click(screen.getByRole('button', { name: 'Suspend' }));
+				await chooseSuspension('Suspend');
 				await fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Suspend' }));
 			}
 			view.unmount();

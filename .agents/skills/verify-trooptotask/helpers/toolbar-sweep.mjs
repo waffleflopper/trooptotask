@@ -232,7 +232,7 @@ export function checkSweep({ down, up }, { expect, pinned = [], search = false, 
 }
 
 const usage =
-	'Use toolbar-sweep PAGE TOOLBAR_LABEL RUN_DIR --expect ID,ID,... [--pinned ID,ID,...] [--search] [--more-always] [--from 1440] [--to 390] [--step 2] [--height 900] [--record NAME].';
+	'Use toolbar-sweep PAGE TOOLBAR_LABEL RUN_DIR (--expect ID,ID,... | --no-fold --pinned ID,ID,...) [--pinned ID,ID,...] [--search] [--more-always] [--from 1440] [--to 390] [--step 2] [--height 900] [--record NAME].';
 const valueFlags = ['expect', 'pinned', 'from', 'to', 'step', 'height', 'record'];
 const idList = (value) => (value ?? '').split(',').filter(Boolean);
 
@@ -240,10 +240,12 @@ export function parseSweepArguments([page, label, runName, ...flags]) {
 	const options = {};
 	let search = false;
 	let moreAlways = false;
+	let noFold = false;
 	for (let i = 0; i < flags.length; i++) {
 		const name = flags[i].startsWith('--') ? flags[i].slice(2) : '';
 		if (name === 'search' && !search) search = true;
 		else if (name === 'more-always' && !moreAlways) moreAlways = true;
+		else if (name === 'no-fold' && !noFold) noFold = true;
 		else if (valueFlags.includes(name) && !(name in options) && flags[i + 1] && !flags[i + 1].startsWith('--'))
 			options[name] = flags[++i];
 		else throw new Error(usage);
@@ -257,7 +259,8 @@ export function parseSweepArguments([page, label, runName, ...flags]) {
 	].map(Number);
 	const expectIds = idList(options.expect);
 	const pinnedIds = idList(options.pinned);
-	if (!Number.isInteger(pageId) || pageId < 1 || !label || !runName || !expectIds.length) throw new Error(usage);
+	if (!Number.isInteger(pageId) || pageId < 1 || !label || !runName) throw new Error(usage);
+	if (noFold ? expectIds.length || !pinnedIds.length : !expectIds.length) throw new Error(usage);
 	if (![from, to, step, height].every(Number.isInteger) || to < 200 || from < to || step < 1 || height < 200)
 		throw new Error('Use whole numbers with 200 <= --to <= --from, --step >= 1 and --height >= 200.');
 	const ids = [...expectIds, ...pinnedIds];

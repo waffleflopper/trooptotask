@@ -12,8 +12,11 @@ vi.mock('$lib/server/adapters/httpAdapter', async (importOriginal) => {
 			_locals: unknown,
 			_cookies: unknown,
 			_orgId: string,
-			config: Parameters<typeof handleUseCaseRequest>[0]
-		) => handleUseCaseRequest(config, state.ctx!, undefined, () => state.ctx!)
+			config: Parameters<typeof handleUseCaseRequest>[0] & { defer?: boolean }
+		) => {
+			const data = handleUseCaseRequest(config, state.ctx!, undefined, () => state.ctx!);
+			return config.defer ? { data } : data;
+		}
 	};
 });
 import { load } from './+page.server';
@@ -48,11 +51,32 @@ describe('Onboarding History page load', () => {
 			cookies: {},
 			depends
 		} as never)) as unknown as {
-			history: { onboardings: Array<{ id: string }>; archiveRetentionMonths: number | null };
+			history: { data: Promise<{ onboardings: Array<{ id: string }>; archiveRetentionMonths: number | null }> };
 		};
+		const history = await result.history.data;
 
-		expect(result.history.onboardings.map((o) => o.id)).toEqual(['closed']);
-		expect(result.history.archiveRetentionMonths).toBe(36);
+		expect(history.onboardings.map((o) => o.id)).toEqual(['closed']);
+		expect(history.archiveRetentionMonths).toBe(36);
 		expect(depends).toHaveBeenCalledWith('app:org-core', 'app:onboarding-data');
+	});
+
+	it('hands the page a promise that rejects, instead of failing the load, when the member may not view Onboarding', async () => {
+		state.ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: createCapabilityMap('none'),
+				scopeSet: { kind: 'organization' }
+			}
+		});
+
+		const result = (await load({
+			params: { orgId: 'org-a' },
+			locals: { session: null },
+			cookies: {},
+			depends: vi.fn()
+		} as never)) as unknown as { history: { data: Promise<unknown> } };
+
+		await expect(result.history.data).rejects.toMatchObject({ status: 403 });
 	});
 });

@@ -6,20 +6,23 @@ import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals, cookies, depends }) => {
 	depends('app:org-core', 'app:onboarding-data');
-	const { data } = await loadWithContext(locals, cookies, params.orgId, {
-		context: createRequestOnboardingWorkspaceContext,
-		policyAction: POLICY_ACTION_CATALOG.onboarding.viewWorkflows,
-		policyResource: { kind: 'unscoped' },
-		fn: (ctx) => fetchOnboardingWorkspace(ctx, { mode: 'history' })
-	});
 	return {
-		history: {
-			onboardings: data.onboardings,
-			personnel: data.personnel,
-			templates: data.onboardingTemplates,
-			groups: data.groups,
-			noteAuthors: data.noteAuthors,
-			archiveRetentionMonths: data.archiveRetentionMonths
-		}
+		history: await loadWithContext(locals, cookies, params.orgId, {
+			context: createRequestOnboardingWorkspaceContext,
+			policyAction: POLICY_ACTION_CATALOG.onboarding.viewWorkflows,
+			policyResource: { kind: 'unscoped' },
+			defer: true,
+			fn: async (ctx) => {
+				const { data } = await fetchOnboardingWorkspace(ctx, { mode: 'history' });
+				return {
+					onboardings: data.onboardings,
+					personnel: data.personnel,
+					templates: data.onboardingTemplates,
+					groups: data.groups,
+					noteAuthors: data.noteAuthors,
+					archiveRetentionMonths: data.archiveRetentionMonths
+				};
+			}
+		})
 	};
 };

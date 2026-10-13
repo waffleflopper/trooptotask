@@ -140,32 +140,44 @@ const packets: PersonnelOnboarding[] = [
 	}
 ];
 
-function renderHistory(
-	overrides: Partial<{
-		onboardings: PersonnelOnboarding[];
-		personnel: Personnel[];
-		archiveRetentionMonths: number | null;
-		noteAuthors: Record<string, string>;
-	}> = {}
-) {
+type HistoryData = {
+	onboardings: PersonnelOnboarding[];
+	personnel: Personnel[];
+	templates: OnboardingTemplate[];
+	groups: Group[];
+	noteAuthors: Record<string, string>;
+	archiveRetentionMonths: number | null;
+};
+
+function historyData(overrides: Partial<HistoryData> = {}): HistoryData {
+	return {
+		onboardings: packets,
+		personnel,
+		templates,
+		groups,
+		noteAuthors: { alvarez: 'SSG Alvarez' },
+		archiveRetentionMonths: 24,
+		...overrides
+	};
+}
+
+function renderStreamed(history: Promise<HistoryData>) {
 	return render(Page, {
 		props: {
 			data: {
 				...createReadyAppShellRouteData({ orgId: 'org-1' }),
 				identitySessionScope: null,
 				session: null,
-				history: {
-					onboardings: packets,
-					personnel,
-					templates,
-					groups,
-					noteAuthors: { alvarez: 'SSG Alvarez' },
-					archiveRetentionMonths: 24,
-					...overrides
-				}
-			}
+				history: { data: history }
+			} as never
 		}
 	});
+}
+
+async function renderHistory(overrides: Partial<HistoryData> = {}) {
+	const view = renderStreamed(Promise.resolve(historyData(overrides)));
+	await screen.findByRole('heading', { name: 'History' });
+	return view;
 }
 
 function rowNames(): string[] {
@@ -184,8 +196,38 @@ async function choose(select: string, option: string) {
 }
 
 describe('onboarding history page', () => {
-	it('lists finished packets newest first and leaves out active ones', () => {
-		renderHistory();
+	it('shows a loading status shaped like the table until the History read resolves, then the page', async () => {
+		let resolve!: (value: HistoryData) => void;
+		renderStreamed(new Promise<HistoryData>((res) => (resolve = res)));
+
+		expect(screen.getByRole('status', { name: 'Loading history' })).toBeTruthy();
+		expect(screen.queryByRole('heading', { name: 'History' })).toBeNull();
+		expect(screen.queryByRole('alert')).toBeNull();
+
+		resolve(historyData());
+
+		expect(await screen.findByRole('heading', { name: 'History' })).toBeTruthy();
+		expect(screen.queryByRole('status')).toBeNull();
+		expect(rowNames()).toHaveLength(5);
+	});
+
+	it('shows the History load error with Retry and never a stuck loading status when the read rejects', async () => {
+		const reload = vi.fn();
+		vi.stubGlobal('location', { ...window.location, reload });
+		const rejected = Promise.reject(new Error('history failed'));
+		rejected.catch(() => {});
+
+		renderStreamed(rejected);
+
+		expect((await screen.findByRole('alert')).textContent).toContain('Unable to load History');
+		expect(screen.queryByRole('status')).toBeNull();
+		expect(screen.queryByRole('heading', { name: 'History' })).toBeNull();
+		await fireEvent.click(screen.getByRole('button', { name: 'Retry History' }));
+		expect(reload).toHaveBeenCalledTimes(1);
+	});
+
+	it('lists finished packets newest first and leaves out active ones', async () => {
+		await renderHistory();
 
 		expect(rowNames()).toEqual([
 			'CPL Cancelled, Drew',
@@ -197,19 +239,19 @@ describe('onboarding history page', () => {
 		expect(screen.getByText('5 · most recent first')).toBeTruthy();
 	});
 
-	it('summarizes the last 90 days in the header and hides parts it cannot support', () => {
-		renderHistory();
+	it('summarizes the last 90 days in the header and hides parts it cannot support', async () => {
+		await renderHistory();
 		expect(screen.getByText(/5 finished in the last 90 days/)).toBeTruthy();
 		expect(screen.getByText(/Typically 13 days to finish/)).toBeTruthy();
 		expect(screen.getByText(/1 cancelled/)).toBeTruthy();
 
 		cleanup();
-		renderHistory({ onboardings: [packets[1]] });
+		await renderHistory({ onboardings: [packets[1]] });
 		expect(screen.queryByText(/Typically/)).toBeNull();
 	});
 
-	it('states the real retention and links to settings only for members who may open them', () => {
-		renderHistory({ archiveRetentionMonths: 24 });
+	it('states the real retention and links to settings only for members who may open them', async () => {
+		await renderHistory({ archiveRetentionMonths: 24 });
 		expect(screen.getByText(/Kept 24 months after finishing/)).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'Organization settings' }).getAttribute('href')).toBe(
 			'/org/org-1/settings/policies'
@@ -217,13 +259,13 @@ describe('onboarding history page', () => {
 
 		cleanup();
 		shell.canOpenSettings = false;
-		renderHistory({ archiveRetentionMonths: 1 });
+		await renderHistory({ archiveRetentionMonths: 1 });
 		expect(screen.getByText(/Kept 1 month after finishing/)).toBeTruthy();
 		expect(screen.queryByRole('link', { name: 'Organization settings' })).toBeNull();
 	});
 
 	it('opens one packet at a time and shows its read-only final packet and notes with authors', async () => {
-		renderHistory();
+		await renderHistory();
 		const triggers = () => screen.getAllByRole('button', { name: /, / });
 
 		await fireEvent.click(triggers()[3]);
@@ -247,8 +289,29 @@ describe('onboarding history page', () => {
 		expect(screen.getByText('No notes on this packet.')).toBeTruthy();
 	});
 
+	it('links every row to its own content panel, collapsed and expanded', async () => {
+		await renderHistory();
+		const triggers = () => screen.getAllByRole('button', { name: /, / });
+		const panelOf = (index: number) => {
+			const id = triggers()[index].getAttribute('aria-controls');
+			return id ? document.getElementById(id) : null;
+		};
+
+		for (let index = 0; index < 5; index += 1) expect(panelOf(index)).not.toBeNull();
+		expect(new Set(triggers().map((_, index) => panelOf(index))).size).toBe(5);
+		expect(panelOf(3)?.getAttribute('data-state')).toBe('closed');
+		expect(panelOf(3)?.textContent).toBe('');
+
+		await fireEvent.click(triggers()[3]);
+
+		await waitFor(() => expect(panelOf(3)?.getAttribute('data-state')).toBe('open'));
+		expect(panelOf(3)?.textContent).toContain('Issue badge');
+		expect(panelOf(1)?.getAttribute('data-state')).toBe('closed');
+		expect(panelOf(1)?.textContent).toBe('');
+	});
+
 	it('filters by outcome, search, Group and Template and offers a way back from an empty result', async () => {
-		renderHistory();
+		await renderHistory();
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Cancelled' }));
 		expect(rowNames()).toEqual(['CPL Cancelled, Drew']);
@@ -269,8 +332,8 @@ describe('onboarding history page', () => {
 		expect(rowNames()).toEqual(['PFC Fast, Finn', 'SGT Complete, Casey']);
 	});
 
-	it('explains an Organization with no finished packets', () => {
-		renderHistory({ onboardings: [packets[5]] });
+	it('explains an Organization with no finished packets', async () => {
+		await renderHistory({ onboardings: [packets[5]] });
 
 		expect(screen.getByText('No finished packets yet')).toBeTruthy();
 		expect(screen.queryByText(/Kept \d+ months?/)).toBeNull();
@@ -278,7 +341,7 @@ describe('onboarding history page', () => {
 
 	it('links back to Active onboarding from the row and from More', async () => {
 		const widths = stubToolbarWidths();
-		renderHistory();
+		await renderHistory();
 
 		const row = within(screen.getByRole('toolbar', { name: 'Onboarding history controls' }));
 		expect(row.getByRole('link', { name: 'Active onboarding' }).getAttribute('href')).toBe('/org/org-1/onboarding');
@@ -290,8 +353,8 @@ describe('onboarding history page', () => {
 		await waitFor(() => expect(gotoMock).toHaveBeenCalledWith('/org/org-1/onboarding'));
 	});
 
-	it('keeps archived personnel visible and does not render its own main landmark', () => {
-		renderHistory({
+	it('keeps archived personnel visible and does not render its own main landmark', async () => {
+		await renderHistory({
 			onboardings: [packets[0]],
 			personnel: [{ ...personnel[0], archivedAt: '2026-03-01T00:00:00Z' }]
 		});

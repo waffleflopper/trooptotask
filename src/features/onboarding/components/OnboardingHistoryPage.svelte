@@ -186,10 +186,6 @@
 	}
 </script>
 
-<svelte:head>
-	<title>Onboarding History - Troop to Task</title>
-</svelte:head>
-
 {#snippet subtitle()}
 	{#each subtitleParts as part, index (part)}
 		{#if index > 0}&nbsp;&middot;&nbsp;{/if}{part}
@@ -250,13 +246,13 @@
 				<OnboardingPacketList.Root bind:value={expandedId}>
 					<OnboardingPacketList.Header />
 					{#each visibleRows as row (row.packet.id)}
-						{@const notes = packetNotes(row.packet)}
 						<OnboardingPacketList.Item value={row.packet.id}>
 							<OnboardingPacketList.Trigger>
 								<OnboardingPacketList.Summary {...summaryOf(row)} />
 							</OnboardingPacketList.Trigger>
-							{#if openId === row.packet.id}
-								<OnboardingPacketList.Content>
+							<OnboardingPacketList.Content>
+								{#if openId === row.packet.id}
+									{@const notes = packetNotes(row.packet)}
 									<OnboardingPacketList.Steps steps={finalSteps(row.packet)} />
 									<OnboardingPacketList.Notes
 										notes={notes.map((note) => ({
@@ -264,8 +260,8 @@
 											byline: noteByline(note.stepName, note.userId, note.timestamp)
 										}))}
 									/>
-								</OnboardingPacketList.Content>
-							{/if}
+								{/if}
+							</OnboardingPacketList.Content>
 						</OnboardingPacketList.Item>
 					{/each}
 				</OnboardingPacketList.Root>

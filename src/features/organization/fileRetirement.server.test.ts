@@ -77,9 +77,56 @@ describe('scheduled retired file drain', () => {
 			}))
 		);
 
-		await expect(drainRetiredOrganizationFiles(model.admin)).resolves.toEqual({ removed: 150, failed: 0 });
+		await expect(drainRetiredOrganizationFiles(model.admin)).resolves.toEqual({
+			removed: 150,
+			failed: 0,
+			limitReached: false
+		});
 		expect(model.pendingCount()).toBe(0);
 		expect(model.objects.size).toBe(0);
+	});
+
+	it('bounds one pass and finishes the remaining keys of both buckets on later passes', async () => {
+		const model = committedSqlModel(
+			Array.from({ length: 1201 }, (_, index) => ({
+				bucket: index % 2 ? 'counseling-files' : 'personnel-documents',
+				name: `org-1/key-${index}.pdf`
+			}))
+		);
+
+		await expect(drainRetiredOrganizationFiles(model.admin)).resolves.toEqual({
+			removed: 1000,
+			failed: 0,
+			limitReached: true
+		});
+		expect(model.pendingCount()).toBe(201);
+		expect(model.objects.size).toBe(201);
+
+		await expect(drainRetiredOrganizationFiles(model.admin)).resolves.toEqual({
+			removed: 201,
+			failed: 0,
+			limitReached: false
+		});
+		expect(model.pendingCount()).toBe(0);
+		expect(model.objects.size).toBe(0);
+	});
+
+	it('reports the limit after exactly one full budget and clears it once nothing is left', async () => {
+		const model = committedSqlModel(
+			Array.from({ length: 1000 }, (_, index) => ({ bucket: 'personnel-documents', name: `org-1/key-${index}.pdf` }))
+		);
+
+		await expect(drainRetiredOrganizationFiles(model.admin)).resolves.toEqual({
+			removed: 1000,
+			failed: 0,
+			limitReached: true
+		});
+		expect(model.pendingCount()).toBe(0);
+		await expect(drainRetiredOrganizationFiles(model.admin)).resolves.toEqual({
+			removed: 0,
+			failed: 0,
+			limitReached: false
+		});
 	});
 
 	it('removes the rest of a page when one key cannot be removed', async () => {
@@ -90,7 +137,11 @@ describe('scheduled retired file drain', () => {
 		]);
 		model.state.unavailableKeys.add('personnel-documents/org-1/unavailable.pdf');
 
-		await expect(drainRetiredOrganizationFiles(model.admin)).resolves.toEqual({ removed: 2, failed: 1 });
+		await expect(drainRetiredOrganizationFiles(model.admin)).resolves.toEqual({
+			removed: 2,
+			failed: 1,
+			limitReached: false
+		});
 		expect([
 			model.stateOf('personnel-documents', 'org-1/first.pdf'),
 			model.stateOf('personnel-documents', 'org-1/unavailable.pdf'),
@@ -102,7 +153,11 @@ describe('scheduled retired file drain', () => {
 	it('completes a key whose bytes are already absent', async () => {
 		const model = committedSqlModel([{ bucket: 'counseling-files', name: 'org-1/absent.pdf', stored: false }]);
 
-		await expect(drainRetiredOrganizationFiles(model.admin)).resolves.toEqual({ removed: 1, failed: 0 });
+		await expect(drainRetiredOrganizationFiles(model.admin)).resolves.toEqual({
+			removed: 1,
+			failed: 0,
+			limitReached: false
+		});
 		expect(model.stateOf('counseling-files', 'org-1/absent.pdf')).toBe('removed');
 	});
 
@@ -110,12 +165,20 @@ describe('scheduled retired file drain', () => {
 		const model = committedSqlModel([{ bucket: 'personnel-documents', name: 'org-1/retry.pdf' }]);
 		model.state.completionUnavailable = true;
 
-		await expect(drainRetiredOrganizationFiles(model.admin)).resolves.toEqual({ removed: 0, failed: 1 });
+		await expect(drainRetiredOrganizationFiles(model.admin)).resolves.toEqual({
+			removed: 0,
+			failed: 1,
+			limitReached: false
+		});
 		expect(model.stateOf('personnel-documents', 'org-1/retry.pdf')).toBe('pending');
 		expect(model.objects.size).toBe(0);
 
 		model.state.completionUnavailable = false;
-		await expect(drainRetiredOrganizationFiles(model.admin)).resolves.toEqual({ removed: 1, failed: 0 });
+		await expect(drainRetiredOrganizationFiles(model.admin)).resolves.toEqual({
+			removed: 1,
+			failed: 0,
+			limitReached: false
+		});
 		expect(model.stateOf('personnel-documents', 'org-1/retry.pdf')).toBe('removed');
 	});
 
@@ -126,7 +189,11 @@ describe('scheduled retired file drain', () => {
 		]);
 		model.state.unavailableKeys.add('counseling-files/org-1/same.pdf');
 
-		await expect(drainRetiredOrganizationFiles(model.admin)).resolves.toEqual({ removed: 1, failed: 1 });
+		await expect(drainRetiredOrganizationFiles(model.admin)).resolves.toEqual({
+			removed: 1,
+			failed: 1,
+			limitReached: false
+		});
 		expect([
 			model.stateOf('personnel-documents', 'org-1/same.pdf'),
 			model.stateOf('counseling-files', 'org-1/same.pdf')

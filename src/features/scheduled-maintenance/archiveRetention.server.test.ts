@@ -14,7 +14,7 @@ function buildPorts() {
 		personnel: { deleteExpired: vi.fn(async (_orgId: string, _cutoff: string) => 0) },
 		criticalTasks: { deleteExpired: vi.fn(async (_orgId: string, _cutoff: string) => 0) },
 		assignmentTypes: { deleteExpired: vi.fn(async (_orgId: string, _cutoff: string) => 0) },
-		files: { drainRetiredFiles: vi.fn(async () => ({ removed: 0, failed: 0 })) },
+		files: { drainRetiredFiles: vi.fn(async () => ({ removed: 0, failed: 0, limitReached: false })) },
 		notifications: {
 			notifyAdmins: vi.fn(
 				async (
@@ -57,7 +57,7 @@ describe('Scheduled Maintenance archive dispatch', () => {
 				{ key: 'critical-tasks', table: 'ict_tasks', label: 'Critical Tasks library', deletedCount: 7 },
 				{ key: 'assignment-types', table: 'assignment_types', label: 'Assignment Types', deletedCount: 8 }
 			],
-			files: { removed: 0, failed: 0 }
+			files: { removed: 0, failed: 0, limitReached: false }
 		});
 		const [organization, link, payload] = ports.notifications.notifyAdmins.mock.calls[0];
 		expect([organization, link, payload.type]).toEqual(['org-a', null, 'archive_auto_deleted']);
@@ -149,7 +149,7 @@ describe('Scheduled Maintenance archive dispatch', () => {
 	it('drains queued file cleanup after an unrelated family fails, then reports that failure', async () => {
 		const ports = buildPorts();
 		ports.criticalTasks.deleteExpired.mockRejectedValue(new Error('library retention unavailable'));
-		ports.files.drainRetiredFiles.mockResolvedValue({ removed: 3, failed: 1 });
+		ports.files.drainRetiredFiles.mockResolvedValue({ removed: 3, failed: 1, limitReached: false });
 		await expect(cleanupArchivedRecords(ports, [{ id: 'org-a' }], { now })).rejects.toThrow(
 			'library retention unavailable'
 		);
@@ -160,21 +160,23 @@ describe('Scheduled Maintenance archive dispatch', () => {
 		const ports = buildPorts();
 		const order: string[] = [];
 		ports.personnel.deleteExpired.mockImplementation(async () => (order.push('personnel'), 2));
-		ports.files.drainRetiredFiles.mockImplementation(async () => (order.push('files'), { removed: 4, failed: 1 }));
+		ports.files.drainRetiredFiles.mockImplementation(
+			async () => (order.push('files'), { removed: 4, failed: 1, limitReached: true })
+		);
 		await expect(cleanupArchivedRecords(ports, [{ id: 'org-a' }], { now })).resolves.toMatchObject({
 			deletedCount: 2,
-			files: { removed: 4, failed: 1 }
+			files: { removed: 4, failed: 1, limitReached: true }
 		});
 		expect(order).toEqual(['personnel', 'files']);
 	});
 
 	it('does not run owners or emit summaries without Organizations but still drains queued files', async () => {
 		const ports = buildPorts();
-		ports.files.drainRetiredFiles.mockResolvedValue({ removed: 2, failed: 0 });
+		ports.files.drainRetiredFiles.mockResolvedValue({ removed: 2, failed: 0, limitReached: false });
 		await expect(cleanupArchivedRecords(ports, [], { now })).resolves.toMatchObject({
 			deletedCount: 0,
 			orgsAffected: 0,
-			files: { removed: 2, failed: 0 }
+			files: { removed: 2, failed: 0, limitReached: false }
 		});
 		for (const source of sources(ports)) expect(source).not.toHaveBeenCalled();
 		expect(ports.notifications.notifyAdmins).not.toHaveBeenCalled();

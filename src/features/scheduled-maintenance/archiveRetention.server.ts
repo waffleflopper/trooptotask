@@ -3,6 +3,7 @@ import type { PersonnelArtifactRetentionSource, PersonnelRetentionSource } from 
 import type { AssignmentTypeRetentionSource } from '$features/calendar/index.server';
 import type { CriticalTaskRetentionSource } from '$features/critical-tasks/index.server';
 import type { OrganizationRetentionConfiguration } from '$features/organization/contracts';
+import type { RetiredFileDrainResult } from '$features/organization/index.server';
 import { retentionCutoff } from '$lib/utils/retentionCutoff';
 import { DEFAULT_ARCHIVE_RETENTION_MONTHS } from '$features/organization/contracts';
 
@@ -19,7 +20,7 @@ export interface ArchiveRetentionCleanupResult {
 	deletedCount: number;
 	orgsAffected: number;
 	families: ArchiveRetentionFamilyResult[];
-	files: { removed: number; failed: number };
+	files: RetiredFileDrainResult;
 }
 
 interface ArchiveRetentionPorts {
@@ -27,7 +28,7 @@ interface ArchiveRetentionPorts {
 	artifacts: PersonnelArtifactRetentionSource;
 	personnel: PersonnelRetentionSource;
 	assignmentTypes: AssignmentTypeRetentionSource;
-	files: { drainRetiredFiles(): Promise<{ removed: number; failed: number }> };
+	files: { drainRetiredFiles(): Promise<RetiredFileDrainResult> };
 	notifications: Pick<NotificationDeliveryPort, 'notifyAdmins'>;
 }
 

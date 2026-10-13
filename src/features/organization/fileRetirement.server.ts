@@ -38,12 +38,18 @@ export async function removeRetiredOrganizationFiles(
 	return cleanup;
 }
 
+export interface RetiredFileDrainResult {
+	removed: number;
+	failed: number;
+	/** The page budget ended on a full page, so more keys may be pending. It is not proof that any remain. */
+	limitReached: boolean;
+}
+
 /** One bounded scheduled pass. Overlapping passes converge without a lease. */
-export async function drainRetiredOrganizationFiles(
-	admin: SupabaseClient
-): Promise<{ removed: number; failed: number }> {
+export async function drainRetiredOrganizationFiles(admin: SupabaseClient): Promise<RetiredFileDrainResult> {
 	let removed = 0;
 	let failed = 0;
+	let limitReached = false;
 	for (let page = 0; page < DRAIN_MAX_PAGES; page++) {
 		const listed = await admin.rpc('list_pending_organization_file_retirements', { p_limit: DRAIN_PAGE_SIZE });
 		if (listed.error) throw new Error('Pending file cleanup could not be listed');
@@ -61,6 +67,7 @@ export async function drainRetiredOrganizationFiles(
 			if (pageRemoved === 0) break;
 		}
 		if (files.length < DRAIN_PAGE_SIZE) break;
+		limitReached = page === DRAIN_MAX_PAGES - 1;
 	}
-	return { removed, failed };
+	return { removed, failed, limitReached };
 }

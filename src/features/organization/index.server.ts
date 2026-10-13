@@ -42,6 +42,7 @@ export { registerOrganizationFileUpload } from './fileUploadRegistration.server'
 export {
 	drainRetiredOrganizationFiles,
 	removeRetiredOrganizationFiles,
+	type RetiredFileDrainResult,
 	type RetiredOrganizationFile
 } from './fileRetirement.server';
 

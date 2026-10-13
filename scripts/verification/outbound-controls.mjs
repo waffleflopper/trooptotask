@@ -277,8 +277,13 @@ export function createProviderFaultController({ providerUrl, fetch: originalFetc
 		control.call = { method: request.method, path: request.url.pathname };
 		if (entry.afterCommit) {
 			const committed = await originalFetch(input, init);
-			await committed.arrayBuffer();
 			control.call.providerStatus = committed.status;
+			// Only a committed write can lose its reply; a provider failure stays visible.
+			if (!committed.ok) {
+				control.phase = 'provider-failed';
+				return committed;
+			}
+			await committed.arrayBuffer();
 		}
 		return json(503, {
 			code: 'T2T_VERIFY_PROVIDER_FAULT',

@@ -340,6 +340,20 @@ test('a lost-acknowledgment fault lets the provider commit, then replaces its re
 	assert.equal(await (await control.fetch(...create)).text(), 'real');
 });
 
+test('a lost-acknowledgment fault returns a failed provider reply unchanged', async () => {
+	const control = createProviderFaultController({
+		providerUrl,
+		fetch: async () => new Response('{"message":"provider rejected"}', { status: 409 })
+	});
+	control.command('fault-arm', { name: 'setup-finalize-lost-ack' });
+	const response = await control.fetch(...providerInput('rpc/complete_account_setup_recovery', { method: 'POST' }));
+	assert.equal(response.status, 409);
+	assert.equal(await response.text(), '{"message":"provider rejected"}');
+	const receipt = control.command('fault-state').controls['setup-finalize-lost-ack'];
+	assert.equal(receipt.phase, 'provider-failed');
+	assert.equal(receipt.call.providerStatus, 409);
+});
+
 test('a pre-commit org-create fault never reaches the provider; other writes pass', async () => {
 	const { control, passed } = faults();
 	control.command('fault-arm', { name: 'org-create' });

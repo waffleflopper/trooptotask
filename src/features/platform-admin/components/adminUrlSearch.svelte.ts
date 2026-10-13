@@ -16,9 +16,13 @@ export function createAdminUrlSearch(
 
 	onDestroy(() => clearTimeout(timer));
 
+	$effect.pre(() => {
+		if (draft && !typing && committed() !== draft.base) draft = null;
+	});
+
 	return {
 		get value() {
-			return draft && (typing || committed() === draft.base) ? draft.text : committed();
+			return draft ? draft.text : committed();
 		},
 		setValue(next) {
 			draft = { text: next, base: committed() };

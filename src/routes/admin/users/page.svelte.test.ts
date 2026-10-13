@@ -110,4 +110,16 @@ describe('users toolbar', () => {
 		await view.rerender({ data: usersData({ search: '' }) });
 		expect(searchbox().value).toBe('');
 	});
+
+	it('follows the URL back to an empty search after a committed search lands', async () => {
+		const view = render(UsersPage, { data: usersData() });
+		await fireEvent.input(searchbox(), { target: { value: 'abc' } });
+		await vi.advanceTimersByTimeAsync(300);
+		expect(goto).toHaveBeenLastCalledWith('/admin/users?search=abc&page=1', { keepFocus: true });
+
+		await view.rerender({ data: usersData({ search: 'abc' }) });
+		expect(searchbox().value).toBe('abc');
+		await view.rerender({ data: usersData({ search: '' }) });
+		expect(searchbox().value).toBe('');
+	});
 });

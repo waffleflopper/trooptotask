@@ -195,6 +195,27 @@ describe('admin organizations page', () => {
 		}
 	});
 
+	it('follows the URL back to an empty search and keeps it out of a later Status change', async () => {
+		vi.useFakeTimers();
+		try {
+			const pagination = { page: 1, pageSize: 25, totalCount: 90, totalPages: 4, q: '', status: 'all' };
+			const view = renderOrganizationsPage({ pagination });
+			await fireEvent.input(screen.getByRole('searchbox', { name: 'Search' }), { target: { value: 'abc' } });
+			await vi.advanceTimersByTimeAsync(300);
+			expect(goto).toHaveBeenLastCalledWith('/admin/organizations?page=1&pageSize=25&q=abc', { keepFocus: true });
+
+			await view.rerender({ data: organizationsData({ pagination: { ...pagination, q: 'abc' } }) });
+			await view.rerender({ data: organizationsData({ pagination }) });
+			expect(screen.getByRole('searchbox', { name: 'Search' })).toHaveProperty('value', '');
+		} finally {
+			vi.useRealTimers();
+		}
+		await chooseOption(screen.getByRole('button', { name: 'Status' }), 'Suspended');
+		expect(goto).toHaveBeenLastCalledWith('/admin/organizations?page=1&pageSize=25&status=suspended', {
+			keepFocus: true
+		});
+	});
+
 	it('changes a filter folded into More from its submenu and keeps it reachable by name', async () => {
 		const toolbarWidths = stubToolbarWidths();
 		renderOrganizationsPage({

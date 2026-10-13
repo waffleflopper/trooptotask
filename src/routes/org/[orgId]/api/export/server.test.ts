@@ -124,11 +124,16 @@ describe('POST /api/export', () => {
 	);
 
 	it.each([
-		{ label: 'ordinary member', scopeSet: { kind: 'organization' as const } },
-		{ label: 'Group-scoped member', scopeSet: { kind: 'groups' as const, groupIds: ['alpha'] } }
-	])('rejects $label without exporting or creating lifecycle records', async ({ scopeSet }) => {
+		{ label: 'ordinary member', scopeSet: { kind: 'organization' as const }, canManageMembers: false },
+		{
+			label: 'Group-scoped member',
+			scopeSet: { kind: 'groups' as const, groupIds: ['alpha'] },
+			canManageMembers: false
+		},
+		{ label: 'legacy member manager', scopeSet: { kind: 'organization' as const }, canManageMembers: true }
+	])('rejects $label without exporting or creating lifecycle records', async ({ scopeSet, canManageMembers }) => {
 		const ctx = createExportTestContext({
-			auth: { role: 'member', isPrivileged: false, canManageMembers: false, scopeSet }
+			auth: { role: 'member', isPrivileged: false, canManageMembers, scopeSet }
 		});
 		await expect(
 			handleUseCaseRequest(configFor(ctx), ctx, { email: 'member@example.com' }, () => ctx)
@@ -284,11 +289,11 @@ describe('POST /api/export', () => {
 		expect(configFor(createTestContext()).policyResource).toEqual({ kind: 'organization' });
 	});
 
-	it('allows delegated member managers to export organization data', async () => {
+	it('allows admins without feature capabilities to export organization data', async () => {
 		const ctx = createExportTestContext({
 			auth: {
-				role: 'member',
-				isPrivileged: false,
+				role: 'admin',
+				isPrivileged: true,
 				canManageMembers: true,
 				capabilityMap: {
 					calendar: 'none',
@@ -312,7 +317,7 @@ describe('POST /api/export', () => {
 			configFor(ctx),
 			ctx,
 			{
-				email: 'member-manager@example.com'
+				email: 'admin@example.com'
 			},
 			() => ctx
 		);

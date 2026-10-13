@@ -11,7 +11,7 @@ An Organization Onboarding configurator defines reusable checklists with checkbo
 
 ## How to get to it (user POV)
 
-Choose `Onboard` in Organization navigation, then `Templates`. Select a template in the list; use `Add Template`, the named edit/duplicate/delete buttons, and `Add Step`. `Onboarding` returns to the packet workspace; `History` opens retained packets. The direct `onboarding/templates` route requires configuration authority; view/operate members read shared definitions through the ordinary Onboarding workspace and its template labels instead.
+Choose `Onboard` in Organization navigation, then `Templates`. Select a template in the list; use `Add Template`, the named edit/duplicate/delete buttons, and `Add Step`. The `Onboarding template controls` toolbar holds `Onboarding` and `Add Template`; the selected template's `Onboarding template detail controls` toolbar holds `Edit`, and below 1024 it shows only after a template row is chosen. `Onboarding` returns to the packet workspace; `History` opens retained packets. The direct `onboarding/templates` route requires configuration authority; view/operate members read shared definitions through the ordinary Onboarding workspace and its template labels instead.
 
 ## Driving it with verify:app
 

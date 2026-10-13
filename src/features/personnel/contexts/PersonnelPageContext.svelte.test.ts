@@ -109,6 +109,18 @@ describe('PersonnelPageContext', () => {
 			expect(ctx.canArchivePersonnelRecord(makePerson({ groupId: null }))).toBe(false);
 		});
 
+		it('offers Manage Groups only to an Organization-wide Personnel configurer', () => {
+			const configurer = (scopeSet: ClientAccessFacts['scopeSet']) =>
+				new PersonnelPageContext(
+					makeData(),
+					makeModals(),
+					createClientAccess({ membershipRole: 'member', capabilityMap: createCapabilityMap('configure'), scopeSet })
+				);
+
+			expect(configurer({ kind: 'organization' }).canManageGroups).toBe(true);
+			expect(configurer({ kind: 'groups', groupIds: ['g1'] }).canManageGroups).toBe(false);
+		});
+
 		it('keeps add/import/group affordances separate from existing-record edits', () => {
 			const ctx = new PersonnelPageContext(
 				makeData(),

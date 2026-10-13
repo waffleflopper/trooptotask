@@ -80,8 +80,10 @@ function seedPersonnel(store: ReturnType<typeof createInMemoryDataStore>) {
 }
 
 describe('loadPersonnelWorkspace', () => {
-	it('returns the full same-Organization Group catalog in saved order', async () => {
-		const ctx = createQueryWithRawStorePortsContext({ auth: { scopeSet: { kind: 'groups', groupIds: ['g1'] } } });
+	it('returns the full same-Organization Group catalog in saved order to an Organization-wide member', async () => {
+		const ctx = createQueryWithRawStorePortsContext({
+			auth: { role: 'member', isPrivileged: false, scopeSet: { kind: 'organization' } }
+		});
 		seedPersonnel(ctx.store);
 		ctx.store.seed('groups', [
 			{ id: 'g0', organization_id: ORG, name: 'Earlier', sort_order: -1 },
@@ -91,7 +93,46 @@ describe('loadPersonnelWorkspace', () => {
 		const result = (await loadPersonnelWorkspace(ctx, sourcesFor(ctx))).data;
 
 		expect(result.groups.map((group) => group.name)).toEqual(['Earlier', 'Alpha', 'Bravo']);
-		expect(result.personnel.map((person) => person.id)).toEqual(['p1']);
+	});
+
+	it('returns only the Groups and pinned names in a Group-scoped member\'s scope', async () => {
+		const ctx = createQueryWithRawStorePortsContext({ auth: { scopeSet: { kind: 'groups', groupIds: ['g1'] } } });
+		seedPersonnel(ctx.store);
+		ctx.store.seed('groups', [{ id: 'g0', organization_id: ORG, name: 'Earlier', sort_order: -1 }]);
+		ctx.store.seed('user_pinned_groups', [
+			{ id: 'pg2', organization_id: ORG, user_id: 'test-user', group_name: 'Bravo', sort_order: 1 },
+			{ id: 'pg3', organization_id: ORG, user_id: 'test-user', group_name: 'Earlier', sort_order: 2 }
+		]);
+
+		const { data, hydration } = await loadPersonnelWorkspace(ctx, sourcesFor(ctx));
+
+		expect(data.groups).toEqual([{ id: 'g1', name: 'Alpha', sortOrder: 0 }]);
+		expect(hydration.groups.items).toEqual([{ id: 'g1', name: 'Alpha', sortOrder: 0 }]);
+		expect(data.pinnedGroups).toEqual(['Alpha']);
+		expect(hydration.pinnedGroups.items).toEqual(['Alpha']);
+		expect(data.personnel.map((person) => person.id)).toEqual(['p1']);
+	});
+
+	it('returns no Groups or pinned names to an empty Group scope', async () => {
+		const ctx = createQueryWithRawStorePortsContext({ auth: { scopeSet: { kind: 'groups', groupIds: [] } } });
+		seedPersonnel(ctx.store);
+
+		const result = (await loadPersonnelWorkspace(ctx, sourcesFor(ctx))).data;
+
+		expect([result.groups, result.pinnedGroups, result.personnel]).toEqual([[], [], []]);
+	});
+
+	it('drops a stale pin that names no current Group', async () => {
+		const ctx = createQueryWithRawStorePortsContext();
+		seedPersonnel(ctx.store);
+		ctx.store.seed('user_pinned_groups', [
+			{ id: 'pg2', organization_id: ORG, user_id: 'test-user', group_name: 'Deleted', sort_order: 1 },
+			{ id: 'pg3', organization_id: ORG, user_id: 'test-user', group_name: 'Bravo', sort_order: 2 }
+		]);
+
+		const result = (await loadPersonnelWorkspace(ctx, sourcesFor(ctx))).data;
+
+		expect(result.pinnedGroups).toEqual(['Alpha', 'Bravo']);
 	});
 
 	it('returns scoped personnel plus a minimal lookup projection for an unscoped member', async () => {

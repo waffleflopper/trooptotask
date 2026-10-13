@@ -326,6 +326,33 @@ describe('Critical Tasks report queries', () => {
 		});
 	});
 
+	it('limits the report Group choices to a Group-scoped viewer\'s scope', async () => {
+		const ctx = createTestContext({
+			auth: {
+				scopeSet: { kind: 'groups', groupIds: ['group-alpha'] },
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'view',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		ctx.store.seed('organizations', [{ id: ctx.auth.orgId, critical_tasks_default_expiration_months: 12 }]);
+		ctx.store.seed('groups', [
+			{ id: 'group-alpha', organization_id: ctx.auth.orgId, name: 'Alpha', sort_order: 0 },
+			{ id: 'group-bravo', organization_id: ctx.auth.orgId, name: 'Bravo', sort_order: 1 }
+		]);
+
+		const pageModel = await fetchCriticalTasksReportsPageModel(ctx, { asOf: '2026-04-15' });
+
+		expect(pageModel.reportScope.groups).toEqual([{ id: 'group-alpha', name: 'Alpha' }]);
+	});
+
 	it('builds the reports page model from one server-shaped report scope', async () => {
 		const ctx = createTestContext();
 		ctx.store.seed('organizations', [

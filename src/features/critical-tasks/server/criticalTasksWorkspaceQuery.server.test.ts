@@ -116,14 +116,7 @@ describe('criticalTasksWorkspaceQuery', () => {
 				groupName: 'Alpha'
 			})
 		]);
-		await expect(bootstrap.groups).resolves.toEqual([
-			expect.objectContaining({
-				id: 'group-alpha',
-				name: 'Alpha',
-				sortOrder: 0
-			}),
-			expect.objectContaining({ id: 'group-bravo', name: 'Bravo', sortOrder: 1 })
-		]);
+		await expect(bootstrap.groups).resolves.toEqual([{ id: 'group-alpha', name: 'Alpha', sortOrder: 0 }]);
 		await expect(bootstrap.ictTasks).resolves.toEqual([
 			expect.objectContaining({
 				id: 'task-1',

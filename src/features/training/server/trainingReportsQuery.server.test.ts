@@ -231,6 +231,9 @@ describe('Training briefing report', () => {
 		expect(report.briefing.bottomLine.soldierCount).toBe(2);
 		expect(report.briefing.grid.rows.map((row) => row.key)).toEqual(['alpha']);
 		expect(report.filterOptions.mos).toEqual(['68W']);
+		expect(report.filterOptions.groups).toEqual([{ id: 'alpha', name: 'Alpha' }]);
+		const hiddenGroup = await fetchTrainingBriefingReport(ctx, input({ groupId: 'bravo' }));
+		expect([hiddenGroup.input.groupId, hiddenGroup.briefing.bottomLine.scopeName]).toEqual([null, 'Test Company']);
 		await expect(
 			fetchTrainingBriefingDetail(ctx, {
 				report: input(),

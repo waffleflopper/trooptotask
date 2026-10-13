@@ -404,7 +404,23 @@ describe('fetchCalendarBootstrap', () => {
 		const result = await fetchCalendarBootstrap(ctx, RANGE);
 
 		expect(result.groups).toEqual([]);
+		expect(result.pinnedGroups).toEqual([]);
 		expect(result.personnel).toEqual([]);
+	});
+
+	it.each([
+		['bootstrap', fetchCalendarBootstrap],
+		['page', fetchCalendarData]
+	] as const)('returns only in-scope pinned Group names on the %s read', async (_read, read) => {
+		const ctx = buildCtx({ auth: { role: 'member', isPrivileged: false, scopeSet: { kind: 'groups', groupIds: ['g1'] } } });
+		seedCalendarData(ctx.store);
+		ctx.store.seed('user_pinned_groups', [
+			{ id: 'pg2', organization_id: ORG, user_id: 'test-user', group_name: 'Bravo', sort_order: 1 }
+		]);
+
+		const result = await read(ctx, RANGE);
+
+		expect(result.pinnedGroups).toEqual(['Alpha']);
 	});
 
 	it.each([0, null, 'failure'] as const)(

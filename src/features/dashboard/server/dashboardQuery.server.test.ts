@@ -164,7 +164,7 @@ describe('fetchDashboardBootstrap', () => {
 		expect(result.trainingTypes[1]).toMatchObject({ name: 'Annual', sortOrder: 2, appliesToMos: ['68W'] });
 	});
 
-	it('keeps the full same-Organization Group catalog beside scoped Personnel facts', async () => {
+	it('returns only in-scope Groups and pinned names beside scoped Personnel facts', async () => {
 		const ctx = buildCtx({ auth: { scopeSet: { kind: 'groups', groupIds: ['g1'] } } });
 		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
 		store.seed('groups', [
@@ -176,11 +176,29 @@ describe('fetchDashboardBootstrap', () => {
 			{ id: 'p1', organization_id: ORG, group_id: 'g1', archived_at: null },
 			{ id: 'p2', organization_id: ORG, group_id: 'g2', archived_at: null }
 		]);
+		store.seed('user_pinned_groups', [
+			{ id: 'pin-bravo', organization_id: ORG, user_id: USER, group_name: 'Bravo', sort_order: 0 },
+			{ id: 'pin-alpha', organization_id: ORG, user_id: USER, group_name: 'Alpha', sort_order: 1 }
+		]);
+
+		const result = await fetchDashboardBootstrap(ctx);
+
+		expect(result.groups).toEqual([{ id: 'g1', name: 'Alpha', sortOrder: 0 }]);
+		expect(result.pinnedGroups).toEqual(['Alpha']);
+		expect(result.personnel.map((person) => person.id)).toEqual(['p1']);
+	});
+
+	it('keeps the full Group catalog for an Organization-wide member', async () => {
+		const ctx = buildCtx({ auth: { role: 'member', isPrivileged: false, scopeSet: { kind: 'organization' } } });
+		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
+		store.seed('groups', [
+			{ id: 'g1', organization_id: ORG, name: 'Alpha', sort_order: 0 },
+			{ id: 'g2', organization_id: ORG, name: 'Bravo', sort_order: 1 }
+		]);
 
 		const result = await fetchDashboardBootstrap(ctx);
 
 		expect(result.groups.map((group) => group.name)).toEqual(['Alpha', 'Bravo']);
-		expect(result.personnel.map((person) => person.id)).toEqual(['p1']);
 	});
 
 	it.each([0, null] as const)('preserves configured zero and missing-setting defaults (%s)', async (value) => {

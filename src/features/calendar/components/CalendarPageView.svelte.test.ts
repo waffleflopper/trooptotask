@@ -14,6 +14,8 @@ import { calendarStore } from '../stores/calendar.svelte';
 import { groupsStore } from '$features/personnel';
 import type { Personnel } from '$features/personnel/contracts';
 
+const gotoMock = vi.hoisted(() => vi.fn());
+
 const exportMocks = vi.hoisted(() => ({
 	exportMonthToExcel: vi.fn(),
 	printMonthCalendar: vi.fn(),
@@ -22,6 +24,10 @@ const exportMocks = vi.hoisted(() => ({
 }));
 
 vi.mock('$features/calendar/utils/calendarExport', () => exportMocks);
+vi.mock('$app/navigation', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$app/navigation')>()),
+	goto: gotoMock
+}));
 
 vi.mock('$features/calendar/stores/availability.svelte', () => ({
 	availabilityStore: { items: [], loading: false, load: vi.fn() }
@@ -273,6 +279,36 @@ describe('CalendarPageView', () => {
 		await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Export to Excel' }));
 		await waitFor(() => expect(exportMocks.exportMonthToExcel).toHaveBeenCalledTimes(1));
 		expect(exportMocks.exportMonthToExcel.mock.calls[0].slice(0, 2)).toEqual([2026, 11]);
+	});
+
+	it('sends Planning, Reports and Settings to their Calendar routes from the row and from More', async () => {
+		mutableAvailabilityStore.loading = false;
+		const layOut = stubWorkspaceToolbarLayout();
+		const ctx = makeContext(mockData, makeMockOrg({ userRole: 'owner' }));
+		render(CalendarPageView, { props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' } } });
+		await layOut(4000);
+
+		expect(within(toolbar()).getByRole('link', { name: 'Reports' }).getAttribute('href')).toBe(
+			'/org/org1/calendar/reports'
+		);
+		expect(within(toolbar()).getByRole('link', { name: 'Settings' }).getAttribute('href')).toBe(
+			'/org/org1/calendar/settings'
+		);
+		await layOut(1);
+
+		await chooseFromMore('Reports');
+		await chooseFromMore('Settings');
+		const menu = await openMore();
+		const planning = within(menu).getByRole('menuitem', { name: 'Planning' });
+		planning.focus();
+		await fireEvent.keyDown(planning, { key: 'ArrowRight' });
+		await fireEvent.click(await screen.findByRole('menuitem', { name: 'Assignment Planner' }));
+
+		expect(gotoMock.mock.calls.map(([href]) => href)).toEqual([
+			'/org/org1/calendar/reports',
+			'/org/org1/calendar/settings',
+			'/org/org1/calendar/assignments'
+		]);
 	});
 
 	it('filters the roster from the folded Group submenu', async () => {

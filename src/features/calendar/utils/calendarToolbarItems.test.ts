@@ -56,6 +56,18 @@ describe('buildCalendarToolbar', () => {
 		]);
 	});
 
+	it('points Planning, Reports and Settings at their Calendar routes', () => {
+		const { items } = buildCalendarToolbar(makeInput({ canManageAssignments: true, canManageConfig: true }));
+		const byId = (id: string) => items.find((item) => item.id === id);
+
+		expect(byId('planning')).toMatchObject({
+			label: 'Planning',
+			menuItems: [{ label: 'Assignment Planner', href: '/org/1-11-bde/calendar/assignments' }]
+		});
+		expect(byId('calendar-reports')).toMatchObject({ label: 'Reports', href: '/org/1-11-bde/calendar/reports' });
+		expect(byId('calendar-settings')).toMatchObject({ label: 'Settings', href: '/org/1-11-bde/calendar/settings' });
+	});
+
 	it('gives a plain viewer Reports, the exports and display toggles, and no primary', () => {
 		const { items, primary } = buildCalendarToolbar(makeInput());
 

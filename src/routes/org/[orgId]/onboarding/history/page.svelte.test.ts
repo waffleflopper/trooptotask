@@ -1,10 +1,17 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import Page from './+page.svelte';
 import type { OnboardingTemplate, PersonnelOnboarding } from '$features/onboarding/contracts';
 import { createReadyAppShellRouteData } from '../../appShell.test-support';
 import type { Personnel } from '$features/personnel/contracts';
+import { openToolbarMore, stubToolbarWidths } from '$lib/test-support/toolbarWidths';
+
+const { gotoMock } = vi.hoisted(() => ({ gotoMock: vi.fn() }));
+vi.mock('$app/navigation', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$app/navigation')>()),
+	goto: gotoMock
+}));
 
 vi.mock('$features/app-shell', () => ({
 	getAppShellContext: () => ({
@@ -16,6 +23,8 @@ vi.mock('$features/app-shell', () => ({
 
 afterEach(() => {
 	cleanup();
+	vi.unstubAllGlobals();
+	gotoMock.mockReset();
 });
 
 function renderHistory(
@@ -36,6 +45,20 @@ function renderHistory(
 }
 
 describe('onboarding history page', () => {
+	it('links back to the Onboarding pipeline from the row and from More', async () => {
+		const widths = stubToolbarWidths();
+		renderHistory([]);
+
+		const row = within(screen.getByRole('toolbar', { name: 'Onboarding history controls' }));
+		expect(row.getByRole('link', { name: 'Onboarding' }).getAttribute('href')).toBe('/org/org-1/onboarding');
+
+		await widths.foldAll();
+		expect(row.queryByRole('link', { name: 'Onboarding' })).toBeNull();
+		const menu = await openToolbarMore('Onboarding history controls');
+		await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Onboarding' }));
+		await waitFor(() => expect(gotoMock).toHaveBeenCalledWith('/org/org-1/onboarding'));
+	});
+
 	it.each([
 		{ currentStage: 'Reviewed', selectedText: 'Step 2: 2 Reviewed' },
 		{ currentStage: 'Archived review', selectedText: null }

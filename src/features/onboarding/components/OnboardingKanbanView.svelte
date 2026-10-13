@@ -6,10 +6,14 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import * as Alert from '$lib/components/ui/alert';
 	import * as Empty from '$lib/components/ui/empty';
+	import {
+		WorkspaceToolbar,
+		type ToolbarItem,
+		type WorkspaceToolbarProps
+	} from '$lib/components/patterns/workspace-toolbar';
 	import * as KanbanBoard from './kanban-board';
 	import ShieldAlert from '@lucide/svelte/icons/shield-alert';
 	import ClipboardList from '@lucide/svelte/icons/clipboard-list';
-	import UserPlus from '@lucide/svelte/icons/user-plus';
 	import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
 	import CircleAlert from '@lucide/svelte/icons/circle-alert';
 	import OnboardingKanbanCard from './OnboardingKanbanCard.svelte';
@@ -65,6 +69,26 @@
 	function handleSheetOpenChange(open: boolean) {
 		if (!open) selectedId = null;
 	}
+
+	const toolbarItems = $derived.by<ToolbarItem[]>(() => {
+		const items: ToolbarItem[] = [{ kind: 'action', id: 'history', label: 'History', href: ctx.historyUrl }];
+		if (ctx.canManageConfig)
+			items.push({ kind: 'action', id: 'templates', label: 'Templates', href: ctx.templatesUrl });
+		return items;
+	});
+
+	const toolbarPrimary = $derived.by<WorkspaceToolbarProps['primary']>(() =>
+		ctx.canManageWorkflows
+			? {
+					kind: 'action',
+					id: 'start-onboarding',
+					label: 'Start Onboarding',
+					icon: 'user-plus',
+					onclick: () => ctx.modals.open(MODAL_IDS.startOnboarding),
+					disabled: !ctx.hasTemplateSteps
+				}
+			: undefined
+	);
 </script>
 
 <div class="flex h-full flex-col bg-background">
@@ -81,28 +105,16 @@
 			</Empty.Root>
 		</div>
 	{:else}
-		<header class="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-3 sm:px-6">
-			<div class="flex items-center gap-3">
-				<h1 class="text-lg font-semibold tracking-tight">Onboarding Pipeline</h1>
-				{#if ctx.filteredOnboardings.length > 0}
-					<Badge variant="secondary">{ctx.filteredOnboardings.length} active</Badge>
-				{/if}
-			</div>
-			<div class="flex flex-wrap items-center gap-2">
-				{#if ctx.canManageConfig}
-					<Button href={ctx.templatesUrl} variant="outline" size="sm">Templates</Button>
-				{/if}
-				<Button href={ctx.historyUrl} variant="outline" size="sm">History</Button>
-				{#if ctx.canManageWorkflows}
-					<Button size="sm" onclick={() => ctx.modals.open(MODAL_IDS.startOnboarding)} disabled={!ctx.hasTemplateSteps}>
-						<UserPlus class="mr-1.5 h-3.5 w-3.5" />
-						Start Onboarding
-					</Button>
-				{/if}
-			</div>
+		<header class="flex shrink-0 items-center gap-3 border-b border-border px-3 py-3 sm:px-6">
+			<h1 class="text-lg font-semibold tracking-tight">Onboarding Pipeline</h1>
+			{#if ctx.filteredOnboardings.length > 0}
+				<Badge variant="secondary">{ctx.filteredOnboardings.length} active</Badge>
+			{/if}
 		</header>
 
 		<div class="flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-3 sm:px-6 sm:py-4">
+			<WorkspaceToolbar ariaLabel="Onboarding controls" items={toolbarItems} primary={toolbarPrimary} />
+
 			{#if !ctx.hasTemplateSteps && ctx.onboardings.length > 0}
 				<Alert.Root variant="warning">
 					<TriangleAlert />

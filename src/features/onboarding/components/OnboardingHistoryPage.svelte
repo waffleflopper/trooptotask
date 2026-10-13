@@ -12,8 +12,7 @@
 		getTemplateDisplayName,
 		STEP_TYPE_LABELS
 	} from '../contexts/OnboardingPageContext.svelte';
-	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar';
-	import type { WorkspaceToolbarNavItem } from '$lib/components/patterns/workspace-toolbar';
+	import { WorkspaceToolbar, type ToolbarItem } from '$lib/components/patterns/workspace-toolbar';
 	import { Badge } from '$lib/components/ui/badge';
 	import * as Empty from '$lib/components/ui/empty';
 	import * as OnboardingPacketList from './packet-list';
@@ -35,8 +34,8 @@
 	} = $props();
 	let expandedOnboardingId = $state<string | null>(null);
 	const expandedNotes = new SvelteSet<string>();
-	const onboardingNavItems = $derived<WorkspaceToolbarNavItem[]>([
-		{ label: 'Onboarding', href: `/org/${orgUrlSegment}/onboarding` }
+	const toolbarItems = $derived<ToolbarItem[]>([
+		{ kind: 'action', id: 'onboarding', label: 'Onboarding', href: `/org/${orgUrlSegment}/onboarding` }
 	]);
 
 	const historyOnboardings = $derived(onboardings.filter((o) => o.status === 'completed' || o.status === 'cancelled'));
@@ -54,11 +53,7 @@
 
 <div class="flex h-full flex-col bg-background">
 	<div class="flex min-h-0 flex-col gap-4 overflow-auto p-3 sm:px-6 sm:py-4">
-		<WorkspaceToolbar.Root ariaLabel="Onboarding history controls">
-			<WorkspaceToolbar.Group label="Onboarding sections">
-				<WorkspaceToolbar.Nav ariaLabel="Onboarding sections" items={onboardingNavItems} />
-			</WorkspaceToolbar.Group>
-		</WorkspaceToolbar.Root>
+		<WorkspaceToolbar ariaLabel="Onboarding history controls" items={toolbarItems} />
 
 		{#if historyOnboardings.length === 0}
 			<Empty.Root>

@@ -9,9 +9,9 @@
 	const uid = $props.id();
 	const headingId = `final-packet-${uid}`;
 
-	function detail(step: FinalStep): string | null {
-		if (step.removed) return step.done ? 'Previously completed' : 'Removed from template';
-		return step.stage;
+	function detail(step: FinalStep): string {
+		const removal = step.removed ? (step.done ? 'Previously completed' : 'Removed from template') : null;
+		return [step.stage, removal].filter(Boolean).join(' · ');
 	}
 </script>
 

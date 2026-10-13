@@ -208,6 +208,25 @@ describe('ordinary Onboarding persistence', () => {
 			[0, '1']
 		]);
 	});
+	it('counts only in-progress packets per requested template and reports 0 for the rest', async () => {
+		const { workflow } = ports({
+			personnel_onboardings: [
+				{ ...packet, id: 'a1', template_id: 'template' },
+				{ ...packet, id: 'a2', template_id: 'template' },
+				{ ...packet, id: 'done', template_id: 'template', status: 'completed' },
+				{ ...packet, id: 'cancelled', template_id: 'template', status: 'cancelled' },
+				{ ...packet, id: 'b1', template_id: 'other' },
+				{ ...packet, id: 'none', template_id: null },
+				{ ...packet, id: 'foreign', template_id: 'template', organization_id: 'org-b' }
+			]
+		});
+		expect(await workflow.countActivePacketsByTemplate(['template', 'other', 'empty'])).toEqual({
+			template: 2,
+			other: 1,
+			empty: 0
+		});
+		expect(await workflow.countActivePacketsByTemplate([])).toEqual({});
+	});
 	it('returns saved acknowledgements and preserves omitted fields while explicit null clears', async () => {
 		const { catalog, workflow, state } = ports({
 			onboarding_templates: [{ ...template, description: 'Keep' }],

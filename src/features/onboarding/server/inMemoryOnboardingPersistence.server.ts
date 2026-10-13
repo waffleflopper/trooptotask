@@ -215,6 +215,14 @@ export function createInMemoryOnboardingWorkflowPersistence(
 				(row) => row.id
 			);
 		},
+		async countActivePacketsByTemplate(templateIds) {
+			const packets = await store.findMany<{ template_id: string | null }>('personnel_onboardings', orgId, {
+				status: 'in_progress'
+			});
+			return Object.fromEntries(
+				templateIds.map((id) => [id, packets.filter((packet) => packet.template_id === id).length])
+			);
+		},
 		async clearPacketTemplate(id) {
 			await store.update('personnel_onboardings', orgId, id, { template_id: null });
 		}

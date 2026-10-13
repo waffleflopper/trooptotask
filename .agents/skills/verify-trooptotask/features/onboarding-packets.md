@@ -52,6 +52,8 @@ As `onboardingConfigure` at 1280, then at 390:
 3. **Advance clears the flag.** Choose `Advance Status Finance <tag> to Filed`. The step completes, the packet becomes Ready, and the header's stalled count drops. Read `$V rows onboarding_step_progress orgA onboarding_id PACKET`: Finance is `Filed`, `completed` is true and `progress_changed_at` is today. After reload the packet stays Ready.
 4. **Waiting strip.** `Where people are waiting` counts open steps by name across the visible packets, at most four, with stalled steps first. With only the seed, `Status Finance <tag>` reads `3` and `1 stalled`, and `Status Orientation <tag>` reads `1`.
 5. **Filters.** Search `StatusOnTrack` and require only that row, with the strip recounted for it. Search also matches rank and MOS. Choose `Bravo` in `Group` and require only Bravo People. A search nobody matches shows `No Soldiers match`; `Clear filters` restores the search and `All groups`.
+6. **A filter closes the open packet.** Open a packet, then search for another Soldier or choose another Group. The panel (or sheet) closes and clearing the filter does not reopen it.
+7. **Future start date.** Start a packet with a start date a few days ahead. The row's day slot and the packet header read `Starts in N days` (`Starts tomorrow` for one day) instead of `Day N`, and the packet is New or On track by its progress.
 
 ## Supported step operations and inactive removal
 

@@ -46,7 +46,7 @@ Restore network/export hooks and remove UI-created entries through the owner UI.
 
 ## Gotchas
 
-- Configure does not grant governance deletion: an ordinary configure member still requests approval; owner/admin direct removal remains separate.
+- Configure does not grant governance deletion: an ordinary configure member still requests approval; owner/admin direct removal remains separate, and direct SQL deletion of an entry also needs owner/admin.
 - `ratingForeign` operates its own Organization B; its requests into A must be denied. It is not a view-only B actor. `ratingSwitch` operates A and views B. Before mutation probes, establish the actual fixture role, admitted Organization and target ID, then derive the expected result from those grants. Keep B’s original full row as an untouched sentinel; do not use it to test an assumed denial. Use the admitted view-only actor for B write denials.
 - The active Personnel reference lookup deliberately excludes archived People while RLS retains assigned archived evaluation records. Observe the saved ID and unknown-label behavior; never treat a missing label as a missing entry.
 - Due dates use browser-local midnight. Use the fixture/browser date and record the actual timezone; rerun dated expectations if the run crosses midnight.

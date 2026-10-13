@@ -521,3 +521,13 @@ Applying it adds `organization_access_admitted`, replaces six membership authori
 The two sides are compatible in either order. The new application never sees `unavailable` before the migration. The old application maps it to a generic acceptance failure, which only affects invitations held by a suspension. Apply the migration after the application release, then confirm through ordinary use that an active Organization still loads its data.
 
 Repository CI operates disposable local databases and performs no remote migration. External production deployment settings are uninspected.
+
+## Phase 11 D04 feature direct-write authority
+
+Robert applies [`supabase/migrations/20261012000600_feature_direct_write_authority.sql`](../../supabase/migrations/20261012000600_feature_direct_write_authority.sql), SHA-256 `88a632d94c4b7ec5f7e893e5f6f67de53660f1dd72c4a5fc58d2bda08245ee6f`, through his normal ordered migration procedure. Its repository predecessor is `20261012000500_suspension_sql_admission.sql`; the agent has not inspected the hosted ledger.
+
+Applying it adds `can_configure_personnel_record` and `can_configure_personnel_training_record`, three authenticated-only trigger checks in `organization_private`, and replaces the two Onboarding reference helpers with the same signatures and grants. It replaces the Personnel, Training record, Rating Scheme entry, artifact, Onboarding workflow and deletion-request policies named in the [authorization boundary](../architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md), drops the requester DELETE policy on `deletion_requests` and drops the unused `is_full_editor_for_org`. It rewrites and deletes no rows. Saved artifact file paths outside the new prefix rule stay as they are and are checked only when the path, Person or Organization changes.
+
+The two sides are compatible in either order. Every retained application path already meets the new database rules, and requester cancellation uses its existing RPC. The old application still sends its own request description, which the database accepts as a pending row. Apply the migration after the application release, then confirm through ordinary use that an operator can still edit a Person and record Onboarding progress, and that an owner can archive and then permanently delete a Person.
+
+Repository CI operates disposable local databases and performs no remote migration. External production deployment settings are uninspected.

@@ -300,7 +300,7 @@
 		disabled={action.disabled}
 		title={live ? action.disabledReason : undefined}
 		aria-label={action.ariaLabel}
-		aria-disabled={action.loading || undefined}
+		aria-disabled={action.loading || action.disabled || undefined}
 		aria-busy={action.loading || undefined}
 		aria-describedby={live && action.disabledReason ? reasonId(action.id) : undefined}
 		tabindex={live ? undefined : -1}

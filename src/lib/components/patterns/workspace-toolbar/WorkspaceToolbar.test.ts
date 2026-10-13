@@ -127,6 +127,15 @@ describe('WorkspaceToolbar', () => {
 		expect(screen.getByRole('menuitem', { name: 'Archive' })).toBeTruthy();
 	});
 
+	it('announces a disabled link action as disabled', async () => {
+		render(DataToolbarTest, { props: { withArchive: false, reportsDisabled: true } });
+		await layOut(940);
+
+		const reports = within(toolbar()).getByRole('link', { name: 'Reports' });
+		expect(reports.getAttribute('aria-disabled')).toBe('true');
+		expect(reports.hasAttribute('href')).toBe(false);
+	});
+
 	it('has no More button when everything fits and nothing is menu-only', async () => {
 		render(DataToolbarTest, { props: { withArchive: false } });
 		await layOut(940);

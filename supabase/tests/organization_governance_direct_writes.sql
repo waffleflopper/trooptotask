@@ -448,7 +448,7 @@ WITH updated AS (
 SELECT is((SELECT count(*)::integer FROM updated), 1, 'the platform service path can lift suspension');
 WITH updated AS (
 	UPDATE public.organizations SET suspended_at = '2030-02-03T04:05:06Z'
-	WHERE id = 'c6420000-0000-4000-8000-0000000001aa' RETURNING id
+	WHERE id = 'c6420000-0000-4000-8000-0000000001bb' RETURNING id
 )
 SELECT is((SELECT count(*)::integer FROM updated), 1, 'the platform service path can suspend an Organization');
 RESET ROLE;

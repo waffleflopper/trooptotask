@@ -7,7 +7,6 @@ SELECT plan(34);
 -- The Storage API deletes under this setting, leaving RLS as the only gate under test.
 SELECT set_config('storage.allow_delete_query', 'true', true);
 
--- Alpha owner, Alpha viewer, Bravo owner and a non-member invitee.
 INSERT INTO auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
 SELECT '00000000-0000-0000-0000-000000000000', id::uuid, 'authenticated', 'authenticated', email, '', now(),
 	'{"provider": "email", "providers": ["email"]}'::jsonb, '{}'::jsonb, now(), now()
@@ -83,7 +82,6 @@ INSERT INTO public.organization_invitations (id, organization_id, email, invited
 CREATE TEMP TABLE suspension_actor_results (label text PRIMARY KEY, value text[]) ON COMMIT DROP;
 GRANT ALL ON suspension_actor_results TO authenticated;
 
--- Each lane row the caller can read directly in one Organization, named by table.
 CREATE FUNCTION pg_temp.visible_lane_tables(p_organization_id uuid) RETURNS text[]
 LANGUAGE sql AS $$
 	SELECT ARRAY(SELECT name FROM (
@@ -107,7 +105,6 @@ LANGUAGE sql AS $$
 		set_config('request.jwt.claims', json_build_object('sub', p_user_id, 'email', p_email, 'role', 'authenticated')::text, true);
 $$;
 
--- Active Organizations and accounts.
 SET LOCAL ROLE authenticated;
 SELECT pg_temp.act_as('f3000000-0000-4000-8000-000000000001', 'suspension-alpha-owner@example.test');
 SELECT is(
@@ -122,7 +119,6 @@ SELECT is(
 	'an active account owns the same direct reads in its own Organization'
 );
 
--- The platform service path suspends Alpha.
 RESET ROLE;
 SET LOCAL ROLE service_role;
 SELECT set_config('request.jwt.claim.role', 'service_role', true);
@@ -193,7 +189,6 @@ SELECT is(
 	'every governance, legacy and capability helper denies a suspended Organization owner'
 );
 
--- The suspended shell keeps the Organization identity and the caller's own membership.
 SELECT is(
 	(SELECT name || ':' || (suspended_at IS NOT NULL)::text FROM public.organizations WHERE id = 'f3000000-0000-4000-8000-000000000101'),
 	'Suspension Alpha:true',
@@ -260,7 +255,6 @@ SELECT is(
 	'an unavailable invitation grants no membership and stays pending'
 );
 
--- Unsuspension restores ordinary access without changing saved rows.
 SET LOCAL ROLE service_role;
 UPDATE public.organizations SET suspended_at = NULL WHERE id = 'f3000000-0000-4000-8000-000000000101';
 RESET ROLE;
@@ -284,7 +278,6 @@ SELECT is(
 	'unsuspension restores the owner''s direct writes'
 );
 
--- The platform service path suspends the Bravo owner's account.
 SET LOCAL ROLE service_role;
 INSERT INTO public.user_suspensions (user_id, suspended_by, reason) VALUES
 	('f3000000-0000-4000-8000-000000000003', 'f3000000-0000-4000-8000-000000000005', 'Synthetic account suspension'),
@@ -361,7 +354,6 @@ SELECT is(
 	'a suspended account cannot accept an invitation and the invitation stays pending'
 );
 
--- Unsuspension restores both accounts.
 SET LOCAL ROLE service_role;
 DELETE FROM public.user_suspensions WHERE user_id IN ('f3000000-0000-4000-8000-000000000003', 'f3000000-0000-4000-8000-000000000004');
 RESET ROLE;
@@ -392,7 +384,6 @@ SELECT is(
 	'the unsuspended account''s Organization exists'
 );
 
--- Data exports and deletion requests read admitted governance, not raw membership.
 INSERT INTO public.data_exports (id, org_id, requested_by, status) VALUES
 	('f3000000-0000-4000-8000-000000001701', 'f3000000-0000-4000-8000-000000000101', 'f3000000-0000-4000-8000-000000000001', 'processing');
 INSERT INTO public.deletion_requests (id, organization_id, requested_by, requested_by_email, resource_type, resource_id, resource_description) VALUES

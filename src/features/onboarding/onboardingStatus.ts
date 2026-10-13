@@ -27,6 +27,9 @@ export type DetailLine =
 	| { kind: 'all_done' }
 	| { kind: 'none' };
 
+/** Day 1 is the start date. A start date in the future has not begun counting days. */
+export type PacketClock = { kind: 'day'; day: number } | { kind: 'starts_in'; days: number };
+
 export interface PacketSummary {
 	packet: PersonnelOnboarding;
 	status: PacketStatus;
@@ -38,8 +41,7 @@ export interface PacketSummary {
 	/** The step the Soldier is waiting on, or null when every active step is done. */
 	focus: OnboardingStepProgress | null;
 	detail: DetailLine;
-	/** Day 1 is the start date. */
-	day: number;
+	clock: PacketClock;
 }
 
 export interface WaitingStep {
@@ -108,7 +110,8 @@ export function summarizePacket(packet: PersonnelOnboarding, today: Today): Pack
 	const status: PacketStatus =
 		stalledCount > 0 ? 'stalled' : open.length === 0 ? 'ready' : done === 0 ? 'new' : 'on_track';
 	const focus = longest ?? open[0] ?? null;
-	const day = calendarDaysBetween(packet.startedAt, today.date) + 1;
+	const elapsed = calendarDaysBetween(packet.startedAt, today.date);
+	const clock: PacketClock = elapsed < 0 ? { kind: 'starts_in', days: -elapsed } : { kind: 'day', day: elapsed + 1 };
 
 	return {
 		packet,
@@ -118,12 +121,22 @@ export function summarizePacket(packet: PersonnelOnboarding, today: Today): Pack
 		stalledCount,
 		stallDays,
 		focus,
-		detail: detailLine(focus, open.length, day, today),
-		day
+		detail: detailLine(focus, open.length, clock, today),
+		clock
 	};
 }
 
-function detailLine(focus: OnboardingStepProgress | null, openCount: number, day: number, today: Today): DetailLine {
+export function clockLabel(clock: PacketClock): string {
+	if (clock.kind === 'day') return `Day ${clock.day}`;
+	return clock.days === 1 ? 'Starts tomorrow' : `Starts in ${clock.days} days`;
+}
+
+function detailLine(
+	focus: OnboardingStepProgress | null,
+	openCount: number,
+	clock: PacketClock,
+	today: Today
+): DetailLine {
 	if (!focus) return { kind: 'all_done' };
 	if (focus.stepType === 'paperwork' && focus.currentStage !== null) {
 		return {
@@ -134,7 +147,7 @@ function detailLine(focus: OnboardingStepProgress | null, openCount: number, day
 		};
 	}
 	if (focus.stepType === 'training') return { kind: 'training' };
-	if (day === 1) return { kind: 'started_today' };
+	if (clock.kind === 'day' && clock.day === 1) return { kind: 'started_today' };
 	return openCount > 1 ? { kind: 'more_open', count: openCount - 1 } : { kind: 'none' };
 }
 
@@ -198,7 +211,7 @@ export function typicalWindowStart(todayDate: string): string {
 	return start.toISOString().slice(0, 10);
 }
 
-/** Median days to finish over packets completed in the last 90 days, or null below 3 packets. */
+/** Exact median days to finish over packets completed in the last 90 days, or null below 3 packets. */
 export function typicalDaysToFinish(packets: readonly FinishedPacket[], todayDate: string): number | null {
 	const since = typicalWindowStart(todayDate);
 	const days = packets
@@ -213,7 +226,7 @@ export function typicalDaysToFinish(packets: readonly FinishedPacket[], todayDat
 		.sort((a, b) => a - b);
 	if (days.length < TYPICAL_MIN_PACKETS) return null;
 	const middle = Math.floor(days.length / 2);
-	return Math.round(days.length % 2 === 1 ? days[middle] : (days[middle - 1] + days[middle]) / 2);
+	return days.length % 2 === 1 ? days[middle] : (days[middle - 1] + days[middle]) / 2;
 }
 
 export function tookLong(days: number, typical: number | null): boolean {

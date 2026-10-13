@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { OnboardingStepProgress, PersonnelOnboarding } from './onboarding.types';
 import {
+	clockLabel,
 	comparePacketSummaries,
 	daysAtStage,
 	isStepStalled,
@@ -138,7 +139,14 @@ describe('packet summary', () => {
 			TODAY
 		);
 
-		expect(summary).toMatchObject({ status: 'stalled', stalledCount: 2, stallDays: 12, done: 0, total: 3, day: 43 });
+		expect(summary).toMatchObject({
+			status: 'stalled',
+			stalledCount: 2,
+			stallDays: 12,
+			done: 0,
+			total: 3,
+			clock: { kind: 'day', day: 43 }
+		});
 		expect(summary.focus?.stepName).toBe('Housing');
 		expect(summary.detail).toEqual({ kind: 'stage', stage: 'At Finance', days: 12, stalled: true });
 	});
@@ -154,7 +162,7 @@ describe('packet summary', () => {
 			TODAY
 		);
 
-		expect(summary).toMatchObject({ status: 'on_track', done: 1, total: 3, day: 4 });
+		expect(summary).toMatchObject({ status: 'on_track', done: 1, total: 3, clock: { kind: 'day', day: 4 } });
 		expect(summary.focus?.stepName).toBe('Keys');
 		expect(summary.detail).toEqual({ kind: 'more_open', count: 1 });
 	});
@@ -218,6 +226,27 @@ describe('waiting by step', () => {
 	});
 });
 
+describe('packet clock', () => {
+	const summary = (startedAt: string) => summarizePacket(packet('p', startedAt, [step()]), TODAY);
+
+	it('counts the start date as day 1', () => {
+		expect(summary('2026-10-13').clock).toEqual({ kind: 'day', day: 1 });
+		expect(clockLabel(summary('2026-10-10').clock)).toBe('Day 4');
+	});
+
+	it('counts down to a start date in the future', () => {
+		expect(summary('2026-10-14').clock).toEqual({ kind: 'starts_in', days: 1 });
+		expect(clockLabel(summary('2026-10-14').clock)).toBe('Starts tomorrow');
+		expect(summary('2026-10-20').clock).toEqual({ kind: 'starts_in', days: 7 });
+		expect(clockLabel(summary('2026-10-20').clock)).toBe('Starts in 7 days');
+	});
+
+	it('does not call a packet that has not started started today', () => {
+		expect(summary('2026-10-13').detail).toEqual({ kind: 'started_today' });
+		expect(summary('2026-10-14').detail).toEqual({ kind: 'none' });
+	});
+});
+
 describe('typical days to finish', () => {
 	const completed = (startedAt: string, completedAt: string) => ({
 		status: 'completed' as const,
@@ -252,7 +281,7 @@ describe('typical days to finish', () => {
 		).toBe(15);
 	});
 
-	it('rounds the mean of the middle two for an even count', () => {
+	it('averages the middle two exactly for an even count', () => {
 		expect(
 			typicalDaysToFinish(
 				[
@@ -263,7 +292,7 @@ describe('typical days to finish', () => {
 				],
 				'2026-10-13'
 			)
-		).toBe(16);
+		).toBe(15.5);
 	});
 });
 

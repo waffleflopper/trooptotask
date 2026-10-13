@@ -215,12 +215,16 @@ export function createInMemoryOnboardingWorkflowPersistence(
 				(row) => row.id
 			);
 		},
-		async countActivePacketsByTemplate(templateIds) {
-			const packets = await store.findMany<{ template_id: string | null }>('personnel_onboardings', orgId, {
-				status: 'in_progress'
-			});
+		async countActivePacketsByTemplate() {
+			const [templates, packets] = await Promise.all([
+				store.findMany<{ id: string }>('onboarding_templates', orgId),
+				store.findMany<{ template_id: string | null }>('personnel_onboardings', orgId, { status: 'in_progress' })
+			]);
 			return Object.fromEntries(
-				templateIds.map((id) => [id, packets.filter((packet) => packet.template_id === id).length])
+				templates.map((template) => [
+					template.id,
+					packets.filter((packet) => packet.template_id === template.id).length
+				])
 			);
 		},
 		async clearPacketTemplate(id) {

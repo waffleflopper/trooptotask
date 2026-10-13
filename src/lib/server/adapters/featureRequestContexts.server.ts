@@ -273,7 +273,6 @@ export function createRequestOnboardingTemplateStepContext(request: AdmittedOrga
 
 export function createRequestOnboardingTemplateActivityContext(request: AdmittedOrganizationRequest) {
 	return {
-		onboardingCatalog: createSupabaseOnboardingCatalogPersistence(request.supabase, request.auth.orgId),
 		onboardingWorkflow: createSupabaseOnboardingWorkflowPersistence(request.supabase, request.auth.orgId)
 	} satisfies Parameters<typeof fetchOnboardingTemplateActivity>[0];
 }

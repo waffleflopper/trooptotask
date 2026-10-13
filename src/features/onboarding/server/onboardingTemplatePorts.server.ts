@@ -8,7 +8,6 @@ export interface OnboardingTemplateReadContext {
 	readonly onboardingCatalog: Pick<OnboardingCatalogPersistence, 'listTemplates' | 'listSteps'>;
 }
 export interface OnboardingTemplateActivityContext {
-	readonly onboardingCatalog: Pick<OnboardingCatalogPersistence, 'listTemplates'>;
 	readonly onboardingWorkflow: Pick<OnboardingWorkflowPersistence, 'countActivePacketsByTemplate'>;
 }
 export interface OnboardingTemplateWriteContext {

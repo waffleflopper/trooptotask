@@ -56,6 +56,7 @@ export function onboardingProvider(initial: Partial<Record<OnboardingTable, Row[
 					(row) => {
 						for (const [column, filter] of url.searchParams) {
 							if (['select', 'order', 'offset', 'limit', 'columns', 'on_conflict'].includes(column)) continue;
+							if (column.startsWith('personnel_onboardings.')) continue;
 							if (filter.startsWith('eq.')) {
 								if (String(row[column]) !== filter.slice(3)) return false;
 							} else if (filter.startsWith('in.(')) {
@@ -118,6 +119,19 @@ export function onboardingProvider(initial: Partial<Record<OnboardingTable, Row[
 				const projection = url.searchParams.get('select');
 				const result = selected.map((row) => {
 					if (!projection || projection === '*') return row;
+					if (projection === 'id,personnel_onboardings(count)') {
+						const embedded = [...url.searchParams].filter(([column]) => column.startsWith('personnel_onboardings.'));
+						const packets = rows.personnel_onboardings.filter(
+							(packet) =>
+								packet.template_id === row.id &&
+								embedded.every(
+									([column, filter]) =>
+										filter.startsWith('eq.') &&
+										String(packet[column.slice('personnel_onboardings.'.length)]) === filter.slice(3)
+								)
+						);
+						return { id: row.id, personnel_onboardings: [{ count: packets.length }] };
+					}
 					const packet = projection.includes('onboarding_step_progress(');
 					const columns = (packet ? projection.split(', onboarding_step_progress(')[0] : projection)
 						.split(',')

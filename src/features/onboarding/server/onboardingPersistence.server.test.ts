@@ -208,8 +208,14 @@ describe('ordinary Onboarding persistence', () => {
 			[0, '1']
 		]);
 	});
-	it('counts only in-progress packets per requested template and reports 0 for the rest', async () => {
-		const { workflow } = ports({
+	it('counts only in-progress packets of this Organization per template in one request, 0 for the rest', async () => {
+		const { workflow, state } = ports({
+			onboarding_templates: [
+				{ ...template, id: 'template' },
+				{ ...template, id: 'other' },
+				{ ...template, id: 'empty' },
+				{ ...template, id: 'foreign', organization_id: 'org-b' }
+			],
 			personnel_onboardings: [
 				{ ...packet, id: 'a1', template_id: 'template' },
 				{ ...packet, id: 'a2', template_id: 'template' },
@@ -220,12 +226,8 @@ describe('ordinary Onboarding persistence', () => {
 				{ ...packet, id: 'foreign', template_id: 'template', organization_id: 'org-b' }
 			]
 		});
-		expect(await workflow.countActivePacketsByTemplate(['template', 'other', 'empty'])).toEqual({
-			template: 2,
-			other: 1,
-			empty: 0
-		});
-		expect(await workflow.countActivePacketsByTemplate([])).toEqual({});
+		expect(await workflow.countActivePacketsByTemplate()).toEqual({ template: 2, other: 1, empty: 0 });
+		expect(state.requests.map((request) => request.table)).toEqual(['onboarding_templates']);
 	});
 	it('returns saved acknowledgements and preserves omitted fields while explicit null clears', async () => {
 		const { catalog, workflow, state } = ports({

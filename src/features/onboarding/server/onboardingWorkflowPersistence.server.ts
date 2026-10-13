@@ -157,20 +157,22 @@ export function createSupabaseOnboardingWorkflowPersistence(
 				currentStage: data.current_stage ?? null
 			};
 		},
-		async countActivePacketsByTemplate(templateIds) {
-			const counts = await Promise.all(
-				templateIds.map(async (templateId) => {
-					const { count, error } = await client
-						.from('personnel_onboardings')
-						.select('id', { count: 'exact', head: true })
-						.eq('organization_id', orgId)
-						.eq('template_id', templateId)
-						.eq('status', 'in_progress');
-					if (error) throw new Error(error.message);
-					return [templateId, count ?? 0] as const;
-				})
-			);
-			return Object.fromEntries(counts);
+		async countActivePacketsByTemplate() {
+			type TemplateCountRow = { id: string; personnel_onboardings: Array<{ count: number }> };
+			const result = await selectAllSupabaseRows<TemplateCountRow>(async (from, to) => {
+				const { data, error } = await client
+					.from('onboarding_templates')
+					.select('id, personnel_onboardings(count)')
+					.eq('organization_id', orgId)
+					.eq('personnel_onboardings.organization_id', orgId)
+					.eq('personnel_onboardings.status', 'in_progress')
+					.order('id', { ascending: true })
+					.range(from, to)
+					.returns<TemplateCountRow[]>();
+				return { data, error };
+			});
+			if (result.error) throw new Error((result.error as { message: string }).message);
+			return Object.fromEntries((result.data ?? []).map((row) => [row.id, row.personnel_onboardings[0]?.count ?? 0]));
 		},
 		async clearPacketTemplate(id) {
 			const { error } = await client

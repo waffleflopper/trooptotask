@@ -186,9 +186,10 @@ CREATE TRIGGER require_artifact_file_under_person
 	BEFORE INSERT OR UPDATE OF file_path, personnel_id, organization_id ON public.personnel_documents
 	FOR EACH ROW EXECUTE FUNCTION organization_private.require_artifact_file_under_person();
 
--- The server removes a stored document or counseling file only after its record
--- is archived and deleted. API callers keep sign-in roster file removal and
--- owner Organization cleanup.
+-- Only the server removes stored document and counseling files: after it
+-- deletes their records, when an upload's record is not saved, and before a
+-- counseling deletion approval. API callers keep Sign-in Roster file removal
+-- and owner Organization cleanup.
 DROP POLICY "Operators can delete personnel document files through scoped personnel access" ON storage.objects;
 ALTER POLICY "Sensitive files are deletable by authorized editors" ON storage.objects
 	USING (
@@ -196,10 +197,11 @@ ALTER POLICY "Sensitive files are deletable by authorized editors" ON storage.ob
 		AND public.sensitive_file_object_is_writable(bucket_id, name)
 	);
 
--- Onboarding: operate starts packets, records progress and changes lifecycle
--- status. Template choice, step shape and removal of active work belong to the
--- configure-only reconcile command. Packets and steps are created only by the
--- start and reconcile commands and removed only by retention.
+-- Onboarding: operate starts packets, records progress, changes lifecycle
+-- status and deletes inactive steps. Template choice, step shape and
+-- deactivating active steps belong to the configure-only reconcile command.
+-- Only the start and reconcile commands create packets and steps. No client
+-- deletes a packet or an active step.
 
 -- Policies and commands ask whether a Person, packet, template or Training
 -- type is in scope. API callers cannot ask, so the answers reveal no IDs.

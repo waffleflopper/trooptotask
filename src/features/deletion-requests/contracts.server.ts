@@ -47,9 +47,12 @@ export interface DeletionRequestSubmissionPort {
 }
 
 /**
- * Delivery closes over the admitted actor and source-owned operations. Every
- * deletion approval removes its target and approves the request together, so
- * a target missing from the Organization leaves the request pending.
+ * Delivery closes over the admitted actor and source-owned operations. Training
+ * type, Training record and Rating entry approvals delete the target and approve
+ * the request in one transaction, so a target missing from the Organization
+ * leaves the request pending. Personnel approval archives the Person, then
+ * writes the request status separately. Counseling approval removes the stored
+ * file before the transaction that deletes the record and approves the request.
  */
 export interface ApprovedDeletionEffects {
 	archivePersonnel(personnelId: string): Promise<void>;

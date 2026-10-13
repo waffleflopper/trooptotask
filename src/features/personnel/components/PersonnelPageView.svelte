@@ -332,16 +332,22 @@
 			{ kind: 'action', id: 'cancel', label: 'Cancel', onclick: cancelArchiveMode, disabled: bulkArchiveSubmitting }
 		];
 		if (visibleAllActivePersonnel.length > 0) {
-			items.push(
-				{
+			if (!shouldGateGroupedRoster) {
+				items.push({
 					kind: 'action',
 					id: 'select-shown',
 					label: 'Select shown',
 					onclick: selectVisibleArchiveRows,
 					disabled: bulkArchiveSubmitting
-				},
-				{ kind: 'action', id: 'clear', label: 'Clear', onclick: clearArchiveSelection, disabled: bulkArchiveSubmitting }
-			);
+				});
+			}
+			items.push({
+				kind: 'action',
+				id: 'clear',
+				label: 'Clear',
+				onclick: clearArchiveSelection,
+				disabled: bulkArchiveSubmitting
+			});
 		}
 		return items;
 	});

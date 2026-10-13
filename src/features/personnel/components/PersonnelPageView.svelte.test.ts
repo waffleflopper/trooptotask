@@ -750,6 +750,32 @@ describe('PersonnelPageView', () => {
 		expect(screen.queryByText('Smith, Jane')).toBeNull();
 	});
 
+	it('offers Select shown only once the paused grouped roster gives way to the A-Z view', async () => {
+		personnelStore.load(
+			Array.from({ length: 251 }, (_, index) => makePerson(index + 1)),
+			'org-1'
+		);
+		const ctx = Object.assign(makeCtx(), {
+			canArchivePersonnelRecord: () => true,
+			personnelArchiveAffordance: () => allowedAffordance()
+		}) as unknown as PersonnelPageContext;
+		ctx.viewMode = 'by-group';
+
+		render(PersonnelPageView, {
+			props: { ctx, requestArchiveApproval }
+		});
+
+		expect(screen.getByText('Grouped roster paused')).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
+		const bulk = within(screen.getByRole('toolbar', { name: 'Bulk archive controls' }));
+		expect(bulk.queryByRole('button', { name: 'Select shown' })).toBeNull();
+		expect(bulk.getByRole('button', { name: 'Clear' })).toBeTruthy();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Use A-Z View' }));
+		await fireEvent.click(bulk.getByRole('button', { name: 'Select shown' }));
+		expect(screen.getByText('75 of 251 selected')).toBeTruthy();
+	});
+
 	it('selects only the current A-Z page when selecting shown archive rows', async () => {
 		const roster = Array.from({ length: 76 }, (_, index) => makePerson(index + 1));
 		personnelStore.load(roster, 'org-1');

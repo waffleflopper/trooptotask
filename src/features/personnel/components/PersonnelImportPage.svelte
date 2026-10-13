@@ -388,7 +388,7 @@
 	]);
 
 	function setImportMode(mode: ImportMode) {
-		if (importMode === mode) return;
+		if (runningImport || importMode === mode) return;
 		importMode = mode;
 		resetImportState();
 	}

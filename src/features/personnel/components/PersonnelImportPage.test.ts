@@ -853,6 +853,40 @@ describe('PersonnelImportPage', () => {
 		expect(gotoMock).toHaveBeenCalledWith('/org/org-1/personnel', { invalidateAll: true });
 	});
 
+	it('keeps the import mode while an import is running', async () => {
+		let resolveFetch: (response: Response) => void = () => {};
+		const fetchMock = vi.fn(
+			() =>
+				new Promise<Response>((resolve) => {
+					resolveFetch = resolve;
+				})
+		);
+		vi.stubGlobal('fetch', fetchMock);
+		parseFileMock.mockResolvedValue([
+			['Rank', 'Last Name', 'First Name'],
+			['SGT', 'Smith', 'John']
+		]);
+		renderPage();
+
+		const input = document.querySelector<HTMLInputElement>('#fileUpload');
+		await fireEvent.change(input!, {
+			target: { files: [new File(['records'], 'personnel.csv', { type: 'text/csv' })] }
+		});
+		await fireEvent.click(await screen.findByRole('button', { name: /Preview 1 Rows/i }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Import checked rows' }));
+		const mode = within(
+			within(screen.getByRole('toolbar', { name: 'Personnel import controls' })).getByRole('group', {
+				name: 'Import mode'
+			})
+		);
+		await fireEvent.click(mode.getByRole('button', { name: 'Backfill ETS/DEROS' }));
+
+		expect(mode.getByRole('button', { name: 'Add new' })).toHaveAttribute('aria-pressed', 'true');
+		resolveFetch(new Response(JSON.stringify({ inserted: [{}], errors: [] }), { status: 200 }));
+		await screen.findByText('Import complete');
+		expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/personnel/batch', expect.any(Object));
+	});
+
 	it('cancels navigation attempts while an import is running', async () => {
 		let resolveFetch: (response: Response) => void = () => {};
 		vi.stubGlobal(

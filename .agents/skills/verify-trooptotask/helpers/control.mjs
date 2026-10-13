@@ -606,6 +606,14 @@ async function main() {
 		note({ pageId, role, label, occurrence: occurrence ?? 1, factor, filled: true });
 		return;
 	}
+	if (command === 'session-age') {
+		const [role, hours] = args;
+		if (!fixture.identityActors.includes(role) || !/^\d{1,2}$/.test(hours ?? ''))
+			throw new Error('Use session-age IDENTITY_ROLE HOURS (1–48).');
+		const result = await environment('session-age', session, fixture.actors[role].id, hours);
+		note({ role, sessions: result.sessions, hours: result.hours });
+		return;
+	}
 	if (command === 'password') {
 		const [page, role, which, label, occurrence] = args;
 		const pageId = await identityPage(page, role);
@@ -2767,7 +2775,7 @@ async function main() {
 		return;
 	}
 	throw new Error(
-		'Use fixture, actor, rows, access-request, auth-link, setup-link, mail, mail-link, fault, mfa-code, password, password-commit, settings-request, deletion-request, personnel-archive-batch, deletion-review-failure, audit-training-update, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, private-buckets, roster-files, roster-replace, signed-download, calendar-grant, dashboard-access, server-source, seed, clean-seeds, retention, network, busy, export, print, style-probe, style-diff, toolbar-sweep, or workbook.'
+		'Use fixture, actor, rows, access-request, auth-link, setup-link, mail, mail-link, fault, mfa-code, session-age, password, password-commit, settings-request, deletion-request, personnel-archive-batch, deletion-review-failure, audit-training-update, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, private-buckets, roster-files, roster-replace, signed-download, calendar-grant, dashboard-access, server-source, seed, clean-seeds, retention, network, busy, export, print, style-probe, style-diff, toolbar-sweep, or workbook.'
 	);
 }
 

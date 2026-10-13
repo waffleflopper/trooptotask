@@ -225,6 +225,18 @@ class OwnedDatabase:
         """).strip()
         return json.loads(output) if output else None
 
+    def age_sessions(self, user_id, hours):
+        output = self._execute(f"""
+            SET statement_timeout = '10s';
+            WITH aged AS (
+              UPDATE auth.sessions s SET created_at = s.created_at - make_interval(hours => {hours})
+              FROM auth.users u
+              WHERE s.user_id = u.id AND u.id = '{user_id}'::uuid AND u.email LIKE '%@example.test'
+              RETURNING s.id)
+            SELECT count(*) FROM aged;
+        """).strip()
+        return int(output or 0)
+
 
 class ReviewFailureDatabase(OwnedDatabase):
     def snapshot(self, request_id=None):
@@ -412,6 +424,18 @@ def totp_code(session, user_id, at=None):
     return {"status": "PASS", "factor": factor["status"], "code": totp(factor["secret"], time.time() if at is None else at)}
 
 
+def session_age(session, user_id, hours):
+    # Ages the provider's own session start so the app's real 24-hour check runs;
+    # it proves the hook's exit, not elapsed wall-clock time.
+    user_id = canonical_uuid(user_id)
+    if not re.fullmatch(r"[1-9]|[1-3][0-9]|4[0-8]", str(hours)):
+        raise Blocked("Use session-age with 1 to 48 hours.")
+    aged = OwnedDatabase(session).age_sessions(user_id, int(hours))
+    if aged < 1:
+        raise Blocked("This synthetic account has no provider session to age.")
+    return {"status": "PASS", "sessions": aged, "hours": int(hours)}
+
+
 def verification_auth_config(config, origin):
     config["auth"]["site_url"] = origin
     config["auth"]["additional_redirect_urls"] = [origin]
@@ -518,11 +542,17 @@ def main():
     code = subcommands.add_parser("totp-code", help="Return only the current code for one synthetic account's newest TOTP factor")
     code.add_argument("session")
     code.add_argument("user_id")
+    age = subcommands.add_parser("session-age", help="Move one synthetic account's provider session starts back 1-48 hours")
+    age.add_argument("session")
+    age.add_argument("user_id")
+    age.add_argument("hours")
     args = parser.parse_args()
     try:
         session = private_session(args.session)
         if args.command == "totp-code":
             result = totp_code(session, args.user_id)
+        elif args.command == "session-age":
+            result = session_age(session, args.user_id, args.hours)
         elif args.command == "deletion-review-failure":
             result = deletion_review_failure(session, args.action, args.request_id)
         else:

@@ -1,12 +1,20 @@
 export const MAIL_KINDS = Object.freeze(['account-setup', 'auth', 'invitation']);
 const write = (method, path, options = {}) => Object.freeze({ method, path, ...options });
-// `bodyStatus` narrows a write to one requested status; `afterCommit` lets the provider commit, then loses its reply.
+// `query` and `body` narrow a call to exact top-level values (`true` only requires the body key);
+// `afterCommit` lets the provider commit, then loses its reply.
 export const PROVIDER_FAULTS = Object.freeze({
 	'setup-link-create': [write('POST', '/rest/v1/rpc/issue_account_setup_link')],
 	'invitation-access-link': [write('POST', '/rest/v1/rpc/link_organization_invitation_access_request')],
-	'invitation-block': [write('PATCH', '/rest/v1/organization_invitations', { bodyStatus: 'blocked' })],
+	'invitation-block': [write('PATCH', '/rest/v1/organization_invitations', { body: { status: 'blocked' } })],
 	'org-create': [write('POST', '/rest/v1/rpc/create_organization')],
-	'org-create-lost-ack': [write('POST', '/rest/v1/rpc/create_organization', { afterCommit: true })]
+	'org-create-lost-ack': [write('POST', '/rest/v1/rpc/create_organization', { afterCommit: true })],
+	'password-update': [write('PUT', '/auth/v1/user', { body: { password: true } })],
+	'password-reconcile': [write('POST', '/rest/v1/rpc/password_change_attempt', { body: { p_action: 'reconcile' } })],
+	'password-revocation': [write('POST', '/auth/v1/logout', { query: { scope: 'others' } })],
+	'setup-password': [write('POST', '/auth/v1/admin/users')],
+	'setup-reconcile': [write('POST', '/rest/v1/rpc/reconcile_account_setup_claim')],
+	'setup-finalize': [write('POST', '/rest/v1/rpc/complete_account_setup_recovery')],
+	'setup-finalize-lost-ack': [write('POST', '/rest/v1/rpc/complete_account_setup_recovery', { afterCommit: true })]
 });
 const MAIL_URL = 'https://api.resend.com/emails';
 const MAX_MESSAGES = 200;
@@ -53,13 +61,17 @@ async function bodyText(input, init) {
 	return body instanceof Uint8Array ? new TextDecoder().decode(body) : null;
 }
 
-async function requestStatus(input, init) {
+async function requestBody(input, init) {
 	try {
-		return JSON.parse(await bodyText(input, init)).status ?? null;
+		const body = JSON.parse(await bodyText(input, init));
+		return body && typeof body === 'object' && !Array.isArray(body) ? body : {};
 	} catch {
-		return null;
+		return {};
 	}
 }
+
+const matchesBody = (expected, body) =>
+	Object.entries(expected).every(([key, value]) => (value === true ? Object.hasOwn(body, key) : body[key] === value));
 
 const json = (status, body) =>
 	new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
@@ -233,14 +245,16 @@ export function createProviderFaultController({ providerUrl, fetch: originalFetc
 	}
 
 	async function armedWrite(request, input, init) {
-		let status;
+		let body;
 		for (const [name, writes] of Object.entries(PROVIDER_FAULTS)) {
 			if (active.get(name)?.triggered !== false) continue;
 			for (const entry of writes) {
 				if (entry.method !== request.method || entry.path !== request.url.pathname) continue;
-				if (entry.bodyStatus) {
-					status ??= await requestStatus(input, init);
-					if (status !== entry.bodyStatus) continue;
+				if (entry.query && !Object.entries(entry.query).every(([k, v]) => request.url.searchParams.get(k) === v))
+					continue;
+				if (entry.body) {
+					body ??= await requestBody(input, init);
+					if (!matchesBody(entry.body, body)) continue;
 				}
 				return { name, entry };
 			}

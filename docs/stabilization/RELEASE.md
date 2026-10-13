@@ -512,4 +512,12 @@ Applying it replaces the membership, Organization and invitation write policies 
 
 The two sides are compatible in either order. The application already writes only the granted columns through the request client, uses RPCs or the service role elsewhere, and checks step-up before the four assured paths. Before the migration, a member with the legacy `canManageMembers` override can still read the rank catalog directly. Apply the migration after merge, then confirm through ordinary use that an owner can invite a member and save member access.
 
+## Phase 11 D04 suspension SQL admission
+
+Robert applies [`supabase/migrations/20261012000500_suspension_sql_admission.sql`](../../supabase/migrations/20261012000500_suspension_sql_admission.sql), SHA-256 `05534ce4e764f5ad272a32f739ee68fa75e1c7211925fdba26be50c6a06fb700`, through his normal ordered migration procedure. Its repository predecessor is `20261012000400_governance_direct_write_authority.sql`; the agent has not inspected the hosted ledger.
+
+Applying it adds `organization_access_admitted`, replaces six membership authority helpers, `create_organization` and `accept_organization_invitation` with the same signatures and grants, and replaces the Organization, membership, data export and deletion-request policies named in the [authorization boundary](../architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md#authentication-boundary). It rewrites and deletes no rows. Suspended accounts and Organizations lose direct lane, Storage and governance access while suspended and regain it on unsuspension.
+
+The two sides are compatible in either order. The new application never sees `unavailable` before the migration. The old application maps it to a generic acceptance failure, which only affects invitations held by a suspension. Apply the migration after the application release, then confirm through ordinary use that an active Organization still loads its data.
+
 Repository CI operates disposable local databases and performs no remote migration. External production deployment settings are uninspected.

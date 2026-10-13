@@ -16,7 +16,7 @@ A member with Critical Tasks configuration access maintains the unit's task defi
 
 ## How to get to it (user POV)
 
-Sign in to Organization A and choose `ICTLs` in the Organization navigation (its tooltip and breadcrumb read `Critical Tasks`), then `Task Library`. Use `New Task`, the selected task's `Edit`, `Archive Task` or `Restore Task`, or `Import CSV`. `Critical Tasks Defaults` is below the library and uses the same configure permission.
+Sign in to Organization A and choose `ICTLs` in the Organization navigation (its tooltip and breadcrumb read `Critical Tasks`), then `Task Library`. Use `New Task`, the selected task's `Edit`, `Archive Task` or `Restore Task`, or `Import CSV` (on the toolbar row, or in `More ICT task library controls` when the row is narrow). `Critical Tasks Defaults` is below the library and uses the same configure permission.
 
 ## Driving it with verify:app
 

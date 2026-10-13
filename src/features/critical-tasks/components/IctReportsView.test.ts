@@ -2,6 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import IctReportsView from './IctReportsView.svelte';
+import { openToolbarMore, openToolbarSubmenu, stubToolbarWidths } from '$lib/test-support/toolbarWidths';
 import type { IctTask } from '$features/critical-tasks/criticalTasks.types';
 import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '$features/personnel/contracts';
@@ -332,43 +333,21 @@ const filteredDashboard: IctReportDashboard = {
 	readinessDistribution: readinessDistribution('68W', ['68W', '11B'])
 };
 
-let measuredToolbarWidth = 960;
-
 describe('IctReportsView', () => {
 	beforeEach(() => {
-		measuredToolbarWidth = 960;
-
-		function measuredWidth(element: HTMLElement): number {
-			if (element.matches('[data-toolbar]')) return measuredToolbarWidth;
-			if (element.classList.contains('toolbar__leading')) return 580;
-			if (element.classList.contains('toolbar__actions')) return 180;
-			if (element.hasAttribute('data-toolbar-actions')) return 160;
-			if (element.hasAttribute('data-measure-full')) return 112;
-			if (element.hasAttribute('data-measure-compact')) return 40;
-			if (element.classList.contains('toolbar-action--full')) return 112;
-			if (element.classList.contains('toolbar-action--compact')) return 40;
-			if (element.classList.contains('toolbar-overflow-menu__button')) return 40;
-			if (element.classList.contains('toolbar-group')) return 560;
-			return 720;
-		}
-
-		vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
-			const width = measuredWidth(this);
-			return {
-				x: 0,
-				y: 0,
-				width,
-				height: 320,
-				top: 0,
-				right: width,
-				bottom: 320,
-				left: 0,
-				toJSON: () => ({})
-			} as DOMRect;
-		});
-		vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) {
-			return measuredWidth(this);
-		});
+		const width = 720;
+		vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+			x: 0,
+			y: 0,
+			width,
+			height: 320,
+			top: 0,
+			right: width,
+			bottom: 320,
+			left: 0,
+			toJSON: () => ({})
+		} as DOMRect);
+		vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(width);
 		vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(360);
 		vi.stubGlobal(
 			'fetch',
@@ -412,23 +391,103 @@ describe('IctReportsView', () => {
 		});
 	});
 
-	it('moves focus to the group filter when Clear filters removes its own menu', async () => {
+	it('moves focus to the group filter when Clear filters removes itself from the row', async () => {
 		render(IctReportsView, {
 			props: { orgId: 'org-1', reportScope: makeReportScope(), initialDashboard }
 		});
 
+		expect(screen.queryByRole('button', { name: 'Clear filters' })).toBeNull();
 		await fireEvent.pointerDown(screen.getByRole('button', { name: 'Filter by group' }));
 		const alphaOption = screen.getByRole('option', { name: 'Alpha' });
 		await fireEvent.pointerDown(alphaOption);
 		await fireEvent.pointerUp(alphaOption);
-		const more = await screen.findByRole('button', { name: 'More critical task report actions' });
-		await fireEvent.click(more);
-		await fireEvent.click(await screen.findByRole('menuitem', { name: 'Clear filters' }));
+		await fireEvent.click(await screen.findByRole('button', { name: 'Clear filters' }));
 
 		const group = screen.getByRole('button', { name: 'Filter by group' });
 		await waitFor(() => expect(document.activeElement).toBe(group));
 		expect(group.textContent?.trim()).toBe('All Groups');
-		expect(screen.queryByRole('button', { name: 'More critical task report actions' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Clear filters' })).toBeNull();
+	});
+
+	it('shows Export Excel as busy and disabled while the workbook downloads', async () => {
+		let release!: (response: unknown) => void;
+		vi.mocked(fetch).mockImplementationOnce(
+			() => new Promise((resolve) => (release = resolve)) as unknown as ReturnType<typeof fetch>
+		);
+		render(IctReportsView, {
+			props: { orgId: 'org-1', reportScope: makeReportScope(), initialDashboard }
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Export Excel' }));
+
+		const busy = await screen.findByRole('button', { name: 'Exporting...' });
+		expect((busy as HTMLButtonElement).disabled).toBe(true);
+		expect(busy.getAttribute('aria-busy')).toBe('true');
+		release({ ok: false });
+		expect(await screen.findByText('Failed to export critical task report')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Export Excel' })).toBeTruthy();
+	});
+
+	describe('when the toolbar folds', () => {
+		const toolbarName = 'Critical task report controls';
+
+		it('keeps every filter and Clear filters working from More, with Export Excel pinned on the row', async () => {
+			const widths = stubToolbarWidths();
+			render(IctReportsView, {
+				props: { orgId: 'org-1', reportScope: makeReportScope(), initialDashboard }
+			});
+			await widths.foldAll();
+
+			const row = within(screen.getByRole('toolbar', { name: toolbarName }));
+			expect(row.queryByRole('button', { name: 'Filter by group' })).toBeNull();
+			expect(row.getByRole('button', { name: 'Export Excel' })).toBeTruthy();
+
+			await openToolbarMore(toolbarName);
+			for (const name of ['Group, All Groups', 'Rank, All Ranks', 'MOS', 'Duty role, All Duty Roles']) {
+				expect(screen.getByRole('menuitem', { name })).toBeTruthy();
+			}
+			expect(screen.queryByRole('menuitem', { name: 'Clear filters' })).toBeNull();
+			await openToolbarSubmenu('Group, All Groups');
+			await fireEvent.click(await screen.findByRole('menuitemradio', { name: 'Alpha' }));
+
+			const report = screen.getByRole('region', { name: 'Critical task analysis console' });
+			await waitFor(() => {
+				expect(vi.mocked(fetch).mock.calls.map(([url]) => url)).toContain(
+					'/org/org-1/api/critical-tasks/reports/summary?groupId=group-alpha'
+				);
+				expect(within(report).getByLabelText('Critical task report scope').textContent).toMatch(/Population\s*1/);
+			});
+
+			await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+			expect(screen.getByRole('button', { name: `More ${toolbarName}` }).getAttribute('aria-describedby')).toBeTruthy();
+			await openToolbarMore(toolbarName);
+			await fireEvent.click(screen.getByRole('menuitem', { name: 'Clear filters' }));
+			await waitFor(() =>
+				expect(within(report).getByLabelText('Critical task report scope').textContent).toMatch(/Population\s*2/)
+			);
+		});
+
+		it('exports the filtered workbook from the pinned Export Excel with the folded filter applied', async () => {
+			const widths = stubToolbarWidths();
+			const fetchMock = vi.mocked(fetch);
+			render(IctReportsView, {
+				props: { orgId: 'org-1', reportScope: makeReportScope(), initialDashboard }
+			});
+			await widths.foldAll();
+
+			await openToolbarMore(toolbarName);
+			await openToolbarSubmenu('Group, All Groups');
+			await fireEvent.click(await screen.findByRole('menuitemradio', { name: 'Alpha' }));
+			await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+			fetchMock.mockClear();
+			await fireEvent.click(screen.getByRole('button', { name: 'Export Excel' }));
+
+			await waitFor(() =>
+				expect(fetchMock.mock.calls.map(([url]) => url)).toContain(
+					'/org/org-1/api/critical-tasks/reports/export?groupId=group-alpha'
+				)
+			);
+		});
 	});
 
 	it('names every readiness metric and its value inside the report metrics region', () => {
@@ -501,8 +560,8 @@ describe('IctReportsView', () => {
 		});
 
 		expect(screen.getByRole('button', { name: 'Export Excel' })).toBeTruthy();
-		expect(screen.getByLabelText('Filter by group')).toBeTruthy();
-		expect(screen.getByLabelText('Filter by MOS')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Filter by group' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Filter by MOS' })).toBeTruthy();
 		expect(screen.getByText('No active critical tasks configured.')).toBeTruthy();
 	});
 

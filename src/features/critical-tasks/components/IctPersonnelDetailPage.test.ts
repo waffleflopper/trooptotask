@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import IctPersonnelDetailPage from './IctPersonnelDetailPage.svelte';
 import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
 import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/personnelIctCompletions.svelte';
+import { openToolbarMore, openToolbarSubmenu, stubToolbarWidths } from '$lib/test-support/toolbarWidths';
 import type {
 	CriticalTasksPersonnelHistoryData,
 	IctTask,
@@ -794,5 +795,108 @@ describe('IctPersonnelDetailPage', () => {
 
 		expect(within(historyRegion).getByText('181-105-1002')).toBeTruthy();
 		expect(within(historyRegion).queryByText('181-105-1001')).toBeNull();
+	});
+
+	describe('toolbar', () => {
+		const toolbarName = 'Personnel critical task controls';
+
+		function renderRecord(historyData: CriticalTasksPersonnelHistoryData = { ...history, rows: [] }) {
+			render(IctPersonnelDetailPage, {
+				props: {
+					org,
+					data: { orgId: 'org-1', criticalTasks: criticalTasksLayoutData, criticalTasksPersonnelHistory: historyData }
+				}
+			});
+		}
+
+		function applicableCodes(): (string | null)[] {
+			return within(screen.getByRole('table', { name: 'Applicable Critical Tasks' }))
+				.queryAllByText(/^181-105-100\d$/)
+				.map((code) => code.textContent);
+		}
+
+		beforeEach(() => {
+			ictTasksStore.load([activeTask, secondaryActiveTask], 'org-1');
+			personnelIctCompletionsStore.load([activeCompletion], 'org-1');
+		});
+
+		afterEach(() => vi.unstubAllGlobals());
+
+		it('filters the applicable tasks by search text and by status on the row', async () => {
+			renderRecord();
+			expect(applicableCodes()).toEqual(['181-105-1003', '181-105-1001']);
+
+			await fireEvent.input(screen.getByRole('searchbox', { name: 'Filter by task ID or name' }), {
+				target: { value: 'airway' }
+			});
+			expect(applicableCodes()).toEqual(['181-105-1003']);
+
+			await fireEvent.input(screen.getByRole('searchbox', { name: 'Filter by task ID or name' }), {
+				target: { value: '' }
+			});
+			const status = screen.getByRole('button', { name: 'Status' });
+			status.focus();
+			await fireEvent.keyDown(status, { key: 'ArrowDown' });
+			await fireEvent.pointerUp(await screen.findByRole('option', { name: 'Current' }));
+			expect(applicableCodes()).toEqual(['181-105-1001']);
+		});
+
+		it('keeps Status, Category and Print Record working from More when the row folds', async () => {
+			const widths = stubToolbarWidths();
+			const print = vi.fn();
+			vi.stubGlobal('print', print);
+			renderRecord();
+			await widths.foldAll();
+
+			const row = within(screen.getByRole('toolbar', { name: toolbarName }));
+			expect(row.queryByRole('button', { name: 'Status' })).toBeNull();
+			expect(row.queryByRole('button', { name: 'Print Record' })).toBeNull();
+			expect(row.getByRole('button', { name: 'Input Task' })).toBeTruthy();
+
+			await openToolbarMore(toolbarName);
+			expect(screen.getByRole('menuitem', { name: 'Category, All Categories' })).toBeTruthy();
+			await openToolbarSubmenu('Status, All Statuses');
+			await fireEvent.click(await screen.findByRole('menuitemradio', { name: 'Not Recorded' }));
+			expect(applicableCodes()).toEqual(['181-105-1003']);
+
+			const more = screen.getByRole('button', { name: `More ${toolbarName}` });
+			expect(more.getAttribute('aria-describedby')).toBeTruthy();
+			await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+			await openToolbarMore(toolbarName);
+			await fireEvent.click(screen.getByRole('menuitem', { name: 'Print Record' }));
+			await waitFor(() => expect(print).toHaveBeenCalledTimes(1));
+		});
+
+		it('keeps the search field on the row until it is reduced to an icon that still filters', async () => {
+			const widths = stubToolbarWidths();
+			renderRecord();
+			await widths.foldAll();
+
+			const icon = screen.getByRole('button', { name: 'Filter by task ID or name' });
+			await fireEvent.click(icon);
+			await fireEvent.input(await screen.findByRole('searchbox', { name: 'Filter by task ID or name' }), {
+				target: { value: 'airway' }
+			});
+			expect(applicableCodes()).toEqual(['181-105-1003']);
+		});
+
+		it('hides Input Task from a viewer and leaves Print Record in More', async () => {
+			accessFacts = { membershipRole: 'member', capabilityMap: createCapabilityMap('view') };
+			const widths = stubToolbarWidths();
+			renderRecord();
+			await widths.foldAll();
+
+			expect(screen.queryByRole('button', { name: 'Input Task' })).toBeNull();
+			await openToolbarMore(toolbarName);
+			expect(screen.getByRole('menuitem', { name: 'Print Record' })).toBeTruthy();
+			expect(screen.queryByRole('menuitem', { name: 'Input Task' })).toBeNull();
+		});
+
+		it('disables Input Task when no active task applies to the soldier', () => {
+			ictTasksStore.load([nonApplicableTask], 'org-1');
+			renderRecord();
+
+			expect((screen.getByRole('button', { name: 'Input Task' }) as HTMLButtonElement).disabled).toBe(true);
+		});
 	});
 });

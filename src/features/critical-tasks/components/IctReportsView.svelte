@@ -6,8 +6,11 @@
 	import * as Progress from '$lib/components/ui/progress';
 	import * as ReportWorkspace from '$lib/components/patterns/report-workspace';
 	import * as Separator from '$lib/components/ui/separator';
-	import * as WorkspaceToolbar from '$lib/components/patterns/workspace-toolbar';
-	import type { WorkspaceToolbarAction } from '$lib/components/patterns/workspace-toolbar';
+	import {
+		WorkspaceToolbar,
+		type ToolbarItem,
+		type WorkspaceToolbarProps
+	} from '$lib/components/patterns/workspace-toolbar';
 	import { downloadBlob } from '$lib/utils/downloadBlob';
 	import { filenameFromContentDisposition } from '$lib/utils/workbook';
 	import type { IctReportDashboard, IctReportScope } from '$features/critical-tasks/utils/ictReports';
@@ -110,42 +113,82 @@
 	});
 	const topTasksBelowThreshold = $derived(dashboard.tasksBelowThreshold.rows.slice(0, 4));
 	const topAtRiskSoldiers = $derived(dashboard.atRiskSoldiers.rows.slice(0, 5));
-	const toolbarActionItems = $derived.by<WorkspaceToolbarAction[]>(() => {
-		const items: WorkspaceToolbarAction[] = [];
+	const toolbarItems = $derived.by<ToolbarItem[]>(() => {
+		const items: ToolbarItem[] = [
+			{
+				kind: 'select',
+				id: 'group',
+				label: 'Group',
+				ariaLabel: 'Filter by group',
+				options: groupOptions,
+				value: filterGroupId,
+				defaultValue: '',
+				onValueChange: (value) => (filterGroupId = value)
+			},
+			{
+				kind: 'select',
+				id: 'rank',
+				label: 'Rank',
+				ariaLabel: 'Filter by rank',
+				options: rankOptions,
+				value: filterRank,
+				defaultValue: '',
+				onValueChange: (value) => (filterRank = value)
+			},
+			{
+				kind: 'multiSelect',
+				id: 'mos',
+				label: 'MOS',
+				ariaLabel: 'Filter by MOS',
+				options: availableMosOptions,
+				values: filterMosValues,
+				onValuesChange: (values) => (filterMosValues = values)
+			},
+			{
+				kind: 'select',
+				id: 'role',
+				label: 'Duty role',
+				ariaLabel: 'Filter by duty role',
+				options: roleOptions,
+				value: filterRole,
+				defaultValue: '',
+				onValueChange: (value) => (filterRole = value)
+			}
+		];
 
 		if (hasActiveFilters) {
 			items.push({
+				kind: 'action',
 				id: 'clear-filters',
 				label: 'Clear filters',
 				onclick: clearFilters,
-				disabled: loading,
-				priority: 'normal',
-				variant: 'secondary'
+				disabled: loading
 			});
 		}
-
-		items.push({
-			id: 'export-excel',
-			label: exportLoading ? 'Exporting...' : 'Export Excel',
-			onclick: exportExcel,
-			icon: 'download',
-			priority: 'critical',
-			overflow: 'never',
-			variant: 'primary',
-			disabled: exportLoading
-		});
 
 		return items;
 	});
 
-	// Clearing removes Clear filters itself, and its menu when it was the last overflow item.
-	async function clearFilters() {
+	const toolbarPrimary = $derived<WorkspaceToolbarProps['primary']>({
+		kind: 'action',
+		id: 'export-excel',
+		label: exportLoading ? 'Exporting...' : 'Export Excel',
+		icon: 'download',
+		onclick: exportExcel,
+		loading: exportLoading
+	});
+
+	async function focusGroupFilter() {
+		await tick();
+		viewRoot?.querySelector<HTMLElement>('[data-toolbar-row] [aria-label="Filter by group"]')?.focus();
+	}
+
+	function clearFilters() {
 		filterGroupId = '';
 		filterMosValues = [];
 		filterRole = '';
 		filterRank = '';
-		await tick();
-		viewRoot?.querySelector<HTMLElement>('[aria-label="Filter by group"]')?.focus();
+		void focusGroupFilter();
 	}
 
 	function formatDelta(delta: number): string {
@@ -225,54 +268,7 @@
 </script>
 
 <div bind:this={viewRoot} class="flex flex-col gap-5 p-4 sm:p-2 md:p-4">
-	<WorkspaceToolbar.Root ariaLabel="Critical task report controls" wrap>
-		<WorkspaceToolbar.Group
-			label="Critical task report filters"
-			activeCount={activeFilterCount}
-			data-testid="ict-report-filters"
-		>
-			<WorkspaceToolbar.Select
-				options={groupOptions}
-				value={filterGroupId}
-				ariaLabel="Filter by group"
-				disabled={loading}
-				onValueChange={(value) => (filterGroupId = value)}
-			/>
-
-			<WorkspaceToolbar.Select
-				options={rankOptions}
-				value={filterRank}
-				ariaLabel="Filter by rank"
-				disabled={loading}
-				onValueChange={(value) => (filterRank = value)}
-			/>
-
-			<WorkspaceToolbar.MultiSelect
-				options={availableMosOptions}
-				value={filterMosValues}
-				label="MOS"
-				ariaLabel="Filter by MOS"
-				disabled={loading}
-				onChange={(values) => (filterMosValues = values)}
-			/>
-
-			<WorkspaceToolbar.Select
-				options={roleOptions}
-				value={filterRole}
-				ariaLabel="Filter by duty role"
-				disabled={loading}
-				onValueChange={(value) => (filterRole = value)}
-			/>
-		</WorkspaceToolbar.Group>
-
-		<WorkspaceToolbar.Group label="Critical task report actions" zone="actions">
-			<WorkspaceToolbar.Actions
-				actions={toolbarActionItems}
-				ariaLabel="Critical task report actions"
-				overflowAriaLabel="More critical task report actions"
-			/>
-		</WorkspaceToolbar.Group>
-	</WorkspaceToolbar.Root>
+	<WorkspaceToolbar ariaLabel="Critical task report controls" items={toolbarItems} primary={toolbarPrimary} />
 
 	{#if dashboardError}
 		<ReportWorkspace.State

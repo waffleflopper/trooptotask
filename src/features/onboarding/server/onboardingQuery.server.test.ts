@@ -276,6 +276,18 @@ describe('fetchOnboardingBootstrap', () => {
 		expect(result.trainingTypes).toEqual([expect.objectContaining({ id: 'tt1', name: 'CPR' })]);
 	});
 
+	it('returns only in-scope Groups to a Group-scoped member', async () => {
+		const ctx = createWritePortsContext({ auth: { orgId: ORG, scopeSet: { kind: 'groups', groupIds: ['g1'] } } });
+		ctx.store.seed('groups', [
+			{ id: 'g1', organization_id: ORG, name: 'Alpha', sort_order: 0 },
+			{ id: 'g2', organization_id: ORG, name: 'Bravo', sort_order: 1 }
+		]);
+
+		const result = await fetchOnboardingBootstrap(ctx);
+
+		expect(result.groups).toEqual([{ id: 'g1', name: 'Alpha', sortOrder: 0 }]);
+	});
+
 	it('returns all onboardings for an unscoped member', async () => {
 		const ctx = createWritePortsContext({ auth: { orgId: ORG } });
 		ctx.store.seed('personnel_onboardings', [
@@ -396,7 +408,7 @@ describe('fetchOnboardingBootstrap', () => {
 		]);
 
 		const history = await fetchOnboardingBootstrap(ctx, { mode: 'history' });
-		expect(history.groups.map((group) => group.name)).toEqual(['Alpha', 'Bravo']);
+		expect(history.groups.map((group) => group.name)).toEqual(['Alpha']);
 		expect(history.personnel).toMatchObject([
 			{ id: 'archived-in-scope', archivedAt: '2026-08-01', groupName: 'Alpha' }
 		]);

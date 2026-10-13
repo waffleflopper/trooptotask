@@ -40,6 +40,8 @@ import {
 	personnelEditableRow,
 	personnelInsertRow
 } from './personnelPersistenceMapping.server';
+import type { ScopeSet } from '$lib/access/memberAccessShape';
+import { visibleGroupIds } from './groupCatalog.server';
 
 export function createInMemoryPersonnelRecordPersistence(
 	store: PersonnelMemoryStore,
@@ -167,36 +169,40 @@ export function createInMemoryPersonnelRosterReader(store: PersonnelMemoryStore,
 		}
 	};
 }
-export function createInMemoryGroupPersistence(store: PersonnelMemoryStore, orgId: string): GroupPersistence {
+export function createInMemoryGroupPersistence(
+	store: PersonnelMemoryStore,
+	orgId: string,
+	scopeSet: ScopeSet
+): GroupPersistence {
 	const map = (row: Record<string, unknown>) => ({
 		id: row.id as string,
 		name: row.name as string,
 		sortOrder: row.sort_order as number
 	});
+	async function rows(select: string, requestedIds?: string[]) {
+		const ids = visibleGroupIds(scopeSet, requestedIds);
+		if (ids?.length === 0) return [];
+		return store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
+			select,
+			inFilters: ids ? { id: ids } : undefined,
+			orderBy: [
+				{ column: 'sort_order', ascending: true },
+				{ column: 'id', ascending: true }
+			]
+		});
+	}
 	return {
-		async listCatalog(options = {}) {
-			if (options.groupIds?.length === 0) return [];
-			return (
-				await store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
-					select: '*',
-					inFilters: options.groupIds ? { id: options.groupIds } : undefined,
-					orderBy: [
-						{ column: 'sort_order', ascending: true },
-						{ column: 'id', ascending: true }
-					]
-				})
-			).map(map);
+		async listCatalog() {
+			return (await rows('*')).map(map);
 		},
-		findReference: (id) => store.findOne('groups', orgId, { id }, 'id'),
+		async findReference(id) {
+			const [row] = await rows('id', [id]);
+			return row ? { id: row.id as string } : null;
+		},
 		async findNamesByIds(ids) {
-			if (!ids.length) return new Map();
-			const rows = await store.findMany<{ id: string; name?: string | null }>('groups', orgId, undefined, {
-				select: 'id, name',
-				inFilters: { id: ids }
-			});
 			return new Map(
-				rows
-					.filter((row): row is { id: string; name: string } => typeof row.name === 'string')
+				(await rows('id, name', ids))
+					.filter((row): row is Record<string, unknown> & { id: string; name: string } => typeof row.name === 'string')
 					.map((row) => [row.id, row.name])
 			);
 		},

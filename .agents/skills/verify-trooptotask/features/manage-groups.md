@@ -10,13 +10,14 @@ A manager adds, renames, or removes organization groups from the Personnel roste
 - `groups-remove`: remove a group after the visible confirmation path.
 - `groups-persist`: reopen the dialog after reload to confirm the stored list.
 - `groups-denied`: a reader's same-Organization and foreign-Organization writes are rejected with no saved Group.
+- `groups-scope`: a Group-scoped Personnel configurer sees no `Manage Groups`, and its direct Group writes are rejected with no saved Group.
 - `groups-pin`: pin and unpin a visible Group, reload, and verify this member's saved preference.
 - `groups-rename-recovery`: a failed rename keeps the edited name and its field error until Cancel or a successful retry.
 - `groups-pin-recovery`: preserve the current preference after a failed save and a late response from another Organization.
 
 ## How to get to it (user POV)
 
-Sign in as a member with Personnel configuration access, choose `Personnel`, then `Manage Groups`. In the dialog, type into `Organization groups` and choose `Add`; each saved group has `Edit <name>` and `Remove <name>` actions. Choose `Done` to return to the roster.
+Sign in as a member with Organization-wide Personnel configuration access, choose `Personnel`, then `Manage Groups`. A Group-scoped configurer has no `Manage Groups` button. In the dialog, type into `Organization groups` and choose `Add`; each saved group has `Edit <name>` and `Remove <name>` actions. Choose `Done` to return to the roster.
 
 ## Driving it with verify:app
 
@@ -29,6 +30,7 @@ Preconditions: doctor passes; `$V fixture` identifies Organizations A/B and seed
 5. After creation, `$V rows groups orgA name "$NAME"` must return exactly one row. After rename, the old-name query must return zero and `$V rows groups orgA name "$REPLACEMENT"` must return exactly one row with the ID captured at creation. After removal, the replacement-name query must return zero; Alpha and Bravo remain. Capture an empty/duplicate Add attempt and the visible validation without changing a saved Group. For a controlled Add failure, arm `$V network arm-fail PAGE groups` before submitting. Preserve the draft/error and unchanged rows, restore the control, then retry explicitly and reload. The failure is an undispatched synthetic 503, not a provider outage. Use `$V network arm-observe PAGE groups` for the separate ordinary success and restore afterward.
 6. **Failed rename and remove keep values.** With a new synthetic Group, choose `Edit NAME`, type `REPLACEMENT`, arm `$V network arm-fail PAGE groups` and submit: require the edited name still in the textbox, the failure message shown through `Field.Error` with `aria-invalid="true"` and `aria-describedby` on that textbox, the dialog still open and `$V rows groups orgA name "$NAME"` unchanged. Press Cancel and require the saved name restored; repeat the edit and retry after restore. Arm `arm-fail` again, choose `Remove REPLACEMENT` and confirm: the Group stays listed with an error and its row remains. Record keyboard operation of Add (Enter in the textbox), Edit (Enter submits, Escape cancels the edit) and focus after each outcome. A blank or whitespace-only rename keeps `Save` disabled (a disabled button in the a11y tree, no message) and saves nothing; typing a real name enables it, and the saved name reads back after reload. With a typed draft the `Close` button is absent and Escape is blocked; clear the draft by typing a character and pressing Backspace (a native `fill` with an empty string does not update the bound value), then `Close` by name closes the dialog and Escape closes it again. At 390 dark require the dialog within the viewport.
 7. Sign in as `viewer` in a separate context. `Manage Groups` is unavailable, but that is only a UI affordance check. From the same signed-in page, use `tool evaluate_script` and `fetch` to send authenticated `POST /org/<orgA>/api/groups` and `POST /org/<orgB>/api/groups` with `headers: {'Content-Type': 'application/json'}` and `body: JSON.stringify({name: 'Denied <run>'})`. Use a different name for each request. Expect `403` for A and `403` or `404` for B; a `400` means the probe did not reach authorization. Record each HTTP status and `$V rows groups orgA|orgB name ...` showing zero rows.
+8. Sign in as `personnelScoped`, which configures only Alpha. Personnel shows only the Alpha Group and no `Manage Groups` button. Repeat step 7's authenticated A `POST` and a `PATCH` renaming Alpha with fresh names; expect `403`, then record zero rows for the new name and Alpha unchanged through `$V rows groups orgA`.
 
 ## Personal Group pins
 

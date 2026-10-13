@@ -95,7 +95,7 @@ export function createRequestTrainingRosterContext(
 	Parameters<typeof fetchTrainingWorkspaceData>[0] {
 	const rankCatalog = createSupabaseRankCatalogPersistence(request.supabase, request.auth.orgId);
 	return {
-		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId),
+		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet),
 		selfPins: createSupabaseSelfPinPersistence(request.supabase, request.auth.orgId, request.auth.userId),
 		...createRequestTrainingCatalogContext(request),
 		loadRankCatalog: () =>
@@ -110,7 +110,7 @@ export function createRequestTrainingBriefingContext(
 ): Parameters<typeof fetchTrainingBriefingReport>[0] {
 	const rankCatalog = createSupabaseRankCatalogPersistence(request.supabase, request.auth.orgId);
 	return {
-		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId),
+		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet),
 		...createRequestTrainingCatalogContext(request),
 		loadRankCatalog: () =>
 			loadOrganizationRankCatalog(
@@ -166,7 +166,7 @@ export function createRequestCriticalTasksReadContext(
 	request: AdmittedOrganizationRequest
 ): Parameters<typeof fetchCriticalTasksBootstrap>[0] & Parameters<typeof fetchCriticalTasksReportsPageModel>[0] {
 	return {
-		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId),
+		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet),
 		auth: request.auth,
 		rankCatalog: createSupabaseRankCatalogPersistence(request.supabase, request.auth.orgId),
 		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase),
@@ -344,7 +344,7 @@ export function createRequestOnboardingWorkspaceContext(
 				audit: request.audit,
 				rankCatalog: rankCatalog
 			}),
-		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId),
+		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet),
 		auth: request.auth,
 		audit: request.audit,
 		onboardingWorkflow: createSupabaseOnboardingWorkflowPersistence(request.supabase, request.auth.orgId),

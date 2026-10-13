@@ -1,11 +1,18 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { ScopeSet } from '$lib/access/memberAccessShape';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type { Group, GroupPersistence } from './contracts';
+import { visibleGroupIds } from './groupCatalog.server';
 function toGroup(row: Record<string, unknown>): Group {
 	return { id: row.id as string, name: row.name as string, sortOrder: row.sort_order as number };
 }
-export function createSupabaseGroupPersistence(client: SupabaseClient, orgId: string): GroupPersistence {
-	async function rows(select: string, ids?: string[]) {
+export function createSupabaseGroupPersistence(
+	client: SupabaseClient,
+	orgId: string,
+	scopeSet: ScopeSet
+): GroupPersistence {
+	async function rows(select: string, requestedIds?: string[]) {
+		const ids = visibleGroupIds(scopeSet, requestedIds);
 		if (ids?.length === 0) return [];
 		const result = await selectAllSupabaseRows<Record<string, unknown>>(async (from, to) => {
 			let query = client.from('groups').select(select).eq('organization_id', orgId);
@@ -21,19 +28,12 @@ export function createSupabaseGroupPersistence(client: SupabaseClient, orgId: st
 		return result.data ?? [];
 	}
 	return {
-		async listCatalog(options = {}) {
-			return (await rows('*', options.groupIds)).map(toGroup);
+		async listCatalog() {
+			return (await rows('*')).map(toGroup);
 		},
 		async findReference(id) {
-			const { data, error } = await client
-				.from('groups')
-				.select('id')
-				.eq('organization_id', orgId)
-				.eq('id', id)
-				.limit(1)
-				.maybeSingle<{ id: string }>();
-			if (error) throw new Error(error.message);
-			return data;
+			const [row] = await rows('id', [id]);
+			return row ? { id: row.id as string } : null;
 		},
 		async findNamesByIds(ids) {
 			return new Map(

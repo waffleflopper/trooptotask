@@ -528,6 +528,29 @@ describe('importPersonnelBatch', () => {
 		expect(result.errors[0].message).toContain('only add personnel to your assigned group');
 	});
 
+	it('rejects an out-of-scope Group name exactly like an unknown name', async () => {
+		const ctx = buildContext({
+			auth: { scopeSet: { kind: 'groups', groupIds: ['group-1'] } }
+		});
+		ctx.store.seed('groups', [
+			{ id: 'group-1', organization_id: 'test-org', name: 'Alpha' },
+			{ id: 'group-2', organization_id: 'test-org', name: 'Bravo' }
+		]);
+
+		const result = await importPersonnelBatch(ctx, {
+			records: [
+				{ rank: 'SGT', lastName: 'Smith', firstName: 'John', groupName: 'Bravo' },
+				{ rank: 'PFC', lastName: 'Doe', firstName: 'Jane', groupName: 'Nonexistent' }
+			]
+		});
+
+		expect(result.inserted).toEqual([]);
+		expect(result.errors).toEqual([
+			{ index: 0, message: 'You can only add personnel to your assigned group' },
+			{ index: 1, message: 'You can only add personnel to your assigned group' }
+		]);
+	});
+
 	it('preserves ETS and DEROS values from bulk import records', async () => {
 		const ctx = buildContext();
 

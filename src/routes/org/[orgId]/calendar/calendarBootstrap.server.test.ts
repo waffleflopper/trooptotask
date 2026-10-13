@@ -44,6 +44,7 @@ function seedCalendarData(store: ReturnType<typeof createInMemoryDataStore>) {
 	store.seed('daily_assignments', [
 		{ id: 'da1', organization_id: ORG, date: '2026-03-10', assignment_type_id: 'at1', assignee_id: 'p1' }
 	]);
+	store.seed('groups', [{ id: 'g1', organization_id: ORG, name: 'Alpha', sort_order: 0 }]);
 	store.seed('user_pinned_groups', [
 		{ id: 'pg1', organization_id: ORG, user_id: 'test-user', group_name: 'Alpha', sort_order: 0 }
 	]);

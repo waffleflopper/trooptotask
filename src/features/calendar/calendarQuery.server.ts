@@ -27,6 +27,7 @@ import type { OnboardingCalendarMarkersPort } from '$features/onboarding/contrac
 import type { AuditPort } from '$lib/audit/contracts';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import type { GroupPersistence, PersonnelCalendarRosterPort, SelfPinPersistence } from '$features/personnel/contracts';
+import { visiblePinnedGroupNames } from '$features/personnel/index.server';
 
 interface CalendarQueryPorts {
 	auth: OrganizationAccessGrant;
@@ -74,20 +75,23 @@ export async function fetchCalendarData(ctx: CalendarQueryPorts, input: Calendar
 	const { rangeStart, rangeEnd } = input;
 	const calendarScope = await resolveCalendarAssigneeScope(ctx);
 
-	const [availabilityEntries, specialDays, assignmentTypes, dailyAssignments, pinnedGroups] = await Promise.all([
-		listAvailabilityEntries(ctx, { rangeStart, rangeEnd, personnelIds: calendarScope?.personnelIds }),
-		listSpecialDaysInRange(ctx.calendarCatalogs, input),
-		listAssignmentTypes(ctx.calendarCatalogs),
-		listDailyAssignments(ctx, input, calendarScope),
-		ctx.selfPins.listNames()
-	]);
+	const [availabilityEntries, specialDays, assignmentTypes, dailyAssignments, pinnedGroups, groups] = await Promise.all(
+		[
+			listAvailabilityEntries(ctx, { rangeStart, rangeEnd, personnelIds: calendarScope?.personnelIds }),
+			listSpecialDaysInRange(ctx.calendarCatalogs, input),
+			listAssignmentTypes(ctx.calendarCatalogs),
+			listDailyAssignments(ctx, input, calendarScope),
+			ctx.selfPins.listNames(),
+			ctx.groups.listCatalog()
+		]
+	);
 
 	return {
 		availabilityEntries,
 		specialDays,
 		assignmentTypes,
 		dailyAssignments,
-		pinnedGroups
+		pinnedGroups: visiblePinnedGroupNames(pinnedGroups, groups)
 	};
 }
 
@@ -148,7 +152,7 @@ export async function fetchCalendarBootstrap(
 		listAssignmentTypes(ctx.calendarCatalogs),
 		ctx.selfPins.listNames(),
 		requirePersonnelCalendarRoster(ctx).listActive(ctx.auth),
-		ctx.groups.listCatalog({ groupIds: calendarScope?.groupIds }),
+		ctx.groups.listCatalog(),
 		listStatusTypes(ctx.calendarCatalogs),
 		ctx.organizationSettings.findLossWarningWindowDays(orgId).catch(() => null)
 	]);
@@ -162,7 +166,7 @@ export async function fetchCalendarBootstrap(
 		specialDays,
 		assignmentTypes,
 		dailyAssignments,
-		pinnedGroups,
+		pinnedGroups: visiblePinnedGroupNames(pinnedGroups, groups),
 		personnel,
 		groups,
 		statusTypes,

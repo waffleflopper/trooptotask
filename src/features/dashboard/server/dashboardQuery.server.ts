@@ -30,6 +30,7 @@ import {
 import type { OnboardingWorkflowPersistence } from '$features/onboarding/contracts';
 import type { TrainingCatalogPersistence } from '$features/training/contracts';
 import { formatDate } from '$lib/utils/dates';
+import { visiblePinnedGroupNames } from '$features/personnel/index.server';
 
 type DashboardQueryContext = Parameters<typeof listAvailabilityEntries>[0] &
 	Parameters<typeof listDailyAssignments>[0] & {
@@ -93,7 +94,7 @@ export async function fetchDashboardBootstrap(ctx: DashboardQueryContext): Promi
 		availabilityEntries,
 		assignmentTypes,
 		todayAssignments,
-		pinnedGroups,
+		pinnedGroups: visiblePinnedGroupNames(pinnedGroups, groups),
 		ratingSchemeEntries,
 		activeOnboardings,
 		personnel,

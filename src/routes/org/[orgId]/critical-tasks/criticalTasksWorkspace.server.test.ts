@@ -70,7 +70,7 @@ describe('streamCriticalTasksWorkspaceBootstrap', () => {
 		vi.clearAllMocks();
 		const store = createInMemoryDataStore();
 		store.findMany = findManyMock;
-		mockCtx.groups = createInMemoryGroupPersistence(store, mockCtx.auth.orgId);
+		mockCtx.groups = createInMemoryGroupPersistence(store, mockCtx.auth.orgId, { kind: 'organization' });
 		findCriticalTasksDefaultsMock.mockResolvedValue({
 			defaultExpirationMonths: 18,
 			expiringSoonWarningDays: 45

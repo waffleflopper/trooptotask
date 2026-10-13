@@ -236,6 +236,22 @@ describe('TrainingViewsPage', () => {
 		expect(screen.getByRole('link', { name: 'Back to Matrix' })).toBeTruthy();
 	});
 
+	it('gives a viewer no New View or Edit in More either, only Back to Matrix', async () => {
+		const widths = stubToolbarWidths();
+		try {
+			render(TrainingViewsPage, { props: { org: viewer } });
+			await widths.foldAll();
+
+			const menu = await openToolbarMore('Training view controls');
+			expect(within(menu).getByRole('menuitem', { name: 'Back to Matrix' })).toBeTruthy();
+			expect(within(menu).queryByRole('menuitem', { name: 'New View' })).toBeNull();
+			expect(within(menu).queryByRole('menuitem', { name: 'Edit' })).toBeNull();
+			expect(screen.queryByRole('toolbar', { name: 'Training view detail controls' })).toBeNull();
+		} finally {
+			vi.unstubAllGlobals();
+		}
+	});
+
 	it('disables New View with its reason while a view is being edited', async () => {
 		render(TrainingViewsPage, { props: { org } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));

@@ -6,6 +6,8 @@ import {
 	createRequestSignInRosterUploadContext
 } from '$lib/server/adapters/requestContexts.server';
 import { json, type RequestEvent } from '@sveltejs/kit';
+import type { FileCleanup } from '$features/organization/contracts';
+import { fail } from '$lib/errors';
 
 export const _getConfig: RouteConfig<
 	{ rosterId: string },
@@ -43,16 +45,22 @@ export const _postConfig: RouteConfig<
 export const POST = handle(_postConfig);
 
 export const _deleteConfig: RouteConfig<
-	{ rosterId: string },
-	{ success: boolean },
+	{ rosterId: string; filePath: string },
+	{ success: boolean; fileCleanup: FileCleanup },
 	ReturnType<typeof createRequestSignInRosterUploadContext>
 > = {
 	context: createRequestSignInRosterUploadContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.training.manageSignInRosters,
 	policyResource: { kind: 'unscoped' },
-	parseInput: (event: RequestEvent) => ({ rosterId: event.params.id as string }),
-	fn: (ctx, input) => removeSignedScan(ctx, input.rosterId)
+	parseInput: async (event: RequestEvent) => {
+		const body: unknown = await event.request.json().catch(() => null);
+		const filePath = body && typeof body === 'object' && 'filePath' in body ? body.filePath : null;
+		if (typeof filePath !== 'string' || !filePath || filePath.length > 1024)
+			fail(400, 'The signed scan to remove is required');
+		return { rosterId: event.params.id as string, filePath };
+	},
+	fn: (ctx, input) => removeSignedScan(ctx, input.rosterId, input.filePath)
 };
 
 export const DELETE = handle(_deleteConfig);

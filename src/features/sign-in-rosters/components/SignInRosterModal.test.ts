@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockJsPDF, mockAutoTable } = vi.hoisted(() => {
@@ -49,6 +49,7 @@ const personnel: Personnel[] = [
 ];
 
 const groups = [{ id: 'group-1', name: 'Alpha' }];
+const SAVED_SCAN = 'org-1/sign-in-rosters/roster-1/signed-roster.pdf';
 
 function makeRoster(overrides: Partial<SignInRoster> = {}): SignInRoster {
 	return {
@@ -75,9 +76,10 @@ function makeRoster(overrides: Partial<SignInRoster> = {}): SignInRoster {
 	};
 }
 
-function jsonResponse(data: unknown, ok = true): Response {
+function jsonResponse(data: unknown, ok = true, status = ok ? 200 : 500): Response {
 	return {
 		ok,
+		status,
 		json: vi.fn().mockResolvedValue(data)
 	} as unknown as Response;
 }
@@ -310,7 +312,7 @@ describe('SignInRosterModal', () => {
 	it('shows a list load failure with Retry instead of the empty state and a misleading total, then recovers', async () => {
 		const fetchMock = vi
 			.fn()
-			.mockResolvedValueOnce(jsonResponse({ error: 'Sign-in rosters are unavailable.' }, false))
+			.mockResolvedValueOnce(jsonResponse({ message: 'Sign-in rosters are unavailable.' }, false))
 			.mockResolvedValueOnce(jsonResponse({ rosters: [makeRoster()], total: 1 }));
 		vi.stubGlobal('fetch', fetchMock);
 
@@ -855,6 +857,37 @@ describe('SignInRosterModal', () => {
 		expect(toastSuccess).not.toHaveBeenCalled();
 	});
 
+	it.each(['remove', 'delete'] as const)(
+		'reports nothing when a %s finishes after the Organization shell ends',
+		async (action) => {
+			let resolveDelete!: (response: Response) => void;
+			vi.stubGlobal(
+				'fetch',
+				vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) =>
+					init?.method === 'DELETE'
+						? new Promise<Response>((resolve) => (resolveDelete = resolve))
+						: jsonResponse({ rosters: [makeRoster({ signedFilePath: SAVED_SCAN })], total: 1 })
+				)
+			);
+			const toastSuccess = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
+			renderModal();
+			await fireEvent.click(await screen.findByRole('button', { name: /Morning Formation/i }));
+			if (action === 'remove') {
+				await fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+			} else {
+				await fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+				await fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Delete' }));
+			}
+
+			endOrganizationLifetime();
+			resolveDelete(jsonResponse({ success: true, fileCleanup: 'pending' }));
+			await new Promise((resolve) => setTimeout(resolve, 0));
+
+			expect(toastSuccess).not.toHaveBeenCalled();
+			expect(screen.getByRole('button', { name: /Morning Formation/i })).toBeTruthy();
+		}
+	);
+
 	it('validates signed roster scan type before upload', async () => {
 		const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
 			jsonResponse({ rosters: [makeRoster()], total: 1 })
@@ -943,6 +976,7 @@ describe('SignInRosterModal', () => {
 		const remove = screen.getByRole('button', { name: 'Remove' });
 		await fireEvent.click(remove);
 		await fireEvent.click(remove);
+		expect((screen.getByLabelText('Replace signed scan') as HTMLInputElement).disabled).toBe(true);
 
 		expect(
 			fetchMock.mock.calls.filter(([input, init]) => String(input).endsWith('/upload') && init?.method === 'DELETE')
@@ -961,6 +995,160 @@ describe('SignInRosterModal', () => {
 			([input, init]) => String(input).endsWith('/upload') && init?.method === 'DELETE'
 		);
 		expect(deleteCall?.[0]).toBe('/org/org-1/api/sign-in-rosters/roster-1/upload');
+		expect(JSON.parse(String(deleteCall?.[1]?.body))).toEqual({
+			filePath: 'org-1/sign-in-rosters/roster-1/signed-roster.pdf'
+		});
+	});
+
+	it('replaces a saved signed scan through its labeled file input', async () => {
+		const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+			if (String(input).endsWith('/upload') && init?.method === 'POST')
+				return jsonResponse({ filePath: 'org-1/sign-in-rosters/roster-1/replacement.pdf' });
+			return jsonResponse({ rosters: [makeRoster({ signedFilePath: SAVED_SCAN })], total: 1 });
+		});
+		vi.stubGlobal('fetch', fetchMock);
+
+		renderModal();
+		await fireEvent.click(await screen.findByRole('button', { name: /Morning Formation/i }));
+		const file = new File(['replacement'], 'replacement.pdf', { type: 'application/pdf' });
+		await fireEvent.change(screen.getByLabelText('Replace signed scan'), { target: { files: [file] } });
+
+		expect(await screen.findByRole('button', { name: 'replacement.pdf' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'signed-roster.pdf' })).toBeNull();
+	});
+
+	it('explains a changed scan and reloads the roster list instead of removing it', async () => {
+		let listCalls = 0;
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+				if (String(input).endsWith('/upload') && init?.method === 'DELETE')
+					return jsonResponse({ message: 'This signed scan changed. Reload to review it.' }, false, 409);
+				listCalls++;
+				const signedFilePath = listCalls === 1 ? SAVED_SCAN : 'org-1/sign-in-rosters/roster-1/newer.pdf';
+				return jsonResponse({ rosters: [makeRoster({ signedFilePath })], total: 1 });
+			})
+		);
+
+		renderModal();
+		await fireEvent.click(await screen.findByRole('button', { name: /Morning Formation/i }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+
+		expect(await screen.findByText('This signed scan changed. Reload to review it.')).toBeTruthy();
+		expect(await screen.findByRole('button', { name: 'newer.pdf' })).toBeTruthy();
+		expect(listCalls).toBe(2);
+	});
+
+	it.each([
+		[
+			'a refused deletion keeps the confirmation with its error',
+			jsonResponse({ message: 'Sign-in roster management is not allowed' }, false, 403)
+		],
+		['an unconfirmed deletion keeps the confirmation with its error', 'network' as const]
+	])('%s', async (_case, reply) => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+				if (init?.method === 'DELETE') {
+					if (reply === 'network') throw new TypeError('Failed to fetch');
+					return reply;
+				}
+				return jsonResponse({ rosters: [makeRoster()], total: 1 });
+			})
+		);
+
+		renderModal();
+		await fireEvent.click(await screen.findByRole('button', { name: /Morning Formation/i }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+		const confirm = await screen.findByRole('alertdialog');
+		await fireEvent.click(within(confirm).getByRole('button', { name: 'Delete' }));
+
+		expect(
+			await within(confirm).findByText(
+				reply === 'network' ? 'Unable to delete roster.' : 'Sign-in roster management is not allowed'
+			)
+		).toBeTruthy();
+		expect(screen.getByRole('button', { name: /Morning Formation/i })).toBeTruthy();
+	});
+
+	const UNCONFIRMED = 'The signed scan change could not be confirmed. Reload to check it.';
+
+	it.each([
+		['an unconfirmed upload', jsonResponse({ message: UNCONFIRMED }, false, 503), 'upload', UNCONFIRMED],
+		['an unconfirmed remove', jsonResponse({ message: UNCONFIRMED }, false, 503), 'remove', UNCONFIRMED],
+		['an unconfirmed delete', jsonResponse({ message: UNCONFIRMED }, false, 503), 'delete', UNCONFIRMED],
+		[
+			'an upload failure without a public message',
+			jsonResponse({ error: 'raw stack' }, false, 500),
+			'upload',
+			'Upload failed.'
+		],
+		[
+			'a remove failure without a public message',
+			jsonResponse({ message: 42 }, false, 500),
+			'remove',
+			'Remove failed.'
+		],
+		['a delete failure without a public message', jsonResponse({}, false, 500), 'delete', 'Unable to delete roster.'],
+		['a null upload failure body', jsonResponse(null, false, 500), 'upload', 'Upload failed.']
+	] as const)('shows the server message for %s and keeps the roster', async (_case, reply, action, text) => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+				if (init?.method === 'POST' && String(input).endsWith('/upload') && action === 'upload') return reply;
+				if (init?.method === 'DELETE') return reply;
+				return jsonResponse({
+					rosters: [makeRoster({ signedFilePath: action === 'upload' ? null : SAVED_SCAN })],
+					total: 1
+				});
+			})
+		);
+
+		renderModal();
+		await fireEvent.click(await screen.findByRole('button', { name: /Morning Formation/i }));
+		if (action === 'upload') {
+			const file = new File(['%PDF-1.4'], 'scan.pdf', { type: 'application/pdf' });
+			await fireEvent.change(screen.getByLabelText('Signed Scan'), { target: { files: [file] } });
+		} else if (action === 'remove') {
+			await fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+		} else {
+			await fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+			await fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Delete' }));
+		}
+
+		expect(await screen.findByText(text)).toBeTruthy();
+		expect(screen.getByRole('button', { name: /Morning Formation/i })).toBeTruthy();
+	});
+
+	it.each([
+		[
+			'a pending file cleanup',
+			jsonResponse({ success: true, fileCleanup: 'pending' }),
+			'success',
+			'Roster deleted. Its stored file will be removed automatically.'
+		],
+		[
+			'an already unavailable roster',
+			jsonResponse({ message: 'This roster is no longer available.' }, false, 404),
+			'error',
+			'This roster is no longer available.'
+		]
+	] as const)('drops the roster and reports %s', async (_case, reply, level, message) => {
+		const toast = vi.spyOn(toastStore, level);
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) =>
+				init?.method === 'DELETE' ? reply : jsonResponse({ rosters: [makeRoster()], total: 1 })
+			)
+		);
+
+		renderModal();
+		await fireEvent.click(await screen.findByRole('button', { name: /Morning Formation/i }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+		await fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Delete' }));
+
+		await waitFor(() => expect(screen.queryByRole('button', { name: /Morning Formation/i })).toBeNull());
+		expect(toast).toHaveBeenCalledWith(message);
 	});
 });
 

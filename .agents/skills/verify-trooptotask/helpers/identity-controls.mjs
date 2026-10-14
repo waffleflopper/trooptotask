@@ -112,8 +112,11 @@ export function mailRequest(args) {
 
 export function faultRequest(args) {
 	const [action, name, ordinal] = args;
-	const usage = `Use fault state|restore or fault arm ${Object.keys(PROVIDER_FAULTS).join('|')} [ORDINAL].`;
+	const names = Object.keys(PROVIDER_FAULTS).join('|');
+	const usage = `Use fault state|restore, fault release ${names} or fault arm ${names} [ORDINAL].`;
 	if (['state', 'restore'].includes(action) && args.length === 1) return { command: 'fault', action };
+	if (action === 'release' && args.length === 2 && Object.hasOwn(PROVIDER_FAULTS, name))
+		return { command: 'fault', action, name };
 	if (action !== 'arm' || args.length < 2 || args.length > 3 || !Object.hasOwn(PROVIDER_FAULTS, name))
 		throw new Error(usage);
 	return { command: 'fault', action, name, ...(ordinal === undefined ? {} : { ordinal: Number(ordinal) }) };

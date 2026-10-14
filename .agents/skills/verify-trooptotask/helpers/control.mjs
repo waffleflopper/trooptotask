@@ -47,6 +47,13 @@ import { requestPlatform } from './platform-request.mjs';
 import { platformFormNetworkTarget } from './platform-network-target.mjs';
 import { requestAuditTrainingUpdate } from './audit-request.mjs';
 import { artifactHttp, clearArtifactHttpCache } from './artifact-http.mjs';
+import { insertRosterWithId, cleanRosterInserts, recordedRosterInsertTarget } from './roster-insert.mjs';
+import {
+	seedRosterSharedKeys,
+	releaseSharedKey,
+	probeSharedKeyReuse,
+	cleanRosterSharedKeys
+} from './roster-shared-keys.mjs';
 import {
 	accountSetupSeed,
 	authConfirmUrl,
@@ -1222,47 +1229,83 @@ async function main() {
 		const [orgKey, rosterId] = args;
 		if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rosterId ?? ''))
 			throw new Error('Use a synthetic roster UUID.');
-		const prefix = `${org(orgKey)}/sign-in-rosters/${rosterId}`;
+		const { stdout } = await promisify(execFile)(
+			'python3',
+			[
+				path.join(repository, '.agents/skills/verify-trooptotask/helpers/roster-provider.py'),
+				'inventory',
+				'--worker',
+				worker,
+				orgKey,
+				rosterId
+			],
+			{ maxBuffer: 1024 * 1024 }
+		);
+		const inventory = JSON.parse(stdout);
+		if (inventory.status !== 'PASS') throw new Error('Owned roster inventory failed.');
 		const bucket = (await provider()).storage.from('counseling-files');
-		const entries = checked(await bucket.list(prefix));
 		const files = [];
-		for (const entry of entries) {
-			const blob = checked(await bucket.download(`${prefix}/${entry.name}`));
+		for (const entry of inventory.objects) {
+			const blob = checked(await bucket.download(entry.key));
 			const bytes = Buffer.from(await blob.arrayBuffer());
-			files.push({ name: entry.name, size: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') });
+			files.push({
+				key: entry.key,
+				name: path.basename(entry.key),
+				size: bytes.length,
+				sha256: createHash('sha256').update(bytes).digest('hex'),
+				referenced: inventory.rows.some((row) => row.signed_file_path === entry.key)
+			});
 		}
-		note({ organization: orgKey, rosterId, files });
+		note({ organization: orgKey, rosterId, ...inventory, files });
 		return;
 	}
 	if (command === 'roster-replace') {
-		const [page, orgKey, rosterKey, filename] = args;
+		const [page, orgKey, rosterKey, filename, secondFilename] = args;
+		const deleteOnly = args.length === 4 && filename === 'delete';
+		const concurrentAction = deleteOnly
+			? 'delete'
+			: ['remove', 'delete'].includes(secondFilename)
+				? secondFilename
+				: null;
 		const pageId = Number(page);
+		const fixtureRoster = ['rosterAlpha', 'rosterMixed', 'rosterUnassigned', 'rosterForeign'].includes(rosterKey);
 		if (
-			args.length !== 4 ||
+			![4, 5].includes(args.length) ||
 			!Number.isInteger(pageId) ||
 			pageId < 1 ||
-			!['rosterAlpha', 'rosterMixed', 'rosterUnassigned', 'rosterForeign'].includes(rosterKey)
+			!(fixtureRoster || (deleteOnly && recordedRosterInsertTarget(await saved(), orgKey, rosterKey)))
 		)
-			throw new Error('Use roster-replace PAGE orgA|orgB FIXTURE_ROSTER_KEY EVIDENCE_PDF.');
-		const rosterId = fixture.ids[rosterKey];
+			throw new Error(
+				'Use roster-replace PAGE orgA|orgB FIXTURE_ROSTER_KEY EVIDENCE_PDF [SECOND_PDF|remove|delete], or PAGE orgA|orgB FIXTURE_ROSTER_KEY|RECORDED_INSERT_ID delete.'
+			);
+		const rosterId = fixtureRoster ? fixture.ids[rosterKey] : rosterKey;
 		const client = await provider();
-		const roster = checked(
-			await client
-				.from('sign_in_rosters')
-				.select('id,signed_file_path')
-				.eq('organization_id', org(orgKey))
-				.eq('id', rosterId)
-				.single()
-		);
-		const target = await fs.realpath(path.resolve(filename ?? ''));
-		if (!target.startsWith(evidenceRoot + path.sep) || !target.endsWith('.pdf') || !(await fs.stat(target)).isFile())
-			throw new Error('Use a real PDF under the skill evidence directory without a symlink escape.');
-		const bytes = await fs.readFile(target);
-		if (bytes.length > 1024 * 1024 || bytes.subarray(0, 5).toString() !== '%PDF-')
-			throw new Error('Use a synthetic PDF no larger than 1 MiB.');
+		const rosterRead = client
+			.from('sign_in_rosters')
+			.select('id,signed_file_path')
+			.eq('organization_id', org(orgKey))
+			.eq('id', rosterId);
+		const roster = checked(await (deleteOnly ? rosterRead.maybeSingle() : rosterRead.single()));
+		const uploads = [];
+		for (const candidateFilename of deleteOnly
+			? []
+			: [filename, concurrentAction ? null : secondFilename].filter(Boolean)) {
+			const target = await fs.realpath(path.resolve(candidateFilename));
+			if (!target.startsWith(evidenceRoot + path.sep) || !target.endsWith('.pdf') || !(await fs.stat(target)).isFile())
+				throw new Error('Use a real PDF under the skill evidence directory without a symlink escape.');
+			const bytes = await fs.readFile(target);
+			if (bytes.length > 1024 * 1024 || bytes.subarray(0, 5).toString() !== '%PDF-')
+				throw new Error('Use a synthetic PDF no larger than 1 MiB.');
+			uploads.push({
+				filename: path.basename(target),
+				size: bytes.length,
+				sha256: createHash('sha256').update(bytes).digest('hex'),
+				base64: bytes.toString('base64')
+			});
+		}
 		const location = new URL(await evaluate(state, pageId, '() => location.href'));
 		if (location.origin !== doctor.origin) throw new Error('Use a normally signed-in page on this owned app.');
-		const previous = roster.signed_file_path
+		const previous = roster?.signed_file_path
 			? await client.storage.from('counseling-files').info(roster.signed_file_path)
 			: null;
 		const endpoint = `/org/${org(orgKey)}/api/sign-in-rosters/${rosterId}/upload`;
@@ -1271,11 +1314,21 @@ async function main() {
 			pageId,
 			`async () => {
 				if (location.origin !== ${JSON.stringify(doctor.origin)}) throw new Error('Owned app origin changed before roster replacement.');
-				const bytes = Uint8Array.from(atob(${JSON.stringify(bytes.toString('base64'))}), c => c.charCodeAt(0));
-				const form = new FormData();
-				form.set('file', new File([bytes], ${JSON.stringify(path.basename(target))}, { type: 'application/pdf' }));
-				const response = await fetch(${JSON.stringify(endpoint)}, { method: 'POST', body: form, redirect: 'error' });
-				return { status: response.status, body: await response.text() };
+				const requests = ${JSON.stringify(uploads)}.map(async upload => {
+					const bytes = Uint8Array.from(atob(upload.base64), c => c.charCodeAt(0));
+					const form = new FormData();
+					form.set('file', new File([bytes], upload.filename, { type: 'application/pdf' }));
+					const response = await fetch(${JSON.stringify(endpoint)}, { method: 'POST', body: form, redirect: 'error' });
+					return { filename: upload.filename, status: response.status, body: await response.text() };
+				});
+				const action = ${JSON.stringify(concurrentAction)};
+				if (action) requests.push((async () => {
+					const path = action === 'remove' ? ${JSON.stringify(endpoint)} : ${JSON.stringify(endpoint.slice(0, -7))};
+					const body = action === 'remove' ? JSON.stringify({ filePath: ${JSON.stringify(roster?.signed_file_path ?? null)} }) : undefined;
+					const response = await fetch(path, { method: 'DELETE', headers: body ? { 'Content-Type': 'application/json' } : {}, body, redirect: 'error' });
+					return { action, method: 'DELETE', path, status: response.status, body: await response.text() };
+				})());
+				return { responses: await Promise.all(requests) };
 			}`
 		);
 		note({
@@ -1284,7 +1337,9 @@ async function main() {
 			rosterId,
 			endpoint,
 			method: 'POST',
-			previousPath: roster.signed_file_path,
+			concurrentAction,
+			rosterExisted: !!roster,
+			previousPath: roster?.signed_file_path ?? null,
 			previousInfo: previous
 				? {
 						present: !!previous.data,
@@ -1298,13 +1353,88 @@ async function main() {
 							: null
 					}
 				: null,
-			upload: {
-				filename: path.basename(target),
-				size: bytes.length,
-				sha256: createHash('sha256').update(bytes).digest('hex')
-			},
+			uploads: uploads.map(({ base64: _base64, ...upload }) => upload),
 			...response
 		});
+		return;
+	}
+	if (command === 'roster-shared-keys') {
+		const [action, caseName] = args;
+		const client = await provider();
+		const ownedState = await saved();
+		if (action === 'release' && args.length === 2) {
+			note(await releaseSharedKey({ client, fixture, ownedState, caseName }));
+			return;
+		}
+		if (action === 'reuse' && args.length === 2) {
+			note(await probeSharedKeyReuse({ client, fixture, ownedState, save, caseName }));
+			return;
+		}
+		if (action !== 'state' || args.length !== 1)
+			throw new Error('Use roster-shared-keys state, release CASE or reuse CASE after seed roster-shared-keys.');
+		let stdout;
+		try {
+			({ stdout } = await promisify(execFile)(
+				'python3',
+				[
+					path.join(repository, '.agents/skills/verify-trooptotask/helpers/roster-provider.py'),
+					'keys',
+					'--worker',
+					worker
+				],
+				{ maxBuffer: 4 * 1024 * 1024 }
+			));
+		} catch (cause) {
+			throw new Error(JSON.parse(cause.stdout || '{}').message ?? 'Owned shared-key readback blocked.');
+		}
+		const readback = JSON.parse(stdout);
+		const files = ownedState.rosterSharedKeys.files;
+		const keys = [];
+		for (const entry of readback.keys) {
+			const { data, error } = await client.storage.from(entry.bucket).download(entry.key);
+			const seeded = files.find((file) => file.path === entry.key);
+			let bytes = { present: false };
+			if (error) {
+				if (String(error.statusCode ?? error.status ?? '') !== '404')
+					throw new Error('Owned Storage byte read failed rather than proving absence.');
+			} else {
+				const body = Buffer.from(await data.arrayBuffer());
+				const sha256 = createHash('sha256').update(body).digest('hex');
+				bytes = { present: true, size: body.length, sha256, matchesSeed: sha256 === seeded.sha256 };
+			}
+			keys.push({ ...entry, bytes });
+		}
+		note({
+			binding: readback.binding,
+			tag: ownedState.rosterSharedKeys.tag,
+			cases: ownedState.rosterSharedKeys.cases,
+			keys,
+			boundary: 'Privileged synthetic readback of recorded keys only; separate from ordinary read authority.'
+		});
+		return;
+	}
+	if (command === 'roster-insert') {
+		const config = await readJSON(path.join(session, 'provider.json'));
+		const signIn = async (actor) => {
+			const ordinary = createClient(config.API_URL, config.ANON_KEY, {
+				auth: { persistSession: false, autoRefreshToken: false }
+			});
+			const login = await ordinary.auth.signInWithPassword({ email: actor.email, password: actor.password });
+			if (login.error || login.data.user?.id !== actor.id)
+				throw new Error('Normal owned actor provider sign-in failed.');
+			return ordinary;
+		};
+		note(
+			await insertRosterWithId({
+				service: await provider(),
+				signIn,
+				fixture,
+				args,
+				tag: randomUUID().slice(0, 8),
+				ownedState: await saved(),
+				save
+			})
+		);
 		return;
 	}
 	if (command === 'signed-download') {
@@ -1597,7 +1727,8 @@ async function main() {
 				'organization-destruction',
 				'rating-scheme',
 				'deletion-sources',
-				'account-setup'
+				'account-setup',
+				'roster-shared-keys'
 			].includes(kind)
 		)
 			throw new Error('Unknown temporary seed.');
@@ -1606,6 +1737,10 @@ async function main() {
 		const tag = randomUUID().slice(0, 8);
 		if (kind === 'training-print') {
 			note(await seedTrainingPrint({ client, fixture, tag, ownedState, save }));
+			return;
+		}
+		if (kind === 'roster-shared-keys') {
+			note(await seedRosterSharedKeys({ client, fixture, tag, ownedState, save }));
 			return;
 		}
 		if (kind === 'platform-admin') {
@@ -2262,6 +2397,8 @@ async function main() {
 			platformError = error;
 		}
 		await cleanTrainingPrint({ client, fixture, ownedState, save });
+		await cleanRosterInserts({ service: client, fixture, ownedState, save });
+		const sharedKeyCleanup = await cleanRosterSharedKeys({ client, fixture, ownedState, save });
 		for (const item of [...ownedState.seeded].reverse()) {
 			for (let offset = 0; offset < item.ids.length; offset += 100) {
 				const ids = item.ids.slice(offset, offset + 100);
@@ -2308,7 +2445,7 @@ async function main() {
 		await save(ownedState);
 		await clearArtifactHttpCache({ session, sessionId: state.id });
 		if (platformError) throw platformError;
-		note({ cleaned: true, artifactHttpSessionsCleared: true, platformCleanup });
+		note({ cleaned: true, artifactHttpSessionsCleared: true, platformCleanup, sharedKeyCleanup });
 		return;
 	}
 	if (command === 'network') {
@@ -2838,7 +2975,7 @@ async function main() {
 		return;
 	}
 	throw new Error(
-		'Use fixture, actor, rows, access-request, auth-link, setup-link, mail, mail-link, fault, mfa-code, session-age, session-count, admission-probe, password, password-commit, settings-request, deletion-request, personnel-archive-batch, deletion-review-failure, audit-training-update, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, artifact-deletion, private-buckets, roster-files, roster-replace, signed-download, calendar-grant, dashboard-access, server-source, seed, clean-seeds, retention, network, busy, export, print, style-probe, style-diff, toolbar-sweep, or workbook.'
+		'Use fixture, actor, rows, access-request, auth-link, setup-link, mail, mail-link, fault, mfa-code, session-age, session-count, admission-probe, password, password-commit, settings-request, deletion-request, personnel-archive-batch, deletion-review-failure, audit-training-update, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, artifact-deletion, private-buckets, roster-files, roster-replace, roster-insert, roster-shared-keys, signed-download, calendar-grant, dashboard-access, server-source, seed, clean-seeds, retention, network, busy, export, print, style-probe, style-diff, toolbar-sweep, or workbook.'
 	);
 }
 

@@ -44,7 +44,7 @@ const expectedRoster = {
 };
 
 function fixture(rows: Row[]) {
-	let saved = structuredClone(rows);
+	const saved = structuredClone(rows);
 	const fault = { method: '', from: null as number | null, omitCount: false, nullFind: false };
 	const client = createClient('http://ordinary.invalid', KEY, {
 		auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
@@ -83,13 +83,6 @@ function fixture(rows: Row[]) {
 					const row = { id: 'created-roster', created_at: '2026-03-04T05:06:07.654321Z', ...(await request.json()) };
 					saved.push(row);
 					visible = [row];
-				} else if (request.method === 'PATCH') {
-					const patch: Row = await request.json();
-					saved = saved.map((row) => (matches(row) ? { ...row, ...patch } : row));
-					visible = saved.filter(matches);
-				} else if (request.method === 'DELETE') {
-					saved = saved.filter((row) => !matches(row));
-					return new Response(null, { status: 204 });
 				} else if (request.method !== 'GET') {
 					throw new Error('Unexpected roster provider method');
 				}
@@ -199,7 +192,7 @@ describe('ordinary Sign-in Roster persistence through the actual SDK', () => {
 		expect(await persistence(run).list(page)).toEqual({ data: [expectedRoster], count: null });
 	});
 
-	it('creates only mapped owner facts, then changes the scan pointer and deletes only this Organization row', async () => {
+	it('creates only mapped owner facts in this Organization without a scan', async () => {
 		const foreign = { ...savedRoster, id: 'foreign', organization_id: 'foreign-org' };
 		const run = fixture([foreign]);
 		const port = persistence(run);
@@ -255,54 +248,32 @@ describe('ordinary Sign-in Roster persistence through the actual SDK', () => {
 				created_at: '2026-03-04T05:06:07.654321Z'
 			}
 		]);
-		await port.setSignedFilePath('created-roster', 'ordinary-org/sign-in-rosters/created-roster/scan.pdf');
-		expect((await port.find('created-roster'))?.signedFilePath).toBe(
-			'ordinary-org/sign-in-rosters/created-roster/scan.pdf'
-		);
-		await port.setSignedFilePath('created-roster', null);
-		expect((await port.find('created-roster'))?.signedFilePath).toBeNull();
-		await expect(port.setSignedFilePath('foreign', null)).rejects.toThrow('No matching roster');
-		await port.delete('foreign');
-		expect(run.rows()[0]).toEqual(foreign);
-		await port.delete('created-roster');
-		expect(run.rows()).toEqual([foreign]);
 	});
 
-	it.each(['list', 'find', 'create', 'attachment', 'delete'] as const)(
+	it.each(['list', 'find', 'create'] as const)(
 		'rejects %s provider failure without modifying saved history',
 		async (operation) => {
 			const run = fixture([savedRoster]);
 			const port = persistence(run);
-			run.fault.method =
-				operation === 'create'
-					? 'POST'
-					: operation === 'attachment'
-						? 'PATCH'
-						: operation === 'delete'
-							? 'DELETE'
-							: 'GET';
+			run.fault.method = operation === 'create' ? 'POST' : 'GET';
 			const action =
 				operation === 'list'
 					? () => port.list(page)
 					: operation === 'find'
 						? () => port.find('saved-roster')
-						: operation === 'attachment'
-							? () => port.setSignedFilePath('saved-roster', null)
-							: operation === 'delete'
-								? () => port.delete('saved-roster')
-								: () =>
-										port.create({
-											title: 'New',
-											rosterDate: null,
-											blankDate: false,
-											separateByGroup: false,
-											sortBy: 'alphabetical',
-											personnelSnapshot: [],
-											personnelIds: [],
-											scopeGroupIds: [],
-											filterConfig: null,
-											createdBy: 'current-user'
-										});
+						: () =>
+								port.create({
+									title: 'New',
+									rosterDate: null,
+									blankDate: false,
+									separateByGroup: false,
+									sortBy: 'alphabetical',
+									personnelSnapshot: [],
+									personnelIds: [],
+									scopeGroupIds: [],
+									filterConfig: null,
+									createdBy: 'current-user'
+								});
 			await expect(action()).rejects.toThrow('Roster provider unavailable');
 			expect(run.rows()).toEqual([savedRoster]);
 		}

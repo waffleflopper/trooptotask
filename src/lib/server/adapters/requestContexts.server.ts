@@ -78,7 +78,7 @@ import {
 import {
 	createSupabaseSignInRosterPersistence,
 	createSupabaseSignInRosterExportReader,
-	createSupabaseSignInRosterFileWritePort
+	createSupabaseSignInRosterScanPort
 } from '$features/sign-in-rosters/index.server';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import {
@@ -589,7 +589,7 @@ export function createRequestSignInRosterUploadContext(request: AdmittedOrganiza
 	return {
 		...createRequestSignInRosterContext(request),
 		actor: request.auth,
-		fileWrites: createSupabaseSignInRosterFileWritePort(request.supabase, getAdminClient)
+		scans: createSupabaseSignInRosterScanPort(request.supabase, getAdminClient)
 	};
 }
 

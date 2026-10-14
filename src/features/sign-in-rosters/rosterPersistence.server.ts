@@ -28,8 +28,6 @@ export interface SignInRosterPersistence {
 	list(input: SignInRosterListInput): Promise<{ data: SignInRoster[]; count: number | null }>;
 	find(id: string): Promise<SignInRoster | null>;
 	create(input: SignInRosterCreateInput): Promise<SignInRoster>;
-	setSignedFilePath(id: string, path: string | null): Promise<void>;
-	delete(id: string): Promise<void>;
 }
 
 interface RosterRow {
@@ -129,20 +127,6 @@ export function createSupabaseSignInRosterPersistence(
 				.single();
 			if (error) throw new Error(error.message);
 			return toRoster(data as RosterRow);
-		},
-		async setSignedFilePath(id, path) {
-			const { error } = await client
-				.from('sign_in_rosters')
-				.update({ signed_file_path: path })
-				.eq('organization_id', orgId)
-				.eq('id', id)
-				.select('id')
-				.single();
-			if (error) throw new Error(error.message);
-		},
-		async delete(id) {
-			const { error } = await client.from('sign_in_rosters').delete().eq('organization_id', orgId).eq('id', id);
-			if (error) throw new Error(error.message);
 		}
 	};
 }

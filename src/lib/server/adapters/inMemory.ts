@@ -80,7 +80,6 @@ import type {
 	PersonnelWriteSubject
 } from '$features/personnel/contracts';
 import type { RatingSchemeDuePort, RatingSchemePersistence } from '$features/rating-scheme/contracts';
-import type { SignInRosterFileWritePort } from '$features/sign-in-rosters/contracts';
 import type { TrainingOnboardingReferencesPort } from '$features/training/contracts';
 import { createScopedFixtureRows } from './test-support/scopedFixtureRows';
 import { fixtureScopeRules } from './test-support/fixtureScopeRules';
@@ -89,38 +88,6 @@ import { RequestFailure } from '$lib/errors';
 type Row = Record<string, unknown>;
 type TableStore = Map<string, Row[]>;
 type InMemoryDataStore = ReturnType<typeof createInMemoryDataStore>;
-
-function createInMemorySignInRosterFileWritePort(storage: StoragePort): SignInRosterFileWritePort {
-	return {
-		async forRoster(actor, rosterId) {
-			function assertPath(path: string) {
-				const prefix = `${actor.orgId}/sign-in-rosters/${rosterId}/`;
-				if (
-					!path.startsWith(prefix) ||
-					path.length === prefix.length ||
-					path.split('/').some((part) => part === '.' || part === '..')
-				)
-					throw new RequestFailure(400, 'Scan path is outside the authorized roster');
-			}
-			return {
-				async upload(path, file) {
-					if (!(file instanceof File)) throw new RequestFailure(400, 'A scan file is required');
-					assertPath(path);
-					await storage.upload('counseling-files', path, file, { upsert: false });
-					return { async complete() {} };
-				},
-				async remove(path) {
-					assertPath(path);
-					await storage.remove('counseling-files', [path]);
-				},
-				async removePrevious(path) {
-					assertPath(path);
-					await storage.remove('counseling-files', [path]);
-				}
-			};
-		}
-	};
-}
 
 function createInMemoryPersonnelOrganizationExportPort(rawStore: FixtureRowStore): PersonnelOrganizationExportPort {
 	return {
@@ -1766,7 +1733,6 @@ export function createTestContext(
 		ratingSchemeDue: createInMemoryRatingSchemeDuePort(rawStore),
 		personnelArtifactWrites: createInMemoryPersonnelArtifactWritePort(rawStore, storagePort),
 		personnelLifecycle: createInMemoryPersonnelLifecycleCommands(rawStore, auth),
-		signInRosterFileWrites: createInMemorySignInRosterFileWritePort(storagePort),
 		signInRosterExport: {
 			listRows: () => rawStore.findMany<Record<string, unknown>>('sign_in_rosters', auth.orgId)
 		},

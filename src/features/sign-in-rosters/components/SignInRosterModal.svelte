@@ -55,6 +55,7 @@
 	let expandedId = $state<string | null>(null);
 	let deleting = $state<string | null>(null);
 	let confirmDeleteRoster = $state<SignInRoster | null>(null);
+	let deleteError = $state('');
 	let loadError = $state('');
 	let signedScanDragOverId = $state<string | null>(null);
 	const signedScanUploadingIds = new SvelteSet<string>();
@@ -110,11 +111,11 @@
 			const data = (await res.json().catch(() => ({}))) as {
 				rosters?: SignInRoster[];
 				total?: number;
-				error?: string;
+				message?: unknown;
 			};
 
 			if (!res.ok || !Array.isArray(data.rosters)) {
-				throw new Error(data.error ?? 'Unable to load sign-in rosters.');
+				throw new Error(failureMessage(data, 'Unable to load sign-in rosters.'));
 			}
 
 			rosters = reset ? data.rosters : [...rosters, ...data.rosters];
@@ -403,10 +404,32 @@
 		toastStore.success('Signed scan uploaded');
 	}
 
-	function handleSignedScanRemoved(roster: SignInRoster) {
+	const ROSTER_UNAVAILABLE = 'This roster is no longer available.';
+
+	function failureMessage(payload: unknown, fallback: string) {
+		if (typeof payload !== 'object' || payload === null || !('message' in payload)) return fallback;
+		return typeof payload.message === 'string' && payload.message ? payload.message : fallback;
+	}
+
+	function cleanupNotice(payload: { fileCleanup?: string }) {
+		return payload.fileCleanup === 'pending' ? '. Its stored file will be removed automatically.' : '';
+	}
+
+	function handleSignedScanRemoved(roster: SignInRoster, payload: { fileCleanup?: string }) {
 		roster.signedFilePath = null;
 		rosters = [...rosters];
-		toastStore.success('Signed scan removed');
+		toastStore.success(`Signed scan removed${cleanupNotice(payload)}`);
+	}
+
+	function dropRoster(roster: SignInRoster) {
+		rosters = rosters.filter((r) => r.id !== roster.id);
+		total--;
+		if (expandedId === roster.id) expandedId = null;
+	}
+
+	function dropUnavailableRoster(roster: SignInRoster) {
+		dropRoster(roster);
+		toastStore.error(ROSTER_UNAVAILABLE);
 	}
 
 	function getFilename(path: string): string {
@@ -418,7 +441,7 @@
 	}
 
 	async function uploadSignedScanFile(roster: SignInRoster, file: File) {
-		if (signedScanUploadingIds.has(roster.id)) return;
+		if (signedScanUploadingIds.has(roster.id) || signedScanRemovingIds.has(roster.id)) return;
 
 		signedScanSelectedFiles.set(roster.id, file.name);
 
@@ -441,13 +464,18 @@
 					body: formData
 				})
 			);
-			const payload = (await withinOrganizationLifetime(response.json())) as {
+			const payload = (await withinOrganizationLifetime(response.json().catch(() => ({})))) as {
 				filePath?: string;
-				error?: string;
+				message?: unknown;
 			};
 
+			if (response.status === 404) {
+				signedScanSelectedFiles.delete(roster.id);
+				dropUnavailableRoster(roster);
+				return;
+			}
 			if (!response.ok || !payload.filePath) {
-				throw new Error(payload.error ?? 'Upload failed.');
+				throw new Error(failureMessage(payload, 'Upload failed.'));
 			}
 
 			signedScanSelectedFiles.delete(roster.id);
@@ -500,17 +528,29 @@
 		try {
 			const response = await withinOrganizationLifetime(
 				fetch(getSignedScanUploadUrl(roster), {
-					method: 'DELETE'
+					method: 'DELETE',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ filePath: roster.signedFilePath })
 				})
 			);
+			const payload = (await withinOrganizationLifetime(response.json().catch(() => ({})))) as {
+				message?: unknown;
+				fileCleanup?: string;
+			};
 
-			if (!response.ok) {
-				const payload = (await withinOrganizationLifetime(response.json())) as { error?: string };
-				throw new Error(payload.error ?? 'Remove failed.');
+			if (response.status === 404) {
+				dropUnavailableRoster(roster);
+				return;
 			}
+			if (response.status === 409) {
+				signedScanErrors.set(roster.id, failureMessage(payload, 'This signed scan changed. Reload to review it.'));
+				void fetchRosters(true);
+				return;
+			}
+			if (!response.ok) throw new Error(failureMessage(payload, 'Remove failed.'));
 
 			signedScanErrors.delete(roster.id);
-			handleSignedScanRemoved(roster);
+			handleSignedScanRemoved(roster, payload);
 		} catch (err: unknown) {
 			signedScanErrors.set(roster.id, err instanceof Error ? err.message : 'Remove failed.');
 		} finally {
@@ -521,19 +561,31 @@
 	// Delete roster
 	async function deleteRoster(roster: SignInRoster) {
 		deleting = roster.id;
+		deleteError = '';
 		try {
 			const res = await withinOrganizationLifetime(
 				fetch(`/org/${orgId}/api/sign-in-rosters/${roster.id}`, {
 					method: 'DELETE'
 				})
 			);
-			if (res.ok) {
-				rosters = rosters.filter((r) => r.id !== roster.id);
-				total--;
-				if (expandedId === roster.id) expandedId = null;
+			const payload = (await withinOrganizationLifetime(res.json().catch(() => ({})))) as {
+				message?: unknown;
+				fileCleanup?: string;
+			};
+			if (res.status === 404) {
 				confirmDeleteRoster = null;
-				toastStore.success('Roster deleted');
+				dropUnavailableRoster(roster);
+				return;
 			}
+			if (!res.ok) {
+				deleteError = failureMessage(payload, 'Unable to delete roster.');
+				return;
+			}
+			confirmDeleteRoster = null;
+			dropRoster(roster);
+			toastStore.success(`Roster deleted${cleanupNotice(payload)}`);
+		} catch {
+			deleteError = 'Unable to delete roster.';
 		} finally {
 			deleting = null;
 		}
@@ -775,6 +827,18 @@
 															Remove
 														</Button>
 													</div>
+													<Field.Control>
+														<Input
+															id={`signed-scan-${roster.id}`}
+															type="file"
+															accept={SENSITIVE_FILE_ACCEPT}
+															aria-label="Replace signed scan"
+															disabled={signedScanRemovingIds.has(roster.id)}
+															onchange={(event) => handleSignedScanFileSelect(roster, event)}
+														/>
+													</Field.Control>
+													<Field.Description>Choose a PDF or drop it here to replace the signed scan.</Field.Description
+													>
 												{:else}
 													<Field.Control>
 														<Input
@@ -1009,6 +1073,13 @@
 		onConfirm={() => {
 			if (confirmDeleteRoster) return deleteRoster(confirmDeleteRoster);
 		}}
-		onCancel={() => (confirmDeleteRoster = null)}
-	/>
+		onCancel={() => {
+			confirmDeleteRoster = null;
+			deleteError = '';
+		}}
+	>
+		{#if deleteError}
+			<Alert.Root variant="destructive"><Alert.Description>{deleteError}</Alert.Description></Alert.Root>
+		{/if}
+	</ConfirmDialog>
 {/if}

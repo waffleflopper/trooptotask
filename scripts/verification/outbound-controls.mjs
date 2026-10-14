@@ -1,8 +1,30 @@
 export const MAIL_KINDS = Object.freeze(['account-setup', 'auth', 'invitation']);
 const write = (method, path, options = {}) => Object.freeze({ method, path, ...options });
 // `query` and `body` narrow a call to exact top-level values (`true` only requires the body key);
-// `afterCommit` lets the provider commit, then loses its reply.
+// `afterCommit` lets the provider commit, then loses its reply as a synthetic 503. `transport` loses it as a
+// fetch exception instead, which the Supabase SDK reports without a database code. `pause` (milliseconds)
+// holds a committed reply until an explicit release, restore or that deadline, then loses it. With `hold` it
+// replaces the four-second pre-dispatch deadline that scripted holders use, so a driver can act in between.
+const HOLD_DEADLINE_MS = 4000;
+const COMMITTED_PAUSE_MS = 120_000;
+const transportLoss = (options = {}) => ({ afterCommit: true, transport: true, ...options });
 export const PROVIDER_FAULTS = Object.freeze({
+	'roster-scan-attach': [write('POST', '/rest/v1/rpc/attach_sign_in_roster_scan')],
+	'roster-scan-attach-lost-ack': [write('POST', '/rest/v1/rpc/attach_sign_in_roster_scan', transportLoss())],
+	'roster-scan-attach-committed-hold': [
+		write('POST', '/rest/v1/rpc/attach_sign_in_roster_scan', transportLoss({ pause: COMMITTED_PAUSE_MS }))
+	],
+	'roster-scan-attach-hold': [write('POST', '/rest/v1/rpc/attach_sign_in_roster_scan', { hold: true })],
+	'roster-scan-attach-predispatch-pause': [
+		write('POST', '/rest/v1/rpc/attach_sign_in_roster_scan', { hold: true, pause: COMMITTED_PAUSE_MS })
+	],
+	'roster-scan-remove': [write('POST', '/rest/v1/rpc/remove_sign_in_roster_scan')],
+	'roster-scan-remove-lost-ack': [write('POST', '/rest/v1/rpc/remove_sign_in_roster_scan', transportLoss())],
+	'roster-scan-remove-hold': [write('POST', '/rest/v1/rpc/remove_sign_in_roster_scan', { hold: true })],
+	'roster-scan-settle': [write('POST', '/rest/v1/rpc/settle_sign_in_roster_scan_upload')],
+	'roster-delete': [write('POST', '/rest/v1/rpc/delete_sign_in_roster')],
+	'roster-delete-lost-ack': [write('POST', '/rest/v1/rpc/delete_sign_in_roster', transportLoss())],
+	'roster-delete-hold': [write('POST', '/rest/v1/rpc/delete_sign_in_roster', { hold: true })],
 	'document-file-remove': [write('DELETE', '/storage/v1/object/personnel-documents')],
 	'document-file-remove-lost-ack': [write('DELETE', '/storage/v1/object/personnel-documents', { afterCommit: true })],
 	'counseling-file-remove': [write('DELETE', '/storage/v1/object/counseling-files')],
@@ -228,6 +250,17 @@ export function createMailSink({ apiKey, fetch: originalFetch }) {
 	return { fetch: mailFetch, command };
 }
 
+const pause = (control, deadlineMs) =>
+	new Promise((resolve) => {
+		const timer = setTimeout(() => control.release('deadline'), deadlineMs);
+		control.release = (reason) => {
+			clearTimeout(timer);
+			control.call.releaseReason = reason;
+			control.release = null;
+			resolve();
+		};
+	});
+
 export function createProviderFaultController({ providerUrl, fetch: originalFetch }) {
 	const origin = providerOrigin(providerUrl);
 	if (typeof originalFetch !== 'function') throw new Error('Invalid owned provider fault configuration.');
@@ -250,8 +283,15 @@ export function createProviderFaultController({ providerUrl, fetch: originalFetc
 			if (active.get(name)?.triggered === false)
 				throw new Error('Restore that armed provider fault before arming it again.');
 			active.set(name, { ordinal, matches: 0, phase: 'armed', triggered: false, call: null });
+		} else if (action === 'fault-release') {
+			const control = active.get(options.name);
+			if (!control?.release) throw new Error('Use the name of a currently held provider request.');
+			control.release('released');
 		} else if (action === 'fault-restore') {
-			for (const control of active.values()) control.phase = control.triggered ? 'faulted' : 'restored';
+			for (const control of active.values()) {
+				control.release?.('restored');
+				if (control.phase !== 'dispatched') control.phase = control.triggered ? 'faulted' : 'restored';
+			}
 			if (active.size) last = receipts(active);
 			active.clear();
 		} else if (action !== 'fault-state') {
@@ -296,6 +336,14 @@ export function createProviderFaultController({ providerUrl, fetch: originalFetc
 		control.triggered = true;
 		control.phase = 'faulted';
 		control.call = { method: request.method, path: request.url.pathname };
+		if (entry.hold) {
+			control.phase = 'held';
+			await pause(control, entry.pause ?? HOLD_DEADLINE_MS);
+			control.phase = 'dispatched';
+			const response = await originalFetch(input, init);
+			control.call.providerStatus = response.status;
+			return response;
+		}
 		if (entry.afterCommit) {
 			const committed = await originalFetch(input, init);
 			control.call.providerStatus = committed.status;
@@ -305,6 +353,15 @@ export function createProviderFaultController({ providerUrl, fetch: originalFetc
 				return committed;
 			}
 			await committed.arrayBuffer();
+			if (entry.pause) {
+				control.phase = 'committed-held';
+				await pause(control, entry.pause);
+				control.phase = 'faulted';
+			}
+			if (entry.transport)
+				throw new TypeError('fetch failed', {
+					cause: Object.assign(new Error('other side closed'), { code: 'UND_ERR_SOCKET' })
+				});
 		}
 		return json(503, {
 			code: 'T2T_VERIFY_PROVIDER_FAULT',

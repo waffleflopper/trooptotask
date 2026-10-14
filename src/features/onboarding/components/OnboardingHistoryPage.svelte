@@ -1,157 +1,271 @@
 <script lang="ts">
-	import { createRosterReadModel } from '$features/personnel/contracts';
+	import { createRosterReadModel, type Group, type Personnel } from '$features/personnel/contracts';
 	import type { ScopeSet } from '$lib/access/memberAccessShape';
 	import type { OnboardingTemplate, PersonnelOnboarding } from '../contracts';
-	import type { Personnel } from '$features/personnel/contracts';
-	import { formatDisplayDate } from '$lib/utils/dates';
+	import { getTemplateDisplayName } from '../contexts/OnboardingPageContext.svelte';
 	import {
-		formatTimestamp,
-		getPersonDisplayName,
-		getPersonGroupDisplayName,
-		getProgress,
-		getTemplateDisplayName,
-		STEP_TYPE_LABELS
-	} from '../contexts/OnboardingPageContext.svelte';
-	import { WorkspaceToolbar, type ToolbarItem } from '$lib/components/patterns/workspace-toolbar';
-	import { Badge } from '$lib/components/ui/badge';
+		buildHistory,
+		filterHistoryRows,
+		finalSteps,
+		formatHistoryDate,
+		HISTORY_ALL,
+		historySubtitleParts,
+		packetNotes,
+		type HistoryPerson,
+		type HistoryRow,
+		type OutcomeFilter
+	} from '../onboardingHistory';
+	import type { NoteAuthorLookup } from '../onboardingNoteAuthors';
+	import { todayIn } from '../onboardingStatus';
+	import * as PageShell from '$lib/components/patterns/page-shell';
+	import {
+		WorkspaceToolbar,
+		type ToolbarItem,
+		type WorkspaceToolbarProps
+	} from '$lib/components/patterns/workspace-toolbar';
+	import { Button } from '$lib/components/ui/button';
 	import * as Empty from '$lib/components/ui/empty';
-	import * as OnboardingPacketList from './packet-list';
 	import ClipboardList from '@lucide/svelte/icons/clipboard-list';
-	import { SvelteSet } from 'svelte/reactivity';
+	import SearchX from '@lucide/svelte/icons/search-x';
+	import * as OnboardingPacketList from './packet-list';
+
+	interface Props {
+		orgUrlSegment: string;
+		scopeSet: ScopeSet;
+		onboardings: PersonnelOnboarding[];
+		personnel: Personnel[];
+		templates: OnboardingTemplate[];
+		groups: Group[];
+		noteAuthorName: NoteAuthorLookup;
+		/** Months the Organization keeps finished packets, the same figure the cleanup job uses. */
+		archiveRetentionMonths: number | null;
+		/** Whether this member may open Organization settings, where the retention period is set. */
+		canOpenOrganizationSettings: boolean;
+	}
 
 	let {
 		orgUrlSegment,
 		scopeSet,
 		onboardings,
 		personnel,
-		templates
-	}: {
-		orgUrlSegment: string;
-		scopeSet: ScopeSet;
-		onboardings: PersonnelOnboarding[];
-		personnel: Personnel[];
-		templates: OnboardingTemplate[];
-	} = $props();
-	let expandedOnboardingId = $state<string | null>(null);
-	const expandedNotes = new SvelteSet<string>();
-	const toolbarItems = $derived<ToolbarItem[]>([
-		{ kind: 'action', id: 'onboarding', label: 'Onboarding', href: `/org/${orgUrlSegment}/onboarding` }
-	]);
+		templates,
+		groups,
+		noteAuthorName,
+		archiveRetentionMonths,
+		canOpenOrganizationSettings
+	}: Props = $props();
 
-	const historyOnboardings = $derived(onboardings.filter((o) => o.status === 'completed' || o.status === 'cancelled'));
-	const historyRosterView = $derived(createRosterReadModel({ personnel }).scoped(scopeSet, { status: 'all' }));
+	const OUTCOME_OPTIONS: { value: OutcomeFilter; label: string }[] = [
+		{ value: 'all', label: 'All' },
+		{ value: 'completed', label: 'Completed' },
+		{ value: 'cancelled', label: 'Cancelled' }
+	];
 
-	function toggleNotes(stepId: string) {
-		if (expandedNotes.has(stepId)) expandedNotes.delete(stepId);
-		else expandedNotes.add(stepId);
+	const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+	// Finish dates are UTC calendar dates, so the 90-day window is counted from the UTC date.
+	const todayDate = todayIn('UTC', new Date()).date;
+
+	let expandedId = $state('');
+	let outcome = $state<OutcomeFilter>('all');
+	let search = $state('');
+	let groupId = $state(HISTORY_ALL);
+	let templateId = $state(HISTORY_ALL);
+
+	const roster = $derived(createRosterReadModel({ personnel }).scoped(scopeSet, { status: 'all' }));
+	const history = $derived(buildHistory(onboardings, todayDate));
+	const subtitleParts = $derived(historySubtitleParts(history.overview));
+
+	function personOf(personnelId: string): HistoryPerson | undefined {
+		const person = roster.getById(personnelId);
+		return (
+			person && { name: roster.displayName(personnelId), rank: person.rank, mos: person.mos, groupId: person.groupId }
+		);
+	}
+
+	const visibleRows = $derived(
+		filterHistoryRows(history.rows, { outcome, query: search, groupId, templateId }, personOf)
+	);
+	const openId = $derived(visibleRows.some((row) => row.packet.id === expandedId) ? expandedId : '');
+	const filtered = $derived(
+		outcome !== 'all' || search.trim() !== '' || groupId !== HISTORY_ALL || templateId !== HISTORY_ALL
+	);
+
+	function clearFilters() {
+		outcome = 'all';
+		search = '';
+		groupId = HISTORY_ALL;
+		templateId = HISTORY_ALL;
+	}
+
+	const toolbarItems = $derived.by<ToolbarItem[]>(() => {
+		const items: ToolbarItem[] = [
+			{
+				kind: 'view',
+				id: 'outcome',
+				label: 'Outcome',
+				options: OUTCOME_OPTIONS,
+				value: outcome,
+				onValueChange: (value) => {
+					outcome = value as OutcomeFilter;
+				}
+			}
+		];
+		if (groups.length > 0) {
+			items.push({
+				kind: 'select',
+				id: 'group',
+				label: 'Group',
+				options: [
+					{ value: HISTORY_ALL, label: 'All groups' },
+					...groups.map((group) => ({ value: group.id, label: group.name }))
+				],
+				value: groupId,
+				defaultValue: HISTORY_ALL,
+				onValueChange: (value) => (groupId = value)
+			});
+		}
+		if (templates.length > 0) {
+			items.push({
+				kind: 'select',
+				id: 'template',
+				label: 'Template',
+				options: [
+					{ value: HISTORY_ALL, label: 'All templates' },
+					...templates.map((template) => ({ value: template.id, label: template.name }))
+				],
+				value: templateId,
+				defaultValue: HISTORY_ALL,
+				onValueChange: (value) => (templateId = value)
+			});
+		}
+		items.push({
+			kind: 'action',
+			id: 'active',
+			label: 'Active onboarding',
+			icon: 'arrow-left',
+			href: `/org/${orgUrlSegment}/onboarding`
+		});
+		return items;
+	});
+
+	const toolbarSearch = $derived({
+		label: 'Search by name, rank, or MOS',
+		placeholder: 'Search name, rank, MOS...',
+		value: search,
+		onValueChange: (value: string) => (search = value)
+	} satisfies NonNullable<WorkspaceToolbarProps['search']>);
+
+	function days(count: number): string {
+		return count === 1 ? '1 day' : `${count} days`;
+	}
+
+	function personMeta(onboarding: PersonnelOnboarding): string {
+		return [roster.groupName(onboarding.personnelId), roster.getById(onboarding.personnelId)?.mos]
+			.filter(Boolean)
+			.join(' · ');
+	}
+
+	function noteByline(stepName: string, userId: string, timestamp: string): string {
+		const day = todayIn(timeZone, new Date(timestamp)).date;
+		return `${stepName} · ${noteAuthorName(userId)} · ${formatHistoryDate(day, todayDate)}`;
+	}
+
+	function summaryOf(row: HistoryRow) {
+		const { packet } = row;
+		return {
+			name: roster.displayName(packet.personnelId),
+			meta: personMeta(packet),
+			template: getTemplateDisplayName(packet.templateId, templates),
+			dates: `${formatHistoryDate(packet.startedAt, todayDate)} → ${formatHistoryDate(row.finishedOn, todayDate)}`,
+			took: days(row.days),
+			tookLong: row.tookLong,
+			final: `${row.done} of ${row.total}`,
+			finalShort: row.outcome === 'cancelled',
+			outcome: row.outcome
+		};
 	}
 </script>
 
-<svelte:head>
-	<title>Onboarding History - Troop to Task</title>
-</svelte:head>
+{#snippet subtitle()}
+	{#each subtitleParts as part, index (part)}
+		{#if index > 0}&nbsp;&middot;&nbsp;{/if}{part}
+	{/each}
+{/snippet}
 
-<div class="flex h-full flex-col bg-background">
-	<div class="flex min-h-0 flex-col gap-4 overflow-auto p-3 sm:px-6 sm:py-4">
-		<WorkspaceToolbar ariaLabel="Onboarding history controls" items={toolbarItems} />
+<div class="flex h-full min-h-0 flex-col bg-background">
+	<div class="grid shrink-0 gap-4 border-b border-border p-3 md:px-6 md:pt-6 md:pb-4">
+		<PageShell.Header title="History" subtitle={subtitleParts.length > 0 ? subtitle : undefined} />
+		<WorkspaceToolbar ariaLabel="Onboarding history controls" items={toolbarItems} search={toolbarSearch} />
+	</div>
 
-		{#if historyOnboardings.length === 0}
+	<div class="grid min-h-0 flex-1 content-start gap-3 overflow-y-auto p-3 md:p-6">
+		{#if history.rows.length === 0}
 			<Empty.Root>
 				<Empty.Media variant="icon"><ClipboardList /></Empty.Media>
 				<Empty.Header>
-					<Empty.Title>No onboarding history</Empty.Title>
-					<Empty.Description>No completed or cancelled onboardings yet.</Empty.Description>
+					<Empty.Title>No finished packets yet</Empty.Title>
+					<Empty.Description>Completed and cancelled packets appear here.</Empty.Description>
 				</Empty.Header>
 			</Empty.Root>
 		{:else}
-			<OnboardingPacketList.Root
-				value={expandedOnboardingId ?? ''}
-				onValueChange={(value) => (expandedOnboardingId = value || null)}
-			>
-				{#each historyOnboardings as onboarding (onboarding.id)}
-					{@const groupName = getPersonGroupDisplayName(onboarding.personnelId, historyRosterView.flatPersonnel)}
-					<OnboardingPacketList.Item value={onboarding.id}>
-						<OnboardingPacketList.Trigger>
-							<OnboardingPacketList.Summary>
-								<OnboardingPacketList.SummaryTitle
-									title={getPersonDisplayName(onboarding.personnelId, historyRosterView.flatPersonnel)}
-									meta={[
-										getTemplateDisplayName(onboarding.templateId, templates),
-										groupName,
-										`Started ${formatDisplayDate(onboarding.startedAt)}`,
-										onboarding.completedAt ? `Completed ${formatDisplayDate(onboarding.completedAt)}` : null,
-										onboarding.cancelledAt ? `Cancelled ${formatDisplayDate(onboarding.cancelledAt)}` : null
-									]}
-								/>
-								{#snippet progress()}
-									<OnboardingPacketList.Progress
-										value={getProgress(onboarding).completed}
-										max={getProgress(onboarding).total}
-										prefixLabel="Final Progress"
+			<div class="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+				<div class="flex items-baseline gap-3">
+					<h2 class="font-heading text-xl font-semibold">Finished packets</h2>
+					<p class="font-mono text-xs text-muted-foreground">{visibleRows.length} · most recent first</p>
+				</div>
+				{#if archiveRetentionMonths !== null}
+					<p class="text-sm text-muted-foreground">
+						Kept {archiveRetentionMonths}
+						{archiveRetentionMonths === 1 ? 'month' : 'months'} after finishing, then deleted. Set in
+						{#if canOpenOrganizationSettings}
+							<a
+								href={`/org/${orgUrlSegment}/settings/policies`}
+								class="underline underline-offset-3 hover:text-foreground">Organization settings</a
+							>.
+						{:else}
+							Organization settings.
+						{/if}
+					</p>
+				{/if}
+			</div>
+
+			{#if visibleRows.length === 0}
+				<Empty.Root>
+					<Empty.Media variant="icon"><SearchX /></Empty.Media>
+					<Empty.Header>
+						<Empty.Title>No packets match</Empty.Title>
+						<Empty.Description>No finished packet matches these filters.</Empty.Description>
+					</Empty.Header>
+					{#if filtered}
+						<Empty.Content>
+							<Button variant="outline" onclick={clearFilters}>Clear filters</Button>
+						</Empty.Content>
+					{/if}
+				</Empty.Root>
+			{:else}
+				<OnboardingPacketList.Root bind:value={expandedId}>
+					<OnboardingPacketList.Header />
+					{#each visibleRows as row (row.packet.id)}
+						<OnboardingPacketList.Item value={row.packet.id}>
+							<OnboardingPacketList.Trigger>
+								<OnboardingPacketList.Summary {...summaryOf(row)} />
+							</OnboardingPacketList.Trigger>
+							<OnboardingPacketList.Content>
+								{#if openId === row.packet.id}
+									{@const notes = packetNotes(row.packet)}
+									<OnboardingPacketList.Steps steps={finalSteps(row.packet)} />
+									<OnboardingPacketList.Notes
+										notes={notes.map((note) => ({
+											text: note.text,
+											byline: noteByline(note.stepName, note.userId, note.timestamp)
+										}))}
 									/>
-								{/snippet}
-								{#snippet status()}
-									<Badge variant={onboarding.status === 'completed' ? 'success' : 'secondary'}>
-										{onboarding.status === 'completed' ? 'Completed' : 'Cancelled'}
-									</Badge>
-								{/snippet}
-							</OnboardingPacketList.Summary>
-						</OnboardingPacketList.Trigger>
-
-						<OnboardingPacketList.Content>
-							<OnboardingPacketList.StepList>
-								{#each onboarding.steps as step (step.id)}
-									{@const isInactive = !step.active}
-									<OnboardingPacketList.Step
-										label={step.stepName}
-										typeLabel={isInactive ? 'Removed' : STEP_TYPE_LABELS[step.stepType]}
-										tone={isInactive ? 'inactive' : step.stepType}
-										state={isInactive ? 'inactive' : step.completed ? 'complete' : 'incomplete'}
-										inactiveNote={isInactive
-											? step.completed
-												? 'Previously completed'
-												: 'Removed from template'
-											: null}
-									>
-										{#snippet status()}
-											{#if isInactive}
-												<OnboardingPacketList.StatusIcon
-													state={step.completed ? 'complete' : 'pending'}
-													label={step.completed ? 'Previously completed' : 'Inactive'}
-												/>
-											{:else if step.stepType === 'checkbox' || step.stepType === 'training'}
-												<OnboardingPacketList.StatusIcon
-													state={step.completed ? 'complete' : 'pending'}
-													label={step.completed ? 'Complete' : 'Incomplete'}
-												/>
-											{:else if step.stepType === 'paperwork'}
-												<OnboardingPacketList.Stages
-													stepName={step.stepName}
-													stages={step.stages ?? []}
-													currentStage={step.currentStage ?? null}
-												/>
-											{/if}
-										{/snippet}
-
-										{#if !isInactive && step.notes.length > 0}
-											<OnboardingPacketList.Notes
-												open={expandedNotes.has(step.id)}
-												onOpenChange={() => toggleNotes(step.id)}
-												count={step.notes.length}
-												readOnly
-											>
-												{#each step.notes as note, noteIndex (`${note.timestamp}:${note.userId}:${note.text}:${noteIndex}`)}
-													<OnboardingPacketList.Note text={note.text} time={formatTimestamp(note.timestamp)} />
-												{/each}
-											</OnboardingPacketList.Notes>
-										{/if}
-									</OnboardingPacketList.Step>
-								{/each}
-							</OnboardingPacketList.StepList>
-						</OnboardingPacketList.Content>
-					</OnboardingPacketList.Item>
-				{/each}
-			</OnboardingPacketList.Root>
+								{/if}
+							</OnboardingPacketList.Content>
+						</OnboardingPacketList.Item>
+					{/each}
+				</OnboardingPacketList.Root>
+			{/if}
 		{/if}
 	</div>
 </div>

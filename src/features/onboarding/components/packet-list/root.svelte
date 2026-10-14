@@ -4,31 +4,21 @@
 
 	let {
 		value = $bindable(''),
-		ariaLabel = 'Onboarding packets',
-		children,
-		onValueChange,
-		...restProps
+		ariaLabel = 'Finished packets',
+		children
 	}: {
 		value?: string;
 		ariaLabel?: string;
 		children?: Snippet;
-		onValueChange?: (value: string) => void;
 	} = $props();
-
-	function handleValueChange(nextValue: string) {
-		value = nextValue;
-		onValueChange?.(nextValue);
-	}
 </script>
 
 <Accordion.Root
 	bind:value
 	type="single"
-	onValueChange={handleValueChange}
 	aria-label={ariaLabel}
 	data-slot="onboarding-packet-list"
-	class="gap-3"
-	{...restProps}
+	class="overflow-hidden rounded-lg border border-border bg-card text-card-foreground"
 >
 	{@render children?.()}
 </Accordion.Root>

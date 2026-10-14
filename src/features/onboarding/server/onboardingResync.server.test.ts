@@ -31,7 +31,8 @@ function savedResult(): OnboardingReconciliationResult {
 				completed: false,
 				current_stage: 'Submitted',
 				notes: [{ text: 'Sent to clinic', timestamp: '2026-09-01T12:00:00Z', userId: 'author-1' }],
-				active: true
+				active: true,
+				progress_changed_at: '2026-09-01T12:00:00.000Z'
 			},
 			{
 				id: 'saved-history',
@@ -45,7 +46,8 @@ function savedResult(): OnboardingReconciliationResult {
 				completed: true,
 				current_stage: null,
 				notes: [{ text: 'Previously completed', timestamp: '2026-08-01T12:00:00Z', userId: 'author-2' }],
-				active: false
+				active: false,
+				progress_changed_at: '2026-09-01T12:00:00.000Z'
 			}
 		]
 	};
@@ -90,7 +92,8 @@ describe('Onboarding reconciliation application boundary', () => {
 					completed: false,
 					currentStage: 'Submitted',
 					notes: [{ text: 'Sent to clinic', timestamp: '2026-09-01T12:00:00Z', userId: 'author-1' }],
-					active: true
+					active: true,
+					progressChangedAt: '2026-09-01T12:00:00.000Z'
 				},
 				{
 					id: 'saved-history',
@@ -104,7 +107,8 @@ describe('Onboarding reconciliation application boundary', () => {
 					completed: true,
 					currentStage: null,
 					notes: [{ text: 'Previously completed', timestamp: '2026-08-01T12:00:00Z', userId: 'author-2' }],
-					active: false
+					active: false,
+					progressChangedAt: '2026-09-01T12:00:00.000Z'
 				}
 			]
 		});

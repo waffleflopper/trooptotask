@@ -69,6 +69,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261012000600_feature_direct_write_authority.sql",
     "20261012000700_group_catalog_scope.sql",
     "20261013000100_personnel_file_retirement.sql",
+    "20261013000200_onboarding_step_progress_changed_at.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",

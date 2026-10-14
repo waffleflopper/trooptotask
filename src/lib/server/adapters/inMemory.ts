@@ -198,6 +198,7 @@ function createTestOnboardingPersistence(store: FixtureRowStore, orgId: string, 
 			options?.onboardingWorkflowFactory?.(store, orgId) ??
 			({
 				listPackets: unavailable,
+				listCompletionsSince: unavailable,
 				listSavedActivePackets: unavailable,
 				findPacketReference: unavailable,
 				findStepReference: unavailable,
@@ -206,6 +207,7 @@ function createTestOnboardingPersistence(store: FixtureRowStore, orgId: string, 
 				saveCheckboxCompletion: unavailable,
 				savePaperworkProgress: unavailable,
 				listPacketIdsUsingTemplate: unavailable,
+				countActivePacketsByTemplate: unavailable,
 				clearPacketTemplate: unavailable
 			} satisfies OnboardingWorkflowPersistence)
 	};
@@ -1895,6 +1897,7 @@ export function createWritePortsContext(options?: TestContextOptions) {
 		rawStore,
 		auth,
 		audit: createTestAuditPort(),
+		organizationSettings: createInMemoryOrganizationSettingsReader(rawStore),
 		calendarAssignmentReplacement: createInMemoryCalendarAssignmentReplacementPort(rawStore),
 		availabilityRemoval: createInMemoryCalendarAvailabilityRemovalPort(rawStore, store, auth.orgId),
 		onboardingReconciliation: options?.onboardingReconciliation ?? unavailableOnboardingReconciliation(),

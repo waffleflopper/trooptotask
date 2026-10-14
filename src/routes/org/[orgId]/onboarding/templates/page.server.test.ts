@@ -63,8 +63,32 @@ describe('Onboarding templates page admission', () => {
 			});
 			const request = event();
 
-			await expect(load(request as never)).resolves.toMatchObject({ orgId: 'org-a' });
+			await expect(load(request as never)).resolves.toMatchObject({ orgId: 'org-a', activePacketCounts: {} });
 			expect(request.depends).toHaveBeenCalledWith('app:org-core');
 		}
 	);
+	it('counts in-progress packets for each template without loading the packets', async () => {
+		state.ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: { ...createCapabilityMap('none'), onboarding: 'configure' },
+				scopeSet: { kind: 'organization' }
+			}
+		});
+		const orgId = state.ctx.auth.orgId;
+		state.ctx.store.seed('onboarding_templates', [
+			{ id: 'tmpl-1', name: 'Standard', organization_id: orgId },
+			{ id: 'tmpl-2', name: 'Officer', organization_id: orgId }
+		]);
+		state.ctx.store.seed('personnel_onboardings', [
+			{ id: 'p1', template_id: 'tmpl-1', status: 'in_progress', organization_id: orgId },
+			{ id: 'p2', template_id: 'tmpl-1', status: 'in_progress', organization_id: orgId },
+			{ id: 'p3', template_id: 'tmpl-1', status: 'completed', organization_id: orgId }
+		]);
+
+		await expect(load(event() as never)).resolves.toMatchObject({
+			activePacketCounts: { 'tmpl-1': 2, 'tmpl-2': 0 }
+		});
+	});
 });

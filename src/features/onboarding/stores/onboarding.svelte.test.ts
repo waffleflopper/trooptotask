@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { onboardingStore } from './onboarding.svelte';
 import type { PersonnelOnboarding } from '../onboarding.types';
 
+const SAVED_AT = '2026-09-01T12:00:00.000Z';
+
 const mockOnboarding: PersonnelOnboarding = {
 	id: 'ob-1',
 	personnelId: 'p-1',
@@ -23,7 +25,8 @@ const mockOnboarding: PersonnelOnboarding = {
 			completed: false,
 			currentStage: null,
 			notes: [],
-			active: true
+			active: true,
+			progressChangedAt: SAVED_AT
 		}
 	]
 };
@@ -155,10 +158,16 @@ function deferredResponse() {
 describe('onboardingStore - load during in-flight mutations (issue #113)', () => {
 	beforeEach(() => {
 		vi.restoreAllMocks();
+		// Optimistic progress stamps now; pin it so these cases compare ordering only.
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date(SAVED_AT));
 		onboardingStore.load([], 'reset');
 		onboardingStore.load([], 'org-1');
 	});
-	afterEach(() => vi.unstubAllGlobals());
+	afterEach(() => {
+		vi.useRealTimers();
+		vi.unstubAllGlobals();
+	});
 
 	it.each([200, 503])(
 		'retains confirmed incomplete after an earlier checkbox completion returns %s last',
@@ -174,11 +183,13 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 			const incomplete = onboardingStore.toggleCheckbox('step-1', false);
 			expect(onboardingStore.getById('ob-1')).toEqual(mockOnboarding);
 
-			incompleteResponse.respond(Response.json({ completed: false, currentStage: null }));
+			incompleteResponse.respond(Response.json({ progressChangedAt: SAVED_AT, completed: false, currentStage: null }));
 			await expect(incomplete).resolves.toBe(true);
 			expect.soft(onboardingStore.getById('ob-1')).toEqual(mockOnboarding);
 
-			completeResponse.respond(Response.json({ completed: true, currentStage: null }, { status }));
+			completeResponse.respond(
+				Response.json({ progressChangedAt: SAVED_AT, completed: true, currentStage: null }, { status })
+			);
 			await expect(complete).resolves.toBe(status === 200);
 			expect(onboardingStore.getById('ob-1')).toEqual(mockOnboarding);
 		}
@@ -200,11 +211,13 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 		const expectedComplete = { ...mockOnboarding, steps: [{ ...mockOnboarding.steps[0], completed: true }] };
 		expect(onboardingStore.getById('ob-1')).toEqual(expectedComplete);
 
-		completeResponse.respond(Response.json({ completed: true, currentStage: null }));
+		completeResponse.respond(Response.json({ progressChangedAt: SAVED_AT, completed: true, currentStage: null }));
 		await expect(complete).resolves.toBe(true);
 		expect(onboardingStore.getById('ob-1')).toEqual(expectedComplete);
 
-		vi.mocked(fetch).mockResolvedValueOnce(Response.json({ completed: false, currentStage: null }));
+		vi.mocked(fetch).mockResolvedValueOnce(
+			Response.json({ progressChangedAt: SAVED_AT, completed: false, currentStage: null })
+		);
 		await expect(onboardingStore.toggleCheckbox('step-1', false)).resolves.toBe(true);
 		expect(onboardingStore.getById('ob-1')).toEqual(mockOnboarding);
 	});
@@ -219,7 +232,7 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 		);
 		const complete = onboardingStore.toggleCheckbox('step-1', true);
 		const incomplete = onboardingStore.toggleCheckbox('step-1', false);
-		incompleteResponse.respond(Response.json({ completed: false, currentStage: null }));
+		incompleteResponse.respond(Response.json({ progressChangedAt: SAVED_AT, completed: false, currentStage: null }));
 		await expect(incomplete).resolves.toBe(true);
 
 		const refreshed = {
@@ -236,7 +249,7 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 		onboardingStore.load([refreshed], 'org-1');
 		expect.soft(onboardingStore.getById('ob-1')).toEqual(refreshed);
 
-		completeResponse.respond(Response.json({ completed: true, currentStage: null }));
+		completeResponse.respond(Response.json({ progressChangedAt: SAVED_AT, completed: true, currentStage: null }));
 		await expect(complete).resolves.toBe(true);
 		expect(onboardingStore.getById('ob-1')).toEqual(refreshed);
 	});
@@ -259,11 +272,11 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 		const expected = { ...original, steps: [{ ...original.steps[0], currentStage: 'Filed', completed: true }] };
 		expect(onboardingStore.getById('ob-1')).toEqual(expected);
 
-		filedResponse(Response.json({ currentStage: 'Filed', completed: true }));
+		filedResponse(Response.json({ progressChangedAt: SAVED_AT, currentStage: 'Filed', completed: true }));
 		await expect(filed).resolves.toBe(true);
 		expect.soft(onboardingStore.getById('ob-1')).toEqual(expected);
 
-		reviewedResponse(Response.json({ currentStage: 'Reviewed', completed: false }));
+		reviewedResponse(Response.json({ progressChangedAt: SAVED_AT, currentStage: 'Reviewed', completed: false }));
 		await expect(reviewed).resolves.toBe(true);
 		expect(onboardingStore.getById('ob-1')).toEqual(expected);
 	});
@@ -287,11 +300,15 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 		};
 		expect(onboardingStore.getById('ob-1')).toEqual(expectedReviewed);
 
-		reviewedResponse.respond(Response.json({ currentStage: 'Reviewed', completed: false }));
+		reviewedResponse.respond(
+			Response.json({ progressChangedAt: SAVED_AT, currentStage: 'Reviewed', completed: false })
+		);
 		await expect(reviewed).resolves.toBe(true);
 		expect(onboardingStore.getById('ob-1')).toEqual(expectedReviewed);
 
-		vi.mocked(fetch).mockResolvedValueOnce(Response.json({ currentStage: 'Filed', completed: true }));
+		vi.mocked(fetch).mockResolvedValueOnce(
+			Response.json({ progressChangedAt: SAVED_AT, currentStage: 'Filed', completed: true })
+		);
 		await expect(onboardingStore.advanceStage('step-1', 'Filed')).resolves.toBe(true);
 		expect(onboardingStore.getById('ob-1')).toEqual({
 			...paperworkOnboarding,
@@ -310,7 +327,9 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 		const reviewed = onboardingStore.advanceStage('step-1', 'Reviewed');
 		const filed = onboardingStore.advanceStage('step-1', 'Filed');
 
-		reviewedResponse.respond(Response.json({ currentStage: 'Reviewed', completed: false }));
+		reviewedResponse.respond(
+			Response.json({ progressChangedAt: SAVED_AT, currentStage: 'Reviewed', completed: false })
+		);
 		await expect(reviewed).resolves.toBe(true);
 		expect(onboardingStore.getById('ob-1')).toEqual({
 			...paperworkOnboarding,
@@ -350,13 +369,15 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 			]
 		};
 
-		filedResponse.respond(Response.json({ currentStage: 'Filed', completed: true }));
+		filedResponse.respond(Response.json({ progressChangedAt: SAVED_AT, currentStage: 'Filed', completed: true }));
 		await expect(filed).resolves.toBe(true);
 		expect(onboardingStore.getById('ob-1')).toEqual(expected);
-		reviewedResponse.respond(Response.json({ currentStage: 'Reviewed', completed: false }));
+		reviewedResponse.respond(
+			Response.json({ progressChangedAt: SAVED_AT, currentStage: 'Reviewed', completed: false })
+		);
 		await expect(reviewed).resolves.toBe(true);
 		expect(onboardingStore.getById('ob-1')).toEqual(expected);
-		checkboxResponse.respond(Response.json({ currentStage: null, completed: true }));
+		checkboxResponse.respond(Response.json({ progressChangedAt: SAVED_AT, currentStage: null, completed: true }));
 		await expect(checked).resolves.toBe(true);
 		expect(onboardingStore.getById('ob-1')).toEqual(expected);
 	});
@@ -387,10 +408,12 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 		const filed = onboardingStore.advanceStage('step-1', 'Filed');
 		const savedPaperwork = { ...paperworkOnboarding.steps[0], currentStage: 'Filed', completed: true };
 
-		filedResponse.respond(Response.json({ currentStage: 'Filed', completed: true }));
+		filedResponse.respond(Response.json({ progressChangedAt: SAVED_AT, currentStage: 'Filed', completed: true }));
 		await expect(filed).resolves.toBe(true);
 		expect(onboardingStore.getById('ob-1')).toEqual({ ...paperworkOnboarding, steps: [savedPaperwork] });
-		reviewedResponse.respond(Response.json({ currentStage: 'Reviewed', completed: false }));
+		reviewedResponse.respond(
+			Response.json({ progressChangedAt: SAVED_AT, currentStage: 'Reviewed', completed: false })
+		);
 		await expect(reviewed).resolves.toBe(true);
 		expect(onboardingStore.getById('ob-1')).toEqual({ ...paperworkOnboarding, steps: [savedPaperwork] });
 
@@ -429,10 +452,12 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 			steps: [{ ...refreshed.steps[0], currentStage: 'Filed', completed: true }, refreshed.steps[1]]
 		};
 		expect(onboardingStore.getById('ob-1')).toEqual(expected);
-		filedResponse.respond(Response.json({ currentStage: 'Filed', completed: true }));
+		filedResponse.respond(Response.json({ progressChangedAt: SAVED_AT, currentStage: 'Filed', completed: true }));
 		await expect(filed).resolves.toBe(true);
 		expect(onboardingStore.getById('ob-1')).toEqual(expected);
-		reviewedResponse.respond(Response.json({ currentStage: 'Reviewed', completed: false }));
+		reviewedResponse.respond(
+			Response.json({ progressChangedAt: SAVED_AT, currentStage: 'Reviewed', completed: false })
+		);
 		await expect(reviewed).resolves.toBe(true);
 		expect(onboardingStore.getById('ob-1')).toEqual(expected);
 	});
@@ -449,10 +474,10 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 		const newFiled = onboardingStore.advanceStage('step-1', 'Filed');
 		const expected = { ...refreshed, steps: [{ ...refreshed.steps[0], currentStage: 'Filed', completed: true }] };
 
-		oldResponse.respond(Response.json({ currentStage: 'Reviewed', completed: false }));
+		oldResponse.respond(Response.json({ progressChangedAt: SAVED_AT, currentStage: 'Reviewed', completed: false }));
 		await expect(oldReviewed).resolves.toBe(false);
 		expect(onboardingStore.getById('ob-1')).toEqual(expected);
-		newResponse.respond(Response.json({ currentStage: 'Filed', completed: true }));
+		newResponse.respond(Response.json({ progressChangedAt: SAVED_AT, currentStage: 'Filed', completed: true }));
 		await expect(newFiled).resolves.toBe(true);
 		expect(onboardingStore.getById('ob-1')).toEqual(expected);
 	});
@@ -504,13 +529,13 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 		{
 			kind: 'checkbox',
 			mutate: () => onboardingStore.toggleCheckbox('step-1', true),
-			result: { completed: true, currentStage: null },
+			result: { progressChangedAt: SAVED_AT, completed: true, currentStage: null },
 			expectedSteps: [reconciledSteps[0], { ...reconciledSteps[1], completed: true }, reconciledSteps[2]]
 		},
 		{
 			kind: 'stage',
 			mutate: () => onboardingStore.advanceStage('paperwork-2', 'Filed'),
-			result: { completed: true, currentStage: 'Filed' },
+			result: { progressChangedAt: SAVED_AT, completed: true, currentStage: 'Filed' },
 			expectedSteps: [
 				{ ...reconciledSteps[0], completed: true, currentStage: 'Filed' },
 				reconciledSteps[1],
@@ -548,7 +573,7 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 		);
 		const resynced = onboardingStore.resync('ob-1');
 		const progressed = onboardingStore.toggleCheckbox('step-1', true);
-		progressResponse.respond(Response.json({ completed: true, currentStage: null }));
+		progressResponse.respond(Response.json({ progressChangedAt: SAVED_AT, completed: true, currentStage: null }));
 		await expect(progressed).resolves.toBe(true);
 		const refreshed = {
 			...checklistOnboarding,
@@ -577,7 +602,9 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 		await expect(resynced).resolves.toEqual({ success: true });
 		expect(onboardingStore.getById('ob-1')).toEqual({ ...checklistOnboarding, steps: reconciledSteps });
 
-		vi.mocked(fetch).mockResolvedValueOnce(Response.json({ completed: true, currentStage: null }));
+		vi.mocked(fetch).mockResolvedValueOnce(
+			Response.json({ progressChangedAt: SAVED_AT, completed: true, currentStage: null })
+		);
 		await expect(onboardingStore.toggleCheckbox('step-1', true)).resolves.toBe(true);
 		expect(onboardingStore.getById('ob-1')).toEqual({
 			...checklistOnboarding,
@@ -605,7 +632,9 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 				steps: [reconciledSteps[0], { ...reconciledSteps[1], completed: true }, reconciledSteps[2]]
 			});
 
-			progressResponse.respond(Response.json({ completed: true, currentStage: null }, { status }));
+			progressResponse.respond(
+				Response.json({ progressChangedAt: SAVED_AT, completed: true, currentStage: null }, { status })
+			);
 			await expect(progressed).resolves.toBe(status === 200);
 			expect(onboardingStore.getById('ob-1')).toEqual({ ...checklistOnboarding, steps: savedSteps });
 		}
@@ -625,7 +654,7 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 		await expect(resynced).resolves.toEqual({ success: true });
 		expect.soft(onboardingStore.getById('ob-1')).toEqual({ ...checklistOnboarding, steps: resetStageSteps });
 
-		progressResponse.respond(Response.json({ completed: true, currentStage: 'Filed' }));
+		progressResponse.respond(Response.json({ progressChangedAt: SAVED_AT, completed: true, currentStage: 'Filed' }));
 		await expect(progressed).resolves.toBe(true);
 		expect(onboardingStore.getById('ob-1')).toEqual({ ...checklistOnboarding, steps: resetStageSteps });
 	});
@@ -647,7 +676,7 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 			steps: [checklistOnboarding.steps[0], { ...checklistOnboarding.steps[1], completed: true, currentStage: 'Filed' }]
 		};
 		expect.soft(onboardingStore.getById('ob-1')).toEqual(expected);
-		progressResponse.respond(Response.json({ completed: true, currentStage: 'Filed' }));
+		progressResponse.respond(Response.json({ progressChangedAt: SAVED_AT, completed: true, currentStage: 'Filed' }));
 		await expect(progressed).resolves.toBe(true);
 		expect(onboardingStore.getById('ob-1')).toEqual(expected);
 
@@ -1020,5 +1049,111 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 				process.env.TZ = originalTimezone;
 			}
 		}
+	});
+});
+
+describe('onboardingStore step progress time and notes', () => {
+	beforeEach(() => {
+		vi.restoreAllMocks();
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date('2026-10-13T15:00:00.000Z'));
+		onboardingStore.load([], 'reset');
+		onboardingStore.load([paperworkOnboarding], 'org-1');
+	});
+	afterEach(() => {
+		vi.useRealTimers();
+		vi.unstubAllGlobals();
+	});
+
+	it('moves the step to now while advancing and keeps the saved time once confirmed', async () => {
+		const response = deferredResponse();
+		vi.stubGlobal('fetch', vi.fn().mockReturnValueOnce(response.promise));
+
+		const advanced = onboardingStore.advanceStage('step-1', 'Reviewed');
+		expect(onboardingStore.getById('ob-1')?.steps[0]).toMatchObject({
+			currentStage: 'Reviewed',
+			progressChangedAt: '2026-10-13T15:00:00.000Z'
+		});
+
+		response.respond(
+			Response.json({ completed: false, currentStage: 'Reviewed', progressChangedAt: '2026-10-13T15:00:01.000Z' })
+		);
+		await expect(advanced).resolves.toBe(true);
+		expect(onboardingStore.getById('ob-1')?.steps[0]).toMatchObject({
+			currentStage: 'Reviewed',
+			progressChangedAt: '2026-10-13T15:00:01.000Z'
+		});
+	});
+
+	it('keeps the step time while a click on its current stage is pending', async () => {
+		const response = deferredResponse();
+		vi.stubGlobal('fetch', vi.fn().mockReturnValueOnce(response.promise));
+
+		const advanced = onboardingStore.advanceStage('step-1', 'Submitted');
+		expect(onboardingStore.getById('ob-1')?.steps[0]).toMatchObject({
+			currentStage: 'Submitted',
+			progressChangedAt: SAVED_AT
+		});
+
+		response.respond(Response.json({ completed: false, currentStage: 'Submitted', progressChangedAt: SAVED_AT }));
+		await expect(advanced).resolves.toBe(true);
+		expect(onboardingStore.getById('ob-1')?.steps[0].progressChangedAt).toBe(SAVED_AT);
+	});
+
+	it('adds the saved note without moving the step', async () => {
+		const savedNotes = [
+			...paperworkOnboarding.steps[0].notes,
+			{ text: 'Waiting on Finance', timestamp: '2026-10-13T15:00:01.000Z', userId: 'operator' }
+		];
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(Response.json({ id: 'step-1', notes: savedNotes })));
+
+		await expect(onboardingStore.addNote('step-1', 'Waiting on Finance')).resolves.toBe(true);
+
+		expect(fetch).toHaveBeenCalledWith('/org/org-1/api/onboarding-steps', {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ action: 'addNote', stepId: 'step-1', text: 'Waiting on Finance' })
+		});
+		expect(onboardingStore.getById('ob-1')?.steps[0]).toEqual({ ...paperworkOnboarding.steps[0], notes: savedNotes });
+	});
+
+	describe('overlapping note saves', () => {
+		const first = { text: 'First', timestamp: '2026-10-13T15:00:01.000Z', userId: 'operator' };
+		const second = { text: 'Second', timestamp: '2026-10-13T15:00:02.000Z', userId: 'operator' };
+		const saved = paperworkOnboarding.steps[0].notes;
+
+		it.each([
+			['in order', [0, 1]],
+			['out of order', [1, 0]]
+		])('keeps both notes when the answers arrive %s', async (_label, order) => {
+			const firstResponse = deferredResponse();
+			const secondResponse = deferredResponse();
+			vi.stubGlobal(
+				'fetch',
+				vi.fn().mockReturnValueOnce(firstResponse.promise).mockReturnValueOnce(secondResponse.promise)
+			);
+
+			const firstSave = onboardingStore.addNote('step-1', 'First');
+			const secondSave = onboardingStore.addNote('step-1', 'Second');
+			const answers = [
+				() => firstResponse.respond(Response.json({ id: 'step-1', notes: [...saved, first] })),
+				() => secondResponse.respond(Response.json({ id: 'step-1', notes: [...saved, first, second] }))
+			];
+			for (const index of order) {
+				answers[index]();
+				await Promise.resolve();
+			}
+			await expect(Promise.all([firstSave, secondSave])).resolves.toEqual([true, true]);
+
+			expect(onboardingStore.getById('ob-1')?.steps[0].notes).toEqual([...saved, first, second]);
+		});
+	});
+
+	it('keeps the saved notes when adding a note fails', async () => {
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(new Response(null, { status: 500 })));
+
+		await expect(onboardingStore.addNote('step-1', 'Lost')).resolves.toBe(false);
+
+		expect(onboardingStore.getById('ob-1')).toEqual(paperworkOnboarding);
 	});
 });

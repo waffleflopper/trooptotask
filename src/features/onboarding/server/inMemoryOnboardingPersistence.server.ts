@@ -129,6 +129,18 @@ export function createInMemoryOnboardingWorkflowPersistence(
 	store: OnboardingMemoryStore,
 	orgId: string
 ): OnboardingWorkflowPersistence {
+	/** Mirrors the database trigger that moves `progress_changed_at` only on real progress. */
+	async function saveProgress(stepId: string, patch: Pick<ProgressRow, 'completed'> & Partial<ProgressRow>) {
+		const before = await store.findOne<ProgressRow>('onboarding_step_progress', orgId, { id: stepId });
+		const moved =
+			!before ||
+			before.completed !== patch.completed ||
+			('current_stage' in patch && (before.current_stage ?? null) !== patch.current_stage);
+		return store.update<ProgressRow>('onboarding_step_progress', orgId, stepId, {
+			...patch,
+			...(moved ? { progress_changed_at: new Date().toISOString() } : {})
+		});
+	}
 	return {
 		async listPackets(mode) {
 			return (
@@ -143,6 +155,11 @@ export function createInMemoryOnboardingWorkflowPersistence(
 					}
 				)
 			).map(toPacket);
+		},
+		async listCompletionsSince(since) {
+			return (await store.findMany<PacketRow>('personnel_onboardings', orgId, { status: 'completed' }))
+				.filter((row): row is PacketRow & { completed_at: string } => !!row.completed_at && row.completed_at >= since)
+				.map((row) => ({ startedAt: row.started_at, completedAt: row.completed_at }));
 		},
 		async listSavedActivePackets() {
 			return this.listPackets('active');
@@ -186,33 +203,44 @@ export function createInMemoryOnboardingWorkflowPersistence(
 			).map((row) => row.id);
 		},
 		async saveCheckboxCompletion(stepId, completed) {
-			const row = await store.update<ProgressRow>('onboarding_step_progress', orgId, stepId, { completed });
+			const row = await saveProgress(stepId, { completed });
 			return {
 				id: row.id,
 				onboardingId: row.onboarding_id,
 				stepName: row.step_name,
 				stepType: row.step_type,
 				completed: row.completed,
-				currentStage: row.current_stage ?? null
+				currentStage: row.current_stage ?? null,
+				progressChangedAt: row.progress_changed_at
 			};
 		},
 		async savePaperworkProgress(stepId, currentStage, completed) {
-			const row = await store.update<ProgressRow>('onboarding_step_progress', orgId, stepId, {
-				current_stage: currentStage,
-				completed
-			});
+			const row = await saveProgress(stepId, { current_stage: currentStage, completed });
 			return {
 				id: row.id,
 				onboardingId: row.onboarding_id,
 				stepName: row.step_name,
 				stepType: row.step_type,
 				completed: row.completed,
-				currentStage: row.current_stage ?? null
+				currentStage: row.current_stage ?? null,
+				progressChangedAt: row.progress_changed_at
 			};
 		},
 		async listPacketIdsUsingTemplate(templateId) {
 			return (await store.findMany<{ id: string }>('personnel_onboardings', orgId, { template_id: templateId })).map(
 				(row) => row.id
+			);
+		},
+		async countActivePacketsByTemplate() {
+			const [templates, packets] = await Promise.all([
+				store.findMany<{ id: string }>('onboarding_templates', orgId),
+				store.findMany<{ template_id: string | null }>('personnel_onboardings', orgId, { status: 'in_progress' })
+			]);
+			return Object.fromEntries(
+				templates.map((template) => [
+					template.id,
+					packets.filter((packet) => packet.template_id === template.id).length
+				])
 			);
 		},
 		async clearPacketTemplate(id) {

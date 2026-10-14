@@ -1,55 +1,25 @@
 <script lang="ts">
-	import { Button } from '$lib/components/ui/button';
-	import * as Collapsible from '$lib/components/ui/collapsible';
-	import MessageSquare from '@lucide/svelte/icons/message-square';
-	import type { Snippet } from 'svelte';
+	import { PACKET_EYEBROW } from './layout';
+	import type { PacketNoteEntry } from './types';
 
-	let {
-		open = $bindable(false),
-		count = 0,
-		label = 'Toggle notes',
-		emptyLabel = 'No notes yet.',
-		children,
-		readOnly = false,
-		onOpenChange
-	}: {
-		open?: boolean;
-		count?: number;
-		label?: string;
-		emptyLabel?: string;
-		children?: Snippet;
-		readOnly?: boolean;
-		onOpenChange?: (open: boolean) => void;
-	} = $props();
+	let { notes }: { notes: PacketNoteEntry[] } = $props();
 
-	function handleOpenChange(nextOpen: boolean) {
-		open = nextOpen;
-		onOpenChange?.(nextOpen);
-	}
+	const uid = $props.id();
+	const headingId = `packet-notes-${uid}`;
 </script>
 
-<Collapsible.Root bind:open onOpenChange={handleOpenChange} data-slot="onboarding-packet-notes" class="contents">
-	<Collapsible.Trigger data-slot="onboarding-packet-notes-trigger" aria-label={label}>
-		{#snippet child({ props })}
-			<Button {...props} variant="outline" size="sm" class="gap-1 px-1.5 text-muted-foreground">
-				<MessageSquare aria-hidden="true" class="size-4" />
-				{#if count > 0}
-					<span class="font-mono text-xs font-semibold text-primary">{count}</span>
-				{/if}
-			</Button>
-		{/snippet}
-	</Collapsible.Trigger>
-	<Collapsible.Content
-		data-slot="onboarding-packet-notes-content"
-		class="mt-2 w-full rounded-lg border border-border bg-muted/35 p-3"
-	>
-		{#if children}
-			<div class="flex max-h-56 flex-col gap-2 overflow-y-auto">
-				{@render children()}
-			</div>
-		{/if}
-		{#if count === 0 && !readOnly}
-			<p class="m-0 text-sm text-muted-foreground">{emptyLabel}</p>
-		{/if}
-	</Collapsible.Content>
-</Collapsible.Root>
+<section data-slot="onboarding-packet-notes" class="grid content-start gap-3 md:w-80 md:shrink-0">
+	<h4 id={headingId} class={PACKET_EYEBROW}>Notes · {notes.length}</h4>
+	{#if notes.length === 0}
+		<p class="text-sm text-muted-foreground">No notes on this packet.</p>
+	{:else}
+		<ul aria-labelledby={headingId} class="grid gap-3">
+			{#each notes as note, index (index)}
+				<li class="grid gap-1 border-l-2 border-border pl-3">
+					<p class="text-sm italic wrap-anywhere text-foreground">“{note.text}”</p>
+					<p class="text-xs wrap-anywhere text-muted-foreground">{note.byline}</p>
+				</li>
+			{/each}
+		</ul>
+	{/if}
+</section>

@@ -11,7 +11,7 @@ export const TEMPLATE_FIELDS = 'id, organization_id, name, description, created_
 export const STEP_FIELDS =
 	'id, organization_id, template_id, name, description, step_type, training_type_id, stages, sort_order, created_at';
 export const PROGRESS_FIELDS =
-	'id, onboarding_id, step_name, step_type, training_type_id, stages, sort_order, completed, current_stage, notes, template_step_id, active';
+	'id, onboarding_id, step_name, step_type, training_type_id, stages, sort_order, completed, current_stage, notes, template_step_id, active, progress_changed_at';
 export const PACKET_FIELDS = `id, personnel_id, started_at, completed_at, cancelled_at, status, template_id, onboarding_step_progress(${PROGRESS_FIELDS})`;
 
 export interface TemplateRow {
@@ -46,6 +46,7 @@ export interface ProgressRow {
 	notes?: unknown;
 	template_step_id?: string | null;
 	active?: boolean | null;
+	progress_changed_at: string;
 }
 export interface PacketRow {
 	id: string;
@@ -93,7 +94,8 @@ export function toProgress(row: ProgressRow): OnboardingStepProgress {
 		currentStage: row.current_stage ?? null,
 		notes: Array.isArray(row.notes) ? row.notes : [],
 		templateStepId: row.template_step_id ?? null,
-		active: row.active ?? true
+		active: row.active ?? true,
+		progressChangedAt: row.progress_changed_at
 	};
 }
 export function toPacket(row: PacketRow): PersonnelOnboarding {

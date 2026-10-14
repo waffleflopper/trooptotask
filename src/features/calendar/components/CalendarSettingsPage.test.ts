@@ -21,6 +21,7 @@ const { statusTypesStoreMock, availabilityStoreMock, assignmentTypesStoreMock, s
 		},
 		assignmentTypesStoreMock: {
 			types: [] as AssignmentType[],
+			pendingDateHeaderId: null,
 			addType: vi.fn(),
 			updateType: vi.fn(),
 			removeType: vi.fn()

@@ -13,7 +13,7 @@
  *
  * Loaded by the calendar and dashboard page load functions.
  */
-import { defineStore, withinOrganizationLifetime } from '$lib/stores/core';
+import { defineStore, stillInOrganizationLifetime, withinOrganizationLifetime } from '$lib/stores/core';
 import type { Store, StoreInternals } from '$lib/stores/core';
 import { toastStore } from '$lib/stores/toast.svelte';
 import { assignmentTypesSchema, type AssignmentType, type DailyAssignment } from '$features/calendar/contracts';
@@ -24,9 +24,16 @@ export type { AssignmentType } from '$features/calendar/contracts';
 export type { DailyAssignment } from '$features/calendar/contracts';
 
 export type DateHeaderChange =
-	| { status: 'saved' | 'stale' }
+	| { status: 'saved' | 'stale' | 'busy' }
 	| { status: 'not-saved'; message: string; showsSaved: boolean }
 	| { status: 'unconfirmed'; showsSaved: boolean };
+
+// One header command owns the type catalog from its request through its feedback, outliving the view that chose it.
+type HeaderFlight = Readonly<{
+	assignmentTypeId: string;
+	orgId: string;
+	inLifetime: () => boolean;
+}>;
 
 const typesStore = defineStore<AssignmentType>({
 	table: 'assignment_types',
@@ -42,6 +49,7 @@ interface AssignmentExtensions extends Record<string, unknown> {
 	readonly types: AssignmentType[];
 	readonly assignments: DailyAssignment[];
 	readonly typesBusy: boolean;
+	readonly pendingDateHeaderId: string | null;
 	load: (types: AssignmentType[], assignments: DailyAssignment[], orgId: string) => void;
 	addType: (data: Omit<AssignmentType, 'id'>) => Promise<AssignmentType | null>;
 	updateType: (id: string, data: Partial<Omit<AssignmentType, 'id'>>) => Promise<boolean>;
@@ -96,18 +104,52 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 		}
 	}
 
-	async function adoptSavedTypesIfUnchanged(orgId: string): Promise<boolean> {
+	let headerFlight = $state.raw<HeaderFlight | null>(null);
+
+	function currentHeaderFlight(): HeaderFlight | null {
+		return headerFlight && headerFlight.inLifetime() && headerFlight.orgId === typesStore.orgId ? headerFlight : null;
+	}
+
+	function isCurrentHeaderFlight(flight: HeaderFlight): boolean {
+		return currentHeaderFlight() === flight;
+	}
+
+	// Returns the load version this read produced, so the caller can tell whether the shown catalog is still that read.
+	async function adoptSavedTypesIfUnchanged(flight: HeaderFlight): Promise<number | null> {
+		if (!isCurrentHeaderFlight(flight)) return null;
 		const loadVersion = typesStore.loadVersion;
 		try {
-			const res = await withinOrganizationLifetime(fetch(`/org/${orgId}/api/assignment-types`));
-			if (!res.ok) return false;
+			const res = await withinOrganizationLifetime(fetch(`/org/${flight.orgId}/api/assignment-types`));
+			if (!res.ok || !isCurrentHeaderFlight(flight)) return null;
 			const saved = assignmentTypesSchema.safeParse(await withinOrganizationLifetime(res.json()));
-			if (!saved.success || typesStore.orgId !== orgId || typesStore.loadVersion !== loadVersion) return false;
-			typesStore.load(saved.data, orgId);
-			return true;
+			if (!saved.success || !isCurrentHeaderFlight(flight) || typesStore.loadVersion !== loadVersion) return null;
+			typesStore.load(saved.data, flight.orgId);
+			return typesStore.loadVersion;
 		} catch {
-			return false;
+			return null;
 		}
+	}
+
+	function dateHeaderFailureMessage(
+		result: Extract<DateHeaderChange, { status: 'not-saved' | 'unconfirmed' }>
+	): string {
+		if (result.status === 'not-saved') {
+			return result.showsSaved ? result.message : `${result.message} Reload to see the saved header.`;
+		}
+		if (!result.showsSaved) return "We couldn't confirm the date header change. Reload to see the saved header.";
+		const saved = typesStore.items.find((type) => !type.archivedAt && type.showInDateHeader);
+		return saved
+			? `We couldn't confirm the date header change. The saved header is ${saved.name}.`
+			: "We couldn't confirm the date header change. No date header is saved.";
+	}
+
+	// Synchronous with the flight's release, so no later load or remount can change what the result describes.
+	function reportDateHeaderOutcome(flight: HeaderFlight, result: DateHeaderChange): DateHeaderChange {
+		if (!isCurrentHeaderFlight(flight)) return { status: 'stale' };
+		if (result.status === 'not-saved' || result.status === 'unconfirmed') {
+			toastStore.error(dateHeaderFailureMessage(result));
+		}
+		return result;
 	}
 
 	async function sendAssignments(path: '' | '/batch', method: 'POST' | 'DELETE', body: unknown, failure: string) {
@@ -130,24 +172,32 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 		},
 
 		get typesBusy() {
-			return typesStore.busy;
+			return typesStore.busy || currentHeaderFlight() !== null;
+		},
+
+		get pendingDateHeaderId() {
+			return currentHeaderFlight()?.assignmentTypeId ?? null;
 		},
 
 		load(types: AssignmentType[], assignments: DailyAssignment[], orgId: string) {
+			if (headerFlight && (headerFlight.orgId !== orgId || !headerFlight.inLifetime())) headerFlight = null;
 			typesStore.load(types, orgId);
 			base.load(assignments, orgId);
 		},
 
 		// Assignment Type methods
 		async addType(data: Omit<AssignmentType, 'id'>): Promise<AssignmentType | null> {
+			if (currentHeaderFlight()) return null;
 			return typesStore.add(data);
 		},
 
 		async updateType(id: string, data: Partial<Omit<AssignmentType, 'id'>>): Promise<boolean> {
+			if (currentHeaderFlight()) return false;
 			return typesStore.update(id, data);
 		},
 
 		async removeType(id: string): Promise<boolean> {
+			if (currentHeaderFlight()) return false;
 			const type = typesStore.getById(id);
 			if (!type) return false;
 
@@ -179,43 +229,59 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 		},
 
 		async setDateHeader(assignmentTypeId: string): Promise<DateHeaderChange> {
-			const orgId = typesStore.orgId;
+			if (typesStore.busy || currentHeaderFlight()) return { status: 'busy' };
+			const flight: HeaderFlight = Object.freeze({
+				assignmentTypeId,
+				orgId: typesStore.orgId,
+				inLifetime: stillInOrganizationLifetime()
+			});
+			headerFlight = flight;
 			const loadVersion = typesStore.loadVersion;
-			let res: Response;
 			try {
-				res = await withinOrganizationLifetime(
-					fetch(`/org/${orgId}/api/assignment-types/date-header`, {
-						method: 'PUT',
-						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify({ assignmentTypeId })
-					})
+				let res: Response;
+				try {
+					res = await withinOrganizationLifetime(
+						fetch(`/org/${flight.orgId}/api/assignment-types/date-header`, {
+							method: 'PUT',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify({ assignmentTypeId })
+						})
+					);
+				} catch {
+					const adopted = await adoptSavedTypesIfUnchanged(flight);
+					return reportDateHeaderOutcome(flight, {
+						status: 'unconfirmed',
+						showsSaved: adopted === typesStore.loadVersion
+					});
+				}
+				if (!isCurrentHeaderFlight(flight)) return { status: 'stale' };
+				if (res.ok && typesStore.loadVersion === loadVersion) {
+					typesStore.updateLocalWhere(
+						(type) => type.showInDateHeader !== (type.id === assignmentTypeId),
+						(type) => ({ ...type, showInDateHeader: type.id === assignmentTypeId })
+					);
+					return { status: 'saved' };
+				}
+				if (res.ok) {
+					const showsSaved = (await adoptSavedTypesIfUnchanged(flight)) === typesStore.loadVersion;
+					return reportDateHeaderOutcome(
+						flight,
+						showsSaved && typesStore.getById(assignmentTypeId)?.showInDateHeader
+							? { status: 'saved' }
+							: { status: 'unconfirmed', showsSaved }
+					);
+				}
+				const message = confirmedNotSaved(res)
+					? await withinOrganizationLifetime(readResponseErrorMessage(res, 'Failed to update the date header'))
+					: null;
+				const showsSaved = (await adoptSavedTypesIfUnchanged(flight)) === typesStore.loadVersion;
+				return reportDateHeaderOutcome(
+					flight,
+					message === null ? { status: 'unconfirmed', showsSaved } : { status: 'not-saved', message, showsSaved }
 				);
-			} catch {
-				if (typesStore.orgId !== orgId) return { status: 'stale' };
-				const showsSaved = await adoptSavedTypesIfUnchanged(orgId);
-				return typesStore.orgId === orgId ? { status: 'unconfirmed', showsSaved } : { status: 'stale' };
+			} finally {
+				if (headerFlight === flight) headerFlight = null;
 			}
-			if (typesStore.orgId !== orgId) return { status: 'stale' };
-			if (res.ok && typesStore.loadVersion === loadVersion) {
-				typesStore.updateLocalWhere(
-					(type) => type.showInDateHeader !== (type.id === assignmentTypeId),
-					(type) => ({ ...type, showInDateHeader: type.id === assignmentTypeId })
-				);
-				return { status: 'saved' };
-			}
-			if (res.ok) {
-				const showsSaved = await adoptSavedTypesIfUnchanged(orgId);
-				if (typesStore.orgId !== orgId) return { status: 'stale' };
-				return showsSaved && typesStore.getById(assignmentTypeId)?.showInDateHeader
-					? { status: 'saved' }
-					: { status: 'unconfirmed', showsSaved };
-			}
-			const message = confirmedNotSaved(res)
-				? await withinOrganizationLifetime(readResponseErrorMessage(res, 'Failed to update the date header'))
-				: null;
-			const showsSaved = await adoptSavedTypesIfUnchanged(orgId);
-			if (typesStore.orgId !== orgId) return { status: 'stale' };
-			return message === null ? { status: 'unconfirmed', showsSaved } : { status: 'not-saved', message, showsSaved };
 		},
 
 		getTypeById(id: string) {

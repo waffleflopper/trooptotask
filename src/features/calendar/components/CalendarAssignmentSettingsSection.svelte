@@ -8,7 +8,7 @@
 	import { NativeSelect } from '$lib/components/ui/native-select';
 	import * as RadioGroup from '$lib/components/ui/radio-group';
 	import { Spinner } from '$lib/components/ui/spinner';
-	import { dailyAssignmentsStore, type DateHeaderChange } from '$features/calendar/stores/dailyAssignments.svelte';
+	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import type { AssignmentType } from '$features/calendar/contracts';
 	import Pencil from '@lucide/svelte/icons/pencil';
@@ -43,9 +43,9 @@
 
 	const activeAssignmentTypes = $derived(dailyAssignmentsStore.types.filter((type) => !type.archivedAt));
 	const savedHeaderId = $derived(activeAssignmentTypes.find((t) => t.showInDateHeader)?.id ?? null);
-	let pendingHeaderId = $state<string | null>(null);
+	const pendingHeaderId = $derived(dailyAssignmentsStore.pendingDateHeaderId);
 	const typeWritesLocked = $derived(pendingHeaderId !== null);
-	const headerChoiceLocked = $derived(pendingHeaderId !== null || dailyAssignmentsStore.typesBusy);
+	const headerChoiceLocked = $derived(dailyAssignmentsStore.typesBusy);
 	const addAssignmentDirty = $derived(
 		newAssignName.trim() !== '' ||
 			newAssignShortName.trim() !== '' ||
@@ -161,28 +161,9 @@
 		confirmDeleteAssign = null;
 	}
 
-	function dateHeaderFailureMessage(result: Exclude<DateHeaderChange, { status: 'saved' | 'stale' }>) {
-		if (result.status === 'not-saved') {
-			return result.showsSaved ? result.message : `${result.message} Reload to see the saved header.`;
-		}
-		if (!result.showsSaved) return "We couldn't confirm the date header change. Reload to see the saved header.";
-		const saved = dailyAssignmentsStore.types.find((t) => !t.archivedAt && t.showInDateHeader);
-		return saved
-			? `We couldn't confirm the date header change. The saved header is ${saved.name}.`
-			: "We couldn't confirm the date header change. No date header is saved.";
-	}
-
-	async function chooseDateHeader(id: string) {
+	function chooseDateHeader(id: string) {
 		if (!canMutate || headerChoiceLocked || id === savedHeaderId) return;
-		pendingHeaderId = id;
-		try {
-			const result = await dailyAssignmentsStore.setDateHeader(id);
-			if (result.status === 'not-saved' || result.status === 'unconfirmed') {
-				toastStore.error(dateHeaderFailureMessage(result));
-			}
-		} finally {
-			pendingHeaderId = null;
-		}
+		void dailyAssignmentsStore.setDateHeader(id);
 	}
 </script>
 
@@ -196,7 +177,7 @@
 </p>
 
 <RadioGroup.Root
-	bind:value={() => pendingHeaderId ?? savedHeaderId ?? '', (id) => void chooseDateHeader(id)}
+	bind:value={() => pendingHeaderId ?? savedHeaderId ?? '', chooseDateHeader}
 	disabled={!canMutate || headerChoiceLocked}
 	aria-label="Assignment type shown in the date header"
 	class="gap-1.5"

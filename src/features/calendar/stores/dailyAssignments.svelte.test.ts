@@ -512,7 +512,7 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 				'/org/org-1/api/assignment-types'
 			]);
 			expect(dailyAssignmentsStore.types).toEqual(stored);
-			expect(toast).not.toHaveBeenCalled();
+			expect(toast).toHaveBeenCalledExactlyOnceWith('That assignment type is no longer available.');
 		});
 
 		it.each([
@@ -704,6 +704,132 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 
 			expect(await settles(pending)).toBe(false);
 			expect(headers()).toEqual({ staff: true, group: false, retiring: false });
+		});
+
+		it('refuses header choices and type writes until a choice finishes its fresh read', async () => {
+			const linked = { id: 'a1', date: '2026-10-14', assignmentTypeId: 'group', assigneeId: 'p1' };
+			dailyAssignmentsStore.load([staff, group, retiring], [linked], 'org-1');
+			const stored = [{ ...staff, showInDateHeader: false }, { ...group, showInDateHeader: true }, retiring];
+			let respondRead!: (value: unknown) => void;
+			const fetchMock = vi.fn((url: string, options?: RequestInit) => {
+				if (url.endsWith('/date-header')) return Promise.resolve(reply(503, {}));
+				if (!options) return new Promise((resolve) => (respondRead = resolve));
+				return Promise.resolve(reply(200, { ...retiring, name: 'Retiring Night' }));
+			});
+			vi.stubGlobal('fetch', fetchMock);
+			const pending = dailyAssignmentsStore.setDateHeader('group');
+			await vi.waitFor(() => expect(respondRead).toBeDefined());
+
+			expect(dailyAssignmentsStore.pendingDateHeaderId).toBe('group');
+			expect(dailyAssignmentsStore.typesBusy).toBe(true);
+			expect(await dailyAssignmentsStore.setDateHeader('retiring')).toEqual({ status: 'busy' });
+			expect(
+				await dailyAssignmentsStore.addType({
+					name: 'Night',
+					shortName: 'NT',
+					assignTo: 'personnel',
+					color: '#000',
+					exemptPersonnelIds: [],
+					showInDateHeader: false
+				})
+			).toBeNull();
+			expect(await dailyAssignmentsStore.updateType('retiring', { name: 'Retiring Night' })).toBe(false);
+			expect(await dailyAssignmentsStore.removeType('group')).toBe(false);
+			expect(dailyAssignmentsStore.types).toEqual([staff, group, retiring]);
+			expect(dailyAssignmentsStore.assignments).toEqual([linked]);
+			expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+				'/org/org-1/api/assignment-types/date-header',
+				'/org/org-1/api/assignment-types'
+			]);
+
+			respondRead(reply(200, stored));
+			expect(await pending).toEqual({ status: 'unconfirmed', showsSaved: true });
+			expect(dailyAssignmentsStore.pendingDateHeaderId).toBeNull();
+			expect(dailyAssignmentsStore.typesBusy).toBe(false);
+			expect(await dailyAssignmentsStore.updateType('retiring', { name: 'Retiring Night' })).toBe(true);
+			expect(headers()).toEqual({ staff: false, group: true, retiring: false });
+		});
+
+		it('refuses a header choice while a full type edit is saving', async () => {
+			let respond!: (value: unknown) => void;
+			const fetchMock = vi.fn(() => new Promise((resolve) => (respond = resolve)));
+			vi.stubGlobal('fetch', fetchMock);
+			const editing = dailyAssignmentsStore.updateType('group', { name: 'Group Night' });
+
+			expect(await dailyAssignmentsStore.setDateHeader('group')).toEqual({ status: 'busy' });
+			expect(dailyAssignmentsStore.pendingDateHeaderId).toBeNull();
+			respond(reply(200, { ...group, name: 'Group Night' }));
+			expect(await editing).toBe(true);
+
+			expect(fetchMock).toHaveBeenCalledOnce();
+			expect(headers()).toEqual({ staff: true, group: false, retiring: false });
+			expect(dailyAssignmentsStore.getTypeById('group')?.name).toBe('Group Night');
+		});
+
+		it('keeps a choice admitted across a same-Organization reload', async () => {
+			let respond!: (value: unknown) => void;
+			vi.stubGlobal(
+				'fetch',
+				vi.fn((_url, options?: RequestInit) =>
+					options ? new Promise((resolve) => (respond = resolve)) : Promise.resolve(reply(200, [staff, group]))
+				)
+			);
+			const pending = dailyAssignmentsStore.setDateHeader('group');
+			await vi.waitFor(() => expect(respond).toBeDefined());
+			dailyAssignmentsStore.load([staff, group, retiring], [], 'org-1');
+
+			expect(dailyAssignmentsStore.pendingDateHeaderId).toBe('group');
+			expect(await dailyAssignmentsStore.setDateHeader('retiring')).toEqual({ status: 'busy' });
+			respond(reply(200, { success: true }));
+			expect(await pending).toEqual({ status: 'unconfirmed', showsSaved: true });
+			expect(dailyAssignmentsStore.pendingDateHeaderId).toBeNull();
+		});
+
+		it('does not revive an earlier choice after moving to another Organization and back', async () => {
+			const replies: Array<(value: unknown) => void> = [];
+			vi.stubGlobal(
+				'fetch',
+				vi.fn(() => new Promise((resolve) => replies.push(resolve)))
+			);
+			const earlier = dailyAssignmentsStore.setDateHeader('group');
+			dailyAssignmentsStore.load([{ ...retiring, id: 'b-type' }], [], 'org-2');
+			dailyAssignmentsStore.load([staff, group, retiring], [], 'org-1');
+
+			expect(dailyAssignmentsStore.pendingDateHeaderId).toBeNull();
+			expect(dailyAssignmentsStore.typesBusy).toBe(false);
+			const later = dailyAssignmentsStore.setDateHeader('retiring');
+			replies[0](reply(200, { success: true }));
+
+			expect(await earlier).toEqual({ status: 'stale' });
+			expect(dailyAssignmentsStore.pendingDateHeaderId).toBe('retiring');
+			expect(headers()).toEqual({ staff: true, group: false, retiring: false });
+			replies[1](reply(200, { success: true }));
+			expect(await later).toEqual({ status: 'saved' });
+			expect(headers()).toEqual({ staff: false, group: false, retiring: true });
+		});
+
+		it('admits a choice in a new Organization lifetime while the ended one never settles', async () => {
+			const replies: Array<(value: unknown) => void> = [];
+			vi.stubGlobal(
+				'fetch',
+				vi.fn(() => new Promise((resolve) => replies.push(resolve)))
+			);
+			const toast = vi.spyOn(toastStore, 'error');
+			const ended = dailyAssignmentsStore.setDateHeader('group');
+			endOrganizationLifetime();
+			dailyAssignmentsStore.load([staff, group, retiring], [], 'org-1');
+
+			expect(dailyAssignmentsStore.pendingDateHeaderId).toBeNull();
+			const current = dailyAssignmentsStore.setDateHeader('retiring');
+			expect(dailyAssignmentsStore.pendingDateHeaderId).toBe('retiring');
+			replies[0](reply(200, { success: true }));
+			replies[1](reply(200, { success: true }));
+
+			expect(await current).toEqual({ status: 'saved' });
+			expect(await settles(ended)).toBe(false);
+			expect(headers()).toEqual({ staff: false, group: false, retiring: true });
+			expect(dailyAssignmentsStore.typesBusy).toBe(false);
+			expect(toast).not.toHaveBeenCalled();
 		});
 
 		it('reports type writes as busy until they settle', async () => {

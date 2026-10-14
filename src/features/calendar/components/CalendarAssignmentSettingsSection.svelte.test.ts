@@ -6,6 +6,7 @@ import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignment
 import { endOrganizationLifetime } from '$lib/stores/core';
 import { toastStore } from '$lib/stores/toast.svelte';
 import CalendarAssignmentSettingsSection from './CalendarAssignmentSettingsSection.svelte';
+import CalendarSettingsPage from './CalendarSettingsPage.svelte';
 
 const chargeOfQuarters: AssignmentType = {
 	id: 'cq',
@@ -309,6 +310,49 @@ describe('CalendarAssignmentSettingsSection date header', () => {
 
 	const retiring: AssignmentType = { ...staffDuty, id: 'rt', name: 'Retiring Duty', shortName: 'RT' };
 
+	it('names only the header its fresh read found, whenever a newer load lands', async () => {
+		const readCatalog = [
+			{ ...chargeOfQuarters, showInDateHeader: false },
+			staffDuty,
+			{ ...retiring, showInDateHeader: true }
+		];
+		const newerLoad = [
+			{ ...chargeOfQuarters, showInDateHeader: false },
+			{ ...staffDuty, showInDateHeader: true },
+			retiring
+		];
+		const messages = new Set<string>();
+		for (let hops = 0; hops <= 24; hops++) {
+			const server = stubAssignmentTypeServer();
+			server.answerHeader = () => Response.json({ message: 'unconfirmed' }, { status: 503 });
+			server.answerRead = () => {
+				let remaining = hops;
+				const step = () =>
+					remaining-- === 0
+						? dailyAssignmentsStore.load(structuredClone(newerLoad), [], 'org-1')
+						: queueMicrotask(step);
+				queueMicrotask(step);
+				return { ok: true, status: 200, json: () => Promise.resolve(structuredClone(readCatalog)) } as Response;
+			};
+			const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+			dailyAssignmentsStore.load([chargeOfQuarters, staffDuty, retiring], [], 'org-1');
+			render(CalendarAssignmentSettingsSection, { props: { canMutate: true, searchQuery: '' } });
+
+			await fireEvent.click(radio('Staff Duty'));
+			await waitFor(() => expect(errorToast).toHaveBeenCalledOnce());
+			messages.add(String(errorToast.mock.calls[0][0]));
+			cleanup();
+			vi.restoreAllMocks();
+		}
+
+		expect([...messages].sort()).toEqual(
+			[
+				"We couldn't confirm the date header change. Reload to see the saved header.",
+				"We couldn't confirm the date header change. The saved header is Retiring Duty."
+			].sort()
+		);
+	});
+
 	function holdStaffDutyReply(server: ReturnType<typeof stubAssignmentTypeServer>, reply: () => Response) {
 		server.persisted.set(retiring.id, { ...retiring });
 		dailyAssignmentsStore.load([chargeOfQuarters, staffDuty, retiring], [], 'org-1');
@@ -324,6 +368,49 @@ describe('CalendarAssignmentSettingsSection date header', () => {
 	function saveHeader(server: ReturnType<typeof stubAssignmentTypeServer>, id: string | null) {
 		for (const type of server.persisted.values()) type.showInDateHeader = type.id === id;
 	}
+
+	it('keeps a held choice pending across a Settings tab switch and refuses another until it settles', async () => {
+		const server = stubAssignmentTypeServer();
+		const held = holdStaffDutyReply(server, () => {
+			saveHeader(server, 'sd');
+			return Response.json({ success: true });
+		});
+		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+		render(CalendarSettingsPage, {
+			props: {
+				org: { orgUrlSegment: 'org-1', affordanceForFeatureAction: () => ({ allowed: true, visible: true }) }
+			}
+		});
+		await fireEvent.click(screen.getByRole('tab', { name: /Assignment Types/ }));
+
+		await fireEvent.click(radio('Staff Duty'));
+		await waitFor(() => expect(held.release).toBeDefined());
+		await fireEvent.click(screen.getByRole('tab', { name: /Status Types/ }));
+		expect(screen.queryByRole('radio', { name: 'Show Staff Duty in date header' })).toBeNull();
+		await fireEvent.click(screen.getByRole('tab', { name: /Assignment Types/ }));
+
+		expect(isChecked(radio('Staff Duty'))).toBe(true);
+		expect(currentlyShowing()).toContain('Currently showing: Charge of Quarters');
+		expect(screen.getByRole('radiogroup').hasAttribute('data-disabled')).toBe(true);
+		expect(screen.getByRole('button', { name: 'Edit Retiring Duty' })).toHaveProperty('disabled', true);
+		expect(screen.getByRole('button', { name: 'Delete Charge of Quarters' })).toHaveProperty('disabled', true);
+		await fireEvent.click(radio('Retiring Duty'));
+		held.release!();
+
+		await waitFor(() => expect(currentlyShowing()).toContain('Currently showing: Staff Duty'));
+		expect(server.headerFlags()).toEqual({ cq: false, sd: true, rt: false });
+		expect(isChecked(radio('Staff Duty'))).toBe(true);
+		expect(server.commands).toEqual(['PUT /org/org-1/api/assignment-types/date-header']);
+
+		server.answerHeader = null;
+		await waitFor(() => expect(screen.getByRole('radiogroup').hasAttribute('data-disabled')).toBe(false));
+		await fireEvent.click(radio('Retiring Duty'));
+
+		await waitFor(() => expect(currentlyShowing()).toContain('Currently showing: Retiring Duty'));
+		expect(server.headerFlags()).toEqual({ cq: false, sd: false, rt: true });
+		expect(screen.getByRole('button', { name: 'Edit Retiring Duty' })).toHaveProperty('disabled', false);
+		expect(errorToast).not.toHaveBeenCalled();
+	});
 
 	it.each([
 		{

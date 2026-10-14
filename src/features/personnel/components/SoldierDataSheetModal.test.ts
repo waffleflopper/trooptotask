@@ -7,6 +7,7 @@ import type { PersonnelExtendedInfo } from '$features/personnel/contracts';
 import SoldierDataSheetModal from './SoldierDataSheetModal.svelte';
 
 vi.mock('$app/navigation', () => ({ invalidate: vi.fn() }));
+const { invalidate } = await import('$app/navigation');
 
 const initialInfo: PersonnelExtendedInfo = {
 	bloodType: 'O+',
@@ -124,6 +125,26 @@ describe('SoldierDataSheetModal', () => {
 
 		expect(toastError).not.toHaveBeenCalled();
 		expect(toastSuccess).not.toHaveBeenCalled();
+		expect(onClose).not.toHaveBeenCalled();
+	});
+
+	it('does not close the sheet when its refresh finishes after the Organization shell ends', async () => {
+		let finishRefresh!: () => void;
+		vi.mocked(invalidate).mockImplementationOnce(() => new Promise<void>((resolve) => (finishRefresh = resolve)));
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => Response.json({}, { status: 200 }))
+		);
+		vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
+		const onClose = vi.fn();
+		render(SoldierDataSheetModal, { props: { orgId: 'org-a', personnelId: 'person-1', initialInfo, onClose } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+		await waitFor(() => expect(invalidate).toHaveBeenCalledWith('app:personnel-detail'));
+
+		endOrganizationLifetime();
+		finishRefresh();
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
 		expect(onClose).not.toHaveBeenCalled();
 	});
 

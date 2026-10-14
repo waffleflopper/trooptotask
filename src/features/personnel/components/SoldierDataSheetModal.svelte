@@ -103,7 +103,7 @@
 			}
 
 			toastStore.success('Soldier Data Sheet saved');
-			await invalidate('app:personnel-detail');
+			await withinOrganizationLifetime(invalidate('app:personnel-detail'));
 			onClose();
 		} catch (error) {
 			errorMessage = error instanceof Error ? error.message : 'Failed to save Soldier Data Sheet';

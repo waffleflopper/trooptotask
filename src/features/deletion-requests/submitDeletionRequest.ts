@@ -11,8 +11,10 @@ export async function submitDeletionRequest(
 	resourceId: string,
 	resourceDescription: string,
 	resourceUrl?: string,
-	isCurrent: () => boolean = stillInOrganizationLifetime()
+	isOwnerCurrent: () => boolean = () => true
 ): Promise<boolean> {
+	const sameLifetime = stillInOrganizationLifetime();
+	const isCurrent = () => sameLifetime() && isOwnerCurrent();
 	if (!isCurrent()) return false;
 
 	const isPersonnel = resourceType === 'personnel';

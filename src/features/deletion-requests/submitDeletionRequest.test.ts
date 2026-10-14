@@ -110,4 +110,26 @@ describe('owned request submission', () => {
 		expect(toastStore.info).not.toHaveBeenCalled();
 		expect(toastStore.error).not.toHaveBeenCalled();
 	});
+
+	it('keeps a dispatched request quiet after its Organization shell ends even when its owner is still current', async () => {
+		let resolveRequest!: (response: Response) => void;
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(() => new Promise<Response>((resolve) => (resolveRequest = resolve)))
+		);
+
+		const pending = submitDeletionRequest(
+			'org-a',
+			'rating_scheme_entry',
+			'entry',
+			'Saved evaluation',
+			'/org/org-a/evals',
+			() => true
+		);
+		endOrganizationLifetime();
+		resolveRequest(new Response(null, { status: 201 }));
+
+		expect(await pending).toBe(false);
+		expect(toastStore.info).not.toHaveBeenCalled();
+	});
 });

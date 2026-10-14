@@ -1,4 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { z } from 'zod';
+import { fail } from '$lib/errors';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type { OnboardingCatalogPersistence } from '../contracts';
 import {
@@ -11,6 +13,54 @@ import {
 	type TemplateRow,
 	type StepRow
 } from './onboardingPersistenceMapping.server';
+
+export const TEMPLATE_CHANGE_NOT_SAVED_MESSAGE =
+	'Another change was saving at the same time, so this change was not saved. Try again.';
+export const TEMPLATE_CHANGE_UNCONFIRMED_MESSAGE = "We couldn't confirm this change. Try again; repeating it is safe.";
+
+const templateRow = z.object({
+	id: z.string(),
+	organization_id: z.string(),
+	name: z.string(),
+	description: z.string().nullable(),
+	created_at: z.string().nullable()
+});
+const stepRow = z.object({
+	id: z.string(),
+	organization_id: z.string(),
+	template_id: z.string(),
+	name: z.string(),
+	description: z.string().nullable(),
+	step_type: z.enum(['training', 'paperwork', 'checkbox']),
+	training_type_id: z.string().nullable(),
+	stages: z.array(z.string()).nullable(),
+	sort_order: z.number().int(),
+	created_at: z.string()
+});
+const duplicateResult = z.object({ template: templateRow, steps: z.array(stepRow), created: z.boolean() });
+
+async function templateCommand<T>(
+	client: SupabaseClient,
+	name: string,
+	args: Record<string, unknown>,
+	result: z.ZodType<T>
+): Promise<T> {
+	const { data, error } = await client.rpc(name, args);
+	if (error) {
+		if (error.code === '42501') fail(403, error.message);
+		if (error.code === 'P0002') fail(404, error.message);
+		if (error.code === 'OTR01' || error.code === 'OTD01' || error.code === 'OTD02') fail(409, error.message);
+		if (error.code === '22023' || error.code === '22P02') fail(400, error.message);
+		if (error.code === '40P01' || error.code === '40001' || error.code === '55P03')
+			fail(503, TEMPLATE_CHANGE_NOT_SAVED_MESSAGE, { publicMessage: true });
+		// supabase-js reports a lost or unreadable response without a database code.
+		if (!error.code) fail(503, TEMPLATE_CHANGE_UNCONFIRMED_MESSAGE, { publicMessage: true });
+		throw new Error(error.message);
+	}
+	const parsed = result.safeParse(data);
+	if (!parsed.success) throw new Error(`${name} returned an unexpected result`);
+	return parsed.data;
+}
 
 export function createSupabaseOnboardingCatalogPersistence(
 	client: SupabaseClient,
@@ -171,19 +221,31 @@ export function createSupabaseOnboardingCatalogPersistence(
 			if (error) throw new Error(error.message);
 			return toStep(data);
 		},
-		async createSteps(rows) {
-			if (rows.length === 0) return [];
-			const { data, error } = await client
-				.from('onboarding_template_steps')
-				.insert(rows.map((row) => ({ ...stepPatch(row), organization_id: orgId })))
-				.select(STEP_FIELDS)
-				.returns<StepRow[]>();
-			if (error) throw new Error(error.message);
-			return (data ?? []).map(toStep);
+		async duplicateTemplate(sourceTemplateId, requestId) {
+			const copy = await templateCommand(
+				client,
+				'duplicate_onboarding_template',
+				{ p_organization_id: orgId, p_source_template_id: sourceTemplateId, p_request_id: requestId },
+				duplicateResult
+			);
+			return { template: toTemplate(copy.template), steps: copy.steps.map(toStep), created: copy.created };
 		},
-		async deleteTemplate(id) {
-			const { error } = await client.from('onboarding_templates').delete().eq('organization_id', orgId).eq('id', id);
-			if (error) throw new Error(error.message);
+		async reorderSteps(templateId, orderedStepIds) {
+			const steps = await templateCommand(
+				client,
+				'reorder_onboarding_template_steps',
+				{ p_organization_id: orgId, p_template_id: templateId, p_step_ids: [...orderedStepIds] },
+				z.array(stepRow)
+			);
+			return steps.map(toStep);
+		},
+		deleteTemplate(id) {
+			return templateCommand(
+				client,
+				'delete_onboarding_template',
+				{ p_organization_id: orgId, p_template_id: id },
+				z.boolean()
+			);
 		},
 		async deleteStep(id) {
 			const { error } = await client
@@ -191,14 +253,6 @@ export function createSupabaseOnboardingCatalogPersistence(
 				.delete()
 				.eq('organization_id', orgId)
 				.eq('id', id);
-			if (error) throw new Error(error.message);
-		},
-		async deleteStepsForTemplate(templateId) {
-			const { error } = await client
-				.from('onboarding_template_steps')
-				.delete()
-				.eq('organization_id', orgId)
-				.eq('template_id', templateId);
 			if (error) throw new Error(error.message);
 		}
 	};

@@ -3,6 +3,7 @@ type OnboardingMemoryStore = Pick<
 	ReturnType<typeof createInMemoryDataStore>,
 	'findOne' | 'findMany' | 'findManyWithCount' | 'insert' | 'insertMany' | 'update' | 'delete' | 'deleteWhere'
 >;
+import { fail } from '$lib/errors';
 import type { OnboardingCatalogPersistence, OnboardingWorkflowPersistence } from '../contracts';
 import {
 	toTemplate,
@@ -15,6 +16,12 @@ import {
 	type PacketRow,
 	type ProgressRow
 } from './onboardingPersistenceMapping.server';
+
+interface DuplicateReceiptRow {
+	id: string;
+	source_template_id: string;
+	result_template_id: string;
+}
 
 export function createInMemoryOnboardingCatalogPersistence(
 	store: OnboardingMemoryStore,
@@ -100,8 +107,42 @@ export function createInMemoryOnboardingCatalogPersistence(
 		async updateTemplate(id, data) {
 			return toTemplate(await store.update<TemplateRow>('onboarding_templates', orgId, id, templatePatch(data)));
 		},
-		deleteTemplate(id) {
-			return store.delete('onboarding_templates', orgId, id);
+		async duplicateTemplate(sourceTemplateId, requestId) {
+			const receipt = await store.findOne<DuplicateReceiptRow>('onboarding_template_duplicate_receipts', orgId, {
+				id: requestId
+			});
+			if (receipt && receipt.source_template_id !== sourceTemplateId)
+				fail(409, 'This duplicate request was made for another template');
+			const copyId = receipt?.result_template_id;
+			if (copyId) {
+				const template = await this.findTemplate(copyId);
+				if (!template) fail(409, 'The copy from this request was deleted');
+				return { template, steps: await this.listSteps(copyId), created: false };
+			}
+			const source = await this.findTemplate(sourceTemplateId);
+			if (!source) fail(404, 'Onboarding template not found');
+			const names = new Set((await this.listTemplates()).map((template) => template.name));
+			let name = `${source.name} Copy`;
+			for (let copy = 2; names.has(name); copy += 1) name = `${source.name} Copy ${copy}`;
+			const template = await this.createTemplate({ name, description: source.description });
+			const sourceSteps = await this.listSteps(sourceTemplateId);
+			await store.insertMany(
+				'onboarding_template_steps',
+				orgId,
+				sourceSteps.map((step, index) => stepPatch({ ...step, templateId: template.id, sortOrder: index }))
+			);
+			await store.insert('onboarding_template_duplicate_receipts', orgId, {
+				id: requestId,
+				source_template_id: sourceTemplateId,
+				result_template_id: template.id
+			});
+			return { template, steps: await this.listSteps(template.id), created: true };
+		},
+		async deleteTemplate(id) {
+			if (!(await this.findTemplate(id))) return false;
+			await store.deleteWhere('onboarding_template_steps', orgId, { template_id: id });
+			await store.delete('onboarding_templates', orgId, id);
+			return true;
 		},
 		async createStep(data) {
 			return toStep(
@@ -111,17 +152,23 @@ export function createInMemoryOnboardingCatalogPersistence(
 				})
 			);
 		},
-		async createSteps(data) {
-			return (await store.insertMany<StepRow>('onboarding_template_steps', orgId, data.map(stepPatch))).map(toStep);
-		},
 		async updateStep(id, data) {
 			return toStep(await store.update<StepRow>('onboarding_template_steps', orgId, id, stepPatch(data)));
 		},
 		deleteStep(id) {
 			return store.delete('onboarding_template_steps', orgId, id);
 		},
-		deleteStepsForTemplate(templateId) {
-			return store.deleteWhere('onboarding_template_steps', orgId, { template_id: templateId });
+		async reorderSteps(templateId, orderedStepIds) {
+			if (!(await this.findTemplate(templateId))) fail(404, 'Onboarding template not found');
+			const current = (await this.listSteps(templateId)).map((step) => step.id).sort();
+			if (
+				new Set(orderedStepIds).size !== orderedStepIds.length ||
+				[...orderedStepIds].sort().join() !== current.join()
+			)
+				fail(409, 'Step order does not match the selected onboarding template');
+			for (const [sortOrder, id] of orderedStepIds.entries())
+				await store.update('onboarding_template_steps', orgId, id, { sort_order: sortOrder });
+			return this.listSteps(templateId);
 		}
 	};
 }
@@ -226,11 +273,6 @@ export function createInMemoryOnboardingWorkflowPersistence(
 				progressChangedAt: row.progress_changed_at
 			};
 		},
-		async listPacketIdsUsingTemplate(templateId) {
-			return (await store.findMany<{ id: string }>('personnel_onboardings', orgId, { template_id: templateId })).map(
-				(row) => row.id
-			);
-		},
 		async countActivePacketsByTemplate() {
 			const [templates, packets] = await Promise.all([
 				store.findMany<{ id: string }>('onboarding_templates', orgId),
@@ -242,9 +284,6 @@ export function createInMemoryOnboardingWorkflowPersistence(
 					packets.filter((packet) => packet.template_id === template.id).length
 				])
 			);
-		},
-		async clearPacketTemplate(id) {
-			await store.update('personnel_onboardings', orgId, id, { template_id: null });
 		}
 	};
 }

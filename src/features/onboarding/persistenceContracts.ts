@@ -40,6 +40,13 @@ export interface OnboardingStarterReadiness {
 	stepNames: string[];
 }
 
+export interface DuplicatedOnboardingTemplate {
+	template: SavedOnboardingTemplate;
+	steps: SavedOnboardingTemplateStep[];
+	/** False when this request already made the copy and this call only returned it. */
+	created: boolean;
+}
+
 export interface OnboardingCatalogPersistence {
 	listTemplates(): Promise<SavedOnboardingTemplate[]>;
 	listSteps(templateId?: string): Promise<SavedOnboardingTemplateStep[]>;
@@ -51,12 +58,18 @@ export interface OnboardingCatalogPersistence {
 	countEstimatedSteps(): Promise<number>;
 	createTemplate(data: OnboardingTemplateData): Promise<SavedOnboardingTemplate>;
 	updateTemplate(id: string, data: Partial<OnboardingTemplateData>): Promise<SavedOnboardingTemplate>;
-	deleteTemplate(id: string): Promise<void>;
+	/** Copies the template and its steps once per request id; a retry returns the same copy. */
+	duplicateTemplate(sourceTemplateId: string, requestId: string): Promise<DuplicatedOnboardingTemplate>;
+	/** Returns false when there was no such template. Steps go with it; packets keep their saved steps. */
+	deleteTemplate(id: string): Promise<boolean>;
 	createStep(data: PreparedOnboardingTemplateStep): Promise<SavedOnboardingTemplateStep>;
-	createSteps(data: readonly OnboardingTemplateStepData[]): Promise<SavedOnboardingTemplateStep[]>;
-	updateStep(id: string, data: Partial<OnboardingTemplateStepData>): Promise<SavedOnboardingTemplateStep>;
+	updateStep(
+		id: string,
+		data: Partial<Omit<OnboardingTemplateStepData, 'sortOrder'>>
+	): Promise<SavedOnboardingTemplateStep>;
+	/** Saves positions in the given order; the ids must be exactly the template's current steps. */
+	reorderSteps(templateId: string, orderedStepIds: readonly string[]): Promise<SavedOnboardingTemplateStep[]>;
 	deleteStep(id: string): Promise<void>;
-	deleteStepsForTemplate(templateId: string): Promise<void>;
 }
 
 export interface OnboardingPacketReference {
@@ -103,8 +116,6 @@ export interface OnboardingWorkflowPersistence {
 	listIncompleteActiveStepIds(onboardingId: string): Promise<string[]>;
 	saveCheckboxCompletion(stepId: string, completed: boolean): Promise<SavedOnboardingProgress>;
 	savePaperworkProgress(stepId: string, currentStage: string, completed: boolean): Promise<SavedOnboardingProgress>;
-	listPacketIdsUsingTemplate(templateId: string): Promise<string[]>;
 	/** In-progress packets per template, counted among the packets the requester may see. Templates without packets map to 0. */
 	countActivePacketsByTemplate(): Promise<Record<string, number>>;
-	clearPacketTemplate(id: string): Promise<void>;
 }

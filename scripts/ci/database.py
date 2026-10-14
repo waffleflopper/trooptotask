@@ -72,6 +72,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261013000200_onboarding_step_progress_changed_at.sql",
     "20261013000300_atomic_deletion_request_submission.sql",
     "20261013000400_atomic_personnel_lifecycle.sql",
+    "20261013000500_atomic_onboarding_template_commands.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",

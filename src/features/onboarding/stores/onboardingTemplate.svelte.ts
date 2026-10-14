@@ -1,6 +1,7 @@
 import { untrack } from 'svelte';
 import { SvelteSet } from 'svelte/reactivity';
 import type { TrainingType } from '$features/training/contracts';
+import { getBrowserLocalStorage } from '$lib/utils/browserStorage';
 import type { OnboardingStepType, OnboardingTemplate, OnboardingTemplateStep } from '../contracts';
 
 type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
@@ -13,6 +14,7 @@ export interface OnboardingTemplateWorkspaceData {
 
 export interface OnboardingTemplateWorkspaceOrganization {
 	orgId: string;
+	actorId: string;
 	routeSegment: string;
 	canConfigure: boolean;
 }
@@ -44,6 +46,7 @@ export type OnboardingTemplateWorkspaceErrorCode =
 	| 'conflict'
 	| 'network'
 	| 'invalid_json'
+	| 'storage'
 	| 'server';
 
 export interface OnboardingTemplateWorkspaceError {
@@ -83,11 +86,23 @@ export interface DuplicateTemplateResponse {
 	templateSteps: OnboardingTemplateStep[];
 }
 
+export interface PendingTemplateDuplicate {
+	requestId: string;
+	sourceTemplateId: string;
+	sourceName: string;
+	createdAt: string;
+}
+
+export type PendingTemplateDuplicateStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem' | 'key' | 'length'>;
+
 export interface OnboardingTemplateWorkspaceAdapter {
 	createTemplate(input: CreateTemplateInput): Promise<OnboardingTemplateWorkspaceResult<OnboardingTemplate>>;
 	updateTemplate(input: UpdateTemplateInput): Promise<OnboardingTemplateWorkspaceResult<OnboardingTemplate>>;
-	deleteTemplate(id: string): Promise<OnboardingTemplateWorkspaceResult<{ templateId: string }>>;
-	duplicateTemplate(id: string): Promise<OnboardingTemplateWorkspaceResult<DuplicateTemplateResponse>>;
+	deleteTemplate(id: string): Promise<OnboardingTemplateWorkspaceResult<{ success: true }>>;
+	duplicateTemplate(
+		sourceTemplateId: string,
+		requestId: string
+	): Promise<OnboardingTemplateWorkspaceResult<DuplicateTemplateResponse>>;
 	createStep(input: CreateStepInput): Promise<OnboardingTemplateWorkspaceResult<OnboardingTemplateStep>>;
 	updateStep(input: UpdateStepInput): Promise<OnboardingTemplateWorkspaceResult<OnboardingTemplateStep>>;
 	deleteStep(id: string): Promise<OnboardingTemplateWorkspaceResult<{ stepId: string }>>;
@@ -112,6 +127,7 @@ export interface OnboardingTemplateWorkspaceModel {
 	savingTemplate: boolean;
 	savingStep: boolean;
 	duplicatingTemplateId: string | null;
+	pendingDuplicates: PendingTemplateDuplicate[];
 	confirmDelete: OnboardingTemplateDeleteTarget | null;
 	error: OnboardingTemplateWorkspaceError | null;
 	stepTrainingTypeLabel: string;
@@ -182,8 +198,10 @@ export function createOnboardingTemplateWorkspace(input: {
 	organization: OnboardingTemplateWorkspaceOrganization;
 	data: OnboardingTemplateWorkspaceData;
 	adapter?: OnboardingTemplateWorkspaceAdapter;
+	storage?: PendingTemplateDuplicateStorage | null;
 }): OnboardingTemplateWorkspace {
-	const workspace = new OnboardingTemplateWorkspace(input.organization, input.data, input.adapter);
+	const storage = input.storage === undefined ? getBrowserLocalStorage() : input.storage;
+	const workspace = new OnboardingTemplateWorkspace(input.organization, input.data, input.adapter, storage);
 	if (!input.adapter) {
 		workspace.setAdapter(createOnboardingTemplateWorkspaceHttpAdapter(() => workspace.organization.routeSegment));
 	}
@@ -219,9 +237,11 @@ export function createOnboardingTemplateWorkspaceHttpAdapter(
 				body: JSON.stringify({ id })
 			});
 		},
-		duplicateTemplate(id) {
-			return requestJson(fetchImpl, routeUrl(`/api/onboarding-templates/${id}/duplicate`), {
-				method: 'POST'
+		duplicateTemplate(sourceTemplateId, requestId) {
+			return requestJson(fetchImpl, routeUrl(`/api/onboarding-templates/${sourceTemplateId}/duplicate`), {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ requestId })
 			});
 		},
 		createStep(input) {
@@ -258,6 +278,7 @@ export function createOnboardingTemplateWorkspaceHttpAdapter(
 export class OnboardingTemplateWorkspace {
 	organization = $state<OnboardingTemplateWorkspaceOrganization>({
 		orgId: '',
+		actorId: '',
 		routeSegment: '',
 		canConfigure: false
 	});
@@ -278,6 +299,9 @@ export class OnboardingTemplateWorkspace {
 	#savingTemplate = $state(false);
 	#savingStep = $state(false);
 	#duplicatingTemplateId = $state<string | null>(null);
+	#duplicatingRequestId = $state<string | null>(null);
+	#pendingDuplicates = $state.raw<PendingTemplateDuplicate[]>([]);
+	#storage: PendingTemplateDuplicateStorage | null;
 	#error = $state<OnboardingTemplateWorkspaceError | null>(null);
 	#adapter!: OnboardingTemplateWorkspaceAdapter;
 	#organizationRevision = 0;
@@ -288,9 +312,12 @@ export class OnboardingTemplateWorkspace {
 	constructor(
 		organization: OnboardingTemplateWorkspaceOrganization,
 		data: OnboardingTemplateWorkspaceData,
-		adapter?: OnboardingTemplateWorkspaceAdapter
+		adapter?: OnboardingTemplateWorkspaceAdapter,
+		storage: PendingTemplateDuplicateStorage | null = null
 	) {
 		this.organization = { ...organization };
+		this.#storage = storage;
+		this.#pendingDuplicates = readPendingDuplicates(storage, this.pendingDuplicateScope);
 		this.replaceData(data);
 		if (adapter) {
 			this.#adapter = adapter;
@@ -325,6 +352,9 @@ export class OnboardingTemplateWorkspace {
 			savingTemplate: this.#savingTemplate,
 			savingStep: this.#savingStep,
 			duplicatingTemplateId: this.#duplicatingTemplateId,
+			pendingDuplicates: this.canMutate
+				? this.#pendingDuplicates.filter((pending) => pending.requestId !== this.#duplicatingRequestId)
+				: [],
 			confirmDelete: this.#confirmDelete,
 			error: this.#error,
 			stepTrainingTypeLabel: this.stepTrainingTypeLabel,
@@ -394,10 +424,11 @@ export class OnboardingTemplateWorkspace {
 	}
 
 	replaceOrganization(organization: OnboardingTemplateWorkspaceOrganization): void {
-		if (
+		const changed =
 			this.organization.orgId !== organization.orgId ||
-			this.organization.canConfigure !== organization.canConfigure
-		) {
+			this.organization.actorId !== organization.actorId ||
+			this.organization.canConfigure !== organization.canConfigure;
+		if (changed) {
 			this.#organizationRevision += 1;
 			this.#templates = [];
 			this.#steps = [];
@@ -410,8 +441,10 @@ export class OnboardingTemplateWorkspace {
 			this.#mobileDetailOpen = false;
 			this.#savingStep = false;
 			this.#duplicatingTemplateId = null;
+			this.#duplicatingRequestId = null;
 		}
 		this.organization = { ...organization };
+		if (changed) this.#pendingDuplicates = readPendingDuplicates(this.#storage, this.pendingDuplicateScope);
 	}
 
 	replaceData(data: OnboardingTemplateWorkspaceData): void {
@@ -538,22 +571,27 @@ export class OnboardingTemplateWorkspace {
 		const selected = id ? this.#templates.find((template) => template.id === id) : this.selectedTemplate;
 		if (!selected || !this.canMutate || this.templateActionDisabled)
 			return validationError('Select a template to duplicate');
-		const revision = this.#organizationRevision;
-		this.#duplicatingTemplateId = selected.id;
 		this.#error = null;
-		try {
-			const result = await this.adapter.duplicateTemplate(selected.id);
-			if (revision !== this.#organizationRevision) return organizationChanged();
-			if (!result.ok) return this.rememberError(result);
-			this.#templates = [...this.#templates, result.value.template];
-			this.#steps = [...this.#steps, ...result.value.templateSteps];
-			this.#selectedTemplateId = result.value.template.id;
-			this.#mobileDetailOpen = true;
-			this.syncHydratedStore();
-			return result;
-		} finally {
-			if (revision === this.#organizationRevision) this.#duplicatingTemplateId = null;
-		}
+		const pending =
+			this.#pendingDuplicates.find((item) => item.sourceTemplateId === selected.id) ??
+			this.savePendingDuplicate(newPendingDuplicate(selected));
+		if (!pending)
+			return this.rememberError({
+				ok: false,
+				error: {
+					code: 'storage',
+					message:
+						'This browser could not save the copy request, so nothing was copied. Allow site storage and try again.'
+				}
+			});
+		return this.sendDuplicate(pending);
+	}
+
+	async retryDuplicate(requestId: string): Promise<OnboardingTemplateWorkspaceResult<DuplicateTemplateResponse>> {
+		const pending = this.#pendingDuplicates.find((item) => item.requestId === requestId);
+		if (!pending || !this.canMutate || this.templateActionDisabled) return validationError('Select a copy to retry');
+		this.#error = null;
+		return this.sendDuplicate(pending);
 	}
 
 	startAddStep(): void {
@@ -765,6 +803,57 @@ export class OnboardingTemplateWorkspace {
 		return { ok: true, value: undefined };
 	}
 
+	private async sendDuplicate(
+		pending: PendingTemplateDuplicate
+	): Promise<OnboardingTemplateWorkspaceResult<DuplicateTemplateResponse>> {
+		const revision = this.#organizationRevision;
+		const key = this.pendingDuplicateScope + pending.requestId;
+		this.#duplicatingTemplateId = pending.sourceTemplateId;
+		this.#duplicatingRequestId = pending.requestId;
+		try {
+			const result = await this.adapter.duplicateTemplate(pending.sourceTemplateId, pending.requestId);
+			const settled = result.ok || result.error.code === 'conflict' || result.error.code === 'not_found';
+			if (settled) removeStoredItem(this.#storage, key);
+			if (revision !== this.#organizationRevision) return organizationChanged();
+			if (settled)
+				this.#pendingDuplicates = this.#pendingDuplicates.filter((item) => item.requestId !== pending.requestId);
+			if (!result.ok) return this.rememberError(result);
+			const { template, templateSteps } = result.value;
+			const stepIds = templateSteps.map((step) => step.id);
+			this.#templates = [...this.#templates.filter((item) => item.id !== template.id), template];
+			this.#steps = [
+				...this.#steps.filter((step) => step.templateId !== template.id && !stepIds.includes(step.id)),
+				...templateSteps
+			];
+			this.#selectedTemplateId = template.id;
+			this.#mobileDetailOpen = true;
+			this.syncHydratedStore();
+			return result;
+		} finally {
+			if (revision === this.#organizationRevision) {
+				this.#duplicatingTemplateId = null;
+				this.#duplicatingRequestId = null;
+			}
+		}
+	}
+
+	private savePendingDuplicate(pending: PendingTemplateDuplicate): PendingTemplateDuplicate | null {
+		const scope = this.pendingDuplicateScope;
+		if (!this.#storage || !scope) return null;
+		try {
+			this.#storage.setItem(scope + pending.requestId, JSON.stringify(pending));
+		} catch {
+			return null;
+		}
+		this.#pendingDuplicates = [...this.#pendingDuplicates, pending];
+		return pending;
+	}
+
+	private get pendingDuplicateScope(): string {
+		const { actorId, orgId } = this.organization;
+		return actorId && orgId ? `${PENDING_DUPLICATE_PREFIX}:${actorId}:${orgId}:` : '';
+	}
+
 	private buildStepInput(): Omit<CreateStepInput, 'templateId' | 'sortOrder'> {
 		return {
 			name: this.stepDraft.name.trim(),
@@ -794,6 +883,69 @@ export class OnboardingTemplateWorkspace {
 		if (!activeTemplateId || !hydratedTemplates.some((template) => template.id === activeTemplateId)) {
 			activeTemplateId = hydratedTemplates[0]?.id ?? null;
 		}
+	}
+}
+
+const PENDING_DUPLICATE_PREFIX = 't2t:onboarding-template-duplicate:v1';
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function newPendingDuplicate(source: OnboardingTemplate): PendingTemplateDuplicate {
+	return {
+		requestId: crypto.randomUUID(),
+		sourceTemplateId: source.id,
+		sourceName: source.name,
+		createdAt: new Date().toISOString()
+	};
+}
+
+function readPendingDuplicates(
+	storage: PendingTemplateDuplicateStorage | null,
+	scope: string
+): PendingTemplateDuplicate[] {
+	if (!storage || !scope) return [];
+	try {
+		const keys = Array.from({ length: storage.length }, (_, index) => storage.key(index)).filter(
+			(key): key is string => !!key?.startsWith(scope)
+		);
+		const pending: PendingTemplateDuplicate[] = [];
+		for (const key of keys) {
+			const record = parsePendingDuplicate(storage.getItem(key));
+			if (record && key === scope + record.requestId) pending.push(record);
+			else removeStoredItem(storage, key);
+		}
+		return pending.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+	} catch {
+		return [];
+	}
+}
+
+function parsePendingDuplicate(text: string | null): PendingTemplateDuplicate | null {
+	let value: unknown;
+	try {
+		value = JSON.parse(text ?? '');
+	} catch {
+		return null;
+	}
+	if (!value || typeof value !== 'object') return null;
+	const { requestId, sourceTemplateId, sourceName, createdAt } = value as Record<string, unknown>;
+	if (
+		typeof requestId !== 'string' ||
+		!UUID_PATTERN.test(requestId) ||
+		typeof sourceTemplateId !== 'string' ||
+		!UUID_PATTERN.test(sourceTemplateId) ||
+		typeof sourceName !== 'string' ||
+		typeof createdAt !== 'string'
+	)
+		return null;
+	return { requestId, sourceTemplateId, sourceName, createdAt };
+}
+
+function removeStoredItem(storage: PendingTemplateDuplicateStorage | null, key: string): boolean {
+	try {
+		storage?.removeItem(key);
+		return true;
+	} catch {
+		return false;
 	}
 }
 

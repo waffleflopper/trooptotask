@@ -351,6 +351,128 @@ test('identity faults match only the password, revocation and setup calls they n
 	}
 });
 
+test('onboarding step faults fail one exact step write at the chosen ordinal and leave every sibling write alone', async () => {
+	const steps = 'onboarding_template_steps';
+	const insert = (table) => providerInput(table, { method: 'POST', body: JSON.stringify([{ name: 'Copied step' }]) });
+	const patch = (table, order) =>
+		providerInput(table, { method: 'PATCH', body: JSON.stringify({ sort_order: order }) });
+	const remove = (table) => providerInput(table, { method: 'DELETE' });
+	const cases = {
+		'onboarding-steps-insert': {
+			ordinal: 1,
+			siblings: [
+				insert('onboarding_templates'),
+				patch(steps, 0),
+				remove(steps),
+				providerInput(steps, { method: 'GET' })
+			],
+			writes: [insert(steps), insert(steps)],
+			call: { method: 'POST', path: `/rest/v1/${steps}` }
+		},
+		'onboarding-steps-update': {
+			ordinal: 2,
+			siblings: [
+				patch('onboarding_templates', 0),
+				patch('onboarding_step_progress', 0),
+				patch('personnel_onboardings', 0),
+				insert(steps),
+				remove(steps)
+			],
+			writes: [patch(steps, 2), patch(steps, 0), patch(steps, 1)],
+			call: { method: 'PATCH', path: `/rest/v1/${steps}` }
+		},
+		'onboarding-steps-delete': {
+			ordinal: 1,
+			siblings: [remove('onboarding_templates'), remove('onboarding_step_progress'), insert(steps), patch(steps, 0)],
+			writes: [remove(steps), remove(steps)],
+			call: { method: 'DELETE', path: `/rest/v1/${steps}` }
+		}
+	};
+	for (const [name, { ordinal, siblings, writes, call }] of Object.entries(cases)) {
+		const { control, passed } = faults();
+		control.command('fault-arm', { name, ordinal });
+		const foreign = [
+			[`http://127.0.0.1:56322/rest/v1/${steps}`, { method: call.method }],
+			[`https://example.com/rest/v1/${steps}`, { method: call.method }],
+			[`${providerUrl}/rest/v1/${steps}_archive`, { method: call.method }]
+		];
+		for (const input of [...siblings, ...foreign])
+			assert.equal(await (await control.fetch(...input)).text(), 'real', `${name} passes ${input[0]}`);
+		assert.equal(control.command('fault-state').controls[name].matches, 0);
+		assert.equal(passed.length, siblings.length + foreign.length);
+		const outcomes = [];
+		for (const write of writes) outcomes.push((await control.fetch(...write)).status);
+		assert.deepEqual(
+			outcomes,
+			writes.map((_, index) => (index + 1 === ordinal ? 503 : 200)),
+			`${name} fails only write ${ordinal}`
+		);
+		assert.equal(passed.length, siblings.length + foreign.length + writes.length - 1);
+		assert.deepEqual(control.command('fault-state').controls[name], {
+			ordinal,
+			matches: ordinal,
+			phase: 'faulted',
+			call
+		});
+	}
+});
+
+test('a reorder fault is dormant for step writes issued after its ordinal, and restore clears an unfired one', async () => {
+	const { control, passed } = faults();
+	const reorder = (order) =>
+		providerInput('onboarding_template_steps', { method: 'PATCH', body: JSON.stringify({ sort_order: order }) });
+	control.command('fault-arm', { name: 'onboarding-steps-update', ordinal: 3 });
+	assert.equal(await (await control.fetch(...reorder(0))).text(), 'real');
+	assert.equal(await (await control.fetch(...reorder(1))).text(), 'real');
+	assert.deepEqual(control.command('fault-restore').armed, []);
+	assert.equal(await (await control.fetch(...reorder(2))).text(), 'real');
+	const receipt = control.command('fault-state').lastControls['onboarding-steps-update'];
+	assert.deepEqual(
+		{ phase: receipt.phase, matches: receipt.matches, call: receipt.call },
+		{
+			phase: 'restored',
+			matches: 2,
+			call: null
+		}
+	);
+	assert.equal(passed.length, 3);
+});
+
+test('onboarding template command faults stop or lose only their own command', async () => {
+	const commands = {
+		duplicate: 'rpc/duplicate_onboarding_template',
+		reorder: 'rpc/reorder_onboarding_template_steps',
+		delete: 'rpc/delete_onboarding_template'
+	};
+	const unrelated = [
+		providerInput('rpc/start_onboarding_packet', { method: 'POST' }),
+		providerInput('rpc/duplicate_onboarding_templates', { method: 'POST' }),
+		providerInput('onboarding_template_steps', { method: 'POST' }),
+		providerInput('onboarding_templates', { method: 'DELETE' })
+	];
+	for (const [command, rpc] of Object.entries(commands)) {
+		const siblings = Object.values(commands).filter((other) => other !== rpc);
+		for (const afterCommit of [false, true]) {
+			const name = `onboarding-template-${command}${afterCommit ? '-lost-ack' : ''}`;
+			const { control, passed } = faults();
+			control.command('fault-arm', { name });
+			const others = [...unrelated, ...siblings.map((other) => providerInput(other, { method: 'POST' }))];
+			for (const input of others) assert.equal(await (await control.fetch(...input)).text(), 'real', `${name} passes`);
+			const call = providerInput(rpc, { method: 'POST', body: '{"p_organization_id":"org"}' });
+			const response = await control.fetch(...call);
+			assert.equal(response.status, 503);
+			assert.equal((await response.json()).code, 'T2T_VERIFY_PROVIDER_FAULT');
+			assert.equal(passed.length, others.length + (afterCommit ? 1 : 0), `${name} commits only when the reply is lost`);
+			assert.deepEqual(control.command('fault-state').controls[name].call, {
+				method: 'POST',
+				path: `/rest/v1/${rpc}`,
+				...(afterCommit ? { providerStatus: 200 } : {})
+			});
+			assert.equal(await (await control.fetch(...call)).text(), 'real', `${name} fires once`);
+		}
+	}
+});
+
 test('a lost-acknowledgment fault lets the provider commit, then replaces its reply with a 503', async () => {
 	const { control, passed } = faults();
 	control.command('fault-arm', { name: 'org-create-lost-ack' });

@@ -1,14 +1,27 @@
 import { createRequestOnboardingTemplateStepContext } from '$lib/server/adapters/featureRequestContexts.server';
 import { z } from 'zod';
 import type { RequestEvent } from '@sveltejs/kit';
+import { fail } from '$lib/errors';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { validateUUID } from '$lib/server/validation';
 import { duplicateOnboardingTemplate, type DuplicateOnboardingTemplateResult } from '$features/onboarding/index.server';
 
-const duplicateTemplateInput = z.object({ templateId: z.string().min(1) });
+const uuid = (message: string) => z.string().refine(validateUUID, message);
+const duplicateTemplateInput = z.object({
+	templateId: uuid('Invalid template ID'),
+	requestId: uuid('Duplicate needs a request ID')
+});
 
-function parseDuplicateTemplateInput(event: RequestEvent): z.infer<typeof duplicateTemplateInput> {
-	return { templateId: event.params.templateId ?? '' };
+async function parseDuplicateTemplateInput(event: RequestEvent): Promise<z.infer<typeof duplicateTemplateInput>> {
+	let body: unknown;
+	try {
+		body = await event.request.json();
+	} catch {
+		fail(400, 'Invalid JSON in request body');
+	}
+	const requestId = body && typeof body === 'object' && 'requestId' in body ? body.requestId : undefined;
+	return { templateId: event.params.templateId ?? '', requestId: typeof requestId === 'string' ? requestId : '' };
 }
 
 const duplicateTemplateConfig = {
@@ -18,7 +31,7 @@ const duplicateTemplateConfig = {
 	policyResource: { kind: 'organization' },
 	input: duplicateTemplateInput,
 	parseInput: parseDuplicateTemplateInput,
-	fn: (ctx, input) => duplicateOnboardingTemplate(ctx, input.templateId)
+	fn: (ctx, input) => duplicateOnboardingTemplate(ctx, input)
 } satisfies RouteConfig<
 	z.infer<typeof duplicateTemplateInput>,
 	DuplicateOnboardingTemplateResult,

@@ -205,6 +205,7 @@ export type { OnboardingSupportReader } from './supportReadTypes';
 export type {
 	OnboardingCatalogPersistence,
 	OnboardingWorkflowPersistence,
+	DuplicatedOnboardingTemplate,
 	OnboardingTemplateData,
 	OnboardingTemplateStepData,
 	PreparedOnboardingTemplateStep,

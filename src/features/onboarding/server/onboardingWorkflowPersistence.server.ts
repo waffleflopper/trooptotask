@@ -124,21 +124,6 @@ export function createSupabaseOnboardingWorkflowPersistence(
 			if (result.error) throw new Error((result.error as { message: string }).message);
 			return (result.data ?? []).map((row) => row.id);
 		},
-		async listPacketIdsUsingTemplate(templateId) {
-			const result = await selectAllSupabaseRows<{ id: string }>(async (from, to) => {
-				const { data, error } = await client
-					.from('personnel_onboardings')
-					.select('id')
-					.eq('organization_id', orgId)
-					.eq('template_id', templateId)
-					.order('id', { ascending: true })
-					.range(from, to)
-					.returns<{ id: string }[]>();
-				return { data, error };
-			});
-			if (result.error) throw new Error((result.error as { message: string }).message);
-			return (result.data ?? []).map((row) => row.id);
-		},
 		async saveCheckboxCompletion(stepId, completed) {
 			const { data, error } = await client
 				.from('onboarding_step_progress')
@@ -193,14 +178,6 @@ export function createSupabaseOnboardingWorkflowPersistence(
 			});
 			if (result.error) throw new Error((result.error as { message: string }).message);
 			return Object.fromEntries((result.data ?? []).map((row) => [row.id, row.personnel_onboardings[0]?.count ?? 0]));
-		},
-		async clearPacketTemplate(id) {
-			const { error } = await client
-				.from('personnel_onboardings')
-				.update({ template_id: null })
-				.eq('organization_id', orgId)
-				.eq('id', id);
-			if (error) throw new Error(error.message);
 		}
 	};
 }

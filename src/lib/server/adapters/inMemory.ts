@@ -187,12 +187,12 @@ function createTestOnboardingPersistence(store: FixtureRowStore, orgId: string, 
 				countEstimatedSteps: unavailable,
 				createTemplate: unavailable,
 				updateTemplate: unavailable,
+				duplicateTemplate: unavailable,
 				deleteTemplate: unavailable,
 				createStep: unavailable,
-				createSteps: unavailable,
 				updateStep: unavailable,
-				deleteStep: unavailable,
-				deleteStepsForTemplate: unavailable
+				reorderSteps: unavailable,
+				deleteStep: unavailable
 			} satisfies OnboardingCatalogPersistence),
 		onboardingWorkflow:
 			options?.onboardingWorkflowFactory?.(store, orgId) ??
@@ -206,9 +206,7 @@ function createTestOnboardingPersistence(store: FixtureRowStore, orgId: string, 
 				listIncompleteActiveStepIds: unavailable,
 				saveCheckboxCompletion: unavailable,
 				savePaperworkProgress: unavailable,
-				listPacketIdsUsingTemplate: unavailable,
-				countActivePacketsByTemplate: unavailable,
-				clearPacketTemplate: unavailable
+				countActivePacketsByTemplate: unavailable
 			} satisfies OnboardingWorkflowPersistence)
 	};
 }

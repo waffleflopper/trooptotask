@@ -263,7 +263,6 @@ export function createRequestOnboardingTemplateStepContext(request: AdmittedOrga
 		auth: request.auth,
 		audit: request.audit,
 		onboardingCatalog: createSupabaseOnboardingCatalogPersistence(request.supabase, request.auth.orgId),
-		onboardingWorkflow: createSupabaseOnboardingWorkflowPersistence(request.supabase, request.auth.orgId),
 		trainingCatalog: createSupabaseTrainingCatalogPersistence(request.supabase, request.auth.orgId),
 		trainingOnboardingReferences: createSupabaseTrainingOnboardingReferencesPort(getAdminClient)
 	} satisfies Parameters<typeof createOnboardingTemplateStep>[0] & {

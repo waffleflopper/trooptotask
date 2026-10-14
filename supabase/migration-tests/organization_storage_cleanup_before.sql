@@ -25,11 +25,12 @@ INSERT INTO public.personnel (id, organization_id, rank, first_name, last_name, 
   ('fa170000-0000-4000-8000-000000000301', 'fa170000-0000-4000-8000-000000000101', 'SPC', 'Retained', 'Person', 'd17-retained-person');
 INSERT INTO public.sign_in_rosters (
   id, organization_id, title, roster_date, personnel_snapshot, personnel_ids,
-  scope_group_ids, created_by
+  scope_group_ids, signed_file_path, created_by
 ) VALUES (
   'fa170000-0000-4000-8000-000000000401', 'fa170000-0000-4000-8000-000000000101',
   'D17 retained roster', '2030-01-01', '[{"id":"fa170000-0000-4000-8000-000000000301"}]',
   ARRAY['fa170000-0000-4000-8000-000000000301']::uuid[], ARRAY[]::uuid[],
+  'fa170000-0000-4000-8000-000000000101/sign-in-rosters/fa170000-0000-4000-8000-000000000401/saved.pdf',
   'fa170000-0000-4000-8000-000000000001'
 );
 INSERT INTO public.counseling_records (id, organization_id, personnel_id, date_conducted, subject, title, uploaded_by) VALUES

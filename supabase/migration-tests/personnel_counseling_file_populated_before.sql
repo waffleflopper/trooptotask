@@ -30,13 +30,14 @@ INSERT INTO public.personnel (id, organization_id, group_id, rank, first_name, l
   ('e9000000-0000-4000-8000-000000000302', 'e9000000-0000-4000-8000-000000000101', NULL, 'SPC', 'Unassigned', 'Archived', 'file-upgrade-unassigned', '2029-01-01');
 INSERT INTO public.sign_in_rosters (
   id, organization_id, title, roster_date, blank_date, separate_by_group, sort_by,
-  personnel_snapshot, personnel_ids, scope_group_ids, created_by
+  personnel_snapshot, personnel_ids, scope_group_ids, signed_file_path, created_by
 ) VALUES (
   'e9000000-0000-4000-8000-000000000401', 'e9000000-0000-4000-8000-000000000101',
   'Alpha roster', '2030-01-01', false, false, 'alphabetical',
   '[{"id":"e9000000-0000-4000-8000-000000000301"}]',
   ARRAY['e9000000-0000-4000-8000-000000000301']::uuid[],
   ARRAY['e9000000-0000-4000-8000-000000000201']::uuid[],
+  'e9000000-0000-4000-8000-000000000101/sign-in-rosters/e9000000-0000-4000-8000-000000000401/alpha.pdf',
   'e9000000-0000-4000-8000-000000000001'
 );
 INSERT INTO storage.objects (id, bucket_id, name, owner, owner_id, metadata) VALUES

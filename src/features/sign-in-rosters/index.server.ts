@@ -12,8 +12,8 @@ export type {
 	SignInRosterCreateInput,
 	SignInRosterPersistence
 } from './rosterPersistence.server';
-export { createSupabaseSignInRosterFileWritePort } from './fileWrites.server';
-export type { SignInRosterFileWritePort } from './contracts';
+export { createSupabaseSignInRosterScanPort } from './scanProvider.server';
+export type { SignInRosterScanPort } from './contracts';
 
 export { createSupabaseSignInRosterExportReader } from './signInRosterExportRead.server';
 export type { SignInRosterExportReader } from './signInRosterExportRead.server';

@@ -32,13 +32,14 @@ INSERT INTO public.personnel (id, organization_id, group_id, rank, first_name, l
   ('e8000000-0000-4000-8000-000000000303', 'e8000000-0000-4000-8000-000000000102', NULL, 'SPC', 'Foreign', 'Person', 'file-scope-foreign');
 INSERT INTO public.sign_in_rosters (
   id, organization_id, title, roster_date, blank_date, separate_by_group, sort_by,
-  personnel_snapshot, personnel_ids, scope_group_ids, created_by
+  personnel_snapshot, personnel_ids, scope_group_ids, signed_file_path, created_by
 ) VALUES (
   'e8000000-0000-4000-8000-000000000401', 'e8000000-0000-4000-8000-000000000101',
   'Alpha roster', '2030-01-01', false, false, 'alphabetical',
   '[{"id":"e8000000-0000-4000-8000-000000000301"}]',
   ARRAY['e8000000-0000-4000-8000-000000000301']::uuid[],
   ARRAY['e8000000-0000-4000-8000-000000000201']::uuid[],
+  'e8000000-0000-4000-8000-000000000101/sign-in-rosters/e8000000-0000-4000-8000-000000000401/alpha.pdf',
   'e8000000-0000-4000-8000-000000000001'
 );
 INSERT INTO public.personnel_follow_ups (id, organization_id, personnel_id, title, notes, due_date, status, created_by) VALUES

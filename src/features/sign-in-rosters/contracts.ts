@@ -1,5 +1,5 @@
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
-import type { OrganizationFileUploadRegistration } from '$features/organization/contracts';
+import type { FileCleanup } from '$features/organization/contracts';
 
 /** Membership/capability facts admitted by delivery; provider credentials stay there. */
 export interface SignInRosterFileActor {
@@ -11,15 +11,10 @@ export interface SignInRosterFileActor {
 	scopeSet: ScopeSet;
 }
 
-/** The request must admit this exact roster before privileged file transport opens. */
-export interface SignInRosterFileWritePort {
-	forRoster(
-		actor: SignInRosterFileActor,
-		rosterId: string
-	): Promise<{
-		upload(path: string, file: unknown): Promise<OrganizationFileUploadRegistration>;
-		remove(path: string): Promise<void>;
-		/** Obsolete scans may already be absent; new-upload compensation stays strict. */
-		removePrevious(path: string): Promise<void>;
-	}>;
+export interface SignInRosterScanPort {
+	/** Uploads bytes under `path`, then makes them the roster's current scan. */
+	replace(actor: SignInRosterFileActor, rosterId: string, path: string, file: unknown): Promise<void>;
+	/** Clears the scan only while it still points at `expectedPath`. */
+	remove(actor: SignInRosterFileActor, rosterId: string, expectedPath: string): Promise<FileCleanup>;
+	deleteRoster(actor: SignInRosterFileActor, rosterId: string): Promise<{ title: string; fileCleanup: FileCleanup }>;
 }

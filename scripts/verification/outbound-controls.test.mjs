@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+import { mock, test } from 'node:test';
 import { createServer } from 'node:http';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
@@ -565,7 +565,10 @@ test('the actual Node preloader captures mail, serves its link only over the aut
 	const requests = [];
 	const provider = createServer((request, response) => {
 		requests.push(`${request.method} ${request.url}`);
-		response.end('actual fixture write');
+		if (request.url === '/storage/v1/object/counseling-files') {
+			response.setHeader('Content-Type', 'application/json');
+			response.end('[{"name":"owned/sign-in-rosters/fixture/scan.pdf"}]');
+		} else response.end('actual fixture write');
 	});
 	await new Promise((resolve) => provider.listen(0, '127.0.0.1', resolve));
 	const config = {
@@ -587,10 +590,23 @@ test('the actual Node preloader captures mail, serves its link only over the aut
 			'--input-type=module',
 			'-e',
 			`import { createInterface } from 'node:readline';
+			import { createClient } from ${JSON.stringify(new URL('../../node_modules/@supabase/supabase-js/dist/index.mjs', import.meta.url).href)};
 			const lines = createInterface({ input: process.stdin });
 			process.stdout.write('ready\\n');
 			for await (const line of lines) {
 				const { url, init } = JSON.parse(line);
+				if (init?.adminStorage) {
+					const admin = createClient(url, 'owned-synthetic-service-key', { auth: { persistSession: false, autoRefreshToken: false } });
+					const { data, error } = await admin.storage.from('counseling-files').remove(['owned/sign-in-rosters/fixture/scan.pdf']);
+					process.stdout.write(JSON.stringify({ data, error: error && { status: error.statusCode, message: error.message } }) + '\\n');
+					continue;
+				}
+				if (init?.rpc) {
+					const client = createClient(url, 'owned-synthetic-service-key', { auth: { persistSession: false, autoRefreshToken: false } });
+					const { error } = await client.rpc(init.rpc, {});
+					process.stdout.write(JSON.stringify({ error: error && { code: error.code, message: error.message } }) + '\\n');
+					continue;
+				}
 				const response = await fetch(url, init);
 				process.stdout.write(JSON.stringify({ status: response.status, body: await response.text() }) + '\\n');
 			}`
@@ -655,9 +671,104 @@ test('the actual Node preloader captures mail, serves its link only over the aut
 	assert.equal((await send(write, { method: 'POST', body: '{}' })).body, 'actual fixture write');
 	assert.deepEqual(requests, ['POST /rest/v1/rpc/issue_account_setup_link']);
 	assert.equal((await command('fault-state')).controls['setup-link-create'].phase, 'faulted');
+	await command('fault-arm', { name: 'counseling-file-remove' });
+	const denied = await send(config.providerUrl, { adminStorage: true });
+	assert.equal(denied.error.status, 'T2T_VERIFY_PROVIDER_FAULT');
+	assert.equal(requests.length, 1);
+	assert.deepEqual((await command('fault-state')).controls['counseling-file-remove'].call, {
+		method: 'DELETE',
+		path: '/storage/v1/object/counseling-files'
+	});
+	const admitted = await send(config.providerUrl, { adminStorage: true });
+	assert.deepEqual(admitted, { data: [{ name: 'owned/sign-in-rosters/fixture/scan.pdf' }], error: null });
+	assert.deepEqual(requests, [
+		'POST /rest/v1/rpc/issue_account_setup_link',
+		'DELETE /storage/v1/object/counseling-files'
+	]);
+	for (const name of ['roster-scan-attach-lost-ack', 'roster-delete-lost-ack']) {
+		const rpc = name === 'roster-delete-lost-ack' ? 'delete_sign_in_roster' : 'attach_sign_in_roster_scan';
+		await command('fault-arm', { name });
+		const lost = await send(config.providerUrl, { rpc });
+		assert.equal(lost.error.code, '', 'the installed SDK reports a transport loss without a database code');
+		assert.equal(requests.at(-1), `POST /rest/v1/rpc/${rpc}`);
+		assert.deepEqual((await command('fault-state')).controls[name].call, {
+			method: 'POST',
+			path: `/rest/v1/rpc/${rpc}`,
+			providerStatus: 200
+		});
+		await command('fault-restore');
+	}
+	const heldName = 'roster-scan-attach-committed-hold';
+	await command('fault-arm', { name: heldName });
+	const requestsBefore = requests.length;
+	child.stdin.write(`${JSON.stringify({ url: config.providerUrl, init: { rpc: 'attach_sign_in_roster_scan' } })}\n`);
+	for (
+		let attempt = 0;
+		attempt < 200 && (await command('fault-state')).controls[heldName]?.phase !== 'committed-held';
+		attempt++
+	)
+		await new Promise((resolve) => setTimeout(resolve, 10));
+	assert.equal((await command('fault-state')).controls[heldName].phase, 'committed-held');
+	assert.equal(requests.length, requestsBefore + 1);
+	assert.equal((await command('fault-release', { name: 'roster-delete-hold' })).status, 'BLOCKED');
+	assert.equal((await command('fault-release', { name: heldName })).status, 'PASS');
+	await waitFor(() => output.split('\n').filter((line) => line.startsWith('{')).length === seen + 1);
+	assert.equal(
+		JSON.parse(
+			output
+				.split('\n')
+				.filter((line) => line.startsWith('{'))
+				.at(-1)
+		).error.code,
+		''
+	);
+	assert.equal((await command('fault-state')).controls[heldName].call.releaseReason, 'released');
+	await command('fault-restore');
 	assert.equal(diagnostic, '');
 	assert.equal(JSON.stringify(ready).includes(config.token), false);
 	assert.equal(JSON.stringify(ready).includes(apiKey), false);
+});
+
+test('roster command holds forward real results only after release and restore releases pending writes', async () => {
+	for (const [name, command] of [
+		['roster-scan-attach-hold', 'attach_sign_in_roster_scan'],
+		['roster-scan-remove-hold', 'remove_sign_in_roster_scan'],
+		['roster-delete-hold', 'delete_sign_in_roster']
+	]) {
+		const path = `/rest/v1/rpc/${command}`;
+		const passed = [];
+		const controller = createProviderFaultController({
+			providerUrl,
+			fetch: async (input, init) => {
+				passed.push({ url: String(input), method: init.method });
+				return new Response('committed', { status: 200 });
+			}
+		});
+		controller.command('fault-arm', { name });
+		const pending = controller.fetch(`${providerUrl}${path}`, { method: 'POST', body: '{}' });
+		while (controller.command('fault-state').controls[name].phase !== 'held') await new Promise(setImmediate);
+		assert.equal(passed.length, 0);
+		assert.equal(
+			await (
+				await controller.fetch(`${providerUrl}/rest/v1/rpc/settle_sign_in_roster_scan_upload`, { method: 'POST' })
+			).text(),
+			'committed'
+		);
+		controller.command('fault-release', { name });
+		assert.equal(await (await pending).text(), 'committed');
+		assert.deepEqual(controller.command('fault-state').controls[name].call, {
+			method: 'POST',
+			path,
+			releaseReason: 'released',
+			providerStatus: 200
+		});
+		controller.command('fault-arm', { name });
+		const restored = controller.fetch(`${providerUrl}${path}`, { method: 'POST', body: '{}' });
+		while (controller.command('fault-state').controls[name].phase !== 'held') await new Promise(setImmediate);
+		controller.command('fault-restore');
+		assert.equal(await (await restored).text(), 'committed');
+		assert.equal(passed.length, 3);
+	}
 });
 
 test('auth confirmation mail is its own kind and its token hash is redacted', async () => {
@@ -727,4 +838,252 @@ test('opening a captured link never surfaces its token, even when DevTools fails
 		path: '/auth/setup-account',
 		snapshot: 'Choose your password'
 	});
+});
+
+test('roster command faults preserve unrelated writes and distinguish commit, transport loss and rejection', async () => {
+	for (const [name, command, committed] of [
+		['roster-scan-attach', 'attach_sign_in_roster_scan', false],
+		['roster-scan-attach-lost-ack', 'attach_sign_in_roster_scan', true],
+		['roster-scan-remove', 'remove_sign_in_roster_scan', false],
+		['roster-scan-remove-lost-ack', 'remove_sign_in_roster_scan', true],
+		['roster-scan-settle', 'settle_sign_in_roster_scan_upload', false],
+		['roster-delete', 'delete_sign_in_roster', false],
+		['roster-delete-lost-ack', 'delete_sign_in_roster', true]
+	]) {
+		const writes = [];
+		const control = createProviderFaultController({
+			providerUrl,
+			fetch: async (input, init) => {
+				writes.push({ url: String(input), method: init?.method, body: init?.body });
+				return new Response('provider acknowledged', { status: 200 });
+			}
+		});
+		control.command('fault-arm', { name });
+		for (const [url, init] of [
+			[`${providerUrl}/rest/v1/sign_in_rosters`, { method: 'PATCH', body: '{"title":"kept"}' }],
+			[`${providerUrl}/rest/v1/sign_in_rosters`, { method: 'DELETE' }],
+			[`${providerUrl}/rest/v1/rpc/${command}_archive`, { method: 'POST', body: '{}' }],
+			[`http://127.0.0.1:56322/rest/v1/rpc/${command}`, { method: 'POST', body: '{}' }]
+		])
+			assert.equal(await (await control.fetch(url, init)).text(), 'provider acknowledged');
+		const before = writes.length;
+		const input = providerInput(`rpc/${command}`, { method: 'POST', body: '{}' });
+		if (name.endsWith('-lost-ack'))
+			await assert.rejects(control.fetch(...input), (error) => {
+				assert.equal(error instanceof TypeError, true);
+				assert.equal(error.message, 'fetch failed');
+				assert.equal(error.cause.code, 'UND_ERR_SOCKET');
+				return true;
+			});
+		else assert.equal((await control.fetch(...input)).status, 503);
+		assert.equal(writes.length, before + Number(committed));
+		assert.deepEqual(control.command('fault-state').controls[name].call, {
+			method: 'POST',
+			path: `/rest/v1/rpc/${command}`,
+			...(committed ? { providerStatus: 200 } : {})
+		});
+		assert.equal(await (await control.fetch(...input)).text(), 'provider acknowledged');
+	}
+});
+
+test('roster lost replies throw a transport loss only after a successful upstream reply, and stay visible when it fails', async () => {
+	for (const [name, command] of [
+		['roster-scan-attach-lost-ack', 'attach_sign_in_roster_scan'],
+		['roster-scan-remove-lost-ack', 'remove_sign_in_roster_scan'],
+		['roster-delete-lost-ack', 'delete_sign_in_roster']
+	]) {
+		const failed = createProviderFaultController({
+			providerUrl,
+			fetch: async () => new Response('{"code":"40P01"}', { status: 409 })
+		});
+		failed.command('fault-arm', { name });
+		const response = await failed.fetch(...providerInput(`rpc/${command}`, { method: 'POST', body: '{}' }));
+		assert.equal(response.status, 409);
+		assert.equal(await response.text(), '{"code":"40P01"}');
+		assert.deepEqual(failed.command('fault-state').controls[name], {
+			ordinal: 1,
+			matches: 1,
+			phase: 'provider-failed',
+			call: { method: 'POST', path: `/rest/v1/rpc/${command}`, providerStatus: 409 }
+		});
+	}
+});
+
+test('the committed attach pause exposes a committed receipt, admits later requests and loses its reply only on release', async () => {
+	const name = 'roster-scan-attach-committed-hold';
+	const path = '/rest/v1/rpc/attach_sign_in_roster_scan';
+	const passed = [];
+	const control = createProviderFaultController({
+		providerUrl,
+		fetch: async (input, init) => {
+			passed.push({ url: String(input), method: init?.method });
+			return new Response('[]', { status: 200 });
+		}
+	});
+	assert.throws(() => control.command('fault-release', { name }), /currently held/);
+	control.command('fault-arm', { name });
+	const request = providerInput('rpc/attach_sign_in_roster_scan', { method: 'POST', body: '{}' });
+	const first = control.fetch(...request).then(
+		() => assert.fail('The paused reply must be lost'),
+		(error) => error
+	);
+	while (control.command('fault-state').controls[name].phase !== 'committed-held') await new Promise(setImmediate);
+	assert.equal(passed.length, 1);
+	assert.deepEqual(control.command('fault-state').controls[name].call, {
+		method: 'POST',
+		path,
+		providerStatus: 200
+	});
+	assert.deepEqual(control.command('fault-state').armed, []);
+	assert.equal((await control.fetch(...request)).status, 200);
+	assert.equal(
+		await (await control.fetch(...providerInput('rpc/delete_sign_in_roster', { method: 'POST', body: '{}' }))).text(),
+		'[]'
+	);
+	assert.equal(passed.length, 3);
+	assert.equal(control.command('fault-state').controls[name].phase, 'committed-held');
+	control.command('fault-release', { name });
+	const lost = await first;
+	assert.equal(lost instanceof TypeError && lost.message === 'fetch failed', true);
+	assert.deepEqual(control.command('fault-state').controls[name], {
+		ordinal: 1,
+		matches: 1,
+		phase: 'faulted',
+		call: { method: 'POST', path, providerStatus: 200, releaseReason: 'released' }
+	});
+	assert.throws(() => control.command('fault-release', { name }), /currently held/);
+	assert.equal((await control.fetch(...request)).status, 200);
+	assert.equal(passed.length, 4);
+});
+
+test('the committed attach pause is finite and restore releases it with a transport loss', async () => {
+	const name = 'roster-scan-attach-committed-hold';
+	for (const ending of ['deadline', 'restored']) {
+		mock.timers.enable({ apis: ['setTimeout'] });
+		try {
+			const control = createProviderFaultController({
+				providerUrl,
+				fetch: async () => new Response('[]', { status: 200 })
+			});
+			control.command('fault-arm', { name });
+			const pending = control
+				.fetch(...providerInput('rpc/attach_sign_in_roster_scan', { method: 'POST', body: '{}' }))
+				.then(
+					() => assert.fail('The paused reply must be lost'),
+					(error) => error
+				);
+			while (control.command('fault-state').controls[name].phase !== 'committed-held') await new Promise(setImmediate);
+			mock.timers.tick(119_999);
+			assert.equal(control.command('fault-state').controls[name].phase, 'committed-held');
+			if (ending === 'deadline') mock.timers.tick(1);
+			else control.command('fault-restore');
+			assert.equal((await pending) instanceof TypeError, true);
+			const receipt =
+				ending === 'deadline'
+					? control.command('fault-state').controls[name]
+					: control.command('fault-state').lastControls[name];
+			assert.deepEqual(receipt.call, {
+				method: 'POST',
+				path: '/rest/v1/rpc/attach_sign_in_roster_scan',
+				providerStatus: 200,
+				releaseReason: ending
+			});
+			assert.equal(receipt.phase, 'faulted');
+		} finally {
+			mock.timers.reset();
+		}
+	}
+});
+
+test('the pre-dispatch attach pause holds before the provider, admits other requests and dispatches only on release', async () => {
+	const name = 'roster-scan-attach-predispatch-pause';
+	const path = '/rest/v1/rpc/attach_sign_in_roster_scan';
+	const passed = [];
+	const control = createProviderFaultController({
+		providerUrl,
+		fetch: async (input) => {
+			passed.push(new URL(String(input)).pathname);
+			return new Response('{"code":"P0002"}', { status: 404 });
+		}
+	});
+	control.command('fault-arm', { name });
+	const request = providerInput('rpc/attach_sign_in_roster_scan', { method: 'POST', body: '{}' });
+	const held = control.fetch(...request);
+	while (control.command('fault-state').controls[name].phase !== 'held') await new Promise(setImmediate);
+	assert.deepEqual(control.command('fault-state').controls[name].call, { method: 'POST', path });
+	assert.deepEqual(passed, []);
+	await control.fetch(...request);
+	await control.fetch(...providerInput('rpc/delete_sign_in_roster', { method: 'POST', body: '{}' }));
+	await control.fetch('http://127.0.0.1:56322/rest/v1/rpc/attach_sign_in_roster_scan', { method: 'POST' });
+	assert.deepEqual(passed, [path, '/rest/v1/rpc/delete_sign_in_roster', path]);
+	assert.equal(control.command('fault-state').controls[name].phase, 'held');
+	control.command('fault-release', { name });
+	assert.equal((await held).status, 404);
+	assert.deepEqual(passed, [path, '/rest/v1/rpc/delete_sign_in_roster', path, path]);
+	assert.deepEqual(control.command('fault-state').controls[name], {
+		ordinal: 1,
+		matches: 1,
+		phase: 'dispatched',
+		call: { method: 'POST', path, releaseReason: 'released', providerStatus: 404 }
+	});
+	assert.throws(() => control.command('fault-release', { name }), /currently held/);
+});
+
+test('the pre-dispatch pause lasts 120 seconds while the scripted hold keeps its 4-second deadline', async () => {
+	for (const [name, deadline, ending] of [
+		['roster-scan-attach-predispatch-pause', 120_000, 'deadline'],
+		['roster-scan-attach-predispatch-pause', 120_000, 'restored'],
+		['roster-scan-attach-hold', 4_000, 'deadline']
+	]) {
+		mock.timers.enable({ apis: ['setTimeout'] });
+		try {
+			let dispatched = 0;
+			const control = createProviderFaultController({
+				providerUrl,
+				fetch: async () => {
+					dispatched++;
+					return new Response('[]', { status: 200 });
+				}
+			});
+			control.command('fault-arm', { name });
+			const pending = control.fetch(...providerInput('rpc/attach_sign_in_roster_scan', { method: 'POST', body: '{}' }));
+			while (control.command('fault-state').controls[name].phase !== 'held') await new Promise(setImmediate);
+			mock.timers.tick(deadline - 1);
+			assert.equal(control.command('fault-state').controls[name].phase, 'held');
+			assert.equal(dispatched, 0);
+			if (ending === 'deadline') mock.timers.tick(1);
+			else control.command('fault-restore');
+			assert.equal((await pending).status, 200);
+			const receipt =
+				ending === 'deadline'
+					? control.command('fault-state').controls[name]
+					: control.command('fault-state').lastControls[name];
+			assert.deepEqual(receipt.call, {
+				method: 'POST',
+				path: '/rest/v1/rpc/attach_sign_in_roster_scan',
+				releaseReason: ending,
+				// A restore snapshots its receipt before the released request reaches the provider.
+				...(ending === 'deadline' ? { providerStatus: 200 } : {})
+			});
+			assert.equal(dispatched, 1);
+		} finally {
+			mock.timers.reset();
+		}
+	}
+});
+
+test('other owners keep a synthetic 503 for a lost reply instead of a transport exception', async () => {
+	for (const [name, path] of [
+		['document-file-remove-lost-ack', '/storage/v1/object/personnel-documents'],
+		['counseling-file-remove-lost-ack', '/storage/v1/object/counseling-files'],
+		['org-create-lost-ack', '/rest/v1/rpc/create_organization']
+	]) {
+		const control = createProviderFaultController({ providerUrl, fetch: async () => new Response('[]') });
+		control.command('fault-arm', { name });
+		const response = await control.fetch(`${providerUrl}${path}`, {
+			method: path.startsWith('/storage') ? 'DELETE' : 'POST'
+		});
+		assert.equal(response.status, 503);
+		assert.equal((await response.json()).code, 'T2T_VERIFY_PROVIDER_FAULT');
+	}
 });

@@ -39,6 +39,13 @@ CREATE FUNCTION pg_temp.retirement(p_bucket text, p_name text) RETURNS text LANG
 	FROM organization_private.file_retirements
 	WHERE key_digest = sha256(convert_to(p_bucket || '/' || p_name, 'UTF8'))
 $$;
+CREATE FUNCTION pg_temp.held(p_bucket text, p_name text) RETURNS boolean LANGUAGE sql AS $$
+	SELECT EXISTS (SELECT 1 FROM organization_private.file_retirement_holds
+		WHERE key_digest = sha256(convert_to(p_bucket || '/' || p_name, 'UTF8')))
+$$;
+CREATE FUNCTION pg_temp.listed(p_name text) RETURNS boolean LANGUAGE sql AS $$
+	SELECT EXISTS (SELECT 1 FROM public.list_pending_organization_file_retirements(1000) WHERE object_name = p_name)
+$$;
 CREATE FUNCTION pg_temp.act_as(p_user_id uuid) RETURNS void LANGUAGE sql AS $$
 	SELECT set_config('role', 'authenticated', true),
 		set_config('request.jwt.claim.sub', p_user_id::text, true),
@@ -72,7 +79,9 @@ INSERT INTO public.personnel_documents (id, organization_id, personnel_id, title
 	('f6430000-0000-4000-8000-000000000522', 'f6430000-0000-4000-8000-000000000101', 'f6430000-0000-4000-8000-000000000303', 'Expired parent', pg_temp.doc('303', 'expired.pdf'), 1, 'application/pdf', 'fixture', NULL),
 	('f6430000-0000-4000-8000-000000000523', 'f6430000-0000-4000-8000-000000000101', 'f6430000-0000-4000-8000-000000000301', 'Attached', pg_temp.doc('301', 'attached.pdf'), 1, 'application/pdf', 'fixture', NULL),
 	('f6430000-0000-4000-8000-000000000524', 'f6430000-0000-4000-8000-000000000101', 'f6430000-0000-4000-8000-000000000305', 'Legacy cross-Person', pg_temp.doc('301', 'legacy.pdf'), 1, 'application/pdf', 'fixture', NULL),
-	('f6430000-0000-4000-8000-000000000525', 'f6430000-0000-4000-8000-000000000102', 'f6430000-0000-4000-8000-000000000304', 'Legacy foreign Organization', pg_temp.doc('301', 'legacy-foreign.pdf'), 1, 'application/pdf', 'fixture', NULL);
+	('f6430000-0000-4000-8000-000000000525', 'f6430000-0000-4000-8000-000000000102', 'f6430000-0000-4000-8000-000000000304', 'Legacy foreign Organization', pg_temp.doc('301', 'legacy-foreign.pdf'), 1, 'application/pdf', 'fixture', NULL),
+	('f6430000-0000-4000-8000-000000000527', 'f6430000-0000-4000-8000-000000000101', 'f6430000-0000-4000-8000-000000000301', 'Cross-Person owner', pg_temp.doc('301', 'cross-person.pdf'), 1, 'application/pdf', 'fixture', '2030-01-01T00:00:00Z'),
+	('f6430000-0000-4000-8000-000000000528', 'f6430000-0000-4000-8000-000000000101', 'f6430000-0000-4000-8000-000000000305', 'Cross-Person reference', pg_temp.doc('301', 'cross-person.pdf'), 1, 'application/pdf', 'fixture', '2030-01-01T00:00:00Z');
 INSERT INTO public.counseling_records (id, organization_id, personnel_id, date_conducted, subject, title, uploaded_by, file_path, archived_at) VALUES
 	('f6430000-0000-4000-8000-000000000531', 'f6430000-0000-4000-8000-000000000101', 'f6430000-0000-4000-8000-000000000301', '2030-01-01', 'Direct', 'Direct', 'fixture', pg_temp.counsel('301', 'direct.pdf'), '2030-01-01T00:00:00Z'),
 	('f6430000-0000-4000-8000-000000000532', 'f6430000-0000-4000-8000-000000000101', 'f6430000-0000-4000-8000-000000000301', '2030-01-01', 'Approved', 'Approved', 'fixture', pg_temp.counsel('301', 'approved.pdf'), NULL),
@@ -163,6 +172,16 @@ SELECT is(
 DELETE FROM public.personnel_documents WHERE id = 'f6430000-0000-4000-8000-000000000513';
 SELECT is(pg_temp.retirement('personnel-documents', pg_temp.doc('301', 'shared.pdf')), 'pending',
 	'the last historical reference retires a shared key');
+SELECT is(pg_temp.held('personnel-documents', pg_temp.doc('301', 'shared.pdf')), false, 'retiring a held key clears its hold');
+DELETE FROM public.personnel_documents WHERE id = 'f6430000-0000-4000-8000-000000000527';
+SELECT is(ARRAY[pg_temp.retirement('personnel-documents', pg_temp.doc('301', 'cross-person.pdf')), pg_temp.held('personnel-documents', pg_temp.doc('301', 'cross-person.pdf'))::text],
+	ARRAY[NULL, 'true'], 'an owner release is held while another Person''s document references the key');
+SELECT ok(NOT pg_temp.listed(pg_temp.doc('301', 'cross-person.pdf')), 'the drain does not list a held document key');
+DELETE FROM public.personnel_documents WHERE id = 'f6430000-0000-4000-8000-000000000528';
+SELECT is(pg_temp.retirement('personnel-documents', pg_temp.doc('301', 'cross-person.pdf')), NULL, 'the nonowning document deletion retires nothing by itself');
+SELECT ok(pg_temp.listed(pg_temp.doc('301', 'cross-person.pdf')), 'the next drain lists the document key once no record references it');
+SELECT is(ARRAY[pg_temp.retirement('personnel-documents', pg_temp.doc('301', 'cross-person.pdf')), pg_temp.held('personnel-documents', pg_temp.doc('301', 'cross-person.pdf'))::text],
+	ARRAY['pending', 'false'], 'promotion retires the document key and clears its hold');
 
 DELETE FROM public.personnel WHERE id = 'f6430000-0000-4000-8000-000000000302';
 SELECT pg_temp.act_as_service();

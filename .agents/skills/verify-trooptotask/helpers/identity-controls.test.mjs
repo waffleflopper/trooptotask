@@ -173,9 +173,17 @@ test('fault commands accept only the named provider faults', () => {
 		name: 'invitation-block',
 		ordinal: 2
 	});
+	assert.deepEqual(faultRequest(['release', 'roster-scan-attach-committed-hold']), {
+		command: 'fault',
+		action: 'release',
+		name: 'roster-scan-attach-committed-hold'
+	});
 	for (const args of [
 		[],
 		['arm'],
+		['release'],
+		['release', 'account_setup_links'],
+		['release', 'roster-scan-attach-committed-hold', '1'],
 		['arm', 'account_setup_links'],
 		['state', 'x'],
 		['arm', 'invitation-block', '1', '2']

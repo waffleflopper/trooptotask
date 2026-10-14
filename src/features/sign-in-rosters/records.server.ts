@@ -1,4 +1,3 @@
-import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 import {
 	buildSensitiveFilePath,
 	sanitizeSensitiveFilename,
@@ -7,7 +6,7 @@ import {
 } from '$lib/storage/sensitiveFiles';
 import { prepareSignInRosterSnapshot, type SignInRosterSnapshotContext } from './snapshot.server';
 import type { SignInRosterListInput, SignInRosterPersistence } from './rosterPersistence.server';
-import type { SignInRosterFileWritePort, SignInRosterFileActor } from './contracts';
+import type { SignInRosterScanPort, SignInRosterFileActor } from './contracts';
 import { fail } from '$lib/errors';
 
 interface RosterContext {
@@ -21,9 +20,9 @@ interface RosterContext {
 	};
 }
 
-interface RosterFileContext extends Pick<RosterContext, 'orgId' | 'persistence' | 'audit'> {
+interface RosterFileContext extends Pick<RosterContext, 'orgId' | 'audit'> {
 	actor: SignInRosterFileActor;
-	fileWrites: SignInRosterFileWritePort;
+	scans: SignInRosterScanPort;
 }
 
 interface CreateRosterContext extends RosterContext, SignInRosterSnapshotContext {
@@ -61,20 +60,14 @@ export async function createSignInRoster(ctx: CreateRosterContext, input: Record
 }
 
 export async function deleteSignInRoster(ctx: RosterFileContext, rosterId: string) {
-	const roster = await ctx.persistence.find(rosterId);
-	if (!roster) fail(404, 'Roster not found');
-	if (roster.signedFilePath) {
-		const files = await ctx.fileWrites.forRoster(ctx.actor, rosterId);
-		await files.removePrevious(roster.signedFilePath);
-	}
-	await ctx.persistence.delete(rosterId);
+	const { title, fileCleanup } = await ctx.scans.deleteRoster(ctx.actor, rosterId);
 	ctx.audit.log({
 		action: 'sign_in_roster.deleted',
 		resourceType: 'sign_in_roster',
 		resourceId: rosterId,
-		details: { title: roster.title }
+		details: { title }
 	});
-	return { success: true };
+	return { success: true, fileCleanup };
 }
 
 export async function getSignedScanUrl(ctx: RosterContext, rosterId: string) {
@@ -97,69 +90,16 @@ export async function uploadSignedScan(ctx: RosterFileContext, rosterId: string,
 	const validationError = await validateSensitivePdfFile(file);
 	if (validationError) fail(400, validationError);
 
-	const roster = await ctx.persistence.find(rosterId);
-	if (!roster) fail(404, 'Roster not found');
-	const previousSignedFilePath = roster.signedFilePath ?? null;
-	const storagePath = buildScanPath(ctx.orgId, rosterId, file.name);
-
-	const files = await ctx.fileWrites.forRoster(ctx.actor, rosterId);
-	const upload = await files.upload(storagePath, file);
-	try {
-		await ctx.persistence.setSignedFilePath(rosterId, storagePath);
-	} catch (error) {
-		try {
-			await files.remove(storagePath);
-			await upload.complete();
-		} catch (cleanupError) {
-			console.error(
-				'[sign-in-roster-scan-upload] Failed to clean up uploaded scan after DB update failure:',
-				sanitizeErrorForLog(cleanupError)
-			);
-		}
-		throw error;
-	}
-
-	if (previousSignedFilePath && previousSignedFilePath !== storagePath) {
-		try {
-			await files.removePrevious(previousSignedFilePath);
-		} catch (cleanupError) {
-			try {
-				await ctx.persistence.setSignedFilePath(rosterId, previousSignedFilePath);
-			} catch (rollbackError) {
-				console.error(
-					'[sign-in-roster-scan-upload] Failed to restore previous scan path after cleanup failure:',
-					sanitizeErrorForLog(rollbackError)
-				);
-			}
-			try {
-				await files.remove(storagePath);
-				await upload.complete();
-			} catch (replacementCleanupError) {
-				console.error(
-					'[sign-in-roster-scan-upload] Failed to clean up replacement scan after previous cleanup failure:',
-					sanitizeErrorForLog(replacementCleanupError)
-				);
-			}
-			throw cleanupError;
-		}
-	}
-	await upload.complete();
-
+	const filePath = buildScanPath(ctx.orgId.toLowerCase(), rosterId.toLowerCase(), file.name);
+	await ctx.scans.replace(ctx.actor, rosterId, filePath, file);
 	ctx.audit.log({
 		action: 'sign_in_roster.scan_uploaded',
 		resourceType: 'sign_in_roster',
 		resourceId: rosterId
 	});
-	return { filePath: storagePath };
+	return { filePath };
 }
 
-export async function removeSignedScan(ctx: RosterFileContext, rosterId: string) {
-	const roster = await ctx.persistence.find(rosterId);
-	if (!roster) fail(404, 'Roster not found');
-	if (roster.signedFilePath) {
-		const files = await ctx.fileWrites.forRoster(ctx.actor, rosterId);
-		await files.removePrevious(roster.signedFilePath);
-	}
-	await ctx.persistence.setSignedFilePath(rosterId, null);
-	return { success: true };
+export async function removeSignedScan(ctx: RosterFileContext, rosterId: string, expectedPath: string) {
+	return { success: true, fileCleanup: await ctx.scans.remove(ctx.actor, rosterId, expectedPath) };
 }

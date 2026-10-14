@@ -233,6 +233,7 @@ INSERT INTO public.sign_in_rosters (
 	personnel_ids,
 	scope_group_ids,
 	filter_config,
+	signed_file_path,
 	created_by,
 	created_at
 )
@@ -249,6 +250,7 @@ VALUES
 		ARRAY['60000000-0000-4000-8000-000000070001']::uuid[],
 		ARRAY['30000000-0000-4000-8000-000000070001']::uuid[],
 		NULL,
+		'20000000-0000-4000-8000-000000070001/sign-in-rosters/50000000-0000-4000-8000-000000070001/alpha-roster.pdf',
 		'10000000-0000-4000-8000-000000070001',
 		now()
 	),
@@ -273,6 +275,7 @@ VALUES
 			'30000000-0000-4000-8000-000000070002'
 		]::uuid[],
 		NULL,
+		'20000000-0000-4000-8000-000000070001/sign-in-rosters/50000000-0000-4000-8000-000000070002/mixed-roster.pdf',
 		'10000000-0000-4000-8000-000000070001',
 		now()
 	),
@@ -287,6 +290,7 @@ VALUES
 		'[]'::jsonb,
 		ARRAY[]::uuid[],
 		ARRAY[]::uuid[],
+		NULL,
 		NULL,
 		'10000000-0000-4000-8000-000000070001',
 		now()

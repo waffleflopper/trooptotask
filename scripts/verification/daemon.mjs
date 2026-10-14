@@ -372,8 +372,8 @@ try {
 									result = await openMailLink(input);
 									break;
 								case 'fault':
-									if (!['arm', 'state', 'restore'].includes(input.action))
-										throw new Blocked('COMMAND', 'Use fault arm, state or restore.');
+									if (!['arm', 'release', 'state', 'restore'].includes(input.action))
+										throw new Blocked('COMMAND', 'Use fault arm, release, state or restore.');
 									result = await serverSource(`fault-${input.action}`, { name: input.name, ordinal: input.ordinal });
 									break;
 								case 'print-capture':

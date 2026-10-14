@@ -105,7 +105,7 @@ describe('/api/sign-in-rosters/[id] route config', () => {
 		await ctx.storage.upload(SENSITIVE_FILE_BUCKET, SIGNED_SCAN_PATH, new File([PDF_BYTES], 'signed-scan.pdf'));
 		await expect(
 			handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'foreign-roster' }, () => selectRosterUploadContext(ctx))
-		).rejects.toMatchObject({ status: 404, message: 'Roster not found' });
+		).rejects.toMatchObject({ status: 404, message: 'This roster is no longer available.' });
 		await expect(
 			ctx.rawStore.findOne('sign_in_rosters', 'foreign-org', { id: 'foreign-roster' })
 		).resolves.not.toBeNull();
@@ -113,63 +113,29 @@ describe('/api/sign-in-rosters/[id] route config', () => {
 		expect(ctx.auditPort.events).toEqual([]);
 	});
 
-	it('preserves the DB row and stored scan when storage cleanup fails', async () => {
+	it('deletes the roster and reports pending cleanup when its scan removal is unconfirmed', async () => {
 		const ctx = createRosterContext();
 		await ctx.storage.upload(SENSITIVE_FILE_BUCKET, SIGNED_SCAN_PATH, new File([PDF_BYTES], 'signed-scan.pdf'));
-		const deleteRow = ctx.store.delete.bind(ctx.store);
-		const deleteCalls: string[] = [];
-		ctx.store.delete = async (table, orgId, id) => {
-			deleteCalls.push(`${table}/${id}`);
-			return deleteRow(table, orgId, id);
-		};
 		ctx.storage.remove = async () => {
 			throw new Error('storage cleanup failed');
 		};
 
 		await expect(
 			handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-1' }, () => selectRosterUploadContext(ctx))
-		).rejects.toThrow('storage cleanup failed');
+		).resolves.toEqual({ success: true, fileCleanup: 'pending' });
 
-		expect(deleteCalls).toEqual([]);
-		expect(ctx.storagePort.files).toEqual([
-			expect.objectContaining({ bucket: SENSITIVE_FILE_BUCKET, path: SIGNED_SCAN_PATH })
-		]);
-		await expect(
-			ctx.store.findOne<{ signed_file_path: string | null }>('sign_in_rosters', ctx.auth.orgId, { id: 'roster-1' })
-		).resolves.toMatchObject({ signed_file_path: SIGNED_SCAN_PATH });
-		expect(ctx.auditPort.events).toEqual([]);
+		await expect(ctx.store.findOne('sign_in_rosters', ctx.auth.orgId, { id: 'roster-1' })).resolves.toBeNull();
+		expect(ctx.auditPort.events).toEqual([expect.objectContaining({ action: 'sign_in_roster.deleted' })]);
 	});
 
-	it('removes the stored scan before deleting the DB row so retries keep a recoverable pointer', async () => {
+	it('reports a roster that is already gone as no longer available', async () => {
 		const ctx = createRosterContext();
-		await ctx.storage.upload(SENSITIVE_FILE_BUCKET, SIGNED_SCAN_PATH, new File([PDF_BYTES], 'signed-scan.pdf'));
-		const removeCalls: string[][] = [];
-		const remove = ctx.storage.remove.bind(ctx.storage);
-		ctx.storage.remove = async (bucket, paths) => {
-			removeCalls.push(paths);
-			return remove(bucket, paths);
-		};
-		const deleteRow = ctx.store.delete.bind(ctx.store);
-		ctx.store.delete = async (table, orgId, id) => {
-			if (table === 'sign_in_rosters') throw new Error('delete failed');
-			return deleteRow(table, orgId, id);
-		};
+		await handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-1' }, () => selectRosterUploadContext(ctx));
 
 		await expect(
 			handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-1' }, () => selectRosterUploadContext(ctx))
-		).rejects.toThrow('delete failed');
-
-		expect(removeCalls).toEqual([[SIGNED_SCAN_PATH]]);
-		expect(ctx.storagePort.files).toEqual([]);
-		await expect(
-			ctx.store.findOne<{ signed_file_path: string | null }>('sign_in_rosters', ctx.auth.orgId, { id: 'roster-1' })
-		).resolves.toMatchObject({ signed_file_path: SIGNED_SCAN_PATH });
-		expect(ctx.auditPort.events).toEqual([]);
-		ctx.store.delete = deleteRow;
-		await expect(
-			handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-1' }, () => selectRosterUploadContext(ctx))
-		).resolves.toEqual({ success: true });
-		await expect(ctx.store.findOne('sign_in_rosters', ctx.auth.orgId, { id: 'roster-1' })).resolves.toBeNull();
+		).rejects.toMatchObject({ status: 404, message: 'This roster is no longer available.' });
+		expect(ctx.auditPort.events).toEqual([expect.objectContaining({ action: 'sign_in_roster.deleted' })]);
 	});
 
 	it('deletes the DB row, removes the stored scan, and logs audit when deletion succeeds', async () => {
@@ -178,9 +144,7 @@ describe('/api/sign-in-rosters/[id] route config', () => {
 
 		await expect(
 			handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-1' }, () => selectRosterUploadContext(ctx))
-		).resolves.toEqual({
-			success: true
-		});
+		).resolves.toEqual({ success: true, fileCleanup: 'complete' });
 
 		expect(ctx.storagePort.files).toHaveLength(0);
 		await expect(ctx.store.findOne('sign_in_rosters', ctx.auth.orgId, { id: 'roster-1' })).resolves.toBeNull();
@@ -201,7 +165,7 @@ describe('/api/sign-in-rosters/[id] route config', () => {
 			handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-mixed' }, () => selectRosterUploadContext(ctx))
 		).rejects.toMatchObject({
 			status: 404,
-			message: 'Roster not found'
+			message: 'This roster is no longer available.'
 		});
 
 		await expect(

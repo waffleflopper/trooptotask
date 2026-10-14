@@ -197,7 +197,13 @@ const operations: { name: string; handler: RequestHandler; method: string; id: s
 	{ name: 'document delete', handler: deleteDocument, method: 'DELETE', id: 'person-b' },
 	{ name: 'scan download', handler: downloadScan, method: 'GET', id: 'roster-b' },
 	{ name: 'scan upload', handler: uploadScan, method: 'POST', id: 'roster-b' },
-	{ name: 'scan unlink', handler: unlinkScan, method: 'DELETE', id: 'roster-b' },
+	{
+		name: 'scan unlink',
+		handler: unlinkScan,
+		method: 'DELETE',
+		id: 'roster-b',
+		body: { filePath: `${ORG}/sign-in-rosters/roster-b/b.pdf` }
+	},
 	{ name: 'roster delete', handler: deleteRoster, method: 'DELETE', id: 'roster-b' },
 	{
 		name: 'privileged roster snapshot',
@@ -349,7 +355,7 @@ describe('private resource HTTP admission and provider ownership', () => {
 		for (const op of operations.filter((op) => op.id === 'roster-b')) {
 			const f = fixture();
 			const before = structuredClone(f.tables);
-			await expect(op.handler(event(f, op.method, id))).rejects.toMatchObject({ status: 404 });
+			await expect(op.handler(event(f, op.method, id, 'doc-b', op.body))).rejects.toMatchObject({ status: 404 });
 			expectNoPrivateEffects(f, before);
 		}
 	});

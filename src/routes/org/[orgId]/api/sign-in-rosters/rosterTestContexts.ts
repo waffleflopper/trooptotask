@@ -1,6 +1,9 @@
 import { findGroupNamesByIds, loadOrganizationRankCatalog } from '$features/personnel/index.server';
 import type { SignInRosterPersonnelLookupPort } from '$features/personnel/contracts';
-import type { SignInRosterPersistence } from '$features/sign-in-rosters/index.server';
+import type { SignInRosterPersistence, SignInRosterScanPort } from '$features/sign-in-rosters/index.server';
+import type { FileCleanup } from '$features/organization/contracts';
+import { SENSITIVE_FILE_BUCKET } from '$lib/storage/sensitiveFiles';
+import { fail } from '$lib/errors';
 import type { SignInRoster } from '$features/sign-in-rosters';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 
@@ -15,22 +18,33 @@ export function createRosterTestContext(...args: Parameters<typeof createTestCon
 	return { ...createTestContext(...args), personnelLookup };
 }
 
+type RosterRow = {
+	id: string;
+	title: string;
+	roster_date: string | null;
+	blank_date: boolean;
+	separate_by_group: boolean;
+	sort_by: SignInRoster['sortBy'];
+	personnel_snapshot: SignInRoster['personnelSnapshot'];
+	filter_config: SignInRoster['filterConfig'];
+	signed_file_path: string | null;
+	created_by: string;
+	created_at: string;
+	scope_group_ids?: string[];
+};
+
+function visibleRoster(ctx: RosterTestContext, row: RosterRow) {
+	const scope = ctx.auth.scopeSet;
+	return (
+		scope.kind !== 'groups' ||
+		(Array.isArray(row.scope_group_ids) &&
+			row.scope_group_ids.length > 0 &&
+			row.scope_group_ids.every((id) => scope.groupIds.includes(id)))
+	);
+}
+
 function createRosterTestPersistence(ctx: RosterTestContext): SignInRosterPersistence {
-	type Row = {
-		id: string;
-		title: string;
-		roster_date: string | null;
-		blank_date: boolean;
-		separate_by_group: boolean;
-		sort_by: SignInRoster['sortBy'];
-		personnel_snapshot: SignInRoster['personnelSnapshot'];
-		filter_config: SignInRoster['filterConfig'];
-		signed_file_path: string | null;
-		created_by: string;
-		created_at: string;
-		scope_group_ids?: string[];
-	};
-	const map = (row: Row): SignInRoster => ({
+	const map = (row: RosterRow): SignInRoster => ({
 		id: row.id,
 		title: row.title,
 		rosterDate: row.roster_date,
@@ -43,20 +57,11 @@ function createRosterTestPersistence(ctx: RosterTestContext): SignInRosterPersis
 		createdBy: row.created_by,
 		createdAt: row.created_at
 	});
-	const visible = (row: Row) => {
-		const scope = ctx.auth.scopeSet;
-		return (
-			scope.kind !== 'groups' ||
-			(Array.isArray(row.scope_group_ids) &&
-				row.scope_group_ids.length > 0 &&
-				row.scope_group_ids.every((id) => scope.groupIds.includes(id)))
-		);
-	};
 	return {
 		async list(input) {
 			if (ctx.auth.scopeSet.kind === 'groups' && ctx.auth.scopeSet.groupIds.length === 0) return { data: [], count: 0 };
 			const rows = (
-				await ctx.rawStore.findMany<Row>('sign_in_rosters', ctx.auth.orgId, undefined, {
+				await ctx.rawStore.findMany<RosterRow>('sign_in_rosters', ctx.auth.orgId, undefined, {
 					orderBy: [{ column: 'created_at', ascending: false }],
 					...(input.title ? { ilikeFilters: { title: `%${input.title}%` } } : {}),
 					rangeFilters: [
@@ -64,17 +69,17 @@ function createRosterTestPersistence(ctx: RosterTestContext): SignInRosterPersis
 						...(input.to ? [{ column: 'created_at', op: 'lte' as const, value: input.to + 'T23:59:59.999Z' }] : [])
 					]
 				})
-			).filter(visible);
+			).filter((row) => visibleRoster(ctx, row));
 			return { data: rows.slice(input.offset, input.offset + input.limit).map(map), count: rows.length };
 		},
 		async find(id) {
 			if (ctx.auth.scopeSet.kind === 'groups' && ctx.auth.scopeSet.groupIds.length === 0) return null;
-			const row = await ctx.rawStore.findOne<Row>('sign_in_rosters', ctx.auth.orgId, { id });
-			return row && visible(row) ? map(row) : null;
+			const row = await ctx.rawStore.findOne<RosterRow>('sign_in_rosters', ctx.auth.orgId, { id });
+			return row && visibleRoster(ctx, row) ? map(row) : null;
 		},
 		async create(input) {
 			return map(
-				await ctx.store.insert<Row>('sign_in_rosters', ctx.auth.orgId, {
+				await ctx.store.insert<RosterRow>('sign_in_rosters', ctx.auth.orgId, {
 					title: input.title,
 					roster_date: input.rosterDate,
 					blank_date: input.blankDate,
@@ -88,12 +93,50 @@ function createRosterTestPersistence(ctx: RosterTestContext): SignInRosterPersis
 					created_by: input.createdBy
 				})
 			);
+		}
+	};
+}
+
+function createRosterTestScans(ctx: RosterTestContext): SignInRosterScanPort {
+	const owned = (rosterId: string, path: string | null) =>
+		path?.startsWith(`${ctx.auth.orgId}/sign-in-rosters/${rosterId}/`) ?? true;
+	const retire = (path: string | null): Promise<FileCleanup> =>
+		path
+			? ctx.storage.remove(SENSITIVE_FILE_BUCKET, [path]).then(
+					() => 'complete',
+					() => 'pending'
+				)
+			: Promise.resolve('complete');
+	async function lock(rosterId: string) {
+		const row = await ctx.rawStore.findOne<RosterRow>('sign_in_rosters', ctx.auth.orgId, { id: rosterId });
+		if (!row || !visibleRoster(ctx, row)) fail(404, 'This roster is no longer available.');
+		if (!owned(rosterId, row.signed_file_path))
+			fail(400, "This roster's signed scan uses an unsupported storage location");
+		return row;
+	}
+	const setPointer = (rosterId: string, path: string | null) =>
+		ctx.store.update('sign_in_rosters', ctx.auth.orgId, rosterId, { signed_file_path: path });
+	return {
+		async replace(_actor, rosterId, path, file) {
+			if (!owned(rosterId, path)) fail(400, 'Scan path is outside the authorized roster');
+			if (!(file instanceof File)) fail(400, 'A scan file is required');
+			await lock(rosterId);
+			await ctx.storage.upload(SENSITIVE_FILE_BUCKET, path, file, { upsert: false });
+			const { signed_file_path: displaced } = await lock(rosterId);
+			await setPointer(rosterId, path);
+			await retire(displaced);
 		},
-		async setSignedFilePath(id, path) {
-			await ctx.store.update('sign_in_rosters', ctx.auth.orgId, id, { signed_file_path: path });
+		async remove(_actor, rosterId, expectedPath) {
+			const { signed_file_path: current } = await lock(rosterId);
+			if (current === null) return 'complete';
+			if (current !== expectedPath) fail(409, 'This signed scan changed. Reload to review it.');
+			await setPointer(rosterId, null);
+			return retire(current);
 		},
-		delete(id) {
-			return ctx.store.delete('sign_in_rosters', ctx.auth.orgId, id);
+		async deleteRoster(_actor, rosterId) {
+			const row = await lock(rosterId);
+			await ctx.store.delete('sign_in_rosters', ctx.auth.orgId, rosterId);
+			return { title: row.title, fileCleanup: await retire(row.signed_file_path) };
 		}
 	};
 }
@@ -125,5 +168,5 @@ export function selectRosterCreationContext(
 }
 
 export function selectRosterUploadContext(ctx: RosterTestContext) {
-	return { ...selectRosterContext(ctx), actor: ctx.auth, fileWrites: ctx.signInRosterFileWrites };
+	return { ...selectRosterContext(ctx), actor: ctx.auth, scans: createRosterTestScans(ctx) };
 }

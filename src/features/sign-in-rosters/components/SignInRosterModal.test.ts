@@ -857,6 +857,37 @@ describe('SignInRosterModal', () => {
 		expect(toastSuccess).not.toHaveBeenCalled();
 	});
 
+	it.each(['remove', 'delete'] as const)(
+		'reports nothing when a %s finishes after the Organization shell ends',
+		async (action) => {
+			let resolveDelete!: (response: Response) => void;
+			vi.stubGlobal(
+				'fetch',
+				vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) =>
+					init?.method === 'DELETE'
+						? new Promise<Response>((resolve) => (resolveDelete = resolve))
+						: jsonResponse({ rosters: [makeRoster({ signedFilePath: SAVED_SCAN })], total: 1 })
+				)
+			);
+			const toastSuccess = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
+			renderModal();
+			await fireEvent.click(await screen.findByRole('button', { name: /Morning Formation/i }));
+			if (action === 'remove') {
+				await fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+			} else {
+				await fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+				await fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Delete' }));
+			}
+
+			endOrganizationLifetime();
+			resolveDelete(jsonResponse({ success: true, fileCleanup: 'pending' }));
+			await new Promise((resolve) => setTimeout(resolve, 0));
+
+			expect(toastSuccess).not.toHaveBeenCalled();
+			expect(screen.getByRole('button', { name: /Morning Formation/i })).toBeTruthy();
+		}
+	);
+
 	it('validates signed roster scan type before upload', async () => {
 		const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
 			jsonResponse({ rosters: [makeRoster()], total: 1 })

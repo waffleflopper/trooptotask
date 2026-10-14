@@ -8,6 +8,8 @@ import { getDefaultUserOrgPreferences } from '$features/identity/contracts';
 import type { ReadyAppShell } from '$features/app-shell/contracts';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import Layout from './+layout.svelte';
+import { withinOrganizationLifetime } from '$lib/stores/core';
+import { settles } from '$lib/test-support/settles';
 import PreferenceProbe from '$features/app-shell/test-support/PreferenceProbe.svelte';
 import type { LayoutData } from './$types';
 
@@ -226,6 +228,32 @@ describe('organization layout scope lifetime', () => {
 		await screen.findByRole('dialog', { name: "What's New" });
 		await view.rerender({ data: workspace('user-b', 'org-a', 'session-2') });
 		expect(screen.queryByRole('dialog', { name: "What's New" })).toBeNull();
+	});
+
+	it.each([
+		['Organization', workspace('user-a', 'org-b')],
+		['account', workspace('user-b')],
+		['session', workspace('user-a', 'org-a', 'session-2')]
+	] as const)('retires Organization work when its %s owner is replaced', async (_owner, replacement) => {
+		const view = render(Layout, { data: workspace(), children });
+		const retired = deferred<string>();
+		const retiredWork = withinOrganizationLifetime(retired.promise);
+
+		await view.rerender({ data: replacement });
+		retired.resolve('late result');
+
+		expect(await settles(retiredWork)).toBe(false);
+	});
+
+	it('keeps Organization work through same-session refreshes', async () => {
+		const view = render(Layout, { data: workspace(), children });
+		const current = deferred<string>();
+		const currentWork = withinOrganizationLifetime(current.promise);
+
+		await view.rerender({ data: workspace() });
+		current.resolve('current result');
+
+		await expect(currentWork).resolves.toBe('current result');
 	});
 
 	it('unmounts real submitted Feedback on scope replacement and suppresses its held success', async () => {

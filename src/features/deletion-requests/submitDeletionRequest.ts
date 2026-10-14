@@ -1,4 +1,5 @@
 import { toastStore } from '$lib/stores/toast.svelte';
+import { stillInOrganizationLifetime } from '$lib/stores/core';
 
 /**
  * After a store's remove() returns 'approval_required', call this to
@@ -10,7 +11,7 @@ export async function submitDeletionRequest(
 	resourceId: string,
 	resourceDescription: string,
 	resourceUrl?: string,
-	isCurrent: () => boolean = () => true
+	isCurrent: () => boolean = stillInOrganizationLifetime()
 ): Promise<boolean> {
 	if (!isCurrent()) return false;
 

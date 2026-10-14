@@ -13,6 +13,9 @@ import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { calendarStore } from '../stores/calendar.svelte';
 import { groupsStore } from '$features/personnel';
 import type { Personnel } from '$features/personnel/contracts';
+import { tick } from 'svelte';
+import { toastStore } from '$lib/stores/toast.svelte';
+import { endOrganizationLifetime } from '$lib/stores/core';
 
 const gotoMock = vi.hoisted(() => vi.fn());
 
@@ -385,5 +388,25 @@ describe('CalendarPageView', () => {
 			screen.queryByRole('button', { name: 'Excel' }),
 			'the long-range footer has no export of its own'
 		).toBeNull();
+	});
+
+	it('reports no export failure that arrives after the Organization shell ends', async () => {
+		mutableAvailabilityStore.loading = false;
+		let failExport!: (error: Error) => void;
+		exportMocks.exportMonthToExcel.mockImplementationOnce(
+			() => new Promise((_resolve, reject) => (failExport = reject))
+		);
+		const toastError = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+		const ctx = makeContext(mockData, makeMockOrg());
+		render(CalendarPageView, { props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' } } });
+
+		await chooseFromMore('Export to Excel');
+		await waitFor(() => expect(exportMocks.exportMonthToExcel).toHaveBeenCalledTimes(1));
+		endOrganizationLifetime();
+		failExport(new Error('Workbook failed'));
+		await Promise.resolve();
+		await tick();
+
+		expect(toastError).not.toHaveBeenCalled();
 	});
 });

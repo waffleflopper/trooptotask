@@ -1,8 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createStore } from './createStore.svelte';
+import type { Store } from './createStore.svelte';
 import { createMockAdapter } from './ports';
 import type { ApiAdapter, BatchApiAdapter } from './ports';
 import type { BeforeAddHook } from './optimistic';
+import { settles } from '$lib/test-support/settles';
+import { endOrganizationLifetime } from './lifetime';
 
 interface TestItem {
 	id: string;
@@ -418,7 +421,7 @@ describe('createStore', () => {
 			expect(store.items).toEqual([{ id: '10', name: 'Other Org Item' }]);
 
 			resolveCreate({ id: 'server-1', name: 'New' });
-			expect(await pendingAdd).toBeNull();
+			expect(await settles(pendingAdd)).toBe(false);
 			expect(store.items).toEqual([{ id: '10', name: 'Other Org Item' }]);
 		});
 
@@ -437,7 +440,7 @@ describe('createStore', () => {
 			store.load([{ id: 'shared-id', name: 'New Org Group' }], 'org-2');
 
 			resolveRemove('deleted');
-			expect(await pendingRemove).toBe('error');
+			expect(await settles(pendingRemove)).toBe(false);
 			expect(store.items).toEqual([{ id: 'shared-id', name: 'New Org Group' }]);
 		});
 
@@ -456,8 +459,66 @@ describe('createStore', () => {
 			store.load([{ id: 'shared-id', name: 'New Org Group' }], 'org-2');
 
 			rejectRemove(new Error('Old request failed'));
-			expect(await pendingRemove).toBe('error');
+			expect(await settles(pendingRemove)).toBe(false);
 			expect(store.items).toEqual([{ id: 'shared-id', name: 'New Org Group' }]);
+		});
+
+		const lateOperations = {
+			add: { start: (store: Store<TestItem>) => store.add({ name: 'New' }), adapter: 'create' },
+			addBatch: { start: (store: Store<TestItem>) => store.addBatch([{ name: 'New' }]), adapter: 'create' },
+			update: { start: (store: Store<TestItem>) => store.update('shared-id', { name: 'Renamed' }), adapter: 'update' },
+			remove: { start: (store: Store<TestItem>) => store.remove('shared-id'), adapter: 'remove' },
+			removeBatch: { start: (store: Store<TestItem>) => store.removeBatch(['shared-id']), adapter: 'remove' }
+		} as const;
+
+		for (const [name, operation] of Object.entries(lateOperations)) {
+			for (const outcome of ['resolve', 'reject'] as const) {
+				it(`never settles or reports a ${name} that ${outcome}s after switching Organizations`, async () => {
+					let settle!: { resolve: (value: unknown) => void; reject: (error: Error) => void };
+					const onError = vi.fn();
+					const store = createStore<TestItem>({
+						resource: 'test-items',
+						adapter: makeAdapter({
+							[operation.adapter]: () => new Promise((resolve, reject) => (settle = { resolve, reject }))
+						}),
+						onError
+					});
+					store.load([{ id: 'shared-id', name: 'Old Org Group' }], 'org-1');
+					const pending = operation.start(store);
+					store.load([{ id: 'shared-id', name: 'New Org Group' }], 'org-2');
+
+					if (outcome === 'resolve')
+						settle.resolve(operation.adapter === 'remove' ? 'deleted' : { id: 'saved', name: 'New' });
+					else settle.reject(new Error('Old request failed'));
+
+					expect(await settles(pending)).toBe(false);
+					expect(store.items).toEqual([{ id: 'shared-id', name: 'New Org Group' }]);
+					expect(store.busy).toBe(false);
+					expect(onError).not.toHaveBeenCalled();
+				});
+			}
+		}
+
+		it('never settles, reports or displays a mutation that finishes after the Organization shell ends', async () => {
+			let settle!: (item: TestItem) => void;
+			const onError = vi.fn();
+			const store = createStore<TestItem>({
+				resource: 'test-items',
+				adapter: makeAdapter({ create: () => new Promise((resolve) => (settle = resolve)) }),
+				onError
+			});
+			store.load([{ id: 'existing', name: 'Existing' }], 'org-1');
+			const pending = store.add({ name: 'New' });
+
+			endOrganizationLifetime();
+			settle({ id: 'saved', name: 'New' });
+
+			expect(await settles(pending)).toBe(false);
+			expect(onError).not.toHaveBeenCalled();
+
+			store.load([{ id: 'existing', name: 'Existing' }], 'org-1');
+			expect(store.items).toEqual([{ id: 'existing', name: 'Existing' }]);
+			expect(store.busy).toBe(false);
 		});
 
 		it('rolls back a rejected remove in the current organization', async () => {
@@ -486,7 +547,7 @@ describe('createStore', () => {
 			store.load([{ id: 'shared-id', name: 'New Org Group' }], 'org-2');
 
 			resolveUpdate({ id: 'shared-id', name: 'Renamed' });
-			expect(await pendingRename).toBe(false);
+			expect(await settles(pendingRename)).toBe(false);
 			expect(store.items).toEqual([{ id: 'shared-id', name: 'New Org Group' }]);
 		});
 

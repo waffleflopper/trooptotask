@@ -10,6 +10,7 @@
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { buildCalendarToolbar } from '$features/calendar/utils/calendarToolbarItems';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { stillInOrganizationLifetime } from '$lib/stores/core';
 	import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
@@ -47,22 +48,24 @@
 	}
 
 	async function exportExcel(): Promise<void> {
+		const current = stillInOrganizationLifetime();
 		try {
 			const { exportMonthToExcel, exportQuarterToExcel } = await import('$features/calendar/utils/calendarExport');
 			if (ctx.viewMode === '3-month') await exportQuarterToExcel(quarterStart(), getExportData());
 			else await exportMonthToExcel(calendarStore.year, calendarStore.month, getExportData());
 		} catch (err) {
-			toastStore.error(err instanceof Error ? err.message : 'Excel export failed');
+			if (current()) toastStore.error(err instanceof Error ? err.message : 'Excel export failed');
 		}
 	}
 
 	async function exportPDF(): Promise<void> {
+		const current = stillInOrganizationLifetime();
 		try {
 			const { printMonthCalendar, printQuarterCalendar } = await import('$features/calendar/utils/calendarExport');
 			if (ctx.viewMode === '3-month') await printQuarterCalendar(quarterStart(), getExportData());
 			else await printMonthCalendar(calendarStore.year, calendarStore.month, getExportData());
 		} catch (err) {
-			toastStore.error(err instanceof Error ? err.message : 'PDF export failed');
+			if (current()) toastStore.error(err instanceof Error ? err.message : 'PDF export failed');
 		}
 	}
 
@@ -95,20 +98,23 @@
 	);
 
 	async function loadAvailabilityModal() {
+		const current = stillInOrganizationLifetime();
 		try {
 			return await import('$features/calendar/components/AvailabilityModal.svelte');
 		} catch (error) {
-			toastStore.error(error instanceof Error ? error.message : 'Availability editor failed to load');
+			if (current()) toastStore.error(error instanceof Error ? error.message : 'Availability editor failed to load');
 			ctx.closeAvailabilityModal();
 			throw error;
 		}
 	}
 
 	async function loadDailyAssignmentModal() {
+		const current = stillInOrganizationLifetime();
 		try {
 			return await import('$features/calendar/components/DailyAssignmentModal.svelte');
 		} catch (error) {
-			toastStore.error(error instanceof Error ? error.message : 'Daily assignment editor failed to load');
+			if (current())
+				toastStore.error(error instanceof Error ? error.message : 'Daily assignment editor failed to load');
 			ctx.closeAssignmentModal();
 			throw error;
 		}

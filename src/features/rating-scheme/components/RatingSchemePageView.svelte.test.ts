@@ -10,6 +10,8 @@ import { ratingSchemeStore } from '../stores/ratingScheme.svelte';
 import type { RatingSchemeEntry } from '../rating-scheme.types';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import { openToolbarMore, openToolbarSubmenu, stubToolbarWidths } from '$lib/test-support/toolbarWidths';
+import { toastStore } from '$lib/stores/toast.svelte';
+import { endOrganizationLifetime } from '$lib/stores/core';
 
 const { exportRatingSchemeMock } = vi.hoisted(() => ({
 	exportRatingSchemeMock: vi.fn(async (_entries: unknown[], _personnel: unknown[]) => undefined)
@@ -248,6 +250,22 @@ describe('RatingSchemePageView', () => {
 		);
 		render(RatingSchemePageView, { props: { ctx, personnelLookup } });
 		expect(screen.queryByRole('button', { name: 'Evaluation workflow filter' })).toBeNull();
+	});
+
+	it('reports no export failure that arrives after the Organization shell ends', async () => {
+		let failExport!: (error: Error) => void;
+		exportRatingSchemeMock.mockImplementationOnce(() => new Promise((_resolve, reject) => (failExport = reject)));
+		const toastError = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+		render(RatingSchemePageView, { props: { ctx: makeContext(), personnelLookup } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Export' }));
+		await waitFor(() => expect(exportRatingSchemeMock).toHaveBeenCalledTimes(1));
+		endOrganizationLifetime();
+		failExport(new Error('Workbook failed'));
+		await Promise.resolve();
+		await tick();
+
+		expect(toastError).not.toHaveBeenCalled();
 	});
 
 	describe('when the toolbar folds', () => {

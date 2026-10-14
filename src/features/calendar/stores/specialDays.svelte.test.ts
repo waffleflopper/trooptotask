@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { specialDaysStore } from './specialDays.svelte';
+import { endOrganizationLifetime } from '$lib/stores/core';
+import { settles } from '$lib/test-support/settles';
 
 const mockDays = [
 	{ id: '1', name: 'New Year', date: '2026-01-01', type: 'federal-holiday' as const },
@@ -315,6 +317,78 @@ describe('specialDaysStore', () => {
 			expect(await pending).toBe('saved');
 			expect(specialDaysStore.items).toEqual([mockDays[1], ...retainedClosures, resetHoliday]);
 		});
+
+		it.each(['an Organization switch', 'the Organization shell ending'] as const)(
+			'does not wait on a closure save abandoned by %s',
+			async (departure) => {
+				let resolveReset!: (value: { ok: boolean; json: () => Promise<unknown> }) => void;
+				let resolveAbandoned!: (value: unknown) => void;
+				const resetHoliday = {
+					id: 'reset-holiday',
+					name: 'Reset holiday',
+					date: '2026-01-01',
+					type: 'federal-holiday' as const
+				};
+				const savedClosure = {
+					id: 'saved-closure',
+					name: 'Saved during reset',
+					date: '2026-09-28',
+					type: 'org-closure' as const
+				};
+				vi.stubGlobal(
+					'fetch',
+					vi.fn((_url, options?: RequestInit) => {
+						if (!options) {
+							return Promise.resolve({
+								ok: true,
+								json: () => Promise.resolve([mockDays[1], savedClosure, resetHoliday])
+							});
+						}
+						const input = JSON.parse(options.body as string);
+						if (input.action === 'resetFederalHolidays') return new Promise((resolve) => (resolveReset = resolve));
+						if (input.name === 'Abandoned closure') return new Promise((resolve) => (resolveAbandoned = resolve));
+						return Promise.resolve({ ok: true, status: 201, json: () => Promise.resolve(savedClosure) });
+					})
+				);
+
+				void specialDaysStore.add({ name: 'Abandoned closure', date: '2026-09-27', type: 'org-closure' });
+				if (departure === 'an Organization switch') {
+					specialDaysStore.load([], 'org-2');
+					specialDaysStore.load(structuredClone(mockDays), 'org-1');
+				} else {
+					endOrganizationLifetime();
+					specialDaysStore.load(structuredClone(mockDays), 'org-1');
+				}
+				resolveAbandoned({ ok: true, status: 201, json: () => Promise.resolve({ id: 'abandoned' }) });
+				const pending = specialDaysStore.resetFederalHolidays();
+				await specialDaysStore.add({ name: savedClosure.name, date: savedClosure.date, type: savedClosure.type });
+				resolveReset({ ok: true, json: () => Promise.resolve([mockDays[1], resetHoliday]) });
+
+				expect(await pending).toBe('saved');
+				expect(specialDaysStore.items).toEqual([mockDays[1], savedClosure, resetHoliday]);
+			}
+		);
+
+		it.each(['success', 'failure'] as const)(
+			'drops a reset %s that arrives after the Organization shell ends',
+			async (outcome) => {
+				let respond!: (value: { ok: boolean; json: () => Promise<unknown> }) => void;
+				vi.stubGlobal(
+					'fetch',
+					vi.fn(() => new Promise((resolve) => (respond = resolve)))
+				);
+				const pending = specialDaysStore.resetFederalHolidays();
+				endOrganizationLifetime();
+				specialDaysStore.load(structuredClone(mockDays), 'org-1');
+				respond({
+					ok: outcome === 'success',
+					json: () => Promise.resolve([{ id: 'late', name: 'Late', date: '2026-07-04', type: 'federal-holiday' }])
+				});
+
+				expect(await settles(pending)).toBe(false);
+				expect(specialDaysStore.items).toEqual(mockDays);
+			}
+		);
 
 		it('does not let an earlier reset response undo a newer reset', async () => {
 			let resolveFirst!: (value: { ok: boolean; json: () => Promise<unknown> }) => void;

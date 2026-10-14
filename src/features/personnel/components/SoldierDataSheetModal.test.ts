@@ -2,6 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { toastStore } from '$lib/stores/toast.svelte';
+import { endOrganizationLifetime } from '$lib/stores/core';
 import type { PersonnelExtendedInfo } from '$features/personnel/contracts';
 import SoldierDataSheetModal from './SoldierDataSheetModal.svelte';
 
@@ -99,6 +100,30 @@ describe('SoldierDataSheetModal', () => {
 		expect(toastError).toHaveBeenCalledWith(expected);
 		expect(bloodType.value).toBe('A-');
 		expect(screen.getByRole('dialog', { name: 'Soldier Data Sheet' })).toBe(dialog);
+		expect(onClose).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		['success', () => Response.json({}, { status: 200 })],
+		['failure', () => Response.json({ message: 'Service unavailable' }, { status: 503 })]
+	] as const)('reports nothing when a %s finishes after its Organization shell ends', async (_outcome, response) => {
+		let respond!: (response: Response) => void;
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(() => new Promise<Response>((resolve) => (respond = resolve)))
+		);
+		const toastError = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+		const toastSuccess = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
+		const onClose = vi.fn();
+		render(SoldierDataSheetModal, { props: { orgId: 'org-a', personnelId: 'person-1', initialInfo, onClose } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+		endOrganizationLifetime();
+		respond(response());
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		expect(toastError).not.toHaveBeenCalled();
+		expect(toastSuccess).not.toHaveBeenCalled();
 		expect(onClose).not.toHaveBeenCalled();
 	});
 

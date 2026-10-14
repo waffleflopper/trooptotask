@@ -4,6 +4,7 @@
 	import { onMount, type Snippet } from 'svelte';
 	import { browser } from '$app/environment';
 	import { getBrowserLocalStorage } from '$lib/utils/browserStorage';
+	import { endOrganizationLifetime } from '$lib/stores/core';
 	import { AccountPreferencesProvider } from '$features/identity';
 	import { AnnouncementBanner } from '$features/notifications';
 	import BannerStack from './BannerStack.svelte';
@@ -30,6 +31,8 @@
 	let showWhatsNew = $state(false);
 	let hasAutoShownWhatsNew = false;
 	setAppShellContext(createAppShellContext(() => shell, autoShowWhatsNew));
+	// The Organization layout keys this shell by user, Organization and session; its teardown ends that lifetime.
+	$effect(() => endOrganizationLifetime);
 
 	function autoShowWhatsNew() {
 		if (!browser || hasAutoShownWhatsNew || !changelog.length) return;

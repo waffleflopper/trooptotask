@@ -25,6 +25,7 @@
 	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import { SENSITIVE_FILE_ACCEPT, validateSensitiveFileSelection } from '$lib/storage/sensitiveFiles';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { stillInOrganizationLifetime, withinOrganizationLifetime } from '$lib/stores/core';
 	import { formatDate as formatDateValue } from '$lib/utils/dates';
 	import { SvelteMap, SvelteSet, SvelteURLSearchParams } from 'svelte/reactivity';
 
@@ -381,6 +382,7 @@
 
 	// Re-print from saved roster
 	async function reprintRoster(roster: SignInRoster) {
+		const current = stillInOrganizationLifetime();
 		try {
 			await generatePDF({
 				title: roster.title,
@@ -391,7 +393,7 @@
 				personnelSnapshot: roster.personnelSnapshot
 			});
 		} catch (err) {
-			toastStore.error(err instanceof Error ? err.message : 'Failed to generate PDF');
+			if (current()) toastStore.error(err instanceof Error ? err.message : 'Failed to generate PDF');
 		}
 	}
 
@@ -433,11 +435,13 @@
 			const formData = new FormData();
 			formData.append('file', file);
 
-			const response = await fetch(getSignedScanUploadUrl(roster), {
-				method: 'POST',
-				body: formData
-			});
-			const payload = (await response.json()) as {
+			const response = await withinOrganizationLifetime(
+				fetch(getSignedScanUploadUrl(roster), {
+					method: 'POST',
+					body: formData
+				})
+			);
+			const payload = (await withinOrganizationLifetime(response.json())) as {
 				filePath?: string;
 				error?: string;
 			};
@@ -494,12 +498,14 @@
 
 		signedScanRemovingIds.add(roster.id);
 		try {
-			const response = await fetch(getSignedScanUploadUrl(roster), {
-				method: 'DELETE'
-			});
+			const response = await withinOrganizationLifetime(
+				fetch(getSignedScanUploadUrl(roster), {
+					method: 'DELETE'
+				})
+			);
 
 			if (!response.ok) {
-				const payload = (await response.json()) as { error?: string };
+				const payload = (await withinOrganizationLifetime(response.json())) as { error?: string };
 				throw new Error(payload.error ?? 'Remove failed.');
 			}
 
@@ -516,9 +522,11 @@
 	async function deleteRoster(roster: SignInRoster) {
 		deleting = roster.id;
 		try {
-			const res = await fetch(`/org/${orgId}/api/sign-in-rosters/${roster.id}`, {
-				method: 'DELETE'
-			});
+			const res = await withinOrganizationLifetime(
+				fetch(`/org/${orgId}/api/sign-in-rosters/${roster.id}`, {
+					method: 'DELETE'
+				})
+			);
 			if (res.ok) {
 				rosters = rosters.filter((r) => r.id !== roster.id);
 				total--;

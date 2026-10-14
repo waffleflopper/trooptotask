@@ -7,6 +7,7 @@ import type { MutationEntry } from './replay';
 import { createRestAdapter } from './ports';
 import type { ApiAdapter, BatchApiAdapter } from './ports';
 import type { BeforeAddHook } from './optimistic';
+import { organizationLifetime, withinOrganizationLifetime } from './lifetime';
 
 export interface StoreConfig<T extends { id: string }> {
 	resource: string;
@@ -47,6 +48,7 @@ export interface StoreInternals<T extends { id: string }> {
 	replay(): T[];
 	snapshot(): T[];
 	orgId(): string;
+	withinOrganization<R>(work: Promise<R>): Promise<R>;
 	adapter: ApiAdapter<T>;
 }
 
@@ -58,7 +60,14 @@ export function createStoreWithInternals<T extends { id: string }>(
 	const loadingVal = createReactiveValue(true);
 	const log = createMutationLog<T>();
 	let organizationVersion = 0;
+	let loadedLifetime = organizationLifetime();
 	let loadVersion = 0;
+
+	// A response also goes stale when the store loads another Organization without a shell remount.
+	function withinOrganization<R>(work: Promise<R>): Promise<R> {
+		const version = organizationVersion;
+		return withinOrganizationLifetime(work, () => version === organizationVersion);
+	}
 
 	let adapter: ApiAdapter<T> = config.adapter ?? createRestAdapter<T>(() => orgIdVal.value, config.resource);
 
@@ -79,18 +88,15 @@ export function createStoreWithInternals<T extends { id: string }>(
 		if (!original) return 'error';
 
 		const mutationId = crypto.randomUUID();
-		const mutationOrganizationVersion = organizationVersion;
 		log.push({ type: 'remove', mutationId, targetId: id });
 
 		let result: DeleteResult;
 		try {
-			result = await adapter.remove(id);
+			result = await withinOrganization(adapter.remove(id));
 		} catch (error) {
-			if (mutationOrganizationVersion !== organizationVersion) return 'error';
 			log.resolve(mutationId);
 			throw error;
 		}
-		if (mutationOrganizationVersion !== organizationVersion) return 'error';
 		if (result === 'deleted') {
 			serverState.set(serverState.getSnapshot().filter((item) => item.id !== id));
 		} else if (result === 'error') {
@@ -132,10 +138,11 @@ export function createStoreWithInternals<T extends { id: string }>(
 
 		load(newItems: T[], newOrgId: string) {
 			loadVersion++;
-			if (newOrgId !== orgIdVal.value) {
+			if (newOrgId !== orgIdVal.value || loadedLifetime !== organizationLifetime()) {
 				organizationVersion++;
 				log.clear();
 			}
+			loadedLifetime = organizationLifetime();
 			serverState.set(newItems);
 			orgIdVal.set(newOrgId);
 			loadingVal.set(false);
@@ -147,12 +154,10 @@ export function createStoreWithInternals<T extends { id: string }>(
 		async add(data: Omit<T, 'id'>): Promise<T | null> {
 			const tempId = `temp-${crypto.randomUUID()}`;
 			const mutationId = crypto.randomUUID();
-			const mutationOrganizationVersion = organizationVersion;
 			log.push({ type: 'add', mutationId, tempId, data });
 
 			try {
-				const created = await adapter.create(data);
-				if (mutationOrganizationVersion !== organizationVersion) return null;
+				const created = await withinOrganization(adapter.create(data));
 				let current = serverState.getSnapshot();
 				if (config.beforeAdd) {
 					const { items } = config.beforeAdd(current, data);
@@ -162,7 +167,6 @@ export function createStoreWithInternals<T extends { id: string }>(
 				log.resolve(mutationId);
 				return created;
 			} catch (e) {
-				if (mutationOrganizationVersion !== organizationVersion) return null;
 				config.onError?.('add', e);
 				log.resolve(mutationId);
 				throw e;
@@ -171,23 +175,19 @@ export function createStoreWithInternals<T extends { id: string }>(
 
 		async addBatch(entries: Omit<T, 'id'>[]): Promise<T[]> {
 			const mutationId = crypto.randomUUID();
-			const mutationOrganizationVersion = organizationVersion;
 			const tempIds = entries.map(() => `temp-${crypto.randomUUID()}`);
 			log.push({ type: 'add-batch', mutationId, tempIds, data: entries });
 
 			try {
-				let created: T[];
-				if (config.batchAdapter) {
-					created = await config.batchAdapter.createBatch(entries);
-				} else {
-					created = await Promise.all(entries.map((data) => adapter.create(data)));
-				}
-				if (mutationOrganizationVersion !== organizationVersion) return [];
+				const created = await withinOrganization(
+					config.batchAdapter
+						? config.batchAdapter.createBatch(entries)
+						: Promise.all(entries.map((data) => adapter.create(data)))
+				);
 				serverState.set([...serverState.getSnapshot(), ...created]);
 				log.resolve(mutationId);
 				return created;
 			} catch (e) {
-				if (mutationOrganizationVersion !== organizationVersion) return [];
 				config.onError?.('addBatch', e);
 				log.resolve(mutationId);
 				return [];
@@ -200,17 +200,14 @@ export function createStoreWithInternals<T extends { id: string }>(
 			if (!original) return false;
 
 			const mutationId = crypto.randomUUID();
-			const mutationOrganizationVersion = organizationVersion;
 			log.push({ type: 'update', mutationId, targetId: id, data: data as Partial<T> });
 
 			try {
-				const updated = await adapter.update(id, data);
-				if (mutationOrganizationVersion !== organizationVersion) return false;
+				const updated = await withinOrganization(adapter.update(id, data));
 				serverState.set(serverState.getSnapshot().map((item) => (item.id === id ? updated : item)));
 				log.resolve(mutationId);
 				return true;
 			} catch (e) {
-				if (mutationOrganizationVersion !== organizationVersion) return false;
 				config.onError?.('update', e);
 				log.resolve(mutationId);
 				return false;
@@ -226,16 +223,14 @@ export function createStoreWithInternals<T extends { id: string }>(
 
 		async removeBatch(ids: string[]): Promise<boolean> {
 			const mutationId = crypto.randomUUID();
-			const mutationOrganizationVersion = organizationVersion;
 			log.push({ type: 'remove-batch', mutationId, targetIds: ids });
 
 			try {
-				if (config.batchAdapter?.removeBatch) {
-					await config.batchAdapter.removeBatch(ids);
-				} else {
-					await Promise.all(ids.map((id) => adapter.remove(id)));
-				}
-				if (mutationOrganizationVersion !== organizationVersion) return false;
+				await withinOrganization<unknown>(
+					config.batchAdapter?.removeBatch
+						? config.batchAdapter.removeBatch(ids)
+						: Promise.all(ids.map((id) => adapter.remove(id)))
+				);
 				const idsToRemove: Record<string, true> = Object.create(null);
 				for (const id of ids) {
 					idsToRemove[id] = true;
@@ -244,7 +239,6 @@ export function createStoreWithInternals<T extends { id: string }>(
 				log.resolve(mutationId);
 				return true;
 			} catch (e) {
-				if (mutationOrganizationVersion !== organizationVersion) return false;
 				config.onError?.('removeBatch', e);
 				log.resolve(mutationId);
 				return false;
@@ -294,6 +288,7 @@ export function createStoreWithInternals<T extends { id: string }>(
 		replay: () => getDisplayItems(),
 		snapshot: () => getDisplayItems(),
 		orgId: () => orgIdVal.value,
+		withinOrganization,
 		get adapter() {
 			return adapter;
 		}

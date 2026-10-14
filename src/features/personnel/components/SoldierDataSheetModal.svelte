@@ -8,6 +8,7 @@
 	import * as Tabs from '$lib/components/ui/tabs';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { withinOrganizationLifetime } from '$lib/stores/core';
 	import type { PersonnelExtendedInfo } from '$features/personnel/contracts';
 	import { untrack } from 'svelte';
 
@@ -62,38 +63,40 @@
 		errorMessage = '';
 
 		try {
-			const response = await fetch(`/org/${orgId}/api/personnel/${personnelId}/extended-info`, {
-				method: 'PUT',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({
-					personnelId,
-					bloodType: form.bloodType,
-					basd: form.basd,
-					dateOfRank: form.dateOfRank,
-					maritalStatus: form.maritalStatus,
-					numberOfDependents: form.numberOfDependents,
-					children: parseChildren(form.childrenText),
-					civilianEducation: form.civilianEducation,
-					militaryEducation: parseMilitaryEducation(form.militaryEducationText),
-					emergencyContactName: form.emergencyContactName,
-					emergencyContactRelationship: form.emergencyContactRelationship,
-					emergencyContactPhone: form.emergencyContactPhone,
-					spouseName: form.spouseName,
-					spousePhone: form.spousePhone,
-					vehicleMakeModel: form.vehicleMakeModel,
-					vehiclePlate: form.vehiclePlate,
-					vehicleColor: form.vehicleColor,
-					personalEmail: form.personalEmail,
-					personalPhone: form.personalPhone,
-					addressStreet: form.addressStreet,
-					addressCity: form.addressCity,
-					addressState: form.addressState,
-					addressZip: form.addressZip
+			const response = await withinOrganizationLifetime(
+				fetch(`/org/${orgId}/api/personnel/${personnelId}/extended-info`, {
+					method: 'PUT',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({
+						personnelId,
+						bloodType: form.bloodType,
+						basd: form.basd,
+						dateOfRank: form.dateOfRank,
+						maritalStatus: form.maritalStatus,
+						numberOfDependents: form.numberOfDependents,
+						children: parseChildren(form.childrenText),
+						civilianEducation: form.civilianEducation,
+						militaryEducation: parseMilitaryEducation(form.militaryEducationText),
+						emergencyContactName: form.emergencyContactName,
+						emergencyContactRelationship: form.emergencyContactRelationship,
+						emergencyContactPhone: form.emergencyContactPhone,
+						spouseName: form.spouseName,
+						spousePhone: form.spousePhone,
+						vehicleMakeModel: form.vehicleMakeModel,
+						vehiclePlate: form.vehiclePlate,
+						vehicleColor: form.vehicleColor,
+						personalEmail: form.personalEmail,
+						personalPhone: form.personalPhone,
+						addressStreet: form.addressStreet,
+						addressCity: form.addressCity,
+						addressState: form.addressState,
+						addressZip: form.addressZip
+					})
 				})
-			});
+			);
 
 			if (!response.ok) {
-				const body: { message?: unknown } | null = await response.json().catch(() => null);
+				const body: { message?: unknown } | null = await withinOrganizationLifetime(response.json().catch(() => null));
 				throw new Error(
 					typeof body?.message === 'string' && body.message ? body.message : 'Failed to save Soldier Data Sheet'
 				);

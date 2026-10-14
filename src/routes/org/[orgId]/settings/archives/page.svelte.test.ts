@@ -4,24 +4,30 @@ import { writable } from 'svelte/store';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SettingsArchivesSectionData } from '../settingsSectionTypes';
 
-const { invalidateAllMock, toastError } = vi.hoisted(() => ({
+const { invalidateAllMock, toastError, toastSuccess, saveDownload } = vi.hoisted(() => ({
 	invalidateAllMock: vi.fn(),
-	toastError: vi.fn()
+	toastError: vi.fn(),
+	toastSuccess: vi.fn(),
+	saveDownload: vi.fn()
 }));
 
 vi.mock('$app/navigation', () => ({ invalidateAll: invalidateAllMock }));
 vi.mock('$app/stores', () => ({ page: writable({ params: { orgId: 'org-1' } }) }));
 vi.mock('$lib/stores/toast.svelte', () => ({
-	toastStore: { success: vi.fn(), error: toastError }
+	toastStore: { success: toastSuccess, error: toastError }
 }));
+vi.mock('$lib/utils/downloadBlob', () => ({ downloadBlob: saveDownload }));
 
 import Page from './+page.svelte';
+import { endOrganizationLifetime } from '$lib/stores/core';
 
 afterEach(() => {
 	cleanup();
 	vi.unstubAllGlobals();
 	invalidateAllMock.mockReset();
 	toastError.mockReset();
+	toastSuccess.mockReset();
+	saveDownload.mockReset();
 });
 
 const archivesSettings: SettingsArchivesSectionData = {
@@ -109,5 +115,75 @@ describe('Archived personnel permanent delete', () => {
 			expect((screen.getByRole('button', { name: 'Delete' }) as HTMLButtonElement).disabled).toBe(false)
 		);
 		expect((screen.getByRole('button', { name: 'Export' }) as HTMLButtonElement).disabled).toBe(false);
+	});
+});
+
+describe('Archived personnel actions after leaving the Organization', () => {
+	function heldFetch() {
+		let respond!: (response: Response) => void;
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(() => new Promise<Response>((resolve) => (respond = resolve)))
+		);
+		render(Page, {
+			props: { data: { archivesSettings: { sections: { archivedPersonnel: archivesSettings } } } } as never
+		});
+		return (response: Response) => respond(response);
+	}
+
+	it.each([
+		['success', () => new Response(null, { status: 200 })],
+		['failure', () => Response.json({ message: 'Restore denied' }, { status: 403 })]
+	] as const)('reports nothing when a restore %s finishes after the shell ends', async (_outcome, response) => {
+		const respond = heldFetch();
+		await fireEvent.click(screen.getByRole('button', { name: 'Restore' }));
+
+		endOrganizationLifetime();
+		respond(response());
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		expect(toastSuccess).not.toHaveBeenCalled();
+		expect(toastError).not.toHaveBeenCalled();
+		expect(invalidateAllMock).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		['success', () => new Response(null, { status: 200 })],
+		['failure', () => new Response(null, { status: 500 })]
+	] as const)(
+		'reports nothing when a permanent delete %s finishes after the shell ends',
+		async (_outcome, response) => {
+			const respond = heldFetch();
+			await fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+			await fireEvent.input(await screen.findByLabelText('Type the name to confirm'), {
+				target: { value: 'SGT Rivera, Monica' }
+			});
+			await fireEvent.click(screen.getByRole('button', { name: 'Permanently Delete' }));
+
+			endOrganizationLifetime();
+			respond(response());
+			await new Promise((resolve) => setTimeout(resolve, 0));
+
+			expect(toastSuccess).not.toHaveBeenCalled();
+			expect(toastError).not.toHaveBeenCalled();
+			expect(invalidateAllMock).not.toHaveBeenCalled();
+		}
+	);
+
+	it('still downloads a requested export but reports no late export failure', async () => {
+		const respondSaved = heldFetch();
+		await fireEvent.click(screen.getByRole('button', { name: 'Export' }));
+		endOrganizationLifetime();
+		respondSaved(new Response('workbook', { status: 200 }));
+		await waitFor(() => expect(saveDownload).toHaveBeenCalledWith(expect.anything(), 'rivera-monica-records.xlsx'));
+		cleanup();
+
+		const respondFailed = heldFetch();
+		await fireEvent.click(screen.getByRole('button', { name: 'Export' }));
+		endOrganizationLifetime();
+		respondFailed(new Response(null, { status: 503 }));
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		expect(toastError).not.toHaveBeenCalled();
 	});
 });

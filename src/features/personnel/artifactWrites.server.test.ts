@@ -163,49 +163,6 @@ describe('Person-bound artifact writes', () => {
 		});
 		expect(admin.storageBucket.upload).toHaveBeenCalledTimes(1);
 	});
-
-	it('rejects an archive batch containing any out-of-Group Person before opening the service client', async () => {
-		const request = client();
-		request.query.range.mockResolvedValueOnce({
-			data: [
-				{ id: 'person-1', group_id: 'alpha' },
-				{ id: 'person-2', group_id: 'bravo' }
-			],
-			error: null
-		});
-		const getAdminClient = vi.fn(() => client().value);
-		const port = createSupabasePersonnelArtifactWritePort(request.value, getAdminClient);
-
-		await expect(port.forPeople(member('configure'), ['person-1', 'person-2'], 'archive')).rejects.toMatchObject({
-			status: 403
-		});
-		expect(getAdminClient).not.toHaveBeenCalled();
-	});
-
-	it('binds batch candidate reads and updates to the admitted Person IDs', async () => {
-		const request = client();
-		request.query.range.mockResolvedValueOnce({ data: [{ id: 'person-1', group_id: 'alpha' }], error: null });
-		const admin = client();
-		admin.query.range.mockResolvedValueOnce({ data: [{ id: 'note-1', personnel_id: 'person-1' }], error: null });
-		const writer = await createSupabasePersonnelArtifactWritePort(request.value, () => admin.value).forPeople(
-			member('configure'),
-			['person-1'],
-			'archive'
-		);
-
-		await expect(writer.listLeaderNoteArchiveCandidates(null)).resolves.toEqual([
-			{ id: 'note-1', personnelId: 'person-1' }
-		]);
-		expect(admin.query.in).toHaveBeenCalledWith('personnel_id', ['person-1']);
-		expect(admin.query.is).toHaveBeenCalledWith('archived_at', null);
-		await writer.setLeaderNoteArchivedAt({ id: 'note-1', personnelId: 'person-1' }, '2026-09-26');
-		expect(admin.query.eq).toHaveBeenCalledWith('organization_id', 'a1300000-0000-4000-8000-000000000001');
-		expect(admin.query.eq).toHaveBeenCalledWith('personnel_id', 'person-1');
-		await expect(
-			writer.setLeaderNoteArchivedAt({ id: 'note-2', personnelId: 'person-2' }, '2026-09-26')
-		).rejects.toMatchObject({ status: 403 });
-		expect(admin.query.update).toHaveBeenCalledTimes(1);
-	});
 });
 
 // SDK serialization and effect state, separately from the operation lifetime

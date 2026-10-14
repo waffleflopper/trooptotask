@@ -2,8 +2,9 @@ import type { ApprovedDeletionEffects } from '$features/deletion-requests/index.
 import type { DeletionRequestResourceType } from '$features/deletion-requests/contracts';
 import { createSupabaseOrganizationInvitationSetupStateLookupPort } from '$features/organization/index.server';
 import {
-	archiveApprovedPersonnelRecord,
-	createSupabasePersonnelGovernanceDeletionPort
+	approvePersonnelArchiveRequest,
+	createSupabasePersonnelGovernanceDeletionPort,
+	createSupabasePersonnelLifecycleCommands
 } from '$features/personnel/index.server';
 import { createSupabaseApprovedRatingSchemeDeletionPort } from '$features/rating-scheme/index.server';
 import { createSupabaseApprovedTrainingDeletionPort } from '$features/training/index.server';
@@ -399,7 +400,7 @@ export function createRequestPersonnelLifecycleContext(request: AdmittedOrganiza
 		audit: request.audit,
 		personnel: createSupabasePersonnelRecordPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet),
 		organizationPersonnel: createSupabasePersonnelRecordPersistence(request.supabase, request.auth.orgId),
-		personnelArtifactWrites: createSupabasePersonnelArtifactWritePort(request.supabase, getAdminClient),
+		personnelLifecycle: createSupabasePersonnelLifecycleCommands(request.supabase, request.auth.orgId),
 		artifactReads: createSupabasePersonnelArtifactReadPersistence(request.supabase, request.auth.orgId)
 	};
 }
@@ -701,7 +702,8 @@ export function createApprovedDeletionEffects(
 	const rating = createSupabaseApprovedRatingSchemeDeletionPort(getAdminClient);
 	const counseling = createSupabasePersonnelGovernanceDeletionPort(getAdminClient, requirePending);
 	return {
-		archivePersonnel: (id) => archiveApprovedPersonnelRecord(ctx, id),
+		approvePersonnelArchive: (requestId, id, reviewedAt) =>
+			approvePersonnelArchiveRequest(ctx, requestId, id, reviewedAt),
 		approveTrainingType: (requestId, id, reviewedAt) =>
 			training.approveTrainingTypeDeletion(ctx.auth, requestId, id, reviewedAt),
 		approveTrainingRecord: (requestId, id, reviewedAt) =>

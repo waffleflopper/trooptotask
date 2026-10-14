@@ -9,7 +9,7 @@ import {
 	archivePersonnelRecord,
 	restorePersonnelRecord,
 	permanentlyDeletePersonnelRecord,
-	archiveApprovedPersonnelRecord
+	approvePersonnelArchiveRequest
 } from './personnelLifecycle.server';
 const createWritePortsContext = (overrides?: Parameters<typeof basecreateWritePortsContext>[0]) =>
 	withPersonnelPersistence(basecreateWritePortsContext(overrides));
@@ -46,49 +46,6 @@ describe('Personnel — archive', () => {
 		]);
 	}
 
-	function seedPersonnelArtifacts(ctx: ReturnType<typeof buildContext>) {
-		ctx.store.seed('personnel_follow_ups', [
-			{
-				id: 'follow-up-open',
-				organization_id: 'test-org',
-				personnel_id: 'p-1',
-				status: 'open',
-				archived_at: null
-			},
-			{
-				id: 'follow-up-completed',
-				organization_id: 'test-org',
-				personnel_id: 'p-1',
-				status: 'completed',
-				archived_at: null
-			}
-		]);
-		ctx.store.seed('counseling_records', [
-			{
-				id: 'counseling-active',
-				organization_id: 'test-org',
-				personnel_id: 'p-1',
-				archived_at: null
-			}
-		]);
-		ctx.store.seed('personnel_documents', [
-			{
-				id: 'document-active',
-				organization_id: 'test-org',
-				personnel_id: 'p-1',
-				archived_at: null
-			}
-		]);
-		ctx.store.seed('leader_notes', [
-			{
-				id: 'note-active',
-				organization_id: 'test-org',
-				personnel_id: 'p-1',
-				archived_at: null
-			}
-		]);
-	}
-
 	it('sets archived_at and audits', async () => {
 		const ctx = buildContext();
 		seedPersonnel(ctx);
@@ -104,108 +61,37 @@ describe('Personnel — archive', () => {
 		});
 	});
 
-	it('archives personnel-owned artifacts without reopening completed follow-ups later', async () => {
+	it('archives the Person and every Personnel-owned record through one command at the current time', async () => {
 		const ctx = buildContext();
 		seedPersonnel(ctx);
-		seedPersonnelArtifacts(ctx);
-
-		await archivePersonnelRecord(ctx, 'p-1');
-
-		const followUps = (await ctx.store.findMany('personnel_follow_ups', 'test-org')) as Record<string, unknown>[];
-		const counselings = (await ctx.store.findMany('counseling_records', 'test-org')) as Record<string, unknown>[];
-		const documents = (await ctx.store.findMany('personnel_documents', 'test-org')) as Record<string, unknown>[];
-		const notes = (await ctx.store.findMany('leader_notes', 'test-org')) as Record<string, unknown>[];
-
-		expect(followUps).toEqual(
-			expect.arrayContaining([
-				expect.objectContaining({ id: 'follow-up-open', status: 'archived', archived_at: expect.any(String) }),
-				expect.objectContaining({ id: 'follow-up-completed', status: 'completed', archived_at: null })
-			])
-		);
-		expect(counselings[0].archived_at).toEqual(expect.any(String));
-		expect(documents[0].archived_at).toEqual(expect.any(String));
-		expect(notes[0].archived_at).toEqual(expect.any(String));
+		const archive = vi.spyOn(ctx.personnelLifecycle, 'archive');
+		const archivedAt = '2026-09-30T14:00:00.000Z';
+		vi.useFakeTimers({ toFake: ['Date'] });
+		try {
+			vi.setSystemTime(new Date(archivedAt));
+			await archivePersonnelRecord(ctx, 'p-1');
+		} finally {
+			vi.useRealTimers();
+		}
+		expect(archive.mock.calls).toEqual([[['p-1'], archivedAt]]);
 	});
 
-	it.each([false, true])(
-		'preserves the archive event on replay and restores its artifacts (interrupted: %s)',
-		async (interrupted) => {
-			const ctx = buildContext();
-			seedPersonnel(ctx);
-			seedPersonnelArtifacts(ctx);
-			const original = structuredClone(
-				await ctx.store.findOne<Record<string, unknown>>('personnel', ctx.auth.orgId, { id: 'p-1' })
-			);
-			const olderArchive = '2026-08-01T12:00:00.000Z';
-			await ctx.store.insert('leader_notes', ctx.auth.orgId, {
-				id: 'note-independent',
-				personnel_id: 'p-1',
-				archived_at: olderArchive
-			});
-			const writes = ctx.personnelArtifactWrites!;
-			const forPeople = writes.forPeople.bind(writes);
-			let failNote = interrupted;
-			writes.forPeople = async (...args) => {
-				const writer = await forPeople(...args);
-				return {
-					...writer,
-					async setLeaderNoteArchivedAt(row, archivedAt) {
-						if (failNote) {
-							failNote = false;
-							throw new Error('note archive interrupted');
-						}
-						await writer.setLeaderNoteArchivedAt(row, archivedAt);
-					}
-				};
-			};
-			const firstArchive = '2026-09-30T14:00:00.000Z';
-			vi.useFakeTimers({ toFake: ['Date'] });
-			try {
-				vi.setSystemTime(new Date(firstArchive));
-				if (interrupted) await expect(archivePersonnelRecord(ctx, 'p-1')).rejects.toThrow('note archive interrupted');
-				else await archivePersonnelRecord(ctx, 'p-1');
-				expect(await ctx.store.findOne('personnel', ctx.auth.orgId, { id: 'p-1' })).toEqual({
-					...original,
-					archived_at: firstArchive
-				});
-				vi.setSystemTime(new Date('2026-09-30T14:05:00.000Z'));
-				await archivePersonnelRecord(ctx, 'p-1');
-				expect(await ctx.store.findOne('personnel', ctx.auth.orgId, { id: 'p-1' })).toEqual({
-					...original,
-					archived_at: firstArchive
-				});
-				for (const [table, id] of [
-					['personnel_follow_ups', 'follow-up-open'],
-					['counseling_records', 'counseling-active'],
-					['personnel_documents', 'document-active'],
-					['leader_notes', 'note-active']
-				]) {
-					expect(await ctx.store.findOne(table, ctx.auth.orgId, { id })).toMatchObject({ archived_at: firstArchive });
-				}
-				await restorePersonnelRecord(ctx, 'p-1');
-				expect(await ctx.store.findOne('personnel', ctx.auth.orgId, { id: 'p-1' })).toEqual(original);
-				for (const [table, id] of [
-					['personnel_follow_ups', 'follow-up-open'],
-					['counseling_records', 'counseling-active'],
-					['personnel_documents', 'document-active'],
-					['leader_notes', 'note-active']
-				]) {
-					expect(await ctx.store.findOne(table, ctx.auth.orgId, { id })).toMatchObject({ archived_at: null });
-				}
-				expect(await ctx.store.findOne('personnel_follow_ups', ctx.auth.orgId, { id: 'follow-up-open' })).toMatchObject(
-					{ status: 'open' }
-				);
-				expect(
-					await ctx.store.findOne('personnel_follow_ups', ctx.auth.orgId, { id: 'follow-up-completed' })
-				).toMatchObject({ status: 'completed', archived_at: null });
-				expect(await ctx.store.findOne('leader_notes', ctx.auth.orgId, { id: 'note-independent' })).toMatchObject({
-					archived_at: olderArchive
-				});
-			} finally {
-				vi.useRealTimers();
-			}
-		}
-	);
+	it.each([
+		['rejects the command', new Error('Personnel archive failed')],
+		['does not acknowledge the command', new Error('Personnel archive was not acknowledged')]
+	])('reports no archive and does not retry when the database %s', async (_case, failure) => {
+		const ctx = buildContext();
+		seedPersonnel(ctx);
+		const archive = vi.fn(async () => {
+			throw failure;
+		});
+		ctx.personnelLifecycle.archive = archive;
+
+		await expect(archivePersonnelRecord(ctx, 'p-1')).rejects.toThrow(failure.message);
+		expect(archive).toHaveBeenCalledTimes(1);
+		expect(ctx.audit.events).not.toContainEqual(expect.objectContaining({ action: 'personnel.archived' }));
+		expect(await ctx.store.findOne('personnel', 'test-org', { id: 'p-1' })).toMatchObject({ archived_at: null });
+	});
 
 	it('returns requiresApproval for non-privileged, non-full-editor users', async () => {
 		const ctx = buildContext({
@@ -268,8 +154,10 @@ describe('Personnel — archive', () => {
 			seedPersonnel(ctx);
 			await ctx.rawStore!.update('personnel', ctx.auth.orgId, 'p-1', { group_id: 'group-b', archived_at: archivedAt });
 			const original = structuredClone(await ctx.rawStore!.findOne('personnel', ctx.auth.orgId, { id: 'p-1' }));
+			const archive = vi.spyOn(ctx.personnelLifecycle, 'archive');
 
 			await expect(archivePersonnelRecord(ctx, 'p-1')).rejects.toMatchObject({ status: 403 });
+			expect(archive).not.toHaveBeenCalled();
 			expect(await ctx.rawStore!.findOne('personnel', ctx.auth.orgId, { id: 'p-1' })).toEqual(original);
 			expect(ctx.audit.events).not.toContainEqual(expect.objectContaining({ action: 'personnel.archived' }));
 		}
@@ -294,94 +182,17 @@ describe('Personnel — restore', () => {
 		]);
 	}
 
-	function seedArchivedArtifacts(ctx: ReturnType<typeof buildContext>) {
-		ctx.store.seed('personnel_follow_ups', [
-			{
-				id: 'follow-up-restored',
-				organization_id: ctx.auth.orgId,
-				personnel_id: 'p-1',
-				status: 'archived',
-				archived_at: '2026-04-01T00:00:00Z'
-			},
-			{
-				id: 'follow-up-still-archived',
-				organization_id: ctx.auth.orgId,
-				personnel_id: 'p-1',
-				status: 'archived',
-				archived_at: '2026-03-01T00:00:00Z'
-			}
-		]);
-		ctx.store.seed('counseling_records', [
-			{
-				id: 'counseling-restored',
-				organization_id: ctx.auth.orgId,
-				personnel_id: 'p-1',
-				archived_at: '2026-04-01T00:00:00Z'
-			}
-		]);
-		ctx.store.seed('personnel_documents', [
-			{
-				id: 'document-restored',
-				organization_id: ctx.auth.orgId,
-				personnel_id: 'p-1',
-				archived_at: '2026-04-01T00:00:00Z'
-			}
-		]);
-		ctx.store.seed('leader_notes', [
-			{
-				id: 'note-restored',
-				organization_id: ctx.auth.orgId,
-				personnel_id: 'p-1',
-				archived_at: '2026-04-01T00:00:00Z'
-			},
-			{ id: 'note-independent', organization_id: 'test-org', personnel_id: 'p-1', archived_at: '2026-03-01T00:00:00Z' },
-			{
-				id: 'note-other-person',
-				organization_id: 'test-org',
-				personnel_id: 'p-2',
-				archived_at: '2026-04-01T00:00:00Z'
-			},
-			{ id: 'note-other-org', organization_id: 'other-org', personnel_id: 'p-1', archived_at: '2026-04-01T00:00:00Z' }
-		]);
-	}
-
-	it('restores archived personnel, owned artifacts and audit state without a subscription provider', async () => {
+	it('restores the Person and its archive event records through one command and audits', async () => {
 		const ctx = buildContext();
 		seedArchivedPersonnel(ctx);
-		seedArchivedArtifacts(ctx);
+		const restore = vi.spyOn(ctx.personnelLifecycle, 'restore');
 
 		const result = await restorePersonnelRecord(ctx, 'p-1');
 
 		expect(result).toEqual({ success: true });
+		expect(restore.mock.calls).toEqual([['p-1']]);
 		await expect(ctx.store.findOne('personnel', ctx.auth.orgId, { id: 'p-1' })).resolves.toMatchObject({
 			archived_at: null
-		});
-		await expect(
-			ctx.store.findOne('personnel_follow_ups', ctx.auth.orgId, { id: 'follow-up-restored' })
-		).resolves.toMatchObject({
-			status: 'open',
-			archived_at: null
-		});
-		await expect(
-			ctx.store.findOne('personnel_follow_ups', ctx.auth.orgId, { id: 'follow-up-still-archived' })
-		).resolves.toMatchObject({ status: 'archived', archived_at: '2026-03-01T00:00:00Z' });
-		await expect(
-			ctx.store.findOne('counseling_records', ctx.auth.orgId, { id: 'counseling-restored' })
-		).resolves.toMatchObject({ archived_at: null });
-		await expect(
-			ctx.store.findOne('personnel_documents', ctx.auth.orgId, { id: 'document-restored' })
-		).resolves.toMatchObject({ archived_at: null });
-		await expect(ctx.store.findOne('leader_notes', ctx.auth.orgId, { id: 'note-restored' })).resolves.toMatchObject({
-			archived_at: null
-		});
-		await expect(ctx.store.findOne('leader_notes', 'test-org', { id: 'note-independent' })).resolves.toMatchObject({
-			archived_at: '2026-03-01T00:00:00Z'
-		});
-		await expect(ctx.store.findOne('leader_notes', 'test-org', { id: 'note-other-person' })).resolves.toMatchObject({
-			archived_at: '2026-04-01T00:00:00Z'
-		});
-		await expect(ctx.store.findOne('leader_notes', 'other-org', { id: 'note-other-org' })).resolves.toMatchObject({
-			archived_at: '2026-04-01T00:00:00Z'
 		});
 		expect(ctx.audit.events).toContainEqual(
 			expect.objectContaining({
@@ -391,6 +202,34 @@ describe('Personnel — restore', () => {
 				details: { name: 'SGT Smith, Jamie' }
 			})
 		);
+	});
+
+	it('reports a Person restored by another request as not archived without a success audit', async () => {
+		const ctx = buildContext();
+		seedArchivedPersonnel(ctx);
+		ctx.personnelLifecycle.restore = async () => false;
+
+		await expect(restorePersonnelRecord(ctx, 'p-1')).rejects.toMatchObject({
+			status: 400,
+			message: 'Personnel is not archived'
+		});
+		expect(ctx.audit.events).not.toContainEqual(expect.objectContaining({ action: 'personnel.restored' }));
+	});
+
+	it.each([
+		['rejects the command', new Error('Personnel restore failed')],
+		['does not acknowledge the command', new Error('Personnel restore was not acknowledged')]
+	])('reports no restore and does not retry when the database %s', async (_case, failure) => {
+		const ctx = buildContext();
+		seedArchivedPersonnel(ctx);
+		const restore = vi.fn(async () => {
+			throw failure;
+		});
+		ctx.personnelLifecycle.restore = restore;
+
+		await expect(restorePersonnelRecord(ctx, 'p-1')).rejects.toThrow(failure.message);
+		expect(restore).toHaveBeenCalledTimes(1);
+		expect(ctx.audit.events).not.toContainEqual(expect.objectContaining({ action: 'personnel.restored' }));
 	});
 
 	it('rejects restore when the personnel record is missing', async () => {
@@ -664,26 +503,24 @@ describe('Personnel — permanent delete', () => {
 	});
 });
 
-describe('Personnel — approved archive effect', () => {
-	it('rejects a direct approved-effect call from an ordinary Personnel configurator without changing the target', async () => {
+describe('Personnel — approved archive request', () => {
+	it('rejects an ordinary Personnel configurator before the approval command', async () => {
 		const ctx = createTestContext({ auth: { role: 'member', isPrivileged: false } });
-		const person = {
-			id: 'approved-person',
-			organization_id: ctx.auth.orgId,
-			group_id: null,
-			archived_at: null
-		};
-		const note = {
-			id: 'approved-note',
-			organization_id: ctx.auth.orgId,
-			personnel_id: person.id,
-			archived_at: null
-		};
+		const person = { id: 'approved-person', organization_id: ctx.auth.orgId, group_id: null, archived_at: null };
 		ctx.rawStore.seed('personnel', [structuredClone(person)]);
-		ctx.rawStore.seed('leader_notes', [structuredClone(note)]);
-		await expect(archiveApprovedPersonnelRecord(ctx, person.id)).rejects.toMatchObject({ status: 403 });
+		const approve = vi.spyOn(ctx.personnelLifecycle, 'approveArchiveRequest');
+		await expect(
+			approvePersonnelArchiveRequest(ctx, 'request-1', person.id, '2026-10-01T12:00:00.000Z')
+		).rejects.toMatchObject({ status: 403 });
+		expect(approve).not.toHaveBeenCalled();
 		await expect(ctx.rawStore.findOne('personnel', ctx.auth.orgId, { id: person.id })).resolves.toEqual(person);
-		await expect(ctx.rawStore.findOne('leader_notes', ctx.auth.orgId, { id: note.id })).resolves.toEqual(note);
-		expect(ctx.auditPort.events).not.toContainEqual(expect.objectContaining({ action: 'personnel.archived' }));
+	});
+
+	it('passes the bound request, Person and review time to one approval command', async () => {
+		const ctx = createTestContext({ auth: { role: 'admin', isPrivileged: true } });
+		const approve = vi.fn(async () => undefined);
+		ctx.personnelLifecycle.approveArchiveRequest = approve;
+		await approvePersonnelArchiveRequest(ctx, 'request-1', 'person-1', '2026-10-01T12:00:00.000Z');
+		expect(approve.mock.calls).toEqual([['request-1', 'person-1', '2026-10-01T12:00:00.000Z']]);
 	});
 });

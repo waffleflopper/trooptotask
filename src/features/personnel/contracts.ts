@@ -85,7 +85,6 @@ export interface PersonnelRecordPersistence {
 	findById(id: string): Promise<Personnel | null>;
 	findWriteReference(id: string): Promise<PersonnelLifecycleReference | null>;
 	findGroupReference(id: string): Promise<{ groupId: string | null } | null>;
-	findArchiveEvent(id: string): Promise<{ archivedAt: string | null } | null>;
 	listArchiveCandidates(ids: string[]): Promise<Array<PersonnelLifecycleReference & { id: string }>>;
 	listImportSlugs(): Promise<Array<{ slug: string | null }>>;
 	listSlugCandidates(prefix: string): Promise<Array<{ id: string; slug: string | null }>>;
@@ -95,7 +94,6 @@ export interface PersonnelRecordPersistence {
 	createMany(inputs: PersonnelInsert[]): Promise<Personnel[]>;
 	updateEditable(id: string, patch: Partial<PersonnelEditableFields> & { slug?: string }): Promise<Personnel>;
 	updateDates(id: string, patch: { ets?: string; deros?: string }): Promise<Personnel>;
-	setArchivedAt(id: string, value: string | null): Promise<void>;
 	delete(id: string): Promise<void>;
 }
 
@@ -251,11 +249,21 @@ export interface PersonnelArtifactWritePort {
 	/** The caller admits the requester against the returned Person before revealing anything about it. */
 	findCounselingPersonId(actor: PersonnelRosterActor, recordId: string): Promise<string | null>;
 	forPerson(actor: PersonnelRosterActor, personnelId: string): Promise<PersonnelArtifactWriter>;
-	forPeople(
-		actor: PersonnelRosterActor,
-		personnelIds: string[],
-		action: 'archive' | 'restore'
-	): Promise<PersonnelArtifactArchiveWriter>;
+}
+
+/**
+ * Commands through the requester's own database session. Each commits the
+ * Person's archive event with every event-owned Follow-up, counseling record,
+ * document and Leader Note, or changes nothing. The database rechecks configure
+ * access, Group scope and Organization review after any wait. A saved event is
+ * never replaced, so a retry finishes an interrupted change.
+ */
+export interface PersonnelLifecycleCommandPort {
+	/** Each admitted Person keeps its saved event, or takes `archivedAt` when active. */
+	archive(personnelIds: readonly string[], archivedAt: string): Promise<void>;
+	/** False when the Person is no longer archived. */
+	restore(personnelId: string): Promise<boolean>;
+	approveArchiveRequest(requestId: string, personnelId: string, reviewedAt: string): Promise<void>;
 }
 
 /** Organization governance approval of one retained counseling deletion request. */
@@ -285,22 +293,6 @@ export function isPersonnelOrganizationExportTable(table: string): table is Pers
 
 export interface PersonnelOrganizationExportPort {
 	listRows(actor: PersonnelRosterActor, table: PersonnelOrganizationExportTable): Promise<Record<string, unknown>[]>;
-}
-
-export interface PersonnelArtifactRef {
-	id: string;
-	personnelId: string;
-}
-
-export interface PersonnelArtifactArchiveWriter {
-	listFollowUpArchiveCandidates(archivedAt: string | null): Promise<PersonnelArtifactRef[]>;
-	listCounselingArchiveCandidates(archivedAt: string | null): Promise<PersonnelArtifactRef[]>;
-	listDocumentArchiveCandidates(archivedAt: string | null): Promise<PersonnelArtifactRef[]>;
-	listLeaderNoteArchiveCandidates(archivedAt: string | null): Promise<PersonnelArtifactRef[]>;
-	setFollowUpArchivedState(row: PersonnelArtifactRef, archivedAt: string | null): Promise<void>;
-	setCounselingArchivedAt(row: PersonnelArtifactRef, archivedAt: string | null): Promise<void>;
-	setDocumentArchivedAt(row: PersonnelArtifactRef, archivedAt: string | null): Promise<void>;
-	setLeaderNoteArchivedAt(row: PersonnelArtifactRef, archivedAt: string | null): Promise<void>;
 }
 
 /** Personnel facts exposed to Critical Tasks after its own lane admission. */

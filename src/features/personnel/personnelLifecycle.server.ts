@@ -8,15 +8,18 @@ import {
 	requireFeaturePolicy,
 	requireGovernancePolicy
 } from '$lib/access/index.server';
-import type { PersonnelArtifactWritePort, PersonnelLifecycleReference, PersonnelRecordPersistence } from './contracts';
-import { archivePersonnelOwnedArtifacts, restorePersonnelOwnedArtifacts } from './personnelArchiveCascade.server';
+import type {
+	PersonnelLifecycleCommandPort,
+	PersonnelLifecycleReference,
+	PersonnelRecordPersistence
+} from './contracts';
 
 interface PersonnelLifecycleContext {
 	auth: OrganizationAccessGrant;
 	audit: PolicyAuditSink;
-	personnel: Pick<PersonnelRecordPersistence, 'listArchiveCandidates' | 'setArchivedAt' | 'delete'>;
-	organizationPersonnel: Pick<PersonnelRecordPersistence, 'findWriteReference' | 'findArchiveEvent'>;
-	personnelArtifactWrites?: Pick<PersonnelArtifactWritePort, 'forPeople'>;
+	personnel: Pick<PersonnelRecordPersistence, 'listArchiveCandidates' | 'delete'>;
+	organizationPersonnel: Pick<PersonnelRecordPersistence, 'findWriteReference'>;
+	personnelLifecycle: PersonnelLifecycleCommandPort;
 }
 
 type PersonnelArchiveOutcome =
@@ -26,8 +29,8 @@ type PersonnelArchiveOutcome =
 
 interface PreparedPersonnelArchiveBatch {
 	readonly ids: readonly string[];
-	archive(id: string): Promise<PersonnelArchiveOutcome>;
-	finish(): Promise<void>;
+	admit(id: string): Promise<PersonnelArchiveOutcome>;
+	archiveAdmitted(): Promise<void>;
 }
 
 const AUDIT_RESOURCE = 'personnel';
@@ -63,12 +66,7 @@ export async function archivePersonnelRecord(ctx: PersonnelLifecycleContext, id:
 		id
 	);
 
-	const archivedAt = currentRecord?.archivedAt ?? new Date().toISOString();
-	if (!currentRecord?.archivedAt) {
-		await ctx.personnel.setArchivedAt(id, archivedAt);
-	}
-	// A retry completes only remaining active artifacts under the original event.
-	await archivePersonnelOwnedArtifacts(ctx, [id], archivedAt);
+	await ctx.personnelLifecycle.archive([id], new Date().toISOString());
 
 	ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.archived`,
@@ -119,12 +117,7 @@ export async function restorePersonnelRecord(ctx: PersonnelLifecycleContext, id:
 		id
 	);
 
-	if (!person.archivedAt) fail(400, 'Personnel is not archived');
-
-	const personnelArchivedAt = person.archivedAt;
-	await restorePersonnelOwnedArtifacts(ctx, [id], personnelArchivedAt);
-	// Retain the event until every artifact restore is acknowledged, so a retry can finish it.
-	await ctx.personnel.setArchivedAt(id, null);
+	if (!person.archivedAt || !(await ctx.personnelLifecycle.restore(id))) fail(400, 'Personnel is not archived');
 
 	ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.restored`,
@@ -175,19 +168,16 @@ export async function permanentlyDeletePersonnelRecord(
 	return { success: true };
 }
 
-/** Apply a Personnel effect after the owning request workflow admits an Organization reviewer. */
-export async function archiveApprovedPersonnelRecord(ctx: PersonnelLifecycleContext, id: string): Promise<void> {
+export async function approvePersonnelArchiveRequest(
+	ctx: Pick<PersonnelLifecycleContext, 'auth' | 'audit' | 'personnelLifecycle'>,
+	requestId: string,
+	id: string,
+	reviewedAt: string
+): Promise<void> {
 	await requireGovernancePolicy(ctx, POLICY_ACTION_CATALOG.organization.reviewDeletionRequests);
-	const person = await ctx.organizationPersonnel.findArchiveEvent(id);
-	if (!person) fail(404, 'Personnel not found');
-	const archivedAt = person.archivedAt ?? new Date().toISOString();
-	if (!person.archivedAt) {
-		await ctx.personnel.setArchivedAt(id, archivedAt);
-	}
-	await archivePersonnelOwnedArtifacts(ctx, [id], archivedAt);
+	await ctx.personnelLifecycle.approveArchiveRequest(requestId, id, reviewedAt);
 }
 
-/** Keep candidate admission and grouped source effects private while delivery handles approvals/results. */
 export async function preparePersonnelArchiveBatch(
 	ctx: PersonnelLifecycleContext,
 	personnelIds: string[]
@@ -195,20 +185,11 @@ export async function preparePersonnelArchiveBatch(
 	const ids = [...new Set(personnelIds)];
 	const candidates = await ctx.personnel.listArchiveCandidates(ids);
 	const candidateById = new Map(candidates.map((candidate) => [candidate.id, candidate]));
-	const archivedAt = new Date().toISOString();
-	const archivedIds: string[] = [];
-	const artifactGroups = new Map<string, string[]>();
-
-	function includeArtifacts(id: string, timestamp: string) {
-		const group = artifactGroups.get(timestamp);
-		if (group) group.push(id);
-		else artifactGroups.set(timestamp, [id]);
-		archivedIds.push(id);
-	}
+	const admittedIds: string[] = [];
 
 	return {
 		ids,
-		async archive(id) {
+		async admit(id) {
 			const person = candidateById.get(id);
 			if (!person) return { kind: 'error', message: 'Personnel not found' };
 			const resource = policyResourceForGroup(person.groupId);
@@ -227,7 +208,7 @@ export async function preparePersonnelArchiveBatch(
 				if (!manageDecision.allowed || !archiveDecision.allowed) {
 					return { kind: 'error', message: 'Personnel is already archived' };
 				}
-				includeArtifacts(id, person.archivedAt);
+				admittedIds.push(id);
 				return { kind: 'archived' };
 			}
 
@@ -241,19 +222,16 @@ export async function preparePersonnelArchiveBatch(
 				return { kind: 'requiresApproval', resourceDescription: `Archive ${personnelName(person)}` };
 			}
 			await requireFeaturePolicy(ctx, POLICY_ACTION_CATALOG.personnel.archiveRecords, resource, AUDIT_RESOURCE, id);
-			await ctx.personnel.setArchivedAt(id, archivedAt);
-			includeArtifacts(id, archivedAt);
+			admittedIds.push(id);
 			return { kind: 'archived' };
 		},
-		async finish() {
-			if (archivedIds.length === 0) return;
-			for (const [timestamp, ids] of artifactGroups) {
-				await archivePersonnelOwnedArtifacts(ctx, ids, timestamp);
-			}
+		async archiveAdmitted() {
+			if (admittedIds.length === 0) return;
+			await ctx.personnelLifecycle.archive(admittedIds, new Date().toISOString());
 			ctx.audit.log({
 				action: `${AUDIT_RESOURCE}.bulk_archived`,
 				resourceType: AUDIT_RESOURCE,
-				details: { count: archivedIds.length, ids: archivedIds }
+				details: { count: admittedIds.length, ids: admittedIds }
 			});
 		}
 	};

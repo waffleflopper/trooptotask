@@ -498,7 +498,7 @@ describe('Personnel writes without commercial enforcement', () => {
 				audit: ctx.audit,
 				personnel: ctx.personnel,
 				organizationPersonnel: ctx.organizationPersonnel,
-				personnelArtifactWrites: ctx.personnelArtifactWrites
+				personnelLifecycle: ctx.personnelLifecycle
 			})
 		);
 

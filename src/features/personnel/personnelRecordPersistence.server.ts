@@ -69,10 +69,6 @@ export function createSupabasePersonnelRecordPersistence(
 			const row = await find('group_id', 'id', id);
 			return row ? { groupId: (row.group_id as string | null) ?? null } : null;
 		},
-		async findArchiveEvent(id) {
-			const row = await find('archived_at', 'id', id);
-			return row ? { archivedAt: (row.archived_at as string | null) ?? null } : null;
-		},
 		async listArchiveCandidates(ids) {
 			return (await list(`id, ${LIFECYCLE_FIELDS}`, { ids })).map((row) => ({
 				id: row.id as string,
@@ -142,16 +138,6 @@ export function createSupabasePersonnelRecordPersistence(
 				.single<Record<string, unknown>>();
 			if (error) throwPersonnelMutationError(error);
 			return toPersonnel(data);
-		},
-		async setArchivedAt(id, value) {
-			const { error } = await client
-				.from('personnel')
-				.update({ archived_at: value })
-				.eq('organization_id', orgId)
-				.eq('id', id)
-				.select('*')
-				.single();
-			if (error) throwPersonnelMutationError(error);
 		},
 		async delete(id) {
 			const { error } = await client.from('personnel').delete().eq('organization_id', orgId).eq('id', id);

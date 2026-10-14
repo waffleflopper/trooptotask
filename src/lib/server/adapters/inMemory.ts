@@ -5,7 +5,6 @@ import type {
 	FollowUpRow,
 	LeaderNoteRow
 } from '$features/personnel/contracts';
-import type { PersonnelArtifactRef } from '$features/personnel/contracts';
 import type { PersonnelSheetPersistence, PersonnelWorkbookHistoryReader } from '$features/personnel/contracts';
 import type { RankCatalogPersistence } from '$features/personnel/contracts';
 import type {
@@ -71,6 +70,7 @@ import type {
 import type {
 	PersonnelArtifactWritePort,
 	PersonnelAwardAcknowledgementPort,
+	PersonnelLifecycleCommandPort,
 	PersonnelCalendarRosterPort,
 	PersonnelCriticalTasksRosterPort,
 	PersonnelOnboardingRosterPort,
@@ -878,6 +878,47 @@ function createInMemoryPersonnelAwardAcknowledgementPort(rawStore: FixtureRowSto
 	};
 }
 
+function createInMemoryPersonnelLifecycleCommands(
+	rawStore: FixtureRowStore,
+	auth: Pick<OrganizationAccessGrant, 'orgId' | 'userId'>
+): PersonnelLifecycleCommandPort {
+	const findPerson = async (id: string) => {
+		const person = await rawStore.findOne<{ archived_at: string | null }>('personnel', auth.orgId, { id });
+		if (!person) throw new RequestFailure(404, 'Personnel not found');
+		return person;
+	};
+	const archive = async (ids: readonly string[], archivedAt: string) => {
+		const people = await Promise.all([...new Set(ids)].map(async (id) => ({ id, person: await findPerson(id) })));
+		for (const { id, person } of people) {
+			if (!person.archived_at) await rawStore.update('personnel', auth.orgId, id, { archived_at: archivedAt });
+		}
+	};
+	return {
+		archive,
+		async restore(id) {
+			if (!(await findPerson(id)).archived_at) return false;
+			await rawStore.update('personnel', auth.orgId, id, { archived_at: null });
+			return true;
+		},
+		async approveArchiveRequest(requestId, id, reviewedAt) {
+			const request = await rawStore.findOne('deletion_requests', auth.orgId, {
+				id: requestId,
+				status: 'pending',
+				resource_type: 'personnel',
+				resource_id: id
+			});
+			if (!request) throw new RequestFailure(404, 'Pending deletion request not found');
+			await archive([id], reviewedAt);
+			await rawStore.update('deletion_requests', auth.orgId, requestId, {
+				status: 'approved',
+				reviewed_by: auth.userId,
+				reviewed_at: reviewedAt,
+				denial_reason: null
+			});
+		}
+	};
+}
+
 function createInMemoryPersonnelArtifactWritePort(
 	rawStore: FixtureRowStore,
 	storage: StoragePort
@@ -1086,82 +1127,6 @@ function createInMemoryPersonnelArtifactWritePort(
 				uploadFile: rows.uploadFile,
 				deleteArchivedFileArtifact: rows.deleteArchivedFileArtifact,
 				reconcileFileAttachment: rows.reconcileFileAttachment
-			};
-		},
-		async forPeople(actor, personnelIds) {
-			const ids = [...new Set(personnelIds)];
-			if (ids.length === 0) throw new RequestFailure(400, 'At least one Person is required');
-			const people = await rawStore.findMany<{ id: string; group_id: string | null }>(
-				'personnel',
-				actor.orgId,
-				undefined,
-				{
-					inFilters: { id: ids }
-				}
-			);
-			if (people.length !== ids.length) throw new RequestFailure(404, 'Personnel record not found');
-			if (!actor.isPrivileged && actor.capabilityMap.personnel !== 'configure') {
-				throw new RequestFailure(403, 'You do not have permission to use personnel data');
-			}
-			const groupIds = actor.scopeSet.kind === 'groups' ? actor.scopeSet.groupIds : null;
-			if (
-				!actor.isPrivileged &&
-				groupIds &&
-				people.some((person) => !person.group_id || !groupIds.includes(person.group_id))
-			) {
-				throw new RequestFailure(403, 'You do not have access to records outside your assigned scope');
-			}
-			const allowed = new Set(ids);
-			const rows = {
-				async listCandidates(table: string, options: { archivedAt: string | null; status?: 'open' }) {
-					const rows = await rawStore.findMany<{ id: string; personnel_id: string }>(
-						table,
-						actor.orgId,
-						{
-							...(options.archivedAt === null ? {} : { archived_at: options.archivedAt }),
-							...(options.status ? { status: options.status } : {})
-						},
-						{
-							inFilters: { personnel_id: ids },
-							...(options.archivedAt === null ? { isNull: { archived_at: true } } : {})
-						}
-					);
-					return rows.map((row) => ({ id: row.id, personnelId: row.personnel_id }));
-				},
-				async update(table: string, row: PersonnelArtifactRef, patch: Record<string, unknown>) {
-					if (!allowed.has(row.personnelId)) {
-						throw new RequestFailure(403, 'Artifact Person is outside the authorized batch');
-					}
-					if ('id' in patch || 'organization_id' in patch || 'personnel_id' in patch) {
-						throw new RequestFailure(400, 'Artifact identity cannot be changed');
-					}
-					const existing = await rawStore.findOne(table, actor.orgId, {
-						id: row.id,
-						personnel_id: row.personnelId
-					});
-					if (!existing) return;
-					await rawStore.update(table, actor.orgId, row.id, patch);
-				}
-			};
-			return {
-				listFollowUpArchiveCandidates: (archivedAt) =>
-					rows.listCandidates('personnel_follow_ups', {
-						archivedAt,
-						...(archivedAt === null ? { status: 'open' } : {})
-					}),
-				listCounselingArchiveCandidates: (archivedAt) => rows.listCandidates('counseling_records', { archivedAt }),
-				listDocumentArchiveCandidates: (archivedAt) => rows.listCandidates('personnel_documents', { archivedAt }),
-				listLeaderNoteArchiveCandidates: (archivedAt) => rows.listCandidates('leader_notes', { archivedAt }),
-				setFollowUpArchivedState: (row, archivedAt) =>
-					rows.update('personnel_follow_ups', row, {
-						archived_at: archivedAt,
-						status: archivedAt === null ? 'open' : 'archived'
-					}),
-				setCounselingArchivedAt: (row, archivedAt) =>
-					rows.update('counseling_records', row, { archived_at: archivedAt }),
-				setDocumentArchivedAt: (row, archivedAt) =>
-					rows.update('personnel_documents', row, { archived_at: archivedAt }),
-				setLeaderNoteArchivedAt: (row, archivedAt) => rows.update('leader_notes', row, { archived_at: archivedAt })
 			};
 		}
 	};
@@ -1802,6 +1767,7 @@ export function createTestContext(
 		personnelAwardAcknowledgement: createInMemoryPersonnelAwardAcknowledgementPort(rawStore),
 		ratingSchemeDue: createInMemoryRatingSchemeDuePort(rawStore),
 		personnelArtifactWrites: createInMemoryPersonnelArtifactWritePort(rawStore, storagePort),
+		personnelLifecycle: createInMemoryPersonnelLifecycleCommands(rawStore, auth),
 		signInRosterFileWrites: createInMemorySignInRosterFileWritePort(storagePort),
 		signInRosterExport: {
 			listRows: () => rawStore.findMany<Record<string, unknown>>('sign_in_rosters', auth.orgId)
@@ -1911,6 +1877,7 @@ export function createWritePortsContext(options?: TestContextOptions) {
 		criticalTaskCompletions,
 		ratingScheme: options?.ratingSchemeFactory?.(rawStore, auth.orgId) ?? unavailableRatingScheme(),
 		personnelArtifactWrites: createInMemoryPersonnelArtifactWritePort(rawStore, storagePort),
+		personnelLifecycle: createInMemoryPersonnelLifecycleCommands(rawStore, auth),
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),
 		personnelCriticalTasksRoster: createInMemoryPersonnelCriticalTasksRosterPort(rawStore),
 		personnelRatingSchemeRoster: createInMemoryPersonnelRatingSchemeRosterPort(rawStore),
@@ -1954,6 +1921,7 @@ export function createWriteWithNotificationsPortsContext(options?: TestContextOp
 		criticalTaskCompletions,
 		ratingScheme: options?.ratingSchemeFactory?.(rawStore, auth.orgId) ?? unavailableRatingScheme(),
 		personnelArtifactWrites: createInMemoryPersonnelArtifactWritePort(rawStore, storagePort),
+		personnelLifecycle: createInMemoryPersonnelLifecycleCommands(rawStore, auth),
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),
 		personnelCriticalTasksRoster: createInMemoryPersonnelCriticalTasksRosterPort(rawStore),
 		personnelRatingSchemeRoster: createInMemoryPersonnelRatingSchemeRosterPort(rawStore),

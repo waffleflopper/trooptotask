@@ -143,8 +143,8 @@ export function createStoreWithInternals<T extends { id: string }>(
 		openReads.push(read);
 		return {
 			reconcile(snapshot, covers) {
-				if (read.since < prunedThrough) throw new SnapshotTooOldError();
 				if (read.since < supersededBefore) return loadedState.getSnapshot();
+				if (read.since > 0 && read.since < prunedThrough) throw new SnapshotTooOldError();
 				const snapshotIds: Record<string, true> = Object.create(null);
 				for (const item of snapshot) snapshotIds[item.id] = true;
 				let items = [

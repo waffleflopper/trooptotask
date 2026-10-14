@@ -73,4 +73,17 @@ describe('confirmed changes', () => {
 			{ id: 'c', name: 'C' }
 		]);
 	});
+
+	it('re-applies every retained change for a request that carried no token', async () => {
+		vi.useFakeTimers({ now: new Date('2026-10-14T12:00:00Z') });
+		const store = rowStore();
+		store.load([{ id: 'a', name: 'A' }], 'org-1');
+		await store.remove('a');
+		vi.advanceTimersByTime(CONFIRMED_CHANGE_RETENTION_MS + 1);
+		await store.add({ name: 'Later' });
+
+		const recentRead = store.beginRead(confirmedBeforeRequest({}));
+
+		expect(recentRead.reconcile([], everything)).toEqual(store.rawItems);
+	});
 });

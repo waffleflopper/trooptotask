@@ -17,6 +17,9 @@ export const CONFIRMED_CHANGE_COOKIE_PREFIX = 't2t-confirmed-';
 /** How long a store keeps changes for responses whose requests have not arrived yet. */
 export const CONFIRMED_CHANGE_RETENTION_MS = 10 * 60 * 1000;
 
+// Bounds cookies left by tabs that closed without a final `pagehide`.
+const COOKIE_MAX_AGE_SECONDS = 24 * 60 * 60;
+
 /** The confirmed-change sequence each tab's cookie carried on one request. */
 export type ConfirmedChangesByTab = Record<string, number>;
 
@@ -26,14 +29,16 @@ export class SnapshotTooOldError extends Error {
 	}
 }
 
-const tab = typeof crypto !== 'undefined' ? crypto.randomUUID().slice(0, 8) : 'server';
+const tab = typeof crypto !== 'undefined' ? crypto.randomUUID() : 'server';
 const cookieName = `${CONFIRMED_CHANGE_COOKIE_PREFIX}${tab}`;
 let sequence = 0;
 
 function writeCookie(value: number | null) {
 	if (typeof document === 'undefined') return;
 	document.cookie =
-		value === null ? `${cookieName}=; path=/; Max-Age=0` : `${cookieName}=${value}; path=/; SameSite=Lax`;
+		value === null
+			? `${cookieName}=; path=/; Max-Age=0`
+			: `${cookieName}=${value}; path=/; Max-Age=${COOKIE_MAX_AGE_SECONDS}; SameSite=Lax`;
 }
 
 if (typeof window !== 'undefined') {
@@ -56,7 +61,10 @@ export function confirmedSequence(): number {
 	return sequence;
 }
 
-/** The sequence this tab's cookie carried, from the values a delivery echoed. */
+/**
+ * The sequence this tab's cookie carried, from the values a delivery echoed. A request without one
+ * left before this tab confirmed anything, or after its cookie expired; either way it is recent.
+ */
 export function confirmedBeforeRequest(byTab: ConfirmedChangesByTab): number {
 	return byTab[tab] ?? 0;
 }

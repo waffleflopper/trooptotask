@@ -1,6 +1,9 @@
 import { randomUUID } from 'node:crypto';
 
 const expiredAt = '2000-01-01T12:00:00.000Z';
+// The Active page counts days from the viewer's calendar day, so its start dates come from the fixture's local date. After local evening the UTC date is already tomorrow. History counts in UTC and keeps UTC dates.
+const localDateAgo = (fixture, days) =>
+	new Date(Date.parse(fixture.dates.ui + 'T12:00:00Z') - days * 86400000).toISOString().slice(0, 10);
 const checked = (result) => {
 	if (result.error) throw new Error('Owned Onboarding setup failed: ' + result.error.message);
 };
@@ -146,7 +149,7 @@ export async function seedOnboarding({ client, fixture, kind, tag, ownedState, s
 		batches.push(['personnel', people]);
 	} else if (kind === 'onboarding-status') {
 		const daysAgo = (days) => new Date(Date.now() - days * 86400000).toISOString();
-		const dateAgo = (days) => daysAgo(days).slice(0, 10);
+		const dateAgo = (days) => localDateAgo(fixture, days);
 		// Each active packet pins one List status; the paperwork step's progress time sets its days at stage.
 		const examples = [
 			['stalled', 'groupA', 20, { completed: false, current_stage: 'Reviewed', changed: 7 }],
@@ -220,7 +223,7 @@ export async function seedOnboarding({ client, fixture, kind, tag, ownedState, s
 		batches.push(['personnel', people]);
 	} else if (kind === 'onboarding-matrix') {
 		const daysAgo = (days) => new Date(Date.now() - days * 86400000).toISOString();
-		const dateAgo = (days) => daysAgo(days).slice(0, 10);
+		const dateAgo = (days) => localDateAgo(fixture, days);
 		const orgA = fixture.ids.orgA;
 		const reserve = { id: randomUUID(), organization_id: orgA, name: 'Matrix Reserve ' + tag, description: null };
 		const reserveSteps = [
@@ -380,7 +383,7 @@ export async function seedOnboarding({ client, fixture, kind, tag, ownedState, s
 				organization_id: orgA,
 				personnel_id: people[0].id,
 				template_id: template.id,
-				started_at: new Date(Date.now() - 3 * 86400000).toISOString().slice(0, 10),
+				started_at: localDateAgo(fixture, 3),
 				status: 'in_progress',
 				completed_at: null,
 				cancelled_at: null,

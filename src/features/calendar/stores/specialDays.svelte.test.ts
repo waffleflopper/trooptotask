@@ -150,6 +150,100 @@ describe('specialDaysStore', () => {
 			expect(specialDaysStore.items).toEqual([mockDays[1], savedClosure, resetHoliday]);
 		});
 
+		describe('with a holiday add still pending when the reset response arrives', () => {
+			const resetHoliday = {
+				id: 'reset-holiday',
+				name: 'Reset holiday',
+				date: '2026-01-01',
+				type: 'federal-holiday' as const
+			};
+			const replacedHoliday = {
+				id: 'replaced-holiday',
+				name: 'Replaced holiday',
+				date: '2026-09-30',
+				type: 'federal-holiday' as const
+			};
+
+			function stubPendingAddThenReset(readBody: () => Promise<unknown>) {
+				let respondAdd!: (value: unknown) => void;
+				let respondReset!: (value: unknown) => void;
+				const requests: string[] = [];
+				vi.stubGlobal(
+					'fetch',
+					vi.fn((_url, options?: RequestInit) => {
+						if (!options) {
+							requests.push('read');
+							return Promise.resolve({ ok: true, status: 200, json: readBody });
+						}
+						const { action } = JSON.parse(options.body as string);
+						requests.push(action === 'resetFederalHolidays' ? 'reset' : 'add');
+						return new Promise((resolve) =>
+							action === 'resetFederalHolidays' ? (respondReset = resolve) : (respondAdd = resolve)
+						);
+					})
+				);
+				return {
+					requests,
+					respondAdd: (value: unknown) => respondAdd(value),
+					respondReset: (value: unknown) => respondReset(value)
+				};
+			}
+
+			it('reads the saved days instead of showing a holiday the reset deleted', async () => {
+				const server = stubPendingAddThenReset(() => Promise.resolve([mockDays[1], resetHoliday]));
+				const add = specialDaysStore.add({
+					name: replacedHoliday.name,
+					date: replacedHoliday.date,
+					type: replacedHoliday.type
+				});
+				const reset = specialDaysStore.resetFederalHolidays();
+				server.respondReset(reply(200, [resetHoliday]));
+
+				const settledBeforeAdd = await settles(reset);
+				const requestsBeforeAdd = [...server.requests];
+				server.respondAdd(reply(201, replacedHoliday));
+				await add;
+
+				expect(await reset).toBe('saved');
+				expect(settledBeforeAdd).toBe(false);
+				expect(requestsBeforeAdd).toEqual(['add', 'reset']);
+				expect(server.requests).toEqual(['add', 'reset', 'read']);
+				expect(specialDaysStore.items).toEqual([mockDays[1], resetHoliday]);
+			});
+
+			it('still applies the reset response when the pending add is refused', async () => {
+				const server = stubPendingAddThenReset(() => Promise.resolve([mockDays[1], resetHoliday]));
+				const add = specialDaysStore.add({
+					name: replacedHoliday.name,
+					date: replacedHoliday.date,
+					type: replacedHoliday.type
+				});
+				const refused = expect(add).rejects.toThrow();
+				const reset = specialDaysStore.resetFederalHolidays();
+				server.respondReset(reply(200, [resetHoliday]));
+				server.respondAdd(reply(409, { message: 'Not saved' }));
+				await refused;
+
+				expect(await reset).toBe('saved');
+				expect(specialDaysStore.items).toEqual([mockDays[1], resetHoliday]);
+			});
+
+			it('keeps the shown days and says so when the saved days cannot be read', async () => {
+				const server = stubPendingAddThenReset(() => Promise.reject(new TypeError('Failed to fetch')));
+				const add = specialDaysStore.add({
+					name: replacedHoliday.name,
+					date: replacedHoliday.date,
+					type: replacedHoliday.type
+				});
+				const reset = specialDaysStore.resetFederalHolidays();
+				server.respondReset(reply(200, [resetHoliday]));
+				server.respondAdd(reply(201, replacedHoliday));
+				await add;
+
+				expect(await reset).toBe('saved-unrefreshed');
+			});
+		});
+
 		it('refreshes federal rows after saved edits overlap the reset response', async () => {
 			let resolveReset!: (value: { ok: boolean; json: () => Promise<unknown> }) => void;
 			const added = {

@@ -120,7 +120,12 @@ function enhance(base: Store<SpecialDay>): SpecialDayExtensions {
 			const savedHolidays = specialDaysSchema.safeParse(await withinOrganizationLifetime(res.json()).catch(() => null));
 			if (!currentReset(orgId, requestReset)) return 'stale';
 			if (!savedHolidays.success) return unconfirmed(orgId, requestReset);
-			if (mutationState(orgId).version !== mutationVersion || loadGeneration !== requestLoadGeneration) {
+			const mutations = mutationState(orgId);
+			if (
+				mutations.version !== mutationVersion ||
+				mutations.pending.length > 0 ||
+				loadGeneration !== requestLoadGeneration
+			) {
 				const refreshed = await refreshAfterOverlappingMutation(orgId, requestReset);
 				return refreshed === 'refresh-failed' ? 'saved-unrefreshed' : refreshed;
 			}

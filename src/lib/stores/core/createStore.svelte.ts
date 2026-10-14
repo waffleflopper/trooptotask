@@ -18,6 +18,18 @@ export interface StoreConfig<T extends { id: string }> {
 	onError?: (operation: string, error?: unknown) => void;
 }
 
+/**
+ * A snapshot read that began at a known point in the store's confirmed history. Reconciling it
+ * replaces what the snapshot covers, then re-applies every save and delete the store confirmed
+ * after the read began, because the snapshot may have been read before them.
+ */
+export interface StoreRead<T extends { id: string }> {
+	reconcile(snapshot: T[], covers: (item: T) => boolean): T[];
+	close(): void;
+}
+
+type ConfirmedChange<T> = { generation: number } & ({ saved: T } | { deleted: string });
+
 export interface Store<T extends { id: string }> {
 	readonly items: T[];
 	readonly rawItems: T[];
@@ -26,6 +38,7 @@ export interface Store<T extends { id: string }> {
 	readonly busy: boolean;
 	readonly loading: boolean;
 	load(items: T[], orgId: string): void;
+	beginRead(): StoreRead<T>;
 	startLoading(): void;
 	add(data: Omit<T, 'id'>): Promise<T | null>;
 	addBatch(entries: Omit<T, 'id'>[]): Promise<T[]>;
@@ -55,13 +68,76 @@ export interface StoreInternals<T extends { id: string }> {
 export function createStoreWithInternals<T extends { id: string }>(
 	config: StoreConfig<T>
 ): { store: Store<T>; internals: StoreInternals<T> } {
-	const serverState = createReactiveCollection<T>();
+	const loadedState = createReactiveCollection<T>();
 	const orgIdVal = createReactiveValue('');
 	const loadingVal = createReactiveValue(true);
 	const log = createMutationLog<T>();
 	let organizationVersion = 0;
 	let loadedLifetime = organizationLifetime();
 	let loadVersion = 0;
+	let generation = 0;
+	let confirmedChanges: ConfirmedChange<T>[] = [];
+	let openReads: { generation: number }[] = [];
+
+	// Every write to server state outside a load is a change the server confirmed.
+	const serverState: typeof loadedState = {
+		get items() {
+			return loadedState.items;
+		},
+		getSnapshot: () => loadedState.getSnapshot(),
+		set(next) {
+			generation++;
+			if (openReads.length > 0) recordConfirmedChanges(loadedState.getSnapshot(), next);
+			loadedState.set(next);
+		}
+	};
+
+	function recordConfirmedChanges(previous: T[], next: T[]) {
+		const previousById: Record<string, T> = Object.create(null);
+		for (const item of previous) previousById[item.id] = item;
+		const nextIds: Record<string, true> = Object.create(null);
+		for (const item of next) {
+			nextIds[item.id] = true;
+			if (previousById[item.id] !== item) confirmedChanges.push({ generation, saved: item });
+		}
+		for (const item of previous) {
+			if (!nextIds[item.id]) confirmedChanges.push({ generation, deleted: item.id });
+		}
+	}
+
+	function beginRead(): StoreRead<T> {
+		const read = { generation };
+		openReads.push(read);
+		return {
+			reconcile(snapshot, covers) {
+				const snapshotIds: Record<string, true> = Object.create(null);
+				for (const item of snapshot) snapshotIds[item.id] = true;
+				let items = [
+					...loadedState.getSnapshot().filter((item) => !covers(item) && !snapshotIds[item.id]),
+					...snapshot
+				];
+				if (!openReads.includes(read)) return items;
+				for (const change of confirmedChanges) {
+					if (change.generation <= read.generation) continue;
+					if ('deleted' in change) {
+						items = items.filter((item) => item.id !== change.deleted);
+					} else {
+						const { saved } = change;
+						items = items.some((item) => item.id === saved.id)
+							? items.map((item) => (item.id === saved.id ? saved : item))
+							: [...items, saved];
+					}
+				}
+				return items;
+			},
+			close() {
+				if (!openReads.includes(read)) return;
+				openReads = openReads.filter((open) => open !== read);
+				const oldest = Math.min(...openReads.map((open) => open.generation));
+				confirmedChanges = confirmedChanges.filter((change) => change.generation > oldest);
+			}
+		};
+	}
 
 	// A response also goes stale when the store loads another Organization without a shell remount.
 	function withinOrganization<R>(work: Promise<R>): Promise<R> {
@@ -132,6 +208,8 @@ export function createStoreWithInternals<T extends { id: string }>(
 			return loadingVal.value;
 		},
 
+		beginRead,
+
 		startLoading() {
 			loadingVal.set(true);
 		},
@@ -141,9 +219,11 @@ export function createStoreWithInternals<T extends { id: string }>(
 			if (newOrgId !== orgIdVal.value || loadedLifetime !== organizationLifetime()) {
 				organizationVersion++;
 				log.clear();
+				openReads = [];
+				confirmedChanges = [];
 			}
 			loadedLifetime = organizationLifetime();
-			serverState.set(newItems);
+			loadedState.set(newItems);
 			orgIdVal.set(newOrgId);
 			loadingVal.set(false);
 			if (!config.adapter) {

@@ -9,6 +9,8 @@ export interface FeatureLaneWorkspaceHydrationTargetDescriptor {
 	storeLoadVersion?(): number | undefined;
 	startLoading?(): void;
 	apply(resolved: unknown): void;
+	/** Runs once the request is applied, superseded or failed. */
+	settle?(): void;
 }
 
 export interface FeatureLaneWorkspaceHydrator {
@@ -130,7 +132,9 @@ export function createFeatureLaneWorkspaceHydrator(
 		},
 
 		async applyDescriptors(orgId: string, descriptors: FeatureLaneWorkspaceHydrationTargetDescriptor[]): Promise<void> {
-			await Promise.all(descriptors.map((descriptor) => applyDescriptor(descriptor, orgId)));
+			await Promise.all(
+				descriptors.map((descriptor) => applyDescriptor(descriptor, orgId).finally(() => descriptor.settle?.()))
+			);
 		}
 	};
 }

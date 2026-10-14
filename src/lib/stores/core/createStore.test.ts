@@ -1280,4 +1280,42 @@ describe('createStore', () => {
 			expect(onError).not.toHaveBeenCalled();
 		});
 	});
+
+	describe('beginRead', () => {
+		const all = () => true;
+
+		it('keeps changes an older open read still needs after a newer read closes', async () => {
+			const store = makeStore();
+			store.load([{ id: 'a', name: 'A' }], 'org-1');
+			const older = store.beginRead();
+			await store.add({ name: 'Saved' });
+			const newer = store.beginRead();
+			newer.close();
+
+			expect(older.reconcile([{ id: 'a', name: 'A' }], all)).toEqual([
+				{ id: 'a', name: 'A' },
+				{ id: 'server-1', name: 'Saved' }
+			]);
+		});
+
+		it('re-applies nothing once the read is closed', async () => {
+			const store = makeStore();
+			store.load([{ id: 'a', name: 'A' }], 'org-1');
+			const read = store.beginRead();
+			await store.remove('a');
+			read.close();
+
+			expect(read.reconcile([{ id: 'a', name: 'A' }], all)).toEqual([{ id: 'a', name: 'A' }]);
+		});
+
+		it('forgets changes from an Organization the store has left', async () => {
+			const store = makeStore();
+			store.load([{ id: 'a', name: 'A' }], 'org-1');
+			const read = store.beginRead();
+			await store.remove('a');
+			store.load([], 'org-2');
+
+			expect(read.reconcile([{ id: 'b', name: 'B' }], all)).toEqual([{ id: 'b', name: 'B' }]);
+		});
+	});
 });

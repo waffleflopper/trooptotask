@@ -76,6 +76,7 @@ describe('streamCalendarWorkspaceBootstrap', () => {
 		rangeEnd: '2026-05-31',
 		availabilityEntries,
 		specialDays,
+		specialDaysRange: { rangeStart: '2025-01-01', rangeEnd: '2028-12-31' },
 		assignmentTypes: [{ id: 'at1', name: 'CQ' } as AssignmentType],
 		dailyAssignments,
 		pinnedGroups: ['Alpha'],
@@ -103,7 +104,7 @@ describe('streamCalendarWorkspaceBootstrap', () => {
 		vi.useRealTimers();
 	});
 
-	it('streams a lane-keyed Calendar workspace result with explicit merge hydration targets', async () => {
+	it('streams a lane-keyed Calendar workspace result with explicit range hydration targets', async () => {
 		const routeData = await streamCalendarWorkspaceBootstrap({
 			locals: {} as App.Locals,
 			cookies: emptyCookies,
@@ -123,24 +124,25 @@ describe('streamCalendarWorkspaceBootstrap', () => {
 			hydration: expect.objectContaining({
 				orgId,
 				availabilityEntries: {
-					mode: 'merge',
+					mode: 'range',
 					deferred: true,
 					items: availabilityEntries,
-					snapshotKey: expect.any(String)
+					snapshotKey: expect.any(String),
+					range: { rangeStart: '2026-03-01', rangeEnd: '2026-05-31' }
 				},
 				specialDays: {
-					mode: 'merge',
+					mode: 'range',
 					deferred: true,
 					items: specialDays,
-					snapshotKey: expect.any(String)
+					snapshotKey: expect.any(String),
+					range: { rangeStart: '2025-01-01', rangeEnd: '2028-12-31' }
 				},
 				calendarAssignments: expect.objectContaining({
-					mode: 'merge',
+					mode: 'range',
 					deferred: true,
 					items: expect.any(Promise),
 					snapshotKey: expect.any(String),
-					rangeStart: '2026-03-01',
-					rangeEnd: '2026-05-31'
+					range: { rangeStart: '2026-03-01', rangeEnd: '2026-05-31' }
 				})
 			})
 		});
@@ -238,7 +240,7 @@ describe('streamCalendarWorkspaceBootstrap', () => {
 		await expect(workspace.data.specialDays).resolves.toEqual([
 			expect.objectContaining({ id: 'sd-wide', date: '2025-01-01..2028-12-31' })
 		]);
-		expect(workspace.hydration.calendarAssignments.rangeStart).toBe('2026-04-01');
-		expect(workspace.hydration.calendarAssignments.rangeEnd).toBe('2026-06-30');
+		expect(workspace.hydration.calendarAssignments.range).toEqual({ rangeStart: '2026-04-01', rangeEnd: '2026-06-30' });
+		expect(workspace.hydration.availabilityEntries.range).toEqual({ rangeStart: '2026-04-01', rangeEnd: '2026-06-30' });
 	});
 });

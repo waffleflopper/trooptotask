@@ -18,8 +18,8 @@ import {
 	type CalendarAssignmentsWorkspaceHydrationTarget,
 	type CalendarBootstrap,
 	type CalendarDateRange,
+	type CalendarRangeHydrationTarget,
 	type CalendarWorkspaceHydration,
-	type CalendarWorkspaceHydrationMode,
 	type CalendarWorkspaceHydrationTarget,
 	type CalendarWorkspaceRouteData,
 	type CalendarWorkspaceResult
@@ -29,11 +29,19 @@ import { withCalendarTiming } from '$features/calendar/index.server';
 import { CALENDAR_ANCHOR_COOKIE, resolveCalendarAnchorDate } from '$features/calendar/index.server';
 import { createInitialCalendarBufferedRange } from '$features/calendar/index.server';
 
-function createCalendarHydrationTarget<T>(
+function createCalendarHydrationTarget<T>(items: HydrationItems<T>): CalendarWorkspaceHydrationTarget<T> {
+	return createWorkspaceHydrationTarget(items, { mode: 'replace', resolvedSnapshotKey: 'json' });
+}
+
+function createCalendarRangeHydrationTarget<T>(
 	items: HydrationItems<T>,
-	mode: CalendarWorkspaceHydrationMode = 'replace'
-): CalendarWorkspaceHydrationTarget<T> {
-	return createWorkspaceHydrationTarget(items, { mode, resolvedSnapshotKey: 'json' });
+	range: CalendarDateRange
+): CalendarRangeHydrationTarget<T> {
+	return {
+		...createWorkspaceHydrationTarget(items, { mode: 'range', resolvedSnapshotKey: 'json' }),
+		snapshotKey: createCompositeWorkspaceSnapshotKey({ items, range }, { resolved: 'json' }),
+		range
+	};
 }
 
 function createCalendarAssignmentsItems(
@@ -57,7 +65,7 @@ function createCalendarAssignmentsHydrationTarget(
 	data: CalendarBootstrap
 ): CalendarAssignmentsWorkspaceHydrationTarget {
 	const items = createCalendarAssignmentsItems(data.assignmentTypes, data.dailyAssignments);
-	const target = createWorkspaceValueHydrationTarget(items, { mode: 'merge', resolvedSnapshotKey: 'json' });
+	const target = createWorkspaceValueHydrationTarget(items, { mode: 'range', resolvedSnapshotKey: 'json' });
 
 	return {
 		...target,
@@ -70,8 +78,7 @@ function createCalendarAssignmentsHydrationTarget(
 			},
 			{ resolved: 'json' }
 		),
-		rangeStart: data.rangeStart,
-		rangeEnd: data.rangeEnd
+		range: { rangeStart: data.rangeStart, rangeEnd: data.rangeEnd }
 	};
 }
 
@@ -81,8 +88,11 @@ export function createCalendarWorkspaceHydration(orgId: string, data: CalendarBo
 		personnel: createCalendarHydrationTarget(data.personnel),
 		groups: createCalendarHydrationTarget(data.groups),
 		statusTypes: createCalendarHydrationTarget(data.statusTypes),
-		availabilityEntries: createCalendarHydrationTarget(data.availabilityEntries, 'merge'),
-		specialDays: createCalendarHydrationTarget(data.specialDays, 'merge'),
+		availabilityEntries: createCalendarRangeHydrationTarget(data.availabilityEntries, {
+			rangeStart: data.rangeStart,
+			rangeEnd: data.rangeEnd
+		}),
+		specialDays: createCalendarRangeHydrationTarget(data.specialDays, data.specialDaysRange),
 		calendarAssignments: createCalendarAssignmentsHydrationTarget(data),
 		pinnedGroups: createCalendarHydrationTarget(data.pinnedGroups)
 	};

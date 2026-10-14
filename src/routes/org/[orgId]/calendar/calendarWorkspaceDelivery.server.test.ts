@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { error } from '@sveltejs/kit';
 import type { Cookies } from '@sveltejs/kit';
 import { CALENDAR_ANCHOR_COOKIE } from '$features/calendar/index.server';
-import { CONFIRMED_CHANGE_COOKIE } from '$lib/stores/core';
 import type { Personnel } from '$features/personnel/contracts';
 import type {
 	AssignmentType,
@@ -67,7 +66,8 @@ function makeHttpError(status: number, message: string): unknown {
 describe('streamCalendarWorkspaceBootstrap', () => {
 	const orgId = '11111111-1111-1111-1111-111111111111';
 	const emptyCookies = {
-		get: vi.fn(() => undefined)
+		get: vi.fn(() => undefined),
+		getAll: () => []
 	} as unknown as Cookies;
 	const availabilityEntries = Promise.resolve([{ id: 'av1', personnelId: 'p1' } as AvailabilityEntry]);
 	const specialDays = Promise.resolve([{ id: 'sd1', name: 'Training Holiday', date: '2026-05-25' } as SpecialDay]);
@@ -197,7 +197,8 @@ describe('streamCalendarWorkspaceBootstrap', () => {
 
 	it('covers the Settings years around today when the saved anchor is in another year', async () => {
 		const cookies = {
-			get: vi.fn((name: string) => (name === CALENDAR_ANCHOR_COOKIE ? '2025-05-01' : undefined))
+			get: vi.fn((name: string) => (name === CALENDAR_ANCHOR_COOKIE ? '2025-05-01' : undefined)),
+			getAll: () => []
 		} as unknown as Cookies;
 
 		const routeData = await streamCalendarWorkspaceBootstrap({ locals: {} as App.Locals, cookies, orgId });
@@ -210,11 +211,14 @@ describe('streamCalendarWorkspaceBootstrap', () => {
 	});
 
 	it('prefers the client-local anchor date and loads the special-day catalog years around it', async () => {
-		const requestCookies: Record<string, string> = {
-			[CALENDAR_ANCHOR_COOKIE]: '2026-05-01',
-			[CONFIRMED_CHANGE_COOKIE]: '1792000000000'
-		};
-		const cookies = { get: vi.fn((name: string) => requestCookies[name]) } as unknown as Cookies;
+		const cookies = {
+			get: vi.fn((name: string) => (name === CALENDAR_ANCHOR_COOKIE ? '2026-05-01' : undefined)),
+			getAll: () => [
+				{ name: CALENDAR_ANCHOR_COOKIE, value: '2026-05-01' },
+				{ name: 't2t-confirmed-tab1', value: '7' },
+				{ name: 't2t-confirmed-tab2', value: 'not a number' }
+			]
+		} as unknown as Cookies;
 		fetchCalendarBootstrapMock.mockImplementationOnce((_ctx, input) =>
 			Promise.resolve({
 				...calendarBootstrap,
@@ -245,6 +249,6 @@ describe('streamCalendarWorkspaceBootstrap', () => {
 		]);
 		expect(workspace.hydration.calendarAssignments.range).toEqual({ rangeStart: '2026-04-01', rangeEnd: '2026-06-30' });
 		expect(workspace.hydration.availabilityEntries.range).toEqual({ rangeStart: '2026-04-01', rangeEnd: '2026-06-30' });
-		expect(workspace.hydration.confirmedBeforeRequest).toBe(1792000000000);
+		expect(workspace.hydration.confirmedChangesByTab).toEqual({ tab1: 7 });
 	});
 });

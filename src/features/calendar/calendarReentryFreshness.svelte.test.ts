@@ -1,9 +1,11 @@
+// @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { calendarWorkspaceHydrator } from './calendarWorkspaceHydration.svelte';
 import { availabilityStore } from './stores/availability.svelte';
 import { specialDaysStore } from './stores/specialDays.svelte';
 import { dailyAssignmentsStore } from './stores/dailyAssignments.svelte';
-import { confirmedSequence, endOrganizationLifetime } from '$lib/stores/core';
+import { endOrganizationLifetime } from '$lib/stores/core';
+import { confirmedChangesSentNow } from '$lib/test-support/confirmedChangeCookies';
 import type { CalendarWorkspaceHydration } from './calendar.types';
 import type { AvailabilityEntry, DailyAssignment, SpecialDay } from './contracts';
 
@@ -43,7 +45,7 @@ function workspace(rows: Rows, range = OCTOBER, specialDaysRange = CATALOG_YEARS
 	const key = crypto.randomUUID();
 	return {
 		orgId: '',
-		confirmedBeforeRequest: confirmedSequence(),
+		confirmedChangesByTab: confirmedChangesSentNow(),
 		personnel: { mode: 'replace', snapshotKey: key, items: [] },
 		groups: { mode: 'replace', snapshotKey: key, items: [] },
 		statusTypes: { mode: 'replace', snapshotKey: key, items: [] },
@@ -313,6 +315,19 @@ describe('Calendar re-entry freshness', () => {
 
 		expect(ids(availabilityStore.items)).toEqual(['a1', 'a2', 'saved-1']);
 		expect(ids(specialDaysStore.items)).toEqual(['c1']);
+	});
+
+	it("shows another member's later edit to a row saved before the request left", async () => {
+		await availabilityStore.update('a1', { note: 'Saved by A' });
+		const request = workspace({
+			availability: [leave('a1', '2026-10-14', 'Edited later by B'), leave('a2', '2026-10-15')],
+			specialDays: [closure('c1'), closure('c2', '2026-10-21')],
+			assignments: [duty('x1'), duty('x2', '2026-10-10')]
+		});
+
+		await enter('org-1', request);
+
+		expect(availabilityStore.getById('a1')?.note).toBe('Edited later by B');
 	});
 
 	it('changes nothing when a full Special Days read adopted after the request left', async () => {

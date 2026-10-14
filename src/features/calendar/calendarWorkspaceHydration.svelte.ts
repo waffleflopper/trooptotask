@@ -6,7 +6,7 @@ import { groupCatalogHydration } from '$features/personnel';
 import type { Group } from '$features/personnel/contracts';
 import { pinnedGroupsHydration } from '$features/personnel';
 import { personnelRosterHydration } from '$features/personnel';
-import type { StoreRead } from '$lib/stores/core';
+import { confirmedBeforeRequest, type StoreRead } from '$lib/stores/core';
 import { rangeCoversDate, rangeCoversSpan } from './utils/calendarRange';
 import {
 	createFeatureLaneWorkspaceHydrator,
@@ -205,7 +205,7 @@ export function createCalendarWorkspaceHydrator(): CalendarWorkspaceHydrator {
 					orgId,
 					'availabilityEntries',
 					rangeCoversSpan(hydration.availabilityEntries.range),
-					hydration.confirmedBeforeRequest
+					confirmedBeforeRequest(hydration.confirmedChangesByTab)
 				),
 				createRangeTargetDescriptor(
 					hydration.specialDays,
@@ -213,14 +213,14 @@ export function createCalendarWorkspaceHydrator(): CalendarWorkspaceHydrator {
 					orgId,
 					'specialDays',
 					rangeCoversDate(hydration.specialDays.range),
-					hydration.confirmedBeforeRequest
+					confirmedBeforeRequest(hydration.confirmedChangesByTab)
 				),
 				createCalendarAssignmentsDescriptor(
 					hydration.calendarAssignments,
 					stores.calendarAssignmentsStore,
 					orgId,
 					'calendarAssignments',
-					hydration.confirmedBeforeRequest
+					confirmedBeforeRequest(hydration.confirmedChangesByTab)
 				),
 				createPinnedGroupsDescriptor(hydration.pinnedGroups, stores.pinnedGroupsStore, orgId, 'pinnedGroups')
 			].filter((descriptor): descriptor is FeatureLaneWorkspaceHydrationTargetDescriptor => descriptor !== undefined);

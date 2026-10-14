@@ -1,9 +1,11 @@
+// @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
 import type { Group } from '$features/personnel/contracts';
 import type { TrainingType } from '$features/training/contracts';
 import type { Personnel } from '$features/personnel/contracts';
 import type { AssignmentType, AvailabilityEntry, StatusType, DailyAssignment } from '$features/calendar/contracts';
-import { confirmedSequence, createMockAdapter, createStore } from '$lib/stores/core';
+import { createMockAdapter, createStore } from '$lib/stores/core';
+import { confirmedChangesSentNow } from '$lib/test-support/confirmedChangeCookies';
 import { createDashboardWorkspaceHydrator, type DashboardHydrationStores } from './dashboardWorkspaceHydration.svelte';
 import type { DashboardWorkspaceHydration } from './contracts';
 
@@ -100,7 +102,7 @@ describe('Dashboard workspace hydration adapter', () => {
 		const assignment = { id: 'da1', date: '2026-05-01', assignmentTypeId: 'at1' } as DailyAssignment;
 		const hydration: DashboardWorkspaceHydration = {
 			orgId: 'org-1',
-			confirmedBeforeRequest: 0,
+			confirmedChangesByTab: {},
 			personnel: { mode: 'replace', snapshotKey: 'personnel:1', items: [{ id: 'p1' } as Personnel] },
 			groups: { mode: 'replace', snapshotKey: 'groups:1', items: [{ id: 'g1', name: 'Alpha' } as Group] },
 			statusTypes: { mode: 'replace', snapshotKey: 'status-types:1', items: [{ id: 'st1' } as StatusType] },
@@ -157,7 +159,7 @@ describe('Dashboard workspace hydration adapter', () => {
 		const availability = deferred<AvailabilityEntry[]>();
 		const hydration: DashboardWorkspaceHydration = {
 			orgId: 'org-1',
-			confirmedBeforeRequest: confirmedSequence(),
+			confirmedChangesByTab: confirmedChangesSentNow(),
 			personnel: { mode: 'preserve-client', snapshotKey: 'personnel', items: [] },
 			groups: { mode: 'preserve-client', snapshotKey: 'groups', items: [] },
 			statusTypes: { mode: 'preserve-client', snapshotKey: 'status-types', items: [] },

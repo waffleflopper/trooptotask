@@ -11,7 +11,7 @@ import {
 	type HydrationItems
 } from '$lib/server/adapters/streamedWorkspace';
 import type { Cookies } from '@sveltejs/kit';
-import { CONFIRMED_CHANGE_COOKIE, parseConfirmedSequence } from '$lib/stores/core';
+import { readConfirmedChangeCookies, type ConfirmedChangesByTab } from '$lib/stores/core';
 
 import {
 	DASHBOARD_WORKSPACE_KEY,
@@ -77,11 +77,11 @@ function createDashboardAssignmentsHydrationTarget(
 function createDashboardWorkspaceHydration(
 	orgId: string,
 	data: DashboardWorkspaceData,
-	confirmedBeforeRequest: number
+	confirmedChangesByTab: ConfirmedChangesByTab
 ): DashboardWorkspaceHydration {
 	return {
 		orgId,
-		confirmedBeforeRequest,
+		confirmedChangesByTab,
 		personnel: createDashboardHydrationTarget(data.personnel),
 		groups: createDashboardHydrationTarget(data.groups),
 		statusTypes: createDashboardHydrationTarget(data.statusTypes),
@@ -107,7 +107,7 @@ export async function streamDashboardWorkspaceBootstrap(
 				hydration: createDashboardWorkspaceHydration(
 					ctx.auth.orgId,
 					data,
-					parseConfirmedSequence(context.cookies.get(CONFIRMED_CHANGE_COOKIE))
+					readConfirmedChangeCookies(context.cookies.getAll())
 				)
 			} satisfies DashboardWorkspaceResult;
 		}

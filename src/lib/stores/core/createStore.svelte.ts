@@ -13,6 +13,7 @@ import {
 	confirmedSequence,
 	nextConfirmedSequence,
 	CONFIRMED_CHANGE_RETENTION_MS,
+	SnapshotTooOldError,
 	type ConfirmedChange,
 	type ConfirmedChangeInput
 } from './confirmedChanges';
@@ -29,12 +30,17 @@ export interface StoreConfig<T extends { id: string }> {
 /**
  * A snapshot read whose request left at a known point in the confirmed history. Reconciling it
  * replaces what the snapshot covers, then re-applies every change the store confirmed after the
- * request left, because the server may have read before them. A snapshot older than the store's
- * retained changes changes nothing.
+ * request left, because the server may have read before them. A snapshot whose request left
+ * before an adopted full read changes nothing; one older than the retained changes throws
+ * `SnapshotTooOldError`.
  */
 export interface StoreRead<T extends { id: string }> {
 	reconcile(snapshot: T[], covers: (item: T) => boolean): T[];
-	/** Reconcile a snapshot of every row; snapshots whose requests left earlier then change nothing. */
+	close(): void;
+}
+
+/** A read of every row that supersedes snapshots whose requests left before it began. */
+export interface StoreAdoption<T extends { id: string }> {
 	adopt(snapshot: T[]): T[];
 	close(): void;
 }
@@ -49,6 +55,8 @@ export interface Store<T extends { id: string }> {
 	load(items: T[], orgId: string): void;
 	/** `since` is the sequence the request carried; it defaults to now for a request about to leave. */
 	beginRead(since?: number): StoreRead<T>;
+	/** Begin just before requesting every row. */
+	beginAdoption(): StoreAdoption<T>;
 	startLoading(): void;
 	add(data: Omit<T, 'id'>): Promise<T | null>;
 	addBatch(entries: Omit<T, 'id'>[]): Promise<T[]>;
@@ -88,20 +96,25 @@ export function createStoreWithInternals<T extends { id: string }>(
 	let loadVersion = 0;
 	let confirmedChanges: ConfirmedChange<T>[] = [];
 	let openReads: { since: number }[] = [];
-	// Snapshots whose requests left before this are superseded or have lost the changes they need.
-	let staleBefore = 0;
+	let prunedThrough = 0;
+	let supersededBefore = 0;
 
 	// A response can arrive well after its request left, so keep recent changes and any an open read needs.
 	function pruneConfirmedChanges() {
-		const floor = Math.min(Date.now() - CONFIRMED_CHANGE_RETENTION_MS, ...openReads.map((read) => read.since));
-		while (confirmedChanges.length > 0 && confirmedChanges[0].sequence <= floor) {
-			staleBefore = Math.max(staleBefore, confirmedChanges[0].sequence);
+		const expired = Date.now() - CONFIRMED_CHANGE_RETENTION_MS;
+		const needed = Math.min(...openReads.map((read) => read.since));
+		while (
+			confirmedChanges.length > 0 &&
+			confirmedChanges[0].confirmedAt <= expired &&
+			confirmedChanges[0].sequence <= needed
+		) {
+			prunedThrough = confirmedChanges[0].sequence;
 			confirmedChanges = confirmedChanges.slice(1);
 		}
 	}
 
 	function commit(change: ConfirmedChangeInput<T>) {
-		confirmedChanges.push({ ...change, sequence: nextConfirmedSequence() } as ConfirmedChange<T>);
+		confirmedChanges.push({ ...change, sequence: nextConfirmedSequence(), confirmedAt: Date.now() });
 		pruneConfirmedChanges();
 		loadedState.set(applyConfirmedChange(loadedState.getSnapshot(), change));
 	}
@@ -128,28 +141,40 @@ export function createStoreWithInternals<T extends { id: string }>(
 	function beginRead(since = confirmedSequence()): StoreRead<T> {
 		const read = { since };
 		openReads.push(read);
-		function reconcile(snapshot: T[], covers: (item: T) => boolean): T[] {
-			if (read.since < staleBefore) return loadedState.getSnapshot();
-			const snapshotIds: Record<string, true> = Object.create(null);
-			for (const item of snapshot) snapshotIds[item.id] = true;
-			let items = [...loadedState.getSnapshot().filter((item) => !covers(item) && !snapshotIds[item.id]), ...snapshot];
-			if (!openReads.includes(read)) return items;
-			for (const change of confirmedChanges) {
-				if (change.sequence > read.since) items = applyConfirmedChange(items, change);
-			}
-			return items;
-		}
 		return {
-			reconcile,
-			adopt(snapshot) {
-				const items = reconcile(snapshot, () => true);
-				staleBefore = Math.max(staleBefore, read.since);
+			reconcile(snapshot, covers) {
+				if (read.since < prunedThrough) throw new SnapshotTooOldError();
+				if (read.since < supersededBefore) return loadedState.getSnapshot();
+				const snapshotIds: Record<string, true> = Object.create(null);
+				for (const item of snapshot) snapshotIds[item.id] = true;
+				let items = [
+					...loadedState.getSnapshot().filter((item) => !covers(item) && !snapshotIds[item.id]),
+					...snapshot
+				];
+				if (!openReads.includes(read)) return items;
+				for (const change of confirmedChanges) {
+					if (change.sequence > read.since) items = applyConfirmedChange(items, change);
+				}
 				return items;
 			},
 			close() {
 				openReads = openReads.filter((open) => open !== read);
 				pruneConfirmedChanges();
 			}
+		};
+	}
+
+	function beginAdoption(): StoreAdoption<T> {
+		// A fresh number orders this read after every request that already left, even one with no change between.
+		const barrier = nextConfirmedSequence();
+		const read = beginRead(barrier);
+		return {
+			adopt(snapshot) {
+				const items = read.reconcile(snapshot, () => true);
+				supersededBefore = Math.max(supersededBefore, barrier);
+				return items;
+			},
+			close: read.close
 		};
 	}
 
@@ -223,6 +248,7 @@ export function createStoreWithInternals<T extends { id: string }>(
 		},
 
 		beginRead,
+		beginAdoption,
 
 		startLoading() {
 			loadingVal.set(true);
@@ -235,7 +261,8 @@ export function createStoreWithInternals<T extends { id: string }>(
 				log.clear();
 				openReads = [];
 				confirmedChanges = [];
-				staleBefore = 0;
+				prunedThrough = 0;
+				supersededBefore = 0;
 			}
 			loadedLifetime = organizationLifetime();
 			loadedState.set(newItems);

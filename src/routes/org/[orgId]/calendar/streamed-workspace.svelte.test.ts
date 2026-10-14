@@ -55,7 +55,7 @@ function workspace() {
 		},
 		hydration: {
 			orgId: 'org-1',
-			confirmedBeforeRequest: 0,
+			confirmedChangesByTab: {},
 			personnel: { mode: 'replace', snapshotKey: 'personnel', items: [] },
 			groups: { mode: 'replace', snapshotKey: 'groups', items: [] },
 			statusTypes: { mode: 'replace', snapshotKey: 'statuses', items: [] },

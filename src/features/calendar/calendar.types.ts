@@ -81,8 +81,8 @@ export interface CalendarAssignmentsWorkspaceHydrationTarget {
 
 export interface CalendarWorkspaceHydration {
 	orgId: string;
-	/** The latest change this browser confirmed before the request left. */
-	confirmedBeforeRequest: number;
+	/** Each tab's latest confirmed change when the request left; see `confirmedBeforeRequest`. */
+	confirmedChangesByTab: Record<string, number>;
 	personnel: CalendarWorkspaceHydrationTarget<Personnel>;
 	groups: CalendarWorkspaceHydrationTarget<Group>;
 	statusTypes: CalendarWorkspaceHydrationTarget<StatusType>;

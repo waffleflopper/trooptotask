@@ -10,7 +10,7 @@ import { groupCatalogHydration } from '$features/personnel';
 import type { Group } from '$features/personnel/contracts';
 import { pinnedGroupsHydration } from '$features/personnel';
 import { personnelRosterHydration } from '$features/personnel';
-import type { StoreRead } from '$lib/stores/core';
+import { confirmedBeforeRequest, type StoreRead } from '$lib/stores/core';
 import {
 	createFeatureLaneWorkspaceHydrator,
 	type FeatureLaneWorkspaceHydrationTargetDescriptor
@@ -191,14 +191,14 @@ export function createDashboardWorkspaceHydrator(): DashboardWorkspaceHydrator {
 					stores.availabilityEntriesStore,
 					orgId,
 					'availabilityEntries',
-					hydration.confirmedBeforeRequest
+					confirmedBeforeRequest(hydration.confirmedChangesByTab)
 				),
 				createCalendarAssignmentsDescriptor(
 					hydration.calendarAssignments,
 					stores.calendarAssignmentsStore,
 					orgId,
 					'calendarAssignments',
-					hydration.confirmedBeforeRequest
+					confirmedBeforeRequest(hydration.confirmedChangesByTab)
 				),
 				createTargetDescriptor(hydration.trainingTypes, stores.trainingTypesStore, orgId, 'trainingTypes'),
 				createPinnedGroupsDescriptor(hydration.pinnedGroups, stores.pinnedGroupsStore, orgId, 'pinnedGroups')

@@ -28,7 +28,7 @@ import type { AssignmentType, DailyAssignment } from '$features/calendar/contrac
 import { withCalendarTiming } from '$features/calendar/index.server';
 import { CALENDAR_ANCHOR_COOKIE, resolveCalendarAnchorDate } from '$features/calendar/index.server';
 import { createInitialCalendarBufferedRange } from '$features/calendar/index.server';
-import { CONFIRMED_CHANGE_COOKIE, parseConfirmedSequence } from '$lib/stores/core';
+import { readConfirmedChangeCookies, type ConfirmedChangesByTab } from '$lib/stores/core';
 
 function createCalendarHydrationTarget<T>(items: HydrationItems<T>): CalendarWorkspaceHydrationTarget<T> {
 	return createWorkspaceHydrationTarget(items, { mode: 'replace', resolvedSnapshotKey: 'json' });
@@ -86,11 +86,11 @@ function createCalendarAssignmentsHydrationTarget(
 export function createCalendarWorkspaceHydration(
 	orgId: string,
 	data: CalendarBootstrap,
-	confirmedBeforeRequest = 0
+	confirmedChangesByTab: ConfirmedChangesByTab = {}
 ): CalendarWorkspaceHydration {
 	return {
 		orgId,
-		confirmedBeforeRequest,
+		confirmedChangesByTab,
 		personnel: createCalendarHydrationTarget(data.personnel),
 		groups: createCalendarHydrationTarget(data.groups),
 		statusTypes: createCalendarHydrationTarget(data.statusTypes),
@@ -146,7 +146,7 @@ export async function streamCalendarWorkspaceBootstrap(
 				hydration: createCalendarWorkspaceHydration(
 					ctx.auth.orgId,
 					data,
-					parseConfirmedSequence(context.cookies.get(CONFIRMED_CHANGE_COOKIE))
+					readConfirmedChangeCookies(context.cookies.getAll())
 				)
 			} satisfies CalendarWorkspaceResult;
 		}

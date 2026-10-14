@@ -64,7 +64,7 @@ function enhance(base: Store<SpecialDay>): SpecialDayExtensions {
 			if (!currentReset(orgId, requestReset)) return 'stale';
 			const version = state.version;
 			const requestLoadGeneration = loadGeneration;
-			const read = base.beginRead();
+			const read = base.beginAdoption();
 			try {
 				const response = await withinOrganizationLifetime(fetch(`/org/${orgId}/api/special-days`));
 				if (!response.ok) return 'refresh-failed';

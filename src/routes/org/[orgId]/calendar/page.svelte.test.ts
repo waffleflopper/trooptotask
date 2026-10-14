@@ -125,7 +125,7 @@ function makeBootstrap(): CalendarWorkspaceResult {
 		},
 		hydration: {
 			orgId: 'org-1',
-			confirmedBeforeRequest: 0,
+			confirmedChangesByTab: {},
 			personnel: { mode: 'replace', snapshotKey: 'personnel:1', items: [] },
 			groups: { mode: 'replace', snapshotKey: 'groups:1', items: [] },
 			statusTypes: { mode: 'replace', snapshotKey: 'status-types:1', items: [] },

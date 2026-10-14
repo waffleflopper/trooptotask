@@ -76,6 +76,7 @@ describe('regression: delete type then add type flow', () => {
 describe('dailyAssignmentsStore - core primitives composition', () => {
 	beforeEach(() => {
 		vi.restoreAllMocks();
+		endOrganizationLifetime();
 		dailyAssignmentsStore.load([], [], 'org-1');
 	});
 
@@ -1082,5 +1083,208 @@ describe('dailyAssignmentsStore - responses that finish after an Organization sw
 		releases[1](outcomes.success(saved));
 		await expect(current).resolves.toBe(true);
 		expect(dailyAssignmentsStore.assignments).toEqual([saved]);
+	});
+});
+
+describe('dailyAssignmentsStore - workspace snapshots after a confirmed catalog', () => {
+	const staff = { ...guardType, id: 'staff', name: 'Staff', showInDateHeader: true };
+	const group = { ...guardType, id: 'group', name: 'Group', assignTo: 'group' as const, color: '#0f766e' };
+	const retiring = { ...guardType, id: 'retiring', name: 'Retiring', exemptPersonnelIds: ['p-exempt'] };
+	const confirmed = [{ ...staff, showInDateHeader: false }, { ...group, showInDateHeader: true }, retiring];
+	const beforeCommit = [staff, group, retiring];
+	const retiringSaved = [{ ...staff, showInDateHeader: false }, group, { ...retiring, showInDateHeader: true }];
+	const row = { id: 'a1', date: '2026-10-14', assignmentTypeId: 'group', assigneeId: 'p1' };
+	const refreshFailed = "We couldn't refresh assignment types. Reload to see the saved types.";
+	const answered = () => new Promise((resolve) => setTimeout(resolve, 0));
+	const reply = (status: number, body: unknown) => ({
+		ok: status >= 200 && status < 300,
+		status,
+		json: () => Promise.resolve(body),
+		text: () => Promise.resolve(JSON.stringify(body))
+	});
+	let requests: string[];
+	let reads: Array<{ resolve: (value: unknown) => void; reject: (error: unknown) => void }>;
+	let toasts: string[];
+
+	beforeEach(async () => {
+		vi.restoreAllMocks();
+		endOrganizationLifetime();
+		dailyAssignmentsStore.load(beforeCommit, [], 'org-1');
+		requests = [];
+		reads = [];
+		toasts = [];
+		vi.spyOn(toastStore, 'error').mockImplementation((message: string) => {
+			toasts.push(message);
+			return 'toast-id';
+		});
+		vi.stubGlobal(
+			'fetch',
+			vi.fn((url: string, options?: RequestInit) => {
+				requests.push(`${options?.method ?? 'GET'} ${url}`);
+				if (options) return Promise.resolve(reply(200, { success: true }));
+				return new Promise((resolve, reject) => reads.push({ resolve, reject }));
+			})
+		);
+		expect(await dailyAssignmentsStore.setDateHeader('group')).toEqual({ status: 'saved' });
+		requests.length = 0;
+	});
+
+	it.each([
+		['omits the saved header while another type is flagged', [staff, retiring]],
+		['omits the saved header and flags nothing', [{ ...staff, showInDateHeader: false }, retiring]],
+		['is empty', []]
+	])('keeps the confirmed catalog when a snapshot %s until a fresh read agrees', async (_label, snapshot) => {
+		dailyAssignmentsStore.startLoading();
+		dailyAssignmentsStore.load(snapshot, [row], 'org-1');
+
+		expect(dailyAssignmentsStore.types).toEqual(confirmed);
+		expect(dailyAssignmentsStore.assignments).toEqual([row]);
+		expect(dailyAssignmentsStore.loading).toBe(false);
+		expect(requests).toEqual(['GET /org/org-1/api/assignment-types']);
+		reads[0].resolve(reply(200, confirmed));
+		await answered();
+
+		expect(dailyAssignmentsStore.types).toEqual(confirmed);
+		expect(toasts).toEqual([]);
+	});
+
+	it.each([
+		[
+			'archived',
+			[
+				{ ...staff, showInDateHeader: false },
+				{ ...group, showInDateHeader: false, archivedAt: '2026-10-13T12:00:00.000Z' },
+				retiring
+			]
+		],
+		['deleted', [{ ...staff, showInDateHeader: false }, retiring]],
+		[
+			'renamed',
+			[{ ...staff, showInDateHeader: false }, { ...group, showInDateHeader: true, name: 'Group Night' }, retiring]
+		],
+		['replaced as the header', retiringSaved]
+	])('adopts a saved header another user %s once a fresh read confirms it', async (_label, saved) => {
+		dailyAssignmentsStore.load(saved, [row], 'org-1');
+		expect(dailyAssignmentsStore.types).toEqual(confirmed);
+		reads[0].resolve(reply(200, saved));
+
+		await vi.waitFor(() => expect(dailyAssignmentsStore.types).toEqual(saved));
+		expect(dailyAssignmentsStore.assignments).toEqual([row]);
+		expect(requests).toEqual(['GET /org/org-1/api/assignment-types']);
+		expect(toasts).toEqual([]);
+	});
+
+	it('adopts an agreeing snapshot with different order and saved metadata without a read', () => {
+		const snapshot = [
+			{ ...retiring, archivedAt: null, sortOrder: 2, created_at: '2026-10-01T00:00:00.000Z' },
+			{ ...group, showInDateHeader: true, organization_id: 'org-1' },
+			{ ...staff, showInDateHeader: false }
+		] as typeof confirmed;
+		dailyAssignmentsStore.load(snapshot, [row], 'org-1');
+
+		expect(requests).toEqual([]);
+		expect(dailyAssignmentsStore.types).toEqual(confirmed);
+		expect(dailyAssignmentsStore.assignments).toEqual([row]);
+	});
+
+	it('lets a header chosen during a held read decide the catalog', async () => {
+		dailyAssignmentsStore.load(beforeCommit, [], 'org-1');
+		expect(await dailyAssignmentsStore.setDateHeader('retiring')).toEqual({ status: 'saved' });
+		reads[0].resolve(reply(200, confirmed));
+		await answered();
+
+		expect(dailyAssignmentsStore.types).toEqual(retiringSaved);
+		expect(requests).toEqual([
+			'GET /org/org-1/api/assignment-types',
+			'PUT /org/org-1/api/assignment-types/date-header'
+		]);
+		expect(toasts).toEqual([]);
+	});
+
+	it('keeps a type deleted during a held read deleted when the read answers', async () => {
+		dailyAssignmentsStore.load(beforeCommit, [], 'org-1');
+		expect(await dailyAssignmentsStore.removeType('retiring')).toBe(true);
+		reads[0].resolve(reply(200, confirmed));
+		await answered();
+
+		expect(dailyAssignmentsStore.types).toEqual(confirmed.slice(0, 2));
+		expect(requests).toEqual(['GET /org/org-1/api/assignment-types', 'DELETE /org/org-1/api/assignment-types']);
+		expect(toasts).toEqual([]);
+	});
+
+	it('adopts only the read sent for the latest disputed snapshot and stays silent about the superseded one', async () => {
+		dailyAssignmentsStore.load(beforeCommit, [], 'org-1');
+		dailyAssignmentsStore.load(retiringSaved, [row], 'org-1');
+		reads[0].resolve(reply(500, {}));
+		reads[1].resolve(reply(200, retiringSaved));
+
+		await vi.waitFor(() => expect(dailyAssignmentsStore.types).toEqual(retiringSaved));
+		expect(requests).toEqual(['GET /org/org-1/api/assignment-types', 'GET /org/org-1/api/assignment-types']);
+		expect(toasts).toEqual([]);
+	});
+
+	it.each([
+		['another Organization and back', () => dailyAssignmentsStore.load([], [], 'org-2')],
+		['an ended Organization lifetime', () => endOrganizationLifetime()],
+		['a restricted workspace', () => dailyAssignmentsStore.load([], [], '')]
+	])('applies snapshots directly after %s and ignores the earlier read', async (_label, leave) => {
+		dailyAssignmentsStore.load(beforeCommit, [], 'org-1');
+		leave();
+		dailyAssignmentsStore.load(beforeCommit, [row], 'org-1');
+
+		expect(dailyAssignmentsStore.types).toEqual(beforeCommit);
+		expect(dailyAssignmentsStore.assignments).toEqual([row]);
+		reads[0].resolve(reply(200, confirmed));
+		await answered();
+
+		expect(dailyAssignmentsStore.types).toEqual(beforeCommit);
+		expect(requests).toEqual(['GET /org/org-1/api/assignment-types']);
+		expect(toasts).toEqual([]);
+	});
+
+	it.each([
+		['fails', (read: (typeof reads)[number]) => read.resolve(reply(500, {}))],
+		['is rejected', (read: (typeof reads)[number]) => read.reject(new TypeError('Failed to fetch'))],
+		['returns a malformed catalog', (read: (typeof reads)[number]) => read.resolve(reply(200, [{}]))]
+	])(
+		'keeps the confirmed catalog and says so once when its fresh read %s, then retries on the next dispute',
+		async (_label, answer) => {
+			dailyAssignmentsStore.load(beforeCommit, [row], 'org-1');
+			answer(reads[0]);
+
+			await vi.waitFor(() => expect(toasts).toEqual([refreshFailed]));
+			expect(dailyAssignmentsStore.types).toEqual(confirmed);
+			expect(dailyAssignmentsStore.assignments).toEqual([row]);
+			expect(dailyAssignmentsStore.loading).toBe(false);
+
+			dailyAssignmentsStore.load(retiringSaved, [row], 'org-1');
+			reads[1].resolve(reply(200, retiringSaved));
+			await vi.waitFor(() => expect(dailyAssignmentsStore.types).toEqual(retiringSaved));
+			expect(requests).toEqual(['GET /org/org-1/api/assignment-types', 'GET /org/org-1/api/assignment-types']);
+			expect(toasts).toEqual([refreshFailed]);
+		}
+	);
+
+	it('protects a catalog verified by the recovery read of an unconfirmed choice', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn((url: string, options?: RequestInit) => {
+				requests.push(`${options?.method ?? 'GET'} ${url}`);
+				if (options) return Promise.resolve(reply(503, {}));
+				return Promise.resolve(reply(200, retiringSaved));
+			})
+		);
+		expect(await dailyAssignmentsStore.setDateHeader('staff')).toEqual({ status: 'unconfirmed', showsSaved: true });
+		dailyAssignmentsStore.load(confirmed, [], 'org-1');
+
+		expect(dailyAssignmentsStore.types).toEqual(retiringSaved);
+		await answered();
+		expect(dailyAssignmentsStore.types).toEqual(retiringSaved);
+		expect(requests).toEqual([
+			'PUT /org/org-1/api/assignment-types/date-header',
+			'GET /org/org-1/api/assignment-types',
+			'GET /org/org-1/api/assignment-types'
+		]);
+		expect(toasts).toEqual(["We couldn't confirm the date header change. The saved header is Retiring."]);
 	});
 });

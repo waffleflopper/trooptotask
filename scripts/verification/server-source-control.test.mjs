@@ -405,3 +405,47 @@ test('Critical Task catalog failure targets only the A catalog read; completions
 	assert.equal(await (await control.fetch(catalog)).text(), 'stored task catalog');
 	control.command('restore');
 });
+
+test('Calendar type catalog hold receipts only the exact A read; the header command, B, daily rows and writes stay real', async () => {
+	const dispatched = [];
+	const provider = deferred();
+	const catalogResponse = new Response('saved type catalog', { status: 200 });
+	const catalog = `${providerUrl}/rest/v1/assignment_types?select=id,name,show_in_date_header&organization_id=eq.${orgA}&order=sort_order.asc&order=id.asc`;
+	const control = controller(async (input, init) => {
+		dispatched.push([String(input), init?.method ?? 'GET']);
+		return String(input) === catalog && !init?.method ? provider.promise : new Response('real');
+	});
+	control.command('arm', { table: 'assignment_types', mode: 'hold' });
+	for (const input of [
+		[`${providerUrl}/rest/v1/rpc/set_assignment_type_date_header`, { method: 'POST' }],
+		[catalog.replace(orgA, orgB)],
+		[catalog.replace('/assignment_types?', '/daily_assignments?')],
+		[catalog, { method: 'PATCH' }]
+	])
+		assert.equal(await (await control.fetch(...input)).text(), 'real');
+	assert.equal(control.command('state').control.matches, 0);
+	let settled = false;
+	const held = control.fetch(catalog).then((response) => {
+		settled = true;
+		return response;
+	});
+	assert.equal(control.command('state').control.phase, 'dispatching');
+	provider.resolve(catalogResponse);
+	await turn();
+	assert.deepEqual(control.command('state').control, {
+		table: 'assignment_types',
+		orgId: orgA,
+		mode: 'hold',
+		ordinal: 1,
+		holdMs: 30000,
+		phase: 'held',
+		matches: 1,
+		call: { method: 'GET', table: 'assignment_types', orgId: orgA, status: 200, synthetic: false }
+	});
+	assert.equal(settled, false);
+	assert.equal(dispatched.length, 5);
+	control.command('release');
+	assert.equal(await held, catalogResponse);
+	assert.equal(await catalogResponse.text(), 'saved type catalog');
+	control.command('restore');
+});

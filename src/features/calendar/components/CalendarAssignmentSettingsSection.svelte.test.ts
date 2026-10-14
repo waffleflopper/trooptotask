@@ -326,6 +326,7 @@ describe('CalendarAssignmentSettingsSection date header', () => {
 			const server = stubAssignmentTypeServer();
 			server.answerHeader = () => Response.json({ message: 'unconfirmed' }, { status: 503 });
 			server.answerRead = () => {
+				server.answerRead = null;
 				let remaining = hops;
 				const step = () =>
 					remaining-- === 0
@@ -335,6 +336,7 @@ describe('CalendarAssignmentSettingsSection date header', () => {
 				return { ok: true, status: 200, json: () => Promise.resolve(structuredClone(readCatalog)) } as Response;
 			};
 			const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+			endOrganizationLifetime();
 			dailyAssignmentsStore.load([chargeOfQuarters, staffDuty, retiring], [], 'org-1');
 			render(CalendarAssignmentSettingsSection, { props: { canMutate: true, searchQuery: '' } });
 

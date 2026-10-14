@@ -3,7 +3,7 @@ import type { Group } from '$features/personnel/contracts';
 import type { TrainingType } from '$features/training/contracts';
 import type { Personnel } from '$features/personnel/contracts';
 import type { AssignmentType, AvailabilityEntry, StatusType, DailyAssignment } from '$features/calendar/contracts';
-import { createMockAdapter, createStore, markSnapshotRequest } from '$lib/stores/core';
+import { confirmedSequence, createMockAdapter, createStore } from '$lib/stores/core';
 import { createDashboardWorkspaceHydrator, type DashboardHydrationStores } from './dashboardWorkspaceHydration.svelte';
 import type { DashboardWorkspaceHydration } from './contracts';
 
@@ -100,6 +100,7 @@ describe('Dashboard workspace hydration adapter', () => {
 		const assignment = { id: 'da1', date: '2026-05-01', assignmentTypeId: 'at1' } as DailyAssignment;
 		const hydration: DashboardWorkspaceHydration = {
 			orgId: 'org-1',
+			confirmedBeforeRequest: 0,
 			personnel: { mode: 'replace', snapshotKey: 'personnel:1', items: [{ id: 'p1' } as Personnel] },
 			groups: { mode: 'replace', snapshotKey: 'groups:1', items: [{ id: 'g1', name: 'Alpha' } as Group] },
 			statusTypes: { mode: 'replace', snapshotKey: 'status-types:1', items: [{ id: 'st1' } as StatusType] },
@@ -156,6 +157,7 @@ describe('Dashboard workspace hydration adapter', () => {
 		const availability = deferred<AvailabilityEntry[]>();
 		const hydration: DashboardWorkspaceHydration = {
 			orgId: 'org-1',
+			confirmedBeforeRequest: confirmedSequence(),
 			personnel: { mode: 'preserve-client', snapshotKey: 'personnel', items: [] },
 			groups: { mode: 'preserve-client', snapshotKey: 'groups', items: [] },
 			statusTypes: { mode: 'preserve-client', snapshotKey: 'status-types', items: [] },
@@ -175,7 +177,6 @@ describe('Dashboard workspace hydration adapter', () => {
 			pinnedGroups: { mode: 'preserve-client', snapshotKey: 'pinned', items: [] }
 		};
 
-		markSnapshotRequest();
 		const saved = await stores.availabilityEntriesStore.add({
 			personnelId: 'p1',
 			statusTypeId: 'leave',

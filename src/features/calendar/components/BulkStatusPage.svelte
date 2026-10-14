@@ -11,7 +11,6 @@
 	import { createRosterReadModel } from '$features/personnel/contracts';
 	import { page } from '$app/state';
 	import { goto, invalidate } from '$app/navigation';
-	import { markSnapshotRequest } from '$lib/stores/core';
 	import { resolve } from '$app/paths';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import { buildAddRecords } from '$features/calendar/utils/availabilityMutation';
@@ -136,7 +135,6 @@
 	}
 
 	function handleComplete() {
-		markSnapshotRequest();
 		invalidate('app:calendar-data');
 	}
 </script>

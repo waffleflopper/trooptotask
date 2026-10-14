@@ -19,6 +19,7 @@ function preserveClientHydration(
 ): CalendarWorkspaceResult['hydration'] {
 	return {
 		orgId: 'org-1',
+		confirmedBeforeRequest: 0,
 		personnel: { mode: 'preserve-client', snapshotKey: 'personnel', items: [] },
 		groups: { mode: 'preserve-client', snapshotKey: 'groups', items: [] },
 		statusTypes: { mode: 'preserve-client', snapshotKey: 'status', items: [] },

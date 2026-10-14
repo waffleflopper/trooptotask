@@ -28,6 +28,7 @@ import type { AssignmentType, DailyAssignment } from '$features/calendar/contrac
 import { withCalendarTiming } from '$features/calendar/index.server';
 import { CALENDAR_ANCHOR_COOKIE, resolveCalendarAnchorDate } from '$features/calendar/index.server';
 import { createInitialCalendarBufferedRange } from '$features/calendar/index.server';
+import { CONFIRMED_CHANGE_COOKIE, parseConfirmedSequence } from '$lib/stores/core';
 
 function createCalendarHydrationTarget<T>(items: HydrationItems<T>): CalendarWorkspaceHydrationTarget<T> {
 	return createWorkspaceHydrationTarget(items, { mode: 'replace', resolvedSnapshotKey: 'json' });
@@ -82,9 +83,14 @@ function createCalendarAssignmentsHydrationTarget(
 	};
 }
 
-export function createCalendarWorkspaceHydration(orgId: string, data: CalendarBootstrap): CalendarWorkspaceHydration {
+export function createCalendarWorkspaceHydration(
+	orgId: string,
+	data: CalendarBootstrap,
+	confirmedBeforeRequest = 0
+): CalendarWorkspaceHydration {
 	return {
 		orgId,
+		confirmedBeforeRequest,
 		personnel: createCalendarHydrationTarget(data.personnel),
 		groups: createCalendarHydrationTarget(data.groups),
 		statusTypes: createCalendarHydrationTarget(data.statusTypes),
@@ -137,7 +143,11 @@ export async function streamCalendarWorkspaceBootstrap(
 			return {
 				laneKey: CALENDAR_WORKSPACE_LANE_KEY,
 				data,
-				hydration: createCalendarWorkspaceHydration(ctx.auth.orgId, data)
+				hydration: createCalendarWorkspaceHydration(
+					ctx.auth.orgId,
+					data,
+					parseConfirmedSequence(context.cookies.get(CONFIRMED_CHANGE_COOKIE))
+				)
 			} satisfies CalendarWorkspaceResult;
 		}
 	});

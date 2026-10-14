@@ -11,6 +11,7 @@ import {
 	type HydrationItems
 } from '$lib/server/adapters/streamedWorkspace';
 import type { Cookies } from '@sveltejs/kit';
+import { CONFIRMED_CHANGE_COOKIE, parseConfirmedSequence } from '$lib/stores/core';
 
 import {
 	DASHBOARD_WORKSPACE_KEY,
@@ -73,9 +74,14 @@ function createDashboardAssignmentsHydrationTarget(
 	};
 }
 
-function createDashboardWorkspaceHydration(orgId: string, data: DashboardWorkspaceData): DashboardWorkspaceHydration {
+function createDashboardWorkspaceHydration(
+	orgId: string,
+	data: DashboardWorkspaceData,
+	confirmedBeforeRequest: number
+): DashboardWorkspaceHydration {
 	return {
 		orgId,
+		confirmedBeforeRequest,
 		personnel: createDashboardHydrationTarget(data.personnel),
 		groups: createDashboardHydrationTarget(data.groups),
 		statusTypes: createDashboardHydrationTarget(data.statusTypes),
@@ -98,7 +104,11 @@ export async function streamDashboardWorkspaceBootstrap(
 			return {
 				workspaceKey: DASHBOARD_WORKSPACE_KEY,
 				data,
-				hydration: createDashboardWorkspaceHydration(ctx.auth.orgId, data)
+				hydration: createDashboardWorkspaceHydration(
+					ctx.auth.orgId,
+					data,
+					parseConfirmedSequence(context.cookies.get(CONFIRMED_CHANGE_COOKIE))
+				)
 			} satisfies DashboardWorkspaceResult;
 		}
 	});

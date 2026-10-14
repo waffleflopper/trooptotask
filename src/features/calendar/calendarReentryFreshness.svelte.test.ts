@@ -3,7 +3,7 @@ import { calendarWorkspaceHydrator } from './calendarWorkspaceHydration.svelte';
 import { availabilityStore } from './stores/availability.svelte';
 import { specialDaysStore } from './stores/specialDays.svelte';
 import { dailyAssignmentsStore } from './stores/dailyAssignments.svelte';
-import { endOrganizationLifetime, markSnapshotRequest } from '$lib/stores/core';
+import { confirmedSequence, endOrganizationLifetime } from '$lib/stores/core';
 import type { CalendarWorkspaceHydration } from './calendar.types';
 import type { AvailabilityEntry, DailyAssignment, SpecialDay } from './contracts';
 
@@ -38,11 +38,12 @@ type Rows = {
 	assignments: DailyAssignment[] | Promise<DailyAssignment[]>;
 };
 
-// Mirrors the targets the server delivery streams for a Calendar workspace snapshot.
+// Mirrors the targets the server delivery streams; building one is the request leaving the browser.
 function workspace(rows: Rows, range = OCTOBER, specialDaysRange = CATALOG_YEARS): CalendarWorkspaceHydration {
 	const key = crypto.randomUUID();
 	return {
 		orgId: '',
+		confirmedBeforeRequest: confirmedSequence(),
 		personnel: { mode: 'replace', snapshotKey: key, items: [] },
 		groups: { mode: 'replace', snapshotKey: key, items: [] },
 		statusTypes: { mode: 'replace', snapshotKey: key, items: [] },
@@ -59,12 +60,6 @@ function workspace(rows: Rows, range = OCTOBER, specialDaysRange = CATALOG_YEARS
 }
 
 function enter(orgId: string, data: CalendarWorkspaceHydration) {
-	markSnapshotRequest();
-	return arrive(orgId, data);
-}
-
-// The response reaches the browser some time after navigation sent the request.
-function arrive(orgId: string, data: CalendarWorkspaceHydration) {
 	calendarWorkspaceHydrator.reset();
 	return calendarWorkspaceHydrator.hydrate({ ...data, orgId });
 }
@@ -300,8 +295,12 @@ describe('Calendar re-entry freshness', () => {
 		expect(ids(dailyAssignmentsStore.assignments)).toEqual(['x1']);
 	});
 
-	it('keeps a save confirmed after the request left but before its response arrived', async () => {
-		markSnapshotRequest();
+	it('keeps changes confirmed after the request left but before its response arrived', async () => {
+		const request = workspace({
+			availability: [leave('a1'), leave('a2', '2026-10-15')],
+			specialDays: [closure('c1'), closure('c2', '2026-10-21')],
+			assignments: [duty('x1'), duty('x2', '2026-10-10')]
+		});
 		await availabilityStore.add({
 			personnelId: 'p1',
 			statusTypeId: 'leave',
@@ -310,17 +309,38 @@ describe('Calendar re-entry freshness', () => {
 		});
 		await specialDaysStore.remove('c2');
 
-		await arrive(
-			'org-1',
-			workspace({
-				availability: [leave('a1'), leave('a2', '2026-10-15')],
-				specialDays: [closure('c1'), closure('c2', '2026-10-21')],
-				assignments: [duty('x1'), duty('x2', '2026-10-10')]
-			})
-		);
+		await enter('org-1', request);
 
 		expect(ids(availabilityStore.items)).toEqual(['a1', 'a2', 'saved-1']);
 		expect(ids(specialDaysStore.items)).toEqual(['c1']);
+	});
+
+	it('changes nothing when a full Special Days read adopted after the request left', async () => {
+		const request = workspace({
+			availability: [leave('a1'), leave('a2', '2026-10-15')],
+			specialDays: [closure('c1'), closure('old-holiday', '2026-01-01')],
+			assignments: [duty('x1'), duty('x2', '2026-10-10')]
+		});
+		const holiday = { id: 'new-holiday', name: 'New Year', date: '2026-01-01', type: 'federal-holiday' as const };
+		let acknowledgeReset!: () => void;
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (_url: string, init?: RequestInit) => {
+				if (!init) return Response.json([closure('c1'), holiday, closure('saved-1', '2026-10-23')]);
+				if (JSON.parse(String(init.body)).action === 'resetFederalHolidays') {
+					return new Promise<Response>((resolve) => (acknowledgeReset = () => resolve(Response.json([holiday]))));
+				}
+				return Response.json({ id: 'saved-1', ...JSON.parse(String(init.body)) });
+			})
+		);
+		const reset = specialDaysStore.resetFederalHolidays();
+		await specialDaysStore.add({ name: 'Closure by A', date: '2026-10-23', type: 'org-closure' });
+		acknowledgeReset();
+		expect(await reset).toBe('saved');
+
+		await enter('org-1', request);
+
+		expect(ids(specialDaysStore.items)).toEqual(['c1', 'new-holiday', 'saved-1']);
 	});
 
 	it('does not apply a held snapshot after the user switched to another Organization', async () => {

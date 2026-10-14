@@ -144,6 +144,8 @@ export type DashboardAssignmentsWorkspaceHydrationTarget = {
 
 export interface DashboardWorkspaceHydration {
 	orgId: string;
+	/** The latest change this browser confirmed before the request left. */
+	confirmedBeforeRequest: number;
 	personnel: DashboardWorkspaceHydrationTarget<Personnel>;
 	groups: DashboardWorkspaceHydrationTarget<Group>;
 	statusTypes: DashboardWorkspaceHydrationTarget<StatusType>;

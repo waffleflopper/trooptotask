@@ -120,6 +120,7 @@ const MAY = { rangeStart: '2026-05-01', rangeEnd: '2026-05-31' };
 function preserveClientHydration(overrides: Partial<CalendarWorkspaceHydration> = {}): CalendarWorkspaceHydration {
 	return {
 		orgId: 'org-1',
+		confirmedBeforeRequest: 0,
 		personnel: { mode: 'preserve-client', snapshotKey: 'personnel:preserve', items: [] },
 		groups: { mode: 'preserve-client', snapshotKey: 'groups:preserve', items: [] },
 		statusTypes: { mode: 'preserve-client', snapshotKey: 'status-types:preserve', items: [] },
@@ -179,6 +180,7 @@ describe('Calendar workspace hydration adapter', () => {
 
 		const hydration: CalendarWorkspaceHydration = {
 			orgId: 'org-1',
+			confirmedBeforeRequest: 0,
 			personnel: { mode: 'replace', snapshotKey: 'personnel:1', items: [] },
 			groups: { mode: 'replace', snapshotKey: 'groups:1', items: [] },
 			statusTypes: { mode: 'replace', snapshotKey: 'status-types:1', items: [] },

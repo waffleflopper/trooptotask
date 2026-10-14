@@ -64,6 +64,7 @@ function enhance(base: Store<SpecialDay>): SpecialDayExtensions {
 			if (!currentReset(orgId, requestReset)) return 'stale';
 			const version = state.version;
 			const requestLoadGeneration = loadGeneration;
+			const read = base.beginRead();
 			try {
 				const response = await withinOrganizationLifetime(fetch(`/org/${orgId}/api/special-days`));
 				if (!response.ok) return 'refresh-failed';
@@ -73,11 +74,13 @@ function enhance(base: Store<SpecialDay>): SpecialDayExtensions {
 				if (state.version !== version || state.pending.length > 0 || loadGeneration !== requestLoadGeneration) {
 					continue;
 				}
-				// A read, not a confirmed change, so a later snapshot must not re-apply it.
-				base.load(savedDays.data, orgId);
+				// A read of every day, not a confirmed change, so it supersedes older snapshots.
+				base.load(read.adopt(savedDays.data), orgId);
 				return 'saved';
 			} catch {
 				return currentReset(orgId, requestReset) ? 'refresh-failed' : 'stale';
+			} finally {
+				read.close();
 			}
 		}
 		return 'refresh-failed';

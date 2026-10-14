@@ -10,7 +10,7 @@ import { groupCatalogHydration } from '$features/personnel';
 import type { Group } from '$features/personnel/contracts';
 import { pinnedGroupsHydration } from '$features/personnel';
 import { personnelRosterHydration } from '$features/personnel';
-import { snapshotRequestSequence, type StoreRead } from '$lib/stores/core';
+import type { StoreRead } from '$lib/stores/core';
 import {
 	createFeatureLaneWorkspaceHydrator,
 	type FeatureLaneWorkspaceHydrationTargetDescriptor
@@ -100,10 +100,11 @@ function createAvailabilityDescriptor(
 	target: DashboardRangeHydrationTarget<AvailabilityEntry>,
 	store: DashboardRangeHydrationLoadable<AvailabilityEntry>,
 	orgId: string,
-	targetName: string
+	targetName: string,
+	confirmedBeforeRequest: number
 ): FeatureLaneWorkspaceHydrationTargetDescriptor | undefined {
 	if (target.mode === 'preserve-client') return undefined;
-	const read = store.beginRead(snapshotRequestSequence());
+	const read = store.beginRead(confirmedBeforeRequest);
 
 	return {
 		targetName,
@@ -124,10 +125,11 @@ function createCalendarAssignmentsDescriptor(
 	target: DashboardAssignmentsWorkspaceHydrationTarget,
 	store: DashboardAssignmentsHydrationLoadable,
 	orgId: string,
-	targetName: string
+	targetName: string,
+	confirmedBeforeRequest: number
 ): FeatureLaneWorkspaceHydrationTargetDescriptor | undefined {
 	if (target.mode === 'preserve-client') return undefined;
-	const read = store.beginRead(snapshotRequestSequence());
+	const read = store.beginRead(confirmedBeforeRequest);
 
 	return {
 		targetName,
@@ -188,13 +190,15 @@ export function createDashboardWorkspaceHydrator(): DashboardWorkspaceHydrator {
 					hydration.availabilityEntries,
 					stores.availabilityEntriesStore,
 					orgId,
-					'availabilityEntries'
+					'availabilityEntries',
+					hydration.confirmedBeforeRequest
 				),
 				createCalendarAssignmentsDescriptor(
 					hydration.calendarAssignments,
 					stores.calendarAssignmentsStore,
 					orgId,
-					'calendarAssignments'
+					'calendarAssignments',
+					hydration.confirmedBeforeRequest
 				),
 				createTargetDescriptor(hydration.trainingTypes, stores.trainingTypesStore, orgId, 'trainingTypes'),
 				createPinnedGroupsDescriptor(hydration.pinnedGroups, stores.pinnedGroupsStore, orgId, 'pinnedGroups')

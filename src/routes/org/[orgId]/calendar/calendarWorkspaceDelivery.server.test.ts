@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { error } from '@sveltejs/kit';
 import type { Cookies } from '@sveltejs/kit';
 import { CALENDAR_ANCHOR_COOKIE } from '$features/calendar/index.server';
+import { CONFIRMED_CHANGE_COOKIE } from '$lib/stores/core';
 import type { Personnel } from '$features/personnel/contracts';
 import type {
 	AssignmentType,
@@ -209,9 +210,11 @@ describe('streamCalendarWorkspaceBootstrap', () => {
 	});
 
 	it('prefers the client-local anchor date and loads the special-day catalog years around it', async () => {
-		const cookies = {
-			get: vi.fn((name: string) => (name === CALENDAR_ANCHOR_COOKIE ? '2026-05-01' : undefined))
-		} as unknown as Cookies;
+		const requestCookies: Record<string, string> = {
+			[CALENDAR_ANCHOR_COOKIE]: '2026-05-01',
+			[CONFIRMED_CHANGE_COOKIE]: '1792000000000'
+		};
+		const cookies = { get: vi.fn((name: string) => requestCookies[name]) } as unknown as Cookies;
 		fetchCalendarBootstrapMock.mockImplementationOnce((_ctx, input) =>
 			Promise.resolve({
 				...calendarBootstrap,
@@ -242,5 +245,6 @@ describe('streamCalendarWorkspaceBootstrap', () => {
 		]);
 		expect(workspace.hydration.calendarAssignments.range).toEqual({ rangeStart: '2026-04-01', rangeEnd: '2026-06-30' });
 		expect(workspace.hydration.availabilityEntries.range).toEqual({ rangeStart: '2026-04-01', rangeEnd: '2026-06-30' });
+		expect(workspace.hydration.confirmedBeforeRequest).toBe(1792000000000);
 	});
 });

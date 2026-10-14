@@ -1,7 +1,7 @@
 /**
- * Changes the server confirmed, ordered by one sequence shared by every store. A snapshot read
- * re-applies the changes confirmed after its request left, because the server may have read
- * before them.
+ * Changes the server confirmed, ordered by a sequence shared by every store in this browser. A
+ * snapshot request carries the sequence of the latest change confirmed before it left, so applying
+ * the snapshot can re-apply every change confirmed after that, which the server may not have read.
  */
 export type ConfirmedChange<T> =
 	| { sequence: number; saved: T[]; deleted: string[] }
@@ -13,25 +13,30 @@ export type ConfirmedChangeInput<T> =
 	| { deletedWhere: (item: T) => boolean }
 	| { updatedWhere: (item: T) => boolean; update: (item: T) => T };
 
-let sequence = 0;
-let requested = 0;
+/** Every request, including navigations and preloads, sends this cookie as it leaves. */
+export const CONFIRMED_CHANGE_COOKIE = 't2t-confirmed-change';
 
+/** How long a store keeps changes for responses whose requests have not arrived yet. */
+export const CONFIRMED_CHANGE_RETENTION_MS = 10 * 60 * 1000;
+
+let sequence = 0;
+
+// Milliseconds keep the sequence comparable across this browser's tabs, which share the cookie.
 export function nextConfirmedSequence(): number {
-	return ++sequence;
+	sequence = Math.max(Date.now(), sequence + 1);
+	if (typeof document !== 'undefined') {
+		document.cookie = `${CONFIRMED_CHANGE_COOKIE}=${sequence}; path=/; SameSite=Lax`;
+	}
+	return sequence;
 }
 
 export function confirmedSequence(): number {
 	return sequence;
 }
 
-/** Call just before starting a request whose response a store reconciles later, such as a navigation. */
-export function markSnapshotRequest(): void {
-	requested = sequence;
-}
-
-/** The sequence when the latest snapshot request left. */
-export function snapshotRequestSequence(): number {
-	return requested;
+export function parseConfirmedSequence(value: string | undefined): number {
+	const parsed = Number(value);
+	return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : 0;
 }
 
 export function applyConfirmedChange<T extends { id: string }>(items: T[], change: ConfirmedChangeInput<T>): T[] {

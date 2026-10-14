@@ -155,9 +155,6 @@ describe('ordinary Onboarding persistence', () => {
 		expect((await workflow.listSavedActivePackets()).map((row) => row.id)).toEqual(ids);
 		expect(await workflow.listActivePacketIdsForPersonnel('person')).toEqual(ids);
 		expect(await workflow.listIncompleteActiveStepIds('packet')).toEqual(ids);
-		expect(await workflow.listPacketIdsUsingTemplate('template')).toEqual([]);
-		for (const row of state.rows.personnel_onboardings) row.template_id = 'template';
-		expect(await workflow.listPacketIdsUsingTemplate('template')).toEqual(ids);
 		state.rows.onboarding_templates = [template];
 		expect(await catalog.readStarterReadiness('Arrival', ['Paperwork'])).toMatchObject({
 			stepNames: Array(1001).fill('Paperwork'),
@@ -180,7 +177,6 @@ describe('ordinary Onboarding persistence', () => {
 		state.nullData = true;
 		expect(await catalog.listSteps()).toEqual([]);
 		expect(await workflow.listPackets('history')).toEqual([]);
-		expect(await catalog.createSteps([])).toEqual([]);
 	});
 	it('keeps count and starter readiness bounded to the current template and strict requested names', async () => {
 		const { catalog, state } = ports({
@@ -244,7 +240,7 @@ describe('ordinary Onboarding persistence', () => {
 			createdAt: null
 		});
 		expect((await catalog.updateTemplate('template', { description: null })).description).toBeNull();
-		expect((await catalog.updateStep('step', { sortOrder: 3 })).stages).toEqual(['Issued', 'Filed']);
+		expect((await catalog.updateStep('step', { name: 'Renamed step' })).stages).toEqual(['Issued', 'Filed']);
 		expect(await workflow.saveCheckboxCompletion('progress', true)).toEqual({
 			id: 'progress',
 			onboardingId: 'packet',
@@ -268,10 +264,8 @@ describe('ordinary Onboarding persistence', () => {
 			active: true,
 			completed: true
 		});
-		await workflow.clearPacketTemplate('packet');
-		expect(state.rows.personnel_onboardings[0]).toEqual(packet);
 	});
-	it('uses canonical ordinary authority for creates, prepared IDs, bulk empty responses and deletes', async () => {
+	it('uses canonical ordinary authority for creates, prepared IDs and step deletes', async () => {
 		const { catalog, state } = ports({ onboarding_templates: [template], onboarding_template_steps: [step] });
 		expect(await catalog.createTemplate({ name: 'New', description: null })).toEqual({
 			id: 'saved-1',
@@ -290,32 +284,13 @@ describe('ordinary Onboarding persistence', () => {
 			sortOrder: 2
 		};
 		expect((await catalog.createStep({ ...data, id: 'prepared' })).id).toBe('prepared');
-		expect(await catalog.createSteps([data])).toEqual([
-			{
-				id: 'saved-2',
-				organization_id: ORG,
-				templateId: 'template',
-				name: 'Ready',
-				description: null,
-				stepType: 'checkbox',
-				trainingTypeId: null,
-				stages: null,
-				sortOrder: 2,
-				created_at: TIME
-			}
-		]);
-		state.nullData = true;
-		expect(await catalog.createSteps([data])).toEqual([]);
-		state.nullData = false;
 		await catalog.deleteStep('prepared');
-		await catalog.deleteStepsForTemplate('template');
-		await catalog.deleteTemplate('template');
-		expect(state.rows.onboarding_template_steps).toEqual([]);
-		expect(state.rows.onboarding_templates.map((row) => row.id)).toEqual(['saved-1']);
+		expect(state.rows.onboarding_template_steps).toEqual([step]);
+		expect(state.rows.onboarding_templates.map((row) => row.id)).toEqual(['template', 'saved-1']);
 		expect(
 			state.requests
 				.filter((req) => req.method === 'POST')
-				.slice(0, 3)
+				.slice(0, 2)
 				.map((req) => req.body)
 		).toEqual([
 			{ name: 'New', description: null, organization_id: ORG },
@@ -329,19 +304,7 @@ describe('ordinary Onboarding persistence', () => {
 				sort_order: 2,
 				organization_id: ORG,
 				id: 'prepared'
-			},
-			[
-				{
-					template_id: 'template',
-					name: 'Ready',
-					description: null,
-					step_type: 'checkbox',
-					training_type_id: null,
-					stages: null,
-					sort_order: 2,
-					organization_id: ORG
-				}
-			]
+			}
 		]);
 	});
 });

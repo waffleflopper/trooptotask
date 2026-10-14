@@ -23,16 +23,12 @@ export interface OnboardingTemplateWriteContext {
 		| 'findStepByTemplateAndName'
 		| 'createTemplate'
 		| 'updateTemplate'
+		| 'duplicateTemplate'
 		| 'deleteTemplate'
 		| 'createStep'
-		| 'createSteps'
 		| 'updateStep'
+		| 'reorderSteps'
 		| 'deleteStep'
-		| 'deleteStepsForTemplate'
-	>;
-	readonly onboardingWorkflow: Pick<
-		OnboardingWorkflowPersistence,
-		'listPacketIdsUsingTemplate' | 'clearPacketTemplate'
 	>;
 	readonly trainingOnboardingReferences?: Pick<TrainingOnboardingReferencesPort, 'listTypes'>;
 }

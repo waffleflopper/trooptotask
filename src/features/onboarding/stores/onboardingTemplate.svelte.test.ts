@@ -3,8 +3,10 @@ import {
 	createOnboardingTemplateWorkspace,
 	createOnboardingTemplateWorkspaceHttpAdapter,
 	onboardingTemplateStore,
+	type DuplicateTemplateResponse,
 	type OnboardingTemplateWorkspaceAdapter,
-	type OnboardingTemplateWorkspaceResult
+	type OnboardingTemplateWorkspaceResult,
+	type PendingTemplateDuplicateStorage
 } from './onboardingTemplate.svelte';
 import type { OnboardingTemplate, OnboardingTemplateStep } from '../contracts';
 import type { TrainingType } from '$features/training/contracts';
@@ -464,6 +466,19 @@ describe('OnboardingTemplateWorkspace', () => {
 		expect(result).toMatchObject({ ok: false, error: { code: 'invalid_json' } });
 	});
 
+	it('sends the duplicate request id in the body', async () => {
+		const fetchImpl = vi.fn(async () => Response.json({ template, templateSteps: [] }));
+		const adapter = createOnboardingTemplateWorkspaceHttpAdapter('org-1', fetchImpl);
+
+		await adapter.duplicateTemplate(SOURCE_ID, 'request-1');
+
+		expect(fetchImpl).toHaveBeenCalledWith(`/org/org-1/api/onboarding-templates/${SOURCE_ID}/duplicate`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ requestId: 'request-1' })
+		});
+	});
+
 	it('reads the current route segment when the default adapter makes requests', async () => {
 		let routeSegment = 'org-alpha';
 		const fetchImpl = vi.fn(async () => Response.json(template));
@@ -510,7 +525,7 @@ describe('OnboardingTemplateWorkspace', () => {
 		workspace.templateDraft.name = 'Old Organization draft';
 		const pending = workspace.saveTemplate();
 		const bTemplate = { ...template, id: 'template-b', orgId: 'org-2', name: 'B checklist' };
-		workspace.replaceOrganization({ orgId: 'org-2', routeSegment: 'org-2', canConfigure: true });
+		workspace.replaceOrganization({ orgId: 'org-2', actorId: 'actor-1', routeSegment: 'org-2', canConfigure: true });
 		workspace.replaceData({ templates: [bTemplate], templateSteps: [], trainingTypes: [] });
 		onboardingTemplateStore.load([bTemplate], [], 'org-2');
 		resolve({ ok: true, value: { ...template, id: 'late-a', name: 'Late A save' } });
@@ -535,8 +550,8 @@ describe('OnboardingTemplateWorkspace', () => {
 		workspace.startCreateTemplate();
 		workspace.templateDraft.name = 'Old draft';
 		const oldSave = workspace.saveTemplate();
-		workspace.replaceOrganization({ orgId: 'org-2', routeSegment: 'org-2', canConfigure: true });
-		workspace.replaceOrganization({ orgId: 'org-1', routeSegment: 'org-1', canConfigure: true });
+		workspace.replaceOrganization({ orgId: 'org-2', actorId: 'actor-1', routeSegment: 'org-2', canConfigure: true });
+		workspace.replaceOrganization({ orgId: 'org-1', actorId: 'actor-1', routeSegment: 'org-1', canConfigure: true });
 		workspace.replaceData({ templates: [template], templateSteps: steps, trainingTypes });
 		workspace.startCreateTemplate();
 		workspace.templateDraft.name = 'New draft';
@@ -553,8 +568,8 @@ describe('OnboardingTemplateWorkspace', () => {
 	});
 
 	it('clears edit state after deleting the edited template', async () => {
-		const deleteTemplate = vi.fn(async (): Promise<OnboardingTemplateWorkspaceResult<{ templateId: string }>> => {
-			return { ok: true, value: { templateId: template.id } };
+		const deleteTemplate = vi.fn(async (): Promise<OnboardingTemplateWorkspaceResult<{ success: true }>> => {
+			return { ok: true, value: { success: true } };
 		});
 		const updateTemplate = vi.fn(async (): Promise<OnboardingTemplateWorkspaceResult<OnboardingTemplate>> => {
 			return { ok: true, value: alternateTemplate };
@@ -578,11 +593,14 @@ describe('OnboardingTemplateWorkspace', () => {
 
 function makeWorkspace(
 	overrides: Partial<OnboardingTemplateWorkspaceAdapter> = {},
-	data = { templates: [template], templateSteps: steps, trainingTypes }
+	data = { templates: [template], templateSteps: steps, trainingTypes },
+	storage: PendingTemplateDuplicateStorage | null = null,
+	actorId = 'actor-1'
 ) {
 	return createOnboardingTemplateWorkspace({
-		organization: { orgId: 'org-1', routeSegment: 'org-1', canConfigure: true },
+		organization: { orgId: 'org-1', actorId, routeSegment: 'org-1', canConfigure: true },
 		data,
+		storage,
 		adapter: {
 			createTemplate: vi.fn(),
 			updateTemplate: vi.fn(),
@@ -596,3 +614,235 @@ function makeWorkspace(
 		} as OnboardingTemplateWorkspaceAdapter
 	});
 }
+
+const SOURCE_ID = '00000000-0000-4000-a000-000000000301';
+const source: OnboardingTemplate = { ...template, id: SOURCE_ID, name: 'Arrival' };
+const copy: OnboardingTemplate = { ...template, id: '00000000-0000-4000-a000-000000000302', name: 'Arrival Copy' };
+const copyStep: OnboardingTemplateStep = { ...steps[0], id: 'copy-step', templateId: copy.id };
+const sourceData = { templates: [source], templateSteps: [], trainingTypes };
+const copied: OnboardingTemplateWorkspaceResult<DuplicateTemplateResponse> = {
+	ok: true,
+	value: { template: copy, templateSteps: [copyStep] }
+};
+const lost: OnboardingTemplateWorkspaceResult<DuplicateTemplateResponse> = {
+	ok: false,
+	error: { code: 'network', message: 'Network request failed' }
+};
+
+function memoryStorage(): PendingTemplateDuplicateStorage & { items: Map<string, string> } {
+	const items = new Map<string, string>();
+	return {
+		items,
+		get length() {
+			return items.size;
+		},
+		key: (index) => [...items.keys()][index] ?? null,
+		getItem: (key) => items.get(key) ?? null,
+		setItem: (key, value) => void items.set(key, value),
+		removeItem: (key) => void items.delete(key)
+	};
+}
+
+function duplicateWith(...answers: OnboardingTemplateWorkspaceResult<DuplicateTemplateResponse>[]) {
+	const duplicateTemplate = vi.fn(async (_sourceTemplateId: string, _requestId: string) => answers.shift() ?? copied);
+	return { duplicateTemplate, requestIds: () => duplicateTemplate.mock.calls.map(([, requestId]) => requestId) };
+}
+
+describe('Duplicate whose answer was lost', () => {
+	it('keeps the request through a reload and retries it with the same id, showing the copy once', async () => {
+		const storage = memoryStorage();
+		const first = duplicateWith(lost);
+		const before = makeWorkspace({ duplicateTemplate: first.duplicateTemplate }, sourceData, storage);
+
+		await expect(before.duplicateTemplate(SOURCE_ID)).resolves.toEqual(lost);
+		const [requestId] = first.requestIds();
+		expect(requestId).toMatch(/^[0-9a-f-]{36}$/);
+		expect(before.model.pendingDuplicates).toEqual([
+			{ requestId, sourceTemplateId: SOURCE_ID, sourceName: 'Arrival', createdAt: expect.any(String) }
+		]);
+
+		const retry = duplicateWith(copied);
+		const after = makeWorkspace(
+			{ duplicateTemplate: retry.duplicateTemplate },
+			{ templates: [source, copy], templateSteps: [copyStep], trainingTypes },
+			storage
+		);
+		expect(after.model.pendingDuplicates.map((pending) => pending.requestId)).toEqual([requestId]);
+		await expect(after.retryDuplicate(requestId)).resolves.toEqual(copied);
+
+		expect(retry.duplicateTemplate).toHaveBeenCalledWith(SOURCE_ID, requestId);
+		expect(after.model.templates.map((item) => item.name)).toEqual(['Arrival', 'Arrival Copy']);
+		expect(after.steps).toEqual([copyStep]);
+		expect(after.model.selectedTemplate).toEqual(copy);
+		expect(after.model.pendingDuplicates).toEqual([]);
+		expect(storage.items.size).toBe(0);
+	});
+
+	it.each([
+		['a step removed', [{ ...copyStep, id: 'copy-step-b', sortOrder: 1 }], ['witness-step', 'copy-step-b']],
+		['every step removed', [], ['witness-step']]
+	])(
+		'shows only the current copy steps after a retry when another configurator had %s',
+		async (_case, currentCopySteps, expectedStepIds) => {
+			const storage = memoryStorage();
+			await makeWorkspace(
+				{ duplicateTemplate: duplicateWith(lost).duplicateTemplate },
+				sourceData,
+				storage
+			).duplicateTemplate(SOURCE_ID);
+			const witness = { ...steps[0], id: 'witness-step', templateId: alternateTemplate.id };
+			const reloaded = {
+				templates: [source, copy, alternateTemplate],
+				templateSteps: [witness, copyStep, { ...copyStep, id: 'copy-step-b', sortOrder: 1 }],
+				trainingTypes
+			};
+			onboardingTemplateStore.load(reloaded.templates, reloaded.templateSteps, 'org-1');
+			const workspace = makeWorkspace(
+				{
+					duplicateTemplate: duplicateWith({ ok: true, value: { template: copy, templateSteps: currentCopySteps } })
+						.duplicateTemplate
+				},
+				reloaded,
+				storage
+			);
+
+			await workspace.retryDuplicate(workspace.model.pendingDuplicates[0].requestId);
+
+			expect(workspace.steps.map((step) => step.id)).toEqual(expectedStepIds);
+			expect(onboardingTemplateStore.allSteps.map((step) => step.id)).toEqual(expectedStepIds);
+			expect(workspace.model.selectedTemplate).toEqual(copy);
+			expect(workspace.model.pendingDuplicates).toEqual([]);
+			expect(storage.items.size).toBe(0);
+		}
+	);
+
+	it('repeats an unanswered Duplicate under its first id and gives the next Duplicate a new one', async () => {
+		const duplicate = duplicateWith(lost, copied, copied);
+		const workspace = makeWorkspace({ duplicateTemplate: duplicate.duplicateTemplate }, sourceData, memoryStorage());
+
+		await workspace.duplicateTemplate(SOURCE_ID);
+		await workspace.duplicateTemplate(SOURCE_ID);
+		await workspace.duplicateTemplate(SOURCE_ID);
+
+		const [lostId, repeatedId, nextId] = duplicate.requestIds();
+		expect(repeatedId).toBe(lostId);
+		expect(nextId).not.toBe(lostId);
+	});
+
+	it('retries a pending copy after its source template was deleted', async () => {
+		const storage = memoryStorage();
+		await makeWorkspace(
+			{ duplicateTemplate: duplicateWith(lost).duplicateTemplate },
+			sourceData,
+			storage
+		).duplicateTemplate(SOURCE_ID);
+		const retry = duplicateWith(copied);
+		const workspace = makeWorkspace(
+			{ duplicateTemplate: retry.duplicateTemplate },
+			{ ...sourceData, templates: [] },
+			storage
+		);
+
+		await workspace.retryDuplicate(workspace.model.pendingDuplicates[0].requestId);
+
+		expect(workspace.model.templates).toEqual([copy]);
+		expect(workspace.model.pendingDuplicates).toEqual([]);
+	});
+
+	it('shows a pending copy only to the actor and Organization that asked for it', async () => {
+		const storage = memoryStorage();
+		await makeWorkspace(
+			{ duplicateTemplate: duplicateWith(lost).duplicateTemplate },
+			sourceData,
+			storage
+		).duplicateTemplate(SOURCE_ID);
+		const otherActor = makeWorkspace({}, sourceData, storage, 'actor-2');
+		expect(otherActor.model.pendingDuplicates).toEqual([]);
+
+		const workspace = makeWorkspace({}, sourceData, storage);
+		workspace.replaceOrganization({ orgId: 'org-2', actorId: 'actor-1', routeSegment: 'org-2', canConfigure: true });
+		expect(workspace.model.pendingDuplicates).toEqual([]);
+		workspace.replaceOrganization({ orgId: 'org-1', actorId: 'actor-2', routeSegment: 'org-1', canConfigure: true });
+		expect(workspace.model.pendingDuplicates).toEqual([]);
+		workspace.replaceOrganization({ orgId: 'org-1', actorId: 'actor-1', routeSegment: 'org-1', canConfigure: true });
+		expect(workspace.model.pendingDuplicates.map((pending) => pending.sourceName)).toEqual(['Arrival']);
+		workspace.replaceOrganization({ orgId: 'org-1', actorId: 'actor-1', routeSegment: 'org-1', canConfigure: false });
+		expect(workspace.model.pendingDuplicates).toEqual([]);
+	});
+
+	it('keeps a request answered after an Organization switch out of the new Organization', async () => {
+		const storage = memoryStorage();
+		let answer!: (result: OnboardingTemplateWorkspaceResult<DuplicateTemplateResponse>) => void;
+		const workspace = makeWorkspace(
+			{ duplicateTemplate: () => new Promise((done) => (answer = done)) },
+			sourceData,
+			storage
+		);
+		const pending = workspace.duplicateTemplate(SOURCE_ID);
+		workspace.replaceOrganization({ orgId: 'org-2', actorId: 'actor-1', routeSegment: 'org-2', canConfigure: true });
+		workspace.replaceData({ templates: [], templateSteps: [], trainingTypes: [] });
+		answer(copied);
+
+		await expect(pending).resolves.toMatchObject({ ok: false, error: { code: 'conflict' } });
+		expect(workspace.model.templates).toEqual([]);
+		expect(storage.items.size).toBe(0);
+	});
+
+	it.each([
+		['unavailable', null],
+		[
+			'refusing writes',
+			{
+				...memoryStorage(),
+				setItem: () => {
+					throw new DOMException('Quota exceeded', 'QuotaExceededError');
+				}
+			}
+		]
+	])('sends nothing and says so when browser storage is %s', async (_case, storage) => {
+		const duplicate = duplicateWith();
+		const workspace = makeWorkspace({ duplicateTemplate: duplicate.duplicateTemplate }, sourceData, storage);
+
+		await expect(workspace.duplicateTemplate(SOURCE_ID)).resolves.toMatchObject({
+			ok: false,
+			error: { code: 'storage' }
+		});
+
+		expect(duplicate.duplicateTemplate).not.toHaveBeenCalled();
+		expect(workspace.model.error?.code).toBe('storage');
+	});
+
+	it.each([
+		['conflict', false],
+		['not_found', false],
+		['network', true],
+		['server', true],
+		['policy_denied', true],
+		['invalid_json', true]
+	] as const)('after a %s answer keeps the request for retry: %s', async (code, kept) => {
+		const storage = memoryStorage();
+		const failed = { ok: false, error: { code, message: 'Not copied' } } as const;
+		const workspace = makeWorkspace(
+			{ duplicateTemplate: duplicateWith(failed).duplicateTemplate },
+			sourceData,
+			storage
+		);
+
+		await workspace.duplicateTemplate(SOURCE_ID);
+
+		expect(workspace.model.error).toEqual(failed.error);
+		expect(workspace.model.pendingDuplicates).toHaveLength(kept ? 1 : 0);
+		expect(storage.items.size).toBe(kept ? 1 : 0);
+	});
+
+	it('drops stored records that do not parse', () => {
+		const storage = memoryStorage();
+		const scope = 't2t:onboarding-template-duplicate:v1:actor-1:org-1:';
+		storage.setItem(`${scope}broken`, '{');
+		storage.setItem(`${scope}${SOURCE_ID}`, JSON.stringify({ requestId: SOURCE_ID, sourceTemplateId: 'arrival' }));
+		storage.setItem('theme', 'dark');
+
+		expect(makeWorkspace({}, sourceData, storage).model.pendingDuplicates).toEqual([]);
+		expect([...storage.items.keys()]).toEqual(['theme']);
+	});
+});

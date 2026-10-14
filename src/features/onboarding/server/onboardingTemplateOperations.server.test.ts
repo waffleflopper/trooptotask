@@ -6,13 +6,14 @@ import {
 	createOnboardingTemplateStep,
 	deleteOnboardingTemplate,
 	deleteOnboardingTemplateStep,
+	duplicateOnboardingTemplate,
 	updateOnboardingTemplate,
 	reorderOnboardingTemplateSteps,
 	updateOnboardingTemplateStep
 } from './onboardingTemplateOperations.server';
-import { duplicateOnboardingTemplate } from './onboardingTemplateDuplicate.server';
 
 const TMPL_ID = '00000000-0000-4000-a000-000000000001';
+const REQUEST_ID = '00000000-0000-4000-a000-000000009001';
 
 const operateOnlyCapabilityMap: CapabilityMap = {
 	calendar: 'none',
@@ -322,41 +323,17 @@ describe('Onboarding Template Step ordering', () => {
 	);
 });
 
-describe('Onboarding Template deletion hooks', () => {
-	it('cascade-deletes template steps when template is deleted', async () => {
+describe('Onboarding Template deletion', () => {
+	it('deletes the template once and treats a repeated delete as already done', async () => {
 		const ctx = configurationContext();
-		ctx.store.seed('onboarding_templates', [{ id: TMPL_ID, name: 'Checklist A', organization_id: 'test-org' }]);
-		ctx.store.seed('onboarding_template_steps', [
-			{ id: 'ts-1', template_id: TMPL_ID, name: 'Step A', organization_id: 'test-org' },
-			{ id: 'ts-2', template_id: TMPL_ID, name: 'Step B', organization_id: 'test-org' },
-			{ id: 'ts-other', template_id: 'tmpl-other', name: 'Unrelated', organization_id: 'test-org' }
-		]);
 
 		await deleteOnboardingTemplate(ctx, TMPL_ID);
-
-		const remaining = await ctx.store.findMany<Record<string, unknown>>('onboarding_template_steps', 'test-org', {});
-		expect(remaining).toHaveLength(1);
-		expect(remaining[0].id).toBe('ts-other');
-	});
-
-	it('nulls template_id on referencing onboardings when template is deleted', async () => {
-		const ctx = configurationContext();
-		ctx.store.seed('onboarding_templates', [{ id: TMPL_ID, name: 'Checklist A', organization_id: 'test-org' }]);
-		ctx.store.seed('personnel_onboardings', [
-			{ id: 'ob-1', template_id: TMPL_ID, personnel_id: 'p-1', status: 'in_progress', organization_id: 'test-org' },
-			{ id: 'ob-2', template_id: TMPL_ID, personnel_id: 'p-2', status: 'completed', organization_id: 'test-org' },
-			{ id: 'ob-3', template_id: 'tmpl-other', personnel_id: 'p-3', status: 'in_progress', organization_id: 'test-org' }
-		]);
-
 		await deleteOnboardingTemplate(ctx, TMPL_ID);
 
-		const ob1 = await ctx.store.findOne<Record<string, unknown>>('personnel_onboardings', 'test-org', { id: 'ob-1' });
-		const ob2 = await ctx.store.findOne<Record<string, unknown>>('personnel_onboardings', 'test-org', { id: 'ob-2' });
-		const ob3 = await ctx.store.findOne<Record<string, unknown>>('personnel_onboardings', 'test-org', { id: 'ob-3' });
-
-		expect(ob1!.template_id).toBeNull();
-		expect(ob2!.template_id).toBeNull();
-		expect(ob3!.template_id).toBe('tmpl-other');
+		expect((await ctx.onboardingCatalog.listTemplates()).map((template) => template.id)).toEqual(['tmpl-1']);
+		expect(ctx.audit.events).toEqual([
+			{ action: 'onboarding_template.deleted', resourceType: 'onboarding_template', resourceId: TMPL_ID }
+		]);
 	});
 
 	it('rejects template CRUD without Onboarding configure policy', async () => {
@@ -409,7 +386,7 @@ describe('Onboarding Template duplication', () => {
 			}
 		]);
 
-		const result = await duplicateOnboardingTemplate(ctx, TMPL_ID);
+		const result = await duplicateOnboardingTemplate(ctx, { templateId: TMPL_ID, requestId: REQUEST_ID });
 
 		expect(result.template).toMatchObject({
 			name: 'Standard Arrival Copy',
@@ -450,17 +427,33 @@ describe('Onboarding Template duplication', () => {
 		});
 	});
 
-	it('increments the duplicate name when copy names already exist', async () => {
+	it('answers a repeated request with the first copy and audits it once', async () => {
 		const ctx = createWritePortsContext();
-		ctx.store.seed('onboarding_templates', [
-			{ id: TMPL_ID, name: 'Standard Arrival', organization_id: 'test-org' },
-			{ id: 'copy-1', name: 'Standard Arrival Copy', organization_id: 'test-org' },
-			{ id: 'copy-2', name: 'Standard Arrival Copy 2', organization_id: 'test-org' }
+		ctx.store.seed('onboarding_templates', [{ id: TMPL_ID, name: 'Standard Arrival', organization_id: 'test-org' }]);
+
+		const first = await duplicateOnboardingTemplate(ctx, { templateId: TMPL_ID, requestId: REQUEST_ID });
+		const replay = await duplicateOnboardingTemplate(ctx, { templateId: TMPL_ID, requestId: REQUEST_ID });
+
+		expect(replay).toEqual(first);
+		expect((await ctx.onboardingCatalog.listTemplates()).map((template) => template.name)).toEqual([
+			'Standard Arrival',
+			'Standard Arrival Copy'
 		]);
+		expect(ctx.audit.events.map((event) => event.action)).toEqual(['onboarding_template.duplicated']);
+	});
 
-		const result = await duplicateOnboardingTemplate(ctx, TMPL_ID);
+	it('reports a repeated request whose copy was deleted without making another', async () => {
+		const ctx = createWritePortsContext();
+		ctx.store.seed('onboarding_templates', [{ id: TMPL_ID, name: 'Standard Arrival', organization_id: 'test-org' }]);
+		const first = await duplicateOnboardingTemplate(ctx, { templateId: TMPL_ID, requestId: REQUEST_ID });
+		await deleteOnboardingTemplate(ctx, first.template.id);
 
-		expect(result.template.name).toBe('Standard Arrival Copy 3');
+		await expect(
+			duplicateOnboardingTemplate(ctx, { templateId: TMPL_ID, requestId: REQUEST_ID })
+		).rejects.toMatchObject({ status: 409 });
+		expect((await ctx.onboardingCatalog.listTemplates()).map((template) => template.name)).toEqual([
+			'Standard Arrival'
+		]);
 	});
 });
 
@@ -499,7 +492,8 @@ describe('Onboarding configuration admission', () => {
 		['delete step', (ctx: ReturnType<typeof createWritePortsContext>) => deleteOnboardingTemplateStep(ctx, 'step-1')],
 		[
 			'duplicate template',
-			(ctx: ReturnType<typeof createWritePortsContext>) => duplicateOnboardingTemplate(ctx, TMPL_ID)
+			(ctx: ReturnType<typeof createWritePortsContext>) =>
+				duplicateOnboardingTemplate(ctx, { templateId: TMPL_ID, requestId: REQUEST_ID })
 		]
 	] as const;
 	it.each(writes)(
@@ -615,87 +609,5 @@ describe('Onboarding configuration admission', () => {
 		await expect(
 			reorderOnboardingTemplateSteps(ctx, { templateId: 'missing-template', orderedStepIds: [] })
 		).rejects.toMatchObject({ status: 404 });
-	});
-});
-
-describe('catalog partial effects', () => {
-	it('retains the parent copy if saving its steps fails without a duplication success audit', async () => {
-		const ctx = createWritePortsContext();
-		ctx.store.seed('onboarding_templates', [
-			{ id: TMPL_ID, organization_id: 'test-org', name: 'Arrival', description: 'Keep' }
-		]);
-		ctx.store.seed('onboarding_template_steps', [
-			{
-				id: 'one',
-				organization_id: 'test-org',
-				template_id: TMPL_ID,
-				name: 'Orientation',
-				step_type: 'checkbox',
-				training_type_id: null,
-				description: null,
-				stages: null,
-				sort_order: 0
-			}
-		]);
-		const failure = new Error('Bulk insert rejected');
-		ctx.onboardingCatalog.createSteps = async () => {
-			throw failure;
-		};
-		await expect(duplicateOnboardingTemplate(ctx, TMPL_ID)).rejects.toBe(failure);
-		expect(
-			(await ctx.onboardingCatalog.listTemplates()).map((row) => ({ name: row.name, description: row.description }))
-		).toEqual([
-			{ name: 'Arrival', description: 'Keep' },
-			{ name: 'Arrival Copy', description: 'Keep' }
-		]);
-		expect(
-			(await ctx.onboardingCatalog.listSteps()).map((row) => ({
-				id: row.id,
-				templateId: row.templateId,
-				name: row.name
-			}))
-		).toEqual([{ id: 'one', templateId: TMPL_ID, name: 'Orientation' }]);
-		expect(ctx.audit.events).toEqual([]);
-	});
-	it('retains the first reordered step when the later serial write fails', async () => {
-		const ctx = createWritePortsContext();
-		ctx.store.seed('onboarding_templates', [{ id: TMPL_ID, organization_id: 'test-org', name: 'Arrival' }]);
-		ctx.store.seed('onboarding_template_steps', [
-			{ id: 'one', organization_id: 'test-org', template_id: TMPL_ID, name: 'One', sort_order: 0 },
-			{ id: 'two', organization_id: 'test-org', template_id: TMPL_ID, name: 'Two', sort_order: 1 }
-		]);
-		const save = ctx.onboardingCatalog.updateStep;
-		const failure = new Error('Second update rejected');
-		ctx.onboardingCatalog.updateStep = (id, data) => (id === 'one' ? Promise.reject(failure) : save(id, data));
-		await expect(
-			reorderOnboardingTemplateSteps(ctx, { templateId: TMPL_ID, orderedStepIds: ['two', 'one'] })
-		).rejects.toBe(failure);
-		expect((await ctx.onboardingCatalog.listSteps()).map((row) => ({ id: row.id, sortOrder: row.sortOrder }))).toEqual([
-			{ id: 'one', sortOrder: 0 },
-			{ id: 'two', sortOrder: 0 }
-		]);
-		expect(ctx.audit.events).toEqual([]);
-	});
-	it('audits the saved template deletion before a dependent deletion error and preserves uncleared packet references', async () => {
-		const ctx = createWritePortsContext();
-		ctx.store.seed('onboarding_templates', [{ id: TMPL_ID, organization_id: 'test-org', name: 'Arrival' }]);
-		const packet = {
-			id: 'packet',
-			organization_id: 'test-org',
-			template_id: TMPL_ID,
-			personnel_id: 'person',
-			status: 'in_progress'
-		};
-		ctx.store.seed('personnel_onboardings', [packet]);
-		const failure = new Error('Dependent deletion rejected');
-		ctx.onboardingCatalog.deleteStepsForTemplate = async () => {
-			throw failure;
-		};
-		await expect(deleteOnboardingTemplate(ctx, TMPL_ID)).rejects.toBe(failure);
-		expect(await ctx.onboardingCatalog.findTemplate(TMPL_ID)).toBeNull();
-		expect(await ctx.store.findMany('personnel_onboardings', 'test-org')).toEqual([packet]);
-		expect(ctx.audit.events).toEqual([
-			{ action: 'onboarding_template.deleted', resourceType: 'onboarding_template', resourceId: TMPL_ID }
-		]);
 	});
 });

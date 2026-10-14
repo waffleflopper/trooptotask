@@ -61,6 +61,9 @@
 			get orgId() {
 				return orgId;
 			},
+			get actorId() {
+				return org.userId;
+			},
 			get routeSegment() {
 				return orgUrlSegment;
 			},
@@ -75,6 +78,7 @@
 	$effect(() => {
 		const organization = {
 			orgId,
+			actorId: org.userId,
 			routeSegment: orgUrlSegment,
 			canConfigure: canMutate
 		};
@@ -302,6 +306,22 @@
 				<Alert.Description>{model.error.message}</Alert.Description>
 			</Alert.Root>
 		{/if}
+		{#each model.pendingDuplicates as pending (pending.requestId)}
+			<Alert.Root variant="warning">
+				<Alert.Title>Copy not confirmed</Alert.Title>
+				<Alert.Description>
+					We couldn't confirm the copy of {pending.sourceName}. Retrying is safe and won't make a second copy.
+				</Alert.Description>
+				<Alert.Action>
+					<Button
+						size="sm"
+						variant="outline"
+						disabled={model.templateActionDisabled}
+						onclick={() => workspace.retryDuplicate(pending.requestId)}>Retry</Button
+					>
+				</Alert.Action>
+			</Alert.Root>
+		{/each}
 
 		<TypeWorkspace.Layout>
 			<TypeWorkspace.List

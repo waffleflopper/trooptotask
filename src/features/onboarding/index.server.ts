@@ -9,12 +9,10 @@ export {
 	updateOnboardingTemplateStep,
 	deleteOnboardingTemplateStep,
 	reorderOnboardingTemplateSteps,
-	createStarterOnboardingTemplateStep
-} from './server/onboardingTemplateOperations.server';
-export {
+	createStarterOnboardingTemplateStep,
 	duplicateOnboardingTemplate,
 	type DuplicateOnboardingTemplateResult
-} from './server/onboardingTemplateDuplicate.server';
+} from './server/onboardingTemplateOperations.server';
 export { fetchOnboardingTemplateActivity, fetchOnboardingTemplatesData } from './server/onboardingTemplateRead.server';
 export { createSupabaseOnboardingExportReader } from './server/onboardingExportRead.server';
 export {

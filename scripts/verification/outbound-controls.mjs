@@ -20,7 +20,22 @@ export const PROVIDER_FAULTS = Object.freeze({
 	'setup-password': [write('POST', '/auth/v1/admin/users')],
 	'setup-reconcile': [write('POST', '/rest/v1/rpc/reconcile_account_setup_claim')],
 	'setup-finalize': [write('POST', '/rest/v1/rpc/complete_account_setup_recovery')],
-	'setup-finalize-lost-ack': [write('POST', '/rest/v1/rpc/complete_account_setup_recovery', { afterCommit: true })]
+	'setup-finalize-lost-ack': [write('POST', '/rest/v1/rpc/complete_account_setup_recovery', { afterCommit: true })],
+	'onboarding-steps-insert': [write('POST', '/rest/v1/onboarding_template_steps')],
+	'onboarding-steps-update': [write('PATCH', '/rest/v1/onboarding_template_steps')],
+	'onboarding-steps-delete': [write('DELETE', '/rest/v1/onboarding_template_steps')],
+	'onboarding-template-duplicate': [write('POST', '/rest/v1/rpc/duplicate_onboarding_template')],
+	'onboarding-template-duplicate-lost-ack': [
+		write('POST', '/rest/v1/rpc/duplicate_onboarding_template', { afterCommit: true })
+	],
+	'onboarding-template-reorder': [write('POST', '/rest/v1/rpc/reorder_onboarding_template_steps')],
+	'onboarding-template-reorder-lost-ack': [
+		write('POST', '/rest/v1/rpc/reorder_onboarding_template_steps', { afterCommit: true })
+	],
+	'onboarding-template-delete': [write('POST', '/rest/v1/rpc/delete_onboarding_template')],
+	'onboarding-template-delete-lost-ack': [
+		write('POST', '/rest/v1/rpc/delete_onboarding_template', { afterCommit: true })
+	]
 });
 const MAIL_URL = 'https://api.resend.com/emails';
 const MAX_MESSAGES = 200;

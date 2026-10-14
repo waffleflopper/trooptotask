@@ -554,7 +554,7 @@ Before merge/release, Robert confirms the reviewed migration's ordered applicati
 
 ## Phase 11 D05 Personnel lifecycle commands
 
-The Personnel commands passed independent acceptance, hosted review disposition and current-head CI at `109514939`. Robert subsequently reported applying `20261013000200_onboarding_step_progress_changed_at.sql` from separate work. The two unapplied migrations below are renumbered to avoid that occupied version; their SQL contents and hashes are unchanged. The renumbered candidate requires fresh CI and review. Releasing merge still requires the owner confirmation below:
+PR [#1671](https://github.com/waffleflopper/trooptotask/pull/1671) merged as `9ff9a3bcd9571a223d5a207e14d0e1c33542c2c1` after final head `5ea6a9088` passed all six checks and both hosted review threads were resolved. Robert confirmed "the migrations are live now" before merge. This confirms the final versions below after renumbering around the separately applied Onboarding `00200` migration. SQL contents and hashes remained unchanged.
 
 - [`20261013000300_atomic_deletion_request_submission.sql`](../../supabase/migrations/20261013000300_atomic_deletion_request_submission.sql), SHA-256 `2f44e3d62686d1a00ded7f6fbeb6381fea59a0b3bb667e3fedf36d53de20e22a`.
 - [`20261013000400_atomic_personnel_lifecycle.sql`](../../supabase/migrations/20261013000400_atomic_personnel_lifecycle.sql), SHA-256 `cc0678b35347e8dfcd61989b29fbb4d7d07832ac9d6d753089b9f48f8cbee7ca`.
@@ -563,7 +563,7 @@ Applying these files creates commands and their grants. It does not archive, res
 
 Apply the final reviewed files in order before deploying their application consumers. The old application remains callable against the additive schema but retains its earlier partial-write behavior until old instances and requests drain. The new application requires both commands; deploying it first makes affected actions fail. Rolling back the application can retain these migrations, but restores the old limitations. No fixture, concurrency test or cleanup helper belongs on hosted data.
 
-Before a releasing merge, Robert confirms the final reviewed migrations' ordered application and outcome through his normal process, including applicable notice and backup. His confirmations for `20261013000100` and the separately owned `20261013000200_onboarding_step_progress_changed_at.sql` cover those earlier migrations only. After release, verify an ordinary archive request and approval, direct archive, bulk archive and restore through their normal roles. Repository CI operates disposable local databases. The agent has neither inspected nor changed the hosted ledger or external deployment settings.
+Robert's confirmation covers the final reviewed `00300` and `00400` files. Hosted application is owner-reported; the agent did not inspect the hosted ledger. Notice, backup and hosted smoke are not independently verified. After release, verify an ordinary archive request and approval, direct archive, bulk archive and restore through their normal roles. Repository CI operates disposable local databases. The agent has neither inspected nor changed the hosted ledger or external deployment settings.
 
 ## Onboarding step progress timestamp
 
@@ -574,3 +574,13 @@ Applying it adds the required `progress_changed_at` column to `onboarding_step_p
 Apply the migration before the application release. The new application reads `progress_changed_at` on every Onboarding page, so those pages fail to load until the column exists. The old application never reads the column, and its inserts and progress updates keep working because the default and trigger fill it. After the release, confirm through ordinary use that Active onboarding, History and Templates load and that moving a Paperwork step's stage saves.
 
 Repository CI operates disposable local databases and performs no remote migration. External production deployment settings are uninspected.
+
+## Phase 11 D05 Onboarding template commands
+
+The candidate adds [`20261013000500_atomic_onboarding_template_commands.sql`](../../supabase/migrations/20261013000500_atomic_onboarding_template_commands.sql), SHA-256 `b87b2e38745b92fbcec5882aeca866198365469c68ec292f80cb188abc7ab84c`. This is a new release obligation. Robert's earlier application confirmation covers versions through `00400` only. Independent local acceptance, including final native artifacts, passed. Current-head PR checks, hosted review and owner application remain pending.
+
+The migration adds three commands and a private duplicate-request receipt table. Applying it does not copy, reorder or delete existing templates. Each later admitted command completes in one transaction. Duplicate retries reuse their saved result; receipts survive source and result deletion so an old request cannot recreate a deleted copy. Organization or account deletion removes its receipts. Reorder changes only positions. Template deletion uses the existing cascades and preserves packet progress with definition links cleared. Existing catalog grants and packet commands are unchanged.
+
+Robert applies the final reviewed migration in order before releasing the application caller. The new caller requires these commands; old application instances retain their earlier multiwrite limitations. A rollback can retain the additive schema but restores those old limitations. No agent operates or inspects the hosted database. Repository verification uses owned disposable projects only.
+
+After release, ordinary authorized use should confirm copy, reorder, delete and pending-copy retry. Audit remains best-effort: a committed command whose RPC acknowledgment is lost can omit its audit event. The repair guarantees recoverable template data, not transactional audit delivery.

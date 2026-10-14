@@ -4,6 +4,12 @@ export interface DeferredData<T> {
 	data: Promise<T>;
 }
 
+/** SvelteKit drops a page's streamed promise when a sibling load throws; left unobserved, its rejection kills the server. */
+export function keepStreamedRejectionObserved<T>(data: Promise<T>): Promise<T> {
+	data.catch(() => {});
+	return data;
+}
+
 export type HydrationItems<T = unknown> = T[] | Promise<T[]>;
 
 export interface WorkspaceHydrationTarget<T, TMode extends string> {
@@ -133,8 +139,10 @@ export function settleWorkspaceDenial<T, TLane extends string>(
 	data: Promise<T>,
 	laneKey: TLane
 ): Promise<T | RestrictedWorkspace<TLane>> {
-	return data.catch((cause: unknown) => {
-		if (isHttpError(cause, 403)) return { laneKey, access: 'restricted' } as const;
-		throw cause;
-	});
+	return keepStreamedRejectionObserved(
+		data.catch((cause: unknown) => {
+			if (isHttpError(cause, 403)) return { laneKey, access: 'restricted' } as const;
+			throw cause;
+		})
+	);
 }

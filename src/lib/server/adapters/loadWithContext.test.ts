@@ -4,6 +4,7 @@ import { createInMemoryDataStore, createTestAuthContext, createTestAuditPort } f
 import { loadWithContextCore, loadWithDeferredContext } from './httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { RequestFailure } from '$lib/errors';
+import { settleWorkspaceDenial } from './streamedWorkspace';
 
 function buildRequest(overrides?: { auth?: Parameters<typeof createTestAuthContext>[0] }) {
 	return {
@@ -294,5 +295,94 @@ describe('load failure boundaries', () => {
 		await expect(data).rejects.toMatchObject({ status: 500, body: { message: 'Internal server error' } });
 		expect(log).toHaveBeenCalledWith('[http-adapter] Unhandled route error:', expect.stringContaining('AuthApiError'));
 		log.mockRestore();
+	});
+});
+
+describe('deferred loads that SvelteKit discards', () => {
+	const noAccess = {
+		role: 'member',
+		isPrivileged: false,
+		capabilityMap: {
+			calendar: 'none',
+			personnel: 'none',
+			training: 'none',
+			criticalTasks: 'none',
+			onboarding: 'none',
+			ratingScheme: 'none'
+		},
+		scopeSet: { kind: 'organization' }
+	} as const;
+	const viewTraining = {
+		policyAction: POLICY_ACTION_CATALOG.training.viewRecords,
+		policyResource: { kind: 'organization' },
+		fn: async () => ({ items: [] }),
+		defer: true
+	} as const;
+
+	/** SvelteKit drops a page's streamed promise when a sibling layout load throws, so nobody ever awaits it. */
+	async function unhandledRejectionsWhileUnawaited(start: () => unknown) {
+		const reasons: unknown[] = [];
+		const record = (reason: unknown) => reasons.push(reason);
+		process.on('unhandledRejection', record);
+		try {
+			start();
+			await new Promise((resolve) => setTimeout(resolve, 10));
+		} finally {
+			process.off('unhandledRejection', record);
+		}
+		return reasons;
+	}
+
+	it('does not crash the process when a denied loadWithDeferredContext result is never awaited', async () => {
+		let data!: Promise<unknown>;
+		const reasons = await unhandledRejectionsWhileUnawaited(() => {
+			({ data } = loadWithDeferredContext(
+				Promise.resolve(buildRequest({ auth: noAccess })),
+				viewTraining,
+				() => undefined
+			));
+		});
+
+		expect(reasons).toEqual([]);
+		await expect(data).rejects.toMatchObject({ status: 403 });
+	});
+
+	it('does not crash the process when a denied loadWithContextCore result is never awaited', async () => {
+		let data!: Promise<unknown>;
+		const reasons = await unhandledRejectionsWhileUnawaited(() => {
+			({ data } = loadWithContextCore(buildRequest({ auth: noAccess }), viewTraining, () => undefined));
+		});
+
+		expect(reasons).toEqual([]);
+		await expect(data).rejects.toMatchObject({ status: 403 });
+	});
+
+	it('does not crash the process when a failed lane read that was settled for denial is never awaited', async () => {
+		const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+		let data!: Promise<unknown>;
+		const reasons = await unhandledRejectionsWhileUnawaited(() => {
+			const deferred = loadWithDeferredContext(
+				Promise.resolve(buildRequest()),
+				{
+					policyAction: POLICY_ACTION_CATALOG.identity.viewDashboard,
+					fn: async () => {
+						throw new Error('read failed');
+					},
+					defer: true
+				},
+				() => undefined
+			);
+			data = settleWorkspaceDenial(deferred.data, 'training');
+		});
+		log.mockRestore();
+
+		expect(reasons).toEqual([]);
+		await expect(data).rejects.toMatchObject({ status: 500 });
+	});
+
+	it('still streams the allowed result to a page that does await it', async () => {
+		const { data } = loadWithDeferredContext(Promise.resolve(buildRequest()), viewTraining, () => undefined);
+
+		await expect(settleWorkspaceDenial(data, 'training')).resolves.toEqual({ items: [] });
 	});
 });

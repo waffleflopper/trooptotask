@@ -29,6 +29,7 @@ import {
 	type AdmittedOrganizationRequest,
 	type RequestContextBuilder
 } from './requestContexts.server';
+import { keepStreamedRejectionObserved } from './streamedWorkspace';
 
 /** Construct Feedback collaborators only after the route admits the account. */
 export function createRequestFeedbackSubmission() {
@@ -187,7 +188,7 @@ export function loadWithContextCore<T, TContext>(
 	const data = withRequestFailureBoundary(
 		Promise.resolve(enforceLoadAuthorization(request, config)).then(() => config.fn(selectContext()))
 	);
-	return config.defer ? { data } : data;
+	return config.defer ? { data: keepStreamedRejectionObserved(data) } : data;
 }
 
 export function loadWithDeferredContext<T, TContext, TRequest extends PolicyRequest>(
@@ -196,8 +197,10 @@ export function loadWithDeferredContext<T, TContext, TRequest extends PolicyRequ
 	selectContext: (request: TRequest) => TContext
 ): { data: Promise<T> } {
 	return {
-		data: withHttpErrorBoundary(
-			request.then((admitted) => loadWithContextCore(admitted, config, () => selectContext(admitted)).data)
+		data: keepStreamedRejectionObserved(
+			withHttpErrorBoundary(
+				request.then((admitted) => loadWithContextCore(admitted, config, () => selectContext(admitted)).data)
+			)
 		)
 	};
 }

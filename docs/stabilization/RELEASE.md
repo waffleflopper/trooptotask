@@ -599,7 +599,7 @@ An application rollback must keep the migration, because the retirement holds, t
 
 ## Phase 11 D05 Calendar configuration commands
 
-The candidate adds [`20261014000100_atomic_calendar_configuration_commands.sql`](../../supabase/migrations/20261014000100_atomic_calendar_configuration_commands.sql), SHA-256 `0e2197c01929c073c2b59dab34b97a0d1a86233ee19401d67474247c4e0b5f7f`. This is a new release obligation. Robert's confirmation of `00600` covers only the Sign-in Roster migration. No confirmation exists for this one. The Calendar change has no published PR yet. Fetched `origin/main` has no commit beyond the candidate's base, and the new version sorts after `00600`, so nothing needs renumbering. The agent has no remote production access and has neither inspected nor changed the hosted ledger.
+The candidate adds [`20261014000100_atomic_calendar_configuration_commands.sql`](../../supabase/migrations/20261014000100_atomic_calendar_configuration_commands.sql), SHA-256 `0e2197c01929c073c2b59dab34b97a0d1a86233ee19401d67474247c4e0b5f7f`. This is a new release obligation. Robert's confirmation of `00600` covers only the Sign-in Roster migration. No confirmation exists for this one. The Calendar change is published in [PR #1682](https://github.com/waffleflopper/trooptotask/pull/1682); current-head CI and hosted review remain pending. Fetched `origin/main` has no commit beyond the candidate's base, and the new version sorts after `00600`, so nothing needs renumbering. The agent has no remote production access and has neither inspected nor changed the hosted ledger.
 
 Applying it adds two functions and changes nothing else:
 

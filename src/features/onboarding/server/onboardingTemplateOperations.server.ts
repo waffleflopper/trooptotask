@@ -22,9 +22,8 @@ const stepCreateSchema = z.object({
 	stages: z.array(z.string()).nullable().optional(),
 	sortOrder: z.number().int().optional()
 });
-const stepUpdateSchema = stepCreateSchema.partial().extend({ id: z.string() });
+const stepUpdateSchema = stepCreateSchema.omit({ sortOrder: true }).partial().extend({ id: z.string() });
 
-const TEMPLATE_CLEAR_BATCH_SIZE = 25;
 const configureAction = POLICY_ACTION_CATALOG.onboarding.configureWorkflows;
 const catalogResource = { kind: 'organization' } as const;
 type TemplateCreateInput = Record<string, unknown>;
@@ -35,6 +34,16 @@ type StepUpdateInput = Record<string, unknown> & { id?: unknown };
 export interface ReorderOnboardingTemplateStepsInput {
 	templateId: string;
 	orderedStepIds: string[];
+}
+
+export interface DuplicateOnboardingTemplateInput {
+	templateId: string;
+	requestId: string;
+}
+
+export interface DuplicateOnboardingTemplateResult {
+	template: OnboardingTemplate;
+	templateSteps: OnboardingTemplateStep[];
 }
 
 function parseInput<T>(schema: z.ZodType<T>, input: Record<string, unknown>): T {
@@ -76,10 +85,25 @@ export async function updateOnboardingTemplate(
 
 export async function deleteOnboardingTemplate(ctx: OnboardingTemplateWriteContext, templateId: string): Promise<void> {
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'onboarding_template', templateId);
-	await requireTemplate(ctx, templateId);
-	await ctx.onboardingCatalog.deleteTemplate(templateId);
+	if (!(await ctx.onboardingCatalog.deleteTemplate(templateId))) return;
 	ctx.audit.log({ action: 'onboarding_template.deleted', resourceType: 'onboarding_template', resourceId: templateId });
-	await deleteTemplateDependents(ctx, templateId);
+}
+
+export async function duplicateOnboardingTemplate(
+	ctx: OnboardingTemplateWriteContext,
+	input: DuplicateOnboardingTemplateInput
+): Promise<DuplicateOnboardingTemplateResult> {
+	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'onboarding_template', input.templateId);
+	const copy = await ctx.onboardingCatalog.duplicateTemplate(input.templateId, input.requestId);
+	if (copy.created) {
+		ctx.audit.log({
+			action: 'onboarding_template.duplicated',
+			resourceType: 'onboarding_template',
+			resourceId: copy.template.id,
+			details: { sourceTemplateId: input.templateId, stepCount: copy.steps.length }
+		});
+	}
+	return { template: copy.template, templateSteps: copy.steps };
 }
 
 export async function createOnboardingTemplateStep(
@@ -194,52 +218,15 @@ export async function reorderOnboardingTemplateSteps(
 	ctx: OnboardingTemplateWriteContext,
 	input: ReorderOnboardingTemplateStepsInput
 ): Promise<OnboardingTemplateStep[]> {
-	await requireFeaturePolicy(
-		ctx,
-		POLICY_ACTION_CATALOG.onboarding.configureWorkflows,
-		{ kind: 'organization' },
-		'onboarding_template_step'
-	);
-
-	await requireTemplate(ctx, input.templateId);
-
-	const currentSteps = await ctx.onboardingCatalog.listSteps(input.templateId);
-	const currentIds = new Set(currentSteps.map((step) => step.id));
-
-	const orderedIds = new Set(input.orderedStepIds);
-	if (
-		orderedIds.size !== input.orderedStepIds.length ||
-		input.orderedStepIds.length !== currentIds.size ||
-		input.orderedStepIds.some((id) => !currentIds.has(id))
-	) {
-		throw error(409, 'Step order does not match the selected onboarding template');
-	}
-
-	const updatedRows: OnboardingTemplateStep[] = [];
-	for (const [sortOrder, stepId] of input.orderedStepIds.entries()) {
-		const row = await ctx.onboardingCatalog.updateStep(stepId, { sortOrder });
-		updatedRows.push(row);
-	}
-
+	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'onboarding_template_step');
+	const steps = await ctx.onboardingCatalog.reorderSteps(input.templateId, input.orderedStepIds);
 	ctx.audit.log({
 		action: 'onboarding_template_step.reordered',
 		resourceType: 'onboarding_template_step',
 		resourceId: input.templateId,
 		details: { templateId: input.templateId, stepCount: input.orderedStepIds.length }
 	});
-
-	return updatedRows.sort((a, b) => a.sortOrder - b.sortOrder);
-}
-
-async function deleteTemplateDependents(ctx: OnboardingTemplateWriteContext, templateId: string): Promise<void> {
-	await ctx.onboardingCatalog.deleteStepsForTemplate(templateId);
-
-	const onboardings = await ctx.onboardingWorkflow.listPacketIdsUsingTemplate(templateId);
-
-	for (let index = 0; index < onboardings.length; index += TEMPLATE_CLEAR_BATCH_SIZE) {
-		const batch = onboardings.slice(index, index + TEMPLATE_CLEAR_BATCH_SIZE);
-		await Promise.all(batch.map((onboarding) => ctx.onboardingWorkflow.clearPacketTemplate(onboarding)));
-	}
+	return steps;
 }
 
 function normalizeTemplateInput<T extends Partial<OnboardingTemplateData> & { id?: string }>(input: T): T {

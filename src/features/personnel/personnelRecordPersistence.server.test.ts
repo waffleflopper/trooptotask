@@ -57,7 +57,6 @@ describe('ordinary Personnel records', () => {
 		const scoped = createSupabasePersonnelRecordPersistence(client, 'org-a', scope);
 		scope.groupIds.push('bravo');
 		expect(await scoped.findWriteReference('bravo')).toBeNull();
-		expect(await scoped.findArchiveEvent('old')).toEqual({ archivedAt: '2026-01-01' });
 		expect(await scoped.listBackfillCandidates()).toEqual([
 			{
 				id: 'person-a',
@@ -96,8 +95,6 @@ describe('ordinary Personnel records', () => {
 		state.failure = (op) =>
 			op.offset === 1000 ? { code: '42501', message: 'References unavailable', status: 403 } : null;
 		await expect(port.listRankReferences()).rejects.toThrow('References unavailable');
-		state.failure = null;
-		await expect(port.setArchivedAt('missing', '2026-10-06')).rejects.toThrow('Expected one row');
 	});
 	it('binds writes to ordinary Organization, retains omitted/null fields and separates joined CRUD from nonjoined date acknowledgement', async () => {
 		const { client, state } = personnelProvider({
@@ -123,8 +120,6 @@ describe('ordinary Personnel records', () => {
 			deros: '2028-01-01',
 			groupName: ''
 		});
-		await port.setArchivedAt('person-a', '2026-10-06');
-		expect(state.rows.personnel.find((row) => row.id === 'person-a')?.archived_at).toBe('2026-10-06');
 		await port.delete('foreign');
 		expect(state.rows.personnel.find((row) => row.id === 'foreign')).toEqual({
 			...SAVED,

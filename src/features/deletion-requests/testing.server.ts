@@ -28,15 +28,14 @@ export function createDeletionRequestTestStore(
 				...(target ? { resource_type: target.resourceType, resource_id: target.resourceId } : {})
 			});
 		},
-		findPendingByResource(orgId, resourceType, resourceId) {
-			return backing.findOne<{ id: string }>(table, orgId, {
-				resource_type: resourceType,
-				resource_id: resourceId,
+		async submitPending(orgId, input) {
+			const pending = await backing.findOne<{ id: string }>(table, orgId, {
+				resource_type: input.resourceType,
+				resource_id: input.resourceId,
 				status: 'pending'
 			});
-		},
-		createRequest(orgId, input) {
-			return backing.insert<DeletionRequest>(table, orgId, {
+			if (pending) return { outcome: 'duplicate' };
+			const request = await backing.insert<DeletionRequest>(table, orgId, {
 				requested_by: input.requestedBy,
 				requested_by_email: input.requesterEmail,
 				resource_type: input.resourceType,
@@ -49,6 +48,7 @@ export function createDeletionRequestTestStore(
 				denial_reason: null,
 				created_at: new Date().toISOString()
 			});
+			return { outcome: 'created', request };
 		},
 		listRequests(orgId, filter) {
 			return backing.findMany<DeletionRequest>(

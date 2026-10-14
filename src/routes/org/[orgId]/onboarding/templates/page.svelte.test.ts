@@ -21,6 +21,8 @@ vi.mock('$app/navigation', async (importOriginal) => ({
 	goto: gotoMock
 }));
 
+vi.mock('$lib/utils/browserStorage', () => ({ getBrowserLocalStorage: () => globalThis.localStorage }));
+
 let canConfigure = true;
 let scopeSet: ScopeSet = { kind: 'organization' };
 
@@ -29,6 +31,7 @@ vi.mock('$features/app-shell', async (importOriginal) => ({
 	getAppShellContext: () => ({
 		orgId: 'org-1',
 		orgUrlSegment: 'org-1',
+		userId: 'user-1',
 		...createClientAccess({
 			membershipRole: 'member',
 			capabilityMap: { ...createCapabilityMap('none'), onboarding: canConfigure ? 'configure' : 'view' },
@@ -39,6 +42,7 @@ vi.mock('$features/app-shell', async (importOriginal) => ({
 
 afterEach(() => {
 	cleanup();
+	localStorage.clear();
 	canConfigure = true;
 	scopeSet = { kind: 'organization' };
 	vi.unstubAllGlobals();
@@ -890,7 +894,9 @@ describe('onboarding templates page', () => {
 		await waitFor(() => expect(screen.getAllByText('Standard Arrival Copy').length).toBeGreaterThan(0));
 		expect(screen.getByRole('heading', { name: 'Standard Arrival Copy' })).toBeTruthy();
 		expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/onboarding-templates/template-1/duplicate', {
-			method: 'POST'
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: expect.stringMatching(/^\{"requestId":"[0-9a-f-]{36}"\}$/)
 		});
 		expect(onboardingTemplateStore.orgId).toBe('org-1');
 		expect(onboardingTemplateStore.templates.map((template) => template.id)).toContain('template-copy');
@@ -900,5 +906,30 @@ describe('onboarding templates page', () => {
 		renderPage();
 		expect(screen.getByRole('grid', { name: 'Onboarding templates' }).textContent).toContain('Standard Arrival Copy');
 		expect(onboardingTemplateStore.templates.map((template) => template.id)).toContain('template-copy');
+	});
+
+	it('offers a retry after a lost Duplicate answer, even after a reload, and shows the copy once', async () => {
+		const source = { ...standardArrival, id: '00000000-0000-4000-a000-000000000301' };
+		const copy = { ...standardArrival, id: '00000000-0000-4000-a000-000000000302', name: 'Standard Arrival Copy' };
+		const fetchMock = vi
+			.fn()
+			.mockRejectedValueOnce(new TypeError('fetch failed'))
+			.mockResolvedValue(Response.json({ template: copy, templateSteps: [] }));
+		vi.stubGlobal('fetch', fetchMock);
+		await renderTemplatesPage({ templates: [source], templateSteps: [] });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Duplicate' }));
+		await screen.findByText('Copy not confirmed');
+
+		cleanup();
+		await renderTemplatesPage({ templates: [source, copy], templateSteps: [] });
+		expect(screen.getByText(/couldn't confirm the copy of Standard Arrival/)).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+
+		await waitFor(() => expect(screen.queryByText('Copy not confirmed')).toBeNull());
+		const [firstBody, retryBody] = fetchMock.mock.calls.map(([, init]) => init.body);
+		expect(retryBody).toBe(firstBody);
+		expect(onboardingTemplateStore.templates.map((template) => template.id)).toEqual([source.id, copy.id]);
+		expect(localStorage.length).toBe(0);
 	});
 });

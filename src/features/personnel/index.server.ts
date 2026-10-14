@@ -44,8 +44,8 @@ export { createSupabasePersonnelOrganizationExportPort } from './organizationExp
 export type { PersonnelOrganizationExportPort } from './contracts';
 export { createSupabasePersonnelGovernanceDeletionPort } from './governanceDeletion.server';
 export type { PersonnelGovernanceDeletionPort } from './contracts';
-export { archiveLeaderNotesWithPersonnel, restoreLeaderNotesWithPersonnel } from './leaderNoteArchive.server';
-export type { LeaderNoteArchivePersistence } from './leaderNoteArchive.server';
+export { createSupabasePersonnelLifecycleCommands } from './personnelLifecycleCommands.server';
+export type { PersonnelLifecycleCommandPort } from './contracts';
 export {
 	addOrganizationRankServicePack,
 	bulkSetOrganizationRankCatalogState,
@@ -77,7 +77,7 @@ export {
 	archivePersonnelRecord,
 	restorePersonnelRecord,
 	permanentlyDeletePersonnelRecord,
-	archiveApprovedPersonnelRecord,
+	approvePersonnelArchiveRequest,
 	describePersonnelArchiveRequest,
 	preparePersonnelArchiveBatch
 } from './personnelLifecycle.server';

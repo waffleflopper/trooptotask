@@ -74,43 +74,45 @@ export function createSupabaseDeletionRequestStore(supabase: SupabaseClient): De
 	};
 }
 
-/** Service-role creation; the caller binds the Organization and requester from the admitted actor. */
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function sameUuid(saved: unknown, sent: string): boolean {
+	return typeof saved === 'string' && saved.toLowerCase() === sent.toLowerCase();
+}
+
+/** Service-role submission; the caller binds the Organization and requester from the admitted actor. */
 export function createSupabaseDeletionRequestSubmission(
 	getClient: () => SupabaseClient
 ): DeletionRequestSubmissionPort {
 	return {
-		async findPendingByResource(orgId, resourceType, resourceId) {
-			const { data, error } = await getClient()
-				.from(TABLE)
-				.select('id')
-				.eq('organization_id', orgId)
-				.eq('resource_type', resourceType)
-				.eq('resource_id', resourceId)
-				.eq('status', 'pending')
-				.limit(1)
-				.maybeSingle();
+		async submitPending(orgId, input) {
+			const { data, error } = await getClient().rpc('submit_deletion_request', {
+				p_organization_id: orgId,
+				p_requested_by: input.requestedBy,
+				p_requester_email: input.requesterEmail,
+				p_resource_type: input.resourceType,
+				p_resource_id: input.resourceId,
+				p_description: input.description,
+				p_resource_url: input.resourceUrl
+			});
 			if (error) throw new Error(error.message);
-			return data as { id: string } | null;
-		},
-		async createRequest(orgId, input) {
-			const { data, error } = await getClient()
-				.from(TABLE)
-				.insert({
-					organization_id: orgId,
-					requested_by: input.requestedBy,
-					requested_by_email: input.requesterEmail,
-					resource_type: input.resourceType,
-					resource_id: input.resourceId,
-					resource_description: input.description,
-					resource_url: input.resourceUrl,
-					status: 'pending'
-				})
-				.select('*')
-				.single();
-			if (error) throw new Error(error.message);
-			if (!data || typeof data.id !== 'string' || !data.id)
-				throw new Error('Deletion request creation was not acknowledged');
-			return data as DeletionRequest;
+			if (isRecord(data) && data.outcome === 'duplicate') return { outcome: 'duplicate' };
+			const request = isRecord(data) && data.outcome === 'created' ? data.request : null;
+			if (
+				!isRecord(request) ||
+				typeof request.id !== 'string' ||
+				!request.id ||
+				!sameUuid(request.organization_id, orgId) ||
+				!sameUuid(request.requested_by, input.requestedBy) ||
+				request.resource_type !== input.resourceType ||
+				!sameUuid(request.resource_id, input.resourceId) ||
+				request.status !== 'pending'
+			) {
+				throw new Error('Deletion request submission was not acknowledged');
+			}
+			return { outcome: 'created', request: request as unknown as DeletionRequest };
 		}
 	};
 }

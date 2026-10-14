@@ -59,26 +59,15 @@ export async function approveDeletionRequest(
 
 	const reviewedAt = new Date().toISOString();
 	let fileCleanup: FileCleanup = 'complete';
-	if (resourceType === 'personnel') {
-		await effects.archivePersonnel(resourceId);
-		// Archival is idempotent, so a request whose status write fails can be approved again.
-		const completed = await ctx.store.completePendingReview(
-			ctx.auth.orgId,
-			boundRequestId,
-			{ resourceType, resourceId },
-			{ status: 'approved', reviewedBy: ctx.auth.userId, reviewedAt, denialReason: null }
-		);
-		if (!completed) fail(404, 'Pending deletion request not found');
-	} else {
-		const approveDeletion = {
-			training_type: effects.approveTrainingType,
-			personnel_training: effects.approveTrainingRecord,
-			rating_scheme_entry: effects.approveRatingEntry,
-			counseling_record: effects.approveCounseling
-		}[resourceType];
-		const outcome = await approveDeletion(boundRequestId, resourceId, reviewedAt);
-		if (outcome) fileCleanup = outcome.fileCleanup;
-	}
+	const approveTarget = {
+		personnel: effects.approvePersonnelArchive,
+		training_type: effects.approveTrainingType,
+		personnel_training: effects.approveTrainingRecord,
+		rating_scheme_entry: effects.approveRatingEntry,
+		counseling_record: effects.approveCounseling
+	}[resourceType];
+	const outcome = await approveTarget(boundRequestId, resourceId, reviewedAt);
+	if (outcome) fileCleanup = outcome.fileCleanup;
 
 	// Notify the requester
 	const isPersonnel = resourceType === 'personnel';

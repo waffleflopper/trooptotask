@@ -74,10 +74,6 @@ export function createInMemoryPersonnelRecordPersistence(
 			const row = await find('group_id', { id });
 			return row ? { groupId: (row.group_id as string | null) ?? null } : null;
 		},
-		async findArchiveEvent(id) {
-			const row = await find('archived_at', { id });
-			return row ? { archivedAt: (row.archived_at as string | null) ?? null } : null;
-		},
 		async listArchiveCandidates(ids) {
 			if (!ids.length) return [];
 			return (
@@ -131,9 +127,6 @@ export function createInMemoryPersonnelRecordPersistence(
 		},
 		async updateDates(id, patch) {
 			return toPersonnel(await store.update('personnel', orgId, id, patch));
-		},
-		async setArchivedAt(id, value) {
-			await store.update('personnel', orgId, id, { archived_at: value });
 		},
 		delete: (id) => store.delete('personnel', orgId, id)
 	};

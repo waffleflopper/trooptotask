@@ -7,6 +7,20 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-10-13-onboarding-glow-up',
+		date: '2026-10-13',
+		title: 'Onboarding Got a Glow Up',
+		items: [
+			'The Onboarding page now shows everyone in processing as a simple list, with the people who are stuck at the top. Each person shows what they are waiting on, how far along they are, and what day of onboarding they are on.',
+			'A summary at the top shows how many people are waiting on each step, so you can spot bottlenecks at a glance. Paperwork that has sat on the same stage for 7 days or more is highlighted.',
+			'Click a person to see their open steps first, update a stage, check off a step, or add a note. Notes now show who wrote them and when.',
+			'Switch to Matrix to see everyone and every step in one grid, one grid per template. Click any box to update that step or add a note without leaving the grid.',
+			'History is now an easy-to-read table of finished and cancelled onboardings. Search or filter by outcome, group, or template, see how long each one took, and open a row to see every step and note. It also tells you how long records are kept.',
+			'Templates are easier to edit. Drag steps into a new order, edit steps right where they are, and update everyone already in processing to match your changes with one click.',
+			'Everything works on phones too.'
+		]
+	},
+	{
 		id: '2026-10-05-training-reports-and-matrix-export',
 		date: '2026-10-05',
 		title: 'Training Reports and Excel Export',

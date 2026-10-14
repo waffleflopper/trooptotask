@@ -40,14 +40,7 @@ export async function createDeletionRequest(
 		undefined
 	);
 
-	// Check for existing pending request for the same resource
-	const existing = await ctx.store.findPendingByResource(ctx.auth.orgId, input.resourceType, input.resourceId);
-
-	if (existing) {
-		fail(409, 'A pending deletion request already exists for this resource');
-	}
-
-	const row = await ctx.store.createRequest(ctx.auth.orgId, {
+	const submission = await ctx.store.submitPending(ctx.auth.orgId, {
 		requestedBy: ctx.auth.userId,
 		requesterEmail: input.userEmail,
 		resourceType: input.resourceType,
@@ -55,6 +48,10 @@ export async function createDeletionRequest(
 		description: input.resourceDescription,
 		resourceUrl: input.resourceUrl ?? null
 	});
+	if (submission.outcome === 'duplicate') {
+		fail(409, 'A pending deletion request already exists for this resource');
+	}
+	const row = submission.request;
 
 	ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.created`,

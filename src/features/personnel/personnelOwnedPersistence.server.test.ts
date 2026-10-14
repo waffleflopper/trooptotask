@@ -7,7 +7,7 @@ import {
 } from './supabasePersonnelSheetPersistence.server';
 import { createSupabasePersonnelArtifactReadPersistence } from './supabasePersonnelArtifactReadPersistence.server';
 import { createSupabasePersonnelArtifactWritePort } from './artifactWrites.server';
-import type { PersonnelArtifactWriter, PersonnelArtifactArchiveWriter } from './contracts';
+import type { PersonnelArtifactWriter } from './contracts';
 import { createTestAuthContext } from '$lib/server/adapters/inMemory';
 
 const rank = {
@@ -247,110 +247,7 @@ describe('finite Personnel artifact SDK writes', () => {
 		});
 		await expect(port.forPerson(actor(), 'other')).rejects.toMatchObject({ status: 403 });
 		await expect(port.forPerson(actor(), 'foreign')).rejects.toMatchObject({ status: 404 });
-		await expect(port.forPeople(actor(), ['other', 'foreign'], 'archive')).rejects.toMatchObject({ status: 404 });
 		expect(opened).toBe(0);
-	});
-});
-
-const batchArtifacts = [
-	{
-		table: 'counseling_records',
-		saved: counseling,
-		list: (w: PersonnelArtifactArchiveWriter, at: string | null) => w.listCounselingArchiveCandidates(at),
-		set: (w: PersonnelArtifactArchiveWriter, id: string, at: string | null) =>
-			w.setCounselingArchivedAt({ id, personnelId: 'person-a' }, at)
-	},
-	{
-		table: 'personnel_documents',
-		saved: document,
-		list: (w: PersonnelArtifactArchiveWriter, at: string | null) => w.listDocumentArchiveCandidates(at),
-		set: (w: PersonnelArtifactArchiveWriter, id: string, at: string | null) =>
-			w.setDocumentArchivedAt({ id, personnelId: 'person-a' }, at)
-	},
-	{
-		table: 'personnel_follow_ups',
-		saved: followUp,
-		list: (w: PersonnelArtifactArchiveWriter, at: string | null) => w.listFollowUpArchiveCandidates(at),
-		set: (w: PersonnelArtifactArchiveWriter, id: string, at: string | null) =>
-			w.setFollowUpArchivedState({ id, personnelId: 'person-a' }, at)
-	},
-	{
-		table: 'leader_notes',
-		saved: note,
-		list: (w: PersonnelArtifactArchiveWriter, at: string | null) => w.listLeaderNoteArchiveCandidates(at),
-		set: (w: PersonnelArtifactArchiveWriter, id: string, at: string | null) =>
-			w.setLeaderNoteArchivedAt({ id, personnelId: 'person-a' }, at)
-	}
-] as const;
-
-describe('finite Personnel parent archive SDK writes', () => {
-	it.each(batchArtifacts)('$table keeps complete candidates, event identity and unrelated history', async (c) => {
-		const ordinary = personnelProvider({
-			personnel: [{ id: 'person-a', organization_id: 'org-a', group_id: 'alpha' }]
-		});
-		const active = Array.from({ length: 1001 }, (_, i) => ({
-			...c.saved,
-			id: `active-${String(i).padStart(4, '0')}`,
-			organization_id: 'org-a',
-			retained_metadata: 'retained'
-		}));
-		const history = [
-			{
-				...c.saved,
-				id: 'older',
-				organization_id: 'org-a',
-				archived_at: '2026-08-01T12:00:00Z',
-				...(c.table === 'personnel_follow_ups' ? { status: 'archived' } : {})
-			},
-			{ ...c.saved, id: 'foreign', organization_id: 'org-b' },
-			{ ...c.saved, id: 'sibling', organization_id: 'org-a', personnel_id: 'person-b' },
-			...(c.table === 'personnel_follow_ups'
-				? [
-						{
-							...followUp,
-							id: 'completed',
-							organization_id: 'org-a',
-							status: 'completed',
-							completed_at: '2026-09-14T12:00:00Z'
-						}
-					]
-				: [])
-		];
-		const service = personnelProvider({ [c.table]: [...active, ...history] });
-		service.state.unstablePages = true;
-		const port = createSupabasePersonnelArtifactWritePort(ordinary.client, () => service.client);
-		const writer = await port.forPeople(actor(), ['person-a'], 'archive');
-		expect(await c.list(writer, null)).toEqual(active.map(({ id }) => ({ id, personnelId: 'person-a' })));
-		const event = '2026-10-09T10:00:00Z';
-		await c.set(writer, 'active-0000', event);
-		expect(await c.list(writer, event)).toEqual([{ id: 'active-0000', personnelId: 'person-a' }]);
-		expect(service.state.rows[c.table].find((r) => r.id === 'active-0000')).toEqual({
-			...active[0],
-			archived_at: event,
-			...(c.table === 'personnel_follow_ups' ? { status: 'archived' } : {})
-		});
-		await c.set(writer, 'active-0000', null);
-		expect(service.state.rows[c.table]).toEqual([...active, ...history]);
-		service.state.failure = (r) =>
-			r.method === 'PATCH' ? { code: '42501', message: 'Archive denied', status: 403 } : null;
-		await expect(c.set(writer, 'active-0000', event)).rejects.toThrow('Archive denied');
-		expect(service.state.rows[c.table]).toEqual([...active, ...history]);
-	});
-	it('rejects a later candidate page without returning a partial archive list', async () => {
-		const ordinary = personnelProvider({
-			personnel: [{ id: 'person-a', organization_id: 'org-a', group_id: 'alpha' }]
-		});
-		const service = personnelProvider({
-			leader_notes: Array.from({ length: 1001 }, (_, i) => ({ ...note, id: `note-${i}`, organization_id: 'org-a' }))
-		});
-		service.state.failure = (r) =>
-			r.offset > 0 ? { code: '42501', message: 'Later archive page denied', status: 403 } : null;
-		const writer = await createSupabasePersonnelArtifactWritePort(ordinary.client, () => service.client).forPeople(
-			actor(),
-			['person-a'],
-			'restore'
-		);
-		await expect(writer.listLeaderNoteArchiveCandidates(null)).rejects.toThrow('Later archive page denied');
 	});
 });
 

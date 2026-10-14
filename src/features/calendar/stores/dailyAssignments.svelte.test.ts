@@ -1265,6 +1265,148 @@ describe('dailyAssignmentsStore - workspace snapshots after a confirmed catalog'
 		}
 	);
 
+	describe('while a type write is saving', () => {
+		const renamed = [
+			{ ...staff, showInDateHeader: false },
+			{ ...group, showInDateHeader: true, name: 'Group Night' },
+			retiring
+		];
+		const cqData = {
+			name: 'CQ',
+			shortName: 'CQ',
+			assignTo: 'personnel' as const,
+			color: '#000',
+			exemptPersonnelIds: [],
+			showInDateHeader: false
+		};
+		const cq = { ...cqData, id: 'cq' };
+		let writes: Array<(value: unknown) => void>;
+
+		beforeEach(() => {
+			writes = [];
+			vi.stubGlobal(
+				'fetch',
+				vi.fn((url: string, options?: RequestInit) => {
+					requests.push(`${options?.method ?? 'GET'} ${url}`);
+					if (options) return new Promise((resolve) => writes.push(resolve));
+					return new Promise((resolve, reject) => reads.push({ resolve, reject }));
+				})
+			);
+		});
+
+		it.each([
+			['an added type saves', () => dailyAssignmentsStore.addType(cqData), reply(200, cq), [...renamed, cq]],
+			['an added type is refused', () => dailyAssignmentsStore.addType(cqData), reply(500, {}), renamed],
+			[
+				'an edited type saves',
+				() => dailyAssignmentsStore.updateType('retiring', { name: 'Retired' }),
+				reply(200, { ...retiring, name: 'Retired' }),
+				[renamed[0], renamed[1], { ...retiring, name: 'Retired' }]
+			],
+			[
+				'an edited type is refused',
+				() => dailyAssignmentsStore.updateType('retiring', { name: 'Retired' }),
+				reply(500, {}),
+				renamed
+			],
+			['a deleted type saves', () => dailyAssignmentsStore.removeType('retiring'), reply(200, {}), renamed.slice(0, 2)],
+			['a deleted type is refused', () => dailyAssignmentsStore.removeType('retiring'), reply(500, {}), renamed]
+		])(
+			'reads the saved types once %s after a snapshot disputed the catalog mid-write',
+			async (_label, write, answer, saved) => {
+				const settled = write().catch(() => null);
+				dailyAssignmentsStore.load(renamed, [row], 'org-1');
+				await answered();
+				expect(requests).toHaveLength(1);
+
+				writes[0](answer);
+				await settled;
+				await answered();
+				expect(requests.slice(1)).toEqual(['GET /org/org-1/api/assignment-types']);
+				reads[0].resolve(reply(200, saved));
+
+				await vi.waitFor(() => expect(dailyAssignmentsStore.types).toEqual(saved));
+				expect(dailyAssignmentsStore.assignments).toEqual([row]);
+				expect(toasts).not.toContain(refreshFailed);
+			}
+		);
+
+		it('waits for every overlapping type write before reading the saved types', async () => {
+			const edit = dailyAssignmentsStore.updateType('staff', { name: 'Staff Duty' });
+			const removal = dailyAssignmentsStore.removeType('retiring');
+			dailyAssignmentsStore.load(renamed, [row], 'org-1');
+
+			writes[0](reply(200, { ...staff, showInDateHeader: false, name: 'Staff Duty' }));
+			expect(await edit).toBe(true);
+			await answered();
+			expect(reads).toHaveLength(0);
+
+			writes[1](reply(500, {}));
+			expect(await removal).toBe(false);
+			await answered();
+			expect(requests.filter((request) => request.startsWith('GET'))).toHaveLength(1);
+			reads[0].resolve(reply(200, renamed));
+
+			await vi.waitFor(() => expect(dailyAssignmentsStore.types).toEqual(renamed));
+		});
+
+		it('adopts the deferred catalog after successful edits settle in the same turn', async () => {
+			const staffSaved = { ...staff, showInDateHeader: false, name: 'Staff Duty' };
+			const retired = { ...retiring, name: 'Retired' };
+			const saved = [staffSaved, renamed[1], retired];
+			const first = dailyAssignmentsStore.updateType('staff', { name: 'Staff Duty' });
+			const second = dailyAssignmentsStore.updateType('retiring', { name: 'Retired' });
+			dailyAssignmentsStore.load(renamed, [row], 'org-1');
+			writes[0](reply(200, staffSaved));
+			writes[1](reply(200, retired));
+
+			expect(await Promise.all([first, second])).toEqual([true, true]);
+			expect(reads).toHaveLength(1);
+			reads[0].resolve(reply(200, saved));
+			await vi.waitFor(() => expect(dailyAssignmentsStore.types).toEqual(saved));
+			expect(dailyAssignmentsStore.assignments).toEqual([row]);
+		});
+
+		it('adopts the deferred catalog after successful additions settle in the same turn', async () => {
+			const night = { ...cq, id: 'night', name: 'Night' };
+			const first = dailyAssignmentsStore.addType(cqData);
+			const second = dailyAssignmentsStore.addType({ ...cqData, name: 'Night' });
+			dailyAssignmentsStore.load(renamed, [row], 'org-1');
+			writes[0](reply(200, cq));
+			writes[1](reply(200, night));
+
+			expect(await Promise.all([first, second])).toEqual([cq, night]);
+			expect(reads).toHaveLength(1);
+			const saved = [...renamed, cq, night];
+			reads[0].resolve(reply(200, saved));
+			await vi.waitFor(() => expect(dailyAssignmentsStore.types).toEqual(saved));
+			expect(dailyAssignmentsStore.assignments).toEqual([row]);
+		});
+
+		it('sends no read when a type write settles without a disputing snapshot', async () => {
+			const edit = dailyAssignmentsStore.updateType('retiring', { name: 'Retired' });
+			writes[0](reply(200, { ...retiring, name: 'Retired' }));
+
+			expect(await edit).toBe(true);
+			await answered();
+			expect(requests).toEqual(['PUT /org/org-1/api/assignment-types']);
+		});
+
+		it.each([
+			['another Organization', () => dailyAssignmentsStore.load([], [], 'org-2')],
+			['an ended Organization lifetime', () => endOrganizationLifetime()]
+		])('drops the queued read after moving to %s', async (_label, leave) => {
+			const edit = dailyAssignmentsStore.updateType('retiring', { name: 'Retired' });
+			dailyAssignmentsStore.load(renamed, [row], 'org-1');
+			leave();
+			writes[0](reply(200, { ...retiring, name: 'Retired' }));
+
+			expect(await settles(edit)).toBe(false);
+			expect(reads).toHaveLength(0);
+			expect(toasts).toEqual([]);
+		});
+	});
+
 	it('protects a catalog verified by the recovery read of an unconfirmed choice', async () => {
 		vi.stubGlobal(
 			'fetch',

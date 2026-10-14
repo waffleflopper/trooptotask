@@ -28,17 +28,14 @@ export type DateHeaderChange =
 	| { status: 'not-saved'; message: string; showsSaved: boolean }
 	| { status: 'unconfirmed'; showsSaved: boolean };
 
-// One header command owns the type catalog from its request through its feedback, outliving the view that chose it.
 type HeaderFlight = Readonly<{
 	assignmentTypeId: string;
 	orgId: string;
 	inLifetime: () => boolean;
 }>;
 
-// The live catalog holds a server confirmation that no later workspace snapshot can be shown to postdate.
 type ConfirmedCatalog = Readonly<{ orgId: string; inLifetime: () => boolean }>;
 
-// Snapshots of one catalog can differ in key order, optional fields and row order without differing in value.
 function canonicalCatalog(types: readonly AssignmentType[]): string | null {
 	const parsed = assignmentTypesSchema.safeParse(types);
 	if (!parsed.success) return null;
@@ -125,7 +122,8 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 
 	let headerFlight = $state.raw<HeaderFlight | null>(null);
 	let confirmedCatalog: ConfirmedCatalog | null = null;
-	// Advances whenever an outstanding catalog read may be superseded by a newer write or snapshot.
+	let disputedDuringWrites: ConfirmedCatalog | null = null;
+	let typeWrites: ConfirmedCatalog[] = [];
 	let catalogEpoch = 0;
 
 	function currentHeaderFlight(): HeaderFlight | null {
@@ -142,19 +140,28 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 			: null;
 	}
 
-	function confirmCatalog(orgId: string, inLifetime: () => boolean) {
-		confirmedCatalog = Object.freeze({ orgId, inLifetime });
+	function forgetStaleTypeWrites(orgId: string) {
+		typeWrites = typeWrites.filter((write) => write.orgId === orgId && write.inLifetime());
 	}
 
-	// Returns the confirmation to record once this admitted type write is acknowledged.
-	function admitTypeWrite(): () => void {
+	function admitTypeWrite(): ConfirmedCatalog {
 		catalogEpoch++;
-		const orgId = typesStore.orgId;
-		const inLifetime = stillInOrganizationLifetime();
-		return () => confirmCatalog(orgId, inLifetime);
+		forgetStaleTypeWrites(typesStore.orgId);
+		const write = Object.freeze({ orgId: typesStore.orgId, inLifetime: stillInOrganizationLifetime() });
+		typeWrites.push(write);
+		return write;
 	}
 
-	// Returns the load version this read produced, so the caller can tell whether the shown catalog is still that read.
+	function settleTypeWrite(write: ConfirmedCatalog) {
+		typeWrites = typeWrites.filter((pending) => pending !== write);
+		forgetStaleTypeWrites(typesStore.orgId);
+		const disputed = disputedDuringWrites;
+		if (!disputed || typesStore.busy || typeWrites.length > 0) return;
+		disputedDuringWrites = null;
+		const confirmed = currentConfirmedCatalog();
+		if (confirmed && disputed.inLifetime() && disputed.orgId === confirmed.orgId) void reconcileCatalog(confirmed);
+	}
+
 	async function adoptSavedTypesIfUnchanged(orgId: string, owns: () => boolean): Promise<number | null> {
 		if (!owns()) return null;
 		const loadVersion = typesStore.loadVersion;
@@ -170,7 +177,6 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 		}
 	}
 
-	// A snapshot disputed the confirmed catalog. Only a read sent after that dispute can replace it.
 	async function reconcileCatalog(confirmed: ConfirmedCatalog): Promise<void> {
 		const epoch = catalogEpoch;
 		const owns = () => catalogEpoch === epoch && currentConfirmedCatalog() === confirmed;
@@ -192,11 +198,10 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 			: "We couldn't confirm the date header change. No date header is saved.";
 	}
 
-	// Synchronous with the flight's release, so no later load or remount can change what the result describes.
 	function reportDateHeaderOutcome(flight: HeaderFlight, result: DateHeaderChange): DateHeaderChange {
 		if (!isCurrentHeaderFlight(flight)) return { status: 'stale' };
 		if (result.status === 'saved' || ('showsSaved' in result && result.showsSaved)) {
-			confirmCatalog(flight.orgId, flight.inLifetime);
+			confirmedCatalog = flight;
 		}
 		if (result.status === 'not-saved' || result.status === 'unconfirmed') {
 			toastStore.error(dateHeaderFailureMessage(result));
@@ -232,15 +237,16 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 		},
 
 		load(types: AssignmentType[], assignments: DailyAssignment[], orgId: string) {
+			forgetStaleTypeWrites(orgId);
 			if (headerFlight && (headerFlight.orgId !== orgId || !headerFlight.inLifetime())) headerFlight = null;
 			if (confirmedCatalog && (confirmedCatalog.orgId !== orgId || !confirmedCatalog.inLifetime())) {
 				confirmedCatalog = null;
 			}
-			// A current header command reconciles snapshots through its own read.
 			const confirmed = headerFlight ? null : confirmedCatalog;
 			const disputed = confirmed !== null && (typesStore.busy || !sameCatalog(types, typesStore.items));
 			if (!confirmed) typesStore.load(types, orgId);
 			if (disputed) catalogEpoch++;
+			disputedDuringWrites = disputed && typesStore.busy ? confirmed : null;
 			base.load(assignments, orgId);
 			if (disputed && !typesStore.busy) void reconcileCatalog(confirmed);
 		},
@@ -248,17 +254,22 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 		// Assignment Type methods
 		async addType(data: Omit<AssignmentType, 'id'>): Promise<AssignmentType | null> {
 			if (currentHeaderFlight()) return null;
-			const confirm = admitTypeWrite();
-			const created = await typesStore.add(data);
-			confirm();
-			return created;
+			const write = admitTypeWrite();
+			try {
+				const created = await typesStore.add(data);
+				confirmedCatalog = write;
+				return created;
+			} finally {
+				settleTypeWrite(write);
+			}
 		},
 
 		async updateType(id: string, data: Partial<Omit<AssignmentType, 'id'>>): Promise<boolean> {
 			if (currentHeaderFlight()) return false;
-			const confirm = admitTypeWrite();
+			const write = admitTypeWrite();
 			const updated = await typesStore.update(id, data);
-			if (updated) confirm();
+			if (updated) confirmedCatalog = write;
+			settleTypeWrite(write);
 			return updated;
 		},
 
@@ -266,7 +277,7 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 			if (currentHeaderFlight()) return false;
 			const type = typesStore.getById(id);
 			if (!type) return false;
-			const confirm = admitTypeWrite();
+			const write = admitTypeWrite();
 
 			// Cascade: optimistically remove affected assignments via log
 			const affectedIds = getAssignmentSnapshot()
@@ -285,7 +296,7 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 				// Confirm cascade in serverState
 				const idSet = new Set(affectedIds);
 				internals.serverState.set(internals.serverState.getSnapshot().filter((a) => !idSet.has(a.id)));
-				confirm();
+				confirmedCatalog = write;
 			}
 
 			// Resolve cascade log (success = serverState updated, failure = auto-rollback)
@@ -293,6 +304,7 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 				internals.log.resolve(cascadeMutationId);
 			}
 
+			settleTypeWrite(write);
 			return result === 'deleted';
 		},
 

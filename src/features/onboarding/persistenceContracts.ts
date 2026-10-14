@@ -84,10 +84,18 @@ export interface SavedOnboardingProgress {
 	stepType: OnboardingStepType;
 	completed: boolean;
 	currentStage: string | null;
+	progressChangedAt: string;
+}
+
+export interface OnboardingCompletion {
+	startedAt: string;
+	completedAt: string;
 }
 
 export interface OnboardingWorkflowPersistence {
 	listPackets(mode: OnboardingBootstrapMode): Promise<PersonnelOnboarding[]>;
+	/** Start and finish dates of packets completed on or after `since` (YYYY-MM-DD). */
+	listCompletionsSince(since: string): Promise<OnboardingCompletion[]>;
 	listSavedActivePackets(): Promise<PersonnelOnboarding[]>;
 	findPacketReference(id: string): Promise<OnboardingPacketReference | null>;
 	findStepReference(id: string): Promise<OnboardingProgressReference | null>;
@@ -96,5 +104,7 @@ export interface OnboardingWorkflowPersistence {
 	saveCheckboxCompletion(stepId: string, completed: boolean): Promise<SavedOnboardingProgress>;
 	savePaperworkProgress(stepId: string, currentStage: string, completed: boolean): Promise<SavedOnboardingProgress>;
 	listPacketIdsUsingTemplate(templateId: string): Promise<string[]>;
+	/** In-progress packets per template, counted among the packets the requester may see. Templates without packets map to 0. */
+	countActivePacketsByTemplate(): Promise<Record<string, number>>;
 	clearPacketTemplate(id: string): Promise<void>;
 }

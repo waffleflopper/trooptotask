@@ -26,9 +26,15 @@ export type {
 // Context
 export { OnboardingPageContext, MODAL_IDS } from './contexts/OnboardingPageContext.svelte';
 
+export { default as TemplateHeader } from './components/templates/TemplateHeader.svelte';
+export { default as TemplateSteps } from './components/templates/TemplateSteps.svelte';
+export { default as TemplateSyncNotice } from './components/templates/TemplateSyncNotice.svelte';
+export { describeTemplateSync, syncTemplatePackets } from './templateSync';
+export { noteAuthorLookup } from './onboardingNoteAuthors';
+
 export { onboardingWorkspaceHydrator } from './onboardingWorkspaceHydration.svelte';
 
-export { default as OnboardingKanbanView } from './components/OnboardingKanbanView.svelte';
+export { default as OnboardingActiveView } from './components/OnboardingActiveView.svelte';
 export { default as OnboardingHistoryPage } from './components/OnboardingHistoryPage.svelte';
 
 /** Keep packet dialogs lazy behind their consumed Web entry. */

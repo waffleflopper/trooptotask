@@ -17,6 +17,7 @@ import type {
 import type { Personnel } from '$features/personnel/contracts';
 import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
 import { getProgress } from '../onboardingProgress';
+import { FORMER_MEMBER_LABEL, type NoteAuthorLookup } from '../onboardingNoteAuthors';
 export { getProgress } from '../onboardingProgress';
 
 const ONBOARDING_POLICY_ACTIONS = POLICY_ACTION_CATALOG.onboarding;
@@ -110,10 +111,18 @@ export class OnboardingPageContext {
 			: rosterStore.readModel().scoped(this.#org.scopeSet, { status: 'active' })
 	);
 
-	constructor(modals: ModalRegistry, org: OnboardingPageAccess) {
+	/** Who wrote a note: "You", the author's name, or "Former member" when no name is known. */
+	readonly noteAuthorName: NoteAuthorLookup;
+
+	constructor(
+		modals: ModalRegistry,
+		org: OnboardingPageAccess,
+		noteAuthorName: NoteAuthorLookup = () => FORMER_MEMBER_LABEL
+	) {
 		this.modals = modals;
 		this.#org = org;
 		this.orgId = org.orgId;
+		this.noteAuthorName = noteAuthorName;
 	}
 
 	// ── Permission flags (advisory feature policy) ─────────────
@@ -196,6 +205,21 @@ export class OnboardingPageContext {
 		return this.rosterView.groupName(personnelId);
 	}
 
+	getPerson(personnelId: string): Personnel | undefined {
+		return this.rosterView.getById(personnelId);
+	}
+
+	/** The Soldier's personnel record, when this member may read it (the record page requires sensitive-record reads). */
+	profileUrl(personnelId: string): string | null {
+		const person = this.rosterView.getById(personnelId);
+		if (!person?.slug) return null;
+		const allowed = this.#org.affordanceForFeatureAction(
+			POLICY_ACTION_CATALOG.personnel.readSensitiveRecords,
+			this.getPersonnelPolicyResource(personnelId)
+		).visible;
+		return allowed ? `/org/${this.#org.orgUrlSegment ?? this.#org.orgId}/personnel/${person.slug}` : null;
+	}
+
 	getPersonnelPolicyResource(personnelId: string): PolicyResource {
 		const personnel = this.rosterView.getById(personnelId);
 		return personnel?.groupId ? { kind: 'group', groupId: personnel.groupId } : { kind: 'organization' };
@@ -270,6 +294,14 @@ export class OnboardingPageContext {
 		if (!this.#isCurrent(version)) return;
 		const saved = await onboardingStore.advanceStage(step.id, stageName);
 		if (this.#isCurrent(version) && !saved) toastStore.error('Could not update this stage. Try again.');
+	}
+
+	async handleAddNote(step: OnboardingStepProgress, text: string): Promise<boolean> {
+		const version = onboardingStore.organizationVersion;
+		if (!this.#isCurrent(version)) return false;
+		const saved = await onboardingStore.addNote(step.id, text);
+		if (this.#isCurrent(version) && !saved) toastStore.error('Could not add this note. Try again.');
+		return saved;
 	}
 
 	async handleCancelOnboarding(id: string) {
@@ -434,6 +466,10 @@ export class OnboardingPageContext {
 
 	get templates() {
 		return onboardingTemplateStore.templates;
+	}
+
+	get templateSteps() {
+		return onboardingTemplateStore.allSteps;
 	}
 
 	private get rosterView(): RosterReadModelView {

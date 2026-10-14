@@ -145,6 +145,13 @@ export async function seed(session) {
 			personnel: 'view',
 			scope: 'organization'
 		},
+		trainingOnboardingView: {
+			organization: 'orgA',
+			training: 'view',
+			onboarding: 'view',
+			personnel: 'view',
+			scope: 'organization'
+		},
 		trainingScoped: {
 			organization: 'orgA',
 			training: 'view',

@@ -564,3 +564,13 @@ Applying these files creates commands and their grants. It does not archive, res
 Apply the final reviewed files in order before deploying their application consumers. The old application remains callable against the additive schema but retains its earlier partial-write behavior until old instances and requests drain. The new application requires both commands; deploying it first makes affected actions fail. Rolling back the application can retain these migrations, but restores the old limitations. No fixture, concurrency test or cleanup helper belongs on hosted data.
 
 Before a releasing merge, Robert confirms the final reviewed migrations' ordered application and outcome through his normal process, including applicable notice and backup. His confirmations for `20261013000100` and the separately owned `20261013000200_onboarding_step_progress_changed_at.sql` cover those earlier migrations only. After release, verify an ordinary archive request and approval, direct archive, bulk archive and restore through their normal roles. Repository CI operates disposable local databases. The agent has neither inspected nor changed the hosted ledger or external deployment settings.
+
+## Onboarding step progress timestamp
+
+Robert reports applying [`supabase/migrations/20261013000200_onboarding_step_progress_changed_at.sql`](../../supabase/migrations/20261013000200_onboarding_step_progress_changed_at.sql), SHA-256 `aea348232c0f4345f8c967495ecf2932988a060e6ac31a91925c1edcdb076d16`, through his normal ordered migration procedure. Its repository predecessor is `20261013000100_personnel_file_retirement.sql`; the agent has not inspected the hosted ledger.
+
+Applying it adds the required `progress_changed_at` column to `onboarding_step_progress`, defaulting to the time the row is written, and a trigger that moves it only when a step's completion or current stage changes. Existing rows take the migration time, so the List's stuck-step warning starts counting at the migration. The trigger function lives in `onboarding_private` with all execute grants revoked. It rewrites no other column and deletes no rows.
+
+Apply the migration before the application release. The new application reads `progress_changed_at` on every Onboarding page, so those pages fail to load until the column exists. The old application never reads the column, and its inserts and progress updates keep working because the default and trigger fill it. After the release, confirm through ordinary use that Active onboarding, History and Templates load and that moving a Paperwork step's stage saves.
+
+Repository CI operates disposable local databases and performs no remote migration. External production deployment settings are uninspected.

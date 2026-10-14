@@ -1,5 +1,11 @@
 <script lang="ts">
-	import { OnboardingPageContext, OnboardingKanbanView, MODAL_IDS, loadOnboardingModals } from '$features/onboarding';
+	import {
+		OnboardingPageContext,
+		OnboardingActiveView,
+		MODAL_IDS,
+		loadOnboardingModals,
+		noteAuthorLookup
+	} from '$features/onboarding';
 	import type { OnboardingWorkspaceResult } from '$features/onboarding/contracts';
 	import { untrack } from 'svelte';
 	import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
@@ -17,7 +23,7 @@
 		if (orgId !== modalOrgId) untrack(() => modals.closeAll());
 		modalOrgId = orgId;
 	});
-	const loadingSkeletonItems = [0, 1, 2];
+	const loadingSkeletonItems = [0, 1, 2, 3];
 	let onboardingBootstrap = $state<OnboardingWorkspaceResult | null>(null);
 	let OnboardingModals = $state<Awaited<ReturnType<typeof loadOnboardingModals>>['default'] | null>(null);
 	let loadError = $state<Error | null>(null);
@@ -57,7 +63,11 @@
 	});
 
 	const workspacePending = $derived(!!data.onboarding?.data && onboardingBootstrap === null && loadError === null);
-	const ctx = $derived(onboardingBootstrap ? new OnboardingPageContext(modals, org) : null);
+	const ctx = $derived(
+		onboardingBootstrap
+			? new OnboardingPageContext(modals, org, noteAuthorLookup(onboardingBootstrap.data.noteAuthors, org.userId))
+			: null
+	);
 	$effect(() => {
 		const context = ctx;
 		return () => context?.dispose();
@@ -92,25 +102,25 @@
 </svelte:head>
 
 {#if workspacePending}
-	<section class="grid gap-4 p-3 sm:px-6 sm:py-5" aria-live="polite" role="status" aria-label="Loading onboarding">
-		<div class="flex flex-wrap items-center gap-3">
-			<Skeleton class="h-3 w-[124px]" />
-			<Skeleton class="h-3 w-24" />
+	<section class="grid gap-6 p-3 md:p-6" aria-live="polite" role="status" aria-label="Loading onboarding">
+		<div class="grid gap-2">
+			<Skeleton class="h-8 w-40" />
+			<Skeleton class="h-4 w-72 max-w-full" />
 		</div>
-		<div class="grid gap-3 min-[721px]:grid-cols-3">
+		<div class="grid grid-cols-2 gap-3 md:grid-cols-4">
 			{#each loadingSkeletonItems as item (item)}
-				<Skeleton class="h-[116px] w-full" />
+				<Skeleton class="h-20 w-full" />
 			{/each}
 		</div>
-		<div class="grid gap-3">
+		<div class="grid gap-2">
 			{#each loadingSkeletonItems as item (item)}
-				<Skeleton class="h-[88px] w-full" />
+				<Skeleton class="h-16 w-full" />
 			{/each}
 		</div>
 	</section>
 {:else if ctx}
 	{#key ctx.orgId}
-		<OnboardingKanbanView {ctx} />
+		<OnboardingActiveView {ctx} typicalDaysToFinish={onboardingBootstrap?.data.typicalDaysToFinish ?? null} />
 		{#if needsModalSurface && OnboardingModals && onboardingBootstrap}
 			<OnboardingModals
 				{ctx}

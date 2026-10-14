@@ -15,7 +15,7 @@ export {
 	duplicateOnboardingTemplate,
 	type DuplicateOnboardingTemplateResult
 } from './server/onboardingTemplateDuplicate.server';
-export { fetchOnboardingTemplatesData } from './server/onboardingTemplateRead.server';
+export { fetchOnboardingTemplateActivity, fetchOnboardingTemplatesData } from './server/onboardingTemplateRead.server';
 export { createSupabaseOnboardingExportReader } from './server/onboardingExportRead.server';
 export {
 	fetchOnboardingWorkspace,

@@ -5,7 +5,7 @@
 
 	type Props = HTMLAttributes<HTMLElement> & {
 		title: string;
-		subtitle?: string;
+		subtitle?: string | Snippet;
 		back?: Snippet;
 		meta?: Snippet;
 	};
@@ -24,6 +24,8 @@
 		{/if}
 	</div>
 	{#if subtitle}
-		<p class="max-w-3xl text-sm text-muted-foreground">{subtitle}</p>
+		<p class="max-w-3xl text-sm text-muted-foreground">
+			{#if typeof subtitle === 'string'}{subtitle}{:else}{@render subtitle()}{/if}
+		</p>
 	{/if}
 </header>

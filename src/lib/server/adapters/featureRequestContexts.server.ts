@@ -72,6 +72,7 @@ import type {
 	advanceStage,
 	cancelOnboarding,
 	createOnboardingTemplateStep,
+	fetchOnboardingTemplateActivity,
 	fetchOnboardingWorkspace,
 	removeInactiveStep,
 	resyncOnboarding,
@@ -270,6 +271,12 @@ export function createRequestOnboardingTemplateStepContext(request: AdmittedOrga
 	};
 }
 
+export function createRequestOnboardingTemplateActivityContext(request: AdmittedOrganizationRequest) {
+	return {
+		onboardingWorkflow: createSupabaseOnboardingWorkflowPersistence(request.supabase, request.auth.orgId)
+	} satisfies Parameters<typeof fetchOnboardingTemplateActivity>[0];
+}
+
 export function createRequestOnboardingStartContext(
 	request: AdmittedOrganizationRequest
 ): Parameters<typeof startOnboarding>[0] {
@@ -348,6 +355,7 @@ export function createRequestOnboardingWorkspaceContext(
 		auth: request.auth,
 		audit: request.audit,
 		onboardingWorkflow: createSupabaseOnboardingWorkflowPersistence(request.supabase, request.auth.orgId),
+		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase),
 		personnelOnboardingRoster: createSupabasePersonnelOnboardingRosterPort(getAdminClient),
 		trainingOnboardingReferences: createSupabaseTrainingOnboardingReferencesPort(getAdminClient)
 	};

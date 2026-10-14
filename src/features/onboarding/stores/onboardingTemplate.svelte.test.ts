@@ -159,30 +159,281 @@ describe('OnboardingTemplateWorkspace', () => {
 		expect(createStep).not.toHaveBeenCalled();
 	});
 
-	it('reorders steps through a full ordered-id command instead of swapping rows in the page', async () => {
+	it('shows a reordered step at its new place before the server answers, then keeps the saved order', async () => {
+		let answer: (result: OnboardingTemplateWorkspaceResult<OnboardingTemplateStep[]>) => void = () => {};
 		const reorderSteps = vi.fn(
-			async (
-				_templateId: string,
-				_orderedStepIds: string[]
-			): Promise<OnboardingTemplateWorkspaceResult<OnboardingTemplateStep[]>> => {
-				return {
-					ok: true,
-					value: [
-						{ ...steps[1], sortOrder: 0 },
-						{ ...steps[0], sortOrder: 1 }
-					]
-				};
-			}
+			(_templateId: string, _orderedStepIds: string[]) =>
+				new Promise<OnboardingTemplateWorkspaceResult<OnboardingTemplateStep[]>>((resolve) => (answer = resolve))
 		);
 		const workspace = makeWorkspace({ reorderSteps });
 
-		await workspace.moveStep(steps[1], 'up');
+		const saving = workspace.reorderStep('step-b', 0);
 
+		expect(workspace.model.selectedTemplateSteps.map((step) => step.id)).toEqual(['step-b', 'step-a']);
 		expect(reorderSteps).toHaveBeenCalledWith(template.id, ['step-b', 'step-a']);
+		answer({
+			ok: true,
+			value: [
+				{ ...steps[1], sortOrder: 0 },
+				{ ...steps[0], sortOrder: 1 }
+			]
+		});
+		await saving;
 		expect(workspace.model.selectedTemplateSteps.map((step) => `${step.id}:${step.sortOrder}`)).toEqual([
 			'step-b:0',
 			'step-a:1'
 		]);
+	});
+
+	it('puts the order back and reports the failure when saving a reorder fails', async () => {
+		const reorderSteps = vi.fn(async () => ({
+			ok: false as const,
+			error: { code: 'server' as const, message: 'Reorder unavailable' }
+		}));
+		const workspace = makeWorkspace({ reorderSteps });
+
+		await workspace.reorderStep('step-a', 1);
+
+		expect(workspace.model.selectedTemplateSteps.map((step) => step.id)).toEqual(['step-a', 'step-b']);
+		expect(workspace.model.error?.message).toBe('Reorder unavailable');
+	});
+
+	it('folds moves made while a save is in flight into one follow-up save of the latest order', async () => {
+		const three: OnboardingTemplateStep[] = [...steps, { ...steps[0], id: 'step-c', name: 'Billeting', sortOrder: 2 }];
+		const answers: Array<() => void> = [];
+		const reorderSteps = vi.fn(
+			(_templateId: string, ids: string[]) =>
+				new Promise<OnboardingTemplateWorkspaceResult<OnboardingTemplateStep[]>>((resolve) =>
+					answers.push(() =>
+						resolve({
+							ok: true,
+							value: ids.map((id, sortOrder) => ({ ...three.find((s) => s.id === id)!, sortOrder }))
+						})
+					)
+				)
+		);
+		const workspace = makeWorkspace({ reorderSteps }, { templates: [template], templateSteps: three, trainingTypes });
+
+		const first = workspace.reorderStep('step-a', 1);
+		await workspace.reorderStep('step-a', 2);
+		expect(reorderSteps).toHaveBeenCalledTimes(1);
+		answers[0]();
+		await vi.waitFor(() => expect(reorderSteps).toHaveBeenCalledTimes(2));
+		answers[1]();
+		await first;
+
+		expect(reorderSteps).toHaveBeenLastCalledWith(template.id, ['step-b', 'step-c', 'step-a']);
+		expect(workspace.model.selectedTemplateSteps.map((step) => step.id)).toEqual(['step-b', 'step-c', 'step-a']);
+	});
+
+	it('saves a reorder of another template while the first template is still saving', async () => {
+		const otherSteps: OnboardingTemplateStep[] = [
+			{ ...steps[0], id: 'other-a', templateId: alternateTemplate.id, name: 'Welcome', sortOrder: 0 },
+			{ ...steps[0], id: 'other-b', templateId: alternateTemplate.id, name: 'Briefing', sortOrder: 1 }
+		];
+		const answers = new Map<string, () => void>();
+		const reorderSteps = vi.fn(
+			(templateId: string, ids: string[]) =>
+				new Promise<OnboardingTemplateWorkspaceResult<OnboardingTemplateStep[]>>((resolve) =>
+					answers.set(templateId, () =>
+						resolve({
+							ok: true,
+							value: ids.map((id, sortOrder) => ({
+								...[...steps, ...otherSteps].find((s) => s.id === id)!,
+								sortOrder
+							}))
+						})
+					)
+				)
+		);
+		const workspace = makeWorkspace(
+			{ reorderSteps },
+			{ templates: [template, alternateTemplate], templateSteps: [...steps, ...otherSteps], trainingTypes }
+		);
+
+		workspace.selectTemplate(template.id);
+		const first = workspace.reorderStep('step-b', 0);
+		workspace.selectTemplate(alternateTemplate.id);
+		const second = workspace.reorderStep('other-b', 0);
+
+		expect(reorderSteps).toHaveBeenCalledWith(template.id, ['step-b', 'step-a']);
+		expect(reorderSteps).toHaveBeenCalledWith(alternateTemplate.id, ['other-b', 'other-a']);
+		answers.get(template.id)!();
+		answers.get(alternateTemplate.id)!();
+		await Promise.all([first, second]);
+		expect(workspace.model.selectedTemplateSteps.map((step) => step.id)).toEqual(['other-b', 'other-a']);
+		workspace.selectTemplate(template.id);
+		expect(workspace.model.selectedTemplateSteps.map((step) => step.id)).toEqual(['step-b', 'step-a']);
+	});
+
+	it('puts back only the failed template when two templates are saving', async () => {
+		const otherSteps: OnboardingTemplateStep[] = [
+			{ ...steps[0], id: 'other-a', templateId: alternateTemplate.id, name: 'Welcome', sortOrder: 0 },
+			{ ...steps[0], id: 'other-b', templateId: alternateTemplate.id, name: 'Briefing', sortOrder: 1 }
+		];
+		const reorderSteps = vi.fn(async (templateId: string, ids: string[]) =>
+			templateId === template.id
+				? { ok: false as const, error: { code: 'server' as const, message: 'Reorder unavailable' } }
+				: {
+						ok: true as const,
+						value: ids.map((id, sortOrder) => ({ ...otherSteps.find((s) => s.id === id)!, sortOrder }))
+					}
+		);
+		const workspace = makeWorkspace(
+			{ reorderSteps },
+			{ templates: [template, alternateTemplate], templateSteps: [...steps, ...otherSteps], trainingTypes }
+		);
+
+		workspace.selectTemplate(alternateTemplate.id);
+		const second = workspace.reorderStep('other-b', 0);
+		workspace.selectTemplate(template.id);
+		await workspace.reorderStep('step-b', 0);
+		await second;
+
+		expect(workspace.model.selectedTemplateSteps.map((step) => step.id)).toEqual(['step-a', 'step-b']);
+		workspace.selectTemplate(alternateTemplate.id);
+		expect(workspace.model.selectedTemplateSteps.map((step) => step.id)).toEqual(['other-b', 'other-a']);
+	});
+
+	it('keeps a rename saved while a reorder response is held', async () => {
+		let answer: () => void = () => {};
+		const reorderSteps = vi.fn(
+			(_templateId: string, ids: string[]) =>
+				new Promise<OnboardingTemplateWorkspaceResult<OnboardingTemplateStep[]>>((resolve) => {
+					answer = () =>
+						resolve({
+							ok: true,
+							value: ids.map((id, sortOrder) => ({ ...steps.find((s) => s.id === id)!, sortOrder }))
+						});
+				})
+		);
+		const updateStep = vi.fn(
+			async (input): Promise<OnboardingTemplateWorkspaceResult<OnboardingTemplateStep>> => ({
+				ok: true,
+				value: { ...steps[0], name: input.name }
+			})
+		);
+		const workspace = makeWorkspace({ reorderSteps, updateStep });
+
+		const reordering = workspace.reorderStep('step-b', 0);
+		workspace.startEditStep(steps[0]);
+		workspace.stepDraft.name = 'Counseling, renamed';
+		await workspace.saveStep();
+		answer();
+		await reordering;
+
+		expect(workspace.model.selectedTemplateSteps.map((step) => `${step.id}:${step.name}:${step.sortOrder}`)).toEqual([
+			'step-b:Access packet:0',
+			'step-a:Counseling, renamed:1'
+		]);
+	});
+
+	it('keeps the order shown while a reorder saves when a step edit answers with the old position', async () => {
+		let answer: () => void = () => {};
+		const reorderSteps = vi.fn(
+			(_templateId: string, ids: string[]) =>
+				new Promise<OnboardingTemplateWorkspaceResult<OnboardingTemplateStep[]>>((resolve) => {
+					answer = () =>
+						resolve({
+							ok: true,
+							value: ids.map((id, sortOrder) => ({ ...steps.find((s) => s.id === id)!, sortOrder }))
+						});
+				})
+		);
+		const updateStep = vi.fn(
+			async (input): Promise<OnboardingTemplateWorkspaceResult<OnboardingTemplateStep>> => ({
+				ok: true,
+				value: { ...steps[0], name: input.name }
+			})
+		);
+		const workspace = makeWorkspace({ reorderSteps, updateStep });
+
+		const reordering = workspace.reorderStep('step-a', 1);
+		workspace.startEditStep(steps[0]);
+		workspace.stepDraft.name = 'Renamed';
+		await workspace.saveStep();
+
+		expect(workspace.model.selectedTemplateSteps.map((step) => step.id)).toEqual(['step-b', 'step-a']);
+		answer();
+		await reordering;
+	});
+
+	it('leaves a step form opened while an earlier step save is pending', async () => {
+		let answer: () => void = () => {};
+		const updateStep = vi.fn(
+			(input) =>
+				new Promise<OnboardingTemplateWorkspaceResult<OnboardingTemplateStep>>((resolve) => {
+					answer = () => resolve({ ok: true, value: { ...steps[0], name: input.name } });
+				})
+		);
+		const workspace = makeWorkspace({ updateStep });
+
+		workspace.startEditStep(steps[0]);
+		workspace.stepDraft.name = 'Counseling, renamed';
+		const saving = workspace.saveStep();
+		workspace.startAddStep();
+		workspace.stepDraft.name = 'Draft of a new step';
+		answer();
+		await saving;
+
+		expect(workspace.model.addingStep).toBe(true);
+		expect(workspace.stepDraft.name).toBe('Draft of a new step');
+		expect(workspace.model.selectedTemplateSteps[0].name).toBe('Counseling, renamed');
+	});
+
+	it('closes the form that was saved when nothing else was opened meanwhile', async () => {
+		const updateStep = vi.fn(
+			async (input): Promise<OnboardingTemplateWorkspaceResult<OnboardingTemplateStep>> => ({
+				ok: true,
+				value: { ...steps[0], name: input.name }
+			})
+		);
+		const workspace = makeWorkspace({ updateStep });
+
+		workspace.startEditStep(steps[0]);
+		workspace.stepDraft.name = 'Renamed';
+		await workspace.saveStep();
+
+		expect(workspace.model.editingStepId).toBeNull();
+		expect(workspace.stepDraft.name).toBe('');
+	});
+
+	it('reorders stages in the open draft', () => {
+		const workspace = makeWorkspace();
+		workspace.startEditStep(steps[1]);
+		workspace.newStageName = 'Closed';
+		workspace.addStage();
+
+		workspace.moveStage(2, 0);
+
+		expect(workspace.stepDraft.stages).toEqual(['Closed', 'Draft', 'Filed']);
+	});
+
+	it('knows when the open step form holds changes that would be lost', () => {
+		const workspace = makeWorkspace();
+		expect(workspace.model.stepDraftDirty).toBe(false);
+
+		workspace.startEditStep(steps[0]);
+		expect(workspace.model.stepDraftDirty).toBe(false);
+		workspace.stepDraft.name = 'Initial counseling v2';
+		expect(workspace.model.stepDraftDirty).toBe(true);
+		workspace.stepDraft.name = 'Initial counseling';
+		expect(workspace.model.stepDraftDirty).toBe(false);
+		workspace.newStageName = 'Half typed';
+		expect(workspace.model.stepDraftDirty).toBe(true);
+		workspace.cancelEditStep();
+
+		workspace.startAddStep();
+		expect(workspace.model.stepDraftDirty).toBe(false);
+		workspace.stepDraft.description = 'Bring orders';
+		expect(workspace.model.stepDraftDirty).toBe(true);
+	});
+
+	it('summarises a template with its steps and active packets', () => {
+		const workspace = makeWorkspace();
+		expect(workspace.getTemplateSummary(template, 7)).toBe('2 steps · 7 active packets');
+		expect(workspace.getTemplateSummary(template, 1)).toBe('2 steps · 1 active packet');
+		expect(workspace.getTemplateSummary(template)).toBe('2 steps · no active packets');
 	});
 
 	it.each([

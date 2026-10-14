@@ -144,6 +144,279 @@ export async function seedOnboarding({ client, fixture, kind, tag, ownedState, s
 			}));
 		});
 		batches.push(['personnel', people]);
+	} else if (kind === 'onboarding-status') {
+		const daysAgo = (days) => new Date(Date.now() - days * 86400000).toISOString();
+		const dateAgo = (days) => daysAgo(days).slice(0, 10);
+		// Each active packet pins one List status; the paperwork step's progress time sets its days at stage.
+		const examples = [
+			['stalled', 'groupA', 20, { completed: false, current_stage: 'Reviewed', changed: 7 }],
+			['ready', 'groupA', 10, { completed: true, current_stage: 'Filed', changed: 3 }],
+			['onTrack', 'groupB', 9, { completed: false, current_stage: 'Submitted', changed: 6 }],
+			['new', 'groupA', 0, { completed: false, current_stage: null, changed: 0 }]
+		];
+		people = examples.map(([key, group]) => ({
+			id: randomUUID(),
+			organization_id: fixture.ids.orgA,
+			group_id: fixture.ids[group],
+			rank: 'SPC',
+			first_name: 'Synthetic',
+			last_name: 'Status' + key + tag,
+			slug: 'map-status-' + key.toLowerCase() + '-' + tag
+		}));
+		const active = examples.map(([key, _group, started], index) => ({
+			id: randomUUID(),
+			organization_id: fixture.ids.orgA,
+			personnel_id: people[index].id,
+			template_id: fixture.ids.onboardingTemplate,
+			started_at: dateAgo(started),
+			status: 'in_progress',
+			completed_at: null,
+			cancelled_at: null,
+			key
+		}));
+		// Three finished packets inside the 90-day window give a typical figure of 10 days.
+		const finished = [8, 10, 12].map((days, index) => ({
+			id: randomUUID(),
+			organization_id: fixture.ids.orgA,
+			personnel_id: people[index].id,
+			template_id: fixture.ids.onboardingTemplate,
+			started_at: dateAgo(30),
+			status: 'completed',
+			completed_at: dateAgo(30 - days),
+			cancelled_at: null,
+			key: 'finished' + days
+		}));
+		packets = [...active, ...finished];
+		progress = active.flatMap((packet, index) => {
+			const paperwork = examples[index][3];
+			return [
+				{
+					step_name: 'Status Orientation ' + tag,
+					step_type: 'checkbox',
+					completed: packet.key !== 'new',
+					stages: null,
+					current_stage: null,
+					progress_changed_at: daysAgo(examples[index][2])
+				},
+				{
+					step_name: 'Status Finance ' + tag,
+					step_type: 'paperwork',
+					completed: paperwork.completed,
+					stages: ['Submitted', 'Reviewed', 'Filed'],
+					current_stage: paperwork.current_stage,
+					progress_changed_at: daysAgo(paperwork.changed)
+				}
+			].map((step, sort_order) => ({
+				id: randomUUID(),
+				organization_id: fixture.ids.orgA,
+				onboarding_id: packet.id,
+				template_step_id: null,
+				sort_order,
+				active: true,
+				notes: [],
+				...step
+			}));
+		});
+		batches.push(['personnel', people]);
+	} else if (kind === 'onboarding-matrix') {
+		const daysAgo = (days) => new Date(Date.now() - days * 86400000).toISOString();
+		const dateAgo = (days) => daysAgo(days).slice(0, 10);
+		const orgA = fixture.ids.orgA;
+		const reserve = { id: randomUUID(), organization_id: orgA, name: 'Matrix Reserve ' + tag, description: null };
+		const reserveSteps = [
+			['Reserve Briefing ' + tag, 'checkbox', null],
+			['Reserve Records ' + tag, 'paperwork', ['Filed', 'Cleared']]
+		].map(([name, step_type, stages], sort_order) => ({
+			id: randomUUID(),
+			organization_id: orgA,
+			template_id: reserve.id,
+			name,
+			description: null,
+			step_type,
+			training_type_id: null,
+			stages,
+			sort_order
+		}));
+		const standardSteps = [
+			fixture.ids.onboardingCheckbox,
+			fixture.ids.onboardingPaperwork,
+			fixture.ids.onboardingTraining
+		];
+		// One Standard grid with a stalled, a ready (its Training step has a record), a missing-step and a fresh packet, plus a Reserve grid and a packet with no template.
+		const examples = [
+			['stalled', 'groupA', 'standard', 20, { done: [true, false, false], stage: 'Reviewed', changed: 9 }],
+			['ready', 'groupA', 'standard', 10, { done: [true, true, true], stage: 'Filed', changed: 3 }],
+			['missing', 'groupB', 'standard', 6, { done: [false, false], stage: 'Submitted', changed: 2, skipLast: true }],
+			['fresh', 'groupA', 'standard', 0, { done: [false, false, false], stage: null, changed: 0 }],
+			['reserve', 'groupA', 'reserve', 3, { done: [false, false], stage: 'Filed', changed: 1 }],
+			['bare', 'groupA', null, 2, { done: [false], stage: null, changed: 0 }]
+		];
+		people = examples.map(([key, group]) => ({
+			id: randomUUID(),
+			organization_id: orgA,
+			group_id: fixture.ids[group],
+			rank: 'SPC',
+			first_name: 'Synthetic',
+			last_name: 'Matrix' + key + tag,
+			slug: 'map-matrix-' + key + '-' + tag
+		}));
+		packets = examples.map(([key, _group, template, started], index) => ({
+			id: randomUUID(),
+			organization_id: orgA,
+			personnel_id: people[index].id,
+			template_id:
+				template === 'standard' ? fixture.ids.onboardingTemplate : template === 'reserve' ? reserve.id : null,
+			started_at: dateAgo(started),
+			status: 'in_progress',
+			completed_at: null,
+			cancelled_at: null,
+			key
+		}));
+		progress = packets.flatMap((packet, index) => {
+			const { done, stage, changed, skipLast } = examples[index][4];
+			const template = examples[index][2];
+			const steps =
+				template === 'standard'
+					? [
+							['Verification Orientation', 'checkbox', null, standardSteps[0]],
+							['Verification Paperwork', 'paperwork', ['Submitted', 'Reviewed', 'Filed'], standardSteps[1]],
+							['Verification Training Step', 'training', null, standardSteps[2]]
+						]
+					: template === 'reserve'
+						? [
+								[reserveSteps[0].name, 'checkbox', null, reserveSteps[0].id],
+								[reserveSteps[1].name, 'paperwork', ['Filed', 'Cleared'], reserveSteps[1].id]
+							]
+						: [['Bare Checkbox ' + tag, 'checkbox', null, null]];
+			return steps
+				.slice(0, skipLast ? steps.length - 1 : steps.length)
+				.map(([step_name, step_type, stages, template_step_id], sort_order) => ({
+					id: randomUUID(),
+					organization_id: orgA,
+					onboarding_id: packet.id,
+					template_step_id,
+					step_name,
+					step_type,
+					training_type_id: step_type === 'training' ? fixture.ids.trainingRequired : null,
+					sort_order,
+					active: true,
+					completed: done[sort_order],
+					stages,
+					current_stage: step_type === 'paperwork' ? stage : null,
+					progress_changed_at: step_type === 'paperwork' ? daysAgo(changed) : daysAgo(examples[index][3]),
+					notes:
+						packet.key === 'stalled' && step_type === 'paperwork'
+							? [
+									{
+										text: 'Finance needs a re-signed form ' + tag,
+										timestamp: daysAgo(4),
+										userId: fixture.actors.onboardingConfigure.id
+									}
+								]
+							: []
+				}));
+		});
+		batches.push(
+			['personnel', people],
+			['onboarding_templates', [reserve]],
+			['onboarding_template_steps', reserveSteps],
+			[
+				'personnel_trainings',
+				[
+					{
+						id: randomUUID(),
+						organization_id: orgA,
+						personnel_id: people[1].id,
+						training_type_id: fixture.ids.trainingRequired,
+						completion_date: fixture.dates.trainingCompleted,
+						expiration_date: fixture.dates.trainingExpires
+					}
+				]
+			]
+		);
+	} else if (kind === 'onboarding-long-text') {
+		const orgA = fixture.ids.orgA;
+		const template = { id: randomUUID(), organization_id: orgA, name: 'Long Text ' + tag, description: null };
+		const stages = [
+			'Needs to log in to https://qflowwest.health.mil/QFlow and request access',
+			'Started (leave note, have 90 days to complete)',
+			"Place a ticket (gsc.health.mil) to align to Kamisha's team"
+		];
+		const checkboxNames = [
+			'Military Email Address',
+			'HIPAA JKO',
+			'Common Access Card Registration and Defense Travel System Account'
+		];
+		const steps = [
+			...checkboxNames.map((name) => [name, 'checkbox', null, null]),
+			['Required Training ' + tag, 'training', null, fixture.ids.trainingRequired],
+			['Paperwork: Access Requests ' + tag, 'paperwork', stages, null]
+		];
+		const templateSteps = steps.map(([name, step_type, stepStages, training_type_id], sort_order) => ({
+			id: randomUUID(),
+			organization_id: orgA,
+			template_id: template.id,
+			name,
+			description: null,
+			step_type,
+			training_type_id,
+			stages: stepStages,
+			sort_order
+		}));
+		people = [
+			{
+				id: randomUUID(),
+				organization_id: orgA,
+				group_id: fixture.ids.groupA,
+				rank: 'SPC',
+				first_name: 'Synthetic',
+				last_name: 'Longtext' + tag,
+				slug: 'map-longtext-' + tag
+			}
+		];
+		packets = [
+			{
+				id: randomUUID(),
+				organization_id: orgA,
+				personnel_id: people[0].id,
+				template_id: template.id,
+				started_at: new Date(Date.now() - 3 * 86400000).toISOString().slice(0, 10),
+				status: 'in_progress',
+				completed_at: null,
+				cancelled_at: null,
+				key: 'longtext'
+			}
+		];
+		progress = steps.map(([step_name, step_type, stepStages, training_type_id], sort_order) => ({
+			id: randomUUID(),
+			organization_id: orgA,
+			onboarding_id: packets[0].id,
+			template_step_id: templateSteps[sort_order].id,
+			step_name,
+			step_type,
+			training_type_id,
+			sort_order,
+			active: true,
+			completed: step_type === 'checkbox',
+			stages: stepStages,
+			current_stage: step_type === 'paperwork' ? stages[1] : null,
+			progress_changed_at: new Date(Date.now() - 2 * 86400000).toISOString(),
+			notes:
+				step_type === 'paperwork'
+					? [
+							{
+								text: 'Requested access at https://qflowwest.health.mil/QFlow/Requests/NewAccessRequest?ticket=' + tag,
+								timestamp: recentAt,
+								userId: fixture.actors.onboardingConfigure.id
+							}
+						]
+					: []
+		}));
+		batches.push(
+			['personnel', people],
+			['onboarding_templates', [template]],
+			['onboarding_template_steps', templateSteps]
+		);
 	} else if (kind === 'onboarding-history') {
 		const startedAt = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
 		const examples = [
@@ -221,6 +494,81 @@ export async function seedOnboarding({ client, fixture, kind, tag, ownedState, s
 				]
 			]
 		);
+	} else if (kind === 'onboarding-history-view') {
+		const daysAgo = (days) => new Date(Date.now() - days * 86400000).toISOString();
+		const dateAgo = (days) => daysAgo(days).slice(0, 10);
+		const secondTemplate = {
+			id: randomUUID(),
+			organization_id: fixture.ids.orgA,
+			name: 'History PCS In-Processing ' + tag,
+			description: 'Temporary second template for the History filters'
+		};
+		const examples = [
+			// key, group, template, started days ago, finished days ago, status
+			['alphaFast', 'groupA', 'onboardingTemplate', 40, 31, 'completed'],
+			['alphaMid', 'groupA', secondTemplate.id, 50, 39, 'completed'],
+			['bravoMid', 'groupB', 'onboardingTemplate', 45, 32, 'completed'],
+			['bravoSlow', 'groupB', secondTemplate.id, 80, 34, 'completed'],
+			['alphaCancelled', 'groupA', 'onboardingTemplate', 20, 12, 'cancelled'],
+			['bravoOld', 'groupB', 'onboardingTemplate', 130, 120, 'completed'],
+			['bravoCancelledLate', 'groupB', 'onboardingTemplate', 15, 12, 'cancelled']
+		];
+		people = examples.map(([key, group]) => ({
+			id: randomUUID(),
+			organization_id: fixture.ids.orgA,
+			group_id: fixture.ids[group],
+			rank: key.startsWith('alpha') ? 'SGT' : 'SPC',
+			first_name: key,
+			last_name: 'HistoryView' + tag,
+			mos: key.endsWith('Mid') ? '68W' : '11B',
+			slug: 'map-history-view-' + key.toLowerCase() + '-' + tag
+		}));
+		packets = examples.map(([key, _group, template, started, finished, status], index) => ({
+			id: randomUUID(),
+			organization_id: fixture.ids.orgA,
+			personnel_id: people[index].id,
+			template_id: fixture.ids[template] ?? template,
+			started_at: dateAgo(started),
+			completed_at: status === 'completed' ? dateAgo(finished) : null,
+			// Both cancellations fall on one day, so their order shows in the list.
+			cancelled_at:
+				status === 'cancelled' ? dateAgo(finished) + (key === 'alphaCancelled' ? 'T09:00:00Z' : 'T17:00:00Z') : null,
+			status,
+			key
+		}));
+		const former = randomUUID();
+		// orgAdmin's membership carries an email, which is the label the app shows for it.
+		const authors = [fixture.actors.onboardingConfigure.id, fixture.actors.orgAdmin.id, former];
+		progress = packets.flatMap((packet, packetIndex) =>
+			[
+				['Checkbox', 'checkbox', true, true, null],
+				['Paperwork', 'paperwork', false, true, 'Reviewed'],
+				['Removed pending', 'checkbox', false, false, null],
+				['Removed paperwork', 'paperwork', false, false, 'Reviewed']
+			].map(([label, step_type, completed, active, current_stage], sort_order) => ({
+				id: randomUUID(),
+				organization_id: packet.organization_id,
+				onboarding_id: packet.id,
+				template_step_id: null,
+				step_name: label + ' ' + packet.key,
+				step_type,
+				training_type_id: null,
+				stages: step_type === 'paperwork' ? ['Submitted', 'Reviewed', 'Filed'] : null,
+				current_stage,
+				sort_order,
+				completed,
+				active,
+				notes:
+					packetIndex === 0 || (packetIndex === 4 && sort_order === 0)
+						? authors.map((userId, noteIndex) => ({
+								text: 'History view note ' + noteIndex + ' ' + packet.key + ' ' + label,
+								timestamp: daysAgo(35 - noteIndex),
+								userId
+							}))
+						: []
+			}))
+		);
+		batches.push(['onboarding_templates', [secondTemplate]], ['personnel', people]);
 	} else {
 		const completedCount = kind === 'onboarding-retention-1001' ? 1001 : 1;
 		const examples = [
@@ -288,9 +636,11 @@ export async function seedOnboarding({ client, fixture, kind, tag, ownedState, s
 		progress,
 		...(people ? { people } : {}),
 		...(kind === 'onboarding-history' ? { training: batches[1][1] } : {}),
+		...(kind === 'onboarding-history-view' ? { template: batches[0][1][0] } : {}),
 		...(kind === 'onboarding-start'
 			? { person: people[0], templateId: fixture.ids.onboardingTemplate, training: batches[1][1] }
 			: {}),
-		...(kind === 'onboarding-legacy' ? { person: batches[0][1][0] } : {})
+		...(kind === 'onboarding-legacy' ? { person: batches[0][1][0] } : {}),
+		...(kind === 'onboarding-matrix' ? { templates: batches[1][1], templateSteps: batches[2][1] } : {})
 	};
 }

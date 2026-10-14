@@ -13,7 +13,7 @@ CREATE TEMP VIEW upgraded_packet_rows AS
     WHERE organization_id IN ('d1503000-0000-4000-8000-000000000101','d1503000-0000-4000-8000-000000000102')
   UNION ALL SELECT 'definition',id,to_jsonb(p) FROM public.onboarding_template_steps p
     WHERE organization_id IN ('d1503000-0000-4000-8000-000000000101','d1503000-0000-4000-8000-000000000102')
-  UNION ALL SELECT 'progress',id,to_jsonb(p) FROM public.onboarding_step_progress p
+  UNION ALL SELECT 'progress',id,to_jsonb(p) - 'progress_changed_at' FROM public.onboarding_step_progress p
     WHERE organization_id IN ('d1503000-0000-4000-8000-000000000101','d1503000-0000-4000-8000-000000000102')
   UNION ALL SELECT 'training',id,to_jsonb(p) FROM public.training_types p
     WHERE organization_id='d1503000-0000-4000-8000-000000000101';

@@ -105,7 +105,10 @@ function makeBootstrap(): OnboardingWorkspaceResult {
 			groups: [],
 			trainingTypes: [],
 			rankCatalogUnavailable: false,
-			rankCatalog: []
+			rankCatalog: [],
+			typicalDaysToFinish: null,
+			noteAuthors: {},
+			archiveRetentionMonths: null
 		},
 		hydration: {
 			orgId: 'org-1',
@@ -146,7 +149,7 @@ describe('onboarding page', () => {
 		});
 
 		expect(screen.queryByRole('status')).toBeNull();
-		expect(screen.getByText('Onboarding Pipeline')).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'Onboarding' })).toBeTruthy();
 	});
 
 	it('loads the modal surface when start onboarding is open', async () => {
@@ -189,10 +192,10 @@ describe('onboarding page', () => {
 		await waitFor(() => {
 			expect(screen.queryByRole('status')).toBeNull();
 		});
-		expect(screen.getByText('Onboarding Pipeline')).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'Onboarding' })).toBeTruthy();
 	});
 
-	it('renders only active onboardings on the active board when mixed data is seeded', () => {
+	it('lists only in-progress onboardings when mixed data is seeded', () => {
 		personnelRosterHydration.load(
 			[
 				{
@@ -274,7 +277,7 @@ describe('onboarding page', () => {
 			}
 		});
 
-		expect(screen.getByText('1 active')).toBeTruthy();
+		expect(screen.getByText('1 Soldier in processing')).toBeTruthy();
 		expect(screen.getByText('SGT Active, Riley')).toBeTruthy();
 		expect(screen.queryByText('SSG Complete, Casey')).toBeNull();
 		expect(screen.queryByText('CPL Cancelled, Drew')).toBeNull();
@@ -292,7 +295,7 @@ describe('onboarding page', () => {
 
 		expect((await screen.findByRole('alert')).textContent).toContain('Unable to load Onboarding');
 		expect(screen.queryByRole('status')).toBeNull();
-		expect(screen.queryByText('Onboarding Pipeline')).toBeNull();
+		expect(screen.queryByRole('heading', { name: 'Onboarding' })).toBeNull();
 		await fireEvent.click(screen.getByRole('button', { name: 'Retry Onboarding' }));
 		expect(reload).toHaveBeenCalledTimes(1);
 	});
@@ -305,7 +308,7 @@ describe('onboarding page', () => {
 
 		await waitFor(() => expect(screen.queryByRole('status')).toBeNull());
 		expect(screen.queryByRole('alert')).toBeNull();
-		expect(screen.queryByText('Onboarding Pipeline')).toBeNull();
+		expect(screen.queryByRole('heading', { name: 'Onboarding' })).toBeNull();
 		expect(screen.queryAllByTestId('visible-stub')).toHaveLength(0);
 	});
 });

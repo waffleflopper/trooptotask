@@ -1,4 +1,5 @@
 import type { createInMemoryDataStore } from '$lib/server/adapters/inMemory';
+import { fail } from '$lib/errors';
 
 type CalendarMemoryStore = Pick<
 	ReturnType<typeof createInMemoryDataStore>,
@@ -89,7 +90,7 @@ export function createInMemoryCalendarCatalogPersistence(
 					assign_to: input.assignTo,
 					color: input.color ?? '#6b7280',
 					sort_order: input.sortOrder ?? 0,
-					show_in_date_header: input.showInDateHeader ?? false,
+					show_in_date_header: false,
 					exempt_personnel_ids: input.exemptPersonnelIds ?? []
 				})
 			);
@@ -106,7 +107,6 @@ export function createInMemoryCalendarCatalogPersistence(
 						assign_to: patch.assignTo,
 						color: patch.color,
 						sort_order: patch.sortOrder,
-						show_in_date_header: patch.showInDateHeader,
 						exempt_personnel_ids: patch.exemptPersonnelIds
 					})
 				)
@@ -142,16 +142,26 @@ export function createInMemoryCalendarCatalogPersistence(
 		deleteSpecialDay(id) {
 			return store.delete('special_days', orgId, id);
 		},
-		deleteFederalHolidays() {
-			return store.deleteWhere('special_days', orgId, { type: 'federal-holiday' });
+		async resetFederalHolidays(holidays) {
+			await store.deleteWhere('special_days', orgId, { type: 'federal-holiday' });
+			const rows = await store.insertMany<SpecialDayRow>(
+				'special_days',
+				orgId,
+				holidays.map((holiday) => ({ ...holiday, type: 'federal-holiday' }))
+			);
+			return rows
+				.map((row) => ({ ...toSpecialDay(row), type: 'federal-holiday' as const }))
+				.sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name));
 		},
-		async createFederalHolidays(inputs) {
-			if (inputs.length > 0)
-				await store.insertMany(
-					'special_days',
-					orgId,
-					inputs.map((input) => ({ ...input }))
-				);
+		async setDateHeader(assignmentTypeId) {
+			const target = await store.findOne<AssignmentTypeRow>('assignment_types', orgId, { id: assignmentTypeId });
+			if (!target || target.archived_at) fail(404, 'That assignment type is no longer available.');
+			const types = await store.findMany<AssignmentTypeRow>('assignment_types', orgId);
+			for (const type of types) {
+				const header = type.id === assignmentTypeId;
+				if (type.show_in_date_header !== header)
+					await store.update('assignment_types', orgId, type.id, { show_in_date_header: header });
+			}
 		}
 	};
 }

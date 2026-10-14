@@ -122,16 +122,21 @@ export const statusTypeCreateInput = z.object({
 	sortOrder: z.number().int().optional()
 });
 export const statusTypeUpdateInput = statusTypeCreateInput.partial().extend({ id: z.string() });
-export const assignmentTypeCreateInput = z.object({
+const assignmentTypeFields = z.object({
 	name: z.string().min(1).max(100),
 	shortName: z.string(),
 	assignTo: z.enum(['personnel', 'group']),
 	color: z.string().optional(),
 	sortOrder: z.number().int().optional(),
-	showInDateHeader: z.boolean().optional(),
 	exemptPersonnelIds: z.array(z.string()).optional()
 });
-export const assignmentTypeUpdateInput = assignmentTypeCreateInput.partial().extend({ id: z.string() });
+export const assignmentTypeCreateInput = assignmentTypeFields.extend({
+	showInDateHeader: z.literal(false).optional()
+});
+export const assignmentTypeUpdateInput = assignmentTypeFields
+	.partial()
+	.extend({ id: z.string(), showInDateHeader: z.never().optional() });
+export const assignmentTypeDateHeaderInput = z.object({ assignmentTypeId: z.string().uuid() }).strict();
 export const specialDayCreateInput = z.object({
 	date: z.string(),
 	name: z.string(),

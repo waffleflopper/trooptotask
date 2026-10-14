@@ -8,7 +8,7 @@
 	import { Label } from '$lib/components/ui/label';
 	import { NativeSelect } from '$lib/components/ui/native-select';
 	import { Spinner } from '$lib/components/ui/spinner';
-	import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
+	import { specialDaysStore, type FederalHolidayResetResult } from '$features/calendar/stores/specialDays.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatDate } from '$lib/utils/dates';
 	import type { SpecialDay } from '$features/calendar/contracts';
@@ -143,27 +143,21 @@
 		}
 	}
 
+	const RESET_MESSAGES = {
+		saved: null,
+		stale: null,
+		'not-saved': 'Failed to reset federal holidays',
+		'saved-unrefreshed': 'Holiday reset saved, but Calendar could not refresh. Reload to see the latest days.',
+		unconfirmed: "We couldn't confirm the holiday reset. The list shows the saved days. Reset again if needed.",
+		'unconfirmed-unrefreshed': "We couldn't confirm the holiday reset. Reload to see the saved days."
+	} satisfies Record<FederalHolidayResetResult, string | null>;
+
 	async function resetFederalHolidays() {
 		if (!canMutate) return;
-		try {
-			const result = await specialDaysStore.resetFederalHolidays();
-			if (result === 'stale') {
-				showResetConfirm = false;
-				return;
-			}
-			if (result === 'failed') {
-				showClosureMutationError('Failed to reset federal holidays');
-				return;
-			}
-			if (result === 'refresh-failed') {
-				showResetConfirm = false;
-				showClosureMutationError('Holiday reset saved, but Calendar could not refresh. Reload to see the latest days.');
-				return;
-			}
-			showResetConfirm = false;
-		} catch (error) {
-			showClosureMutationError('Failed to reset federal holidays', error);
-		}
+		const result = await specialDaysStore.resetFederalHolidays();
+		if (result !== 'not-saved') showResetConfirm = false;
+		const message = RESET_MESSAGES[result];
+		if (message) showClosureMutationError(message);
 	}
 
 	function formatDisplayDate(dateStr: string): string {

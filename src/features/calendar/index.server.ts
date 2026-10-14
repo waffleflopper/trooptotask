@@ -18,7 +18,12 @@ export { getCalendarOrganizationDefaults } from './organizationDefaults.server';
 export { createStatusType, updateStatusType, deleteStatusType } from './statusTypeOperations.server';
 export { listStatusTypes, listStatusTypeLabels } from './statusTypeRead.server';
 export { createSupabaseStatusTypeNamesReader } from './statusTypeNames.server';
-export { createAssignmentType, updateAssignmentType, deleteAssignmentType } from './assignmentTypeOperations.server';
+export {
+	createAssignmentType,
+	updateAssignmentType,
+	setAssignmentTypeDateHeader,
+	deleteAssignmentType
+} from './assignmentTypeOperations.server';
 export { listAssignmentTypes, listAssignmentTypeTargets } from './assignmentTypeRead.server';
 export {
 	createSupabaseAssignmentTypeRetention,

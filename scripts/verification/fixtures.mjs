@@ -130,6 +130,7 @@ export async function seed(session) {
 		calendarScopedConfig: { organization: 'orgA', calendar: 'configure', scope: 'groups', groups: [ids.groupA] },
 		calendarNotificationAdmin: { organization: 'orgA', calendar: 'none', scope: 'organization', role: 'admin' },
 		calendarSwitch: { organization: 'orgA', calendar: 'configure', scope: 'organization' },
+		calendarConfigureSwitch: { organization: 'orgA', calendar: 'configure', scope: 'organization' },
 		calendarForeign: { organization: 'orgB', calendar: 'configure', scope: 'organization' }
 	};
 	const trainingActors = {
@@ -491,22 +492,27 @@ export async function seed(session) {
 		})
 	);
 	checked(
-		await service.from('organization_memberships').insert({
-			organization_id: ids.orgB,
-			user_id: actors.calendarSwitch.id,
-			role: 'member',
-			member_preset: 'viewer',
-			capability_overrides: {
-				personnel: 'none',
-				calendar: 'view',
-				training: 'none',
-				criticalTasks: 'none',
-				onboarding: 'none',
-				ratingScheme: 'none'
-			},
-			access_scope_kind: 'organization',
-			access_scope_group_ids: []
-		})
+		await service.from('organization_memberships').insert(
+			[
+				['calendarSwitch', 'view'],
+				['calendarConfigureSwitch', 'configure']
+			].map(([actor, calendar]) => ({
+				organization_id: ids.orgB,
+				user_id: actors[actor].id,
+				role: 'member',
+				member_preset: 'viewer',
+				capability_overrides: {
+					personnel: 'none',
+					calendar,
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				},
+				access_scope_kind: 'organization',
+				access_scope_group_ids: []
+			}))
+		)
 	);
 	checked(
 		await service.from('organization_memberships').insert({

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$features/calendar/calendarPersistence.test-support.server';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
-import { _deleteConfig, _postConfig, _putConfig } from './+server';
+import { _deleteConfig, _getConfig, _postConfig, _putConfig } from './+server';
 
 const ID = '00000000-0000-4000-8000-000000000001';
 
@@ -62,5 +62,39 @@ describe('assignment-type route', () => {
 			handleUseCaseRequest(_postConfig, ctx, { name: 'Duty', shortName: 'D', assignTo: 'group' }, () => ctx)
 		).rejects.toMatchObject({ status: 403 });
 		expect(await ctx.store.findMany('assignment_types', ctx.auth.orgId)).toEqual([]);
+	});
+
+	it('reads the saved catalog and rejects header flags on generic writes', async () => {
+		const ctx = createTestContext();
+		ctx.store.seed('assignment_types', [
+			{
+				id: ID,
+				organization_id: ctx.auth.orgId,
+				name: 'Staff',
+				short_name: 'S',
+				assign_to: 'personnel',
+				color: '#111111',
+				sort_order: 0,
+				show_in_date_header: true,
+				exempt_personnel_ids: []
+			}
+		]);
+		expect(await handleUseCaseRequest(_getConfig, ctx, undefined, () => ctx)).toEqual([
+			expect.objectContaining({ id: ID, name: 'Staff', showInDateHeader: true })
+		]);
+		await expect(
+			handleUseCaseRequest(_putConfig, ctx, { id: ID, showInDateHeader: false }, () => ctx)
+		).rejects.toMatchObject({ status: 400 });
+		await expect(
+			handleUseCaseRequest(
+				_postConfig,
+				ctx,
+				{ name: 'Night', shortName: 'N', assignTo: 'group', showInDateHeader: true },
+				() => ctx
+			)
+		).rejects.toMatchObject({ status: 400 });
+		expect(await ctx.store.findMany('assignment_types', ctx.auth.orgId)).toEqual([
+			expect.objectContaining({ id: ID, show_in_date_header: true })
+		]);
 	});
 });

@@ -1086,3 +1086,62 @@ test('other owners keep a synthetic 503 for a lost reply instead of a transport 
 		assert.equal((await response.json()).code, 'T2T_VERIFY_PROVIDER_FAULT');
 	}
 });
+
+test('Calendar command faults select only their command and distinguish rejection from a lost reply', async () => {
+	for (const [command, rejected, lost] of [
+		['reset_federal_holidays', 'federal-holiday-reset', 'federal-holiday-reset-lost-ack'],
+		['set_assignment_type_date_header', 'assignment-type-date-header', 'assignment-type-date-header-lost-ack']
+	]) {
+		const pass = [
+			providerInput('special_days', { method: 'POST', body: '[{"type":"federal-holiday"}]' }),
+			providerInput('assignment_types?id=eq.x', { method: 'PATCH', body: '{"show_in_date_header":true}' }),
+			providerInput(`rpc/${command}_archive`, { method: 'POST', body: '{}' }),
+			[`http://127.0.0.1:56322/rest/v1/rpc/${command}`, { method: 'POST', body: '{}' }]
+		];
+		const hit = providerInput(`rpc/${command}`, { method: 'POST', body: '{"p_organization_id":"a"}' });
+		for (const name of [rejected, lost]) {
+			const { control, passed } = faults();
+			control.command('fault-arm', { name });
+			for (const input of pass) assert.equal(await (await control.fetch(...input)).text(), 'real', `${name} passes`);
+			assert.equal(control.command('fault-state').controls[name].matches, 0);
+			if (name === lost) {
+				await assert.rejects(
+					control.fetch(...hit),
+					(error) => error instanceof TypeError && error.message === 'fetch failed'
+				);
+				assert.equal(passed.length, pass.length + 1, `${name} commits before losing the reply`);
+			} else {
+				assert.equal((await control.fetch(...hit)).status, 503);
+				assert.equal(passed.length, pass.length, `${name} never reaches the provider`);
+			}
+			assert.equal(await (await control.fetch(...hit)).text(), 'real', `${name} fires once`);
+		}
+	}
+});
+
+test('Calendar command holds dispatch the held command only after release', async () => {
+	for (const [name, command] of [
+		['federal-holiday-reset-hold', 'reset_federal_holidays'],
+		['assignment-type-date-header-hold', 'set_assignment_type_date_header']
+	]) {
+		const input = providerInput(`rpc/${command}`, { method: 'POST', body: '{"held":true}' });
+		const order = [];
+		const control = createProviderFaultController({
+			providerUrl,
+			fetch: async (_url, init) => {
+				order.push(init.body);
+				return new Response('[]', { status: 200 });
+			}
+		});
+		control.command('fault-arm', { name });
+		const held = control.fetch(...input);
+		while (control.command('fault-state').controls[name].phase !== 'held') await new Promise(setImmediate);
+		const later = providerInput('assignment_types', { method: 'GET' });
+		assert.equal((await control.fetch(...later)).status, 200);
+		assert.deepEqual(order, [undefined]);
+		control.command('fault-release', { name });
+		assert.equal((await held).status, 200);
+		assert.deepEqual(order, [undefined, '{"held":true}']);
+		assert.equal(control.command('fault-state').controls[name].phase, 'dispatched');
+	}
+});

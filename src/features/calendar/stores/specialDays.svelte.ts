@@ -5,21 +5,29 @@
  * - `getByDate(date)` — returns the SpecialDay for a given date, or undefined
  * - `isSpecialDay(date)` — boolean check used to render calendar cell indicators
  * - `getByYear(year)` — all special days for a given year (for the special day manager UI)
- * - `resetFederalHolidays()` — calls the server to delete and re-seed federal holidays
  *
  * Loaded by the calendar and dashboard page load functions.
  */
 import { defineStore, organizationLifetime, withinOrganizationLifetime } from '$lib/stores/core';
 import type { Store } from '$lib/stores/core';
 import { formatDate } from '$lib/utils/dates';
-import type { SpecialDay } from '$features/calendar/contracts';
+import { specialDaysSchema, type SpecialDay } from '$features/calendar/contracts';
+import { confirmedNotSaved } from './calendarCommandResponse';
+
+export type FederalHolidayResetResult =
+	| 'saved'
+	| 'saved-unrefreshed'
+	| 'not-saved'
+	| 'unconfirmed'
+	| 'unconfirmed-unrefreshed'
+	| 'stale';
 
 interface SpecialDayExtensions extends Record<string, unknown> {
 	load: Store<SpecialDay>['load'];
 	add: Store<SpecialDay>['add'];
 	update: Store<SpecialDay>['update'];
 	remove: (id: string) => Promise<boolean>;
-	resetFederalHolidays: () => Promise<'saved' | 'failed' | 'stale' | 'refresh-failed'>;
+	resetFederalHolidays: () => Promise<FederalHolidayResetResult>;
 	getByDate: (date: Date) => SpecialDay | undefined;
 	isSpecialDay: (date: Date) => boolean;
 	getByYear: (year: number) => SpecialDay[];
@@ -59,19 +67,24 @@ function enhance(base: Store<SpecialDay>): SpecialDayExtensions {
 			try {
 				const response = await withinOrganizationLifetime(fetch(`/org/${orgId}/api/special-days`));
 				if (!response.ok) return 'refresh-failed';
-				const savedDays = (await withinOrganizationLifetime(response.json())) as SpecialDay[];
+				const savedDays = specialDaysSchema.safeParse(await withinOrganizationLifetime(response.json()));
 				if (!currentReset(orgId, requestReset)) return 'stale';
+				if (!savedDays.success) return 'refresh-failed';
 				if (state.version !== version || state.pending.length > 0 || loadGeneration !== requestLoadGeneration) {
 					continue;
 				}
 				base.removeLocalWhere(() => true);
-				base.appendLocal(savedDays);
+				base.appendLocal(savedDays.data);
 				return 'saved';
 			} catch {
 				return currentReset(orgId, requestReset) ? 'refresh-failed' : 'stale';
 			}
 		}
 		return 'refresh-failed';
+	}
+	async function unconfirmed(orgId: string, requestReset: number): Promise<FederalHolidayResetResult> {
+		const refreshed = await refreshAfterOverlappingMutation(orgId, requestReset);
+		return refreshed === 'saved' ? 'unconfirmed' : refreshed === 'stale' ? 'stale' : 'unconfirmed-unrefreshed';
 	}
 	return {
 		load(items, orgId) {
@@ -84,35 +97,41 @@ function enhance(base: Store<SpecialDay>): SpecialDayExtensions {
 		update: (id, data) => trackMutation(base.orgId, base.update(id, data)),
 		remove: (id) => trackMutation(base.orgId, base.removeBool(id)),
 
-		async resetFederalHolidays(): Promise<'saved' | 'failed' | 'stale' | 'refresh-failed'> {
+		async resetFederalHolidays(): Promise<FederalHolidayResetResult> {
 			const orgId = base.orgId;
 			const mutationVersion = mutationState(orgId).version;
 			const requestLoadGeneration = loadGeneration;
 			const requestReset = ++resetSequence;
 			latestResetByOrg[orgId] = requestReset;
+			let res: Response;
 			try {
-				const res = await withinOrganizationLifetime(
+				res = await withinOrganizationLifetime(
 					fetch(`/org/${orgId}/api/special-days`, {
 						method: 'POST',
 						headers: { 'Content-Type': 'application/json' },
 						body: JSON.stringify({ action: 'resetFederalHolidays' })
 					})
 				);
-				if (!currentReset(orgId, requestReset)) return 'stale';
-				if (!res.ok) return 'failed';
-				const allDays = (await withinOrganizationLifetime(res.json())) as SpecialDay[];
-				if (!currentReset(orgId, requestReset)) return 'stale';
-				if (mutationState(orgId).version !== mutationVersion || loadGeneration !== requestLoadGeneration) {
-					return refreshAfterOverlappingMutation(orgId, requestReset);
-				}
-				// Reset changes federal rows only; preserve closures saved while the response was in flight.
-				base.removeLocalWhere((day) => day.type === 'federal-holiday');
-				base.appendLocal(allDays.filter((day) => day.type === 'federal-holiday'));
-				return 'saved';
-			} catch (error) {
-				if (!currentReset(orgId, requestReset)) return 'stale';
-				throw error;
+			} catch {
+				return currentReset(orgId, requestReset) ? unconfirmed(orgId, requestReset) : 'stale';
 			}
+			if (!currentReset(orgId, requestReset)) return 'stale';
+			if (!res.ok) return confirmedNotSaved(res) ? 'not-saved' : unconfirmed(orgId, requestReset);
+			const savedHolidays = specialDaysSchema.safeParse(await withinOrganizationLifetime(res.json()).catch(() => null));
+			if (!currentReset(orgId, requestReset)) return 'stale';
+			if (!savedHolidays.success) return unconfirmed(orgId, requestReset);
+			const mutations = mutationState(orgId);
+			if (
+				mutations.version !== mutationVersion ||
+				mutations.pending.length > 0 ||
+				loadGeneration !== requestLoadGeneration
+			) {
+				const refreshed = await refreshAfterOverlappingMutation(orgId, requestReset);
+				return refreshed === 'refresh-failed' ? 'saved-unrefreshed' : refreshed;
+			}
+			base.removeLocalWhere((day) => day.type === 'federal-holiday');
+			base.appendLocal(savedHolidays.data);
+			return 'saved';
 		},
 
 		getByDate(date: Date): SpecialDay | undefined {

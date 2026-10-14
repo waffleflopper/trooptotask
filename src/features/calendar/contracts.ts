@@ -1,6 +1,7 @@
 import type { ScopeSet } from '$lib/access/memberAccessShape';
 import type { ClientAffordance } from '$lib/access/clientAccess';
 import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
+import { z } from 'zod';
 
 /** Live advisory facts supplied by Delivery for Calendar operations. */
 export interface CalendarOperationsPageAccess {
@@ -57,6 +58,29 @@ export interface AssignmentType {
 	archivedAt?: string | null;
 }
 
+export const assignmentTypesSchema = z.array(
+	z.object({
+		id: z.string(),
+		name: z.string(),
+		shortName: z.string(),
+		assignTo: z.enum(['personnel', 'group']),
+		color: z.string(),
+		textColor: z.string().optional(),
+		exemptPersonnelIds: z.array(z.string()),
+		showInDateHeader: z.boolean(),
+		archivedAt: z.string().nullable().optional()
+	})
+) satisfies z.ZodType<AssignmentType[]>;
+
+export const specialDaysSchema = z.array(
+	z.object({
+		id: z.string(),
+		date: z.string(),
+		name: z.string(),
+		type: z.enum(['federal-holiday', 'org-closure'])
+	})
+) satisfies z.ZodType<SpecialDay[]>;
+
 export interface DailyAssignment {
 	id: string;
 	date: string;
@@ -85,6 +109,7 @@ export type SavedAssignmentType = AssignmentType & {
 };
 
 export type SavedSpecialDay = SpecialDay & { organization_id?: string; created_at?: string };
+export type SavedFederalHoliday = SavedSpecialDay & { type: 'federal-holiday' };
 export type SavedAvailabilityEntry = AvailabilityEntry & { organization_id?: string; created_at?: string };
 
 export interface CalendarDateRange {
@@ -107,7 +132,6 @@ export interface AssignmentTypeCreate {
 	assignTo: 'personnel' | 'group';
 	color?: string;
 	sortOrder?: number;
-	showInDateHeader?: boolean;
 	exemptPersonnelIds?: string[];
 }
 
@@ -120,6 +144,11 @@ export interface SpecialDayCreate {
 }
 
 export type SpecialDayPatch = Partial<SpecialDayCreate>;
+
+export interface FederalHolidayDefault {
+	date: string;
+	name: string;
+}
 
 export interface AvailabilityCreate {
 	personnelId: string;
@@ -146,8 +175,8 @@ export interface CalendarCatalogPersistence {
 	createSpecialDay(input: SpecialDayCreate): Promise<SavedSpecialDay>;
 	updateSpecialDay(id: string, patch: SpecialDayPatch): Promise<SavedSpecialDay>;
 	deleteSpecialDay(id: string): Promise<void>;
-	deleteFederalHolidays(): Promise<void>;
-	createFederalHolidays(inputs: SpecialDayCreate[]): Promise<void>;
+	resetFederalHolidays(holidays: FederalHolidayDefault[]): Promise<SavedFederalHoliday[]>;
+	setDateHeader(assignmentTypeId: string): Promise<void>;
 }
 
 export interface CalendarAvailabilityPersistence extends CalendarAvailabilityRemovalPort {

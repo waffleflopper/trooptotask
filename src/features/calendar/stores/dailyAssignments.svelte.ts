@@ -13,14 +13,43 @@
  *
  * Loaded by the calendar and dashboard page load functions.
  */
-import { defineStore } from '$lib/stores/core';
+import { defineStore, stillInOrganizationLifetime, withinOrganizationLifetime } from '$lib/stores/core';
 import type { Store, StoreInternals } from '$lib/stores/core';
 import { toastStore } from '$lib/stores/toast.svelte';
-import type { AssignmentType, DailyAssignment } from '$features/calendar/contracts';
+import { assignmentTypesSchema, type AssignmentType, type DailyAssignment } from '$features/calendar/contracts';
 import { assignmentSlotKey } from '$features/calendar/utils/calendarIndexes';
+import { confirmedNotSaved } from './calendarCommandResponse';
 
 export type { AssignmentType } from '$features/calendar/contracts';
 export type { DailyAssignment } from '$features/calendar/contracts';
+
+export type DateHeaderChange =
+	| { status: 'saved' | 'stale' | 'busy' }
+	| { status: 'not-saved'; message: string; showsSaved: boolean }
+	| { status: 'unconfirmed'; showsSaved: boolean };
+
+type HeaderFlight = Readonly<{
+	assignmentTypeId: string;
+	orgId: string;
+	inLifetime: () => boolean;
+}>;
+
+type ConfirmedCatalog = Readonly<{ orgId: string; inLifetime: () => boolean }>;
+
+function canonicalCatalog(types: readonly AssignmentType[]): string | null {
+	const parsed = assignmentTypesSchema.safeParse(types);
+	if (!parsed.success) return null;
+	return JSON.stringify(
+		parsed.data
+			.map((type) => ({ ...type, archivedAt: type.archivedAt ?? null }))
+			.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+	);
+}
+
+function sameCatalog(a: readonly AssignmentType[], b: readonly AssignmentType[]): boolean {
+	const canonical = canonicalCatalog(a);
+	return canonical !== null && canonical === canonicalCatalog(b);
+}
 
 const typesStore = defineStore<AssignmentType>({
 	table: 'assignment_types',
@@ -35,10 +64,13 @@ const typesStore = defineStore<AssignmentType>({
 interface AssignmentExtensions extends Record<string, unknown> {
 	readonly types: AssignmentType[];
 	readonly assignments: DailyAssignment[];
+	readonly typesBusy: boolean;
+	readonly pendingDateHeaderId: string | null;
 	load: (types: AssignmentType[], assignments: DailyAssignment[], orgId: string) => void;
 	addType: (data: Omit<AssignmentType, 'id'>) => Promise<AssignmentType | null>;
 	updateType: (id: string, data: Partial<Omit<AssignmentType, 'id'>>) => Promise<boolean>;
 	removeType: (id: string) => Promise<boolean>;
+	setDateHeader: (assignmentTypeId: string) => Promise<DateHeaderChange>;
 	getTypeById: (id: string) => AssignmentType | undefined;
 	setAssignment: (date: string, assignmentTypeId: string, assigneeId: string) => Promise<boolean>;
 	removeAssignment: (date: string, assignmentTypeId: string) => Promise<boolean>;
@@ -78,7 +110,7 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 	}
 
 	async function readResponseErrorMessage(res: Response, fallback: string): Promise<string> {
-		const raw = await res.text();
+		const raw = await res.text().catch(() => '');
 		if (!raw) return fallback;
 		try {
 			const parsed = JSON.parse(raw) as { message?: string; error?: string };
@@ -86,6 +118,95 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 		} catch {
 			return raw;
 		}
+	}
+
+	let headerFlight = $state.raw<HeaderFlight | null>(null);
+	let confirmedCatalog: ConfirmedCatalog | null = null;
+	let disputedDuringWrites: ConfirmedCatalog | null = null;
+	let typeWrites: ConfirmedCatalog[] = [];
+	let catalogEpoch = 0;
+
+	function currentHeaderFlight(): HeaderFlight | null {
+		return headerFlight && headerFlight.inLifetime() && headerFlight.orgId === typesStore.orgId ? headerFlight : null;
+	}
+
+	function isCurrentHeaderFlight(flight: HeaderFlight): boolean {
+		return currentHeaderFlight() === flight;
+	}
+
+	function currentConfirmedCatalog(): ConfirmedCatalog | null {
+		return confirmedCatalog && confirmedCatalog.inLifetime() && confirmedCatalog.orgId === typesStore.orgId
+			? confirmedCatalog
+			: null;
+	}
+
+	function forgetStaleTypeWrites(orgId: string) {
+		typeWrites = typeWrites.filter((write) => write.orgId === orgId && write.inLifetime());
+	}
+
+	function admitTypeWrite(): ConfirmedCatalog {
+		catalogEpoch++;
+		forgetStaleTypeWrites(typesStore.orgId);
+		const write = Object.freeze({ orgId: typesStore.orgId, inLifetime: stillInOrganizationLifetime() });
+		typeWrites.push(write);
+		return write;
+	}
+
+	function settleTypeWrite(write: ConfirmedCatalog) {
+		typeWrites = typeWrites.filter((pending) => pending !== write);
+		forgetStaleTypeWrites(typesStore.orgId);
+		const disputed = disputedDuringWrites;
+		if (!disputed || typesStore.busy || typeWrites.length > 0) return;
+		disputedDuringWrites = null;
+		const confirmed = currentConfirmedCatalog();
+		if (confirmed && disputed.inLifetime() && disputed.orgId === confirmed.orgId) void reconcileCatalog(confirmed);
+	}
+
+	async function adoptSavedTypesIfUnchanged(orgId: string, owns: () => boolean): Promise<number | null> {
+		if (!owns()) return null;
+		const loadVersion = typesStore.loadVersion;
+		try {
+			const res = await withinOrganizationLifetime(fetch(`/org/${orgId}/api/assignment-types`));
+			if (!res.ok || !owns()) return null;
+			const saved = assignmentTypesSchema.safeParse(await withinOrganizationLifetime(res.json()));
+			if (!saved.success || !owns() || typesStore.loadVersion !== loadVersion) return null;
+			typesStore.load(saved.data, orgId);
+			return typesStore.loadVersion;
+		} catch {
+			return null;
+		}
+	}
+
+	async function reconcileCatalog(confirmed: ConfirmedCatalog): Promise<void> {
+		const epoch = catalogEpoch;
+		const owns = () => catalogEpoch === epoch && currentConfirmedCatalog() === confirmed;
+		if ((await adoptSavedTypesIfUnchanged(confirmed.orgId, owns)) === null && owns()) {
+			toastStore.error("We couldn't refresh assignment types. Reload to see the saved types.");
+		}
+	}
+
+	function dateHeaderFailureMessage(
+		result: Extract<DateHeaderChange, { status: 'not-saved' | 'unconfirmed' }>
+	): string {
+		if (result.status === 'not-saved') {
+			return result.showsSaved ? result.message : `${result.message} Reload to see the saved header.`;
+		}
+		if (!result.showsSaved) return "We couldn't confirm the date header change. Reload to see the saved header.";
+		const saved = typesStore.items.find((type) => !type.archivedAt && type.showInDateHeader);
+		return saved
+			? `We couldn't confirm the date header change. The saved header is ${saved.name}.`
+			: "We couldn't confirm the date header change. No date header is saved.";
+	}
+
+	function reportDateHeaderOutcome(flight: HeaderFlight, result: DateHeaderChange): DateHeaderChange {
+		if (!isCurrentHeaderFlight(flight)) return { status: 'stale' };
+		if (result.status === 'saved' || ('showsSaved' in result && result.showsSaved)) {
+			confirmedCatalog = flight;
+		}
+		if (result.status === 'not-saved' || result.status === 'unconfirmed') {
+			toastStore.error(dateHeaderFailureMessage(result));
+		}
+		return result;
 	}
 
 	async function sendAssignments(path: '' | '/batch', method: 'POST' | 'DELETE', body: unknown, failure: string) {
@@ -107,23 +228,56 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 			return internals.replay();
 		},
 
+		get typesBusy() {
+			return typesStore.busy || currentHeaderFlight() !== null;
+		},
+
+		get pendingDateHeaderId() {
+			return currentHeaderFlight()?.assignmentTypeId ?? null;
+		},
+
 		load(types: AssignmentType[], assignments: DailyAssignment[], orgId: string) {
-			typesStore.load(types, orgId);
+			forgetStaleTypeWrites(orgId);
+			if (headerFlight && (headerFlight.orgId !== orgId || !headerFlight.inLifetime())) headerFlight = null;
+			if (confirmedCatalog && (confirmedCatalog.orgId !== orgId || !confirmedCatalog.inLifetime())) {
+				confirmedCatalog = null;
+			}
+			const confirmed = headerFlight ? null : confirmedCatalog;
+			const disputed = confirmed !== null && (typesStore.busy || !sameCatalog(types, typesStore.items));
+			if (!confirmed) typesStore.load(types, orgId);
+			if (disputed) catalogEpoch++;
+			disputedDuringWrites = disputed && typesStore.busy ? confirmed : null;
 			base.load(assignments, orgId);
+			if (disputed && !typesStore.busy) void reconcileCatalog(confirmed);
 		},
 
 		// Assignment Type methods
 		async addType(data: Omit<AssignmentType, 'id'>): Promise<AssignmentType | null> {
-			return typesStore.add(data);
+			if (currentHeaderFlight()) return null;
+			const write = admitTypeWrite();
+			try {
+				const created = await typesStore.add(data);
+				confirmedCatalog = write;
+				return created;
+			} finally {
+				settleTypeWrite(write);
+			}
 		},
 
 		async updateType(id: string, data: Partial<Omit<AssignmentType, 'id'>>): Promise<boolean> {
-			return typesStore.update(id, data);
+			if (currentHeaderFlight()) return false;
+			const write = admitTypeWrite();
+			const updated = await typesStore.update(id, data);
+			if (updated) confirmedCatalog = write;
+			settleTypeWrite(write);
+			return updated;
 		},
 
 		async removeType(id: string): Promise<boolean> {
+			if (currentHeaderFlight()) return false;
 			const type = typesStore.getById(id);
 			if (!type) return false;
+			const write = admitTypeWrite();
 
 			// Cascade: optimistically remove affected assignments via log
 			const affectedIds = getAssignmentSnapshot()
@@ -142,6 +296,7 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 				// Confirm cascade in serverState
 				const idSet = new Set(affectedIds);
 				internals.serverState.set(internals.serverState.getSnapshot().filter((a) => !idSet.has(a.id)));
+				confirmedCatalog = write;
 			}
 
 			// Resolve cascade log (success = serverState updated, failure = auto-rollback)
@@ -149,7 +304,66 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 				internals.log.resolve(cascadeMutationId);
 			}
 
+			settleTypeWrite(write);
 			return result === 'deleted';
+		},
+
+		async setDateHeader(assignmentTypeId: string): Promise<DateHeaderChange> {
+			if (typesStore.busy || currentHeaderFlight()) return { status: 'busy' };
+			catalogEpoch++;
+			const flight: HeaderFlight = Object.freeze({
+				assignmentTypeId,
+				orgId: typesStore.orgId,
+				inLifetime: stillInOrganizationLifetime()
+			});
+			headerFlight = flight;
+			const owns = () => isCurrentHeaderFlight(flight);
+			const loadVersion = typesStore.loadVersion;
+			try {
+				let res: Response;
+				try {
+					res = await withinOrganizationLifetime(
+						fetch(`/org/${flight.orgId}/api/assignment-types/date-header`, {
+							method: 'PUT',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify({ assignmentTypeId })
+						})
+					);
+				} catch {
+					const adopted = await adoptSavedTypesIfUnchanged(flight.orgId, owns);
+					return reportDateHeaderOutcome(flight, {
+						status: 'unconfirmed',
+						showsSaved: adopted === typesStore.loadVersion
+					});
+				}
+				if (!isCurrentHeaderFlight(flight)) return { status: 'stale' };
+				if (res.ok && typesStore.loadVersion === loadVersion) {
+					typesStore.updateLocalWhere(
+						(type) => type.showInDateHeader !== (type.id === assignmentTypeId),
+						(type) => ({ ...type, showInDateHeader: type.id === assignmentTypeId })
+					);
+					return reportDateHeaderOutcome(flight, { status: 'saved' });
+				}
+				if (res.ok) {
+					const showsSaved = (await adoptSavedTypesIfUnchanged(flight.orgId, owns)) === typesStore.loadVersion;
+					return reportDateHeaderOutcome(
+						flight,
+						showsSaved && typesStore.getById(assignmentTypeId)?.showInDateHeader
+							? { status: 'saved' }
+							: { status: 'unconfirmed', showsSaved }
+					);
+				}
+				const message = confirmedNotSaved(res)
+					? await withinOrganizationLifetime(readResponseErrorMessage(res, 'Failed to update the date header'))
+					: null;
+				const showsSaved = (await adoptSavedTypesIfUnchanged(flight.orgId, owns)) === typesStore.loadVersion;
+				return reportDateHeaderOutcome(
+					flight,
+					message === null ? { status: 'unconfirmed', showsSaved } : { status: 'not-saved', message, showsSaved }
+				);
+			} finally {
+				if (headerFlight === flight) headerFlight = null;
+			}
 		},
 
 		getTypeById(id: string) {

@@ -21,6 +21,7 @@ const { statusTypesStoreMock, availabilityStoreMock, assignmentTypesStoreMock, s
 		},
 		assignmentTypesStoreMock: {
 			types: [] as AssignmentType[],
+			pendingDateHeaderId: null,
 			addType: vi.fn(),
 			updateType: vi.fn(),
 			removeType: vi.fn()
@@ -483,7 +484,7 @@ describe('CalendarSettingsPage', () => {
 	});
 
 	it('keeps holiday reset confirmation open and reports a failed reset', async () => {
-		specialDaysStoreMock.resetFederalHolidays.mockResolvedValueOnce('failed');
+		specialDaysStoreMock.resetFederalHolidays.mockResolvedValueOnce('not-saved');
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
 		render(CalendarSettingsPage, { props: { org } });
@@ -498,7 +499,7 @@ describe('CalendarSettingsPage', () => {
 	});
 
 	it('reports when a saved holiday reset cannot refresh current days', async () => {
-		specialDaysStoreMock.resetFederalHolidays.mockResolvedValueOnce('refresh-failed');
+		specialDaysStoreMock.resetFederalHolidays.mockResolvedValueOnce('saved-unrefreshed');
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
 		render(CalendarSettingsPage, { props: { org } });
@@ -511,6 +512,23 @@ describe('CalendarSettingsPage', () => {
 		expect(errorToast).toHaveBeenCalledWith(
 			'Holiday reset saved, but Calendar could not refresh. Reload to see the latest days.'
 		);
+	});
+
+	it.each([
+		['unconfirmed', "We couldn't confirm the holiday reset. The list shows the saved days. Reset again if needed."],
+		['unconfirmed-unrefreshed', "We couldn't confirm the holiday reset. Reload to see the saved days."]
+	] as const)('closes the reset confirmation on an %s reset and says so', async (result, message) => {
+		specialDaysStoreMock.resetFederalHolidays.mockResolvedValueOnce(result);
+		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+
+		render(CalendarSettingsPage, { props: { org } });
+		await fireEvent.click(screen.getByRole('tab', { name: /Closures/i }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Reset Federal Holidays' }));
+		const dialog = screen.getByRole('alertdialog', { name: 'Reset Federal Holidays' });
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Reset' }));
+
+		expect(screen.queryByRole('alertdialog', { name: 'Reset Federal Holidays' })).toBeNull();
+		expect(errorToast).toHaveBeenCalledExactlyOnceWith(message);
 	});
 
 	it('does not show failure feedback for a reset superseded by an Organization change', async () => {

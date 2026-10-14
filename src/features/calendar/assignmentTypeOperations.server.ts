@@ -5,7 +5,11 @@ import {
 	type CalendarCatalogPorts,
 	type CalendarCatalogDeletionPorts
 } from './calendarPolicy.server';
-import { assignmentTypeCreateInput, assignmentTypeUpdateInput } from './calendarPersistenceMapping.server';
+import {
+	assignmentTypeCreateInput,
+	assignmentTypeDateHeaderInput,
+	assignmentTypeUpdateInput
+} from './calendarPersistenceMapping.server';
 
 const action = CALENDAR_POLICY_ACTIONS.configureAssignmentTypes;
 const resource = { kind: 'organization' } as const;
@@ -31,6 +35,19 @@ export async function updateAssignmentType(ctx: CalendarCatalogPorts, input: Rec
 	const row = await ctx.calendarCatalogs.updateAssignmentType(id, patch);
 	ctx.audit.log({ action: 'assignment_type.updated', resourceType: 'assignment_type', resourceId: id });
 	return row;
+}
+
+export async function setAssignmentTypeDateHeader(ctx: CalendarCatalogPorts, input: Record<string, unknown>) {
+	const parsed = assignmentTypeDateHeaderInput.safeParse(input);
+	if (!parsed.success) throw error(400, 'Choose an assignment type');
+	const { assignmentTypeId } = parsed.data;
+	await requireCalendarPolicy(ctx, action, resource);
+	await ctx.calendarCatalogs.setDateHeader(assignmentTypeId);
+	ctx.audit.log({
+		action: 'assignment_type.date_header_set',
+		resourceType: 'assignment_type',
+		resourceId: assignmentTypeId
+	});
 }
 
 export async function deleteAssignmentType(ctx: CalendarCatalogDeletionPorts, id: string): Promise<void> {

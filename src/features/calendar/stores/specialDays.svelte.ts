@@ -9,7 +9,7 @@
  *
  * Loaded by the calendar and dashboard page load functions.
  */
-import { defineStore } from '$lib/stores/core';
+import { defineStore, organizationLifetime, withinOrganizationLifetime } from '$lib/stores/core';
 import type { Store } from '$lib/stores/core';
 import { formatDate } from '$lib/utils/dates';
 import type { SpecialDay } from '$features/calendar/contracts';
@@ -29,9 +29,9 @@ function enhance(base: Store<SpecialDay>): SpecialDayExtensions {
 	let resetSequence = 0;
 	let loadGeneration = 0;
 	const latestResetByOrg: Record<string, number> = {};
-	const mutationsByOrg: Record<string, { version: number; pending: Promise<unknown>[] }> = {};
+	let mutationsByOrg: Record<string, { version: number; pending: Promise<unknown>[] }> = {};
 	function mutationState(orgId: string) {
-		return (mutationsByOrg[orgId] ??= { version: 0, pending: [] });
+		return (mutationsByOrg[`${organizationLifetime()}:${orgId}`] ??= { version: 0, pending: [] });
 	}
 	function trackMutation<T>(orgId: string, operation: Promise<T>): Promise<T> {
 		const state = mutationState(orgId);
@@ -57,9 +57,9 @@ function enhance(base: Store<SpecialDay>): SpecialDayExtensions {
 			const version = state.version;
 			const requestLoadGeneration = loadGeneration;
 			try {
-				const response = await fetch(`/org/${orgId}/api/special-days`);
+				const response = await withinOrganizationLifetime(fetch(`/org/${orgId}/api/special-days`));
 				if (!response.ok) return 'refresh-failed';
-				const savedDays = (await response.json()) as SpecialDay[];
+				const savedDays = (await withinOrganizationLifetime(response.json())) as SpecialDay[];
 				if (!currentReset(orgId, requestReset)) return 'stale';
 				if (state.version !== version || state.pending.length > 0 || loadGeneration !== requestLoadGeneration) {
 					continue;
@@ -76,6 +76,8 @@ function enhance(base: Store<SpecialDay>): SpecialDayExtensions {
 	return {
 		load(items, orgId) {
 			loadGeneration++;
+			// Mutations from an Organization the user left never settle, so a later reset must not wait on them.
+			if (orgId !== base.orgId) mutationsByOrg = {};
 			base.load(items, orgId);
 		},
 		add: (data) => trackMutation(base.orgId, base.add(data)),
@@ -89,14 +91,16 @@ function enhance(base: Store<SpecialDay>): SpecialDayExtensions {
 			const requestReset = ++resetSequence;
 			latestResetByOrg[orgId] = requestReset;
 			try {
-				const res = await fetch(`/org/${orgId}/api/special-days`, {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ action: 'resetFederalHolidays' })
-				});
+				const res = await withinOrganizationLifetime(
+					fetch(`/org/${orgId}/api/special-days`, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ action: 'resetFederalHolidays' })
+					})
+				);
 				if (!currentReset(orgId, requestReset)) return 'stale';
 				if (!res.ok) return 'failed';
-				const allDays = (await res.json()) as SpecialDay[];
+				const allDays = (await withinOrganizationLifetime(res.json())) as SpecialDay[];
 				if (!currentReset(orgId, requestReset)) return 'stale';
 				if (mutationState(orgId).version !== mutationVersion || loadGeneration !== requestLoadGeneration) {
 					return refreshAfterOverlappingMutation(orgId, requestReset);

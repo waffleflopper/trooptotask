@@ -15,6 +15,8 @@ import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { groupsStore } from '$features/personnel';
 import { loadCalendarRange } from '$features/calendar/utils/calendarRangeLoader';
 import type { Personnel } from '$features/personnel/contracts';
+import { endOrganizationLifetime } from '$lib/stores/core';
+import { settles } from '$lib/test-support/settles';
 
 vi.mock('$features/calendar/utils/calendarRangeLoader', () => ({
 	loadCalendarRange: vi.fn()
@@ -452,6 +454,33 @@ describe('CalendarPageContext', () => {
 			expect(await pending).toBeNull();
 			expect(availabilityStore.load).not.toHaveBeenCalled();
 		});
+
+		it.each(['response', 'failure'] as const)(
+			'drops a recovery %s that arrives after its Organization shell ends',
+			async (outcome) => {
+				let settle!: {
+					resolve: (value: Awaited<ReturnType<typeof loadCalendarRange>>) => void;
+					reject: (error: Error) => void;
+				};
+				vi.mocked(loadCalendarRange).mockImplementation(
+					() => new Promise((resolve, reject) => (settle = { resolve, reject }))
+				);
+				const pending = ctx.reconcileAvailability(['2026-04-07'], 'org1');
+				endOrganizationLifetime();
+				if (outcome === 'response')
+					settle.resolve({
+						rangeStart: '2026-04-07',
+						rangeEnd: '2026-04-07',
+						availabilityEntries: [],
+						specialDays: [],
+						dailyAssignments: []
+					});
+				else settle.reject(new Error('Old range unavailable'));
+
+				expect(await settles(pending)).toBe(false);
+				expect(availabilityStore.load).not.toHaveBeenCalled();
+			}
+		);
 
 		it('reports a failed range read while the same Organization is still open', async () => {
 			vi.mocked(loadCalendarRange).mockRejectedValueOnce(new Error('Current range unavailable'));

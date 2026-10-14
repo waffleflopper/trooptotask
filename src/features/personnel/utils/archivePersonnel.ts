@@ -1,5 +1,6 @@
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
+import { withinOrganizationLifetime } from '$lib/stores/core';
 import type { Personnel } from '../personnel.types';
 
 export type PersonnelArchiveResult = 'archived' | 'approval_requested' | 'error';
@@ -46,7 +47,7 @@ export async function archivePersonnel({
 	const result =
 		personnelStore.orgId === orgId && personnelStore.getById(person.id)
 			? await personnelStore.remove(person.id)
-			: await archiveViaApi(orgId, person.id);
+			: await withinOrganizationLifetime(archiveViaApi(orgId, person.id));
 
 	if (result === 'deleted') {
 		toastStore.success('Personnel archived');

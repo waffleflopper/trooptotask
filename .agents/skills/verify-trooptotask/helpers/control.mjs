@@ -2386,6 +2386,7 @@ async function main() {
 					'availability/batch',
 					'daily-assignments',
 					'daily-assignments/batch',
+					'status-types',
 					'calendar-reports/status-days',
 					'special-days',
 					'sign-in-rosters',
@@ -2471,7 +2472,10 @@ async function main() {
 					'personnel/archive-batch',
 					'user-preferences',
 					'personnel',
-					'pinned-groups'
+					'pinned-groups',
+					'daily-assignments',
+					'daily-assignments/batch',
+					'status-types'
 				].includes(family) &&
 				!platformForm
 			)

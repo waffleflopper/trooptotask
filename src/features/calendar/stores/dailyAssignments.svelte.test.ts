@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { dailyAssignmentsStore } from './dailyAssignments.svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
+import { settles } from '$lib/test-support/settles';
 
 function mockFetch(response: unknown, status = 200) {
 	return vi.fn().mockResolvedValue({
@@ -605,5 +606,96 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 				'This assignment slot is unavailable. Refresh the Calendar and try again.'
 			);
 		});
+	});
+});
+
+describe('dailyAssignmentsStore - responses that finish after an Organization switch', () => {
+	const slot = { date: '2026-09-22', assignmentTypeId: 'type-a' };
+	const heldRow = { id: 'held-a', ...slot, assigneeId: 'able' };
+	const occupiedA = { id: 'occupied-a', ...slot, assigneeId: 'old' };
+	const rowB = { id: 'row-b', date: '2026-09-22', assignmentTypeId: 'type-b', assigneeId: 'foreign' };
+	const currentA = { id: 'current-a', ...slot, assigneeId: 'baker' };
+
+	const mutations = {
+		set: {
+			start: () => dailyAssignmentsStore.setAssignment(slot.date, slot.assignmentTypeId, 'able'),
+			body: heldRow
+		},
+		remove: {
+			start: () => dailyAssignmentsStore.removeAssignment(slot.date, slot.assignmentTypeId),
+			body: {}
+		},
+		batch: {
+			start: () => dailyAssignmentsStore.setAssignmentBatch([{ ...slot, assigneeId: 'able' }]),
+			body: { inserted: [heldRow] }
+		}
+	};
+	const switches = {
+		'A to B': { load: () => dailyAssignmentsStore.load([], [rowB], 'org-b'), current: [rowB] },
+		'A to B to A': {
+			load: () => {
+				dailyAssignmentsStore.load([], [rowB], 'org-b');
+				dailyAssignmentsStore.load([], [currentA], 'org-a');
+			},
+			current: [currentA]
+		}
+	};
+	const outcomes = {
+		success: (body: unknown) => ({ ok: true, status: 200, json: () => Promise.resolve(body) }),
+		failure: () => ({
+			ok: false,
+			status: 503,
+			json: () => Promise.resolve({ message: 'Synthetic request failure' }),
+			text: () => Promise.resolve(JSON.stringify({ message: 'Synthetic request failure' }))
+		})
+	};
+
+	beforeEach(() => {
+		vi.restoreAllMocks();
+		dailyAssignmentsStore.load([], [occupiedA], 'org-a');
+	});
+
+	for (const [mutationName, mutation] of Object.entries(mutations)) {
+		for (const [switchName, organizationSwitch] of Object.entries(switches)) {
+			for (const [outcomeName, respond] of Object.entries(outcomes)) {
+				it(`${mutationName} ${outcomeName} after ${switchName} leaves the current rows and feedback alone`, async () => {
+					let release!: (response: unknown) => void;
+					vi.stubGlobal(
+						'fetch',
+						vi.fn(() => new Promise((resolve) => (release = resolve)))
+					);
+					const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+
+					const pending = mutation.start();
+					organizationSwitch.load();
+					release(respond(mutation.body));
+
+					expect(await settles(pending)).toBe(false);
+					expect(dailyAssignmentsStore.assignments).toEqual(organizationSwitch.current);
+					expect(errorToast).not.toHaveBeenCalled();
+				});
+			}
+		}
+	}
+
+	it('keeps an edit made after returning to A when the earlier A save finishes', async () => {
+		const releases: ((response: unknown) => void)[] = [];
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(() => new Promise((resolve) => releases.push(resolve)))
+		);
+
+		const stale = dailyAssignmentsStore.setAssignment(slot.date, slot.assignmentTypeId, 'able');
+		switches['A to B to A'].load();
+		const current = dailyAssignmentsStore.setAssignment(slot.date, slot.assignmentTypeId, 'charlie');
+		releases[0](outcomes.success(heldRow));
+		expect(await settles(stale)).toBe(false);
+
+		expect(dailyAssignmentsStore.assignments.map((row) => row.assigneeId)).toEqual(['charlie']);
+
+		const saved = { id: 'charlie-a', ...slot, assigneeId: 'charlie' };
+		releases[1](outcomes.success(saved));
+		await expect(current).resolves.toBe(true);
+		expect(dailyAssignmentsStore.assignments).toEqual([saved]);
 	});
 });

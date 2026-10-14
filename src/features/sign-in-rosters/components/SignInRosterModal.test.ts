@@ -32,6 +32,8 @@ import SignInRosterModal from './SignInRosterModal.svelte';
 import type { RankCatalogEntry } from '$features/personnel/contracts';
 import type { Personnel } from '$features/personnel/contracts';
 import type { SignInRoster } from '../sign-in-rosters.types';
+import { toastStore } from '$lib/stores/toast.svelte';
+import { endOrganizationLifetime } from '$lib/stores/core';
 
 const personnel: Personnel[] = [
 	{
@@ -827,6 +829,30 @@ describe('SignInRosterModal', () => {
 		);
 		expect(uploadCall?.[0]).toBe('/org/org-1/api/sign-in-rosters/roster-1/upload');
 		expect(uploadCall?.[1]?.body).toBeInstanceOf(FormData);
+	});
+
+	it('reports nothing when a signed scan upload finishes after the Organization shell ends', async () => {
+		let resolveUpload!: (response: Response) => void;
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (input: RequestInfo | URL, init?: RequestInit) =>
+				String(input).endsWith('/upload') && init?.method === 'POST'
+					? new Promise<Response>((resolve) => (resolveUpload = resolve))
+					: jsonResponse({ rosters: [makeRoster()], total: 1 })
+			)
+		);
+		const toastSuccess = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
+		renderModal();
+		await fireEvent.click(await screen.findByRole('button', { name: /Morning Formation/i }));
+		await fireEvent.change(screen.getByLabelText('Signed Scan'), {
+			target: { files: [new File(['signed roster'], 'signed-roster.pdf', { type: 'application/pdf' })] }
+		});
+
+		endOrganizationLifetime();
+		resolveUpload(jsonResponse({ filePath: 'org-1/sign-in-rosters/roster-1/signed-roster.pdf' }));
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		expect(toastSuccess).not.toHaveBeenCalled();
 	});
 
 	it('validates signed roster scan type before upload', async () => {

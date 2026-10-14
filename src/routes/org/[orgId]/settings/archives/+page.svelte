@@ -10,6 +10,7 @@
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import ArchivedPersonnelSettingsSection from '../ArchivedPersonnelSettingsSection.svelte';
 	import { downloadBlob } from '$lib/utils/downloadBlob';
+	import { organizationLifetime, withinOrganizationLifetime } from '$lib/stores/core';
 	import { createSettingsArchivedPersonnelState } from '../settingsWorkspaceState.svelte';
 
 	let { data }: PageProps = $props();
@@ -34,13 +35,15 @@
 	async function handleRestore(id: string) {
 		restoring = id;
 		try {
-			const res = await fetch(`/org/${orgId}/api/personnel`, {
-				method: 'PATCH',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ action: 'restore', id })
-			});
+			const res = await withinOrganizationLifetime(
+				fetch(`/org/${orgId}/api/personnel`, {
+					method: 'PATCH',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ action: 'restore', id })
+				})
+			);
 			if (!res.ok) {
-				const errData = await res.json();
+				const errData = await withinOrganizationLifetime(res.json());
 				toastStore.error(errData.message ?? 'Failed to restore');
 				return;
 			}
@@ -58,11 +61,13 @@
 		permanentlyDeletingPerson = id;
 		const index = archivedPersonnelState.rows.findIndex((row) => row.id === id);
 		try {
-			const res = await fetch(`/org/${orgId}/api/personnel/permanent`, {
-				method: 'DELETE',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ id })
-			});
+			const res = await withinOrganizationLifetime(
+				fetch(`/org/${orgId}/api/personnel/permanent`, {
+					method: 'DELETE',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ id })
+				})
+			);
 			if (!res.ok) throw new Error();
 			toastStore.success('Personnel permanently deleted');
 			archivedPersonnelState.clearPermanentDeleteConfirmation();
@@ -83,13 +88,15 @@
 
 	async function handlePersonnelExport(id: string, name: string) {
 		exportingPerson = id;
+		const lifetime = organizationLifetime();
 		try {
 			const res = await fetch(`/org/${orgId}/api/personnel/${id}/export`);
 			if (!res.ok) throw new Error();
 			const blob = await res.blob();
 			downloadBlob(blob, `${name}-records.xlsx`);
 		} catch {
-			toastStore.error('Failed to export records');
+			// A requested download still completes after leaving; its failure is not reported elsewhere.
+			if (lifetime === organizationLifetime()) toastStore.error('Failed to export records');
 		} finally {
 			exportingPerson = null;
 		}

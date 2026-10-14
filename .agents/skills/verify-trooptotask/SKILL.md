@@ -26,7 +26,7 @@ Run `npm run --silent verify:app -- doctor` whenever the page, provider, or buil
 
 ## Drive
 
-`login` signs in through the normal form and returns the page ID and Organization ID. `manager` can manage Personnel and Groups; `viewer` can read them; `scoped` sees Alpha only. Calendar actors include `calendarView`, `calendarOperate`, `calendarConfigure`, `calendarLane`, `calendarScoped`, `calendarEmpty`, `calendarScopedConfig`, and `calendarSwitch`. Training actors include `trainingConfigure`, `trainingView`, `trainingOperate`, `trainingScoped`, `trainingScopedConfig`, `trainingEmpty`, `trainingSwitch`, `trainingForeign`, `trainingOnboarding`, and `trainingOnboardingView` (Onboarding and Training view only); Sign-in Roster actors are `rosterManager`, `rosterViewer`, `rosterScoped`, and `rosterForeign`. The public `login` command lands on Personnel; for a direct Training or Calendar starting route, use the skill's `actor` helper below. It submits the same visible sign-in form with private synthetic credentials and prints no password. Use the returned page ID, not tab order.
+`login` signs in through the normal form and returns the page ID and Organization ID. `manager` can manage Personnel and Groups; `viewer` can read them; `scoped` sees Alpha only. Calendar actors include `calendarView`, `calendarOperate`, `calendarConfigure`, `calendarLane`, `calendarScoped`, `calendarEmpty`, `calendarScopedConfig`, and `calendarSwitch`. Training actors include `trainingConfigure`, `trainingView`, `trainingOperate`, `trainingScoped`, `trainingScopedConfig`, `trainingEmpty`, `trainingSwitch`, `trainingForeign`, `trainingOnboarding`, and `trainingOnboardingView` (Onboarding and Training view only); Sign-in Roster actors are `rosterManager`, `rosterViewer`, `rosterScoped`, and `rosterForeign`. The public `login` command lands on Personnel; for a direct Training or Calendar starting route, use the skill's `actor` helper below. It submits the same visible sign-in form with private synthetic credentials and prints no password. Use the returned page ID, not tab order. With several pages open, run `tool select_page` before interacting; a click sent to an unselected page can silently do nothing.
 
 ```bash
 npm run --silent verify:app -- login manager
@@ -108,7 +108,7 @@ $V network arm-fail 2 availability/batch 2 # second matching batch request fails
 $V network arm-hold 2 availability      # hold a real response after persistence
 $V network state 2                      # matched requests, statuses, IDs, held state
 $V network release 2
-$V network restore 2                    # also releases a stuck response
+$V network restore 2                    # also releases a stuck response; a reload already removed the hook (restored:false)
 $V feedback arm 2                       # observe actual transient success/error toasts
 $V feedback state 2                     # captured rendered messages; no app-state changes
 $V feedback restore 2

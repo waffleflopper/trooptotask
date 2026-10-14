@@ -11,6 +11,7 @@ import { createRosterReadModel } from '$features/personnel/contracts';
 import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
 import { loadCalendarRange } from '$features/calendar/utils/calendarRangeLoader';
 import { mergeById } from '$lib/utils/mergeById';
+import { withinOrganizationLifetime } from '$lib/stores/core';
 import type { CapabilityLevel, ScopeSet } from '$lib/access/memberAccessShape';
 import type { FeatureLanePolicyAction, PolicyDecision } from '$lib/access/policyEvaluator';
 import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
@@ -333,8 +334,10 @@ export class CalendarPageContext {
 		const accessKey = this.#calendarAccessKey();
 		let ranges: Awaited<ReturnType<typeof loadCalendarRange>>[];
 		try {
-			ranges = await Promise.all(
-				[...new Set(dates)].map((date) => loadCalendarRange(expectedOrgId, { rangeStart: date, rangeEnd: date }))
+			ranges = await withinOrganizationLifetime(
+				Promise.all(
+					[...new Set(dates)].map((date) => loadCalendarRange(expectedOrgId, { rangeStart: date, rangeEnd: date }))
+				)
 			);
 		} catch (error) {
 			if (this.#data.orgId !== expectedOrgId || this.#calendarAccessKey() !== accessKey) return null;

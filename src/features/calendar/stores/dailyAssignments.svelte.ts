@@ -13,14 +13,20 @@
  *
  * Loaded by the calendar and dashboard page load functions.
  */
-import { defineStore } from '$lib/stores/core';
+import { defineStore, withinOrganizationLifetime } from '$lib/stores/core';
 import type { Store, StoreInternals } from '$lib/stores/core';
 import { toastStore } from '$lib/stores/toast.svelte';
-import type { AssignmentType, DailyAssignment } from '$features/calendar/contracts';
+import { assignmentTypesSchema, type AssignmentType, type DailyAssignment } from '$features/calendar/contracts';
 import { assignmentSlotKey } from '$features/calendar/utils/calendarIndexes';
+import { confirmedNotSaved } from './calendarCommandResponse';
 
 export type { AssignmentType } from '$features/calendar/contracts';
 export type { DailyAssignment } from '$features/calendar/contracts';
+
+export type DateHeaderChange =
+	| { status: 'saved' | 'stale' }
+	| { status: 'not-saved'; message: string; showsSaved: boolean }
+	| { status: 'unconfirmed'; showsSaved: boolean };
 
 const typesStore = defineStore<AssignmentType>({
 	table: 'assignment_types',
@@ -35,10 +41,12 @@ const typesStore = defineStore<AssignmentType>({
 interface AssignmentExtensions extends Record<string, unknown> {
 	readonly types: AssignmentType[];
 	readonly assignments: DailyAssignment[];
+	readonly typesBusy: boolean;
 	load: (types: AssignmentType[], assignments: DailyAssignment[], orgId: string) => void;
 	addType: (data: Omit<AssignmentType, 'id'>) => Promise<AssignmentType | null>;
 	updateType: (id: string, data: Partial<Omit<AssignmentType, 'id'>>) => Promise<boolean>;
 	removeType: (id: string) => Promise<boolean>;
+	setDateHeader: (assignmentTypeId: string) => Promise<DateHeaderChange>;
 	getTypeById: (id: string) => AssignmentType | undefined;
 	setAssignment: (date: string, assignmentTypeId: string, assigneeId: string) => Promise<boolean>;
 	removeAssignment: (date: string, assignmentTypeId: string) => Promise<boolean>;
@@ -78,13 +86,27 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 	}
 
 	async function readResponseErrorMessage(res: Response, fallback: string): Promise<string> {
-		const raw = await res.text();
+		const raw = await res.text().catch(() => '');
 		if (!raw) return fallback;
 		try {
 			const parsed = JSON.parse(raw) as { message?: string; error?: string };
 			return parsed.message ?? parsed.error ?? raw;
 		} catch {
 			return raw;
+		}
+	}
+
+	async function adoptSavedTypesIfUnchanged(orgId: string): Promise<boolean> {
+		const loadVersion = typesStore.loadVersion;
+		try {
+			const res = await withinOrganizationLifetime(fetch(`/org/${orgId}/api/assignment-types`));
+			if (!res.ok) return false;
+			const saved = assignmentTypesSchema.safeParse(await withinOrganizationLifetime(res.json()));
+			if (!saved.success || typesStore.orgId !== orgId || typesStore.loadVersion !== loadVersion) return false;
+			typesStore.load(saved.data, orgId);
+			return true;
+		} catch {
+			return false;
 		}
 	}
 
@@ -105,6 +127,10 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 
 		get assignments() {
 			return internals.replay();
+		},
+
+		get typesBusy() {
+			return typesStore.busy;
 		},
 
 		load(types: AssignmentType[], assignments: DailyAssignment[], orgId: string) {
@@ -150,6 +176,46 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 			}
 
 			return result === 'deleted';
+		},
+
+		async setDateHeader(assignmentTypeId: string): Promise<DateHeaderChange> {
+			const orgId = typesStore.orgId;
+			const loadVersion = typesStore.loadVersion;
+			let res: Response;
+			try {
+				res = await withinOrganizationLifetime(
+					fetch(`/org/${orgId}/api/assignment-types/date-header`, {
+						method: 'PUT',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ assignmentTypeId })
+					})
+				);
+			} catch {
+				if (typesStore.orgId !== orgId) return { status: 'stale' };
+				const showsSaved = await adoptSavedTypesIfUnchanged(orgId);
+				return typesStore.orgId === orgId ? { status: 'unconfirmed', showsSaved } : { status: 'stale' };
+			}
+			if (typesStore.orgId !== orgId) return { status: 'stale' };
+			if (res.ok && typesStore.loadVersion === loadVersion) {
+				typesStore.updateLocalWhere(
+					(type) => type.showInDateHeader !== (type.id === assignmentTypeId),
+					(type) => ({ ...type, showInDateHeader: type.id === assignmentTypeId })
+				);
+				return { status: 'saved' };
+			}
+			if (res.ok) {
+				const showsSaved = await adoptSavedTypesIfUnchanged(orgId);
+				if (typesStore.orgId !== orgId) return { status: 'stale' };
+				return showsSaved && typesStore.getById(assignmentTypeId)?.showInDateHeader
+					? { status: 'saved' }
+					: { status: 'unconfirmed', showsSaved };
+			}
+			const message = confirmedNotSaved(res)
+				? await withinOrganizationLifetime(readResponseErrorMessage(res, 'Failed to update the date header'))
+				: null;
+			const showsSaved = await adoptSavedTypesIfUnchanged(orgId);
+			if (typesStore.orgId !== orgId) return { status: 'stale' };
+			return message === null ? { status: 'unconfirmed', showsSaved } : { status: 'not-saved', message, showsSaved };
 		},
 
 		getTypeById(id: string) {

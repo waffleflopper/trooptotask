@@ -1,6 +1,5 @@
 export const MAIL_KINDS = Object.freeze(['account-setup', 'auth', 'invitation']);
 const write = (method, path, options = {}) => Object.freeze({ method, path, ...options });
-// `query` and `body` narrow a call to exact top-level values (`true` only requires the body key);
 // `afterCommit` lets the provider commit, then loses its reply as a synthetic 503. `transport` loses it as a
 // fetch exception instead, which the Supabase SDK reports without a database code. `pause` (milliseconds)
 // holds a committed reply until an explicit release, restore or that deadline, then loses it. With `hold` it
@@ -8,6 +7,7 @@ const write = (method, path, options = {}) => Object.freeze({ method, path, ...o
 const HOLD_DEADLINE_MS = 4000;
 const COMMITTED_PAUSE_MS = 120_000;
 const transportLoss = (options = {}) => ({ afterCommit: true, transport: true, ...options });
+const PRESENT = Symbol('present');
 export const PROVIDER_FAULTS = Object.freeze({
 	'roster-scan-attach': [write('POST', '/rest/v1/rpc/attach_sign_in_roster_scan')],
 	'roster-scan-attach-lost-ack': [write('POST', '/rest/v1/rpc/attach_sign_in_roster_scan', transportLoss())],
@@ -25,6 +25,18 @@ export const PROVIDER_FAULTS = Object.freeze({
 	'roster-delete': [write('POST', '/rest/v1/rpc/delete_sign_in_roster')],
 	'roster-delete-lost-ack': [write('POST', '/rest/v1/rpc/delete_sign_in_roster', transportLoss())],
 	'roster-delete-hold': [write('POST', '/rest/v1/rpc/delete_sign_in_roster', { hold: true })],
+	'federal-holiday-reset': [write('POST', '/rest/v1/rpc/reset_federal_holidays')],
+	'federal-holiday-reset-lost-ack': [write('POST', '/rest/v1/rpc/reset_federal_holidays', transportLoss())],
+	'federal-holiday-reset-hold': [
+		write('POST', '/rest/v1/rpc/reset_federal_holidays', { hold: true, pause: COMMITTED_PAUSE_MS })
+	],
+	'assignment-type-date-header': [write('POST', '/rest/v1/rpc/set_assignment_type_date_header')],
+	'assignment-type-date-header-lost-ack': [
+		write('POST', '/rest/v1/rpc/set_assignment_type_date_header', transportLoss())
+	],
+	'assignment-type-date-header-hold': [
+		write('POST', '/rest/v1/rpc/set_assignment_type_date_header', { hold: true, pause: COMMITTED_PAUSE_MS })
+	],
 	'document-file-remove': [write('DELETE', '/storage/v1/object/personnel-documents')],
 	'document-file-remove-lost-ack': [write('DELETE', '/storage/v1/object/personnel-documents', { afterCommit: true })],
 	'counseling-file-remove': [write('DELETE', '/storage/v1/object/counseling-files')],
@@ -36,7 +48,7 @@ export const PROVIDER_FAULTS = Object.freeze({
 	'invitation-block': [write('PATCH', '/rest/v1/organization_invitations', { body: { status: 'blocked' } })],
 	'org-create': [write('POST', '/rest/v1/rpc/create_organization')],
 	'org-create-lost-ack': [write('POST', '/rest/v1/rpc/create_organization', { afterCommit: true })],
-	'password-update': [write('PUT', '/auth/v1/user', { body: { password: true } })],
+	'password-update': [write('PUT', '/auth/v1/user', { body: { password: PRESENT } })],
 	'password-reconcile': [write('POST', '/rest/v1/rpc/password_change_attempt', { body: { p_action: 'reconcile' } })],
 	'password-revocation': [write('POST', '/auth/v1/logout', { query: { scope: 'others' } })],
 	'setup-password': [write('POST', '/auth/v1/admin/users')],
@@ -106,15 +118,19 @@ async function bodyText(input, init) {
 
 async function requestBody(input, init) {
 	try {
-		const body = JSON.parse(await bodyText(input, init));
-		return body && typeof body === 'object' && !Array.isArray(body) ? body : {};
+		return JSON.parse(await bodyText(input, init));
 	} catch {
-		return {};
+		return null;
 	}
 }
 
 const matchesBody = (expected, body) =>
-	Object.entries(expected).every(([key, value]) => (value === true ? Object.hasOwn(body, key) : body[key] === value));
+	!!body &&
+	typeof body === 'object' &&
+	!Array.isArray(body) &&
+	Object.entries(expected).every(([key, value]) =>
+		value === PRESENT ? Object.hasOwn(body, key) : body[key] === value
+	);
 
 const json = (status, body) =>
 	new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
@@ -314,7 +330,7 @@ export function createProviderFaultController({ providerUrl, fetch: originalFetc
 				if (entry.query && !Object.entries(entry.query).every(([k, v]) => request.url.searchParams.get(k) === v))
 					continue;
 				if (entry.body) {
-					body ??= await requestBody(input, init);
+					if (body === undefined) body = await requestBody(input, init);
 					if (!matchesBody(entry.body, body)) continue;
 				}
 				return { name, entry };

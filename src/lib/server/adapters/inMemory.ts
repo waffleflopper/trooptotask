@@ -253,8 +253,8 @@ function createTestCalendarPersistence(
 				createSpecialDay: unavailableCalendarPersistence,
 				updateSpecialDay: unavailableCalendarPersistence,
 				deleteSpecialDay: unavailableCalendarPersistence,
-				deleteFederalHolidays: unavailableCalendarPersistence,
-				createFederalHolidays: unavailableCalendarPersistence
+				resetFederalHolidays: unavailableCalendarPersistence,
+				setDateHeader: unavailableCalendarPersistence
 			} satisfies CalendarCatalogPersistence),
 		calendarAvailability:
 			options?.calendarAvailabilityFactory?.(

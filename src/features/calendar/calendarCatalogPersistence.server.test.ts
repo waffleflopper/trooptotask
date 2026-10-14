@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { createSupabaseCalendarCatalogPersistence } from './calendarCatalogPersistence.server';
+import { createClient } from '@supabase/supabase-js';
+import {
+	CALENDAR_CHANGE_NOT_SAVED_MESSAGE,
+	CALENDAR_CHANGE_UNCONFIRMED_MESSAGE,
+	createSupabaseCalendarCatalogPersistence
+} from './calendarCatalogPersistence.server';
 import { calendarProvider } from './test-support/calendarProvider';
 
 const ORG = 'org-a';
@@ -174,15 +179,13 @@ describe('Calendar ordinary catalog persistence', () => {
 			assignTo: 'personnel',
 			color: '#6b7280',
 			sortOrder: 0,
-			exemptPersonnelIds: [],
-			showInDateHeader: false
+			exemptPersonnelIds: []
 		});
 		expect(
 			await port.updateAssignmentType('saved-2', {
 				assignTo: 'group',
 				color: '#123456',
-				exemptPersonnelIds: ['person-a'],
-				showInDateHeader: true
+				exemptPersonnelIds: ['person-a']
 			})
 		).toEqual({
 			id: 'saved-2',
@@ -193,8 +196,7 @@ describe('Calendar ordinary catalog persistence', () => {
 			assignTo: 'group',
 			color: '#123456',
 			sortOrder: 0,
-			exemptPersonnelIds: ['person-a'],
-			showInDateHeader: true
+			exemptPersonnelIds: ['person-a']
 		});
 		expect(state.rows.status_types).toEqual([
 			{
@@ -217,10 +219,10 @@ describe('Calendar ordinary catalog persistence', () => {
 				assign_to: 'group',
 				color: '#123456',
 				sort_order: 0,
-				exempt_personnel_ids: ['person-a'],
-				show_in_date_header: true
+				exempt_personnel_ids: ['person-a']
 			}
 		]);
+		expect(state.rows.assignment_types[0]).not.toHaveProperty('show_in_date_header');
 		await expect(
 			createSupabaseCalendarCatalogPersistence(client, 'org-b').updateStatusType('saved-1', { name: 'Hidden' })
 		).rejects.toThrow('Expected one row');
@@ -256,7 +258,7 @@ describe('Calendar ordinary catalog persistence', () => {
 		await expect(port.listAssignmentTypeTargets(ids)).rejects.toThrow('Targets unavailable');
 	});
 
-	it('keeps the unfiltered closure set, inclusive ordered range and federal reset effects', async () => {
+	it('keeps the unfiltered closure set and inclusive ordered range', async () => {
 		const { client, state } = calendarProvider({
 			special_days: [
 				{
@@ -294,28 +296,7 @@ describe('Calendar ordinary catalog persistence', () => {
 		});
 		await port.deleteSpecialDay('saved-1');
 		await port.deleteSpecialDay('saved-1');
-		await port.deleteFederalHolidays();
-		await port.createFederalHolidays([{ date: '2026-10-12', name: 'Holiday', type: 'federal-holiday' }]);
-		expect(state.rows.special_days).toEqual([
-			{
-				id: 'closure',
-				organization_id: ORG,
-				date: '2026-10-08',
-				name: 'Closed',
-				type: 'org-closure',
-				created_at: TIME
-			},
-			{ id: 'foreign', organization_id: 'org-b', date: '2026-10-07', name: 'Private', type: 'federal-holiday' },
-			{
-				id: 'saved-2',
-				organization_id: ORG,
-				date: '2026-10-12',
-				name: 'Holiday',
-				type: 'federal-holiday',
-				created_at: TIME
-			}
-		]);
-		await port.createFederalHolidays([]);
+		expect(state.rows.special_days.map(({ id }) => id)).toEqual(['closure', 'old-holiday', 'foreign']);
 	});
 
 	it.each(['deleteStatusType', 'deleteAssignmentType', 'deleteSpecialDay'] as const)(
@@ -328,4 +309,169 @@ describe('Calendar ordinary catalog persistence', () => {
 			await expect(port[method]('absent')).rejects.toThrow('Referenced catalog');
 		}
 	);
+});
+
+const COMMAND_ORG = '00000000-0000-4000-8000-0000000000a1';
+const HEADER = '00000000-0000-4000-8000-000000000401';
+
+function calendarRpc(reply: () => Response | Promise<Response>) {
+	const calls: Array<{ path: string; body: unknown }> = [];
+	const client = createClient('http://127.0.0.1:9', 'synthetic-key', {
+		auth: { persistSession: false, autoRefreshToken: false },
+		global: {
+			fetch: async (input, init) => {
+				const request = new Request(input, init);
+				calls.push({ path: new URL(request.url).pathname, body: await request.json() });
+				return reply();
+			}
+		}
+	});
+	return { calls, port: createSupabaseCalendarCatalogPersistence(client, COMMAND_ORG) };
+}
+
+function databaseError(code: string, message: string, status = 400) {
+	return () => Response.json({ code, message, details: null, hint: null }, { status });
+}
+
+const holidayRow = (id: string, date: string, name: string) => ({
+	id,
+	organization_id: COMMAND_ORG,
+	date,
+	name,
+	type: 'federal-holiday',
+	created_at: TIME
+});
+
+describe('Calendar configuration commands', () => {
+	it('resets federal holidays in one call bound to the Organization and returns the saved rows', async () => {
+		const { calls, port } = calendarRpc(() =>
+			Response.json([
+				holidayRow('h-1', '2026-12-25', 'Christmas Day'),
+				holidayRow('h-2', '2027-01-01', "New Year's Day")
+			])
+		);
+		const holidays = [
+			{ date: '2027-01-01', name: "New Year's Day" },
+			{ date: '2026-12-25', name: 'Christmas Day' }
+		];
+		await expect(port.resetFederalHolidays(holidays)).resolves.toEqual([
+			{
+				id: 'h-1',
+				organization_id: COMMAND_ORG,
+				created_at: TIME,
+				date: '2026-12-25',
+				name: 'Christmas Day',
+				type: 'federal-holiday'
+			},
+			{
+				id: 'h-2',
+				organization_id: COMMAND_ORG,
+				created_at: TIME,
+				date: '2027-01-01',
+				name: "New Year's Day",
+				type: 'federal-holiday'
+			}
+		]);
+		expect(calls).toEqual([
+			{ path: '/rest/v1/rpc/reset_federal_holidays', body: { p_organization_id: COMMAND_ORG, p_holidays: holidays } }
+		]);
+	});
+
+	it('chooses the date header in one call and accepts the empty acknowledgment', async () => {
+		const { calls, port } = calendarRpc(() => new Response(null, { status: 204 }));
+		await expect(port.setDateHeader(HEADER)).resolves.toBeUndefined();
+		expect(calls).toEqual([
+			{
+				path: '/rest/v1/rpc/set_assignment_type_date_header',
+				body: { p_organization_id: COMMAND_ORG, p_assignment_type_id: HEADER }
+			}
+		]);
+	});
+
+	it.each([
+		['42501', 403, 'You do not have access to configure the Calendar'],
+		['P0002', 404, 'That assignment type is no longer available.'],
+		['22023', 400, 'Invalid Calendar configuration'],
+		['22P02', 400, 'Invalid Calendar configuration'],
+		['40P01', 409, CALENDAR_CHANGE_NOT_SAVED_MESSAGE],
+		['40001', 409, CALENDAR_CHANGE_NOT_SAVED_MESSAGE],
+		['55P03', 409, CALENDAR_CHANGE_NOT_SAVED_MESSAGE],
+		['23505', 409, CALENDAR_CHANGE_NOT_SAVED_MESSAGE]
+	])('answers a rolled back %s as a %i', async (code, status, message) => {
+		const { port } = calendarRpc(databaseError(code, 'synthetic database message', 500));
+		await expect(port.setDateHeader(HEADER)).rejects.toMatchObject({ status, message });
+		await expect(port.resetFederalHolidays([{ date: '2026-12-25', name: 'Christmas Day' }])).rejects.toMatchObject({
+			status,
+			message
+		});
+	});
+
+	it('says a lost or unreadable reply is unconfirmed', async () => {
+		for (const reply of [
+			() => Promise.reject(new TypeError('fetch failed')),
+			() => new Response('<html>Bad gateway</html>', { status: 502 })
+		]) {
+			const { port } = calendarRpc(reply);
+			await expect(port.setDateHeader(HEADER)).rejects.toMatchObject({
+				status: 503,
+				message: CALENDAR_CHANGE_UNCONFIRMED_MESSAGE,
+				publicMessage: true
+			});
+			await expect(port.resetFederalHolidays([{ date: '2026-12-25', name: 'Christmas Day' }])).rejects.toMatchObject({
+				status: 503,
+				message: CALENDAR_CHANGE_UNCONFIRMED_MESSAGE,
+				publicMessage: true
+			});
+		}
+	});
+
+	it('treats any other database failure and an unexpected result as internal errors', async () => {
+		const other = calendarRpc(databaseError('22008', 'date/time field value out of range'));
+		await expect(other.port.resetFederalHolidays([{ date: '2026-02-30', name: 'Bad' }])).rejects.toThrow(
+			'date/time field value out of range'
+		);
+		await expect(other.port.setDateHeader(HEADER)).rejects.not.toHaveProperty('status');
+		for (const rows of [
+			[{ ...holidayRow('h-1', '2026-12-25', 'Christmas Day'), type: 'org-closure' }],
+			[{ id: 'h-1', date: '2026-12-25', name: 'Christmas Day', type: 'federal-holiday' }],
+			{ id: 'h-1' }
+		]) {
+			const malformed = calendarRpc(() => Response.json(rows));
+			await expect(
+				malformed.port.resetFederalHolidays([{ date: '2026-12-25', name: 'Christmas Day' }])
+			).rejects.toThrow('reset_federal_holidays returned an unexpected result');
+		}
+		const acknowledged = calendarRpc(() => Response.json({ saved: true }));
+		await expect(acknowledged.port.setDateHeader(HEADER)).rejects.toThrow(
+			'set_assignment_type_date_header returned an unexpected result'
+		);
+	});
+
+	it('treats a successful reset that does not hold exactly the submitted defaults as an internal error', async () => {
+		const holidays = [
+			{ date: '2026-12-25', name: 'Christmas Day' },
+			{ date: '2027-01-01', name: "New Year's Day" }
+		];
+		const christmas = holidayRow('h-1', '2026-12-25', 'Christmas Day');
+		const newYear = holidayRow('h-2', '2027-01-01', "New Year's Day");
+		const empty = calendarRpc(() => Response.json([]));
+		await expect(empty.port.resetFederalHolidays(holidays)).rejects.toThrow(
+			'reset_federal_holidays returned an unexpected result'
+		);
+		for (const rows of [
+			[christmas],
+			[christmas, { ...newYear, id: 'h-1' }],
+			[christmas, { ...newYear, organization_id: 'foreign-org' }],
+			[christmas, { ...newYear, name: 'New Year Observed' }],
+			[christmas, christmas, newYear]
+		]) {
+			const incomplete = calendarRpc(() => Response.json(rows));
+			await expect(incomplete.port.resetFederalHolidays(holidays)).rejects.toThrow(
+				'reset_federal_holidays returned an incomplete result'
+			);
+		}
+		const repeated = [...holidays, holidays[0]];
+		const complete = calendarRpc(() => Response.json([christmas, { ...christmas, id: 'h-3' }, newYear]));
+		expect((await complete.port.resetFederalHolidays(repeated)).map(({ id }) => id)).toEqual(['h-1', 'h-3', 'h-2']);
+	});
 });

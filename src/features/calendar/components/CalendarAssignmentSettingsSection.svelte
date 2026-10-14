@@ -8,7 +8,7 @@
 	import { NativeSelect } from '$lib/components/ui/native-select';
 	import * as RadioGroup from '$lib/components/ui/radio-group';
 	import { Spinner } from '$lib/components/ui/spinner';
-	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
+	import { dailyAssignmentsStore, type DateHeaderChange } from '$features/calendar/stores/dailyAssignments.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import type { AssignmentType } from '$features/calendar/contracts';
 	import Pencil from '@lucide/svelte/icons/pencil';
@@ -42,7 +42,10 @@
 	const saving = new PendingSave();
 
 	const activeAssignmentTypes = $derived(dailyAssignmentsStore.types.filter((type) => !type.archivedAt));
-	const headerTypeId = $derived(activeAssignmentTypes.find((t) => t.showInDateHeader)?.id ?? null);
+	const savedHeaderId = $derived(activeAssignmentTypes.find((t) => t.showInDateHeader)?.id ?? null);
+	let pendingHeaderId = $state<string | null>(null);
+	const typeWritesLocked = $derived(pendingHeaderId !== null);
+	const headerChoiceLocked = $derived(pendingHeaderId !== null || dailyAssignmentsStore.typesBusy);
 	const addAssignmentDirty = $derived(
 		newAssignName.trim() !== '' ||
 			newAssignShortName.trim() !== '' ||
@@ -99,7 +102,7 @@
 	}
 
 	async function addAssignType() {
-		if (!canMutate || !newAssignName.trim() || !newAssignShortName.trim()) return;
+		if (!canMutate || typeWritesLocked || !newAssignName.trim() || !newAssignShortName.trim()) return;
 		try {
 			const created = await dailyAssignmentsStore.addType({
 				name: newAssignName.trim(),
@@ -122,7 +125,8 @@
 	}
 
 	async function saveEditAssign() {
-		if (!canMutate || !editingAssign || !editAssignName.trim() || !editAssignShortName.trim()) return;
+		if (!canMutate || typeWritesLocked || !editingAssign || !editAssignName.trim() || !editAssignShortName.trim())
+			return;
 		try {
 			const saved = await dailyAssignmentsStore.updateType(editingAssign.id, {
 				name: editAssignName.trim(),
@@ -143,7 +147,7 @@
 	}
 
 	async function deleteAssignType(t: AssignmentType) {
-		if (!canMutate) return;
+		if (!canMutate || typeWritesLocked) return;
 		try {
 			const deleted = await dailyAssignmentsStore.removeType(t.id);
 			if (!deleted) {
@@ -157,42 +161,43 @@
 		confirmDeleteAssign = null;
 	}
 
-	let headerSwitching = $state(false);
+	function dateHeaderFailureMessage(result: Exclude<DateHeaderChange, { status: 'saved' | 'stale' }>) {
+		if (result.status === 'not-saved') {
+			return result.showsSaved ? result.message : `${result.message} Reload to see the saved header.`;
+		}
+		if (!result.showsSaved) return "We couldn't confirm the date header change. Reload to see the saved header.";
+		const saved = dailyAssignmentsStore.types.find((t) => !t.archivedAt && t.showInDateHeader);
+		return saved
+			? `We couldn't confirm the date header change. The saved header is ${saved.name}.`
+			: "We couldn't confirm the date header change. No date header is saved.";
+	}
 
-	async function setShowInDateHeader(id: string) {
-		if (!canMutate || headerSwitching) return;
-		const prev = activeAssignmentTypes.find((t) => t.showInDateHeader && t.id !== id);
-		headerSwitching = true;
+	async function chooseDateHeader(id: string) {
+		if (!canMutate || headerChoiceLocked || id === savedHeaderId) return;
+		pendingHeaderId = id;
 		try {
-			// The database allows one header type per Organization, so the switch is two writes: clear, then set.
-			// A failed set tries to restore the previous header; if that also fails, no header type remains.
-			if (prev && !(await dailyAssignmentsStore.updateType(prev.id, { showInDateHeader: false }))) {
-				showAssignmentMutationError('Failed to update header assignment type');
-				return;
+			const result = await dailyAssignmentsStore.setDateHeader(id);
+			if (result.status === 'not-saved' || result.status === 'unconfirmed') {
+				toastStore.error(dateHeaderFailureMessage(result));
 			}
-			if (await dailyAssignmentsStore.updateType(id, { showInDateHeader: true })) return;
-			if (prev) await dailyAssignmentsStore.updateType(prev.id, { showInDateHeader: true });
-			showAssignmentMutationError('Failed to update header assignment type');
-		} catch (error) {
-			showAssignmentMutationError('Failed to update header assignment type', error);
 		} finally {
-			headerSwitching = false;
+			pendingHeaderId = null;
 		}
 	}
 </script>
 
 <p class="mb-4 rounded-md border border-border bg-muted/30 px-4 py-3 text-xs text-muted-foreground">
 	Select which assignment type's assignee appears in each calendar date column.
-	{#if headerTypeId}
-		Currently showing: <strong>{activeAssignmentTypes.find((t) => t.id === headerTypeId)?.name}</strong>
+	{#if savedHeaderId}
+		Currently showing: <strong>{activeAssignmentTypes.find((t) => t.id === savedHeaderId)?.name}</strong>
 	{:else}
 		None selected — no assignee shown in date columns.
 	{/if}
 </p>
 
 <RadioGroup.Root
-	bind:value={() => headerTypeId ?? '', (id) => void setShowInDateHeader(id)}
-	disabled={!canMutate || headerSwitching}
+	bind:value={() => pendingHeaderId ?? savedHeaderId ?? '', (id) => void chooseDateHeader(id)}
+	disabled={!canMutate || headerChoiceLocked}
 	aria-label="Assignment type shown in the date header"
 	class="gap-1.5"
 >
@@ -228,6 +233,7 @@
 						size="icon-sm"
 						title="Edit {type.name}"
 						aria-label="Edit {type.name}"
+						disabled={typeWritesLocked}
 						onclick={() => openEditAssign(type)}
 					>
 						<Pencil />
@@ -237,6 +243,7 @@
 						size="icon-sm"
 						title="Delete {type.name}"
 						aria-label="Delete {type.name}"
+						disabled={typeWritesLocked}
 						onclick={() => (confirmDeleteAssign = type)}
 					>
 						<Trash2 />
@@ -304,7 +311,7 @@
 			<Button variant="outline" onclick={closeAddAssignmentDialog} disabled={saving.pending}>Cancel</Button>
 			<Button
 				onclick={() => saving.run(addAssignType)}
-				disabled={saving.pending || !newAssignName.trim() || !newAssignShortName.trim()}
+				disabled={saving.pending || typeWritesLocked || !newAssignName.trim() || !newAssignShortName.trim()}
 			>
 				{#if saving.pending}<Spinner />{/if}
 				Add Assignment Type
@@ -367,7 +374,7 @@
 			<Button variant="outline" onclick={closeEditAssignmentDialog} disabled={saving.pending}>Cancel</Button>
 			<Button
 				onclick={() => saving.run(saveEditAssign)}
-				disabled={saving.pending || !editAssignName.trim() || !editAssignShortName.trim()}
+				disabled={saving.pending || typeWritesLocked || !editAssignName.trim() || !editAssignShortName.trim()}
 			>
 				{#if saving.pending}<Spinner />{/if}
 				Save Changes

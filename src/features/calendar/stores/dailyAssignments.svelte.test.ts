@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { dailyAssignmentsStore } from './dailyAssignments.svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
 import { settles } from '$lib/test-support/settles';
+import { endOrganizationLifetime } from '$lib/stores/core';
 
 function mockFetch(response: unknown, status = 200) {
 	return vi.fn().mockResolvedValue({
@@ -451,14 +452,272 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 			const found = dailyAssignmentsStore.getTypeById('f1');
 			expect(found?.showInDateHeader).toBe(true);
 		});
+	});
 
-		it('updateType can set showInDateHeader to true on a type', async () => {
-			dailyAssignmentsStore.load([guardType], [], 'org-1');
-			const updated = { ...guardType, showInDateHeader: true };
-			vi.stubGlobal('fetch', mockFetch(updated));
-			const result = await dailyAssignmentsStore.updateType('1', { showInDateHeader: true });
-			expect(result).toBe(true);
-			expect(dailyAssignmentsStore.getTypeById('1')?.showInDateHeader).toBe(true);
+	describe('setDateHeader', () => {
+		const staff = { ...guardType, id: 'staff', name: 'Staff', showInDateHeader: true };
+		const group = { ...guardType, id: 'group', name: 'Group' };
+		const retiring = { ...guardType, id: 'retiring', name: 'Retiring' };
+		const headers = () =>
+			Object.fromEntries(dailyAssignmentsStore.types.map((type) => [type.id, type.showInDateHeader]));
+		const reply = (status: number, body: unknown) => ({
+			ok: status >= 200 && status < 300,
+			status,
+			json: () => Promise.resolve(body),
+			text: () => Promise.resolve(JSON.stringify(body))
+		});
+
+		beforeEach(() => {
+			vi.restoreAllMocks();
+			dailyAssignmentsStore.load([staff, group, retiring], [], 'org-1');
+		});
+
+		it('sends one command and shows only the chosen type as the header once saved', async () => {
+			const fetchMock = vi.fn().mockResolvedValue(reply(200, { success: true }));
+			vi.stubGlobal('fetch', fetchMock);
+			const toast = vi.spyOn(toastStore, 'error');
+
+			expect(await dailyAssignmentsStore.setDateHeader('group')).toEqual({ status: 'saved' });
+			expect(headers()).toEqual({ staff: false, group: true, retiring: false });
+			expect(fetchMock.mock.calls).toEqual([
+				[
+					'/org/org-1/api/assignment-types/date-header',
+					{
+						method: 'PUT',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ assignmentTypeId: 'group' })
+					}
+				]
+			]);
+			expect(toast).not.toHaveBeenCalled();
+		});
+
+		it.each([400, 401, 403, 404, 409])('reports a %i as not saved and adopts one fresh read', async (status) => {
+			const stored = [staff, retiring];
+			const fetchMock = vi.fn((_url, options?: RequestInit) =>
+				Promise.resolve(
+					options ? reply(status, { message: 'That assignment type is no longer available.' }) : reply(200, stored)
+				)
+			);
+			vi.stubGlobal('fetch', fetchMock);
+			const toast = vi.spyOn(toastStore, 'error');
+
+			expect(await dailyAssignmentsStore.setDateHeader('group')).toEqual({
+				status: 'not-saved',
+				message: 'That assignment type is no longer available.',
+				showsSaved: true
+			});
+			expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+				'/org/org-1/api/assignment-types/date-header',
+				'/org/org-1/api/assignment-types'
+			]);
+			expect(dailyAssignmentsStore.types).toEqual(stored);
+			expect(toast).not.toHaveBeenCalled();
+		});
+
+		it.each([
+			['a 408', () => Promise.resolve(reply(408, {}))],
+			['a 500', () => Promise.resolve(reply(500, { message: 'Internal server error' }))],
+			['the unconfirmed 503', () => Promise.resolve(reply(503, { message: 'unconfirmed' }))],
+			['a rejected request', () => Promise.reject(new TypeError('Failed to fetch'))]
+		])('reports %s as unconfirmed and shows the stored header from one fresh read', async (_label, answer) => {
+			const stored = [{ ...staff, showInDateHeader: false }, group, { ...retiring, showInDateHeader: true }];
+			vi.stubGlobal(
+				'fetch',
+				vi.fn((_url, options?: RequestInit) => (options ? answer() : Promise.resolve(reply(200, stored))))
+			);
+
+			expect(await dailyAssignmentsStore.setDateHeader('group')).toEqual({ status: 'unconfirmed', showsSaved: true });
+			expect(headers()).toEqual({ staff: false, group: false, retiring: true });
+		});
+
+		it('reports a 409 with an unreadable body as not saved and still adopts one fresh read', async () => {
+			const stored = [staff, retiring];
+			const fetchMock = vi.fn((_url, options?: RequestInit) =>
+				Promise.resolve(
+					options
+						? { ok: false, status: 409, text: () => Promise.reject(new TypeError('error body interrupted')) }
+						: reply(200, stored)
+				)
+			);
+			vi.stubGlobal('fetch', fetchMock);
+
+			expect(await dailyAssignmentsStore.setDateHeader('group')).toEqual({
+				status: 'not-saved',
+				message: 'Failed to update the date header',
+				showsSaved: true
+			});
+			expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+				'/org/org-1/api/assignment-types/date-header',
+				'/org/org-1/api/assignment-types'
+			]);
+			expect(dailyAssignmentsStore.types).toEqual(stored);
+		});
+
+		it.each([
+			['an object', { saved: true }],
+			['a malformed type', [staff, {}]]
+		])('keeps the shown types when the fresh read returns %s', async (_label, body) => {
+			vi.stubGlobal(
+				'fetch',
+				vi.fn((_url, options?: RequestInit) => Promise.resolve(options ? reply(503, {}) : reply(200, body)))
+			);
+
+			expect(await dailyAssignmentsStore.setDateHeader('group')).toEqual({ status: 'unconfirmed', showsSaved: false });
+			expect(dailyAssignmentsStore.types).toEqual([staff, group, retiring]);
+		});
+
+		it('adopts a valid empty catalog from the fresh read', async () => {
+			vi.stubGlobal(
+				'fetch',
+				vi.fn((_url, options?: RequestInit) =>
+					Promise.resolve(options ? reply(404, { message: 'Not found' }) : reply(200, []))
+				)
+			);
+
+			expect(await dailyAssignmentsStore.setDateHeader('group')).toEqual({
+				status: 'not-saved',
+				message: 'Not found',
+				showsSaved: true
+			});
+			expect(dailyAssignmentsStore.types).toEqual([]);
+		});
+
+		it.each([
+			[
+				'a later saved choice as unconfirmed',
+				{ staff: false, group: false, retiring: true },
+				{ status: 'unconfirmed', showsSaved: true }
+			],
+			['this choice as saved', { staff: false, group: true, retiring: false }, { status: 'saved' }]
+		])('reads again when a reload lands before a committed reply and reports %s', async (_label, stored, result) => {
+			let respond!: (value: unknown) => void;
+			const fetchMock = vi.fn((_url, options?: RequestInit) =>
+				options
+					? new Promise((resolve) => (respond = resolve))
+					: Promise.resolve(
+							reply(
+								200,
+								[staff, group, retiring].map((type) => ({
+									...type,
+									showInDateHeader: stored[type.id as keyof typeof stored]
+								}))
+							)
+						)
+			);
+			vi.stubGlobal('fetch', fetchMock);
+			const pending = dailyAssignmentsStore.setDateHeader('group');
+			await vi.waitFor(() => expect(respond).toBeDefined());
+			dailyAssignmentsStore.load(
+				[{ ...staff, showInDateHeader: false }, group, { ...retiring, showInDateHeader: true }],
+				[],
+				'org-1'
+			);
+			respond(reply(200, { success: true }));
+
+			expect(await pending).toEqual(result);
+			expect(headers()).toEqual(stored);
+			expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+				'/org/org-1/api/assignment-types/date-header',
+				'/org/org-1/api/assignment-types'
+			]);
+		});
+
+		it('keeps a newer reload when the read after a committed reply fails', async () => {
+			let respond!: (value: unknown) => void;
+			vi.stubGlobal(
+				'fetch',
+				vi.fn((_url, options?: RequestInit) =>
+					options ? new Promise((resolve) => (respond = resolve)) : Promise.resolve(reply(500, {}))
+				)
+			);
+			const pending = dailyAssignmentsStore.setDateHeader('group');
+			await vi.waitFor(() => expect(respond).toBeDefined());
+			dailyAssignmentsStore.load(
+				[{ ...staff, showInDateHeader: false }, group, { ...retiring, showInDateHeader: true }],
+				[],
+				'org-1'
+			);
+			respond(reply(200, { success: true }));
+
+			expect(await pending).toEqual({ status: 'unconfirmed', showsSaved: false });
+			expect(headers()).toEqual({ staff: false, group: false, retiring: true });
+		});
+
+		it('keeps the shown header and says the read failed when the fresh read fails', async () => {
+			vi.stubGlobal(
+				'fetch',
+				vi.fn((_url, options?: RequestInit) =>
+					options ? Promise.reject(new TypeError('Failed to fetch')) : Promise.resolve(reply(500, {}))
+				)
+			);
+
+			expect(await dailyAssignmentsStore.setDateHeader('group')).toEqual({ status: 'unconfirmed', showsSaved: false });
+			expect(headers()).toEqual({ staff: true, group: false, retiring: false });
+		});
+
+		it('keeps a same-Organization reload that lands during the fresh read', async () => {
+			let respondRead!: (value: unknown) => void;
+			vi.stubGlobal(
+				'fetch',
+				vi.fn((_url, options?: RequestInit) =>
+					options ? Promise.resolve(reply(503, {})) : new Promise((resolve) => (respondRead = resolve))
+				)
+			);
+			const pending = dailyAssignmentsStore.setDateHeader('group');
+			await vi.waitFor(() => expect(respondRead).toBeDefined());
+			const reloaded = [
+				{ ...staff, showInDateHeader: false },
+				{ ...group, showInDateHeader: true }
+			];
+			dailyAssignmentsStore.load(reloaded, [], 'org-1');
+			respondRead(reply(200, [staff, group, retiring]));
+
+			expect(await pending).toEqual({ status: 'unconfirmed', showsSaved: false });
+			expect(dailyAssignmentsStore.types).toEqual(reloaded);
+		});
+
+		it('reports a choice answered after an Organization switch as stale without changing the new list', async () => {
+			let respond!: (value: unknown) => void;
+			vi.stubGlobal(
+				'fetch',
+				vi.fn(() => new Promise((resolve) => (respond = resolve)))
+			);
+			const pending = dailyAssignmentsStore.setDateHeader('group');
+			dailyAssignmentsStore.load([retiring], [], 'org-2');
+			respond(reply(200, { success: true }));
+
+			expect(await pending).toEqual({ status: 'stale' });
+			expect(dailyAssignmentsStore.types).toEqual([retiring]);
+		});
+
+		it('never settles a choice answered after the Organization shell ends', async () => {
+			let respond!: (value: unknown) => void;
+			vi.stubGlobal(
+				'fetch',
+				vi.fn(() => new Promise((resolve) => (respond = resolve)))
+			);
+			const pending = dailyAssignmentsStore.setDateHeader('group');
+			endOrganizationLifetime();
+			dailyAssignmentsStore.load([staff, group, retiring], [], 'org-1');
+			respond(reply(200, { success: true }));
+
+			expect(await settles(pending)).toBe(false);
+			expect(headers()).toEqual({ staff: true, group: false, retiring: false });
+		});
+
+		it('reports type writes as busy until they settle', async () => {
+			let respond!: (value: unknown) => void;
+			vi.stubGlobal(
+				'fetch',
+				vi.fn(() => new Promise((resolve) => (respond = resolve)))
+			);
+			expect(dailyAssignmentsStore.typesBusy).toBe(false);
+			const pending = dailyAssignmentsStore.updateType('group', { name: 'Group Night' });
+			expect(dailyAssignmentsStore.typesBusy).toBe(true);
+			respond(reply(200, { ...group, name: 'Group Night' }));
+			await pending;
+			expect(dailyAssignmentsStore.typesBusy).toBe(false);
 		});
 	});
 

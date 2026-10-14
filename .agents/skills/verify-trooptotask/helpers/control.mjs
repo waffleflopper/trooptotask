@@ -1728,7 +1728,8 @@ async function main() {
 				'rating-scheme',
 				'deletion-sources',
 				'account-setup',
-				'roster-shared-keys'
+				'roster-shared-keys',
+				'federal-reset-sentinels'
 			].includes(kind)
 		)
 			throw new Error('Unknown temporary seed.');
@@ -2285,6 +2286,23 @@ async function main() {
 			});
 			return;
 		}
+		if (kind === 'federal-reset-sentinels') {
+			const rows = {
+				orgA: { id: randomUUID(), date: '2019-07-04', name: `Map stale federal ${tag}` },
+				orgB: { id: randomUUID(), date: '2026-07-03', name: `Map foreign federal ${tag}` }
+			};
+			for (const [organization, row] of Object.entries(rows))
+				ownedState.seeded.push({ kind, table: 'special_days', organization, ids: [row.id], tag });
+			await save(ownedState);
+			for (const [organization, row] of Object.entries(rows))
+				checked(
+					await client
+						.from('special_days')
+						.insert({ ...row, organization_id: org(organization), type: 'federal-holiday' })
+				);
+			note({ kind, tag, rows });
+			return;
+		}
 		let table, records;
 		if (kind === 'duplicate-able') {
 			table = 'personnel';
@@ -2524,6 +2542,8 @@ async function main() {
 					'daily-assignments',
 					'daily-assignments/batch',
 					'status-types',
+					'assignment-types',
+					'assignment-types/date-header',
 					'ict-tasks/batch',
 					'calendar-reports/status-days',
 					'special-days',
@@ -2666,16 +2686,17 @@ async function main() {
 			const heldPersonnelFailure = family === 'personnel' && action === 'arm-hold-fail';
 			const sameOrigin =
 				heldPersonnelFailure ||
-				['user-preferences', 'groups', 'pinned-groups'].includes(family) ||
+				['user-preferences', 'groups', 'pinned-groups', 'assignment-types'].includes(family) ||
 				!!shellPart ||
 				(platformForm?.sameOrigin ?? false);
-			const requestMethod = heldPersonnelFailure
-				? 'PUT'
-				: family === 'user-preferences'
-					? 'PATCH'
-					: shellPart
-						? 'GET'
-						: null;
+			const requestMethod =
+				heldPersonnelFailure || family === 'assignment-types/date-header'
+					? 'PUT'
+					: family === 'user-preferences'
+						? 'PATCH'
+						: shellPart
+							? 'GET'
+							: null;
 			const install = `(${installNetworkControl.toString()})(window, ${JSON.stringify({ mode, ordinal, suffix, search, failureField, failureStatus: action === 'arm-fail-400' ? 400 : 503, requestTarget, sameOrigin, requestMethod })})`;
 			// Onboarding's HTTP adapter captures fetch at creation, so install before page code.
 			if (family.startsWith('onboarding-') || shellPart) {

@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { z } from 'zod';
+import { fail } from '$lib/errors';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
-import type { CalendarCatalogPersistence } from './contracts';
+import type { CalendarCatalogPersistence, FederalHolidayDefault } from './contracts';
 import {
 	ASSIGNMENT_TYPE_FIELDS,
 	SPECIAL_DAY_FIELDS,
@@ -13,6 +15,49 @@ import {
 	type SpecialDayRow,
 	type StatusTypeRow
 } from './calendarPersistenceMapping.server';
+
+export const CALENDAR_CHANGE_NOT_SAVED_MESSAGE =
+	'Another Calendar change was saving at the same time, so this change was not saved. Try again.';
+export const CALENDAR_CHANGE_UNCONFIRMED_MESSAGE =
+	"We couldn't confirm this Calendar change. Reload to see what is saved.";
+
+const federalHolidayRows = z
+	.array(
+		z.object({
+			id: z.string(),
+			organization_id: z.string(),
+			date: z.string(),
+			name: z.string(),
+			type: z.literal('federal-holiday'),
+			created_at: z.string()
+		})
+	)
+	.min(1);
+
+function holidayKeys(holidays: FederalHolidayDefault[]): string {
+	return JSON.stringify(holidays.map(({ date, name }) => JSON.stringify([date, name])).sort());
+}
+
+// postgrest-js reports a failed fetch as an error with an empty code instead of rejecting.
+async function calendarCommand<T>(
+	client: SupabaseClient,
+	name: string,
+	args: Record<string, unknown>,
+	result: z.ZodType<T>
+): Promise<T> {
+	const { data, error } = await client.rpc(name, args);
+	if (error) {
+		if (error.code === '42501') fail(403, 'You do not have access to configure the Calendar');
+		if (error.code === 'P0002') fail(404, 'That assignment type is no longer available.');
+		if (error.code === '22023' || error.code === '22P02') fail(400, 'Invalid Calendar configuration');
+		if (['40P01', '40001', '55P03', '23505'].includes(error.code)) fail(409, CALENDAR_CHANGE_NOT_SAVED_MESSAGE);
+		if (!error.code) fail(503, CALENDAR_CHANGE_UNCONFIRMED_MESSAGE, { publicMessage: true });
+		throw new Error(error.message);
+	}
+	const parsed = result.safeParse(data);
+	if (!parsed.success) throw new Error(`${name} returned an unexpected result`);
+	return parsed.data;
+}
 
 export function createSupabaseCalendarCatalogPersistence(
 	client: SupabaseClient,
@@ -127,7 +172,6 @@ export function createSupabaseCalendarCatalogPersistence(
 					assign_to: input.assignTo,
 					color: input.color ?? '#6b7280',
 					sort_order: input.sortOrder ?? 0,
-					show_in_date_header: input.showInDateHeader ?? false,
 					exempt_personnel_ids: input.exemptPersonnelIds ?? []
 				})
 				.select(ASSIGNMENT_TYPE_FIELDS)
@@ -144,7 +188,6 @@ export function createSupabaseCalendarCatalogPersistence(
 					assign_to: patch.assignTo,
 					color: patch.color,
 					sort_order: patch.sortOrder,
-					show_in_date_header: patch.showInDateHeader,
 					exempt_personnel_ids: patch.exemptPersonnelIds
 				})
 				.eq('organization_id', orgId)
@@ -193,22 +236,28 @@ export function createSupabaseCalendarCatalogPersistence(
 			const { error } = await client.from('special_days').delete().eq('organization_id', orgId).eq('id', id);
 			if (error) throw new Error(error.message);
 		},
-		async deleteFederalHolidays() {
-			const { error } = await client
-				.from('special_days')
-				.delete()
-				.eq('organization_id', orgId)
-				.eq('type', 'federal-holiday');
-			if (error) throw new Error(error.message);
+		async resetFederalHolidays(holidays) {
+			const rows = await calendarCommand(
+				client,
+				'reset_federal_holidays',
+				{ p_organization_id: orgId, p_holidays: holidays },
+				federalHolidayRows
+			);
+			if (
+				new Set(rows.map(({ id }) => id)).size !== rows.length ||
+				rows.some((row) => row.organization_id !== orgId) ||
+				holidayKeys(rows) !== holidayKeys(holidays)
+			)
+				throw new Error('reset_federal_holidays returned an incomplete result');
+			return rows.map((row) => ({ ...toSpecialDay(row), type: row.type }));
 		},
-		async createFederalHolidays(inputs) {
-			if (inputs.length === 0) return;
-			const { error } = await client
-				.from('special_days')
-				.insert(
-					inputs.map((input) => ({ organization_id: orgId, date: input.date, name: input.name, type: input.type }))
-				);
-			if (error) throw new Error(error.message);
+		async setDateHeader(assignmentTypeId) {
+			await calendarCommand(
+				client,
+				'set_assignment_type_date_header',
+				{ p_organization_id: orgId, p_assignment_type_id: assignmentTypeId },
+				z.null()
+			);
 		}
 	};
 }

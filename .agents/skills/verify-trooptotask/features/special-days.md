@@ -8,6 +8,7 @@ A Calendar configurator adds and edits Organization closures, removes a selected
 - `closure-failed-edit`: a lost configuration grant leaves the edit open with an error and the saved row unchanged.
 - `federal-reset`: confirmation distinguishes closures from federal holidays; reset replaces custom federal rows with observed defaults for the supported year window.
 - `special-day-scope`: A's Calendar shows A's closure, excludes B's; an A actor cannot write B's closure.
+- `closure-reentry`: a closure another member removed is gone after Calendar re-entry, and one A adds or removes during the re-entry snapshot keeps A's result; [Calendar navigation](calendar-navigation.md) step 16 drives it.
 
 ## How to get to it (user POV)
 

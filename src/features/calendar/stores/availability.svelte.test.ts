@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { availabilityStore } from './availability.svelte';
+import { endOrganizationLifetime } from '$lib/stores/core';
+import { settles } from '$lib/test-support/settles';
 import type { AvailabilityEntry } from '$features/calendar/contracts';
 
 const mockEntries: AvailabilityEntry[] = [
@@ -74,6 +76,24 @@ describe('availabilityStore', () => {
 			expect(result).toHaveLength(501);
 			expect(new Set(result.map((entry) => entry.id)).size).toBe(501);
 		});
+
+		it.each(['an Organization switch', 'the Organization shell ending'] as const)(
+			'sends no later chunk after %s',
+			async (departure) => {
+				let release!: (response: unknown) => void;
+				const fetchMock = vi.fn((_url: string, _init?: RequestInit) => new Promise((resolve) => (release = resolve)));
+				vi.stubGlobal('fetch', fetchMock);
+
+				const pending = availabilityStore.addBatch(Array.from({ length: 501 }, (_, i) => record(i)));
+				if (departure === 'an Organization switch') availabilityStore.load([], 'org-2');
+				else endOrganizationLifetime();
+				release({ ok: true, status: 200, json: () => Promise.resolve({ inserted: [] }) });
+
+				expect(await settles(pending)).toBe(false);
+				expect(fetchMock).toHaveBeenCalledTimes(1);
+				expect(fetchMock.mock.calls[0][0]).toBe('/org/org-1/api/availability/batch');
+			}
+		);
 
 		it('keeps going past a failed chunk and returns the inserted entries', async () => {
 			let call = 0;

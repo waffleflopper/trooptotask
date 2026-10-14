@@ -46,6 +46,18 @@ async function readResponseErrorMessage(response: Response, fallback: string): P
 }
 
 function enhance(base: Store<IctTask>, internals: StoreInternals<IctTask>): IctTasksExtensions {
+	async function importChunk(mode: IctTaskImportMode, records: IctTaskImportMappedRow[]) {
+		const response = await fetch(`/org/${internals.orgId()}/api/ict-tasks/batch`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ mode, records })
+		});
+		if (!response.ok) {
+			throw new Error(await readResponseErrorMessage(response, 'Failed to import ICT tasks'));
+		}
+		return (await response.json()) as IctTaskImportBatchResult;
+	}
+
 	return {
 		load(items: IctTask[], orgId: string) {
 			base.load(items, orgId);
@@ -59,20 +71,7 @@ function enhance(base: Store<IctTask>, internals: StoreInternals<IctTask>): IctT
 
 			for (let index = 0; index < input.records.length; index += MAX_BATCH_SIZE) {
 				const chunk = input.records.slice(index, index + MAX_BATCH_SIZE);
-				const response = await fetch(`/org/${internals.orgId()}/api/ict-tasks/batch`, {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({
-						mode: input.mode,
-						records: chunk
-					})
-				});
-
-				if (!response.ok) {
-					throw new Error(await readResponseErrorMessage(response, 'Failed to import ICT tasks'));
-				}
-
-				const data = (await response.json()) as IctTaskImportBatchResult;
+				const data = await internals.withinOrganization(importChunk(input.mode, chunk));
 				const chunkInserted = data.inserted ?? [];
 				const chunkUpdated = data.updated ?? [];
 				const chunkRestored = data.restored ?? [];

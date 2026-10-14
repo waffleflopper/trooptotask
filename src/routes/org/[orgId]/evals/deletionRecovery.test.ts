@@ -13,6 +13,7 @@ import { toastStore } from '$lib/stores/toast.svelte';
 import { submitDeletionRequest } from '$features/deletion-requests';
 import * as deletionRequests from '$features/deletion-requests';
 import { ratingSchemeStore } from '$features/rating-scheme/ratingSchemeStore.test-support.svelte';
+import { settles } from '$lib/test-support/settles';
 const { default: RatingSchemeModals } = await loadRatingSchemeModals();
 let snapshot = 0;
 let ctx: RatingSchemePageContext;
@@ -178,7 +179,7 @@ describe('Evals deletion recovery', () => {
 		await fireEvent.input(screen.getByLabelText('Notes'), { target: { value: 'B retained draft' } });
 		await act(async () => {
 			release(Response.json({ ...entry, notes: 'Held A edit' }));
-			await update.mock.results[0].value;
+			expect(await settles(update.mock.results[0].value)).toBe(false);
 		});
 		expect(errorToast).not.toHaveBeenCalled();
 		expect(successToast).not.toHaveBeenCalled();
@@ -217,7 +218,7 @@ describe('Evals deletion recovery', () => {
 				held.resolve(
 					Response.json({ id: 'created-evaluation', ...saveData }, { status: outcome === 'success' ? 200 : 503 })
 				);
-			await mutation.mock.results[0].value;
+			expect(await settles(mutation.mock.results[0].value)).toBe(false);
 		});
 		expect(errorToast).not.toHaveBeenCalled();
 		expect(successToast).not.toHaveBeenCalled();
@@ -246,7 +247,7 @@ describe('Evals deletion recovery', () => {
 			await act(async () => {
 				if (outcome === 'transport failure') held.reject(new TypeError('Old deletion failed'));
 				else held.resolve(Response.json({}, { status: outcome === 'success' ? 200 : 503 }));
-				await remove.mock.results[0].value;
+				expect(await settles(remove.mock.results[0].value)).toBe(false);
 			});
 			expect(errorToast).not.toHaveBeenCalled();
 			expect(infoToast).not.toHaveBeenCalled();
@@ -282,7 +283,8 @@ describe('Evals deletion recovery', () => {
 			await fireEvent.input(screen.getByLabelText('Notes'), { target: { value: 'Replacement editor draft' } });
 			await act(async () => {
 				held.resolve(Response.json({ requiresApproval: true }, { status: 202 }));
-				await remove.mock.results[0].value;
+				if (departure === 'workspace') expect(await settles(remove.mock.results[0].value)).toBe(false);
+				else await remove.mock.results[0].value;
 			});
 			expect(methods).toEqual(['DELETE']);
 			expect(errorToast).not.toHaveBeenCalled();
@@ -384,7 +386,8 @@ describe('Evals deletion recovery', () => {
 			await fireEvent.input(screen.getByLabelText('Notes'), { target: { value: 'Fresh A draft' } });
 			await act(async () => {
 				held.resolve(Response.json({ ...entry, notes: 'Retired A save' }));
-				await update.mock.results[0].value;
+				if (departure === 'A to B to fresh A') expect(await settles(update.mock.results[0].value)).toBe(false);
+				else await update.mock.results[0].value;
 			});
 			expect(errorToast).not.toHaveBeenCalled();
 			expect(successToast).not.toHaveBeenCalled();

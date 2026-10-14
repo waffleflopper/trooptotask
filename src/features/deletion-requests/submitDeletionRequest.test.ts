@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { toastStore } from '$lib/stores/toast.svelte';
 import { submitDeletionRequest } from './submitDeletionRequest';
+import { endOrganizationLifetime } from '$lib/stores/core';
 vi.mock('$lib/stores/toast.svelte', () => ({ toastStore: { info: vi.fn(), error: vi.fn() } }));
 afterEach(() => {
 	vi.unstubAllGlobals();
@@ -92,5 +93,43 @@ describe('owned request submission', () => {
 		expect(await submitDeletionRequest('org-a', 'personnel', 'person', 'Archive target')).toBe(true);
 		expect(request.mock.calls[0]).toEqual(request.mock.calls[1]);
 		expect(JSON.parse(request.mock.calls[1][1].body).resourceUrl).toBeNull();
+	});
+
+	it('keeps a dispatched request quiet after its Organization shell ends without an explicit owner check', async () => {
+		let resolveRequest!: (response: Response) => void;
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(() => new Promise<Response>((resolve) => (resolveRequest = resolve)))
+		);
+
+		const pending = submitDeletionRequest('org-a', 'personnel', 'person-a', 'Archive SPC Able', '/org/org-a/personnel');
+		endOrganizationLifetime();
+		resolveRequest(new Response(null, { status: 201 }));
+
+		expect(await pending).toBe(false);
+		expect(toastStore.info).not.toHaveBeenCalled();
+		expect(toastStore.error).not.toHaveBeenCalled();
+	});
+
+	it('keeps a dispatched request quiet after its Organization shell ends even when its owner is still current', async () => {
+		let resolveRequest!: (response: Response) => void;
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(() => new Promise<Response>((resolve) => (resolveRequest = resolve)))
+		);
+
+		const pending = submitDeletionRequest(
+			'org-a',
+			'rating_scheme_entry',
+			'entry',
+			'Saved evaluation',
+			'/org/org-a/evals',
+			() => true
+		);
+		endOrganizationLifetime();
+		resolveRequest(new Response(null, { status: 201 }));
+
+		expect(await pending).toBe(false);
+		expect(toastStore.info).not.toHaveBeenCalled();
 	});
 });

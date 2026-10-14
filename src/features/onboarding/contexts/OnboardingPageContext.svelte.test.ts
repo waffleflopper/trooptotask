@@ -20,6 +20,7 @@ import type { PersonnelOnboarding, OnboardingStepProgress } from '../onboarding.
 import { personnelRosterHydration } from '$features/personnel';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
+import { settles } from '$lib/test-support/settles';
 
 afterEach(() => {
 	personnelRosterHydration.load([], 'org-test-reset');
@@ -417,7 +418,7 @@ describe('Onboarding Personnel creation result', () => {
 		await pending;
 		expect(feedback).not.toHaveBeenCalled();
 	});
-	it('rejects an unconfirmed old-Organization create without adding it to the new roster', async () => {
+	it('drops an old-Organization create without adding it to the new roster', async () => {
 		personnelRosterHydration.load([], 'org-a');
 		let finishRequest!: (response: Response) => void;
 		const response = new Promise<Response>((resolve) => {
@@ -441,7 +442,7 @@ describe('Onboarding Personnel creation result', () => {
 		const pending = ctx.handleAddPerson(data);
 		personnelRosterHydration.load([], 'org-b');
 		finishRequest(Response.json({ ...data, id: 'created-in-a' }, { status: 201 }));
-		await expect(pending).rejects.toThrow();
+		expect(await settles(pending)).toBe(false);
 		expect(personnelRosterHydration.orgId).toBe('org-b');
 		expect(personnelRosterHydration.items).toEqual([]);
 	});

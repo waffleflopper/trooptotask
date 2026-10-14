@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ictTasksStore } from './ictTasks.svelte';
 import type { IctTask } from '$features/critical-tasks/criticalTasks.types';
+import { settles } from '$lib/test-support/settles';
 
 const existingTask: IctTask = {
 	id: 'task-existing',
@@ -196,4 +197,43 @@ describe('ictTasksStore', () => {
 		expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).records).toHaveLength(500);
 		expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body)).records).toHaveLength(1);
 	});
+
+	const switchedImport = {
+		mode: 'create-only' as const,
+		records: Array.from({ length: 501 }, (_, index) => ({
+			rowNumber: index + 2,
+			values: { taskCode: `181-105-${String(index).padStart(4, '0')}`, title: `Task ${index}` }
+		}))
+	};
+	const foreignTask: IctTask = { ...existingTask, id: 'task-foreign', taskCode: 'B-1', title: 'Foreign task' };
+
+	for (const outcome of ['success', 'failure'] as const) {
+		it(`stops an import whose first chunk finishes with ${outcome} after switching Organizations`, async () => {
+			let release!: (response: unknown) => void;
+			const fetchMock = vi.fn((_url: string, _init?: RequestInit) => new Promise((resolve) => (release = resolve)));
+			vi.stubGlobal('fetch', fetchMock);
+
+			const pending = ictTasksStore.importBatch(switchedImport);
+			ictTasksStore.load([structuredClone(foreignTask)], 'org-2');
+			release(
+				outcome === 'success'
+					? {
+							ok: true,
+							status: 200,
+							json: async () => ({
+								inserted: [{ ...existingTask, id: 'task-imported-a', taskCode: '181-105-0000' }],
+								updated: [],
+								restored: [],
+								errors: []
+							})
+						}
+					: { ok: false, status: 503, json: async () => ({ message: 'Synthetic request failure' }) }
+			);
+
+			expect(await settles(pending)).toBe(false);
+			expect(fetchMock).toHaveBeenCalledTimes(1);
+			expect(fetchMock.mock.calls[0][0]).toBe('/org/org-1/api/ict-tasks/batch');
+			expect(ictTasksStore.items).toEqual([foreignTask]);
+		});
+	}
 });

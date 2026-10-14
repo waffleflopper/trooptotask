@@ -12,7 +12,7 @@
  *
  * Loaded by the calendar page load function and populated from the server response.
  */
-import { defineStore } from '$lib/stores/core';
+import { defineStore, stillInOrganizationLifetime } from '$lib/stores/core';
 import type { Store, BatchApiAdapter } from '$lib/stores/core';
 import type { AvailabilityEntry } from '$features/calendar/contracts';
 import { isDateInRange, formatDate } from '$lib/utils/dates';
@@ -79,10 +79,14 @@ function createAvailabilityBatchAdapter(): BatchApiAdapter<AvailabilityEntry> {
 		 */
 		async createBatch(items) {
 			const inserted: AvailabilityEntry[] = [];
+			const organizationId = orgIdRef;
+			const sameLifetime = stillInOrganizationLifetime();
 			for (let i = 0; i < items.length; i += CREATE_BATCH_CHUNK_SIZE) {
+				// Later chunks belong to the Organization lifetime that started the import.
+				if (!sameLifetime() || orgIdRef !== organizationId) break;
 				const chunk = items.slice(i, i + CREATE_BATCH_CHUNK_SIZE);
 				try {
-					const res = await fetch(`${url()}/batch`, {
+					const res = await fetch(`/org/${organizationId}/api/availability/batch`, {
 						method: 'POST',
 						headers,
 						body: JSON.stringify({ records: chunk })

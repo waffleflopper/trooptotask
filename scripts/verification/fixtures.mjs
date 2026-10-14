@@ -183,7 +183,7 @@ export async function seed(session) {
 		ictOperator: { organization: 'orgA', criticalTasks: 'operate', scope: 'organization' },
 		ictViewer: { organization: 'orgA', criticalTasks: 'view', scope: 'organization' },
 		ictEmpty: { organization: 'orgA', criticalTasks: 'operate', scope: 'groups', groups: [] },
-		ictSwitch: { organization: 'orgA', criticalTasks: 'operate', scope: 'organization' },
+		ictSwitch: { organization: 'orgA', criticalTasks: 'configure', scope: 'organization' },
 		ictScoped: {
 			organization: 'orgA',
 			criticalTasks: 'configure',

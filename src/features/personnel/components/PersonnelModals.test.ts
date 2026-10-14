@@ -12,6 +12,7 @@ import { toastStore } from '$lib/stores/toast.svelte';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import PersonnelModals from './PersonnelModals.svelte';
 import type { RequestPersonnelArchiveApproval } from '../utils/archivePersonnel';
+import { settles } from '$lib/test-support/settles';
 
 const requestArchiveApproval: RequestPersonnelArchiveApproval = async () => false;
 
@@ -260,7 +261,7 @@ describe('retired Personnel save feedback', () => {
 				? Response.json({ ...personA, clinicRole: 'Held Save First' })
 				: Response.json({ message: 'Unavailable' }, { status })
 		);
-		await updateSettled;
+		expect(await settles(updateSettled)).toBe(false);
 		await tick();
 		await new Promise((resolve) => setTimeout(resolve, 0));
 

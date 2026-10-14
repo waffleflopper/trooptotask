@@ -88,6 +88,16 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 		}
 	}
 
+	async function sendAssignments(path: '' | '/batch', method: 'POST' | 'DELETE', body: unknown, failure: string) {
+		const res = await fetch(`/org/${internals.orgId()}/api/daily-assignments${path}`, {
+			method,
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(body)
+		});
+		if (!res.ok) throw new Error(await readResponseErrorMessage(res, failure));
+		return res;
+	}
+
 	return {
 		get types() {
 			return typesStore.items;
@@ -170,25 +180,18 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 			}
 
 			try {
-				const res = await fetch(`/org/${internals.orgId()}/api/daily-assignments`, {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ date, assignmentTypeId, assigneeId })
-				});
-				if (!res.ok) {
-					throw new Error(await readResponseErrorMessage(res, 'Failed to set assignment'));
-				}
+				const saved = await internals.withinOrganization(
+					sendAssignments('', 'POST', { date, assignmentTypeId, assigneeId }, 'Failed to set assignment').then((res) =>
+						assigneeId ? (res.json() as Promise<DailyAssignment>) : null
+					)
+				);
 
-				// Update serverState
 				let current = internals.serverState.getSnapshot();
 				if (existing) {
 					current = current.filter((a) => a.id !== existing.id);
 				}
-				if (assigneeId) {
-					const data = await res.json();
-					if (data.id) {
-						current = [...current, data];
-					}
+				if (saved?.id) {
+					current = [...current, saved];
 				}
 				internals.serverState.set(current);
 
@@ -211,12 +214,9 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 			internals.log.push({ type: 'remove', mutationId, targetId: original.id });
 
 			try {
-				const res = await fetch(`/org/${internals.orgId()}/api/daily-assignments`, {
-					method: 'DELETE',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ date, assignmentTypeId })
-				});
-				if (!res.ok) throw new Error('Failed to remove assignment');
+				await internals.withinOrganization(
+					sendAssignments('', 'DELETE', { date, assignmentTypeId }, 'Failed to remove assignment')
+				);
 
 				internals.serverState.set(internals.serverState.getSnapshot().filter((a) => a.id !== original.id));
 				internals.log.resolve(mutationId);
@@ -276,17 +276,14 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 			}
 
 			try {
-				const res = await fetch(`/org/${internals.orgId()}/api/daily-assignments/batch`, {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ records: normalizedAssignments })
-				});
-				if (!res.ok) {
-					throw new Error(await readResponseErrorMessage(res, 'Failed to batch update assignments'));
-				}
-
-				const data = await res.json();
-				const inserted: DailyAssignment[] = data.inserted;
+				const { inserted } = await internals.withinOrganization(
+					sendAssignments(
+						'/batch',
+						'POST',
+						{ records: normalizedAssignments },
+						'Failed to batch update assignments'
+					).then((res) => res.json() as Promise<{ inserted: DailyAssignment[] }>)
+				);
 
 				// Update serverState: remove old, add new
 				let current = internals.serverState.getSnapshot();

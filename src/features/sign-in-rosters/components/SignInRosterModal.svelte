@@ -25,6 +25,7 @@
 	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import { SENSITIVE_FILE_ACCEPT, validateSensitiveFileSelection } from '$lib/storage/sensitiveFiles';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { stillInOrganizationLifetime, withinOrganizationLifetime } from '$lib/stores/core';
 	import { formatDate as formatDateValue } from '$lib/utils/dates';
 	import { SvelteMap, SvelteSet, SvelteURLSearchParams } from 'svelte/reactivity';
 
@@ -382,6 +383,7 @@
 
 	// Re-print from saved roster
 	async function reprintRoster(roster: SignInRoster) {
+		const current = stillInOrganizationLifetime();
 		try {
 			await generatePDF({
 				title: roster.title,
@@ -392,7 +394,7 @@
 				personnelSnapshot: roster.personnelSnapshot
 			});
 		} catch (err) {
-			toastStore.error(err instanceof Error ? err.message : 'Failed to generate PDF');
+			if (current()) toastStore.error(err instanceof Error ? err.message : 'Failed to generate PDF');
 		}
 	}
 
@@ -456,11 +458,13 @@
 			const formData = new FormData();
 			formData.append('file', file);
 
-			const response = await fetch(getSignedScanUploadUrl(roster), {
-				method: 'POST',
-				body: formData
-			});
-			const payload = (await response.json().catch(() => ({}))) as {
+			const response = await withinOrganizationLifetime(
+				fetch(getSignedScanUploadUrl(roster), {
+					method: 'POST',
+					body: formData
+				})
+			);
+			const payload = (await withinOrganizationLifetime(response.json().catch(() => ({})))) as {
 				filePath?: string;
 				message?: unknown;
 			};
@@ -522,12 +526,17 @@
 
 		signedScanRemovingIds.add(roster.id);
 		try {
-			const response = await fetch(getSignedScanUploadUrl(roster), {
-				method: 'DELETE',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ filePath: roster.signedFilePath })
-			});
-			const payload = (await response.json().catch(() => ({}))) as { message?: unknown; fileCleanup?: string };
+			const response = await withinOrganizationLifetime(
+				fetch(getSignedScanUploadUrl(roster), {
+					method: 'DELETE',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ filePath: roster.signedFilePath })
+				})
+			);
+			const payload = (await withinOrganizationLifetime(response.json().catch(() => ({})))) as {
+				message?: unknown;
+				fileCleanup?: string;
+			};
 
 			if (response.status === 404) {
 				dropUnavailableRoster(roster);
@@ -554,10 +563,15 @@
 		deleting = roster.id;
 		deleteError = '';
 		try {
-			const res = await fetch(`/org/${orgId}/api/sign-in-rosters/${roster.id}`, {
-				method: 'DELETE'
-			});
-			const payload = (await res.json().catch(() => ({}))) as { message?: unknown; fileCleanup?: string };
+			const res = await withinOrganizationLifetime(
+				fetch(`/org/${orgId}/api/sign-in-rosters/${roster.id}`, {
+					method: 'DELETE'
+				})
+			);
+			const payload = (await withinOrganizationLifetime(res.json().catch(() => ({})))) as {
+				message?: unknown;
+				fileCleanup?: string;
+			};
 			if (res.status === 404) {
 				confirmDeleteRoster = null;
 				dropUnavailableRoster(roster);

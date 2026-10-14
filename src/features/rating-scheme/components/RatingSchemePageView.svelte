@@ -8,6 +8,7 @@
 	} from '$features/rating-scheme/rating-scheme.types';
 	import { ratingSchemeStore } from '$features/rating-scheme/stores/ratingScheme.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { stillInOrganizationLifetime } from '$lib/stores/core';
 	import * as Alert from '$lib/components/ui/alert';
 	import {
 		WorkspaceToolbar,
@@ -87,11 +88,12 @@
 	]);
 	async function exportEntries(): Promise<void> {
 		exportLoading = true;
+		const current = stillInOrganizationLifetime();
 		try {
 			const { exportRatingScheme } = await import('$features/rating-scheme/utils/ratingSchemeExport');
 			await exportRatingScheme(ctx.filteredRatingEntries, personnelLookup);
 		} catch (err) {
-			toastStore.error(err instanceof Error ? err.message : 'Export failed');
+			if (current()) toastStore.error(err instanceof Error ? err.message : 'Export failed');
 		} finally {
 			exportLoading = false;
 		}

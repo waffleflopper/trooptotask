@@ -1062,7 +1062,6 @@ test('the pre-dispatch pause lasts 120 seconds while the scripted hold keeps its
 				method: 'POST',
 				path: '/rest/v1/rpc/attach_sign_in_roster_scan',
 				releaseReason: ending,
-				// A restore snapshots its receipt before the released request reaches the provider.
 				...(ending === 'deadline' ? { providerStatus: 200 } : {})
 			});
 			assert.equal(dispatched, 1);

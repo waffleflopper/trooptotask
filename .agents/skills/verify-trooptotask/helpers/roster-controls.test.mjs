@@ -24,7 +24,6 @@ const fixture = {
 	}
 };
 
-/** Tables, RPCs and Storage in memory; every call is logged in order. */
 function provider({ tables = {}, failUploadAt = Infinity, insertError = null, rpc = {} } = {}) {
 	const log = [];
 	const data = { personnel: [], sign_in_rosters: [], counseling_records: [], personnel_documents: [], ...tables };

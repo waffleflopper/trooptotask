@@ -1261,8 +1261,6 @@ async function main() {
 	}
 	if (command === 'roster-replace') {
 		const [page, orgKey, rosterKey, filename, secondFilename] = args;
-		// `delete` alone is one ordinary Delete, for example a retry after a lost reply. It may also name a roster
-		// ID recorded by roster-insert, because the roster it retries may no longer exist.
 		const deleteOnly = args.length === 4 && filename === 'delete';
 		const concurrentAction = deleteOnly
 			? 'delete'

@@ -75,7 +75,6 @@ export async function insertRosterWithId({ service, signIn, fixture, args, tag, 
 	} finally {
 		await client.auth.signOut({ scope: 'local' });
 	}
-	// The title readback also adopts a row whose reply was lost, so cleanup never depends on the response.
 	const titled = checked(
 		await service.from('sign_in_rosters').select(columns).eq('organization_id', orgId).eq('title', title)
 	);

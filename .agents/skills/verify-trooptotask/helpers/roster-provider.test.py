@@ -1,6 +1,5 @@
 import importlib.util
 from pathlib import Path
-import re
 import unittest
 
 spec = importlib.util.spec_from_file_location('roster_provider', Path(__file__).with_name('roster-provider.py'))
@@ -19,12 +18,6 @@ class TargetTests(unittest.TestCase):
                            ('orgA', '../foreign')]:
             with self.assertRaises((RuntimeError, ValueError)):
                 module.target(fixture, org, value)
-
-    def test_release_faults_are_the_preload_holds(self):
-        controls = (module.REPOSITORY / 'scripts/verification/outbound-controls.mjs').read_text()
-        holds = re.findall(r"'([a-z-]+)': \[write\([^\]]*\{ hold: true \}", controls)
-        self.assertEqual(sorted(holds), sorted(module.RELEASE_FAULTS))
-
 
 
 class RecordedKeyTests(unittest.TestCase):

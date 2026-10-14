@@ -17,8 +17,6 @@ const NOT_SAVED = 'The signed scan change was not saved. Try again.';
 
 const pdf = (name: string) => new File([`%PDF-1.7 ${name}`], `${name}.pdf`, { type: 'application/pdf' });
 
-// A stateful stand-in for the provider's roster commands and Storage. It models pointers and
-// retirements, not SQL locking, real Storage bytes or the actual PostgREST error envelope.
 function provider() {
 	const state = {
 		pointer: oldPath as string | null,
@@ -105,7 +103,6 @@ function harness() {
 		});
 	const scans = createSupabaseSignInRosterScanPort(client('ordinary-key'), () => client('service-key'));
 	const actor = createTestAuthContext({ orgId, userId });
-	// The production route maps every thrown error through this function.
 	const outcome = async (operation: Promise<unknown>) => {
 		try {
 			await operation;

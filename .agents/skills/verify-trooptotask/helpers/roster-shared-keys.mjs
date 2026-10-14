@@ -302,7 +302,6 @@ export async function cleanRosterSharedKeys({ client, fixture, ownedState, save 
 	for (const bucket of ['counseling-files', 'personnel-documents']) {
 		const paths = manifest.files.filter((file) => file.bucket === bucket).map((file) => file.path);
 		checked(await client.storage.from(bucket).remove(paths));
-		// The bytes are gone, so completing these keys' retirements is the truthful drain outcome.
 		removed[bucket] = checked(
 			await client.rpc('complete_organization_file_retirements', { p_bucket_id: bucket, p_object_names: paths })
 		);

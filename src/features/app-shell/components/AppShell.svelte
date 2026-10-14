@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { invalidate } from '$app/navigation';
+	import { beforeNavigate, invalidate } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { onMount, type Snippet } from 'svelte';
 	import { browser } from '$app/environment';
 	import { getBrowserLocalStorage } from '$lib/utils/browserStorage';
-	import { endOrganizationLifetime } from '$lib/stores/core';
+	import { endOrganizationLifetime, markSnapshotRequest } from '$lib/stores/core';
 	import { AccountPreferencesProvider } from '$features/identity';
 	import { AnnouncementBanner } from '$features/notifications';
 	import BannerStack from './BannerStack.svelte';
@@ -56,6 +56,9 @@
 			/* Closing the dialog does not depend on persistent browser storage. */
 		}
 	}
+	// Workspace snapshots reconcile from the moment their request leaves, before any response arrives.
+	beforeNavigate(markSnapshotRequest);
+
 	const FOCUS_REFRESH_AWAY_MS = 60_000;
 	const FOCUS_REFRESH_COOLDOWN_MS = 90_000;
 
@@ -85,6 +88,7 @@
 			clearTimeout(debounceTimer);
 			debounceTimer = setTimeout(() => {
 				lastRefreshAt = Date.now();
+				markSnapshotRequest();
 				void invalidate('app:org-core');
 			}, 750);
 		};

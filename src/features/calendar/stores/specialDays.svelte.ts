@@ -73,8 +73,8 @@ function enhance(base: Store<SpecialDay>): SpecialDayExtensions {
 				if (state.version !== version || state.pending.length > 0 || loadGeneration !== requestLoadGeneration) {
 					continue;
 				}
-				base.removeLocalWhere(() => true);
-				base.appendLocal(savedDays.data);
+				// A read, not a confirmed change, so a later snapshot must not re-apply it.
+				base.load(savedDays.data, orgId);
 				return 'saved';
 			} catch {
 				return currentReset(orgId, requestReset) ? 'refresh-failed' : 'stale';

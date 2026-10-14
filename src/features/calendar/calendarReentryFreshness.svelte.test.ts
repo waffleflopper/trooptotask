@@ -3,7 +3,7 @@ import { calendarWorkspaceHydrator } from './calendarWorkspaceHydration.svelte';
 import { availabilityStore } from './stores/availability.svelte';
 import { specialDaysStore } from './stores/specialDays.svelte';
 import { dailyAssignmentsStore } from './stores/dailyAssignments.svelte';
-import { endOrganizationLifetime } from '$lib/stores/core';
+import { endOrganizationLifetime, markSnapshotRequest } from '$lib/stores/core';
 import type { CalendarWorkspaceHydration } from './calendar.types';
 import type { AvailabilityEntry, DailyAssignment, SpecialDay } from './contracts';
 
@@ -59,6 +59,12 @@ function workspace(rows: Rows, range = OCTOBER, specialDaysRange = CATALOG_YEARS
 }
 
 function enter(orgId: string, data: CalendarWorkspaceHydration) {
+	markSnapshotRequest();
+	return arrive(orgId, data);
+}
+
+// The response reaches the browser some time after navigation sent the request.
+function arrive(orgId: string, data: CalendarWorkspaceHydration) {
 	calendarWorkspaceHydrator.reset();
 	return calendarWorkspaceHydrator.hydrate({ ...data, orgId });
 }
@@ -292,5 +298,43 @@ describe('Calendar re-entry freshness', () => {
 		expect(ids(availabilityStore.items)).toEqual(['a1']);
 		expect(ids(specialDaysStore.items)).toEqual(['c1']);
 		expect(ids(dailyAssignmentsStore.assignments)).toEqual(['x1']);
+	});
+
+	it('keeps a save confirmed after the request left but before its response arrived', async () => {
+		markSnapshotRequest();
+		await availabilityStore.add({
+			personnelId: 'p1',
+			statusTypeId: 'leave',
+			startDate: '2026-10-22',
+			endDate: '2026-10-22'
+		});
+		await specialDaysStore.remove('c2');
+
+		await arrive(
+			'org-1',
+			workspace({
+				availability: [leave('a1'), leave('a2', '2026-10-15')],
+				specialDays: [closure('c1'), closure('c2', '2026-10-21')],
+				assignments: [duty('x1'), duty('x2', '2026-10-10')]
+			})
+		);
+
+		expect(ids(availabilityStore.items)).toEqual(['a1', 'a2', 'saved-1']);
+		expect(ids(specialDaysStore.items)).toEqual(['c1']);
+	});
+
+	it('does not apply a held snapshot after the user switched to another Organization', async () => {
+		const held = heldSnapshot();
+		const staleEntry = enter('org-1', workspace(held.rows));
+		endOrganizationLifetime();
+		await enter('org-2', workspace({ availability: [leave('b1')], specialDays: [closure('b-c1')], assignments: [] }));
+
+		held.release({ availability: [leave('a1')], specialDays: [closure('c1')], assignments: [duty('x1')] });
+		await staleEntry;
+
+		expect(availabilityStore.orgId).toBe('org-2');
+		expect(ids(availabilityStore.items)).toEqual(['b1']);
+		expect(ids(specialDaysStore.items)).toEqual(['b-c1']);
+		expect(ids(dailyAssignmentsStore.assignments)).toEqual([]);
 	});
 });

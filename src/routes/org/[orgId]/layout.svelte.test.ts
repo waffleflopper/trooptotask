@@ -31,7 +31,7 @@ const { pageStore, invalidate } = vi.hoisted(() => {
 		}
 	};
 });
-vi.mock('$app/navigation', () => ({ invalidate, goto: vi.fn(), afterNavigate: vi.fn() }));
+vi.mock('$app/navigation', () => ({ invalidate, goto: vi.fn(), afterNavigate: vi.fn(), beforeNavigate: vi.fn() }));
 vi.mock('$app/stores', () => ({ page: { subscribe: pageStore.subscribe } }));
 vi.mock('$app/environment', () => ({ browser: true, dev: true, building: false, version: 'test' }));
 // The neutral browser-storage adapter intentionally refuses Node, including happy-dom.

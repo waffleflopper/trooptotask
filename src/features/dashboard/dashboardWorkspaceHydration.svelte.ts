@@ -1,13 +1,16 @@
 import {
 	calendarStatusHydration,
 	calendarAvailabilityHydration,
-	calendarAssignmentsHydration
+	calendarAssignmentsHydration,
+	rangeCoversDate,
+	rangeCoversSpan
 } from '$features/calendar';
 import { trainingTypeHydration } from '$features/training';
 import { groupCatalogHydration } from '$features/personnel';
 import type { Group } from '$features/personnel/contracts';
 import { pinnedGroupsHydration } from '$features/personnel';
 import { personnelRosterHydration } from '$features/personnel';
+import { snapshotRequestSequence, type StoreRead } from '$lib/stores/core';
 import {
 	createFeatureLaneWorkspaceHydrator,
 	type FeatureLaneWorkspaceHydrationTargetDescriptor
@@ -17,6 +20,7 @@ import type { Personnel } from '$features/personnel/contracts';
 import type { AssignmentType, AvailabilityEntry, StatusType, DailyAssignment } from '$features/calendar/contracts';
 import type {
 	DashboardAssignmentsWorkspaceHydrationTarget,
+	DashboardRangeHydrationTarget,
 	DashboardWorkspaceHydration,
 	DashboardWorkspaceHydrationTarget
 } from './contracts';
@@ -29,10 +33,15 @@ export interface DashboardHydrationLoadable<T> {
 	startLoading?(): void;
 }
 
+export interface DashboardRangeHydrationLoadable<T extends { id: string }> extends DashboardHydrationLoadable<T> {
+	beginRead(since?: number): StoreRead<T>;
+}
+
 export interface DashboardAssignmentsHydrationLoadable {
 	readonly orgId: string;
 	readonly loadVersion?: number;
 	load(types: AssignmentType[], assignments: DailyAssignment[], orgId: string): void;
+	beginRead(since?: number): StoreRead<DailyAssignment>;
 	startLoading?(): void;
 }
 
@@ -46,7 +55,7 @@ export interface DashboardHydrationStores {
 	personnelStore: DashboardHydrationLoadable<Personnel>;
 	groupsStore: DashboardHydrationLoadable<Group>;
 	statusTypesStore: DashboardHydrationLoadable<StatusType>;
-	availabilityEntriesStore: DashboardHydrationLoadable<AvailabilityEntry>;
+	availabilityEntriesStore: DashboardRangeHydrationLoadable<AvailabilityEntry>;
 	calendarAssignmentsStore: DashboardAssignmentsHydrationLoadable;
 	trainingTypesStore: DashboardHydrationLoadable<TrainingType>;
 	pinnedGroupsStore: DashboardPinnedGroupsHydrationLoadable;
@@ -86,6 +95,31 @@ function createTargetDescriptor<T>(
 	};
 }
 
+// Dashboard shares Calendar's stores, so its snapshot reconciles only its own date range.
+function createAvailabilityDescriptor(
+	target: DashboardRangeHydrationTarget<AvailabilityEntry>,
+	store: DashboardRangeHydrationLoadable<AvailabilityEntry>,
+	orgId: string,
+	targetName: string
+): FeatureLaneWorkspaceHydrationTargetDescriptor | undefined {
+	if (target.mode === 'preserve-client') return undefined;
+	const read = store.beginRead(snapshotRequestSequence());
+
+	return {
+		targetName,
+		snapshotKey: target.snapshotKey,
+		items: target.items,
+		storeOrgId: () => store.orgId,
+		storeLoadVersion: () => store.loadVersion,
+		startLoading: store.startLoading ? () => store.startLoading?.() : undefined,
+		apply: (items) => {
+			const entries = items as AvailabilityEntry[];
+			store.load(store.orgId === orgId ? read.reconcile(entries, rangeCoversSpan(target.range)) : entries, orgId);
+		},
+		settle: () => read.close()
+	};
+}
+
 function createCalendarAssignmentsDescriptor(
 	target: DashboardAssignmentsWorkspaceHydrationTarget,
 	store: DashboardAssignmentsHydrationLoadable,
@@ -93,6 +127,7 @@ function createCalendarAssignmentsDescriptor(
 	targetName: string
 ): FeatureLaneWorkspaceHydrationTargetDescriptor | undefined {
 	if (target.mode === 'preserve-client') return undefined;
+	const read = store.beginRead(snapshotRequestSequence());
 
 	return {
 		targetName,
@@ -103,8 +138,13 @@ function createCalendarAssignmentsDescriptor(
 		startLoading: store.startLoading ? () => store.startLoading?.() : undefined,
 		apply: (items) => {
 			const { types, assignments } = items as { types: AssignmentType[]; assignments: DailyAssignment[] };
-			store.load(types, assignments, orgId);
-		}
+			store.load(
+				types,
+				store.orgId === orgId ? read.reconcile(assignments, rangeCoversDate(target.range)) : assignments,
+				orgId
+			);
+		},
+		settle: () => read.close()
 	};
 }
 
@@ -144,7 +184,7 @@ export function createDashboardWorkspaceHydrator(): DashboardWorkspaceHydrator {
 				createTargetDescriptor(hydration.personnel, stores.personnelStore, orgId, 'personnel'),
 				createTargetDescriptor(hydration.groups, stores.groupsStore, orgId, 'groups'),
 				createTargetDescriptor(hydration.statusTypes, stores.statusTypesStore, orgId, 'statusTypes'),
-				createTargetDescriptor(
+				createAvailabilityDescriptor(
 					hydration.availabilityEntries,
 					stores.availabilityEntriesStore,
 					orgId,

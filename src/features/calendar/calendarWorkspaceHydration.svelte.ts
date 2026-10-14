@@ -6,7 +6,7 @@ import { groupCatalogHydration } from '$features/personnel';
 import type { Group } from '$features/personnel/contracts';
 import { pinnedGroupsHydration } from '$features/personnel';
 import { personnelRosterHydration } from '$features/personnel';
-import type { StoreRead } from '$lib/stores/core';
+import { snapshotRequestSequence, type StoreRead } from '$lib/stores/core';
 import { rangeCoversDate, rangeCoversSpan } from './utils/calendarRange';
 import {
 	createFeatureLaneWorkspaceHydrator,
@@ -36,14 +36,14 @@ export interface CalendarHydrationLoadable<T> {
 }
 
 export interface CalendarRangeHydrationLoadable<T extends { id: string }> extends CalendarHydrationLoadable<T> {
-	beginRead(): StoreRead<T>;
+	beginRead(since?: number): StoreRead<T>;
 }
 
 export interface CalendarAssignmentsHydrationLoadable {
 	readonly orgId: string;
 	readonly loadVersion?: number;
 	load(types: AssignmentType[], assignments: DailyAssignment[], orgId: string): void;
-	beginRead(): StoreRead<DailyAssignment>;
+	beginRead(since?: number): StoreRead<DailyAssignment>;
 	startLoading?(): void;
 }
 
@@ -98,8 +98,8 @@ function createTargetDescriptor<T>(
 	};
 }
 
-// A range snapshot is authoritative only within its range, and only up to the saves and deletes
-// the store confirmed after the read began.
+// A range snapshot is authoritative only within its range, and only up to the changes the store
+// confirmed after its request left.
 function createRangeTargetDescriptor<T extends { id: string }>(
 	target: CalendarRangeHydrationTarget<T>,
 	store: CalendarRangeHydrationLoadable<T>,
@@ -108,7 +108,7 @@ function createRangeTargetDescriptor<T extends { id: string }>(
 	covers: (item: T) => boolean
 ): FeatureLaneWorkspaceHydrationTargetDescriptor | undefined {
 	if (target.mode === 'preserve-client') return undefined;
-	const read = store.beginRead();
+	const read = store.beginRead(snapshotRequestSequence());
 
 	return {
 		targetName,
@@ -129,7 +129,7 @@ function createCalendarAssignmentsDescriptor(
 	targetName: string
 ): FeatureLaneWorkspaceHydrationTargetDescriptor | undefined {
 	if (target.mode === 'preserve-client') return undefined;
-	const read = store.beginRead();
+	const read = store.beginRead(snapshotRequestSequence());
 
 	return {
 		targetName,

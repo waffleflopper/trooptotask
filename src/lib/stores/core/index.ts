@@ -15,3 +15,5 @@ export type { Store, StoreConfig, StoreInternals, StoreRead } from './createStor
 
 export { defineStore, tableToResource, buildComparator } from './defineStore.svelte';
 export type { DefineStoreConfig } from './defineStore.svelte';
+
+export { markSnapshotRequest, snapshotRequestSequence } from './confirmedChanges';

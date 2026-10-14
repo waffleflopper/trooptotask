@@ -62,6 +62,7 @@ describe('streamDashboardWorkspaceBootstrap', () => {
 		availabilityEntries,
 		assignmentTypes: [{ id: 'at1', name: 'CQ' } as AssignmentType],
 		todayAssignments,
+		range: { rangeStart: '2026-04-30', rangeEnd: '2026-05-15' },
 		pinnedGroups: ['Alpha'],
 		ratingSchemeEntries: [],
 		activeOnboardings: [],
@@ -129,16 +130,18 @@ describe('streamDashboardWorkspaceBootstrap', () => {
 					items: dashboardData.statusTypes
 				},
 				availabilityEntries: {
-					mode: 'replace',
+					mode: 'range',
 					deferred: true,
 					snapshotKey: expect.any(String),
-					items: availabilityEntries
+					items: availabilityEntries,
+					range: { rangeStart: '2026-04-30', rangeEnd: '2026-05-15' }
 				},
 				calendarAssignments: expect.objectContaining({
-					mode: 'replace',
+					mode: 'range',
 					deferred: true,
 					snapshotKey: expect.any(String),
-					items: expect.any(Promise)
+					items: expect.any(Promise),
+					range: { rangeStart: '2026-04-30', rangeEnd: '2026-05-15' }
 				}),
 				trainingTypes: {
 					mode: 'replace',

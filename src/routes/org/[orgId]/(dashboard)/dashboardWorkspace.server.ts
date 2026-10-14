@@ -3,6 +3,7 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { createRequestDashboardWorkspaceContext } from '$lib/server/adapters/requestContexts.server';
 import {
+	createCompositeWorkspaceSnapshotKey,
 	createWorkspaceHydrationTarget,
 	createWorkspaceValueHydrationTarget,
 	isPromiseLike,
@@ -14,6 +15,7 @@ import type { Cookies } from '@sveltejs/kit';
 import {
 	DASHBOARD_WORKSPACE_KEY,
 	type DashboardAssignmentsWorkspaceHydrationTarget,
+	type DashboardRangeHydrationTarget,
 	type DashboardWorkspaceData,
 	type DashboardWorkspaceHydration,
 	type DashboardWorkspaceHydrationTarget,
@@ -31,6 +33,17 @@ export interface DashboardWorkspaceRouteData {
 
 function createDashboardHydrationTarget<T>(items: HydrationItems<T>): DashboardWorkspaceHydrationTarget<T> {
 	return createWorkspaceHydrationTarget(items, { mode: 'replace', resolvedSnapshotKey: 'hash' });
+}
+
+function createDashboardRangeHydrationTarget<T>(
+	items: HydrationItems<T>,
+	range: DashboardWorkspaceData['range']
+): DashboardRangeHydrationTarget<T> {
+	return {
+		...createWorkspaceHydrationTarget(items, { mode: 'range', resolvedSnapshotKey: 'hash' }),
+		snapshotKey: createCompositeWorkspaceSnapshotKey({ items, range }, { resolved: 'hash' }),
+		range
+	};
 }
 
 function createDashboardAssignmentsItems(
@@ -54,7 +67,10 @@ function createDashboardAssignmentsHydrationTarget(
 ): DashboardAssignmentsWorkspaceHydrationTarget {
 	const items = createDashboardAssignmentsItems(data);
 
-	return createWorkspaceValueHydrationTarget(items, { mode: 'replace', resolvedSnapshotKey: 'hash' });
+	return {
+		...createWorkspaceValueHydrationTarget(items, { mode: 'range', resolvedSnapshotKey: 'hash' }),
+		range: data.range
+	};
 }
 
 function createDashboardWorkspaceHydration(orgId: string, data: DashboardWorkspaceData): DashboardWorkspaceHydration {
@@ -63,7 +79,7 @@ function createDashboardWorkspaceHydration(orgId: string, data: DashboardWorkspa
 		personnel: createDashboardHydrationTarget(data.personnel),
 		groups: createDashboardHydrationTarget(data.groups),
 		statusTypes: createDashboardHydrationTarget(data.statusTypes),
-		availabilityEntries: createDashboardHydrationTarget(data.availabilityEntries),
+		availabilityEntries: createDashboardRangeHydrationTarget(data.availabilityEntries, data.range),
 		calendarAssignments: createDashboardAssignmentsHydrationTarget(data),
 		trainingTypes: createDashboardHydrationTarget(data.trainingTypes),
 		pinnedGroups: createDashboardHydrationTarget(data.pinnedGroups)

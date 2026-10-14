@@ -8,6 +8,14 @@ import { createRestAdapter } from './ports';
 import type { ApiAdapter, BatchApiAdapter } from './ports';
 import type { BeforeAddHook } from './optimistic';
 import { organizationLifetime, withinOrganizationLifetime } from './lifetime';
+import {
+	applyConfirmedChange,
+	confirmedSequence,
+	nextConfirmedSequence,
+	snapshotRequestSequence,
+	type ConfirmedChange,
+	type ConfirmedChangeInput
+} from './confirmedChanges';
 
 export interface StoreConfig<T extends { id: string }> {
 	resource: string;
@@ -19,16 +27,14 @@ export interface StoreConfig<T extends { id: string }> {
 }
 
 /**
- * A snapshot read that began at a known point in the store's confirmed history. Reconciling it
- * replaces what the snapshot covers, then re-applies every save and delete the store confirmed
- * after the read began, because the snapshot may have been read before them.
+ * A snapshot read whose request left at a known point in the confirmed history. Reconciling it
+ * replaces what the snapshot covers, then re-applies every change the store confirmed after the
+ * request left, because the server may have read before them.
  */
 export interface StoreRead<T extends { id: string }> {
 	reconcile(snapshot: T[], covers: (item: T) => boolean): T[];
 	close(): void;
 }
-
-type ConfirmedChange<T> = { generation: number } & ({ saved: T } | { deleted: string });
 
 export interface Store<T extends { id: string }> {
 	readonly items: T[];
@@ -38,7 +44,8 @@ export interface Store<T extends { id: string }> {
 	readonly busy: boolean;
 	readonly loading: boolean;
 	load(items: T[], orgId: string): void;
-	beginRead(): StoreRead<T>;
+	/** Begin before the request; `since` defaults to now, or pass `snapshotRequestSequence()`. */
+	beginRead(since?: number): StoreRead<T>;
 	startLoading(): void;
 	add(data: Omit<T, 'id'>): Promise<T | null>;
 	addBatch(entries: Omit<T, 'id'>[]): Promise<T[]>;
@@ -57,6 +64,7 @@ export interface Store<T extends { id: string }> {
 
 export interface StoreInternals<T extends { id: string }> {
 	serverState: ReturnType<typeof createReactiveCollection<T>>;
+	commit(change: ConfirmedChangeInput<T>): void;
 	log: MutationLog<T>;
 	replay(): T[];
 	snapshot(): T[];
@@ -75,38 +83,42 @@ export function createStoreWithInternals<T extends { id: string }>(
 	let organizationVersion = 0;
 	let loadedLifetime = organizationLifetime();
 	let loadVersion = 0;
-	let generation = 0;
 	let confirmedChanges: ConfirmedChange<T>[] = [];
-	let openReads: { generation: number }[] = [];
+	let openReads: { since: number }[] = [];
 
-	// Every write to server state outside a load is a change the server confirmed.
+	// A later read may start from the latest snapshot request, so keep changes confirmed since then.
+	function pruneConfirmedChanges() {
+		const floor = Math.min(snapshotRequestSequence(), ...openReads.map((read) => read.since));
+		confirmedChanges = confirmedChanges.filter((change) => change.sequence > floor);
+	}
+
+	function commit(change: ConfirmedChangeInput<T>) {
+		confirmedChanges.push({ ...change, sequence: nextConfirmedSequence() } as ConfirmedChange<T>);
+		pruneConfirmedChanges();
+		loadedState.set(applyConfirmedChange(loadedState.getSnapshot(), change));
+	}
+
+	// Writers outside this module only report a new array, so their change is the difference.
 	const serverState: typeof loadedState = {
 		get items() {
 			return loadedState.items;
 		},
 		getSnapshot: () => loadedState.getSnapshot(),
 		set(next) {
-			generation++;
-			if (openReads.length > 0) recordConfirmedChanges(loadedState.getSnapshot(), next);
-			loadedState.set(next);
+			const previous = loadedState.getSnapshot();
+			const previousById: Record<string, T> = Object.create(null);
+			for (const item of previous) previousById[item.id] = item;
+			const nextIds: Record<string, true> = Object.create(null);
+			for (const item of next) nextIds[item.id] = true;
+			commit({
+				saved: next.filter((item) => previousById[item.id] !== item),
+				deleted: previous.filter((item) => !nextIds[item.id]).map((item) => item.id)
+			});
 		}
 	};
 
-	function recordConfirmedChanges(previous: T[], next: T[]) {
-		const previousById: Record<string, T> = Object.create(null);
-		for (const item of previous) previousById[item.id] = item;
-		const nextIds: Record<string, true> = Object.create(null);
-		for (const item of next) {
-			nextIds[item.id] = true;
-			if (previousById[item.id] !== item) confirmedChanges.push({ generation, saved: item });
-		}
-		for (const item of previous) {
-			if (!nextIds[item.id]) confirmedChanges.push({ generation, deleted: item.id });
-		}
-	}
-
-	function beginRead(): StoreRead<T> {
-		const read = { generation };
+	function beginRead(since = confirmedSequence()): StoreRead<T> {
+		const read = { since };
 		openReads.push(read);
 		return {
 			reconcile(snapshot, covers) {
@@ -118,23 +130,13 @@ export function createStoreWithInternals<T extends { id: string }>(
 				];
 				if (!openReads.includes(read)) return items;
 				for (const change of confirmedChanges) {
-					if (change.generation <= read.generation) continue;
-					if ('deleted' in change) {
-						items = items.filter((item) => item.id !== change.deleted);
-					} else {
-						const { saved } = change;
-						items = items.some((item) => item.id === saved.id)
-							? items.map((item) => (item.id === saved.id ? saved : item))
-							: [...items, saved];
-					}
+					if (change.sequence > read.since) items = applyConfirmedChange(items, change);
 				}
 				return items;
 			},
 			close() {
-				if (!openReads.includes(read)) return;
 				openReads = openReads.filter((open) => open !== read);
-				const oldest = Math.min(...openReads.map((open) => open.generation));
-				confirmedChanges = confirmedChanges.filter((change) => change.generation > oldest);
+				pruneConfirmedChanges();
 			}
 		};
 	}
@@ -174,7 +176,7 @@ export function createStoreWithInternals<T extends { id: string }>(
 			throw error;
 		}
 		if (result === 'deleted') {
-			serverState.set(serverState.getSnapshot().filter((item) => item.id !== id));
+			commit({ deleted: [id] });
 		} else if (result === 'error') {
 			config.onError?.('remove', undefined);
 		}
@@ -238,12 +240,10 @@ export function createStoreWithInternals<T extends { id: string }>(
 
 			try {
 				const created = await withinOrganization(adapter.create(data));
-				let current = serverState.getSnapshot();
-				if (config.beforeAdd) {
-					const { items } = config.beforeAdd(current, data);
-					current = items;
-				}
-				serverState.set([...current, created]);
+				const current = loadedState.getSnapshot();
+				const keptIds: Record<string, true> = Object.create(null);
+				for (const item of config.beforeAdd ? config.beforeAdd(current, data).items : current) keptIds[item.id] = true;
+				commit({ saved: [created], deleted: current.filter((item) => !keptIds[item.id]).map((item) => item.id) });
 				log.resolve(mutationId);
 				return created;
 			} catch (e) {
@@ -264,7 +264,7 @@ export function createStoreWithInternals<T extends { id: string }>(
 						? config.batchAdapter.createBatch(entries)
 						: Promise.all(entries.map((data) => adapter.create(data)))
 				);
-				serverState.set([...serverState.getSnapshot(), ...created]);
+				commit({ saved: created });
 				log.resolve(mutationId);
 				return created;
 			} catch (e) {
@@ -284,7 +284,7 @@ export function createStoreWithInternals<T extends { id: string }>(
 
 			try {
 				const updated = await withinOrganization(adapter.update(id, data));
-				serverState.set(serverState.getSnapshot().map((item) => (item.id === id ? updated : item)));
+				commit({ saved: [updated] });
 				log.resolve(mutationId);
 				return true;
 			} catch (e) {
@@ -311,11 +311,7 @@ export function createStoreWithInternals<T extends { id: string }>(
 						? config.batchAdapter.removeBatch(ids)
 						: Promise.all(ids.map((id) => adapter.remove(id)))
 				);
-				const idsToRemove: Record<string, true> = Object.create(null);
-				for (const id of ids) {
-					idsToRemove[id] = true;
-				}
-				serverState.set(serverState.getSnapshot().filter((item) => !Object.hasOwn(idsToRemove, item.id)));
+				commit({ deleted: ids });
 				log.resolve(mutationId);
 				return true;
 			} catch (e) {
@@ -326,15 +322,7 @@ export function createStoreWithInternals<T extends { id: string }>(
 		},
 
 		mergeBatchResults(inserted: T[], updated?: T[]) {
-			let current = serverState.getSnapshot();
-			if (updated && updated.length > 0) {
-				const updatedById: Record<string, T> = Object.create(null);
-				for (const item of updated) {
-					updatedById[item.id] = item;
-				}
-				current = current.map((item) => updatedById[item.id] ?? item);
-			}
-			serverState.set([...current, ...inserted]);
+			commit({ saved: [...(updated ?? []), ...inserted] });
 		},
 
 		getById(id: string) {
@@ -350,20 +338,21 @@ export function createStoreWithInternals<T extends { id: string }>(
 		},
 
 		removeLocalWhere(predicate: (item: T) => boolean) {
-			serverState.set(serverState.getSnapshot().filter((item) => !predicate(item)));
+			commit({ deletedWhere: predicate });
 		},
 
 		updateLocalWhere(predicate: (item: T) => boolean, updater: (item: T) => T) {
-			serverState.set(serverState.getSnapshot().map((item) => (predicate(item) ? updater(item) : item)));
+			commit({ updatedWhere: predicate, update: updater });
 		},
 
 		appendLocal(items: T[]) {
-			serverState.set([...serverState.getSnapshot(), ...items]);
+			commit({ saved: items });
 		}
 	};
 
 	const internals: StoreInternals<T> = {
 		serverState,
+		commit,
 		log,
 		replay: () => getDisplayItems(),
 		snapshot: () => getDisplayItems(),

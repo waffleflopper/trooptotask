@@ -31,8 +31,8 @@
 				return '';
 			case 'name-note':
 				return label.name;
-			case 'name-length':
-				return `${label.name} · ${label.days}D`;
+			case 'with-length':
+				return `${label.text} · ${label.days}D`;
 			default:
 				return label.text;
 		}

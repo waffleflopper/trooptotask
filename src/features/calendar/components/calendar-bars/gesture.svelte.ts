@@ -12,8 +12,7 @@ export class CalendarGesture {
 	state = $state.raw<GestureState>(IDLE);
 
 	#row: HTMLElement | null = null;
-	#left = 0;
-	#dayWidth = 1;
+	#track: Element | null = null;
 	#days = 0;
 	#capturedPointer: number | null = null;
 	#commit: GestureCommit | null = null;
@@ -52,11 +51,8 @@ export class CalendarGesture {
 
 	#begin(row: HTMLElement, days: number, commit: GestureCommit): boolean {
 		if (this.state.kind !== 'idle') return false;
-		const track = row.querySelector('[data-slot="bar-track"]') ?? row;
-		const rect = track.getBoundingClientRect();
 		this.#row = row;
-		this.#left = rect.left;
-		this.#dayWidth = rect.width / days || 1;
+		this.#track = row.querySelector('[data-slot="bar-track"]') ?? row;
 		this.#days = days;
 		this.#commit = commit;
 		window.addEventListener('pointermove', this.#move);
@@ -66,15 +62,24 @@ export class CalendarGesture {
 		return true;
 	}
 
+	// Measured on every move because the grid can scroll under a held pointer.
 	#dayAt(clientX: number): number {
-		return Math.min(this.#days - 1, Math.max(0, Math.floor((clientX - this.#left) / this.#dayWidth)));
+		const rect = this.#track!.getBoundingClientRect();
+		const dayWidth = rect.width / this.#days || 1;
+		return Math.min(this.#days - 1, Math.max(0, Math.floor((clientX - rect.left) / dayWidth)));
 	}
 
 	#send(event: GestureEvent): void {
 		const { state, effect } = gestureStep(this.state, event);
 		this.state = state;
 		if (effect.type === 'capture' && this.#row && 'pointerId' in event) {
-			this.#row.setPointerCapture(event.pointerId);
+			try {
+				this.#row.setPointerCapture(event.pointerId);
+			} catch {
+				// The pointer was already released, so the gesture cannot continue.
+				this.#cancel();
+				return;
+			}
 			this.#capturedPointer = event.pointerId;
 		} else if (effect.type === 'quick-add' || effect.type === 'resize') {
 			this.#suppressClick = true;
@@ -95,6 +100,7 @@ export class CalendarGesture {
 		}
 		this.#capturedPointer = null;
 		this.#row = null;
+		this.#track = null;
 		this.#commit = null;
 	}
 

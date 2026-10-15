@@ -276,7 +276,10 @@
 								</div>
 							</div>
 						{:else}
-							<div class="relative grid h-full [grid-template-columns:var(--long-range-columns)] border-b">
+							<div
+								class="relative grid h-full [grid-template-columns:var(--long-range-columns)] border-b"
+								data-person-id={row.person.id}
+							>
 								<div class="sticky left-0 z-[2] flex h-full items-center gap-1 border-r bg-card px-3 text-sm">
 									<span class="font-mono text-xs font-semibold tracking-wider text-primary uppercase"
 										>{row.person.rank}</span

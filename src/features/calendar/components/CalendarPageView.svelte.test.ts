@@ -57,8 +57,8 @@ afterEach(() => {
 	calendarStore.goToToday();
 });
 
-function resizeGrip(bar: HTMLElement, edge: 'start' | 'end'): HTMLElement {
-	return bar.querySelector<HTMLElement>(`[data-edge="${edge}"]`)!;
+function resizeGrip(bar: HTMLElement, edge: 'start' | 'end'): HTMLElement | null {
+	return bar.parentElement!.querySelector<HTMLElement>(`[data-edge="${edge}"]`);
 }
 
 function toolbar(): HTMLElement {
@@ -279,7 +279,49 @@ describe('CalendarPageView', () => {
 		}
 	});
 
-	it('offers resizing only for an entry opened from its own bar', async () => {
+	it('keeps the open popover as it is when its bar is clicked again', async () => {
+		mutableAvailabilityStore.loading = false;
+		calendarStore.goToMonth(2026, 9);
+		const stores = { availability: availabilityStore, statusTypes: statusTypesStore } as unknown as {
+			availability: { items: unknown[] };
+			statusTypes: { items: unknown[] };
+		};
+		stores.statusTypes.items = [
+			{ id: 'leave', name: 'Leave', color: '#16a34a', textColor: '#ffffff', shortLabel: null, sortOrder: 0 }
+		];
+		stores.availability.items = [
+			{
+				id: 'entry-1',
+				personnelId: 'p1',
+				statusTypeId: 'leave',
+				startDate: '2026-10-20',
+				endDate: '2026-10-23',
+				note: null
+			}
+		];
+		try {
+			const data = { ...mockData, personnel: filterPersonnel, allPersonnel: filterPersonnel };
+			const ctx = makeContext(data, makeMockOrg({ userRole: 'admin' }));
+			render(CalendarPageView, { props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' } } });
+			const bar = screen.getByRole('button', { name: 'SGT Smith, Alice, Leave, 20 to 23 October 2026, 4 days' });
+
+			await fireEvent.click(bar);
+			await fireEvent.click(
+				within(await screen.findByRole('dialog', { name: 'Leave, SGT Smith' })).getByRole('button', { name: 'Remove' })
+			);
+			await fireEvent.click(bar);
+			await tick();
+
+			expect(
+				within(screen.getByRole('dialog', { name: 'Leave, SGT Smith' })).getByRole('button', { name: 'Cancel' })
+			).toBeTruthy();
+		} finally {
+			stores.statusTypes.items = [];
+			stores.availability.items = [];
+		}
+	});
+
+	it('gives grips only to an entry opened from its own bar, and edits a hidden one by its dates', async () => {
 		mutableAvailabilityStore.loading = false;
 		calendarStore.goToMonth(2026, 9);
 		const stores = { availability: availabilityStore, statusTypes: statusTypesStore } as unknown as {
@@ -305,12 +347,15 @@ describe('CalendarPageView', () => {
 		try {
 			const data = { ...mockData, personnel: filterPersonnel, allPersonnel: filterPersonnel };
 			const ctx = makeContext(data, makeMockOrg({ userRole: 'admin' }));
+			const save = vi.spyOn(ctx, 'saveAvailability').mockResolvedValue('saved');
 			render(CalendarPageView, { props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' } } });
 
-			await fireEvent.click(
-				screen.getByRole('button', { name: 'SGT Smith, Alice, Leave, 1 to 8 October 2026, 8 days' })
-			);
-			expect(within(await screen.findByRole('dialog')).queryByText('Drag ends to resize')).not.toBeNull();
+			const long = screen.getByRole('button', { name: 'SGT Smith, Alice, Leave, 1 to 8 October 2026, 8 days' });
+			expect(resizeGrip(long, 'end')).toBeNull();
+			await fireEvent.click(long);
+			await screen.findByRole('dialog', { name: 'Leave, SGT Smith' });
+			expect(resizeGrip(long, 'start')).not.toBeNull();
+			expect(resizeGrip(long, 'end')).not.toBeNull();
 			await fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
 
 			await fireEvent.click(
@@ -318,13 +363,70 @@ describe('CalendarPageView', () => {
 			);
 			const overflow = await screen.findByRole('dialog', { name: '2 more entries, SGT Smith' });
 			await fireEvent.click(within(overflow).getByRole('button', { name: 'Leave, 7 to 10 October 2026, 4 days' }));
-
 			const hidden = await screen.findByRole('dialog', { name: 'Leave, SGT Smith' });
-			expect(within(hidden).getByText('Wed 7 – Sat 10 Oct · 4 days')).toBeTruthy();
-			expect(within(hidden).queryByText('Drag ends to resize')).toBeNull();
+
+			expect(document.querySelector('[data-edge]')).toBeNull();
+			await fireEvent.click(within(hidden).getByRole('button', { name: 'Edit details' }));
+			const editor = await screen.findByRole('dialog', { name: 'Set Personnel Status' });
+			await fireEvent.click(within(editor).getByRole('button', { name: 'Update Status' }));
+
+			expect(save.mock.calls).toEqual([
+				[
+					{
+						kind: 'update',
+						entry: entry('short', '2026-10-07', '2026-10-10'),
+						changes: { statusTypeId: 'leave', startDate: '2026-10-07', endDate: '2026-10-10', note: null }
+					}
+				]
+			]);
 		} finally {
 			stores.statusTypes.items = [];
 			stores.availability.items = [];
+		}
+	});
+
+	it('keeps the editor open and locked until its save settles', async () => {
+		mutableAvailabilityStore.loading = false;
+		calendarStore.goToMonth(2026, 9);
+		const stores = { availability: availabilityStore, statusTypes: statusTypesStore } as unknown as {
+			availability: { items: unknown[]; add?: unknown };
+			statusTypes: { items: unknown[] };
+		};
+		stores.statusTypes.items = [
+			{ id: 'leave', name: 'Leave', color: '#16a34a', textColor: '#ffffff', shortLabel: null, sortOrder: 0 }
+		];
+		let finish!: (entry: unknown) => void;
+		stores.availability.add = vi.fn(() => new Promise((resolve) => (finish = resolve)));
+		try {
+			const data = { ...mockData, personnel: filterPersonnel, allPersonnel: filterPersonnel };
+			const ctx = makeContext(data, makeMockOrg({ userRole: 'admin' }));
+			render(CalendarPageView, { props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' } } });
+
+			await fireEvent.click(screen.getByRole('button', { name: 'SGT Smith, Alice, Wednesday, October 21, 2026' }));
+			const editor = await screen.findByRole('dialog', { name: 'Set Personnel Status' });
+			await fireEvent.click(within(editor).getByRole('button', { name: 'Add Status' }));
+			expect(within(editor).getByRole('button', { name: 'Add Status' })).toHaveProperty('disabled', true);
+			await fireEvent.keyDown(editor, { key: 'Escape' });
+			await tick();
+			expect(screen.queryByRole('dialog', { name: 'Set Personnel Status' })).not.toBeNull();
+
+			finish({
+				id: 'entry-1',
+				personnelId: 'p1',
+				statusTypeId: 'leave',
+				startDate: '2026-10-21',
+				endDate: '2026-10-21',
+				note: null
+			});
+			await waitFor(() =>
+				expect(within(editor).getByRole('button', { name: 'Add Status' })).toHaveProperty('disabled', false)
+			);
+			await fireEvent.keyDown(editor, { key: 'Escape' });
+
+			await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Set Personnel Status' })).toBeNull());
+		} finally {
+			stores.statusTypes.items = [];
+			delete stores.availability.add;
 		}
 	});
 
@@ -408,7 +510,7 @@ describe('CalendarPageView', () => {
 			await fireEvent.click(bar);
 			await screen.findByRole('dialog', { name: 'Leave, SGT Smith' });
 			const pointer = { button: 0, pointerId: 1, pointerType: 'mouse' };
-			await fireEvent.pointerDown(resizeGrip(bar, 'end'), { ...pointer, clientX: 225 });
+			await fireEvent.pointerDown(resizeGrip(bar, 'end')!, { ...pointer, clientX: 225 });
 			await fireEvent.pointerMove(window, { ...pointer, clientX: 255 });
 			await fireEvent.pointerUp(window, { ...pointer, clientX: 255 });
 

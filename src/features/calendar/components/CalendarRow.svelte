@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { AvailabilityEntry } from '$features/calendar/contracts';
-	import type { Bar, BarLayout } from '$features/calendar/utils/barLayout';
+	import { fitMarkers, type Bar, type BarLayout } from '$features/calendar/utils/barLayout';
 	import type { CalendarCellMarkerState, CalendarDateHeaderState } from '$features/calendar/utils/calendarRenderState';
 	import type { Personnel, UpcomingLossRecord } from '$features/personnel/contracts';
 	import { Button } from '$lib/components/ui/button';
@@ -57,6 +57,7 @@
 	}
 
 	const personLabel = $derived(`${person.rank} ${person.lastName}, ${person.firstName}`);
+	const fitted = $derived(fitMarkers(layout, [...markers.keys()]));
 	const tintCells = $derived(onboarding && highlightOnboarding);
 
 	function cellTitle(index: number, holidayName: string | undefined) {
@@ -68,6 +69,7 @@
 <div
 	bind:this={rowEl}
 	role="presentation"
+	data-person-id={person.id}
 	onpointerdown={onPressDay && pressDay}
 	class="personnel-row relative grid h-full w-full min-w-[calc(var(--calendar-personnel-column-width)+(var(--calendar-cell-width)*var(--dates-count)))] items-stretch [grid-template-columns:var(--calendar-personnel-column-width)_repeat(var(--dates-count),minmax(var(--calendar-cell-width),1fr))]"
 >
@@ -122,26 +124,22 @@
 		/>
 	{/each}
 	<BarTrack
-		{layout}
+		layout={fitted.layout}
 		{personLabel}
 		size="month"
 		{selectedEntryId}
 		{selection}
+		markerDays={fitted.markerDays}
 		onPressEdge={onPressEdge && ((event, bar, edge) => onPressEdge(event, person, bar, edge, rowEl))}
 		onOpenEntry={onOpenEntry && ((entry, anchor) => onOpenEntry(person, entry, anchor))}
 		onOpenOverflow={onOpenOverflow && ((entryIds, anchor) => onOpenOverflow(person, entryIds, anchor))}
-	/>
-	{#each markers as [index, [first, ...more]] (index)}
-		{@const day = days[index]}
-		{@const label = `${personLabel}, ${day.dateLabel}`}
-		{@const open = onMarkerClick && (() => onMarkerClick(day.date))}
-		{@const action = open ? '. Edit assignments' : ''}
-		<!-- An absolutely placed grid item's auto end line is the row's edge, so the span stays explicit. -->
-		<div
-			class="pointer-events-none absolute inset-0 z-[2] flex min-w-0 items-end justify-end gap-px p-[3px]"
-			style:grid-row="1 / span 1"
-			style:grid-column="{index + 2} / span 1"
-		>
+	>
+		{#snippet marker(index)}
+			{@const [first, ...more] = markers.get(index)!}
+			{@const day = days[index]}
+			{@const label = `${personLabel}, ${day.dateLabel}`}
+			{@const open = onMarkerClick && (() => onMarkerClick(day.date))}
+			{@const action = open ? '. Edit assignments' : ''}
 			<AssignmentCodeChip
 				code={first.shortName}
 				color={first.color}
@@ -152,10 +150,10 @@
 				<AssignmentCodeChip
 					code={`+${more.length}`}
 					color="var(--muted-foreground)"
-					label={`${more.length} more: ${more.map((marker) => marker.name).join(', ')}, ${label}${action}`}
+					label={`${more.length} more: ${more.map((item) => item.name).join(', ')}, ${label}${action}`}
 					onclick={open}
 				/>
 			{/if}
-		</div>
-	{/each}
+		{/snippet}
+	</BarTrack>
 </div>

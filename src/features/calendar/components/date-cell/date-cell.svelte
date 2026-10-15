@@ -29,7 +29,7 @@
 		weekend && 'bg-muted',
 		holiday && 'bg-warning-muted',
 		onboarding && 'bg-accent/10',
-		today && 'z-[1] inset-ring inset-ring-foreground',
+		today && 'bg-primary/10',
 		className
 	)}
 	{type}

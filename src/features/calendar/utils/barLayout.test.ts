@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { AvailabilityEntry, StatusType } from '$features/calendar/contracts';
-import { layoutBars, shortRangeLabel, type AvailabilitySpan, type LabelPolicy } from './barLayout';
+import { fitMarkers, layoutBars, shortRangeLabel, type AvailabilitySpan, type LabelPolicy } from './barLayout';
 import { dayWindow, toDayNumber } from './dayNumber';
 
 const status = (name: string, shortLabel: string | null = null): StatusType => ({
@@ -69,12 +69,16 @@ describe('layoutBars in the month view', () => {
 		});
 	});
 
-	it('adds the note once a bar has room for it', () => {
-		expect(placements([span('leave', leave, '2026-10-19', '2026-10-23', 'Block leave')]).bars[0]?.label).toEqual({
-			kind: 'name-note',
-			name: 'Leave',
-			note: 'Block leave'
-		});
+	it('adds the note from four visible days', () => {
+		expect(
+			placements([
+				span('three', leave, '2026-10-19', '2026-10-21', 'Block leave'),
+				span('four', leave, '2026-10-23', '2026-10-26', 'Block leave')
+			]).bars.map((bar) => bar.label)
+		).toEqual([
+			{ kind: 'name', text: 'Leave' },
+			{ kind: 'name-note', name: 'Leave', note: 'Block leave' }
+		]);
 	});
 
 	it('shows the longest label on every bar when status text is preferred', () => {
@@ -223,6 +227,28 @@ describe('layoutBars in the month view', () => {
 		]);
 	});
 
+	it('summarizes only the run of lower entries that needs a third lane', () => {
+		const result = placements(
+			[
+				span('a', leave, '2026-10-01', '2026-10-31'),
+				span('b', sick, '2026-10-02', '2026-10-04'),
+				span('c', appointment, '2026-10-03', '2026-10-05'),
+				span('d', tdy, '2026-10-11', '2026-10-13'),
+				span('e', school, '2026-10-21', '2026-10-23')
+			],
+			dayWindow('2026-10-01', 31)
+		);
+
+		expect(result.bars.map((bar) => [bar.id, bar.lane, bar.start, bar.end])).toEqual([
+			['a', 'top', 0, 30],
+			['d', 'bottom', 10, 12],
+			['e', 'bottom', 20, 22]
+		]);
+		expect(result.overflows).toEqual([
+			{ start: 1, end: 4, ids: ['b', 'c'], description: '2 more entries, 2 to 5 October 2026' }
+		]);
+	});
+
 	it('describes an entry completely for its accessible name', () => {
 		const layout = layoutBars(
 			[
@@ -249,17 +275,17 @@ describe('layoutBars in the 3-Month view', () => {
 			placements(
 				[
 					span('leave', leave, '2026-10-01', '2026-10-09'),
-					span('school', school, '2026-10-12', '2026-10-16'),
-					span('apt', appointment, '2026-10-19', '2026-10-21'),
+					span('apt', appointment, '2026-10-12', '2026-10-17'),
+					span('school', school, '2026-10-19', '2026-10-21'),
 					span('one', appointment, '2026-10-23', '2026-10-23')
 				],
 				quarter,
 				tenPx
 			).bars.map((bar) => bar.label)
 		).toEqual([
-			{ kind: 'name-length', name: 'Leave', days: 9 },
-			{ kind: 'name', text: 'School' },
-			{ kind: 'one-day', text: 'APT' },
+			{ kind: 'with-length', text: 'Leave', days: 9 },
+			{ kind: 'with-length', text: 'APT', days: 6 },
+			{ kind: 'one-day', text: 'SCH' },
 			{ kind: 'none' }
 		]);
 	});
@@ -270,13 +296,53 @@ describe('layoutBars in the 3-Month view', () => {
 				bar.end,
 				bar.label
 			])
-		).toEqual([[6, { kind: 'name', text: 'Leave' }]]);
+		).toEqual([[6, { kind: 'with-length', text: 'LEA', days: 9 }]]);
 		expect(
 			placements([span('leave', leave, '2026-09-30', '2026-10-08')], quarter, tenPx).bars.map((bar) => [
 				bar.end,
 				bar.label
 			])
-		).toEqual([[7, { kind: 'name-length', name: 'Leave', days: 9 }]]);
+		).toEqual([[7, { kind: 'with-length', text: 'Leave', days: 9 }]]);
+	});
+});
+
+describe('fitMarkers', () => {
+	const lanes = (fit: ReturnType<typeof fitMarkers>) => fit.layout.bars.map((bar) => [bar.entry.id, bar.lane]);
+
+	it('raises a full bar to the top lane under a marked day and leaves other bars full', () => {
+		const layout = layoutBars(
+			[span('leave', leave, '2026-10-20', '2026-10-23'), span('school', school, '2026-10-26', '2026-10-27')],
+			oct19To28,
+			month
+		);
+
+		const fit = fitMarkers(layout, [2]);
+
+		expect(lanes(fit)).toEqual([
+			['leave', 'top'],
+			['school', 'full']
+		]);
+		expect(fit.markerDays).toEqual([2]);
+	});
+
+	it('drops a marker whose day already holds a lower bar or a summary', () => {
+		const lower = layoutBars(
+			[span('tdy', tdy, '2026-10-20', '2026-10-24'), span('apt', appointment, '2026-10-21', '2026-10-21')],
+			oct19To28,
+			month
+		);
+		expect(fitMarkers(lower, [2, 4]).markerDays).toEqual([4]);
+
+		const summarized = layoutBars(
+			[
+				span('a', leave, '2026-10-19', '2026-10-26'),
+				span('b', sick, '2026-10-21', '2026-10-24'),
+				span('c', appointment, '2026-10-22', '2026-10-23')
+			],
+			oct19To28,
+			month
+		);
+		expect(fitMarkers(summarized, [3, 7]).markerDays).toEqual([7]);
 	});
 });
 

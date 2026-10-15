@@ -18,7 +18,7 @@ export type BarLabel =
 	| { readonly kind: 'one-day'; readonly text: string }
 	| { readonly kind: 'name'; readonly text: string }
 	| { readonly kind: 'name-note'; readonly name: string; readonly note: string }
-	| { readonly kind: 'name-length'; readonly name: string; readonly days: number };
+	| { readonly kind: 'with-length'; readonly text: string; readonly days: number };
 
 export type BarLane = 'full' | 'top' | 'bottom';
 
@@ -142,11 +142,12 @@ export function barLabel(placed: Placed, policy: LabelPolicy): BarLabel {
 	const widthPx = visibleDays * policy.dayPx;
 	const chevrons = Number(placed.continuesBefore) + Number(placed.continuesAfter);
 	const days = spanDays(span);
-	const fits = (chars: number) => fitsCompact(chars, widthPx, chevrons);
-	if (fits([...name].length + ` · ${days}D`.length)) return { kind: 'name-length', name, days };
-	if (fits([...name].length)) return { kind: 'name', text: name };
+	const fits = (text: string, suffix = '') => fitsCompact([...text].length + suffix.length, widthPx, chevrons);
+	const length = ` · ${days}D`;
+	if (fits(name, length)) return { kind: 'with-length', text: name, days };
 	const short = oneDayLabel(span.status);
-	if (fits([...short].length)) return { kind: 'one-day', text: short };
+	if (fits(short, length)) return { kind: 'with-length', text: short, days };
+	if (fits(short)) return { kind: 'one-day', text: short };
 	return { kind: 'none' };
 }
 
@@ -218,30 +219,54 @@ export function layoutBars(spans: readonly AvailabilitySpan[], window: DayWindow
 		description: describeSpan(item.span)
 	});
 
-	let index = 0;
-	while (index < placed.length) {
-		let reach = placed[index].end;
-		let next = index + 1;
-		while (next < placed.length && placed[next].start <= reach) {
-			reach = Math.max(reach, placed[next].end);
-			next++;
-		}
-		const cluster = placed.slice(index, next);
-		index = next;
-
+	for (const cluster of overlapGroups(placed)) {
 		if (cluster.length === 1) {
 			bars.push(bar(cluster[0], 'full'));
 			continue;
 		}
-		const lanes = assignLanes(cluster);
-		if (Math.max(...lanes) <= 1) {
-			cluster.forEach((item, at) => bars.push(bar(item, lanes[at] === 0 ? 'top' : 'bottom')));
-			continue;
+		const assigned = assignLanes(cluster);
+		const lanes = new Map(cluster.map((item, at) => [item, assigned[at]] as const));
+		const lower = cluster.filter((item) => lanes.get(item)! > 0);
+		for (const item of cluster) if (lanes.get(item) === 0) bars.push(bar(item, 'top'));
+		// Only a run of lower entries that needs a third lane folds; the rest of the bottom lane stays bars.
+		for (const run of overlapGroups(lower)) {
+			if (run.some((item) => lanes.get(item)! > 1)) overflows.push(overflowFor(run));
+			else bars.push(...run.map((item) => bar(item, 'bottom')));
 		}
-		cluster.forEach((item, at) => {
-			if (lanes[at] === 0) bars.push(bar(item, 'top'));
-		});
-		overflows.push(overflowFor(cluster.filter((_, at) => lanes[at] !== 0)));
 	}
 	return { bars, overflows };
+}
+
+/** Splits start-sorted items into runs that share a day, directly or through each other. */
+function overlapGroups(items: readonly Placed[]): Placed[][] {
+	const groups: Placed[][] = [];
+	let reach = -Infinity;
+	for (const item of items) {
+		if (item.start > reach) groups.push([]);
+		groups[groups.length - 1].push(item);
+		reach = Math.max(reach, item.end);
+	}
+	return groups;
+}
+
+export interface MarkerFit {
+	readonly layout: BarLayout;
+	/** Days whose marker has the bottom lane to itself. */
+	readonly markerDays: readonly number[];
+}
+
+/**
+ * A duty marker takes the bottom lane of its day. A full-height bar across it drops to the top lane, and a
+ * marker whose bottom lane already holds a bar or a summary yields, so no two targets ever share space.
+ */
+export function fitMarkers(layout: BarLayout, markerDays: readonly number[]): MarkerFit {
+	if (markerDays.length === 0) return { layout, markerDays };
+	const covers = (item: { start: number; end: number }) =>
+		markerDays.some((day) => day >= item.start && day <= item.end);
+	const lowered = layout.bars.map((bar): Bar => (bar.lane === 'full' && covers(bar) ? { ...bar, lane: 'top' } : bar));
+	const bottom = [...layout.bars.filter((bar) => bar.lane === 'bottom'), ...layout.overflows];
+	return {
+		layout: { bars: lowered, overflows: layout.overflows },
+		markerDays: markerDays.filter((day) => !bottom.some((item) => day >= item.start && day <= item.end))
+	};
 }

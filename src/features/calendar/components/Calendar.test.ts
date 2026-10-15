@@ -317,7 +317,7 @@ describe('Calendar', () => {
 		}
 	});
 
-	it('drops a drag on Escape and opens no day editor from the click that ends a drag', async () => {
+	it('drops a drag on Escape or a cancelled pointer and opens no day editor from the click that ends a drag', async () => {
 		const rect = vi
 			.spyOn(Element.prototype, 'getBoundingClientRect')
 			.mockReturnValue(DOMRect.fromRect({ x: 0, y: 0, width: 62, height: 36 }));
@@ -331,6 +331,10 @@ describe('Calendar', () => {
 			await fireEvent.pointerDown(day, { ...pointer, clientX: 10 });
 			await fireEvent.pointerMove(window, { ...pointer, clientX: 50 });
 			await fireEvent.keyDown(window, { key: 'Escape' });
+			await fireEvent.pointerUp(window, { ...pointer, clientX: 50 });
+			await fireEvent.pointerDown(day, { ...pointer, clientX: 10 });
+			await fireEvent.pointerMove(window, { ...pointer, clientX: 50 });
+			await fireEvent.pointerCancel(window, pointer);
 			await fireEvent.pointerUp(window, { ...pointer, clientX: 50 });
 			expect(onQuickAdd).not.toHaveBeenCalled();
 

@@ -259,7 +259,8 @@ describe('importIctCompletionsBatch', () => {
 				details: {
 					inserted: 1,
 					updated: 1,
-					errors: 0
+					errors: 0,
+					unconfirmed: 0
 				}
 			})
 		]);
@@ -572,6 +573,8 @@ describe('importIctCompletionsBatch', () => {
 		expect(await ctx.store.findMany('personnel_ict_completions', 'test-org')).toEqual([
 			expect.objectContaining({ personnel_id: 'person-allowed' })
 		]);
-		expect(ctx.audit.events).toEqual([expect.objectContaining({ details: { inserted: 1, updated: 0, errors: 1 } })]);
+		expect(ctx.audit.events).toEqual([
+			expect.objectContaining({ details: { inserted: 1, updated: 0, errors: 1, unconfirmed: 0 } })
+		]);
 	});
 });

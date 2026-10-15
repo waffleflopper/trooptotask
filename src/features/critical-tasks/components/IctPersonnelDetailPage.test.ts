@@ -6,6 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import IctPersonnelDetailPage from './IctPersonnelDetailPage.svelte';
 import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
 import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/personnelIctCompletions.svelte';
+import { CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE } from '$features/critical-tasks/contracts';
+import { toastStore } from '$lib/stores/toast.svelte';
 import { openToolbarMore, openToolbarSubmenu, stubToolbarWidths } from '$lib/test-support/toolbarWidths';
 import type {
 	CriticalTasksPersonnelHistoryData,
@@ -743,6 +745,37 @@ describe('IctPersonnelDetailPage', () => {
 		await waitFor(() => {
 			expect(screen.queryByRole('dialog', { name: 'Edit ICT Completion' })).toBeNull();
 		});
+	});
+
+	it('keeps the completion edit draft and shows the public uncertainty message when the save reply is lost', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue(mockJsonResponse({ message: CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE }, 503))
+		);
+		const success = vi.spyOn(toastStore, 'success');
+		ictTasksStore.load([activeTask], 'org-1');
+		personnelIctCompletionsStore.load([activeCompletion], 'org-1');
+
+		render(IctPersonnelDetailPage, {
+			props: {
+				org,
+				data: {
+					orgId: 'org-1',
+					criticalTasks: criticalTasksLayoutData,
+					criticalTasksPersonnelHistory: { ...history, rows: [] }
+				}
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit completion for 181-105-1001' }));
+		await screen.findByRole('dialog', { name: 'Edit ICT Completion' });
+		await fireEvent.input(screen.getByLabelText(/Notes \(optional\)/i), { target: { value: 'Corrected entry' } });
+		await fireEvent.click(screen.getByTestId('ict-completion-save'));
+
+		expect(await screen.findByText(CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE)).toBeTruthy();
+		expect(screen.getByRole('dialog', { name: 'Edit ICT Completion' })).toBeTruthy();
+		expect((screen.getByLabelText(/Notes \(optional\)/i) as HTMLTextAreaElement).value).toBe('Corrected entry');
+		expect(success).not.toHaveBeenCalled();
 	});
 
 	it('renders archived ICT task completions in the personnel history view', () => {

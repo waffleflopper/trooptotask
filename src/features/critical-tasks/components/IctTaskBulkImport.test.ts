@@ -128,7 +128,9 @@ describe('IctTaskBulkImport', () => {
 			],
 			updated: [],
 			restored: [],
-			errors: []
+			errors: [],
+			unconfirmed: [],
+			notAttempted: []
 		});
 
 		render(IctTaskBulkImport, {
@@ -197,7 +199,9 @@ describe('IctTaskBulkImport', () => {
 					archivedAt: null
 				}
 			],
-			errors: []
+			errors: [],
+			unconfirmed: [],
+			notAttempted: []
 		});
 
 		render(IctTaskBulkImport, {
@@ -245,6 +249,59 @@ describe('IctTaskBulkImport', () => {
 
 		expect(await screen.findByText('1 restored')).toBeTruthy();
 		expect(screen.getByText('0 failed')).toBeTruthy();
+		expect(criticalTasksWorkspaceStatus.refreshRequested).toBe(true);
+	});
+
+	it.each([
+		{ stopped: true, heading: 'Import Stopped' },
+		{ stopped: false, heading: 'Import Needs Review' }
+	])('shows $heading with truthful counts and reload guidance', async ({ stopped, heading }) => {
+		parseFileMock.mockResolvedValue([
+			['Task Code', 'Title'],
+			['181-105-2001', 'Task one'],
+			['181-105-2002', 'Task two'],
+			['181-105-2003', 'Task three']
+		]);
+		vi.spyOn(ictTasksStore, 'importBatch').mockResolvedValue({
+			inserted: [{ ...existingTasks[0], id: 'task-one', taskCode: '181-105-2001', title: 'Task one' }],
+			updated: [],
+			restored: [],
+			errors: [],
+			unconfirmed: [
+				{
+					rowNumber: 3,
+					taskCode: '181-105-2002',
+					title: 'Task two',
+					message: "We couldn't confirm that this was saved. Reload to check it before trying again."
+				}
+			],
+			notAttempted: stopped
+				? [
+						{
+							rowNumber: 4,
+							taskCode: '181-105-2003',
+							title: 'Task three',
+							message: 'Not sent because an earlier part of the import stopped.'
+						}
+					]
+				: []
+		});
+
+		render(IctTaskBulkImport, { props: { tasks: existingTasks, onCancel: vi.fn(), onDone: vi.fn() } });
+		await fireEvent.change(screen.getByLabelText('Upload file'), {
+			target: { files: [new File(['fake'], 'tasks.csv', { type: 'text/csv' })] }
+		});
+		await waitFor(() => expect(screen.getByRole('table')).toBeTruthy());
+		await fireEvent.click(screen.getByRole('button', { name: 'Import Checked Rows' }));
+
+		expect(await screen.findByRole('heading', { name: heading })).toBeTruthy();
+		expect(screen.getByText('1 created')).toBeTruthy();
+		expect(screen.getByText('0 failed')).toBeTruthy();
+		expect(screen.getByText('1 not confirmed')).toBeTruthy();
+		expect(screen.queryByText('1 not imported') !== null).toBe(stopped);
+		expect(screen.getByText('181-105-2002 - Task two')).toBeTruthy();
+		expect(screen.queryByText('181-105-2003 - Task three') !== null).toBe(stopped);
+		expect(screen.getByText(/Reload to check them before importing them again/)).toBeTruthy();
 		expect(criticalTasksWorkspaceStatus.refreshRequested).toBe(true);
 	});
 });

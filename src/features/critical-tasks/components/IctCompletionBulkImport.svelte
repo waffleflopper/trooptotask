@@ -8,7 +8,9 @@
 	import type { BulkImportRowStatus } from '$lib/components/patterns/bulk-import-workspace';
 	import { autoMapColumns, detectHeaderRow, type ColumnDef as ImportColumnDef } from '$lib/utils/columnMapping';
 	import { parseFile } from '$lib/utils/csvParser';
+	import ImportRowIssues from './ImportRowIssues.svelte';
 	import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/personnelIctCompletions.svelte';
+	import { requestCriticalTasksWorkspaceRefresh } from '$features/critical-tasks/criticalTasksWorkspaceStatus.svelte';
 	import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
 	import type { Personnel } from '$features/personnel/contracts';
 	import {
@@ -47,8 +49,16 @@
 	let rawRows = $state<string[][]>([]);
 	let uploadedFileName = $state('');
 	let importError = $state('');
-	let importResult = $state<{ created: number; updated: number; failed: number } | null>(null);
+	let importResult = $state<{
+		created: number;
+		updated: number;
+		failed: number;
+		unconfirmed: number;
+		notAttempted: number;
+	} | null>(null);
 	let importFailures = $state<IctCompletionBatchImportError[]>([]);
+	let importUnconfirmed = $state<IctCompletionBatchImportError[]>([]);
+	let importNotAttempted = $state<IctCompletionBatchImportError[]>([]);
 	let activeReviewGroup = $state<ReviewGroup>('ready');
 	let reviewGroupInitialized = $state(false);
 	let selectionInitialized = $state(false);
@@ -243,6 +253,14 @@
 		reviewGroupInitialized = false;
 	}
 
+	function issueRows(rows: IctCompletionBatchImportError[]) {
+		return rows.map((row) => ({
+			rowNumber: row.rowNumber,
+			details: [row.personnelName || 'Unknown person', row.taskCode || 'No task code'],
+			message: row.message
+		}));
+	}
+
 	async function handleImport() {
 		const checkedRows = selection.selectedRows.map((row) => ({
 			rowNumber: row.rowNumber,
@@ -260,9 +278,14 @@
 			importResult = {
 				created: result.inserted.length,
 				updated: result.updated.length,
-				failed: result.errors.length
+				failed: result.errors.length,
+				unconfirmed: result.unconfirmed.length,
+				notAttempted: result.notAttempted.length
 			};
 			importFailures = result.errors;
+			importUnconfirmed = result.unconfirmed;
+			importNotAttempted = result.notAttempted;
+			if (result.unconfirmed.length > 0) requestCriticalTasksWorkspaceRefresh();
 			step = 'results';
 		} catch (error) {
 			importError = error instanceof Error ? error.message : 'Failed to import critical task completions';
@@ -455,26 +478,35 @@
 					<div class="flex flex-col gap-4 rounded-lg border bg-card p-5 text-card-foreground">
 						<BulkImportWorkspace.Header
 							step="Complete"
-							title="Import Finished"
+							title={importResult.notAttempted > 0
+								? 'Import Stopped'
+								: importResult.unconfirmed > 0
+									? 'Import Needs Review'
+									: 'Import Finished'}
 							meta={[
 								{ label: 'Created', value: `${importResult.created} created` },
 								{ label: 'Updated', value: `${importResult.updated} updated` },
-								{ label: 'Failed', value: `${importResult.failed} failed` }
+								{ label: 'Failed', value: `${importResult.failed} failed` },
+								...(importResult.unconfirmed > 0
+									? [{ label: 'Not confirmed', value: `${importResult.unconfirmed} not confirmed` }]
+									: []),
+								...(importResult.notAttempted > 0
+									? [{ label: 'Not imported', value: `${importResult.notAttempted} not imported` }]
+									: [])
 							]}
 						/>
 
-						{#if importFailures.length > 0}
-							<ul class="flex flex-col gap-2 pl-4">
-								{#each importFailures as failure, index (`${failure.rowNumber}-${index}`)}
-									<li class="flex flex-col gap-0.5">
-										<strong>Row {failure.rowNumber}</strong>
-										<span>{failure.personnelName || 'Unknown person'}</span>
-										<span>{failure.taskCode || 'No task code'}</span>
-										<span>{failure.message}</span>
-									</li>
-								{/each}
-							</ul>
-						{/if}
+						<ImportRowIssues issues={issueRows(importFailures)} />
+						<ImportRowIssues
+							heading="Not confirmed"
+							guidance="These rows may or may not have been saved. Reload to check them before importing them again."
+							issues={issueRows(importUnconfirmed)}
+						/>
+						<ImportRowIssues
+							heading="Not imported"
+							guidance="These rows were not sent because the import stopped. Import them again when ready."
+							issues={issueRows(importNotAttempted)}
+						/>
 					</div>
 				{/if}
 			</BulkImportWorkspace.Root>

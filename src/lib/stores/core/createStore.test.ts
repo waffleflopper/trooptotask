@@ -186,6 +186,59 @@ describe('createStore', () => {
 		});
 	});
 
+	describe('updateOrThrow', () => {
+		it('replaces the item with the server response and resolves true', async () => {
+			const store = makeStore({ adapterOverrides: { update: async () => ({ id: '1', name: 'Saved' }) } });
+			store.load([{ id: '1', name: 'Old' }], 'org-1');
+
+			expect(await store.updateOrThrow('1', { name: 'Saved' })).toBe(true);
+			expect(store.items).toEqual([{ id: '1', name: 'Saved' }]);
+		});
+
+		it('rejects with the adapter error, restores the item and leaves error reporting to the caller', async () => {
+			const original: TestItem = { id: '1', name: 'Original' };
+			const onError = vi.fn();
+			const store = createStore<TestItem>({
+				resource: 'test-items',
+				adapter: makeAdapter({
+					update: async () => {
+						throw new Error('We could not confirm that this was saved.');
+					}
+				}),
+				onError
+			});
+			store.load([original], 'org-1');
+
+			await expect(store.updateOrThrow('1', { name: 'Changed' })).rejects.toThrow(
+				'We could not confirm that this was saved.'
+			);
+			expect(store.items).toEqual([original]);
+			expect(store.busy).toBe(false);
+			expect(onError).not.toHaveBeenCalled();
+		});
+
+		it('resolves false for an item that is not displayed', async () => {
+			const store = makeStore();
+			store.load([], 'org-1');
+
+			expect(await store.updateOrThrow('nonexistent', { name: 'Nope' })).toBe(false);
+		});
+
+		it('keeps update resolving false and reporting once for the same failure', async () => {
+			const onError = vi.fn();
+			const failure = new Error('fail');
+			const store = createStore<TestItem>({
+				resource: 'test-items',
+				adapter: makeAdapter({ update: async () => Promise.reject(failure) }),
+				onError
+			});
+			store.load([{ id: '1', name: 'Original' }], 'org-1');
+
+			expect(await store.update('1', { name: 'Changed' })).toBe(false);
+			expect(onError).toHaveBeenCalledExactlyOnceWith('update', failure);
+		});
+	});
+
 	describe('remove', () => {
 		it('should remove item optimistically and return deleted', async () => {
 			const store = makeStore();
@@ -467,6 +520,10 @@ describe('createStore', () => {
 			add: { start: (store: Store<TestItem>) => store.add({ name: 'New' }), adapter: 'create' },
 			addBatch: { start: (store: Store<TestItem>) => store.addBatch([{ name: 'New' }]), adapter: 'create' },
 			update: { start: (store: Store<TestItem>) => store.update('shared-id', { name: 'Renamed' }), adapter: 'update' },
+			updateOrThrow: {
+				start: (store: Store<TestItem>) => store.updateOrThrow('shared-id', { name: 'Renamed' }),
+				adapter: 'update'
+			},
 			remove: { start: (store: Store<TestItem>) => store.remove('shared-id'), adapter: 'remove' },
 			removeBatch: { start: (store: Store<TestItem>) => store.removeBatch(['shared-id']), adapter: 'remove' }
 		} as const;
@@ -1315,23 +1372,26 @@ describe('createStore', () => {
 			expect(older.reconcile([{ id: 'a', name: 'A' }], all)).toEqual([]);
 		});
 
-		it('restores a confirmed update to a row a newer read had removed', async () => {
-			let acknowledge!: () => void;
-			const store = makeStore({
-				adapterOverrides: {
-					update: (id, data) =>
-						new Promise((resolve) => (acknowledge = () => resolve({ id, name: 'Edited', ...data } as TestItem)))
-				}
-			});
-			store.load([{ id: 'a', name: 'A' }], 'org-1');
-			const older = store.beginRead();
-			const updating = store.update('a', { name: 'Edited' });
-			store.load([], 'org-1');
-			acknowledge();
-			await updating;
+		it.each(['update', 'updateOrThrow'] as const)(
+			'restores a confirmed %s to a row a newer read had removed',
+			async (method) => {
+				let acknowledge!: () => void;
+				const store = makeStore({
+					adapterOverrides: {
+						update: (id, data) =>
+							new Promise((resolve) => (acknowledge = () => resolve({ id, name: 'Edited', ...data } as TestItem)))
+					}
+				});
+				store.load([{ id: 'a', name: 'A' }], 'org-1');
+				const older = store.beginRead();
+				const updating = store[method]('a', { name: 'Edited' });
+				store.load([], 'org-1');
+				acknowledge();
+				await updating;
 
-			expect(older.reconcile([{ id: 'a', name: 'A' }], all)).toEqual([{ id: 'a', name: 'Edited' }]);
-		});
+				expect(older.reconcile([{ id: 'a', name: 'A' }], all)).toEqual([{ id: 'a', name: 'Edited' }]);
+			}
+		);
 
 		it('re-applies nothing once the read is closed', async () => {
 			const store = makeStore();

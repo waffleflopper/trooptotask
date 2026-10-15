@@ -61,6 +61,8 @@ export interface Store<T extends { id: string }> {
 	add(data: Omit<T, 'id'>): Promise<T | null>;
 	addBatch(entries: Omit<T, 'id'>[]): Promise<T[]>;
 	update(id: string, data: Partial<Omit<T, 'id'>>): Promise<boolean>;
+	/** Like `update`, but a failed write rejects with its error and skips `onError`, so the caller can show the reason. */
+	updateOrThrow(id: string, data: Partial<Omit<T, 'id'>>): Promise<boolean>;
 	remove(id: string): Promise<DeleteResult>;
 	removeBool(id: string): Promise<boolean>;
 	removeBatch(ids: string[]): Promise<boolean>;
@@ -221,6 +223,23 @@ export function createStoreWithInternals<T extends { id: string }>(
 		return result;
 	}
 
+	async function updateImpl(id: string, data: Partial<Omit<T, 'id'>>): Promise<boolean> {
+		const displayed = getDisplayItems();
+		const original = displayed.find((item) => item.id === id);
+		if (!original) return false;
+
+		const mutationId = crypto.randomUUID();
+		log.push({ type: 'update', mutationId, targetId: id, data: data as Partial<T> });
+
+		try {
+			const updated = await withinOrganization(adapter.update(id, data));
+			commit({ saved: [updated] });
+			return true;
+		} finally {
+			log.resolve(mutationId);
+		}
+	}
+
 	const store: Store<T> = {
 		get items() {
 			const raw = getDisplayItems();
@@ -314,25 +333,16 @@ export function createStoreWithInternals<T extends { id: string }>(
 			}
 		},
 
-		async update(id: string, data: Partial<Omit<T, 'id'>>): Promise<boolean> {
-			const displayed = getDisplayItems();
-			const original = displayed.find((item) => item.id === id);
-			if (!original) return false;
-
-			const mutationId = crypto.randomUUID();
-			log.push({ type: 'update', mutationId, targetId: id, data: data as Partial<T> });
-
+		async update(id, data) {
 			try {
-				const updated = await withinOrganization(adapter.update(id, data));
-				commit({ saved: [updated] });
-				log.resolve(mutationId);
-				return true;
+				return await updateImpl(id, data);
 			} catch (e) {
 				config.onError?.('update', e);
-				log.resolve(mutationId);
 				return false;
 			}
 		},
+
+		updateOrThrow: updateImpl,
 
 		remove: removeImpl,
 

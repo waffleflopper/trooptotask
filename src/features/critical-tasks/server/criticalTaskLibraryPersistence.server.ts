@@ -1,29 +1,27 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { fail } from '$lib/errors';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
-import { ICT_TASK_CODE_EXISTS_MESSAGE, type CriticalTaskLibraryPersistence, type IctTask } from '../contracts';
+import {
+	ICT_TASK_CODE_EXISTS_MESSAGE,
+	ICT_TASK_ORDER_CHANGED_MESSAGE,
+	ICT_TASK_UNAVAILABLE_MESSAGE,
+	ictTaskSchema,
+	type CriticalTaskLibraryPersistence
+} from '../contracts';
 import { mapIctTask, taskCreateValues, taskPatchValues, TASK_SELECT, type SavedIctTask } from './ictTaskMapping.server';
+import {
+	acknowledgedRows,
+	confirmInsertedRows,
+	isUnknownWriteStatus,
+	readBackInChunks,
+	writeUnconfirmed
+} from './criticalTaskWriteOutcome.server';
 
 function throwWriteError(error: { code?: string; message: string }): never {
 	if (error.code === '23505' && error.message.includes('"ict_tasks_organization_id_task_code_key"')) {
 		fail(409, ICT_TASK_CODE_EXISTS_MESSAGE);
 	}
 	throw new Error(error.message);
-}
-
-function acknowledgedTask(data: unknown, expectedId?: string): SavedIctTask {
-	if (
-		!data ||
-		typeof data !== 'object' ||
-		Array.isArray(data) ||
-		!('id' in data) ||
-		typeof data.id !== 'string' ||
-		data.id.length === 0 ||
-		(expectedId !== undefined && data.id !== expectedId)
-	) {
-		throw new Error('Critical task write returned an invalid acknowledgment');
-	}
-	return data as SavedIctTask;
 }
 
 export function createSupabaseCriticalTaskLibraryPersistence(
@@ -42,6 +40,12 @@ export function createSupabaseCriticalTaskLibraryPersistence(
 		return (data ?? []).map(mapIctTask);
 	}
 
+	function listReferenced(ids: string[]) {
+		return readBackInChunks([...new Set(ids)], (chunk) =>
+			listRows({ includeArchived: true, ordered: true, ids: chunk })
+		);
+	}
+
 	return {
 		listCatalog(options = {}) {
 			return listRows({ includeArchived: options.includeArchived ?? false, ordered: true });
@@ -49,18 +53,7 @@ export function createSupabaseCriticalTaskLibraryPersistence(
 		listImportCandidates() {
 			return listRows({ includeArchived: true, ordered: false });
 		},
-		async listReferenced(ids) {
-			const uniqueIds = [...new Set(ids)];
-			const tasks: IctTask[] = [];
-			for (let index = 0; index < uniqueIds.length; index += 200) {
-				const pending: Array<Promise<IctTask[]>> = [];
-				for (let offset = index; offset < Math.min(index + 200, uniqueIds.length); offset += 50) {
-					pending.push(listRows({ includeArchived: true, ordered: true, ids: uniqueIds.slice(offset, offset + 50) }));
-				}
-				tasks.push(...(await Promise.all(pending)).flat());
-			}
-			return tasks;
-		},
+		listReferenced,
 		async findReference(id) {
 			const { data, error } = await client
 				.from('ict_tasks')
@@ -72,34 +65,71 @@ export function createSupabaseCriticalTaskLibraryPersistence(
 			return data ? { id: data.id, archivedAt: data.archived_at } : null;
 		},
 		async create(input) {
-			const { data, error } = await client
-				.from('ict_tasks')
-				.insert({ ...taskCreateValues(input), organization_id: orgId })
-				.select(TASK_SELECT)
-				.single();
-			if (error) throwWriteError(error);
-			return mapIctTask(acknowledgedTask(data));
+			const row = { ...taskCreateValues(input), id: crypto.randomUUID(), organization_id: orgId };
+			const { data, error, status } = await client.from('ict_tasks').insert(row).select(TASK_SELECT).single();
+			if (error && !isUnknownWriteStatus(status)) throwWriteError(error);
+			const acknowledged = error ? null : acknowledgedRows([data], [row.id], mapIctTask, ictTaskSchema);
+			if (acknowledged) return acknowledged[0];
+			return (await confirmInsertedRows([row.id], listReferenced, ictTaskSchema))[0];
 		},
 		async createMany(inputs) {
 			if (inputs.length === 0) return [];
-			const { data, error } = await client
-				.from('ict_tasks')
-				.insert(inputs.map((input) => ({ ...taskCreateValues(input), organization_id: orgId })))
-				.select(TASK_SELECT);
-			if (error) throwWriteError(error);
-			if (!Array.isArray(data)) throw new Error('Critical task batch returned an invalid acknowledgment');
-			return data.map((row) => mapIctTask(acknowledgedTask(row)));
+			const rows = inputs.map((input) => ({
+				...taskCreateValues(input),
+				id: crypto.randomUUID(),
+				organization_id: orgId
+			}));
+			const ids = rows.map((row) => row.id);
+			const { data, error, status } = await client.from('ict_tasks').insert(rows).select(TASK_SELECT);
+			if (error && !isUnknownWriteStatus(status)) throwWriteError(error);
+			const acknowledged = error ? null : acknowledgedRows(data, ids, mapIctTask, ictTaskSchema);
+			if (acknowledged) return acknowledged;
+			return confirmInsertedRows(ids, listReferenced, ictTaskSchema);
 		},
 		async update(id, patch) {
-			const { data, error } = await client
+			const { data, error, status } = await client
 				.from('ict_tasks')
 				.update(taskPatchValues(patch))
 				.eq('organization_id', orgId)
 				.eq('id', id)
 				.select(TASK_SELECT)
 				.single();
-			if (error) throwWriteError(error);
-			return mapIctTask(acknowledgedTask(data, id));
+			if (error) {
+				if (isUnknownWriteStatus(status)) writeUnconfirmed();
+				throwWriteError(error);
+			}
+			const acknowledged = acknowledgedRows([data], [id], mapIctTask, ictTaskSchema);
+			if (!acknowledged) writeUnconfirmed();
+			return acknowledged[0];
+		},
+		async reorder(changes) {
+			// Keep guards in both the preconditions and the required acknowledgement.
+			const { data, error } = await client.rpc('reorder_ict_tasks', {
+				p_organization_id: orgId,
+				p_changes: changes.map((change) => ({
+					id: change.id,
+					expected_sort_order: change.expectedSortOrder,
+					sort_order: change.sortOrder
+				}))
+			});
+			// A database code means the command's transaction rolled back; postgrest-js reports a lost reply without one.
+			if (error) {
+				if (error.code === '42501') fail(403, 'You do not have access to configure the Critical Tasks library');
+				if (error.code === 'P0002') fail(404, ICT_TASK_UNAVAILABLE_MESSAGE);
+				if (['PT409', '40001', '40P01', '55P03'].includes(error.code)) fail(409, ICT_TASK_ORDER_CHANGED_MESSAGE);
+				if (['22023', '22P02', '22003'].includes(error.code)) fail(400, 'Invalid task order');
+				if (!error.code) writeUnconfirmed();
+				throw new Error(error.message);
+			}
+			const acknowledged = acknowledgedRows(
+				data,
+				changes.map((change) => change.id),
+				mapIctTask,
+				ictTaskSchema
+			);
+			const saved = new Map(changes.map((change) => [change.id, change.sortOrder]));
+			if (!acknowledged || acknowledged.some((task) => saved.get(task.id) !== task.sortOrder)) writeUnconfirmed();
+			return acknowledged;
 		}
 	};
 }

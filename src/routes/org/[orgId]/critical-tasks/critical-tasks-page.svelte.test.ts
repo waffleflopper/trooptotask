@@ -6,7 +6,12 @@ import Page from './+page.svelte';
 import { ictTasksStore } from '$features/critical-tasks';
 import { personnelIctCompletionsStore } from '$features/critical-tasks';
 import { groupCatalogHydration, personnelStore } from '$features/personnel';
-import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/contracts';
+import {
+	CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE,
+	type IctTask,
+	type PersonnelIctCompletion
+} from '$features/critical-tasks/contracts';
+import { toastStore } from '$lib/stores/toast.svelte';
 import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '$features/personnel/contracts';
 
@@ -553,6 +558,41 @@ describe('critical tasks page', () => {
 		await waitFor(() => {
 			expect(screen.queryByRole('dialog', { name: 'Log ICT Completion' })).toBeNull();
 		});
+	});
+
+	it('keeps the matrix completion edit draft and shows the public uncertainty message when the save reply is lost', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue(mockJsonResponse({ message: CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE }, 503))
+		);
+		const success = vi.spyOn(toastStore, 'success');
+		personnelStore.load([person({ id: 'smith', lastName: 'Smith' })], 'org-1');
+		groupCatalogHydration.load([alphaGroup], 'org-1');
+		ictTasksStore.load([ictTask], 'org-1');
+		personnelIctCompletionsStore.load(
+			[completion({ id: 'saved', personnelId: 'smith', ictTaskId: 'task-1' })],
+			'org-1'
+		);
+
+		render(Page, {
+			props: {
+				data: {
+					orgId: 'org-1',
+					orgName: 'Test Unit',
+					viewer: { userId: 'user-1', displayName: 'SFC Taylor Example' },
+					criticalTasks: criticalTasksLayoutData
+				}
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: /Smith 181-105-1001: current/ }));
+		await screen.findByRole('dialog', { name: 'Edit ICT Completion' });
+		await fireEvent.input(screen.getByLabelText(/Notes \(optional\)/i), { target: { value: 'Corrected entry' } });
+		await fireEvent.click(screen.getByTestId('ict-completion-save'));
+
+		expect(await screen.findByText(CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE)).toBeTruthy();
+		expect((screen.getByLabelText(/Notes \(optional\)/i) as HTMLTextAreaElement).value).toBe('Corrected entry');
+		expect(success).not.toHaveBeenCalled();
 	});
 
 	it('lets Critical Tasks operators input a task from the toolbar with searchable person and task selectors', async () => {

@@ -112,6 +112,13 @@ function normalizeTaskCode(value: string): string {
 	return value.trim().toUpperCase();
 }
 
+export function importRowPersonnelName(values: Record<string, string>): string {
+	return [values.rank, values.firstName, values.lastName]
+		.map((part) => (part ?? '').trim())
+		.filter(Boolean)
+		.join(' ');
+}
+
 function displayName(person: Personnel): string {
 	return [person.rank.trim(), person.firstName.trim(), person.lastName.trim()].filter(Boolean).join(' ');
 }

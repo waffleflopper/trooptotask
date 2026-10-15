@@ -840,6 +840,72 @@ test('opening a captured link never surfaces its token, even when DevTools fails
 	});
 });
 
+test('Critical Tasks lost replies commit only the selected owned table write and preserve provider refusals', async () => {
+	for (const [name, method, table] of [
+		['ict-tasks-insert-lost-ack', 'POST', 'ict_tasks'],
+		['ict-tasks-update-lost-ack', 'PATCH', 'ict_tasks'],
+		['ict-tasks-reorder-lost-ack', 'POST', 'rpc/reorder_ict_tasks'],
+		['ict-completions-insert-lost-ack', 'POST', 'personnel_ict_completions'],
+		['ict-completions-update-lost-ack', 'PATCH', 'personnel_ict_completions']
+	]) {
+		const passed = [];
+		const control = createProviderFaultController({
+			providerUrl,
+			fetch: async (input, init) => {
+				passed.push({ url: String(input), method: init.method, body: init.body });
+				return new Response('[{"id":"saved-task","title":"committed"}]', { status: 201 });
+			}
+		});
+		control.command('fault-arm', { name, ordinal: 2 });
+		for (const [url, otherMethod] of [
+			[`${providerUrl}/rest/v1/${table}`, 'GET'],
+			[`${providerUrl}/rest/v1/${table}`, 'DELETE'],
+			[`${providerUrl}/rest/v1/${table}`, method === 'POST' ? 'PATCH' : 'POST'],
+			[`${providerUrl}/rest/v1/${table === 'ict_tasks' ? 'personnel_ict_completions' : 'ict_tasks'}`, method],
+			[`${providerUrl}/rest/v1/${table}_other`, method],
+			[`http://127.0.0.1:56322/rest/v1/${table}`, method]
+		]) {
+			assert.deepEqual(await (await control.fetch(url, { method: otherMethod })).json(), [
+				{ id: 'saved-task', title: 'committed' }
+			]);
+		}
+		assert.equal(control.command('fault-state').controls[name].matches, 0);
+		const request = providerInput(`${table}?organization_id=eq.owned`, { method, body: '{"title":"committed"}' });
+		assert.equal((await control.fetch(...request)).status, 201);
+		await assert.rejects(control.fetch(...request), (error) => {
+			assert.equal(error instanceof TypeError, true);
+			assert.equal(error.message, 'fetch failed');
+			assert.equal(error.cause.code, 'UND_ERR_SOCKET');
+			return true;
+		});
+		assert.deepEqual(passed.slice(-2), [
+			{ url: request[0], method, body: '{"title":"committed"}' },
+			{ url: request[0], method, body: '{"title":"committed"}' }
+		]);
+		assert.deepEqual(control.command('fault-state').controls[name], {
+			ordinal: 2,
+			matches: 2,
+			phase: 'faulted',
+			call: { method, path: `/rest/v1/${table}`, providerStatus: 201 }
+		});
+		assert.equal((await control.fetch(...request)).status, 201);
+		assert.deepEqual(control.command('fault-restore').armed, []);
+		control.command('fault-arm', { name });
+		control.command('fault-restore');
+		assert.equal((await control.fetch(...request)).status, 201);
+
+		const failed = createProviderFaultController({
+			providerUrl,
+			fetch: async () => new Response('{"code":"23505"}', { status: 409 })
+		});
+		failed.command('fault-arm', { name });
+		const refusal = await failed.fetch(...request);
+		assert.equal(refusal.status, 409);
+		assert.deepEqual(await refusal.json(), { code: '23505' });
+		assert.equal(failed.command('fault-state').controls[name].phase, 'provider-failed');
+	}
+});
+
 test('roster command faults preserve unrelated writes and distinguish commit, transport loss and rejection', async () => {
 	for (const [name, command, committed] of [
 		['roster-scan-attach', 'attach_sign_in_roster_scan', false],

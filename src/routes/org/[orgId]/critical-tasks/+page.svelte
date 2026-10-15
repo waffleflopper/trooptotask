@@ -273,7 +273,7 @@
 		existingId?: string
 	): Promise<void> {
 		if (existingId) {
-			const updated = await personnelIctCompletionsStore.update(existingId, saveData);
+			const updated = await personnelIctCompletionsStore.updateOrThrow(existingId, saveData);
 			if (!updated) {
 				throw new Error('Failed to update ICT completion');
 			}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import Ellipsis from '@lucide/svelte/icons/ellipsis';
 	import type { StatusType } from '$features/calendar/contracts';
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
@@ -23,9 +24,12 @@
 	let { canMutate, searchQuery }: Props = $props();
 
 	let composer = $state<ComposerTarget | null>(null);
+	// Each opening gets a fresh composer, so a discarded draft never survives a second Add.
+	let composerSession = $state(0);
 	let composerView = $state<StatusTypeComposer>();
-	let replacement = $state<ComposerTarget | null>(null);
+	let discard = $state<{ next: ComposerTarget | null } | null>(null);
 	let confirmDelete = $state<StatusType | null>(null);
+	let addOpener: HTMLElement | null = null;
 
 	const items = $derived(statusTypesStore.items);
 	// A save in flight shows the order being saved; a type it does not name still shows, last.
@@ -41,12 +45,29 @@
 
 	export function openAddDialog() {
 		if (!canMutate) return;
-		openComposer({ kind: 'create' });
+		addOpener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+		requestComposer({ kind: 'create' });
 	}
 
-	function openComposer(target: ComposerTarget) {
-		if (composerView?.isDirty()) replacement = target;
-		else composer = target;
+	function requestComposer(next: ComposerTarget | null) {
+		if (composerView?.isDirty()) discard = { next };
+		else showComposer(next);
+	}
+
+	function showComposer(next: ComposerTarget | null) {
+		const closed = composer;
+		composer = next;
+		composerSession++;
+		if (!next && closed) void returnFocus(closed);
+	}
+
+	async function returnFocus(closed: ComposerTarget) {
+		await tick();
+		const opener =
+			closed.kind === 'edit'
+				? document.querySelector<HTMLElement>(`[data-status-actions="${CSS.escape(closed.id)}"]`)
+				: addOpener;
+		opener?.focus();
 	}
 
 	function editing(status: StatusType) {
@@ -77,7 +98,13 @@
 
 <div class="flex flex-col gap-6">
 	{#if composer?.kind === 'create'}
-		<StatusTypeComposer bind:this={composerView} onClose={() => (composer = null)} />
+		{#key composerSession}
+			<StatusTypeComposer
+				bind:this={composerView}
+				onClose={() => showComposer(null)}
+				onDismiss={() => requestComposer(null)}
+			/>
+		{/key}
 	{/if}
 
 	<section class="flex flex-col gap-2" aria-labelledby="status-types-heading">
@@ -102,7 +129,14 @@
 				{#each visibleStatuses as status (status.id)}
 					<ReorderItem id={status.id} class="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5">
 						{#if editing(status)}
-							<StatusTypeComposer bind:this={composerView} {status} onClose={() => (composer = null)} />
+							{#key composerSession}
+								<StatusTypeComposer
+									bind:this={composerView}
+									{status}
+									onClose={() => showComposer(null)}
+									onDismiss={() => requestComposer(null)}
+								/>
+							{/key}
 						{:else}
 							{#if query || !canMutate}
 								<span class="size-6 shrink-0"></span>
@@ -132,13 +166,19 @@
 									<DropdownMenu.Root>
 										<DropdownMenu.Trigger>
 											{#snippet child({ props })}
-												<Button {...props} size="icon-sm" variant="ghost" aria-label="More actions for {status.name}">
+												<Button
+													{...props}
+													size="icon-sm"
+													variant="ghost"
+													aria-label="More actions for {status.name}"
+													data-status-actions={status.id}
+												>
 													<Ellipsis />
 												</Button>
 											{/snippet}
 										</DropdownMenu.Trigger>
 										<DropdownMenu.Content align="end">
-											<DropdownMenu.Item onSelect={() => openComposer({ kind: 'edit', id: status.id })}
+											<DropdownMenu.Item onSelect={() => requestComposer({ kind: 'edit', id: status.id })}
 												>Edit</DropdownMenu.Item
 											>
 											<DropdownMenu.Item
@@ -162,16 +202,16 @@
 	</section>
 </div>
 
-{#if replacement}
+{#if discard}
 	<ConfirmDialog
 		title="Discard changes?"
 		message="Your changes to this status type are not saved."
 		confirmLabel="Discard"
 		onConfirm={() => {
-			composer = replacement;
-			replacement = null;
+			if (discard) showComposer(discard.next);
+			discard = null;
 		}}
-		onCancel={() => (replacement = null)}
+		onCancel={() => (discard = null)}
 	/>
 {/if}
 

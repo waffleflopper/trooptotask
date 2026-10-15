@@ -20,10 +20,13 @@
 	interface Props {
 		/** The type to edit in place. Without it the composer adds a new type. */
 		status?: StatusType;
+		/** Cancel and a successful save close at once. */
 		onClose: () => void;
+		/** Escape asks to close, so the owner can confirm before unsaved changes go. */
+		onDismiss: () => void;
 	}
 
-	let { status, onClose }: Props = $props();
+	let { status, onClose, onDismiss }: Props = $props();
 
 	const WHITE_TEXT = '#ffffff';
 	const DARK_TEXT = '#1c1b19';
@@ -47,6 +50,7 @@
 	let color = $state(initial?.color ?? DEFAULT_COLOR);
 	let textColor = $state(initial?.textColor ?? WHITE_TEXT);
 	let nameInput = $state<HTMLInputElement | null>(null);
+	let fields = $state<HTMLFieldSetElement | null>(null);
 	const saving = new PendingSave();
 
 	const draft = $derived({
@@ -94,6 +98,14 @@
 	}
 </script>
 
+<svelte:document
+	onkeydown={(event) => {
+		if (event.key !== 'Escape' || saving.pending || !fields?.contains(event.target as Node)) return;
+		event.preventDefault();
+		onDismiss();
+	}}
+/>
+
 <form
 	class="flex w-full flex-col gap-5 rounded-lg border-2 border-foreground bg-card p-5"
 	aria-label={initial ? `Edit ${initial.name}` : 'New status type'}
@@ -102,7 +114,7 @@
 		void saving.run(save);
 	}}
 >
-	<fieldset class="contents" disabled={saving.pending}>
+	<fieldset bind:this={fields} class="contents" disabled={saving.pending}>
 		<div class="flex flex-wrap items-start gap-4">
 			<Field.Root class="min-w-48 flex-1">
 				<Field.Label for="status-{id}-name">Name</Field.Label>
@@ -132,11 +144,13 @@
 				<ToggleGroup.Root
 					type="single"
 					aria-labelledby="status-{id}-text"
-					value={textChoice}
-					onValueChange={(value) => {
-						if (value === 'white') textColor = WHITE_TEXT;
-						if (value === 'dark') textColor = DARK_TEXT;
-					}}
+					bind:value={
+						() => textChoice,
+						(value) => {
+							if (value === 'white') textColor = WHITE_TEXT;
+							if (value === 'dark') textColor = DARK_TEXT;
+						}
+					}
 				>
 					<ToggleGroup.Item value="white">White</ToggleGroup.Item>
 					<ToggleGroup.Item value="dark">Dark</ToggleGroup.Item>
@@ -150,10 +164,12 @@
 					type="single"
 					class="flex-wrap gap-2 bg-transparent p-0"
 					aria-labelledby="status-{id}-color"
-					value={swatch}
-					onValueChange={(value) => {
-						if (value) color = value;
-					}}
+					bind:value={
+						() => swatch,
+						(value) => {
+							if (value) color = value;
+						}
+					}
 				>
 					{#each SWATCHES as option (option.color)}
 						<ToggleGroup.Item

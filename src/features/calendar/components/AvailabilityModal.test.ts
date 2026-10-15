@@ -2,6 +2,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import AvailabilityModal from './AvailabilityModal.svelte';
+import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
 import type { Personnel } from '$features/personnel/contracts';
 import type { AvailabilityEntry, StatusType } from '$features/calendar/contracts';
@@ -90,6 +91,28 @@ describe('AvailabilityModal — status type select', () => {
 			endDate: '2026-04-07',
 			note: null
 		});
+	});
+});
+
+describe('AvailabilityModal — status order', () => {
+	it('lists statuses in saved order, ties by id, whatever order they loaded in', async () => {
+		const status = (id: string, name: string, sortOrder: number): StatusType => ({
+			id,
+			name,
+			color: '#48bb78',
+			textColor: '#ffffff',
+			shortLabel: null,
+			sortOrder
+		});
+		statusTypesStore.load(
+			[status('c', 'School', 1), status('b', 'Sick', 1), status('d', 'Leave', 0), status('a', 'TDY', 2)],
+			'org-a'
+		);
+		renderModal(new Date(2026, 3, 7), { statusTypes: statusTypesStore.items });
+
+		await fireEvent.pointerDown(screen.getByRole('button', { name: 'Status Type' }));
+		const options = within(screen.getByRole('listbox', { name: 'Status Type' })).getAllByRole('option');
+		expect(options.map((option) => option.textContent?.trim())).toEqual(['Leave', 'Sick', 'School', 'TDY']);
 	});
 });
 

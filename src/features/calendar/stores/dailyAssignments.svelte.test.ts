@@ -463,12 +463,19 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 		const staff = { ...guardType, id: 'staff', name: 'Staff', showOnCalendar: true, sortOrder: 0 };
 		const group = { ...guardType, id: 'group', name: 'Group', sortOrder: 1 };
 		const retiring = { ...guardType, id: 'retiring', name: 'Retiring', sortOrder: 2 };
-		const withLanes = (ids: string[]) =>
-			[staff, group, retiring].map((type) =>
-				ids.includes(type.id)
-					? { ...type, showOnCalendar: true, sortOrder: ids.indexOf(type.id) }
-					: { ...type, showOnCalendar: false }
-			);
+		const withLanes = (ids: string[]) => {
+			const types = [staff, group, retiring];
+			return [
+				...ids.map((id, position) => ({
+					...types.find((type) => type.id === id)!,
+					showOnCalendar: true,
+					sortOrder: position
+				})),
+				...types
+					.filter((type) => !ids.includes(type.id))
+					.map((type) => ({ ...type, showOnCalendar: false, sortOrder: 10 + type.sortOrder }))
+			];
+		};
 		const lanes = () => calendarLaneIds(dailyAssignmentsStore.types);
 		const lanesRequest = (laneTypeIds: string[], expectedLaneTypeIds: string[]) => [
 			'/org/org-1/api/assignment-types/lanes',
@@ -497,13 +504,24 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 
 			expect(await dailyAssignmentsStore.setCalendarLanes(['group', 'staff'])).toEqual({ status: 'saved' });
 			expect(dailyAssignmentsStore.types.map((type) => [type.id, type.showOnCalendar, type.sortOrder])).toEqual([
-				['staff', true, 1],
 				['group', true, 0],
+				['staff', true, 1],
 				['retiring', false, 2]
 			]);
 			expect(fetchMock.mock.calls).toEqual([lanesRequest(['group', 'staff'], ['staff'])]);
 			expect(dailyAssignmentsStore.pendingLaneIds).toBeNull();
 			expect(toast).not.toHaveBeenCalled();
+		});
+
+		it('lists every type in the saved lane order once a reorder is saved', async () => {
+			const first = { ...guardType, id: 'A-id', name: 'A', showOnCalendar: true, sortOrder: 0 };
+			const second = { ...guardType, id: 'B-id', name: 'B', showOnCalendar: true, sortOrder: 1 };
+			dailyAssignmentsStore.load([first, second], [], 'org-1');
+			vi.stubGlobal('fetch', vi.fn().mockResolvedValue(reply(200, { success: true })));
+
+			expect(await dailyAssignmentsStore.setCalendarLanes(['B-id', 'A-id'])).toEqual({ status: 'saved' });
+
+			expect(dailyAssignmentsStore.types.map((type) => type.id)).toEqual(['B-id', 'A-id']);
 		});
 
 		it('folds moves made during a save into one follow-up that expects the order just saved', async () => {
@@ -1140,12 +1158,12 @@ describe('dailyAssignmentsStore - workspace snapshots after a confirmed catalog'
 	};
 	const retiring = { ...guardType, id: 'retiring', name: 'Retiring', exemptPersonnelIds: ['p-exempt'], sortOrder: 2 };
 	const shownGroup = { ...group, showOnCalendar: true, sortOrder: 0 };
-	const confirmed = [{ ...staff, showOnCalendar: false }, shownGroup, retiring];
+	const confirmed = [shownGroup, { ...staff, showOnCalendar: false }, retiring];
 	const beforeCommit = [staff, group, retiring];
 	const retiringSaved = [
+		{ ...retiring, showOnCalendar: true, sortOrder: 0 },
 		{ ...staff, showOnCalendar: false },
-		group,
-		{ ...retiring, showOnCalendar: true, sortOrder: 0 }
+		group
 	];
 	const row = { id: 'a1', date: '2026-10-14', assignmentTypeId: 'group', assigneeId: 'p1' };
 	const refreshFailed = "We couldn't refresh assignment types. Reload to see the saved types.";
@@ -1206,13 +1224,13 @@ describe('dailyAssignmentsStore - workspace snapshots after a confirmed catalog'
 		[
 			'archived',
 			[
-				{ ...staff, showOnCalendar: false },
 				{ ...shownGroup, showOnCalendar: false, archivedAt: '2026-10-13T12:00:00.000Z' },
+				{ ...staff, showOnCalendar: false },
 				retiring
 			]
 		],
 		['deleted', [{ ...staff, showOnCalendar: false }, retiring]],
-		['renamed', [{ ...staff, showOnCalendar: false }, { ...shownGroup, name: 'Group Night' }, retiring]],
+		['renamed', [{ ...shownGroup, name: 'Group Night' }, { ...staff, showOnCalendar: false }, retiring]],
 		['replaced as the lane', retiringSaved]
 	])('adopts a saved lane another user %s once a fresh read confirms it', async (_label, saved) => {
 		dailyAssignmentsStore.load(saved, [row], 'org-1');
@@ -1245,9 +1263,9 @@ describe('dailyAssignmentsStore - workspace snapshots after a confirmed catalog'
 		await answered();
 
 		expect(dailyAssignmentsStore.types).toEqual([
-			{ ...staff, showOnCalendar: false },
 			{ ...shownGroup, showOnCalendar: false },
-			{ ...retiring, showOnCalendar: true, sortOrder: 0 }
+			{ ...retiring, showOnCalendar: true, sortOrder: 0 },
+			{ ...staff, showOnCalendar: false }
 		]);
 		expect(requests).toEqual(['GET /org/org-1/api/assignment-types', 'PUT /org/org-1/api/assignment-types/lanes']);
 		expect(toasts).toEqual([]);
@@ -1318,7 +1336,7 @@ describe('dailyAssignmentsStore - workspace snapshots after a confirmed catalog'
 	);
 
 	describe('while a type write is saving', () => {
-		const renamed = [{ ...staff, showOnCalendar: false }, { ...shownGroup, name: 'Group Night' }, retiring];
+		const renamed = [{ ...shownGroup, name: 'Group Night' }, { ...staff, showOnCalendar: false }, retiring];
 		const cqData = {
 			name: 'CQ',
 			shortName: 'CQ',
@@ -1326,7 +1344,7 @@ describe('dailyAssignmentsStore - workspace snapshots after a confirmed catalog'
 			color: '#000',
 			exemptPersonnelIds: [],
 			showOnCalendar: false,
-			sortOrder: 0
+			sortOrder: 3
 		};
 		const cq = { ...cqData, id: 'cq' };
 		let writes: Array<(value: unknown) => void>;
@@ -1402,7 +1420,7 @@ describe('dailyAssignmentsStore - workspace snapshots after a confirmed catalog'
 		it('adopts the deferred catalog after successful edits settle in the same turn', async () => {
 			const staffSaved = { ...staff, showOnCalendar: false, name: 'Staff Duty' };
 			const retired = { ...retiring, name: 'Retired' };
-			const saved = [staffSaved, renamed[1], retired];
+			const saved = [renamed[0], staffSaved, retired];
 			const first = dailyAssignmentsStore.updateType('staff', { name: 'Staff Duty' });
 			const second = dailyAssignmentsStore.updateType('retiring', { name: 'Retired' });
 			dailyAssignmentsStore.load(renamed, [row], 'org-1');

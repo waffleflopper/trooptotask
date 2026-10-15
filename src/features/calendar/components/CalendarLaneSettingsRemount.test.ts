@@ -98,8 +98,8 @@ it('keeps a held lane change across a Settings tab switch and saves the moves ma
 	]);
 	expect(laneNames()).toEqual(['Charge of Quarters', 'Staff Duty', 'Gate Guard']);
 	expect(dailyAssignmentsStore.types.map((saved) => [saved.id, saved.showOnCalendar, saved.sortOrder])).toEqual([
-		['sd', true, 1],
 		['cq', true, 0],
+		['sd', true, 1],
 		['gate', true, 2]
 	]);
 });

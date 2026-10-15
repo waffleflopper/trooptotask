@@ -26,7 +26,7 @@ const types: AssignmentType[] = [
 		color: '#654321',
 		exemptPersonnelIds: [],
 		showOnCalendar: true,
-		sortOrder: 0
+		sortOrder: 1
 	}
 ];
 const linked: DailyAssignment = {

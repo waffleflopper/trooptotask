@@ -56,6 +56,7 @@ function sameCatalog(a: readonly AssignmentType[], b: readonly AssignmentType[])
 
 const typesStore = defineStore<AssignmentType>({
 	table: 'assignment_types',
+	orderBy: [{ field: 'sortOrder' }, { field: 'id' }],
 	overrides: {
 		onError: (operation, error) => {
 			const action = operation === 'add' ? 'create' : operation === 'update' ? 'update' : 'delete';

@@ -418,20 +418,32 @@ export async function runBlock(config) {
 			}
 		} else if (block === 'popover') {
 			const bar = () => document.querySelector('[data-slot="bar-track"] button[data-entry-id]');
-			const popover = () => all('[data-slot="popover-content"][role="dialog"]').find((element) => visible(element));
+			const popovers = () => all('[data-slot="popover-content"][role="dialog"]').filter(visible);
 			if (!bar()) throw new Error('no availability bar on this revision');
 			for (let round = 0; round < rounds; round += 1) {
+				// Only a popover this click opened, for the bar it expanded, proves the interaction.
+				let earlier = [];
+				const opened = () =>
+					bar().getAttribute('aria-expanded') === 'true'
+						? popovers().find((element) => !earlier.includes(element))
+						: undefined;
 				record(
 					await measure(
 						'popover-open',
-						() => bar().click(),
-						() => Boolean(popover()),
-						{ detail: () => ({ title: popover()?.getAttribute('aria-label') }) }
+						() => {
+							earlier = popovers();
+							bar().click();
+						},
+						() => Boolean(opened()),
+						{ detail: () => ({ title: opened()?.getAttribute('aria-label') }) }
 					),
 					round
 				);
-				popover().dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-				await waitFor(() => !popover(), 'popover closed');
+				const popover = opened();
+				if (popover) {
+					popover.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+					await waitFor(() => !popover.isConnected || !visible(popover), 'popover closed');
+				}
 			}
 		} else throw new Error(`unknown block ${block}`);
 		await reset();

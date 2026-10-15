@@ -75,6 +75,8 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261013000500_atomic_onboarding_template_commands.sql",
     "20261013000600_sign_in_roster_scan_lifecycle.sql",
     "20261014000100_atomic_calendar_configuration_commands.sql",
+    "20261014000200_atomic_critical_task_reorder.sql",
+    "20261014000300_critical_task_reorder_preconditions.sql",
     "20261015000100_calendar_lanes.sql",
 )
 STAGED_UPGRADE_FIXTURES = (

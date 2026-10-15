@@ -6,7 +6,12 @@ import {
 	type CalendarBufferedRange,
 	type CalendarViewMode
 } from '$features/calendar/utils/calendarRange';
-import { loadCalendarRange, mergeCalendarRangeIntoStores } from '$features/calendar/utils/calendarRangeLoader';
+import {
+	beginCalendarRangeRead,
+	loadCalendarRange,
+	mergeCalendarRangeIntoStores,
+	type CalendarRangeRead
+} from '$features/calendar/utils/calendarRangeLoader';
 
 type CalendarBootstrapRangeData = Pick<CalendarBootstrap, 'rangeStart' | 'rangeEnd'>;
 
@@ -115,6 +120,7 @@ export class CalendarRangeCoordinator {
 		this.error = null;
 		this.#pendingRangeKey = requestKey;
 		const requestSerial = ++this.#requestSerial;
+		const read = beginCalendarRangeRead();
 
 		try {
 			const rangeDataSets = await Promise.all(nextRanges.map((range) => this.#loadRange(input.orgId, range)));
@@ -122,7 +128,7 @@ export class CalendarRangeCoordinator {
 				return;
 			}
 
-			this.#mergeRangeDataSets(input.orgId, rangeDataSets);
+			this.#mergeRangeDataSets(input.orgId, rangeDataSets, read);
 			this.loading = false;
 			this.#failedRangeKey = null;
 			this.#pendingRangeKey = null;
@@ -135,13 +141,15 @@ export class CalendarRangeCoordinator {
 			this.loading = false;
 			this.#failedRangeKey = requestKey;
 			this.#pendingRangeKey = null;
+		} finally {
+			read.close();
 		}
 	}
 
-	#mergeRangeDataSets(orgId: string, rangeDataSets: CalendarRangeData[]): void {
+	#mergeRangeDataSets(orgId: string, rangeDataSets: CalendarRangeData[], read: CalendarRangeRead): void {
 		for (const rangeData of rangeDataSets) {
 			const loadedRange = untrack(() => this.loadedRange);
-			this.#mergeRangeIntoStores(orgId, rangeData);
+			this.#mergeRangeIntoStores(orgId, rangeData, read);
 			this.loadedRange = loadedRange
 				? {
 						rangeStart: rangeData.rangeStart < loadedRange.rangeStart ? rangeData.rangeStart : loadedRange.rangeStart,

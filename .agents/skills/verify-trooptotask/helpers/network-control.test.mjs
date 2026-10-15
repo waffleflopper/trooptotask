@@ -466,3 +466,98 @@ test('a rejected platform form result carries the chosen 4xx status in the Svelt
 	assert.deepEqual(parse(result.data), { error: 'Synthetic request failure' });
 	assert.equal((await page.fetch('/admin/feedback?/update', { method: 'POST' })).status, 200);
 });
+
+for (const family of ['ict-tasks/batch', 'personnel-ict-completions/batch']) {
+	test(`Critical Tasks ${family} loses only the second owned POST reply after real dispatch`, async () => {
+		const suffix = `/org/owned-a/api/${family}`;
+		const page = {
+			location: { href: 'http://localhost/org/owned-a/critical-tasks' },
+			fetch: async () => Response.json({ saved: true })
+		};
+		installNetworkControl(page, { mode: 'drop-response', ordinal: 2, suffix, sameOrigin: true, requestMethod: 'POST' });
+		for (const [url, method] of [
+			[suffix, 'GET'],
+			[suffix, 'PATCH'],
+			[`/org/owned-b/api/${family}`, 'POST'],
+			[`http://foreign.test${suffix}`, 'POST'],
+			[`${suffix}/other`, 'POST']
+		])
+			assert.deepEqual(await (await page.fetch(url, { method })).json(), { saved: true });
+		assert.equal(page.__mapNetwork.calls.length, 0);
+		assert.deepEqual(await (await page.fetch(suffix, { method: 'POST' })).json(), { saved: true });
+		await assert.rejects(page.fetch(suffix, { method: 'POST' }), TypeError);
+		assert.deepEqual(
+			page.__mapNetwork.calls.map(({ status, failure }) => ({ status, failure })),
+			[
+				{ status: 200, failure: undefined },
+				{ status: 200, failure: 'response' }
+			]
+		);
+		assert.deepEqual(await (await page.fetch(suffix, { method: 'POST' })).json(), { saved: true });
+	});
+}
+
+for (const mode of ['observe', 'hold', 'hold-fail']) {
+	test(`Critical Tasks order ${mode} isolates one owned POST`, async () => {
+		let dispatched = 0;
+		const suffix = '/org/owned-a/api/ict-tasks/order';
+		const page = {
+			location: { href: 'http://localhost/org/owned-a/critical-tasks/library' },
+			fetch: async () => {
+				dispatched++;
+				return Response.json({ saved: true });
+			}
+		};
+		installNetworkControl(page, { mode, ordinal: 1, suffix, sameOrigin: true, requestMethod: 'POST' });
+		for (const [url, method] of [
+			[suffix, 'GET'],
+			[suffix, 'PATCH'],
+			['/org/owned-b/api/ict-tasks/order', 'POST'],
+			['http://foreign.test' + suffix, 'POST'],
+			[suffix + '/other', 'POST']
+		])
+			assert.equal((await page.fetch(url, { method })).status, 200);
+		assert.equal(page.__mapNetwork.calls.length, 0);
+		let settled = false;
+		const pending = page.fetch(suffix, { method: 'POST' });
+		pending.then(() => {
+			settled = true;
+		});
+		await new Promise(setImmediate);
+		assert.equal(dispatched, mode === 'hold-fail' ? 5 : 6);
+		if (mode.startsWith('hold')) {
+			assert.equal(settled, false);
+			page.__mapNetwork.release();
+		}
+		assert.equal((await pending).status, mode === 'hold-fail' ? 503 : 200);
+		assert.equal((await page.fetch(suffix, { method: 'POST' })).status, 200);
+		assert.equal(dispatched, mode === 'hold-fail' ? 6 : 7);
+	});
+}
+
+test('held dispatch sends the selected mutation only after release and passes reads through', async () => {
+	const dispatched = [];
+	const page = {
+		location: { href: 'http://localhost/org/a/calendar' },
+		fetch: async (url, init) => {
+			dispatched.push(init?.method ?? 'GET');
+			return Response.json({ id: 'saved' });
+		}
+	};
+	const suffix = '/org/a/api/availability';
+	installNetworkControl(page, { mode: 'hold-dispatch', ordinal: 1, suffix });
+	assert.equal((await page.fetch(suffix)).status, 200);
+	let settled = false;
+	const saved = page.fetch(suffix, { method: 'DELETE', body: JSON.stringify({ id: 'saved' }) });
+	saved.then(() => (settled = true));
+	await new Promise(setImmediate);
+	assert.deepEqual(dispatched, ['GET']);
+	assert.equal(page.__mapNetwork.calls[0].dispatch, 'held');
+	assert.equal(settled, false);
+	page.__mapNetwork.release();
+	assert.equal((await saved).status, 200);
+	assert.deepEqual(dispatched, ['GET', 'DELETE']);
+	assert.equal(page.__mapNetwork.calls[0].dispatch, 'released');
+	await page.fetch(suffix, { method: 'POST' });
+	assert.deepEqual(dispatched, ['GET', 'DELETE', 'POST']);
+});

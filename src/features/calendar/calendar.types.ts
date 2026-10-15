@@ -2,6 +2,7 @@ import type { Personnel } from '$features/personnel/contracts';
 import type {
 	AssignmentType,
 	AvailabilityEntry,
+	CalendarDateRange,
 	SpecialDay,
 	StatusType,
 	DailyAssignment
@@ -13,6 +14,8 @@ export interface CalendarBootstrap {
 	rangeEnd: string;
 	availabilityEntries: AvailabilityEntry[] | Promise<AvailabilityEntry[]>;
 	specialDays: SpecialDay[] | Promise<SpecialDay[]>;
+	/** Special Days come from a wider catalog window than the availability and assignment range. */
+	specialDaysRange: CalendarDateRange;
 	assignmentTypes: AssignmentType[];
 	dailyAssignments: DailyAssignment[] | Promise<DailyAssignment[]>;
 	pinnedGroups: string[];
@@ -45,7 +48,7 @@ export interface CalendarWorkspaceData {
 
 export const CALENDAR_WORKSPACE_LANE_KEY = 'calendar' as const;
 
-export type CalendarWorkspaceHydrationMode = 'replace' | 'merge' | 'preserve-client';
+export type CalendarWorkspaceHydrationMode = 'replace' | 'preserve-client';
 
 export interface CalendarWorkspaceHydrationTarget<T> {
 	mode: CalendarWorkspaceHydrationMode;
@@ -54,27 +57,37 @@ export interface CalendarWorkspaceHydrationTarget<T> {
 	items: T[] | Promise<T[]>;
 }
 
+/** A snapshot that is authoritative only within its date range. */
+export interface CalendarRangeHydrationTarget<T> {
+	mode: 'range' | 'preserve-client';
+	deferred?: boolean;
+	snapshotKey: string;
+	items: T[] | Promise<T[]>;
+	range: CalendarDateRange;
+}
+
 export interface CalendarAssignmentsHydrationItems {
 	types: AssignmentType[];
 	assignments: DailyAssignment[];
 }
 
 export interface CalendarAssignmentsWorkspaceHydrationTarget {
-	mode: CalendarWorkspaceHydrationMode;
+	mode: 'range' | 'preserve-client';
 	deferred?: boolean;
 	snapshotKey: string;
 	items: CalendarAssignmentsHydrationItems | Promise<CalendarAssignmentsHydrationItems>;
-	rangeStart?: string;
-	rangeEnd?: string;
+	range: CalendarDateRange;
 }
 
 export interface CalendarWorkspaceHydration {
 	orgId: string;
+	/** Each tab's latest confirmed change when the request left; see `confirmedBeforeRequest`. */
+	confirmedChangesByTab: Record<string, number>;
 	personnel: CalendarWorkspaceHydrationTarget<Personnel>;
 	groups: CalendarWorkspaceHydrationTarget<Group>;
 	statusTypes: CalendarWorkspaceHydrationTarget<StatusType>;
-	availabilityEntries: CalendarWorkspaceHydrationTarget<AvailabilityEntry>;
-	specialDays: CalendarWorkspaceHydrationTarget<SpecialDay>;
+	availabilityEntries: CalendarRangeHydrationTarget<AvailabilityEntry>;
+	specialDays: CalendarRangeHydrationTarget<SpecialDay>;
 	calendarAssignments: CalendarAssignmentsWorkspaceHydrationTarget;
 	pinnedGroups: CalendarWorkspaceHydrationTarget<string>;
 }

@@ -94,6 +94,7 @@ export async function fetchDashboardBootstrap(ctx: DashboardQueryContext): Promi
 		availabilityEntries,
 		assignmentTypes,
 		todayAssignments,
+		range: { rangeStart: yesterday, rangeEnd: twoWeeksOut },
 		pinnedGroups: visiblePinnedGroupNames(pinnedGroups, groups),
 		ratingSchemeEntries,
 		activeOnboardings,

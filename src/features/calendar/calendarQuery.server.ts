@@ -164,6 +164,7 @@ export async function fetchCalendarBootstrap(
 		rangeEnd,
 		availabilityEntries,
 		specialDays,
+		specialDaysRange: { rangeStart: specialDaysRange.rangeStart, rangeEnd: specialDaysRange.rangeEnd },
 		assignmentTypes,
 		dailyAssignments,
 		pinnedGroups: visiblePinnedGroupNames(pinnedGroups, groups),

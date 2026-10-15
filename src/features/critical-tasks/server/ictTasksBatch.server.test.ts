@@ -84,7 +84,8 @@ describe('importIctTasksBatch', () => {
 					inserted: 1,
 					updated: 1,
 					restored: 0,
-					errors: 0
+					errors: 0,
+					unconfirmed: 0
 				}
 			})
 		]);
@@ -142,7 +143,8 @@ describe('importIctTasksBatch', () => {
 					inserted: 0,
 					updated: 0,
 					restored: 1,
-					errors: 0
+					errors: 0,
+					unconfirmed: 0
 				}
 			})
 		]);

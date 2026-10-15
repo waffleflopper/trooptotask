@@ -266,7 +266,7 @@
 		<AppDialog.Body>
 			{#if saveError}
 				<Alert.Root variant="destructive" class="mb-4">
-					<Alert.Title>ICT completion was not saved</Alert.Title>
+					<Alert.Title>Completion save needs attention</Alert.Title>
 					<Alert.Description>{saveError}</Alert.Description>
 				</Alert.Root>
 			{/if}

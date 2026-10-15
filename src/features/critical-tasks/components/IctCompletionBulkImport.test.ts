@@ -5,6 +5,10 @@ import IctCompletionBulkImport from './IctCompletionBulkImport.svelte';
 import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
 import type { Personnel } from '$features/personnel/contracts';
 import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/personnelIctCompletions.svelte';
+import {
+	criticalTasksWorkspaceStatus,
+	resetCriticalTasksWorkspaceStatus
+} from '$features/critical-tasks/criticalTasksWorkspaceStatus.svelte';
 
 const { parseFileMock } = vi.hoisted(() => ({
 	parseFileMock: vi.fn()
@@ -65,6 +69,7 @@ const existingCompletion: PersonnelIctCompletion = {
 describe('IctCompletionBulkImport', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		resetCriticalTasksWorkspaceStatus();
 		parseFileMock.mockResolvedValue([
 			['Rank', 'Last Name', 'First Name', 'Task Code', 'Completion Date'],
 			['SGT', 'Smith', 'Jane', '181-105-1001', '2026-03-13'],
@@ -249,7 +254,9 @@ describe('IctCompletionBulkImport', () => {
 					taskCode: '181-105-1001',
 					message: 'Batch import failed'
 				}
-			]
+			],
+			unconfirmed: [],
+			notAttempted: []
 		});
 
 		render(IctCompletionBulkImport, {
@@ -303,5 +310,55 @@ describe('IctCompletionBulkImport', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Done' }));
 		expect(onDone).toHaveBeenCalledTimes(1);
+	});
+
+	it.each([
+		{ stopped: true, heading: 'Import Stopped' },
+		{ stopped: false, heading: 'Import Needs Review' }
+	])('shows $heading with truthful counts and reload guidance', async ({ stopped, heading }) => {
+		parseFileMock.mockResolvedValue([
+			['Rank', 'Last Name', 'First Name', 'Task Code', 'Completion Date', 'Validation Method'],
+			['SGT', 'Smith', 'Jane', '181-105-1001', '2026-03-13', 'Simulation']
+		]);
+		vi.spyOn(personnelIctCompletionsStore, 'importBatch').mockResolvedValue({
+			inserted: [],
+			updated: [],
+			errors: [],
+			unconfirmed: [
+				{
+					rowNumber: 2,
+					personnelName: 'SGT Jane Smith',
+					taskCode: '181-105-1001',
+					message: "We couldn't confirm that this was saved. Reload to check it before trying again."
+				}
+			],
+			notAttempted: stopped
+				? [
+						{
+							rowNumber: 3,
+							personnelName: 'SPC Lee Bravo',
+							taskCode: '181-105-1001',
+							message: 'Not sent because an earlier part of the import stopped.'
+						}
+					]
+				: []
+		});
+		render(IctCompletionBulkImport, {
+			props: { personnel: [alphaMedic], tasks: [tcccTask], completions: [], onCancel: vi.fn(), onDone: vi.fn() }
+		});
+		await fireEvent.change(screen.getByLabelText('Upload file'), {
+			target: { files: [new File(['fake'], 'ict-completions.csv', { type: 'text/csv' })] }
+		});
+		await fireEvent.click(await screen.findByRole('button', { name: 'Import Checked Rows' }));
+
+		expect(await screen.findByRole('heading', { name: heading })).toBeTruthy();
+		expect(screen.getByText('0 created')).toBeTruthy();
+		expect(screen.getByText('0 failed')).toBeTruthy();
+		expect(screen.getByText('1 not confirmed')).toBeTruthy();
+		expect(screen.queryByText('1 not imported') !== null).toBe(stopped);
+		expect(screen.getByText('SGT Jane Smith')).toBeTruthy();
+		expect(screen.queryByText('SPC Lee Bravo') !== null).toBe(stopped);
+		expect(screen.getByText(/Reload to check them before importing them again/)).toBeTruthy();
+		expect(criticalTasksWorkspaceStatus.refreshRequested).toBe(true);
 	});
 });

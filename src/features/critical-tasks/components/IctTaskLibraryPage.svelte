@@ -13,10 +13,15 @@
 		type ToolbarItem,
 		type WorkspaceToolbarProps
 	} from '$lib/components/patterns/workspace-toolbar';
-	import { ICT_TASK_CODE_EXISTS_MESSAGE, type CriticalTasksPageAccess } from '../contracts';
+	import {
+		ICT_TASK_CODE_EXISTS_MESSAGE,
+		ICT_TASK_MOVE_UNSUPPORTED_MESSAGE,
+		type CriticalTasksPageAccess
+	} from '../contracts';
 	import IctTaskBulkImport from '$features/critical-tasks/components/IctTaskBulkImport.svelte';
 	import CriticalTasksDefaults from '$features/critical-tasks/components/CriticalTasksDefaults.svelte';
 	import { criticalTasksSettingsFromWorkspaceData } from '$features/critical-tasks/utils/criticalTasksWorkspaceData';
+	import { toastStore } from '$lib/stores/toast.svelte';
 	import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
 	import { requestCriticalTasksWorkspaceRefresh } from '$features/critical-tasks/criticalTasksWorkspaceStatus.svelte';
 	import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/personnelIctCompletions.svelte';
@@ -28,7 +33,8 @@
 		getActiveIctTasksForLibrary,
 		getArchivedIctTasksForLibrary,
 		isIctTaskApplicableToMos,
-		parseMosApplicabilityInput
+		parseMosApplicabilityInput,
+		planIctTaskMove
 	} from '$features/critical-tasks/utils/ictTaskLibrary';
 
 	interface Props {
@@ -54,6 +60,7 @@
 	let creating = $state(false);
 	let editing = $state(false);
 	let saving = $state(false);
+	let reordering = $state(false);
 	let formError = $state('');
 	let fieldErrors = $state<{ taskCode?: string; title?: string; expirationMonths?: string; sortOrder?: string }>({});
 	let taskCodeInput = $state<HTMLInputElement | null>(null);
@@ -208,6 +215,7 @@
 		creating = false;
 		editing = false;
 		saving = false;
+		reordering = false;
 		importingTasks = false;
 		confirmArchive = null;
 		taskStatusFilter = 'active';
@@ -404,7 +412,7 @@
 				if (created) selectedTaskId = created.id;
 				creating = false;
 			} else if (selectedTaskId) {
-				const updated = await ictTasksStore.update(selectedTaskId, payload);
+				const updated = await ictTasksStore.updateOrThrow(selectedTaskId, payload);
 				if (!isCurrentRequest(requestOrgId, generation)) return;
 				if (!updated) {
 					throw new Error('Could not save task changes');
@@ -426,12 +434,24 @@
 		}
 	}
 
+	async function patchTask(taskId: string, patch: Partial<Omit<IctTask, 'id'>>): Promise<string | null> {
+		try {
+			return (await ictTasksStore.updateOrThrow(taskId, patch)) ? null : 'Could not save task changes';
+		} catch (error) {
+			return error instanceof Error && error.message.trim() ? error.message : 'Could not save task changes';
+		}
+	}
+
 	async function archiveTask(taskId: string) {
 		if (!canManage) return;
 		const requestOrgId = orgId;
 		const generation = scopeGeneration;
-		await ictTasksStore.update(taskId, { archivedAt: new Date().toISOString() });
+		const failure = await patchTask(taskId, { archivedAt: new Date().toISOString() });
 		if (!isCurrentRequest(requestOrgId, generation)) return;
+		if (failure) {
+			toastStore.error(failure);
+			return;
+		}
 		if (selectedTaskId === taskId) selectedTaskId = null;
 		confirmArchive = null;
 	}
@@ -441,23 +461,40 @@
 		const requestOrgId = orgId;
 		const generation = scopeGeneration;
 		requestCriticalTasksWorkspaceRefresh();
-		await ictTasksStore.update(taskId, { archivedAt: null });
+		const failure = await patchTask(taskId, { archivedAt: null });
 		if (!isCurrentRequest(requestOrgId, generation)) return;
+		if (failure) {
+			toastStore.error(failure);
+			return;
+		}
 		taskStatusFilter = 'active';
 		selectedTaskId = taskId;
 	}
 
 	async function moveTask(index: number, direction: -1 | 1, pressed: HTMLElement) {
-		const current = activeTasks[index];
-		const target = activeTasks[index + direction];
-		if (!current || !target || !canManage) return;
+		const plan = planIctTaskMove(activeTasks, index, direction);
+		if (!canManage || reordering) return;
+		if (plan.status === 'unsupported') {
+			toastStore.error(ICT_TASK_MOVE_UNSUPPORTED_MESSAGE);
+			return;
+		}
+		const { changes } = plan;
+		if (changes.length === 0) return;
 		const moveButtons = [...(pressed.parentElement?.querySelectorAll<HTMLButtonElement>('button') ?? [])];
 		const focusCandidates = moveButtons.sort((a, b) => Number(b === pressed) - Number(a === pressed));
+		const requestOrgId = orgId;
+		const generation = scopeGeneration;
 
-		await Promise.all([
-			ictTasksStore.update(current.id, { sortOrder: target.sortOrder }),
-			ictTasksStore.update(target.id, { sortOrder: current.sortOrder })
-		]);
+		reordering = true;
+		let failure: string | null = null;
+		try {
+			await ictTasksStore.reorder(changes);
+		} catch (error) {
+			failure = error instanceof Error && error.message.trim() ? error.message : 'Could not move the task';
+		}
+		if (!isCurrentRequest(requestOrgId, generation)) return;
+		reordering = false;
+		if (failure) toastStore.error(failure);
 		await tick();
 		focusCandidates.find((button) => button.isConnected && !button.disabled)?.focus();
 	}
@@ -585,7 +622,7 @@
 												size="icon-sm"
 												type="button"
 												onclick={(event) => moveTask(index, -1, event.currentTarget)}
-												disabled={index === 0}
+												disabled={reordering || index === 0}
 												aria-label="Move {task.taskCode} up">▲</Button
 											>
 											<Button
@@ -593,7 +630,7 @@
 												size="icon-sm"
 												type="button"
 												onclick={(event) => moveTask(index, 1, event.currentTarget)}
-												disabled={index === activeTasks.length - 1}
+												disabled={reordering || index === activeTasks.length - 1}
 												aria-label="Move {task.taskCode} down">▼</Button
 											>
 										</div>
@@ -689,7 +726,7 @@
 
 							{#if formError}
 								<Alert.Root variant="destructive">
-									<Alert.Title>Task was not saved</Alert.Title>
+									<Alert.Title>Task save needs attention</Alert.Title>
 									<Alert.Description>{formError}</Alert.Description>
 								</Alert.Root>
 							{/if}

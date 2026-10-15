@@ -6,7 +6,8 @@ import { groupCatalogHydration } from '$features/personnel';
 import type { Group } from '$features/personnel/contracts';
 import { pinnedGroupsHydration } from '$features/personnel';
 import { personnelRosterHydration } from '$features/personnel';
-import { mergeById } from '$lib/utils/mergeById';
+import { confirmedBeforeRequest, type StoreRead } from '$lib/stores/core';
+import { rangeCoversDate, rangeCoversSpan } from './utils/calendarRange';
 import {
 	createFeatureLaneWorkspaceHydrator,
 	type FeatureLaneWorkspaceHydrationTargetDescriptor
@@ -20,7 +21,9 @@ import type {
 	StatusType
 } from '$features/calendar/contracts';
 import type {
+	CalendarAssignmentsHydrationItems,
 	CalendarAssignmentsWorkspaceHydrationTarget,
+	CalendarRangeHydrationTarget,
 	CalendarWorkspaceHydration,
 	CalendarWorkspaceHydrationTarget
 } from './calendar.types';
@@ -28,16 +31,19 @@ import type {
 export interface CalendarHydrationLoadable<T> {
 	readonly orgId: string;
 	readonly loadVersion?: number;
-	readonly items?: T[];
 	load(items: T[], orgId: string): void;
 	startLoading?(): void;
+}
+
+export interface CalendarRangeHydrationLoadable<T extends { id: string }> extends CalendarHydrationLoadable<T> {
+	beginRead(since?: number): StoreRead<T>;
 }
 
 export interface CalendarAssignmentsHydrationLoadable {
 	readonly orgId: string;
 	readonly loadVersion?: number;
-	readonly assignments?: DailyAssignment[];
 	load(types: AssignmentType[], assignments: DailyAssignment[], orgId: string): void;
+	beginRead(since?: number): StoreRead<DailyAssignment>;
 	startLoading?(): void;
 }
 
@@ -51,8 +57,8 @@ export interface CalendarHydrationStores {
 	personnelStore: CalendarHydrationLoadable<Personnel>;
 	groupsStore: CalendarHydrationLoadable<Group>;
 	statusTypesStore: CalendarHydrationLoadable<StatusType>;
-	availabilityEntriesStore: CalendarHydrationLoadable<AvailabilityEntry>;
-	specialDaysStore: CalendarHydrationLoadable<SpecialDay>;
+	availabilityEntriesStore: CalendarRangeHydrationLoadable<AvailabilityEntry>;
+	specialDaysStore: CalendarRangeHydrationLoadable<SpecialDay>;
 	calendarAssignmentsStore: CalendarAssignmentsHydrationLoadable;
 	pinnedGroupsStore: CalendarPinnedGroupsHydrationLoadable;
 }
@@ -73,55 +79,6 @@ const defaultCalendarHydrationStores: CalendarHydrationStores = {
 	pinnedGroupsStore: pinnedGroupsHydration
 };
 
-function hasStringId(value: unknown): value is { id: string } {
-	return !!value && typeof value === 'object' && typeof (value as { id?: unknown }).id === 'string';
-}
-
-function canMergeById<T>(items: readonly T[]): items is Array<T & { id: string }> {
-	return items.every(hasStringId);
-}
-
-function mergeLoadItems<T>(
-	store: CalendarHydrationLoadable<T>,
-	items: T[],
-	orgId: string,
-	mode: CalendarWorkspaceHydrationTarget<T>['mode']
-): T[] {
-	const existingItems = store.items ?? [];
-	if (mode !== 'merge' || store.orgId !== orgId || !canMergeById(existingItems) || !canMergeById(items)) {
-		return items;
-	}
-
-	return mergeById(existingItems, items);
-}
-
-function mergeCalendarAssignments(
-	store: CalendarAssignmentsHydrationLoadable,
-	items: { types: AssignmentType[]; assignments: DailyAssignment[] },
-	orgId: string,
-	target: CalendarAssignmentsWorkspaceHydrationTarget
-): { types: AssignmentType[]; assignments: DailyAssignment[] } {
-	if (target.mode !== 'merge' || store.orgId !== orgId) {
-		return items;
-	}
-
-	const existingAssignments = store.assignments ?? [];
-	const assignments =
-		target.rangeStart && target.rangeEnd
-			? mergeById(
-					existingAssignments.filter(
-						(assignment) => assignment.date < target.rangeStart! || assignment.date > target.rangeEnd!
-					),
-					items.assignments
-				)
-			: mergeById(existingAssignments, items.assignments);
-
-	return {
-		types: items.types,
-		assignments
-	};
-}
-
 function createTargetDescriptor<T>(
 	target: CalendarWorkspaceHydrationTarget<T>,
 	store: CalendarHydrationLoadable<T>,
@@ -137,7 +94,32 @@ function createTargetDescriptor<T>(
 		storeOrgId: () => store.orgId,
 		storeLoadVersion: () => store.loadVersion,
 		startLoading: store.startLoading ? () => store.startLoading?.() : undefined,
-		apply: (items) => store.load(mergeLoadItems(store, items as T[], orgId, target.mode), orgId)
+		apply: (items) => store.load(items as T[], orgId)
+	};
+}
+
+// A range snapshot is authoritative only within its range, and only up to the changes the store
+// confirmed after its request left.
+function createRangeTargetDescriptor<T extends { id: string }>(
+	target: CalendarRangeHydrationTarget<T>,
+	store: CalendarRangeHydrationLoadable<T>,
+	orgId: string,
+	targetName: string,
+	covers: (item: T) => boolean,
+	confirmedBeforeRequest: number
+): FeatureLaneWorkspaceHydrationTargetDescriptor | undefined {
+	if (target.mode === 'preserve-client') return undefined;
+	const read = store.beginRead(confirmedBeforeRequest);
+
+	return {
+		targetName,
+		snapshotKey: target.snapshotKey,
+		items: target.items,
+		storeOrgId: () => store.orgId,
+		storeLoadVersion: () => store.loadVersion,
+		startLoading: store.startLoading ? () => store.startLoading?.() : undefined,
+		apply: (items) => store.load(store.orgId === orgId ? read.reconcile(items as T[], covers) : (items as T[]), orgId),
+		settle: () => read.close()
 	};
 }
 
@@ -145,9 +127,11 @@ function createCalendarAssignmentsDescriptor(
 	target: CalendarAssignmentsWorkspaceHydrationTarget,
 	store: CalendarAssignmentsHydrationLoadable,
 	orgId: string,
-	targetName: string
+	targetName: string,
+	confirmedBeforeRequest: number
 ): FeatureLaneWorkspaceHydrationTargetDescriptor | undefined {
 	if (target.mode === 'preserve-client') return undefined;
+	const read = store.beginRead(confirmedBeforeRequest);
 
 	return {
 		targetName,
@@ -157,14 +141,14 @@ function createCalendarAssignmentsDescriptor(
 		storeLoadVersion: () => store.loadVersion,
 		startLoading: store.startLoading ? () => store.startLoading?.() : undefined,
 		apply: (items) => {
-			const mergedItems = mergeCalendarAssignments(
-				store,
-				items as { types: AssignmentType[]; assignments: DailyAssignment[] },
-				orgId,
-				target
+			const { types, assignments } = items as CalendarAssignmentsHydrationItems;
+			store.load(
+				types,
+				store.orgId === orgId ? read.reconcile(assignments, rangeCoversDate(target.range)) : assignments,
+				orgId
 			);
-			store.load(mergedItems.types, mergedItems.assignments, orgId);
-		}
+		},
+		settle: () => read.close()
 	};
 }
 
@@ -215,18 +199,28 @@ export function createCalendarWorkspaceHydrator(): CalendarWorkspaceHydrator {
 				createTargetDescriptor(hydration.personnel, stores.personnelStore, orgId, 'personnel'),
 				createTargetDescriptor(hydration.groups, stores.groupsStore, orgId, 'groups'),
 				createTargetDescriptor(hydration.statusTypes, stores.statusTypesStore, orgId, 'statusTypes'),
-				createTargetDescriptor(
+				createRangeTargetDescriptor(
 					hydration.availabilityEntries,
 					stores.availabilityEntriesStore,
 					orgId,
-					'availabilityEntries'
+					'availabilityEntries',
+					rangeCoversSpan(hydration.availabilityEntries.range),
+					confirmedBeforeRequest(hydration.confirmedChangesByTab)
 				),
-				createTargetDescriptor(hydration.specialDays, stores.specialDaysStore, orgId, 'specialDays'),
+				createRangeTargetDescriptor(
+					hydration.specialDays,
+					stores.specialDaysStore,
+					orgId,
+					'specialDays',
+					rangeCoversDate(hydration.specialDays.range),
+					confirmedBeforeRequest(hydration.confirmedChangesByTab)
+				),
 				createCalendarAssignmentsDescriptor(
 					hydration.calendarAssignments,
 					stores.calendarAssignmentsStore,
 					orgId,
-					'calendarAssignments'
+					'calendarAssignments',
+					confirmedBeforeRequest(hydration.confirmedChangesByTab)
 				),
 				createPinnedGroupsDescriptor(hydration.pinnedGroups, stores.pinnedGroupsStore, orgId, 'pinnedGroups')
 			].filter((descriptor): descriptor is FeatureLaneWorkspaceHydrationTargetDescriptor => descriptor !== undefined);

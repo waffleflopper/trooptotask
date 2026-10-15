@@ -10,6 +10,7 @@ A Calendar operator plans Person and Group coverage for a day or month. Saved as
 - `planner-range-retry`: a failed uncovered month load settles with Retry; a successful retry restores editable local assignments.
 - `assignment-authorization`: view-only, no-Calendar, Group-scoped and foreign-Organization actors cannot write outside their authority.
 - `calendar-lanes`: each shown assignment type is a lane under the Calendar dates, followed by the Days lane; an open day's `+` opens the duty picker, an assigned day and a row marker open `Daily Assignments`, and readers see names without actions.
+- `assignment-reentry`: an assignment saved while the Calendar re-entry snapshot is in flight stays visible after it applies; [Calendar navigation](calendar-navigation.md) step 16 drives it.
 - `planner-states`: the monthly table, loading, failed save, keyboard and focus, denied and scoped states, and large-roster render at 1280 light and 390 dark.
 
 ## How to get to it (user POV)

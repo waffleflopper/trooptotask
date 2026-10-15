@@ -55,8 +55,8 @@ export {
 	CALENDAR_WORKSPACE_LANE_KEY,
 	type CalendarAssignmentsHydrationItems,
 	type CalendarAssignmentsWorkspaceHydrationTarget,
+	type CalendarRangeHydrationTarget,
 	type CalendarWorkspaceHydration,
-	type CalendarWorkspaceHydrationMode,
 	type CalendarWorkspaceHydrationTarget,
 	type CalendarWorkspaceRouteData,
 	type CalendarWorkspaceResult

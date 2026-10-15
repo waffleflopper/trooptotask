@@ -9,6 +9,7 @@ export const SERVER_SOURCE_TABLES = Object.freeze([
 	'personnel_onboardings',
 	'personnel_trainings',
 	'availability_entries',
+	'special_days',
 	'daily_assignments',
 	'assignment_types',
 	'rating_scheme_entries',

@@ -2477,6 +2477,7 @@ async function main() {
 				'arm-fail-400',
 				'arm-hold',
 				'arm-hold-fail',
+				'arm-hold-dispatch',
 				'arm-reject',
 				'arm-observe',
 				'arm-drop',
@@ -2544,6 +2545,7 @@ async function main() {
 					'status-types',
 					'assignment-types',
 					'assignment-types/lanes',
+					'ict-tasks/order',
 					'ict-tasks/batch',
 					'calendar-reports/status-days',
 					'special-days',
@@ -2634,11 +2636,23 @@ async function main() {
 					'daily-assignments',
 					'daily-assignments/batch',
 					'status-types',
-					'ict-tasks/batch'
+					'ict-tasks/batch',
+					'ict-tasks/order'
 				].includes(family) &&
 				!platformForm
 			)
 				throw new Error('Delayed synthetic failure is not supported for this request family.');
+			if (
+				action === 'arm-hold-dispatch' &&
+				![
+					'availability',
+					'availability/batch',
+					'daily-assignments',
+					'daily-assignments/batch',
+					'special-days'
+				].includes(family)
+			)
+				throw new Error('A held dispatch is supported only for Calendar mutation families.');
 			if (
 				(/^admin-[a-z-]+-read$/.test(family) || shellPart) &&
 				!['arm-fail', 'arm-hold', 'arm-observe', ...(shellPart ? [] : ['arm-load-error'])].includes(action)
@@ -2656,8 +2670,11 @@ async function main() {
 				throw new Error('Unexpected-error results are supported only for form action families.');
 			if (action === 'arm-fail-400' && !platformForm?.failureField)
 				throw new Error('A rejected form result is supported only for platform form actions.');
-			if (action === 'arm-drop' && !['admin-suspend', 'admin-transfer'].includes(family))
-				throw new Error('Lost-response proof is supported only for platform mutation controls.');
+			if (
+				action === 'arm-drop' &&
+				!['admin-suspend', 'admin-transfer', 'ict-tasks/batch', 'personnel-ict-completions/batch'].includes(family)
+			)
+				throw new Error('Lost-response proof requires a documented mutation family.');
 			const mode =
 				action === 'arm-hold-fail'
 					? 'hold-fail'
@@ -2673,7 +2690,9 @@ async function main() {
 										? 'drop-response'
 										: action === 'arm-load-error'
 											? 'load-error'
-											: 'observe';
+											: action === 'arm-hold-dispatch'
+												? 'hold-dispatch'
+												: 'observe';
 			const search =
 				(shellPart ? `?part=${shellPart}` : platformForm?.search) ??
 				accountForm?.[1] ??
@@ -2686,17 +2705,20 @@ async function main() {
 			const heldPersonnelFailure = family === 'personnel' && action === 'arm-hold-fail';
 			const sameOrigin =
 				heldPersonnelFailure ||
-				['user-preferences', 'groups', 'pinned-groups', 'assignment-types'].includes(family) ||
+				(action === 'arm-drop' && ['ict-tasks/batch', 'personnel-ict-completions/batch'].includes(family)) ||
+				['user-preferences', 'groups', 'pinned-groups', 'assignment-types', 'ict-tasks/order'].includes(family) ||
 				!!shellPart ||
 				(platformForm?.sameOrigin ?? false);
 			const requestMethod =
-				heldPersonnelFailure || family === 'assignment-types/lanes'
-					? 'PUT'
-					: family === 'user-preferences'
-						? 'PATCH'
-						: shellPart
-							? 'GET'
-							: null;
+				family === 'ict-tasks/order'
+					? 'POST'
+					: heldPersonnelFailure || family === 'assignment-types/lanes'
+						? 'PUT'
+						: family === 'user-preferences'
+							? 'PATCH'
+							: shellPart
+								? 'GET'
+								: null;
 			const install = `(${installNetworkControl.toString()})(window, ${JSON.stringify({ mode, ordinal, suffix, search, failureField, failureStatus: action === 'arm-fail-400' ? 400 : 503, requestTarget, sameOrigin, requestMethod })})`;
 			// Onboarding's HTTP adapter captures fetch at creation, so install before page code.
 			if (family.startsWith('onboarding-') || shellPart) {

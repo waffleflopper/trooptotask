@@ -10,7 +10,7 @@ import { groupsStore } from '$features/personnel';
 import { createRosterReadModel } from '$features/personnel/contracts';
 import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
 import { loadCalendarRange } from '$features/calendar/utils/calendarRangeLoader';
-import { mergeById } from '$lib/utils/mergeById';
+import { rangeCoversSpan } from '$features/calendar/utils/calendarRange';
 import { withinOrganizationLifetime } from '$lib/stores/core';
 import type { CapabilityLevel, ScopeSet } from '$lib/access/memberAccessShape';
 import type { FeatureLanePolicyAction, PolicyDecision } from '$lib/access/policyEvaluator';
@@ -333,30 +333,34 @@ export class CalendarPageContext {
 	async reconcileAvailability(dates: string[], expectedOrgId: string): Promise<AvailabilityEntry[] | null> {
 		if (this.#data.orgId !== expectedOrgId) return null;
 		const accessKey = this.#calendarAccessKey();
-		let ranges: Awaited<ReturnType<typeof loadCalendarRange>>[];
+		const read = availabilityStore.beginRead();
 		try {
-			ranges = await withinOrganizationLifetime(
-				Promise.all(
-					[...new Set(dates)].map((date) => loadCalendarRange(expectedOrgId, { rangeStart: date, rangeEnd: date }))
-				)
-			);
-		} catch (error) {
+			let ranges: Awaited<ReturnType<typeof loadCalendarRange>>[];
+			try {
+				ranges = await withinOrganizationLifetime(
+					Promise.all(
+						[...new Set(dates)].map((date) => loadCalendarRange(expectedOrgId, { rangeStart: date, rangeEnd: date }))
+					)
+				);
+			} catch (error) {
+				if (this.#data.orgId !== expectedOrgId || this.#calendarAccessKey() !== accessKey) return null;
+				throw error;
+			}
 			if (this.#data.orgId !== expectedOrgId || this.#calendarAccessKey() !== accessKey) return null;
-			throw error;
+			for (const range of ranges) {
+				availabilityStore.load(
+					availabilityStore.orgId === expectedOrgId
+						? read.reconcile(range.availabilityEntries, rangeCoversSpan(range))
+						: range.availabilityEntries,
+					expectedOrgId
+				);
+			}
+			return [
+				...new Map(ranges.flatMap((range) => range.availabilityEntries.map((entry) => [entry.id, entry]))).values()
+			];
+		} finally {
+			read.close();
 		}
-		if (this.#data.orgId !== expectedOrgId || this.#calendarAccessKey() !== accessKey) return null;
-		for (const range of ranges) {
-			const retained =
-				availabilityStore.orgId === expectedOrgId
-					? availabilityStore.items.filter(
-							(entry) => entry.endDate < range.rangeStart || entry.startDate > range.rangeEnd
-						)
-					: [];
-			availabilityStore.load(mergeById(retained, range.availabilityEntries), expectedOrgId);
-		}
-		return [
-			...new Map(ranges.flatMap((range) => range.availabilityEntries.map((entry) => [entry.id, entry]))).values()
-		];
 	}
 
 	closeAvailabilityModal(): void {

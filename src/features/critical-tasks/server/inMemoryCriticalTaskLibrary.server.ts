@@ -1,22 +1,16 @@
-import type { CriticalTaskLibraryPersistence } from '../contracts';
+import { fail } from '$lib/errors';
+import type { createInMemoryDataStore } from '$lib/server/adapters/inMemory';
+import {
+	ICT_TASK_ORDER_CHANGED_MESSAGE,
+	ICT_TASK_UNAVAILABLE_MESSAGE,
+	type CriticalTaskLibraryPersistence
+} from '../contracts';
 import { mapIctTask, taskCreateValues, taskPatchValues, type SavedIctTask } from './ictTaskMapping.server';
 
-interface TaskMemoryStore {
-	findOne<T>(table: string, orgId: string, filters: Record<string, unknown>): Promise<T | null>;
-	findMany<T>(
-		table: string,
-		orgId: string,
-		filters?: Record<string, unknown>,
-		options?: {
-			isNull?: Record<string, boolean>;
-			inFilters?: Record<string, string[]>;
-			orderBy?: Array<{ column: string; ascending: boolean }>;
-		}
-	): Promise<T[]>;
-	insert<T>(table: string, orgId: string, input: Record<string, unknown>): Promise<T>;
-	insertMany<T>(table: string, orgId: string, inputs: Record<string, unknown>[]): Promise<T[]>;
-	update<T>(table: string, orgId: string, id: string, patch: Record<string, unknown>): Promise<T>;
-}
+type TaskMemoryStore = Pick<
+	ReturnType<typeof createInMemoryDataStore>,
+	'findOne' | 'findMany' | 'insert' | 'insertMany' | 'update' | 'compareAndUpdateMany'
+>;
 
 export function createInMemoryCriticalTaskLibraryPersistence(
 	store: TaskMemoryStore,
@@ -58,6 +52,22 @@ export function createInMemoryCriticalTaskLibraryPersistence(
 		},
 		async update(id, patch) {
 			return mapIctTask(await store.update<SavedIctTask>('ict_tasks', orgId, id, taskPatchValues(patch)));
+		},
+		async reorder(changes) {
+			const result = await store.compareAndUpdateMany<SavedIctTask>(
+				'ict_tasks',
+				orgId,
+				changes.map((change) => ({
+					id: change.id,
+					expected: { sort_order: change.expectedSortOrder },
+					patch: change.sortOrder === change.expectedSortOrder ? {} : { sort_order: change.sortOrder }
+				})),
+				{ isNull: { archived_at: true } }
+			);
+			if (result.status === 'updated') return structuredClone(result.rows).map(mapIctTask);
+			return result.status === 'missing'
+				? fail(404, ICT_TASK_UNAVAILABLE_MESSAGE)
+				: fail(409, ICT_TASK_ORDER_CHANGED_MESSAGE);
 		}
 	};
 }

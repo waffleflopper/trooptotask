@@ -27,6 +27,18 @@ export interface IctTask {
 	createdAt: string;
 }
 
+/** The most participants, including unchanged guards, one reorder command may carry. */
+export const ICT_TASK_ORDER_MAX_CHANGES = 1000;
+/** The largest sort order the database stores (PostgreSQL integer). */
+export const ICT_TASK_SORT_ORDER_MAX = 2147483647;
+
+/** One participant's expected and saved order. Equal values guard a dependency without updating it. */
+export interface IctTaskOrderChange {
+	id: string;
+	expectedSortOrder: number;
+	sortOrder: number;
+}
+
 export interface PersonnelIctCompletion {
 	id: string;
 	personnelId: string;

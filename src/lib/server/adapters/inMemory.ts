@@ -122,7 +122,7 @@ type TestContextOptions = {
 	) => CalendarAvailabilityPersistence;
 	calendarAssignmentsFactory?: (rawStore: FixtureRowStore, orgId: string) => CalendarAssignmentReader;
 	ratingSchemeFactory?: (rawStore: FixtureRowStore, orgId: string) => RatingSchemePersistence;
-	criticalTaskLibraryFactory?: (rawStore: FixtureRowStore, orgId: string) => CriticalTaskLibraryPersistence;
+	criticalTaskLibraryFactory?: (rawStore: InMemoryDataStore, orgId: string) => CriticalTaskLibraryPersistence;
 	criticalTaskCompletionsFactory?: (rawStore: FixtureRowStore, orgId: string) => CriticalTaskCompletionPersistence;
 	criticalTasksReadModelFactory?: (
 		rawStore: FixtureRowStore,
@@ -334,7 +334,8 @@ function unavailableCriticalTaskLibrary(): CriticalTaskLibraryPersistence {
 		findReference: unavailable,
 		create: unavailable,
 		createMany: unavailable,
-		update: unavailable
+		update: unavailable,
+		reorder: unavailable
 	};
 }
 
@@ -391,8 +392,18 @@ function getOrgColumn(table: string): string {
 	}
 }
 
+type CompareAndUpdate = { id: string; expected: Record<string, unknown>; patch: Record<string, unknown> };
+type CompareAndUpdateResult<T> = { status: 'updated'; rows: T[] } | { status: 'missing' | 'stale' };
+
 export function createInMemoryDataStore(): FixtureRowStore & {
 	seed(table: string, rows: Row[]): void;
+	/** Checks every row, then updates them all with no await between, so overlapping commands cannot interleave. */
+	compareAndUpdateMany<T>(
+		table: string,
+		orgId: string,
+		updates: CompareAndUpdate[],
+		scope?: Pick<FixtureFindOptions, 'filters' | 'isNull'>
+	): Promise<CompareAndUpdateResult<T>>;
 	replaceDailyAssignmentSlots(
 		orgId: string,
 		replaceDays: string[],
@@ -520,6 +531,29 @@ export function createInMemoryDataStore(): FixtureRowStore & {
 		seed(table: string, rows: Row[]): void {
 			const existing = getRows(table);
 			existing.push(...rows);
+		},
+
+		async compareAndUpdateMany<T>(
+			table: string,
+			orgId: string,
+			updates: CompareAndUpdate[],
+			scope?: Pick<FixtureFindOptions, 'filters' | 'isNull'>
+		): Promise<CompareAndUpdateResult<T>> {
+			const found = new Map(
+				applyFilters(table, getRows(table), orgId, undefined, {
+					...scope,
+					inFilters: { id: updates.map((update) => update.id) }
+				}).map((row) => [row.id, row])
+			);
+			if (updates.some((update) => !found.has(update.id))) return { status: 'missing' };
+			const unchanged = updates.every((update) =>
+				Object.entries(update.expected).every(([column, value]) => found.get(update.id)![column] === value)
+			);
+			if (!unchanged) return { status: 'stale' };
+			return {
+				status: 'updated',
+				rows: updates.map((update) => ({ ...Object.assign(found.get(update.id)!, update.patch) }) as T)
+			};
 		},
 
 		async replaceDailyAssignmentSlots(orgId, replaceDays, slots) {

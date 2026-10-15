@@ -130,7 +130,8 @@ describe('personnel ICT completions batch API', () => {
 					taskCode: 'BAD-TASK',
 					message: 'Task code "BAD-TASK" does not match an existing critical task'
 				}
-			]
+			],
+			unconfirmed: []
 		});
 
 		const personnelAfter = await ctx.store.findMany('personnel', ctx.auth.orgId);

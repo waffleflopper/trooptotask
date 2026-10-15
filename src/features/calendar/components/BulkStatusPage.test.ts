@@ -59,6 +59,7 @@ vi.mock('$features/calendar/stores/availability.svelte', () => ({
 }));
 
 vi.mock('$features/calendar/utils/calendarRangeLoader', () => ({
+	beginCalendarRangeRead: () => ({ close: () => {} }),
 	loadCalendarRange: loadCalendarRangeMock,
 	mergeCalendarRangeIntoStores: mergeCalendarRangeIntoStoresMock
 }));
@@ -184,7 +185,8 @@ describe('BulkStatusPage', () => {
 		});
 		expect(mergeCalendarRangeIntoStoresMock).toHaveBeenCalledWith(
 			'canonical-org-id',
-			expect.objectContaining({ rangeStart: '2026-01-01', rangeEnd: '2026-01-31' })
+			expect.objectContaining({ rangeStart: '2026-01-01', rangeEnd: '2026-01-31' }),
+			expect.anything()
 		);
 	});
 

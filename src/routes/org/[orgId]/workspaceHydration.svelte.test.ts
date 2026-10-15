@@ -12,17 +12,25 @@ import type { Personnel } from '$features/personnel/contracts';
 import { trainingWorkspaceHydrator } from '$features/training';
 import { criticalTasksWorkspaceHydrator } from '$features/critical-tasks';
 
+const OCTOBER = { rangeStart: '2026-10-01', rangeEnd: '2026-10-31' };
+
 function preserveClientHydration(
 	overrides: Partial<CalendarWorkspaceResult['hydration']>
 ): CalendarWorkspaceResult['hydration'] {
 	return {
 		orgId: 'org-1',
+		confirmedChangesByTab: {},
 		personnel: { mode: 'preserve-client', snapshotKey: 'personnel', items: [] },
 		groups: { mode: 'preserve-client', snapshotKey: 'groups', items: [] },
 		statusTypes: { mode: 'preserve-client', snapshotKey: 'status', items: [] },
-		availabilityEntries: { mode: 'preserve-client', snapshotKey: 'availability', items: [] },
-		specialDays: { mode: 'preserve-client', snapshotKey: 'special', items: [] },
-		calendarAssignments: { mode: 'preserve-client', snapshotKey: 'assignments', items: { types: [], assignments: [] } },
+		availabilityEntries: { mode: 'preserve-client', snapshotKey: 'availability', items: [], range: OCTOBER },
+		specialDays: { mode: 'preserve-client', snapshotKey: 'special', items: [], range: OCTOBER },
+		calendarAssignments: {
+			mode: 'preserve-client',
+			snapshotKey: 'assignments',
+			items: { types: [], assignments: [] },
+			range: OCTOBER
+		},
 		pinnedGroups: { mode: 'preserve-client', snapshotKey: 'pins', items: [] },
 		...overrides
 	};

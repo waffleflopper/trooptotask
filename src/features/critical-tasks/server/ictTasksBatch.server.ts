@@ -1,6 +1,13 @@
 import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
-import type { CriticalTaskLibraryPersistence, IctTask } from '../contracts';
+import {
+	CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE,
+	type CriticalTaskLibraryPersistence,
+	type IctTask,
+	type IctTaskBatchImportError,
+	type IctTaskBatchImportResult
+} from '../contracts';
+import { isUnconfirmedWrite } from './criticalTaskWriteOutcome.server';
 import {
 	reviewMappedIctTaskImportRows,
 	type IctTaskImportMappedRow,
@@ -25,20 +32,6 @@ interface IctTaskBatchContext {
 export interface IctTaskBatchImportInput {
 	mode: IctTaskImportMode;
 	records: IctTaskImportMappedRow[];
-}
-
-export interface IctTaskBatchImportError {
-	rowNumber: number;
-	taskCode: string;
-	title: string;
-	message: string;
-}
-
-export interface IctTaskBatchImportResult {
-	inserted: IctTask[];
-	updated: IctTask[];
-	restored: IctTask[];
-	errors: IctTaskBatchImportError[];
 }
 
 function nextSortOrder(tasks: IctTask[]): number {
@@ -75,6 +68,7 @@ export async function importIctTasksBatch(
 	const inserted: IctTask[] = [];
 	const updated: IctTask[] = [];
 	const restored: IctTask[] = [];
+	const unconfirmed: IctTaskBatchImportError[] = [];
 	const errors: IctTaskBatchImportError[] = review.invalidRows.flatMap((row) =>
 		row.errors.map((message) => ({
 			rowNumber: row.rowNumber,
@@ -84,21 +78,26 @@ export async function importIctTasksBatch(
 		}))
 	);
 
+	function recordFailure(row: { rowNumber: number; task: { taskCode: string; title: string } }, error: unknown) {
+		const issue = { rowNumber: row.rowNumber, taskCode: row.task.taskCode, title: row.task.title };
+		if (isUnconfirmedWrite(error)) unconfirmed.push({ ...issue, message: CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE });
+		else errors.push({ ...issue, message: errorMessage(error) });
+	}
+
 	const createRows = review.validRows.filter((row) => row.action === 'create');
 	if (createRows.length > 0) {
 		try {
 			inserted.push(...(await ctx.criticalTaskLibrary.createMany(createRows.map((row) => row.task))));
-		} catch {
-			for (const row of createRows) {
-				try {
-					inserted.push(await ctx.criticalTaskLibrary.create(row.task));
-				} catch (error) {
-					errors.push({
-						rowNumber: row.rowNumber,
-						taskCode: row.task.taskCode,
-						title: row.task.title,
-						message: errorMessage(error)
-					});
+		} catch (bulkError) {
+			if (isUnconfirmedWrite(bulkError)) {
+				for (const row of createRows) recordFailure(row, bulkError);
+			} else {
+				for (const row of createRows) {
+					try {
+						inserted.push(await ctx.criticalTaskLibrary.create(row.task));
+					} catch (error) {
+						recordFailure(row, error);
+					}
 				}
 			}
 		}
@@ -120,12 +119,7 @@ export async function importIctTasksBatch(
 			if (row.restoresArchivedTask) restored.push(task);
 			else updated.push(task);
 		} catch (error) {
-			errors.push({
-				rowNumber: row.rowNumber,
-				taskCode: row.task.taskCode,
-				title: row.task.title,
-				message: errorMessage(error)
-			});
+			recordFailure(row, error);
 		}
 	}
 
@@ -136,7 +130,8 @@ export async function importIctTasksBatch(
 			inserted: inserted.length,
 			updated: updated.length,
 			restored: restored.length,
-			errors: errors.length
+			errors: errors.length,
+			unconfirmed: unconfirmed.length
 		}
 	});
 
@@ -144,6 +139,7 @@ export async function importIctTasksBatch(
 		inserted,
 		updated,
 		restored,
-		errors
+		errors,
+		unconfirmed
 	};
 }

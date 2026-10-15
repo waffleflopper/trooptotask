@@ -22,7 +22,14 @@ vi.mock('$features/calendar/utils/calendarRangeLoader', () => ({
 	loadCalendarRange: vi.fn()
 }));
 vi.mock('$features/calendar/stores/availability.svelte', () => ({
-	availabilityStore: { items: [], loading: false, load: vi.fn(), update: vi.fn() }
+	availabilityStore: {
+		items: [],
+		orgId: '',
+		loading: false,
+		load: vi.fn(),
+		update: vi.fn(),
+		beginRead: () => ({ reconcile: (snapshot: unknown[]) => snapshot, close: () => {} })
+	}
 }));
 vi.mock('$features/calendar/stores/dailyAssignments.svelte', () => ({
 	dailyAssignmentsStore: { assignments: [], types: [], loading: false, load: vi.fn() }

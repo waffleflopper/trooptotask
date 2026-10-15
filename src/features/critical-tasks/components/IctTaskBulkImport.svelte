@@ -11,6 +11,8 @@
 	import { parseFile } from '$lib/utils/csvParser';
 	import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
 	import { requestCriticalTasksWorkspaceRefresh } from '$features/critical-tasks/criticalTasksWorkspaceStatus.svelte';
+	import type { IctTaskBatchImportError } from '$features/critical-tasks/contracts';
+	import ImportRowIssues from './ImportRowIssues.svelte';
 	import type { IctTask } from '$features/critical-tasks/criticalTasks.types';
 	import {
 		ICT_TASK_IMPORT_COLUMNS,
@@ -33,8 +35,17 @@
 	let rawRows = $state<string[][]>([]);
 	let uploadedFileName = $state('');
 	let importError = $state('');
-	let importResult = $state<{ created: number; updated: number; restored: number; failed: number } | null>(null);
-	let importFailures = $state<Array<{ rowNumber: number; taskCode: string; title: string; message: string }>>([]);
+	let importResult = $state<{
+		created: number;
+		updated: number;
+		restored: number;
+		failed: number;
+		unconfirmed: number;
+		notAttempted: number;
+	} | null>(null);
+	let importFailures = $state<IctTaskBatchImportError[]>([]);
+	let importUnconfirmed = $state<IctTaskBatchImportError[]>([]);
+	let importNotAttempted = $state<IctTaskBatchImportError[]>([]);
 	let selectionInitialized = $state(false);
 
 	type PreviewRow = {
@@ -194,6 +205,14 @@
 		}
 	}
 
+	function issueRows(rows: IctTaskBatchImportError[]) {
+		return rows.map((row) => ({
+			rowNumber: row.rowNumber,
+			details: [`${row.taskCode || 'No task code'}${row.title ? ` - ${row.title}` : ''}`],
+			message: row.message
+		}));
+	}
+
 	function handleBack() {
 		step = 'input';
 		rawRows = [];
@@ -221,9 +240,14 @@
 				created: result.inserted.length,
 				updated: result.updated.length,
 				restored: result.restored.length,
-				failed: result.errors.length
+				failed: result.errors.length,
+				unconfirmed: result.unconfirmed.length,
+				notAttempted: result.notAttempted.length
 			};
 			importFailures = result.errors;
+			importUnconfirmed = result.unconfirmed;
+			importNotAttempted = result.notAttempted;
+			if (result.unconfirmed.length > 0) requestCriticalTasksWorkspaceRefresh();
 			step = 'results';
 		} catch (error) {
 			importError = error instanceof Error ? error.message : 'Failed to import ICT tasks';
@@ -371,7 +395,13 @@
 			<div class="flex flex-wrap justify-between gap-4 border-b pb-4">
 				<div>
 					<p class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Complete</p>
-					<h2 class="text-lg font-semibold">Import Finished</h2>
+					<h2 class="text-lg font-semibold">
+						{importResult.notAttempted > 0
+							? 'Import Stopped'
+							: importResult.unconfirmed > 0
+								? 'Import Needs Review'
+								: 'Import Finished'}
+					</h2>
 				</div>
 				<div class="flex flex-wrap items-start gap-2">
 					<span class="rounded-md border bg-muted px-3 py-2 text-xs text-muted-foreground"
@@ -386,20 +416,30 @@
 					<span class="rounded-md border bg-muted px-3 py-2 text-xs text-muted-foreground"
 						>{importResult.failed} failed</span
 					>
+					{#if importResult.unconfirmed > 0}
+						<span class="rounded-md border bg-muted px-3 py-2 text-xs text-muted-foreground"
+							>{importResult.unconfirmed} not confirmed</span
+						>
+					{/if}
+					{#if importResult.notAttempted > 0}
+						<span class="rounded-md border bg-muted px-3 py-2 text-xs text-muted-foreground"
+							>{importResult.notAttempted} not imported</span
+						>
+					{/if}
 				</div>
 			</div>
 
-			{#if importFailures.length > 0}
-				<ul class="flex flex-col gap-2 pl-4">
-					{#each importFailures as failure, index (`${failure.rowNumber}-${index}`)}
-						<li class="flex flex-col gap-0.5">
-							<strong>Row {failure.rowNumber}</strong>
-							<span>{failure.taskCode || 'No task code'} {failure.title ? `- ${failure.title}` : ''}</span>
-							<span>{failure.message}</span>
-						</li>
-					{/each}
-				</ul>
-			{/if}
+			<ImportRowIssues issues={issueRows(importFailures)} />
+			<ImportRowIssues
+				heading="Not confirmed"
+				guidance="These rows may or may not have been saved. Reload to check them before importing them again."
+				issues={issueRows(importUnconfirmed)}
+			/>
+			<ImportRowIssues
+				heading="Not imported"
+				guidance="These rows were not sent because the import stopped. Import them again when ready."
+				issues={issueRows(importNotAttempted)}
+			/>
 
 			<div class="flex flex-wrap justify-end gap-2">
 				<Button size="sm" type="button" onclick={onDone}>Done</Button>

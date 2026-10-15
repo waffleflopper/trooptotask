@@ -66,7 +66,8 @@ function makeHttpError(status: number, message: string): unknown {
 describe('streamCalendarWorkspaceBootstrap', () => {
 	const orgId = '11111111-1111-1111-1111-111111111111';
 	const emptyCookies = {
-		get: vi.fn(() => undefined)
+		get: vi.fn(() => undefined),
+		getAll: () => []
 	} as unknown as Cookies;
 	const availabilityEntries = Promise.resolve([{ id: 'av1', personnelId: 'p1' } as AvailabilityEntry]);
 	const specialDays = Promise.resolve([{ id: 'sd1', name: 'Training Holiday', date: '2026-05-25' } as SpecialDay]);
@@ -76,6 +77,7 @@ describe('streamCalendarWorkspaceBootstrap', () => {
 		rangeEnd: '2026-05-31',
 		availabilityEntries,
 		specialDays,
+		specialDaysRange: { rangeStart: '2025-01-01', rangeEnd: '2028-12-31' },
 		assignmentTypes: [{ id: 'at1', name: 'CQ' } as AssignmentType],
 		dailyAssignments,
 		pinnedGroups: ['Alpha'],
@@ -103,7 +105,7 @@ describe('streamCalendarWorkspaceBootstrap', () => {
 		vi.useRealTimers();
 	});
 
-	it('streams a lane-keyed Calendar workspace result with explicit merge hydration targets', async () => {
+	it('streams a lane-keyed Calendar workspace result with explicit range hydration targets', async () => {
 		const routeData = await streamCalendarWorkspaceBootstrap({
 			locals: {} as App.Locals,
 			cookies: emptyCookies,
@@ -123,24 +125,25 @@ describe('streamCalendarWorkspaceBootstrap', () => {
 			hydration: expect.objectContaining({
 				orgId,
 				availabilityEntries: {
-					mode: 'merge',
+					mode: 'range',
 					deferred: true,
 					items: availabilityEntries,
-					snapshotKey: expect.any(String)
+					snapshotKey: expect.any(String),
+					range: { rangeStart: '2026-03-01', rangeEnd: '2026-05-31' }
 				},
 				specialDays: {
-					mode: 'merge',
+					mode: 'range',
 					deferred: true,
 					items: specialDays,
-					snapshotKey: expect.any(String)
+					snapshotKey: expect.any(String),
+					range: { rangeStart: '2025-01-01', rangeEnd: '2028-12-31' }
 				},
 				calendarAssignments: expect.objectContaining({
-					mode: 'merge',
+					mode: 'range',
 					deferred: true,
 					items: expect.any(Promise),
 					snapshotKey: expect.any(String),
-					rangeStart: '2026-03-01',
-					rangeEnd: '2026-05-31'
+					range: { rangeStart: '2026-03-01', rangeEnd: '2026-05-31' }
 				})
 			})
 		});
@@ -194,7 +197,8 @@ describe('streamCalendarWorkspaceBootstrap', () => {
 
 	it('covers the Settings years around today when the saved anchor is in another year', async () => {
 		const cookies = {
-			get: vi.fn((name: string) => (name === CALENDAR_ANCHOR_COOKIE ? '2025-05-01' : undefined))
+			get: vi.fn((name: string) => (name === CALENDAR_ANCHOR_COOKIE ? '2025-05-01' : undefined)),
+			getAll: () => []
 		} as unknown as Cookies;
 
 		const routeData = await streamCalendarWorkspaceBootstrap({ locals: {} as App.Locals, cookies, orgId });
@@ -208,7 +212,12 @@ describe('streamCalendarWorkspaceBootstrap', () => {
 
 	it('prefers the client-local anchor date and loads the special-day catalog years around it', async () => {
 		const cookies = {
-			get: vi.fn((name: string) => (name === CALENDAR_ANCHOR_COOKIE ? '2026-05-01' : undefined))
+			get: vi.fn((name: string) => (name === CALENDAR_ANCHOR_COOKIE ? '2026-05-01' : undefined)),
+			getAll: () => [
+				{ name: CALENDAR_ANCHOR_COOKIE, value: '2026-05-01' },
+				{ name: 't2t-confirmed-tab1', value: '7' },
+				{ name: 't2t-confirmed-tab2', value: 'not a number' }
+			]
 		} as unknown as Cookies;
 		fetchCalendarBootstrapMock.mockImplementationOnce((_ctx, input) =>
 			Promise.resolve({
@@ -238,7 +247,8 @@ describe('streamCalendarWorkspaceBootstrap', () => {
 		await expect(workspace.data.specialDays).resolves.toEqual([
 			expect.objectContaining({ id: 'sd-wide', date: '2025-01-01..2028-12-31' })
 		]);
-		expect(workspace.hydration.calendarAssignments.rangeStart).toBe('2026-04-01');
-		expect(workspace.hydration.calendarAssignments.rangeEnd).toBe('2026-06-30');
+		expect(workspace.hydration.calendarAssignments.range).toEqual({ rangeStart: '2026-04-01', rangeEnd: '2026-06-30' });
+		expect(workspace.hydration.availabilityEntries.range).toEqual({ rangeStart: '2026-04-01', rangeEnd: '2026-06-30' });
+		expect(workspace.hydration.confirmedChangesByTab).toEqual({ tab1: 7 });
 	});
 });

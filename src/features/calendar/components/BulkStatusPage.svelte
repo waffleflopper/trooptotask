@@ -14,7 +14,11 @@
 	import { resolve } from '$app/paths';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import { buildAddRecords } from '$features/calendar/utils/availabilityMutation';
-	import { loadCalendarRange, mergeCalendarRangeIntoStores } from '$features/calendar/utils/calendarRangeLoader';
+	import {
+		beginCalendarRangeRead,
+		loadCalendarRange,
+		mergeCalendarRangeIntoStores
+	} from '$features/calendar/utils/calendarRangeLoader';
 	import type { Personnel } from '$features/personnel/contracts';
 	import type { AvailabilityEntry } from '$features/calendar/contracts';
 	import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
@@ -117,12 +121,17 @@
 		rangeEnd: string;
 	}): Promise<AvailabilityEntry[]> {
 		const orgId = data.orgId;
-		const rangeData = await loadCalendarRange(orgId, range);
-		if (!active || data.orgId !== orgId) {
-			throw new Error('Organization changed while loading availability range');
+		const read = beginCalendarRangeRead();
+		try {
+			const rangeData = await loadCalendarRange(orgId, range);
+			if (!active || data.orgId !== orgId) {
+				throw new Error('Organization changed while loading availability range');
+			}
+			mergeCalendarRangeIntoStores(orgId, rangeData, read);
+			return availabilityStore.items;
+		} finally {
+			read.close();
 		}
-		mergeCalendarRangeIntoStores(orgId, rangeData);
-		return availabilityStore.items;
 	}
 
 	function handleComplete() {

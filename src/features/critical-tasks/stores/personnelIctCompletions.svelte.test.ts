@@ -213,7 +213,9 @@ describe('personnelIctCompletionsStore', () => {
 					taskCode: 'BAD-TASK',
 					message: 'Task code "BAD-TASK" does not match an existing critical task'
 				}
-			]
+			],
+			unconfirmed: [],
+			notAttempted: []
 		});
 		expect(personnelIctCompletionsStore.getById(existingCompletion.id)).toEqual(
 			expect.objectContaining({
@@ -294,5 +296,113 @@ describe('personnelIctCompletionsStore', () => {
 		await expect(pending).rejects.toThrow('Critical Tasks workspace changed during import');
 		expect(personnelIctCompletionsStore.items).toEqual([current]);
 		expect(fetchMock).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe('#1643 completion import keeps confirmed chunks after a later chunk stops', () => {
+	beforeEach(() => {
+		vi.restoreAllMocks();
+		personnelIctCompletionsStore.load([], 'org-1');
+	});
+
+	const largeImport = {
+		records: Array.from({ length: 1001 }, (_, index) => ({
+			rowNumber: index + 2,
+			values: { firstName: 'Jane', lastName: `Smith-${index}`, taskCode: 'task', completedAt: '2098-01-01' }
+		}))
+	};
+	const firstChunkReply = {
+		ok: true,
+		status: 200,
+		json: async () => ({ inserted: [existingCompletion], updated: [], errors: [] })
+	};
+
+	it.each([
+		['a success body without result arrays', { ok: true, status: 200, json: async () => ({ message: 'ok' }) }],
+		[
+			'an unreadable success body',
+			{
+				ok: true,
+				status: 200,
+				json: async () => {
+					throw new SyntaxError('Unexpected end of JSON input');
+				}
+			}
+		]
+	] as const)('treats %s as unconfirmed rather than counting it as saved', async (_label, reply) => {
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(firstChunkReply).mockResolvedValueOnce(reply));
+
+		const result = await personnelIctCompletionsStore.importBatch(largeImport);
+
+		expect({
+			inserted: result.inserted.length,
+			unconfirmed: result.unconfirmed.length,
+			notAttempted: result.notAttempted.map((entry) => entry.rowNumber)
+		}).toEqual({ inserted: 1, unconfirmed: 500, notAttempted: [1002] });
+		expect(result.unconfirmed[0]).toMatchObject({ rowNumber: 502, personnelName: 'Jane Smith-500', taskCode: 'TASK' });
+	});
+
+	it.each([
+		['a null inserted row', { inserted: [null], updated: [], errors: [], unconfirmed: [] }],
+		[
+			'a row issue without its message',
+			{ inserted: [], updated: [], errors: [{ rowNumber: 502, personnelName: 'A', taskCode: 'B' }] }
+		]
+	] as const)('treats a later chunk with %s as unconfirmed and keeps the earlier chunk', async (_label, body) => {
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValueOnce(firstChunkReply)
+			.mockResolvedValueOnce({ ok: true, status: 200, json: async () => body });
+		vi.stubGlobal('fetch', fetchMock);
+
+		const result = await personnelIctCompletionsStore.importBatch(largeImport);
+
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+		expect(personnelIctCompletionsStore.items).toEqual([existingCompletion]);
+		expect({
+			inserted: result.inserted.map((entry) => entry.id),
+			failed: result.errors.length,
+			unconfirmed: result.unconfirmed.length,
+			notAttempted: result.notAttempted.map((entry) => entry.rowNumber)
+		}).toEqual({ inserted: [existingCompletion.id], failed: 0, unconfirmed: 500, notAttempted: [1002] });
+	});
+
+	it('stops with the workspace-changed error when the workspace switches during a rejected fetch', async () => {
+		let rejectFetch!: (reason: Error) => void;
+		const fetchMock = vi.fn(() => new Promise<never>((_, reject) => (rejectFetch = reject)));
+		vi.stubGlobal('fetch', fetchMock);
+
+		const pending = personnelIctCompletionsStore.importBatch(largeImport);
+		personnelIctCompletionsStore.load([], 'org-2');
+		rejectFetch(new TypeError('Failed to fetch'));
+
+		await expect(pending).rejects.toThrow('Critical Tasks workspace changed during import');
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+	});
+
+	it('reports chunk one, the unconfirmed chunk and the unattempted rows after a lost browser reply', async () => {
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValueOnce(firstChunkReply)
+			.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+		vi.stubGlobal('fetch', fetchMock);
+
+		const result = await personnelIctCompletionsStore.importBatch(largeImport);
+
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+		expect(personnelIctCompletionsStore.items).toEqual([existingCompletion]);
+		expect({
+			inserted: result.inserted.map((entry) => entry.id),
+			failed: result.errors.length,
+			unconfirmed: result.unconfirmed.length,
+			firstUnconfirmed: result.unconfirmed[0]?.rowNumber,
+			notAttempted: result.notAttempted.map((entry) => entry.rowNumber)
+		}).toEqual({
+			inserted: [existingCompletion.id],
+			failed: 0,
+			unconfirmed: 500,
+			firstUnconfirmed: 502,
+			notAttempted: [1002]
+		});
 	});
 });

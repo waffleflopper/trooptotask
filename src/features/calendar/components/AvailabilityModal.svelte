@@ -45,7 +45,7 @@
 
 	function resetForm() {
 		editingEntry = null;
-		selectedStatusId = (request.kind === 'create' && request.statusTypeId) || statusTypes[0]?.id || '';
+		selectedStatusId = statusTypes[0]?.id || '';
 		startDate = request.kind === 'create' ? request.startDate : dateStr;
 		endDate = request.kind === 'create' ? request.endDate : dateStr;
 		note = '';

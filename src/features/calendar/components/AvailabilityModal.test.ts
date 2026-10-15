@@ -110,8 +110,8 @@ describe('AvailabilityModal', () => {
 		expect(options.map((option) => option.textContent?.trim())).toEqual(['Leave', 'Sick', 'School', 'TDY']);
 	});
 
-	it('starts from the range and status a quick add handed over', async () => {
-		const { onSave } = renderModal({ ...onApril7, endDate: '2026-04-09', statusTypeId: 'tdy' });
+	it('starts from the range a quick add handed over, on the first status', async () => {
+		const { onSave } = renderModal({ ...onApril7, endDate: '2026-04-09' });
 
 		await fireEvent.input(screen.getByLabelText('Note'), { target: { value: 'JRTC prep' } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Add Status' }));
@@ -120,7 +120,7 @@ describe('AvailabilityModal', () => {
 			kind: 'create',
 			record: {
 				personnelId: 'person-1',
-				statusTypeId: 'tdy',
+				statusTypeId: 'leave',
 				startDate: '2026-04-07',
 				endDate: '2026-04-09',
 				note: 'JRTC prep'
@@ -167,23 +167,36 @@ describe('AvailabilityModal', () => {
 		expect(onSave).toHaveBeenCalledExactlyOnceWith({ kind: 'remove', entry: existingEntry });
 	});
 
-	it.each(['unconfirmed', 'stale'] as const)(
-		'blocks further changes until reload when the outcome is %s',
-		async (outcome) => {
-			renderModal(onApril7, { onSave: async () => outcome });
+	it('refuses another submission once a save could not be confirmed', async () => {
+		const { onSave } = renderModal(onApril7, { onSave: async () => 'unconfirmed' });
 
-			await fireEvent.click(screen.getByRole('button', { name: 'Add Status' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Add Status' }));
+		await screen.findByRole('alert');
+		const add = screen.getByRole('button', { name: 'Add Status' });
+		await fireEvent.click(add);
 
-			await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Reload the calendar'));
-			expect(screen.getByRole('button', { name: 'Add Status' })).toHaveProperty('disabled', true);
-		}
-	);
+		expect(add).toHaveProperty('disabled', true);
+		expect(onSave).toHaveBeenCalledTimes(1);
+	});
 
-	it('stays open and locked while a write settles', async () => {
-		renderModal(onApril7, { existingEntries: [existingEntry], saving: true });
+	it('keeps the form when another change was still saving', async () => {
+		const { onSave } = renderModal(onApril7, { onSave: async () => 'busy' });
 
-		expect(screen.getByRole('button', { name: 'Add Status' })).toHaveProperty('disabled', true);
-		await fireEvent.keyDown(document, { key: 'Escape' });
-		expect(screen.getByRole('dialog', { name: 'Set Personnel Status' })).toBeTruthy();
+		await fireEvent.input(screen.getByLabelText('Note'), { target: { value: 'JRTC prep' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Add Status' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Add Status' }));
+
+		expect(screen.queryByRole('alert')).toBeNull();
+		expect(onSave).toHaveBeenCalledTimes(2);
+		expect(onSave.mock.calls[1]?.[0]).toEqual({
+			kind: 'create',
+			record: {
+				personnelId: 'person-1',
+				statusTypeId: 'leave',
+				startDate: '2026-04-07',
+				endDate: '2026-04-07',
+				note: 'JRTC prep'
+			}
+		});
 	});
 });

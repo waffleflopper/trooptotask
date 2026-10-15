@@ -298,6 +298,7 @@
 						canEditAvailabilityFor={(person) => ctx.canManageAvailabilityFor(person)}
 						{popoverEntry}
 						{quickAddSelection}
+						saving={ctx.savingAvailability}
 						onQuickAdd={(person, startDate, endDate, anchor) => ctx.openQuickAdd(person, startDate, endDate, anchor)}
 						onResize={(person, entry, startDate, endDate) =>
 							ctx.saveAvailability({

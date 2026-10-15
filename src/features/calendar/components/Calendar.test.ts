@@ -101,6 +101,11 @@ function renderCalendar(
 		onPersonClick: (person: Personnel) => void;
 		onNavigateToMonth: (year: number, month: number) => void;
 		upcomingLossMap: Map<string, UpcomingLossRecord>;
+		canEditAvailabilityFor: (person: Personnel) => boolean;
+		popoverEntry: { personId: string; entryId: string } | null;
+		saving: boolean;
+		onQuickAdd: (person: Personnel, startDate: string, endDate: string, anchor: HTMLElement) => void;
+		onResize: (person: Personnel, entry: AvailabilityEntry, startDate: string, endDate: string) => void;
 	}> = {}
 ) {
 	return render(Calendar, {
@@ -129,7 +134,12 @@ function renderCalendar(
 			onNextMonth: () => {},
 			onGoToToday: () => {},
 			onNavigateToMonth: overrides.onNavigateToMonth,
-			upcomingLossMap: overrides.upcomingLossMap
+			upcomingLossMap: overrides.upcomingLossMap,
+			canEditAvailabilityFor: overrides.canEditAvailabilityFor,
+			popoverEntry: overrides.popoverEntry,
+			saving: overrides.saving,
+			onQuickAdd: overrides.onQuickAdd,
+			onResize: overrides.onResize
 		}
 	});
 }
@@ -230,19 +240,91 @@ describe('Calendar', () => {
 	});
 
 	it('counts the people out each day while their group is collapsed', async () => {
-		renderCalendar({
-			availabilityEntries: [
-				smithOnLeave,
-				{ ...smithOnLeave, id: 'entry-2', startDate: '2026-03-02', endDate: '2026-03-02', note: null },
-				{ ...smithOnLeave, id: 'entry-3', personnelId: 'person-2', startDate: '2026-03-02', endDate: '2026-03-02' }
-			]
-		});
+		renderCalendar({ availabilityEntries: [{ ...smithOnLeave, endDate: '2026-03-01' }] });
 		expect(screen.queryByText('Sunday, March 1, 2026: 1 out')).toBeNull();
 
 		await fireEvent.click(screen.getByRole('button', { name: /Alpha/ }));
 
 		expect(screen.getByText('Sunday, March 1, 2026: 1 out')).toBeTruthy();
-		expect(screen.getByText('Monday, March 2, 2026: 2 out')).toBeTruthy();
+		expect(screen.queryByText(/Monday, March 2, 2026: \d+ out/)).toBeNull();
+	});
+
+	it('offers resize grips only on the bars of people the member may manage', () => {
+		const scoped = {
+			availabilityEntries: [smithOnLeave, { ...smithOnLeave, id: 'entry-2', personnelId: 'person-2' }],
+			canEditAvailabilityFor: (person: Personnel) => person.id === 'person-1',
+			onQuickAdd: vi.fn(),
+			onResize: vi.fn()
+		};
+		renderCalendar({ ...scoped, popoverEntry: { personId: 'person-1', entryId: 'entry-1' } });
+		expect(document.querySelector('[data-edge="end"]')).not.toBeNull();
+		cleanup();
+
+		renderCalendar({ ...scoped, popoverEntry: { personId: 'person-2', entryId: 'entry-2' } });
+
+		expect(document.querySelector('[data-edge]')).toBeNull();
+	});
+
+	it('starts no drag while a change is still saving', async () => {
+		const rect = vi
+			.spyOn(Element.prototype, 'getBoundingClientRect')
+			.mockReturnValue(DOMRect.fromRect({ x: 0, y: 0, width: 62, height: 36 }));
+		const onQuickAdd = vi.fn();
+		const pointer = { button: 0, pointerId: 1, pointerType: 'mouse' };
+		const drag = async () => {
+			await fireEvent.pointerDown(screen.getByRole('button', { name: 'SGT Smith, Alex, Sunday, March 1, 2026' }), {
+				...pointer,
+				clientX: 10
+			});
+			await fireEvent.pointerMove(window, { ...pointer, clientX: 50 });
+			await fireEvent.pointerUp(window, { ...pointer, clientX: 50 });
+		};
+		try {
+			const { rerender } = renderCalendar({ canEdit: true, onQuickAdd, saving: true });
+			await drag();
+			expect(onQuickAdd).not.toHaveBeenCalled();
+
+			await rerender({ saving: false });
+			await drag();
+
+			expect(onQuickAdd).toHaveBeenCalledExactlyOnceWith(
+				expect.objectContaining({ id: 'person-1' }),
+				'2026-03-01',
+				'2026-03-02',
+				expect.any(HTMLElement)
+			);
+		} finally {
+			rect.mockRestore();
+		}
+	});
+
+	it('drops a drag on Escape and opens no day editor from the click that ends a drag', async () => {
+		const rect = vi
+			.spyOn(Element.prototype, 'getBoundingClientRect')
+			.mockReturnValue(DOMRect.fromRect({ x: 0, y: 0, width: 62, height: 36 }));
+		const onQuickAdd = vi.fn();
+		const onCellClick = vi.fn();
+		const pointer = { button: 0, pointerId: 1, pointerType: 'mouse' };
+		try {
+			renderCalendar({ canEdit: true, onQuickAdd, onCellClick });
+			const day = screen.getByRole('button', { name: 'SGT Smith, Alex, Sunday, March 1, 2026' });
+
+			await fireEvent.pointerDown(day, { ...pointer, clientX: 10 });
+			await fireEvent.pointerMove(window, { ...pointer, clientX: 50 });
+			await fireEvent.keyDown(window, { key: 'Escape' });
+			await fireEvent.pointerUp(window, { ...pointer, clientX: 50 });
+			expect(onQuickAdd).not.toHaveBeenCalled();
+
+			await fireEvent.pointerDown(day, { ...pointer, clientX: 10 });
+			await fireEvent.pointerMove(window, { ...pointer, clientX: 50 });
+			await fireEvent.pointerUp(window, { ...pointer, clientX: 50 });
+			await fireEvent.click(day);
+
+			expect(onQuickAdd).toHaveBeenCalledTimes(1);
+			expect(onCellClick).not.toHaveBeenCalled();
+		} finally {
+			rect.mockRestore();
+		}
 	});
 
 	it('hides personnel roles when role display is disabled', () => {

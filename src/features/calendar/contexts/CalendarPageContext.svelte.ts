@@ -53,16 +53,11 @@ export type CalendarPopover =
 	| { readonly kind: 'duty'; readonly typeId: string; readonly date: Date; readonly anchor: HTMLElement };
 
 export type AvailabilityEditorRequest =
-	| {
-			readonly kind: 'create';
-			readonly person: Personnel;
-			readonly startDate: string;
-			readonly endDate: string;
-			readonly statusTypeId?: string;
-	  }
+	| { readonly kind: 'create'; readonly person: Personnel; readonly startDate: string; readonly endDate: string }
 	| { readonly kind: 'edit'; readonly person: Personnel; readonly entry: AvailabilityEntry };
 
-export type AvailabilityOutcome = 'saved' | 'not-saved' | 'unconfirmed' | 'stale';
+/** `busy` means another change was still settling, so this one was not sent. `stale` means the Organization or access changed. */
+export type AvailabilityOutcome = 'saved' | 'not-saved' | 'unconfirmed' | 'stale' | 'busy';
 
 export interface CalendarDisplayPreferences {
 	showStatusText: boolean;
@@ -346,6 +341,8 @@ export class CalendarPageContext {
 	}
 
 	openEntry(person: Personnel, entryId: string, anchor: HTMLElement): void {
+		const open = this.popover;
+		if (open?.kind === 'entry' && open.entryId === entryId && open.anchor === anchor) return;
 		this.popover = { kind: 'entry', person, entryId, anchor };
 	}
 
@@ -363,7 +360,10 @@ export class CalendarPageContext {
 	}
 
 	async saveAvailability(change: AvailabilityChange): Promise<AvailabilityOutcome> {
-		if (this.savingAvailability) return 'stale';
+		if (this.savingAvailability) {
+			toastStore.error('Another change is still saving. Try again in a moment.');
+			return 'busy';
+		}
 		this.savingAvailability = true;
 		const orgId = this.#data.orgId;
 		const accessKey = this.#calendarAccessKey();

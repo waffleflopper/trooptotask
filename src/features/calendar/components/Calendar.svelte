@@ -63,6 +63,8 @@
 		canEditAvailabilityFor?: (person: Personnel) => boolean;
 		popoverEntry?: { personId: string; entryId: string } | null;
 		quickAddSelection?: { personId: string; startDate: string; endDate: string } | null;
+		/** A change is settling; no new drag starts until it does. */
+		saving?: boolean;
 		onQuickAdd?: (person: Personnel, startDate: string, endDate: string, anchor: HTMLElement) => void;
 		onResize?: (person: Personnel, entry: AvailabilityEntry, startDate: string, endDate: string) => void;
 		personnelHref?: string;
@@ -101,6 +103,7 @@
 		canEditAvailabilityFor = () => canEdit,
 		popoverEntry = null,
 		quickAddSelection = null,
+		saving = false,
 		onQuickAdd,
 		onResize,
 		personnelHref
@@ -221,7 +224,7 @@
 	}
 
 	function pressDay(event: PointerEvent, person: Personnel, row: HTMLElement) {
-		if (!canEditAvailabilityFor(person)) return;
+		if (saving || !canEditAvailabilityFor(person)) return;
 		const commit: GestureCommit = (effect) => {
 			if (effect.type !== 'quick-add') return;
 			const anchor = row.querySelector<HTMLElement>(`[data-day="${effect.end}"]`) ?? row;
@@ -231,6 +234,7 @@
 	}
 
 	function pressEdge(event: PointerEvent, person: Personnel, bar: Bar, edge: 'start' | 'end', row: HTMLElement) {
+		if (saving || !canEditAvailabilityFor(person)) return;
 		const target = {
 			personId: person.id,
 			entryId: bar.entry.id,
@@ -367,7 +371,7 @@
 									{onOpenEntry}
 									{onOpenOverflow}
 									onPressDay={dragEnabled ? pressDay : undefined}
-									onPressEdge={dragEnabled && onResize ? pressEdge : undefined}
+									onPressEdge={dragEnabled && onResize && canEditAvailabilityFor(row.person) ? pressEdge : undefined}
 								/>
 							{/if}
 						</div>

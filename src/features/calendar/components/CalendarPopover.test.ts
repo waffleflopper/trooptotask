@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import CalendarPopover from './CalendarPopover.svelte';
 import type { AvailabilityEntry, StatusType } from '$features/calendar/contracts';
 import type { CalendarPopover as CalendarPopoverState } from '$features/calendar/contexts/CalendarPageContext.svelte';
@@ -46,7 +46,10 @@ const sick: AvailabilityEntry = { ...leave, id: 'entry-sick', statusTypeId: 'sic
 type PopoverWithoutAnchor = DistributiveOmit<Exclude<CalendarPopoverState, { kind: 'duty' }>, 'anchor'>;
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
 
-function renderPopover(popover: PopoverWithoutAnchor, options: { canEdit?: boolean; statusTypes?: StatusType[] } = {}) {
+function renderPopover(
+	popover: PopoverWithoutAnchor,
+	options: { canEdit?: boolean; statusTypes?: StatusType[]; anchorHasResizeGrips?: boolean } = {}
+) {
 	const anchor = document.createElement('button');
 	document.body.append(anchor);
 	const onSave = vi.fn();
@@ -58,7 +61,7 @@ function renderPopover(popover: PopoverWithoutAnchor, options: { canEdit?: boole
 		statusTypes: options.statusTypes ?? STATUSES,
 		spans: buildAvailabilityTracks([leave, sick], STATUSES).spans('okafor'),
 		canEdit: options.canEdit ?? true,
-		anchorHasResizeGrips: true,
+		anchorHasResizeGrips: options.anchorHasResizeGrips ?? true,
 		saving: false,
 		onSave,
 		onEdit,
@@ -145,6 +148,30 @@ describe('CalendarPopover entry', () => {
 		expect(onSave.mock.calls).toEqual([[{ kind: 'remove', entry: leave }]]);
 	});
 
+	it("returns focus to the person's row once the removed bar is gone", async () => {
+		const row = document.createElement('div');
+		row.dataset.personId = 'okafor';
+		row.innerHTML = '<button>SGT Okafor</button>';
+		document.body.append(row);
+		renderPopover(entry);
+
+		const dialog = await screen.findByRole('dialog', { name: 'Leave, SGT Okafor' });
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Remove' }));
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Remove' }));
+
+		await waitFor(() => expect(document.activeElement?.textContent).toBe('SGT Okafor'));
+	});
+
+	it('mentions dragging the ends only when the opened bar carries grips', async () => {
+		const { props, rerender } = renderPopover(entry, { anchorHasResizeGrips: true });
+		const dialog = await screen.findByRole('dialog', { name: 'Leave, SGT Okafor' });
+		expect(within(dialog).queryByText('Drag ends to resize')).not.toBeNull();
+
+		await rerender({ ...props, anchorHasResizeGrips: false });
+
+		expect(within(dialog).queryByText('Drag ends to resize')).toBeNull();
+	});
+
 	it('opens the editor on the entry from Edit details', async () => {
 		const { onEdit } = renderPopover(entry);
 
@@ -157,7 +184,9 @@ describe('CalendarPopover entry', () => {
 		renderPopover(entry, { canEdit: false });
 
 		const dialog = await screen.findByRole('dialog', { name: 'Leave, SGT Okafor' });
-		expect(within(dialog).queryByRole('button')).toBeNull();
+		expect(within(dialog).getByText('Tue 20 – Fri 23 Oct · 4 days')).toBeTruthy();
+		expect(within(dialog).queryByRole('button', { name: 'Edit details' })).toBeNull();
+		expect(within(dialog).queryByRole('button', { name: 'Remove' })).toBeNull();
 	});
 });
 
@@ -170,6 +199,9 @@ describe('CalendarPopover overflow', () => {
 		});
 
 		const dialog = await screen.findByRole('dialog', { name: '2 more entries, SGT Okafor' });
+		expect(
+			within(dialog).getByRole('button', { name: 'Leave, 20 to 23 October 2026, 4 days, Block leave' })
+		).toBeTruthy();
 		await fireEvent.click(within(dialog).getByRole('button', { name: 'Sick, 20 to 23 October 2026, 4 days' }));
 
 		expect(onOpenEntry).toHaveBeenCalledWith('entry-sick');

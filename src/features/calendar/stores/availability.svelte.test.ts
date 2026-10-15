@@ -128,4 +128,22 @@ describe('availabilityStore', () => {
 			expect(typeof result).toBe('boolean');
 		});
 	});
+
+	describe('update', () => {
+		it('keeps one edited entry when a range refresh lands before the reply', async () => {
+			const edited = { ...mockEntries[0]!, note: 'Block leave' };
+			let reply!: (response: unknown) => void;
+			vi.stubGlobal(
+				'fetch',
+				vi.fn(() => new Promise((resolve) => (reply = resolve)))
+			);
+			const saving = availabilityStore.update('1', { note: 'Block leave' });
+
+			availabilityStore.load([edited, mockEntries[1]!, mockEntries[2]!], 'org-1');
+			reply({ ok: true, status: 200, json: () => Promise.resolve(edited) });
+
+			expect(await saving).toBe(true);
+			expect(availabilityStore.items.filter((entry) => entry.id === '1')).toEqual([edited]);
+		});
+	});
 });

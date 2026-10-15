@@ -65,10 +65,15 @@
 	});
 
 	$effect(() => {
-		const closeIfAnchorVirtualizedAway = () =>
+		let queued = false;
+		const closeIfAnchorVirtualizedAway = () => {
+			if (queued) return;
+			queued = true;
 			requestAnimationFrame(() => {
+				queued = false;
 				if (!popover.anchor.isConnected) onClose();
 			});
+		};
 		document.addEventListener('scroll', closeIfAnchorVirtualizedAway, { capture: true, passive: true });
 		return () => document.removeEventListener('scroll', closeIfAnchorVirtualizedAway, { capture: true });
 	});
@@ -105,16 +110,27 @@
 		create(statusTypeId);
 	}
 
+	let removing = false;
+
 	function remove() {
 		if (!entry || saving) return;
 		const change: AvailabilityChange = { kind: 'remove', entry: entry.entry };
+		removing = true;
 		onClose();
 		onSave(change);
 	}
 
 	function returnFocus(event: Event) {
 		event.preventDefault();
-		if (popover.anchor.isConnected) popover.anchor.focus();
+		if (!removing && popover.anchor.isConnected) {
+			popover.anchor.focus();
+			return;
+		}
+		// The bar leaves with its entry, so focus stays in that person's row instead of falling to the page.
+		const personId = popover.person.id;
+		requestAnimationFrame(() =>
+			document.querySelector<HTMLElement>(`[data-person-id="${CSS.escape(personId)}"] button`)?.focus()
+		);
 	}
 
 	function keepOpenOnAnchorPress(event: PointerEvent) {
@@ -127,6 +143,7 @@
 		customAnchor={popover.anchor}
 		align="start"
 		collisionPadding={8}
+		hideWhenDetached
 		class="w-[340px] max-w-(--bits-popover-content-available-width) gap-0 p-0"
 		role="dialog"
 		aria-label={label}

@@ -17,6 +17,7 @@ import { loadCalendarRange } from '$features/calendar/utils/calendarRangeLoader'
 import type { Personnel } from '$features/personnel/contracts';
 import { endOrganizationLifetime } from '$lib/stores/core';
 import { settles } from '$lib/test-support/settles';
+import { toastStore } from '$lib/stores/toast.svelte';
 
 vi.mock('$features/calendar/utils/calendarRangeLoader', () => ({
 	loadCalendarRange: vi.fn()
@@ -134,6 +135,7 @@ describe('CalendarPageContext', () => {
 		vi.mocked(availabilityStore.add).mockReset();
 		vi.mocked(availabilityStore.update).mockReset();
 		vi.mocked(availabilityStore.removeBool).mockReset();
+		vi.restoreAllMocks();
 		ctx = makeContext(mockData, org);
 	});
 
@@ -332,7 +334,16 @@ describe('CalendarPageContext', () => {
 	it('closes an open popover when the editor opens', () => {
 		const operatorCtx = makeContext(mockData, makeMockOrg({ capabilityMap: operateCapabilities }));
 		operatorCtx.openEntry(mockPersonnel[0], 'entry-1', {} as HTMLElement);
+		expect(operatorCtx.popover).toMatchObject({ kind: 'entry', entryId: 'entry-1' });
+
 		operatorCtx.handleCellClick(mockPersonnel[0], new Date(2026, 2, 15));
+
+		expect(operatorCtx.editor).toEqual({
+			kind: 'create',
+			person: mockPersonnel[0],
+			startDate: '2026-03-15',
+			endDate: '2026-03-15'
+		});
 		expect(operatorCtx.popover).toBeNull();
 	});
 
@@ -342,7 +353,7 @@ describe('CalendarPageContext', () => {
 			statusTypeId: 'leave',
 			startDate: '2026-04-07',
 			endDate: '2026-04-08',
-			note: null
+			note: null as string | null
 		};
 		const range = (availabilityEntries: (typeof record & { id: string })[]) => ({
 			rangeStart: '2026-04-01',
@@ -377,18 +388,86 @@ describe('CalendarPageContext', () => {
 			expect(await ctx.saveAvailability({ kind: 'remove', entry: { id: 'e1', ...record } })).toBe('unconfirmed');
 		});
 
-		it('refuses a second write while one settles', async () => {
+		const edit = {
+			kind: 'update',
+			entry: { id: 'entry-1', ...record },
+			changes: { statusTypeId: 'leave', startDate: '2026-04-07', endDate: '2026-04-10', note: 'Block leave' }
+		} as const;
+		const edited = { id: 'entry-1', ...record, endDate: '2026-04-10', note: 'Block leave' };
+
+		it('refuses a second write while one settles, says so, and announces the first only once it lands', async () => {
+			const success = vi.spyOn(toastStore, 'success');
+			const error = vi.spyOn(toastStore, 'error');
 			let resolveAdd!: (entry: typeof record & { id: string }) => void;
 			vi.mocked(availabilityStore.add).mockImplementationOnce(() => new Promise((resolve) => (resolveAdd = resolve)));
 			const first = ctx.saveAvailability({ kind: 'create', record });
 
-			expect(await ctx.saveAvailability({ kind: 'create', record })).toBe('stale');
+			expect(await ctx.saveAvailability({ kind: 'create', record })).toBe('busy');
+			expect(error).toHaveBeenCalledTimes(1);
+			expect(success).not.toHaveBeenCalled();
+
 			resolveAdd({ id: 'saved-1', ...record });
+
 			expect(await first).toBe('saved');
+			expect(success).toHaveBeenCalledTimes(1);
 			expect(availabilityStore.add).toHaveBeenCalledTimes(1);
 		});
 
+		it('saves an edit as one update of the same entry', async () => {
+			vi.mocked(availabilityStore.update).mockResolvedValueOnce(true);
+
+			expect(await ctx.saveAvailability(edit)).toBe('saved');
+			expect(vi.mocked(availabilityStore.update).mock.calls).toEqual([['entry-1', edit.changes]]);
+			expect(availabilityStore.add).not.toHaveBeenCalled();
+			expect(availabilityStore.removeBool).not.toHaveBeenCalled();
+		});
+
+		it("recognizes a lost edit reply by the entry's own ID, not a look-alike", async () => {
+			const lookAlike = { ...edited, id: 'other-entry' };
+			vi.mocked(availabilityStore.update).mockRejectedValue(new Error('PUT availability failed'));
+			vi.mocked(loadCalendarRange).mockResolvedValueOnce(range([{ id: 'entry-1', ...record }, lookAlike]));
+			expect(await ctx.saveAvailability(edit)).toBe('not-saved');
+
+			vi.mocked(loadCalendarRange).mockResolvedValueOnce(range([edited, lookAlike]));
+			expect(await ctx.saveAvailability(edit)).toBe('saved');
+		});
+
+		it.each([
+			['edit', edit],
+			['removal', { kind: 'remove', entry: { id: 'entry-1', ...record } }]
+		] as const)('restores the saved row and reports a refused %s', async (_, change) => {
+			const error = vi.spyOn(toastStore, 'error');
+			vi.mocked(availabilityStore.update).mockResolvedValueOnce(false);
+			vi.mocked(availabilityStore.removeBool).mockResolvedValueOnce(false);
+			vi.mocked(loadCalendarRange).mockResolvedValue(range([{ id: 'entry-1', ...record }]));
+
+			expect(await ctx.saveAvailability(change)).toBe('not-saved');
+			expect(availabilityStore.load).toHaveBeenCalledWith([{ id: 'entry-1', ...record }], 'org1');
+			expect(error).toHaveBeenCalledTimes(1);
+		});
+
+		it('stays silent when the Organization changes while a lost reply is being checked', async () => {
+			const success = vi.spyOn(toastStore, 'success');
+			const error = vi.spyOn(toastStore, 'error');
+			let currentData = mockData;
+			let resolveRead!: (value: ReturnType<typeof range>) => void;
+			vi.mocked(availabilityStore.add).mockRejectedValueOnce(new Error('POST availability failed'));
+			vi.mocked(loadCalendarRange).mockImplementationOnce(() => new Promise((resolve) => (resolveRead = resolve)));
+			const navigatedCtx = makeContext(() => currentData, org);
+			const pending = navigatedCtx.saveAvailability({ kind: 'create', record });
+			await vi.waitFor(() => expect(loadCalendarRange).toHaveBeenCalled());
+
+			currentData = { ...mockData, orgId: 'org2' };
+			resolveRead(range([{ id: 'saved-1', ...record }]));
+
+			expect(await pending).toBe('stale');
+			expect(success).not.toHaveBeenCalled();
+			expect(error).not.toHaveBeenCalled();
+			expect(availabilityStore.load).not.toHaveBeenCalled();
+		});
+
 		it('does not report an old Organization edit as saved after navigation', async () => {
+			const success = vi.spyOn(toastStore, 'success');
 			let currentData = mockData;
 			let resolveUpdate!: (saved: boolean) => void;
 			vi.mocked(availabilityStore.update).mockImplementation(() => new Promise((resolve) => (resolveUpdate = resolve)));
@@ -402,6 +481,7 @@ describe('CalendarPageContext', () => {
 			resolveUpdate(true);
 
 			expect(await pending).toBe('stale');
+			expect(success).not.toHaveBeenCalled();
 		});
 	});
 

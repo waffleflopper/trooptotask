@@ -61,8 +61,10 @@
 			{#each days as day, index (day.dateKey)}
 				{@const count = outCounts[index] ?? 0}
 				<span class="text-center font-mono text-[10px] font-semibold text-chrome-text">
-					<span aria-hidden="true">{count > 0 ? `−${count}` : ''}</span>
-					<span class="sr-only">{day.dateLabel}: {count} out</span>
+					{#if count > 0}
+						<span aria-hidden="true">−{count}</span>
+						<span class="sr-only">{day.dateLabel}: {count} out</span>
+					{/if}
 				</span>
 			{/each}
 		</div>

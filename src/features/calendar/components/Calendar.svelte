@@ -234,7 +234,7 @@
 	}
 
 	function pressEdge(event: PointerEvent, person: Personnel, bar: Bar, edge: 'start' | 'end', row: HTMLElement) {
-		if (saving || !canEditAvailabilityFor(person)) return;
+		if (!canEditAvailabilityFor(person)) return;
 		const target = {
 			personId: person.id,
 			entryId: bar.entry.id,
@@ -371,7 +371,9 @@
 									{onOpenEntry}
 									{onOpenOverflow}
 									onPressDay={dragEnabled ? pressDay : undefined}
-									onPressEdge={dragEnabled && onResize && canEditAvailabilityFor(row.person) ? pressEdge : undefined}
+									onPressEdge={dragEnabled && onResize && !saving && canEditAvailabilityFor(row.person)
+										? pressEdge
+										: undefined}
 								/>
 							{/if}
 						</div>

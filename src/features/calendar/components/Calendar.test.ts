@@ -265,6 +265,21 @@ describe('Calendar', () => {
 		expect(document.querySelector('[data-edge]')).toBeNull();
 	});
 
+	it('draws no resize grips while a change is still saving', async () => {
+		const { rerender } = renderCalendar({
+			availabilityEntries: [smithOnLeave],
+			popoverEntry: { personId: 'person-1', entryId: 'entry-1' },
+			onQuickAdd: vi.fn(),
+			onResize: vi.fn(),
+			saving: true
+		});
+		expect(document.querySelector('[data-edge]')).toBeNull();
+
+		await rerender({ saving: false });
+
+		expect(document.querySelector('[data-edge="end"]')).not.toBeNull();
+	});
+
 	it('starts no drag while a change is still saving', async () => {
 		const rect = vi
 			.spyOn(Element.prototype, 'getBoundingClientRect')

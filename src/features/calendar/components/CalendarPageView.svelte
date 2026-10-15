@@ -341,6 +341,7 @@
 			spans={ctx.availabilityTracks.spans(popover.person.id)}
 			canEdit={ctx.canManageAvailabilityFor(popover.person)}
 			anchorHasResizeGrips={ctx.viewMode !== '3-month' &&
+				!ctx.savingAvailability &&
 				popover.kind === 'entry' &&
 				popover.anchor.dataset.entryId === popover.entryId}
 			saving={ctx.savingAvailability}

@@ -1,4 +1,5 @@
 import { toastStore } from '$lib/stores/toast.svelte';
+import { rejectedRequestMessage } from '$lib/stores/core';
 import { onboardingStore } from '$features/onboarding/stores/onboarding.svelte';
 import { onboardingTemplateStore } from '$features/onboarding/stores/onboardingTemplate.svelte';
 import { createPersonnel } from '$features/personnel';
@@ -280,11 +281,25 @@ export class OnboardingPageContext {
 		return newPerson.id;
 	}
 
+	async #write(version: number, write: () => Promise<boolean>, fallback: string): Promise<boolean> {
+		try {
+			const saved = await write();
+			if (this.#isCurrent(version) && !saved) toastStore.error(fallback);
+			return saved;
+		} catch (error) {
+			if (this.#isCurrent(version)) toastStore.error(rejectedRequestMessage(error, fallback));
+			return false;
+		}
+	}
+
 	async handleToggleCheckbox(step: OnboardingStepProgress) {
 		const version = onboardingStore.organizationVersion;
 		if (!this.#isCurrent(version)) return;
-		const saved = await onboardingStore.toggleCheckbox(step.id, !step.completed);
-		if (this.#isCurrent(version) && !saved) toastStore.error('Could not update this step. Try again.');
+		await this.#write(
+			version,
+			() => onboardingStore.toggleCheckbox(step.id, !step.completed),
+			'Could not update this step. Try again.'
+		);
 	}
 
 	async handleStageClick(step: OnboardingStepProgress, stageName: string) {
@@ -292,27 +307,28 @@ export class OnboardingPageContext {
 		if (!stages.includes(stageName)) return;
 		const version = onboardingStore.organizationVersion;
 		if (!this.#isCurrent(version)) return;
-		const saved = await onboardingStore.advanceStage(step.id, stageName);
-		if (this.#isCurrent(version) && !saved) toastStore.error('Could not update this stage. Try again.');
+		await this.#write(
+			version,
+			() => onboardingStore.advanceStage(step.id, stageName),
+			'Could not update this stage. Try again.'
+		);
 	}
 
 	async handleAddNote(step: OnboardingStepProgress, text: string): Promise<boolean> {
 		const version = onboardingStore.organizationVersion;
 		if (!this.#isCurrent(version)) return false;
-		const saved = await onboardingStore.addNote(step.id, text);
-		if (this.#isCurrent(version) && !saved) toastStore.error('Could not add this note. Try again.');
-		return saved;
+		return this.#write(version, () => onboardingStore.addNote(step.id, text), 'Could not add this note. Try again.');
 	}
 
 	async handleCancelOnboarding(id: string) {
 		const version = onboardingStore.organizationVersion;
 		if (!this.#isCurrent(version)) return;
-		const saved = await onboardingStore.cancelOnboarding(id);
-		if (!this.#isCurrent(version)) return;
-		if (!saved) {
-			toastStore.error('Could not cancel onboarding. Try again.');
-			return;
-		}
+		const saved = await this.#write(
+			version,
+			() => onboardingStore.cancelOnboarding(id),
+			'Could not cancel onboarding. Try again.'
+		);
+		if (!saved || !this.#isCurrent(version)) return;
 		this.cancellingId = null;
 		this.modals.close(MODAL_IDS.cancelConfirm);
 	}
@@ -330,12 +346,13 @@ export class OnboardingPageContext {
 		if (!this.completingId) return;
 		const version = onboardingStore.organizationVersion;
 		if (!this.#isCurrent(version)) return;
-		const saved = await onboardingStore.completeOnboarding(this.completingId);
-		if (!this.#isCurrent(version)) return;
-		if (!saved) {
-			toastStore.error('Could not complete onboarding. Try again.');
-			return;
-		}
+		const completingId = this.completingId;
+		const saved = await this.#write(
+			version,
+			() => onboardingStore.completeOnboarding(completingId),
+			'Could not complete onboarding. Try again.'
+		);
+		if (!saved || !this.#isCurrent(version)) return;
 		this.completingId = null;
 		this.completingIncompleteCount = 0;
 	}
@@ -444,10 +461,12 @@ export class OnboardingPageContext {
 		const version = onboardingStore.organizationVersion;
 		if (!this.#isCurrent(version)) return;
 		this.removingDeprecatedStepId = stepId;
-		const saved = await onboardingStore.removeDeprecatedStep(stepId);
-		if (!this.#isCurrent(version)) return;
-		this.removingDeprecatedStepId = null;
-		if (!saved) toastStore.error('Could not remove this step. Reload and try again.');
+		await this.#write(
+			version,
+			() => onboardingStore.removeDeprecatedStep(stepId),
+			'Could not remove this step. Reload and try again.'
+		);
+		if (this.#isCurrent(version)) this.removingDeprecatedStepId = null;
 	}
 
 	// ── Store accessors (for view) ─────────────────────────────

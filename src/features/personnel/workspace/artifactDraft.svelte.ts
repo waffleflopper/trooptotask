@@ -1,3 +1,5 @@
+import { buildRequestError, rejectedRequestMessage } from '$lib/stores/core';
+
 export interface ArtifactDraftContext {
 	orgId: string;
 	personId: string;
@@ -67,17 +69,18 @@ export class ArtifactDraft<TInput extends object, TResult extends { id: string }
 		this.saving = true;
 		try {
 			const request = this.#spec.encode(this.fields);
-			const response = await this.#deps.fetch(this.#spec.endpoint(resolveContext(this.#deps.context)), {
+			const context = resolveContext(this.#deps.context);
+			const response = await this.#deps.fetch(this.#spec.endpoint(context), {
 				method: 'POST',
 				headers: request.headers,
 				body: request.body
 			});
-			if (!response.ok) throw new Error(this.#spec.errorFallback);
+			if (!response.ok) throw await buildRequestError(response, 'POST', this.#spec.endpoint(context));
 			this.upsert(this.#spec.decode ? await this.#spec.decode(response) : ((await response.json()) as TResult));
 			this.fields = this.#spec.reset?.(this.fields) ?? this.#spec.createEmptyInput();
 			return true;
 		} catch (caught) {
-			this.error = caught instanceof Error ? caught.message : this.#spec.errorFallback;
+			this.error = rejectedRequestMessage(caught, this.#spec.errorFallback);
 			return false;
 		} finally {
 			this.saving = false;

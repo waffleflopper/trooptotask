@@ -62,7 +62,7 @@ describe('Critical Tasks defaults', () => {
 	});
 
 	it('reports a failed save as an alert, keeps the entered values and returns focus to Save', async () => {
-		const fetch = vi.fn().mockResolvedValue({ ok: false });
+		const fetch = vi.fn().mockResolvedValue(Response.json({ message: 'relation missing' }, { status: 500 }));
 		vi.stubGlobal('fetch', fetch);
 		render(CriticalTasksDefaults, { orgId: 'org-a', settings });
 		const expiration = screen.getByLabelText('Default expiration') as HTMLInputElement;
@@ -77,5 +77,22 @@ describe('Critical Tasks defaults', () => {
 		expect(fetch).toHaveBeenCalledTimes(1);
 		expect([expiration.value, window.value]).toEqual(['13', '45']);
 		await waitFor(() => expect(document.activeElement).toBe(save));
+	});
+
+	it('shows why the server refused the defaults and keeps the entered values', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi
+				.fn()
+				.mockResolvedValue(Response.json({ message: 'Only Organization owners can change defaults.' }, { status: 403 }))
+		);
+		render(CriticalTasksDefaults, { orgId: 'org-a', settings });
+		const expiration = screen.getByLabelText('Default expiration') as HTMLInputElement;
+		await fireEvent.input(expiration, { target: { value: '13' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+		const alert = await screen.findByRole('alert');
+		expect(within(alert).getByText('Only Organization owners can change defaults.')).toBeTruthy();
+		expect(expiration.value).toBe('13');
 	});
 });

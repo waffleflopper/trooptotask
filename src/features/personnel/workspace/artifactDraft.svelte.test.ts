@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ArtifactDraft, type ArtifactDraftSpec } from './artifactDraft.svelte';
+import { counselingRecordDraftSpec } from './personnelArtifactDraftSpecs';
 
 interface DraftInput {
 	title: string;
@@ -61,6 +62,45 @@ describe('ArtifactDraft', () => {
 		expect(draft.issue).toBeNull();
 		expect(draft.fields.title).toBe('Needs follow-up');
 		expect(draft.items).toEqual([]);
+	});
+
+	it('shows the server reason for a refused counseling date and keeps the draft', async () => {
+		const file = new File(['record'], 'counseling.pdf', { type: 'application/pdf' });
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValue(Response.json({ message: 'Date conducted cannot be in the future.' }, { status: 400 }));
+		const draft = new ArtifactDraft(counselingRecordDraftSpec, {
+			context: { orgId: 'org-1', personId: 'person-1' },
+			fetch: fetchMock as typeof fetch
+		});
+		draft.fields.dateConducted = '2099-01-01';
+		draft.fields.title = 'Initial counseling';
+		draft.selectFile(file);
+
+		const saved = await draft.submit();
+
+		expect(saved).toBe(false);
+		expect(draft.error).toBe('Date conducted cannot be in the future.');
+		expect(draft.fields).toEqual({ dateConducted: '2099-01-01', title: 'Initial counseling', summary: '', file });
+	});
+
+	it('keeps the fallback for a server failure or a lost connection', async () => {
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValueOnce(Response.json({ message: 'relation missing' }, { status: 500 }))
+			.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+		const draft = new ArtifactDraft(makeSpec(), {
+			context: { orgId: 'org-1', personId: 'person-1' },
+			fetch: fetchMock as typeof fetch
+		});
+		draft.fields.title = 'Initial counseling';
+
+		await draft.submit();
+		expect(draft.error).toBe('Unable to create artifact.');
+
+		await draft.submit();
+		expect(draft.error).toBe('Unable to create artifact.');
+		expect(draft.fields.title).toBe('Initial counseling');
 	});
 
 	it('posts encoded drafts, clears fields, and deduplicates created items by id', async () => {

@@ -328,7 +328,7 @@ export class CalendarPageContext {
 	): Promise<AvailabilityEntry | null> {
 		const orgId = this.#data.orgId;
 		const accessKey = this.#calendarAccessKey();
-		const saved = await availabilityStore.update(id, changes);
+		const saved = await availabilityStore.updateOrThrow(id, changes);
 		if (!saved || this.#data.orgId !== orgId || this.#calendarAccessKey() !== accessKey) return null;
 		return availabilityStore.items.find((entry) => entry.id === id) ?? null;
 	}

@@ -5,6 +5,7 @@
 	import { formatDate } from '$lib/utils/dates';
 	import { validateDateRange } from '$features/calendar/utils/availabilityMutation';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { rejectedRequestMessage } from '$lib/stores/core';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import { Badge } from '$lib/components/ui/badge';
@@ -189,7 +190,7 @@
 			}
 			toastStore.success(successMessage(newData, !!previousEntry), 5000);
 			resetForm();
-		} catch {
+		} catch (error) {
 			const savedEntries = await reconcileFailure(
 				[...new Set([dateStr, newData.startDate, ...(previousEntry ? [previousEntry.startDate] : [])])],
 				expectedOrgId
@@ -203,7 +204,7 @@
 				toastStore.success(successMessage(newData, !!previousEntry), 5000);
 				resetForm();
 			} else {
-				toastStore.error('Could not save status. Try again.');
+				toastStore.error(rejectedRequestMessage(error, 'Could not save status. Try again.'));
 			}
 		} finally {
 			saving = false;

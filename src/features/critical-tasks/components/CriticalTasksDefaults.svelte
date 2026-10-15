@@ -7,6 +7,7 @@
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
 	import { Spinner } from '$lib/components/ui/spinner';
+	import { buildRequestError, rejectedRequestMessage } from '$lib/stores/core';
 	import type { CriticalTasksSettings } from '../criticalTasks.types';
 
 	let { orgId, settings }: { orgId: string; settings: CriticalTasksSettings } = $props();
@@ -65,13 +66,13 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(submitted)
 			});
-			if (!response.ok) throw new Error('Critical Tasks settings save failed');
+			if (!response.ok) throw await buildRequestError(response, 'POST', 'critical-tasks/settings');
 			if (orgId !== requestOrgId) return;
 			savedExpirationMonths = submitted.defaultExpirationMonths;
 			savedWarningDays = submitted.expiringSoonWarningDays;
 			await invalidate('app:critical-tasks-data');
-		} catch {
-			if (orgId === requestOrgId) saveError = 'Failed to save Critical Tasks defaults';
+		} catch (error) {
+			if (orgId === requestOrgId) saveError = rejectedRequestMessage(error, 'Failed to save Critical Tasks defaults');
 		} finally {
 			if (orgId === requestOrgId) saving = false;
 		}

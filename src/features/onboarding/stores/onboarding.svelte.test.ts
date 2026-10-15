@@ -190,7 +190,9 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 			completeResponse.respond(
 				Response.json({ progressChangedAt: SAVED_AT, completed: true, currentStage: null }, { status })
 			);
-			await expect(complete).resolves.toBe(status === 200);
+			await (status === 200
+				? expect(complete).resolves.toBe(true)
+				: expect(complete).rejects.toMatchObject({ status }));
 			expect(onboardingStore.getById('ob-1')).toEqual(mockOnboarding);
 		}
 	);
@@ -207,7 +209,7 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 		const incomplete = onboardingStore.toggleCheckbox('step-1', false);
 
 		incompleteResponse.respond(Response.json({ message: 'Save failed' }, { status: 500 }));
-		await expect(incomplete).resolves.toBe(false);
+		await expect(incomplete).rejects.toThrow('Save failed');
 		const expectedComplete = { ...mockOnboarding, steps: [{ ...mockOnboarding.steps[0], completed: true }] };
 		expect(onboardingStore.getById('ob-1')).toEqual(expectedComplete);
 
@@ -293,7 +295,7 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 		const filed = onboardingStore.advanceStage('step-1', 'Filed');
 
 		filedResponse.respond(Response.json({ message: 'Save failed' }, { status: 500 }));
-		await expect(filed).resolves.toBe(false);
+		await expect(filed).rejects.toThrow('Save failed');
 		const expectedReviewed = {
 			...paperworkOnboarding,
 			steps: [{ ...paperworkOnboarding.steps[0], currentStage: 'Reviewed' }]
@@ -337,7 +339,7 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 		});
 
 		filedResponse.respond(Response.json({ message: 'Save failed' }, { status: 500 }));
-		await expect(filed).resolves.toBe(false);
+		await expect(filed).rejects.toThrow('Save failed');
 		expect(onboardingStore.getById('ob-1')).toEqual({
 			...paperworkOnboarding,
 			steps: [{ ...paperworkOnboarding.steps[0], currentStage: 'Reviewed' }]
@@ -418,7 +420,7 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 		expect(onboardingStore.getById('ob-1')).toEqual({ ...paperworkOnboarding, steps: [savedPaperwork] });
 
 		removalResponse.respond(Response.json({ success: status === 200 }, { status }));
-		await expect(removed).resolves.toBe(status === 200);
+		await (status === 200 ? expect(removed).resolves.toBe(true) : expect(removed).rejects.toMatchObject({ status }));
 		expect(onboardingStore.getById('ob-1')).toEqual({
 			...paperworkOnboarding,
 			steps: status === 200 ? [savedPaperwork] : [savedPaperwork, deprecated]
@@ -520,7 +522,7 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 			expect(onboardingStore.getById('ob-1')?.status).toBe(operation === 'cancel' ? 'cancelled' : 'completed');
 			respond(Response.json({ message: 'Onboarding changed before persistence' }, { status: 409 }));
 
-			await expect(pending).resolves.toBe(false);
+			await expect(pending).rejects.toThrow('Onboarding changed before persistence');
 			expect(onboardingStore.items).toEqual([original]);
 		}
 	);
@@ -597,7 +599,7 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 		const resynced = onboardingStore.resync('ob-1');
 		const progressed = onboardingStore.toggleCheckbox('step-1', true);
 		progressResponse.respond(Response.json({ message: 'Save failed' }, { status: 503 }));
-		await expect(progressed).resolves.toBe(false);
+		await expect(progressed).rejects.toThrow('Save failed');
 		resyncResponse.respond(Response.json({ templateId: 'template-a', steps: reconciledSteps }));
 		await expect(resynced).resolves.toEqual({ success: true });
 		expect(onboardingStore.getById('ob-1')).toEqual({ ...checklistOnboarding, steps: reconciledSteps });
@@ -635,7 +637,9 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 			progressResponse.respond(
 				Response.json({ progressChangedAt: SAVED_AT, completed: true, currentStage: null }, { status })
 			);
-			await expect(progressed).resolves.toBe(status === 200);
+			await (status === 200
+				? expect(progressed).resolves.toBe(true)
+				: expect(progressed).rejects.toMatchObject({ status }));
 			expect(onboardingStore.getById('ob-1')).toEqual({ ...checklistOnboarding, steps: savedSteps });
 		}
 	);
@@ -794,7 +798,7 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 			const resynced = onboardingStore.resync('ob-1');
 			const removed = onboardingStore.removeDeprecatedStep('obsolete-step');
 			removalResponse.respond(Response.json({ success: status === 200 }, { status }));
-			await expect(removed).resolves.toBe(status === 200);
+			await (status === 200 ? expect(removed).resolves.toBe(true) : expect(removed).rejects.toMatchObject({ status }));
 			resyncResponse.respond(Response.json({ templateId: 'template-a', steps: [...reconciledSteps, inactive] }));
 			await expect(resynced).resolves.toEqual({ success: true });
 			expect(onboardingStore.getById('ob-1')).toEqual({
@@ -1152,7 +1156,7 @@ describe('onboardingStore step progress time and notes', () => {
 	it('keeps the saved notes when adding a note fails', async () => {
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(new Response(null, { status: 500 })));
 
-		await expect(onboardingStore.addNote('step-1', 'Lost')).resolves.toBe(false);
+		await expect(onboardingStore.addNote('step-1', 'Lost')).rejects.toMatchObject({ status: 500 });
 
 		expect(onboardingStore.getById('ob-1')).toEqual(paperworkOnboarding);
 	});

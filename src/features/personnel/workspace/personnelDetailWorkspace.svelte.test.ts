@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { PersonnelFollowUp } from '$features/personnel/contracts';
+import { PERSONNEL_LAST_NAME_REQUIRED_MESSAGE, type PersonnelFollowUp } from '$features/personnel/contracts';
 import type { PersonnelDetailStreams } from '$features/personnel/personnel-detail.types';
 import type { Personnel } from '../personnel.types';
 import { personnelStore } from '../stores/personnel.svelte';
@@ -220,6 +220,68 @@ describe('PersonnelDetailWorkspace', () => {
 			replaceState: true,
 			invalidateAll: true
 		});
+	});
+
+	it('shows why a basic info save was refused and keeps the edit open', async () => {
+		const workspace = makeWorkspace({
+			fetch: vi
+				.fn()
+				.mockResolvedValue(
+					Response.json({ message: 'This person is no longer available.' }, { status: 404 })
+				) as typeof fetch
+		});
+		workspace.startBasicInfoEdit();
+		workspace.basicInfoRank = 'SSG';
+
+		await workspace.saveBasicInfo();
+
+		expect(workspace.basicInfoError).toBe('This person is no longer available.');
+		expect(workspace.basicInfoNameError).toBeNull();
+		expect(workspace.editingBasicInfo).toBe(true);
+		expect(workspace.basicInfoRank).toBe('SSG');
+	});
+
+	it('maps a refused name to its field and keeps the generic message for a server failure', async () => {
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValueOnce(Response.json({ message: PERSONNEL_LAST_NAME_REQUIRED_MESSAGE }, { status: 400 }))
+			.mockResolvedValueOnce(Response.json({ message: 'relation missing' }, { status: 500 }));
+		const workspace = makeWorkspace({ fetch: fetchMock as typeof fetch });
+		workspace.startBasicInfoEdit();
+
+		await workspace.saveBasicInfo();
+		expect(workspace.basicInfoNameError).toEqual({ field: 'lastName', message: PERSONNEL_LAST_NAME_REQUIRED_MESSAGE });
+		expect(workspace.basicInfoError).toBe('');
+
+		await workspace.saveBasicInfo();
+		expect(workspace.basicInfoError).toBe('Unable to update basic info.');
+		expect(workspace.editingBasicInfo).toBe(true);
+	});
+
+	it('shows why a follow-up status update was refused', async () => {
+		const workspace = makeWorkspace({
+			fetch: vi
+				.fn()
+				.mockResolvedValue(Response.json({ message: 'This follow-up was archived.' }, { status: 409 })) as typeof fetch
+		});
+
+		await workspace.setFollowUpStatus(
+			{
+				id: 'follow-up-1',
+				personnelId: 'person-1',
+				title: 'Complete BLC packet',
+				notes: '',
+				dueDate: null,
+				status: 'open',
+				createdBy: 'leader-1',
+				createdAt: '2026-05-01T10:00:00Z',
+				updatedAt: '2026-05-01T10:00:00Z',
+				completedAt: null
+			},
+			'completed'
+		);
+
+		expect(workspace.followUps.error).toBe('This follow-up was archived.');
 	});
 
 	it('refreshes Loss Tracking after clearing ETS without changing the personnel URL', async () => {

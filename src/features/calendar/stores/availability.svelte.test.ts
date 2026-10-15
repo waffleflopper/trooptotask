@@ -125,6 +125,27 @@ describe('availabilityStore', () => {
 		});
 	});
 
+	describe('single writes', () => {
+		it('reject with the server reason when an addition or edit is refused', async () => {
+			vi.stubGlobal(
+				'fetch',
+				vi
+					.fn()
+					.mockResolvedValueOnce(Response.json({ message: 'This status type was deleted.' }, { status: 404 }))
+					.mockResolvedValueOnce(Response.json({ message: 'This status was changed elsewhere.' }, { status: 409 }))
+			);
+
+			const added = await availabilityStore
+				.add({ personnelId: 'p2', statusTypeId: 'gone', startDate: '2026-03-20', endDate: '2026-03-20', note: null })
+				.catch((error: unknown) => error);
+			const updated = await availabilityStore.updateOrThrow('1', { note: 'Moved' }).catch((error: unknown) => error);
+
+			expect(rejectedRequestMessage(added, 'fallback')).toBe('This status type was deleted.');
+			expect(rejectedRequestMessage(updated, 'fallback')).toBe('This status was changed elsewhere.');
+			expect(availabilityStore.items).toEqual(mockEntries);
+		});
+	});
+
 	describe('removeBatch', () => {
 		it('should remove multiple entries optimistically', async () => {
 			vi.stubGlobal('fetch', mockFetch({}));

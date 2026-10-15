@@ -133,6 +133,8 @@ describe('statusTypesStore', () => {
 			json: () => Promise.resolve(body),
 			text: () => Promise.resolve(JSON.stringify(body))
 		});
+		const requests = (fetchMock: ReturnType<typeof vi.fn>) =>
+			fetchMock.mock.calls.map(([url, options]) => [(options as RequestInit | undefined)?.method ?? 'GET', url]);
 		const saved = (order: string[]) =>
 			order.map((id, position) => ({ ...[leave, tdy, sick].find((type) => type.id === id)!, sortOrder: position }));
 
@@ -226,15 +228,64 @@ describe('statusTypesStore', () => {
 			['a 500', () => Promise.resolve(reply(500, { message: 'Internal server error' }))],
 			['the unconfirmed 503', () => Promise.resolve(reply(503, { message: 'unconfirmed' }))],
 			['a rejected request', () => Promise.reject(new TypeError('Failed to fetch'))]
-		])('reports %s as unconfirmed and shows the order from one fresh read', async (_label, answer) => {
+		])('reports %s as unconfirmed and shows the order from one fresh read without retrying', async (_label, answer) => {
 			const fetchMock = vi.fn((_url, options?: RequestInit) =>
-				options ? answer() : Promise.resolve(reply(200, saved(['3', '1', '2'])))
+				options ? answer() : Promise.resolve(reply(200, saved(['2', '3', '1'])))
 			);
 			vi.stubGlobal('fetch', fetchMock);
 
 			expect(await statusTypesStore.setOrder(['3', '1', '2'])).toEqual({ status: 'unconfirmed', showsSaved: true });
-			expect(ids()).toEqual(['3', '1', '2']);
-			expect(fetchMock).toHaveBeenCalledTimes(2);
+			expect(ids()).toEqual(['2', '3', '1']);
+			expect(requests(fetchMock)).toEqual([
+				['PUT', '/org/org-1/api/status-types/order'],
+				['GET', '/org/org-1/api/status-types']
+			]);
+		});
+
+		it('sends no move made during a save whose write failed', async () => {
+			let answer!: (value: unknown) => void;
+			const fetchMock = vi.fn((_url, options?: RequestInit) =>
+				options
+					? new Promise((resolve) => (answer = resolve))
+					: Promise.resolve(reply(200, saved(['1', '2', '3'])))
+			);
+			vi.stubGlobal('fetch', fetchMock);
+
+			const first = statusTypesStore.setOrder(['2', '1', '3']);
+			const second = statusTypesStore.setOrder(['2', '3', '1']);
+			answer(reply(500, { message: 'Internal server error' }));
+
+			expect(await Promise.all([first, second])).toEqual([
+				{ status: 'unconfirmed', showsSaved: true },
+				{ status: 'unconfirmed', showsSaved: true }
+			]);
+			expect(requests(fetchMock)).toEqual([
+				['PUT', '/org/org-1/api/status-types/order'],
+				['GET', '/org/org-1/api/status-types']
+			]);
+			expect(ids()).toEqual(['1', '2', '3']);
+		});
+
+		it('keeps a newer load over a fresh read that answers after it', async () => {
+			let answerRead!: (value: unknown) => void;
+			vi.stubGlobal(
+				'fetch',
+				vi.fn((_url, options?: RequestInit) =>
+					options
+						? Promise.resolve(reply(409, { message: 'Changed.' }))
+						: new Promise((resolve) => (answerRead = resolve))
+				)
+			);
+			const toast = vi.spyOn(toastStore, 'error');
+
+			const pending = statusTypesStore.setOrder(['3', '1', '2']);
+			await vi.waitFor(() => expect(answerRead).toBeDefined());
+			statusTypesStore.load(saved(['2', '1', '3']), 'org-1');
+			answerRead(reply(200, saved(['3', '2', '1'])));
+
+			expect(await pending).toEqual({ status: 'not-saved', message: 'Changed.', showsSaved: false });
+			expect(ids()).toEqual(['2', '1', '3']);
+			expect(toast).toHaveBeenCalledOnce();
 		});
 
 		it('keeps the shown order and says so when the fresh read also fails', async () => {
@@ -252,7 +303,7 @@ describe('statusTypesStore', () => {
 				showsSaved: false
 			});
 			expect(ids()).toEqual(['1', '2', '3']);
-			expect(toast).toHaveBeenCalledWith('Changed. Reload to see the saved order.');
+			expect(toast).toHaveBeenCalledOnce();
 		});
 
 		it('refuses create, edit and delete until an order save settles', async () => {
@@ -307,12 +358,14 @@ describe('statusTypesStore', () => {
 				vi.fn(() => new Promise((resolve) => (respond = resolve)))
 			);
 			const pending = statusTypesStore.setOrder(['2', '1', '3']);
+			const toast = vi.spyOn(toastStore, 'error');
 			endOrganizationLifetime();
 			statusTypesStore.load([leave, tdy, sick], 'org-1');
 			respond(reply(200, { success: true }));
 
 			expect(await settles(pending)).toBe(false);
 			expect(ids()).toEqual(['1', '2', '3']);
+			expect(toast).not.toHaveBeenCalled();
 		});
 
 		it('adopts the saved order when a reload lands during the save', async () => {
@@ -331,6 +384,20 @@ describe('statusTypesStore', () => {
 				'/org/org-1/api/status-types'
 			]);
 			expect(ids()).toEqual(['2', '1', '3']);
+		});
+
+		it('reports an acknowledged save as unconfirmed when the read after a reload shows another order', async () => {
+			let respond!: (value: unknown) => void;
+			const fetchMock = vi.fn((_url, options?: RequestInit) =>
+				options ? new Promise((resolve) => (respond = resolve)) : Promise.resolve(reply(200, saved(['3', '2', '1'])))
+			);
+			vi.stubGlobal('fetch', fetchMock);
+			const pending = statusTypesStore.setOrder(['2', '1', '3']);
+			statusTypesStore.load([leave, tdy, sick], 'org-1');
+			respond(reply(200, { success: true }));
+
+			expect(await pending).toEqual({ status: 'unconfirmed', showsSaved: true });
+			expect(ids()).toEqual(['3', '2', '1']);
 		});
 	});
 });

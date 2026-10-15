@@ -161,7 +161,23 @@ describe('Calendar ordinary catalog persistence', () => {
 			show_on_calendar: true,
 			exempt_personnel_ids: []
 		};
-		const { client, state } = calendarProvider({ assignment_types: [shownLane] });
+		const savedStatus = (id: string, organization_id: string, sort_order: number) => ({
+			id,
+			organization_id,
+			created_at: TIME,
+			name: id,
+			color: '#123456',
+			text_color: '#ffffff',
+			short_label: null,
+			sort_order
+		});
+		const existingStatuses = [
+			savedStatus('school', ORG, 2),
+			savedStatus('tdy', ORG, 9),
+			savedStatus('cq', ORG, 9),
+			savedStatus('foreign', 'org-b', 40)
+		];
+		const { client, state } = calendarProvider({ assignment_types: [shownLane], status_types: existingStatuses });
 		const port = createSupabaseCalendarCatalogPersistence(client, ORG);
 		expect(await port.createStatusType({ name: 'Leave' })).toEqual({
 			id: 'saved-1',
@@ -171,12 +187,12 @@ describe('Calendar ordinary catalog persistence', () => {
 			color: '#6b7280',
 			textColor: '#ffffff',
 			shortLabel: null,
-			sortOrder: 0
+			sortOrder: 10
 		});
 		expect(await port.createStatusType({ name: 'Sick', shortLabel: 'SK' })).toMatchObject({
 			id: 'saved-2',
 			shortLabel: 'SK',
-			sortOrder: 1
+			sortOrder: 11
 		});
 		expect(await port.updateStatusType('saved-1', { textColor: '#000000', shortLabel: 'LV' })).toEqual({
 			id: 'saved-1',
@@ -186,7 +202,7 @@ describe('Calendar ordinary catalog persistence', () => {
 			color: '#6b7280',
 			textColor: '#000000',
 			shortLabel: 'LV',
-			sortOrder: 0
+			sortOrder: 10
 		});
 		expect(await port.createAssignmentType({ name: 'Duty', shortName: 'D', assignTo: 'personnel' })).toEqual({
 			id: 'saved-3',
@@ -214,6 +230,7 @@ describe('Calendar ordinary catalog persistence', () => {
 			exemptPersonnelIds: ['person-a']
 		});
 		expect(state.rows.status_types).toEqual([
+			...existingStatuses,
 			{
 				id: 'saved-1',
 				organization_id: ORG,
@@ -222,7 +239,7 @@ describe('Calendar ordinary catalog persistence', () => {
 				color: '#6b7280',
 				text_color: '#000000',
 				short_label: 'LV',
-				sort_order: 0
+				sort_order: 10
 			},
 			{
 				id: 'saved-2',
@@ -232,7 +249,7 @@ describe('Calendar ordinary catalog persistence', () => {
 				color: '#6b7280',
 				text_color: '#ffffff',
 				short_label: 'SK',
-				sort_order: 1
+				sort_order: 11
 			}
 		]);
 		expect(state.rows.assignment_types).toEqual([

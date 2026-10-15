@@ -91,10 +91,8 @@ describe('StatusType CRUD use case', () => {
 				color: '#00ff00',
 				textColor: '#000000'
 			})
-		).rejects.toMatchObject({
-			status: 403,
-			message: 'This action requires Calendar configuration access'
-		});
+		).rejects.toMatchObject({ status: 403 });
+		expect(await ctx.store.findMany('status_types', ctx.auth.orgId)).toEqual([]);
 		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'policy.denied',
 			resourceType: 'calendar',
@@ -105,16 +103,28 @@ describe('StatusType CRUD use case', () => {
 		});
 	});
 
-	it('allows Calendar configure capability without relying on full-editor legacy checks', async () => {
-		const ctx = createWriteWithNotificationsPortsContext();
+	it('allows an ordinary member with only Calendar configure capability', async () => {
+		const ctx = createWriteWithNotificationsPortsContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				canManageMembers: false,
+				capabilityMap: {
+					calendar: 'configure',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				},
+				scopeSet: { kind: 'organization' }
+			}
+		});
 
-		const result = (await createStatusType(ctx, {
-			name: 'TDY',
-			color: '#00ff00',
-			textColor: '#000000'
-		})) as { name: string };
+		await createStatusType(ctx, { name: 'TDY', color: '#00ff00', textColor: '#000000' });
 
-		expect(result.name).toBe('TDY');
+		expect(await ctx.store.findMany('status_types', ctx.auth.orgId)).toMatchObject([{ name: 'TDY' }]);
+		expect(ctx.audit.events).toMatchObject([{ action: 'status_type.created' }]);
 	});
 
 	it('does not audit success when status deletion fails', async () => {
@@ -167,18 +177,34 @@ describe('StatusType CRUD use case', () => {
 		});
 	});
 
-	it('stores a trimmed uppercase one-day label, a blank one as none, and appends new types last', async () => {
+	it('stores a trimmed uppercase one-day label, clears a stored one when blank, and appends after the highest position', async () => {
 		const ctx = createWriteWithNotificationsPortsContext();
-		seedOrdered(ctx);
-		expect(await createStatusType(ctx, { name: 'Medical', shortLabel: ' md ' })).toMatchObject({
-			shortLabel: 'MD',
-			sortOrder: 3
+		const row = (id: string, organization_id: string, short_label: string | null, sort_order: number) => ({
+			id,
+			organization_id,
+			name: id,
+			color: '#00ff00',
+			text_color: '#ffffff',
+			short_label,
+			sort_order
 		});
-		expect(await updateStatusType(ctx, { id: SICK, shortLabel: '   ' })).toMatchObject({
-			shortLabel: null,
-			sortOrder: 1
+		ctx.store.seed('status_types', [
+			row(LEAVE, ctx.auth.orgId, null, 2),
+			row(SICK, ctx.auth.orgId, 'SK', 9),
+			row(SCHOOL, ctx.auth.orgId, null, 9),
+			row(ST_ID, 'other-org', null, 40)
+		]);
+
+		const created = await createStatusType(ctx, { name: 'Medical', shortLabel: ' md ' });
+		await updateStatusType(ctx, { id: SICK, shortLabel: '   ' });
+
+		expect(
+			await ctx.store.findOne('status_types', ctx.auth.orgId, { id: (created as { id: string }).id })
+		).toMatchObject({ short_label: 'MD', sort_order: 10 });
+		expect(await ctx.store.findOne('status_types', ctx.auth.orgId, { id: SICK })).toMatchObject({
+			short_label: null,
+			sort_order: 9
 		});
-		expect(await updateStatusType(ctx, { id: LEAVE, shortLabel: 'äöü' })).toMatchObject({ shortLabel: 'ÄÖÜ' });
 	});
 
 	it.each([

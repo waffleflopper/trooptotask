@@ -27,7 +27,8 @@ describe('Dashboard independent summary reads', () => {
 				activeOnboardings: []
 			} as unknown as DashboardBootstrap,
 			{ training: true, criticalTasks: true },
-			'2026-10-14'
+			'2026-10-14',
+			'UTC'
 		);
 		const failed = expect(pending).rejects.toThrow('Critical Tasks unavailable');
 		expect(criticalTasks).toHaveBeenCalledOnce();

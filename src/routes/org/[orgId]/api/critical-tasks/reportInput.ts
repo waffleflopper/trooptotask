@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { RequestEvent } from '@sveltejs/kit';
 import type { CriticalTasksMatrixExportInput, CriticalTasksReportInput } from '$features/critical-tasks/contracts';
-import { viewerToday } from '$lib/server/viewerDay.server';
+import { viewerTimeZone, viewerToday } from '$lib/server/viewerDay.server';
 
 type ReportRequestEvent = Pick<RequestEvent, 'url' | 'cookies'>;
 
@@ -40,7 +40,8 @@ export const criticalTasksReportInput = z.object({
 		.transform(normalizeMosValues),
 	role: z.string().optional(),
 	rank: z.string().optional(),
-	asOf: z.string()
+	asOf: z.string(),
+	timeZone: z.string()
 });
 
 export type CriticalTasksReportRouteInput = z.infer<typeof criticalTasksReportInput>;
@@ -61,7 +62,8 @@ export function parseCriticalTasksReportInput({ url, cookies }: ReportRequestEve
 		mos: normalizeMosValues(url.searchParams.getAll('mos')),
 		role: optionalParam(url.searchParams.get('role')),
 		rank: optionalParam(url.searchParams.get('rank')),
-		asOf: viewerToday(cookies)
+		asOf: viewerToday(cookies),
+		timeZone: viewerTimeZone(cookies)
 	};
 }
 
@@ -86,7 +88,8 @@ export function toCriticalTasksReportInput(input: CriticalTasksReportRouteInput)
 			role: input.role,
 			rank: input.rank
 		},
-		asOf: input.asOf
+		asOf: input.asOf,
+		timeZone: input.timeZone
 	};
 }
 

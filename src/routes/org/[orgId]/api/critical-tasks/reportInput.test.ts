@@ -28,7 +28,8 @@ describe('critical task report input parsing', () => {
 			mos: ['68W', '11B', '18D'],
 			role: 'Medic',
 			rank: 'SGT',
-			asOf: '2026-10-15'
+			asOf: '2026-10-15',
+			timeZone: 'UTC'
 		});
 		expect(toCriticalTasksReportInput(parsed).filters?.mos).toEqual(['68W', '11B', '18D']);
 	});
@@ -52,5 +53,6 @@ describe('critical task report input parsing', () => {
 		);
 
 		expect([report.asOf, matrix.asOf]).toEqual(['2026-10-14', '2026-10-14']);
+		expect(report.timeZone).toBe('America/Los_Angeles');
 	});
 });

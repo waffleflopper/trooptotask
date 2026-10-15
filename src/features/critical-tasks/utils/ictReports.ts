@@ -7,7 +7,7 @@ import type {
 import type { Personnel } from '$features/personnel/contracts';
 import { calculateIctExpirationDate, normalizeCriticalTasksSettings } from './ictStatus';
 import { getActiveIctTasksForLibrary, isIctTaskApplicableToMos } from './ictTaskLibrary';
-import { formatDate, parseDate } from '$lib/utils/dates';
+import { formatDate } from '$lib/utils/dates';
 import { tallyReadinessBy, tallyReadinessGrid, type ReadinessFact, type ReadinessTallyConfig } from './readinessRollup';
 import {
 	CRITICAL_TASK_READINESS_THRESHOLD_PERCENT,
@@ -21,6 +21,7 @@ import {
 	buildLastIctUpdateLookup,
 	compareIctCompletionRecency,
 	countCriticalTasksExpiringSoon,
+	daysSinceIctUpdate,
 	ictCompletionKey,
 	normalizeCriticalTasksMosName,
 	resolveCriticalTasksAsOfDate,
@@ -40,7 +41,6 @@ const ICT_MATRIX_ROLLUP: ReadinessTallyConfig<IctStatus, null> = {
 
 const UNCATEGORIZED_TASK_CATEGORY_KEY = '__uncategorized__';
 const UNCATEGORIZED_TASK_CATEGORY_LABEL = 'Uncategorized';
-const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const READINESS_DISTRIBUTION_BINS: IctReadinessDistributionBinDefinition[] = [
 	{ key: '0-20', label: '0-20%', minPercent: 0, maxPercent: 20 },
 	{ key: '20-40', label: '20-40%', minPercent: 20, maxPercent: 40 },
@@ -83,6 +83,8 @@ export interface BuildIctReportInput {
 	completions: PersonnelIctCompletion[];
 	settings?: CriticalTasksSettingsInput | null;
 	asOf?: string | Date;
+	/** The viewer's IANA zone for reading timestamps as days; the runtime's zone when omitted. */
+	timeZone?: string;
 }
 
 export type { IctAtRiskSoldierRow, IctTaskBelowThresholdRow } from './ictReadinessSnapshot';
@@ -260,16 +262,6 @@ function formatMonthKey(date: Date): string {
 
 function formatMonthLabel(date: Date): string {
 	return date.toLocaleString('en-US', { month: 'short', year: 'numeric' });
-}
-
-function daysBetweenDates(start: Date, end: Date): number {
-	const startDay = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate()) / MS_PER_DAY;
-	const endDay = Date.UTC(end.getFullYear(), end.getMonth(), end.getDate()) / MS_PER_DAY;
-	return Math.max(0, endDay - startDay);
-}
-
-function dateOnlyFromTimestamp(timestamp: string): Date {
-	return parseDate(timestamp.slice(0, 10));
 }
 
 function soldierName(person: Personnel): string {
@@ -726,6 +718,7 @@ function buildDashboardRiskRows(input: {
 	latestCompletions: Map<string, PersonnelIctCompletion>;
 	settings?: CriticalTasksSettingsInput | null;
 	asOf?: string | Date;
+	timeZone?: string;
 	limit: number;
 }): {
 	soldiersBelowThresholdCount: number;
@@ -759,9 +752,7 @@ function buildDashboardRiskRows(input: {
 				applicableCount: tally.applicable,
 				readyCount: tally.ready,
 				tasksExpiringSoonCount: tally.stateCounts.get('expiring-soon') ?? 0,
-				daysSinceLastIctUpdate: lastUpdate
-					? daysBetweenDates(dateOnlyFromTimestamp(lastUpdate.createdAt), asOfDate)
-					: null,
+				daysSinceLastIctUpdate: lastUpdate ? daysSinceIctUpdate(lastUpdate.createdAt, asOfDate, input.timeZone) : null,
 				lastIctUpdateAt: lastUpdate?.createdAt ?? null
 			},
 			compareAtRiskSoldierRows,
@@ -837,7 +828,8 @@ export function buildIctReportDashboard({
 	tasks,
 	completions,
 	settings = null,
-	asOf
+	asOf,
+	timeZone
 }: BuildIctReportInput): IctReportDashboard {
 	const activeTasks = getActiveIctTasksForLibrary(tasks);
 	const currentAsOfDate = resolveCriticalTasksAsOfDate(asOf);
@@ -847,14 +839,16 @@ export function buildIctReportDashboard({
 		activeTasks,
 		completions,
 		settings,
-		asOf: currentAsOfDate
+		asOf: currentAsOfDate,
+		timeZone
 	});
 	const previousSnapshot = buildCriticalTasksReadinessSnapshot({
 		personnel,
 		activeTasks,
 		completions,
 		settings,
-		asOf: previousAsOf
+		asOf: previousAsOf,
+		timeZone
 	});
 	const expiringSoon = countCriticalTasksExpiringSoon({
 		personnel,
@@ -924,7 +918,8 @@ export function buildIctReportDashboardSummary({
 	tasks,
 	completions,
 	settings = null,
-	asOf
+	asOf,
+	timeZone
 }: BuildIctReportInput): IctReportDashboardSummary {
 	const activeTasks = getActiveIctTasksForLibrary(tasks);
 	const currentAsOfDate = resolveCriticalTasksAsOfDate(asOf);
@@ -959,6 +954,7 @@ export function buildIctReportDashboardSummary({
 		latestCompletions,
 		settings,
 		asOf: currentAsOfDate,
+		timeZone,
 		limit: 3
 	});
 	const tasksBelowThreshold = buildDashboardTasksBelowThreshold({

@@ -100,7 +100,8 @@ describe('GET /api/critical-tasks/reports/export', () => {
 				mos: undefined,
 				role: undefined,
 				rank: undefined,
-				asOf: '2026-10-14'
+				asOf: '2026-10-14',
+				timeZone: 'UTC'
 			},
 			() => ctx
 		);
@@ -240,7 +241,8 @@ describe('GET /api/critical-tasks/reports/export', () => {
 				mos: undefined,
 				role: undefined,
 				rank: undefined,
-				asOf: '2026-10-14'
+				asOf: '2026-10-14',
+				timeZone: 'UTC'
 			},
 			() => ctx
 		);
@@ -351,7 +353,8 @@ describe('GET /api/critical-tasks/reports/export', () => {
 				mos: undefined,
 				role: undefined,
 				rank: undefined,
-				asOf: '2026-10-14'
+				asOf: '2026-10-14',
+				timeZone: 'UTC'
 			},
 			() => ctx
 		);
@@ -536,7 +539,8 @@ describe('GET /api/critical-tasks/reports/export', () => {
 				mos: undefined,
 				role: undefined,
 				rank: undefined,
-				asOf: '2026-10-14'
+				asOf: '2026-10-14',
+				timeZone: 'UTC'
 			},
 			() => ctx
 		);

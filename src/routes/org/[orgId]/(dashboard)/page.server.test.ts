@@ -316,7 +316,10 @@ describe('dashboard page server load', () => {
 			asOf: '2026-10-14'
 		});
 		expect(fetchCriticalTasksDashboardSummaryMock).toHaveBeenCalledOnce();
-		expect(fetchCriticalTasksDashboardSummaryMock).toHaveBeenCalledWith(mockCtx, { asOf: '2026-10-14' });
+		expect(fetchCriticalTasksDashboardSummaryMock).toHaveBeenCalledWith(mockCtx, {
+			asOf: '2026-10-14',
+			timeZone: 'America/New_York'
+		});
 	});
 
 	it('does not fetch or return Critical Tasks dashboard data without Critical Tasks view access', async () => {

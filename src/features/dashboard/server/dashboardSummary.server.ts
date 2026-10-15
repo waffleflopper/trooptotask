@@ -56,11 +56,12 @@ function toDashboardIctlSummary(report: IctReportDashboardSummary): DashboardIct
 async function loadDashboardIctlSummary(
 	ctx: Parameters<typeof fetchCriticalTasksDashboardSummary>[0],
 	canViewCriticalTasks: boolean,
-	asOf: string
+	asOf: string,
+	timeZone: string
 ): Promise<DashboardIctlSummary | null> {
 	if (!canViewCriticalTasks) return null;
 
-	const report = await fetchCriticalTasksDashboardSummary(ctx, { asOf });
+	const report = await fetchCriticalTasksDashboardSummary(ctx, { asOf, timeZone });
 	return toDashboardIctlSummary(report);
 }
 
@@ -68,7 +69,8 @@ export async function fetchDashboardSummary(
 	ctx: DashboardSummaryContext,
 	workspace: DashboardBootstrap,
 	access: { training: boolean; criticalTasks: boolean },
-	asOf: string
+	asOf: string,
+	timeZone: string
 ): Promise<DashboardPageSummaryData> {
 	const [trainingData, ictlSummary] = await Promise.all([
 		access.training
@@ -80,7 +82,7 @@ export async function fetchDashboardSummary(
 					asOf
 				})
 			: null,
-		loadDashboardIctlSummary(ctx, access.criticalTasks, asOf)
+		loadDashboardIctlSummary(ctx, access.criticalTasks, asOf, timeZone)
 	]);
 	return {
 		trainingSummary: trainingData?.trainingSummary ?? null,

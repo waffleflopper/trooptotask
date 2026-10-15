@@ -8,7 +8,7 @@ import type { Personnel } from '$features/personnel/contracts';
 import { getIctStatus } from './ictStatus';
 import { isIctTaskApplicableToMos } from './ictTaskLibrary';
 import { tallyReadiness, tallyReadinessBy, type ReadinessFact, type ReadinessTallyConfig } from './readinessRollup';
-import { formatDate, parseDate } from '$lib/utils/dates';
+import { formatDate, localDateIn, parseDate } from '$lib/utils/dates';
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
@@ -124,8 +124,14 @@ function daysBetweenDates(start: Date, end: Date): number {
 	return Math.max(0, endDay - startDay);
 }
 
-function dateOnlyFromTimestamp(timestamp: string): Date {
-	return parseDate(timestamp.slice(0, 10));
+/** A timestamp's calendar day in `timeZone`, or in the runtime's zone when none is given. */
+function dateOnlyFromTimestamp(timestamp: string, timeZone?: string): Date {
+	const instant = new Date(timestamp);
+	return timeZone ? parseDate(localDateIn(timeZone, instant)) : toStartOfDay(instant);
+}
+
+export function daysSinceIctUpdate(createdAt: string, asOfDate: Date, timeZone?: string): number {
+	return daysBetweenDates(dateOnlyFromTimestamp(createdAt, timeZone), asOfDate);
 }
 
 function soldierName(person: Personnel): string {
@@ -314,6 +320,7 @@ export function buildCriticalTasksReadinessSnapshot(input: {
 	completions: PersonnelIctCompletion[];
 	settings?: CriticalTasksSettingsInput | null;
 	asOf?: string | Date;
+	timeZone?: string;
 }): CriticalTasksReadinessSnapshot {
 	const latestCompletions = buildLatestIctCompletionLookup(input.completions, input.asOf);
 	const lastIctUpdates = buildLastIctUpdateLookup(input);
@@ -343,9 +350,7 @@ export function buildCriticalTasksReadinessSnapshot(input: {
 			applicableCount: tally.applicable,
 			readyCount: tally.ready,
 			tasksExpiringSoonCount: tally.stateCounts.get('expiring-soon') ?? 0,
-			daysSinceLastIctUpdate: lastUpdate
-				? daysBetweenDates(dateOnlyFromTimestamp(lastUpdate.createdAt), asOfDate)
-				: null,
+			daysSinceLastIctUpdate: lastUpdate ? daysSinceIctUpdate(lastUpdate.createdAt, asOfDate, input.timeZone) : null,
 			lastIctUpdateAt: lastUpdate?.createdAt ?? null
 		});
 

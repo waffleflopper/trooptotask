@@ -87,7 +87,8 @@ async function buildDashboardFromSource(
 		tasks: source.tasks,
 		completions,
 		settings: source.settings,
-		asOf: input.asOf
+		asOf: input.asOf,
+		timeZone: input.timeZone
 	});
 }
 
@@ -154,7 +155,8 @@ export async function fetchCriticalTasksDashboardSummary(
 		tasks: source.tasks,
 		completions,
 		settings: source.settings,
-		asOf: input.asOf
+		asOf: input.asOf,
+		timeZone: input.timeZone
 	});
 }
 

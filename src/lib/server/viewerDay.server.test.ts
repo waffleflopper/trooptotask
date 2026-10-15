@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
 import { rememberViewerTimeZone } from '$lib/utils/viewerTimeZone';
-import { viewerToday } from './viewerDay.server';
+import { viewerTimeZone, viewerToday } from './viewerDay.server';
 
 const cookies = (value?: string) => ({ get: (name: string) => (name === 't2t_tz' ? value : undefined) });
 const now = new Date('2026-10-15T00:30:00Z');
@@ -19,6 +19,14 @@ function readCookie(name: string): string | undefined {
 		.find((cookie) => cookie.startsWith(`${name}=`))
 		?.slice(name.length + 1);
 }
+
+describe('viewerTimeZone', () => {
+	it('returns the zone the browser reported, or UTC for a missing or invalid cookie', () => {
+		expect(viewerTimeZone(cookies('Pacific/Kiritimati'))).toBe('Pacific/Kiritimati');
+		expect(viewerTimeZone(cookies())).toBe('UTC');
+		expect(viewerTimeZone(cookies('Mars/Base'))).toBe('UTC');
+	});
+});
 
 describe('viewerToday', () => {
 	it('returns the day in the time zone the browser reported', () => {

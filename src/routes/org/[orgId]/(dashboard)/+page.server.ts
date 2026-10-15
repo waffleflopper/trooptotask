@@ -9,7 +9,7 @@ import {
 	createRequestDashboardSummaryContext,
 	createRequestNotificationContext
 } from '$lib/server/adapters/requestContexts.server';
-import { viewerToday } from '$lib/server/viewerDay.server';
+import { viewerTimeZone, viewerToday } from '$lib/server/viewerDay.server';
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoadEvent } from './$types';
 
@@ -19,6 +19,7 @@ export const load = async ({ params, locals, cookies, depends, parent }: PageSer
 	const { orgId } = params;
 	const parentData = await parent();
 	const asOf = viewerToday(cookies);
+	const timeZone = viewerTimeZone(cookies);
 	const ctx = await buildLayoutRequest(locals, orgId);
 	const { data: summary } = loadWithContextCore(
 		ctx,
@@ -37,7 +38,8 @@ export const load = async ({ params, locals, cookies, depends, parent }: PageSer
 						ctx,
 						workspaceData,
 						{ training: canViewTraining, criticalTasks: canViewCriticalTasks },
-						asOf
+						asOf,
+						timeZone
 					);
 				})
 		},

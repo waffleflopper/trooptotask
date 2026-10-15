@@ -3,7 +3,7 @@ import type { PageServerLoadEvent } from './$types';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { fetchCriticalTasksReportsPageModel } from '$features/critical-tasks/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { viewerToday } from '$lib/server/viewerDay.server';
+import { viewerTimeZone, viewerToday } from '$lib/server/viewerDay.server';
 
 export interface CriticalTasksReportsPageLoadDeps {
 	loadWithContext?: typeof loadWithContext;
@@ -17,11 +17,12 @@ export function _createCriticalTasksReportsPageLoad(_deps: CriticalTasksReportsP
 	return async ({ params, depends, locals, cookies }: PageServerLoadEvent) => {
 		depends('app:critical-tasks-reports');
 		const asOf = viewerToday(cookies);
+		const timeZone = viewerTimeZone(cookies);
 		return loadWithContextFn(locals, cookies, params.orgId, {
 			context: createRequestCriticalTasksReadContext,
 			policyAction: POLICY_ACTION_CATALOG.criticalTasks.viewReadiness,
 			policyResource: { kind: 'unscoped' },
-			fn: (ctx) => fetchPageModelFn(ctx, { asOf })
+			fn: (ctx) => fetchPageModelFn(ctx, { asOf, timeZone })
 		});
 	};
 }

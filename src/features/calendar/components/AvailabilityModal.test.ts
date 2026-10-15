@@ -380,6 +380,33 @@ describe('AvailabilityModal — saved status feedback', () => {
 		expect(screen.getByRole('button', { name: 'Edit status' })).toBeTruthy();
 	});
 
+	it('reports a refused edit without reconciling, even when the calendar read would fail', async () => {
+		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+		const onReconcile = vi.fn().mockRejectedValue(new Error('range read failed'));
+		renderModal(new Date(2026, 3, 7), {
+			statusTypes,
+			existingEntries: [existingEntry],
+			onUpdate: vi
+				.fn()
+				.mockRejectedValue(
+					await buildRequestError(
+						Response.json({ message: 'This status type was deleted.' }, { status: 404 }),
+						'PUT',
+						'availability'
+					)
+				),
+			onReconcile
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit status' }));
+		await fireEvent.input(screen.getByLabelText('Note'), { target: { value: 'Changed' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Update Status' }));
+
+		await waitFor(() => expect(errorToast).toHaveBeenCalledWith('This status type was deleted.'));
+		expect(errorToast).toHaveBeenCalledOnce();
+		expect(screen.getByRole('button', { name: 'Update Status' }).hasAttribute('disabled')).toBe(false);
+	});
+
 	it('keeps the generic message when an addition fails on the server', async () => {
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 		renderModal(new Date(2026, 3, 7), {

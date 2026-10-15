@@ -5,7 +5,7 @@
 	import { formatDate } from '$lib/utils/dates';
 	import { validateDateRange } from '$features/calendar/utils/availabilityMutation';
 	import { toastStore } from '$lib/stores/toast.svelte';
-	import { rejectedRequestMessage } from '$lib/stores/core';
+	import { rejectedRequestMessage, StoreRequestError } from '$lib/stores/core';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import { Badge } from '$lib/components/ui/badge';
@@ -163,6 +163,7 @@
 			note: note.trim() || null
 		};
 		const previousEntry = editingEntry;
+		const entriesBefore = localEntries;
 		const knownIds = new Set(existingEntries.map((entry) => entry.id));
 		const temporaryId = `temp-${crypto.randomUUID()}`;
 		localEntries = previousEntry ? localEntries.filter((entry) => entry.id !== previousEntry.id) : localEntries;
@@ -191,6 +192,13 @@
 			toastStore.success(successMessage(newData, !!previousEntry), 5000);
 			resetForm();
 		} catch (error) {
+			// A 4xx is a definite refusal: nothing was saved, so there is nothing to reconcile.
+			if (error instanceof StoreRequestError && error.status >= 400 && error.status < 500) {
+				if (!active) return;
+				localEntries = entriesBefore;
+				toastStore.error(rejectedRequestMessage(error, 'Could not save status. Try again.'));
+				return;
+			}
 			const savedEntries = await reconcileFailure(
 				[...new Set([dateStr, newData.startDate, ...(previousEntry ? [previousEntry.startDate] : [])])],
 				expectedOrgId

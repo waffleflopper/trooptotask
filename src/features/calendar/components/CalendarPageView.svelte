@@ -310,6 +310,7 @@
 		{#await loadDutyPicker() then { default: DutyPicker }}
 			<DutyPicker
 				typeName={dutyPick.type.name}
+				assignTo={dutyPick.type.assignTo}
 				date={dutyPick.date}
 				anchor={dutyPick.anchor}
 				options={dutyPick.options}

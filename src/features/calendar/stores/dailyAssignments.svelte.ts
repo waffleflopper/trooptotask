@@ -32,7 +32,7 @@ export type LaneChange =
 type LaneFlight = {
 	readonly orgId: string;
 	readonly inLifetime: () => boolean;
-	done: Promise<LaneChange>;
+	readonly done: Promise<LaneChange>;
 };
 
 const laneNames = new Intl.ListFormat('en', { type: 'conjunction' });
@@ -385,9 +385,14 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 			laneDesired = [...laneTypeIds];
 			if (current) return current.done;
 			catalogEpoch++;
-			const flight = { orgId: typesStore.orgId, inLifetime: stillInOrganizationLifetime() } as LaneFlight;
+			const done = Promise.withResolvers<LaneChange>();
+			const flight: LaneFlight = {
+				orgId: typesStore.orgId,
+				inLifetime: stillInOrganizationLifetime(),
+				done: done.promise
+			};
 			laneFlight = flight;
-			flight.done = runLaneFlight(flight);
+			done.resolve(runLaneFlight(flight));
 			return flight.done;
 		},
 

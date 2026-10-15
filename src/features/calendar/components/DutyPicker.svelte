@@ -1,10 +1,12 @@
 <script lang="ts">
+	import type { AssignmentType } from '$features/calendar/contracts';
 	import type { DutyPickerOption } from '$features/calendar/utils/dutyPickerOptions';
 	import * as Command from '$lib/components/ui/command';
 	import * as Popover from '$lib/components/ui/popover';
 
 	interface Props {
 		typeName: string;
+		assignTo: AssignmentType['assignTo'];
 		date: Date;
 		anchor: HTMLElement;
 		options: readonly DutyPickerOption[];
@@ -12,7 +14,9 @@
 		onClose: () => void;
 	}
 
-	let { typeName, date, anchor, options, onAssign, onClose }: Props = $props();
+	let { typeName, assignTo, date, anchor, options, onAssign, onClose }: Props = $props();
+
+	const findLabel = $derived(assignTo === 'group' ? 'Find group' : 'Find person');
 
 	const dateTitle = $derived(date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }));
 
@@ -41,10 +45,10 @@
 			<p class="font-mono text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">{typeName}</p>
 			<Popover.Title>{dateTitle}</Popover.Title>
 		</Popover.Header>
-		<Command.Root class="rounded-lg!" label="Find person">
-			<Command.Input placeholder="Find person" />
+		<Command.Root class="rounded-lg!" label={findLabel}>
+			<Command.Input placeholder={findLabel} />
 			<Command.List class="max-h-80">
-				<Command.Empty>No one matches.</Command.Empty>
+				<Command.Empty>{assignTo === 'group' ? 'No group matches.' : 'No one matches.'}</Command.Empty>
 				{#each options as option (option.id)}
 					<Command.Item
 						value={option.id}

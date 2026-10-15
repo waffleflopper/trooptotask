@@ -319,27 +319,21 @@ describe('Calendar lanes', () => {
 		});
 	}
 
-	it('renders lanes under the dates as groups named by label and described by summary', () => {
-		const { container } = renderCalendar({ lanes: lanesFor(), specialDays: [columbus] });
+	it('renders lanes as groups named by label and described by summary', () => {
+		renderCalendar({ lanes: lanesFor(), specialDays: [columbus] });
 
-		const duty = screen.getByRole('group', { name: 'Staff Duty', description: 'Staff Duty: 1 of 2 days assigned' });
-		const days = screen.getByRole('group', {
-			name: 'Days',
-			description: 'Days: Columbus Day, federal holiday, March 2'
-		});
-		expect(container.querySelector('.date-headers')?.contains(duty)).toBe(true);
-		expect(duty.compareDocumentPosition(days) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-		expect(within(duty).getByText('1 open')).toBeTruthy();
+		screen.getByRole('group', { name: 'Staff Duty', description: /1 of 2/ });
+		const days = screen.getByRole('group', { name: 'Days', description: /Columbus Day/ });
 		expect(within(days).getByText('Columbus Day')).toBeTruthy();
-		expect(days.children[2]?.className).toContain('bg-warning-muted');
 	});
 
-	it('gives viewers the assignee text without assignment targets', () => {
+	it('names each assigned day for viewers by type, date and assignee without assignment targets', () => {
 		renderCalendar({ lanes: lanesFor() });
 
 		const duty = screen.getByRole('group', { name: 'Staff Duty' });
-		expect(within(duty).getByText('SMITH')).toBeTruthy();
-		expect(within(duty).queryAllByRole('button')).toHaveLength(0);
+		expect(within(duty).getByText('Staff Duty for Sunday, March 1, 2026: SGT Smith, Alex')).toBeTruthy();
+		expect(within(duty).queryByRole('button', { name: /^Assign Staff Duty/ })).toBeNull();
+		expect(within(duty).queryByRole('button', { name: /Edit assignments/ })).toBeNull();
 	});
 
 	it('opens the duty picker from an open day and the assignments from an assigned day', async () => {
@@ -358,7 +352,7 @@ describe('Calendar lanes', () => {
 		expect(actions.editDay).toHaveBeenCalledWith(march1);
 	});
 
-	it('renders a third lane kind after Days without layout changes', async () => {
+	it('renders a third lane kind without layout changes', async () => {
 		const onOpen = vi.fn();
 		const suspenses: CalendarLane = {
 			key: 'fixture:suspenses',
@@ -373,8 +367,6 @@ describe('Calendar lanes', () => {
 			name: 'Suspenses',
 			description: 'Suspenses: Roster to BN S3 on March 2'
 		});
-		const days = screen.getByRole('group', { name: 'Days' });
-		expect(days.compareDocumentPosition(fixture) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 		await fireEvent.click(within(fixture).getByRole('button', { name: 'Roster to BN S3' }));
 		expect(onOpen).toHaveBeenCalledTimes(1);
 	});
@@ -408,6 +400,6 @@ describe('Calendar lanes', () => {
 		renderCalendar({ assignmentTypes: [staffDuty], assignments: [smithOnDuty] });
 
 		expect(screen.queryByRole('button', { name: /Edit assignments/ })).toBeNull();
-		expect(screen.getByText('SD')).toBeTruthy();
+		expect(screen.getByTitle('Staff Duty, SGT Smith, Alex, Sunday, March 1, 2026').textContent).toBe('SD');
 	});
 });

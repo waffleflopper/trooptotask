@@ -9,6 +9,8 @@
 </script>
 
 <script lang="ts">
+	import { Button } from '$lib/components/ui/button';
+
 	let { value }: { value: AssignmentLaneDay } = $props();
 
 	const action = $derived(value.assignee ? value.edit : value.open);
@@ -16,10 +18,11 @@
 
 {#if action}
 	<!-- One button for both states keeps focus on the day when an assignment lands. -->
-	<button
-		type="button"
+	<Button
+		variant="cell"
+		size="none"
 		class={[
-			'flex size-full min-w-0 items-center justify-center overflow-hidden px-px font-mono text-[9px] font-semibold tracking-wide uppercase hover:bg-primary/10 focus-visible:z-[2] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+			'size-full min-w-0 overflow-hidden px-px font-mono text-[9px] font-semibold tracking-wide uppercase hover:bg-primary/10',
 			value.assignee ? 'text-foreground' : 'text-primary'
 		]}
 		aria-label={value.assignee
@@ -36,11 +39,13 @@
 				aria-hidden="true">+</span
 			>
 		{/if}
-	</button>
+	</Button>
 {:else if value.assignee}
 	<span
 		class="flex size-full min-w-0 items-center justify-center overflow-hidden px-px font-mono text-[9px] font-semibold tracking-wide text-foreground uppercase"
 		title={value.assignee.full}
-		><span class="truncate">{value.assignee.short}</span><span class="sr-only">: {value.assignee.full}</span></span
+		><span class="truncate" aria-hidden="true">{value.assignee.short}</span><span class="sr-only"
+			>{value.typeName} for {value.dateLabel}: {value.assignee.full}</span
+		></span
 	>
 {/if}

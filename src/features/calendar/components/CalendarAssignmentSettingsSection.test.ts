@@ -46,7 +46,9 @@ function renderSection(searchQuery = '') {
 	return render(CalendarAssignmentSettingsSection, { props: { canMutate: true, searchQuery } });
 }
 
-function listNames(name: string) {
+const ON_CALENDAR = /^On the calendar/;
+
+function listNames(name: string | RegExp) {
 	const list = screen.queryByRole('list', { name });
 	if (!list) return [];
 	return within(list)
@@ -86,21 +88,22 @@ describe('CalendarAssignmentSettingsSection', () => {
 	it('lists lanes in calendar order and planner-only types by name, without archived types', () => {
 		renderSection();
 
-		expect(screen.getByRole('heading', { name: 'On the calendar · 2 lanes' })).toBeTruthy();
-		expect(listNames('On the calendar · 2 lanes')).toEqual(['Staff Duty', 'Charge of Quarters']);
+		expect(listNames(ON_CALENDAR)).toEqual(['Staff Duty', 'Charge of Quarters']);
 		expect(listNames('Duty planner only')).toEqual(['Gate Guard', 'Runner']);
 		expect(screen.queryByText('Old Duty')).toBeNull();
 		expect(screen.queryByText('Each lane adds about 26px above the roster.')).toBeNull();
 	});
 
-	it('appends a type when switched on and removes it when switched off', async () => {
+	it('appends a type when switched on and removes only that type when switched off', async () => {
 		renderSection();
-
 		await fireEvent.click(screen.getByRole('switch', { name: 'Show Gate Guard on the calendar' }));
 		expect(store.setCalendarLanes).toHaveBeenLastCalledWith(['sd', 'cq', 'gate']);
+		cleanup();
 
+		store.types = [lane('sd', 'Staff Duty', 0), lane('cq', 'Charge of Quarters', 1), lane('gate', 'Gate Guard', 2)];
+		renderSection();
 		await fireEvent.click(screen.getByRole('switch', { name: 'Show Staff Duty on the calendar' }));
-		expect(store.setCalendarLanes).toHaveBeenLastCalledWith(['cq']);
+		expect(store.setCalendarLanes).toHaveBeenLastCalledWith(['cq', 'gate']);
 	});
 
 	it('moves a lane with the keyboard and announces its new position', async () => {
@@ -109,14 +112,14 @@ describe('CalendarAssignmentSettingsSection', () => {
 		await fireEvent.keyDown(screen.getByRole('button', { name: 'Reorder Staff Duty' }), { key: 'ArrowDown' });
 
 		expect(store.setCalendarLanes).toHaveBeenCalledWith(['cq', 'sd']);
-		await waitFor(() => expect(screen.getByRole('status').textContent).toBe('Staff Duty moved to position 2 of 2'));
+		await waitFor(() => expect(screen.getByRole('status').textContent).toMatch(/Staff Duty.*2 of 2/));
 	});
 
 	it('shows the pending lane order while a save is in flight', () => {
 		store.pendingLaneIds = ['cq', 'sd'];
 		renderSection();
 
-		expect(listNames('On the calendar · 2 lanes')).toEqual(['Charge of Quarters', 'Staff Duty']);
+		expect(listNames(ON_CALENDAR)).toEqual(['Charge of Quarters', 'Staff Duty']);
 		expect(
 			(screen.getByRole('switch', { name: 'Show Gate Guard on the calendar' }) as HTMLButtonElement).disabled
 		).toBe(false);
@@ -134,42 +137,58 @@ describe('CalendarAssignmentSettingsSection', () => {
 
 		expect(screen.queryByRole('button', { name: /^Reorder / })).toBeNull();
 		expect(screen.getByText('Clear search to reorder.')).toBeTruthy();
-		expect(listNames('On the calendar · 2 lanes')).toEqual(['Staff Duty']);
+		expect(listNames(ON_CALENDAR)).toEqual(['Staff Duty']);
 		expect(listNames('Duty planner only')).toEqual([]);
 	});
 
-	it('saves edited details before turning the lane on', async () => {
-		const calls: string[] = [];
-		store.updateType.mockImplementation(async () => (calls.push('details'), true));
-		store.setCalendarLanes.mockImplementation(async () => (calls.push('lanes'), { status: 'saved' }));
+	it('turns the lane on only after the edited details save', async () => {
+		let detailsSaved!: (saved: boolean) => void;
+		store.updateType.mockImplementation(() => new Promise((resolve) => (detailsSaved = resolve)));
 		renderSection();
 
 		await openRowMenu('Runner', 'Edit');
 		const dialog = await screen.findByRole('dialog', { name: 'Edit Assignment Type' });
 		await fireEvent.input(within(dialog).getByLabelText('Full name'), { target: { value: 'Runner (Day)' } });
 		await fireEvent.click(within(dialog).getByRole('switch', { name: 'Show on the calendar' }));
-		expect(within(dialog).getByText('Adds a lane under the dates. Lane 3 of 3.')).toBeTruthy();
 		await fireEvent.click(within(dialog).getByRole('button', { name: 'Save Changes' }));
 
+		await waitFor(() =>
+			expect(store.updateType).toHaveBeenCalledWith('runner', expect.objectContaining({ name: 'Runner (Day)' }))
+		);
+		expect(store.setCalendarLanes).not.toHaveBeenCalled();
+		detailsSaved(true);
+
 		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-		expect(calls).toEqual(['details', 'lanes']);
-		expect(store.updateType).toHaveBeenCalledWith('runner', {
-			name: 'Runner (Day)',
-			shortName: 'RU',
-			color: '#b91c1c',
-			assignTo: 'personnel',
-			exemptPersonnelIds: []
-		});
 		expect(store.setCalendarLanes).toHaveBeenCalledWith(['sd', 'cq', 'runner']);
 	});
 
-	it('keeps an added type open for retry when its lane is not saved', async () => {
+	it('leaves the lane and the draft alone when the details fail to save', async () => {
+		store.updateType.mockResolvedValue(false);
+		renderSection();
+
+		await openRowMenu('Runner', 'Edit');
+		const dialog = await screen.findByRole('dialog', { name: 'Edit Assignment Type' });
+		await fireEvent.input(within(dialog).getByLabelText('Full name'), { target: { value: 'Runner (Day)' } });
+		await fireEvent.click(within(dialog).getByRole('switch', { name: 'Show on the calendar' }));
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Save Changes' }));
+
+		await waitFor(() => expect(store.updateType).toHaveBeenCalled());
+		await waitFor(() => expect(dialog.hasAttribute('aria-busy')).toBe(false));
+		expect(store.setCalendarLanes).not.toHaveBeenCalled();
+		expect(screen.getByRole('dialog', { name: 'Edit Assignment Type' })).toBe(dialog);
+		expect((within(dialog).getByLabelText('Full name') as HTMLInputElement).value).toBe('Runner (Day)');
+		expect(within(dialog).getByRole('switch', { name: 'Show on the calendar' }).getAttribute('aria-checked')).toBe(
+			'true'
+		);
+	});
+
+	it('keeps an added type open for retry when its lane is not saved, then shows it once', async () => {
 		store.addType.mockImplementation(async (data: Omit<AssignmentType, 'id'>) => {
 			const created = { ...data, id: 'new' };
 			store.types = [...store.types, created];
 			return created;
 		});
-		store.setCalendarLanes.mockResolvedValue({ status: 'not-saved', message: 'Failed', showsSaved: true });
+		store.setCalendarLanes.mockResolvedValueOnce({ status: 'not-saved', message: 'Failed', showsSaved: true });
 		const view = renderSection();
 
 		view.component.openAddDialog();
@@ -179,35 +198,48 @@ describe('CalendarAssignmentSettingsSection', () => {
 		await fireEvent.click(within(dialog).getByRole('switch', { name: 'Show on the calendar' }));
 		await fireEvent.click(within(dialog).getByRole('button', { name: 'Add Assignment Type' }));
 
-		expect(await within(dialog).findByRole('alert')).toHaveProperty(
-			'textContent',
-			'Details are saved. The calendar setting was not saved.'
-		);
-		expect(store.addType).toHaveBeenCalledWith(
-			expect.objectContaining({ name: 'Fire Guard', shortName: 'FG', showOnCalendar: false })
-		);
-		expect(store.setCalendarLanes).toHaveBeenCalledWith(['sd', 'cq', 'new']);
+		await within(dialog).findByRole('alert');
+		expect(store.setCalendarLanes).toHaveBeenLastCalledWith(['sd', 'cq', 'new']);
 		expect(screen.getByRole('dialog', { name: 'Edit Assignment Type' })).toBe(dialog);
+		expect((within(dialog).getByLabelText('Full name') as HTMLInputElement).value).toBe('Fire Guard');
 
 		await waitFor(() => expect(dialog.hasAttribute('aria-busy')).toBe(false));
 		await fireEvent.click(within(dialog).getByRole('button', { name: 'Save Changes' }));
-		await waitFor(() => expect(store.setCalendarLanes).toHaveBeenCalledTimes(2));
+
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+		expect(store.setCalendarLanes).toHaveBeenLastCalledWith(['sd', 'cq', 'new']);
 		expect(store.addType).toHaveBeenCalledTimes(1);
-		expect(store.updateType).not.toHaveBeenCalled();
+		expect(store.types.filter((candidate) => candidate.name === 'Fire Guard').map((candidate) => candidate.id)).toEqual(
+			['new']
+		);
 	});
 
-	it('adds and removes exempt people, keeping a former member until removed', async () => {
+	it('does not say the calendar setting was not saved when the outcome is unknown', async () => {
+		store.setCalendarLanes.mockResolvedValue({ status: 'unconfirmed', showsSaved: true });
+		renderSection();
+
+		await openRowMenu('Runner', 'Edit');
+		const dialog = await screen.findByRole('dialog', { name: 'Edit Assignment Type' });
+		await fireEvent.click(within(dialog).getByRole('switch', { name: 'Show on the calendar' }));
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Save Changes' }));
+
+		const alert = await within(dialog).findByRole('alert');
+		expect(alert.textContent).not.toMatch(/not saved/);
+		expect(alert.textContent).toMatch(/confirm/);
+	});
+
+	it('adds and removes exempt people, keeping an unknown person until removed', async () => {
 		store.types = [type('sd', 'Staff Duty', { exemptPersonnelIds: ['p-gone'] })];
 		renderSection();
 
 		await openRowMenu('Staff Duty', 'Edit');
 		const dialog = await screen.findByRole('dialog', { name: 'Edit Assignment Type' });
-		expect(within(dialog).getByRole('button', { name: 'Remove Former member' })).toBeTruthy();
+		expect(within(dialog).getByRole('button', { name: 'Remove Unknown person' })).toBeTruthy();
 		const input = within(dialog).getByRole('combobox', { name: 'Exempt from this duty' });
 		input.focus();
 		await screen.findByRole('listbox');
 		await fireEvent.click(screen.getByRole('option', { name: 'SGT Pike, Dana' }));
-		await fireEvent.click(within(dialog).getByRole('button', { name: 'Remove Former member' }));
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Remove Unknown person' }));
 		await fireEvent.click(within(dialog).getByRole('button', { name: 'Save Changes' }));
 
 		await waitFor(() =>

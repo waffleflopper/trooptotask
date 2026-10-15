@@ -4,6 +4,7 @@
 	import type { AssignmentType } from '$features/calendar/contracts';
 	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 	import { calendarLaneIds, movedTo } from '$features/calendar/utils/calendarLanes';
+	import AssignmentCodeChip from './AssignmentCodeChip.svelte';
 	import AssignmentTypeDialog from './AssignmentTypeDialog.svelte';
 	import { ReorderGrip, ReorderItem, ReorderList } from '$lib/components/patterns/reorder-list';
 	import { Button } from '$lib/components/ui/button';
@@ -63,47 +64,46 @@
 </script>
 
 {#snippet row(type: AssignmentType, shown: boolean)}
-	<span
-		class="flex h-5 min-w-8 shrink-0 items-center justify-center rounded-[3px] border bg-card px-1 font-mono text-[10px] font-semibold uppercase"
-		style:border-color={type.color}
-		style:color={type.color}>{type.shortName}</span
-	>
-	<div class="flex min-w-0 flex-1 flex-col">
+	<AssignmentCodeChip code={type.shortName} color={type.color} size="row" />
+	<div class="flex min-w-32 flex-1 flex-col">
 		<span class="truncate text-sm font-medium">{type.name}</span>
 		<span class="font-mono text-[10px] tracking-wide text-muted-foreground uppercase">
 			{type.assignTo === 'personnel' ? 'Person' : 'Group'}
 		</span>
 	</div>
-	<label class="flex shrink-0 items-center gap-2 text-sm text-muted-foreground">
-		{shown ? 'On calendar' : 'Planner only'}
-		<Switch
-			checked={shown}
-			disabled={lanesLocked}
-			aria-label="Show {type.name} on the calendar"
-			onCheckedChange={(checked) => setShown(type.id, checked)}
-		/>
-	</label>
-	{#if canMutate}
-		<DropdownMenu.Root>
-			<DropdownMenu.Trigger>
-				{#snippet child({ props })}
-					<Button {...props} size="icon-sm" variant="ghost" aria-label="More actions for {type.name}">
-						<Ellipsis />
-					</Button>
-				{/snippet}
-			</DropdownMenu.Trigger>
-			<DropdownMenu.Content align="end">
-				<DropdownMenu.Item disabled={dailyAssignmentsStore.typesBusy} onSelect={() => (editor = { type })}
-					>Edit</DropdownMenu.Item
-				>
-				<DropdownMenu.Item
-					variant="destructive"
-					disabled={dailyAssignmentsStore.typesBusy}
-					onSelect={() => (confirmDelete = type)}>Delete</DropdownMenu.Item
-				>
-			</DropdownMenu.Content>
-		</DropdownMenu.Root>
-	{/if}
+	<!-- On a narrow screen the controls wrap below the name instead of squeezing it. -->
+	<div class="ml-auto flex shrink-0 items-center gap-3">
+		<label class="flex items-center gap-2 text-sm text-muted-foreground">
+			{shown ? 'On calendar' : 'Planner only'}
+			<Switch
+				checked={shown}
+				disabled={lanesLocked}
+				aria-label="Show {type.name} on the calendar"
+				onCheckedChange={(checked) => setShown(type.id, checked)}
+			/>
+		</label>
+		{#if canMutate}
+			<DropdownMenu.Root>
+				<DropdownMenu.Trigger>
+					{#snippet child({ props })}
+						<Button {...props} size="icon-sm" variant="ghost" aria-label="More actions for {type.name}">
+							<Ellipsis />
+						</Button>
+					{/snippet}
+				</DropdownMenu.Trigger>
+				<DropdownMenu.Content align="end">
+					<DropdownMenu.Item disabled={dailyAssignmentsStore.typesBusy} onSelect={() => (editor = { type })}
+						>Edit</DropdownMenu.Item
+					>
+					<DropdownMenu.Item
+						variant="destructive"
+						disabled={dailyAssignmentsStore.typesBusy}
+						onSelect={() => (confirmDelete = type)}>Delete</DropdownMenu.Item
+					>
+				</DropdownMenu.Content>
+			</DropdownMenu.Root>
+		{/if}
+	</div>
 {/snippet}
 
 <div class="flex flex-col gap-6">
@@ -125,7 +125,7 @@
 				class="divide-y rounded-md border"
 			>
 				{#each visibleLanes as type (type.id)}
-					<ReorderItem id={type.id} class="flex items-center gap-3 px-3 py-2.5">
+					<ReorderItem id={type.id} class="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5">
 						{#if query}
 							<span class="size-6 shrink-0"></span>
 						{:else}
@@ -155,7 +155,7 @@
 		{#if visiblePlannerOnly.length > 0}
 			<ul class="divide-y rounded-md border" aria-labelledby="planner-only-heading">
 				{#each visiblePlannerOnly as type (type.id)}
-					<li class="flex items-center gap-3 px-3 py-2.5">
+					<li class="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5">
 						<span class="size-6 shrink-0"></span>
 						{@render row(type, false)}
 					</li>

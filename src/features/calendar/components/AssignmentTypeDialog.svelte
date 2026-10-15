@@ -5,7 +5,7 @@
 	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 	import { calendarLaneIds } from '$features/calendar/utils/calendarLanes';
 	import AssignmentLaneCell from './calendar-lanes/AssignmentLaneCell.svelte';
-	import DateCellMarker from './date-cell/date-cell-marker.svelte';
+	import AssignmentCodeChip from './AssignmentCodeChip.svelte';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Button } from '$lib/components/ui/button';
 	import * as Combobox from '$lib/components/ui/combobox';
@@ -75,12 +75,12 @@
 	const valid = $derived(details.name !== '' && details.shortName !== '');
 
 	const rosterIds = $derived(new Set(roster.map((person) => person.id)));
-	// A person who left keeps their exemption until someone removes it, so their id needs a label too.
+	// A person who left, or is outside this roster, keeps their exemption until someone removes it.
 	const exemptOptions = $derived([
 		...[...roster]
 			.sort((a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName))
 			.map((person) => ({ value: person.id, label: `${person.rank} ${person.lastName}, ${person.firstName}` })),
-		...exempt.filter((id) => !rosterIds.has(id)).map((id) => ({ value: id, label: 'Former member' }))
+		...exempt.filter((id) => !rosterIds.has(id)).map((id) => ({ value: id, label: 'Unknown person' }))
 	]);
 
 	const exemptLabels = $derived(new Map(exemptOptions.map((option) => [option.value, option.label])));
@@ -124,10 +124,12 @@
 			);
 			if (result.status === 'stale') return onClose();
 			if (result.status !== 'saved') {
-				lanesNotice =
-					result.status === 'busy'
-						? 'Details are saved. Another assignment type change is still saving, so try the calendar setting again.'
-						: 'Details are saved. The calendar setting was not saved.';
+				lanesNotice = {
+					busy: 'Details are saved. Another assignment type change is still saving, so try the calendar setting again.',
+					unconfirmed:
+						"Details are saved. We couldn't confirm the calendar setting, so check the calendar before you try again.",
+					'not-saved': 'Details are saved. The calendar setting was not saved.'
+				}[result.status];
 				return;
 			}
 		}
@@ -185,14 +187,22 @@
 							<ToggleGroup.Item value="group">Group</ToggleGroup.Item>
 						</ToggleGroup.Root>
 					</div>
-					<Field.Description>A Group assignment puts the Group name in the lane.</Field.Description>
+					<Field.Description>
+						A Group assignment puts the Group name in the lane. Group assignments have no exemptions.
+					</Field.Description>
 				</Field.Root>
 				<div class="flex flex-col gap-3 rounded-lg border p-4">
 					<div class="flex items-start justify-between gap-4">
 						<div class="flex flex-col gap-0.5">
 							<Field.Label for="assignment-type-shown">Show on the calendar</Field.Label>
 							<p class="text-sm text-muted-foreground">
-								{shown ? `Adds a lane under the dates. Lane ${lanePosition} of ${laneCount}.` : 'Duty planner only.'}
+								{#if !shown}
+									Duty planner only.
+								{:else if savedShown}
+									Lane {lanePosition} of {laneCount} under the dates.
+								{:else}
+									Adds lane {lanePosition} of {laneCount} under the dates.
+								{/if}
 							</p>
 						</div>
 						<Switch id="assignment-type-shown" bind:checked={shown} />
@@ -214,7 +224,7 @@
 							</div>
 							{#if details.shortName}
 								<span class="flex items-center gap-2">
-									<DateCellMarker marker={{ shortName: details.shortName, color }} label="" />
+									<AssignmentCodeChip code={details.shortName} {color} />
 									Row marker
 								</span>
 							{/if}

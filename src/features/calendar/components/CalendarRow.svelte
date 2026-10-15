@@ -5,7 +5,7 @@
 	} from '$features/calendar/utils/calendarRenderState';
 	import { Button } from '$lib/components/ui/button';
 	import * as DateCell from './date-cell/index.js';
-	import DateCellMarker from './date-cell/date-cell-marker.svelte';
+	import AssignmentCodeChip from './AssignmentCodeChip.svelte';
 	import type { Personnel } from '$features/personnel/contracts';
 
 	interface Props {
@@ -99,17 +99,25 @@
 		{#if cell.markers.length > 0}
 			{@const [first, ...more] = cell.markers}
 			{@const open = onMarkerClick && (() => onMarkerClick(cell.date))}
-			<!-- Positioned over the cell so markers are sibling targets of the cell button, never nested in it. -->
+			{@const action = open ? '. Edit assignments' : ''}
+			<!-- Positioned over the cell so markers are sibling targets of the cell button, never nested in it.
+			     An absolutely placed grid item's auto end line is the row's edge, so the span stays explicit. -->
 			<div
 				class="pointer-events-none absolute inset-0 z-[2] flex min-w-0 items-end justify-end gap-px p-[3px]"
-				style:grid-row="1"
-				style:grid-column={index + 2}
+				style:grid-row="1 / span 1"
+				style:grid-column="{index + 2} / span 1"
 			>
-				<DateCellMarker marker={first} label={`${first.name}, ${cell.label}. Edit assignments`} onclick={open} />
+				<AssignmentCodeChip
+					code={first.shortName}
+					color={first.color}
+					label={`${first.name}, ${cell.label}${action}`}
+					onclick={open}
+				/>
 				{#if more.length > 0}
-					<DateCellMarker
-						marker={{ shortName: `+${more.length}`, color: 'var(--muted-foreground)' }}
-						label={`${more.length} more: ${more.map((marker) => marker.name).join(', ')}, ${cell.label}. Edit assignments`}
+					<AssignmentCodeChip
+						code={`+${more.length}`}
+						color="var(--muted-foreground)"
+						label={`${more.length} more: ${more.map((marker) => marker.name).join(', ')}, ${cell.label}${action}`}
 						onclick={open}
 					/>
 				{/if}

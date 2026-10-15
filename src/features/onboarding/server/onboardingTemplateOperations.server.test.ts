@@ -15,6 +15,21 @@ import {
 const TMPL_ID = '00000000-0000-4000-a000-000000000001';
 const REQUEST_ID = '00000000-0000-4000-a000-000000009001';
 
+const TEMPLATE_1 = '00000000-0000-4000-8000-000000000010';
+const MISSING_TEMPLATE = '00000000-0000-4000-8000-000000000011';
+const FOREIGN_TEMPLATE = '00000000-0000-4000-8000-000000000012';
+const MISSING_TRAINING = '00000000-0000-4000-8000-000000000013';
+const FOREIGN_TRAINING = '00000000-0000-4000-8000-000000000014';
+const IGNORED_TRAINING = '00000000-0000-4000-8000-000000000015';
+const CPR_TRAINING = '00000000-0000-4000-8000-000000000016';
+const CPR_TRAINING_TYPE = '00000000-0000-4000-8000-000000000017';
+const STEP_1 = '00000000-0000-4000-8000-000000000018';
+const STEP_A = '00000000-0000-4000-8000-000000000019';
+const STEP_B = '00000000-0000-4000-8000-00000000001a';
+const STEP_C = '00000000-0000-4000-8000-00000000001b';
+const STEP_PAPERWORK = '00000000-0000-4000-8000-00000000001c';
+const STEP_TRAINING = '00000000-0000-4000-8000-00000000001d';
+
 const operateOnlyCapabilityMap: CapabilityMap = {
 	calendar: 'none',
 	personnel: 'view',
@@ -50,7 +65,7 @@ describe('Onboarding declared JSON fields', () => {
 	])('rejects an invalid %s rather than silently clearing or dropping values', async (field, value) => {
 		const ctx = configurationContext();
 		const before = await ctx.store.findMany('onboarding_template_steps', ctx.auth.orgId);
-		const body = { id: 'step-1', templateId: 'tmpl-1', name: 'Valid step', stepType: 'paperwork', [field]: value };
+		const body = { id: STEP_1, templateId: TEMPLATE_1, name: 'Valid step', stepType: 'paperwork', [field]: value };
 		await expect(createOnboardingTemplateStep(ctx, body)).rejects.toMatchObject({ status: 400 });
 		await expect(updateOnboardingTemplateStep(ctx, body)).rejects.toMatchObject({ status: 400 });
 		if (field === 'description') {
@@ -88,10 +103,10 @@ describe('Onboarding Template Step CRUD', () => {
 		const ctx = configurationContext();
 
 		const result = await createOnboardingTemplateStep(ctx, {
-			templateId: 'tmpl-1',
+			templateId: TEMPLATE_1,
 			name: '  Has military email  ',
 			stepType: 'checkbox',
-			trainingTypeId: 'ignored-training',
+			trainingTypeId: IGNORED_TRAINING,
 			stages: ['ignored stage'],
 			sortOrder: 0
 		});
@@ -99,7 +114,7 @@ describe('Onboarding Template Step CRUD', () => {
 		expect(result).toMatchObject({
 			name: 'Has military email',
 			stepType: 'checkbox',
-			templateId: 'tmpl-1',
+			templateId: TEMPLATE_1,
 			trainingTypeId: null,
 			stages: null
 		});
@@ -110,10 +125,10 @@ describe('Onboarding Template Step CRUD', () => {
 		const ctx = configurationContext();
 
 		const result = await createOnboardingTemplateStep(ctx, {
-			templateId: 'tmpl-1',
+			templateId: TEMPLATE_1,
 			name: 'CAC Card Request',
 			stepType: 'paperwork',
-			trainingTypeId: 'ignored-training',
+			trainingTypeId: IGNORED_TRAINING,
 			stages: [' with soldier ', '', 'received by manager', ' submitted ', 'access granted'],
 			sortOrder: 1
 		});
@@ -129,17 +144,17 @@ describe('Onboarding Template Step CRUD', () => {
 		const ctx = configurationContext();
 
 		const result = await createOnboardingTemplateStep(ctx, {
-			templateId: 'tmpl-1',
+			templateId: TEMPLATE_1,
 			name: 'CPR Certification',
 			stepType: 'training',
-			trainingTypeId: ' tt-cpr ',
+			trainingTypeId: ` ${CPR_TRAINING_TYPE} `,
 			stages: ['ignored stage'],
 			sortOrder: 2
 		});
 
 		expect(result).toMatchObject({
 			name: 'CPR Certification',
-			trainingTypeId: 'tt-cpr',
+			trainingTypeId: CPR_TRAINING_TYPE,
 			stages: null
 		});
 	});
@@ -149,7 +164,7 @@ describe('Onboarding Template Step CRUD', () => {
 
 		await expect(
 			createOnboardingTemplateStep(ctx, {
-				templateId: 'tmpl-1',
+				templateId: TEMPLATE_1,
 				name: 'CPR Certification',
 				stepType: 'training',
 				trainingTypeId: null,
@@ -162,8 +177,8 @@ describe('Onboarding Template Step CRUD', () => {
 		const ctx = configurationContext();
 		ctx.store.seed('onboarding_template_steps', [
 			{
-				id: 'step-1',
-				template_id: 'tmpl-1',
+				id: STEP_1,
+				template_id: TEMPLATE_1,
 				name: 'Access Packet',
 				description: null,
 				step_type: 'paperwork',
@@ -175,7 +190,7 @@ describe('Onboarding Template Step CRUD', () => {
 		]);
 
 		const result = await updateOnboardingTemplateStep(ctx, {
-			id: 'step-1',
+			id: STEP_1,
 			description: '  Bring completed packet  '
 		});
 
@@ -193,7 +208,7 @@ describe('Onboarding Template Step ordering', () => {
 		const ctx = configurationContext();
 		ctx.store.seed('onboarding_template_steps', [
 			{
-				id: 'step-a',
+				id: STEP_A,
 				template_id: TMPL_ID,
 				name: 'A',
 				step_type: 'checkbox',
@@ -201,7 +216,7 @@ describe('Onboarding Template Step ordering', () => {
 				organization_id: 'test-org'
 			},
 			{
-				id: 'step-b',
+				id: STEP_B,
 				template_id: TMPL_ID,
 				name: 'B',
 				step_type: 'checkbox',
@@ -209,7 +224,7 @@ describe('Onboarding Template Step ordering', () => {
 				organization_id: 'test-org'
 			},
 			{
-				id: 'step-c',
+				id: STEP_C,
 				template_id: TMPL_ID,
 				name: 'C',
 				step_type: 'checkbox',
@@ -220,13 +235,13 @@ describe('Onboarding Template Step ordering', () => {
 
 		const result = await reorderOnboardingTemplateSteps(ctx, {
 			templateId: TMPL_ID,
-			orderedStepIds: ['step-c', 'step-a', 'step-b']
+			orderedStepIds: [STEP_C, STEP_A, STEP_B]
 		});
 
 		expect(result.map((step) => ({ id: step.id, sortOrder: step.sortOrder }))).toEqual([
-			{ id: 'step-c', sortOrder: 0 },
-			{ id: 'step-a', sortOrder: 1 },
-			{ id: 'step-b', sortOrder: 2 }
+			{ id: STEP_C, sortOrder: 0 },
+			{ id: STEP_A, sortOrder: 1 },
+			{ id: STEP_B, sortOrder: 2 }
 		]);
 		expect(ctx.audit.events.at(-1)).toMatchObject({
 			action: 'onboarding_template_step.reordered',
@@ -239,7 +254,7 @@ describe('Onboarding Template Step ordering', () => {
 		const ctx = configurationContext();
 		ctx.store.seed('onboarding_template_steps', [
 			{
-				id: 'step-a',
+				id: STEP_A,
 				template_id: TMPL_ID,
 				name: 'A',
 				step_type: 'checkbox',
@@ -247,7 +262,7 @@ describe('Onboarding Template Step ordering', () => {
 				organization_id: 'test-org'
 			},
 			{
-				id: 'step-b',
+				id: STEP_B,
 				template_id: TMPL_ID,
 				name: 'B',
 				step_type: 'checkbox',
@@ -259,7 +274,7 @@ describe('Onboarding Template Step ordering', () => {
 		await expect(
 			reorderOnboardingTemplateSteps(ctx, {
 				templateId: TMPL_ID,
-				orderedStepIds: ['step-b']
+				orderedStepIds: [STEP_B]
 			})
 		).rejects.toMatchObject({ status: 409 });
 	});
@@ -268,7 +283,7 @@ describe('Onboarding Template Step ordering', () => {
 		const ctx = configurationContext();
 		ctx.store.seed('onboarding_template_steps', [
 			{
-				id: 'step-a',
+				id: STEP_A,
 				template_id: TMPL_ID,
 				name: 'A',
 				step_type: 'checkbox',
@@ -276,7 +291,7 @@ describe('Onboarding Template Step ordering', () => {
 				organization_id: 'test-org'
 			},
 			{
-				id: 'step-b',
+				id: STEP_B,
 				template_id: TMPL_ID,
 				name: 'B',
 				step_type: 'checkbox',
@@ -288,14 +303,14 @@ describe('Onboarding Template Step ordering', () => {
 		await expect(
 			reorderOnboardingTemplateSteps(ctx, {
 				templateId: TMPL_ID,
-				orderedStepIds: ['step-a', 'step-a']
+				orderedStepIds: [STEP_A, STEP_A]
 			})
 		).rejects.toMatchObject({ status: 409 });
 
 		const rows = await ctx.store.findMany<Record<string, unknown>>('onboarding_template_steps', 'test-org', {});
 		expect(rows.map((row) => ({ id: row.id, sort_order: row.sort_order }))).toEqual([
-			{ id: 'step-a', sort_order: 0 },
-			{ id: 'step-b', sort_order: 1 }
+			{ id: STEP_A, sort_order: 0 },
+			{ id: STEP_B, sort_order: 1 }
 		]);
 	});
 
@@ -311,12 +326,12 @@ describe('Onboarding Template Step ordering', () => {
 				}
 			});
 			ctx.store.seed('onboarding_template_steps', [
-				{ id: 'step-a', template_id: TMPL_ID, sort_order: 0, organization_id: 'test-org' }
+				{ id: STEP_A, template_id: TMPL_ID, sort_order: 0, organization_id: 'test-org' }
 			]);
 			await expect(
-				reorderOnboardingTemplateSteps(ctx, { templateId: TMPL_ID, orderedStepIds: ['step-a'] })
+				reorderOnboardingTemplateSteps(ctx, { templateId: TMPL_ID, orderedStepIds: [STEP_A] })
 			).rejects.toMatchObject({ status: 403 });
-			expect(await ctx.store.findOne('onboarding_template_steps', 'test-org', { id: 'step-a' })).toMatchObject({
+			expect(await ctx.store.findOne('onboarding_template_steps', 'test-org', { id: STEP_A })).toMatchObject({
 				sort_order: 0
 			});
 		}
@@ -330,7 +345,7 @@ describe('Onboarding Template deletion', () => {
 		await deleteOnboardingTemplate(ctx, TMPL_ID);
 		await deleteOnboardingTemplate(ctx, TMPL_ID);
 
-		expect((await ctx.onboardingCatalog.listTemplates()).map((template) => template.id)).toEqual(['tmpl-1']);
+		expect((await ctx.onboardingCatalog.listTemplates()).map((template) => template.id)).toEqual([TEMPLATE_1]);
 		expect(ctx.audit.events).toEqual([
 			{ action: 'onboarding_template.deleted', resourceType: 'onboarding_template', resourceId: TMPL_ID }
 		]);
@@ -363,18 +378,18 @@ describe('Onboarding Template duplication', () => {
 		]);
 		ctx.store.seed('onboarding_template_steps', [
 			{
-				id: 'step-training',
+				id: STEP_TRAINING,
 				template_id: TMPL_ID,
 				name: 'CPR Certification',
 				description: 'Bring current card',
 				step_type: 'training',
-				training_type_id: 'training-cpr',
+				training_type_id: CPR_TRAINING,
 				stages: null,
 				sort_order: 1,
 				organization_id: 'test-org'
 			},
 			{
-				id: 'step-paperwork',
+				id: STEP_PAPERWORK,
 				template_id: TMPL_ID,
 				name: 'Access Packet',
 				description: 'Submit account paperwork',
@@ -408,7 +423,7 @@ describe('Onboarding Template duplication', () => {
 				name: 'CPR Certification',
 				description: 'Bring current card',
 				stepType: 'training',
-				trainingTypeId: 'training-cpr',
+				trainingTypeId: CPR_TRAINING,
 				stages: null,
 				sortOrder: 1
 			})
@@ -418,7 +433,7 @@ describe('Onboarding Template duplication', () => {
 			template_id: TMPL_ID
 		});
 		expect(sourceSteps).toHaveLength(2);
-		expect(sourceSteps.map((step) => step.id).sort()).toEqual(['step-paperwork', 'step-training']);
+		expect(sourceSteps.map((step) => step.id).sort()).toEqual([STEP_PAPERWORK, STEP_TRAINING]);
 		expect(ctx.audit.events.at(-1)).toMatchObject({
 			action: 'onboarding_template.duplicated',
 			resourceType: 'onboarding_template',
@@ -460,10 +475,10 @@ describe('Onboarding Template duplication', () => {
 function configurationContext() {
 	const ctx = createWritePortsContext();
 	ctx.store.seed('onboarding_templates', [
-		{ id: 'tmpl-1', name: 'Working template', organization_id: 'test-org' },
+		{ id: TEMPLATE_1, name: 'Working template', organization_id: 'test-org' },
 		{ id: TMPL_ID, name: 'Ordered template', organization_id: 'test-org' }
 	]);
-	ctx.store.seed('training_types', [{ id: 'tt-cpr', name: 'CPR', organization_id: 'test-org' }]);
+	ctx.store.seed('training_types', [{ id: CPR_TRAINING_TYPE, name: 'CPR', organization_id: 'test-org' }]);
 	return ctx;
 }
 
@@ -487,9 +502,9 @@ describe('Onboarding configuration admission', () => {
 		[
 			'update step',
 			(ctx: ReturnType<typeof createWritePortsContext>) =>
-				updateOnboardingTemplateStep(ctx, { id: 'step-1', name: 'Denied' })
+				updateOnboardingTemplateStep(ctx, { id: STEP_1, name: 'Denied' })
 		],
-		['delete step', (ctx: ReturnType<typeof createWritePortsContext>) => deleteOnboardingTemplateStep(ctx, 'step-1')],
+		['delete step', (ctx: ReturnType<typeof createWritePortsContext>) => deleteOnboardingTemplateStep(ctx, STEP_1)],
 		[
 			'duplicate template',
 			(ctx: ReturnType<typeof createWritePortsContext>) =>
@@ -510,7 +525,7 @@ describe('Onboarding configuration admission', () => {
 			ctx.store.seed('onboarding_templates', [{ id: TMPL_ID, name: 'Original', organization_id: 'test-org' }]);
 			ctx.store.seed('onboarding_template_steps', [
 				{
-					id: 'step-1',
+					id: STEP_1,
 					template_id: TMPL_ID,
 					name: 'Original step',
 					step_type: 'checkbox',
@@ -522,37 +537,38 @@ describe('Onboarding configuration admission', () => {
 				{ id: TMPL_ID, name: 'Original' }
 			]);
 			expect(await ctx.store.findMany('onboarding_template_steps', 'test-org')).toMatchObject([
-				{ id: 'step-1', name: 'Original step' }
+				{ id: STEP_1, name: 'Original step' }
 			]);
 		}
 	);
-	it.each(['missing-template', 'foreign-template'])(
-		'rejects creation referencing %s before writing a step',
-		async (templateId) => {
-			const ctx = configurationContext();
-			ctx.store.seed('onboarding_templates', [
-				{ id: 'foreign-template', name: 'Private', organization_id: 'foreign-org' }
-			]);
-			await expect(
-				createOnboardingTemplateStep(ctx, { templateId, name: 'Blocked', stepType: 'checkbox' })
-			).rejects.toMatchObject({ status: 404 });
-			expect(await ctx.store.findMany('onboarding_template_steps', 'test-org')).toEqual([]);
-		}
-	);
-	it.each(['missing-training', 'foreign-training'])(
+	it.each([
+		['missing-template', MISSING_TEMPLATE],
+		['foreign-template', FOREIGN_TEMPLATE]
+	])('rejects creation referencing %s before writing a step', async (_label, templateId) => {
+		const ctx = configurationContext();
+		ctx.store.seed('onboarding_templates', [{ id: FOREIGN_TEMPLATE, name: 'Private', organization_id: 'foreign-org' }]);
+		await expect(
+			createOnboardingTemplateStep(ctx, { templateId, name: 'Blocked', stepType: 'checkbox' })
+		).rejects.toMatchObject({ status: 404 });
+		expect(await ctx.store.findMany('onboarding_template_steps', 'test-org')).toEqual([]);
+	});
+	it.each([
+		['missing-training', MISSING_TRAINING],
+		['foreign-training', FOREIGN_TRAINING]
+	])(
 		'rejects Training reference %s for creation and update without changing saved steps',
-		async (trainingTypeId) => {
+		async (_label, trainingTypeId) => {
 			const ctx = configurationContext();
-			ctx.store.seed('training_types', [{ id: 'foreign-training', name: 'Private', organization_id: 'foreign-org' }]);
+			ctx.store.seed('training_types', [{ id: FOREIGN_TRAINING, name: 'Private', organization_id: 'foreign-org' }]);
 			const step = await createOnboardingTemplateStep(ctx, {
-				templateId: 'tmpl-1',
+				templateId: TEMPLATE_1,
 				name: 'Original',
 				stepType: 'checkbox'
 			});
 			const before = await ctx.store.findMany('onboarding_template_steps', 'test-org');
 			await expect(
 				createOnboardingTemplateStep(ctx, {
-					templateId: 'tmpl-1',
+					templateId: TEMPLATE_1,
 					name: 'Blocked',
 					stepType: 'training',
 					trainingTypeId
@@ -567,47 +583,45 @@ describe('Onboarding configuration admission', () => {
 	it('normalizes a partial reference edit using the saved step type', async () => {
 		const ctx = configurationContext();
 		const checkbox = await createOnboardingTemplateStep(ctx, {
-			templateId: 'tmpl-1',
+			templateId: TEMPLATE_1,
 			name: 'Checkbox',
 			stepType: 'checkbox'
 		});
 		await expect(
-			updateOnboardingTemplateStep(ctx, { id: checkbox.id, trainingTypeId: 'foreign-training', stages: ['Unused'] })
+			updateOnboardingTemplateStep(ctx, { id: checkbox.id, trainingTypeId: FOREIGN_TRAINING, stages: ['Unused'] })
 		).resolves.toMatchObject({ stepType: 'checkbox', trainingTypeId: null, stages: null });
 		const training = await createOnboardingTemplateStep(ctx, {
-			templateId: 'tmpl-1',
+			templateId: TEMPLATE_1,
 			name: 'Training',
 			stepType: 'training',
-			trainingTypeId: 'tt-cpr'
+			trainingTypeId: CPR_TRAINING_TYPE
 		});
 		await expect(
-			updateOnboardingTemplateStep(ctx, { id: training.id, trainingTypeId: 'foreign-training' })
+			updateOnboardingTemplateStep(ctx, { id: training.id, trainingTypeId: FOREIGN_TRAINING })
 		).rejects.toMatchObject({ status: 400 });
 		expect(await ctx.store.findOne('onboarding_template_steps', 'test-org', { id: training.id })).toMatchObject({
-			training_type_id: 'tt-cpr'
+			training_type_id: CPR_TRAINING_TYPE
 		});
 	});
 	it('rejects reparenting a step to a foreign template without changing it', async () => {
 		const ctx = configurationContext();
 		const step = await createOnboardingTemplateStep(ctx, {
-			templateId: 'tmpl-1',
+			templateId: TEMPLATE_1,
 			name: 'Original',
 			stepType: 'checkbox'
 		});
-		ctx.store.seed('onboarding_templates', [
-			{ id: 'foreign-template', name: 'Private', organization_id: 'foreign-org' }
-		]);
+		ctx.store.seed('onboarding_templates', [{ id: FOREIGN_TEMPLATE, name: 'Private', organization_id: 'foreign-org' }]);
 		await expect(
-			updateOnboardingTemplateStep(ctx, { id: step.id, templateId: 'foreign-template' })
+			updateOnboardingTemplateStep(ctx, { id: step.id, templateId: FOREIGN_TEMPLATE })
 		).rejects.toMatchObject({ status: 404 });
 		expect(await ctx.store.findOne('onboarding_template_steps', 'test-org', { id: step.id })).toMatchObject({
-			template_id: 'tmpl-1'
+			template_id: TEMPLATE_1
 		});
 	});
 	it('rejects empty reorder for a missing template', async () => {
 		const ctx = configurationContext();
 		await expect(
-			reorderOnboardingTemplateSteps(ctx, { templateId: 'missing-template', orderedStepIds: [] })
+			reorderOnboardingTemplateSteps(ctx, { templateId: MISSING_TEMPLATE, orderedStepIds: [] })
 		).rejects.toMatchObject({ status: 404 });
 	});
 });

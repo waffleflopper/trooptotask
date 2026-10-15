@@ -360,7 +360,7 @@ describe('owned Rating Scheme provider', () => {
 		expect(rows).toEqual(before);
 	});
 
-	it('propagates failed create/update and missing update acknowledgments without altering unrelated rows', async () => {
+	it('propagates failed create/update, answers null for a missing update and leaves unrelated rows unchanged', async () => {
 		const { ratingScheme, rows, state } = provider([saved]);
 		const before = structuredClone(rows);
 		state.rejectMethod = 'POST';
@@ -370,9 +370,7 @@ describe('owned Rating Scheme provider', () => {
 			'Rating provider unavailable'
 		);
 		state.rejectMethod = '';
-		await expect(ratingScheme.update('missing', { notes: 'must not change' })).rejects.toThrow(
-			'Expected one Rating entry'
-		);
+		await expect(ratingScheme.update('missing', { notes: 'must not change' })).resolves.toBeNull();
 		expect(rows).toEqual(before);
 	});
 

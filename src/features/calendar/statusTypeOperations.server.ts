@@ -29,13 +29,14 @@ export async function updateStatusType(ctx: CalendarCatalogPorts, input: Record<
 	const { id, ...patch } = parsed.data;
 	await requireCalendarPolicy(ctx, action, resource);
 	const row = await ctx.calendarCatalogs.updateStatusType(id, patch);
+	if (!row) throw error(404, 'That status type is no longer available.');
 	ctx.audit.log({ action: 'status_type.updated', resourceType: 'status_type', resourceId: id });
 	return row;
 }
 
 export async function deleteStatusType(ctx: CalendarCatalogDeletionPorts, id: string): Promise<void> {
 	await requireCalendarPolicy(ctx, action, resource);
-	await ctx.calendarCatalogs.deleteStatusType(id);
+	if (!(await ctx.calendarCatalogs.deleteStatusType(id))) return;
 	ctx.audit.log({ action: 'status_type.deleted', resourceType: 'status_type', resourceId: id });
 	await ctx.notifications.notifyAdmins(ctx.auth.orgId, ctx.auth.userId, {
 		type: 'config_type_deleted',

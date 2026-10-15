@@ -4,8 +4,12 @@ import { createTestContext } from '$features/rating-scheme/server/ratingSchemePe
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _deleteConfig, _postConfig, _putConfig } from './+server';
 
+const RATED_PERSON = '00000000-0000-4000-8000-0000000000a1';
+const OTHER_GROUP_PERSON = '00000000-0000-4000-8000-0000000000a2';
+const UNASSIGNED_PERSON = '00000000-0000-4000-8000-0000000000a3';
+
 const validInput = {
-	ratedPersonId: 'person-1',
+	ratedPersonId: RATED_PERSON,
 	evalType: 'OER',
 	ratingPeriodStart: '2026-01-01',
 	ratingPeriodEnd: '2026-06-30',
@@ -52,7 +56,7 @@ describe('POST /api/rating-scheme', () => {
 		});
 		ctx.store.seed('personnel', [
 			{
-				id: 'person-1',
+				id: RATED_PERSON,
 				organization_id: ctx.auth.orgId,
 				rank: 'SGT',
 				last_name: 'Smith',
@@ -64,7 +68,7 @@ describe('POST /api/rating-scheme', () => {
 		const result = (await handleUseCaseRequest(_postConfig, ctx, validInput, () => ctx)) as Record<string, unknown>;
 
 		expect(result).toMatchObject({
-			ratedPersonId: 'person-1',
+			ratedPersonId: RATED_PERSON,
 			evalType: 'OER'
 		});
 	});
@@ -87,17 +91,17 @@ describe('POST /api/rating-scheme', () => {
 		});
 		const selected = { ...ctx, notifyRatingSchemeEntryDeleted: vi.fn(async () => {}) };
 		ctx.store.seed('personnel', [
-			{ id: 'person-1', organization_id: ctx.auth.orgId, group_id: 'group-alpha' },
-			{ id: 'person-2', organization_id: ctx.auth.orgId, group_id: 'group-bravo' },
-			{ id: 'person-3', organization_id: ctx.auth.orgId, group_id: null }
+			{ id: RATED_PERSON, organization_id: ctx.auth.orgId, group_id: 'group-alpha' },
+			{ id: OTHER_GROUP_PERSON, organization_id: ctx.auth.orgId, group_id: 'group-bravo' },
+			{ id: UNASSIGNED_PERSON, organization_id: ctx.auth.orgId, group_id: null }
 		]);
 
 		const created = (await handleUseCaseRequest(_postConfig, ctx, validInput, () => ctx)) as {
 			id: string;
 			ratedPersonId: string;
 		};
-		expect(created.ratedPersonId).toBe('person-1');
-		for (const ratedPersonId of ['person-2', 'person-3']) {
+		expect(created.ratedPersonId).toBe(RATED_PERSON);
+		for (const ratedPersonId of [OTHER_GROUP_PERSON, UNASSIGNED_PERSON]) {
 			await expect(
 				handleUseCaseRequest(_postConfig, ctx, { ...validInput, ratedPersonId }, () => ctx)
 			).rejects.toMatchObject({

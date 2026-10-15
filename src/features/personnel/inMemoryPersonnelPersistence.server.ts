@@ -1,3 +1,4 @@
+import { fail } from '$lib/errors';
 interface PersonnelMemoryReadOptions {
 	select?: string;
 	inFilters?: Record<string, unknown[]>;
@@ -115,6 +116,7 @@ export function createInMemoryPersonnelRecordPersistence(
 			).map(toPersonnel);
 		},
 		async updateEditable(id, patch) {
+			if (!(await store.findOne('personnel', orgId, { id }))) return null;
 			return toPersonnel(
 				await store.update(
 					'personnel',
@@ -200,9 +202,12 @@ export function createInMemoryGroupPersistence(
 			);
 		},
 		async create(input) {
+			if (await store.findOne('groups', orgId, { name: input.name }))
+				fail(409, 'A Group with that name already exists.');
 			return map(await store.insert('groups', orgId, { name: input.name, sort_order: input.sortOrder ?? 0 }));
 		},
 		async update(id, patch) {
+			if (!(await store.findOne('groups', orgId, { id }))) return null;
 			return map(
 				await store.update(
 					'groups',

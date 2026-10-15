@@ -58,6 +58,7 @@ Use `/org/<orgA>/` for the six denied local actors and `/org/<orgB>/` for the co
 
 ## Gotchas
 
+- Malformed, missing and foreign catalog ids and dates, and the editors' visible 4xx messages, are driven in [Invalid input](invalid-input.md).
 - Calendar `configure` alone does not give a Group-scoped member catalog authority; Organization scope is also required. A missing Settings button proves only the affordance.
 - The archived assignment type is excluded from active editing but must remain readable where a saved historical assignment references it. Deletion is intentionally destructive only for the selected linked records; retain unrelated history.
 - Native `fill` accepts select and color inputs when they appear in the snapshot. If a custom control is unnamed, inspect its visible label and DOM before a narrowly scoped `evaluate_script` value change, then verify the real Save action and persisted readback.

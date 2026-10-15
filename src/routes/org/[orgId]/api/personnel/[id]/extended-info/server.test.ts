@@ -3,6 +3,9 @@ import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _putConfig } from './+server';
 
+const PERSON_ID = '00000000-0000-4000-8000-0000000000a1';
+const OTHER_PERSON_ID = '00000000-0000-4000-8000-0000000000a2';
+
 describe('/api/personnel/[id]/extended-info', () => {
 	it('persists Soldier Data Sheet fields through the API use-case config', async () => {
 		const ctx = createTestContext({
@@ -20,7 +23,7 @@ describe('/api/personnel/[id]/extended-info', () => {
 		});
 		ctx.store.seed('personnel', [
 			{
-				id: 'person-1',
+				id: PERSON_ID,
 				organization_id: ctx.auth.orgId,
 				group_id: null,
 				rank: 'SGT',
@@ -33,7 +36,7 @@ describe('/api/personnel/[id]/extended-info', () => {
 			_putConfig,
 			ctx,
 			{
-				personnelId: 'person-1',
+				personnelId: PERSON_ID,
 				bloodType: 'AB+',
 				basd: '2018-03-01',
 				dateOfRank: '2022-10-01',
@@ -72,13 +75,13 @@ describe('/api/personnel/[id]/extended-info', () => {
 		});
 		ctx.store.seed('personnel', [
 			{
-				id: 'person-1',
+				id: PERSON_ID,
 				organization_id: ctx.auth.orgId,
 				group_id: null
 			}
 		]);
 
-		await expect(handleUseCaseRequest(_putConfig, ctx, { personnelId: 'person-1' }, () => ctx)).rejects.toMatchObject({
+		await expect(handleUseCaseRequest(_putConfig, ctx, { personnelId: PERSON_ID }, () => ctx)).rejects.toMatchObject({
 			status: 403
 		});
 	});
@@ -86,22 +89,22 @@ describe('/api/personnel/[id]/extended-info', () => {
 	it('derives the Personnel id from the route param and rejects mismatched bodies', async () => {
 		await expect(
 			_putConfig.parseInput?.({
-				params: { id: 'person-1' },
+				params: { id: PERSON_ID },
 				request: new Request('http://localhost', {
 					method: 'PUT',
-					body: JSON.stringify({ personnelId: 'person-2' })
+					body: JSON.stringify({ personnelId: OTHER_PERSON_ID })
 				})
 			} as never)
 		).rejects.toMatchObject({ status: 400 });
 
 		await expect(
 			_putConfig.parseInput?.({
-				params: { id: 'person-1' },
+				params: { id: PERSON_ID },
 				request: new Request('http://localhost', {
 					method: 'PUT',
 					body: JSON.stringify({ bloodType: 'O+' })
 				})
 			} as never)
-		).resolves.toMatchObject({ personnelId: 'person-1', bloodType: 'O+' });
+		).resolves.toMatchObject({ personnelId: PERSON_ID, bloodType: 'O+' });
 	});
 });

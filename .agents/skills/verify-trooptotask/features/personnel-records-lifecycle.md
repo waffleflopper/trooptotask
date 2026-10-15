@@ -76,6 +76,7 @@ Finish with final doctor, restored controls/dates, exact original A/B row compar
 
 ## Gotchas
 
+- Malformed, missing and foreign Personnel input and the edit form's 4xx messages are driven in [Invalid input](invalid-input.md).
 - While an import request is in flight, `Add new` and `Backfill ETS/DEROS` in `Personnel import controls` are disabled and described by `Wait for the import to finish before switching modes.`
 - Import accepts an uploaded CSV/XLSX file; it has no paste box. Cell edits commit on change/blur and can reset selection, so take a fresh snapshot before submission. Source row numbers include the header.
 - Seed the lifecycle bundle once per unchanged scenario. Restore its parent before the next archive; recreate through clean-seeds/reseed or owned worker restart after a replay defect. Never repair proof by editing archived_at directly.

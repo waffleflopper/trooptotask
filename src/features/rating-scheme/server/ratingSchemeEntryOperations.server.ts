@@ -4,6 +4,7 @@
  *
  * Empty string fields are coerced to null before persistence (optional fields pattern).
  */
+import type { z } from 'zod';
 import { POLICY_ACTION_CATALOG, type FeatureLanePolicyAction, type PolicyResource } from '$lib/access/policyEvaluator';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
@@ -42,6 +43,12 @@ const evaluatorFields = [
 	'intermediateRaterPersonId',
 	'reviewerPersonId'
 ] as const;
+
+function parseEntryInput<T>(schema: z.ZodType<T>, data: Record<string, unknown>): T {
+	const result = schema.safeParse(data);
+	if (!result.success) throw new RequestFailure(400, result.error.issues.map((issue) => issue.message).join('; '));
+	return result.data;
+}
 
 async function ratedPersonForWrite(
 	ctx: RatingSchemeEntryWriteContext,
@@ -135,7 +142,7 @@ export async function createRatingSchemeEntry(
 	ctx: RatingSchemeEntryWriteContext,
 	data: Record<string, unknown>
 ): Promise<SavedRatingSchemeEntry> {
-	const validated = ratingSchemeEntryCreateSchema.parse(data);
+	const validated = parseEntryInput(ratingSchemeEntryCreateSchema, data);
 	await requireRatingSchemeUpdatePolicy(ctx, await policyResourceForRatedPerson(ctx, validated.ratedPersonId));
 
 	await requireEvaluatorReferences(ctx, validated);
@@ -154,7 +161,7 @@ export async function updateRatingSchemeEntry(
 	ctx: RatingSchemeEntryWriteContext,
 	data: Record<string, unknown>
 ): Promise<SavedRatingSchemeEntry> {
-	const { id, ...validated } = ratingSchemeEntryUpdateSchema.parse(data);
+	const { id, ...validated } = parseEntryInput(ratingSchemeEntryUpdateSchema, data);
 
 	const current = await findRatingSchemeEntry(ctx, id);
 	await requireRatingSchemeUpdatePolicy(ctx, await policyResourceForRatedPerson(ctx, current.ratedPersonId), id);
@@ -164,6 +171,7 @@ export async function updateRatingSchemeEntry(
 
 	await requireEvaluatorReferences(ctx, validated, current);
 	const entry = await ctx.ratingScheme.update(id, validated);
+	if (!entry) throw new RequestFailure(404, 'Rating Scheme entry not found');
 
 	ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.updated`,

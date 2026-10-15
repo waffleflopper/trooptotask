@@ -2,7 +2,7 @@
  * Onboarding store — active and completed onboarding records for the org.
  *
  * Extended methods (all call server API routes):
- * - `startOnboarding(personnelId, startedAt, templateId)` — success requires a saved configured template; unavailable selections may be sent as null and return failure
+ * - `startOnboarding(personnelId, startedAt, templateId)` — success requires a saved configured template; a rejected start throws with the server's reason
  * - `toggleCheckbox(stepId, completed)` — marks a step complete/incomplete
  * - `advanceStage(stepId, stageName)` — advances a multi-stage step (e.g., training steps)
  * - `addNote(stepId, text)` — appends an attributed note to a step
@@ -13,7 +13,7 @@
  * `activeList` is a derived getter filtered to `status === 'in_progress'`.
  * Loaded by the onboarding page and dashboard page load functions.
  */
-import { defineStore } from '$lib/stores/core';
+import { buildRequestError, defineStore } from '$lib/stores/core';
 import type { Store, StoreInternals } from '$lib/stores/core';
 import { formatToday } from '$lib/utils/dates';
 import type { PersonnelOnboarding, OnboardingStepNote, OnboardingStepProgress } from '../onboarding.types';
@@ -297,20 +297,16 @@ function enhance(
 			templateId: string | null
 		): Promise<PersonnelOnboarding | null> {
 			const version = organizationVersion;
-			try {
-				const res = await fetch(apiUrl('onboarding'), {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ personnelId, templateId, startedAt })
-				});
-				if (!res.ok) throw new Error('Failed to start onboarding');
-				const newOnboarding = await res.json();
-				if (version !== organizationVersion) return null;
-				internals.serverState.set([...internals.serverState.getSnapshot(), newOnboarding]);
-				return newOnboarding;
-			} catch {
-				return null;
-			}
+			const res = await fetch(apiUrl('onboarding'), {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ personnelId, templateId, startedAt })
+			});
+			if (!res.ok) throw await buildRequestError(res, 'POST', 'onboarding');
+			const newOnboarding = await res.json();
+			if (version !== organizationVersion) return null;
+			internals.serverState.set([...internals.serverState.getSnapshot(), newOnboarding]);
+			return newOnboarding;
 		},
 
 		async toggleCheckbox(stepId: string, completed: boolean): Promise<boolean> {

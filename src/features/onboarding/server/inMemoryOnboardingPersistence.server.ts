@@ -14,7 +14,8 @@ import {
 	type TemplateRow,
 	type StepRow,
 	type PacketRow,
-	type ProgressRow
+	type ProgressRow,
+	TEMPLATE_NAME_EXISTS_MESSAGE
 } from './onboardingPersistenceMapping.server';
 
 interface DuplicateReceiptRow {
@@ -27,6 +28,11 @@ export function createInMemoryOnboardingCatalogPersistence(
 	store: OnboardingMemoryStore,
 	orgId: string
 ): OnboardingCatalogPersistence {
+	async function requireUniqueTemplateName(name: string | undefined, id?: string) {
+		if (name === undefined) return;
+		const existing = await store.findOne<TemplateRow>('onboarding_templates', orgId, { name });
+		if (existing && existing.id !== id) fail(409, TEMPLATE_NAME_EXISTS_MESSAGE);
+	}
 	return {
 		async listTemplates() {
 			return (
@@ -102,9 +108,11 @@ export function createInMemoryOnboardingCatalogPersistence(
 			);
 		},
 		async createTemplate(data) {
+			await requireUniqueTemplateName(data.name);
 			return toTemplate(await store.insert<TemplateRow>('onboarding_templates', orgId, templatePatch(data)));
 		},
 		async updateTemplate(id, data) {
+			await requireUniqueTemplateName(data.name, id);
 			return toTemplate(await store.update<TemplateRow>('onboarding_templates', orgId, id, templatePatch(data)));
 		},
 		async duplicateTemplate(sourceTemplateId, requestId) {

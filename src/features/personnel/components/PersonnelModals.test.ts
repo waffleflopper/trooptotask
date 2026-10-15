@@ -222,8 +222,8 @@ describe('retired Personnel save feedback', () => {
 			return response;
 		});
 		let updateSettled: Promise<boolean> | undefined;
-		const update = personnelStore.update;
-		vi.spyOn(personnelStore, 'update').mockImplementation((id, data) => {
+		const update = personnelStore.updateOrThrow;
+		vi.spyOn(personnelStore, 'updateOrThrow').mockImplementation((id, data) => {
 			updateSettled = update(id, data);
 			return updateSettled;
 		});

@@ -84,6 +84,7 @@ describe('TrainingTypesPage', () => {
 
 	afterEach(() => {
 		vi.restoreAllMocks();
+		vi.unstubAllGlobals();
 		cleanup();
 		personnelRosterHydration.load([], 'org-test-reset');
 		trainingRankCatalogStore.load([], 'org-test-reset');
@@ -112,6 +113,52 @@ describe('TrainingTypesPage', () => {
 		expect(await screen.findByText('Failed to save training type.')).toBeTruthy();
 		expect((screen.getByRole('textbox', { name: 'Name' }) as HTMLInputElement).value).toBe('Range Safety');
 		expect(screen.getByRole('button', { name: 'Create' }).hasAttribute('disabled')).toBe(false);
+	});
+
+	it('shows the server reason when a create or edit is rejected and keeps the draft open', async () => {
+		const replies = [
+			Response.json({ message: 'A Training type with that name already exists.' }, { status: 409 }),
+			Response.json({ message: 'That Training type is no longer available.' }, { status: 404 })
+		];
+		const requests: Array<{ method?: string; body: unknown }> = [];
+		vi.stubGlobal('fetch', async (_url: string, init: RequestInit) => {
+			requests.push({ method: init.method, body: JSON.parse(init.body as string) });
+			return replies.shift()!;
+		});
+		render(TrainingTypesPage, { props: { org, data: { personnel: [] } } });
+
+		await fireEvent.click(screen.getByRole('button', { name: '+ New Type' }));
+		const name = screen.getByRole('textbox', { name: 'Name' }) as HTMLInputElement;
+		expect(name.maxLength).toBe(100);
+		await fireEvent.input(name, { target: { value: 'CPR' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+		expect(await screen.findByText('A Training type with that name already exists.')).toBeTruthy();
+		expect((screen.getByRole('textbox', { name: 'Name' }) as HTMLInputElement).value).toBe('CPR');
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+		await fireEvent.click(screen.getByRole('row', { name: 'CPR' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+		await fireEvent.input(screen.getByRole('textbox', { name: 'Name' }), { target: { value: 'CPR Renewal' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+		expect(await screen.findByText('That Training type is no longer available.')).toBeTruthy();
+		expect((screen.getByRole('textbox', { name: 'Name' }) as HTMLInputElement).value).toBe('CPR Renewal');
+		expect(requests.map(({ method, body }) => [method, (body as { name: string }).name])).toEqual([
+			['POST', 'CPR'],
+			['PUT', 'CPR Renewal']
+		]);
+	});
+
+	it('keeps the fixed message for a server failure the user cannot correct', async () => {
+		vi.stubGlobal('fetch', async () => Response.json({ message: 'Internal server error' }, { status: 500 }));
+		render(TrainingTypesPage, { props: { org, data: { personnel: [] } } });
+
+		await fireEvent.click(screen.getByRole('row', { name: 'CPR' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+		await fireEvent.input(screen.getByRole('textbox', { name: 'Name' }), { target: { value: 'CPR Renewal' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+		expect(await screen.findByText('Failed to save training type.')).toBeTruthy();
+		expect(screen.queryByText('Internal server error')).toBeNull();
 	});
 
 	it('moves focus to the new type row after a create', async () => {

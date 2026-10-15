@@ -10,6 +10,7 @@ import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
 import { fail } from '$lib/errors';
+import { dateOnlySchema } from '$lib/utils/inputSchemas';
 import type { FileCleanup } from '$features/organization/contracts';
 import { hasPdfFileSignature } from '$lib/storage/fileSignatures';
 import { buildSensitiveFilePath, validateSensitiveFileSelection } from '$lib/storage/sensitiveFiles';
@@ -31,7 +32,7 @@ export interface PersonnelCounselingRecordInput {
 
 const counselingInputSchema = z.object({
 	personnelId: z.string().min(1),
-	dateConducted: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD date format'),
+	dateConducted: dateOnlySchema,
 	title: z.string().trim().min(1, 'Title is required').max(160),
 	summary: z.string().trim().max(500).optional().default('')
 });

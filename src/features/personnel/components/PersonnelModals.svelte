@@ -6,6 +6,7 @@
 	import GroupManager from './GroupManager.svelte';
 	import { archivePersonnel, type RequestPersonnelArchiveApproval } from '../utils/archivePersonnel';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { rejectedRequestMessage } from '$lib/stores/core';
 	import { invalidateAll } from '$app/navigation';
 	import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
 	import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
@@ -24,7 +25,7 @@
 
 	async function handleSubmit(personData: Omit<Personnel, 'id'>) {
 		if (editingPerson) {
-			const updated = await personnelStore.update(editingPerson.id, personData);
+			const updated = await personnelStore.updateOrThrow(editingPerson.id, personData);
 			if (!updated) throw new Error('Failed to update personnel');
 		} else {
 			const created = await personnelStore.add(personData);
@@ -74,7 +75,10 @@
 			);
 		}}
 		onRename={async (id, name) => {
-			if (!(await groupManagementStore.rename(id, name))) throw new Error('Unable to rename Group. Try again.');
+			const renamed = await groupManagementStore.rename(id, name).catch((failure: unknown) => {
+				throw new Error(rejectedRequestMessage(failure, 'Unable to rename Group. Try again.'));
+			});
+			if (!renamed) throw new Error('Unable to rename Group. Try again.');
 			personnelStore.updateLocalWhere(
 				(p) => p.groupId === id,
 				(p) => ({ ...p, groupName: name })

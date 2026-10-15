@@ -568,7 +568,7 @@ describe('importIctCompletionsBatch', () => {
 		expect(result.inserted).toEqual([expect.objectContaining({ personnelId: 'person-allowed' })]);
 		expect(result.updated).toEqual([]);
 		expect(result.errors).toEqual([
-			{ rowNumber: 3, personnelName: 'SPC Ben Baker', taskCode: 'T-1', message: 'row rejected' }
+			{ rowNumber: 3, personnelName: 'SPC Ben Baker', taskCode: 'T-1', message: 'Batch import failed' }
 		]);
 		expect(await ctx.store.findMany('personnel_ict_completions', 'test-org')).toEqual([
 			expect.objectContaining({ personnel_id: 'person-allowed' })

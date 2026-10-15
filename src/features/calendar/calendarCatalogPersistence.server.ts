@@ -115,13 +115,19 @@ export function createSupabaseCalendarCatalogPersistence(
 				.eq('organization_id', orgId)
 				.eq('id', id)
 				.select(STATUS_TYPE_FIELDS)
-				.single<StatusTypeRow>();
+				.maybeSingle<StatusTypeRow>();
 			if (error) throw new Error(error.message);
-			return toStatusType(data);
+			return data ? toStatusType(data) : null;
 		},
 		async deleteStatusType(id) {
-			const { error } = await client.from('status_types').delete().eq('organization_id', orgId).eq('id', id);
+			const { data, error } = await client
+				.from('status_types')
+				.delete()
+				.eq('organization_id', orgId)
+				.eq('id', id)
+				.select('id');
 			if (error) throw new Error(error.message);
+			return data.length > 0;
 		},
 		async listAssignmentTypes() {
 			const result = await selectAllSupabaseRows<AssignmentTypeRow>(async (from, to) => {
@@ -193,13 +199,19 @@ export function createSupabaseCalendarCatalogPersistence(
 				.eq('organization_id', orgId)
 				.eq('id', id)
 				.select(ASSIGNMENT_TYPE_FIELDS)
-				.single<AssignmentTypeRow>();
+				.maybeSingle<AssignmentTypeRow>();
 			if (error) throw new Error(error.message);
-			return toAssignmentType(data);
+			return data ? toAssignmentType(data) : null;
 		},
 		async deleteAssignmentType(id) {
-			const { error } = await client.from('assignment_types').delete().eq('organization_id', orgId).eq('id', id);
+			const { data, error } = await client
+				.from('assignment_types')
+				.delete()
+				.eq('organization_id', orgId)
+				.eq('id', id)
+				.select('id');
 			if (error) throw new Error(error.message);
+			return data.length > 0;
 		},
 		async listSpecialDays(range) {
 			const result = await selectAllSupabaseRows<SpecialDayRow>(async (from, to) => {
@@ -228,13 +240,19 @@ export function createSupabaseCalendarCatalogPersistence(
 				.eq('organization_id', orgId)
 				.eq('id', id)
 				.select(SPECIAL_DAY_FIELDS)
-				.single<SpecialDayRow>();
+				.maybeSingle<SpecialDayRow>();
 			if (error) throw new Error(error.message);
-			return toSpecialDay(data);
+			return data ? toSpecialDay(data) : null;
 		},
 		async deleteSpecialDay(id) {
-			const { error } = await client.from('special_days').delete().eq('organization_id', orgId).eq('id', id);
+			const { data, error } = await client
+				.from('special_days')
+				.delete()
+				.eq('organization_id', orgId)
+				.eq('id', id)
+				.select('id');
 			if (error) throw new Error(error.message);
+			return data.length > 0;
 		},
 		async resetFederalHolidays(holidays) {
 			const rows = await calendarCommand(

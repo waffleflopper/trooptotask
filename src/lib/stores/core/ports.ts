@@ -11,13 +11,32 @@ export interface BatchApiAdapter<T extends { id: string }> extends ApiAdapter<T>
 	removeBatch?(ids: string[]): Promise<boolean>;
 }
 
-async function buildRequestError(res: Response, method: string, resource: string): Promise<Error> {
+/** A failed store request; `status` lets a form tell a correctable 4xx from a server or transport failure. */
+export class StoreRequestError extends Error {
+	constructor(
+		message: string,
+		readonly status: number,
+		/** The message came from the server's response body rather than the request description. */
+		readonly fromServer = false
+	) {
+		super(message);
+	}
+}
+
+/** The server's reason for a rejected request, or `fallback` when the failure is not the user's to correct. */
+export function rejectedRequestMessage(error: unknown, fallback: string): string {
+	return error instanceof StoreRequestError && error.status < 500 && error.fromServer ? error.message : fallback;
+}
+
+export async function buildRequestError(res: Response, method: string, resource: string): Promise<Error> {
 	let message = `${method} ${resource} failed (${res.status})`;
+	let fromServer = false;
 
 	try {
 		const body = await res.json();
 		if (typeof body === 'string' && body.trim()) {
 			message = body.trim();
+			fromServer = true;
 		} else if (body && typeof body === 'object') {
 			const record = body as Record<string, unknown>;
 			const detail = [record.message, record.error, record.details, record.hint].find(
@@ -25,13 +44,14 @@ async function buildRequestError(res: Response, method: string, resource: string
 			);
 			if (typeof detail === 'string') {
 				message = detail;
+				fromServer = true;
 			}
 		}
 	} catch {
 		// Ignore response parsing errors and keep the fallback message.
 	}
 
-	return new Error(message);
+	return new StoreRequestError(message, res.status, fromServer);
 }
 
 export function createRestAdapter<T extends { id: string }>(getOrgId: () => string, resource: string): ApiAdapter<T> {

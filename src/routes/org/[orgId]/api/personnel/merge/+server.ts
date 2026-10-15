@@ -3,6 +3,7 @@ import { mergePersonnelBatch } from '$features/personnel/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { createRequestPersonnelRecordContext } from '$lib/server/adapters/requestContexts.server';
+import { personnelSheetInput } from '../personnelSheetInput';
 
 export const _postConfig: RouteConfig<
 	PersonnelBackfillInput,
@@ -13,6 +14,7 @@ export const _postConfig: RouteConfig<
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.personnel.mergeRecords,
 	policyResource: { kind: 'unscoped' },
+	input: personnelSheetInput,
 	fn: (ctx, input) => mergePersonnelBatch(ctx, input)
 };
 

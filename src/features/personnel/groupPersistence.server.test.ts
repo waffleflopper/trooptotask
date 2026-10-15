@@ -70,4 +70,29 @@ describe('ordinary Group persistence', () => {
 		await expect(port.create({ name: 'New' })).rejects.toThrow('Groups unavailable');
 		expect(state.rows.groups).toHaveLength(1001);
 	});
+	it('turns a duplicate-name constraint into a public 409 and a missing update into null', async () => {
+		const { client, state } = personnelProvider({
+			groups: [{ id: 'alpha', name: 'Alpha', sort_order: 0, organization_id: 'org-a' }]
+		});
+		const port = createSupabaseGroupPersistence(client, 'org-a', ORGANIZATION);
+		state.failure = (op) =>
+			op.method === 'POST' || op.method === 'PATCH'
+				? {
+						code: '23505',
+						message: 'duplicate key value violates unique constraint "groups_clinic_id_name_key"',
+						status: 409
+					}
+				: null;
+		await expect(port.create({ name: 'Alpha' })).rejects.toMatchObject({
+			status: 409,
+			message: 'A Group with that name already exists.'
+		});
+		await expect(port.update('alpha', { name: 'Alpha' })).rejects.toMatchObject({
+			status: 409,
+			message: 'A Group with that name already exists.'
+		});
+		state.failure = null;
+		expect(await port.update('missing', { name: 'Bravo' })).toBeNull();
+		expect(state.rows.groups).toEqual([{ id: 'alpha', name: 'Alpha', sort_order: 0, organization_id: 'org-a' }]);
+	});
 });

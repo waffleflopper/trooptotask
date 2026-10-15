@@ -5,6 +5,7 @@ import {
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/errors';
+import { isUuid } from '$lib/utils/inputSchemas';
 import { toggleCheckbox, advanceStage, addNote, removeInactiveStep } from '$features/onboarding/index.server';
 
 export const _putConfig = {
@@ -14,6 +15,7 @@ export const _putConfig = {
 	policyResource: { kind: 'unscoped' },
 	fn: async (ctx, input) => {
 		const action = input.action as string;
+		if (!isUuid(input.stepId)) fail(400, 'Invalid ID');
 
 		if (action === 'advanceStage') {
 			return advanceStage(ctx, {
@@ -25,6 +27,7 @@ export const _putConfig = {
 		if (action === 'addNote') {
 			const userId = ctx.auth.userId;
 			if (!userId) fail(401, 'Authentication required');
+			if (typeof input.text !== 'string' || !input.text.trim()) fail(400, 'Note text is required');
 
 			return addNote(ctx, {
 				stepId: input.stepId as string,
@@ -53,8 +56,9 @@ export const _deleteConfig = {
 	policyAction: POLICY_ACTION_CATALOG.onboarding.manageWorkflows,
 	policyResource: { kind: 'unscoped' },
 	fn: async (ctx, input) => {
-		const stepId = input.id as string;
+		const stepId = input.id;
 		if (!stepId) fail(400, 'Missing step id');
+		if (!isUuid(stepId)) fail(400, 'Invalid ID');
 
 		await removeInactiveStep(ctx, stepId);
 		return { success: true };

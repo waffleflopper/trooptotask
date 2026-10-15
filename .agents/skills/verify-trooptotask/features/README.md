@@ -58,6 +58,7 @@ For durable publication, follow [artifact packaging](../../../../docs/architectu
 - [Personnel artifacts](personnel-artifacts.md): counseling PDFs, documents, follow-ups and leader notes; drafts, sensitive access, archive/restore/removal, exports and retention.
 - [Manage groups](manage-groups.md): create, rename, remove, persist, and deny same/foreign Organization writes.
 - [Rank catalog](rank-settings.md): branch packs, custom ranks, edit, order, single and bulk retire/reactivate, remove, filters, failure and denial.
+- [Invalid, stale and conflicting input](invalid-input.md): malformed ids, dates and bodies, missing or foreign targets, duplicate names, truthful deletes and the form messages they produce across Calendar, Personnel, Training, Onboarding, Evals and Critical Tasks.
 - [Personnel, Groups and settings forms](personnel-form-states.md): failed saves that keep entered values, field error association and per-screen empty, restricted, disabled and narrow/dark states.
 - [Dashboard and Training states](training-form-states.md): raw controls, failed saves that keep entered values, field error association, data colors, tables and print, and per-screen loading, empty, error, denied, narrow and dark states.
 - [Sign-in rosters](sign-in-rosters.md): Training entry, saved Personnel snapshot and PDF, signed scan lifecycle, scope, denial and recovery.

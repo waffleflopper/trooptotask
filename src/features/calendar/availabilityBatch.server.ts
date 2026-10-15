@@ -13,6 +13,8 @@ import {
 	type CalendarAvailabilityPorts,
 	type CalendarAvailabilityRemovalPorts
 } from './calendarPolicy.server';
+import { availabilityCreateInput } from './calendarPersistenceMapping.server';
+import { isUuid } from '$lib/utils/inputSchemas';
 
 const AUDIT_RESOURCE = 'availability';
 const MAX_BATCH_SIZE = 500;
@@ -39,6 +41,13 @@ export async function createAvailabilityBatch(
 
 	if (records.length > MAX_BATCH_SIZE) {
 		throw error(400, `Maximum ${MAX_BATCH_SIZE} records per batch`);
+	}
+
+	for (const [index, record] of records.entries()) {
+		const parsed = availabilityCreateInput.safeParse(record);
+		if (!parsed.success) {
+			throw error(400, `Entry ${index + 1}: ${parsed.error.issues.map((issue) => issue.message).join('; ')}`);
+		}
 	}
 
 	const uniquePersonnelIds = [...new Set(records.map((r) => r.personnelId))];
@@ -79,6 +88,8 @@ export async function deleteAvailabilityBatch(
 	if (ids.length > MAX_BATCH_SIZE) {
 		throw error(400, `Maximum ${MAX_BATCH_SIZE} ids per batch`);
 	}
+
+	if (!ids.every(isUuid)) throw error(400, 'Invalid ID');
 
 	const personnelIds = await ctx.availabilityRemoval.findPersonnelIds(ids);
 	await requireCalendarPersonnelPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAvailability, personnelIds);

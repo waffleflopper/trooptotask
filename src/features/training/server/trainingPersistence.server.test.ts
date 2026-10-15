@@ -316,4 +316,24 @@ describe('ordinary Training persistence', () => {
 		state.failure = (r) => (r.offset >= 1000 ? { code: '42501', message: 'Late failure', status: 403 } : null);
 		await expect(read()).rejects.toThrow('Late failure');
 	});
+
+	it('turns a duplicate type name into a public 409 and a missing patch into null', async () => {
+		const saved = { id: 't1', organization_id: ORG, name: 'Annual' };
+		const { catalog, state } = ports({ training_types: [saved] });
+		state.failure = (r) =>
+			r.method === 'POST' || r.method === 'PATCH'
+				? {
+						code: '23505',
+						message: 'duplicate key value violates unique constraint "training_types_clinic_id_name_key"',
+						status: 409
+					}
+				: null;
+		const conflict = { status: 409, message: 'A Training type with that name already exists.' };
+		await expect(catalog.createType({ name: 'Annual' })).rejects.toMatchObject(conflict);
+		await expect(catalog.patchType('t1', { name: 'Annual' })).rejects.toMatchObject(conflict);
+		state.failure = null;
+		expect(await catalog.patchType('missing', { name: 'Renamed' })).toBeNull();
+		expect(await catalog.patchView('missing', { name: 'Renamed' })).toBeNull();
+		expect(state.rows.training_types).toEqual([saved]);
+	});
 });

@@ -230,19 +230,37 @@ export async function loadWithContext<T, TContext>(
 	);
 }
 
+/** Read a JSON object request body, failing 400 for malformed JSON or a non-object body. */
+export async function readJsonBody(event: Pick<RequestEvent, 'request'>): Promise<Record<string, unknown>> {
+	let body: unknown;
+	try {
+		body = await event.request.json();
+	} catch {
+		fail(400, 'Invalid JSON in request body');
+	}
+	if (body === null || typeof body !== 'object' || Array.isArray(body)) fail(400, 'Request body must be a JSON object');
+	return body as Record<string, unknown>;
+}
+
+/** Read a multipart or urlencoded request body, failing 400 for any other payload. */
+export async function readFormData(event: Pick<RequestEvent, 'request'>): Promise<FormData> {
+	try {
+		return await event.request.formData();
+	} catch {
+		fail(400, 'Request body must be form data');
+	}
+}
+
+function readDefaultInput(event: RequestEvent): Promise<unknown> | undefined {
+	if (event.request.method === 'GET' || event.request.method === 'HEAD') return undefined;
+	return readJsonBody(event);
+}
+
 export function handle<TInput, TOutput, TContext>(config: RouteConfig<TInput, TOutput, TContext>): RequestHandler {
 	return async (event) => {
 		try {
 			const request = await buildRouteRequest(event);
-			let rawInput: unknown;
-			if (config.parseInput) rawInput = await config.parseInput(event);
-			else if (event.request.method !== 'GET' && event.request.method !== 'HEAD') {
-				try {
-					rawInput = await event.request.json();
-				} catch {
-					throw error(400, 'Invalid JSON in request body');
-				}
-			}
+			const rawInput = config.parseInput ? await config.parseInput(event) : await readDefaultInput(event);
 			const result = await handleUseCaseRequest(config, request, rawInput, () => config.context(request));
 			return config.formatOutput ? config.formatOutput(result) : json(result);
 		} catch (err) {

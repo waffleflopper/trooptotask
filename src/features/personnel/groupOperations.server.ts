@@ -4,6 +4,7 @@ import { error } from '@sveltejs/kit';
 import { requireFeaturePolicy } from '$lib/access/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { z } from 'zod';
+import { uuidSchema } from '$lib/utils/inputSchemas';
 import type { GroupPersistence } from './contracts';
 
 interface GroupWriteContext {
@@ -11,8 +12,11 @@ interface GroupWriteContext {
 	audit: PolicyAuditSink;
 	groups: Pick<GroupPersistence, 'create' | 'update' | 'delete'>;
 }
-const createInput = z.object({ name: z.string().min(1).max(100), sortOrder: z.number().int().optional() });
-const updateInput = createInput.partial().extend({ id: z.string() });
+const createInput = z.object({
+	name: z.string().min(1, 'Group name is required').max(100, 'Group name must be 100 characters or fewer'),
+	sortOrder: z.number().int().optional()
+});
+const updateInput = createInput.partial().extend({ id: uuidSchema });
 function validatedInput<T>(schema: z.ZodType<T>, input: Record<string, unknown>): T {
 	const result = schema.safeParse(input);
 	if (!result.success) throw error(400, result.error.issues.map((issue) => issue.message).join('; '));
@@ -36,6 +40,7 @@ export async function updateGroup(ctx: GroupWriteContext, input: Record<string, 
 	const id = data.id as string;
 	await requireGroupManager(ctx, id);
 	const row = await ctx.groups.update(id, { name: data.name, sortOrder: data.sortOrder });
+	if (!row) throw error(404, 'That Group is no longer available.');
 	ctx.audit.log({ action: 'group.updated', resourceType: 'group', resourceId: id });
 	return row;
 }

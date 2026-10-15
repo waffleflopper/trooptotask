@@ -146,4 +146,35 @@ describe('StatusType CRUD use case', () => {
 			}
 		});
 	});
+
+	it('answers 404 for an update to a status type that no longer exists and writes nothing', async () => {
+		const ctx = createWriteWithNotificationsPortsContext();
+
+		await expect(updateStatusType(ctx, { id: ST_ID, name: 'Annual Leave' })).rejects.toMatchObject({
+			status: 404,
+			body: { message: 'That status type is no longer available.' }
+		});
+		expect(await ctx.store.findMany('status_types', ctx.auth.orgId)).toEqual([]);
+		expect(ctx.audit.events.some((event) => event.action === 'status_type.updated')).toBe(false);
+	});
+
+	it.each([
+		['a malformed id', { id: 'not-a-uuid', name: 'Leave' }, 'Invalid ID'],
+		['a 101-character name', { id: ST_ID, name: 'x'.repeat(101) }, 'Name must be 100 characters or fewer']
+	])('rejects %s with 400 before saving', async (_case, input, message) => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		const saved = { id: ST_ID, organization_id: ctx.auth.orgId, name: 'Leave', color: '#00ff00', text_color: '#fff' };
+		ctx.store.seed('status_types', [saved]);
+
+		await expect(updateStatusType(ctx, input)).rejects.toMatchObject({ status: 400, body: { message } });
+		expect(await ctx.store.findOne('status_types', ctx.auth.orgId, { id: ST_ID })).toEqual(saved);
+	});
+
+	it('keeps a repeated delete successful without auditing or announcing a deletion that did not happen', async () => {
+		const ctx = createWriteWithNotificationsPortsContext();
+
+		await expect(deleteStatusType(ctx, ST_ID)).resolves.toBeUndefined();
+		expect(ctx.audit.events.some((event) => event.action === 'status_type.deleted')).toBe(false);
+		expect(ctx.notifications.notifications).toEqual([]);
+	});
 });

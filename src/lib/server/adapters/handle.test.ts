@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { isHttpError } from '@sveltejs/kit';
 import { z } from 'zod';
 import { createTestContext, createInMemoryDataStore, createTestAuthContext, createTestAuditPort } from './inMemory';
-import { handleUseCaseRequest, rethrowOrWrap } from './httpAdapter';
+import { handleUseCaseRequest, readFormData, readJsonBody, rethrowOrWrap } from './httpAdapter';
 import { RequestFailure } from '$lib/errors';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createPersonnelRecord, archivePersonnelRecord } from '$features/personnel/index.server';
@@ -17,6 +17,47 @@ function buildTestRequest(overrides?: { auth?: Parameters<typeof createTestAuthC
 		audit: createTestAuditPort()
 	};
 }
+
+function jsonRequest(body: string) {
+	return { request: new Request('http://app.invalid/api', { method: 'POST', body }) };
+}
+
+describe('request body readers', () => {
+	it('returns a JSON object body unchanged', async () => {
+		await expect(readJsonBody(jsonRequest('{"name":"Alpha","sortOrder":2}'))).resolves.toEqual({
+			name: 'Alpha',
+			sortOrder: 2
+		});
+	});
+
+	it.each([
+		['{bad', 'Invalid JSON in request body'],
+		['', 'Invalid JSON in request body'],
+		['null', 'Request body must be a JSON object'],
+		['5', 'Request body must be a JSON object'],
+		['"text"', 'Request body must be a JSON object'],
+		['[{"id":"a"}]', 'Request body must be a JSON object']
+	])('rejects the body %j with 400', async (body, message) => {
+		await expect(readJsonBody(jsonRequest(body))).rejects.toMatchObject({ status: 400, message });
+	});
+
+	it('reads form data and rejects a JSON body on a form route with 400', async () => {
+		const form = new FormData();
+		form.set('file', 'contents');
+		const formRequest = { request: new Request('http://app.invalid/api', { method: 'POST', body: form }) };
+		expect((await readFormData(formRequest)).get('file')).toBe('contents');
+
+		const jsonBody = new Request('http://app.invalid/api', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: '{}'
+		});
+		await expect(readFormData({ request: jsonBody })).rejects.toMatchObject({
+			status: 400,
+			message: 'Request body must be form data'
+		});
+	});
+});
 
 describe('handleUseCaseRequest', () => {
 	describe('permission enforcement', () => {

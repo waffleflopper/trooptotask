@@ -97,9 +97,9 @@ export function createSupabaseRatingSchemePersistence(client: SupabaseClient, or
 				.eq('organization_id', orgId)
 				.eq('id', id)
 				.select(RATING_SCHEME_SELECT)
-				.single();
+				.maybeSingle();
 			if (error) throw new Error(error.message);
-			return mapRatingSchemeEntry(data as RatingSchemeRow);
+			return data ? mapRatingSchemeEntry(data as RatingSchemeRow) : null;
 		},
 		async delete(id) {
 			const { error } = await client.from('rating_scheme_entries').delete().eq('organization_id', orgId).eq('id', id);

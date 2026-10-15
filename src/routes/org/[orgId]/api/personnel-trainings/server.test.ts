@@ -3,6 +3,10 @@ import { createTestContext } from '$features/training/server/trainingPersistence
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _deleteConfig, _postConfig } from './+server';
 
+const PERSON_1 = '00000000-0000-4000-8000-000000002001';
+const TRAINING_TYPE = '00000000-0000-4000-8000-000000002002';
+const RECORD = '00000000-0000-4000-8000-000000002003';
+
 describe('/api/personnel-trainings route config', () => {
 	it.each(['operate', 'configure'] as const)('retains the %s deletion response and target effect', async (training) => {
 		const ctx = createTestContext({
@@ -20,12 +24,12 @@ describe('/api/personnel-trainings route config', () => {
 			}
 		});
 		const id = '11111111-1111-4111-8111-111111111111';
-		ctx.store.seed('personnel', [{ id: 'p-1', organization_id: ctx.auth.orgId, group_id: null }]);
+		ctx.store.seed('personnel', [{ id: PERSON_1, organization_id: ctx.auth.orgId, group_id: null }]);
 		const record = {
 			id,
 			organization_id: ctx.auth.orgId,
-			personnel_id: 'p-1',
-			training_type_id: 'tt-1',
+			personnel_id: PERSON_1,
+			training_type_id: TRAINING_TYPE,
 			completion_date: '2026-01-01'
 		};
 		ctx.store.seed('personnel_trainings', [record]);
@@ -62,7 +66,7 @@ describe('/api/personnel-trainings route config', () => {
 
 		ctx.store.seed('personnel', [
 			{
-				id: 'p-1',
+				id: PERSON_1,
 				organization_id: ctx.auth.orgId,
 				rank: 'SGT',
 				last_name: 'Smith',
@@ -73,7 +77,7 @@ describe('/api/personnel-trainings route config', () => {
 		]);
 		ctx.store.seed('training_types', [
 			{
-				id: 'tt-1',
+				id: TRAINING_TYPE,
 				organization_id: ctx.auth.orgId,
 				expiration_months: null,
 				expiration_date_only: false
@@ -84,8 +88,8 @@ describe('/api/personnel-trainings route config', () => {
 			_postConfig,
 			ctx,
 			{
-				personnelId: 'p-1',
-				trainingTypeId: 'tt-1',
+				personnelId: PERSON_1,
+				trainingTypeId: TRAINING_TYPE,
 				completionDate: '2026-01-01',
 				notes: null,
 				certificateUrl: null
@@ -100,16 +104,16 @@ describe('/api/personnel-trainings route config', () => {
 
 	it('preserves omitted saved completion fields through the configured POST use case', async () => {
 		const ctx = createTestContext();
-		ctx.store.seed('personnel', [{ id: 'p-1', organization_id: ctx.auth.orgId, group_id: null }]);
+		ctx.store.seed('personnel', [{ id: PERSON_1, organization_id: ctx.auth.orgId, group_id: null }]);
 		ctx.store.seed('training_types', [
-			{ id: 'tt-1', organization_id: ctx.auth.orgId, expiration_months: 12, expiration_date_only: false }
+			{ id: TRAINING_TYPE, organization_id: ctx.auth.orgId, expiration_months: 12, expiration_date_only: false }
 		]);
 		ctx.store.seed('personnel_trainings', [
 			{
-				id: 'tr-1',
+				id: RECORD,
 				organization_id: ctx.auth.orgId,
-				personnel_id: 'p-1',
-				training_type_id: 'tt-1',
+				personnel_id: PERSON_1,
+				training_type_id: TRAINING_TYPE,
 				completion_date: '2025-03-15',
 				expiration_date: '2026-03-15',
 				notes: 'Saved notes',
@@ -121,13 +125,13 @@ describe('/api/personnel-trainings route config', () => {
 		const result = await handleUseCaseRequest(
 			_postConfig,
 			ctx,
-			{ personnelId: 'p-1', trainingTypeId: 'tt-1', notes: 'Changed notes' },
+			{ personnelId: PERSON_1, trainingTypeId: TRAINING_TYPE, notes: 'Changed notes' },
 			() => ctx
 		);
 		expect(result).toEqual({
-			id: 'tr-1',
-			personnelId: 'p-1',
-			trainingTypeId: 'tt-1',
+			id: RECORD,
+			personnelId: PERSON_1,
+			trainingTypeId: TRAINING_TYPE,
 			completionDate: '2025-03-15',
 			expirationDate: '2026-03-15',
 			notes: 'Changed notes',
@@ -138,10 +142,10 @@ describe('/api/personnel-trainings route config', () => {
 		});
 		expect(await ctx.store.findMany('personnel_trainings', ctx.auth.orgId)).toEqual([
 			{
-				id: 'tr-1',
+				id: RECORD,
 				organization_id: ctx.auth.orgId,
-				personnel_id: 'p-1',
-				training_type_id: 'tt-1',
+				personnel_id: PERSON_1,
+				training_type_id: TRAINING_TYPE,
 				completion_date: '2025-03-15',
 				expiration_date: '2026-03-15',
 				notes: 'Changed notes',
@@ -150,6 +154,23 @@ describe('/api/personnel-trainings route config', () => {
 				updated_at: expect.any(String)
 			}
 		]);
+	});
+
+	it.each([
+		['an empty body', {}],
+		[
+			'an impossible completion date',
+			{ personnelId: PERSON_1, trainingTypeId: TRAINING_TYPE, completionDate: '2026-02-30' }
+		]
+	])('answers 400 for %s and saves nothing', async (_label, input) => {
+		const ctx = createTestContext();
+		ctx.store.seed('personnel', [{ id: PERSON_1, organization_id: ctx.auth.orgId, group_id: null }]);
+		ctx.store.seed('training_types', [
+			{ id: TRAINING_TYPE, organization_id: ctx.auth.orgId, expiration_months: 12, expiration_date_only: false }
+		]);
+
+		await expect(handleUseCaseRequest(_postConfig, ctx, input, () => ctx)).rejects.toMatchObject({ status: 400 });
+		expect(await ctx.store.findMany('personnel_trainings', ctx.auth.orgId)).toEqual([]);
 	});
 
 	it('denies personnel training writes before executing the use case when Training policy is missing', async () => {
@@ -174,8 +195,8 @@ describe('/api/personnel-trainings route config', () => {
 				_postConfig,
 				ctx,
 				{
-					personnelId: 'p-1',
-					trainingTypeId: 'tt-1',
+					personnelId: PERSON_1,
+					trainingTypeId: TRAINING_TYPE,
 					completionDate: '2026-01-01',
 					notes: null,
 					certificateUrl: null

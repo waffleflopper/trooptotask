@@ -10,11 +10,11 @@ import { importRowPersonnelName, reviewMappedIctCompletionImportRows } from '../
 import type { IctCompletionBatchContext } from './personnelIctCompletionPorts.server';
 import { policyResourceForGroup, requirePolicyDecision } from '$lib/access/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { fail } from '$lib/errors';
+import { fail, RequestFailure } from '$lib/errors';
 
 const MAX_BATCH_SIZE = 500;
 function errorMessage(error: unknown): string {
-	if (error instanceof Error && error.message) return error.message;
+	if (error instanceof RequestFailure && error.status < 500) return error.message;
 	return 'Batch import failed';
 }
 

@@ -5,6 +5,7 @@
 	import { ratingSchemeStore } from '$features/rating-scheme/stores/ratingScheme.svelte';
 	import RatingSchemeEntryModal from '$features/rating-scheme/components/RatingSchemeEntryModal.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { rejectedRequestMessage } from '$lib/stores/core';
 	import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 
 	interface Props {
@@ -32,7 +33,9 @@
 		if (!isCurrent()) return;
 		const editingId = editingEntry?.id;
 		if (editingId) {
-			const updated = await ratingSchemeStore.update(editingId, entryData);
+			const updated = await ratingSchemeStore.updateOrThrow(editingId, entryData).catch((failure: unknown) => {
+				throw new Error(rejectedRequestMessage(failure, 'Failed to update rating entry'));
+			});
 			if (!isCurrent()) return;
 			if (!updated) throw new Error('Failed to update rating entry');
 		} else {

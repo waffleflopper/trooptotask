@@ -20,6 +20,7 @@ import {
 	createRequestDeletionRequestStore,
 	createRequestDeletionRequestSubmission,
 	handle,
+	readJsonBody,
 	type RouteConfig
 } from '$lib/server/adapters/httpAdapter';
 import { createRequestActorContext } from '$lib/server/adapters/requestContexts.server';
@@ -78,10 +79,11 @@ export function _createPostConfig(
 		policyAction: POLICY_ACTION_CATALOG.identity.createOwnDeletionRequest,
 		mutation: true,
 		input: submissionInput,
-		parseInput: async (event: RequestEvent) => ({
-			...(await event.request.json()),
-			userEmail: event.locals.user?.email ?? 'unknown'
-		}),
+		parseInput: async (event: RequestEvent) =>
+			({
+				...(await readJsonBody(event)),
+				userEmail: event.locals.user?.email ?? 'unknown'
+			}) as SubmissionInput,
 		fn: async (ctx, input) => {
 			const target = await describeTarget[input.resourceType](ctx, input.resourceId);
 			return createDeletionRequest(

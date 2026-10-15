@@ -3,6 +3,7 @@
 	import type { RankCatalogEntry } from '$features/personnel/contracts';
 	import type { Group } from '$features/personnel/contracts';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { rejectedRequestMessage, StoreRequestError } from '$lib/stores/core';
 	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Button } from '$lib/components/ui/button';
@@ -104,8 +105,10 @@
 	]);
 
 	function getErrorMessage(error: unknown): string {
+		const fallback = isEditing ? 'Failed to update personnel' : 'Failed to add personnel';
+		if (error instanceof StoreRequestError) return rejectedRequestMessage(error, fallback);
 		if (error instanceof Error && error.message.trim()) return error.message;
-		return isEditing ? 'Failed to update personnel' : 'Failed to add personnel';
+		return fallback;
 	}
 
 	async function handleSubmit(e: Event) {

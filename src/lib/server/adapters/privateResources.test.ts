@@ -27,6 +27,13 @@ vi.mock('$lib/server/supabase', async (original) => ({
 const ORG = '11111111-1111-4111-8111-111111111111';
 const FOREIGN_ORG = '22222222-2222-4222-8222-222222222222';
 const USER = '33333333-3333-4333-8333-333333333333';
+const PERSON_B = '00000000-0000-4000-8000-0000000000b1';
+const PERSON_C = '00000000-0000-4000-8000-0000000000c1';
+const UNGROUPED_PERSON = '00000000-0000-4000-8000-0000000000d1';
+const FOREIGN_PERSON = '00000000-0000-4000-8000-0000000000f1';
+const DOC_B = '00000000-0000-4000-8000-0000000000b2';
+const DOC_C = '00000000-0000-4000-8000-0000000000c2';
+const FOREIGN_DOC = '00000000-0000-4000-8000-0000000000f2';
 const membership: OrganizationMembershipFacts = {
 	role: 'member',
 	member_preset: 'operator',
@@ -42,7 +49,7 @@ function fixture(member: OrganizationMembershipFacts = membership) {
 		organization_memberships: [{ ...member, user_id: USER, organization_id: ORG }],
 		personnel: [
 			{
-				id: 'person-b',
+				id: PERSON_B,
 				organization_id: ORG,
 				group_id: 'bravo',
 				first_name: 'Bea',
@@ -50,33 +57,33 @@ function fixture(member: OrganizationMembershipFacts = membership) {
 				rank: 'SGT',
 				groups: { name: 'Bravo' }
 			},
-			{ id: 'person-c', organization_id: ORG, group_id: 'charlie' },
-			{ id: 'ungrouped', organization_id: ORG, group_id: null },
-			{ id: 'foreign', organization_id: FOREIGN_ORG, group_id: 'bravo' }
+			{ id: PERSON_C, organization_id: ORG, group_id: 'charlie' },
+			{ id: UNGROUPED_PERSON, organization_id: ORG, group_id: null },
+			{ id: FOREIGN_PERSON, organization_id: FOREIGN_ORG, group_id: 'bravo' }
 		],
 		personnel_documents: [
 			{
-				id: 'doc-b',
+				id: DOC_B,
 				organization_id: ORG,
-				personnel_id: 'person-b',
+				personnel_id: PERSON_B,
 				title: 'Private B',
-				file_path: `${ORG}/personnel/person-b/documents/b.pdf`,
+				file_path: `${ORG}/personnel/${PERSON_B}/documents/b.pdf`,
 				uploaded_by: USER,
 				archived_at: null
 			},
 			{
-				id: 'doc-c',
+				id: DOC_C,
 				organization_id: ORG,
-				personnel_id: 'person-c',
+				personnel_id: PERSON_C,
 				title: 'Private C',
-				file_path: `${ORG}/personnel/person-c/documents/c.pdf`
+				file_path: `${ORG}/personnel/${PERSON_C}/documents/c.pdf`
 			},
 			{
-				id: 'foreign-doc',
+				id: FOREIGN_DOC,
 				organization_id: FOREIGN_ORG,
-				personnel_id: 'foreign',
+				personnel_id: FOREIGN_PERSON,
 				title: 'Foreign secret',
-				file_path: `${FOREIGN_ORG}/personnel/foreign/documents/f.pdf`
+				file_path: `${FOREIGN_ORG}/personnel/${FOREIGN_PERSON}/documents/f.pdf`
 			}
 		],
 		sign_in_rosters: [
@@ -172,7 +179,7 @@ function event(
 	f: ReturnType<typeof fixture>,
 	method: string,
 	id: string,
-	documentId = 'doc-b',
+	documentId = DOC_B,
 	body?: unknown
 ): RequestEvent {
 	const url = new URL(`http://app.invalid/org/${ORG}/api/private-file`);
@@ -189,12 +196,12 @@ function event(
 }
 
 const operations: { name: string; handler: RequestHandler; method: string; id: string; body?: unknown }[] = [
-	{ name: 'document list', handler: listDocuments, method: 'GET', id: 'person-b' },
-	{ name: 'document download', handler: downloadDocument, method: 'GET', id: 'person-b' },
-	{ name: 'document upload', handler: uploadDocument, method: 'POST', id: 'person-b' },
-	{ name: 'document archive', handler: changeDocument, method: 'PATCH', id: 'person-b', body: { action: 'archive' } },
-	{ name: 'document restore', handler: changeDocument, method: 'PATCH', id: 'person-b', body: { action: 'restore' } },
-	{ name: 'document delete', handler: deleteDocument, method: 'DELETE', id: 'person-b' },
+	{ name: 'document list', handler: listDocuments, method: 'GET', id: PERSON_B },
+	{ name: 'document download', handler: downloadDocument, method: 'GET', id: PERSON_B },
+	{ name: 'document upload', handler: uploadDocument, method: 'POST', id: PERSON_B },
+	{ name: 'document archive', handler: changeDocument, method: 'PATCH', id: PERSON_B, body: { action: 'archive' } },
+	{ name: 'document restore', handler: changeDocument, method: 'PATCH', id: PERSON_B, body: { action: 'restore' } },
+	{ name: 'document delete', handler: deleteDocument, method: 'DELETE', id: PERSON_B },
 	{ name: 'scan download', handler: downloadScan, method: 'GET', id: 'roster-b' },
 	{ name: 'scan upload', handler: uploadScan, method: 'POST', id: 'roster-b' },
 	{
@@ -210,7 +217,7 @@ const operations: { name: string; handler: RequestHandler; method: string; id: s
 		handler: createRoster,
 		method: 'POST',
 		id: '',
-		body: { title: 'Roster', personnelIds: ['person-b'] }
+		body: { title: 'Roster', personnelIds: [PERSON_B] }
 	}
 ];
 
@@ -254,7 +261,7 @@ describe('private resource HTTP admission and provider ownership', () => {
 			}
 			if (denial === 'nonmember') f.tables.organization_memberships[0].organization_id = FOREIGN_ORG;
 			const before = structuredClone(f.tables);
-			await expect(op.handler(event(f, op.method, op.id, 'doc-b', op.body))).rejects.toMatchObject({
+			await expect(op.handler(event(f, op.method, op.id, DOC_B, op.body))).rejects.toMatchObject({
 				status: denial === 'anonymous' ? 401 : 403
 			});
 			expectNoPrivateEffects(f, before);
@@ -267,9 +274,9 @@ describe('private resource HTTP admission and provider ownership', () => {
 		{
 			name: 'document',
 			handler: downloadDocument,
-			id: 'person-b',
+			id: PERSON_B,
 			bucket: 'personnel-documents',
-			path: `${ORG}/personnel/person-b/documents/b.pdf`
+			path: `${ORG}/personnel/${PERSON_B}/documents/b.pdf`
 		},
 		{
 			name: 'scan',
@@ -299,25 +306,25 @@ describe('private resource HTTP admission and provider ownership', () => {
 	);
 
 	it.each([
-		{ id: 'person-c', documentId: 'doc-c', status: 403 },
-		{ id: 'ungrouped', documentId: 'doc-b', status: 403 },
-		{ id: 'foreign', documentId: 'foreign-doc', status: 404 },
-		{ id: 'person-b', documentId: 'doc-c', status: 404 },
-		{ id: 'person-b', documentId: 'foreign-doc', status: 404 }
-	])('rejects document $documentId through person $id without signing', async ({ id, documentId, status }) => {
+		{ name: 'doc-c through person person-c', id: PERSON_C, documentId: DOC_C, status: 403 },
+		{ name: 'doc-b through person ungrouped', id: UNGROUPED_PERSON, documentId: DOC_B, status: 403 },
+		{ name: 'foreign-doc through person foreign', id: FOREIGN_PERSON, documentId: FOREIGN_DOC, status: 404 },
+		{ name: 'doc-c through person person-b', id: PERSON_B, documentId: DOC_C, status: 404 },
+		{ name: 'foreign-doc through person person-b', id: PERSON_B, documentId: FOREIGN_DOC, status: 404 }
+	])('rejects document $name without signing', async ({ id, documentId, status }) => {
 		const f = fixture();
 		const before = structuredClone(f.tables);
 		await expect(downloadDocument(event(f, 'GET', id, documentId))).rejects.toMatchObject({ status });
 		expectNoPrivateEffects(f, before);
 	});
 
-	it.each(operations.filter((op) => op.id === 'person-b'))(
+	it.each(operations.filter((op) => op.id === PERSON_B))(
 		'denies $name outside Group or Organization scope before private effects',
 		async (op) => {
 			for (const [id, documentId, status] of [
-				['person-c', 'doc-c', 403],
-				['ungrouped', 'doc-b', 403],
-				['foreign', 'foreign-doc', 404]
+				[PERSON_C, DOC_C, 403],
+				[UNGROUPED_PERSON, DOC_B, 403],
+				[FOREIGN_PERSON, FOREIGN_DOC, 404]
 			] as const) {
 				const f = fixture();
 				const before = structuredClone(f.tables);
@@ -330,10 +337,10 @@ describe('private resource HTTP admission and provider ownership', () => {
 	it.each(operations.filter((op) => ['document archive', 'document restore', 'document delete'].includes(op.name)))(
 		'rejects $name with another person or Organization document id',
 		async (op) => {
-			for (const documentId of ['doc-c', 'foreign-doc']) {
+			for (const documentId of [DOC_C, FOREIGN_DOC]) {
 				const f = fixture();
 				const before = structuredClone(f.tables);
-				await expect(op.handler(event(f, op.method, 'person-b', documentId, op.body))).rejects.toMatchObject({
+				await expect(op.handler(event(f, op.method, PERSON_B, documentId, op.body))).rejects.toMatchObject({
 					status: 404
 				});
 				expectNoPrivateEffects(f, before);
@@ -346,7 +353,7 @@ describe('private resource HTTP admission and provider ownership', () => {
 		async (handler) => {
 			const f = fixture({ ...membership, capability_overrides: { personnel: 'operate' } });
 			const before = structuredClone(f.tables);
-			await expect(handler(event(f, 'GET', 'person-b'))).rejects.toMatchObject({ status: 403 });
+			await expect(handler(event(f, 'GET', PERSON_B))).rejects.toMatchObject({ status: 403 });
 			expectNoPrivateEffects(f, before);
 		}
 	);
@@ -355,16 +362,16 @@ describe('private resource HTTP admission and provider ownership', () => {
 		for (const op of operations.filter((op) => op.id === 'roster-b')) {
 			const f = fixture();
 			const before = structuredClone(f.tables);
-			await expect(op.handler(event(f, op.method, id, 'doc-b', op.body))).rejects.toMatchObject({ status: 404 });
+			await expect(op.handler(event(f, op.method, id, DOC_B, op.body))).rejects.toMatchObject({ status: 404 });
 			expectNoPrivateEffects(f, before);
 		}
 	});
 
 	it('returns only this person’s document metadata without storage paths', async () => {
 		const f = fixture();
-		const response = await listDocuments(event(f, 'GET', 'person-b'));
+		const response = await listDocuments(event(f, 'GET', PERSON_B));
 		const rows = await response.json();
-		expect(rows.map((row: { id: string }) => row.id)).toEqual(['doc-b']);
+		expect(rows.map((row: { id: string }) => row.id)).toEqual([DOC_B]);
 		expect(rows[0]).not.toHaveProperty('filePath');
 		expect(f.requests.filter((r) => r.path.startsWith('/storage/'))).toEqual([]);
 	});
@@ -373,33 +380,33 @@ describe('private resource HTTP admission and provider ownership', () => {
 		const f = fixture();
 		f.state.failedTable = failure === 'metadata' ? 'personnel_documents' : '';
 		f.state.failSigning = failure === 'signing';
-		await expect(downloadDocument(event(f, 'GET', 'person-b'))).rejects.toMatchObject({ status: 500 });
+		await expect(downloadDocument(event(f, 'GET', PERSON_B))).rejects.toMatchObject({ status: 500 });
 		if (failure === 'metadata') expect(f.requests.filter((r) => r.path.startsWith('/storage/'))).toEqual([]);
 	});
 
 	it('uses the narrow privileged Personnel lookup but persists the roster through the caller client', async () => {
 		const f = fixture({ ...membership, capability_overrides: { personnel: 'none', training: 'operate' } });
 		const response = await createRoster(
-			event(f, 'POST', '', '', { title: 'Synthetic roster', personnelIds: ['person-b'] })
+			event(f, 'POST', '', '', { title: 'Synthetic roster', personnelIds: [PERSON_B] })
 		);
 		expect(response.status).toBe(200);
 		expect((await response.json()).personnelSnapshot).toEqual([
-			{ id: 'person-b', rank: 'SGT', firstName: 'Bea', lastName: 'Baker', groupId: 'bravo', group: 'Bravo' }
+			{ id: PERSON_B, rank: 'SGT', firstName: 'Bea', lastName: 'Baker', groupId: 'bravo', group: 'Bravo' }
 		]);
 		expect(f.requests.filter((r) => r.path.endsWith('/personnel')).map((r) => r.client)).toEqual(['service']);
 		expect(f.requests.find((r) => r.path.endsWith('/sign_in_rosters') && r.method === 'POST')?.client).toBe('caller');
 		expect(f.tables.sign_in_rosters.at(-1)).toMatchObject({
 			organization_id: ORG,
-			personnel_ids: ['person-b'],
+			personnel_ids: [PERSON_B],
 			scope_group_ids: ['bravo']
 		});
 	});
 
 	it.each([
-		{ id: 'person-c', status: 400 },
-		{ id: 'ungrouped', status: 400 },
-		{ id: 'foreign', status: 400 }
-	])('does not persist or return a privileged snapshot for $id', async ({ id, status }) => {
+		{ name: 'person-c', id: PERSON_C, status: 400 },
+		{ name: 'ungrouped', id: UNGROUPED_PERSON, status: 400 },
+		{ name: 'foreign', id: FOREIGN_PERSON, status: 400 }
+	])('does not persist or return a privileged snapshot for $name', async ({ id, status }) => {
 		const f = fixture();
 		const before = structuredClone(f.tables);
 		await expect(

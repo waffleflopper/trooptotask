@@ -34,7 +34,7 @@ function enhance(base: Store<Group>): GroupExtensions {
 			const trimmed = newName.trim();
 			if (!trimmed) return false;
 			if (base.find((group) => group.id !== id && group.name.toLowerCase() === trimmed.toLowerCase())) return false;
-			return base.update(id, { name: trimmed });
+			return base.updateOrThrow(id, { name: trimmed });
 		}
 	};
 }

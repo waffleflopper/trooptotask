@@ -1,8 +1,15 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { fail } from '$lib/errors';
 import type { ScopeSet } from '$lib/access/memberAccessShape';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type { Group, GroupPersistence } from './contracts';
 import { visibleGroupIds } from './groupCatalog.server';
+function throwGroupWriteError(error: { code?: string; message: string }): never {
+	if (error.code === '23505' && error.message.includes('"groups_clinic_id_name_key"')) {
+		fail(409, 'A Group with that name already exists.');
+	}
+	throw new Error(error.message);
+}
 function toGroup(row: Record<string, unknown>): Group {
 	return { id: row.id as string, name: row.name as string, sortOrder: row.sort_order as number };
 }
@@ -48,7 +55,7 @@ export function createSupabaseGroupPersistence(
 				.insert({ organization_id: orgId, name: input.name, sort_order: input.sortOrder ?? 0 })
 				.select('*')
 				.single<Record<string, unknown>>();
-			if (error) throw new Error(error.message);
+			if (error) throwGroupWriteError(error);
 			return toGroup(data);
 		},
 		async update(id, patch) {
@@ -58,9 +65,9 @@ export function createSupabaseGroupPersistence(
 				.eq('organization_id', orgId)
 				.eq('id', id)
 				.select('*')
-				.single<Record<string, unknown>>();
-			if (error) throw new Error(error.message);
-			return toGroup(data);
+				.maybeSingle<Record<string, unknown>>();
+			if (error) throwGroupWriteError(error);
+			return data ? toGroup(data) : null;
 		},
 		async delete(id) {
 			const { error } = await client.from('groups').delete().eq('organization_id', orgId).eq('id', id);

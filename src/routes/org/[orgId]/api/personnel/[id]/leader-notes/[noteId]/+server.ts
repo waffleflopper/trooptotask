@@ -5,17 +5,14 @@ import {
 } from '$features/personnel/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';
-import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { handle, readJsonBody, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { createRequestPersonnelLeaderNoteContext } from '$lib/server/adapters/requestContexts.server';
 import type { RequestEvent } from '@sveltejs/kit';
+import { routeArtifactIds } from '../../routeIds';
 import { json } from '@sveltejs/kit';
 
 function routeIds(event: RequestEvent): { personnelId: string; noteId: string } {
-	const personnelId = event.params.id;
-	const noteId = event.params.noteId;
-	if (!personnelId) fail(400, 'Missing personnel id');
-	if (!noteId) fail(400, 'Missing leader note id');
-	return { personnelId, noteId };
+	return routeArtifactIds(event, 'noteId', 'Leader note not found');
 }
 
 export const _patchConfig: RouteConfig<
@@ -27,7 +24,7 @@ export const _patchConfig: RouteConfig<
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.personnel.manageRecords,
 	policyResource: { kind: 'unscoped' },
-	parseInput: async (event) => ({ ...(await event.request.json()), ...routeIds(event) }),
+	parseInput: async (event) => ({ ...(await readJsonBody(event)), ...routeIds(event) }),
 	fn: (ctx, input) => {
 		if (input.action === 'restore')
 			return restorePersonnelLeaderNote(ctx, input as { personnelId: string; noteId: string });

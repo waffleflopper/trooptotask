@@ -15,6 +15,10 @@ function requireAvailabilityMutation(error: { code?: string; message: string } |
 	if (!error) return;
 	if (error.code === '23503' && error.message.includes('"availability_entries_org_status_type_fkey"'))
 		fail(404, 'Status type is unavailable for this Organization');
+	if (error.code === '23514' && error.message.includes('"availability_entries_note_length"'))
+		fail(400, 'Note must be 200 characters or fewer');
+	if (error.code === '23514' && error.message.includes('"valid_date_range"'))
+		fail(400, 'End date must be on or after the start date');
 	throw new Error(error.message);
 }
 

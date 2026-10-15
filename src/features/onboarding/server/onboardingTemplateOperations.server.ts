@@ -10,11 +10,12 @@ import type {
 import type { OnboardingTemplateWriteContext } from './onboardingTemplatePorts.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { requireFeaturePolicy } from '$lib/access/index.server';
+import { uuidSchema } from '$lib/utils/inputSchemas';
 
 const templateCreateSchema = z.object({ name: z.string(), description: z.string().nullable().optional() });
-const templateUpdateSchema = templateCreateSchema.partial().extend({ id: z.string() });
+const templateUpdateSchema = templateCreateSchema.partial().extend({ id: uuidSchema });
 const stepCreateSchema = z.object({
-	templateId: z.string(),
+	templateId: uuidSchema,
 	name: z.string(),
 	description: z.string().nullable().optional(),
 	stepType: z.enum(['training', 'paperwork', 'checkbox']),
@@ -22,7 +23,7 @@ const stepCreateSchema = z.object({
 	stages: z.array(z.string()).nullable().optional(),
 	sortOrder: z.number().int().optional()
 });
-const stepUpdateSchema = stepCreateSchema.omit({ sortOrder: true }).partial().extend({ id: z.string() });
+const stepUpdateSchema = stepCreateSchema.omit({ sortOrder: true }).partial().extend({ id: uuidSchema });
 
 const configureAction = POLICY_ACTION_CATALOG.onboarding.configureWorkflows;
 const catalogResource = { kind: 'organization' } as const;

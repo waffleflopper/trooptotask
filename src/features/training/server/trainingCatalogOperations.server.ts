@@ -51,6 +51,7 @@ export async function updateTrainingType(
 	const id = parsed.data.id as string;
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'training_type', id);
 	const row = await ctx.trainingCatalog.patchType(id, parsed.data);
+	if (!row) fail(404, 'That Training type is no longer available.');
 	ctx.audit.log({ action: 'training_type.updated', resourceType: 'training_type', resourceId: id });
 	return row;
 }
@@ -98,6 +99,7 @@ export async function updateTrainingView(
 	const id = parsed.data.id as string;
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'training_view', id);
 	const row = await ctx.trainingCatalog.patchView(id, parsed.data);
+	if (!row) fail(404, 'That Training view is no longer available.');
 	ctx.audit.log({ action: 'training_view.updated', resourceType: 'training_view', resourceId: id });
 	return row;
 }

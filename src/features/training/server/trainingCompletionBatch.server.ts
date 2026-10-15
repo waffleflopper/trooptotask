@@ -10,6 +10,8 @@ import type {
 } from '../contracts';
 import { requireFeaturePolicy } from '$lib/access/index.server';
 import { fail } from '$lib/errors';
+import { isDateOnly } from '$lib/utils/dates';
+import { DATE_ONLY_MESSAGE, isUuid } from '$lib/utils/inputSchemas';
 
 const AUDIT_RESOURCE = 'training_record';
 const MAX_BATCH_SIZE = 500;
@@ -26,6 +28,10 @@ export async function importTrainingRecords(
 
 	if (records.length > MAX_BATCH_SIZE) {
 		fail(400, `Maximum ${MAX_BATCH_SIZE} records per batch`);
+	}
+
+	if (records.some((record) => !isUuid(record?.personnelId) || !isUuid(record?.trainingTypeId))) {
+		fail(400, 'Each record must name a Person and Training type by ID');
 	}
 
 	const uniquePersonnelIds = [...new Set(records.map((r) => r.personnelId))];
@@ -85,6 +91,10 @@ export async function importTrainingRecords(
 		}
 
 		const completionDate = rec.completionDate;
+		if (completionDate && !isDateOnly(completionDate)) {
+			batchErrors.push({ index: i, message: DATE_ONLY_MESSAGE });
+			continue;
+		}
 		const isExpirationDateOnly = type.expirationDateOnly ?? false;
 
 		if (isExpirationDateOnly && !completionDate) {

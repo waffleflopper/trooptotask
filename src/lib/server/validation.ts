@@ -1,4 +1,5 @@
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { isUuid } from '$lib/utils/inputSchemas';
+
 const EMAIL_REGEX =
 	/^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
 
@@ -22,8 +23,7 @@ export function validateEmail(email: string): boolean {
  * Validate a UUID string.
  */
 export function validateUUID(id: string | null | undefined): boolean {
-	if (!id) return false;
-	return UUID_REGEX.test(id);
+	return isUuid(id);
 }
 
 /**

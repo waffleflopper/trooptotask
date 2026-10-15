@@ -1,4 +1,5 @@
 import { fail } from '$lib/errors';
+import { isDateOnly } from '$lib/utils/dates';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { sanitizeString } from '$lib/server/validation';
 import { requireFeaturePolicy } from '$lib/access/index.server';
@@ -10,7 +11,6 @@ import type { Personnel, PersonnelRecordPersistence, GroupPersistence } from './
 import type { PersonnelBackfillInput, PersonnelBackfillResult, PersonnelBatchMessage } from './personnelImport.types';
 
 const MAX_BATCH_SIZE = 500;
-const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
 interface PersonnelBackfillContext {
 	auth: OrganizationAccessGrant;
@@ -24,25 +24,16 @@ function normalize(value: string | null | undefined): string {
 	return (value ?? '').trim().toLowerCase();
 }
 
-function isValidIsoDate(value: string): boolean {
-	if (!ISO_DATE_REGEX.test(value)) return false;
-
-	const [year, month, day] = value.split('-').map((part) => Number(part));
-	const utcDate = new Date(Date.UTC(year, month - 1, day));
-
-	return utcDate.getUTCFullYear() === year && utcDate.getUTCMonth() === month - 1 && utcDate.getUTCDate() === day;
-}
-
 function validateBatchDateFields(ets: string | null | undefined, deros: string | null | undefined): string | null {
 	const invalidFields: string[] = [];
 	const sanitizedEts = sanitizeString(ets);
 	const sanitizedDeros = sanitizeString(deros);
 
-	if (sanitizedEts && !isValidIsoDate(sanitizedEts)) {
+	if (sanitizedEts && !isDateOnly(sanitizedEts)) {
 		invalidFields.push('ETS');
 	}
 
-	if (sanitizedDeros && !isValidIsoDate(sanitizedDeros)) {
+	if (sanitizedDeros && !isDateOnly(sanitizedDeros)) {
 		invalidFields.push('DEROS');
 	}
 

@@ -8,6 +8,8 @@ import { prepareSignInRosterSnapshot, type SignInRosterSnapshotContext } from '.
 import type { SignInRosterListInput, SignInRosterPersistence } from './rosterPersistence.server';
 import type { SignInRosterScanPort, SignInRosterFileActor } from './contracts';
 import { fail } from '$lib/errors';
+import { isDateOnly } from '$lib/utils/dates';
+import { DATE_ONLY_MESSAGE } from '$lib/utils/inputSchemas';
 
 interface RosterContext {
 	orgId: string;
@@ -36,6 +38,7 @@ export async function listSignInRosters(ctx: RosterContext, input: SignInRosterL
 
 export async function createSignInRoster(ctx: CreateRosterContext, input: Record<string, unknown>) {
 	if (!input.title || !(input.title as string).trim()) fail(400, 'Title is required');
+	if (input.rosterDate && !isDateOnly(input.rosterDate)) fail(400, DATE_ONLY_MESSAGE);
 	const snapshot = await prepareSignInRosterSnapshot(ctx, input);
 	const row = await ctx.persistence.create({
 		title: (input.title as string).trim(),

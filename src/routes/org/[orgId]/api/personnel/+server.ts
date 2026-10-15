@@ -6,13 +6,13 @@ import {
 } from '$features/personnel/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';
+import { isUuid } from '$lib/utils/inputSchemas';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import {
 	createRequestPersonnelRecordContext,
 	createRequestPersonnelLifecycleContext
 } from '$lib/server/adapters/requestContexts.server';
 import { validateUUID } from '$lib/server/validation';
-import type { RequestEvent } from '@sveltejs/kit';
 import { json } from '@sveltejs/kit';
 
 export const _postConfig: RouteConfig<
@@ -82,14 +82,12 @@ export const _patchConfig: RouteConfig<
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.personnel.restoreRecords,
 	policyResource: { kind: 'unscoped' },
-	parseInput: async (event: RequestEvent) => {
-		return event.request.json();
-	},
 	fn: async (ctx, input) => {
 		const { action, id } = input;
 
 		if (action !== 'restore') fail(400, 'Invalid action');
 		if (!id || typeof id !== 'string') fail(400, 'Missing id');
+		if (!isUuid(id)) fail(400, 'Invalid ID');
 
 		return restorePersonnelRecord(ctx, id);
 	}

@@ -307,4 +307,20 @@ describe('ordinary Onboarding persistence', () => {
 			}
 		]);
 	});
+
+	it('turns a duplicate template name into a public 409 without saving', async () => {
+		const { catalog, state } = ports({ onboarding_templates: [template] });
+		state.failure = (req) =>
+			req.method === 'POST' || req.method === 'PATCH'
+				? {
+						code: '23505',
+						message: 'duplicate key value violates unique constraint "onboarding_templates_org_name_unique"',
+						status: 409
+					}
+				: null;
+		const conflict = { status: 409, message: 'An Onboarding template with that name already exists.' };
+		await expect(catalog.createTemplate({ name: template.name, description: null })).rejects.toMatchObject(conflict);
+		await expect(catalog.updateTemplate(template.id, { name: template.name })).rejects.toMatchObject(conflict);
+		expect(state.rows.onboarding_templates).toEqual([template]);
+	});
 });

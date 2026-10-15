@@ -2,6 +2,20 @@ import { describe, it, expect, vi } from 'vitest';
 import { createWritePortsContext } from './calendarPersistence.test-support.server';
 import { replaceDailyAssignmentSlotsBatch } from './dailyAssignmentOperations.server';
 
+const TYPE_A = '00000000-0000-4000-8000-000000000010';
+const TYPE_B = '00000000-0000-4000-8000-000000000011';
+const TYPE_GROUP = '00000000-0000-4000-8000-000000000012';
+const PERSON_1 = '00000000-0000-4000-8000-000000000013';
+const PERSON_2 = '00000000-0000-4000-8000-000000000014';
+const PERSON_OUTSIDE = '00000000-0000-4000-8000-000000000015';
+const OLD_PERSON = '00000000-0000-4000-8000-000000000016';
+const OLD_PERSON_1 = '00000000-0000-4000-8000-000000000017';
+const OLD_PERSON_2 = '00000000-0000-4000-8000-000000000018';
+const GROUP_A = '00000000-0000-4000-8000-000000000019';
+const GROUP_B = '00000000-0000-4000-8000-00000000001a';
+const GROUP_C = '00000000-0000-4000-8000-00000000001b';
+const GROUP_HQ = '00000000-0000-4000-8000-00000000001c';
+
 function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
 	return createWritePortsContext(overrides);
 }
@@ -29,8 +43,8 @@ describe('replaceDailyAssignmentSlotsBatch', () => {
 	});
 
 	it.each([
-		['missing', { date: '2026-03-22', assignmentTypeId: 'type-a' }],
-		['non-string', { date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: 123 }]
+		['missing', { date: '2026-03-22', assignmentTypeId: TYPE_A }],
+		['non-string', { date: '2026-03-22', assignmentTypeId: TYPE_A, assigneeId: 123 }]
 	])('rejects records with %s assigneeId before persistence and audit side effects', async (_label, record) => {
 		const ctx = buildContext();
 		ctx.store.findMany = vi.fn(ctx.store.findMany.bind(ctx.store)) as typeof ctx.store.findMany;
@@ -57,7 +71,7 @@ describe('replaceDailyAssignmentSlotsBatch', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				scopeSet: { kind: 'groups', groupIds: ['group-a'] },
+				scopeSet: { kind: 'groups', groupIds: [GROUP_A] },
 				capabilityMap: {
 					calendar: 'operate',
 					personnel: 'view',
@@ -68,11 +82,11 @@ describe('replaceDailyAssignmentSlotsBatch', () => {
 				}
 			}
 		});
-		ctx.store.seed('personnel', [{ id: 'person-1', organization_id: 'test-org', group_id: 'group-c' }]);
+		ctx.store.seed('personnel', [{ id: PERSON_1, organization_id: 'test-org', group_id: GROUP_C }]);
 
 		await expect(
 			replaceDailyAssignmentSlotsBatch(ctx, {
-				records: [{ date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: 'person-1' }]
+				records: [{ date: '2026-03-22', assignmentTypeId: TYPE_A, assigneeId: PERSON_1 }]
 			})
 		).rejects.toMatchObject({
 			status: 403,
@@ -85,7 +99,7 @@ describe('replaceDailyAssignmentSlotsBatch', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				scopeSet: { kind: 'groups', groupIds: ['group-a'] },
+				scopeSet: { kind: 'groups', groupIds: [GROUP_A] },
 				capabilityMap: {
 					calendar: 'operate',
 					personnel: 'view',
@@ -96,20 +110,20 @@ describe('replaceDailyAssignmentSlotsBatch', () => {
 				}
 			}
 		});
-		ctx.store.seed('personnel', [{ id: 'person-outside', organization_id: 'test-org', group_id: 'group-c' }]);
+		ctx.store.seed('personnel', [{ id: PERSON_OUTSIDE, organization_id: 'test-org', group_id: GROUP_C }]);
 		ctx.store.seed('daily_assignments', [
 			{
 				id: 'existing-outside',
 				organization_id: 'test-org',
 				date: '2026-03-22',
-				assignment_type_id: 'type-a',
-				assignee_id: 'person-outside'
+				assignment_type_id: TYPE_A,
+				assignee_id: PERSON_OUTSIDE
 			}
 		]);
 
 		await expect(
 			replaceDailyAssignmentSlotsBatch(ctx, {
-				records: [{ date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: '' }]
+				records: [{ date: '2026-03-22', assignmentTypeId: TYPE_A, assigneeId: '' }]
 			})
 		).rejects.toMatchObject({
 			status: 403,
@@ -126,12 +140,12 @@ describe('replaceDailyAssignmentSlotsBatch', () => {
 
 	it('authorizes group assignees through Calendar group scope', async () => {
 		const ctx = buildContext({
-			auth: { scopeSet: { kind: 'groups', groupIds: ['group-a'] } }
+			auth: { scopeSet: { kind: 'groups', groupIds: [GROUP_A] } }
 		});
 
 		ctx.store.seed('assignment_types', [
 			{
-				id: 'type-group',
+				id: TYPE_GROUP,
 				organization_id: 'test-org',
 				name: 'Front Desk',
 				short_name: 'FD',
@@ -144,7 +158,7 @@ describe('replaceDailyAssignmentSlotsBatch', () => {
 		]);
 
 		const result = await replaceDailyAssignmentSlotsBatch(ctx, {
-			records: [{ date: '2026-03-22', assignmentTypeId: 'type-group', assigneeId: 'group-a' }]
+			records: [{ date: '2026-03-22', assignmentTypeId: TYPE_GROUP, assigneeId: GROUP_A }]
 		});
 
 		expect(result.inserted).toHaveLength(1);
@@ -155,7 +169,7 @@ describe('replaceDailyAssignmentSlotsBatch', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				scopeSet: { kind: 'groups', groupIds: ['group-a'] },
+				scopeSet: { kind: 'groups', groupIds: [GROUP_A] },
 				capabilityMap: {
 					calendar: 'operate',
 					personnel: 'view',
@@ -168,7 +182,7 @@ describe('replaceDailyAssignmentSlotsBatch', () => {
 		});
 		ctx.store.seed('assignment_types', [
 			{
-				id: 'type-group',
+				id: TYPE_GROUP,
 				organization_id: 'test-org',
 				name: 'Front Desk',
 				short_name: 'FD',
@@ -184,7 +198,7 @@ describe('replaceDailyAssignmentSlotsBatch', () => {
 
 		await expect(
 			replaceDailyAssignmentSlotsBatch(ctx, {
-				records: [{ date: '2026-03-22', assignmentTypeId: 'type-group', assigneeId: 'group-b' }]
+				records: [{ date: '2026-03-22', assignmentTypeId: TYPE_GROUP, assigneeId: GROUP_B }]
 			})
 		).rejects.toMatchObject({
 			status: 403,
@@ -199,8 +213,8 @@ describe('replaceDailyAssignmentSlotsBatch', () => {
 		const ctx = buildContext();
 		await replaceDailyAssignmentSlotsBatch(ctx, {
 			records: [
-				{ date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: 'person-1' },
-				{ date: '2026-03-22', assignmentTypeId: 'type-b', assigneeId: '' }
+				{ date: '2026-03-22', assignmentTypeId: TYPE_A, assigneeId: PERSON_1 },
+				{ date: '2026-03-22', assignmentTypeId: TYPE_B, assigneeId: '' }
 			]
 		});
 		expect(ctx.audit.events).toHaveLength(1);
@@ -220,15 +234,15 @@ describe('replaceDailyAssignmentSlotsBatch', () => {
 				id: 'existing-1',
 				organization_id: 'test-org',
 				date: '2026-03-22',
-				assignment_type_id: 'type-a',
-				assignee_id: 'old-person'
+				assignment_type_id: TYPE_A,
+				assignee_id: OLD_PERSON
 			}
 		]);
 
 		const result = await replaceDailyAssignmentSlotsBatch(ctx, {
 			records: [
-				{ date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: 'person-1' },
-				{ date: '2026-03-22', assignmentTypeId: 'type-b', assigneeId: '' } // clear slot
+				{ date: '2026-03-22', assignmentTypeId: TYPE_A, assigneeId: PERSON_1 },
+				{ date: '2026-03-22', assignmentTypeId: TYPE_B, assigneeId: '' } // clear slot
 			]
 		});
 
@@ -238,7 +252,7 @@ describe('replaceDailyAssignmentSlotsBatch', () => {
 		// Verify old assignment was cleared
 		const remaining = await ctx.store.findMany('daily_assignments', 'test-org');
 		expect(remaining).toHaveLength(1);
-		expect((remaining[0] as Record<string, unknown>).assignee_id).toBe('person-1');
+		expect((remaining[0] as Record<string, unknown>).assignee_id).toBe(PERSON_1);
 	});
 
 	it('treats whitespace assignees as clears before persistence and audit details', async () => {
@@ -248,13 +262,13 @@ describe('replaceDailyAssignmentSlotsBatch', () => {
 				id: 'existing-1',
 				organization_id: 'test-org',
 				date: '2026-03-22',
-				assignment_type_id: 'type-a',
-				assignee_id: 'old-person'
+				assignment_type_id: TYPE_A,
+				assignee_id: OLD_PERSON
 			}
 		]);
 
 		const result = await replaceDailyAssignmentSlotsBatch(ctx, {
-			records: [{ date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: '   ' }]
+			records: [{ date: '2026-03-22', assignmentTypeId: TYPE_A, assigneeId: '   ' }]
 		});
 
 		expect(result).toEqual({ inserted: [], cleared: 1 });
@@ -273,13 +287,13 @@ describe('replaceDailyAssignmentSlotsBatch', () => {
 		await expect(
 			replaceDailyAssignmentSlotsBatch(ctx, {
 				records: [
-					{ date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: 'person-1' },
-					{ date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: 'person-2' }
+					{ date: '2026-03-22', assignmentTypeId: TYPE_A, assigneeId: PERSON_1 },
+					{ date: '2026-03-22', assignmentTypeId: TYPE_A, assigneeId: PERSON_2 }
 				]
 			})
 		).rejects.toMatchObject({
 			status: 400,
-			message: 'Duplicate daily assignment slot in batch: 2026-03-22 / type-a'
+			message: `Duplicate daily assignment slot in batch: 2026-03-22 / ${TYPE_A}`
 		});
 
 		expect(ctx.store.findMany).not.toHaveBeenCalled();
@@ -291,19 +305,19 @@ describe('replaceDailyAssignmentSlotsBatch', () => {
 	it('rejects duplicate clear records and mixed set clear records with the same invalid-batch rule', async () => {
 		for (const records of [
 			[
-				{ date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: '' },
-				{ date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: ' ' }
+				{ date: '2026-03-22', assignmentTypeId: TYPE_A, assigneeId: '' },
+				{ date: '2026-03-22', assignmentTypeId: TYPE_A, assigneeId: ' ' }
 			],
 			[
-				{ date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: 'person-1' },
-				{ date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: '' }
+				{ date: '2026-03-22', assignmentTypeId: TYPE_A, assigneeId: PERSON_1 },
+				{ date: '2026-03-22', assignmentTypeId: TYPE_A, assigneeId: '' }
 			]
 		]) {
 			const ctx = buildContext();
 
 			await expect(replaceDailyAssignmentSlotsBatch(ctx, { records })).rejects.toMatchObject({
 				status: 400,
-				message: 'Duplicate daily assignment slot in batch: 2026-03-22 / type-a'
+				message: `Duplicate daily assignment slot in batch: 2026-03-22 / ${TYPE_A}`
 			});
 			expect(ctx.audit.events).toEqual([]);
 		}
@@ -314,8 +328,8 @@ describe('replaceDailyAssignmentSlotsBatch', () => {
 		// Untrusted callers can still send retired keys even though the typed API no longer exposes them.
 		const record = {
 			date: '2026-03-22',
-			assignmentTypeId: 'type-a',
-			assigneeId: 'person-1',
+			assignmentTypeId: TYPE_A,
+			assigneeId: PERSON_1,
 			dutyRosterTemplateRunId: 'legacy-run',
 			dutyRosterTemplateRunRowDate: '2026-03-22',
 			cooldownHours: 168,
@@ -327,8 +341,8 @@ describe('replaceDailyAssignmentSlotsBatch', () => {
 				id: expect.any(String),
 				organization_id: 'test-org',
 				date: '2026-03-22',
-				assignmentTypeId: 'type-a',
-				assigneeId: 'person-1'
+				assignmentTypeId: TYPE_A,
+				assigneeId: PERSON_1
 			}
 		]);
 		expect(await ctx.store.findMany('daily_assignments', 'test-org')).toEqual([
@@ -336,8 +350,8 @@ describe('replaceDailyAssignmentSlotsBatch', () => {
 				id: expect.any(String),
 				organization_id: 'test-org',
 				date: '2026-03-22',
-				assignment_type_id: 'type-a',
-				assignee_id: 'person-1'
+				assignment_type_id: TYPE_A,
+				assignee_id: PERSON_1
 			}
 		]);
 	});
@@ -347,25 +361,25 @@ describe('replaceDailyAssignmentSlotsBatch', () => {
 
 		ctx.store.seed('personnel', [
 			{
-				id: 'person-1',
+				id: PERSON_1,
 				organization_id: 'test-org',
 				rank: 'SGT',
 				last_name: 'Nolan',
 				first_name: 'Casey',
 				mos: '11B',
 				clinic_role: 'Squad Leader',
-				group_id: 'group-hq',
+				group_id: GROUP_HQ,
 				group_name: 'Headquarters'
 			},
 			{
-				id: 'person-2',
+				id: PERSON_2,
 				organization_id: 'test-org',
 				rank: 'SSG',
 				last_name: 'Parker',
 				first_name: 'Drew',
 				mos: '11B',
 				clinic_role: 'Squad Leader',
-				group_id: 'group-hq',
+				group_id: GROUP_HQ,
 				group_name: 'Headquarters'
 			}
 		]);
@@ -374,22 +388,22 @@ describe('replaceDailyAssignmentSlotsBatch', () => {
 				id: 'existing-1',
 				organization_id: 'test-org',
 				date: '2026-04-10',
-				assignment_type_id: 'type-a',
-				assignee_id: 'old-person-1'
+				assignment_type_id: TYPE_A,
+				assignee_id: OLD_PERSON_1
 			},
 			{
 				id: 'existing-2',
 				organization_id: 'test-org',
 				date: '2026-04-11',
-				assignment_type_id: 'type-a',
-				assignee_id: 'old-person-2'
+				assignment_type_id: TYPE_A,
+				assignee_id: OLD_PERSON_2
 			}
 		]);
 
 		await replaceDailyAssignmentSlotsBatch(ctx, {
 			records: [
-				{ date: '2026-04-10', assignmentTypeId: 'type-a', assigneeId: 'person-1' },
-				{ date: '2026-04-11', assignmentTypeId: 'type-a', assigneeId: 'person-2' }
+				{ date: '2026-04-10', assignmentTypeId: TYPE_A, assigneeId: PERSON_1 },
+				{ date: '2026-04-11', assignmentTypeId: TYPE_A, assigneeId: PERSON_2 }
 			]
 		});
 
@@ -398,13 +412,13 @@ describe('replaceDailyAssignmentSlotsBatch', () => {
 			expect.arrayContaining([
 				expect.objectContaining({
 					date: '2026-04-10',
-					assignment_type_id: 'type-a',
-					assignee_id: 'person-1'
+					assignment_type_id: TYPE_A,
+					assignee_id: PERSON_1
 				}),
 				expect.objectContaining({
 					date: '2026-04-11',
-					assignment_type_id: 'type-a',
-					assignee_id: 'person-2'
+					assignment_type_id: TYPE_A,
+					assignee_id: PERSON_2
 				})
 			])
 		);

@@ -17,6 +17,7 @@
 	} from '$lib/components/patterns/workspace-toolbar';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
+	import { rejectedRequestMessage } from '$lib/stores/core';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import type { TrainingView } from '$features/training/training.types';
@@ -170,15 +171,15 @@
 					viewList?.focusSelected();
 				}
 			} else if (selectedViewId) {
-				if (!(await trainingViewsStore.update(selectedViewId, { name: name.trim(), columnIds: orderedIds }))) {
+				if (!(await trainingViewsStore.updateOrThrow(selectedViewId, { name: name.trim(), columnIds: orderedIds }))) {
 					error = 'Failed to save view.';
 					return;
 				}
 			}
 			editing = false;
 			mobileDetailOpen = true;
-		} catch {
-			error = 'Failed to save view.';
+		} catch (failure) {
+			error = rejectedRequestMessage(failure, 'Failed to save view.');
 		} finally {
 			saving = false;
 		}

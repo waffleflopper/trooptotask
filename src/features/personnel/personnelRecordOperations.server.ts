@@ -13,6 +13,7 @@ import {
 import { normalizeActivePersonnelRank } from './rankValidation.server';
 import { buildUniquePersonnelSlug, isPersonnelSlugUniqueConstraintError } from './personnelSlug.server';
 import { fail, RequestFailure } from '$lib/errors';
+import { dateOnlySchema, uuidSchema } from '$lib/utils/inputSchemas';
 
 interface PersonnelRecordContext {
 	auth: OrganizationAccessGrant;
@@ -24,19 +25,27 @@ interface PersonnelRecordContext {
 }
 
 const editableShape = {
-	rank: z.string(),
-	lastName: z.string(),
-	firstName: z.string(),
-	mos: z.string().optional(),
-	clinicRole: z.string(),
-	ets: z.string().nullable().optional(),
-	deros: z.string().nullable().optional(),
-	groupId: z.string().nullable().optional()
+	rank: z.string({ error: 'Rank is required' }),
+	lastName: z.string({ error: PERSONNEL_LAST_NAME_REQUIRED_MESSAGE }),
+	firstName: z.string({ error: PERSONNEL_FIRST_NAME_REQUIRED_MESSAGE }),
+	mos: z.string({ error: 'MOS must be text' }).optional(),
+	clinicRole: z.string({ error: 'Duty role is required' }),
+	ets: dateOnlySchema.nullable().optional(),
+	deros: dateOnlySchema.nullable().optional(),
+	/** An empty Group choice means unassigned. */
+	groupId: z.preprocess((value) => (value === '' ? null : value), uuidSchema.nullable().optional())
 };
 const createInput = z.object(editableShape);
-const updateInput = createInput.partial().extend({ id: z.string() });
+const updateInput = createInput.partial().extend({ id: uuidSchema });
+
+function parseInput<T>(schema: z.ZodType<T>, data: unknown): T {
+	const parsed = schema.safeParse(data);
+	if (!parsed.success) fail(400, parsed.error.issues.map((issue) => issue.message).join('; '));
+	return parsed.data;
+}
 
 const AUDIT_RESOURCE = 'personnel';
+const PERSONNEL_RECORD_UNAVAILABLE_MESSAGE = 'This person is no longer available.';
 const SLUG_RETRY_LIMIT = 3;
 
 function rankCodesMatchCanonical(left: string, right: string | undefined): boolean {
@@ -65,7 +74,7 @@ export async function createPersonnelRecord(ctx: PersonnelRecordContext, data: R
 		AUDIT_RESOURCE
 	);
 
-	const validated = createInput.parse(data);
+	const validated = parseInput(createInput, data);
 	requireNames(validated);
 	await requireGroupInOrganization(ctx, validated.groupId as string | null | undefined);
 	validated.rank = await normalizeActivePersonnelRank(ctx, (validated as { rank: string }).rank);
@@ -102,7 +111,7 @@ export async function createPersonnelRecord(ctx: PersonnelRecordContext, data: R
 }
 
 export async function updatePersonnelRecord(ctx: PersonnelRecordContext, data: Record<string, unknown>) {
-	const { id, ...editable } = updateInput.parse(data);
+	const { id, ...editable } = parseInput(updateInput, data);
 	const patch: typeof editable & { slug?: string } = editable;
 	const nextGroupId = patch.groupId;
 	const currentRecord = await ctx.personnel.findWriteReference(id);
@@ -114,6 +123,7 @@ export async function updatePersonnelRecord(ctx: PersonnelRecordContext, data: R
 		AUDIT_RESOURCE,
 		id
 	);
+	if (!currentRecord) fail(404, PERSONNEL_RECORD_UNAVAILABLE_MESSAGE);
 	requireNames(patch);
 
 	if (nextGroupId !== undefined) {
@@ -176,7 +186,7 @@ export async function updatePersonnelRecord(ctx: PersonnelRecordContext, data: R
 		}
 	}
 
-	if (!row) fail(500, 'Unable to update personnel record.');
+	if (!row) fail(404, PERSONNEL_RECORD_UNAVAILABLE_MESSAGE);
 
 	ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.updated`,

@@ -3,6 +3,16 @@ import { createIctTask, reorderIctTasks, updateIctTask } from './ictTaskOperatio
 import { createWritePortsContext } from './criticalTasksPersistence.test-support.server';
 import { getActiveIctTasksForLibrary, planIctTaskMove } from '../utils/ictTaskLibrary';
 
+const TASK_A = '00000000-0000-4000-8000-00000000d001';
+const TASK_B = '00000000-0000-4000-8000-00000000d002';
+const TASK_C = '00000000-0000-4000-8000-00000000d003';
+const TASK_OLD = '00000000-0000-4000-8000-00000000d004';
+const TASK_FOREIGN = '00000000-0000-4000-8000-00000000d005';
+const TASK_GONE = '00000000-0000-4000-8000-00000000d006';
+const taskIdForCode = (code: string) => `00000000-0000-4000-8000-0000000000${code.toLowerCase().repeat(2)}`;
+const ordersByCode = (orders: Record<string, number>) =>
+	Object.fromEntries(Object.entries(orders).map(([code, order]) => [taskIdForCode(code), order]));
+
 describe('owned task library operations', () => {
 	it('creates defaults, ignores readonly/unknown input and audits the persisted task', async () => {
 		const ctx = createWritePortsContext();
@@ -50,7 +60,7 @@ describe('owned task library operations', () => {
 		const ctx = createWritePortsContext();
 		ctx.rawStore.seed('ict_tasks', [
 			{
-				id: 'task-a',
+				id: TASK_A,
 				organization_id: 'test-org',
 				task_code: 'RESP-1',
 				title: 'Airway check',
@@ -65,13 +75,13 @@ describe('owned task library operations', () => {
 		]);
 		expect(
 			await updateIctTask(ctx, {
-				id: 'task-a',
+				id: TASK_A,
 				archivedAt: '2026-10-06T00:00:00Z',
 				createdAt: 'changed',
 				organization_id: 'other-org'
 			})
 		).toEqual({
-			id: 'task-a',
+			id: TASK_A,
 			taskCode: 'RESP-1',
 			title: 'Airway check',
 			description: 'Keep notes',
@@ -82,8 +92,8 @@ describe('owned task library operations', () => {
 			archivedAt: '2026-10-06T00:00:00Z',
 			createdAt: '2026-01-01T00:00:00.123456Z'
 		});
-		expect(await updateIctTask(ctx, { id: 'task-a', archivedAt: null, description: null, mos: [] })).toMatchObject({
-			id: 'task-a',
+		expect(await updateIctTask(ctx, { id: TASK_A, archivedAt: null, description: null, mos: [] })).toMatchObject({
+			id: TASK_A,
 			archivedAt: null,
 			description: null,
 			mos: [],
@@ -91,8 +101,8 @@ describe('owned task library operations', () => {
 			sortOrder: 7
 		});
 		expect(ctx.audit.events).toMatchObject([
-			{ action: 'ict_task.updated', resourceType: 'ict_task', resourceId: 'task-a' },
-			{ action: 'ict_task.updated', resourceType: 'ict_task', resourceId: 'task-a' }
+			{ action: 'ict_task.updated', resourceType: 'ict_task', resourceId: TASK_A },
+			{ action: 'ict_task.updated', resourceType: 'ict_task', resourceId: TASK_A }
 		]);
 	});
 
@@ -112,7 +122,7 @@ describe('owned task library operations', () => {
 	it('requires an update ID and validates supplied fields without writing', async () => {
 		const ctx = createWritePortsContext();
 		await expect(updateIctTask(ctx, { title: 'Changed' })).rejects.toMatchObject({ status: 400 });
-		await expect(updateIctTask(ctx, { id: 'task-a', expirationMonths: -1 })).rejects.toMatchObject({ status: 400 });
+		await expect(updateIctTask(ctx, { id: TASK_A, expirationMonths: -1 })).rejects.toMatchObject({ status: 400 });
 		expect(await ctx.rawStore.findMany('ict_tasks', ctx.auth.orgId)).toEqual([]);
 		expect(ctx.audit.events).toEqual([]);
 	});
@@ -137,15 +147,15 @@ describe('owned task library operations', () => {
 			}
 		});
 		ctx.rawStore.seed('ict_tasks', [
-			{ id: 'task-a', organization_id: 'test-org', task_code: 'KEEP', title: 'Retained', archived_at: null }
+			{ id: TASK_A, organization_id: 'test-org', task_code: 'KEEP', title: 'Retained', archived_at: null }
 		]);
 		await expect(createIctTask(ctx, { taskCode: 'NEW', title: 'New' })).rejects.toMatchObject({ status: 403 });
-		await expect(updateIctTask(ctx, { id: 'task-a', title: 'Changed' })).rejects.toMatchObject({ status: 403 });
+		await expect(updateIctTask(ctx, { id: TASK_A, title: 'Changed' })).rejects.toMatchObject({ status: 403 });
 		await expect(
-			reorderIctTasks(ctx, { changes: [{ id: 'task-a', expectedSortOrder: 0, sortOrder: 1 }] })
+			reorderIctTasks(ctx, { changes: [{ id: TASK_A, expectedSortOrder: 0, sortOrder: 1 }] })
 		).rejects.toMatchObject({ status: 403 });
 		expect(await ctx.rawStore.findMany('ict_tasks', ctx.auth.orgId)).toEqual([
-			{ id: 'task-a', organization_id: 'test-org', task_code: 'KEEP', title: 'Retained', archived_at: null }
+			{ id: TASK_A, organization_id: 'test-org', task_code: 'KEEP', title: 'Retained', archived_at: null }
 		]);
 		expect(ctx.audit.events.filter((event) => event.action.startsWith('ict_task.'))).toEqual([]);
 	});
@@ -189,13 +199,13 @@ describe('owned task library operations', () => {
 		await expect(createIctTask({ ...ctx, criticalTaskLibrary }, { taskCode: 'RESP-1', title: 'New' })).rejects.toThrow(
 			'Unavailable'
 		);
-		await expect(updateIctTask({ ...ctx, criticalTaskLibrary }, { id: 'task-a', title: 'Changed' })).rejects.toThrow(
+		await expect(updateIctTask({ ...ctx, criticalTaskLibrary }, { id: TASK_A, title: 'Changed' })).rejects.toThrow(
 			'Unavailable'
 		);
 		await expect(
 			reorderIctTasks(
 				{ ...ctx, criticalTaskLibrary },
-				{ changes: [{ id: 'task-a', expectedSortOrder: 0, sortOrder: 1 }] }
+				{ changes: [{ id: TASK_A, expectedSortOrder: 0, sortOrder: 1 }] }
 			)
 		).rejects.toThrow('Unavailable');
 		expect(ctx.audit.events).toEqual([]);
@@ -208,7 +218,7 @@ describe('task order command', () => {
 		ctx.rawStore.seed(
 			'ict_tasks',
 			['A', 'B', 'C'].map((code) => ({
-				id: code,
+				id: taskIdForCode(code),
 				organization_id: 'test-org',
 				task_code: code,
 				title: code,
@@ -228,24 +238,24 @@ describe('task order command', () => {
 		expect(outcomes.map((outcome) => outcome.status)).toEqual(['fulfilled', 'rejected']);
 		expect(outcomes[1]).toMatchObject({ reason: { status: 409 } });
 		expect(getActiveIctTasksForLibrary(await ctx.criticalTaskLibrary.listCatalog()).map((task) => task.id)).toEqual(
-			reverse ? ['A', 'C', 'B'] : ['B', 'A', 'C']
+			(reverse ? ['A', 'C', 'B'] : ['B', 'A', 'C']).map(taskIdForCode)
 		);
 	});
 
 	const seeded = () => {
 		const ctx = createWritePortsContext();
 		ctx.rawStore.seed('ict_tasks', [
-			{ id: 'task-a', organization_id: 'test-org', task_code: 'A', title: 'A', sort_order: 2, archived_at: null },
-			{ id: 'task-b', organization_id: 'test-org', task_code: 'B', title: 'B', sort_order: 3, archived_at: null },
+			{ id: TASK_A, organization_id: 'test-org', task_code: 'A', title: 'A', sort_order: 2, archived_at: null },
+			{ id: TASK_B, organization_id: 'test-org', task_code: 'B', title: 'B', sort_order: 3, archived_at: null },
 			{
-				id: 'task-old',
+				id: TASK_OLD,
 				organization_id: 'test-org',
 				task_code: 'OLD',
 				title: 'Old',
 				sort_order: 4,
 				archived_at: '2026-01-01'
 			},
-			{ id: 'task-foreign', organization_id: 'other-org', task_code: 'F', title: 'F', sort_order: 3, archived_at: null }
+			{ id: TASK_FOREIGN, organization_id: 'other-org', task_code: 'F', title: 'F', sort_order: 3, archived_at: null }
 		]);
 		return ctx;
 	};
@@ -257,48 +267,45 @@ describe('task order command', () => {
 			])
 		);
 	const swap = [
-		{ id: 'task-b', expectedSortOrder: 3, sortOrder: 2 },
-		{ id: 'task-a', expectedSortOrder: 2, sortOrder: 3 }
+		{ id: TASK_B, expectedSortOrder: 3, sortOrder: 2 },
+		{ id: TASK_A, expectedSortOrder: 2, sortOrder: 3 }
 	];
 	it('acknowledges guards without changing them or auditing them as moves and returns independent copies', async () => {
 		const ctx = seeded();
-		await ctx.rawStore.update('ict_tasks', ctx.auth.orgId, 'task-b', { mos: ['68V'], updated_at: 'retained' });
-		const before = structuredClone(await ctx.rawStore.findOne('ict_tasks', ctx.auth.orgId, { id: 'task-b' }));
+		await ctx.rawStore.update('ict_tasks', ctx.auth.orgId, TASK_B, { mos: ['68V'], updated_at: 'retained' });
+		const before = structuredClone(await ctx.rawStore.findOne('ict_tasks', ctx.auth.orgId, { id: TASK_B }));
 		const saved = await reorderIctTasks(ctx, {
 			changes: [
-				{ id: 'task-b', expectedSortOrder: 3, sortOrder: 3 },
-				{ id: 'task-a', expectedSortOrder: 2, sortOrder: 4 }
+				{ id: TASK_B, expectedSortOrder: 3, sortOrder: 3 },
+				{ id: TASK_A, expectedSortOrder: 2, sortOrder: 4 }
 			]
 		});
 		expect(saved.map(({ id, sortOrder }) => [id, sortOrder])).toEqual([
-			['task-b', 3],
-			['task-a', 4]
+			[TASK_B, 3],
+			[TASK_A, 4]
 		]);
 		saved[0].sortOrder = 99;
 		saved[0].mos.push('11B');
-		expect(await ctx.rawStore.findOne('ict_tasks', ctx.auth.orgId, { id: 'task-b' })).toEqual(before);
-		expect(ctx.audit.events.map((event) => event.resourceId)).toEqual(['task-a']);
+		expect(await ctx.rawStore.findOne('ict_tasks', ctx.auth.orgId, { id: TASK_B })).toEqual(before);
+		expect(ctx.audit.events.map((event) => event.resourceId)).toEqual([TASK_A]);
 		await expect(
-			reorderIctTasks(ctx, { changes: [{ id: 'task-b', expectedSortOrder: 3, sortOrder: 3 }] })
-		).resolves.toMatchObject([{ id: 'task-b', sortOrder: 3, mos: ['68V'] }]);
-		expect(ctx.audit.events.map((event) => event.resourceId)).toEqual(['task-a']);
+			reorderIctTasks(ctx, { changes: [{ id: TASK_B, expectedSortOrder: 3, sortOrder: 3 }] })
+		).resolves.toMatchObject([{ id: TASK_B, sortOrder: 3, mos: ['68V'] }]);
+		expect(ctx.audit.events.map((event) => event.resourceId)).toEqual([TASK_A]);
 	});
 
-	it.each(['task-old', 'task-foreign', 'task-gone'])(
-		'refuses an unavailable unchanged guard %s atomically',
-		async (id) => {
-			const ctx = seeded();
-			await expect(
-				reorderIctTasks(ctx, {
-					changes: [
-						{ id: 'task-a', expectedSortOrder: 2, sortOrder: 5 },
-						{ id, expectedSortOrder: 4, sortOrder: 4 }
-					]
-				})
-			).rejects.toMatchObject({ status: 404 });
-			expect(await sortOrders(ctx)).toEqual({ 'task-a': 2, 'task-b': 3, 'task-old': 4 });
-		}
-	);
+	it.each([TASK_OLD, TASK_FOREIGN, TASK_GONE])('refuses an unavailable unchanged guard %s atomically', async (id) => {
+		const ctx = seeded();
+		await expect(
+			reorderIctTasks(ctx, {
+				changes: [
+					{ id: TASK_A, expectedSortOrder: 2, sortOrder: 5 },
+					{ id, expectedSortOrder: 4, sortOrder: 4 }
+				]
+			})
+		).rejects.toMatchObject({ status: 404 });
+		expect(await sortOrders(ctx)).toEqual({ [TASK_A]: 2, [TASK_B]: 3, [TASK_OLD]: 4 });
+	});
 
 	it.each(['A', 'D'])('refuses a stale unchanged boundary %s without applying the move', async (boundary) => {
 		const ctx = createWritePortsContext();
@@ -311,7 +318,7 @@ describe('task order command', () => {
 				['D', 4],
 				['E', 5]
 			].map(([code, order]) => ({
-				id: code,
+				id: taskIdForCode(code as string),
 				organization_id: 'test-org',
 				task_code: code,
 				title: code,
@@ -322,23 +329,23 @@ describe('task order command', () => {
 		const tasks = getActiveIctTasksForLibrary(await ctx.criticalTaskLibrary.listCatalog());
 		const plan = planIctTaskMove(tasks, 1, 1);
 		if (plan.status !== 'ready') throw new Error('Expected a supported move');
-		await ctx.rawStore.update('ict_tasks', ctx.auth.orgId, boundary, { sort_order: 10 });
+		await ctx.rawStore.update('ict_tasks', ctx.auth.orgId, taskIdForCode(boundary), { sort_order: 10 });
 		await expect(reorderIctTasks(ctx, { changes: plan.changes })).rejects.toMatchObject({ status: 409 });
 		expect(await sortOrders(ctx)).toEqual(
-			boundary === 'A' ? { A: 10, B: 1, C: 1, D: 4, E: 5 } : { A: 0, B: 1, C: 1, D: 10, E: 5 }
+			ordersByCode(boundary === 'A' ? { A: 10, B: 1, C: 1, D: 4, E: 5 } : { A: 0, B: 1, C: 1, D: 10, E: 5 })
 		);
 	});
 
 	it('saves every change and audits each moved task', async () => {
 		const ctx = seeded();
 		expect((await reorderIctTasks(ctx, { changes: swap })).map(({ id, sortOrder }) => [id, sortOrder])).toEqual([
-			['task-b', 2],
-			['task-a', 3]
+			[TASK_B, 2],
+			[TASK_A, 3]
 		]);
-		expect(await sortOrders(ctx)).toEqual({ 'task-a': 3, 'task-b': 2, 'task-old': 4 });
+		expect(await sortOrders(ctx)).toEqual({ [TASK_A]: 3, [TASK_B]: 2, [TASK_OLD]: 4 });
 		expect(ctx.audit.events).toMatchObject([
-			{ action: 'ict_task.reordered', resourceType: 'ict_task', resourceId: 'task-b' },
-			{ action: 'ict_task.reordered', resourceType: 'ict_task', resourceId: 'task-a' }
+			{ action: 'ict_task.reordered', resourceType: 'ict_task', resourceId: TASK_B },
+			{ action: 'ict_task.reordered', resourceType: 'ict_task', resourceId: TASK_A }
 		]);
 	});
 
@@ -347,8 +354,8 @@ describe('task order command', () => {
 		{
 			label: 'an archived task',
 			changes: [
-				{ id: 'task-a', expectedSortOrder: 2, sortOrder: 5 },
-				{ id: 'task-old', expectedSortOrder: 4, sortOrder: 1 }
+				{ id: TASK_A, expectedSortOrder: 2, sortOrder: 5 },
+				{ id: TASK_OLD, expectedSortOrder: 4, sortOrder: 1 }
 			],
 			prior: null,
 			status: 404
@@ -356,8 +363,8 @@ describe('task order command', () => {
 		{
 			label: 'a foreign task',
 			changes: [
-				{ id: 'task-a', expectedSortOrder: 2, sortOrder: 5 },
-				{ id: 'task-foreign', expectedSortOrder: 3, sortOrder: 1 }
+				{ id: TASK_A, expectedSortOrder: 2, sortOrder: 5 },
+				{ id: TASK_FOREIGN, expectedSortOrder: 3, sortOrder: 1 }
 			],
 			prior: null,
 			status: 404
@@ -365,8 +372,8 @@ describe('task order command', () => {
 		{
 			label: 'a missing task',
 			changes: [
-				{ id: 'task-a', expectedSortOrder: 2, sortOrder: 5 },
-				{ id: 'task-gone', expectedSortOrder: 0, sortOrder: 1 }
+				{ id: TASK_A, expectedSortOrder: 2, sortOrder: 5 },
+				{ id: TASK_GONE, expectedSortOrder: 0, sortOrder: 1 }
 			],
 			prior: null,
 			status: 404
@@ -384,31 +391,31 @@ describe('task order command', () => {
 	it('returns each committed position when another valid move finishes before its reply', async () => {
 		const ctx = seeded();
 		const replies = await Promise.all([
-			reorderIctTasks(ctx, { changes: [{ id: 'task-a', expectedSortOrder: 2, sortOrder: 3 }] }),
-			reorderIctTasks(ctx, { changes: [{ id: 'task-a', expectedSortOrder: 3, sortOrder: 4 }] })
+			reorderIctTasks(ctx, { changes: [{ id: TASK_A, expectedSortOrder: 2, sortOrder: 3 }] }),
+			reorderIctTasks(ctx, { changes: [{ id: TASK_A, expectedSortOrder: 3, sortOrder: 4 }] })
 		]);
 
 		expect(replies.map((rows) => rows.map(({ id, sortOrder }) => [id, sortOrder]))).toEqual([
-			[['task-a', 3]],
-			[['task-a', 4]]
+			[[TASK_A, 3]],
+			[[TASK_A, 4]]
 		]);
-		expect(await sortOrders(ctx)).toEqual({ 'task-a': 4, 'task-b': 3, 'task-old': 4 });
+		expect(await sortOrders(ctx)).toEqual({ [TASK_A]: 4, [TASK_B]: 3, [TASK_OLD]: 4 });
 	});
 
 	it('lets one of two overlapping moves from the same view win and leaves the other unapplied', async () => {
 		const ctx = createWritePortsContext();
 		ctx.rawStore.seed('ict_tasks', [
-			{ id: 'task-a', organization_id: 'test-org', task_code: 'A', title: 'A', sort_order: 0, archived_at: null },
-			{ id: 'task-b', organization_id: 'test-org', task_code: 'B', title: 'B', sort_order: 1, archived_at: null },
-			{ id: 'task-c', organization_id: 'test-org', task_code: 'C', title: 'C', sort_order: 2, archived_at: null }
+			{ id: TASK_A, organization_id: 'test-org', task_code: 'A', title: 'A', sort_order: 0, archived_at: null },
+			{ id: TASK_B, organization_id: 'test-org', task_code: 'B', title: 'B', sort_order: 1, archived_at: null },
+			{ id: TASK_C, organization_id: 'test-org', task_code: 'C', title: 'C', sort_order: 2, archived_at: null }
 		]);
 		const withB = [
-			{ id: 'task-b', expectedSortOrder: 1, sortOrder: 0 },
-			{ id: 'task-a', expectedSortOrder: 0, sortOrder: 1 }
+			{ id: TASK_B, expectedSortOrder: 1, sortOrder: 0 },
+			{ id: TASK_A, expectedSortOrder: 0, sortOrder: 1 }
 		];
 		const withC = [
-			{ id: 'task-c', expectedSortOrder: 2, sortOrder: 0 },
-			{ id: 'task-a', expectedSortOrder: 0, sortOrder: 2 }
+			{ id: TASK_C, expectedSortOrder: 2, sortOrder: 0 },
+			{ id: TASK_A, expectedSortOrder: 0, sortOrder: 2 }
 		];
 
 		const outcomes = await Promise.allSettled([
@@ -418,20 +425,20 @@ describe('task order command', () => {
 
 		expect(outcomes.map((outcome) => outcome.status)).toEqual(['fulfilled', 'rejected']);
 		expect(outcomes[1]).toMatchObject({ reason: { status: 409 } });
-		expect(await sortOrders(ctx)).toEqual({ 'task-a': 1, 'task-b': 0, 'task-c': 2 });
-		expect(ctx.audit.events.map((event) => event.resourceId)).toEqual(['task-b', 'task-a']);
+		expect(await sortOrders(ctx)).toEqual({ [TASK_A]: 1, [TASK_B]: 0, [TASK_C]: 2 });
+		expect(ctx.audit.events.map((event) => event.resourceId)).toEqual([TASK_B, TASK_A]);
 	});
 
 	it.each([
 		{},
 		{ changes: [] },
-		{ changes: [{ id: 'task-a', expectedSortOrder: 2, sortOrder: -1 }] },
-		{ changes: [{ id: 'task-a', expectedSortOrder: 2, sortOrder: 1.5 }] },
-		{ changes: [{ id: 'task-a', expectedSortOrder: 2, sortOrder: 2147483648 }] },
-		{ changes: [{ id: 'task-a', expectedSortOrder: 2147483648, sortOrder: 1 }] },
+		{ changes: [{ id: TASK_A, expectedSortOrder: 2, sortOrder: -1 }] },
+		{ changes: [{ id: TASK_A, expectedSortOrder: 2, sortOrder: 1.5 }] },
+		{ changes: [{ id: TASK_A, expectedSortOrder: 2, sortOrder: 2147483648 }] },
+		{ changes: [{ id: TASK_A, expectedSortOrder: 2147483648, sortOrder: 1 }] },
 		{
 			changes: Array.from({ length: 1001 }, (_, index) => ({
-				id: `task-${index}`,
+				id: `00000000-0000-4000-8000-${index.toString(16).padStart(12, '0')}`,
 				expectedSortOrder: 0,
 				sortOrder: 1
 			}))
@@ -440,6 +447,6 @@ describe('task order command', () => {
 	])('rejects invalid changes %j before effects', async (input) => {
 		const ctx = seeded();
 		await expect(reorderIctTasks(ctx, input)).rejects.toMatchObject({ status: 400 });
-		expect(await sortOrders(ctx)).toEqual({ 'task-a': 2, 'task-b': 3, 'task-old': 4 });
+		expect(await sortOrders(ctx)).toEqual({ [TASK_A]: 2, [TASK_B]: 3, [TASK_OLD]: 4 });
 	});
 });

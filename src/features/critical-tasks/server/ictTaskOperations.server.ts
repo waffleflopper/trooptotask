@@ -4,7 +4,8 @@ import { requireFeaturePolicy } from '$lib/access/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
-import type { CriticalTaskLibraryPersistence } from '../contracts';
+import { uuidSchema } from '$lib/utils/inputSchemas';
+import { ICT_TASK_UNAVAILABLE_MESSAGE, type CriticalTaskLibraryPersistence } from '../contracts';
 import { ICT_TASK_ORDER_MAX_CHANGES, ICT_TASK_SORT_ORDER_MAX } from '../criticalTasks.types';
 
 const createSchema = z.object({
@@ -17,12 +18,12 @@ const createSchema = z.object({
 	sortOrder: z.number().int().min(0).optional(),
 	archivedAt: z.string().nullable().optional()
 });
-const updateSchema = createSchema.partial().extend({ id: z.string() });
+const updateSchema = createSchema.partial().extend({ id: uuidSchema });
 const reorderSchema = z.object({
 	changes: z
 		.array(
 			z.object({
-				id: z.string(),
+				id: uuidSchema,
 				expectedSortOrder: z.number().int().min(0).max(ICT_TASK_SORT_ORDER_MAX),
 				sortOrder: z.number().int().min(0).max(ICT_TASK_SORT_ORDER_MAX)
 			})
@@ -67,6 +68,7 @@ export async function updateIctTask(ctx: IctTaskWriteContext, input: Record<stri
 		id
 	);
 	const task = await ctx.criticalTaskLibrary.update(id, patch);
+	if (!task) fail(404, ICT_TASK_UNAVAILABLE_MESSAGE);
 	ctx.audit.log({ action: 'ict_task.updated', resourceType: 'ict_task', resourceId: id });
 	return task;
 }

@@ -10,6 +10,20 @@ import {
 	createRequestSignInRosterCreationContext
 } from '$lib/server/adapters/requestContexts.server';
 import { json, type RequestEvent } from '@sveltejs/kit';
+import { fail } from '$lib/errors';
+import { isDateOnly } from '$lib/utils/dates';
+import { DATE_ONLY_MESSAGE } from '$lib/utils/inputSchemas';
+
+/** A missing or malformed paging value falls back to 0 rather than reaching the query as NaN. */
+function nonNegativeIntegerParam(value: string | null): number {
+	const parsed = Number(value);
+	return Number.isInteger(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function dateParam(value: string | null): string | null {
+	if (value && !isDateOnly(value)) fail(400, DATE_ONLY_MESSAGE);
+	return value;
+}
 
 export const _getConfig: RouteConfig<
 	SignInRosterListInput,
@@ -21,10 +35,10 @@ export const _getConfig: RouteConfig<
 	policyResource: { kind: 'unscoped' },
 	parseInput: (event: RequestEvent) => ({
 		title: event.url.searchParams.get('title') || '',
-		from: event.url.searchParams.get('from'),
-		to: event.url.searchParams.get('to'),
-		limit: Math.min(parseInt(event.url.searchParams.get('limit') || '20'), 100),
-		offset: parseInt(event.url.searchParams.get('offset') || '0')
+		from: dateParam(event.url.searchParams.get('from')),
+		to: dateParam(event.url.searchParams.get('to')),
+		limit: Math.min(nonNegativeIntegerParam(event.url.searchParams.get('limit')) || 20, 100),
+		offset: nonNegativeIntegerParam(event.url.searchParams.get('offset'))
 	}),
 	fn: (ctx, input) => listSignInRosters(ctx, input)
 };

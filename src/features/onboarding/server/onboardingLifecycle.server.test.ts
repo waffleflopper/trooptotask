@@ -13,6 +13,23 @@ import type {
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import { startOnboarding, cancelOnboarding, reopenOnboarding, completeOnboarding } from './onboardingLifecycle.server';
 
+const ONBOARDING_ID = '00000000-0000-4000-8000-000000000010';
+const PERSON_1 = '00000000-0000-4000-8000-000000000011';
+const PERSON_2 = '00000000-0000-4000-8000-000000000012';
+const OTHER_PERSON = '00000000-0000-4000-8000-000000000013';
+const TEMPLATE_1 = '00000000-0000-4000-8000-000000000014';
+const OTHER_TEMPLATE = '00000000-0000-4000-8000-000000000015';
+const TEMPLATE_STEP_1 = '00000000-0000-4000-8000-000000000016';
+const TEMPLATE_STEP_2 = '00000000-0000-4000-8000-000000000017';
+const TEMPLATE_STEP_3 = '00000000-0000-4000-8000-000000000018';
+const CPR_TRAINING_TYPE = '00000000-0000-4000-8000-000000000019';
+const OTHER_TRAINING_TYPE = '00000000-0000-4000-8000-00000000001a';
+const STEP_1 = '00000000-0000-4000-8000-00000000001b';
+const STEP_2 = '00000000-0000-4000-8000-00000000001c';
+const STEP_3 = '00000000-0000-4000-8000-00000000001d';
+const GROUP_1 = '00000000-0000-4000-8000-00000000001e';
+const GROUP_2 = '00000000-0000-4000-8000-00000000001f';
+
 const operatorCapabilityMap: CapabilityMap = {
 	calendar: 'none',
 	personnel: 'none',
@@ -30,19 +47,19 @@ function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0])
 }
 
 const cancelledSaved: OnboardingLifecycleTransitionResult = {
-	id: 'ob-1',
+	id: ONBOARDING_ID,
 	status: 'cancelled',
 	cancelled_at: '2026-10-01T12:00:00.123Z',
 	completed_at: null
 };
 const completedSaved: OnboardingLifecycleTransitionResult = {
-	id: 'ob-1',
+	id: ONBOARDING_ID,
 	status: 'completed',
 	cancelled_at: null,
 	completed_at: '2026-10-01'
 };
 const reopenedSaved: OnboardingLifecycleTransitionResult = {
-	id: 'ob-1',
+	id: ONBOARDING_ID,
 	status: 'in_progress',
 	cancelled_at: null,
 	completed_at: null
@@ -61,14 +78,14 @@ function buildTransitionContext(
 
 function seedTemplateWithSteps(ctx: ReturnType<typeof buildContext>) {
 	ctx.store.seed('onboarding_templates', [
-		{ id: 'tmpl-1', name: 'New Soldier Checklist', organization_id: 'test-org' }
+		{ id: TEMPLATE_1, name: 'New Soldier Checklist', organization_id: 'test-org' }
 	]);
 	ctx.store.seed(
 		'onboarding_template_steps',
 		[
 			{
-				id: 'ts-1',
-				template_id: 'tmpl-1',
+				id: TEMPLATE_STEP_1,
+				template_id: TEMPLATE_1,
 				name: 'Get ID card',
 				step_type: 'checkbox',
 				training_type_id: null,
@@ -77,8 +94,8 @@ function seedTemplateWithSteps(ctx: ReturnType<typeof buildContext>) {
 				organization_id: 'test-org'
 			},
 			{
-				id: 'ts-2',
-				template_id: 'tmpl-1',
+				id: TEMPLATE_STEP_2,
+				template_id: TEMPLATE_1,
 				name: 'CAC Request',
 				step_type: 'paperwork',
 				training_type_id: null,
@@ -87,11 +104,11 @@ function seedTemplateWithSteps(ctx: ReturnType<typeof buildContext>) {
 				organization_id: 'test-org'
 			},
 			{
-				id: 'ts-3',
-				template_id: 'tmpl-1',
+				id: TEMPLATE_STEP_3,
+				template_id: TEMPLATE_1,
 				name: 'CPR Training',
 				step_type: 'training',
-				training_type_id: 'tt-cpr',
+				training_type_id: CPR_TRAINING_TYPE,
 				stages: null,
 				sort_order: 2,
 				organization_id: 'test-org'
@@ -103,8 +120,8 @@ function seedTemplateWithSteps(ctx: ReturnType<typeof buildContext>) {
 const savedPacket: OnboardingPacketCreationResult = {
 	onboarding: {
 		id: 'saved-packet',
-		personnel_id: 'p-1',
-		template_id: 'tmpl-1',
+		personnel_id: PERSON_1,
+		template_id: TEMPLATE_1,
 		status: 'in_progress',
 		started_at: '2026-03-15',
 		completed_at: null,
@@ -114,7 +131,7 @@ const savedPacket: OnboardingPacketCreationResult = {
 		{
 			id: 'saved-checkbox',
 			onboarding_id: 'saved-packet',
-			template_step_id: 'ts-1',
+			template_step_id: TEMPLATE_STEP_1,
 			step_name: 'Get ID card',
 			step_type: 'checkbox',
 			training_type_id: null,
@@ -129,7 +146,7 @@ const savedPacket: OnboardingPacketCreationResult = {
 		{
 			id: 'saved-paperwork',
 			onboarding_id: 'saved-packet',
-			template_step_id: 'ts-2',
+			template_step_id: TEMPLATE_STEP_2,
 			step_name: 'CAC Request',
 			step_type: 'paperwork',
 			training_type_id: null,
@@ -144,10 +161,10 @@ const savedPacket: OnboardingPacketCreationResult = {
 		{
 			id: 'saved-training',
 			onboarding_id: 'saved-packet',
-			template_step_id: 'ts-3',
+			template_step_id: TEMPLATE_STEP_3,
 			step_name: 'CPR Training',
 			step_type: 'training',
-			training_type_id: 'tt-cpr',
+			training_type_id: CPR_TRAINING_TYPE,
 			stages: null,
 			sort_order: 2,
 			completed: false,
@@ -163,7 +180,7 @@ const savedPacket: OnboardingPacketCreationResult = {
 function buildStartContext(overrides?: Parameters<typeof buildContext>[0], saved = savedPacket) {
 	const create = vi.fn<OnboardingPacketCreationPort['create']>().mockResolvedValue(saved);
 	const ctx = buildContext({ ...overrides, onboardingPacketCreation: { create } });
-	ctx.store.seed('personnel', [{ id: 'p-1', group_id: 'g-1', organization_id: 'test-org' }]);
+	ctx.store.seed('personnel', [{ id: PERSON_1, group_id: GROUP_1, organization_id: 'test-org' }]);
 	for (const method of ['insert', 'insertMany', 'delete'] as const) {
 		vi.spyOn(ctx.store, method).mockRejectedValue(new Error('Generic Start writes must not run'));
 	}
@@ -177,22 +194,26 @@ describe('startOnboarding', () => {
 		ctx.store.seed('onboarding_template_steps', [
 			{
 				id: 'foreign-definition',
-				template_id: 'other-template',
+				template_id: OTHER_TEMPLATE,
 				name: 'Other checklist',
 				step_type: 'checkbox',
 				sort_order: -1,
 				organization_id: 'test-org'
 			}
 		]);
-		const result = await startOnboarding(ctx, { personnelId: 'p-1', templateId: 'tmpl-1', startedAt: '2026-03-14' });
+		const result = await startOnboarding(ctx, {
+			personnelId: PERSON_1,
+			templateId: TEMPLATE_1,
+			startedAt: '2026-03-14'
+		});
 
 		expect(ctx.create).toHaveBeenCalledWith('test-org', {
-			personnelId: 'p-1',
-			templateId: 'tmpl-1',
+			personnelId: PERSON_1,
+			templateId: TEMPLATE_1,
 			startedAt: '2026-03-14',
 			steps: [
 				{
-					template_step_id: 'ts-1',
+					template_step_id: TEMPLATE_STEP_1,
 					step_name: 'Get ID card',
 					step_type: 'checkbox',
 					training_type_id: null,
@@ -201,7 +222,7 @@ describe('startOnboarding', () => {
 					completed: false
 				},
 				{
-					template_step_id: 'ts-2',
+					template_step_id: TEMPLATE_STEP_2,
 					step_name: 'CAC Request',
 					step_type: 'paperwork',
 					training_type_id: null,
@@ -210,10 +231,10 @@ describe('startOnboarding', () => {
 					completed: false
 				},
 				{
-					template_step_id: 'ts-3',
+					template_step_id: TEMPLATE_STEP_3,
 					step_name: 'CPR Training',
 					step_type: 'training',
-					training_type_id: 'tt-cpr',
+					training_type_id: CPR_TRAINING_TYPE,
 					stages: null,
 					sort_order: 2,
 					completed: false
@@ -222,8 +243,8 @@ describe('startOnboarding', () => {
 		});
 		expect(result).toEqual({
 			id: 'saved-packet',
-			personnelId: 'p-1',
-			templateId: 'tmpl-1',
+			personnelId: PERSON_1,
+			templateId: TEMPLATE_1,
 			status: 'in_progress',
 			startedAt: '2026-03-15',
 			completedAt: null,
@@ -232,7 +253,7 @@ describe('startOnboarding', () => {
 				{
 					id: 'saved-checkbox',
 					onboardingId: 'saved-packet',
-					templateStepId: 'ts-1',
+					templateStepId: TEMPLATE_STEP_1,
 					stepName: 'Get ID card',
 					stepType: 'checkbox',
 					trainingTypeId: null,
@@ -247,7 +268,7 @@ describe('startOnboarding', () => {
 				{
 					id: 'saved-paperwork',
 					onboardingId: 'saved-packet',
-					templateStepId: 'ts-2',
+					templateStepId: TEMPLATE_STEP_2,
 					stepName: 'CAC Request',
 					stepType: 'paperwork',
 					trainingTypeId: null,
@@ -262,10 +283,10 @@ describe('startOnboarding', () => {
 				{
 					id: 'saved-training',
 					onboardingId: 'saved-packet',
-					templateStepId: 'ts-3',
+					templateStepId: TEMPLATE_STEP_3,
 					stepName: 'CPR Training',
 					stepType: 'training',
-					trainingTypeId: 'tt-cpr',
+					trainingTypeId: CPR_TRAINING_TYPE,
 					stages: null,
 					sortOrder: 2,
 					completed: false,
@@ -281,7 +302,7 @@ describe('startOnboarding', () => {
 				action: 'onboarding.started',
 				resourceType: 'personnel_onboarding',
 				resourceId: 'saved-packet',
-				details: { subject_type: 'personnel', subject_id: 'p-1', template_id: 'tmpl-1' }
+				details: { subject_type: 'personnel', subject_id: PERSON_1, template_id: TEMPLATE_1 }
 			})
 		]);
 	});
@@ -294,7 +315,7 @@ describe('startOnboarding', () => {
 		try {
 			const ctx = buildStartContext();
 			seedTemplateWithSteps(ctx);
-			await startOnboarding(ctx, { personnelId: 'p-1', templateId: 'tmpl-1' });
+			await startOnboarding(ctx, { personnelId: PERSON_1, templateId: TEMPLATE_1 });
 			expect(ctx.create).toHaveBeenCalledWith('test-org', expect.objectContaining({ startedAt: '2026-05-04' }));
 		} finally {
 			vi.useRealTimers();
@@ -309,9 +330,9 @@ describe('startOnboarding', () => {
 			const ctx = buildStartContext();
 			seedTemplateWithSteps(ctx);
 			const training = vi.spyOn(ctx.trainingOnboardingReferences, 'completedTypeIds');
-			await expect(startOnboarding(ctx, { personnelId: 'p-1', templateId: 'tmpl-1', startedAt })).rejects.toMatchObject(
-				{ status: 400 }
-			);
+			await expect(
+				startOnboarding(ctx, { personnelId: PERSON_1, templateId: TEMPLATE_1, startedAt })
+			).rejects.toMatchObject({ status: 400 });
 			expect(training).not.toHaveBeenCalled();
 			expect(ctx.create).not.toHaveBeenCalled();
 			expect(ctx.audit.events).toEqual([]);
@@ -326,7 +347,7 @@ describe('startOnboarding', () => {
 			const reads = vi.spyOn(ctx.store, 'findMany');
 			const training = vi.spyOn(ctx.trainingOnboardingReferences, 'completedTypeIds');
 			await expect(
-				startOnboarding(ctx, { personnelId: 'p-1', templateId: templateId as string })
+				startOnboarding(ctx, { personnelId: PERSON_1, templateId: templateId as string })
 			).rejects.toMatchObject({ status: 400 });
 			expect(reads.mock.calls.filter(([table]) => table === 'onboarding_template_steps')).toEqual([]);
 			expect(training).not.toHaveBeenCalled();
@@ -339,7 +360,7 @@ describe('startOnboarding', () => {
 		const ctx = buildStartContext();
 		seedTemplateWithSteps(ctx);
 		seedOnboarding(ctx);
-		await expect(startOnboarding(ctx, { personnelId: 'p-1', templateId: 'tmpl-1' })).rejects.toMatchObject({
+		await expect(startOnboarding(ctx, { personnelId: PERSON_1, templateId: TEMPLATE_1 })).rejects.toMatchObject({
 			status: 409
 		});
 		expect(ctx.create).not.toHaveBeenCalled();
@@ -350,10 +371,10 @@ describe('startOnboarding', () => {
 		const ctx = buildStartContext();
 		seedTemplateWithSteps(ctx);
 		seedOnboarding(ctx, { status: 'cancelled', cancelled_at: '2026-03-01T00:00:00Z' });
-		await expect(startOnboarding(ctx, { personnelId: 'p-1', templateId: 'tmpl-1' })).resolves.toMatchObject({
+		await expect(startOnboarding(ctx, { personnelId: PERSON_1, templateId: TEMPLATE_1 })).resolves.toMatchObject({
 			id: 'saved-packet'
 		});
-		await expect(ctx.store.findOne('personnel_onboardings', 'test-org', { id: 'ob-1' })).resolves.toMatchObject({
+		await expect(ctx.store.findOne('personnel_onboardings', 'test-org', { id: ONBOARDING_ID })).resolves.toMatchObject({
 			status: 'cancelled',
 			cancelled_at: '2026-03-01T00:00:00Z'
 		});
@@ -369,7 +390,7 @@ describe('startOnboarding', () => {
 					reject = fail;
 				})
 		);
-		const pending = startOnboarding(ctx, { personnelId: 'p-1', templateId: 'tmpl-1' });
+		const pending = startOnboarding(ctx, { personnelId: PERSON_1, templateId: TEMPLATE_1 });
 		const failure = expect(pending).rejects.toThrow('Training unavailable');
 		await vi.waitFor(() => expect(reject).toBeTypeOf('function'));
 		expect(ctx.create).not.toHaveBeenCalled();
@@ -385,24 +406,24 @@ describe('startOnboarding', () => {
 	it('uses only the target Person and catalog Training IDs, including expired matching presence', async () => {
 		const ctx = buildStartContext();
 		seedTemplateWithSteps(ctx);
-		ctx.store.seed('training_types', [{ id: 'tt-cpr', name: 'CPR', organization_id: 'test-org' }]);
+		ctx.store.seed('training_types', [{ id: CPR_TRAINING_TYPE, name: 'CPR', organization_id: 'test-org' }]);
 		ctx.store.seed('personnel_trainings', [
 			{
 				id: 'expired',
-				personnel_id: 'p-1',
-				training_type_id: 'tt-cpr',
+				personnel_id: PERSON_1,
+				training_type_id: CPR_TRAINING_TYPE,
 				expiration_date: '2020-01-01',
 				organization_id: 'test-org'
 			},
-			{ id: 'unrelated', personnel_id: 'p-other', training_type_id: 'tt-cpr', organization_id: 'test-org' }
+			{ id: 'unrelated', personnel_id: OTHER_PERSON, training_type_id: CPR_TRAINING_TYPE, organization_id: 'test-org' }
 		]);
 		const training = vi.spyOn(ctx.trainingOnboardingReferences, 'completedTypeIds');
-		await startOnboarding(ctx, { personnelId: 'p-1', templateId: 'tmpl-1' });
-		expect(training).toHaveBeenCalledWith(ctx.auth, ['p-1'], ['tt-cpr']);
+		await startOnboarding(ctx, { personnelId: PERSON_1, templateId: TEMPLATE_1 });
+		expect(training).toHaveBeenCalledWith(ctx.auth, [PERSON_1], [CPR_TRAINING_TYPE]);
 		expect(ctx.create).toHaveBeenCalledWith(
 			'test-org',
 			expect.objectContaining({
-				steps: expect.arrayContaining([expect.objectContaining({ template_step_id: 'ts-3', completed: true })])
+				steps: expect.arrayContaining([expect.objectContaining({ template_step_id: TEMPLATE_STEP_3, completed: true })])
 			})
 		);
 	});
@@ -410,16 +431,23 @@ describe('startOnboarding', () => {
 	it('does not complete Training from another Person or an unmatched type', async () => {
 		const ctx = buildStartContext();
 		seedTemplateWithSteps(ctx);
-		ctx.store.seed('training_types', [{ id: 'tt-cpr', name: 'CPR', organization_id: 'test-org' }]);
+		ctx.store.seed('training_types', [{ id: CPR_TRAINING_TYPE, name: 'CPR', organization_id: 'test-org' }]);
 		ctx.store.seed('personnel_trainings', [
-			{ id: 'another-person', personnel_id: 'p-other', training_type_id: 'tt-cpr', organization_id: 'test-org' },
-			{ id: 'another-type', personnel_id: 'p-1', training_type_id: 'tt-other', organization_id: 'test-org' }
+			{
+				id: 'another-person',
+				personnel_id: OTHER_PERSON,
+				training_type_id: CPR_TRAINING_TYPE,
+				organization_id: 'test-org'
+			},
+			{ id: 'another-type', personnel_id: PERSON_1, training_type_id: OTHER_TRAINING_TYPE, organization_id: 'test-org' }
 		]);
-		await startOnboarding(ctx, { personnelId: 'p-1', templateId: 'tmpl-1' });
+		await startOnboarding(ctx, { personnelId: PERSON_1, templateId: TEMPLATE_1 });
 		expect(ctx.create).toHaveBeenCalledWith(
 			'test-org',
 			expect.objectContaining({
-				steps: expect.arrayContaining([expect.objectContaining({ template_step_id: 'ts-3', completed: false })])
+				steps: expect.arrayContaining([
+					expect.objectContaining({ template_step_id: TEMPLATE_STEP_3, completed: false })
+				])
 			})
 		);
 	});
@@ -427,15 +455,15 @@ describe('startOnboarding', () => {
 	it('creates a valid configured empty template without querying Training or requiring snapshots', async () => {
 		const ctx = buildStartContext(undefined, { ...savedPacket, steps: [] });
 		ctx.store.seed('onboarding_templates', [
-			{ id: 'tmpl-1', name: 'Empty configured template', organization_id: 'test-org' }
+			{ id: TEMPLATE_1, name: 'Empty configured template', organization_id: 'test-org' }
 		]);
 		const training = vi.spyOn(ctx.trainingOnboardingReferences, 'completedTypeIds');
 		await expect(
-			startOnboarding(ctx, { personnelId: 'p-1', templateId: 'tmpl-1', startedAt: '2026-03-15' })
+			startOnboarding(ctx, { personnelId: PERSON_1, templateId: TEMPLATE_1, startedAt: '2026-03-15' })
 		).resolves.toMatchObject({ id: 'saved-packet', steps: [] });
 		expect(ctx.create).toHaveBeenCalledWith('test-org', {
-			personnelId: 'p-1',
-			templateId: 'tmpl-1',
+			personnelId: PERSON_1,
+			templateId: TEMPLATE_1,
 			startedAt: '2026-03-15',
 			steps: []
 		});
@@ -448,7 +476,7 @@ describe('startOnboarding', () => {
 				role: 'member' as const,
 				isPrivileged: false,
 				capabilityMap: operatorCapabilityMap,
-				scopeSet: { kind: 'groups' as const, groupIds: ['g-1'] },
+				scopeSet: { kind: 'groups' as const, groupIds: [GROUP_1] },
 				requireEdit() {
 					throw new Error('Legacy edit gate must not run');
 				}
@@ -462,13 +490,13 @@ describe('startOnboarding', () => {
 				throw new Error('Generic foreign-owner read must not run');
 			return originalRead(table, orgId, filters, options);
 		});
-		await expect(startOnboarding(allowed, { personnelId: 'p-1', templateId: 'tmpl-1' })).resolves.toMatchObject({
+		await expect(startOnboarding(allowed, { personnelId: PERSON_1, templateId: TEMPLATE_1 })).resolves.toMatchObject({
 			id: 'saved-packet'
 		});
 
 		const denied = buildStartContext(overrides);
-		denied.store.seed('personnel', [{ id: 'p-2', group_id: 'g-2', organization_id: 'test-org' }]);
-		await expect(startOnboarding(denied, { personnelId: 'p-2', templateId: 'tmpl-1' })).rejects.toMatchObject({
+		denied.store.seed('personnel', [{ id: PERSON_2, group_id: GROUP_2, organization_id: 'test-org' }]);
+		await expect(startOnboarding(denied, { personnelId: PERSON_2, templateId: TEMPLATE_1 })).rejects.toMatchObject({
 			status: 403
 		});
 		expect(denied.create).not.toHaveBeenCalled();
@@ -486,7 +514,7 @@ describe('startOnboarding', () => {
 			auth: { role: 'member', isPrivileged: false, capabilityMap: { ...operatorCapabilityMap, onboarding: 'view' } }
 		});
 		await expect(
-			startOnboarding(ctx, { personnelId: 'p-1', templateId: null as unknown as string })
+			startOnboarding(ctx, { personnelId: PERSON_1, templateId: null as unknown as string })
 		).rejects.toMatchObject({ status: 403 });
 		expect(ctx.create).not.toHaveBeenCalled();
 		expect(ctx.audit.events).toEqual([expect.objectContaining({ action: 'policy.denied' })]);
@@ -500,7 +528,7 @@ describe('startOnboarding', () => {
 		const ctx = buildStartContext();
 		seedTemplateWithSteps(ctx);
 		ctx.create.mockRejectedValue(error);
-		await expect(startOnboarding(ctx, { personnelId: 'p-1', templateId: 'tmpl-1' })).rejects.toBe(error);
+		await expect(startOnboarding(ctx, { personnelId: PERSON_1, templateId: TEMPLATE_1 })).rejects.toBe(error);
 		expect(ctx.store.insert).not.toHaveBeenCalled();
 		expect(ctx.store.insertMany).not.toHaveBeenCalled();
 		expect(ctx.store.delete).not.toHaveBeenCalled();
@@ -510,7 +538,10 @@ describe('startOnboarding', () => {
 	it('fails explicitly when no creation provider is bound', async () => {
 		const ctx = buildStartContext();
 		await expect(
-			startOnboarding({ ...ctx, onboardingPacketCreation: undefined }, { personnelId: 'p-1', templateId: 'tmpl-1' })
+			startOnboarding(
+				{ ...ctx, onboardingPacketCreation: undefined },
+				{ personnelId: PERSON_1, templateId: TEMPLATE_1 }
+			)
 		).rejects.toThrow('Bind the owned Onboarding packet creation provider');
 		expect(ctx.audit.events).toEqual([]);
 	});
@@ -520,7 +551,7 @@ describe('startOnboarding', () => {
 		async (factory) => {
 			const ctx = factory();
 			expect(ctx.onboardingPacketCreation).toBeDefined();
-			await expect(startOnboarding(ctx, { personnelId: 'p-1', templateId: 'tmpl-1' })).rejects.toThrow(
+			await expect(startOnboarding(ctx, { personnelId: PERSON_1, templateId: TEMPLATE_1 })).rejects.toThrow(
 				'Bind the owned Onboarding packet creation provider'
 			);
 		}
@@ -530,9 +561,9 @@ describe('startOnboarding', () => {
 function seedOnboarding(ctx: ReturnType<typeof buildContext>, overrides?: Record<string, unknown>) {
 	ctx.store.seed('personnel_onboardings', [
 		{
-			id: 'ob-1',
-			personnel_id: 'p-1',
-			template_id: 'tmpl-1',
+			id: ONBOARDING_ID,
+			personnel_id: PERSON_1,
+			template_id: TEMPLATE_1,
 			status: 'in_progress',
 			started_at: '2026-01-01T00:00:00Z',
 			completed_at: null,
@@ -548,7 +579,7 @@ describe('cancelOnboarding', () => {
 		const ctx = buildTransitionContext(cancelledSaved);
 		seedOnboarding(ctx);
 
-		const result = await cancelOnboarding(ctx, 'ob-1');
+		const result = await cancelOnboarding(ctx, ONBOARDING_ID);
 
 		expect(result.status).toBe('cancelled');
 		expect(result.cancelledAt).toBeTruthy();
@@ -565,27 +596,27 @@ describe('cancelOnboarding', () => {
 		const ctx = buildTransitionContext(cancelledSaved);
 		seedOnboarding(ctx, { status: 'completed', completed_at: '2026-03-01T00:00:00Z' });
 
-		await expect(cancelOnboarding(ctx, 'ob-1')).rejects.toThrow('Only in-progress onboardings can be cancelled');
+		await expect(cancelOnboarding(ctx, ONBOARDING_ID)).rejects.toThrow('Only in-progress onboardings can be cancelled');
 	});
 
 	it('rejects cancelling an already cancelled onboarding', async () => {
 		const ctx = buildTransitionContext(cancelledSaved);
 		seedOnboarding(ctx, { status: 'cancelled', cancelled_at: '2026-03-01T00:00:00Z' });
 
-		await expect(cancelOnboarding(ctx, 'ob-1')).rejects.toThrow('Only in-progress onboardings can be cancelled');
+		await expect(cancelOnboarding(ctx, ONBOARDING_ID)).rejects.toThrow('Only in-progress onboardings can be cancelled');
 	});
 
 	it('emits audit log', async () => {
 		const ctx = buildTransitionContext(cancelledSaved);
 		seedOnboarding(ctx);
 
-		await cancelOnboarding(ctx, 'ob-1');
+		await cancelOnboarding(ctx, ONBOARDING_ID);
 
 		expect(ctx.audit.events).toHaveLength(1);
 		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'onboarding.cancelled',
 			resourceType: 'personnel_onboarding',
-			resourceId: 'ob-1'
+			resourceId: ONBOARDING_ID
 		});
 	});
 });
@@ -595,7 +626,7 @@ describe('reopenOnboarding', () => {
 		const ctx = buildTransitionContext(reopenedSaved);
 		seedOnboarding(ctx, { status: 'cancelled', cancelled_at: '2026-03-01T00:00:00Z' });
 
-		const result = await reopenOnboarding(ctx, 'ob-1');
+		const result = await reopenOnboarding(ctx, ONBOARDING_ID);
 
 		expect(result.status).toBe('in_progress');
 		expect(result.cancelledAt).toBeNull();
@@ -606,27 +637,27 @@ describe('reopenOnboarding', () => {
 		const ctx = buildTransitionContext(reopenedSaved);
 		seedOnboarding(ctx); // status: in_progress
 
-		await expect(reopenOnboarding(ctx, 'ob-1')).rejects.toThrow('Only cancelled onboardings can be reopened');
+		await expect(reopenOnboarding(ctx, ONBOARDING_ID)).rejects.toThrow('Only cancelled onboardings can be reopened');
 	});
 
 	it('rejects reopening a completed onboarding', async () => {
 		const ctx = buildTransitionContext(reopenedSaved);
 		seedOnboarding(ctx, { status: 'completed', completed_at: '2026-03-01T00:00:00Z' });
 
-		await expect(reopenOnboarding(ctx, 'ob-1')).rejects.toThrow('Only cancelled onboardings can be reopened');
+		await expect(reopenOnboarding(ctx, ONBOARDING_ID)).rejects.toThrow('Only cancelled onboardings can be reopened');
 	});
 
 	it('emits audit log', async () => {
 		const ctx = buildTransitionContext(reopenedSaved);
 		seedOnboarding(ctx, { status: 'cancelled', cancelled_at: '2026-03-01T00:00:00Z' });
 
-		await reopenOnboarding(ctx, 'ob-1');
+		await reopenOnboarding(ctx, ONBOARDING_ID);
 
 		expect(ctx.audit.events).toHaveLength(1);
 		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'onboarding.reopened',
 			resourceType: 'personnel_onboarding',
-			resourceId: 'ob-1'
+			resourceId: ONBOARDING_ID
 		});
 	});
 });
@@ -634,8 +665,8 @@ describe('reopenOnboarding', () => {
 function seedSteps(ctx: ReturnType<typeof buildContext>, overrides?: Record<string, unknown>[]) {
 	const defaults = [
 		{
-			id: 'step-1',
-			onboarding_id: 'ob-1',
+			id: STEP_1,
+			onboarding_id: ONBOARDING_ID,
 			step_name: 'Get ID card',
 			step_type: 'checkbox',
 			completed: false,
@@ -643,8 +674,8 @@ function seedSteps(ctx: ReturnType<typeof buildContext>, overrides?: Record<stri
 			organization_id: 'test-org'
 		},
 		{
-			id: 'step-2',
-			onboarding_id: 'ob-1',
+			id: STEP_2,
+			onboarding_id: ONBOARDING_ID,
 			step_name: 'CAC Request',
 			step_type: 'paperwork',
 			completed: true,
@@ -652,8 +683,8 @@ function seedSteps(ctx: ReturnType<typeof buildContext>, overrides?: Record<stri
 			organization_id: 'test-org'
 		},
 		{
-			id: 'step-3',
-			onboarding_id: 'ob-1',
+			id: STEP_3,
+			onboarding_id: ONBOARDING_ID,
 			step_name: 'CPR Training',
 			step_type: 'training',
 			completed: false,
@@ -671,7 +702,7 @@ describe('completeOnboarding', () => {
 		seedOnboarding(ctx);
 		seedSteps(ctx); // 2 incomplete (step-1, step-3), 1 complete (step-2)
 
-		const result = await completeOnboarding(ctx, 'ob-1');
+		const result = await completeOnboarding(ctx, ONBOARDING_ID);
 
 		expect(result.status).toBe('completed');
 		expect(result.completedAt).toBeTruthy();
@@ -685,16 +716,16 @@ describe('completeOnboarding', () => {
 		seedOnboarding(ctx);
 		seedSteps(ctx, [
 			{
-				id: 'step-1',
-				onboarding_id: 'ob-1',
+				id: STEP_1,
+				onboarding_id: ONBOARDING_ID,
 				step_type: 'checkbox',
 				completed: true,
 				active: true,
 				organization_id: 'test-org'
 			},
 			{
-				id: 'step-2',
-				onboarding_id: 'ob-1',
+				id: STEP_2,
+				onboarding_id: ONBOARDING_ID,
 				step_type: 'paperwork',
 				completed: true,
 				active: true,
@@ -702,7 +733,7 @@ describe('completeOnboarding', () => {
 			}
 		]);
 
-		const result = await completeOnboarding(ctx, 'ob-1');
+		const result = await completeOnboarding(ctx, ONBOARDING_ID);
 
 		expect(result.incompleteCount).toBe(0);
 	});
@@ -712,16 +743,16 @@ describe('completeOnboarding', () => {
 		seedOnboarding(ctx);
 		seedSteps(ctx, [
 			{
-				id: 'step-1',
-				onboarding_id: 'ob-1',
+				id: STEP_1,
+				onboarding_id: ONBOARDING_ID,
 				step_type: 'checkbox',
 				completed: true,
 				active: true,
 				organization_id: 'test-org'
 			},
 			{
-				id: 'step-2',
-				onboarding_id: 'ob-1',
+				id: STEP_2,
+				onboarding_id: ONBOARDING_ID,
 				step_type: 'checkbox',
 				completed: false,
 				active: false,
@@ -729,7 +760,7 @@ describe('completeOnboarding', () => {
 			}
 		]);
 
-		const result = await completeOnboarding(ctx, 'ob-1');
+		const result = await completeOnboarding(ctx, ONBOARDING_ID);
 
 		expect(result.incompleteCount).toBe(0);
 	});
@@ -738,14 +769,18 @@ describe('completeOnboarding', () => {
 		const ctx = buildTransitionContext(completedSaved);
 		seedOnboarding(ctx, { status: 'cancelled', cancelled_at: '2026-03-01T00:00:00Z' });
 
-		await expect(completeOnboarding(ctx, 'ob-1')).rejects.toThrow('Only in-progress onboardings can be completed');
+		await expect(completeOnboarding(ctx, ONBOARDING_ID)).rejects.toThrow(
+			'Only in-progress onboardings can be completed'
+		);
 	});
 
 	it('rejects completing an already completed onboarding', async () => {
 		const ctx = buildTransitionContext(completedSaved);
 		seedOnboarding(ctx, { status: 'completed', completed_at: '2026-03-01T00:00:00Z' });
 
-		await expect(completeOnboarding(ctx, 'ob-1')).rejects.toThrow('Only in-progress onboardings can be completed');
+		await expect(completeOnboarding(ctx, ONBOARDING_ID)).rejects.toThrow(
+			'Only in-progress onboardings can be completed'
+		);
 	});
 
 	it('emits audit log with incomplete count', async () => {
@@ -753,13 +788,13 @@ describe('completeOnboarding', () => {
 		seedOnboarding(ctx);
 		seedSteps(ctx);
 
-		await completeOnboarding(ctx, 'ob-1');
+		await completeOnboarding(ctx, ONBOARDING_ID);
 
 		expect(ctx.audit.events).toHaveLength(1);
 		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'onboarding.completed',
 			resourceType: 'personnel_onboarding',
-			resourceId: 'ob-1',
+			resourceId: ONBOARDING_ID,
 			details: { incomplete_count: 2 }
 		});
 	});
@@ -777,9 +812,9 @@ describe.each(transitions)('$kind lifecycle persistence boundary', ({ kind, run,
 		seedOnboarding(ctx, { status: initialStatus });
 		seedSteps(ctx);
 
-		await expect(run(ctx, 'ob-1')).rejects.toMatchObject({ status: 409 });
+		await expect(run(ctx, ONBOARDING_ID)).rejects.toMatchObject({ status: 409 });
 
-		expect(ctx.transition).toHaveBeenCalledWith('test-org', 'ob-1', expect.objectContaining({ kind }));
+		expect(ctx.transition).toHaveBeenCalledWith('test-org', ONBOARDING_ID, expect.objectContaining({ kind }));
 		expect(ctx.store.update).not.toHaveBeenCalled();
 		expect(ctx.audit.events).toEqual([]);
 	});
@@ -791,7 +826,7 @@ describe.each(transitions)('$kind lifecycle persistence boundary', ({ kind, run,
 			ctx.transition.mockRejectedValue(error);
 			seedOnboarding(ctx, { status: initialStatus });
 
-			await expect(run(ctx, 'ob-1')).rejects.toBe(error);
+			await expect(run(ctx, ONBOARDING_ID)).rejects.toBe(error);
 
 			expect(ctx.store.update).not.toHaveBeenCalled();
 			expect(ctx.audit.events).toEqual([]);
@@ -802,7 +837,7 @@ describe.each(transitions)('$kind lifecycle persistence boundary', ({ kind, run,
 		const ctx = buildTransitionContext(null);
 		seedOnboarding(ctx, { status: 'completed' });
 
-		await expect(run(ctx, 'ob-1')).rejects.toMatchObject({ status: 400 });
+		await expect(run(ctx, ONBOARDING_ID)).rejects.toMatchObject({ status: 400 });
 
 		expect(ctx.transition).not.toHaveBeenCalled();
 		expect(ctx.audit.events).toEqual([]);
@@ -812,7 +847,7 @@ describe.each(transitions)('$kind lifecycle persistence boundary', ({ kind, run,
 		const ctx = buildTransitionContext(null);
 		seedOnboarding(ctx, { status: initialStatus, organization_id: 'other-org' });
 
-		await expect(run(ctx, 'ob-1')).rejects.toMatchObject({ status: 404 });
+		await expect(run(ctx, ONBOARDING_ID)).rejects.toMatchObject({ status: 404 });
 
 		expect(ctx.transition).not.toHaveBeenCalled();
 		expect(ctx.audit.events).toEqual([]);
@@ -824,15 +859,15 @@ describe.each(transitions)('$kind lifecycle persistence boundary', ({ kind, run,
 				role: 'member',
 				isPrivileged: false,
 				capabilityMap: { ...operatorCapabilityMap, onboarding: reason === 'missing capability' ? 'view' : 'operate' },
-				scopeSet: { kind: 'groups', groupIds: ['g-1'] }
+				scopeSet: { kind: 'groups', groupIds: [GROUP_1] }
 			}
 		});
 		ctx.store.seed('personnel', [
-			{ id: 'p-1', group_id: reason === 'missing capability' ? 'g-1' : 'g-2', organization_id: 'test-org' }
+			{ id: PERSON_1, group_id: reason === 'missing capability' ? GROUP_1 : GROUP_2, organization_id: 'test-org' }
 		]);
 		seedOnboarding(ctx, { status: initialStatus });
 
-		await expect(run(ctx, 'ob-1')).rejects.toMatchObject({ status: 403 });
+		await expect(run(ctx, ONBOARDING_ID)).rejects.toMatchObject({ status: 403 });
 
 		expect(ctx.transition).not.toHaveBeenCalled();
 		expect(ctx.audit.events).toEqual([expect.objectContaining({ action: 'policy.denied' })]);
@@ -846,7 +881,7 @@ describe('unbound lifecycle provider', () => {
 			const ctx = build();
 
 			await expect(
-				ctx.onboardingLifecycleTransition!.transition('test-org', 'ob-1', { kind: 'reopen' })
+				ctx.onboardingLifecycleTransition!.transition('test-org', ONBOARDING_ID, { kind: 'reopen' })
 			).rejects.toThrow('Bind the owned Onboarding lifecycle transition provider');
 		}
 	);
@@ -856,7 +891,7 @@ describe('unbound lifecycle provider', () => {
 		const missingContext = { ...ctx, onboardingLifecycleTransition: undefined };
 		seedOnboarding(ctx);
 
-		await expect(cancelOnboarding(missingContext, 'ob-1')).rejects.toThrow(
+		await expect(cancelOnboarding(missingContext, ONBOARDING_ID)).rejects.toThrow(
 			'Bind the owned Onboarding lifecycle transition provider'
 		);
 

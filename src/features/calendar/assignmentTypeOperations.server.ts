@@ -33,6 +33,7 @@ export async function updateAssignmentType(ctx: CalendarCatalogPorts, input: Rec
 	const { id, ...patch } = parsed.data;
 	await requireCalendarPolicy(ctx, action, resource);
 	const row = await ctx.calendarCatalogs.updateAssignmentType(id, patch);
+	if (!row) throw error(404, 'That assignment type is no longer available.');
 	ctx.audit.log({ action: 'assignment_type.updated', resourceType: 'assignment_type', resourceId: id });
 	return row;
 }
@@ -52,7 +53,7 @@ export async function setAssignmentTypeDateHeader(ctx: CalendarCatalogPorts, inp
 
 export async function deleteAssignmentType(ctx: CalendarCatalogDeletionPorts, id: string): Promise<void> {
 	await requireCalendarPolicy(ctx, action, resource);
-	await ctx.calendarCatalogs.deleteAssignmentType(id);
+	if (!(await ctx.calendarCatalogs.deleteAssignmentType(id))) return;
 	ctx.audit.log({ action: 'assignment_type.deleted', resourceType: 'assignment_type', resourceId: id });
 	await ctx.notifications.notifyAdmins(ctx.auth.orgId, ctx.auth.userId, {
 		type: 'config_type_deleted',

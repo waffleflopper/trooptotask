@@ -1,6 +1,6 @@
 import { getSignedScanUrl, removeSignedScan, uploadSignedScan } from '$features/sign-in-rosters/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { handle, readFormData, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import {
 	createRequestSignInRosterContext,
 	createRequestSignInRosterUploadContext
@@ -33,7 +33,7 @@ export const _postConfig: RouteConfig<
 	policyAction: POLICY_ACTION_CATALOG.training.manageSignInRosters,
 	policyResource: { kind: 'unscoped' },
 	parseInput: async (event: RequestEvent) => {
-		const formData = await event.request.formData();
+		const formData = await readFormData(event);
 		return { rosterId: event.params.id as string, file: formData.get('file') as File | null };
 	},
 	fn: async (ctx, input) => {

@@ -32,13 +32,14 @@ export async function updateSpecialDay(ctx: CalendarCatalogPorts, input: Record<
 	const { id, ...patch } = parsed.data;
 	await requireCalendarPolicy(ctx, action, resource);
 	const row = await ctx.calendarCatalogs.updateSpecialDay(id, patch);
+	if (!row) throw error(404, 'That special day is no longer available.');
 	ctx.audit.log({ action: 'special_day.updated', resourceType: 'special_day', resourceId: id });
 	return row;
 }
 
 export async function deleteSpecialDay(ctx: CalendarCatalogPorts, id: string): Promise<void> {
 	await requireCalendarPolicy(ctx, action, resource);
-	await ctx.calendarCatalogs.deleteSpecialDay(id);
+	if (!(await ctx.calendarCatalogs.deleteSpecialDay(id))) return;
 	ctx.audit.log({ action: 'special_day.deleted', resourceType: 'special_day', resourceId: id });
 }
 

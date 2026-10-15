@@ -1,18 +1,13 @@
 import { patchUserOrgPreferences } from '$features/identity/index.server';
-import { createRequestAccountPreferencesProvider, rethrowOrWrap } from '$lib/server/adapters/httpAdapter';
+import { createRequestAccountPreferencesProvider, readJsonBody, rethrowOrWrap } from '$lib/server/adapters/httpAdapter';
 import { buildRouteRequest } from '$lib/server/adapters/requestContexts.server';
-import { error, json } from '@sveltejs/kit';
+import { json } from '@sveltejs/kit';
 
 export const PATCH = async (event) => {
 	try {
 		const ctx = await buildRouteRequest(event);
 
-		let rawInput: unknown;
-		try {
-			rawInput = await event.request.json();
-		} catch {
-			throw error(400, 'Invalid JSON in request body');
-		}
+		const rawInput = await readJsonBody(event);
 
 		const result = await patchUserOrgPreferences(
 			{

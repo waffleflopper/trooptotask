@@ -4,6 +4,9 @@ import { createTestContext } from '$features/training/server/trainingPersistence
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _postConfig } from './+server';
 
+const PERSON_1 = '00000000-0000-4000-8000-000000002001';
+const TRAINING_TYPE = '00000000-0000-4000-8000-000000002002';
+
 describe('/api/personnel-trainings/batch route config', () => {
 	it('uses a policy-first route config for Training batch import', () => {
 		expect('permission' in _postConfig).toBe(false);
@@ -34,7 +37,7 @@ describe('/api/personnel-trainings/batch route config', () => {
 
 		ctx.store.seed('personnel', [
 			{
-				id: 'p-1',
+				id: PERSON_1,
 				organization_id: ctx.auth.orgId,
 				rank: 'SGT',
 				last_name: 'Smith',
@@ -45,7 +48,7 @@ describe('/api/personnel-trainings/batch route config', () => {
 		]);
 		ctx.store.seed('training_types', [
 			{
-				id: 'tt-1',
+				id: TRAINING_TYPE,
 				organization_id: ctx.auth.orgId,
 				expiration_months: null,
 				expiration_date_only: false,
@@ -58,7 +61,9 @@ describe('/api/personnel-trainings/batch route config', () => {
 			_postConfig,
 			ctx,
 			{
-				records: [{ personnelId: 'p-1', trainingTypeId: 'tt-1', completionDate: '2026-01-01', status: 'completed' }]
+				records: [
+					{ personnelId: PERSON_1, trainingTypeId: TRAINING_TYPE, completionDate: '2026-01-01', status: 'completed' }
+				]
 			},
 			() => ctx
 		);
@@ -89,7 +94,9 @@ describe('/api/personnel-trainings/batch route config', () => {
 				_postConfig,
 				ctx,
 				{
-					records: [{ personnelId: 'p-1', trainingTypeId: 'tt-1', completionDate: '2026-01-01', status: 'completed' }]
+					records: [
+						{ personnelId: PERSON_1, trainingTypeId: TRAINING_TYPE, completionDate: '2026-01-01', status: 'completed' }
+					]
 				},
 				() => ctx
 			)

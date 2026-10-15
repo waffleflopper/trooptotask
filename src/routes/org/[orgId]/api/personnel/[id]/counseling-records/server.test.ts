@@ -5,8 +5,11 @@ import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _getConfig, _postConfig } from './+server';
 import { _patchConfig } from './[recordId]/+server';
 
+const PERSON_ID = '00000000-0000-4000-8000-0000000000a1';
+const RECORD_ID = '00000000-0000-4000-8000-0000000000c1';
+
 function seedPersonnel(ctx: ReturnType<typeof createTestContext>) {
-	ctx.store.seed('personnel', [{ id: 'person-1', organization_id: ctx.auth.orgId, group_id: null }]);
+	ctx.store.seed('personnel', [{ id: PERSON_ID, organization_id: ctx.auth.orgId, group_id: null }]);
 }
 
 describe('/api/personnel/[id]/counseling-records', () => {
@@ -30,7 +33,7 @@ describe('/api/personnel/[id]/counseling-records', () => {
 			_postConfig,
 			ctx,
 			{
-				personnelId: 'person-1',
+				personnelId: PERSON_ID,
 				dateConducted: '2026-05-01',
 				title: 'Event-oriented counseling',
 				summary: '',
@@ -38,7 +41,7 @@ describe('/api/personnel/[id]/counseling-records', () => {
 			},
 			() => createPersonnelArtifactDeliveryContext(ctx)
 		);
-		const records = await handleUseCaseRequest(_getConfig, ctx, { personnelId: 'person-1' }, () =>
+		const records = await handleUseCaseRequest(_getConfig, ctx, { personnelId: PERSON_ID }, () =>
 			createPersonnelArtifactDeliveryContext(ctx)
 		);
 
@@ -63,7 +66,7 @@ describe('/api/personnel/[id]/counseling-records', () => {
 		seedPersonnel(ctx);
 
 		await expect(
-			handleUseCaseRequest(_getConfig, ctx, { personnelId: 'person-1' }, () =>
+			handleUseCaseRequest(_getConfig, ctx, { personnelId: PERSON_ID }, () =>
 				createPersonnelArtifactDeliveryContext(ctx)
 			)
 		).rejects.toMatchObject({
@@ -80,11 +83,11 @@ describe('/api/personnel/[id]/counseling-records', () => {
 
 		await expect(
 			_postConfig.parseInput?.({
-				params: { id: 'person-1' },
+				params: { id: PERSON_ID },
 				request: new Request('http://localhost', { method: 'POST', body: formData })
 			} as never)
 		).resolves.toMatchObject({
-			personnelId: 'person-1',
+			personnelId: PERSON_ID,
 			title: 'Route id counseling',
 			summary: 'Short summary'
 		});
@@ -107,9 +110,9 @@ describe('/api/personnel/[id]/counseling-records', () => {
 		seedPersonnel(ctx);
 		ctx.store.seed('counseling_records', [
 			{
-				id: 'record-1',
+				id: RECORD_ID,
 				organization_id: ctx.auth.orgId,
-				personnel_id: 'person-1',
+				personnel_id: PERSON_ID,
 				date_conducted: '2026-05-01',
 				title: 'Event-oriented counseling',
 				uploaded_by: 'test-user',
@@ -123,8 +126,8 @@ describe('/api/personnel/[id]/counseling-records', () => {
 			_patchConfig,
 			ctx,
 			{
-				personnelId: 'person-1',
-				recordId: 'record-1',
+				personnelId: PERSON_ID,
+				recordId: RECORD_ID,
 				action: 'archive'
 			},
 			() => createPersonnelArtifactDeliveryContext(ctx)
@@ -134,8 +137,8 @@ describe('/api/personnel/[id]/counseling-records', () => {
 			_patchConfig,
 			ctx,
 			{
-				personnelId: 'person-1',
-				recordId: 'record-1',
+				personnelId: PERSON_ID,
+				recordId: RECORD_ID,
 				action: 'restore'
 			},
 			() => createPersonnelArtifactDeliveryContext(ctx)
@@ -146,8 +149,8 @@ describe('/api/personnel/[id]/counseling-records', () => {
 				_patchConfig,
 				ctx,
 				{
-					personnelId: 'person-1',
-					recordId: 'record-1',
+					personnelId: PERSON_ID,
+					recordId: RECORD_ID,
 					action: 'publish'
 				},
 				() => createPersonnelArtifactDeliveryContext(ctx)

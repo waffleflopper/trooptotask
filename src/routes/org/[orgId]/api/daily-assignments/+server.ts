@@ -13,10 +13,7 @@ export const _postConfig = {
 			return setDailyAssignmentSlot(ctx, input);
 		}
 
-		await clearDailyAssignmentSlot(ctx, {
-			date: input.date as string,
-			assignmentTypeId: input.assignmentTypeId as string
-		});
+		await clearDailyAssignmentSlot(ctx, input);
 		return { success: true, removed: true };
 	}
 } satisfies RouteConfig<Record<string, unknown>, unknown, ReturnType<typeof createRequestDailyAssignmentContext>>;
@@ -27,10 +24,7 @@ export const _deleteConfig = {
 	policyAction: POLICY_ACTION_CATALOG.calendar.manageAssignments,
 	policyResource: { kind: 'unscoped' },
 	fn: async (ctx, input) => {
-		await clearDailyAssignmentSlot(ctx, {
-			date: input.date as string,
-			assignmentTypeId: input.assignmentTypeId as string
-		});
+		await clearDailyAssignmentSlot(ctx, input);
 		return { success: true };
 	}
 } satisfies RouteConfig<Record<string, unknown>, unknown, ReturnType<typeof createRequestDailyAssignmentContext>>;

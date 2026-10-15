@@ -49,7 +49,7 @@
 		showStatusText?: boolean;
 		showPersonnelRoles?: boolean;
 		/** Map of personId → UpcomingLossRecord for per-row loss indicators. */
-		upcomingLossMap?: Map<string, UpcomingLossRecord>;
+		upcomingLossMap?: ReadonlyMap<string, UpcomingLossRecord>;
 		onPrevMonth: () => void;
 		onNextMonth: () => void;
 		onGoToToday: () => void;

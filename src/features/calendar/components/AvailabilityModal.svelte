@@ -1,9 +1,12 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
-	import type { Personnel } from '$features/personnel/contracts';
+	import { untrack } from 'svelte';
 	import type { StatusType, AvailabilityEntry } from '$features/calendar/contracts';
-	import { formatDate } from '$lib/utils/dates';
-	import { toastStore } from '$lib/stores/toast.svelte';
+	import type {
+		AvailabilityEditorRequest,
+		AvailabilityOutcome
+	} from '$features/calendar/contexts/CalendarPageContext.svelte';
+	import { validateDateRange, type AvailabilityChange } from '$features/calendar/utils/availabilityMutation';
+	import { parseDate } from '$lib/utils/dates';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import { Badge } from '$lib/components/ui/badge';
@@ -17,76 +20,37 @@
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 
 	interface Props {
-		orgId: string;
-		person: Personnel;
-		date: Date;
+		request: AvailabilityEditorRequest;
 		statusTypes: StatusType[];
 		existingEntries: AvailabilityEntry[];
-		onAdd: (data: Omit<AvailabilityEntry, 'id'>) => Promise<AvailabilityEntry | null>;
-		onUpdate: (
-			id: string,
-			changes: Pick<AvailabilityEntry, 'statusTypeId' | 'startDate' | 'endDate' | 'note'>
-		) => Promise<AvailabilityEntry | null>;
-		onRemove: (id: string) => Promise<boolean>;
-		onReconcile: (dates: string[], expectedOrgId: string) => Promise<AvailabilityEntry[] | null>;
+		/** True while any availability write on the page settles. */
+		saving: boolean;
+		onSave: (change: AvailabilityChange) => Promise<AvailabilityOutcome>;
 		onClose: () => void;
 	}
 
-	let { orgId, person, date, statusTypes, existingEntries, onAdd, onUpdate, onRemove, onReconcile, onClose }: Props =
-		$props();
-	let active = true;
-	onDestroy(() => {
-		active = false;
-	});
+	let { request, statusTypes, existingEntries, saving, onSave, onClose }: Props = $props();
 
-	const dateStr = $derived(formatDate(date));
-
-	// Local state for the entries list — updated immediately on add/remove to avoid
-	// reactive prop propagation timing issues (notably in Firefox)
-	let localEntries = $derived(
+	const person = $derived(request.person);
+	const dateStr = $derived(request.kind === 'create' ? request.startDate : request.entry.startDate);
+	const dayEntries = $derived(
 		existingEntries.filter((e) => e.personnelId === person.id && dateStr >= e.startDate && dateStr <= e.endDate)
 	);
 
-	function initialStatusId(): string {
-		return statusTypes[0]?.id ?? '';
-	}
-
-	function initialDateStr(): string {
-		return formatDate(date);
-	}
-
-	// Form state
-	let selectedStatusId = $state(initialStatusId());
-	let startDate = $state(initialDateStr());
-	let endDate = $state(initialDateStr());
+	let selectedStatusId = $state('');
+	let startDate = $state('');
+	let endDate = $state('');
 	let editingEntry = $state<AvailabilityEntry | null>(null);
 	let note = $state('');
-	let saving = $state(false);
 	let uncertain = $state(false);
 
-	const dateDisplay = $derived(
-		date.toLocaleDateString('en-US', {
-			weekday: 'long',
-			month: 'long',
-			day: 'numeric',
-			year: 'numeric'
-		})
-	);
-	const selectedStatus = $derived(statusTypes.find((s) => s.id === selectedStatusId));
-
-	const dateError = $derived.by(() => {
-		if (startDate && endDate && startDate > endDate) {
-			return 'End date must be on or after start date';
-		}
-		return null;
-	});
-
-	const dayCount = $derived.by(() => {
-		if (!startDate || !endDate || startDate > endDate) return 0;
-		const start = new Date(startDate + 'T00:00:00');
-		const end = new Date(endDate + 'T00:00:00');
-		return Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-	});
+	function resetForm() {
+		editingEntry = null;
+		selectedStatusId = (request.kind === 'create' && request.statusTypeId) || statusTypes[0]?.id || '';
+		startDate = request.kind === 'create' ? request.startDate : dateStr;
+		endDate = request.kind === 'create' ? request.endDate : dateStr;
+		note = '';
+	}
 
 	function startEdit(entry: AvailabilityEntry) {
 		editingEntry = entry;
@@ -96,152 +60,45 @@
 		note = entry.note ?? '';
 	}
 
-	function cancelEdit() {
-		editingEntry = null;
-		selectedStatusId = statusTypes[0]?.id ?? '';
-		startDate = dateStr;
-		endDate = dateStr;
-		note = '';
-	}
+	// The page keys this dialog on its request, so the form starts from the first one.
+	untrack(() => (request.kind === 'edit' ? startEdit(request.entry) : resetForm()));
 
-	function matchesSubmission(entry: AvailabilityEntry, submitted: Omit<AvailabilityEntry, 'id'>): boolean {
-		return (
-			entry.personnelId === submitted.personnelId &&
-			entry.statusTypeId === submitted.statusTypeId &&
-			entry.startDate === submitted.startDate &&
-			entry.endDate === submitted.endDate &&
-			(entry.note ?? null) === submitted.note
-		);
-	}
+	const dateDisplay = $derived(
+		parseDate(dateStr).toLocaleDateString('en-US', {
+			weekday: 'long',
+			month: 'long',
+			day: 'numeric',
+			year: 'numeric'
+		})
+	);
+	const selectedStatus = $derived(statusTypes.find((s) => s.id === selectedStatusId));
+	const range = $derived(validateDateRange(startDate, endDate));
+	const dateError = $derived(startDate && endDate ? range.error : null);
 
-	function successMessage(data: Omit<AvailabilityEntry, 'id'>, wasEditing: boolean): string {
-		const statusName = statusTypes.find((status) => status.id === data.statusTypeId)?.name ?? 'Status';
-		const start = new Date(data.startDate + 'T00:00:00').toLocaleDateString('en-US', {
-			month: 'short',
-			day: 'numeric'
-		});
-		const end = new Date(data.endDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-		return `${statusName} ${wasEditing ? 'updated' : 'added'} — ${data.startDate === data.endDate ? start : `${start}–${end}`}`;
-	}
-
-	async function reconcileFailure(dates: string[], expectedOrgId: string): Promise<AvailabilityEntry[] | null> {
-		if (!active) return null;
-		try {
-			const savedEntries = await onReconcile(dates, expectedOrgId);
-			if (!active) return null;
-			if (savedEntries === null) {
-				uncertain = true;
-				return null;
-			}
-			localEntries = savedEntries.filter(
-				(entry) => entry.personnelId === person.id && dateStr >= entry.startDate && dateStr <= entry.endDate
-			);
-			return savedEntries;
-		} catch {
-			if (!active) return null;
-			uncertain = true;
-			toastStore.error('Could not confirm the saved status. Reload the calendar before trying again.');
-			return null;
-		}
-	}
-
-	function resetForm() {
-		editingEntry = null;
-		selectedStatusId = statusTypes[0]?.id ?? '';
-		startDate = dateStr;
-		endDate = dateStr;
-		note = '';
+	function settle(outcome: AvailabilityOutcome) {
+		if (outcome === 'saved') resetForm();
+		else if (outcome === 'unconfirmed' || outcome === 'stale') uncertain = true;
 	}
 
 	async function handleSubmit() {
-		if (saving || uncertain || !selectedStatusId || !startDate || !endDate || startDate > endDate) return;
-		saving = true;
-		const expectedOrgId = orgId;
-
-		const newData = {
-			personnelId: person.id,
-			statusTypeId: selectedStatusId,
-			startDate,
-			endDate,
-			note: note.trim() || null
-		};
-		const previousEntry = editingEntry;
-		const knownIds = new Set(existingEntries.map((entry) => entry.id));
-		const temporaryId = `temp-${crypto.randomUUID()}`;
-		localEntries = previousEntry ? localEntries.filter((entry) => entry.id !== previousEntry.id) : localEntries;
-		// Keep the visual update immediate while the server confirms the write.
-		if (dateStr >= newData.startDate && dateStr <= newData.endDate) {
-			const tempEntry: AvailabilityEntry = { id: temporaryId, ...newData };
-			localEntries = [...localEntries, tempEntry];
-		}
-
-		try {
-			const savedEntry = previousEntry
-				? await onUpdate(previousEntry.id, {
-						statusTypeId: newData.statusTypeId,
-						startDate: newData.startDate,
-						endDate: newData.endDate,
-						note: newData.note
-					})
-				: await onAdd(newData);
-			if (!savedEntry) throw new Error('Could not confirm saved status');
-			if (!active) return;
-			// The bound store may have supplied this saved row before the callback resolved.
-			localEntries = localEntries.filter((entry) => entry.id !== temporaryId && entry.id !== savedEntry.id);
-			if (dateStr >= savedEntry.startDate && dateStr <= savedEntry.endDate) {
-				localEntries = [...localEntries, savedEntry];
-			}
-			toastStore.success(successMessage(newData, !!previousEntry), 5000);
-			resetForm();
-		} catch {
-			const savedEntries = await reconcileFailure(
-				[...new Set([dateStr, newData.startDate, ...(previousEntry ? [previousEntry.startDate] : [])])],
-				expectedOrgId
-			);
-			if (!savedEntries) return;
-			const replacement = savedEntries.find(
-				(entry) =>
-					(previousEntry ? entry.id === previousEntry.id : !knownIds.has(entry.id)) && matchesSubmission(entry, newData)
-			);
-			if (replacement) {
-				toastStore.success(successMessage(newData, !!previousEntry), 5000);
-				resetForm();
-			} else {
-				toastStore.error('Could not save status. Try again.');
-			}
-		} finally {
-			saving = false;
-		}
+		if (saving || uncertain || !selectedStatusId || !range.valid) return;
+		const values = { statusTypeId: selectedStatusId, startDate, endDate, note: note.trim() || null };
+		settle(
+			await onSave(
+				editingEntry
+					? { kind: 'update', entry: editingEntry, changes: values }
+					: { kind: 'create', record: { personnelId: person.id, ...values } }
+			)
+		);
 	}
 
-	let removeEntryId = $state<string | null>(null);
-
-	function handleRemove(entryId: string) {
-		removeEntryId = entryId;
-	}
+	let removeEntry = $state<AvailabilityEntry | null>(null);
 
 	async function doRemove() {
-		if (!removeEntryId || saving || uncertain) return;
-		saving = true;
-		const expectedOrgId = orgId;
-		const id = removeEntryId;
-		removeEntryId = null;
-		localEntries = localEntries.filter((entry) => entry.id !== id);
-		try {
-			if (!(await onRemove(id))) throw new Error('Could not confirm removal');
-			if (!active) return;
-			toastStore.success('Status removed');
-		} catch {
-			const savedEntries = await reconcileFailure([dateStr], expectedOrgId);
-			if (!savedEntries) return;
-			if (savedEntries.some((entry) => entry.id === id)) {
-				toastStore.error('Could not remove status. Try again.');
-			} else {
-				toastStore.success('Status removed');
-			}
-		} finally {
-			saving = false;
-		}
+		const entry = removeEntry;
+		removeEntry = null;
+		if (!entry || saving || uncertain) return;
+		settle(await onSave({ kind: 'remove', entry }));
 	}
 
 	function getStatusType(statusId: string): StatusType | undefined {
@@ -249,18 +106,9 @@
 	}
 
 	function formatEntryDates(entry: AvailabilityEntry): string {
-		const start = new Date(entry.startDate + 'T00:00:00');
-		const end = new Date(entry.endDate + 'T00:00:00');
-		const startStr = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-		const endStr = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-		if (entry.startDate === entry.endDate) return startStr;
-		return `${startStr} – ${endStr}`;
-	}
-
-	function getDayCountForEntry(entry: AvailabilityEntry): number {
-		const start = new Date(entry.startDate + 'T00:00:00');
-		const end = new Date(entry.endDate + 'T00:00:00');
-		return Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+		const format = (date: string) => parseDate(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+		if (entry.startDate === entry.endDate) return format(entry.startDate);
+		return `${format(entry.startDate)} – ${format(entry.endDate)}`;
 	}
 </script>
 
@@ -280,11 +128,12 @@
 					Saved status could not be confirmed. Reload the calendar before making another change.
 				</p>
 			{/if}
-			{#if !uncertain && localEntries.length > 0}
+			{#if !uncertain && dayEntries.length > 0}
 				<div class="border-b pb-4">
 					<h4 class="mb-3 text-sm font-medium">Current Status</h4>
-					{#each localEntries as entry (entry.id)}
+					{#each dayEntries as entry (entry.id)}
 						{@const entryStatus = getStatusType(entry.statusTypeId)}
+						{@const days = validateDateRange(entry.startDate, entry.endDate).dayCount}
 						<div
 							class={[
 								'mb-2 flex items-center gap-3 rounded-lg border p-2.5 transition-colors last:mb-0',
@@ -298,10 +147,7 @@
 							{/if}
 							<div class="flex min-w-0 flex-1 flex-wrap items-center gap-2">
 								<span class="text-sm font-medium">{formatEntryDates(entry)}</span>
-								<span class="text-muted-foreground text-sm">
-									({getDayCountForEntry(entry)}
-									{getDayCountForEntry(entry) === 1 ? 'day' : 'days'})
-								</span>
+								<span class="text-muted-foreground text-sm">({days} {days === 1 ? 'day' : 'days'})</span>
 								{#if entry.note}
 									<span class="text-muted-foreground max-w-[180px] truncate text-sm" title={entry.note}
 										>{entry.note}</span
@@ -322,7 +168,7 @@
 								<Button
 									variant="destructive"
 									size="icon-sm"
-									onclick={() => handleRemove(entry.id)}
+									onclick={() => (removeEntry = entry)}
 									title="Remove"
 									aria-label="Remove status"
 									disabled={saving || uncertain}
@@ -340,7 +186,7 @@
 					<h4 class="text-sm font-medium">Edit Status</h4>
 				{:else}
 					<h4 class="text-sm font-medium">
-						{localEntries.length > 0 ? 'Add Another Status' : 'Add Status'}
+						{dayEntries.length > 0 ? 'Add Another Status' : 'Add Status'}
 					</h4>
 				{/if}
 
@@ -375,12 +221,12 @@
 						<Field.Label for="endDate">End Date <span class="text-destructive">*</span></Field.Label>
 						<DatePicker id="endDate" bind:value={endDate} placeholder="Select end date" />
 					</Field.Root>
-					{#if dayCount > 0}
+					{#if range.valid}
 						<div
 							class="bg-muted/30 mt-0 flex min-w-14 flex-row items-center justify-center gap-1 rounded-lg border px-2.5 py-1.5 sm:mt-6 sm:flex-col sm:gap-0"
 						>
-							<span class="text-foreground text-base leading-none font-semibold">{dayCount}</span>
-							<span class="text-muted-foreground text-xs">{dayCount === 1 ? 'day' : 'days'}</span>
+							<span class="text-foreground text-base leading-none font-semibold">{range.dayCount}</span>
+							<span class="text-muted-foreground text-xs">{range.dayCount === 1 ? 'day' : 'days'}</span>
 						</div>
 					{/if}
 				</div>
@@ -403,22 +249,22 @@
 		</AppDialog.Body>
 
 		<AppDialog.Footer>
-			<Button variant="outline" onclick={uncertain ? onClose : editingEntry ? cancelEdit : onClose} disabled={saving}>
+			<Button variant="outline" onclick={uncertain ? onClose : editingEntry ? resetForm : onClose} disabled={saving}>
 				{uncertain ? 'Close' : editingEntry ? 'Cancel Edit' : 'Cancel'}
 			</Button>
-			<Button onclick={handleSubmit} disabled={saving || uncertain || !selectedStatusId || !!dateError}>
+			<Button onclick={handleSubmit} disabled={saving || uncertain || !selectedStatusId || !range.valid}>
 				{editingEntry ? 'Update Status' : 'Add Status'}
 			</Button>
 		</AppDialog.Footer>
 	</AppDialog.Content>
 </AppDialog.Root>
 
-{#if removeEntryId}
+{#if removeEntry}
 	<ConfirmDialog
 		title="Remove Status"
 		message="Remove this status entry?"
 		confirmLabel="Remove"
 		onConfirm={doRemove}
-		onCancel={() => (removeEntryId = null)}
+		onCancel={() => (removeEntry = null)}
 	/>
 {/if}

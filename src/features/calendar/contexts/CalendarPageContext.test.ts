@@ -27,7 +27,9 @@ vi.mock('$features/calendar/stores/availability.svelte', () => ({
 		orgId: '',
 		loading: false,
 		load: vi.fn(),
+		add: vi.fn(),
 		update: vi.fn(),
+		removeBool: vi.fn(),
 		beginRead: () => ({ reconcile: (snapshot: unknown[]) => snapshot, close: () => {} })
 	}
 }));
@@ -129,7 +131,9 @@ describe('CalendarPageContext', () => {
 		savePreferences.mockClear();
 		vi.mocked(loadCalendarRange).mockReset();
 		vi.mocked(availabilityStore.load).mockReset();
+		vi.mocked(availabilityStore.add).mockReset();
 		vi.mocked(availabilityStore.update).mockReset();
+		vi.mocked(availabilityStore.removeBool).mockReset();
 		ctx = makeContext(mockData, org);
 	});
 
@@ -263,122 +267,144 @@ describe('CalendarPageContext', () => {
 	// ---- Selected state ----------------------------------------------------
 
 	describe('selection state', () => {
-		it('selectedPerson starts null', () => expect(ctx.selectedPerson).toBeNull());
-		it('selectedDate starts null', () => expect(ctx.selectedDate).toBeNull());
 		it('assignmentDate starts null', () => expect(ctx.assignmentDate).toBeNull());
 		it('showStatusText starts false', () => expect(ctx.showStatusText).toBe(false));
 		it('showPersonnelRoles starts false', () => expect(ctx.showPersonnelRoles).toBe(false));
 		it('highlightOnboarding starts true', () => expect(ctx.highlightOnboarding).toBe(true));
 	});
 
-	// ---- handleCellClick --------------------------------------------------
+	// ---- availability editor ----------------------------------------------
+
+	const operateCapabilities = {
+		calendar: 'operate',
+		personnel: 'view',
+		training: 'view',
+		criticalTasks: 'view',
+		onboarding: 'view',
+		ratingScheme: 'view'
+	} as const;
 
 	describe('handleCellClick', () => {
-		it('sets selectedPerson and selectedDate when Calendar operate policy allows availability changes', () => {
-			const operatorCtx = makeContext(
-				mockData,
-				makeMockOrg({
-					capabilityMap: {
-						calendar: 'operate',
-						personnel: 'view',
-						training: 'view',
-						criticalTasks: 'view',
-						onboarding: 'view',
-						ratingScheme: 'view'
-					}
-				})
-			);
-			const date = new Date('2026-03-15');
-			operatorCtx.handleCellClick(mockPersonnel[0], date);
-			expect(operatorCtx.selectedPerson).toBe(mockPersonnel[0]);
-			expect(operatorCtx.selectedDate).toBe(date);
+		it('opens the editor for that person and day when Calendar operate policy allows availability changes', () => {
+			const operatorCtx = makeContext(mockData, makeMockOrg({ capabilityMap: operateCapabilities }));
+			operatorCtx.handleCellClick(mockPersonnel[0], new Date(2026, 2, 15));
+			expect(operatorCtx.editor).toEqual({
+				kind: 'create',
+				person: mockPersonnel[0],
+				startDate: '2026-03-15',
+				endDate: '2026-03-15'
+			});
 		});
 
 		it('does nothing when Calendar operate policy denies availability changes', () => {
 			const noEditCtx = makeContext(mockData, makeMockOrg());
 			noEditCtx.handleCellClick(mockPersonnel[0], new Date());
-			expect(noEditCtx.selectedPerson).toBeNull();
+			expect(noEditCtx.editor).toBeNull();
 		});
 
 		it('does nothing when person is outside the shared Scope Set', () => {
 			const scopedCtx = makeContext(
 				mockData,
-				makeMockOrg({
-					capabilityMap: {
-						calendar: 'operate',
-						personnel: 'view',
-						training: 'view',
-						criticalTasks: 'view',
-						onboarding: 'view',
-						ratingScheme: 'view'
-					},
-					scopeSet: { kind: 'groups', groupIds: ['g2'] }
-				})
+				makeMockOrg({ capabilityMap: operateCapabilities, scopeSet: { kind: 'groups', groupIds: ['g2'] } })
 			);
 			scopedCtx.handleCellClick(mockPersonnel[0], new Date());
-			expect(scopedCtx.selectedPerson).toBeNull();
+			expect(scopedCtx.editor).toBeNull();
 		});
 	});
 
-	// ---- handlePersonClick ------------------------------------------------
-
 	describe('handlePersonClick', () => {
-		it('sets selectedPerson and selectedDate to today when Calendar operate policy allows availability changes', () => {
-			const operatorCtx = makeContext(
-				mockData,
-				makeMockOrg({
-					capabilityMap: {
-						calendar: 'operate',
-						personnel: 'view',
-						training: 'view',
-						criticalTasks: 'view',
-						onboarding: 'view',
-						ratingScheme: 'view'
-					}
-				})
-			);
-			const before = Date.now();
+		it('opens the editor on today when Calendar operate policy allows availability changes', () => {
+			const operatorCtx = makeContext(mockData, makeMockOrg({ capabilityMap: operateCapabilities }), '2026-03-20');
 			operatorCtx.handlePersonClick(mockPersonnel[0]);
-			const after = Date.now();
-			expect(operatorCtx.selectedPerson).toBe(mockPersonnel[0]);
-			expect(operatorCtx.selectedDate).toBeInstanceOf(Date);
-			expect(operatorCtx.selectedDate!.getTime()).toBeGreaterThanOrEqual(before);
-			expect(operatorCtx.selectedDate!.getTime()).toBeLessThanOrEqual(after);
+			expect(operatorCtx.editor).toEqual({
+				kind: 'create',
+				person: mockPersonnel[0],
+				startDate: '2026-03-20',
+				endDate: '2026-03-20'
+			});
 		});
 
 		it('does nothing when Calendar operate policy denies availability changes', () => {
 			const noEditCtx = makeContext(mockData, makeMockOrg());
 			noEditCtx.handlePersonClick(mockPersonnel[0]);
-			expect(noEditCtx.selectedPerson).toBeNull();
+			expect(noEditCtx.editor).toBeNull();
 		});
 	});
 
-	// ---- closeAvailabilityModal -------------------------------------------
-
-	describe('closeAvailabilityModal', () => {
-		it('clears selectedPerson and selectedDate', () => {
-			ctx.handleCellClick(mockPersonnel[0], new Date());
-			ctx.closeAvailabilityModal();
-			expect(ctx.selectedPerson).toBeNull();
-			expect(ctx.selectedDate).toBeNull();
-		});
+	it('closes an open popover when the editor opens', () => {
+		const operatorCtx = makeContext(mockData, makeMockOrg({ capabilityMap: operateCapabilities }));
+		operatorCtx.openEntry(mockPersonnel[0], 'entry-1', {} as HTMLElement);
+		operatorCtx.handleCellClick(mockPersonnel[0], new Date(2026, 2, 15));
+		expect(operatorCtx.popover).toBeNull();
 	});
 
-	it('does not return an old Organization edit as saved after navigation', async () => {
-		let currentData = mockData;
-		let resolveUpdate!: (saved: boolean) => void;
-		vi.mocked(availabilityStore.update).mockImplementation(() => new Promise((resolve) => (resolveUpdate = resolve)));
-		const navigatedCtx = makeContext(() => currentData, org);
-		const pending = navigatedCtx.handleUpdateAvailability('entry-1', {
+	describe('saveAvailability', () => {
+		const record = {
+			personnelId: 'p1',
 			statusTypeId: 'leave',
 			startDate: '2026-04-07',
-			endDate: '2026-04-07',
+			endDate: '2026-04-08',
 			note: null
+		};
+		const range = (availabilityEntries: (typeof record & { id: string })[]) => ({
+			rangeStart: '2026-04-01',
+			rangeEnd: '2026-04-30',
+			availabilityEntries,
+			specialDays: [],
+			dailyAssignments: []
 		});
-		currentData = { ...mockData, orgId: 'org2' };
-		resolveUpdate(true);
 
-		expect(await pending).toBeNull();
+		it('reports a create as saved when its reply is lost but the re-read holds the new row', async () => {
+			vi.mocked(availabilityStore.add).mockRejectedValueOnce(new Error('POST availability failed'));
+			vi.mocked(loadCalendarRange).mockResolvedValueOnce(range([{ id: 'saved-1', ...record }]));
+
+			expect(await ctx.saveAvailability({ kind: 'create', record })).toBe('saved');
+			expect(loadCalendarRange).toHaveBeenCalledExactlyOnceWith('org1', {
+				rangeStart: '2026-04-07',
+				rangeEnd: '2026-04-07'
+			});
+		});
+
+		it('reports a refused create as not saved when the re-read lacks it', async () => {
+			vi.mocked(availabilityStore.add).mockRejectedValueOnce(new Error('POST availability failed'));
+			vi.mocked(loadCalendarRange).mockResolvedValueOnce(range([]));
+
+			expect(await ctx.saveAvailability({ kind: 'create', record })).toBe('not-saved');
+		});
+
+		it('reports the write as unconfirmed when the re-read fails too', async () => {
+			vi.mocked(availabilityStore.removeBool).mockResolvedValueOnce(false);
+			vi.mocked(loadCalendarRange).mockRejectedValueOnce(new Error('Range unavailable'));
+
+			expect(await ctx.saveAvailability({ kind: 'remove', entry: { id: 'e1', ...record } })).toBe('unconfirmed');
+		});
+
+		it('refuses a second write while one settles', async () => {
+			let resolveAdd!: (entry: typeof record & { id: string }) => void;
+			vi.mocked(availabilityStore.add).mockImplementationOnce(() => new Promise((resolve) => (resolveAdd = resolve)));
+			const first = ctx.saveAvailability({ kind: 'create', record });
+
+			expect(await ctx.saveAvailability({ kind: 'create', record })).toBe('stale');
+			resolveAdd({ id: 'saved-1', ...record });
+			expect(await first).toBe('saved');
+			expect(availabilityStore.add).toHaveBeenCalledTimes(1);
+		});
+
+		it('does not report an old Organization edit as saved after navigation', async () => {
+			let currentData = mockData;
+			let resolveUpdate!: (saved: boolean) => void;
+			vi.mocked(availabilityStore.update).mockImplementation(() => new Promise((resolve) => (resolveUpdate = resolve)));
+			const navigatedCtx = makeContext(() => currentData, org);
+			const pending = navigatedCtx.saveAvailability({
+				kind: 'update',
+				entry: { id: 'entry-1', ...record },
+				changes: { statusTypeId: 'leave', startDate: '2026-04-07', endDate: '2026-04-07', note: null }
+			});
+			currentData = { ...mockData, orgId: 'org2' };
+			resolveUpdate(true);
+
+			expect(await pending).toBe('stale');
+		});
 	});
 
 	describe('reconcileAvailability', () => {
@@ -536,20 +562,20 @@ describe('CalendarPageContext', () => {
 		});
 	});
 
-	describe('openDutyPicker / closeDutyPicker', () => {
+	describe('openDutyPicker / closePopover', () => {
 		const anchor = {} as HTMLElement;
 		const date = new Date(2026, 9, 27);
 
 		it('opens the duty picker only for assignment managers', () => {
 			const viewer = makeContext(mockData, makeMockOrg());
 			viewer.openDutyPicker('sd', date, anchor);
-			expect(viewer.dutyPick).toBeNull();
+			expect(viewer.popover).toBeNull();
 
 			const manager = makeContext(mockData, makeMockOrg({ userRole: 'admin' }));
 			manager.openDutyPicker('sd', date, anchor);
-			expect(manager.dutyPick).toEqual({ typeId: 'sd', date, anchor });
-			manager.closeDutyPicker();
-			expect(manager.dutyPick).toBeNull();
+			expect(manager.popover).toEqual({ kind: 'duty', typeId: 'sd', date, anchor });
+			manager.closePopover();
+			expect(manager.popover).toBeNull();
 		});
 	});
 

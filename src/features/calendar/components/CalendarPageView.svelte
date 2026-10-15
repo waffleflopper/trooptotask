@@ -119,7 +119,7 @@
 	);
 
 	const dutyPick = $derived.by(() => {
-		const pick = ctx.dutyPick;
+		const pick = ctx.popover?.kind === 'duty' ? ctx.popover : null;
 		const type = pick && dailyAssignmentsStore.types.find((candidate) => candidate.id === pick.typeId);
 		if (!pick || !type || type.archivedAt) return null;
 		const dateKey = formatDate(pick.date);
@@ -148,7 +148,7 @@
 			return await import('$features/calendar/components/DutyPicker.svelte');
 		} catch (error) {
 			if (current()) toastStore.error(error instanceof Error ? error.message : 'Duty picker failed to load');
-			ctx.closeDutyPicker();
+			ctx.closePopover();
 			throw error;
 		}
 	}
@@ -159,7 +159,7 @@
 			return await import('$features/calendar/components/AvailabilityModal.svelte');
 		} catch (error) {
 			if (current()) toastStore.error(error instanceof Error ? error.message : 'Availability editor failed to load');
-			ctx.closeAvailabilityModal();
+			ctx.closeEditor();
 			throw error;
 		}
 	}
@@ -286,23 +286,22 @@
 	{/if}
 </div>
 
-{#if ctx.selectedPerson && ctx.selectedDate}
-	{#await loadAvailabilityModal() then { default: AvailabilityModal }}
-		<AvailabilityModal
-			orgId={data.orgId}
-			person={ctx.selectedPerson}
-			date={ctx.selectedDate}
-			statusTypes={statusTypesStore.items}
-			existingEntries={availabilityStore.items}
-			onAdd={(entry) => ctx.handleAddAvailability(entry)}
-			onUpdate={(id, changes) => ctx.handleUpdateAvailability(id, changes)}
-			onRemove={(id) => ctx.handleRemoveAvailability(id)}
-			onReconcile={(dates, expectedOrgId) => ctx.reconcileAvailability(dates, expectedOrgId)}
-			onClose={() => ctx.closeAvailabilityModal()}
-		/>
-	{:catch}
-		<span class="sr-only">Availability editor failed to load.</span>
-	{/await}
+{#if ctx.editor}
+	{@const request = ctx.editor}
+	{#key request}
+		{#await loadAvailabilityModal() then { default: AvailabilityModal }}
+			<AvailabilityModal
+				{request}
+				statusTypes={statusTypesStore.items}
+				existingEntries={availabilityStore.items}
+				saving={ctx.savingAvailability}
+				onSave={(change) => ctx.saveAvailability(change)}
+				onClose={() => ctx.closeEditor()}
+			/>
+		{:catch}
+			<span class="sr-only">Availability editor failed to load.</span>
+		{/await}
+	{/key}
 {/if}
 
 {#if dutyPick}
@@ -315,7 +314,7 @@
 				anchor={dutyPick.anchor}
 				options={dutyPick.options}
 				onAssign={(assigneeId) => dailyAssignmentsStore.setAssignment(dutyPick.dateKey, dutyPick.type.id, assigneeId)}
-				onClose={() => ctx.closeDutyPicker()}
+				onClose={() => ctx.closePopover()}
 			/>
 		{:catch}
 			<span class="sr-only">Duty picker failed to load.</span>

@@ -124,7 +124,8 @@
 		]);
 		if (activeAccessKey !== null && activeAccessKey !== nextAccessKey) {
 			untrack(() => {
-				ctx.closeAvailabilityModal();
+				ctx.closePopover();
+				ctx.closeEditor();
 				ctx.closeAssignmentModal();
 			});
 		}

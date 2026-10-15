@@ -1,0 +1,290 @@
+import { describe, expect, it } from 'vitest';
+import type { AvailabilityEntry, StatusType } from '$features/calendar/contracts';
+import { layoutBars, shortRangeLabel, type AvailabilitySpan, type LabelPolicy } from './barLayout';
+import { dayWindow, toDayNumber } from './dayNumber';
+
+const status = (name: string, shortLabel: string | null = null): StatusType => ({
+	id: name.toLowerCase(),
+	name,
+	color: '#16a34a',
+	textColor: '#ffffff',
+	shortLabel,
+	sortOrder: 0
+});
+
+const leave = status('Leave');
+const sick = status('Sick');
+const appointment = status('Appointment', 'APT');
+const tdy = status('TDY');
+const school = status('School');
+
+function span(id: string, kind: StatusType, startDate: string, endDate: string, note: string | null = null) {
+	const entry: AvailabilityEntry = { id, personnelId: 'okafor', statusTypeId: kind.id, startDate, endDate, note };
+	return { entry, status: kind, start: toDayNumber(startDate), end: toDayNumber(endDate) } satisfies AvailabilitySpan;
+}
+
+/** Frame 02's grid: Monday 19 to Wednesday 28 October 2026. */
+const frame = dayWindow('2026-10-19', 10);
+const month: LabelPolicy = { view: 'month', preferLongest: false };
+
+function placements(spans: AvailabilitySpan[], window = frame, policy: LabelPolicy = month) {
+	const layout = layoutBars(spans, window, policy);
+	return {
+		bars: layout.bars.map((bar) => ({
+			id: bar.entry.id,
+			start: bar.start,
+			end: bar.end,
+			lane: bar.lane,
+			before: bar.continuesBefore,
+			after: bar.continuesAfter,
+			label: bar.label
+		})),
+		overflows: layout.overflows.map((overflow) => ({
+			start: overflow.start,
+			end: overflow.end,
+			ids: overflow.spans.map((item) => item.entry.id),
+			description: overflow.description
+		}))
+	};
+}
+
+describe('layoutBars in the month view', () => {
+	it('labels a one-day entry with its one-day label', () => {
+		expect(placements([span('apt', appointment, '2026-10-20', '2026-10-20')]).bars).toEqual([
+			{
+				id: 'apt',
+				start: 1,
+				end: 1,
+				lane: 'full',
+				before: false,
+				after: false,
+				label: { kind: 'one-day', text: 'APT' }
+			}
+		]);
+	});
+
+	it('labels a two-day entry with the status name only', () => {
+		expect(placements([span('sick', sick, '2026-10-21', '2026-10-22', 'Flu')]).bars[0]?.label).toEqual({
+			kind: 'name',
+			text: 'Sick'
+		});
+	});
+
+	it('adds the note once a bar has room for it', () => {
+		expect(placements([span('leave', leave, '2026-10-19', '2026-10-23', 'Block leave')]).bars[0]?.label).toEqual({
+			kind: 'name-note',
+			name: 'Leave',
+			note: 'Block leave'
+		});
+	});
+
+	it('shows the longest label on every bar when status text is preferred', () => {
+		const preferLongest: LabelPolicy = { view: 'month', preferLongest: true };
+		expect(
+			placements(
+				[
+					span('apt', appointment, '2026-10-20', '2026-10-20', 'Dental'),
+					span('sick', sick, '2026-10-22', '2026-10-22')
+				],
+				frame,
+				preferLongest
+			).bars.map((bar) => bar.label)
+		).toEqual([
+			{ kind: 'name-note', name: 'Appointment', note: 'Dental' },
+			{ kind: 'name', text: 'Sick' }
+		]);
+	});
+
+	it('splits overlapping entries into two lanes and leaves an unrelated entry full height', () => {
+		expect(
+			placements([
+				span('apt', appointment, '2026-10-21', '2026-10-21'),
+				span('tdy', tdy, '2026-10-19', '2026-10-23', 'JRTC prep'),
+				span('school', school, '2026-10-26', '2026-10-27')
+			]).bars
+		).toEqual([
+			{
+				id: 'tdy',
+				start: 0,
+				end: 4,
+				lane: 'top',
+				before: false,
+				after: false,
+				label: { kind: 'name-note', name: 'TDY', note: 'JRTC prep' }
+			},
+			{
+				id: 'apt',
+				start: 2,
+				end: 2,
+				lane: 'bottom',
+				before: false,
+				after: false,
+				label: { kind: 'one-day', text: 'APT' }
+			},
+			{
+				id: 'school',
+				start: 7,
+				end: 8,
+				lane: 'full',
+				before: false,
+				after: false,
+				label: { kind: 'name', text: 'School' }
+			}
+		]);
+	});
+
+	it('squares the clipped end of an entry that runs past either edge of the window', () => {
+		expect(
+			placements([
+				span('school', school, '2026-10-26', '2026-11-03'),
+				span('leave', leave, '2026-10-10', '2026-10-20', 'Block leave')
+			]).bars
+		).toEqual([
+			{
+				id: 'leave',
+				start: 0,
+				end: 1,
+				lane: 'full',
+				before: true,
+				after: false,
+				label: { kind: 'name', text: 'Leave' }
+			},
+			{
+				id: 'school',
+				start: 7,
+				end: 9,
+				lane: 'full',
+				before: false,
+				after: true,
+				label: { kind: 'name', text: 'School' }
+			}
+		]);
+	});
+
+	it('keeps entries that only touch on consecutive days as separate full bars', () => {
+		expect(
+			placements([span('a', leave, '2026-10-19', '2026-10-21'), span('b', sick, '2026-10-22', '2026-10-23')]).bars.map(
+				(bar) => [bar.id, bar.lane]
+			)
+		).toEqual([
+			['a', 'full'],
+			['b', 'full']
+		]);
+	});
+
+	it('draws nothing for an entry outside the window', () => {
+		expect(placements([span('later', leave, '2026-10-29', '2026-11-02')])).toEqual({ bars: [], overflows: [] });
+	});
+
+	it('gives an entry the full track in a month where its overlap is out of view', () => {
+		const spans = [span('a', leave, '2026-01-28', '2026-02-03'), span('b', sick, '2026-01-25', '2026-01-30')];
+
+		expect(placements(spans, dayWindow('2026-02-01', 28)).bars.map((bar) => [bar.id, bar.lane])).toEqual([
+			['a', 'full']
+		]);
+		expect(placements(spans, dayWindow('2026-01-01', 31)).bars.map((bar) => [bar.id, bar.lane])).toEqual([
+			['b', 'top'],
+			['a', 'bottom']
+		]);
+	});
+
+	it('summarizes every entry beyond the first lane when a cluster needs a third lane', () => {
+		const result = placements(
+			[
+				span('a', leave, '2026-10-01', '2026-10-08'),
+				span('b', sick, '2026-10-03', '2026-10-06'),
+				span('c', appointment, '2026-10-04', '2026-10-05')
+			],
+			dayWindow('2026-10-01', 31)
+		);
+
+		expect(result.bars.map((bar) => [bar.id, bar.lane, bar.start, bar.end])).toEqual([['a', 'top', 0, 7]]);
+		expect(result.overflows).toEqual([
+			{ start: 2, end: 5, ids: ['b', 'c'], description: '2 more entries, 3 to 6 October 2026' }
+		]);
+	});
+
+	it('keeps first-lane bars of a chain separate from the summary', () => {
+		const result = placements(
+			[
+				span('a', leave, '2026-10-01', '2026-10-03'),
+				span('b', sick, '2026-10-02', '2026-10-10'),
+				span('c', tdy, '2026-10-02', '2026-10-04'),
+				span('d', appointment, '2026-10-05', '2026-10-06')
+			],
+			dayWindow('2026-10-01', 31)
+		);
+
+		expect(result.bars.map((bar) => [bar.id, bar.lane, bar.start, bar.end])).toEqual([
+			['a', 'top', 0, 2],
+			['d', 'top', 4, 5]
+		]);
+		expect(result.overflows.map((overflow) => [overflow.ids, overflow.start, overflow.end])).toEqual([
+			[['b', 'c'], 1, 9]
+		]);
+	});
+
+	it('describes an entry completely for its accessible name', () => {
+		const layout = layoutBars(
+			[
+				span('leave', leave, '2026-10-20', '2026-10-23', 'Block leave'),
+				span('school', school, '2026-10-26', '2026-11-03')
+			],
+			frame,
+			month
+		);
+
+		expect(layout.bars.map((bar) => bar.description)).toEqual([
+			'Leave, 20 to 23 October 2026, 4 days, Block leave',
+			'School, 26 October to 3 November 2026, 9 days'
+		]);
+	});
+});
+
+describe('layoutBars in the 3-Month view', () => {
+	const quarter = dayWindow('2026-10-01', 92);
+	const tenPx: LabelPolicy = { view: '3-month', dayPx: 10 };
+
+	it('fits the longest label that the bar width allows', () => {
+		expect(
+			placements(
+				[
+					span('leave', leave, '2026-10-01', '2026-10-09'),
+					span('school', school, '2026-10-12', '2026-10-16'),
+					span('apt', appointment, '2026-10-19', '2026-10-21'),
+					span('one', appointment, '2026-10-23', '2026-10-23')
+				],
+				quarter,
+				tenPx
+			).bars.map((bar) => bar.label)
+		).toEqual([
+			{ kind: 'name-length', name: 'Leave', days: 9 },
+			{ kind: 'name', text: 'School' },
+			{ kind: 'one-day', text: 'APT' },
+			{ kind: 'none' }
+		]);
+	});
+
+	it('counts the whole entry in the length while sizing the label to the visible days', () => {
+		expect(
+			placements([span('leave', leave, '2026-09-29', '2026-10-07')], quarter, tenPx).bars.map((bar) => [
+				bar.end,
+				bar.label
+			])
+		).toEqual([[6, { kind: 'name', text: 'Leave' }]]);
+		expect(
+			placements([span('leave', leave, '2026-09-30', '2026-10-08')], quarter, tenPx).bars.map((bar) => [
+				bar.end,
+				bar.label
+			])
+		).toEqual([[7, { kind: 'name-length', name: 'Leave', days: 9 }]]);
+	});
+});
+
+describe('shortRangeLabel', () => {
+	it('names the weekday and day of each end, with the month once when it is shared', () => {
+		expect(shortRangeLabel(toDayNumber('2026-10-20'), toDayNumber('2026-10-23'))).toBe('Tue 20 – Fri 23 Oct');
+		expect(shortRangeLabel(toDayNumber('2026-10-26'), toDayNumber('2026-11-03'))).toBe('Mon 26 Oct – Tue 3 Nov');
+		expect(shortRangeLabel(toDayNumber('2026-10-21'), toDayNumber('2026-10-21'))).toBe('Wed 21 Oct');
+	});
+});

@@ -2,7 +2,6 @@
 	import type { HTMLButtonAttributes } from 'svelte/elements';
 	import { cn } from '$lib/utils.js';
 	import Fill from './date-cell-fill.svelte';
-	import Marker from './date-cell-marker.svelte';
 	import type { DateCellMarker, DateCellStatus } from './types.js';
 
 	type Props = Omit<HTMLButtonAttributes, 'children'> & {
@@ -52,7 +51,6 @@
 		onboarding && 'bg-accent/10',
 		today && 'z-[1] inset-ring inset-ring-foreground',
 		statuses.length > 0 && 'hover:brightness-95',
-		markers.length > 0 && 'inset-ring inset-ring-foreground',
 		className
 	)}
 	{type}
@@ -60,7 +58,4 @@
 	{...restProps}
 >
 	<Fill {statuses} {showStatusText} />
-	{#each markers as marker (marker.id)}
-		<Marker {marker} />
-	{/each}
 </button>

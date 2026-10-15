@@ -69,6 +69,34 @@ describe('DailyAssignmentModal — searchable assignments', () => {
 		expect(onSetAssignment).toHaveBeenCalledWith('2026-04-06', 'type-1', 'person-2');
 	});
 
+	it('omits exempt people from that duty unless they already hold it', async () => {
+		const exemptType = { ...assignmentTypes[0], exemptPersonnelIds: ['person-1'] };
+		const props = {
+			date: new Date(2026, 3, 6),
+			assignmentTypes: [exemptType],
+			personnelByGroup: [{ group: 'Alpha', personnel }],
+			groups: [],
+			onSetAssignment: vi.fn(),
+			onRemoveAssignment: vi.fn(),
+			onClose: vi.fn()
+		};
+		render(DailyAssignmentModal, { props: { ...props, assignments: [] } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Set Charge of Quarters assignee' }));
+		expect(screen.queryByRole('option', { name: 'SGT Smith, Alex - Alpha' })).toBeNull();
+		expect(screen.getByRole('option', { name: 'CPT Taylor, Jamie - Alpha' })).toBeTruthy();
+		cleanup();
+
+		render(DailyAssignmentModal, {
+			props: {
+				...props,
+				assignments: [{ id: 'a-1', date: '2026-04-06', assignmentTypeId: 'type-1', assigneeId: 'person-1' }]
+			}
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Set Charge of Quarters assignee' }));
+		expect(screen.getByRole('option', { name: 'SGT Smith, Alex - Alpha' })).toBeTruthy();
+	});
+
 	it('does not offer archived assignment types as editable daily choices', () => {
 		render(DailyAssignmentModal, {
 			props: {

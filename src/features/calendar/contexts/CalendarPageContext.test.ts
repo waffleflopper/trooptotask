@@ -529,6 +529,23 @@ describe('CalendarPageContext', () => {
 		});
 	});
 
+	describe('openDutyPicker / closeDutyPicker', () => {
+		const anchor = {} as HTMLElement;
+		const date = new Date(2026, 9, 27);
+
+		it('opens the duty picker only for assignment managers', () => {
+			const viewer = makeContext(mockData, makeMockOrg());
+			viewer.openDutyPicker('sd', date, anchor);
+			expect(viewer.dutyPick).toBeNull();
+
+			const manager = makeContext(mockData, makeMockOrg({ userRole: 'admin' }));
+			manager.openDutyPicker('sd', date, anchor);
+			expect(manager.dutyPick).toEqual({ typeId: 'sd', date, anchor });
+			manager.closeDutyPicker();
+			expect(manager.dutyPick).toBeNull();
+		});
+	});
+
 	// ---- toggleHighlightOnboarding ----------------------------------------
 
 	describe('toggleHighlightOnboarding', () => {

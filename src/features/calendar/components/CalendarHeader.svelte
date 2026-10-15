@@ -1,13 +1,16 @@
 <script lang="ts">
 	import type { CalendarDateHeaderState } from '$features/calendar/utils/calendarRenderState';
+	import type { CalendarLane } from '$features/calendar/utils/calendarLanes';
 	import { Button } from '$lib/components/ui/button';
 	import CalendarNavigation from './CalendarNavigation.svelte';
+	import CalendarLanes from './calendar-lanes/CalendarLanes.svelte';
 
 	interface Props {
 		year: number;
 		month: number;
 		monthName: string;
 		headerCells: readonly CalendarDateHeaderState[];
+		lanes?: readonly CalendarLane[];
 		onPrevMonth: () => void;
 		onNextMonth: () => void;
 		onGoToToday: () => void;
@@ -22,6 +25,7 @@
 		month,
 		monthName,
 		headerCells,
+		lanes = [],
 		onPrevMonth,
 		onNextMonth,
 		onGoToToday,
@@ -84,5 +88,6 @@
 				</Button>
 			{/each}
 		</div>
+		<CalendarLanes {lanes} {headerCells} />
 	</div>
 </div>

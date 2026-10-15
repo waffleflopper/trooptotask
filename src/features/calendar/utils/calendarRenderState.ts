@@ -11,7 +11,7 @@ import { formatDate, getDayName, isToday, isWeekend } from '$lib/utils/dates';
 
 export type CalendarDateKey = string;
 
-const DATE_LABEL_FORMAT = new Intl.DateTimeFormat('en-US', {
+export const CALENDAR_DATE_LABEL = new Intl.DateTimeFormat('en-US', {
 	weekday: 'long',
 	month: 'long',
 	day: 'numeric',
@@ -152,7 +152,7 @@ export function buildCalendarRenderState(input: CalendarRenderStateInput): Calen
 			dateKey,
 			dayName: getDayName(date),
 			dayOfMonth: date.getDate(),
-			dateLabel: DATE_LABEL_FORMAT.format(date),
+			dateLabel: CALENDAR_DATE_LABEL.format(date),
 			weekend: isWeekend(date),
 			today: isToday(date),
 			specialDay,

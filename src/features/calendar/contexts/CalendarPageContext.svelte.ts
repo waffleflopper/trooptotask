@@ -84,6 +84,7 @@ export class CalendarPageContext {
 	selectedPerson = $state<Personnel | null>(null);
 	selectedDate = $state<Date | null>(null);
 	assignmentDate = $state<Date | null>(null);
+	dutyPick = $state.raw<{ typeId: string; date: Date; anchor: HTMLElement } | null>(null);
 
 	// ---- view mode ---------------------------------------------------------
 	viewMode = $state<'month' | '3-month'>('month');
@@ -369,6 +370,15 @@ export class CalendarPageContext {
 
 	closeAssignmentModal(): void {
 		this.assignmentDate = null;
+	}
+
+	openDutyPicker(typeId: string, date: Date, anchor: HTMLElement): void {
+		if (!this.canManageAssignments) return;
+		this.dutyPick = { typeId, date, anchor };
+	}
+
+	closeDutyPicker(): void {
+		this.dutyPick = null;
 	}
 
 	private canManageAvailabilityForPerson(person: Personnel): boolean {

@@ -2,18 +2,38 @@
 	import type { DateCellMarker } from './types.js';
 
 	interface Props {
-		marker: DateCellMarker;
+		marker: Pick<DateCellMarker, 'shortName' | 'color'>;
+		label: string;
+		onclick?: () => void;
 	}
 
-	let { marker }: Props = $props();
+	let { marker, label, onclick }: Props = $props();
+
+	const chip =
+		'max-w-full overflow-hidden rounded-[2px] border bg-card px-[3px] font-mono text-[8px] leading-[1.3] font-extrabold text-ellipsis whitespace-nowrap uppercase';
 </script>
 
-<span
-	data-slot="date-cell-marker"
-	class="absolute right-[3px] bottom-[3px] z-[1] max-w-[calc(100%-6px)] overflow-hidden rounded-[2px] px-[3px] font-mono text-[7px] leading-[1.2] font-extrabold text-ellipsis whitespace-nowrap uppercase inset-ring inset-ring-primary-foreground/55"
-	style:background-color={marker.color}
-	style:color={marker.textColor}
-	title={marker.title ?? marker.name}
->
-	{marker.shortName}
-</span>
+{#if onclick}
+	<button
+		type="button"
+		data-slot="date-cell-marker"
+		class={[
+			chip,
+			'pointer-events-auto cursor-pointer hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none'
+		]}
+		style:border-color={marker.color}
+		style:color={marker.color}
+		aria-label={label}
+		title={label}
+		{onclick}>{marker.shortName}</button
+	>
+{:else}
+	<span
+		data-slot="date-cell-marker"
+		class={chip}
+		style:border-color={marker.color}
+		style:color={marker.color}
+		title={label}
+		aria-hidden="true">{marker.shortName}</span
+	>
+{/if}

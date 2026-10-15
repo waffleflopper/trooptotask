@@ -240,12 +240,11 @@
 						startDate={calendarStore.currentDate}
 						onStartDateChange={(date) => calendarStore.goToMonth(date.getFullYear(), date.getMonth())}
 						personnelByGroup={ctx.filteredPBG}
-						availabilityEntries={availabilityStore.items}
-						statusTypes={statusTypesStore.items}
+						tracks={ctx.availabilityTracks}
 						specialDays={specialDaysStore.items}
-						assignmentTypes={dailyAssignmentsStore.types}
-						assignments={dailyAssignmentsStore.assignments}
 						onDateColumnClick={(date) => ctx.navigateToMonth(date)}
+						onOpenEntry={(person, entry) => ctx.openEditor({ kind: 'edit', person, entry })}
+						onOpenOverflow={(person, entryIds, anchor) => ctx.openOverflow(person, entryIds, anchor)}
 					/>
 				{:else}
 					<Calendar
@@ -254,8 +253,7 @@
 						monthName={calendarStore.monthName}
 						dates={calendarStore.dates}
 						personnelByGroup={ctx.filteredPBG}
-						availabilityEntries={availabilityStore.items}
-						statusTypes={statusTypesStore.items}
+						tracks={ctx.availabilityTracks}
 						specialDays={specialDaysStore.items}
 						pinnedGroups={pinnedGroupsStore.list}
 						assignmentTypes={dailyAssignmentsStore.types}
@@ -278,9 +276,11 @@
 						onPinToggle={(group) => ctx.handlePinToggle(group)}
 						onDateClick={(date) => ctx.handleDateClick(date)}
 						onMarkerClick={(date) => ctx.handleDateClick(date)}
+						onOpenEntry={(person, entry) => ctx.openEditor({ kind: 'edit', person, entry })}
+						onOpenOverflow={(person, entryIds, anchor) => ctx.openOverflow(person, entryIds, anchor)}
 					/>
-					<StatusLegend statusTypes={statusTypesStore.items} />
 				{/if}
+				<StatusLegend statusTypes={statusTypesStore.items} />
 			</section>
 		</div>
 	{/if}

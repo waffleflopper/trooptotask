@@ -4,8 +4,15 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/sve
 import { tick } from 'svelte';
 import Calendar from './Calendar.svelte';
 import type { Personnel } from '$features/personnel/contracts';
-import type { StatusType, SpecialDay, AssignmentType, DailyAssignment } from '$features/calendar/contracts';
+import type {
+	AvailabilityEntry,
+	StatusType,
+	SpecialDay,
+	AssignmentType,
+	DailyAssignment
+} from '$features/calendar/contracts';
 import type { UpcomingLossRecord } from '$features/personnel/contracts';
+import { buildAvailabilityTracks } from '$features/calendar/utils/availabilityTracks';
 import { buildCalendarLanes, spanTrack, type CalendarLane } from '$features/calendar/utils/calendarLanes';
 import FixtureLaneSegment from '$features/calendar/test-support/FixtureLaneSegment.svelte';
 
@@ -48,7 +55,17 @@ const personnel: Personnel[] = [
 	}
 ];
 
-const statusTypes: StatusType[] = [];
+const statusTypes: StatusType[] = [
+	{ id: 'leave', name: 'Leave', color: '#16a34a', textColor: '#ffffff', shortLabel: 'LV', sortOrder: 0 }
+];
+const smithOnLeave: AvailabilityEntry = {
+	id: 'entry-1',
+	personnelId: 'person-1',
+	statusTypeId: 'leave',
+	startDate: '2026-03-01',
+	endDate: '2026-03-02',
+	note: 'Block leave'
+};
 const specialDays: SpecialDay[] = [];
 
 function makePersonnel(count: number, overrides: Partial<Personnel> = {}): Personnel[] {
@@ -68,6 +85,8 @@ function makePersonnel(count: number, overrides: Partial<Personnel> = {}): Perso
 function renderCalendar(
 	overrides: Partial<{
 		personnelByGroup: { group: string; personnel: Personnel[] }[];
+		availabilityEntries: AvailabilityEntry[];
+		onOpenEntry: (person: Personnel, entry: AvailabilityEntry, anchor: HTMLElement) => void;
 		assignmentTypes: AssignmentType[];
 		assignments: DailyAssignment[];
 		lanes: CalendarLane[];
@@ -90,8 +109,7 @@ function renderCalendar(
 			monthName: 'March',
 			dates: [new Date(2026, 2, 1), new Date(2026, 2, 2)],
 			personnelByGroup: overrides.personnelByGroup ?? [{ group: 'Alpha', personnel }],
-			availabilityEntries: [],
-			statusTypes,
+			tracks: buildAvailabilityTracks(overrides.availabilityEntries ?? [], statusTypes),
 			specialDays: overrides.specialDays ?? specialDays,
 			pinnedGroups: [],
 			assignmentTypes: overrides.assignmentTypes ?? [],
@@ -104,6 +122,7 @@ function renderCalendar(
 			onDateClick: overrides.onDateClick,
 			onCellClick: overrides.onCellClick,
 			onPersonClick: overrides.onPersonClick,
+			onOpenEntry: overrides.onOpenEntry,
 			onPrevMonth: () => {},
 			onNextMonth: () => {},
 			onGoToToday: () => {},
@@ -169,6 +188,39 @@ describe('Calendar', () => {
 
 		await fireEvent.click(assigned);
 		expect(onCellClick).toHaveBeenCalledWith(expect.objectContaining({ id: 'person-1' }), new Date(2026, 2, 1));
+	});
+
+	it('draws each entry as one bar named by its Person, status, dates and note', async () => {
+		const onOpenEntry = vi.fn();
+		const onCellClick = vi.fn();
+		renderCalendar({ availabilityEntries: [smithOnLeave], onOpenEntry, onCellClick });
+
+		await fireEvent.click(
+			screen.getByRole('button', { name: 'SGT Smith, Alex, Leave, 1 to 2 March 2026, 2 days, Block leave' })
+		);
+
+		expect(onOpenEntry).toHaveBeenCalledWith(
+			expect.objectContaining({ id: 'person-1' }),
+			smithOnLeave,
+			expect.any(HTMLElement)
+		);
+		expect(onCellClick).not.toHaveBeenCalled();
+	});
+
+	it('counts the people out each day while their group is collapsed', async () => {
+		renderCalendar({
+			availabilityEntries: [
+				smithOnLeave,
+				{ ...smithOnLeave, id: 'entry-2', startDate: '2026-03-02', endDate: '2026-03-02', note: null },
+				{ ...smithOnLeave, id: 'entry-3', personnelId: 'person-2', startDate: '2026-03-02', endDate: '2026-03-02' }
+			]
+		});
+		expect(screen.queryByText('Sunday, March 1, 2026: 1 out')).toBeNull();
+
+		await fireEvent.click(screen.getByRole('button', { name: /Alpha/ }));
+
+		expect(screen.getByText('Sunday, March 1, 2026: 1 out')).toBeTruthy();
+		expect(screen.getByText('Monday, March 2, 2026: 2 out')).toBeTruthy();
 	});
 
 	it('hides personnel roles when role display is disabled', () => {

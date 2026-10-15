@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
+	import type { CalendarDateHeaderState } from '$features/calendar/utils/calendarRenderState';
 
 	interface Props {
 		groupName: string;
@@ -7,16 +8,32 @@
 		isPinned?: boolean;
 		onToggle?: () => void;
 		onPinToggle?: () => void;
+		/** People out on each of `days`, shown while the group is collapsed. */
+		outCounts?: readonly number[];
+		days?: readonly Pick<CalendarDateHeaderState, 'dateKey' | 'dateLabel'>[];
 	}
 
-	let { groupName, isCollapsed = false, isPinned = false, onToggle, onPinToggle }: Props = $props();
+	let {
+		groupName,
+		isCollapsed = false,
+		isPinned = false,
+		onToggle,
+		onPinToggle,
+		outCounts,
+		days = []
+	}: Props = $props();
 </script>
 
 <div
-	class="flex h-full w-full min-w-[calc(var(--calendar-personnel-column-width)+(var(--calendar-cell-width)*var(--dates-count)))] border-b border-chrome-border bg-chrome text-chrome-text"
+	class="relative flex h-full w-full min-w-[calc(var(--calendar-personnel-column-width)+(var(--calendar-cell-width)*var(--dates-count)))] border-b border-chrome-border bg-chrome text-chrome-text"
 >
 	<div
-		class="sticky left-0 z-[4] flex max-w-[calc(var(--calendar-personnel-column-width)*2)] min-w-[var(--calendar-personnel-column-width)] shrink-0 items-stretch border-r border-chrome-border bg-chrome"
+		class={[
+			'sticky left-0 z-[4] flex min-w-[var(--calendar-personnel-column-width)] shrink-0 items-stretch border-r border-chrome-border bg-chrome',
+			outCounts
+				? 'max-w-[var(--calendar-personnel-column-width)]'
+				: 'max-w-[calc(var(--calendar-personnel-column-width)*2)]'
+		]}
 	>
 		<Button
 			variant="cell"
@@ -38,4 +55,17 @@
 			{isPinned ? 'Pinned' : 'Pin'}
 		</Button>
 	</div>
+	{#if outCounts}
+		<div
+			class="absolute inset-y-0 right-0 left-[var(--calendar-personnel-column-width)] grid grid-cols-[repeat(var(--dates-count),minmax(var(--calendar-cell-width),1fr))] items-center"
+		>
+			{#each days as day, index (day.dateKey)}
+				{@const count = outCounts[index] ?? 0}
+				<span class="text-center font-mono text-[10px] font-semibold text-chrome-text">
+					<span aria-hidden="true">{count > 0 ? `−${count}` : ''}</span>
+					<span class="sr-only">{day.dateLabel}: {count} out</span>
+				</span>
+			{/each}
+		</div>
+	{/if}
 </div>

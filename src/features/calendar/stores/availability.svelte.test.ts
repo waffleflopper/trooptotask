@@ -24,26 +24,6 @@ describe('availabilityStore', () => {
 		availabilityStore.load(structuredClone(mockEntries), 'org-1');
 	});
 
-	describe('getByPersonnel', () => {
-		it('should return entries for a person', () => {
-			expect(availabilityStore.getByPersonnel('p1')).toHaveLength(2);
-		});
-	});
-
-	describe('getByDate', () => {
-		it('should return entries covering a date', () => {
-			const result = availabilityStore.getByDate(new Date(2026, 2, 2));
-			expect(result).toHaveLength(2);
-		});
-	});
-
-	describe('getByDateRange', () => {
-		it('should return entries overlapping a date range', () => {
-			const result = availabilityStore.getByDateRange(new Date(2026, 2, 1), new Date(2026, 2, 3));
-			expect(result.length).toBeGreaterThanOrEqual(2);
-		});
-	});
-
 	describe('addBatch', () => {
 		function record(n: number): Omit<AvailabilityEntry, 'id'> {
 			return { personnelId: `p${n}`, statusTypeId: 'st1', startDate: '2026-04-01', endDate: '2026-04-05', note: null };
@@ -129,13 +109,6 @@ describe('availabilityStore', () => {
 			const result = await availabilityStore.removeBatch(['1', '3']);
 
 			expect(result).toBe(true);
-			expect(availabilityStore.items).toHaveLength(1);
-		});
-	});
-
-	describe('removeByPersonnelLocal', () => {
-		it('should remove entries for a person locally', () => {
-			availabilityStore.removeByPersonnelLocal('p1');
 			expect(availabilityStore.items).toHaveLength(1);
 		});
 	});

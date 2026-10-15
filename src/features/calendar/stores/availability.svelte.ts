@@ -1,22 +1,12 @@
 /**
- * Availability store — per-personnel availability entries for the visible calendar range.
+ * Availability entries per person for the loaded calendar ranges.
  *
- * Extends the base store with a custom `BatchApiAdapter` so that bulk set/clear operations
- * hit the `/api/availability` batch endpoint instead of individual CRUD routes.
- *
- * Key extended methods:
- * - `getByPersonnelAndDate(personnelId, date)` — fast lookup for a single cell
- * - `getByDate(date)` — all entries for a given day
- * - `setBulk(personnelIds, dateRange, statusTypeId)` — batch set for multiple people
- * - `clearBulk(personnelIds, dateRange)` — batch clear
- *
- * Loaded by the calendar page load function and populated from the server response.
+ * The `BatchApiAdapter` sends bulk add and remove to
+ * `/api/availability/batch` instead of the single-entry routes.
  */
 import { defineStore, stillInOrganizationLifetime } from '$lib/stores/core';
 import type { Store, BatchApiAdapter } from '$lib/stores/core';
 import type { AvailabilityEntry } from '$features/calendar/contracts';
-import { isDateInRange, formatDate } from '$lib/utils/dates';
-import { rangesOverlap } from '$features/calendar/utils/availabilityMutation';
 
 let orgIdRef = '';
 
@@ -57,13 +47,6 @@ function createAvailabilityBatchAdapter(): BatchApiAdapter<AvailabilityEntry> {
 					headers,
 					body: JSON.stringify({ id })
 				});
-
-				if (res.status === 202) {
-					const body = await res.json();
-					if (body.requiresApproval) {
-						return 'approval_required';
-					}
-				}
 
 				if (!res.ok) return 'error';
 				return 'deleted';
@@ -119,12 +102,7 @@ const batchAdapter = createAvailabilityBatchAdapter();
 interface AvailabilityExtensions extends Record<string, unknown> {
 	load: (items: AvailabilityEntry[], orgId: string) => void;
 	remove: (id: string) => Promise<boolean>;
-	removeByPersonnelLocal: (personnelId: string) => void;
 	removeByStatusTypeLocal: (statusTypeId: string) => void;
-	getByPersonnel: (personnelId: string) => AvailabilityEntry[];
-	getByPersonnelAndDate: (personnelId: string, date: Date) => AvailabilityEntry[];
-	getByDate: (date: Date) => AvailabilityEntry[];
-	getByDateRange: (startDate: Date, endDate: Date) => AvailabilityEntry[];
 }
 
 function enhance(base: Store<AvailabilityEntry>): AvailabilityExtensions {
@@ -136,22 +114,7 @@ function enhance(base: Store<AvailabilityEntry>): AvailabilityExtensions {
 
 		remove: base.removeBool,
 
-		removeByPersonnelLocal: (personnelId: string) => base.removeLocalWhere((e) => e.personnelId === personnelId),
-
-		removeByStatusTypeLocal: (statusTypeId: string) => base.removeLocalWhere((e) => e.statusTypeId === statusTypeId),
-
-		getByPersonnel: (personnelId: string) => base.filter((e) => e.personnelId === personnelId),
-
-		getByPersonnelAndDate: (personnelId: string, date: Date) =>
-			base.filter((e) => e.personnelId === personnelId && isDateInRange(date, e.startDate, e.endDate)),
-
-		getByDate: (date: Date) => base.filter((e) => isDateInRange(date, e.startDate, e.endDate)),
-
-		getByDateRange(startDate: Date, endDate: Date) {
-			const start = formatDate(startDate);
-			const end = formatDate(endDate);
-			return base.filter((e) => rangesOverlap(e.startDate, e.endDate, start, end));
-		}
+		removeByStatusTypeLocal: (statusTypeId: string) => base.removeLocalWhere((e) => e.statusTypeId === statusTypeId)
 	};
 }
 

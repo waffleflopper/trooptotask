@@ -1,12 +1,6 @@
 <script lang="ts">
 	import type { Personnel } from '$features/personnel/contracts';
-	import type {
-		AvailabilityEntry,
-		StatusType,
-		SpecialDay,
-		AssignmentType,
-		DailyAssignment
-	} from '$features/calendar/contracts';
+	import type { AvailabilityEntry, SpecialDay, AssignmentType, DailyAssignment } from '$features/calendar/contracts';
 	import type { UpcomingLossRecord } from '$features/personnel/contracts';
 	import type { CalendarLane } from '$features/calendar/utils/calendarLanes';
 	import CalendarHeader from './CalendarHeader.svelte';
@@ -14,7 +8,10 @@
 	import GroupHeader from './GroupHeader.svelte';
 	import * as Empty from '$lib/components/ui/empty';
 	import { Button } from '$lib/components/ui/button';
-	import { buildCalendarRenderState } from '$features/calendar/utils/calendarRenderState';
+	import type { AvailabilityTracks } from '$features/calendar/utils/availabilityTracks';
+	import { dayWindow } from '$features/calendar/utils/dayNumber';
+	import type { LabelPolicy } from '$features/calendar/utils/barLayout';
+	import { buildCalendarDays, buildDutyMarkers } from '$features/calendar/utils/calendarRenderState';
 	import { buildVirtualRowLayout, getVisibleVirtualRows } from '$features/calendar/utils/virtualRows';
 	import { SvelteSet } from 'svelte/reactivity';
 
@@ -35,8 +32,7 @@
 		monthName: string;
 		dates: Date[];
 		personnelByGroup: GroupData[];
-		availabilityEntries: AvailabilityEntry[];
-		statusTypes: StatusType[];
+		tracks: AvailabilityTracks;
 		specialDays: SpecialDay[];
 		pinnedGroups: string[];
 		assignmentTypes: AssignmentType[];
@@ -60,6 +56,8 @@
 		onDateClick?: (date: Date) => void;
 		/** Opens the assignments for a marked date. Without it, row markers are not interactive. */
 		onMarkerClick?: (date: Date) => void;
+		onOpenEntry?: (person: Personnel, entry: AvailabilityEntry, anchor: HTMLElement) => void;
+		onOpenOverflow?: (person: Personnel, entryIds: readonly string[], anchor: HTMLElement) => void;
 		personnelHref?: string;
 	}
 
@@ -69,8 +67,7 @@
 		monthName,
 		dates,
 		personnelByGroup,
-		availabilityEntries,
-		statusTypes,
+		tracks,
 		specialDays,
 		pinnedGroups,
 		assignmentTypes,
@@ -92,6 +89,8 @@
 		onPinToggle,
 		onDateClick,
 		onMarkerClick,
+		onOpenEntry,
+		onOpenOverflow,
 		personnelHref
 	}: Props = $props();
 
@@ -190,20 +189,25 @@
 		getVisibleVirtualRows(rosterLayout.rows, scrollTop, viewportHeight, rowOverscanPx)
 	);
 
-	const renderState = $derived.by(() =>
-		buildCalendarRenderState({
-			dates,
-			personnelByGroup,
-			availabilityEntries,
-			statusTypes,
-			specialDays,
-			assignmentTypes,
+	const days = $derived(buildCalendarDays(dates, specialDays));
+	const visibleDays = $derived(dayWindow(days[0]?.dateKey ?? '1970-01-01', days.length));
+	const policy: LabelPolicy = $derived({ view: 'month', preferLongest: showStatusText });
+	const markersByPerson = $derived(
+		buildDutyMarkers(
 			assignments,
-			activeOnboardingPersonnelIds,
-			highlightOnboarding,
-			upcomingLossMap
-		})
+			assignmentTypes,
+			days.map((day) => day.dateKey)
+		)
 	);
+	const onboardingIds = $derived(new Set(activeOnboardingPersonnelIds));
+
+	function groupOutCounts(group: string) {
+		const personnel = personnelByGroup.find((grp) => grp.group === group)?.personnel ?? [];
+		return tracks.outCounts(
+			personnel.map((person) => person.id),
+			visibleDays
+		);
+	}
 </script>
 
 <div
@@ -214,7 +218,7 @@
 		{year}
 		{month}
 		{monthName}
-		headerCells={renderState.headerCells}
+		headerCells={days}
 		{lanes}
 		{onPrevMonth}
 		{onNextMonth}
@@ -263,19 +267,26 @@
 									groupName={row.group}
 									isCollapsed={collapsedGroups.has(row.group)}
 									isPinned={pinnedGroups.includes(row.group)}
+									outCounts={collapsedGroups.has(row.group) ? groupOutCounts(row.group) : undefined}
+									{days}
 									onToggle={() => toggleGroup(row.group)}
 									onPinToggle={() => onPinToggle?.(row.group)}
 								/>
 							{:else}
 								<CalendarRow
 									person={row.person}
-									personHeader={renderState.personHeader(row.person.id)}
-									cells={renderState.personDateCells(row.person.id) ?? []}
-									{showStatusText}
+									{days}
+									layout={tracks.layout(row.person.id, visibleDays, policy)}
+									markers={markersByPerson.get(row.person.id)}
+									onboarding={onboardingIds.has(row.person.id)}
+									{highlightOnboarding}
+									loss={upcomingLossMap?.get(row.person.id)}
 									{showPersonnelRoles}
 									onCellClick={canEdit ? onCellClick : undefined}
 									onMarkerClick={canEditAssignments ? onMarkerClick : undefined}
 									{onPersonClick}
+									{onOpenEntry}
+									{onOpenOverflow}
 								/>
 							{/if}
 						</div>

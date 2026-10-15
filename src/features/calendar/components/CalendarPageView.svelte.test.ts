@@ -196,6 +196,24 @@ describe('CalendarPageView', () => {
 		expect(screen.getByRole('button', { name: /September 2026/ })).toBeTruthy();
 	});
 
+	it('keeps the status legend under both views', async () => {
+		mutableAvailabilityStore.loading = false;
+		const mutableStatusTypes = statusTypesStore as unknown as { items: unknown[] };
+		mutableStatusTypes.items = [
+			{ id: 'leave', name: 'Leave', color: '#16a34a', textColor: '#ffffff', shortLabel: null, sortOrder: 0 }
+		];
+		try {
+			const ctx = makeContext(mockData, makeMockOrg());
+			render(CalendarPageView, { props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' } } });
+
+			expect(within(screen.getByLabelText('Status color legend')).getByText('Leave')).toBeTruthy();
+			await showView('3-Month');
+			expect(within(screen.getByLabelText('Status color legend')).getByText('Leave')).toBeTruthy();
+		} finally {
+			mutableStatusTypes.items = [];
+		}
+	});
+
 	it('keeps quarter arrows and picker on the Calendar-owned month across a year boundary', async () => {
 		mutableAvailabilityStore.loading = false;
 		calendarStore.goToMonth(2026, 11);

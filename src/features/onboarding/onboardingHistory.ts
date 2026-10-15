@@ -74,8 +74,12 @@ function finishedAt(packet: PersonnelOnboarding): string {
 }
 
 /** Within one finish day a cancellation has a time and a completion only a date, so cancellations list first, latest first. */
-function sameDayRank(packet: PersonnelOnboarding): number {
-	return packet.status === 'cancelled' && packet.cancelledAt !== null ? Date.parse(packet.cancelledAt) : -Infinity;
+function compareSameDay(a: PersonnelOnboarding, b: PersonnelOnboarding): number {
+	const outcome = Number(b.status === 'cancelled') - Number(a.status === 'cancelled');
+	if (outcome !== 0) return outcome;
+	const aTime = a.cancelledAt ? Date.parse(a.cancelledAt) : 0;
+	const bTime = b.cancelledAt ? Date.parse(b.cancelledAt) : 0;
+	return bTime - aTime;
 }
 
 function finishedOn(packet: PersonnelOnboarding, timeZone: string): string {
@@ -113,7 +117,7 @@ export function buildHistory(packets: readonly PersonnelOnboarding[], todayDate:
 		.sort(
 			(a, b) =>
 				b.finishedOn.localeCompare(a.finishedOn) ||
-				sameDayRank(b.packet) - sameDayRank(a.packet) ||
+				compareSameDay(a.packet, b.packet) ||
 				a.packet.id.localeCompare(b.packet.id)
 		);
 

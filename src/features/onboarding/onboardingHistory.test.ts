@@ -236,6 +236,22 @@ describe("buildHistory on the viewer's day", () => {
 		]);
 	});
 
+	it('keeps a same-day cancellation without a time above completions, and completions in id order', () => {
+		const untimed = {
+			...cancelled('z-cancelled-untimed', '2026-10-14', '2026-10-14T12:00:00.000Z'),
+			cancelledAt: null
+		};
+		const packets = [
+			completed('completed-b', '2026-10-01', '2026-10-14'),
+			untimed,
+			completed('completed-a', '2026-10-01', '2026-10-14')
+		];
+
+		const rows = buildHistory(packets, '2026-10-14', 'UTC').rows;
+
+		expect(rows.map((row) => row.packet.id)).toEqual(['z-cancelled-untimed', 'completed-a', 'completed-b']);
+	});
+
 	it('counts a start after the completion day as finishing the same day in the typical figure', () => {
 		const { overview } = buildHistory(
 			[

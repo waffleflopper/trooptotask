@@ -12,6 +12,8 @@ import { normalizeRetentionMonths } from './onboardingRetention.server';
 
 export interface FetchOnboardingBootstrapOptions {
 	mode?: OnboardingBootstrapMode;
+	/** The viewer's day, which ends the typical-days window. The UTC day when unknown. */
+	today?: string;
 }
 
 async function loadPersonnelCreationRanks(
@@ -94,8 +96,8 @@ export async function fetchOnboardingBootstrap(
 		ctx.auth.scopeSet.kind === 'groups' && mode === 'all'
 			? ctx.personnelOnboardingRoster.listRoster(ctx.auth, 'all')
 			: null;
-	// completed_at is a UTC calendar date, so the window ends on today's UTC date.
-	const today = new Date().toISOString().slice(0, 10);
+	// completed_at is the member's local day, so the window ends on the viewer's day.
+	const today = options.today ?? new Date().toISOString().slice(0, 10);
 	// Active loads only open packets, so it reads completed dates separately.
 	const recentCompletions =
 		mode === 'active' ? ctx.onboardingWorkflow.listCompletionsSince(typicalWindowStart(today)) : null;

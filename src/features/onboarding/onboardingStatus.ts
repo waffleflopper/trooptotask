@@ -195,8 +195,9 @@ export function waitingBySteps(packets: readonly PersonnelOnboarding[], today: T
 
 type FinishedPacket = Pick<PersonnelOnboarding, 'status' | 'startedAt' | 'completedAt'>;
 
+/** A start date after the completion day counts as finishing the same day. */
 export function daysToFinish(packet: { startedAt: string; completedAt: string }): number {
-	return calendarDaysBetween(packet.startedAt, packet.completedAt);
+	return Math.max(0, calendarDaysBetween(packet.startedAt, packet.completedAt));
 }
 
 /** The first `completed_at` date inside the typical-days window ending on `todayDate`. */

@@ -702,13 +702,29 @@ describe('completeOnboarding', () => {
 		seedOnboarding(ctx);
 		seedSteps(ctx); // 2 incomplete (step-1, step-3), 1 complete (step-2)
 
-		const result = await completeOnboarding(ctx, ONBOARDING_ID);
+		const result = await completeOnboarding(ctx, ONBOARDING_ID, '2026-10-01');
 
 		expect(result.status).toBe('completed');
 		expect(result.completedAt).toBeTruthy();
 		expect(result.completedAt).toBe('2026-10-01');
 		expect(result.cancelledAt).toBeNull();
 		expect(result.incompleteCount).toBe(2);
+	});
+
+	it("saves the member's local completion day", async () => {
+		const ctx = buildTransitionContext(null);
+		ctx.transition.mockImplementation(async (_organizationId, id, command) => ({
+			id,
+			status: 'completed',
+			cancelled_at: null,
+			completed_at: command.kind === 'complete' ? command.at : null
+		}));
+		seedOnboarding(ctx);
+		seedSteps(ctx);
+
+		const result = await completeOnboarding(ctx, ONBOARDING_ID, '2026-10-14');
+
+		expect(result.completedAt).toBe('2026-10-14');
 	});
 
 	it('returns 0 incomplete count when all active steps are complete', async () => {
@@ -733,7 +749,7 @@ describe('completeOnboarding', () => {
 			}
 		]);
 
-		const result = await completeOnboarding(ctx, ONBOARDING_ID);
+		const result = await completeOnboarding(ctx, ONBOARDING_ID, '2026-10-01');
 
 		expect(result.incompleteCount).toBe(0);
 	});
@@ -760,7 +776,7 @@ describe('completeOnboarding', () => {
 			}
 		]);
 
-		const result = await completeOnboarding(ctx, ONBOARDING_ID);
+		const result = await completeOnboarding(ctx, ONBOARDING_ID, '2026-10-01');
 
 		expect(result.incompleteCount).toBe(0);
 	});
@@ -769,7 +785,7 @@ describe('completeOnboarding', () => {
 		const ctx = buildTransitionContext(completedSaved);
 		seedOnboarding(ctx, { status: 'cancelled', cancelled_at: '2026-03-01T00:00:00Z' });
 
-		await expect(completeOnboarding(ctx, ONBOARDING_ID)).rejects.toThrow(
+		await expect(completeOnboarding(ctx, ONBOARDING_ID, '2026-10-01')).rejects.toThrow(
 			'Only in-progress onboardings can be completed'
 		);
 	});
@@ -778,7 +794,7 @@ describe('completeOnboarding', () => {
 		const ctx = buildTransitionContext(completedSaved);
 		seedOnboarding(ctx, { status: 'completed', completed_at: '2026-03-01T00:00:00Z' });
 
-		await expect(completeOnboarding(ctx, ONBOARDING_ID)).rejects.toThrow(
+		await expect(completeOnboarding(ctx, ONBOARDING_ID, '2026-10-01')).rejects.toThrow(
 			'Only in-progress onboardings can be completed'
 		);
 	});
@@ -788,7 +804,7 @@ describe('completeOnboarding', () => {
 		seedOnboarding(ctx);
 		seedSteps(ctx);
 
-		await completeOnboarding(ctx, ONBOARDING_ID);
+		await completeOnboarding(ctx, ONBOARDING_ID, '2026-10-01');
 
 		expect(ctx.audit.events).toHaveLength(1);
 		expect(ctx.audit.events[0]).toMatchObject({
@@ -802,7 +818,11 @@ describe('completeOnboarding', () => {
 
 const transitions = [
 	{ kind: 'cancel', run: cancelOnboarding, initialStatus: 'in_progress' },
-	{ kind: 'complete', run: completeOnboarding, initialStatus: 'in_progress' },
+	{
+		kind: 'complete',
+		run: (ctx: Parameters<typeof completeOnboarding>[0], id: string) => completeOnboarding(ctx, id, '2026-10-01'),
+		initialStatus: 'in_progress'
+	},
 	{ kind: 'reopen', run: reopenOnboarding, initialStatus: 'cancelled' }
 ] as const;
 

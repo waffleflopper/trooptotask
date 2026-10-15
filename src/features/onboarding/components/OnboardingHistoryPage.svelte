@@ -62,8 +62,8 @@
 	];
 
 	const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-	// Finish dates are UTC calendar dates, so the 90-day window is counted from the UTC date.
-	const todayDate = todayIn('UTC', new Date()).date;
+	// Finish dates are the member's local days, so the 90-day window is counted from the viewer's day.
+	const todayDate = todayIn(timeZone, new Date()).date;
 
 	let expandedId = $state('');
 	let outcome = $state<OutcomeFilter>('all');
@@ -72,7 +72,7 @@
 	let templateId = $state(HISTORY_ALL);
 
 	const roster = $derived(createRosterReadModel({ personnel }).scoped(scopeSet, { status: 'all' }));
-	const history = $derived(buildHistory(onboardings, todayDate));
+	const history = $derived(buildHistory(onboardings, todayDate, timeZone));
 	const subtitleParts = $derived(historySubtitleParts(history.overview));
 
 	function personOf(personnelId: string): HistoryPerson | undefined {

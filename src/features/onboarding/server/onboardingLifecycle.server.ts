@@ -212,7 +212,12 @@ interface CompleteResult extends LifecycleResult {
 	incompleteCount: number;
 }
 
-export async function completeOnboarding(ctx: OnboardingLifecyclePorts, id: string): Promise<CompleteResult> {
+/** `completedOn` is the member's local calendar day; the database accepts only a day current somewhere. */
+export async function completeOnboarding(
+	ctx: OnboardingLifecyclePorts,
+	id: string,
+	completedOn: string
+): Promise<CompleteResult> {
 	await requireOnboardingManagePolicyForOnboarding(ctx, id);
 
 	const onboarding = await ctx.onboardingWorkflow.findPacketReference(id);
@@ -227,7 +232,7 @@ export async function completeOnboarding(ctx: OnboardingLifecyclePorts, id: stri
 	// Count incomplete active steps (type-agnostic)
 	const incompleteSteps = await ctx.onboardingWorkflow.listIncompleteActiveStepIds(id);
 
-	const updated = await persistTransition(ctx, id, { kind: 'complete', at: new Date().toISOString() });
+	const updated = await persistTransition(ctx, id, { kind: 'complete', at: completedOn });
 
 	ctx.audit.log({
 		action: 'onboarding.completed',

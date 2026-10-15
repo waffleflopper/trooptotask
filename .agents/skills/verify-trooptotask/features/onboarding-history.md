@@ -30,3 +30,7 @@ Preconditions: `doctor` passes for this checkout and worker. `$V seed onboarding
 7. **States.** Open `/onboarding` first, since the Onboarding layout reads the same table on a full load. `$V server-source arm personnel_onboardings hold 1 20000`, then choose `History` (in `More` at 390): the `Loading history` skeleton shows at once, the breadcrumb already reads History, and `release` replaces it with the loaded page; `restore`. `server-source arm personnel_onboardings fail-hard 1`, choose `History` again: `Unable to load History` with `Retry History`, which reloads into the page once the control is restored.
 
 Evidence per drive: before and after snapshot and screenshots at 1280 and 390 in light and dark. Expected results come from the #1665 spec; the cohort rows are privileged setup, not UI creation.
+
+## Viewer day
+
+With a browser zone whose day differs from UTC (see the [skill](../SKILL.md#launch)), reload once after signing in. Start a packet on the browser day as `onboardingConfigure` and complete it from `Onboard`. `$V rows personnel_onboardings orgA id <packet-id>` shows `completed_at` on the browser day, not the UTC day, and History lists the row with that finish date and `0 days`. Cancel another new packet: its History finish date is also the browser day. The header's 90-day counts and the Active page's `Typically N days to finish` both end on the browser day. Remove both packets afterward.

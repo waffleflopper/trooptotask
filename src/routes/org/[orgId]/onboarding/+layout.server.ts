@@ -9,6 +9,7 @@ import {
 	type FeatureLaneWorkspaceRequestContext
 } from '$lib/server/adapters/featureLaneWorkspaceLoad';
 import { fetchOnboardingWorkspace } from '$features/onboarding/index.server';
+import { viewerToday } from '$lib/server/viewerDay.server';
 
 async function streamOnboardingWorkspaceBootstrap(
 	context: FeatureLaneWorkspaceRequestContext
@@ -18,7 +19,7 @@ async function streamOnboardingWorkspaceBootstrap(
 		policyAction: POLICY_ACTION_CATALOG.onboarding.viewWorkflows,
 		policyResource: { kind: 'unscoped' },
 		defer: true,
-		fn: (ctx) => fetchOnboardingWorkspace(ctx, { mode: 'active' })
+		fn: (ctx) => fetchOnboardingWorkspace(ctx, { mode: 'active', today: viewerToday(context.cookies) })
 	});
 	return { onboarding };
 }

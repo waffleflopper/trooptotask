@@ -240,13 +240,17 @@ describe('Calendar', () => {
 	});
 
 	it('counts the people out each day while their group is collapsed', async () => {
+		const outOn = (date: string) => {
+			const text = screen.queryByText(new RegExp(date))?.textContent;
+			return text ? Number(text.replace(date, '').match(/\d+/)?.[0]) : null;
+		};
 		renderCalendar({ availabilityEntries: [{ ...smithOnLeave, endDate: '2026-03-01' }] });
-		expect(screen.queryByText('Sunday, March 1, 2026: 1 out')).toBeNull();
+		expect(outOn('March 1, 2026')).toBeNull();
 
 		await fireEvent.click(screen.getByRole('button', { name: /Alpha/ }));
 
-		expect(screen.getByText('Sunday, March 1, 2026: 1 out')).toBeTruthy();
-		expect(screen.queryByText(/Monday, March 2, 2026: \d+ out/)).toBeNull();
+		expect(outOn('March 1, 2026')).toBe(1);
+		expect(outOn('March 2, 2026')).toBeNull();
 	});
 
 	it('offers resize grips only on the bars of people the member may manage', () => {

@@ -3,6 +3,7 @@
 	import type { Personnel } from '$features/personnel/contracts';
 	import type { StatusType, AvailabilityEntry } from '$features/calendar/contracts';
 	import { formatDate } from '$lib/utils/dates';
+	import { validateDateRange } from '$features/calendar/utils/availabilityMutation';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
@@ -81,12 +82,7 @@
 		return null;
 	});
 
-	const dayCount = $derived.by(() => {
-		if (!startDate || !endDate || startDate > endDate) return 0;
-		const start = new Date(startDate + 'T00:00:00');
-		const end = new Date(endDate + 'T00:00:00');
-		return Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-	});
+	const dayCount = $derived(validateDateRange(startDate, endDate).dayCount);
 
 	function startEdit(entry: AvailabilityEntry) {
 		editingEntry = entry;
@@ -258,9 +254,7 @@
 	}
 
 	function getDayCountForEntry(entry: AvailabilityEntry): number {
-		const start = new Date(entry.startDate + 'T00:00:00');
-		const end = new Date(entry.endDate + 'T00:00:00');
-		return Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+		return validateDateRange(entry.startDate, entry.endDate).dayCount;
 	}
 </script>
 

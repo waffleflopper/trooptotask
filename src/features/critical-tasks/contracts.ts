@@ -246,6 +246,7 @@ export interface CriticalTasksReadModelPort {
 export interface CriticalTasksReportInput {
 	filters?: IctReportFilters;
 	asOf?: string | Date;
+	timeZone?: string;
 }
 
 export interface CriticalTasksReportsPageModel {

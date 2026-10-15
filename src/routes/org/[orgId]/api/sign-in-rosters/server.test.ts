@@ -704,17 +704,31 @@ describe('/api/sign-in-rosters route config', () => {
 		expect(result.total).toBe(1);
 	});
 
-	it('falls back to the default page size for a non-numeric limit and rejects an impossible date', async () => {
+	it('falls back to the default page size for a non-numeric limit and accepts only instant date bounds', async () => {
 		const parse = (query: string) =>
 			Promise.resolve().then(() =>
 				_getConfig.parseInput?.({ url: new URL(`http://localhost/api/sign-in-rosters?${query}`) } as never)
 			);
 
 		await expect(parse('limit=abc')).resolves.toMatchObject({ limit: 20, offset: 0 });
-		await expect(parse('from=2026-02-30')).rejects.toMatchObject({
-			status: 400,
-			message: 'Use a valid date (YYYY-MM-DD)'
-		});
+		await expect(
+			parse('createdFrom=2026-02-01T05:00:00.000Z&createdBefore=2026-02-04T05:00:00.000Z')
+		).resolves.toMatchObject({ createdFrom: '2026-02-01T05:00:00.000Z', createdBefore: '2026-02-04T05:00:00.000Z' });
+		for (const query of ['createdFrom=2026-02-01', 'createdBefore=2026-02-30T00:00:00Z', 'createdBefore=soon']) {
+			await expect(parse(query)).rejects.toMatchObject({ status: 400, message: 'Use a valid date range' });
+		}
+	});
+
+	it('refuses the day-only from and to range a tab loaded before the instant bounds still sends', async () => {
+		const parse = (query: string) =>
+			Promise.resolve().then(() =>
+				_getConfig.parseInput?.({ url: new URL(`http://localhost/api/sign-in-rosters?${query}`) } as never)
+			);
+
+		for (const query of ['from=2026-10-14&to=2026-10-14&limit=20&offset=0', 'from=2026-02-30', 'to=2026-10-14']) {
+			await expect(parse(query)).rejects.toMatchObject({ status: 400, message: 'Use a valid date range' });
+		}
+		await expect(parse('from=&to=&limit=20')).resolves.toMatchObject({ createdFrom: null, createdBefore: null });
 	});
 });
 

@@ -128,7 +128,7 @@ describe('Dashboard request composition', () => {
 	it('loads readiness through the real selected context for a scoped Critical Tasks-only viewer', async () => {
 		const ctx = createRequestDashboardSummaryContext(request());
 		await expect(
-			fetchDashboardSummary(ctx, workspace, { training: false, criticalTasks: true })
+			fetchDashboardSummary(ctx, workspace, { training: false, criticalTasks: true }, '2026-03-20', 'UTC')
 		).resolves.toMatchObject({
 			trainingSummary: null,
 			ictlSummary: { readyCount: 1, applicableCount: 1, overallReadinessPercent: 100 },
@@ -139,7 +139,7 @@ describe('Dashboard request composition', () => {
 	it('settles an empty Group scope without acquiring the privileged roster client', async () => {
 		const ctx = createRequestDashboardSummaryContext(request([]));
 		await expect(
-			fetchDashboardSummary(ctx, workspace, { training: false, criticalTasks: true })
+			fetchDashboardSummary(ctx, workspace, { training: false, criticalTasks: true }, '2026-03-20', 'UTC')
 		).resolves.toMatchObject({
 			ictlSummary: { readyCount: 0, applicableCount: 0 }
 		});
@@ -152,16 +152,16 @@ describe('Dashboard request composition', () => {
 			throw new Error('Disabled summary read Organization settings');
 		};
 		await expect(
-			fetchDashboardSummary(ctx, workspace, { training: false, criticalTasks: false })
+			fetchDashboardSummary(ctx, workspace, { training: false, criticalTasks: false }, '2026-03-20', 'UTC')
 		).resolves.toMatchObject({ trainingSummary: null, ictlSummary: null, onboardingTrainingCompletions: [] });
 		expect(getAdminClient).not.toHaveBeenCalled();
 	});
 
 	it('denies a forged readiness request before acquiring the privileged roster client', async () => {
 		const ctx = createRequestDashboardSummaryContext(request(['group-alpha'], 'none'));
-		await expect(fetchDashboardSummary(ctx, workspace, { training: false, criticalTasks: true })).rejects.toMatchObject(
-			{ status: 403 }
-		);
+		await expect(
+			fetchDashboardSummary(ctx, workspace, { training: false, criticalTasks: true }, '2026-03-20', 'UTC')
+		).rejects.toMatchObject({ status: 403 });
 		expect(getAdminClient).not.toHaveBeenCalled();
 	});
 });

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import ExcelJS from 'exceljs';
 import {
 	createInMemoryDataStore,
@@ -25,11 +25,7 @@ const NO_CAPABILITIES = {
 	ratingScheme: 'none'
 } as const;
 
-beforeEach(() => {
-	vi.useFakeTimers({ toFake: ['Date'] });
-	vi.setSystemTime(new Date('2026-09-29T12:00:00Z'));
-});
-afterEach(() => vi.useRealTimers());
+const AS_OF = '2026-09-29';
 
 function input(overrides: Partial<TrainingBriefingReportInput> = {}): TrainingBriefingReportInput {
 	return { ...DEFAULT_TRAINING_BRIEFING_INPUT, ...overrides };
@@ -124,7 +120,7 @@ function unitContext() {
 
 describe('Training briefing report', () => {
 	it('briefs the whole authorized roster against the Organization goal and offers only display options', async () => {
-		const report = await fetchTrainingBriefingReport(unitContext(), input());
+		const report = await fetchTrainingBriefingReport(unitContext(), input(), AS_OF);
 
 		expect(report.input).toEqual(DEFAULT_TRAINING_BRIEFING_INPUT);
 		expect(report.organizationName).toBe('Test Company');
@@ -176,7 +172,8 @@ describe('Training briefing report', () => {
 				typeIds: ['cpr', 'opt', 'ghost'],
 				horizonDays: 30,
 				rowsBy: 'mos'
-			})
+			}),
+			AS_OF
 		);
 
 		expect(report.input).toEqual({
@@ -201,7 +198,7 @@ describe('Training briefing report', () => {
 	});
 
 	it('names the selected group as the briefing scope', async () => {
-		const report = await fetchTrainingBriefingReport(unitContext(), input({ groupId: 'alpha', rank: 'SPC' }));
+		const report = await fetchTrainingBriefingReport(unitContext(), input({ groupId: 'alpha', rank: 'SPC' }), AS_OF);
 
 		expect(report.input).toMatchObject({ groupId: 'alpha', rank: 'SPC' });
 		expect(report.briefing.bottomLine).toMatchObject({ scopeName: 'Alpha', soldierCount: 1 });
@@ -226,21 +223,25 @@ describe('Training briefing report', () => {
 			return rawFindMany(table, orgId, filters, options);
 		}) as typeof ctx.rawStore.findMany;
 
-		const report = await fetchTrainingBriefingReport(ctx, input());
+		const report = await fetchTrainingBriefingReport(ctx, input(), AS_OF);
 
 		expect(report.briefing.bottomLine.soldierCount).toBe(2);
 		expect(report.briefing.grid.rows.map((row) => row.key)).toEqual(['alpha']);
 		expect(report.filterOptions.mos).toEqual(['68W']);
 		expect(report.filterOptions.groups).toEqual([{ id: 'alpha', name: 'Alpha' }]);
-		const hiddenGroup = await fetchTrainingBriefingReport(ctx, input({ groupId: 'bravo' }));
+		const hiddenGroup = await fetchTrainingBriefingReport(ctx, input({ groupId: 'bravo' }), AS_OF);
 		expect([hiddenGroup.input.groupId, hiddenGroup.briefing.bottomLine.scopeName]).toEqual([null, 'Test Company']);
 		await expect(
-			fetchTrainingBriefingDetail(ctx, {
-				report: input(),
-				scope: { kind: 'cell', rowKey: 'bravo', typeId: 'cpr' },
-				page: 1,
-				pageSize: 25
-			})
+			fetchTrainingBriefingDetail(
+				ctx,
+				{
+					report: input(),
+					scope: { kind: 'cell', rowKey: 'bravo', typeId: 'cpr' },
+					page: 1,
+					pageSize: 25
+				},
+				AS_OF
+			)
 		).rejects.toMatchObject({ status: 404 });
 	});
 
@@ -251,25 +252,29 @@ describe('Training briefing report', () => {
 		seedUnit(ctx.store as Store);
 		const detail = { report: input(), scope: { kind: 'focus' as const, key: 'wave' }, page: 1, pageSize: 25 };
 
-		await expect(fetchTrainingBriefingReport(ctx, input())).rejects.toMatchObject({ status: 403 });
-		await expect(fetchTrainingBriefingDetail(ctx, detail)).rejects.toMatchObject({ status: 403 });
-		await expect(generateTrainingReportWorkbookExport(ctx, input())).rejects.toMatchObject({ status: 403 });
+		await expect(fetchTrainingBriefingReport(ctx, input(), AS_OF)).rejects.toMatchObject({ status: 403 });
+		await expect(fetchTrainingBriefingDetail(ctx, detail, AS_OF)).rejects.toMatchObject({ status: 403 });
+		await expect(generateTrainingReportWorkbookExport(ctx, input(), AS_OF)).rejects.toMatchObject({ status: 403 });
 	});
 
 	it('refuses to brief an Organization it cannot read', async () => {
 		const ctx = createQueryPortsContext();
-		await expect(fetchTrainingBriefingReport(ctx, input())).rejects.toMatchObject({ status: 404 });
+		await expect(fetchTrainingBriefingReport(ctx, input(), AS_OF)).rejects.toMatchObject({ status: 404 });
 	});
 });
 
 describe('Training briefing detail', () => {
 	it('pages the affected requirements of a Total cell, clamping past the last page and joining display labels', async () => {
-		const detail = await fetchTrainingBriefingDetail(unitContext(), {
-			report: input(),
-			scope: { kind: 'cell', rowKey: null, typeId: 'cpr' },
-			page: 9,
-			pageSize: 1
-		});
+		const detail = await fetchTrainingBriefingDetail(
+			unitContext(),
+			{
+				report: input(),
+				scope: { kind: 'cell', rowKey: null, typeId: 'cpr' },
+				page: 9,
+				pageSize: 1
+			},
+			AS_OF
+		);
 
 		expect(detail).toEqual({
 			scope: { kind: 'cell', rowKey: null, typeId: 'cpr' },
@@ -296,12 +301,16 @@ describe('Training briefing detail', () => {
 	});
 
 	it('lists a row cell under the same filters the page shows', async () => {
-		const detail = await fetchTrainingBriefingDetail(unitContext(), {
-			report: input({ viewId: 'medical' }),
-			scope: { kind: 'cell', rowKey: 'bravo', typeId: 'bls' },
-			page: 1,
-			pageSize: 25
-		});
+		const detail = await fetchTrainingBriefingDetail(
+			unitContext(),
+			{
+				report: input({ viewId: 'medical' }),
+				scope: { kind: 'cell', rowKey: 'bravo', typeId: 'bls' },
+				page: 1,
+				pageSize: 25
+			},
+			AS_OF
+		);
 
 		expect(detail.rows.map((row) => [row.name, row.typeName, row.label, row.expirationDate])).toEqual([
 			['Baker, Pat', 'BLS', 'Not Done', null]
@@ -309,10 +318,24 @@ describe('Training briefing detail', () => {
 		expect(detail.totalPages).toBe(1);
 	});
 
+	it('judges currency on the day it is given, so a record expiring that day is still current', async () => {
+		const ableBls = async (asOf: string) => {
+			const detail = await fetchTrainingBriefingDetail(
+				unitContext(),
+				{ report: input(), scope: { kind: 'cell', rowKey: 'alpha', typeId: 'bls' }, page: 1, pageSize: 25 },
+				asOf
+			);
+			return detail.rows.find((row) => row.name === 'Able, Pat')?.label;
+		};
+
+		expect(await ableBls('2026-10-10')).toBe('0d left');
+		expect(await ableBls('2026-10-11')).toBe('Expired 1d ago');
+	});
+
 	it('rejects a row, type or focus area the current filters do not produce', async () => {
 		const ctx = unitContext();
 		const request = (scope: Parameters<typeof fetchTrainingBriefingDetail>[1]['scope'], report = input()) =>
-			fetchTrainingBriefingDetail(ctx, { report, scope, page: 1, pageSize: 25 });
+			fetchTrainingBriefingDetail(ctx, { report, scope, page: 1, pageSize: 25 }, AS_OF);
 
 		await expect(request({ kind: 'cell', rowKey: 'ghost', typeId: 'cpr' })).rejects.toMatchObject({ status: 404 });
 		await expect(request({ kind: 'cell', rowKey: null, typeId: 'opt' })).rejects.toMatchObject({ status: 404 });
@@ -324,7 +347,7 @@ describe('Training briefing detail', () => {
 });
 
 async function exportedWorkbook(ctx: ReturnType<typeof unitContext>, request: TrainingBriefingReportInput) {
-	const exported = await generateTrainingReportWorkbookExport(ctx, request);
+	const exported = await generateTrainingReportWorkbookExport(ctx, request, AS_OF);
 	const workbook = new ExcelJS.Workbook();
 	await workbook.xlsx.load(exported.buffer as WorkbookLoadBuffer);
 	return { exported, workbook };
@@ -451,12 +474,16 @@ describe('Training report workbook', () => {
 	it('narrows every sheet to the filters but never to the drill-down on screen', async () => {
 		const ctx = unitContext();
 		const alpha = input({ groupId: 'alpha' });
-		const drillDown = await fetchTrainingBriefingDetail(ctx, {
-			report: alpha,
-			scope: { kind: 'cell', rowKey: null, typeId: 'cpr' },
-			page: 1,
-			pageSize: 25
-		});
+		const drillDown = await fetchTrainingBriefingDetail(
+			ctx,
+			{
+				report: alpha,
+				scope: { kind: 'cell', rowKey: null, typeId: 'cpr' },
+				page: 1,
+				pageSize: 25
+			},
+			AS_OF
+		);
 		const { workbook } = await exportedWorkbook(ctx, alpha);
 
 		expect(drillDown.rows.map((row) => row.name)).toEqual(['Cole, Pat']);

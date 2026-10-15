@@ -4,8 +4,6 @@ export interface PersonnelLeaderNote {
 	personnelId: string;
 	/** Organization member label, stored author fallback, or Unknown leader. */
 	author: string;
-	/** YYYY-MM-DD, derived from createdAt. */
-	date: string;
 	text: string;
 	/** Timestamp string. */
 	createdAt: string;

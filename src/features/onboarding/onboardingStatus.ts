@@ -1,4 +1,5 @@
 import type { OnboardingStepProgress, OnboardingStepType, PersonnelOnboarding } from './onboarding.types';
+import { localDateIn } from '$lib/utils/dates';
 
 /** A paperwork step that has not moved stage in this many whole days is stalled. */
 export const STALL_DAYS = 7;
@@ -52,13 +53,7 @@ export interface WaitingStep {
 }
 
 export function todayIn(timeZone: string, now: Date): Today {
-	return { date: localDate(now, timeZone), timeZone };
-}
-
-function localDate(instant: Date, timeZone: string): string {
-	return new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(
-		instant
-	);
+	return { date: localDateIn(timeZone, now), timeZone };
 }
 
 /** Whole calendar days from one YYYY-MM-DD date to another. */
@@ -67,7 +62,7 @@ export function calendarDaysBetween(from: string, to: string): number {
 }
 
 export function daysAtStage(step: OnboardingStepProgress, today: Today): number {
-	const changedOn = localDate(new Date(step.progressChangedAt), today.timeZone);
+	const changedOn = localDateIn(today.timeZone, new Date(step.progressChangedAt));
 	return Math.max(0, calendarDaysBetween(changedOn, today.date));
 }
 

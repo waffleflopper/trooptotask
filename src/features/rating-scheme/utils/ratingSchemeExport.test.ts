@@ -132,4 +132,20 @@ describe('exportRatingScheme', () => {
 		expect(sheet.getCell('C2').value).toBe('CPT Smith, Jane');
 		expect(sheet.getCell('E2').value).toBe('CPT Jones');
 	});
+
+	it('names the download with the local calendar day', async () => {
+		const originalTimezone = process.env.TZ;
+		process.env.TZ = 'America/Los_Angeles';
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date('2026-10-15T02:00:00Z'));
+		try {
+			await exportRatingScheme([makeEntry()], makePersonnel());
+
+			expect(clickedAnchor?.download).toBe('rating-scheme-2026-10-14.xlsx');
+		} finally {
+			vi.useRealTimers();
+			if (originalTimezone === undefined) delete process.env.TZ;
+			else process.env.TZ = originalTimezone;
+		}
+	});
 });

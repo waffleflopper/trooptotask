@@ -6,7 +6,7 @@ All historical links below pin commit `dbd501301df350ef4e6cebb6bc1238283b24d9c9`
 
 ## 11-05a, 11-09 D06 validated inputs, dates and truthful failures
 
-**PR 1 merged; PR 2 is in review.** Both use `Refs #1644`. Branch `chore/stabilize-1644` began at fetched main `7405e6715`, with no earlier D06 branch or PR. Robert authorized publication and verified merges through the PR that closes #1644. [PR 1 #1696](https://github.com/waffleflopper/trooptotask/pull/1696) merged as `9ac7bb8aa` after exact-head `a32de9c02` passed all seven checks with every review thread resolved. The merged `src` tree equals the tested head. #1554, #1557 and #1561 are closed with pointers to the matching final evidence below. PR 2 is on `chore/stabilize-1644-2`, from main `9ac7bb8aa`.
+**PR 1 and PR 2 merged; PR 3 is in review.** Each uses `Refs #1644`. [PR 2 #1698](https://github.com/waffleflopper/trooptotask/pull/1698) merged as `2a5b34c87` after exact-head `c6e7a90a8` passed all seven checks. Its one CodeRabbit thread was dismissed, with a reason, because the REST adapter already maps a rejected delete to `'error'`. Branch `chore/stabilize-1644` began at fetched main `7405e6715`, with no earlier D06 branch or PR. Robert authorized publication and verified merges through the PR that closes #1644. [PR 1 #1696](https://github.com/waffleflopper/trooptotask/pull/1696) merged as `9ac7bb8aa` after exact-head `a32de9c02` passed all seven checks with every review thread resolved. The merged `src` tree equals the tested head. #1554, #1557 and #1561 are closed with pointers to the matching final evidence below. PR 2 is on `chore/stabilize-1644-2`, from main `9ac7bb8aa`.
 
 **Census.** A read-only source trace of every retained route, provider mapping, date path and form save found seven root causes behind #1554, #1557, #1561, the Training name-length message and about 40 further sites:
 
@@ -109,6 +109,54 @@ That intermediate run is described in the rerun notes, not packaged. Reorder is 
 
 - GPT-6.1-Sol and Opus reviewed `147178305`. Their findings were the reorder ties and overlap, the pinned-Group lifetime, and assertions on exact request order and authored copy that `TESTING.md` forbids. All are fixed in `fed0c207b` and `e47b24177`.
 - Opus's partial-import observation is kept as is, because the counts are truthful.
+
+### PR 3 the viewer's day and date-only display
+
+**Model.** An operational "today" is the viewer's local day. Browser surfaces already used it. Server reads now get it from a validated IANA zone cookie, `t2t_tz`, written by the root layout (`src/lib/utils/viewerTimeZone.ts`). `viewerToday(cookies)` in `src/lib/server/viewerDay.server.ts` turns the cookie into the day; a missing or invalid zone falls back to UTC. Routes pass the day as explicit `asOf`. There is no Organization timezone and no `asOf` in bookmarkable URLs. When the layout first stores or changes the zone, it refreshes server data once with `invalidateAll()`. Training Reports adopts the refreshed load unless the viewer already chose filters.
+
+**Repairs.**
+
+- D1: the Personnel detail lanes, Training report, detail and export, Critical Tasks summary, report and matrix exports, Dashboard Training and Critical Tasks summaries, and the Personnel export filename now use the viewer day.
+- D2: the Availability day count uses the existing UTC-safe range helper.
+- D4: roster From and To become local-midnight instants with an exclusive end. A legacy `from`/`to` query now gets 400.
+- D5: leader-note and detail document dates format the full timestamp locally.
+- D6: relative dates count calendar days.
+- D7: Rating Scheme due days count calendar days.
+- D8: the Rating Scheme export uses the local day.
+- `verify:app launch|restart --browser-timezone <IANA>` runs the browser in that zone and pins the app to UTC. `restart` keeps the previous zone. `doctor` reports both.
+
+The Organization JSON and workbook filenames still take their own `exportedAt` instant's UTC day, which matches the export's contents. D3 is in PR 4.
+
+**Baseline.** Revision `85104cab9`: main `2a5b34c87` plus only the timezone control and recipe text. [`11-09-pr3-baseline.tar.gz`](https://github.com/waffleflopper/trooptotask/releases/download/evidence/11-09-pr3-baseline.tar.gz), SHA-256 `dbcfa8f837ec19ebdbd7cac11421f983e84d4a20d65f0883a500264625b83bd7`, 29 payloads. Browser in `Pacific/Pago_Pago` (day 2026-10-14), app on UTC (2026-10-15).
+
+**Final.** Revision `3cce63b10`, the full stack through PR 4. PR 4 touches only Onboarding, so the D1, D2, D4, D5 and D8 observations also hold for PR 3's head `f60b4ad55`. [`11-09-pr3-final.tar.gz`](https://github.com/waffleflopper/trooptotask/releases/download/evidence/11-09-pr3-final.tar.gz), SHA-256 `0815d6e730f171af63ee1c91d7dabcaa5be398c8bc2eff6fe295b12f6e0ff0d9`, 32 payloads. Browser in `Pacific/Kiritimati` (day 2026-10-16), app on UTC (2026-10-15).
+
+| Case                                                     | Baseline                                                         | Final                                                                                                            |
+| -------------------------------------------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Training report for a record expiring on the browser day | `as of 15 Oct`; Baker counted expired; the matrix said `0d left` | First load with no cookie refreshes once to `as of 16 Oct`, and Bravo is 100% ready                              |
+| Baker's detail lane                                      | `expired 1d ago`                                                 | `due today`                                                                                                      |
+| Dashboard                                                | `1 expired`                                                      | `1 expiring`                                                                                                     |
+| Training, Personnel and Rating Scheme export names       | Rating Scheme `-2026-10-15`                                      | `training-report-2026-10-16.xlsx`, `SPC_Baker_Synthetic-export-2026-10-16.xlsx`, `rating-scheme-2026-10-16.xlsx` |
+| Roster From = To = browser day                           | Empty list                                                       | All three rosters; legacy `from`/`to` gets 400                                                                   |
+| Leader note date                                         | `2026-10-15`                                                     | `Oct 16, 2026`                                                                                                   |
+| D2 in New York, March 1 to 10                            | `(9 days)`                                                       | `(10 days)`                                                                                                      |
+
+D6 and D7 depend on wall-clock timing and are proven by unit tests with a fixed zone and time.
+
+**Checks.**
+
+- On `f60b4ad55`, the six commands pass: 796 files and 8,792 tests, 0 type errors. The 34 verification-control tests pass.
+- On the PR 4 tip, 8,803 tests pass.
+
+**Review.** GPT-6.1-Sol and Opus reviewed the first candidates. Their findings are fixed in `f60b4ad55`:
+
+- a first load stuck on the UTC day (major)
+- the legacy roster query ignored silently
+- the Personnel export filename
+- `restart` losing the zone
+- comment wording about the completion window
+
+The History sort finding belongs to PR 4.
 
 **Kept limits.**
 

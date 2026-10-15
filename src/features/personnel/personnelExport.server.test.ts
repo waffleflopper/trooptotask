@@ -206,7 +206,7 @@ describe('Personnel export use case', () => {
 		await expect(
 			exportPersonnelWorkbook(
 				ctx,
-				{ personnelId: PERSONNEL_ID },
+				{ personnelId: PERSONNEL_ID, asOf: '2026-05-20' },
 				listAvailabilityHistory,
 				listStatusTypeLabels,
 				listTrainingTypeLabels,
@@ -227,7 +227,7 @@ describe('Personnel export use case', () => {
 		await expect(
 			exportPersonnelWorkbook(
 				ctx,
-				{ personnelId: 'person-1' },
+				{ personnelId: 'person-1', asOf: '2026-05-20' },
 				listAvailabilityHistory,
 				listStatusTypeLabels,
 				listTrainingTypeLabels,
@@ -247,14 +247,13 @@ describe('Personnel export use case', () => {
 
 		const result = await exportPersonnelWorkbook(
 			ctx,
-			{ personnelId: PERSONNEL_ID },
+			{ personnelId: PERSONNEL_ID, asOf: '2026-05-20' },
 			listAvailabilityHistory,
 			listStatusTypeLabels,
 			listTrainingTypeLabels,
 			listPersonnelTrainingExportRows(ctx)
 		);
 		const workbook = await parseWorkbook(result._buffer);
-		const dateStr = new Date().toISOString().split('T')[0];
 
 		expect(workbook.worksheets.map((sheet) => sheet.name)).toEqual([
 			'Personnel Info',
@@ -262,7 +261,7 @@ describe('Personnel export use case', () => {
 			'Counseling Records',
 			'Availability History'
 		]);
-		expect(result._filename).toBe(`SGT_Smith_Jamie-export-${dateStr}.xlsx`);
+		expect(result._filename).toBe('SGT_Smith_Jamie-export-2026-05-20.xlsx');
 		expect(ctx.auditPort.events.at(-1)).toMatchObject({
 			action: 'personnel.exported',
 			resourceType: 'personnel',
@@ -344,7 +343,7 @@ describe('Personnel export use case', () => {
 
 		const result = await exportPersonnelWorkbook(
 			ctx,
-			{ personnelId: PERSONNEL_ID },
+			{ personnelId: PERSONNEL_ID, asOf: '2026-05-20' },
 			listAvailabilityHistory,
 			listStatusTypeLabels,
 			listTrainingTypeLabels,
@@ -372,7 +371,7 @@ describe('Personnel export use case', () => {
 		await ctx.rawStore.deleteManyByIds('personnel_extended_info', ctx.auth.orgId, ['extended-1']);
 		const result = await exportPersonnelWorkbook(
 			ctx,
-			{ personnelId: PERSONNEL_ID },
+			{ personnelId: PERSONNEL_ID, asOf: '2026-05-20' },
 			listAvailabilityHistory,
 			listStatusTypeLabels,
 			listTrainingTypeLabels,
@@ -391,7 +390,7 @@ describe('Personnel export use case', () => {
 		await expect(
 			exportPersonnelWorkbook(
 				ctx,
-				{ personnelId: PERSONNEL_ID },
+				{ personnelId: PERSONNEL_ID, asOf: '2026-05-20' },
 				listAvailabilityHistory,
 				listStatusTypeLabels,
 				listTrainingTypeLabels,

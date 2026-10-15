@@ -120,7 +120,8 @@ describe('GET /api/critical-tasks/matrix/export', () => {
 			{
 				groupId: 'group-alpha',
 				gapsOnly: true,
-				search: undefined
+				search: undefined,
+				asOf: '2026-10-14'
 			},
 			() => ctx
 		);
@@ -142,8 +143,8 @@ describe('GET /api/critical-tasks/matrix/export', () => {
 		expect(sheet.getColumn(1).values).not.toContain('Jones, Alex');
 		expect(sheet.getRow(1).values).not.toContain('181-105-1001 TCCC lane');
 		expect(response?.headers.get('Content-Type')).toBe(WORKBOOK_MIME_TYPE);
-		expect(response?.headers.get('Content-Disposition')).toMatch(
-			/attachment; filename="critical-task-matrix-.*\.xlsx"/
+		expect(response?.headers.get('Content-Disposition')).toBe(
+			'attachment; filename="critical-task-matrix-2026-10-14.xlsx"'
 		);
 	});
 });

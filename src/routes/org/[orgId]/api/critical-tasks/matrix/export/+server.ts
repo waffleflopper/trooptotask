@@ -21,7 +21,7 @@ export const _getConfig: RouteConfig<
 	policyAction: POLICY_ACTION_CATALOG.criticalTasks.viewReadiness,
 	policyResource: { kind: 'unscoped' },
 	input: criticalTasksMatrixExportInput,
-	parseInput: (event) => parseCriticalTasksMatrixExportInput(event.url),
+	parseInput: parseCriticalTasksMatrixExportInput,
 	fn: async (ctx, input) => generateCriticalTasksMatrixWorkbookExport(ctx, toCriticalTasksMatrixExportInput(input)),
 	formatOutput: (result) => workbookBufferResponse(result.buffer, result.filename, PRIVATE_REPORT_HEADERS)
 };

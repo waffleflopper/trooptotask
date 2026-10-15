@@ -57,7 +57,6 @@ function mapLeaderNoteRow(row: LeaderNoteRow, labels: Map<string, string> = new 
 		id: row.id,
 		personnelId: row.personnel_id,
 		author: row.author ? (labels.get(row.author) ?? row.author) : 'Unknown leader',
-		date: row.created_at.slice(0, 10),
 		text: row.text,
 		createdAt: row.created_at,
 		archivedAt: row.archived_at ?? null

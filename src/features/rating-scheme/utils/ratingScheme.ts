@@ -1,6 +1,7 @@
 import { BUILT_IN_RANK_CATALOG, type RankCategory } from '$features/personnel/contracts';
 import { OER_REPORT_TYPES, NCOER_REPORT_TYPES, WOER_REPORT_TYPES } from '../rating-scheme.types';
 import type { RatingDueStatus, ReportType, ReportTypeOption } from '../rating-scheme.types';
+import { calendarDayDiff, parseDate } from '$lib/utils/dates';
 
 function armyRankCodes(category: RankCategory): ReadonlySet<string> {
 	return new Set(
@@ -22,9 +23,7 @@ export function getEvalTypeForRank(rank: string): 'OER' | 'NCOER' | 'WOER' {
 export function getRatingDueStatus(ratingPeriodEnd: string, status: string, today: Date = new Date()): RatingDueStatus {
 	if (status === 'completed') return 'completed';
 
-	const end = new Date(ratingPeriodEnd + 'T00:00:00');
-	const diffMs = end.getTime() - today.getTime();
-	const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+	const diffDays = getDaysUntilDue(ratingPeriodEnd, today);
 
 	if (diffDays < 0) return 'overdue';
 	if (diffDays <= 30) return 'due-30';
@@ -33,9 +32,7 @@ export function getRatingDueStatus(ratingPeriodEnd: string, status: string, toda
 }
 
 export function getDaysUntilDue(ratingPeriodEnd: string, today: Date = new Date()): number {
-	const end = new Date(ratingPeriodEnd + 'T00:00:00');
-	const diffMs = end.getTime() - today.getTime();
-	return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+	return calendarDayDiff(today, parseDate(ratingPeriodEnd));
 }
 
 export function getReportTypesForEvalType(evalType: 'OER' | 'NCOER' | 'WOER'): ReportTypeOption[] {

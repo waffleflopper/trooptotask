@@ -5,6 +5,7 @@ import {
 } from '$features/training/server/trainingPersistence.test-support.server';
 import { fetchDashboardTrainingSummary } from './trainingSummaryQuery.server';
 import type { Personnel } from '$features/personnel/contracts';
+import { formatToday } from '$lib/utils/dates';
 
 const ORG = 'test-org';
 
@@ -55,6 +56,7 @@ describe('Dashboard Training summary', () => {
 		await expect(
 			fetchDashboardTrainingSummary(ctx, {
 				onboardingPersonnelIds: [],
+				asOf: formatToday(),
 				personnel: [{ id: 'p1', rank: 'SGT', lastName: 'Smith', firstName: 'John', groupId: 'g1' }] as never[],
 				trainingTypes: [makeTrainingType('tt1')] as never[]
 			})
@@ -88,6 +90,7 @@ describe('Dashboard Training summary', () => {
 
 		const { trainingSummary: result } = await fetchDashboardTrainingSummary(ctx, {
 			onboardingPersonnelIds: [],
+			asOf: formatToday(),
 			personnel: personnel as never[],
 			trainingTypes: trainingTypes as never[]
 		});
@@ -119,6 +122,7 @@ describe('Dashboard Training summary', () => {
 
 		const { trainingSummary: result } = await fetchDashboardTrainingSummary(ctx, {
 			onboardingPersonnelIds: [],
+			asOf: formatToday(),
 			personnel: personnel as never[],
 			trainingTypes: trainingTypes as never[]
 		});
@@ -165,6 +169,7 @@ describe('Dashboard Training summary', () => {
 
 		const { trainingSummary: result } = await fetchDashboardTrainingSummary(ctx, {
 			onboardingPersonnelIds: [],
+			asOf: formatToday(),
 			personnel: personnel as never[],
 			trainingTypes: trainingTypes as never[],
 			options: { issueLimit: 1 }
@@ -178,6 +183,7 @@ describe('Dashboard Training summary', () => {
 
 		const { trainingSummary: result } = await fetchDashboardTrainingSummary(ctx, {
 			onboardingPersonnelIds: [],
+			asOf: formatToday(),
 			personnel: [{ id: 'p1', rank: 'SGT', lastName: 'Smith', firstName: 'John', groupId: 'g1' }] as never[],
 			trainingTypes: [makeTrainingType('tt1')] as never[]
 		});
@@ -226,13 +232,44 @@ describe('fetchDashboardTrainingSummary', () => {
 		const result = await fetchDashboardTrainingSummary(ctx, {
 			personnel: personnel as never[],
 			trainingTypes: trainingTypes as never[],
-			onboardingPersonnelIds: ['p1', 'p2', 'missing']
+			onboardingPersonnelIds: ['p1', 'p2', 'missing'],
+			asOf: formatToday()
 		});
 
 		expect(result.trainingSummary.stats.expired).toBe(1);
 		expect(result.trainingSummary.issues).toHaveLength(1);
 		expect(result.onboardingTrainingCompletions).toEqual(new Set(['p1-tt1', 'p2-tt1']));
 		expect(findManySpy).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe('Dashboard Training viewer day', () => {
+	it('judges currency on the given day, so a record expiring that day is not yet expired', async () => {
+		const ctx = buildCtx();
+		(ctx.store as ReturnType<typeof createInMemoryDataStore>).seed('personnel_trainings', [
+			{
+				id: 'completion-1',
+				organization_id: ORG,
+				personnel_id: 'p1',
+				training_type_id: 'tt1',
+				completion_date: '2025-10-14',
+				expiration_date: '2026-10-14',
+				notes: null,
+				certificate_url: null
+			}
+		]);
+		const summaryOn = async (asOf: string) =>
+			(
+				await fetchDashboardTrainingSummary(ctx, {
+					personnel: [{ id: 'p1', rank: 'SGT', lastName: 'Smith', firstName: 'John', groupId: 'g1' }] as never[],
+					trainingTypes: [makeTrainingType('tt1')],
+					onboardingPersonnelIds: [],
+					asOf
+				})
+			).trainingSummary.stats;
+
+		expect(await summaryOn('2026-10-14')).toMatchObject({ expired: 0, warningOrange: 1 });
+		expect(await summaryOn('2026-10-15')).toMatchObject({ expired: 1, warningOrange: 0 });
 	});
 });
 
@@ -280,7 +317,7 @@ describe('literal Dashboard Training person attribution', () => {
 				}))
 			);
 
-			const input = { personnel, trainingTypes, onboardingPersonnelIds: [] };
+			const input = { personnel, trainingTypes, onboardingPersonnelIds: [], asOf: '2026-09-29' };
 			const { trainingSummary: summary } = await fetchDashboardTrainingSummary(ctx, {
 				...input,
 				options: { issueLimit: 1, issueStatuses: ['warning-orange'] }

@@ -17,11 +17,11 @@ export async function fetchDashboardTrainingSummary(
 	ctx: TrainingCompletionReadContext,
 	input: DashboardTrainingSummaryInput
 ): Promise<DashboardTrainingSummary> {
-	const { onboardingPersonnelIds, personnel, trainingTypes, options = {} } = input;
+	const { onboardingPersonnelIds, personnel, trainingTypes, options = {}, asOf } = input;
 	const trainings = await listTrainingCompletions(ctx);
 
 	return {
-		trainingSummary: buildTrainingSummary(trainings, personnel, trainingTypes, options),
+		trainingSummary: buildTrainingSummary(trainings, personnel, trainingTypes, asOf, options),
 		onboardingTrainingCompletions: buildOnboardingTrainingCompletions(trainings, onboardingPersonnelIds)
 	};
 }
@@ -30,15 +30,17 @@ function buildTrainingSummary(
 	trainings: PersonnelTraining[],
 	personnel: Personnel[],
 	trainingTypes: TrainingType[],
+	asOf: string,
 	options: TrainingSummaryInput['options'] = {}
 ): TrainingSummary {
 	const { issueLimit = 5, issueStatuses = ['expired', 'warning-orange'], includeNotCompleted = false } = options;
 
-	const stats = getTrainingStats(personnel, trainingTypes, trainings, options.groupId);
+	const stats = getTrainingStats(personnel, trainingTypes, trainings, options.groupId, asOf);
 
 	const delinquent = getDelinquentTrainings(personnel, trainingTypes, trainings, {
 		groupId: options.groupId,
-		includeNotCompleted
+		includeNotCompleted,
+		asOf
 	});
 
 	// Literal person attribution uses the complete applicable result, independently

@@ -19,7 +19,7 @@ export const _getConfig: RouteConfig<
 	policyAction: POLICY_ACTION_CATALOG.criticalTasks.viewReadiness,
 	policyResource: { kind: 'unscoped' },
 	input: criticalTasksReportInput,
-	parseInput: (event) => parseCriticalTasksReportInput(event.url),
+	parseInput: parseCriticalTasksReportInput,
 	fn: async (ctx, input) => fetchCriticalTasksReportDashboard(ctx, toCriticalTasksReportInput(input))
 };
 

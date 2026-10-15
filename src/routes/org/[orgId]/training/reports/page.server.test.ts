@@ -47,7 +47,7 @@ function seededContext(training: 'none' | 'view') {
 	return ctx;
 }
 
-function loadFor(training: 'none' | 'view', query: string) {
+function loadFor(training: 'none' | 'view', query: string, timeZone?: string) {
 	const ctx = seededContext(training);
 	const loadWithContextFn = vi.fn(async (_locals, _cookies, _orgId, config) =>
 		config.fn(ctx as never)
@@ -57,7 +57,7 @@ function loadFor(training: 'none' | 'view', query: string) {
 		params: { orgId: 'test-org' },
 		url: new URL(`https://example.test/org/test-org/training/reports?${query}`),
 		locals: {} as App.Locals,
-		cookies: {} as never,
+		cookies: { get: (name: string) => (name === 't2t_tz' ? timeZone : undefined) } as never,
 		depends: vi.fn()
 	} as never);
 	return { result, loadWithContextFn };
@@ -73,6 +73,20 @@ describe('Training reports page load', () => {
 		expect(vi.mocked(loadWithContextFn).mock.calls[0][3]).toMatchObject({
 			policyAction: POLICY_ACTION_CATALOG.training.viewRecords
 		});
+	});
+
+	it('evaluates the first paint on the viewer day from the time zone cookie', async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date('2026-10-15T02:00:00Z'));
+		try {
+			const { trainingReport: eastern } = await loadFor('view', '', 'America/New_York').result;
+			const { trainingReport: fallback } = await loadFor('view', '', 'Not/AZone').result;
+
+			expect(eastern.briefing.bottomLine.asOf).toBe('2026-10-14');
+			expect(fallback.briefing.bottomLine.asOf).toBe('2026-10-15');
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	it('refuses the page for a member without Training view', async () => {

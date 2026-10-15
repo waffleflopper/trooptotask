@@ -116,6 +116,7 @@ export interface DelinquentTraining {
 export interface DelinquentOptions {
 	groupId?: string;
 	includeNotCompleted?: boolean;
+	asOf?: string;
 }
 
 export function getDelinquentTrainings(
@@ -124,7 +125,7 @@ export function getDelinquentTrainings(
 	trainings: PersonnelTraining[],
 	options: DelinquentOptions = {}
 ): DelinquentTraining[] {
-	const { groupId, includeNotCompleted = true } = options;
+	const { groupId, includeNotCompleted = true, asOf } = options;
 
 	// Create a map of trainings by personnel+type
 	const trainingMap = new Map<string, PersonnelTraining>();
@@ -140,7 +141,7 @@ export function getDelinquentTrainings(
 
 		for (const type of types) {
 			const training = trainingMap.get(`${person.id}-${type.id}`);
-			const statusInfo = getTrainingStatus(training, type, person);
+			const statusInfo = getTrainingStatus(training, type, person, asOf);
 
 			// Include if expired, warning, or (optionally) not completed
 			if (
@@ -182,7 +183,8 @@ export function getTrainingStats(
 	personnel: Personnel[],
 	types: TrainingType[],
 	trainings: PersonnelTraining[],
-	groupId?: string
+	groupId?: string,
+	asOf?: string
 ): TrainingStats {
 	// Create a map of trainings by personnel+type
 	const trainingMap = new Map<string, PersonnelTraining>();
@@ -206,7 +208,7 @@ export function getTrainingStats(
 
 		for (const type of types) {
 			const training = trainingMap.get(`${person.id}-${type.id}`);
-			const statusInfo = getTrainingStatus(training, type, person);
+			const statusInfo = getTrainingStatus(training, type, person, asOf);
 			stats.total++;
 
 			switch (statusInfo.status) {

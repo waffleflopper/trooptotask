@@ -4,10 +4,10 @@ import { json } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fetchTrainingBriefingReport } from '$features/training/index.server';
-import { PRIVATE_REPORT_HEADERS, parseTrainingBriefingRequest } from './reportInput';
+import { PRIVATE_REPORT_HEADERS, parseTrainingBriefingRequest, type ViewerDayRequest } from './reportInput';
 
 export const _getConfig: RouteConfig<
-	TrainingBriefingReportInput,
+	ViewerDayRequest<TrainingBriefingReportInput>,
 	TrainingBriefingReportData,
 	ReturnType<typeof createRequestTrainingBriefingContext>
 > = {
@@ -15,7 +15,7 @@ export const _getConfig: RouteConfig<
 	policyAction: POLICY_ACTION_CATALOG.training.viewRecords,
 	policyResource: { kind: 'unscoped' },
 	parseInput: parseTrainingBriefingRequest,
-	fn: fetchTrainingBriefingReport,
+	fn: (ctx, { request, asOf }) => fetchTrainingBriefingReport(ctx, request, asOf),
 	formatOutput: (result) => json(result, { headers: PRIVATE_REPORT_HEADERS })
 };
 

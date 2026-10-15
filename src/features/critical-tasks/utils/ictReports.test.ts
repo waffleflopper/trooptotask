@@ -968,7 +968,8 @@ describe('ictReports', () => {
 				defaultExpirationMonths: 12,
 				expiringSoonWarningDays: 60
 			},
-			asOf: '2026-04-01'
+			asOf: '2026-04-01',
+			timeZone: 'UTC'
 		});
 
 		expect(dashboard.atRiskSoldiers.rows).toEqual([

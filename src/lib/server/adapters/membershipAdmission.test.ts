@@ -396,7 +396,7 @@ describe('Organization page data admission', () => {
 			params: { orgId },
 			url: new URL(`http://app.invalid/org/${orgId}/training/reports/__data.json`),
 			locals,
-			cookies: {},
+			cookies: { get: () => undefined },
 			depends: () => {}
 		}) as never;
 

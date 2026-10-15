@@ -18,17 +18,21 @@ export function formatDisplayDateTime(dateStr: string | null): string {
 	});
 }
 
-/** "today", "yesterday", "3 days ago" — for relative timestamps */
+/** "today", "yesterday", "3 days ago" — counted in local calendar days, so 23:00 viewed at 08:00 is "yesterday" */
 export function formatRelativeDate(dateStr: string): string {
 	const date = new Date(dateStr);
-	const now = new Date();
-	const diffMs = now.getTime() - date.getTime();
-	const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+	const diffDays = calendarDayDiff(date, new Date());
 
-	if (diffDays === 0) return 'today';
+	if (diffDays <= 0) return 'today';
 	if (diffDays === 1) return 'yesterday';
 	if (diffDays < 7) return `${diffDays} days ago`;
 	return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+/** Whole local calendar days from `from` to `to`; daylight-saving days still count as one. */
+export function calendarDayDiff(from: Date, to: Date): number {
+	const day = (date: Date) => Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+	return Math.round((day(to) - day(from)) / 86_400_000);
 }
 
 /** "YYYY-MM-DD" — for form values and API data */
@@ -42,6 +46,31 @@ export function formatDate(date: Date): string {
 /** Current local "YYYY-MM-DD" date, injectable for timezone-boundary tests */
 export function formatToday(date = new Date()): string {
 	return formatDate(date);
+}
+
+const TIME_ZONE_PATTERN = /^[A-Za-z][A-Za-z0-9_+\-/]*$/;
+
+/** True for an IANA time zone name this runtime recognizes, such as "America/New_York". */
+export function isTimeZone(value: unknown): value is string {
+	if (typeof value !== 'string' || value.length > 64 || !TIME_ZONE_PATTERN.test(value)) return false;
+	try {
+		new Intl.DateTimeFormat('en-US', { timeZone: value });
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+/** The "YYYY-MM-DD" calendar day `now` falls on in `timeZone`. */
+export function localDateIn(timeZone: string, now: Date): string {
+	const parts = new Intl.DateTimeFormat('en-US', {
+		timeZone,
+		year: 'numeric',
+		month: '2-digit',
+		day: '2-digit'
+	}).formatToParts(now);
+	const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((entry) => entry.type === type)?.value ?? '';
+	return `${part('year')}-${part('month')}-${part('day')}`;
 }
 
 const DATE_ONLY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;

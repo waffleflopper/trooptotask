@@ -86,7 +86,6 @@ function makeLeaderNote(overrides: Partial<PersonnelLeaderNote> = {}): Personnel
 		id: 'leader-note-1',
 		personnelId: 'person-1',
 		author: '1SG Ramos',
-		date: '2026-06-08',
 		text: 'Strong range card prep',
 		createdAt: '2026-06-08T10:00:00.000Z',
 		archivedAt: null,
@@ -140,6 +139,19 @@ describe('personnel artifact subpages', () => {
 		cleanup();
 		vi.useRealTimers();
 		vi.unstubAllGlobals();
+	});
+
+	it('dates a leader note by the viewer local day it was written', () => {
+		const originalTimezone = process.env.TZ;
+		process.env.TZ = 'America/New_York';
+		try {
+			renderNotes([makeLeaderNote({ createdAt: '2026-10-15T00:30:00.000Z' })]);
+
+			expect(screen.getByText('Oct 14, 2026')).toBeTruthy();
+		} finally {
+			if (originalTimezone === undefined) delete process.env.TZ;
+			else process.env.TZ = originalTimezone;
+		}
 	});
 
 	it.each([

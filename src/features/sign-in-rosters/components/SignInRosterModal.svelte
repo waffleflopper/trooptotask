@@ -27,6 +27,7 @@
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { stillInOrganizationLifetime, withinOrganizationLifetime } from '$lib/stores/core';
 	import { formatDate as formatDateValue } from '$lib/utils/dates';
+	import { rosterCreatedRange } from '../rosterCreatedRange';
 	import { SvelteMap, SvelteSet, SvelteURLSearchParams } from 'svelte/reactivity';
 
 	interface Props {
@@ -103,8 +104,7 @@
 		const offset = reset ? 0 : rosters.length;
 		const params = new SvelteURLSearchParams({ limit: '20', offset: String(offset) });
 		if (searchTitle) params.set('title', searchTitle);
-		if (dateFrom) params.set('from', dateFrom);
-		if (dateTo) params.set('to', dateTo);
+		for (const [key, value] of Object.entries(rosterCreatedRange(dateFrom, dateTo))) params.set(key, value);
 
 		try {
 			const res = await fetch(`/org/${orgId}/api/sign-in-rosters?${params}`);

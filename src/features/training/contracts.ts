@@ -116,6 +116,8 @@ export interface TrainingSummaryInput {
 
 export interface DashboardTrainingSummaryInput extends TrainingSummaryInput {
 	onboardingPersonnelIds: string[];
+	/** The viewer's "YYYY-MM-DD" day that currency is judged on. */
+	asOf: string;
 }
 
 export interface TrainingBriefingOption {

@@ -6,7 +6,7 @@ const { announcementsMock, createAnnouncementsMock } = vi.hoisted(() => {
 	const announcements = {
 		list: vi.fn(),
 		create: vi.fn(),
-		toggleActive: vi.fn(),
+		setActive: vi.fn(),
 		delete: vi.fn()
 	};
 
@@ -45,7 +45,7 @@ describe('admin announcements route shell', () => {
 			createdAt: '2026-06-03T10:00:00.000Z',
 			expiresAt: null
 		});
-		announcementsMock.toggleActive.mockResolvedValue({ status: 'updated', id: ANNOUNCEMENT_ID, isActive: false });
+		announcementsMock.setActive.mockResolvedValue({ status: 'updated', id: ANNOUNCEMENT_ID, isActive: false });
 		announcementsMock.delete.mockResolvedValue({ success: true });
 	});
 
@@ -101,20 +101,49 @@ describe('admin announcements route shell', () => {
 		consoleError.mockRestore();
 	});
 
-	it('rejects invalid toggle IDs before calling the announcement use case', async () => {
+	it.each([
+		['an invalid ID', { id: 'not-a-uuid', isActive: 'false' }, 'Invalid announcement ID'],
+		['a missing desired state', { id: ANNOUNCEMENT_ID }, 'Invalid announcement state'],
+		['an empty desired state', { id: ANNOUNCEMENT_ID, isActive: '' }, 'Invalid announcement state'],
+		['a non-boolean desired state', { id: ANNOUNCEMENT_ID, isActive: 'TRUE' }, 'Invalid announcement state']
+	])('rejects %s before calling the announcement use case', async (_name, form, error) => {
 		const result = await actions.toggle({
-			request: makeRequest({ id: 'not-a-uuid' })
+			request: makeRequest(form)
 		} as unknown as Parameters<(typeof actions)['toggle']>[0]);
 
-		expect(result).toEqual({ status: 400, data: { error: 'Invalid announcement ID' } });
-		expect(announcementsMock.toggleActive).not.toHaveBeenCalled();
+		expect(result).toEqual({ status: 400, data: { error } });
+		expect(announcementsMock.setActive).not.toHaveBeenCalled();
 	});
 
-	it('maps toggle not-found through the existing user-facing failure shape', async () => {
-		announcementsMock.toggleActive.mockResolvedValueOnce({ status: 'not_found' });
+	it.each([
+		['true', true],
+		['false', false]
+	])('sets the submitted desired state %s exactly once', async (isActive, expected) => {
+		const result = await actions.toggle({
+			request: makeRequest({ id: ANNOUNCEMENT_ID, isActive })
+		} as unknown as Parameters<(typeof actions)['toggle']>[0]);
+
+		expect(result).toEqual({ success: true });
+		expect(announcementsMock.setActive.mock.calls).toEqual([[ANNOUNCEMENT_ID, expected]]);
+	});
+
+	it('maps set-active store failures to the existing failure shape', async () => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		announcementsMock.setActive.mockRejectedValueOnce(new Error('update failed'));
 
 		const result = await actions.toggle({
-			request: makeRequest({ id: ANNOUNCEMENT_ID })
+			request: makeRequest({ id: ANNOUNCEMENT_ID, isActive: 'false' })
+		} as unknown as Parameters<(typeof actions)['toggle']>[0]);
+
+		expect(result).toEqual({ status: 500, data: { error: 'Failed to update announcement' } });
+		consoleError.mockRestore();
+	});
+
+	it('maps set-active not-found through the existing user-facing failure shape', async () => {
+		announcementsMock.setActive.mockResolvedValueOnce({ status: 'not_found' });
+
+		const result = await actions.toggle({
+			request: makeRequest({ id: ANNOUNCEMENT_ID, isActive: 'true' })
 		} as unknown as Parameters<(typeof actions)['toggle']>[0]);
 
 		expect(result).toEqual({ status: 404, data: { error: 'Announcement not found' } });

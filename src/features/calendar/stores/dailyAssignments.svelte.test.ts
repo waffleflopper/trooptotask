@@ -1187,28 +1187,43 @@ describe('dailyAssignmentsStore - workspace snapshots after a confirmed catalog'
 		expect(dailyAssignmentsStore.assignments).toEqual([row]);
 	});
 
-	it('lets a header chosen during a held read decide the catalog', async () => {
-		dailyAssignmentsStore.load(beforeCommit, [], 'org-1');
+	const renamedByB = [confirmed[0], { ...confirmed[1], name: 'Group Night' }, retiring];
+
+	it("lets a header chosen during a held read decide the catalog, then adopts another user's rename", async () => {
+		dailyAssignmentsStore.load(renamedByB, [], 'org-1');
 		expect(await dailyAssignmentsStore.setDateHeader('retiring')).toEqual({ status: 'saved' });
 		reads[0].resolve(reply(200, confirmed));
 		await answered();
 
 		expect(dailyAssignmentsStore.types).toEqual(retiringSaved);
+		const saved = [retiringSaved[0], { ...retiringSaved[1], name: 'Group Night' }, retiringSaved[2]];
+		expect(reads).toHaveLength(2);
+		reads[1].resolve(reply(200, saved));
+		await vi.waitFor(() => expect(dailyAssignmentsStore.types).toEqual(saved));
 		expect(requests).toEqual([
 			'GET /org/org-1/api/assignment-types',
-			'PUT /org/org-1/api/assignment-types/date-header'
+			'PUT /org/org-1/api/assignment-types/date-header',
+			'GET /org/org-1/api/assignment-types'
 		]);
 		expect(toasts).toEqual([]);
 	});
 
-	it('keeps a type deleted during a held read deleted when the read answers', async () => {
-		dailyAssignmentsStore.load(beforeCommit, [], 'org-1');
+	it("keeps a type deleted during a held read deleted when the read answers, then adopts another user's rename", async () => {
+		dailyAssignmentsStore.load(renamedByB, [row], 'org-1');
 		expect(await dailyAssignmentsStore.removeType('retiring')).toBe(true);
-		reads[0].resolve(reply(200, confirmed));
+		reads[0].resolve(reply(200, renamedByB));
 		await answered();
 
 		expect(dailyAssignmentsStore.types).toEqual(confirmed.slice(0, 2));
-		expect(requests).toEqual(['GET /org/org-1/api/assignment-types', 'DELETE /org/org-1/api/assignment-types']);
+		expect(reads).toHaveLength(2);
+		reads[1].resolve(reply(200, renamedByB.slice(0, 2)));
+		await vi.waitFor(() => expect(dailyAssignmentsStore.types).toEqual(renamedByB.slice(0, 2)));
+		expect(dailyAssignmentsStore.assignments).toEqual([row]);
+		expect(requests).toEqual([
+			'GET /org/org-1/api/assignment-types',
+			'DELETE /org/org-1/api/assignment-types',
+			'GET /org/org-1/api/assignment-types'
+		]);
 		expect(toasts).toEqual([]);
 	});
 

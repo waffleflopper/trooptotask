@@ -195,7 +195,7 @@ describe('platform content route admission', () => {
 			const original = structuredClone({ announcements: state.announcements, feedback: state.feedback });
 			const announcementForms = {
 				create: { title: 'Denied notice', message: 'Must not persist', type: 'info' },
-				toggle: { id: ANNOUNCEMENT_ID },
+				toggle: { id: ANNOUNCEMENT_ID, isActive: 'false' },
 				delete: { id: ANNOUNCEMENT_ID }
 			};
 			for (const action of ['create', 'toggle', 'delete'] as const) {
@@ -235,14 +235,22 @@ describe('platform content route admission', () => {
 	it('admits super-admin announcement changes and support Feedback review through the same handlers', async () => {
 		const superAdmin = actors[0];
 		const announcementState = provider(superAdmin);
-		await expect(
-			announcementActions.toggle(
-				request(superAdmin, '/admin/announcements?/toggle', {
-					id: ANNOUNCEMENT_ID
-				}) as Parameters<typeof announcementActions.toggle>[0]
-			)
-		).resolves.toEqual({ success: true });
-		expect(announcementState.announcements[0].is_active).toBe(false);
+		for (const [isActive, stored] of [
+			['false', false],
+			['false', false],
+			['true', true],
+			['true', true]
+		] as const) {
+			await expect(
+				announcementActions.toggle(
+					request(superAdmin, '/admin/announcements?/toggle', {
+						id: ANNOUNCEMENT_ID,
+						isActive
+					}) as Parameters<typeof announcementActions.toggle>[0]
+				)
+			).resolves.toEqual({ success: true });
+			expect(announcementState.announcements[0].is_active).toBe(stored);
+		}
 
 		const support = actors[1];
 		const feedbackState = provider(support);

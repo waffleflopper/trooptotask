@@ -92,10 +92,10 @@ describe('PlatformAnnouncements', () => {
 		});
 	});
 
-	it('toggles active state and audits the resulting action', async () => {
+	it('sets the requested state and audits the applied action', async () => {
 		const { announcements, audit } = makeAnnouncements();
 
-		const result = await announcements.toggleActive(FIRST_ID);
+		const result = await announcements.setActive(FIRST_ID, false);
 
 		expect(result).toEqual({ status: 'updated', id: FIRST_ID, isActive: false });
 		expect(audit).toHaveBeenCalledWith({
@@ -108,6 +108,29 @@ describe('PlatformAnnouncements', () => {
 		await expect(announcements.list()).resolves.toEqual(
 			expect.arrayContaining([expect.objectContaining({ id: FIRST_ID, isActive: false })])
 		);
+	});
+
+	it('keeps repeated requests for the same state idempotent and audits the applied state each time', async () => {
+		const { announcements, audit } = makeAnnouncements();
+
+		for (const [isActive, action] of [
+			[false, 'announcement_deactivate'],
+			[false, 'announcement_deactivate'],
+			[true, 'announcement_activate'],
+			[true, 'announcement_activate']
+		] as const) {
+			await expect(announcements.setActive(FIRST_ID, isActive)).resolves.toEqual({
+				status: 'updated',
+				id: FIRST_ID,
+				isActive
+			});
+			expect(audit).toHaveBeenLastCalledWith(
+				expect.objectContaining({ action, resourceId: FIRST_ID, details: { is_active: isActive } })
+			);
+			await expect(announcements.list()).resolves.toEqual(
+				expect.arrayContaining([expect.objectContaining({ id: FIRST_ID, isActive })])
+			);
+		}
 	});
 
 	it('deletes an announcement and records the delete audit event', async () => {
@@ -126,10 +149,10 @@ describe('PlatformAnnouncements', () => {
 		);
 	});
 
-	it('returns not-found without auditing when an announcement cannot be toggled', async () => {
+	it('returns not-found without auditing when an announcement state cannot be set', async () => {
 		const { announcements, audit } = makeAnnouncements();
 
-		await expect(announcements.toggleActive(MISSING_ID)).resolves.toEqual({ status: 'not_found' });
+		await expect(announcements.setActive(MISSING_ID, true)).resolves.toEqual({ status: 'not_found' });
 
 		expect(audit).not.toHaveBeenCalled();
 	});

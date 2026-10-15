@@ -7,7 +7,7 @@ export type {
 export type {
 	PlatformAnnouncement,
 	PlatformAnnouncementCreateInput,
-	PlatformAnnouncementToggleResult,
+	PlatformAnnouncementSetActiveResult,
 	PlatformAnnouncementType,
 	PlatformAnnouncementValidation
 } from './announcementTypes';

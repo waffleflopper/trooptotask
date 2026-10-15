@@ -225,31 +225,37 @@ describe('executeOrganizationDataExport', () => {
 		expect(ctx.notificationPort.notifications).toEqual([]);
 	});
 
-	it('withholds the artifact and marks failure when notification rejects after completion and audit', async () => {
-		const ctx = createTestContext();
-		const failure = new Error('admin notification failed');
-		let rowAtNotification: Record<string, unknown> | undefined;
-		let auditedResource: string | undefined;
-		vi.spyOn(ctx.notifications, 'notifyAdmins').mockImplementation(async () => {
-			rowAtNotification = {
-				...(await ctx.rawStore.findMany<Record<string, unknown>>('data_exports', ctx.auth.orgId))[0]
-			};
-			auditedResource = ctx.auditPort.events[0]?.resourceId;
-			throw failure;
-		});
-		await expect(
-			executeOrganizationDataExport(ctx, {
-				requestedByEmail: undefined,
-				auditAction: 'export.created',
-				buildArtifact: async () => jsonArtifact()
-			})
-		).rejects.toBe(failure);
-		expect(rowAtNotification).toMatchObject({ status: 'completed', file_size_bytes: 11 });
-		expect(auditedResource).toBe(rowAtNotification?.id);
-		expect(await ctx.rawStore.findMany('data_exports', ctx.auth.orgId)).toEqual([
-			expect.objectContaining({ id: auditedResource, status: 'failed', file_size_bytes: 11 })
-		]);
-	});
+	it.each([
+		['JSON', () => jsonArtifact({ filename: 'notice.json' }), 11],
+		['workbook', () => workbookArtifact({ filename: 'notice.xlsx' }), 4]
+	])(
+		'returns the %s artifact and keeps its completed row when admin notification rejects',
+		async (_kind, artifact, size) => {
+			const ctx = createTestContext();
+			const failure = new Error('admin notification failed');
+			const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+			vi.spyOn(ctx.notifications, 'notifyAdmins').mockRejectedValue(failure);
+			const built = artifact();
+
+			await expect(
+				executeOrganizationDataExport(ctx, {
+					requestedByEmail: undefined,
+					auditAction: 'export.created',
+					buildArtifact: async () => built
+				})
+			).resolves.toEqual({ status: 'ready', artifact: built });
+
+			const rows = await ctx.rawStore.findMany<Record<string, unknown>>('data_exports', ctx.auth.orgId);
+			expect(rows).toEqual([expect.objectContaining({ status: 'completed', file_size_bytes: size })]);
+			expect(ctx.auditPort.events).toEqual([
+				expect.objectContaining({ action: 'export.created', resourceId: rows[0].id })
+			]);
+			expect(consoleError).toHaveBeenCalledWith(
+				'[data-exports]',
+				expect.objectContaining({ status: 'completion-notification-failed', exportId: rows[0].id, error: failure })
+			);
+		}
+	);
 
 	it('keeps concurrent requesters and Organizations independent in one persistence store', async () => {
 		const first = createTestContext({ auth: { orgId: 'organization-a', userId: 'owner-a' } });

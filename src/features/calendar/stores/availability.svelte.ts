@@ -1,3 +1,7 @@
+/**
+ * Availability store: the entries for the loaded calendar range. Its adapter writes through the
+ * Organization's `api/availability` routes and sends bulk creation and removal to their `batch` route.
+ */
 import { defineStore, stillInOrganizationLifetime } from '$lib/stores/core';
 import type { Store, BatchApiAdapter } from '$lib/stores/core';
 import type { AvailabilityEntry } from '$features/calendar/contracts';

@@ -9,6 +9,7 @@ export interface AvailabilityTracks {
 }
 
 const NO_SPANS: readonly AvailabilitySpan[] = [];
+/** Enough for the shown window and its neighbours; older windows are dropped first. */
 const REMEMBERED_LAYOUTS = 4;
 
 function policyKey(policy: LabelPolicy): string {
@@ -58,6 +59,7 @@ export function buildAvailabilityTracks(
 	function outCounts(personnelIds: Iterable<string>, window: DayWindow): readonly number[] {
 		const last = window.days - 1;
 		const delta = new Array<number>(window.days + 1).fill(0);
+		// Each person's overlapping spans merge into runs first, so a day counts that person once however many entries cover it.
 		for (const personnelId of personnelIds) {
 			let runStart = -1;
 			let runEnd = -2;

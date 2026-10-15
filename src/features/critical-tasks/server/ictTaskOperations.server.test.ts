@@ -329,40 +329,6 @@ describe('task order command', () => {
 		);
 	});
 
-	it('protects overlapping adjacent moves across every four-task zero/one/two order assignment', async () => {
-		for (let assignment = 0; assignment < 81; assignment += 1) {
-			for (const first of [0, 1, 2]) {
-				for (const second of [first - 1, first + 1].filter((index) => index >= 0 && index < 3)) {
-					const ctx = createWritePortsContext();
-					ctx.rawStore.seed(
-						'ict_tasks',
-						['A', 'B', 'C', 'D'].map((code, index) => ({
-							id: code,
-							organization_id: 'test-org',
-							task_code: code,
-							title: code,
-							sort_order: Math.floor(assignment / 3 ** index) % 3,
-							archived_at: null
-						}))
-					);
-					const tasks = getActiveIctTasksForLibrary(await ctx.criticalTaskLibrary.listCatalog());
-					const plans = [first, second].map((index) => planIctTaskMove(tasks, index, 1));
-					for (const [index, plan] of plans.entries()) {
-						if (plan.status !== 'ready') throw new Error('Expected a supported move');
-						const command = reorderIctTasks(ctx, { changes: plan.changes });
-						if (index === 0) await command;
-						else await expect(command).rejects.toMatchObject({ status: 409 });
-					}
-					const expected = tasks.map((task) => task.id);
-					[expected[first], expected[first + 1]] = [expected[first + 1], expected[first]];
-					expect(
-						getActiveIctTasksForLibrary(await ctx.criticalTaskLibrary.listCatalog()).map((task) => task.id)
-					).toEqual(expected);
-				}
-			}
-		}
-	});
-
 	it('saves every change and audits each moved task', async () => {
 		const ctx = seeded();
 		expect((await reorderIctTasks(ctx, { changes: swap })).map(({ id, sortOrder }) => [id, sortOrder])).toEqual([

@@ -312,7 +312,10 @@ describe('IctCompletionBulkImport', () => {
 		expect(onDone).toHaveBeenCalledTimes(1);
 	});
 
-	it('shows confirmed counts with unconfirmed and unsent rows, and asks for a reload before retrying', async () => {
+	it.each([
+		{ stopped: true, heading: 'Import Stopped' },
+		{ stopped: false, heading: 'Import Needs Review' }
+	])('shows $heading with truthful counts and reload guidance', async ({ stopped, heading }) => {
 		parseFileMock.mockResolvedValue([
 			['Rank', 'Last Name', 'First Name', 'Task Code', 'Completion Date', 'Validation Method'],
 			['SGT', 'Smith', 'Jane', '181-105-1001', '2026-03-13', 'Simulation']
@@ -329,14 +332,16 @@ describe('IctCompletionBulkImport', () => {
 					message: "We couldn't confirm that this was saved. Reload to check it before trying again."
 				}
 			],
-			notAttempted: [
-				{
-					rowNumber: 3,
-					personnelName: 'SPC Lee Bravo',
-					taskCode: '181-105-1001',
-					message: 'Not sent because an earlier part of the import stopped.'
-				}
-			]
+			notAttempted: stopped
+				? [
+						{
+							rowNumber: 3,
+							personnelName: 'SPC Lee Bravo',
+							taskCode: '181-105-1001',
+							message: 'Not sent because an earlier part of the import stopped.'
+						}
+					]
+				: []
 		});
 		render(IctCompletionBulkImport, {
 			props: { personnel: [alphaMedic], tasks: [tcccTask], completions: [], onCancel: vi.fn(), onDone: vi.fn() }
@@ -346,13 +351,13 @@ describe('IctCompletionBulkImport', () => {
 		});
 		await fireEvent.click(await screen.findByRole('button', { name: 'Import Checked Rows' }));
 
-		expect(await screen.findByRole('heading', { name: 'Import Stopped' })).toBeTruthy();
+		expect(await screen.findByRole('heading', { name: heading })).toBeTruthy();
 		expect(screen.getByText('0 created')).toBeTruthy();
 		expect(screen.getByText('0 failed')).toBeTruthy();
 		expect(screen.getByText('1 not confirmed')).toBeTruthy();
-		expect(screen.getByText('1 not imported')).toBeTruthy();
+		expect(screen.queryByText('1 not imported') !== null).toBe(stopped);
 		expect(screen.getByText('SGT Jane Smith')).toBeTruthy();
-		expect(screen.getByText('SPC Lee Bravo')).toBeTruthy();
+		expect(screen.queryByText('SPC Lee Bravo') !== null).toBe(stopped);
 		expect(screen.getByText(/Reload to check them before importing them again/)).toBeTruthy();
 		expect(criticalTasksWorkspaceStatus.refreshRequested).toBe(true);
 	});

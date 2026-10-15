@@ -97,14 +97,15 @@ describe('planIctTaskMove', () => {
 		});
 	});
 
-	it('guards both adjacent boundaries even when only the first swap participant changes', () => {
+	it('guards crowded boundary chains even when only the first swap participant changes', () => {
 		expect(planIctTaskMove(library(['A', 0], ['B', 1], ['C', 1], ['D', 4], ['E', 5]), 1, 1)).toEqual({
 			status: 'ready',
 			changes: [
 				{ id: 'A', expectedSortOrder: 0, sortOrder: 0 },
 				{ id: 'C', expectedSortOrder: 1, sortOrder: 1 },
 				{ id: 'B', expectedSortOrder: 1, sortOrder: 2 },
-				{ id: 'D', expectedSortOrder: 4, sortOrder: 4 }
+				{ id: 'D', expectedSortOrder: 4, sortOrder: 4 },
+				{ id: 'E', expectedSortOrder: 5, sortOrder: 5 }
 			]
 		});
 	});
@@ -123,6 +124,18 @@ describe('planIctTaskMove', () => {
 				{ id: 'T05001', expectedSortOrder: 50010, sortOrder: 50000 },
 				{ id: 'T05000', expectedSortOrder: 50000, sortOrder: 50010 },
 				{ id: 'T05002', expectedSortOrder: 50020, sortOrder: 50020 }
+			]
+		});
+	});
+
+	it('stops boundary propagation at a gap of two', () => {
+		expect(planIctTaskMove(library(['A', 0], ['B', 2], ['C', 4], ['D', 6], ['E', 8], ['F', 10]), 2, 1)).toEqual({
+			status: 'ready',
+			changes: [
+				{ id: 'B', expectedSortOrder: 2, sortOrder: 2 },
+				{ id: 'D', expectedSortOrder: 6, sortOrder: 4 },
+				{ id: 'C', expectedSortOrder: 4, sortOrder: 6 },
+				{ id: 'E', expectedSortOrder: 8, sortOrder: 8 }
 			]
 		});
 	});
@@ -169,6 +182,22 @@ describe('planIctTaskMove', () => {
 
 		it('rejects 1001 participants rather than silently dropping a guard', () => {
 			expect(planIctTaskMove(zeroOrder(1001), 0, 1)).toEqual({ status: 'unsupported' });
+		});
+
+		it.each([1000, 1001])('counts unchanged crowded guards toward the limit for %i participants', (count) => {
+			const tasks = library(
+				...Array.from({ length: count }, (_, index): [string, number] => [`T${String(index).padStart(4, '0')}`, index])
+			);
+			const before = structuredClone(tasks);
+			const plan = planIctTaskMove(tasks, count - 2, 1);
+			expect(plan.status).toBe(count === 1000 ? 'ready' : 'unsupported');
+			if (plan.status === 'ready') {
+				expect(plan.changes).toHaveLength(1000);
+				expect(plan.changes.filter(({ sortOrder, expectedSortOrder }) => sortOrder !== expectedSortOrder)).toHaveLength(
+					2
+				);
+			}
+			expect(tasks).toEqual(before);
 		});
 
 		it('plans a move whose raised sort order is the largest the database stores', () => {

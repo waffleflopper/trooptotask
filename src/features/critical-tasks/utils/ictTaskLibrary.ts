@@ -49,7 +49,6 @@ export type IctTaskMovePlan = { status: 'ready'; changes: IctTaskOrderChange[] }
 /**
  * Plans swapping a task with its neighbour in the displayed active order. Each position keeps the sort order
  * already shown there; a shared or crowded value is raised just enough that the saved order matches the display.
- * Unchanged swap participants and adjacent span boundaries guard the order used to plan the move.
  * A move that would need more participants, or a larger sort order, than one command may carry is unsupported.
  */
 export function planIctTaskMove(activeTasks: IctTask[], index: number, direction: -1 | 1): IctTaskMovePlan {
@@ -68,7 +67,12 @@ export function planIctTaskMove(activeTasks: IctTask[], index: number, direction
 		changes.push({ id: task.id, expectedSortOrder: task.sortOrder, sortOrder });
 		previous = { task, sortOrder };
 	});
-	const participants = changes.slice(Math.max(0, Math.min(index, neighbour) - 1), lastAffected + 2);
+	let left = Math.max(0, Math.min(index, neighbour) - 1);
+	let right = Math.min(activeTasks.length - 1, lastAffected + 1);
+	while (left > 0 && activeTasks[left].sortOrder - activeTasks[left - 1].sortOrder <= 1) left -= 1;
+	while (right + 1 < activeTasks.length && activeTasks[right + 1].sortOrder - activeTasks[right].sortOrder <= 1)
+		right += 1;
+	const participants = changes.slice(left, right + 1);
 	const withinBounds =
 		participants.length <= ICT_TASK_ORDER_MAX_CHANGES &&
 		participants.every((change) => change.sortOrder <= ICT_TASK_SORT_ORDER_MAX);

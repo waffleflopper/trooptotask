@@ -396,7 +396,11 @@
 				<div>
 					<p class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Complete</p>
 					<h2 class="text-lg font-semibold">
-						{importResult.unconfirmed + importResult.notAttempted > 0 ? 'Import Stopped' : 'Import Finished'}
+						{importResult.notAttempted > 0
+							? 'Import Stopped'
+							: importResult.unconfirmed > 0
+								? 'Import Needs Review'
+								: 'Import Finished'}
 					</h2>
 				</div>
 				<div class="flex flex-wrap items-start gap-2">

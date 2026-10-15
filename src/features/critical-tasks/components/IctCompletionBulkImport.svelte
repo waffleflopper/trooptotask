@@ -478,7 +478,11 @@
 					<div class="flex flex-col gap-4 rounded-lg border bg-card p-5 text-card-foreground">
 						<BulkImportWorkspace.Header
 							step="Complete"
-							title={importResult.unconfirmed + importResult.notAttempted > 0 ? 'Import Stopped' : 'Import Finished'}
+							title={importResult.notAttempted > 0
+								? 'Import Stopped'
+								: importResult.unconfirmed > 0
+									? 'Import Needs Review'
+									: 'Import Finished'}
 							meta={[
 								{ label: 'Created', value: `${importResult.created} created` },
 								{ label: 'Updated', value: `${importResult.updated} updated` },

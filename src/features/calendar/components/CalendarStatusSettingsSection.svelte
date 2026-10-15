@@ -110,7 +110,7 @@
 								<ReorderGrip />
 							{/if}
 							<StatusBar
-								class="w-full sm:w-60 sm:shrink-0"
+								class="flex-1 basis-40 sm:w-60 sm:flex-none"
 								{status}
 								label={{ kind: 'name', text: status.name }}
 								aria-hidden="true"

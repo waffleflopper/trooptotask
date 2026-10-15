@@ -69,6 +69,7 @@
 	const textChoice = $derived(textColor === WHITE_TEXT ? 'white' : textColor === DARK_TEXT ? 'dark' : '');
 	const swatch = $derived(SWATCHES.some((option) => option.color === color) ? color : '');
 	const previewName = $derived(draft.name || 'Status');
+	const previewLabel = $derived(shownLabel || suggestOneDayLabel(previewName));
 
 	export function isDirty() {
 		return dirty;
@@ -147,7 +148,7 @@
 			<div class="flex flex-wrap items-center gap-2">
 				<ToggleGroup.Root
 					type="single"
-					class="gap-2 bg-transparent p-0"
+					class="flex-wrap gap-2 bg-transparent p-0"
 					aria-labelledby="status-{id}-color"
 					value={swatch}
 					onValueChange={(value) => {
@@ -177,7 +178,7 @@
 					Preview
 				</span>
 				<div class="flex flex-wrap items-center gap-2" aria-hidden="true">
-					<StatusBar status={draft} label={{ kind: 'one-day', text: shownLabel }} />
+					<StatusBar status={draft} label={{ kind: 'one-day', text: previewLabel }} />
 					<StatusBar class="w-24" status={draft} label={{ kind: 'name', text: previewName }} />
 					<StatusBar
 						class="w-44"

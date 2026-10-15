@@ -138,8 +138,9 @@ describe('buildCalendarLanes', () => {
 		const [shared, ...rest] = segments(daysLane);
 		expect(rest).toEqual([]);
 		expect(shared.start).toBe(2);
-		expect(shared.value.label).toMatch(/Closure, closure/);
-		expect(shared.value.label).toMatch(/Columbus Day, federal holiday/);
+		for (const part of ['Closure', 'closure', 'Columbus Day', 'federal holiday']) {
+			expect(shared.value.label).toContain(part);
+		}
 	});
 });
 

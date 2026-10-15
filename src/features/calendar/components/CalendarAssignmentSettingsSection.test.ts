@@ -204,14 +204,24 @@ describe('CalendarAssignmentSettingsSection', () => {
 		expect((within(dialog).getByLabelText('Full name') as HTMLInputElement).value).toBe('Fire Guard');
 
 		await waitFor(() => expect(dialog.hasAttribute('aria-busy')).toBe(false));
+		store.setCalendarLanes.mockClear().mockImplementation(async (ids: string[]) => {
+			store.types = store.types.map((candidate) => {
+				const rank = ids.indexOf(candidate.id);
+				return { ...candidate, showOnCalendar: rank >= 0, sortOrder: Math.max(rank, 0) };
+			});
+			return { status: 'saved' };
+		});
 		await fireEvent.click(within(dialog).getByRole('button', { name: 'Save Changes' }));
 
 		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-		expect(store.setCalendarLanes).toHaveBeenLastCalledWith(['sd', 'cq', 'new']);
+		expect(store.setCalendarLanes).toHaveBeenCalledTimes(1);
+		expect(store.setCalendarLanes).toHaveBeenCalledWith(['sd', 'cq', 'new']);
+		const shownIds = store.types
+			.filter((candidate) => candidate.showOnCalendar)
+			.sort((a, b) => a.sortOrder - b.sortOrder)
+			.map((candidate) => candidate.id);
+		expect(shownIds.filter((id) => id === 'new')).toEqual(['new']);
 		expect(store.addType).toHaveBeenCalledTimes(1);
-		expect(store.types.filter((candidate) => candidate.name === 'Fire Guard').map((candidate) => candidate.id)).toEqual(
-			['new']
-		);
 	});
 
 	it('does not say the calendar setting was not saved when the outcome is unknown', async () => {
@@ -225,7 +235,8 @@ describe('CalendarAssignmentSettingsSection', () => {
 
 		const alert = await within(dialog).findByRole('alert');
 		expect(alert.textContent).not.toMatch(/not saved/);
-		expect(alert.textContent).toMatch(/confirm/);
+		expect(alert.textContent).toMatch(/(couldn't|could not|can't|cannot|unable)\b[^.]*\bconfirm/i);
+		expect(screen.getByRole('dialog', { name: 'Edit Assignment Type' })).toBe(dialog);
 	});
 
 	it('adds and removes exempt people, keeping an unknown person until removed', async () => {

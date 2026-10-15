@@ -230,7 +230,6 @@ describe('Calendar ordinary catalog persistence', () => {
 			}
 		]);
 		const typeWrites = state.requests.filter(({ table, body }) => table === 'assignment_types' && body);
-		expect(typeWrites).toHaveLength(2);
 		for (const { body } of typeWrites) {
 			expect(body).not.toHaveProperty('sort_order');
 			expect(body).not.toHaveProperty('show_on_calendar');

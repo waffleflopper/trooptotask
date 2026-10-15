@@ -123,7 +123,7 @@ describe('Calendar assignment-type operations', () => {
 		]);
 	});
 
-	it('saves a lane list of any length', async () => {
+	it('accepts 201 desired and expected lane IDs', async () => {
 		const ctx = createWriteWithNotificationsPortsContext();
 		const ids = Array.from({ length: 201 }, (_, index) => `00000000-0000-4000-b000-${String(index).padStart(12, '0')}`);
 		ctx.store.seed(

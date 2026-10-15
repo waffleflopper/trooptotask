@@ -9,11 +9,23 @@
 		personLabel: string;
 		size: 'month' | 'compact';
 		selectedEntryId?: string | null;
+		selection?: { start: number; end: number } | null;
+		/** Shows resize handles on the selected bar. Edges clipped by the window get none. */
+		onPressEdge?: (event: PointerEvent, bar: Bar, edge: 'start' | 'end') => void;
 		onOpenEntry?: (entry: AvailabilityEntry, anchor: HTMLElement) => void;
 		onOpenOverflow?: (entryIds: readonly string[], anchor: HTMLElement) => void;
 	}
 
-	let { layout, personLabel, size, selectedEntryId = null, onOpenEntry, onOpenOverflow }: Props = $props();
+	let {
+		layout,
+		personLabel,
+		size,
+		selectedEntryId = null,
+		selection = null,
+		onPressEdge,
+		onOpenEntry,
+		onOpenOverflow
+	}: Props = $props();
 
 	const ROWS: Record<BarLane, string> = { full: '2 / 5', top: '2 / 3', bottom: '4 / 5' };
 
@@ -43,7 +55,7 @@
 		<button
 			type="button"
 			class={[
-				'pointer-events-auto mx-px flex min-w-0 cursor-pointer rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:outline-none',
+				'pointer-events-auto relative mx-px flex min-w-0 cursor-pointer rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:outline-none',
 				bar.entry.id === selectedEntryId && 'ring-2 ring-foreground ring-offset-1'
 			]}
 			style:grid-column={columns(bar)}
@@ -62,6 +74,28 @@
 				continuesBefore={bar.continuesBefore}
 				continuesAfter={bar.continuesAfter}
 			/>
+			{#if onPressEdge && bar.entry.id === selectedEntryId && !bar.entry.id.startsWith('temp-')}
+				{#if !bar.continuesBefore}
+					<span
+						aria-hidden="true"
+						data-edge="start"
+						class="absolute inset-y-0 left-0 flex w-2 cursor-ew-resize items-center justify-center"
+						onpointerdown={(event) => onPressEdge(event, bar, 'start')}
+					>
+						<span class="h-3/5 w-0.5 rounded-full" style:background-color={bar.status.textColor}></span>
+					</span>
+				{/if}
+				{#if !bar.continuesAfter}
+					<span
+						aria-hidden="true"
+						data-edge="end"
+						class="absolute inset-y-0 right-0 flex w-2 cursor-ew-resize items-center justify-center"
+						onpointerdown={(event) => onPressEdge(event, bar, 'end')}
+					>
+						<span class="h-3/5 w-0.5 rounded-full" style:background-color={bar.status.textColor}></span>
+					</span>
+				{/if}
+			{/if}
 		</button>
 	{/each}
 	{#each layout.overflows as overflow (overflow.spans[0].entry.id)}
@@ -81,4 +115,16 @@
 			+{overflow.spans.length}
 		</button>
 	{/each}
+	{#if selection}
+		{@const days = selection.end - selection.start + 1}
+		<div
+			data-slot="calendar-selection"
+			class="z-[2] mx-px flex items-center overflow-clip rounded-md border border-dashed border-ring bg-card px-1.5 font-mono text-[10px] font-semibold tracking-[0.04em] whitespace-nowrap text-foreground uppercase"
+			style:grid-column={columns(selection)}
+			style:grid-row={ROWS.full}
+		>
+			{days}
+			{days === 1 ? 'day' : 'days'}
+		</div>
+	{/if}
 </div>

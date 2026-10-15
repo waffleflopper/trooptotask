@@ -3,6 +3,8 @@
 	import Calendar from '$features/calendar/components/Calendar.svelte';
 	import LongRangeView from '$features/calendar/components/LongRangeView.svelte';
 	import StatusLegend from '$features/calendar/components/StatusLegend.svelte';
+	import CalendarPopover from '$features/calendar/components/CalendarPopover.svelte';
+	import { untrack } from 'svelte';
 	import { WorkspaceToolbar } from '$lib/components/patterns/workspace-toolbar';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
@@ -117,6 +119,22 @@
 				: undefined
 		})
 	);
+
+	const barPopover = $derived(ctx.popover?.kind === 'duty' ? null : ctx.popover);
+	const selectedEntry = $derived(
+		ctx.popover?.kind === 'entry' ? { personId: ctx.popover.person.id, entryId: ctx.popover.entryId } : null
+	);
+	const pendingSelection = $derived(
+		ctx.popover?.kind === 'quick-add'
+			? { personId: ctx.popover.person.id, startDate: ctx.popover.startDate, endDate: ctx.popover.endDate }
+			: null
+	);
+
+	// A popover belongs to the days on screen, so moving to other days or another view closes it.
+	$effect(() => {
+		void [calendarStore.year, calendarStore.month, ctx.viewMode];
+		untrack(() => ctx.closePopover());
+	});
 
 	const dutyPick = $derived.by(() => {
 		const pick = ctx.popover?.kind === 'duty' ? ctx.popover : null;
@@ -243,7 +261,7 @@
 						tracks={ctx.availabilityTracks}
 						specialDays={specialDaysStore.items}
 						onDateColumnClick={(date) => ctx.navigateToMonth(date)}
-						onOpenEntry={(person, entry) => ctx.openEditor({ kind: 'edit', person, entry })}
+						onOpenEntry={(person, entry, anchor) => ctx.openEntry(person, entry.id, anchor)}
 						onOpenOverflow={(person, entryIds, anchor) => ctx.openOverflow(person, entryIds, anchor)}
 					/>
 				{:else}
@@ -276,8 +294,18 @@
 						onPinToggle={(group) => ctx.handlePinToggle(group)}
 						onDateClick={(date) => ctx.handleDateClick(date)}
 						onMarkerClick={(date) => ctx.handleDateClick(date)}
-						onOpenEntry={(person, entry) => ctx.openEditor({ kind: 'edit', person, entry })}
+						onOpenEntry={(person, entry, anchor) => ctx.openEntry(person, entry.id, anchor)}
 						onOpenOverflow={(person, entryIds, anchor) => ctx.openOverflow(person, entryIds, anchor)}
+						canEditAvailabilityFor={(person) => ctx.canManageAvailabilityFor(person)}
+						{selectedEntry}
+						{pendingSelection}
+						onQuickAdd={(person, startDate, endDate, anchor) => ctx.openQuickAdd(person, startDate, endDate, anchor)}
+						onResize={(person, entry, startDate, endDate) =>
+							ctx.saveAvailability({
+								kind: 'update',
+								entry,
+								changes: { statusTypeId: entry.statusTypeId, startDate, endDate, note: entry.note ?? null }
+							})}
 					/>
 				{/if}
 				<StatusLegend statusTypes={statusTypesStore.items} />
@@ -301,6 +329,26 @@
 		{:catch}
 			<span class="sr-only">Availability editor failed to load.</span>
 		{/await}
+	{/key}
+{/if}
+
+{#if barPopover}
+	{@const popover = barPopover}
+	{#key popover}
+		<CalendarPopover
+			{popover}
+			statusTypes={statusTypesStore.items}
+			spans={ctx.availabilityTracks.spans(popover.person.id)}
+			canEdit={ctx.canManageAvailabilityFor(popover.person)}
+			resizable={ctx.viewMode !== '3-month' &&
+				popover.kind === 'entry' &&
+				popover.anchor.dataset.entryId === popover.entryId}
+			saving={ctx.savingAvailability}
+			onSave={(change) => ctx.saveAvailability(change)}
+			onEdit={(request) => ctx.openEditor(request)}
+			onOpenEntry={(entryId) => ctx.openEntry(popover.person, entryId, popover.anchor)}
+			onClose={() => ctx.closePopover()}
+		/>
 	{/key}
 {/if}
 

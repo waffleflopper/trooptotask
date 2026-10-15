@@ -87,6 +87,7 @@ function renderCalendar(
 		personnelByGroup: { group: string; personnel: Personnel[] }[];
 		availabilityEntries: AvailabilityEntry[];
 		onOpenEntry: (person: Personnel, entry: AvailabilityEntry, anchor: HTMLElement) => void;
+		onOpenOverflow: (person: Personnel, entryIds: readonly string[], anchor: HTMLElement) => void;
 		assignmentTypes: AssignmentType[];
 		assignments: DailyAssignment[];
 		lanes: CalendarLane[];
@@ -123,6 +124,7 @@ function renderCalendar(
 			onCellClick: overrides.onCellClick,
 			onPersonClick: overrides.onPersonClick,
 			onOpenEntry: overrides.onOpenEntry,
+			onOpenOverflow: overrides.onOpenOverflow,
 			onPrevMonth: () => {},
 			onNextMonth: () => {},
 			onGoToToday: () => {},
@@ -205,6 +207,26 @@ describe('Calendar', () => {
 			expect.any(HTMLElement)
 		);
 		expect(onCellClick).not.toHaveBeenCalled();
+	});
+
+	it('summarizes entries past the second lane in one button that opens them', async () => {
+		const onOpenOverflow = vi.fn();
+		renderCalendar({
+			availabilityEntries: [
+				smithOnLeave,
+				{ ...smithOnLeave, id: 'entry-2', note: null },
+				{ ...smithOnLeave, id: 'entry-3', startDate: '2026-03-02', note: null }
+			],
+			onOpenOverflow
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'SGT Smith, Alex, 2 more entries, 1 to 2 March 2026' }));
+
+		expect(onOpenOverflow).toHaveBeenCalledWith(
+			expect.objectContaining({ id: 'person-1' }),
+			['entry-2', 'entry-3'],
+			expect.any(HTMLElement)
+		);
 	});
 
 	it('counts the people out each day while their group is collapsed', async () => {

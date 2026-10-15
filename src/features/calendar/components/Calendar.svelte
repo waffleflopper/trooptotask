@@ -9,8 +9,10 @@
 	import * as Empty from '$lib/components/ui/empty';
 	import { Button } from '$lib/components/ui/button';
 	import type { AvailabilityTracks } from '$features/calendar/utils/availabilityTracks';
-	import { dayWindow } from '$features/calendar/utils/dayNumber';
-	import type { LabelPolicy } from '$features/calendar/utils/barLayout';
+	import { dayWindow, fromDayNumber, toDayNumber, type DayNumber } from '$features/calendar/utils/dayNumber';
+	import { layoutBars, type Bar, type LabelPolicy } from '$features/calendar/utils/barLayout';
+	import { gestureRange } from '$features/calendar/utils/calendarGesture';
+	import { CalendarGesture, type GestureCommit } from './calendar-bars/gesture.svelte';
 	import { buildCalendarDays, buildDutyMarkers } from '$features/calendar/utils/calendarRenderState';
 	import { buildVirtualRowLayout, getVisibleVirtualRows } from '$features/calendar/utils/virtualRows';
 	import { SvelteSet } from 'svelte/reactivity';
@@ -58,6 +60,14 @@
 		onMarkerClick?: (date: Date) => void;
 		onOpenEntry?: (person: Personnel, entry: AvailabilityEntry, anchor: HTMLElement) => void;
 		onOpenOverflow?: (person: Personnel, entryIds: readonly string[], anchor: HTMLElement) => void;
+		/** Whether drag-to-add and resize are offered on this Person's row. */
+		canEditAvailabilityFor?: (person: Personnel) => boolean;
+		/** The entry whose popover is open, which shows its resize handles. */
+		selectedEntry?: { personId: string; entryId: string } | null;
+		/** The days the open quick-add covers, kept drawn after the drag ends. */
+		pendingSelection?: { personId: string; startDate: string; endDate: string } | null;
+		onQuickAdd?: (person: Personnel, startDate: string, endDate: string, anchor: HTMLElement) => void;
+		onResize?: (person: Personnel, entry: AvailabilityEntry, startDate: string, endDate: string) => void;
 		personnelHref?: string;
 	}
 
@@ -91,6 +101,11 @@
 		onMarkerClick,
 		onOpenEntry,
 		onOpenOverflow,
+		canEditAvailabilityFor = () => canEdit,
+		selectedEntry = null,
+		pendingSelection = null,
+		onQuickAdd,
+		onResize,
 		personnelHref
 	}: Props = $props();
 
@@ -201,6 +216,72 @@
 	);
 	const onboardingIds = $derived(new Set(activeOnboardingPersonnelIds));
 
+	const gesture = new CalendarGesture();
+	const dragEnabled = $derived(canEdit && !!onQuickAdd);
+
+	function dateKeyAt(day: number) {
+		return fromDayNumber(visibleDays.start + day);
+	}
+
+	function pressDay(event: PointerEvent, person: Personnel, row: HTMLElement) {
+		if (!canEditAvailabilityFor(person)) return;
+		const commit: GestureCommit = (effect) => {
+			if (effect.type !== 'quick-add') return;
+			const anchor = row.querySelector<HTMLElement>(`[data-day="${effect.end}"]`) ?? row;
+			onQuickAdd?.(person, dateKeyAt(effect.start), dateKeyAt(effect.end), anchor);
+		};
+		gesture.pressDay(event, person.id, row, days.length, commit);
+	}
+
+	function pressEdge(event: PointerEvent, person: Personnel, bar: Bar, edge: 'start' | 'end', row: HTMLElement) {
+		const target = {
+			personId: person.id,
+			entryId: bar.entry.id,
+			edge,
+			start: toDayNumber(bar.entry.startDate) - visibleDays.start,
+			end: toDayNumber(bar.entry.endDate) - visibleDays.start
+		};
+		gesture.pressEdge(event, target, row, days.length, (effect) => {
+			if (effect.type === 'resize') onResize?.(person, bar.entry, dateKeyAt(effect.start), dateKeyAt(effect.end));
+		});
+	}
+
+	function clickCell(person: Personnel, date: Date) {
+		if (!gesture.consumeClick()) onCellClick?.(person, date);
+	}
+
+	/** The row's bars, laid out again with the resized entry's dates while a resize is in progress. */
+	function rowLayout(personId: string) {
+		const state = gesture.state;
+		if (state.kind !== 'resizing' || state.personId !== personId) {
+			return tracks.layout(personId, visibleDays, policy);
+		}
+		const range = gestureRange(state)!;
+		const spans = tracks
+			.spans(personId)
+			.map((span) =>
+				span.entry.id === state.entryId
+					? {
+							...span,
+							start: (visibleDays.start + range.start) as DayNumber,
+							end: (visibleDays.start + range.end) as DayNumber
+						}
+					: span
+			)
+			.sort((a, b) => a.start - b.start || (a.entry.id < b.entry.id ? -1 : 1));
+		return layoutBars(spans, visibleDays, policy);
+	}
+
+	function rowSelection(personId: string) {
+		const state = gesture.state;
+		if (state.kind === 'selecting') return state.personId === personId ? gestureRange(state) : null;
+		if (pendingSelection?.personId !== personId) return null;
+		return {
+			start: toDayNumber(pendingSelection.startDate) - visibleDays.start,
+			end: toDayNumber(pendingSelection.endDate) - visibleDays.start
+		};
+	}
+
 	function groupOutCounts(group: string) {
 		const personnel = personnelByGroup.find((grp) => grp.group === group)?.personnel ?? [];
 		return tracks.outCounts(
@@ -276,17 +357,21 @@
 								<CalendarRow
 									person={row.person}
 									{days}
-									layout={tracks.layout(row.person.id, visibleDays, policy)}
+									layout={rowLayout(row.person.id)}
+									selectedEntryId={selectedEntry?.personId === row.person.id ? selectedEntry.entryId : null}
+									selection={rowSelection(row.person.id)}
 									markers={markersByPerson.get(row.person.id)}
 									onboarding={onboardingIds.has(row.person.id)}
 									{highlightOnboarding}
 									loss={upcomingLossMap?.get(row.person.id)}
 									{showPersonnelRoles}
-									onCellClick={canEdit ? onCellClick : undefined}
+									onCellClick={canEdit ? clickCell : undefined}
 									onMarkerClick={canEditAssignments ? onMarkerClick : undefined}
 									{onPersonClick}
 									{onOpenEntry}
 									{onOpenOverflow}
+									onPressDay={dragEnabled ? pressDay : undefined}
+									onPressEdge={dragEnabled && onResize ? pressEdge : undefined}
 								/>
 							{/if}
 						</div>

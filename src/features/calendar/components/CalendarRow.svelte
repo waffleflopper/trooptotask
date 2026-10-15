@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { AvailabilityEntry } from '$features/calendar/contracts';
-	import type { BarLayout } from '$features/calendar/utils/barLayout';
+	import type { Bar, BarLayout } from '$features/calendar/utils/barLayout';
 	import type { CalendarCellMarkerState, CalendarDateHeaderState } from '$features/calendar/utils/calendarRenderState';
 	import type { Personnel, UpcomingLossRecord } from '$features/personnel/contracts';
 	import { Button } from '$lib/components/ui/button';
@@ -14,6 +14,8 @@
 		person: Personnel;
 		days: readonly CalendarDateHeaderState[];
 		layout: BarLayout;
+		selectedEntryId?: string | null;
+		selection?: { start: number; end: number } | null;
 		markers?: ReadonlyMap<number, readonly CalendarCellMarkerState[]>;
 		onboarding?: boolean;
 		highlightOnboarding?: boolean;
@@ -24,12 +26,16 @@
 		onPersonClick?: (person: Personnel) => void;
 		onOpenEntry?: (person: Personnel, entry: AvailabilityEntry, anchor: HTMLElement) => void;
 		onOpenOverflow?: (person: Personnel, entryIds: readonly string[], anchor: HTMLElement) => void;
+		onPressDay?: (event: PointerEvent, person: Personnel, row: HTMLElement) => void;
+		onPressEdge?: (event: PointerEvent, person: Personnel, bar: Bar, edge: 'start' | 'end', row: HTMLElement) => void;
 	}
 
 	let {
 		person,
 		days,
 		layout,
+		selectedEntryId = null,
+		selection = null,
 		markers = NO_MARKERS,
 		onboarding = false,
 		highlightOnboarding = true,
@@ -39,8 +45,16 @@
 		onMarkerClick,
 		onPersonClick,
 		onOpenEntry,
-		onOpenOverflow
+		onOpenOverflow,
+		onPressDay,
+		onPressEdge
 	}: Props = $props();
+
+	let rowEl: HTMLDivElement;
+
+	function pressDay(event: PointerEvent) {
+		if ((event.target as Element).closest('[data-slot="date-cell"]')) onPressDay?.(event, person, rowEl);
+	}
 
 	const personLabel = $derived(`${person.rank} ${person.lastName}, ${person.firstName}`);
 	const tintCells = $derived(onboarding && highlightOnboarding);
@@ -52,6 +66,9 @@
 </script>
 
 <div
+	bind:this={rowEl}
+	role="presentation"
+	onpointerdown={onPressDay && pressDay}
 	class="personnel-row relative grid h-full w-full min-w-[calc(var(--calendar-personnel-column-width)+(var(--calendar-cell-width)*var(--dates-count)))] items-stretch [grid-template-columns:var(--calendar-personnel-column-width)_repeat(var(--dates-count),minmax(var(--calendar-cell-width),1fr))]"
 >
 	<Button
@@ -108,6 +125,9 @@
 		{layout}
 		{personLabel}
 		size="month"
+		{selectedEntryId}
+		{selection}
+		onPressEdge={onPressEdge && ((event, bar, edge) => onPressEdge(event, person, bar, edge, rowEl))}
 		onOpenEntry={onOpenEntry && ((entry, anchor) => onOpenEntry(person, entry, anchor))}
 		onOpenOverflow={onOpenOverflow && ((entryIds, anchor) => onOpenOverflow(person, entryIds, anchor))}
 	/>

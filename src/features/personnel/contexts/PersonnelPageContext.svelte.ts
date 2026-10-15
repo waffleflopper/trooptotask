@@ -11,6 +11,7 @@ import type { PersonnelAffordance, PersonnelPageAccess } from '../contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$features/personnel/contracts';
+import { DEFAULT_LOSS_WARNING_WINDOW_DAYS } from '$features/organization/contracts';
 
 // ---------------------------------------------------------------------------
 // Data shape expected from the page server / layout
@@ -21,8 +22,8 @@ export interface PersonnelPageData {
 	pinnedGroups: string[];
 	rankCatalog?: RankCatalogEntry[];
 	personnel?: Personnel[];
-	/** Org-configured loss warning window in days (default: 180). */
-	lossWarningWindowDays?: number;
+	/** Org-configured loss warning window in days; `null` when the setting could not be read. */
+	lossWarningWindowDays?: number | null;
 	/** Personnel IDs whose award tracking has been acknowledged. */
 	awardTrackingAcknowledgedPersonnelIds?: string[];
 	[key: string]: unknown;
@@ -201,15 +202,24 @@ export class PersonnelPageContext {
 	 * roster and dashboard always agree on who is "approaching loss."
 	 */
 	get upcomingLossMap(): SvelteMap<string, UpcomingLossRecord> {
-		const warningWindowDays = this.#data.lossWarningWindowDays ?? 180;
-		const losses = evaluateUpcomingLosses(this.allActivePersonnel, warningWindowDays, this.#today, {
-			awardTrackingAcknowledgedPersonnelIds: this.#data.awardTrackingAcknowledgedPersonnelIds ?? []
-		});
 		const map = new SvelteMap<string, UpcomingLossRecord>();
+		const warningWindowDays = this.#data.lossWarningWindowDays;
+		if (warningWindowDays === null) return map;
+		const losses = evaluateUpcomingLosses(
+			this.allActivePersonnel,
+			warningWindowDays ?? DEFAULT_LOSS_WARNING_WINDOW_DAYS,
+			this.#today,
+			{ awardTrackingAcknowledgedPersonnelIds: this.#data.awardTrackingAcknowledgedPersonnelIds ?? [] }
+		);
 		for (const record of losses) {
 			map.set(record.personId, record);
 		}
 		return map;
+	}
+
+	/** The loss warning window could not be read, so the roster shows no loss flags. */
+	get lossWarningsUnavailable(): boolean {
+		return this.#data.lossWarningWindowDays === null;
 	}
 
 	// ---- Data accessors (for view/modals) ----

@@ -1,5 +1,6 @@
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { requireFeaturePolicy } from '$lib/access/index.server';
+import { readLossWarningWindowDays } from '$features/organization/contracts';
 import type { Personnel, PersonnelLookup } from './personnel.types';
 import type {
 	PersonnelCalendarStatusSnapshot,
@@ -31,7 +32,7 @@ interface PersonnelWorkspaceQueryContext {
 /** Delivery supplies adjacent owners' reads using the admitted request context. */
 export interface PersonnelWorkspaceSources {
 	listStatusTypes(orgId: string): Promise<PersonnelCalendarStatusSnapshot[]>;
-	loadLossWarningWindowDays(orgId: string): Promise<number | null>;
+	loadLossWarningWindowDays(orgId: string): Promise<number | null | undefined>;
 }
 
 function toPersonnelLookup(rows: Personnel[]): PersonnelLookup[] {
@@ -55,7 +56,7 @@ export async function loadPersonnelWorkspace(
 	await requireFeaturePolicy(ctx, POLICY_ACTION_CATALOG.personnel.viewRoster, { kind: 'unscoped' }, 'personnel');
 	if (!ctx.personnelAwardAcknowledgement) throw new Error('Personnel award acknowledgement port is required');
 
-	const [personnel, allPersonnel, groups, statusTypes, rankCatalog, pinnedNames, configuredWarningDays, acknowledged] =
+	const [personnel, allPersonnel, groups, statusTypes, rankCatalog, pinnedNames, lossWarningWindowDays, acknowledged] =
 		await Promise.all([
 			loadRosterPersonnel(ctx, { status: 'active' }),
 			loadRosterPersonnel({ roster: ctx.organizationRoster }, { status: 'active' }),
@@ -63,7 +64,7 @@ export async function loadPersonnelWorkspace(
 			sources.listStatusTypes(orgId),
 			ctx.loadRankCatalog(),
 			ctx.auth.userId ? listPinnedGroupNames(ctx) : Promise.resolve([]),
-			sources.loadLossWarningWindowDays(orgId).catch(() => null),
+			readLossWarningWindowDays(sources.loadLossWarningWindowDays(orgId)),
 			ctx.personnelAwardAcknowledgement.listAcknowledgedPersonnelIds(ctx.auth)
 		]);
 
@@ -76,7 +77,7 @@ export async function loadPersonnelWorkspace(
 		statusTypes,
 		rankCatalog,
 		pinnedGroups,
-		lossWarningWindowDays: configuredWarningDays ?? 180,
+		lossWarningWindowDays,
 		awardTrackingAcknowledgedPersonnelIds: acknowledged
 	};
 

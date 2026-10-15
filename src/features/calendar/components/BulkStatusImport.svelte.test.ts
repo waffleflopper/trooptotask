@@ -149,6 +149,67 @@ describe('BulkStatusImport', () => {
 		expect(onComplete).not.toHaveBeenCalled();
 	});
 
+	it('shows the server reason in the results and the toast when the batch is refused', async () => {
+		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+		vi.stubGlobal('fetch', async () =>
+			Response.json({ message: 'End date must be on or after the start date' }, { status: 400 })
+		);
+		availabilityStore.load([], 'org-1');
+		renderImporter();
+
+		await fireEvent.input(screen.getByLabelText('Paste CSV data'), {
+			target: {
+				value: 'last name,first name,start date,end date,status\nSmith,John,2026-01-01,2026-01-03,Leave'
+			}
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Parse' }));
+		await fireEvent.click(await screen.findByRole('button', { name: 'Next' }));
+
+		expect(await screen.findByRole('heading', { name: 'Import complete' })).toBeTruthy();
+		expect(screen.getByText(/entry failed to import/)).toBeTruthy();
+		expect(screen.getByText('End date must be on or after the start date')).toBeTruthy();
+		expect(errorToast).toHaveBeenCalledExactlyOnceWith('End date must be on or after the start date');
+	});
+
+	it('flags a note over 200 characters during review and submits only the ready rows', async () => {
+		const requests: unknown[] = [];
+		vi.stubGlobal('fetch', async (_url: string, init: RequestInit) => {
+			requests.push(JSON.parse(init.body as string));
+			return Response.json({ inserted: [{ id: 'availability-1' }] });
+		});
+		availabilityStore.load([], 'org-1');
+		renderImporter({
+			personnel: [
+				{ id: 'person-1', firstName: 'John', lastName: 'Smith', rank: 'SGT' },
+				{ id: 'person-2', firstName: 'Jane', lastName: 'Doe', rank: 'SSG' }
+			] as Personnel[]
+		});
+
+		await fireEvent.input(screen.getByLabelText('Paste CSV data'), {
+			target: {
+				value: `last name,first name,start date,end date,status,note\nSmith,John,2026-01-01,2026-01-03,Leave,short\nDoe,Jane,2026-01-04,2026-01-05,Leave,${'n'.repeat(201)}`
+			}
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Parse' }));
+
+		expect(await screen.findByText('Note must be 200 characters or fewer')).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+		expect(await screen.findByRole('heading', { name: 'Import complete' })).toBeTruthy();
+		expect(requests).toEqual([
+			{
+				records: [
+					{
+						personnelId: 'person-1',
+						statusTypeId: 'status-1',
+						startDate: '2026-01-01',
+						endDate: '2026-01-03',
+						note: 'short'
+					}
+				]
+			}
+		]);
+	});
+
 	it('shows partial-success results without an error toast when some rows insert', async () => {
 		const successToast = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');

@@ -111,6 +111,24 @@ describe('TrainingViewsPage', () => {
 		expect(screen.getByText('ACFT, Weapons Qual')).toBeTruthy();
 	});
 
+	it('keeps a failed delete open with its reason and the view still listed', async () => {
+		const requests: string[] = [];
+		vi.stubGlobal('fetch', async (_url: string, init: RequestInit) => {
+			requests.push(`${init.method} ${JSON.parse(init.body as string).id}`);
+			return Response.json({ message: 'Internal server error' }, { status: 500 });
+		});
+		render(TrainingViewsPage, { props: { org } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete View' }));
+		const dialog = screen.getByRole('alertdialog');
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+
+		expect(await within(dialog).findByText('Failed to delete view. Try again.')).toBeTruthy();
+		expect(requests).toEqual(['DELETE view-1']);
+		expect(screen.getByRole('row', { name: 'Annual Requirements' })).toBeTruthy();
+		expect(screen.getByText('ACFT, Weapons Qual')).toBeTruthy();
+	});
+
 	it('titles the empty list and the empty detail as level-3 headings, like a view header', () => {
 		trainingViewsStore.load([], 'org-1');
 		render(TrainingViewsPage, { props: { org } });

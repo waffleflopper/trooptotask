@@ -17,6 +17,7 @@ import type { FeatureLanePolicyAction, PolicyDecision } from '$lib/access/policy
 import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
 import { SvelteDate, SvelteMap } from 'svelte/reactivity';
 import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$features/personnel/contracts';
+import { DEFAULT_LOSS_WARNING_WINDOW_DAYS } from '$features/organization/contracts';
 
 const CALENDAR_WORKSPACE_RESOURCE: PolicyResource = { kind: 'unscoped' };
 
@@ -218,13 +219,23 @@ export class CalendarPageContext {
 	 * and dashboard always agree on who is approaching a loss event.
 	 */
 	get upcomingLossMap(): SvelteMap<string, UpcomingLossRecord> {
-		const warningWindowDays = this.#workspaceData?.lossWarningWindowDays ?? 180;
-		const losses = evaluateUpcomingLosses(this.calendarPersonnel, warningWindowDays, this.#today);
 		const map = new SvelteMap<string, UpcomingLossRecord>();
+		const warningWindowDays = this.#workspaceData?.lossWarningWindowDays;
+		if (warningWindowDays === null) return map;
+		const losses = evaluateUpcomingLosses(
+			this.calendarPersonnel,
+			warningWindowDays ?? DEFAULT_LOSS_WARNING_WINDOW_DAYS,
+			this.#today
+		);
 		for (const record of losses) {
 			map.set(record.personId, record);
 		}
 		return map;
+	}
+
+	/** The loss warning window could not be read, so the Calendar shows no loss flags. */
+	get lossWarningsUnavailable(): boolean {
+		return this.#workspaceData?.lossWarningWindowDays === null;
 	}
 
 	// ---- constructor -------------------------------------------------------

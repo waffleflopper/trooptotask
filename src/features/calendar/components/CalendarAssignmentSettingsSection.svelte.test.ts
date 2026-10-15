@@ -38,6 +38,7 @@ function stubAssignmentTypeServer() {
 		commands,
 		answerHeader: null as Answer | null,
 		answerRead: null as Answer | null,
+		answerWrite: null as Answer | null,
 		holdNext: false,
 		release: () => held.splice(0).forEach((resume) => resume()),
 		headerFlags: () => Object.fromEntries([...persisted.values()].map((type) => [type.id, type.showInDateHeader])),
@@ -66,6 +67,7 @@ function stubAssignmentTypeServer() {
 				persisted.set(created.id, created);
 				return Response.json(created, { status: 201 });
 			}
+			if (server.answerWrite) return server.answerWrite();
 			const { id, ...data } = JSON.parse(String(init!.body)) as Partial<AssignmentType> & { id: string };
 			if (method === 'DELETE') {
 				persisted.delete(id);
@@ -142,6 +144,39 @@ describe('CalendarAssignmentSettingsSection date header', () => {
 			'PUT /org/org-1/api/assignment-types/date-header',
 			'GET /org/org-1/api/assignment-types'
 		]);
+	});
+
+	it('shows one message with the server reason when an edit is refused, keeping the dialog open', async () => {
+		const server = stubAssignmentTypeServer();
+		server.answerWrite = () => Response.json({ message: 'Name must be 100 characters or fewer' }, { status: 400 });
+		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+		render(CalendarAssignmentSettingsSection, { props: { canMutate: true, searchQuery: '' } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit Staff Duty' }));
+		await fireEvent.input(screen.getByLabelText('Full name'), { target: { value: 'Staff Duty Officer' } });
+		const save = screen.getByRole('button', { name: 'Save Changes' }) as HTMLButtonElement;
+		await fireEvent.click(save);
+
+		await waitFor(() => expect(errorToast).toHaveBeenCalled());
+		await waitFor(() => expect(save.disabled).toBe(false));
+		expect(errorToast).toHaveBeenCalledExactlyOnceWith('Name must be 100 characters or fewer');
+		expect(screen.getByRole('heading', { name: 'Edit Assignment Type' })).toBeTruthy();
+		expect(server.persisted.get('sd')!.name).toBe('Staff Duty');
+	});
+
+	it('shows one message when a delete fails and keeps the type', async () => {
+		const server = stubAssignmentTypeServer();
+		server.answerWrite = () => Response.json({ message: 'Internal server error' }, { status: 500 });
+		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+		render(CalendarAssignmentSettingsSection, { props: { canMutate: true, searchQuery: '' } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete Staff Duty' }));
+		const confirm = screen.getByRole('button', { name: 'Delete' }) as HTMLButtonElement;
+		await fireEvent.click(confirm);
+
+		await waitFor(() => expect(confirm.disabled).toBe(false));
+		expect(errorToast).toHaveBeenCalledExactlyOnceWith('Failed to delete assignment type');
+		expect(radio('Staff Duty')).toBeTruthy();
 	});
 
 	it('names the stored header after an unconfirmed choice', async () => {

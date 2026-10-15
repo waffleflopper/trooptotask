@@ -12,6 +12,7 @@
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { parseFile, parseCSVText } from '$lib/utils/csvParser';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { rejectedRequestMessage } from '$lib/stores/core';
 	import { autoMapColumns, detectHeaderRow } from '$lib/utils/columnMapping';
 	import {
 		buildAvailabilityImportPlan,
@@ -53,7 +54,7 @@
 
 	// Import state
 	let importing = $state(false);
-	let importResult = $state<{ inserted: number; notInserted: number; skipped: number } | null>(null);
+	let importResult = $state<{ inserted: number; notInserted: number; skipped: number; reason?: string } | null>(null);
 	let completionNotified = false;
 
 	/**
@@ -73,7 +74,8 @@
 		'end-date-required': 'End date is required',
 		'end-date-invalid': 'Invalid end date',
 		'end-before-start': 'End date must be on or after start date',
-		'status-required': 'Status is required'
+		'status-required': 'Status is required',
+		'note-too-long': 'Note must be 200 characters or fewer'
 	};
 
 	type PreviewRow = {
@@ -255,10 +257,11 @@
 				toastStore.error('No status entries were imported. Review the results and try again.');
 			}
 			step = 'results';
-		} catch {
-			importResult = { inserted: 0, notInserted: plan.records.length, skipped: plan.skipped.length };
+		} catch (error) {
+			const reason = rejectedRequestMessage(error, '');
+			importResult = { inserted: 0, notInserted: plan.records.length, skipped: plan.skipped.length, reason };
 			step = 'results';
-			toastStore.error('No status entries were imported. Review the results and try again.');
+			toastStore.error(reason || 'No status entries were imported. Review the results and try again.');
 		} finally {
 			importing = false;
 		}
@@ -410,6 +413,9 @@
 							<strong>{importResult.notInserted}</strong>
 							{importResult.notInserted === 1 ? 'entry' : 'entries'} failed to import. Re-run the import for the missing rows
 							or try again later.
+							{#if importResult.reason}
+								<p class="mt-1">{importResult.reason}</p>
+							{/if}
 						</div>
 					{/if}
 

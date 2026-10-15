@@ -237,17 +237,33 @@ describe('personnel readiness lanes', () => {
 		});
 	});
 
-	it.each([
-		{ ets: '2026-11-10', value: 'Action needed', tone: 'watch' },
-		{ ets: '2026-11-11', value: 'No loss risk', tone: 'good' }
-	])('uses the default 180-day window for ETS $ets when settings fail', async ({ ets, value, tone }) => {
+	it('says loss warnings are unavailable instead of guessing a window when settings fail', async () => {
 		const ctx = createTestContext();
-		seedPerson(ctx, { ets });
+		seedPerson(ctx, { ets: '2026-07-14' });
 		await expect(
 			loadLossTrackingReadinessLane(ctx, 'person-1', AS_OF, async () => {
 				throw new Error('Settings unavailable');
 			})
-		).resolves.toMatchObject({ value, tone });
+		).resolves.toMatchObject({ value: 'Unavailable', tone: 'neutral' });
+	});
+
+	it('still reports a passed ETS when settings fail', async () => {
+		const ctx = createTestContext();
+		seedPerson(ctx, { ets: '2026-05-13' });
+		await expect(
+			loadLossTrackingReadinessLane(ctx, 'person-1', AS_OF, async () => {
+				throw new Error('Settings unavailable');
+			})
+		).resolves.toMatchObject({ value: 'Action needed', tone: 'bad' });
+	});
+
+	it('does not flag an ETS 61 days out under a stored 60-day window', async () => {
+		const ctx = createTestContext();
+		seedPerson(ctx, { ets: '2026-07-14' });
+		await expect(loadLossTrackingReadinessLane(ctx, 'person-1', AS_OF, async () => 60)).resolves.toMatchObject({
+			value: 'No loss risk',
+			tone: 'good'
+		});
 	});
 
 	it('uses the default window when the setting is absent', async () => {

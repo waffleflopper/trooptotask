@@ -6,6 +6,7 @@
 	import ArchiveIcon from '@lucide/svelte/icons/archive';
 	import PinIcon from '@lucide/svelte/icons/pin';
 	import UsersIcon from '@lucide/svelte/icons/users';
+	import * as Alert from '$lib/components/ui/alert';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as DataTable from '$lib/components/ui/data-table';
@@ -386,6 +387,17 @@
 				search={toolbarSearch}
 				primary={toolbarPrimary}
 			/>
+
+			{#if ctx.lossWarningsUnavailable}
+				<Alert.Root role="status">
+					<Alert.Description>Loss warnings could not be loaded, so ETS and PCS flags are not shown.</Alert.Description>
+					<Alert.Action>
+						<Button type="button" variant="outline" size="xs" onclick={() => window.location.reload()}
+							>Reload page</Button
+						>
+					</Alert.Action>
+				</Alert.Root>
+			{/if}
 
 			{#if bulkArchiveMode}
 				<div class="grid gap-2">

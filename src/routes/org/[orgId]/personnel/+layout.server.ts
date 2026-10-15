@@ -26,8 +26,7 @@ async function streamPersonnelWorkspace(
 		fn: (ctx) =>
 			loadPersonnelWorkspace(ctx, {
 				listStatusTypes: () => listStatusTypes(ctx.calendarCatalogs),
-				loadLossWarningWindowDays: async (orgId) =>
-					(await ctx.organizationSettings.findLossWarningWindowDays(orgId)) ?? null
+				loadLossWarningWindowDays: (orgId) => ctx.organizationSettings.findLossWarningWindowDays(orgId)
 			})
 	});
 	return { personnel: { data: settleWorkspaceDenial(personnel.data, PERSONNEL_WORKSPACE_LANE_KEY) } };

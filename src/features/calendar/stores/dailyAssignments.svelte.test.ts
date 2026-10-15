@@ -244,15 +244,16 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 			expect(dailyAssignmentsStore.types[0].name).toBe('Guard Updated');
 		});
 
-		it('should rollback on failure', async () => {
+		it('rolls back and rejects with the failure, leaving the message to the caller', async () => {
 			dailyAssignmentsStore.load([guardType], [], 'org-1');
-			vi.stubGlobal('fetch', mockFetch(null, 500));
+			vi.stubGlobal('fetch', mockFetch({ message: 'Name must be 100 characters or fewer' }, 400));
 			const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
-			const result = await dailyAssignmentsStore.updateType('1', { name: 'Failed' });
-			expect(result).toBe(false);
+			await expect(dailyAssignmentsStore.updateType('1', { name: 'Failed' })).rejects.toThrow(
+				'Name must be 100 characters or fewer'
+			);
 			expect(dailyAssignmentsStore.types[0].name).toBe('Guard');
-			expect(errorToast).toHaveBeenCalledOnce();
+			expect(errorToast).not.toHaveBeenCalled();
 		});
 
 		it('should return false for non-existent id', async () => {

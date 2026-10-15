@@ -429,16 +429,21 @@ describe('fetchCalendarBootstrap', () => {
 		expect(result.pinnedGroups).toEqual(['Alpha']);
 	});
 
-	it.each([0, null, 'failure'] as const)(
-		'preserves optional warning zero/default/error behavior (%s)',
-		async (value) => {
+	it.each([
+		[60, 60],
+		[0, 0],
+		[null, 180],
+		['failure', null]
+	] as const)(
+		'keeps a stored warning window of %s as %s, and a failed read unavailable rather than a default',
+		async (value, expected) => {
 			const ctx = buildCtx();
 			ctx.organizationSettings.findLossWarningWindowDays = async () => {
 				if (value === 'failure') throw new Error('Optional Organization settings unavailable');
 				return value;
 			};
 			const data = await fetchCalendarBootstrap(ctx, RANGE);
-			expect(data.lossWarningWindowDays).toBe(value === 0 ? 0 : 180);
+			expect(data.lossWarningWindowDays).toBe(expected);
 		}
 	);
 

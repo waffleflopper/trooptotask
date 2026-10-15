@@ -179,6 +179,18 @@
 					</Alert.Root>
 				{/if}
 
+				{#if ctx.lossWarningsUnavailable}
+					<Alert.Root role="status">
+						<Alert.Description>Loss warnings could not be loaded, so ETS and PCS flags are not shown.</Alert.Description
+						>
+						<Alert.Action>
+							<Button type="button" variant="outline" size="xs" onclick={() => window.location.reload()}
+								>Reload page</Button
+							>
+						</Alert.Action>
+					</Alert.Root>
+				{/if}
+
 				{#if ctx.viewMode === '3-month'}
 					<LongRangeView
 						startDate={calendarStore.currentDate}

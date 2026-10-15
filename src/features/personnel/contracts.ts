@@ -362,8 +362,8 @@ export interface PersonnelWorkspaceData {
 	statusTypes: PersonnelCalendarStatusSnapshot[];
 	rankCatalog: OrganizationRankCatalogEntry[];
 	pinnedGroups: string[];
-	/** Organization loss warning window in days, defaulting to 180. */
-	lossWarningWindowDays: number;
+	/** Organization loss warning window in days; `null` when the setting could not be read. */
+	lossWarningWindowDays: number | null;
 	awardTrackingAcknowledgedPersonnelIds: string[];
 }
 

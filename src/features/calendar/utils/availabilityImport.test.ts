@@ -147,6 +147,17 @@ describe('validateAvailabilityImportRow', () => {
 		expect(result.issues).toEqual([{ field: 'endDate', code: 'end-before-start', severity: 'error' }]);
 	});
 
+	it('blocks a note the database would reject, measured after trimming', () => {
+		expect(validateAvailabilityImportRow(row({ note: ` ${'n'.repeat(200)} ` }), index)).toEqual({
+			valid: true,
+			issues: []
+		});
+		expect(validateAvailabilityImportRow(row({ note: 'n'.repeat(201) }), index)).toEqual({
+			valid: false,
+			issues: [{ field: 'note', code: 'note-too-long', severity: 'error' }]
+		});
+	});
+
 	it('collects matching and date issues together', () => {
 		const result = validateAvailabilityImportRow(row({ lastName: 'Jones', endDate: 'bogus' }), index);
 		expect(result.valid).toBe(false);

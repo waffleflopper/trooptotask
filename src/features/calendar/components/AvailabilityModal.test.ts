@@ -144,6 +144,30 @@ describe('AvailabilityModal', () => {
 		});
 	});
 
+	it('keeps a refused edit of the same entry ready to retry', async () => {
+		const outcomes: AvailabilityOutcome[] = ['not-saved', 'saved'];
+		const { onSave } = renderModal(
+			{ kind: 'edit', person, entry: existingEntry },
+			{ existingEntries: [existingEntry], onSave: async () => outcomes.shift()! }
+		);
+
+		await fireEvent.pointerDown(screen.getByRole('button', { name: 'Status Type' }));
+		const tdyOption = within(screen.getByRole('listbox', { name: 'Status Type' })).getByRole('option', { name: 'TDY' });
+		await fireEvent.pointerDown(tdyOption);
+		await fireEvent.pointerUp(tdyOption);
+		await fireEvent.input(screen.getByLabelText('Note'), { target: { value: 'Range day' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Update Status' }));
+		await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+		await fireEvent.click(screen.getByRole('button', { name: 'Update Status' }));
+
+		const retry = {
+			kind: 'update',
+			entry: existingEntry,
+			changes: { statusTypeId: 'tdy', startDate: '2026-04-07', endDate: '2026-04-07', note: 'Range day' }
+		};
+		expect(onSave.mock.calls).toEqual([[retry], [retry]]);
+	});
+
 	it('edits a listed entry of the day', async () => {
 		const { onSave } = renderModal(onApril7, { existingEntries: [existingEntry] });
 

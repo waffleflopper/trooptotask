@@ -314,6 +314,22 @@ async function main() {
 		else note(await evaluate(state, pageId, `() => (${observePrint.toString()})(window, ${JSON.stringify(action)})`));
 		return;
 	}
+	if (command === 'pointer') {
+		const [action, page, expectedUrl, from, to, steps] = args;
+		if (action !== 'drag' || args.length < 5 || args.length > 6)
+			throw new Error('Use pointer drag PAGE EXACT_URL FROM_SELECTOR TO_SELECTOR [STEPS].');
+		note(
+			await run(state, {
+				command: 'pointer-drag',
+				pageId: Number(page),
+				expectedUrl,
+				from,
+				to,
+				...(steps === undefined ? {} : { steps: Number(steps) })
+			})
+		);
+		return;
+	}
 	if (command === 'server-source') {
 		const [action, table, mode, ordinal, holdMs] = args;
 		if (

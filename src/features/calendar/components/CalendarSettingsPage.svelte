@@ -43,7 +43,8 @@
 		{
 			key: 'assignments',
 			label: 'Assignment Types',
-			description: 'Duty coverage assignments',
+			description:
+				'Daily duties you fill in the duty planner. Choose which ones appear as lanes under the dates on the calendar, and in what order.',
 			icon: Users,
 			getCount: () => activeAssignmentTypes.length
 		},

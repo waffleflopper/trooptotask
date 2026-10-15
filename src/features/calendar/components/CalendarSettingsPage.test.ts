@@ -22,9 +22,12 @@ const { statusTypesStoreMock, availabilityStoreMock, assignmentTypesStoreMock, s
 		assignmentTypesStoreMock: {
 			types: [] as AssignmentType[],
 			pendingLaneIds: null,
+			typesBusy: false,
+			typeWritesBusy: false,
 			addType: vi.fn(),
 			updateType: vi.fn(),
-			removeType: vi.fn()
+			removeType: vi.fn(),
+			setCalendarLanes: vi.fn()
 		},
 		specialDaysStoreMock: {
 			items: [] as SpecialDay[],
@@ -64,6 +67,11 @@ vi.mock('$features/calendar/stores/specialDays.svelte', () => ({
 vi.mock('$features/calendar/stores/dailyAssignments.svelte', () => ({
 	dailyAssignmentsStore: assignmentTypesStoreMock
 }));
+
+async function openAssignmentAction(typeName: string, action: 'Edit' | 'Delete') {
+	await fireEvent.keyDown(screen.getByRole('button', { name: `More actions for ${typeName}` }), { key: 'Enter' });
+	await fireEvent.click(await screen.findByRole('menuitem', { name: action }));
+}
 
 describe('CalendarSettingsPage', () => {
 	beforeEach(() => {
@@ -296,7 +304,7 @@ describe('CalendarSettingsPage', () => {
 		render(CalendarSettingsPage, { props: { org } });
 
 		await fireEvent.click(screen.getByRole('tab', { name: /Assignment Types/i }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Edit Charge of Quarters' }));
+		await openAssignmentAction('Charge of Quarters', 'Edit');
 		const dialog = screen.getByRole('dialog', { name: 'Edit Assignment Type' });
 		await fireEvent.input(within(dialog).getByLabelText('Full name'), { target: { value: 'Staff Duty' } });
 		await fireEvent.click(within(dialog).getByRole('button', { name: 'Save Changes' }));
@@ -324,7 +332,7 @@ describe('CalendarSettingsPage', () => {
 		render(CalendarSettingsPage, { props: { org } });
 
 		await fireEvent.click(screen.getByRole('tab', { name: /Assignment Types/i }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Delete Charge of Quarters' }));
+		await openAssignmentAction('Charge of Quarters', 'Delete');
 		const dialog = screen.getByRole('alertdialog', { name: 'Delete Assignment Type' });
 		await fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
 
@@ -372,8 +380,8 @@ describe('CalendarSettingsPage', () => {
 		render(CalendarSettingsPage, { props: { org } });
 
 		await fireEvent.click(screen.getByRole('tab', { name: /Assignment Types/ }));
-		expect(screen.getByRole('button', { name: 'Delete Charge of Quarters' })).toBeTruthy();
-		await fireEvent.click(screen.getByRole('button', { name: 'Edit Staff Duty' }));
+		expect(screen.getByRole('button', { name: 'More actions for Charge of Quarters' })).toBeTruthy();
+		await openAssignmentAction('Staff Duty', 'Edit');
 		const dialog = screen.getByRole('dialog', { name: 'Edit Assignment Type' });
 
 		expect((within(dialog).getByLabelText('Full name') as HTMLInputElement).value).toBe('Staff Duty');

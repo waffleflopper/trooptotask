@@ -98,7 +98,7 @@ $V roster-files orgA ROSTER_ID           # private Storage names, sizes and SHA-
 $V roster-replace PAGE orgA rosterAlpha EVIDENCE_PDF # ordinary multipart replacement; separate HTTP proof
 $V calendar-grant calendarOperate view   # simulate an open page losing operate access
 $V calendar-grant calendarOperate restore
-$V seed duplicate-able                  # or overlap, bulk-501, training-pages; returns a tag
+$V seed duplicate-able                  # or overlap, bulk-501, availability-volume, training-pages; returns a tag
 $V clean-seeds                          # only rows created by this helper
 $V network arm-fail 2 calendar-range    # one scoped synthetic 503; use the actual page ID
 $V network arm-hold 2 calendar-reports/status-days # Calendar report data; daily-assignments is the single slot save

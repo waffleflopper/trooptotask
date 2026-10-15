@@ -2545,6 +2545,7 @@ async function main() {
 					'status-types',
 					'assignment-types',
 					'assignment-types/lanes',
+					'status-types/order',
 					'ict-tasks/order',
 					'ict-tasks/batch',
 					'calendar-reports/status-days',
@@ -2712,7 +2713,7 @@ async function main() {
 			const requestMethod =
 				family === 'ict-tasks/order'
 					? 'POST'
-					: heldPersonnelFailure || family === 'assignment-types/lanes'
+					: heldPersonnelFailure || family === 'assignment-types/lanes' || family === 'status-types/order'
 						? 'PUT'
 						: family === 'user-preferences'
 							? 'PATCH'

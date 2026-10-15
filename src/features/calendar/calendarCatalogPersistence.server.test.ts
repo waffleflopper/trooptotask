@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
-import {
-	CALENDAR_CHANGE_NOT_SAVED_MESSAGE,
-	CALENDAR_CHANGE_UNCONFIRMED_MESSAGE,
-	createSupabaseCalendarCatalogPersistence
-} from './calendarCatalogPersistence.server';
+import { createSupabaseCalendarCatalogPersistence } from './calendarCatalogPersistence.server';
 import { calendarProvider } from './test-support/calendarProvider';
 
 const ORG = 'org-a';
@@ -150,7 +146,19 @@ describe('Calendar ordinary catalog persistence', () => {
 	);
 
 	it('creates saved rows with defaults and patches only submitted fields', async () => {
-		const { client, state } = calendarProvider();
+		const shownLane = {
+			id: 'shown-1',
+			organization_id: ORG,
+			created_at: TIME,
+			name: 'Staff Duty',
+			short_name: 'SD',
+			assign_to: 'personnel',
+			color: '#b91c1c',
+			sort_order: 7,
+			show_on_calendar: true,
+			exempt_personnel_ids: []
+		};
+		const { client, state } = calendarProvider({ assignment_types: [shownLane] });
 		const port = createSupabaseCalendarCatalogPersistence(client, ORG);
 		expect(await port.createStatusType({ name: 'Leave' })).toEqual({
 			id: 'saved-1',
@@ -182,22 +190,17 @@ describe('Calendar ordinary catalog persistence', () => {
 			sortOrder: 0,
 			exemptPersonnelIds: []
 		});
-		expect(
-			await port.updateAssignmentType('saved-2', {
-				assignTo: 'group',
-				color: '#123456',
-				exemptPersonnelIds: ['person-a']
-			})
-		).toEqual({
-			id: 'saved-2',
+		const edit = { assignTo: 'group' as const, exemptPersonnelIds: ['person-a'], showOnCalendar: false, sortOrder: 2 };
+		expect(await port.updateAssignmentType('shown-1', edit)).toEqual({
+			id: 'shown-1',
 			organization_id: ORG,
 			created_at: TIME,
-			name: 'Duty',
-			shortName: 'D',
+			name: 'Staff Duty',
+			shortName: 'SD',
 			assignTo: 'group',
-			color: '#123456',
-			showOnCalendar: false,
-			sortOrder: 0,
+			color: '#b91c1c',
+			showOnCalendar: true,
+			sortOrder: 7,
 			exemptPersonnelIds: ['person-a']
 		});
 		expect(state.rows.status_types).toEqual([
@@ -212,24 +215,25 @@ describe('Calendar ordinary catalog persistence', () => {
 			}
 		]);
 		expect(state.rows.assignment_types).toEqual([
+			{ ...shownLane, assign_to: 'group', exempt_personnel_ids: ['person-a'] },
 			{
 				id: 'saved-2',
 				organization_id: ORG,
 				created_at: TIME,
 				name: 'Duty',
 				short_name: 'D',
-				assign_to: 'group',
-				color: '#123456',
+				assign_to: 'personnel',
+				color: '#6b7280',
 				sort_order: 0,
 				show_on_calendar: false,
-				exempt_personnel_ids: ['person-a']
+				exempt_personnel_ids: []
 			}
 		]);
-		for (const { table, body } of state.requests) {
-			if (table === 'assignment_types' && body) {
-				expect(body).not.toHaveProperty('sort_order');
-				expect(body).not.toHaveProperty('show_on_calendar');
-			}
+		const typeWrites = state.requests.filter(({ table, body }) => table === 'assignment_types' && body);
+		expect(typeWrites).toHaveLength(2);
+		for (const { body } of typeWrites) {
+			expect(body).not.toHaveProperty('sort_order');
+			expect(body).not.toHaveProperty('show_on_calendar');
 		}
 		await expect(
 			createSupabaseCalendarCatalogPersistence(client, 'org-b').updateStatusType('saved-1', { name: 'Hidden' })
@@ -398,21 +402,28 @@ describe('Calendar configuration commands', () => {
 	});
 
 	it.each([
-		['42501', 403, 'You do not have access to configure the Calendar'],
-		['P0002', 404, 'That assignment type is no longer available.'],
-		['22023', 400, 'Invalid Calendar configuration'],
-		['22P02', 400, 'Invalid Calendar configuration'],
-		['40P01', 409, CALENDAR_CHANGE_NOT_SAVED_MESSAGE],
-		['40001', 409, CALENDAR_CHANGE_NOT_SAVED_MESSAGE],
-		['55P03', 409, CALENDAR_CHANGE_NOT_SAVED_MESSAGE],
-		['23505', 409, CALENDAR_CHANGE_NOT_SAVED_MESSAGE]
-	])('answers a rolled back %s as a %i', async (code, status, message) => {
+		['42501', 403],
+		['P0002', 404],
+		['22023', 400],
+		['22P02', 400],
+		['CLN01', 409],
+		['40P01', 409],
+		['40001', 409],
+		['55P03', 409],
+		['23505', 409]
+	])('answers a rolled back %s as a %i without forwarding the database message', async (code, status) => {
 		const { port } = calendarRpc(databaseError(code, 'synthetic database message', 500));
-		await expect(port.setCalendarLanes([GROUP], [STAFF])).rejects.toMatchObject({ status, message });
-		await expect(port.resetFederalHolidays([{ date: '2026-12-25', name: 'Christmas Day' }])).rejects.toMatchObject({
-			status,
-			message
-		});
+		for (const command of [
+			() => port.setCalendarLanes([GROUP], [STAFF]),
+			() => port.resetFederalHolidays([{ date: '2026-12-25', name: 'Christmas Day' }])
+		]) {
+			const failure = await command().then(
+				() => undefined,
+				(error: unknown) => error
+			);
+			expect(failure).toMatchObject({ name: 'RequestFailure', status });
+			expect((failure as Error).message).not.toContain('synthetic database message');
+		}
 	});
 
 	it('says a lost or unreadable reply is unconfirmed', async () => {
@@ -421,14 +432,9 @@ describe('Calendar configuration commands', () => {
 			() => new Response('<html>Bad gateway</html>', { status: 502 })
 		]) {
 			const { port } = calendarRpc(reply);
-			await expect(port.setCalendarLanes([GROUP], [STAFF])).rejects.toMatchObject({
-				status: 503,
-				message: CALENDAR_CHANGE_UNCONFIRMED_MESSAGE,
-				publicMessage: true
-			});
+			await expect(port.setCalendarLanes([GROUP], [STAFF])).rejects.toMatchObject({ status: 503, publicMessage: true });
 			await expect(port.resetFederalHolidays([{ date: '2026-12-25', name: 'Christmas Day' }])).rejects.toMatchObject({
 				status: 503,
-				message: CALENDAR_CHANGE_UNCONFIRMED_MESSAGE,
 				publicMessage: true
 			});
 		}

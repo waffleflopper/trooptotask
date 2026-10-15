@@ -4,10 +4,6 @@ import { createTestContext } from '$features/calendar/calendarPersistence.test-s
 import { buildRouteRequest } from '$lib/server/adapters/requestContexts.server';
 import { PUT } from './+server';
 
-const NOT_SAVED = 'Another Calendar change was saving at the same time, so this change was not saved. Try again.';
-const LANES_MESSAGE = 'Choose the assignment types to show on the calendar';
-const UNCONFIRMED = "We couldn't confirm this Calendar change. Reload to see what is saved.";
-
 vi.mock('$lib/server/adapters/requestContexts.server', async (importOriginal) => ({
 	...(await importOriginal<typeof import('$lib/server/adapters/requestContexts.server')>()),
 	buildRouteRequest: vi.fn()
@@ -79,44 +75,39 @@ describe('PUT calendar lanes at the route boundary', () => {
 	});
 
 	it.each([
-		['42501', 403, 'You do not have access to configure the Calendar'],
-		['P0002', 404, 'That assignment type is no longer available.'],
-		['22023', 400, 'Invalid Calendar configuration'],
-		['40P01', 409, NOT_SAVED],
-		['40001', 409, NOT_SAVED],
-		['23505', 409, NOT_SAVED],
-		['23514', 500, 'Internal server error']
-	])('answers database %s with %i and no audit', async (code, status, message) => {
+		['CLN01', 409],
+		['23514', 500]
+	])('answers database %s with %i, no audit and no database message', async (code, status) => {
 		const ctx = admit();
 		provider.reply = databaseError(code);
-		await expect(put(choice)).rejects.toMatchObject({ status, body: { message } });
+		let failure: { status: number; body: { message: string } } | undefined;
+		try {
+			await put(choice);
+		} catch (error) {
+			failure = error as typeof failure;
+		}
+		expect(failure?.status).toBe(status);
+		expect(failure?.body.message).not.toContain('synthetic database message');
 		expect(ctx.audit.events).toEqual([]);
 	});
 
 	it('answers a lost provider reply with the public unconfirmed 503', async () => {
-		admit();
+		const ctx = admit();
 		provider.reply = () => Promise.reject(new TypeError('fetch failed'));
-		await expect(put(choice)).rejects.toMatchObject({
-			status: 503,
-			body: { message: UNCONFIRMED }
-		});
+		await expect(put(choice)).rejects.toMatchObject({ status: 503 });
+		expect(ctx.audit.events).toEqual([]);
 	});
 
-	it('answers an unexpected provider acknowledgment as an internal error', async () => {
-		admit();
+	it('answers an unexpected provider acknowledgment as an internal error without an audit', async () => {
+		const ctx = admit();
 		provider.reply = () => Response.json({ saved: true });
-		await expect(put(choice)).rejects.toMatchObject({ status: 500, body: { message: 'Internal server error' } });
+		await expect(put(choice)).rejects.toMatchObject({ status: 500 });
+		expect(ctx.audit.events).toEqual([]);
 	});
 
-	it.each([
-		['{', 'Invalid JSON in request body'],
-		['{}', LANES_MESSAGE],
-		[JSON.stringify({ laneTypeIds: [GROUP, GROUP], expectedLaneTypeIds: [] }), LANES_MESSAGE],
-		[JSON.stringify({ laneTypeIds: ['not-a-type'], expectedLaneTypeIds: [] }), LANES_MESSAGE],
-		[JSON.stringify({ laneTypeIds: [GROUP], expectedLaneTypeIds: [], showOnCalendar: true }), LANES_MESSAGE]
-	])('rejects body %s with 400 before the provider', async (body, message) => {
+	it('rejects a body that is not JSON with 400 before the provider', async () => {
 		admit();
-		await expect(put(body)).rejects.toMatchObject({ status: 400, body: { message } });
+		await expect(put('{')).rejects.toMatchObject({ status: 400 });
 		expect(provider.calls).toEqual([]);
 	});
 

@@ -50,7 +50,8 @@ async function calendarCommand<T>(
 		if (error.code === '42501') fail(403, 'You do not have access to configure the Calendar');
 		if (error.code === 'P0002') fail(404, 'That assignment type is no longer available.');
 		if (error.code === '22023' || error.code === '22P02') fail(400, 'Invalid Calendar configuration');
-		if (['40P01', '40001', '55P03', '23505'].includes(error.code)) fail(409, CALENDAR_CHANGE_NOT_SAVED_MESSAGE);
+		if (['CLN01', '40P01', '40001', '55P03', '23505'].includes(error.code))
+			fail(409, CALENDAR_CHANGE_NOT_SAVED_MESSAGE);
 		if (!error.code) fail(503, CALENDAR_CHANGE_UNCONFIRMED_MESSAGE, { publicMessage: true });
 		throw new Error(error.message);
 	}

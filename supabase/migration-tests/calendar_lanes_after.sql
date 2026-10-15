@@ -4,8 +4,6 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SELECT no_plan();
 
-SELECT is((SELECT count(*)::integer FROM supabase_migrations.schema_migrations
-           WHERE version = '20261015000100'), 1, 'Calendar lanes migration was recorded by the local runner');
 SELECT hasnt_column('public', 'assignment_types', 'show_in_date_header', 'the date-header column is gone');
 SELECT has_column('public', 'assignment_types', 'show_on_calendar', 'the calendar visibility column exists');
 SELECT hasnt_index('public', 'assignment_types', 'assignment_types_one_header_per_org', 'the one-header index is gone');

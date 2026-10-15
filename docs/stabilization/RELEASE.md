@@ -614,13 +614,13 @@ After release, confirm through ordinary authorized use that a configurator can r
 
 ## Calendar lanes
 
-The candidate adds [`20261015000100_calendar_lanes.sql`](../../supabase/migrations/20261015000100_calendar_lanes.sql), SHA-256 `fad59172c01fffbee19b94137a1c446700e7cb994e000f93d9493c8f8cb32e39`, for [#1683](https://github.com/waffleflopper/trooptotask/issues/1683). It lands on the `feat/calendar-redesign` integration branch, and nothing deploys until that branch merges to main. The migration is not yet applied anywhere outside disposable local databases. Its owner-operated migration gate is open. The agent neither inspected nor changed the remote database or hosted ledger.
+The candidate adds [`20261015000100_calendar_lanes.sql`](../../supabase/migrations/20261015000100_calendar_lanes.sql), SHA-256 `09da087c4a6f9c3349815b7b39a97910a5e6b4218765230a35ce9eb37df72abf`, for [#1683](https://github.com/waffleflopper/trooptotask/issues/1683). It lands on the `feat/calendar-redesign` integration branch, and nothing deploys until that branch merges to main. The migration is not yet applied anywhere outside disposable local databases. Its owner-operated migration gate is open. The agent neither inspected nor changed the remote database or hosted ledger.
 
 Applying it replaces the single date header with ordered Calendar lanes:
 
 - It drops `set_assignment_type_date_header` and the `assignment_types_one_header_per_org` index, and renames `assignment_types.show_in_date_header` to `show_on_calendar`.
 - It renumbers `sort_order` from 0 within each Organization. The former header comes first, and every other type keeps its relative `(sort_order, id)` order. An archived type loses `show_on_calendar`.
-- It adds `set_calendar_lanes(p_organization_id, p_lane_type_ids, p_expected_lane_type_ids)`. In one transaction it replaces the Organization's whole ordered lane list, but only when the saved list still equals the expected list. A replay of the saved list returns without change. A stale list raises `40001` and changes nothing. A missing or archived target raises `P0002`.
+- It adds `set_calendar_lanes(p_organization_id, p_lane_type_ids, p_expected_lane_type_ids)`. In one transaction it replaces the Organization's whole ordered lane list, but only when the saved list still equals the expected list. A replay of the saved list returns without change. A stale list raises the custom `CLN01` and changes nothing. PostgREST retries `40001` itself, so the command never raises it. A missing or archived target raises `P0002`.
 
 The command runs as `SECURITY INVOKER` with an empty search path. It takes a transaction advisory lock named for its Organization, locks that Organization's types `FOR NO KEY UPDATE` in id order, and rechecks Calendar configuration authority after the lock and after its final write. EXECUTE is granted to `authenticated` and revoked from `PUBLIC`, `anon` and `service_role`. No table grant or row security policy changes. Daily assignments and exempt ids are unchanged.
 

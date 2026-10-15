@@ -77,8 +77,10 @@ BEGIN
     END IF;
     RETURN;
   END IF;
+  -- CLN01, not 40001: PostgREST silently retries a serialization failure, so a
+  -- stale command would loop and could later commit over the newer list.
   IF v_saved IS DISTINCT FROM p_expected_lane_type_ids THEN
-    RAISE EXCEPTION 'Calendar lanes changed' USING ERRCODE = '40001';
+    RAISE EXCEPTION 'Calendar lanes changed' USING ERRCODE = 'CLN01';
   END IF;
 
   UPDATE public.assignment_types SET show_on_calendar = false
@@ -99,7 +101,7 @@ BEGIN
       WHERE organization_id = p_organization_id AND show_on_calendar AND archived_at IS NULL)
      IS DISTINCT FROM p_lane_type_ids
   THEN
-    RAISE EXCEPTION 'Calendar lanes were not saved' USING ERRCODE = '40001';
+    RAISE EXCEPTION 'Calendar lanes were not saved' USING ERRCODE = 'CLN01';
   END IF;
 END;
 $$;

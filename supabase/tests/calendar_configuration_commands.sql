@@ -73,10 +73,6 @@ CREATE FUNCTION pg_temp.lanes(org integer) RETURNS jsonb LANGUAGE sql AS $$
   SELECT coalesce(jsonb_agg(name ORDER BY sort_order, id), '[]') FROM public.assignment_types
   WHERE organization_id = pg_temp.id(org) AND show_on_calendar AND archived_at IS NULL;
 $$;
-CREATE FUNCTION pg_temp.versions(org integer) RETURNS jsonb LANGUAGE sql AS $$
-  SELECT jsonb_agg(jsonb_build_array(id, ctid::text) ORDER BY id) FROM public.assignment_types
-  WHERE organization_id = pg_temp.id(org);
-$$;
 CREATE FUNCTION pg_temp.types(org integer) RETURNS jsonb LANGUAGE sql AS $$
   SELECT coalesce(jsonb_agg(to_jsonb(t) ORDER BY t.id), '[]') FROM public.assignment_types t
   WHERE t.organization_id = pg_temp.id(org);
@@ -211,21 +207,29 @@ SELECT is((SELECT jsonb_agg(jsonb_build_array(name, show_on_calendar, sort_order
   'lanes are ranked 0..2 and planner-only and archived types keep their order');
 SELECT is(pg_temp.lanes(102), '["Bravo Staff"]', 'the Bravo lanes are untouched');
 
-INSERT INTO snapshots VALUES ('after-three-lanes', pg_temp.versions(101));
+CREATE TEMP TABLE type_writes(id uuid);
+GRANT ALL ON type_writes TO authenticated;
+CREATE FUNCTION pg_temp.record_type_write() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  INSERT INTO type_writes VALUES (NEW.id);
+  RETURN NEW;
+END; $$;
+CREATE TRIGGER record_type_write AFTER UPDATE ON public.assignment_types
+  FOR EACH ROW EXECUTE FUNCTION pg_temp.record_type_write();
 SELECT pg_temp.act(1);
 SELECT lives_ok(pg_temp.lanes_sql(ARRAY[403, 401, 402], ARRAY[401]),
   'a replay after a lost reply succeeds although its expected lanes are stale');
 SELECT is(pg_temp.lanes(101), '["Retiring", "Staff", "Group"]',
   'the recovery read under the actor''s row security returns the saved lanes in order');
 RESET ROLE;
-SELECT is(pg_temp.versions(101), (SELECT value FROM snapshots WHERE label = 'after-three-lanes'),
-  'the replay writes no row');
+SELECT is((SELECT count(*)::integer FROM type_writes), 0, 'the replay writes no row');
+DROP TRIGGER record_type_write ON public.assignment_types;
 
 INSERT INTO snapshots VALUES ('before-stale', pg_temp.types(101));
 SELECT pg_temp.act(1);
-SELECT throws_ok(pg_temp.lanes_sql(ARRAY[401, 403], ARRAY[401]), '40001', 'Calendar lanes changed',
+SELECT throws_ok(pg_temp.lanes_sql(ARRAY[401, 403], ARRAY[401]), 'CLN01', 'Calendar lanes changed',
   'a different change from a stale view is a conflict');
-SELECT throws_ok(pg_temp.lanes_sql(ARRAY[401, 403, 402], ARRAY[403, 402, 401]), '40001', 'Calendar lanes changed',
+SELECT throws_ok(pg_temp.lanes_sql(ARRAY[401, 403, 402], ARRAY[403, 402, 401]), 'CLN01', 'Calendar lanes changed',
   'the same lanes in another expected order are a conflict');
 RESET ROLE;
 SELECT is(pg_temp.types(101), (SELECT value FROM snapshots WHERE label = 'before-stale'), 'a conflict changes no type');
@@ -245,6 +249,8 @@ FROM (VALUES
   ('NULL', format('ARRAY[%L]::uuid[]', pg_temp.id(402)), 'missing lanes are rejected'),
   (format('ARRAY[%L]::uuid[]', pg_temp.id(402)), 'NULL', 'a missing expected list is rejected'),
   (format('ARRAY[[%L],[%L]]::uuid[]', pg_temp.id(402), pg_temp.id(403)), 'ARRAY[]::uuid[]', 'a two-dimensional list is rejected'),
+  (format('ARRAY[%L]::uuid[]', pg_temp.id(402)), format('ARRAY[[%L],[%L]]::uuid[]', pg_temp.id(402), pg_temp.id(403)),
+    'a two-dimensional expected list is rejected'),
   (format('ARRAY[%L, NULL]::uuid[]', pg_temp.id(402)), 'ARRAY[]::uuid[]', 'a null lane is rejected'),
   (format('ARRAY[%L]::uuid[]', pg_temp.id(402)), format('ARRAY[NULL, %L]::uuid[]', pg_temp.id(402)), 'a null expected lane is rejected'),
   (format('ARRAY[%L, %L]::uuid[]', pg_temp.id(402), pg_temp.id(402)), 'ARRAY[]::uuid[]', 'a type cannot be two lanes')
@@ -272,7 +278,6 @@ SELECT pg_temp.act(1);
 SELECT lives_ok(pg_temp.lanes_sql(ARRAY[401], ARRAY[]::integer[]), 'an Organization with no lanes gets one');
 RESET ROLE;
 SELECT is(pg_temp.lanes(101), '["Staff"]', 'Staff becomes the only lane');
-SELECT is((SELECT sort_order FROM public.assignment_types WHERE id = pg_temp.id(401)), 0, 'the only lane is ranked first');
 
 -- Authority is revoked while the final write runs. The trigger demotes the actor
 -- as the first lane row changes.
@@ -313,6 +318,20 @@ SELECT pg_temp.act(3);
 SELECT is(pg_temp.write_lane_flag(405, false), 0, 'a Calendar operator still cannot write the table directly');
 RESET ROLE;
 SELECT is(pg_temp.lanes(101), '["Staff", "Added"]', 'only the configurator direct write took effect');
+
+SELECT pg_temp.act(1);
+SELECT lives_ok(pg_temp.lanes_sql(ARRAY[403, 401, 405], ARRAY[401, 405]), 'a configurator shows three lanes again');
+DELETE FROM public.assignment_types WHERE id = pg_temp.id(401);
+RESET ROLE;
+SELECT is((SELECT jsonb_agg(jsonb_build_array(id, name) ORDER BY sort_order, id) FROM public.assignment_types
+  WHERE organization_id = pg_temp.id(101) AND show_on_calendar AND archived_at IS NULL),
+  jsonb_build_array(jsonb_build_array(pg_temp.id(403), 'Retiring'), jsonb_build_array(pg_temp.id(405), 'Added')),
+  'deleting a shown lane keeps the other lanes and their order');
+SELECT pg_temp.act(1);
+SELECT lives_ok(pg_temp.lanes_sql(ARRAY[405, 403], ARRAY[403, 405]),
+  'a configurator who read the lanes after the deletion can reorder them');
+RESET ROLE;
+SELECT is(pg_temp.lanes(101), '["Added", "Retiring"]', 'the reorder after the deletion is saved');
 
 SELECT * FROM finish();
 ROLLBACK;

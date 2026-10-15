@@ -2695,7 +2695,13 @@ async function main() {
 				throw new Error('A rejected form result is supported only for platform form actions.');
 			if (
 				action === 'arm-drop' &&
-				!['admin-suspend', 'admin-transfer', 'ict-tasks/batch', 'personnel-ict-completions/batch'].includes(family)
+				![
+					'admin-suspend',
+					'admin-transfer',
+					'availability',
+					'ict-tasks/batch',
+					'personnel-ict-completions/batch'
+				].includes(family)
 			)
 				throw new Error('Lost-response proof requires a documented mutation family.');
 			const mode =
@@ -2735,13 +2741,15 @@ async function main() {
 			const requestMethod =
 				family === 'ict-tasks/order'
 					? 'POST'
-					: heldPersonnelFailure || family === 'assignment-types/lanes' || family === 'status-types/order'
-						? 'PUT'
-						: family === 'user-preferences'
-							? 'PATCH'
-							: shellPart
-								? 'GET'
-								: null;
+					: action === 'arm-drop' && family === 'availability'
+						? 'ANY'
+						: heldPersonnelFailure || family === 'assignment-types/lanes' || family === 'status-types/order'
+							? 'PUT'
+							: family === 'user-preferences'
+								? 'PATCH'
+								: shellPart
+									? 'GET'
+									: null;
 			const install = `(${installNetworkControl.toString()})(window, ${JSON.stringify({ mode, ordinal, suffix, search, failureField, failureStatus: action === 'arm-fail-400' ? 400 : 503, requestTarget, sameOrigin, requestMethod })})`;
 			// Onboarding's HTTP adapter captures fetch at creation, so install before page code.
 			if (family.startsWith('onboarding-') || shellPart) {

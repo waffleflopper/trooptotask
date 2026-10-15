@@ -107,6 +107,7 @@ $V network arm-fail 2 training-types     # fail one Training catalog request; tr
 $V network arm-fail 2 availability/batch 2 # second matching batch request fails
 $V network arm-hold 2 availability      # hold a real response after persistence
 $V network arm-hold-dispatch 2 availability # hold a Calendar save or delete before dispatch; release sends it
+$V network arm-drop 2 availability      # persist one create, update or remove, then lose its reply (any method)
 $V network state 2                      # matched requests, statuses, IDs, held state
 $V network release 2
 $V network restore 2                    # also releases a stuck response; a reload already removed the hook (restored:false)

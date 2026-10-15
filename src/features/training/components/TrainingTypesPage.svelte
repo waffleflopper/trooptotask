@@ -284,10 +284,18 @@
 		if (reordering || target < 0 || target >= orderedTypes.length) return;
 		const order = [...orderedTypes];
 		[order[index], order[target]] = [order[target], order[index]];
-		// Saving positions rather than swapping stored values also repairs any rows that share a position.
-		const changed = order
-			.map((type, sortOrder) => ({ type, sortOrder }))
-			.filter(({ type, sortOrder }) => type.sortOrder !== sortOrder);
+		const positions = new Set(orderedTypes.map((type) => type.sortOrder));
+		// Distinct positions swap between the two rows, so a refused write can disturb no other row.
+		// Shared positions are renumbered so the move takes effect and the tie is repaired.
+		const changed =
+			positions.size === orderedTypes.length
+				? [
+						{ type: orderedTypes[index], sortOrder: orderedTypes[target].sortOrder },
+						{ type: orderedTypes[target], sortOrder: orderedTypes[index].sortOrder }
+					]
+				: order
+						.map((type, sortOrder) => ({ type, sortOrder }))
+						.filter(({ type, sortOrder }) => type.sortOrder !== sortOrder);
 		reordering = true;
 		try {
 			const saved = await Promise.all(

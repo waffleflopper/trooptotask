@@ -293,6 +293,19 @@ describe('TrainingTypesPage', () => {
 		expect(shownNames()).toEqual(['Alpha', 'Bravo', 'Charlie']);
 	});
 
+	it('leaves every other row where it was when one side of a swap is refused', async () => {
+		threeTypes([0, 10, 20]);
+		const { saved } = stubTrainingTypeServer({ put: ['type-b'] });
+		invalidateMock.mockImplementation(async () => trainingTypesStore.load([...saved.values()], 'org-1'));
+		vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+		render(TrainingTypesPage, { props: { org, data: { personnel: [] } } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Move Charlie up' }));
+
+		await waitFor(() => expect(invalidateMock).toHaveBeenCalledWith('app:training-data'));
+		expect(savedOrders(saved)).toEqual({ Alpha: 0, Bravo: 10, Charlie: 10 });
+	});
+
 	it('shows only what the server confirmed when the re-read after a failed reorder does not arrive', async () => {
 		threeTypes([0, 1, 2]);
 		const { saved } = stubTrainingTypeServer({ put: ['type-b'] });

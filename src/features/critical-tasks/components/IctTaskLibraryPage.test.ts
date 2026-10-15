@@ -605,12 +605,12 @@ describe('IctTaskLibraryPage', () => {
 			expect(provider.requests).toEqual([ORDER_COMMAND]);
 		});
 
-		it('sends nothing and points to Edit when participants exceed the command limit', async () => {
-			const crowded = Array.from({ length: 1001 }, (_, index) => ({
+		it('sends nothing and points to Edit when a move exceeds the supported order', async () => {
+			const crowded = Array.from({ length: 2 }, (_, index) => ({
 				...infantryTask,
 				id: `t-${index}`,
 				taskCode: `T${String(index).padStart(4, '0')}`,
-				sortOrder: 0
+				sortOrder: 2147483647
 			}));
 			ictTasksStore.load(crowded, 'org-1');
 			const provider = libraryProvider();
@@ -623,7 +623,7 @@ describe('IctTaskLibraryPage', () => {
 				expect(error).toHaveBeenCalledWith(expect.stringContaining('Use Edit and set its Sort order'))
 			);
 			expect(provider.requests).toEqual([]);
-			expect(displayedOrder().slice(0, 2)).toEqual(['T0000', 'T0001']);
+			expect(displayedOrder()).toEqual(['T0000', 'T0001']);
 			expect(screen.getByRole('button', { name: 'Move T0000 down' })).not.toHaveProperty('disabled', true);
 		});
 

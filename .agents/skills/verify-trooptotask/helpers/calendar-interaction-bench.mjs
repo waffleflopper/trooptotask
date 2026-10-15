@@ -550,7 +550,8 @@ function parse(argv) {
 		searchTerm: '7',
 		otherGroup: 'Bravo',
 		modalPerson: 'Volume010',
-		modalDay: 10
+		modalDay: 10,
+		cpuThrottle: 1
 	};
 	const positional = [];
 	for (let index = 0; index < argv.length; index += 1) {
@@ -561,7 +562,8 @@ function parse(argv) {
 			options[key] = argv[(index += 1)];
 		}
 	}
-	for (const key of ['reps', 'warmup', 'idleMs', 'timeoutMs', 'modalDay']) options[key] = Number(options[key]);
+	for (const key of ['reps', 'warmup', 'idleMs', 'timeoutMs', 'modalDay', 'cpuThrottle'])
+		options[key] = Number(options[key]);
 	return { options, positional };
 }
 
@@ -645,7 +647,11 @@ async function run(options) {
 	const pageId = driver.pageId;
 	await tool(worker, 'select_page', { pageId });
 	await tool(worker, 'resize_page', { pageId, width: 1440, height: 900 });
-	await tool(worker, 'emulate', { pageId, colorScheme: 'light' });
+	await tool(worker, 'emulate', {
+		pageId,
+		colorScheme: 'light',
+		...(options.cpuThrottle > 1 ? { cpuThrottlingRate: options.cpuThrottle } : {})
+	});
 	await tool(worker, 'navigate_page', { pageId, type: 'reload' });
 	const ready = `() => document.querySelectorAll('[data-slot="date-cell"]').length > 0 && [...document.querySelectorAll('[aria-label="Calendar group filter"]')].some((e) => e.offsetParent && /\\(\\d+\\)|Group/.test(e.textContent))`;
 	for (let attempt = 0; ; attempt += 1) {
@@ -685,8 +691,10 @@ async function run(options) {
 		modalPerson: options.modalPerson,
 		modalDay: options.modalDay,
 		viewport: '1440x900',
-		colorScheme: 'light'
+		colorScheme: 'light',
+		cpuThrottle: options.cpuThrottle
 	};
+	if (!options.page && options.keepPage !== 'true') await tool(worker, 'close_page', { pageId });
 	return { environment, summary: summarizeRun(records), records };
 }
 
@@ -727,7 +735,7 @@ async function main() {
 	process.stderr.write(
 		[
 			'Usage:',
-			'  calendar-interaction-bench.mjs run --worker 2 --label A [--out DIR] [--reps 9] [--warmup 2] [--only search,group,...] [--page ID]',
+			'  calendar-interaction-bench.mjs run --worker 2 --label A [--out DIR] [--reps 9] [--warmup 2] [--only search,group,...] [--page ID] [--cpu-throttle 4] [--keep-page true]',
 			'  calendar-interaction-bench.mjs summarize A=a1.json B=b1.json A=a2.json B=b2.json',
 			'Seed first: control.mjs --worker N seed availability-volume'
 		].join('\n') + '\n'

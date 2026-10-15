@@ -24,6 +24,26 @@ The [verification contract](architecture/DEFINITION_OF_DONE.md#required-commands
 
 The governance job runs the canonical checker, which fails on any module-boundary finding or undocumented route provider edge. Do not weaken any rule, exception list or scan path to make a change pass.
 
+## Vercel deployment builds
+
+Vercel deployment builds are separate from Depot validation. The `ignoreCommand` in [vercel.json](../vercel.json) also runs as the project's **Ignored Build Step**. Keep the hosted command equal to the checked-in command so existing branches use the same policy.
+
+The command compares `HEAD` with `VERCEL_GIT_PREVIOUS_SHA`, Vercel's last successful deployment for the same project and branch. It skips a build only when every changed path matches one of these exclusions:
+
+- Root `README.md`, `AGENTS.md`, `CLAUDE.md`, and `CONTEXT.md`.
+- Markdown under `docs/`, `.agents/`, or `.github/`.
+- `*.test.ts` under `src/`, and `*.test.*` under `scripts/`.
+
+Other files still trigger builds, including application source, static assets, dependencies, runtime configuration, non-Markdown documentation inputs, and executable verification helpers. All changes since the last successful deployment count, including application changes followed by a documentation-only commit. Rename detection is disabled so moving app code into an excluded path still counts its deletion.
+
+An empty or unavailable previous SHA triggers a build. Redeploying the exact successful commit also builds, supporting environment-only changes and explicit rebuilds. Other manual redeployments can bypass filtering by clearing **Use project's Ignore Build Step** in Vercel's Redeploy dialog. The command needs no dependencies or repository helper script and fits Vercel's 256-character configuration limit. Its shell variable `p` holds the previous deployment SHA.
+
+Vercel skips on exit code 0 and builds on a nonzero exit. Skipped builds still count toward deployment quotas. Depot continues to validate the complete PR independently, including changes that do not need a deployment. [The Git fixture tests](../scripts/vercel-ignore-build.test.ts) execute the actual configured command and check these decisions.
+
+Build-machine selection remains a hosted project setting. Compare Basic and Standard on the same commit and environment before changing it. Use completed builds and Vercel's billed CPU minutes, which include container work after the deployment becomes ready. Keep dependency-cache conditions comparable and report repeated runs, costs, and timing ranges. Build-machine changes do not change function memory or runtime settings.
+
+References: [Vercel build filtering](https://vercel.com/docs/project-configuration/project-settings#ignored-build-step), [previous deployment SHA](https://vercel.com/docs/environment-variables/system-environment-variables#vercel_git_previous_sha), [build machines](https://vercel.com/docs/builds/managing-builds).
+
 ## Database isolation
 
 `python3 scripts/ci/database.py` creates a unique disposable project outside the checkout, copies only the required Supabase configuration/migrations/tests/templates, disables seeds and chooses unused ports outside existing local stacks. It starts only the services needed for SQL tests and cleans up its exact project after success or failure. It never reuses the repository’s local project or reads production credentials. The database job installs the locked npm dependency tree with lifecycle scripts disabled for its SDK/provider regression probes. This includes the development parser those probes require; it does not build or deploy the application.

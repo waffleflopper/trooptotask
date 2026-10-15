@@ -13,6 +13,7 @@
 		}
 	},
 	"installCommand": "npx npm@11.12.1 ci",
+	"ignoreCommand": "p=$VERCEL_GIT_PREVIOUS_SHA; [ \"$p\" != \"$(git rev-parse HEAD)\" ] && git diff --quiet --no-renames \"$p\" HEAD -- . ':!docs/*.md' ':!.agents/*.md' ':!.github/*.md' ':!README.md' ':!AGENTS.md' ':!CLAUDE.md' ':!CONTEXT.md' ':!src/*.test.ts' ':!scripts/*.test.*'",
 	"buildCommand": "npm run build",
 	"rewrites": [
 		{

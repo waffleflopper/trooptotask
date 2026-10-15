@@ -189,7 +189,6 @@
 						specialDays={specialDaysStore.items}
 						assignmentTypes={dailyAssignmentsStore.types}
 						assignments={dailyAssignmentsStore.assignments}
-						groups={groupsStore.items}
 						onDateColumnClick={(date) => ctx.navigateToMonth(date)}
 					/>
 				{:else}
@@ -205,7 +204,6 @@
 						pinnedGroups={pinnedGroupsStore.list}
 						assignmentTypes={dailyAssignmentsStore.types}
 						assignments={dailyAssignmentsStore.assignments}
-						groups={groupsStore.items}
 						activeOnboardingPersonnelIds={ctx.activeOnboardingPersonnelIds}
 						highlightOnboarding={ctx.highlightOnboarding}
 						canEdit={ctx.canManageAvailability}

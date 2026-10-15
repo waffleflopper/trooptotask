@@ -6,7 +6,6 @@
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
 	import { NativeSelect } from '$lib/components/ui/native-select';
-	import * as RadioGroup from '$lib/components/ui/radio-group';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
@@ -42,10 +41,7 @@
 	const saving = new PendingSave();
 
 	const activeAssignmentTypes = $derived(dailyAssignmentsStore.types.filter((type) => !type.archivedAt));
-	const savedHeaderId = $derived(activeAssignmentTypes.find((t) => t.showInDateHeader)?.id ?? null);
-	const pendingHeaderId = $derived(dailyAssignmentsStore.pendingDateHeaderId);
-	const typeWritesLocked = $derived(pendingHeaderId !== null);
-	const headerChoiceLocked = $derived(dailyAssignmentsStore.typesBusy);
+	const typeWritesLocked = $derived(dailyAssignmentsStore.pendingLaneIds !== null);
 	const addAssignmentDirty = $derived(
 		newAssignName.trim() !== '' ||
 			newAssignShortName.trim() !== '' ||
@@ -110,7 +106,8 @@
 				assignTo: newAssignTo,
 				color: newAssignColor,
 				exemptPersonnelIds: [],
-				showInDateHeader: false
+				showOnCalendar: false,
+				sortOrder: 0
 			});
 			if (!created) {
 				showAssignmentMutationError('Failed to add assignment type');
@@ -160,43 +157,13 @@
 		}
 		confirmDeleteAssign = null;
 	}
-
-	function chooseDateHeader(id: string) {
-		if (!canMutate || headerChoiceLocked || id === savedHeaderId) return;
-		void dailyAssignmentsStore.setDateHeader(id);
-	}
 </script>
 
-<p class="mb-4 rounded-md border border-border bg-muted/30 px-4 py-3 text-xs text-muted-foreground">
-	Select which assignment type's assignee appears in each calendar date column.
-	{#if savedHeaderId}
-		Currently showing: <strong>{activeAssignmentTypes.find((t) => t.id === savedHeaderId)?.name}</strong>
-	{:else}
-		None selected — no assignee shown in date columns.
-	{/if}
-</p>
-
-<RadioGroup.Root
-	bind:value={() => pendingHeaderId ?? savedHeaderId ?? '', chooseDateHeader}
-	disabled={!canMutate || headerChoiceLocked}
-	aria-label="Assignment type shown in the date header"
-	class="gap-1.5"
->
+<div class="flex flex-col gap-1.5">
 	{#each filteredAssignments as type (type.id)}
 		<div
 			class="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-md border border-transparent px-4 py-3 transition-colors hover:border-border hover:bg-muted/40"
 		>
-			{#if canMutate}
-				<div class="flex flex-col items-center gap-0.5">
-					<RadioGroup.Item value={type.id} aria-label="Show {type.name} in date header" />
-					<span
-						class="font-mono text-[9px] font-semibold uppercase tracking-wider text-muted-foreground"
-						aria-hidden="true"
-					>
-						Header
-					</span>
-				</div>
-			{/if}
 			<div class="flex min-w-0 flex-1 basis-32 flex-col gap-0.5 break-words">
 				<span class="text-sm font-medium">{type.name}</span>
 				<span class="text-xs text-muted-foreground">
@@ -204,9 +171,6 @@
 				</span>
 			</div>
 			<div class="ml-auto flex shrink-0 items-center gap-2">
-				{#if type.showInDateHeader}
-					<Badge variant="outline">Date header</Badge>
-				{/if}
 				<Badge class="text-white" style="background-color: {type.color}">{type.shortName}</Badge>
 				{#if canMutate}
 					<Button
@@ -235,7 +199,7 @@
 	{:else}
 		<div class="flex items-center justify-center py-12 text-sm text-muted-foreground">No assignment types found</div>
 	{/each}
-</RadioGroup.Root>
+</div>
 
 <AppDialog.Root
 	bind:open={addAssignmentOpen}

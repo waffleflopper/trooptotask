@@ -139,7 +139,7 @@ describe('replaceDailyAssignmentSlotsBatch', () => {
 				color: '#123456',
 				sort_order: 0,
 				exempt_personnel_ids: [],
-				show_in_date_header: false
+				show_on_calendar: false
 			}
 		]);
 
@@ -176,7 +176,7 @@ describe('replaceDailyAssignmentSlotsBatch', () => {
 				color: '#123456',
 				sort_order: 0,
 				exempt_personnel_ids: [],
-				show_in_date_header: false
+				show_on_calendar: false
 			}
 		]);
 		ctx.store.deleteWhereAny = vi.fn(ctx.store.deleteWhereAny.bind(ctx.store)) as typeof ctx.store.deleteWhereAny;

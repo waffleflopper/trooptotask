@@ -1090,11 +1090,11 @@ test('other owners keep a synthetic 503 for a lost reply instead of a transport 
 test('Calendar command faults select only their command and distinguish rejection from a lost reply', async () => {
 	for (const [command, rejected, lost] of [
 		['reset_federal_holidays', 'federal-holiday-reset', 'federal-holiday-reset-lost-ack'],
-		['set_assignment_type_date_header', 'assignment-type-date-header', 'assignment-type-date-header-lost-ack']
+		['set_calendar_lanes', 'calendar-lanes', 'calendar-lanes-lost-ack']
 	]) {
 		const pass = [
 			providerInput('special_days', { method: 'POST', body: '[{"type":"federal-holiday"}]' }),
-			providerInput('assignment_types?id=eq.x', { method: 'PATCH', body: '{"show_in_date_header":true}' }),
+			providerInput('assignment_types?id=eq.x', { method: 'PATCH', body: '{"show_on_calendar":true}' }),
 			providerInput(`rpc/${command}_archive`, { method: 'POST', body: '{}' }),
 			[`http://127.0.0.1:56322/rest/v1/rpc/${command}`, { method: 'POST', body: '{}' }]
 		];
@@ -1122,7 +1122,7 @@ test('Calendar command faults select only their command and distinguish rejectio
 test('Calendar command holds dispatch the held command only after release', async () => {
 	for (const [name, command] of [
 		['federal-holiday-reset-hold', 'reset_federal_holidays'],
-		['assignment-type-date-header-hold', 'set_assignment_type_date_header']
+		['calendar-lanes-hold', 'set_calendar_lanes']
 	]) {
 		const input = providerInput(`rpc/${command}`, { method: 'POST', body: '{"held":true}' });
 		const order = [];

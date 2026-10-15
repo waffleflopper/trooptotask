@@ -5,6 +5,7 @@ import { buildRouteRequest } from '$lib/server/adapters/requestContexts.server';
 import { PUT } from './+server';
 
 const NOT_SAVED = 'Another Calendar change was saving at the same time, so this change was not saved. Try again.';
+const LANES_MESSAGE = 'Choose the assignment types to show on the calendar';
 const UNCONFIRMED = "We couldn't confirm this Calendar change. Reload to see what is saved.";
 
 vi.mock('$lib/server/adapters/requestContexts.server', async (importOriginal) => ({
@@ -12,7 +13,8 @@ vi.mock('$lib/server/adapters/requestContexts.server', async (importOriginal) =>
 	buildRouteRequest: vi.fn()
 }));
 
-const TYPE = '00000000-0000-4000-8000-000000000402';
+const STAFF = '00000000-0000-4000-8000-000000000401';
+const GROUP = '00000000-0000-4000-8000-000000000402';
 let provider: { calls: Array<{ path: string; body: unknown }>; reply: () => Response | Promise<Response> };
 
 function admit(capabilityMap?: NonNullable<Parameters<typeof createTestContext>[0]>['auth']) {
@@ -32,7 +34,7 @@ function admit(capabilityMap?: NonNullable<Parameters<typeof createTestContext>[
 }
 
 function put(body: string) {
-	const url = new URL('http://app.invalid/org/clinic/api/assignment-types/date-header');
+	const url = new URL('http://app.invalid/org/clinic/api/assignment-types/lanes');
 	return PUT({
 		request: new Request(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body }),
 		url,
@@ -42,7 +44,7 @@ function put(body: string) {
 	} as Parameters<typeof PUT>[0]);
 }
 
-const choice = JSON.stringify({ assignmentTypeId: TYPE });
+const choice = JSON.stringify({ laneTypeIds: [GROUP, STAFF], expectedLaneTypeIds: [STAFF] });
 const databaseError = (code: string) => () =>
 	Response.json({ code, message: 'synthetic database message', details: null, hint: null }, { status: 500 });
 
@@ -50,19 +52,30 @@ beforeEach(() => {
 	provider = { calls: [], reply: () => new Response(null, { status: 204 }) };
 });
 
-describe('PUT date header at the route boundary', () => {
-	it('answers a committed choice with 200 after one bound command and audits it', async () => {
+describe('PUT calendar lanes at the route boundary', () => {
+	it('answers a committed lane change with 200 after one bound command and audits it', async () => {
 		const ctx = admit();
 		const response = await put(choice);
 		expect(response.status).toBe(200);
 		expect(await response.json()).toEqual({ success: true });
 		expect(provider.calls).toEqual([
 			{
-				path: '/rest/v1/rpc/set_assignment_type_date_header',
-				body: { p_organization_id: ctx.auth.orgId, p_assignment_type_id: TYPE }
+				path: '/rest/v1/rpc/set_calendar_lanes',
+				body: {
+					p_organization_id: ctx.auth.orgId,
+					p_lane_type_ids: [GROUP, STAFF],
+					p_expected_lane_type_ids: [STAFF]
+				}
 			}
 		]);
-		expect(ctx.audit.events.map(({ action }) => action)).toEqual(['assignment_type.date_header_set']);
+		expect(ctx.audit.events).toMatchObject([
+			{
+				action: 'assignment_type.calendar_lanes_set',
+				resourceType: 'organization',
+				resourceId: ctx.auth.orgId,
+				details: { laneTypeIds: [GROUP, STAFF] }
+			}
+		]);
 	});
 
 	it.each([
@@ -70,6 +83,7 @@ describe('PUT date header at the route boundary', () => {
 		['P0002', 404, 'That assignment type is no longer available.'],
 		['22023', 400, 'Invalid Calendar configuration'],
 		['40P01', 409, NOT_SAVED],
+		['40001', 409, NOT_SAVED],
 		['23505', 409, NOT_SAVED],
 		['23514', 500, 'Internal server error']
 	])('answers database %s with %i and no audit', async (code, status, message) => {
@@ -96,8 +110,10 @@ describe('PUT date header at the route boundary', () => {
 
 	it.each([
 		['{', 'Invalid JSON in request body'],
-		['{}', 'Choose an assignment type'],
-		[JSON.stringify({ assignmentTypeId: TYPE, showInDateHeader: true }), 'Choose an assignment type']
+		['{}', LANES_MESSAGE],
+		[JSON.stringify({ laneTypeIds: [GROUP, GROUP], expectedLaneTypeIds: [] }), LANES_MESSAGE],
+		[JSON.stringify({ laneTypeIds: ['not-a-type'], expectedLaneTypeIds: [] }), LANES_MESSAGE],
+		[JSON.stringify({ laneTypeIds: [GROUP], expectedLaneTypeIds: [], showOnCalendar: true }), LANES_MESSAGE]
 	])('rejects body %s with 400 before the provider', async (body, message) => {
 		admit();
 		await expect(put(body)).rejects.toMatchObject({ status: 400, body: { message } });

@@ -171,7 +171,6 @@ export function createSupabaseCalendarCatalogPersistence(
 					short_name: input.shortName,
 					assign_to: input.assignTo,
 					color: input.color ?? '#6b7280',
-					sort_order: input.sortOrder ?? 0,
 					exempt_personnel_ids: input.exemptPersonnelIds ?? []
 				})
 				.select(ASSIGNMENT_TYPE_FIELDS)
@@ -187,7 +186,6 @@ export function createSupabaseCalendarCatalogPersistence(
 					short_name: patch.shortName,
 					assign_to: patch.assignTo,
 					color: patch.color,
-					sort_order: patch.sortOrder,
 					exempt_personnel_ids: patch.exemptPersonnelIds
 				})
 				.eq('organization_id', orgId)
@@ -251,11 +249,15 @@ export function createSupabaseCalendarCatalogPersistence(
 				throw new Error('reset_federal_holidays returned an incomplete result');
 			return rows.map((row) => ({ ...toSpecialDay(row), type: row.type }));
 		},
-		async setDateHeader(assignmentTypeId) {
+		async setCalendarLanes(laneTypeIds, expectedLaneTypeIds) {
 			await calendarCommand(
 				client,
-				'set_assignment_type_date_header',
-				{ p_organization_id: orgId, p_assignment_type_id: assignmentTypeId },
+				'set_calendar_lanes',
+				{
+					p_organization_id: orgId,
+					p_lane_type_ids: laneTypeIds,
+					p_expected_lane_type_ids: expectedLaneTypeIds
+				},
 				z.null()
 			);
 		}

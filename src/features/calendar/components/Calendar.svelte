@@ -1,5 +1,4 @@
 <script lang="ts">
-	import type { Group } from '$features/personnel/contracts';
 	import type { Personnel } from '$features/personnel/contracts';
 	import type {
 		AvailabilityEntry,
@@ -41,7 +40,6 @@
 		pinnedGroups: string[];
 		assignmentTypes: AssignmentType[];
 		assignments: DailyAssignment[];
-		groups?: readonly Group[];
 		activeOnboardingPersonnelIds?: string[];
 		highlightOnboarding?: boolean;
 		canEdit?: boolean;
@@ -73,7 +71,6 @@
 		pinnedGroups,
 		assignmentTypes,
 		assignments,
-		groups = [],
 		activeOnboardingPersonnelIds = [],
 		highlightOnboarding = true,
 		canEdit = true,
@@ -196,7 +193,6 @@
 			specialDays,
 			assignmentTypes,
 			assignments,
-			groups,
 			activeOnboardingPersonnelIds,
 			highlightOnboarding,
 			upcomingLossMap

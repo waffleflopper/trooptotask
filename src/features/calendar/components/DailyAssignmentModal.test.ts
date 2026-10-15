@@ -16,7 +16,8 @@ describe('DailyAssignmentModal — searchable assignments', () => {
 			assignTo: 'personnel',
 			color: '#2563eb',
 			exemptPersonnelIds: [],
-			showInDateHeader: false
+			showOnCalendar: false,
+			sortOrder: 0
 		}
 	];
 	const personnel: Personnel[] = [
@@ -81,7 +82,8 @@ describe('DailyAssignmentModal — searchable assignments', () => {
 						assignTo: 'personnel',
 						color: '#6b7280',
 						exemptPersonnelIds: [],
-						showInDateHeader: false,
+						showOnCalendar: false,
+						sortOrder: 0,
 						archivedAt: '2026-05-04T12:00:00.000Z'
 					}
 				],
@@ -111,7 +113,8 @@ it('shows Group names while submitting stable Group IDs, including after a renam
 				assignTo: 'group',
 				color: '#123456',
 				exemptPersonnelIds: [],
-				showInDateHeader: true
+				showOnCalendar: true,
+				sortOrder: 0
 			}
 		] as AssignmentType[],
 		assignments: [{ id: 'saved', date: '2026-09-19', assignmentTypeId: 'group-duty', assigneeId: 'group-alpha' }],

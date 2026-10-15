@@ -21,7 +21,7 @@ const { statusTypesStoreMock, availabilityStoreMock, assignmentTypesStoreMock, s
 		},
 		assignmentTypesStoreMock: {
 			types: [] as AssignmentType[],
-			pendingDateHeaderId: null,
+			pendingLaneIds: null,
 			addType: vi.fn(),
 			updateType: vi.fn(),
 			removeType: vi.fn()
@@ -93,7 +93,8 @@ describe('CalendarSettingsPage', () => {
 			assignTo: 'personnel',
 			color: '#2563eb',
 			exemptPersonnelIds: [],
-			showInDateHeader: false
+			showOnCalendar: false,
+			sortOrder: 0
 		});
 		assignmentTypesStoreMock.updateType.mockResolvedValue(true);
 		assignmentTypesStoreMock.removeType.mockResolvedValue(true);
@@ -285,7 +286,8 @@ describe('CalendarSettingsPage', () => {
 				assignTo: 'personnel',
 				color: '#2563eb',
 				exemptPersonnelIds: [],
-				showInDateHeader: false
+				showOnCalendar: false,
+				sortOrder: 0
 			}
 		];
 		assignmentTypesStoreMock.updateType.mockResolvedValueOnce(false);
@@ -312,7 +314,8 @@ describe('CalendarSettingsPage', () => {
 				assignTo: 'personnel',
 				color: '#2563eb',
 				exemptPersonnelIds: [],
-				showInDateHeader: false
+				showOnCalendar: false,
+				sortOrder: 0
 			}
 		];
 		assignmentTypesStoreMock.removeType.mockResolvedValueOnce(false);
@@ -351,7 +354,8 @@ describe('CalendarSettingsPage', () => {
 				assignTo: 'personnel',
 				color: '#2563eb',
 				exemptPersonnelIds: [],
-				showInDateHeader: false
+				showOnCalendar: false,
+				sortOrder: 0
 			},
 			{
 				id: 'sd',
@@ -360,7 +364,8 @@ describe('CalendarSettingsPage', () => {
 				assignTo: 'group',
 				color: '#047857',
 				exemptPersonnelIds: [],
-				showInDateHeader: false
+				showOnCalendar: false,
+				sortOrder: 0
 			}
 		];
 
@@ -385,7 +390,8 @@ describe('CalendarSettingsPage', () => {
 				assignTo: 'personnel',
 				color: '#2563eb',
 				exemptPersonnelIds: [],
-				showInDateHeader: true
+				showOnCalendar: true,
+				sortOrder: 0
 			},
 			{
 				id: 'archived-type',
@@ -394,7 +400,8 @@ describe('CalendarSettingsPage', () => {
 				assignTo: 'personnel',
 				color: '#6b7280',
 				exemptPersonnelIds: [],
-				showInDateHeader: false,
+				showOnCalendar: false,
+				sortOrder: 0,
 				archivedAt: '2026-05-18T20:00:00.000Z'
 			}
 		];
@@ -405,7 +412,6 @@ describe('CalendarSettingsPage', () => {
 
 		expect(screen.getAllByText('Charge of Quarters').length).toBeGreaterThan(0);
 		expect(screen.queryByText('Archived Duty')).toBeNull();
-		expect(screen.getByText(/Currently showing:/)).toBeTruthy();
 		const settingsNav = screen.getByRole('tablist', { name: 'Calendar settings sections' });
 		expect(within(settingsNav).getByRole('tab', { name: /Assignment Types/ }).textContent).toContain('1');
 	});

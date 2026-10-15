@@ -2543,7 +2543,7 @@ async function main() {
 					'daily-assignments/batch',
 					'status-types',
 					'assignment-types',
-					'assignment-types/date-header',
+					'assignment-types/lanes',
 					'ict-tasks/batch',
 					'calendar-reports/status-days',
 					'special-days',
@@ -2690,7 +2690,7 @@ async function main() {
 				!!shellPart ||
 				(platformForm?.sameOrigin ?? false);
 			const requestMethod =
-				heldPersonnelFailure || family === 'assignment-types/date-header'
+				heldPersonnelFailure || family === 'assignment-types/lanes'
 					? 'PUT'
 					: family === 'user-preferences'
 						? 'PATCH'

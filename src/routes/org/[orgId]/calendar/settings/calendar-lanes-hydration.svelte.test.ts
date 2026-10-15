@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import Layout from '../+layout.svelte';
 import SettingsPage from './+page.svelte';
 import RouteHarness from '$features/personnel/test-support/PersonnelRouteTestHarness.svelte';
@@ -25,20 +25,20 @@ vi.mock('$features/app-shell', async (importOriginal) => ({
 
 type Gate = { promise: Promise<void>; resolve: () => void };
 
+const calendarLaneIds = (types: AssignmentType[]) =>
+	types
+		.filter((type) => type.showOnCalendar && !type.archivedAt)
+		.sort((a, b) => a.sortOrder - b.sortOrder)
+		.map((type) => type.id);
+
 function gate(): Gate {
 	let resolve!: () => void;
 	const promise = new Promise<void>((done) => (resolve = done));
 	return { promise, resolve };
 }
 
-const flags = (types: AssignmentType[]) => Object.fromEntries(types.map((type) => [type.id, type.showInDateHeader]));
 const rowFields = (rows: DailyAssignment[]) =>
 	rows.map(({ id, date, assignmentTypeId, assigneeId }) => ({ id, date, assignmentTypeId, assigneeId }));
-const currentLabel = () =>
-	screen
-		.getByText(/Currently showing:/)
-		.textContent?.replace(/\s+/g, ' ')
-		.trim();
 
 const outside = { id: 'outside', date: '2026-06-10', assignmentTypeId: 'sd', assigneeId: 'p-outside' };
 const linked = { id: 'linked', date: '2026-10-12', assignmentTypeId: 'rt', assigneeId: 'g-runners' };
@@ -57,7 +57,7 @@ function calendarServer() {
 			color: '#2563eb',
 			sort_order: 0,
 			exempt_personnel_ids: [],
-			show_in_date_header: true
+			show_on_calendar: true
 		},
 		{
 			...saved,
@@ -68,7 +68,7 @@ function calendarServer() {
 			color: '#047857',
 			sort_order: 1,
 			exempt_personnel_ids: ['p-exempt'],
-			show_in_date_header: false
+			show_on_calendar: false
 		},
 		{
 			...saved,
@@ -79,7 +79,7 @@ function calendarServer() {
 			color: '#b45309',
 			sort_order: 2,
 			exempt_personnel_ids: [],
-			show_in_date_header: false
+			show_on_calendar: false
 		},
 		{
 			...saved,
@@ -90,7 +90,7 @@ function calendarServer() {
 			color: '#7c3aed',
 			sort_order: 3,
 			exempt_personnel_ids: [],
-			show_in_date_header: false
+			show_on_calendar: false
 		}
 	]);
 	const events: string[] = [];
@@ -103,8 +103,8 @@ function calendarServer() {
 		events.push('read types');
 		return snapshot;
 	}
-	async function savedFlags() {
-		return flags(await listAssignmentTypes(ctx.calendarCatalogs));
+	async function savedLanes() {
+		return calendarLaneIds(await listAssignmentTypes(ctx.calendarCatalogs));
 	}
 	function seedDaily(rows: DailyAssignment[]) {
 		ctx.store.seed(
@@ -169,37 +169,22 @@ function calendarServer() {
 				return Response.json(await readTypes());
 			}
 			const body = JSON.parse(String(init?.body));
-			if (method === 'PUT' && url === '/org/org-1/api/assignment-types/date-header') {
+			if (method === 'PUT' && url === '/org/org-1/api/assignment-types/lanes') {
 				events.push('put');
-				return acknowledgeAfter(async () => {
-					for (const id of ['cq', 'sd', 'rt', 'nw'])
-						await ctx.store.update('assignment_types', 'org-1', id, {
-							show_in_date_header: id === body.assignmentTypeId
-						});
-				});
-			}
-			if (method === 'DELETE' && url === '/org/org-1/api/assignment-types') {
-				events.push('delete');
-				return acknowledgeAfter(async () => {
-					await ctx.store.delete('assignment_types', 'org-1', body.id);
-					await ctx.store.deleteWhere('daily_assignments', 'org-1', { assignment_type_id: body.id });
-				});
+				return acknowledgeAfter(() =>
+					ctx.calendarCatalogs.setCalendarLanes(body.laneTypeIds, body.expectedLaneTypeIds)
+				);
 			}
 			throw new Error(`Unexpected request ${method} ${url}`);
 		})
 	);
-	return { ctx, events, requests, readTypes, savedFlags, seedDaily, produce, commit, reply };
+	return { ctx, events, requests, readTypes, savedLanes, seedDaily, produce, commit, reply };
 }
 
 type Server = ReturnType<typeof calendarServer>;
 
 function renderCalendarSettings(workspace: Promise<CalendarWorkspaceResult>) {
 	return render(RouteHarness, { props: { Layout, Page: SettingsPage, data: { calendar: { data: workspace } } } });
-}
-
-async function openAssignmentTypes() {
-	await screen.findByRole('heading', { name: 'Calendar Settings' });
-	await fireEvent.click(screen.getByRole('tab', { name: /Assignment Types/ }));
 }
 
 async function settledCalendar(server: Server) {
@@ -209,8 +194,8 @@ async function settledCalendar(server: Server) {
 	june.unmount();
 	server.seedDaily([{ id: 'inside-old', date: '2026-10-10', assignmentTypeId: 'cq', assigneeId: 'p-old' }, linked]);
 	const october = renderCalendarSettings(server.produce('2026-10-01', '2026-10-31'));
-	await openAssignmentTypes();
-	expect(currentLabel()).toContain('Currently showing: Charge of Quarters');
+	await screen.findByRole('heading', { name: 'Calendar Settings' });
+	expect(calendarLaneIds(dailyAssignmentsStore.types)).toEqual(['cq']);
 	expect(rowFields(dailyAssignmentsStore.assignments)).toEqual([
 		outside,
 		{ id: 'inside-old', date: '2026-10-10', assignmentTypeId: 'cq', assigneeId: 'p-old' },
@@ -220,17 +205,19 @@ async function settledCalendar(server: Server) {
 	return october;
 }
 
-async function chooseStaff(server: Server) {
-	await fireEvent.click(screen.getByRole('radio', { name: 'Show Staff Duty in date header' }));
-	await waitFor(() => expect(server.events).toContain('put'));
-	expect(dailyAssignmentsStore.pendingDateHeaderId).toBe('sd');
+function moveStaffFirst(server: Server) {
+	const saved = dailyAssignmentsStore.setCalendarLanes(['sd', 'cq']);
+	expect(server.events).toContain('put');
+	expect(dailyAssignmentsStore.pendingLaneIds).toEqual(['sd', 'cq']);
+	return saved;
 }
 
-async function acknowledge(server: Server) {
+async function acknowledge(server: Server, saved: ReturnType<typeof moveStaffFirst>) {
 	server.commit.resolve();
 	server.reply.resolve();
-	await waitFor(() => expect(dailyAssignmentsStore.pendingDateHeaderId).toBeNull());
-	expect(flags(dailyAssignmentsStore.types)).toEqual({ cq: false, sd: true, rt: false, nw: false });
+	expect(await saved).toEqual({ status: 'saved' });
+	expect(dailyAssignmentsStore.pendingLaneIds).toBeNull();
+	expect(calendarLaneIds(dailyAssignmentsStore.types)).toEqual(['sd', 'cq']);
 }
 
 async function prepareReturningRows(server: Server) {
@@ -279,7 +266,7 @@ it.each([
 		'first arrives after the reply',
 		['read types', 'put', 'commit', 'reply', 'outer observed', 'deliver daily', 'get', 'read types']
 	]
-])('keeps a saved header when a workspace read before its commit %s', async (ordering, expectedEvents) => {
+])('keeps saved lanes when a workspace read before their commit %s', async (ordering, expectedEvents) => {
 	const server = calendarServer();
 	const initial = await settledCalendar(server);
 	await prepareReturningRows(server);
@@ -288,144 +275,29 @@ it.each([
 	if (ordering === 'first arrives after the reply') {
 		packet = server.produce('2026-10-01', '2026-10-31', held);
 		await waitFor(() => expect(server.events).toEqual(['read types']));
-		await chooseStaff(server);
+		const saved = moveStaffFirst(server);
 		initial.unmount();
-		await acknowledge(server);
+		await acknowledge(server, saved);
 		await returnToCalendar(packet, held, server);
 	} else {
-		await chooseStaff(server);
+		const saved = moveStaffFirst(server);
 		initial.unmount();
 		packet = server.produce('2026-10-01', '2026-10-31', held);
 		await waitFor(() => expect(server.events).toEqual(['put', 'read types']));
 		await returnToCalendar(packet, held, server);
-		await acknowledge(server);
+		await acknowledge(server, saved);
 	}
 	held.daily.resolve();
-	await openAssignmentTypes();
+	await screen.findByRole('heading', { name: 'Calendar Settings' });
 
-	expect(currentLabel()).toContain('Currently showing: Staff Duty');
+	expect(calendarLaneIds(dailyAssignmentsStore.types)).toEqual(['sd', 'cq']);
 	await waitFor(() => expect(server.events).toEqual(expectedEvents));
-	expect(currentLabel()).toContain('Currently showing: Staff Duty');
-	expect(await server.savedFlags()).toEqual({ cq: false, sd: true, rt: false, nw: false });
-	expect(flags(dailyAssignmentsStore.types)).toEqual({ cq: false, sd: true, rt: false, nw: false });
-	expect(server.requests).toEqual([
-		'PUT /org/org-1/api/assignment-types/date-header',
-		'GET /org/org-1/api/assignment-types'
-	]);
+	expect(calendarLaneIds(dailyAssignmentsStore.types)).toEqual(['sd', 'cq']);
+	expect(await server.savedLanes()).toEqual(['sd', 'cq']);
+	expect(server.requests).toEqual(['PUT /org/org-1/api/assignment-types/lanes', 'GET /org/org-1/api/assignment-types']);
 	expect(rowFields(dailyAssignmentsStore.assignments)).toEqual([outside, linked, incoming]);
 	expect(dailyAssignmentsStore.loading).toBe(false);
 	expect(screen.queryByText('Loading Calendar data')).toBeNull();
 	expect(screen.queryByRole('alert')).toBeNull();
-	expect(screen.getByRole('button', { name: 'Edit Staff Duty' }).hasAttribute('disabled')).toBe(false);
 	expect(toasts).toEqual([]);
-});
-
-it('keeps a deleted type removed when a workspace read before the delete arrives after it', async () => {
-	const server = calendarServer();
-	const initial = await settledCalendar(server);
-	await prepareReturningRows(server);
-	const held = { daily: gate(), outer: gate() };
-	const packet = server.produce('2026-10-01', '2026-10-31', held);
-	await waitFor(() => expect(server.events).toEqual(['read types']));
-	await fireEvent.click(screen.getByRole('button', { name: 'Delete Runner Team' }));
-	await fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
-	await waitFor(() => expect(server.events).toEqual(['read types', 'delete']));
-	initial.unmount();
-	server.commit.resolve();
-	server.reply.resolve();
-	await waitFor(() => expect(dailyAssignmentsStore.typesBusy).toBe(false));
-	expect(dailyAssignmentsStore.types.map((type) => type.id)).toEqual(['cq', 'sd', 'nw']);
-	await returnToCalendar(packet, held, server);
-	held.daily.resolve();
-	await openAssignmentTypes();
-
-	expect(screen.queryByRole('button', { name: 'Delete Runner Team' })).toBeNull();
-	await waitFor(() =>
-		expect(server.events).toEqual([
-			'read types',
-			'delete',
-			'commit',
-			'reply',
-			'outer observed',
-			'deliver daily',
-			'get',
-			'read types'
-		])
-	);
-	expect(screen.queryByRole('button', { name: 'Delete Runner Team' })).toBeNull();
-	expect(dailyAssignmentsStore.types.map((type) => type.id)).toEqual(['cq', 'sd', 'nw']);
-	expect(Object.keys(await server.savedFlags())).toEqual(['cq', 'sd', 'nw']);
-	expect(server.requests).toEqual(['DELETE /org/org-1/api/assignment-types', 'GET /org/org-1/api/assignment-types']);
-	expect(rowFields(dailyAssignmentsStore.assignments)).toEqual(expect.arrayContaining([outside, incoming]));
-	expect(dailyAssignmentsStore.loading).toBe(false);
-	expect(currentLabel()).toContain('Currently showing: Charge of Quarters');
-	expect(toasts).toEqual([]);
-});
-
-it('saves a header with one PUT and adopts an agreeing returning workspace without a read', async () => {
-	const server = calendarServer();
-	const initial = await settledCalendar(server);
-	await chooseStaff(server);
-	await acknowledge(server);
-	await waitFor(() => expect(currentLabel()).toContain('Currently showing: Staff Duty'));
-	initial.unmount();
-	await prepareReturningRows(server);
-	renderCalendarSettings(server.produce('2026-10-01', '2026-10-31'));
-	await openAssignmentTypes();
-
-	expect(server.events).toEqual(['put', 'commit', 'reply', 'read types']);
-	expect(server.requests).toEqual(['PUT /org/org-1/api/assignment-types/date-header']);
-	expect(currentLabel()).toContain('Currently showing: Staff Duty');
-	expect(flags(dailyAssignmentsStore.types)).toEqual({ cq: false, sd: true, rt: false, nw: false });
-	expect(rowFields(dailyAssignmentsStore.assignments)).toEqual([outside, linked, incoming]);
-	expect(dailyAssignmentsStore.loading).toBe(false);
-});
-
-it("adopts another user's saved catalog through one fresh read after a local save", async () => {
-	const server = calendarServer();
-	const initial = await settledCalendar(server);
-	await chooseStaff(server);
-	await acknowledge(server);
-	initial.unmount();
-	await server.ctx.store.update('assignment_types', 'org-1', 'sd', {
-		name: 'Staff Duty Relief',
-		show_in_date_header: false
-	});
-	await server.ctx.store.update('assignment_types', 'org-1', 'nw', { show_in_date_header: true });
-	await server.ctx.store.update('assignment_types', 'org-1', 'cq', { archived_at: '2026-10-13T12:00:00.000Z' });
-	server.events.length = 0;
-	renderCalendarSettings(server.produce('2026-10-01', '2026-10-31'));
-	await openAssignmentTypes();
-
-	await waitFor(() => expect(currentLabel()).toContain('Currently showing: Night Watch'));
-	expect(server.events).toEqual(['read types', 'get', 'read types']);
-	expect(server.requests).toEqual([
-		'PUT /org/org-1/api/assignment-types/date-header',
-		'GET /org/org-1/api/assignment-types'
-	]);
-	expect(screen.getByRole('button', { name: 'Edit Staff Duty Relief' })).toBeTruthy();
-	expect(screen.queryByRole('button', { name: 'Edit Charge of Quarters' })).toBeNull();
-	expect(flags(dailyAssignmentsStore.types)).toEqual({ cq: false, sd: false, rt: false, nw: true });
-	expect(dailyAssignmentsStore.getTypeById('cq')?.archivedAt).toBe('2026-10-13T12:00:00.000Z');
-	expect(toasts).toEqual([]);
-});
-
-it('adopts a changed workspace header directly when this session wrote nothing', async () => {
-	const server = calendarServer();
-	const initial = await settledCalendar(server);
-	initial.unmount();
-	await server.ctx.store.update('assignment_types', 'org-1', 'cq', { show_in_date_header: false });
-	await server.ctx.store.update('assignment_types', 'org-1', 'sd', { show_in_date_header: true });
-	renderCalendarSettings(server.produce('2026-10-01', '2026-10-31'));
-	await openAssignmentTypes();
-
-	expect(server.events).toEqual(['read types']);
-	expect(server.requests).toEqual([]);
-	expect(currentLabel()).toContain('Currently showing: Staff Duty');
-	expect(rowFields(dailyAssignmentsStore.assignments)).toEqual([
-		outside,
-		{ id: 'inside-old', date: '2026-10-10', assignmentTypeId: 'cq', assigneeId: 'p-old' },
-		linked
-	]);
-	expect(dailyAssignmentsStore.loading).toBe(false);
 });

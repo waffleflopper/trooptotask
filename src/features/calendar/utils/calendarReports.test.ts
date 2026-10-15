@@ -228,7 +228,8 @@ describe('report columns follow the catalog order', () => {
 			assignTo: 'personnel',
 			color: '#2563eb',
 			exemptPersonnelIds: [],
-			showInDateHeader: false
+			showOnCalendar: false,
+			sortOrder: 0
 		}));
 		const result = computeAssignmentCoverage(
 			[person({})],

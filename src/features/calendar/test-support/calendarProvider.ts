@@ -8,6 +8,9 @@ type CalendarTable =
 	| 'daily_assignments';
 type Row = Record<string, unknown>;
 type ProviderRequest = { table: CalendarTable; method: string; offset: number; url: URL; body: unknown };
+const COLUMN_DEFAULTS: Partial<Record<CalendarTable, Row>> = {
+	assignment_types: { sort_order: 0, show_on_calendar: false }
+};
 
 export function calendarProvider(initial: Partial<Record<CalendarTable, Row[]>> = {}) {
 	const rows: Record<CalendarTable, Row[]> = {
@@ -80,6 +83,7 @@ export function calendarProvider(initial: Partial<Record<CalendarTable, Row[]>> 
 				if (request.method === 'POST') {
 					const inputs: Row[] = Array.isArray(body) ? body : [body];
 					selected = inputs.map((row) => ({
+						...COLUMN_DEFAULTS[table],
 						...row,
 						id: `saved-${nextId++}`,
 						created_at: '2026-10-06T12:00:00.123456Z'

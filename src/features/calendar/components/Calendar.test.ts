@@ -146,7 +146,8 @@ describe('Calendar', () => {
 					assignTo: 'personnel',
 					color: '#dc2626',
 					exemptPersonnelIds: [],
-					showInDateHeader: false
+					showOnCalendar: false,
+					sortOrder: 0
 				}
 			],
 			assignments: [{ id: 'assignment-1', date: '2026-03-01', assignmentTypeId: 'type-mod', assigneeId: 'person-1' }]
@@ -166,41 +167,6 @@ describe('Calendar', () => {
 	it('hides personnel roles when role display is disabled', () => {
 		const { queryByText } = renderCalendar({ showPersonnelRoles: false });
 		expect(queryByText('Medic')).toBeNull();
-	});
-
-	it('shows a readable personnel label in the header badge when the selected header type is person-based', () => {
-		const { container } = renderCalendar({
-			assignmentTypes: [
-				{
-					id: 'type-mod',
-					name: 'Manager on Duty',
-					shortName: 'MOD',
-					assignTo: 'personnel',
-					color: '#dc2626',
-					exemptPersonnelIds: [],
-					showInDateHeader: true
-				}
-			],
-			assignments: [
-				{
-					id: 'assignment-1',
-					date: '2026-03-01',
-					assignmentTypeId: 'type-mod',
-					assigneeId: 'person-1'
-				}
-			]
-		});
-
-		const badge = container.querySelector('.header-assignment-badge') as HTMLElement | null;
-		expect(badge).toBeTruthy();
-
-		if (!badge) {
-			throw new Error('Header badge not rendered');
-		}
-
-		expect(badge.textContent?.trim()).toBe('SGT Smith');
-		expect(badge.title).toBe('Manager on Duty: SGT Smith');
-		expect(screen.getByRole('button', { name: 'Sunday, March 1, 2026, Manager on Duty: SGT Smith' })).toBeTruthy();
 	});
 
 	it('opens the month picker from the title and forwards the selected month and year', async () => {

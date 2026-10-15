@@ -135,12 +135,21 @@ describe('calendarRenderState', () => {
 		]);
 	});
 
-	it('does not turn a saved Group assignment into a person marker', () => {
+	it('does not turn a Group assignment into a marker for a person with the same id', () => {
 		const state = build({
-			assignmentTypes: [{ ...assignmentTypes[0], id: 'group-detail', name: 'Group Detail', assignTo: 'group' }],
-			assignments: [assignment({ id: 'manual-group', assignmentTypeId: 'group-detail', assigneeId: 'group-1' })]
+			assignmentTypes: [
+				assignmentTypes[0],
+				{ ...assignmentTypes[0], id: 'group-detail', name: 'Group Detail', assignTo: 'group' }
+			],
+			assignments: [
+				assignment({ id: 'manual-group', assignmentTypeId: 'group-detail', assigneeId: 'person-1' }),
+				assignment({ id: 'manual-person', date: '2026-03-02', assigneeId: 'person-1' })
+			]
 		});
 		expect(state.personDateCell('person-1', '2026-03-01')?.markers).toEqual([]);
+		expect(state.personDateCell('person-1', '2026-03-02')?.markers).toEqual([
+			expect.objectContaining({ id: 'manual-person', name: 'Manager on Duty' })
+		]);
 	});
 
 	it('builds date header facts with special days', () => {

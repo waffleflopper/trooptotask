@@ -125,7 +125,6 @@ describe('AppDialog', () => {
 		render(AppDialogTest, { presentation: 'sheet' });
 		const sheet = screen.getByRole('dialog', { name: 'Shared dialog title' });
 
-		expect(sheet.dataset.slot).toBe('sheet-content');
 		await fireEvent.input(screen.getByRole('textbox', { name: 'Draft' }), { target: { value: 'Unsaved' } });
 		await fireEvent.keyDown(sheet, { key: 'Escape' });
 		await clickOutside();

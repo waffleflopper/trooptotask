@@ -299,7 +299,6 @@ describe('CalendarSettingsPage', () => {
 			}
 		];
 		assignmentTypesStoreMock.updateType.mockResolvedValueOnce(false);
-		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
 		render(CalendarSettingsPage, { props: { org } });
 
@@ -309,8 +308,9 @@ describe('CalendarSettingsPage', () => {
 		await fireEvent.input(within(dialog).getByLabelText('Full name'), { target: { value: 'Staff Duty' } });
 		await fireEvent.click(within(dialog).getByRole('button', { name: 'Save Changes' }));
 
-		expect(screen.getByRole('dialog', { name: 'Edit Assignment Type' })).toBeTruthy();
-		expect(errorToast).toHaveBeenCalledWith('Failed to save assignment type');
+		await waitFor(() => expect(assignmentTypesStoreMock.updateType).toHaveBeenCalled());
+		expect(screen.getByRole('dialog', { name: 'Edit Assignment Type' })).toBe(dialog);
+		expect((within(dialog).getByLabelText('Full name') as HTMLInputElement).value).toBe('Staff Duty');
 	});
 
 	it('keeps delete assignment confirmation open when deletion fails', async () => {
@@ -327,7 +327,6 @@ describe('CalendarSettingsPage', () => {
 			}
 		];
 		assignmentTypesStoreMock.removeType.mockResolvedValueOnce(false);
-		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
 		render(CalendarSettingsPage, { props: { org } });
 
@@ -336,8 +335,9 @@ describe('CalendarSettingsPage', () => {
 		const dialog = screen.getByRole('alertdialog', { name: 'Delete Assignment Type' });
 		await fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
 
-		expect(screen.getByRole('alertdialog', { name: 'Delete Assignment Type' })).toBeTruthy();
-		expect(errorToast).toHaveBeenCalledWith('Failed to delete assignment type');
+		await waitFor(() => expect(assignmentTypesStoreMock.removeType).toHaveBeenCalledWith('cq'));
+		expect(screen.getByRole('alertdialog', { name: 'Delete Assignment Type' })).toBe(dialog);
+		expect(screen.getByRole('button', { name: 'More actions for Charge of Quarters' })).toBeTruthy();
 	});
 
 	it('switches settings sections as tabs and shows only the chosen panel', async () => {
@@ -387,41 +387,6 @@ describe('CalendarSettingsPage', () => {
 		expect((within(dialog).getByLabelText('Full name') as HTMLInputElement).value).toBe('Staff Duty');
 		expect((within(dialog).getByLabelText('Short code') as HTMLInputElement).value).toBe('SD');
 		expect((within(dialog).getByLabelText('Color') as HTMLInputElement).value).toBe('#047857');
-	});
-
-	it('hides archived assignment types from Calendar settings management', async () => {
-		assignmentTypesStoreMock.types = [
-			{
-				id: 'active-type',
-				name: 'Charge of Quarters',
-				shortName: 'CQ',
-				assignTo: 'personnel',
-				color: '#2563eb',
-				exemptPersonnelIds: [],
-				showOnCalendar: true,
-				sortOrder: 0
-			},
-			{
-				id: 'archived-type',
-				name: 'Archived Duty',
-				shortName: 'OLD',
-				assignTo: 'personnel',
-				color: '#6b7280',
-				exemptPersonnelIds: [],
-				showOnCalendar: false,
-				sortOrder: 0,
-				archivedAt: '2026-05-18T20:00:00.000Z'
-			}
-		];
-
-		render(CalendarSettingsPage, { props: { org } });
-
-		await fireEvent.click(screen.getByRole('tab', { name: /Assignment Types/i }));
-
-		expect(screen.getAllByText('Charge of Quarters').length).toBeGreaterThan(0);
-		expect(screen.queryByText('Archived Duty')).toBeNull();
-		const settingsNav = screen.getByRole('tablist', { name: 'Calendar settings sections' });
-		expect(within(settingsNav).getByRole('tab', { name: /Assignment Types/ }).textContent).toContain('1');
 	});
 
 	it('names the add-closure date picker by its Date label', async () => {

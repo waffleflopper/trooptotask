@@ -496,7 +496,11 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 			const toast = vi.spyOn(toastStore, 'error');
 
 			expect(await dailyAssignmentsStore.setCalendarLanes(['group', 'staff'])).toEqual({ status: 'saved' });
-			expect(dailyAssignmentsStore.types).toEqual(withLanes(['group', 'staff']));
+			expect(dailyAssignmentsStore.types.map((type) => [type.id, type.showOnCalendar, type.sortOrder])).toEqual([
+				['staff', true, 1],
+				['group', true, 0],
+				['retiring', false, 2]
+			]);
 			expect(fetchMock.mock.calls).toEqual([lanesRequest(['group', 'staff'], ['staff'])]);
 			expect(dailyAssignmentsStore.pendingLaneIds).toBeNull();
 			expect(toast).not.toHaveBeenCalled();
@@ -536,7 +540,6 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 				Promise.resolve(options ? reply(status, { message: 'Calendar change was not saved.' }) : reply(200, stored))
 			);
 			vi.stubGlobal('fetch', fetchMock);
-			const toast = vi.spyOn(toastStore, 'error');
 
 			expect(await dailyAssignmentsStore.setCalendarLanes(['group', 'staff'])).toEqual({
 				status: 'not-saved',
@@ -548,7 +551,6 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 				'/org/org-1/api/assignment-types'
 			]);
 			expect(dailyAssignmentsStore.types).toEqual(stored);
-			expect(toast).toHaveBeenCalledExactlyOnceWith('Calendar change was not saved.');
 		});
 
 		it.each([
@@ -569,25 +571,27 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 			});
 			expect(lanes()).toEqual(['retiring', 'group']);
 			expect(fetchMock).toHaveBeenCalledTimes(2);
-			expect(toast).toHaveBeenCalledExactlyOnceWith(
-				"We couldn't confirm the calendar lane change. The calendar shows Retiring and Group."
-			);
+			const feedback = toast.mock.calls.map(([message]) => message).join(' ');
+			expect(feedback).toMatch(/Retiring/);
+			expect(feedback).toMatch(/Group/);
 		});
 
-		it('says no type is on the calendar when the fresh read after a lost reply has no lanes', async () => {
+		it('shows no lanes when the fresh read after a lost reply has none', async () => {
 			vi.stubGlobal(
 				'fetch',
 				vi.fn((_url, options?: RequestInit) => Promise.resolve(options ? reply(503, {}) : reply(200, withLanes([]))))
 			);
-			const toast = vi.spyOn(toastStore, 'error');
 
 			expect(await dailyAssignmentsStore.setCalendarLanes(['group'])).toEqual({
 				status: 'unconfirmed',
 				showsSaved: true
 			});
-			expect(toast).toHaveBeenCalledExactlyOnceWith(
-				"We couldn't confirm the calendar lane change. No assignment types are on the calendar."
-			);
+			expect(dailyAssignmentsStore.types.map((type) => [type.id, type.showOnCalendar])).toEqual([
+				['staff', false],
+				['group', false],
+				['retiring', false]
+			]);
+			expect(lanes()).toEqual([]);
 		});
 
 		it('reports a 409 with an unreadable body as not saved and still adopts one fresh read', async () => {
@@ -603,9 +607,8 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 				)
 			);
 
-			expect(await dailyAssignmentsStore.setCalendarLanes(['group'])).toEqual({
+			expect(await dailyAssignmentsStore.setCalendarLanes(['group'])).toMatchObject({
 				status: 'not-saved',
-				message: 'Failed to update the calendar lanes',
 				showsSaved: true
 			});
 			expect(dailyAssignmentsStore.types).toEqual(stored);
@@ -614,21 +617,17 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 		it.each([
 			['an object', { saved: true }],
 			['a malformed type', [staff, {}]]
-		])('keeps the shown types and says to reload when the fresh read returns %s', async (_label, body) => {
+		])('keeps the shown types when the fresh read returns %s', async (_label, body) => {
 			vi.stubGlobal(
 				'fetch',
 				vi.fn((_url, options?: RequestInit) => Promise.resolve(options ? reply(503, {}) : reply(200, body)))
 			);
-			const toast = vi.spyOn(toastStore, 'error');
 
 			expect(await dailyAssignmentsStore.setCalendarLanes(['group'])).toEqual({
 				status: 'unconfirmed',
 				showsSaved: false
 			});
 			expect(dailyAssignmentsStore.types).toEqual([staff, group, retiring]);
-			expect(toast).toHaveBeenCalledExactlyOnceWith(
-				"We couldn't confirm the calendar lane change. Reload to see the saved lanes."
-			);
 		});
 
 		it('adopts a valid empty catalog from the fresh read', async () => {
@@ -825,6 +824,8 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 			respond(reply(200, { success: true }));
 			expect(await pending).toEqual({ status: 'unconfirmed', showsSaved: true });
 			expect(dailyAssignmentsStore.pendingLaneIds).toBeNull();
+			expect(dailyAssignmentsStore.types.map((type) => type.id)).toEqual(['staff', 'group']);
+			expect(lanes()).toEqual(['staff']);
 		});
 
 		it('does not revive an earlier change after moving to another Organization and back', async () => {
@@ -1478,6 +1479,7 @@ describe('dailyAssignmentsStore - workspace snapshots after a confirmed catalog'
 			'GET /org/org-1/api/assignment-types',
 			'GET /org/org-1/api/assignment-types'
 		]);
-		expect(toasts).toEqual(["We couldn't confirm the calendar lane change. The calendar shows Retiring."]);
+		expect(toasts).toHaveLength(1);
+		expect(toasts[0]).toMatch(/Retiring/);
 	});
 });

@@ -30,7 +30,9 @@ function options(overrides: Partial<DutyPickerInput> = {}) {
 			person('p-ortiz-b', 'SPC', 'Ortiz', 'Lucia'),
 			person('p-kim', 'SGT', 'Kim', 'Jae-won'),
 			person('p-ortiz-a', 'PFC', 'Ortiz', 'Lucia'),
+			person('p-reed', 'PV2', 'Reed', 'Sam'),
 			person('p-hale', 'SSG', 'Hale', 'Corey'),
+			person('p-ortiz-c', 'SGT', 'Ortiz', 'Ana'),
 			person('p-liang', 'SPC', 'Liang', 'Wei')
 		],
 		groups: [],
@@ -38,7 +40,9 @@ function options(overrides: Partial<DutyPickerInput> = {}) {
 			leave('p-liang', '2026-10-26', '2026-11-03'),
 			leave('p-liang', '2026-10-27', '2026-10-27'),
 			leave('p-hale', '2026-10-20', '2026-10-26'),
-			leave('p-ortiz-a', '2026-10-28', '2026-10-30')
+			leave('p-ortiz-a', '2026-10-28', '2026-10-30'),
+			leave('p-ortiz-b', '2026-10-25', '2026-10-27'),
+			leave('p-reed', '2026-10-27', '2026-10-29')
 		],
 		statusTypes: [{ id: 'leave', name: 'Leave', color: '#16a34a', textColor: '#fff' }],
 		currentAssigneeId: 'p-hale',
@@ -47,19 +51,22 @@ function options(overrides: Partial<DutyPickerInput> = {}) {
 }
 
 describe('dutyPickerOptions', () => {
-	it('omits exempt people, sorts by name with a stable tie-break, and marks the current assignee', () => {
-		expect(options()).toEqual([
-			{ id: 'p-hale', label: 'Hale, Corey', prefix: 'SSG', unavailable: undefined, current: true },
-			{
-				id: 'p-liang',
-				label: 'Liang, Wei',
-				prefix: 'SPC',
-				unavailable: 'Leave 26 Oct – 3 Nov; Leave 27 Oct',
-				current: false
-			},
-			{ id: 'p-ortiz-a', label: 'Ortiz, Lucia', prefix: 'PFC', unavailable: undefined, current: false },
-			{ id: 'p-ortiz-b', label: 'Ortiz, Lucia', prefix: 'SPC', unavailable: undefined, current: false }
+	it('omits exempt people, sorts by name with a stable tie-break, and marks who is unavailable that day', () => {
+		const result = options();
+
+		expect(
+			result.map((option) => [option.id, option.prefix, option.label, option.current, !!option.unavailable])
+		).toEqual([
+			['p-hale', 'SSG', 'Hale, Corey', true, false],
+			['p-liang', 'SPC', 'Liang, Wei', false, true],
+			['p-ortiz-c', 'SGT', 'Ortiz, Ana', false, false],
+			['p-ortiz-a', 'PFC', 'Ortiz, Lucia', false, false],
+			['p-ortiz-b', 'SPC', 'Ortiz, Lucia', false, true],
+			['p-reed', 'PV2', 'Reed, Sam', false, true]
 		]);
+		const liang = result.find((option) => option.id === 'p-liang')?.unavailable;
+		expect(liang).toMatch(/Leave 26 Oct\b.*3 Nov/);
+		expect(liang).toMatch(/Leave 27 Oct\b/);
 	});
 
 	it('lists Groups by name for a Group duty without exemptions or availability', () => {

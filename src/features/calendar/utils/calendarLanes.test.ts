@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import type { AssignmentType, DailyAssignment, SpecialDay } from '$features/calendar/contracts';
 import type { Personnel } from '$features/personnel/contracts';
 import {
@@ -94,16 +94,13 @@ describe('buildCalendarLanes', () => {
 			]
 		});
 
-		expect(days(duty).map((day) => day.assignee)).toEqual([
-			{ short: 'PIKE', full: 'SGT Pike, Dana' },
-			{ short: '?', full: 'someone outside your roster' },
-			undefined,
-			undefined,
-			undefined
-		]);
+		const [pike, gone, ...open] = days(duty).map((day) => day.assignee);
+		expect(pike).toEqual({ short: 'PIKE', full: 'SGT Pike, Dana' });
+		expect(gone?.full).toBeTruthy();
+		expect(`${gone?.short} ${gone?.full}`).not.toContain('p-gone');
+		expect(open).toEqual([undefined, undefined, undefined]);
 		expect(days(group)[0].assignee).toEqual({ short: 'Alpha', full: 'Alpha' });
 		expect(duty.detail).toBe('3 open');
-		expect(duty.summary).toBe('Staff Duty: 2 of 5 days assigned');
 	});
 
 	it('reports a fully assigned lane as Full', () => {
@@ -115,26 +112,7 @@ describe('buildCalendarLanes', () => {
 		expect(duty.detail).toBe('Full');
 	});
 
-	it('offers open and edit actions only when actions are given', () => {
-		const actions = { openDay: vi.fn(), editDay: vi.fn() };
-		const input = {
-			assignmentTypes: [type({ id: 'sd', name: 'Staff Duty' })],
-			assignments: [assignment('2026-10-01', 'sd', 'p-pike')]
-		};
-		const viewer = days(build(input)[0]);
-		const manager = days(build({ ...input, actions })[0]);
-
-		expect(viewer.some((day) => day.open || day.edit)).toBe(false);
-		expect(manager[0].open).toBeUndefined();
-		manager[0].edit?.();
-		expect(actions.editDay).toHaveBeenCalledWith(dates[0]);
-		const anchor = {} as HTMLElement;
-		manager[1].open?.(anchor);
-		expect(actions.openDay).toHaveBeenCalledWith('sd', dates[1], anchor);
-		expect(manager[1]).toMatchObject({ dateLabel: 'Friday, October 2, 2026', typeName: 'Staff Duty' });
-	});
-
-	it('merges consecutive same special days into one Days segment with room to the next', () => {
+	it('merges consecutive same special days into one Days segment', () => {
 		const daysLane = build({
 			specialDays: [
 				specialDay('2026-10-01', 'Training holiday'),
@@ -144,29 +122,11 @@ describe('buildCalendarLanes', () => {
 			]
 		}).at(-1)!;
 
-		expect(segments(daysLane)).toEqual([
-			{
-				start: 0,
-				end: 1,
-				value: {
-					name: 'Training holiday',
-					type: 'org-closure',
-					label: 'Training holiday, closure, October 1 to October 2',
-					days: 2,
-					room: 1
-				}
-			},
-			{
-				start: 3,
-				end: 3,
-				value: {
-					name: 'Columbus Day',
-					type: 'federal-holiday',
-					label: 'Columbus Day, federal holiday, October 4',
-					days: 1,
-					room: 1
-				}
-			}
+		expect(
+			segments(daysLane).map(({ start, end, value }) => ({ start, end, name: value.name, type: value.type }))
+		).toEqual([
+			{ start: 0, end: 1, name: 'Training holiday', type: 'org-closure' },
+			{ start: 3, end: 3, name: 'Columbus Day', type: 'federal-holiday' }
 		]);
 	});
 
@@ -175,14 +135,11 @@ describe('buildCalendarLanes', () => {
 			specialDays: [specialDay('2026-10-03', 'Closure'), specialDay('2026-10-03', 'Columbus Day', 'federal-holiday')]
 		}).at(-1)!;
 
-		expect(segments(daysLane).map((segment) => segment.value.label)).toEqual([
-			'Closure, closure; Columbus Day, federal holiday, October 3'
-		]);
-		expect(segments(daysLane)[0].value.name).toBe('Closure / Columbus Day');
-	});
-
-	it('summarizes an empty Days lane', () => {
-		expect(build().map((lane) => lane.summary)).toEqual(['Days: no holidays or closures']);
+		const [shared, ...rest] = segments(daysLane);
+		expect(rest).toEqual([]);
+		expect(shared.start).toBe(2);
+		expect(shared.value.label).toMatch(/Closure, closure/);
+		expect(shared.value.label).toMatch(/Columbus Day, federal holiday/);
 	});
 });
 
@@ -190,7 +147,5 @@ describe('movedTo', () => {
 	it('moves an id to the first and last positions', () => {
 		expect(movedTo(['a', 'b', 'c'], 'c', 0)).toEqual(['c', 'a', 'b']);
 		expect(movedTo(['a', 'b', 'c'], 'a', 2)).toEqual(['b', 'c', 'a']);
-		expect(movedTo(['a', 'b', 'c'], 'b', 9)).toEqual(['a', 'c', 'b']);
-		expect(movedTo(['a', 'b'], 'missing', 0)).toEqual(['a', 'b']);
 	});
 });

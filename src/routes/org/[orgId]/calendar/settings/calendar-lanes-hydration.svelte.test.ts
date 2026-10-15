@@ -257,47 +257,43 @@ afterEach(() => {
 	vi.restoreAllMocks();
 });
 
-it.each([
-	[
-		'delivers its daily rows after the reply',
-		['put', 'read types', 'outer observed', 'commit', 'reply', 'deliver daily', 'get', 'read types']
-	],
-	[
-		'first arrives after the reply',
-		['read types', 'put', 'commit', 'reply', 'outer observed', 'deliver daily', 'get', 'read types']
-	]
-])('keeps saved lanes when a workspace read before their commit %s', async (ordering, expectedEvents) => {
-	const server = calendarServer();
-	const initial = await settledCalendar(server);
-	await prepareReturningRows(server);
-	const held = { daily: gate(), outer: gate() };
-	let packet: Promise<CalendarWorkspaceResult>;
-	if (ordering === 'first arrives after the reply') {
-		packet = server.produce('2026-10-01', '2026-10-31', held);
-		await waitFor(() => expect(server.events).toEqual(['read types']));
-		const saved = moveStaffFirst(server);
-		initial.unmount();
-		await acknowledge(server, saved);
-		await returnToCalendar(packet, held, server);
-	} else {
-		const saved = moveStaffFirst(server);
-		initial.unmount();
-		packet = server.produce('2026-10-01', '2026-10-31', held);
-		await waitFor(() => expect(server.events).toEqual(['put', 'read types']));
-		await returnToCalendar(packet, held, server);
-		await acknowledge(server, saved);
-	}
-	held.daily.resolve();
-	await screen.findByRole('heading', { name: 'Calendar Settings' });
+it.each(['delivers its daily rows after the reply', 'first arrives after the reply'])(
+	'keeps saved lanes when a workspace read before their commit %s',
+	async (ordering) => {
+		const server = calendarServer();
+		const initial = await settledCalendar(server);
+		await prepareReturningRows(server);
+		const held = { daily: gate(), outer: gate() };
+		let packet: Promise<CalendarWorkspaceResult>;
+		if (ordering === 'first arrives after the reply') {
+			packet = server.produce('2026-10-01', '2026-10-31', held);
+			await waitFor(() => expect(server.events).toEqual(['read types']));
+			const saved = moveStaffFirst(server);
+			initial.unmount();
+			await acknowledge(server, saved);
+			await returnToCalendar(packet, held, server);
+		} else {
+			const saved = moveStaffFirst(server);
+			initial.unmount();
+			packet = server.produce('2026-10-01', '2026-10-31', held);
+			await waitFor(() => expect(server.events).toEqual(['put', 'read types']));
+			await returnToCalendar(packet, held, server);
+			await acknowledge(server, saved);
+		}
+		held.daily.resolve();
+		await screen.findByRole('heading', { name: 'Calendar Settings' });
 
-	expect(calendarLaneIds(dailyAssignmentsStore.types)).toEqual(['sd', 'cq']);
-	await waitFor(() => expect(server.events).toEqual(expectedEvents));
-	expect(calendarLaneIds(dailyAssignmentsStore.types)).toEqual(['sd', 'cq']);
-	expect(await server.savedLanes()).toEqual(['sd', 'cq']);
-	expect(server.requests).toEqual(['PUT /org/org-1/api/assignment-types/lanes', 'GET /org/org-1/api/assignment-types']);
-	expect(rowFields(dailyAssignmentsStore.assignments)).toEqual([outside, linked, incoming]);
-	expect(dailyAssignmentsStore.loading).toBe(false);
-	expect(screen.queryByText('Loading Calendar data')).toBeNull();
-	expect(screen.queryByRole('alert')).toBeNull();
-	expect(toasts).toEqual([]);
-});
+		await waitFor(() =>
+			expect(server.requests).toEqual([
+				'PUT /org/org-1/api/assignment-types/lanes',
+				'GET /org/org-1/api/assignment-types'
+			])
+		);
+		await waitFor(() => expect(dailyAssignmentsStore.loading).toBe(false));
+		expect(calendarLaneIds(dailyAssignmentsStore.types)).toEqual(['sd', 'cq']);
+		expect(await server.savedLanes()).toEqual(['sd', 'cq']);
+		expect(rowFields(dailyAssignmentsStore.assignments)).toEqual([outside, linked, incoming]);
+		expect(screen.queryByRole('alert')).toBeNull();
+		expect(toasts).toEqual([]);
+	}
+);

@@ -131,7 +131,6 @@ export function buildAddRecords(
 	}));
 }
 
-/** One availability write from the calendar modal, quick-add, a resize or a removal. */
 export type AvailabilityChange =
 	| { readonly kind: 'create'; readonly record: AvailabilityRecord }
 	| {
@@ -141,8 +140,7 @@ export type AvailabilityChange =
 	  }
 	| { readonly kind: 'remove'; readonly entry: AvailabilityEntry };
 
-/** The start dates whose ranges a re-read must load to see where the write's rows would be. */
-export function availabilityChangeDates(change: AvailabilityChange): string[] {
+export function rereadDatesFor(change: AvailabilityChange): string[] {
 	switch (change.kind) {
 		case 'create':
 			return [change.record.startDate];
@@ -162,21 +160,17 @@ function holds(entry: AvailabilityEntry, values: Omit<AvailabilityRecord, 'perso
 	);
 }
 
-/**
- * Whether a write whose reply was refused or lost landed anyway, judged from a fresh read. A
- * create counts only as a row the client did not know before, so an identical older entry is
- * never mistaken for it.
- */
 export function classifyAvailabilityWrite(
 	change: AvailabilityChange,
-	knownIds: ReadonlySet<string>,
+	entriesBeforeWrite: readonly AvailabilityEntry[],
 	reread: readonly AvailabilityEntry[]
 ): 'saved' | 'not-saved' {
 	switch (change.kind) {
 		case 'create': {
 			const { personnelId, ...values } = change.record;
+			const idsBeforeWrite = new Set(entriesBeforeWrite.map((entry) => entry.id));
 			const landed = reread.some(
-				(entry) => !knownIds.has(entry.id) && entry.personnelId === personnelId && holds(entry, values)
+				(entry) => !idsBeforeWrite.has(entry.id) && entry.personnelId === personnelId && holds(entry, values)
 			);
 			return landed ? 'saved' : 'not-saved';
 		}

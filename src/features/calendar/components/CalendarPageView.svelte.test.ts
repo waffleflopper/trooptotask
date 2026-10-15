@@ -57,6 +57,10 @@ afterEach(() => {
 	calendarStore.goToToday();
 });
 
+function resizeGrip(bar: HTMLElement, edge: 'start' | 'end'): HTMLElement {
+	return bar.querySelector<HTMLElement>(`[data-edge="${edge}"]`)!;
+}
+
 function toolbar(): HTMLElement {
 	return screen.getByRole('toolbar', { name: 'Calendar controls' });
 }
@@ -404,8 +408,7 @@ describe('CalendarPageView', () => {
 			await fireEvent.click(bar);
 			await screen.findByRole('dialog', { name: 'Leave, SGT Smith' });
 			const pointer = { button: 0, pointerId: 1, pointerType: 'mouse' };
-			// The handles are hidden from assistive technology, so no role or name reaches them.
-			await fireEvent.pointerDown(bar.querySelector('[data-edge="end"]')!, { ...pointer, clientX: 225 });
+			await fireEvent.pointerDown(resizeGrip(bar, 'end'), { ...pointer, clientX: 225 });
 			await fireEvent.pointerMove(window, { ...pointer, clientX: 255 });
 			await fireEvent.pointerUp(window, { ...pointer, clientX: 255 });
 

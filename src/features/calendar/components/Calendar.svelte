@@ -60,12 +60,9 @@
 		onMarkerClick?: (date: Date) => void;
 		onOpenEntry?: (person: Personnel, entry: AvailabilityEntry, anchor: HTMLElement) => void;
 		onOpenOverflow?: (person: Personnel, entryIds: readonly string[], anchor: HTMLElement) => void;
-		/** Whether drag-to-add and resize are offered on this Person's row. */
 		canEditAvailabilityFor?: (person: Personnel) => boolean;
-		/** The entry whose popover is open, which shows its resize handles. */
-		selectedEntry?: { personId: string; entryId: string } | null;
-		/** The days the open quick-add covers, kept drawn after the drag ends. */
-		pendingSelection?: { personId: string; startDate: string; endDate: string } | null;
+		popoverEntry?: { personId: string; entryId: string } | null;
+		quickAddSelection?: { personId: string; startDate: string; endDate: string } | null;
 		onQuickAdd?: (person: Personnel, startDate: string, endDate: string, anchor: HTMLElement) => void;
 		onResize?: (person: Personnel, entry: AvailabilityEntry, startDate: string, endDate: string) => void;
 		personnelHref?: string;
@@ -102,8 +99,8 @@
 		onOpenEntry,
 		onOpenOverflow,
 		canEditAvailabilityFor = () => canEdit,
-		selectedEntry = null,
-		pendingSelection = null,
+		popoverEntry = null,
+		quickAddSelection = null,
 		onQuickAdd,
 		onResize,
 		personnelHref
@@ -206,7 +203,7 @@
 
 	const days = $derived(buildCalendarDays(dates, specialDays));
 	const visibleDays = $derived(dayWindow(days[0]?.dateKey ?? '1970-01-01', days.length));
-	const policy: LabelPolicy = $derived({ view: 'month', preferLongest: showStatusText });
+	const policy: LabelPolicy = $derived({ view: 'month', showStatusText });
 	const markersByPerson = $derived(
 		buildDutyMarkers(
 			assignments,
@@ -247,10 +244,9 @@
 	}
 
 	function clickCell(person: Personnel, date: Date) {
-		if (!gesture.consumeClick()) onCellClick?.(person, date);
+		if (!gesture.consumeDragEndClick()) onCellClick?.(person, date);
 	}
 
-	/** The row's bars, laid out again with the resized entry's dates while a resize is in progress. */
 	function rowLayout(personId: string) {
 		const state = gesture.state;
 		if (state.kind !== 'resizing' || state.personId !== personId) {
@@ -275,10 +271,10 @@
 	function rowSelection(personId: string) {
 		const state = gesture.state;
 		if (state.kind === 'selecting') return state.personId === personId ? gestureRange(state) : null;
-		if (pendingSelection?.personId !== personId) return null;
+		if (quickAddSelection?.personId !== personId) return null;
 		return {
-			start: toDayNumber(pendingSelection.startDate) - visibleDays.start,
-			end: toDayNumber(pendingSelection.endDate) - visibleDays.start
+			start: toDayNumber(quickAddSelection.startDate) - visibleDays.start,
+			end: toDayNumber(quickAddSelection.endDate) - visibleDays.start
 		};
 	}
 
@@ -358,7 +354,7 @@
 									person={row.person}
 									{days}
 									layout={rowLayout(row.person.id)}
-									selectedEntryId={selectedEntry?.personId === row.person.id ? selectedEntry.entryId : null}
+									selectedEntryId={popoverEntry?.personId === row.person.id ? popoverEntry.entryId : null}
 									selection={rowSelection(row.person.id)}
 									markers={markersByPerson.get(row.person.id)}
 									onboarding={onboardingIds.has(row.person.id)}

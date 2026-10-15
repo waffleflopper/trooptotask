@@ -1,9 +1,3 @@
-/**
- * Availability entries per person for the loaded calendar ranges.
- *
- * The `BatchApiAdapter` sends bulk add and remove to
- * `/api/availability/batch` instead of the single-entry routes.
- */
 import { defineStore, stillInOrganizationLifetime } from '$lib/stores/core';
 import type { Store, BatchApiAdapter } from '$lib/stores/core';
 import type { AvailabilityEntry } from '$features/calendar/contracts';

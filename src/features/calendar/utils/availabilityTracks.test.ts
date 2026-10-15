@@ -52,12 +52,12 @@ describe('buildAvailabilityTracks', () => {
 	it('returns the same layout for a person until the window or label policy changes', () => {
 		const tracks = buildAvailabilityTracks([entry('a', 'p1', '2026-10-05', '2026-10-09')], [leave]);
 		const october = dayWindow('2026-10-01', 31);
-		const policy = { view: 'month', preferLongest: false } as const;
+		const policy = { view: 'month', showStatusText: false } as const;
 
 		const first = tracks.layout('p1', october, policy);
 
-		expect(tracks.layout('p1', dayWindow('2026-10-01', 31), { view: 'month', preferLongest: false })).toBe(first);
-		expect(tracks.layout('p1', october, { view: 'month', preferLongest: true })).not.toBe(first);
+		expect(tracks.layout('p1', dayWindow('2026-10-01', 31), { view: 'month', showStatusText: false })).toBe(first);
+		expect(tracks.layout('p1', october, { view: 'month', showStatusText: true })).not.toBe(first);
 	});
 
 	it('counts each person out once per day, however many of their entries overlap', () => {

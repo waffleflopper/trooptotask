@@ -18,8 +18,7 @@
 		statusTypes: readonly StatusType[];
 		spans: readonly AvailabilitySpan[];
 		canEdit: boolean;
-		/** True when the anchor is the entry's own month-view bar, which carries the resize grips. */
-		resizable: boolean;
+		anchorHasResizeGrips: boolean;
 		saving: boolean;
 		onSave: (change: AvailabilityChange) => unknown;
 		onEdit: (request: AvailabilityEditorRequest) => void;
@@ -27,13 +26,22 @@
 		onClose: () => void;
 	}
 
-	let { popover, statusTypes, spans, canEdit, resizable, saving, onSave, onEdit, onOpenEntry, onClose }: Props =
-		$props();
+	let {
+		popover,
+		statusTypes,
+		spans,
+		canEdit,
+		anchorHasResizeGrips,
+		saving,
+		onSave,
+		onEdit,
+		onOpenEntry,
+		onClose
+	}: Props = $props();
 
 	const personName = $derived(`${popover.person.rank} ${popover.person.lastName}`);
 
-	/** Fixed when the popover opens, so a reorder from another session cannot redirect a key. */
-	const shortcuts = untrack(() => statusTypes.slice(0, 9).map((status) => status.id));
+	const shortcutsAtOpen = untrack(() => statusTypes.slice(0, 9).map((status) => status.id));
 
 	const quickAdd = $derived.by(() => {
 		if (popover.kind !== 'quick-add') return null;
@@ -56,14 +64,13 @@
 		if (popover.kind === 'entry' && !entry) onClose();
 	});
 
-	// Scrolling can virtualize the anchor's row away after the rows re-render, so check on the next frame.
 	$effect(() => {
-		const closeIfDetached = () =>
+		const closeIfAnchorVirtualizedAway = () =>
 			requestAnimationFrame(() => {
 				if (!popover.anchor.isConnected) onClose();
 			});
-		document.addEventListener('scroll', closeIfDetached, { capture: true, passive: true });
-		return () => document.removeEventListener('scroll', closeIfDetached, { capture: true });
+		document.addEventListener('scroll', closeIfAnchorVirtualizedAway, { capture: true, passive: true });
+		return () => document.removeEventListener('scroll', closeIfAnchorVirtualizedAway, { capture: true });
 	});
 
 	const label = $derived.by(() => {
@@ -92,7 +99,7 @@
 		if (!quickAdd || !/^[1-9]$/.test(event.key)) return;
 		if (event.repeat || event.isComposing || event.altKey || event.ctrlKey || event.metaKey) return;
 		if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
-		const statusTypeId = shortcuts[Number(event.key) - 1];
+		const statusTypeId = shortcutsAtOpen[Number(event.key) - 1];
 		if (!statusTypeId || !statusTypes.some((status) => status.id === statusTypeId)) return;
 		event.preventDefault();
 		create(statusTypeId);
@@ -110,8 +117,7 @@
 		if (popover.anchor.isConnected) popover.anchor.focus();
 	}
 
-	// The anchor's own presses (a resize handle, or the bar again) must not close the popover.
-	function keepForAnchor(event: PointerEvent) {
+	function keepOpenOnAnchorPress(event: PointerEvent) {
 		if (event.target instanceof Node && popover.anchor.contains(event.target)) event.preventDefault();
 	}
 </script>
@@ -125,7 +131,7 @@
 		role="dialog"
 		aria-label={label}
 		onCloseAutoFocus={returnFocus}
-		onInteractOutside={keepForAnchor}
+		onInteractOutside={keepOpenOnAnchorPress}
 		onkeydown={pressShortcut}
 	>
 		{#if quickAdd}
@@ -144,7 +150,7 @@
 			{:else}
 				<ul class="flex max-h-72 flex-col overflow-y-auto px-1.5 pb-1.5" aria-label="Status types">
 					{#each statusTypes as status (status.id)}
-						{@const key = shortcuts.indexOf(status.id) + 1}
+						{@const key = shortcutsAtOpen.indexOf(status.id) + 1}
 						<li>
 							<Button
 								variant="ghost"
@@ -215,7 +221,7 @@
 						<Button variant="destructive" size="sm" disabled={saving} onclick={() => (confirmingRemove = true)}>
 							Remove
 						</Button>
-						{#if resizable}
+						{#if anchorHasResizeGrips}
 							<span class="ml-auto font-mono text-[10px] tracking-wider text-muted-foreground uppercase max-sm:hidden">
 								Drag ends to resize
 							</span>

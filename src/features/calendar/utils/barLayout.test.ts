@@ -23,11 +23,10 @@ function span(id: string, kind: StatusType, startDate: string, endDate: string, 
 	return { entry, status: kind, start: toDayNumber(startDate), end: toDayNumber(endDate) } satisfies AvailabilitySpan;
 }
 
-/** Frame 02's grid: Monday 19 to Wednesday 28 October 2026. */
-const frame = dayWindow('2026-10-19', 10);
-const month: LabelPolicy = { view: 'month', preferLongest: false };
+const oct19To28 = dayWindow('2026-10-19', 10);
+const month: LabelPolicy = { view: 'month', showStatusText: false };
 
-function placements(spans: AvailabilitySpan[], window = frame, policy: LabelPolicy = month) {
+function placements(spans: AvailabilitySpan[], window = oct19To28, policy: LabelPolicy = month) {
 	const layout = layoutBars(spans, window, policy);
 	return {
 		bars: layout.bars.map((bar) => ({
@@ -79,15 +78,15 @@ describe('layoutBars in the month view', () => {
 	});
 
 	it('shows the longest label on every bar when status text is preferred', () => {
-		const preferLongest: LabelPolicy = { view: 'month', preferLongest: true };
+		const showStatusText: LabelPolicy = { view: 'month', showStatusText: true };
 		expect(
 			placements(
 				[
 					span('apt', appointment, '2026-10-20', '2026-10-20', 'Dental'),
 					span('sick', sick, '2026-10-22', '2026-10-22')
 				],
-				frame,
-				preferLongest
+				oct19To28,
+				showStatusText
 			).bars.map((bar) => bar.label)
 		).toEqual([
 			{ kind: 'name-note', name: 'Appointment', note: 'Dental' },
@@ -230,7 +229,7 @@ describe('layoutBars in the month view', () => {
 				span('leave', leave, '2026-10-20', '2026-10-23', 'Block leave'),
 				span('school', school, '2026-10-26', '2026-11-03')
 			],
-			frame,
+			oct19To28,
 			month
 		);
 

@@ -3,11 +3,8 @@ import { layoutBars, type AvailabilitySpan, type BarLayout, type LabelPolicy } f
 import { toDayNumber, type DayWindow } from './dayNumber';
 
 export interface AvailabilityTracks {
-	/** Spans sorted by start, then entry id. Empty for a person with no entries. */
 	spans(personnelId: string): readonly AvailabilitySpan[];
-	/** Memoized per window and policy until the tracks are rebuilt. */
 	layout(personnelId: string, window: DayWindow, policy: LabelPolicy): BarLayout;
-	/** Distinct people out on each visible day, counting overlapping entries once. */
 	outCounts(personnelIds: Iterable<string>, window: DayWindow): readonly number[];
 }
 
@@ -15,10 +12,9 @@ const NO_SPANS: readonly AvailabilitySpan[] = [];
 const REMEMBERED_LAYOUTS = 4;
 
 function policyKey(policy: LabelPolicy): string {
-	return policy.view === 'month' ? `month:${policy.preferLongest}` : `3-month:${policy.dayPx}`;
+	return policy.view === 'month' ? `month:${policy.showStatusText}` : `3-month:${policy.dayPx}`;
 }
 
-/** Search, group filters and the roster are not inputs, so changing them never rebuilds spans or layouts. */
 export function buildAvailabilityTracks(
 	entries: readonly AvailabilityEntry[],
 	statusTypes: readonly StatusType[]

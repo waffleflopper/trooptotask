@@ -8,7 +8,6 @@
 		isPinned?: boolean;
 		onToggle?: () => void;
 		onPinToggle?: () => void;
-		/** People out on each of `days`, shown while the group is collapsed. */
 		outCounts?: readonly number[];
 		days?: readonly Pick<CalendarDateHeaderState, 'dateKey' | 'dateLabel'>[];
 	}

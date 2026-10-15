@@ -23,7 +23,6 @@
 		request: AvailabilityEditorRequest;
 		statusTypes: StatusType[];
 		existingEntries: AvailabilityEntry[];
-		/** True while any availability write on the page settles. */
 		saving: boolean;
 		onSave: (change: AvailabilityChange) => Promise<AvailabilityOutcome>;
 		onClose: () => void;
@@ -60,7 +59,6 @@
 		note = entry.note ?? '';
 	}
 
-	// The page keys this dialog on its request, so the form starts from the first one.
 	untrack(() => (request.kind === 'edit' ? startEdit(request.entry) : resetForm()));
 
 	const dateDisplay = $derived(

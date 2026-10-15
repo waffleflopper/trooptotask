@@ -121,16 +121,15 @@
 	);
 
 	const barPopover = $derived(ctx.popover?.kind === 'duty' ? null : ctx.popover);
-	const selectedEntry = $derived(
+	const popoverEntry = $derived(
 		ctx.popover?.kind === 'entry' ? { personId: ctx.popover.person.id, entryId: ctx.popover.entryId } : null
 	);
-	const pendingSelection = $derived(
+	const quickAddSelection = $derived(
 		ctx.popover?.kind === 'quick-add'
 			? { personId: ctx.popover.person.id, startDate: ctx.popover.startDate, endDate: ctx.popover.endDate }
 			: null
 	);
 
-	// A popover belongs to the days on screen, so moving to other days or another view closes it.
 	$effect(() => {
 		void [calendarStore.year, calendarStore.month, ctx.viewMode];
 		untrack(() => ctx.closePopover());
@@ -297,8 +296,8 @@
 						onOpenEntry={(person, entry, anchor) => ctx.openEntry(person, entry.id, anchor)}
 						onOpenOverflow={(person, entryIds, anchor) => ctx.openOverflow(person, entryIds, anchor)}
 						canEditAvailabilityFor={(person) => ctx.canManageAvailabilityFor(person)}
-						{selectedEntry}
-						{pendingSelection}
+						{popoverEntry}
+						{quickAddSelection}
 						onQuickAdd={(person, startDate, endDate, anchor) => ctx.openQuickAdd(person, startDate, endDate, anchor)}
 						onResize={(person, entry, startDate, endDate) =>
 							ctx.saveAvailability({
@@ -340,7 +339,7 @@
 			statusTypes={statusTypesStore.items}
 			spans={ctx.availabilityTracks.spans(popover.person.id)}
 			canEdit={ctx.canManageAvailabilityFor(popover.person)}
-			resizable={ctx.viewMode !== '3-month' &&
+			anchorHasResizeGrips={ctx.viewMode !== '3-month' &&
 				popover.kind === 'entry' &&
 				popover.anchor.dataset.entryId === popover.entryId}
 			saving={ctx.savingAvailability}

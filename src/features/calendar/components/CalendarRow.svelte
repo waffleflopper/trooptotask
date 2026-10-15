@@ -136,8 +136,7 @@
 		{@const label = `${personLabel}, ${day.dateLabel}`}
 		{@const open = onMarkerClick && (() => onMarkerClick(day.date))}
 		{@const action = open ? '. Edit assignments' : ''}
-		<!-- Positioned over the cell so markers are sibling targets of the cell button, never nested in it.
-		     An absolutely placed grid item's auto end line is the row's edge, so the span stays explicit. -->
+		<!-- An absolutely placed grid item's auto end line is the row's edge, so the span stays explicit. -->
 		<div
 			class="pointer-events-none absolute inset-0 z-[2] flex min-w-0 items-end justify-end gap-px p-[3px]"
 			style:grid-row="1 / span 1"

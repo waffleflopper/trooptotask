@@ -42,8 +42,7 @@ export async function runBlock(config) {
 		Boolean(element.offsetParent || element.getClientRects().length) &&
 		!element.closest('[aria-hidden="true"]');
 	const all = (selector) => [...document.querySelectorAll(selector)];
-	// Per-day cells before #1684 and labeled bars after, so both revisions match.
-	const LONG_RANGE_STATUS = '.status-cell, .roster-rows [data-slot="status-bar"]';
+	const STATUS_CELLS_OR_BARS = '.status-cell, .roster-rows [data-slot="status-bar"]';
 	const firstVisible = (selector) => all(selector).find(visible);
 	const buttonNamed = (text) => all('button').find((button) => visible(button) && button.textContent.trim() === text);
 	const labelled = (name) => firstVisible(`[aria-label="${name}"]`);
@@ -68,7 +67,7 @@ export async function runBlock(config) {
 		total: document.getElementsByTagName('*').length,
 		grid: document.querySelectorAll('.virtual-row *').length,
 		dateCells: document.querySelectorAll('[data-slot="date-cell"]').length,
-		statusCells: document.querySelectorAll(LONG_RANGE_STATUS).length,
+		statusCells: document.querySelectorAll(STATUS_CELLS_OR_BARS).length,
 		virtualRows: document.querySelectorAll('.virtual-row').length
 	});
 
@@ -376,7 +375,7 @@ export async function runBlock(config) {
 					await measure(
 						'to-3-month',
 						() => buttonNamed('3-Month').click(),
-						() => Boolean(longRangeLabel()) && document.querySelectorAll(LONG_RANGE_STATUS).length > 0,
+						() => Boolean(longRangeLabel()) && document.querySelectorAll(STATUS_CELLS_OR_BARS).length > 0,
 						{
 							detail: () => ({ label: longRangeLabel()?.textContent.trim() })
 						}

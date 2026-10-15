@@ -2,7 +2,6 @@ import type { AvailabilityEntry, StatusType } from '$features/calendar/contracts
 import { DAY_MS, type DayNumber, type DayWindow } from './dayNumber';
 import { oneDayLabel } from './oneDayLabel';
 
-/** One saved or pending entry with its status, in day numbers. `end` is inclusive. */
 export interface AvailabilitySpan {
 	readonly entry: AvailabilityEntry;
 	readonly status: StatusType;
@@ -10,12 +9,8 @@ export interface AvailabilitySpan {
 	readonly end: DayNumber;
 }
 
-/**
- * Month labels tier by visible day count; `preferLongest` is the Show status text preference.
- * 3-Month labels tier by the bar's width in pixels.
- */
 export type LabelPolicy =
-	| { readonly view: 'month'; readonly preferLongest: boolean }
+	| { readonly view: 'month'; readonly showStatusText: boolean }
 	| { readonly view: '3-month'; readonly dayPx: number };
 
 export type BarLabel =
@@ -25,24 +20,20 @@ export type BarLabel =
 	| { readonly kind: 'name-note'; readonly name: string; readonly note: string }
 	| { readonly kind: 'name-length'; readonly name: string; readonly days: number };
 
-/** A lone entry fills the track; overlapping entries split it into a top and a bottom lane. */
 export type BarLane = 'full' | 'top' | 'bottom';
 
 export interface Bar {
 	readonly entry: AvailabilityEntry;
 	readonly status: StatusType;
-	/** Inclusive indexes into the window. */
 	readonly start: number;
 	readonly end: number;
 	readonly lane: BarLane;
 	readonly continuesBefore: boolean;
 	readonly continuesAfter: boolean;
 	readonly label: BarLabel;
-	/** "Leave, 20 to 23 October 2026, 4 days, Block leave". The row prefixes the person. */
 	readonly description: string;
 }
 
-/** Entries of a cluster that needed a third lane, summarized as one "+N" target in the bottom lane. */
 export interface BarOverflow {
 	readonly start: number;
 	readonly end: number;
@@ -71,8 +62,9 @@ const MONTHS = [
 ];
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-/** A 9px mono glyph is about 5.4px wide. The budget rounds up and adds the bar's padding and chevrons. */
-const GLYPH_PX = 6;
+const LABEL_FONT_PX = 9;
+const MONO_ADVANCE_EM = 0.6;
+const GLYPH_PX = Math.ceil(LABEL_FONT_PX * MONO_ADVANCE_EM);
 const PADDING_PX = 10;
 const CHEVRON_PX = 8;
 
@@ -102,7 +94,6 @@ function dayCount(days: number): string {
 	return `${days} ${days === 1 ? 'day' : 'days'}`;
 }
 
-/** "20 to 23 October 2026", "26 October to 3 November 2026", "21 October 2026". */
 export function longRangeLabel(startDay: number, endDay: number): string {
 	const start = civil(startDay);
 	const end = civil(endDay);
@@ -113,7 +104,6 @@ export function longRangeLabel(startDay: number, endDay: number): string {
 	return `${start.day} to ${endText}`;
 }
 
-/** "Tue 20 – Fri 23 Oct", "Mon 26 Oct – Tue 3 Nov", "Wed 21 Oct". */
 export function shortRangeLabel(startDay: number, endDay: number): string {
 	const start = civil(startDay);
 	const end = civil(endDay);
@@ -143,7 +133,7 @@ export function barLabel(placed: Placed, policy: LabelPolicy): BarLabel {
 	const note = span.entry.note?.trim();
 
 	if (policy.view === 'month') {
-		if (policy.preferLongest) return note ? { kind: 'name-note', name, note } : { kind: 'name', text: name };
+		if (policy.showStatusText) return note ? { kind: 'name-note', name, note } : { kind: 'name', text: name };
 		if (visibleDays === 1) return { kind: 'one-day', text: oneDayLabel(span.status) };
 		if (visibleDays <= 3 || !note) return { kind: 'name', text: name };
 		return { kind: 'name-note', name, note };
@@ -175,16 +165,17 @@ function place(spans: readonly AvailabilitySpan[], window: DayWindow): Placed[] 
 			continuesAfter: end > last
 		});
 	}
-	// Longer entries take the top lane when two start on the same visible day.
-	return placed.sort(
-		(a, b) =>
-			a.start - b.start ||
-			b.span.end - a.span.end ||
-			(a.span.entry.id < b.span.entry.id ? -1 : a.span.entry.id > b.span.entry.id ? 1 : 0)
+	return placed.sort(byStartThenLongest);
+}
+
+function byStartThenLongest(a: Placed, b: Placed): number {
+	return (
+		a.start - b.start ||
+		b.span.end - a.span.end ||
+		(a.span.entry.id < b.span.entry.id ? -1 : a.span.entry.id > b.span.entry.id ? 1 : 0)
 	);
 }
 
-/** Lowest free lane per entry; inclusive ranges, so an entry ending the day another starts overlaps it. */
 function assignLanes(cluster: readonly Placed[]): number[] {
 	const laneEnds: number[] = [];
 	return cluster.map((item) => {
@@ -211,11 +202,6 @@ function overflowFor(items: readonly Placed[]): BarOverflow {
 	};
 }
 
-/**
- * Lanes are local to the window. An entry alone in the visible days fills the track even when it
- * overlaps another entry outside them. A cluster that needs a third lane keeps its first-lane bars
- * and summarizes every other entry in one bottom-lane "+N" target, so no target covers another.
- */
 export function layoutBars(spans: readonly AvailabilitySpan[], window: DayWindow, policy: LabelPolicy): BarLayout {
 	const placed = place(spans, window);
 	const bars: Bar[] = [];

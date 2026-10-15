@@ -5,12 +5,10 @@
 
 	interface Props {
 		layout: BarLayout;
-		/** "SGT Okafor, Daniel", the start of every bar's accessible name. */
 		personLabel: string;
 		size: 'month' | 'compact';
 		selectedEntryId?: string | null;
 		selection?: { start: number; end: number } | null;
-		/** Shows resize handles on the selected bar. Edges clipped by the window get none. */
 		onPressEdge?: (event: PointerEvent, bar: Bar, edge: 'start' | 'end') => void;
 		onOpenEntry?: (entry: AvailabilityEntry, anchor: HTMLElement) => void;
 		onOpenOverflow?: (entryIds: readonly string[], anchor: HTMLElement) => void;

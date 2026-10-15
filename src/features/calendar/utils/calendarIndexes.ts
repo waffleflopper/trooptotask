@@ -4,6 +4,12 @@ export function assignmentSlotKey(date: string, assignmentTypeId: string): strin
 	return `${date}::${assignmentTypeId}`;
 }
 
+export function indexByPersonId<T extends { readonly personId: string }>(
+	records: readonly T[]
+): ReadonlyMap<string, T> {
+	return new Map(records.map((record) => [record.personId, record]));
+}
+
 export function indexAssignmentsBySlot(assignments: readonly DailyAssignment[]): ReadonlyMap<string, DailyAssignment> {
 	const bySlot = new Map<string, DailyAssignment>();
 	for (const assignment of assignments) {

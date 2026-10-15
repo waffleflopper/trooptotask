@@ -9,7 +9,6 @@
 	interface Props extends Omit<HTMLAttributes<HTMLSpanElement>, 'children'> {
 		status: Pick<StatusType, 'color' | 'textColor'>;
 		label: BarLabel;
-		/** `lane` is half of a month row shared with an overlapping entry; `compact` is the 3-Month row. */
 		size?: 'regular' | 'lane' | 'compact';
 		/** The entry starts before the visible days, so the start is square with a chevron. */
 		continuesBefore?: boolean;

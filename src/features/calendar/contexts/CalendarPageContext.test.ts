@@ -273,8 +273,6 @@ describe('CalendarPageContext', () => {
 		it('highlightOnboarding starts true', () => expect(ctx.highlightOnboarding).toBe(true));
 	});
 
-	// ---- availability editor ----------------------------------------------
-
 	const operateCapabilities = {
 		calendar: 'operate',
 		personnel: 'view',

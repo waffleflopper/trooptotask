@@ -1,7 +1,3 @@
-/**
- * Pointer gestures on a person's month row, as a pure reducer. Days are window indexes; a
- * resize's fixed edge may sit outside the window when the entry continues past it.
- */
 export type GestureState =
 	| { readonly kind: 'idle' }
 	| {
@@ -71,7 +67,6 @@ export interface GestureStep {
 
 export const IDLE: GestureState = { kind: 'idle' };
 
-/** Movement below this stays a click, so a jitter across a cell edge does not start a drag. */
 export const DRAG_THRESHOLD_PX = 4;
 
 const NONE: GestureEffect = { type: 'none' };
@@ -80,10 +75,7 @@ function stay(state: GestureState): GestureStep {
 	return { state, effect: NONE };
 }
 
-/**
- * Touch never starts a gesture, so taps stay clicks and scrolling stays native. The pointer is
- * captured on entering `selecting`, not on press, so a click on the pressed day still reaches it.
- */
+/** The pointer is captured on entering `selecting`, not on press, so a click on the pressed day still reaches it. */
 export function gestureStep(state: GestureState, event: GestureEvent): GestureStep {
 	if (event.type === 'cancel') return stay(IDLE);
 
@@ -161,7 +153,6 @@ export function gestureStep(state: GestureState, event: GestureEvent): GestureSt
 	}
 }
 
-/** The days a gesture currently covers, for the selection box or the resize preview. */
 export function gestureRange(state: GestureState): { readonly start: number; readonly end: number } | null {
 	switch (state.kind) {
 		case 'selecting':

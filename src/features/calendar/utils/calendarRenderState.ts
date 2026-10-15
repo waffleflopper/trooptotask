@@ -29,7 +29,6 @@ export interface CalendarCellMarkerState {
 	color: string;
 }
 
-/** Day facts shared by every row. Neither the roster nor availability is an input. */
 export function buildCalendarDays(
 	dates: readonly Date[],
 	specialDays: readonly SpecialDay[]
@@ -57,12 +56,13 @@ export function buildCalendarDays(
 	});
 }
 
-/** Person duty markers by person id, then by index into `dateKeys`. Group assignments are not markers. */
+export type DutyMarkersByPersonAndDay = ReadonlyMap<string, ReadonlyMap<number, readonly CalendarCellMarkerState[]>>;
+
 export function buildDutyMarkers(
 	assignments: readonly DailyAssignment[],
 	assignmentTypes: readonly AssignmentType[],
 	dateKeys: readonly string[]
-): ReadonlyMap<string, ReadonlyMap<number, readonly CalendarCellMarkerState[]>> {
+): DutyMarkersByPersonAndDay {
 	const typeById = new Map(assignmentTypes.map((type) => [type.id, type]));
 	const dayByKey = new Map(dateKeys.map((dateKey, index) => [dateKey, index]));
 	const byPerson = new Map<string, Map<number, CalendarCellMarkerState[]>>();

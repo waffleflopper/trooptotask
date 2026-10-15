@@ -8,10 +8,6 @@ import {
 
 export type GestureCommit = (effect: Extract<GestureEffect, { type: 'quick-add' | 'resize' }>) => void;
 
-/**
- * Feeds one row's pointer events to the pure gesture reducer. The row's day track is measured once
- * per press, and window listeners exist only while a gesture is in progress.
- */
 export class CalendarGesture {
 	state = $state.raw<GestureState>(IDLE);
 
@@ -48,8 +44,7 @@ export class CalendarGesture {
 		this.#send({ type: 'press-edge', ...target, pointerId: event.pointerId, pointerType: event.pointerType });
 	}
 
-	/** True once for the click that ends a drag, so the day under the pointer does not also open. */
-	consumeClick(): boolean {
+	consumeDragEndClick(): boolean {
 		const suppress = this.#suppressClick;
 		this.#suppressClick = false;
 		return suppress;

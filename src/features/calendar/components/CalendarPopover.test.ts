@@ -58,7 +58,7 @@ function renderPopover(popover: PopoverWithoutAnchor, options: { canEdit?: boole
 		statusTypes: options.statusTypes ?? STATUSES,
 		spans: buildAvailabilityTracks([leave, sick], STATUSES).spans('okafor'),
 		canEdit: options.canEdit ?? true,
-		resizable: true,
+		anchorHasResizeGrips: true,
 		saving: false,
 		onSave,
 		onEdit,

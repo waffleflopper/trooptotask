@@ -2,7 +2,7 @@ import type { Personnel } from '$features/personnel/contracts';
 import type { AvailabilityEntry } from '$features/calendar/contracts';
 import { buildAvailabilityTracks } from '$features/calendar/utils/availabilityTracks';
 import {
-	availabilityChangeDates,
+	rereadDatesFor,
 	classifyAvailabilityWrite,
 	type AvailabilityChange
 } from '$features/calendar/utils/availabilityMutation';
@@ -19,6 +19,7 @@ import { createRosterReadModel } from '$features/personnel/contracts';
 import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
 import { loadCalendarRange } from '$features/calendar/utils/calendarRangeLoader';
 import { rangeCoversSpan } from '$features/calendar/utils/calendarRange';
+import { indexByPersonId } from '$features/calendar/utils/calendarIndexes';
 import { withinOrganizationLifetime } from '$lib/stores/core';
 import type { CapabilityLevel, ScopeSet } from '$lib/access/memberAccessShape';
 import type { FeatureLanePolicyAction, PolicyDecision } from '$lib/access/policyEvaluator';
@@ -34,7 +35,6 @@ export interface CalendarRosterFilterOption {
 	count?: number;
 }
 
-/** The page's one floating surface. Opening any of them closes the others. */
 export type CalendarPopover =
 	| {
 			readonly kind: 'quick-add';
@@ -62,11 +62,6 @@ export type AvailabilityEditorRequest =
 	  }
 	| { readonly kind: 'edit'; readonly person: Personnel; readonly entry: AvailabilityEntry };
 
-/**
- * `unconfirmed` means neither the reply nor a re-read could say whether the write landed.
- * `stale` means there is nothing to report, because the page moved to other access or another
- * write was still settling.
- */
 export type AvailabilityOutcome = 'saved' | 'not-saved' | 'unconfirmed' | 'stale';
 
 export interface CalendarDisplayPreferences {
@@ -204,7 +199,6 @@ export class CalendarPageContext {
 	}
 
 	// ---- derived: personnel groupings --------------------------------------
-	// Computed once per input change, so a search keystroke rebuilds only the roster (#1570).
 	readonly #calendarRoster = $derived(
 		createRosterReadModel({
 			personnel: this.calendarPersonnel,
@@ -237,7 +231,6 @@ export class CalendarPageContext {
 			}).personnelByGroup
 	);
 
-	/** Rebuilt only by entry and status type changes, never by the roster, search or filters. */
 	readonly availabilityTracks = $derived(buildAvailabilityTracks(availabilityStore.items, statusTypesStore.items));
 
 	// ---- reference date (for upcoming-loss evaluation) --------------------
@@ -261,8 +254,7 @@ export class CalendarPageContext {
 	readonly upcomingLossMap: ReadonlyMap<string, UpcomingLossRecord> = $derived.by(() => {
 		const windowDays = this.#workspaceData?.lossWarningWindowDays ?? 180;
 		const losses = evaluateUpcomingLosses(this.calendarPersonnel, windowDays, this.#today);
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- A fresh read-only map per derivation; never mutated.
-		return new Map(losses.map((record) => [record.personId, record]));
+		return indexByPersonId(losses);
 	});
 
 	// ---- constructor -------------------------------------------------------
@@ -370,18 +362,13 @@ export class CalendarPageContext {
 		this.popover = null;
 	}
 
-	/**
-	 * One request for the change. When its reply is refused or lost, one re-read of the affected
-	 * dates decides the outcome, so a retry never duplicates a write that landed. Never retries.
-	 */
 	async saveAvailability(change: AvailabilityChange): Promise<AvailabilityOutcome> {
 		if (this.savingAvailability) return 'stale';
 		this.savingAvailability = true;
 		const orgId = this.#data.orgId;
 		const accessKey = this.#calendarAccessKey();
 		const current = () => this.#data.orgId === orgId && this.#calendarAccessKey() === accessKey;
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- A snapshot of ids before the write; never mutated.
-		const knownIds = new Set(availabilityStore.items.map((entry) => entry.id));
+		const entriesBeforeWrite = [...availabilityStore.items];
 		try {
 			const confirmed = await writeAvailability(change).catch(() => false);
 			if (!current()) return 'stale';
@@ -391,13 +378,13 @@ export class CalendarPageContext {
 			}
 			let reread: AvailabilityEntry[] | null;
 			try {
-				reread = await this.reconcileAvailability(availabilityChangeDates(change), orgId);
+				reread = await this.reconcileAvailability(rereadDatesFor(change), orgId);
 			} catch {
 				toastStore.error('Could not confirm the saved status. Reload the calendar before trying again.');
 				return 'unconfirmed';
 			}
 			if (reread === null) return 'stale';
-			const outcome = classifyAvailabilityWrite(change, knownIds, reread);
+			const outcome = classifyAvailabilityWrite(change, entriesBeforeWrite, reread);
 			if (outcome === 'saved') announceSaved(change);
 			else toastStore.error(`Could not ${change.kind === 'remove' ? 'remove' : 'save'} status. Try again.`);
 			return outcome;

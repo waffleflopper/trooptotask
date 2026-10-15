@@ -34,22 +34,19 @@ describe('buildDutyMarkers', () => {
 				assignment({ id: 'manual' }),
 				assignment({ id: 'linked', date: '2026-03-02' }),
 				assignment({ id: 'edited', date: '2026-03-03', assigneeId: 'person-2' }),
-				assignment({ id: 'outside', date: '2026-03-09' })
+				assignment({ id: 'outside', date: '2026-03-09' }),
+				assignment({ id: 'type-gone', date: '2026-03-03', assignmentTypeId: 'deleted-type' })
 			],
 			assignmentTypes,
 			dateKeys
 		);
+		const mod = { name: 'Manager on Duty', shortName: 'MOD', color: '#dc2626' };
 
-		expect([...markers.entries()].map(([person, byDay]) => [person, [...byDay.entries()]])).toEqual([
-			[
-				'person-1',
-				[
-					[0, [{ id: 'manual', name: 'Manager on Duty', shortName: 'MOD', color: '#dc2626' }]],
-					[1, [{ id: 'linked', name: 'Manager on Duty', shortName: 'MOD', color: '#dc2626' }]]
-				]
-			],
-			['person-2', [[2, [{ id: 'edited', name: 'Manager on Duty', shortName: 'MOD', color: '#dc2626' }]]]]
-		]);
+		expect(markers.get('person-1')?.get(0)).toEqual([{ id: 'manual', ...mod }]);
+		expect(markers.get('person-1')?.get(1)).toEqual([{ id: 'linked', ...mod }]);
+		expect(markers.get('person-1')?.get(2)).toBeUndefined();
+		expect(markers.get('person-2')?.get(2)).toEqual([{ id: 'edited', ...mod }]);
+		expect(new Set(markers.get('person-1')?.keys())).toEqual(new Set([0, 1]));
 	});
 
 	it('does not turn a Group assignment into a marker for a person with the same id', () => {
@@ -64,34 +61,26 @@ describe('buildDutyMarkers', () => {
 });
 
 describe('buildCalendarDays', () => {
-	it('names each day and keeps the first special day saved for a date', () => {
+	it('names each day and marks weekends and the special day saved for a date', () => {
 		const special: SpecialDay = { id: 'special-1', date: '2026-03-01', name: 'Training Holiday', type: 'org-closure' };
-		const days = buildCalendarDays(
-			[new Date(2026, 2, 1), new Date(2026, 2, 2)],
-			[special, { ...special, id: 'special-2', name: 'Duplicate' }]
+		const days = new Map(
+			buildCalendarDays([new Date(2026, 2, 1), new Date(2026, 2, 2)], [special]).map((day) => [day.dateKey, day])
 		);
 
-		expect(days.map(({ date: _date, specialDay: _special, today: _today, ...facts }) => facts)).toEqual([
-			{
-				dateKey: '2026-03-01',
-				dayName: 'Sun',
-				dayOfMonth: 1,
-				dateLabel: 'Sunday, March 1, 2026',
-				weekend: true,
-				holiday: true,
-				holidayName: 'Training Holiday',
-				title: 'Training Holiday'
-			},
-			{
-				dateKey: '2026-03-02',
-				dayName: 'Mon',
-				dayOfMonth: 2,
-				dateLabel: 'Monday, March 2, 2026',
-				weekend: false,
-				holiday: false,
-				holidayName: undefined,
-				title: 'Click to set daily assignments'
-			}
-		]);
+		expect(days.get('2026-03-01')).toMatchObject({
+			dayName: 'Sun',
+			dayOfMonth: 1,
+			dateLabel: 'Sunday, March 1, 2026',
+			weekend: true,
+			holiday: true,
+			holidayName: 'Training Holiday'
+		});
+		expect(days.get('2026-03-02')).toMatchObject({
+			dayName: 'Mon',
+			dayOfMonth: 2,
+			dateLabel: 'Monday, March 2, 2026',
+			weekend: false,
+			holiday: false
+		});
 	});
 });

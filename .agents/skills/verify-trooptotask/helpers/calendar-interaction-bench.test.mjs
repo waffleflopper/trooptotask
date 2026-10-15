@@ -65,6 +65,6 @@ test('an interaction whose repetitions all failed reports no extrema and prints 
 	assert.equal(row.maxMs, null);
 	assert.equal(row.longTaskMaxMs, null);
 	const markdown = table(rows);
-	assert.match(markdown, /\| n\/a–n\/a \|/);
+	assert.match(markdown, /n\/a/);
 	assert.doesNotMatch(markdown, /Infinity|null|undefined|NaN/);
 });

@@ -49,15 +49,23 @@ describe('buildAvailabilityTracks', () => {
 		expect(tracks.spans('nobody')).toEqual([]);
 	});
 
-	it('returns the same layout for a person until the window or label policy changes', () => {
+	it("reuses a person's layout for the same window and policy, and lays it out again for a new one", () => {
 		const tracks = buildAvailabilityTracks([entry('a', 'p1', '2026-10-05', '2026-10-09')], [leave]);
 		const october = dayWindow('2026-10-01', 31);
-		const policy = { view: 'month', showStatusText: false } as const;
+		const month = { view: 'month', showStatusText: false } as const;
+		const placed = (layout: ReturnType<typeof tracks.layout>) =>
+			layout.bars.map((bar) => [bar.start, bar.end, bar.label]);
 
-		const first = tracks.layout('p1', october, policy);
+		const first = tracks.layout('p1', october, month);
 
 		expect(tracks.layout('p1', dayWindow('2026-10-01', 31), { view: 'month', showStatusText: false })).toBe(first);
-		expect(tracks.layout('p1', october, { view: 'month', showStatusText: true })).not.toBe(first);
+		expect(placed(tracks.layout('p1', dayWindow('2026-10-03', 31), month))).toEqual([
+			[2, 6, { kind: 'name', text: 'Leave' }]
+		]);
+		expect(placed(tracks.layout('p1', october, { view: '3-month', dayPx: 10 }))).toEqual([
+			[4, 8, { kind: 'one-day', text: 'LEA' }]
+		]);
+		expect(placed(tracks.layout('p1', october, month))).toEqual([[4, 8, { kind: 'name', text: 'Leave' }]]);
 	});
 
 	it('counts each person out once per day, however many of their entries overlap', () => {

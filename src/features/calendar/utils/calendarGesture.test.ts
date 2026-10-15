@@ -70,9 +70,18 @@ describe('gestureStep', () => {
 	});
 
 	it('ignores another pointer while one gesture runs', () => {
-		const selecting = run([press(4, 100), move(6, 160)]).state;
+		const other: GestureEvent[] = [
+			{ type: 'move', day: 9, x: 300, pointerId: 2 },
+			{ type: 'release', pointerId: 2 }
+		];
 
-		expect(gestureStep(selecting, { type: 'release', pointerId: 2 }).state).toBe(selecting);
+		expect(run([press(4, 100), move(6, 160), ...other, release]).effects).toEqual([
+			'-',
+			'{"type":"capture"}',
+			'-',
+			'-',
+			'{"type":"quick-add","personId":"p1","start":4,"end":6}'
+		]);
 	});
 
 	describe('resizing', () => {

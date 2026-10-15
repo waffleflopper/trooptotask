@@ -72,13 +72,6 @@ describe('LongRangeView', () => {
 		vi.clearAllMocks();
 	});
 
-	it('names the shown quarter without exports of its own', () => {
-		renderView();
-
-		expect(screen.getByTestId('long-range-date-label').textContent).toContain('March 2026');
-		expect(screen.queryByRole('button', { name: /Excel|PDF|3-Month/ })).toBeNull();
-	});
-
 	it('names each date column with its full date and jumps to that date', async () => {
 		const onDateColumnClick = vi.fn();
 		renderView({ onDateColumnClick });

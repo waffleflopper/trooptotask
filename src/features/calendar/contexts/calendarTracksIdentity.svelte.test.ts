@@ -54,7 +54,7 @@ afterEach(() => {
 	statusTypesStore.load([], '');
 });
 
-it('keeps the availability tracks through search and group filter changes and rebuilds them for new entries', () => {
+it('publishes the availability tracks once through search, group filter and onboarding changes, and again for new entries', () => {
 	statusTypesStore.load([leave], 'org1');
 	availabilityStore.load([entry('a', '2026-04-07')], 'org1');
 	const ctx = new CalendarPageContext(
@@ -79,6 +79,9 @@ it('keeps the availability tracks through search and group filter changes and re
 	ctx.setCalendarGroupFilter('Alpha');
 	flushSync();
 	expect(ctx.filteredPBG).toEqual([]);
+	ctx.toggleHighlightOnboarding();
+	flushSync();
+	expect(ctx.highlightOnboarding).toBe(false);
 	expect(rendered).toHaveLength(1);
 
 	availabilityStore.load([entry('a', '2026-04-07'), entry('b', '2026-04-09')], 'org1');

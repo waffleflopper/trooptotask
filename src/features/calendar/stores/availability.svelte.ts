@@ -12,7 +12,7 @@
  *
  * Loaded by the calendar page load function and populated from the server response.
  */
-import { defineStore, stillInOrganizationLifetime } from '$lib/stores/core';
+import { buildRequestError, defineStore, stillInOrganizationLifetime } from '$lib/stores/core';
 import type { Store, BatchApiAdapter } from '$lib/stores/core';
 import type { AvailabilityEntry } from '$features/calendar/contracts';
 import { isDateInRange, formatDate } from '$lib/utils/dates';
@@ -75,10 +75,11 @@ function createAvailabilityBatchAdapter(): BatchApiAdapter<AvailabilityEntry> {
 		/**
 		 * Chunked batch create. Keeps going past a failed chunk and returns the entries that
 		 * made it in, so callers detect partial failure by comparing attempted and inserted
-		 * counts. Throws only when nothing was inserted at all.
+		 * counts. Throws the first chunk's failure only when nothing was inserted at all.
 		 */
 		async createBatch(items) {
 			const inserted: AvailabilityEntry[] = [];
+			let firstFailure: unknown = null;
 			const organizationId = orgIdRef;
 			const sameLifetime = stillInOrganizationLifetime();
 			for (let i = 0; i < items.length; i += CREATE_BATCH_CHUNK_SIZE) {
@@ -91,14 +92,16 @@ function createAvailabilityBatchAdapter(): BatchApiAdapter<AvailabilityEntry> {
 						headers,
 						body: JSON.stringify({ records: chunk })
 					});
-					if (!res.ok) continue;
+					if (!res.ok) throw await buildRequestError(res, 'POST', 'availability/batch');
 					const data = await res.json();
 					inserted.push(...(data.inserted ?? []));
-				} catch {
+				} catch (failure) {
 					// A failed chunk must not abandon the remaining chunks.
+					firstFailure ??= failure;
 				}
 			}
-			if (items.length > 0 && inserted.length === 0) throw new Error('Failed to add availability batch');
+			if (items.length > 0 && inserted.length === 0)
+				throw firstFailure ?? new Error('Failed to add availability batch');
 			return inserted;
 		},
 

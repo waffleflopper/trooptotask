@@ -157,7 +157,7 @@ describe('Personnel workspace page delivery', () => {
 		expect(workspace.hydration.orgId).toBe(ORG);
 	});
 
-	it('preserves the optional settings fallback through page delivery', async () => {
+	it('delivers the roster with loss warnings unavailable when Organization settings fail', async () => {
 		const ctx = seededContext();
 		const read = ctx.store.findOne.bind(ctx.store);
 		ctx.store.findOne = async (table, ...args) => {
@@ -168,7 +168,7 @@ describe('Personnel workspace page delivery', () => {
 		const route = (await _createPersonnelLayoutLoad()(eventFor())) as PersonnelWorkspaceRouteData;
 		const workspace = granted(await route.personnel.data);
 
-		expect(workspace.data.lossWarningWindowDays).toBe(180);
+		expect(workspace.data.lossWarningWindowDays).toBeNull();
 		expect(workspace.data.personnel.map((person) => person.id)).toEqual(['able']);
 	});
 

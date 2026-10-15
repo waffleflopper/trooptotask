@@ -218,6 +218,28 @@ describe('CalendarPageView', () => {
 		expect(screen.getByRole('button', { name: /January 2027/ })).toBeTruthy();
 	});
 
+	it('says loss warnings are unavailable when the window could not be read', async () => {
+		mutableAvailabilityStore.loading = false;
+		mutableDailyAssignmentsStore.loading = false;
+		mutableSpecialDaysStore.loading = false;
+		mutableStatusTypesStore.loading = false;
+		mutableGroupsStore.loading = false;
+		const personnel = [{ ...filterPersonnel[0], ets: '2026-04-20' }];
+		const data = {
+			...mockData,
+			personnel,
+			allPersonnel: personnel,
+			calendar: { data: { personnel, lossWarningWindowDays: null } }
+		};
+
+		render(CalendarPageView, {
+			props: { ctx: makeContext(data, makeMockOrg()), data: { orgId: data.orgId, orgName: 'Test Org' } }
+		});
+
+		expect(screen.getByText('Loss warnings could not be loaded, so ETS and PCS flags are not shown.')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Reload page' })).toBeTruthy();
+	});
+
 	it('wires typed personnel search into the rendered calendar roster', async () => {
 		mutableAvailabilityStore.loading = false;
 		mutableDailyAssignmentsStore.loading = false;

@@ -3,6 +3,7 @@
 	import type { StatusType } from '$features/calendar/contracts';
 	import { formatDate } from '$lib/utils/dates';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { rejectedRequestMessage } from '$lib/stores/core';
 	import { CalendarStatusBadge } from './calendar-status-badge';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Badge as UiBadge } from '$lib/components/ui/badge';
@@ -105,6 +106,8 @@
 			}
 			step = 'select';
 			if (insertedIds.length === ids.length) onComplete();
+		} catch (error) {
+			toastStore.error(rejectedRequestMessage(error, 'Failed to apply status'));
 		} finally {
 			isSubmitting = false;
 		}

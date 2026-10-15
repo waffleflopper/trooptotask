@@ -10,6 +10,7 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { rejectedRequestMessage } from '$lib/stores/core';
 	import type { AssignmentType } from '$features/calendar/contracts';
 	import Pencil from '@lucide/svelte/icons/pencil';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
@@ -98,7 +99,7 @@
 	}
 
 	function showAssignmentMutationError(message: string, error?: unknown) {
-		toastStore.error(error instanceof Error ? error.message : message);
+		toastStore.error(rejectedRequestMessage(error, message));
 	}
 
 	async function addAssignType() {

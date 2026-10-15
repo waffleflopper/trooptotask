@@ -59,7 +59,11 @@ export type {
 export { isOrganizationRawExportTable } from './rawExportTypes';
 export type { OrganizationRawExportTable, OrganizationRawExportReader } from './rawExportTypes';
 export type { PoliciesSettingsData, SettingsPoliciesSectionData } from './policiesSettingsTypes';
-export { DEFAULT_ARCHIVE_RETENTION_MONTHS, DEFAULT_LOSS_WARNING_WINDOW_DAYS } from './policyConstraints';
+export {
+	DEFAULT_ARCHIVE_RETENTION_MONTHS,
+	DEFAULT_LOSS_WARNING_WINDOW_DAYS,
+	readLossWarningWindowDays
+} from './policyConstraints';
 
 export { buildSettingsShell } from './settingsShell';
 export type { SettingsShell, SettingsShellOrganizationSource } from './settingsShell';

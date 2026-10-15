@@ -407,7 +407,7 @@ describe('Personnel workspace isolation and failures', () => {
 		await expect(loadPersonnelWorkspace(ctx, sourcesFor(ctx))).rejects.toThrow('Unavailable acknowledgements');
 	});
 
-	it('retains roster facts and the 180-day default when optional Organization settings fail', async () => {
+	it('retains roster facts and reports the loss warning window unavailable when settings fail', async () => {
 		const ctx = createQueryWithRawStorePortsContext();
 		seedPersonnel(ctx.store);
 		const { data } = await loadPersonnelWorkspace(ctx, {
@@ -418,7 +418,21 @@ describe('Personnel workspace isolation and failures', () => {
 		});
 
 		expect(data.personnel.map((person) => person.id)).toEqual(['p2', 'p1']);
-		expect(data.lossWarningWindowDays).toBe(180);
+		expect(data.lossWarningWindowDays).toBeNull();
+	});
+
+	it.each([
+		[60, 60],
+		[undefined, 180]
+	] as const)('keeps a stored warning window of %s as %s', async (stored, expected) => {
+		const ctx = createQueryWithRawStorePortsContext();
+		seedPersonnel(ctx.store);
+		const { data } = await loadPersonnelWorkspace(ctx, {
+			...sourcesFor(ctx),
+			loadLossWarningWindowDays: async () => stored
+		});
+
+		expect(data.lossWarningWindowDays).toBe(expected);
 	});
 
 	it('produces usable hydration targets with the trusted Organization and opaque snapshot keys', async () => {

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { availabilityStore } from './availability.svelte';
-import { endOrganizationLifetime } from '$lib/stores/core';
+import { endOrganizationLifetime, rejectedRequestMessage } from '$lib/stores/core';
 import { settles } from '$lib/test-support/settles';
 import type { AvailabilityEntry } from '$features/calendar/contracts';
 
@@ -112,12 +112,15 @@ describe('availabilityStore', () => {
 			expect(result).toHaveLength(1);
 		});
 
-		it('resolves to an empty list when every chunk fails', async () => {
-			vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500, json: () => Promise.resolve({}) }));
+		it('rejects with the server reason and keeps the saved entries when every chunk fails', async () => {
+			vi.stubGlobal(
+				'fetch',
+				vi.fn().mockResolvedValue(Response.json({ message: 'Note must be 200 characters or fewer' }, { status: 400 }))
+			);
 
-			const result = await availabilityStore.addBatch([record(3)]);
+			const failure = await availabilityStore.addBatch([record(3)]).catch((error: unknown) => error);
 
-			expect(result).toEqual([]);
+			expect(rejectedRequestMessage(failure, 'fallback')).toBe('Note must be 200 characters or fewer');
 			expect(availabilityStore.items).toHaveLength(3);
 		});
 	});

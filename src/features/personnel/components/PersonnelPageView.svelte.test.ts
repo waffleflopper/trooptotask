@@ -495,7 +495,7 @@ describe('PersonnelPageView', () => {
 		});
 	});
 
-	it('shows a pin immediately and restores the button after a denied save', async () => {
+	it('shows a pin immediately and restores the button with a message after a denied save', async () => {
 		const ctx = {
 			...makeCtx(),
 			viewMode: 'by-group'
@@ -524,6 +524,22 @@ describe('PersonnelPageView', () => {
 		await waitFor(() =>
 			expect(screen.getByRole('button', { name: 'Pin Alpha' }).getAttribute('aria-pressed')).toBe('false')
 		);
+		expect(toastErrorMock.mock.calls.map(([message]) => message)).toEqual([
+			'Failed to update pinned Groups. Try again.'
+		]);
+	});
+
+	it('says loss warnings are unavailable and offers a reload when the window could not be read', async () => {
+		const reload = vi.fn();
+		vi.stubGlobal('location', { ...window.location, reload });
+		const ctx = { ...makeCtx(), lossWarningsUnavailable: true } as unknown as PersonnelPageContext;
+		render(PersonnelPageView, { props: { ctx, requestArchiveApproval } });
+
+		expect(screen.getByRole('status').textContent).toContain(
+			'Loss warnings could not be loaded, so ETS and PCS flags are not shown.'
+		);
+		await fireEvent.click(screen.getByRole('button', { name: 'Reload page' }));
+		expect(reload).toHaveBeenCalledOnce();
 	});
 
 	describe('upcoming-loss indicators', () => {

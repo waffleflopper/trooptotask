@@ -745,6 +745,38 @@ describe('CalendarPageContext', () => {
 			expect(ctxLoss.upcomingLossMap.has('p1')).toBe(true);
 		});
 
+		it('shows no loss flags and reports warnings unavailable when the window could not be read', () => {
+			const personnel = [makePersonWithEts('p1', IN_WINDOW)];
+			const ctxLoss = makeContext(
+				{
+					...mockData,
+					personnel,
+					allPersonnel: personnel,
+					calendar: { data: { personnel, lossWarningWindowDays: null } }
+				},
+				org,
+				TODAY
+			);
+			expect([...ctxLoss.upcomingLossMap.keys()]).toEqual([]);
+			expect(ctxLoss.lossWarningsUnavailable).toBe(true);
+		});
+
+		it('flags an ETS 60 days out but not 61 under a stored 60-day window', () => {
+			const personnel = [makePersonWithEts('day-60', '2026-06-13'), makePersonWithEts('day-61', '2026-06-14')];
+			const ctxLoss = makeContext(
+				{
+					...mockData,
+					personnel,
+					allPersonnel: personnel,
+					calendar: { data: { personnel, lossWarningWindowDays: 60 } }
+				},
+				org,
+				TODAY
+			);
+			expect([...ctxLoss.upcomingLossMap.keys()]).toEqual(['day-60']);
+			expect(ctxLoss.lossWarningsUnavailable).toBe(false);
+		});
+
 		it('defaults to a 180-day window when lossWarningWindowDays is absent', () => {
 			// ETS 120 days from today — inside the 180-day default
 			const personnel = [makePersonWithEts('p1', '2026-08-12')];

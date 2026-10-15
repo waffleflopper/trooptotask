@@ -689,7 +689,7 @@ describe('createStore', () => {
 			expect(store.items).toEqual(serverItems);
 		});
 
-		it('should rollback all temp items on batch create failure', async () => {
+		it('rolls back every temp item and rejects with the batch failure', async () => {
 			const existing: TestItem = { id: '1', name: 'Existing' };
 			const batchAdapter = makeBatchAdapter({
 				createBatch: async () => {
@@ -703,9 +703,7 @@ describe('createStore', () => {
 			});
 			store.load([existing], 'org-1');
 
-			const result = await store.addBatch([{ name: 'New1' }, { name: 'New2' }]);
-
-			expect(result).toEqual([]);
+			await expect(store.addBatch([{ name: 'New1' }, { name: 'New2' }])).rejects.toThrow('batch fail');
 			expect(store.items).toEqual([existing]);
 		});
 

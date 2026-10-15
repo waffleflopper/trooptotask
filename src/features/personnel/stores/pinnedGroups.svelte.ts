@@ -2,12 +2,16 @@
  * Pinned groups store — the ordered list this user has pinned in the active Organization.
  *
  * All mutations (pin, unpin, reorder) are optimistic: the UI updates instantly and rolls
- * back on API failure. A `#pendingMutations` counter prevents same-Organization hydration
+ * back on API failure, and a failed pin or unpin says so. A `#pendingMutations` counter prevents same-Organization hydration
  * from overwriting in-flight client changes. An Organization version isolates late responses.
  *
  * Persisted server-side per user (see `pinnedGroupOperations.server.ts`). Workspace hydration supplies
  * each Organization snapshot.
  */
+import { toastStore } from '$lib/stores/toast.svelte';
+
+const PIN_FAILURE_MESSAGE = 'Failed to update pinned Groups. Try again.';
+
 export class PinnedGroupsStore {
 	#pinnedGroups = $state.raw<string[]>([]);
 	#orgId = '';
@@ -68,8 +72,10 @@ export class PinnedGroupsStore {
 			return mutationVersion === this.#organizationVersion;
 		} catch {
 			// Rollback on failure
-			if (mutationVersion === this.#organizationVersion)
+			if (mutationVersion === this.#organizationVersion) {
 				this.#pinnedGroups = this.#pinnedGroups.filter((g) => g !== group);
+				toastStore.error(PIN_FAILURE_MESSAGE);
+			}
 			return false;
 		} finally {
 			if (mutationVersion === this.#organizationVersion) this.#pendingMutations--;
@@ -99,6 +105,7 @@ export class PinnedGroupsStore {
 				restored.splice(Math.min(originalIndex, restored.length), 0, group);
 				this.#pinnedGroups = restored;
 			}
+			if (mutationVersion === this.#organizationVersion) toastStore.error(PIN_FAILURE_MESSAGE);
 			return false;
 		} finally {
 			if (mutationVersion === this.#organizationVersion) this.#pendingMutations--;

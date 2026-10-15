@@ -85,7 +85,7 @@ function loadWithSelectedContexts(ctx: ReturnType<typeof createTestContext>) {
 
 describe('personnel detail page server load', () => {
 	it.each([0, null, 'failure', 'no-ets'] as const)(
-		'uses the owned warning scalar lazily with the retained detail fallback (%s)',
+		'uses the owned warning scalar lazily and reports a failed read as unavailable (%s)',
 		async (value) => {
 			vi.useFakeTimers({ toFake: ['Date'] });
 			vi.setSystemTime(new Date('2026-05-14T12:00:00Z'));
@@ -120,10 +120,13 @@ describe('personnel detail page server load', () => {
 				} as never);
 				const lanes = result.personnelDetail.readinessLanes;
 				const settled = Promise.allSettled(Object.values(lanes));
-				await expect(lanes.lossTracking).resolves.toMatchObject({
-					value: value === 'no-ets' ? 'Missing ETS' : value === 0 ? 'No loss risk' : 'Action needed',
-					tone: value === 'no-ets' ? 'bad' : value === 0 ? 'good' : 'watch'
-				});
+				const expected = {
+					0: { value: 'No loss risk', tone: 'good' },
+					null: { value: 'Action needed', tone: 'watch' },
+					failure: { value: 'Unavailable', tone: 'neutral' },
+					'no-ets': { value: 'Missing ETS', tone: 'bad' }
+				}[String(value)];
+				await expect(lanes.lossTracking).resolves.toMatchObject(expected!);
 				if (value === 'no-ets') expect(window).not.toHaveBeenCalled();
 				await settled;
 			} finally {

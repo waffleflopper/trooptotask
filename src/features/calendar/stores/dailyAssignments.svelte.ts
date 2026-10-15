@@ -51,15 +51,7 @@ function sameCatalog(a: readonly AssignmentType[], b: readonly AssignmentType[])
 	return canonical !== null && canonical === canonicalCatalog(b);
 }
 
-const typesStore = defineStore<AssignmentType>({
-	table: 'assignment_types',
-	overrides: {
-		onError: (operation, error) => {
-			const action = operation === 'add' ? 'create' : operation === 'update' ? 'update' : 'delete';
-			toastStore.error(error instanceof Error ? error.message : `Failed to ${action} assignment type`);
-		}
-	}
-});
+const typesStore = defineStore<AssignmentType>({ table: 'assignment_types' });
 
 interface AssignmentExtensions extends Record<string, unknown> {
 	readonly types: AssignmentType[];
@@ -284,10 +276,13 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 		async updateType(id: string, data: Partial<Omit<AssignmentType, 'id'>>): Promise<boolean> {
 			if (currentHeaderFlight()) return false;
 			const write = admitTypeWrite();
-			const updated = await typesStore.update(id, data);
-			if (updated) confirmedCatalog = write;
-			settleTypeWrite(write);
-			return updated;
+			try {
+				const updated = await typesStore.updateOrThrow(id, data);
+				if (updated) confirmedCatalog = write;
+				return updated;
+			} finally {
+				settleTypeWrite(write);
+			}
 		},
 
 		async removeType(id: string): Promise<boolean> {

@@ -22,6 +22,8 @@
 	import { trainingRankCatalogStore } from '$features/training/stores/rankCatalog.svelte';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 	import { rejectedRequestMessage } from '$lib/stores/core';
+	import { toastStore } from '$lib/stores/toast.svelte';
+	import * as Alert from '$lib/components/ui/alert';
 	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 	import {
 		getExpirationMode,
@@ -60,6 +62,7 @@
 	let error = $state('');
 	let mobileDetailOpen = $state(false);
 	let confirmDelete: { id: string; name: string } | null = $state(null);
+	let deleteError = $state('');
 	let typeList = $state<ReturnType<typeof TypeWorkspace.ItemList>>();
 
 	let editName = $state('');
@@ -257,10 +260,19 @@
 		}
 	}
 
+	function openDelete(type: { id: string; name: string }) {
+		deleteError = '';
+		confirmDelete = { id: type.id, name: type.name };
+	}
+
 	async function deleteType(id: string) {
-		if ((await trainingTypesStore.remove(id)) === 'deleted') {
-			personnelTrainingsStore.removeByTrainingTypeLocal(id);
+		deleteError = '';
+		const result = await trainingTypesStore.remove(id);
+		if (result === 'error') {
+			deleteError = 'Failed to delete training type. Try again.';
+			return;
 		}
+		if (result === 'deleted') personnelTrainingsStore.removeByTrainingTypeLocal(id);
 		if (selectedTypeId === id) selectedTypeId = null;
 		mobileDetailOpen = false;
 		confirmDelete = null;
@@ -270,10 +282,19 @@
 		if (index === 0) return;
 		const current = orderedTypes[index];
 		const above = orderedTypes[index - 1];
-		await Promise.all([
-			trainingTypesStore.update(current.id, { sortOrder: above.sortOrder }),
-			trainingTypesStore.update(above.id, { sortOrder: current.sortOrder })
-		]);
+		const swap = [
+			{ id: current.id, from: current.sortOrder, to: above.sortOrder },
+			{ id: above.id, from: above.sortOrder, to: current.sortOrder }
+		];
+		const saved = await Promise.all(
+			swap.map((row) => trainingTypesStore.updateOrThrow(row.id, { sortOrder: row.to }).catch(() => false))
+		);
+		if (saved.every(Boolean)) return;
+		// Half a swap leaves two types sharing one position, so put back the row that did save.
+		await Promise.all(
+			swap.filter((_, i) => saved[i]).map((row) => trainingTypesStore.update(row.id, { sortOrder: row.from }))
+		);
+		toastStore.error('Failed to reorder training types. Try again.');
 	}
 
 	async function moveDown(index: number) {
@@ -494,7 +515,7 @@
 							variant="destructive"
 							size="sm"
 							type="button"
-							onclick={() => (confirmDelete = selectedType ? { id: selectedType.id, name: selectedType.name } : null)}
+							onclick={() => selectedType && openDelete(selectedType)}
 						>
 							<Trash2 aria-hidden="true" />
 							Delete
@@ -554,12 +575,7 @@
 
 					{#if canMutate}
 						<TypeWorkspace.FooterActions>
-							<Button
-								variant="destructive"
-								size="sm"
-								type="button"
-								onclick={() => (confirmDelete = { id: selectedType.id, name: selectedType.name })}
-							>
+							<Button variant="destructive" size="sm" type="button" onclick={() => openDelete(selectedType)}>
 								Delete Type
 							</Button>
 						</TypeWorkspace.FooterActions>
@@ -586,5 +602,9 @@
 			if (confirmDelete) return deleteType(confirmDelete.id);
 		}}
 		onCancel={() => (confirmDelete = null)}
-	/>
+	>
+		{#if deleteError}
+			<Alert.Root variant="destructive"><Alert.Description>{deleteError}</Alert.Description></Alert.Root>
+		{/if}
+	</ConfirmDialog>
 {/if}

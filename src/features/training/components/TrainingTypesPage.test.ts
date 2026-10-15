@@ -10,6 +10,7 @@ import type { RankCatalogEntry } from '$features/personnel/contracts';
 import type { Personnel } from '$features/personnel/contracts';
 import type { PersonnelTraining, TrainingType } from '$features/training/training.types';
 import { stubToolbarWidths, toolbarDescription } from '$lib/test-support/toolbarWidths';
+import { toastStore } from '$lib/stores/toast.svelte';
 
 const viewer = {
 	orgId: 'org-1',
@@ -74,6 +75,26 @@ const trainingType: TrainingType = {
 	exemptPersonnelIds: [],
 	isOptional: false
 };
+
+/** Answers Training type PUTs from saved rows; `reject` names ids whose write the server refuses. */
+function stubTrainingTypeServer(reject: { put?: string[]; del?: boolean } = {}) {
+	const saved = new Map(trainingTypesStore.items.map((type) => [type.id, { ...type }]));
+	const requests: string[] = [];
+	vi.stubGlobal('fetch', async (_url: string, init: RequestInit) => {
+		const body = JSON.parse(init.body as string) as Partial<TrainingType> & { id: string };
+		requests.push(`${init.method} ${body.id}${body.sortOrder === undefined ? '' : ` ${body.sortOrder}`}`);
+		if (init.method === 'DELETE') {
+			return reject.del
+				? Response.json({ message: 'Internal server error' }, { status: 500 })
+				: Response.json({ success: true });
+		}
+		if (reject.put?.includes(body.id)) return Response.json({ message: 'Internal server error' }, { status: 500 });
+		const next = { ...saved.get(body.id)!, ...body };
+		saved.set(body.id, next);
+		return Response.json(next);
+	});
+	return { saved, requests };
+}
 
 describe('TrainingTypesPage', () => {
 	beforeEach(() => {
@@ -191,13 +212,7 @@ describe('TrainingTypesPage', () => {
 			[trainingType, { ...trainingType, id: 'type-2', name: 'First Aid', sortOrder: 1 }],
 			'org-1'
 		);
-		vi.spyOn(trainingTypesStore, 'update').mockImplementation(async (id, patch) => {
-			trainingTypesStore.load(
-				trainingTypesStore.items.map((type) => (type.id === id ? { ...type, ...patch } : type)),
-				'org-1'
-			);
-			return true;
-		});
+		stubTrainingTypeServer();
 		render(TrainingTypesPage, { props: { org, data: { personnel: [] } } });
 
 		const moveDown = screen.getByRole('button', { name: 'Move CPR down' });
@@ -206,6 +221,52 @@ describe('TrainingTypesPage', () => {
 
 		expect(screen.getByRole('button', { name: 'Move CPR down' }).hasAttribute('disabled')).toBe(true);
 		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Move CPR up' })));
+	});
+
+	it('keeps a failed delete open with its reason and leaves the type selected', async () => {
+		const { requests } = stubTrainingTypeServer({ del: true });
+		render(TrainingTypesPage, { props: { org, data: { personnel: [] } } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete Type' }));
+		const dialog = screen.getByRole('alertdialog');
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+
+		expect(await within(dialog).findByText('Failed to delete training type. Try again.')).toBeTruthy();
+		expect(screen.getByRole('alertdialog')).toBe(dialog);
+		expect(requests).toEqual(['DELETE type-1']);
+		expect(screen.getByRole('row', { name: 'CPR' })).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'CPR' })).toBeTruthy();
+
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete Type' }));
+		expect(
+			within(screen.getByRole('alertdialog')).queryByText('Failed to delete training type. Try again.')
+		).toBeNull();
+	});
+
+	it('puts back the saved half of a failed reorder and says the order did not change', async () => {
+		trainingTypesStore.load(
+			[trainingType, { ...trainingType, id: 'type-2', name: 'First Aid', sortOrder: 1 }],
+			'org-1'
+		);
+		const { saved, requests } = stubTrainingTypeServer({ put: ['type-2'] });
+		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+		render(TrainingTypesPage, { props: { org, data: { personnel: [] } } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Move CPR down' }));
+
+		await waitFor(() => expect(errorToast).toHaveBeenCalledWith('Failed to reorder training types. Try again.'));
+		expect(errorToast).toHaveBeenCalledOnce();
+		expect(requests).toEqual(['PUT type-2 0', 'PUT type-1 1', 'PUT type-1 0']);
+		expect([...saved.values()].map((type) => [type.id, type.sortOrder])).toEqual([
+			['type-1', 0],
+			['type-2', 1]
+		]);
+		const [first, second] = screen.getAllByRole('row');
+		expect([first, second]).toEqual([
+			screen.getByRole('row', { name: 'CPR' }),
+			screen.getByRole('row', { name: 'First Aid' })
+		]);
 	});
 
 	it('uses hydrated personnel when route bootstrap omits applicability source data', async () => {

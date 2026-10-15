@@ -61,4 +61,4 @@ Starter pack apply currently has an authenticated endpoint and screen-model meth
 
 ## Viewer day
 
-With a browser zone whose day differs from UTC (see the [skill](../SKILL.md#launch)), reload the Dashboard after signing in. The server-rendered Training and Critical Tasks summaries must agree with the client-rendered cards and with the Training and Critical Tasks pages on the browser day; a record expiring on that day is not counted expired.
+With a browser zone whose day differs from UTC (see the [skill](../SKILL.md#launch)), reload the Dashboard after signing in. The Training card must agree with the Training pages on the browser day, and a record expiring on that day is not counted expired. The Overview renders no Critical Tasks card, so compare the Critical Tasks summary in the Dashboard page data with the Critical Tasks pages.

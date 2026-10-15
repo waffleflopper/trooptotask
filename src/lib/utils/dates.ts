@@ -63,7 +63,14 @@ export function isTimeZone(value: unknown): value is string {
 
 /** The "YYYY-MM-DD" calendar day `now` falls on in `timeZone`. */
 export function localDateIn(timeZone: string, now: Date): string {
-	return new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+	const parts = new Intl.DateTimeFormat('en-US', {
+		timeZone,
+		year: 'numeric',
+		month: '2-digit',
+		day: '2-digit'
+	}).formatToParts(now);
+	const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((entry) => entry.type === type)?.value ?? '';
+	return `${part('year')}-${part('month')}-${part('day')}`;
 }
 
 const DATE_ONLY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;

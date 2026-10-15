@@ -127,6 +127,32 @@ describe('owned task library operations', () => {
 		expect(ctx.audit.events).toEqual([]);
 	});
 
+	it('rejects a malformed archive timestamp on create and update without writing', async () => {
+		const ctx = createWritePortsContext();
+		const retained = {
+			id: TASK_A,
+			organization_id: 'test-org',
+			task_code: 'KEEP',
+			title: 'Retained',
+			archived_at: null
+		};
+		ctx.rawStore.seed('ict_tasks', [retained]);
+
+		for (const write of [
+			() => createIctTask(ctx, { taskCode: 'NEW', title: 'New', archivedAt: 'not-a-date' }),
+			() => updateIctTask(ctx, { id: TASK_A, archivedAt: 'not-a-date' }),
+			() => updateIctTask(ctx, { id: TASK_A, archivedAt: '2026-04-14' })
+		]) {
+			await expect(write()).rejects.toMatchObject({ status: 400, message: 'Use a valid archive timestamp' });
+		}
+		expect(await ctx.rawStore.findMany('ict_tasks', ctx.auth.orgId)).toEqual([retained]);
+
+		await updateIctTask(ctx, { id: TASK_A, archivedAt: '2026-04-14T12:30:00.000Z' });
+		expect(await ctx.rawStore.findMany('ict_tasks', ctx.auth.orgId)).toMatchObject([
+			{ id: TASK_A, archived_at: '2026-04-14T12:30:00.000Z' }
+		]);
+	});
+
 	it.each([
 		{ criticalTasks: 'view' as const, scopeSet: { kind: 'organization' as const } },
 		{ criticalTasks: 'configure' as const, scopeSet: { kind: 'groups' as const, groupIds: ['group-a'] } }

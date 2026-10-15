@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/sv
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Personnel } from '$features/personnel/contracts';
 import type { OnboardingTemplate } from '../onboarding.types';
+import { onboardingStore } from '../stores/onboarding.svelte';
 import StartOnboardingModal from './StartOnboardingModal.svelte';
 
 const personnel = [
@@ -30,6 +31,7 @@ afterEach(async () => {
 	cleanup();
 	await new Promise((resolve) => setTimeout(resolve, 30));
 	vi.restoreAllMocks();
+	vi.unstubAllGlobals();
 	vi.useRealTimers();
 });
 
@@ -116,6 +118,39 @@ describe('StartOnboardingModal', () => {
 			expect(onClose).toHaveBeenCalledTimes(1);
 			expect(onSubmit).toHaveBeenCalledWith('person-1', '2026-03-15', 'template-1');
 		});
+	});
+
+	it.each([
+		[409, 'Soldier already has an active onboarding', 'Soldier already has an active onboarding'],
+		[500, 'Internal server error', 'Could not start onboarding. Try again.']
+	])('keeps the dialog open and shows the reason for a %i', async (status, serverMessage, shown) => {
+		onboardingStore.load([], 'org-1');
+		vi.stubGlobal('fetch', async () => Response.json({ message: serverMessage }, { status }));
+		const onClose = vi.fn();
+		render(StartOnboardingModal, {
+			props: {
+				personnel,
+				canAddPerson: true,
+				existingOnboardingPersonnelIds: [],
+				groups: [],
+				rankCatalogUnavailable: false,
+				rankCatalog: [],
+				templates: [template],
+				onSubmit: async (personnelId: string, startedAt: string, templateId: string | null) =>
+					(await onboardingStore.startOnboarding(personnelId, startedAt, templateId)) !== null,
+				onAddPerson: vi.fn(),
+				onClose
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Member' }));
+		await fireEvent.click(await screen.findByRole('option', { name: 'SGT Smith, Jane' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Start Onboarding' }));
+
+		await waitFor(() => expect(screen.getByRole('alert').textContent).toContain(shown));
+		expect(onClose).not.toHaveBeenCalled();
+		expect(screen.getByRole('button', { name: 'Member' }).textContent).toContain('SGT Smith, Jane');
+		expect(onboardingStore.items).toEqual([]);
 	});
 
 	it('does not close a replacement dialog when a dismissed submission later succeeds', async () => {

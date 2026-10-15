@@ -15,6 +15,7 @@ import {
 } from '$features/training/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';
+import { isUuid } from '$lib/utils/inputSchemas';
 import {
 	createRequestDeletionRequestCancellation,
 	createRequestDeletionRequestStore,
@@ -112,7 +113,7 @@ export function _createDeleteConfig(
 		fn: async (ctx, input) => {
 			if (!input || typeof input !== 'object' || Array.isArray(input)) fail(400, 'Missing id');
 			const id = input.id;
-			if (typeof id !== 'string' || id.length === 0) fail(400, 'Missing id');
+			if (!isUuid(id)) fail(400, id ? 'Invalid ID' : 'Missing id');
 			await cancelDeletionRequest({ auth: ctx.auth, audit: ctx.audit, store, cancellation }, id);
 			return { success: true };
 		}

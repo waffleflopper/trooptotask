@@ -1,6 +1,7 @@
 import { permanentlyDeletePersonnelRecord } from '$features/personnel/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';
+import { isUuid } from '$lib/utils/inputSchemas';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { createRequestPersonnelPermanentDeletionContext } from '$lib/server/adapters/requestContexts.server';
 
@@ -15,7 +16,7 @@ export const _deleteConfig: RouteConfig<
 	policyResource: { kind: 'unscoped' },
 	fn: async (ctx, input) => {
 		const { id } = input;
-		if (!id || typeof id !== 'string') fail(400, 'Missing id');
+		if (!isUuid(id)) fail(400, id ? 'Invalid ID' : 'Missing id');
 
 		return permanentlyDeletePersonnelRecord(ctx, id, ctx.notifyPersonnelDeleted);
 	}

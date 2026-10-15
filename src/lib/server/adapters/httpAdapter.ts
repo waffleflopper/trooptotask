@@ -30,6 +30,7 @@ import {
 	type RequestContextBuilder
 } from './requestContexts.server';
 import { keepStreamedRejectionObserved } from './streamedWorkspace';
+import { issueMessage } from '$lib/utils/inputSchemas';
 
 /** Construct Feedback collaborators only after the route admits the account. */
 export function createRequestFeedbackSubmission() {
@@ -146,7 +147,7 @@ export async function handleUseCaseRequest<TInput, TOutput, TContext>(
 	let input: TInput;
 	if (config.input) {
 		const result = config.input.safeParse(rawInput);
-		if (!result.success) fail(400, result.error.issues.map((issue) => issue.message).join('; '));
+		if (!result.success) fail(400, issueMessage(result.error));
 		input = result.data;
 	} else {
 		input = rawInput as TInput;

@@ -34,6 +34,7 @@ const FOREIGN_PERSON = '00000000-0000-4000-8000-0000000000f1';
 const DOC_B = '00000000-0000-4000-8000-0000000000b2';
 const DOC_C = '00000000-0000-4000-8000-0000000000c2';
 const FOREIGN_DOC = '00000000-0000-4000-8000-0000000000f2';
+const ROSTER_B = '00000000-0000-4000-8000-0000000000b3';
 const membership: OrganizationMembershipFacts = {
 	role: 'member',
 	member_preset: 'operator',
@@ -88,10 +89,10 @@ function fixture(member: OrganizationMembershipFacts = membership) {
 		],
 		sign_in_rosters: [
 			{
-				id: 'roster-b',
+				id: ROSTER_B,
 				organization_id: ORG,
 				scope_group_ids: ['bravo'],
-				signed_file_path: `${ORG}/sign-in-rosters/roster-b/b.pdf`
+				signed_file_path: `${ORG}/sign-in-rosters/${ROSTER_B}/b.pdf`
 			},
 			{
 				id: 'mixed',
@@ -202,16 +203,16 @@ const operations: { name: string; handler: RequestHandler; method: string; id: s
 	{ name: 'document archive', handler: changeDocument, method: 'PATCH', id: PERSON_B, body: { action: 'archive' } },
 	{ name: 'document restore', handler: changeDocument, method: 'PATCH', id: PERSON_B, body: { action: 'restore' } },
 	{ name: 'document delete', handler: deleteDocument, method: 'DELETE', id: PERSON_B },
-	{ name: 'scan download', handler: downloadScan, method: 'GET', id: 'roster-b' },
-	{ name: 'scan upload', handler: uploadScan, method: 'POST', id: 'roster-b' },
+	{ name: 'scan download', handler: downloadScan, method: 'GET', id: ROSTER_B },
+	{ name: 'scan upload', handler: uploadScan, method: 'POST', id: ROSTER_B },
 	{
 		name: 'scan unlink',
 		handler: unlinkScan,
 		method: 'DELETE',
-		id: 'roster-b',
-		body: { filePath: `${ORG}/sign-in-rosters/roster-b/b.pdf` }
+		id: ROSTER_B,
+		body: { filePath: `${ORG}/sign-in-rosters/${ROSTER_B}/b.pdf` }
 	},
-	{ name: 'roster delete', handler: deleteRoster, method: 'DELETE', id: 'roster-b' },
+	{ name: 'roster delete', handler: deleteRoster, method: 'DELETE', id: ROSTER_B },
 	{
 		name: 'privileged roster snapshot',
 		handler: createRoster,
@@ -281,9 +282,9 @@ describe('private resource HTTP admission and provider ownership', () => {
 		{
 			name: 'scan',
 			handler: downloadScan,
-			id: 'roster-b',
+			id: ROSTER_B,
 			bucket: 'counseling-files',
-			path: `${ORG}/sign-in-rosters/roster-b/b.pdf`
+			path: `${ORG}/sign-in-rosters/${ROSTER_B}/b.pdf`
 		}
 	])(
 		'signs an allowed $name in the second Group with the caller client for five minutes',
@@ -359,7 +360,7 @@ describe('private resource HTTP admission and provider ownership', () => {
 	);
 
 	it.each(['mixed', 'org-wide', 'foreign-roster'])('denies every private scan effect for %s', async (id) => {
-		for (const op of operations.filter((op) => op.id === 'roster-b')) {
+		for (const op of operations.filter((op) => op.id === ROSTER_B)) {
 			const f = fixture();
 			const before = structuredClone(f.tables);
 			await expect(op.handler(event(f, op.method, id, DOC_B, op.body))).rejects.toMatchObject({ status: 404 });

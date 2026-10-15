@@ -1,6 +1,8 @@
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
 import type { FileCleanup } from '$features/organization/contracts';
 
+export const ROSTER_UNAVAILABLE_MESSAGE = 'This roster is no longer available.';
+
 /** Membership/capability facts admitted by delivery; provider credentials stay there. */
 export interface SignInRosterFileActor {
 	userId: string;

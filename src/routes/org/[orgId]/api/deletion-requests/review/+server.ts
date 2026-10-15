@@ -8,6 +8,7 @@ import {
 } from '$features/deletion-requests/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';
+import { isUuid } from '$lib/utils/inputSchemas';
 import { createRequestDeletionRequestStore, handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import {
 	createApprovedDeletionEffects,
@@ -26,11 +27,13 @@ export function _reviewPostConfig(
 		fn: async (ctx, input) => {
 			const { id, action, denialReason } = input;
 			if (!id || !action) fail(400, 'Missing required fields: id, action');
+			if (!isUuid(id)) fail(400, 'Invalid ID');
 			if (action !== 'approve' && action !== 'deny') fail(400, 'Action must be "approve" or "deny"');
+			if (denialReason != null && typeof denialReason !== 'string') fail(400, 'Denial reason must be text');
 			const review = { auth: ctx.auth, audit: ctx.audit, store, notifications: ctx.notifications };
 			if (action === 'approve')
-				return { success: true, ...(await approveDeletionRequest(review, id as string, effectsFor(ctx))) };
-			await denyDeletionRequest(review, id as string, denialReason as string | undefined);
+				return { success: true, ...(await approveDeletionRequest(review, id, effectsFor(ctx))) };
+			await denyDeletionRequest(review, id, denialReason ?? undefined);
 			return { success: true };
 		}
 	};

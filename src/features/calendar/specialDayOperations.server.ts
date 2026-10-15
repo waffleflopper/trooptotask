@@ -9,13 +9,14 @@ import { getDefaultFederalHolidays } from './utils/federalHolidays';
 import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy, type CalendarCatalogPorts } from './calendarPolicy.server';
 import { error } from '@sveltejs/kit';
 import type { SavedFederalHoliday } from './contracts';
+import { issueMessage } from '$lib/utils/inputSchemas';
 
 const action = CALENDAR_POLICY_ACTIONS.configureSpecialDays;
 const resource = { kind: 'organization' } as const;
 
 export async function createSpecialDay(ctx: CalendarCatalogPorts, input: Record<string, unknown>) {
 	const parsed = specialDayCreateInput.safeParse(input);
-	if (!parsed.success) throw error(400, parsed.error.issues.map((issue) => issue.message).join('; '));
+	if (!parsed.success) throw error(400, issueMessage(parsed.error));
 	await requireCalendarPolicy(ctx, action, resource);
 	const row = await ctx.calendarCatalogs.createSpecialDay(parsed.data);
 	ctx.audit.log({
@@ -28,7 +29,7 @@ export async function createSpecialDay(ctx: CalendarCatalogPorts, input: Record<
 
 export async function updateSpecialDay(ctx: CalendarCatalogPorts, input: Record<string, unknown>) {
 	const parsed = specialDayUpdateInput.safeParse(input);
-	if (!parsed.success) throw error(400, parsed.error.issues.map((issue) => issue.message).join('; '));
+	if (!parsed.success) throw error(400, issueMessage(parsed.error));
 	const { id, ...patch } = parsed.data;
 	await requireCalendarPolicy(ctx, action, resource);
 	const row = await ctx.calendarCatalogs.updateSpecialDay(id, patch);

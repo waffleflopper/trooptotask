@@ -10,7 +10,7 @@ import type {
 import type { OnboardingTemplateWriteContext } from './onboardingTemplatePorts.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { requireFeaturePolicy } from '$lib/access/index.server';
-import { uuidSchema } from '$lib/utils/inputSchemas';
+import { uuidSchema, issueMessage } from '$lib/utils/inputSchemas';
 
 const templateCreateSchema = z.object({ name: z.string(), description: z.string().nullable().optional() });
 const templateUpdateSchema = templateCreateSchema.partial().extend({ id: uuidSchema });
@@ -49,7 +49,7 @@ export interface DuplicateOnboardingTemplateResult {
 
 function parseInput<T>(schema: z.ZodType<T>, input: Record<string, unknown>): T {
 	const parsed = schema.safeParse(input);
-	if (!parsed.success) throw error(400, parsed.error.issues.map((issue) => issue.message).join('; '));
+	if (!parsed.success) throw error(400, issueMessage(parsed.error));
 	return parsed.data;
 }
 

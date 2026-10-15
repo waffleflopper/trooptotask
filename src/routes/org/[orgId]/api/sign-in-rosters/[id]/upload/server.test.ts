@@ -329,14 +329,15 @@ describe('/api/sign-in-rosters/[id]/upload route config', () => {
 	});
 
 	it('requires the expected scan key in the unlink request body', async () => {
+		const rosterId = '00000000-0000-4000-8000-00000000d001';
 		const event = (body: string) =>
 			({
-				params: { id: 'roster-1' },
+				params: { id: rosterId },
 				request: new Request('http://localhost/api', { method: 'DELETE', body })
 			}) as unknown as RequestEvent;
 
 		await expect(_deleteConfig.parseInput?.(event(JSON.stringify({ filePath: OLD_SCAN_PATH })))).resolves.toEqual({
-			rosterId: 'roster-1',
+			rosterId,
 			filePath: OLD_SCAN_PATH
 		});
 		for (const body of ['', '{}', JSON.stringify({ filePath: '' }), JSON.stringify({ filePath: 'x'.repeat(1025) })])
@@ -344,6 +345,25 @@ describe('/api/sign-in-rosters/[id]/upload route config', () => {
 				status: 400,
 				message: 'The signed scan to remove is required'
 			});
+	});
+
+	it('answers a non-UUID roster path as a missing roster before reading the request', async () => {
+		const event = (method: string) =>
+			({
+				params: { id: 'abc' },
+				request: new Request('http://localhost/api', { method, body: method === 'GET' ? undefined : '{}' })
+			}) as unknown as RequestEvent;
+
+		for (const [config, method] of [
+			[_getConfig, 'GET'],
+			[_postConfig, 'POST'],
+			[_deleteConfig, 'DELETE']
+		] as const) {
+			await expect(Promise.resolve().then(() => config.parseInput?.(event(method)))).rejects.toMatchObject({
+				status: 404,
+				message: 'This roster is no longer available.'
+			});
+		}
 	});
 
 	it('clears the DB path and removes the old scan when unlinking succeeds', async () => {

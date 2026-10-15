@@ -10,13 +10,14 @@ import {
 	assignmentTypeDateHeaderInput,
 	assignmentTypeUpdateInput
 } from './calendarPersistenceMapping.server';
+import { issueMessage } from '$lib/utils/inputSchemas';
 
 const action = CALENDAR_POLICY_ACTIONS.configureAssignmentTypes;
 const resource = { kind: 'organization' } as const;
 
 export async function createAssignmentType(ctx: CalendarCatalogPorts, input: Record<string, unknown>) {
 	const parsed = assignmentTypeCreateInput.safeParse(input);
-	if (!parsed.success) throw error(400, parsed.error.issues.map((issue) => issue.message).join('; '));
+	if (!parsed.success) throw error(400, issueMessage(parsed.error));
 	await requireCalendarPolicy(ctx, action, resource);
 	const row = await ctx.calendarCatalogs.createAssignmentType(parsed.data);
 	ctx.audit.log({
@@ -29,7 +30,7 @@ export async function createAssignmentType(ctx: CalendarCatalogPorts, input: Rec
 
 export async function updateAssignmentType(ctx: CalendarCatalogPorts, input: Record<string, unknown>) {
 	const parsed = assignmentTypeUpdateInput.safeParse(input);
-	if (!parsed.success) throw error(400, parsed.error.issues.map((issue) => issue.message).join('; '));
+	if (!parsed.success) throw error(400, issueMessage(parsed.error));
 	const { id, ...patch } = parsed.data;
 	await requireCalendarPolicy(ctx, action, resource);
 	const row = await ctx.calendarCatalogs.updateAssignmentType(id, patch);

@@ -8,6 +8,7 @@ import {
 import { json, type RequestEvent } from '@sveltejs/kit';
 import type { FileCleanup } from '$features/organization/contracts';
 import { fail } from '$lib/errors';
+import { routeRosterId } from '../routeIds';
 
 export const _getConfig: RouteConfig<
 	{ rosterId: string },
@@ -17,7 +18,7 @@ export const _getConfig: RouteConfig<
 	context: createRequestSignInRosterContext,
 	policyAction: POLICY_ACTION_CATALOG.training.viewRecords,
 	policyResource: { kind: 'unscoped' },
-	parseInput: (event: RequestEvent) => ({ rosterId: event.params.id as string }),
+	parseInput: (event: RequestEvent) => ({ rosterId: routeRosterId(event) }),
 	fn: (ctx, input) => getSignedScanUrl(ctx, input.rosterId)
 };
 
@@ -33,8 +34,9 @@ export const _postConfig: RouteConfig<
 	policyAction: POLICY_ACTION_CATALOG.training.manageSignInRosters,
 	policyResource: { kind: 'unscoped' },
 	parseInput: async (event: RequestEvent) => {
+		const rosterId = routeRosterId(event);
 		const formData = await readFormData(event);
-		return { rosterId: event.params.id as string, file: formData.get('file') as File | null };
+		return { rosterId, file: formData.get('file') as File | null };
 	},
 	fn: async (ctx, input) => {
 		return uploadSignedScan(ctx, input.rosterId, input.file);
@@ -54,11 +56,12 @@ export const _deleteConfig: RouteConfig<
 	policyAction: POLICY_ACTION_CATALOG.training.manageSignInRosters,
 	policyResource: { kind: 'unscoped' },
 	parseInput: async (event: RequestEvent) => {
+		const rosterId = routeRosterId(event);
 		const body: unknown = await event.request.json().catch(() => null);
 		const filePath = body && typeof body === 'object' && 'filePath' in body ? body.filePath : null;
 		if (typeof filePath !== 'string' || !filePath || filePath.length > 1024)
 			fail(400, 'The signed scan to remove is required');
-		return { rosterId: event.params.id as string, filePath };
+		return { rosterId, filePath };
 	},
 	fn: (ctx, input) => removeSignedScan(ctx, input.rosterId, input.filePath)
 };

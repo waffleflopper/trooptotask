@@ -156,6 +156,24 @@ describe('TrainingViewsPage', () => {
 		expect(trainingViewsStore.items).toEqual(mode === 'create' ? [...trainingViews, savedView] : [savedView]);
 	});
 
+	it.each([
+		['create', 400, 'Invalid ID', 'Invalid ID'],
+		['edit', 404, 'That Training view is no longer available.', 'That Training view is no longer available.'],
+		['edit', 500, 'Internal server error', 'Failed to save view.']
+	] as const)('keeps a rejected %s draft and shows the reason for a %i', async (mode, status, serverMessage, shown) => {
+		vi.stubGlobal('fetch', async () => Response.json({ message: serverMessage }, { status }));
+		render(TrainingViewsPage, { props: { org } });
+		await fireEvent.click(screen.getByRole('button', { name: mode === 'create' ? 'New View' : 'Edit' }));
+		await fireEvent.input(screen.getByRole('textbox', { name: 'View Name' }), {
+			target: { value: 'Range priorities' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+		await waitFor(() => expect(screen.getByRole('alert').textContent?.trim()).toBe(shown));
+		expect((screen.getByRole('textbox', { name: 'View Name' }) as HTMLInputElement).value).toBe('Range priorities');
+		expect(trainingViewsStore.items).toEqual(trainingViews);
+	});
+
 	it('moves focus to the new view row after a create', async () => {
 		vi.stubGlobal(
 			'fetch',

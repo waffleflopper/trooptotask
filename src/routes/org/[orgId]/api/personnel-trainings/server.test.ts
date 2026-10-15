@@ -157,19 +157,28 @@ describe('/api/personnel-trainings route config', () => {
 	});
 
 	it.each([
-		['an empty body', {}],
+		['an empty body', {}, 'Choose a Person; Choose a Training type'],
 		[
 			'an impossible completion date',
-			{ personnelId: PERSON_1, trainingTypeId: TRAINING_TYPE, completionDate: '2026-02-30' }
+			{ personnelId: PERSON_1, trainingTypeId: TRAINING_TYPE, completionDate: '2026-02-30' },
+			'Use a valid date (YYYY-MM-DD)'
+		],
+		[
+			'two impossible dates',
+			{ personnelId: PERSON_1, trainingTypeId: TRAINING_TYPE, completionDate: '2026-02-30', expirationDate: 'soon' },
+			'Use a valid date (YYYY-MM-DD)'
 		]
-	])('answers 400 for %s and saves nothing', async (_label, input) => {
+	])('answers 400 for %s and saves nothing', async (_label, input, message) => {
 		const ctx = createTestContext();
 		ctx.store.seed('personnel', [{ id: PERSON_1, organization_id: ctx.auth.orgId, group_id: null }]);
 		ctx.store.seed('training_types', [
 			{ id: TRAINING_TYPE, organization_id: ctx.auth.orgId, expiration_months: 12, expiration_date_only: false }
 		]);
 
-		await expect(handleUseCaseRequest(_postConfig, ctx, input, () => ctx)).rejects.toMatchObject({ status: 400 });
+		await expect(handleUseCaseRequest(_postConfig, ctx, input, () => ctx)).rejects.toMatchObject({
+			status: 400,
+			message
+		});
 		expect(await ctx.store.findMany('personnel_trainings', ctx.auth.orgId)).toEqual([]);
 	});
 

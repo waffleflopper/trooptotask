@@ -106,6 +106,26 @@ describe('PUT /api/special-days', () => {
 			type: 'org-closure'
 		});
 	});
+
+	it('answers an update of a missing or foreign special day with 404 and changes neither', async () => {
+		const ctx = createTestContext();
+		const foreign = {
+			id: SPECIAL_DAY_ID,
+			organization_id: 'other-org',
+			date: '2026-01-01',
+			name: "New Year's Day",
+			type: 'federal-holiday'
+		};
+		ctx.store.seed('special_days', [foreign]);
+
+		for (const id of [SPECIAL_DAY_ID, '00000000-0000-4000-8000-000000000011']) {
+			await expect(
+				handleUseCaseRequest(_putConfig, ctx, { id, name: 'Staff Holiday' }, () => ctx)
+			).rejects.toMatchObject({ status: 404, body: { message: 'That special day is no longer available.' } });
+		}
+		expect(await ctx.store.findMany('special_days', 'test-org')).toEqual([]);
+		expect(await ctx.store.findMany('special_days', 'other-org')).toEqual([foreign]);
+	});
 });
 
 describe('special-day configuration policy', () => {

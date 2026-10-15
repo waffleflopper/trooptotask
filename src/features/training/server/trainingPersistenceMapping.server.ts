@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { dateOnlySchema, uuidSchema } from '$lib/utils/inputSchemas';
+import { dateOnlySchema, isUuid, uuidSchema } from '$lib/utils/inputSchemas';
 import {
 	DEFAULT_TRAINING_TYPE_COLOR,
 	type SavedTrainingType,
@@ -211,6 +211,7 @@ export function trainingCompletedRow(input: TrainingCompletedUpsert, orgId: stri
 	};
 }
 
+export const TRAINING_TYPE_UNAVAILABLE_MESSAGE = 'That Training type is no longer available.';
 export const TRAINING_TYPE_NAME_EXISTS_MESSAGE = 'A Training type with that name already exists.';
 
 const catalogName = z.string().min(1, 'Name is required').max(100, 'Name must be 100 characters or fewer');
@@ -241,8 +242,8 @@ export const trainingViewCreateInput = z.object({
 });
 export const trainingViewUpdateInput = trainingViewCreateInput.partial().extend({ id: uuidSchema });
 export const trainingCompletionCreateInput = z.object({
-	personnelId: uuidSchema,
-	trainingTypeId: uuidSchema,
+	personnelId: z.string('Choose a Person').refine(isUuid, 'Choose a Person'),
+	trainingTypeId: z.string('Choose a Training type').refine(isUuid, 'Choose a Training type'),
 	completionDate: dateOnlySchema.nullable().optional(),
 	expirationDate: dateOnlySchema.nullable().optional(),
 	notes: z.string().nullable().optional(),

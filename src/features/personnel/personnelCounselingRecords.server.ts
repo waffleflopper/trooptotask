@@ -10,7 +10,7 @@ import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
 import { fail } from '$lib/errors';
-import { dateOnlySchema } from '$lib/utils/inputSchemas';
+import { dateOnlySchema, issueMessage } from '$lib/utils/inputSchemas';
 import type { FileCleanup } from '$features/organization/contracts';
 import { hasPdfFileSignature } from '$lib/storage/fileSignatures';
 import { buildSensitiveFilePath, validateSensitiveFileSelection } from '$lib/storage/sensitiveFiles';
@@ -74,7 +74,7 @@ export async function createPersonnelCounselingRecord(
 ): Promise<PersonnelCounselingRecord> {
 	const parsed = counselingInputSchema.safeParse(rawInput);
 	if (!parsed.success) {
-		fail(400, parsed.error.issues.map((issue) => issue.message).join('; '));
+		fail(400, issueMessage(parsed.error));
 	}
 	if (!rawInput.file) fail(400, 'A signed counseling PDF is required.');
 	await assertPdf(rawInput.file);

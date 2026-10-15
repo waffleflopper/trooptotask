@@ -7,9 +7,19 @@ import {
 import { prepareSignInRosterSnapshot, type SignInRosterSnapshotContext } from './snapshot.server';
 import type { SignInRosterListInput, SignInRosterPersistence } from './rosterPersistence.server';
 import type { SignInRosterScanPort, SignInRosterFileActor } from './contracts';
+import { z } from 'zod';
 import { fail } from '$lib/errors';
-import { isDateOnly } from '$lib/utils/dates';
-import { DATE_ONLY_MESSAGE } from '$lib/utils/inputSchemas';
+import { dateOnlySchema, issueMessage } from '$lib/utils/inputSchemas';
+
+const rosterHeaderInput = z.object({
+	title: z.string('Title is required').trim().min(1, 'Title is required'),
+	rosterDate: z
+		.union([z.literal(''), dateOnlySchema])
+		.nullish()
+		.transform((date) => date || null),
+	blankDate: z.boolean('Choose whether the date is left blank').default(false),
+	separateByGroup: z.boolean('Choose whether to separate by Group').default(false)
+});
 
 interface RosterContext {
 	orgId: string;
@@ -37,14 +47,11 @@ export async function listSignInRosters(ctx: RosterContext, input: SignInRosterL
 }
 
 export async function createSignInRoster(ctx: CreateRosterContext, input: Record<string, unknown>) {
-	if (!input.title || !(input.title as string).trim()) fail(400, 'Title is required');
-	if (input.rosterDate && !isDateOnly(input.rosterDate)) fail(400, DATE_ONLY_MESSAGE);
+	const header = rosterHeaderInput.safeParse(input);
+	if (!header.success) fail(400, issueMessage(header.error));
 	const snapshot = await prepareSignInRosterSnapshot(ctx, input);
 	const row = await ctx.persistence.create({
-		title: (input.title as string).trim(),
-		rosterDate: input.rosterDate || null,
-		blankDate: input.blankDate ?? false,
-		separateByGroup: input.separateByGroup ?? false,
+		...header.data,
 		sortBy: snapshot.sortBy,
 		personnelSnapshot: snapshot.personnelSnapshot,
 		personnelIds: snapshot.personnelIds,
@@ -57,7 +64,7 @@ export async function createSignInRoster(ctx: CreateRosterContext, input: Record
 		action: 'sign_in_roster.created',
 		resourceType: 'sign_in_roster',
 		resourceId: row.id,
-		details: { title: input.title }
+		details: { title: header.data.title }
 	});
 	return row;
 }

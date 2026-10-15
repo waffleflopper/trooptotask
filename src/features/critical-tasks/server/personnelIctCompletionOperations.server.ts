@@ -5,6 +5,7 @@ import type { PersonnelIctCompletion, CriticalTaskCompletionReference } from '..
 import { completionCreateSchema, completionUpdateSchema } from './personnelIctCompletionMapping.server';
 import type { PersonnelIctCompletionWriteContext } from './personnelIctCompletionPorts.server';
 import { fail } from '$lib/errors';
+import { isUuid, issueMessage } from '$lib/utils/inputSchemas';
 
 const ACTION = POLICY_ACTION_CATALOG.criticalTasks.recordCompletion;
 const AUDIT_RESOURCE = 'personnel_ict_completion';
@@ -33,7 +34,7 @@ function writeContext(ctx: PersonnelIctCompletionWriteContext): CompletionWriteC
 
 function parseOrFail<T>(schema: z.ZodType<T>, input: Record<string, unknown>): T {
 	const result = schema.safeParse(input);
-	if (!result.success) fail(400, result.error.issues.map((issue) => issue.message).join('; '));
+	if (!result.success) fail(400, issueMessage(result.error));
 	return result.data;
 }
 
@@ -136,11 +137,11 @@ export async function updatePersonnelIctCompletion(
 
 export async function preparePersonnelIctCompletionDeletion(ctx: PersonnelIctCompletionWriteContext, id: unknown) {
 	await requireFeaturePolicy(ctx, ACTION, { kind: 'unscoped' }, AUDIT_RESOURCE);
+	if (!isUuid(id)) fail(400, id ? 'Invalid ID' : 'Missing id');
 	const writeCtx = writeContext(ctx);
-	if (typeof id === 'string') await requireWritableCompletionHistory(writeCtx, id, 'deleted');
+	await requireWritableCompletionHistory(writeCtx, id, 'deleted');
 
 	return async (): Promise<void> => {
-		if (typeof id !== 'string') fail(400, 'Missing id');
 		await requireRecordScope(writeCtx, id);
 		await ctx.criticalTaskCompletions.delete(id);
 		ctx.audit.log({ action: `${AUDIT_RESOURCE}.deleted`, resourceType: AUDIT_RESOURCE, resourceId: id });

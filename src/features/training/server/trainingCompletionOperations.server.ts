@@ -18,12 +18,13 @@ import type { PersonnelWriteSubject } from '$features/personnel/contracts';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
 import { fail } from '$lib/errors';
 import type { z } from 'zod';
+import { issueMessage } from '$lib/utils/inputSchemas';
 
 const AUDIT_RESOURCE = 'training_record';
 
 function parseTrainingRecordInput<T>(schema: z.ZodType<T>, input: unknown): T {
 	const parsed = schema.safeParse(input);
-	if (!parsed.success) fail(400, parsed.error.issues.map((issue) => issue.message).join('; '));
+	if (!parsed.success) fail(400, issueMessage(parsed.error));
 	return parsed.data;
 }
 

@@ -1,6 +1,4 @@
 import { createRequestIctCompletionContext } from '$lib/server/adapters/featureRequestContexts.server';
-import { fail } from '$lib/errors';
-import { validateUUID } from '$lib/server/validation';
 import {
 	createPersonnelIctCompletion,
 	updatePersonnelIctCompletion,
@@ -44,10 +42,7 @@ export const _deleteConfig: RouteConfig<
 	context: createRequestIctCompletionContext,
 	...admission,
 	fn: async (ctx, input) => {
-		const id = input?.id;
-		const remove = await preparePersonnelIctCompletionDeletion(ctx, id);
-		if (!id || typeof id !== 'string') fail(400, 'Missing id');
-		if (!validateUUID(id)) fail(400, 'Invalid resource ID');
+		const remove = await preparePersonnelIctCompletionDeletion(ctx, input.id);
 		await remove();
 		return { success: true };
 	}

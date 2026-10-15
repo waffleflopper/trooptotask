@@ -113,6 +113,31 @@ describe('/api/onboarding-steps route config', () => {
 		);
 	});
 
+	it('rejects malformed step commands with 400 and leaves the step unchanged', async () => {
+		const ctx = createTestContext();
+		seedOnboardingStep(ctx);
+
+		for (const [body, message] of [
+			[{ action: 'toggleCheckbox', stepId: STEP_1, completed: null }, 'Choose whether the step is complete'],
+			[{ action: 'toggleCheckbox', stepId: STEP_1 }, 'Choose whether the step is complete'],
+			[{ action: 'toggleCheckbox', stepId: STEP_1, completed: 'true' }, 'Choose whether the step is complete'],
+			[{ action: 'addNote', stepId: STEP_1 }, 'Note text is required'],
+			[{ action: 'addNote', stepId: STEP_1, text: '   ' }, 'Note text is required'],
+			[{ action: 'toggleCheckbox', stepId: 'abc', completed: true }, 'Invalid ID'],
+			[{ action: 'archive', stepId: STEP_1 }, 'Unknown action']
+		] as const) {
+			await expect(handleUseCaseRequest(_putConfig, ctx, body, () => ctx)).rejects.toMatchObject({
+				status: 400,
+				message
+			});
+		}
+		expect(await ctx.store.findOne('onboarding_step_progress', 'test-org', { id: STEP_1 })).toMatchObject({
+			completed: false,
+			notes: []
+		});
+		expect(ctx.auditPort.events.filter((event) => event.action.startsWith('onboarding_step.'))).toEqual([]);
+	});
+
 	it('returns authoritative saved notes for an operator using the existing addNote action and body', async () => {
 		const saved = {
 			id: STEP_1,

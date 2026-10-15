@@ -19,6 +19,7 @@ import { ratingSchemeEntryCreateSchema, ratingSchemeEntryUpdateSchema } from './
 import { validateUUID } from '$lib/server/validation';
 import { policyResourceForGroup, requireFeaturePolicy, requireGovernancePolicy } from '$lib/access/index.server';
 import { RequestFailure } from '$lib/errors';
+import { issueMessage } from '$lib/utils/inputSchemas';
 
 export { ratingSchemeEntryCreateSchema, ratingSchemeEntryUpdateSchema } from './ratingSchemeEntryMapping.server';
 
@@ -46,7 +47,7 @@ const evaluatorFields = [
 
 function parseEntryInput<T>(schema: z.ZodType<T>, data: Record<string, unknown>): T {
 	const result = schema.safeParse(data);
-	if (!result.success) throw new RequestFailure(400, result.error.issues.map((issue) => issue.message).join('; '));
+	if (!result.success) throw new RequestFailure(400, issueMessage(result.error));
 	return result.data;
 }
 

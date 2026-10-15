@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$features/critical-tasks/server/criticalTasksPersistence.test-support.server';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
+import { isUuid } from '$lib/utils/inputSchemas';
 import { _deleteConfig, _postConfig, _putConfig } from './+server';
 
 const PERSON_1 = '00000000-0000-4000-8000-000000001001';
@@ -89,7 +90,51 @@ function blockRequestPersonnelLookup(ctx: ReturnType<typeof createTestContext>) 
 	});
 }
 
+function rejectMalformedUuidLookups(ctx: ReturnType<typeof createTestContext>) {
+	for (const store of new Set([ctx.store, ctx.rawStore])) {
+		const findOne = store.findOne.bind(store);
+		vi.spyOn(store, 'findOne').mockImplementation((...args) => {
+			const id = (args[2] as { id?: unknown } | undefined)?.id;
+			if (typeof id === 'string' && !isUuid(id)) throw new Error('invalid input syntax for type uuid');
+			return findOne(...args);
+		});
+	}
+}
+
 describe('personnel ICT completions API', () => {
+	it('rejects a malformed completion id on DELETE with 400 before any lookup', async () => {
+		const ctx = criticalTasksOnlyContext({ kind: 'organization' });
+		seedCompletionReferences(ctx);
+		seedCompletion(ctx, PERSON_ALPHA);
+		rejectMalformedUuidLookups(ctx);
+
+		await expect(handleUseCaseRequest(_deleteConfig, ctx, { id: 'abc' }, () => ctx)).rejects.toMatchObject({
+			status: 400,
+			message: 'Invalid ID'
+		});
+		await expect(handleUseCaseRequest(_deleteConfig, ctx, {}, () => ctx)).rejects.toMatchObject({
+			status: 400,
+			message: 'Missing id'
+		});
+		expect(await ctx.store.findMany('personnel_ict_completions', ctx.auth.orgId)).toMatchObject([{ id: COMPLETION_1 }]);
+	});
+
+	it('answers an update of a missing completion with 404 and a malformed completion date with 400', async () => {
+		const ctx = criticalTasksOnlyContext({ kind: 'organization' });
+		seedCompletionReferences(ctx);
+		seedCompletion(ctx, PERSON_ALPHA);
+
+		await expect(
+			handleUseCaseRequest(_putConfig, ctx, { id: COMPLETION_ARCHIVED_TASK, notes: 'Changed' }, () => ctx)
+		).rejects.toMatchObject({ status: 404, message: 'That completion is no longer available.' });
+		await expect(
+			handleUseCaseRequest(_putConfig, ctx, { id: COMPLETION_1, completedAt: '2026-02-30' }, () => ctx)
+		).rejects.toMatchObject({ status: 400, message: 'Use a valid date (YYYY-MM-DD)' });
+		expect(await ctx.store.findMany('personnel_ict_completions', ctx.auth.orgId)).toMatchObject([
+			{ id: COMPLETION_1, completed_at: '2026-04-10', notes: 'Original note' }
+		]);
+	});
+
 	it('audits successful completion create, update, and delete actions through the guarded route configs', async () => {
 		const ctx = createTestContext();
 		ctx.store.seed('personnel', [

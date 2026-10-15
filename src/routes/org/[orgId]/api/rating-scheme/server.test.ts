@@ -36,6 +36,27 @@ describe('POST /api/rating-scheme', () => {
 		expect(await ctx.store.findMany('rating_scheme_entries', ctx.auth.orgId)).toEqual([]);
 	});
 
+	it('rejects malformed ids and dates with 400 and a missing entry with 404 before writing', async () => {
+		const ctx = createTestContext();
+
+		for (const [config, body, message] of [
+			[_putConfig, { id: 'abc', notes: 'Changed' }, 'Invalid ID'],
+			[_postConfig, { ...validInput, ratedPersonId: 'abc' }, 'Invalid ID'],
+			[_postConfig, { ...validInput, ratingPeriodStart: '2026-02-30' }, 'Use a valid date (YYYY-MM-DD)'],
+			[
+				_putConfig,
+				{ id: '00000000-0000-4000-8000-0000000000a4', ratingPeriodEnd: 'June' },
+				'Use a valid date (YYYY-MM-DD)'
+			]
+		] as const) {
+			await expect(handleUseCaseRequest(config, ctx, body, () => ctx)).rejects.toMatchObject({ status: 400, message });
+		}
+		await expect(
+			handleUseCaseRequest(_putConfig, ctx, { id: '00000000-0000-4000-8000-0000000000a4', notes: 'Changed' }, () => ctx)
+		).rejects.toMatchObject({ status: 404, message: 'Rating Scheme entry not found' });
+		expect(await ctx.store.findMany('rating_scheme_entries', ctx.auth.orgId)).toEqual([]);
+	});
+
 	it('authorizes through Rating Scheme policy decisions instead of legacy route permissions', async () => {
 		const ctx = createTestContext({
 			auth: {

@@ -14,7 +14,7 @@ import {
 	type CalendarAvailabilityRemovalPorts
 } from './calendarPolicy.server';
 import { availabilityCreateInput } from './calendarPersistenceMapping.server';
-import { isUuid } from '$lib/utils/inputSchemas';
+import { isUuid, issueMessage } from '$lib/utils/inputSchemas';
 
 const AUDIT_RESOURCE = 'availability';
 const MAX_BATCH_SIZE = 500;
@@ -46,7 +46,7 @@ export async function createAvailabilityBatch(
 	for (const [index, record] of records.entries()) {
 		const parsed = availabilityCreateInput.safeParse(record);
 		if (!parsed.success) {
-			throw error(400, `Entry ${index + 1}: ${parsed.error.issues.map((issue) => issue.message).join('; ')}`);
+			throw error(400, `Entry ${index + 1}: ${issueMessage(parsed.error)}`);
 		}
 	}
 

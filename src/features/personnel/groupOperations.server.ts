@@ -4,7 +4,7 @@ import { error } from '@sveltejs/kit';
 import { requireFeaturePolicy } from '$lib/access/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { z } from 'zod';
-import { uuidSchema } from '$lib/utils/inputSchemas';
+import { uuidSchema, issueMessage } from '$lib/utils/inputSchemas';
 import { GROUP_UNAVAILABLE_MESSAGE, type GroupPersistence } from './contracts';
 
 interface GroupWriteContext {
@@ -19,7 +19,7 @@ const createInput = z.object({
 const updateInput = createInput.partial().extend({ id: uuidSchema });
 function validatedInput<T>(schema: z.ZodType<T>, input: Record<string, unknown>): T {
 	const result = schema.safeParse(input);
-	if (!result.success) throw error(400, result.error.issues.map((issue) => issue.message).join('; '));
+	if (!result.success) throw error(400, issueMessage(result.error));
 	return result.data;
 }
 

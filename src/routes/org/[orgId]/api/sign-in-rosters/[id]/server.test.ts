@@ -77,6 +77,12 @@ function createScopedRosterContext() {
 }
 
 describe('/api/sign-in-rosters/[id] route config', () => {
+	it('answers a non-UUID roster path as a missing roster', async () => {
+		await expect(
+			Promise.resolve().then(() => _deleteConfig.parseInput?.({ params: { id: 'abc' } } as never))
+		).rejects.toMatchObject({ status: 404, message: 'This roster is no longer available.' });
+	});
+
 	it('denies roster deletion to a Training viewer without touching the row or scan', async () => {
 		const ctx = createRosterContext();
 		ctx.auth = {

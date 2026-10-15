@@ -7,6 +7,7 @@ import {
 import { availabilityCreateInput, availabilityUpdateInput } from './calendarPersistenceMapping.server';
 export { availabilityUpdateInput } from './calendarPersistenceMapping.server';
 import { error } from '@sveltejs/kit';
+import { issueMessage } from '$lib/utils/inputSchemas';
 
 async function policyResourceForPersonnel(
 	ctx: CalendarAvailabilityPorts,
@@ -34,7 +35,7 @@ async function policyResourceForRecord(ctx: CalendarAvailabilityPorts, id: strin
 
 export async function createAvailability(ctx: CalendarAvailabilityPorts, input: Record<string, unknown>) {
 	const parsed = availabilityCreateInput.safeParse(input);
-	if (!parsed.success) throw error(400, parsed.error.issues.map((issue) => issue.message).join('; '));
+	if (!parsed.success) throw error(400, issueMessage(parsed.error));
 	const resource = await policyResourceForPersonnel(ctx, parsed.data.personnelId);
 	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAvailability, resource);
 	const row = await ctx.calendarAvailability.create(parsed.data);
@@ -48,7 +49,7 @@ export async function createAvailability(ctx: CalendarAvailabilityPorts, input: 
 
 export async function updateAvailability(ctx: CalendarAvailabilityPorts, input: Record<string, unknown>) {
 	const parsed = availabilityUpdateInput.safeParse(input);
-	if (!parsed.success) throw error(400, parsed.error.issues.map((issue) => issue.message).join('; '));
+	if (!parsed.success) throw error(400, issueMessage(parsed.error));
 	const { id, ...patch } = parsed.data;
 	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAvailability, await policyResourceForRecord(ctx, id));
 	const row = await ctx.calendarAvailability.update(id, patch);

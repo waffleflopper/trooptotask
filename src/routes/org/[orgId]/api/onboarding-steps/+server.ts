@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import {
 	createRequestOnboardingStepProgressContext,
 	createRequestOnboardingInactiveStepContext
@@ -5,47 +6,42 @@ import {
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/errors';
-import { isUuid } from '$lib/utils/inputSchemas';
+import { isUuid, uuidSchema } from '$lib/utils/inputSchemas';
 import { toggleCheckbox, advanceStage, addNote, removeInactiveStep } from '$features/onboarding/index.server';
+
+const stepId = uuidSchema;
+const putInput = z.discriminatedUnion(
+	'action',
+	[
+		z.object({ action: z.literal('advanceStage'), stepId, stageName: z.string('Invalid stage name') }),
+		z.object({
+			action: z.literal('addNote'),
+			stepId,
+			text: z.string('Note text is required').refine((text) => text.trim(), 'Note text is required')
+		}),
+		z.object({
+			action: z.literal('toggleCheckbox'),
+			stepId,
+			completed: z.boolean('Choose whether the step is complete')
+		})
+	],
+	{ error: 'Unknown action' }
+);
 
 export const _putConfig = {
 	context: createRequestOnboardingStepProgressContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.onboarding.manageWorkflows,
 	policyResource: { kind: 'unscoped' },
+	input: putInput,
 	fn: async (ctx, input) => {
-		const action = input.action as string;
-		if (!isUuid(input.stepId)) fail(400, 'Invalid ID');
-
-		if (action === 'advanceStage') {
-			return advanceStage(ctx, {
-				stepId: input.stepId as string,
-				stageName: input.stageName as string
-			});
-		}
-
-		if (action === 'addNote') {
-			const userId = ctx.auth.userId;
-			if (!userId) fail(401, 'Authentication required');
-			if (typeof input.text !== 'string' || !input.text.trim()) fail(400, 'Note text is required');
-
-			return addNote(ctx, {
-				stepId: input.stepId as string,
-				text: input.text as string
-			});
-		}
-
-		if (action === 'toggleCheckbox') {
-			return toggleCheckbox(ctx, {
-				stepId: input.stepId as string,
-				completed: input.completed as boolean
-			});
-		}
-
-		fail(400, `Unknown action: ${action}`);
+		if (input.action === 'advanceStage') return advanceStage(ctx, input);
+		if (input.action === 'toggleCheckbox') return toggleCheckbox(ctx, input);
+		if (!ctx.auth.userId) fail(401, 'Authentication required');
+		return addNote(ctx, input);
 	}
 } satisfies RouteConfig<
-	Record<string, unknown>,
+	z.infer<typeof putInput>,
 	unknown,
 	ReturnType<typeof createRequestOnboardingStepProgressContext>
 >;

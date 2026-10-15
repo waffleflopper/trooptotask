@@ -12,6 +12,7 @@ import { requireFeaturePolicy } from '$lib/access/index.server';
 import { fail } from '$lib/errors';
 import { isDateOnly } from '$lib/utils/dates';
 import { DATE_ONLY_MESSAGE, isUuid } from '$lib/utils/inputSchemas';
+import { TRAINING_TYPE_UNAVAILABLE_MESSAGE } from './trainingPersistenceMapping.server';
 
 const AUDIT_RESOURCE = 'training_record';
 const MAX_BATCH_SIZE = 500;
@@ -139,15 +140,18 @@ export async function importTrainingRecords(
 		}
 	}
 
-	// Persist exemption updates
+	const unavailableTypeIds = new Set<string>();
 	for (const [typeId, personnelIds] of exemptionUpdates) {
-		const typeRecord = await ctx.trainingCatalog.findTypeId(typeId);
-		if (typeRecord) {
-			await ctx.trainingCatalog.patchType(typeId, {
-				exemptPersonnelIds: [...personnelIds]
-			});
-		}
+		const saved =
+			(await ctx.trainingCatalog.findTypeId(typeId)) &&
+			(await ctx.trainingCatalog.patchType(typeId, { exemptPersonnelIds: [...personnelIds] }));
+		if (!saved) unavailableTypeIds.add(typeId);
 	}
+	records.forEach((record, index) => {
+		if (record.status === 'exempt' && unavailableTypeIds.has(record.trainingTypeId)) {
+			batchErrors.push({ index, message: TRAINING_TYPE_UNAVAILABLE_MESSAGE });
+		}
+	});
 
 	// Build exempted results
 	const exemptedResults: Array<{ index: number; personnelId: string; trainingTypeId: string }> = [];

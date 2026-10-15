@@ -13,3 +13,8 @@ export function isUuid(value: unknown): value is string {
 export const uuidSchema = z.string({ error: 'Invalid ID' }).refine(isUuid, 'Invalid ID');
 
 export const dateOnlySchema = z.string({ error: DATE_ONLY_MESSAGE }).refine(isDateOnly, DATE_ONLY_MESSAGE);
+
+/** Joins a failed parse into one public message, naming a repeated problem once. */
+export function issueMessage(error: z.ZodError): string {
+	return [...new Set(error.issues.map((issue) => issue.message))].join('; ');
+}

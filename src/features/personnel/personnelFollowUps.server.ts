@@ -9,6 +9,7 @@ import {
 	type PersonnelArtifactsContext,
 	type FollowUpRow
 } from './personnelArtifactContext.server';
+import { issueMessage } from '$lib/utils/inputSchemas';
 
 const personnelFollowUpInputSchema = z.object({
 	personnelId: z.string().min(1),
@@ -51,7 +52,7 @@ export async function createPersonnelFollowUp(
 ): Promise<PersonnelFollowUp> {
 	const parsed = personnelFollowUpInputSchema.safeParse(rawInput);
 	if (!parsed.success) {
-		fail(400, parsed.error.issues.map((issue) => issue.message).join('; '));
+		fail(400, issueMessage(parsed.error));
 	}
 
 	const input = parsed.data;
@@ -94,7 +95,7 @@ export async function setPersonnelFollowUpStatus(
 ): Promise<PersonnelFollowUp | PersonnelFollowUpLifecycleState> {
 	const parsed = personnelFollowUpStatusSchema.safeParse(rawInput);
 	if (!parsed.success) {
-		fail(400, parsed.error.issues.map((issue) => issue.message).join('; '));
+		fail(400, issueMessage(parsed.error));
 	}
 
 	const input = parsed.data;
@@ -129,7 +130,7 @@ export async function updatePersonnelFollowUp(
 ): Promise<PersonnelFollowUp> {
 	const parsed = personnelFollowUpUpdateSchema.safeParse(rawInput);
 	if (!parsed.success) {
-		fail(400, parsed.error.issues.map((issue) => issue.message).join('; '));
+		fail(400, issueMessage(parsed.error));
 	}
 
 	const input = parsed.data;
@@ -177,7 +178,7 @@ export async function restorePersonnelFollowUp(
 		status: 'open'
 	});
 	if (!parsed.success) {
-		fail(400, parsed.error.issues.map((issue) => issue.message).join('; '));
+		fail(400, issueMessage(parsed.error));
 	}
 
 	const input = parsed.data;
@@ -199,7 +200,7 @@ export async function restorePersonnelFollowUp(
 export async function deletePersonnelFollowUp(ctx: PersonnelArtifactsContext, rawInput: unknown): Promise<void> {
 	const parsed = personnelFollowUpIdentitySchema.safeParse(rawInput);
 	if (!parsed.success) {
-		fail(400, parsed.error.issues.map((issue) => issue.message).join('; '));
+		fail(400, issueMessage(parsed.error));
 	}
 	const input = parsed.data;
 	const writer = await personnelArtifactWriter(ctx, input.personnelId);

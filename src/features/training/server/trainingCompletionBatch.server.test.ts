@@ -216,6 +216,61 @@ describe('importTrainingRecords', () => {
 		expect(type?.exempt_personnel_ids).toEqual([PERSON_1]);
 	});
 
+	it('reports exemptions for a Training type deleted during the import as unavailable, not exempted', async () => {
+		const ctx = buildContext();
+		seedPersonnel(ctx);
+		seedTrainingType(ctx, { can_be_exempted: true });
+		seedTrainingType(ctx, { id: EXEMPT_TYPE, can_be_exempted: true });
+		const { listTypeImportReferences, findTypeId } = ctx.trainingCatalog;
+		ctx.trainingCatalog.listTypeImportReferences = async (ids) => {
+			const references = await listTypeImportReferences(ids);
+			await ctx.store.delete('training_types', 'test-org', TRAINING_TYPE);
+			return references;
+		};
+		ctx.trainingCatalog.findTypeId = async (id) => {
+			const found = await findTypeId(id);
+			if (id === EXEMPT_TYPE) await ctx.store.delete('training_types', 'test-org', EXEMPT_TYPE);
+			return found;
+		};
+
+		const result = await importTrainingRecords(ctx, {
+			records: [
+				{ personnelId: PERSON_1, trainingTypeId: TRAINING_TYPE, completionDate: null, status: 'exempt' },
+				{ personnelId: PERSON_2, trainingTypeId: EXEMPT_TYPE, completionDate: null, status: 'exempt' }
+			]
+		});
+
+		expect(result.exempted).toEqual([]);
+		expect(result.errors).toEqual([
+			{ index: 0, message: 'That Training type is no longer available.' },
+			{ index: 1, message: 'That Training type is no longer available.' }
+		]);
+		expect(ctx.audit.events[0]).toMatchObject({ details: { inserted: 0, updated: 0, exempted: 0 } });
+	});
+
+	it('rejects a batch naming a Person or Training type by a non-UUID before writing anything', async () => {
+		const ctx = buildContext();
+		seedPersonnel(ctx);
+		seedTrainingType(ctx);
+
+		for (const record of [
+			{ personnelId: 'abc', trainingTypeId: TRAINING_TYPE },
+			{ personnelId: PERSON_1, trainingTypeId: 'rifle' },
+			{ personnelId: PERSON_1 }
+		]) {
+			await expect(
+				importTrainingRecords(ctx, {
+					records: [
+						{ personnelId: PERSON_2, trainingTypeId: TRAINING_TYPE, completionDate: '2025-06-01', status: 'completed' },
+						{ ...record, completionDate: '2025-06-01', status: 'completed' } as never
+					]
+				})
+			).rejects.toMatchObject({ status: 400, message: 'Each record must name a Person and Training type by ID' });
+		}
+		expect(await ctx.store.findMany('personnel_trainings', 'test-org')).toEqual([]);
+		expect(ctx.audit.events.filter((event) => event.action === 'training.bulk_imported')).toEqual([]);
+	});
+
 	it('rejects exempt status when training type does not allow exemptions', async () => {
 		const ctx = buildContext();
 		seedPersonnel(ctx);

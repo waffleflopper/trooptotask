@@ -13,7 +13,7 @@ import {
 import { normalizeActivePersonnelRank } from './rankValidation.server';
 import { buildUniquePersonnelSlug, isPersonnelSlugUniqueConstraintError } from './personnelSlug.server';
 import { fail, RequestFailure } from '$lib/errors';
-import { dateOnlySchema, uuidSchema } from '$lib/utils/inputSchemas';
+import { dateOnlySchema, uuidSchema, issueMessage } from '$lib/utils/inputSchemas';
 
 interface PersonnelRecordContext {
 	auth: OrganizationAccessGrant;
@@ -40,7 +40,7 @@ const updateInput = createInput.partial().extend({ id: uuidSchema });
 
 function parseInput<T>(schema: z.ZodType<T>, data: unknown): T {
 	const parsed = schema.safeParse(data);
-	if (!parsed.success) fail(400, parsed.error.issues.map((issue) => issue.message).join('; '));
+	if (!parsed.success) fail(400, issueMessage(parsed.error));
 	return parsed.data;
 }
 

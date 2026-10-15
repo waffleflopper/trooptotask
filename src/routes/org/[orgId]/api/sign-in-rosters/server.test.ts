@@ -511,6 +511,25 @@ describe('/api/sign-in-rosters route config', () => {
 		]);
 	});
 
+	it('rejects a malformed roster title or option before insert', async () => {
+		const ctx = createRosterTestContext();
+		seedPersonnel(ctx);
+
+		for (const [body, message] of [
+			[{ title: 5 }, 'Title is required'],
+			[{ title: '   ' }, 'Title is required'],
+			[{ title: 'Annual AT Sign-In', blankDate: 'yes' }, 'Choose whether the date is left blank'],
+			[{ title: 'Annual AT Sign-In', separateByGroup: 1 }, 'Choose whether to separate by Group']
+		] as const) {
+			await expect(
+				handleUseCaseRequest(_postConfig, ctx, { ...body, personnelSnapshot: [{ id: P_ALPHA }] }, () =>
+					selectRosterCreationContext(ctx)
+				)
+			).rejects.toMatchObject({ status: 400, message });
+		}
+		await expect(ctx.store.findMany('sign_in_rosters', ctx.auth.orgId)).resolves.toHaveLength(0);
+	});
+
 	it('rejects malformed, duplicate, and oversized personnel selections before insert', async () => {
 		const malformed = createRosterTestContext();
 		seedPersonnel(malformed);

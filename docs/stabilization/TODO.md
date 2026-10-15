@@ -115,10 +115,11 @@ Measurements unavailable now are listed in EVIDENCE. Later isolated synthetic wo
 
 ## Next executable task
 
-Phase 11 D06 [#1644](https://github.com/waffleflopper/trooptotask/issues/1644) is active. Robert authorized publication and verified merges through the PR that closes it. The census and baseline found seven root causes; [D06 evidence](EVIDENCE.md#11-05a-11-09-d06-validated-inputs-dates-and-truthful-failures) maps them to three PRs:
+Phase 11 D06 [#1644](https://github.com/waffleflopper/trooptotask/issues/1644) is active. Robert authorized publication and verified merges through the PR that closes it. The census and baseline found seven root causes; [D06 evidence](EVIDENCE.md#11-05a-11-09-d06-validated-inputs-dates-and-truthful-failures) maps them to four PRs:
 
-1. **PR 1, in review:** truthful 4xx for invalid, stale and conflicting writes on every retained JSON route, and the form consumers that show those messages. It integrates [#1554](https://github.com/waffleflopper/trooptotask/issues/1554), [#1557](https://github.com/waffleflopper/trooptotask/issues/1557), [#1561](https://github.com/waffleflopper/trooptotask/issues/1561) and the Training name-length feedback.
-2. **PR 2:** silent client failures (Training type delete and reorder, view delete, exemption toggle, Availability import reasons and note length) and the loss-warning settings read that silently becomes the 180-day default.
-3. **PR 3, closes #1644:** date semantics. Server-side today for Personnel detail, Training and Critical Tasks reports and exports; DST day counts; UTC slices of timestamps; Onboarding completion dates; the Sign-in Roster filter bounds. Then whole-issue acceptance.
+1. **PR 1, merged as `9ac7bb8aa` ([#1696](https://github.com/waffleflopper/trooptotask/pull/1696)):** truthful 4xx for invalid, stale and conflicting writes on every retained JSON route, and the form consumers that show those messages. It integrates [#1554](https://github.com/waffleflopper/trooptotask/issues/1554), [#1557](https://github.com/waffleflopper/trooptotask/issues/1557), [#1561](https://github.com/waffleflopper/trooptotask/issues/1561) and the Training name-length feedback.
+2. **PR 2, in review:** silent client failures (Training type delete and reorder, view delete, exemption toggle, Availability import reasons and note length) and the loss-warning settings read that silently becomes the 180-day default.
+3. **PR 3:** date semantics. Server-side today for Personnel detail, Training and Critical Tasks reports, Dashboard and exports, from the viewer's timezone; DST day counts; UTC slices of timestamps; the Sign-in Roster filter bounds; a browser-timezone launch option for `verify:app`.
+4. **PR 4, completes the issue:** Onboarding completion uses the viewer's local day. It needs an append-only migration, so Robert must confirm the migration live before merge. Then whole-issue acceptance.
 
 Issue #1555's 501-Person scale case stays deferred pending actual usage. Prior release obligations remain in [RELEASE](RELEASE.md).

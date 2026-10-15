@@ -6,7 +6,7 @@ All historical links below pin commit `dbd501301df350ef4e6cebb6bc1238283b24d9c9`
 
 ## 11-05a, 11-09 D06 validated inputs, dates and truthful failures
 
-**PR 1 is in review and uses `Refs #1644`.** Branch `chore/stabilize-1644` began at fetched main `7405e6715`, with no earlier D06 branch or PR. Robert authorized publication and verified merges through the PR that closes #1644.
+**PR 1 merged; PR 2 is in review.** Both use `Refs #1644`. Branch `chore/stabilize-1644` began at fetched main `7405e6715`, with no earlier D06 branch or PR. Robert authorized publication and verified merges through the PR that closes #1644. [PR 1 #1696](https://github.com/waffleflopper/trooptotask/pull/1696) merged as `9ac7bb8aa` after exact-head `a32de9c02` passed all seven checks with every review thread resolved. The merged `src` tree equals the tested head. #1554, #1557 and #1561 are closed with pointers to the matching final evidence below. PR 2 is on `chore/stabilize-1644-2`, from main `9ac7bb8aa`.
 
 **Census.** A read-only source trace of every retained route, provider mapping, date path and form save found seven root causes behind #1554, #1557, #1561, the Training name-length message and about 40 further sites:
 
@@ -72,6 +72,43 @@ To verify an archive, extract it and run `sha256sum -c INVENTORY.sha256` in its 
 No migration was added.
 
 **Review.** Independent read-only reviews ran on `f98c1725a`, one by GPT-6.1-Sol and one by Opus. Both reported the Special Day tracking bypass and the ICT completion DELETE id order. GPT also found the exemption import, pins, notification flags, the onboarding-step boolean, the roster title and `archivedAt`. Opus also found the roster path ids and the missing boundary and component tests. All of these were fixed in `144203477`, together with field-specific and deduplicated messages.
+
+### PR 2 silent client failures and the loss-warning default
+
+**Baseline.** Revision `894b6a814`, the PR 1 head; PR 2's paths are unchanged from main. Digest `295ddf77…6b46`, worker 1. [`11-09-pr2-baseline.tar.gz`](https://github.com/waffleflopper/trooptotask/releases/download/evidence/11-09-pr2-baseline.tar.gz), SHA-256 `7e8c9a365ffd36d2d2926bdf0d0bc9a719e91a13dd7767f356dce960fe1e002a`, 31 payloads.
+
+| Case                                                   | Baseline                                                                            | Final                                                                                                                                                       |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| E7 Training type delete fails                          | The dialog closes with no message; the row stays                                    | The dialog stays open with `Failed to delete training type. Try again.`; a retry deletes                                                                    |
+| E9 Training view delete fails                          | The same silent close                                                               | `Failed to delete view. Try again.`; a retry deletes                                                                                                        |
+| E8 one reorder write refused                           | The page shows the old order; two types silently share position 0                   | A toast and a re-read; only the two moved rows are written, so no other row moves; the next clean move renumbers ties                                       |
+| A6 Import note over 200 characters                     | The preview shows 0 errors; the submit fails with `No status entries were imported` | Review flags `Note must be 200 characters or fewer` on that row; valid rows import                                                                          |
+| E11 import refused with a 4xx                          | Fixed text and `try again later`                                                    | The server's reason in the toast and the results                                                                                                            |
+| B1 settings read fails (60-day window, ETS in 90 days) | The detail lane says `Action needed`, from a silent 180-day default                 | The detail lane says `Unavailable` and how to retry; the Personnel list and Calendar show one `Loss warnings could not be loaded` notice with `Reload page` |
+| Calendar catalog delete fails                          | Already reported                                                                    | Unchanged; the assignment-type double toast is fixed, a source and component-test result                                                                    |
+| E10 exemption toggle, pinned Groups                    | Source-traced silent rollback                                                       | The server's 4xx reason or a fallback toast. Pin failure shows `Failed to update pinned Groups. Try again.` live                                            |
+
+**Final runs.**
+
+- **Final run.** [`11-09-pr2-final.tar.gz`](https://github.com/waffleflopper/trooptotask/releases/download/evidence/11-09-pr2-final.tar.gz), SHA-256 `5d47d8727be98aacabe4730525d468555eefa5427b06ba7160802f565ad5ebf7`, 39 payloads. Revision `147178305`, digest `2b925198…a357`. It ran every case in the table.
+- **Rerun.** [`11-09-pr2-rerun.tar.gz`](https://github.com/waffleflopper/trooptotask/releases/download/evidence/11-09-pr2-rerun.tar.gz), SHA-256 `21e61023165211bddaa9c0073208d4774d0a775de3eda57840b11c31d5f4b52f`, 16 payloads. Revision `e47b24177`, digest `dfc1893d…bb90`. It reran only the changed reorder and pin paths.
+
+The reviews changed the reorder model twice:
+
+1. Unconditional compensation could tie positions or overwrite a newer move.
+2. Positional renumbering on every move fixed that. But its live check showed one refused write moving an unrelated row, so `e47b24177` writes only the two moved rows when their positions are distinct.
+
+That intermediate run is described in the rerun notes, not packaged. Reorder is still two independent writes, because no training-type reorder command exists. The page tells the user and reloads the saved order.
+
+**Checks.**
+
+- On `fed0c207b`, the six commands pass: 793 files and 8,748 tests, with 0 type errors.
+- `e47b24177` changes one component and its test. Lint, `svelte-check` and that component's 27 tests pass. Current-head CI owns the full suite.
+
+**Review.**
+
+- GPT-6.1-Sol and Opus reviewed `147178305`. Their findings were the reorder ties and overlap, the pinned-Group lifetime, and assertions on exact request order and authored copy that `TESTING.md` forbids. All are fixed in `fed0c207b` and `e47b24177`.
+- Opus's partial-import observation is kept as is, because the counts are truthful.
 
 **Kept limits.**
 

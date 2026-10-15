@@ -51,6 +51,7 @@ vi.mock('$features/app-shell', () => ({
 }));
 
 vi.mock('$features/calendar/utils/calendarRangeLoader', () => ({
+	beginCalendarRangeRead: () => ({ close: () => {} }),
 	loadCalendarRange: loadCalendarRangeMock,
 	mergeCalendarRangeIntoStores: mergeCalendarRangeIntoStoresMock
 }));
@@ -87,6 +88,7 @@ function makeBootstrap(): CalendarWorkspaceResult {
 			rangeEnd: '2026-05-31',
 			availabilityEntries: [],
 			specialDays: [],
+			specialDaysRange: { rangeStart: '2025-01-01', rangeEnd: '2028-12-31' },
 			assignmentTypes: [],
 			dailyAssignments: [],
 			pinnedGroups: [],
@@ -123,15 +125,27 @@ function makeBootstrap(): CalendarWorkspaceResult {
 		},
 		hydration: {
 			orgId: 'org-1',
+			confirmedChangesByTab: {},
 			personnel: { mode: 'replace', snapshotKey: 'personnel:1', items: [] },
 			groups: { mode: 'replace', snapshotKey: 'groups:1', items: [] },
 			statusTypes: { mode: 'replace', snapshotKey: 'status-types:1', items: [] },
-			availabilityEntries: { mode: 'merge', snapshotKey: 'availability:1', items: [] },
-			specialDays: { mode: 'merge', snapshotKey: 'special-days:1', items: [] },
+			availabilityEntries: {
+				mode: 'range',
+				snapshotKey: 'availability:1',
+				items: [],
+				range: { rangeStart: '2026-03-01', rangeEnd: '2026-05-31' }
+			},
+			specialDays: {
+				mode: 'range',
+				snapshotKey: 'special-days:1',
+				items: [],
+				range: { rangeStart: '2026-03-01', rangeEnd: '2026-05-31' }
+			},
 			calendarAssignments: {
-				mode: 'merge',
+				mode: 'range',
 				snapshotKey: 'assignments:1',
-				items: { types: [], assignments: [] }
+				items: { types: [], assignments: [] },
+				range: { rangeStart: '2026-03-01', rangeEnd: '2026-05-31' }
 			},
 			pinnedGroups: { mode: 'replace', snapshotKey: 'pinned:1', items: [] }
 		}

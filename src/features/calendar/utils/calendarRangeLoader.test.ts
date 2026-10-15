@@ -1,102 +1,45 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CalendarRangeData } from '$features/calendar/calendar.types';
 
-const { availabilityStoreMock, specialDaysStoreMock, dailyAssignmentsStoreMock, fetchMock } = vi.hoisted(() => {
-	const availabilityStoreMock = {
-		orgId: 'org-1',
-		items: [
-			{ id: 'a1', personnelId: 'p1', statusTypeId: 'st1', startDate: '2026-03-01', endDate: '2026-03-05', note: null }
-		],
-		load: vi.fn()
-	};
-	availabilityStoreMock.load.mockImplementation((items: typeof availabilityStoreMock.items, orgId: string) => {
-		availabilityStoreMock.items = items;
-		availabilityStoreMock.orgId = orgId;
-	});
-	const specialDaysStoreMock = {
-		orgId: 'org-1',
-		items: [{ id: 'sd1', name: 'Existing', date: '2026-03-01', type: 'org-closure' }],
-		load: vi.fn()
-	};
-	specialDaysStoreMock.load.mockImplementation((items: typeof specialDaysStoreMock.items, orgId: string) => {
-		specialDaysStoreMock.items = items;
-		specialDaysStoreMock.orgId = orgId;
-	});
-	const dailyAssignmentsStoreMock = {
-		orgId: 'org-1',
-		types: [
-			{
-				id: 'at1',
-				name: 'CQ',
-				shortName: 'CQ',
-				assignTo: 'personnel',
-				color: '#ef4444',
-				exemptPersonnelIds: [],
-				showInDateHeader: false
-			}
-		],
-		assignments: [{ id: 'da1', date: '2026-03-01', assignmentTypeId: 'at1', assigneeId: 'p1' }],
-		load: vi.fn()
-	};
-	dailyAssignmentsStoreMock.load.mockImplementation(
-		(
-			types: typeof dailyAssignmentsStoreMock.types,
-			assignments: typeof dailyAssignmentsStoreMock.assignments,
-			orgId: string
-		) => {
-			dailyAssignmentsStoreMock.types = types;
-			dailyAssignmentsStoreMock.assignments = assignments;
-			dailyAssignmentsStoreMock.orgId = orgId;
-		}
-	);
-	return {
-		availabilityStoreMock,
-		specialDaysStoreMock,
-		dailyAssignmentsStoreMock,
-		fetchMock: vi.fn()
-	};
-});
-
+const fetchMock = vi.fn();
 vi.stubGlobal('fetch', fetchMock);
 
-vi.mock('$features/calendar/stores/availability.svelte', () => ({
-	availabilityStore: availabilityStoreMock
-}));
+import { availabilityStore } from '$features/calendar/stores/availability.svelte';
+import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
+import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
+import { beginCalendarRangeRead, loadCalendarRange, mergeCalendarRangeIntoStores } from './calendarRangeLoader';
 
-vi.mock('$features/calendar/stores/specialDays.svelte', () => ({
-	specialDaysStore: specialDaysStoreMock
-}));
+const cq = {
+	id: 'at1',
+	name: 'CQ',
+	shortName: 'CQ',
+	assignTo: 'personnel' as const,
+	color: '#ef4444',
+	exemptPersonnelIds: [],
+	showInDateHeader: false
+};
 
-vi.mock('$features/calendar/stores/dailyAssignments.svelte', () => ({
-	dailyAssignmentsStore: dailyAssignmentsStoreMock
-}));
-
-import { loadCalendarRange, mergeCalendarRangeIntoStores } from './calendarRangeLoader';
+function applyRange(data: CalendarRangeData) {
+	const read = beginCalendarRangeRead();
+	mergeCalendarRangeIntoStores('org-1', data, read);
+	read.close();
+}
 
 describe('calendarRangeLoader', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		availabilityStoreMock.orgId = 'org-1';
-		availabilityStoreMock.items = [
-			{ id: 'a1', personnelId: 'p1', statusTypeId: 'st1', startDate: '2026-03-01', endDate: '2026-03-05', note: null }
-		];
-		specialDaysStoreMock.orgId = 'org-1';
-		specialDaysStoreMock.items = [{ id: 'sd1', name: 'Existing', date: '2026-03-01', type: 'org-closure' }];
-		dailyAssignmentsStoreMock.orgId = 'org-1';
-		dailyAssignmentsStoreMock.types = [
-			{
-				id: 'at1',
-				name: 'CQ',
-				shortName: 'CQ',
-				assignTo: 'personnel',
-				color: '#ef4444',
-				exemptPersonnelIds: [],
-				showInDateHeader: false
-			}
-		];
-		dailyAssignmentsStoreMock.assignments = [
-			{ id: 'da1', date: '2026-03-01', assignmentTypeId: 'at1', assigneeId: 'p1' }
-		];
+		availabilityStore.load(
+			[
+				{ id: 'a1', personnelId: 'p1', statusTypeId: 'st1', startDate: '2026-03-01', endDate: '2026-03-05', note: null }
+			],
+			'org-1'
+		);
+		specialDaysStore.load([{ id: 'sd1', name: 'Existing', date: '2026-03-01', type: 'org-closure' }], 'org-1');
+		dailyAssignmentsStore.load(
+			[cq],
+			[{ id: 'da1', date: '2026-03-01', assignmentTypeId: 'at1', assigneeId: 'p1' }],
+			'org-1'
+		);
 	});
 
 	it('fetches the requested calendar range from the dedicated range endpoint', async () => {
@@ -119,55 +62,65 @@ describe('calendarRangeLoader', () => {
 	});
 
 	it('treats an empty authoritative range as removal of previously loaded rows', () => {
-		mergeCalendarRangeIntoStores('org-1', {
+		applyRange({
 			rangeStart: '2026-03-01',
 			rangeEnd: '2026-03-31',
 			availabilityEntries: [],
 			specialDays: [],
 			dailyAssignments: []
 		});
-		expect(availabilityStoreMock.items).toEqual([]);
-		expect(specialDaysStoreMock.items).toEqual([]);
-		expect(dailyAssignmentsStoreMock.assignments).toEqual([]);
+		expect(availabilityStore.items).toEqual([]);
+		expect(specialDaysStore.items).toEqual([]);
+		expect(dailyAssignmentsStore.assignments).toEqual([]);
 	});
 
 	it('replaces stale in-range calendar data while keeping existing out-of-range store state', () => {
-		availabilityStoreMock.items = [
-			{
-				id: 'stale-availability-in-range',
-				personnelId: 'p1',
-				statusTypeId: 'st1',
-				startDate: '2026-03-15',
-				endDate: '2026-03-16',
-				note: null
-			},
-			{
-				id: 'kept-availability-out-of-range',
-				personnelId: 'p1',
-				statusTypeId: 'st1',
-				startDate: '2026-02-15',
-				endDate: '2026-02-16',
-				note: null
-			},
-			{
-				id: 'a1',
-				personnelId: 'p1',
-				statusTypeId: 'st1',
-				startDate: '2026-03-01',
-				endDate: '2026-03-05',
-				note: null
-			}
-		];
-		specialDaysStoreMock.items = [
-			{ id: 'stale-special-day-in-range', name: 'Stale', date: '2026-03-15', type: 'org-closure' },
-			{ id: 'kept-special-day-out-of-range', name: 'Retained', date: '2026-02-15', type: 'org-closure' }
-		];
-		dailyAssignmentsStoreMock.assignments = [
-			{ id: 'stale-in-range', date: '2026-03-15', assignmentTypeId: 'at1', assigneeId: 'p1' },
-			{ id: 'kept-out-of-range', date: '2026-02-15', assignmentTypeId: 'at1', assigneeId: 'p1' }
-		];
+		availabilityStore.load(
+			[
+				{
+					id: 'stale-availability-in-range',
+					personnelId: 'p1',
+					statusTypeId: 'st1',
+					startDate: '2026-03-15',
+					endDate: '2026-03-16',
+					note: null
+				},
+				{
+					id: 'kept-availability-out-of-range',
+					personnelId: 'p1',
+					statusTypeId: 'st1',
+					startDate: '2026-02-15',
+					endDate: '2026-02-16',
+					note: null
+				},
+				{
+					id: 'a1',
+					personnelId: 'p1',
+					statusTypeId: 'st1',
+					startDate: '2026-03-01',
+					endDate: '2026-03-05',
+					note: null
+				}
+			],
+			'org-1'
+		);
+		specialDaysStore.load(
+			[
+				{ id: 'stale-special-day-in-range', name: 'Stale', date: '2026-03-15', type: 'org-closure' },
+				{ id: 'kept-special-day-out-of-range', name: 'Retained', date: '2026-02-15', type: 'org-closure' }
+			],
+			'org-1'
+		);
+		dailyAssignmentsStore.load(
+			[cq],
+			[
+				{ id: 'stale-in-range', date: '2026-03-15', assignmentTypeId: 'at1', assigneeId: 'p1' },
+				{ id: 'kept-out-of-range', date: '2026-02-15', assignmentTypeId: 'at1', assigneeId: 'p1' }
+			],
+			'org-1'
+		);
 
-		mergeCalendarRangeIntoStores('org-1', {
+		applyRange({
 			rangeStart: '2026-03-01',
 			rangeEnd: '2026-06-30',
 			availabilityEntries: [
@@ -185,8 +138,8 @@ describe('calendarRangeLoader', () => {
 			dailyAssignments: [{ id: 'da2', date: '2026-06-10', assignmentTypeId: 'at1', assigneeId: 'p2' }]
 		});
 
-		expect(availabilityStoreMock.orgId).toBe('org-1');
-		expect(availabilityStoreMock.items).toEqual([
+		expect(availabilityStore.orgId).toBe('org-1');
+		expect(availabilityStore.items).toEqual([
 			{
 				id: 'kept-availability-out-of-range',
 				personnelId: 'p1',
@@ -205,26 +158,16 @@ describe('calendarRangeLoader', () => {
 			},
 			{ id: 'a2', personnelId: 'p2', statusTypeId: 'st1', startDate: '2026-06-01', endDate: '2026-06-02', note: null }
 		]);
-		expect(specialDaysStoreMock.orgId).toBe('org-1');
-		expect(specialDaysStoreMock.items).toEqual([
+		expect(specialDaysStore.orgId).toBe('org-1');
+		expect(specialDaysStore.items).toEqual([
 			{ id: 'kept-special-day-out-of-range', name: 'Retained', date: '2026-02-15', type: 'org-closure' },
 			{ id: 'sd2', name: 'Incoming', date: '2026-06-01', type: 'org-closure' }
 		]);
-		expect(dailyAssignmentsStoreMock.orgId).toBe('org-1');
-		expect(dailyAssignmentsStoreMock.assignments).toEqual([
+		expect(dailyAssignmentsStore.orgId).toBe('org-1');
+		expect(dailyAssignmentsStore.assignments).toEqual([
 			{ id: 'kept-out-of-range', date: '2026-02-15', assignmentTypeId: 'at1', assigneeId: 'p1' },
 			{ id: 'da2', date: '2026-06-10', assignmentTypeId: 'at1', assigneeId: 'p2' }
 		]);
-		expect(dailyAssignmentsStoreMock.types).toEqual([
-			{
-				id: 'at1',
-				name: 'CQ',
-				shortName: 'CQ',
-				assignTo: 'personnel',
-				color: '#ef4444',
-				exemptPersonnelIds: [],
-				showInDateHeader: false
-			}
-		]);
+		expect(dailyAssignmentsStore.types).toEqual([cq]);
 	});
 });

@@ -38,6 +38,7 @@ export function installNetworkControl(
 				: null);
 		if (
 			parsedUrl.pathname !== control.suffix ||
+			(control.mode === 'hold-dispatch' && method === 'GET') ||
 			(search !== null && parsedUrl.search !== search) ||
 			(requiredMethod !== null && method !== requiredMethod)
 		)
@@ -123,6 +124,13 @@ export function installNetworkControl(
 					control.release = () => resolve(response);
 				});
 			return response;
+		}
+		if (control.mode === 'hold-dispatch' && requestNumber === control.ordinal) {
+			call.dispatch = 'held';
+			await new Promise((resolve) => {
+				control.release = resolve;
+			});
+			call.dispatch = 'released';
 		}
 		const response = await original(...input);
 		if (target.__mapNetwork !== control) return response;

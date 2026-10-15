@@ -5,7 +5,7 @@ import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignment
 import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
 import { CalendarRangeCoordinator } from '$features/calendar/contexts/CalendarRangeCoordinator.svelte';
-import { mergeCalendarRangeIntoStores } from './calendarRangeLoader';
+import { beginCalendarRangeRead, mergeCalendarRangeIntoStores } from './calendarRangeLoader';
 
 const types: AssignmentType[] = [
 	{
@@ -74,7 +74,11 @@ describe('Calendar persisted range preservation', () => {
 			],
 			'org-a'
 		);
-		mergeCalendarRangeIntoStores('org-a', rangeData([{ ...linked, assigneeId: 'p-bravo' }, group]));
+		mergeCalendarRangeIntoStores(
+			'org-a',
+			rangeData([{ ...linked, assigneeId: 'p-bravo' }, group]),
+			beginCalendarRangeRead()
+		);
 		expect(dailyAssignmentsStore.assignments).toEqual([
 			outside,
 			{

@@ -534,3 +534,30 @@ for (const mode of ['observe', 'hold', 'hold-fail']) {
 		assert.equal(dispatched, mode === 'hold-fail' ? 6 : 7);
 	});
 }
+
+test('held dispatch sends the selected mutation only after release and passes reads through', async () => {
+	const dispatched = [];
+	const page = {
+		location: { href: 'http://localhost/org/a/calendar' },
+		fetch: async (url, init) => {
+			dispatched.push(init?.method ?? 'GET');
+			return Response.json({ id: 'saved' });
+		}
+	};
+	const suffix = '/org/a/api/availability';
+	installNetworkControl(page, { mode: 'hold-dispatch', ordinal: 1, suffix });
+	assert.equal((await page.fetch(suffix)).status, 200);
+	let settled = false;
+	const saved = page.fetch(suffix, { method: 'DELETE', body: JSON.stringify({ id: 'saved' }) });
+	saved.then(() => (settled = true));
+	await new Promise(setImmediate);
+	assert.deepEqual(dispatched, ['GET']);
+	assert.equal(page.__mapNetwork.calls[0].dispatch, 'held');
+	assert.equal(settled, false);
+	page.__mapNetwork.release();
+	assert.equal((await saved).status, 200);
+	assert.deepEqual(dispatched, ['GET', 'DELETE']);
+	assert.equal(page.__mapNetwork.calls[0].dispatch, 'released');
+	await page.fetch(suffix, { method: 'POST' });
+	assert.deepEqual(dispatched, ['GET', 'DELETE', 'POST']);
+});

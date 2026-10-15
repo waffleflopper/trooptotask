@@ -41,6 +41,7 @@ function workspace() {
 		data: {
 			rangeStart: '2026-10-01',
 			rangeEnd: '2026-10-31',
+			specialDaysRange: { rangeStart: '2026-10-01', rangeEnd: '2026-10-31' },
 			personnel: [],
 			groups: [],
 			statusTypes: [],
@@ -54,17 +55,27 @@ function workspace() {
 		},
 		hydration: {
 			orgId: 'org-1',
+			confirmedChangesByTab: {},
 			personnel: { mode: 'replace', snapshotKey: 'personnel', items: [] },
 			groups: { mode: 'replace', snapshotKey: 'groups', items: [] },
 			statusTypes: { mode: 'replace', snapshotKey: 'statuses', items: [] },
 			pinnedGroups: { mode: 'replace', snapshotKey: 'pins', items: [] },
-			availabilityEntries: { mode: 'merge', snapshotKey: 'october-availability', items: availability.promise },
-			specialDays: { mode: 'merge', snapshotKey: 'october-closures', items: specialDays.promise },
+			availabilityEntries: {
+				mode: 'range',
+				snapshotKey: 'october-availability',
+				items: availability.promise,
+				range: { rangeStart: '2026-10-01', rangeEnd: '2026-10-31' }
+			},
+			specialDays: {
+				mode: 'range',
+				snapshotKey: 'october-closures',
+				items: specialDays.promise,
+				range: { rangeStart: '2026-10-01', rangeEnd: '2026-10-31' }
+			},
 			calendarAssignments: {
-				mode: 'merge',
+				mode: 'range',
 				snapshotKey: 'october-assignments',
-				rangeStart: '2026-10-01',
-				rangeEnd: '2026-10-31',
+				range: { rangeStart: '2026-10-01', rangeEnd: '2026-10-31' },
 				items: assignments.promise
 			}
 		}

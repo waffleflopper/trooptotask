@@ -8,6 +8,7 @@ import type {
 	StatusType,
 	DailyAssignment
 } from '$features/calendar/contracts';
+import { createMockAdapter, createStore } from '$lib/stores/core';
 import { createCalendarWorkspaceHydrator, type CalendarHydrationStores } from './calendarWorkspaceHydration.svelte';
 import type { CalendarWorkspaceHydration } from './calendar.types';
 
@@ -46,43 +47,59 @@ function createLoadable<T>() {
 	};
 }
 
-function createCalendarAssignmentsLoadable() {
-	let orgId = '';
-	let types: AssignmentType[] = [];
-	let assignments: DailyAssignment[] = [];
-	let loading = false;
+function createRangeLoadable<T extends { id: string }>() {
+	const store = createStore<T>({ resource: 'calendar-rows', adapter: createMockAdapter<T>({}) });
 	let loadCount = 0;
-	let startLoadingCount = 0;
 	return {
 		get orgId() {
-			return orgId;
+			return store.orgId;
+		},
+		get loadVersion() {
+			return store.loadVersion;
+		},
+		get items() {
+			return store.items;
+		},
+		get loading() {
+			return store.loading;
+		},
+		get loadCount() {
+			return loadCount;
+		},
+		load(nextItems: T[], nextOrgId: string) {
+			loadCount += 1;
+			store.load(nextItems, nextOrgId);
+		},
+		startLoading: () => store.startLoading(),
+		beginRead: () => store.beginRead()
+	};
+}
+
+function createCalendarAssignmentsLoadable() {
+	const rows = createRangeLoadable<DailyAssignment>();
+	let types: AssignmentType[] = [];
+	return {
+		get orgId() {
+			return rows.orgId;
+		},
+		get loadVersion() {
+			return rows.loadVersion;
 		},
 		get types() {
 			return types;
 		},
 		get assignments() {
-			return assignments;
-		},
-		get loading() {
-			return loading;
+			return rows.items;
 		},
 		get loadCount() {
-			return loadCount;
-		},
-		get startLoadingCount() {
-			return startLoadingCount;
+			return rows.loadCount;
 		},
 		load(nextTypes: AssignmentType[], nextAssignments: DailyAssignment[], nextOrgId: string) {
-			loadCount += 1;
 			types = nextTypes;
-			assignments = nextAssignments;
-			orgId = nextOrgId;
-			loading = false;
+			rows.load(nextAssignments, nextOrgId);
 		},
-		startLoading() {
-			startLoadingCount += 1;
-			loading = true;
-		}
+		startLoading: rows.startLoading,
+		beginRead: rows.beginRead
 	};
 }
 
@@ -91,25 +108,29 @@ function createStores() {
 		personnelStore: createLoadable<Personnel>(),
 		groupsStore: createLoadable<Group>(),
 		statusTypesStore: createLoadable<StatusType>(),
-		availabilityEntriesStore: createLoadable<AvailabilityEntry>(),
-		specialDaysStore: createLoadable<SpecialDay>(),
+		availabilityEntriesStore: createRangeLoadable<AvailabilityEntry>(),
+		specialDaysStore: createRangeLoadable<SpecialDay>(),
 		calendarAssignmentsStore: createCalendarAssignmentsLoadable(),
 		pinnedGroupsStore: createLoadable<string>()
 	} satisfies CalendarHydrationStores;
 }
 
+const MAY = { rangeStart: '2026-05-01', rangeEnd: '2026-05-31' };
+
 function preserveClientHydration(overrides: Partial<CalendarWorkspaceHydration> = {}): CalendarWorkspaceHydration {
 	return {
 		orgId: 'org-1',
+		confirmedChangesByTab: {},
 		personnel: { mode: 'preserve-client', snapshotKey: 'personnel:preserve', items: [] },
 		groups: { mode: 'preserve-client', snapshotKey: 'groups:preserve', items: [] },
 		statusTypes: { mode: 'preserve-client', snapshotKey: 'status-types:preserve', items: [] },
-		availabilityEntries: { mode: 'preserve-client', snapshotKey: 'availability:preserve', items: [] },
-		specialDays: { mode: 'preserve-client', snapshotKey: 'special-days:preserve', items: [] },
+		availabilityEntries: { mode: 'preserve-client', snapshotKey: 'availability:preserve', items: [], range: MAY },
+		specialDays: { mode: 'preserve-client', snapshotKey: 'special-days:preserve', items: [], range: MAY },
 		calendarAssignments: {
 			mode: 'preserve-client',
 			snapshotKey: 'assignments:preserve',
-			items: { types: [], assignments: [] }
+			items: { types: [], assignments: [] },
+			range: MAY
 		},
 		pinnedGroups: { mode: 'preserve-client', snapshotKey: 'pinned:preserve', items: [] },
 		...overrides
@@ -117,7 +138,7 @@ function preserveClientHydration(overrides: Partial<CalendarWorkspaceHydration> 
 }
 
 describe('Calendar workspace hydration adapter', () => {
-	it('hydrates explicit Calendar targets and preserves range-aware merge behavior', async () => {
+	it('replaces range targets within their range and keeps rows outside it', async () => {
 		const stores = createStores();
 		const existingAvailability = {
 			id: 'av-existing',
@@ -159,16 +180,16 @@ describe('Calendar workspace hydration adapter', () => {
 
 		const hydration: CalendarWorkspaceHydration = {
 			orgId: 'org-1',
+			confirmedChangesByTab: {},
 			personnel: { mode: 'replace', snapshotKey: 'personnel:1', items: [] },
 			groups: { mode: 'replace', snapshotKey: 'groups:1', items: [] },
 			statusTypes: { mode: 'replace', snapshotKey: 'status-types:1', items: [] },
-			availabilityEntries: { mode: 'merge', snapshotKey: 'availability:1', items: [incomingAvailability] },
-			specialDays: { mode: 'merge', snapshotKey: 'special-days:1', items: [incomingSpecialDay] },
+			availabilityEntries: { mode: 'range', snapshotKey: 'availability:1', items: [incomingAvailability], range: MAY },
+			specialDays: { mode: 'range', snapshotKey: 'special-days:1', items: [incomingSpecialDay], range: MAY },
 			calendarAssignments: {
-				mode: 'merge',
+				mode: 'range',
 				snapshotKey: 'assignments:1',
-				rangeStart: '2026-05-01',
-				rangeEnd: '2026-05-31',
+				range: MAY,
 				items: {
 					types: [assignmentType],
 					assignments: [incomingAssignment]
@@ -221,7 +242,7 @@ describe('Calendar workspace hydration adapter', () => {
 		const hydrator = createCalendarWorkspaceHydrator();
 		const pending = hydrator.hydrate(
 			preserveClientHydration({
-				availabilityEntries: { mode: 'merge', snapshotKey: 'availability:late', items: entries }
+				availabilityEntries: { mode: 'range', snapshotKey: 'availability:late', items: entries, range: MAY }
 			}),
 			stores
 		);

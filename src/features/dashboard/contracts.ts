@@ -1,5 +1,11 @@
 import type { Personnel, Group } from '$features/personnel/contracts';
-import type { AssignmentType, AvailabilityEntry, StatusType, DailyAssignment } from '$features/calendar/contracts';
+import type {
+	AssignmentType,
+	AvailabilityEntry,
+	CalendarDateRange,
+	StatusType,
+	DailyAssignment
+} from '$features/calendar/contracts';
 import type { TrainingType } from '$features/training/contracts';
 import type { RatingSchemeDueEntry } from '$features/rating-scheme/contracts';
 import type { PersonnelOnboarding } from '$features/onboarding/contracts';
@@ -87,6 +93,8 @@ export interface DashboardBootstrap {
 	availabilityEntries: AvailabilityEntry[] | Promise<AvailabilityEntry[]>;
 	assignmentTypes: AssignmentType[];
 	todayAssignments: DailyAssignment[] | Promise<DailyAssignment[]>;
+	/** The dates the availability and assignment snapshots cover. */
+	range: CalendarDateRange;
 	pinnedGroups: string[];
 	ratingSchemeEntries: RatingSchemeDueEntry[];
 	activeOnboardings: PersonnelOnboarding[];
@@ -112,24 +120,36 @@ export type DashboardWorkspaceHydrationTarget<T> = {
 	items: T[] | Promise<T[]>;
 };
 
+/** A snapshot of the shared Calendar stores that is authoritative only within its date range. */
+export type DashboardRangeHydrationTarget<T> = {
+	mode: 'range' | 'preserve-client';
+	deferred?: boolean;
+	snapshotKey: string;
+	items: T[] | Promise<T[]>;
+	range: CalendarDateRange;
+};
+
 export interface DashboardAssignmentsHydrationItems {
 	types: AssignmentType[];
 	assignments: DailyAssignment[];
 }
 
 export type DashboardAssignmentsWorkspaceHydrationTarget = {
-	mode: DashboardWorkspaceHydrationMode;
+	mode: 'range' | 'preserve-client';
 	deferred?: boolean;
 	snapshotKey: string;
 	items: DashboardAssignmentsHydrationItems | Promise<DashboardAssignmentsHydrationItems>;
+	range: CalendarDateRange;
 };
 
 export interface DashboardWorkspaceHydration {
 	orgId: string;
+	/** Each tab's latest confirmed change when the request left; see `confirmedBeforeRequest`. */
+	confirmedChangesByTab: Record<string, number>;
 	personnel: DashboardWorkspaceHydrationTarget<Personnel>;
 	groups: DashboardWorkspaceHydrationTarget<Group>;
 	statusTypes: DashboardWorkspaceHydrationTarget<StatusType>;
-	availabilityEntries: DashboardWorkspaceHydrationTarget<AvailabilityEntry>;
+	availabilityEntries: DashboardRangeHydrationTarget<AvailabilityEntry>;
 	calendarAssignments: DashboardAssignmentsWorkspaceHydrationTarget;
 	trainingTypes: DashboardWorkspaceHydrationTarget<TrainingType>;
 	pinnedGroups: DashboardWorkspaceHydrationTarget<string>;

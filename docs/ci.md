@@ -31,14 +31,14 @@ Vercel deployment builds are separate from Depot validation. The `ignoreCommand`
 The command compares `HEAD` with `VERCEL_GIT_PREVIOUS_SHA`, Vercel's last successful deployment for the same project and branch. It skips a build only when every changed path matches one of these exclusions:
 
 - Root `README.md`, `AGENTS.md`, `CLAUDE.md`, and `CONTEXT.md`.
-- Markdown under `docs/`, `.agents/`, or `.github/`.
+- Markdown under `docs/` or `.agents/`.
 - `*.test.ts` under `src/`, and `*.test.*` under `scripts/`.
 
 Other files still trigger builds, including application source, static assets, dependencies, runtime configuration, non-Markdown documentation inputs, and executable verification helpers. All changes since the last successful deployment count, including application changes followed by a documentation-only commit. Rename detection is disabled so moving app code into an excluded path still counts its deletion.
 
-An empty or unavailable previous SHA triggers a build. Redeploying the exact successful commit also builds, supporting environment-only changes and explicit rebuilds. Other manual redeployments can bypass filtering by clearing **Use project's Ignore Build Step** in Vercel's Redeploy dialog. The command needs no dependencies or repository helper script and fits Vercel's 256-character configuration limit. Its shell variable `p` holds the previous deployment SHA.
+An empty or unavailable previous SHA triggers a build. Redeploying the exact successful commit also builds, supporting environment-only changes and explicit rebuilds. Other manual redeployments can bypass filtering by clearing **Use project's Ignore Build Step** in Vercel's Redeploy dialog. The command needs no dependencies or repository helper script and fits Vercel's 256-character configuration limit. Its shell variable `sha` holds the previous deployment SHA.
 
-Vercel skips on exit code 0 and builds on a nonzero exit. Skipped builds still count toward deployment quotas. Depot continues to validate the complete PR independently, including changes that do not need a deployment. [The Git fixture tests](../scripts/vercel-ignore-build.test.ts) execute the actual configured command and check these decisions.
+Vercel skips on exit code 0 and builds on exit code 1. The command converts Git errors to exit code 1 so missing history cannot block a deployment. Skipped builds still count toward deployment quotas. Depot continues to validate the complete PR independently, including changes that do not need a deployment. [The Git fixture tests](../scripts/vercel-ignore-build.test.ts) execute the actual configured command and check these decisions.
 
 Build-machine selection remains a hosted project setting. Compare Basic and Standard on the same commit and environment before changing it. Use completed builds and Vercel's billed CPU minutes, which include container work after the deployment becomes ready. Keep dependency-cache conditions comparable and report repeated runs, costs, and timing ranges. Build-machine changes do not change function memory or runtime settings.
 

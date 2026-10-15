@@ -48,7 +48,6 @@ describe('Vercel build selection', () => {
 			'AGENTS.md',
 			'docs/stabilization/EVIDENCE.md',
 			'.agents/skills/verify-trooptotask/features/calendar.md',
-			'.github/copilot-instructions.md',
 			'src/features/calendar/components/Calendar.test.ts',
 			'scripts/ci/changes.test.ts',
 			'scripts/verification/browser.test.mjs'
@@ -75,6 +74,7 @@ describe('Vercel build selection', () => {
 		'svelte.config.js',
 		'vite.config.ts',
 		'static/robots.txt',
+		'.github/copilot-instructions.md',
 		'scripts/patch-bits-ui-timers.mjs',
 		'docs/architecture/GOVERNANCE_BASELINE.json',
 		'src/features/calendar/contracts.ts',
@@ -96,10 +96,10 @@ describe('Vercel build selection', () => {
 
 	it('builds the first deployment, explicit rebuilds, and unavailable shallow-clone history', () => {
 		const repo = repository();
-		expect(repo.decision('')).not.toBe(0);
+		expect(repo.decision('')).toBe(1);
 		expect(repo.decision()).toBe(1);
 		repo.write('README.md', 'updated\n');
 		repo.commit();
-		expect(repo.decision('a'.repeat(40))).not.toBe(0);
+		expect(repo.decision('a'.repeat(40))).toBe(1);
 	});
 });

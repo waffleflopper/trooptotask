@@ -21,13 +21,13 @@ INSERT INTO public.groups (id, organization_id, name) VALUES
 INSERT INTO public.personnel (id, organization_id, group_id, rank, first_name, last_name, mos, slug) VALUES
 ('d1643055-0000-4000-8000-000000000501', 'd1643055-0000-4000-8000-000000000101',
  'd1643055-0000-4000-8000-000000000201', 'SGT', 'Race', 'Person', '68W', 'calendar-race-person');
-INSERT INTO public.assignment_types (id, organization_id, name, short_name, assign_to, show_in_date_header) VALUES
-('d1643055-0000-4000-8000-000000000401', 'd1643055-0000-4000-8000-000000000101', 'Staff', 'STF', 'personnel', true),
-('d1643055-0000-4000-8000-000000000402', 'd1643055-0000-4000-8000-000000000101', 'Group', 'GRP', 'group', false),
-('d1643055-0000-4000-8000-000000000403', 'd1643055-0000-4000-8000-000000000101', 'Retiring', 'RET', 'personnel', false),
-('d1643055-0000-4000-8000-000000000405', 'd1643055-0000-4000-8000-000000000101', 'Doomed', 'DMD', 'personnel', false),
-('d1643055-0000-4000-8000-000000000406', 'd1643055-0000-4000-8000-000000000101', 'Archiving', 'ARC', 'personnel', false),
-('d1643055-0000-4000-8000-000000000411', 'd1643055-0000-4000-8000-000000000102', 'Bravo Staff', 'BST', 'personnel', true);
+INSERT INTO public.assignment_types (id, organization_id, name, short_name, assign_to, show_on_calendar, sort_order) VALUES
+('d1643055-0000-4000-8000-000000000401', 'd1643055-0000-4000-8000-000000000101', 'Staff', 'STF', 'personnel', true, 0),
+('d1643055-0000-4000-8000-000000000402', 'd1643055-0000-4000-8000-000000000101', 'Group', 'GRP', 'group', true, 1),
+('d1643055-0000-4000-8000-000000000403', 'd1643055-0000-4000-8000-000000000101', 'Retiring', 'RET', 'personnel', false, 2),
+('d1643055-0000-4000-8000-000000000405', 'd1643055-0000-4000-8000-000000000101', 'Doomed', 'DMD', 'personnel', false, 3),
+('d1643055-0000-4000-8000-000000000406', 'd1643055-0000-4000-8000-000000000101', 'Archiving', 'ARC', 'personnel', false, 4),
+('d1643055-0000-4000-8000-000000000411', 'd1643055-0000-4000-8000-000000000102', 'Bravo Staff', 'BST', 'personnel', true, 0);
 INSERT INTO public.assignment_types (id, organization_id, name, short_name, assign_to, archived_at) VALUES
 ('d1643055-0000-4000-8000-000000000404', 'd1643055-0000-4000-8000-000000000101', 'Legacy', 'LEG', 'personnel', '2020-01-01T00:00:00Z');
 INSERT INTO public.special_days (id, organization_id, date, name, type) VALUES
@@ -97,9 +97,9 @@ CREATE FUNCTION pg_temp.days(org text) RETURNS jsonb LANGUAGE sql AS $$
   SELECT pg_temp.fx(format($q$SELECT coalesce(jsonb_agg(jsonb_build_array(date, name, type) ORDER BY date, type, name), '[]')
     FROM public.special_days WHERE organization_id = #%s$q$, org));
 $$;
-CREATE FUNCTION pg_temp.headers(org text) RETURNS jsonb LANGUAGE sql AS $$
-  SELECT pg_temp.fx(format($q$SELECT coalesce(jsonb_agg(name ORDER BY name), '[]')
-    FROM public.assignment_types WHERE organization_id = #%s AND show_in_date_header$q$, org));
+CREATE FUNCTION pg_temp.lanes(org text) RETURNS jsonb LANGUAGE sql AS $$
+  SELECT pg_temp.fx(format($q$SELECT coalesce(jsonb_agg(name ORDER BY sort_order, id), '[]')
+    FROM public.assignment_types WHERE organization_id = #%s AND show_on_calendar AND archived_at IS NULL$q$, org));
 $$;
 CREATE FUNCTION pg_temp.set_calendar(actor integer, capability text) RETURNS text LANGUAGE sql AS $$
   SELECT pg_temp.exec('fixture', format($q$UPDATE public.organization_memberships
@@ -110,8 +110,10 @@ CREATE FUNCTION pg_temp.reset_sql() RETURNS text LANGUAGE sql AS $$
   SELECT $q$SELECT to_jsonb(count(*)) FROM public.reset_federal_holidays(#101,
     '[{"date":"2027-01-01","name":"New Year''s Day"},{"date":"2026-12-25","name":"Christmas Day"}]')$q$;
 $$;
-CREATE FUNCTION pg_temp.header_sql(type_id text) RETURNS text LANGUAGE sql AS $$
-  SELECT format($q$SELECT to_jsonb(public.set_assignment_type_date_header(#101, #%s)::text)$q$, type_id);
+CREATE FUNCTION pg_temp.lanes_sql(desired text, expected text) RETURNS text LANGUAGE sql AS $$
+  SELECT format($q$SELECT to_jsonb(public.set_calendar_lanes(#101, ARRAY[%s]::uuid[], ARRAY[%s]::uuid[])::text)$q$,
+    (SELECT string_agg('#' || id, ', ') FROM unnest(string_to_array(desired, ',')) AS d(id)),
+    (SELECT string_agg('#' || id, ', ') FROM unnest(string_to_array(expected, ',')) AS e(id)));
 $$;
 CREATE TEMP TABLE results(label text PRIMARY KEY, value jsonb);
 INSERT INTO results SELECT 'bravo', pg_temp.fx($$SELECT jsonb_build_object(
@@ -209,134 +211,6 @@ SELECT is(pg_temp.fx($$SELECT jsonb_agg(jsonb_build_array(id, name) ORDER BY id)
     FROM results, jsonb_array_elements(value) AS d WHERE label = 'before-revoked-reset' AND d->>'type' = 'federal-holiday'),
   'only the committed edit changed the federal rows');
 
-SELECT pg_temp.begin_as('a', 1);
-SELECT is(pg_temp.call('a', pg_temp.header_sql('402')), '""', 'choosing Group stays open');
-SELECT pg_temp.begin_as('b', 3);
-SELECT pg_temp.send('b', pg_temp.header_sql('403'));
-SELECT ok(pg_temp.blocked_by('b', 'a', 'advisory'), 'choosing Retiring waits on the advisory lock');
-SELECT pg_temp.exec('a', 'COMMIT');
-SELECT is(pg_temp.result('b'), '{"value":""}', 'the later choice completes without a conflict');
-SELECT pg_temp.exec('b', 'COMMIT');
-SELECT is(pg_temp.headers('101'), '["Retiring"]', 'the later committed choice is the only header');
-
-SELECT pg_temp.begin_as('a', 3);
-SELECT is(pg_temp.call('a', $$WITH gone AS (DELETE FROM public.assignment_types WHERE id = #405 RETURNING 1)
-  SELECT to_jsonb(count(*)) FROM gone$$), '1', 'a delete of the target stays open');
-SELECT pg_temp.begin_as('b', 1);
-SELECT pg_temp.send('b', pg_temp.header_sql('405'));
-SELECT ok(pg_temp.blocked_by('b', 'a', 'transactionid'), 'the choice waits on the deleted target row');
-SELECT pg_temp.exec('a', 'COMMIT');
-SELECT ok(pg_temp.failed(pg_temp.result('b'), 'Assignment type not found'), 'the waiting choice finds no target');
-SELECT pg_temp.exec('b', 'ROLLBACK');
-SELECT is(pg_temp.headers('101'), '["Retiring"]', 'the old header survives a deleted target');
-
-SELECT pg_temp.begin_as('a', 3);
-SELECT is(pg_temp.call('a', $$WITH changed AS (UPDATE public.assignment_types SET archived_at = now() WHERE id = #406 RETURNING 1)
-  SELECT to_jsonb(count(*)) FROM changed$$), '1', 'archiving the target stays open');
-SELECT pg_temp.begin_as('b', 1);
-SELECT pg_temp.send('b', pg_temp.header_sql('406'));
-SELECT ok(pg_temp.blocked_by('b', 'a', 'transactionid'), 'the choice waits on the archived target row');
-SELECT pg_temp.exec('a', 'COMMIT');
-SELECT ok(pg_temp.failed(pg_temp.result('b'), 'Assignment type not found'), 'the waiting choice rejects an archived target');
-SELECT pg_temp.exec('b', 'ROLLBACK');
-SELECT is(pg_temp.headers('101'), '["Retiring"]', 'the old header survives an archived target');
-
-SELECT pg_temp.begin_as('a', 3);
-SELECT is(pg_temp.call('a', $$WITH changed AS (UPDATE public.assignment_types SET name = 'Retiring Edited' WHERE id = #403 RETURNING 1)
-  SELECT to_jsonb(count(*)) FROM changed$$), '1', 'an edit of the current header stays open');
-SELECT pg_temp.begin_as('b', 1);
-SELECT pg_temp.send('b', pg_temp.header_sql('401'));
-SELECT ok(pg_temp.blocked_by('b', 'a', 'transactionid'), 'the clear waits on the edited header row');
-SELECT pg_temp.exec('a', 'COMMIT');
-SELECT is(pg_temp.result('b'), '{"value":""}', 'the choice completes after the edit');
-SELECT pg_temp.exec('b', 'COMMIT');
-SELECT is(pg_temp.fx($$SELECT jsonb_agg(jsonb_build_array(name, show_in_date_header) ORDER BY name)
-  FROM public.assignment_types WHERE id IN (#401, #403)$$), '[["Retiring Edited", false], ["Staff", true]]',
-  'both the edit and the new header are kept');
-
-SELECT pg_temp.begin_as('a', 1);
-SELECT is(pg_temp.call('a', pg_temp.header_sql('402')), '""', 'choosing Group stays open');
-SELECT pg_temp.exec('c', 'BEGIN');
-SELECT pg_temp.exec('c', $$SET LOCAL lock_timeout = '2s'$$);
-SELECT is(pg_temp.call('c', $$WITH added AS (INSERT INTO public.daily_assignments (organization_id, assignment_type_id, date, assignee_id)
-  VALUES (#101, #402, '2030-05-01', 'd1643055-0000-4000-8000-000000000501'),
-         (#101, #401, '2030-05-01', 'd1643055-0000-4000-8000-000000000501') RETURNING 1)
-  SELECT to_jsonb(count(*)) FROM added$$), '2', 'assignments referencing the new and old header insert without waiting');
-SELECT pg_temp.exec('c', 'COMMIT');
-SELECT pg_temp.exec('a', 'COMMIT');
-SELECT is(pg_temp.headers('101'), '["Group"]', 'the choice commits alongside the references');
-
-SELECT pg_temp.exec('c', 'BEGIN');
-SELECT is(pg_temp.call('c', $$WITH added AS (INSERT INTO public.daily_assignments (organization_id, assignment_type_id, date, assignee_id)
-  VALUES (#101, #401, '2030-05-02', 'd1643055-0000-4000-8000-000000000501') RETURNING 1)
-  SELECT to_jsonb(count(*)) FROM added$$), '1', 'an assignment referencing Staff stays open');
-SELECT pg_temp.begin_as('a', 1);
-SELECT pg_temp.exec('a', $$SET LOCAL lock_timeout = '2s'$$);
-SELECT is(pg_temp.call('a', pg_temp.header_sql('401')), '""', 'choosing Staff completes while the referencing insert is open');
-SELECT pg_temp.exec('a', 'COMMIT');
-SELECT pg_temp.exec('c', 'COMMIT');
-SELECT is(pg_temp.headers('101'), '["Staff"]', 'the choice and the held reference both commit');
-
-SELECT pg_temp.exec('fixture', $$UPDATE public.assignment_types SET show_in_date_header = false WHERE organization_id = #101;
-  UPDATE public.assignment_types SET show_in_date_header = true WHERE id = #404$$);
-SELECT pg_temp.exec('a', 'BEGIN');
-SELECT pg_temp.exec('a', 'SET LOCAL ROLE service_role');
-SELECT is(pg_temp.call('a', $$SELECT to_jsonb(public.delete_expired_unreferenced_assignment_types(#101, ARRAY[#404], now()))$$),
-  '1', 'retention deletes the archived legacy header and stays open');
-SELECT pg_temp.begin_as('b', 1);
-SELECT pg_temp.send('b', pg_temp.header_sql('401'));
-SELECT ok(pg_temp.blocked_by('b', 'a', 'transactionid'), 'the clear waits on the retention delete');
-SELECT pg_temp.exec('a', 'COMMIT');
-SELECT is(pg_temp.result('b'), '{"value":""}', 'the choice completes after retention');
-SELECT pg_temp.exec('b', 'COMMIT');
-SELECT is(pg_temp.fx($$SELECT jsonb_build_object('legacy', (SELECT count(*) FROM public.assignment_types WHERE id = #404),
-  'headers', (SELECT jsonb_agg(name) FROM public.assignment_types WHERE organization_id = #101 AND show_in_date_header))$$),
-  '{"legacy": 0, "headers": ["Staff"]}', 'retention removed the legacy row and Staff is the only header');
-
-SELECT pg_temp.begin_as('a', 1);
-SELECT is(pg_temp.call('a', $$SELECT to_jsonb(pg_advisory_xact_lock(hashtextextended('calendar-date-header:' || #101::text, 0))::text)$$),
-  '""', 'another session holds the header lock');
-SELECT pg_temp.begin_as('b', 2);
-SELECT pg_temp.send('b', pg_temp.header_sql('402'));
-SELECT ok(pg_temp.blocked_by('b', 'a', 'advisory'), 'the choice waits on the advisory lock');
-SELECT pg_temp.set_calendar(2, 'view');
-SELECT pg_temp.exec('a', 'COMMIT');
-SELECT ok(pg_temp.failed(pg_temp.result('b'), 'Calendar configuration is not allowed'),
-  'access revoked during the advisory wait denies the choice');
-SELECT pg_temp.exec('b', 'ROLLBACK');
-SELECT pg_temp.set_calendar(2, 'configure');
-SELECT is(pg_temp.headers('101'), '["Staff"]', 'the denied choice kept the header');
-
-SELECT pg_temp.begin_as('a', 3);
-SELECT is(pg_temp.call('a', $$WITH changed AS (UPDATE public.assignment_types SET color = '#abcdef' WHERE id = #402 RETURNING 1)
-  SELECT to_jsonb(count(*)) FROM changed$$), '1', 'an edit of the target stays open');
-SELECT pg_temp.begin_as('b', 2);
-SELECT pg_temp.send('b', pg_temp.header_sql('402'));
-SELECT ok(pg_temp.blocked_by('b', 'a', 'transactionid'), 'the choice waits on the target row');
-SELECT pg_temp.set_calendar(2, 'view');
-SELECT pg_temp.exec('a', 'COMMIT');
-SELECT ok(pg_temp.failed(pg_temp.result('b'), 'Calendar configuration is not allowed'),
-  'access revoked during the target wait denies the choice');
-SELECT pg_temp.exec('b', 'ROLLBACK');
-SELECT pg_temp.set_calendar(2, 'configure');
-SELECT is(pg_temp.headers('101'), '["Staff"]', 'the header is unchanged after the target-wait denial');
-
-SELECT pg_temp.begin_as('a', 3);
-SELECT is(pg_temp.call('a', $$WITH changed AS (UPDATE public.assignment_types SET color = '#fedcba' WHERE id = #401 RETURNING 1)
-  SELECT to_jsonb(count(*)) FROM changed$$), '1', 'an edit of the current header stays open');
-SELECT pg_temp.begin_as('b', 2);
-SELECT pg_temp.send('b', pg_temp.header_sql('402'));
-SELECT ok(pg_temp.blocked_by('b', 'a', 'transactionid'), 'the clear waits on the current header row');
-SELECT pg_temp.set_calendar(2, 'view');
-SELECT pg_temp.exec('a', 'COMMIT');
-SELECT ok(pg_temp.failed(pg_temp.result('b'), 'Date header was not saved'),
-  'access revoked during the header wait denies the choice before reporting success');
-SELECT pg_temp.exec('b', 'ROLLBACK');
-SELECT pg_temp.set_calendar(2, 'configure');
-SELECT is(pg_temp.fx($$SELECT jsonb_agg(jsonb_build_array(name, show_in_date_header, color) ORDER BY name)
-  FROM public.assignment_types WHERE id IN (#401, #402)$$), '[["Group", false, "#abcdef"], ["Staff", true, "#fedcba"]]',
-  'the denied choice cleared nothing and kept both committed edits');
-
 INSERT INTO results SELECT 'before-fk-wait', pg_temp.fx($$SELECT jsonb_agg(to_jsonb(d) ORDER BY d.id)
   FROM public.special_days d WHERE organization_id = #101$$);
 SELECT pg_temp.exec('c', 'BEGIN');
@@ -357,38 +231,136 @@ SELECT pg_temp.set_calendar(2, 'configure');
 SELECT is(pg_temp.fx($$SELECT jsonb_agg(to_jsonb(d) ORDER BY d.id) FROM public.special_days d WHERE organization_id = #101$$),
   (SELECT value FROM results WHERE label = 'before-fk-wait'), 'the denied reset committed no day after the wait');
 
-SELECT pg_temp.exec('fixture', $$UPDATE public.assignment_types SET show_in_date_header = false WHERE organization_id = #101$$);
-SELECT pg_temp.begin_as('a', 3);
-SELECT is(pg_temp.call('a', $$WITH added AS (INSERT INTO public.assignment_types (id, organization_id, name, short_name, assign_to, show_in_date_header)
-  VALUES (#407, #101, 'Direct Header', 'DHD', 'personnel', true) RETURNING 1) SELECT to_jsonb(count(*)) FROM added$$),
-  '1', 'a direct insert of a new header stays open');
-SELECT pg_temp.begin_as('b', 1);
-SELECT pg_temp.send('b', pg_temp.header_sql('402'));
-SELECT ok(pg_temp.blocked_by('b', 'a', 'transactionid'), 'the choice waits on the uncommitted direct header');
+SELECT pg_temp.begin_as('a', 1);
+SELECT is(pg_temp.call('a', pg_temp.lanes_sql('402,401', '401,402')), '""', 'a reorder stays open');
+SELECT pg_temp.begin_as('b', 3);
+SELECT pg_temp.send('b', pg_temp.lanes_sql('401,402,403', '401,402'));
+SELECT ok(pg_temp.blocked_by('b', 'a', 'advisory'), 'a competing lane change waits on the advisory lock');
 SELECT pg_temp.exec('a', 'COMMIT');
-SELECT ok(pg_temp.failed(pg_temp.result('b'), 'duplicate key value violates unique constraint "assignment_types_one_header_per_org"'),
-  'the wait was the final update''s one-header index check');
+SELECT ok(pg_temp.failed(pg_temp.result('b'), 'Calendar lanes changed'),
+  'the competing change made from the old lanes is a conflict');
 SELECT pg_temp.exec('b', 'ROLLBACK');
-SELECT is(pg_temp.headers('101'), '["Direct Header"]', 'the committed direct header stays the only header');
+SELECT is(pg_temp.lanes('101'), '["Group", "Staff"]', 'the first committed reorder is kept and nothing is overwritten');
 
-SELECT pg_temp.exec('fixture', $$DELETE FROM public.assignment_types WHERE id = #407$$);
-INSERT INTO results SELECT 'before-index-wait', pg_temp.fx($$SELECT jsonb_agg(to_jsonb(t) ORDER BY t.id)
-  FROM public.assignment_types t WHERE organization_id = #101$$);
-SELECT pg_temp.begin_as('a', 3);
-SELECT is(pg_temp.call('a', $$WITH added AS (INSERT INTO public.assignment_types (id, organization_id, name, short_name, assign_to, show_in_date_header)
-  VALUES (#407, #101, 'Direct Header', 'DHD', 'personnel', true) RETURNING 1) SELECT to_jsonb(count(*)) FROM added$$),
-  '1', 'another direct header insert stays open');
-SELECT pg_temp.begin_as('b', 2);
-SELECT pg_temp.send('b', pg_temp.header_sql('402'));
-SELECT ok(pg_temp.blocked_by('b', 'a', 'transactionid'), 'the final header update waits on the one-header index');
-SELECT pg_temp.set_calendar(2, 'view');
-SELECT pg_temp.exec('a', 'ROLLBACK');
-SELECT ok(pg_temp.failed(pg_temp.result('b'), 'Calendar configuration is not allowed'),
-  'access revoked during the index wait denies the choice');
+SELECT pg_temp.begin_as('a', 1);
+SELECT is(pg_temp.call('a', pg_temp.lanes_sql('402,401,403', '402,401')), '""', 'adding a lane stays open');
+SELECT pg_temp.begin_as('b', 3);
+SELECT pg_temp.send('b', pg_temp.lanes_sql('402,401,403', '402,401'));
+SELECT ok(pg_temp.blocked_by('b', 'a', 'advisory'), 'the same change from a second session waits');
+SELECT pg_temp.exec('a', 'COMMIT');
+SELECT is(pg_temp.result('b'), '{"value":""}', 'the same change converges without a conflict');
 SELECT pg_temp.exec('b', 'COMMIT');
+SELECT is(pg_temp.lanes('101'), '["Group", "Staff", "Retiring"]', 'both sessions agree on the saved lanes');
+
+SELECT pg_temp.begin_as('b', 1);
+SELECT is(pg_temp.call('b', pg_temp.lanes_sql('402,401,403', '402,401')), '""',
+  'a replay after a lost reply converges on the saved lanes');
+SELECT pg_temp.exec('b', 'COMMIT');
+
+SELECT pg_temp.begin_as('a', 3);
+SELECT is(pg_temp.call('a', $$WITH gone AS (DELETE FROM public.assignment_types WHERE id = #405 RETURNING 1)
+  SELECT to_jsonb(count(*)) FROM gone$$), '1', 'a delete of a requested lane stays open');
+SELECT pg_temp.begin_as('b', 1);
+SELECT pg_temp.send('b', pg_temp.lanes_sql('402,401,403,405', '402,401,403'));
+SELECT ok(pg_temp.blocked_by('b', 'a', 'transactionid'), 'the lane change waits on the deleted type row');
+SELECT pg_temp.exec('a', 'COMMIT');
+SELECT ok(pg_temp.failed(pg_temp.result('b'), 'Assignment type not found'), 'the waiting change finds no requested type');
+SELECT pg_temp.exec('b', 'ROLLBACK');
+
+SELECT pg_temp.begin_as('a', 3);
+SELECT is(pg_temp.call('a', $$WITH changed AS (UPDATE public.assignment_types SET archived_at = now() WHERE id = #406 RETURNING 1)
+  SELECT to_jsonb(count(*)) FROM changed$$), '1', 'archiving a requested lane stays open');
+SELECT pg_temp.begin_as('b', 1);
+SELECT pg_temp.send('b', pg_temp.lanes_sql('402,401,403,406', '402,401,403'));
+SELECT ok(pg_temp.blocked_by('b', 'a', 'transactionid'), 'the lane change waits on the archived type row');
+SELECT pg_temp.exec('a', 'COMMIT');
+SELECT ok(pg_temp.failed(pg_temp.result('b'), 'Assignment type not found'), 'the waiting change rejects an archived type');
+SELECT pg_temp.exec('b', 'ROLLBACK');
+SELECT is(pg_temp.lanes('101'), '["Group", "Staff", "Retiring"]', 'the lanes survive a deleted and an archived request');
+
+SELECT pg_temp.begin_as('a', 3);
+SELECT is(pg_temp.call('a', $$WITH changed AS (UPDATE public.assignment_types SET name = 'Retiring Edited' WHERE id = #403 RETURNING 1)
+  SELECT to_jsonb(count(*)) FROM changed$$), '1', 'an edit of a lane stays open');
+SELECT pg_temp.begin_as('b', 1);
+SELECT pg_temp.send('b', pg_temp.lanes_sql('401,402', '402,401,403'));
+SELECT ok(pg_temp.blocked_by('b', 'a', 'transactionid'), 'the lane change waits on the edited row');
+SELECT pg_temp.exec('a', 'COMMIT');
+SELECT is(pg_temp.result('b'), '{"value":""}', 'the lane change completes after the edit');
+SELECT pg_temp.exec('b', 'COMMIT');
+SELECT is(pg_temp.fx($$SELECT jsonb_agg(jsonb_build_array(name, show_on_calendar) ORDER BY name)
+  FROM public.assignment_types WHERE id IN (#401, #402, #403)$$),
+  '[["Group", true], ["Retiring Edited", false], ["Staff", true]]', 'both the edit and the lane change are kept');
+SELECT is(pg_temp.lanes('101'), '["Staff", "Group"]', 'the lanes follow the committed order');
+
+SELECT pg_temp.begin_as('a', 1);
+SELECT is(pg_temp.call('a', pg_temp.lanes_sql('402,401', '401,402')), '""', 'a lane change stays open');
+SELECT pg_temp.exec('c', 'BEGIN');
+SELECT pg_temp.exec('c', $$SET LOCAL lock_timeout = '2s'$$);
+SELECT is(pg_temp.call('c', $$WITH added AS (INSERT INTO public.daily_assignments (organization_id, assignment_type_id, date, assignee_id)
+  VALUES (#101, #402, '2030-05-01', 'd1643055-0000-4000-8000-000000000501'),
+         (#101, #401, '2030-05-01', 'd1643055-0000-4000-8000-000000000501') RETURNING 1)
+  SELECT to_jsonb(count(*)) FROM added$$), '2', 'assignments referencing the lanes insert without waiting');
+SELECT pg_temp.exec('c', 'COMMIT');
+SELECT pg_temp.exec('a', 'COMMIT');
+SELECT is(pg_temp.lanes('101'), '["Group", "Staff"]', 'the lane change commits alongside the references');
+
+SELECT pg_temp.exec('c', 'BEGIN');
+SELECT is(pg_temp.call('c', $$WITH added AS (INSERT INTO public.daily_assignments (organization_id, assignment_type_id, date, assignee_id)
+  VALUES (#101, #401, '2030-05-02', 'd1643055-0000-4000-8000-000000000501') RETURNING 1)
+  SELECT to_jsonb(count(*)) FROM added$$), '1', 'an assignment referencing Staff stays open');
+SELECT pg_temp.begin_as('a', 1);
+SELECT pg_temp.exec('a', $$SET LOCAL lock_timeout = '2s'$$);
+SELECT is(pg_temp.call('a', pg_temp.lanes_sql('401,402', '402,401')), '""',
+  'a lane change completes while the referencing insert is open');
+SELECT pg_temp.exec('a', 'COMMIT');
+SELECT pg_temp.exec('c', 'COMMIT');
+SELECT is(pg_temp.lanes('101'), '["Staff", "Group"]', 'the lane change and the held reference both commit');
+
+SELECT pg_temp.exec('fixture', $$UPDATE public.assignment_types SET show_on_calendar = true WHERE id = #404$$);
+SELECT pg_temp.exec('a', 'BEGIN');
+SELECT pg_temp.exec('a', 'SET LOCAL ROLE service_role');
+SELECT is(pg_temp.call('a', $$SELECT to_jsonb(public.delete_expired_unreferenced_assignment_types(#101, ARRAY[#404], now()))$$),
+  '1', 'retention deletes an archived type and stays open');
+SELECT pg_temp.begin_as('b', 1);
+SELECT pg_temp.send('b', pg_temp.lanes_sql('402', '401,402'));
+SELECT ok(pg_temp.blocked_by('b', 'a', 'transactionid'), 'the lane change waits on the retention delete');
+SELECT pg_temp.exec('a', 'COMMIT');
+SELECT is(pg_temp.result('b'), '{"value":""}', 'the lane change completes after retention');
+SELECT pg_temp.exec('b', 'COMMIT');
+SELECT is(pg_temp.fx($$SELECT jsonb_build_object('legacy', (SELECT count(*) FROM public.assignment_types WHERE id = #404),
+  'lanes', (SELECT jsonb_agg(name) FROM public.assignment_types WHERE organization_id = #101 AND show_on_calendar))$$),
+  '{"legacy": 0, "lanes": ["Group"]}', 'retention removed the archived row and Group is the only lane');
+
+SELECT pg_temp.begin_as('a', 1);
+SELECT is(pg_temp.call('a', $$SELECT to_jsonb(pg_advisory_xact_lock(hashtextextended('calendar-lanes:' || #101::text, 0))::text)$$),
+  '""', 'another session holds the lane lock');
+SELECT pg_temp.begin_as('b', 2);
+SELECT pg_temp.send('b', pg_temp.lanes_sql('402,401', '402'));
+SELECT ok(pg_temp.blocked_by('b', 'a', 'advisory'), 'the lane change waits on the advisory lock');
+SELECT pg_temp.set_calendar(2, 'view');
+SELECT pg_temp.exec('a', 'COMMIT');
+SELECT ok(pg_temp.failed(pg_temp.result('b'), 'Calendar configuration is not allowed'),
+  'access revoked during the advisory wait denies the lane change');
+SELECT pg_temp.exec('b', 'ROLLBACK');
 SELECT pg_temp.set_calendar(2, 'configure');
-SELECT is(pg_temp.fx($$SELECT jsonb_agg(to_jsonb(t) ORDER BY t.id) FROM public.assignment_types t WHERE organization_id = #101$$),
-  (SELECT value FROM results WHERE label = 'before-index-wait'), 'the denied choice committed no assignment type change after the wait');
+SELECT is(pg_temp.lanes('101'), '["Group"]', 'the denied change kept the lanes');
+
+SELECT pg_temp.begin_as('a', 3);
+SELECT is(pg_temp.call('a', $$WITH changed AS (UPDATE public.assignment_types SET color = '#abcdef' WHERE id = #403 RETURNING 1)
+  SELECT to_jsonb(count(*)) FROM changed$$), '1', 'an edit of a planner-only type stays open');
+SELECT pg_temp.begin_as('b', 2);
+SELECT pg_temp.send('b', pg_temp.lanes_sql('402,401', '402'));
+SELECT ok(pg_temp.blocked_by('b', 'a', 'transactionid'), 'the lane change waits on the type row lock');
+SELECT pg_temp.set_calendar(2, 'view');
+SELECT pg_temp.exec('a', 'COMMIT');
+SELECT ok(pg_temp.failed(pg_temp.result('b'), 'Calendar configuration is not allowed'),
+  'access revoked during the row wait denies the lane change');
+SELECT pg_temp.exec('b', 'ROLLBACK');
+SELECT pg_temp.set_calendar(2, 'configure');
+SELECT is(pg_temp.fx($$SELECT jsonb_agg(jsonb_build_array(name, show_on_calendar, color) ORDER BY name)
+  FROM public.assignment_types WHERE id IN (#401, #402, #403)$$),
+  '[["Group", true, "#6b7280"], ["Retiring Edited", false, "#abcdef"], ["Staff", false, "#6b7280"]]',
+  'the denied change wrote nothing and kept the committed edit');
 
 SELECT is(pg_temp.fx($$SELECT jsonb_build_object(
   'days', (SELECT jsonb_agg(to_jsonb(d) ORDER BY d.id) FROM public.special_days d WHERE organization_id = #102),

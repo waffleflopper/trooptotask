@@ -75,6 +75,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261013000500_atomic_onboarding_template_commands.sql",
     "20261013000600_sign_in_roster_scan_lifecycle.sql",
     "20261014000100_atomic_calendar_configuration_commands.sql",
+    "20261015000100_calendar_lanes.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",
@@ -108,6 +109,7 @@ STAGED_UPGRADE_FIXTURES = (
     "personnel_file_retirement_before.sql",
     "atomic_personnel_lifecycle_before.sql",
     "sign_in_roster_scan_lifecycle_before.sql",
+    "calendar_lanes_before.sql",
 )
 STAGED_UPGRADE_CONTRACTS = (
     "account_setup_populated_after.sql",
@@ -143,6 +145,7 @@ STAGED_UPGRADE_CONTRACTS = (
     "personnel_file_retirement_after.sql",
     "atomic_personnel_lifecycle_after.sql",
     "sign_in_roster_scan_lifecycle_after.sql",
+    "calendar_lanes_after.sql",
 )
 
 _receipt = None

@@ -17,7 +17,9 @@ SELECT 'public.personnel', id, to_jsonb(row_value) FROM public.personnel AS row_
 UNION ALL
 SELECT 'public.status_types', id, to_jsonb(row_value) FROM public.status_types AS row_value WHERE id = 'd5000000-0000-4000-8000-000000000401'
 UNION ALL
-SELECT 'public.assignment_types', id, to_jsonb(row_value) FROM public.assignment_types AS row_value WHERE id = 'd5000000-0000-4000-8000-000000000402'
+-- The later Calendar lanes upgrade renames the date-header column.
+SELECT 'public.assignment_types', id, to_jsonb(row_value) - 'show_on_calendar'
+  || jsonb_build_object('show_in_date_header', row_value.show_on_calendar) FROM public.assignment_types AS row_value WHERE id = 'd5000000-0000-4000-8000-000000000402'
 UNION ALL
 SELECT 'public.availability_entries', id, to_jsonb(row_value) FROM public.availability_entries AS row_value WHERE id IN ('d5000000-0000-4000-8000-000000000501','d5000000-0000-4000-8000-000000000502')
 UNION ALL

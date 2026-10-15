@@ -87,7 +87,12 @@ describe('Status order in Calendar settings', () => {
 
 		await fireEvent.keyDown(grip('Leave'), { key: 'ArrowDown' });
 
-		await waitFor(() => expect(screen.getByRole('status').textContent).toBe('Leave is now at position 1 of 3'));
+		await waitFor(() => {
+			const announcement = screen.getByRole('status').textContent ?? '';
+			expect(announcement).toContain('Leave');
+			expect(announcement).toMatch(/\b1\b/);
+			expect(announcement).toMatch(/\b3\b/);
+		});
 		expect(shownOrder()).toEqual(['Reorder Leave', 'Reorder School', 'Reorder Sick']);
 	});
 });

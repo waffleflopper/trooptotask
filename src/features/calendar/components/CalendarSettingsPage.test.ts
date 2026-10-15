@@ -842,10 +842,12 @@ describe('CalendarSettingsPage', () => {
 
 		fail(new Error('Status type is in use'));
 
-		await waitFor(() => expect(dialog.hasAttribute('aria-busy')).toBe(false));
+		await waitFor(() => {
+			const retained = screen.getByRole('alertdialog', { name: 'Delete Status Type' });
+			expect(retained.hasAttribute('aria-busy')).toBe(false);
+			expect((within(retained).getByRole('button', { name: 'Delete' }) as HTMLButtonElement).disabled).toBe(false);
+		});
 		expect(errorToast).toHaveBeenCalledWith('Status type is in use');
-		const retained = screen.getByRole('alertdialog', { name: 'Delete Status Type' });
-		expect((within(retained).getByRole('button', { name: 'Delete' }) as HTMLButtonElement).disabled).toBe(false);
 		expect(availabilityStoreMock.removeByStatusTypeLocal).not.toHaveBeenCalled();
 	});
 });

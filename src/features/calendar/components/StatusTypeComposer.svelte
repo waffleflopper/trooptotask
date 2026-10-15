@@ -140,7 +140,7 @@
 				<Field.Description>Up to 3 letters</Field.Description>
 			</Field.Root>
 			<Field.Root class="w-auto">
-				<Field.Label id="status-{id}-text">Text</Field.Label>
+				<Field.Title id="status-{id}-text">Text</Field.Title>
 				<ToggleGroup.Root
 					type="single"
 					aria-labelledby="status-{id}-text"
@@ -158,7 +158,7 @@
 			</Field.Root>
 		</div>
 		<Field.Root>
-			<Field.Label id="status-{id}-color">Color</Field.Label>
+			<Field.Title id="status-{id}-color">Color</Field.Title>
 			<div class="flex flex-wrap items-center gap-2">
 				<ToggleGroup.Root
 					type="single"

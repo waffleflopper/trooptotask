@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { statusTypesStore } from './statusTypes.svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
-import { settles } from '$lib/test-support/settles';
 import { endOrganizationLifetime } from '$lib/stores/core';
 import type { StatusType } from '$features/calendar/contracts';
 
@@ -352,21 +351,31 @@ describe('statusTypesStore', () => {
 			expect(statusTypesStore.items).toEqual([sick]);
 		});
 
-		it('never settles a save answered after the Organization shell ends', async () => {
-			let respond!: (value: unknown) => void;
-			vi.stubGlobal(
-				'fetch',
-				vi.fn(() => new Promise((resolve) => (respond = resolve)))
-			);
-			const pending = statusTypesStore.setOrder(['2', '1', '3']);
-			const toast = vi.spyOn(toastStore, 'error');
-			endOrganizationLifetime();
-			statusTypesStore.load([leave, tdy, sick], 'org-1');
-			respond(reply(200, { success: true }));
+		it('processes a save answered after the Organization shell ends without completing the caller or reporting feedback', async () => {
+			vi.useFakeTimers();
+			try {
+				let respond!: (value: unknown) => void;
+				vi.stubGlobal(
+					'fetch',
+					vi.fn(() => new Promise((resolve) => (respond = resolve)))
+				);
+				const fulfilled = vi.fn();
+				const rejected = vi.fn();
+				statusTypesStore.setOrder(['2', '1', '3']).then(fulfilled, rejected);
+				const toast = vi.spyOn(toastStore, 'error');
+				endOrganizationLifetime();
+				statusTypesStore.load([leave, tdy, sick], 'org-1');
+				respond(reply(200, { success: true }));
 
-			expect(await settles(pending)).toBe(false);
-			expect(ids()).toEqual(['1', '2', '3']);
-			expect(toast).not.toHaveBeenCalled();
+				await vi.runAllTimersAsync();
+
+				expect(fulfilled).not.toHaveBeenCalled();
+				expect(rejected).not.toHaveBeenCalled();
+				expect(toast).not.toHaveBeenCalled();
+				expect(ids()).toEqual(['1', '2', '3']);
+			} finally {
+				vi.useRealTimers();
+			}
 		});
 
 		it('adopts the saved order when a reload lands during the save', async () => {

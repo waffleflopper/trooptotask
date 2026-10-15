@@ -172,7 +172,7 @@
 					</Field.Root>
 				</div>
 				<Field.Root>
-					<Field.Label id="assignment-type-to">Assigned to</Field.Label>
+					<Field.Title id="assignment-type-to">Assigned to</Field.Title>
 					<div>
 						<ToggleGroup.Root
 							type="single"

@@ -129,7 +129,7 @@
 		size="month"
 		{selectedEntryId}
 		{selection}
-		markerDays={fitted.markerDays}
+		markers={fitted.markers}
 		onPressEdge={onPressEdge && ((event, bar, edge) => onPressEdge(event, person, bar, edge, rowEl))}
 		onOpenEntry={onOpenEntry && ((entry, anchor) => onOpenEntry(person, entry, anchor))}
 		onOpenOverflow={onOpenOverflow && ((entryIds, anchor) => onOpenOverflow(person, entryIds, anchor))}

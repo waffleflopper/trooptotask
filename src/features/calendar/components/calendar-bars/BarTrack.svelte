@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import type { AvailabilityEntry } from '$features/calendar/contracts';
-	import type { Bar, BarLane, BarLayout } from '$features/calendar/utils/barLayout';
+	import type { Bar, BarLane, BarLayout, MarkedDay, TrackPiece } from '$features/calendar/utils/barLayout';
 	import StatusBar from './StatusBar.svelte';
 
 	interface Props {
@@ -13,8 +13,8 @@
 		onPressEdge?: (event: PointerEvent, bar: Bar, edge: 'start' | 'end') => void;
 		onOpenEntry?: (entry: AvailabilityEntry, anchor: HTMLElement) => void;
 		onOpenOverflow?: (entryIds: readonly string[], anchor: HTMLElement) => void;
-		/** Days whose bottom lane holds a marker; `fitMarkers` keeps bars out of them. */
-		markerDays?: readonly number[];
+		/** Days whose bottom lane holds a marker; `fitMarkers` keeps bars out of their space. */
+		markers?: readonly MarkedDay[];
 		marker?: Snippet<[number]>;
 	}
 
@@ -27,16 +27,26 @@
 		onPressEdge,
 		onOpenEntry,
 		onOpenOverflow,
-		markerDays = [],
+		markers = [],
 		marker
 	}: Props = $props();
 
 	const EDGES = ['start', 'end'] as const;
+	const NO_LABEL = { kind: 'none' } as const;
 
 	const ROWS: Record<BarLane, string> = { full: '2 / 5', top: '2 / 3', bottom: '4 / 5' };
 
 	function columns(item: { start: number; end: number }) {
 		return `${item.start + 1} / ${item.end + 2}`;
+	}
+
+	function piecesOf(item: { start: number; end: number; pieces?: readonly TrackPiece[] }): readonly TrackPiece[] {
+		return item.pieces ?? [{ start: item.start, end: item.end, yieldsEnd: false }];
+	}
+
+	// A grid item's percentage margin resolves against its own area, so this is three quarters of one day.
+	function yieldedEnd(piece: TrackPiece) {
+		return piece.yieldsEnd ? `calc(75% / ${piece.end - piece.start + 1} + 1px)` : undefined;
 	}
 
 	function barSize(bar: Bar) {
@@ -60,33 +70,42 @@
 	{#each layout.bars as bar (bar.entry.id)}
 		{@const name = `${personLabel}, ${bar.description}`}
 		{@const selected = bar.entry.id === selectedEntryId}
-		<button
-			type="button"
-			class={[
-				'pointer-events-auto relative mx-px flex min-w-0 cursor-pointer rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:outline-none',
-				selected && 'ring-2 ring-foreground ring-offset-1'
-			]}
-			style:grid-column={columns(bar)}
-			style:grid-row={ROWS[bar.lane]}
-			aria-label={name}
-			aria-haspopup="dialog"
-			aria-expanded={selected}
-			data-entry-id={bar.entry.id}
-			onclick={(event) => onOpenEntry?.(bar.entry, event.currentTarget)}
-		>
-			<!-- Hover text sits inside the button, where it cannot become a description that repeats the name. -->
-			<StatusBar
-				class="h-full w-full"
-				title={name}
-				status={bar.status}
-				label={bar.label}
-				size={barSize(bar)}
-				continuesBefore={bar.continuesBefore}
-				continuesAfter={bar.continuesAfter}
-			/>
-		</button>
+		{@const pieces = piecesOf(bar)}
+		{#each pieces as piece, at (piece.start)}
+			{@const first = at === 0}
+			<!-- Later pieces repeat the first one's action for the pointer only, so the entry stays one stop. -->
+			<button
+				type="button"
+				class={[
+					'pointer-events-auto relative mx-px flex min-w-0 cursor-pointer rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:outline-none',
+					selected && 'ring-2 ring-foreground ring-offset-1'
+				]}
+				style:grid-column={columns(piece)}
+				style:grid-row={ROWS[bar.lane]}
+				style:margin-right={yieldedEnd(piece)}
+				tabindex={first ? undefined : -1}
+				aria-hidden={first ? undefined : 'true'}
+				aria-label={first ? name : undefined}
+				aria-haspopup={first ? 'dialog' : undefined}
+				aria-expanded={first ? selected : undefined}
+				data-entry-id={first ? bar.entry.id : undefined}
+				onclick={(event) => onOpenEntry?.(bar.entry, event.currentTarget)}
+			>
+				<!-- Hover text sits inside the button, where it cannot become a description that repeats the name. -->
+				<StatusBar
+					class="h-full w-full"
+					title={name}
+					status={bar.status}
+					label={first ? bar.label : NO_LABEL}
+					size={barSize(bar)}
+					continuesBefore={first && bar.continuesBefore}
+					continuesAfter={at === pieces.length - 1 && bar.continuesAfter}
+				/>
+			</button>
+		{/each}
 		{#if onPressEdge && selected && !bar.entry.id.startsWith('temp-')}
 			{#each EDGES as edge (edge)}
+				{@const piece = edge === 'start' ? pieces[0] : pieces[pieces.length - 1]}
 				{#if !(edge === 'start' ? bar.continuesBefore : bar.continuesAfter)}
 					<!-- A sibling of the bar rather than a child, because pointer events on a button's children are not reliable. -->
 					<span
@@ -96,8 +115,9 @@
 							'pointer-events-auto z-[1] mx-px flex w-2 cursor-ew-resize items-center justify-center',
 							edge === 'start' ? 'justify-self-start' : 'justify-self-end'
 						]}
-						style:grid-column={columns(bar)}
+						style:grid-column={columns(piece)}
 						style:grid-row={ROWS[bar.lane]}
+						style:margin-right={yieldedEnd(piece)}
 						onpointerdown={(event) => onPressEdge(event, bar, edge)}
 					>
 						<span class="h-3/5 w-0.5 rounded-full" style:background-color={bar.status.textColor}></span>
@@ -107,28 +127,36 @@
 		{/if}
 	{/each}
 	{#each layout.overflows as overflow (overflow.spans[0].entry.id)}
-		<button
-			type="button"
-			class="pointer-events-auto mx-px flex min-w-0 cursor-pointer items-center overflow-clip rounded-[3px] border border-dashed border-muted-foreground/60 bg-muted px-1 font-mono text-[9px] leading-none font-semibold text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-			style:grid-column={columns(overflow)}
-			style:grid-row={ROWS.bottom}
-			aria-label="{personLabel}, {overflow.description}"
-			aria-haspopup="dialog"
-			onclick={(event) =>
-				onOpenOverflow?.(
-					overflow.spans.map((span) => span.entry.id),
-					event.currentTarget
-				)}
-		>
-			<span class="w-full" title="{personLabel}, {overflow.description}">+{overflow.spans.length}</span>
-		</button>
+		{@const name = `${personLabel}, ${overflow.description}`}
+		{#each piecesOf(overflow) as piece, at (piece.start)}
+			{@const first = at === 0}
+			<button
+				type="button"
+				class="pointer-events-auto mx-px flex min-w-0 cursor-pointer items-center overflow-clip rounded-[3px] border border-dashed border-muted-foreground/60 bg-muted px-1 font-mono text-[9px] leading-none font-semibold text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+				style:grid-column={columns(piece)}
+				style:grid-row={ROWS.bottom}
+				style:margin-right={yieldedEnd(piece)}
+				tabindex={first ? undefined : -1}
+				aria-hidden={first ? undefined : 'true'}
+				aria-label={first ? name : undefined}
+				aria-haspopup={first ? 'dialog' : undefined}
+				onclick={(event) =>
+					onOpenOverflow?.(
+						overflow.spans.map((span) => span.entry.id),
+						event.currentTarget
+					)}
+			>
+				<span class="w-full" title={name}>+{overflow.spans.length}</span>
+			</button>
+		{/each}
 	{/each}
 	{#if marker}
-		{#each markerDays as day (day)}
+		{#each markers as { day, shared } (day)}
 			<div
 				class="flex min-w-0 items-center justify-end gap-px px-px"
 				style:grid-column={columns({ start: day, end: day })}
 				style:grid-row={ROWS.bottom}
+				style:margin-left={shared ? '25%' : undefined}
 			>
 				{@render marker(day)}
 			</div>

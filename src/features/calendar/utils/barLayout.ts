@@ -22,6 +22,14 @@ export type BarLabel =
 
 export type BarLane = 'full' | 'top' | 'bottom';
 
+/** A drawn part of a lower bar or summary that marker days cut. */
+export interface TrackPiece {
+	readonly start: number;
+	readonly end: number;
+	/** Stops a quarter of the way into `end`, leaving the rest of that day to its marker. */
+	readonly yieldsEnd: boolean;
+}
+
 export interface Bar {
 	readonly entry: AvailabilityEntry;
 	readonly status: StatusType;
@@ -32,6 +40,8 @@ export interface Bar {
 	readonly continuesAfter: boolean;
 	readonly label: BarLabel;
 	readonly description: string;
+	/** Set by `fitMarkers` when marker days cut the bar; absent when it is drawn whole. */
+	readonly pieces?: readonly TrackPiece[];
 }
 
 export interface BarOverflow {
@@ -39,6 +49,7 @@ export interface BarOverflow {
 	readonly end: number;
 	readonly spans: readonly AvailabilitySpan[];
 	readonly description: string;
+	readonly pieces?: readonly TrackPiece[];
 }
 
 export interface BarLayout {
@@ -249,24 +260,44 @@ function overlapGroups(items: readonly Placed[]): Placed[][] {
 	return groups;
 }
 
+export interface MarkedDay {
+	readonly day: number;
+	/** A lower bar or summary keeps the first quarter of this day's bottom lane. */
+	readonly shared: boolean;
+}
+
 export interface MarkerFit {
 	readonly layout: BarLayout;
-	/** Days whose marker has the bottom lane to itself. */
-	readonly markerDays: readonly number[];
+	readonly markers: readonly MarkedDay[];
 }
 
 /**
- * A duty marker takes the bottom lane of its day. A full-height bar across it drops to the top lane, and a
- * marker whose bottom lane already holds a bar or a summary yields, so no two targets ever share space.
+ * A duty marker takes the bottom lane of its day, so every marker and every entry keeps a target of its own.
+ * A full-height bar across it drops to the top lane. A lower bar or summary already in that lane keeps the
+ * first quarter of the day and resumes on the next, because a fixed-height row has no third lane to move to.
  */
 export function fitMarkers(layout: BarLayout, markerDays: readonly number[]): MarkerFit {
-	if (markerDays.length === 0) return { layout, markerDays };
-	const covers = (item: { start: number; end: number }) =>
-		markerDays.some((day) => day >= item.start && day <= item.end);
-	const lowered = layout.bars.map((bar): Bar => (bar.lane === 'full' && covers(bar) ? { ...bar, lane: 'top' } : bar));
-	const bottom = [...layout.bars.filter((bar) => bar.lane === 'bottom'), ...layout.overflows];
-	return {
-		layout: { bars: lowered, overflows: layout.overflows },
-		markerDays: markerDays.filter((day) => !bottom.some((item) => day >= item.start && day <= item.end))
+	if (markerDays.length === 0) return { layout, markers: [] };
+	const days = [...markerDays].sort((a, b) => a - b);
+	const within = (item: { start: number; end: number }) => days.filter((day) => day >= item.start && day <= item.end);
+	const shared = new Set<number>();
+	const cut = <T extends Bar | BarOverflow>(item: T): T => {
+		const cuts = within(item);
+		if (cuts.length === 0) return item;
+		const pieces: TrackPiece[] = [];
+		let start = item.start;
+		for (const day of cuts) {
+			shared.add(day);
+			pieces.push({ start, end: day, yieldsEnd: true });
+			start = day + 1;
+		}
+		if (start <= item.end) pieces.push({ start, end: item.end, yieldsEnd: false });
+		return { ...item, pieces };
 	};
+	const bars = layout.bars.map((bar): Bar => {
+		if (bar.lane === 'bottom') return cut(bar);
+		return bar.lane === 'full' && within(bar).length > 0 ? { ...bar, lane: 'top' } : bar;
+	});
+	const overflows = layout.overflows.map(cut);
+	return { layout: { bars, overflows }, markers: days.map((day) => ({ day, shared: shared.has(day) })) };
 }

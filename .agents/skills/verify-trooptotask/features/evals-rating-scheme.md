@@ -54,3 +54,7 @@ Restore network/export hooks and remove UI-created entries through the owner UI.
 - A client-injected 503 proves visible response handling, not provider rollback, atomicity or real delivery. Authenticated HTTP and SQL observations remain separately identified.
 - Approved Rating deletion keeps the request-authenticated provider. Separately probe an admitted synthetic admin downgraded to a viewer immediately before the real database DELETE: its own pending request may stay readable, but the evaluation must remain unchanged and approval must not report success. Restore the exact membership before a positive retry. This is an isolated provider/owner-operation check, not a browser-held-response or atomic review claim.
 - Keep expected permission and tenant guarantees independent of observed output. A verification-only PR can expose a failing baseline while leaving its repair/cutover acceptance open.
+
+## Viewer day
+
+With a browser zone whose day differs from UTC (see the [skill](../SKILL.md#launch)), export the Rating Scheme. The download must be named `rating-scheme-<browser day>.xlsx`. An entry whose rating period ends 30 browser days ahead must read due in 30 days at any time of day, including just after midnight on a daylight-saving week in `America/New_York`.

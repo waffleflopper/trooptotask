@@ -7,14 +7,23 @@ import {
 	type TrainingBriefingDetailInput,
 	type TrainingBriefingReportInput
 } from '$features/training/contracts';
+import { viewerToday } from '$lib/server/viewerDay.server';
 
 export const PRIVATE_REPORT_HEADERS = {
 	'Cache-Control': 'private, no-store',
 	Vary: 'Cookie'
 } as const;
 
-export function parseTrainingBriefingRequest(event: Pick<RequestEvent, 'url'>): TrainingBriefingReportInput {
-	return parseTrainingBriefingReportInput(event.url.searchParams);
+/** A report request evaluated on the viewer's day, kept out of the bookmarkable report URL. */
+export interface ViewerDayRequest<T> {
+	request: T;
+	asOf: string;
+}
+
+export function parseTrainingBriefingRequest(
+	event: Pick<RequestEvent, 'url' | 'cookies'>
+): ViewerDayRequest<TrainingBriefingReportInput> {
+	return { request: parseTrainingBriefingReportInput(event.url.searchParams), asOf: viewerToday(event.cookies) };
 }
 
 function positiveInteger(value: string | null): number | null {
@@ -34,11 +43,16 @@ export const trainingBriefingDetailInput = z.object({
 	pageSize: z.number().int().min(1).max(MAX_BRIEFING_DETAIL_PAGE_SIZE)
 }) satisfies z.ZodType<TrainingBriefingDetailInput>;
 
+export const trainingBriefingDetailRequest = z.object({
+	request: trainingBriefingDetailInput,
+	asOf: z.string()
+}) satisfies z.ZodType<ViewerDayRequest<TrainingBriefingDetailInput>>;
+
 /** Unvalidated scope fields; `trainingBriefingDetailInput` rejects a scope without its required keys. A cell omits `row` only for the Total row. */
-export function parseTrainingBriefingDetailRequest(event: Pick<RequestEvent, 'url'>) {
+export function parseTrainingBriefingDetailRequest(event: Pick<RequestEvent, 'url' | 'cookies'>) {
 	const params = event.url.searchParams;
 	const kind = params.get('scope');
-	return {
+	const request = {
 		report: parseTrainingBriefingReportInput(params),
 		scope:
 			kind === 'cell'
@@ -50,4 +64,5 @@ export function parseTrainingBriefingDetailRequest(event: Pick<RequestEvent, 'ur
 			positiveInteger(params.get('pageSize')) ?? DEFAULT_BRIEFING_DETAIL_PAGE_SIZE
 		)
 	};
+	return { request, asOf: viewerToday(event.cookies) };
 }

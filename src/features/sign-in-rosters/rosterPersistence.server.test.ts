@@ -69,7 +69,7 @@ function fixture(rows: Row[]) {
 						}
 						if (filter === 'not.eq.{}') return Array.isArray(row[column]) && row[column].length > 0;
 						if (filter.startsWith('gte.')) return Date.parse(String(row[column])) >= Date.parse(filter.slice(4));
-						if (filter.startsWith('lte.')) return Date.parse(String(row[column])) <= Date.parse(filter.slice(4));
+						if (filter.startsWith('lt.')) return Date.parse(String(row[column])) < Date.parse(filter.slice(3));
 						if (filter.startsWith('ilike.')) {
 							const pattern = [...filter.slice(6)]
 								.map((char) => (char === '%' ? '.*' : char === '_' ? '.' : char.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&')))
@@ -118,7 +118,7 @@ function fixture(rows: Row[]) {
 	return { client, fault, rows: () => structuredClone(saved) };
 }
 
-const page = { title: '', from: null, to: null, limit: 20, offset: 0 };
+const page = { title: '', createdFrom: null, createdBefore: null, limit: 20, offset: 0 };
 
 function persistence(run: ReturnType<typeof fixture>, groupIds?: string[]) {
 	return createSupabaseSignInRosterPersistence(run.client, {
@@ -145,18 +145,19 @@ describe('ordinary Sign-in Roster persistence through the actual SDK', () => {
 
 	it('counts title/date-filtered Group rows before paginating in the existing creation order', async () => {
 		const run = fixture([
-			{ ...savedRoster, id: 'early', created_at: '2026-02-01T00:00:00Z' },
+			{ ...savedRoster, id: 'early', created_at: '2026-02-01T05:00:00Z' },
 			{ ...savedRoster, id: 'middle', created_at: '2026-02-02T00:00:00Z' },
-			{ ...savedRoster, id: 'late', created_at: '2026-02-03T23:59:59.999Z' },
-			{ ...savedRoster, id: 'before', created_at: '2026-01-31T23:59:59Z' },
-			{ ...savedRoster, id: 'after', created_at: '2026-02-04T00:00:00Z' },
+			{ ...savedRoster, id: 'late', created_at: '2026-02-04T04:59:59.999Z' },
+			{ ...savedRoster, id: 'before', created_at: '2026-02-01T04:59:59Z' },
+			{ ...savedRoster, id: 'after', created_at: '2026-02-04T05:00:00Z' },
 			{ ...savedRoster, id: 'other-title', title: 'Other attendance' },
 			{ ...savedRoster, id: 'mixed', scope_group_ids: ['alpha', 'bravo'] },
 			{ ...savedRoster, id: 'org-only', scope_group_ids: [] },
 			{ ...savedRoster, id: 'foreign', organization_id: 'foreign-org' }
 		]);
 		const port = persistence(run, ['alpha']);
-		expect(await port.list({ title: 'cLiNiC', from: '2026-02-01', to: '2026-02-03', limit: 1, offset: 1 })).toEqual({
+		const easternDays = { createdFrom: '2026-02-01T05:00:00.000Z', createdBefore: '2026-02-04T05:00:00.000Z' };
+		expect(await port.list({ title: 'cLiNiC', ...easternDays, limit: 1, offset: 1 })).toEqual({
 			data: [{ ...expectedRoster, id: 'middle', createdAt: '2026-02-02T00:00:00Z' }],
 			count: 3
 		});

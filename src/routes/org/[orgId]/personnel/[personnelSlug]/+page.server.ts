@@ -2,7 +2,6 @@ import { listAvailabilityEntries, listStatusTypes } from '$features/calendar/ind
 import { loadCriticalTasksReadinessLane } from '$features/critical-tasks/index.server';
 import type { PersonnelDetailHeader, PersonnelDetailStreams } from '$features/personnel/contracts';
 import {
-	currentPersonnelReadinessDate,
 	listPersonnelCounselingRecords,
 	listPersonnelDocuments,
 	listPersonnelFollowUps,
@@ -17,16 +16,17 @@ import { loadTrainingReadinessLane } from '$features/training/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { createRequestPersonnelDetailStreamsContext } from '$lib/server/adapters/requestContexts.server';
+import { viewerToday } from '$lib/server/viewerDay.server';
 import type { PageServerLoadEvent } from './$types';
 
 function createPersonnelDetailStreams(
 	contexts: ReturnType<typeof createRequestPersonnelDetailStreamsContext>,
-	personnelId: string
+	personnelId: string,
+	readinessAsOf: string
 ): PersonnelDetailStreams {
 	const ctx = contexts.detail;
 	const artifactContext = contexts.artifacts;
 	const extendedInfo = readPersonnelExtendedInfo(contexts.extendedInfo, personnelId);
-	const readinessAsOf = currentPersonnelReadinessDate();
 	return {
 		readinessLanes: {
 			availability: loadAvailabilityReadinessLane(
@@ -96,12 +96,13 @@ export function _createPersonnelDetailPageLoad(deps: PersonnelDetailPageLoadDeps
 		const { orgId } = params;
 		const parentData = (await parent()) as PersonnelDetailParentData;
 		const personnelId = parentData.personnelDetailHeader.person.id;
+		const readinessAsOf = viewerToday(cookies);
 
 		const personnelDetail = await loadWithContextFn(locals, cookies, orgId, {
 			context: createRequestPersonnelDetailStreamsContext,
 			policyAction: POLICY_ACTION_CATALOG.personnel.readSensitiveRecords,
 			policyResource: { kind: 'unscoped' },
-			fn: async (ctx) => createPersonnelDetailStreams(ctx, personnelId)
+			fn: async (ctx) => createPersonnelDetailStreams(ctx, personnelId, readinessAsOf)
 		});
 
 		return {

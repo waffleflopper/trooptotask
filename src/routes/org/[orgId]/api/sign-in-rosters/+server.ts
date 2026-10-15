@@ -11,8 +11,7 @@ import {
 } from '$lib/server/adapters/requestContexts.server';
 import { json, type RequestEvent } from '@sveltejs/kit';
 import { fail } from '$lib/errors';
-import { isDateOnly } from '$lib/utils/dates';
-import { DATE_ONLY_MESSAGE } from '$lib/utils/inputSchemas';
+import { z } from 'zod';
 
 /** A missing or malformed paging value falls back to 0 rather than reaching the query as NaN. */
 function nonNegativeIntegerParam(value: string | null): number {
@@ -20,9 +19,11 @@ function nonNegativeIntegerParam(value: string | null): number {
 	return Number.isInteger(parsed) && parsed > 0 ? parsed : 0;
 }
 
-function dateParam(value: string | null): string | null {
-	if (value && !isDateOnly(value)) fail(400, DATE_ONLY_MESSAGE);
-	return value;
+const instant = z.iso.datetime({ offset: true });
+
+function instantParam(value: string | null): string | null {
+	if (value && !instant.safeParse(value).success) fail(400, 'Use a valid date range');
+	return value || null;
 }
 
 export const _getConfig: RouteConfig<
@@ -35,8 +36,8 @@ export const _getConfig: RouteConfig<
 	policyResource: { kind: 'unscoped' },
 	parseInput: (event: RequestEvent) => ({
 		title: event.url.searchParams.get('title') || '',
-		from: dateParam(event.url.searchParams.get('from')),
-		to: dateParam(event.url.searchParams.get('to')),
+		createdFrom: instantParam(event.url.searchParams.get('createdFrom')),
+		createdBefore: instantParam(event.url.searchParams.get('createdBefore')),
 		limit: Math.min(nonNegativeIntegerParam(event.url.searchParams.get('limit')) || 20, 100),
 		offset: nonNegativeIntegerParam(event.url.searchParams.get('offset'))
 	}),

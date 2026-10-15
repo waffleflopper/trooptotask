@@ -55,18 +55,20 @@ function toDashboardIctlSummary(report: IctReportDashboardSummary): DashboardIct
 
 async function loadDashboardIctlSummary(
 	ctx: Parameters<typeof fetchCriticalTasksDashboardSummary>[0],
-	canViewCriticalTasks: boolean
+	canViewCriticalTasks: boolean,
+	asOf: string
 ): Promise<DashboardIctlSummary | null> {
 	if (!canViewCriticalTasks) return null;
 
-	const report = await fetchCriticalTasksDashboardSummary(ctx);
+	const report = await fetchCriticalTasksDashboardSummary(ctx, { asOf });
 	return toDashboardIctlSummary(report);
 }
 
 export async function fetchDashboardSummary(
 	ctx: DashboardSummaryContext,
 	workspace: DashboardBootstrap,
-	access: { training: boolean; criticalTasks: boolean }
+	access: { training: boolean; criticalTasks: boolean },
+	asOf: string
 ): Promise<DashboardPageSummaryData> {
 	const [trainingData, ictlSummary] = await Promise.all([
 		access.training
@@ -74,10 +76,11 @@ export async function fetchDashboardSummary(
 					personnel: workspace.personnel,
 					trainingTypes: workspace.trainingTypes,
 					onboardingPersonnelIds: workspace.activeOnboardings.map((o) => o.personnelId),
-					options: { issueLimit: 25, issueStatuses: ['expired', 'warning-orange'] }
+					options: { issueLimit: 25, issueStatuses: ['expired', 'warning-orange'] },
+					asOf
 				})
 			: null,
-		loadDashboardIctlSummary(ctx, access.criticalTasks)
+		loadDashboardIctlSummary(ctx, access.criticalTasks, asOf)
 	]);
 	return {
 		trainingSummary: trainingData?.trainingSummary ?? null,

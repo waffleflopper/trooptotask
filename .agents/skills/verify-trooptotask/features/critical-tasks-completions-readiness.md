@@ -96,3 +96,7 @@ Restore original fixture fields/task archive state and armed hooks. There is no 
 - `actor` establishes sign-in and a starting route, not completion of a streamed workspace or a permission verdict. Its `access` output is `not-assessed` unless it captured the explicit settings-page denial; inspect the actual UI and request/provider evidence.
 - Browser sign-in shares the normal ten-auth-POSTs-per-fifteen-minutes limiter; combine journeys per actor and respect a natural cooldown. Never disable the limiter for proof.
 - A successful UI write or report does not prove denial, RLS, atomic batch behavior, stale-response safety or another feature's math. Keep direct API/provider and existing component/application/SQL checks separately identified.
+
+## Viewer day
+
+Launch with `--browser-timezone` chosen per the [skill](../SKILL.md#launch) and record the browser and UTC days. Choose or record a completion whose task expires on the browser day. After a reload, the Critical Tasks matrix, Critical Tasks report, Able's Personnel detail Critical Tasks lane and the Dashboard Critical Tasks card must classify it the same way. The report export must download `critical-task-report-<browser day>.xlsx` and the matrix export `critical-task-matrix-<browser day>.xlsx`.

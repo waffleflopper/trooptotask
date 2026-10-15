@@ -9,14 +9,16 @@ import {
 	createRequestDashboardSummaryContext,
 	createRequestNotificationContext
 } from '$lib/server/adapters/requestContexts.server';
+import { viewerToday } from '$lib/server/viewerDay.server';
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoadEvent } from './$types';
 
-export const load = async ({ params, locals, depends, parent }: PageServerLoadEvent) => {
+export const load = async ({ params, locals, cookies, depends, parent }: PageServerLoadEvent) => {
 	depends('app:org-core');
 	depends('app:dashboard-data');
 	const { orgId } = params;
 	const parentData = await parent();
+	const asOf = viewerToday(cookies);
 	const ctx = await buildLayoutRequest(locals, orgId);
 	const { data: summary } = loadWithContextCore(
 		ctx,
@@ -31,10 +33,12 @@ export const load = async ({ params, locals, depends, parent }: PageServerLoadEv
 						parentData.shell.kind === 'ready' && parentData.shell.member.capabilityMap.criticalTasks !== 'none';
 					const canViewTraining =
 						parentData.shell.kind === 'ready' && parentData.shell.member.capabilityMap.training !== 'none';
-					return fetchDashboardSummary(ctx, workspaceData, {
-						training: canViewTraining,
-						criticalTasks: canViewCriticalTasks
-					});
+					return fetchDashboardSummary(
+						ctx,
+						workspaceData,
+						{ training: canViewTraining, criticalTasks: canViewCriticalTasks },
+						asOf
+					);
 				})
 		},
 		() => createRequestDashboardSummaryContext(ctx)

@@ -79,6 +79,8 @@ function selectedContexts(
 	};
 }
 
+const noCookies = { get: () => undefined } as never;
+
 function loadWithSelectedContexts(ctx: ReturnType<typeof createTestContext>) {
 	return vi.fn(async (_locals, _cookies, _orgId, config) => config.fn(selectedContexts(ctx)));
 }
@@ -114,7 +116,7 @@ describe('personnel detail page server load', () => {
 				const result = await load({
 					params: { orgId: 'org-1', personnelSlug: 'person-1' },
 					locals: {},
-					cookies: {},
+					cookies: noCookies,
 					depends: vi.fn(),
 					parent: async () => ({ personnelDetailHeader: { person: { id: 'person-1' } } })
 				} as never);
@@ -135,6 +137,42 @@ describe('personnel detail page server load', () => {
 		}
 	);
 
+	it('evaluates readiness on the viewer day from the time zone cookie', async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date('2026-05-15T02:00:00Z'));
+		try {
+			const ctx = createTestContext({ ratingSchemeFactory: createInMemoryRatingSchemePersistence, auth: operateAuth });
+			ctx.rawStore.seed('personnel', [
+				{ id: 'person-1', organization_id: 'org-1', group_id: null, ets: '2026-05-15', archived_at: null }
+			]);
+			ctx.organizationSettings.findLossWarningWindowDays = async () => 0;
+			const load = _createPersonnelDetailPageLoad({ loadWithContext: loadWithSelectedContexts(ctx) });
+			const lossTrackingFor = async (timeZone: string | undefined) => {
+				const result = await load({
+					params: { orgId: 'org-1', personnelSlug: 'person-1' },
+					locals: {} as App.Locals,
+					cookies: { get: (name: string) => (name === 't2t_tz' ? timeZone : undefined) } as never,
+					depends: vi.fn(),
+					parent: async () => ({ personnelDetailHeader: { person: { id: 'person-1' } } })
+				} as never);
+				const lanes = result.personnelDetail.readinessLanes;
+				await Promise.allSettled(Object.values(lanes));
+				return lanes.lossTracking;
+			};
+
+			await expect(lossTrackingFor('America/New_York')).resolves.toMatchObject({
+				value: 'No loss risk',
+				detail: 'ETS May 15, 2026 is 1 days away.'
+			});
+			await expect(lossTrackingFor(undefined)).resolves.toMatchObject({
+				value: 'Action needed',
+				detail: 'ETS May 15, 2026 is 0 days away.'
+			});
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
 	it('denies Training readiness before reading its catalog when Training access is absent', async () => {
 		const ctx = detailTestContext('person-1', {
 			capabilityMap: { ...operateAuth.capabilityMap, training: 'none' }
@@ -146,7 +184,7 @@ describe('personnel detail page server load', () => {
 		const result = await load({
 			params: { orgId: 'org-1', personnelSlug: 'person-1' },
 			locals: {} as App.Locals,
-			cookies: {} as never,
+			cookies: noCookies,
 			depends: vi.fn(),
 			parent: vi.fn(async () => ({ personnelDetailHeader: { person: { id: 'person-1' } } }))
 		} as never);
@@ -176,7 +214,7 @@ describe('personnel detail page server load', () => {
 		const result = await load({
 			params: { orgId: 'org-1', personnelSlug: 'rivera-monica' },
 			locals: {} as App.Locals,
-			cookies: {} as never,
+			cookies: noCookies,
 			depends,
 			parent: vi.fn(async () => ({
 				personnelDetailHeader: {
@@ -235,7 +273,7 @@ describe('personnel detail page server load', () => {
 		const result = await load({
 			params: { orgId: 'org-1', personnelSlug: 'rivera-monica' },
 			locals: {} as App.Locals,
-			cookies: {} as never,
+			cookies: noCookies,
 			depends: vi.fn(),
 			parent: vi.fn(async () => ({
 				personnelDetailHeader: {
@@ -270,7 +308,7 @@ describe('personnel detail page server load', () => {
 		const result = await load({
 			params: { orgId: 'org-1', personnelSlug: 'old-rivera-monica' },
 			locals: {} as App.Locals,
-			cookies: {} as never,
+			cookies: noCookies,
 			depends: vi.fn(),
 			parent
 		} as never);
@@ -299,7 +337,7 @@ describe('personnel detail page server load', () => {
 		const result = await load({
 			params: { orgId: 'org-1', personnelSlug: 'rivera-monica' },
 			locals: {} as App.Locals,
-			cookies: {} as never,
+			cookies: noCookies,
 			depends: vi.fn(),
 			parent: vi.fn(async () => ({ personnelDetailHeader: { person: { id: 'person-1' } } }))
 		} as never);

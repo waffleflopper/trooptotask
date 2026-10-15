@@ -1,5 +1,9 @@
 import { z } from 'zod';
+import type { RequestEvent } from '@sveltejs/kit';
 import type { CriticalTasksMatrixExportInput, CriticalTasksReportInput } from '$features/critical-tasks/contracts';
+import { viewerToday } from '$lib/server/viewerDay.server';
+
+type ReportRequestEvent = Pick<RequestEvent, 'url' | 'cookies'>;
 
 export const PRIVATE_REPORT_HEADERS = {
 	'Cache-Control': 'private, no-store',
@@ -35,7 +39,8 @@ export const criticalTasksReportInput = z.object({
 		.optional()
 		.transform(normalizeMosValues),
 	role: z.string().optional(),
-	rank: z.string().optional()
+	rank: z.string().optional(),
+	asOf: z.string()
 });
 
 export type CriticalTasksReportRouteInput = z.infer<typeof criticalTasksReportInput>;
@@ -44,26 +49,32 @@ export const criticalTasksMatrixExportInput = z.object({
 	groupId: z.string().optional(),
 	groupFilter: z.string().optional(),
 	gapsOnly: z.boolean().default(false),
-	search: z.string().optional()
+	search: z.string().optional(),
+	asOf: z.string()
 });
 
 export type CriticalTasksMatrixExportRouteInput = z.infer<typeof criticalTasksMatrixExportInput>;
 
-export function parseCriticalTasksReportInput(url: URL): CriticalTasksReportRouteInput {
+export function parseCriticalTasksReportInput({ url, cookies }: ReportRequestEvent): CriticalTasksReportRouteInput {
 	return {
 		groupId: optionalParam(url.searchParams.get('groupId')),
 		mos: normalizeMosValues(url.searchParams.getAll('mos')),
 		role: optionalParam(url.searchParams.get('role')),
-		rank: optionalParam(url.searchParams.get('rank'))
+		rank: optionalParam(url.searchParams.get('rank')),
+		asOf: viewerToday(cookies)
 	};
 }
 
-export function parseCriticalTasksMatrixExportInput(url: URL): CriticalTasksMatrixExportRouteInput {
+export function parseCriticalTasksMatrixExportInput({
+	url,
+	cookies
+}: ReportRequestEvent): CriticalTasksMatrixExportRouteInput {
 	return {
 		groupId: optionalParam(url.searchParams.get('groupId')),
 		groupFilter: optionalParam(url.searchParams.get('groupFilter')),
 		gapsOnly: parseBooleanParam(url.searchParams.get('gapsOnly')),
-		search: optionalParam(url.searchParams.get('search'))
+		search: optionalParam(url.searchParams.get('search')),
+		asOf: viewerToday(cookies)
 	};
 }
 
@@ -74,7 +85,8 @@ export function toCriticalTasksReportInput(input: CriticalTasksReportRouteInput)
 			mos: input.mos,
 			role: input.role,
 			rank: input.rank
-		}
+		},
+		asOf: input.asOf
 	};
 }
 
@@ -85,6 +97,7 @@ export function toCriticalTasksMatrixExportInput(
 		selectedGroupId: input.groupId,
 		selectedGroupFilter: input.groupFilter,
 		gapsOnly: input.gapsOnly,
-		search: input.search
+		search: input.search,
+		asOf: input.asOf
 	};
 }

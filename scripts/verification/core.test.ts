@@ -14,6 +14,8 @@ import {
 	recordingTransition,
 	runLogged,
 	cleanEnvironment,
+	browserEnvironment,
+	launchOptions,
 	processIdentity,
 	stopOwnedProcess
 } from './core.mjs';
@@ -161,4 +163,27 @@ it('tracks a started and stopped recording only from the native tool replies', (
 	).toBe('stopped');
 	expect(recordingTransition('screencast_stop', reply('Error: no active screencast recording to stop.'))).toBeNull();
 	expect(recordingTransition('take_snapshot', reply('Screencast recording started'))).toBeNull();
+});
+
+it('accepts one IANA browser time zone for launch and rejects anything else before starting', () => {
+	expect(launchOptions([])).toEqual({});
+	expect(launchOptions(['--browser-timezone', 'Pacific/Kiritimati'])).toEqual({
+		browserTimeZone: 'Pacific/Kiritimati'
+	});
+	for (const args of [
+		['--browser-timezone'],
+		['--browser-timezone', 'Mars/Base'],
+		['--browser-timezone', 'UTC; rm -rf /'],
+		['--browser-timezone', 'UTC', 'extra'],
+		['--timezone', 'UTC']
+	])
+		expect(() => launchOptions(args), args.join(' ')).toThrow(
+			expect.objectContaining({ code: expect.stringMatching(/^(ARGUMENTS|BROWSER_TIMEZONE)$/) })
+		);
+});
+
+it('gives the browser the chosen zone without widening its inherited environment', () => {
+	expect(browserEnvironment('Pacific/Pago_Pago')).toEqual({ ...cleanEnvironment(), TZ: 'Pacific/Pago_Pago' });
+	expect(browserEnvironment(undefined)).toEqual(cleanEnvironment());
+	expect(browserEnvironment(undefined)).not.toHaveProperty('TZ');
 });

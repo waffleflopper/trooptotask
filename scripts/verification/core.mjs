@@ -190,6 +190,25 @@ export function cleanEnvironment() {
 			.map((key) => [key, process.env[key]])
 	);
 }
+/** Parses `launch`/`restart` arguments; only `--browser-timezone <IANA>` is accepted. */
+export function launchOptions(args) {
+	if (args.length === 0) return {};
+	const [flag, timeZone, ...rest] = args;
+	if (flag !== '--browser-timezone' || rest.length)
+		throw new Blocked('ARGUMENTS', 'launch/restart accept only --browser-timezone <IANA> and --worker 1|2.');
+	if (!/^[A-Za-z][A-Za-z0-9_+\-/]{0,63}$/.test(timeZone ?? ''))
+		throw new Blocked('BROWSER_TIMEZONE', 'Name an IANA time zone, for example Pacific/Kiritimati.');
+	try {
+		new Intl.DateTimeFormat('en-US', { timeZone });
+	} catch {
+		throw new Blocked('BROWSER_TIMEZONE', `Unknown IANA time zone ${timeZone}.`);
+	}
+	return { browserTimeZone: timeZone };
+}
+/** The browser runs in the chosen zone, or the host zone when none was chosen. */
+export function browserEnvironment(browserTimeZone) {
+	return browserTimeZone ? { ...cleanEnvironment(), TZ: browserTimeZone } : cleanEnvironment();
+}
 export async function onPath(binary, searchPath = process.env.PATH ?? '') {
 	for (const directory of searchPath.split(path.delimiter)) {
 		try {

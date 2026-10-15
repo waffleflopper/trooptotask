@@ -88,8 +88,7 @@ export {
 	loadPersonnelDetailHeader,
 	loadPersonnelForLane,
 	loadAvailabilityReadinessLane,
-	loadLossTrackingReadinessLane,
-	currentPersonnelReadinessDate
+	loadLossTrackingReadinessLane
 } from './personnelDetail.server';
 
 export { readPersonnelExtendedInfo, updatePersonnelExtendedInfo } from './personnelExtendedInfo.server';

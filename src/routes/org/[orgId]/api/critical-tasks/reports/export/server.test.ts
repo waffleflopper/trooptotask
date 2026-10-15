@@ -99,7 +99,8 @@ describe('GET /api/critical-tasks/reports/export', () => {
 				groupId: 'group-alpha',
 				mos: undefined,
 				role: undefined,
-				rank: undefined
+				rank: undefined,
+				asOf: '2026-10-14'
 			},
 			() => ctx
 		);
@@ -238,7 +239,8 @@ describe('GET /api/critical-tasks/reports/export', () => {
 				groupId: 'group-alpha',
 				mos: undefined,
 				role: undefined,
-				rank: undefined
+				rank: undefined,
+				asOf: '2026-10-14'
 			},
 			() => ctx
 		);
@@ -252,8 +254,8 @@ describe('GET /api/critical-tasks/reports/export', () => {
 		expect(columnValues(sheet, 4)).toContain('1 applicable Soldier');
 		expect(columnValues(sheet, 4)).not.toContain('11B');
 		expect(response?.headers.get('Content-Type')).toBe(WORKBOOK_MIME_TYPE);
-		expect(response?.headers.get('Content-Disposition')).toMatch(
-			/attachment; filename="critical-task-report-.*\.xlsx"/
+		expect(response?.headers.get('Content-Disposition')).toBe(
+			'attachment; filename="critical-task-report-2026-10-14.xlsx"'
 		);
 		expect(response?.headers.get('Cache-Control')).toBe('private, no-store');
 		expect(response?.headers.get('Vary')).toBe('Cookie');
@@ -348,7 +350,8 @@ describe('GET /api/critical-tasks/reports/export', () => {
 				groupId: undefined,
 				mos: undefined,
 				role: undefined,
-				rank: undefined
+				rank: undefined,
+				asOf: '2026-10-14'
 			},
 			() => ctx
 		);
@@ -532,7 +535,8 @@ describe('GET /api/critical-tasks/reports/export', () => {
 				groupId: 'group-alpha',
 				mos: undefined,
 				role: undefined,
-				rank: undefined
+				rank: undefined,
+				asOf: '2026-10-14'
 			},
 			() => ctx
 		);

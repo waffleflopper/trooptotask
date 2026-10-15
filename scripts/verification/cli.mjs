@@ -23,7 +23,8 @@ import {
 	processIdentity,
 	stopOwnedProcess,
 	terminateOwnedGroup,
-	profileProcess
+	profileProcess,
+	launchOptions
 } from './core.mjs';
 
 const argv = process.argv.slice(2);
@@ -45,9 +46,12 @@ npm run verify:app -- <command> [--worker 1|2]
 
 setup                 Detect Chrome >=149, or install pinned Chrome for Testing; never personal profiles
 info                  Read-only dependency/candidate/worker summary, including ffmpeg for recordings
-launch                Copy this candidate, create isolated provider/fixtures, build, launch app and browser
-doctor                Prove app/provider ownership and current candidate; refuses stale instances
-restart               Cleanup this worker, then launch the current candidate
+launch [--browser-timezone IANA]
+                      Copy this candidate, create isolated provider/fixtures, build, launch app and browser.
+                      The app always runs in UTC like production; the browser runs in the named zone
+                      (default: host zone), so the viewer's day can differ from the server's
+doctor                Prove app/provider ownership and current candidate; reports browserTimeZone
+restart [--browser-timezone IANA]   Cleanup this worker, then launch the current candidate
 login manager|viewer|scoped|foreign   Normal UI login with private synthetic credentials
 tools                 Native DevTools tool names, descriptions, and JSON argument schemas
 tool NAME '{...}'     Call a native DevTools tool (pageId and snapshot UIDs from its output)
@@ -106,7 +110,7 @@ async function request(input) {
 		);
 	}
 }
-async function launch() {
+async function launch(options) {
 	if (process.platform !== 'linux')
 		throw new Blocked(
 			'PLATFORM',
@@ -126,7 +130,8 @@ async function launch() {
 		worker,
 		id: randomUUID(),
 		token: randomUUID(),
-		phase: 'starting'
+		phase: 'starting',
+		...options
 	});
 	const log = await fs.open(path.join(session, 'supervisor.log'), 'a', 0o600);
 	const child = spawn(process.execPath, [path.join(repository, 'scripts/verification/daemon.mjs'), session], {
@@ -216,8 +221,7 @@ async function cleanup() {
 }
 
 try {
-	if (['launch', 'restart'].includes(command) && args.length)
-		throw new Blocked('ARGUMENTS', 'launch/restart accept no arguments except --worker 1|2.');
+	const options = ['launch', 'restart'].includes(command) ? launchOptions(args) : {};
 	let result;
 	if (['help', '--help', '-h'].includes(command)) {
 		console.log(help);
@@ -238,7 +242,7 @@ try {
 				};
 				break;
 			case 'launch':
-				result = await launch();
+				result = await launch(options);
 				break;
 			case 'restart': {
 				const stopped = await cleanup();
@@ -246,7 +250,7 @@ try {
 					result = stopped;
 					break;
 				}
-				result = await launch();
+				result = await launch(options);
 				break;
 			}
 			case 'cleanup':

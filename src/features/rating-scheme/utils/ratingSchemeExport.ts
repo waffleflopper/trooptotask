@@ -1,5 +1,6 @@
 import type { PersonnelLookup } from '$features/personnel/contracts';
 import { addTableSheet, createWorkbook, downloadWorkbook, type Workbook, type WorkbookRow } from '$lib/utils/workbook';
+import { formatToday } from '$lib/utils/dates';
 import type { RatingSchemeEntry } from '../rating-scheme.types';
 import { WORKFLOW_STATUS_OPTIONS } from '../rating-scheme.types';
 import { getRatingDueStatus, getDaysUntilDue, getReportTypeLabel } from './ratingScheme';
@@ -67,8 +68,7 @@ export async function buildRatingSchemeWorkbook(
 }
 
 export async function exportRatingScheme(entries: RatingSchemeEntry[], personnel: PersonnelLookup[]) {
-	const today = new Date().toISOString().slice(0, 10);
-	await downloadWorkbook(await buildRatingSchemeWorkbook(entries, personnel), `rating-scheme-${today}.xlsx`);
+	await downloadWorkbook(await buildRatingSchemeWorkbook(entries, personnel), `rating-scheme-${formatToday()}.xlsx`);
 }
 
 function buildRatingSchemeExportRow(entry: RatingSchemeEntry, personnel: PersonnelLookup[]): WorkbookRow {

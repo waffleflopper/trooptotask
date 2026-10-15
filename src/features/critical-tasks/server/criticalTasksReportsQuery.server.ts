@@ -24,6 +24,8 @@ import type {
 	CriticalTasksWorkbookExport
 } from '../contracts';
 import { writeWorkbookBuffer } from '$lib/utils/workbook';
+import { formatDate } from '$lib/utils/dates';
+import { resolveCriticalTasksAsOfDate } from '../utils/ictReadinessSnapshot';
 
 type CriticalTasksReportQueryContext = CriticalTasksReportContext & {
 	readonly groups: Pick<GroupPersistence, 'listCatalog'>;
@@ -174,7 +176,7 @@ export async function generateCriticalTasksReportWorkbookExport(
 ): Promise<CriticalTasksWorkbookExport> {
 	const dashboard = await fetchCriticalTasksReportDashboard(ctx, input);
 	const workbook = await buildCriticalTasksReportWorkbook(dashboard);
-	const date = new Date().toISOString().split('T')[0];
+	const date = formatDate(resolveCriticalTasksAsOfDate(input.asOf));
 	return {
 		buffer: await writeWorkbookBuffer(workbook),
 		filename: `critical-task-report-${date}.xlsx`
@@ -208,7 +210,7 @@ export async function generateCriticalTasksMatrixWorkbookExport(
 		orgName: 'Unassigned'
 	});
 	const workbook = await buildCriticalTasksMatrixWorkbook(matrix);
-	const date = new Date().toISOString().split('T')[0];
+	const date = formatDate(resolveCriticalTasksAsOfDate(input.asOf));
 	return {
 		buffer: await writeWorkbookBuffer(workbook),
 		filename: `critical-task-matrix-${date}.xlsx`

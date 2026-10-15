@@ -68,6 +68,8 @@
 				"src/lib/server/adapters/requestContexts.server.ts",
 				"src/lib/server/adapters/scheduledMaintenanceSources.server.ts",
 				"src/lib/server/communicationsPagination.server.test.ts",
+				"src/lib/server/viewerDay.server.ts",
+				"src/lib/server/viewerDay.server.test.ts",
 				"src/lib/server/adapters/appShellRouteData.ts",
 				"src/lib/server/adapters/featureLaneWorkspaceLoad.ts",
 				"src/lib/server/adapters/streamedWorkspace.test.ts",
@@ -190,7 +192,8 @@
 				"src/lib/utils/logSanitize.ts",
 				"src/lib/utils/logSanitize.test.ts",
 				"src/lib/utils/downloadBlob.ts",
-				"src/lib/utils/downloadBlob.test.ts"
+				"src/lib/utils/downloadBlob.test.ts",
+				"src/lib/utils/viewerTimeZone.ts"
 			],
 			"packet": "08-M16"
 		},

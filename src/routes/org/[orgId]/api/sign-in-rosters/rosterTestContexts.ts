@@ -65,8 +65,8 @@ function createRosterTestPersistence(ctx: RosterTestContext): SignInRosterPersis
 					orderBy: [{ column: 'created_at', ascending: false }],
 					...(input.title ? { ilikeFilters: { title: `%${input.title}%` } } : {}),
 					rangeFilters: [
-						...(input.from ? [{ column: 'created_at', op: 'gte' as const, value: input.from }] : []),
-						...(input.to ? [{ column: 'created_at', op: 'lte' as const, value: input.to + 'T23:59:59.999Z' }] : [])
+						...(input.createdFrom ? [{ column: 'created_at', op: 'gte' as const, value: input.createdFrom }] : []),
+						...(input.createdBefore ? [{ column: 'created_at', op: 'lt' as const, value: input.createdBefore }] : [])
 					]
 				})
 			).filter((row) => visibleRoster(ctx, row));

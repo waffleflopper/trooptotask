@@ -138,7 +138,3 @@ export async function loadLossTrackingReadinessLane(
 		tone: daysUntilEts <= warningWindowDays ? 'watch' : 'good'
 	};
 }
-
-export function currentPersonnelReadinessDate(): string {
-	return formatDate(new Date());
-}

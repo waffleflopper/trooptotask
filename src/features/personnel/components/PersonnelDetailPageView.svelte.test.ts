@@ -654,8 +654,7 @@ function dashboardArtifacts(personnelId: string, marker: string) {
 			...common,
 			id: `note-${personnelId}`,
 			text: `${marker} note`,
-			author: 'Synthetic leader',
-			date: '2026-06-08'
+			author: 'Synthetic leader'
 		} satisfies PersonnelLeaderNote
 	};
 }

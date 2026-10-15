@@ -36,6 +36,23 @@ describe('getDaysUntilDue', () => {
 		const today = new Date('2026-03-19T12:00:00');
 		expect(getDaysUntilDue('2026-03-09', today)).toBe(-10);
 	});
+
+	it('counts calendar days across a daylight-saving change regardless of the time of day', () => {
+		const originalTimezone = process.env.TZ;
+		process.env.TZ = 'America/New_York';
+		try {
+			const afterMidnight = new Date(2026, 9, 14, 0, 30);
+			const lateEvening = new Date(2026, 2, 7, 23, 30);
+
+			expect(getDaysUntilDue('2026-11-13', afterMidnight)).toBe(30);
+			expect(getRatingDueStatus('2026-11-13', 'active', afterMidnight)).toBe('due-30');
+			expect(getDaysUntilDue('2026-04-06', lateEvening)).toBe(30);
+			expect(getRatingDueStatus('2026-04-06', 'active', lateEvening)).toBe('due-30');
+		} finally {
+			if (originalTimezone === undefined) delete process.env.TZ;
+			else process.env.TZ = originalTimezone;
+		}
+	});
 });
 
 describe('getReportTypeLabel', () => {

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DashboardWorkspaceData, DashboardWorkspaceResult } from '$features/dashboard/contracts';
 import { createReadyAppShellRouteData, createSuspendedAppShellRouteData } from '../appShell.test-support';
 import { requireReadyAppShell } from '$lib/server/adapters/appShellRouteData';
@@ -94,8 +94,10 @@ import { actions, load } from './+page.server';
 import { RequestFailure } from '$lib/errors';
 
 const ORG_ID = '11111111-1111-1111-1111-111111111111';
+const easternViewer = { get: (name: string) => (name === 't2t_tz' ? 'America/New_York' : undefined) };
 
 describe('dashboard page server load', () => {
+	afterEach(() => vi.useRealTimers());
 	beforeEach(() => {
 		vi.clearAllMocks();
 		buildLayoutRequestMock.mockResolvedValue({ auth: mockCtx.auth, audit: mockCtx.audit });
@@ -182,7 +184,7 @@ describe('dashboard page server load', () => {
 		const result = await load({
 			params: { orgId: ORG_ID },
 			locals: {},
-			cookies: {},
+			cookies: easternViewer,
 			depends: vi.fn(),
 			parent: async () => requireReadyAppShell(createSuspendedAppShellRouteData({ orgId: ORG_ID }))
 		} as never).then(
@@ -202,6 +204,8 @@ describe('dashboard page server load', () => {
 	});
 
 	it('streams dashboard summary without starting non-critical support queries in the page server load', async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date('2026-10-15T02:00:00Z'));
 		const consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
 		let resolveWorkspace: ((value: DashboardWorkspaceResult) => void) | undefined;
 		const workspaceBootstrap = new Promise<DashboardWorkspaceResult>((resolve) => {
@@ -218,7 +222,7 @@ describe('dashboard page server load', () => {
 		const result = await load({
 			params: { orgId: ORG_ID },
 			locals: {},
-			cookies: {},
+			cookies: easternViewer,
 			depends,
 			parent
 		} as never);
@@ -308,9 +312,11 @@ describe('dashboard page server load', () => {
 			options: {
 				issueLimit: 25,
 				issueStatuses: ['expired', 'warning-orange']
-			}
+			},
+			asOf: '2026-10-14'
 		});
 		expect(fetchCriticalTasksDashboardSummaryMock).toHaveBeenCalledOnce();
+		expect(fetchCriticalTasksDashboardSummaryMock).toHaveBeenCalledWith(mockCtx, { asOf: '2026-10-14' });
 	});
 
 	it('does not fetch or return Critical Tasks dashboard data without Critical Tasks view access', async () => {
@@ -328,7 +334,7 @@ describe('dashboard page server load', () => {
 		const result = await load({
 			params: { orgId: ORG_ID },
 			locals: {},
-			cookies: {},
+			cookies: easternViewer,
 			depends: vi.fn(),
 			parent
 		} as never);
@@ -373,7 +379,7 @@ describe('dashboard page server load', () => {
 		const result = await load({
 			params: { orgId: ORG_ID },
 			locals: {},
-			cookies: {},
+			cookies: easternViewer,
 			depends: vi.fn(),
 			parent
 		} as never);
@@ -395,7 +401,7 @@ describe('dashboard page server load', () => {
 		const result = await load({
 			params: { orgId: ORG_ID },
 			locals: {},
-			cookies: {},
+			cookies: easternViewer,
 			depends: vi.fn(),
 			parent
 		} as never);
@@ -418,7 +424,7 @@ describe('dashboard page server load', () => {
 					supabase: {}
 				},
 				params: { orgId: ORG_ID },
-				cookies: {},
+				cookies: easternViewer,
 				getClientAddress: () => '127.0.0.1'
 			} as never)
 		).rejects.toMatchObject({
@@ -459,7 +465,7 @@ describe('dashboard page server load', () => {
 				}),
 				locals: { user: { id: 'user-1', email: 'user@example.com' }, supabase: {} },
 				params: { orgId: ORG_ID },
-				cookies: {},
+				cookies: easternViewer,
 				getClientAddress: () => '127.0.0.1'
 			} as never)
 		).rejects.toMatchObject({

@@ -35,3 +35,7 @@ Preconditions: doctor passes; `$V fixture` supplies the Person/status IDs and lo
 - Date pickers and status-type options are live UI; snapshot each opened list/dialog before choosing a value.
 - `Cancel Edit` returns to `Add Another Status`; it does not close the whole dialog. Use `Close` to return to the grid.
 - Permission changes are made only on this disposable worker. Always restore the Calendar grant after a failed iteration; a doctor pass does not restore a member's capability.
+
+## Viewer day
+
+Launch with `--browser-timezone America/New_York`. Open a cell and set a range from March 1 to March 10, 2026, across the spring daylight-saving change. Before saving, the form must show `10 days`; after saving, the listed status must show `(10 days)`. Remove the created row afterward.

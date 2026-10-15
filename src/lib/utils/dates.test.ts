@@ -13,8 +13,67 @@ import {
 	startOfMonth,
 	endOfMonth,
 	formatDisplayDate,
-	isDateOnly
+	isDateOnly,
+	isTimeZone,
+	localDateIn,
+	calendarDayDiff,
+	formatRelativeDate
 } from './dates';
+
+function withTimeZone(timeZone: string, run: () => void) {
+	const originalTimezone = process.env.TZ;
+	process.env.TZ = timeZone;
+	try {
+		run();
+	} finally {
+		if (originalTimezone === undefined) delete process.env.TZ;
+		else process.env.TZ = originalTimezone;
+	}
+}
+
+describe('localDateIn', () => {
+	it('returns the calendar day in the named zone on either side of UTC midnight', () => {
+		expect(localDateIn('America/New_York', new Date('2026-10-15T00:30:00Z'))).toBe('2026-10-14');
+		expect(localDateIn('Asia/Seoul', new Date('2026-10-14T23:30:00Z'))).toBe('2026-10-15');
+	});
+});
+
+describe('isTimeZone', () => {
+	it.each(['America/New_York', 'UTC', 'Etc/GMT+5', 'America/Argentina/Buenos_Aires'])('accepts %s', (value) => {
+		expect(isTimeZone(value)).toBe(true);
+	});
+
+	it.each(['Mars/Base', '', 'a'.repeat(65), 'America/New_York; Path=/', '+05:00', null, 42])('rejects %j', (value) => {
+		expect(isTimeZone(value)).toBe(false);
+	});
+});
+
+describe('calendarDayDiff', () => {
+	it('counts whole calendar days across both daylight-saving changes', () => {
+		withTimeZone('America/New_York', () => {
+			expect(calendarDayDiff(new Date(2026, 2, 7, 23, 30), new Date(2026, 2, 9, 0, 15))).toBe(2);
+			expect(calendarDayDiff(new Date(2026, 9, 31, 0, 30), new Date(2026, 10, 2, 23, 30))).toBe(2);
+			expect(calendarDayDiff(new Date(2026, 10, 2), new Date(2026, 9, 31))).toBe(-2);
+		});
+	});
+});
+
+describe('formatRelativeDate', () => {
+	it('counts calendar days, so 23:00 seen at 08:00 is yesterday', () => {
+		withTimeZone('America/New_York', () => {
+			vi.useFakeTimers();
+			vi.setSystemTime(new Date(2026, 9, 14, 8, 0));
+			try {
+				expect(formatRelativeDate(new Date(2026, 9, 13, 23, 0).toISOString())).toBe('yesterday');
+				expect(formatRelativeDate(new Date(2026, 9, 14, 0, 5).toISOString())).toBe('today');
+				expect(formatRelativeDate(new Date(2026, 9, 14, 9, 0).toISOString())).toBe('today');
+				expect(formatRelativeDate(new Date(2026, 9, 11, 7, 0).toISOString())).toBe('3 days ago');
+			} finally {
+				vi.useRealTimers();
+			}
+		});
+	});
+});
 
 describe('isDateOnly', () => {
 	it.each(['2026-02-28', '2028-02-29', '2000-02-29', '2026-12-31', '1000-01-01'])(

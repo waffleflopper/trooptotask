@@ -14,6 +14,7 @@ import {
 	readJSON,
 	writeJSON,
 	cleanEnvironment,
+	browserEnvironment,
 	browser,
 	recording,
 	recordingTransition,
@@ -201,7 +202,8 @@ try {
 		PUBLIC_APP_ORIGIN: '',
 		PUBLIC_SITE_URL: '',
 		APP_PUBLIC_ORIGIN_ALLOWLIST: '',
-		NODE_ENV: 'production'
+		NODE_ENV: 'production',
+		TZ: 'UTC'
 	};
 	await completed(
 		await runLogged(
@@ -271,7 +273,7 @@ try {
 			`--allowedUrlPattern=${state.origin}/*`,
 			`--allowedUrlPattern=${provider.API_URL}/*`
 		],
-		env: cleanEnvironment(),
+		env: browserEnvironment(state.browserTimeZone),
 		stderr: 'pipe'
 	});
 	await client.connect(transport);
@@ -338,7 +340,9 @@ try {
 										browser: state.browser,
 										recording: state.recording,
 										revision: state.revision,
-										session: state.id
+										session: state.id,
+										appTimeZone: 'UTC',
+										browserTimeZone: state.browserTimeZone ?? 'host'
 									};
 									break;
 								case 'tools':

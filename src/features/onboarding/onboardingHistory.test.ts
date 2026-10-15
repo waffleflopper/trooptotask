@@ -206,6 +206,22 @@ describe("buildHistory on the viewer's day", () => {
 		expect(buildHistory([late], '2026-10-15', 'UTC').rows[0].finishedOn).toBe('2026-10-15');
 	});
 
+	it("lists a completion above a cancellation the viewer's day puts on the day before", () => {
+		const packets = [
+			cancelled('cancelled-oct-13-local', '2026-10-01', '2026-10-14T02:00:00.000Z'),
+			completed('completed-oct-14', '2026-10-01', '2026-10-14'),
+			cancelled('cancelled-oct-14-local', '2026-10-01', '2026-10-14T20:00:00.000Z')
+		];
+
+		const rows = buildHistory(packets, '2026-10-14', 'America/New_York').rows;
+
+		expect(rows.map((row) => [row.packet.id, row.finishedOn])).toEqual([
+			['cancelled-oct-14-local', '2026-10-14'],
+			['completed-oct-14', '2026-10-14'],
+			['cancelled-oct-13-local', '2026-10-13']
+		]);
+	});
+
 	it('counts a start after the completion day as finishing the same day in the typical figure', () => {
 		const { overview } = buildHistory(
 			[

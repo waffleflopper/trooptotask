@@ -107,7 +107,9 @@ export function buildHistory(packets: readonly PersonnelOnboarding[], todayDate:
 		})
 		.sort(
 			(a, b) =>
-				Date.parse(finishedAt(b.packet)) - Date.parse(finishedAt(a.packet)) || a.packet.id.localeCompare(b.packet.id)
+				b.finishedOn.localeCompare(a.finishedOn) ||
+				Date.parse(finishedAt(b.packet)) - Date.parse(finishedAt(a.packet)) ||
+				a.packet.id.localeCompare(b.packet.id)
 		);
 
 	const recent = rows.filter((row) => row.finishedOn >= since && row.finishedOn <= todayDate);

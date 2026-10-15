@@ -403,7 +403,7 @@ SAVEPOINT operator_transitions;
 SELECT throws_ok($$ UPDATE public.personnel_onboardings SET status = 'completed', completed_at = '2020-01-01', cancelled_at = NULL
 	WHERE id = 'f4000000-0000-4000-8000-000000000701' AND status = 'in_progress' $$,
 	'22023', 'Onboarding completion date must be the current day',
-	'an Onboarding operator cannot backdate a packet''s completion');
+	'an Onboarding operator cannot complete a packet on a long-past day');
 SELECT throws_ok(format($$ UPDATE public.personnel_onboardings SET status = 'completed', completed_at = %L
 	WHERE id = 'f4000000-0000-4000-8000-000000000701' AND status = 'in_progress' $$, (now() AT TIME ZONE 'UTC')::date + 2),
 	'22023', 'Onboarding completion date must be the current day',

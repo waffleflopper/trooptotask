@@ -212,7 +212,7 @@ interface CompleteResult extends LifecycleResult {
 	incompleteCount: number;
 }
 
-/** `completedOn` is the member's local calendar day; the database accepts only a day current somewhere. */
+/** `completedOn` is the member's local calendar day; the database admits only a day within one UTC day of its own. */
 export async function completeOnboarding(
 	ctx: OnboardingLifecyclePorts,
 	id: string,

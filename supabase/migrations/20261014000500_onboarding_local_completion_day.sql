@@ -1,13 +1,15 @@
 -- A packet's completion day is the member's local day, as its start day already
--- is. The client sends that day, and the database accepts only a day that is
--- current somewhere: UTC-12 to UTC+14 is exactly one UTC day either side, so
--- backdating stays impossible. A missing day is stamped with the UTC day. Every
--- other rule is unchanged from 20261012000600_feature_direct_write_authority.
+-- is. The client sends that day, and the database admits it within one UTC day
+-- either side. That coarse window holds every zone's current day, UTC-12 to
+-- UTC+14, and refuses older or later days. It can admit a neighbouring day that
+-- is not yet or no longer current anywhere. A missing day is stamped with the
+-- UTC day. Every other rule is unchanged from
+-- 20261012000600_feature_direct_write_authority.
 
 -- Client updates follow the app's operations. A configure member may only clear
 -- a packet's template; switching runs through reconciliation. A packet completes or cancels
 -- from in progress and reopens from cancelled. The database dates a cancellation
--- and accepts a completion day current somewhere. A checkbox step toggles, a Paperwork step saves one of its
+-- and admits a completion day within one UTC day of its own. A checkbox step toggles, a Paperwork step saves one of its
 -- stages and is complete exactly at the last, and Training completion stays
 -- with Start and reconciliation. Notes change only by appending one note
 -- authored by the caller, as the append command does. The command's server

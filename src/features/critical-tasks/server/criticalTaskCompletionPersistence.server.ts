@@ -1,6 +1,18 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { fail } from '$lib/errors';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
-import type { CriticalTaskCompletionPersistence, PersonnelIctCompletion } from '../contracts';
+import {
+	ICT_COMPLETION_EXISTS_MESSAGE,
+	personnelIctCompletionSchema,
+	type CriticalTaskCompletionPersistence,
+	type PersonnelIctCompletion
+} from '../contracts';
+import {
+	acknowledgedRows,
+	confirmInsertedRows,
+	isUnknownWriteStatus,
+	writeUnconfirmed
+} from './criticalTaskWriteOutcome.server';
 import {
 	COMPLETION_SELECT,
 	completionCreateValues,
@@ -8,6 +20,13 @@ import {
 	mapPersonnelIctCompletion,
 	type SavedPersonnelIctCompletion
 } from './personnelIctCompletionMapping.server';
+
+function throwWriteError(error: { code?: string; message: string }): never {
+	if (error.code === '23505' && error.message.includes('"personnel_ict_completions_org_person_task_date_key"')) {
+		fail(409, ICT_COMPLETION_EXISTS_MESSAGE);
+	}
+	throw new Error(error.message);
+}
 
 export function createSupabaseCriticalTaskCompletionPersistence(
 	client: SupabaseClient,
@@ -17,6 +36,7 @@ export function createSupabaseCriticalTaskCompletionPersistence(
 		personnelId?: string;
 		personnelIds?: string[];
 		taskIds?: string[];
+		ids?: string[];
 		order?: 'history' | 'report';
 	}) {
 		const { data, error } = await selectAllSupabaseRows<SavedPersonnelIctCompletion>(async (from, to) => {
@@ -24,12 +44,17 @@ export function createSupabaseCriticalTaskCompletionPersistence(
 			if (input.personnelId !== undefined) query = query.eq('personnel_id', input.personnelId);
 			if (input.personnelIds) query = query.in('personnel_id', input.personnelIds);
 			if (input.taskIds) query = query.in('ict_task_id', input.taskIds);
+			if (input.ids) query = query.in('id', input.ids);
 			if (input.order === 'history') query = query.order('completed_at', { ascending: false }).order('id');
 			if (input.order === 'report') query = query.order('id');
 			return query.range(from, to);
 		});
 		if (error) throw new Error((error as { message: string }).message);
 		return (data ?? []).map(mapPersonnelIctCompletion);
+	}
+
+	function listByIds(ids: string[]) {
+		return listRows({ ids });
 	}
 
 	return {
@@ -96,33 +121,53 @@ export function createSupabaseCriticalTaskCompletionPersistence(
 			return data ? { id: data.id, personnelId: data.personnel_id, ictTaskId: data.ict_task_id } : null;
 		},
 		async create(input) {
-			const { data, error } = await client
+			const row = { ...completionCreateValues(input), id: crypto.randomUUID(), organization_id: orgId };
+			const { data, error, status } = await client
 				.from('personnel_ict_completions')
-				.insert({ ...completionCreateValues(input), organization_id: orgId })
+				.insert(row)
 				.select(COMPLETION_SELECT)
 				.single();
-			if (error) throw new Error(error.message);
-			return mapPersonnelIctCompletion(data as SavedPersonnelIctCompletion);
+			if (error && !isUnknownWriteStatus(status)) throwWriteError(error);
+			const acknowledged = error
+				? null
+				: acknowledgedRows([data], [row.id], mapPersonnelIctCompletion, personnelIctCompletionSchema);
+			if (acknowledged) return acknowledged[0];
+			return (await confirmInsertedRows([row.id], listByIds, personnelIctCompletionSchema))[0];
 		},
 		async createMany(inputs) {
 			if (inputs.length === 0) return [];
-			const { data, error } = await client
+			const rows = inputs.map((input) => ({
+				...completionCreateValues(input),
+				id: crypto.randomUUID(),
+				organization_id: orgId
+			}));
+			const ids = rows.map((row) => row.id);
+			const { data, error, status } = await client
 				.from('personnel_ict_completions')
-				.insert(inputs.map((input) => ({ ...completionCreateValues(input), organization_id: orgId })))
+				.insert(rows)
 				.select(COMPLETION_SELECT);
-			if (error) throw new Error(error.message);
-			return ((data ?? []) as SavedPersonnelIctCompletion[]).map(mapPersonnelIctCompletion);
+			if (error && !isUnknownWriteStatus(status)) throwWriteError(error);
+			const acknowledged = error
+				? null
+				: acknowledgedRows(data, ids, mapPersonnelIctCompletion, personnelIctCompletionSchema);
+			if (acknowledged) return acknowledged;
+			return confirmInsertedRows(ids, listByIds, personnelIctCompletionSchema);
 		},
 		async update(id, patch) {
-			const { data, error } = await client
+			const { data, error, status } = await client
 				.from('personnel_ict_completions')
 				.update(completionPatchValues(patch))
 				.eq('organization_id', orgId)
 				.eq('id', id)
 				.select(COMPLETION_SELECT)
 				.single();
-			if (error) throw new Error(error.message);
-			return mapPersonnelIctCompletion(data as SavedPersonnelIctCompletion);
+			if (error) {
+				if (isUnknownWriteStatus(status)) writeUnconfirmed();
+				throwWriteError(error);
+			}
+			const acknowledged = acknowledgedRows([data], [id], mapPersonnelIctCompletion, personnelIctCompletionSchema);
+			if (!acknowledged) writeUnconfirmed();
+			return acknowledged[0];
 		},
 		async delete(id) {
 			const { error } = await client

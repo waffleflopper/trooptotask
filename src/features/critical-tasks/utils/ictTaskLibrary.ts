@@ -1,4 +1,10 @@
-import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
+import {
+	ICT_TASK_ORDER_MAX_CHANGES,
+	ICT_TASK_SORT_ORDER_MAX,
+	type IctTask,
+	type IctTaskOrderChange,
+	type PersonnelIctCompletion
+} from '$features/critical-tasks/criticalTasks.types';
 
 function normalizeMos(value: string): string {
 	return value.trim().toUpperCase();
@@ -35,9 +41,34 @@ export function getArchivedIctTasksForLibrary(tasks: IctTask[]): IctTask[] {
 }
 
 function sortIctTasksForLibrary(a: IctTask, b: IctTask): number {
-	const sortOrderCompare = a.sortOrder - b.sortOrder;
-	if (sortOrderCompare !== 0) return sortOrderCompare;
-	return a.taskCode.localeCompare(b.taskCode);
+	return a.sortOrder - b.sortOrder || a.taskCode.localeCompare(b.taskCode);
+}
+
+export type IctTaskMovePlan = { status: 'ready'; changes: IctTaskOrderChange[] } | { status: 'unsupported' };
+
+/**
+ * Plans swapping a task with its neighbour in the displayed active order. Each position keeps the sort order
+ * already shown there; a shared or crowded value is raised just enough that the saved order matches the display.
+ * A move that would need more changes, or a larger sort order, than one command may carry is unsupported.
+ */
+export function planIctTaskMove(activeTasks: IctTask[], index: number, direction: -1 | 1): IctTaskMovePlan {
+	const neighbour = index + direction;
+	if (!activeTasks[index] || !activeTasks[neighbour]) return { status: 'ready', changes: [] };
+	const desired = [...activeTasks];
+	[desired[index], desired[neighbour]] = [desired[neighbour], desired[index]];
+
+	const changes: IctTaskOrderChange[] = [];
+	let previous: { task: IctTask; sortOrder: number } | null = null;
+	desired.forEach((task, position) => {
+		const floor = previous ? previous.sortOrder + (previous.task.taskCode.localeCompare(task.taskCode) < 0 ? 0 : 1) : 0;
+		const sortOrder = Math.max(activeTasks[position].sortOrder, floor);
+		if (sortOrder !== task.sortOrder) changes.push({ id: task.id, expectedSortOrder: task.sortOrder, sortOrder });
+		previous = { task, sortOrder };
+	});
+	const withinBounds =
+		changes.length <= ICT_TASK_ORDER_MAX_CHANGES &&
+		changes.every((change) => change.sortOrder <= ICT_TASK_SORT_ORDER_MAX);
+	return withinBounds ? { status: 'ready', changes } : { status: 'unsupported' };
 }
 
 export function countCompletionRecordsForTask(completions: PersonnelIctCompletion[], taskId: string): number {

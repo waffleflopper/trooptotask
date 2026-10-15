@@ -1,10 +1,12 @@
-import type {
-	PersonnelIctCompletion,
-	IctCompletionBatchImportInput,
-	IctCompletionBatchImportError,
-	IctCompletionBatchImportResult
+import {
+	CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE,
+	type PersonnelIctCompletion,
+	type IctCompletionBatchImportInput,
+	type IctCompletionBatchImportError,
+	type IctCompletionBatchImportResult
 } from '../contracts';
-import { reviewMappedIctCompletionImportRows } from '../utils/ictCompletionImport';
+import { isUnconfirmedWrite } from './criticalTaskWriteOutcome.server';
+import { importRowPersonnelName, reviewMappedIctCompletionImportRows } from '../utils/ictCompletionImport';
 import type { IctCompletionBatchContext } from './personnelIctCompletionPorts.server';
 import { policyResourceForGroup, requirePolicyDecision } from '$lib/access/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -16,21 +18,13 @@ function errorMessage(error: unknown): string {
 	return 'Batch import failed';
 }
 
-function buildPersonnelName(values: Record<string, string>): string {
-	const rank = (values.rank ?? '').trim();
-	const firstName = (values.firstName ?? '').trim();
-	const lastName = (values.lastName ?? '').trim();
-
-	return [rank, firstName, lastName].filter(Boolean).join(' ').trim();
-}
-
 function toBatchErrors(
 	rows: Array<{ rowNumber: number; values: Record<string, string>; errors: string[] }>
 ): IctCompletionBatchImportError[] {
 	return rows.flatMap((row) =>
 		row.errors.map((message) => ({
 			rowNumber: row.rowNumber,
-			personnelName: buildPersonnelName(row.values),
+			personnelName: importRowPersonnelName(row.values),
 			taskCode: (row.values.taskCode ?? '').trim().toUpperCase(),
 			message
 		}))
@@ -88,32 +82,41 @@ export async function importIctCompletionsBatch(
 
 	const inserted: PersonnelIctCompletion[] = [];
 	const updated: PersonnelIctCompletion[] = [];
+	const unconfirmed: IctCompletionBatchImportError[] = [];
 	const errors: IctCompletionBatchImportError[] = [
 		...toBatchErrors(review.invalidRows),
 		...toBatchErrors(review.ambiguousRows)
 	];
+
+	function recordFailure(row: (typeof review.validRows)[number], error: unknown) {
+		const issue = {
+			rowNumber: row.rowNumber,
+			personnelName: importRowPersonnelName({
+				rank: row.personnel.rank,
+				firstName: row.personnel.firstName,
+				lastName: row.personnel.lastName
+			}),
+			taskCode: row.task.taskCode
+		};
+		if (isUnconfirmedWrite(error)) unconfirmed.push({ ...issue, message: CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE });
+		else errors.push({ ...issue, message: errorMessage(error) });
+	}
 
 	const createRows = review.validRows.filter((row) => !row.completionId);
 	if (createRows.length > 0) {
 		try {
 			const insertedRows = await ctx.criticalTaskCompletions.createMany(createRows.map((row) => row.completion));
 			inserted.push(...insertedRows);
-		} catch {
-			for (const row of createRows) {
-				try {
-					const insertedRow = await ctx.criticalTaskCompletions.create(row.completion);
-					inserted.push(insertedRow);
-				} catch (error) {
-					errors.push({
-						rowNumber: row.rowNumber,
-						personnelName: buildPersonnelName({
-							rank: row.personnel.rank,
-							firstName: row.personnel.firstName,
-							lastName: row.personnel.lastName
-						}),
-						taskCode: row.task.taskCode,
-						message: errorMessage(error)
-					});
+		} catch (bulkError) {
+			if (isUnconfirmedWrite(bulkError)) {
+				for (const row of createRows) recordFailure(row, bulkError);
+			} else {
+				for (const row of createRows) {
+					try {
+						inserted.push(await ctx.criticalTaskCompletions.create(row.completion));
+					} catch (error) {
+						recordFailure(row, error);
+					}
 				}
 			}
 		}
@@ -121,19 +124,9 @@ export async function importIctCompletionsBatch(
 
 	for (const row of review.validRows.filter((entry) => entry.completionId)) {
 		try {
-			const updatedRow = await ctx.criticalTaskCompletions.update(row.completionId!, row.completion);
-			updated.push(updatedRow);
+			updated.push(await ctx.criticalTaskCompletions.update(row.completionId!, row.completion));
 		} catch (error) {
-			errors.push({
-				rowNumber: row.rowNumber,
-				personnelName: buildPersonnelName({
-					rank: row.personnel.rank,
-					firstName: row.personnel.firstName,
-					lastName: row.personnel.lastName
-				}),
-				taskCode: row.task.taskCode,
-				message: errorMessage(error)
-			});
+			recordFailure(row, error);
 		}
 	}
 
@@ -143,15 +136,20 @@ export async function importIctCompletionsBatch(
 		details: {
 			inserted: inserted.length,
 			updated: updated.length,
-			errors: errors.length
+			errors: errors.length,
+			unconfirmed: unconfirmed.length
 		}
 	});
 
-	errors.sort((left, right) => left.rowNumber - right.rowNumber || left.message.localeCompare(right.message));
+	const byRow = (left: IctCompletionBatchImportError, right: IctCompletionBatchImportError) =>
+		left.rowNumber - right.rowNumber || left.message.localeCompare(right.message);
+	errors.sort(byRow);
+	unconfirmed.sort(byRow);
 
 	return {
 		inserted,
 		updated,
-		errors
+		errors,
+		unconfirmed
 	};
 }

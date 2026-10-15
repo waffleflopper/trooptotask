@@ -271,7 +271,6 @@ describe('IctCompletionModal', () => {
 
 		const alert = await screen.findByRole('alert');
 		expect(dialog.contains(alert)).toBe(true);
-		expect(alert.textContent).toContain('ICT completion was not saved');
 		expect(alert.textContent).toContain('Failed to save ICT completion');
 		await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId('ict-completion-save')));
 		expect((screen.getByLabelText(/Notes \(optional\)/i) as HTMLTextAreaElement).value).toBe('Range day');

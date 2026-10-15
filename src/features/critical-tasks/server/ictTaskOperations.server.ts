@@ -5,6 +5,7 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import type { CriticalTaskLibraryPersistence } from '../contracts';
+import { ICT_TASK_ORDER_MAX_CHANGES, ICT_TASK_SORT_ORDER_MAX } from '../criticalTasks.types';
 
 const createSchema = z.object({
 	taskCode: z.string().min(1).max(64),
@@ -17,11 +18,25 @@ const createSchema = z.object({
 	archivedAt: z.string().nullable().optional()
 });
 const updateSchema = createSchema.partial().extend({ id: z.string() });
+const reorderSchema = z.object({
+	changes: z
+		.array(
+			z.object({
+				id: z.string(),
+				expectedSortOrder: z.number().int().min(0).max(ICT_TASK_SORT_ORDER_MAX),
+				sortOrder: z.number().int().min(0).max(ICT_TASK_SORT_ORDER_MAX)
+			})
+		)
+		.min(1)
+		.max(ICT_TASK_ORDER_MAX_CHANGES)
+		.refine((changes) => new Set(changes.map((change) => change.id)).size === changes.length, 'Move each task once')
+		.refine((changes) => changes.every((change) => change.sortOrder !== change.expectedSortOrder), 'Change each order')
+});
 
 interface IctTaskWriteContext {
 	readonly auth: OrganizationAccessGrant;
 	readonly audit: PolicyAuditSink;
-	readonly criticalTaskLibrary: Pick<CriticalTaskLibraryPersistence, 'create' | 'update'>;
+	readonly criticalTaskLibrary: Pick<CriticalTaskLibraryPersistence, 'create' | 'update' | 'reorder'>;
 }
 
 function parseOrFail<T>(schema: z.ZodType<T>, input: Record<string, unknown>): T {
@@ -55,4 +70,19 @@ export async function updateIctTask(ctx: IctTaskWriteContext, input: Record<stri
 	const task = await ctx.criticalTaskLibrary.update(id, patch);
 	ctx.audit.log({ action: 'ict_task.updated', resourceType: 'ict_task', resourceId: id });
 	return task;
+}
+
+export async function reorderIctTasks(ctx: IctTaskWriteContext, input: Record<string, unknown>) {
+	const { changes } = parseOrFail(reorderSchema, input);
+	await requireFeaturePolicy(
+		ctx,
+		POLICY_ACTION_CATALOG.criticalTasks.configureLibrary,
+		{ kind: 'organization' },
+		'ict_task'
+	);
+	const tasks = await ctx.criticalTaskLibrary.reorder(changes);
+	for (const task of tasks) {
+		ctx.audit.log({ action: 'ict_task.reordered', resourceType: 'ict_task', resourceId: task.id });
+	}
+	return tasks;
 }

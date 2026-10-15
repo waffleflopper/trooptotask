@@ -4,7 +4,8 @@ import {
 	countCompletionRecordsForTask,
 	getActiveIctTasksForLibrary,
 	isIctTaskApplicableToMos,
-	parseMosApplicabilityInput
+	parseMosApplicabilityInput,
+	planIctTaskMove
 } from './ictTaskLibrary';
 
 function task(overrides: Partial<IctTask>): IctTask {
@@ -55,5 +56,97 @@ describe('ICT task library utilities', () => {
 		] as PersonnelIctCompletion[];
 
 		expect(countCompletionRecordsForTask(completions, 'task-1')).toBe(2);
+	});
+});
+
+describe('planIctTaskMove', () => {
+	const library = (...entries: Array<[string, number]>) =>
+		getActiveIctTasksForLibrary(entries.map(([taskCode, sortOrder]) => task({ id: taskCode, taskCode, sortOrder })));
+
+	it('swaps two distinct sort orders and touches nothing else', () => {
+		expect(planIctTaskMove(library(['A', 1], ['B', 2], ['C', 3]), 1, 1)).toEqual({
+			status: 'ready',
+			changes: [
+				{ id: 'C', expectedSortOrder: 3, sortOrder: 2 },
+				{ id: 'B', expectedSortOrder: 2, sortOrder: 3 }
+			]
+		});
+	});
+
+	it('separates tied tasks with the fewest raised sort orders', () => {
+		expect(planIctTaskMove(library(['A', 0], ['B', 0], ['C', 0], ['D', 1]), 0, 1)).toEqual({
+			status: 'ready',
+			changes: [
+				{ id: 'A', expectedSortOrder: 0, sortOrder: 1 },
+				{ id: 'C', expectedSortOrder: 0, sortOrder: 1 }
+			]
+		});
+	});
+
+	it('raises a later task whose code would otherwise sort before the moved task', () => {
+		expect(planIctTaskMove(library(['X', 1], ['B', 2], ['C', 2]), 0, 1)).toEqual({
+			status: 'ready',
+			changes: [
+				{ id: 'B', expectedSortOrder: 2, sortOrder: 1 },
+				{ id: 'X', expectedSortOrder: 1, sortOrder: 2 },
+				{ id: 'C', expectedSortOrder: 2, sortOrder: 3 }
+			]
+		});
+	});
+
+	it('plans nothing past either end of the library', () => {
+		const tasks = library(['A', 0], ['B', 1]);
+		expect([planIctTaskMove(tasks, 0, -1), planIctTaskMove(tasks, 1, 1)]).toEqual([
+			{ status: 'ready', changes: [] },
+			{ status: 'ready', changes: [] }
+		]);
+	});
+
+	it('produces the swapped display order for every move in tied and gapped libraries', () => {
+		const libraries = [
+			library(['A', 0], ['B', 0], ['C', 0], ['D', 0]),
+			library(['D', 0], ['C', 0], ['B', 1], ['A', 1], ['E', 1]),
+			library(['A', 5], ['B', 5], ['C', 6], ['D', 9], ['E', 9])
+		];
+		for (const tasks of libraries) {
+			for (let index = 0; index < tasks.length - 1; index += 1) {
+				const plan = planIctTaskMove(tasks, index, 1);
+				if (plan.status !== 'ready') throw new Error('Expected a supported move');
+				const changes = new Map(plan.changes.map((change) => [change.id, change.sortOrder]));
+				const moved = tasks.map((entry) => ({ ...entry, sortOrder: changes.get(entry.id) ?? entry.sortOrder }));
+				const expected = tasks.map((entry) => entry.id);
+				[expected[index], expected[index + 1]] = [expected[index + 1], expected[index]];
+				expect(getActiveIctTasksForLibrary(moved).map((entry) => entry.id)).toEqual(expected);
+			}
+		}
+	});
+
+	describe('command bounds', () => {
+		const zeroOrder = (count: number) =>
+			library(
+				...Array.from({ length: count }, (_, index): [string, number] => [`T${String(index).padStart(4, '0')}`, 0])
+			);
+
+		it('plans a move that changes exactly the most tasks one command may carry', () => {
+			const plan = planIctTaskMove(zeroOrder(1001), 0, 1);
+
+			expect(plan.status).toBe('ready');
+			if (plan.status === 'ready') expect(plan.changes).toHaveLength(1000);
+		});
+
+		it('reports a move that would change more tasks than one command may carry as unsupported', () => {
+			expect(planIctTaskMove(zeroOrder(1002), 0, 1)).toEqual({ status: 'unsupported' });
+		});
+
+		it('plans a move whose raised sort order is the largest the database stores', () => {
+			expect(planIctTaskMove(library(['A', 2147483646], ['B', 2147483646]), 0, 1)).toEqual({
+				status: 'ready',
+				changes: [{ id: 'A', expectedSortOrder: 2147483646, sortOrder: 2147483647 }]
+			});
+		});
+
+		it('reports a move that would raise a sort order past the database limit as unsupported', () => {
+			expect(planIctTaskMove(library(['A', 2147483647], ['B', 2147483647]), 0, 1)).toEqual({ status: 'unsupported' });
+		});
 	});
 });

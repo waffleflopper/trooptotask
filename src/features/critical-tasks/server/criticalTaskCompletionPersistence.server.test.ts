@@ -1,6 +1,7 @@
 import { setImmediate } from 'node:timers/promises';
 import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
+import { CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE, ICT_COMPLETION_EXISTS_MESSAGE } from '../contracts';
 import { createSupabaseCriticalTaskCompletionPersistence } from './criticalTaskCompletionPersistence.server';
 import { createWritePortsContext } from './criticalTasksPersistence.test-support.server';
 import { importIctCompletionsBatch } from './ictCompletionsBatch.server';
@@ -19,8 +20,24 @@ function provider(initial: Row[] = []) {
 		hold: false,
 		held: [] as Array<() => void>,
 		inFlight: 0,
-		peak: 0
+		peak: 0,
+		writes: 0,
+		loseReply: null as { write: number; as: 'transport' | 'unavailable' } | null,
+		failReadsAfterLostReply: false,
+		replyLost: false,
+		ackWithout: '',
+		readbackWithout: ''
 	};
+	const without = (row: Row, field: string) => Object.fromEntries(Object.entries(row).filter(([key]) => key !== field));
+	const uniqueDatedCompletion = (candidates: Row[]) =>
+		new Set(
+			candidates.map((row) => `${row.organization_id}:${row.personnel_id}:${row.ict_task_id}:${row.completed_at}`)
+		).size === candidates.length;
+	const duplicate = (constraint: string) =>
+		Response.json(
+			{ code: '23505', message: `duplicate key value violates unique constraint "${constraint}"` },
+			{ status: 409 }
+		);
 	const client = createClient('http://completion-ledger.invalid', 'ordinary-request-key', {
 		auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
 		global: {
@@ -46,6 +63,12 @@ function provider(initial: Row[] = []) {
 				if (state.hold) await new Promise<void>((resolve) => state.held.push(resolve));
 				state.inFlight--;
 				const offset = Number(url.searchParams.get('offset') ?? 0);
+				if (request.method !== 'GET') state.writes++;
+				if (request.method === 'GET' && state.failReadsAfterLostReply && state.replyLost)
+					return Response.json(
+						{ message: 'Completion provider unavailable' },
+						{ status: 503, headers: { 'Retry-After': '0' } }
+					);
 				if (state.rejectMethod === request.method)
 					return Response.json({ code: '23505', message: 'Completion write rejected' }, { status: 400 });
 				if (
@@ -77,26 +100,45 @@ function provider(initial: Row[] = []) {
 							return 0;
 						});
 					affected = affected.slice(offset, offset + Number(url.searchParams.get('limit') ?? 1000));
+					if (state.replyLost && state.readbackWithout)
+						affected = affected.map((row) => without(row, state.readbackWithout));
 				} else if (request.method === 'POST') {
 					if (Array.isArray(body) && state.rejectBulk)
 						return Response.json({ message: 'Bulk completion write rejected' }, { status: 400 });
 					const inputs = (Array.isArray(body) ? body : [body]) as Row[];
 					if (inputs.some((row) => row.personnel_id === state.rejectPersonnel))
 						return Response.json({ message: 'Completion row rejected' }, { status: 400 });
-					affected = inputs.map((row, index) => ({
+					const created = inputs.map((row, index) => ({
 						id: `saved-${rows.length + index + 1}`,
 						logged_by: 'ordinary-user',
 						created_at: '2026-10-06T12:00:00.123456Z',
 						...row
 					}));
+					if (new Set([...rows, ...created].map((row) => row.id)).size !== rows.length + created.length)
+						return duplicate('personnel_ict_completions_pkey');
+					if (!uniqueDatedCompletion([...rows, ...created]))
+						return duplicate('personnel_ict_completions_org_person_task_date_key');
+					affected = created;
 					rows.push(...affected);
 					if (Array.isArray(body) && state.bulkAcknowledgment !== undefined) affected = state.bulkAcknowledgment;
+					if (state.ackWithout) affected = affected.map((row) => without(row, state.ackWithout));
 				} else if (request.method === 'PATCH') {
+					if (!uniqueDatedCompletion(rows.map((row) => (affected.includes(row) ? { ...row, ...(body as Row) } : row))))
+						return duplicate('personnel_ict_completions_org_person_task_date_key');
 					for (const row of affected) Object.assign(row, body);
+					if (state.ackWithout) affected = affected.map((row) => without(row, state.ackWithout));
 				} else if (request.method === 'DELETE') {
 					for (const row of affected) rows.splice(rows.indexOf(row), 1);
 					return new Response(null, { status: 204 });
 				} else throw new Error('Unexpected completion method');
+				if (request.method !== 'GET' && state.loseReply?.write === state.writes) {
+					state.replyLost = true;
+					if (state.loseReply.as === 'transport') throw new TypeError('fetch failed');
+					return Response.json(
+						{ code: 'T2T_VERIFY_PROVIDER_FAULT', message: 'Synthetic provider fault after commit' },
+						{ status: 503 }
+					);
+				}
 				const select = url.searchParams.get('select');
 				const projected = affected.map((row) =>
 					select && select !== '*'
@@ -338,8 +380,9 @@ describe('owned Critical Tasks completion provider', () => {
 			createdAt: 'changed',
 			organization_id: 'org-b'
 		};
-		expect(await ledger.create(protectedInput)).toEqual({
-			id: 'saved-3',
+		const created = await ledger.create(protectedInput);
+		expect(created).toEqual({
+			id: expect.any(String),
 			personnelId: 'person-a',
 			ictTaskId: 'task-a',
 			completedAt: '2026-04-03',
@@ -349,8 +392,9 @@ describe('owned Critical Tasks completion provider', () => {
 			loggedBy: 'ordinary-user',
 			createdAt: '2026-10-06T12:00:00.123456Z'
 		});
+		expect(created.id).not.toBe('spoofed');
 		expect(rows[2]).toEqual({
-			id: 'saved-3',
+			id: created.id,
 			organization_id: 'org-a',
 			personnel_id: 'person-a',
 			ict_task_id: 'task-a',
@@ -375,7 +419,7 @@ describe('owned Critical Tasks completion provider', () => {
 		await ledger.delete('missing');
 		expect(rows[1]).toEqual({ ...saved, id: 'foreign-b', organization_id: 'org-b' });
 		await ledger.delete('capture-a');
-		expect(rows.map((row) => row.id)).toEqual(['foreign-b', 'saved-3']);
+		expect(rows.map((row) => row.id)).toEqual(['foreign-b', created.id]);
 	});
 
 	it.each(['create', 'createMany', 'update', 'delete'] as const)(
@@ -401,14 +445,13 @@ describe('owned Critical Tasks completion provider', () => {
 		const { ledger, rows, state } = provider();
 		expect(await ledger.createMany([])).toEqual([]);
 		expect(state.requests).toEqual([]);
-		expect(
-			await ledger.createMany([
-				input,
-				{ ...input, completedAt: '2026-04-04', validatedBy: 'SFC Jones', notes: 'Second date' }
-			])
-		).toEqual([
+		const created = await ledger.createMany([
+			input,
+			{ ...input, completedAt: '2026-04-04', validatedBy: 'SFC Jones', notes: 'Second date' }
+		]);
+		expect(created).toEqual([
 			{
-				id: 'saved-1',
+				id: rows[0].id,
 				personnelId: 'person-a',
 				ictTaskId: 'task-a',
 				completedAt: '2026-04-03',
@@ -419,7 +462,7 @@ describe('owned Critical Tasks completion provider', () => {
 				createdAt: '2026-10-06T12:00:00.123456Z'
 			},
 			{
-				id: 'saved-2',
+				id: rows[1].id,
 				personnelId: 'person-a',
 				ictTaskId: 'task-a',
 				completedAt: '2026-04-04',
@@ -430,9 +473,12 @@ describe('owned Critical Tasks completion provider', () => {
 				createdAt: '2026-10-06T12:00:00.123456Z'
 			}
 		]);
+		expect(state.requests.map((request) => request.method)).toEqual(['POST']);
 		state.bulkAcknowledgment = [];
-		expect(await ledger.createMany([{ ...input, completedAt: '2026-04-05' }])).toEqual([]);
+		const confirmed = await ledger.createMany([{ ...input, completedAt: '2026-04-05' }]);
+		expect(confirmed.map((row) => [row.id, row.completedAt])).toEqual([[rows[2].id, '2026-04-05']]);
 		expect(rows.map((row) => row.completed_at)).toEqual(['2026-04-03', '2026-04-04', '2026-04-05']);
+		expect(state.requests.map((request) => request.method)).toEqual(['POST', 'POST', 'GET']);
 	});
 
 	it('retains actual dated update and partial row outcomes after a rejected bulk insert', async () => {
@@ -517,7 +563,7 @@ describe('owned Critical Tasks completion provider', () => {
 		]);
 		expect(result.inserted).toEqual([
 			{
-				id: 'saved-2',
+				id: rows[1].id,
 				personnelId: 'person-new',
 				ictTaskId: 'task-a',
 				completedAt: '2026-04-03',
@@ -533,14 +579,14 @@ describe('owned Critical Tasks completion provider', () => {
 		]);
 		expect(rows.map((row) => [row.id, row.personnel_id, row.completed_at, row.notes])).toEqual([
 			['capture-a', 'person-a', '2026-04-02', 'Updated same date'],
-			['saved-2', 'person-new', '2026-04-03', 'Kept row']
+			[expect.any(String), 'person-new', '2026-04-03', 'Kept row']
 		]);
 		expect(ctx.audit.events).toMatchObject([
 			{ action: 'personnel_ict_completion.bulk_imported', details: { inserted: 1, updated: 1, errors: 1 } }
 		]);
 	});
 	it.each([false, true])(
-		'counts acknowledged bulk outcomes without retrying persisted effects (empty=%s)',
+		'confirms an incomplete bulk acknowledgment by reading back the generated ids without retrying persisted effects (empty=%s)',
 		async (empty) => {
 			const { ledger, rows, state } = provider();
 			state.bulkAcknowledgment = empty
@@ -609,28 +655,16 @@ describe('owned Critical Tasks completion provider', () => {
 					]
 				}
 			);
-			expect(result.inserted).toEqual(
-				empty
-					? []
-					: [
-							{
-								id: 'saved-1',
-								personnelId: 'person-a',
-								ictTaskId: 'task-a',
-								completedAt: '2026-04-03',
-								validationMethod: 'Lecture',
-								validatedBy: null,
-								notes: null,
-								loggedBy: 'ordinary-user',
-								createdAt: '2026-10-06T12:00:00.123456Z'
-							}
-						]
-			);
+			expect(result.inserted.map((row) => [row.id, row.personnelId])).toEqual([
+				[rows[0].id, 'person-a'],
+				[rows[1].id, 'person-b']
+			]);
 			expect(result.updated).toEqual([]);
 			expect(result.errors).toEqual([]);
-			expect(rows.map((row) => [row.id, row.personnel_id, row.completed_at])).toEqual([
-				['saved-1', 'person-a', '2026-04-03'],
-				['saved-2', 'person-b', '2026-04-03']
+			expect(result.unconfirmed).toEqual([]);
+			expect(rows.map((row) => [row.personnel_id, row.completed_at])).toEqual([
+				['person-a', '2026-04-03'],
+				['person-b', '2026-04-03']
 			]);
 			expect(
 				state.requests.filter((request) => request.method === 'POST').map((request) => Array.isArray(request.body))
@@ -638,9 +672,157 @@ describe('owned Critical Tasks completion provider', () => {
 			expect(ctx.audit.events).toMatchObject([
 				{
 					action: 'personnel_ict_completion.bulk_imported',
-					details: { inserted: empty ? 0 : 1, updated: 0, errors: 0 }
+					details: { inserted: 2, updated: 0, errors: 0, unconfirmed: 0 }
 				}
 			]);
 		}
 	);
+});
+
+describe('#1643 completion import recovery after a lost provider reply', () => {
+	function importContext() {
+		const ctx = createWritePortsContext({ auth: { orgId: 'org-a' } });
+		ctx.store.seed('personnel', [
+			{
+				id: 'person-a',
+				organization_id: 'org-a',
+				first_name: 'Amy',
+				last_name: 'Able',
+				rank: 'SGT',
+				group_id: 'group-a',
+				archived_at: null
+			},
+			{
+				id: 'person-b',
+				organization_id: 'org-a',
+				first_name: 'Ben',
+				last_name: 'Baker',
+				rank: 'SPC',
+				group_id: 'group-a',
+				archived_at: null
+			}
+		]);
+		ctx.store.seed('ict_tasks', [
+			{ id: 'task-a', organization_id: 'org-a', task_code: 'RESP', title: 'Ventilator', mos: [], archived_at: null }
+		]);
+		return ctx;
+	}
+	const row = (rowNumber: number, firstName: string, lastName: string, notes: string) => ({
+		rowNumber,
+		values: { firstName, lastName, taskCode: 'RESP', completedAt: '2026-04-02', validationMethod: 'Lecture', notes }
+	});
+
+	it.each(['transport', 'unavailable'] as const)(
+		'reports a committed bulk insert as created, with one dated row each, when its reply is lost (%s)',
+		async (lost) => {
+			const { ledger, rows, state } = provider();
+			state.loseReply = { write: 1, as: lost };
+			const ctx = importContext();
+			const result = await importIctCompletionsBatch(
+				{ ...ctx, criticalTaskCompletions: ledger },
+				{ records: [row(2, 'Amy', 'Able', 'First'), row(3, 'Ben', 'Baker', 'Second')] }
+			);
+			expect(rows.map((saved) => [saved.personnel_id, saved.completed_at])).toEqual([
+				['person-a', '2026-04-02'],
+				['person-b', '2026-04-02']
+			]);
+			expect({ inserted: result.inserted.map((saved) => saved.personnelId), errors: result.errors }).toEqual({
+				inserted: ['person-a', 'person-b'],
+				errors: []
+			});
+			expect(state.requests.filter((request) => request.method === 'POST')).toHaveLength(1);
+		}
+	);
+
+	it('reports a same-date update whose reply is lost as unconfirmed, not failed', async () => {
+		const { ledger, rows, state } = provider([saved]);
+		state.loseReply = { write: 1, as: 'transport' };
+		const ctx = importContext();
+		const result = await importIctCompletionsBatch(
+			{ ...ctx, criticalTaskCompletions: ledger },
+			{ records: [row(2, 'Amy', 'Able', 'Changed')] }
+		);
+		expect(rows.map((saved) => [saved.id, saved.notes])).toEqual([['capture-a', 'Changed']]);
+		expect({
+			updated: result.updated,
+			errors: result.errors,
+			unconfirmed: result.unconfirmed.map((entry) => entry.rowNumber)
+		}).toEqual({ updated: [], errors: [], unconfirmed: [2] });
+	});
+
+	it('returns a committed single completion whose reply is lost, and keeps a lost update unconfirmed', async () => {
+		const { ledger, rows, state } = provider([saved]);
+		state.loseReply = { write: 1, as: 'transport' };
+		const created = await ledger.create({ ...input, completedAt: '2026-05-01' });
+		expect(created).toMatchObject({ id: rows[1].id, completedAt: '2026-05-01' });
+		state.loseReply = { write: 2, as: 'unavailable' };
+		const failure = await ledger.update('capture-a', { notes: 'Changed' }).catch((error: unknown) => error);
+		expect(failure).toMatchObject({
+			status: 503,
+			publicMessage: true,
+			message: CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE
+		});
+		expect(rows.map((row) => [row.id, row.notes])).toEqual([
+			['capture-a', 'Changed'],
+			[created.id, null]
+		]);
+	});
+
+	it('reads back generated ids when an acknowledgment carries them without the saved completion fields', async () => {
+		const { ledger, rows, state } = provider();
+		state.ackWithout = 'validation_method';
+		const created = await ledger.create({ ...input, completedAt: '2026-05-01' });
+		const createdMany = await ledger.createMany([
+			{ ...input, completedAt: '2026-05-02' },
+			{ ...input, completedAt: '2026-05-03' }
+		]);
+		expect([created, ...createdMany].map((completion) => [completion.id, completion.validationMethod])).toEqual(
+			rows.map((row) => [row.id, row.validation_method])
+		);
+		expect(state.requests.filter((request) => request.method === 'POST')).toHaveLength(2);
+	});
+
+	it('leaves an update unconfirmed when its acknowledgment lacks saved completion fields', async () => {
+		const { ledger, rows, state } = provider([saved]);
+		state.ackWithout = 'validation_method';
+		await expect(ledger.update('capture-a', { notes: 'Changed' })).rejects.toMatchObject({
+			status: 503,
+			message: CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE
+		});
+		expect(rows[0].notes).toBe('Changed');
+		expect(state.requests.filter((request) => request.method === 'GET')).toHaveLength(0);
+	});
+
+	it('keeps rows unconfirmed when the read-back returns rows without the saved completion fields', async () => {
+		const { ledger, rows, state } = provider();
+		state.loseReply = { write: 1, as: 'transport' };
+		state.readbackWithout = 'validation_method';
+		await expect(
+			ledger.createMany([
+				{ ...input, completedAt: '2026-05-02' },
+				{ ...input, completedAt: '2026-05-03' }
+			])
+		).rejects.toMatchObject({ status: 503, message: CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE });
+		expect(rows).toHaveLength(2);
+		expect(state.requests.filter((request) => request.method === 'POST')).toHaveLength(1);
+	});
+
+	it('reports a repeated person, task and date in one import as a duplicate in plain words', async () => {
+		const { ledger, rows } = provider();
+		const ctx = importContext();
+		const result = await importIctCompletionsBatch(
+			{ ...ctx, criticalTaskCompletions: ledger },
+			{ records: [row(2, 'Amy', 'Able', 'First'), row(3, 'Amy', 'Able', 'Again')] }
+		);
+		expect({
+			inserted: result.inserted.map((completion) => completion.notes),
+			errors: result.errors.map((error) => [error.rowNumber, error.message]),
+			unconfirmed: result.unconfirmed
+		}).toEqual({
+			inserted: ['First'],
+			errors: [[3, ICT_COMPLETION_EXISTS_MESSAGE]],
+			unconfirmed: []
+		});
+		expect(rows.map((saved) => saved.notes)).toEqual(['First']);
+	});
 });

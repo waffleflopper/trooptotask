@@ -1,12 +1,18 @@
 import { defineStore } from '$lib/stores/core';
 import type { Store, StoreInternals } from '$lib/stores/core';
-import type {
-	PersonnelIctCompletion,
-	PersonnelIctCompletionWrite,
-	IctCompletionBatchImportInput,
-	IctCompletionBatchImportError,
-	IctCompletionBatchImportResult
+import {
+	CRITICAL_TASK_IMPORT_NOT_ATTEMPTED_MESSAGE,
+	CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE,
+	ictCompletionBatchImportResultSchema,
+	type PersonnelIctCompletion,
+	type PersonnelIctCompletionWrite,
+	type IctCompletionBatchImportInput,
+	type IctCompletionBatchImportResult,
+	type IctCompletionImportMappedRow,
+	type IctCompletionImportResult
 } from '../contracts';
+import { importRowPersonnelName } from '../utils/ictCompletionImport';
+import { postImportChunk } from './importChunkRequest';
 
 const MAX_BATCH_SIZE = 500;
 
@@ -16,28 +22,11 @@ interface PersonnelIctCompletionsExtensions extends Record<string, unknown> {
 	invalidateImports: () => void;
 	add: (data: PersonnelIctCompletionWrite) => Promise<PersonnelIctCompletion | null>;
 	update: (id: string, data: Partial<PersonnelIctCompletionWrite>) => Promise<boolean>;
+	updateOrThrow: (id: string, data: Partial<PersonnelIctCompletionWrite>) => Promise<boolean>;
 	getByPersonnelAndTask: (personnelId: string, ictTaskId: string) => PersonnelIctCompletion[];
 	removeByPersonnelLocal: (personnelId: string) => void;
 	removeByIctTaskLocal: (ictTaskId: string) => void;
-	importBatch: (input: IctCompletionBatchImportInput) => Promise<IctCompletionBatchImportResult>;
-}
-
-async function readResponseErrorMessage(response: Response, fallback: string): Promise<string> {
-	try {
-		const data = await response.json();
-		if (typeof data === 'string' && data.trim()) return data.trim();
-		if (data && typeof data === 'object') {
-			const record = data as Record<string, unknown>;
-			const detail = [record.message, record.error, record.details].find(
-				(value) => typeof value === 'string' && value.trim().length > 0
-			);
-			if (typeof detail === 'string') return detail;
-		}
-	} catch {
-		// Ignore response parsing issues and fall back to the default message.
-	}
-
-	return fallback;
+	importBatch: (input: IctCompletionBatchImportInput) => Promise<IctCompletionImportResult>;
 }
 
 function enhance(
@@ -68,6 +57,10 @@ function enhance(
 			return base.update(id, data as Partial<Omit<PersonnelIctCompletion, 'id'>>);
 		},
 
+		async updateOrThrow(id: string, data: Partial<PersonnelIctCompletionWrite>) {
+			return base.updateOrThrow(id, data as Partial<Omit<PersonnelIctCompletion, 'id'>>);
+		},
+
 		getByPersonnelAndTask(personnelId: string, ictTaskId: string) {
 			return base.items.filter((item) => item.personnelId === personnelId && item.ictTaskId === ictTaskId);
 		},
@@ -90,41 +83,54 @@ function enhance(
 					);
 				}
 			}
-			const inserted: PersonnelIctCompletion[] = [];
-			const updated: PersonnelIctCompletion[] = [];
-			const errors: IctCompletionBatchImportError[] = [];
+			const result: IctCompletionImportResult = {
+				inserted: [],
+				updated: [],
+				errors: [],
+				unconfirmed: [],
+				notAttempted: []
+			};
+			const rowIssue = (record: IctCompletionImportMappedRow, message: string) => ({
+				rowNumber: record.rowNumber,
+				personnelName: importRowPersonnelName(record.values),
+				taskCode: (record.values.taskCode ?? '').trim().toUpperCase(),
+				message
+			});
 
 			for (let index = 0; index < input.records.length; index += MAX_BATCH_SIZE) {
 				requireCurrentWorkspace();
 				const chunk = input.records.slice(index, index + MAX_BATCH_SIZE);
-				const response = await fetch(`/org/${orgId}/api/personnel-ict-completions/batch`, {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({
-						records: chunk
-					})
-				});
+				const reply = await postImportChunk<IctCompletionBatchImportResult>(
+					`/org/${orgId}/api/personnel-ict-completions/batch`,
+					{ records: chunk },
+					{
+						fallbackMessage: 'Failed to import critical task completions',
+						schema: ictCompletionBatchImportResultSchema
+					}
+				);
 				requireCurrentWorkspace();
-
-				if (!response.ok) {
-					throw new Error(await readResponseErrorMessage(response, 'Failed to import critical task completions'));
+				if (reply.kind !== 'saved') {
+					if (reply.kind === 'refused') result.errors.push(...chunk.map((record) => rowIssue(record, reply.message)));
+					else
+						result.unconfirmed.push(
+							...chunk.map((record) => rowIssue(record, CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE))
+						);
+					result.notAttempted.push(
+						...input.records
+							.slice(index + MAX_BATCH_SIZE)
+							.map((record) => rowIssue(record, CRITICAL_TASK_IMPORT_NOT_ATTEMPTED_MESSAGE))
+					);
+					return result;
 				}
-
-				const data = (await response.json()) as IctCompletionBatchImportResult;
-				requireCurrentWorkspace();
-				const chunkInserted = data.inserted ?? [];
-				const chunkUpdated = data.updated ?? [];
-				base.mergeBatchResults(chunkInserted, chunkUpdated);
-				inserted.push(...chunkInserted);
-				updated.push(...chunkUpdated);
-				errors.push(...(data.errors ?? []));
+				const { data } = reply;
+				base.mergeBatchResults(data.inserted, data.updated);
+				result.inserted.push(...data.inserted);
+				result.updated.push(...data.updated);
+				result.errors.push(...data.errors);
+				result.unconfirmed.push(...data.unconfirmed);
 			}
 
-			return {
-				inserted,
-				updated,
-				errors
-			};
+			return result;
 		}
 	};
 }

@@ -60,6 +60,9 @@ export const calendarAvailabilityHydration = {
 	load(items: AvailabilityEntry[], orgId: string) {
 		availabilityStore.load(items, orgId);
 	},
+	beginRead(since?: number) {
+		return availabilityStore.beginRead(since);
+	},
 	startLoading() {
 		availabilityStore.startLoading();
 	}
@@ -74,6 +77,9 @@ export const calendarAssignmentsHydration = {
 	},
 	load(types: AssignmentType[], assignments: DailyAssignment[], orgId: string) {
 		dailyAssignmentsStore.load(types, assignments, orgId);
+	},
+	beginRead(since?: number) {
+		return dailyAssignmentsStore.beginRead(since);
 	},
 	startLoading() {
 		dailyAssignmentsStore.startLoading();

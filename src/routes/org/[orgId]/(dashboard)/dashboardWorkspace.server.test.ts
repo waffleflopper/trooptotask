@@ -62,6 +62,7 @@ describe('streamDashboardWorkspaceBootstrap', () => {
 		availabilityEntries,
 		assignmentTypes: [{ id: 'at1', name: 'CQ' } as AssignmentType],
 		todayAssignments,
+		range: { rangeStart: '2026-04-30', rangeEnd: '2026-05-15' },
 		pinnedGroups: ['Alpha'],
 		ratingSchemeEntries: [],
 		activeOnboardings: [],
@@ -86,7 +87,7 @@ describe('streamDashboardWorkspaceBootstrap', () => {
 	it('streams an App Shell-adjacent Dashboard workspace result with explicit Dashboard hydration targets', async () => {
 		const routeData = await streamDashboardWorkspaceBootstrap({
 			locals: {} as App.Locals,
-			cookies: {} as Cookies,
+			cookies: { getAll: () => [{ name: 't2t-confirmed-tab1', value: '7' }] } as unknown as Cookies,
 			orgId: 'route-segment'
 		});
 
@@ -110,6 +111,7 @@ describe('streamDashboardWorkspaceBootstrap', () => {
 			data: dashboardData,
 			hydration: {
 				orgId: '11111111-1111-1111-1111-111111111111',
+				confirmedChangesByTab: { tab1: 7 },
 				personnel: {
 					mode: 'replace',
 					deferred: false,
@@ -129,16 +131,18 @@ describe('streamDashboardWorkspaceBootstrap', () => {
 					items: dashboardData.statusTypes
 				},
 				availabilityEntries: {
-					mode: 'replace',
+					mode: 'range',
 					deferred: true,
 					snapshotKey: expect.any(String),
-					items: availabilityEntries
+					items: availabilityEntries,
+					range: { rangeStart: '2026-04-30', rangeEnd: '2026-05-15' }
 				},
 				calendarAssignments: expect.objectContaining({
-					mode: 'replace',
+					mode: 'range',
 					deferred: true,
 					snapshotKey: expect.any(String),
-					items: expect.any(Promise)
+					items: expect.any(Promise),
+					range: { rangeStart: '2026-04-30', rangeEnd: '2026-05-15' }
 				}),
 				trainingTypes: {
 					mode: 'replace',
@@ -165,7 +169,7 @@ describe('streamDashboardWorkspaceBootstrap', () => {
 	it('keeps resolved snapshot keys stable for the same content without exposing item values', async () => {
 		const firstRouteData = await streamDashboardWorkspaceBootstrap({
 			locals: {} as App.Locals,
-			cookies: {} as Cookies,
+			cookies: { getAll: () => [{ name: 't2t-confirmed-tab1', value: '7' }] } as unknown as Cookies,
 			orgId: 'route-segment'
 		});
 		const firstWorkspace = await firstRouteData.dashboard.data;
@@ -177,7 +181,7 @@ describe('streamDashboardWorkspaceBootstrap', () => {
 
 		const secondRouteData = await streamDashboardWorkspaceBootstrap({
 			locals: {} as App.Locals,
-			cookies: {} as Cookies,
+			cookies: { getAll: () => [{ name: 't2t-confirmed-tab1', value: '7' }] } as unknown as Cookies,
 			orgId: 'route-segment'
 		});
 		const secondWorkspace = await secondRouteData.dashboard.data;
@@ -192,7 +196,7 @@ describe('streamDashboardWorkspaceBootstrap', () => {
 
 		const changedRouteData = await streamDashboardWorkspaceBootstrap({
 			locals: {} as App.Locals,
-			cookies: {} as Cookies,
+			cookies: { getAll: () => [{ name: 't2t-confirmed-tab1', value: '7' }] } as unknown as Cookies,
 			orgId: 'route-segment'
 		});
 		const changedWorkspace = await changedRouteData.dashboard.data;

@@ -2,12 +2,16 @@ import { availabilityStore } from '$features/calendar/stores/availability.svelte
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
 import type { CalendarRangeData } from '$features/calendar/calendar.types';
-import type { CalendarBufferedRange } from './calendarRange';
-import { mergeById } from '$lib/utils/mergeById';
+import type { AvailabilityEntry, DailyAssignment, SpecialDay } from '$features/calendar/contracts';
+import type { StoreRead } from '$lib/stores/core';
+import { rangeCoversDate, rangeCoversSpan, type CalendarBufferedRange } from './calendarRange';
 
-type AvailabilityRangeEntry = CalendarRangeData['availabilityEntries'][number];
-type SpecialDayRangeEntry = CalendarRangeData['specialDays'][number];
-type CalendarRangeWindow = Pick<CalendarRangeData, 'rangeStart' | 'rangeEnd'>;
+export interface CalendarRangeRead {
+	availability: StoreRead<AvailabilityEntry>;
+	specialDays: StoreRead<SpecialDay>;
+	assignments: StoreRead<DailyAssignment>;
+	close(): void;
+}
 
 export async function loadCalendarRange(orgId: string, range: CalendarBufferedRange): Promise<CalendarRangeData> {
 	const params = new URLSearchParams({
@@ -23,37 +27,35 @@ export async function loadCalendarRange(orgId: string, range: CalendarBufferedRa
 	return response.json() as Promise<CalendarRangeData>;
 }
 
-function isAvailabilityEntryInRange(entry: AvailabilityRangeEntry, range: CalendarRangeWindow): boolean {
-	return entry.endDate >= range.rangeStart && entry.startDate <= range.rangeEnd;
+/** Begin before requesting a range so applying it keeps saves and deletes confirmed meanwhile. */
+export function beginCalendarRangeRead(): CalendarRangeRead {
+	const reads = {
+		availability: availabilityStore.beginRead(),
+		specialDays: specialDaysStore.beginRead(),
+		assignments: dailyAssignmentsStore.beginRead()
+	};
+	return {
+		...reads,
+		close() {
+			reads.availability.close();
+			reads.specialDays.close();
+			reads.assignments.close();
+		}
+	};
 }
 
-function isSpecialDayInRange(day: SpecialDayRangeEntry, range: CalendarRangeWindow): boolean {
-	return day.date >= range.rangeStart && day.date <= range.rangeEnd;
-}
-
-export function mergeCalendarRangeIntoStores(orgId: string, data: CalendarRangeData): void {
+export function mergeCalendarRangeIntoStores(orgId: string, data: CalendarRangeData, read: CalendarRangeRead): void {
 	const availabilityEntries =
 		availabilityStore.orgId === orgId
-			? mergeById(
-					availabilityStore.items.filter((entry) => !isAvailabilityEntryInRange(entry, data)),
-					data.availabilityEntries
-				)
+			? read.availability.reconcile(data.availabilityEntries, rangeCoversSpan(data))
 			: data.availabilityEntries;
 	const specialDays =
 		specialDaysStore.orgId === orgId
-			? mergeById(
-					specialDaysStore.items.filter((day) => !isSpecialDayInRange(day, data)),
-					data.specialDays
-				)
+			? read.specialDays.reconcile(data.specialDays, rangeCoversDate(data))
 			: data.specialDays;
 	const dailyAssignments =
 		dailyAssignmentsStore.orgId === orgId
-			? mergeById(
-					dailyAssignmentsStore.assignments.filter(
-						(assignment) => assignment.date < data.rangeStart || assignment.date > data.rangeEnd
-					),
-					data.dailyAssignments
-				)
+			? read.assignments.reconcile(data.dailyAssignments, rangeCoversDate(data))
 			: data.dailyAssignments;
 
 	availabilityStore.load(availabilityEntries, orgId);

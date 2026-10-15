@@ -293,9 +293,7 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 			const result = await typesStore.remove(id);
 
 			if (result === 'deleted') {
-				// Confirm cascade in serverState
-				const idSet = new Set(affectedIds);
-				internals.serverState.set(internals.serverState.getSnapshot().filter((a) => !idSet.has(a.id)));
+				internals.commit({ deleted: affectedIds });
 				confirmedCatalog = write;
 			}
 
@@ -400,14 +398,7 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 					)
 				);
 
-				let current = internals.serverState.getSnapshot();
-				if (existing) {
-					current = current.filter((a) => a.id !== existing.id);
-				}
-				if (saved?.id) {
-					current = [...current, saved];
-				}
-				internals.serverState.set(current);
+				internals.commit({ deleted: existing ? [existing.id] : [], saved: saved?.id ? [saved] : [] });
 
 				if (removeMutationId) internals.log.resolve(removeMutationId);
 				if (addMutationId) internals.log.resolve(addMutationId);
@@ -432,7 +423,7 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 					sendAssignments('', 'DELETE', { date, assignmentTypeId }, 'Failed to remove assignment')
 				);
 
-				internals.serverState.set(internals.serverState.getSnapshot().filter((a) => a.id !== original.id));
+				internals.commit({ deleted: [original.id] });
 				internals.log.resolve(mutationId);
 				return true;
 			} catch {
@@ -499,13 +490,7 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 					).then((res) => res.json() as Promise<{ inserted: DailyAssignment[] }>)
 				);
 
-				// Update serverState: remove old, add new
-				let current = internals.serverState.getSnapshot();
-				if (existingIds.length > 0) {
-					const idSet = new Set(existingIds);
-					current = current.filter((a) => !idSet.has(a.id));
-				}
-				internals.serverState.set([...current, ...inserted]);
+				internals.commit({ deleted: existingIds, saved: inserted });
 
 				if (removeMutationId) internals.log.resolve(removeMutationId);
 				if (addMutationId) internals.log.resolve(addMutationId);

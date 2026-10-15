@@ -59,3 +59,13 @@ export function getCalendarRangeGaps(
 
 	return gaps;
 }
+
+/** Whether a range read returns this span; it returns every span that overlaps the range. */
+export function rangeCoversSpan(range: CalendarBufferedRange) {
+	return (item: { startDate: string; endDate: string }) =>
+		item.endDate >= range.rangeStart && item.startDate <= range.rangeEnd;
+}
+
+export function rangeCoversDate(range: CalendarBufferedRange) {
+	return (item: { date: string }) => item.date >= range.rangeStart && item.date <= range.rangeEnd;
+}

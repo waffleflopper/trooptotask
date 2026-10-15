@@ -9,6 +9,7 @@ A Calendar operator plans Person and Group coverage for a day or month. Saved as
 - `monthly-planning`: navigate months, apply a small Quick Fill batch and clear that type with confirmation.
 - `planner-range-retry`: a failed uncovered month load settles with Retry; a successful retry restores editable local assignments.
 - `assignment-authorization`: view-only, no-Calendar, Group-scoped and foreign-Organization actors cannot write outside their authority.
+- `assignment-reentry`: an assignment saved while the Calendar re-entry snapshot is in flight stays visible after it applies; [Calendar navigation](calendar-navigation.md) step 16 drives it.
 - `planner-states`: the monthly table, loading, failed save, keyboard and focus, denied and scoped states, and large-roster render at 1280 light and 390 dark.
 
 ## How to get to it (user POV)

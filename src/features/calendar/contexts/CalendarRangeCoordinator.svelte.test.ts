@@ -76,7 +76,11 @@ describe('CalendarRangeCoordinator', () => {
 		});
 
 		expect(loadRange).toHaveBeenCalledWith('org-1', { rangeStart: '2026-05-01', rangeEnd: '2026-05-31' });
-		expect(mergeRangeIntoStores).toHaveBeenCalledWith('org-1', expect.objectContaining({ rangeStart: '2026-05-01' }));
+		expect(mergeRangeIntoStores).toHaveBeenCalledWith(
+			'org-1',
+			expect.objectContaining({ rangeStart: '2026-05-01' }),
+			expect.anything()
+		);
 		expect(coordinator.loadedRange).toEqual({ rangeStart: '2026-03-01', rangeEnd: '2026-05-31' });
 		expect(coordinator.loading).toBe(false);
 		expect(coordinator.error).toBeNull();

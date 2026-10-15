@@ -2477,6 +2477,7 @@ async function main() {
 				'arm-fail-400',
 				'arm-hold',
 				'arm-hold-fail',
+				'arm-hold-dispatch',
 				'arm-reject',
 				'arm-observe',
 				'arm-drop',
@@ -2640,6 +2641,17 @@ async function main() {
 			)
 				throw new Error('Delayed synthetic failure is not supported for this request family.');
 			if (
+				action === 'arm-hold-dispatch' &&
+				![
+					'availability',
+					'availability/batch',
+					'daily-assignments',
+					'daily-assignments/batch',
+					'special-days'
+				].includes(family)
+			)
+				throw new Error('A held dispatch is supported only for Calendar mutation families.');
+			if (
 				(/^admin-[a-z-]+-read$/.test(family) || shellPart) &&
 				!['arm-fail', 'arm-hold', 'arm-observe', ...(shellPart ? [] : ['arm-load-error'])].includes(action)
 			)
@@ -2673,7 +2685,9 @@ async function main() {
 										? 'drop-response'
 										: action === 'arm-load-error'
 											? 'load-error'
-											: 'observe';
+											: action === 'arm-hold-dispatch'
+												? 'hold-dispatch'
+												: 'observe';
 			const search =
 				(shellPart ? `?part=${shellPart}` : platformForm?.search) ??
 				accountForm?.[1] ??

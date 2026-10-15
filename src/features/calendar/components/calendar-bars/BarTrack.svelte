@@ -69,14 +69,15 @@
 			style:grid-column={columns(bar)}
 			style:grid-row={ROWS[bar.lane]}
 			aria-label={name}
-			title={name}
 			aria-haspopup="dialog"
 			aria-expanded={selected}
 			data-entry-id={bar.entry.id}
 			onclick={(event) => onOpenEntry?.(bar.entry, event.currentTarget)}
 		>
+			<!-- Hover text sits inside the button, where it cannot become a description that repeats the name. -->
 			<StatusBar
 				class="h-full w-full"
+				title={name}
 				status={bar.status}
 				label={bar.label}
 				size={barSize(bar)}
@@ -112,7 +113,6 @@
 			style:grid-column={columns(overflow)}
 			style:grid-row={ROWS.bottom}
 			aria-label="{personLabel}, {overflow.description}"
-			title="{personLabel}, {overflow.description}"
 			aria-haspopup="dialog"
 			onclick={(event) =>
 				onOpenOverflow?.(
@@ -120,7 +120,7 @@
 					event.currentTarget
 				)}
 		>
-			+{overflow.spans.length}
+			<span class="w-full" title="{personLabel}, {overflow.description}">+{overflow.spans.length}</span>
 		</button>
 	{/each}
 	{#if marker}

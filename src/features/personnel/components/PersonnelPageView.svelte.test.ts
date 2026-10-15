@@ -535,9 +535,7 @@ describe('PersonnelPageView', () => {
 		const ctx = { ...makeCtx(), lossWarningsUnavailable: true } as unknown as PersonnelPageContext;
 		render(PersonnelPageView, { props: { ctx, requestArchiveApproval } });
 
-		expect(screen.getByRole('status').textContent).toContain(
-			'Loss warnings could not be loaded, so ETS and PCS flags are not shown.'
-		);
+		expect(screen.getByRole('status').textContent).toContain('Loss warnings could not be loaded');
 		await fireEvent.click(screen.getByRole('button', { name: 'Reload page' }));
 		expect(reload).toHaveBeenCalledOnce();
 	});

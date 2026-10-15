@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { tick } from 'svelte';
+	import { invalidate } from '$app/navigation';
 	import { DEFAULT_TRAINING_TYPE_COLOR, type TrainingPageAccess } from '../contracts';
 	import { ArrowDown, ArrowUp, Trash2 } from '@lucide/svelte';
 	import * as Empty from '$lib/components/ui/empty';
@@ -63,6 +64,7 @@
 	let mobileDetailOpen = $state(false);
 	let confirmDelete: { id: string; name: string } | null = $state(null);
 	let deleteError = $state('');
+	let reordering = $state(false);
 	let typeList = $state<ReturnType<typeof TypeWorkspace.ItemList>>();
 
 	let editName = $state('');
@@ -278,28 +280,27 @@
 		confirmDelete = null;
 	}
 
-	async function moveUp(index: number) {
-		if (index === 0) return;
-		const current = orderedTypes[index];
-		const above = orderedTypes[index - 1];
-		const swap = [
-			{ id: current.id, from: current.sortOrder, to: above.sortOrder },
-			{ id: above.id, from: above.sortOrder, to: current.sortOrder }
-		];
-		const saved = await Promise.all(
-			swap.map((row) => trainingTypesStore.updateOrThrow(row.id, { sortOrder: row.to }).catch(() => false))
-		);
-		if (saved.every(Boolean)) return;
-		// Half a swap leaves two types sharing one position, so put back the row that did save.
-		await Promise.all(
-			swap.filter((_, i) => saved[i]).map((row) => trainingTypesStore.update(row.id, { sortOrder: row.from }))
-		);
-		toastStore.error('Failed to reorder training types. Try again.');
-	}
-
-	async function moveDown(index: number) {
-		if (index === orderedTypes.length - 1) return;
-		await moveUp(index + 1);
+	async function move(index: number, target: number) {
+		if (reordering || target < 0 || target >= orderedTypes.length) return;
+		const order = [...orderedTypes];
+		[order[index], order[target]] = [order[target], order[index]];
+		// Saving positions rather than swapping stored values also repairs any rows that share a position.
+		const changed = order
+			.map((type, sortOrder) => ({ type, sortOrder }))
+			.filter(({ type, sortOrder }) => type.sortOrder !== sortOrder);
+		reordering = true;
+		try {
+			const saved = await Promise.all(
+				changed.map(({ type, sortOrder }) =>
+					trainingTypesStore.updateOrThrow(type.id, { sortOrder }).then(Boolean, () => false)
+				)
+			);
+			if (saved.every(Boolean)) return;
+			toastStore.error('Failed to save the training type order. Reloading the saved order.');
+			await invalidate('app:training-data');
+		} finally {
+			reordering = false;
+		}
 	}
 
 	function handleApplicabilityChange(fields: ApplicabilityFields) {
@@ -386,10 +387,10 @@
 										type="button"
 										onclick={async (event) => {
 											const button = event.currentTarget;
-											await moveUp(i);
+											await move(i, i - 1);
 											TypeWorkspace.focusEnabledSibling(button);
 										}}
-										disabled={i === 0}
+										disabled={reordering || i === 0}
 										aria-label={`Move ${type.name} up`}
 									>
 										<ArrowUp aria-hidden="true" />
@@ -400,10 +401,10 @@
 										type="button"
 										onclick={async (event) => {
 											const button = event.currentTarget;
-											await moveDown(i);
+											await move(i, i + 1);
 											TypeWorkspace.focusEnabledSibling(button);
 										}}
-										disabled={i === orderedTypes.length - 1}
+										disabled={reordering || i === orderedTypes.length - 1}
 										aria-label={`Move ${type.name} down`}
 									>
 										<ArrowDown aria-hidden="true" />

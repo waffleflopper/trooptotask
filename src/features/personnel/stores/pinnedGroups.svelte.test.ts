@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { PinnedGroupsStore } from './pinnedGroups.svelte';
+import { endOrganizationLifetime } from '$lib/stores/core';
+import { toastStore } from '$lib/stores/toast.svelte';
 
 describe('pinned Group state', () => {
 	let store: PinnedGroupsStore;
@@ -113,6 +115,36 @@ describe('pinned Group state', () => {
 		expect(store.orgId).toBe('org-2');
 		expect(store.list).toEqual(['Bravo', 'Charlie']);
 	});
+
+	it.each([
+		{ action: 'pin', initial: ['Alpha'], group: 'Bravo' },
+		{ action: 'unpin', initial: ['Alpha', 'Bravo'], group: 'Bravo' }
+	] as const)(
+		'says nothing when a failed $action returns after the Organization shell was left',
+		async ({ action, initial, group }) => {
+			store.load([...initial], 'org-1');
+			const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+			let rejectRequest!: (error: Error) => void;
+			vi.stubGlobal(
+				'fetch',
+				vi.fn(
+					() =>
+						new Promise((_resolve, reject) => {
+							rejectRequest = reject;
+						})
+				)
+			);
+
+			const mutation = store[action](group);
+			endOrganizationLifetime();
+			rejectRequest(new Error('Request from the left shell failed'));
+
+			expect(await mutation).toBe(false);
+			expect(errorToast).not.toHaveBeenCalled();
+			store.load(['Charlie'], 'org-1');
+			expect(store.list).toEqual(['Charlie']);
+		}
+	);
 
 	it('accepts another new-Organization load while an old request is still pending', async () => {
 		store.load(['Alpha'], 'org-1');

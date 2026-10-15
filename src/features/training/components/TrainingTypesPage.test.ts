@@ -12,6 +12,12 @@ import type { PersonnelTraining, TrainingType } from '$features/training/trainin
 import { stubToolbarWidths, toolbarDescription } from '$lib/test-support/toolbarWidths';
 import { toastStore } from '$lib/stores/toast.svelte';
 
+const { invalidateMock } = vi.hoisted(() => ({ invalidateMock: vi.fn() }));
+vi.mock('$app/navigation', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$app/navigation')>()),
+	invalidate: invalidateMock
+}));
+
 const viewer = {
 	orgId: 'org-1',
 	affordanceForFeatureAction: () => ({
@@ -76,18 +82,22 @@ const trainingType: TrainingType = {
 	isOptional: false
 };
 
-/** Answers Training type PUTs from saved rows; `reject` names ids whose write the server refuses. */
-function stubTrainingTypeServer(reject: { put?: string[]; del?: boolean } = {}) {
+/**
+ * Answers Training type writes from saved rows; `reject` names ids whose PUT the server refuses, and
+ * `hold` delays every PUT answer until it resolves.
+ */
+function stubTrainingTypeServer(reject: { put?: string[]; del?: boolean } = {}, hold?: Promise<void>) {
 	const saved = new Map(trainingTypesStore.items.map((type) => [type.id, { ...type }]));
 	const requests: string[] = [];
 	vi.stubGlobal('fetch', async (_url: string, init: RequestInit) => {
 		const body = JSON.parse(init.body as string) as Partial<TrainingType> & { id: string };
-		requests.push(`${init.method} ${body.id}${body.sortOrder === undefined ? '' : ` ${body.sortOrder}`}`);
+		requests.push(`${init.method} ${body.id}`);
 		if (init.method === 'DELETE') {
 			return reject.del
 				? Response.json({ message: 'Internal server error' }, { status: 500 })
 				: Response.json({ success: true });
 		}
+		await hold;
 		if (reject.put?.includes(body.id)) return Response.json({ message: 'Internal server error' }, { status: 500 });
 		const next = { ...saved.get(body.id)!, ...body };
 		saved.set(body.id, next);
@@ -95,6 +105,25 @@ function stubTrainingTypeServer(reject: { put?: string[]; del?: boolean } = {}) 
 	});
 	return { saved, requests };
 }
+
+function threeTypes(sortOrders: [number, number, number]) {
+	trainingTypesStore.load(
+		[
+			{ ...trainingType, id: 'type-a', name: 'Alpha', sortOrder: sortOrders[0] },
+			{ ...trainingType, id: 'type-b', name: 'Bravo', sortOrder: sortOrders[1] },
+			{ ...trainingType, id: 'type-c', name: 'Charlie', sortOrder: sortOrders[2] }
+		],
+		'org-1'
+	);
+}
+
+const savedOrders = (saved: Map<string, TrainingType>) =>
+	Object.fromEntries([...saved.values()].map((type) => [type.name, type.sortOrder]));
+
+const shownNames = () =>
+	screen
+		.getAllByRole('row')
+		.map((row) => ['Alpha', 'Bravo', 'Charlie'].find((name) => row.textContent?.includes(name)));
 
 describe('TrainingTypesPage', () => {
 	beforeEach(() => {
@@ -104,6 +133,7 @@ describe('TrainingTypesPage', () => {
 	});
 
 	afterEach(() => {
+		invalidateMock.mockReset();
 		vi.restoreAllMocks();
 		vi.unstubAllGlobals();
 		cleanup();
@@ -244,29 +274,69 @@ describe('TrainingTypesPage', () => {
 		).toBeNull();
 	});
 
-	it('puts back the saved half of a failed reorder and says the order did not change', async () => {
-		trainingTypesStore.load(
-			[trainingType, { ...trainingType, id: 'type-2', name: 'First Aid', sortOrder: 1 }],
-			'org-1'
-		);
-		const { saved, requests } = stubTrainingTypeServer({ put: ['type-2'] });
+	it('says a half-saved reorder failed and re-reads the saved order', async () => {
+		threeTypes([0, 1, 2]);
+		const { saved } = stubTrainingTypeServer({ put: ['type-b'] });
+		invalidateMock.mockImplementation(async () => trainingTypesStore.load([...saved.values()], 'org-1'));
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 		render(TrainingTypesPage, { props: { org, data: { personnel: [] } } });
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Move CPR down' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Move Charlie up' }));
 
-		await waitFor(() => expect(errorToast).toHaveBeenCalledWith('Failed to reorder training types. Try again.'));
+		await waitFor(() => expect(invalidateMock).toHaveBeenCalledWith('app:training-data'));
 		expect(errorToast).toHaveBeenCalledOnce();
-		expect(requests).toEqual(['PUT type-2 0', 'PUT type-1 1', 'PUT type-1 0']);
-		expect([...saved.values()].map((type) => [type.id, type.sortOrder])).toEqual([
-			['type-1', 0],
-			['type-2', 1]
-		]);
-		const [first, second] = screen.getAllByRole('row');
-		expect([first, second]).toEqual([
-			screen.getByRole('row', { name: 'CPR' }),
-			screen.getByRole('row', { name: 'First Aid' })
-		]);
+		expect(errorToast.mock.calls[0][0]).toContain('Failed to save the training type order');
+		expect(savedOrders(saved)).toEqual({ Alpha: 0, Bravo: 1, Charlie: 1 });
+		await waitFor(() =>
+			expect(screen.getByRole('button', { name: 'Move Charlie up' }).hasAttribute('disabled')).toBe(false)
+		);
+		expect(shownNames()).toEqual(['Alpha', 'Bravo', 'Charlie']);
+	});
+
+	it('shows only what the server confirmed when the re-read after a failed reorder does not arrive', async () => {
+		threeTypes([0, 1, 2]);
+		const { saved } = stubTrainingTypeServer({ put: ['type-b'] });
+		invalidateMock.mockResolvedValue(undefined);
+		vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+		render(TrainingTypesPage, { props: { org, data: { personnel: [] } } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Move Charlie up' }));
+
+		await waitFor(() => expect(invalidateMock).toHaveBeenCalledOnce());
+		expect(savedOrders(saved)).toEqual({ Alpha: 0, Bravo: 1, Charlie: 1 });
+		expect(Object.fromEntries(trainingTypesStore.items.map((type) => [type.name, type.sortOrder]))).toEqual(
+			savedOrders(saved)
+		);
+	});
+
+	it('disables every move while a reorder is saving, so a second click cannot overlap it', async () => {
+		threeTypes([0, 1, 2]);
+		let release!: () => void;
+		const { saved } = stubTrainingTypeServer({}, new Promise((resolve) => (release = resolve)));
+		render(TrainingTypesPage, { props: { org, data: { personnel: [] } } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Move Charlie up' }));
+		const moves = screen.getAllByRole('button', { name: /^Move / });
+		expect(moves.every((button) => button.hasAttribute('disabled'))).toBe(true);
+		await fireEvent.click(screen.getByRole('button', { name: 'Move Alpha down' }));
+
+		release();
+		await waitFor(() =>
+			expect(screen.getByRole('button', { name: 'Move Alpha down' }).hasAttribute('disabled')).toBe(false)
+		);
+		expect(savedOrders(saved)).toEqual({ Alpha: 0, Bravo: 2, Charlie: 1 });
+		expect(shownNames()).toEqual(['Alpha', 'Charlie', 'Bravo']);
+	});
+
+	it('gives every type its own saved position when a move starts from shared positions', async () => {
+		threeTypes([0, 0, 0]);
+		const { saved } = stubTrainingTypeServer();
+		render(TrainingTypesPage, { props: { org, data: { personnel: [] } } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Move Bravo down' }));
+
+		await waitFor(() => expect(savedOrders(saved)).toEqual({ Alpha: 0, Bravo: 2, Charlie: 1 }));
+		expect(shownNames()).toEqual(['Alpha', 'Charlie', 'Bravo']);
 	});
 
 	it('uses hydrated personnel when route bootstrap omits applicability source data', async () => {

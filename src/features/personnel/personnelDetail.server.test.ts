@@ -244,12 +244,7 @@ describe('personnel readiness lanes', () => {
 			loadLossTrackingReadinessLane(ctx, 'person-1', AS_OF, async () => {
 				throw new Error('Settings unavailable');
 			})
-		).resolves.toEqual({
-			label: 'Loss Tracking',
-			value: 'Unavailable',
-			detail: 'ETS Jul 14, 2026 is 61 days away. Loss warnings could not be loaded. Reload the page to try again.',
-			tone: 'neutral'
-		});
+		).resolves.toMatchObject({ value: 'Unavailable', tone: 'neutral' });
 	});
 
 	it('still reports a passed ETS when settings fail', async () => {

@@ -3,11 +3,13 @@
  *
  * All mutations (pin, unpin, reorder) are optimistic: the UI updates instantly and rolls
  * back on API failure, and a failed pin or unpin says so. A `#pendingMutations` counter prevents same-Organization hydration
- * from overwriting in-flight client changes. An Organization version isolates late responses.
+ * from overwriting in-flight client changes. A response from another Organization or a shell lifetime the user has left
+ * changes nothing and says nothing.
  *
  * Persisted server-side per user (see `pinnedGroupOperations.server.ts`). Workspace hydration supplies
  * each Organization snapshot.
  */
+import { organizationLifetime, stillInOrganizationLifetime } from '$lib/stores/core';
 import { toastStore } from '$lib/stores/toast.svelte';
 
 const PIN_FAILURE_MESSAGE = 'Failed to update pinned Groups. Try again.';
@@ -17,6 +19,7 @@ export class PinnedGroupsStore {
 	#orgId = '';
 	#pendingMutations = 0;
 	#organizationVersion = 0;
+	#loadedLifetime = organizationLifetime();
 	#loadVersion = 0;
 
 	get list() {
@@ -32,9 +35,10 @@ export class PinnedGroupsStore {
 	}
 
 	load(pinnedGroups: string[], orgId: string) {
-		if (orgId !== this.#orgId) {
+		if (orgId !== this.#orgId || this.#loadedLifetime !== organizationLifetime()) {
 			this.#organizationVersion++;
 			this.#pendingMutations = 0;
+			this.#loadedLifetime = organizationLifetime();
 		} else if (this.#pendingMutations > 0) return;
 		this.#loadVersion++;
 		this.#pinnedGroups = pinnedGroups;
@@ -43,6 +47,12 @@ export class PinnedGroupsStore {
 
 	isPinned(group: string): boolean {
 		return this.#pinnedGroups.includes(group);
+	}
+
+	#mutationScope(): () => boolean {
+		const version = this.#organizationVersion;
+		const sameLifetime = stillInOrganizationLifetime();
+		return () => sameLifetime() && version === this.#organizationVersion;
 	}
 
 	#rollbackSwap(left: string, right: string) {
@@ -56,7 +66,7 @@ export class PinnedGroupsStore {
 	async pin(group: string): Promise<boolean> {
 		if (this.#pinnedGroups.includes(group)) return true;
 
-		const mutationVersion = this.#organizationVersion;
+		const current = this.#mutationScope();
 		const orgId = this.#orgId;
 		this.#pendingMutations++;
 		// Optimistic: add immediately
@@ -69,21 +79,21 @@ export class PinnedGroupsStore {
 				body: JSON.stringify({ groupName: group, sortOrder: this.#pinnedGroups.length - 1 })
 			});
 			if (!res.ok) throw new Error('Failed to pin group');
-			return mutationVersion === this.#organizationVersion;
+			return current();
 		} catch {
 			// Rollback on failure
-			if (mutationVersion === this.#organizationVersion) {
+			if (current()) {
 				this.#pinnedGroups = this.#pinnedGroups.filter((g) => g !== group);
 				toastStore.error(PIN_FAILURE_MESSAGE);
 			}
 			return false;
 		} finally {
-			if (mutationVersion === this.#organizationVersion) this.#pendingMutations--;
+			if (current()) this.#pendingMutations--;
 		}
 	}
 
 	async unpin(group: string): Promise<boolean> {
-		const mutationVersion = this.#organizationVersion;
+		const current = this.#mutationScope();
 		const orgId = this.#orgId;
 		this.#pendingMutations++;
 		// Optimistic: remove immediately
@@ -97,18 +107,18 @@ export class PinnedGroupsStore {
 				body: JSON.stringify({ groupName: group })
 			});
 			if (!res.ok) throw new Error('Failed to unpin group');
-			return mutationVersion === this.#organizationVersion;
+			return current();
 		} catch {
 			// Rollback on failure
-			if (mutationVersion === this.#organizationVersion && originalIndex >= 0 && !this.#pinnedGroups.includes(group)) {
+			if (current() && originalIndex >= 0 && !this.#pinnedGroups.includes(group)) {
 				const restored = [...this.#pinnedGroups];
 				restored.splice(Math.min(originalIndex, restored.length), 0, group);
 				this.#pinnedGroups = restored;
 			}
-			if (mutationVersion === this.#organizationVersion) toastStore.error(PIN_FAILURE_MESSAGE);
+			if (current()) toastStore.error(PIN_FAILURE_MESSAGE);
 			return false;
 		} finally {
-			if (mutationVersion === this.#organizationVersion) this.#pendingMutations--;
+			if (current()) this.#pendingMutations--;
 		}
 	}
 
@@ -125,7 +135,7 @@ export class PinnedGroupsStore {
 		if (index <= 0) return false;
 
 		const precedingGroup = this.#pinnedGroups[index - 1];
-		const mutationVersion = this.#organizationVersion;
+		const current = this.#mutationScope();
 		const orgId = this.#orgId;
 		this.#pendingMutations++;
 		// Optimistic: reorder immediately
@@ -140,13 +150,13 @@ export class PinnedGroupsStore {
 				body: JSON.stringify({ action: 'replace', groups: newList })
 			});
 			if (!res.ok) throw new Error('Failed to reorder pinned groups');
-			return mutationVersion === this.#organizationVersion;
+			return current();
 		} catch {
 			// Rollback on failure
-			if (mutationVersion === this.#organizationVersion) this.#rollbackSwap(group, precedingGroup);
+			if (current()) this.#rollbackSwap(group, precedingGroup);
 			return false;
 		} finally {
-			if (mutationVersion === this.#organizationVersion) this.#pendingMutations--;
+			if (current()) this.#pendingMutations--;
 		}
 	}
 
@@ -155,7 +165,7 @@ export class PinnedGroupsStore {
 		if (index < 0 || index >= this.#pinnedGroups.length - 1) return false;
 
 		const followingGroup = this.#pinnedGroups[index + 1];
-		const mutationVersion = this.#organizationVersion;
+		const current = this.#mutationScope();
 		const orgId = this.#orgId;
 		this.#pendingMutations++;
 		// Optimistic: reorder immediately
@@ -170,13 +180,13 @@ export class PinnedGroupsStore {
 				body: JSON.stringify({ action: 'replace', groups: newList })
 			});
 			if (!res.ok) throw new Error('Failed to reorder pinned groups');
-			return mutationVersion === this.#organizationVersion;
+			return current();
 		} catch {
 			// Rollback on failure
-			if (mutationVersion === this.#organizationVersion) this.#rollbackSwap(followingGroup, group);
+			if (current()) this.#rollbackSwap(followingGroup, group);
 			return false;
 		} finally {
-			if (mutationVersion === this.#organizationVersion) this.#pendingMutations--;
+			if (current()) this.#pendingMutations--;
 		}
 	}
 }

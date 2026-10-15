@@ -218,7 +218,9 @@ describe('CalendarPageView', () => {
 		expect(screen.getByRole('button', { name: /January 2027/ })).toBeTruthy();
 	});
 
-	it('says loss warnings are unavailable when the window could not be read', async () => {
+	it('says loss warnings are unavailable and offers a reload when the window could not be read', async () => {
+		const reload = vi.fn();
+		vi.stubGlobal('location', { ...window.location, reload });
 		mutableAvailabilityStore.loading = false;
 		mutableDailyAssignmentsStore.loading = false;
 		mutableSpecialDaysStore.loading = false;
@@ -236,8 +238,9 @@ describe('CalendarPageView', () => {
 			props: { ctx: makeContext(data, makeMockOrg()), data: { orgId: data.orgId, orgName: 'Test Org' } }
 		});
 
-		expect(screen.getByText('Loss warnings could not be loaded, so ETS and PCS flags are not shown.')).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Reload page' })).toBeTruthy();
+		expect(screen.getByText(/Loss warnings could not be loaded/).closest('[role="status"]')).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: 'Reload page' }));
+		expect(reload).toHaveBeenCalledOnce();
 	});
 
 	it('wires typed personnel search into the rendered calendar roster', async () => {

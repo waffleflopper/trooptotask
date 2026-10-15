@@ -3,14 +3,14 @@
  *
  * Extends the base store with name-safe add/rename helpers.
  * `add` silently no-ops on empty strings or duplicate names (case-insensitive).
- * `rename` rejects empty or duplicate names.
+ * `rename` returns false for an empty name or a Group no longer loaded, and rejects a duplicate name.
  *
  * Consumed by the sidebar group selector, personnel filter, and any component that needs
  * the org's group list. Load through the org shell workspace bootstraps.
  */
 import { defineStore } from '$lib/stores/core';
 import type { Store } from '$lib/stores/core';
-import type { Group } from '$features/personnel/contracts';
+import { GROUP_NAME_EXISTS_MESSAGE, type Group } from '$features/personnel/contracts';
 
 interface GroupExtensions extends Record<string, unknown> {
 	remove: (id: string) => Promise<boolean>;
@@ -33,7 +33,8 @@ function enhance(base: Store<Group>): GroupExtensions {
 		async rename(id: string, newName: string): Promise<boolean> {
 			const trimmed = newName.trim();
 			if (!trimmed) return false;
-			if (base.find((group) => group.id !== id && group.name.toLowerCase() === trimmed.toLowerCase())) return false;
+			if (base.find((group) => group.id !== id && group.name.toLowerCase() === trimmed.toLowerCase()))
+				throw new Error(GROUP_NAME_EXISTS_MESSAGE);
 			return base.updateOrThrow(id, { name: trimmed });
 		}
 	};

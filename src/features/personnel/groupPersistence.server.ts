@@ -2,11 +2,11 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { fail } from '$lib/errors';
 import type { ScopeSet } from '$lib/access/memberAccessShape';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
-import type { Group, GroupPersistence } from './contracts';
+import { GROUP_NAME_EXISTS_MESSAGE, type Group, type GroupPersistence } from './contracts';
 import { visibleGroupIds } from './groupCatalog.server';
 function throwGroupWriteError(error: { code?: string; message: string }): never {
 	if (error.code === '23505' && error.message.includes('"groups_clinic_id_name_key"')) {
-		fail(409, 'A Group with that name already exists.');
+		fail(409, GROUP_NAME_EXISTS_MESSAGE);
 	}
 	throw new Error(error.message);
 }

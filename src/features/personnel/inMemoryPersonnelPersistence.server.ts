@@ -29,11 +29,12 @@ export interface PersonnelMemoryStore {
 	deleteWhere(table: string, orgId: string, filters: Record<string, unknown>): Promise<void>;
 }
 
-import type {
-	PersonnelRecordPersistence,
-	PersonnelRosterReader,
-	GroupPersistence,
-	SelfPinPersistence
+import {
+	GROUP_NAME_EXISTS_MESSAGE,
+	type PersonnelRecordPersistence,
+	type PersonnelRosterReader,
+	type GroupPersistence,
+	type SelfPinPersistence
 } from './contracts';
 import {
 	PERSONNEL_FIELDS,
@@ -202,8 +203,7 @@ export function createInMemoryGroupPersistence(
 			);
 		},
 		async create(input) {
-			if (await store.findOne('groups', orgId, { name: input.name }))
-				fail(409, 'A Group with that name already exists.');
+			if (await store.findOne('groups', orgId, { name: input.name })) fail(409, GROUP_NAME_EXISTS_MESSAGE);
 			return map(await store.insert('groups', orgId, { name: input.name, sort_order: input.sortOrder ?? 0 }));
 		},
 		async update(id, patch) {

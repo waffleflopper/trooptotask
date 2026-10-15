@@ -5,7 +5,7 @@ import { requireFeaturePolicy } from '$lib/access/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { z } from 'zod';
 import { uuidSchema } from '$lib/utils/inputSchemas';
-import type { GroupPersistence } from './contracts';
+import { GROUP_UNAVAILABLE_MESSAGE, type GroupPersistence } from './contracts';
 
 interface GroupWriteContext {
 	auth: OrganizationAccessGrant;
@@ -40,7 +40,7 @@ export async function updateGroup(ctx: GroupWriteContext, input: Record<string, 
 	const id = data.id as string;
 	await requireGroupManager(ctx, id);
 	const row = await ctx.groups.update(id, { name: data.name, sortOrder: data.sortOrder });
-	if (!row) throw error(404, 'That Group is no longer available.');
+	if (!row) throw error(404, GROUP_UNAVAILABLE_MESSAGE);
 	ctx.audit.log({ action: 'group.updated', resourceType: 'group', resourceId: id });
 	return row;
 }

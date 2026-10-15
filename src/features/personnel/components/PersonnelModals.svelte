@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Personnel } from '../personnel.types';
+	import { GROUP_NAME_EXISTS_MESSAGE, GROUP_UNAVAILABLE_MESSAGE } from '$features/personnel/contracts';
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { groupManagementStore } from '$features/personnel/stores/groups.svelte';
 	import PersonnelModal from '$features/personnel/components/PersonnelModal.svelte';
@@ -65,7 +66,7 @@
 	<GroupManager
 		groups={groupManagementStore.items}
 		onAdd={async (name) => {
-			if (!(await groupManagementStore.add(name))) throw new Error('A Group with that name already exists.');
+			if (!(await groupManagementStore.add(name))) throw new Error(GROUP_NAME_EXISTS_MESSAGE);
 		}}
 		onRemove={async (id) => {
 			if (!(await groupManagementStore.remove(id))) throw new Error('Unable to remove Group. Try again.');
@@ -76,9 +77,10 @@
 		}}
 		onRename={async (id, name) => {
 			const renamed = await groupManagementStore.rename(id, name).catch((failure: unknown) => {
+				if (failure instanceof Error && failure.message === GROUP_NAME_EXISTS_MESSAGE) throw failure;
 				throw new Error(rejectedRequestMessage(failure, 'Unable to rename Group. Try again.'));
 			});
-			if (!renamed) throw new Error('Unable to rename Group. Try again.');
+			if (!renamed) throw new Error(GROUP_UNAVAILABLE_MESSAGE);
 			personnelStore.updateLocalWhere(
 				(p) => p.groupId === id,
 				(p) => ({ ...p, groupName: name })

@@ -28,6 +28,9 @@ export interface StatusType {
 	name: string;
 	color: string;
 	textColor: string;
+	/** The stored one-day label, 1-3 code points, or null to derive one from the name. */
+	shortLabel: string | null;
+	sortOrder: number;
 }
 
 export interface AvailabilityEntry {
@@ -74,6 +77,17 @@ export const assignmentTypesSchema = z.array(
 	})
 ) satisfies z.ZodType<AssignmentType[]>;
 
+export const statusTypesSchema = z.array(
+	z.object({
+		id: z.string(),
+		name: z.string(),
+		color: z.string(),
+		textColor: z.string(),
+		shortLabel: z.string().nullable(),
+		sortOrder: z.number()
+	})
+) satisfies z.ZodType<StatusType[]>;
+
 export const specialDaysSchema = z.array(
 	z.object({
 		id: z.string(),
@@ -98,11 +112,7 @@ export interface AssignmentSlotChange {
 
 export type SavedAssignment = DailyAssignment & { organization_id?: string; created_at?: string };
 
-export type SavedStatusType = StatusType & {
-	organization_id?: string;
-	created_at?: string;
-	sortOrder?: number | null;
-};
+export type SavedStatusType = StatusType & { organization_id?: string; created_at?: string };
 
 export type SavedAssignmentType = AssignmentType & {
 	organization_id?: string;
@@ -122,7 +132,7 @@ export interface StatusTypeCreate {
 	name: string;
 	color?: string;
 	textColor?: string;
-	sortOrder?: number;
+	shortLabel?: string | null;
 }
 
 export type StatusTypePatch = Partial<StatusTypeCreate>;
@@ -166,6 +176,7 @@ export interface CalendarCatalogPersistence {
 	createStatusType(input: StatusTypeCreate): Promise<SavedStatusType>;
 	updateStatusType(id: string, patch: StatusTypePatch): Promise<SavedStatusType>;
 	deleteStatusType(id: string): Promise<void>;
+	setStatusTypeOrder(statusTypeIds: readonly string[], expectedStatusTypeIds: readonly string[]): Promise<void>;
 	listAssignmentTypes(): Promise<SavedAssignmentType[]>;
 	listAssignmentTypeTargets(ids: string[]): Promise<Array<{ id: string; assignTo: 'personnel' | 'group' }>>;
 	createAssignmentType(input: AssignmentTypeCreate): Promise<SavedAssignmentType>;

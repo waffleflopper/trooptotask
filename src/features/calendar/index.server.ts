@@ -15,7 +15,12 @@ export {
 } from './specialDayOperations.server';
 export { listSpecialDaysInRange, listSpecialDays } from './specialDayRead.server';
 export { getCalendarOrganizationDefaults } from './organizationDefaults.server';
-export { createStatusType, updateStatusType, deleteStatusType } from './statusTypeOperations.server';
+export {
+	createStatusType,
+	updateStatusType,
+	setStatusTypeOrder,
+	deleteStatusType
+} from './statusTypeOperations.server';
 export { listStatusTypes, listStatusTypeLabels } from './statusTypeRead.server';
 export { createSupabaseStatusTypeNamesReader } from './statusTypeNames.server';
 export {

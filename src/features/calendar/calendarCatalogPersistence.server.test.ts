@@ -46,6 +46,7 @@ describe('Calendar ordinary catalog persistence', () => {
 			name: `Status ${index}`,
 			color: '#123456',
 			text_color: '#abcdef',
+			short_label: index === 0 ? 'S0' : null,
 			sort_order: 1000 - index,
 			created_at: TIME,
 			private_column: 'discard'
@@ -77,6 +78,7 @@ describe('Calendar ordinary catalog persistence', () => {
 			name: 'Status 1000',
 			color: '#123456',
 			textColor: '#abcdef',
+			shortLabel: null,
 			sortOrder: 0,
 			created_at: TIME
 		});
@@ -86,6 +88,7 @@ describe('Calendar ordinary catalog persistence', () => {
 			name: 'Status 0',
 			color: '#123456',
 			textColor: '#abcdef',
+			shortLabel: 'S0',
 			sortOrder: 1000,
 			created_at: TIME
 		});
@@ -167,19 +170,26 @@ describe('Calendar ordinary catalog persistence', () => {
 			name: 'Leave',
 			color: '#6b7280',
 			textColor: '#ffffff',
+			shortLabel: null,
 			sortOrder: 0
 		});
-		expect(await port.updateStatusType('saved-1', { textColor: '#000000', sortOrder: 3 })).toEqual({
+		expect(await port.createStatusType({ name: 'Sick', shortLabel: 'SK' })).toMatchObject({
+			id: 'saved-2',
+			shortLabel: 'SK',
+			sortOrder: 1
+		});
+		expect(await port.updateStatusType('saved-1', { textColor: '#000000', shortLabel: 'LV' })).toEqual({
 			id: 'saved-1',
 			organization_id: ORG,
 			created_at: TIME,
 			name: 'Leave',
 			color: '#6b7280',
 			textColor: '#000000',
-			sortOrder: 3
+			shortLabel: 'LV',
+			sortOrder: 0
 		});
 		expect(await port.createAssignmentType({ name: 'Duty', shortName: 'D', assignTo: 'personnel' })).toEqual({
-			id: 'saved-2',
+			id: 'saved-3',
 			organization_id: ORG,
 			created_at: TIME,
 			name: 'Duty',
@@ -211,13 +221,24 @@ describe('Calendar ordinary catalog persistence', () => {
 				name: 'Leave',
 				color: '#6b7280',
 				text_color: '#000000',
-				sort_order: 3
+				short_label: 'LV',
+				sort_order: 0
+			},
+			{
+				id: 'saved-2',
+				organization_id: ORG,
+				created_at: TIME,
+				name: 'Sick',
+				color: '#6b7280',
+				text_color: '#ffffff',
+				short_label: 'SK',
+				sort_order: 1
 			}
 		]);
 		expect(state.rows.assignment_types).toEqual([
 			{ ...shownLane, assign_to: 'group', exempt_personnel_ids: ['person-a'] },
 			{
-				id: 'saved-2',
+				id: 'saved-3',
 				organization_id: ORG,
 				created_at: TIME,
 				name: 'Duty',
@@ -229,6 +250,8 @@ describe('Calendar ordinary catalog persistence', () => {
 				exempt_personnel_ids: []
 			}
 		]);
+		const statusPatches = state.requests.filter(({ table, method }) => table === 'status_types' && method === 'PATCH');
+		expect(statusPatches.map(({ body }) => body)).toEqual([{ text_color: '#000000', short_label: 'LV' }]);
 		const typeWrites = state.requests.filter(({ table, body }) => table === 'assignment_types' && body);
 		for (const { body } of typeWrites) {
 			expect(body).not.toHaveProperty('sort_order');
@@ -400,12 +423,28 @@ describe('Calendar configuration commands', () => {
 		]);
 	});
 
+	it('saves the status order in one call and accepts the empty acknowledgment', async () => {
+		const { calls, port } = calendarRpc(() => new Response(null, { status: 204 }));
+		await expect(port.setStatusTypeOrder([STAFF, GROUP], [GROUP, STAFF])).resolves.toBeUndefined();
+		expect(calls).toEqual([
+			{
+				path: '/rest/v1/rpc/set_status_type_order',
+				body: {
+					p_organization_id: COMMAND_ORG,
+					p_status_type_ids: [STAFF, GROUP],
+					p_expected_status_type_ids: [GROUP, STAFF]
+				}
+			}
+		]);
+	});
+
 	it.each([
 		['42501', 403],
 		['P0002', 404],
 		['22023', 400],
 		['22P02', 400],
 		['CLN01', 409],
+		['STO01', 409],
 		['40P01', 409],
 		['40001', 409],
 		['55P03', 409],
@@ -414,6 +453,7 @@ describe('Calendar configuration commands', () => {
 		const { port } = calendarRpc(databaseError(code, 'synthetic database message', 500));
 		for (const command of [
 			() => port.setCalendarLanes([GROUP], [STAFF]),
+			() => port.setStatusTypeOrder([GROUP, STAFF], [STAFF, GROUP]),
 			() => port.resetFederalHolidays([{ date: '2026-12-25', name: 'Christmas Day' }])
 		]) {
 			const failure = await command().then(
@@ -432,6 +472,10 @@ describe('Calendar configuration commands', () => {
 		]) {
 			const { port } = calendarRpc(reply);
 			await expect(port.setCalendarLanes([GROUP], [STAFF])).rejects.toMatchObject({ status: 503, publicMessage: true });
+			await expect(port.setStatusTypeOrder([GROUP, STAFF], [STAFF, GROUP])).rejects.toMatchObject({
+				status: 503,
+				publicMessage: true
+			});
 			await expect(port.resetFederalHolidays([{ date: '2026-12-25', name: 'Christmas Day' }])).rejects.toMatchObject({
 				status: 503,
 				publicMessage: true

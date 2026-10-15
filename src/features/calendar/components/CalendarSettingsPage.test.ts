@@ -138,8 +138,8 @@ describe('CalendarSettingsPage', () => {
 	it('filters the section from the toolbar and keeps Add new pinned when Back to Calendar folds into More', async () => {
 		const { layOut } = stubToolbarWidths();
 		statusTypesStoreMock.items = [
-			{ id: 'leave', name: 'Leave', color: '#2563eb', textColor: '#ffffff' },
-			{ id: 'tdy', name: 'TDY', color: '#16a34a', textColor: '#ffffff' }
+			{ id: 'leave', name: 'Leave', color: '#2563eb', textColor: '#ffffff', shortLabel: null, sortOrder: 0 },
+			{ id: 'tdy', name: 'TDY', color: '#16a34a', textColor: '#ffffff', shortLabel: null, sortOrder: 1 }
 		];
 		render(CalendarSettingsPage, { props: { org } });
 		await layOut(2000);
@@ -179,7 +179,8 @@ describe('CalendarSettingsPage', () => {
 		expect(statusTypesStoreMock.add).toHaveBeenCalledWith({
 			name: 'Detail',
 			color: '#4a4a47',
-			textColor: '#f8f7f4'
+			textColor: '#f8f7f4',
+			shortLabel: null
 		});
 		expect(screen.queryByRole('dialog', { name: 'Add Status Type' })).toBeNull();
 	});
@@ -228,7 +229,9 @@ describe('CalendarSettingsPage', () => {
 				id: 'leave',
 				name: 'Leave',
 				color: '#48bb78',
-				textColor: '#ffffff'
+				textColor: '#ffffff',
+				shortLabel: null,
+				sortOrder: 2
 			}
 		];
 		statusTypesStoreMock.update.mockResolvedValueOnce(false);
@@ -251,7 +254,9 @@ describe('CalendarSettingsPage', () => {
 				id: 'leave',
 				name: 'Leave',
 				color: '#48bb78',
-				textColor: '#ffffff'
+				textColor: '#ffffff',
+				shortLabel: null,
+				sortOrder: 3
 			}
 		];
 		statusTypesStoreMock.remove.mockResolvedValueOnce(false);
@@ -620,7 +625,9 @@ describe('CalendarSettingsPage', () => {
 	);
 
 	it('keeps a held status deletion busy and undismissable until it settles', async () => {
-		statusTypesStoreMock.items = [{ id: 'leave', name: 'Leave', color: '#48bb78', textColor: '#ffffff' }];
+		statusTypesStoreMock.items = [
+			{ id: 'leave', name: 'Leave', color: '#48bb78', textColor: '#ffffff', shortLabel: null, sortOrder: 4 }
+		];
 		let settle!: (deleted: boolean) => void;
 		statusTypesStoreMock.remove.mockReturnValueOnce(new Promise((resolve) => (settle = resolve)));
 		render(CalendarSettingsPage, { props: { org } });
@@ -641,7 +648,9 @@ describe('CalendarSettingsPage', () => {
 	});
 
 	it('clears busy and keeps a held status deletion open when it rejects', async () => {
-		statusTypesStoreMock.items = [{ id: 'leave', name: 'Leave', color: '#48bb78', textColor: '#ffffff' }];
+		statusTypesStoreMock.items = [
+			{ id: 'leave', name: 'Leave', color: '#48bb78', textColor: '#ffffff', shortLabel: null, sortOrder: 5 }
+		];
 		let fail!: (error: Error) => void;
 		statusTypesStoreMock.remove.mockReturnValueOnce(new Promise((_, reject) => (fail = reject)));
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');

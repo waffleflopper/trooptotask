@@ -94,7 +94,8 @@
 			const created = await statusTypesStore.add({
 				name: newStatusName.trim(),
 				color: newStatusColor,
-				textColor: newStatusTextColor
+				textColor: newStatusTextColor,
+				shortLabel: null
 			});
 			if (!created) {
 				showStatusMutationError('Failed to add status type');

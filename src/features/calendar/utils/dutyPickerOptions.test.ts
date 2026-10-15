@@ -44,7 +44,7 @@ function options(overrides: Partial<DutyPickerInput> = {}) {
 			leave('p-ortiz-b', '2026-10-25', '2026-10-27'),
 			leave('p-reed', '2026-10-27', '2026-10-29')
 		],
-		statusTypes: [{ id: 'leave', name: 'Leave', color: '#16a34a', textColor: '#fff' }],
+		statusTypes: [{ id: 'leave', name: 'Leave', color: '#16a34a', textColor: '#fff', shortLabel: null, sortOrder: 0 }],
 		currentAssigneeId: 'p-hale',
 		...overrides
 	});

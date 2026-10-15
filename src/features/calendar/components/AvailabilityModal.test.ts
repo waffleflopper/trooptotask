@@ -62,8 +62,8 @@ function renderModal(
 
 describe('AvailabilityModal — status type select', () => {
 	const statusTypes: StatusType[] = [
-		{ id: 'leave', name: 'Leave', color: '#48bb78', textColor: '#ffffff' },
-		{ id: 'tdy', name: 'TDY', color: '#9f7aea', textColor: '#ffffff' }
+		{ id: 'leave', name: 'Leave', color: '#48bb78', textColor: '#ffffff', shortLabel: null, sortOrder: 0 },
+		{ id: 'tdy', name: 'TDY', color: '#9f7aea', textColor: '#ffffff', shortLabel: null, sortOrder: 1 }
 	];
 
 	it('selects a status type before adding status', async () => {
@@ -94,7 +94,9 @@ describe('AvailabilityModal — status type select', () => {
 });
 
 describe('AvailabilityModal — saved status feedback', () => {
-	const statusTypes: StatusType[] = [{ id: 'leave', name: 'Leave', color: '#48bb78', textColor: '#ffffff' }];
+	const statusTypes: StatusType[] = [
+		{ id: 'leave', name: 'Leave', color: '#48bb78', textColor: '#ffffff', shortLabel: null, sortOrder: 2 }
+	];
 	const existingEntry: AvailabilityEntry = {
 		id: 'entry-1',
 		personnelId: 'person-1',

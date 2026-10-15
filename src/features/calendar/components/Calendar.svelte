@@ -1,5 +1,4 @@
 <script lang="ts">
-	import type { Group } from '$features/personnel/contracts';
 	import type { Personnel } from '$features/personnel/contracts';
 	import type {
 		AvailabilityEntry,
@@ -9,6 +8,7 @@
 		DailyAssignment
 	} from '$features/calendar/contracts';
 	import type { UpcomingLossRecord } from '$features/personnel/contracts';
+	import type { CalendarLane } from '$features/calendar/utils/calendarLanes';
 	import CalendarHeader from './CalendarHeader.svelte';
 	import CalendarRow from './CalendarRow.svelte';
 	import GroupHeader from './GroupHeader.svelte';
@@ -41,7 +41,7 @@
 		pinnedGroups: string[];
 		assignmentTypes: AssignmentType[];
 		assignments: DailyAssignment[];
-		groups?: readonly Group[];
+		lanes?: readonly CalendarLane[];
 		activeOnboardingPersonnelIds?: string[];
 		highlightOnboarding?: boolean;
 		canEdit?: boolean;
@@ -58,6 +58,8 @@
 		onPersonClick?: (person: Personnel) => void;
 		onPinToggle?: (group: string) => void;
 		onDateClick?: (date: Date) => void;
+		/** Opens the assignments for a marked date. Without it, row markers are not interactive. */
+		onMarkerClick?: (date: Date) => void;
 		personnelHref?: string;
 	}
 
@@ -73,7 +75,7 @@
 		pinnedGroups,
 		assignmentTypes,
 		assignments,
-		groups = [],
+		lanes = [],
 		activeOnboardingPersonnelIds = [],
 		highlightOnboarding = true,
 		canEdit = true,
@@ -89,6 +91,7 @@
 		onPersonClick,
 		onPinToggle,
 		onDateClick,
+		onMarkerClick,
 		personnelHref
 	}: Props = $props();
 
@@ -196,7 +199,6 @@
 			specialDays,
 			assignmentTypes,
 			assignments,
-			groups,
 			activeOnboardingPersonnelIds,
 			highlightOnboarding,
 			upcomingLossMap
@@ -213,6 +215,7 @@
 		{month}
 		{monthName}
 		headerCells={renderState.headerCells}
+		{lanes}
 		{onPrevMonth}
 		{onNextMonth}
 		{onGoToToday}
@@ -271,6 +274,7 @@
 									{showStatusText}
 									{showPersonnelRoles}
 									onCellClick={canEdit ? onCellClick : undefined}
+									onMarkerClick={canEditAssignments ? onMarkerClick : undefined}
 									{onPersonClick}
 								/>
 							{/if}

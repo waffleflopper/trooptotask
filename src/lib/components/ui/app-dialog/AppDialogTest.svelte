@@ -5,10 +5,12 @@
 
 	let {
 		initialOpen = true,
-		initialBusy = false
+		initialBusy = false,
+		presentation
 	}: {
 		initialOpen?: boolean;
 		initialBusy?: boolean;
+		presentation?: 'dialog' | 'sheet';
 	} = $props();
 
 	let open = $state(untrack(() => initialOpen));
@@ -31,7 +33,7 @@
 
 {#if open}
 	<AppDialog.Root bind:open {busy} closeBlocked={draft !== ''} onClose={close}>
-		<AppDialog.Content>
+		<AppDialog.Content {presentation}>
 			<AppDialog.Header>
 				<AppDialog.Title>Shared dialog title</AppDialog.Title>
 				<AppDialog.Description>Shared dialog description.</AppDialog.Description>

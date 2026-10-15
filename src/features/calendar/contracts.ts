@@ -54,7 +54,8 @@ export interface AssignmentType {
 	color: string;
 	textColor?: string;
 	exemptPersonnelIds: string[];
-	showInDateHeader: boolean;
+	showOnCalendar: boolean;
+	sortOrder: number;
 	archivedAt?: string | null;
 }
 
@@ -67,7 +68,8 @@ export const assignmentTypesSchema = z.array(
 		color: z.string(),
 		textColor: z.string().optional(),
 		exemptPersonnelIds: z.array(z.string()),
-		showInDateHeader: z.boolean(),
+		showOnCalendar: z.boolean(),
+		sortOrder: z.number(),
 		archivedAt: z.string().nullable().optional()
 	})
 ) satisfies z.ZodType<AssignmentType[]>;
@@ -105,7 +107,6 @@ export type SavedStatusType = StatusType & {
 export type SavedAssignmentType = AssignmentType & {
 	organization_id?: string;
 	created_at?: string;
-	sortOrder?: number | null;
 };
 
 export type SavedSpecialDay = SpecialDay & { organization_id?: string; created_at?: string };
@@ -131,7 +132,6 @@ export interface AssignmentTypeCreate {
 	shortName: string;
 	assignTo: 'personnel' | 'group';
 	color?: string;
-	sortOrder?: number;
 	exemptPersonnelIds?: string[];
 }
 
@@ -176,7 +176,7 @@ export interface CalendarCatalogPersistence {
 	updateSpecialDay(id: string, patch: SpecialDayPatch): Promise<SavedSpecialDay>;
 	deleteSpecialDay(id: string): Promise<void>;
 	resetFederalHolidays(holidays: FederalHolidayDefault[]): Promise<SavedFederalHoliday[]>;
-	setDateHeader(assignmentTypeId: string): Promise<void>;
+	setCalendarLanes(laneTypeIds: readonly string[], expectedLaneTypeIds: readonly string[]): Promise<void>;
 }
 
 export interface CalendarAvailabilityPersistence extends CalendarAvailabilityRemovalPort {

@@ -126,7 +126,8 @@ function makeOverlappingExportOptions() {
 			assignTo: 'personnel',
 			color: '#111827',
 			exemptPersonnelIds: [],
-			showInDateHeader: true
+			showOnCalendar: true,
+			sortOrder: 0
 		},
 		{
 			id: 'cq',
@@ -135,7 +136,8 @@ function makeOverlappingExportOptions() {
 			assignTo: 'personnel',
 			color: '#334155',
 			exemptPersonnelIds: [],
-			showInDateHeader: true
+			showOnCalendar: true,
+			sortOrder: 0
 		}
 	];
 	const assignments: DailyAssignment[] = [

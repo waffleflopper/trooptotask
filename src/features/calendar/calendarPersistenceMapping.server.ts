@@ -22,8 +22,8 @@ export type AssignmentTypeRow = SavedRow & {
 	short_name: string;
 	assign_to: 'personnel' | 'group';
 	color: string;
-	sort_order?: number | null;
-	show_in_date_header: boolean;
+	sort_order: number;
+	show_on_calendar: boolean;
 	exempt_personnel_ids: string[] | null;
 	archived_at?: string | null;
 };
@@ -50,7 +50,7 @@ export type AssignmentRow = SavedRow & {
 
 export const STATUS_TYPE_FIELDS = 'id, organization_id, name, color, text_color, sort_order, created_at';
 export const ASSIGNMENT_TYPE_FIELDS =
-	'id, organization_id, name, short_name, assign_to, color, sort_order, show_in_date_header, exempt_personnel_ids, archived_at, created_at';
+	'id, organization_id, name, short_name, assign_to, color, sort_order, show_on_calendar, exempt_personnel_ids, archived_at, created_at';
 export const SPECIAL_DAY_FIELDS = 'id, organization_id, date, name, type, created_at';
 export const AVAILABILITY_FIELDS =
 	'id, organization_id, personnel_id, status_type_id, start_date, end_date, note, created_at';
@@ -81,9 +81,9 @@ export function toAssignmentType(row: AssignmentTypeRow): SavedAssignmentType {
 		shortName: row.short_name,
 		assignTo: row.assign_to,
 		color: row.color,
-		showInDateHeader: row.show_in_date_header,
+		showOnCalendar: row.show_on_calendar,
+		sortOrder: row.sort_order,
 		exemptPersonnelIds: row.exempt_personnel_ids ?? [],
-		...(row.sort_order !== undefined ? { sortOrder: row.sort_order } : {}),
 		...(row.archived_at !== undefined ? { archivedAt: row.archived_at } : {}),
 		...savedMetadata(row)
 	};
@@ -127,16 +127,19 @@ const assignmentTypeFields = z.object({
 	shortName: z.string(),
 	assignTo: z.enum(['personnel', 'group']),
 	color: z.string().optional(),
-	sortOrder: z.number().int().optional(),
-	exemptPersonnelIds: z.array(z.string()).optional()
+	exemptPersonnelIds: z.array(z.string().uuid()).max(500).optional()
 });
+// Calendar visibility and lane order change only through calendarLanesInput.
 export const assignmentTypeCreateInput = assignmentTypeFields.extend({
-	showInDateHeader: z.literal(false).optional()
+	showOnCalendar: z.literal(false).optional()
 });
 export const assignmentTypeUpdateInput = assignmentTypeFields
 	.partial()
-	.extend({ id: z.string(), showInDateHeader: z.never().optional() });
-export const assignmentTypeDateHeaderInput = z.object({ assignmentTypeId: z.string().uuid() }).strict();
+	.extend({ id: z.string(), showOnCalendar: z.never().optional() });
+const laneTypeIds = z
+	.array(z.string().uuid())
+	.refine((ids) => new Set(ids).size === ids.length, 'Each assignment type can be one lane');
+export const calendarLanesInput = z.object({ laneTypeIds: laneTypeIds, expectedLaneTypeIds: laneTypeIds }).strict();
 export const specialDayCreateInput = z.object({
 	date: z.string(),
 	name: z.string(),

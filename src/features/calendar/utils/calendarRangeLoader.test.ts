@@ -32,7 +32,8 @@ const { availabilityStoreMock, specialDaysStoreMock, dailyAssignmentsStoreMock, 
 				assignTo: 'personnel',
 				color: '#ef4444',
 				exemptPersonnelIds: [],
-				showInDateHeader: false
+				showOnCalendar: false,
+				sortOrder: 0
 			}
 		],
 		assignments: [{ id: 'da1', date: '2026-03-01', assignmentTypeId: 'at1', assigneeId: 'p1' }],
@@ -91,7 +92,8 @@ describe('calendarRangeLoader', () => {
 				assignTo: 'personnel',
 				color: '#ef4444',
 				exemptPersonnelIds: [],
-				showInDateHeader: false
+				showOnCalendar: false,
+				sortOrder: 0
 			}
 		];
 		dailyAssignmentsStoreMock.assignments = [
@@ -223,7 +225,8 @@ describe('calendarRangeLoader', () => {
 				assignTo: 'personnel',
 				color: '#ef4444',
 				exemptPersonnelIds: [],
-				showInDateHeader: false
+				showOnCalendar: false,
+				sortOrder: 0
 			}
 		]);
 	});

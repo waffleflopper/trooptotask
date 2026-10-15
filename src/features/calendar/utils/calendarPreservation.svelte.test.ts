@@ -15,7 +15,8 @@ const types: AssignmentType[] = [
 		assignTo: 'personnel',
 		color: '#123456',
 		exemptPersonnelIds: [],
-		showInDateHeader: false
+		showOnCalendar: false,
+		sortOrder: 0
 	},
 	{
 		id: 'group-type',
@@ -24,7 +25,8 @@ const types: AssignmentType[] = [
 		assignTo: 'group',
 		color: '#654321',
 		exemptPersonnelIds: [],
-		showInDateHeader: true
+		showOnCalendar: true,
+		sortOrder: 1
 	}
 ];
 const linked: DailyAssignment = {

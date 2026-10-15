@@ -37,7 +37,8 @@ const assignmentTypes: AssignmentType[] = [
 		assignTo: 'personnel',
 		color: '#2563eb',
 		exemptPersonnelIds: [],
-		showInDateHeader: false
+		showOnCalendar: false,
+		sortOrder: 0
 	}
 ];
 
@@ -48,7 +49,8 @@ const modType: AssignmentType = {
 	assignTo: 'personnel',
 	color: '#dc2626',
 	exemptPersonnelIds: [],
-	showInDateHeader: false
+	showOnCalendar: false,
+	sortOrder: 0
 };
 
 const personnel: Personnel[] = [

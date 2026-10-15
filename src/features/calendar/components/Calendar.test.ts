@@ -1,11 +1,13 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import Calendar from './Calendar.svelte';
 import type { Personnel } from '$features/personnel/contracts';
 import type { StatusType, SpecialDay, AssignmentType, DailyAssignment } from '$features/calendar/contracts';
 import type { UpcomingLossRecord } from '$features/personnel/contracts';
+import { buildCalendarLanes, spanTrack, type CalendarLane } from '$features/calendar/utils/calendarLanes';
+import FixtureLaneSegment from '$features/calendar/test-support/FixtureLaneSegment.svelte';
 
 const resizeObserve = vi.fn();
 const resizeDisconnect = vi.fn();
@@ -68,6 +70,9 @@ function renderCalendar(
 		personnelByGroup: { group: string; personnel: Personnel[] }[];
 		assignmentTypes: AssignmentType[];
 		assignments: DailyAssignment[];
+		lanes: CalendarLane[];
+		specialDays: SpecialDay[];
+		onMarkerClick: (date: Date) => void;
 		showPersonnelRoles: boolean;
 		canEdit: boolean;
 		canEditAssignments: boolean;
@@ -87,10 +92,12 @@ function renderCalendar(
 			personnelByGroup: overrides.personnelByGroup ?? [{ group: 'Alpha', personnel }],
 			availabilityEntries: [],
 			statusTypes,
-			specialDays,
+			specialDays: overrides.specialDays ?? specialDays,
 			pinnedGroups: [],
 			assignmentTypes: overrides.assignmentTypes ?? [],
 			assignments: overrides.assignments ?? [],
+			lanes: overrides.lanes,
+			onMarkerClick: overrides.onMarkerClick,
 			showPersonnelRoles: overrides.showPersonnelRoles ?? false,
 			canEdit: overrides.canEdit,
 			canEditAssignments: overrides.canEditAssignments,
@@ -146,7 +153,8 @@ describe('Calendar', () => {
 					assignTo: 'personnel',
 					color: '#dc2626',
 					exemptPersonnelIds: [],
-					showInDateHeader: false
+					showOnCalendar: false,
+					sortOrder: 0
 				}
 			],
 			assignments: [{ id: 'assignment-1', date: '2026-03-01', assignmentTypeId: 'type-mod', assigneeId: 'person-1' }]
@@ -166,41 +174,6 @@ describe('Calendar', () => {
 	it('hides personnel roles when role display is disabled', () => {
 		const { queryByText } = renderCalendar({ showPersonnelRoles: false });
 		expect(queryByText('Medic')).toBeNull();
-	});
-
-	it('shows a readable personnel label in the header badge when the selected header type is person-based', () => {
-		const { container } = renderCalendar({
-			assignmentTypes: [
-				{
-					id: 'type-mod',
-					name: 'Manager on Duty',
-					shortName: 'MOD',
-					assignTo: 'personnel',
-					color: '#dc2626',
-					exemptPersonnelIds: [],
-					showInDateHeader: true
-				}
-			],
-			assignments: [
-				{
-					id: 'assignment-1',
-					date: '2026-03-01',
-					assignmentTypeId: 'type-mod',
-					assigneeId: 'person-1'
-				}
-			]
-		});
-
-		const badge = container.querySelector('.header-assignment-badge') as HTMLElement | null;
-		expect(badge).toBeTruthy();
-
-		if (!badge) {
-			throw new Error('Header badge not rendered');
-		}
-
-		expect(badge.textContent?.trim()).toBe('SGT Smith');
-		expect(badge.title).toBe('Manager on Duty: SGT Smith');
-		expect(screen.getByRole('button', { name: 'Sunday, March 1, 2026, Manager on Duty: SGT Smith' })).toBeTruthy();
 	});
 
 	it('opens the month picker from the title and forwards the selected month and year', async () => {
@@ -309,5 +282,124 @@ describe('Calendar', () => {
 			expect(container.querySelector('[data-testid="loss-indicator-person-1"]')).toBeTruthy();
 			expect(container.querySelector('[data-testid="loss-indicator-person-2"]')).toBeNull();
 		});
+	});
+});
+
+describe('Calendar lanes', () => {
+	const march1 = new Date(2026, 2, 1);
+	const march2 = new Date(2026, 2, 2);
+	const staffDuty: AssignmentType = {
+		id: 'type-sd',
+		name: 'Staff Duty',
+		shortName: 'SD',
+		assignTo: 'personnel',
+		color: '#b91c1c',
+		exemptPersonnelIds: [],
+		showOnCalendar: true,
+		sortOrder: 0
+	};
+	const charge: AssignmentType = { ...staffDuty, id: 'type-cq', name: 'Charge of Quarters', shortName: 'CQ' };
+	const columbus: SpecialDay = { id: 'day-1', date: '2026-03-02', name: 'Columbus Day', type: 'federal-holiday' };
+	const smithOnDuty: DailyAssignment = {
+		id: 'assignment-1',
+		date: '2026-03-01',
+		assignmentTypeId: 'type-sd',
+		assigneeId: 'person-1'
+	};
+
+	function lanesFor(actions?: Parameters<typeof buildCalendarLanes>[0]['actions']) {
+		return buildCalendarLanes({
+			dates: [march1, march2],
+			assignmentTypes: [staffDuty],
+			assignments: [smithOnDuty],
+			specialDays: [columbus],
+			personnel,
+			groups: [],
+			actions
+		});
+	}
+
+	it('renders lanes as groups named by label and described by summary', () => {
+		renderCalendar({ lanes: lanesFor(), specialDays: [columbus] });
+
+		screen.getByRole('group', { name: 'Staff Duty', description: /1 of 2/ });
+		const days = screen.getByRole('group', { name: 'Days', description: /Columbus Day/ });
+		expect(within(days).getByText('Columbus Day')).toBeTruthy();
+	});
+
+	it('names each assigned day for viewers by type, date and assignee without assignment targets', () => {
+		renderCalendar({ lanes: lanesFor() });
+
+		const duty = screen.getByRole('group', { name: 'Staff Duty' });
+		expect(within(duty).getByText('Staff Duty for Sunday, March 1, 2026: SGT Smith, Alex')).toBeTruthy();
+		expect(within(duty).queryByRole('button', { name: /^Assign Staff Duty/ })).toBeNull();
+		expect(within(duty).queryByRole('button', { name: /Edit assignments/ })).toBeNull();
+	});
+
+	it('opens the duty picker from an open day and the assignments from an assigned day', async () => {
+		const actions = { openDay: vi.fn(), editDay: vi.fn() };
+		renderCalendar({ lanes: lanesFor(actions) });
+
+		const open = screen.getByRole('button', { name: 'Assign Staff Duty for Monday, March 2, 2026' });
+		await fireEvent.click(open);
+		expect(actions.openDay).toHaveBeenCalledWith('type-sd', march2, open);
+
+		await fireEvent.click(
+			screen.getByRole('button', {
+				name: 'Staff Duty for Sunday, March 1, 2026: SGT Smith, Alex. Edit assignments'
+			})
+		);
+		expect(actions.editDay).toHaveBeenCalledWith(march1);
+	});
+
+	it('renders a third lane kind without layout changes', async () => {
+		const onOpen = vi.fn();
+		const suspenses: CalendarLane = {
+			key: 'fixture:suspenses',
+			kind: 'fixture-suspense',
+			label: 'Suspenses',
+			summary: 'Suspenses: Roster to BN S3 on March 2',
+			track: spanTrack(FixtureLaneSegment, [{ start: 1, end: 1, value: { name: 'Roster to BN S3', onOpen } }])
+		};
+		renderCalendar({ lanes: [...lanesFor(), suspenses] });
+
+		const fixture = screen.getByRole('group', {
+			name: 'Suspenses',
+			description: 'Suspenses: Roster to BN S3 on March 2'
+		});
+		await fireEvent.click(within(fixture).getByRole('button', { name: 'Roster to BN S3' }));
+		expect(onOpen).toHaveBeenCalledTimes(1);
+	});
+
+	it('makes each row marker its own target beside the cell button', async () => {
+		const onMarkerClick = vi.fn();
+		const onCellClick = vi.fn();
+		renderCalendar({
+			assignmentTypes: [staffDuty, charge],
+			assignments: [smithOnDuty, { ...smithOnDuty, id: 'assignment-2', assignmentTypeId: 'type-cq' }],
+			onMarkerClick,
+			onCellClick
+		});
+
+		const cell = screen.getByRole('button', { name: 'SGT Smith, Alex, Sunday, March 1, 2026' });
+		const marker = screen.getByRole('button', {
+			name: 'Staff Duty, SGT Smith, Alex, Sunday, March 1, 2026. Edit assignments'
+		});
+		const more = screen.getByRole('button', {
+			name: '1 more: Charge of Quarters, SGT Smith, Alex, Sunday, March 1, 2026. Edit assignments'
+		});
+		expect(cell.contains(marker)).toBe(false);
+
+		await fireEvent.click(marker);
+		await fireEvent.click(more);
+		expect(onMarkerClick.mock.calls).toEqual([[march1], [march1]]);
+		expect(onCellClick).not.toHaveBeenCalled();
+	});
+
+	it('keeps row markers passive without a marker action', () => {
+		renderCalendar({ assignmentTypes: [staffDuty], assignments: [smithOnDuty] });
+
+		expect(screen.queryByRole('button', { name: /Edit assignments/ })).toBeNull();
+		expect(screen.getByTitle('Staff Duty, SGT Smith, Alex, Sunday, March 1, 2026').textContent).toBe('SD');
 	});
 });

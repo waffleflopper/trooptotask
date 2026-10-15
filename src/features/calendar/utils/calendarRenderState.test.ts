@@ -36,7 +36,8 @@ const assignmentTypes: AssignmentType[] = [
 		assignTo: 'personnel',
 		color: '#dc2626',
 		exemptPersonnelIds: [],
-		showInDateHeader: true
+		showOnCalendar: true,
+		sortOrder: 0
 	}
 ];
 
@@ -134,20 +135,24 @@ describe('calendarRenderState', () => {
 		]);
 	});
 
-	it('keeps a saved Group assignment in the date header without turning it into a person assignment', () => {
+	it('does not turn a Group assignment into a marker for a person with the same id', () => {
 		const state = build({
-			groups: [{ id: 'group-1', name: 'Alpha Renamed', sortOrder: 0 }],
-			assignmentTypes: [{ ...assignmentTypes[0], id: 'group-detail', name: 'Group Detail', assignTo: 'group' }],
-			assignments: [assignment({ id: 'manual-group', assignmentTypeId: 'group-detail', assigneeId: 'group-1' })]
-		});
-		expect(state.headerCell('2026-03-01')?.headerAssignment).toEqual({
-			assignmentTypeName: 'Group Detail',
-			assigneeLabel: 'Alpha Renamed'
+			assignmentTypes: [
+				assignmentTypes[0],
+				{ ...assignmentTypes[0], id: 'group-detail', name: 'Group Detail', assignTo: 'group' }
+			],
+			assignments: [
+				assignment({ id: 'manual-group', assignmentTypeId: 'group-detail', assigneeId: 'person-1' }),
+				assignment({ id: 'manual-person', date: '2026-03-02', assigneeId: 'person-1' })
+			]
 		});
 		expect(state.personDateCell('person-1', '2026-03-01')?.markers).toEqual([]);
+		expect(state.personDateCell('person-1', '2026-03-02')?.markers).toEqual([
+			expect.objectContaining({ id: 'manual-person', name: 'Manager on Duty' })
+		]);
 	});
 
-	it('builds date header facts with special days and readable header assignment labels', () => {
+	it('builds date header facts with special days', () => {
 		const state = build({
 			specialDays: [specialDay({})],
 			assignments: [assignment({})]
@@ -162,11 +167,7 @@ describe('calendarRenderState', () => {
 			weekend: true,
 			holiday: true,
 			holidayName: 'Training Holiday',
-			title: 'Training Holiday',
-			headerAssignment: {
-				assignmentTypeName: 'Manager on Duty',
-				assigneeLabel: 'SGT Smith'
-			}
+			title: 'Training Holiday'
 		});
 	});
 
@@ -224,18 +225,14 @@ describe('calendarRenderState', () => {
 	it('records diagnostics for missing linked records and duplicate special days', () => {
 		const state = build({
 			availabilityEntries: [availability({ statusTypeId: 'missing-status' })],
-			assignments: [
-				assignment({ id: 'assignment-missing-type', assignmentTypeId: 'missing-type' }),
-				assignment({ id: 'assignment-missing-person', assigneeId: 'missing-person' })
-			],
+			assignments: [assignment({ id: 'assignment-missing-type', assignmentTypeId: 'missing-type' })],
 			specialDays: [specialDay({ id: 'special-1' }), specialDay({ id: 'special-2', name: 'Duplicate' })]
 		});
 
 		expect(state.diagnostics.map((diagnostic) => diagnostic.code)).toEqual([
 			'duplicate-special-day',
 			'missing-status-type',
-			'missing-assignment-type',
-			'missing-header-assignee'
+			'missing-assignment-type'
 		]);
 	});
 

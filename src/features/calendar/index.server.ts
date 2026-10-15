@@ -21,7 +21,7 @@ export { createSupabaseStatusTypeNamesReader } from './statusTypeNames.server';
 export {
 	createAssignmentType,
 	updateAssignmentType,
-	setAssignmentTypeDateHeader,
+	setCalendarLanes,
 	deleteAssignmentType
 } from './assignmentTypeOperations.server';
 export { listAssignmentTypes, listAssignmentTypeTargets } from './assignmentTypeRead.server';

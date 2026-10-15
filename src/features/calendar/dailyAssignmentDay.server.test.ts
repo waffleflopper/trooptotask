@@ -289,7 +289,7 @@ describe('setDailyAssignmentSlot', () => {
 				color: '#123456',
 				sort_order: 0,
 				exempt_personnel_ids: [],
-				show_in_date_header: false
+				show_on_calendar: false
 			}
 		]);
 
@@ -328,7 +328,7 @@ describe('setDailyAssignmentSlot', () => {
 				color: '#123456',
 				sort_order: 0,
 				exempt_personnel_ids: [],
-				show_in_date_header: false
+				show_on_calendar: false
 			}
 		]);
 

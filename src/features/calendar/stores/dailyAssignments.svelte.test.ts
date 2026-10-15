@@ -3,6 +3,7 @@ import { dailyAssignmentsStore } from './dailyAssignments.svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
 import { settles } from '$lib/test-support/settles';
 import { endOrganizationLifetime } from '$lib/stores/core';
+import { calendarLaneIds } from '$features/calendar/utils/calendarLanes';
 
 function mockFetch(response: unknown, status = 200) {
 	return vi.fn().mockResolvedValue({
@@ -20,7 +21,8 @@ const guardType = {
 	assignTo: 'personnel' as const,
 	color: '#000',
 	exemptPersonnelIds: [],
-	showInDateHeader: false
+	showOnCalendar: false,
+	sortOrder: 0
 };
 
 describe('regression: delete type then add type flow', () => {
@@ -35,7 +37,8 @@ describe('regression: delete type then add type flow', () => {
 			assignTo: 'personnel' as const,
 			color: '#000',
 			exemptPersonnelIds: [],
-			showInDateHeader: false
+			showOnCalendar: false,
+			sortOrder: 0
 		};
 		dailyAssignmentsStore.load([typeA], [], 'org-1');
 		expect(dailyAssignmentsStore.types).toEqual([typeA]);
@@ -54,7 +57,8 @@ describe('regression: delete type then add type flow', () => {
 			assignTo: 'personnel' as const,
 			color: '#fff',
 			exemptPersonnelIds: [],
-			showInDateHeader: false
+			showOnCalendar: false,
+			sortOrder: 0
 		};
 		vi.stubGlobal('fetch', mockFetch(typeB));
 		const addResult = await dailyAssignmentsStore.addType({
@@ -63,7 +67,8 @@ describe('regression: delete type then add type flow', () => {
 			assignTo: 'personnel',
 			color: '#fff',
 			exemptPersonnelIds: [],
-			showInDateHeader: false
+			showOnCalendar: false,
+			sortOrder: 0
 		});
 		expect(addResult).toEqual(typeB);
 
@@ -105,7 +110,8 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 				assignTo: 'personnel',
 				color: '#fff',
 				exemptPersonnelIds: [],
-				showInDateHeader: false
+				showOnCalendar: false,
+				sortOrder: 0
 			});
 
 			// Different org — should go through
@@ -118,7 +124,8 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 						assignTo: 'group' as const,
 						color: '#aaa',
 						exemptPersonnelIds: [],
-						showInDateHeader: false
+						showOnCalendar: false,
+						sortOrder: 0
 					}
 				],
 				[],
@@ -133,7 +140,8 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 					assignTo: 'group',
 					color: '#aaa',
 					exemptPersonnelIds: [],
-					showInDateHeader: false
+					showOnCalendar: false,
+					sortOrder: 0
 				}
 			]);
 
@@ -150,7 +158,8 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 				assignTo: 'personnel' as const,
 				color: '#fff',
 				exemptPersonnelIds: [],
-				showInDateHeader: false
+				showOnCalendar: false,
+				sortOrder: 0
 			};
 			vi.stubGlobal('fetch', mockFetch(serverType));
 
@@ -160,7 +169,8 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 				assignTo: 'personnel',
 				color: '#fff',
 				exemptPersonnelIds: [],
-				showInDateHeader: false
+				showOnCalendar: false,
+				sortOrder: 0
 			});
 
 			expect(result).toEqual(serverType);
@@ -177,7 +187,8 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 					assignTo: 'personnel',
 					color: '#fff',
 					exemptPersonnelIds: [],
-					showInDateHeader: false
+					showOnCalendar: false,
+					sortOrder: 0
 				})
 			).rejects.toThrow('POST assignment-types failed (500)');
 
@@ -205,7 +216,8 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 								assignTo: 'personnel',
 								color: '#fff',
 								exemptPersonnelIds: [],
-								showInDateHeader: false
+								showOnCalendar: false,
+								sortOrder: 0
 							})
 					}))
 				)
@@ -217,7 +229,8 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 				assignTo: 'personnel',
 				color: '#fff',
 				exemptPersonnelIds: [],
-				showInDateHeader: false
+				showOnCalendar: false,
+				sortOrder: 0
 			});
 
 			expect(dailyAssignmentsStore.types.length).toBe(2);
@@ -446,21 +459,32 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 		});
 	});
 
-	describe('showInDateHeader field', () => {
-		it('loads a type with showInDateHeader: true and exposes it', () => {
-			const featuredType = { ...guardType, id: 'f1', showInDateHeader: true };
-			dailyAssignmentsStore.load([guardType, featuredType], [], 'org-1');
-			const found = dailyAssignmentsStore.getTypeById('f1');
-			expect(found?.showInDateHeader).toBe(true);
-		});
-	});
-
-	describe('setDateHeader', () => {
-		const staff = { ...guardType, id: 'staff', name: 'Staff', showInDateHeader: true };
-		const group = { ...guardType, id: 'group', name: 'Group' };
-		const retiring = { ...guardType, id: 'retiring', name: 'Retiring' };
-		const headers = () =>
-			Object.fromEntries(dailyAssignmentsStore.types.map((type) => [type.id, type.showInDateHeader]));
+	describe('setCalendarLanes', () => {
+		const staff = { ...guardType, id: 'staff', name: 'Staff', showOnCalendar: true, sortOrder: 0 };
+		const group = { ...guardType, id: 'group', name: 'Group', sortOrder: 1 };
+		const retiring = { ...guardType, id: 'retiring', name: 'Retiring', sortOrder: 2 };
+		const withLanes = (ids: string[]) => {
+			const types = [staff, group, retiring];
+			return [
+				...ids.map((id, position) => ({
+					...types.find((type) => type.id === id)!,
+					showOnCalendar: true,
+					sortOrder: position
+				})),
+				...types
+					.filter((type) => !ids.includes(type.id))
+					.map((type) => ({ ...type, showOnCalendar: false, sortOrder: 10 + type.sortOrder }))
+			];
+		};
+		const lanes = () => calendarLaneIds(dailyAssignmentsStore.types);
+		const lanesRequest = (laneTypeIds: string[], expectedLaneTypeIds: string[]) => [
+			'/org/org-1/api/assignment-types/lanes',
+			{
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ laneTypeIds, expectedLaneTypeIds })
+			}
+		];
 		const reply = (status: number, body: unknown) => ({
 			ok: status >= 200 && status < 300,
 			status,
@@ -473,47 +497,78 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 			dailyAssignmentsStore.load([staff, group, retiring], [], 'org-1');
 		});
 
-		it('sends one command and shows only the chosen type as the header once saved', async () => {
+		it('sends the order with the order it replaces and shows the lanes once saved', async () => {
 			const fetchMock = vi.fn().mockResolvedValue(reply(200, { success: true }));
 			vi.stubGlobal('fetch', fetchMock);
 			const toast = vi.spyOn(toastStore, 'error');
 
-			expect(await dailyAssignmentsStore.setDateHeader('group')).toEqual({ status: 'saved' });
-			expect(headers()).toEqual({ staff: false, group: true, retiring: false });
-			expect(fetchMock.mock.calls).toEqual([
-				[
-					'/org/org-1/api/assignment-types/date-header',
-					{
-						method: 'PUT',
-						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify({ assignmentTypeId: 'group' })
-					}
-				]
+			expect(await dailyAssignmentsStore.setCalendarLanes(['group', 'staff'])).toEqual({ status: 'saved' });
+			expect(dailyAssignmentsStore.types.map((type) => [type.id, type.showOnCalendar, type.sortOrder])).toEqual([
+				['group', true, 0],
+				['staff', true, 1],
+				['retiring', false, 2]
 			]);
+			expect(fetchMock.mock.calls).toEqual([lanesRequest(['group', 'staff'], ['staff'])]);
+			expect(dailyAssignmentsStore.pendingLaneIds).toBeNull();
 			expect(toast).not.toHaveBeenCalled();
 		});
 
+		it('lists every type in the saved lane order once a reorder is saved', async () => {
+			const first = { ...guardType, id: 'A-id', name: 'A', showOnCalendar: true, sortOrder: 0 };
+			const second = { ...guardType, id: 'B-id', name: 'B', showOnCalendar: true, sortOrder: 1 };
+			dailyAssignmentsStore.load([first, second], [], 'org-1');
+			vi.stubGlobal('fetch', vi.fn().mockResolvedValue(reply(200, { success: true })));
+
+			expect(await dailyAssignmentsStore.setCalendarLanes(['B-id', 'A-id'])).toEqual({ status: 'saved' });
+
+			expect(dailyAssignmentsStore.types.map((type) => type.id)).toEqual(['B-id', 'A-id']);
+		});
+
+		it('folds moves made during a save into one follow-up that expects the order just saved', async () => {
+			const replies: Array<(value: unknown) => void> = [];
+			const fetchMock = vi.fn(() => new Promise((resolve) => replies.push(resolve)));
+			vi.stubGlobal('fetch', fetchMock);
+
+			const first = dailyAssignmentsStore.setCalendarLanes(['group', 'staff']);
+			const second = dailyAssignmentsStore.setCalendarLanes(['retiring', 'group', 'staff']);
+			const third = dailyAssignmentsStore.setCalendarLanes(['retiring', 'staff']);
+			expect(dailyAssignmentsStore.pendingLaneIds).toEqual(['retiring', 'staff']);
+			expect(lanes()).toEqual(['staff']);
+			replies[0](reply(200, { success: true }));
+			await vi.waitFor(() => expect(replies).toHaveLength(2));
+			expect(lanes()).toEqual(['group', 'staff']);
+			replies[1](reply(200, { success: true }));
+
+			expect(await Promise.all([first, second, third])).toEqual([
+				{ status: 'saved' },
+				{ status: 'saved' },
+				{ status: 'saved' }
+			]);
+			expect(fetchMock.mock.calls).toEqual([
+				lanesRequest(['group', 'staff'], ['staff']),
+				lanesRequest(['retiring', 'staff'], ['group', 'staff'])
+			]);
+			expect(lanes()).toEqual(['retiring', 'staff']);
+			expect(dailyAssignmentsStore.pendingLaneIds).toBeNull();
+		});
+
 		it.each([400, 401, 403, 404, 409])('reports a %i as not saved and adopts one fresh read', async (status) => {
-			const stored = [staff, retiring];
+			const stored = withLanes(['retiring']);
 			const fetchMock = vi.fn((_url, options?: RequestInit) =>
-				Promise.resolve(
-					options ? reply(status, { message: 'That assignment type is no longer available.' }) : reply(200, stored)
-				)
+				Promise.resolve(options ? reply(status, { message: 'Calendar change was not saved.' }) : reply(200, stored))
 			);
 			vi.stubGlobal('fetch', fetchMock);
-			const toast = vi.spyOn(toastStore, 'error');
 
-			expect(await dailyAssignmentsStore.setDateHeader('group')).toEqual({
+			expect(await dailyAssignmentsStore.setCalendarLanes(['group', 'staff'])).toEqual({
 				status: 'not-saved',
-				message: 'That assignment type is no longer available.',
+				message: 'Calendar change was not saved.',
 				showsSaved: true
 			});
 			expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
-				'/org/org-1/api/assignment-types/date-header',
+				'/org/org-1/api/assignment-types/lanes',
 				'/org/org-1/api/assignment-types'
 			]);
 			expect(dailyAssignmentsStore.types).toEqual(stored);
-			expect(toast).toHaveBeenCalledExactlyOnceWith('That assignment type is no longer available.');
 		});
 
 		it.each([
@@ -521,37 +576,59 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 			['a 500', () => Promise.resolve(reply(500, { message: 'Internal server error' }))],
 			['the unconfirmed 503', () => Promise.resolve(reply(503, { message: 'unconfirmed' }))],
 			['a rejected request', () => Promise.reject(new TypeError('Failed to fetch'))]
-		])('reports %s as unconfirmed and shows the stored header from one fresh read', async (_label, answer) => {
-			const stored = [{ ...staff, showInDateHeader: false }, group, { ...retiring, showInDateHeader: true }];
+		])('reports %s as unconfirmed and names the saved lanes from one fresh read', async (_label, answer) => {
+			const fetchMock = vi.fn((_url, options?: RequestInit) =>
+				options ? answer() : Promise.resolve(reply(200, withLanes(['retiring', 'group'])))
+			);
+			vi.stubGlobal('fetch', fetchMock);
+			const toast = vi.spyOn(toastStore, 'error');
+
+			expect(await dailyAssignmentsStore.setCalendarLanes(['group', 'staff'])).toEqual({
+				status: 'unconfirmed',
+				showsSaved: true
+			});
+			expect(lanes()).toEqual(['retiring', 'group']);
+			expect(fetchMock).toHaveBeenCalledTimes(2);
+			const feedback = toast.mock.calls.map(([message]) => message).join(' ');
+			expect(feedback).toMatch(/Retiring/);
+			expect(feedback).toMatch(/Group/);
+		});
+
+		it('shows no lanes when the fresh read after a lost reply has none', async () => {
 			vi.stubGlobal(
 				'fetch',
-				vi.fn((_url, options?: RequestInit) => (options ? answer() : Promise.resolve(reply(200, stored))))
+				vi.fn((_url, options?: RequestInit) => Promise.resolve(options ? reply(503, {}) : reply(200, withLanes([]))))
 			);
 
-			expect(await dailyAssignmentsStore.setDateHeader('group')).toEqual({ status: 'unconfirmed', showsSaved: true });
-			expect(headers()).toEqual({ staff: false, group: false, retiring: true });
+			expect(await dailyAssignmentsStore.setCalendarLanes(['group'])).toEqual({
+				status: 'unconfirmed',
+				showsSaved: true
+			});
+			expect(dailyAssignmentsStore.types.map((type) => [type.id, type.showOnCalendar])).toEqual([
+				['staff', false],
+				['group', false],
+				['retiring', false]
+			]);
+			expect(lanes()).toEqual([]);
 		});
 
 		it('reports a 409 with an unreadable body as not saved and still adopts one fresh read', async () => {
 			const stored = [staff, retiring];
-			const fetchMock = vi.fn((_url, options?: RequestInit) =>
-				Promise.resolve(
-					options
-						? { ok: false, status: 409, text: () => Promise.reject(new TypeError('error body interrupted')) }
-						: reply(200, stored)
+			vi.stubGlobal(
+				'fetch',
+				vi.fn((_url, options?: RequestInit) =>
+					Promise.resolve(
+						options
+							? { ok: false, status: 409, text: () => Promise.reject(new TypeError('error body interrupted')) }
+							: reply(200, stored)
+					)
 				)
 			);
-			vi.stubGlobal('fetch', fetchMock);
 
-			expect(await dailyAssignmentsStore.setDateHeader('group')).toEqual({
+			expect(await dailyAssignmentsStore.setCalendarLanes(['group'])).toMatchObject({
 				status: 'not-saved',
-				message: 'Failed to update the date header',
 				showsSaved: true
 			});
-			expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
-				'/org/org-1/api/assignment-types/date-header',
-				'/org/org-1/api/assignment-types'
-			]);
 			expect(dailyAssignmentsStore.types).toEqual(stored);
 		});
 
@@ -564,7 +641,10 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 				vi.fn((_url, options?: RequestInit) => Promise.resolve(options ? reply(503, {}) : reply(200, body)))
 			);
 
-			expect(await dailyAssignmentsStore.setDateHeader('group')).toEqual({ status: 'unconfirmed', showsSaved: false });
+			expect(await dailyAssignmentsStore.setCalendarLanes(['group'])).toEqual({
+				status: 'unconfirmed',
+				showsSaved: false
+			});
 			expect(dailyAssignmentsStore.types).toEqual([staff, group, retiring]);
 		});
 
@@ -576,7 +656,7 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 				)
 			);
 
-			expect(await dailyAssignmentsStore.setDateHeader('group')).toEqual({
+			expect(await dailyAssignmentsStore.setCalendarLanes(['group'])).toEqual({
 				status: 'not-saved',
 				message: 'Not found',
 				showsSaved: true
@@ -585,41 +665,23 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 		});
 
 		it.each([
-			[
-				'a later saved choice as unconfirmed',
-				{ staff: false, group: false, retiring: true },
-				{ status: 'unconfirmed', showsSaved: true }
-			],
-			['this choice as saved', { staff: false, group: true, retiring: false }, { status: 'saved' }]
+			['a later saved order as unconfirmed', ['retiring'], { status: 'unconfirmed', showsSaved: true }],
+			['this order as saved', ['staff', 'group'], { status: 'saved' }]
 		])('reads again when a reload lands before a committed reply and reports %s', async (_label, stored, result) => {
 			let respond!: (value: unknown) => void;
 			const fetchMock = vi.fn((_url, options?: RequestInit) =>
-				options
-					? new Promise((resolve) => (respond = resolve))
-					: Promise.resolve(
-							reply(
-								200,
-								[staff, group, retiring].map((type) => ({
-									...type,
-									showInDateHeader: stored[type.id as keyof typeof stored]
-								}))
-							)
-						)
+				options ? new Promise((resolve) => (respond = resolve)) : Promise.resolve(reply(200, withLanes(stored)))
 			);
 			vi.stubGlobal('fetch', fetchMock);
-			const pending = dailyAssignmentsStore.setDateHeader('group');
+			const pending = dailyAssignmentsStore.setCalendarLanes(['staff', 'group']);
 			await vi.waitFor(() => expect(respond).toBeDefined());
-			dailyAssignmentsStore.load(
-				[{ ...staff, showInDateHeader: false }, group, { ...retiring, showInDateHeader: true }],
-				[],
-				'org-1'
-			);
+			dailyAssignmentsStore.load(withLanes(['retiring']), [], 'org-1');
 			respond(reply(200, { success: true }));
 
 			expect(await pending).toEqual(result);
-			expect(headers()).toEqual(stored);
+			expect(lanes()).toEqual(stored);
 			expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
-				'/org/org-1/api/assignment-types/date-header',
+				'/org/org-1/api/assignment-types/lanes',
 				'/org/org-1/api/assignment-types'
 			]);
 		});
@@ -632,20 +694,16 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 					options ? new Promise((resolve) => (respond = resolve)) : Promise.resolve(reply(500, {}))
 				)
 			);
-			const pending = dailyAssignmentsStore.setDateHeader('group');
+			const pending = dailyAssignmentsStore.setCalendarLanes(['group']);
 			await vi.waitFor(() => expect(respond).toBeDefined());
-			dailyAssignmentsStore.load(
-				[{ ...staff, showInDateHeader: false }, group, { ...retiring, showInDateHeader: true }],
-				[],
-				'org-1'
-			);
+			dailyAssignmentsStore.load(withLanes(['retiring']), [], 'org-1');
 			respond(reply(200, { success: true }));
 
 			expect(await pending).toEqual({ status: 'unconfirmed', showsSaved: false });
-			expect(headers()).toEqual({ staff: false, group: false, retiring: true });
+			expect(lanes()).toEqual(['retiring']);
 		});
 
-		it('keeps the shown header and says the read failed when the fresh read fails', async () => {
+		it('keeps the shown lanes when the fresh read fails', async () => {
 			vi.stubGlobal(
 				'fetch',
 				vi.fn((_url, options?: RequestInit) =>
@@ -653,8 +711,11 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 				)
 			);
 
-			expect(await dailyAssignmentsStore.setDateHeader('group')).toEqual({ status: 'unconfirmed', showsSaved: false });
-			expect(headers()).toEqual({ staff: true, group: false, retiring: false });
+			expect(await dailyAssignmentsStore.setCalendarLanes(['group'])).toEqual({
+				status: 'unconfirmed',
+				showsSaved: false
+			});
+			expect(lanes()).toEqual(['staff']);
 		});
 
 		it('keeps a same-Organization reload that lands during the fresh read', async () => {
@@ -665,12 +726,9 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 					options ? Promise.resolve(reply(503, {})) : new Promise((resolve) => (respondRead = resolve))
 				)
 			);
-			const pending = dailyAssignmentsStore.setDateHeader('group');
+			const pending = dailyAssignmentsStore.setCalendarLanes(['group']);
 			await vi.waitFor(() => expect(respondRead).toBeDefined());
-			const reloaded = [
-				{ ...staff, showInDateHeader: false },
-				{ ...group, showInDateHeader: true }
-			];
+			const reloaded = withLanes(['group']).slice(0, 2);
 			dailyAssignmentsStore.load(reloaded, [], 'org-1');
 			respondRead(reply(200, [staff, group, retiring]));
 
@@ -678,13 +736,13 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 			expect(dailyAssignmentsStore.types).toEqual(reloaded);
 		});
 
-		it('reports a choice answered after an Organization switch as stale without changing the new list', async () => {
+		it('reports a change answered after an Organization switch as stale without changing the new list', async () => {
 			let respond!: (value: unknown) => void;
 			vi.stubGlobal(
 				'fetch',
 				vi.fn(() => new Promise((resolve) => (respond = resolve)))
 			);
-			const pending = dailyAssignmentsStore.setDateHeader('group');
+			const pending = dailyAssignmentsStore.setCalendarLanes(['group']);
 			dailyAssignmentsStore.load([retiring], [], 'org-2');
 			respond(reply(200, { success: true }));
 
@@ -692,38 +750,37 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 			expect(dailyAssignmentsStore.types).toEqual([retiring]);
 		});
 
-		it('never settles a choice answered after the Organization shell ends', async () => {
+		it('never settles a change answered after the Organization shell ends', async () => {
 			let respond!: (value: unknown) => void;
 			vi.stubGlobal(
 				'fetch',
 				vi.fn(() => new Promise((resolve) => (respond = resolve)))
 			);
-			const pending = dailyAssignmentsStore.setDateHeader('group');
+			const pending = dailyAssignmentsStore.setCalendarLanes(['group']);
 			endOrganizationLifetime();
 			dailyAssignmentsStore.load([staff, group, retiring], [], 'org-1');
 			respond(reply(200, { success: true }));
 
 			expect(await settles(pending)).toBe(false);
-			expect(headers()).toEqual({ staff: true, group: false, retiring: false });
+			expect(lanes()).toEqual(['staff']);
 		});
 
-		it('refuses header choices and type writes until a choice finishes its fresh read', async () => {
+		it('refuses type writes until a lane change finishes its fresh read', async () => {
 			const linked = { id: 'a1', date: '2026-10-14', assignmentTypeId: 'group', assigneeId: 'p1' };
 			dailyAssignmentsStore.load([staff, group, retiring], [linked], 'org-1');
-			const stored = [{ ...staff, showInDateHeader: false }, { ...group, showInDateHeader: true }, retiring];
 			let respondRead!: (value: unknown) => void;
 			const fetchMock = vi.fn((url: string, options?: RequestInit) => {
-				if (url.endsWith('/date-header')) return Promise.resolve(reply(503, {}));
+				if (url.endsWith('/lanes')) return Promise.resolve(reply(503, {}));
 				if (!options) return new Promise((resolve) => (respondRead = resolve));
 				return Promise.resolve(reply(200, { ...retiring, name: 'Retiring Night' }));
 			});
 			vi.stubGlobal('fetch', fetchMock);
-			const pending = dailyAssignmentsStore.setDateHeader('group');
+			const pending = dailyAssignmentsStore.setCalendarLanes(['group']);
 			await vi.waitFor(() => expect(respondRead).toBeDefined());
 
-			expect(dailyAssignmentsStore.pendingDateHeaderId).toBe('group');
+			expect(dailyAssignmentsStore.pendingLaneIds).toEqual(['group']);
 			expect(dailyAssignmentsStore.typesBusy).toBe(true);
-			expect(await dailyAssignmentsStore.setDateHeader('retiring')).toEqual({ status: 'busy' });
+			expect(dailyAssignmentsStore.typeWritesBusy).toBe(false);
 			expect(
 				await dailyAssignmentsStore.addType({
 					name: 'Night',
@@ -731,7 +788,8 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 					assignTo: 'personnel',
 					color: '#000',
 					exemptPersonnelIds: [],
-					showInDateHeader: false
+					showOnCalendar: false,
+					sortOrder: 0
 				})
 			).toBeNull();
 			expect(await dailyAssignmentsStore.updateType('retiring', { name: 'Retiring Night' })).toBe(false);
@@ -739,35 +797,36 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 			expect(dailyAssignmentsStore.types).toEqual([staff, group, retiring]);
 			expect(dailyAssignmentsStore.assignments).toEqual([linked]);
 			expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
-				'/org/org-1/api/assignment-types/date-header',
+				'/org/org-1/api/assignment-types/lanes',
 				'/org/org-1/api/assignment-types'
 			]);
 
-			respondRead(reply(200, stored));
+			respondRead(reply(200, withLanes(['group'])));
 			expect(await pending).toEqual({ status: 'unconfirmed', showsSaved: true });
-			expect(dailyAssignmentsStore.pendingDateHeaderId).toBeNull();
+			expect(dailyAssignmentsStore.pendingLaneIds).toBeNull();
 			expect(dailyAssignmentsStore.typesBusy).toBe(false);
 			expect(await dailyAssignmentsStore.updateType('retiring', { name: 'Retiring Night' })).toBe(true);
-			expect(headers()).toEqual({ staff: false, group: true, retiring: false });
+			expect(lanes()).toEqual(['group']);
 		});
 
-		it('refuses a header choice while a full type edit is saving', async () => {
+		it('refuses a lane change while a full type edit is saving', async () => {
 			let respond!: (value: unknown) => void;
 			const fetchMock = vi.fn(() => new Promise((resolve) => (respond = resolve)));
 			vi.stubGlobal('fetch', fetchMock);
 			const editing = dailyAssignmentsStore.updateType('group', { name: 'Group Night' });
 
-			expect(await dailyAssignmentsStore.setDateHeader('group')).toEqual({ status: 'busy' });
-			expect(dailyAssignmentsStore.pendingDateHeaderId).toBeNull();
+			expect(dailyAssignmentsStore.typeWritesBusy).toBe(true);
+			expect(await dailyAssignmentsStore.setCalendarLanes(['group'])).toEqual({ status: 'busy' });
+			expect(dailyAssignmentsStore.pendingLaneIds).toBeNull();
 			respond(reply(200, { ...group, name: 'Group Night' }));
 			expect(await editing).toBe(true);
 
 			expect(fetchMock).toHaveBeenCalledOnce();
-			expect(headers()).toEqual({ staff: true, group: false, retiring: false });
+			expect(lanes()).toEqual(['staff']);
 			expect(dailyAssignmentsStore.getTypeById('group')?.name).toBe('Group Night');
 		});
 
-		it('keeps a choice admitted across a same-Organization reload', async () => {
+		it('keeps a change admitted across a same-Organization reload', async () => {
 			let respond!: (value: unknown) => void;
 			vi.stubGlobal(
 				'fetch',
@@ -775,60 +834,61 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 					options ? new Promise((resolve) => (respond = resolve)) : Promise.resolve(reply(200, [staff, group]))
 				)
 			);
-			const pending = dailyAssignmentsStore.setDateHeader('group');
+			const pending = dailyAssignmentsStore.setCalendarLanes(['group']);
 			await vi.waitFor(() => expect(respond).toBeDefined());
 			dailyAssignmentsStore.load([staff, group, retiring], [], 'org-1');
 
-			expect(dailyAssignmentsStore.pendingDateHeaderId).toBe('group');
-			expect(await dailyAssignmentsStore.setDateHeader('retiring')).toEqual({ status: 'busy' });
+			expect(dailyAssignmentsStore.pendingLaneIds).toEqual(['group']);
 			respond(reply(200, { success: true }));
 			expect(await pending).toEqual({ status: 'unconfirmed', showsSaved: true });
-			expect(dailyAssignmentsStore.pendingDateHeaderId).toBeNull();
+			expect(dailyAssignmentsStore.pendingLaneIds).toBeNull();
+			expect(dailyAssignmentsStore.types.map((type) => type.id)).toEqual(['staff', 'group']);
+			expect(lanes()).toEqual(['staff']);
 		});
 
-		it('does not revive an earlier choice after moving to another Organization and back', async () => {
+		it('does not revive an earlier change after moving to another Organization and back', async () => {
 			const replies: Array<(value: unknown) => void> = [];
 			vi.stubGlobal(
 				'fetch',
 				vi.fn(() => new Promise((resolve) => replies.push(resolve)))
 			);
-			const earlier = dailyAssignmentsStore.setDateHeader('group');
+			const earlier = dailyAssignmentsStore.setCalendarLanes(['group']);
 			dailyAssignmentsStore.load([{ ...retiring, id: 'b-type' }], [], 'org-2');
 			dailyAssignmentsStore.load([staff, group, retiring], [], 'org-1');
 
-			expect(dailyAssignmentsStore.pendingDateHeaderId).toBeNull();
+			expect(dailyAssignmentsStore.pendingLaneIds).toBeNull();
 			expect(dailyAssignmentsStore.typesBusy).toBe(false);
-			const later = dailyAssignmentsStore.setDateHeader('retiring');
+			const later = dailyAssignmentsStore.setCalendarLanes(['retiring']);
 			replies[0](reply(200, { success: true }));
 
 			expect(await earlier).toEqual({ status: 'stale' });
-			expect(dailyAssignmentsStore.pendingDateHeaderId).toBe('retiring');
-			expect(headers()).toEqual({ staff: true, group: false, retiring: false });
+			expect(dailyAssignmentsStore.pendingLaneIds).toEqual(['retiring']);
+			expect(lanes()).toEqual(['staff']);
 			replies[1](reply(200, { success: true }));
 			expect(await later).toEqual({ status: 'saved' });
-			expect(headers()).toEqual({ staff: false, group: false, retiring: true });
+			expect(lanes()).toEqual(['retiring']);
 		});
 
-		it('admits a choice in a new Organization lifetime while the ended one never settles', async () => {
+		it('admits a change in a new Organization lifetime while the ended one never settles', async () => {
 			const replies: Array<(value: unknown) => void> = [];
 			vi.stubGlobal(
 				'fetch',
 				vi.fn(() => new Promise((resolve) => replies.push(resolve)))
 			);
 			const toast = vi.spyOn(toastStore, 'error');
-			const ended = dailyAssignmentsStore.setDateHeader('group');
+			const ended = dailyAssignmentsStore.setCalendarLanes(['group']);
 			endOrganizationLifetime();
 			dailyAssignmentsStore.load([staff, group, retiring], [], 'org-1');
 
-			expect(dailyAssignmentsStore.pendingDateHeaderId).toBeNull();
-			const current = dailyAssignmentsStore.setDateHeader('retiring');
-			expect(dailyAssignmentsStore.pendingDateHeaderId).toBe('retiring');
+			expect(dailyAssignmentsStore.pendingLaneIds).toBeNull();
+			const current = dailyAssignmentsStore.setCalendarLanes(['retiring']);
+			expect(dailyAssignmentsStore.pendingLaneIds).toEqual(['retiring']);
 			replies[0](reply(200, { success: true }));
 			replies[1](reply(200, { success: true }));
 
 			expect(await current).toEqual({ status: 'saved' });
 			expect(await settles(ended)).toBe(false);
-			expect(headers()).toEqual({ staff: false, group: false, retiring: true });
+			expect(lanes()).toEqual(['retiring']);
 			expect(dailyAssignmentsStore.typesBusy).toBe(false);
 			expect(toast).not.toHaveBeenCalled();
 		});
@@ -1087,12 +1147,24 @@ describe('dailyAssignmentsStore - responses that finish after an Organization sw
 });
 
 describe('dailyAssignmentsStore - workspace snapshots after a confirmed catalog', () => {
-	const staff = { ...guardType, id: 'staff', name: 'Staff', showInDateHeader: true };
-	const group = { ...guardType, id: 'group', name: 'Group', assignTo: 'group' as const, color: '#0f766e' };
-	const retiring = { ...guardType, id: 'retiring', name: 'Retiring', exemptPersonnelIds: ['p-exempt'] };
-	const confirmed = [{ ...staff, showInDateHeader: false }, { ...group, showInDateHeader: true }, retiring];
+	const staff = { ...guardType, id: 'staff', name: 'Staff', showOnCalendar: true, sortOrder: 0 };
+	const group = {
+		...guardType,
+		id: 'group',
+		name: 'Group',
+		assignTo: 'group' as const,
+		color: '#0f766e',
+		sortOrder: 1
+	};
+	const retiring = { ...guardType, id: 'retiring', name: 'Retiring', exemptPersonnelIds: ['p-exempt'], sortOrder: 2 };
+	const shownGroup = { ...group, showOnCalendar: true, sortOrder: 0 };
+	const confirmed = [shownGroup, { ...staff, showOnCalendar: false }, retiring];
 	const beforeCommit = [staff, group, retiring];
-	const retiringSaved = [{ ...staff, showInDateHeader: false }, group, { ...retiring, showInDateHeader: true }];
+	const retiringSaved = [
+		{ ...retiring, showOnCalendar: true, sortOrder: 0 },
+		{ ...staff, showOnCalendar: false },
+		group
+	];
 	const row = { id: 'a1', date: '2026-10-14', assignmentTypeId: 'group', assigneeId: 'p1' };
 	const refreshFailed = "We couldn't refresh assignment types. Reload to see the saved types.";
 	const answered = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -1125,13 +1197,13 @@ describe('dailyAssignmentsStore - workspace snapshots after a confirmed catalog'
 				return new Promise((resolve, reject) => reads.push({ resolve, reject }));
 			})
 		);
-		expect(await dailyAssignmentsStore.setDateHeader('group')).toEqual({ status: 'saved' });
+		expect(await dailyAssignmentsStore.setCalendarLanes(['group'])).toEqual({ status: 'saved' });
 		requests.length = 0;
 	});
 
 	it.each([
-		['omits the saved header while another type is flagged', [staff, retiring]],
-		['omits the saved header and flags nothing', [{ ...staff, showInDateHeader: false }, retiring]],
+		['omits the saved lane while another type is shown', [staff, retiring]],
+		['omits the saved lane and shows nothing', [{ ...staff, showOnCalendar: false }, retiring]],
 		['is empty', []]
 	])('keeps the confirmed catalog when a snapshot %s until a fresh read agrees', async (_label, snapshot) => {
 		dailyAssignmentsStore.startLoading();
@@ -1152,18 +1224,15 @@ describe('dailyAssignmentsStore - workspace snapshots after a confirmed catalog'
 		[
 			'archived',
 			[
-				{ ...staff, showInDateHeader: false },
-				{ ...group, showInDateHeader: false, archivedAt: '2026-10-13T12:00:00.000Z' },
+				{ ...shownGroup, showOnCalendar: false, archivedAt: '2026-10-13T12:00:00.000Z' },
+				{ ...staff, showOnCalendar: false },
 				retiring
 			]
 		],
-		['deleted', [{ ...staff, showInDateHeader: false }, retiring]],
-		[
-			'renamed',
-			[{ ...staff, showInDateHeader: false }, { ...group, showInDateHeader: true, name: 'Group Night' }, retiring]
-		],
-		['replaced as the header', retiringSaved]
-	])('adopts a saved header another user %s once a fresh read confirms it', async (_label, saved) => {
+		['deleted', [{ ...staff, showOnCalendar: false }, retiring]],
+		['renamed', [{ ...shownGroup, name: 'Group Night' }, { ...staff, showOnCalendar: false }, retiring]],
+		['replaced as the lane', retiringSaved]
+	])('adopts a saved lane another user %s once a fresh read confirms it', async (_label, saved) => {
 		dailyAssignmentsStore.load(saved, [row], 'org-1');
 		expect(dailyAssignmentsStore.types).toEqual(confirmed);
 		reads[0].resolve(reply(200, saved));
@@ -1176,9 +1245,9 @@ describe('dailyAssignmentsStore - workspace snapshots after a confirmed catalog'
 
 	it('adopts an agreeing snapshot with different order and saved metadata without a read', () => {
 		const snapshot = [
-			{ ...retiring, archivedAt: null, sortOrder: 2, created_at: '2026-10-01T00:00:00.000Z' },
-			{ ...group, showInDateHeader: true, organization_id: 'org-1' },
-			{ ...staff, showInDateHeader: false }
+			{ ...retiring, archivedAt: null, created_at: '2026-10-01T00:00:00.000Z' },
+			{ ...shownGroup, organization_id: 'org-1' },
+			{ ...staff, showOnCalendar: false }
 		] as typeof confirmed;
 		dailyAssignmentsStore.load(snapshot, [row], 'org-1');
 
@@ -1187,17 +1256,18 @@ describe('dailyAssignmentsStore - workspace snapshots after a confirmed catalog'
 		expect(dailyAssignmentsStore.assignments).toEqual([row]);
 	});
 
-	it('lets a header chosen during a held read decide the catalog', async () => {
+	it('lets lanes chosen during a held read decide the catalog', async () => {
 		dailyAssignmentsStore.load(beforeCommit, [], 'org-1');
-		expect(await dailyAssignmentsStore.setDateHeader('retiring')).toEqual({ status: 'saved' });
+		expect(await dailyAssignmentsStore.setCalendarLanes(['retiring'])).toEqual({ status: 'saved' });
 		reads[0].resolve(reply(200, confirmed));
 		await answered();
 
-		expect(dailyAssignmentsStore.types).toEqual(retiringSaved);
-		expect(requests).toEqual([
-			'GET /org/org-1/api/assignment-types',
-			'PUT /org/org-1/api/assignment-types/date-header'
+		expect(dailyAssignmentsStore.types).toEqual([
+			{ ...shownGroup, showOnCalendar: false },
+			{ ...retiring, showOnCalendar: true, sortOrder: 0 },
+			{ ...staff, showOnCalendar: false }
 		]);
+		expect(requests).toEqual(['GET /org/org-1/api/assignment-types', 'PUT /org/org-1/api/assignment-types/lanes']);
 		expect(toasts).toEqual([]);
 	});
 
@@ -1266,18 +1336,15 @@ describe('dailyAssignmentsStore - workspace snapshots after a confirmed catalog'
 	);
 
 	describe('while a type write is saving', () => {
-		const renamed = [
-			{ ...staff, showInDateHeader: false },
-			{ ...group, showInDateHeader: true, name: 'Group Night' },
-			retiring
-		];
+		const renamed = [{ ...shownGroup, name: 'Group Night' }, { ...staff, showOnCalendar: false }, retiring];
 		const cqData = {
 			name: 'CQ',
 			shortName: 'CQ',
 			assignTo: 'personnel' as const,
 			color: '#000',
 			exemptPersonnelIds: [],
-			showInDateHeader: false
+			showOnCalendar: false,
+			sortOrder: 3
 		};
 		const cq = { ...cqData, id: 'cq' };
 		let writes: Array<(value: unknown) => void>;
@@ -1336,7 +1403,7 @@ describe('dailyAssignmentsStore - workspace snapshots after a confirmed catalog'
 			const removal = dailyAssignmentsStore.removeType('retiring');
 			dailyAssignmentsStore.load(renamed, [row], 'org-1');
 
-			writes[0](reply(200, { ...staff, showInDateHeader: false, name: 'Staff Duty' }));
+			writes[0](reply(200, { ...staff, showOnCalendar: false, name: 'Staff Duty' }));
 			expect(await edit).toBe(true);
 			await answered();
 			expect(reads).toHaveLength(0);
@@ -1351,9 +1418,9 @@ describe('dailyAssignmentsStore - workspace snapshots after a confirmed catalog'
 		});
 
 		it('adopts the deferred catalog after successful edits settle in the same turn', async () => {
-			const staffSaved = { ...staff, showInDateHeader: false, name: 'Staff Duty' };
+			const staffSaved = { ...staff, showOnCalendar: false, name: 'Staff Duty' };
 			const retired = { ...retiring, name: 'Retired' };
-			const saved = [staffSaved, renamed[1], retired];
+			const saved = [renamed[0], staffSaved, retired];
 			const first = dailyAssignmentsStore.updateType('staff', { name: 'Staff Duty' });
 			const second = dailyAssignmentsStore.updateType('retiring', { name: 'Retired' });
 			dailyAssignmentsStore.load(renamed, [row], 'org-1');
@@ -1407,7 +1474,7 @@ describe('dailyAssignmentsStore - workspace snapshots after a confirmed catalog'
 		});
 	});
 
-	it('protects a catalog verified by the recovery read of an unconfirmed choice', async () => {
+	it('protects a catalog verified by the recovery read of an unconfirmed lane change', async () => {
 		vi.stubGlobal(
 			'fetch',
 			vi.fn((url: string, options?: RequestInit) => {
@@ -1416,17 +1483,21 @@ describe('dailyAssignmentsStore - workspace snapshots after a confirmed catalog'
 				return Promise.resolve(reply(200, retiringSaved));
 			})
 		);
-		expect(await dailyAssignmentsStore.setDateHeader('staff')).toEqual({ status: 'unconfirmed', showsSaved: true });
+		expect(await dailyAssignmentsStore.setCalendarLanes(['staff'])).toEqual({
+			status: 'unconfirmed',
+			showsSaved: true
+		});
 		dailyAssignmentsStore.load(confirmed, [], 'org-1');
 
 		expect(dailyAssignmentsStore.types).toEqual(retiringSaved);
 		await answered();
 		expect(dailyAssignmentsStore.types).toEqual(retiringSaved);
 		expect(requests).toEqual([
-			'PUT /org/org-1/api/assignment-types/date-header',
+			'PUT /org/org-1/api/assignment-types/lanes',
 			'GET /org/org-1/api/assignment-types',
 			'GET /org/org-1/api/assignment-types'
 		]);
-		expect(toasts).toEqual(["We couldn't confirm the date header change. The saved header is Retiring."]);
+		expect(toasts).toHaveLength(1);
+		expect(toasts[0]).toMatch(/Retiring/);
 	});
 });

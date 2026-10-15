@@ -1,4 +1,3 @@
-import type { Group } from '$features/personnel/contracts';
 import type { UpcomingLossRecord } from '$features/personnel/contracts';
 import type { Personnel } from '$features/personnel/contracts';
 import type {
@@ -12,7 +11,7 @@ import { formatDate, getDayName, isToday, isWeekend } from '$lib/utils/dates';
 
 export type CalendarDateKey = string;
 
-const DATE_LABEL_FORMAT = new Intl.DateTimeFormat('en-US', {
+export const CALENDAR_DATE_LABEL = new Intl.DateTimeFormat('en-US', {
 	weekday: 'long',
 	month: 'long',
 	day: 'numeric',
@@ -27,15 +26,9 @@ export interface CalendarRenderStateInput {
 	specialDays: readonly SpecialDay[];
 	assignmentTypes: readonly AssignmentType[];
 	assignments: readonly DailyAssignment[];
-	groups?: readonly Group[];
 	activeOnboardingPersonnelIds?: readonly string[];
 	highlightOnboarding?: boolean;
 	upcomingLossMap?: ReadonlyMap<string, UpcomingLossRecord>;
-}
-
-export interface CalendarHeaderAssignmentState {
-	assignmentTypeName: string;
-	assigneeLabel: string;
 }
 
 export interface CalendarDateHeaderState {
@@ -49,7 +42,6 @@ export interface CalendarDateHeaderState {
 	specialDay?: SpecialDay;
 	holiday: boolean;
 	holidayName?: string;
-	headerAssignment?: CalendarHeaderAssignmentState;
 	title: string;
 }
 
@@ -111,11 +103,6 @@ export type CalendarRenderDiagnostic =
 			code: 'missing-assignment-type';
 			assignmentTypeId: string;
 			assignmentId: string;
-	  }
-	| {
-			code: 'missing-header-assignee';
-			personnelId: string;
-			assignmentId: string;
 	  };
 
 export interface CalendarRenderState {
@@ -165,20 +152,12 @@ export function buildCalendarRenderState(input: CalendarRenderStateInput): Calen
 			dateKey,
 			dayName: getDayName(date),
 			dayOfMonth: date.getDate(),
-			dateLabel: DATE_LABEL_FORMAT.format(date),
+			dateLabel: CALENDAR_DATE_LABEL.format(date),
 			weekend: isWeekend(date),
 			today: isToday(date),
 			specialDay,
 			holiday: !!specialDay,
 			holidayName: specialDay?.name,
-			headerAssignment: getHeaderAssignment(
-				dateKey,
-				input.assignmentTypes,
-				input.assignments,
-				personnelById,
-				input.groups ?? [],
-				diagnostics
-			),
 			title: specialDay?.name ?? 'Click to set daily assignments'
 		};
 	});
@@ -390,41 +369,4 @@ function buildAssignmentsByPersonDate(
 		});
 	}
 	return byPersonDate;
-}
-
-function getHeaderAssignment(
-	dateKey: CalendarDateKey,
-	assignmentTypes: readonly AssignmentType[],
-	assignments: readonly DailyAssignment[],
-	personnelById: ReadonlyMap<string, Personnel>,
-	groups: readonly Group[],
-	diagnostics: CalendarRenderDiagnostic[]
-): CalendarHeaderAssignmentState | undefined {
-	const headerType = assignmentTypes.find((assignmentType) => assignmentType.showInDateHeader);
-	if (!headerType) return undefined;
-	const assignment = assignments.find(
-		(candidate) => candidate.date === dateKey && candidate.assignmentTypeId === headerType.id
-	);
-	if (!assignment?.assigneeId) return undefined;
-
-	if (headerType.assignTo !== 'personnel') {
-		return {
-			assignmentTypeName: headerType.name,
-			assigneeLabel: groups.find((group) => group.id === assignment.assigneeId)?.name ?? 'Unknown Group'
-		};
-	}
-
-	const person = personnelById.get(assignment.assigneeId);
-	if (!person) {
-		diagnostics.push({
-			code: 'missing-header-assignee',
-			personnelId: assignment.assigneeId,
-			assignmentId: assignment.id
-		});
-	}
-
-	return {
-		assignmentTypeName: headerType.name,
-		assigneeLabel: person ? `${person.rank} ${person.lastName}` : assignment.assigneeId
-	};
 }

@@ -1,5 +1,4 @@
 <script lang="ts">
-	import type { Group } from '$features/personnel/contracts';
 	import type { Personnel } from '$features/personnel/contracts';
 	import type {
 		AvailabilityEntry,
@@ -34,7 +33,6 @@
 		specialDays: SpecialDay[];
 		assignmentTypes: AssignmentType[];
 		assignments: DailyAssignment[];
-		groups?: readonly Group[];
 		onDateColumnClick?: (date: Date) => void;
 	}
 
@@ -47,7 +45,6 @@
 		specialDays,
 		assignmentTypes,
 		assignments,
-		groups = [],
 		onDateColumnClick
 	}: Props = $props();
 
@@ -83,8 +80,7 @@
 			statusTypes,
 			specialDays,
 			assignmentTypes,
-			assignments,
-			groups
+			assignments
 		})
 	);
 

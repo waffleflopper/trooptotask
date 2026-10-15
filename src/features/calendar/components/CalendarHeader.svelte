@@ -1,13 +1,16 @@
 <script lang="ts">
 	import type { CalendarDateHeaderState } from '$features/calendar/utils/calendarRenderState';
+	import type { CalendarLane } from '$features/calendar/utils/calendarLanes';
 	import { Button } from '$lib/components/ui/button';
 	import CalendarNavigation from './CalendarNavigation.svelte';
+	import CalendarLanes from './calendar-lanes/CalendarLanes.svelte';
 
 	interface Props {
 		year: number;
 		month: number;
 		monthName: string;
 		headerCells: readonly CalendarDateHeaderState[];
+		lanes?: readonly CalendarLane[];
 		onPrevMonth: () => void;
 		onNextMonth: () => void;
 		onGoToToday: () => void;
@@ -22,6 +25,7 @@
 		month,
 		monthName,
 		headerCells,
+		lanes = [],
 		onPrevMonth,
 		onNextMonth,
 		onGoToToday,
@@ -71,9 +75,7 @@
 						header.holiday && 'bg-warning-muted/60',
 						header.today && 'bg-primary/10 after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-primary'
 					]}
-					aria-label={header.headerAssignment
-						? `${header.dateLabel}, ${header.headerAssignment.assignmentTypeName}: ${header.headerAssignment.assigneeLabel}`
-						: header.dateLabel}
+					aria-label={header.dateLabel}
 					title={header.title}
 					onclick={() => onDateClick?.(header.date)}
 				>
@@ -83,16 +85,9 @@
 					<span class="font-display text-base leading-none font-bold text-foreground sm:text-lg"
 						>{header.dayOfMonth}</span
 					>
-					{#if header.headerAssignment}
-						<span
-							class="header-assignment-badge mt-0.5 max-w-[calc(100%-0.375rem)] overflow-hidden rounded-sm border border-primary/20 bg-primary/10 px-1 py-px font-mono text-[8px] leading-none font-medium text-primary uppercase sm:text-[9px]"
-							title="{header.headerAssignment.assignmentTypeName}: {header.headerAssignment.assigneeLabel}"
-						>
-							{header.headerAssignment.assigneeLabel}
-						</span>
-					{/if}
 				</Button>
 			{/each}
 		</div>
+		<CalendarLanes {lanes} {headerCells} />
 	</div>
 </div>

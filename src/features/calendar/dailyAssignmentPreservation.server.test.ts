@@ -130,7 +130,9 @@ function fixture() {
 			name: 'Staff Duty',
 			short_name: 'SD',
 			assign_to: 'personnel',
-			color: '#123456'
+			color: '#123456',
+			sort_order: 0,
+			show_on_calendar: false
 		},
 		{
 			id: 'group-type',
@@ -138,7 +140,9 @@ function fixture() {
 			name: 'Detail',
 			short_name: 'DT',
 			assign_to: 'group',
-			color: '#654321'
+			color: '#654321',
+			sort_order: 1,
+			show_on_calendar: false
 		}
 	]);
 	ctx.rawStore.seed('daily_assignments', structuredClone(savedSlots));

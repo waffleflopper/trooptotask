@@ -11,7 +11,8 @@ const staffDuty: AssignmentType = {
 	assignTo: 'personnel',
 	color: '#2563eb',
 	exemptPersonnelIds: [],
-	showInDateHeader: false
+	showOnCalendar: false,
+	sortOrder: 0
 };
 
 afterEach(cleanup);

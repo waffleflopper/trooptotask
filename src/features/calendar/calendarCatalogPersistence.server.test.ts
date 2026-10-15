@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
-import {
-	CALENDAR_CHANGE_NOT_SAVED_MESSAGE,
-	CALENDAR_CHANGE_UNCONFIRMED_MESSAGE,
-	createSupabaseCalendarCatalogPersistence
-} from './calendarCatalogPersistence.server';
+import { createSupabaseCalendarCatalogPersistence } from './calendarCatalogPersistence.server';
 import { calendarProvider } from './test-support/calendarProvider';
 
 const ORG = 'org-a';
@@ -31,7 +27,7 @@ describe('Calendar ordinary catalog persistence', () => {
 				type: 'org-closure',
 				short_name: id,
 				assign_to: 'personnel',
-				show_in_date_header: false,
+				show_on_calendar: false,
 				exempt_personnel_ids: []
 			}))
 		});
@@ -64,8 +60,8 @@ describe('Calendar ordinary catalog persistence', () => {
 					short_name: 'H',
 					assign_to: 'group',
 					color: '#456789',
-					sort_order: null,
-					show_in_date_header: true,
+					sort_order: 2,
+					show_on_calendar: false,
 					exempt_personnel_ids: null,
 					archived_at: '2026-01-01',
 					created_at: TIME
@@ -104,8 +100,8 @@ describe('Calendar ordinary catalog persistence', () => {
 				shortName: 'H',
 				assignTo: 'group',
 				color: '#456789',
-				sortOrder: null,
-				showInDateHeader: true,
+				showOnCalendar: false,
+				sortOrder: 2,
 				exemptPersonnelIds: [],
 				archivedAt: '2026-01-01',
 				created_at: TIME
@@ -150,7 +146,19 @@ describe('Calendar ordinary catalog persistence', () => {
 	);
 
 	it('creates saved rows with defaults and patches only submitted fields', async () => {
-		const { client, state } = calendarProvider();
+		const shownLane = {
+			id: 'shown-1',
+			organization_id: ORG,
+			created_at: TIME,
+			name: 'Staff Duty',
+			short_name: 'SD',
+			assign_to: 'personnel',
+			color: '#b91c1c',
+			sort_order: 7,
+			show_on_calendar: true,
+			exempt_personnel_ids: []
+		};
+		const { client, state } = calendarProvider({ assignment_types: [shownLane] });
 		const port = createSupabaseCalendarCatalogPersistence(client, ORG);
 		expect(await port.createStatusType({ name: 'Leave' })).toEqual({
 			id: 'saved-1',
@@ -178,24 +186,21 @@ describe('Calendar ordinary catalog persistence', () => {
 			shortName: 'D',
 			assignTo: 'personnel',
 			color: '#6b7280',
+			showOnCalendar: false,
 			sortOrder: 0,
 			exemptPersonnelIds: []
 		});
-		expect(
-			await port.updateAssignmentType('saved-2', {
-				assignTo: 'group',
-				color: '#123456',
-				exemptPersonnelIds: ['person-a']
-			})
-		).toEqual({
-			id: 'saved-2',
+		const edit = { assignTo: 'group' as const, exemptPersonnelIds: ['person-a'], showOnCalendar: false, sortOrder: 2 };
+		expect(await port.updateAssignmentType('shown-1', edit)).toEqual({
+			id: 'shown-1',
 			organization_id: ORG,
 			created_at: TIME,
-			name: 'Duty',
-			shortName: 'D',
+			name: 'Staff Duty',
+			shortName: 'SD',
 			assignTo: 'group',
-			color: '#123456',
-			sortOrder: 0,
+			color: '#b91c1c',
+			showOnCalendar: true,
+			sortOrder: 7,
 			exemptPersonnelIds: ['person-a']
 		});
 		expect(state.rows.status_types).toEqual([
@@ -210,19 +215,25 @@ describe('Calendar ordinary catalog persistence', () => {
 			}
 		]);
 		expect(state.rows.assignment_types).toEqual([
+			{ ...shownLane, assign_to: 'group', exempt_personnel_ids: ['person-a'] },
 			{
 				id: 'saved-2',
 				organization_id: ORG,
 				created_at: TIME,
 				name: 'Duty',
 				short_name: 'D',
-				assign_to: 'group',
-				color: '#123456',
+				assign_to: 'personnel',
+				color: '#6b7280',
 				sort_order: 0,
-				exempt_personnel_ids: ['person-a']
+				show_on_calendar: false,
+				exempt_personnel_ids: []
 			}
 		]);
-		expect(state.rows.assignment_types[0]).not.toHaveProperty('show_in_date_header');
+		const typeWrites = state.requests.filter(({ table, body }) => table === 'assignment_types' && body);
+		for (const { body } of typeWrites) {
+			expect(body).not.toHaveProperty('sort_order');
+			expect(body).not.toHaveProperty('show_on_calendar');
+		}
 		await expect(
 			createSupabaseCalendarCatalogPersistence(client, 'org-b').updateStatusType('saved-1', { name: 'Hidden' })
 		).rejects.toThrow('Expected one row');
@@ -312,7 +323,8 @@ describe('Calendar ordinary catalog persistence', () => {
 });
 
 const COMMAND_ORG = '00000000-0000-4000-8000-0000000000a1';
-const HEADER = '00000000-0000-4000-8000-000000000401';
+const STAFF = '00000000-0000-4000-8000-000000000401';
+const GROUP = '00000000-0000-4000-8000-000000000402';
 
 function calendarRpc(reply: () => Response | Promise<Response>) {
 	const calls: Array<{ path: string; body: unknown }> = [];
@@ -377,33 +389,40 @@ describe('Calendar configuration commands', () => {
 		]);
 	});
 
-	it('chooses the date header in one call and accepts the empty acknowledgment', async () => {
+	it('saves the Calendar lanes in one call and accepts the empty acknowledgment', async () => {
 		const { calls, port } = calendarRpc(() => new Response(null, { status: 204 }));
-		await expect(port.setDateHeader(HEADER)).resolves.toBeUndefined();
+		await expect(port.setCalendarLanes([GROUP, STAFF], [STAFF])).resolves.toBeUndefined();
 		expect(calls).toEqual([
 			{
-				path: '/rest/v1/rpc/set_assignment_type_date_header',
-				body: { p_organization_id: COMMAND_ORG, p_assignment_type_id: HEADER }
+				path: '/rest/v1/rpc/set_calendar_lanes',
+				body: { p_organization_id: COMMAND_ORG, p_lane_type_ids: [GROUP, STAFF], p_expected_lane_type_ids: [STAFF] }
 			}
 		]);
 	});
 
 	it.each([
-		['42501', 403, 'You do not have access to configure the Calendar'],
-		['P0002', 404, 'That assignment type is no longer available.'],
-		['22023', 400, 'Invalid Calendar configuration'],
-		['22P02', 400, 'Invalid Calendar configuration'],
-		['40P01', 409, CALENDAR_CHANGE_NOT_SAVED_MESSAGE],
-		['40001', 409, CALENDAR_CHANGE_NOT_SAVED_MESSAGE],
-		['55P03', 409, CALENDAR_CHANGE_NOT_SAVED_MESSAGE],
-		['23505', 409, CALENDAR_CHANGE_NOT_SAVED_MESSAGE]
-	])('answers a rolled back %s as a %i', async (code, status, message) => {
+		['42501', 403],
+		['P0002', 404],
+		['22023', 400],
+		['22P02', 400],
+		['CLN01', 409],
+		['40P01', 409],
+		['40001', 409],
+		['55P03', 409],
+		['23505', 409]
+	])('answers a rolled back %s as a %i without forwarding the database message', async (code, status) => {
 		const { port } = calendarRpc(databaseError(code, 'synthetic database message', 500));
-		await expect(port.setDateHeader(HEADER)).rejects.toMatchObject({ status, message });
-		await expect(port.resetFederalHolidays([{ date: '2026-12-25', name: 'Christmas Day' }])).rejects.toMatchObject({
-			status,
-			message
-		});
+		for (const command of [
+			() => port.setCalendarLanes([GROUP], [STAFF]),
+			() => port.resetFederalHolidays([{ date: '2026-12-25', name: 'Christmas Day' }])
+		]) {
+			const failure = await command().then(
+				() => undefined,
+				(error: unknown) => error
+			);
+			expect(failure).toMatchObject({ name: 'RequestFailure', status });
+			expect((failure as Error).message).not.toContain('synthetic database message');
+		}
 	});
 
 	it('says a lost or unreadable reply is unconfirmed', async () => {
@@ -412,14 +431,9 @@ describe('Calendar configuration commands', () => {
 			() => new Response('<html>Bad gateway</html>', { status: 502 })
 		]) {
 			const { port } = calendarRpc(reply);
-			await expect(port.setDateHeader(HEADER)).rejects.toMatchObject({
-				status: 503,
-				message: CALENDAR_CHANGE_UNCONFIRMED_MESSAGE,
-				publicMessage: true
-			});
+			await expect(port.setCalendarLanes([GROUP], [STAFF])).rejects.toMatchObject({ status: 503, publicMessage: true });
 			await expect(port.resetFederalHolidays([{ date: '2026-12-25', name: 'Christmas Day' }])).rejects.toMatchObject({
 				status: 503,
-				message: CALENDAR_CHANGE_UNCONFIRMED_MESSAGE,
 				publicMessage: true
 			});
 		}
@@ -430,7 +444,7 @@ describe('Calendar configuration commands', () => {
 		await expect(other.port.resetFederalHolidays([{ date: '2026-02-30', name: 'Bad' }])).rejects.toThrow(
 			'date/time field value out of range'
 		);
-		await expect(other.port.setDateHeader(HEADER)).rejects.not.toHaveProperty('status');
+		await expect(other.port.setCalendarLanes([GROUP], [STAFF])).rejects.not.toHaveProperty('status');
 		for (const rows of [
 			[{ ...holidayRow('h-1', '2026-12-25', 'Christmas Day'), type: 'org-closure' }],
 			[{ id: 'h-1', date: '2026-12-25', name: 'Christmas Day', type: 'federal-holiday' }],
@@ -442,8 +456,8 @@ describe('Calendar configuration commands', () => {
 			).rejects.toThrow('reset_federal_holidays returned an unexpected result');
 		}
 		const acknowledged = calendarRpc(() => Response.json({ saved: true }));
-		await expect(acknowledged.port.setDateHeader(HEADER)).rejects.toThrow(
-			'set_assignment_type_date_header returned an unexpected result'
+		await expect(acknowledged.port.setCalendarLanes([GROUP], [STAFF])).rejects.toThrow(
+			'set_calendar_lanes returned an unexpected result'
 		);
 	});
 

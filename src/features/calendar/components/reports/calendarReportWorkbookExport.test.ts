@@ -35,7 +35,8 @@ const staffDuty = {
 	color: '#111827',
 	assignTo: 'personnel',
 	exemptPersonnelIds: [],
-	showInDateHeader: true
+	showOnCalendar: true,
+	sortOrder: 0
 } as AssignmentType;
 
 async function captureWorkbook(

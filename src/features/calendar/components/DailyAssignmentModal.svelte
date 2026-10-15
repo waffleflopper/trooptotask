@@ -56,6 +56,14 @@
 	);
 	const groupOptions = $derived(groups.map((group) => ({ value: group.id, label: group.name })));
 
+	// A current exempt assignee stays listed so the assignment can still be seen and cleared.
+	function personnelChoices(type: AssignmentType) {
+		const current = getCurrentAssignee(type.id);
+		return personnelOptions.filter(
+			(option) => option.value === current || !type.exemptPersonnelIds.includes(option.value)
+		);
+	}
+
 	function getCurrentAssignee(typeId: string): string {
 		const assignment = assignmentsForDate.find((a) => a.assignmentTypeId === typeId);
 		return assignment?.assigneeId ?? '';
@@ -80,7 +88,7 @@
 		<AppDialog.Body class="space-y-4">
 			<div class="flex flex-col gap-3">
 				{#each activeAssignmentTypes as type (type.id)}
-					{@const options = type.assignTo === 'personnel' ? personnelOptions : groupOptions}
+					{@const options = type.assignTo === 'personnel' ? personnelChoices(type) : groupOptions}
 					<div class="bg-muted/30 flex flex-col gap-2 rounded-lg border p-3">
 						<div class="flex flex-wrap items-center gap-2">
 							<span

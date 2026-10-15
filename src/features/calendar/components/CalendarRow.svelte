@@ -5,6 +5,7 @@
 	} from '$features/calendar/utils/calendarRenderState';
 	import { Button } from '$lib/components/ui/button';
 	import * as DateCell from './date-cell/index.js';
+	import AssignmentCodeChip from './AssignmentCodeChip.svelte';
 	import type { Personnel } from '$features/personnel/contracts';
 
 	interface Props {
@@ -14,6 +15,7 @@
 		showStatusText?: boolean;
 		showPersonnelRoles?: boolean;
 		onCellClick?: (person: Personnel, date: Date) => void;
+		onMarkerClick?: (date: Date) => void;
 		onPersonClick?: (person: Personnel) => void;
 	}
 
@@ -24,6 +26,7 @@
 		showStatusText = false,
 		showPersonnelRoles = false,
 		onCellClick,
+		onMarkerClick,
 		onPersonClick
 	}: Props = $props();
 
@@ -37,7 +40,7 @@
 </script>
 
 <div
-	class="personnel-row grid h-full w-full min-w-[calc(var(--calendar-personnel-column-width)+(var(--calendar-cell-width)*var(--dates-count)))] items-stretch [grid-template-columns:var(--calendar-personnel-column-width)_repeat(var(--dates-count),minmax(var(--calendar-cell-width),1fr))]"
+	class="personnel-row relative grid h-full w-full min-w-[calc(var(--calendar-personnel-column-width)+(var(--calendar-cell-width)*var(--dates-count)))] items-stretch [grid-template-columns:var(--calendar-personnel-column-width)_repeat(var(--dates-count),minmax(var(--calendar-cell-width),1fr))]"
 >
 	<Button
 		variant="cell"
@@ -80,7 +83,7 @@
 			{/if}
 		</div>
 	</Button>
-	{#each cells as cell (cell.dateKey)}
+	{#each cells as cell, index (cell.dateKey)}
 		<DateCell.Root
 			weekend={cell.weekend}
 			today={cell.today}
@@ -93,5 +96,32 @@
 			aria-label={cell.label}
 			onclick={() => handleCellClick(cell.date)}
 		/>
+		{#if cell.markers.length > 0}
+			{@const [first, ...more] = cell.markers}
+			{@const open = onMarkerClick && (() => onMarkerClick(cell.date))}
+			{@const action = open ? '. Edit assignments' : ''}
+			<!-- Positioned over the cell so markers are sibling targets of the cell button, never nested in it.
+			     An absolutely placed grid item's auto end line is the row's edge, so the span stays explicit. -->
+			<div
+				class="pointer-events-none absolute inset-0 z-[2] flex min-w-0 items-end justify-end gap-px p-[3px]"
+				style:grid-row="1 / span 1"
+				style:grid-column="{index + 2} / span 1"
+			>
+				<AssignmentCodeChip
+					code={first.shortName}
+					color={first.color}
+					label={`${first.name}, ${cell.label}${action}`}
+					onclick={open}
+				/>
+				{#if more.length > 0}
+					<AssignmentCodeChip
+						code={`+${more.length}`}
+						color="var(--muted-foreground)"
+						label={`${more.length} more: ${more.map((marker) => marker.name).join(', ')}, ${cell.label}${action}`}
+						onclick={open}
+					/>
+				{/if}
+			</div>
+		{/if}
 	{/each}
 </div>

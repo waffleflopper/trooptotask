@@ -30,13 +30,9 @@ export const PROVIDER_FAULTS = Object.freeze({
 	'federal-holiday-reset-hold': [
 		write('POST', '/rest/v1/rpc/reset_federal_holidays', { hold: true, pause: COMMITTED_PAUSE_MS })
 	],
-	'assignment-type-date-header': [write('POST', '/rest/v1/rpc/set_assignment_type_date_header')],
-	'assignment-type-date-header-lost-ack': [
-		write('POST', '/rest/v1/rpc/set_assignment_type_date_header', transportLoss())
-	],
-	'assignment-type-date-header-hold': [
-		write('POST', '/rest/v1/rpc/set_assignment_type_date_header', { hold: true, pause: COMMITTED_PAUSE_MS })
-	],
+	'calendar-lanes': [write('POST', '/rest/v1/rpc/set_calendar_lanes')],
+	'calendar-lanes-lost-ack': [write('POST', '/rest/v1/rpc/set_calendar_lanes', transportLoss())],
+	'calendar-lanes-hold': [write('POST', '/rest/v1/rpc/set_calendar_lanes', { hold: true, pause: COMMITTED_PAUSE_MS })],
 	'document-file-remove': [write('DELETE', '/storage/v1/object/personnel-documents')],
 	'document-file-remove-lost-ack': [write('DELETE', '/storage/v1/object/personnel-documents', { afterCommit: true })],
 	'counseling-file-remove': [write('DELETE', '/storage/v1/object/counseling-files')],

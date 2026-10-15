@@ -9,6 +9,9 @@
 	import * as Empty from '$lib/components/ui/empty';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { buildCalendarToolbar } from '$features/calendar/utils/calendarToolbarItems';
+	import { buildCalendarLanes } from '$features/calendar/utils/calendarLanes';
+	import { dutyPickerOptions } from '$features/calendar/utils/dutyPickerOptions';
+	import { formatDate } from '$lib/utils/dates';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { stillInOrganizationLifetime } from '$lib/stores/core';
 	import { calendarStore } from '$features/calendar/stores/calendar.svelte';
@@ -96,6 +99,59 @@
 			onExportPDF: exportPDF
 		})
 	);
+
+	// Built apart from the roster rows so search and Group filter changes do not rebuild lanes.
+	const lanes = $derived(
+		buildCalendarLanes({
+			dates: calendarStore.dates,
+			assignmentTypes: dailyAssignmentsStore.types,
+			assignments: dailyAssignmentsStore.assignments,
+			specialDays: specialDaysStore.items,
+			personnel: ctx.allPersonnelFlat,
+			groups: groupsStore.items,
+			actions: ctx.canManageAssignments
+				? {
+						openDay: (typeId, date, anchor) => ctx.openDutyPicker(typeId, date, anchor),
+						editDay: (date) => ctx.handleDateClick(date)
+					}
+				: undefined
+		})
+	);
+
+	const dutyPick = $derived.by(() => {
+		const pick = ctx.dutyPick;
+		const type = pick && dailyAssignmentsStore.types.find((candidate) => candidate.id === pick.typeId);
+		if (!pick || !type || type.archivedAt) return null;
+		const dateKey = formatDate(pick.date);
+		const current = dailyAssignmentsStore.assignments.find(
+			(assignment) => assignment.date === dateKey && assignment.assignmentTypeId === type.id
+		);
+		return {
+			...pick,
+			type,
+			dateKey,
+			options: dutyPickerOptions({
+				type,
+				dateKey,
+				personnel: ctx.allPersonnelFlat,
+				groups: groupsStore.items,
+				availabilityEntries: availabilityStore.items,
+				statusTypes: statusTypesStore.items,
+				currentAssigneeId: current?.assigneeId
+			})
+		};
+	});
+
+	async function loadDutyPicker() {
+		const current = stillInOrganizationLifetime();
+		try {
+			return await import('$features/calendar/components/DutyPicker.svelte');
+		} catch (error) {
+			if (current()) toastStore.error(error instanceof Error ? error.message : 'Duty picker failed to load');
+			ctx.closeDutyPicker();
+			throw error;
+		}
+	}
 
 	async function loadAvailabilityModal() {
 		const current = stillInOrganizationLifetime();
@@ -189,7 +245,6 @@
 						specialDays={specialDaysStore.items}
 						assignmentTypes={dailyAssignmentsStore.types}
 						assignments={dailyAssignmentsStore.assignments}
-						groups={groupsStore.items}
 						onDateColumnClick={(date) => ctx.navigateToMonth(date)}
 					/>
 				{:else}
@@ -205,7 +260,7 @@
 						pinnedGroups={pinnedGroupsStore.list}
 						assignmentTypes={dailyAssignmentsStore.types}
 						assignments={dailyAssignmentsStore.assignments}
-						groups={groupsStore.items}
+						{lanes}
 						activeOnboardingPersonnelIds={ctx.activeOnboardingPersonnelIds}
 						highlightOnboarding={ctx.highlightOnboarding}
 						canEdit={ctx.canManageAvailability}
@@ -222,6 +277,7 @@
 						onPersonClick={(person) => ctx.handlePersonClick(person)}
 						onPinToggle={(group) => ctx.handlePinToggle(group)}
 						onDateClick={(date) => ctx.handleDateClick(date)}
+						onMarkerClick={(date) => ctx.handleDateClick(date)}
 					/>
 					<StatusLegend statusTypes={statusTypesStore.items} />
 				{/if}
@@ -247,6 +303,24 @@
 	{:catch}
 		<span class="sr-only">Availability editor failed to load.</span>
 	{/await}
+{/if}
+
+{#if dutyPick}
+	{#key dutyPick.anchor}
+		{#await loadDutyPicker() then { default: DutyPicker }}
+			<DutyPicker
+				typeName={dutyPick.type.name}
+				assignTo={dutyPick.type.assignTo}
+				date={dutyPick.date}
+				anchor={dutyPick.anchor}
+				options={dutyPick.options}
+				onAssign={(assigneeId) => dailyAssignmentsStore.setAssignment(dutyPick.dateKey, dutyPick.type.id, assigneeId)}
+				onClose={() => ctx.closeDutyPicker()}
+			/>
+		{:catch}
+			<span class="sr-only">Duty picker failed to load.</span>
+		{/await}
+	{/key}
 {/if}
 
 {#if ctx.assignmentDate}

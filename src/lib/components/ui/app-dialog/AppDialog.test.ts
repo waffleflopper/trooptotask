@@ -120,4 +120,15 @@ describe('AppDialog', () => {
 		expect(screen.queryByRole('button', { name: 'Close' })).toBeNull();
 		expect((screen.getByRole('button', { name: 'Cancel' }) as HTMLButtonElement).disabled).toBe(true);
 	});
+
+	it('presents as a side sheet with the same draft protection', async () => {
+		render(AppDialogTest, { presentation: 'sheet' });
+		const sheet = screen.getByRole('dialog', { name: 'Shared dialog title' });
+
+		await fireEvent.input(screen.getByRole('textbox', { name: 'Draft' }), { target: { value: 'Unsaved' } });
+		await fireEvent.keyDown(sheet, { key: 'Escape' });
+		await clickOutside();
+		expect(screen.getByRole('dialog', { name: 'Shared dialog title' })).toBe(sheet);
+		expect(screen.getByTestId('closed-count').textContent).toBe('0');
+	});
 });

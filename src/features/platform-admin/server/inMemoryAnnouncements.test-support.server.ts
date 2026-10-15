@@ -1,8 +1,8 @@
 import type { PlatformAnnouncement } from '../announcementTypes';
 import type {
 	PlatformAnnouncementStoreCreateInput,
-	PlatformAnnouncementToggleInput,
-	PlatformAnnouncementToggleUpdate,
+	PlatformAnnouncementSetActiveInput,
+	PlatformAnnouncementSetActiveUpdate,
 	PlatformAnnouncementsStore
 } from './announcements.server';
 
@@ -49,14 +49,13 @@ export function createInMemoryPlatformAnnouncementsStore(
 			return cloneAnnouncement(announcement);
 		},
 
-		async toggleAnnouncementActive(
-			input: PlatformAnnouncementToggleInput
-		): Promise<PlatformAnnouncementToggleUpdate | null> {
+		async setAnnouncementActive(
+			input: PlatformAnnouncementSetActiveInput
+		): Promise<PlatformAnnouncementSetActiveUpdate | null> {
 			const existing = announcements.get(input.id);
 			if (!existing) return null;
-			const updated = { ...existing, isActive: !existing.isActive };
-			announcements.set(input.id, updated);
-			return { id: input.id, isActive: updated.isActive };
+			announcements.set(input.id, { ...existing, isActive: input.isActive });
+			return { id: input.id, isActive: input.isActive };
 		},
 
 		async deleteAnnouncement(id: string) {

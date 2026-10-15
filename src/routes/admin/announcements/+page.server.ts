@@ -55,12 +55,14 @@ export const actions: Actions = {
 		const operations = await createPlatformAnnouncementOperations(event);
 		const formData = await event.request.formData();
 		const id = String(formData.get('id') ?? '');
+		const isActive = formData.get('isActive');
 		if (!validateUUID(id)) return fail(400, { error: 'Invalid announcement ID' });
+		if (isActive !== 'true' && isActive !== 'false') return fail(400, { error: 'Invalid announcement state' });
 		try {
-			const result = await operations.toggleActive(id);
+			const result = await operations.setActive(id, isActive === 'true');
 			if (result.status === 'not_found') return fail(404, { error: 'Announcement not found' });
 		} catch (cause) {
-			console.error('Failed to toggle announcement', cause);
+			console.error('Failed to update announcement', cause);
 			return fail(500, { error: 'Failed to update announcement' });
 		}
 		return { success: true };

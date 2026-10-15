@@ -17,7 +17,7 @@ export interface PlatformAnnouncementCreateInput {
 	expiresAt?: string | null;
 }
 
-export type PlatformAnnouncementToggleResult =
+export type PlatformAnnouncementSetActiveResult =
 	| { status: 'updated'; id: string; isActive: boolean }
 	| { status: 'not_found' };
 

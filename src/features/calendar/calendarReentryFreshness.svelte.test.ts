@@ -7,7 +7,7 @@ import { dailyAssignmentsStore } from './stores/dailyAssignments.svelte';
 import { endOrganizationLifetime } from '$lib/stores/core';
 import { confirmedChangesSentNow } from '$lib/test-support/confirmedChangeCookies';
 import type { CalendarWorkspaceHydration } from './calendar.types';
-import type { AvailabilityEntry, DailyAssignment, SpecialDay } from './contracts';
+import type { AssignmentType, AvailabilityEntry, DailyAssignment, SpecialDay } from './contracts';
 
 const OCTOBER = { rangeStart: '2026-10-01', rangeEnd: '2026-10-31' };
 const DECEMBER = { rangeStart: '2026-12-01', rangeEnd: '2026-12-31' };
@@ -33,11 +33,34 @@ const duty = (id: string, date = '2026-10-09', assigneeId = 'p1'): DailyAssignme
 	assignmentTypeId: 'cq',
 	assigneeId
 });
+const runnerDuty = (id: string, date: string): DailyAssignment => ({
+	id,
+	date,
+	assignmentTypeId: 'rt',
+	assigneeId: 'g1'
+});
+const chargeOfQuarters: AssignmentType = {
+	id: 'cq',
+	name: 'Charge of Quarters',
+	shortName: 'CQ',
+	assignTo: 'personnel',
+	color: '#2563eb',
+	exemptPersonnelIds: [],
+	showInDateHeader: false
+};
+const runnerTeam: AssignmentType = {
+	...chargeOfQuarters,
+	id: 'rt',
+	name: 'Runner Team',
+	shortName: 'RT',
+	assignTo: 'group'
+};
 
 type Rows = {
 	availability: AvailabilityEntry[] | Promise<AvailabilityEntry[]>;
 	specialDays: SpecialDay[] | Promise<SpecialDay[]>;
 	assignments: DailyAssignment[] | Promise<DailyAssignment[]>;
+	types?: AssignmentType[];
 };
 
 // Mirrors the targets the server delivery streams; building one is the request leaving the browser.
@@ -56,7 +79,7 @@ function workspace(rows: Rows, range = OCTOBER, specialDaysRange = CATALOG_YEARS
 			mode: 'range',
 			snapshotKey: key,
 			range,
-			items: Promise.resolve(rows.assignments).then((assignments) => ({ types: [], assignments }))
+			items: Promise.resolve(rows.assignments).then((assignments) => ({ types: rows.types ?? [], assignments }))
 		}
 	};
 }
@@ -88,6 +111,7 @@ function heldSnapshot() {
 
 let savedIds = 0;
 let failingRequests: string[] = [];
+let savedTypes: AssignmentType[] = [];
 
 function serverAcknowledges() {
 	vi.stubGlobal(
@@ -96,6 +120,15 @@ function serverAcknowledges() {
 			const method = init?.method ?? 'GET';
 			if (failingRequests.includes(`${method} ${url}`)) return Response.json({ error: 'Not saved' }, { status: 500 });
 			const body = init?.body ? JSON.parse(String(init.body)) : {};
+			if (method === 'GET' && url.endsWith('/api/assignment-types')) return Response.json(savedTypes);
+			if (url.endsWith('/api/daily-assignments/batch')) {
+				const records: Omit<DailyAssignment, 'id'>[] = body.records;
+				return Response.json({
+					inserted: records
+						.filter((record) => record.assigneeId)
+						.map((record) => ({ id: `saved-${++savedIds}`, ...record }))
+				});
+			}
 			if (method === 'DELETE') return Response.json({ success: true });
 			if (method === 'PUT') return Response.json(body);
 			return Response.json({ id: `saved-${++savedIds}`, ...body });
@@ -111,6 +144,7 @@ describe('Calendar re-entry freshness', () => {
 		endOrganizationLifetime();
 		savedIds = 0;
 		failingRequests = [];
+		savedTypes = [];
 		serverAcknowledges();
 		await enter(
 			'org-1',
@@ -371,5 +405,100 @@ describe('Calendar re-entry freshness', () => {
 		expect(ids(availabilityStore.items)).toEqual(['b1']);
 		expect(ids(specialDaysStore.items)).toEqual(['b-c1']);
 		expect(ids(dailyAssignmentsStore.assignments)).toEqual([]);
+	});
+
+	describe('after the server deletes rows by type or slot', () => {
+		const empty = { availability: [], specialDays: [] };
+
+		async function enterWithRunnerTeam() {
+			await enter(
+				'org-1',
+				workspace({
+					...empty,
+					assignments: [duty('x1'), runnerDuty('r1', '2026-10-12')],
+					types: [chargeOfQuarters, runnerTeam]
+				})
+			);
+			savedTypes = [chargeOfQuarters];
+		}
+
+		it("keeps a deleted type's held rows deleted when an older snapshot arrives after the delete", async () => {
+			await enterWithRunnerTeam();
+			const snapshot = heldSnapshot();
+			const reentry = enter('org-1', workspace({ ...snapshot.rows, types: [chargeOfQuarters, runnerTeam] }));
+
+			expect(await dailyAssignmentsStore.removeType('rt')).toBe(true);
+			snapshot.release({ ...empty, assignments: [duty('x1'), runnerDuty('r1', '2026-10-12')] });
+			await reentry;
+
+			expect(ids(dailyAssignmentsStore.assignments)).toEqual(['x1']);
+			await vi.waitFor(() => expect(dailyAssignmentsStore.types).toEqual([chargeOfQuarters]));
+		});
+
+		it("removes a deleted type's rows this tab never loaded when an older snapshot arrives after the delete", async () => {
+			await enterWithRunnerTeam();
+			const snapshot = heldSnapshot();
+			const reentry = enter('org-1', workspace({ ...snapshot.rows, types: [chargeOfQuarters, runnerTeam] }));
+
+			expect(await dailyAssignmentsStore.removeType('rt')).toBe(true);
+			snapshot.release({
+				...empty,
+				assignments: [duty('x1'), runnerDuty('r1', '2026-10-12'), runnerDuty('added-by-b', '2026-10-20')]
+			});
+			await reentry;
+
+			expect(ids(dailyAssignmentsStore.assignments)).toEqual(['x1']);
+			await vi.waitFor(() => expect(dailyAssignmentsStore.types).toEqual([chargeOfQuarters]));
+		});
+
+		it("shows only the user's saved assignment when an older snapshot holds another member's row for that slot", async () => {
+			const snapshot = heldSnapshot();
+			const reentry = enter('org-1', workspace(snapshot.rows));
+
+			expect(await dailyAssignmentsStore.setAssignment('2026-10-10', 'cq', 'p3')).toBe(true);
+			snapshot.release({ ...empty, assignments: [duty('x1'), duty('replaced-by-b', '2026-10-10', 'p2')] });
+			await reentry;
+
+			expect(dailyAssignmentsStore.getAssignmentsForDate('2026-10-10')).toEqual([duty('saved-1', '2026-10-10', 'p3')]);
+			expect(ids(dailyAssignmentsStore.assignments)).toEqual(['saved-1', 'x1']);
+		});
+
+		it("keeps a cleared slot empty when an older snapshot holds another member's row for it", async () => {
+			const snapshot = heldSnapshot();
+			const reentry = enter('org-1', workspace(snapshot.rows));
+
+			expect(await dailyAssignmentsStore.removeAssignment('2026-10-10', 'cq')).toBe(true);
+			snapshot.release({ ...empty, assignments: [duty('x1'), duty('replaced-by-b', '2026-10-10', 'p2')] });
+			await reentry;
+
+			expect(ids(dailyAssignmentsStore.assignments)).toEqual(['x1']);
+		});
+
+		it("applies a batch's saved and cleared slots over another member's rows in an older snapshot", async () => {
+			const snapshot = heldSnapshot();
+			const reentry = enter('org-1', workspace(snapshot.rows));
+
+			expect(
+				await dailyAssignmentsStore.setAssignmentBatch([
+					{ date: '2026-10-10', assignmentTypeId: 'cq', assigneeId: 'p3' },
+					{ date: '2026-10-11', assignmentTypeId: 'cq', assigneeId: '' }
+				])
+			).toBe(true);
+			snapshot.release({
+				...empty,
+				assignments: [
+					duty('x1'),
+					duty('replaced-by-b', '2026-10-10', 'p2'),
+					duty('added-by-b', '2026-10-11', 'p4'),
+					runnerDuty('other-type', '2026-10-10')
+				]
+			});
+			await reentry;
+
+			expect(ids(dailyAssignmentsStore.assignments)).toEqual(['other-type', 'saved-1', 'x1']);
+			expect(dailyAssignmentsStore.getAssignmentForDate('2026-10-10', 'cq')).toEqual(
+				duty('saved-1', '2026-10-10', 'p3')
+			);
+		});
 	});
 });

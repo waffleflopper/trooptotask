@@ -100,6 +100,10 @@ function duplicateAssignmentBatchSlot(assignments: AssignmentBatchRecord[]): Ass
 	return null;
 }
 
+function inSlot(date: string, assignmentTypeId: string) {
+	return (assignment: DailyAssignment) => assignment.date === date && assignment.assignmentTypeId === assignmentTypeId;
+}
+
 function normalizeAssignmentBatch(assignments: AssignmentBatchRecord[]): AssignmentBatchRecord[] {
 	return assignments.map((assignment) => ({ ...assignment, assigneeId: assignment.assigneeId.trim() }));
 }
@@ -125,6 +129,7 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 	let disputedDuringWrites: ConfirmedCatalog | null = null;
 	let typeWrites: ConfirmedCatalog[] = [];
 	let catalogEpoch = 0;
+	let catalogRead: { epoch: number; confirmed: ConfirmedCatalog } | null = null;
 
 	function currentHeaderFlight(): HeaderFlight | null {
 		return headerFlight && headerFlight.inLifetime() && headerFlight.orgId === typesStore.orgId ? headerFlight : null;
@@ -144,8 +149,21 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 		typeWrites = typeWrites.filter((write) => write.orgId === orgId && write.inLifetime());
 	}
 
-	function admitTypeWrite(): ConfirmedCatalog {
+	function deferSupersededCatalogRead() {
+		if (catalogRead?.epoch === catalogEpoch) disputedDuringWrites = catalogRead.confirmed;
 		catalogEpoch++;
+	}
+
+	function readDisputedCatalogWhenIdle() {
+		const disputed = disputedDuringWrites;
+		if (!disputed || typesStore.busy || typeWrites.length > 0) return;
+		disputedDuringWrites = null;
+		const confirmed = currentConfirmedCatalog();
+		if (confirmed && disputed.inLifetime() && disputed.orgId === confirmed.orgId) void reconcileCatalog(confirmed);
+	}
+
+	function admitTypeWrite(): ConfirmedCatalog {
+		deferSupersededCatalogRead();
 		forgetStaleTypeWrites(typesStore.orgId);
 		const write = Object.freeze({ orgId: typesStore.orgId, inLifetime: stillInOrganizationLifetime() });
 		typeWrites.push(write);
@@ -155,11 +173,7 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 	function settleTypeWrite(write: ConfirmedCatalog) {
 		typeWrites = typeWrites.filter((pending) => pending !== write);
 		forgetStaleTypeWrites(typesStore.orgId);
-		const disputed = disputedDuringWrites;
-		if (!disputed || typesStore.busy || typeWrites.length > 0) return;
-		disputedDuringWrites = null;
-		const confirmed = currentConfirmedCatalog();
-		if (confirmed && disputed.inLifetime() && disputed.orgId === confirmed.orgId) void reconcileCatalog(confirmed);
+		readDisputedCatalogWhenIdle();
 	}
 
 	async function adoptSavedTypesIfUnchanged(orgId: string, owns: () => boolean): Promise<number | null> {
@@ -179,8 +193,11 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 
 	async function reconcileCatalog(confirmed: ConfirmedCatalog): Promise<void> {
 		const epoch = catalogEpoch;
+		catalogRead = { epoch, confirmed };
 		const owns = () => catalogEpoch === epoch && currentConfirmedCatalog() === confirmed;
-		if ((await adoptSavedTypesIfUnchanged(confirmed.orgId, owns)) === null && owns()) {
+		const adopted = await adoptSavedTypesIfUnchanged(confirmed.orgId, owns);
+		if (catalogRead?.epoch === epoch) catalogRead = null;
+		if (adopted === null && owns()) {
 			toastStore.error("We couldn't refresh assignment types. Reload to see the saved types.");
 		}
 	}
@@ -280,8 +297,9 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 			const write = admitTypeWrite();
 
 			// Cascade: optimistically remove affected assignments via log
+			const ofType = (assignment: DailyAssignment) => assignment.assignmentTypeId === id;
 			const affectedIds = getAssignmentSnapshot()
-				.filter((a) => a.assignmentTypeId === id)
+				.filter(ofType)
 				.map((a) => a.id);
 
 			let cascadeMutationId: string | null = null;
@@ -293,7 +311,7 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 			const result = await typesStore.remove(id);
 
 			if (result === 'deleted') {
-				internals.commit({ deleted: affectedIds });
+				internals.commit({ deletedWhere: ofType });
 				confirmedCatalog = write;
 			}
 
@@ -308,7 +326,7 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 
 		async setDateHeader(assignmentTypeId: string): Promise<DateHeaderChange> {
 			if (typesStore.busy || currentHeaderFlight()) return { status: 'busy' };
-			catalogEpoch++;
+			deferSupersededCatalogRead();
 			const flight: HeaderFlight = Object.freeze({
 				assignmentTypeId,
 				orgId: typesStore.orgId,
@@ -361,6 +379,7 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 				);
 			} finally {
 				if (headerFlight === flight) headerFlight = null;
+				readDisputedCatalogWhenIdle();
 			}
 		},
 
@@ -398,7 +417,8 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 					)
 				);
 
-				internals.commit({ deleted: existing ? [existing.id] : [], saved: saved?.id ? [saved] : [] });
+				internals.commit({ deletedWhere: inSlot(date, assignmentTypeId) });
+				if (saved?.id) internals.commit({ saved: [saved] });
 
 				if (removeMutationId) internals.log.resolve(removeMutationId);
 				if (addMutationId) internals.log.resolve(addMutationId);
@@ -423,7 +443,7 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 					sendAssignments('', 'DELETE', { date, assignmentTypeId }, 'Failed to remove assignment')
 				);
 
-				internals.commit({ deleted: [original.id] });
+				internals.commit({ deletedWhere: inSlot(date, assignmentTypeId) });
 				internals.log.resolve(mutationId);
 				return true;
 			} catch {
@@ -490,7 +510,12 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 					).then((res) => res.json() as Promise<{ inserted: DailyAssignment[] }>)
 				);
 
-				internals.commit({ deleted: existingIds, saved: inserted });
+				const replacedSlots = new Set(normalizedAssignments.map((a) => assignmentSlotKey(a.date, a.assignmentTypeId)));
+				internals.commit({
+					deletedWhere: (assignment) =>
+						replacedSlots.has(assignmentSlotKey(assignment.date, assignment.assignmentTypeId))
+				});
+				internals.commit({ saved: inserted });
 
 				if (removeMutationId) internals.log.resolve(removeMutationId);
 				if (addMutationId) internals.log.resolve(addMutationId);

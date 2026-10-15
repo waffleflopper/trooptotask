@@ -19,6 +19,7 @@ export class ReorderController {
 	readonly #entries: () => ReorderEntry[];
 	readonly #onmove: (id: string, toIndex: number) => unknown;
 	readonly #root: () => HTMLElement | null;
+	#moves = 0;
 
 	constructor(
 		entries: () => ReorderEntry[],
@@ -45,12 +46,18 @@ export class ReorderController {
 			return;
 		}
 		this.message = `${name} moved to position ${to + 1} of ${entries.length}`;
+		const move = ++this.#moves;
 		const moving = this.#onmove(id, to);
 		await tick();
 		this.#root()
 			?.querySelector<HTMLElement>(`:scope > [data-reorder-id="${CSS.escape(id)}"] [data-reorder-grip]`)
 			?.focus();
 		await moving;
+		if (move !== this.#moves) return;
+		// A consumer that could not keep the move shows its saved order; say where the row really is.
+		const settled = this.#entries();
+		const at = settled.findIndex((entry) => entry.id === id);
+		if (at >= 0 && at !== to) this.message = `${name} is now at position ${at + 1} of ${settled.length}`;
 	}
 
 	keydown(id: string, event: KeyboardEvent): void {

@@ -12,9 +12,12 @@ const { statusTypesStoreMock, availabilityStoreMock, assignmentTypesStoreMock, s
 	() => ({
 		statusTypesStoreMock: {
 			items: [] as StatusType[],
+			pendingOrder: null,
+			orderBusy: false,
 			add: vi.fn(),
 			update: vi.fn(),
-			remove: vi.fn()
+			remove: vi.fn(),
+			setOrder: vi.fn()
 		},
 		availabilityStoreMock: {
 			removeByStatusTypeLocal: vi.fn()
@@ -68,7 +71,7 @@ vi.mock('$features/calendar/stores/dailyAssignments.svelte', () => ({
 	dailyAssignmentsStore: assignmentTypesStoreMock
 }));
 
-async function openAssignmentAction(typeName: string, action: 'Edit' | 'Delete') {
+async function openRowAction(typeName: string, action: 'Edit' | 'Delete') {
 	await fireEvent.keyDown(screen.getByRole('button', { name: `More actions for ${typeName}` }), { key: 'Enter' });
 	await fireEvent.click(await screen.findByRole('menuitem', { name: action }));
 }
@@ -81,6 +84,8 @@ describe('CalendarSettingsPage', () => {
 		statusTypesStoreMock.add.mockReset();
 		statusTypesStoreMock.update.mockReset();
 		statusTypesStoreMock.remove.mockReset();
+		statusTypesStoreMock.setOrder.mockReset();
+		statusTypesStoreMock.setOrder.mockResolvedValue({ status: 'saved' });
 		statusTypesStoreMock.add.mockResolvedValue({
 			id: 'created-status',
 			name: 'Created status',
@@ -170,82 +175,126 @@ describe('CalendarSettingsPage', () => {
 		expect(screen.queryByText('Access restricted.')).toBeNull();
 	});
 
-	it('creates an ordinary Calendar status and closes the successful form', async () => {
+	it('creates a status with no stored one-day label and closes the composer', async () => {
 		render(CalendarSettingsPage, { props: { org } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Add new' }));
-		const dialog = screen.getByRole('dialog', { name: 'Add Status Type' });
-		await fireEvent.input(within(dialog).getByLabelText('Status name'), { target: { value: ' Detail ' } });
-		await fireEvent.click(within(dialog).getByRole('button', { name: 'Add Status Type' }));
+		const composer = screen.getByRole('form', { name: 'New status type' });
+		await fireEvent.input(within(composer).getByLabelText('Name'), { target: { value: ' Quarters ' } });
+		expect((within(composer).getByLabelText('One-day label') as HTMLInputElement).value).toBe('QUA');
+		await fireEvent.click(within(composer).getByRole('button', { name: 'Add status type' }));
 		expect(statusTypesStoreMock.add).toHaveBeenCalledWith({
-			name: 'Detail',
-			color: '#4a4a47',
-			textColor: '#f8f7f4',
+			name: 'Quarters',
+			color: '#4a5568',
+			textColor: '#ffffff',
 			shortLabel: null
 		});
-		expect(screen.queryByRole('dialog', { name: 'Add Status Type' })).toBeNull();
+		await waitFor(() => expect(screen.queryByRole('form', { name: 'New status type' })).toBeNull());
 	});
 
-	it('blocks accidental close affordances once an add-status form is dirty but keeps Cancel explicit', async () => {
+	it('saves a typed one-day label in capitals with the chosen color and text', async () => {
 		render(CalendarSettingsPage, { props: { org } });
-
 		await fireEvent.click(screen.getByRole('button', { name: 'Add new' }));
-
-		const dialog = screen.getByRole('dialog', { name: 'Add Status Type' });
-		expect(within(dialog).getByRole('button', { name: 'Close' })).toBeTruthy();
-
-		await fireEvent.input(within(dialog).getByLabelText('Status name'), { target: { value: 'Detail' } });
-
-		expect(within(dialog).queryByRole('button', { name: 'Close' })).toBeNull();
-
-		await fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
-
-		expect(screen.queryByRole('dialog', { name: 'Add Status Type' })).toBeNull();
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Add new' }));
-		const reopenedName = within(screen.getByRole('dialog', { name: 'Add Status Type' })).getByLabelText(
-			'Status name'
-		) as HTMLInputElement;
-		expect(reopenedName.value).toBe('');
+		const composer = screen.getByRole('form', { name: 'New status type' });
+		await fireEvent.input(within(composer).getByLabelText('Name'), { target: { value: 'Quarters' } });
+		await fireEvent.input(within(composer).getByLabelText('One-day label'), { target: { value: 'qtr' } });
+		await fireEvent.click(within(composer).getByRole('radio', { name: 'Teal' }));
+		await fireEvent.click(within(composer).getByRole('radio', { name: 'Dark' }));
+		await fireEvent.click(within(composer).getByRole('button', { name: 'Add status type' }));
+		expect(statusTypesStoreMock.add).toHaveBeenCalledWith({
+			name: 'Quarters',
+			color: '#319795',
+			textColor: '#1c1b19',
+			shortLabel: 'QTR'
+		});
 	});
 
-	it('keeps the add-status dialog open when creation fails', async () => {
+	it('keeps the composer open when creation fails', async () => {
 		statusTypesStoreMock.add.mockResolvedValueOnce(null);
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
 		render(CalendarSettingsPage, { props: { org } });
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Add new' }));
-		const dialog = screen.getByRole('dialog', { name: 'Add Status Type' });
-		await fireEvent.input(within(dialog).getByLabelText('Status name'), { target: { value: 'Detail' } });
-		await fireEvent.click(within(dialog).getByRole('button', { name: 'Add Status Type' }));
+		const composer = screen.getByRole('form', { name: 'New status type' });
+		await fireEvent.input(within(composer).getByLabelText('Name'), { target: { value: 'Detail' } });
+		await fireEvent.click(within(composer).getByRole('button', { name: 'Add status type' }));
 
-		expect(screen.getByRole('dialog', { name: 'Add Status Type' })).toBeTruthy();
-		expect(errorToast).toHaveBeenCalledWith('Failed to add status type');
+		await waitFor(() => expect(errorToast).toHaveBeenCalledWith('Failed to add status type'));
+		expect(screen.getByRole('form', { name: 'New status type' })).toBe(composer);
 	});
 
-	it('keeps the edit-status dialog open when save fails', async () => {
+	it('edits in place, keeps a custom text color and a stored label, and stays open when the save fails', async () => {
 		statusTypesStoreMock.items = [
-			{
-				id: 'leave',
-				name: 'Leave',
-				color: '#48bb78',
-				textColor: '#ffffff',
-				shortLabel: null,
-				sortOrder: 2
-			}
+			{ id: 'leave', name: 'Leave', color: '#48bb78', textColor: '#f8f7f4', shortLabel: 'LV', sortOrder: 0 }
 		];
 		statusTypesStoreMock.update.mockResolvedValueOnce(false);
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
 		render(CalendarSettingsPage, { props: { org } });
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Edit Leave' }));
-		const dialog = screen.getByRole('dialog', { name: 'Edit Status Type' });
-		await fireEvent.input(within(dialog).getByLabelText('Status name'), { target: { value: 'Leave Updated' } });
-		await fireEvent.click(within(dialog).getByRole('button', { name: 'Save Changes' }));
+		await openRowAction('Leave', 'Edit');
+		const composer = screen.getByRole('form', { name: 'Edit Leave' });
+		expect((within(composer).getByLabelText('One-day label') as HTMLInputElement).value).toBe('LV');
+		await fireEvent.input(within(composer).getByLabelText('Name'), { target: { value: 'Annual Leave' } });
+		await fireEvent.click(within(composer).getByRole('button', { name: 'Save changes' }));
 
-		expect(screen.getByRole('dialog', { name: 'Edit Status Type' })).toBeTruthy();
-		expect(errorToast).toHaveBeenCalledWith('Failed to save status type');
+		expect(statusTypesStoreMock.update).toHaveBeenCalledWith('leave', {
+			name: 'Annual Leave',
+			color: '#48bb78',
+			textColor: '#f8f7f4',
+			shortLabel: 'LV'
+		});
+		await waitFor(() => expect(errorToast).toHaveBeenCalledWith('Failed to save status type'));
+		expect(screen.getByRole('form', { name: 'Edit Leave' })).toBe(composer);
+	});
+
+	it('asks before an open composer with changes is replaced', async () => {
+		statusTypesStoreMock.items = [
+			{ id: 'leave', name: 'Leave', color: '#48bb78', textColor: '#ffffff', shortLabel: null, sortOrder: 0 }
+		];
+		render(CalendarSettingsPage, { props: { org } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Add new' }));
+		await fireEvent.input(within(screen.getByRole('form', { name: 'New status type' })).getByLabelText('Name'), {
+			target: { value: 'Detail' }
+		});
+
+		await openRowAction('Leave', 'Edit');
+		await fireEvent.click(
+			within(screen.getByRole('alertdialog', { name: 'Discard changes?' })).getByRole('button', { name: 'Cancel' })
+		);
+		expect(
+			(within(screen.getByRole('form', { name: 'New status type' })).getByLabelText('Name') as HTMLInputElement).value
+		).toBe('Detail');
+		expect(screen.queryByRole('form', { name: 'Edit Leave' })).toBeNull();
+
+		await openRowAction('Leave', 'Edit');
+		await fireEvent.click(
+			within(screen.getByRole('alertdialog', { name: 'Discard changes?' })).getByRole('button', { name: 'Discard' })
+		);
+		await waitFor(() => expect(screen.getByRole('form', { name: 'Edit Leave' })).toBeTruthy());
+		expect(screen.queryByRole('form', { name: 'New status type' })).toBeNull();
+	});
+
+	it('saves the full status order after a keyboard move and offers no grips while the list is filtered', async () => {
+		const { layOut } = stubToolbarWidths();
+		statusTypesStoreMock.items = [
+			{ id: 'leave', name: 'Leave', color: '#48bb78', textColor: '#ffffff', shortLabel: null, sortOrder: 0 },
+			{ id: 'school', name: 'School', color: '#4299e1', textColor: '#ffffff', shortLabel: 'SCH', sortOrder: 1 },
+			{ id: 'sick', name: 'Sick', color: '#e53e3e', textColor: '#ffffff', shortLabel: null, sortOrder: 2 }
+		];
+		render(CalendarSettingsPage, { props: { org } });
+		await layOut(2000);
+
+		await fireEvent.keyDown(screen.getByRole('button', { name: 'Reorder Leave' }), { key: 'ArrowDown' });
+		expect(statusTypesStoreMock.setOrder).toHaveBeenCalledWith(['school', 'leave', 'sick']);
+
+		const toolbar = screen.getByRole('toolbar', { name: 'Calendar settings controls' });
+		await fireEvent.input(within(toolbar).getByRole('searchbox', { name: 'Filter Status Types' }), {
+			target: { value: 's' }
+		});
+		await waitFor(() => expect(screen.queryByRole('button', { name: 'Reorder School' })).toBeNull());
+		expect(screen.queryByRole('button', { name: /^Reorder / })).toBeNull();
+		vi.unstubAllGlobals();
 	});
 
 	it('keeps delete confirmation open and local availability intact when deletion fails', async () => {
@@ -264,7 +313,7 @@ describe('CalendarSettingsPage', () => {
 
 		render(CalendarSettingsPage, { props: { org } });
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Delete Leave' }));
+		await openRowAction('Leave', 'Delete');
 		const dialog = screen.getByRole('alertdialog', { name: 'Delete Status Type' });
 		await fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
 
@@ -308,7 +357,7 @@ describe('CalendarSettingsPage', () => {
 		render(CalendarSettingsPage, { props: { org } });
 
 		await fireEvent.click(screen.getByRole('tab', { name: /Assignment Types/i }));
-		await openAssignmentAction('Charge of Quarters', 'Edit');
+		await openRowAction('Charge of Quarters', 'Edit');
 		const dialog = screen.getByRole('dialog', { name: 'Edit Assignment Type' });
 		await fireEvent.input(within(dialog).getByLabelText('Full name'), { target: { value: 'Staff Duty' } });
 		await fireEvent.click(within(dialog).getByRole('button', { name: 'Save Changes' }));
@@ -336,7 +385,7 @@ describe('CalendarSettingsPage', () => {
 		render(CalendarSettingsPage, { props: { org } });
 
 		await fireEvent.click(screen.getByRole('tab', { name: /Assignment Types/i }));
-		await openAssignmentAction('Charge of Quarters', 'Delete');
+		await openRowAction('Charge of Quarters', 'Delete');
 		const dialog = screen.getByRole('alertdialog', { name: 'Delete Assignment Type' });
 		await fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
 
@@ -386,7 +435,7 @@ describe('CalendarSettingsPage', () => {
 
 		await fireEvent.click(screen.getByRole('tab', { name: /Assignment Types/ }));
 		expect(screen.getByRole('button', { name: 'More actions for Charge of Quarters' })).toBeTruthy();
-		await openAssignmentAction('Staff Duty', 'Edit');
+		await openRowAction('Staff Duty', 'Edit');
 		const dialog = screen.getByRole('dialog', { name: 'Edit Assignment Type' });
 
 		expect((within(dialog).getByLabelText('Full name') as HTMLInputElement).value).toBe('Staff Duty');
@@ -558,13 +607,6 @@ describe('CalendarSettingsPage', () => {
 
 	const heldAddDialogs = [
 		{
-			section: null,
-			dialogName: 'Add Status Type',
-			draft: { 'Status name': 'Detail' },
-			save: () => statusTypesStoreMock.add,
-			error: 'Failed to add status type'
-		},
-		{
 			section: /Assignment Types/i,
 			dialogName: 'Add Assignment Type',
 			draft: { 'Full name': 'Staff Duty', 'Short code': 'SD' },
@@ -624,6 +666,33 @@ describe('CalendarSettingsPage', () => {
 		}
 	);
 
+	it('holds a status save with its draft locked, ignores a repeat submit and keeps the draft on failure', async () => {
+		let settle!: (created: null) => void;
+		statusTypesStoreMock.add.mockReturnValueOnce(new Promise((resolve) => (settle = resolve)));
+		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+		render(CalendarSettingsPage, { props: { org } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Add new' }));
+		const composer = screen.getByRole('form', { name: 'New status type' });
+		const name = within(composer).getByLabelText('Name') as HTMLInputElement;
+		await fireEvent.input(name, { target: { value: 'Detail' } });
+		const submit = within(composer).getByRole('button', { name: 'Add status type' }) as HTMLButtonElement;
+
+		await fireEvent.click(submit);
+		await fireEvent.click(submit);
+
+		expect(statusTypesStoreMock.add).toHaveBeenCalledTimes(1);
+		expect(submit.disabled).toBe(true);
+		expect(inDisabledGroup(name)).toBe(true);
+
+		settle(null);
+
+		await waitFor(() => expect(inDisabledGroup(name)).toBe(false));
+		expect(errorToast).toHaveBeenCalledWith('Failed to add status type');
+		expect(screen.getByRole('form', { name: 'New status type' })).toBe(composer);
+		expect(name.value).toBe('Detail');
+		expect(submit.disabled).toBe(false);
+	});
+
 	it('keeps a held status deletion busy and undismissable until it settles', async () => {
 		statusTypesStoreMock.items = [
 			{ id: 'leave', name: 'Leave', color: '#48bb78', textColor: '#ffffff', shortLabel: null, sortOrder: 4 }
@@ -632,7 +701,7 @@ describe('CalendarSettingsPage', () => {
 		statusTypesStoreMock.remove.mockReturnValueOnce(new Promise((resolve) => (settle = resolve)));
 		render(CalendarSettingsPage, { props: { org } });
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Delete Leave' }));
+		await openRowAction('Leave', 'Delete');
 		const dialog = screen.getByRole('alertdialog', { name: 'Delete Status Type' });
 		await fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
 
@@ -656,7 +725,7 @@ describe('CalendarSettingsPage', () => {
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 		render(CalendarSettingsPage, { props: { org } });
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Delete Leave' }));
+		await openRowAction('Leave', 'Delete');
 		const dialog = screen.getByRole('alertdialog', { name: 'Delete Status Type' });
 		await fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
 		expect(dialog.getAttribute('aria-busy')).toBe('true');

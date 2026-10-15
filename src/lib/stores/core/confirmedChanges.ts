@@ -17,8 +17,9 @@ export const CONFIRMED_CHANGE_COOKIE_PREFIX = 't2t-confirmed-';
 /** How long a store keeps changes for responses whose requests have not arrived yet. */
 export const CONFIRMED_CHANGE_RETENTION_MS = 10 * 60 * 1000;
 
-// Bounds cookies left by tabs that closed without a final `pagehide`.
+// Bounds cookies left by tabs that closed without a final `pagehide`; a live tab refreshes its own.
 const COOKIE_MAX_AGE_SECONDS = 24 * 60 * 60;
+const COOKIE_REFRESH_MS = 60 * 60 * 1000;
 
 /** The confirmed-change sequence each tab's cookie carried on one request. */
 export type ConfirmedChangesByTab = Record<string, number>;
@@ -46,9 +47,11 @@ if (typeof window !== 'undefined') {
 	window.addEventListener('pagehide', (event) => {
 		if (!event.persisted) writeCookie(null);
 	});
-	window.addEventListener('pageshow', () => {
+	const refresh = () => {
 		if (sequence > 0) writeCookie(sequence);
-	});
+	};
+	window.addEventListener('pageshow', refresh);
+	setInterval(refresh, COOKIE_REFRESH_MS);
 }
 
 /** Number a change and send it with every request this tab starts afterwards. */
@@ -61,10 +64,7 @@ export function confirmedSequence(): number {
 	return sequence;
 }
 
-/**
- * The sequence this tab's cookie carried, from the values a delivery echoed. A request without one
- * left before this tab confirmed anything, or after its cookie expired; either way it is recent.
- */
+/** The sequence this tab's cookie carried, from the values a delivery echoed; 0 before its first change. */
 export function confirmedBeforeRequest(byTab: ConfirmedChangesByTab): number {
 	return byTab[tab] ?? 0;
 }

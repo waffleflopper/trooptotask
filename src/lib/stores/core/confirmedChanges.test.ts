@@ -74,16 +74,20 @@ describe('confirmed changes', () => {
 		]);
 	});
 
-	it('re-applies every retained change for a request that carried no token', async () => {
+	it("throws for a snapshot that left before this tab's first change once that change is discarded", async () => {
 		vi.useFakeTimers({ now: new Date('2026-10-14T12:00:00Z') });
-		const store = rowStore();
+		vi.resetModules();
+		const freshTab = await import('./createStore.svelte');
+		const tokens = await import('./confirmedChanges');
+		const store = rowStore(freshTab.createStore<Row>);
 		store.load([{ id: 'a', name: 'A' }], 'org-1');
+		const request = confirmedChangesSentNow();
 		await store.remove('a');
 		vi.advanceTimersByTime(CONFIRMED_CHANGE_RETENTION_MS + 1);
 		await store.add({ name: 'Later' });
 
-		const recentRead = store.beginRead(confirmedBeforeRequest({}));
+		const read = store.beginRead(tokens.confirmedBeforeRequest(request));
 
-		expect(recentRead.reconcile([], everything)).toEqual(store.rawItems);
+		expect(() => read.reconcile([{ id: 'a', name: 'A' }], everything)).toThrow(tokens.SnapshotTooOldError);
 	});
 });

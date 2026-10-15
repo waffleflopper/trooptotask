@@ -143,6 +143,56 @@ describe('personnel ICT completions batch API', () => {
 		expect(completionsAfter).toEqual([]);
 	});
 
+	it.each([
+		[{ records: [null] }, 'Each import row needs a row number and cell values'],
+		[{ records: [{ rowNumber: 1, values: null }] }, 'Each import row needs its cell values'],
+		[{ records: [{ rowNumber: 1.5, values: {} }] }, 'Row number must be a whole number'],
+		[
+			{ records: [{ rowNumber: 1, values: { lastName: 42, firstName: 'Jane', completedAt: '2026-04-15' } }] },
+			'Import cells must be text'
+		],
+		[{ records: 'rows' }, 'records array is required']
+	])('refuses malformed import rows with a 400 and saves nothing: %j', async (body, message) => {
+		const ctx = createTestContext();
+		await expect(handleUseCaseRequest(_postConfig, ctx, body, () => ctx)).rejects.toMatchObject({
+			status: 400,
+			message
+		});
+		expect(await ctx.store.findMany('personnel_ict_completions', ctx.auth.orgId)).toEqual([]);
+	});
+
+	it('reads a null cell as an empty cell and reports the row error', async () => {
+		const ctx = createTestContext();
+		const result = await handleUseCaseRequest(
+			_postConfig,
+			ctx,
+			{
+				records: [
+					{
+						rowNumber: 2,
+						values: { lastName: 'Smith', firstName: null, taskCode: 'T-1', completedAt: '2026-04-15' }
+					}
+				]
+			},
+			() => ctx
+		);
+		expect(result.errors).toEqual([
+			{
+				rowNumber: 2,
+				personnelName: 'Smith',
+				taskCode: 'T-1',
+				message: 'First name is required'
+			},
+			{
+				rowNumber: 2,
+				personnelName: 'Smith',
+				taskCode: 'T-1',
+				message: 'Task code "T-1" does not match an existing critical task'
+			}
+		]);
+		expect(await ctx.store.findMany('personnel_ict_completions', ctx.auth.orgId)).toEqual([]);
+	});
+
 	it('denies a view-only Critical Tasks member before importing a completion', async () => {
 		const ctx = createTestContext({
 			auth: {

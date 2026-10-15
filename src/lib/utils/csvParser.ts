@@ -1,5 +1,6 @@
 // src/lib/utils/csvParser.ts
 import type ExcelJS from 'exceljs';
+import { isDateOnly } from '$lib/utils/dates';
 import { resolveExcelWorkbookConstructor } from '$lib/utils/excelWorkbook';
 
 /**
@@ -145,16 +146,15 @@ export function parseDateString(str: string): string | null {
 
 	// ISO: YYYY-MM-DD
 	if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-		const d = new Date(trimmed + 'T00:00:00');
-		return isNaN(d.getTime()) ? null : trimmed;
+		return isDateOnly(trimmed) ? trimmed : null;
 	}
 
 	// US: MM/DD/YYYY
 	const usMatch = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
 	if (usMatch) {
 		const [, mm, dd, yyyy] = usMatch;
-		const d = new Date(`${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}T00:00:00`);
-		return isNaN(d.getTime()) ? null : `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+		const candidate = `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+		return isDateOnly(candidate) ? candidate : null;
 	}
 
 	// Excel serial number

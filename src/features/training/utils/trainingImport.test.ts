@@ -51,6 +51,7 @@ describe('parseTrainingStatus', () => {
 
 	it('returns invalid for unrecognized values', () => {
 		expect(parseTrainingStatus('foobar').type).toBe('invalid');
+		expect(parseTrainingStatus('2026-02-30')).toEqual({ type: 'invalid', date: null, raw: '2026-02-30' });
 	});
 
 	it('preserves raw value', () => {

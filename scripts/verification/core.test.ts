@@ -16,6 +16,7 @@ import {
 	cleanEnvironment,
 	browserEnvironment,
 	launchOptions,
+	restartOptions,
 	processIdentity,
 	stopOwnedProcess
 } from './core.mjs';
@@ -186,4 +187,16 @@ it('gives the browser the chosen zone without widening its inherited environment
 	expect(browserEnvironment('Pacific/Pago_Pago')).toEqual({ ...cleanEnvironment(), TZ: 'Pacific/Pago_Pago' });
 	expect(browserEnvironment(undefined)).toEqual(cleanEnvironment());
 	expect(browserEnvironment(undefined)).not.toHaveProperty('TZ');
+});
+
+it('restarts in the browser zone the previous session ran in unless the flag names another', () => {
+	const previous = { browserTimeZone: 'Pacific/Kiritimati' };
+
+	expect(restartOptions([], previous)).toEqual({ browserTimeZone: 'Pacific/Kiritimati' });
+	expect(restartOptions(['--browser-timezone', 'Pacific/Pago_Pago'], previous)).toEqual({
+		browserTimeZone: 'Pacific/Pago_Pago'
+	});
+	expect(restartOptions([], {})).toEqual({});
+	expect(restartOptions([], null)).toEqual({});
+	expect(() => restartOptions([], { browserTimeZone: 'Mars/Base' })).toThrow('Unknown IANA time zone Mars/Base.');
 });

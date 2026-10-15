@@ -34,13 +34,17 @@ export const _getConfig: RouteConfig<
 	context: createRequestSignInRosterContext,
 	policyAction: POLICY_ACTION_CATALOG.training.viewRecords,
 	policyResource: { kind: 'unscoped' },
-	parseInput: (event: RequestEvent) => ({
-		title: event.url.searchParams.get('title') || '',
-		createdFrom: instantParam(event.url.searchParams.get('createdFrom')),
-		createdBefore: instantParam(event.url.searchParams.get('createdBefore')),
-		limit: Math.min(nonNegativeIntegerParam(event.url.searchParams.get('limit')) || 20, 100),
-		offset: nonNegativeIntegerParam(event.url.searchParams.get('offset'))
-	}),
+	parseInput: (event: RequestEvent) => {
+		// A tab loaded before the instant bounds still sends day-only from/to; refuse it rather than list every roster.
+		if (event.url.searchParams.get('from') || event.url.searchParams.get('to')) fail(400, 'Use a valid date range');
+		return {
+			title: event.url.searchParams.get('title') || '',
+			createdFrom: instantParam(event.url.searchParams.get('createdFrom')),
+			createdBefore: instantParam(event.url.searchParams.get('createdBefore')),
+			limit: Math.min(nonNegativeIntegerParam(event.url.searchParams.get('limit')) || 20, 100),
+			offset: nonNegativeIntegerParam(event.url.searchParams.get('offset'))
+		};
+	},
 	fn: (ctx, input) => listSignInRosters(ctx, input)
 };
 

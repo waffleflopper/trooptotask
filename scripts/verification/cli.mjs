@@ -24,7 +24,8 @@ import {
 	stopOwnedProcess,
 	terminateOwnedGroup,
 	profileProcess,
-	launchOptions
+	launchOptions,
+	restartOptions
 } from './core.mjs';
 
 const argv = process.argv.slice(2);
@@ -50,8 +51,10 @@ launch [--browser-timezone IANA]
                       Copy this candidate, create isolated provider/fixtures, build, launch app and browser.
                       The app always runs in UTC like production; the browser runs in the named zone
                       (default: host zone), so the viewer's day can differ from the server's
-doctor                Prove app/provider ownership and current candidate; reports browserTimeZone
-restart [--browser-timezone IANA]   Cleanup this worker, then launch the current candidate
+doctor                Prove app/provider ownership and current candidate; reports appTimeZone and browserTimeZone
+restart [--browser-timezone IANA]
+                      Cleanup this worker, then launch the current candidate. The browser keeps the
+                      previous session's zone unless the flag names another
 login manager|viewer|scoped|foreign   Normal UI login with private synthetic credentials
 tools                 Native DevTools tool names, descriptions, and JSON argument schemas
 tool NAME '{...}'     Call a native DevTools tool (pageId and snapshot UIDs from its output)
@@ -221,7 +224,7 @@ async function cleanup() {
 }
 
 try {
-	const options = ['launch', 'restart'].includes(command) ? launchOptions(args) : {};
+	const options = command === 'launch' ? launchOptions(args) : {};
 	let result;
 	if (['help', '--help', '-h'].includes(command)) {
 		console.log(help);
@@ -245,12 +248,14 @@ try {
 				result = await launch(options);
 				break;
 			case 'restart': {
+				const previous = await readJSON(path.join(session, 'session.json')).catch(() => null);
+				const restart = restartOptions(args, previous);
 				const stopped = await cleanup();
 				if (stopped.status !== 'PASS') {
 					result = stopped;
 					break;
 				}
-				result = await launch(options);
+				result = await launch(restart);
 				break;
 			}
 			case 'cleanup':

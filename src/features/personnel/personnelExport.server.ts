@@ -26,6 +26,8 @@ interface PersonnelExportContext {
 
 export interface PersonnelExportInput {
 	personnelId: string;
+	/** The viewer's "YYYY-MM-DD" day, which names the file. */
+	asOf: string;
 }
 
 export interface PersonnelExportOutput {
@@ -187,7 +189,6 @@ export async function exportPersonnelWorkbook(
 		`${(person.rank as string) ?? ''} ${(person.lastName as string) ?? ''} ${(person.firstName as string) ?? ''}`
 			.trim()
 			.replace(/\s+/g, '_');
-	const dateStr = new Date().toISOString().split('T')[0];
 
 	ctx.audit.log({
 		action: 'personnel.exported',
@@ -198,7 +199,7 @@ export async function exportPersonnelWorkbook(
 		}
 	});
 
-	return { _buffer: buffer, _filename: `${personName}-export-${dateStr}.xlsx` };
+	return { _buffer: buffer, _filename: `${personName}-export-${input.asOf}.xlsx` };
 }
 
 function addMappedSheet<T extends object>(

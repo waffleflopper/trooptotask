@@ -718,6 +718,18 @@ describe('/api/sign-in-rosters route config', () => {
 			await expect(parse(query)).rejects.toMatchObject({ status: 400, message: 'Use a valid date range' });
 		}
 	});
+
+	it('refuses the day-only from and to range a tab loaded before the instant bounds still sends', async () => {
+		const parse = (query: string) =>
+			Promise.resolve().then(() =>
+				_getConfig.parseInput?.({ url: new URL(`http://localhost/api/sign-in-rosters?${query}`) } as never)
+			);
+
+		for (const query of ['from=2026-10-14&to=2026-10-14&limit=20&offset=0', 'from=2026-02-30', 'to=2026-10-14']) {
+			await expect(parse(query)).rejects.toMatchObject({ status: 400, message: 'Use a valid date range' });
+		}
+		await expect(parse('from=&to=&limit=20')).resolves.toMatchObject({ createdFrom: null, createdBefore: null });
+	});
 });
 
 function signInPersonnel(overrides: Partial<SignInRosterPersonnelLookupRecord>): SignInRosterPersonnelLookupRecord {

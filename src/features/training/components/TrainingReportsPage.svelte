@@ -75,6 +75,10 @@
 				}
 			})
 	);
+	$effect(() => {
+		const report = initialReport;
+		untrack(() => session.receive(report));
+	});
 	const printCycle = new TrainingPrintCycle(() => ({
 		report: session.report,
 		detail: session.detail.status === 'idle' ? null : session.detail.detail

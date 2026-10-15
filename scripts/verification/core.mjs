@@ -205,6 +205,11 @@ export function launchOptions(args) {
 	}
 	return { browserTimeZone: timeZone };
 }
+/** `restart` keeps the zone the previous session ran in unless its arguments name another. */
+export function restartOptions(args, previous) {
+	if (args.length || !previous?.browserTimeZone) return launchOptions(args);
+	return launchOptions(['--browser-timezone', previous.browserTimeZone]);
+}
 /** The browser runs in the chosen zone, or the host zone when none was chosen. */
 export function browserEnvironment(browserTimeZone) {
 	return browserTimeZone ? { ...cleanEnvironment(), TZ: browserTimeZone } : cleanEnvironment();

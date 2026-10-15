@@ -42,6 +42,8 @@ Vercel skips on exit code 0 and builds on exit code 1. The command converts Git 
 
 Build-machine selection remains a hosted project setting. Compare Basic and Standard on the same commit and environment before changing it. Use completed builds and Vercel's billed CPU minutes, which include container work after the deployment becomes ready. Keep dependency-cache conditions comparable and report repeated runs, costs, and timing ranges. Build-machine changes do not change function memory or runtime settings.
 
+[PR #1695](https://github.com/waffleflopper/trooptotask/pull/1695) records the hosted rollout, completed build comparisons, and selected machine.
+
 References: [Vercel build filtering](https://vercel.com/docs/project-configuration/project-settings#ignored-build-step), [previous deployment SHA](https://vercel.com/docs/environment-variables/system-environment-variables#vercel_git_previous_sha), [build machines](https://vercel.com/docs/builds/managing-builds).
 
 ## Database isolation

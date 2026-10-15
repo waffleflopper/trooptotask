@@ -132,8 +132,9 @@ export const statusTypeCreateInput = z.object({
 	sortOrder: z.never({ error: 'Status type order changes through the order command' }).optional()
 });
 export const statusTypeUpdateInput = statusTypeCreateInput.partial().extend({ id: z.string() });
+// Any database uuid: demo-seeded ids carry no RFC version, and the command's uuid[] parameter enforces the type.
 const statusTypeIds = z
-	.array(z.string().uuid())
+	.array(z.guid())
 	.refine((ids) => new Set(ids).size === ids.length, 'Each status type appears once');
 export const statusTypeOrderInput = z
 	.object({ statusTypeIds: statusTypeIds, expectedStatusTypeIds: statusTypeIds })
@@ -153,7 +154,7 @@ export const assignmentTypeUpdateInput = assignmentTypeFields
 	.partial()
 	.extend({ id: z.string(), showOnCalendar: z.never().optional() });
 const laneTypeIds = z
-	.array(z.string().uuid())
+	.array(z.guid())
 	.refine((ids) => new Set(ids).size === ids.length, 'Each assignment type can be one lane');
 export const calendarLanesInput = z.object({ laneTypeIds: laneTypeIds, expectedLaneTypeIds: laneTypeIds }).strict();
 export const specialDayCreateInput = z.object({

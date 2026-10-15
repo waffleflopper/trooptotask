@@ -9,8 +9,9 @@ vi.mock('$lib/server/adapters/requestContexts.server', async (importOriginal) =>
 	buildRouteRequest: vi.fn()
 }));
 
-const LEAVE = '00000000-0000-4000-8000-000000000401';
-const SICK = '00000000-0000-4000-8000-000000000402';
+// Demo-seeded ids come from md5(...)::uuid and carry no RFC version or variant.
+const LEAVE = 'e6110000-0000-0000-0000-000000000401';
+const SICK = 'e6110000-0000-0000-0000-000000000402';
 let provider: { calls: Array<{ path: string; body: unknown }>; reply: () => Response | Promise<Response> };
 
 function admit(capabilityMap?: NonNullable<Parameters<typeof createTestContext>[0]>['auth']) {

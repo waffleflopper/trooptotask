@@ -322,27 +322,55 @@ describe('fitMarkers', () => {
 			['leave', 'top'],
 			['school', 'full']
 		]);
-		expect(fit.markerDays).toEqual([2]);
+		expect(fit.markers).toEqual([{ day: 2, shared: false }]);
 	});
 
-	it('drops a marker whose day already holds a lower bar or a summary', () => {
-		const lower = layoutBars(
-			[span('tdy', tdy, '2026-10-20', '2026-10-24'), span('apt', appointment, '2026-10-21', '2026-10-21')],
-			oct19To28,
-			month
+	it('keeps a marker whose day holds a lower bar or a summary, cutting that item around the marker', () => {
+		const lower = fitMarkers(
+			layoutBars(
+				[span('tdy', tdy, '2026-10-20', '2026-10-24'), span('apt', appointment, '2026-10-21', '2026-10-21')],
+				oct19To28,
+				month
+			),
+			[4, 2]
 		);
-		expect(fitMarkers(lower, [2, 4]).markerDays).toEqual([4]);
+		expect(lower.markers).toEqual([
+			{ day: 2, shared: true },
+			{ day: 4, shared: false }
+		]);
+		expect(lower.layout.bars.map((bar) => [bar.entry.id, bar.lane, bar.pieces])).toEqual([
+			['tdy', 'top', undefined],
+			['apt', 'bottom', [{ start: 2, end: 2, yieldsEnd: true }]]
+		]);
 
-		const summarized = layoutBars(
-			[
-				span('a', leave, '2026-10-19', '2026-10-26'),
-				span('b', sick, '2026-10-21', '2026-10-24'),
-				span('c', appointment, '2026-10-22', '2026-10-23')
-			],
-			oct19To28,
-			month
+		const summarized = fitMarkers(
+			layoutBars(
+				[
+					span('a', leave, '2026-10-19', '2026-10-26'),
+					span('b', sick, '2026-10-21', '2026-10-24'),
+					span('c', appointment, '2026-10-22', '2026-10-23')
+				],
+				oct19To28,
+				month
+			),
+			[3, 7]
 		);
-		expect(fitMarkers(summarized, [3, 7]).markerDays).toEqual([7]);
+		expect(summarized.markers).toEqual([
+			{ day: 3, shared: true },
+			{ day: 7, shared: false }
+		]);
+		expect(summarized.layout.bars.map((bar) => [bar.entry.id, bar.lane])).toEqual([['a', 'top']]);
+		expect(
+			summarized.layout.overflows.map((overflow) => [overflow.spans.map((item) => item.entry.id), overflow.pieces])
+		).toEqual([
+			[
+				['b', 'c'],
+				[
+					{ start: 2, end: 3, yieldsEnd: true },
+					{ start: 4, end: 5, yieldsEnd: false }
+				]
+			]
+		]);
 	});
 });
 

@@ -6,7 +6,7 @@ All historical links below pin commit `dbd501301df350ef4e6cebb6bc1238283b24d9c9`
 
 ## 11-05a, 11-09 D06 validated inputs, dates and truthful failures
 
-**PR 1 and PR 2 merged; PR 3 is in review.** Each uses `Refs #1644`. [PR 2 #1698](https://github.com/waffleflopper/trooptotask/pull/1698) merged as `2a5b34c87` after exact-head `c6e7a90a8` passed all seven checks. Its one CodeRabbit thread was dismissed, with a reason, because the REST adapter already maps a rejected delete to `'error'`. Branch `chore/stabilize-1644` began at fetched main `7405e6715`, with no earlier D06 branch or PR. Robert authorized publication and verified merges through the PR that closes #1644. [PR 1 #1696](https://github.com/waffleflopper/trooptotask/pull/1696) merged as `9ac7bb8aa` after exact-head `a32de9c02` passed all seven checks with every review thread resolved. The merged `src` tree equals the tested head. #1554, #1557 and #1561 are closed with pointers to the matching final evidence below. PR 2 is on `chore/stabilize-1644-2`, from main `9ac7bb8aa`.
+**Four PRs. PRs 1–3 are merged; PR 4 closes #1644 on merge after Robert confirms its migration live.** PRs 1–3 use `Refs #1644`. [PR 2 #1698](https://github.com/waffleflopper/trooptotask/pull/1698) merged as `2a5b34c87` after exact-head `c6e7a90a8` passed all seven checks. Its one CodeRabbit thread was dismissed, with a reason, because the REST adapter already maps a rejected delete to `'error'`. [PR 3 #1700](https://github.com/waffleflopper/trooptotask/pull/1700) merged as `f7b87d6f4` after exact-head `eea048c85` passed all seven checks with every thread resolved. Its last two commits were reviewed by the CodeRabbit CLI after the hosted review was rate-limited. PR 4 is on `chore/stabilize-1644-4`. Final whole-issue evidence is in [Final acceptance](#pr-4-onboarding-completion-day-remaining-gaps-and-final-acceptance).
 
 **Census.** A read-only source trace of every retained route, provider mapping, date path and form save found seven root causes behind #1554, #1557, #1561, the Training name-length message and about 40 further sites:
 
@@ -53,7 +53,7 @@ The [invalid-input recipe](../../.agents/skills/verify-trooptotask/features/inva
 **Final runs.** Every probe now answers its intended 4xx with no effect.
 
 - **Run 1.** [`11-09-pr1-final.tar.gz`](https://github.com/waffleflopper/trooptotask/releases/download/evidence/11-09-pr1-final.tar.gz), SHA-256 `55d288737b308e48af9d8fbb632bb0ff1badafba34bdd5326316ecd339c3be30`, 22 payloads. Revision `f98c1725a`, digest `bf290d4a…8fca`.
-  - All 45 baseline probes pass with readbacks.
+  - All 45 baseline probes now return their intended 4xx. This run's Personnel readbacks used a stale fixture id after a restart and prove nothing. The [final acceptance run](#pr-4-onboarding-completion-day-remaining-gaps-and-final-acceptance) supplies real before/after readbacks for Personnel and assignments.
   - Training shows `Name must be 100 characters or fewer` and `A Training type with that name already exists.`, with the draft kept and no row.
   - The status type shows the length message, and the row is unchanged.
   - Group rename **failed**. The client duplicate check showed `Unable to rename Group. Try again.` and sent no request. `99f34898c` repaired it.
@@ -158,11 +158,50 @@ D6 and D7 depend on wall-clock timing and are proven by unit tests with a fixed 
 
 The History sort finding belongs to PR 4.
 
+### PR 4 Onboarding completion day, remaining gaps and final acceptance
+
+**Scope.** PR 4 does four things:
+
+- **D3.** It stores an Onboarding completion on the member's local day. Migration `20261014000500` and [RELEASE](RELEASE.md#phase-11-d06-onboarding-local-completion-day) cover the change. History sorts by the viewer's finish day, and durations are never negative.
+- **Gaps found by independent whole-issue acceptance** of PRs 1–3:
+  - The Critical Tasks completion import now validates nested rows (G1).
+  - The Training import status must be `completed` or `exempt` (G2).
+  - The shared CSV date parser rejects impossible calendar days, so review flags them before submission (G3).
+- **One missed consumer per form family**, found in this run: the Personnel detail basic-info editor, the artifact add forms, follow-up updates, Onboarding packet writes, Availability edits and Critical Tasks defaults now show the server's 4xx reason. A server or transport failure keeps each form's text.
+- **Evidence gaps** that acceptance listed (G4, G5).
+
+**Baseline for D3.** Recorded in [PR 3's baseline](#pr-3-the-viewers-day-and-date-only-display): the client sent 2026-10-14, the database stored 2026-10-15, and History read `14 Oct → 15 Oct, 1 day`. G1–G3 and the missed form consumer are source-traced or observed failing in this run before their repair.
+
+**Final acceptance run.** [`11-09-final-acceptance.tar.gz`](https://github.com/waffleflopper/trooptotask/releases/download/evidence/11-09-final-acceptance.tar.gz), SHA-256 `3f4895349232dee01d69c2348e845ceaa169ef93759a710cf1917150d5839097`, 130 payloads. Browser in `Pacific/Kiritimati`, with day 2026-10-16. App on UTC, with day 2026-10-15. Raw `doctor`, cookie and network captures are included.
+
+- **Part 1, `a5aed1d0b`:**
+  - **First load with no cookie.** One document load and one `__data.json` refresh. The cookie comes back and the report reads `as of 16 Oct`. With the cookie set there is no refresh loop.
+  - **Critical Tasks.** The matrix, report, Able's lane and the Dashboard page data agree: expiring on the browser day, the update 0 days old and 50% ready. The report and matrix exports are named `-2026-10-16`.
+  - **Personnel and assignment probes.** Able's real row and the four seeded assignments are byte-identical before and after.
+  - **G1 and G2.** They return 400 and the stored rows are unchanged.
+  - **G3.** The native Import CSV flags the impossible row and saves only the valid one.
+  - **Training view create.** It shows the 100-character message and keeps the draft.
+  - **Personnel detail basic info.** It showed generic text for a 404. This failed, and the next commit repairs it.
+- **Part 2, `ee4726f31`:**
+  - **Personnel detail basic info.** It now shows `This person is no longer available.`
+  - **Rating Scheme edit.** It shows `Rating Scheme entry not found`.
+  - **Onboarding start.** It shows `Soldier already has an active onboarding`.
+  - **Exemption toggle failure.** It toasts and reverts.
+  - **Documents card.** It shows the browser day.
+  - **D3, natively.** Close out stores `completed_at` 2026-10-16. Cancelling a packet and History both show the browser day, newest first.
+
+Part 1 observations remain applicable to Part 2, because `ee4726f31` changes none of the paths Part 1 drove except the repaired one, which Part 2 reran. D6 and D7 are wall-clock arithmetic proven by fixed-zone unit tests.
+
+**Checks.** On `ee4726f31` the six commands pass, with 797 files and 8,836 tests. The SQL suite for the migration runs first in CI's database job. The disposable verification database applied it at launch, and the native close-out exercised it.
+
 **Kept limits.**
 
 - **Private-scan test.** The denial test in `privateResources.test.ts` reaches its 404 through id shape, both before and after this PR, so it does not prove roster scope. Roster delete scope is enforced in its database function (#1679).
-- **Remaining routes.** Not every remaining `Record<string, unknown>` route was read deeply, Personnel follow-ups for example. The census and both reviews covered the retained JSON routes.
-- **Duplicate toast.** Assignment-type failures still show two toasts. PR 2 owns that feedback.
+- **Archived Person edits.** An edit form saved after its Person was archived elsewhere still succeeds and updates the archived row. This is existing behavior, observed in the final run and recorded only.
+- **Organization export filenames** keep their own `exportedAt` instant's UTC day, which matches the export contents.
+- **Server-rendered display dates** for notes, documents and relative labels can show the UTC day until hydration replaces them. Values that decide status, counts and filenames use the viewer's day.
+- **Training reorder** remains two independent writes. The page reports a refused write and reloads the saved order.
+- **#1555's 501-Person scale case** stays deferred pending actual usage. No scale acceptance is claimed.
 
 ## 11-05c D09 Calendar re-entry freshness
 

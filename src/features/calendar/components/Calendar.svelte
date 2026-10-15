@@ -332,7 +332,7 @@
 					{#each visibleRosterRows as row (row.key)}
 						<div
 							class={[
-								'virtual-row absolute top-0 left-0 w-full overflow-hidden',
+								'virtual-row absolute top-0 left-0 w-full overflow-clip',
 								row.type === 'person' && 'virtual-row--person',
 								row.type === 'group' && 'virtual-row--group'
 							]}

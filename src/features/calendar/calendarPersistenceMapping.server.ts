@@ -138,7 +138,6 @@ export const assignmentTypeUpdateInput = assignmentTypeFields
 	.extend({ id: z.string(), showOnCalendar: z.never().optional() });
 const laneTypeIds = z
 	.array(z.string().uuid())
-	.max(200)
 	.refine((ids) => new Set(ids).size === ids.length, 'Each assignment type can be one lane');
 export const calendarLanesInput = z.object({ laneTypeIds: laneTypeIds, expectedLaneTypeIds: laneTypeIds }).strict();
 export const specialDayCreateInput = z.object({

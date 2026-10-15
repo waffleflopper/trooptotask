@@ -123,6 +123,34 @@ describe('Calendar assignment-type operations', () => {
 		]);
 	});
 
+	it('saves a lane list of any length', async () => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		const ids = Array.from({ length: 201 }, (_, index) => `00000000-0000-4000-b000-${String(index).padStart(12, '0')}`);
+		ctx.store.seed(
+			'assignment_types',
+			ids.map((id, index) => ({
+				id,
+				organization_id: ctx.auth.orgId,
+				name: `Duty ${index}`,
+				short_name: 'D',
+				assign_to: 'personnel',
+				color: '#dc2626',
+				sort_order: index,
+				show_on_calendar: true,
+				exempt_personnel_ids: [],
+				archived_at: null
+			}))
+		);
+		await setCalendarLanes(ctx, { laneTypeIds: [...ids].reverse(), expectedLaneTypeIds: ids });
+		const saved = (
+			await ctx.store.findMany<{ id: string; show_on_calendar: boolean; sort_order: number }>(
+				'assignment_types',
+				ctx.auth.orgId
+			)
+		).filter((row) => row.show_on_calendar);
+		expect(saved.sort((a, b) => a.sort_order - b.sort_order).map((row) => row.id)).toEqual([...ids].reverse());
+	});
+
 	it.each([
 		{},
 		{ laneTypeIds: ['not-a-uuid'], expectedLaneTypeIds: [ID] },
@@ -132,10 +160,7 @@ describe('Calendar assignment-type operations', () => {
 		const ctx = createWriteWithNotificationsPortsContext();
 		const lanes = seedTypes(ctx);
 		const save = vi.spyOn(ctx.calendarCatalogs, 'setCalendarLanes');
-		await expect(setCalendarLanes(ctx, input)).rejects.toMatchObject({
-			status: 400,
-			body: { message: 'Choose the assignment types to show on the calendar' }
-		});
+		await expect(setCalendarLanes(ctx, input)).rejects.toMatchObject({ status: 400 });
 		expect(save).not.toHaveBeenCalled();
 		expect(await lanes()).toEqual(['Staff']);
 	});

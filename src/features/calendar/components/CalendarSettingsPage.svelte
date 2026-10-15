@@ -36,8 +36,7 @@
 		{
 			key: 'status',
 			label: 'Status Types',
-			description:
-				'Why someone is unavailable. Each status draws as a bar on the calendar, so its color and labels are what people scan for.',
+			description: "Set each status's name, color and one-day label, and drag to set the legend and picker order.",
 			icon: Palette,
 			getCount: () => statusTypesStore.items.length
 		},

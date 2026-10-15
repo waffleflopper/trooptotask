@@ -5,10 +5,9 @@ describe('oneDayLabel', () => {
 	it.each([
 		['Sick', 'SIC'],
 		['Appointment', 'APP'],
-		['Training / TDY', 'TRA'],
-		['CQ/SD', 'CQ/'],
+		['CQ/SD', 'CQS'],
 		['  a b  cd ', 'ABC'],
-		['Straße', 'STR'],
+		['3rd Shift', '3RD'],
 		['ß', 'SS'],
 		['Up', 'UP']
 	])('derives %j as %j', (name, label) => {

@@ -150,7 +150,7 @@ _Avoid_: Event, appointment when the availability state is meant
 
 **Status Type**:
 An Organization-defined availability category, such as leave, school, training, appointment, or sick call.
-Its saved order sets the legend and picker order. Its **One-day label**, up to three characters, names it on a one-day bar; without one, the first three letters of its name are used.
+Its saved order sets the legend and picker order. Its **One-day label**, up to three characters, names it on a one-day bar; without one, the first three letters or digits of its name are used.
 _Avoid_: Calendar color
 
 **Assignment Type**:

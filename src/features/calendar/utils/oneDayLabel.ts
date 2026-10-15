@@ -7,9 +7,10 @@ function leading(value: string, count: number): string {
 	return [...value].slice(0, count).join('');
 }
 
-/** The label a status shows on a one-day bar when none is stored: the name's first three non-whitespace characters. */
+/** The label a status shows on a one-day bar when none is stored: the name's first three letters or digits. */
 export function suggestOneDayLabel(name: string): string {
-	return leading(leading(name.trim().replace(/\s+/gu, ''), ONE_DAY_LABEL_LENGTH).toUpperCase(), ONE_DAY_LABEL_LENGTH);
+	const alphanumeric = name.replace(/[^\p{L}\p{N}]/gu, '');
+	return leading(leading(alphanumeric, ONE_DAY_LABEL_LENGTH).toUpperCase(), ONE_DAY_LABEL_LENGTH);
 }
 
 export function oneDayLabel(status: Pick<StatusType, 'name' | 'shortLabel'>): string {

@@ -118,7 +118,8 @@ export function toAssignment(row: AssignmentRow): SavedAssignment {
 	};
 }
 
-// Status type order changes only through statusTypeOrderInput; create appends.
+// Status type order changes only through statusTypeOrderInput. Create appends at max + 1, so two
+// concurrent creates can tie; every reader orders ties by id.
 export const statusTypeCreateInput = z.object({
 	name: z.string().min(1).max(100),
 	color: z.string().optional(),

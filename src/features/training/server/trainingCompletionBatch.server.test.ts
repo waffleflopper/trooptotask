@@ -738,4 +738,19 @@ describe('batch acknowledged effects', () => {
 		]);
 		expect(Object.hasOwn(result.inserted[0], 'completionDate')).toBe(false);
 	});
+	it.each([0, false])(
+		'rejects a %s completion date on a never-expiring type without saving',
+		async (completionDate) => {
+			const ctx = buildContext();
+			seedPersonnel(ctx);
+			seedTrainingType(ctx, { expiration_months: null });
+			const result = await importTrainingRecords(ctx, {
+				records: [
+					{ personnelId: PERSON_1, trainingTypeId: TRAINING_TYPE, status: 'completed', completionDate }
+				] as unknown as Parameters<typeof importTrainingRecords>[1]['records']
+			});
+			expect(result.inserted).toEqual([]);
+			expect(result.errors).toEqual([{ index: 0, message: 'Use a valid date (YYYY-MM-DD)' }]);
+		}
+	);
 });

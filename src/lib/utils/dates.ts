@@ -46,13 +46,13 @@ export function formatToday(date = new Date()): string {
 
 const DATE_ONLY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 
-/** True for a strict "YYYY-MM-DD" string naming a real calendar day; no timezone is involved. */
+/** True for a strict "YYYY-MM-DD" string naming a real calendar day from year 1000; no timezone is involved. */
 export function isDateOnly(value: unknown): value is string {
 	if (typeof value !== 'string') return false;
 	const match = DATE_ONLY_PATTERN.exec(value);
 	if (!match) return false;
 	const [year, month, day] = match.slice(1).map(Number);
-	if (year < 1 || month < 1 || month > 12 || day < 1) return false;
+	if (year < 1000 || month < 1 || month > 12 || day < 1) return false;
 	const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
 	const daysInMonth = month === 2 ? (leapYear ? 29 : 28) : [4, 6, 9, 11].includes(month) ? 30 : 31;
 	return day <= daysInMonth;

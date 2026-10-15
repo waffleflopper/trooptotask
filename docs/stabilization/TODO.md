@@ -121,4 +121,4 @@ Phase 11 D06 [#1644](https://github.com/waffleflopper/trooptotask/issues/1644) i
 2. **PR 2:** silent client failures (Training type delete and reorder, view delete, exemption toggle, Availability import reasons and note length) and the loss-warning settings read that silently becomes the 180-day default.
 3. **PR 3, closes #1644:** date semantics. Server-side today for Personnel detail, Training and Critical Tasks reports and exports; DST day counts; UTC slices of timestamps; Onboarding completion dates; the Sign-in Roster filter bounds. Then whole-issue acceptance.
 
-#1555's 501-Person scale case stays deferred pending actual usage. Prior release obligations remain in [RELEASE](RELEASE.md).
+Issue #1555's 501-Person scale case stays deferred pending actual usage. Prior release obligations remain in [RELEASE](RELEASE.md).

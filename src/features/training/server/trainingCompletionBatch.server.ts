@@ -92,7 +92,12 @@ export async function importTrainingRecords(
 		}
 
 		const completionDate = rec.completionDate;
-		if (completionDate && !isDateOnly(completionDate)) {
+		if (
+			completionDate !== undefined &&
+			completionDate !== null &&
+			completionDate !== '' &&
+			!isDateOnly(completionDate)
+		) {
 			batchErrors.push({ index: i, message: DATE_ONLY_MESSAGE });
 			continue;
 		}

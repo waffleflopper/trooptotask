@@ -10,6 +10,7 @@ import { defineStore, stillInOrganizationLifetime, withinOrganizationLifetime } 
 import type { Store } from '$lib/stores/core';
 import { toastStore } from '$lib/stores/toast.svelte';
 import { statusTypesSchema, type StatusType } from '$features/calendar/contracts';
+import { sameIdList } from '$features/calendar/utils/idList';
 import { confirmedNotSaved } from './calendarCommandResponse';
 
 /** The fields an operator edits. Order changes only through `setOrder`. */
@@ -35,9 +36,6 @@ interface StatusTypeExtensions extends Record<string, unknown> {
 	remove: (id: string) => Promise<boolean>;
 	setOrder: (ids: readonly string[]) => Promise<StatusOrderChange>;
 }
-
-const sameIds = (a: readonly string[], b: readonly string[]) =>
-	a.length === b.length && a.every((id, index) => id === b[index]);
 
 async function responseMessage(res: Response): Promise<string> {
 	const fallback = 'The status order was not saved.';
@@ -87,10 +85,12 @@ function enhance(base: Store<StatusType>): StatusTypeExtensions {
 		return result;
 	}
 
+	// A snapshot replays this change later, so a type the order does not name keeps its saved position.
 	function applySavedOrder(sent: readonly string[]) {
+		const position = new Map(sent.map((id, index) => [id, index]));
 		base.updateLocalWhere(
-			(type) => type.sortOrder !== sent.indexOf(type.id),
-			(type) => ({ ...type, sortOrder: sent.indexOf(type.id) })
+			(type) => position.has(type.id) && type.sortOrder !== position.get(type.id),
+			(type) => ({ ...type, sortOrder: position.get(type.id)! })
 		);
 	}
 
@@ -122,7 +122,7 @@ function enhance(base: Store<StatusType>): StatusTypeExtensions {
 					const showsSaved = await adoptSavedIfUnchanged(owner.orgId, owns);
 					if (
 						!showsSaved ||
-						!sameIds(
+						!sameIdList(
 							base.items.map((type) => type.id),
 							sent
 						)
@@ -137,7 +137,7 @@ function enhance(base: Store<StatusType>): StatusTypeExtensions {
 						message === null ? { status: 'unconfirmed', showsSaved } : { status: 'not-saved', message, showsSaved }
 					);
 				}
-				if (sameIds(desired, sent)) return report(owner, { status: 'saved' });
+				if (sameIdList(desired, sent)) return report(owner, { status: 'saved' });
 				expected = sent;
 			}
 		} finally {

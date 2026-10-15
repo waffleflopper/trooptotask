@@ -1,6 +1,7 @@
 import type { createInMemoryDataStore } from '$lib/server/adapters/inMemory';
 import { fail } from '$lib/errors';
 import { CALENDAR_CHANGE_NOT_SAVED_MESSAGE } from './calendarCatalogPersistence.server';
+import { sameIdList } from './utils/idList';
 
 type CalendarMemoryStore = Pick<
 	ReturnType<typeof createInMemoryDataStore>,
@@ -27,8 +28,6 @@ import {
 } from './calendarPersistenceMapping.server';
 
 const compareIds = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
-const sameIds = (a: readonly string[], b: readonly string[]) =>
-	a.length === b.length && a.every((id, index) => id === b[index]);
 
 export function createInMemoryCalendarCatalogPersistence(
 	store: CalendarMemoryStore,
@@ -77,8 +76,8 @@ export function createInMemoryCalendarCatalogPersistence(
 		},
 		async setStatusTypeOrder(statusTypeIds, expectedStatusTypeIds) {
 			const saved = (await savedStatusTypes()).map((type) => type.id);
-			if (sameIds(saved, statusTypeIds)) return;
-			if (!sameIds(saved, expectedStatusTypeIds)) fail(409, CALENDAR_CHANGE_NOT_SAVED_MESSAGE);
+			if (sameIdList(saved, statusTypeIds)) return;
+			if (!sameIdList(saved, expectedStatusTypeIds)) fail(409, CALENDAR_CHANGE_NOT_SAVED_MESSAGE);
 			if (statusTypeIds.length !== saved.length || saved.some((id) => !statusTypeIds.includes(id)))
 				fail(400, 'Invalid Calendar configuration');
 			for (const [position, id] of statusTypeIds.entries())
@@ -184,8 +183,8 @@ export function createInMemoryCalendarCatalogPersistence(
 				.filter((type) => type.show_on_calendar && !type.archived_at)
 				.sort((a, b) => a.sort_order - b.sort_order || compareIds(a.id, b.id))
 				.map((type) => type.id);
-			if (sameIds(saved, laneTypeIds)) return;
-			if (!sameIds(saved, expectedLaneTypeIds)) fail(409, CALENDAR_CHANGE_NOT_SAVED_MESSAGE);
+			if (sameIdList(saved, laneTypeIds)) return;
+			if (!sameIdList(saved, expectedLaneTypeIds)) fail(409, CALENDAR_CHANGE_NOT_SAVED_MESSAGE);
 			for (const type of types) {
 				const position = laneTypeIds.indexOf(type.id);
 				if (position >= 0 && (!type.show_on_calendar || type.sort_order !== position))

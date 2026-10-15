@@ -20,10 +20,6 @@ export function calendarLaneIds(types: readonly AssignmentType[]): string[] {
 	return calendarLaneTypes(types).map((type) => type.id);
 }
 
-export function sameLaneIds(a: readonly string[], b: readonly string[]): boolean {
-	return a.length === b.length && a.every((id, index) => id === b[index]);
-}
-
 export function movedTo(ids: readonly string[], id: string, toIndex: number): string[] {
 	const rest = ids.filter((candidate) => candidate !== id);
 	if (rest.length === ids.length) return [...ids];

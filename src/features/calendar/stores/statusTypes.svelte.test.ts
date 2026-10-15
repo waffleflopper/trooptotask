@@ -157,6 +157,22 @@ describe('statusTypesStore', () => {
 			expect(toast).not.toHaveBeenCalled();
 		});
 
+		it('keeps a type another editor created in its saved place when a snapshot replays the saved order', async () => {
+			vi.stubGlobal('fetch', vi.fn().mockResolvedValue(reply(200, { success: true })));
+			const read = statusTypesStore.beginRead();
+			expect(await statusTypesStore.setOrder(['3', '1', '2'])).toEqual({ status: 'saved' });
+			const quarters: StatusType = { ...leave, id: '4', name: 'Quarters', sortOrder: 3 };
+
+			statusTypesStore.load(read.reconcile([leave, tdy, sick, quarters], () => true), 'org-1');
+
+			expect(statusTypesStore.items.map((type) => [type.id, type.sortOrder])).toEqual([
+				['3', 0],
+				['1', 1],
+				['2', 2],
+				['4', 3]
+			]);
+		});
+
 		it('folds moves made during a save into one follow-up that expects the order just saved', async () => {
 			const replies: Array<(value: unknown) => void> = [];
 			const fetchMock = vi.fn(() => new Promise((resolve) => replies.push(resolve)));

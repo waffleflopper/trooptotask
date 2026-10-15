@@ -137,10 +137,9 @@ FROM (VALUES
   ('[1]', 'a non-object change is invalid'),
   (jsonb_build_array(pg_temp.change(303, 1, 3) - 'sort_order'), 'a change without a target order is invalid'),
   (jsonb_build_array(pg_temp.change(303, 1, 3) || '{"id": 7}'), 'a numeric task id is invalid'),
-  (jsonb_build_array(pg_temp.change(303, 1, 1)), 'a change to the same order is invalid'),
   (jsonb_build_array(pg_temp.change(303, 1, -1)), 'a negative order is invalid'),
   (jsonb_build_array(pg_temp.change(303, 1, 3), pg_temp.change(303, 1, 4)), 'moving a task twice is invalid'),
-  ((SELECT jsonb_agg(pg_temp.change(303, n, n + 1)) FROM generate_series(1, 1001) AS n), 'more than 1000 changes is invalid')
+  ((SELECT jsonb_agg(pg_temp.change(303, n, n + 1)) FROM generate_series(1, 1001) AS n), 'more than 1000 participants is invalid')
 ) AS invalid(payload, label);
 SELECT throws_ok(pg_temp.move_sql(101, jsonb_build_array(pg_temp.change(303, 1, 3) || '{"sort_order": 1.5}')), '22P02', NULL,
   'a fractional order is invalid');
@@ -155,6 +154,53 @@ SELECT is((SELECT count(*)::integer FROM public.reorder_ict_tasks(pg_temp.id(101
   'tasks that share a sort order can be separated in one move');
 RESET ROLE;
 SELECT is(pg_temp.orders(101), '{"A": 2, "B": 0, "C": 2, "OLD": 2}', 'the separated order is saved');
+
+INSERT INTO public.ict_tasks (id, organization_id, task_code, title, sort_order, updated_at)
+VALUES (pg_temp.id(305), pg_temp.id(101), 'GUARD', 'Untouched boundary', 10, '2020-01-01T00:00:00Z');
+INSERT INTO snapshots VALUES ('guard-before', (SELECT to_jsonb(t) FROM public.ict_tasks t WHERE id = pg_temp.id(305)));
+TRUNCATE returned;
+SELECT pg_temp.act(1);
+INSERT INTO returned SELECT id, task_code, sort_order, organization_id
+FROM public.reorder_ict_tasks(pg_temp.id(101), jsonb_build_array(pg_temp.change(301, 2, 3), pg_temp.change(305, 10, 10)));
+RESET ROLE;
+SELECT results_eq($$SELECT task_code, sort_order FROM returned ORDER BY id$$,
+  $$VALUES ('A'::text, 3), ('GUARD', 10)$$, 'the acknowledgement contains the changed row and unchanged guard');
+SELECT is((SELECT to_jsonb(t) FROM public.ict_tasks t WHERE id = pg_temp.id(305)),
+  (SELECT value FROM snapshots WHERE label = 'guard-before'), 'a mixed move preserves the entire guard row including updated_at');
+
+SELECT pg_temp.act(1);
+SELECT is((SELECT count(*)::integer FROM public.reorder_ict_tasks(pg_temp.id(101),
+  jsonb_build_array(pg_temp.change(305, 10, 10)))), 1, 'a guard-only command acknowledges its participant');
+SELECT throws_ok(pg_temp.move_sql(101, jsonb_build_array(pg_temp.change(303, 2, 5), pg_temp.change(305, 9, 9))),
+  'PT409', 'Task order changed', 'a stale unchanged boundary refuses its companion change');
+SELECT throws_ok(pg_temp.move_sql(101, jsonb_build_array(pg_temp.change(303, 2, 5), pg_temp.change(304, 2, 2))),
+  'P0002', 'Task not found', 'an archived guard refuses its companion change');
+SELECT throws_ok(pg_temp.move_sql(101, jsonb_build_array(pg_temp.change(303, 2, 5), pg_temp.change(311, 0, 0))),
+  'P0002', 'Task not found', 'a foreign guard refuses its companion change');
+SELECT throws_ok(pg_temp.move_sql(101, jsonb_build_array(pg_temp.change(303, 2, 5), pg_temp.change(399, 0, 0))),
+  'P0002', 'Task not found', 'a missing guard refuses its companion change');
+SELECT throws_ok(pg_temp.move_sql(101, (SELECT jsonb_agg(pg_temp.change(n, 0, 0)) FROM generate_series(1000, 2000) AS n)),
+  '22023', 'Invalid task order', '1001 guard participants are invalid before row lookup');
+SELECT throws_ok(pg_temp.move_sql(101, jsonb_build_array(pg_temp.change(305, 10, 10) || '{"sort_order": 2147483648}')),
+  '22003', NULL, 'a target above intmax is invalid');
+SELECT throws_ok(pg_temp.move_sql(101, jsonb_build_array(pg_temp.change(305, 10, 10) || '{"expected_sort_order": 2147483648}')),
+  '22003', NULL, 'an expectation above intmax is invalid');
+RESET ROLE;
+SELECT is((SELECT to_jsonb(t) FROM public.ict_tasks t WHERE id = pg_temp.id(305)),
+  (SELECT value FROM snapshots WHERE label = 'guard-before'), 'guard-only and refused commands preserve the guard timestamp');
+SELECT is(pg_temp.orders(101), '{"A": 3, "B": 0, "C": 2, "OLD": 2, "GUARD": 10}',
+  'refused guard commands leave every order untouched');
+
+INSERT INTO public.ict_tasks (id, organization_id, task_code, title, sort_order)
+SELECT pg_temp.id(n), pg_temp.id(101), 'BOUNDED-' || n, 'Bounded participant', 0 FROM generate_series(1000, 1999) AS n;
+SELECT pg_temp.act(1);
+SELECT is((SELECT count(*)::integer FROM public.reorder_ict_tasks(pg_temp.id(101),
+  (SELECT jsonb_agg(pg_temp.change(n, 0, CASE WHEN n = 1000 THEN 2147483647 ELSE 0 END))
+   FROM generate_series(1000, 1999) AS n))), 1000, '1000 participants including 999 guards and an intmax change are acknowledged');
+RESET ROLE;
+SELECT is((SELECT sort_order FROM public.ict_tasks WHERE id = pg_temp.id(1000)), 2147483647, 'intmax is saved without truncation');
+SELECT is((SELECT count(*)::integer FROM public.ict_tasks WHERE id BETWEEN pg_temp.id(1001) AND pg_temp.id(1999) AND sort_order = 0),
+  999, 'every guard in the bounded command keeps its value');
 
 SELECT * FROM finish();
 ROLLBACK;

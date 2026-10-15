@@ -49,7 +49,8 @@ export type IctTaskMovePlan = { status: 'ready'; changes: IctTaskOrderChange[] }
 /**
  * Plans swapping a task with its neighbour in the displayed active order. Each position keeps the sort order
  * already shown there; a shared or crowded value is raised just enough that the saved order matches the display.
- * A move that would need more changes, or a larger sort order, than one command may carry is unsupported.
+ * Unchanged swap participants and adjacent span boundaries guard the order used to plan the move.
+ * A move that would need more participants, or a larger sort order, than one command may carry is unsupported.
  */
 export function planIctTaskMove(activeTasks: IctTask[], index: number, direction: -1 | 1): IctTaskMovePlan {
 	const neighbour = index + direction;
@@ -58,17 +59,20 @@ export function planIctTaskMove(activeTasks: IctTask[], index: number, direction
 	[desired[index], desired[neighbour]] = [desired[neighbour], desired[index]];
 
 	const changes: IctTaskOrderChange[] = [];
+	let lastAffected = Math.max(index, neighbour);
 	let previous: { task: IctTask; sortOrder: number } | null = null;
 	desired.forEach((task, position) => {
 		const floor = previous ? previous.sortOrder + (previous.task.taskCode.localeCompare(task.taskCode) < 0 ? 0 : 1) : 0;
 		const sortOrder = Math.max(activeTasks[position].sortOrder, floor);
-		if (sortOrder !== task.sortOrder) changes.push({ id: task.id, expectedSortOrder: task.sortOrder, sortOrder });
+		if (sortOrder !== task.sortOrder) lastAffected = Math.max(lastAffected, position);
+		changes.push({ id: task.id, expectedSortOrder: task.sortOrder, sortOrder });
 		previous = { task, sortOrder };
 	});
+	const participants = changes.slice(Math.max(0, Math.min(index, neighbour) - 1), lastAffected + 2);
 	const withinBounds =
-		changes.length <= ICT_TASK_ORDER_MAX_CHANGES &&
-		changes.every((change) => change.sortOrder <= ICT_TASK_SORT_ORDER_MAX);
-	return withinBounds ? { status: 'ready', changes } : { status: 'unsupported' };
+		participants.length <= ICT_TASK_ORDER_MAX_CHANGES &&
+		participants.every((change) => change.sortOrder <= ICT_TASK_SORT_ORDER_MAX);
+	return withinBounds ? { status: 'ready', changes: participants } : { status: 'unsupported' };
 }
 
 export function countCompletionRecordsForTask(completions: PersonnelIctCompletion[], taskId: string): number {

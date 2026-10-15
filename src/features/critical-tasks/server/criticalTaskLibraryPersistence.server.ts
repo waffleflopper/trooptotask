@@ -103,6 +103,7 @@ export function createSupabaseCriticalTaskLibraryPersistence(
 			return acknowledged[0];
 		},
 		async reorder(changes) {
+			// Keep guards in both the preconditions and the required acknowledgement.
 			const { data, error } = await client.rpc('reorder_ict_tasks', {
 				p_organization_id: orgId,
 				p_changes: changes.map((change) => ({

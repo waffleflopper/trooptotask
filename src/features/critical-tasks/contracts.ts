@@ -55,7 +55,7 @@ export interface CriticalTaskLibraryPersistence {
 	create(input: IctTaskCreate): Promise<IctTask>;
 	createMany(inputs: IctTaskCreate[]): Promise<IctTask[]>;
 	update(id: string, patch: IctTaskPatch): Promise<IctTask>;
-	/** Applies every change or none; refuses any task whose sort order is no longer the expected one. */
+	/** Checks all participants atomically, updates changed orders only, and returns every participant, including guards. */
 	reorder(changes: IctTaskOrderChange[]): Promise<IctTask[]>;
 }
 

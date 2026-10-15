@@ -9,12 +9,14 @@ describe('ICT task order JSON handler', () => {
 		const ctx = createTestContext({ criticalTaskLibraryFactory: createInMemoryCriticalTaskLibraryPersistence });
 		ctx.rawStore.seed('ict_tasks', [
 			{ id: 'task-a', organization_id: ctx.auth.orgId, task_code: 'A', title: 'A', sort_order: 0, archived_at: null },
-			{ id: 'task-b', organization_id: ctx.auth.orgId, task_code: 'B', title: 'B', sort_order: 1, archived_at: null }
+			{ id: 'task-b', organization_id: ctx.auth.orgId, task_code: 'B', title: 'B', sort_order: 1, archived_at: null },
+			{ id: 'task-c', organization_id: ctx.auth.orgId, task_code: 'C', title: 'C', sort_order: 4, archived_at: null }
 		]);
 		const move = {
 			changes: [
 				{ id: 'task-b', expectedSortOrder: 1, sortOrder: 0 },
-				{ id: 'task-a', expectedSortOrder: 0, sortOrder: 1 }
+				{ id: 'task-a', expectedSortOrder: 0, sortOrder: 1 },
+				{ id: 'task-c', expectedSortOrder: 4, sortOrder: 4 }
 			]
 		};
 
@@ -26,7 +28,8 @@ describe('ICT task order JSON handler', () => {
 
 		expect(saved.map(({ id, sortOrder }) => [id, sortOrder])).toEqual([
 			['task-b', 0],
-			['task-a', 1]
+			['task-a', 1],
+			['task-c', 4]
 		]);
 		expect(
 			(await ctx.rawStore.findMany<{ id: string; sort_order: number }>('ict_tasks', ctx.auth.orgId)).map((row) => [
@@ -35,7 +38,8 @@ describe('ICT task order JSON handler', () => {
 			])
 		).toEqual([
 			['task-a', 1],
-			['task-b', 0]
+			['task-b', 0],
+			['task-c', 4]
 		]);
 		expect(ctx.auditPort.events.map((event) => [event.action, event.resourceId])).toEqual([
 			['ict_task.reordered', 'task-b'],

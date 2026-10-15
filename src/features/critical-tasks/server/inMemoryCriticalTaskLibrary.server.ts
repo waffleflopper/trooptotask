@@ -60,11 +60,11 @@ export function createInMemoryCriticalTaskLibraryPersistence(
 				changes.map((change) => ({
 					id: change.id,
 					expected: { sort_order: change.expectedSortOrder },
-					patch: { sort_order: change.sortOrder }
+					patch: change.sortOrder === change.expectedSortOrder ? {} : { sort_order: change.sortOrder }
 				})),
 				{ isNull: { archived_at: true } }
 			);
-			if (result.status === 'updated') return result.rows.map(mapIctTask);
+			if (result.status === 'updated') return structuredClone(result.rows).map(mapIctTask);
 			return result.status === 'missing'
 				? fail(404, ICT_TASK_UNAVAILABLE_MESSAGE)
 				: fail(409, ICT_TASK_ORDER_CHANGED_MESSAGE);

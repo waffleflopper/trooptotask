@@ -370,6 +370,32 @@ describe('ictTasksStore.reorder', () => {
 		ictTasksStore.load([structuredClone(existingTask), structuredClone(neighbour)], 'org-1');
 	});
 
+	it('sends unchanged guards and merges their acknowledgement with the moved rows', async () => {
+		const guard: IctTask = { ...existingTask, id: 'guard', taskCode: 'GUARD', sortOrder: 9 };
+		ictTasksStore.load([structuredClone(existingTask), structuredClone(neighbour), guard], 'org-1');
+		const participants = [...changes, { id: 'guard', expectedSortOrder: 9, sortOrder: 9 }];
+		const fetchMock = vi.fn(() =>
+			reply(200, [{ ...neighbour, sortOrder: 5 }, { ...existingTask, sortOrder: 6 }, guard])
+		);
+		vi.stubGlobal('fetch', fetchMock);
+		await ictTasksStore.reorder(participants);
+		expect(fetchMock.mock.calls).toEqual([
+			[
+				'/org/org-1/api/ict-tasks/order',
+				{
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ changes: participants })
+				}
+			]
+		]);
+		expect(sortOrders()).toEqual([
+			['task-next', 5],
+			['task-existing', 6],
+			['guard', 9]
+		]);
+	});
+
 	it('posts one order command and adopts the saved tasks', async () => {
 		const fetchMock = vi.fn(() =>
 			reply(200, [

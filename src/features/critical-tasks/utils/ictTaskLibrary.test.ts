@@ -63,10 +63,11 @@ describe('planIctTaskMove', () => {
 	const library = (...entries: Array<[string, number]>) =>
 		getActiveIctTasksForLibrary(entries.map(([taskCode, sortOrder]) => task({ id: taskCode, taskCode, sortOrder })));
 
-	it('swaps two distinct sort orders and touches nothing else', () => {
+	it('swaps two distinct sort orders and guards the preceding boundary', () => {
 		expect(planIctTaskMove(library(['A', 1], ['B', 2], ['C', 3]), 1, 1)).toEqual({
 			status: 'ready',
 			changes: [
+				{ id: 'A', expectedSortOrder: 1, sortOrder: 1 },
 				{ id: 'C', expectedSortOrder: 3, sortOrder: 2 },
 				{ id: 'B', expectedSortOrder: 2, sortOrder: 3 }
 			]
@@ -77,8 +78,10 @@ describe('planIctTaskMove', () => {
 		expect(planIctTaskMove(library(['A', 0], ['B', 0], ['C', 0], ['D', 1]), 0, 1)).toEqual({
 			status: 'ready',
 			changes: [
+				{ id: 'B', expectedSortOrder: 0, sortOrder: 0 },
 				{ id: 'A', expectedSortOrder: 0, sortOrder: 1 },
-				{ id: 'C', expectedSortOrder: 0, sortOrder: 1 }
+				{ id: 'C', expectedSortOrder: 0, sortOrder: 1 },
+				{ id: 'D', expectedSortOrder: 1, sortOrder: 1 }
 			]
 		});
 	});
@@ -90,6 +93,36 @@ describe('planIctTaskMove', () => {
 				{ id: 'B', expectedSortOrder: 2, sortOrder: 1 },
 				{ id: 'X', expectedSortOrder: 1, sortOrder: 2 },
 				{ id: 'C', expectedSortOrder: 2, sortOrder: 3 }
+			]
+		});
+	});
+
+	it('guards both adjacent boundaries even when only the first swap participant changes', () => {
+		expect(planIctTaskMove(library(['A', 0], ['B', 1], ['C', 1], ['D', 4], ['E', 5]), 1, 1)).toEqual({
+			status: 'ready',
+			changes: [
+				{ id: 'A', expectedSortOrder: 0, sortOrder: 0 },
+				{ id: 'C', expectedSortOrder: 1, sortOrder: 1 },
+				{ id: 'B', expectedSortOrder: 1, sortOrder: 2 },
+				{ id: 'D', expectedSortOrder: 4, sortOrder: 4 }
+			]
+		});
+	});
+
+	it('keeps an ordinary local swap bounded in a large library', () => {
+		const tasks = library(
+			...Array.from({ length: 10000 }, (_, index): [string, number] => [
+				`T${String(index).padStart(5, '0')}`,
+				index * 10
+			])
+		);
+		expect(planIctTaskMove(tasks, 5000, 1)).toEqual({
+			status: 'ready',
+			changes: [
+				{ id: 'T04999', expectedSortOrder: 49990, sortOrder: 49990 },
+				{ id: 'T05001', expectedSortOrder: 50010, sortOrder: 50000 },
+				{ id: 'T05000', expectedSortOrder: 50000, sortOrder: 50010 },
+				{ id: 'T05002', expectedSortOrder: 50020, sortOrder: 50020 }
 			]
 		});
 	});
@@ -127,21 +160,24 @@ describe('planIctTaskMove', () => {
 				...Array.from({ length: count }, (_, index): [string, number] => [`T${String(index).padStart(4, '0')}`, 0])
 			);
 
-		it('plans a move that changes exactly the most tasks one command may carry', () => {
-			const plan = planIctTaskMove(zeroOrder(1001), 0, 1);
+		it('plans a move with exactly 1000 participants including its unchanged swap participant', () => {
+			const plan = planIctTaskMove(zeroOrder(1000), 0, 1);
 
 			expect(plan.status).toBe('ready');
 			if (plan.status === 'ready') expect(plan.changes).toHaveLength(1000);
 		});
 
-		it('reports a move that would change more tasks than one command may carry as unsupported', () => {
-			expect(planIctTaskMove(zeroOrder(1002), 0, 1)).toEqual({ status: 'unsupported' });
+		it('rejects 1001 participants rather than silently dropping a guard', () => {
+			expect(planIctTaskMove(zeroOrder(1001), 0, 1)).toEqual({ status: 'unsupported' });
 		});
 
 		it('plans a move whose raised sort order is the largest the database stores', () => {
 			expect(planIctTaskMove(library(['A', 2147483646], ['B', 2147483646]), 0, 1)).toEqual({
 				status: 'ready',
-				changes: [{ id: 'A', expectedSortOrder: 2147483646, sortOrder: 2147483647 }]
+				changes: [
+					{ id: 'B', expectedSortOrder: 2147483646, sortOrder: 2147483646 },
+					{ id: 'A', expectedSortOrder: 2147483646, sortOrder: 2147483647 }
+				]
 			});
 		});
 

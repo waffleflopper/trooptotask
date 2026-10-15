@@ -30,7 +30,6 @@ const reorderSchema = z.object({
 		.min(1)
 		.max(ICT_TASK_ORDER_MAX_CHANGES)
 		.refine((changes) => new Set(changes.map((change) => change.id)).size === changes.length, 'Move each task once')
-		.refine((changes) => changes.every((change) => change.sortOrder !== change.expectedSortOrder), 'Change each order')
 });
 
 interface IctTaskWriteContext {
@@ -81,8 +80,12 @@ export async function reorderIctTasks(ctx: IctTaskWriteContext, input: Record<st
 		'ict_task'
 	);
 	const tasks = await ctx.criticalTaskLibrary.reorder(changes);
+	const moved = new Set(
+		changes.filter((change) => change.expectedSortOrder !== change.sortOrder).map((change) => change.id)
+	);
 	for (const task of tasks) {
-		ctx.audit.log({ action: 'ict_task.reordered', resourceType: 'ict_task', resourceId: task.id });
+		if (moved.has(task.id))
+			ctx.audit.log({ action: 'ict_task.reordered', resourceType: 'ict_task', resourceId: task.id });
 	}
 	return tasks;
 }

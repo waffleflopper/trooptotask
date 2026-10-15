@@ -799,7 +799,8 @@ describe('task order command', () => {
 	const ORG = '00000000-0000-4000-8000-0000000000a1';
 	const changes = [
 		{ id: 'task-b', expectedSortOrder: 3, sortOrder: 2 },
-		{ id: 'task-a', expectedSortOrder: 2, sortOrder: 3 }
+		{ id: 'task-a', expectedSortOrder: 2, sortOrder: 3 },
+		{ id: 'task-c', expectedSortOrder: 4, sortOrder: 4 }
 	];
 	const savedRow = (id: string, sortOrder: number) => ({
 		id,
@@ -831,12 +832,15 @@ describe('task order command', () => {
 		return { calls, port: createSupabaseCriticalTaskLibraryPersistence(client, ORG) };
 	}
 
-	it('sends every change in one Organization-bound call and returns the saved tasks', async () => {
-		const { calls, port } = orderRpc(() => Response.json([savedRow('task-a', 3), savedRow('task-b', 2)]));
+	it('sends changes and guards in one Organization-bound call and requires the full acknowledgement', async () => {
+		const { calls, port } = orderRpc(() =>
+			Response.json([savedRow('task-a', 3), savedRow('task-b', 2), savedRow('task-c', 4)])
+		);
 
 		await expect(port.reorder(changes)).resolves.toEqual([
 			expect.objectContaining({ id: 'task-a', taskCode: 'TASK-A', sortOrder: 3 }),
-			expect.objectContaining({ id: 'task-b', taskCode: 'TASK-B', sortOrder: 2 })
+			expect.objectContaining({ id: 'task-b', taskCode: 'TASK-B', sortOrder: 2 }),
+			expect.objectContaining({ id: 'task-c', taskCode: 'TASK-C', sortOrder: 4 })
 		]);
 		expect(calls).toEqual([
 			{
@@ -845,7 +849,8 @@ describe('task order command', () => {
 					p_organization_id: ORG,
 					p_changes: [
 						{ id: 'task-b', expected_sort_order: 3, sort_order: 2 },
-						{ id: 'task-a', expected_sort_order: 2, sort_order: 3 }
+						{ id: 'task-a', expected_sort_order: 2, sort_order: 3 },
+						{ id: 'task-c', expected_sort_order: 4, sort_order: 4 }
 					]
 				}
 			}
@@ -874,6 +879,8 @@ describe('task order command', () => {
 			() => Promise.reject(new TypeError('fetch failed')),
 			() => new Response('<html>Bad gateway</html>', { status: 502 }),
 			() => Response.json([savedRow('task-a', 3)]),
+			() => Response.json([savedRow('task-a', 3), savedRow('task-b', 2)]),
+			() => Response.json([savedRow('task-a', 3), savedRow('task-b', 2), savedRow('task-c', 5)]),
 			() => Response.json([savedRow('task-a', 2), savedRow('task-b', 3)]),
 			() => Response.json([savedRow('task-a', 3), savedRow('task-c', 2)])
 		]) {

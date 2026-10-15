@@ -573,6 +573,25 @@ describe('IctTaskLibraryPage', () => {
 			expect(provider.requests).toEqual([ORDER_COMMAND, ORDER_COMMAND]);
 		});
 
+		it('refuses a different overlapping move from a stale tied view after a lost reply', async () => {
+			ictTasksStore.load(
+				['A', 'B', 'C'].map((code) => ({ ...infantryTask, id: code, taskCode: code, sortOrder: 0 })),
+				'org-1'
+			);
+			const provider = libraryProvider(['lost']);
+			const error = vi.spyOn(toastStore, 'error');
+			render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
+
+			await fireEvent.click(screen.getByRole('button', { name: 'Move A down' }));
+			await waitFor(() => expect(error).toHaveBeenCalledWith(CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE));
+			await fireEvent.click(screen.getByRole('button', { name: 'Move B down' }));
+
+			await waitFor(() => expect(error).toHaveBeenLastCalledWith(ORDER_CHANGED));
+			expect(provider.sortOrders()).toEqual({ A: 1, B: 0, C: 1 });
+			expect(displayedOrder()).toEqual(['A', 'B', 'C']);
+			expect(provider.requests).toEqual([ORDER_COMMAND, ORDER_COMMAND]);
+		});
+
 		it('sends one move at a time', async () => {
 			const provider = libraryProvider(['held']);
 			render(IctTaskLibraryPage, { props: { org, data: { orgId: 'org-1' } } });
@@ -586,8 +605,8 @@ describe('IctTaskLibraryPage', () => {
 			expect(provider.requests).toEqual([ORDER_COMMAND]);
 		});
 
-		it('sends nothing and points to Edit when a move would change more tasks than one command allows', async () => {
-			const crowded = Array.from({ length: 1002 }, (_, index) => ({
+		it('sends nothing and points to Edit when participants exceed the command limit', async () => {
+			const crowded = Array.from({ length: 1001 }, (_, index) => ({
 				...infantryTask,
 				id: `t-${index}`,
 				taskCode: `T${String(index).padStart(4, '0')}`,

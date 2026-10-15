@@ -142,6 +142,52 @@ SELECT ok(pg_temp.failed(pg_temp.result('b'), 'Critical Tasks library configurat
 SELECT pg_temp.exec('b', 'ROLLBACK');
 SELECT is(pg_temp.orders(), '{"A": 2, "B": 3, "C": 7}', 'the denied move changed neither task');
 
+SELECT pg_temp.exec('fixture', $$UPDATE public.organization_memberships
+  SET capability_overrides = '{"criticalTasks":"configure"}' WHERE organization_id = #101 AND user_id = #002;
+  UPDATE public.ict_tasks SET archived_at = NULL, sort_order = CASE WHEN id = #304 THEN 5 ELSE 0 END
+  WHERE organization_id = #101;$$);
+SELECT pg_temp.begin_as('a', 1);
+SELECT is(pg_temp.call('a', pg_temp.move_sql(302, 0, 0, 301, 0, 1, 303, 0, 1, 304, 5, 5)), '4',
+  'moving A below tied B acknowledges both guards and both changes');
+SELECT pg_temp.begin_as('b', 2);
+SELECT pg_temp.send('b', pg_temp.move_sql(304, 5, 5, 303, 0, 0, 302, 0, 1, 301, 0, 0));
+SELECT ok(pg_temp.blocked_by('b', 'a'), 'a tied move with disjoint writes waits on shared guard participants');
+SELECT pg_temp.exec('a', 'COMMIT');
+SELECT ok(pg_temp.failed(pg_temp.result('b'), 'Task order changed'), 'the stale B-down command is refused after A-down commits');
+SELECT pg_temp.exec('b', 'ROLLBACK');
+SELECT is(pg_temp.orders(), '{"A": 1, "B": 0, "C": 1, "D": 5}', 'the tied race saves only B A C order');
+
+SELECT pg_temp.exec('fixture', $$UPDATE public.ict_tasks SET sort_order = 0 WHERE id IN (#301, #302, #303)$$);
+SELECT pg_temp.begin_as('a', 1);
+SELECT is(pg_temp.call('a', pg_temp.move_sql(301, 0, 0, 303, 0, 0, 302, 0, 1, 304, 5, 5)), '4',
+  'moving B below tied C first acknowledges all participants');
+SELECT pg_temp.begin_as('b', 2);
+SELECT pg_temp.send('b', pg_temp.move_sql(304, 5, 5, 303, 0, 1, 301, 0, 1, 302, 0, 0));
+SELECT ok(pg_temp.blocked_by('b', 'a'), 'the reverse tied race also waits without a lock-order deadlock');
+SELECT pg_temp.exec('a', 'COMMIT');
+SELECT ok(pg_temp.failed(pg_temp.result('b'), 'Task order changed'), 'the stale A-down command is refused after B-down commits');
+SELECT pg_temp.exec('b', 'ROLLBACK');
+SELECT is(pg_temp.orders(), '{"A": 0, "B": 1, "C": 0, "D": 5}', 'the reverse race saves only A C B order');
+
+SELECT pg_temp.begin_as('a', 1);
+SELECT is(pg_temp.call('a', pg_temp.move_sql(304, 5, 5)), '1', 'a guard-only command stays open holding its row lock');
+SELECT pg_temp.begin_as('b', 2);
+SELECT pg_temp.send('b', pg_temp.move_sql(304, 5, 6));
+SELECT ok(pg_temp.blocked_by('b', 'a'), 'a writer waits even though the first command did not update the guard');
+SELECT pg_temp.exec('a', 'COMMIT');
+SELECT is(pg_temp.result('b'), '{"value": 1}', 'the waiting writer succeeds when the guard value is still current');
+SELECT pg_temp.exec('b', 'COMMIT');
+
+SELECT pg_temp.begin_as('a', 1);
+SELECT is(pg_temp.call('a', pg_temp.move_sql(304, 6, 7)), '1', 'an adjacent boundary change stays open');
+SELECT pg_temp.begin_as('b', 2);
+SELECT pg_temp.send('b', pg_temp.move_sql(301, 0, 1, 304, 6, 6));
+SELECT ok(pg_temp.blocked_by('b', 'a'), 'a command waits on its unchanged boundary dependency');
+SELECT pg_temp.exec('a', 'COMMIT');
+SELECT ok(pg_temp.failed(pg_temp.result('b'), 'Task order changed'), 'a stale boundary guard refuses every requested change');
+SELECT pg_temp.exec('b', 'ROLLBACK');
+SELECT is(pg_temp.orders(), '{"A": 0, "B": 1, "C": 0, "D": 7}', 'the boundary edit alone is saved');
+
 SELECT pg_temp.exec('fixture', $$
   DELETE FROM public.organizations WHERE id = #101;
   DELETE FROM auth.users WHERE id::text LIKE 'd1643066-0000-4000-8000-%';

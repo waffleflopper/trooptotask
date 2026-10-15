@@ -19,7 +19,7 @@ const MAX_BATCH_SIZE = 500;
 interface IctTasksExtensions extends Record<string, unknown> {
 	load: (items: IctTask[], orgId: string) => void;
 	importBatch: (input: { mode: IctTaskImportMode; records: IctTaskImportMappedRow[] }) => Promise<IctTaskImportResult>;
-	/** Sends one all-or-nothing move. Rejects with the refusal reason, or with reload guidance when the outcome is unknown. */
+	/** Sends every participant, including guards, in one move and adopts the full acknowledgement. */
 	reorder: (changes: IctTaskOrderChange[]) => Promise<void>;
 }
 

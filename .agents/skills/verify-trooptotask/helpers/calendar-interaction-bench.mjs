@@ -645,57 +645,65 @@ async function run(options) {
 				return JSON.parse(stdout);
 			})();
 	const pageId = driver.pageId;
-	await tool(worker, 'select_page', { pageId });
-	await tool(worker, 'resize_page', { pageId, width: 1440, height: 900 });
-	await tool(worker, 'emulate', {
-		pageId,
-		colorScheme: 'light',
-		...(options.cpuThrottle > 1 ? { cpuThrottlingRate: options.cpuThrottle } : {})
-	});
-	await tool(worker, 'navigate_page', { pageId, type: 'reload' });
-	const ready = `() => document.querySelectorAll('[data-slot="date-cell"]').length > 0 && [...document.querySelectorAll('[aria-label="Calendar group filter"]')].some((e) => e.offsetParent && /\\(\\d+\\)|Group/.test(e.textContent))`;
-	for (let attempt = 0; ; attempt += 1) {
-		if (await evaluate(worker, pageId, ready)) break;
-		if (attempt > 120) throw new Error('Calendar never rendered after reload');
-		await new Promise((resolve) => setTimeout(resolve, 500));
+	const keepsPage = Boolean(options.page) || options.keepPage === 'true';
+	try {
+		await tool(worker, 'select_page', { pageId });
+		await tool(worker, 'resize_page', { pageId, width: 1440, height: 900 });
+		await tool(worker, 'emulate', {
+			pageId,
+			colorScheme: 'light',
+			...(options.cpuThrottle > 1 ? { cpuThrottlingRate: options.cpuThrottle } : {})
+		});
+		await tool(worker, 'navigate_page', { pageId, type: 'reload' });
+		const ready = `() => document.querySelectorAll('[data-slot="date-cell"]').length > 0 && [...document.querySelectorAll('[aria-label="Calendar group filter"]')].some((e) => e.offsetParent && /\\(\\d+\\)|Group/.test(e.textContent))`;
+		for (let attempt = 0; ; attempt += 1) {
+			if (await evaluate(worker, pageId, ready)) break;
+			if (attempt > 120) throw new Error('Calendar never rendered after reload');
+			await new Promise((resolve) => setTimeout(resolve, 500));
+		}
+		await new Promise((resolve) => setTimeout(resolve, 2000));
+		const facts = await evaluate(worker, pageId, readPageFacts.toString());
+		if (facts.dark) throw new Error('page is dark; the harness requires light');
+		if (facts.devAssets > 0 || facts.immutableAssets === 0)
+			throw new Error(`page is not a production build: ${JSON.stringify(facts)}`);
+		const roster = await evaluate(worker, pageId, readRoster.toString());
+		if (roster.total < 500) throw new Error(`roster has ${roster.total} people; seed availability-volume first`);
+		facts.roster = roster;
+		const config = { ...options, anchorLabel: facts.monthLabel };
+		const blocks = options.only ? options.only.split(',') : BLOCKS;
+		const records = [];
+		for (const block of blocks) {
+			const loadBefore = os.loadavg()[0];
+			const result = await evaluate(worker, pageId, runBlock.toString(), { ...config, block });
+			records.push(...result);
+			process.stderr.write(
+				`${block}: ${result.filter((record) => !record.warmup && !record.error).length} measured, ${result.filter((record) => record.error).length} errors, load ${loadBefore.toFixed(2)}\n`
+			);
+		}
+		environment.finished = new Date().toISOString();
+		environment.loadAverageAfter = os.loadavg();
+		environment.page = facts;
+		environment.config = {
+			reps: options.reps,
+			warmup: options.warmup,
+			idleMs: options.idleMs,
+			timeoutMs: options.timeoutMs,
+			searchTerm: options.searchTerm,
+			otherGroup: options.otherGroup,
+			modalPerson: options.modalPerson,
+			modalDay: options.modalDay,
+			viewport: '1440x900',
+			colorScheme: 'light',
+			cpuThrottle: options.cpuThrottle
+		};
+		return { environment, summary: summarizeRun(records), records };
+	} finally {
+		// A failed run must not leave the worker's page slowed or open for the next step.
+		const cleanup = keepsPage
+			? options.cpuThrottle > 1 && tool(worker, 'emulate', { pageId, cpuThrottlingRate: 1 })
+			: tool(worker, 'close_page', { pageId });
+		await Promise.resolve(cleanup).catch((error) => process.stderr.write(`page cleanup failed: ${error.message}\n`));
 	}
-	await new Promise((resolve) => setTimeout(resolve, 2000));
-	const facts = await evaluate(worker, pageId, readPageFacts.toString());
-	if (facts.dark) throw new Error('page is dark; the harness requires light');
-	if (facts.devAssets > 0 || facts.immutableAssets === 0)
-		throw new Error(`page is not a production build: ${JSON.stringify(facts)}`);
-	const roster = await evaluate(worker, pageId, readRoster.toString());
-	if (roster.total < 500) throw new Error(`roster has ${roster.total} people; seed availability-volume first`);
-	facts.roster = roster;
-	const config = { ...options, anchorLabel: facts.monthLabel };
-	const blocks = options.only ? options.only.split(',') : BLOCKS;
-	const records = [];
-	for (const block of blocks) {
-		const loadBefore = os.loadavg()[0];
-		const result = await evaluate(worker, pageId, runBlock.toString(), { ...config, block });
-		records.push(...result);
-		process.stderr.write(
-			`${block}: ${result.filter((record) => !record.warmup && !record.error).length} measured, ${result.filter((record) => record.error).length} errors, load ${loadBefore.toFixed(2)}\n`
-		);
-	}
-	environment.finished = new Date().toISOString();
-	environment.loadAverageAfter = os.loadavg();
-	environment.page = facts;
-	environment.config = {
-		reps: options.reps,
-		warmup: options.warmup,
-		idleMs: options.idleMs,
-		timeoutMs: options.timeoutMs,
-		searchTerm: options.searchTerm,
-		otherGroup: options.otherGroup,
-		modalPerson: options.modalPerson,
-		modalDay: options.modalDay,
-		viewport: '1440x900',
-		colorScheme: 'light',
-		cpuThrottle: options.cpuThrottle
-	};
-	if (!options.page && options.keepPage !== 'true') await tool(worker, 'close_page', { pageId });
-	return { environment, summary: summarizeRun(records), records };
 }
 
 async function main() {

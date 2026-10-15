@@ -413,37 +413,91 @@ describe('CalendarPageContext', () => {
 			expect(availabilityStore.add).toHaveBeenCalledTimes(1);
 		});
 
-		it('saves an edit as one update of the same entry', async () => {
-			vi.mocked(availabilityStore.update).mockResolvedValueOnce(true);
+		function held<T>() {
+			let resolve!: (value: T) => void;
+			const promise = new Promise<T>((settle) => (resolve = settle));
+			return { promise, resolve };
+		}
+		const readOfApril7 = ['org1', { rangeStart: '2026-04-07', rangeEnd: '2026-04-07' }] as const;
 
-			expect(await ctx.saveAvailability(edit)).toBe('saved');
+		it('saves an edit as one update of the same entry and announces it only once the update lands', async () => {
+			const success = vi.spyOn(toastStore, 'success');
+			const update = held<boolean>();
+			vi.mocked(availabilityStore.update).mockReturnValueOnce(update.promise);
+			const pending = ctx.saveAvailability(edit);
+
+			expect(await settles(pending)).toBe(false);
+			expect(success).not.toHaveBeenCalled();
+
+			update.resolve(true);
+
+			expect(await pending).toBe('saved');
+			expect(success).toHaveBeenCalledTimes(1);
 			expect(vi.mocked(availabilityStore.update).mock.calls).toEqual([['entry-1', edit.changes]]);
 			expect(availabilityStore.add).not.toHaveBeenCalled();
 			expect(availabilityStore.removeBool).not.toHaveBeenCalled();
 		});
 
-		it("recognizes a lost edit reply by the entry's own ID, not a look-alike", async () => {
+		it("recognizes a lost edit reply by the entry's own ID, not a look-alike, without writing again", async () => {
+			const success = vi.spyOn(toastStore, 'success');
+			const error = vi.spyOn(toastStore, 'error');
 			const lookAlike = { ...edited, id: 'other-entry' };
 			vi.mocked(availabilityStore.update).mockRejectedValue(new Error('PUT availability failed'));
-			vi.mocked(loadCalendarRange).mockResolvedValueOnce(range([{ id: 'entry-1', ...record }, lookAlike]));
-			expect(await ctx.saveAvailability(edit)).toBe('not-saved');
+			const unchanged = held<ReturnType<typeof range>>();
+			vi.mocked(loadCalendarRange).mockReturnValueOnce(unchanged.promise);
+			const refused = ctx.saveAvailability(edit);
+
+			await vi.waitFor(() => expect(loadCalendarRange).toHaveBeenCalledExactlyOnceWith(...readOfApril7));
+			expect(await settles(refused)).toBe(false);
+			expect(error).not.toHaveBeenCalled();
+
+			unchanged.resolve(range([{ id: 'entry-1', ...record }, lookAlike]));
+
+			expect(await refused).toBe('not-saved');
+			expect(error).toHaveBeenCalledTimes(1);
+			expect(success).not.toHaveBeenCalled();
+			expect(availabilityStore.update).toHaveBeenCalledTimes(1);
 
 			vi.mocked(loadCalendarRange).mockResolvedValueOnce(range([edited, lookAlike]));
 			expect(await ctx.saveAvailability(edit)).toBe('saved');
+			expect(success).toHaveBeenCalledTimes(1);
+			expect(error).toHaveBeenCalledTimes(1);
+			expect(vi.mocked(availabilityStore.update).mock.calls).toEqual([
+				['entry-1', edit.changes],
+				['entry-1', edit.changes]
+			]);
+			expect(availabilityStore.add).not.toHaveBeenCalled();
+			expect(availabilityStore.removeBool).not.toHaveBeenCalled();
 		});
 
 		it.each([
 			['edit', edit],
 			['removal', { kind: 'remove', entry: { id: 'entry-1', ...record } }]
-		] as const)('restores the saved row and reports a refused %s', async (_, change) => {
+		] as const)('restores the saved row and reports a refused %s once the re-read lands', async (_, change) => {
+			const success = vi.spyOn(toastStore, 'success');
 			const error = vi.spyOn(toastStore, 'error');
 			vi.mocked(availabilityStore.update).mockResolvedValueOnce(false);
 			vi.mocked(availabilityStore.removeBool).mockResolvedValueOnce(false);
-			vi.mocked(loadCalendarRange).mockResolvedValue(range([{ id: 'entry-1', ...record }]));
+			const reread = held<ReturnType<typeof range>>();
+			vi.mocked(loadCalendarRange).mockReturnValueOnce(reread.promise);
+			const pending = ctx.saveAvailability(change);
 
-			expect(await ctx.saveAvailability(change)).toBe('not-saved');
+			await vi.waitFor(() => expect(loadCalendarRange).toHaveBeenCalledExactlyOnceWith(...readOfApril7));
+			expect(await settles(pending)).toBe(false);
+			expect(error).not.toHaveBeenCalled();
+			expect(availabilityStore.load).not.toHaveBeenCalled();
+
+			reread.resolve(range([{ id: 'entry-1', ...record }]));
+
+			expect(await pending).toBe('not-saved');
 			expect(availabilityStore.load).toHaveBeenCalledWith([{ id: 'entry-1', ...record }], 'org1');
 			expect(error).toHaveBeenCalledTimes(1);
+			expect(success).not.toHaveBeenCalled();
+			expect(
+				vi.mocked(availabilityStore.update).mock.calls.length +
+					vi.mocked(availabilityStore.removeBool).mock.calls.length
+			).toBe(1);
+			expect(availabilityStore.add).not.toHaveBeenCalled();
 		});
 
 		it('stays silent when the Organization changes while a lost reply is being checked', async () => {

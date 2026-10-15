@@ -15,7 +15,8 @@ SELECT 'public.organization_memberships', id, to_jsonb(row_value) FROM public.or
 UNION ALL
 SELECT 'public.personnel', id, to_jsonb(row_value) FROM public.personnel AS row_value WHERE id IN ('d5000000-0000-4000-8000-000000000301','d5000000-0000-4000-8000-000000000302')
 UNION ALL
-SELECT 'public.status_types', id, to_jsonb(row_value) FROM public.status_types AS row_value WHERE id = 'd5000000-0000-4000-8000-000000000401'
+-- The later status label upgrade adds a column that these rows leave NULL.
+SELECT 'public.status_types', id, to_jsonb(row_value) - 'short_label' FROM public.status_types AS row_value WHERE id = 'd5000000-0000-4000-8000-000000000401'
 UNION ALL
 -- The later Calendar lanes upgrade renames the date-header column.
 SELECT 'public.assignment_types', id, to_jsonb(row_value) - 'show_on_calendar'

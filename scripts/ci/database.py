@@ -78,6 +78,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261014000200_atomic_critical_task_reorder.sql",
     "20261014000300_critical_task_reorder_preconditions.sql",
     "20261015000100_calendar_lanes.sql",
+    "20261016000100_status_type_label_and_order.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",
@@ -112,6 +113,7 @@ STAGED_UPGRADE_FIXTURES = (
     "atomic_personnel_lifecycle_before.sql",
     "sign_in_roster_scan_lifecycle_before.sql",
     "calendar_lanes_before.sql",
+    "status_type_label_order_before.sql",
 )
 STAGED_UPGRADE_CONTRACTS = (
     "account_setup_populated_after.sql",
@@ -148,6 +150,7 @@ STAGED_UPGRADE_CONTRACTS = (
     "atomic_personnel_lifecycle_after.sql",
     "sign_in_roster_scan_lifecycle_after.sql",
     "calendar_lanes_after.sql",
+    "status_type_label_order_after.sql",
 )
 
 _receipt = None

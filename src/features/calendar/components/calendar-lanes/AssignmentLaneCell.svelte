@@ -42,9 +42,9 @@
 	</Button>
 {:else if value.assignee}
 	<span
-		class="flex size-full min-w-0 items-center justify-center overflow-hidden px-px font-mono text-[9px] font-semibold tracking-wide text-foreground uppercase"
+		class="flex size-full min-w-0 items-center justify-center overflow-hidden px-px font-mono text-[9px] font-semibold tracking-wide text-foreground"
 		title={value.assignee.full}
-		><span class="truncate" aria-hidden="true">{value.assignee.short}</span><span class="sr-only"
+		><span class="truncate uppercase" aria-hidden="true">{value.assignee.short}</span><span class="sr-only"
 			>{value.typeName} for {value.dateLabel}: {value.assignee.full}</span
 		></span
 	>

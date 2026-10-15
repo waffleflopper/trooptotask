@@ -194,6 +194,19 @@ Part 1 observations remain applicable to Part 2, because `ee4726f31` changes non
 
 **Checks.** On `ee4726f31` the six commands pass, with 797 files and 8,836 tests. The SQL suite for the migration runs first in CI's database job. The disposable verification database applied it at launch, and the native close-out exercised it.
 
+**Codex on the PR.** It found that the History sort ordered a same-day cancellation below a completion east of UTC, and that the History recipe contradicted itself. Both are fixed in `0d6b46821`. The new test fails on the earlier comparator.
+
+**Independent whole-issue acceptance.**
+
+- **Round 1 (GPT-6.1-Sol, on PRs 1–3):** REJECT. It listed six gaps:
+  - G1, nested Critical Tasks import rows
+  - G2, the Training import status
+  - G3, impossible import dates
+  - G4, changed visible paths without live proof
+  - G5, readbacks that did not support the claims
+  - G6, an incomplete closing PR
+- **Round 2 (Opus, on `b964ad49e`):** ACCEPT, on three conditions: exact-head CI including the database job, Robert's live confirmation of `20261014000500`, and recipe coverage of the PR 4 cases. It marked all six round-1 gaps resolved. It verified the 130-file inventory, byte-compared the readbacks, matched the release digests and traced the consumers of the new throwing store methods and route schemas. It found no regressions. The recipe coverage it asked for is added in the same push as `0d6b46821`.
+
 **Kept limits.**
 
 - **Private-scan test.** The denial test in `privateResources.test.ts` reaches its 404 through id shape, both before and after this PR, so it does not prove roster scope. Roster delete scope is enforced in its database function (#1679).
@@ -201,6 +214,7 @@ Part 1 observations remain applicable to Part 2, because `ee4726f31` changes non
 - **Organization export filenames** keep their own `exportedAt` instant's UTC day, which matches the export contents.
 - **Server-rendered display dates** for notes, documents and relative labels can show the UTC day until hydration replaces them. Values that decide status, counts and filenames use the viewer's day.
 - **Training reorder** remains two independent writes. The page reports a refused write and reloads the saved order.
+- **Onboarding Active median.** The Active page's `Typically N days to finish` comes from its layout load. It updates on the next load, not straight after a close-out.
 - **#1555's 501-Person scale case** stays deferred pending actual usage. No scale acceptance is claimed.
 
 ## 11-05c D09 Calendar re-entry freshness

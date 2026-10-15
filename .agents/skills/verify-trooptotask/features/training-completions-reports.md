@@ -106,6 +106,7 @@ Before `$V clean-seeds`, complete the Print A PDF/workbook comparisons and all o
 
 ## Gotchas
 
+- An impossible CSV date such as `2026-02-30` is flagged as an invalid date during import review and not sent. A status other than completed or exempt is refused by the server with `400`. See [Invalid input](invalid-input.md).
 - Required Training has three applicable People; Targeted has only Able. Optional records can become Current in the matrix while staying outside the report's required-readiness calculation. Do not count N/A as missing. A warning record is labeled Expiring, not Current, yet counts as ready in the report's readiness.
 - Date examples are relative to the fixture's local day. Record the exact dates and rerun `fixture` after an owned restart; avoid comparing a later-day status to an earlier baseline expectation.
 - The matrix's Focus View and Group selector control presentation. Clear stale selections before counting all three People or all Training columns; configuration and completion permissions remain distinct.

@@ -67,15 +67,17 @@ test('drags with real pointer input from one element centre to another', async (
 	assert.equal(resources.disconnected, true);
 });
 
-test('refuses an ambiguous, hidden or off-screen target without pressing', async () => {
-	for (const [boxes, message] of [
-		[{ '[data-day="9"]': [] }, /must match exactly one/],
-		[{ '[data-day="9"]': [{ x: 0, y: 0, width: 0, height: 0 }] }, /not rendered/],
-		[{ '[data-day="9"]': [{ x: 1500, y: 110, width: 40, height: 36 }] }, /outside the viewport/]
+test('refuses a missing, ambiguous, hidden or off-screen target without pressing', async () => {
+	const day = { x: 480, y: 110, width: 40, height: 36 };
+	for (const boxes of [
+		{ '[data-day="9"]': [] },
+		{ '[data-day="9"]': [day, { ...day, x: 520 }] },
+		{ '[data-day="9"]': [{ x: 0, y: 0, width: 0, height: 0 }] },
+		{ '[data-day="9"]': [{ ...day, x: 1500 }] }
 	]) {
 		const { moves, resources, run } = fixture({ boxes });
 
-		await assert.rejects(run({ from: '[data-edge="end"]', to: '[data-day="9"]' }), message);
+		await assert.rejects(run({ from: '[data-edge="end"]', to: '[data-day="9"]' }), { code: 'DRAG_TARGET' });
 		assert.deepEqual(moves, []);
 		assert.equal(resources.disconnected, true);
 	}

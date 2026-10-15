@@ -265,14 +265,16 @@ describe('CalendarPageView', () => {
 			const ctx = makeContext(data, makeMockOrg({ userRole: 'admin' }));
 			render(CalendarPageView, { props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' } } });
 
-			await fireEvent.click(
-				screen.getByRole('button', { name: 'SGT Smith, Alice, Leave, 20 to 23 October 2026, 4 days' })
-			);
+			const bar = screen.getByRole('button', { name: 'SGT Smith, Alice, Leave, 20 to 23 October 2026, 4 days' });
+			expect(bar.getAttribute('aria-expanded')).toBe('false');
+			await fireEvent.click(bar);
 			const popover = await screen.findByRole('dialog', { name: 'Leave, SGT Smith' });
+			expect(bar.getAttribute('aria-expanded')).toBe('true');
 			await fireEvent.click(within(popover).getByRole('button', { name: 'Edit details' }));
 
 			expect(await screen.findByRole('dialog', { name: 'Set Personnel Status' })).toBeTruthy();
 			expect(screen.queryByRole('dialog', { name: 'Leave, SGT Smith' })).toBeNull();
+			expect(bar.getAttribute('aria-expanded')).toBe('false');
 		} finally {
 			stores.statusTypes.items = [];
 			stores.availability.items = [];

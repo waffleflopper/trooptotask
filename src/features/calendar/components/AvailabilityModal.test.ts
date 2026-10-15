@@ -144,6 +144,25 @@ describe('AvailabilityModal', () => {
 		});
 	});
 
+	it('moves an entry to the days chosen in its date pickers', async () => {
+		const { onSave } = renderModal(
+			{ kind: 'edit', person, entry: existingEntry },
+			{ existingEntries: [existingEntry] }
+		);
+
+		await fireEvent.click(screen.getByRole('button', { name: /Start Date/ }));
+		await fireEvent.click(await screen.findByRole('button', { name: 'Wednesday, April 8, 2026' }));
+		await fireEvent.click(screen.getByRole('button', { name: /End Date/ }));
+		await fireEvent.click(await screen.findByRole('button', { name: 'Friday, April 10, 2026' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Update Status' }));
+
+		expect(onSave).toHaveBeenCalledExactlyOnceWith({
+			kind: 'update',
+			entry: existingEntry,
+			changes: { statusTypeId: 'leave', startDate: '2026-04-08', endDate: '2026-04-10', note: null }
+		});
+	});
+
 	it('keeps a refused edit of the same entry ready to retry', async () => {
 		const outcomes: AvailabilityOutcome[] = ['not-saved', 'saved'];
 		const { onSave } = renderModal(

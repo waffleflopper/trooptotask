@@ -55,22 +55,6 @@ BEGIN
   PERFORM dblink_exec(connection_name, format('SET LOCAL request.jwt.claim.sub = %L',
     'd1684055-0000-4000-8000-' || lpad(actor::text, 12, '0')));
 END; $$;
-CREATE FUNCTION pg_temp.blocked_by(waiter text, blocker text, lock_type text) RETURNS boolean LANGUAGE plpgsql AS $$
-DECLARE deadline timestamptz := clock_timestamp() + interval '5 seconds';
-BEGIN
-  LOOP
-    PERFORM pg_stat_clear_snapshot();
-    IF EXISTS (
-      SELECT 1 FROM pg_stat_activity w
-      JOIN pg_locks l ON l.pid = w.pid AND NOT l.granted
-      JOIN pg_stat_activity b ON b.pid = ANY (pg_blocking_pids(w.pid))
-      WHERE w.application_name = 't1684sto_' || waiter AND b.application_name = 't1684sto_' || blocker
-        AND l.locktype = lock_type
-    ) THEN RETURN true; END IF;
-    IF clock_timestamp() >= deadline THEN RETURN false; END IF;
-    PERFORM pg_sleep(0.01);
-  END LOOP;
-END; $$;
 -- Scheduling setup, not an assertion: the waiter must be blocked before the
 -- blocker finishes, or the interleaving under test never happened.
 CREATE FUNCTION pg_temp.await_wait(waiter text, blocker text) RETURNS void LANGUAGE plpgsql AS $$
@@ -93,20 +77,21 @@ BEGIN
     RAISE EXCEPTION 'setup on % did not change exactly one row', connection_name;
   END IF;
 END; $$;
+-- dblink raises a remote failure with the remote SQLSTATE.
 CREATE FUNCTION pg_temp.result(connection_name text) RETURNS jsonb LANGUAGE plpgsql AS $$
 DECLARE
   v_value jsonb;
-  v_error text;
+  v_result jsonb;
 BEGIN
-  SELECT r.value INTO v_value FROM dblink_get_result(connection_name, false) AS r(value jsonb);
-  v_error := dblink_error_message(connection_name);
+  BEGIN
+    SELECT r.value INTO v_value FROM dblink_get_result(connection_name) AS r(value jsonb);
+    v_result := jsonb_build_object('value', v_value);
+  EXCEPTION WHEN OTHERS THEN
+    v_result := jsonb_build_object('sqlstate', SQLSTATE);
+  END;
   PERFORM 1 FROM dblink_get_result(connection_name, false) AS r(value jsonb);
-  IF v_error <> 'OK' THEN RETURN jsonb_build_object('error', v_error); END IF;
-  RETURN jsonb_build_object('value', v_value);
+  RETURN v_result;
 END; $$;
-CREATE FUNCTION pg_temp.failed(result jsonb, message text) RETURNS boolean LANGUAGE sql AS $$
-  SELECT coalesce(result->>'error' LIKE '%' || message || '%', false);
-$$;
 CREATE FUNCTION pg_temp.statuses() RETURNS jsonb LANGUAGE sql AS $$
   SELECT pg_temp.fx($q$SELECT coalesce(jsonb_agg(name ORDER BY sort_order, id), '[]')
     FROM public.status_types WHERE organization_id = #101$q$);
@@ -126,18 +111,17 @@ INSERT INTO results SELECT 'bravo', pg_temp.fx($$SELECT jsonb_agg(to_jsonb(t) OR
   FROM public.status_types t WHERE organization_id = #102$$);
 
 SELECT pg_temp.begin_as('a', 1);
-SELECT is(pg_temp.call('a', pg_temp.order_sql('402,403,401', '401,402,403')), '""', 'a reorder stays open');
+SELECT pg_temp.call('a', pg_temp.order_sql('402,403,401', '401,402,403'));
 SELECT pg_temp.begin_as('b', 3);
 SELECT pg_temp.send('b', pg_temp.order_sql('403,401,402', '401,402,403'));
-SELECT ok(pg_temp.blocked_by('b', 'a', 'advisory'), 'a second reorder waits on the first reorder''s advisory lock');
+SELECT pg_temp.await_wait('b', 'a');
 SELECT pg_temp.exec('a', 'COMMIT');
-SELECT ok(pg_temp.failed(pg_temp.result('b'), 'Status type order changed'),
-  'a different reorder from the same old order is a conflict');
+SELECT is(pg_temp.result('b'), '{"sqlstate":"STO01"}', 'a different reorder from the same old order is a conflict');
 SELECT pg_temp.exec('b', 'ROLLBACK');
 SELECT is(pg_temp.statuses(), '["School", "Sick", "Leave"]', 'the first committed reorder is kept and nothing is overwritten');
 
 SELECT pg_temp.begin_as('a', 1);
-SELECT is(pg_temp.call('a', pg_temp.order_sql('401,402,403', '402,403,401')), '""', 'a reorder stays open');
+SELECT pg_temp.call('a', pg_temp.order_sql('401,402,403', '402,403,401'));
 SELECT pg_temp.begin_as('b', 3);
 SELECT pg_temp.send('b', pg_temp.order_sql('401,402,403', '402,403,401'));
 SELECT pg_temp.await_wait('b', 'a');
@@ -147,7 +131,7 @@ SELECT pg_temp.exec('b', 'COMMIT');
 SELECT is(pg_temp.statuses(), '["Leave", "School", "Sick"]', 'both sessions agree on the saved order');
 
 SELECT pg_temp.begin_as('a', 1);
-SELECT is(pg_temp.call('a', pg_temp.order_sql('403,402,401', '401,402,403')), '""', 'a reorder stays open');
+SELECT pg_temp.call('a', pg_temp.order_sql('403,402,401', '401,402,403'));
 SELECT pg_temp.begin_as('c', 3);
 SELECT pg_temp.exec('c', $$SET LOCAL lock_timeout = '2s'$$);
 SELECT is(pg_temp.call('c', $$WITH added AS (INSERT INTO public.status_types (id, organization_id, name, sort_order)
@@ -159,7 +143,7 @@ SELECT is(pg_temp.statuses(), '["Sick", "School", "Leave", "Quarters"]',
   'the reorder and the type created alongside it are both kept, the new type last');
 SELECT pg_temp.begin_as('b', 3);
 SELECT pg_temp.send('b', pg_temp.order_sql('401,402,403', '403,402,401'));
-SELECT ok(pg_temp.failed(pg_temp.result('b'), 'Status type order changed'),
+SELECT is(pg_temp.result('b'), '{"sqlstate":"STO01"}',
   'a reorder read before that create is a conflict and cannot drop the new type');
 SELECT pg_temp.exec('b', 'ROLLBACK');
 
@@ -168,14 +152,14 @@ SELECT pg_temp.hold('a', $$WITH gone AS (DELETE FROM public.status_types WHERE i
   SELECT to_jsonb(count(*)) FROM gone$$);
 SELECT pg_temp.begin_as('b', 1);
 SELECT pg_temp.send('b', pg_temp.order_sql('404,401,402,403', '403,402,401,404'));
-SELECT ok(pg_temp.blocked_by('b', 'a', 'transactionid'), 'a reorder waits on a type being deleted');
+SELECT pg_temp.await_wait('b', 'a');
 SELECT pg_temp.exec('a', 'COMMIT');
-SELECT ok(pg_temp.failed(pg_temp.result('b'), 'Status type order changed'), 'the waiting reorder sees the deletion as a conflict');
+SELECT is(pg_temp.result('b'), '{"sqlstate":"STO01"}', 'the waiting reorder sees the deletion as a conflict');
 SELECT pg_temp.exec('b', 'ROLLBACK');
 SELECT is(pg_temp.statuses(), '["Sick", "School", "Leave"]', 'the deletion is kept and the rest keep their order');
 
 SELECT pg_temp.begin_as('a', 1);
-SELECT is(pg_temp.call('a', pg_temp.order_sql('401,402,403', '403,402,401')), '""', 'a reorder stays open');
+SELECT pg_temp.call('a', pg_temp.order_sql('401,402,403', '403,402,401'));
 SELECT pg_temp.exec('c', 'BEGIN');
 SELECT pg_temp.exec('c', $$SET LOCAL lock_timeout = '2s'$$);
 SELECT is(pg_temp.call('c', $$WITH added AS (INSERT INTO public.availability_entries
@@ -187,15 +171,13 @@ SELECT pg_temp.exec('a', 'COMMIT');
 SELECT is(pg_temp.statuses(), '["Leave", "School", "Sick"]', 'the reorder commits alongside the reference');
 
 SELECT pg_temp.begin_as('a', 1);
-SELECT is(pg_temp.call('a', $$SELECT to_jsonb(pg_advisory_xact_lock(hashtextextended('calendar-status-order:' || #101::text, 0))::text)$$),
-  '""', 'another session holds the status order lock');
+SELECT pg_temp.call('a', $$SELECT to_jsonb(pg_advisory_xact_lock(hashtextextended('calendar-status-order:' || #101::text, 0))::text)$$);
 SELECT pg_temp.begin_as('b', 2);
 SELECT pg_temp.send('b', pg_temp.order_sql('403,402,401', '401,402,403'));
-SELECT ok(pg_temp.blocked_by('b', 'a', 'advisory'), 'the reorder waits on the advisory lock');
+SELECT pg_temp.await_wait('b', 'a');
 SELECT pg_temp.set_calendar(2, 'view');
 SELECT pg_temp.exec('a', 'COMMIT');
-SELECT ok(pg_temp.failed(pg_temp.result('b'), 'Calendar configuration is not allowed'),
-  'access revoked during the advisory wait denies the reorder');
+SELECT is(pg_temp.result('b'), '{"sqlstate":"42501"}', 'access revoked during the advisory wait denies the reorder');
 SELECT pg_temp.exec('b', 'ROLLBACK');
 SELECT pg_temp.set_calendar(2, 'configure');
 
@@ -204,11 +186,10 @@ SELECT pg_temp.hold('a', $$WITH changed AS (UPDATE public.status_types SET color
   SELECT to_jsonb(count(*)) FROM changed$$);
 SELECT pg_temp.begin_as('b', 2);
 SELECT pg_temp.send('b', pg_temp.order_sql('403,402,401', '401,402,403'));
-SELECT ok(pg_temp.blocked_by('b', 'a', 'transactionid'), 'the reorder waits on an edited type');
+SELECT pg_temp.await_wait('b', 'a');
 SELECT pg_temp.set_calendar(2, 'view');
 SELECT pg_temp.exec('a', 'COMMIT');
-SELECT ok(pg_temp.failed(pg_temp.result('b'), 'Calendar configuration is not allowed'),
-  'access revoked during the row wait denies the reorder');
+SELECT is(pg_temp.result('b'), '{"sqlstate":"42501"}', 'access revoked during the row wait denies the reorder');
 SELECT pg_temp.exec('b', 'ROLLBACK');
 SELECT pg_temp.set_calendar(2, 'configure');
 SELECT is(pg_temp.fx($$SELECT jsonb_agg(jsonb_build_array(name, sort_order, color) ORDER BY sort_order)

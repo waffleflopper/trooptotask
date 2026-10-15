@@ -165,7 +165,10 @@ describe('statusTypesStore', () => {
 			expect(await statusTypesStore.setOrder(['3', '1', '2'])).toEqual({ status: 'saved' });
 			const quarters: StatusType = { ...leave, id: '4', name: 'Quarters', sortOrder: 3 };
 
-			statusTypesStore.load(read.reconcile([leave, tdy, sick, quarters], () => true), 'org-1');
+			statusTypesStore.load(
+				read.reconcile([leave, tdy, sick, quarters], () => true),
+				'org-1'
+			);
 
 			expect(statusTypesStore.items.map((type) => [type.id, type.sortOrder])).toEqual([
 				['3', 0],
@@ -245,9 +248,7 @@ describe('statusTypesStore', () => {
 		it('sends no move made during a save whose write failed', async () => {
 			let answer!: (value: unknown) => void;
 			const fetchMock = vi.fn((_url, options?: RequestInit) =>
-				options
-					? new Promise((resolve) => (answer = resolve))
-					: Promise.resolve(reply(200, saved(['1', '2', '3'])))
+				options ? new Promise((resolve) => (answer = resolve)) : Promise.resolve(reply(200, saved(['1', '2', '3'])))
 			);
 			vi.stubGlobal('fetch', fetchMock);
 

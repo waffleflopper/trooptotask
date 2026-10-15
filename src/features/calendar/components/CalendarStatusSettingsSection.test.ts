@@ -95,4 +95,20 @@ describe('Status order in Calendar settings', () => {
 		});
 		expect(shownOrder()).toEqual(['Reorder Leave', 'Reorder School', 'Reorder Sick']);
 	});
+
+	it('keeps an edit in progress while a search hides its row, and restores it when the search clears', async () => {
+		const { rerender } = render(CalendarStatusSettingsSection, { props: { canMutate: true, searchQuery: '' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'More actions for School' }));
+		await fireEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }));
+		const name = (await screen.findByRole('textbox', { name: 'Name' })) as HTMLInputElement;
+		await fireEvent.input(name, { target: { value: 'School (draft)' } });
+
+		await rerender({ canMutate: true, searchQuery: 'zzz' });
+
+		expect((screen.getByRole('textbox', { name: 'Name' }) as HTMLInputElement).value).toBe('School (draft)');
+
+		await rerender({ canMutate: true, searchQuery: '' });
+
+		expect((screen.getByRole('textbox', { name: 'Name' }) as HTMLInputElement).value).toBe('School (draft)');
+	});
 });

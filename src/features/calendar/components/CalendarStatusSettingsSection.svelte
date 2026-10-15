@@ -41,7 +41,10 @@
 	});
 	const statusIds = $derived(statuses.map((status) => status.id));
 	const query = $derived(searchQuery.trim().toLowerCase());
-	const visibleStatuses = $derived(statuses.filter((status) => !query || status.name.toLowerCase().includes(query)));
+	// The row being edited stays, so a filter never destroys an unsaved draft.
+	const visibleStatuses = $derived(
+		statuses.filter((status) => !query || status.name.toLowerCase().includes(query) || editing(status))
+	);
 
 	export function openAddDialog() {
 		if (!canMutate) return;

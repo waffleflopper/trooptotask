@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { median, summarizeRun } from './calendar-interaction-bench.mjs';
+import { median, summarizeRun, table } from './calendar-interaction-bench.mjs';
 
 const record = (overrides) => ({
 	id: 'next-within',
@@ -52,4 +52,19 @@ test('failed requests and page faults are summed over the measured repetitions',
 
 test('interactions with no records are omitted', () => {
 	assert.deepEqual(Object.keys(summarizeRun([record({})])), ['next-within']);
+});
+
+test('an interaction whose repetitions all failed reports no extrema and prints n/a', () => {
+	const rows = summarizeRun([
+		record({ ms: null, error: 'expected change never rendered' }),
+		record({ ms: null, error: 'expected change never rendered' })
+	]);
+	const row = rows['next-within'];
+	assert.equal(row.n, 0);
+	assert.equal(row.minMs, null);
+	assert.equal(row.maxMs, null);
+	assert.equal(row.longTaskMaxMs, null);
+	const markdown = table(rows);
+	assert.match(markdown, /\| n\/a–n\/a \|/);
+	assert.doesNotMatch(markdown, /Infinity|null|undefined|NaN/);
 });

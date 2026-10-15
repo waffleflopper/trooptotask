@@ -439,7 +439,7 @@ export function readPageFacts() {
 		viewport: [innerWidth, innerHeight],
 		devicePixelRatio: devicePixelRatio,
 		visibility: document.visibilityState,
-		dark: document.documentElement.classList.contains('dark'),
+		dark: document.documentElement.dataset.theme === 'dark' || document.documentElement.classList.contains('dark'),
 		immutableAssets: resources.filter((name) => name.includes('/_app/immutable/')).length,
 		devAssets: resources.filter((name) => /@vite|\/node_modules\/\.vite|\/@fs\//.test(name)).length,
 		monthLabel: document.querySelector('[data-testid="calendar-month-label"]')?.textContent.trim() ?? null,
@@ -508,12 +508,12 @@ export function summarizeRun(records) {
 			),
 			medianMs: round(median(values)),
 			domMedianMs: round(median(good.map((record) => record.domMs))),
-			minMs: round(Math.min(...values)),
-			maxMs: round(Math.max(...values)),
+			minMs: good.length ? round(Math.min(...values)) : null,
+			maxMs: good.length ? round(Math.max(...values)) : null,
 			settledMedianMs: round(median(good.map((record) => record.settledMs).filter((value) => value !== undefined))),
 			longTaskCountMedian: pick((record) => record.longTasks.count),
 			longTaskTotalMsMedian: round(pick((record) => record.longTasks.totalMs)),
-			longTaskMaxMs: round(Math.max(...good.map((record) => record.longTasks.maxMs))),
+			longTaskMaxMs: good.length ? round(Math.max(...good.map((record) => record.longTasks.maxMs))) : null,
 			requestsMedian: pick((record) => record.requests.total),
 			rangeRequestsMedian: pick((record) => record.requests.calendarRange),
 			dataJsonRequestsMedian: pick((record) => record.requests.dataJson),
@@ -526,14 +526,15 @@ export function summarizeRun(records) {
 	return rows;
 }
 
-function table(rows) {
+export function table(rows) {
 	const header =
 		'| interaction | n | median ms | min–max ms | JS+DOM ms (median) | long tasks (median count / total ms) | requests (median) | grid nodes | errors |';
 	const lines = [header, '|---|---|---|---|---|---|---|---|---|'];
 	for (const [id, row] of Object.entries(rows)) {
 		const settled = row.settledMedianMs === null ? '' : ` (settled ${row.settledMedianMs})`;
+		const cell = (value) => value ?? 'n/a';
 		lines.push(
-			`| ${id} | ${row.n}/${row.attempted} | ${row.medianMs}${settled} | ${row.minMs}–${row.maxMs} | ${row.domMedianMs} | ${row.longTaskCountMedian} / ${row.longTaskTotalMsMedian} | ${row.requestsMedian} | ${row.gridNodesMedian} | ${row.errors} failed UI, ${row.failedRequests} failed requests, ${row.jsFaults} JS faults |`
+			`| ${id} | ${row.n}/${row.attempted} | ${cell(row.medianMs)}${settled} | ${cell(row.minMs)}–${cell(row.maxMs)} | ${cell(row.domMedianMs)} | ${cell(row.longTaskCountMedian)} / ${cell(row.longTaskTotalMsMedian)} | ${cell(row.requestsMedian)} | ${cell(row.gridNodesMedian)} | ${row.errors} failed UI, ${row.failedRequests} failed requests, ${row.jsFaults} JS faults |`
 		);
 	}
 	return lines.join('\n');

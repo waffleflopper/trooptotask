@@ -222,6 +222,20 @@ describe("buildHistory on the viewer's day", () => {
 		]);
 	});
 
+	it('lists an early local-day cancellation above a completion on the same day east of UTC', () => {
+		const packets = [
+			completed('completed-jan-1', '2026-12-20', '2027-01-01'),
+			cancelled('cancelled-jan-1-0100', '2026-12-20', '2026-12-31T11:00:00.000Z')
+		];
+
+		const rows = buildHistory(packets, '2027-01-01', 'Pacific/Kiritimati').rows;
+
+		expect(rows.map((row) => [row.packet.id, row.finishedOn])).toEqual([
+			['cancelled-jan-1-0100', '2027-01-01'],
+			['completed-jan-1', '2027-01-01']
+		]);
+	});
+
 	it('counts a start after the completion day as finishing the same day in the typical figure', () => {
 		const { overview } = buildHistory(
 			[

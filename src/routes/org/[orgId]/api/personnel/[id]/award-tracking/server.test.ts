@@ -3,12 +3,15 @@ import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _postConfig } from './+server';
 
+const PERSON_ID = '00000000-0000-4000-8000-0000000000a1';
+const FOREIGN_PERSON_ID = '00000000-0000-4000-8000-0000000000f1';
+
 describe('POST /api/personnel/[id]/award-tracking', () => {
 	it('persists the award-tracking acknowledgment toggle for the targeted person', async () => {
 		const ctx = createTestContext();
 		ctx.rawStore.seed('personnel', [
 			{
-				id: 'person-1',
+				id: PERSON_ID,
 				organization_id: ctx.auth.orgId,
 				rank: 'SGT',
 				last_name: 'Smith',
@@ -26,7 +29,7 @@ describe('POST /api/personnel/[id]/award-tracking', () => {
 			_postConfig,
 			ctx,
 			{
-				personnelId: 'person-1',
+				personnelId: PERSON_ID,
 				acknowledged: true
 			},
 			() => ctx
@@ -35,23 +38,23 @@ describe('POST /api/personnel/[id]/award-tracking', () => {
 			_postConfig,
 			ctx,
 			{
-				personnelId: 'person-1',
+				personnelId: PERSON_ID,
 				acknowledged: false
 			},
 			() => ctx
 		);
 
 		expect(acknowledged).toEqual({
-			personnelId: 'person-1',
+			personnelId: PERSON_ID,
 			awardTrackingAcknowledged: true
 		});
 		expect(cleared).toEqual({
-			personnelId: 'person-1',
+			personnelId: PERSON_ID,
 			awardTrackingAcknowledged: false
 		});
 
 		const rows = await ctx.rawStore.findMany<Record<string, unknown>>('personnel_extended_info', ctx.auth.orgId, {
-			personnel_id: 'person-1'
+			personnel_id: PERSON_ID
 		});
 		expect(rows).toHaveLength(1);
 		expect(rows[0].award_tracking_acknowledged_at).toBeNull();
@@ -77,7 +80,7 @@ describe('POST /api/personnel/[id]/award-tracking', () => {
 				_postConfig,
 				ctx,
 				{
-					personnelId: 'person-1',
+					personnelId: PERSON_ID,
 					acknowledged: true
 				},
 				() => ctx
@@ -93,12 +96,12 @@ describe('POST /api/personnel/[id]/award-tracking', () => {
 	])('uses only literal true and keeps the path Person authoritative ($value)', async ({ value, expected }) => {
 		await expect(
 			_postConfig.parseInput?.({
-				params: { id: 'person-1' },
+				params: { id: PERSON_ID },
 				request: new Request('http://localhost', {
 					method: 'POST',
-					body: JSON.stringify({ acknowledged: value, personnelId: 'foreign-person' })
+					body: JSON.stringify({ acknowledged: value, personnelId: FOREIGN_PERSON_ID })
 				})
 			} as never)
-		).resolves.toEqual({ personnelId: 'person-1', acknowledged: expected });
+		).resolves.toEqual({ personnelId: PERSON_ID, acknowledged: expected });
 	});
 });

@@ -3,6 +3,7 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { createRequestSignInRosterUploadContext } from '$lib/server/adapters/requestContexts.server';
 import type { RequestEvent } from '@sveltejs/kit';
+import { routeRosterId } from './routeIds';
 
 export const _deleteConfig: RouteConfig<
 	{ rosterId: string },
@@ -13,7 +14,7 @@ export const _deleteConfig: RouteConfig<
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.training.manageSignInRosters,
 	policyResource: { kind: 'unscoped' },
-	parseInput: (event: RequestEvent) => ({ rosterId: event.params.id as string }),
+	parseInput: (event: RequestEvent) => ({ rosterId: routeRosterId(event) }),
 	fn: (ctx, input) => deleteSignInRoster(ctx, input.rosterId)
 };
 

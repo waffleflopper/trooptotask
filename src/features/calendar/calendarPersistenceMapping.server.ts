@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { dateOnlySchema, isUuid, uuidSchema } from '$lib/utils/inputSchemas';
 import type {
 	SavedAssignment,
 	SavedAssignmentType,
@@ -115,15 +116,17 @@ export function toAssignment(row: AssignmentRow): SavedAssignment {
 	};
 }
 
+const catalogName = z.string().min(1, 'Name is required').max(100, 'Name must be 100 characters or fewer');
+
 export const statusTypeCreateInput = z.object({
-	name: z.string().min(1).max(100),
+	name: catalogName,
 	color: z.string().optional(),
 	textColor: z.string().optional(),
 	sortOrder: z.number().int().optional()
 });
-export const statusTypeUpdateInput = statusTypeCreateInput.partial().extend({ id: z.string() });
+export const statusTypeUpdateInput = statusTypeCreateInput.partial().extend({ id: uuidSchema });
 const assignmentTypeFields = z.object({
-	name: z.string().min(1).max(100),
+	name: catalogName,
 	shortName: z.string(),
 	assignTo: z.enum(['personnel', 'group']),
 	color: z.string().optional(),
@@ -135,30 +138,37 @@ export const assignmentTypeCreateInput = assignmentTypeFields.extend({
 });
 export const assignmentTypeUpdateInput = assignmentTypeFields
 	.partial()
-	.extend({ id: z.string(), showInDateHeader: z.never().optional() });
+	.extend({ id: uuidSchema, showInDateHeader: z.never().optional() });
 export const assignmentTypeDateHeaderInput = z.object({ assignmentTypeId: z.string().uuid() }).strict();
 export const specialDayCreateInput = z.object({
-	date: z.string(),
+	date: dateOnlySchema,
 	name: z.string(),
 	type: z.enum(['federal-holiday', 'org-closure'])
 });
-export const specialDayUpdateInput = specialDayCreateInput.partial().extend({ id: z.string() });
-export const availabilityCreateInput = z.object({
-	personnelId: z.string(),
-	statusTypeId: z.string(),
-	startDate: z.string(),
-	endDate: z.string(),
-	note: z.string().nullable().optional()
+export const specialDayUpdateInput = specialDayCreateInput.partial().extend({ id: uuidSchema });
+const DATE_RANGE_MESSAGE = 'End date must be on or after the start date';
+const availabilityFields = z.object({
+	personnelId: uuidSchema,
+	statusTypeId: uuidSchema,
+	startDate: dateOnlySchema,
+	endDate: dateOnlySchema,
+	note: z.string().max(200, 'Note must be 200 characters or fewer').nullable().optional()
 });
-export const availabilityUpdateInput = availabilityCreateInput
+const orderedRange = (entry: { startDate?: string; endDate?: string }) =>
+	!entry.startDate || !entry.endDate || entry.startDate <= entry.endDate;
+
+export const availabilityCreateInput = availabilityFields.refine(orderedRange, DATE_RANGE_MESSAGE);
+export const availabilityUpdateInput = availabilityFields
 	.omit({ personnelId: true })
 	.partial()
-	.extend({ id: z.string() })
-	.strict();
+	.extend({ id: uuidSchema })
+	.strict()
+	.refine(orderedRange, DATE_RANGE_MESSAGE);
+/** An empty assignee clears the slot; any other assignee names a Person or Group. */
 export const dailyAssignmentSlotInput = z.object({
-	date: z.string(),
-	assignmentTypeId: z.string(),
-	assigneeId: z.string()
+	date: dateOnlySchema,
+	assignmentTypeId: uuidSchema,
+	assigneeId: z.string().refine((value) => value.trim() === '' || isUuid(value.trim()), 'Invalid ID')
 });
 
 export function calendarIdChunks(ids: string[]): string[][] {

@@ -10,6 +10,7 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { specialDaysStore, type FederalHolidayResetResult } from '$features/calendar/stores/specialDays.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { rejectedRequestMessage } from '$lib/stores/core';
 	import { formatDate } from '$lib/utils/dates';
 	import type { SpecialDay } from '$features/calendar/contracts';
 	import Pencil from '@lucide/svelte/icons/pencil';
@@ -107,14 +108,14 @@
 			resetAddClosureForm();
 			addClosureOpen = false;
 		} catch (error) {
-			showClosureMutationError('Failed to add closure', error);
+			showClosureMutationError(rejectedRequestMessage(error, 'Failed to add closure'));
 		}
 	}
 
 	async function saveEditSpecialDay() {
 		if (!editingSpecialDay || !editSpecialName.trim()) return;
 		try {
-			const updated = await specialDaysStore.update(editingSpecialDay.id, {
+			const updated = await specialDaysStore.updateOrThrow(editingSpecialDay.id, {
 				name: editSpecialName.trim(),
 				type: editSpecialType
 			});
@@ -125,7 +126,7 @@
 			editClosureOpen = false;
 			editingSpecialDay = null;
 		} catch (error) {
-			showClosureMutationError('Failed to save closure', error);
+			showClosureMutationError(rejectedRequestMessage(error, 'Failed to save closure'));
 		}
 	}
 

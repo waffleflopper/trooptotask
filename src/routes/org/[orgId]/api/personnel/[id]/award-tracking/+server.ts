@@ -1,8 +1,9 @@
 import { setPersonnelAwardTrackingAcknowledged } from '$features/personnel/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { handle, readJsonBody, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { createRequestPersonnelAwardContext } from '$lib/server/adapters/requestContexts.server';
 import type { RequestEvent } from '@sveltejs/kit';
+import { routePersonnelId } from '../routeIds';
 
 type PersonnelAwardTrackingResult = Awaited<ReturnType<typeof setPersonnelAwardTrackingAcknowledged>>;
 
@@ -21,9 +22,9 @@ export const _postConfig: RouteConfig<
 	policyAction: POLICY_ACTION_CATALOG.personnel.manageRecords,
 	policyResource: { kind: 'unscoped' },
 	parseInput: async (event: RequestEvent) => {
-		const body = (await event.request.json()) as { acknowledged?: boolean };
+		const body = await readJsonBody(event);
 		return {
-			personnelId: event.params.id as string,
+			personnelId: routePersonnelId(event),
 			acknowledged: body.acknowledged === true
 		};
 	},

@@ -11,6 +11,7 @@ import { fail } from '$lib/errors';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { personnelExtendedInfoInputSchema, type PersonnelExtendedInfo } from './contracts';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
+import { issueMessage } from '$lib/utils/inputSchemas';
 
 interface PersonnelExtendedInfoContext {
 	auth: OrganizationAccessGrant;
@@ -124,7 +125,7 @@ export async function updatePersonnelExtendedInfo(
 ): Promise<PersonnelExtendedInfo> {
 	const parsed = personnelExtendedInfoInputSchema.safeParse(rawInput);
 	if (!parsed.success) {
-		fail(400, parsed.error.issues.map((issue) => issue.message).join('; '));
+		fail(400, issueMessage(parsed.error));
 	}
 
 	const input = parsed.data;

@@ -4,12 +4,18 @@ import { createTestContext } from '$features/onboarding/server/onboardingPersist
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _postConfig } from './+server';
 
+const ONBOARDING_ID = '00000000-0000-4000-8000-000000000010';
+const PERSON_1 = '00000000-0000-4000-8000-000000000011';
+const TEMPLATE_1 = '00000000-0000-4000-8000-000000000012';
+const OLD_TEMPLATE_STEP = '00000000-0000-4000-8000-000000000013';
+const SAVED_STEP = '00000000-0000-4000-8000-000000000014';
+
 function seedResyncFixtures(ctx: ReturnType<typeof createTestContext>) {
 	ctx.store.seed('personnel_onboardings', [
 		{
-			id: 'ob-1',
-			personnel_id: 'p-1',
-			template_id: 'tmpl-1',
+			id: ONBOARDING_ID,
+			personnel_id: PERSON_1,
+			template_id: TEMPLATE_1,
 			status: 'in_progress',
 			started_at: '2026-01-01T00:00:00Z',
 			completed_at: null,
@@ -31,14 +37,14 @@ describe('/api/onboarding-resync route config', () => {
 			onboardingReconciliation: {
 				async reconcile() {
 					return {
-						onboarding_id: 'ob-1',
-						template_id: 'tmpl-1',
-						old_template_id: 'tmpl-1',
+						onboarding_id: ONBOARDING_ID,
+						template_id: TEMPLATE_1,
+						old_template_id: TEMPLATE_1,
 						steps: [
 							{
-								id: 'sp-1',
-								onboarding_id: 'ob-1',
-								template_step_id: 'ts-old',
+								id: SAVED_STEP,
+								onboarding_id: ONBOARDING_ID,
+								template_step_id: OLD_TEMPLATE_STEP,
 								step_name: 'Old step',
 								step_type: 'checkbox',
 								training_type_id: null,
@@ -70,17 +76,17 @@ describe('/api/onboarding-resync route config', () => {
 		});
 		seedResyncFixtures(ctx);
 
-		const result = (await handleUseCaseRequest(_postConfig, ctx, { onboardingId: 'ob-1' }, () => ctx)) as {
+		const result = (await handleUseCaseRequest(_postConfig, ctx, { onboardingId: ONBOARDING_ID }, () => ctx)) as {
 			steps: Array<{ templateStepId: string; active: boolean }>;
 		};
 
 		expect(result.steps).toEqual(
-			expect.arrayContaining([expect.objectContaining({ templateStepId: 'ts-old', active: false })])
+			expect.arrayContaining([expect.objectContaining({ templateStepId: OLD_TEMPLATE_STEP, active: false })])
 		);
 		expect(ctx.auditPort.events).toContainEqual(
 			expect.objectContaining({
 				action: 'onboarding.resynced',
-				resourceId: 'ob-1'
+				resourceId: ONBOARDING_ID
 			})
 		);
 	});
@@ -102,7 +108,9 @@ describe('/api/onboarding-resync route config', () => {
 			}
 		});
 
-		await expect(handleUseCaseRequest(_postConfig, ctx, { onboardingId: 'ob-1' }, () => ctx)).rejects.toMatchObject({
+		await expect(
+			handleUseCaseRequest(_postConfig, ctx, { onboardingId: ONBOARDING_ID }, () => ctx)
+		).rejects.toMatchObject({
 			status: 403
 		});
 		expect(ctx.auditPort.events).toEqual([

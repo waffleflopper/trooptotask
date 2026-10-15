@@ -38,6 +38,7 @@ For views use `api/training-views` and `{name:'MARKER',columnIds:[]}`. Read the 
 
 ## Gotchas
 
+- Missing ids, duplicate names, the 100-character name limit and the forms' 4xx messages are driven in [Invalid input](invalid-input.md).
 - Training `configure` requires Organization scope; Group-scoped Training access cannot change the global catalog. A hidden button alone does not establish the server denial.
 - The Group selector was changed to a compact control in #1394. Use its accessible name and visible options; do not assume Group pills.
 - This select component's portal options may be absent from a DevTools accessibility snapshot even when rendered. Read its open listbox options without changing the page, then use the focused trigger's arrow keys and Enter; confirm the visible selected value or resulting matrix/step. An empty snapshot listbox alone does not prove an empty catalog.

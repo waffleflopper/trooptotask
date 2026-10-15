@@ -5,10 +5,13 @@ import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _getConfig, _postConfig } from './+server';
 import { _patchConfig } from './[documentId]/+server';
 
+const PERSON_ID = '00000000-0000-4000-8000-0000000000a1';
+const DOCUMENT_ID = '00000000-0000-4000-8000-0000000000d1';
+
 const PDF_BYTES = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d]);
 
 function seedPersonnel(ctx: ReturnType<typeof createTestContext>) {
-	ctx.store.seed('personnel', [{ id: 'person-1', organization_id: ctx.auth.orgId, group_id: null }]);
+	ctx.store.seed('personnel', [{ id: PERSON_ID, organization_id: ctx.auth.orgId, group_id: null }]);
 }
 
 describe('/api/personnel/[id]/documents', () => {
@@ -32,13 +35,13 @@ describe('/api/personnel/[id]/documents', () => {
 			_postConfig,
 			ctx,
 			{
-				personnelId: 'person-1',
+				personnelId: PERSON_ID,
 				title: 'BLS Card',
 				file: new File([PDF_BYTES], 'bls.pdf', { type: 'application/pdf' })
 			},
 			() => createPersonnelArtifactDeliveryContext(ctx)
 		);
-		const records = await handleUseCaseRequest(_getConfig, ctx, { personnelId: 'person-1' }, () =>
+		const records = await handleUseCaseRequest(_getConfig, ctx, { personnelId: PERSON_ID }, () =>
 			createPersonnelArtifactDeliveryContext(ctx)
 		);
 
@@ -63,7 +66,7 @@ describe('/api/personnel/[id]/documents', () => {
 		seedPersonnel(ctx);
 
 		await expect(
-			handleUseCaseRequest(_getConfig, ctx, { personnelId: 'person-1' }, () =>
+			handleUseCaseRequest(_getConfig, ctx, { personnelId: PERSON_ID }, () =>
 				createPersonnelArtifactDeliveryContext(ctx)
 			)
 		).rejects.toMatchObject({
@@ -92,7 +95,7 @@ describe('/api/personnel/[id]/documents', () => {
 				_postConfig,
 				ctx,
 				{
-					personnelId: 'person-1',
+					personnelId: PERSON_ID,
 					title: 'Spoofed PDF',
 					file: new File(['not a pdf'], 'spoofed.pdf', { type: 'application/pdf' })
 				},
@@ -108,11 +111,11 @@ describe('/api/personnel/[id]/documents', () => {
 
 		await expect(
 			_postConfig.parseInput?.({
-				params: { id: 'person-1' },
+				params: { id: PERSON_ID },
 				request: new Request('http://localhost', { method: 'POST', body: formData })
 			} as never)
 		).resolves.toMatchObject({
-			personnelId: 'person-1',
+			personnelId: PERSON_ID,
 			title: 'Inspection Worksheet'
 		});
 	});
@@ -134,9 +137,9 @@ describe('/api/personnel/[id]/documents', () => {
 		seedPersonnel(ctx);
 		ctx.store.seed('personnel_documents', [
 			{
-				id: 'document-1',
+				id: DOCUMENT_ID,
 				organization_id: ctx.auth.orgId,
-				personnel_id: 'person-1',
+				personnel_id: PERSON_ID,
 				title: 'BLS Card',
 				file_path: 'test-org/personnel/person-1/documents/bls.pdf',
 				file_size_bytes: 5,
@@ -151,8 +154,8 @@ describe('/api/personnel/[id]/documents', () => {
 			_patchConfig,
 			ctx,
 			{
-				personnelId: 'person-1',
-				documentId: 'document-1',
+				personnelId: PERSON_ID,
+				documentId: DOCUMENT_ID,
 				action: 'archive'
 			},
 			() => createPersonnelArtifactDeliveryContext(ctx)
@@ -162,8 +165,8 @@ describe('/api/personnel/[id]/documents', () => {
 			_patchConfig,
 			ctx,
 			{
-				personnelId: 'person-1',
-				documentId: 'document-1',
+				personnelId: PERSON_ID,
+				documentId: DOCUMENT_ID,
 				action: 'restore'
 			},
 			() => createPersonnelArtifactDeliveryContext(ctx)
@@ -174,8 +177,8 @@ describe('/api/personnel/[id]/documents', () => {
 				_patchConfig,
 				ctx,
 				{
-					personnelId: 'person-1',
-					documentId: 'document-1',
+					personnelId: PERSON_ID,
+					documentId: DOCUMENT_ID,
 					action: 'publish'
 				},
 				() => createPersonnelArtifactDeliveryContext(ctx)

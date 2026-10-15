@@ -12,8 +12,44 @@ import {
 	addMonths,
 	startOfMonth,
 	endOfMonth,
-	formatDisplayDate
+	formatDisplayDate,
+	isDateOnly
 } from './dates';
+
+describe('isDateOnly', () => {
+	it.each(['2026-02-28', '2028-02-29', '2000-02-29', '2026-12-31', '1000-01-01'])(
+		'accepts the calendar date %s',
+		(value) => {
+			expect(isDateOnly(value)).toBe(true);
+		}
+	);
+
+	it.each([
+		'2026-02-29',
+		'1900-02-29',
+		'2026-02-30',
+		'2026-04-31',
+		'2026-13-01',
+		'2026-00-10',
+		'2026-01-00',
+		'0000-01-01',
+		'0099-01-01',
+		'0999-12-31',
+		'2026-1-01',
+		'2026-01-1',
+		'2026-01-01T00:00:00Z',
+		'2026-01-01 ',
+		' 2026-01-01',
+		'not-a-date',
+		''
+	])('rejects %j', (value) => {
+		expect(isDateOnly(value)).toBe(false);
+	});
+
+	it.each([null, undefined, 20260101, new Date('2026-01-01')])('rejects the non-string %s', (value) => {
+		expect(isDateOnly(value)).toBe(false);
+	});
+});
 
 describe('formatDate', () => {
 	it('formats a date as YYYY-MM-DD', () => {

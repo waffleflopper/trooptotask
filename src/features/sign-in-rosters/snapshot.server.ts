@@ -6,6 +6,7 @@ import type {
 } from '$features/personnel/contracts';
 import { sortSignInRosterRows } from './signInRosterRankOrder';
 import { fail } from '$lib/errors';
+import { isUuid } from '$lib/utils/inputSchemas';
 
 const MAX_ROSTER_PERSONNEL = 500;
 
@@ -92,10 +93,9 @@ function validatePersonnelIds(values: unknown[], invalidMessage: string): string
 	}
 
 	const ids = values.map((value) => {
-		if (typeof value !== 'string' || value.trim().length === 0) {
-			fail(400, invalidMessage);
-		}
-		return value.trim();
+		const id = typeof value === 'string' ? value.trim() : '';
+		if (!isUuid(id)) fail(400, invalidMessage);
+		return id.toLowerCase();
 	});
 
 	if (new Set(ids).size !== ids.length) {

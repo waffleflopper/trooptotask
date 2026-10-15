@@ -45,6 +45,7 @@ Pins belong to the signed-in member and Organization. They store Group names in 
 
 ## Gotchas
 
+- A duplicate Group name answers `409` and the rename form shows it; see [Invalid input](invalid-input.md).
 - `Add` is disabled for an empty name. A duplicate name can fail; use a fresh unique name and capture the visible error if testing that path.
 - Dialog UIDs change after adding or editing. Snapshot again before clicking `Done`, `Edit`, or `Remove`.
 - A row appearing immediately after `Add` is not persistence proof. Reopen after reload.

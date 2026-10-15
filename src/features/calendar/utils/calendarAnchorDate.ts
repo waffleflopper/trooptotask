@@ -1,16 +1,11 @@
-import { formatDate, parseDate } from '$lib/utils/dates';
+import { formatDate, isDateOnly, parseDate } from '$lib/utils/dates';
 
 export const CALENDAR_ANCHOR_COOKIE = 'ttt-calendar-anchor-date';
 
 const CALENDAR_ANCHOR_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
-const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-
-function isValidDateOnly(value: string): boolean {
-	return ISO_DATE_PATTERN.test(value) && formatDate(parseDate(value)) === value;
-}
 
 export function parseCalendarAnchorDate(value: string | null | undefined): Date | null {
-	if (!value || !isValidDateOnly(value)) {
+	if (!isDateOnly(value)) {
 		return null;
 	}
 

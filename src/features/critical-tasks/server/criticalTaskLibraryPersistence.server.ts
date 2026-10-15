@@ -93,11 +93,12 @@ export function createSupabaseCriticalTaskLibraryPersistence(
 				.eq('organization_id', orgId)
 				.eq('id', id)
 				.select(TASK_SELECT)
-				.single();
+				.maybeSingle();
 			if (error) {
 				if (isUnknownWriteStatus(status)) writeUnconfirmed();
 				throwWriteError(error);
 			}
+			if (!data) return null;
 			const acknowledged = acknowledgedRows([data], [id], mapIctTask, ictTaskSchema);
 			if (!acknowledged) writeUnconfirmed();
 			return acknowledged[0];

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import { Spinner } from '$lib/components/ui/spinner';
+	import { rejectedRequestMessage } from '$lib/stores/core';
 	import type { Personnel } from '$features/personnel/contracts';
 	import type { Group, RankCatalogEntry } from '$features/personnel/contracts';
 	import type { OnboardingTemplate } from '../onboarding.types';
@@ -84,8 +85,8 @@
 			if (!active) return;
 			if (saved) onClose();
 			else saveError = 'Could not start onboarding. Try again.';
-		} catch {
-			if (active) saveError = 'Could not start onboarding. Try again.';
+		} catch (failure) {
+			if (active) saveError = rejectedRequestMessage(failure, 'Could not start onboarding. Try again.');
 		} finally {
 			if (active) saving = false;
 		}

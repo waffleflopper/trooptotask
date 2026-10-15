@@ -7,6 +7,12 @@ import {
 import type { PersonnelIctCompletionWriteContext } from './personnelIctCompletionPorts.server';
 import { createTestContext } from './criticalTasksPersistence.test-support.server';
 
+const PERSON_1 = '00000000-0000-4000-8000-00000000e001';
+const PERSON_INSIDE = '00000000-0000-4000-8000-00000000e002';
+const PERSON_OUTSIDE = '00000000-0000-4000-8000-00000000e003';
+const TASK_1 = '00000000-0000-4000-8000-00000000e004';
+const COMPLETION_1 = '00000000-0000-4000-8000-00000000e005';
+
 function completionContext(ctx: ReturnType<typeof createTestContext>): PersonnelIctCompletionWriteContext {
 	return {
 		auth: ctx.auth,
@@ -36,18 +42,18 @@ describe('Critical Tasks completion policy boundary', () => {
 
 		await expect(
 			createPersonnelIctCompletion(completionContext(ctx), {
-				personnelId: 'person-1',
-				ictTaskId: 'task-1',
+				personnelId: PERSON_1,
+				ictTaskId: TASK_1,
 				completedAt: '2026-04-01',
 				validationMethod: 'Lecture'
 			})
 		).rejects.toMatchObject({ status: 403 });
 		await expect(
-			updatePersonnelIctCompletion(completionContext(ctx), { id: 'completion-1', notes: null })
+			updatePersonnelIctCompletion(completionContext(ctx), { id: COMPLETION_1, notes: null })
 		).rejects.toMatchObject({
 			status: 403
 		});
-		await expect(preparePersonnelIctCompletionDeletion(completionContext(ctx), 'completion-1')).rejects.toMatchObject({
+		await expect(preparePersonnelIctCompletionDeletion(completionContext(ctx), COMPLETION_1)).rejects.toMatchObject({
 			status: 403
 		});
 
@@ -71,25 +77,25 @@ describe('Critical Tasks completion policy boundary', () => {
 			}
 		});
 		ctx.store.seed('personnel', [
-			{ id: 'person-inside', organization_id: 'test-org', group_id: 'group-1' },
-			{ id: 'person-outside', organization_id: 'test-org', group_id: 'group-2' }
+			{ id: PERSON_INSIDE, organization_id: 'test-org', group_id: 'group-1' },
+			{ id: PERSON_OUTSIDE, organization_id: 'test-org', group_id: 'group-2' }
 		]);
 
-		ctx.store.seed('ict_tasks', [{ id: 'task-1', organization_id: 'test-org', archived_at: null }]);
+		ctx.store.seed('ict_tasks', [{ id: TASK_1, organization_id: 'test-org', archived_at: null }]);
 
 		const created = await createPersonnelIctCompletion(completionContext(ctx), {
-			personnelId: 'person-inside',
-			ictTaskId: 'task-1',
+			personnelId: PERSON_INSIDE,
+			ictTaskId: TASK_1,
 			completedAt: '2026-04-01',
 			validationMethod: 'Practical Exercise'
 		});
 
-		expect(created.personnelId).toBe('person-inside');
+		expect(created.personnelId).toBe(PERSON_INSIDE);
 
 		await expect(
 			createPersonnelIctCompletion(completionContext(ctx), {
-				personnelId: 'person-outside',
-				ictTaskId: 'task-1',
+				personnelId: PERSON_OUTSIDE,
+				ictTaskId: TASK_1,
 				completedAt: '2026-04-01',
 				validationMethod: 'Lecture'
 			})
@@ -102,8 +108,8 @@ describe('Critical Tasks completion policy boundary', () => {
 
 		await ctx.rawStore.insert('personnel_ict_completions', 'test-org', {
 			id: outsideId,
-			personnel_id: 'person-outside',
-			ict_task_id: 'task-1',
+			personnel_id: PERSON_OUTSIDE,
+			ict_task_id: TASK_1,
 			completed_at: '2026-04-01',
 			validation_method: 'Lecture',
 			validated_by: null,
@@ -122,12 +128,12 @@ describe('Critical Tasks completion policy boundary', () => {
 
 	it('retains separate dated captures and clears nullable details without changing their identities', async () => {
 		const ctx = createTestContext();
-		ctx.store.seed('personnel', [{ id: 'person-1', organization_id: 'test-org', group_id: null, archived_at: null }]);
-		ctx.store.seed('ict_tasks', [{ id: 'task-1', organization_id: 'test-org', archived_at: null }]);
+		ctx.store.seed('personnel', [{ id: PERSON_1, organization_id: 'test-org', group_id: null, archived_at: null }]);
+		ctx.store.seed('ict_tasks', [{ id: TASK_1, organization_id: 'test-org', archived_at: null }]);
 		const operationCtx = completionContext(ctx);
 		const first = await createPersonnelIctCompletion(operationCtx, {
-			personnelId: 'person-1',
-			ictTaskId: 'task-1',
+			personnelId: PERSON_1,
+			ictTaskId: TASK_1,
 			completedAt: '2026-04-01',
 			validationMethod: 'Lecture',
 			validatedBy: 'Synthetic validator',
@@ -137,8 +143,8 @@ describe('Critical Tasks completion policy boundary', () => {
 			createdAt: '2099-01-01T00:00:00Z'
 		});
 		const second = await createPersonnelIctCompletion(operationCtx, {
-			personnelId: 'person-1',
-			ictTaskId: 'task-1',
+			personnelId: PERSON_1,
+			ictTaskId: TASK_1,
 			completedAt: '2026-04-02',
 			validationMethod: 'Demonstration',
 			notes: 'Second capture'
@@ -161,8 +167,8 @@ describe('Critical Tasks completion policy boundary', () => {
 		});
 		expect(corrected).toMatchObject({
 			id: first.id,
-			personnelId: 'person-1',
-			ictTaskId: 'task-1',
+			personnelId: PERSON_1,
+			ictTaskId: TASK_1,
 			completedAt: '2026-04-01',
 			validationMethod: 'Lecture',
 			validatedBy: null,
@@ -189,12 +195,12 @@ describe('Critical Tasks completion policy boundary', () => {
 
 	it('rejects invalid completion values before writing or reporting a successful mutation', async () => {
 		const ctx = createTestContext();
-		ctx.store.seed('personnel', [{ id: 'person-1', organization_id: 'test-org', group_id: null, archived_at: null }]);
-		ctx.store.seed('ict_tasks', [{ id: 'task-1', organization_id: 'test-org', archived_at: null }]);
+		ctx.store.seed('personnel', [{ id: PERSON_1, organization_id: 'test-org', group_id: null, archived_at: null }]);
+		ctx.store.seed('ict_tasks', [{ id: TASK_1, organization_id: 'test-org', archived_at: null }]);
 		await expect(
 			createPersonnelIctCompletion(completionContext(ctx), {
-				personnelId: 'person-1',
-				ictTaskId: 'task-1',
+				personnelId: PERSON_1,
+				ictTaskId: TASK_1,
 				completedAt: '2026-04-01',
 				validationMethod: 'Not a validation method'
 			})

@@ -6,6 +6,8 @@ import { createDeletionRequestTestStore } from '$features/deletion-requests/test
 import type { DeletionRequestResourceType } from '$features/deletion-requests/contracts';
 import { requirePendingDeletionRequest, type ApprovedDeletionEffects } from '$features/deletion-requests/index.server';
 
+const REQUEST_ID = '00000000-0000-4000-8000-000000000001';
+
 function configFor(ctx: ReturnType<typeof createTestContext>, effects: Partial<ApprovedDeletionEffects> = {}) {
 	const store = createDeletionRequestTestStore(ctx.store);
 	const unexpected = async () => {
@@ -41,6 +43,28 @@ function approveWith(
 }
 
 describe('POST /api/deletion-requests/review', () => {
+	it('rejects a malformed request id or denial reason with 400 and leaves the pending request intact', async () => {
+		const ctx = createTestContext({ auth: { role: 'admin', isPrivileged: true } });
+		ctx.rawStore.seed('deletion_requests', [
+			{
+				id: REQUEST_ID,
+				organization_id: ctx.auth.orgId,
+				resource_type: 'rating_scheme_entry',
+				resource_id: 'entry',
+				status: 'pending'
+			}
+		]);
+		const config = configFor(ctx);
+		await expect(handleUseCaseRequest(config, ctx, { id: 'request', action: 'deny' }, () => ctx)).rejects.toMatchObject(
+			{ status: 400, message: 'Invalid ID' }
+		);
+		await expect(
+			handleUseCaseRequest(config, ctx, { id: REQUEST_ID, action: 'deny', denialReason: 42 }, () => ctx)
+		).rejects.toMatchObject({ status: 400, message: 'Denial reason must be text' });
+		await expect(ctx.rawStore.findOne('deletion_requests', ctx.auth.orgId, { id: REQUEST_ID })).resolves.toMatchObject({
+			status: 'pending'
+		});
+	});
 	it('denies a Rating operator before the approval effect and leaves the pending request intact', async () => {
 		const ctx = createTestContext({
 			auth: {
@@ -58,7 +82,7 @@ describe('POST /api/deletion-requests/review', () => {
 		});
 		ctx.rawStore.seed('deletion_requests', [
 			{
-				id: 'request',
+				id: REQUEST_ID,
 				organization_id: ctx.auth.orgId,
 				resource_type: 'rating_scheme_entry',
 				resource_id: 'entry',
@@ -68,12 +92,12 @@ describe('POST /api/deletion-requests/review', () => {
 		const approveRatingEntry = vi.fn();
 		const config = configFor(ctx, { approveRatingEntry });
 		await expect(
-			handleUseCaseRequest(config, ctx, { id: 'request', action: 'approve' }, () => ctx)
+			handleUseCaseRequest(config, ctx, { id: REQUEST_ID, action: 'approve' }, () => ctx)
 		).rejects.toMatchObject({
 			status: 403
 		});
 		expect(approveRatingEntry).not.toHaveBeenCalled();
-		await expect(ctx.rawStore.findOne('deletion_requests', ctx.auth.orgId, { id: 'request' })).resolves.toMatchObject({
+		await expect(ctx.rawStore.findOne('deletion_requests', ctx.auth.orgId, { id: REQUEST_ID })).resolves.toMatchObject({
 			status: 'pending'
 		});
 	});
@@ -94,7 +118,7 @@ describe('POST /api/deletion-requests/review', () => {
 		});
 		ctx.rawStore.seed('deletion_requests', [
 			{
-				id: 'request-1',
+				id: REQUEST_ID,
 				organization_id: ctx.auth.orgId,
 				resource_type: 'personnel_training',
 				resource_id: 'completion-1',
@@ -109,16 +133,16 @@ describe('POST /api/deletion-requests/review', () => {
 			handleUseCaseRequest(
 				configFor(ctx, { approveTrainingRecord: approveWith(ctx, 'personnel_trainings', 'personnel_training') }),
 				ctx,
-				{ id: 'request-1', action: 'approve' },
+				{ id: REQUEST_ID, action: 'approve' },
 				() => ctx
 			)
 		).resolves.toEqual({ success: true, fileCleanup: 'complete' });
 		await expect(ctx.rawStore.findMany('personnel_trainings', ctx.auth.orgId)).resolves.toEqual([
 			{ id: 'completion-2', organization_id: ctx.auth.orgId }
 		]);
-		await expect(ctx.rawStore.findOne('deletion_requests', ctx.auth.orgId, { id: 'request-1' })).resolves.toMatchObject(
-			{ status: 'approved' }
-		);
+		await expect(ctx.rawStore.findOne('deletion_requests', ctx.auth.orgId, { id: REQUEST_ID })).resolves.toMatchObject({
+			status: 'approved'
+		});
 	});
 	it('approves same-Organization counseling deletion for an admin with no Personnel lane', async () => {
 		const ctx = createTestContext({
@@ -137,7 +161,7 @@ describe('POST /api/deletion-requests/review', () => {
 		});
 		ctx.rawStore.seed('deletion_requests', [
 			{
-				id: 'request-1',
+				id: REQUEST_ID,
 				organization_id: ctx.auth.orgId,
 				resource_type: 'counseling_record',
 				resource_id: 'record-1',
@@ -155,19 +179,14 @@ describe('POST /api/deletion-requests/review', () => {
 			return { fileCleanup: 'pending' as const };
 		};
 		await expect(
-			handleUseCaseRequest(
-				configFor(ctx, { approveCounseling }),
-				ctx,
-				{ id: 'request-1', action: 'approve' },
-				() => ctx
-			)
+			handleUseCaseRequest(configFor(ctx, { approveCounseling }), ctx, { id: REQUEST_ID, action: 'approve' }, () => ctx)
 		).resolves.toEqual({
 			success: true,
 			fileCleanup: 'pending'
 		});
 		expect(await ctx.rawStore.findOne('counseling_records', ctx.auth.orgId, { id: 'record-1' })).toBeNull();
 		expect(await ctx.rawStore.findOne('counseling_records', 'other-org', { id: 'record-1' })).not.toBeNull();
-		expect(await ctx.rawStore.findOne('deletion_requests', ctx.auth.orgId, { id: 'request-1' })).toMatchObject({
+		expect(await ctx.rawStore.findOne('deletion_requests', ctx.auth.orgId, { id: REQUEST_ID })).toMatchObject({
 			status: 'approved'
 		});
 	});
@@ -189,7 +208,7 @@ describe('POST /api/deletion-requests/review', () => {
 		});
 		ctx.rawStore.seed('deletion_requests', [
 			{
-				id: 'request-1',
+				id: REQUEST_ID,
 				organization_id: ctx.auth.orgId,
 				resource_type: 'training_type',
 				resource_id: 'type-1',
@@ -204,15 +223,15 @@ describe('POST /api/deletion-requests/review', () => {
 				configFor(ctx, { approveTrainingType }),
 				ctx,
 				{
-					id: 'request-1',
+					id: REQUEST_ID,
 					action: 'approve'
 				},
 				() => ctx
 			)
 		).resolves.toEqual({ success: true, fileCleanup: 'complete' });
-		expect(approveTrainingType).toHaveBeenCalledWith('request-1', 'type-1', expect.any(String));
+		expect(approveTrainingType).toHaveBeenCalledWith(REQUEST_ID, 'type-1', expect.any(String));
 		expect(await ctx.rawStore.findOne('training_types', ctx.auth.orgId, { id: 'type-1' })).toBeNull();
-		expect(await ctx.rawStore.findOne('deletion_requests', ctx.auth.orgId, { id: 'request-1' })).toMatchObject({
+		expect(await ctx.rawStore.findOne('deletion_requests', ctx.auth.orgId, { id: REQUEST_ID })).toMatchObject({
 			status: 'approved'
 		});
 	});
@@ -234,7 +253,7 @@ describe('POST /api/deletion-requests/review', () => {
 		});
 		ctx.rawStore.seed('deletion_requests', [
 			{
-				id: 'request-1',
+				id: REQUEST_ID,
 				organization_id: ctx.auth.orgId,
 				resource_type: 'training_type',
 				resource_id: 'type-1',
@@ -248,7 +267,7 @@ describe('POST /api/deletion-requests/review', () => {
 				configFor(ctx, { approveTrainingType }),
 				ctx,
 				{
-					id: 'request-1',
+					id: REQUEST_ID,
 					action: 'approve'
 				},
 				() => ctx
@@ -256,7 +275,7 @@ describe('POST /api/deletion-requests/review', () => {
 		).rejects.toMatchObject({ status: 403 });
 		expect(approveTrainingType).not.toHaveBeenCalled();
 		expect(ctx.auditPort.events.map((event) => event.action)).toEqual(['policy.denied']);
-		expect(await ctx.rawStore.findOne('deletion_requests', ctx.auth.orgId, { id: 'request-1' })).toMatchObject({
+		expect(await ctx.rawStore.findOne('deletion_requests', ctx.auth.orgId, { id: REQUEST_ID })).toMatchObject({
 			status: 'pending'
 		});
 	});

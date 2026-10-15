@@ -25,7 +25,7 @@ describe('GET /api/calendar-range', () => {
 				},
 				() => ctx
 			)
-		).rejects.toThrow('Dates must use YYYY-MM-DD format');
+		).rejects.toThrow('Use a valid date (YYYY-MM-DD)');
 	});
 
 	it('rejects inverted calendar ranges', async () => {

@@ -124,9 +124,9 @@ export function createSupabasePersonnelRecordPersistence(
 				.eq('organization_id', orgId)
 				.eq('id', id)
 				.select(PERSONNEL_FIELDS)
-				.single<Record<string, unknown>>();
+				.maybeSingle<Record<string, unknown>>();
 			if (error) throwPersonnelMutationError(error);
-			return toPersonnel(data);
+			return data ? toPersonnel(data) : null;
 		},
 		async updateDates(id, patch) {
 			const { data, error } = await client

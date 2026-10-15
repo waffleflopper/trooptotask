@@ -9,6 +9,7 @@
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { rejectedRequestMessage } from '$lib/stores/core';
 	import type { StatusType } from '$features/calendar/contracts';
 	import Pencil from '@lucide/svelte/icons/pencil';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
@@ -101,7 +102,7 @@
 				return;
 			}
 		} catch (error) {
-			showStatusMutationError('Failed to add status type', error);
+			showStatusMutationError(rejectedRequestMessage(error, 'Failed to add status type'));
 			return;
 		}
 		resetAddStatusForm();
@@ -111,7 +112,7 @@
 	async function saveEditStatus() {
 		if (!canMutate || !editingStatus || !editStatusName.trim()) return;
 		try {
-			const saved = await statusTypesStore.update(editingStatus.id, {
+			const saved = await statusTypesStore.updateOrThrow(editingStatus.id, {
 				name: editStatusName.trim(),
 				color: editStatusColor,
 				textColor: editStatusTextColor
@@ -121,7 +122,7 @@
 				return;
 			}
 		} catch (error) {
-			showStatusMutationError('Failed to save status type', error);
+			showStatusMutationError(rejectedRequestMessage(error, 'Failed to save status type'));
 			return;
 		}
 		editStatusOpen = false;

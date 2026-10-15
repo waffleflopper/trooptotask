@@ -23,6 +23,9 @@ const NO_ONBOARDING_CONFIGURE: CapabilityMap = {
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
+const RACED_TRAINING_TYPE = '00000000-0000-4000-8000-000000000010';
+const RACED_TEMPLATE = '00000000-0000-4000-8000-000000000011';
+
 describe('starter configuration packs', () => {
 	it('returns the preview and empty-organization readiness', async () => {
 		const ctx = createTestContext();
@@ -367,13 +370,13 @@ describe('starter configuration packs', () => {
 		vi.spyOn(ctx.store, 'insert').mockImplementation(async (table, orgId, data, select) => {
 			if (table === 'training_types' && data.name === 'Unit Orientation' && trainingRace) {
 				trainingRace = false;
-				ctx.store.seed('training_types', [{ id: 'training-raced', organization_id: orgId, ...data }]);
+				ctx.store.seed('training_types', [{ id: RACED_TRAINING_TYPE, organization_id: orgId, ...data }]);
 				throw new Error('duplicate key value violates unique constraint "training_types_clinic_id_name_key"');
 			}
 
 			if (table === 'onboarding_templates' && data.name === 'New Arrival Packet' && onboardingRace) {
 				onboardingRace = false;
-				ctx.store.seed('onboarding_templates', [{ id: 'template-raced', organization_id: orgId, ...data }]);
+				ctx.store.seed('onboarding_templates', [{ id: RACED_TEMPLATE, organization_id: orgId, ...data }]);
 				throw new Error('duplicate key value violates unique constraint "onboarding_templates_org_name_unique"');
 			}
 

@@ -1,6 +1,7 @@
-import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { handle, readFormData, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { createRequestPersonnelArtifactsContext } from '$lib/server/adapters/requestContexts.server';
 import type { RequestEvent } from '@sveltejs/kit';
+import { routePersonnelId } from '../routeIds';
 
 import type { PersonnelCounselingRecord } from '$features/personnel/contracts';
 import {
@@ -9,13 +10,6 @@ import {
 	type PersonnelCounselingRecordInput
 } from '$features/personnel/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { fail } from '$lib/errors';
-
-function personnelIdFromEvent(event: RequestEvent): string {
-	const personnelId = event.params.id;
-	if (!personnelId) fail(400, 'Missing personnel id');
-	return personnelId;
-}
 
 export const _getConfig: RouteConfig<
 	{ personnelId: string },
@@ -26,7 +20,7 @@ export const _getConfig: RouteConfig<
 	policyAction: POLICY_ACTION_CATALOG.personnel.readSensitiveRecords,
 	policyResource: { kind: 'unscoped' },
 	parseInput: async (event: RequestEvent) => ({
-		personnelId: personnelIdFromEvent(event)
+		personnelId: routePersonnelId(event)
 	}),
 	fn: (ctx, input) => listPersonnelCounselingRecords(ctx, input.personnelId)
 };
@@ -41,9 +35,9 @@ export const _postConfig: RouteConfig<
 	policyAction: POLICY_ACTION_CATALOG.personnel.manageRecords,
 	policyResource: { kind: 'unscoped' },
 	parseInput: async (event: RequestEvent) => {
-		const formData = await event.request.formData();
+		const formData = await readFormData(event);
 		return {
-			personnelId: personnelIdFromEvent(event),
+			personnelId: routePersonnelId(event),
 			dateConducted: String(formData.get('dateConducted') ?? ''),
 			title: String(formData.get('title') ?? ''),
 			summary: String(formData.get('summary') ?? ''),

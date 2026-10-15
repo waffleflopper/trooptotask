@@ -111,6 +111,21 @@ describe('POST /api/access-requests', () => {
 		expect(submitAccessRequestMock).not.toHaveBeenCalled();
 	});
 
+	it.each([
+		['malformed JSON', '{bad', 'Invalid JSON in request body'],
+		[
+			'a non-text email',
+			JSON.stringify({ email: 5, firstName: 'Ada', lastName: 'Lovelace' }),
+			'Email, first name, and last name are required'
+		]
+	])('rejects %s with 400 before limiting or writing', async (_case, body, message) => {
+		const request = new Request('https://trooptotask.test/api/access-requests', { method: 'POST', body });
+
+		await expect(POST(makeEvent(request))).rejects.toMatchObject({ status: 400, body: { message } });
+		expect(checkRateLimitMock).not.toHaveBeenCalled();
+		expect(submitAccessRequestMock).not.toHaveBeenCalled();
+	});
+
 	it('audits setup link revocations when a duplicate approved request gets a fresh setup link', async () => {
 		submitAccessRequestMock.mockResolvedValueOnce({
 			status: 'fresh-setup-sent',

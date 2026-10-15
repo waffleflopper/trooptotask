@@ -7,6 +7,7 @@ import {
 	requireCalendarPolicy
 } from './calendarPolicy.server';
 import { fail } from '$lib/errors';
+import { issueMessage } from '$lib/utils/inputSchemas';
 
 const AUDIT_RESOURCE = 'daily_assignment';
 const MAX_BATCH_SIZE = 1000;
@@ -52,7 +53,7 @@ export async function setDailyAssignmentSlot(
 	input: Record<string, unknown>
 ): Promise<unknown> {
 	const parsed = dailyAssignmentSlotInput.safeParse(input);
-	if (!parsed.success) fail(400, parsed.error.issues.map((issue) => issue.message).join('; '));
+	if (!parsed.success) fail(400, issueMessage(parsed.error));
 	const record = parsed.data;
 	if (!record.assigneeId.trim()) fail(400, 'Assignee ID is required to set an assignment');
 
@@ -73,10 +74,15 @@ export async function setDailyAssignmentSlot(
 	return inserted;
 }
 
+const dailyAssignmentSlotKey = dailyAssignmentSlotInput.pick({ date: true, assignmentTypeId: true });
+
 export async function clearDailyAssignmentSlot(
 	ctx: CalendarWritePorts,
-	input: { date: string; assignmentTypeId: string }
+	rawInput: Record<string, unknown>
 ): Promise<void> {
+	const parsed = dailyAssignmentSlotKey.safeParse(rawInput);
+	if (!parsed.success) fail(400, issueMessage(parsed.error));
+	const input = parsed.data;
 	await requireExistingAssignmentAccess(ctx, input.date, input.assignmentTypeId);
 
 	await ctx.calendarAssignmentReplacement.replace(
@@ -242,6 +248,8 @@ function requireValidBatchRecords(records: DailyAssignmentSlotRecord[]): void {
 		) {
 			fail(400, 'Each record must include string date, assignmentTypeId, and assigneeId');
 		}
+		const parsed = dailyAssignmentSlotInput.safeParse(record);
+		if (!parsed.success) fail(400, issueMessage(parsed.error));
 	}
 }
 

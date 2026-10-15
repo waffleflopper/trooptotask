@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { dateOnlySchema, uuidSchema } from '$lib/utils/inputSchemas';
 import { ICT_VALIDATION_METHODS } from '../criticalTasks.types';
 import type { PersonnelIctCompletion, PersonnelIctCompletionCreate, PersonnelIctCompletionPatch } from '../contracts';
 
@@ -18,15 +19,15 @@ export const COMPLETION_SELECT =
 	'id,personnel_id,ict_task_id,completed_at,validation_method,validated_by,notes,logged_by,created_at';
 
 export const completionCreateSchema = z.object({
-	personnelId: z.string(),
-	ictTaskId: z.string(),
-	completedAt: z.string(),
+	personnelId: uuidSchema,
+	ictTaskId: uuidSchema,
+	completedAt: dateOnlySchema,
 	validationMethod: z.enum(ICT_VALIDATION_METHODS),
 	validatedBy: z.string().nullable().optional(),
 	notes: z.string().nullable().optional()
 });
 
-export const completionUpdateSchema = completionCreateSchema.partial().extend({ id: z.string() });
+export const completionUpdateSchema = completionCreateSchema.partial().extend({ id: uuidSchema });
 
 export function mapPersonnelIctCompletion(row: SavedPersonnelIctCompletion): PersonnelIctCompletion {
 	return {

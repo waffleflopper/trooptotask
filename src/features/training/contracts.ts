@@ -284,10 +284,11 @@ export interface TrainingCatalogPersistence {
 	listTypeImportReferences(ids: readonly string[]): Promise<TrainingTypeImportReference[]>;
 	findTypeId(id: string): Promise<Pick<TrainingType, 'id'> | null>;
 	createType(input: TrainingTypeCreate): Promise<SavedTrainingType>;
-	patchType(id: string, fields: TrainingTypePatch): Promise<SavedTrainingType>;
+	/** Resolves null when no Training type with this id exists in the Organization. */
+	patchType(id: string, fields: TrainingTypePatch): Promise<SavedTrainingType | null>;
 	deleteType(id: string): Promise<void>;
 	createView(input: TrainingViewCreate): Promise<SavedTrainingView>;
-	patchView(id: string, fields: TrainingViewPatch): Promise<SavedTrainingView>;
+	patchView(id: string, fields: TrainingViewPatch): Promise<SavedTrainingView | null>;
 	deleteView(id: string): Promise<void>;
 }
 

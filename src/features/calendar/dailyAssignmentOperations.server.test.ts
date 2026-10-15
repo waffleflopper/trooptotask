@@ -7,6 +7,20 @@ import {
 	setDailyAssignmentSlot
 } from './dailyAssignmentOperations.server';
 
+const TYPE_A = '00000000-0000-4000-8000-000000000010';
+const TYPE_B = '00000000-0000-4000-8000-000000000011';
+const TYPE_C = '00000000-0000-4000-8000-000000000012';
+const PERSON_1 = '00000000-0000-4000-8000-000000000013';
+const PERSON_2 = '00000000-0000-4000-8000-000000000014';
+const OLD_PERSON = '00000000-0000-4000-8000-000000000015';
+const OLD_PERSON_A = '00000000-0000-4000-8000-000000000016';
+const OLD_PERSON_B = '00000000-0000-4000-8000-000000000017';
+const ORIGINAL_PERSON = '00000000-0000-4000-8000-000000000018';
+const OTHER_DAY_PERSON = '00000000-0000-4000-8000-000000000019';
+const OTHER_TYPE_PERSON = '00000000-0000-4000-8000-00000000001a';
+const SAME_DAY_PERSON = '00000000-0000-4000-8000-00000000001b';
+const SAME_TYPE_PERSON = '00000000-0000-4000-8000-00000000001c';
+
 function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
 	return createWritePortsContext(overrides);
 }
@@ -18,14 +32,14 @@ describe('Daily Assignment Slot writes', () => {
 			id: 'retained-slot',
 			organization_id: ctx.auth.orgId,
 			date: '2026-03-22',
-			assignment_type_id: 'type-a',
-			assignee_id: 'original-person'
+			assignment_type_id: TYPE_A,
+			assignee_id: ORIGINAL_PERSON
 		};
 		ctx.store.seed('daily_assignments', [original]);
 		await expect(
 			setDailyAssignmentSlot(ctx, {
 				date: '2026-03-22',
-				assignmentTypeId: 'type-a',
+				assignmentTypeId: TYPE_A,
 				assigneeId: 17
 			})
 		).rejects.toMatchObject({ status: 400 });
@@ -37,7 +51,7 @@ describe('Daily Assignment Slot writes', () => {
 		'%s saves a manual assignment with retired Duty storage unavailable',
 		async (operation) => {
 			const ctx = buildContext();
-			const record = { date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: 'person-1' };
+			const record = { date: '2026-03-22', assignmentTypeId: TYPE_A, assigneeId: PERSON_1 };
 			const findMany = ctx.store.findMany.bind(ctx.store);
 			const retiredReads: string[] = [];
 			const unavailable = vi.spyOn(ctx.store, 'findMany').mockImplementation((table, ...args) => {
@@ -60,7 +74,7 @@ describe('Daily Assignment Slot writes', () => {
 						break;
 				}
 				expect(await ctx.store.findMany('daily_assignments', 'test-org')).toEqual([
-					expect.objectContaining({ date: '2026-03-22', assignment_type_id: 'type-a', assignee_id: 'person-1' })
+					expect.objectContaining({ date: '2026-03-22', assignment_type_id: TYPE_A, assignee_id: PERSON_1 })
 				]);
 				expect(retiredReads).toEqual([]);
 			} finally {
@@ -74,14 +88,14 @@ describe('Daily Assignment Slot writes', () => {
 
 		const result = (await setDailyAssignmentSlot(ctx, {
 			date: '2026-03-22',
-			assignmentTypeId: 'type-a',
-			assigneeId: 'person-1'
+			assignmentTypeId: TYPE_A,
+			assigneeId: PERSON_1
 		})) as Record<string, unknown>;
 
 		expect(result).toMatchObject({
 			date: '2026-03-22',
-			assignmentTypeId: 'type-a',
-			assigneeId: 'person-1'
+			assignmentTypeId: TYPE_A,
+			assigneeId: PERSON_1
 		});
 	});
 
@@ -96,23 +110,23 @@ describe('Daily Assignment Slot writes', () => {
 					id: 'old-slot-a',
 					organization_id: 'test-org',
 					date: '2026-03-22',
-					assignment_type_id: 'type-a',
-					assignee_id: 'old-person-a',
+					assignment_type_id: TYPE_A,
+					assignee_id: OLD_PERSON_A,
 					created_at: '2026-03-21T14:15:16.000Z'
 				},
 				{
 					id: 'same-day-other-type',
 					organization_id: 'test-org',
 					date: '2026-03-22',
-					assignment_type_id: 'type-b',
-					assignee_id: 'other-type-person'
+					assignment_type_id: TYPE_B,
+					assignee_id: OTHER_TYPE_PERSON
 				},
 				{
 					id: 'same-type-other-day',
 					organization_id: 'test-org',
 					date: '2026-03-23',
-					assignment_type_id: 'type-a',
-					assignee_id: 'other-day-person'
+					assignment_type_id: TYPE_A,
+					assignee_id: OTHER_DAY_PERSON
 				}
 			]);
 			const replacementSpy = vi.spyOn(ctx.calendarAssignmentReplacement, 'replace').mockRejectedValueOnce(failure);
@@ -121,8 +135,8 @@ describe('Daily Assignment Slot writes', () => {
 				await expect(
 					setDailyAssignmentSlot(ctx, {
 						date: '2026-03-22',
-						assignmentTypeId: 'type-a',
-						assigneeId: 'person-1'
+						assignmentTypeId: TYPE_A,
+						assigneeId: PERSON_1
 					})
 				).rejects.toBe(failure);
 
@@ -133,21 +147,21 @@ describe('Daily Assignment Slot writes', () => {
 						expect.objectContaining({
 							id: 'old-slot-a',
 							date: '2026-03-22',
-							assignment_type_id: 'type-a',
-							assignee_id: 'old-person-a',
+							assignment_type_id: TYPE_A,
+							assignee_id: OLD_PERSON_A,
 							created_at: '2026-03-21T14:15:16.000Z'
 						}),
 						expect.objectContaining({
 							id: 'same-day-other-type',
 							date: '2026-03-22',
-							assignment_type_id: 'type-b',
-							assignee_id: 'other-type-person'
+							assignment_type_id: TYPE_B,
+							assignee_id: OTHER_TYPE_PERSON
 						}),
 						expect.objectContaining({
 							id: 'same-type-other-day',
 							date: '2026-03-23',
-							assignment_type_id: 'type-a',
-							assignee_id: 'other-day-person'
+							assignment_type_id: TYPE_A,
+							assignee_id: OTHER_DAY_PERSON
 						})
 					])
 				);
@@ -164,12 +178,12 @@ describe('Daily Assignment Slot writes', () => {
 				id: 'existing-slot',
 				organization_id: 'test-org',
 				date: '2026-03-22',
-				assignment_type_id: 'type-a',
-				assignee_id: 'person-1'
+				assignment_type_id: TYPE_A,
+				assignee_id: PERSON_1
 			}
 		]);
 
-		await clearDailyAssignmentSlot(ctx, { date: '2026-03-22', assignmentTypeId: 'type-a' });
+		await clearDailyAssignmentSlot(ctx, { date: '2026-03-22', assignmentTypeId: TYPE_A });
 
 		expect(await ctx.store.findMany('daily_assignments', 'test-org')).toEqual([]);
 	});
@@ -181,22 +195,22 @@ describe('Daily Assignment Slot writes', () => {
 				id: 'old-slot',
 				organization_id: 'test-org',
 				date: '2026-03-22',
-				assignment_type_id: 'type-a',
-				assignee_id: 'old-person'
+				assignment_type_id: TYPE_A,
+				assignee_id: OLD_PERSON
 			}
 		]);
 
 		const result = await replaceDailyAssignmentDay(ctx, {
 			date: '2026-03-22',
-			records: [{ assignmentTypeId: 'type-a', assigneeId: 'person-1' }]
+			records: [{ assignmentTypeId: TYPE_A, assigneeId: PERSON_1 }]
 		});
 
 		expect(result).toHaveLength(1);
 		expect(await ctx.store.findMany('daily_assignments', 'test-org')).toEqual([
 			expect.objectContaining({
 				date: '2026-03-22',
-				assignment_type_id: 'type-a',
-				assignee_id: 'person-1'
+				assignment_type_id: TYPE_A,
+				assignee_id: PERSON_1
 			})
 		]);
 	});
@@ -212,15 +226,15 @@ describe('Daily Assignment Slot writes', () => {
 					id: 'old-slot-a',
 					organization_id: 'test-org',
 					date: '2026-03-22',
-					assignment_type_id: 'type-a',
-					assignee_id: 'old-person-a'
+					assignment_type_id: TYPE_A,
+					assignee_id: OLD_PERSON_A
 				},
 				{
 					id: 'other-day-slot',
 					organization_id: 'test-org',
 					date: '2026-03-23',
-					assignment_type_id: 'type-a',
-					assignee_id: 'other-day-person'
+					assignment_type_id: TYPE_A,
+					assignee_id: OTHER_DAY_PERSON
 				}
 			]);
 			const replacementSpy = vi.spyOn(ctx.calendarAssignmentReplacement, 'replace').mockRejectedValueOnce(failure);
@@ -229,7 +243,7 @@ describe('Daily Assignment Slot writes', () => {
 				await expect(
 					replaceDailyAssignmentDay(ctx, {
 						date: '2026-03-22',
-						records: [{ assignmentTypeId: 'type-a', assigneeId: 'person-1' }]
+						records: [{ assignmentTypeId: TYPE_A, assigneeId: PERSON_1 }]
 					})
 				).rejects.toBe(failure);
 
@@ -240,14 +254,14 @@ describe('Daily Assignment Slot writes', () => {
 						expect.objectContaining({
 							id: 'old-slot-a',
 							date: '2026-03-22',
-							assignment_type_id: 'type-a',
-							assignee_id: 'old-person-a'
+							assignment_type_id: TYPE_A,
+							assignee_id: OLD_PERSON_A
 						}),
 						expect.objectContaining({
 							id: 'other-day-slot',
 							date: '2026-03-23',
-							assignment_type_id: 'type-a',
-							assignee_id: 'other-day-person'
+							assignment_type_id: TYPE_A,
+							assignee_id: OTHER_DAY_PERSON
 						})
 					])
 				);
@@ -268,29 +282,29 @@ describe('Daily Assignment Slot writes', () => {
 					id: 'old-slot-a',
 					organization_id: 'test-org',
 					date: '2026-03-22',
-					assignment_type_id: 'type-a',
-					assignee_id: 'old-person-a'
+					assignment_type_id: TYPE_A,
+					assignee_id: OLD_PERSON_A
 				},
 				{
 					id: 'old-slot-b',
 					organization_id: 'test-org',
 					date: '2026-03-22',
-					assignment_type_id: 'type-b',
-					assignee_id: 'old-person-b'
+					assignment_type_id: TYPE_B,
+					assignee_id: OLD_PERSON_B
 				},
 				{
 					id: 'unaffected-same-day',
 					organization_id: 'test-org',
 					date: '2026-03-22',
-					assignment_type_id: 'type-c',
-					assignee_id: 'same-day-person'
+					assignment_type_id: TYPE_C,
+					assignee_id: SAME_DAY_PERSON
 				},
 				{
 					id: 'unaffected-same-type',
 					organization_id: 'test-org',
 					date: '2026-03-23',
-					assignment_type_id: 'type-a',
-					assignee_id: 'same-type-person'
+					assignment_type_id: TYPE_A,
+					assignee_id: SAME_TYPE_PERSON
 				}
 			]);
 			const replacementSpy = vi.spyOn(ctx.calendarAssignmentReplacement, 'replace').mockRejectedValueOnce(failure);
@@ -299,8 +313,8 @@ describe('Daily Assignment Slot writes', () => {
 				await expect(
 					replaceDailyAssignmentSlotsBatch(ctx, {
 						records: [
-							{ date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: 'person-1' },
-							{ date: '2026-03-22', assignmentTypeId: 'type-b', assigneeId: '' }
+							{ date: '2026-03-22', assignmentTypeId: TYPE_A, assigneeId: PERSON_1 },
+							{ date: '2026-03-22', assignmentTypeId: TYPE_B, assigneeId: '' }
 						]
 					})
 				).rejects.toBe(failure);
@@ -312,26 +326,26 @@ describe('Daily Assignment Slot writes', () => {
 						expect.objectContaining({
 							id: 'old-slot-a',
 							date: '2026-03-22',
-							assignment_type_id: 'type-a',
-							assignee_id: 'old-person-a'
+							assignment_type_id: TYPE_A,
+							assignee_id: OLD_PERSON_A
 						}),
 						expect.objectContaining({
 							id: 'old-slot-b',
 							date: '2026-03-22',
-							assignment_type_id: 'type-b',
-							assignee_id: 'old-person-b'
+							assignment_type_id: TYPE_B,
+							assignee_id: OLD_PERSON_B
 						}),
 						expect.objectContaining({
 							id: 'unaffected-same-day',
 							date: '2026-03-22',
-							assignment_type_id: 'type-c',
-							assignee_id: 'same-day-person'
+							assignment_type_id: TYPE_C,
+							assignee_id: SAME_DAY_PERSON
 						}),
 						expect.objectContaining({
 							id: 'unaffected-same-type',
 							date: '2026-03-23',
-							assignment_type_id: 'type-a',
-							assignee_id: 'same-type-person'
+							assignment_type_id: TYPE_A,
+							assignee_id: SAME_TYPE_PERSON
 						})
 					])
 				);
@@ -360,14 +374,14 @@ describe('Daily Assignment Slot writes', () => {
 			id: 'existing-slot',
 			organization_id: 'test-org',
 			date: '2026-03-22',
-			assignment_type_id: 'type-a',
-			assignee_id: 'person-1'
+			assignment_type_id: TYPE_A,
+			assignee_id: PERSON_1
 		};
 		ctx.store.seed('daily_assignments', [existing]);
 
 		await expect(
 			replaceDailyAssignmentSlotsBatch(ctx, {
-				records: [{ date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: '' }]
+				records: [{ date: '2026-03-22', assignmentTypeId: TYPE_A, assigneeId: '' }]
 			})
 		).rejects.toMatchObject({
 			status: 403
@@ -381,13 +395,13 @@ describe('Daily Assignment Slot writes', () => {
 		await expect(
 			replaceDailyAssignmentSlotsBatch(ctx, {
 				records: [
-					{ date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: 'person-1' },
-					{ date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: 'person-2' }
+					{ date: '2026-03-22', assignmentTypeId: TYPE_A, assigneeId: PERSON_1 },
+					{ date: '2026-03-22', assignmentTypeId: TYPE_A, assigneeId: PERSON_2 }
 				]
 			})
 		).rejects.toMatchObject({
 			status: 400,
-			message: 'Duplicate daily assignment slot in batch: 2026-03-22 / type-a'
+			message: `Duplicate daily assignment slot in batch: 2026-03-22 / ${TYPE_A}`
 		});
 		expect(await ctx.store.findMany('daily_assignments', 'test-org')).toEqual([]);
 		expect(ctx.audit.events).toEqual([]);

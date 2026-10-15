@@ -2,6 +2,7 @@ import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import {
 	CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE,
+	ICT_TASK_UNAVAILABLE_MESSAGE,
 	type CriticalTaskLibraryPersistence,
 	type IctTask,
 	type IctTaskBatchImportError,
@@ -14,6 +15,7 @@ import {
 	type IctTaskImportMode
 } from '$features/critical-tasks/utils/ictTaskImport';
 import { error } from '@sveltejs/kit';
+import { fail, RequestFailure } from '$lib/errors';
 import { requirePolicyDecision } from '$lib/access/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
@@ -40,7 +42,7 @@ function nextSortOrder(tasks: IctTask[]): number {
 }
 
 function errorMessage(error: unknown): string {
-	if (error instanceof Error && error.message) return error.message;
+	if (error instanceof RequestFailure && error.status < 500) return error.message;
 	return 'Batch import failed';
 }
 
@@ -116,6 +118,7 @@ export async function importIctTasksBatch(
 
 		try {
 			const task = await ctx.criticalTaskLibrary.update(row.taskId, row.task);
+			if (!task) fail(404, ICT_TASK_UNAVAILABLE_MESSAGE);
 			if (row.restoresArchivedTask) restored.push(task);
 			else updated.push(task);
 		} catch (error) {

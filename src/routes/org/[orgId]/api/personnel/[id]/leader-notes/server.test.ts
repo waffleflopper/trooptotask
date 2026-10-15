@@ -5,10 +5,14 @@ import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _getConfig, _postConfig } from './+server';
 import { _patchConfig } from './[noteId]/+server';
 
+const PERSON_ID = '00000000-0000-4000-8000-0000000000a1';
+const OTHER_PERSON_ID = '00000000-0000-4000-8000-0000000000a2';
+const NOTE_ID = '00000000-0000-4000-8000-0000000000b1';
+
 function seedPersonnel(ctx: ReturnType<typeof createTestContext>) {
 	ctx.store.seed('personnel', [
 		{
-			id: 'person-1',
+			id: PERSON_ID,
 			organization_id: ctx.auth.orgId,
 			group_id: null
 		}
@@ -36,12 +40,12 @@ describe('/api/personnel/[id]/leader-notes', () => {
 			_postConfig,
 			ctx,
 			{
-				personnelId: 'person-1',
+				personnelId: PERSON_ID,
 				text: 'Won the monthly Soldier board.'
 			},
 			() => createPersonnelLeaderNoteDeliveryContext(ctx)
 		);
-		const notes = await handleUseCaseRequest(_getConfig, ctx, { personnelId: 'person-1' }, () =>
+		const notes = await handleUseCaseRequest(_getConfig, ctx, { personnelId: PERSON_ID }, () =>
 			createPersonnelLeaderNoteDeliveryContext(ctx)
 		);
 
@@ -55,23 +59,35 @@ describe('/api/personnel/[id]/leader-notes', () => {
 	it('derives the Personnel id from the route param and rejects mismatched bodies', async () => {
 		await expect(
 			_postConfig.parseInput?.({
-				params: { id: 'person-1' },
+				params: { id: PERSON_ID },
 				request: new Request('http://localhost', {
 					method: 'POST',
-					body: JSON.stringify({ personnelId: 'person-2', text: 'Mismatch' })
+					body: JSON.stringify({ personnelId: OTHER_PERSON_ID, text: 'Mismatch' })
 				})
 			} as never)
 		).rejects.toMatchObject({ status: 400 });
 
 		await expect(
 			_postConfig.parseInput?.({
-				params: { id: 'person-1' },
+				params: { id: PERSON_ID },
 				request: new Request('http://localhost', {
 					method: 'POST',
 					body: JSON.stringify({ text: 'Observation' })
 				})
 			} as never)
-		).resolves.toMatchObject({ personnelId: 'person-1', text: 'Observation' });
+		).resolves.toMatchObject({ personnelId: PERSON_ID, text: 'Observation' });
+	});
+
+	it('answers 404 for a Person path that is not an id and 400 for a malformed body', async () => {
+		await expect(
+			_getConfig.parseInput?.({ params: { id: 'abc' }, request: new Request('http://localhost') } as never)
+		).rejects.toMatchObject({ status: 404, message: 'Personnel record not found' });
+		await expect(
+			_postConfig.parseInput?.({
+				params: { id: PERSON_ID },
+				request: new Request('http://localhost', { method: 'POST', body: '{bad' })
+			} as never)
+		).rejects.toMatchObject({ status: 400, message: 'Invalid JSON in request body' });
 	});
 
 	it('requires Personnel configure capability for sensitive note reads', async () => {
@@ -91,7 +107,7 @@ describe('/api/personnel/[id]/leader-notes', () => {
 		seedPersonnel(ctx);
 
 		await expect(
-			handleUseCaseRequest(_getConfig, ctx, { personnelId: 'person-1' }, () =>
+			handleUseCaseRequest(_getConfig, ctx, { personnelId: PERSON_ID }, () =>
 				createPersonnelLeaderNoteDeliveryContext(ctx)
 			)
 		).rejects.toMatchObject({
@@ -116,9 +132,9 @@ describe('/api/personnel/[id]/leader-notes', () => {
 		seedPersonnel(ctx);
 		ctx.store.seed('leader_notes', [
 			{
-				id: 'note-1',
+				id: NOTE_ID,
 				organization_id: ctx.auth.orgId,
-				personnel_id: 'person-1',
+				personnel_id: PERSON_ID,
 				author: 'test-user',
 				text: 'Observation',
 				created_at: '2026-05-01T10:00:00Z',
@@ -130,8 +146,8 @@ describe('/api/personnel/[id]/leader-notes', () => {
 			_patchConfig,
 			ctx,
 			{
-				personnelId: 'person-1',
-				noteId: 'note-1',
+				personnelId: PERSON_ID,
+				noteId: NOTE_ID,
 				action: 'archive'
 			},
 			() => createPersonnelLeaderNoteDeliveryContext(ctx)
@@ -141,8 +157,8 @@ describe('/api/personnel/[id]/leader-notes', () => {
 			_patchConfig,
 			ctx,
 			{
-				personnelId: 'person-1',
-				noteId: 'note-1',
+				personnelId: PERSON_ID,
+				noteId: NOTE_ID,
 				action: 'restore'
 			},
 			() => createPersonnelLeaderNoteDeliveryContext(ctx)
@@ -153,8 +169,8 @@ describe('/api/personnel/[id]/leader-notes', () => {
 				_patchConfig,
 				ctx,
 				{
-					personnelId: 'person-1',
-					noteId: 'note-1',
+					personnelId: PERSON_ID,
+					noteId: NOTE_ID,
 					action: 'publish'
 				},
 				() => createPersonnelLeaderNoteDeliveryContext(ctx)

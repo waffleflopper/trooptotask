@@ -34,6 +34,7 @@ The assignment write endpoints are `/org/<orgA>/api/daily-assignments` with `POS
 
 ## Gotchas
 
+- Malformed assignment and availability dates and ids are driven in [Invalid input](invalid-input.md); a rejected batch writes no record.
 - The Person combobox's suggestions may be visible in the DOM but absent from the accessibility snapshot. Fill its named searchbox, confirm the expected suggestion text through read-only DOM inspection, then use native `ArrowDown` and `Enter`. The Group combobox likewise uses keyboard selection; verify the saved assignee ID because an extra ArrowDown may choose the second Group.
 - The occupied Staff slot failed keyboard reassignment on the earlier baseline (`ee8f00a2` and `6e184594`). Recheck the repair by saving Able first, then filtering the occupied slot to Baker and pressing Enter. Require one Baker row after reload, while the unrelated Group and seeded rows remain intact.
 - Reloading the Planner opens the current month. Navigate back with `Previous month` before rereading an earlier month's slots.

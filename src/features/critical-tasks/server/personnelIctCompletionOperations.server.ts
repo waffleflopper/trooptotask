@@ -5,6 +5,7 @@ import type { PersonnelIctCompletion, CriticalTaskCompletionReference } from '..
 import { completionCreateSchema, completionUpdateSchema } from './personnelIctCompletionMapping.server';
 import type { PersonnelIctCompletionWriteContext } from './personnelIctCompletionPorts.server';
 import { fail } from '$lib/errors';
+import { isUuid, issueMessage } from '$lib/utils/inputSchemas';
 
 const ACTION = POLICY_ACTION_CATALOG.criticalTasks.recordCompletion;
 const AUDIT_RESOURCE = 'personnel_ict_completion';
@@ -33,7 +34,7 @@ function writeContext(ctx: PersonnelIctCompletionWriteContext): CompletionWriteC
 
 function parseOrFail<T>(schema: z.ZodType<T>, input: Record<string, unknown>): T {
 	const result = schema.safeParse(input);
-	if (!result.success) fail(400, result.error.issues.map((issue) => issue.message).join('; '));
+	if (!result.success) fail(400, issueMessage(result.error));
 	return result.data;
 }
 
@@ -102,14 +103,13 @@ export async function createPersonnelIctCompletion(
 ): Promise<PersonnelIctCompletion> {
 	await requireFeaturePolicy(ctx, ACTION, { kind: 'unscoped' }, AUDIT_RESOURCE);
 	const writeCtx = writeContext(ctx);
-	const personnelId = input.personnelId;
-	if (typeof personnelId !== 'string') fail(400, 'personnelId is required');
-	const ictTaskId = input.ictTaskId;
-	if (typeof ictTaskId !== 'string') fail(400, 'ictTaskId is required');
+	if (typeof input.personnelId !== 'string') fail(400, 'personnelId is required');
+	if (typeof input.ictTaskId !== 'string') fail(400, 'ictTaskId is required');
+	const validated = parseOrFail(completionCreateSchema, input);
+	const { personnelId, ictTaskId } = validated;
 	await requireActivePersonnel(writeCtx, personnelId);
 	await requireActiveIctTask(writeCtx, ictTaskId);
 
-	const validated = parseOrFail(completionCreateSchema, input);
 	await requireCompletionPersonScope(writeCtx, await findCompletionPerson(writeCtx, personnelId));
 	const row = await ctx.criticalTaskCompletions.create(validated);
 	ctx.audit.log({ action: `${AUDIT_RESOURCE}.created`, resourceType: AUDIT_RESOURCE, resourceId: row.id });
@@ -122,16 +122,14 @@ export async function updatePersonnelIctCompletion(
 ): Promise<PersonnelIctCompletion> {
 	await requireFeaturePolicy(ctx, ACTION, { kind: 'unscoped' }, AUDIT_RESOURCE);
 	const writeCtx = writeContext(ctx);
-	const id = input.id;
-	if (typeof id === 'string') await requireWritableCompletionHistory(writeCtx, id, 'edited');
-	if (typeof input.personnelId === 'string') {
-		await requireActivePersonnel(writeCtx, input.personnelId, typeof id === 'string' ? id : undefined);
-	}
-	if (typeof input.ictTaskId === 'string') await requireActiveIctTask(writeCtx, input.ictTaskId);
-
 	const validated = parseOrFail(completionUpdateSchema, input);
 	const completionId = validated.id;
+	await requireWritableCompletionHistory(writeCtx, completionId, 'edited');
+	if (validated.personnelId) await requireActivePersonnel(writeCtx, validated.personnelId, completionId);
+	if (validated.ictTaskId) await requireActiveIctTask(writeCtx, validated.ictTaskId);
+
 	await requireRecordScope(writeCtx, completionId);
+	if (!(await findExistingCompletion(writeCtx, completionId))) fail(404, 'That completion is no longer available.');
 	const row = await ctx.criticalTaskCompletions.update(completionId, validated);
 	ctx.audit.log({ action: `${AUDIT_RESOURCE}.updated`, resourceType: AUDIT_RESOURCE, resourceId: completionId });
 	return row;
@@ -139,11 +137,11 @@ export async function updatePersonnelIctCompletion(
 
 export async function preparePersonnelIctCompletionDeletion(ctx: PersonnelIctCompletionWriteContext, id: unknown) {
 	await requireFeaturePolicy(ctx, ACTION, { kind: 'unscoped' }, AUDIT_RESOURCE);
+	if (!isUuid(id)) fail(400, id ? 'Invalid ID' : 'Missing id');
 	const writeCtx = writeContext(ctx);
-	if (typeof id === 'string') await requireWritableCompletionHistory(writeCtx, id, 'deleted');
+	await requireWritableCompletionHistory(writeCtx, id, 'deleted');
 
 	return async (): Promise<void> => {
-		if (typeof id !== 'string') fail(400, 'Missing id');
 		await requireRecordScope(writeCtx, id);
 		await ctx.criticalTaskCompletions.delete(id);
 		ctx.audit.log({ action: `${AUDIT_RESOURCE}.deleted`, resourceType: AUDIT_RESOURCE, resourceId: id });

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createRestAdapter } from './ports';
+import { buildRequestError, createRestAdapter, rejectedRequestMessage } from './ports';
 import type { DeleteResult } from './ports';
 
 interface TestItem {
@@ -116,5 +116,29 @@ describe('createRestAdapter', () => {
 
 			expect(result).toBe('error' satisfies DeleteResult);
 		});
+	});
+});
+
+describe('rejectedRequestMessage', () => {
+	const FALLBACK = 'Failed to save.';
+	const failedWith = (status: number, body: string) =>
+		buildRequestError(new Response(body, { status }), 'PUT', 'test-items').then((error) =>
+			rejectedRequestMessage(error, FALLBACK)
+		);
+
+	it("shows the server's reason for a 4xx whose body names one", async () => {
+		expect(await failedWith(409, JSON.stringify({ message: 'A Group with that name already exists.' }))).toBe(
+			'A Group with that name already exists.'
+		);
+		expect(await failedWith(400, JSON.stringify('Name is required'))).toBe('Name is required');
+	});
+
+	it('falls back for a 4xx without a readable reason, a 5xx and a transport failure', async () => {
+		expect(await failedWith(404, '<html>Not Found</html>')).toBe(FALLBACK);
+		expect(await failedWith(400, JSON.stringify({}))).toBe(FALLBACK);
+		expect(await failedWith(500, JSON.stringify({ message: 'duplicate key value violates unique constraint' }))).toBe(
+			FALLBACK
+		);
+		expect(rejectedRequestMessage(new TypeError('Failed to fetch'), FALLBACK)).toBe(FALLBACK);
 	});
 });

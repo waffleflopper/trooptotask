@@ -1,6 +1,12 @@
 export type { BeforeAddHook } from './optimistic';
 
-export { createRestAdapter, createMockAdapter } from './ports';
+export {
+	buildRequestError,
+	createRestAdapter,
+	createMockAdapter,
+	rejectedRequestMessage,
+	StoreRequestError
+} from './ports';
 export type { ApiAdapter, BatchApiAdapter } from './ports';
 
 export {

@@ -82,4 +82,17 @@ describe('GET /api/calendar-reports/status-days', () => {
 			}
 		});
 	});
+
+	it.each([
+		['2026-02-30', '2026-03-31'],
+		['2026-03-01', '2026-13-01'],
+		['2026-3-01', '2026-03-31']
+	])('rejects the impossible or malformed range %s to %s with 400', async (startDate, endDate) => {
+		const ctx = createTestContext();
+
+		await expect(handleUseCaseRequest(_getConfig, ctx, { startDate, endDate }, () => ctx)).rejects.toMatchObject({
+			status: 400,
+			message: 'Dates must be in YYYY-MM-DD format'
+		});
+	});
 });

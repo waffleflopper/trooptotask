@@ -3,15 +3,28 @@ import { describe, it, expect } from 'vitest';
 import { createWritePortsContext as basecreateWritePortsContext } from '$lib/server/adapters/inMemory';
 
 import { createPersonnelRecord, updatePersonnelRecord } from './personnelRecordOperations.server';
+const GROUP_A = '00000000-0000-4000-8000-0000000000a1';
+const GROUP_B = '00000000-0000-4000-8000-0000000000b1';
+const FOREIGN_GROUP = '00000000-0000-4000-8000-0000000000f1';
+const MISSING_GROUP = '00000000-0000-4000-8000-0000000000e1';
+const PERSON_1 = '00000000-0000-4000-8000-000000000001';
+const PERSON_2 = '00000000-0000-4000-8000-000000000002';
+const RETIRED_RANK_PERSON = '00000000-0000-4000-8000-000000000003';
+const CASE_COLLIDED_RANK_PERSON = '00000000-0000-4000-8000-000000000004';
+const LEGACY_PERSON = '00000000-0000-4000-8000-000000000005';
+const RENAMED_PERSON = '00000000-0000-4000-8000-000000000006';
+const OTHER_GROUP_PERSON = '00000000-0000-4000-8000-000000000007';
+const CONCURRENT_PERSON = '00000000-0000-4000-8000-000000000008';
+
 const createWritePortsContext = (overrides?: Parameters<typeof basecreateWritePortsContext>[0]) =>
 	withPersonnelPersistence(basecreateWritePortsContext(overrides));
 
 function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
 	const ctx = createWritePortsContext(overrides);
 	ctx.store.seed('groups', [
-		{ id: 'group-a', organization_id: ctx.auth.orgId, name: 'Alpha' },
-		{ id: 'group-b', organization_id: ctx.auth.orgId, name: 'Bravo' },
-		{ id: 'foreign-group', organization_id: 'foreign-org', name: 'Foreign' }
+		{ id: GROUP_A, organization_id: ctx.auth.orgId, name: 'Alpha' },
+		{ id: GROUP_B, organization_id: ctx.auth.orgId, name: 'Bravo' },
+		{ id: FOREIGN_GROUP, organization_id: 'foreign-org', name: 'Foreign' }
 	]);
 	seedRankCatalog(ctx, [
 		{ code: 'SPC', label: 'Specialist', pay_grade: 'E-4' },
@@ -44,7 +57,7 @@ function buildScopedCreatorContext() {
 				onboarding: 'none',
 				ratingScheme: 'none'
 			},
-			scopeSet: { kind: 'groups', groupIds: ['group-a'] }
+			scopeSet: { kind: 'groups', groupIds: [GROUP_A] }
 		}
 	});
 }
@@ -60,7 +73,7 @@ function scopedSlugProvider(ctx: ReturnType<typeof buildContext>) {
 	rawStore.findMany = async <T>(...args: Parameters<typeof rawStore.findMany>): Promise<T[]> => {
 		const [table, orgId, filters, options] = args;
 		const rows = await findAll<Record<string, unknown>>(table, orgId, filters, options);
-		return (table === 'personnel' ? rows.filter((row) => row.group_id === 'group-a') : rows) as T[];
+		return (table === 'personnel' ? rows.filter((row) => row.group_id === GROUP_A) : rows) as T[];
 	};
 	async function rejectCollision(table: string, orgId: string, data: Record<string, unknown>, id?: string) {
 		if (table !== 'personnel') return;
@@ -89,9 +102,9 @@ describe('Personnel URLs when another Group owns the name', () => {
 		async (operation) => {
 			const ctx = buildScopedCreatorContext();
 			const hidden = ['smith-john', 'smith-john-2'].map((slug, index) => ({
-				id: `hidden-${index}`,
+				id: `00000000-0000-4000-8000-00000000c00${index}`,
 				organization_id: ctx.auth.orgId,
-				group_id: 'group-b',
+				group_id: GROUP_B,
 				rank: 'SGT',
 				last_name: 'Smith',
 				first_name: 'John',
@@ -100,9 +113,9 @@ describe('Personnel URLs when another Group owns the name', () => {
 				archived_at: index === 0 ? null : '2026-08-01T12:00:00Z'
 			}));
 			const original = {
-				id: 'renamed-person',
+				id: RENAMED_PERSON,
 				organization_id: ctx.auth.orgId,
-				group_id: 'group-a',
+				group_id: GROUP_A,
 				rank: 'SGT',
 				last_name: 'Rivera',
 				first_name: 'Monica',
@@ -118,12 +131,12 @@ describe('Personnel URLs when another Group owns the name', () => {
 			const provider = scopedSlugProvider(ctx);
 			const result =
 				operation === 'create'
-					? await createPersonnelRecord(ctx, { ...validInput, groupId: 'group-a' })
+					? await createPersonnelRecord(ctx, { ...validInput, groupId: GROUP_A })
 					: await updatePersonnelRecord(ctx, { id: original.id, lastName: 'Smith', firstName: 'John' });
 
-			expect(result).toMatchObject({ slug: 'smith-john-3', groupId: 'group-a' });
+			expect(result).toMatchObject({ slug: 'smith-john-3', groupId: GROUP_A });
 			const rows = await provider.findAll<Record<string, unknown>>('personnel', ctx.auth.orgId);
-			expect(rows.filter((row) => row.group_id === 'group-b')).toEqual(hidden);
+			expect(rows.filter((row) => row.group_id === GROUP_B)).toEqual(hidden);
 			expect(rows).toHaveLength(3);
 			if (operation === 'update') {
 				expect(rows.find((row) => row.id === original.id)).toEqual({
@@ -144,16 +157,16 @@ describe('Personnel URLs when another Group owns the name', () => {
 		async (operation) => {
 			const ctx = buildScopedCreatorContext();
 			const originals = ['smith-john', 'smith-john-2', 'smith-john-3'].map((slug, index) => ({
-				id: `hidden-${index}`,
+				id: `00000000-0000-4000-8000-00000000c00${index}`,
 				organization_id: ctx.auth.orgId,
-				group_id: 'group-b',
+				group_id: GROUP_B,
 				slug
 			}));
 			if (operation === 'update')
 				originals.push({
-					id: 'renamed-person',
+					id: RENAMED_PERSON,
 					organization_id: ctx.auth.orgId,
-					group_id: 'group-a',
+					group_id: GROUP_A,
 					slug: 'rivera-monica'
 				});
 			ctx.store.seed(
@@ -163,8 +176,8 @@ describe('Personnel URLs when another Group owns the name', () => {
 			const provider = scopedSlugProvider(ctx);
 			const result =
 				operation === 'create'
-					? createPersonnelRecord(ctx, { ...validInput, groupId: 'group-a' })
-					: updatePersonnelRecord(ctx, { id: 'renamed-person', lastName: 'Smith', firstName: 'John' });
+					? createPersonnelRecord(ctx, { ...validInput, groupId: GROUP_A })
+					: updatePersonnelRecord(ctx, { id: RENAMED_PERSON, lastName: 'Smith', firstName: 'John' });
 			await expect(result).rejects.toMatchObject({ code: '23505' });
 			expect(provider.attemptedSlugs).toEqual(['smith-john', 'smith-john-2', 'smith-john-3']);
 			expect(await provider.findAll('personnel', ctx.auth.orgId)).toEqual(originals);
@@ -174,7 +187,10 @@ describe('Personnel URLs when another Group owns the name', () => {
 });
 
 describe('Personnel Group organization integrity', () => {
-	it.each(['foreign-group', 'missing-group'])('rejects create referencing %s without side effects', async (groupId) => {
+	it.each([
+		[FOREIGN_GROUP, FOREIGN_GROUP],
+		['missing-group', MISSING_GROUP]
+	])('rejects create referencing %s without side effects', async (_label, groupId) => {
 		const ctx = buildContext();
 		await expect(createPersonnelRecord(ctx, { ...validInput, groupId })).rejects.toMatchObject({
 			status: 404
@@ -184,46 +200,46 @@ describe('Personnel Group organization integrity', () => {
 		expect(ctx.audit.events).toEqual([]);
 	});
 
-	it.each(['foreign-group', 'missing-group'])(
-		'rejects an explicit update to %s before changing any fields',
-		async (groupId) => {
-			const ctx = buildContext();
-			const original = {
-				id: 'person-1',
-				organization_id: ctx.auth.orgId,
-				rank: 'SGT',
-				last_name: 'Smith',
-				first_name: 'John',
-				group_id: 'group-a',
-				slug: 'smith-john',
-				ets: '2027-05-01',
-				deros: '2027-06-01',
-				clinic_role: 'Team Leader'
-			};
-			ctx.store.seed('personnel', [{ ...original }]);
-			await expect(
-				updatePersonnelRecord(ctx, {
-					id: original.id,
-					groupId,
-					lastName: 'Changed',
-					clinicRole: 'Changed',
-					ets: null
-				})
-			).rejects.toMatchObject({ status: 404 });
-			expect(await ctx.store.findMany('personnel', ctx.auth.orgId)).toEqual([original]);
-			expect(ctx.audit.events).toEqual([]);
-		}
-	);
+	it.each([
+		[FOREIGN_GROUP, FOREIGN_GROUP],
+		['missing-group', MISSING_GROUP]
+	])('rejects an explicit update to %s before changing any fields', async (_label, groupId) => {
+		const ctx = buildContext();
+		const original = {
+			id: PERSON_1,
+			organization_id: ctx.auth.orgId,
+			rank: 'SGT',
+			last_name: 'Smith',
+			first_name: 'John',
+			group_id: GROUP_A,
+			slug: 'smith-john',
+			ets: '2027-05-01',
+			deros: '2027-06-01',
+			clinic_role: 'Team Leader'
+		};
+		ctx.store.seed('personnel', [{ ...original }]);
+		await expect(
+			updatePersonnelRecord(ctx, {
+				id: original.id,
+				groupId,
+				lastName: 'Changed',
+				clinicRole: 'Changed',
+				ets: null
+			})
+		).rejects.toMatchObject({ status: 404 });
+		expect(await ctx.store.findMany('personnel', ctx.auth.orgId)).toEqual([original]);
+		expect(ctx.audit.events).toEqual([]);
+	});
 
 	it('reassigns between same-Organization Groups and unassigns while retaining the Person identity and dates', async () => {
 		const ctx = buildContext();
-		const created = (await createPersonnelRecord(ctx, { ...validInput, groupId: 'group-a', ets: '2027-05-01' })) as {
+		const created = (await createPersonnelRecord(ctx, { ...validInput, groupId: GROUP_A, ets: '2027-05-01' })) as {
 			id: string;
 		};
-		await updatePersonnelRecord(ctx, { id: created.id, groupId: 'group-b' });
+		await updatePersonnelRecord(ctx, { id: created.id, groupId: GROUP_B });
 		expect(await ctx.store.findOne('personnel', ctx.auth.orgId, { id: created.id })).toMatchObject({
 			id: created.id,
-			group_id: 'group-b',
+			group_id: GROUP_B,
 			slug: 'smith-john',
 			ets: '2027-05-01'
 		});
@@ -239,15 +255,15 @@ describe('Personnel Group organization integrity', () => {
 	it('leaves a historical foreign reference unchanged when an update omits Group, but rejects explicitly resubmitting it', async () => {
 		const ctx = buildContext();
 		ctx.store.seed('personnel', [
-			{ id: 'legacy-person', organization_id: ctx.auth.orgId, group_id: 'foreign-group', rank: 'SGT' }
+			{ id: LEGACY_PERSON, organization_id: ctx.auth.orgId, group_id: FOREIGN_GROUP, rank: 'SGT' }
 		]);
-		await updatePersonnelRecord(ctx, { id: 'legacy-person', clinicRole: 'Reviewed role' });
-		expect(await ctx.store.findOne('personnel', ctx.auth.orgId, { id: 'legacy-person' })).toMatchObject({
-			id: 'legacy-person',
-			group_id: 'foreign-group',
+		await updatePersonnelRecord(ctx, { id: LEGACY_PERSON, clinicRole: 'Reviewed role' });
+		expect(await ctx.store.findOne('personnel', ctx.auth.orgId, { id: LEGACY_PERSON })).toMatchObject({
+			id: LEGACY_PERSON,
+			group_id: FOREIGN_GROUP,
 			clinic_role: 'Reviewed role'
 		});
-		await expect(updatePersonnelRecord(ctx, { id: 'legacy-person', groupId: 'foreign-group' })).rejects.toMatchObject({
+		await expect(updatePersonnelRecord(ctx, { id: LEGACY_PERSON, groupId: FOREIGN_GROUP })).rejects.toMatchObject({
 			status: 404
 		});
 	});
@@ -347,20 +363,20 @@ describe('Personnel — create', () => {
 	});
 
 	it('checks slug collisions against the whole organization for group-scoped creators', async () => {
-		const ctx = buildContext({ auth: { scopeSet: { kind: 'groups', groupIds: ['group-a'] } } });
+		const ctx = buildContext({ auth: { scopeSet: { kind: 'groups', groupIds: [GROUP_A] } } });
 		ctx.store.seed('personnel', [
 			{
-				id: 'p-other-group',
+				id: OTHER_GROUP_PERSON,
 				organization_id: ctx.auth.orgId,
 				rank: 'SGT',
 				last_name: 'Smith',
 				first_name: 'John',
-				group_id: 'group-b',
+				group_id: GROUP_B,
 				slug: 'smith-john'
 			}
 		]);
 
-		const created = await createPersonnelRecord(ctx, { ...validInput, groupId: 'group-a' });
+		const created = await createPersonnelRecord(ctx, { ...validInput, groupId: GROUP_A });
 
 		expect(created.slug).toBe('smith-john-2');
 	});
@@ -373,7 +389,7 @@ describe('Personnel — create', () => {
 		ctx.store.insert = async (table, orgId, data, select) => {
 			if (table === 'personnel' && data.slug === 'smith-john' && !injectedCollision) {
 				injectedCollision = true;
-				await insert(table, orgId, { ...data, id: 'p-concurrent', slug: 'smith-john' }, select);
+				await insert(table, orgId, { ...data, id: CONCURRENT_PERSON, slug: 'smith-john' }, select);
 				throw new Error('duplicate key value violates unique constraint "personnel_org_slug_key"');
 			}
 			return insert(table, orgId, data, select);
@@ -385,9 +401,9 @@ describe('Personnel — create', () => {
 	});
 
 	it('rejects create when scoped user targets wrong group', async () => {
-		const ctx = buildContext({ auth: { scopeSet: { kind: 'groups', groupIds: ['group-a'] } } });
+		const ctx = buildContext({ auth: { scopeSet: { kind: 'groups', groupIds: [GROUP_A] } } });
 
-		await expect(createPersonnelRecord(ctx, { ...validInput, groupId: 'group-b' })).rejects.toMatchObject({
+		await expect(createPersonnelRecord(ctx, { ...validInput, groupId: GROUP_B })).rejects.toMatchObject({
 			status: 403
 		});
 	});
@@ -405,11 +421,11 @@ describe('Personnel — create', () => {
 					onboarding: 'none',
 					ratingScheme: 'none'
 				},
-				scopeSet: { kind: 'groups', groupIds: ['group-a'] }
+				scopeSet: { kind: 'groups', groupIds: [GROUP_A] }
 			}
 		});
 
-		await expect(createPersonnelRecord(ctx, { ...validInput, groupId: 'group-a' })).rejects.toMatchObject({
+		await expect(createPersonnelRecord(ctx, { ...validInput, groupId: GROUP_A })).rejects.toMatchObject({
 			status: 403
 		});
 		expect(ctx.audit.events).toContainEqual(
@@ -426,9 +442,9 @@ describe('Personnel — create', () => {
 	});
 
 	it('allows configure-capable scoped user to create in their own group', async () => {
-		const ctx = buildContext({ auth: { scopeSet: { kind: 'groups', groupIds: ['group-a'] } } });
+		const ctx = buildContext({ auth: { scopeSet: { kind: 'groups', groupIds: [GROUP_A] } } });
 
-		const result = await createPersonnelRecord(ctx, { ...validInput, groupId: 'group-a' });
+		const result = await createPersonnelRecord(ctx, { ...validInput, groupId: GROUP_A });
 		expect(result).toMatchObject({ firstName: 'John' });
 	});
 
@@ -445,11 +461,11 @@ describe('Personnel — create', () => {
 					onboarding: 'none',
 					ratingScheme: 'none'
 				},
-				scopeSet: { kind: 'groups', groupIds: ['group-a', 'group-b'] }
+				scopeSet: { kind: 'groups', groupIds: [GROUP_A, GROUP_B] }
 			}
 		});
 
-		await expect(createPersonnelRecord(ctx, { ...validInput, groupId: 'group-b' })).rejects.toMatchObject({
+		await expect(createPersonnelRecord(ctx, { ...validInput, groupId: GROUP_B })).rejects.toMatchObject({
 			status: 403
 		});
 	});
@@ -467,13 +483,13 @@ describe('Personnel — create', () => {
 					onboarding: 'none',
 					ratingScheme: 'none'
 				},
-				scopeSet: { kind: 'groups', groupIds: ['group-a', 'group-b'] }
+				scopeSet: { kind: 'groups', groupIds: [GROUP_A, GROUP_B] }
 			}
 		});
 
-		const result = await createPersonnelRecord(ctx, { ...validInput, groupId: 'group-b' });
+		const result = await createPersonnelRecord(ctx, { ...validInput, groupId: GROUP_B });
 
-		expect(result).toMatchObject({ firstName: 'John', groupId: 'group-b' });
+		expect(result).toMatchObject({ firstName: 'John', groupId: GROUP_B });
 	});
 
 	it('normalizes create rank input through the active Organization rank catalog', async () => {
@@ -511,7 +527,7 @@ describe('Personnel — update', () => {
 	function seedPersonnel(ctx: ReturnType<typeof buildContext>) {
 		ctx.store.seed('personnel', [
 			{
-				id: 'p-1',
+				id: PERSON_1,
 				rank: 'SGT',
 				last_name: 'Smith',
 				first_name: 'John',
@@ -528,12 +544,12 @@ describe('Personnel — update', () => {
 		const ctx = buildContext();
 		seedPersonnel(ctx);
 
-		const result = await updatePersonnelRecord(ctx, { id: 'p-1', rank: 'SSG' });
+		const result = await updatePersonnelRecord(ctx, { id: PERSON_1, rank: 'SSG' });
 		expect(result.rank).toBe('SSG');
 
 		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'personnel.updated',
-			resourceId: 'p-1'
+			resourceId: PERSON_1
 		});
 	});
 
@@ -549,10 +565,10 @@ describe('Personnel — update', () => {
 			}
 		]);
 
-		const result = await updatePersonnelRecord(ctx, { id: 'p-1', rank: 'po3' });
+		const result = await updatePersonnelRecord(ctx, { id: PERSON_1, rank: 'po3' });
 
 		expect(result.rank).toBe('PO3');
-		await expect(ctx.store.findOne('personnel', ctx.auth.orgId, { id: 'p-1' })).resolves.toMatchObject({
+		await expect(ctx.store.findOne('personnel', ctx.auth.orgId, { id: PERSON_1 })).resolves.toMatchObject({
 			rank: 'PO3'
 		});
 	});
@@ -565,7 +581,7 @@ describe('Personnel — update', () => {
 		]);
 		ctx.store.seed('personnel', [
 			{
-				id: 'p-case-collided-rank',
+				id: CASE_COLLIDED_RANK_PERSON,
 				rank: 'capt',
 				last_name: 'Legacy',
 				first_name: 'Casey',
@@ -577,14 +593,14 @@ describe('Personnel — update', () => {
 			}
 		]);
 
-		const result = await updatePersonnelRecord(ctx, { id: 'p-case-collided-rank', rank: 'CAPT' });
+		const result = await updatePersonnelRecord(ctx, { id: CASE_COLLIDED_RANK_PERSON, rank: 'CAPT' });
 
 		expect(result.rank).toBe('CAPT');
-		await expect(ctx.store.findOne('personnel', ctx.auth.orgId, { id: 'p-case-collided-rank' })).resolves.toMatchObject(
-			{
-				rank: 'CAPT'
-			}
-		);
+		await expect(
+			ctx.store.findOne('personnel', ctx.auth.orgId, { id: CASE_COLLIDED_RANK_PERSON })
+		).resolves.toMatchObject({
+			rank: 'CAPT'
+		});
 	});
 
 	it('preserves an existing retired rank when update leaves rank unchanged', async () => {
@@ -592,7 +608,7 @@ describe('Personnel — update', () => {
 		seedRankCatalog(ctx, [{ code: 'SP4', label: 'Specialist Four', pay_grade: 'E-4', state: 'retired' }]);
 		ctx.store.seed('personnel', [
 			{
-				id: 'p-retired-rank',
+				id: RETIRED_RANK_PERSON,
 				rank: 'SP4',
 				last_name: 'Legacy',
 				first_name: 'Sam',
@@ -604,10 +620,10 @@ describe('Personnel — update', () => {
 			}
 		]);
 
-		const result = await updatePersonnelRecord(ctx, { id: 'p-retired-rank', clinicRole: 'Operations' });
+		const result = await updatePersonnelRecord(ctx, { id: RETIRED_RANK_PERSON, clinicRole: 'Operations' });
 
 		expect(result).toMatchObject({ rank: 'SP4', clinicRole: 'Operations' });
-		await expect(ctx.store.findOne('personnel', ctx.auth.orgId, { id: 'p-retired-rank' })).resolves.toMatchObject({
+		await expect(ctx.store.findOne('personnel', ctx.auth.orgId, { id: RETIRED_RANK_PERSON })).resolves.toMatchObject({
 			rank: 'SP4',
 			clinic_role: 'Operations'
 		});
@@ -618,7 +634,7 @@ describe('Personnel — update', () => {
 		seedRankCatalog(ctx, [{ code: 'SP4', label: 'Specialist Four', pay_grade: 'E-4', state: 'retired' }]);
 		ctx.store.seed('personnel', [
 			{
-				id: 'p-retired-rank',
+				id: RETIRED_RANK_PERSON,
 				rank: 'SP4',
 				last_name: 'Legacy',
 				first_name: 'Sam',
@@ -631,13 +647,13 @@ describe('Personnel — update', () => {
 		]);
 
 		const result = await updatePersonnelRecord(ctx, {
-			id: 'p-retired-rank',
+			id: RETIRED_RANK_PERSON,
 			rank: ' sp4 ',
 			clinicRole: 'Operations'
 		});
 
 		expect(result).toMatchObject({ rank: 'SP4', clinicRole: 'Operations' });
-		await expect(ctx.store.findOne('personnel', ctx.auth.orgId, { id: 'p-retired-rank' })).resolves.toMatchObject({
+		await expect(ctx.store.findOne('personnel', ctx.auth.orgId, { id: RETIRED_RANK_PERSON })).resolves.toMatchObject({
 			rank: 'SP4',
 			clinic_role: 'Operations'
 		});
@@ -647,9 +663,9 @@ describe('Personnel — update', () => {
 		const ctx = buildContext();
 		seedPersonnel(ctx);
 
-		await updatePersonnelRecord(ctx, { id: 'p-1', ets: '2027-05-01', deros: null });
+		await updatePersonnelRecord(ctx, { id: PERSON_1, ets: '2027-05-01', deros: null });
 
-		const stored = (await ctx.store.findOne('personnel', 'test-org', { id: 'p-1' })) as Record<string, unknown>;
+		const stored = (await ctx.store.findOne('personnel', 'test-org', { id: PERSON_1 })) as Record<string, unknown>;
 		expect(stored.ets).toBe('2027-05-01');
 		expect(stored.deros).toBeNull();
 	});
@@ -658,7 +674,7 @@ describe('Personnel — update', () => {
 		const ctx = buildContext();
 		ctx.store.seed('personnel', [
 			{
-				id: 'p-1',
+				id: PERSON_1,
 				rank: 'SGT',
 				last_name: 'Rivera',
 				first_name: 'Monica',
@@ -670,7 +686,7 @@ describe('Personnel — update', () => {
 				organization_id: 'test-org'
 			},
 			{
-				id: 'p-2',
+				id: PERSON_2,
 				rank: 'SSG',
 				last_name: 'Smith',
 				first_name: 'John',
@@ -683,11 +699,11 @@ describe('Personnel — update', () => {
 			}
 		]);
 
-		const result = await updatePersonnelRecord(ctx, { id: 'p-1', lastName: 'Smith', firstName: 'John' });
+		const result = await updatePersonnelRecord(ctx, { id: PERSON_1, lastName: 'Smith', firstName: 'John' });
 
 		expect(result.slug).toBe('smith-john-2');
 
-		const unchanged = (await ctx.store.findOne('personnel', 'test-org', { id: 'p-2' })) as Record<string, unknown>;
+		const unchanged = (await ctx.store.findOne('personnel', 'test-org', { id: PERSON_2 })) as Record<string, unknown>;
 		expect(unchanged.slug).toBe('smith-john');
 	});
 
@@ -698,7 +714,7 @@ describe('Personnel — update', () => {
 		const ctx = buildContext();
 		ctx.store.seed('personnel', [
 			{
-				id: 'p-1',
+				id: PERSON_1,
 				rank: 'SGT',
 				last_name: 'Smith',
 				first_name: 'John',
@@ -711,12 +727,12 @@ describe('Personnel — update', () => {
 			}
 		]);
 
-		await expect(updatePersonnelRecord(ctx, { id: 'p-1', [field]: ' ' })).rejects.toMatchObject({
+		await expect(updatePersonnelRecord(ctx, { id: PERSON_1, [field]: ' ' })).rejects.toMatchObject({
 			status: 400,
 			message
 		});
 
-		const stored = (await ctx.store.findOne('personnel', 'test-org', { id: 'p-1' })) as Record<string, unknown>;
+		const stored = (await ctx.store.findOne('personnel', 'test-org', { id: PERSON_1 })) as Record<string, unknown>;
 		expect(stored).toMatchObject({ last_name: 'Smith', first_name: 'John', slug: 'smith-john' });
 		expect(ctx.audit.events).toEqual([]);
 	});
@@ -725,20 +741,65 @@ describe('Personnel — update', () => {
 		const ctx = buildContext();
 		seedPersonnel(ctx);
 
-		await updatePersonnelRecord(ctx, { id: 'p-1', groupId: '' });
+		await updatePersonnelRecord(ctx, { id: PERSON_1, groupId: '' });
 
-		const stored = (await ctx.store.findOne('personnel', 'test-org', { id: 'p-1' })) as Record<string, unknown>;
+		const stored = (await ctx.store.findOne('personnel', 'test-org', { id: PERSON_1 })) as Record<string, unknown>;
 		expect(stored.group_id).toBeNull();
 	});
 
 	it('enforces group scope on update', async () => {
 		const ctx = buildContext({
 			auth: {
-				scopeSet: { kind: 'groups', groupIds: ['group-a'] }
+				scopeSet: { kind: 'groups', groupIds: [GROUP_A] }
 			}
 		});
 		seedPersonnel(ctx);
 
-		await expect(updatePersonnelRecord(ctx, { id: 'p-1', rank: 'SSG' })).rejects.toMatchObject({ status: 403 });
+		await expect(updatePersonnelRecord(ctx, { id: PERSON_1, rank: 'SSG' })).rejects.toMatchObject({ status: 403 });
+	});
+});
+
+describe('Personnel truthful rejection of invalid and stale writes', () => {
+	it.each([
+		['a numeric rank', { rank: 5 }, 'Rank is required'],
+		['a null MOS', { mos: null }, 'MOS must be text'],
+		['an unreadable ETS', { ets: 'soon' }, 'Use a valid date (YYYY-MM-DD)'],
+		['an impossible ETS', { ets: '2027-02-30' }, 'Use a valid date (YYYY-MM-DD)'],
+		['a Group that is not an id', { groupId: 'alpha' }, 'Invalid ID']
+	])('rejects a create with %s with 400 and saves nothing', async (_case, change, message) => {
+		const ctx = buildContext();
+
+		await expect(createPersonnelRecord(ctx, { ...validInput, ...change })).rejects.toMatchObject({
+			status: 400,
+			message
+		});
+		expect(await ctx.store.findMany('personnel', ctx.auth.orgId)).toEqual([]);
+	});
+
+	it.each([
+		['a malformed id', { id: 'abc', clinicRole: 'Medic' }, 'Invalid ID'],
+		['a numeric duty role', { id: PERSON_1, clinicRole: 42 }, 'Duty role is required'],
+		['an impossible DEROS', { id: PERSON_1, deros: '2027-13-01' }, 'Use a valid date (YYYY-MM-DD)']
+	])('rejects an update with %s with 400', async (_case, input, message) => {
+		const ctx = buildContext();
+
+		await expect(updatePersonnelRecord(ctx, input)).rejects.toMatchObject({ status: 400, message });
+		expect(ctx.audit.events.some((event) => event.action === 'personnel.updated')).toBe(false);
+	});
+
+	it('answers 404 for an update to a Person that is missing or in another Organization', async () => {
+		const ctx = buildContext();
+		ctx.store.seed('personnel', [
+			{ id: PERSON_2, organization_id: 'foreign-org', rank: 'SGT', last_name: 'Other', first_name: 'Org' }
+		]);
+
+		for (const id of [PERSON_1, PERSON_2]) {
+			await expect(updatePersonnelRecord(ctx, { id, clinicRole: 'Medic' })).rejects.toMatchObject({
+				status: 404,
+				message: 'This person is no longer available.'
+			});
+		}
+		expect(await ctx.store.findOne('personnel', 'foreign-org', { id: PERSON_2 })).toMatchObject({ last_name: 'Other' });
+		expect(ctx.audit.events.some((event) => event.action === 'personnel.updated')).toBe(false);
 	});
 });

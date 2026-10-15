@@ -3,6 +3,7 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { createRequestCalendarRangeContext } from '$lib/server/adapters/requestContexts.server';
+import { isDateOnly } from '$lib/utils/dates';
 import type { RequestEvent } from '@sveltejs/kit';
 
 export const _getConfig: RouteConfig<
@@ -21,7 +22,7 @@ export const _getConfig: RouteConfig<
 		const { startDate, endDate } = input;
 
 		if (!startDate || !endDate) fail(400, 'startDate and endDate query params are required');
-		if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
+		if (!isDateOnly(startDate) || !isDateOnly(endDate)) {
 			fail(400, 'Dates must be in YYYY-MM-DD format');
 		}
 		if (startDate > endDate) fail(400, 'startDate must be before or equal to endDate');

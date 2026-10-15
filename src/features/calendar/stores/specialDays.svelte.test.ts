@@ -281,6 +281,32 @@ describe('specialDaysStore', () => {
 			expect(specialDaysStore.items).toEqual([mockDays[1], resetHoliday, added]);
 		});
 
+		it('keeps a closure edited into a federal holiday while the reset response is pending', async () => {
+			let resolveReset!: (value: ReturnType<typeof reply>) => void;
+			const edited = { ...mockDays[1], type: 'federal-holiday' as const };
+			const resetHoliday = {
+				id: 'reset-federal',
+				name: 'Reset federal day',
+				date: '2026-01-01',
+				type: 'federal-holiday' as const
+			};
+			vi.stubGlobal(
+				'fetch',
+				vi.fn((_url, options?: RequestInit) => {
+					if (!options) return Promise.resolve(reply(200, [resetHoliday, edited]));
+					const input = JSON.parse(options.body as string);
+					if (input.action === 'resetFederalHolidays') return new Promise((resolve) => (resolveReset = resolve));
+					return Promise.resolve(reply(200, edited));
+				})
+			);
+			const pending = specialDaysStore.resetFederalHolidays();
+			await specialDaysStore.updateOrThrow(edited.id, { type: 'federal-holiday' });
+			resolveReset(reply(200, [resetHoliday]));
+
+			expect(await pending).toBe('saved');
+			expect(specialDaysStore.items).toEqual([resetHoliday, edited]);
+		});
+
 		it('retries a recovery read when newer Calendar data loads during that read', async () => {
 			let resolveReset!: (value: { ok: boolean; json: () => Promise<unknown> }) => void;
 			let resolveFirstRead!: (value: { ok: boolean; json: () => Promise<unknown> }) => void;

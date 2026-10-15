@@ -5,6 +5,7 @@ import { getActiveIctTasksForLibrary, planIctTaskMove } from '../utils/ictTaskLi
 import { createWritePortsContext } from './criticalTasksPersistence.test-support.server';
 import { reorderIctTasks } from './ictTaskOperations.server';
 
+const taskIdForCode = (code: string) => `00000000-0000-4000-8000-0000000000${code.toLowerCase().repeat(2)}`;
 const codes = ['task-10', 'task-2', '11B', 'Z', 'alpha', 'Á'];
 const cases = [
 	{ count: 4, orders: [0, 1, 2] },
@@ -29,7 +30,7 @@ it.each(cases)(
 		]).flat();
 		for (let assignment = 0; assignment < totals.assignments; assignment += 1) {
 			const rows = Array.from({ length: count }, (_, index) => ({
-				id: String.fromCharCode(65 + index),
+				id: taskIdForCode(String.fromCharCode(65 + index)),
 				organization_id: 'test-org',
 				task_code: codes?.[index] ?? String.fromCharCode(65 + index),
 				title: 'Synthetic census task',
@@ -142,10 +143,10 @@ it.each([
 	const ctx = createWritePortsContext();
 	ctx.rawStore.seed(
 		'ict_tasks',
-		entries.map(([id, sort_order]) => ({
-			id,
-			task_code: id,
-			title: id,
+		entries.map(([code, sort_order]) => ({
+			id: taskIdForCode(code as string),
+			task_code: code,
+			title: code,
 			sort_order,
 			organization_id: 'test-org',
 			archived_at: null
@@ -157,17 +158,19 @@ it.each([
 	if (firstPlan.status !== 'ready' || secondPlan.status !== 'ready') throw new Error('Expected supported moves');
 	await reorderIctTasks(ctx, { changes: firstPlan.changes });
 	await expect(reorderIctTasks(ctx, { changes: secondPlan.changes })).rejects.toMatchObject({ status: 409 });
-	expect(getActiveIctTasksForLibrary(await ctx.criticalTaskLibrary.listCatalog()).map(({ id }) => id)).toEqual(winner);
+	expect(getActiveIctTasksForLibrary(await ctx.criticalTaskLibrary.listCatalog()).map(({ id }) => id)).toEqual(
+		winner.map(taskIdForCode)
+	);
 });
 
 it('allows independent gapped moves to commute', async () => {
 	const ctx = createWritePortsContext();
 	ctx.rawStore.seed(
 		'ict_tasks',
-		['A', 'B', 'C', 'D', 'E', 'F'].map((id, index) => ({
-			id,
-			task_code: id,
-			title: id,
+		['A', 'B', 'C', 'D', 'E', 'F'].map((code, index) => ({
+			id: taskIdForCode(code),
+			task_code: code,
+			title: code,
 			sort_order: index * 10,
 			organization_id: 'test-org',
 			archived_at: null
@@ -179,12 +182,7 @@ it('allows independent gapped moves to commute', async () => {
 	if (first.status !== 'ready' || second.status !== 'ready') throw new Error('Expected supported moves');
 	await reorderIctTasks(ctx, { changes: first.changes });
 	await reorderIctTasks(ctx, { changes: second.changes });
-	expect(getActiveIctTasksForLibrary(await ctx.criticalTaskLibrary.listCatalog()).map(({ id }) => id)).toEqual([
-		'B',
-		'A',
-		'C',
-		'D',
-		'F',
-		'E'
-	]);
+	expect(getActiveIctTasksForLibrary(await ctx.criticalTaskLibrary.listCatalog()).map(({ id }) => id)).toEqual(
+		['B', 'A', 'C', 'D', 'F', 'E'].map(taskIdForCode)
+	);
 });

@@ -12,6 +12,7 @@ import {
 	type PersonnelArtifactsContext,
 	type PersonnelDocumentRow
 } from './personnelArtifactContext.server';
+import { issueMessage } from '$lib/utils/inputSchemas';
 
 export const MAX_PERSONNEL_DOCUMENT_BYTES = 10 * 1024 * 1024;
 
@@ -118,7 +119,7 @@ export async function createPersonnelDocument(
 ): Promise<PersonnelDocument> {
 	const parsed = documentInputSchema.safeParse(rawInput);
 	if (!parsed.success) {
-		fail(400, parsed.error.issues.map((issue) => issue.message).join('; '));
+		fail(400, issueMessage(parsed.error));
 	}
 	await assertAcceptedDocumentFile(rawInput.file);
 

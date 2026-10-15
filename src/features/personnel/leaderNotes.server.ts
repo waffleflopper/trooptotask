@@ -10,6 +10,7 @@ import {
 	type PersonnelLeaderNote
 } from './contracts';
 import { fail } from '$lib/errors';
+import { issueMessage } from '$lib/utils/inputSchemas';
 
 export interface LeaderNoteCursor {
 	createdAt: string;
@@ -99,7 +100,7 @@ export async function createPersonnelLeaderNote(
 	rawInput: unknown
 ): Promise<PersonnelLeaderNote> {
 	const parsed = personnelLeaderNoteInputSchema.safeParse(rawInput);
-	if (!parsed.success) fail(400, parsed.error.issues.map((issue) => issue.message).join('; '));
+	if (!parsed.success) fail(400, issueMessage(parsed.error));
 	const input = parsed.data;
 	await requireAccess(ctx, input.personnelId, 'write');
 	const row = await ctx.persistence.insert({

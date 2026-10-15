@@ -3,6 +3,16 @@ import { createTestContext } from './calendarPersistence.test-support.server';
 import { fetchCalendarBootstrap, fetchCalendarData, fetchCalendarRangeData } from '$features/calendar/index.server';
 import { setDailyAssignmentSlot } from './dailyAssignmentOperations.server';
 
+const PERSON_TYPE = '00000000-0000-4000-8000-000000000010';
+const GROUP_TYPE = '00000000-0000-4000-8000-000000000011';
+const P_ALPHA = '00000000-0000-4000-8000-000000000012';
+const P_BRAVO = '00000000-0000-4000-8000-000000000013';
+const P_CHARLIE = '00000000-0000-4000-8000-000000000014';
+const P_OTHER = '00000000-0000-4000-8000-000000000015';
+const G_ALPHA = '00000000-0000-4000-8000-000000000016';
+const G_BRAVO = '00000000-0000-4000-8000-000000000017';
+const G_CHARLIE = '00000000-0000-4000-8000-000000000018';
+
 const range = { rangeStart: '2026-03-01', rangeEnd: '2026-03-31' };
 
 // Independent R6 facts: no duty run/template is needed to read these saved slots.
@@ -12,57 +22,57 @@ const savedSlots = [
 		id: 'manual-person',
 		organization_id: 'test-org',
 		date: '2026-03-01',
-		assignment_type_id: 'person-type',
-		assignee_id: 'p-alpha'
+		assignment_type_id: PERSON_TYPE,
+		assignee_id: P_ALPHA
 	},
 	{
 		id: 'manual-group',
 		organization_id: 'test-org',
 		date: '2026-03-01',
-		assignment_type_id: 'group-type',
-		assignee_id: 'g-bravo'
+		assignment_type_id: GROUP_TYPE,
+		assignee_id: G_BRAVO
 	},
 	{
 		id: 'linked',
 		organization_id: 'test-org',
 		date: '2026-03-15',
-		assignment_type_id: 'person-type',
-		assignee_id: 'p-alpha'
+		assignment_type_id: PERSON_TYPE,
+		assignee_id: P_ALPHA
 	},
 	{
 		id: 'edited-generated',
 		organization_id: 'test-org',
 		date: '2026-03-31',
-		assignment_type_id: 'person-type',
-		assignee_id: 'p-bravo'
+		assignment_type_id: PERSON_TYPE,
+		assignee_id: P_BRAVO
 	},
 	{
 		id: 'outside-window',
 		organization_id: 'test-org',
 		date: '2026-04-01',
-		assignment_type_id: 'person-type',
-		assignee_id: 'p-alpha'
+		assignment_type_id: PERSON_TYPE,
+		assignee_id: P_ALPHA
 	},
 	{
 		id: 'outside-group',
 		organization_id: 'test-org',
 		date: '2026-03-02',
-		assignment_type_id: 'person-type',
-		assignee_id: 'p-charlie'
+		assignment_type_id: PERSON_TYPE,
+		assignee_id: P_CHARLIE
 	},
 	{
 		id: 'outside-group-slot',
 		organization_id: 'test-org',
 		date: '2026-03-02',
-		assignment_type_id: 'group-type',
-		assignee_id: 'g-charlie'
+		assignment_type_id: GROUP_TYPE,
+		assignee_id: G_CHARLIE
 	},
 	{
 		id: 'other-org',
 		organization_id: 'other-org',
 		date: '2026-03-01',
-		assignment_type_id: 'person-type',
-		assignee_id: 'p-other'
+		assignment_type_id: PERSON_TYPE,
+		assignee_id: P_OTHER
 	}
 ];
 
@@ -71,29 +81,29 @@ const retainedSlots = [
 		id: 'manual-person',
 		organization_id: 'test-org',
 		date: '2026-03-01',
-		assignmentTypeId: 'person-type',
-		assigneeId: 'p-alpha'
+		assignmentTypeId: PERSON_TYPE,
+		assigneeId: P_ALPHA
 	},
 	{
 		id: 'manual-group',
 		organization_id: 'test-org',
 		date: '2026-03-01',
-		assignmentTypeId: 'group-type',
-		assigneeId: 'g-bravo'
+		assignmentTypeId: GROUP_TYPE,
+		assigneeId: G_BRAVO
 	},
 	{
 		id: 'linked',
 		organization_id: 'test-org',
 		date: '2026-03-15',
-		assignmentTypeId: 'person-type',
-		assigneeId: 'p-alpha'
+		assignmentTypeId: PERSON_TYPE,
+		assigneeId: P_ALPHA
 	},
 	{
 		id: 'edited-generated',
 		organization_id: 'test-org',
 		date: '2026-03-31',
-		assignmentTypeId: 'person-type',
-		assigneeId: 'p-bravo'
+		assignmentTypeId: PERSON_TYPE,
+		assigneeId: P_BRAVO
 	}
 ];
 
@@ -102,20 +112,26 @@ function fixture() {
 		auth: {
 			role: 'member',
 			isPrivileged: false,
-			scopeSet: { kind: 'groups', groupIds: ['g-alpha', 'g-bravo'] }
+			scopeSet: { kind: 'groups', groupIds: [G_ALPHA, G_BRAVO] }
 		}
 	});
 	ctx.rawStore.seed('groups', [
-		{ id: 'g-alpha', organization_id: 'test-org', name: 'Alpha' },
-		{ id: 'g-bravo', organization_id: 'test-org', name: 'Bravo' },
-		{ id: 'g-charlie', organization_id: 'test-org', name: 'Charlie' }
+		{ id: G_ALPHA, organization_id: 'test-org', name: 'Alpha' },
+		{ id: G_BRAVO, organization_id: 'test-org', name: 'Bravo' },
+		{ id: G_CHARLIE, organization_id: 'test-org', name: 'Charlie' }
 	]);
 	ctx.rawStore.seed(
 		'personnel',
-		['alpha', 'bravo', 'charlie'].map((name) => ({
-			id: `p-${name}`,
+		(
+			[
+				['alpha', P_ALPHA, G_ALPHA],
+				['bravo', P_BRAVO, G_BRAVO],
+				['charlie', P_CHARLIE, G_CHARLIE]
+			] as const
+		).map(([name, id, groupId]) => ({
+			id,
 			organization_id: 'test-org',
-			group_id: `g-${name}`,
+			group_id: groupId,
 			first_name: name,
 			last_name: 'Synthetic',
 			rank: 'SGT',
@@ -125,7 +141,7 @@ function fixture() {
 	);
 	ctx.rawStore.seed('assignment_types', [
 		{
-			id: 'person-type',
+			id: PERSON_TYPE,
 			organization_id: 'test-org',
 			name: 'Staff Duty',
 			short_name: 'SD',
@@ -133,7 +149,7 @@ function fixture() {
 			color: '#123456'
 		},
 		{
-			id: 'group-type',
+			id: GROUP_TYPE,
 			organization_id: 'test-org',
 			name: 'Detail',
 			short_name: 'DT',
@@ -174,12 +190,12 @@ describe('persisted Calendar preservation (R1/R6)', () => {
 	it('keeps referenced types and Personnel Duty Role available', async () => {
 		const result = await fetchCalendarBootstrap(fixture(), range);
 		expect(result.assignmentTypes).toEqual([
-			expect.objectContaining({ id: 'person-type', name: 'Staff Duty', assignTo: 'personnel' }),
-			expect.objectContaining({ id: 'group-type', name: 'Detail', assignTo: 'group' })
+			expect.objectContaining({ id: PERSON_TYPE, name: 'Staff Duty', assignTo: 'personnel' }),
+			expect.objectContaining({ id: GROUP_TYPE, name: 'Detail', assignTo: 'group' })
 		]);
 		expect(result.personnel.map(({ id, clinicRole }) => ({ id, clinicRole }))).toEqual([
-			{ id: 'p-alpha', clinicRole: 'Medic' },
-			{ id: 'p-bravo', clinicRole: 'Medic' }
+			{ id: P_ALPHA, clinicRole: 'Medic' },
+			{ id: P_BRAVO, clinicRole: 'Medic' }
 		]);
 	});
 
@@ -187,8 +203,8 @@ describe('persisted Calendar preservation (R1/R6)', () => {
 		const ctx = fixture();
 		await setDailyAssignmentSlot(ctx, {
 			date: '2026-03-15',
-			assignmentTypeId: 'person-type',
-			assigneeId: 'p-bravo'
+			assignmentTypeId: PERSON_TYPE,
+			assigneeId: P_BRAVO
 		});
 		const saved = await ctx.rawStore.findMany<Record<string, unknown>>('daily_assignments', 'test-org');
 		expect(saved).toHaveLength(7);
@@ -199,8 +215,8 @@ describe('persisted Calendar preservation (R1/R6)', () => {
 		expect(edited).toMatchObject({
 			organization_id: 'test-org',
 			date: '2026-03-15',
-			assignment_type_id: 'person-type',
-			assignee_id: 'p-bravo',
+			assignment_type_id: PERSON_TYPE,
+			assignee_id: P_BRAVO,
 			id: expect.any(String)
 		});
 		const result = await fetchCalendarRangeData(ctx, range);
@@ -214,8 +230,8 @@ describe('persisted Calendar preservation (R1/R6)', () => {
 					id: edited?.id,
 					organization_id: 'test-org',
 					date: '2026-03-15',
-					assignmentTypeId: 'person-type',
-					assigneeId: 'p-bravo'
+					assignmentTypeId: PERSON_TYPE,
+					assigneeId: P_BRAVO
 				}
 			])
 		);
@@ -235,8 +251,8 @@ describe('persisted Calendar preservation (R1/R6)', () => {
 		await expect(
 			setDailyAssignmentSlot(ctx, {
 				date: '2026-03-15',
-				assignmentTypeId: 'person-type',
-				assigneeId: 'p-bravo'
+				assignmentTypeId: PERSON_TYPE,
+				assigneeId: P_BRAVO
 			})
 		).rejects.toThrow('synthetic write failure');
 		expect((await fetchCalendarRangeData(ctx, range)).dailyAssignments).toEqual(retainedSlots);

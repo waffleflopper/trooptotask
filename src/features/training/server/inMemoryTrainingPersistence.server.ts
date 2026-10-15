@@ -1,3 +1,4 @@
+import { fail } from '$lib/errors';
 import type { createInMemoryDataStore } from '$lib/server/adapters/inMemory';
 type TrainingMemoryStore = Pick<
 	ReturnType<typeof createInMemoryDataStore>,
@@ -5,6 +6,7 @@ type TrainingMemoryStore = Pick<
 >;
 import type { TrainingCatalogPersistence, TrainingCompletionPersistence } from '../contracts';
 import {
+	TRAINING_TYPE_NAME_EXISTS_MESSAGE,
 	toTrainingType,
 	toTrainingView,
 	toTrainingCompletion,
@@ -116,11 +118,14 @@ export function createInMemoryTrainingCatalogPersistence(
 			return store.findOne('training_types', orgId, { id }, 'id');
 		},
 		async createType(input) {
+			if (await store.findOne('training_types', orgId, { name: input.name }))
+				fail(409, TRAINING_TYPE_NAME_EXISTS_MESSAGE);
 			return toTrainingType(
 				await store.insert<TrainingTypeRow>('training_types', orgId, trainingTypeCreateRow(input, orgId))
 			);
 		},
 		async patchType(id, fields) {
+			if (!(await store.findOne('training_types', orgId, { id }))) return null;
 			return toTrainingType(
 				await store.update<TrainingTypeRow>('training_types', orgId, id, defined(trainingTypePatchRow(fields)))
 			);
@@ -134,6 +139,7 @@ export function createInMemoryTrainingCatalogPersistence(
 			);
 		},
 		async patchView(id, fields) {
+			if (!(await store.findOne('training_views', orgId, { id }))) return null;
 			return toTrainingView(
 				await store.update<TrainingViewRow>('training_views', orgId, id, defined(trainingViewPatchRow(fields)))
 			);

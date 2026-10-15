@@ -21,6 +21,7 @@
 	import { rosterStore } from '$features/personnel';
 	import { trainingRankCatalogStore } from '$features/training/stores/rankCatalog.svelte';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
+	import { rejectedRequestMessage } from '$lib/stores/core';
 	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 	import {
 		getExpirationMode,
@@ -243,14 +244,14 @@
 				await tick();
 				typeList?.focusSelected();
 			} else if (selectedTypeId) {
-				if (!(await trainingTypesStore.update(selectedTypeId, payload))) {
+				if (!(await trainingTypesStore.updateOrThrow(selectedTypeId, payload))) {
 					error = 'Failed to save training type.';
 					return;
 				}
 			}
 			editing = false;
-		} catch {
-			error = 'Failed to save training type.';
+		} catch (failure) {
+			error = rejectedRequestMessage(failure, 'Failed to save training type.');
 		} finally {
 			saving = false;
 		}
@@ -414,6 +415,7 @@
 								type="text"
 								bind:ref={nameInput}
 								bind:value={editName}
+								maxlength={100}
 								placeholder="e.g. First Aid"
 							/>
 							{#if error}

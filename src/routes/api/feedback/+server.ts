@@ -1,16 +1,12 @@
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { createRequestFeedbackSubmission } from '$lib/server/adapters/httpAdapter';
-
-function asFeedbackBody(body: unknown): Record<string, unknown> {
-	return body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
-}
+import { createRequestFeedbackSubmission, readJsonBody, rethrowOrWrap } from '$lib/server/adapters/httpAdapter';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	const actor = locals.actor;
 	if (!actor) throw error(401, 'Authentication required');
 
-	const body = asFeedbackBody(await request.json());
+	const body = await readJsonBody({ request }).catch(rethrowOrWrap);
 	const result = await createRequestFeedbackSubmission().submit({
 		userId: actor.userId,
 		userEmail: locals.user?.email,

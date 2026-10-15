@@ -11,7 +11,8 @@ const { feedbackMock, createFeedbackMock } = vi.hoisted(() => {
 	};
 });
 
-vi.mock('$lib/server/adapters/httpAdapter', () => ({
+vi.mock('$lib/server/adapters/httpAdapter', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$lib/server/adapters/httpAdapter')>()),
 	createRequestFeedbackSubmission: createFeedbackMock
 }));
 
@@ -104,6 +105,16 @@ describe('POST /api/feedback', () => {
 			pageUrl: `/org/${ORG_ID}/dashboard`,
 			organizationId: ORG_ID
 		});
+	});
+
+	it('rejects a malformed JSON body with 400 before submitting', async () => {
+		const event = makeEvent();
+		Object.assign(event, {
+			request: new Request('https://trooptotask.test/api/feedback', { method: 'POST', body: '{bad' })
+		});
+
+		await expect(POST(event)).rejects.toMatchObject({ status: 400, body: { message: 'Invalid JSON in request body' } });
+		expect(feedbackMock.submit).not.toHaveBeenCalled();
 	});
 
 	it('maps validation failures to the existing bad-request shape', async () => {

@@ -115,6 +115,35 @@ describe('/api/pinned-groups route config', () => {
 		);
 	});
 
+	it('rejects malformed pin commands with 400 and keeps the saved pins', async () => {
+		const ctx = createTestContext({ auth: { userId: 'user-1' } });
+		ctx.store.seed('user_pinned_groups', [
+			{ id: 'saved', organization_id: ctx.auth.orgId, user_id: 'user-1', group_name: 'Alpha', sort_order: 0 }
+		]);
+
+		for (const body of [
+			{ action: 'replace', groups: 'oops' },
+			{ action: 'replace' },
+			{ action: 'replace', groups: [5] },
+			{ groupName: 5 },
+			{ groupName: 'Bravo', sortOrder: 'first' }
+		]) {
+			await expect(handleUseCaseRequest(_postConfig, ctx, body, () => ctx)).rejects.toMatchObject({ status: 400 });
+		}
+		await expect(handleUseCaseRequest(_deleteConfig, ctx, {}, () => ctx)).rejects.toMatchObject({ status: 400 });
+		expect(await ctx.store.findMany('user_pinned_groups', ctx.auth.orgId)).toMatchObject([
+			{ id: 'saved', group_name: 'Alpha' }
+		]);
+
+		await expect(handleUseCaseRequest(_postConfig, ctx, { action: 'replace', groups: [] }, () => ctx)).resolves.toEqual(
+			{
+				success: true,
+				groups: []
+			}
+		);
+		expect(await ctx.store.findMany('user_pinned_groups', ctx.auth.orgId)).toEqual([]);
+	});
+
 	it('denies a preference write without an authenticated user', async () => {
 		const ctx = createTestContext({ auth: { userId: '' } });
 

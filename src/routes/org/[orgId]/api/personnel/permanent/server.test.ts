@@ -53,4 +53,30 @@ describe('DELETE /api/personnel/permanent', () => {
 		expect(selected.notifyPersonnelDeleted).toHaveBeenCalledWith('SGT Smith, Jamie');
 		expect(await ctx.store.findMany('personnel', ctx.auth.orgId)).toEqual([]);
 	});
+
+	it('rejects a malformed Personnel id with 400 and deletes nothing', async () => {
+		const ctx = createTestContext({ auth: { role: 'admin', isPrivileged: true } });
+		const selected = { ...ctx, notifyPersonnelDeleted: vi.fn(async (_name: string) => {}) };
+		ctx.store.seed('personnel', [
+			{
+				id: '11111111-1111-4111-8111-111111111111',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Smith',
+				first_name: 'Jamie',
+				archived_at: '2026-04-01T00:00:00Z'
+			}
+		]);
+
+		await expect(handleUseCaseRequest(_deleteConfig, ctx, { id: 'person' }, () => selected)).rejects.toMatchObject({
+			status: 400,
+			message: 'Invalid ID'
+		});
+		await expect(handleUseCaseRequest(_deleteConfig, ctx, {}, () => selected)).rejects.toMatchObject({
+			status: 400,
+			message: 'Missing id'
+		});
+		expect(selected.notifyPersonnelDeleted).not.toHaveBeenCalled();
+		expect(await ctx.store.findMany('personnel', ctx.auth.orgId)).toHaveLength(1);
+	});
 });

@@ -2,15 +2,11 @@ import { fetchCalendarRangeData } from '$features/calendar/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { createRequestCalendarRangeContext } from '$lib/server/adapters/requestContexts.server';
-import { formatDate, parseDate } from '$lib/utils/dates';
+import { parseDate } from '$lib/utils/dates';
+import { dateOnlySchema } from '$lib/utils/inputSchemas';
 import { z } from 'zod';
 
-const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_CALENDAR_RANGE_DAYS = 366;
-
-function isValidDateOnly(value: string): boolean {
-	return ISO_DATE_PATTERN.test(value) && formatDate(parseDate(value)) === value;
-}
 
 function toUtcDay(value: string): number {
 	const date = parseDate(value);
@@ -19,14 +15,8 @@ function toUtcDay(value: string): number {
 
 const calendarRangeInput = z
 	.object({
-		rangeStart: z
-			.string()
-			.regex(ISO_DATE_PATTERN, 'Dates must use YYYY-MM-DD format')
-			.refine(isValidDateOnly, 'Invalid calendar date'),
-		rangeEnd: z
-			.string()
-			.regex(ISO_DATE_PATTERN, 'Dates must use YYYY-MM-DD format')
-			.refine(isValidDateOnly, 'Invalid calendar date')
+		rangeStart: dateOnlySchema,
+		rangeEnd: dateOnlySchema
 	})
 	.refine(({ rangeStart, rangeEnd }) => rangeStart <= rangeEnd, {
 		message: 'rangeStart must not exceed rangeEnd'

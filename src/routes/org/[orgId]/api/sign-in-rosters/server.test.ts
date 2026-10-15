@@ -6,6 +6,23 @@ import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import type { SignInRosterPersonnelLookupRecord } from '$features/personnel/contracts';
 import { _getConfig, _postConfig } from './+server';
 
+const PERSON_1 = '00000000-0000-4000-8000-000000000010';
+const P_1 = '00000000-0000-4000-8000-000000000011';
+const P_ADAMS = '00000000-0000-4000-8000-000000000012';
+const P_ALPHA = '00000000-0000-4000-8000-000000000013';
+const P_BRAVO = '00000000-0000-4000-8000-000000000014';
+const P_FOREIGN = '00000000-0000-4000-8000-000000000015';
+const P_KNOWN = '00000000-0000-4000-8000-000000000016';
+const P_MISSING = '00000000-0000-4000-8000-000000000017';
+const P_SMITH = '00000000-0000-4000-8000-000000000018';
+const P_UNASSIGNED = '00000000-0000-4000-8000-000000000019';
+const P_UNKNOWN = '00000000-0000-4000-8000-00000000001a';
+
+const RETIRED_RANK_PERSON = '00000000-0000-4000-8000-000000000020';
+const UNKNOWN_RANK_PERSON = '00000000-0000-4000-8000-000000000021';
+const NAVY_E5_PERSON = '00000000-0000-4000-8000-000000000022';
+const ARMY_E5_PERSON = '00000000-0000-4000-8000-000000000023';
+const AIR_FORCE_E5_PERSON = '00000000-0000-4000-8000-000000000024';
 const GROUP_ALPHA = 'group-alpha';
 const GROUP_BRAVO = 'group-bravo';
 
@@ -16,7 +33,7 @@ function seedPersonnel(ctx: ReturnType<typeof createRosterTestContext>) {
 	]);
 	const personnel = [
 		{
-			id: 'p-alpha',
+			id: P_ALPHA,
 			orgId: ctx.auth.orgId,
 			rank: 'SGT',
 			lastName: 'Smith',
@@ -25,7 +42,7 @@ function seedPersonnel(ctx: ReturnType<typeof createRosterTestContext>) {
 			groupName: null
 		},
 		{
-			id: 'p-bravo',
+			id: P_BRAVO,
 			orgId: ctx.auth.orgId,
 			rank: 'SSG',
 			lastName: 'Jones',
@@ -34,7 +51,7 @@ function seedPersonnel(ctx: ReturnType<typeof createRosterTestContext>) {
 			groupName: null
 		},
 		{
-			id: 'p-foreign',
+			id: P_FOREIGN,
 			orgId: 'foreign-org',
 			rank: 'SGT',
 			lastName: 'Foreign',
@@ -64,7 +81,7 @@ describe('/api/sign-in-rosters route config', () => {
 					requests.push(new URL(String(input)));
 					return Response.json([
 						{
-							id: 'person-1',
+							id: PERSON_1,
 							rank: 'SGT',
 							last_name: 'Smith',
 							first_name: 'Jane',
@@ -78,7 +95,7 @@ describe('/api/sign-in-rosters route config', () => {
 		const ctx = createRosterTestContext();
 		ctx.personnelLookup = createSupabaseSignInRosterPersonnelLookupPort(() => supabase);
 
-		await handleUseCaseRequest(_postConfig, ctx, { title: 'Training attendance', personnelIds: ['person-1'] }, () =>
+		await handleUseCaseRequest(_postConfig, ctx, { title: 'Training attendance', personnelIds: [PERSON_1] }, () =>
 			selectRosterCreationContext(ctx)
 		);
 
@@ -86,7 +103,7 @@ describe('/api/sign-in-rosters route config', () => {
 		expect(saved[0]).toMatchObject({
 			scope_group_ids: [GROUP_ALPHA],
 			personnel_snapshot: [
-				{ id: 'person-1', rank: 'SGT', lastName: 'Smith', firstName: 'Jane', group: 'Alpha', groupId: GROUP_ALPHA }
+				{ id: PERSON_1, rank: 'SGT', lastName: 'Smith', firstName: 'Jane', group: 'Alpha', groupId: GROUP_ALPHA }
 			]
 		});
 		expect(requests).toHaveLength(1);
@@ -113,7 +130,7 @@ describe('/api/sign-in-rosters route config', () => {
 		ctx.personnelLookup = {
 			findPersonnelForRosterSnapshot: async () => [
 				{
-					id: 'p-alpha',
+					id: P_ALPHA,
 					rank: 'SGT',
 					lastName: 'Smith',
 					firstName: 'Jane',
@@ -128,7 +145,7 @@ describe('/api/sign-in-rosters route config', () => {
 			{
 				title: 'Independent training attendance',
 				rosterDate: '2026-03-15',
-				personnelIds: ['p-alpha']
+				personnelIds: [P_ALPHA]
 			},
 			() => selectRosterCreationContext(ctx)
 		)) as Record<string, unknown>;
@@ -143,7 +160,7 @@ describe('/api/sign-in-rosters route config', () => {
 					title: 'Independent training attendance',
 					rosterDate: '2026-03-15',
 					personnelSnapshot: [
-						{ id: 'p-alpha', rank: 'SGT', lastName: 'Smith', firstName: 'Jane', group: 'Alpha', groupId: GROUP_ALPHA }
+						{ id: P_ALPHA, rank: 'SGT', lastName: 'Smith', firstName: 'Jane', group: 'Alpha', groupId: GROUP_ALPHA }
 					]
 				})
 			]
@@ -176,9 +193,9 @@ describe('/api/sign-in-rosters route config', () => {
 		]);
 		ctx.personnelLookup = {
 			findPersonnelForRosterSnapshot: async () => [
-				{ id: 'p-known', rank: 'SGT', lastName: 'Smith', firstName: 'Jane', groupId: GROUP_ALPHA, groupName: null },
+				{ id: P_KNOWN, rank: 'SGT', lastName: 'Smith', firstName: 'Jane', groupId: GROUP_ALPHA, groupName: null },
 				{
-					id: 'p-unknown',
+					id: P_UNKNOWN,
 					rank: 'SPC',
 					lastName: 'Taylor',
 					firstName: 'Morgan',
@@ -194,15 +211,15 @@ describe('/api/sign-in-rosters route config', () => {
 			ctx,
 			{
 				title: 'Training attendance',
-				personnelIds: ['p-known', 'p-unknown']
+				personnelIds: [P_KNOWN, P_UNKNOWN]
 			},
 			() => selectRosterCreationContext(ctx)
 		);
 
 		const stored = await ctx.store.findMany<Record<string, unknown>>('sign_in_rosters', ctx.auth.orgId);
 		expect(stored[0].personnel_snapshot).toEqual([
-			expect.objectContaining({ id: 'p-known', group: 'Alpha' }),
-			expect.objectContaining({ id: 'p-unknown', group: '' })
+			expect.objectContaining({ id: P_KNOWN, group: 'Alpha' }),
+			expect.objectContaining({ id: P_UNKNOWN, group: '' })
 		]);
 		expect(groupRead.mock.calls.find(([table]) => table === 'groups')).toMatchObject([
 			'groups',
@@ -215,7 +232,7 @@ describe('/api/sign-in-rosters route config', () => {
 	it('persists sign-in rosters through the Training record policy for operators', async () => {
 		const findPersonnelForRosterSnapshot = vi.fn(async () => [
 			{
-				id: 'p-alpha',
+				id: P_ALPHA,
 				rank: 'SGT',
 				lastName: 'Smith',
 				firstName: 'Jane',
@@ -252,13 +269,13 @@ describe('/api/sign-in-rosters route config', () => {
 				blankDate: false,
 				separateByGroup: true,
 				sortBy: 'rank',
-				personnelSnapshot: [{ id: 'p-alpha', rank: 'FAKE', lastName: 'Injected', firstName: 'Payload' }],
+				personnelSnapshot: [{ id: P_ALPHA, rank: 'FAKE', lastName: 'Injected', firstName: 'Payload' }],
 				filterConfig: { groups: ['Alpha'] }
 			},
 			() => selectRosterCreationContext(ctx)
 		)) as Record<string, unknown>;
 
-		expect(findPersonnelForRosterSnapshot).toHaveBeenCalledWith(ctx.auth.orgId, ctx.auth.scopeSet, ['p-alpha']);
+		expect(findPersonnelForRosterSnapshot).toHaveBeenCalledWith(ctx.auth.orgId, ctx.auth.scopeSet, [P_ALPHA]);
 		expect(result).toMatchObject({
 			title: 'Annual AT Sign-In',
 			sortBy: 'rank'
@@ -267,11 +284,11 @@ describe('/api/sign-in-rosters route config', () => {
 		const stored = await ctx.store.findMany('sign_in_rosters', ctx.auth.orgId);
 		expect(stored).toHaveLength(1);
 		expect(stored[0]).toMatchObject({
-			personnel_ids: ['p-alpha'],
+			personnel_ids: [P_ALPHA],
 			scope_group_ids: [GROUP_ALPHA],
 			personnel_snapshot: [
 				{
-					id: 'p-alpha',
+					id: P_ALPHA,
 					rank: 'SGT',
 					lastName: 'Smith',
 					firstName: 'Jane',
@@ -311,11 +328,11 @@ describe('/api/sign-in-rosters route config', () => {
 		]);
 		ctx.personnelLookup = {
 			findPersonnelForRosterSnapshot: vi.fn(async () => [
-				signInPersonnel({ id: 'retired', rank: 'SSG', lastName: 'Charlie' }),
-				signInPersonnel({ id: 'unknown', rank: 'LOCAL-CADET', lastName: 'Able' }),
-				signInPersonnel({ id: 'navy-e5', rank: 'PO2', lastName: 'Baker' }),
-				signInPersonnel({ id: 'army-e5', rank: 'SGT', lastName: 'Able' }),
-				signInPersonnel({ id: 'air-force-e5', rank: 'SSgt', lastName: 'Charlie' })
+				signInPersonnel({ id: RETIRED_RANK_PERSON, rank: 'SSG', lastName: 'Charlie' }),
+				signInPersonnel({ id: UNKNOWN_RANK_PERSON, rank: 'LOCAL-CADET', lastName: 'Able' }),
+				signInPersonnel({ id: NAVY_E5_PERSON, rank: 'PO2', lastName: 'Baker' }),
+				signInPersonnel({ id: ARMY_E5_PERSON, rank: 'SGT', lastName: 'Able' }),
+				signInPersonnel({ id: AIR_FORCE_E5_PERSON, rank: 'SSgt', lastName: 'Charlie' })
 			])
 		};
 		await handleUseCaseRequest(
@@ -327,7 +344,7 @@ describe('/api/sign-in-rosters route config', () => {
 				blankDate: false,
 				separateByGroup: false,
 				sortBy: 'rank',
-				personnelIds: ['unknown', 'navy-e5', 'army-e5', 'air-force-e5', 'retired']
+				personnelIds: [UNKNOWN_RANK_PERSON, NAVY_E5_PERSON, ARMY_E5_PERSON, AIR_FORCE_E5_PERSON, RETIRED_RANK_PERSON]
 			},
 			() => selectRosterCreationContext(ctx)
 		);
@@ -337,11 +354,11 @@ describe('/api/sign-in-rosters route config', () => {
 			ctx.auth.orgId
 		);
 		expect((stored[0]?.personnel_snapshot as Array<{ id: string }>).map((row) => row.id)).toEqual([
-			'retired',
-			'navy-e5',
-			'army-e5',
-			'air-force-e5',
-			'unknown'
+			RETIRED_RANK_PERSON,
+			NAVY_E5_PERSON,
+			ARMY_E5_PERSON,
+			AIR_FORCE_E5_PERSON,
+			UNKNOWN_RANK_PERSON
 		]);
 	});
 
@@ -363,8 +380,8 @@ describe('/api/sign-in-rosters route config', () => {
 		});
 		ctx.personnelLookup = {
 			findPersonnelForRosterSnapshot: vi.fn(async () => [
-				signInPersonnel({ id: 'p-smith', rank: 'SGT', lastName: 'Smith', firstName: 'Jane' }),
-				signInPersonnel({ id: 'p-adams', rank: 'PO2', lastName: 'Adams', firstName: 'Avery' })
+				signInPersonnel({ id: P_SMITH, rank: 'SGT', lastName: 'Smith', firstName: 'Jane' }),
+				signInPersonnel({ id: P_ADAMS, rank: 'PO2', lastName: 'Adams', firstName: 'Avery' })
 			])
 		};
 
@@ -377,7 +394,7 @@ describe('/api/sign-in-rosters route config', () => {
 				blankDate: false,
 				separateByGroup: false,
 				sortBy: 'alphabetical',
-				personnelIds: ['p-smith', 'p-adams'],
+				personnelIds: [P_SMITH, P_ADAMS],
 				filterConfig: { groups: ['Alpha'], ranks: ['SGT', 'PO2'] }
 			},
 			() => selectRosterCreationContext(ctx)
@@ -390,12 +407,12 @@ describe('/api/sign-in-rosters route config', () => {
 			sort_by?: string;
 		}>('sign_in_rosters', ctx.auth.orgId);
 		expect(stored[0]).toMatchObject({
-			personnel_ids: ['p-smith', 'p-adams'],
+			personnel_ids: [P_SMITH, P_ADAMS],
 			filter_config: { groups: ['Alpha'], ranks: ['SGT', 'PO2'] },
 			sort_by: 'alphabetical',
 			personnel_snapshot: [
-				{ id: 'p-adams', rank: 'PO2', lastName: 'Adams', firstName: 'Avery' },
-				{ id: 'p-smith', rank: 'SGT', lastName: 'Smith', firstName: 'Jane' }
+				{ id: P_ADAMS, rank: 'PO2', lastName: 'Adams', firstName: 'Avery' },
+				{ id: P_SMITH, rank: 'SGT', lastName: 'Smith', firstName: 'Jane' }
 			]
 		});
 	});
@@ -419,7 +436,7 @@ describe('/api/sign-in-rosters route config', () => {
 		ctx.personnelLookup = {
 			findPersonnelForRosterSnapshot: vi.fn(async () => [
 				{
-					id: 'p-alpha',
+					id: P_ALPHA,
 					rank: 'SGT',
 					lastName: 'Smith',
 					firstName: 'Jane',
@@ -427,7 +444,7 @@ describe('/api/sign-in-rosters route config', () => {
 					groupName: 'Alpha'
 				},
 				{
-					id: 'p-unassigned',
+					id: P_UNASSIGNED,
 					rank: 'SPC',
 					lastName: 'Taylor',
 					firstName: 'Morgan',
@@ -442,18 +459,18 @@ describe('/api/sign-in-rosters route config', () => {
 			ctx,
 			{
 				title: 'Mixed Assignment Sign-In',
-				personnelIds: ['p-alpha', 'p-unassigned']
+				personnelIds: [P_ALPHA, P_UNASSIGNED]
 			},
 			() => selectRosterCreationContext(ctx)
 		);
 
 		const stored = await ctx.store.findMany('sign_in_rosters', ctx.auth.orgId);
 		expect(stored[0]).toMatchObject({
-			personnel_ids: ['p-alpha', 'p-unassigned'],
+			personnel_ids: [P_ALPHA, P_UNASSIGNED],
 			scope_group_ids: [],
 			personnel_snapshot: [
-				expect.objectContaining({ id: 'p-alpha', groupId: GROUP_ALPHA }),
-				expect.objectContaining({ id: 'p-unassigned', groupId: null, group: '' })
+				expect.objectContaining({ id: P_ALPHA, groupId: GROUP_ALPHA }),
+				expect.objectContaining({ id: P_UNASSIGNED, groupId: null, group: '' })
 			]
 		});
 	});
@@ -481,7 +498,7 @@ describe('/api/sign-in-rosters route config', () => {
 				ctx,
 				{
 					title: 'Annual AT Sign-In',
-					personnelSnapshot: [{ id: 'p-1' }]
+					personnelSnapshot: [{ id: P_1 }]
 				},
 				() => selectRosterCreationContext(ctx)
 			)
@@ -492,6 +509,25 @@ describe('/api/sign-in-rosters route config', () => {
 				resourceType: 'training.manageSignInRosters'
 			})
 		]);
+	});
+
+	it('rejects a malformed roster title or option before insert', async () => {
+		const ctx = createRosterTestContext();
+		seedPersonnel(ctx);
+
+		for (const [body, message] of [
+			[{ title: 5 }, 'Title is required'],
+			[{ title: '   ' }, 'Title is required'],
+			[{ title: 'Annual AT Sign-In', blankDate: 'yes' }, 'Choose whether the date is left blank'],
+			[{ title: 'Annual AT Sign-In', separateByGroup: 1 }, 'Choose whether to separate by Group']
+		] as const) {
+			await expect(
+				handleUseCaseRequest(_postConfig, ctx, { ...body, personnelSnapshot: [{ id: P_ALPHA }] }, () =>
+					selectRosterCreationContext(ctx)
+				)
+			).rejects.toMatchObject({ status: 400, message });
+		}
+		await expect(ctx.store.findMany('sign_in_rosters', ctx.auth.orgId)).resolves.toHaveLength(0);
 	});
 
 	it('rejects malformed, duplicate, and oversized personnel selections before insert', async () => {
@@ -520,7 +556,7 @@ describe('/api/sign-in-rosters route config', () => {
 				duplicate,
 				{
 					title: 'Annual AT Sign-In',
-					personnelSnapshot: [{ id: 'p-alpha' }, { id: 'p-alpha' }]
+					personnelSnapshot: [{ id: P_ALPHA }, { id: P_ALPHA }]
 				},
 				() => selectRosterCreationContext(duplicate)
 			)
@@ -545,7 +581,7 @@ describe('/api/sign-in-rosters route config', () => {
 	});
 
 	it('rejects unknown and out-of-scope personnel selections before insert', async () => {
-		for (const personnelId of ['p-missing', 'p-foreign']) {
+		for (const personnelId of [P_MISSING, P_FOREIGN]) {
 			const unknown = createRosterTestContext();
 			seedPersonnel(unknown);
 			await expect(
@@ -585,7 +621,7 @@ describe('/api/sign-in-rosters route config', () => {
 				scoped,
 				{
 					title: 'Annual AT Sign-In',
-					personnelSnapshot: [{ id: 'p-bravo' }]
+					personnelSnapshot: [{ id: P_BRAVO }]
 				},
 				() => selectRosterCreationContext(scoped)
 			)
@@ -615,7 +651,7 @@ describe('/api/sign-in-rosters route config', () => {
 				organization_id: ctx.auth.orgId,
 				title: 'Alpha',
 				scope_group_ids: [GROUP_ALPHA],
-				personnel_ids: ['p-alpha'],
+				personnel_ids: [P_ALPHA],
 				personnel_snapshot: [],
 				created_at: '2026-05-04T10:00:00.000Z'
 			},
@@ -624,7 +660,7 @@ describe('/api/sign-in-rosters route config', () => {
 				organization_id: ctx.auth.orgId,
 				title: 'Mixed',
 				scope_group_ids: [GROUP_ALPHA, GROUP_BRAVO],
-				personnel_ids: ['p-alpha', 'p-bravo'],
+				personnel_ids: [P_ALPHA, P_BRAVO],
 				personnel_snapshot: [],
 				created_at: '2026-05-03T10:00:00.000Z'
 			},
@@ -633,7 +669,7 @@ describe('/api/sign-in-rosters route config', () => {
 				organization_id: ctx.auth.orgId,
 				title: 'Bravo',
 				scope_group_ids: [GROUP_BRAVO],
-				personnel_ids: ['p-bravo'],
+				personnel_ids: [P_BRAVO],
 				personnel_snapshot: [],
 				created_at: '2026-05-02T10:00:00.000Z'
 			},
@@ -651,7 +687,7 @@ describe('/api/sign-in-rosters route config', () => {
 				organization_id: 'foreign-org',
 				title: 'Foreign',
 				scope_group_ids: [GROUP_ALPHA],
-				personnel_ids: ['p-foreign'],
+				personnel_ids: [P_FOREIGN],
 				personnel_snapshot: [],
 				created_at: '2026-05-05T10:00:00.000Z'
 			}
@@ -666,6 +702,19 @@ describe('/api/sign-in-rosters route config', () => {
 
 		expect(result.rosters.map((roster) => roster.id)).toEqual(['roster-alpha']);
 		expect(result.total).toBe(1);
+	});
+
+	it('falls back to the default page size for a non-numeric limit and rejects an impossible date', async () => {
+		const parse = (query: string) =>
+			Promise.resolve().then(() =>
+				_getConfig.parseInput?.({ url: new URL(`http://localhost/api/sign-in-rosters?${query}`) } as never)
+			);
+
+		await expect(parse('limit=abc')).resolves.toMatchObject({ limit: 20, offset: 0 });
+		await expect(parse('from=2026-02-30')).rejects.toMatchObject({
+			status: 400,
+			message: 'Use a valid date (YYYY-MM-DD)'
+		});
 	});
 });
 

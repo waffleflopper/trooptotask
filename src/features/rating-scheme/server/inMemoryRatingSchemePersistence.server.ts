@@ -87,6 +87,7 @@ export function createInMemoryRatingSchemePersistence(
 			);
 		},
 		async update(id, patch) {
+			if (!(await store.findOne('rating_scheme_entries', orgId, { id }))) return null;
 			return mapRatingSchemeEntry(
 				await store.update<RatingSchemeRow>('rating_scheme_entries', orgId, id, ratingSchemePatchValues(patch))
 			);

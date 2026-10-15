@@ -6,6 +6,20 @@ import {
 	updateTrainingRecord
 } from './trainingCompletionOperations.server';
 
+const PERSON_1 = '00000000-0000-4000-8000-00000000a001';
+const PERSON_2 = '00000000-0000-4000-8000-00000000a002';
+const PERSON_3 = '00000000-0000-4000-8000-00000000a003';
+const PERSON_ARCHIVED = '00000000-0000-4000-8000-00000000a004';
+const PERSON_FOREIGN = '00000000-0000-4000-8000-00000000a005';
+const PERSON_MISSING = '00000000-0000-4000-8000-00000000a006';
+const FOREIGN_PERSON = '00000000-0000-4000-8000-00000000a007';
+const TRAINING_TYPE = '00000000-0000-4000-8000-00000000a008';
+const FOREIGN_TRAINING_TYPE = '00000000-0000-4000-8000-00000000a009';
+const RECORD = '00000000-0000-4000-8000-00000000a00a';
+const DATE_ONLY_RECORD = '00000000-0000-4000-8000-00000000a00b';
+const FOREIGN_RECORD = '00000000-0000-4000-8000-00000000a00c';
+const MISSING_RECORD = '00000000-0000-4000-8000-00000000a00d';
+
 function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
 	return createWritePortsContext(overrides);
 }
@@ -20,7 +34,7 @@ function seedTrainingType(
 ) {
 	ctx.store.seed('training_types', [
 		{
-			id: overrides?.id ?? 'tt-1',
+			id: overrides?.id ?? TRAINING_TYPE,
 			organization_id: 'test-org',
 			expiration_months: overrides?.expiration_months !== undefined ? overrides.expiration_months : 12,
 			expiration_date_only: overrides?.expiration_date_only ?? false
@@ -31,7 +45,7 @@ function seedTrainingType(
 function seedPersonnel(ctx: ReturnType<typeof buildContext>) {
 	ctx.store.seed('personnel', [
 		{
-			id: 'p-1',
+			id: PERSON_1,
 			organization_id: 'test-org',
 			rank: 'SGT',
 			last_name: 'Alpha',
@@ -42,7 +56,7 @@ function seedPersonnel(ctx: ReturnType<typeof buildContext>) {
 			archived_at: null
 		},
 		{
-			id: 'p-2',
+			id: PERSON_2,
 			organization_id: 'test-org',
 			rank: 'SPC',
 			last_name: 'Bravo',
@@ -53,7 +67,7 @@ function seedPersonnel(ctx: ReturnType<typeof buildContext>) {
 			archived_at: null
 		},
 		{
-			id: 'p-3',
+			id: PERSON_3,
 			organization_id: 'test-org',
 			rank: 'CPL',
 			last_name: 'Charlie',
@@ -69,10 +83,10 @@ function seedPersonnel(ctx: ReturnType<typeof buildContext>) {
 function seedRecord(ctx: ReturnType<typeof buildContext>) {
 	ctx.store.seed('personnel_trainings', [
 		{
-			id: 'tr-1',
+			id: RECORD,
 			organization_id: 'test-org',
-			personnel_id: 'p-1',
-			training_type_id: 'tt-1',
+			personnel_id: PERSON_1,
+			training_type_id: TRAINING_TYPE,
 			completion_date: '2025-03-15',
 			expiration_date: '2026-03-15',
 			notes: null,
@@ -83,8 +97,8 @@ function seedRecord(ctx: ReturnType<typeof buildContext>) {
 
 describe('createTrainingRecord', () => {
 	const validInput = {
-		personnelId: 'p-1',
-		trainingTypeId: 'tt-1',
+		personnelId: PERSON_1,
+		trainingTypeId: TRAINING_TYPE,
 		completionDate: '2025-03-15',
 		notes: null,
 		certificateUrl: null
@@ -98,8 +112,8 @@ describe('createTrainingRecord', () => {
 		const result = await createTrainingRecord(ctx, validInput);
 
 		expect(result).toMatchObject({
-			personnelId: 'p-1',
-			trainingTypeId: 'tt-1',
+			personnelId: PERSON_1,
+			trainingTypeId: TRAINING_TYPE,
 			completionDate: '2025-03-15',
 			expirationDate: '2026-03-15'
 		});
@@ -197,10 +211,10 @@ describe('createTrainingRecord', () => {
 				seedPersonnel(ctx);
 				seedTrainingType(ctx, { expiration_date_only: expirationDateOnly });
 				const before = {
-					id: 'tr-1',
+					id: RECORD,
 					organization_id: 'test-org',
-					personnel_id: 'p-1',
-					training_type_id: 'tt-1',
+					personnel_id: PERSON_1,
+					training_type_id: TRAINING_TYPE,
 					completion_date: '2025-03-15',
 					expiration_date: '2026-03-15',
 					notes: 'Saved notes',
@@ -210,15 +224,19 @@ describe('createTrainingRecord', () => {
 				};
 				ctx.store.seed('personnel_trainings', [structuredClone(before)]);
 
-				const result = await createTrainingRecord(ctx, { personnelId: 'p-1', trainingTypeId: 'tt-1', ...input });
+				const result = await createTrainingRecord(ctx, {
+					personnelId: PERSON_1,
+					trainingTypeId: TRAINING_TYPE,
+					...input
+				});
 				const stored = await ctx.store.findMany<Pick<typeof before, 'updated_at'>>('personnel_trainings', 'test-org');
 				const expected = { ...before, ...fields, updated_at: expect.any(String) };
 				expect(stored, JSON.stringify({ before, stored, result })).toEqual([expected]);
 				expect(result).toEqual({
-					id: 'tr-1',
+					id: RECORD,
 					organization_id: 'test-org',
-					personnelId: 'p-1',
-					trainingTypeId: 'tt-1',
+					personnelId: PERSON_1,
+					trainingTypeId: TRAINING_TYPE,
 					completionDate: expected.completion_date,
 					expirationDate: expected.expiration_date,
 					notes: expected.notes,
@@ -231,7 +249,7 @@ describe('createTrainingRecord', () => {
 					expect.objectContaining({
 						action: 'training_record.updated',
 						resourceType: 'training_record',
-						resourceId: 'tr-1'
+						resourceId: RECORD
 					})
 				]);
 			});
@@ -244,10 +262,10 @@ describe('createTrainingRecord', () => {
 			const ctx = buildContext();
 			seedPersonnel(ctx);
 			seedTrainingType(ctx, { expiration_date_only: expirationDateOnly });
-			const result = await createTrainingRecord(ctx, { personnelId: 'p-1', trainingTypeId: 'tt-1' });
+			const result = await createTrainingRecord(ctx, { personnelId: PERSON_1, trainingTypeId: TRAINING_TYPE });
 			expect(result).toMatchObject({
-				personnelId: 'p-1',
-				trainingTypeId: 'tt-1',
+				personnelId: PERSON_1,
+				trainingTypeId: TRAINING_TYPE,
 				completionDate: null,
 				expirationDate: null,
 				notes: null,
@@ -257,8 +275,8 @@ describe('createTrainingRecord', () => {
 				expect.objectContaining({
 					id: result.id,
 					organization_id: 'test-org',
-					personnel_id: 'p-1',
-					training_type_id: 'tt-1',
+					personnel_id: PERSON_1,
+					training_type_id: TRAINING_TYPE,
 					completion_date: null,
 					expiration_date: null,
 					notes: null,
@@ -287,7 +305,7 @@ describe('createTrainingRecord', () => {
 		seedPersonnel(ctx);
 		seedTrainingType(ctx);
 
-		await expect(createTrainingRecord(ctx, { ...validInput, personnelId: 'p-2' })).rejects.toMatchObject({
+		await expect(createTrainingRecord(ctx, { ...validInput, personnelId: PERSON_2 })).rejects.toMatchObject({
 			status: 403
 		});
 		expect(ctx.audit.events).toContainEqual(
@@ -323,7 +341,7 @@ describe('createTrainingRecord', () => {
 		seedTrainingType(ctx);
 
 		await createTrainingRecord(ctx, validInput);
-		await createTrainingRecord(ctx, { ...validInput, personnelId: 'p-3' });
+		await createTrainingRecord(ctx, { ...validInput, personnelId: PERSON_3 });
 
 		const stored = await ctx.store.findMany('personnel_trainings', 'test-org');
 		expect(stored).toHaveLength(2);
@@ -347,7 +365,7 @@ describe('createTrainingRecord', () => {
 		});
 		ctx.store.seed('personnel', [
 			{
-				id: 'p-archived',
+				id: PERSON_ARCHIVED,
 				organization_id: 'test-org',
 				group_id: 'group-a',
 				archived_at: '2026-01-01',
@@ -362,7 +380,9 @@ describe('createTrainingRecord', () => {
 				? Promise.reject(new Error('Personnel SELECT denied for this Training-only actor'))
 				: scopedFindOne(table, orgId, filters, select)) as typeof ctx.store.findOne;
 
-		const created = (await createTrainingRecord(ctx, { ...validInput, personnelId: 'p-archived' })) as { id: string };
+		const created = (await createTrainingRecord(ctx, { ...validInput, personnelId: PERSON_ARCHIVED })) as {
+			id: string;
+		};
 		await expect(updateTrainingRecord(ctx, { id: created.id, notes: 'Updated' })).resolves.toMatchObject({
 			notes: 'Updated'
 		});
@@ -373,9 +393,9 @@ describe('createTrainingRecord', () => {
 		const ctx = buildContext();
 		seedPersonnel(ctx);
 		seedTrainingType(ctx);
-		ctx.store.seed('personnel', [{ id: 'p-foreign', organization_id: 'other-org', group_id: null }]);
+		ctx.store.seed('personnel', [{ id: PERSON_FOREIGN, organization_id: 'other-org', group_id: null }]);
 
-		for (const personnelId of ['p-missing', 'p-foreign']) {
+		for (const personnelId of [PERSON_MISSING, PERSON_FOREIGN]) {
 			await expect(createTrainingRecord(ctx, { ...validInput, personnelId })).rejects.toMatchObject({ status: 404 });
 		}
 		await expect(ctx.store.findMany('personnel_trainings', 'test-org')).resolves.toEqual([]);
@@ -429,10 +449,10 @@ describe('updateTrainingRecord', () => {
 		seedTrainingType(ctx, { expiration_date_only: true, expiration_months: null });
 		ctx.store.seed('personnel_trainings', [
 			{
-				id: 'date-only-record',
+				id: DATE_ONLY_RECORD,
 				organization_id: ctx.auth.orgId,
-				personnel_id: 'p-1',
-				training_type_id: 'tt-1',
+				personnel_id: PERSON_1,
+				training_type_id: TRAINING_TYPE,
 				completion_date: null,
 				expiration_date: '2026-10-14',
 				notes: 'original',
@@ -440,20 +460,20 @@ describe('updateTrainingRecord', () => {
 			}
 		]);
 		const result = await updateTrainingRecord(ctx, {
-			id: 'date-only-record',
+			id: DATE_ONLY_RECORD,
 			expirationDate: '2026-10-15',
 			notes: 'updated'
 		});
 		expect(result).toMatchObject({
-			id: 'date-only-record',
-			personnelId: 'p-1',
-			trainingTypeId: 'tt-1',
+			id: DATE_ONLY_RECORD,
+			personnelId: PERSON_1,
+			trainingTypeId: TRAINING_TYPE,
 			completionDate: null,
 			expirationDate: '2026-10-15',
 			notes: 'updated'
 		});
 		await expect(
-			ctx.store.findOne('personnel_trainings', ctx.auth.orgId, { id: 'date-only-record' })
+			ctx.store.findOne('personnel_trainings', ctx.auth.orgId, { id: DATE_ONLY_RECORD })
 		).resolves.toMatchObject({ completion_date: null, expiration_date: '2026-10-15', notes: 'updated' });
 	});
 	it('conceals missing and foreign records without writing or auditing an update', async () => {
@@ -463,10 +483,10 @@ describe('updateTrainingRecord', () => {
 		seedRecord(ctx);
 		ctx.store.seed('personnel_trainings', [
 			{
-				id: 'foreign-record',
+				id: FOREIGN_RECORD,
 				organization_id: 'other-org',
-				personnel_id: 'foreign-person',
-				training_type_id: 'foreign-type',
+				personnel_id: FOREIGN_PERSON,
+				training_type_id: FOREIGN_TRAINING_TYPE,
 				completion_date: '2026-01-05',
 				expiration_date: '2027-01-05',
 				notes: 'Foreign notes',
@@ -474,7 +494,7 @@ describe('updateTrainingRecord', () => {
 			}
 		]);
 		const before = await ctx.store.findMany('personnel_trainings', 'other-org');
-		for (const id of ['missing-record', 'foreign-record']) {
+		for (const id of [MISSING_RECORD, FOREIGN_RECORD]) {
 			await expect(updateTrainingRecord(ctx, { id, notes: 'Forbidden change' })).rejects.toMatchObject({ status: 404 });
 		}
 		expect(await ctx.store.findMany('personnel_trainings', 'other-org')).toEqual(before);
@@ -489,13 +509,13 @@ describe('updateTrainingRecord', () => {
 		seedRecord(ctx);
 
 		const result = await updateTrainingRecord(ctx, {
-			id: 'tr-1',
+			id: RECORD,
 			completionDate: '2025-06-01',
 			notes: 'Updated score'
 		});
 
 		expect(result).toMatchObject({
-			id: 'tr-1',
+			id: RECORD,
 			completionDate: '2025-06-01',
 			expirationDate: '2026-06-01',
 			notes: 'Updated score'
@@ -504,7 +524,7 @@ describe('updateTrainingRecord', () => {
 			expect.objectContaining({
 				action: 'training_record.updated',
 				resourceType: 'training_record',
-				resourceId: 'tr-1'
+				resourceId: RECORD
 			})
 		);
 	});
@@ -529,14 +549,14 @@ describe('updateTrainingRecord', () => {
 		seedTrainingType(ctx);
 		seedRecord(ctx);
 
-		await expect(updateTrainingRecord(ctx, { id: 'tr-1', completionDate: '2025-06-01' })).rejects.toMatchObject({
+		await expect(updateTrainingRecord(ctx, { id: RECORD, completionDate: '2025-06-01' })).rejects.toMatchObject({
 			status: 403
 		});
 		expect(ctx.audit.events).toContainEqual(
 			expect.objectContaining({
 				action: 'policy.denied',
 				resourceType: 'training_record',
-				resourceId: 'tr-1',
+				resourceId: RECORD,
 				details: expect.objectContaining({
 					policyAction: 'training.recordCompletions',
 					reasonCode: 'denied:out-of-scope'
@@ -568,14 +588,14 @@ describe('completion write scope', () => {
 		seedTrainingType(ctx);
 		seedRecord(ctx);
 		await expect(
-			createTrainingRecord(ctx, { personnelId: 'p-1', trainingTypeId: 'tt-1', completionDate: '2026-04-01' })
+			createTrainingRecord(ctx, { personnelId: PERSON_1, trainingTypeId: TRAINING_TYPE, completionDate: '2026-04-01' })
 		).rejects.toMatchObject({ status: 403 });
-		await expect(updateTrainingRecord(ctx, { id: 'tr-1', completionDate: '2026-04-01' })).rejects.toMatchObject({
+		await expect(updateTrainingRecord(ctx, { id: RECORD, completionDate: '2026-04-01' })).rejects.toMatchObject({
 			status: 403
 		});
-		await expect(deleteTrainingRecord(ctx, 'tr-1')).rejects.toMatchObject({ status: 403 });
+		await expect(deleteTrainingRecord(ctx, RECORD)).rejects.toMatchObject({ status: 403 });
 		await expect(ctx.store.findMany('personnel_trainings', ctx.auth.orgId)).resolves.toMatchObject([
-			{ id: 'tr-1', completion_date: '2025-03-15', expiration_date: '2026-03-15', notes: null, certificate_url: null }
+			{ id: RECORD, completion_date: '2025-03-15', expiration_date: '2026-03-15', notes: null, certificate_url: null }
 		]);
 	});
 });
@@ -586,7 +606,7 @@ describe('deleteTrainingRecord', () => {
 		seedPersonnel(ctx);
 		seedRecord(ctx);
 
-		await deleteTrainingRecord(ctx, 'tr-1');
+		await deleteTrainingRecord(ctx, RECORD);
 
 		const stored = await ctx.store.findMany('personnel_trainings', 'test-org');
 		expect(stored).toHaveLength(0);
@@ -595,7 +615,7 @@ describe('deleteTrainingRecord', () => {
 		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'training_record.deleted',
 			resourceType: 'training_record',
-			resourceId: 'tr-1'
+			resourceId: RECORD
 		});
 	});
 
@@ -618,7 +638,7 @@ describe('deleteTrainingRecord', () => {
 		seedPersonnel(ctx);
 		seedRecord(ctx);
 
-		await expect(deleteTrainingRecord(ctx, 'tr-1')).rejects.toMatchObject({ status: 403 });
+		await expect(deleteTrainingRecord(ctx, RECORD)).rejects.toMatchObject({ status: 403 });
 	});
 
 	it('returns requiresApproval when Training configure policy denies hard delete', async () => {
@@ -639,7 +659,7 @@ describe('deleteTrainingRecord', () => {
 		seedPersonnel(ctx);
 		seedRecord(ctx);
 
-		const result = await deleteTrainingRecord(ctx, 'tr-1');
+		const result = await deleteTrainingRecord(ctx, RECORD);
 		expect(result).toMatchObject({ requiresApproval: true });
 
 		// Record should NOT be deleted
@@ -665,41 +685,58 @@ describe('deleteTrainingRecord', () => {
 		seedPersonnel(ctx);
 		seedRecord(ctx);
 
-		await deleteTrainingRecord(ctx, 'tr-1');
+		await deleteTrainingRecord(ctx, RECORD);
 
 		const stored = await ctx.store.findMany('personnel_trainings', 'test-org');
 		expect(stored).toHaveLength(0);
 	});
 });
 
-describe('retained direct patch boundary', () => {
-	it('forwards present malformed known fields while stripping unrelated keys and preserving omitted date/certificate', async () => {
+describe('direct patch boundary', () => {
+	it('rejects malformed known fields with 400 without changing the record or auditing', async () => {
+		const ctx = buildContext();
+		seedPersonnel(ctx);
+		seedTrainingType(ctx);
+		seedRecord(ctx);
+		await expect(
+			updateTrainingRecord(ctx, {
+				id: RECORD,
+				notes: { retained: true },
+				certificateUrl: ['legacy-value']
+			})
+		).rejects.toMatchObject({ status: 400 });
+		await expect(ctx.store.findMany('personnel_trainings', ctx.auth.orgId)).resolves.toMatchObject([
+			{ id: RECORD, completion_date: '2025-03-15', expiration_date: '2026-03-15', notes: null, certificate_url: null }
+		]);
+		expect(ctx.audit.events).toEqual([]);
+	});
+
+	it('strips unrelated keys while preserving omitted date/certificate', async () => {
 		const ctx = buildContext();
 		seedPersonnel(ctx);
 		seedTrainingType(ctx);
 		seedRecord(ctx);
 		const result = await updateTrainingRecord(ctx, {
-			id: 'tr-1',
-			notes: { retained: true },
-			certificateUrl: ['legacy-value'],
-			personnelId: 'p-2',
+			id: RECORD,
+			notes: 'Retained notes',
+			personnelId: PERSON_2,
 			organization_id: 'other-org',
 			unrelated: 'discard'
 		});
 		expect(result).toMatchObject({
-			id: 'tr-1',
-			personnelId: 'p-1',
-			trainingTypeId: 'tt-1',
+			id: RECORD,
+			personnelId: PERSON_1,
+			trainingTypeId: TRAINING_TYPE,
 			completionDate: '2025-03-15',
 			expirationDate: '2026-03-15',
-			notes: { retained: true },
-			certificateUrl: ['legacy-value'],
+			notes: 'Retained notes',
+			certificateUrl: null,
 			organization_id: 'test-org'
 		});
 		expect(result).not.toHaveProperty('unrelated');
 		expect(ctx.audit.events.at(-1)).toMatchObject({
 			action: 'training_record.updated',
-			details: { personnel_id: 'p-1', training_type_id: 'tt-1', completion_date: '2025-03-15' }
+			details: { personnel_id: PERSON_1, training_type_id: TRAINING_TYPE, completion_date: '2025-03-15' }
 		});
 	});
 });

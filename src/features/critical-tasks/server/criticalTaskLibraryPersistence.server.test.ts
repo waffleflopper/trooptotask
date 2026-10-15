@@ -437,7 +437,7 @@ describe('owned Critical Tasks library provider', () => {
 			...expected,
 			category: null
 		});
-		await expect(library.update('foreign-b', { title: 'Foreign changed' })).rejects.toThrow('Expected one task');
+		expect(await library.update('foreign-b', { title: 'Foreign changed' })).toBeNull();
 		expect(rows[1].title).toBe('Ventilator setup');
 		const before = state.requests.length;
 		expect(await library.createMany([])).toEqual([]);
@@ -569,9 +569,9 @@ describe('owned Critical Tasks library provider', () => {
 		expect(state.requests.filter((request) => request.method === 'POST')).toHaveLength(1);
 	});
 
-	it('rejects an update without an acknowledged saved row', async () => {
+	it('resolves null for an update that matches no saved row', async () => {
 		const { library, rows } = provider([saved]);
-		await expect(library.update('missing', { title: 'Changed' })).rejects.toThrow('Expected one task');
+		expect(await library.update('missing', { title: 'Changed' })).toBeNull();
 		expect(rows).toEqual([saved]);
 	});
 
@@ -601,7 +601,7 @@ describe('owned Critical Tasks library provider', () => {
 			['restore-a', 'Restored task', null]
 		]);
 		expect(result.errors).toEqual([
-			{ rowNumber: 3, taskCode: 'FAIL', title: 'Rejected task', message: 'Task row rejected' }
+			{ rowNumber: 3, taskCode: 'FAIL', title: 'Rejected task', message: 'Batch import failed' }
 		]);
 		expect(rows.map((row) => [row.id, row.task_code, row.archived_at])).toEqual([
 			['restore-a', 'OLD', null],
@@ -788,7 +788,7 @@ describe('#1643 task import recovery after a lost provider reply', () => {
 			unconfirmed: result.unconfirmed
 		}).toEqual({
 			updated: [],
-			errors: [{ rowNumber: 2, taskCode: 'RESP-200', title: 'Ventilator setup', message: 'Task update refused' }],
+			errors: [{ rowNumber: 2, taskCode: 'RESP-200', title: 'Ventilator setup', message: 'Batch import failed' }],
 			unconfirmed: []
 		});
 		expect(rows.map((row) => row.title)).toEqual(['Ventilator setup']);

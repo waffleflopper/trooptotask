@@ -2,15 +2,10 @@ import type { PersonnelLeaderNote, PersonnelLeaderNoteInput } from '$features/pe
 import { createPersonnelLeaderNote, listPersonnelLeaderNotes } from '$features/personnel/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';
-import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { handle, readJsonBody, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { createRequestPersonnelLeaderNoteContext } from '$lib/server/adapters/requestContexts.server';
 import type { RequestEvent } from '@sveltejs/kit';
-
-function personnelIdFromEvent(event: RequestEvent): string {
-	const personnelId = event.params.id;
-	if (!personnelId) fail(400, 'Missing personnel id');
-	return personnelId;
-}
+import { routePersonnelId } from '../routeIds';
 
 export const _getConfig: RouteConfig<
 	{ personnelId: string },
@@ -21,7 +16,7 @@ export const _getConfig: RouteConfig<
 	policyAction: POLICY_ACTION_CATALOG.personnel.readSensitiveRecords,
 	policyResource: { kind: 'unscoped' },
 	parseInput: async (event: RequestEvent) => ({
-		personnelId: personnelIdFromEvent(event)
+		personnelId: routePersonnelId(event)
 	}),
 	fn: (ctx, input) => listPersonnelLeaderNotes(ctx, input.personnelId)
 };
@@ -36,8 +31,8 @@ export const _postConfig: RouteConfig<
 	policyAction: POLICY_ACTION_CATALOG.personnel.manageRecords,
 	policyResource: { kind: 'unscoped' },
 	parseInput: async (event: RequestEvent) => {
-		const body = (await event.request.json()) as Record<string, unknown>;
-		const personnelId = personnelIdFromEvent(event);
+		const body = await readJsonBody(event);
+		const personnelId = routePersonnelId(event);
 		if (typeof body.personnelId === 'string' && body.personnelId !== personnelId) {
 			fail(400, 'Personnel id mismatch');
 		}

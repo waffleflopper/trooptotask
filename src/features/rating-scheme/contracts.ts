@@ -96,7 +96,7 @@ export interface RatingSchemePersistence {
 	listPersonReadiness(personnelId: string): Promise<RatingSchemeReadinessEntry[]>;
 	countEntries(): Promise<number>;
 	create(input: RatingSchemeCreateValues): Promise<SavedRatingSchemeEntry>;
-	update(id: string, patch: RatingSchemePatchValues): Promise<SavedRatingSchemeEntry>;
+	update(id: string, patch: RatingSchemePatchValues): Promise<SavedRatingSchemeEntry | null>;
 	delete(id: string): Promise<void>;
 }
 

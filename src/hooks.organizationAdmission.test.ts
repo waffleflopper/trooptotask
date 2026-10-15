@@ -29,6 +29,8 @@ const ORG = '11111111-1111-4111-8111-111111111111';
 const OTHER_ORG = '22222222-2222-4222-8222-222222222222';
 const USER = '33333333-3333-4333-8333-333333333333';
 const OTHER_USER = '44444444-4444-4444-8444-444444444444';
+const PERSON_A = '00000000-0000-4000-8000-0000000000a1';
+const NOTE_A = '00000000-0000-4000-8000-0000000000b1';
 const SUSPENDED_AT = '2026-09-01T00:00:00Z';
 type Row = Record<string, unknown>;
 
@@ -53,12 +55,12 @@ function fixture() {
 			{ id: 'other-org', user_id: USER, organization_id: OTHER_ORG, role: 'owner' }
 		],
 		groups: [],
-		personnel: [{ id: 'person-a', organization_id: ORG, group_id: 'group-a' }],
+		personnel: [{ id: PERSON_A, organization_id: ORG, group_id: 'group-a' }],
 		leader_notes: [
 			{
-				id: 'note-a',
+				id: NOTE_A,
 				organization_id: ORG,
-				personnel_id: 'person-a',
+				personnel_id: PERSON_A,
 				author: USER,
 				text: 'Range preparation complete',
 				created_at: '2026-09-20T10:00:00Z',
@@ -212,8 +214,8 @@ describe('Organization admission denial and recovery', () => {
 		const f = fixture();
 		f.tables.organization_memberships[0].display_name = '1SG Alvarez';
 		const noteEvent = () => {
-			const request = f.event('alpha', 'GET', '/api/personnel/person-a/leader-notes');
-			request.params.id = 'person-a';
+			const request = f.event('alpha', 'GET', `/api/personnel/${PERSON_A}/leader-notes`);
+			request.params.id = PERSON_A;
 			request.route = { id: '/org/[orgId]/api/personnel/[id]/leader-notes' };
 			return request;
 		};
@@ -222,8 +224,8 @@ describe('Organization admission denial and recovery', () => {
 		expect(response.status).toBe(200);
 		expect(await response.json()).toEqual([
 			expect.objectContaining({
-				id: 'note-a',
-				personnelId: 'person-a',
+				id: NOTE_A,
+				personnelId: PERSON_A,
 				author: '1SG Alvarez',
 				text: 'Range preparation complete'
 			})
@@ -239,28 +241,30 @@ describe('Organization admission denial and recovery', () => {
 		expect(dispatch).toHaveBeenCalledTimes(1);
 	});
 
-	it.each(['POST', 'PATCH'] as const)('preserves the current %s malformed-JSON response', async (method) => {
-		const f = fixture();
-		const suffix = `/api/personnel/person-a/leader-notes${method === 'PATCH' ? '/note-a' : ''}`;
-		const request = f.event('alpha', method, suffix);
-		request.params.id = 'person-a';
-		if (method === 'PATCH') request.params.noteId = 'note-a';
-		request.route = {
-			id:
-				method === 'PATCH'
-					? '/org/[orgId]/api/personnel/[id]/leader-notes/[noteId]'
-					: '/org/[orgId]/api/personnel/[id]/leader-notes'
-		};
-		request.request = new Request(request.url, { method, body: '{' });
-		vi.spyOn(console, 'error').mockImplementation(() => {});
-		await expect(
-			handle({
-				event: request,
-				resolve: (event) => (method === 'PATCH' ? updateLeaderNote!(event) : createLeaderNote!(event))
-			})
-		).rejects.toMatchObject({ status: 500, body: { message: 'Internal server error' } });
-		expect(f.tables.leader_notes).toHaveLength(1);
-	});
+	it.each(['POST', 'PATCH'] as const)(
+		'rejects a malformed %s JSON body with 400 without changing leader notes',
+		async (method) => {
+			const f = fixture();
+			const suffix = `/api/personnel/${PERSON_A}/leader-notes${method === 'PATCH' ? `/${NOTE_A}` : ''}`;
+			const request = f.event('alpha', method, suffix);
+			request.params.id = PERSON_A;
+			if (method === 'PATCH') request.params.noteId = NOTE_A;
+			request.route = {
+				id:
+					method === 'PATCH'
+						? '/org/[orgId]/api/personnel/[id]/leader-notes/[noteId]'
+						: '/org/[orgId]/api/personnel/[id]/leader-notes'
+			};
+			request.request = new Request(request.url, { method, body: '{' });
+			await expect(
+				handle({
+					event: request,
+					resolve: (event) => (method === 'PATCH' ? updateLeaderNote!(event) : createLeaderNote!(event))
+				})
+			).rejects.toMatchObject({ status: 400, body: { message: 'Invalid JSON in request body' } });
+			expect(f.tables.leader_notes).toHaveLength(1);
+		}
+	);
 	it.each(['owner', 'admin'])(
 		'allows an active %s to create a Group while another Organization is suspended',
 		async (role) => {
@@ -295,7 +299,7 @@ describe('Organization admission denial and recovery', () => {
 			f.tables.organizations[0].suspended_at = SUSPENDED_AT;
 			const resolve = vi.fn(async () => new Response('private records'));
 			await expect(
-				handle({ event: f.event('alpha', method, '/api/personnel/person-a/export'), resolve })
+				handle({ event: f.event('alpha', method, `/api/personnel/${PERSON_A}/export`), resolve })
 			).rejects.toMatchObject({ status: 403 });
 			expect(resolve).not.toHaveBeenCalled();
 		}

@@ -4,6 +4,81 @@
 
 All historical links below pin commit `dbd501301df350ef4e6cebb6bc1238283b24d9c9` unless a different accepted candidate is explicit. They preserve the recorded commands, environments, failed attempts and review dispositions. Temporary directories, screenshots and private local logs mentioned in those records are **not durable artifacts** and are not required to retrieve these summaries. A committed report of an observation is not the raw observation itself; reproduce from maintained procedures when current proof is required.
 
+## 11-05a, 11-09 D06 validated inputs, dates and truthful failures
+
+**PR 1 is in review and uses `Refs #1644`.** Branch `chore/stabilize-1644` began at fetched main `7405e6715`, with no earlier D06 branch or PR. Robert authorized publication and verified merges through the PR that closes #1644.
+
+**Census.** A read-only source trace of every retained route, provider mapping, date path and form save found seven root causes behind #1554, #1557, #1561, the Training name-length message and about 40 further sites:
+
+1. Owner input schemas accepted any string for ids and date-only fields, so malformed values reached Postgres. Personnel and Training records used `.parse`, so a validation error became a 500.
+2. A zero-row `.single()` update threw PGRST116, a 500, instead of reporting a missing row.
+3. Unique-name and CHECK violations became 500s.
+4. `parseInput` routes read JSON and form bodies unguarded, and the default reader passed `null` to features. Nested command fields such as the notification `deleteAll` flag and pin `groups` were never checked.
+5. Store `update`, `addBatch` and `remove` dropped the server's reason, so forms showed fixed text or nothing.
+6. Server "today" is the runtime's UTC day. Several day counts cross DST wrongly, and several timestamps are shown as their UTC date.
+7. A failed loss-warning settings read silently becomes the 180-day default in three consumers.
+
+PR 1 owns causes 1 to 4 and the form consumers of cause 5 that show the new messages. PR 2 owns the remaining silent client failures and cause 7. PR 3 owns cause 6. The split follows mechanism and verification: route probes, client failure controls and date proofs.
+
+**Baseline on unchanged main.** Revision `7405e6715`, digest `7748d448…42ad`, Chromium 152.0.7977.82, worker 1. [`11-09-pr1-baseline.tar.gz`](https://github.com/waffleflopper/trooptotask/releases/download/evidence/11-09-pr1-baseline.tar.gz), SHA-256 `64ea45120c14919639191a695d058b18c53d96b0e4c7bf2eb88c4ca4958fb450`, 20 payloads. Each probe was an authenticated request from the named actor's signed-in page. The cases and the probe script are inside the archive.
+
+| Area                      | Cases                                                                                                                                                                                                                     | Baseline                                                                               |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Calendar catalogs (#1554) | Status, assignment-type and Special Day PUT with a missing, foreign or non-UUID id; Special Day POST with `not-a-date` or `2026-02-30`                                                                                    | 500 for all 8. Rows unchanged.                                                         |
+| Catalog delete            | Status type DELETE with a missing id                                                                                                                                                                                      | 200. This is correct.                                                                  |
+| Assignments (#1557)       | Batch and single with a malformed or impossible date or a non-UUID type; Availability with `2026-13-01` or an end before its start                                                                                        | 500 for all 6. Zero rows written.                                                      |
+| Personnel (#1561)         | Wrong types, `mos:null`, a missing name, bad ETS/DEROS, `groupId:'alpha'`, a missing, non-UUID or foreign id                                                                                                              | 500 for all 11. No Person created. `personA` unchanged.                                |
+| Training                  | Type or view PUT with a missing id; a duplicate type name; view `columnIds:['abc']`; a completion with `{}` or `2026-02-30`                                                                                               | 500 for all 7. A `null` body got 400.                                                  |
+| Owner probes              | A duplicate template or Group name, Rating Scheme `id:'abc'`, an ICT task PUT with a missing id, a `null` body, malformed JSON, a non-UUID Personnel path, an impossible status-days date, onboarding `personnelId:'abc'` | 500 for all 9. `sign-in-rosters?limit=abc` returned an empty list with `total:3`.      |
+| Training UI               | Create with a 105-character name                                                                                                                                                                                          | Server 400. The page showed only `Failed to save training type.`, with the draft kept. |
+| Calendar UI               | Rename `Verification Leave` to 101 characters                                                                                                                                                                             | Server 400. The toast showed `Failed to save status type`, and the row was unchanged.  |
+
+The Group rename, Personnel edit, Rating Scheme edit and Onboarding start message defects are traced in source only. The live baseline ended when the candidate changed.
+
+**Repair.**
+
+- **One validation module.** `src/lib/utils/inputSchemas.ts` holds the shared UUID check (`uuidSchema`, `isUuid`), a real-calendar-day date check (`dateOnlySchema`, backed by `isDateOnly` in `dates.ts`) and `issueMessage`, which joins unique issue messages. It is client-safe and replaces eight local regex copies.
+- **Owner schemas.** Every owner validates its ids and dates before any lookup. Personnel and Training records use `safeParse`. Availability checks that `startDate <= endDate`.
+- **Missing rows.** Zero-row updates return `null` from the port and answer 404 with the resource's own message.
+- **Conflicts.** Exact constraint matches map to 409 for Training type, Onboarding template and Group names, and to 400 for the Availability note and range CHECKs.
+- **Request bodies.** `readJsonBody` and `readFormData` in `httpAdapter.ts` fail 400. Notification, pin, onboarding-step, Sign-in Roster and deletion-request commands validate their nested fields before choosing an effect.
+- **Path ids.** A non-UUID Personnel or Sign-in Roster path id answers 404.
+- **Catalog deletes.** A delete of a missing Calendar type keeps its idempotent 200, which D05 retry recovery needs, but logs no audit event and sends no notification.
+- **Training exemption import.** Rows whose type is deleted mid-import are reported unavailable, not exempted.
+- **Forms.** They show a 4xx message only when the server's response body supplied it (`rejectedRequestMessage`). Any other failure keeps the existing text. Drafts stay open.
+- **Special days.** The store's `updateOrThrow` keeps the federal-reset overlap tracking.
+
+The [invalid-input recipe](../../.agents/skills/verify-trooptotask/features/invalid-input.md) owns the matrix, and each affected feature recipe links to it.
+
+**Final runs.** Every probe now answers its intended 4xx with no effect.
+
+- **Run 1.** [`11-09-pr1-final.tar.gz`](https://github.com/waffleflopper/trooptotask/releases/download/evidence/11-09-pr1-final.tar.gz), SHA-256 `55d288737b308e48af9d8fbb632bb0ff1badafba34bdd5326316ecd339c3be30`, 22 payloads. Revision `f98c1725a`, digest `bf290d4a…8fca`.
+  - All 45 baseline probes pass with readbacks.
+  - Training shows `Name must be 100 characters or fewer` and `A Training type with that name already exists.`, with the draft kept and no row.
+  - The status type shows the length message, and the row is unchanged.
+  - Group rename **failed**. The client duplicate check showed `Unable to rename Group. Try again.` and sent no request. `99f34898c` repaired it.
+- **Rerun.** [`11-09-pr1-rerun.tar.gz`](https://github.com/waffleflopper/trooptotask/releases/download/evidence/11-09-pr1-rerun.tar.gz), SHA-256 `f0db8202ce4f40ff61c6d0e698216cd7e7aee2df50b8ce2128a468981b4006da`, 16 payloads. Revision `144203477`, digest `295ddf77…6b46`.
+  - Every probe set ran again, because the shared message helper changed 23 owners. Ten probes for the review fixes were added: pins, notification flags and ids, ICT completion DELETE, the onboarding-step `completed:null`, the roster title and path, `archivedAt`, and an empty completion.
+  - The first unpaced attempt hit the app's 60-per-minute limiter for the later Training and owner sets. Those sets reran at one request every two seconds, and every case passed.
+  - Group rename to `alpha` now shows `A Group with that name already exists.` with no request sent.
+
+To verify an archive, extract it and run `sha256sum -c INVENTORY.sha256` in its directory.
+
+**Checks.** On `144203477`:
+
+- `npm run format`, `npm run lint` (three pre-existing warnings), `npm run governance:check`, `npm run check` (8,012 files, 0 errors) and `npm run build` all pass.
+- `npm run test` passes all 792 files and 8,702 tests.
+
+No migration was added.
+
+**Review.** Independent read-only reviews ran on `f98c1725a`, one by GPT-6.1-Sol and one by Opus. Both reported the Special Day tracking bypass and the ICT completion DELETE id order. GPT also found the exemption import, pins, notification flags, the onboarding-step boolean, the roster title and `archivedAt`. Opus also found the roster path ids and the missing boundary and component tests. All of these were fixed in `144203477`, together with field-specific and deduplicated messages.
+
+**Kept limits.**
+
+- **Private-scan test.** The denial test in `privateResources.test.ts` reaches its 404 through id shape, both before and after this PR, so it does not prove roster scope. Roster delete scope is enforced in its database function (#1679).
+- **Remaining routes.** Not every remaining `Record<string, unknown>` route was read deeply, Personnel follow-ups for example. The census and both reviews covered the retained JSON routes.
+- **Duplicate toast.** Assignment-type failures still show two toasts. PR 2 owns that feedback.
+
 ## 11-05c D09 Calendar re-entry freshness
 
 **One PR closes #1689 on merge.** Branch `fix/1689-stabilization` began at fetched main `3ede6827ee39494a41518ecba20ab5032f9b52a8`. No earlier D09 branch or PR existed. Robert decided the freshness model on 2026-10-14 and authorized publication and merge after green CI and resolved bot feedback, continuing only within #1689 through its closing merge.

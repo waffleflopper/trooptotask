@@ -1,11 +1,13 @@
 <script lang="ts">
 	import type { Personnel } from '../personnel.types';
+	import { GROUP_NAME_EXISTS_MESSAGE, GROUP_UNAVAILABLE_MESSAGE } from '$features/personnel/contracts';
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { groupManagementStore } from '$features/personnel/stores/groups.svelte';
 	import PersonnelModal from '$features/personnel/components/PersonnelModal.svelte';
 	import GroupManager from './GroupManager.svelte';
 	import { archivePersonnel, type RequestPersonnelArchiveApproval } from '../utils/archivePersonnel';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { rejectedRequestMessage } from '$lib/stores/core';
 	import { invalidateAll } from '$app/navigation';
 	import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
 	import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
@@ -24,7 +26,7 @@
 
 	async function handleSubmit(personData: Omit<Personnel, 'id'>) {
 		if (editingPerson) {
-			const updated = await personnelStore.update(editingPerson.id, personData);
+			const updated = await personnelStore.updateOrThrow(editingPerson.id, personData);
 			if (!updated) throw new Error('Failed to update personnel');
 		} else {
 			const created = await personnelStore.add(personData);
@@ -64,7 +66,7 @@
 	<GroupManager
 		groups={groupManagementStore.items}
 		onAdd={async (name) => {
-			if (!(await groupManagementStore.add(name))) throw new Error('A Group with that name already exists.');
+			if (!(await groupManagementStore.add(name))) throw new Error(GROUP_NAME_EXISTS_MESSAGE);
 		}}
 		onRemove={async (id) => {
 			if (!(await groupManagementStore.remove(id))) throw new Error('Unable to remove Group. Try again.');
@@ -74,7 +76,11 @@
 			);
 		}}
 		onRename={async (id, name) => {
-			if (!(await groupManagementStore.rename(id, name))) throw new Error('Unable to rename Group. Try again.');
+			const renamed = await groupManagementStore.rename(id, name).catch((failure: unknown) => {
+				if (failure instanceof Error && failure.message === GROUP_NAME_EXISTS_MESSAGE) throw failure;
+				throw new Error(rejectedRequestMessage(failure, 'Unable to rename Group. Try again.'));
+			});
+			if (!renamed) throw new Error(GROUP_UNAVAILABLE_MESSAGE);
 			personnelStore.updateLocalWhere(
 				(p) => p.groupId === id,
 				(p) => ({ ...p, groupName: name })

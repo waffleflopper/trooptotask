@@ -27,7 +27,7 @@ $V perf workloads                          Print the workload table, profiles an
 $V perf load PAGE WORKLOAD JOURNEY ACTOR --out RUN [--mode cold|warm] [--profile NAME] [--warmup N] [--reps N]
                                            Repeated page loads to the first useful render, then to app-origin
                                            network idle (settled including reloads): resource-entry, network
-                                           request and failure manifest, navigation/paint/LCP/long tasks,
+                                           request and failure manifest, navigation/paint/LCP (loads only), long tasks,
                                            server timing lines, and a query window per sample
 $V perf interaction PAGE WORKLOAD JOURNEY ACTOR --out RUN [--profile NAME] [--warmup N] [--reps N]
                                            Repeated native input to the same two milestones; the query window
@@ -58,9 +58,10 @@ function parse(args) {
 	return { positional, options };
 }
 
-function count(value, fallback, label) {
+export function count(value, fallback, label, minimum = 0) {
 	const number = value === undefined ? fallback : Number(value);
-	if (!Number.isSafeInteger(number) || number < 0 || number > 50) throw new Error(`${label} must be 0 to 50.`);
+	if (!Number.isSafeInteger(number) || number < minimum || number > 50)
+		throw new Error(`${label} must be ${minimum} to 50.`);
 	return number;
 }
 
@@ -72,6 +73,15 @@ async function writeEvidence(ctx, file, value) {
 	await fs.mkdir(path.dirname(file), { recursive: true });
 	await fs.writeFile(file, typeof value === 'string' ? value : JSON.stringify(value, null, 2) + '\n');
 	return path.relative(ctx.repository, file);
+}
+
+async function runDirectory(ctx, options) {
+	const out = path.resolve(ctx.repository, options.out ?? '');
+	if (!(await ctx.isUnderEvidence(path.join(out, 'run.json'), ctx.evidenceRoot)))
+		throw new Error(
+			'Performance output must be under .verification/evidence/verify-trooptotask/ without .. or symlinks.'
+		);
+	return out;
 }
 
 function target(ctx, positional, kind) {
@@ -251,10 +261,17 @@ async function appLogSize(ctx) {
 	return (await fs.stat(path.join(ctx.session, 'app.log'))).size;
 }
 
-function measured(ctx, run, sample, serverText, statements, { since = 0, afterRequestId = 0 } = {}) {
+function measured(
+	ctx,
+	run,
+	sample,
+	serverText,
+	statements,
+	{ interaction = false, since = 0, afterRequestId = 0 } = {}
+) {
 	const observer = sample.observer;
 	const resources = sample.resources.filter((entry) => entry.startTime >= since);
-	const manifest = groupManifest({ navigation: since ? null : sample.navigation, resources }, ctx.doctor.origin);
+	const manifest = groupManifest({ navigation: interaction ? null : sample.navigation, resources }, ctx.doctor.origin);
 	const firstUsefulRenderMs = observer?.milestones?.useful ?? null;
 	const lastData = Math.max(
 		...manifest.entries
@@ -275,14 +292,17 @@ function measured(ctx, run, sample, serverText, statements, { since = 0, afterRe
 		milestones: observer?.milestones ?? {},
 		startEvent: observer?.startEvent ?? null,
 		observerFrames: observer?.frames ?? 0,
-		navigation: sample.navigation && {
-			type: sample.navigation.type,
-			responseStartMs: sample.navigation.responseStart,
-			domContentLoadedMs: sample.navigation.domContentLoaded,
-			loadMs: sample.navigation.load
-		},
-		paint: sample.paint,
-		largestContentfulPaintMs: observer?.lcp ?? null,
+		navigation:
+			interaction || !sample.navigation
+				? null
+				: {
+						type: sample.navigation.type,
+						responseStartMs: sample.navigation.responseStart,
+						domContentLoadedMs: sample.navigation.domContentLoaded,
+						loadMs: sample.navigation.load
+					},
+		paint: interaction ? null : sample.paint,
+		largestContentfulPaintMs: interaction ? null : (observer?.lcp ?? null),
 		longTasks: (observer?.longTasks ?? []).filter((task) => task.start >= since),
 		manifest,
 		serverTiming: parseServerTiming(serverText, run.item.organizationId),
@@ -290,7 +310,7 @@ function measured(ctx, run, sample, serverText, statements, { since = 0, afterRe
 	};
 }
 
-function summarize(samples) {
+function summarize(samples, interaction) {
 	const field = (read) => distribution(samples.map(read));
 	const groups = Object.keys(samples[0]?.manifest.groups ?? {});
 	return {
@@ -298,10 +318,14 @@ function summarize(samples) {
 		settledIncludingReloadsMs: field((sample) => sample.settledIncludingReloadsMs),
 		notUseful: samples.filter((sample) => sample.firstUsefulRenderMs === null).length,
 		notIdle: samples.filter((sample) => !sample.networkIdle).length,
-		responseStartMs: field((sample) => sample.navigation?.responseStartMs),
-		domContentLoadedMs: field((sample) => sample.navigation?.domContentLoadedMs),
-		firstContentfulPaintMs: field((sample) => sample.paint?.['first-contentful-paint']),
-		largestContentfulPaintMs: field((sample) => sample.largestContentfulPaintMs),
+		...(interaction
+			? {}
+			: {
+					responseStartMs: field((sample) => sample.navigation?.responseStartMs),
+					domContentLoadedMs: field((sample) => sample.navigation?.domContentLoadedMs),
+					firstContentfulPaintMs: field((sample) => sample.paint?.['first-contentful-paint']),
+					largestContentfulPaintMs: field((sample) => sample.largestContentfulPaintMs)
+				}),
 		longTaskTotalMs: field((sample) => sample.longTasks.reduce((total, task) => total + task.duration, 0)),
 		resourceEntries: field((sample) => sample.manifest.resourceEntries),
 		networkRequests: field((sample) => sample.manifest.networkRequests),
@@ -327,7 +351,7 @@ function summarize(samples) {
 async function repeat(options, mode, once) {
 	const defaults = protocol.defaults[mode] ?? protocol.defaults.warm;
 	const warmup = count(options.warmup, defaults.warmup, '--warmup');
-	const repetitions = count(options.reps, defaults.repetitions, '--reps');
+	const repetitions = count(options.reps, defaults.repetitions, '--reps', 1);
 	for (let index = 0; index < warmup; index++) await once(false);
 	const samples = [];
 	for (let index = 0; index < repetitions; index++) samples.push(await once(true));
@@ -351,10 +375,9 @@ async function closeStatements(ctx, measure) {
 	return measure ? (await ctx.database('perf-statements', 'read')).statements : [];
 }
 
-async function record(ctx, run, options, mode, result, profileName) {
-	const out = path.resolve(ctx.repository, options.out ?? '');
+async function record(ctx, run, out, mode, result, profileName) {
 	const file = path.join(out, run.workload, run.actor, `${run.journeyName}-${mode}-${profileName}.json`);
-	const summary = summarize(result.samples);
+	const summary = summarize(result.samples, mode === 'interaction');
 	const saved = await writeEvidence(ctx, file, {
 		kind: 't2t-perf-run',
 		candidate: ctx.doctor.candidate,
@@ -392,6 +415,7 @@ async function record(ctx, run, options, mode, result, profileName) {
 
 async function load(ctx, positional, options) {
 	const run = target(ctx, positional, 'load');
+	const out = await runDirectory(ctx, options);
 	const mode = options.mode ?? 'warm';
 	if (!protocol.modes[mode]) throw new Error('Use --mode cold or --mode warm.');
 	if (mode === 'warm') assertPageBound(ctx.ownedState.perfPages, run);
@@ -415,7 +439,7 @@ async function load(ctx, positional, options) {
 			}
 		};
 		const result = await repeat(options, mode, once);
-		return record(ctx, run, options, mode, { ...result, milestones }, profileName);
+		return record(ctx, run, out, mode, { ...result, milestones }, profileName);
 	} finally {
 		if (mode === 'warm') await emulate(ctx, run.pageId, 'unthrottled');
 	}
@@ -431,6 +455,7 @@ function controlUid(snapshot, { role, name }) {
 
 async function interaction(ctx, positional, options) {
 	const run = target(ctx, positional, 'interaction');
+	const out = await runDirectory(ctx, options);
 	assertPageBound(ctx.ownedState.perfPages, run);
 	const profileName = options.profile ?? 'unthrottled';
 	const milestones = run.journey.milestones(run.context);
@@ -457,12 +482,13 @@ async function interaction(ctx, positional, options) {
 			const sample = await settle(ctx, run.pageId);
 			const statements = await closeStatements(ctx, measure);
 			return measured(ctx, run, sample, await appLogFrom(ctx, offset), statements, {
+				interaction: true,
 				since: sample.observer?.startedAt ?? 0,
 				afterRequestId
 			});
 		};
 		const result = await repeat(options, 'warm', once);
-		return record(ctx, run, options, 'interaction', { ...result, milestones }, profileName);
+		return record(ctx, run, out, 'interaction', { ...result, milestones }, profileName);
 	} finally {
 		await emulate(ctx, run.pageId, 'unthrottled');
 	}
@@ -474,24 +500,26 @@ async function trace(ctx, positional, options) {
 	const milestones = run.journey.milestones(run.context);
 	const initScript = observerScript({ name: run.journeyName, start: 'navigation', milestones });
 	const base = path.join(
-		path.resolve(ctx.repository, options.out ?? ''),
+		await runDirectory(ctx, options),
 		run.workload,
 		run.actor,
 		`${run.journeyName}-trace-${profileName}`
 	);
-	if (!(await ctx.isUnderEvidence(`${base}.json.gz`, ctx.evidenceRoot)))
-		throw new Error(
-			'Performance output must be under .verification/evidence/verify-trooptotask/ without .. or symlinks.'
-		);
 	await fs.mkdir(path.dirname(base), { recursive: true });
 	await paceSample(ctx);
 	const pageId = await coldPage(ctx, run, profileName);
+	// V8 keeps the cold sign-in script's source, password included, so the tool writes the raw
+	// trace to the worker's private directory and only the redacted copy reaches the evidence.
+	const raw = path.join(ctx.session, `perf-trace-raw-${randomUUID()}.json.gz`);
+	let tracing = false;
 	try {
 		await ctx.tool('performance_start_trace', { pageId, reload: false, autoStop: false });
+		tracing = true;
 		await ctx.tool('navigate_page', { pageId, type: 'url', url: run.url, initScript });
 		const sample = await settle(ctx, pageId);
-		const insights = ctx.text(await ctx.tool('performance_stop_trace', { pageId, filePath: `${base}.json.gz` }));
-		const trace = redactTrace(await fs.readFile(`${base}.json.gz`), [ctx.credentials(run.actor).password]);
+		const insights = ctx.text(await ctx.tool('performance_stop_trace', { pageId, filePath: raw }));
+		tracing = false;
+		const trace = redactTrace(await fs.readFile(raw), [ctx.credentials(run.actor).password]);
 		await fs.writeFile(`${base}.json.gz`, trace, { mode: 0o600 });
 		const summary = {
 			kind: 't2t-perf-trace',
@@ -515,6 +543,9 @@ async function trace(ctx, positional, options) {
 			)
 		};
 	} finally {
+		// A trace left running would block the next one; stopping also leaves a raw file to remove.
+		if (tracing) await ctx.tool('performance_stop_trace', { pageId, filePath: raw }).catch(() => {});
+		await fs.rm(raw, { force: true });
 		await ctx.tool('close_page', { pageId });
 	}
 }

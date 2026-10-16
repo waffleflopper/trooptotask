@@ -35,6 +35,9 @@ export const PROVIDER_FAULTS = Object.freeze({
 	'federal-holiday-reset-hold': [
 		write('POST', '/rest/v1/rpc/reset_federal_holidays', { hold: true, pause: COMMITTED_PAUSE_MS })
 	],
+	'closure-days': [write('POST', '/rest/v1/rpc/add_closure_days')],
+	'closure-days-lost-ack': [write('POST', '/rest/v1/rpc/add_closure_days', transportLoss())],
+	'closure-days-hold': [write('POST', '/rest/v1/rpc/add_closure_days', { hold: true, pause: COMMITTED_PAUSE_MS })],
 	'calendar-lanes': [write('POST', '/rest/v1/rpc/set_calendar_lanes')],
 	'calendar-lanes-lost-ack': [write('POST', '/rest/v1/rpc/set_calendar_lanes', transportLoss())],
 	'calendar-lanes-hold': [write('POST', '/rest/v1/rpc/set_calendar_lanes', { hold: true, pause: COMMITTED_PAUSE_MS })],

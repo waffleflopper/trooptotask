@@ -23,7 +23,7 @@ Each row has a disposition. `complete` has no candidates. `test support` is a ha
 | 10-09      |    70 |                     1 |            0 |                0 |          0 |            2 |         0 |
 | foundation |   272 |                     0 |            0 |                0 |          0 |            0 |         0 |
 
-Open rows: 6. Unclassified rows: 0. Unused native exceptions: 2 (`src/features/calendar/components/CalendarAssignmentSettingsSection.svelte`, `src/features/calendar/components/CalendarStatusSettingsSection.svelte`).
+Open rows: 6. Unclassified rows: 0. Unused native exceptions: 0.
 
 ## Control mapping
 

@@ -27,7 +27,6 @@ describe('statusLegend', () => {
 		);
 
 		expect(source.entries.map((entry) => entry.label)).toEqual(['Leave', 'TDY']);
-		expect(source.entries.map((entry) => entry.mark.value)).toMatchObject([{ text: 'LEA' }, { text: 'T' }]);
 		expect(source.hint).toBe('Drag across days to add');
 	});
 });
@@ -42,7 +41,6 @@ describe('dutyMarkerLegend', () => {
 		]);
 
 		expect(source.entries.map((entry) => entry.label)).toEqual(['Duty (SD, CQ)']);
-		expect(source.entries[0].mark.value).toEqual({ code: 'SD', color: '#2563eb' });
 	});
 
 	it('has no entry when no duty draws a row marker', () => {

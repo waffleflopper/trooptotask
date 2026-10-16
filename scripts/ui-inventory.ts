@@ -98,7 +98,6 @@ const TEST_SUPPORT =
 
 const CALENDAR_GRID =
 	'Grid geometry, not a skin: Calendar sets the cell and personnel-column widths per breakpoint and the date count from data, and the header, rows, group headers and cells size from them.';
-const COLOR_INPUT_DEFAULT = 'Default value of a native color input, which accepts only `#rrggbb`.';
 const PRINT_TABLE = 'Print layout: a native `table` paginates and repeats its heading row on each printed page.';
 
 /**
@@ -110,10 +109,6 @@ const NATIVE_EXCEPTIONS: Record<string, NativeException> = {
 		covers: { '--calendar-cell-width': 1, '--calendar-personnel-column-width': 1, '--dates-count': 1 },
 		reason: CALENDAR_GRID
 	},
-	'src/features/calendar/components/CalendarAssignmentSettingsSection.svelte': {
-		covers: { '#hex': 1 },
-		reason: COLOR_INPUT_DEFAULT
-	},
 	'src/features/calendar/components/CalendarHeader.svelte': {
 		covers: { '--calendar-cell-width': 3, '--calendar-personnel-column-width': 2, '--dates-count': 2 },
 		reason: CALENDAR_GRID
@@ -121,10 +116,6 @@ const NATIVE_EXCEPTIONS: Record<string, NativeException> = {
 	'src/features/calendar/components/CalendarRow.svelte': {
 		covers: { '--calendar-cell-width': 2, '--calendar-personnel-column-width': 2, '--dates-count': 2 },
 		reason: CALENDAR_GRID
-	},
-	'src/features/calendar/components/CalendarStatusSettingsSection.svelte': {
-		covers: { '#hex': 2 },
-		reason: COLOR_INPUT_DEFAULT
 	},
 	'src/features/calendar/components/date-cell/date-cell.svelte': {
 		covers: { button: 1, '--calendar-cell-width': 1 },

@@ -1,13 +1,25 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/svelte';
+import type { AssignmentType } from '$features/calendar/contracts';
 import FixtureLegendMark from '$features/calendar/test-support/FixtureLegendMark.svelte';
-import { legendMark, statusLegend, type LegendSource } from '$features/calendar/utils/calendarLegend';
+import { dutyMarkerLegend, legendMark, statusLegend, type LegendSource } from '$features/calendar/utils/calendarLegend';
 import CalendarLegend from './CalendarLegend.svelte';
 
 afterEach(cleanup);
 
 const leave = { id: 'leave', name: 'Leave', color: '#16a34a', textColor: '#ffffff', shortLabel: null, sortOrder: 0 };
+
+const dutyType: AssignmentType = {
+	id: 'sd',
+	name: 'Staff Duty',
+	shortName: 'SD',
+	assignTo: 'personnel',
+	color: '#2563eb',
+	exemptPersonnelIds: [],
+	showOnCalendar: false,
+	sortOrder: 0
+};
 
 const training: LegendSource = {
 	key: 'training',
@@ -30,6 +42,12 @@ describe('CalendarLegend', () => {
 		expect(entryTexts(legend.getByRole('list', { name: 'Training' }))).toEqual(['RNG Range day']);
 		expect(entryTexts(legend.getByRole('list', { name: 'Statuses' }))).toEqual(['LEA Leave']);
 		expect(legend.getByText('Click a course to open it')).toBeTruthy();
+	});
+
+	it('shows the first duty code beside the duty entry', () => {
+		render(CalendarLegend, { props: { sources: [dutyMarkerLegend([dutyType])] } });
+
+		expect(entryTexts(screen.getByRole('list', { name: 'Duty markers' }))).toEqual(['SD Duty (SD)']);
 	});
 
 	it('leaves out a source with nothing to explain, and its hint', () => {

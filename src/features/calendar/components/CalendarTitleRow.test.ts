@@ -31,11 +31,12 @@ function renderRow(props: { view?: CalendarViewMode; anchor?: Date; today?: Toda
 	return { anchors, views };
 }
 
-function availabilityText(): string | null {
-	const count = screen.queryByText(
-		(_, element) => element?.tagName === 'P' && /available$/.test(element.textContent ?? '')
-	);
-	return count?.textContent?.replace(/\s+/g, ' ').trim() ?? null;
+function availabilityTexts(): string[] {
+	return screen
+		.queryAllByText((_, element) =>
+			/^\d+ of \d+ available$/.test(element?.textContent?.replace(/\s+/g, ' ').trim() ?? '')
+		)
+		.map((element) => element.textContent?.replace(/\s+/g, ' ').trim() ?? '');
 }
 
 describe('CalendarTitleRow', () => {
@@ -71,12 +72,12 @@ describe('CalendarTitleRow', () => {
 
 	it('shows today’s availability and hides it when there is no count', () => {
 		renderRow({ today: { date: new Date(2026, 9, 16), available: 19, total: 22 } });
-		expect(availabilityText()).toBe('19 of 22 available');
+		expect(availabilityTexts()).toEqual(['19 of 22 available']);
 		expect(screen.getByText('Today · Fri 16 Oct')).toBeTruthy();
 		cleanup();
 
 		renderRow({ today: null });
-		expect(availabilityText()).toBeNull();
+		expect(availabilityTexts()).toEqual([]);
 		expect(screen.getByRole('heading', { level: 1, name: 'October 2026' })).toBeTruthy();
 	});
 

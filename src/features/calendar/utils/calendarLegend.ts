@@ -44,16 +44,16 @@ export function statusLegend(statusTypes: readonly StatusType[], hint?: string):
 
 export function dutyMarkerLegend(assignmentTypes: readonly AssignmentType[]): LegendSource {
 	const types = assignmentTypes.filter(drawsDutyMarker).sort((a, b) => a.sortOrder - b.sortOrder);
-	const [first] = types;
+	const sample = types.find((type) => !type.archivedAt) ?? types[0];
 	return {
 		key: 'duty-markers',
 		ariaLabel: 'Duty markers',
-		entries: first
+		entries: sample
 			? [
 					{
 						key: 'duty',
 						label: `Duty (${types.map((type) => type.shortName).join(', ')})`,
-						mark: legendMark(DutyLegendMark, { code: first.shortName, color: first.color })
+						mark: legendMark(DutyLegendMark, { code: sample.shortName, color: sample.color })
 					}
 				]
 			: []

@@ -44,10 +44,11 @@ describe('CalendarLegend', () => {
 		expect(legend.getByText('Click a course to open it')).toBeTruthy();
 	});
 
-	it('shows the first duty code beside the duty entry', () => {
-		render(CalendarLegend, { props: { sources: [dutyMarkerLegend([dutyType])] } });
+	it('shows an active duty code beside the duty entry when an archived duty sorts first', () => {
+		const archived = { ...dutyType, id: 'old', shortName: 'OLD', sortOrder: -1, archivedAt: '2026-01-01' };
+		render(CalendarLegend, { props: { sources: [dutyMarkerLegend([archived, dutyType])] } });
 
-		expect(entryTexts(screen.getByRole('list', { name: 'Duty markers' }))).toEqual(['SD Duty (SD)']);
+		expect(entryTexts(screen.getByRole('list', { name: 'Duty markers' }))).toEqual(['SD Duty (OLD, SD)']);
 	});
 
 	it('leaves out a source with nothing to explain, and its hint', () => {

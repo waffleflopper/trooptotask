@@ -35,15 +35,11 @@ export function changedFiles(root, base) {
 
 export function selectScope(root, eventName, event) {
 	let base;
-	let full = !['pull_request', 'push'].includes(eventName);
-	if (eventName === 'pull_request') {
+	const full = eventName !== 'pull_request';
+	if (!full) {
 		if (!event.pull_request?.base?.sha) throw new Error('Pull request base SHA is missing');
 		base = git(root, 'merge-base', 'HEAD', event.pull_request.base.sha).trim();
-	} else if (eventName === 'push' && event.before && !/^0+$/.test(event.before)) {
-		// Missing history must fail rather than silently classify the wrong diff.
-		base = event.before;
 	} else {
-		full = true;
 		const head = git(root, 'rev-parse', 'HEAD').trim();
 		const main = git(root, 'rev-parse', 'origin/main').trim();
 		base = head === main ? git(root, 'rev-parse', 'HEAD^').trim() : main;

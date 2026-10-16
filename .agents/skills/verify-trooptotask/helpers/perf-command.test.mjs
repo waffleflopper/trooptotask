@@ -35,7 +35,7 @@ const password = 'Synthetic-trace-password-1!';
 
 async function traceScenario({ trace, failNavigation = false }) {
 	const repository = await fs.mkdtemp(path.join(os.tmpdir(), 'perf-trace-'));
-	const evidenceRoot = path.join(repository, 'evidence');
+	const evidenceRoot = path.join(repository, '.verification', 'evidence');
 	const session = path.join(repository, 'session');
 	await fs.mkdir(session, { recursive: true });
 	const calls = [];
@@ -79,7 +79,15 @@ async function traceScenario({ trace, failNavigation = false }) {
 	);
 	const listing = async (directory) =>
 		(await fs.readdir(directory, { recursive: true }).catch(() => [])).map((name) => path.join(directory, name));
-	return { run, calls, evidenceRoot, session, listing, repository };
+	return {
+		run,
+		calls,
+		evidenceRoot,
+		session,
+		listing,
+		repository,
+		rawFiles: () => listing(path.join(repository, '.verification', 'perf-raw'))
+	};
 }
 
 test('a trace is redacted into the evidence and no raw trace survives', async () => {
@@ -93,10 +101,7 @@ test('a trace is redacted into the evidence and no raw trace survives', async ()
 			.toString()
 			.includes(password)
 	);
-	assert.deepEqual(
-		await scenario.listing(scenario.session),
-		[path.join(scenario.session, 'perf-pace.json'), path.join(scenario.session, 'perf-sign-ins.json')].sort()
-	);
+	assert.deepEqual(await scenario.rawFiles(), []);
 });
 
 test('a trace whose redaction fails leaves nothing unredacted under the evidence root', async () => {
@@ -104,7 +109,7 @@ test('a trace whose redaction fails leaves nothing unredacted under the evidence
 	await assert.rejects(scenario.run);
 	const files = (await scenario.listing(scenario.evidenceRoot)).filter((file) => path.extname(file));
 	assert.deepEqual(files, []);
-	assert.ok(!(await scenario.listing(scenario.session)).some((file) => file.includes('perf-trace-raw')));
+	assert.deepEqual(await scenario.rawFiles(), []);
 });
 
 test('a trace that fails after it started is stopped before the page closes', async () => {
@@ -114,7 +119,7 @@ test('a trace that fails after it started is stopped before the page closes', as
 		scenario.calls.filter((name) => ['performance_start_trace', 'performance_stop_trace', 'close_page'].includes(name)),
 		['performance_start_trace', 'performance_stop_trace', 'close_page']
 	);
-	assert.ok(!(await scenario.listing(scenario.session)).some((file) => file.includes('perf-trace-raw')));
+	assert.deepEqual(await scenario.rawFiles(), []);
 });
 
 test('a run directory outside the evidence root is rejected before any sample', async () => {

@@ -509,8 +509,11 @@ async function trace(ctx, positional, options) {
 	await paceSample(ctx);
 	const pageId = await coldPage(ctx, run, profileName);
 	// V8 keeps the cold sign-in script's source, password included, so the tool writes the raw
-	// trace to the worker's private directory and only the redacted copy reaches the evidence.
-	const raw = path.join(ctx.session, `perf-trace-raw-${randomUUID()}.json.gz`);
+	// trace beside the evidence root, inside the only directory it may write to, and only the
+	// redacted copy reaches the evidence.
+	const rawDirectory = path.join(ctx.repository, '.verification', 'perf-raw');
+	await fs.mkdir(rawDirectory, { recursive: true, mode: 0o700 });
+	const raw = path.join(rawDirectory, `${randomUUID()}.json.gz`);
 	let tracing = false;
 	try {
 		await ctx.tool('performance_start_trace', { pageId, reload: false, autoStop: false });

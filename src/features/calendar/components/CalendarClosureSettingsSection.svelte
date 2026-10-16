@@ -1,33 +1,42 @@
 <script lang="ts">
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import Ellipsis from '@lucide/svelte/icons/ellipsis';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
+	import * as Card from '$lib/components/ui/card';
+	import * as Collapsible from '$lib/components/ui/collapsible';
 	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
-	import { DatePicker } from '$lib/components/ui/date-picker';
+	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import { NativeSelect } from '$lib/components/ui/native-select';
 	import { Spinner } from '$lib/components/ui/spinner';
+	import * as ToggleGroup from '$lib/components/ui/toggle-group';
 	import { specialDaysStore, type FederalHolidayResetResult } from '$features/calendar/stores/specialDays.svelte';
+	import { closureListView, type ClosureListMonth } from '$features/calendar/utils/closureDays';
+	import { getDefaultFederalHolidays } from '$features/calendar/utils/federalHolidays';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { rejectedRequestMessage } from '$lib/stores/core';
-	import { formatDate } from '$lib/utils/dates';
+	import { formatToday, getDayName, getMonthName, parseDate } from '$lib/utils/dates';
 	import type { SpecialDay } from '$features/calendar/contracts';
-	import Pencil from '@lucide/svelte/icons/pencil';
-	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import { PendingSave } from '$lib/utils/pendingSave.svelte';
+	import ClosureComposer from './ClosureComposer.svelte';
 
 	type Props = {
 		canMutate: boolean;
 		searchQuery: string;
 	};
 
+	type TypeFilter = 'all' | 'federal' | 'closures';
+
 	let { canMutate, searchQuery }: Props = $props();
 
-	let addClosureOpen = $state(false);
-	let newSpecialDate = $state(formatDate(new Date()));
-	let newSpecialName = $state('');
-	let newSpecialType = $state<'federal-holiday' | 'org-closure'>('org-closure');
+	let composerOpen = $state(false);
+	// Each opening gets a fresh composer, so a discarded draft never survives a second New closure.
+	let composerSession = $state(0);
+	let composerView = $state<ClosureComposer>();
+	let confirmDiscard = $state(false);
 
 	let editClosureOpen = $state(false);
 	let editingSpecialDay = $state<SpecialDay | null>(null);
@@ -38,9 +47,7 @@
 	const saving = new PendingSave();
 	let showResetConfirm = $state(false);
 	let filterYear = $state(String(new Date().getFullYear()));
-	const addClosureDirty = $derived(
-		newSpecialDate !== formatDate(new Date()) || newSpecialName.trim() !== '' || newSpecialType !== 'org-closure'
-	);
+	let typeFilter = $state<TypeFilter>('all');
 	const editClosureDirty = $derived(
 		Boolean(
 			editingSpecialDay && (editSpecialName !== editingSpecialDay.name || editSpecialType !== editingSpecialDay.type)
@@ -51,30 +58,31 @@
 		const y = new Date().getFullYear();
 		return [y - 1, y, y + 1, y + 2].map(String);
 	});
+	const defaultYears = $derived.by(() => {
+		const defaults = getDefaultFederalHolidays();
+		return `${defaults[0].date.slice(0, 4)}–${defaults[defaults.length - 1].date.slice(0, 4)}`;
+	});
 
-	const filteredDays = $derived(
-		specialDaysStore.items
-			.filter((d) => d.date.startsWith(`${filterYear}-`))
-			.sort((a, b) => a.date.localeCompare(b.date))
+	const query = $derived(searchQuery.trim().toLowerCase());
+	const shownDays = $derived(
+		specialDaysStore.items.filter(
+			(day) =>
+				day.date.startsWith(`${filterYear}-`) &&
+				(typeFilter === 'all' || (typeFilter === 'federal') === (day.type === 'federal-holiday')) &&
+				(!query || day.name.toLowerCase().includes(query))
+		)
 	);
-
-	const filteredClosures = $derived(
-		filteredDays.filter((d) => !searchQuery || d.name.toLowerCase().includes(searchQuery.toLowerCase()))
-	);
+	const view = $derived(closureListView(shownDays, Number(filterYear), formatToday()));
 
 	export function openAddDialog() {
-		addClosureOpen = true;
+		if (!canMutate || composerOpen) return;
+		composerSession++;
+		composerOpen = true;
 	}
 
-	function resetAddClosureForm() {
-		newSpecialDate = formatDate(new Date());
-		newSpecialName = '';
-		newSpecialType = 'org-closure';
-	}
-
-	function closeAddClosureDialog() {
-		resetAddClosureForm();
-		addClosureOpen = false;
+	function dismissComposer() {
+		if (composerView?.isDirty()) confirmDiscard = true;
+		else composerOpen = false;
 	}
 
 	function closeEditClosureDialog() {
@@ -91,25 +99,6 @@
 
 	function showClosureMutationError(message: string, error?: unknown) {
 		toastStore.error(error instanceof Error ? error.message : message);
-	}
-
-	async function addSpecialDay() {
-		if (!canMutate || !newSpecialDate || !newSpecialName.trim()) return;
-		try {
-			const created = await specialDaysStore.add({
-				date: newSpecialDate,
-				name: newSpecialName.trim(),
-				type: newSpecialType
-			});
-			if (!created) {
-				showClosureMutationError('Failed to add closure');
-				return;
-			}
-			resetAddClosureForm();
-			addClosureOpen = false;
-		} catch (error) {
-			showClosureMutationError(rejectedRequestMessage(error, 'Failed to add closure'));
-		}
 	}
 
 	async function saveEditSpecialDay() {
@@ -162,11 +151,21 @@
 	}
 
 	function formatDisplayDate(dateStr: string): string {
-		return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
-			weekday: 'short',
-			month: 'short',
-			day: 'numeric'
-		});
+		return parseDate(dateStr).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+	}
+
+	function dayCount(n: number): string {
+		return `${n} ${n === 1 ? 'day' : 'days'}`;
+	}
+
+	function rangeDays(days: SpecialDay[]): string {
+		const first = parseDate(days[0].date);
+		const last = parseDate(days[days.length - 1].date);
+		const lastLabel =
+			first.getMonth() === last.getMonth()
+				? `${last.getDate()}`
+				: `${last.getDate()} ${getMonthName(last.getMonth()).slice(0, 3)}`;
+		return `${first.getDate()}–${lastLabel}`;
 	}
 
 	function handleFilterYearChange(event: Event) {
@@ -177,113 +176,178 @@
 	}
 </script>
 
-<div class="mb-4 flex flex-wrap items-center gap-3">
-	<Label for="calendar-settings-filter-year">Year</Label>
-	<NativeSelect
-		id="calendar-settings-filter-year"
-		class="w-[6.5rem]"
-		value={filterYear}
-		onchange={handleFilterYearChange}
-	>
-		{#each yearOptions as year (year)}
-			<option value={year}>{year}</option>
-		{/each}
-	</NativeSelect>
-	<Badge variant="secondary">{filteredClosures.length} days</Badge>
+{#snippet dayRow(day: SpecialDay, nested: boolean)}
+	{@const date = parseDate(day.date)}
+	<li class={['flex items-center gap-3 px-4 py-3', nested && 'bg-muted/30 pl-10']}>
+		<span class="flex w-16 shrink-0 items-baseline gap-1.5">
+			<span class="font-display text-xl leading-none font-bold tabular-nums">{date.getDate()}</span>
+			<span class="font-mono text-[10px] tracking-wide text-muted-foreground uppercase">{getDayName(date)}</span>
+		</span>
+		<span class="min-w-0 flex-1 text-sm font-medium break-words">{day.name}</span>
+		<Badge variant={day.type === 'federal-holiday' ? 'default' : 'warning'}>
+			{day.type === 'federal-holiday' ? 'Federal' : 'Closure'}
+		</Badge>
+		{#if canMutate}
+			<DropdownMenu.Root>
+				<DropdownMenu.Trigger>
+					{#snippet child({ props })}
+						<Button
+							{...props}
+							size="icon-sm"
+							variant="ghost"
+							aria-label="More actions for {day.name}, {formatDisplayDate(day.date)}"
+						>
+							<Ellipsis />
+						</Button>
+					{/snippet}
+				</DropdownMenu.Trigger>
+				<DropdownMenu.Content align="end">
+					<DropdownMenu.Item onSelect={() => openEditSpecialDay(day)}>Edit</DropdownMenu.Item>
+					<DropdownMenu.Item variant="destructive" onSelect={() => (confirmDeleteSpecial = day)}>
+						Remove
+					</DropdownMenu.Item>
+				</DropdownMenu.Content>
+			</DropdownMenu.Root>
+		{/if}
+	</li>
+{/snippet}
+
+{#snippet monthGroups(months: ClosureListMonth[])}
+	{#each months as group (group.month)}
+		<section class="flex flex-col gap-2" aria-labelledby="closures-month-{filterYear}-{group.month}">
+			<h4 id="closures-month-{filterYear}-{group.month}" class="font-display text-sm font-bold tracking-wide uppercase">
+				{getMonthName(group.month)}
+			</h4>
+			<ul class="divide-y rounded-md border bg-card">
+				{#each group.rows as row (row.kind === 'day' ? row.day.id : row.days[0].id)}
+					{#if row.kind === 'day'}
+						{@render dayRow(row.day, false)}
+					{:else}
+						{@const first = parseDate(row.days[0].date)}
+						{@const last = parseDate(row.days[row.days.length - 1].date)}
+						<li>
+							<Collapsible.Root>
+								<Collapsible.Trigger>
+									{#snippet child({ props })}
+										<Button
+											{...props}
+											variant="ghost"
+											size="none"
+											class="group/range w-full justify-start gap-3 rounded-none px-4 py-3 text-left whitespace-normal"
+											aria-label="{row.name}, {dayCount(row.days.length)} from {formatDisplayDate(
+												row.days[0].date
+											)} to {formatDisplayDate(row.days[row.days.length - 1].date)}"
+										>
+											<span class="w-16 shrink-0 font-display text-xl leading-none font-bold tabular-nums">
+												{rangeDays(row.days)}
+											</span>
+											<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+												<span class="text-sm font-medium break-words">{row.name}</span>
+												<span class="font-mono text-[10px] tracking-wide text-muted-foreground uppercase">
+													{getDayName(first)} – {getDayName(last)} · {dayCount(row.days.length)}
+												</span>
+											</span>
+											<Badge variant="warning">Closure</Badge>
+											<ChevronRight
+												class="size-4 shrink-0 transition-transform group-data-[state=open]/range:rotate-90"
+												aria-hidden="true"
+											/>
+										</Button>
+									{/snippet}
+								</Collapsible.Trigger>
+								<Collapsible.Content>
+									<ul class="divide-y border-t">
+										{#each row.days as day (day.id)}
+											{@render dayRow(day, true)}
+										{/each}
+									</ul>
+								</Collapsible.Content>
+							</Collapsible.Root>
+						</li>
+					{/if}
+				{/each}
+			</ul>
+		</section>
+	{/each}
+{/snippet}
+
+<div class={['grid gap-6', canMutate && 'xl:grid-cols-[minmax(0,1fr)_24rem]']}>
+	<div class="flex flex-wrap items-center gap-3 xl:col-start-1 xl:row-start-1">
+		<NativeSelect aria-label="Year" class="w-[6.5rem]" value={filterYear} onchange={handleFilterYearChange}>
+			{#each yearOptions as year (year)}
+				<option value={year}>{year}</option>
+			{/each}
+		</NativeSelect>
+		<ToggleGroup.Root
+			type="single"
+			size="sm"
+			aria-label="Show"
+			bind:value={() => typeFilter, (value) => value && (typeFilter = value as TypeFilter)}
+		>
+			<ToggleGroup.Item value="all">All</ToggleGroup.Item>
+			<ToggleGroup.Item value="federal">Federal</ToggleGroup.Item>
+			<ToggleGroup.Item value="closures">Closures</ToggleGroup.Item>
+		</ToggleGroup.Root>
+	</div>
+
 	{#if canMutate}
-		<div class="ml-auto flex flex-col items-end gap-0.5">
-			<Button variant="outline" size="sm" onclick={() => (showResetConfirm = true)}>Reset Federal Holidays</Button>
-			<span class="font-mono text-[10px] text-muted-foreground">Preserves custom closures</span>
+		<div class="flex min-w-0 flex-col gap-4 xl:col-start-2 xl:row-span-2 xl:row-start-1">
+			{#if composerOpen}
+				{#key composerSession}
+					<ClosureComposer
+						bind:this={composerView}
+						onClose={() => (composerOpen = false)}
+						onDismiss={dismissComposer}
+					/>
+				{/key}
+			{/if}
+			<Card.Root class="flex flex-wrap items-center gap-3 px-4 py-3">
+				<div class="flex min-w-48 flex-1 flex-col gap-1">
+					<Card.Title>Federal holidays</Card.Title>
+					<Card.Description>Restore the standard list for {defaultYears}. Custom closures are kept.</Card.Description>
+				</div>
+				<Button variant="outline" size="sm" onclick={() => (showResetConfirm = true)}>Reset</Button>
+			</Card.Root>
 		</div>
 	{/if}
-</div>
 
-<div class="space-y-1.5">
-	{#each filteredClosures as day (day.id)}
-		<div
-			class="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-md border border-transparent px-4 py-3 transition-colors hover:border-border hover:bg-muted/40"
-		>
-			<span class="w-28 shrink-0 text-sm tabular-nums text-muted-foreground">{formatDisplayDate(day.date)}</span>
-			<span class="min-w-0 flex-1 basis-32 break-words text-sm font-medium">{day.name}</span>
-			<div class="ml-auto flex shrink-0 items-center gap-2">
-				<Badge variant={day.type === 'federal-holiday' ? 'default' : 'outline'}>
-					{day.type === 'federal-holiday' ? 'Holiday' : 'Closure'}
-				</Badge>
-				{#if canMutate}
-					<Button
-						variant="ghost"
-						size="icon-sm"
-						title="Edit {day.name}, {formatDisplayDate(day.date)}"
-						aria-label="Edit {day.name}, {formatDisplayDate(day.date)}"
-						onclick={() => openEditSpecialDay(day)}
-					>
-						<Pencil />
-					</Button>
-					<Button
-						variant="destructive"
-						size="icon-sm"
-						title="Delete {day.name}, {formatDisplayDate(day.date)}"
-						aria-label="Delete {day.name}, {formatDisplayDate(day.date)}"
-						onclick={() => (confirmDeleteSpecial = day)}
-					>
-						<Trash2 />
-					</Button>
-				{/if}
-			</div>
-		</div>
-	{:else}
-		<div
-			class="rounded-md border border-dashed border-border bg-muted/30 px-4 py-8 text-center text-sm text-muted-foreground"
-		>
-			No holidays or closures for {filterYear}. Add a closure or reset federal holidays to populate defaults.
-		</div>
-	{/each}
+	<div class="flex min-w-0 flex-col gap-5 xl:col-start-1 xl:row-start-2">
+		{#if view.past}
+			{@const past = view.past}
+			<Collapsible.Root>
+				<Collapsible.Trigger>
+					{#snippet child({ props })}
+						<Button
+							{...props}
+							variant="outline"
+							class="group/past w-full justify-start gap-2 border-dashed text-left font-normal text-muted-foreground"
+						>
+							<ChevronRight
+								class="size-4 shrink-0 transition-transform group-data-[state=open]/past:rotate-90"
+								aria-hidden="true"
+							/>
+							<span class="flex-1">
+								{past.throughMonth === 0 ? 'January' : `January – ${getMonthName(past.throughMonth)}`}
+							</span>
+							<span class="font-mono text-[10px] tracking-wide uppercase">
+								{past.dayCount} past {past.dayCount === 1 ? 'day' : 'days'}
+							</span>
+						</Button>
+					{/snippet}
+				</Collapsible.Trigger>
+				<Collapsible.Content class="flex flex-col gap-5 pt-5">
+					{@render monthGroups(past.months)}
+				</Collapsible.Content>
+			</Collapsible.Root>
+		{/if}
+		{@render monthGroups(view.months)}
+		{#if !view.past && view.months.length === 0}
+			<p class="rounded-md border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
+				No holidays or closures for {filterYear}.
+			</p>
+		{/if}
+	</div>
 </div>
-
-<AppDialog.Root
-	bind:open={addClosureOpen}
-	busy={saving.pending}
-	closeBlocked={addClosureDirty}
-	onClose={closeAddClosureDialog}
->
-	<AppDialog.Content>
-		<AppDialog.Header>
-			<AppDialog.Title>Add Closure</AppDialog.Title>
-			<AppDialog.Description>Mark a federal holiday or unit closure on the calendar.</AppDialog.Description>
-		</AppDialog.Header>
-		<AppDialog.Body class="grid gap-4">
-			<fieldset class="contents" disabled={saving.pending}>
-				<div class="grid gap-2">
-					<Label for="add-closure-date">Date</Label>
-					<DatePicker id="add-closure-date" bind:value={newSpecialDate} placeholder="Select date" />
-				</div>
-				<div class="grid gap-2">
-					<Label for="add-closure-name">Name</Label>
-					<Input
-						id="add-closure-name"
-						type="text"
-						placeholder="e.g., Training Day, Independence Day"
-						bind:value={newSpecialName}
-					/>
-				</div>
-				<div class="grid gap-2">
-					<Label for="add-closure-type">Type</Label>
-					<NativeSelect id="add-closure-type" bind:value={newSpecialType}>
-						<option value="org-closure">Closure</option>
-						<option value="federal-holiday">Federal Holiday</option>
-					</NativeSelect>
-				</div>
-			</fieldset>
-		</AppDialog.Body>
-		<AppDialog.Footer>
-			<Button variant="outline" onclick={closeAddClosureDialog} disabled={saving.pending}>Cancel</Button>
-			<Button onclick={() => saving.run(addSpecialDay)} disabled={saving.pending || !newSpecialName.trim()}>
-				{#if saving.pending}<Spinner />{/if}
-				Add Closure
-			</Button>
-		</AppDialog.Footer>
-	</AppDialog.Content>
-</AppDialog.Root>
 
 <AppDialog.Root
 	bind:open={editClosureOpen}
@@ -324,6 +388,19 @@
 		</AppDialog.Footer>
 	</AppDialog.Content>
 </AppDialog.Root>
+
+{#if confirmDiscard}
+	<ConfirmDialog
+		title="Discard changes?"
+		message="This closure is not saved."
+		confirmLabel="Discard"
+		onConfirm={() => {
+			composerOpen = false;
+			confirmDiscard = false;
+		}}
+		onCancel={() => (confirmDiscard = false)}
+	/>
+{/if}
 
 {#if confirmDeleteSpecial}
 	<ConfirmDialog

@@ -3,6 +3,7 @@ name: CI
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, labeled]
   push:
     branches: [main]
   workflow_dispatch:
@@ -11,12 +12,18 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.ref }}
+  # Adding any other label gets its own group, so it cannot cancel a running check.
+  group: ci-${{ github.event.pull_request.number || github.ref }}-${{ github.event.label.name || 'run-ci' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   scope:
     name: Select checks
+    # PR checks wait for the run-ci label, added once review bots have no actionable findings.
+    if: >-
+      github.event_name != 'pull_request' ||
+      (contains(github.event.pull_request.labels.*.name, 'run-ci') &&
+      (github.event.action != 'labeled' || github.event.label.name == 'run-ci'))
     runs-on: depot-ubuntu-24.04
     timeout-minutes: 5
     outputs:

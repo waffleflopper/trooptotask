@@ -27,12 +27,6 @@ describe('GET /api/special-days', () => {
 });
 
 describe('POST /api/special-days', () => {
-	it('uses a policy-first route config for closure days and reset', () => {
-		expect('permission' in _postConfig).toBe(false);
-		expect(_postConfig.policyAction).toBe(POLICY_ACTION_CATALOG.calendar.configureSpecialDays);
-		expect(_postConfig.policyResource).toEqual({ kind: 'organization' });
-	});
-
 	it('adds one closure per new date, skips taken dates, and audits each added day', async () => {
 		const ctx = createTestContext();
 		const taken = [

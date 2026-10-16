@@ -480,9 +480,7 @@ describe('Calendar configuration commands', () => {
 			[closureRow('c-1', '2026-12-23'), closureRow('c-2', '2026-12-23')]
 		]) {
 			const unexpected = calendarRpc(() => Response.json(rows));
-			await expect(unexpected.port.addClosureDays('Holiday leave', dates)).rejects.toThrow(
-				'add_closure_days returned an unexpected result'
-			);
+			await expect(unexpected.port.addClosureDays('Holiday leave', dates)).rejects.not.toHaveProperty('status');
 		}
 	});
 

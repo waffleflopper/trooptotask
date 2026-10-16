@@ -6,6 +6,7 @@ import {
 	failedRequests,
 	groupManifest,
 	inFlight,
+	installSettledObserver,
 	statementTotals,
 	parseServerTiming,
 	redactTrace,
@@ -246,4 +247,32 @@ test('trace redaction removes the sign-in password and keeps the events', () => 
 	const redacted = gunzipSync(redactTrace(gzipSync(JSON.stringify({ traceEvents: events })), [password])).toString();
 	assert.ok(!redacted.includes('Synthetic-'));
 	assert.deepEqual(JSON.parse(redacted).traceEvents[0].args.data.sourceText, `body.set('password', "<redacted>");`);
+});
+
+function pageWindow() {
+	const observed = [];
+	const win = {
+		observed,
+		performance: { setResourceTimingBufferSize() {}, mark() {} },
+		document: { body: null },
+		requestAnimationFrame() {},
+		addEventListener() {},
+		PerformanceObserver: class {
+			observe({ type }) {
+				observed.push(type);
+			}
+		}
+	};
+	return win;
+}
+
+test('only a navigation observer measures LCP; an input observer would replay the navigation one', () => {
+	const milestones = [{ name: 'useful' }];
+	const loading = pageWindow();
+	installSettledObserver(loading, { name: 'load', start: 'navigation', milestones });
+	const typing = pageWindow();
+	installSettledObserver(typing, { name: 'search', start: 'input', milestones });
+	assert.deepEqual(loading.observed, ['longtask', 'largest-contentful-paint']);
+	assert.deepEqual(typing.observed, ['longtask']);
+	assert.equal(typing.__t2tPerfSettled.lcp, null);
 });

@@ -81,10 +81,12 @@ export function installSettledObserver(win, spec) {
 			for (const entry of list.getEntries())
 				state.longTasks.push({ start: Math.round(entry.startTime), duration: Math.round(entry.duration) });
 		}).observe({ type: 'longtask', buffered: true });
-		new win.PerformanceObserver((list) => {
-			const last = list.getEntries().at(-1);
-			if (last) state.lcp = Math.round(last.startTime);
-		}).observe({ type: 'largest-contentful-paint', buffered: true });
+		// A buffered replay would report the navigation's LCP as if it were an input measurement.
+		if (spec.start === 'navigation')
+			new win.PerformanceObserver((list) => {
+				const last = list.getEntries().at(-1);
+				if (last) state.lcp = Math.round(last.startTime);
+			}).observe({ type: 'largest-contentful-paint', buffered: true });
 	} catch {
 		state.observerUnavailable = true;
 	}

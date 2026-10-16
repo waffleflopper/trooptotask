@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { gunzipSync, gzipSync } from 'node:zlib';
 import { test } from 'node:test';
-import { assertPageBound, count, perfCommand } from './perf-command.mjs';
+import { assertPageBound, controlUid, count, journeyTerms, perfCommand } from './perf-command.mjs';
 
 const perfPages = { 3: 'perfWide' };
 
@@ -33,6 +33,28 @@ test('repetitions need at least one sample while warm-up may be none', () => {
 
 const password = 'Synthetic-trace-password-1!';
 
+const ledger = {
+	organizationId: 'org',
+	name: 'Performance Workload Small',
+	anchor: '2026-10-16',
+	sentinels: { wide: 'Able, Alex', scoped: 'Baker, Bo' },
+	searchTerms: { wide: 'Able', scoped: 'Baker' },
+	journeyTerms: {
+		assignment: {
+			control: 'Select CQ assignee for 2026-10-01',
+			original: { label: 'SPC Baker, Bo - Alpha', search: 'Baker' },
+			alternate: { label: '2LT Cole, Cy - Alpha', search: 'Cole' }
+		},
+		edit: {
+			wide: { row: 'Open SPC Able, Alex', original: '68W', alternate: '42A' },
+			scoped: { row: 'Open SPC Baker, Bo', original: '11B', alternate: '42A' }
+		},
+		population: { wide: 20, scoped: 10 },
+		members: 5,
+		filter: { term: '68W', rows: { wide: 3, scoped: 1 } }
+	}
+};
+
 async function traceScenario({ trace, failNavigation = false }) {
 	const repository = await fs.mkdtemp(path.join(os.tmpdir(), 'perf-trace-'));
 	const evidenceRoot = path.join(repository, '.verification', 'evidence');
@@ -45,13 +67,7 @@ async function traceScenario({ trace, failNavigation = false }) {
 		session,
 		doctor: { origin: 'http://127.0.0.1:4000', candidate: 'abc' },
 		ownedState: {
-			workloads: {
-				small: {
-					organizationId: 'org',
-					sentinels: { wide: 'Able, Alex', scoped: 'Baker, Bo' },
-					searchTerms: { wide: 'Able', scoped: 'Baker' }
-				}
-			}
+			workloads: { small: ledger }
 		},
 		isUnderEvidence: async (file, root) => file.startsWith(root + path.sep),
 		credentials: () => ({ email: 'wide@example.test', password }),
@@ -128,7 +144,7 @@ test('a run directory outside the evidence root is rejected before any sample', 
 		evidenceRoot: '/repo/evidence',
 		isUnderEvidence: async () => false,
 		ownedState: {
-			workloads: { small: { organizationId: 'o', sentinels: {}, searchTerms: {} } },
+			workloads: { small: ledger },
 			perfPages: { 1: 'perfWide' }
 		},
 		doctor: { origin: 'http://127.0.0.1:4000' },
@@ -139,4 +155,74 @@ test('a run directory outside the evidence root is rejected before any sample', 
 		['interaction', '1', 'small', 'personnel-search', 'perfWide', '--out', '/tmp']
 	])
 		await assert.rejects(perfCommand(args, ctx), /Performance output must be under/);
+});
+
+const snapshot = [
+	'uid=1_0 RootWebArea "Personnel"',
+	'  uid=1_1 searchbox "Search by name, rank, MOS, role, or group"',
+	'  uid=1_2 row "Open SPC Able, Alex"',
+	'    uid=1_3 button "Edit"',
+	'    uid=1_4 button "Details"',
+	'  uid=1_5 row "Open PVT Cole, Cy"',
+	'    uid=1_6 button "Edit"',
+	'  uid=1_7 menuitem "PW Performance Workload Typical Owner"'
+].join('\n');
+
+test('a control is found by its exact name, inside a named row, or by part of its name', () => {
+	assert.equal(controlUid(snapshot, { role: 'button', name: 'Edit' }), '1_3');
+	assert.equal(
+		controlUid(snapshot, { role: 'button', name: 'Edit', within: { role: 'row', name: 'Open PVT Cole, Cy' } }),
+		'1_6'
+	);
+	assert.equal(controlUid(snapshot, { role: 'menuitem', name: 'Performance Workload Typical', partial: true }), '1_7');
+	assert.throws(() => controlUid(snapshot, { role: 'menuitem', name: 'Performance Workload Typical' }), {
+		message: 'No menuitem "Performance Workload Typical" on the page.'
+	});
+	assert.throws(
+		() => controlUid(snapshot, { role: 'button', name: 'Details', within: { role: 'row', name: 'Open PVT Cole, Cy' } }),
+		{ message: 'No button "Details" on the page inside Open PVT Cole, Cy.' }
+	);
+});
+
+test('journey terms carry the actor scope and switch from another seeded workload', () => {
+	const seeded = {
+		small: ledger,
+		typical: { ...ledger, organizationId: 'typical-org', sentinels: { wide: 'Dunn, Di', scoped: 'Eve, Ed' } }
+	};
+	const scoped = journeyTerms(seeded, 'small', 'perfScoped');
+	assert.equal(scoped.sentinel, 'Baker, Bo');
+	assert.equal(scoped.population, 10);
+	assert.deepEqual(scoped.filter, { term: '68W', rows: 1 });
+	assert.equal(scoped.rosterPaused, false);
+	assert.deepEqual(scoped.switchFrom, { organizationId: 'typical-org', sentinel: 'Eve, Ed' });
+	assert.deepEqual(journeyTerms({ large: ledger }, 'large', 'perfWide').rosterPaused, true);
+	assert.equal(journeyTerms(seeded, 'small', 'platformReviewer').sentinel, undefined);
+});
+
+test('a journey outside the cold set is refused cold before any browser call', async () => {
+	const ctx = {
+		repository: '/repo',
+		evidenceRoot: '/repo/.verification/evidence',
+		isUnderEvidence: async () => true,
+		ownedState: { workloads: { small: ledger } },
+		doctor: { origin: 'http://127.0.0.1:4000' },
+		tool: async () => assert.fail('no browser call for a refused cold run')
+	};
+	await assert.rejects(
+		perfCommand(
+			[
+				'load',
+				'1',
+				'small',
+				'training-report',
+				'perfWide',
+				'--mode',
+				'cold',
+				'--out',
+				'/repo/.verification/evidence/run'
+			],
+			ctx
+		),
+		{ message: 'training-report is not measured cold: the app sign-in limit leaves it warm only.' }
+	);
 });

@@ -1007,11 +1007,9 @@ async function main() {
 		if (text(arrival).includes('Timed out')) throw new Error('Destination did not become ready.');
 		const landed = await evaluate(state, pageId, '() => location.pathname');
 		const page = text(await tool(state, 'take_snapshot', { pageId }));
-		if (workload) {
-			const owned = await saved();
-			owned.perfPages = { ...owned.perfPages, [pageId]: role };
-			await save(owned);
-		}
+		const owned = await saved();
+		owned.perfPages = { ...owned.perfPages, [pageId]: role };
+		await save(owned);
 		note({
 			role,
 			pageId,
@@ -3050,6 +3048,8 @@ async function main() {
 				evidenceRoot,
 				isUnderEvidence,
 				ownedState: await saved(),
+				save,
+				provider,
 				credentials: (role) => ({ email: fixture.actors[role].email, password: fixture.actors[role].password }),
 				database: perfDatabase
 			})

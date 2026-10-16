@@ -8,6 +8,8 @@ import {
 	inFlight,
 	installSettledObserver,
 	statementTotals,
+	statementCategories,
+	statementCategory,
 	parseServerTiming,
 	redactTrace,
 	serverTimingPhases,
@@ -275,4 +277,118 @@ test('only a navigation observer measures LCP; an input observer would replay th
 	assert.deepEqual(loading.observed, ['longtask', 'largest-contentful-paint']);
 	assert.deepEqual(typing.observed, ['longtask']);
 	assert.equal(typing.__t2tPerfSettled.lcp, null);
+});
+
+test('each request-path statement lands in its category', () => {
+	const row = (role, query) => ({ role, query, calls: 1, total_ms: 1 });
+	const categories = [
+		row('supabase_auth_admin', 'SELECT users.aud FROM auth.users'),
+		row('supabase_admin', 'SET statement_timeout = $1'),
+		row('authenticator', 'BEGIN ISOLATION LEVEL READ COMMITTED READ ONLY'),
+		row('authenticated', "select set_config('search_path', $1, true)"),
+		row('authenticated', 'SELECT "public"."get_current_session_started_at"() pgrst_scalar'),
+		row('authenticated', 'LATERAL (SELECT "check_user_id" FROM json_to_record($1))'),
+		row(
+			'authenticated',
+			'SELECT "public"."organizations"."id", "public"."organizations"."suspended_at" FROM "public"."organizations"'
+		),
+		row(
+			'authenticated',
+			'SELECT "public"."organizations"."id", "public"."organizations"."name", "public"."organizations"."url_slug"'
+		),
+		row('authenticated', 'SELECT "public"."organizations"."loss_warning_window_days" FROM "public"."organizations"'),
+		row('authenticated', 'SELECT "public"."organization_memberships"."id" FROM "public"."organization_memberships"'),
+		row('postgres', 'SELECT 1')
+	].map(statementCategory);
+	assert.deepEqual(categories, [
+		'auth',
+		'control',
+		'postgrest',
+		'postgrest',
+		'session',
+		'suspension',
+		'organizations',
+		'organizations',
+		'page',
+		'memberships',
+		'other'
+	]);
+});
+
+test('category totals are distributions over the sample windows', () => {
+	const identity = {
+		role: 'authenticated',
+		query: 'SELECT "public"."organizations"."id", "public"."organizations"."name"'
+	};
+	const roster = { role: 'authenticated', query: 'SELECT "public"."personnel".* FROM "public"."personnel"' };
+	const result = statementCategories([
+		[
+			{ ...identity, calls: 2, total_ms: 0.25 },
+			{ ...roster, calls: 2, total_ms: 27.2 }
+		],
+		[{ ...identity, calls: 3, total_ms: 0.5 }]
+	]);
+	assert.deepEqual(result.organizations, {
+		calls: { n: 2, min: 2, median: 2.5, max: 3, samples: [2, 3] },
+		ms: { n: 2, min: 0.25, median: 0.375, max: 0.5, samples: [0.25, 0.5] }
+	});
+	assert.deepEqual(result.page.calls.samples, [2, 0]);
+	assert.deepEqual(result.auth.calls.samples, [0, 0]);
+});
+
+// A page whose body text and matching elements the test sets per frame.
+function livePage() {
+	const page = pageWindow();
+	const frames = [];
+	page.document = {
+		body: { textContent: '' },
+		matches: {},
+		querySelector: (selector) => page.document.matches[selector]?.[0] ?? null,
+		querySelectorAll: (selector) => page.document.matches[selector] ?? []
+	};
+	page.performance.now = () => 1000;
+	page.requestAnimationFrame = (callback) => frames.push(callback);
+	page.URL = { createObjectURL: () => 'blob:1' };
+	page.step = (now) => frames.shift()(now);
+	return page;
+}
+
+test('a milestone waits for its row text, exact row count and download', () => {
+	const page = livePage();
+	installSettledObserver(page, {
+		name: 'export',
+		start: 'navigation',
+		download: true,
+		milestones: [
+			{ name: 'rows', inside: { 'tr[aria-label="Open SPC Able, Alex"]': ['42A'] }, count: { tr: 2 } },
+			{ name: 'useful', download: true }
+		]
+	});
+	const row = { textContent: 'SPC Able, Alex 68W' };
+	page.document.matches = { 'tr[aria-label="Open SPC Able, Alex"]': [row], tr: [row, {}, {}] };
+	page.document.body.textContent = 'roster';
+	page.step(100);
+	row.textContent = 'SPC Able, Alex 42A';
+	page.step(200);
+	page.document.matches.tr = [row, {}];
+	page.step(300);
+	page.URL.createObjectURL({ size: 2048, type: 'application/json' });
+	page.step(400);
+	const state = page.__t2tPerfSettled;
+	assert.deepEqual(state.milestones, { rows: 300, useful: 400 });
+	assert.deepEqual(state.download, { at: 1000, bytes: 2048, type: 'application/json' });
+	assert.equal(state.done, true);
+});
+
+test('milestone text matches across markup whitespace', () => {
+	const page = livePage();
+	installSettledObserver(page, {
+		name: 'members',
+		start: 'navigation',
+		milestones: [{ name: 'useful', present: ['5 members'], inside: { dl: ['Saved 5', 'Failed 0'] } }]
+	});
+	page.document.matches = { dl: [{ textContent: 'Saved\n\t\t5Failed\n\t\t0' }] };
+	page.document.body.textContent = '5\n\t\t\tmembers';
+	page.step(100);
+	assert.deepEqual(page.__t2tPerfSettled.milestones, { useful: 100 });
 });

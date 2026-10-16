@@ -4,7 +4,6 @@ import { randomUUID } from 'node:crypto';
 import {
 	profiles,
 	protocol,
-	journeys,
 	installSettledObserver,
 	readSettledSample,
 	groupManifest,
@@ -15,14 +14,17 @@ import {
 	parseServerTiming,
 	failedRequests,
 	inFlight,
-	statementTotals
+	statementTotals,
+	statementCategories
 } from './perf-measure.mjs';
-import { workloads } from './perf-workloads.mjs';
+import { journeys, journeyFor, monthLabels } from './perf-journeys.mjs';
+import { workloads, importCsv, removeImported } from './perf-workloads.mjs';
 
 export const perfHelp = `Performance measurement on seeded workloads (recipe: features/performance.md)
 
 $V seed workload small|typical|large       Seed one synthetic Organization; clean-seeds removes it
 $V actor perfWide|perfScoped DESTINATION WORKLOAD   Sign in to that workload's Organization
+$V actor platformReviewer admin/users      Sign in the platform super-admin for admin-users
 $V perf workloads                          Print the workload table, profiles and protocol
 $V perf load PAGE WORKLOAD JOURNEY ACTOR --out RUN [--mode cold|warm] [--profile NAME] [--warmup N] [--reps N]
                                            Repeated page loads to the first useful render, then to app-origin
@@ -38,15 +40,20 @@ $V perf statements reset|read [--top N] [--out FILE]   pg_stat_statements on the
 $V perf explain NAME WORKLOAD wide|scoped [--out FILE] EXPLAIN (ANALYZE, BUFFERS) a named statement as the actor
 $V perf summarize RUN                      Distribution table over every run file below RUN
 
-JOURNEY: ${Object.entries(journeys)
-	.map(([name, journey]) => `${name} (${journey.kind})`)
+JOURNEY (kind, effect, actors; cold only where marked): ${Object.entries(journeys)
+	.map(
+		([name, journey]) =>
+			`${name} (${journey.kind}, ${journey.effect}, ${Object.keys(journey.actors)
+				.filter((actor) => !journey.actors[actor])
+				.join('/')}${journey.cold ? ', cold' : ''})`
+	)
 	.join(', ')}
-ACTOR: perfWide (Organization owner) or perfScoped (operate, one Group). A warm load and an interaction
-require PAGE to be one that the actor command signed in as that ACTOR; a mismatch is rejected.
+ACTOR: perfWide (Organization owner), perfScoped (operate, one Group) or platformReviewer (platform
+super-admin). A journey refuses an actor it does not apply to, with the reason. A warm load and an
+interaction require PAGE to be one that the actor command signed in as that ACTOR; a mismatch is rejected.
+Cold loads run only for journeys marked cold; the sign-in limit leaves the rest warm only.
 Profiles: ${Object.keys(profiles).join(', ')}. Defaults: warm and interaction warm-up ${protocol.defaults.warm.warmup}, repetitions ${protocol.defaults.warm.repetitions}; cold warm-up ${protocol.defaults.cold.warmup}, repetitions ${protocol.defaults.cold.repetitions}.
 RUN and FILE must be under .verification/evidence/verify-trooptotask/.`;
-
-const actors = { perfWide: 'wide', perfScoped: 'scoped' };
 
 function parse(args) {
 	const positional = [];
@@ -84,16 +91,45 @@ async function runDirectory(ctx, options) {
 	return out;
 }
 
+const scopes = { perfWide: 'wide', perfScoped: 'scoped', platformReviewer: null };
+
+/** What a journey needs to know about one seeded workload as one actor, all from the seed ledger. */
+export function journeyTerms(seeded, workload, actor) {
+	const item = seeded[workload];
+	const scope = scopes[actor];
+	const shape = workloads[workload];
+	const terms = {
+		organizationId: item.organizationId,
+		organizationName: item.name,
+		month: monthLabels(item.anchor),
+		assignment: item.journeyTerms.assignment,
+		members: item.journeyTerms.members
+	};
+	if (!scope) return terms;
+	const from = Object.entries(seeded).find(([name]) => name !== workload)?.[1];
+	return {
+		...terms,
+		sentinel: item.sentinels[scope],
+		searchTerm: item.searchTerms[scope],
+		rosterPaused: scope === 'wide' && shape.groups * shape.personnelPerGroup > 250,
+		edit: item.journeyTerms.edit[scope],
+		population: item.journeyTerms.population[scope],
+		filter: { term: item.journeyTerms.filter.term, rows: item.journeyTerms.filter.rows[scope] },
+		switchFrom: from && { organizationId: from.organizationId, sentinel: from.sentinels[scope] }
+	};
+}
+
 function target(ctx, positional, kind) {
 	const [page, workload, journeyName, actor] = positional;
 	const pageId = Number(page);
 	const item = ctx.ownedState.workloads?.[workload];
-	const journey = journeys[journeyName];
 	if (!Number.isSafeInteger(pageId) || pageId < 1) throw new Error('Use the actual page ID.');
 	if (!item) throw new Error(`Workload ${workload} is not seeded; run seed workload ${workload}.`);
-	if (journey?.kind !== kind) throw new Error(`Use a ${kind} journey: ${Object.keys(journeys).join(', ')}.`);
-	if (!actors[actor]) throw new Error('Use perfWide or perfScoped, the actor signed in on that page.');
-	const scope = actors[actor];
+	if (!(actor in scopes)) throw new Error(`Use ${Object.keys(scopes).join(', ')}, the actor signed in on that page.`);
+	const journey = journeyFor(journeyName, actor, kind);
+	const terms = journeyTerms(ctx.ownedState.workloads, workload, actor);
+	if (journey.area === 'organization' && !terms.switchFrom)
+		throw new Error('Organization switching needs a second seeded workload to switch from.');
 	return {
 		pageId,
 		workload,
@@ -101,8 +137,8 @@ function target(ctx, positional, kind) {
 		journeyName,
 		journey,
 		actor,
-		url: `${ctx.doctor.origin}/org/${item.organizationId}${journey.path ? `/${journey.path}` : ''}`,
-		context: { sentinel: item.sentinels[scope], searchTerm: item.searchTerms[scope] }
+		terms,
+		url: () => `${ctx.doctor.origin}${journey.path(terms)}`
 	};
 }
 
@@ -179,8 +215,11 @@ async function settle(ctx, pageId) {
 // per minute (hooks.server.ts), and every sample comes from loopback. Samples start at least
 // 6 s apart, and cold sign-ins stay at 8 in any 15 minutes, leaving room for actor sign-ins.
 const sampleSpacingMs = 6000;
-const signInWindowMs = 15 * 60_000;
-const signInBudget = 8;
+// Organization exports share a separate fixed 10-per-hour window.
+const limits = {
+	signIn: { file: 'perf-sign-ins.json', windowMs: 15 * 60_000, budget: 8 },
+	export: { file: 'perf-exports.json', windowMs: 60 * 60_000, budget: 10 }
+};
 
 async function waitUntil(at) {
 	const wait = at - Date.now();
@@ -193,13 +232,15 @@ async function paceSample(ctx) {
 	await fs.writeFile(file, String(Date.now()), { mode: 0o600 });
 }
 
-async function signInSlot(ctx) {
-	const file = path.join(ctx.session, 'perf-sign-ins.json');
-	const recent = JSON.parse(await fs.readFile(file, 'utf8').catch(() => '[]')).filter(
-		(at) => Date.now() - at < signInWindowMs
+/** Waits until one more request fits a limit within any window, which also fits a fixed window. */
+async function limitSlot(ctx, name) {
+	const { file, windowMs, budget } = limits[name];
+	const journal = path.join(ctx.session, file);
+	const recent = JSON.parse(await fs.readFile(journal, 'utf8').catch(() => '[]')).filter(
+		(at) => Date.now() - at < windowMs
 	);
-	if (recent.length >= signInBudget) await waitUntil(recent[recent.length - signInBudget] + signInWindowMs + 1000);
-	await fs.writeFile(file, JSON.stringify([...recent, Date.now()].slice(-signInBudget)), { mode: 0o600 });
+	if (recent.length >= budget) await waitUntil(recent[recent.length - budget] + windowMs + 1000);
+	await fs.writeFile(journal, JSON.stringify([...recent, Date.now()].slice(-budget)), { mode: 0o600 });
 }
 
 // Chrome serves content-hashed /_app/immutable assets from cache on every reload, including a
@@ -208,7 +249,7 @@ async function signInSlot(ctx) {
 // image page's automatic /favicon.ico request is redirected to /auth/login, whose Link headers
 // preload the shared entry CSS and JS, as for any visitor arriving through sign-in.
 async function coldPage(ctx, run, profileName) {
-	await signInSlot(ctx);
+	await limitSlot(ctx, 'signIn');
 	const created = ctx.text(
 		await ctx.tool('new_page', {
 			url: `${ctx.doctor.origin}/og-image.png`,
@@ -290,6 +331,7 @@ function measured(
 			ctx.doctor.origin
 		),
 		milestones: observer?.milestones ?? {},
+		download: observer?.download ?? null,
 		startEvent: observer?.startEvent ?? null,
 		observerFrames: observer?.frames ?? 0,
 		navigation:
@@ -326,6 +368,13 @@ function summarize(samples, interaction) {
 					firstContentfulPaintMs: field((sample) => sample.paint?.['first-contentful-paint']),
 					largestContentfulPaintMs: field((sample) => sample.largestContentfulPaintMs)
 				}),
+		milestones: Object.fromEntries(
+			[...new Set(samples.flatMap((sample) => Object.keys(sample.milestones)))].map((name) => [
+				name,
+				field((sample) => sample.milestones[name])
+			])
+		),
+		downloadBytes: field((sample) => sample.download?.bytes),
 		longTaskTotalMs: field((sample) => sample.longTasks.reduce((total, task) => total + task.duration, 0)),
 		resourceEntries: field((sample) => sample.manifest.resourceEntries),
 		networkRequests: field((sample) => sample.manifest.networkRequests),
@@ -352,10 +401,11 @@ async function repeat(options, mode, once) {
 	const defaults = protocol.defaults[mode] ?? protocol.defaults.warm;
 	const warmup = count(options.warmup, defaults.warmup, '--warmup');
 	const repetitions = count(options.reps, defaults.repetitions, '--reps', 1);
-	for (let index = 0; index < warmup; index++) await once(false);
+	for (let index = 0; index < warmup; index++) await once(false, index);
 	const samples = [];
-	for (let index = 0; index < repetitions; index++) samples.push(await once(true));
-	const statements = statementTotals(samples.map((sample) => sample.statementRows));
+	for (let index = 0; index < repetitions; index++) samples.push(await once(true, warmup + index));
+	const windows = samples.map((sample) => sample.statementRows);
+	const statements = { ...statementTotals(windows), byCategory: statementCategories(windows) };
 	return {
 		warmup,
 		repetitions,
@@ -392,6 +442,7 @@ async function record(ctx, run, out, mode, result, profileName) {
 		warmup: result.warmup,
 		repetitions: result.repetitions,
 		milestones: result.milestones,
+		...(result.resets ? { resets: result.resets } : {}),
 		summary,
 		samples: result.samples,
 		statements: result.statements
@@ -418,9 +469,11 @@ async function load(ctx, positional, options) {
 	const out = await runDirectory(ctx, options);
 	const mode = options.mode ?? 'warm';
 	if (!protocol.modes[mode]) throw new Error('Use --mode cold or --mode warm.');
+	if (mode === 'cold' && !run.journey.cold)
+		throw new Error(`${run.journeyName} is not measured cold: the app sign-in limit leaves it warm only.`);
 	if (mode === 'warm') assertPageBound(ctx.ownedState.perfPages, run);
 	const profileName = options.profile ?? 'unthrottled';
-	const milestones = run.journey.milestones(run.context);
+	const milestones = run.journey.milestones(run.terms);
 	const initScript = observerScript({ name: run.journeyName, start: 'navigation', milestones });
 	if (mode === 'warm') await emulate(ctx, run.pageId, profileName);
 	try {
@@ -430,7 +483,7 @@ async function load(ctx, positional, options) {
 			try {
 				await openStatements(ctx, measure);
 				const offset = await appLogSize(ctx);
-				await ctx.tool('navigate_page', { pageId, type: 'url', url: run.url, initScript });
+				await ctx.tool('navigate_page', { pageId, type: 'url', url: run.url(), initScript });
 				const sample = await settle(ctx, pageId);
 				const statements = await closeStatements(ctx, measure);
 				return measured(ctx, run, sample, await appLogFrom(ctx, offset), statements);
@@ -446,41 +499,88 @@ async function load(ctx, positional, options) {
 }
 
 // The paused grouped roster repeats the toolbar search inside its notice; the toolbar one
-// comes first in document order in both states.
-function controlUid(snapshot, { role, name }) {
-	const match = snapshot.split('\n').find((line) => line.includes(`${role} ${JSON.stringify(name)}`));
-	if (!match) throw new Error(`No ${role} "${name}" on the page.`);
+// comes first in document order in both states. A control `within` a row is the first match
+// nested below that row's line; a `partial` name matches an accessible name that contains it.
+export function controlUid(snapshot, { role, name, within, partial }) {
+	let lines = snapshot.split('\n');
+	const depth = (line) => line.length - line.trimStart().length;
+	if (within) {
+		const start = lines.findIndex((line) => line.includes(`${within.role} ${JSON.stringify(within.name)}`));
+		if (start < 0) throw new Error(`No ${within.role} "${within.name}" on the page.`);
+		const end = lines.findIndex((line, index) => index > start && depth(line) <= depth(lines[start]));
+		lines = lines.slice(start + 1, end < 0 ? undefined : end);
+	}
+	const exact = `${role} ${JSON.stringify(name)}`;
+	const match = lines.find((line) =>
+		partial ? line.includes(`${role} "`) && line.split(`${role} "`)[1].includes(name) : line.includes(exact)
+	);
+	if (!match) throw new Error(`No ${role} "${name}" on the page${within ? ` inside ${within.name}` : ''}.`);
 	return match.match(/uid=([^\s]+)/)[1];
 }
+
+/** Runs one native step from the registry on the page. */
+async function step(ctx, pageId, action) {
+	if (action.wait) {
+		const reply = ctx.text(await ctx.tool('wait_for', { pageId, text: action.wait, timeout: 30000 }));
+		if (reply.includes('Timed out')) throw new Error(`Timed out waiting for ${action.wait.join(' or ')}.`);
+		return;
+	}
+	if (action.type !== undefined) return ctx.tool('type_text', { pageId, text: action.type });
+	if (action.press) return ctx.tool('press_key', { pageId, key: action.press });
+	const control = action.click ?? action.fill ?? action.upload;
+	const uid = controlUid(ctx.text(await ctx.tool('take_snapshot', { pageId })), control);
+	if (action.click) return ctx.tool('click', { pageId, uid });
+	if (action.fill) return ctx.tool('fill', { pageId, uid, value: action.value });
+	return ctx.tool('upload_file', { pageId, uid, filePaths: [action.file] });
+}
+
+const resetActions = {
+	// The import adds new People every time, so each sample removes them and reads back their absence.
+	'imported-personnel': async (ctx, run) =>
+		removeImported({ client: await ctx.provider(), ownedState: ctx.ownedState, save: ctx.save, workload: run.workload })
+};
 
 async function interaction(ctx, positional, options) {
 	const run = target(ctx, positional, 'interaction');
 	const out = await runDirectory(ctx, options);
 	assertPageBound(ctx.ownedState.perfPages, run);
 	const profileName = options.profile ?? 'unthrottled';
-	const milestones = run.journey.milestones(run.context);
+	if (run.journey.reset === 'imported-personnel') {
+		const csv = importCsv(run.workload, run.item.anchor);
+		const file = path.join(out, 'inputs', `import-${run.workload}.csv`);
+		await writeEvidence(ctx, file, csv.text);
+		run.terms.importFile = { path: file, rows: csv.rows };
+	}
 	const ready = observerScript({
 		name: `${run.journeyName}:ready`,
 		start: 'navigation',
-		milestones: run.journey.ready(run.context)
+		milestones: run.journey.ready(run.terms)
 	});
-	const armed = { name: run.journeyName, start: 'input', milestones };
+	const resets = [];
 	await emulate(ctx, run.pageId, profileName);
 	try {
-		const once = async (measure) => {
+		const once = async (measure, index) => {
+			const milestones = run.journey.milestones(run.terms, index);
 			await paceSample(ctx);
-			await ctx.tool('navigate_page', { pageId: run.pageId, type: 'url', url: run.url, initScript: ready });
+			await ctx.tool('navigate_page', { pageId: run.pageId, type: 'url', url: run.url(), initScript: ready });
 			const before = await settle(ctx, run.pageId);
 			if (!before.useful) throw new Error(`${run.journeyName} never reached its ready milestone.`);
 			if (!before.network.idle) throw new Error(`${run.journeyName} never reached network idle before input.`);
-			await ctx.evaluate(run.pageId, `() => { ${observerScript(armed)} return true; }`);
-			const uid = controlUid(ctx.text(await ctx.tool('take_snapshot', { pageId: run.pageId })), run.journey.control);
-			const afterRequestId = Math.max(0, ...before.network.listed.map((row) => row.requestId));
+			for (const action of run.journey.prepare?.(run.terms, index) ?? []) await step(ctx, run.pageId, action);
+			const prepared = await drain(ctx, run.pageId);
+			if (!prepared.idle) throw new Error(`${run.journeyName} never reached network idle after its preparation.`);
+			await ctx.evaluate(
+				run.pageId,
+				`() => { ${observerScript({ name: run.journeyName, start: 'input', milestones, download: milestones.some((milestone) => milestone.download) })} return true; }`
+			);
+			const afterRequestId = Math.max(0, ...prepared.listed.map((row) => row.requestId));
+			if (run.journey.limit) await limitSlot(ctx, run.journey.limit);
 			await openStatements(ctx, measure);
 			const offset = await appLogSize(ctx);
-			await ctx.tool('fill', { pageId: run.pageId, uid, value: run.journey.input(run.context) });
+			await step(ctx, run.pageId, run.journey.trigger(run.terms, index));
 			const sample = await settle(ctx, run.pageId);
 			const statements = await closeStatements(ctx, measure);
+			if (run.journey.reset) resets.push(await resetActions[run.journey.reset](ctx, run));
 			return measured(ctx, run, sample, await appLogFrom(ctx, offset), statements, {
 				interaction: true,
 				since: sample.observer?.startedAt ?? 0,
@@ -488,7 +588,14 @@ async function interaction(ctx, positional, options) {
 			});
 		};
 		const result = await repeat(options, 'warm', once);
-		return record(ctx, run, out, 'interaction', { ...result, milestones }, profileName);
+		return record(
+			ctx,
+			run,
+			out,
+			'interaction',
+			{ ...result, milestones: run.journey.milestones(run.terms, 0), resets },
+			profileName
+		);
 	} finally {
 		await emulate(ctx, run.pageId, 'unthrottled');
 	}
@@ -497,7 +604,7 @@ async function interaction(ctx, positional, options) {
 async function trace(ctx, positional, options) {
 	const run = target(ctx, positional, 'load');
 	const profileName = options.profile ?? 'unthrottled';
-	const milestones = run.journey.milestones(run.context);
+	const milestones = run.journey.milestones(run.terms);
 	const initScript = observerScript({ name: run.journeyName, start: 'navigation', milestones });
 	const base = path.join(
 		await runDirectory(ctx, options),
@@ -518,7 +625,7 @@ async function trace(ctx, positional, options) {
 	try {
 		await ctx.tool('performance_start_trace', { pageId, reload: false, autoStop: false });
 		tracing = true;
-		await ctx.tool('navigate_page', { pageId, type: 'url', url: run.url, initScript });
+		await ctx.tool('navigate_page', { pageId, type: 'url', url: run.url(), initScript });
 		const sample = await settle(ctx, pageId);
 		const insights = ctx.text(await ctx.tool('performance_stop_trace', { pageId, filePath: raw }));
 		tracing = false;
@@ -564,7 +671,9 @@ async function files(directory) {
 	return nested.flat();
 }
 
-const range = (value) => (value?.n ? `${value.median} (${value.min}–${value.max})` : 'not measured');
+// Browser times carry sub-millisecond float noise; the table reports whole milliseconds and bytes.
+const range = (value) =>
+	value?.n ? `${Math.round(value.median)} (${Math.round(value.min)}–${Math.round(value.max)})` : 'not measured';
 
 async function summarizeRun(ctx, directory) {
 	const root = path.resolve(ctx.repository, directory ?? '');
@@ -599,8 +708,11 @@ async function summarizeRun(ctx, directory) {
 		jsTransferBytes: run.summary.groups.js?.transferBytes,
 		dataTransferBytes: run.summary.groups.data?.transferBytes,
 		documentTransferBytes: run.summary.groups.document?.transferBytes,
+		milestones: run.summary.milestones,
+		downloadBytes: run.summary.downloadBytes,
 		serverTiming: run.summary.serverTiming,
 		statementsByRole: run.statements.byRole,
+		statementsByCategory: run.statements.byCategory,
 		topStatementsByCalls: run.statements.byCalls.slice(0, 3).map(({ role, calls, callsPerWindow, mean_ms, query }) => ({
 			role,
 			calls,
@@ -643,8 +755,24 @@ async function summarizeRun(ctx, directory) {
 				`| ${item.workload} | ${item.actor} | ${item.journey} | ${item.profile.name} | ${item.firstUsefulRenderMs} | ${item.networkIdle} | ${item.trace.firstContentfulPaintMs} | ${item.trace.largestContentfulPaintMs} | ${item.trace.mainThreadBusyMs} | ${item.trace.scriptingMs} | ${item.trace.longTasks?.count} (${item.trace.longTasks?.totalMs}) |`
 		)
 	].join('\n');
+	const categories = Object.keys(rows.find((row) => row.statementsByCategory)?.statementsByCategory ?? {});
+	const categoryTable = [
+		`| Workload | Actor | Journey | Mode | ${categories.map((name) => `${name} calls (ms)`).join(' | ')} |`,
+		`| --- | --- | --- | --- | ${categories.map(() => '---').join(' | ')} |`,
+		...rows
+			.filter((row) => row.statementsByCategory)
+			.map(
+				(row) =>
+					`| ${row.workload} | ${row.actor} | ${row.journey} | ${row.mode} | ${categories
+						.map((name) => {
+							const { calls, ms } = row.statementsByCategory[name];
+							return calls.n ? `${calls.median} (${ms.median})` : 'not measured';
+						})
+						.join(' | ')} |`
+			)
+	].join('\n');
 	await writeEvidence(ctx, path.join(root, 'summary.json'), { runs: rows, traces });
-	await writeEvidence(ctx, path.join(root, 'summary.md'), `${table}\n\n${traceTable}\n`);
+	await writeEvidence(ctx, path.join(root, 'summary.md'), `${table}\n\n${categoryTable}\n\n${traceTable}\n`);
 	return { runs: rows.length, traces: traces.length, files: ['summary.json', 'summary.md'] };
 }
 

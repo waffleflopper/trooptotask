@@ -10,6 +10,55 @@ Activated for planning on 2026-10-15 under #1275 and parent [#1285](https://gith
 
 Activation refreshed source observations only; it took no runtime measurement. Each child records its current owners, at `d8b45a7c3`, as hypotheses. F05 persists under renamed owners (`loadPersonnelWorkspace`, `selectAllSupabaseRows`, Training briefing detail). #1559 and #1572 are source-confirmed, and #1570 is source-confirmed on main. Calendar redesign slices #1692, #1697 and #1699 are on `feat/calendar-redesign`, not main, and that branch replaces most #1570 targets. Exports already load ExcelJS and jsPDF on demand. The verification harness already measures a production build and preview; representative workloads and server/query capture are D01 work.
 
+## 12-BASE D01 baseline
+
+**Baseline recorded on unchanged main.** Refs [#1705](https://github.com/waffleflopper/trooptotask/issues/1705). PR 2 adds one declarative journey registry (`helpers/perf-journeys.mjs`) covering every #1705 journey, and records the baseline per workload and applicable actor on main `274939fcb`. It changes no application source. Per-run tables are in the archive's `summary.md`. The classification, hypotheses and limits are in `analysis/d01-classification.md`.
+
+**Environment.** Candidate `10ada5bf9c8c92e22e87be1f178da60ddffb7beb9a1bc7841c15f2b0af4fc78e`, the application content of `274939fcb`, on worker 1. The run went from 17:48Z to 22:31Z on 2026-10-16 over three provider generations, with origins `127.0.0.1:32895`, `:46019` and `:37995`. A read-only diagnostic followed on `:34655`. Software: Chromium 152.0.7977.82 headless, Node 24.22.0, Supabase CLI 2.101.0, PostgreSQL 17.6 (`supabase/postgres:17.6.1.106`) and pg_stat_statements 1.11, on an AMD Ryzen 7 7800X3D with 16 threads and 30 GB.
+
+**Gate.** Before every batch, 150 checks in all, the gate recorded `uptime` and `pgrep -af` for other builds, previews, verify daemons and test workers. It waited while the load was 4 or more, or while those processes used 25% CPU or more. Ten waits fell between 17:49Z and 18:25Z, and every batch proceeded at a load of 3.94 or less. One batch overlapped another worktree's idle-to-light node process: small wide Personnel list warm, 18:20Z. Its values match PR 1 and its scoped twin.
+
+**Method.** The method is PR 1's, unchanged. Warm runs use 1 warm-up and 5 samples for every journey. Cold runs use 3 samples, each a fresh context, for Calendar initial, Personnel list and Dashboard only. Every other journey is not measured cold, because the auth rate limit allows warm only. Each sample has two settle points and its own statement window, and request counts exclude cache hits. Write journeys toggle between the seeded value and one alternate. Import uploads a quarter-roster CSV (5, 25 or 100 rows), then journals and deletes the added People with a readback. The write proof run (`d01-writeproof-20261016`, small, both actors) read back `app.personnel` 42/0, `app.audit_logs` 18/0 and `app.daily_assignments` 362/0. Seeding inserted 899, 5,140 and 27,492 rows, as in PR 1. The final `clean-seeds` read back 27 tables per workload, with 1,283, 5,974 and 29,026 seeded or journaled rows and 0 remaining. Close-out ran in order: final doctor PASS, then owned cleanup PASS.
+
+**Threshold.** #1285 sets no number. A warm median is a demonstrated bottleneck in two cases. A load, or an interaction ending in a server result, crosses it at 1000 ms (RAIL load, with no network latency here). A feedback interaction crosses it at 200 ms useful (INP good) or 1000 ms settled. Anything below that is no material cost. Source-confirmed repeats below the bound are recorded as redundant work.
+
+| Journey (warm useful / settled ms)          | small             | typical                      | large wide                            | large scoped        | Class                                           |
+| ------------------------------------------- | ----------------- | ---------------------------- | ------------------------------------- | ------------------- | ----------------------------------------------- |
+| Dashboard                                   | 183 / 227         | wide 1137, scoped 616 / 646  | 28256 (cold 25431)                    | 3507 / 3557         | Bottleneck: typical wide, large                 |
+| Training report                             | 136 / 303         | wide 1060 / 1245, scoped 569 | not measured, TTFB 33463              | 3449 / 3614         | Bottleneck: typical wide, large                 |
+| Critical Tasks report                       | 149 / 393         | wide 491 / 1710, scoped 231  | 2680 / 2974, document open about 45 s | 379 / 635           | Bottleneck: typical and large wide              |
+| Workbook export                             | 116               | wide 1082, scoped 565        | blocked                               | 3615                | Bottleneck: typical wide, large                 |
+| Organization export (download)              | 282 (0.8 MB)      | 2116 (5.2 MB)                | 37164 (28.8 MB)                       | not applicable      | Bottleneck: typical, large                      |
+| Assignment save                             | 12 / 539          | 36 / 906                     | 115 / 1155                            | 14 / 833            | Bottleneck: large wide settled                  |
+| Calendar initial                            | 152 / 206         | 183 / 239                    | 928 / 928 (cold 1127)                 | 271 / 321           | No material cost                                |
+| Calendar range, 3-month search              | 66; 14            | 166; 114 wide                | 149; 131                              | 82; 14              | No material cost; #1570 rebuild redundant       |
+| Personnel list                              | 90 / 146          | 101 / 157                    | 200 / 251 (cold 226 / 496)            | 175 / 224           | No material cost; F05 redundant                 |
+| Personnel search, filter, large table       | 14, 14, 16        | 14, 31 wide, 16              | 31, 181, 49                           | 14, 14, 16          | No material cost                                |
+| Personnel detail, edit, detail edit, import | 66, 82, 116, 66   | 65, 116, 182, 115            | 65, 216, 349, 232                     | n/a, 216, n/a, 132  | No material cost; lane repeats, #1572 redundant |
+| Members list, platform users                | 67 / 162, 60      | 69 / 172, 55                 | 86 / 214, 59                          | not applicable      | No material cost                                |
+| Sidebar navigation, Organization switch     | 16 / 52, 99 / 144 | 82, 99 / 135                 | 182, 182 / 230                        | 16 / 150, 165 / 209 | No material cost; `organizations` read twice    |
+
+**Limiter.** Every bottleneck except assignment save is a paged completion read. `selectAllSupabaseRows` pages sequentially by `range()`. Each page re-filters every Organization row through a `SECURITY DEFINER` RLS function. On large, EXPLAIN puts it at 0.33 ms per row for Training (9,554 rows, 3,194 ms) and 0.34 ms per scanned row for Critical Tasks (13,401 rows, 4,616 ms scoped for 850 visible). Large wide Dashboard ran 10 Training pages at 2,761 ms. The Training report ran 10 at 3,339 ms. The Critical Tasks layout streams an unused workspace on `/reports` that pages its RPC 10 times at 4,572 ms. Assignment save is one RPC, `replace_daily_assignment_slots`, whose time grows with the Organization's assignment rows (482, 837 and 1,136 ms). Main thread and payload are ruled out per cell in the analysis.
+
+**Hypotheses.** Supported as limiters: unbounded `selectAllSupabaseRows` paging, the Dashboard summary reading every Training completion, Critical Tasks report bounds and Organization export. Supported but immaterial: F05's duplicate roster read, the twice-read `organizations`, five per-lane `findById` reads, `invalidateAll()` after detail edit and the #1570 Calendar rebuilds. Unsupported: sequential identity reads and the Dashboard bootstrap-then-summary wait as material costs, the unchunked Critical Tasks ID filter (50 by 50 per request), the Training matrix built before pagination as the limiter, and admin or member lists at these sizes. Not measured: Training briefing detail, #1559, the Phase 10 nine-second pending gap and long Calendar report ranges.
+
+**Not measured.**
+
+- Cold for all journeys but three (auth rate limit).
+- Training report and workbook export, large wide: the 33 s document exceeds the sampler's 30 s deadline.
+- Scoped detail, detail edit, members list and Organization export: not applicable, 403.
+- Network throttling, empty-cache loads, hydration timing and production delivery.
+
+**Limits found.** `vite preview` gzips streamed documents without flushing, so a small first chunk waits for the stream end. Large scoped Dashboard first paints at 3.7 s, and its `pending` point is a harness artifact. Settled does not wait for a still-streaming document. Both limits are recorded in the [performance recipe](../../.agents/skills/verify-trooptotask/features/performance.md#gotchas).
+
+**Surprises.** A 28 s streamed Dashboard summary crashed the preview's Node process at 21:37Z: a session refresh inside the stream called `cookies.set` after the response, through `src/hooks.server.ts:69-71`. An earlier supervisor loss at 19:36Z left no log line, and its cause is not determined. Each recovery ran owned cleanup, restarted the same candidate, reseeded and resumed after the last complete file. The Personnel list shows `Details` to a Group-scoped operator, whose detail page answers 403. The Critical Tasks export pages without an order.
+
+**Archive.** `d01-baseline-20261016.tar.gz` holds the run, the write proof, the diagnostic and the driver and analysis scripts, plus `INVENTORY.sha256`.
+
+- URL `ARCHIVE_URL`
+- SHA-256 `ARCHIVE_SHA256`
+- To verify, check the archive's SHA-256, extract it into an empty directory and run `sha256sum -c INVENTORY.sha256`.
+
 ## 12-BASE D01 PR 1 measurement capability and pilot
 
 **Capability delivered; baseline not yet recorded.** Refs [#1705](https://github.com/waffleflopper/trooptotask/issues/1705). PR 1 adds three seeded workloads, the [performance recipe](../../.agents/skills/verify-trooptotask/features/performance.md) and its `perf` controls. It changes no application source. The pilot proves that every control runs on every workload as both actors. Its numbers are a first observation, not the D01 baseline.

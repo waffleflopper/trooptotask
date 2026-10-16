@@ -3,7 +3,10 @@ import { gunzipSync, gzipSync } from 'node:zlib';
 import { test } from 'node:test';
 import {
 	distribution,
+	failedRequests,
 	groupManifest,
+	inFlight,
+	statementTotals,
 	parseServerTiming,
 	redactTrace,
 	serverTimingPhases,
@@ -11,9 +14,10 @@ import {
 } from './perf-measure.mjs';
 
 const origin = 'http://127.0.0.1:4000';
-const entry = (name, initiatorType, transferSize, encodedBodySize, decodedBodySize) => ({
+const entry = (name, initiatorType, transferSize, encodedBodySize, decodedBodySize, responseStatus = 200) => ({
 	name,
 	initiatorType,
+	responseStatus,
 	transferSize,
 	encodedBodySize,
 	decodedBodySize,
@@ -21,7 +25,7 @@ const entry = (name, initiatorType, transferSize, encodedBodySize, decodedBodySi
 	responseEnd: 20
 });
 
-test('the manifest groups requests by kind and keeps cache hits and invalidation bits', () => {
+test('the manifest counts resource entries, network requests and cache hits per kind', () => {
 	const manifest = groupManifest(
 		{
 			navigation: entry(`${origin}/org/1/personnel`, 'navigation', 1300, 1000, 5000),
@@ -32,34 +36,126 @@ test('the manifest groups requests by kind and keeps cache hits and invalidation
 				entry(`${origin}/org/1/__data.json?x-sveltekit-invalidated=0110`, 'fetch', 500, 200, 800),
 				entry(`${origin}/org/1/api/app-shell-chrome`, 'fetch', 360, 60, 60),
 				entry('http://127.0.0.1:5000/rest/v1/personnel?select=*', 'fetch', 900, 800, 3000),
-				entry(`${origin}/_app/immutable/assets/font.woff2`, 'css', 0, 50, 50)
+				entry(`${origin}/_app/immutable/assets/font.woff2`, 'css', 0, 50, 50),
+				entry(`${origin}/_vercel/insights/script.js`, 'script', 300, 9, 9, 404)
 			]
 		},
 		origin
 	);
-	assert.equal(manifest.requests, 8);
-	assert.equal(manifest.transferSize, 3760);
+	assert.equal(manifest.resourceEntries, 9);
+	assert.equal(manifest.networkRequests, 6);
+	assert.equal(manifest.cacheHits, 3);
+	assert.equal(manifest.transferSize, 4060);
 	assert.deepEqual(manifest.groups.js, {
-		requests: 2,
-		fromCache: 1,
-		transferSize: 700,
-		encodedBodySize: 1000,
-		decodedBodySize: 3000
+		resourceEntries: 3,
+		networkRequests: 2,
+		cacheHits: 1,
+		transferSize: 1000,
+		encodedBodySize: 1009,
+		decodedBodySize: 3009
 	});
-	assert.deepEqual(Object.fromEntries(Object.entries(manifest.groups).map(([name, group]) => [name, group.requests])), {
-		document: 1,
-		js: 2,
-		css: 1,
-		data: 2,
-		provider: 1,
-		other: 1
-	});
+	assert.deepEqual(
+		Object.fromEntries(Object.entries(manifest.groups).map(([name, group]) => [name, group.resourceEntries])),
+		{ document: 1, js: 3, css: 1, data: 2, provider: 1, other: 1 }
+	);
 	const data = manifest.entries.find((request) => request.path === '/org/1/__data.json');
 	assert.equal(data.invalidated, '0110');
+	assert.equal(manifest.entries.find((request) => request.path === '/_vercel/insights/script.js').status, 404);
 	assert.equal(
 		manifest.entries.find((request) => request.category === 'provider').path,
 		'http://127.0.0.1:5000/rest/v1/personnel'
 	);
+});
+
+test('failed requests are HTTP errors and network errors, not redirects or pending requests', () => {
+	const listed = [
+		{ requestId: 1, url: `${origin}/org/1`, status: '200' },
+		{ requestId: 2, url: `${origin}/favicon.png`, status: '303' },
+		{ requestId: 3, url: `${origin}/_vercel/insights/script.js`, status: '404' },
+		{ requestId: 4, url: `${origin}/org/1/__data.json?x-sveltekit-invalidated=11`, status: 'net::ERR_ABORTED' },
+		{ requestId: 5, url: `${origin}/org/1/api/app-shell-chrome`, status: 'pending' },
+		{ requestId: 6, url: 'http://127.0.0.1:5000/auth/v1/user', status: '503' }
+	];
+	assert.deepEqual(failedRequests(listed, origin), [
+		{ path: '/_vercel/insights/script.js', status: '404' },
+		{ path: '/org/1/__data.json', status: 'net::ERR_ABORTED' },
+		{ path: 'http://127.0.0.1:5000/auth/v1/user', status: '503' }
+	]);
+});
+
+test('an answered app fetch is still running until Resource Timing records its body end', () => {
+	const data = `${origin}/org/1/__data.json?x-sveltekit-invalidated=11`;
+	const chrome = `${origin}/org/1/api/app-shell-chrome`;
+	const listed = [
+		{ url: `${origin}/org/1`, status: '200' },
+		{ url: data, status: '200' },
+		{ url: data, status: '200' },
+		{ url: chrome, status: 'pending' },
+		{ url: 'http://127.0.0.1:5000/rest/v1/x', status: 'pending' }
+	];
+	const fetches = listed.filter((row) => row.url !== `${origin}/org/1` && !row.url.startsWith('http://127.0.0.1:5000'));
+	assert.deepEqual(inFlight({ listed, fetches, resources: [{ name: data }] }, origin), [
+		'/org/1/api/app-shell-chrome',
+		'/org/1/__data.json'
+	]);
+	const finished = listed.map((row) => ({ ...row, status: '200' }));
+	assert.deepEqual(
+		inFlight(
+			{
+				listed: finished,
+				fetches: finished.slice(1, 4),
+				resources: [{ name: data }, { name: data }, { name: chrome }]
+			},
+			origin
+		),
+		[]
+	);
+	const aborted = [{ url: data, status: 'net::ERR_ABORTED' }];
+	assert.deepEqual(inFlight({ listed: aborted, fetches: aborted, resources: [] }, origin), []);
+});
+
+test('statement totals add each window and keep calls per window', () => {
+	const row = (role, queryid, calls, total_ms, rows) => ({
+		role,
+		queryid,
+		calls,
+		total_ms,
+		rows,
+		query: `q${queryid}`
+	});
+	const totals = statementTotals(
+		[
+			[
+				row('authenticated', '1', 10, 50, 100),
+				row('authenticated', '2', 1, 400, 1),
+				row('supabase_auth_admin', '3', 4, 2, 4)
+			],
+			[row('authenticated', '1', 10, 70, 100)],
+			[row('authenticated', '1', 12, 60, 120), row('authenticated', '2', 1, 380, 1)]
+		],
+		2
+	);
+	assert.equal(totals.windows, 3);
+	assert.deepEqual(totals.byCalls[0], {
+		role: 'authenticated',
+		calls: 32,
+		callsPerWindow: { n: 3, min: 10, median: 10, max: 12, samples: [10, 10, 12] },
+		total_ms: 180,
+		mean_ms: 5.625,
+		rows: 320,
+		query: 'q1'
+	});
+	assert.deepEqual(
+		totals.byTotalTime.map((item) => [item.query, item.total_ms, item.callsPerWindow.samples]),
+		[
+			['q2', 780, [1, 0, 1]],
+			['q1', 180, [10, 10, 12]]
+		]
+	);
+	assert.deepEqual(totals.byRole, [
+		{ role: 'authenticated', calls: 34, statements: 2, total_ms: 960 },
+		{ role: 'supabase_auth_admin', calls: 4, statements: 1, total_ms: 2 }
+	]);
 });
 
 test('the distribution reports every sample and an even-count median', () => {

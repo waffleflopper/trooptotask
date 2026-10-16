@@ -454,16 +454,12 @@ class SessionCountTests(unittest.TestCase):
 
 
 class PerfStatementsTests(unittest.TestCase):
-    def test_reads_top_n_within_bounds_and_rejects_anything_else_before_the_database(self):
-        database = Mock()
-        database.read_statements.return_value = {"byTotalTime": [], "byCalls": [], "byRole": []}
-        with patch.object(environment, "PerfDatabase", return_value=database) as owned:
-            self.assertEqual(environment.perf_statements(Path("/unused"), "read", "15")["top"], 15)
-            for action, top in (("drop", "15"), ("read", "0"), ("read", "101"), ("read", "5; SELECT 1")):
+    def test_unknown_action_is_blocked_before_the_database(self):
+        with patch.object(environment, "PerfDatabase") as owned:
+            for action in ("drop", "read; SELECT 1", ""):
                 with self.assertRaises(environment.Blocked):
-                    environment.perf_statements(Path("/unused"), action, top)
-        database.read_statements.assert_called_once_with(15)
-        self.assertEqual(owned.call_count, 1)
+                    environment.perf_statements(Path("/unused"), action)
+        owned.assert_not_called()
 
 
 class PerfExplainTests(unittest.TestCase):

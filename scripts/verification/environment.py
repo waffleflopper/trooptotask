@@ -455,27 +455,16 @@ class PerfDatabase(OwnedDatabase):
     def reset_statements(self):
         self._execute("SET statement_timeout = '10s'; SELECT extensions.pg_stat_statements_reset();")
 
-    def read_statements(self, top):
-        def statement(order):
-            return f"""
-            (SELECT COALESCE(json_agg(row_to_json(s)), '[]'::json) FROM
-              (SELECT userid::regrole::text AS role, calls, round(total_exec_time::numeric, 2) AS total_ms,
-                      round(mean_exec_time::numeric, 3) AS mean_ms, rows,
+    def read_statements(self):
+        output = self._execute("""
+            SET statement_timeout = '10s';
+            SELECT COALESCE(json_agg(row_to_json(s)), '[]'::json) FROM
+              (SELECT userid::regrole::text AS role, queryid::text AS queryid, calls,
+                      round(total_exec_time::numeric, 3) AS total_ms, rows,
                       left(regexp_replace(query, '\\s+', ' ', 'g'), 600) AS query
                FROM extensions.pg_stat_statements
                WHERE query NOT ILIKE '%pg_stat_statements%'
-               ORDER BY {order} DESC LIMIT {top}) AS s)"""
-
-        output = self._execute(f"""
-            SET statement_timeout = '10s';
-            SELECT json_build_object(
-              'byTotalTime', {statement('total_exec_time')},
-              'byCalls', {statement('calls')},
-              'byRole', (SELECT COALESCE(json_agg(row_to_json(r) ORDER BY r.total_ms DESC), '[]'::json) FROM
-                (SELECT userid::regrole::text AS role, sum(calls) AS calls, count(*) AS statements,
-                        round(sum(total_exec_time)::numeric, 2) AS total_ms
-                 FROM extensions.pg_stat_statements WHERE query NOT ILIKE '%pg_stat_statements%'
-                 GROUP BY 1) AS r));
+               ORDER BY total_exec_time DESC LIMIT 1000) AS s;
         """).strip()
         return json.loads(output)
 
@@ -516,16 +505,14 @@ def canonical_date(value):
     return value
 
 
-def perf_statements(session, action, top="20"):
+def perf_statements(session, action):
     if action not in ("reset", "read"):
-        raise Blocked("Use perf-statements reset|read [TOP].")
-    if not re.fullmatch(r"[1-9][0-9]?|100", str(top)):
-        raise Blocked("Use a top-N between 1 and 100.")
+        raise Blocked("Use perf-statements reset|read.")
     database = PerfDatabase(session)
     if action == "reset":
         database.reset_statements()
         return {"status": "PASS", "reset": True}
-    return {"status": "PASS", "top": int(top), **database.read_statements(int(top))}
+    return {"status": "PASS", "statements": database.read_statements()}
 
 
 def perf_explain(session, name, workload, actor):
@@ -666,7 +653,6 @@ def main():
     statements = subcommands.add_parser("perf-statements", help="Reset or read pg_stat_statements on the owned database")
     statements.add_argument("session")
     statements.add_argument("action", choices=("reset", "read"))
-    statements.add_argument("top", nargs="?", default="20")
     explain = subcommands.add_parser("perf-explain", help="EXPLAIN (ANALYZE, BUFFERS) one named statement for a seeded workload")
     explain.add_argument("session")
     explain.add_argument("name")
@@ -682,7 +668,7 @@ def main():
         elif args.command == "session-age":
             result = session_age(session, args.user_id, args.hours)
         elif args.command == "perf-statements":
-            result = perf_statements(session, args.action, args.top)
+            result = perf_statements(session, args.action)
         elif args.command == "perf-explain":
             result = perf_explain(session, args.name, args.workload, args.actor)
         elif args.command == "deletion-review-failure":

@@ -21,17 +21,17 @@ export const profiles = {
 export const protocol = {
 	defaults: { warm: { warmup: 1, repetitions: 5 }, cold: { warmup: 0, repetitions: 3 } },
 	modes: {
-		cold: 'First app document in a new browser context signed in without loading app code: empty HTTP cache.',
+		cold: 'First app document in a new browser context signed in without running app code. Only the shared entry assets the sign-in page preloads are cached.',
 		warm: 'Navigation to the journey URL in the signed-in page after the warm-up: new document, HTTP cache kept.'
 	}
 };
 
 // A milestone is reached on the first animation frame where every `present` text is in
 // the document, at least one `anyPresent` text is, every `absent` text is gone and no
-// `absentSelector` matches.
+// `absentSelector` matches. The last milestone, `useful`, is the first useful render.
 const skeleton = '[data-slot="skeleton"]';
 // Above 250 People the By Group roster renders a pause notice instead of rows, so for a
-// large Organization-wide actor that notice is the settled roster.
+// large Organization-wide actor that notice is the useful roster.
 const roster = ({ sentinel }) => ({
 	anyPresent: [sentinel, 'personnel are loaded'],
 	absentSelector: [skeleton]
@@ -41,14 +41,14 @@ export const journeys = {
 	'personnel-list': {
 		kind: 'load',
 		path: 'personnel',
-		milestones: (terms) => [{ name: 'settled', ...roster(terms) }]
+		milestones: (terms) => [{ name: 'useful', ...roster(terms) }]
 	},
 	dashboard: {
 		kind: 'load',
 		path: '',
 		milestones: () => [
 			{ name: 'pending', presentSelector: [skeleton] },
-			{ name: 'settled', present: ['Upcoming Changes', 'Requires Attention'], absentSelector: [skeleton] }
+			{ name: 'useful', present: ['Upcoming Changes', 'Requires Attention'], absentSelector: [skeleton] }
 		]
 	},
 	'personnel-search': {
@@ -57,7 +57,7 @@ export const journeys = {
 		ready: (terms) => [{ name: 'ready', ...roster(terms) }],
 		control: { role: 'searchbox', name: 'Search by name, rank, MOS, role, or group' },
 		input: ({ searchTerm }) => searchTerm,
-		milestones: ({ sentinel, searchTerm }) => [{ name: 'settled', present: [searchTerm], absent: [sentinel] }]
+		milestones: ({ sentinel, searchTerm }) => [{ name: 'useful', present: [searchTerm], absent: [sentinel] }]
 	}
 };
 
@@ -138,6 +138,7 @@ export function readSettledSample(win, deadlineMs) {
 			const entry = (item) => ({
 				name: item.name,
 				initiatorType: item.initiatorType,
+				responseStatus: item.responseStatus,
 				transferSize: item.transferSize,
 				encodedBodySize: item.encodedBodySize,
 				decodedBodySize: item.decodedBodySize,
@@ -175,9 +176,13 @@ function category(entry, origin) {
 	return 'other';
 }
 
-/** Requests and bytes for one sample, grouped JS/CSS/data/document (plus provider/other). */
+/**
+ * Resource Timing entries and bytes for one sample, grouped JS/CSS/data/document (plus
+ * provider/other). An entry is a network request only when it transferred bytes; the rest
+ * are cache hits.
+ */
 export function groupManifest({ navigation, resources }, origin) {
-	const requests = [...(navigation ? [{ ...navigation, initiatorType: 'navigation' }] : []), ...resources].map(
+	const entries = [...(navigation ? [{ ...navigation, initiatorType: 'navigation' }] : []), ...resources].map(
 		(entry) => {
 			const url = new URL(entry.name);
 			return {
@@ -185,6 +190,7 @@ export function groupManifest({ navigation, resources }, origin) {
 				path: url.origin === origin ? url.pathname : `${url.origin}${url.pathname}`,
 				invalidated: url.searchParams.get('x-sveltekit-invalidated'),
 				initiatorType: entry.initiatorType,
+				status: entry.responseStatus ?? null,
 				transferSize: entry.transferSize,
 				encodedBodySize: entry.encodedBodySize,
 				decodedBodySize: entry.decodedBodySize,
@@ -194,28 +200,54 @@ export function groupManifest({ navigation, resources }, origin) {
 			};
 		}
 	);
-	const groups = Object.fromEntries(
-		categories.map((name) => {
-			const members = requests.filter((request) => request.category === name);
-			const sum = (field) => members.reduce((total, request) => total + request[field], 0);
-			return [
-				name,
-				{
-					requests: members.length,
-					fromCache: members.filter((request) => request.fromCache).length,
-					transferSize: sum('transferSize'),
-					encodedBodySize: sum('encodedBodySize'),
-					decodedBodySize: sum('decodedBodySize')
-				}
-			];
-		})
-	);
+	const totals = (members) => ({
+		resourceEntries: members.length,
+		networkRequests: members.filter((entry) => entry.transferSize > 0).length,
+		cacheHits: members.filter((entry) => entry.fromCache).length,
+		transferSize: members.reduce((total, entry) => total + entry.transferSize, 0),
+		encodedBodySize: members.reduce((total, entry) => total + entry.encodedBodySize, 0),
+		decodedBodySize: members.reduce((total, entry) => total + entry.decodedBodySize, 0)
+	});
 	return {
-		requests: requests.length,
-		transferSize: requests.reduce((total, request) => total + request.transferSize, 0),
-		groups,
-		entries: requests
+		...totals(entries),
+		groups: Object.fromEntries(
+			categories.map((name) => [name, totals(entries.filter((entry) => entry.category === name))])
+		),
+		entries
 	};
+}
+
+/**
+ * Native network list rows (`requestId`, `url`, `status`) that failed: an HTTP status of 400
+ * or more, or a network error such as `net::ERR_ABORTED`. A row still `pending` has not failed.
+ */
+export function failedRequests(listed, origin) {
+	return listed
+		.filter(({ status }) => status !== 'pending' && !(/^\d+$/.test(status) && Number(status) < 400))
+		.map(({ url, status }) => {
+			const parsed = new URL(url);
+			return { path: parsed.origin === origin ? parsed.pathname : `${parsed.origin}${parsed.pathname}`, status };
+		});
+}
+
+/**
+ * App-origin requests still running. The native list shows `pending` until response headers
+ * arrive, but a streamed `__data.json` keeps its body open long after, and Resource Timing
+ * records an entry only when the body ends. So a fetch with a 2xx/304 status and fewer
+ * finished entries for its URL than listed requests is still running.
+ */
+export function inFlight({ listed, fetches, resources }, origin) {
+	const same = (url) => new URL(url).origin === origin;
+	const pending = listed.filter((row) => same(row.url) && row.status === 'pending').map((row) => row.url);
+	const finished = Map.groupBy(resources, (entry) => entry.name);
+	const answered = Map.groupBy(
+		fetches.filter((row) => same(row.url) && /^(2\d\d|304)$/.test(row.status)),
+		(row) => row.url
+	);
+	const streaming = [...answered].flatMap(([url, rows]) =>
+		Array(Math.max(0, rows.length - (finished.get(url)?.length ?? 0))).fill(url)
+	);
+	return [...pending, ...streaming].map((url) => new URL(url).pathname);
 }
 
 /** Full distribution of a few samples; no percentile beyond the median is claimed. */
@@ -359,4 +391,57 @@ export function serverTimingPhases(samples) {
 			}
 		])
 	);
+}
+
+/**
+ * Totals per normalized statement over measured windows, one pg_stat_statements read per
+ * sample taken between a reset just before the sample and the end of its network work.
+ */
+export function statementTotals(windows, top = 15) {
+	const statements = new Map();
+	windows.forEach((rows, index) => {
+		for (const row of rows) {
+			const key = `${row.role}:${row.queryid}`;
+			const item = statements.get(key) ?? {
+				role: row.role,
+				query: row.query,
+				calls: 0,
+				total_ms: 0,
+				rows: 0,
+				perWindow: windows.map(() => 0)
+			};
+			item.calls += row.calls;
+			item.total_ms += row.total_ms;
+			item.rows += row.rows;
+			item.perWindow[index] += row.calls;
+			statements.set(key, item);
+		}
+	});
+	const round = (value, digits) => Math.round(value * 10 ** digits) / 10 ** digits;
+	const list = [...statements.values()].map(({ perWindow, ...item }) => ({
+		role: item.role,
+		calls: item.calls,
+		callsPerWindow: distribution(perWindow),
+		total_ms: round(item.total_ms, 2),
+		mean_ms: round(item.total_ms / item.calls, 3),
+		rows: item.rows,
+		query: item.query
+	}));
+	const byRole = [...Map.groupBy(list, (item) => item.role)]
+		.map(([role, items]) => ({
+			role,
+			calls: items.reduce((total, item) => total + item.calls, 0),
+			statements: items.length,
+			total_ms: round(
+				items.reduce((total, item) => total + item.total_ms, 0),
+				2
+			)
+		}))
+		.toSorted((a, b) => b.total_ms - a.total_ms);
+	return {
+		windows: windows.length,
+		byRole,
+		byTotalTime: list.toSorted((a, b) => b.total_ms - a.total_ms).slice(0, top),
+		byCalls: list.toSorted((a, b) => b.calls - a.calls).slice(0, top)
+	};
 }

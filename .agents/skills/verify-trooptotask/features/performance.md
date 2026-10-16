@@ -1,6 +1,6 @@
 # Performance measurement on seeded workloads
 
-A leader opens the Calendar, Personnel or the Organization Dashboard for a platoon-, company- or battalion-sized unit, works in it, and waits for each step to be usable. This recipe measures those waits reproducibly: three deterministic synthetic Organizations, an Organization-wide and a Group-scoped actor, one journey registry, a fixed cold/warm protocol, and request, byte, main-thread, server-timing and query evidence for every sample. It measures; it does not classify or fix.
+A leader opens the Calendar, Personnel, the Organization Dashboard, a report or an export for a platoon-, company- or battalion-sized unit, works in it, and waits for each step to be usable. This recipe measures those waits reproducibly: three deterministic synthetic Organizations, an Organization-wide and a Group-scoped actor, one journey registry, a fixed cold/warm protocol, and request, byte, main-thread, server-timing and query evidence for every sample. It measures; it does not classify or fix.
 
 ## Sub-features
 

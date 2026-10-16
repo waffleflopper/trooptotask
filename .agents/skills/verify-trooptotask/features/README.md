@@ -31,7 +31,7 @@ For durable publication, follow [artifact packaging](../../../../docs/architectu
 ## Features
 
 - [Dashboard composition and freshness](dashboard.md): combined source counts, readiness/due, active packet progress, losses, admission, reload, source consumers and delayed navigation.
-- [Performance measurement on seeded workloads](performance.md): 20/100/400-Person synthetic Organizations, wide and scoped actors, cold/warm load and interaction timing, byte manifests, traces, server timing, query statistics and named explains.
+- [Performance measurement on seeded workloads](performance.md): 20/100/400-Person synthetic Organizations, wide and scoped actors, one registry of the Phase 12 journeys, cold/warm load and interaction timing, byte manifests, traces, server timing, query statistics and named explains.
 
 ### Access and people
 

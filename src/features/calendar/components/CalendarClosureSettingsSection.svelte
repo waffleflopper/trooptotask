@@ -168,14 +168,9 @@
 		return `${n} ${n === 1 ? 'day' : 'days'}`;
 	}
 
+	// A range never crosses a month, so its first and last day share one.
 	function rangeDays(days: SpecialDay[]): string {
-		const first = parseDate(days[0].date);
-		const last = parseDate(days[days.length - 1].date);
-		const lastLabel =
-			first.getMonth() === last.getMonth()
-				? `${last.getDate()}`
-				: `${last.getDate()} ${getMonthName(last.getMonth()).slice(0, 3)}`;
-		return `${first.getDate()}–${lastLabel}`;
+		return `${parseDate(days[0].date).getDate()}–${parseDate(days[days.length - 1].date).getDate()}`;
 	}
 
 	function handleFilterYearChange(event: Event) {

@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { cleanWorkloads, expandWorkload, workloadMembers, workloadTables } from './perf-workloads.mjs';
+import {
+	cleanWorkloads,
+	expandWorkload,
+	importCsv,
+	removeImported,
+	workloadMembers,
+	workloadTables
+} from './perf-workloads.mjs';
 
 const owner = { id: '11111111-1111-4111-8111-111111111111', email: 'wide@example.test' };
 const scoped = { id: '22222222-2222-4222-8222-222222222222', email: 'scoped@example.test' };
@@ -280,4 +287,66 @@ test('one rule reads an absent account in both the delete and the readback', asy
 		}),
 		/user cleanup failed: Boom/
 	);
+});
+
+test('the import file is a quarter of the active roster, all into the scoped Group', () => {
+	assert.deepEqual(
+		['small', 'typical', 'large'].map((name) => importCsv(name, '2026-10-16').rows),
+		[5, 25, 100]
+	);
+	const lines = importCsv('small', '2026-10-16').text.trim().split('\n');
+	assert.equal(lines.length, 6);
+	assert.equal(lines[0], 'Rank,Last Name,First Name,MOS,Duty Role,Group,ETS,PCS / DEROS');
+	assert.ok(lines.slice(1).every((line) => line.split(',')[5] === 'Alpha'));
+	assert.deepEqual(
+		lines.slice(1).map((line) => line.split(',')[1]),
+		['Arrival001', 'Arrival002', 'Arrival003', 'Arrival004', 'Arrival005']
+	);
+});
+
+test('journey terms count each scope and every membership', () => {
+	const { journeyTerms } = expand('small');
+	assert.deepEqual(journeyTerms.population, { wide: 20, scoped: 10 });
+	assert.equal(journeyTerms.members, 5);
+	assert.deepEqual(journeyTerms.filter, { term: '68W', rows: { wide: 3, scoped: 1 } });
+});
+
+test('imported People are journaled, removed and read back, and seeded People stay', async () => {
+	const ownedState = journaled();
+	ownedState.workloads.small.tables.push({ table: 'personnel', ids: ['seeded-1'] });
+	const client = provider();
+	client.tables.personnel = ['seeded-1', 'imported-1', 'imported-2'].map((id) => ({
+		id,
+		organization_id: organizationId
+	}));
+	const saves = [];
+	const result = await removeImported({
+		client,
+		ownedState,
+		save: async (state) => saves.push(structuredClone(state)),
+		workload: 'small'
+	});
+	assert.deepEqual(result, { removed: 2 });
+	assert.deepEqual(
+		client.tables.personnel.map((row) => row.id),
+		['seeded-1']
+	);
+	assert.deepEqual(saves[0].workloads.small.appWritten.personnel, ['imported-1', 'imported-2']);
+});
+
+test('an imported Person that survives the delete fails the sample with its ID', async () => {
+	const ownedState = journaled();
+	ownedState.workloads.small.tables.push({ table: 'personnel', ids: [] });
+	const client = provider();
+	client.tables.personnel = [{ id: 'imported-1', organization_id: organizationId }];
+	const stubborn = client.from;
+	client.from = (table) => {
+		const query = stubborn(table);
+		const remove = query.delete;
+		query.delete = () => (remove(), { eq: () => ({ in: async () => ({ error: null }) }) });
+		return query;
+	};
+	await assert.rejects(removeImported({ client, ownedState, save: async () => {}, workload: 'small' }), {
+		message: 'Imported People remain: imported-1'
+	});
 });

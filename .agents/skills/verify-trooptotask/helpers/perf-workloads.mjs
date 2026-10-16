@@ -455,6 +455,10 @@ export function expandWorkload(name, { anchor, owner, scoped, members }) {
 
 	const label = (person) => `${person.last_name}, ${person.first_name}`;
 	const scopedPeople = active.filter((person) => person.group_id === scopedGroup.id);
+	const searched = {
+		wide: active[Math.floor(active.length / 2)],
+		scoped: scopedPeople[Math.floor(scopedPeople.length / 2)]
+	};
 	return {
 		organization: {
 			id: organizationId,
@@ -469,12 +473,86 @@ export function expandWorkload(name, { anchor, owner, scoped, members }) {
 			scoped: label(scopedPeople.toSorted((a, b) => label(a).localeCompare(label(b))).at(-1))
 		},
 		// A unique last name in each actor's scope; searching it leaves one row.
-		searchTerms: {
-			wide: active[Math.floor(active.length / 2)].last_name,
-			scoped: scopedPeople[Math.floor(scopedPeople.length / 2)].last_name
-		},
+		searchTerms: { wide: searched.wide.last_name, scoped: searched.scoped.last_name },
+		journeyTerms: journeyTerms({ anchor, rows, active, scopedPeople, searched }),
 		window: { start: addDays(anchor, -shape.windowDays.past), end: addDays(anchor, shape.windowDays.future) }
 	};
+}
+
+const rankedLabel = (person) => `${person.rank} ${person.last_name}, ${person.first_name}`;
+
+/**
+ * The fixed targets the write and filter journeys act on, chosen from the expanded rows so
+ * both actors can reach them. The assignment slot is the first Person slot in the anchor
+ * month (the month the Planner opens on) held by someone in the scoped Group, so the
+ * scoped actor sees it occupied and may reassign it within that Group.
+ */
+function journeyTerms({ anchor, rows, active, scopedPeople, searched }) {
+	const groupOf = (person) => rows.groups.find((group) => group.id === person.group_id).name;
+	const slotLabel = (person) => `${rankedLabel(person)} - ${groupOf(person)}`;
+	const byId = new Map(active.map((person) => [person.id, person]));
+	const personTypes = new Map(
+		rows.assignment_types.filter((type) => type.assign_to === 'personnel').map((type) => [type.id, type])
+	);
+	const slot = rows.daily_assignments
+		.filter((row) => row.date.startsWith(anchor.slice(0, 7)) && personTypes.has(row.assignment_type_id))
+		.toSorted(
+			(a, b) =>
+				a.date.localeCompare(b.date) ||
+				personTypes.get(a.assignment_type_id).sort_order - personTypes.get(b.assignment_type_id).sort_order
+		)
+		.find((row) => scopedPeople.some((person) => person.id === row.assignee_id));
+	if (!slot) throw new Error('The anchor month has no Person assignment slot inside the scoped Group.');
+	const holder = byId.get(slot.assignee_id);
+	const alternate = scopedPeople
+		.toSorted((a, b) => a.last_name.localeCompare(b.last_name))
+		.find((person) => person !== holder);
+	const otherMos = (mos) => (mos === '42A' ? '88M' : '42A');
+	const edit = (person) => ({
+		row: `Open ${rankedLabel(person)}`,
+		original: person.mos,
+		alternate: otherMos(person.mos)
+	});
+	return {
+		assignment: {
+			control: `Select ${personTypes.get(slot.assignment_type_id).name} assignee for ${slot.date}`,
+			original: { label: slotLabel(holder), search: holder.last_name },
+			alternate: { label: slotLabel(alternate), search: alternate.last_name }
+		},
+		edit: { wide: edit(searched.wide), scoped: edit(searched.scoped) },
+		population: { wide: active.length, scoped: scopedPeople.length },
+		members: rows.organization_memberships.length,
+		filter: {
+			term: '68W',
+			rows: {
+				wide: active.filter((person) => person.mos === '68W').length,
+				scoped: scopedPeople.filter((person) => person.mos === '68W').length
+			}
+		}
+	};
+}
+
+// A quarter of the active roster arrives at once (a reflag or a new company joining the
+// battalion), all into the scoped Group so both actors may import the same file.
+export function importCsv(name, anchor) {
+	const shape = workloads[name];
+	if (!shape) throw new Error(`Unknown workload ${name}; use ${Object.keys(workloads).join(', ')}.`);
+	const count = Math.round((shape.groups * shape.personnelPerGroup) / 4);
+	const lines = ['Rank,Last Name,First Name,MOS,Duty Role,Group,ETS,PCS / DEROS'];
+	for (let index = 0; index < count; index++)
+		lines.push(
+			[
+				['PFC', 'SPC', 'SGT', 'SSG'][index % 4],
+				`Arrival${String(index + 1).padStart(3, '0')}`,
+				firstNames[index % firstNames.length],
+				mosCodes[index % mosCodes.length],
+				roles[index % roles.length],
+				groupNames[0],
+				addDays(anchor, 400 + index),
+				index % 3 ? '' : addDays(anchor, 200 + index)
+			].join(',')
+		);
+	return { rows: count, text: lines.join('\n') + '\n' };
 }
 
 /** Synthetic member accounts beyond the two fixture actors. IDs are journaled before creation. */
@@ -514,6 +592,7 @@ export async function seedWorkload({ client, fixture, name, tag, ownedState, sav
 		scopedGroup: expanded.scopedGroup,
 		sentinels: expanded.sentinels,
 		searchTerms: expanded.searchTerms,
+		journeyTerms: expanded.journeyTerms,
 		window: expanded.window,
 		name: organization.name
 	};
@@ -556,18 +635,23 @@ export async function seedWorkload({ client, fixture, name, tag, ownedState, sav
 		},
 		sentinels: expanded.sentinels,
 		searchTerms: expanded.searchTerms,
+		journeyTerms: expanded.journeyTerms,
 		timingsMs: { ...timings, total: Object.values(timings).reduce((sum, value) => sum + value, 0) }
 	};
 }
 
-// Rows the app itself may write while a workload is driven. Organization deletion cascades all
+// Rows the app itself may write while a workload is driven, including the Personnel and daily
+// assignments the write journeys create or replace and the export history an export writes. Organization deletion cascades all
 // of them except audit_logs, whose org_id is ON DELETE SET NULL, so those rows survive it and
 // are removed by ID first.
 const appWrittenTables = [
+	['personnel', 'organization_id'],
+	['daily_assignments', 'organization_id'],
 	['user_org_preferences', 'organization_id'],
 	['user_pinned_groups', 'organization_id'],
 	['getting_started_progress', 'organization_id'],
 	['dashboard_configs', 'org_id'],
+	['data_exports', 'org_id'],
 	['notifications', 'organization_id'],
 	['audit_logs', 'org_id']
 ];
@@ -622,6 +706,33 @@ async function captureAppWritten(client, item, ownedState, save) {
 		item.appWritten[table] = [...known];
 	}
 	await save(ownedState);
+}
+
+/**
+ * Removes the People an import sample added to a workload, so every import sample starts from
+ * the seeded roster. Their IDs are journaled before the delete and read back after it.
+ */
+export async function removeImported({ client, ownedState, save, workload }) {
+	const item = ownedState.workloads?.[workload];
+	if (!item) throw new Error(`Workload ${workload} is not seeded.`);
+	const seeded = new Set(item.tables.find(({ table }) => table === 'personnel').ids);
+	const added = (await idsFor(client, 'personnel', 'organization_id', item.organizationId)).filter(
+		(id) => !seeded.has(id)
+	);
+	item.appWritten ??= {};
+	item.appWritten.personnel = [...new Set([...(item.appWritten.personnel ?? []), ...added])];
+	await save(ownedState);
+	for (let offset = 0; offset < added.length; offset += 200) {
+		const { error } = await client
+			.from('personnel')
+			.delete()
+			.eq('organization_id', item.organizationId)
+			.in('id', added.slice(offset, offset + 200));
+		if (error) throw new Error(`Disposable provider cleanup failed on personnel: ${error.message}`);
+	}
+	const left = await idsRemaining(client, 'personnel', added);
+	if (left.length) throw new Error(`Imported People remain: ${left.join(', ')}`);
+	return { removed: added.length };
 }
 
 /** Deletes exactly the journaled rows and accounts, then reads every one of them back. */

@@ -453,6 +453,49 @@ class SessionCountTests(unittest.TestCase):
         self.assertEqual(owned.call_count, 1)
 
 
+class PerfStatementsTests(unittest.TestCase):
+    def test_reads_top_n_within_bounds_and_rejects_anything_else_before_the_database(self):
+        database = Mock()
+        database.read_statements.return_value = {"byTotalTime": [], "byCalls": [], "byRole": []}
+        with patch.object(environment, "PerfDatabase", return_value=database) as owned:
+            self.assertEqual(environment.perf_statements(Path("/unused"), "read", "15")["top"], 15)
+            for action, top in (("drop", "15"), ("read", "0"), ("read", "101"), ("read", "5; SELECT 1")):
+                with self.assertRaises(environment.Blocked):
+                    environment.perf_statements(Path("/unused"), action, top)
+        database.read_statements.assert_called_once_with(15)
+        self.assertEqual(owned.call_count, 1)
+
+
+class PerfExplainTests(unittest.TestCase):
+    ledger = {"workloads": {"large": {"organizationId": ORG_A, "window": {"start": "2026-07-17", "end": "2027-01-13"}}}}
+    fixtures = {"actors": {"perfWide": {"id": USER}, "perfScoped": {"id": ORG_A}}}
+
+    def private(self, path):
+        return self.ledger if path.name == "verify-trooptotask-owned.json" else self.fixtures
+
+    def test_named_statement_binds_only_ledger_and_actor_values(self):
+        database = Mock()
+        database.explain.return_value = [{"Planning Time": 0.2, "Execution Time": 4.5,
+                                          "Plan": {"Actual Rows": 3, "Shared Hit Blocks": 9}}]
+        with patch.object(environment, "PerfDatabase", return_value=database), \
+                patch.object(environment, "private_json", side_effect=self.private):
+            result = environment.perf_explain(Path("/unused"), "availability-window", "large", "wide")
+        self.assertEqual(result["executionMs"], 4.5)
+        user, sql = database.explain.call_args.args
+        self.assertEqual(user, USER)
+        self.assertEqual(sql, f"SELECT * FROM public.availability_entries WHERE organization_id = '{ORG_A}'::uuid"
+                              " AND start_date <= '2027-01-13'::date AND end_date >= '2026-07-17'::date")
+
+    def test_unknown_statement_actor_or_workload_is_blocked_before_the_database(self):
+        with patch.object(environment, "PerfDatabase") as owned, \
+                patch.object(environment, "private_json", side_effect=self.private):
+            for name, workload, actor in (("SELECT 1", "large", "wide"), ("availability-window", "large", "owner"),
+                                          ("availability-window", "huge", "wide")):
+                with self.assertRaises(environment.Blocked):
+                    environment.perf_explain(Path("/unused"), name, workload, actor)
+        owned.assert_not_called()
+
+
 class VerificationAuthConfigTests(unittest.TestCase):
     def test_enables_only_totp_and_owned_redirects(self):
         source = tomllib.loads((Path(__file__).resolve().parents[2] / "supabase/config.toml").read_text())

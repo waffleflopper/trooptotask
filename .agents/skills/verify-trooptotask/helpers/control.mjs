@@ -74,6 +74,7 @@ import {
 } from './organization-upload-overlap.mjs';
 import { selectAllSupabaseRows } from '../../../../src/lib/server/supabasePagination.server.ts';
 import { seedWorkload, cleanWorkloads } from './perf-workloads.mjs';
+import { perfCommand, perfHelp } from './perf-command.mjs';
 
 const argv = process.argv.slice(2);
 const workerIndex = argv.indexOf('--worker');
@@ -277,7 +278,28 @@ async function deletionReviewFailure(action, requestId) {
 	return result;
 }
 
+async function perfDatabase(command, ...values) {
+	let stdout;
+	try {
+		({ stdout } = await promisify(execFile)(
+			'python3',
+			[path.join(repository, 'scripts/verification/environment.py'), command, session, ...values],
+			{ maxBuffer: 16 * 1024 * 1024 }
+		));
+	} catch (error) {
+		const reply = error.stdout ? JSON.parse(error.stdout) : null;
+		throw new Error(reply?.message ?? 'Owned performance database control blocked.');
+	}
+	const result = JSON.parse(stdout);
+	if (result.status !== 'PASS') throw new Error(result.message ?? 'Owned performance database control did not pass.');
+	return result;
+}
+
 async function main() {
+	if (command === 'perf' && [undefined, 'help', '--help'].includes(args[0])) {
+		process.stdout.write(perfHelp + '\n');
+		return;
+	}
 	const { state, doctor } = await owned();
 	const fixture = await readJSON(path.join(session, 'fixtures.json'));
 	const org = (key) => {
@@ -3011,6 +3033,24 @@ async function main() {
 		if (!verdict.ok) process.exitCode = 1;
 		return;
 	}
+	if (command === 'perf') {
+		note(
+			await perfCommand(args, {
+				tool: (name, input) => tool(state, name, input),
+				evaluate: (pageId, source) => evaluate(state, pageId, source),
+				text,
+				doctor,
+				session,
+				repository,
+				evidenceRoot,
+				isUnderEvidence,
+				ownedState: await saved(),
+				credentials: (role) => ({ email: fixture.actors[role].email, password: fixture.actors[role].password }),
+				database: perfDatabase
+			})
+		);
+		return;
+	}
 	if (command === 'workbook') {
 		const target = path.resolve(args[0] ?? '');
 		if (!target.startsWith(evidenceRoot + path.sep))
@@ -3030,7 +3070,7 @@ async function main() {
 		return;
 	}
 	throw new Error(
-		'Use fixture, actor, rows, access-request, auth-link, setup-link, mail, mail-link, fault, mfa-code, session-age, session-count, admission-probe, password, password-commit, settings-request, deletion-request, personnel-archive-batch, deletion-review-failure, audit-training-update, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, artifact-deletion, private-buckets, roster-files, roster-replace, roster-insert, roster-shared-keys, signed-download, calendar-grant, dashboard-access, server-source, seed, clean-seeds, retention, network, busy, export, print, style-probe, style-diff, toolbar-sweep, or workbook.'
+		'Use fixture, actor, rows, access-request, auth-link, setup-link, mail, mail-link, fault, mfa-code, session-age, session-count, admission-probe, password, password-commit, settings-request, deletion-request, personnel-archive-batch, deletion-review-failure, audit-training-update, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, artifact-deletion, private-buckets, roster-files, roster-replace, roster-insert, roster-shared-keys, signed-download, calendar-grant, dashboard-access, server-source, seed, clean-seeds, retention, network, busy, export, print, style-probe, style-diff, toolbar-sweep, perf, or workbook.'
 	);
 }
 

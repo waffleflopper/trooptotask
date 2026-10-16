@@ -449,6 +449,107 @@ def session_count(session, user_id):
     return {"status": "PASS", "sessions": OwnedDatabase(session).count_sessions(user_id)}
 
 
+class PerfDatabase(OwnedDatabase):
+    """pg_stat_statements and EXPLAIN on the owned database; SQL comes only from this file."""
+
+    def reset_statements(self):
+        self._execute("SET statement_timeout = '10s'; SELECT extensions.pg_stat_statements_reset();")
+
+    def read_statements(self, top):
+        def statement(order):
+            return f"""
+            (SELECT COALESCE(json_agg(row_to_json(s)), '[]'::json) FROM
+              (SELECT userid::regrole::text AS role, calls, round(total_exec_time::numeric, 2) AS total_ms,
+                      round(mean_exec_time::numeric, 3) AS mean_ms, rows,
+                      left(regexp_replace(query, '\\s+', ' ', 'g'), 600) AS query
+               FROM extensions.pg_stat_statements
+               WHERE query NOT ILIKE '%pg_stat_statements%'
+               ORDER BY {order} DESC LIMIT {top}) AS s)"""
+
+        output = self._execute(f"""
+            SET statement_timeout = '10s';
+            SELECT json_build_object(
+              'byTotalTime', {statement('total_exec_time')},
+              'byCalls', {statement('calls')},
+              'byRole', (SELECT COALESCE(json_agg(row_to_json(r) ORDER BY r.total_ms DESC), '[]'::json) FROM
+                (SELECT userid::regrole::text AS role, sum(calls) AS calls, count(*) AS statements,
+                        round(sum(total_exec_time)::numeric, 2) AS total_ms
+                 FROM extensions.pg_stat_statements WHERE query NOT ILIKE '%pg_stat_statements%'
+                 GROUP BY 1) AS r));
+        """).strip()
+        return json.loads(output)
+
+    def explain(self, user_id, statement):
+        claims = json.dumps({"sub": user_id, "role": "authenticated"})
+        output = self._execute(f"""
+            SET LOCAL statement_timeout = '30s';
+            DO $$ BEGIN
+                PERFORM set_config('request.jwt.claims', '{claims}', true);
+                PERFORM set_config('request.jwt.claim.sub', '{user_id}', true);
+            END $$;
+            SET LOCAL ROLE authenticated;
+            EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) {statement};
+        """).strip()
+        return json.loads(output)
+
+
+# Named statements shaped like the app's PostgREST reads, run as the signed-in actor so RLS
+# applies. Parameters come only from the helper's workload ledger and fixture actors.
+PERF_STATEMENTS = {
+    "personnel-active-roster": "SELECT * FROM public.personnel WHERE organization_id = {org} AND archived_at IS NULL"
+                               " ORDER BY last_name, first_name",
+    "availability-window": "SELECT * FROM public.availability_entries WHERE organization_id = {org}"
+                           " AND start_date <= {end} AND end_date >= {start}",
+    "daily-assignments-window": "SELECT * FROM public.daily_assignments WHERE organization_id = {org}"
+                                " AND date >= {start} AND date <= {end}",
+    "training-completions": "SELECT * FROM public.personnel_trainings WHERE organization_id = {org}",
+    "critical-task-completions": "SELECT * FROM public.personnel_ict_completions WHERE organization_id = {org}",
+    "actor-membership": "SELECT * FROM public.organization_memberships WHERE organization_id = {org}"
+                        " AND user_id = {user}",
+}
+PERF_ACTORS = {"wide": "perfWide", "scoped": "perfScoped"}
+
+
+def canonical_date(value):
+    if not isinstance(value, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        raise Blocked("The workload ledger has no valid date window.")
+    return value
+
+
+def perf_statements(session, action, top="20"):
+    if action not in ("reset", "read"):
+        raise Blocked("Use perf-statements reset|read [TOP].")
+    if not re.fullmatch(r"[1-9][0-9]?|100", str(top)):
+        raise Blocked("Use a top-N between 1 and 100.")
+    database = PerfDatabase(session)
+    if action == "reset":
+        database.reset_statements()
+        return {"status": "PASS", "reset": True}
+    return {"status": "PASS", "top": int(top), **database.read_statements(int(top))}
+
+
+def perf_explain(session, name, workload, actor):
+    if name not in PERF_STATEMENTS:
+        raise Blocked(f"Unknown statement; use one of {', '.join(PERF_STATEMENTS)}.")
+    if actor not in PERF_ACTORS:
+        raise Blocked("Use the wide or scoped performance actor.")
+    item = private_json(session / "verify-trooptotask-owned.json").get("workloads", {}).get(workload)
+    if not isinstance(item, dict):
+        raise Blocked("That workload is not seeded on this worker.")
+    user_id = canonical_uuid(private_json(session / "fixtures.json")["actors"][PERF_ACTORS[actor]]["id"])
+    window = item.get("window") or {}
+    statement = PERF_STATEMENTS[name].format(
+        org=f"'{canonical_uuid(item.get('organizationId'))}'::uuid",
+        user=f"'{user_id}'::uuid",
+        start=f"'{canonical_date(window.get('start'))}'::date",
+        end=f"'{canonical_date(window.get('end'))}'::date")
+    plan = PerfDatabase(session).explain(user_id, statement)[0]
+    return {"status": "PASS", "statement": name, "workload": workload, "actor": actor, "sql": statement,
+            "planningMs": plan.get("Planning Time"), "executionMs": plan.get("Execution Time"),
+            "rows": plan["Plan"].get("Actual Rows"), "sharedHit": plan["Plan"].get("Shared Hit Blocks"),
+            "sharedRead": plan["Plan"].get("Shared Read Blocks"), "plan": plan}
+
+
 def verification_auth_config(config, origin):
     config["auth"]["site_url"] = origin
     config["auth"]["additional_redirect_urls"] = [origin]
@@ -562,6 +663,15 @@ def main():
     age.add_argument("session")
     age.add_argument("user_id")
     age.add_argument("hours")
+    statements = subcommands.add_parser("perf-statements", help="Reset or read pg_stat_statements on the owned database")
+    statements.add_argument("session")
+    statements.add_argument("action", choices=("reset", "read"))
+    statements.add_argument("top", nargs="?", default="20")
+    explain = subcommands.add_parser("perf-explain", help="EXPLAIN (ANALYZE, BUFFERS) one named statement for a seeded workload")
+    explain.add_argument("session")
+    explain.add_argument("name")
+    explain.add_argument("workload")
+    explain.add_argument("actor")
     args = parser.parse_args()
     try:
         session = private_session(args.session)
@@ -571,6 +681,10 @@ def main():
             result = session_count(session, args.user_id)
         elif args.command == "session-age":
             result = session_age(session, args.user_id, args.hours)
+        elif args.command == "perf-statements":
+            result = perf_statements(session, args.action, args.top)
+        elif args.command == "perf-explain":
+            result = perf_explain(session, args.name, args.workload, args.actor)
         elif args.command == "deletion-review-failure":
             result = deletion_review_failure(session, args.action, args.request_id)
         else:

@@ -9,7 +9,9 @@ import {
 	readSettledSample,
 	groupManifest,
 	distribution,
+	serverTimingPhases,
 	summarizeTrace,
+	redactTrace,
 	parseServerTiming
 } from './perf-measure.mjs';
 import { workloads } from './perf-workloads.mjs';
@@ -214,9 +216,6 @@ function measured(ctx, run, sample, serverText, since = 0) {
 function summarize(samples) {
 	const field = (read) => distribution(samples.map(read));
 	const groups = Object.keys(samples[0]?.manifest.groups ?? {});
-	const phases = [
-		...new Set(samples.flatMap((sample) => sample.serverTiming.map((line) => `${line.feature}:${line.phase}`)))
-	];
 	return {
 		settledMs: field((sample) => sample.settledMs),
 		unsettled: samples.filter((sample) => sample.settledMs === null).length,
@@ -237,17 +236,7 @@ function summarize(samples) {
 				}
 			])
 		),
-		serverTimingMs: Object.fromEntries(
-			phases.map((phase) => [
-				phase,
-				field(
-					(sample) =>
-						sample.serverTiming
-							.filter((line) => `${line.feature}:${line.phase}` === phase)
-							.reduce((total, line) => total + line.durationMs, 0) || undefined
-				)
-			])
-		)
+		serverTiming: serverTimingPhases(samples)
 	};
 }
 
@@ -391,6 +380,8 @@ async function trace(ctx, positional, options) {
 		await ctx.tool('navigate_page', { pageId, type: 'url', url: run.url, initScript });
 		const sample = await settled(ctx, pageId);
 		const insights = ctx.text(await ctx.tool('performance_stop_trace', { pageId, filePath: `${base}.json.gz` }));
+		const trace = redactTrace(await fs.readFile(`${base}.json.gz`), [ctx.credentials(run.actor).password]);
+		await fs.writeFile(`${base}.json.gz`, trace, { mode: 0o600 });
 		const summary = {
 			kind: 't2t-perf-trace',
 			candidate: ctx.doctor.candidate,
@@ -400,7 +391,7 @@ async function trace(ctx, positional, options) {
 			mode: 'cold',
 			profile: { name: profileName, ...profiles[profileName] },
 			settledMs: sample.observer?.milestones?.settled ?? null,
-			trace: summarizeTrace(await fs.readFile(`${base}.json.gz`))
+			trace: summarizeTrace(trace)
 		};
 		await writeEvidence(ctx, `${base}.insights.txt`, insights.replaceAll(ctx.doctor.origin, '<origin>'));
 		await writeEvidence(ctx, `${base}.summary.json`, summary);
@@ -454,7 +445,7 @@ async function summarizeRun(ctx, directory) {
 		jsTransferBytes: run.summary.groups.js?.transferBytes,
 		dataTransferBytes: run.summary.groups.data?.transferBytes,
 		documentTransferBytes: run.summary.groups.document?.transferBytes,
-		serverTimingMs: run.summary.serverTimingMs,
+		serverTiming: serverTimingPhases(run.samples),
 		topStatementsByCalls: run.statements?.byCalls?.slice(0, 3).map(({ role, calls, mean_ms, query }) => ({
 			role,
 			calls,

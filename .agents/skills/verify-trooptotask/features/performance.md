@@ -5,9 +5,9 @@ A leader opens the Personnel list or the Organization Dashboard for a platoon-, 
 ## Sub-features
 
 - `workloads`: `seed workload small|typical|large` creates one synthetic Organization of 20, 100 or 400 active People from the declarative table in `helpers/perf-workloads.mjs`, journaled before any write. `clean-seeds` removes exactly those rows and reads their absence back.
-- `load`: repeated page loads to a settled milestone, with a Resource Timing manifest grouped document/JS/CSS/data/provider/other (transfer, encoded and decoded bytes, cache hits, `x-sveltekit-invalidated` bits), navigation, paint, LCP and long tasks per sample, the matching server timing lines and a pg_stat_statements capture over the measured repetitions.
+- `load`: repeated page loads to a settled milestone, with a Resource Timing manifest grouped document/JS/CSS/data/provider/other (transfer, encoded and decoded bytes, cache hits, `x-sveltekit-invalidated` bits), navigation, paint, LCP and long tasks per sample, the matching server timing lines, per load, and a pg_stat_statements capture over the measured repetitions.
 - `interaction`: a read-only input-to-settled timer. The observer starts at the first trusted input event and stops at the settled milestone; the input is native `fill`, never an app handler.
-- `trace`: one cold traced load, the raw `.json.gz`, the native insight text and a compact summary (FCP, LCP, main-thread busy, scripting, style/layout/paint, long tasks and blocking time after first paint). Hydration is reported as not identifiable because the app emits no hydration mark.
+- `trace`: one cold traced load, the raw `.json.gz`, the native insight text and a compact summary (FCP, LCP, main-thread busy, scripting, style/layout/paint, long tasks and blocking time after first paint). Hydration is reported as not identifiable because the app emits no hydration mark. The helper replaces the actor's password in the saved trace with `<redacted>`, because V8 keeps the cold sign-in script's source.
 - `statements`: reset or read the owned database's pg_stat_statements, top N by total time and by calls, plus a per-role total.
 - `explain`: `EXPLAIN (ANALYZE, BUFFERS)` for one named statement from the fixed registry in `scripts/verification/environment.py`, run as the workload actor with RLS applied. There is no arbitrary SQL.
 - `summarize`: one Markdown and JSON table over every run file in a run directory.
@@ -22,7 +22,7 @@ Launch and drive under Node 24 (`mise exec node@24 --`); the adapter refuses new
 
 1. Seed: `$V seed workload small`, then `typical`, then `large`. Record the returned counts and `timingsMs`; they are the seed timings. The returned `actors`, `sentinels` and `searchTerms` are what the observer waits for.
 2. Sign in once per actor: `$V actor perfWide personnel large` and `$V actor perfScoped personnel large`. Each actor is a member of every seeded workload, so the same page drives all three. Keep the returned page IDs.
-3. Load: `$V perf load PAGE WORKLOAD personnel-list|dashboard perfWide|perfScoped --mode cold|warm --out $RUN`. Warm defaults are one warm-up and five repetitions, unthrottled; cold defaults are three repetitions. Run warm before cold so the server is warm. Add `--profile field-laptop` for 4x CPU and Fast 4G.
+3. Load: `$V perf load PAGE WORKLOAD personnel-list|dashboard perfWide|perfScoped --mode cold|warm --out $RUN`. Warm defaults are one warm-up and five repetitions, unthrottled; cold defaults are three repetitions. Run warm before cold so the server is warm. Add `--profile slow-cpu` for a 4x CPU slowdown.
 4. Interaction: `$V perf interaction PAGE WORKLOAD personnel-search ACTOR --out $RUN`.
 5. Trace: `$V perf trace PAGE WORKLOAD JOURNEY ACTOR --out $RUN`.
 6. Queries: `perf load` and `perf interaction` reset pg_stat_statements after the warm-up and save the top 15 with the run. `$V perf statements reset|read --top N --out FILE` does the same by hand. `$V perf explain NAME WORKLOAD wide|scoped --out FILE` explains one registry statement as that actor.
@@ -55,3 +55,5 @@ Every workload has about one availability entry per Soldier per 30 days, one dai
 - The explain registry is shaped like the app's reads, not copied from them. Use pg_stat_statements for what the app actually ran and explain for why one statement costs what it does.
 - Restart recreates fixtures and loses workloads. Reseed and sign in again after every helper edit, because doctor reports `STALE_CANDIDATE` until restart.
 - Local unthrottled numbers show relative cost and request shape, not field latency. Record the host's CPU and load alongside them.
+- There is no network emulation. Chrome refuses network throttling while the daemon's owned-origin URL allowlist is set, and that allowlist stays. Field network latency is not measured here.
+- One cold Dashboard sample runs the summary load twice at once, for the document and for the post-hydration invalidation. Server timing therefore reports each load and the loads per sample; never add them up as one wait.

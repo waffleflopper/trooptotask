@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
-import { gzipSync } from 'node:zlib';
+import { gunzipSync, gzipSync } from 'node:zlib';
 import { test } from 'node:test';
-import { distribution, groupManifest, parseServerTiming, summarizeTrace } from './perf-measure.mjs';
+import {
+	distribution,
+	groupManifest,
+	parseServerTiming,
+	redactTrace,
+	serverTimingPhases,
+	summarizeTrace
+} from './perf-measure.mjs';
 
 const origin = 'http://127.0.0.1:4000';
 const entry = (name, initiatorType, transferSize, encodedBodySize, decodedBodySize) => ({
@@ -80,6 +87,18 @@ test('server timing lines are read for one Organization, including wrapped inspe
 	]);
 });
 
+test('concurrent loads of one phase are reported individually, not summed', () => {
+	const summary = (durationMs) => ({ feature: 'dashboard', phase: 'summary', durationMs, status: 'ok' });
+	const phases = serverTimingPhases([
+		{ serverTiming: [summary(20500), summary(20700)] },
+		{ serverTiming: [summary(20600)] },
+		{ serverTiming: [] }
+	]);
+	assert.deepEqual(Object.keys(phases), ['dashboard:summary']);
+	assert.deepEqual(phases['dashboard:summary'].durationMs, distribution([20500, 20700, 20600]));
+	assert.deepEqual(phases['dashboard:summary'].loadsPerSample, distribution([2, 1, 0]));
+});
+
 test('the trace summary measures the last main-frame navigation only', () => {
 	const pid = 7;
 	const tid = 1;
@@ -122,4 +141,13 @@ test('the trace summary measures the last main-frame navigation only', () => {
 		navigation: null,
 		reason: 'No main-frame navigation in this trace.'
 	});
+});
+
+test('trace redaction removes the sign-in password and keeps the events', () => {
+	const password = 'Synthetic-"quoted"\\-1!';
+	const source = `body.set('password', ${JSON.stringify(password)});`;
+	const events = [{ name: 'ScriptSource', ph: 'X', args: { data: { sourceText: source } } }];
+	const redacted = gunzipSync(redactTrace(gzipSync(JSON.stringify({ traceEvents: events })), [password])).toString();
+	assert.ok(!redacted.includes('Synthetic-'));
+	assert.deepEqual(JSON.parse(redacted).traceEvents[0].args.data.sourceText, `body.set('password', "<redacted>");`);
 });

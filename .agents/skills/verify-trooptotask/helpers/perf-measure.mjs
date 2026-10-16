@@ -1,4 +1,4 @@
-import { gunzipSync } from 'node:zlib';
+import { gunzipSync, gzipSync } from 'node:zlib';
 
 // Named emulation profiles. `networkConditions: null` disables network emulation.
 export const profiles = {
@@ -7,10 +7,12 @@ export const profiles = {
 		networkConditions: null,
 		meaning: 'This workstation and loopback network: the app cost with no emulation.'
 	},
-	'field-laptop': {
+	// Chrome refuses network throttling while the daemon's owned-origin URL allowlist is set, so
+	// the slow profile emulates the CPU only.
+	'slow-cpu': {
 		cpuThrottlingRate: 4,
-		networkConditions: 'Fast 4G',
-		meaning: '4x CPU slowdown and Fast 4G: a government laptop on a shared base network.'
+		networkConditions: null,
+		meaning: '4x CPU slowdown on loopback: the main-thread cost on a slower government laptop.'
 	}
 };
 
@@ -251,6 +253,17 @@ function outermost(events, names) {
 	return total;
 }
 
+// V8 keeps the source of every script evaluated in the page, so a trace taken after the cold
+// sign-in carries the sign-in script with the actor's password in it. That source holds the
+// password as a string literal, and the trace JSON escapes the source again.
+export function redactTrace(gzipped, secrets) {
+	const escape = (value) => JSON.stringify(value).slice(1, -1);
+	let text = gunzipSync(gzipped).toString('utf8');
+	for (const secret of secrets)
+		for (const form of [escape(escape(secret)), escape(secret), secret]) text = text.replaceAll(form, '<redacted>');
+	return gzipSync(text);
+}
+
 /** Compact main-thread summary of a Chrome trace (raw JSON or gzip bytes). Times in ms. */
 export function summarizeTrace(input) {
 	const bytes = Buffer.isBuffer(input) ? input : Buffer.from(input);
@@ -327,4 +340,23 @@ export function parseServerTiming(text, organizationId) {
 		});
 	}
 	return lines;
+}
+
+// One page can run the same load more than once at a time, such as the document load and the
+// post-hydration invalidation, so each phase reports its individual loads and the loads per
+// sample, never a per-sample sum.
+export function serverTimingPhases(samples) {
+	const phases = Map.groupBy(
+		samples.flatMap((sample, index) => sample.serverTiming.map((line) => ({ ...line, index }))),
+		(line) => `${line.feature}:${line.phase}`
+	);
+	return Object.fromEntries(
+		[...phases].map(([phase, lines]) => [
+			phase,
+			{
+				durationMs: distribution(lines.map((line) => line.durationMs)),
+				loadsPerSample: distribution(samples.map((_, index) => lines.filter((line) => line.index === index).length))
+			}
+		])
+	);
 }

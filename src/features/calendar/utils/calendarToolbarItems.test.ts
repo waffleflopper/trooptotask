@@ -49,7 +49,7 @@ describe('buildCalendarToolbar', () => {
 			'print-pdf'
 		]);
 		expect(primary?.label).toBe('Bulk Status');
-		expect(primary?.menuItems?.map((item) => item.href)).toEqual([
+		expect(primary?.menuItems?.map((item) => 'href' in item && item.href)).toEqual([
 			'/org/1-11-bde/calendar/bulk?tab=add',
 			'/org/1-11-bde/calendar/bulk?tab=remove',
 			'/org/1-11-bde/calendar/bulk?tab=import'

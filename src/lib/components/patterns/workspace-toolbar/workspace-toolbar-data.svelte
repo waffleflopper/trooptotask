@@ -110,13 +110,18 @@
 	const rowActions = $derived(actions.filter((item) => visibleIds.has(item.id)));
 	const moreViews = $derived(views.filter((item) => !visibleIds.has(item.id)));
 	const moreFilters = $derived(filters.filter((item) => !visibleIds.has(item.id)));
-	const moreActions = $derived(actions.filter((item) => !visibleIds.has(item.id)));
+	// Folded actions keep row order; menu-only actions follow in rank order.
+	const moreActions = $derived([
+		...actions.filter((item) => !item.menuOnly && !visibleIds.has(item.id)),
+		...actions.filter((item) => item.menuOnly).reverse()
+	]);
 	const showMore = $derived(moreViews.length + moreFilters.length + moreActions.length > 0);
 	const searchMode = $derived<'field' | 'icon' | 'open' | 'none'>(
 		!search ? 'none' : fit?.searchCollapsed ? (searchOpen ? 'open' : 'icon') : 'field'
 	);
 	const trailingId = $derived(rowActions[0]?.id ?? (showMore ? 'more' : primary?.id));
 	const searchText = $derived(search?.value.trim() ?? '');
+	const searchPlacement = $derived(search?.placement ?? 'before-filters');
 
 	$effect.pre(() => {
 		if (!import.meta.env.DEV) return;
@@ -256,7 +261,7 @@
 		for (const id of path) {
 			found = siblings.find((action) => action.id === id) ?? null;
 			if (!found || found.disabled || found.loading) return null;
-			siblings = found.menuItems ?? [];
+			siblings = (found.menuItems ?? []).filter((item): item is ToolbarAction => item.kind === 'action');
 		}
 		return found;
 	}
@@ -448,6 +453,51 @@
 	</div>
 {/snippet}
 
+{#snippet searchControl(search: NonNullable<WorkspaceToolbarProps['search']>)}
+	{#if searchMode === 'icon'}
+		<div bind:this={searchIconWrapper} class="flex shrink-0">
+			{@render searchIconButton({
+				'aria-label': search.label,
+				'aria-describedby': searchText ? `${uid}-search-text` : undefined,
+				'aria-expanded': 'false',
+				onclick: openSearch
+			})}
+			{#if searchText}
+				<span id="{uid}-search-text" class="sr-only">Search text: {searchText}</span>
+			{/if}
+		</div>
+	{:else}
+		<div class={cn('flex min-w-40 flex-1', searchMode !== 'open' && 'max-w-80')}>
+			<InputGroup.Root>
+				<InputGroup.Addon>
+					<SearchIcon aria-hidden="true" />
+				</InputGroup.Addon>
+				<InputGroup.Input
+					bind:ref={searchInput}
+					type="search"
+					aria-label={search.label}
+					placeholder={search.placeholder}
+					value={search.value}
+					oninput={(event) => search.onValueChange(event.currentTarget.value)}
+					onkeydown={closeSearchOnEscape}
+				/>
+			</InputGroup.Root>
+		</div>
+		{#if searchMode === 'open'}
+			<Button
+				bind:ref={closeButton}
+				variant="ghost"
+				size="icon"
+				aria-label="Close search"
+				onclick={closeSearch}
+				onkeydown={closeSearchOnEscape}
+			>
+				<XIcon aria-hidden="true" />
+			</Button>
+		{/if}
+	{/if}
+{/snippet}
+
 {#snippet searchIconButton(props: Record<string, unknown>)}
 	<Button variant="outline" size="icon" class="relative" {...props}>
 		<SearchIcon aria-hidden="true" />
@@ -478,55 +528,21 @@
 			{/each}
 		{/if}
 
-		{#if search}
-			{#if searchMode === 'icon'}
-				<div bind:this={searchIconWrapper} class="flex shrink-0">
-					{@render searchIconButton({
-						'aria-label': search.label,
-						'aria-describedby': searchText ? `${uid}-search-text` : undefined,
-						'aria-expanded': 'false',
-						onclick: openSearch
-					})}
-					{#if searchText}
-						<span id="{uid}-search-text" class="sr-only">Search text: {searchText}</span>
-					{/if}
-				</div>
-			{:else}
-				<div class={cn('flex min-w-40 flex-1', searchMode !== 'open' && 'max-w-80')}>
-					<InputGroup.Root>
-						<InputGroup.Addon>
-							<SearchIcon aria-hidden="true" />
-						</InputGroup.Addon>
-						<InputGroup.Input
-							bind:ref={searchInput}
-							type="search"
-							aria-label={search.label}
-							placeholder={search.placeholder}
-							value={search.value}
-							oninput={(event) => search?.onValueChange(event.currentTarget.value)}
-							onkeydown={closeSearchOnEscape}
-						/>
-					</InputGroup.Root>
-				</div>
-				{#if searchMode === 'open'}
-					<Button
-						bind:ref={closeButton}
-						variant="ghost"
-						size="icon"
-						aria-label="Close search"
-						onclick={closeSearch}
-						onkeydown={closeSearchOnEscape}
-					>
-						<XIcon aria-hidden="true" />
-					</Button>
-				{/if}
-			{/if}
+		{#if search && searchPlacement === 'before-filters'}
+			{@render searchControl(search)}
 		{/if}
 
 		{#if searchMode !== 'open'}
 			{#each rowFilters as item (item.id)}
 				{@render liveItem(item)}
 			{/each}
+		{/if}
+
+		{#if search && searchPlacement === 'after-filters'}
+			{@render searchControl(search)}
+		{/if}
+
+		{#if searchMode !== 'open'}
 			{#each rowActions as item (item.id)}
 				{@render liveItem(item)}
 			{/each}

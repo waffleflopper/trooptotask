@@ -215,7 +215,7 @@ Props (`WorkspaceToolbarProps`):
 
 - `ariaLabel`: the toolbar name. The More trigger is named `More {ariaLabel}`.
 - `items: ToolbarItem[]`: views, filters and actions, most important first.
-- `search?`: `label`, `placeholder`, `value` and `onValueChange`. The search field is pinned.
+- `search?`: `label`, `placeholder`, `value`, `onValueChange` and optional `placement`. The search field is pinned. `placement: 'after-filters'` renders it after the filters instead of before them, in both visual and keyboard order; it does not change folding.
 - `primary?`: one pinned `ToolbarAction`. It is always on the row and is never menu only.
 
 Item kinds (`toolbar-types.ts`):
@@ -224,14 +224,14 @@ Item kinds (`toolbar-types.ts`):
 - `select`: one value with a required `defaultValue`. It is active when its value differs from the default.
 - `multiSelect`: several values with optional `defaultValues`. It is active when its set differs from the defaults, in any order.
 - `toggle`: one boolean with optional `defaultPressed`, which defaults to `false`. It is active when `pressed` differs from the default. A `menuOnly` toggle is a display option that always lives in More.
-- `action`: exactly one of `onclick`, `href` or `menuItems`, plus `icon`, `destructive`, `disabled`, `disabledReason`, `loading` and `menuOnly`. `href` navigates with `goto`. `menuItems` nest as submenus, and a disabled or loading parent blocks its children.
+- `action`: exactly one of `onclick`, `href` or `menuItems`, plus `icon`, `destructive`, `disabled`, `disabledReason`, `loading` and `menuOnly`. `href` navigates with `goto`. `menuItems` hold actions and toggles. Actions nest as submenus; a toggle (`ToolbarMenuToggle`, without `menuOnly` or `defaultPressed`) is a display option shown as a checkbox item that keeps its menu open. A disabled or loading parent blocks its children.
 
 Every item has a unique `id` and a visible `label`. An optional `ariaLabel` keeps an existing accessible name. A `view` option may also set `ariaLabel`: the row button shows `label` and takes `ariaLabel` as its name, and the More radio item shows `ariaLabel ?? label` (for example `30 D` on the row and `30 days` in the menu).
 
 Rank rule:
 
 - `items` order is the only ranking. There is no priority number and no per-route breakpoint.
-- The row renders view, search, filters, actions, More and primary. Actions render in reverse rank, so the highest-ranked action sits next to the primary. The first trailing control aligns right.
+- The row renders view, search, filters, actions, More and primary, or view, filters, search when search sets `placement: 'after-filters'`. Actions render in reverse rank, so the highest-ranked action sits next to the primary. The first trailing control aligns right.
 
 Fold rule:
 
@@ -245,8 +245,8 @@ More rendering:
 
 - More lists folded items under View, Filters and Actions headings, separated, in that order.
 - A folded `select` or `multiSelect` becomes a submenu. Its trigger shows the current value and an accent dot when the filter is active. A folded `toggle` becomes a checkbox item.
-- Folded actions keep row order, with menu-only actions after them. Destructive actions sit last after a separator, in every menu and submenu, and take the destructive button style on the row.
-- When a folded filter is active, the More trigger shows a dot and is described as `Hidden filters active: …`.
+- Folded actions keep row order, with menu-only actions after them in rank order. Destructive actions sit last after a separator, in every menu and submenu, and take the destructive button style on the row.
+- When a folded filter is active, the More trigger shows a dot and is described as `Hidden filters active: …`. A toggle inside an action's menu is a display option, not a filter, and never marks its trigger or More.
 - A chosen action runs after its menu has finished closing, so an action that moves focus into page content keeps it. If More unmounts before its close finishes, the action runs then. If the whole toolbar unmounts, the action is dropped.
 - When a focused control or an open menu folds, focus moves to More. When More disappears, focus moves to the first returning control.
 
@@ -271,7 +271,7 @@ Data attributes, for tests and the verification helpers:
 Rules:
 
 - Rank items by importance to the route's main task. Do not hand-pick overflow or icon-only modes.
-- Use `menuOnly` for rare or destructive commands, and for display toggles, that should never take row space.
+- Use `menuOnly` for rare or destructive commands, and for display toggles, that should never take row space. Group several display toggles under one action with `menuItems` (for example a `Display` action with the `sliders` icon).
 - Keep disabled actions visible when their presence explains unavailable work, and give them a `disabledReason`. Loading actions show the shared spinner and stay focusable with `aria-disabled` and `aria-busy`; a press does nothing until the work settles.
 - Do not add route-local toolbar spacing, radius, borders, shadows, color, density, typography, or internal selector overrides.
 - Compose route-specific behavior under the [shared UI composition rules](agents/ui-system.md#default-ui-rules); keep toolbar appearance and reusable APIs owned by the shared component.

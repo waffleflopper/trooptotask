@@ -22,6 +22,7 @@ describe('WorkspaceToolbarIcon', () => {
 		['plus', 'lucide-plus'],
 		['printer', 'lucide-printer'],
 		['settings', 'lucide-settings'],
+		['sliders', 'lucide-sliders-horizontal'],
 		['upload', 'lucide-upload'],
 		['user-plus', 'lucide-user-plus']
 	] as [IconName, string][])('renders %s as a hidden %s icon', (icon, lucideClass) => {

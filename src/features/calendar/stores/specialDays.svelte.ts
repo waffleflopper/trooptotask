@@ -214,4 +214,8 @@ function enhance(base: Store<SpecialDay>): SpecialDayExtensions {
 	};
 }
 
-export const specialDaysStore = defineStore<SpecialDay, SpecialDayExtensions>({ table: 'special_days' }, enhance);
+// The generic create methods would post the retired single-row body; closures are added through addClosureDays.
+export const specialDaysStore: Omit<Store<SpecialDay>, 'add' | 'addBatch'> & SpecialDayExtensions = defineStore<
+	SpecialDay,
+	SpecialDayExtensions
+>({ table: 'special_days' }, enhance);

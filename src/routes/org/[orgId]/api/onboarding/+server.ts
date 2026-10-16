@@ -5,7 +5,7 @@ import {
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/errors';
-import { isUuid } from '$lib/utils/inputSchemas';
+import { dateOnlySchema, isUuid, issueMessage } from '$lib/utils/inputSchemas';
 import {
 	startOnboarding,
 	cancelOnboarding,
@@ -39,7 +39,11 @@ export const _putConfig = {
 		const status = input.status as string;
 
 		if (status === 'cancelled') return cancelOnboarding(ctx, id);
-		if (status === 'completed') return completeOnboarding(ctx, id);
+		if (status === 'completed') {
+			const completedOn = dateOnlySchema.safeParse(input.completedAt);
+			if (!completedOn.success) fail(400, issueMessage(completedOn.error));
+			return completeOnboarding(ctx, id, completedOn.data);
+		}
 		if (status === 'in_progress') return reopenOnboarding(ctx, id);
 
 		fail(400, `Invalid status: ${status}`);

@@ -27,7 +27,7 @@ vi.mock('$features/calendar/stores/availability.svelte', () => ({
 		orgId: '',
 		loading: false,
 		load: vi.fn(),
-		update: vi.fn(),
+		updateOrThrow: vi.fn(),
 		beginRead: () => ({ reconcile: (snapshot: unknown[]) => snapshot, close: () => {} })
 	}
 }));
@@ -129,7 +129,7 @@ describe('CalendarPageContext', () => {
 		savePreferences.mockClear();
 		vi.mocked(loadCalendarRange).mockReset();
 		vi.mocked(availabilityStore.load).mockReset();
-		vi.mocked(availabilityStore.update).mockReset();
+		vi.mocked(availabilityStore.updateOrThrow).mockReset();
 		ctx = makeContext(mockData, org);
 	});
 
@@ -367,7 +367,9 @@ describe('CalendarPageContext', () => {
 	it('does not return an old Organization edit as saved after navigation', async () => {
 		let currentData = mockData;
 		let resolveUpdate!: (saved: boolean) => void;
-		vi.mocked(availabilityStore.update).mockImplementation(() => new Promise((resolve) => (resolveUpdate = resolve)));
+		vi.mocked(availabilityStore.updateOrThrow).mockImplementation(
+			() => new Promise((resolve) => (resolveUpdate = resolve))
+		);
 		const navigatedCtx = makeContext(() => currentData, org);
 		const pending = navigatedCtx.handleUpdateAvailability('entry-1', {
 			statusTypeId: 'leave',

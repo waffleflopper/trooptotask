@@ -631,3 +631,27 @@ Pushes and merges may deploy through the existing Vercel integration. External d
 The final candidate adds [`20261014000400_nonretryable_password_attempt_conflict.sql`](../../supabase/migrations/20261014000400_nonretryable_password_attempt_conflict.sql). It changes a stale password-attempt response from a retryable database error to a non-retryable PostgREST HTTP 409. The application retains its existing `unavailable` mapping and HTTP 503 reconciliation response. It preserves the function signature, permissions, locks, expiry checks and password-write fencing. No stored rows are changed by applying the migration. Isolated fresh replay, populated upgrade and provider checks passed; production application remains unconfirmed.
 
 Robert must apply this migration before merge. The agent has neither inspected nor changed the remote database. Announcement desired-state writes, export completion feedback and Calendar refresh reconciliation require no additional schema changes. Existing Vercel push/merge deployment behavior remains relevant; external settings are uninspected. Focused final browser acceptance passed. Current-head CI, hosted review and owner migration confirmation remain pending.
+
+## Phase 11 D06 Onboarding local completion day
+
+The final D06 candidate adds [`20261014000500_onboarding_local_completion_day.sql`](../../supabase/migrations/20261014000500_onboarding_local_completion_day.sql), SHA-256 `7b935130b44af8700651488b5d75e6067177f258c4c212ae3a37bea2f3c0d4f6`.
+
+**What it changes.** It replaces `organization_private.require_onboarding_operation_rules()` with `CREATE OR REPLACE`. The body is identical to the original in `20261012000600` except for the completion-day rule:
+
+- A completion with no day is stamped with the UTC day, as before.
+- A sent day within one UTC day either side is kept. This is a coarse admission window that holds every zone's current day, UTC−12 to UTC+14.
+- Any other day raises `22023`, which the application returns as 400.
+
+Triggers, grants and the cancellation timestamp are unchanged. No existing row is rewritten and nothing is backfilled. Packets completed before release keep the UTC day they were stamped with.
+
+**Deploy order.** Either order is safe:
+
+- **Old application, new function.** The old server sends an ISO instant. Its UTC date is inside the window and is kept.
+- **New application, old function.** The old trigger overwrites the sent local day with the UTC day, without error, until the migration is applied.
+- **Old browser, new server.** A browser still running the previous client already sends `completedAt` as its local day.
+
+**Rollback.** Re-apply the original function body from `20261012000600` as a new migration. There are no data changes to undo.
+
+**After release.** Complete one packet late in the evening west of UTC, or early in the morning east of it. Then confirm that History shows the same local day for its start and finish.
+
+**Owner gate.** Robert must apply and confirm this migration live before the PR that contains it merges. The agent has neither inspected nor changed the remote database. Repository CI's database job replays the migration in a disposable database. Existing Vercel push/merge deployment behavior applies; its external settings are uninspected.

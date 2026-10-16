@@ -10,6 +10,9 @@
  * - `switchTemplate(onboardingId, newTemplateId)` — reassigns to a different template
  * - `cancelOnboarding(id)` / `completeOnboarding(id)` — lifecycle transitions
  *
+ * Step and lifecycle writes roll back and throw the request error when the server refuses them,
+ * so callers can show its reason. They resolve false when the organization changed meanwhile.
+ *
  * `activeList` is a derived getter filtered to `status === 'in_progress'`.
  * Loaded by the onboarding page and dashboard page load functions.
  */
@@ -324,7 +327,7 @@ function enhance(
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({ action: 'toggleCheckbox', stepId, completed })
 				});
-				if (!res.ok) throw new Error('Failed to toggle checkbox');
+				if (!res.ok) throw await buildRequestError(res, 'PUT', 'onboarding-steps');
 				const result: Pick<OnboardingStepProgress, 'completed' | 'currentStage' | 'progressChangedAt'> =
 					await res.json();
 				if (version !== organizationVersion) return false;
@@ -341,10 +344,10 @@ function enhance(
 					)
 				);
 				return true;
-			} catch {
+			} catch (error) {
 				if (version !== organizationVersion) return false;
 				resolveStepMutation(mutation);
-				return false;
+				throw error;
 			}
 		},
 
@@ -371,7 +374,7 @@ function enhance(
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({ action: 'advanceStage', stepId, stageName })
 				});
-				if (!res.ok) throw new Error('Failed to advance stage');
+				if (!res.ok) throw await buildRequestError(res, 'PUT', 'onboarding-steps');
 				const result: Pick<OnboardingStepProgress, 'completed' | 'currentStage' | 'progressChangedAt'> =
 					await res.json();
 				if (version !== organizationVersion) return false;
@@ -388,10 +391,10 @@ function enhance(
 					)
 				);
 				return true;
-			} catch {
+			} catch (error) {
 				if (version !== organizationVersion) return false;
 				resolveStepMutation(mutation);
-				return false;
+				throw error;
 			}
 		},
 
@@ -406,17 +409,17 @@ function enhance(
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({ action: 'addNote', stepId, text })
 				});
-				if (!res.ok) throw new Error('Failed to add note');
+				if (!res.ok) throw await buildRequestError(res, 'PUT', 'onboarding-steps');
 				const result: OnboardingNoteAppendResult = await res.json();
 				if (version !== organizationVersion) return false;
 				commitStepUpdate(mutation, (steps) =>
 					steps.map((step) => (step.id === stepId ? { ...step, notes: mergeNotes(step.notes, result.notes) } : step))
 				);
 				return true;
-			} catch {
+			} catch (error) {
 				if (version !== organizationVersion) return false;
 				resolveStepMutation(mutation);
-				return false;
+				throw error;
 			}
 		},
 
@@ -431,14 +434,14 @@ function enhance(
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({ id: stepId })
 				});
-				if (!res.ok) throw new Error('Failed to remove step');
+				if (!res.ok) throw await buildRequestError(res, 'DELETE', 'onboarding-steps');
 				if (version !== organizationVersion) return false;
 				commitStepUpdate(mutation, (steps) => steps.filter((step) => step.id !== stepId));
 				return true;
-			} catch {
+			} catch (error) {
 				if (version !== organizationVersion) return false;
 				resolveStepMutation(mutation);
-				return false;
+				throw error;
 			}
 		},
 
@@ -474,7 +477,7 @@ function enhance(
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({ id, status: 'cancelled' })
 				});
-				if (!res.ok) throw new Error('Failed to cancel onboarding');
+				if (!res.ok) throw await buildRequestError(res, 'PUT', 'onboarding');
 				const result: Pick<PersonnelOnboarding, 'status' | 'cancelledAt' | 'completedAt'> = await res.json();
 				if (version !== organizationVersion) return false;
 
@@ -489,10 +492,10 @@ function enhance(
 				);
 				internals.log.resolve(mutationId);
 				return true;
-			} catch {
+			} catch (error) {
 				if (version !== organizationVersion) return false;
 				internals.log.resolve(mutationId);
-				return false;
+				throw error;
 			}
 		},
 
@@ -517,7 +520,7 @@ function enhance(
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({ id, status: 'completed', completedAt: today })
 				});
-				if (!res.ok) throw new Error('Failed to complete onboarding');
+				if (!res.ok) throw await buildRequestError(res, 'PUT', 'onboarding');
 				const result: Pick<PersonnelOnboarding, 'status' | 'cancelledAt' | 'completedAt'> = await res.json();
 				if (version !== organizationVersion) return false;
 
@@ -532,10 +535,10 @@ function enhance(
 				);
 				internals.log.resolve(mutationId);
 				return true;
-			} catch {
+			} catch (error) {
 				if (version !== organizationVersion) return false;
 				internals.log.resolve(mutationId);
-				return false;
+				throw error;
 			}
 		}
 	};

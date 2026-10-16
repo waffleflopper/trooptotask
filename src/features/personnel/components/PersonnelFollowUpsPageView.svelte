@@ -6,6 +6,7 @@
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
 	import { Textarea } from '$lib/components/ui/textarea';
+	import { buildRequestError, rejectedRequestMessage } from '$lib/stores/core';
 	import type { PersonnelFollowUp } from '$features/personnel/contracts';
 	import type { PersonnelFollowUpsPageData } from '$features/personnel/personnel-detail.types';
 	import { ArtifactDraft } from '$features/personnel/workspace/artifactDraft.svelte';
@@ -65,12 +66,12 @@
 				headers: request.headers,
 				body: request.body
 			});
-			if (!response.ok) throw new Error('Unable to update follow-up.');
+			if (!response.ok) throw await buildRequestError(response, 'PATCH', 'follow-up');
 			const saved = (await response.json()) as PersonnelFollowUp;
 			followUps.upsert(saved);
 			resetForm();
 		} catch (caught) {
-			followUps.error = caught instanceof Error ? caught.message : 'Unable to save follow-up.';
+			followUps.error = rejectedRequestMessage(caught, 'Unable to update follow-up.');
 		} finally {
 			followUps.saving = false;
 		}
@@ -85,7 +86,7 @@
 				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({ status })
 			});
-			if (!response.ok) throw new Error('Unable to update follow-up.');
+			if (!response.ok) throw await buildRequestError(response, 'PATCH', 'follow-up');
 			const updated = (await response.json()) as Partial<PersonnelFollowUp>;
 			followUps.upsert({ ...record, ...updated });
 			if (status === 'archived') {
@@ -93,7 +94,7 @@
 				if (editingId === record.id) resetForm();
 			}
 		} catch (caught) {
-			followUps.error = caught instanceof Error ? caught.message : 'Unable to update follow-up.';
+			followUps.error = rejectedRequestMessage(caught, 'Unable to update follow-up.');
 		} finally {
 			actionId = '';
 		}

@@ -264,7 +264,7 @@ describe.each(lifecycleRequests)('/api/onboarding PUT $status', ({ status, initi
 		const ctx = lifecycleContext(initialStatus, saved);
 
 		await expect(
-			handleUseCaseRequest(_putConfig, ctx, { id: ONBOARDING_ID, status, completedAt: '2099-12-31' }, () => ctx)
+			handleUseCaseRequest(_putConfig, ctx, { id: ONBOARDING_ID, status, completedAt: '2026-10-01' }, () => ctx)
 		).resolves.toEqual(response);
 
 		expect(ctx.auditPort.events).toEqual([expect.objectContaining({ resourceId: ONBOARDING_ID })]);
@@ -273,11 +273,11 @@ describe.each(lifecycleRequests)('/api/onboarding PUT $status', ({ status, initi
 	it('propagates expectation loss as 409 without a success audit', async () => {
 		const ctx = lifecycleContext(initialStatus, null);
 
-		await expect(handleUseCaseRequest(_putConfig, ctx, { id: ONBOARDING_ID, status }, () => ctx)).rejects.toMatchObject(
-			{
-				status: 409
-			}
-		);
+		await expect(
+			handleUseCaseRequest(_putConfig, ctx, { id: ONBOARDING_ID, status, completedAt: '2026-10-01' }, () => ctx)
+		).rejects.toMatchObject({
+			status: 409
+		});
 
 		expect(ctx.auditPort.events).toEqual([]);
 		expect(ctx.store.update).not.toHaveBeenCalled();
@@ -286,11 +286,11 @@ describe.each(lifecycleRequests)('/api/onboarding PUT $status', ({ status, initi
 	it('keeps the existing sequential invalid-transition 400', async () => {
 		const ctx = lifecycleContext('completed', null);
 
-		await expect(handleUseCaseRequest(_putConfig, ctx, { id: ONBOARDING_ID, status }, () => ctx)).rejects.toMatchObject(
-			{
-				status: 400
-			}
-		);
+		await expect(
+			handleUseCaseRequest(_putConfig, ctx, { id: ONBOARDING_ID, status, completedAt: '2026-10-01' }, () => ctx)
+		).rejects.toMatchObject({
+			status: 400
+		});
 
 		expect(ctx.onboardingLifecycleTransition!.transition).not.toHaveBeenCalled();
 		expect(ctx.auditPort.events).toEqual([]);
@@ -303,4 +303,41 @@ describe.each(lifecycleRequests)('/api/onboarding PUT $status', ({ status, initi
 			handleUseCaseRequest(_postConfig, ctx, { personnelId: 'abc', templateId: TEMPLATE_1 }, () => ctx)
 		).rejects.toMatchObject({ status: 400, message: 'Choose a Person to onboard' });
 	});
+});
+
+describe('/api/onboarding PUT completion day', () => {
+	it('saves the local day the member sent', async () => {
+		const ctx = lifecycleContext('in_progress', null);
+		vi.mocked(ctx.onboardingLifecycleTransition!.transition).mockImplementation(
+			async (_organizationId, id, command) => ({
+				id,
+				status: 'completed',
+				cancelled_at: null,
+				completed_at: command.kind === 'complete' ? command.at : null
+			})
+		);
+
+		await expect(
+			handleUseCaseRequest(
+				_putConfig,
+				ctx,
+				{ id: ONBOARDING_ID, status: 'completed', completedAt: '2026-10-14' },
+				() => ctx
+			)
+		).resolves.toMatchObject({ status: 'completed', completedAt: '2026-10-14' });
+	});
+
+	it.each([undefined, '2026-10-14T23:30:00.000Z', '2026-02-30', 'today'])(
+		'answers 400 without saving for the completion day %j',
+		async (completedAt) => {
+			const ctx = lifecycleContext('in_progress', null);
+
+			await expect(
+				handleUseCaseRequest(_putConfig, ctx, { id: ONBOARDING_ID, status: 'completed', completedAt }, () => ctx)
+			).rejects.toMatchObject({ status: 400, message: 'Use a valid date (YYYY-MM-DD)' });
+
+			expect(ctx.onboardingLifecycleTransition!.transition).not.toHaveBeenCalled();
+			expect(ctx.auditPort.events).toEqual([]);
+		}
+	);
 });

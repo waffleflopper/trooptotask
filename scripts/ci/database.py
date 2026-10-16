@@ -78,6 +78,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261014000200_atomic_critical_task_reorder.sql",
     "20261014000300_critical_task_reorder_preconditions.sql",
     "20261014000400_nonretryable_password_attempt_conflict.sql",
+    "20261014000500_onboarding_local_completion_day.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",

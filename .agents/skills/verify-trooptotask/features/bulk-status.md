@@ -37,6 +37,7 @@ Preconditions: doctor passes; `$V actor calendarOperate calendar/bulk` returns `
 
 ## Gotchas
 
+- An import row whose start or end date is an impossible calendar day, such as `2026-02-30`, is flagged during review and not sent; valid rows in the same paste still import. See [Invalid input](invalid-input.md).
 - Add/Remove/Import are distinct user paths. A direct authenticated batch request can check server effects but does not demonstrate the tab's review and feedback.
 - An import preview error is not enough to prove no save; compare rows before and after using the attempted unique note. Keep the completed import result visible for evidence before clicking Done.
 - The partial-chunk control must see two actual batch calls. Check `network state`; if the second call never occurred, record the path as unreachable or failed rather than crediting a generic error toast. The 501 temporary People can make the roster slow; clean only the helper-owned IDs after proof.

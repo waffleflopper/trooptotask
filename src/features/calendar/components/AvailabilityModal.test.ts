@@ -3,6 +3,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import AvailabilityModal from './AvailabilityModal.svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
+import { buildRequestError } from '$lib/stores/core';
 import type { Personnel } from '$features/personnel/contracts';
 import type { AvailabilityEntry, StatusType } from '$features/calendar/contracts';
 
@@ -352,6 +353,79 @@ describe('AvailabilityModal — saved status feedback', () => {
 		expect(successToast).not.toHaveBeenCalled();
 		expect(onReconcile).toHaveBeenCalledWith(['2026-04-07'], 'org-a');
 		expect(screen.getByRole('button', { name: 'Edit status' })).toBeTruthy();
+	});
+
+	it('shows the server reason when an edit is refused and keeps the previous status', async () => {
+		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+		renderModal(new Date(2026, 3, 7), {
+			statusTypes,
+			existingEntries: [existingEntry],
+			onUpdate: vi
+				.fn()
+				.mockRejectedValue(
+					await buildRequestError(
+						Response.json({ message: 'This status type was deleted.' }, { status: 404 }),
+						'PUT',
+						'availability'
+					)
+				),
+			onReconcile: vi.fn().mockResolvedValue([existingEntry])
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit status' }));
+		await fireEvent.input(screen.getByLabelText('Note'), { target: { value: 'Changed' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Update Status' }));
+
+		await waitFor(() => expect(errorToast).toHaveBeenCalledWith('This status type was deleted.'));
+		expect(screen.getByRole('button', { name: 'Edit status' })).toBeTruthy();
+	});
+
+	it('reports a refused edit without reconciling, even when the calendar read would fail', async () => {
+		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+		const onReconcile = vi.fn().mockRejectedValue(new Error('range read failed'));
+		renderModal(new Date(2026, 3, 7), {
+			statusTypes,
+			existingEntries: [existingEntry],
+			onUpdate: vi
+				.fn()
+				.mockRejectedValue(
+					await buildRequestError(
+						Response.json({ message: 'This status type was deleted.' }, { status: 404 }),
+						'PUT',
+						'availability'
+					)
+				),
+			onReconcile
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit status' }));
+		await fireEvent.input(screen.getByLabelText('Note'), { target: { value: 'Changed' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Update Status' }));
+
+		await waitFor(() => expect(errorToast).toHaveBeenCalledWith('This status type was deleted.'));
+		expect(errorToast).toHaveBeenCalledOnce();
+		expect(screen.getByRole('button', { name: 'Update Status' }).hasAttribute('disabled')).toBe(false);
+	});
+
+	it('keeps the generic message when an addition fails on the server', async () => {
+		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+		renderModal(new Date(2026, 3, 7), {
+			statusTypes,
+			onAdd: vi
+				.fn()
+				.mockRejectedValue(
+					await buildRequestError(
+						Response.json({ message: 'relation missing' }, { status: 500 }),
+						'POST',
+						'availability'
+					)
+				),
+			onReconcile: vi.fn().mockResolvedValue([])
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Add Status' }));
+
+		await waitFor(() => expect(errorToast).toHaveBeenCalledWith('Could not save status. Try again.'));
 	});
 
 	it('confirms an edited row by its retained ID when the update response is lost', async () => {

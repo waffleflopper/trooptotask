@@ -13,6 +13,7 @@ import {
 } from './onboardingHistory';
 
 const TODAY = '2026-10-13';
+const ZONE = 'UTC';
 
 function step(overrides: Partial<OnboardingStepProgress> = {}): OnboardingStepProgress {
 	return {
@@ -64,7 +65,8 @@ describe('buildHistory', () => {
 				packet('open', { startedAt: '2026-09-30' }),
 				completed('newest', '2026-09-05', '2026-10-01')
 			],
-			TODAY
+			TODAY,
+			ZONE
 		);
 
 		expect(rows.map((row) => [row.packet.id, row.outcome, row.finishedOn])).toEqual([
@@ -81,7 +83,8 @@ describe('buildHistory', () => {
 				cancelled('z-evening', '2026-09-01', '2026-09-28T17:00:00Z'),
 				cancelled('m-noon', '2026-09-01', '2026-09-28T12:30:00Z')
 			],
-			TODAY
+			TODAY,
+			ZONE
 		);
 
 		expect(rows.map((row) => [row.packet.id, row.finishedOn])).toEqual([
@@ -94,7 +97,8 @@ describe('buildHistory', () => {
 	it('puts a packet cancelled during a day above one completed that day, whose time is not recorded', () => {
 		const { rows } = buildHistory(
 			[completed('done', '2026-09-01', '2026-09-28'), cancelled('stopped', '2026-09-01', '2026-09-28T09:00:00Z')],
-			TODAY
+			TODAY,
+			ZONE
 		);
 
 		expect(rows.map((row) => row.packet.id)).toEqual(['stopped', 'done']);
@@ -103,7 +107,8 @@ describe('buildHistory', () => {
 	it('counts days taken from start date to finish date, for cancelled packets too', () => {
 		const { rows } = buildHistory(
 			[completed('done', '2026-09-01', '2026-09-30'), cancelled('stopped', '2026-08-21', '2026-08-28T10:00:00Z')],
-			TODAY
+			TODAY,
+			ZONE
 		);
 
 		expect(rows.map((row) => [row.packet.id, row.days])).toEqual([
@@ -121,7 +126,8 @@ describe('buildHistory', () => {
 					step({ id: 'removed', completed: true, active: false })
 				])
 			],
-			TODAY
+			TODAY,
+			ZONE
 		);
 
 		expect([rows[0].done, rows[0].total]).toEqual([1, 2]);
@@ -131,7 +137,7 @@ describe('buildHistory', () => {
 		const typicalFinishes = ['2026-09-10', '2026-09-11', '2026-09-12'].map((end, index) =>
 			completed(`typical-${index}`, '2026-09-01', end)
 		);
-		expect(buildHistory(typicalFinishes, TODAY).overview.typicalDays).toBe(10);
+		expect(buildHistory(typicalFinishes, TODAY, ZONE).overview.typicalDays).toBe(10);
 
 		const { rows } = buildHistory(
 			[
@@ -139,7 +145,8 @@ describe('buildHistory', () => {
 				cancelled('six', '2026-09-01', '2026-09-17T12:00:00Z'),
 				cancelled('seven', '2026-09-01', '2026-09-18T12:00:00Z')
 			],
-			TODAY
+			TODAY,
+			ZONE
 		);
 		const tookLongById = Object.fromEntries(rows.map((row) => [row.packet.id, row.tookLong]));
 
@@ -150,7 +157,8 @@ describe('buildHistory', () => {
 	it('flags nothing without a typical figure', () => {
 		const { rows, overview } = buildHistory(
 			[completed('a', '2026-01-01', '2026-09-01'), completed('b', '2026-01-01', '2026-09-02')],
-			TODAY
+			TODAY,
+			ZONE
 		);
 
 		expect(overview.typicalDays).toBeNull();
@@ -167,7 +175,8 @@ describe('buildHistory', () => {
 				completed('too-old', '2026-05-01', '2026-07-14'),
 				cancelled('too-old-cancelled', '2026-05-01', '2026-07-01T12:00:00Z')
 			],
-			TODAY
+			TODAY,
+			ZONE
 		);
 
 		expect(overview).toMatchObject({ finished: 4, cancelled: 1 });
@@ -181,10 +190,80 @@ describe('buildHistory', () => {
 				completed('c', '2026-09-01', '2026-10-01'),
 				cancelled('stopped', '2026-09-01', '2026-10-10T00:00:00Z')
 			],
-			TODAY
+			TODAY,
+			ZONE
 		);
 
 		expect(overview.typicalDays).toBe(20);
+	});
+});
+
+describe("buildHistory on the viewer's day", () => {
+	it("dates a cancellation on the viewer's local day", () => {
+		const late = cancelled('late', '2026-10-01', '2026-10-15T02:00:00Z');
+
+		expect(buildHistory([late], '2026-10-14', 'America/New_York').rows[0].finishedOn).toBe('2026-10-14');
+		expect(buildHistory([late], '2026-10-15', 'UTC').rows[0].finishedOn).toBe('2026-10-15');
+	});
+
+	it("lists a completion above a cancellation the viewer's day puts on the day before", () => {
+		const packets = [
+			cancelled('cancelled-oct-13-local', '2026-10-01', '2026-10-14T02:00:00.000Z'),
+			completed('completed-oct-14', '2026-10-01', '2026-10-14'),
+			cancelled('cancelled-oct-14-local', '2026-10-01', '2026-10-14T20:00:00.000Z')
+		];
+
+		const rows = buildHistory(packets, '2026-10-14', 'America/New_York').rows;
+
+		expect(rows.map((row) => [row.packet.id, row.finishedOn])).toEqual([
+			['cancelled-oct-14-local', '2026-10-14'],
+			['completed-oct-14', '2026-10-14'],
+			['cancelled-oct-13-local', '2026-10-13']
+		]);
+	});
+
+	it('lists an early local-day cancellation above a completion on the same day east of UTC', () => {
+		const packets = [
+			completed('completed-jan-1', '2026-12-20', '2027-01-01'),
+			cancelled('cancelled-jan-1-0100', '2026-12-20', '2026-12-31T11:00:00.000Z')
+		];
+
+		const rows = buildHistory(packets, '2027-01-01', 'Pacific/Kiritimati').rows;
+
+		expect(rows.map((row) => [row.packet.id, row.finishedOn])).toEqual([
+			['cancelled-jan-1-0100', '2027-01-01'],
+			['completed-jan-1', '2027-01-01']
+		]);
+	});
+
+	it('keeps a same-day cancellation without a time above completions, and completions in id order', () => {
+		const untimed = {
+			...cancelled('z-cancelled-untimed', '2026-10-14', '2026-10-14T12:00:00.000Z'),
+			cancelledAt: null
+		};
+		const packets = [
+			completed('completed-b', '2026-10-01', '2026-10-14'),
+			untimed,
+			completed('completed-a', '2026-10-01', '2026-10-14')
+		];
+
+		const rows = buildHistory(packets, '2026-10-14', 'UTC').rows;
+
+		expect(rows.map((row) => row.packet.id)).toEqual(['z-cancelled-untimed', 'completed-a', 'completed-b']);
+	});
+
+	it('counts a start after the completion day as finishing the same day in the typical figure', () => {
+		const { overview } = buildHistory(
+			[
+				completed('a', '2026-10-12', '2026-10-10'),
+				completed('b', '2026-10-12', '2026-10-10'),
+				completed('c', '2026-10-01', '2026-10-11')
+			],
+			TODAY,
+			ZONE
+		);
+
+		expect(overview.typicalDays).toBe(0);
 	});
 });
 
@@ -205,7 +284,8 @@ describe('filterHistoryRows', () => {
 				templateId: 'standard'
 			}
 		],
-		TODAY
+		TODAY,
+		ZONE
 	);
 	const all: HistoryFilters = { outcome: 'all', query: '', groupId: HISTORY_ALL, templateId: HISTORY_ALL };
 	const ids = (filters: Partial<HistoryFilters>) =>

@@ -36,7 +36,7 @@ function createAvailabilityBatchAdapter(): BatchApiAdapter<AvailabilityEntry> {
 				headers,
 				body: JSON.stringify(data)
 			});
-			if (!res.ok) throw new Error('POST availability failed');
+			if (!res.ok) throw await buildRequestError(res, 'POST', 'availability');
 			return res.json();
 		},
 
@@ -46,7 +46,7 @@ function createAvailabilityBatchAdapter(): BatchApiAdapter<AvailabilityEntry> {
 				headers,
 				body: JSON.stringify({ id, ...data })
 			});
-			if (!res.ok) throw new Error('PUT availability failed');
+			if (!res.ok) throw await buildRequestError(res, 'PUT', 'availability');
 			return res.json();
 		},
 

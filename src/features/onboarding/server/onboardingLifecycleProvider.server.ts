@@ -24,6 +24,7 @@ export function createSupabaseOnboardingLifecycleTransitionPort(
 				.maybeSingle();
 			if (error) {
 				if (error.code === '42501') fail(403, error.message);
+				if (error.code === '22023') fail(400, error.message);
 				throw new Error(error.message);
 			}
 			return data as OnboardingLifecycleTransitionResult | null;

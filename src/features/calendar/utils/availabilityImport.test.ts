@@ -142,6 +142,26 @@ describe('validateAvailabilityImportRow', () => {
 		expect(result.issues).toEqual([{ field: 'startDate', code: 'start-date-invalid', severity: 'error' }]);
 	});
 
+	it('flags a calendar day that does not exist and keeps it out of the plan', () => {
+		const impossible = row({ startDate: '2026-02-30', endDate: '2026-03-04' });
+		expect(validateAvailabilityImportRow(impossible, index)).toEqual({
+			valid: false,
+			issues: [{ field: 'startDate', code: 'start-date-invalid', severity: 'error' }]
+		});
+		const plan = buildAvailabilityImportPlan(
+			[
+				{ rowNumber: 2, values: impossible },
+				{ rowNumber: 3, values: row({ endDate: '02/30/2026' }) }
+			],
+			{ personnel: [person({ id: 'p1' })], statusTypes: [leave] }
+		);
+		expect(plan.records).toEqual([]);
+		expect(plan.skipped).toEqual([
+			{ rowNumber: 2, code: 'date-invalid' },
+			{ rowNumber: 3, code: 'date-invalid' }
+		]);
+	});
+
 	it('rejects an end before the start', () => {
 		const result = validateAvailabilityImportRow(row({ startDate: '2026-02-05', endDate: '2026-02-01' }), index);
 		expect(result.issues).toEqual([{ field: 'endDate', code: 'end-before-start', severity: 'error' }]);

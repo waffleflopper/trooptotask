@@ -11,6 +11,7 @@ import {
 
 export interface OnboardingWorkspaceBootstrapOptions {
 	mode?: OnboardingBootstrapMode;
+	today?: string;
 }
 
 function createHydrationTarget<T>(items: T[]): OnboardingWorkspaceHydrationTarget<T> {

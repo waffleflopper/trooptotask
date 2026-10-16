@@ -88,6 +88,7 @@ Restore original fixture fields/task archive state and armed hooks. There is no 
 
 ## Gotchas
 
+- An impossible CSV completion date such as `02/30/2026` is flagged during import review. A malformed import row is refused with `400` and saves nothing. See [Invalid input](invalid-input.md).
 - Critical Tasks operate is independent of Personnel and Training; configure is required for library/default writes, not completion recording. Group scope remains authoritative on the server and provider.
 - The latest completion is selected by completion date, then creation time. Older history must not overwrite a newer readiness result; same-date import upsert differs from creating a new dated record.
 - Critical Tasks expiration uses a per-task override or Organization default. Expiring-soon counts as ready, the same rule Training uses for its warning states.

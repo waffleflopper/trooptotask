@@ -225,7 +225,8 @@ describe('ICT completion import review', () => {
 				['Smith', 'Jane', 'UNKNOWN-001', '2026-04-14', 'Lecture'],
 				['Smith', 'Jane', '181-105-1999', '2026-04-14', 'Lecture'],
 				['Smith', 'Jane', '181-105-1001', 'not-a-date', 'Lecture'],
-				['Smith', 'Jane', '181-105-1001', '2026-04-14', 'Bad Method']
+				['Smith', 'Jane', '181-105-1001', '2026-04-14', 'Bad Method'],
+				['Smith', 'Jane', '181-105-1001', '02/30/2026', 'Lecture']
 			],
 			{
 				personnel: [alphaMedic],
@@ -236,7 +237,7 @@ describe('ICT completion import review', () => {
 
 		expect(expectReviewRows(review)).toEqual({
 			valid: [],
-			invalid: [2, 3, 4, 5, 6],
+			invalid: [2, 3, 4, 5, 6, 7],
 			ambiguous: []
 		});
 		expect(review.invalidRows).toEqual([
@@ -259,6 +260,10 @@ describe('ICT completion import review', () => {
 			expect.objectContaining({
 				rowNumber: 6,
 				errors: ['Validation method must match one of the supported ICT validation methods']
+			}),
+			expect.objectContaining({
+				rowNumber: 7,
+				errors: ['Completion date must be a valid date']
 			})
 		]);
 	});

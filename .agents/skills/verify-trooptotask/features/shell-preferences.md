@@ -21,7 +21,7 @@ A member reaches authorized screens while optional header content loads separate
 
 ## How to get to it (user POV)
 
-Sign in normally and choose Training or Calendar in the app navigation. Training has Group, saved View and matrix-view controls. Calendar's `Display` menu contains Show Status Text and Show Personnel Roles, and Show Onboarding when onboarding Personnel exist; when the row folds, `Display` moves into `More Calendar controls` as a submenu. Use the header's Switch organization and Account menus for scope/session changes.
+Sign in normally and choose Training or Calendar in the app navigation. Training has Group, saved View and matrix-view controls. Calendar's `Display` menu contains Show Status Text and Show Personnel Roles, and Show Onboarding when onboarding Personnel exist; when the row folds, `Display` moves into `More Calendar controls` as a submenu. Use the sidebar's Switch organization and Account menus for scope/session changes.
 
 Getting Started currently has a retained API and model, but no visible checklist or dismiss control. Its GET/POST/DELETE behavior belongs in separately labeled authenticated HTTP/provider proof. Do not invent a browser journey for that endpoint. The obsolete write-only Calendar visited localStorage marker is removed.
 

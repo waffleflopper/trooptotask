@@ -2,7 +2,7 @@
 
 Baseline: `282fcace16795a13e2306bf71d44465f59d51acc`. Completed phases are summarized below; their accepted evidence and exact historical task scopes remain linked. [BASELINE](BASELINE.md) owns retained contracts and original findings, [EVIDENCE](EVIDENCE.md) owns acceptance and verification, and [RELEASE](RELEASE.md) owns operator obligations.
 
-**Active checkpoint:** Phase **12**, parent [#1285](https://github.com/waffleflopper/trooptotask/issues/1285), milestone **10**. Activated for planning on 2026-10-15 at fetched main `d8b45a7c3` after Phase 11's [accepted closure](https://github.com/waffleflopper/trooptotask/issues/1284#issuecomment-6206832006). Active child D01 [#1705](https://github.com/waffleflopper/trooptotask/issues/1705), task **12-BASE**, is **READY**. Planning edits are on local branch `chore/activate-stabilization-phase-1` and travel with D01's first PR. No PR yet.
+**Active checkpoint:** Phase **12**, parent [#1285](https://github.com/waffleflopper/trooptotask/issues/1285), milestone **10**. Activated for planning on 2026-10-15 at fetched main `d8b45a7c3` after Phase 11's [accepted closure](https://github.com/waffleflopper/trooptotask/issues/1284#issuecomment-6206832006). Active child D01 [#1705](https://github.com/waffleflopper/trooptotask/issues/1705), task **12-BASE**, is **READY**. D01 PR 1 ([#1713](https://github.com/waffleflopper/trooptotask/pull/1713), measurement capability, in review) carries the planning edits; the journey baseline remains for D01 PR 2.
 
 ## Execution rules
 

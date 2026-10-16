@@ -3,6 +3,7 @@ import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { POLICY_ACTION_CATALOG, type FeatureLanePolicyAction } from '$lib/access/policyEvaluator';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
 import { fail } from '$lib/errors';
+import { readLossWarningWindowDays } from '$features/organization/contracts';
 import { formatDate, formatDisplayDate, parseDate } from '$lib/utils/dates';
 import type {
 	PersonnelAvailabilityPeriod,
@@ -116,19 +117,24 @@ export async function loadLossTrackingReadinessLane(
 		};
 	}
 	const daysUntilEts = Math.floor((parseDate(person.ets).getTime() - asOfDate(asOf).getTime()) / (24 * 60 * 60 * 1000));
-	const warningWindowDays = (await readWarningWindowDays().catch(() => null)) ?? 180;
 	const detail =
 		daysUntilEts < 0
 			? `ETS ${formatDisplayDate(person.ets)} was ${Math.abs(daysUntilEts)} days ago.`
 			: `ETS ${formatDisplayDate(person.ets)} is ${daysUntilEts} days away.`;
+	if (daysUntilEts < 0) return { label: 'Loss Tracking', value: 'Action needed', detail, tone: 'bad' };
+	const warningWindowDays = await readLossWarningWindowDays(readWarningWindowDays());
+	if (warningWindowDays === null) {
+		return {
+			label: 'Loss Tracking',
+			value: 'Unavailable',
+			detail: `${detail} Loss warnings could not be loaded. Reload the page to try again.`,
+			tone: 'neutral'
+		};
+	}
 	return {
 		label: 'Loss Tracking',
 		value: daysUntilEts <= warningWindowDays ? 'Action needed' : 'No loss risk',
 		detail,
-		tone: daysUntilEts < 0 ? 'bad' : daysUntilEts <= warningWindowDays ? 'watch' : 'good'
+		tone: daysUntilEts <= warningWindowDays ? 'watch' : 'good'
 	};
-}
-
-export function currentPersonnelReadinessDate(): string {
-	return formatDate(new Date());
 }

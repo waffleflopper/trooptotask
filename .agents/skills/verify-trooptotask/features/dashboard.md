@@ -58,3 +58,8 @@ Starter pack apply currently has an authenticated endpoint and screen-model meth
 - SvelteKit can return HTTP 200 with serialized route errors. Foreign denial must inspect the node status/message and absence of A data, not only the transport status.
 - The switcher preserves Calendar when used there. Enter B's Home before releasing the held A Dashboard response; whole-navigation isolation does not prove individual deferred-source isolation.
 - The reproduced former Dashboard projection included the retired step (75%); the retained active-step expectation is 67%. Preserve the failing baseline separately from its repaired final observation.
+- For load time, requests, bytes and queries on a 20/100/400-Person Organization, use the [performance recipe](performance.md) instead of timing this fixture.
+
+## Viewer day
+
+With a browser zone whose day differs from UTC (see the [skill](../SKILL.md#launch)), reload the Dashboard after signing in. The Training card must agree with the Training pages on the browser day, and a record expiring on that day is not counted expired. The Overview renders no Critical Tasks card, so compare the Critical Tasks summary in the Dashboard page data with the Critical Tasks pages.

@@ -82,7 +82,7 @@ test('content requests bind the known row and preserve denied envelopes without 
 			{ title: 'Denied', message: 'Must not save', type: 'info' },
 			{ title: 'Denied', message: 'Must not save', type: 'info' }
 		],
-		['announcementToggle', '/admin/announcements?/toggle', {}, { id }],
+		['announcementToggle', '/admin/announcements?/toggle', { isActive: 'false' }, { id, isActive: 'false' }],
 		['announcementDelete', '/admin/announcements?/delete', {}, { id }],
 		[
 			'feedbackUpdate',

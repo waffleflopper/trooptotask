@@ -186,6 +186,28 @@ describe('TrainingPageContext', () => {
 		personnelTrainingsStore.load([], 'org-1');
 	});
 
+	describe('handleToggleExempt', () => {
+		it.each([
+			[true, 400, 'That Training type is no longer available.', 'That Training type is no longer available.'],
+			[true, 500, 'Internal server error', 'Failed to mark exempt. Try again.'],
+			[false, 500, 'Internal server error', 'Failed to remove exemption. Try again.']
+		] as const)(
+			'keeps the saved exemption and says why when exempt=%s is refused with %i',
+			async (exempt, status, serverMessage, shown) => {
+				const saved = { ...mockType, canBeExempted: true, exemptPersonnelIds: exempt ? [] : [mockPerson.id] };
+				trainingTypesStore.load([saved], 'org-1');
+				vi.stubGlobal('fetch', async () => Response.json({ message: serverMessage }, { status }));
+				const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'error');
+				const ctx = makeContext(makeData(), modals, makePolicyOrg({ training: 'configure' }));
+
+				await ctx.handleToggleExempt(saved.id, mockPerson.id, exempt);
+
+				expect(errorToast).toHaveBeenCalledExactlyOnceWith(shown);
+				expect(trainingTypesStore.items[0].exemptPersonnelIds).toEqual(saved.exemptPersonnelIds);
+			}
+		);
+	});
+
 	describe('canManageConfig', () => {
 		it('is false without Training configure capability', () => {
 			const org = makePolicyOrg({ training: 'operate' });

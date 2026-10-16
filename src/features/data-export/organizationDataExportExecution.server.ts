@@ -58,11 +58,21 @@ export async function executeOrganizationDataExport<TArtifact extends Organizati
 
 		ctx.audit.log({ action: options.auditAction, resourceType: 'data_export', resourceId: exportRecord.exportId });
 
-		await ctx.notifications.notifyAdmins(orgId, userId, {
-			type: 'bulk_data_exported',
-			title: 'Data Exported',
-			message: `"${options.requestedByEmail ?? 'A user'}" exported organization data.`
-		});
+		try {
+			await ctx.notifications.notifyAdmins(orgId, userId, {
+				type: 'bulk_data_exported',
+				title: 'Data Exported',
+				message: `"${options.requestedByEmail ?? 'A user'}" exported organization data.`
+			});
+		} catch (error) {
+			console.error('[data-exports]', {
+				status: 'completion-notification-failed',
+				exportId: exportRecord.exportId,
+				organizationId: orgId,
+				userId,
+				error
+			});
+		}
 
 		return { status: 'ready', artifact };
 	} catch (err) {

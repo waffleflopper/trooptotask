@@ -276,7 +276,11 @@ describe('Calendar ordinary catalog persistence', () => {
 		}
 		await expect(
 			createSupabaseCalendarCatalogPersistence(client, 'org-b').updateStatusType('saved-1', { name: 'Hidden' })
-		).rejects.toThrow('Expected one row');
+		).resolves.toBeNull();
+		expect(state.rows.status_types.find((row) => row.id === 'saved-1')).toMatchObject({
+			organization_id: ORG,
+			name: 'Leave'
+		});
 	});
 
 	it('reads exact target IDs in finite chunks and preserves the personnel fallback', async () => {

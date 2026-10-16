@@ -291,6 +291,7 @@
 								use:enhance={submitAnnouncement({ kind: 'toggle', id: announcement.id })}
 							>
 								<input type="hidden" name="id" value={announcement.id} />
+								<input type="hidden" name="isActive" value={String(!announcement.is_active)} />
 								<Button
 									type="submit"
 									variant="outline"

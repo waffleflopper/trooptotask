@@ -15,6 +15,7 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { rejectedRequestMessage } from '$lib/stores/core';
 	import { PendingSave } from '$lib/utils/pendingSave.svelte';
 
 	interface Props {
@@ -85,13 +86,15 @@
 		if (!valid) return;
 		const failure = initial ? 'Failed to save status type' : 'Failed to add status type';
 		try {
-			const saved = initial ? await statusTypesStore.update(initial.id, draft) : await statusTypesStore.add(draft);
+			const saved = initial
+				? await statusTypesStore.updateOrThrow(initial.id, draft)
+				: await statusTypesStore.add(draft);
 			if (!saved) {
 				toastStore.error(failure);
 				return;
 			}
 		} catch (error) {
-			toastStore.error(error instanceof Error ? error.message : failure);
+			toastStore.error(rejectedRequestMessage(error, failure));
 			return;
 		}
 		onClose();

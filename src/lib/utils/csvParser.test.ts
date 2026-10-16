@@ -116,4 +116,19 @@ describe('parseDateString', () => {
 		expect(parseDateString('25568')).toBeNull();
 		expect(parseDateString('60001')).toBeNull();
 	});
+
+	it('rejects calendar days that do not exist instead of rolling them over', () => {
+		expect(parseDateString('2026-02-30')).toBeNull();
+		expect(parseDateString('2026-04-31')).toBeNull();
+		expect(parseDateString('2026-13-01')).toBeNull();
+		expect(parseDateString('02/30/2026')).toBeNull();
+		expect(parseDateString('4/31/2026')).toBeNull();
+	});
+
+	it('accepts February 29 only in a leap year', () => {
+		expect(parseDateString('2028-02-29')).toBe('2028-02-29');
+		expect(parseDateString('2/29/2028')).toBe('2028-02-29');
+		expect(parseDateString('2026-02-29')).toBeNull();
+		expect(parseDateString('02/29/2026')).toBeNull();
+	});
 });

@@ -79,13 +79,15 @@ function selectedContexts(
 	};
 }
 
+const noCookies = { get: () => undefined } as never;
+
 function loadWithSelectedContexts(ctx: ReturnType<typeof createTestContext>) {
 	return vi.fn(async (_locals, _cookies, _orgId, config) => config.fn(selectedContexts(ctx)));
 }
 
 describe('personnel detail page server load', () => {
 	it.each([0, null, 'failure', 'no-ets'] as const)(
-		'uses the owned warning scalar lazily with the retained detail fallback (%s)',
+		'uses the owned warning scalar lazily and reports a failed read as unavailable (%s)',
 		async (value) => {
 			vi.useFakeTimers({ toFake: ['Date'] });
 			vi.setSystemTime(new Date('2026-05-14T12:00:00Z'));
@@ -114,16 +116,19 @@ describe('personnel detail page server load', () => {
 				const result = await load({
 					params: { orgId: 'org-1', personnelSlug: 'person-1' },
 					locals: {},
-					cookies: {},
+					cookies: noCookies,
 					depends: vi.fn(),
 					parent: async () => ({ personnelDetailHeader: { person: { id: 'person-1' } } })
 				} as never);
 				const lanes = result.personnelDetail.readinessLanes;
 				const settled = Promise.allSettled(Object.values(lanes));
-				await expect(lanes.lossTracking).resolves.toMatchObject({
-					value: value === 'no-ets' ? 'Missing ETS' : value === 0 ? 'No loss risk' : 'Action needed',
-					tone: value === 'no-ets' ? 'bad' : value === 0 ? 'good' : 'watch'
-				});
+				const expected = {
+					0: { value: 'No loss risk', tone: 'good' },
+					null: { value: 'Action needed', tone: 'watch' },
+					failure: { value: 'Unavailable', tone: 'neutral' },
+					'no-ets': { value: 'Missing ETS', tone: 'bad' }
+				}[String(value)];
+				await expect(lanes.lossTracking).resolves.toMatchObject(expected!);
 				if (value === 'no-ets') expect(window).not.toHaveBeenCalled();
 				await settled;
 			} finally {
@@ -131,6 +136,42 @@ describe('personnel detail page server load', () => {
 			}
 		}
 	);
+
+	it('evaluates readiness on the viewer day from the time zone cookie', async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date('2026-05-15T02:00:00Z'));
+		try {
+			const ctx = createTestContext({ ratingSchemeFactory: createInMemoryRatingSchemePersistence, auth: operateAuth });
+			ctx.rawStore.seed('personnel', [
+				{ id: 'person-1', organization_id: 'org-1', group_id: null, ets: '2026-05-15', archived_at: null }
+			]);
+			ctx.organizationSettings.findLossWarningWindowDays = async () => 0;
+			const load = _createPersonnelDetailPageLoad({ loadWithContext: loadWithSelectedContexts(ctx) });
+			const lossTrackingFor = async (timeZone: string | undefined) => {
+				const result = await load({
+					params: { orgId: 'org-1', personnelSlug: 'person-1' },
+					locals: {} as App.Locals,
+					cookies: { get: (name: string) => (name === 't2t_tz' ? timeZone : undefined) } as never,
+					depends: vi.fn(),
+					parent: async () => ({ personnelDetailHeader: { person: { id: 'person-1' } } })
+				} as never);
+				const lanes = result.personnelDetail.readinessLanes;
+				await Promise.allSettled(Object.values(lanes));
+				return lanes.lossTracking;
+			};
+
+			await expect(lossTrackingFor('America/New_York')).resolves.toMatchObject({
+				value: 'No loss risk',
+				detail: 'ETS May 15, 2026 is 1 days away.'
+			});
+			await expect(lossTrackingFor(undefined)).resolves.toMatchObject({
+				value: 'Action needed',
+				detail: 'ETS May 15, 2026 is 0 days away.'
+			});
+		} finally {
+			vi.useRealTimers();
+		}
+	});
 
 	it('denies Training readiness before reading its catalog when Training access is absent', async () => {
 		const ctx = detailTestContext('person-1', {
@@ -143,7 +184,7 @@ describe('personnel detail page server load', () => {
 		const result = await load({
 			params: { orgId: 'org-1', personnelSlug: 'person-1' },
 			locals: {} as App.Locals,
-			cookies: {} as never,
+			cookies: noCookies,
 			depends: vi.fn(),
 			parent: vi.fn(async () => ({ personnelDetailHeader: { person: { id: 'person-1' } } }))
 		} as never);
@@ -173,7 +214,7 @@ describe('personnel detail page server load', () => {
 		const result = await load({
 			params: { orgId: 'org-1', personnelSlug: 'rivera-monica' },
 			locals: {} as App.Locals,
-			cookies: {} as never,
+			cookies: noCookies,
 			depends,
 			parent: vi.fn(async () => ({
 				personnelDetailHeader: {
@@ -232,7 +273,7 @@ describe('personnel detail page server load', () => {
 		const result = await load({
 			params: { orgId: 'org-1', personnelSlug: 'rivera-monica' },
 			locals: {} as App.Locals,
-			cookies: {} as never,
+			cookies: noCookies,
 			depends: vi.fn(),
 			parent: vi.fn(async () => ({
 				personnelDetailHeader: {
@@ -267,7 +308,7 @@ describe('personnel detail page server load', () => {
 		const result = await load({
 			params: { orgId: 'org-1', personnelSlug: 'old-rivera-monica' },
 			locals: {} as App.Locals,
-			cookies: {} as never,
+			cookies: noCookies,
 			depends: vi.fn(),
 			parent
 		} as never);
@@ -296,7 +337,7 @@ describe('personnel detail page server load', () => {
 		const result = await load({
 			params: { orgId: 'org-1', personnelSlug: 'rivera-monica' },
 			locals: {} as App.Locals,
-			cookies: {} as never,
+			cookies: noCookies,
 			depends: vi.fn(),
 			parent: vi.fn(async () => ({ personnelDetailHeader: { person: { id: 'person-1' } } }))
 		} as never);

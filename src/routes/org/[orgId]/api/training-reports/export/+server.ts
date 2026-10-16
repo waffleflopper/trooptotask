@@ -4,10 +4,10 @@ import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { generateTrainingReportWorkbookExport } from '$features/training/index.server';
 import { workbookBufferResponse } from '$lib/utils/workbook';
-import { PRIVATE_REPORT_HEADERS, parseTrainingBriefingRequest } from '../reportInput';
+import { PRIVATE_REPORT_HEADERS, parseTrainingBriefingRequest, type ViewerDayRequest } from '../reportInput';
 
 export const _getConfig: RouteConfig<
-	TrainingBriefingReportInput,
+	ViewerDayRequest<TrainingBriefingReportInput>,
 	TrainingReportWorkbookExport,
 	ReturnType<typeof createRequestTrainingBriefingContext>
 > = {
@@ -15,7 +15,7 @@ export const _getConfig: RouteConfig<
 	policyAction: POLICY_ACTION_CATALOG.training.viewRecords,
 	policyResource: { kind: 'unscoped' },
 	parseInput: parseTrainingBriefingRequest,
-	fn: generateTrainingReportWorkbookExport,
+	fn: (ctx, { request, asOf }) => generateTrainingReportWorkbookExport(ctx, request, asOf),
 	formatOutput: (result) => workbookBufferResponse(result.buffer, result.filename, PRIVATE_REPORT_HEADERS)
 };
 

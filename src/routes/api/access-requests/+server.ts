@@ -8,16 +8,21 @@ import {
 } from '$features/identity/index.server';
 import { auditLog } from '$lib/audit/index.server';
 import { durableRateLimitAuditDetails } from '$lib/access/index.server';
+import { readJsonBody, rethrowOrWrap } from '$lib/server/adapters/httpAdapter';
 import { sanitizeString, validateEmail } from '$lib/server/validation';
 
+function text(value: unknown, maxLength: number): string {
+	return typeof value === 'string' ? sanitizeString(value, maxLength) : '';
+}
+
 export const POST: RequestHandler = async ({ getClientAddress, request }) => {
-	const body = await request.json();
-	const email = sanitizeString(body.email, 254);
-	const firstName = sanitizeString(body.firstName, 80);
-	const lastName = sanitizeString(body.lastName, 80);
-	const reason = sanitizeString(body.reason, 1000);
-	const heardAbout = sanitizeString(body.heardAbout, 80);
-	const heardAboutDetails = sanitizeString(body.heardAboutDetails, 500);
+	const body = await readJsonBody({ request }).catch(rethrowOrWrap);
+	const email = text(body.email, 254);
+	const firstName = text(body.firstName, 80);
+	const lastName = text(body.lastName, 80);
+	const reason = text(body.reason, 1000);
+	const heardAbout = text(body.heardAbout, 80);
+	const heardAboutDetails = text(body.heardAboutDetails, 500);
 
 	if (!email || !firstName || !lastName) {
 		throw error(400, 'Email, first name, and last name are required');

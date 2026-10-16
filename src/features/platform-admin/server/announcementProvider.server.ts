@@ -3,8 +3,8 @@ import type { PlatformAnnouncement } from '../announcementTypes';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type {
 	PlatformAnnouncementStoreCreateInput,
-	PlatformAnnouncementToggleInput,
-	PlatformAnnouncementToggleUpdate,
+	PlatformAnnouncementSetActiveInput,
+	PlatformAnnouncementSetActiveUpdate,
 	PlatformAnnouncementsStore
 } from './announcements.server';
 
@@ -87,27 +87,18 @@ export function createSupabasePlatformAnnouncementsStore(supabase: SupabaseClien
 			return mapAnnouncement(response.data);
 		},
 
-		async toggleAnnouncementActive(
-			input: PlatformAnnouncementToggleInput
-		): Promise<PlatformAnnouncementToggleUpdate | null> {
-			const existingResponse = (await supabase
+		async setAnnouncementActive(
+			input: PlatformAnnouncementSetActiveInput
+		): Promise<PlatformAnnouncementSetActiveUpdate | null> {
+			const response = (await supabase
 				.from('platform_announcements')
-				.select('id, is_active')
-				.eq('id', input.id)
-				.maybeSingle()) as SupabaseResponse<{ id: string; is_active: boolean }>;
-			assertSupabaseSuccess('table platform_announcements toggle fetch', existingResponse);
-			if (!existingResponse.data) return null;
-
-			const nextActive = !existingResponse.data.is_active;
-			const updateResponse = (await supabase
-				.from('platform_announcements')
-				.update({ is_active: nextActive, updated_by: input.updatedBy })
+				.update({ is_active: input.isActive, updated_by: input.updatedBy })
 				.eq('id', input.id)
 				.select('id')
 				.maybeSingle()) as SupabaseResponse<{ id: string }>;
-			assertSupabaseSuccess('table platform_announcements toggle update', updateResponse);
-			if (!updateResponse.data) return null;
-			return { id: input.id, isActive: nextActive };
+			assertSupabaseSuccess('table platform_announcements set active', response);
+			if (!response.data) return null;
+			return { id: input.id, isActive: input.isActive };
 		},
 
 		async deleteAnnouncement(id: string) {

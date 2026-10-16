@@ -5,8 +5,10 @@ import type { PreparedSignInRosterSnapshot } from './snapshot.server';
 
 export interface SignInRosterListInput {
 	title: string;
-	from: string | null;
-	to: string | null;
+	/** Inclusive lower bound on `created_at`, an ISO instant. */
+	createdFrom: string | null;
+	/** Exclusive upper bound on `created_at`, an ISO instant. */
+	createdBefore: string | null;
 	limit: number;
 	offset: number;
 }
@@ -83,8 +85,8 @@ export function createSupabaseSignInRosterPersistence(
 			if (groupIds?.length === 0) return { data: [], count: 0 };
 			let query = read('exact');
 			if (input.title) query = query.ilike('title', `%${input.title}%`);
-			if (input.from) query = query.gte('created_at', input.from);
-			if (input.to) query = query.lte('created_at', input.to + 'T23:59:59.999Z');
+			if (input.createdFrom) query = query.gte('created_at', input.createdFrom);
+			if (input.createdBefore) query = query.lt('created_at', input.createdBefore);
 			const { data, error, count } = await query
 				.order('created_at', { ascending: false })
 				.range(input.offset, input.offset + input.limit - 1);

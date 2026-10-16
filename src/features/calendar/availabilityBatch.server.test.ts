@@ -2,21 +2,31 @@ import { describe, it, expect } from 'vitest';
 import { createWritePortsContext } from './calendarPersistence.test-support.server';
 import { createAvailabilityBatch, deleteAvailabilityBatch } from './availabilityBatch.server';
 
+const PERSON_1 = '00000000-0000-4000-8000-000000000010';
+const PERSON_2 = '00000000-0000-4000-8000-000000000011';
+const PERSON_3 = '00000000-0000-4000-8000-000000000012';
+const FOREIGN_PERSON = '00000000-0000-4000-8000-000000000013';
+const STATUS_1 = '00000000-0000-4000-8000-000000000014';
+const STATUS_2 = '00000000-0000-4000-8000-000000000015';
+const ENTRY_1 = '00000000-0000-4000-8000-000000000016';
+const ENTRY_2 = '00000000-0000-4000-8000-000000000017';
+const ENTRY_KEEP = '00000000-0000-4000-8000-000000000018';
+
 function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
 	return createWritePortsContext(overrides);
 }
 
 describe('createAvailabilityBatch', () => {
 	const validRecords = [
-		{ personnelId: 'p-1', statusTypeId: 'st-1', startDate: '2025-04-01', endDate: '2025-04-05' },
-		{ personnelId: 'p-2', statusTypeId: 'st-2', startDate: '2025-04-02', endDate: '2025-04-06', note: 'TDY' }
+		{ personnelId: PERSON_1, statusTypeId: STATUS_1, startDate: '2025-04-01', endDate: '2025-04-05' },
+		{ personnelId: PERSON_2, statusTypeId: STATUS_2, startDate: '2025-04-02', endDate: '2025-04-06', note: 'TDY' }
 	];
 
 	it('inserts records, transforms result, and logs audit event', async () => {
 		const ctx = buildContext();
 		ctx.store.seed('personnel', [
-			{ id: 'p-1', organization_id: 'test-org', group_id: 'group-a' },
-			{ id: 'p-2', organization_id: 'test-org', group_id: 'group-a' }
+			{ id: PERSON_1, organization_id: 'test-org', group_id: 'group-a' },
+			{ id: PERSON_2, organization_id: 'test-org', group_id: 'group-a' }
 		]);
 
 		const result = await createAvailabilityBatch(ctx, { records: validRecords });
@@ -26,14 +36,14 @@ describe('createAvailabilityBatch', () => {
 		expect(result.inserted).toEqual(
 			expect.arrayContaining([
 				expect.objectContaining({
-					personnelId: 'p-1',
-					statusTypeId: 'st-1',
+					personnelId: PERSON_1,
+					statusTypeId: STATUS_1,
 					startDate: '2025-04-01',
 					endDate: '2025-04-05'
 				}),
 				expect.objectContaining({
-					personnelId: 'p-2',
-					statusTypeId: 'st-2',
+					personnelId: PERSON_2,
+					statusTypeId: STATUS_2,
 					startDate: '2025-04-02',
 					endDate: '2025-04-06',
 					note: 'TDY'
@@ -70,7 +80,7 @@ describe('createAvailabilityBatch', () => {
 		const ctx = buildContext();
 		const tooMany = Array.from({ length: 501 }, (_, i) => ({
 			personnelId: `p-${i}`,
-			statusTypeId: 'st-1',
+			statusTypeId: STATUS_1,
 			startDate: '2025-04-01',
 			endDate: '2025-04-05'
 		}));
@@ -98,8 +108,8 @@ describe('createAvailabilityBatch', () => {
 			}
 		});
 		ctx.store.seed('personnel', [
-			{ id: 'p-1', organization_id: 'test-org', group_id: 'group-a' },
-			{ id: 'p-2', organization_id: 'test-org', group_id: 'group-c' }
+			{ id: PERSON_1, organization_id: 'test-org', group_id: 'group-a' },
+			{ id: PERSON_2, organization_id: 'test-org', group_id: 'group-c' }
 		]);
 
 		await expect(createAvailabilityBatch(ctx, { records: validRecords })).rejects.toMatchObject({
@@ -114,13 +124,13 @@ describe('createAvailabilityBatch', () => {
 	it('rejects a foreign Person before writing any batch row', async () => {
 		const ctx = buildContext();
 		ctx.store.seed('personnel', [
-			{ id: 'p-1', organization_id: 'test-org', group_id: 'group-a' },
-			{ id: 'p-foreign', organization_id: 'another-org', group_id: 'group-a' }
+			{ id: PERSON_1, organization_id: 'test-org', group_id: 'group-a' },
+			{ id: FOREIGN_PERSON, organization_id: 'another-org', group_id: 'group-a' }
 		]);
 
 		await expect(
 			createAvailabilityBatch(ctx, {
-				records: [validRecords[0], { ...validRecords[1], personnelId: 'p-foreign' }]
+				records: [validRecords[0], { ...validRecords[1], personnelId: FOREIGN_PERSON }]
 			})
 		).rejects.toMatchObject({ status: 404, body: { message: 'Person not found' } });
 		expect(await ctx.store.findMany('availability_entries', 'test-org')).toHaveLength(0);
@@ -172,8 +182,8 @@ describe('createAvailabilityBatch', () => {
 			}
 		});
 		ctx.store.seed('personnel', [
-			{ id: 'p-1', organization_id: 'test-org', group_id: 'group-a' },
-			{ id: 'p-2', organization_id: 'test-org', group_id: 'group-c' }
+			{ id: PERSON_1, organization_id: 'test-org', group_id: 'group-a' },
+			{ id: PERSON_2, organization_id: 'test-org', group_id: 'group-c' }
 		]);
 
 		await expect(createAvailabilityBatch(ctx, { records: validRecords })).rejects.toMatchObject({
@@ -196,26 +206,26 @@ describe('deleteAvailabilityBatch', () => {
 	function seedEntries(ctx: ReturnType<typeof buildContext>) {
 		ctx.store.seed('availability_entries', [
 			{
-				id: 'e-1',
+				id: ENTRY_1,
 				organization_id: 'test-org',
-				personnel_id: 'p-1',
-				status_type_id: 'st-1',
+				personnel_id: PERSON_1,
+				status_type_id: STATUS_1,
 				start_date: '2025-04-01',
 				end_date: '2025-04-05'
 			},
 			{
-				id: 'e-2',
+				id: ENTRY_2,
 				organization_id: 'test-org',
-				personnel_id: 'p-2',
-				status_type_id: 'st-2',
+				personnel_id: PERSON_2,
+				status_type_id: STATUS_2,
 				start_date: '2025-04-02',
 				end_date: '2025-04-06'
 			},
 			{
-				id: 'e-keep',
+				id: ENTRY_KEEP,
 				organization_id: 'test-org',
-				personnel_id: 'p-3',
-				status_type_id: 'st-1',
+				personnel_id: PERSON_3,
+				status_type_id: STATUS_1,
 				start_date: '2025-04-03',
 				end_date: '2025-04-07'
 			}
@@ -226,7 +236,7 @@ describe('deleteAvailabilityBatch', () => {
 		const ctx = buildContext();
 		seedEntries(ctx);
 
-		const result = await deleteAvailabilityBatch(ctx, { ids: ['e-1', 'e-2'] });
+		const result = await deleteAvailabilityBatch(ctx, { ids: [ENTRY_1, ENTRY_2] });
 
 		expect(result).toEqual({ deleted: 2 });
 
@@ -278,13 +288,13 @@ describe('deleteAvailabilityBatch', () => {
 			}
 		});
 		ctx.store.seed('personnel', [
-			{ id: 'p-1', organization_id: 'test-org', group_id: 'group-a' },
-			{ id: 'p-2', organization_id: 'test-org', group_id: 'group-c' },
-			{ id: 'p-3', organization_id: 'test-org', group_id: 'group-a' }
+			{ id: PERSON_1, organization_id: 'test-org', group_id: 'group-a' },
+			{ id: PERSON_2, organization_id: 'test-org', group_id: 'group-c' },
+			{ id: PERSON_3, organization_id: 'test-org', group_id: 'group-a' }
 		]);
 		seedEntries(ctx);
 
-		await expect(deleteAvailabilityBatch(ctx, { ids: ['e-1', 'e-2'] })).rejects.toMatchObject({
+		await expect(deleteAvailabilityBatch(ctx, { ids: [ENTRY_1, ENTRY_2] })).rejects.toMatchObject({
 			status: 403,
 			message: 'You do not have access to that Calendar scope'
 		});

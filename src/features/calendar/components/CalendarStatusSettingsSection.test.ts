@@ -112,3 +112,32 @@ describe('Status order in Calendar settings', () => {
 		expect((screen.getByRole('textbox', { name: 'Name' }) as HTMLInputElement).value).toBe('School (draft)');
 	});
 });
+
+describe('Status type save feedback in Calendar settings', () => {
+	beforeEach(() => statusTypesStore.load([leave], 'org-1'));
+
+	afterEach(() => {
+		cleanup();
+		statusTypesStore.load([], 'org-cleanup');
+		vi.unstubAllGlobals();
+		vi.restoreAllMocks();
+	});
+
+	it.each([
+		[409, 'A status type with that name already exists.', 'A status type with that name already exists.'],
+		[500, 'Internal server error', 'Failed to save status type']
+	])('keeps the edit open and shows the right reason for a %i', async (code, serverMessage, shown) => {
+		vi.stubGlobal('fetch', async () => Response.json({ message: serverMessage }, { status: code }));
+		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+		render(CalendarStatusSettingsSection, { props: { canMutate: true, searchQuery: '' } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'More actions for Leave' }));
+		await fireEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }));
+		await fireEvent.input(await screen.findByRole('textbox', { name: 'Name' }), { target: { value: 'Annual Leave' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+
+		await waitFor(() => expect(errorToast).toHaveBeenCalledWith(shown));
+		expect((screen.getByRole('textbox', { name: 'Name' }) as HTMLInputElement).value).toBe('Annual Leave');
+		expect(statusTypesStore.items).toEqual([leave]);
+	});
+});

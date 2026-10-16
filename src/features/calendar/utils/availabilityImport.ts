@@ -5,7 +5,7 @@
  * This module owns the import-only rules the Import surface previously kept inline
  * (and implemented twice, with drift between the copies):
  * - matching a row to a Personnel Record by name, with Rank disambiguation
- * - row validation across matching, dates, and status presence
+ * - row validation across matching, dates, status presence and note length
  * - planning which CSV status names need manual resolution to a Status Type
  * - building the final batch records, with skip reasons for rows that drop out
  *
@@ -84,10 +84,11 @@ export type AvailabilityImportIssueCode =
 	| 'end-date-required'
 	| 'end-date-invalid'
 	| 'end-before-start'
-	| 'status-required';
+	| 'status-required'
+	| 'note-too-long';
 
 export interface AvailabilityImportIssue {
-	field: 'lastName' | 'firstName' | 'rank' | 'startDate' | 'endDate' | 'statusType';
+	field: 'lastName' | 'firstName' | 'rank' | 'startDate' | 'endDate' | 'statusType' | 'note';
 	code: AvailabilityImportIssueCode;
 	severity: 'error' | 'warning';
 }
@@ -165,7 +166,10 @@ export function matchPersonnelRow(row: AvailabilityImportRowValues, index: Roste
 	return { kind: 'unmatched', issues: [{ field: 'lastName', code: 'ambiguous-name-and-rank', severity: 'error' }] };
 }
 
-/** Validate one import row across personnel matching, date parsing, and status presence. */
+/** The saved note limit; the database rejects a longer note and fails the whole batch. */
+const NOTE_MAX_LENGTH = 200;
+
+/** Validate one import row across personnel matching, date parsing, status presence and note length. */
 export function validateAvailabilityImportRow(
 	row: AvailabilityImportRowValues,
 	index: RosterNameIndex
@@ -193,6 +197,10 @@ export function validateAvailabilityImportRow(
 
 	if (!(row.statusType ?? '').trim()) {
 		issues.push({ field: 'statusType', code: 'status-required', severity: 'error' });
+	}
+
+	if ((row.note ?? '').trim().length > NOTE_MAX_LENGTH) {
+		issues.push({ field: 'note', code: 'note-too-long', severity: 'error' });
 	}
 
 	return { valid: issues.every((issue) => issue.severity !== 'error'), issues };

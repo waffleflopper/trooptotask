@@ -32,6 +32,39 @@ describe('Training catalog JSON routes', () => {
 		expect(ctx.auditPort.events.some(({ action }) => action === 'training_type.deleted')).toBe(true);
 	});
 
+	it('answers 409, 404 and 400 for conflicting, missing and malformed catalog writes without saving them', async () => {
+		const ctx = createTestContext();
+		const type = await handleUseCaseRequest(typePost, ctx, { name: 'CPR' }, () => ctx);
+		const missing = '99999999-9999-4999-8999-999999999999';
+
+		await expect(handleUseCaseRequest(typePost, ctx, { name: 'CPR' }, () => ctx)).rejects.toMatchObject({
+			status: 409,
+			message: 'A Training type with that name already exists.'
+		});
+		await expect(handleUseCaseRequest(typePost, ctx, { name: 'x'.repeat(101) }, () => ctx)).rejects.toMatchObject({
+			status: 400,
+			body: { message: 'Name must be 100 characters or fewer' }
+		});
+		await expect(handleUseCaseRequest(typePut, ctx, { id: missing, name: 'BLS' }, () => ctx)).rejects.toMatchObject({
+			status: 404,
+			message: 'That Training type is no longer available.'
+		});
+		await expect(handleUseCaseRequest(viewPut, ctx, { id: missing, name: 'Focus' }, () => ctx)).rejects.toMatchObject({
+			status: 404,
+			message: 'That Training view is no longer available.'
+		});
+		await expect(
+			handleUseCaseRequest(viewPost, ctx, { name: 'Focus', columnIds: ['abc'] }, () => ctx)
+		).rejects.toMatchObject({ status: 400, body: { message: 'Invalid ID' } });
+
+		expect(
+			(await ctx.store.findMany<{ name: string }>('training_types', ctx.auth.orgId)).map((row) => row.name)
+		).toEqual(['CPR']);
+		expect(await ctx.store.findMany('training_views', ctx.auth.orgId)).toEqual([]);
+		expect(ctx.auditPort.events.map(({ action }) => action)).toEqual(['training_type.created']);
+		expect(type.name).toBe('CPR');
+	});
+
 	it('rejects malformed IDs and denies a Training operator configuration writes', async () => {
 		await expect(
 			handleUseCaseRequest(typeDelete, createTestContext(), { id: 'bad' }, () => ({

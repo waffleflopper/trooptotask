@@ -137,6 +137,7 @@ export interface OnboardingNoteAppendPort {
 
 export type OnboardingLifecycleTransition =
 	| { kind: 'cancel'; at: string }
+	/** `at` is the date-only local day the member completed the packet. */
 	| { kind: 'complete'; at: string }
 	| { kind: 'reopen' };
 

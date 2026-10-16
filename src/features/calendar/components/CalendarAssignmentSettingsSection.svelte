@@ -12,6 +12,7 @@
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import { Switch } from '$lib/components/ui/switch';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { rejectedRequestMessage } from '$lib/stores/core';
 
 	type Props = {
 		canMutate: boolean;
@@ -56,7 +57,7 @@
 				return;
 			}
 		} catch (error) {
-			toastStore.error(error instanceof Error ? error.message : 'Failed to delete assignment type');
+			toastStore.error(rejectedRequestMessage(error, 'Failed to delete assignment type'));
 			return;
 		}
 		confirmDelete = null;

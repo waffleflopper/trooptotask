@@ -11,12 +11,20 @@ import {
 	templatePatch,
 	stepPatch,
 	type TemplateRow,
-	type StepRow
+	type StepRow,
+	TEMPLATE_NAME_EXISTS_MESSAGE
 } from './onboardingPersistenceMapping.server';
 
 export const TEMPLATE_CHANGE_NOT_SAVED_MESSAGE =
 	'Another change was saving at the same time, so this change was not saved. Try again.';
 export const TEMPLATE_CHANGE_UNCONFIRMED_MESSAGE = "We couldn't confirm this change. Try again; repeating it is safe.";
+
+function throwTemplateWriteError(error: { code?: string; message: string }): never {
+	if (error.code === '23505' && error.message.includes('"onboarding_templates_org_name_unique"')) {
+		fail(409, TEMPLATE_NAME_EXISTS_MESSAGE);
+	}
+	throw new Error(error.message);
+}
 
 const templateRow = z.object({
 	id: z.string(),
@@ -187,7 +195,7 @@ export function createSupabaseOnboardingCatalogPersistence(
 				.insert({ ...templatePatch(input), organization_id: orgId })
 				.select(TEMPLATE_FIELDS)
 				.single<TemplateRow>();
-			if (error) throw new Error(error.message);
+			if (error) throwTemplateWriteError(error);
 			return toTemplate(data);
 		},
 		async updateTemplate(id, input) {
@@ -198,7 +206,7 @@ export function createSupabaseOnboardingCatalogPersistence(
 				.eq('id', id)
 				.select(TEMPLATE_FIELDS)
 				.single<TemplateRow>();
-			if (error) throw new Error(error.message);
+			if (error) throwTemplateWriteError(error);
 			return toTemplate(data);
 		},
 		async createStep(input) {

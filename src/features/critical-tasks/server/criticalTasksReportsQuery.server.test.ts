@@ -139,7 +139,8 @@ describe('Critical Tasks report queries', () => {
 
 		const dashboard = await fetchCriticalTasksReportDashboard(ctx, {
 			filters: { mos: ['68W', '11B'] },
-			asOf: '2026-02-01'
+			asOf: '2026-02-01',
+			timeZone: 'UTC'
 		});
 
 		expect(dashboard.kpis.overallReadiness).toMatchObject({
@@ -229,7 +230,8 @@ describe('Critical Tasks report queries', () => {
 
 		const summary = await fetchCriticalTasksDashboardSummary(ctx, {
 			filters: { mos: ['68W', '11B'] },
-			asOf: '2026-02-01'
+			asOf: '2026-02-01',
+			timeZone: 'UTC'
 		});
 
 		expect(summary.kpis).toEqual(dashboard.kpis);

@@ -17,6 +17,8 @@
 	} from '$lib/components/patterns/workspace-toolbar';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
+	import { rejectedRequestMessage } from '$lib/stores/core';
+	import * as Alert from '$lib/components/ui/alert';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import type { TrainingView } from '$features/training/training.types';
@@ -34,6 +36,7 @@
 	let saving = $state(false);
 	let mobileDetailOpen = $state(false);
 	let confirmDeleteView: TrainingView | null = $state(null);
+	let deleteError = $state('');
 	let viewList = $state<ReturnType<typeof TypeWorkspace.ItemList>>();
 	let name = $state('');
 	let selectedIds = new SvelteSet<string>();
@@ -170,23 +173,32 @@
 					viewList?.focusSelected();
 				}
 			} else if (selectedViewId) {
-				if (!(await trainingViewsStore.update(selectedViewId, { name: name.trim(), columnIds: orderedIds }))) {
+				if (!(await trainingViewsStore.updateOrThrow(selectedViewId, { name: name.trim(), columnIds: orderedIds }))) {
 					error = 'Failed to save view.';
 					return;
 				}
 			}
 			editing = false;
 			mobileDetailOpen = true;
-		} catch {
-			error = 'Failed to save view.';
+		} catch (failure) {
+			error = rejectedRequestMessage(failure, 'Failed to save view.');
 		} finally {
 			saving = false;
 		}
 	}
 
+	function openDelete(view: TrainingView) {
+		deleteError = '';
+		confirmDeleteView = view;
+	}
+
 	async function doDelete() {
 		if (!confirmDeleteView) return;
-		await trainingViewsStore.remove(confirmDeleteView.id);
+		deleteError = '';
+		if ((await trainingViewsStore.remove(confirmDeleteView.id)) === 'error') {
+			deleteError = 'Failed to delete view. Try again.';
+			return;
+		}
 		if (selectedViewId === confirmDeleteView.id) selectedViewId = null;
 		confirmDeleteView = null;
 		mobileDetailOpen = false;
@@ -343,7 +355,7 @@
 
 					<TypeWorkspace.FooterActions>
 						{#if !creating && selectedView && canMutate}
-							<Button variant="destructive" size="sm" type="button" onclick={() => (confirmDeleteView = selectedView)}>
+							<Button variant="destructive" size="sm" type="button" onclick={() => openDelete(selectedView)}>
 								<Trash2 aria-hidden="true" />
 								Delete
 							</Button>
@@ -375,7 +387,7 @@
 
 					{#if canMutate}
 						<TypeWorkspace.FooterActions>
-							<Button variant="destructive" size="sm" type="button" onclick={() => (confirmDeleteView = selectedView)}>
+							<Button variant="destructive" size="sm" type="button" onclick={() => openDelete(selectedView)}>
 								Delete View
 							</Button>
 						</TypeWorkspace.FooterActions>
@@ -400,5 +412,9 @@
 		confirmLabel="Delete"
 		onConfirm={doDelete}
 		onCancel={() => (confirmDeleteView = null)}
-	/>
+	>
+		{#if deleteError}
+			<Alert.Root variant="destructive"><Alert.Description>{deleteError}</Alert.Description></Alert.Root>
+		{/if}
+	</ConfirmDialog>
 {/if}

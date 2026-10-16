@@ -1,13 +1,15 @@
 // @vitest-environment happy-dom
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, onTestFinished, vi } from 'vitest';
 import type { Group } from '$features/personnel/contracts';
 import type { TrainingType } from '$features/training/contracts';
 import type { Personnel } from '$features/personnel/contracts';
 import type { AssignmentType, AvailabilityEntry, StatusType, DailyAssignment } from '$features/calendar/contracts';
-import { createMockAdapter, createStore } from '$lib/stores/core';
+import { createMockAdapter, createStore, endOrganizationLifetime } from '$lib/stores/core';
+import { dailyAssignmentsStore } from '$features/calendar';
 import { confirmedChangesSentNow } from '$lib/test-support/confirmedChangeCookies';
 import { createDashboardWorkspaceHydrator, type DashboardHydrationStores } from './dashboardWorkspaceHydration.svelte';
-import type { DashboardWorkspaceHydration } from './contracts';
+import { createDashboardScreenModel } from './read-model/dashboardScreenModel.svelte';
+import type { DashboardPageData, DashboardWorkspaceHydration } from './contracts';
 
 function deferred<T>() {
 	let resolve!: (value: T) => void;
@@ -190,5 +192,63 @@ describe('Dashboard workspace hydration adapter', () => {
 		await pending;
 
 		expect(stores.availabilityEntriesStore.items).toEqual([december, saved]);
+	});
+
+	it("lists only saved types' duty after a type deletion overtakes a Dashboard read", async () => {
+		const today = '2026-05-01';
+		const chargeOfQuarters = {
+			id: 'cq',
+			name: 'Charge of Quarters',
+			shortName: 'CQ',
+			assignTo: 'group',
+			color: '#2563eb',
+			exemptPersonnelIds: [],
+			showOnCalendar: false,
+			sortOrder: 0
+		} satisfies AssignmentType;
+		const runnerTeam = { ...chargeOfQuarters, id: 'rt', name: 'Runner Team', shortName: 'RT' };
+		const cqDuty = { id: 'cq-duty', date: today, assignmentTypeId: 'cq', assigneeId: 'g1' };
+		const runnerDutyByB = { id: 'runner-by-b', date: today, assignmentTypeId: 'rt', assigneeId: 'g1' };
+		onTestFinished(() => {
+			vi.unstubAllGlobals();
+		});
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (_url: string, init?: RequestInit) =>
+				Response.json(init?.method === 'DELETE' ? { success: true } : [chargeOfQuarters])
+			)
+		);
+		const preserved = { mode: 'preserve-client' as const, items: [] };
+		const dashboard = (snapshotKey: string, items: DashboardWorkspaceHydration['calendarAssignments']['items']) =>
+			({
+				orgId: 'org-1',
+				confirmedChangesByTab: confirmedChangesSentNow(),
+				personnel: { ...preserved, snapshotKey: 'personnel' },
+				groups: { ...preserved, snapshotKey: 'groups' },
+				statusTypes: { ...preserved, snapshotKey: 'status-types' },
+				availabilityEntries: { ...preserved, snapshotKey: 'availability', range: DASHBOARD_RANGE },
+				calendarAssignments: { mode: 'range', deferred: true, snapshotKey, items, range: DASHBOARD_RANGE },
+				trainingTypes: { ...preserved, snapshotKey: 'training-types' },
+				pinnedGroups: { ...preserved, snapshotKey: 'pinned' }
+			}) satisfies DashboardWorkspaceHydration;
+		endOrganizationLifetime();
+		const hydrator = createDashboardWorkspaceHydrator();
+		await hydrator.hydrate(
+			dashboard('assignments:1', { types: [chargeOfQuarters, runnerTeam], assignments: [cqDuty] })
+		);
+		const late = deferred<{ types: AssignmentType[]; assignments: DailyAssignment[] }>();
+		const pending = hydrator.hydrate(dashboard('assignments:2', late.promise));
+
+		expect(await dailyAssignmentsStore.removeType('rt')).toBe(true);
+		late.resolve({ types: [chargeOfQuarters, runnerTeam], assignments: [cqDuty, runnerDutyByB] });
+		await pending;
+		const model = createDashboardScreenModel({ orgId: 'org-1', orgName: 'Unit' } as DashboardPageData, {
+			today,
+			storage: { getItem: () => null, setItem: () => {} }
+		});
+
+		expect(model.dutyAssignments.map(({ id, typeName }) => ({ id, typeName }))).toEqual([
+			{ id: 'cq-duty', typeName: 'Charge of Quarters' }
+		]);
 	});
 });

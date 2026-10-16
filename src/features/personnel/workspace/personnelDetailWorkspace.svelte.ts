@@ -19,6 +19,7 @@ import type {
 	PersonnelReadinessLaneTone
 } from '$features/personnel/personnel-detail.types';
 import { archivePersonnel, type RequestPersonnelArchiveApproval } from '../utils/archivePersonnel';
+import { buildRequestError, rejectedRequestMessage } from '$lib/stores/core';
 import { downloadBlob } from '$lib/utils/downloadBlob';
 import { filenameFromContentDisposition } from '$lib/utils/workbook';
 import type { Personnel } from '../personnel.types';
@@ -39,19 +40,6 @@ const NAME_FIELD_ERRORS = new Map<string, 'firstName' | 'lastName'>([
 	[PERSONNEL_FIRST_NAME_REQUIRED_MESSAGE, 'firstName'],
 	[PERSONNEL_LAST_NAME_REQUIRED_MESSAGE, 'lastName']
 ]);
-
-async function readNameFailure(
-	response: Response
-): Promise<{ field: 'firstName' | 'lastName'; message: string } | null> {
-	try {
-		const body = (await response.json()) as { message?: unknown } | null;
-		const message = typeof body?.message === 'string' ? body.message : '';
-		const field = NAME_FIELD_ERRORS.get(message);
-		return field ? { field, message } : null;
-	} catch {
-		return null;
-	}
-}
 
 export type PersonnelDetailTone = PersonnelReadinessLaneTone;
 
@@ -357,9 +345,13 @@ export class PersonnelDetailWorkspace {
 			});
 			if (this.#disposed) return;
 			if (!response.ok) {
-				this.basicInfoNameError = await readNameFailure(response);
-				if (this.basicInfoNameError) return;
-				throw new Error('Unable to update basic info.');
+				const failure = await buildRequestError(response, 'PUT', 'personnel');
+				const field = NAME_FIELD_ERRORS.get(failure.message);
+				if (field) {
+					this.basicInfoNameError = { field, message: failure.message };
+					return;
+				}
+				throw failure;
 			}
 			const previousSlug = this.currentPerson.slug;
 			const savedPerson = (await response.json()) as Personnel;
@@ -375,7 +367,7 @@ export class PersonnelDetailWorkspace {
 			}
 			this.editingBasicInfo = false;
 		} catch (caught) {
-			this.basicInfoError = caught instanceof Error ? caught.message : 'Unable to update basic info.';
+			this.basicInfoError = rejectedRequestMessage(caught, 'Unable to update basic info.');
 		} finally {
 			this.basicInfoSaving = false;
 		}
@@ -416,11 +408,11 @@ export class PersonnelDetailWorkspace {
 					body: JSON.stringify({ status })
 				}
 			);
-			if (!response.ok) throw new Error('Unable to update follow-up.');
+			if (!response.ok) throw await buildRequestError(response, 'PATCH', 'follow-up');
 			const updated = (await response.json()) as Partial<PersonnelFollowUp>;
 			this.followUps.upsert({ ...followUp, ...updated });
 		} catch (caught) {
-			this.followUps.error = caught instanceof Error ? caught.message : 'Unable to update follow-up.';
+			this.followUps.error = rejectedRequestMessage(caught, 'Unable to update follow-up.');
 		} finally {
 			this.togglingFollowUpId = '';
 		}

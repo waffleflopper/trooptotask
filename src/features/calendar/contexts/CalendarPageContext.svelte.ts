@@ -21,12 +21,13 @@ import { loadCalendarRange } from '$features/calendar/utils/calendarRangeLoader'
 import { rangeCoversDate, rangeCoversSpan, type CalendarViewMode } from '$features/calendar/utils/calendarRange';
 import { dayWindow } from '$features/calendar/utils/dayNumber';
 import { indexByPersonId } from '$features/calendar/utils/calendarIndexes';
-import { withinOrganizationLifetime } from '$lib/stores/core';
+import { rejectedRequestMessage, StoreRequestError, withinOrganizationLifetime } from '$lib/stores/core';
 import type { CapabilityLevel, ScopeSet } from '$lib/access/memberAccessShape';
 import type { FeatureLanePolicyAction, PolicyDecision } from '$lib/access/policyEvaluator';
 import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
 import { SvelteDate } from 'svelte/reactivity';
 import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$features/personnel/contracts';
+import { DEFAULT_LOSS_WARNING_WINDOW_DAYS } from '$features/organization/contracts';
 
 const CALENDAR_WORKSPACE_RESOURCE: PolicyResource = { kind: 'unscoped' };
 
@@ -254,8 +255,11 @@ export class CalendarPageContext {
 	 * and dashboard always agree on who is approaching a loss event.
 	 */
 	readonly upcomingLossMap: ReadonlyMap<string, UpcomingLossRecord> = $derived.by(() => {
-		const windowDays = this.#workspaceData?.lossWarningWindowDays ?? 180;
-		const losses = evaluateUpcomingLosses(this.calendarPersonnel, windowDays, this.#today);
+		const windowDays = this.#workspaceData?.lossWarningWindowDays;
+		const losses =
+			windowDays === null
+				? []
+				: evaluateUpcomingLosses(this.calendarPersonnel, windowDays ?? DEFAULT_LOSS_WARNING_WINDOW_DAYS, this.#today);
 		return indexByPersonId(losses);
 	});
 
@@ -269,6 +273,11 @@ export class CalendarPageContext {
 		);
 		return { date: parseDate(this.#today), available: people.length - out, total: people.length };
 	});
+
+	/** The loss warning window could not be read, so the Calendar shows no loss flags. */
+	get lossWarningsUnavailable(): boolean {
+		return this.#workspaceData?.lossWarningWindowDays === null;
+	}
 
 	// ---- constructor -------------------------------------------------------
 	constructor(
@@ -388,11 +397,22 @@ export class CalendarPageContext {
 		const current = () => this.#data.orgId === orgId && this.#calendarAccessKey() === accessKey;
 		const entriesBeforeWrite = [...availabilityStore.items];
 		try {
-			const confirmed = await writeAvailability(change).catch(() => false);
+			let confirmed = false;
+			let refusal: StoreRequestError | null = null;
+			try {
+				confirmed = await writeAvailability(change);
+			} catch (error) {
+				if (error instanceof StoreRequestError && error.status >= 400 && error.status < 500) refusal = error;
+			}
 			if (!current()) return 'stale';
 			if (confirmed) {
 				announceSaved(change);
 				return 'saved';
+			}
+			// A 4xx means the server refused the write and saved nothing, so there is nothing to reconcile.
+			if (refusal) {
+				toastStore.error(rejectedRequestMessage(refusal, 'Could not save status. Try again.'));
+				return 'not-saved';
 			}
 			let reread: AvailabilityEntry[] | null;
 			try {
@@ -463,7 +483,7 @@ async function writeAvailability(change: AvailabilityChange): Promise<boolean> {
 		case 'create':
 			return (await availabilityStore.add(change.record)) !== null;
 		case 'update':
-			return availabilityStore.update(change.entry.id, change.changes);
+			return availabilityStore.updateOrThrow(change.entry.id, change.changes);
 		case 'remove':
 			return availabilityStore.removeBool(change.entry.id);
 	}

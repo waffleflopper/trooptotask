@@ -400,12 +400,35 @@ WITH changed AS (
 	'an Onboarding operator unchecks a checkbox step');
 ROLLBACK TO SAVEPOINT operator_progress;
 SAVEPOINT operator_transitions;
+SELECT throws_ok($$ UPDATE public.personnel_onboardings SET status = 'completed', completed_at = '2020-01-01', cancelled_at = NULL
+	WHERE id = 'f4000000-0000-4000-8000-000000000701' AND status = 'in_progress' $$,
+	'22023', 'Onboarding completion date must be the current day',
+	'an Onboarding operator cannot complete a packet on a long-past day');
+SELECT throws_ok(format($$ UPDATE public.personnel_onboardings SET status = 'completed', completed_at = %L
+	WHERE id = 'f4000000-0000-4000-8000-000000000701' AND status = 'in_progress' $$, (now() AT TIME ZONE 'UTC')::date + 2),
+	'22023', 'Onboarding completion date must be the current day',
+	'an Onboarding operator cannot complete a packet on a day not yet current anywhere');
 WITH changed AS (
-	UPDATE public.personnel_onboardings SET status = 'completed', completed_at = '2020-01-01', cancelled_at = NULL
+	UPDATE public.personnel_onboardings SET status = 'completed', completed_at = (now() AT TIME ZONE 'UTC')::date - 1, cancelled_at = NULL
+	WHERE id = 'f4000000-0000-4000-8000-000000000701' AND status = 'in_progress' RETURNING status, completed_at, cancelled_at
+) SELECT is((SELECT row(status, completed_at, cancelled_at)::text FROM changed),
+	row('completed', (now() AT TIME ZONE 'UTC')::date - 1, NULL::timestamptz)::text,
+	'an Onboarding operator completes a packet with incomplete steps on their local day');
+ROLLBACK TO SAVEPOINT operator_transitions;
+WITH changed AS (
+	UPDATE public.personnel_onboardings
+	SET status = 'completed', completed_at = to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')::date, cancelled_at = NULL
 	WHERE id = 'f4000000-0000-4000-8000-000000000701' AND status = 'in_progress' RETURNING status, completed_at, cancelled_at
 ) SELECT is((SELECT row(status, completed_at, cancelled_at)::text FROM changed),
 	row('completed', (now() AT TIME ZONE 'UTC')::date, NULL::timestamptz)::text,
-	'an Onboarding operator completes a packet with incomplete steps on the database''s UTC date');
+	'a completion sent as the earlier server instant is saved on its UTC day');
+ROLLBACK TO SAVEPOINT operator_transitions;
+WITH changed AS (
+	UPDATE public.personnel_onboardings SET status = 'completed', completed_at = NULL, cancelled_at = NULL
+	WHERE id = 'f4000000-0000-4000-8000-000000000701' AND status = 'in_progress' RETURNING status, completed_at, cancelled_at
+) SELECT is((SELECT row(status, completed_at, cancelled_at)::text FROM changed),
+	row('completed', (now() AT TIME ZONE 'UTC')::date, NULL::timestamptz)::text,
+	'a completion without a day is saved on the database''s UTC day');
 ROLLBACK TO SAVEPOINT operator_transitions;
 WITH changed AS (
 	UPDATE public.personnel_onboardings SET status = 'cancelled', cancelled_at = '2020-01-01T00:00:00Z', completed_at = NULL

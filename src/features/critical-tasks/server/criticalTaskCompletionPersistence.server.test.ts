@@ -575,7 +575,7 @@ describe('owned Critical Tasks completion provider', () => {
 			}
 		]);
 		expect(result.errors).toEqual([
-			{ rowNumber: 4, personnelName: 'SPC Cal Charlie', taskCode: 'RESP', message: 'Completion row rejected' }
+			{ rowNumber: 4, personnelName: 'SPC Cal Charlie', taskCode: 'RESP', message: 'Batch import failed' }
 		]);
 		expect(rows.map((row) => [row.id, row.personnel_id, row.completed_at, row.notes])).toEqual([
 			['capture-a', 'person-a', '2026-04-02', 'Updated same date'],

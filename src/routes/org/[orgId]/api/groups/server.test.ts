@@ -66,6 +66,21 @@ describe('/api/groups', () => {
 		expect(await ctx.store.findMany('groups', ctx.auth.orgId)).toEqual([]);
 	});
 
+	it('answers 409 for a duplicate Group name and 404 for a missing Group without writing', async () => {
+		const ctx = createTestContext();
+		ctx.store.seed('groups', [{ id: groupId, organization_id: ctx.auth.orgId, name: 'Alpha', sort_order: 0 }]);
+
+		await expect(handleUseCaseRequest(_postConfig, ctx, { name: 'Alpha' }, () => ctx)).rejects.toMatchObject({
+			status: 409,
+			message: 'A Group with that name already exists.'
+		});
+		await expect(
+			handleUseCaseRequest(_putConfig, ctx, { id: '22222222-2222-4222-8222-222222222222', name: 'Bravo' }, () => ctx)
+		).rejects.toMatchObject({ status: 404, body: { message: 'That Group is no longer available.' } });
+		expect(await ctx.store.findMany('groups', ctx.auth.orgId)).toMatchObject([{ id: groupId, name: 'Alpha' }]);
+		expect(ctx.auditPort.events.filter((event) => event.action.startsWith('group.'))).toEqual([]);
+	});
+
 	it('denies Group mutations to a Personnel viewer', async () => {
 		const ctx = createTestContext({
 			auth: {

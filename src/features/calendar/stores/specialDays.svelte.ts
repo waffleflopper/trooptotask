@@ -26,6 +26,7 @@ interface SpecialDayExtensions extends Record<string, unknown> {
 	load: Store<SpecialDay>['load'];
 	add: Store<SpecialDay>['add'];
 	update: Store<SpecialDay>['update'];
+	updateOrThrow: Store<SpecialDay>['updateOrThrow'];
 	remove: (id: string) => Promise<boolean>;
 	resetFederalHolidays: () => Promise<FederalHolidayResetResult>;
 	getByDate: (date: Date) => SpecialDay | undefined;
@@ -98,6 +99,7 @@ function enhance(base: Store<SpecialDay>): SpecialDayExtensions {
 		},
 		add: (data) => trackMutation(base.orgId, base.add(data)),
 		update: (id, data) => trackMutation(base.orgId, base.update(id, data)),
+		updateOrThrow: (id, data) => trackMutation(base.orgId, base.updateOrThrow(id, data)),
 		remove: (id) => trackMutation(base.orgId, base.removeBool(id)),
 
 		async resetFederalHolidays(): Promise<FederalHolidayResetResult> {

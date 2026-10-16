@@ -77,6 +77,8 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261014000100_atomic_calendar_configuration_commands.sql",
     "20261014000200_atomic_critical_task_reorder.sql",
     "20261014000300_critical_task_reorder_preconditions.sql",
+    "20261014000400_nonretryable_password_attempt_conflict.sql",
+    "20261014000500_onboarding_local_completion_day.sql",
     "20261015000100_calendar_lanes.sql",
     "20261016000100_status_type_label_and_order.sql",
 )
@@ -151,6 +153,10 @@ STAGED_UPGRADE_CONTRACTS = (
     "sign_in_roster_scan_lifecycle_after.sql",
     "calendar_lanes_after.sql",
     "status_type_label_order_after.sql",
+)
+# Fresh SQL contracts that must also hold after the staged upgrade.
+STAGED_UPGRADE_SQL_TESTS = (
+    "password_attempt_reconciliation.sql",
 )
 
 _receipt = None
@@ -637,7 +643,8 @@ def validate(repository, *, staged_upgrade=False):
             # migrations. CLI requires --include-all for that staged replay.
             execute(["supabase", "migration", "up", "--local", "--yes", "--include-all"], workdir)
             runner_started = True
-            for name in STAGED_UPGRADE_CONTRACTS:
+            for path in (*(f"migration-tests/{name}" for name in STAGED_UPGRADE_CONTRACTS),
+                         *(f"tests/{name}" for name in STAGED_UPGRADE_SQL_TESTS)):
                 execute([
                     "docker", "run", "--rm", "--name", runner,
                     "--label", f"com.supabase.cli.project={project_id}",
@@ -647,7 +654,7 @@ def validate(repository, *, staged_upgrade=False):
                     "-e", "PGHOST=db", "-e", "PGPORT=5432", "-e", "PGUSER=postgres",
                     "-e", "PGPASSWORD=postgres", "-e", "PGDATABASE=postgres",
                     PG_PROVE_IMAGE, "pg_prove", "--verbose",
-                    f"/tests/migration-tests/{name}",
+                    f"/tests/{path}",
                 ], workdir)
             run(["node", str(repository / "scripts/ci/personnel_group_upgrade_provider_probe.mjs")],
                 workdir, environment=_provider_environment(repository, workdir, execute))

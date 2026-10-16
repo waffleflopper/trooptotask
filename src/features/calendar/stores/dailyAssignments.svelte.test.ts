@@ -257,15 +257,16 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 			expect(dailyAssignmentsStore.types[0].name).toBe('Guard Updated');
 		});
 
-		it('should rollback on failure', async () => {
+		it('rolls back and rejects with the failure, leaving the message to the caller', async () => {
 			dailyAssignmentsStore.load([guardType], [], 'org-1');
-			vi.stubGlobal('fetch', mockFetch(null, 500));
+			vi.stubGlobal('fetch', mockFetch({ message: 'Name must be 100 characters or fewer' }, 400));
 			const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
-			const result = await dailyAssignmentsStore.updateType('1', { name: 'Failed' });
-			expect(result).toBe(false);
+			await expect(dailyAssignmentsStore.updateType('1', { name: 'Failed' })).rejects.toThrow(
+				'Name must be 100 characters or fewer'
+			);
 			expect(dailyAssignmentsStore.types[0].name).toBe('Guard');
-			expect(errorToast).toHaveBeenCalledOnce();
+			expect(errorToast).not.toHaveBeenCalled();
 		});
 
 		it('should return false for non-existent id', async () => {
@@ -299,11 +300,14 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 			dailyAssignmentsStore.load([guardType], [assignment], 'org-1');
 
 			vi.stubGlobal('fetch', mockFetch(null, 500));
+			const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
 			const result = await dailyAssignmentsStore.removeType('1');
 			expect(result).toBe(false);
 			expect(dailyAssignmentsStore.types).toEqual([guardType]);
 			expect(dailyAssignmentsStore.assignments).toEqual([assignment]);
+			// The caller names the failure, so the store adds no second message.
+			expect(errorToast).not.toHaveBeenCalled();
 		});
 
 		it('should return false for non-existent id', async () => {
@@ -398,15 +402,17 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 			expect(dailyAssignmentsStore.assignments).toEqual([]);
 		});
 
-		it('should rollback on failure', async () => {
+		it('restores the saved slot and explains why a clear was refused', async () => {
 			const assignment = { id: 'a1', date: '2026-03-20', assignmentTypeId: 'type-1', assigneeId: 'p1' };
 			dailyAssignmentsStore.load([], [assignment], 'org-1');
 
-			vi.stubGlobal('fetch', mockFetch(null, 500));
+			vi.stubGlobal('fetch', mockFetch({ message: 'Calendar access was revoked.' }, 403));
+			const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
 			const result = await dailyAssignmentsStore.removeAssignment('2026-03-20', 'type-1');
 			expect(result).toBe(false);
 			expect(dailyAssignmentsStore.assignments).toEqual([assignment]);
+			expect(errorToast).toHaveBeenCalledWith('Calendar access was revoked.');
 		});
 
 		it('should return false for non-existent assignment', async () => {
@@ -1256,29 +1262,48 @@ describe('dailyAssignmentsStore - workspace snapshots after a confirmed catalog'
 		expect(dailyAssignmentsStore.assignments).toEqual([row]);
 	});
 
-	it('lets lanes chosen during a held read decide the catalog', async () => {
-		dailyAssignmentsStore.load(beforeCommit, [], 'org-1');
+	const renamedByB = [confirmed[0], { ...confirmed[1], name: 'Group Night' }, retiring];
+
+	it("lets lanes chosen during a held read decide the catalog, then adopts another user's rename", async () => {
+		dailyAssignmentsStore.load(renamedByB, [], 'org-1');
 		expect(await dailyAssignmentsStore.setCalendarLanes(['retiring'])).toEqual({ status: 'saved' });
 		reads[0].resolve(reply(200, confirmed));
 		await answered();
 
-		expect(dailyAssignmentsStore.types).toEqual([
+		const lanesSaved = [
 			{ ...shownGroup, showOnCalendar: false },
 			{ ...retiring, showOnCalendar: true, sortOrder: 0 },
 			{ ...staff, showOnCalendar: false }
+		];
+		expect(dailyAssignmentsStore.types).toEqual(lanesSaved);
+		const saved = [lanesSaved[0], lanesSaved[1], { ...lanesSaved[2], name: 'Group Night' }];
+		expect(reads).toHaveLength(2);
+		reads[1].resolve(reply(200, saved));
+		await vi.waitFor(() => expect(dailyAssignmentsStore.types).toEqual(saved));
+		expect(requests).toEqual([
+			'GET /org/org-1/api/assignment-types',
+			'PUT /org/org-1/api/assignment-types/lanes',
+			'GET /org/org-1/api/assignment-types'
 		]);
-		expect(requests).toEqual(['GET /org/org-1/api/assignment-types', 'PUT /org/org-1/api/assignment-types/lanes']);
 		expect(toasts).toEqual([]);
 	});
 
-	it('keeps a type deleted during a held read deleted when the read answers', async () => {
-		dailyAssignmentsStore.load(beforeCommit, [], 'org-1');
+	it("keeps a type deleted during a held read deleted when the read answers, then adopts another user's rename", async () => {
+		dailyAssignmentsStore.load(renamedByB, [row], 'org-1');
 		expect(await dailyAssignmentsStore.removeType('retiring')).toBe(true);
-		reads[0].resolve(reply(200, confirmed));
+		reads[0].resolve(reply(200, renamedByB));
 		await answered();
 
 		expect(dailyAssignmentsStore.types).toEqual(confirmed.slice(0, 2));
-		expect(requests).toEqual(['GET /org/org-1/api/assignment-types', 'DELETE /org/org-1/api/assignment-types']);
+		expect(reads).toHaveLength(2);
+		reads[1].resolve(reply(200, renamedByB.slice(0, 2)));
+		await vi.waitFor(() => expect(dailyAssignmentsStore.types).toEqual(renamedByB.slice(0, 2)));
+		expect(dailyAssignmentsStore.assignments).toEqual([row]);
+		expect(requests).toEqual([
+			'GET /org/org-1/api/assignment-types',
+			'DELETE /org/org-1/api/assignment-types',
+			'GET /org/org-1/api/assignment-types'
+		]);
 		expect(toasts).toEqual([]);
 	});
 

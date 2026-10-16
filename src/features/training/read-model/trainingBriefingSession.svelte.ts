@@ -160,6 +160,12 @@ export class TrainingBriefingSession {
 			);
 	}
 
+	/** Shows a fresh server load of the briefing on screen; a filter change the viewer already made wins. */
+	receive(report: TrainingBriefingReportData): void {
+		if (report === this.report || this.request.status !== 'ready') return;
+		if (queryFor(report.input) === queryFor(this.report.input)) this.#show(report, false);
+	}
+
 	/** Abandons every request so no late response can write into a page that has gone away. */
 	dispose(): void {
 		this.#cancel(this.#reportRequest);

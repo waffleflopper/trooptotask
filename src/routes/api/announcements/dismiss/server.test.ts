@@ -38,6 +38,17 @@ it('requires an admitted account and valid ID before writes, preserving HTTP den
 	});
 	expect(writes).toEqual([]);
 });
+it('rejects a malformed JSON body with 400 before writing', async () => {
+	const malformed = event({ userId: 'account-a' }, {});
+	Object.assign(malformed, {
+		request: new Request('http://test/api/announcements/dismiss', { method: 'POST', body: '{bad' })
+	});
+	await expect(POST(malformed)).rejects.toMatchObject({
+		status: 400,
+		body: { message: 'Invalid JSON in request body' }
+	});
+	expect(writes).toEqual([]);
+});
 it('ignores body/provider identities and needs no Organization admission', async () => {
 	const response = await POST(
 		event({ userId: 'account-a' }, { announcementId: ID, userId: 'forged', organizationId: 'foreign' })

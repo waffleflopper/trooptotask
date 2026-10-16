@@ -19,9 +19,9 @@ describe('Supabase Onboarding lifecycle transitions', () => {
 			saved: { id: 'packet-1', status: 'cancelled', cancelled_at: '2026-10-01T12:00:00.123+00:00', completed_at: null }
 		},
 		{
-			command: { kind: 'complete', at: '2026-10-01T12:00:00.123Z' } as OnboardingLifecycleTransition,
+			command: { kind: 'complete', at: '2026-10-01' } as OnboardingLifecycleTransition,
 			expectedStatus: 'in_progress',
-			patch: { status: 'completed', cancelled_at: null, completed_at: '2026-10-01T12:00:00.123Z' },
+			patch: { status: 'completed', cancelled_at: null, completed_at: '2026-10-01' },
 			saved: { id: 'packet-1', status: 'completed', cancelled_at: null, completed_at: '2026-10-01' }
 		},
 		{
@@ -71,6 +71,22 @@ describe('Supabase Onboarding lifecycle transitions', () => {
 		await expect(port.transition('org-a', 'packet-1', { kind: 'reopen' })).rejects.toMatchObject({
 			status: 403,
 			message: 'Write denied'
+		});
+	});
+
+	it('maps a completion day the database refuses to 400', async () => {
+		const port = createSupabaseOnboardingLifecycleTransitionPort(
+			client(async () =>
+				Response.json(
+					{ code: '22023', message: 'Onboarding completion date must be the current day', details: null, hint: null },
+					{ status: 400 }
+				)
+			)
+		);
+
+		await expect(port.transition('org-a', 'packet-1', { kind: 'complete', at: '2026-09-01' })).rejects.toMatchObject({
+			status: 400,
+			message: 'Onboarding completion date must be the current day'
 		});
 	});
 

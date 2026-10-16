@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import ExcelJS from 'exceljs';
 import { createTestContext } from '$features/training/server/trainingPersistence.test-support.server';
 import { handleUseCaseRequest, type RouteConfig } from '$lib/server/adapters/httpAdapter';
@@ -68,10 +68,12 @@ function seededContext(overrides: Parameters<typeof createTestContext>[0] = {}) 
 function request<TInput, TOutput>(
 	config: RouteConfig<TInput, TOutput, Parameters<typeof _getConfig.fn>[0]>,
 	query: string,
-	ctx = seededContext()
+	ctx = seededContext(),
+	timeZone?: string
 ): Promise<TOutput> {
 	const url = new URL(`https://example.test/org/test-org/api/training-reports?${query}`);
-	return handleUseCaseRequest(config, ctx, config.parseInput!({ url } as never), () => ctx);
+	const cookies = { get: (name: string) => (name === 't2t_tz' ? timeZone : undefined) };
+	return handleUseCaseRequest(config, ctx, config.parseInput!({ url, cookies } as never), () => ctx);
 }
 
 describe('GET /api/training-reports', () => {
@@ -156,6 +158,24 @@ describe('GET /api/training-reports/export', () => {
 		expect(response.headers.get('Vary')).toBe('Cookie');
 		expect(response.headers.get('Content-Disposition')).toMatch(/attachment; filename="training-report-.*\.xlsx"/);
 		expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+	});
+});
+
+describe('Training report viewer day', () => {
+	it('names the export and dates the briefing with the viewer day from the time zone cookie', async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date('2026-10-15T02:00:00Z'));
+		try {
+			const exported = await request(_getExportConfig, '', seededContext(), 'America/New_York');
+			const report = await request(_getConfig, '', seededContext(), 'America/New_York');
+			const fallback = await request(_getConfig, '', seededContext(), 'Mars/Base');
+
+			expect(exported.filename).toBe('training-report-2026-10-14.xlsx');
+			expect(report.briefing.bottomLine.asOf).toBe('2026-10-14');
+			expect(fallback.briefing.bottomLine.asOf).toBe('2026-10-15');
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 });
 

@@ -13,7 +13,7 @@ export async function requestPlatform(target, { origin, family, targetId, body }
 		resetPassword: [],
 		resendInvite: [],
 		announcementCreate: ['title', 'message', 'type', 'expiresAt'],
-		announcementToggle: [],
+		announcementToggle: ['isActive'],
 		announcementDelete: [],
 		feedbackUpdate: ['status', 'adminNotes']
 	};
@@ -57,7 +57,7 @@ export async function requestPlatform(target, { origin, family, targetId, body }
 				: access
 					? { requestId: targetId }
 					: ['announcementToggle', 'announcementDelete'].includes(family)
-						? { id: targetId }
+						? { ...body, id: targetId }
 						: family === 'feedbackUpdate'
 							? { ...body, feedbackId: targetId }
 							: body;

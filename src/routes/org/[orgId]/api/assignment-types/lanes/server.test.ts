@@ -106,9 +106,13 @@ describe('PUT calendar lanes at the route boundary', () => {
 		expect(ctx.audit.events).toEqual([]);
 	});
 
-	it('rejects a body that is not JSON with 400 before the provider', async () => {
+	it.each([
+		['not JSON', '{'],
+		['null', 'null'],
+		['a malformed id', JSON.stringify({ laneTypeIds: ['not-a-uuid'], expectedLaneTypeIds: [] })]
+	])('rejects a body that is %s with 400 before the provider', async (_, body) => {
 		admit();
-		await expect(put('{')).rejects.toMatchObject({ status: 400 });
+		await expect(put(body)).rejects.toMatchObject({ status: 400 });
 		expect(provider.calls).toEqual([]);
 	});
 

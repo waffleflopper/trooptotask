@@ -11,6 +11,7 @@ import {
 	UserOrgPreferencesPatchSchema,
 	type UserOrgPreferences
 } from './accountPreferences';
+import { issueMessage } from '$lib/utils/inputSchemas';
 
 interface AccountPreferenceScope {
 	readonly orgId: string;
@@ -61,7 +62,7 @@ export async function patchUserOrgPreferences(
 		'user_preferences'
 	);
 	const patch = UserOrgPreferencesPatchSchema.safeParse(input);
-	if (!patch.success) fail(400, patch.error.issues.map((issue) => issue.message).join('; '));
+	if (!patch.success) fail(400, issueMessage(patch.error));
 
 	// Match the raw snapshot in the database, so another request's newer fields
 	// cannot be overwritten. A collision retries only this caller's patch.

@@ -1,7 +1,8 @@
 import { fail } from '$lib/errors';
-import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { handle, readJsonBody, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { createRequestPersonnelArtifactsContext } from '$lib/server/adapters/requestContexts.server';
 import type { RequestEvent } from '@sveltejs/kit';
+import { routeArtifactIds } from '../../routeIds';
 import { json } from '@sveltejs/kit';
 
 import {
@@ -13,11 +14,7 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { FileCleanup } from '$features/organization/contracts';
 
 function routeIds(event: RequestEvent): { personnelId: string; documentId: string } {
-	const personnelId = event.params.id;
-	const documentId = event.params.documentId;
-	if (!personnelId) fail(400, 'Missing personnel id');
-	if (!documentId) fail(400, 'Missing document id');
-	return { personnelId, documentId };
+	return routeArtifactIds(event, 'documentId', 'Document not found');
 }
 
 export const _patchConfig: RouteConfig<
@@ -29,7 +26,7 @@ export const _patchConfig: RouteConfig<
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.personnel.manageRecords,
 	policyResource: { kind: 'unscoped' },
-	parseInput: async (event) => ({ ...(await event.request.json()), ...routeIds(event) }),
+	parseInput: async (event) => ({ ...(await readJsonBody(event)), ...routeIds(event) }),
 	fn: (ctx, input) => {
 		if (input.action === 'restore')
 			return restorePersonnelDocument(ctx, input as { personnelId: string; documentId: string });

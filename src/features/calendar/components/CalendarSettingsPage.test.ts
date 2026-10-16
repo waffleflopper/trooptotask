@@ -15,7 +15,7 @@ const { statusTypesStoreMock, availabilityStoreMock, assignmentTypesStoreMock, s
 			pendingOrder: null,
 			orderBusy: false,
 			add: vi.fn(),
-			update: vi.fn(),
+			updateOrThrow: vi.fn(),
 			remove: vi.fn(),
 			setOrder: vi.fn()
 		},
@@ -82,7 +82,7 @@ describe('CalendarSettingsPage', () => {
 		accessFacts = { membershipRole: 'member', capabilityMap: createCapabilityMap('configure') };
 		statusTypesStoreMock.items = [];
 		statusTypesStoreMock.add.mockReset();
-		statusTypesStoreMock.update.mockReset();
+		statusTypesStoreMock.updateOrThrow.mockReset();
 		statusTypesStoreMock.remove.mockReset();
 		statusTypesStoreMock.setOrder.mockReset();
 		statusTypesStoreMock.setOrder.mockResolvedValue({ status: 'saved' });
@@ -92,7 +92,7 @@ describe('CalendarSettingsPage', () => {
 			color: '#4a4a47',
 			textColor: '#f8f7f4'
 		});
-		statusTypesStoreMock.update.mockResolvedValue(true);
+		statusTypesStoreMock.updateOrThrow.mockResolvedValue(true);
 		statusTypesStoreMock.remove.mockResolvedValue(true);
 		availabilityStoreMock.removeByStatusTypeLocal.mockReset();
 		assignmentTypesStoreMock.types = [];
@@ -231,7 +231,7 @@ describe('CalendarSettingsPage', () => {
 		statusTypesStoreMock.items = [
 			{ id: 'leave', name: 'Leave', color: '#48bb78', textColor: '#f8f7f4', shortLabel: 'LV', sortOrder: 0 }
 		];
-		statusTypesStoreMock.update.mockResolvedValueOnce(false);
+		statusTypesStoreMock.updateOrThrow.mockResolvedValueOnce(false);
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
 		render(CalendarSettingsPage, { props: { org } });
@@ -242,7 +242,7 @@ describe('CalendarSettingsPage', () => {
 		await fireEvent.input(within(composer).getByLabelText('Name'), { target: { value: 'Annual Leave' } });
 		await fireEvent.click(within(composer).getByRole('button', { name: 'Save changes' }));
 
-		expect(statusTypesStoreMock.update).toHaveBeenCalledWith('leave', {
+		expect(statusTypesStoreMock.updateOrThrow).toHaveBeenCalledWith('leave', {
 			name: 'Annual Leave',
 			color: '#48bb78',
 			textColor: '#f8f7f4',
@@ -270,13 +270,13 @@ describe('CalendarSettingsPage', () => {
 		expect(label.getAttribute('aria-invalid')).toBe('true');
 		expect(save.disabled).toBe(true);
 		await fireEvent.submit(composer);
-		expect(statusTypesStoreMock.update).not.toHaveBeenCalled();
+		expect(statusTypesStoreMock.updateOrThrow).not.toHaveBeenCalled();
 
 		await fireEvent.input(label, { target: { value: '' } });
 		expect(save.disabled).toBe(false);
 		await fireEvent.click(save);
 
-		expect(statusTypesStoreMock.update).toHaveBeenCalledWith('leave', {
+		expect(statusTypesStoreMock.updateOrThrow).toHaveBeenCalledWith('leave', {
 			name: 'Leave',
 			color: '#48bb78',
 			textColor: '#ffffff',

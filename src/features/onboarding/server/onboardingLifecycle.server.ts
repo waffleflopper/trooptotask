@@ -12,7 +12,8 @@ import { fail } from '$lib/errors';
 import type { OnboardingTrainingPorts, OnboardingLifecyclePorts } from './onboardingPorts.server';
 import type { OnboardingLifecycleTransition } from '../contracts';
 import { subjectDetails } from '$lib/audit/index.server';
-import { formatToday } from '$lib/utils/dates';
+import { formatToday, isDateOnly } from '$lib/utils/dates';
+import { isUuid } from '$lib/utils/inputSchemas';
 import {
 	requireOnboardingManagePolicyForOnboarding,
 	requireOnboardingManagePolicyForPersonnel
@@ -53,9 +54,7 @@ interface StartResult {
 export async function startOnboarding(ctx: OnboardingTrainingPorts, input: StartInput): Promise<StartResult> {
 	await requireOnboardingManagePolicyForPersonnel(ctx, input.personnelId);
 
-	if (typeof input.templateId !== 'string' || input.templateId.trim().length === 0) {
-		fail(400, 'A configured onboarding template is required');
-	}
+	if (!isUuid(input.templateId)) fail(400, 'A configured onboarding template is required');
 
 	// Enforce one-active-per-soldier before preparing a new packet. The creation
 	// transaction also enforces the existing unique index for overlapping starts.
@@ -134,15 +133,7 @@ function resolveStartedAt(startedAt?: string): string {
 		return formatToday();
 	}
 
-	if (!/^\d{4}-\d{2}-\d{2}$/.test(startedAt)) {
-		fail(400, 'Start date must be a YYYY-MM-DD date');
-	}
-
-	const [year, month, day] = startedAt.split('-').map(Number);
-	const date = new Date(Date.UTC(year, month - 1, day));
-	if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) {
-		fail(400, 'Start date must be a valid calendar date');
-	}
+	if (!isDateOnly(startedAt)) fail(400, 'Start date must be a valid date (YYYY-MM-DD)');
 
 	return startedAt;
 }
@@ -221,7 +212,12 @@ interface CompleteResult extends LifecycleResult {
 	incompleteCount: number;
 }
 
-export async function completeOnboarding(ctx: OnboardingLifecyclePorts, id: string): Promise<CompleteResult> {
+/** `completedOn` is the member's local calendar day; the database admits only a day within one UTC day of its own. */
+export async function completeOnboarding(
+	ctx: OnboardingLifecyclePorts,
+	id: string,
+	completedOn: string
+): Promise<CompleteResult> {
 	await requireOnboardingManagePolicyForOnboarding(ctx, id);
 
 	const onboarding = await ctx.onboardingWorkflow.findPacketReference(id);
@@ -236,7 +232,7 @@ export async function completeOnboarding(ctx: OnboardingLifecyclePorts, id: stri
 	// Count incomplete active steps (type-agnostic)
 	const incompleteSteps = await ctx.onboardingWorkflow.listIncompleteActiveStepIds(id);
 
-	const updated = await persistTransition(ctx, id, { kind: 'complete', at: new Date().toISOString() });
+	const updated = await persistTransition(ctx, id, { kind: 'complete', at: completedOn });
 
 	ctx.audit.log({
 		action: 'onboarding.completed',

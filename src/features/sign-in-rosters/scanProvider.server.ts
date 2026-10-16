@@ -6,10 +6,9 @@ import { validateUUID } from '$lib/server/validation';
 import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 import { registerOrganizationFileUpload, removeRetiredOrganizationFiles } from '$features/organization/index.server';
 import type { FileCleanup, OrganizationFileUploadRegistration } from '$features/organization/contracts';
-import type { SignInRosterFileActor, SignInRosterScanPort } from './contracts';
+import { ROSTER_UNAVAILABLE_MESSAGE, type SignInRosterFileActor, type SignInRosterScanPort } from './contracts';
 import { fail, RequestFailure } from '$lib/errors';
 
-const ROSTER_UNAVAILABLE_MESSAGE = 'This roster is no longer available.';
 const SCAN_CHANGED_MESSAGE = 'This signed scan changed. Reload to review it.';
 const SCAN_NOT_SAVED_MESSAGE = 'The signed scan change was not saved. Try again.';
 const SCAN_UNCONFIRMED_MESSAGE = 'The signed scan change could not be confirmed. Reload to check it.';

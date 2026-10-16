@@ -9,8 +9,7 @@ import {
 	type StoredMemberPreset
 } from './memberAccessShape';
 import { RequestFailure } from '$lib/errors';
-
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { isUuid } from '$lib/utils/inputSchemas';
 
 export type EditableMembershipRole = Exclude<MembershipRole, 'owner'>;
 
@@ -143,10 +142,6 @@ function normalizeScopeSet(scopeSet: ScopeSet): ScopeSet {
 
 	const groupIds = Array.from(new Set(scopeSet.groupIds.filter(isUuid)));
 	return { kind: 'groups', groupIds };
-}
-
-function isUuid(value: string): boolean {
-	return UUID_REGEX.test(value);
 }
 
 function throwBadRequest(message: string): never {

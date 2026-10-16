@@ -329,4 +329,28 @@ describe('Calendar ordinary availability persistence', () => {
 			expect(state.rows.availability_entries).toEqual([]);
 		}
 	);
+
+	it.each([
+		['availability_entries_note_length', 'Note must be 200 characters or fewer'],
+		['valid_date_range', 'End date must be on or after the start date']
+	])('turns the %s check into a public 400 without saving', async (constraint, message) => {
+		const { client, state } = calendarProvider({ availability_entries: [] });
+		state.failure = (request) =>
+			request.method === 'POST'
+				? {
+						code: '23514',
+						message: `new row for relation "availability_entries" violates check constraint "${constraint}"`,
+						status: 400
+					}
+				: null;
+		await expect(
+			persistence(client).create({
+				personnelId: 'person-a',
+				statusTypeId: 'status-a',
+				startDate: '2026-10-06',
+				endDate: '2026-10-01'
+			})
+		).rejects.toMatchObject({ status: 400, message });
+		expect(state.rows.availability_entries).toEqual([]);
+	});
 });

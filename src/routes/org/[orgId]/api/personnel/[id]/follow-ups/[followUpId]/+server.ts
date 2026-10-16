@@ -1,7 +1,8 @@
 import { fail } from '$lib/errors';
-import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { handle, readJsonBody, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { createRequestPersonnelArtifactsContext } from '$lib/server/adapters/requestContexts.server';
 import type { RequestEvent } from '@sveltejs/kit';
+import { routeArtifactIds } from '../../routeIds';
 import { json } from '@sveltejs/kit';
 
 import {
@@ -14,11 +15,7 @@ import {
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 function routeIds(event: RequestEvent): { personnelId: string; followUpId: string } {
-	const personnelId = event.params.id;
-	const followUpId = event.params.followUpId;
-	if (!personnelId) fail(400, 'Missing personnel id');
-	if (!followUpId) fail(400, 'Missing follow-up id');
-	return { personnelId, followUpId };
+	return routeArtifactIds(event, 'followUpId', 'Follow-up not found');
 }
 
 export const _patchConfig: RouteConfig<
@@ -32,7 +29,7 @@ export const _patchConfig: RouteConfig<
 	policyResource: { kind: 'unscoped' },
 	parseInput: async (event) => {
 		const ids = routeIds(event);
-		const body = (await event.request.json()) as Record<string, unknown>;
+		const body = await readJsonBody(event);
 		return { ...body, ...ids };
 	},
 	fn: (ctx, input) => {

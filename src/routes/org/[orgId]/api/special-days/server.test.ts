@@ -4,6 +4,8 @@ import { createTestContext } from '$features/calendar/calendarPersistence.test-s
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _getConfig, _postConfig, _putConfig, _deleteConfig } from './+server';
 
+const SPECIAL_DAY_ID = '00000000-0000-4000-8000-000000000010';
+
 describe('GET /api/special-days', () => {
 	it('returns only saved days from the authorized Organization', async () => {
 		const ctx = createTestContext();
@@ -70,7 +72,7 @@ describe('PUT /api/special-days', () => {
 		const ctx = createTestContext();
 		ctx.store.seed('special_days', [
 			{
-				id: 'sd-1',
+				id: SPECIAL_DAY_ID,
 				organization_id: 'test-org',
 				date: '2026-01-01',
 				name: "New Year's Day",
@@ -82,7 +84,7 @@ describe('PUT /api/special-days', () => {
 			_putConfig,
 			ctx,
 			{
-				id: 'sd-1',
+				id: SPECIAL_DAY_ID,
 				name: 'Staff Holiday',
 				type: 'org-closure'
 			},
@@ -90,19 +92,39 @@ describe('PUT /api/special-days', () => {
 		);
 
 		expect(result).toMatchObject({
-			id: 'sd-1',
+			id: SPECIAL_DAY_ID,
 			date: '2026-01-01',
 			name: 'Staff Holiday',
 			type: 'org-closure'
 		});
 
-		const stored = await ctx.store.findOne('special_days', 'test-org', { id: 'sd-1' });
+		const stored = await ctx.store.findOne('special_days', 'test-org', { id: SPECIAL_DAY_ID });
 		expect(stored).toMatchObject({
-			id: 'sd-1',
+			id: SPECIAL_DAY_ID,
 			date: '2026-01-01',
 			name: 'Staff Holiday',
 			type: 'org-closure'
 		});
+	});
+
+	it('answers an update of a missing or foreign special day with 404 and changes neither', async () => {
+		const ctx = createTestContext();
+		const foreign = {
+			id: SPECIAL_DAY_ID,
+			organization_id: 'other-org',
+			date: '2026-01-01',
+			name: "New Year's Day",
+			type: 'federal-holiday'
+		};
+		ctx.store.seed('special_days', [foreign]);
+
+		for (const id of [SPECIAL_DAY_ID, '00000000-0000-4000-8000-000000000011']) {
+			await expect(
+				handleUseCaseRequest(_putConfig, ctx, { id, name: 'Staff Holiday' }, () => ctx)
+			).rejects.toMatchObject({ status: 404, body: { message: 'That special day is no longer available.' } });
+		}
+		expect(await ctx.store.findMany('special_days', 'test-org')).toEqual([]);
+		expect(await ctx.store.findMany('special_days', 'other-org')).toEqual([foreign]);
 	});
 });
 

@@ -1,3 +1,4 @@
+import { localDateIn } from '$lib/utils/dates';
 import type { OnboardingStepProgress, PersonnelOnboarding } from './onboarding.types';
 import { getProgress } from './onboardingProgress';
 import { calendarDaysBetween, tookLong, typicalDaysToFinish, typicalWindowStart } from './onboardingStatus';
@@ -12,7 +13,7 @@ export const HISTORY_ALL = 'all';
 export interface HistoryRow {
 	packet: PersonnelOnboarding;
 	outcome: HistoryOutcome;
-	/** `completed_at` for a completed packet, the UTC date of `cancelled_at` for a cancelled one. */
+	/** `completed_at` for a completed packet, the viewer's local date of `cancelled_at` for a cancelled one. */
 	finishedOn: string;
 	/** Whole calendar days from the start date to the finish date. */
 	days: number;
@@ -72,10 +73,19 @@ function finishedAt(packet: PersonnelOnboarding): string {
 	return (packet.status === 'cancelled' ? packet.cancelledAt : packet.completedAt) ?? packet.startedAt;
 }
 
-function finishedOn(packet: PersonnelOnboarding): string {
+/** Within one finish day a cancellation has a time and a completion only a date, so cancellations list first, latest first. */
+function compareSameDay(a: PersonnelOnboarding, b: PersonnelOnboarding): number {
+	const outcome = Number(b.status === 'cancelled') - Number(a.status === 'cancelled');
+	if (outcome !== 0) return outcome;
+	const aTime = a.cancelledAt ? Date.parse(a.cancelledAt) : 0;
+	const bTime = b.cancelledAt ? Date.parse(b.cancelledAt) : 0;
+	return bTime - aTime;
+}
+
+function finishedOn(packet: PersonnelOnboarding, timeZone: string): string {
 	const finish = finishedAt(packet);
 	return packet.status === 'cancelled' && packet.cancelledAt !== null
-		? new Date(finish).toISOString().slice(0, 10)
+		? localDateIn(timeZone, new Date(finish))
 		: finish;
 }
 
@@ -83,15 +93,15 @@ function isFinished(packet: PersonnelOnboarding): packet is PersonnelOnboarding 
 	return packet.status === 'completed' || packet.status === 'cancelled';
 }
 
-/** Builds the table rows and header figures from every finished packet, newest first. `todayDate` is the UTC date. */
-export function buildHistory(packets: readonly PersonnelOnboarding[], todayDate: string): History {
+/** Builds the table rows and header figures from every finished packet, newest first. `todayDate` is the viewer's date in `timeZone`. */
+export function buildHistory(packets: readonly PersonnelOnboarding[], todayDate: string, timeZone: string): History {
 	const typicalDays = typicalDaysToFinish(packets, todayDate);
 	const since = typicalWindowStart(todayDate);
 
 	const rows = packets
 		.filter(isFinished)
 		.map((packet): HistoryRow => {
-			const finished = finishedOn(packet);
+			const finished = finishedOn(packet, timeZone);
 			const days = Math.max(0, calendarDaysBetween(packet.startedAt, finished));
 			const { completed, total } = getProgress(packet);
 			return {
@@ -106,7 +116,9 @@ export function buildHistory(packets: readonly PersonnelOnboarding[], todayDate:
 		})
 		.sort(
 			(a, b) =>
-				Date.parse(finishedAt(b.packet)) - Date.parse(finishedAt(a.packet)) || a.packet.id.localeCompare(b.packet.id)
+				b.finishedOn.localeCompare(a.finishedOn) ||
+				compareSameDay(a.packet, b.packet) ||
+				a.packet.id.localeCompare(b.packet.id)
 		);
 
 	const recent = rows.filter((row) => row.finishedOn >= since && row.finishedOn <= todayDate);

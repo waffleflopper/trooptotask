@@ -4,6 +4,8 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import CalendarAssignmentSettingsSection from './CalendarAssignmentSettingsSection.svelte';
 import type { AssignmentType } from '$features/calendar/contracts';
 import type { Personnel } from '$features/personnel/contracts';
+import { buildRequestError } from '$lib/stores/core';
+import { toastStore } from '$lib/stores/toast.svelte';
 
 const { store, roster } = vi.hoisted(() => ({
 	store: {
@@ -180,6 +182,42 @@ describe('CalendarAssignmentSettingsSection', () => {
 		expect(within(dialog).getByRole('switch', { name: 'Show on the calendar' }).getAttribute('aria-checked')).toBe(
 			'true'
 		);
+	});
+
+	it('shows one message with the server reason when an edit is refused, keeping the dialog open', async () => {
+		store.updateType.mockRejectedValue(
+			await buildRequestError(
+				Response.json({ message: 'Name must be 100 characters or fewer' }, { status: 400 }),
+				'PUT',
+				'assignment-types'
+			)
+		);
+		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+		renderSection();
+
+		await openRowMenu('Staff Duty', 'Edit');
+		const dialog = await screen.findByRole('dialog', { name: 'Edit Assignment Type' });
+		await fireEvent.input(within(dialog).getByLabelText('Full name'), { target: { value: 'Staff Duty Officer' } });
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Save Changes' }));
+
+		await waitFor(() => expect(dialog.hasAttribute('aria-busy')).toBe(false));
+		expect(errorToast.mock.calls).toEqual([['Name must be 100 characters or fewer']]);
+		expect(screen.getByRole('dialog', { name: 'Edit Assignment Type' })).toBe(dialog);
+		errorToast.mockRestore();
+	});
+
+	it('shows one message when a delete fails and keeps the type', async () => {
+		store.removeType.mockResolvedValue(false);
+		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+		renderSection();
+
+		await openRowMenu('Runner', 'Delete');
+		await fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
+
+		await waitFor(() => expect(errorToast).toHaveBeenCalled());
+		expect(errorToast.mock.calls).toEqual([['Failed to delete assignment type']]);
+		expect(listNames('Duty planner only')).toEqual(['Gate Guard', 'Runner']);
+		errorToast.mockRestore();
 	});
 
 	it('keeps an added type open for retry when its lane is not saved, then shows it once', async () => {

@@ -106,6 +106,7 @@ Before `$V clean-seeds`, complete the Print A PDF/workbook comparisons and all o
 
 ## Gotchas
 
+- An impossible CSV date such as `2026-02-30` is flagged as an invalid date during import review and not sent. A status other than completed or exempt is refused by the server with `400`. See [Invalid input](invalid-input.md).
 - Required Training has three applicable People; Targeted has only Able. Optional records can become Current in the matrix while staying outside the report's required-readiness calculation. Do not count N/A as missing. A warning record is labeled Expiring, not Current, yet counts as ready in the report's readiness.
 - Date examples are relative to the fixture's local day. Record the exact dates and rerun `fixture` after an owned restart; avoid comparing a later-day status to an earlier baseline expectation.
 - The matrix's Focus View and Group selector control presentation. Clear stale selections before counting all three People or all Training columns; configuration and completion permissions remain distinct.
@@ -117,3 +118,7 @@ Before `$V clean-seeds`, complete the Print A PDF/workbook comparisons and all o
 - Endpoint probes need valid fixture IDs and bodies. PUT uses the saved record ID; DELETE uses `{id}`; batch uses `{records:[{personnelId,trainingTypeId,completionDate,status:'completed'}]}`. A validation error does not prove scope denial.
 - Never turn a failed observation into a passing baseline by dropping it. Expiration-only, exemption, warning-yellow boundaries, empty-Group isolation, multiple-page UI, multiple tabs and delayed Organization/session switches need explicit fixtures and additional proof when affected; unrun paths remain named limitations.
 - Focused modal/store/import/report/route tests and `supabase/tests/training_record_lane_scope.sql` complement this map. UI/API denial does not substitute for isolated provider/RLS checks, and arithmetic tests do not replace the downloaded workbook.
+
+## Viewer day
+
+Launch with `--browser-timezone` chosen per the [skill](../SKILL.md#launch) so the browser day differs from the app's UTC day, and record both days. As `trainingConfigure`, record a completion for Able whose expiration is the browser day. Reload, then read the same requirement in the Training matrix, the Training report (`/training/reports`), Able's Personnel detail Training lane and the Dashboard Training card. Every surface must treat it as due on the browser day (for example `0d left`), not expired; on the UTC-behind zone none may show it as `Expired 1d ago`, and on the UTC-ahead zone none may show `1d left`. The report's `Today ·` axis label and the exported workbook's name `training-report-<browser day>.xlsx` and `As of` row must carry the browser day. The report URL must not gain an `asOf` parameter.

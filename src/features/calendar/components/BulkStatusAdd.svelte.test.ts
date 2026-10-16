@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/sv
 import type { Personnel } from '$features/personnel/contracts';
 import type { StatusType } from '$features/calendar/contracts';
 import { toastStore } from '$lib/stores/toast.svelte';
+import { StoreRequestError } from '$lib/stores/core';
 import BulkStatusAdd from './BulkStatusAdd.svelte';
 
 vi.mock('$lib/components/ui/date-picker', async () => ({
@@ -100,6 +101,29 @@ it('preserves the partial draft and retries only the failed Person before refres
 		'Retry without duplicates'
 	);
 	expect((screen.getByRole('button', { name: 'Review & Confirm' }) as HTMLButtonElement).disabled).toBe(true);
+});
+
+it('shows the server reason when the batch is refused and keeps the confirmation open', async () => {
+	const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'error-toast');
+	const onApply = vi
+		.fn()
+		.mockRejectedValue(new StoreRequestError('End date must be on or after the start date', 400, true));
+	const onComplete = vi.fn();
+	render(BulkStatusAdd, {
+		props: { personnelByGroup: [{ group: 'Alpha', personnel }], statusTypes, onApply, onComplete }
+	});
+
+	await fireEvent.input(screen.getByLabelText('Start Date'), { target: { value: '2026-09-22' } });
+	await fireEvent.input(screen.getByLabelText('End Date'), { target: { value: '2026-09-24' } });
+	await fireEvent.click(screen.getByRole('button', { name: 'Select shown' }));
+	await fireEvent.click(screen.getByRole('button', { name: 'Review & Confirm' }));
+	await fireEvent.click(screen.getByRole('button', { name: 'Confirm Apply' }));
+
+	await waitFor(() =>
+		expect(errorToast).toHaveBeenCalledExactlyOnceWith('End date must be on or after the start date')
+	);
+	expect((screen.getByRole('button', { name: 'Confirm Apply' }) as HTMLButtonElement).disabled).toBe(false);
+	expect(onComplete).not.toHaveBeenCalled();
 });
 
 it.each([

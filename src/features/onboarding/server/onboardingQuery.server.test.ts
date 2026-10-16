@@ -49,6 +49,30 @@ describe('fetchOnboardingBootstrap', () => {
 		}
 	});
 
+	it("ends the typical-days window on the viewer's day", async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date('2027-01-11T02:00:00.000Z'));
+		try {
+			const ctx = createWritePortsContext({ auth: { orgId: ORG } });
+			ctx.store.seed('personnel', [{ id: 'p1', organization_id: ORG, rank: 'SPC', archived_at: null }]);
+			// The window on 2027-01-10 starts on 2026-10-13.
+			ctx.store.seed('personnel_onboardings', [
+				makeOnboardingRow({ id: 'edge', status: 'completed', started_at: '2026-10-01', completed_at: '2026-10-13' }),
+				makeOnboardingRow({ id: 'two', status: 'completed', started_at: '2027-01-01', completed_at: '2027-01-03' }),
+				makeOnboardingRow({ id: 'four', status: 'completed', started_at: '2027-01-01', completed_at: '2027-01-05' })
+			]);
+
+			await expect(fetchOnboardingBootstrap(ctx, { mode: 'active', today: '2027-01-10' })).resolves.toMatchObject({
+				typicalDaysToFinish: 4
+			});
+			await expect(fetchOnboardingBootstrap(ctx, { mode: 'active' })).resolves.toMatchObject({
+				typicalDaysToFinish: null
+			});
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
 	describe('note authors', () => {
 		const ALVAREZ = '11111111-1111-4111-8111-111111111111';
 		const WHITAKER = '22222222-2222-4222-8222-222222222222';

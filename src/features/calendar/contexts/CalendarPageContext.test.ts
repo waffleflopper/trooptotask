@@ -16,7 +16,7 @@ import { groupsStore } from '$features/personnel';
 import { loadCalendarRange } from '$features/calendar/utils/calendarRangeLoader';
 import type { Personnel } from '$features/personnel/contracts';
 import type { AvailabilityEntry, StatusType } from '$features/calendar/contracts';
-import { endOrganizationLifetime } from '$lib/stores/core';
+import { buildRequestError, endOrganizationLifetime } from '$lib/stores/core';
 import { settles } from '$lib/test-support/settles';
 import { toastStore } from '$lib/stores/toast.svelte';
 
@@ -30,7 +30,7 @@ vi.mock('$features/calendar/stores/availability.svelte', () => ({
 		loading: false,
 		load: vi.fn(),
 		add: vi.fn(),
-		update: vi.fn(),
+		updateOrThrow: vi.fn(),
 		removeBool: vi.fn(),
 		beginRead: () => ({ reconcile: (snapshot: unknown[]) => snapshot, close: () => {} })
 	}
@@ -134,7 +134,7 @@ describe('CalendarPageContext', () => {
 		vi.mocked(loadCalendarRange).mockReset();
 		vi.mocked(availabilityStore.load).mockReset();
 		vi.mocked(availabilityStore.add).mockReset();
-		vi.mocked(availabilityStore.update).mockReset();
+		vi.mocked(availabilityStore.updateOrThrow).mockReset();
 		vi.mocked(availabilityStore.removeBool).mockReset();
 		vi.restoreAllMocks();
 		ctx = makeContext(mockData, org);
@@ -424,7 +424,7 @@ describe('CalendarPageContext', () => {
 		it('saves an edit as one update of the same entry and announces it only once the update lands', async () => {
 			const success = vi.spyOn(toastStore, 'success');
 			const update = held<boolean>();
-			vi.mocked(availabilityStore.update).mockReturnValueOnce(update.promise);
+			vi.mocked(availabilityStore.updateOrThrow).mockReturnValueOnce(update.promise);
 			const pending = ctx.saveAvailability(edit);
 
 			expect(await settles(pending)).toBe(false);
@@ -434,7 +434,7 @@ describe('CalendarPageContext', () => {
 
 			expect(await pending).toBe('saved');
 			expect(success).toHaveBeenCalledTimes(1);
-			expect(vi.mocked(availabilityStore.update).mock.calls).toEqual([['entry-1', edit.changes]]);
+			expect(vi.mocked(availabilityStore.updateOrThrow).mock.calls).toEqual([['entry-1', edit.changes]]);
 			expect(availabilityStore.add).not.toHaveBeenCalled();
 			expect(availabilityStore.removeBool).not.toHaveBeenCalled();
 		});
@@ -443,7 +443,7 @@ describe('CalendarPageContext', () => {
 			const success = vi.spyOn(toastStore, 'success');
 			const error = vi.spyOn(toastStore, 'error');
 			const lookAlike = { ...edited, id: 'other-entry' };
-			vi.mocked(availabilityStore.update).mockRejectedValue(new Error('PUT availability failed'));
+			vi.mocked(availabilityStore.updateOrThrow).mockRejectedValue(new Error('PUT availability failed'));
 			const unchanged = held<ReturnType<typeof range>>();
 			vi.mocked(loadCalendarRange).mockReturnValueOnce(unchanged.promise);
 			const refused = ctx.saveAvailability(edit);
@@ -457,13 +457,13 @@ describe('CalendarPageContext', () => {
 			expect(await refused).toBe('not-saved');
 			expect(error).toHaveBeenCalledTimes(1);
 			expect(success).not.toHaveBeenCalled();
-			expect(availabilityStore.update).toHaveBeenCalledTimes(1);
+			expect(availabilityStore.updateOrThrow).toHaveBeenCalledTimes(1);
 
 			vi.mocked(loadCalendarRange).mockResolvedValueOnce(range([edited, lookAlike]));
 			expect(await ctx.saveAvailability(edit)).toBe('saved');
 			expect(success).toHaveBeenCalledTimes(1);
 			expect(error).toHaveBeenCalledTimes(1);
-			expect(vi.mocked(availabilityStore.update).mock.calls).toEqual([
+			expect(vi.mocked(availabilityStore.updateOrThrow).mock.calls).toEqual([
 				['entry-1', edit.changes],
 				['entry-1', edit.changes]
 			]);
@@ -477,7 +477,7 @@ describe('CalendarPageContext', () => {
 		] as const)('restores the saved row and reports a refused %s once the re-read lands', async (_, change) => {
 			const success = vi.spyOn(toastStore, 'success');
 			const error = vi.spyOn(toastStore, 'error');
-			vi.mocked(availabilityStore.update).mockResolvedValueOnce(false);
+			vi.mocked(availabilityStore.updateOrThrow).mockResolvedValueOnce(false);
 			vi.mocked(availabilityStore.removeBool).mockResolvedValueOnce(false);
 			const reread = held<ReturnType<typeof range>>();
 			vi.mocked(loadCalendarRange).mockReturnValueOnce(reread.promise);
@@ -495,10 +495,42 @@ describe('CalendarPageContext', () => {
 			expect(error).toHaveBeenCalledTimes(1);
 			expect(success).not.toHaveBeenCalled();
 			expect(
-				vi.mocked(availabilityStore.update).mock.calls.length +
+				vi.mocked(availabilityStore.updateOrThrow).mock.calls.length +
 					vi.mocked(availabilityStore.removeBool).mock.calls.length
 			).toBe(1);
 			expect(availabilityStore.add).not.toHaveBeenCalled();
+		});
+
+		it('reports a refused edit with the server reason at once, without a re-read, and keeps it retryable', async () => {
+			const success = vi.spyOn(toastStore, 'success');
+			const error = vi.spyOn(toastStore, 'error');
+			vi.mocked(availabilityStore.updateOrThrow).mockRejectedValueOnce(
+				await buildRequestError(
+					Response.json({ message: 'This status type was deleted.' }, { status: 404 }),
+					'PUT',
+					'availability'
+				)
+			);
+
+			expect(await ctx.saveAvailability(edit)).toBe('not-saved');
+			expect(error.mock.calls).toEqual([['This status type was deleted.']]);
+			expect(loadCalendarRange).not.toHaveBeenCalled();
+			expect(success).not.toHaveBeenCalled();
+
+			vi.mocked(availabilityStore.updateOrThrow).mockResolvedValueOnce(true);
+			expect(await ctx.saveAvailability(edit)).toBe('saved');
+		});
+
+		it('re-reads after a server failure on an edit and keeps the generic message', async () => {
+			const error = vi.spyOn(toastStore, 'error');
+			vi.mocked(availabilityStore.updateOrThrow).mockRejectedValueOnce(
+				await buildRequestError(Response.json({ message: 'relation missing' }, { status: 500 }), 'PUT', 'availability')
+			);
+			vi.mocked(loadCalendarRange).mockResolvedValueOnce(range([{ id: 'entry-1', ...record }]));
+
+			expect(await ctx.saveAvailability(edit)).toBe('not-saved');
+			expect(loadCalendarRange).toHaveBeenCalledExactlyOnceWith(...readOfApril7);
+			expect(error.mock.calls).toEqual([['Could not save status. Try again.']]);
 		});
 
 		it('stays silent when the Organization changes while a lost reply is being checked', async () => {
@@ -525,7 +557,9 @@ describe('CalendarPageContext', () => {
 			const success = vi.spyOn(toastStore, 'success');
 			let currentData = mockData;
 			let resolveUpdate!: (saved: boolean) => void;
-			vi.mocked(availabilityStore.update).mockImplementation(() => new Promise((resolve) => (resolveUpdate = resolve)));
+			vi.mocked(availabilityStore.updateOrThrow).mockImplementation(
+				() => new Promise((resolve) => (resolveUpdate = resolve))
+			);
 			const navigatedCtx = makeContext(() => currentData, org);
 			const pending = navigatedCtx.saveAvailability({
 				kind: 'update',
@@ -992,6 +1026,38 @@ describe('CalendarPageContext', () => {
 				TODAY
 			);
 			expect(ctxLoss.upcomingLossMap.has('p1')).toBe(true);
+		});
+
+		it('shows no loss flags and reports warnings unavailable when the window could not be read', () => {
+			const personnel = [makePersonWithEts('p1', IN_WINDOW)];
+			const ctxLoss = makeContext(
+				{
+					...mockData,
+					personnel,
+					allPersonnel: personnel,
+					calendar: { data: { personnel, lossWarningWindowDays: null } }
+				},
+				org,
+				TODAY
+			);
+			expect([...ctxLoss.upcomingLossMap.keys()]).toEqual([]);
+			expect(ctxLoss.lossWarningsUnavailable).toBe(true);
+		});
+
+		it('flags an ETS 60 days out but not 61 under a stored 60-day window', () => {
+			const personnel = [makePersonWithEts('day-60', '2026-06-13'), makePersonWithEts('day-61', '2026-06-14')];
+			const ctxLoss = makeContext(
+				{
+					...mockData,
+					personnel,
+					allPersonnel: personnel,
+					calendar: { data: { personnel, lossWarningWindowDays: 60 } }
+				},
+				org,
+				TODAY
+			);
+			expect([...ctxLoss.upcomingLossMap.keys()]).toEqual(['day-60']);
+			expect(ctxLoss.lossWarningsUnavailable).toBe(false);
 		});
 
 		it('defaults to a 180-day window when lossWarningWindowDays is absent', () => {

@@ -2,7 +2,7 @@ import type { AuditEvent } from '$lib/audit/contracts';
 import type {
 	PlatformAnnouncement,
 	PlatformAnnouncementCreateInput,
-	PlatformAnnouncementToggleResult,
+	PlatformAnnouncementSetActiveResult,
 	PlatformAnnouncementValidation
 } from '../announcementTypes';
 
@@ -11,12 +11,13 @@ export interface PlatformAnnouncementStoreCreateInput extends PlatformAnnounceme
 	createdBy: string;
 }
 
-export interface PlatformAnnouncementToggleInput {
+export interface PlatformAnnouncementSetActiveInput {
 	id: string;
+	isActive: boolean;
 	updatedBy: string;
 }
 
-export interface PlatformAnnouncementToggleUpdate {
+export interface PlatformAnnouncementSetActiveUpdate {
 	id: string;
 	isActive: boolean;
 }
@@ -24,7 +25,7 @@ export interface PlatformAnnouncementToggleUpdate {
 export interface PlatformAnnouncementsStore {
 	listAnnouncements(): Promise<PlatformAnnouncement[]>;
 	createAnnouncement(input: PlatformAnnouncementStoreCreateInput): Promise<PlatformAnnouncement>;
-	toggleAnnouncementActive(input: PlatformAnnouncementToggleInput): Promise<PlatformAnnouncementToggleUpdate | null>;
+	setAnnouncementActive(input: PlatformAnnouncementSetActiveInput): Promise<PlatformAnnouncementSetActiveUpdate | null>;
 	deleteAnnouncement(id: string): Promise<void>;
 }
 
@@ -37,7 +38,7 @@ export interface PlatformAnnouncementsDependencies {
 export interface PlatformAnnouncements {
 	list(): Promise<PlatformAnnouncement[]>;
 	create(input: PlatformAnnouncementCreateInput): Promise<PlatformAnnouncement>;
-	toggleActive(id: string): Promise<PlatformAnnouncementToggleResult>;
+	setActive(id: string, isActive: boolean): Promise<PlatformAnnouncementSetActiveResult>;
 	delete(id: string): Promise<{ success: true }>;
 }
 
@@ -66,9 +67,10 @@ export function createPlatformAnnouncements(deps: PlatformAnnouncementsDependenc
 			return announcement;
 		},
 
-		async toggleActive(id) {
-			const update = await deps.store.toggleAnnouncementActive({
+		async setActive(id, isActive) {
+			const update = await deps.store.setAnnouncementActive({
 				id,
+				isActive,
 				updatedBy: deps.actorUserId
 			});
 

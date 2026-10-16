@@ -2,6 +2,22 @@ import { describe, it, expect, vi } from 'vitest';
 import { createWritePortsContext } from '$features/training/server/trainingPersistence.test-support.server';
 import { importTrainingRecords } from './trainingCompletionBatch.server';
 
+const PERSON_1 = '00000000-0000-4000-8000-00000000b001';
+const PERSON_2 = '00000000-0000-4000-8000-00000000b002';
+const PERSON_3 = '00000000-0000-4000-8000-00000000b003';
+const PERSON_ARCHIVED = '00000000-0000-4000-8000-00000000b004';
+const PERSON_FOREIGN = '00000000-0000-4000-8000-00000000b005';
+const PERSON_MISSING = '00000000-0000-4000-8000-00000000b006';
+const PERSON_EXISTING = '00000000-0000-4000-8000-00000000b007';
+const TRAINING_TYPE = '00000000-0000-4000-8000-00000000b008';
+const EXEMPT_TYPE = '00000000-0000-4000-8000-00000000b009';
+const UNKNOWN_TYPE = '00000000-0000-4000-8000-00000000b00a';
+const EARLY_EXEMPT_TYPE = '00000000-0000-4000-8000-00000000b00b';
+const LATE_EXEMPT_TYPE = '00000000-0000-4000-8000-00000000b00c';
+const RECORD = '00000000-0000-4000-8000-00000000b00d';
+const RETAINED_RECORD = '00000000-0000-4000-8000-00000000b00e';
+const SAVED_COMPLETION = '00000000-0000-4000-8000-00000000b00f';
+
 function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
 	return createWritePortsContext(overrides);
 }
@@ -17,7 +33,7 @@ function seedTrainingType(
 	}>
 ) {
 	const defaults = {
-		id: 'tt-1',
+		id: TRAINING_TYPE,
 		organization_id: 'test-org',
 		name: 'Annual Rifle Qual',
 		expiration_months: 12,
@@ -33,7 +49,7 @@ function seedTrainingType(
 function seedPersonnel(ctx: ReturnType<typeof buildContext>) {
 	ctx.store.seed('personnel', [
 		{
-			id: 'p-1',
+			id: PERSON_1,
 			organization_id: 'test-org',
 			rank: 'SGT',
 			last_name: 'Alpha',
@@ -44,7 +60,7 @@ function seedPersonnel(ctx: ReturnType<typeof buildContext>) {
 			archived_at: null
 		},
 		{
-			id: 'p-2',
+			id: PERSON_2,
 			organization_id: 'test-org',
 			rank: 'SPC',
 			last_name: 'Bravo',
@@ -55,7 +71,7 @@ function seedPersonnel(ctx: ReturnType<typeof buildContext>) {
 			archived_at: null
 		},
 		{
-			id: 'p-3',
+			id: PERSON_3,
 			organization_id: 'test-org',
 			rank: 'CPL',
 			last_name: 'Charlie',
@@ -76,10 +92,10 @@ describe('importTrainingRecords', () => {
 
 		const result = await importTrainingRecords(ctx, {
 			records: [
-				{ personnelId: 'p-1', trainingTypeId: 'tt-1', completionDate: '2025-06-01', status: 'completed' },
+				{ personnelId: PERSON_1, trainingTypeId: TRAINING_TYPE, completionDate: '2025-06-01', status: 'completed' },
 				{
-					personnelId: 'p-2',
-					trainingTypeId: 'tt-1',
+					personnelId: PERSON_2,
+					trainingTypeId: TRAINING_TYPE,
 					completionDate: '2025-06-15',
 					status: 'completed',
 					notes: 'Scored 38/40'
@@ -93,8 +109,8 @@ describe('importTrainingRecords', () => {
 
 		expect(result.inserted).toEqual(
 			expect.arrayContaining([
-				expect.objectContaining({ personnelId: 'p-1', trainingTypeId: 'tt-1' }),
-				expect.objectContaining({ personnelId: 'p-2', trainingTypeId: 'tt-1' })
+				expect.objectContaining({ personnelId: PERSON_1, trainingTypeId: TRAINING_TYPE }),
+				expect.objectContaining({ personnelId: PERSON_2, trainingTypeId: TRAINING_TYPE })
 			])
 		);
 
@@ -113,7 +129,9 @@ describe('importTrainingRecords', () => {
 		seedTrainingType(ctx, { expiration_months: 6 });
 
 		const result = await importTrainingRecords(ctx, {
-			records: [{ personnelId: 'p-1', trainingTypeId: 'tt-1', completionDate: '2025-06-01', status: 'completed' }]
+			records: [
+				{ personnelId: PERSON_1, trainingTypeId: TRAINING_TYPE, completionDate: '2025-06-01', status: 'completed' }
+			]
 		});
 
 		expect(result.inserted).toHaveLength(1);
@@ -131,7 +149,9 @@ describe('importTrainingRecords', () => {
 		seedTrainingType(ctx, { expiration_months: null, expiration_date_only: true });
 
 		const result = await importTrainingRecords(ctx, {
-			records: [{ personnelId: 'p-1', trainingTypeId: 'tt-1', completionDate: '2026-01-15', status: 'completed' }]
+			records: [
+				{ personnelId: PERSON_1, trainingTypeId: TRAINING_TYPE, completionDate: '2026-01-15', status: 'completed' }
+			]
 		});
 
 		expect(result.inserted).toHaveLength(1);
@@ -149,7 +169,7 @@ describe('importTrainingRecords', () => {
 		seedTrainingType(ctx, { expiration_months: null, expiration_date_only: true });
 
 		const result = await importTrainingRecords(ctx, {
-			records: [{ personnelId: 'p-1', trainingTypeId: 'tt-1', completionDate: null, status: 'completed' }]
+			records: [{ personnelId: PERSON_1, trainingTypeId: TRAINING_TYPE, completionDate: null, status: 'completed' }]
 		});
 
 		expect(result.inserted).toHaveLength(0);
@@ -160,40 +180,95 @@ describe('importTrainingRecords', () => {
 	it('handles exempt records by updating training type exempt list', async () => {
 		const ctx = buildContext();
 		seedPersonnel(ctx);
-		seedTrainingType(ctx, { can_be_exempted: true, exempt_personnel_ids: ['p-existing'] });
+		seedTrainingType(ctx, { can_be_exempted: true, exempt_personnel_ids: [PERSON_EXISTING] });
 
 		const result = await importTrainingRecords(ctx, {
-			records: [{ personnelId: 'p-1', trainingTypeId: 'tt-1', completionDate: null, status: 'exempt' }]
+			records: [{ personnelId: PERSON_1, trainingTypeId: TRAINING_TYPE, completionDate: null, status: 'exempt' }]
 		});
 
 		expect(result.inserted).toHaveLength(0);
 		expect(result.exempted).toHaveLength(1);
-		expect(result.exempted[0]).toMatchObject({ personnelId: 'p-1', trainingTypeId: 'tt-1' });
+		expect(result.exempted[0]).toMatchObject({ personnelId: PERSON_1, trainingTypeId: TRAINING_TYPE });
 		expect(result.errors).toHaveLength(0);
 
 		// Training type should have both existing and new personnel in exempt list
 		const types = await ctx.store.findMany<{ exempt_personnel_ids: string[] }>('training_types', 'test-org');
-		expect(types[0].exempt_personnel_ids).toContain('p-existing');
-		expect(types[0].exempt_personnel_ids).toContain('p-1');
+		expect(types[0].exempt_personnel_ids).toContain(PERSON_EXISTING);
+		expect(types[0].exempt_personnel_ids).toContain(PERSON_1);
 	});
 
 	it('rejects missing and foreign-Organization exemption references without changing the type', async () => {
 		const ctx = buildContext();
 		seedPersonnel(ctx);
-		seedTrainingType(ctx, { can_be_exempted: true, exempt_personnel_ids: ['p-1'] });
-		ctx.store.seed('personnel', [{ id: 'p-foreign', organization_id: 'other-org', group_id: null }]);
+		seedTrainingType(ctx, { can_be_exempted: true, exempt_personnel_ids: [PERSON_1] });
+		ctx.store.seed('personnel', [{ id: PERSON_FOREIGN, organization_id: 'other-org', group_id: null }]);
 
-		for (const personnelId of ['p-missing', 'p-foreign']) {
+		for (const personnelId of [PERSON_MISSING, PERSON_FOREIGN]) {
 			await expect(
 				importTrainingRecords(ctx, {
-					records: [{ personnelId, trainingTypeId: 'tt-1', completionDate: null, status: 'exempt' }]
+					records: [{ personnelId, trainingTypeId: TRAINING_TYPE, completionDate: null, status: 'exempt' }]
 				})
 			).rejects.toMatchObject({ status: 404 });
 		}
 		const type = await ctx.store.findOne<{ exempt_personnel_ids: string[] }>('training_types', 'test-org', {
-			id: 'tt-1'
+			id: TRAINING_TYPE
 		});
-		expect(type?.exempt_personnel_ids).toEqual(['p-1']);
+		expect(type?.exempt_personnel_ids).toEqual([PERSON_1]);
+	});
+
+	it('reports exemptions for a Training type deleted during the import as unavailable, not exempted', async () => {
+		const ctx = buildContext();
+		seedPersonnel(ctx);
+		seedTrainingType(ctx, { can_be_exempted: true });
+		seedTrainingType(ctx, { id: EXEMPT_TYPE, can_be_exempted: true });
+		const { listTypeImportReferences, findTypeId } = ctx.trainingCatalog;
+		ctx.trainingCatalog.listTypeImportReferences = async (ids) => {
+			const references = await listTypeImportReferences(ids);
+			await ctx.store.delete('training_types', 'test-org', TRAINING_TYPE);
+			return references;
+		};
+		ctx.trainingCatalog.findTypeId = async (id) => {
+			const found = await findTypeId(id);
+			if (id === EXEMPT_TYPE) await ctx.store.delete('training_types', 'test-org', EXEMPT_TYPE);
+			return found;
+		};
+
+		const result = await importTrainingRecords(ctx, {
+			records: [
+				{ personnelId: PERSON_1, trainingTypeId: TRAINING_TYPE, completionDate: null, status: 'exempt' },
+				{ personnelId: PERSON_2, trainingTypeId: EXEMPT_TYPE, completionDate: null, status: 'exempt' }
+			]
+		});
+
+		expect(result.exempted).toEqual([]);
+		expect(result.errors).toEqual([
+			{ index: 0, message: 'That Training type is no longer available.' },
+			{ index: 1, message: 'That Training type is no longer available.' }
+		]);
+		expect(ctx.audit.events[0]).toMatchObject({ details: { inserted: 0, updated: 0, exempted: 0 } });
+	});
+
+	it('rejects a batch naming a Person or Training type by a non-UUID before writing anything', async () => {
+		const ctx = buildContext();
+		seedPersonnel(ctx);
+		seedTrainingType(ctx);
+
+		for (const record of [
+			{ personnelId: 'abc', trainingTypeId: TRAINING_TYPE },
+			{ personnelId: PERSON_1, trainingTypeId: 'rifle' },
+			{ personnelId: PERSON_1 }
+		]) {
+			await expect(
+				importTrainingRecords(ctx, {
+					records: [
+						{ personnelId: PERSON_2, trainingTypeId: TRAINING_TYPE, completionDate: '2025-06-01', status: 'completed' },
+						{ ...record, completionDate: '2025-06-01', status: 'completed' } as never
+					]
+				})
+			).rejects.toMatchObject({ status: 400, message: 'Each record must name a Person and Training type by ID' });
+		}
+		expect(await ctx.store.findMany('personnel_trainings', 'test-org')).toEqual([]);
+		expect(ctx.audit.events.filter((event) => event.action === 'training.bulk_imported')).toEqual([]);
 	});
 
 	it('rejects exempt status when training type does not allow exemptions', async () => {
@@ -202,7 +277,7 @@ describe('importTrainingRecords', () => {
 		seedTrainingType(ctx, { can_be_exempted: false });
 
 		const result = await importTrainingRecords(ctx, {
-			records: [{ personnelId: 'p-1', trainingTypeId: 'tt-1', completionDate: null, status: 'exempt' }]
+			records: [{ personnelId: PERSON_1, trainingTypeId: TRAINING_TYPE, completionDate: null, status: 'exempt' }]
 		});
 
 		expect(result.exempted).toHaveLength(0);
@@ -218,10 +293,10 @@ describe('importTrainingRecords', () => {
 		// Seed an existing training record
 		ctx.store.seed('personnel_trainings', [
 			{
-				id: 'ptr-1',
+				id: RECORD,
 				organization_id: 'test-org',
-				personnel_id: 'p-1',
-				training_type_id: 'tt-1',
+				personnel_id: PERSON_1,
+				training_type_id: TRAINING_TYPE,
 				completion_date: '2024-01-01',
 				expiration_date: '2025-01-01',
 				notes: 'old notes'
@@ -234,14 +309,14 @@ describe('importTrainingRecords', () => {
 			records: [
 				// Should UPDATE existing p-1 + tt-1
 				{
-					personnelId: 'p-1',
-					trainingTypeId: 'tt-1',
+					personnelId: PERSON_1,
+					trainingTypeId: TRAINING_TYPE,
 					completionDate: '2025-06-01',
 					status: 'completed',
 					notes: 'new notes'
 				},
 				// Should INSERT new p-2 + tt-1
-				{ personnelId: 'p-2', trainingTypeId: 'tt-1', completionDate: '2025-07-01', status: 'completed' }
+				{ personnelId: PERSON_2, trainingTypeId: TRAINING_TYPE, completionDate: '2025-07-01', status: 'completed' }
 			]
 		});
 
@@ -249,15 +324,15 @@ describe('importTrainingRecords', () => {
 		expect(updateSpy).not.toHaveBeenCalled();
 		expect(upsertManySpy.mock.calls[0][2]).toEqual([
 			expect.objectContaining({
-				personnel_id: 'p-1',
-				training_type_id: 'tt-1',
+				personnel_id: PERSON_1,
+				training_type_id: TRAINING_TYPE,
 				completion_date: '2025-06-01',
 				expiration_date: '2026-06-01',
 				notes: 'new notes'
 			}),
 			expect.objectContaining({
-				personnel_id: 'p-2',
-				training_type_id: 'tt-1',
+				personnel_id: PERSON_2,
+				training_type_id: TRAINING_TYPE,
 				completion_date: '2025-07-01',
 				expiration_date: '2026-07-01',
 				notes: null
@@ -270,7 +345,7 @@ describe('importTrainingRecords', () => {
 		expect(result.updated).toHaveLength(1);
 		expect(result.updated[0]).toEqual(
 			expect.objectContaining({
-				personnelId: 'p-1',
+				personnelId: PERSON_1,
 				completionDate: '2025-06-01',
 				expirationDate: '2026-06-01',
 				notes: 'new notes'
@@ -280,7 +355,7 @@ describe('importTrainingRecords', () => {
 		expect(result.inserted).toHaveLength(1);
 		expect(result.inserted[0]).toEqual(
 			expect.objectContaining({
-				personnelId: 'p-2',
+				personnelId: PERSON_2,
 				completionDate: '2025-07-01'
 			})
 		);
@@ -300,10 +375,10 @@ describe('importTrainingRecords', () => {
 		seedTrainingType(ctx, { expiration_months: 12 });
 		ctx.store.seed('personnel_trainings', [
 			{
-				id: 'ptr-1',
+				id: RECORD,
 				organization_id: 'test-org',
-				personnel_id: 'p-1',
-				training_type_id: 'tt-1',
+				personnel_id: PERSON_1,
+				training_type_id: TRAINING_TYPE,
 				completion_date: '2024-01-01',
 				expiration_date: '2025-01-01',
 				notes: 'old notes'
@@ -313,10 +388,10 @@ describe('importTrainingRecords', () => {
 
 		const result = await importTrainingRecords(ctx, {
 			records: [
-				{ personnelId: 'p-1', trainingTypeId: 'tt-1', completionDate: '2025-06-01', status: 'completed' },
+				{ personnelId: PERSON_1, trainingTypeId: TRAINING_TYPE, completionDate: '2025-06-01', status: 'completed' },
 				{
-					personnelId: 'p-1',
-					trainingTypeId: 'tt-1',
+					personnelId: PERSON_1,
+					trainingTypeId: TRAINING_TYPE,
 					completionDate: '2025-07-01',
 					status: 'completed',
 					notes: 'latest row wins'
@@ -327,8 +402,8 @@ describe('importTrainingRecords', () => {
 		expect(upsertManySpy).toHaveBeenCalledTimes(1);
 		expect(upsertManySpy.mock.calls[0][2]).toEqual([
 			expect.objectContaining({
-				personnel_id: 'p-1',
-				training_type_id: 'tt-1',
+				personnel_id: PERSON_1,
+				training_type_id: TRAINING_TYPE,
 				completion_date: '2025-07-01',
 				expiration_date: '2026-07-01',
 				notes: 'latest row wins'
@@ -338,7 +413,7 @@ describe('importTrainingRecords', () => {
 		expect(result.inserted).toHaveLength(0);
 		expect(result.updated[0]).toEqual(
 			expect.objectContaining({
-				personnelId: 'p-1',
+				personnelId: PERSON_1,
 				completionDate: '2025-07-01',
 				notes: 'latest row wins'
 			})
@@ -349,9 +424,9 @@ describe('importTrainingRecords', () => {
 	it('excludes error and exempt rows from completed-record upsert payload', async () => {
 		const ctx = buildContext();
 		seedPersonnel(ctx);
-		seedTrainingType(ctx, { id: 'tt-1' });
+		seedTrainingType(ctx, { id: TRAINING_TYPE });
 		seedTrainingType(ctx, {
-			id: 'tt-exempt',
+			id: EXEMPT_TYPE,
 			can_be_exempted: true,
 			expiration_months: null,
 			expiration_date_only: false
@@ -360,28 +435,28 @@ describe('importTrainingRecords', () => {
 
 		const result = await importTrainingRecords(ctx, {
 			records: [
-				{ personnelId: 'p-1', trainingTypeId: 'tt-1', completionDate: '2025-06-01', status: 'completed' },
-				{ personnelId: 'p-2', trainingTypeId: 'tt-unknown', completionDate: '2025-06-01', status: 'completed' },
-				{ personnelId: 'p-3', trainingTypeId: 'tt-exempt', completionDate: null, status: 'exempt' }
+				{ personnelId: PERSON_1, trainingTypeId: TRAINING_TYPE, completionDate: '2025-06-01', status: 'completed' },
+				{ personnelId: PERSON_2, trainingTypeId: UNKNOWN_TYPE, completionDate: '2025-06-01', status: 'completed' },
+				{ personnelId: PERSON_3, trainingTypeId: EXEMPT_TYPE, completionDate: null, status: 'exempt' }
 			]
 		});
 
 		expect(upsertManySpy).toHaveBeenCalledTimes(1);
 		expect(upsertManySpy.mock.calls[0][2]).toEqual([
 			expect.objectContaining({
-				personnel_id: 'p-1',
-				training_type_id: 'tt-1'
+				personnel_id: PERSON_1,
+				training_type_id: TRAINING_TYPE
 			})
 		]);
 		expect(result.inserted).toHaveLength(1);
 		expect(result.updated).toHaveLength(0);
-		expect(result.exempted).toEqual([{ index: 2, personnelId: 'p-3', trainingTypeId: 'tt-exempt' }]);
+		expect(result.exempted).toEqual([{ index: 2, personnelId: PERSON_3, trainingTypeId: EXEMPT_TYPE }]);
 		expect(result.errors).toEqual([{ index: 1, message: 'Training type not found' }]);
 
 		const exemptType = await ctx.store.findOne<{ exempt_personnel_ids: string[] }>('training_types', 'test-org', {
-			id: 'tt-exempt'
+			id: EXEMPT_TYPE
 		});
-		expect(exemptType?.exempt_personnel_ids).toContain('p-3');
+		expect(exemptType?.exempt_personnel_ids).toContain(PERSON_3);
 	});
 
 	it('preauthorizes every batch target before updating an allowed row', async () => {
@@ -403,10 +478,10 @@ describe('importTrainingRecords', () => {
 		seedPersonnel(ctx);
 		seedTrainingType(ctx);
 		const existing = {
-			id: 'saved-completion',
+			id: SAVED_COMPLETION,
 			organization_id: 'test-org',
-			personnel_id: 'p-1',
-			training_type_id: 'tt-1',
+			personnel_id: PERSON_1,
+			training_type_id: TRAINING_TYPE,
 			completion_date: '2024-06-01',
 			expiration_date: '2025-06-01',
 			notes: 'Retained'
@@ -416,8 +491,8 @@ describe('importTrainingRecords', () => {
 		await expect(
 			importTrainingRecords(ctx, {
 				records: [
-					{ personnelId: 'p-1', trainingTypeId: 'tt-1', completionDate: '2025-06-01', status: 'completed' },
-					{ personnelId: 'p-2', trainingTypeId: 'tt-1', completionDate: '2025-06-01', status: 'completed' }
+					{ personnelId: PERSON_1, trainingTypeId: TRAINING_TYPE, completionDate: '2025-06-01', status: 'completed' },
+					{ personnelId: PERSON_2, trainingTypeId: TRAINING_TYPE, completionDate: '2025-06-01', status: 'completed' }
 				]
 			})
 		).rejects.toMatchObject({ status: 403 });
@@ -459,8 +534,8 @@ describe('importTrainingRecords', () => {
 
 		const result = await importTrainingRecords(ctx, {
 			records: [
-				{ personnelId: 'p-1', trainingTypeId: 'tt-1', completionDate: '2025-06-01', status: 'completed' },
-				{ personnelId: 'p-3', trainingTypeId: 'tt-1', completionDate: '2025-06-02', status: 'completed' }
+				{ personnelId: PERSON_1, trainingTypeId: TRAINING_TYPE, completionDate: '2025-06-01', status: 'completed' },
+				{ personnelId: PERSON_3, trainingTypeId: TRAINING_TYPE, completionDate: '2025-06-02', status: 'completed' }
 			]
 		});
 
@@ -486,7 +561,7 @@ describe('importTrainingRecords', () => {
 		seedPersonnel(ctx);
 		ctx.store.seed('personnel', [
 			{
-				id: 'p-archived',
+				id: PERSON_ARCHIVED,
 				organization_id: 'test-org',
 				group_id: 'group-a',
 				archived_at: '2026-01-01',
@@ -503,8 +578,13 @@ describe('importTrainingRecords', () => {
 
 		const result = await importTrainingRecords(ctx, {
 			records: [
-				{ personnelId: 'p-1', trainingTypeId: 'tt-1', completionDate: '2025-06-01', status: 'completed' },
-				{ personnelId: 'p-archived', trainingTypeId: 'tt-1', completionDate: '2025-06-02', status: 'completed' }
+				{ personnelId: PERSON_1, trainingTypeId: TRAINING_TYPE, completionDate: '2025-06-01', status: 'completed' },
+				{
+					personnelId: PERSON_ARCHIVED,
+					trainingTypeId: TRAINING_TYPE,
+					completionDate: '2025-06-02',
+					status: 'completed'
+				}
 			]
 		});
 		expect(result.inserted).toHaveLength(2);
@@ -531,13 +611,13 @@ describe('importTrainingRecords', () => {
 		await expect(
 			importTrainingRecords(ctx, {
 				records: [
-					{ personnelId: 'p-1', trainingTypeId: 'tt-1', completionDate: '2025-06-01', status: 'completed' },
-					{ personnelId: 'p-2', trainingTypeId: 'tt-1', completionDate: null, status: 'exempt' }
+					{ personnelId: PERSON_1, trainingTypeId: TRAINING_TYPE, completionDate: '2025-06-01', status: 'completed' },
+					{ personnelId: PERSON_2, trainingTypeId: TRAINING_TYPE, completionDate: null, status: 'exempt' }
 				]
 			})
 		).rejects.toMatchObject({ status: 403 });
 		expect(await ctx.store.findMany('personnel_trainings', 'test-org')).toEqual([]);
-		expect(await ctx.store.findOne('training_types', 'test-org', { id: 'tt-1' })).toMatchObject({
+		expect(await ctx.store.findOne('training_types', 'test-org', { id: TRAINING_TYPE })).toMatchObject({
 			exempt_personnel_ids: []
 		});
 		expect(ctx.audit.events).toContainEqual(
@@ -569,13 +649,13 @@ describe('importTrainingRecords', () => {
 
 		const result = await importTrainingRecords(ctx, {
 			records: [
-				{ personnelId: 'p-1', trainingTypeId: 'tt-1', completionDate: '2025-06-01', status: 'completed' },
-				{ personnelId: 'p-2', trainingTypeId: 'tt-unknown', completionDate: '2025-06-01', status: 'completed' }
+				{ personnelId: PERSON_1, trainingTypeId: TRAINING_TYPE, completionDate: '2025-06-01', status: 'completed' },
+				{ personnelId: PERSON_2, trainingTypeId: UNKNOWN_TYPE, completionDate: '2025-06-01', status: 'completed' }
 			]
 		});
 
 		expect(result.inserted).toHaveLength(1);
-		expect(result.inserted[0]).toEqual(expect.objectContaining({ personnelId: 'p-1' }));
+		expect(result.inserted[0]).toEqual(expect.objectContaining({ personnelId: PERSON_1 }));
 		expect(result.errors).toHaveLength(1);
 		expect(result.errors[0]).toEqual({ index: 1, message: 'Training type not found' });
 	});
@@ -584,7 +664,7 @@ describe('importTrainingRecords', () => {
 		const ctx = buildContext();
 		const tooMany = Array.from({ length: 501 }, (_, i) => ({
 			personnelId: `p-${i}`,
-			trainingTypeId: 'tt-1',
+			trainingTypeId: TRAINING_TYPE,
 			completionDate: '2025-06-01',
 			status: 'completed' as const
 		}));
@@ -601,14 +681,14 @@ describe('batch acknowledged effects', () => {
 		const ctx = buildContext();
 		seedPersonnel(ctx);
 		seedTrainingType(ctx);
-		seedTrainingType(ctx, { id: 'early-exempt', can_be_exempted: true, expiration_months: null });
-		seedTrainingType(ctx, { id: 'late-exempt', can_be_exempted: true, expiration_months: null });
+		seedTrainingType(ctx, { id: EARLY_EXEMPT_TYPE, can_be_exempted: true, expiration_months: null });
+		seedTrainingType(ctx, { id: LATE_EXEMPT_TYPE, can_be_exempted: true, expiration_months: null });
 		ctx.store.seed('personnel_trainings', [
 			{
-				id: 'retained-id',
+				id: RETAINED_RECORD,
 				organization_id: 'test-org',
-				personnel_id: 'p-1',
-				training_type_id: 'tt-1',
+				personnel_id: PERSON_1,
+				training_type_id: TRAINING_TYPE,
 				completion_date: '2024-01-01',
 				expiration_date: '2025-01-01',
 				certificate_url: 'keep-certificate',
@@ -617,30 +697,30 @@ describe('batch acknowledged effects', () => {
 		]);
 		const patch = ctx.trainingCatalog.patchType;
 		ctx.trainingCatalog.patchType = async (id, fields) => {
-			if (id === 'late-exempt') throw new Error('Late exemption failed');
+			if (id === LATE_EXEMPT_TYPE) throw new Error('Late exemption failed');
 			return patch(id, fields);
 		};
 		await expect(
 			importTrainingRecords(ctx, {
 				records: [
-					{ personnelId: 'p-1', trainingTypeId: 'tt-1', completionDate: '2026-03-01', status: 'completed' },
-					{ personnelId: 'p-2', trainingTypeId: 'early-exempt', completionDate: null, status: 'exempt' },
-					{ personnelId: 'p-3', trainingTypeId: 'late-exempt', completionDate: null, status: 'exempt' }
+					{ personnelId: PERSON_1, trainingTypeId: TRAINING_TYPE, completionDate: '2026-03-01', status: 'completed' },
+					{ personnelId: PERSON_2, trainingTypeId: EARLY_EXEMPT_TYPE, completionDate: null, status: 'exempt' },
+					{ personnelId: PERSON_3, trainingTypeId: LATE_EXEMPT_TYPE, completionDate: null, status: 'exempt' }
 				]
 			})
 		).rejects.toThrow('Late exemption failed');
 		expect(await ctx.trainingCompletions.listCompletions()).toMatchObject([
 			{
-				id: 'retained-id',
+				id: RETAINED_RECORD,
 				certificateUrl: 'keep-certificate',
 				completionDate: '2026-03-01',
 				expirationDate: '2027-03-01',
 				notes: null
 			}
 		]);
-		expect(await ctx.trainingCatalog.listTypeImportReferences(['early-exempt', 'late-exempt'])).toMatchObject([
-			{ id: 'early-exempt', exemptPersonnelIds: ['p-2'] },
-			{ id: 'late-exempt', exemptPersonnelIds: [] }
+		expect(await ctx.trainingCatalog.listTypeImportReferences([EARLY_EXEMPT_TYPE, LATE_EXEMPT_TYPE])).toMatchObject([
+			{ id: EARLY_EXEMPT_TYPE, exemptPersonnelIds: [PERSON_2] },
+			{ id: LATE_EXEMPT_TYPE, exemptPersonnelIds: [] }
 		]);
 		expect(ctx.audit.events).toEqual([]);
 	});
@@ -649,13 +729,28 @@ describe('batch acknowledged effects', () => {
 		seedPersonnel(ctx);
 		seedTrainingType(ctx, { expiration_months: null });
 		const result = await importTrainingRecords(ctx, {
-			records: [{ personnelId: 'p-1', trainingTypeId: 'tt-1', status: 'completed' }] as Parameters<
+			records: [{ personnelId: PERSON_1, trainingTypeId: TRAINING_TYPE, status: 'completed' }] as Parameters<
 				typeof importTrainingRecords
 			>[1]['records']
 		});
 		expect(result.inserted).toMatchObject([
-			{ personnelId: 'p-1', trainingTypeId: 'tt-1', expirationDate: null, notes: null }
+			{ personnelId: PERSON_1, trainingTypeId: TRAINING_TYPE, expirationDate: null, notes: null }
 		]);
 		expect(Object.hasOwn(result.inserted[0], 'completionDate')).toBe(false);
 	});
+	it.each([0, false])(
+		'rejects a %s completion date on a never-expiring type without saving',
+		async (completionDate) => {
+			const ctx = buildContext();
+			seedPersonnel(ctx);
+			seedTrainingType(ctx, { expiration_months: null });
+			const result = await importTrainingRecords(ctx, {
+				records: [
+					{ personnelId: PERSON_1, trainingTypeId: TRAINING_TYPE, status: 'completed', completionDate }
+				] as unknown as Parameters<typeof importTrainingRecords>[1]['records']
+			});
+			expect(result.inserted).toEqual([]);
+			expect(result.errors).toEqual([{ index: 0, message: 'Use a valid date (YYYY-MM-DD)' }]);
+		}
+	);
 });

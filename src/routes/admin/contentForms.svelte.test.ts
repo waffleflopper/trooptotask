@@ -232,6 +232,15 @@ describe('announcement form ownership', () => {
 		);
 	});
 
+	it.each([
+		['Deactivate Active notice', 'false'],
+		['Activate Peer notice', 'true']
+	])('%s submits the desired active state %s', async (name, isActive) => {
+		render(Announcements, { props: { data: announcementData(), form: null } });
+		const button = screen.getByRole('button', { name });
+		expect(new FormData(button.closest('form')!).get('isActive')).toBe(isActive);
+	});
+
 	it('returns focus to the toggled announcement button after its re-read', async () => {
 		render(Announcements, { props: { data: announcementData(), form: null } });
 		const toggle = screen.getByRole('button', { name: 'Deactivate Active notice' });

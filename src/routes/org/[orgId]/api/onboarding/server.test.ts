@@ -5,6 +5,12 @@ import { createTestContext } from '$features/onboarding/server/onboardingPersist
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _postConfig, _putConfig } from './+server';
 
+const ONBOARDING_ID = '00000000-0000-4000-8000-000000000010';
+const PERSON_1 = '00000000-0000-4000-8000-000000000011';
+const TEMPLATE_1 = '00000000-0000-4000-8000-000000000012';
+const STEP_1 = '00000000-0000-4000-8000-000000000013';
+const STEP_2 = '00000000-0000-4000-8000-000000000014';
+
 describe('/api/onboarding route config', () => {
 	it('uses policy-first route configs for onboarding lifecycle mutations', () => {
 		for (const config of [_postConfig, _putConfig]) {
@@ -18,8 +24,8 @@ describe('/api/onboarding route config', () => {
 		const create = vi.fn<OnboardingPacketCreationPort['create']>().mockResolvedValue({
 			onboarding: {
 				id: 'saved-packet',
-				personnel_id: 'p-1',
-				template_id: 'template-1',
+				personnel_id: PERSON_1,
+				template_id: TEMPLATE_1,
 				status: 'in_progress',
 				started_at: '2026-03-15',
 				completed_at: null,
@@ -45,7 +51,7 @@ describe('/api/onboarding route config', () => {
 		});
 		ctx.store.seed('personnel', [
 			{
-				id: 'p-1',
+				id: PERSON_1,
 				organization_id: ctx.auth.orgId,
 				rank: 'SGT',
 				last_name: 'Smith',
@@ -59,8 +65,8 @@ describe('/api/onboarding route config', () => {
 			_postConfig,
 			ctx,
 			{
-				personnelId: 'p-1',
-				templateId: 'template-1',
+				personnelId: PERSON_1,
+				templateId: TEMPLATE_1,
 				startedAt: '2026-03-15'
 			},
 			() => ctx
@@ -68,8 +74,8 @@ describe('/api/onboarding route config', () => {
 
 		expect(result).toEqual({
 			id: 'saved-packet',
-			personnelId: 'p-1',
-			templateId: 'template-1',
+			personnelId: PERSON_1,
+			templateId: TEMPLATE_1,
 			status: 'in_progress',
 			startedAt: '2026-03-15',
 			completedAt: null,
@@ -77,8 +83,8 @@ describe('/api/onboarding route config', () => {
 			steps: []
 		});
 		expect(create).toHaveBeenCalledWith(ctx.auth.orgId, {
-			personnelId: 'p-1',
-			templateId: 'template-1',
+			personnelId: PERSON_1,
+			templateId: TEMPLATE_1,
 			startedAt: '2026-03-15',
 			steps: []
 		});
@@ -97,11 +103,11 @@ describe('/api/onboarding route config', () => {
 	])('rejects malformed configured-template input %j through the actual POST config', async (body) => {
 		const create = vi.fn<OnboardingPacketCreationPort['create']>();
 		const ctx = createTestContext({ onboardingPacketCreation: { create } });
-		ctx.store.seed('personnel', [{ id: 'p-1', organization_id: ctx.auth.orgId, group_id: null }]);
+		ctx.store.seed('personnel', [{ id: PERSON_1, organization_id: ctx.auth.orgId, group_id: null }]);
 		const training = vi.spyOn(ctx.trainingOnboardingReferences, 'completedTypeIds');
 		const reads = vi.spyOn(ctx.store, 'findMany');
 		await expect(
-			handleUseCaseRequest(_postConfig, ctx, { personnelId: 'p-1', ...body }, () => ctx)
+			handleUseCaseRequest(_postConfig, ctx, { personnelId: PERSON_1, ...body }, () => ctx)
 		).rejects.toMatchObject({
 			status: 400
 		});
@@ -117,13 +123,13 @@ describe('/api/onboarding route config', () => {
 			const failure =
 				status === 500 ? new Error('Creation failed') : Object.assign(new Error('Creation rejected'), { status });
 			const ctx = createTestContext({ onboardingPacketCreation: { create: vi.fn().mockRejectedValue(failure) } });
-			ctx.store.seed('personnel', [{ id: 'p-1', organization_id: ctx.auth.orgId, group_id: null }]);
+			ctx.store.seed('personnel', [{ id: PERSON_1, organization_id: ctx.auth.orgId, group_id: null }]);
 			const insert = vi.spyOn(ctx.store, 'insert').mockRejectedValue(new Error('Generic Start insert must not run'));
 			const deleteParent = vi
 				.spyOn(ctx.store, 'delete')
 				.mockRejectedValue(new Error('Compensation delete must not run'));
 			await expect(
-				handleUseCaseRequest(_postConfig, ctx, { personnelId: 'p-1', templateId: 'template-1' }, () => ctx)
+				handleUseCaseRequest(_postConfig, ctx, { personnelId: PERSON_1, templateId: TEMPLATE_1 }, () => ctx)
 			).rejects.toBe(failure);
 			expect(insert).not.toHaveBeenCalled();
 			expect(deleteParent).not.toHaveBeenCalled();
@@ -155,9 +161,9 @@ describe('/api/onboarding route config', () => {
 					config,
 					ctx,
 					{
-						personnelId: 'p-1',
-						templateId: 'template-1',
-						id: 'ob-1',
+						personnelId: PERSON_1,
+						templateId: TEMPLATE_1,
+						id: ONBOARDING_ID,
 						status: 'cancelled'
 					},
 					() => ctx
@@ -177,20 +183,36 @@ const lifecycleRequests = [
 	{
 		status: 'cancelled',
 		initialStatus: 'in_progress',
-		saved: { id: 'ob-1', status: 'cancelled', cancelled_at: '2026-10-01T12:00:00.123+00:00', completed_at: null },
-		response: { id: 'ob-1', status: 'cancelled', cancelledAt: '2026-10-01T12:00:00.123+00:00', completedAt: null }
+		saved: {
+			id: ONBOARDING_ID,
+			status: 'cancelled',
+			cancelled_at: '2026-10-01T12:00:00.123+00:00',
+			completed_at: null
+		},
+		response: {
+			id: ONBOARDING_ID,
+			status: 'cancelled',
+			cancelledAt: '2026-10-01T12:00:00.123+00:00',
+			completedAt: null
+		}
 	},
 	{
 		status: 'completed',
 		initialStatus: 'in_progress',
-		saved: { id: 'ob-1', status: 'completed', cancelled_at: null, completed_at: '2026-10-01' },
-		response: { id: 'ob-1', status: 'completed', cancelledAt: null, completedAt: '2026-10-01', incompleteCount: 1 }
+		saved: { id: ONBOARDING_ID, status: 'completed', cancelled_at: null, completed_at: '2026-10-01' },
+		response: {
+			id: ONBOARDING_ID,
+			status: 'completed',
+			cancelledAt: null,
+			completedAt: '2026-10-01',
+			incompleteCount: 1
+		}
 	},
 	{
 		status: 'in_progress',
 		initialStatus: 'cancelled',
-		saved: { id: 'ob-1', status: 'in_progress', cancelled_at: null, completed_at: null },
-		response: { id: 'ob-1', status: 'in_progress', cancelledAt: null, completedAt: null }
+		saved: { id: ONBOARDING_ID, status: 'in_progress', cancelled_at: null, completed_at: null },
+		response: { id: ONBOARDING_ID, status: 'in_progress', cancelledAt: null, completedAt: null }
 	}
 ] as const;
 
@@ -211,22 +233,22 @@ function lifecycleContext(initialStatus: string, saved: OnboardingLifecycleTrans
 		},
 		onboardingLifecycleTransition: { transition: vi.fn().mockResolvedValue(saved) }
 	});
-	ctx.store.seed('personnel', [{ id: 'p-1', organization_id: ctx.auth.orgId, group_id: null, archived_at: null }]);
+	ctx.store.seed('personnel', [{ id: PERSON_1, organization_id: ctx.auth.orgId, group_id: null, archived_at: null }]);
 	ctx.store.seed('personnel_onboardings', [
-		{ id: 'ob-1', personnel_id: 'p-1', organization_id: ctx.auth.orgId, status: initialStatus }
+		{ id: ONBOARDING_ID, personnel_id: PERSON_1, organization_id: ctx.auth.orgId, status: initialStatus }
 	]);
 	ctx.store.seed('onboarding_step_progress', [
 		{
-			id: 'step-1',
-			onboarding_id: 'ob-1',
+			id: STEP_1,
+			onboarding_id: ONBOARDING_ID,
 			organization_id: ctx.auth.orgId,
 			active: true,
 			completed: false,
 			step_type: 'training'
 		},
 		{
-			id: 'step-2',
-			onboarding_id: 'ob-1',
+			id: STEP_2,
+			onboarding_id: ONBOARDING_ID,
 			organization_id: ctx.auth.orgId,
 			active: false,
 			completed: false,
@@ -242,16 +264,18 @@ describe.each(lifecycleRequests)('/api/onboarding PUT $status', ({ status, initi
 		const ctx = lifecycleContext(initialStatus, saved);
 
 		await expect(
-			handleUseCaseRequest(_putConfig, ctx, { id: 'ob-1', status, completedAt: '2099-12-31' }, () => ctx)
+			handleUseCaseRequest(_putConfig, ctx, { id: ONBOARDING_ID, status, completedAt: '2026-10-01' }, () => ctx)
 		).resolves.toEqual(response);
 
-		expect(ctx.auditPort.events).toEqual([expect.objectContaining({ resourceId: 'ob-1' })]);
+		expect(ctx.auditPort.events).toEqual([expect.objectContaining({ resourceId: ONBOARDING_ID })]);
 	});
 
 	it('propagates expectation loss as 409 without a success audit', async () => {
 		const ctx = lifecycleContext(initialStatus, null);
 
-		await expect(handleUseCaseRequest(_putConfig, ctx, { id: 'ob-1', status }, () => ctx)).rejects.toMatchObject({
+		await expect(
+			handleUseCaseRequest(_putConfig, ctx, { id: ONBOARDING_ID, status, completedAt: '2026-10-01' }, () => ctx)
+		).rejects.toMatchObject({
 			status: 409
 		});
 
@@ -262,11 +286,58 @@ describe.each(lifecycleRequests)('/api/onboarding PUT $status', ({ status, initi
 	it('keeps the existing sequential invalid-transition 400', async () => {
 		const ctx = lifecycleContext('completed', null);
 
-		await expect(handleUseCaseRequest(_putConfig, ctx, { id: 'ob-1', status }, () => ctx)).rejects.toMatchObject({
+		await expect(
+			handleUseCaseRequest(_putConfig, ctx, { id: ONBOARDING_ID, status, completedAt: '2026-10-01' }, () => ctx)
+		).rejects.toMatchObject({
 			status: 400
 		});
 
 		expect(ctx.onboardingLifecycleTransition!.transition).not.toHaveBeenCalled();
 		expect(ctx.auditPort.events).toEqual([]);
 	});
+
+	it('answers 400 when the Person to onboard is not an id', async () => {
+		const ctx = createTestContext();
+
+		await expect(
+			handleUseCaseRequest(_postConfig, ctx, { personnelId: 'abc', templateId: TEMPLATE_1 }, () => ctx)
+		).rejects.toMatchObject({ status: 400, message: 'Choose a Person to onboard' });
+	});
+});
+
+describe('/api/onboarding PUT completion day', () => {
+	it('saves the local day the member sent', async () => {
+		const ctx = lifecycleContext('in_progress', null);
+		vi.mocked(ctx.onboardingLifecycleTransition!.transition).mockImplementation(
+			async (_organizationId, id, command) => ({
+				id,
+				status: 'completed',
+				cancelled_at: null,
+				completed_at: command.kind === 'complete' ? command.at : null
+			})
+		);
+
+		await expect(
+			handleUseCaseRequest(
+				_putConfig,
+				ctx,
+				{ id: ONBOARDING_ID, status: 'completed', completedAt: '2026-10-14' },
+				() => ctx
+			)
+		).resolves.toMatchObject({ status: 'completed', completedAt: '2026-10-14' });
+	});
+
+	it.each([undefined, '2026-10-14T23:30:00.000Z', '2026-02-30', 'today'])(
+		'answers 400 without saving for the completion day %j',
+		async (completedAt) => {
+			const ctx = lifecycleContext('in_progress', null);
+
+			await expect(
+				handleUseCaseRequest(_putConfig, ctx, { id: ONBOARDING_ID, status: 'completed', completedAt }, () => ctx)
+			).rejects.toMatchObject({ status: 400, message: 'Use a valid date (YYYY-MM-DD)' });
+
+			expect(ctx.onboardingLifecycleTransition!.transition).not.toHaveBeenCalled();
+			expect(ctx.auditPort.events).toEqual([]);
+		}
+	);
 });

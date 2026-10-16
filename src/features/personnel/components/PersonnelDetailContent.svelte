@@ -20,6 +20,7 @@
 	import type { Personnel } from '../personnel.types';
 	import type { RequestPersonnelArchiveApproval } from '../utils/archivePersonnel';
 	import { cn } from '$lib/utils';
+	import { formatDisplayDate } from '$lib/utils/dates';
 	import ArchiveIcon from '@lucide/svelte/icons/archive';
 	import ClipboardListIcon from '@lucide/svelte/icons/clipboard-list';
 	import DownloadIcon from '@lucide/svelte/icons/download';
@@ -386,7 +387,7 @@
 									<div class="grid gap-2 text-sm text-muted-foreground lg:justify-items-end lg:text-right">
 										<div>
 											<p>{workspace.formatBytes(document.fileSizeBytes)}</p>
-											<p>{workspace.formatDate(document.createdAt.slice(0, 10))}</p>
+											<p>{formatDisplayDate(document.createdAt)}</p>
 										</div>
 										<Button
 											type="button"

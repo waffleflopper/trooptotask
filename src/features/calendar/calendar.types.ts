@@ -23,8 +23,8 @@ export interface CalendarBootstrap {
 	groups: Group[];
 	statusTypes: StatusType[];
 	activeOnboardingPersonnelIds: string[];
-	/** Org-configured loss warning window in days (default: 180). */
-	lossWarningWindowDays: number;
+	/** Org-configured loss warning window in days; `null` when the setting could not be read. */
+	lossWarningWindowDays: number | null;
 }
 
 /** Response shape for the browser's Calendar range request. */
@@ -42,8 +42,8 @@ export interface CalendarWorkspaceData {
 	personnel: Personnel[];
 	allPersonnel?: Personnel[];
 	activeOnboardingPersonnelIds?: string[];
-	/** Org-configured loss warning window in days (default: 180). */
-	lossWarningWindowDays?: number;
+	/** Org-configured loss warning window in days; `null` when the setting could not be read. */
+	lossWarningWindowDays?: number | null;
 }
 
 export const CALENDAR_WORKSPACE_LANE_KEY = 'calendar' as const;

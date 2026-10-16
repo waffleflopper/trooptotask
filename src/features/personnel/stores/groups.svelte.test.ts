@@ -105,8 +105,7 @@ describe('groupsStore', () => {
 		});
 
 		it("rejects another Group's name without changing the catalog", async () => {
-			const result = await groupsStore.rename('1', '  bRaVo  ');
-			expect(result).toBe(false);
+			await expect(groupsStore.rename('1', '  bRaVo  ')).rejects.toThrow('A Group with that name already exists.');
 			expect(groupCatalog.items.map((group) => group.name)).toEqual(['Alpha', 'Bravo']);
 		});
 

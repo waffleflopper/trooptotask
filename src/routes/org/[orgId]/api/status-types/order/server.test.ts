@@ -108,6 +108,8 @@ describe('PUT status order at the route boundary', () => {
 
 	it.each([
 		['not JSON', '{'],
+		['null', 'null'],
+		['a malformed id', JSON.stringify({ statusTypeIds: ['not-a-uuid'], expectedStatusTypeIds: [LEAVE] })],
 		['a repeated type', JSON.stringify({ statusTypeIds: [SICK, SICK], expectedStatusTypeIds: [LEAVE, SICK] })]
 	])('rejects a body that is %s with 400 before the provider', async (_, body) => {
 		admit();

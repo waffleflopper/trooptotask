@@ -7,6 +7,8 @@ import { rosterStore } from '$features/personnel';
 import { getTrainingStats } from '$features/training/utils/trainingStatus';
 import { groupsStore } from '$features/personnel';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { rejectedRequestMessage } from '$lib/stores/core';
+import { toastStore } from '$lib/stores/toast.svelte';
 import { createRosterReadModel, type PersonnelGroup, type RosterReadModelView } from '$features/personnel/contracts';
 import type { RankCatalogEntry } from '$features/personnel/contracts';
 import type {
@@ -326,7 +328,13 @@ export class TrainingPageContext {
 		if (!type) return;
 		const currentIds = type.exemptPersonnelIds;
 		const updatedIds = exempt ? [...currentIds, personId] : currentIds.filter((id) => id !== personId);
-		await trainingTypesStore.update(typeId, { exemptPersonnelIds: updatedIds });
+		try {
+			await trainingTypesStore.updateOrThrow(typeId, { exemptPersonnelIds: updatedIds });
+		} catch (error) {
+			if (!this.#isCurrentWorkspace()) return;
+			const fallback = exempt ? 'Failed to mark exempt. Try again.' : 'Failed to remove exemption. Try again.';
+			toastStore.error(rejectedRequestMessage(error, fallback));
+		}
 	}
 
 	async handleBulkImportComplete(): Promise<void> {

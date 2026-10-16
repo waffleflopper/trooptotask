@@ -4,6 +4,7 @@
 	import * as Field from '$lib/components/ui/field';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import type { PersonnelLeaderNote } from '$features/personnel/contracts';
+	import { formatDisplayDate } from '$lib/utils/dates';
 	import type { PersonnelNotesPageData } from '$features/personnel/personnel-detail.types';
 	import { ArtifactDraft } from '$features/personnel/workspace/artifactDraft.svelte';
 	import { leaderNoteDraftSpec } from '$features/personnel/workspace/personnelArtifactDraftSpecs';
@@ -75,7 +76,7 @@
 							<div>
 								<div class="flex flex-wrap items-center gap-2">
 									<p class="text-sm font-medium">{note.author}</p>
-									<p class="text-xs text-muted-foreground">{note.date}</p>
+									<p class="text-xs text-muted-foreground">{formatDisplayDate(note.createdAt)}</p>
 								</div>
 								<p class="mt-2 text-sm leading-relaxed">{note.text}</p>
 							</div>

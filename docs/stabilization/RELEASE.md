@@ -624,7 +624,53 @@ The review repair also requires [`20261014000300_critical_task_reorder_precondit
 
 Robert must apply both migrations before an application merge that calls the repaired command. The filename sorts after the owner-confirmed Calendar `20261014000100` migration. No agent has applied it remotely. Disposable fresh replay and staged upgrade passed for the final non-retryable conflict code, with 127 passing suite results and owned cleanup. Native stale-refusal verification and independent artifact acceptance also passed. An application rollback can keep the additive function, but restores the old non-atomic reorder behavior. Do not remove the function while any deployed application calls it.
 
-Pushes and merges may deploy through the existing Vercel integration. External deployment settings remain uninspected. No production or existing development database has been touched. Local native import and edit evidence is recorded in [EVIDENCE](EVIDENCE.md#11-08-d05-recoverable-lifecycle-mutations-and-file-cleanup). Main #1690 is integrated with passing focused checks. Independent integration review accepted the combined result. Application and database CI passed at `86756dcd9`. A later disjoint-move review finding required broader planner guards without changing either published migration. The command checks, independent source acceptance and CI passed at `913f2d653`. Independent artifact review accepted the three targeted native sequences. A bounded follow-up passed the missing screenshot, reload readback, final doctor and cleanup checks, closing final native acceptance. The earlier capture failure remains recorded. A subsequent test-only fixture repair changes no application or migration bytes. Required CI, Codex review and local CodeRabbit review passed at `ed4f30820`. All hosted finding threads are resolved. Requested hosted CodeRabbit review remains pending after rate limiting. The final documentation head still requires current-head CI, and Robert has not confirmed either Critical Tasks migration live. Earlier release obligations remain in force.
+Pushes and merges may deploy through the existing Vercel integration. External deployment settings remain uninspected. No production or existing development database has been touched. Local native import and edit evidence is recorded in [EVIDENCE](EVIDENCE.md#11-08-d05-recoverable-lifecycle-mutations-and-file-cleanup). Main #1690 is integrated with passing focused checks. Independent integration review accepted the combined result. Application and database CI passed at `86756dcd9`. A later disjoint-move review finding required broader planner guards without changing either published migration. The command checks, independent source acceptance and CI passed at `913f2d653`. Independent artifact review accepted the three targeted native sequences. A bounded follow-up passed the missing screenshot, reload readback, final doctor and cleanup checks, closing final native acceptance. The earlier capture failure remains recorded. A subsequent test-only fixture repair changes no application or migration bytes. Required CI, Codex review and local CodeRabbit review passed at `ed4f30820`. All hosted finding threads are resolved. Final head `33cfa127c` passed required CI and CodeRabbit approved it. Robert confirmed both Critical Tasks migrations live before the authorized merge. PR #1691 merged as `7c8cc56ed`. The agent did not inspect or change the remote database. Earlier release obligations remain in force.
+
+## Phase 11 D05 final mutation repairs
+
+The final candidate adds [`20261014000400_nonretryable_password_attempt_conflict.sql`](../../supabase/migrations/20261014000400_nonretryable_password_attempt_conflict.sql). It changes a stale password-attempt response from a retryable database error to a non-retryable PostgREST HTTP 409. The application retains its existing `unavailable` mapping and HTTP 503 reconciliation response. It preserves the function signature, permissions, locks, expiry checks and password-write fencing. No stored rows are changed by applying the migration. Isolated fresh replay, populated upgrade and provider checks passed. Robert confirmed this migration live before the authorized #1693 merge, as recorded in the [owner-confirmation comment](https://github.com/waffleflopper/trooptotask/pull/1693#issuecomment-6184033618). This is an owner report, not independent hosted inspection.
+
+Robert must apply this migration before merge. The agent has neither inspected nor changed the remote database. Announcement desired-state writes, export completion feedback and Calendar refresh reconciliation require no additional schema changes. Existing Vercel push/merge deployment behavior remains relevant; external settings are uninspected. Focused final browser acceptance passed. Final head `58f87937f` passed application/build and database CI, CodeRabbit approved, and all three review threads were resolved. PR #1693 merged as `7405e6715` after the owner confirmation above.
+
+## Phase 11 D06 Onboarding local completion day
+
+The final D06 candidate adds [`20261014000500_onboarding_local_completion_day.sql`](../../supabase/migrations/20261014000500_onboarding_local_completion_day.sql), SHA-256 `7b935130b44af8700651488b5d75e6067177f258c4c212ae3a37bea2f3c0d4f6`.
+
+**What it changes.** It replaces `organization_private.require_onboarding_operation_rules()` with `CREATE OR REPLACE`. The body is identical to the original in `20261012000600` except for the completion-day rule:
+
+- A completion with no day is stamped with the UTC day, as before.
+- A sent day within one UTC day either side is kept. This is a coarse admission window that holds every zone's current day, UTC−12 to UTC+14.
+- Any other day raises `22023`, which the application returns as 400.
+
+Triggers, grants and the cancellation timestamp are unchanged. No existing row is rewritten and nothing is backfilled. Packets completed before release keep the UTC day they were stamped with.
+
+**Deploy order.** Either order is safe:
+
+- **Old application, new function.** The old server sends an ISO instant. Its UTC date is inside the window and is kept.
+- **New application, old function.** The old trigger overwrites the sent local day with the UTC day, without error, until the migration is applied.
+- **Old browser, new server.** A browser still running the previous client already sends `completedAt` as its local day.
+
+**Rollback.** Re-apply the original function body from `20261012000600` as a new migration. There are no data changes to undo.
+
+**After release.** Complete one packet late in the evening west of UTC, or early in the morning east of it. Then confirm that History shows the same local day for its start and finish.
+
+**Owner confirmation recorded after merge.** PR #1701 merged as `ed1f4119f` at 2026-10-16 02:02 UTC. Robert subsequently confirmed in the D08 conversation that this migration is applied and live. The order of the hosted migration application versus the Vercel deployment of `ed1` is not recorded. This confirmation establishes the current owner-reported state; it does not establish that the original pre-merge confirmation rule was met. The agent has neither inspected nor changed the remote database. Repository CI's database job replays the migration in a disposable database. Existing Vercel push/merge deployment behavior applies; its external settings are uninspected.
+
+## Phase 11 D08 integrated release limits
+
+D08 adds no SQL or hosted configuration. Its application change explains a failed Calendar day-dialog clear and preserves the existing rollback, Organization lifetime and transaction boundaries. The integrated acceptance record does not certify production security or replace the earlier release entries.
+
+Robert confirmed `20261014000500_onboarding_local_completion_day.sql` applied and live in the D08 conversation after #1701 merged on 2026-10-16 UTC. Its hosted application-versus-deployment order is not recorded. The D05 `20261014000400` confirmation is recorded on #1693 above. These are owner reports. No agent inspected or changed the hosted database, and local verification used only owned disposable synthetic projects.
+
+The deployment operator still owns these external checks:
+
+- Confirm the hosted provider's new-user signup setting remains disabled for reviewed acquisition, and review email-confirmation settings against the supported invitation/account-setup contract. The local provider's test settings are not hosted evidence.
+- Confirm canonical public-origin configuration, setup/session signing secrets, secure-cookie/proxy behavior and provider limit settings. The hook's coarse process-local limiter is not a cross-instance durable limiter; the separate identity acquisition/setup/recovery/password limits retain their database guarantees.
+- Confirm real mail delivery, GitHub Feedback mirroring and the configured cleanup schedules. Local sinks and admitted synthetic job requests do not establish external delivery or scheduler state.
+- Preserve prior migration ordering, app/schema and rollback compatibility, backup/restore and any outstanding file/upload/operator dispositions from the earlier entries. D08 does not backfill historical orphan files or erase unknown data.
+- Inspect Vercel's actual publication/merge triggers and deployment configuration. The repository's ignored-build policy may skip prose-only updates; executable changes may deploy. CI and Vercel repository configuration perform no remote migration.
+
+Phase 12 owns measured performance, including F05/detail-load latency. Phase 13 owns general cleanup/test-quality/UI polish, and Phase 15 owns the separately authorized release handoff. None is activated by D08 acceptance.
 
 ## Calendar lanes
 

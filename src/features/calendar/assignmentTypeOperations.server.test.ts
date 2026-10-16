@@ -103,6 +103,7 @@ describe('Calendar assignment-type operations', () => {
 
 	it('does not report deletion when the type is still referenced', async () => {
 		const ctx = createWriteWithNotificationsPortsContext();
+		seedTypes(ctx);
 		ctx.store.delete = vi.fn().mockRejectedValue(new Error('type still referenced'));
 		await expect(deleteAssignmentType(ctx, ID)).rejects.toThrow('type still referenced');
 		expect(ctx.audit.events.some((event) => event.action === 'assignment_type.deleted')).toBe(false);

@@ -15,6 +15,7 @@
 	import { Switch } from '$lib/components/ui/switch';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { rejectedRequestMessage } from '$lib/stores/core';
 	import { PendingSave } from '$lib/utils/pendingSave.svelte';
 
 	interface Props {
@@ -105,7 +106,7 @@
 			}
 			return editing;
 		} catch (error) {
-			toastStore.error(error instanceof Error ? error.message : failure);
+			toastStore.error(rejectedRequestMessage(error, failure));
 			return null;
 		}
 	}

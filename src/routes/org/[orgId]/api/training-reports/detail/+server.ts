@@ -7,20 +7,21 @@ import { fetchTrainingBriefingDetail } from '$features/training/index.server';
 import {
 	PRIVATE_REPORT_HEADERS,
 	parseTrainingBriefingDetailRequest,
-	trainingBriefingDetailInput
+	trainingBriefingDetailRequest,
+	type ViewerDayRequest
 } from '../reportInput';
 
 export const _getDetailConfig: RouteConfig<
-	TrainingBriefingDetailInput,
+	ViewerDayRequest<TrainingBriefingDetailInput>,
 	TrainingBriefingDetail,
 	ReturnType<typeof createRequestTrainingBriefingContext>
 > = {
 	context: createRequestTrainingBriefingContext,
 	policyAction: POLICY_ACTION_CATALOG.training.viewRecords,
 	policyResource: { kind: 'unscoped' },
-	input: trainingBriefingDetailInput,
-	parseInput: (event) => parseTrainingBriefingDetailRequest(event) as TrainingBriefingDetailInput,
-	fn: fetchTrainingBriefingDetail,
+	input: trainingBriefingDetailRequest,
+	parseInput: (event) => parseTrainingBriefingDetailRequest(event) as ViewerDayRequest<TrainingBriefingDetailInput>,
+	fn: (ctx, { request, asOf }) => fetchTrainingBriefingDetail(ctx, request, asOf),
 	formatOutput: (result) => json(result, { headers: PRIVATE_REPORT_HEADERS })
 };
 

@@ -26,6 +26,8 @@ export interface PersonnelPageAccess {
 
 import type { FileCleanup, OrganizationFileUploadRegistration } from '$features/organization/contracts';
 import { z } from 'zod';
+import { isDateOnly } from '$lib/utils/dates';
+import { DATE_ONLY_MESSAGE } from '$lib/utils/inputSchemas';
 import type { OrganizationAccessGrant, ScopeSet } from '$lib/access/memberAccessShape';
 import type { Personnel, PersonnelLookup } from './personnel.types';
 import type { OrganizationRankCatalogEntry } from './rankCatalogContracts';
@@ -34,6 +36,8 @@ export type { Personnel, PersonnelLookup } from './personnel.types';
 
 // Failures the Personnel forms attach to one field. Servers emit and forms match these exact strings.
 export const PERSONNEL_LAST_NAME_REQUIRED_MESSAGE = 'Last name is required';
+export const GROUP_NAME_EXISTS_MESSAGE = 'A Group with that name already exists.';
+export const GROUP_UNAVAILABLE_MESSAGE = 'That Group is no longer available.';
 export const PERSONNEL_FIRST_NAME_REQUIRED_MESSAGE = 'First name is required';
 
 /** Stable Organization Group identity and display order. */
@@ -92,7 +96,8 @@ export interface PersonnelRecordPersistence {
 	listRankReferences(): Promise<Array<{ rank?: string | null }>>;
 	create(input: PersonnelInsert): Promise<Personnel>;
 	createMany(inputs: PersonnelInsert[]): Promise<Personnel[]>;
-	updateEditable(id: string, patch: Partial<PersonnelEditableFields> & { slug?: string }): Promise<Personnel>;
+	/** Resolves null when the Person is no longer in the Organization. */
+	updateEditable(id: string, patch: Partial<PersonnelEditableFields> & { slug?: string }): Promise<Personnel | null>;
 	updateDates(id: string, patch: { ets?: string; deros?: string }): Promise<Personnel>;
 	delete(id: string): Promise<void>;
 }
@@ -102,7 +107,8 @@ export interface GroupPersistence {
 	findReference(id: string): Promise<{ id: string } | null>;
 	findNamesByIds(ids: string[]): Promise<Map<string, string>>;
 	create(input: { name: string; sortOrder?: number }): Promise<Group>;
-	update(id: string, patch: { name?: string; sortOrder?: number }): Promise<Group>;
+	/** Resolves null when the Group is no longer in the Organization. */
+	update(id: string, patch: { name?: string; sortOrder?: number }): Promise<Group | null>;
 	delete(id: string): Promise<void>;
 }
 
@@ -356,8 +362,8 @@ export interface PersonnelWorkspaceData {
 	statusTypes: PersonnelCalendarStatusSnapshot[];
 	rankCatalog: OrganizationRankCatalogEntry[];
 	pinnedGroups: string[];
-	/** Organization loss warning window in days, defaulting to 180. */
-	lossWarningWindowDays: number;
+	/** Organization loss warning window in days; `null` when the setting could not be read. */
+	lossWarningWindowDays: number | null;
 	awardTrackingAcknowledgedPersonnelIds: string[];
 }
 
@@ -417,7 +423,7 @@ const childSchema = z.object({
 const dateInputSchema = z
 	.string()
 	.trim()
-	.refine((value) => value === '' || /^\d{4}-\d{2}-\d{2}$/.test(value), 'Use YYYY-MM-DD date format')
+	.refine((value) => value === '' || isDateOnly(value), DATE_ONLY_MESSAGE)
 	.optional()
 	.default('');
 

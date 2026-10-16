@@ -1,8 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { fail } from '$lib/errors';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type { TrainingCatalogPersistence, TrainingTypeTiming, TrainingTypeImportReference } from '../contracts';
 import {
 	TRAINING_TYPE_FIELDS,
+	TRAINING_TYPE_NAME_EXISTS_MESSAGE,
 	TRAINING_VIEW_FIELDS,
 	toTrainingType,
 	toTrainingView,
@@ -13,6 +15,13 @@ import {
 	type TrainingTypeRow,
 	type TrainingViewRow
 } from './trainingPersistenceMapping.server';
+
+function throwTrainingTypeWriteError(error: { code?: string; message: string }): never {
+	if (error.code === '23505' && error.message.includes('"training_types_clinic_id_name_key"')) {
+		fail(409, TRAINING_TYPE_NAME_EXISTS_MESSAGE);
+	}
+	throw new Error(error.message);
+}
 
 export function createSupabaseTrainingCatalogPersistence(
 	client: SupabaseClient,
@@ -194,7 +203,7 @@ export function createSupabaseTrainingCatalogPersistence(
 				.insert(trainingTypeCreateRow(input, orgId))
 				.select(TRAINING_TYPE_FIELDS)
 				.single<TrainingTypeRow>();
-			if (error) throw new Error(error.message);
+			if (error) throwTrainingTypeWriteError(error);
 			return toTrainingType(data);
 		},
 		async patchType(id, fields) {
@@ -204,9 +213,9 @@ export function createSupabaseTrainingCatalogPersistence(
 				.eq('organization_id', orgId)
 				.eq('id', id)
 				.select(TRAINING_TYPE_FIELDS)
-				.single<TrainingTypeRow>();
-			if (error) throw new Error(error.message);
-			return toTrainingType(data);
+				.maybeSingle<TrainingTypeRow>();
+			if (error) throwTrainingTypeWriteError(error);
+			return data ? toTrainingType(data) : null;
 		},
 		async deleteType(id) {
 			const { error } = await client.from('training_types').delete().eq('organization_id', orgId).eq('id', id);
@@ -228,9 +237,9 @@ export function createSupabaseTrainingCatalogPersistence(
 				.eq('organization_id', orgId)
 				.eq('id', id)
 				.select(TRAINING_VIEW_FIELDS)
-				.single<TrainingViewRow>();
+				.maybeSingle<TrainingViewRow>();
 			if (error) throw new Error(error.message);
-			return toTrainingView(data);
+			return data ? toTrainingView(data) : null;
 		},
 		async deleteView(id) {
 			const { error } = await client.from('training_views').delete().eq('organization_id', orgId).eq('id', id);

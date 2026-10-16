@@ -54,7 +54,8 @@ export interface CriticalTaskLibraryPersistence {
 	findReference(id: string): Promise<CriticalTaskReference | null>;
 	create(input: IctTaskCreate): Promise<IctTask>;
 	createMany(inputs: IctTaskCreate[]): Promise<IctTask[]>;
-	update(id: string, patch: IctTaskPatch): Promise<IctTask>;
+	/** Resolves null when no task with this id exists in the Organization. */
+	update(id: string, patch: IctTaskPatch): Promise<IctTask | null>;
 	/** Checks all participants atomically, updates changed orders only, and returns every participant, including guards. */
 	reorder(changes: IctTaskOrderChange[]): Promise<IctTask[]>;
 }
@@ -245,6 +246,7 @@ export interface CriticalTasksReadModelPort {
 export interface CriticalTasksReportInput {
 	filters?: IctReportFilters;
 	asOf?: string | Date;
+	timeZone?: string;
 }
 
 export interface CriticalTasksReportsPageModel {

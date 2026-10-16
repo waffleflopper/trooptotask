@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { ratingSchemeEntryCreateSchema, ratingSchemeEntryUpdateSchema } from './ratingSchemeEntryOperations.server';
 
+const RATED_PERSON = '00000000-0000-4000-8000-0000000000a1';
+const ENTRY = '00000000-0000-4000-8000-0000000000e1';
+
 const input = {
-	ratedPersonId: 'person-1',
+	ratedPersonId: RATED_PERSON,
 	evalType: 'OER',
 	ratingPeriodStart: '2026-01-01',
 	ratingPeriodEnd: '2026-12-31',
@@ -45,14 +48,14 @@ describe('Rating Scheme entry validation', () => {
 
 	it.each(['active', 'completed', 'change-of-rater'])('retains %s record status', (status) => {
 		expect(ratingSchemeEntryCreateSchema.safeParse({ ...input, status }).success).toBe(true);
-		expect(ratingSchemeEntryUpdateSchema.safeParse({ id: 'entry', status }).success).toBe(true);
+		expect(ratingSchemeEntryUpdateSchema.safeParse({ id: ENTRY, status }).success).toBe(true);
 	});
 
 	it.each([{ evalType: 'unsupported' }, { status: 'inactive' }, { notes: 123 }, { ratedPersonId: null }])(
 		'rejects unsupported field values %j',
 		(values) => {
 			expect(ratingSchemeEntryCreateSchema.safeParse({ ...input, ...values }).success).toBe(false);
-			expect(ratingSchemeEntryUpdateSchema.safeParse({ id: 'entry', ...values }).success).toBe(false);
+			expect(ratingSchemeEntryUpdateSchema.safeParse({ id: ENTRY, ...values }).success).toBe(false);
 		}
 	);
 
@@ -60,13 +63,13 @@ describe('Rating Scheme entry validation', () => {
 		expect(ratingSchemeEntryUpdateSchema.safeParse({ notes: 'changed' }).success).toBe(false);
 		expect(
 			ratingSchemeEntryUpdateSchema.parse({
-				id: 'entry',
+				id: ENTRY,
 				notes: null,
 				organization_id: 'foreign',
 				created_at: 'must not change',
 				updated_at: 'must not change',
 				extra_saved_field: 'must not change'
 			})
-		).toEqual({ id: 'entry', notes: null });
+		).toEqual({ id: ENTRY, notes: null });
 	});
 });

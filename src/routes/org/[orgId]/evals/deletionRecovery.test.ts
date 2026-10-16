@@ -168,7 +168,7 @@ describe('Evals deletion recovery', () => {
 		});
 		const errorToast = vi.spyOn(toastStore, 'error').mockReturnValue('error');
 		const successToast = vi.spyOn(toastStore, 'success').mockReturnValue('success');
-		const update = vi.spyOn(ratingSchemeStore, 'update');
+		const update = vi.spyOn(ratingSchemeStore, 'updateOrThrow');
 		vi.stubGlobal('fetch', () => pending);
 		const origin = await openEditor();
 		await fireEvent.input(screen.getByLabelText('Notes'), { target: { value: 'Held A edit' } });
@@ -198,7 +198,7 @@ describe('Evals deletion recovery', () => {
 		const held = Promise.withResolvers<Response>();
 		const errorToast = vi.spyOn(toastStore, 'error').mockReturnValue('error');
 		const successToast = vi.spyOn(toastStore, 'success').mockReturnValue('success');
-		const mutation = vi.spyOn(ratingSchemeStore, operation === 'create' ? 'add' : 'update');
+		const mutation = vi.spyOn(ratingSchemeStore, operation === 'create' ? 'add' : 'updateOrThrow');
 		let saveData: Omit<RatingSchemeEntry, 'id'>;
 		vi.stubGlobal('fetch', (_url: string, init: RequestInit) => {
 			saveData = JSON.parse(init.body as string);
@@ -375,7 +375,7 @@ describe('Evals deletion recovery', () => {
 			const held = Promise.withResolvers<Response>();
 			const errorToast = vi.spyOn(toastStore, 'error').mockReturnValue('error');
 			const successToast = vi.spyOn(toastStore, 'success').mockReturnValue('success');
-			const update = vi.spyOn(ratingSchemeStore, 'update');
+			const update = vi.spyOn(ratingSchemeStore, 'updateOrThrow');
 			vi.stubGlobal('fetch', () => held.promise);
 			const origin = await openEditor();
 			await fireEvent.input(screen.getByLabelText('Notes'), { target: { value: 'Retired A save' } });
@@ -402,7 +402,7 @@ describe('Evals deletion recovery', () => {
 			const held = Promise.withResolvers<Response>();
 			const errorToast = vi.spyOn(toastStore, 'error').mockReturnValue('error');
 			const successToast = vi.spyOn(toastStore, 'success').mockReturnValue('success');
-			const update = vi.spyOn(ratingSchemeStore, 'update');
+			const update = vi.spyOn(ratingSchemeStore, 'updateOrThrow');
 			const requests: unknown[] = [];
 			vi.stubGlobal('fetch', (_url: string, init: RequestInit) => {
 				requests.push(JSON.parse(init.body as string));
@@ -429,7 +429,7 @@ describe('Evals deletion recovery', () => {
 				held.resolve(
 					Response.json({ ...entry, notes: 'Current retained draft' }, { status: outcome === 'success' ? 200 : 503 })
 				);
-				await update.mock.results[0].value;
+				expect(await settles(update.mock.results[0].value)).toBe(true);
 			});
 			if (outcome === 'failure and retry') {
 				expect(within(screen.getByRole('dialog')).getByRole('alert').textContent?.replace(/\s+/g, ' ').trim()).toBe(

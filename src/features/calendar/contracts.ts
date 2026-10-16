@@ -174,18 +174,20 @@ export interface CalendarCatalogPersistence {
 	listStatusTypes(): Promise<SavedStatusType[]>;
 	listStatusTypeLabels(): Promise<Array<{ id: string; name: string }>>;
 	createStatusType(input: StatusTypeCreate): Promise<SavedStatusType>;
-	updateStatusType(id: string, patch: StatusTypePatch): Promise<SavedStatusType>;
-	deleteStatusType(id: string): Promise<void>;
+	/** Resolves null when no status type with this id exists in the Organization. */
+	updateStatusType(id: string, patch: StatusTypePatch): Promise<SavedStatusType | null>;
+	/** Resolves whether a row was removed; a missing id is not an error. */
+	deleteStatusType(id: string): Promise<boolean>;
 	setStatusTypeOrder(statusTypeIds: readonly string[], expectedStatusTypeIds: readonly string[]): Promise<void>;
 	listAssignmentTypes(): Promise<SavedAssignmentType[]>;
 	listAssignmentTypeTargets(ids: string[]): Promise<Array<{ id: string; assignTo: 'personnel' | 'group' }>>;
 	createAssignmentType(input: AssignmentTypeCreate): Promise<SavedAssignmentType>;
-	updateAssignmentType(id: string, patch: AssignmentTypePatch): Promise<SavedAssignmentType>;
-	deleteAssignmentType(id: string): Promise<void>;
+	updateAssignmentType(id: string, patch: AssignmentTypePatch): Promise<SavedAssignmentType | null>;
+	deleteAssignmentType(id: string): Promise<boolean>;
 	listSpecialDays(range?: CalendarDateRange): Promise<SavedSpecialDay[]>;
 	createSpecialDay(input: SpecialDayCreate): Promise<SavedSpecialDay>;
-	updateSpecialDay(id: string, patch: SpecialDayPatch): Promise<SavedSpecialDay>;
-	deleteSpecialDay(id: string): Promise<void>;
+	updateSpecialDay(id: string, patch: SpecialDayPatch): Promise<SavedSpecialDay | null>;
+	deleteSpecialDay(id: string): Promise<boolean>;
 	resetFederalHolidays(holidays: FederalHolidayDefault[]): Promise<SavedFederalHoliday[]>;
 	setCalendarLanes(laneTypeIds: readonly string[], expectedLaneTypeIds: readonly string[]): Promise<void>;
 }

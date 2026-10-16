@@ -51,6 +51,7 @@ export function createInMemoryCriticalTaskLibraryPersistence(
 			return (await store.insertMany<SavedIctTask>('ict_tasks', orgId, inputs.map(taskCreateValues))).map(mapIctTask);
 		},
 		async update(id, patch) {
+			if (!(await store.findOne('ict_tasks', orgId, { id }))) return null;
 			return mapIctTask(await store.update<SavedIctTask>('ict_tasks', orgId, id, taskPatchValues(patch)));
 		},
 		async reorder(changes) {

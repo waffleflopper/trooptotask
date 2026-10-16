@@ -1,5 +1,5 @@
 import { evaluatePolicyDecision, POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
-import { trainingCompletionCreateInput } from './trainingPersistenceMapping.server';
+import { trainingCompletionCreateInput, trainingCompletionUpdateInput } from './trainingPersistenceMapping.server';
 import type {
 	TrainingPersonnelWriteAuthority,
 	TrainingRecordCreateContext,
@@ -17,8 +17,16 @@ import type {
 import type { PersonnelWriteSubject } from '$features/personnel/contracts';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
 import { fail } from '$lib/errors';
+import type { z } from 'zod';
+import { issueMessage } from '$lib/utils/inputSchemas';
 
 const AUDIT_RESOURCE = 'training_record';
+
+function parseTrainingRecordInput<T>(schema: z.ZodType<T>, input: unknown): T {
+	const parsed = schema.safeParse(input);
+	if (!parsed.success) fail(400, issueMessage(parsed.error));
+	return parsed.data;
+}
 
 function canHardDeleteTrainingRecord(ctx: TrainingPersonnelWriteAuthority, resource: PolicyResource): boolean {
 	return evaluatePolicyDecision({
@@ -104,7 +112,7 @@ export async function createTrainingRecord(
 	ctx: TrainingRecordCreateContext,
 	input: Record<string, unknown>
 ): Promise<SavedTrainingCompletion> {
-	const validated = trainingCompletionCreateInput.parse(input);
+	const validated = parseTrainingRecordInput(trainingCompletionCreateInput, input);
 	const personnelId = validated.personnelId;
 	const trainingTypeId = validated.trainingTypeId;
 	const completionDate = validated.completionDate ?? null;
@@ -162,10 +170,7 @@ export async function updateTrainingRecord(
 	ctx: TrainingRecordUpdateContext,
 	input: Record<string, unknown>
 ): Promise<SavedTrainingCompletion> {
-	const { id, ...fields } = input;
-	if (!id || typeof id !== 'string') {
-		fail(400, 'Missing id');
-	}
+	const { id, ...fields } = parseTrainingRecordInput(trainingCompletionUpdateInput, input);
 
 	const { record: existing, resource } = await loadTrainingRecordResource(ctx, id);
 	await requireFeaturePolicy(ctx, POLICY_ACTION_CATALOG.training.recordCompletions, resource, AUDIT_RESOURCE, id);
@@ -185,19 +190,19 @@ export async function updateTrainingRecord(
 	const updates: TrainingCompletionPatch = { updatedAt: new Date().toISOString() };
 
 	if (fields.completionDate !== undefined) {
-		updates.completionDate = fields.completionDate as string | null;
+		updates.completionDate = fields.completionDate;
 	}
 
 	if (isExpirationDateOnly) {
 		if (fields.expirationDate !== undefined) {
-			updates.expirationDate = fields.expirationDate as string | null;
+			updates.expirationDate = fields.expirationDate;
 		}
 	} else if (fields.completionDate !== undefined) {
 		updates.expirationDate = calculateExpirationDate(fields.completionDate as string, expirationMonths);
 	}
 
-	if (fields.notes !== undefined) updates.notes = fields.notes as string | null;
-	if (fields.certificateUrl !== undefined) updates.certificateUrl = fields.certificateUrl as string | null;
+	if (fields.notes !== undefined) updates.notes = fields.notes;
+	if (fields.certificateUrl !== undefined) updates.certificateUrl = fields.certificateUrl;
 
 	const row = await ctx.trainingCompletions.patchRecord(id, updates);
 

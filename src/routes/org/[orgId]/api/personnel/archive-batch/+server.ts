@@ -2,7 +2,12 @@ import type { DeletionRequestSubmissionPort } from '$features/deletion-requests/
 import type { ArchivePersonnelBatchResult } from '$features/personnel/contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';
-import { createRequestDeletionRequestSubmission, handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import {
+	createRequestDeletionRequestSubmission,
+	handle,
+	readJsonBody,
+	type RouteConfig
+} from '$lib/server/adapters/httpAdapter';
 import { createRequestPersonnelArchiveBatchContext } from '$lib/server/adapters/requestContexts.server';
 import { archivePersonnelBatch } from '$lib/server/personnelArchiveBatchDelivery';
 import { validateUUID } from '$lib/server/validation';
@@ -27,7 +32,7 @@ export function _createPostConfig(
 		policyAction: POLICY_ACTION_CATALOG.personnel.manageRecords,
 		policyResource: { kind: 'unscoped' },
 		parseInput: async (event: RequestEvent) => {
-			const body = (await event.request.json()) as Record<string, unknown>;
+			const body = await readJsonBody(event);
 			const ids = body.ids;
 			if (!Array.isArray(ids)) fail(400, 'Missing ids');
 			if (!ids.every((id): id is string => typeof id === 'string' && validateUUID(id))) {

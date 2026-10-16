@@ -2,6 +2,7 @@ import { error } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { requireFeaturePolicy } from '$lib/access/index.server';
 import { fail } from '$lib/errors';
+import { issueMessage } from '$lib/utils/inputSchemas';
 import type { SavedTrainingType, SavedTrainingView } from '../contracts';
 import type {
 	TrainingTypeCreateContext,
@@ -16,22 +17,19 @@ import {
 	trainingTypeCreateInput,
 	trainingTypeUpdateInput,
 	trainingViewCreateInput,
-	trainingViewUpdateInput
+	trainingViewUpdateInput,
+	TRAINING_TYPE_UNAVAILABLE_MESSAGE
 } from './trainingPersistenceMapping.server';
 
 const configureAction = POLICY_ACTION_CATALOG.training.configureRequirements;
 const catalogResource = { kind: 'organization' } as const;
-
-function invalidInput(issues: Array<{ message: string }>): never {
-	throw error(400, issues.map((issue) => issue.message).join('; '));
-}
 
 export async function createTrainingType(
 	ctx: TrainingTypeCreateContext,
 	input: Record<string, unknown>
 ): Promise<SavedTrainingType> {
 	const parsed = trainingTypeCreateInput.safeParse(input);
-	if (!parsed.success) invalidInput(parsed.error.issues);
+	if (!parsed.success) error(400, issueMessage(parsed.error));
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'training_type');
 	const row = await ctx.trainingCatalog.createType(parsed.data);
 	ctx.audit.log({
@@ -47,10 +45,11 @@ export async function updateTrainingType(
 	input: Record<string, unknown>
 ): Promise<SavedTrainingType> {
 	const parsed = trainingTypeUpdateInput.safeParse(input);
-	if (!parsed.success) invalidInput(parsed.error.issues);
+	if (!parsed.success) error(400, issueMessage(parsed.error));
 	const id = parsed.data.id as string;
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'training_type', id);
 	const row = await ctx.trainingCatalog.patchType(id, parsed.data);
+	if (!row) fail(404, TRAINING_TYPE_UNAVAILABLE_MESSAGE);
 	ctx.audit.log({ action: 'training_type.updated', resourceType: 'training_type', resourceId: id });
 	return row;
 }
@@ -78,7 +77,7 @@ export async function createTrainingView(
 	input: Record<string, unknown>
 ): Promise<SavedTrainingView> {
 	const parsed = trainingViewCreateInput.safeParse(input);
-	if (!parsed.success) invalidInput(parsed.error.issues);
+	if (!parsed.success) error(400, issueMessage(parsed.error));
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'training_view');
 	const row = await ctx.trainingCatalog.createView(parsed.data);
 	ctx.audit.log({
@@ -94,10 +93,11 @@ export async function updateTrainingView(
 	input: Record<string, unknown>
 ): Promise<SavedTrainingView> {
 	const parsed = trainingViewUpdateInput.safeParse(input);
-	if (!parsed.success) invalidInput(parsed.error.issues);
+	if (!parsed.success) error(400, issueMessage(parsed.error));
 	const id = parsed.data.id as string;
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'training_view', id);
 	const row = await ctx.trainingCatalog.patchView(id, parsed.data);
+	if (!row) fail(404, 'That Training view is no longer available.');
 	ctx.audit.log({ action: 'training_view.updated', resourceType: 'training_view', resourceId: id });
 	return row;
 }

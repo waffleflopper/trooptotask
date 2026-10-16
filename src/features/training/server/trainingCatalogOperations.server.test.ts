@@ -9,6 +9,9 @@ import {
 	deleteTrainingView
 } from './trainingCatalogOperations.server';
 
+const TARGETED_TYPE = '00000000-0000-4000-8000-00000000c001';
+const REQUIRED_TYPE = '00000000-0000-4000-8000-00000000c002';
+
 const NO_CONFIGURE = {
 	role: 'member' as const,
 	isPrivileged: false,
@@ -82,13 +85,13 @@ describe('Training catalog operations', () => {
 
 	it('saves ordered view columns and keeps its ID on edit', async () => {
 		const ctx = createWritePortsContext();
-		const created = await createTrainingView(ctx, { name: 'Focus', columnIds: ['targeted', 'required'] });
+		const created = await createTrainingView(ctx, { name: 'Focus', columnIds: [TARGETED_TYPE, REQUIRED_TYPE] });
 		const updated = await updateTrainingView(ctx, {
 			id: created.id,
 			name: 'Focus Renamed',
-			columnIds: ['required', 'targeted']
+			columnIds: [REQUIRED_TYPE, TARGETED_TYPE]
 		});
-		expect(updated).toMatchObject({ id: created.id, name: 'Focus Renamed', columnIds: ['required', 'targeted'] });
+		expect(updated).toMatchObject({ id: created.id, name: 'Focus Renamed', columnIds: [REQUIRED_TYPE, TARGETED_TYPE] });
 		await deleteTrainingView(ctx, created.id);
 		expect(await ctx.store.findOne('training_views', ctx.auth.orgId, { id: created.id })).toBeNull();
 		expect(ctx.audit.events.map((event) => event.action)).toEqual([

@@ -7,6 +7,8 @@ import type {
 	OnboardingTemplateData
 } from '../contracts';
 
+export const TEMPLATE_NAME_EXISTS_MESSAGE = 'An Onboarding template with that name already exists.';
+
 export const TEMPLATE_FIELDS = 'id, organization_id, name, description, created_at';
 export const STEP_FIELDS =
 	'id, organization_id, template_id, name, description, step_type, training_type_id, stages, sort_order, created_at';

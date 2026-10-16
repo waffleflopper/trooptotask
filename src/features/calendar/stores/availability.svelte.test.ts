@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { availabilityStore } from './availability.svelte';
-import { endOrganizationLifetime } from '$lib/stores/core';
+import { endOrganizationLifetime, rejectedRequestMessage } from '$lib/stores/core';
 import { settles } from '$lib/test-support/settles';
 import type { AvailabilityEntry } from '$features/calendar/contracts';
 
@@ -92,13 +92,37 @@ describe('availabilityStore', () => {
 			expect(result).toHaveLength(1);
 		});
 
-		it('resolves to an empty list when every chunk fails', async () => {
-			vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500, json: () => Promise.resolve({}) }));
+		it('rejects with the server reason and keeps the saved entries when every chunk fails', async () => {
+			vi.stubGlobal(
+				'fetch',
+				vi.fn().mockResolvedValue(Response.json({ message: 'Note must be 200 characters or fewer' }, { status: 400 }))
+			);
 
-			const result = await availabilityStore.addBatch([record(3)]);
+			const failure = await availabilityStore.addBatch([record(3)]).catch((error: unknown) => error);
 
-			expect(result).toEqual([]);
+			expect(rejectedRequestMessage(failure, 'fallback')).toBe('Note must be 200 characters or fewer');
 			expect(availabilityStore.items).toHaveLength(3);
+		});
+	});
+
+	describe('single writes', () => {
+		it('reject with the server reason when an addition or edit is refused', async () => {
+			vi.stubGlobal(
+				'fetch',
+				vi
+					.fn()
+					.mockResolvedValueOnce(Response.json({ message: 'This status type was deleted.' }, { status: 404 }))
+					.mockResolvedValueOnce(Response.json({ message: 'This status was changed elsewhere.' }, { status: 409 }))
+			);
+
+			const added = await availabilityStore
+				.add({ personnelId: 'p2', statusTypeId: 'gone', startDate: '2026-03-20', endDate: '2026-03-20', note: null })
+				.catch((error: unknown) => error);
+			const updated = await availabilityStore.updateOrThrow('1', { note: 'Moved' }).catch((error: unknown) => error);
+
+			expect(rejectedRequestMessage(added, 'fallback')).toBe('This status type was deleted.');
+			expect(rejectedRequestMessage(updated, 'fallback')).toBe('This status was changed elsewhere.');
+			expect(availabilityStore.items).toEqual(mockEntries);
 		});
 	});
 

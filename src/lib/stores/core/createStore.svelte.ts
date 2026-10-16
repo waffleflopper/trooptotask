@@ -59,6 +59,7 @@ export interface Store<T extends { id: string }> {
 	beginAdoption(): StoreAdoption<T>;
 	startLoading(): void;
 	add(data: Omit<T, 'id'>): Promise<T | null>;
+	/** Resolves to the saved entries (a partial batch may save fewer); rejects with the error when none saved. */
 	addBatch(entries: Omit<T, 'id'>[]): Promise<T[]>;
 	update(id: string, data: Partial<Omit<T, 'id'>>): Promise<boolean>;
 	/** Like `update`, but a failed write rejects with its error and skips `onError`, so the caller can show the reason. */
@@ -329,7 +330,7 @@ export function createStoreWithInternals<T extends { id: string }>(
 			} catch (e) {
 				config.onError?.('addBatch', e);
 				log.resolve(mutationId);
-				return [];
+				throw e;
 			}
 		},
 

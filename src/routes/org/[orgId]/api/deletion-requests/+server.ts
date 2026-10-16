@@ -15,11 +15,13 @@ import {
 } from '$features/training/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';
+import { isUuid } from '$lib/utils/inputSchemas';
 import {
 	createRequestDeletionRequestCancellation,
 	createRequestDeletionRequestStore,
 	createRequestDeletionRequestSubmission,
 	handle,
+	readJsonBody,
 	type RouteConfig
 } from '$lib/server/adapters/httpAdapter';
 import { createRequestActorContext } from '$lib/server/adapters/requestContexts.server';
@@ -78,10 +80,11 @@ export function _createPostConfig(
 		policyAction: POLICY_ACTION_CATALOG.identity.createOwnDeletionRequest,
 		mutation: true,
 		input: submissionInput,
-		parseInput: async (event: RequestEvent) => ({
-			...(await event.request.json()),
-			userEmail: event.locals.user?.email ?? 'unknown'
-		}),
+		parseInput: async (event: RequestEvent) =>
+			({
+				...(await readJsonBody(event)),
+				userEmail: event.locals.user?.email ?? 'unknown'
+			}) as SubmissionInput,
 		fn: async (ctx, input) => {
 			const target = await describeTarget[input.resourceType](ctx, input.resourceId);
 			return createDeletionRequest(
@@ -110,7 +113,7 @@ export function _createDeleteConfig(
 		fn: async (ctx, input) => {
 			if (!input || typeof input !== 'object' || Array.isArray(input)) fail(400, 'Missing id');
 			const id = input.id;
-			if (typeof id !== 'string' || id.length === 0) fail(400, 'Missing id');
+			if (!isUuid(id)) fail(400, id ? 'Invalid ID' : 'Missing id');
 			await cancelDeletionRequest({ auth: ctx.auth, audit: ctx.audit, store, cancellation }, id);
 			return { success: true };
 		}

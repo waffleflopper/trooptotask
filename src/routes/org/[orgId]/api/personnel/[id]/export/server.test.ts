@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { WORKBOOK_MIME_TYPE } from '$lib/utils/workbook';
 import { createTestContext as createCalendarTestContext } from '$features/calendar/calendarPersistence.test-support.server';
 import { withTrainingPersistence } from '$features/training/server/trainingPersistence.test-support.server';
@@ -9,6 +9,8 @@ const createTestContext = (options?: Parameters<typeof createCalendarTestContext
 	createCalendarTestContext(withTrainingPersistence(options));
 
 const PERSONNEL_ID = '11111111-1111-4111-8111-111111111111';
+
+afterEach(() => vi.useRealTimers());
 
 describe('GET /api/personnel/[id]/export', () => {
 	it('formats workbook buffers with the existing Excel MIME type and attachment header', () => {
@@ -100,7 +102,7 @@ describe('GET /api/personnel/[id]/export', () => {
 				}
 			]);
 
-			const result = await _getConfig.fn(ctx, { personnelId: PERSONNEL_ID });
+			const result = await _getConfig.fn(ctx, { personnelId: PERSONNEL_ID, asOf: '2026-05-20' });
 			const workbook = new ExcelJS.Workbook();
 			await workbook.xlsx.load(
 				Buffer.from(result._buffer) as unknown as Parameters<ExcelJS.Workbook['xlsx']['load']>[0]
@@ -124,4 +126,31 @@ describe('GET /api/personnel/[id]/export', () => {
 			expect(history?.getRow(3).getCell(2).value).toBe('2025-01-01');
 		}
 	);
+
+	it("names the workbook with the viewer's day", async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date('2026-10-15T02:00:00Z'));
+		const ctx = createTestContext();
+		ctx.rawStore.seed('personnel', [
+			{
+				id: PERSONNEL_ID,
+				organization_id: ctx.auth.orgId,
+				group_id: null,
+				rank: 'SGT',
+				first_name: 'Jamie',
+				last_name: 'Smith'
+			}
+		]);
+		const exportFor = async (timeZone?: string) => {
+			const input = _getConfig.parseInput!({
+				params: { id: PERSONNEL_ID },
+				cookies: { get: (name: string) => (name === 't2t_tz' ? timeZone : undefined) }
+			} as never) as Awaited<ReturnType<NonNullable<typeof _getConfig.parseInput>>>;
+			const response = _getConfig.formatOutput!(await _getConfig.fn(ctx, input));
+			return (response as Response).headers.get('Content-Disposition');
+		};
+
+		expect(await exportFor('America/New_York')).toBe('attachment; filename="SGT_Smith_Jamie-export-2026-10-14.xlsx"');
+		expect(await exportFor()).toBe('attachment; filename="SGT_Smith_Jamie-export-2026-10-15.xlsx"');
+	});
 });

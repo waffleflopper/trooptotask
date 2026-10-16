@@ -243,3 +243,34 @@ describe('AvailabilityModal', () => {
 		});
 	});
 });
+
+describe('AvailabilityModal — day counts', () => {
+	it('counts every calendar day of a range that crosses the spring daylight-saving change', async () => {
+		const originalTimezone = process.env.TZ;
+		process.env.TZ = 'America/New_York';
+		try {
+			renderModal(
+				{ kind: 'create', person, startDate: '2026-03-05', endDate: '2026-03-05' },
+				{
+					existingEntries: [
+						{
+							id: 'entry-1',
+							personnelId: person.id,
+							statusTypeId: 'leave',
+							startDate: '2026-03-01',
+							endDate: '2026-03-10',
+							note: null
+						}
+					]
+				}
+			);
+
+			expect(screen.getByText(/\(10\s+days\)/)).toBeTruthy();
+			await fireEvent.click(screen.getByRole('button', { name: 'Edit status' }));
+			expect(screen.getByText('10').nextElementSibling?.textContent).toBe('days');
+		} finally {
+			if (originalTimezone === undefined) delete process.env.TZ;
+			else process.env.TZ = originalTimezone;
+		}
+	});
+});

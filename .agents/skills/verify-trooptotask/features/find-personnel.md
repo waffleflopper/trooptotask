@@ -40,4 +40,5 @@ Preconditions: doctor passes; `$V fixture` supplies the known Person IDs and cur
 - `manager` deliberately starts with no Calendar grant for authorization checks. Temporarily grant it Calendar `view` for the integrated readiness check, then restore `none`. A missing availability summary under the default grant does not test the Calendar-backed read.
 - Search results can change the visible rows without changing the URL; capture the search value and rows in the same snapshot.
 - `Import`, `Add Person`, and archive are separate mutation journeys; their presence in the toolbar does not prove them.
+- For roster load and search timing at 20/100/400 People, use the [performance recipe](performance.md); above 250 People the By Group view pauses rendering.
 - A group header's two controls repeat per group; name them by their `aria-label` (`Pin Alpha`, `Collapse Alpha`) rather than by position. The pin is the canonical `Toggle` and the collapse is a `Button`; record their focus ring and accessible names exactly as rendered.

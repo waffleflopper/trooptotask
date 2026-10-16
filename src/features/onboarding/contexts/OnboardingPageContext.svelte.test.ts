@@ -397,6 +397,55 @@ describe('Onboarding inactive step removal feedback', () => {
 	);
 });
 
+describe('Onboarding write failures', () => {
+	it('shows why completing a packet was refused and keeps the confirmation open', async () => {
+		const packet = makeOnboarding({ steps: [makeStep()] });
+		onboardingStore.load([packet], 'org-1');
+		const ctx = new OnboardingPageContext({ open: vi.fn() } as never, makeOrgContext());
+		vi.stubGlobal(
+			'fetch',
+			vi
+				.fn()
+				.mockResolvedValue(
+					Response.json({ message: 'This onboarding changed. Reload and try again.' }, { status: 409 })
+				)
+		);
+		const feedback = vi.spyOn(toastStore, 'error');
+
+		ctx.promptCompleteOnboarding('ob-1');
+		await ctx.confirmCompleteOnboarding();
+
+		expect(feedback).toHaveBeenCalledWith('This onboarding changed. Reload and try again.');
+		expect(ctx.completingId).toBe('ob-1');
+		expect(onboardingStore.items).toEqual([packet]);
+	});
+
+	it('keeps the generic message when a server error refuses a step update', async () => {
+		onboardingStore.load([makeOnboarding({ steps: [makeStep()] })], 'org-1');
+		const ctx = new OnboardingPageContext({ open: vi.fn() } as never, makeOrgContext());
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ message: 'relation missing' }, { status: 500 })));
+		const feedback = vi.spyOn(toastStore, 'error');
+
+		await ctx.handleToggleCheckbox(makeStep());
+
+		expect(feedback).toHaveBeenCalledWith('Could not update this step. Try again.');
+	});
+
+	it('reports a refused note as unsaved with the server reason', async () => {
+		onboardingStore.load([makeOnboarding({ steps: [makeStep()] })], 'org-1');
+		const ctx = new OnboardingPageContext({ open: vi.fn() } as never, makeOrgContext());
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue(Response.json({ message: 'This step is no longer active.' }, { status: 404 }))
+		);
+		const feedback = vi.spyOn(toastStore, 'error');
+
+		await expect(ctx.handleAddNote(makeStep(), 'Waiting on Finance')).resolves.toBe(false);
+
+		expect(feedback).toHaveBeenCalledWith('This step is no longer active.');
+	});
+});
+
 describe('Onboarding Personnel creation result', () => {
 	it('does not show a late save failure after its page context is disposed', async () => {
 		onboardingStore.load([makeOnboarding({ steps: [makeStep()] })], 'org-1');

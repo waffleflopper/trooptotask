@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { tick } from 'svelte';
+	import { invalidate } from '$app/navigation';
 	import { DEFAULT_TRAINING_TYPE_COLOR, type TrainingPageAccess } from '../contracts';
 	import { ArrowDown, ArrowUp, Trash2 } from '@lucide/svelte';
 	import * as Empty from '$lib/components/ui/empty';
@@ -21,6 +22,9 @@
 	import { rosterStore } from '$features/personnel';
 	import { trainingRankCatalogStore } from '$features/training/stores/rankCatalog.svelte';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
+	import { rejectedRequestMessage } from '$lib/stores/core';
+	import { toastStore } from '$lib/stores/toast.svelte';
+	import * as Alert from '$lib/components/ui/alert';
 	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 	import {
 		getExpirationMode,
@@ -59,6 +63,8 @@
 	let error = $state('');
 	let mobileDetailOpen = $state(false);
 	let confirmDelete: { id: string; name: string } | null = $state(null);
+	let deleteError = $state('');
+	let reordering = $state(false);
 	let typeList = $state<ReturnType<typeof TypeWorkspace.ItemList>>();
 
 	let editName = $state('');
@@ -243,41 +249,66 @@
 				await tick();
 				typeList?.focusSelected();
 			} else if (selectedTypeId) {
-				if (!(await trainingTypesStore.update(selectedTypeId, payload))) {
+				if (!(await trainingTypesStore.updateOrThrow(selectedTypeId, payload))) {
 					error = 'Failed to save training type.';
 					return;
 				}
 			}
 			editing = false;
-		} catch {
-			error = 'Failed to save training type.';
+		} catch (failure) {
+			error = rejectedRequestMessage(failure, 'Failed to save training type.');
 		} finally {
 			saving = false;
 		}
 	}
 
+	function openDelete(type: { id: string; name: string }) {
+		deleteError = '';
+		confirmDelete = { id: type.id, name: type.name };
+	}
+
 	async function deleteType(id: string) {
-		if ((await trainingTypesStore.remove(id)) === 'deleted') {
-			personnelTrainingsStore.removeByTrainingTypeLocal(id);
+		deleteError = '';
+		const result = await trainingTypesStore.remove(id);
+		if (result === 'error') {
+			deleteError = 'Failed to delete training type. Try again.';
+			return;
 		}
+		if (result === 'deleted') personnelTrainingsStore.removeByTrainingTypeLocal(id);
 		if (selectedTypeId === id) selectedTypeId = null;
 		mobileDetailOpen = false;
 		confirmDelete = null;
 	}
 
-	async function moveUp(index: number) {
-		if (index === 0) return;
-		const current = orderedTypes[index];
-		const above = orderedTypes[index - 1];
-		await Promise.all([
-			trainingTypesStore.update(current.id, { sortOrder: above.sortOrder }),
-			trainingTypesStore.update(above.id, { sortOrder: current.sortOrder })
-		]);
-	}
-
-	async function moveDown(index: number) {
-		if (index === orderedTypes.length - 1) return;
-		await moveUp(index + 1);
+	async function move(index: number, target: number) {
+		if (reordering || target < 0 || target >= orderedTypes.length) return;
+		const order = [...orderedTypes];
+		[order[index], order[target]] = [order[target], order[index]];
+		const positions = new Set(orderedTypes.map((type) => type.sortOrder));
+		// Distinct positions swap between the two rows, so a refused write can disturb no other row.
+		// Shared positions are renumbered so the move takes effect and the tie is repaired.
+		const changed =
+			positions.size === orderedTypes.length
+				? [
+						{ type: orderedTypes[index], sortOrder: orderedTypes[target].sortOrder },
+						{ type: orderedTypes[target], sortOrder: orderedTypes[index].sortOrder }
+					]
+				: order
+						.map((type, sortOrder) => ({ type, sortOrder }))
+						.filter(({ type, sortOrder }) => type.sortOrder !== sortOrder);
+		reordering = true;
+		try {
+			const saved = await Promise.all(
+				changed.map(({ type, sortOrder }) =>
+					trainingTypesStore.updateOrThrow(type.id, { sortOrder }).then(Boolean, () => false)
+				)
+			);
+			if (saved.every(Boolean)) return;
+			toastStore.error('Failed to save the training type order. Reloading the saved order.');
+			await invalidate('app:training-data');
+		} finally {
+			reordering = false;
+		}
 	}
 
 	function handleApplicabilityChange(fields: ApplicabilityFields) {
@@ -364,10 +395,10 @@
 										type="button"
 										onclick={async (event) => {
 											const button = event.currentTarget;
-											await moveUp(i);
+											await move(i, i - 1);
 											TypeWorkspace.focusEnabledSibling(button);
 										}}
-										disabled={i === 0}
+										disabled={reordering || i === 0}
 										aria-label={`Move ${type.name} up`}
 									>
 										<ArrowUp aria-hidden="true" />
@@ -378,10 +409,10 @@
 										type="button"
 										onclick={async (event) => {
 											const button = event.currentTarget;
-											await moveDown(i);
+											await move(i, i + 1);
 											TypeWorkspace.focusEnabledSibling(button);
 										}}
-										disabled={i === orderedTypes.length - 1}
+										disabled={reordering || i === orderedTypes.length - 1}
 										aria-label={`Move ${type.name} down`}
 									>
 										<ArrowDown aria-hidden="true" />
@@ -414,6 +445,7 @@
 								type="text"
 								bind:ref={nameInput}
 								bind:value={editName}
+								maxlength={100}
 								placeholder="e.g. First Aid"
 							/>
 							{#if error}
@@ -492,7 +524,7 @@
 							variant="destructive"
 							size="sm"
 							type="button"
-							onclick={() => (confirmDelete = selectedType ? { id: selectedType.id, name: selectedType.name } : null)}
+							onclick={() => selectedType && openDelete(selectedType)}
 						>
 							<Trash2 aria-hidden="true" />
 							Delete
@@ -552,12 +584,7 @@
 
 					{#if canMutate}
 						<TypeWorkspace.FooterActions>
-							<Button
-								variant="destructive"
-								size="sm"
-								type="button"
-								onclick={() => (confirmDelete = { id: selectedType.id, name: selectedType.name })}
-							>
+							<Button variant="destructive" size="sm" type="button" onclick={() => openDelete(selectedType)}>
 								Delete Type
 							</Button>
 						</TypeWorkspace.FooterActions>
@@ -584,5 +611,9 @@
 			if (confirmDelete) return deleteType(confirmDelete.id);
 		}}
 		onCancel={() => (confirmDelete = null)}
-	/>
+	>
+		{#if deleteError}
+			<Alert.Root variant="destructive"><Alert.Description>{deleteError}</Alert.Description></Alert.Root>
+		{/if}
+	</ConfirmDialog>
 {/if}

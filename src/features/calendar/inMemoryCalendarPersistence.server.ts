@@ -37,6 +37,16 @@ export function createInMemoryCalendarCatalogPersistence(
 		(await store.findMany<StatusTypeRow>('status_types', orgId)).sort(
 			(a, b) => a.sort_order - b.sort_order || compareIds(a.id, b.id)
 		);
+	async function updateExisting<T>(table: string, id: string, patch: Record<string, unknown>): Promise<T | null> {
+		if (!(await store.findOne(table, orgId, { id }))) return null;
+		return store.update<T>(table, orgId, id, patch);
+	}
+	async function deleteExisting(table: string, id: string): Promise<boolean> {
+		if (!(await store.findOne(table, orgId, { id }))) return false;
+		await store.delete(table, orgId, id);
+		return true;
+	}
+
 	return {
 		async listStatusTypes() {
 			return (await savedStatusTypes()).map(toStatusType);
@@ -57,22 +67,15 @@ export function createInMemoryCalendarCatalogPersistence(
 			);
 		},
 		async updateStatusType(id, patch) {
-			return toStatusType(
-				await store.update<StatusTypeRow>(
-					'status_types',
-					orgId,
-					id,
-					defined({
-						name: patch.name,
-						color: patch.color,
-						text_color: patch.textColor,
-						short_label: patch.shortLabel
-					})
-				)
+			const row = await updateExisting<StatusTypeRow>(
+				'status_types',
+				id,
+				defined({ name: patch.name, color: patch.color, text_color: patch.textColor, short_label: patch.shortLabel })
 			);
+			return row && toStatusType(row);
 		},
 		deleteStatusType(id) {
-			return store.delete('status_types', orgId, id);
+			return deleteExisting('status_types', id);
 		},
 		async setStatusTypeOrder(statusTypeIds, expectedStatusTypeIds) {
 			const saved = (await savedStatusTypes()).map((type) => type.id);
@@ -119,23 +122,21 @@ export function createInMemoryCalendarCatalogPersistence(
 			);
 		},
 		async updateAssignmentType(id, patch) {
-			return toAssignmentType(
-				await store.update<AssignmentTypeRow>(
-					'assignment_types',
-					orgId,
-					id,
-					defined({
-						name: patch.name,
-						short_name: patch.shortName,
-						assign_to: patch.assignTo,
-						color: patch.color,
-						exempt_personnel_ids: patch.exemptPersonnelIds
-					})
-				)
+			const row = await updateExisting<AssignmentTypeRow>(
+				'assignment_types',
+				id,
+				defined({
+					name: patch.name,
+					short_name: patch.shortName,
+					assign_to: patch.assignTo,
+					color: patch.color,
+					exempt_personnel_ids: patch.exemptPersonnelIds
+				})
 			);
+			return row && toAssignmentType(row);
 		},
 		deleteAssignmentType(id) {
-			return store.delete('assignment_types', orgId, id);
+			return deleteExisting('assignment_types', id);
 		},
 		async listSpecialDays(range) {
 			return (
@@ -159,10 +160,11 @@ export function createInMemoryCalendarCatalogPersistence(
 			return toSpecialDay(await store.insert<SpecialDayRow>('special_days', orgId, { ...input }));
 		},
 		async updateSpecialDay(id, patch) {
-			return toSpecialDay(await store.update<SpecialDayRow>('special_days', orgId, id, defined({ ...patch })));
+			const row = await updateExisting<SpecialDayRow>('special_days', id, defined({ ...patch }));
+			return row && toSpecialDay(row);
 		},
 		deleteSpecialDay(id) {
-			return store.delete('special_days', orgId, id);
+			return deleteExisting('special_days', id);
 		},
 		async resetFederalHolidays(holidays) {
 			await store.deleteWhere('special_days', orgId, { type: 'federal-holiday' });

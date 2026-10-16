@@ -10,6 +10,21 @@ import {
 	createRequestSignInRosterCreationContext
 } from '$lib/server/adapters/requestContexts.server';
 import { json, type RequestEvent } from '@sveltejs/kit';
+import { fail } from '$lib/errors';
+import { z } from 'zod';
+
+/** A missing or malformed paging value falls back to 0 rather than reaching the query as NaN. */
+function nonNegativeIntegerParam(value: string | null): number {
+	const parsed = Number(value);
+	return Number.isInteger(parsed) && parsed > 0 ? parsed : 0;
+}
+
+const instant = z.iso.datetime({ offset: true });
+
+function instantParam(value: string | null): string | null {
+	if (value && !instant.safeParse(value).success) fail(400, 'Use a valid date range');
+	return value || null;
+}
 
 export const _getConfig: RouteConfig<
 	SignInRosterListInput,
@@ -19,13 +34,17 @@ export const _getConfig: RouteConfig<
 	context: createRequestSignInRosterContext,
 	policyAction: POLICY_ACTION_CATALOG.training.viewRecords,
 	policyResource: { kind: 'unscoped' },
-	parseInput: (event: RequestEvent) => ({
-		title: event.url.searchParams.get('title') || '',
-		from: event.url.searchParams.get('from'),
-		to: event.url.searchParams.get('to'),
-		limit: Math.min(parseInt(event.url.searchParams.get('limit') || '20'), 100),
-		offset: parseInt(event.url.searchParams.get('offset') || '0')
-	}),
+	parseInput: (event: RequestEvent) => {
+		// A tab loaded before the instant bounds still sends day-only from/to; refuse it rather than list every roster.
+		if (event.url.searchParams.get('from') || event.url.searchParams.get('to')) fail(400, 'Use a valid date range');
+		return {
+			title: event.url.searchParams.get('title') || '',
+			createdFrom: instantParam(event.url.searchParams.get('createdFrom')),
+			createdBefore: instantParam(event.url.searchParams.get('createdBefore')),
+			limit: Math.min(nonNegativeIntegerParam(event.url.searchParams.get('limit')) || 20, 100),
+			offset: nonNegativeIntegerParam(event.url.searchParams.get('offset'))
+		};
+	},
 	fn: (ctx, input) => listSignInRosters(ctx, input)
 };
 

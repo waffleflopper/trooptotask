@@ -2,13 +2,16 @@
 	import '../app.css';
 	import { themeStore } from '$lib/stores/theme.svelte';
 	import { onMount } from 'svelte';
+	import { invalidateAll } from '$app/navigation';
 	import { deferToIdle } from '$lib/utils/deferToIdle';
+	import { rememberViewerTimeZone } from '$lib/utils/viewerTimeZone';
 	import { Toaster } from '$lib/components/ui/sonner';
 
 	let { children } = $props();
 
 	onMount(() => {
 		themeStore.init();
+		if (rememberViewerTimeZone()) void invalidateAll();
 
 		const cancelIdle = deferToIdle(() => {
 			void Promise.all([import('@vercel/analytics'), import('@vercel/speed-insights')])

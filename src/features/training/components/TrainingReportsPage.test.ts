@@ -60,7 +60,11 @@ function completion(personnelId: string, expirationDate: string): PersonnelTrain
 	};
 }
 
-function reportFor(input: Partial<TrainingBriefingReportInput> = {}, types = [CPR]): TrainingBriefingReportData {
+function reportFor(
+	input: Partial<TrainingBriefingReportInput> = {},
+	types = [CPR],
+	asOf = '2026-09-29'
+): TrainingBriefingReportData {
 	const canonical = { ...DEFAULT_TRAINING_BRIEFING_INPUT, ...input };
 	return {
 		input: canonical,
@@ -71,7 +75,7 @@ function reportFor(input: Partial<TrainingBriefingReportInput> = {}, types = [CP
 			records: [completion('a1', '2026-10-20'), completion('a2', '2030-01-01')],
 			filters: {},
 			horizonDays: canonical.horizonDays,
-			asOf: '2026-09-29',
+			asOf,
 			goalPercent: 90,
 			rowsBy: canonical.rowsBy,
 			scopeName: 'Test Company'
@@ -145,6 +149,32 @@ describe('Training Reports briefing page', () => {
 		expect(within(grid).getByRole('button', { name: 'Bravo, CPR: 0% ready today' })).toBeTruthy();
 		expect(screen.getByLabelText('Readiness bands for a 90% goal').textContent).toContain('▼ 10+');
 		expect(fetchImpl).not.toHaveBeenCalled();
+	});
+
+	it('shows the server briefing again when a refreshed load reads another day', async () => {
+		const fetchImpl = vi.fn<typeof fetch>();
+		const { rerender } = render(TrainingReportsPage, {
+			props: { orgId: 'org-1', initialReport: reportFor({}, [CPR], '2026-09-30'), fetch: fetchImpl }
+		});
+		expect(screen.getByText('Test Company · 3 soldiers · as of 30 Sep 2026')).toBeTruthy();
+
+		await rerender({ orgId: 'org-1', initialReport: reportFor(), fetch: fetchImpl });
+
+		expect(screen.getByText('Test Company · 3 soldiers · as of 29 Sep 2026')).toBeTruthy();
+		expect(fetchImpl).not.toHaveBeenCalled();
+	});
+
+	it('keeps the briefing the viewer filtered when a refreshed load of the default briefing arrives', async () => {
+		const fetchImpl = vi.fn<typeof fetch>(async () => Response.json(reportFor({ horizonDays: 30 })));
+		const { rerender } = render(TrainingReportsPage, {
+			props: { orgId: 'org-1', initialReport: reportFor({}, [CPR], '2026-09-30'), fetch: fetchImpl }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: '30 days' }));
+		expect(await screen.findByText('Forecast · next 30 days')).toBeTruthy();
+
+		await rerender({ orgId: 'org-1', initialReport: reportFor(), fetch: fetchImpl });
+
+		expect(screen.getByText('Forecast · next 30 days')).toBeTruthy();
 	});
 
 	it('shows the horizons as 30 D on the row and names them 30 days', () => {

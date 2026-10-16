@@ -1,7 +1,6 @@
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { requireFeaturePolicy } from '$lib/access/index.server';
 import { fail } from '$lib/errors';
-import { formatToday } from '$lib/utils/dates';
 import { writeWorkbookBuffer } from '$lib/utils/workbook';
 import type { OrganizationSettingsReader } from '$features/organization/contracts';
 import type {
@@ -59,7 +58,8 @@ function pick(selected: string[], available: string[]): string[] {
 
 async function loadBriefingSource(
 	ctx: TrainingReportReadContext,
-	request: TrainingBriefingReportInput
+	request: TrainingBriefingReportInput,
+	asOf: string
 ): Promise<BriefingSource> {
 	await requireFeaturePolicy(ctx, POLICY_ACTION_CATALOG.training.viewRecords, { kind: 'unscoped' }, 'training_record');
 	if (!ctx.personnelTrainingRoster) throw new Error('Personnel Training roster provider unavailable');
@@ -120,7 +120,7 @@ async function loadBriefingSource(
 				trainingTypeIds: input.typeIds
 			},
 			horizonDays: input.horizonDays,
-			asOf: formatToday(),
+			asOf,
 			goalPercent: organization.trainingReadinessGoalPercent,
 			rowsBy: input.rowsBy,
 			scopeName: group?.name ?? organization.name
@@ -160,17 +160,19 @@ function detailRows(source: BriefingSource, requirements: BriefingRequirement[])
 
 export async function fetchTrainingBriefingReport(
 	ctx: TrainingReportReadContext,
-	request: TrainingBriefingReportInput
+	request: TrainingBriefingReportInput,
+	asOf: string
 ): Promise<TrainingBriefingReportData> {
-	return reportData(await loadBriefingSource(ctx, request));
+	return reportData(await loadBriefingSource(ctx, request, asOf));
 }
 
 /** The affected requirements behind one grid cell or focus area, re-derived from the same filters. */
 export async function fetchTrainingBriefingDetail(
 	ctx: TrainingReportReadContext,
-	request: TrainingBriefingDetailInput
+	request: TrainingBriefingDetailInput,
+	asOf: string
 ): Promise<TrainingBriefingDetail> {
-	const source = await loadBriefingSource(ctx, request.report);
+	const source = await loadBriefingSource(ctx, request.report, asOf);
 	const requirements = matchBriefingRequirements(source.briefingInput, request.scope);
 	if (!requirements) fail(404, 'Training report scope not found');
 
@@ -185,9 +187,10 @@ export async function fetchTrainingBriefingDetail(
 /** The displayed briefing as a workbook, with every affected requirement of the filtered page. */
 export async function generateTrainingReportWorkbookExport(
 	ctx: TrainingReportReadContext,
-	request: TrainingBriefingReportInput
+	request: TrainingBriefingReportInput,
+	asOf: string
 ): Promise<TrainingReportWorkbookExport> {
-	const source = await loadBriefingSource(ctx, request);
+	const source = await loadBriefingSource(ctx, request, asOf);
 	const workbook = await buildTrainingReportWorkbook({
 		report: reportData(source),
 		requirements: detailRows(source, affectedBriefingRequirements(source.briefingInput))

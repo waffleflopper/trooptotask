@@ -6,10 +6,13 @@ import type { PersonnelFollowUp } from '$features/personnel/contracts';
 import { _getConfig, _postConfig } from './+server';
 import { _patchConfig } from './[followUpId]/+server';
 
+const PERSON_ID = '00000000-0000-4000-8000-0000000000a1';
+const OTHER_PERSON_ID = '00000000-0000-4000-8000-0000000000a2';
+
 function seedPersonnel(ctx: ReturnType<typeof createTestContext>) {
 	ctx.store.seed('personnel', [
 		{
-			id: 'person-1',
+			id: PERSON_ID,
 			organization_id: ctx.auth.orgId,
 			group_id: null
 		}
@@ -37,7 +40,7 @@ describe('/api/personnel/[id]/follow-ups', () => {
 			_postConfig,
 			ctx,
 			{
-				personnelId: 'person-1',
+				personnelId: PERSON_ID,
 				title: 'Complete BLC packet'
 			},
 			() => createPersonnelArtifactDeliveryContext(ctx)
@@ -46,7 +49,7 @@ describe('/api/personnel/[id]/follow-ups', () => {
 			_patchConfig,
 			ctx,
 			{
-				personnelId: 'person-1',
+				personnelId: PERSON_ID,
 				followUpId: created.id,
 				status: 'completed'
 			},
@@ -56,7 +59,7 @@ describe('/api/personnel/[id]/follow-ups', () => {
 			_patchConfig,
 			ctx,
 			{
-				personnelId: 'person-1',
+				personnelId: PERSON_ID,
 				followUpId: created.id,
 				title: 'Updated packet follow-up',
 				notes: 'Bring forms to the training room',
@@ -64,14 +67,14 @@ describe('/api/personnel/[id]/follow-ups', () => {
 			},
 			() => createPersonnelArtifactDeliveryContext(ctx)
 		)) as PersonnelFollowUp;
-		const followUps = (await handleUseCaseRequest(_getConfig, ctx, { personnelId: 'person-1' }, () =>
+		const followUps = (await handleUseCaseRequest(_getConfig, ctx, { personnelId: PERSON_ID }, () =>
 			createPersonnelArtifactDeliveryContext(ctx)
 		)) as PersonnelFollowUp[];
 		const archived = (await handleUseCaseRequest(
 			_patchConfig,
 			ctx,
 			{
-				personnelId: 'person-1',
+				personnelId: PERSON_ID,
 				followUpId: created.id,
 				status: 'archived'
 			},
@@ -81,7 +84,7 @@ describe('/api/personnel/[id]/follow-ups', () => {
 			_patchConfig,
 			ctx,
 			{
-				personnelId: 'person-1',
+				personnelId: PERSON_ID,
 				followUpId: created.id,
 				action: 'restore'
 			},
@@ -104,23 +107,23 @@ describe('/api/personnel/[id]/follow-ups', () => {
 	it('derives the Personnel id from the route param and rejects mismatched bodies', async () => {
 		await expect(
 			_postConfig.parseInput?.({
-				params: { id: 'person-1' },
+				params: { id: PERSON_ID },
 				request: new Request('http://localhost', {
 					method: 'POST',
-					body: JSON.stringify({ personnelId: 'person-2', title: 'Mismatch' })
+					body: JSON.stringify({ personnelId: OTHER_PERSON_ID, title: 'Mismatch' })
 				})
 			} as never)
 		).rejects.toMatchObject({ status: 400 });
 
 		await expect(
 			_postConfig.parseInput?.({
-				params: { id: 'person-1' },
+				params: { id: PERSON_ID },
 				request: new Request('http://localhost', {
 					method: 'POST',
 					body: JSON.stringify({ title: 'Follow up' })
 				})
 			} as never)
-		).resolves.toMatchObject({ personnelId: 'person-1', title: 'Follow up' });
+		).resolves.toMatchObject({ personnelId: PERSON_ID, title: 'Follow up' });
 	});
 
 	it('rejects mixed status and edit payloads instead of silently dropping fields', async () => {
@@ -143,7 +146,7 @@ describe('/api/personnel/[id]/follow-ups', () => {
 			_postConfig,
 			ctx,
 			{
-				personnelId: 'person-1',
+				personnelId: PERSON_ID,
 				title: 'Complete BLC packet'
 			},
 			() => createPersonnelArtifactDeliveryContext(ctx)
@@ -154,7 +157,7 @@ describe('/api/personnel/[id]/follow-ups', () => {
 				_patchConfig,
 				ctx,
 				{
-					personnelId: 'person-1',
+					personnelId: PERSON_ID,
 					followUpId: created.id,
 					title: 'Updated packet follow-up',
 					status: 'open'
@@ -183,7 +186,7 @@ describe('/api/personnel/[id]/follow-ups', () => {
 			_postConfig,
 			ctx,
 			{
-				personnelId: 'person-1',
+				personnelId: PERSON_ID,
 				title: 'Complete BLC packet'
 			},
 			() => createPersonnelArtifactDeliveryContext(ctx)
@@ -194,7 +197,7 @@ describe('/api/personnel/[id]/follow-ups', () => {
 				_patchConfig,
 				ctx,
 				{
-					personnelId: 'person-1',
+					personnelId: PERSON_ID,
 					followUpId: created.id,
 					action: 'publish'
 				},
@@ -206,7 +209,7 @@ describe('/api/personnel/[id]/follow-ups', () => {
 				_patchConfig,
 				ctx,
 				{
-					personnelId: 'person-1',
+					personnelId: PERSON_ID,
 					followUpId: created.id,
 					status: 'pending'
 				},
@@ -232,7 +235,7 @@ describe('/api/personnel/[id]/follow-ups', () => {
 		seedPersonnel(ctx);
 
 		await expect(
-			handleUseCaseRequest(_getConfig, ctx, { personnelId: 'person-1' }, () =>
+			handleUseCaseRequest(_getConfig, ctx, { personnelId: PERSON_ID }, () =>
 				createPersonnelArtifactDeliveryContext(ctx)
 			)
 		).rejects.toMatchObject({

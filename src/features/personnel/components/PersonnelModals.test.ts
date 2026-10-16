@@ -222,8 +222,8 @@ describe('retired Personnel save feedback', () => {
 			return response;
 		});
 		let updateSettled: Promise<boolean> | undefined;
-		const update = personnelStore.update;
-		vi.spyOn(personnelStore, 'update').mockImplementation((id, data) => {
+		const update = personnelStore.updateOrThrow;
+		vi.spyOn(personnelStore, 'updateOrThrow').mockImplementation((id, data) => {
 			updateSettled = update(id, data);
 			return updateSettled;
 		});
@@ -270,5 +270,97 @@ describe('retired Personnel save feedback', () => {
 		expect(error).not.toHaveBeenCalled();
 		expect(success).not.toHaveBeenCalled();
 		expect(modalsB.isOpen('personnel-modal')).toBe(false);
+	});
+});
+
+describe('rejected Personnel and Group save feedback', () => {
+	const rankCatalog = [
+		{
+			code: 'SPC',
+			label: 'Specialist',
+			service: 'army' as const,
+			category: 'enlisted' as const,
+			payGrade: 'E-4' as const,
+			state: 'active' as const,
+			sortOrder: 0
+		}
+	];
+	const person: Personnel = {
+		id: 'person-a',
+		slug: 'synthetic-alpha',
+		rank: 'SPC',
+		firstName: 'Synthetic',
+		lastName: 'Alpha',
+		mos: '68V',
+		clinicRole: 'Medic',
+		ets: null,
+		deros: null,
+		groupId: null,
+		groupName: '',
+		archivedAt: null
+	};
+
+	it.each([
+		[404, 'This person is no longer available.', 'This person is no longer available.'],
+		[500, 'Internal server error', 'Failed to update personnel']
+	])('keeps a Personnel edit open and shows the reason for a %i', async (status, serverMessage, shown) => {
+		groupCatalogHydration.load([], 'org-a');
+		personnelStore.load([person], 'org-a');
+		vi.stubGlobal('fetch', async () => Response.json({ message: serverMessage }, { status }));
+		const error = vi.spyOn(toastStore, 'error').mockReturnValue('synthetic-error');
+		const modals = new ModalRegistry();
+		const ctx = new PersonnelPageContext(
+			{ orgId: 'org-a', orgName: 'A', pinnedGroups: [], rankCatalog },
+			modals,
+			createClientAccess({
+				membershipRole: 'member',
+				capabilityMap: { ...createCapabilityMap('none'), personnel: 'configure' },
+				scopeSet: { kind: 'organization' }
+			}),
+			personnelStore
+		);
+		modals.open('personnel-modal', { person });
+		render(PersonnelModals, { props: { ctx, modals, requestArchiveApproval } });
+
+		await fireEvent.input(screen.getByLabelText('Duty Role'), { target: { value: 'Platoon Medic' } });
+		await fireEvent.click(screen.getByTestId('personnel-save'));
+
+		await waitFor(() => expect(error).toHaveBeenCalledWith(shown));
+		expect(modals.isOpen('personnel-modal')).toBe(true);
+		expect((screen.getByLabelText('Duty Role') as HTMLInputElement).value).toBe('Platoon Medic');
+		expect(personnelStore.items).toEqual([person]);
+	});
+
+	it.each([
+		['a name another Group already has', 'bravo', null, 'A Group with that name already exists.'],
+		['a server conflict', 'Charlie', 409, 'A Group with that name already exists.'],
+		['a server failure', 'Charlie', 500, 'Unable to rename Group. Try again.']
+	] as const)('keeps a Group rename open and explains %s', async (_case, name, status, shown) => {
+		const groups = [
+			{ id: 'group-a', name: 'Alpha', sortOrder: 0 },
+			{ id: 'group-b', name: 'Bravo', sortOrder: 1 }
+		];
+		groupCatalogHydration.load(groups, 'org-a');
+		personnelStore.load([], 'org-a');
+		const requests: string[] = [];
+		vi.stubGlobal('fetch', async (_url: string, init: RequestInit) => {
+			requests.push(JSON.parse(init.body as string).name);
+			return Response.json(
+				{ message: status === 409 ? 'A Group with that name already exists.' : 'Internal server error' },
+				{ status: status ?? 500 }
+			);
+		});
+		const modals = new ModalRegistry();
+		modals.open('group-manager');
+		render(PersonnelModals, { props: { ctx: {} as PersonnelPageContext, modals, requestArchiveApproval } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit Alpha' }));
+		await fireEvent.input(screen.getByDisplayValue('Alpha'), { target: { value: name } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+		await waitFor(() => expect(screen.getByRole('alert').textContent?.trim()).toBe(shown));
+		expect(screen.getByDisplayValue(name)).toBeTruthy();
+		expect(groupsStore.items).toEqual(groups);
+		expect(requests).toEqual(status ? [name] : []);
 	});
 });

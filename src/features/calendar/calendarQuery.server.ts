@@ -22,7 +22,7 @@ import type {
 	CalendarAvailabilityPersistence,
 	CalendarCatalogPersistence
 } from './contracts';
-import type { OrganizationSettingsReader } from '$features/organization/contracts';
+import { readLossWarningWindowDays, type OrganizationSettingsReader } from '$features/organization/contracts';
 import type { OnboardingCalendarMarkersPort } from '$features/onboarding/contracts';
 import type { AuditPort } from '$lib/audit/contracts';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
@@ -148,16 +148,14 @@ export async function fetchCalendarBootstrap(
 	void specialDays.catch(() => undefined);
 	void dailyAssignments.catch(() => undefined);
 
-	const [assignmentTypes, pinnedGroups, personnel, groups, statusTypes, warningWindow] = await Promise.all([
+	const [assignmentTypes, pinnedGroups, personnel, groups, statusTypes, lossWarningWindowDays] = await Promise.all([
 		listAssignmentTypes(ctx.calendarCatalogs),
 		ctx.selfPins.listNames(),
 		requirePersonnelCalendarRoster(ctx).listActive(ctx.auth),
 		ctx.groups.listCatalog(),
 		listStatusTypes(ctx.calendarCatalogs),
-		ctx.organizationSettings.findLossWarningWindowDays(orgId).catch(() => null)
+		readLossWarningWindowDays(ctx.organizationSettings.findLossWarningWindowDays(orgId))
 	]);
-
-	const lossWarningWindowDays = warningWindow ?? 180;
 
 	return {
 		rangeStart,

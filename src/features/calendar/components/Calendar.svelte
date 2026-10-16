@@ -278,7 +278,7 @@
 </script>
 
 <div
-	class="calendar flex flex-1 flex-col overflow-hidden rounded-lg border bg-card text-card-foreground [--calendar-cell-width:36px] [--calendar-personnel-column-width:200px] max-[641px]:[--calendar-cell-width:32px] max-[641px]:[--calendar-personnel-column-width:120px] min-[641px]:max-[1025px]:[--calendar-personnel-column-width:160px]"
+	class="calendar flex flex-1 flex-col overflow-hidden rounded-lg border bg-card text-card-foreground [--calendar-cell-width:30px] [--calendar-personnel-column-width:160px] max-[641px]:[--calendar-cell-width:32px] max-[641px]:[--calendar-personnel-column-width:120px]"
 	style:--dates-count={dates.length}
 >
 	<CalendarHeader

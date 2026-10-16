@@ -10,7 +10,6 @@
 	import { buildVirtualRowLayout, getVisibleVirtualRows } from '$features/calendar/utils/virtualRows';
 	import { Button } from '$lib/components/ui/button';
 
-	const PERSONNEL_COLUMN_WIDTH = 200;
 	const MIN_DAY_PX = 10;
 	const GROUP_ROW_HEIGHT = 18;
 	const PERSON_ROW_HEIGHT = 30;
@@ -42,6 +41,8 @@
 	let viewportHeight = $state(DEFAULT_VIEWPORT_HEIGHT);
 	let rosterOffsetTop = $state(0);
 	let scrollAreaWidth = $state(0);
+	let personnelHeaderEl: HTMLDivElement;
+	let personnelColumnWidth = $state(0);
 
 	const months = $derived.by(() => {
 		const result = [];
@@ -64,7 +65,7 @@
 		)
 	);
 	const visibleDays = $derived(dayWindow(days[0].dateKey, days.length));
-	const dayPx = $derived(Math.max(MIN_DAY_PX, Math.floor((scrollAreaWidth - PERSONNEL_COLUMN_WIDTH) / days.length)));
+	const dayPx = $derived(Math.max(MIN_DAY_PX, Math.floor((scrollAreaWidth - personnelColumnWidth) / days.length)));
 	const policy: LabelPolicy = $derived({ view: '3-month', dayPx });
 
 	const rosterRows = $derived.by(() => {
@@ -127,6 +128,7 @@
 		updateScrollMetrics();
 		rosterOffsetTop = getRosterOffsetTop();
 		scrollAreaWidth = scrollAreaEl.clientWidth;
+		personnelColumnWidth = personnelHeaderEl.offsetWidth;
 	}
 
 	function handleScroll() {
@@ -153,8 +155,7 @@
 </script>
 
 <div
-	class="flex flex-1 flex-col overflow-hidden rounded-lg border bg-card text-card-foreground"
-	style:--calendar-personnel-column-width={`${PERSONNEL_COLUMN_WIDTH}px`}
+	class="flex flex-1 flex-col overflow-hidden rounded-lg border bg-card text-card-foreground [--calendar-personnel-column-width:160px] max-[641px]:[--calendar-personnel-column-width:120px]"
 	style:--dates-count={days.length}
 >
 	<div
@@ -167,6 +168,7 @@
 		>
 			<div class="sticky top-0 z-10 grid [grid-template-columns:var(--long-range-columns)] border-b bg-muted">
 				<div
+					bind:this={personnelHeaderEl}
 					class="sticky left-0 z-20 flex min-h-9 items-center border-r bg-muted px-3 py-2 font-mono text-xs font-semibold tracking-widest text-muted-foreground uppercase"
 				>
 					Personnel

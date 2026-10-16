@@ -18,9 +18,9 @@ export const INTERACTIONS = {
 	'group-select': 'Choose the Bravo group filter',
 	'group-clear': 'Choose Group: All',
 	'next-within': 'Next month inside the loaded range',
-	'prev-within': 'Prev month inside the loaded range',
+	'prev-within': 'Previous month inside the loaded range',
 	'next-past': 'Next month past the loaded range (range request)',
-	'prev-past': 'Prev month past the loaded range (range request)',
+	'prev-past': 'Previous month past the loaded range (range request)',
 	'to-3-month': 'Month to 3-Month',
 	'to-month': '3-Month to Month',
 	'modal-open': 'Open the availability modal from a day cell',
@@ -329,7 +329,7 @@ export async function runBlock(config) {
 				record(
 					await measure(
 						'next-within',
-						() => buttonNamed('Next').click(),
+						() => labelled('Next month').click(),
 						() => monthLabel() === next && firstCellInMonth(next),
 						{ detail: () => ({ label: monthLabel() }) }
 					),
@@ -338,7 +338,7 @@ export async function runBlock(config) {
 				record(
 					await measure(
 						'prev-within',
-						() => buttonNamed('Prev').click(),
+						() => labelled('Previous month').click(),
 						() => monthLabel() === anchorLabel && firstCellInMonth(anchorLabel),
 						{ detail: () => ({ label: monthLabel() }) }
 					),
@@ -347,10 +347,10 @@ export async function runBlock(config) {
 			}
 		} else if (block === 'nav-past-next' || block === 'nav-past-prev') {
 			const direction = block === 'nav-past-next' ? 1 : -1;
-			const button = direction === 1 ? 'Next' : 'Prev';
+			const button = direction === 1 ? 'Next month' : 'Previous month';
 			const step = async (offset) => {
 				const target = shiftLabel(anchorLabel, offset);
-				buttonNamed(button).click();
+				labelled(button).click();
 				await waitFor(() => monthLabel() === target && firstCellInMonth(target), `month ${target}`);
 			};
 			await step(direction);
@@ -359,7 +359,7 @@ export async function runBlock(config) {
 				record(
 					await measure(
 						direction === 1 ? 'next-past' : 'prev-past',
-						() => buttonNamed(button).click(),
+						() => labelled(button).click(),
 						() => monthLabel() === target && firstCellInMonth(target),
 						{
 							settled: true,

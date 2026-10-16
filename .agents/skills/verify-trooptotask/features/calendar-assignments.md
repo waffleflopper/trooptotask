@@ -1,6 +1,6 @@
 # Manual assignments
 
-A Calendar operator plans Person and Group coverage for a day or month. Saved assignments keep their Organization, date, type and assignee across Calendar, Planning and report reads; a clear removes only the selected slot.
+A Calendar operator plans Person and Group coverage for a day or month. Saved assignments keep their Organization, date, type and assignee across Calendar, Assignment Planner and report reads; a clear removes only the selected slot.
 
 ## Sub-features
 
@@ -15,7 +15,7 @@ A Calendar operator plans Person and Group coverage for a day or month. Saved as
 
 ## How to get to it (user POV)
 
-Sign in with Calendar operation access and choose `Calendar` → `Planning` → `Assignment Planner`. The monthly table has one named Person or Group control per active assignment type and date. Click a Calendar date header, an assigned lane day or a row marker to see the `Daily Assignments` modal for that date. An open lane day's `+` opens the duty picker for that type and date. `Reports` shows assignment coverage and other Calendar projections. A Calendar reader may see saved assignments but cannot manage them.
+Sign in with Calendar operation access and choose `Calendar` → `Duty planner`, which opens `Assignment Planner`. The monthly table has one named Person or Group control per active assignment type and date. Click a Calendar date header, an assigned lane day or a row marker to see the `Daily Assignments` modal for that date. An open lane day's `+` opens the duty picker for that type and date. `Reports` shows assignment coverage and other Calendar projections. A Calendar reader may see saved assignments but cannot manage them.
 
 ## Driving it with verify:app
 

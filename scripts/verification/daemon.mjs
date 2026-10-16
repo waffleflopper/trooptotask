@@ -225,6 +225,8 @@ try {
 		[
 			'--import',
 			sourcePreload.href,
+			'--import',
+			pathToFileURL(path.join(copy, 'scripts/verification/preview-streaming.mjs')).href,
 			path.join(copy, 'node_modules/vite/bin/vite.js'),
 			'preview',
 			'--host',

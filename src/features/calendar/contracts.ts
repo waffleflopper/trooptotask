@@ -147,13 +147,7 @@ export interface AssignmentTypeCreate {
 
 export type AssignmentTypePatch = Partial<AssignmentTypeCreate>;
 
-export interface SpecialDayCreate {
-	date: string;
-	name: string;
-	type: 'federal-holiday' | 'org-closure';
-}
-
-export type SpecialDayPatch = Partial<SpecialDayCreate>;
+export type SpecialDayPatch = Partial<Omit<SpecialDay, 'id'>>;
 
 export interface FederalHolidayDefault {
 	date: string;
@@ -185,7 +179,8 @@ export interface CalendarCatalogPersistence {
 	updateAssignmentType(id: string, patch: AssignmentTypePatch): Promise<SavedAssignmentType | null>;
 	deleteAssignmentType(id: string): Promise<boolean>;
 	listSpecialDays(range?: CalendarDateRange): Promise<SavedSpecialDay[]>;
-	createSpecialDay(input: SpecialDayCreate): Promise<SavedSpecialDay>;
+	/** Adds one closure per date, skipping dates that already hold a Special Day; returns the added rows by date. */
+	addClosureDays(name: string, dates: readonly string[]): Promise<SavedSpecialDay[]>;
 	updateSpecialDay(id: string, patch: SpecialDayPatch): Promise<SavedSpecialDay | null>;
 	deleteSpecialDay(id: string): Promise<boolean>;
 	resetFederalHolidays(holidays: FederalHolidayDefault[]): Promise<SavedFederalHoliday[]>;

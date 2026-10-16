@@ -251,7 +251,7 @@ function createTestCalendarPersistence(
 				updateAssignmentType: unavailableCalendarPersistence,
 				deleteAssignmentType: unavailableCalendarPersistence,
 				listSpecialDays: unavailableCalendarPersistence,
-				createSpecialDay: unavailableCalendarPersistence,
+				addClosureDays: unavailableCalendarPersistence,
 				updateSpecialDay: unavailableCalendarPersistence,
 				deleteSpecialDay: unavailableCalendarPersistence,
 				resetFederalHolidays: unavailableCalendarPersistence,

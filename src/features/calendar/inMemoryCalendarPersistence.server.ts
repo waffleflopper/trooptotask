@@ -156,8 +156,14 @@ export function createInMemoryCalendarCatalogPersistence(
 				)
 			).map(toSpecialDay);
 		},
-		async createSpecialDay(input) {
-			return toSpecialDay(await store.insert<SpecialDayRow>('special_days', orgId, { ...input }));
+		async addClosureDays(name, dates) {
+			const taken = new Set((await store.findMany<SpecialDayRow>('special_days', orgId)).map((day) => day.date));
+			const rows = await store.insertMany<SpecialDayRow>(
+				'special_days',
+				orgId,
+				dates.filter((date) => !taken.has(date)).map((date) => ({ date, name, type: 'org-closure' }))
+			);
+			return rows.map(toSpecialDay).sort((a, b) => a.date.localeCompare(b.date));
 		},
 		async updateSpecialDay(id, patch) {
 			const row = await updateExisting<SpecialDayRow>('special_days', id, defined({ ...patch }));

@@ -127,18 +127,20 @@
 			</Field.Root>
 			<Field.Set>
 				<Field.Legend variant="label">Dates</Field.Legend>
-				<div class="flex flex-wrap items-center gap-2">
-					<DatePicker class="min-w-36 flex-1" aria-label="First day" value={startDate} onValueChange={changeStart} />
-					<ArrowRight class="hidden size-4 shrink-0 text-muted-foreground sm:block" aria-hidden="true" />
-					<DatePicker class="min-w-36 flex-1" aria-label="Last day" bind:value={endDate} />
-				</div>
-				{#if dates.ok && dates.dates.length === 0}
-					<Field.Description>These are all weekend days. Turn off Skip weekends to add them.</Field.Description>
-				{:else if dates.ok}
-					<Field.Description>Pick one day or a range.</Field.Description>
-				{:else}
-					<Field.Error>{RANGE_ERRORS[dates.reason]}</Field.Error>
-				{/if}
+				<Field.Root>
+					<div class="flex flex-wrap items-center gap-2">
+						<DatePicker class="min-w-36 flex-1" aria-label="First day" value={startDate} onValueChange={changeStart} />
+						<ArrowRight class="hidden size-4 shrink-0 text-muted-foreground sm:block" aria-hidden="true" />
+						<DatePicker class="min-w-36 flex-1" aria-label="Last day" bind:value={endDate} />
+					</div>
+					{#if dates.ok && dates.dates.length === 0}
+						<Field.Description>These are all weekend days. Turn off Skip weekends to add them.</Field.Description>
+					{:else if dates.ok}
+						<Field.Description>Pick one day or a range.</Field.Description>
+					{:else}
+						<Field.Error>{RANGE_ERRORS[dates.reason]}</Field.Error>
+					{/if}
+				</Field.Root>
 			</Field.Set>
 			<Field.Root orientation="horizontal">
 				<Checkbox id="closure-skip-weekends" bind:checked={skipWeekends} />

@@ -62,8 +62,9 @@
 
 	const views = $derived(items.filter((item): item is ToolbarView => sectionOf(item) === 'view'));
 	const filters = $derived(items.filter((item): item is ToolbarFilter => sectionOf(item) === 'filters'));
+	const actions = $derived(items.filter((item): item is ToolbarAction => sectionOf(item) === 'actions'));
 	// The most important action sits next to More and the primary, so the row reads actions in reverse rank.
-	const actions = $derived(items.filter((item): item is ToolbarAction => sectionOf(item) === 'actions').reverse());
+	const actionsInRowOrder = $derived(actions.toReversed());
 	const rowCandidates = $derived(items.filter((item) => !isMenuOnly(item)));
 
 	let lastFit: FitResult | null = null;
@@ -107,13 +108,12 @@
 	const visibleIds = $derived(new Set(fit ? fit.visibleIds : rowCandidates.map((item) => item.id)));
 	const rowViews = $derived(views.filter((item) => visibleIds.has(item.id)));
 	const rowFilters = $derived(filters.filter((item) => visibleIds.has(item.id)));
-	const rowActions = $derived(actions.filter((item) => visibleIds.has(item.id)));
+	const rowActions = $derived(actionsInRowOrder.filter((item) => visibleIds.has(item.id)));
 	const moreViews = $derived(views.filter((item) => !visibleIds.has(item.id)));
 	const moreFilters = $derived(filters.filter((item) => !visibleIds.has(item.id)));
-	// Folded actions keep row order; menu-only actions follow in rank order.
 	const moreActions = $derived([
-		...actions.filter((item) => !item.menuOnly && !visibleIds.has(item.id)),
-		...actions.filter((item) => item.menuOnly).reverse()
+		...actionsInRowOrder.filter((item) => !item.menuOnly && !visibleIds.has(item.id)),
+		...actions.filter((item) => item.menuOnly)
 	]);
 	const showMore = $derived(moreViews.length + moreFilters.length + moreActions.length > 0);
 	const searchMode = $derived<'field' | 'icon' | 'open' | 'none'>(

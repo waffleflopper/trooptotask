@@ -25,11 +25,14 @@ describe('closureDates', () => {
 		});
 	});
 
-	it('gives a single date when start and end match, even on a weekend with skipping on', () => {
+	it('gives a single weekday as one date when start and end match', () => {
 		expect(closureDates({ startDate: '2026-10-09', endDate: '2026-10-09', skipWeekends: true })).toEqual({
 			ok: true,
 			dates: ['2026-10-09']
 		});
+	});
+
+	it('gives no dates for a single weekend day when skipping is on', () => {
 		expect(closureDates({ startDate: '2026-03-08', endDate: '2026-03-08', skipWeekends: true })).toEqual({
 			ok: true,
 			dates: []
@@ -115,23 +118,30 @@ describe('closureListView', () => {
 		]);
 	});
 
-	it('never merges federal holidays and files a range under the month of its first day', () => {
-		const days = [
-			federal('2026-11-26', 'Thanksgiving Day'),
-			federal('2026-11-27', 'Thanksgiving Day'),
-			closure('2026-09-28', 'Training week'),
-			closure('2026-10-02', 'Training week'),
-			closure('2026-09-29', 'Training week'),
-			closure('2026-09-30', 'Training week'),
-			closure('2026-10-01', 'Training week')
-		];
-		const view = closureListView(days, 2026, FUTURE_TODAY);
+	it('never merges federal holidays', () => {
+		const days = [federal('2026-11-26', 'Thanksgiving Day'), federal('2026-11-27', 'Thanksgiving Day')];
 
-		expect(view.months.map(({ month, rows }) => [month, rows.map((row) => row.kind)])).toEqual([
-			[8, ['range']],
-			[10, ['day', 'day']]
+		expect(closureListView(days, 2026, FUTURE_TODAY).months).toEqual([
+			{ month: 10, rows: days.map((day) => ({ kind: 'day', day })) }
 		]);
-		expect(view.months[0].rows[0]).toMatchObject({ kind: 'range', days: { length: 5 } });
+	});
+
+	it('splits a range at a month boundary so each month shows its own part', () => {
+		const days = ['2026-09-29', '2026-09-30', '2026-10-01', '2026-10-02'].map((date) => closure(date, 'Training week'));
+
+		expect(closureListView(days, 2026, FUTURE_TODAY).months).toEqual([
+			{ month: 8, rows: [{ kind: 'range', name: 'Training week', days: days.slice(0, 2) }] },
+			{ month: 9, rows: [{ kind: 'range', name: 'Training week', days: days.slice(2) }] }
+		]);
+	});
+
+	it('keeps the current-month part of a cross-month range out of the collapsed past', () => {
+		const days = ['2026-09-30', '2026-10-01'].map((date) => closure(date, 'Training week'));
+
+		expect(closureListView(days, 2026, '2026-10-16')).toEqual({
+			past: { throughMonth: 8, dayCount: 1, months: [{ month: 8, rows: [{ kind: 'day', day: days[0] }] }] },
+			months: [{ month: 9, rows: [{ kind: 'day', day: days[1] }] }]
+		});
 	});
 
 	it('collapses months before the current month and counts their days', () => {

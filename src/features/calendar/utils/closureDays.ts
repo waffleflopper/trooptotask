@@ -49,7 +49,7 @@ export function partitionClosureDates(
 
 export type ClosureListRow =
 	| { kind: 'day'; day: SpecialDay }
-	/** Two or more closure days with one name, separated only by weekends. */
+	/** Two or more closure days with one name in one month, separated only by weekends. */
 	| { kind: 'range'; name: string; days: SpecialDay[] };
 
 export interface ClosureListMonth {
@@ -75,8 +75,8 @@ function onlyWeekendsBetween(earlier: string, later: string): boolean {
 }
 
 /**
- * Groups one year's Special Days into month rows. `today` is the viewer's local date; a past year
- * collapses entirely and a future year collapses nothing.
+ * Groups one year's Special Days into month rows; a range row never crosses a month boundary.
+ * `today` is the viewer's local date; a past year collapses entirely and a future year collapses nothing.
  */
 export function closureListView(days: readonly SpecialDay[], year: number, today: string): ClosureListView {
 	const sorted = [...days].sort(
@@ -88,7 +88,8 @@ export function closureListView(days: readonly SpecialDay[], year: number, today
 		if (day.type === 'org-closure') {
 			const open = openRangeByName.get(day.name);
 			const last = open?.at(-1);
-			if (open && last && last.date < day.date && onlyWeekendsBetween(last.date, day.date)) {
+			const sameMonth = last?.date.slice(0, 7) === day.date.slice(0, 7);
+			if (open && last && sameMonth && onlyWeekendsBetween(last.date, day.date)) {
 				open.push(day);
 				continue;
 			}

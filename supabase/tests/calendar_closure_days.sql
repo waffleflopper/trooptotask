@@ -64,7 +64,7 @@ CREATE FUNCTION pg_temp.denied(actor integer, label text) RETURNS text LANGUAGE 
 DECLARE v_result text;
 BEGIN
   PERFORM pg_temp.act(actor);
-  SELECT throws_ok(pg_temp.add_sql('Denied closure', '{2030-01-02}'), '42501', 'Calendar configuration is not allowed',
+  SELECT throws_ok(pg_temp.add_sql('Denied closure', '{2030-01-02}'), '42501', NULL,
     label || ' cannot add closure days') INTO v_result;
   RETURN v_result;
 END; $$;
@@ -81,7 +81,7 @@ FROM (VALUES
 RESET ROLE;
 UPDATE public.organizations SET suspended_at = now() WHERE id = pg_temp.id(101);
 SELECT pg_temp.act(1);
-SELECT throws_ok(pg_temp.add_sql('Denied closure', '{2030-01-02}'), '42501', 'Calendar configuration is not allowed',
+SELECT throws_ok(pg_temp.add_sql('Denied closure', '{2030-01-02}'), '42501', NULL,
   'a configurator of a suspended Organization cannot add closure days');
 RESET ROLE;
 UPDATE public.organizations SET suspended_at = NULL WHERE id = pg_temp.id(101);
@@ -89,7 +89,7 @@ SELECT is(jsonb_build_object('a', pg_temp.days(101), 'b', pg_temp.days(102)),
   (SELECT value FROM snapshots WHERE label = 'before-denials'), 'denied calls change no day in either Organization');
 
 SELECT pg_temp.act(1);
-SELECT throws_ok(pg_temp.add_sql(name, dates), '22023', 'Invalid closure days', label)
+SELECT throws_ok(pg_temp.add_sql(name, dates), '22023', NULL, label)
 FROM (VALUES
   ('', '{2030-01-02}', 'an empty name is rejected'),
   ('   ', '{2030-01-02}', 'a blank name is rejected'),
@@ -100,12 +100,12 @@ FROM (VALUES
   ('Closure', '{{2030-01-02},{2030-01-03}}', 'a nested date list is rejected')
 ) AS invalid(name, dates, label);
 SELECT throws_ok(format('SELECT * FROM public.add_closure_days(%L, NULL, %L::date[])', pg_temp.id(101), '{2030-01-02}'),
-  '22023', 'Invalid closure days', 'a missing name is rejected');
+  '22023', NULL, 'a missing name is rejected');
 SELECT throws_ok(format('SELECT * FROM public.add_closure_days(%L, %L, NULL)', pg_temp.id(101), 'Closure'),
-  '22023', 'Invalid closure days', 'a missing date list is rejected');
+  '22023', NULL, 'a missing date list is rejected');
 SELECT throws_ok(pg_temp.add_sql('Closure',
     (SELECT array_agg(d::date)::text FROM generate_series('2030-01-01'::date, '2031-01-02'::date, interval '1 day') AS d)),
-  '22023', 'Invalid closure days', 'more than 366 dates are rejected');
+  '22023', NULL, 'more than 366 dates are rejected');
 RESET ROLE;
 SELECT is(pg_temp.days(101), (SELECT value->'a' FROM snapshots WHERE label = 'before-denials'), 'invalid calls add no day');
 

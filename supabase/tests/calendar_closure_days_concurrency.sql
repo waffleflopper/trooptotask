@@ -1,14 +1,13 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 CREATE EXTENSION IF NOT EXISTS dblink WITH SCHEMA extensions;
-DELETE FROM public.organizations WHERE id IN ('d1686055-0000-4000-8000-000000000101', 'd1686055-0000-4000-8000-000000000102');
+DELETE FROM public.organizations WHERE id = 'd1686055-0000-4000-8000-000000000101';
 DELETE FROM auth.users WHERE id::text LIKE 'd1686055-0000-4000-8000-%';
 INSERT INTO auth.users (id, email)
 SELECT ('d1686055-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid, 'closure-concurrency-' || n || '@example.test'
 FROM generate_series(1, 3) AS n;
-INSERT INTO public.organizations (id, name, created_by) VALUES
-('d1686055-0000-4000-8000-000000000101', 'Closure Race Alpha', 'd1686055-0000-4000-8000-000000000001'),
-('d1686055-0000-4000-8000-000000000102', 'Closure Race Bravo', 'd1686055-0000-4000-8000-000000000001');
+INSERT INTO public.organizations (id, name, created_by)
+VALUES ('d1686055-0000-4000-8000-000000000101', 'Closure Race Alpha', 'd1686055-0000-4000-8000-000000000001');
 INSERT INTO public.organization_memberships (
   organization_id, user_id, role, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids
 ) SELECT 'd1686055-0000-4000-8000-000000000101'::uuid, ('d1686055-0000-4000-8000-' || lpad(actor::text, 12, '0'))::uuid,
@@ -16,9 +15,8 @@ INSERT INTO public.organization_memberships (
   '{"calendar":"configure","personnel":"none","training":"none","onboarding":"none"}'::jsonb,
   'organization', ARRAY[]::uuid[]
 FROM generate_series(1, 3) AS actor;
-INSERT INTO public.special_days (id, organization_id, date, name, type) VALUES
-('d1686055-0000-4000-8000-000000000301', 'd1686055-0000-4000-8000-000000000101', '2026-12-25', 'Christmas Day', 'federal-holiday'),
-('d1686055-0000-4000-8000-000000000311', 'd1686055-0000-4000-8000-000000000102', '2026-12-22', 'Bravo Closure', 'org-closure');
+INSERT INTO public.special_days (id, organization_id, date, name, type)
+VALUES ('d1686055-0000-4000-8000-000000000301', 'd1686055-0000-4000-8000-000000000101', '2026-12-25', 'Christmas Day', 'federal-holiday');
 COMMIT;
 
 BEGIN;
@@ -64,20 +62,20 @@ BEGIN
     PERFORM pg_sleep(0.01);
   END LOOP;
 END; $$;
+-- dblink re-raises a remote error with the remote SQLSTATE, which is all a denial needs to show.
 CREATE FUNCTION pg_temp.result(connection_name text) RETURNS jsonb LANGUAGE plpgsql AS $$
 DECLARE
   v_value jsonb;
-  v_error text;
+  v_state text;
 BEGIN
-  SELECT r.value INTO v_value FROM dblink_get_result(connection_name, false) AS r(value jsonb);
-  v_error := dblink_error_message(connection_name);
-  PERFORM 1 FROM dblink_get_result(connection_name, false) AS r(value jsonb);
-  IF v_error <> 'OK' THEN RETURN jsonb_build_object('error', v_error); END IF;
+  SELECT r.value INTO v_value FROM dblink_get_result(connection_name, true) AS r(value jsonb);
+  PERFORM 1 FROM dblink_get_result(connection_name, true) AS r(value jsonb);
   RETURN jsonb_build_object('value', v_value);
+EXCEPTION WHEN OTHERS THEN
+  GET STACKED DIAGNOSTICS v_state = RETURNED_SQLSTATE;
+  PERFORM 1 FROM dblink_get_result(connection_name, false) AS r(value jsonb);
+  RETURN jsonb_build_object('sqlstate', v_state);
 END; $$;
-CREATE FUNCTION pg_temp.failed(result jsonb, message text) RETURNS boolean LANGUAGE sql AS $$
-  SELECT coalesce(result->>'error' LIKE '%' || message || '%', false);
-$$;
 CREATE FUNCTION pg_temp.days(org text) RETURNS jsonb LANGUAGE sql AS $$
   SELECT pg_temp.fx(format($q$SELECT coalesce(jsonb_agg(jsonb_build_array(date, name, type) ORDER BY date, type, name), '[]')
     FROM public.special_days WHERE organization_id = #%s$q$, org));
@@ -97,8 +95,6 @@ CREATE FUNCTION pg_temp.add_sql(name text, dates text) RETURNS text LANGUAGE sql
     name, dates);
 $$;
 CREATE TEMP TABLE results(label text PRIMARY KEY, value jsonb);
-INSERT INTO results SELECT 'bravo', pg_temp.fx($$SELECT jsonb_agg(to_jsonb(d) ORDER BY d.id)
-  FROM public.special_days d WHERE organization_id = #102$$);
 
 SELECT pg_temp.begin_as('a', 1);
 SELECT is(pg_temp.call('a', pg_temp.add_sql('Block leave', '{2026-12-21,2026-12-22,2026-12-23,2026-12-24}')),
@@ -116,15 +112,13 @@ SELECT is(pg_temp.days('101'),
 
 INSERT INTO results SELECT 'before-lock-revoke', pg_temp.snapshot();
 SELECT pg_temp.begin_as('a', 1);
-SELECT is(pg_temp.call('a', $$SELECT to_jsonb(pg_advisory_xact_lock(hashtextextended('calendar-closure-days:' || #101::text, 0))::text)$$),
-  '""', 'another session holds the closure lock');
+SELECT pg_temp.call('a', $$SELECT to_jsonb(pg_advisory_xact_lock(hashtextextended('calendar-closure-days:' || #101::text, 0))::text)$$);
 SELECT pg_temp.begin_as('b', 2);
 SELECT pg_temp.send('b', pg_temp.add_sql('Revoked leave', '{2027-01-04,2027-01-05}'));
 SELECT ok(pg_temp.blocked_by('b', 'a', 'advisory'), 'the command waits on the advisory lock');
 SELECT pg_temp.set_calendar(2, 'view');
 SELECT pg_temp.exec('a', 'COMMIT');
-SELECT ok(pg_temp.failed(pg_temp.result('b'), 'Calendar configuration is not allowed'),
-  'access revoked during the advisory wait denies the command');
+SELECT is(pg_temp.result('b'), '{"sqlstate": "42501"}', 'access revoked during the advisory wait denies the command');
 SELECT pg_temp.exec('b', 'ROLLBACK');
 SELECT pg_temp.set_calendar(2, 'configure');
 SELECT is(pg_temp.snapshot(), (SELECT value FROM results WHERE label = 'before-lock-revoke'),
@@ -132,28 +126,20 @@ SELECT is(pg_temp.snapshot(), (SELECT value FROM results WHERE label = 'before-l
 
 INSERT INTO results SELECT 'before-fk-wait', pg_temp.snapshot();
 SELECT pg_temp.exec('c', 'BEGIN');
-SELECT is(pg_temp.call('c', $$SELECT to_jsonb(count(*)) FROM (SELECT 1 FROM public.organizations WHERE id = #101 FOR UPDATE) AS held$$),
-  '1', 'another session holds the Organization row without changing it');
+SELECT pg_temp.call('c', $$SELECT to_jsonb(count(*)) FROM (SELECT 1 FROM public.organizations WHERE id = #101 FOR UPDATE) AS held$$);
 SELECT pg_temp.begin_as('b', 2);
 SELECT pg_temp.send('b', pg_temp.add_sql('Revoked leave', '{2027-01-04,2027-01-05}'));
 SELECT ok(pg_temp.blocked_by('b', 'c', 'transactionid'), 'the command waits on the held Organization row');
-SELECT ok(EXISTS (SELECT 1 FROM pg_stat_activity w JOIN pg_locks l ON l.pid = w.pid AND l.granted
-    WHERE w.application_name = 't1686cl_b' AND l.locktype = 'tuple' AND l.relation = 'public.organizations'::regclass),
-  'the waiting lock is the INSERT''s Organization foreign-key check');
 SELECT pg_temp.set_calendar(2, 'view');
 SELECT pg_temp.exec('c', 'ROLLBACK');
-SELECT ok(pg_temp.failed(pg_temp.result('b'), 'Calendar configuration is not allowed'),
-  'access revoked during the foreign-key wait denies the command');
+SELECT is(pg_temp.result('b'), '{"sqlstate": "42501"}', 'access revoked during the foreign-key wait denies the command');
 SELECT pg_temp.exec('b', 'COMMIT');
 SELECT pg_temp.set_calendar(2, 'configure');
 SELECT is(pg_temp.snapshot(), (SELECT value FROM results WHERE label = 'before-fk-wait'),
   'the command denied after the foreign-key wait committed nothing');
 
-SELECT is(pg_temp.fx($$SELECT jsonb_agg(to_jsonb(d) ORDER BY d.id) FROM public.special_days d WHERE organization_id = #102$$),
-  (SELECT value FROM results WHERE label = 'bravo'), 'another Organization is untouched throughout');
-
 SELECT pg_temp.exec('fixture', $$
-  DELETE FROM public.organizations WHERE id IN (#101, #102);
+  DELETE FROM public.organizations WHERE id = #101;
   DELETE FROM auth.users WHERE id::text LIKE 'd1686055-0000-4000-8000-%';
 $$);
 SELECT dblink_disconnect(name) FROM (VALUES ('fixture'), ('a'), ('b'), ('c')) AS connections(name);

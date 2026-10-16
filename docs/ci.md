@@ -4,11 +4,15 @@ Depot CI runs validation for this private, single-contributor repository. GitHub
 
 ## What runs
 
-[The workflow](../.depot/workflows/ci.yml) runs on PRs targeting `main`, pushes to `main`, and manual dispatch. Feature-branch pushes without a PR do not start duplicate runs. New PR updates cancel superseded runs; main/manual runs are retained. No deployment or remote database operation is part of CI.
+[The workflow](../.depot/workflows/ci.yml) runs on PRs targeting `main` that carry the `run-ci` label, and on manual dispatch. Merging to `main` starts no run. Feature-branch pushes without a PR do not start duplicate runs. New PR updates cancel superseded runs; manual runs are retained. No deployment or remote database operation is part of CI.
+
+PR checks wait until the review bots are done, so rounds of review fixes do not each pay for a full run. Without the label, every job reports skipped. Add `run-ci` once hosted review of the current head returns no actionable findings. Adding it starts a run, and CI then runs on every later push. Before pushing another round of review fixes, remove the label and add it again after that round's review is clean. Adding any other label skips every job and cannot cancel a running check. Robert can add the label from the PR page at any time.
+
+A PR's run tests its merge with `main` as of that run. If `main` moves before the merge, that combination is untested. When an exact `main` commit needs CI evidence, such as a phase check on the integrated candidate, run `depot ci dispatch --repo waffleflopper/trooptotask --workflow ci.yml --ref main`. That run validates everything, including Database contracts.
 
 | Job                        | Scope                                                                                                                                                                                                                                                                             |
 | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Select checks              | Uses the full PR diff or push’s before/after diff, including deletions and renames. Manual/local CLI runs validate everything. Missing comparison history fails explicitly.                                                                                                       |
+| Select checks              | Uses the full PR diff, including deletions and renames. Manual/local CLI runs validate everything. Missing comparison history fails explicitly.                                                                                                                                   |
 | Repository and application | Formats changed Markdown in check mode, validates local links/anchors across all tracked Markdown and checks whitespace. For executable changes: format check, lint, governance, Svelte/types, full Vitest and production build. Runs the small database-runner safety tests too. |
 | Database contracts         | Runs when Supabase, CI tooling/workflows, package manifests/lock or Node version changes, and on full manual runs. Fresh isolated migration replay, all SQL contracts, populated-upgrade regressions and SDK/provider probes.                                                     |
 
@@ -26,7 +30,17 @@ The governance job runs the canonical checker, which fails on any module-boundar
 
 ## Vercel deployment builds
 
-Vercel deployment builds are separate from Depot validation. The `ignoreCommand` in [vercel.json](../vercel.json) also runs as the project's **Ignored Build Step**. Keep the hosted command equal to the checked-in command so existing branches use the same policy.
+Vercel deployment builds are separate from Depot validation. Vercel deploys only `main` automatically. `git.deploymentEnabled` in [vercel.json](../vercel.json) sets `main` to `true` and every other branch to `false`. The `**` pattern is needed because `*` does not match branch names containing `/`. PR branches get no automatic preview deployment.
+
+Previews run only when Robert asks for one. To deploy the pushed head of the current branch as a preview, run this from a checkout where `vercel whoami` succeeds:
+
+```bash
+printf '{"name":"trooptotask","gitSource":{"type":"github","repoId":1152387919,"ref":"%s"}}' "$(git branch --show-current)" | vercel api /v13/deployments -X POST --input -
+```
+
+Vercel clones the branch from GitHub and builds it with Preview environment variables. Uncommitted and unpushed changes are not included.
+
+The `ignoreCommand` in [vercel.json](../vercel.json) also runs as the project's **Ignored Build Step**. Keep the hosted command equal to the checked-in command so existing branches use the same policy.
 
 The command compares `HEAD` with `VERCEL_GIT_PREVIOUS_SHA`, Vercel's last successful deployment for the same project and branch. It skips a build only when every changed path matches one of these exclusions:
 

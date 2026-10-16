@@ -82,6 +82,5 @@ describe('CI job selection', () => {
 	it('fails on missing PR metadata or history instead of reporting a docs-only success', () => {
 		const { root } = repository();
 		expect(() => selectScope(root, 'pull_request', {})).toThrow('base SHA');
-		expect(() => selectScope(root, 'push', { before: '1234567890abcdef' })).toThrow();
 	});
 });

@@ -73,6 +73,7 @@ import {
 	deleteAfterUploadOverlap
 } from './organization-upload-overlap.mjs';
 import { selectAllSupabaseRows } from '../../../../src/lib/server/supabasePagination.server.ts';
+import { seedWorkload, cleanWorkloads } from './perf-workloads.mjs';
 
 const argv = process.argv.slice(2);
 const workerIndex = argv.indexOf('--worker');
@@ -802,7 +803,10 @@ async function main() {
 		return;
 	}
 	if (command === 'actor') {
-		const [role, destination = 'calendar'] = args;
+		const [role, destination = 'calendar', workloadName] = args;
+		const workload = workloadName === undefined ? null : (await saved()).workloads?.[workloadName];
+		if (workloadName !== undefined && (!workload || !['perfWide', 'perfScoped'].includes(role)))
+			throw new Error('Use perfWide or perfScoped with a seeded workload name.');
 		const orgDestinations = [
 			'evals',
 			'personnel',
@@ -842,7 +846,7 @@ async function main() {
 				'admin/organizations',
 				'admin/access-requests'
 			].includes(destination) ||
-			(fixture.actors[role].organization === null && orgDestinations.includes(destination)) ||
+			(fixture.actors[role].organization === null && !workload && orgDestinations.includes(destination)) ||
 			((destination === 'admin' || destination.startsWith('admin/')) &&
 				![
 					'platformReviewer',
@@ -858,6 +862,7 @@ async function main() {
 		)
 			throw new Error('Unknown synthetic actor or destination.');
 		const targetOrg = fixture.actors[role].organization ?? null;
+		const orgSegment = workload ? workload.organizationId : targetOrg ? org(targetOrg) : null;
 		const destinationPath =
 			destination === 'admin' || destination.startsWith('admin/')
 				? `/${destination}`
@@ -866,8 +871,8 @@ async function main() {
 					: destination === 'org/new'
 						? '/org/new'
 						: destination === 'home'
-							? `/org/${org(targetOrg)}`
-							: `/org/${org(targetOrg)}/${destination}`;
+							? `/org/${orgSegment}`
+							: `/org/${orgSegment}/${destination}`;
 		let readyText =
 			destination === 'admin/audit'
 				? [
@@ -940,6 +945,7 @@ async function main() {
 			!['admin/audit', 'admin/feedback', 'admin/announcements'].includes(destination)
 		)
 			readyText = ['Users', 'Organizations', 'Access Requests', 'Forbidden', 'Access denied', '403'];
+		if (workload) readyText = [workload.name, 'Access restricted', 'Access Restricted'];
 		readyText = [...readyText, 'Account Suspended', 'Verify your code'];
 		const url = `${doctor.origin}/auth/login?next=${encodeURIComponent(destinationPath)}`;
 		const browserContext = `map-${role}-${randomUUID()}`;
@@ -983,7 +989,7 @@ async function main() {
 			role,
 			pageId,
 			browserContext,
-			orgId: targetOrg ? org(targetOrg) : null,
+			orgId: orgSegment,
 			path: landed,
 			access: page.includes("You don't have permission to view this page") ? 'denied' : 'not-assessed',
 			origin: doctor.origin
@@ -1729,13 +1735,18 @@ async function main() {
 				'deletion-sources',
 				'account-setup',
 				'roster-shared-keys',
-				'federal-reset-sentinels'
+				'federal-reset-sentinels',
+				'workload'
 			].includes(kind)
 		)
 			throw new Error('Unknown temporary seed.');
 		const client = await provider();
 		const ownedState = await saved();
 		const tag = randomUUID().slice(0, 8);
+		if (kind === 'workload') {
+			note(await seedWorkload({ client, fixture, name: args[1], tag, ownedState, save }));
+			return;
+		}
 		if (kind === 'training-print') {
 			note(await seedTrainingPrint({ client, fixture, tag, ownedState, save }));
 			return;
@@ -2414,6 +2425,7 @@ async function main() {
 		} catch (error) {
 			platformError = error;
 		}
+		const workloadCleanup = await cleanWorkloads({ client, ownedState, save });
 		await cleanTrainingPrint({ client, fixture, ownedState, save });
 		await cleanRosterInserts({ service: client, fixture, ownedState, save });
 		const sharedKeyCleanup = await cleanRosterSharedKeys({ client, fixture, ownedState, save });
@@ -2463,7 +2475,7 @@ async function main() {
 		await save(ownedState);
 		await clearArtifactHttpCache({ session, sessionId: state.id });
 		if (platformError) throw platformError;
-		note({ cleaned: true, artifactHttpSessionsCleared: true, platformCleanup, sharedKeyCleanup });
+		note({ cleaned: true, artifactHttpSessionsCleared: true, platformCleanup, sharedKeyCleanup, workloadCleanup });
 		return;
 	}
 	if (command === 'network') {

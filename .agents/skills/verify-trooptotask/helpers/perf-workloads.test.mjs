@@ -151,7 +151,11 @@ const journaled = () => ({
 
 // An in-memory provider with the schema's delete actions: deleting an Organization cascades its
 // rows, except audit_logs, whose org_id is set to null. `keepAudit` models rows that refuse deletion.
-function provider({ readback = { data: { user: null }, error: null }, keepAudit = false } = {}) {
+function provider({
+	readback = { data: { user: null }, error: null },
+	deleted = { error: null },
+	keepAudit = false
+} = {}) {
 	const tables = {
 		groups: [{ id: groupId, organization_id: organizationId }],
 		organizations: [{ id: organizationId }],
@@ -195,7 +199,7 @@ function provider({ readback = { data: { user: null }, error: null }, keepAudit 
 	return {
 		tables,
 		from: queryOn,
-		auth: { admin: { deleteUser: async () => ({ error: null }), getUserById: async () => readback } }
+		auth: { admin: { deleteUser: async () => deleted, getUserById: async () => readback } }
 	};
 }
 
@@ -256,4 +260,24 @@ test('audit rows journaled by an interrupted run are still removed after their O
 	const results = await cleanWorkloads({ client, ownedState, save: async () => {} });
 	assert.equal(results.small.clean, true);
 	assert.deepEqual(client.tables.audit_logs, []);
+});
+
+test('one rule reads an absent account in both the delete and the readback', async () => {
+	for (const absent of [{ status: 404 }, { code: 'user_not_found' }, { status: 404, code: 'user_not_found' }]) {
+		const ownedState = journaled();
+		const results = await cleanWorkloads({
+			client: provider({ deleted: { error: absent }, readback: { data: { user: null }, error: absent } }),
+			ownedState,
+			save: async () => {}
+		});
+		assert.deepEqual(results.small.readback.users, { seeded: 1, remaining: 0 });
+	}
+	await assert.rejects(
+		cleanWorkloads({
+			client: provider({ deleted: { error: { status: 500, message: 'Boom' } } }),
+			ownedState: journaled(),
+			save: async () => {}
+		}),
+		/user cleanup failed: Boom/
+	);
 });

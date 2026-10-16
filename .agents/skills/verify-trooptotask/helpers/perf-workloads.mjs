@@ -573,6 +573,9 @@ const appWrittenTables = [
 ];
 const survivingTables = ['audit_logs'];
 
+/** The provider reports an absent account as a 404, with or without the `user_not_found` code. */
+export const accountAbsent = (error) => error?.status === 404 || error?.code === 'user_not_found';
+
 async function count(client, table, column, value) {
 	const { count: total, error } = await client
 		.from(table)
@@ -647,7 +650,7 @@ export async function cleanWorkloads({ client, ownedState, save }) {
 		if (error) throw new Error(`Disposable provider cleanup failed on organizations: ${error.message}`);
 		for (const userId of item.users) {
 			const { error: userError } = await client.auth.admin.deleteUser(userId);
-			if (userError && userError.status !== 404)
+			if (userError && !accountAbsent(userError))
 				throw new Error(`Disposable provider user cleanup failed: ${userError.message}`);
 		}
 		const remaining = {};
@@ -667,7 +670,7 @@ export async function cleanWorkloads({ client, ownedState, save }) {
 		let usersRemaining = 0;
 		for (const userId of item.users) {
 			const { data, error: readError } = await client.auth.admin.getUserById(userId);
-			if (readError?.code === 'user_not_found') continue;
+			if (accountAbsent(readError)) continue;
 			if (readError) throw new Error(`Disposable provider user readback failed: ${readError.message}`);
 			if (data?.user) usersRemaining++;
 		}

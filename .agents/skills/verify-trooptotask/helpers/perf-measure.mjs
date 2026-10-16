@@ -14,9 +14,10 @@ export const profiles = {
 	}
 };
 
+// Every cold sample is a real sign-in under the app's per-IP limit, so cold takes fewer samples;
+// a cold warm-up would warm nothing the next cold sample keeps.
 export const protocol = {
-	warmup: 1,
-	repetitions: 5,
+	defaults: { warm: { warmup: 1, repetitions: 5 }, cold: { warmup: 0, repetitions: 3 } },
 	modes: {
 		cold: 'First app document in a new browser context signed in without loading app code: empty HTTP cache.',
 		warm: 'Navigation to the journey URL in the signed-in page after the warm-up: new document, HTTP cache kept.'

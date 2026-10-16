@@ -22,7 +22,7 @@ Launch and drive under Node 24 (`mise exec node@24 --`); the adapter refuses new
 
 1. Seed: `$V seed workload small`, then `typical`, then `large`. Record the returned counts and `timingsMs`; they are the seed timings. The returned `actors`, `sentinels` and `searchTerms` are what the observer waits for.
 2. Sign in once per actor: `$V actor perfWide personnel large` and `$V actor perfScoped personnel large`. Each actor is a member of every seeded workload, so the same page drives all three. Keep the returned page IDs.
-3. Load: `$V perf load PAGE WORKLOAD personnel-list|dashboard perfWide|perfScoped --mode cold|warm --out $RUN`. The defaults are one warm-up and five repetitions, unthrottled. Add `--profile field-laptop` for 4x CPU and Fast 4G.
+3. Load: `$V perf load PAGE WORKLOAD personnel-list|dashboard perfWide|perfScoped --mode cold|warm --out $RUN`. Warm defaults are one warm-up and five repetitions, unthrottled; cold defaults are three repetitions. Run warm before cold so the server is warm. Add `--profile field-laptop` for 4x CPU and Fast 4G.
 4. Interaction: `$V perf interaction PAGE WORKLOAD personnel-search ACTOR --out $RUN`.
 5. Trace: `$V perf trace PAGE WORKLOAD JOURNEY ACTOR --out $RUN`.
 6. Queries: `perf load` and `perf interaction` reset pg_stat_statements after the warm-up and save the top 15 with the run. `$V perf statements reset|read --top N --out FILE` does the same by hand. `$V perf explain NAME WORKLOAD wide|scoped --out FILE` explains one registry statement as that actor.
@@ -40,7 +40,7 @@ Every workload has about one availability entry per Soldier per 30 days, one dai
 
 ### Protocol
 
-- `cold`: each sample opens a new isolated browser context, signs in by posting the real login form action from a static image (no app code loads), then navigates to the journey. The HTTP cache is empty and the context is closed afterwards.
+- `cold`: each sample opens a new isolated browser context on a static image and signs in by posting the real login form action, which loads no app code. It then navigates to the journey with an empty HTTP cache and closes the context. Defaults: no warm-up, three repetitions.
 - `warm`: each sample navigates the signed-in actor page to the journey URL after the warm-up. It is a new document with the HTTP cache kept.
 - The settled milestone for Personnel is the actor's sentinel row, or the paused-roster notice for a large wide roster, with no skeleton. For the Dashboard it is the `Upcoming Changes` and `Requires Attention` panels with no skeleton. For search it is the search term's row with the sentinel gone.
 - Report min, median, max and every sample. With five samples, a p95 would be a guess; do not report one.
@@ -48,6 +48,7 @@ Every workload has about one availability entry per Soldier per 30 days, one dai
 ## Gotchas
 
 - A reload never gives a cold load. Chrome serves the content-hashed `/_app/immutable` assets from cache on every reload, including `navigate_page` with `ignoreCache`, and the native tools have no cache-disable control. That is why `cold` uses a fresh context.
+- The app rate-limits by IP in `hooks.server.ts`: 10 `/auth/` POSTs per 15 minutes and 60 other requests per minute. Every sample comes from loopback, so samples start at least 6 seconds apart per worker, and cold sign-ins wait for a slot (8 in any 15 minutes), roughly two minutes per cold sample once the budget is spent. When a budget runs out anyway, doctor reports `APP_ENDPOINT_UNAVAILABLE`, because its `/auth/login` probe gets a 429, or a cold sample reports `Cold sign-in returned failure`. Sending a captured session as a request header does not work: the first post-hydration invalidation is answered signed-out.
 - Above 250 People the By Group roster shows `Grouped roster paused` instead of rows. A large wide `personnel-list` sample therefore settles on that notice and renders no Person rows; compare it with large scoped and typical wide, not as a like-for-like row count.
 - Only Calendar, Dashboard and Training emit `[*-load]` server timing lines. A Personnel sample has none; use its statements and `responseStartMs` for the server side.
 - pg_stat_statements covers the whole owned database for the window, including auth and PostgREST setup statements. Read `byRole` before attributing time to the app.

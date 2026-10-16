@@ -34,7 +34,7 @@ JOURNEY: ${Object.entries(journeys)
 	.map(([name, journey]) => `${name} (${journey.kind})`)
 	.join(', ')}
 ACTOR: perfWide (Organization owner) or perfScoped (operate, one Group)
-Profiles: ${Object.keys(profiles).join(', ')}. Defaults: warm-up ${protocol.warmup}, repetitions ${protocol.repetitions}.
+Profiles: ${Object.keys(profiles).join(', ')}. Defaults: warm and interaction warm-up ${protocol.defaults.warm.warmup}, repetitions ${protocol.defaults.warm.repetitions}; cold warm-up ${protocol.defaults.cold.warmup}, repetitions ${protocol.defaults.cold.repetitions}.
 RUN and FILE must be under .verification/evidence/verify-trooptotask/.`;
 
 const actors = { perfWide: 'wide', perfScoped: 'scoped' };
@@ -87,13 +87,14 @@ function target(ctx, positional, kind) {
 	};
 }
 
-async function emulate(ctx, pageId, profileName) {
+async function emulate(ctx, pageId, profileName, extra = {}) {
 	const profile = profiles[profileName];
 	if (!profile) throw new Error(`Use a profile: ${Object.keys(profiles).join(', ')}.`);
 	await ctx.tool('emulate', {
 		pageId,
 		cpuThrottlingRate: profile.cpuThrottlingRate,
-		...(profile.networkConditions ? { networkConditions: profile.networkConditions } : {})
+		...(profile.networkConditions ? { networkConditions: profile.networkConditions } : {}),
+		...extra
 	});
 	return profile;
 }
@@ -104,10 +105,38 @@ async function settled(ctx, pageId) {
 	return ctx.evaluate(pageId, `() => (${readSettledSample.toString()})(window, 30000)`);
 }
 
+// The app admits 10 sign-in POSTs per IP in a fixed 15-minute window and 60 other requests
+// per minute (hooks.server.ts), and every sample comes from loopback. Samples start at least
+// 6 s apart, and cold sign-ins stay at 8 in any 15 minutes, leaving room for actor sign-ins.
+const sampleSpacingMs = 6000;
+const signInWindowMs = 15 * 60_000;
+const signInBudget = 8;
+
+async function waitUntil(at) {
+	const wait = at - Date.now();
+	if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+}
+
+async function paceSample(ctx) {
+	const file = path.join(ctx.session, 'perf-pace.json');
+	await waitUntil(Number(await fs.readFile(file, 'utf8').catch(() => '0')) + sampleSpacingMs);
+	await fs.writeFile(file, String(Date.now()), { mode: 0o600 });
+}
+
+async function signInSlot(ctx) {
+	const file = path.join(ctx.session, 'perf-sign-ins.json');
+	const recent = JSON.parse(await fs.readFile(file, 'utf8').catch(() => '[]')).filter(
+		(at) => Date.now() - at < signInWindowMs
+	);
+	if (recent.length >= signInBudget) await waitUntil(recent[recent.length - signInBudget] + signInWindowMs + 1000);
+	await fs.writeFile(file, JSON.stringify([...recent, Date.now()].slice(-signInBudget)), { mode: 0o600 });
+}
+
 // Chrome serves content-hashed /_app/immutable assets from cache on every reload, including a
 // cache-ignoring one, so a cold sample is the first app document in a new browser context. It
-// signs in by posting the login action from a static image, which loads no app code.
+// signs in by posting the login form action from a static image, which loads no app code.
 async function coldPage(ctx, run, profileName) {
+	await signInSlot(ctx);
 	const created = ctx.text(
 		await ctx.tool('new_page', {
 			url: `${ctx.doctor.origin}/og-image.png`,
@@ -138,7 +167,7 @@ async function coldPage(ctx, run, profileName) {
 	);
 	if (signedIn !== 'redirect') {
 		await ctx.tool('close_page', { pageId });
-		throw new Error(`Cold sign-in returned ${signedIn}, not a redirect.`);
+		throw new Error(`Cold sign-in returned ${signedIn}, not a redirect; check the app sign-in limit.`);
 	}
 	await emulate(ctx, pageId, profileName);
 	return pageId;
@@ -222,9 +251,10 @@ function summarize(samples) {
 	};
 }
 
-async function repeat(ctx, run, options, once) {
-	const warmup = count(options.warmup, protocol.warmup, '--warmup');
-	const repetitions = count(options.reps, protocol.repetitions, '--reps');
+async function repeat(ctx, run, options, mode, once) {
+	const defaults = protocol.defaults[mode] ?? protocol.defaults.warm;
+	const warmup = count(options.warmup, defaults.warmup, '--warmup');
+	const repetitions = count(options.reps, defaults.repetitions, '--reps');
 	for (let index = 0; index < warmup; index++) await once();
 	await ctx.database('perf-statements', 'reset');
 	const samples = [];
@@ -280,6 +310,7 @@ async function load(ctx, positional, options) {
 	await emulate(ctx, run.pageId, profileName);
 	try {
 		const once = async () => {
+			await paceSample(ctx);
 			const pageId = mode === 'cold' ? await coldPage(ctx, run, profileName) : run.pageId;
 			try {
 				const offset = await appLogSize(ctx);
@@ -290,7 +321,7 @@ async function load(ctx, positional, options) {
 				if (pageId !== run.pageId) await ctx.tool('close_page', { pageId });
 			}
 		};
-		const result = await repeat(ctx, run, options, once);
+		const result = await repeat(ctx, run, options, mode, once);
 		return record(ctx, run, options, mode, { ...result, milestones }, profileName);
 	} finally {
 		await emulate(ctx, run.pageId, 'unthrottled');
@@ -319,6 +350,7 @@ async function interaction(ctx, positional, options) {
 	await emulate(ctx, run.pageId, profileName);
 	try {
 		const once = async () => {
+			await paceSample(ctx);
 			await ctx.tool('navigate_page', { pageId: run.pageId, type: 'url', url: run.url, initScript: ready });
 			const before = await settled(ctx, run.pageId);
 			if (!before.observer?.done) throw new Error(`${run.journeyName} never reached its ready milestone.`);
@@ -329,7 +361,7 @@ async function interaction(ctx, positional, options) {
 			const sample = await settled(ctx, run.pageId);
 			return measured(ctx, run, sample, await appLogFrom(ctx, offset), sample.observer?.startedAt ?? 0);
 		};
-		const result = await repeat(ctx, run, options, once);
+		const result = await repeat(ctx, run, options, 'warm', once);
 		return record(ctx, run, options, 'interaction', { ...result, milestones }, profileName);
 	} finally {
 		await emulate(ctx, run.pageId, 'unthrottled');
@@ -352,6 +384,7 @@ async function trace(ctx, positional, options) {
 			'Performance output must be under .verification/evidence/verify-trooptotask/ without .. or symlinks.'
 		);
 	await fs.mkdir(path.dirname(base), { recursive: true });
+	await paceSample(ctx);
 	const pageId = await coldPage(ctx, run, profileName);
 	try {
 		await ctx.tool('performance_start_trace', { pageId, reload: false, autoStop: false });

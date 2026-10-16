@@ -96,7 +96,7 @@ For durable publication, follow [artifact packaging](../../../../docs/architectu
 - [Bulk status changes](bulk-status.md): selection, import review, valid and invalid rows, whole-entry removal, and partial chunk feedback.
 - [Calendar catalogs](calendar-catalogs.md): status and assignment type settings, linked/archived records, deletion effects and configuration denials.
 - [Manual assignments](calendar-assignments.md): Person and Group slots, planner save/reload/clear, quick fill, range retry and denied writes.
-- [Special days](special-days.md): closures, federal reset, failed edit and Organization boundary.
+- [Special days](special-days.md): Holidays & closures list, closure date ranges, federal reset, failed edit and Organization boundary.
 - [Reports and history](reports-history.md): five Calendar report modes and downloaded workbooks, retained Calendar history and Dashboard projection.
 - [Organization switching](organization-switching.md): A/B data isolation, delayed range/mutation responses and permission narrowing.
 

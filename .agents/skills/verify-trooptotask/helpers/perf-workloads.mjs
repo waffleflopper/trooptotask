@@ -618,7 +618,9 @@ export async function cleanWorkloads({ client, ownedState, save }) {
 		remaining.organizations = { seeded: 1, remaining: await count(client, 'organizations', 'id', item.organizationId) };
 		let usersRemaining = 0;
 		for (const userId of item.users) {
-			const { data } = await client.auth.admin.getUserById(userId);
+			const { data, error: readError } = await client.auth.admin.getUserById(userId);
+			if (readError?.code === 'user_not_found') continue;
+			if (readError) throw new Error(`Disposable provider user readback failed: ${readError.message}`);
 			if (data?.user) usersRemaining++;
 		}
 		remaining.users = { seeded: item.users.length, remaining: usersRemaining };

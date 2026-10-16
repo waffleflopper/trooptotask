@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { expandWorkload, workloadMembers, workloads, workloadTables } from './perf-workloads.mjs';
+import { cleanWorkloads, expandWorkload, workloadMembers, workloads, workloadTables } from './perf-workloads.mjs';
 
 const owner = { id: '11111111-1111-4111-8111-111111111111', email: 'wide@example.test' };
 const scoped = { id: '22222222-2222-4222-8222-222222222222', email: 'scoped@example.test' };
@@ -103,4 +103,54 @@ test('sentinels and search terms belong to each actor scope', () => {
 	assert.ok(active.some((person) => label(person) === sentinels.wide));
 	assert.equal(inGroup.filter((person) => person.last_name === searchTerms.scoped).length, 1);
 	assert.equal(active.filter((person) => person.last_name === searchTerms.wide).length, 1);
+});
+
+const journaled = () => ({
+	workloads: {
+		small: {
+			organizationId: '33333333-3333-4333-8333-333333333333',
+			users: ['44444444-4444-4444-8444-444444444444'],
+			tables: [{ table: 'groups', ids: ['55555555-5555-4555-8555-555555555555'] }]
+		}
+	}
+});
+
+// Every row query answers as already removed; only the auth readback varies.
+function provider(readback) {
+	const query = { then: (resolve) => resolve({ error: null, count: 0 }) };
+	for (const method of ['select', 'delete', 'eq', 'in']) query[method] = () => query;
+	return {
+		from: () => query,
+		auth: { admin: { deleteUser: async () => ({ error: null }), getUserById: async () => readback } }
+	};
+}
+
+test('an unavailable account readback fails cleanup and keeps the journal', async () => {
+	const ownedState = journaled();
+	const saved = [];
+	await assert.rejects(
+		cleanWorkloads({
+			client: provider({ data: { user: null }, error: { status: 503, message: 'Service Unavailable' } }),
+			ownedState,
+			save: async (state) => saved.push(structuredClone(state))
+		}),
+		/user readback failed: Service Unavailable/
+	);
+	assert.deepEqual(ownedState, journaled());
+	assert.deepEqual(saved, []);
+});
+
+test('an account the provider reports not found is read back as removed', async () => {
+	const ownedState = journaled();
+	const results = await cleanWorkloads({
+		client: provider({
+			data: { user: null },
+			error: { status: 404, code: 'user_not_found', message: 'User not found' }
+		}),
+		ownedState,
+		save: async () => {}
+	});
+	assert.equal(results.small.clean, true);
+	assert.deepEqual(results.small.readback.users, { seeded: 1, remaining: 0 });
+	assert.deepEqual(ownedState.workloads, {});
 });

@@ -267,7 +267,9 @@ describe('AvailabilityModal — day counts', () => {
 
 			expect(screen.getByText(/\(10\s+days\)/)).toBeTruthy();
 			await fireEvent.click(screen.getByRole('button', { name: 'Edit status' }));
-			expect(screen.getByText('10').nextElementSibling?.textContent).toBe('days');
+			expect(
+				screen.getAllByText((_, element) => element?.textContent?.replace(/\s+/g, ' ').trim() === '10 days')
+			).not.toHaveLength(0);
 		} finally {
 			if (originalTimezone === undefined) delete process.env.TZ;
 			else process.env.TZ = originalTimezone;

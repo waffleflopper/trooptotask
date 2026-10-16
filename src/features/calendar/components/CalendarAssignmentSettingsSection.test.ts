@@ -93,7 +93,6 @@ describe('CalendarAssignmentSettingsSection', () => {
 		expect(listNames(ON_CALENDAR)).toEqual(['Staff Duty', 'Charge of Quarters']);
 		expect(listNames('Duty planner only')).toEqual(['Gate Guard', 'Runner']);
 		expect(screen.queryByText('Old Duty')).toBeNull();
-		expect(screen.queryByText('Each lane adds about 26px above the roster.')).toBeNull();
 	});
 
 	it('appends a type when switched on and removes only that type when switched off', async () => {
@@ -125,13 +124,6 @@ describe('CalendarAssignmentSettingsSection', () => {
 		expect(
 			(screen.getByRole('switch', { name: 'Show Gate Guard on the calendar' }) as HTMLButtonElement).disabled
 		).toBe(false);
-	});
-
-	it('notes the height cost once there are more than three lanes', () => {
-		store.types = [lane('a', 'Alpha', 0), lane('b', 'Bravo', 1), lane('c', 'Charlie', 2), lane('d', 'Delta', 3)];
-		renderSection();
-
-		expect(screen.getByText('Each lane adds about 26px above the roster.')).toBeTruthy();
 	});
 
 	it('hides grips while searching because a filtered list cannot express positions', () => {

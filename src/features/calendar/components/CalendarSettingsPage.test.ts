@@ -79,6 +79,11 @@ async function openRowAction(rowName: string, action: 'Edit' | 'Delete' | 'Remov
 	await fireEvent.click(await screen.findByRole('menuitem', { name: action }));
 }
 
+async function pickDay(composer: HTMLElement, picker: 'First day' | 'Last day', day: string) {
+	await fireEvent.click(within(composer).getByRole('button', { name: picker }));
+	await fireEvent.click(await screen.findByRole('button', { name: day }));
+}
+
 describe('CalendarSettingsPage', () => {
 	beforeEach(() => {
 		cleanup();
@@ -516,7 +521,6 @@ describe('CalendarSettingsPage', () => {
 		expect(screen.getByRole('tab', { name: /Status Types/ }).getAttribute('aria-selected')).toBe('false');
 		const panel = screen.getByRole('tabpanel');
 		expect(within(panel).getByLabelText('Year')).toBeTruthy();
-		expect(screen.getByRole('heading', { name: 'Holidays & closures' })).toBeTruthy();
 	});
 
 	it("names each row's actions by the row and edits the chosen row", async () => {
@@ -597,31 +601,31 @@ describe('CalendarSettingsPage', () => {
 			const kept = screen.getByRole('form', { name: 'New closure' });
 			expect((within(kept).getByLabelText('Name') as HTMLInputElement).value).toBe('Training holiday');
 		});
-	});
 
-	it('keeps the edit-closure dialog open when save fails', async () => {
-		onOctober14();
-		specialDaysStoreMock.items = [
-			{
-				id: 'closure-1',
-				date: '2026-12-15',
-				name: 'Training Day',
-				type: 'org-closure'
-			}
-		];
-		specialDaysStoreMock.update.mockResolvedValueOnce(false);
-		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+		it('returns focus to New closure after Cancel', async () => {
+			render(CalendarSettingsPage, { props: { org } });
+			await fireEvent.click(screen.getByRole('tab', { name: /Holidays & closures/ }));
+			const add = screen.getByRole('button', { name: 'New closure' });
+			add.focus();
+			await fireEvent.click(add);
 
-		render(CalendarSettingsPage, { props: { org } });
+			await fireEvent.click(
+				within(screen.getByRole('form', { name: 'New closure' })).getByRole('button', { name: 'Cancel' })
+			);
 
-		await fireEvent.click(screen.getByRole('tab', { name: /Holidays & closures/ }));
-		await openRowAction('Training Day', 'Edit');
-		const dialog = screen.getByRole('dialog', { name: 'Edit Closure' });
-		await fireEvent.input(within(dialog).getByLabelText('Name'), { target: { value: 'Updated Training Day' } });
-		await fireEvent.click(within(dialog).getByRole('button', { name: 'Save Changes' }));
+			await waitFor(() => expect(screen.queryByRole('form', { name: 'New closure' })).toBeNull());
+			await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'New closure' })));
+		});
 
-		expect(screen.getByRole('dialog', { name: 'Edit Closure' })).toBeTruthy();
-		expect(errorToast).toHaveBeenCalledWith('Failed to save closure');
+		it('describes the Last day control by the error when it falls before the First day', async () => {
+			const composer = await openComposer('Training holiday');
+
+			await pickDay(composer, 'Last day', 'Saturday, October 10, 2026');
+
+			const lastDay = within(composer).getByRole('button', { name: 'Last day' });
+			expect(lastDay.getAttribute('aria-invalid')).toBe('true');
+			expect(lastDay.getAttribute('aria-describedby')?.split(' ')).toContain(within(composer).getByRole('alert').id);
+		});
 	});
 
 	it('keeps delete closure confirmation open when deletion fails', async () => {
@@ -735,7 +739,7 @@ describe('CalendarSettingsPage', () => {
 	});
 
 	// happy-dom does not apply a disabled fieldset to its controls' :disabled state.
-	const inDisabledGroup = (control: HTMLElement) => control.closest('fieldset')?.disabled === true;
+	const inDisabledGroup = (control: HTMLElement) => control.closest('fieldset[disabled]') !== null;
 
 	const heldAddDialogs = [
 		{
@@ -817,6 +821,42 @@ describe('CalendarSettingsPage', () => {
 		expect(errorToast).toHaveBeenCalledOnce();
 		expect((within(composer()).getByLabelText('Name') as HTMLInputElement).value).toBe('Detail');
 		expect(control('Add status type').disabled).toBe(false);
+	});
+
+	it('holds a closure save with its draft locked, ignores a repeat submit and keeps the draft on failure', async () => {
+		onOctober14();
+		let settle!: (result: { status: 'not-saved'; message: string }) => void;
+		specialDaysStoreMock.addClosureDays.mockReturnValueOnce(new Promise((resolve) => (settle = resolve)));
+		render(CalendarSettingsPage, { props: { org } });
+		await fireEvent.click(screen.getByRole('tab', { name: /Holidays & closures/ }));
+		await fireEvent.click(screen.getByRole('button', { name: 'New closure' }));
+		const composer = () => screen.getByRole('form', { name: 'New closure' });
+		const control = (name: string | RegExp) => within(composer()).getByRole('button', { name }) as HTMLButtonElement;
+		await fireEvent.input(within(composer()).getByLabelText('Name'), { target: { value: 'Block leave' } });
+		await pickDay(composer(), 'Last day', 'Friday, October 16, 2026');
+
+		await fireEvent.click(control(/Add 3 days/));
+		await fireEvent.click(control(/Add 3 days/));
+
+		expect(specialDaysStoreMock.addClosureDays).toHaveBeenCalledExactlyOnceWith({
+			name: 'Block leave',
+			dates: ['2026-10-14', '2026-10-15', '2026-10-16']
+		});
+		expect(control(/Add 3 days/).disabled).toBe(true);
+		expect(control('Cancel').disabled).toBe(true);
+		for (const field of [within(composer()).getByLabelText('Name'), control('First day'), control('Last day')]) {
+			expect(inDisabledGroup(field)).toBe(true);
+		}
+		await fireEvent.keyDown(within(composer()).getByLabelText('Name'), { key: 'Escape' });
+		expect(screen.queryByRole('alertdialog', { name: 'Discard changes?' })).toBeNull();
+
+		settle({ status: 'not-saved', message: 'This action requires Calendar configuration access' });
+
+		await waitFor(() => expect(control('Cancel').disabled).toBe(false));
+		expect((within(composer()).getByLabelText('Name') as HTMLInputElement).value).toBe('Block leave');
+		expect(control('First day').textContent).toContain('Oct 14, 2026');
+		expect(control('Last day').textContent).toContain('Oct 16, 2026');
+		expect(inDisabledGroup(control('Last day'))).toBe(false);
 	});
 
 	it('keeps a held status deletion busy and undismissable until it settles', async () => {

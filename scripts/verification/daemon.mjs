@@ -33,6 +33,7 @@ import { seed } from './fixtures.mjs';
 import { driver, assertOwnedNavigation, assertRecordingPath, textContent } from './browser.mjs';
 import { openCapturedLink } from './outbound-controls.mjs';
 import { capturePrint } from './print-capture.mjs';
+import { pointerDrag } from './pointer-drag.mjs';
 
 const session = process.argv[2];
 const state = await readJSON(path.join(session, 'session.json'));
@@ -378,6 +379,9 @@ try {
 									break;
 								case 'print-capture':
 									result = await capturePrint({ state, session, input, call });
+									break;
+								case 'pointer-drag':
+									result = await pointerDrag({ state, session, input, call });
 									break;
 								default:
 									throw new Blocked('COMMAND', 'Unknown command. Run --help.');

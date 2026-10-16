@@ -1,52 +1,83 @@
 <script lang="ts">
-	import type {
-		CalendarPersonDateCellState,
-		CalendarPersonHeaderState
-	} from '$features/calendar/utils/calendarRenderState';
+	import type { AvailabilityEntry } from '$features/calendar/contracts';
+	import { fitMarkers, type Bar, type BarLayout } from '$features/calendar/utils/barLayout';
+	import type { CalendarCellMarkerState, CalendarDateHeaderState } from '$features/calendar/utils/calendarRenderState';
+	import type { Personnel, UpcomingLossRecord } from '$features/personnel/contracts';
 	import { Button } from '$lib/components/ui/button';
 	import * as DateCell from './date-cell/index.js';
 	import AssignmentCodeChip from './AssignmentCodeChip.svelte';
-	import type { Personnel } from '$features/personnel/contracts';
+	import BarTrack from './calendar-bars/BarTrack.svelte';
+
+	const NO_MARKERS: ReadonlyMap<number, readonly CalendarCellMarkerState[]> = new Map();
 
 	interface Props {
 		person: Personnel;
-		personHeader?: CalendarPersonHeaderState;
-		cells: CalendarPersonDateCellState[];
-		showStatusText?: boolean;
+		days: readonly CalendarDateHeaderState[];
+		layout: BarLayout;
+		selectedEntryId?: string | null;
+		selection?: { start: number; end: number } | null;
+		markers?: ReadonlyMap<number, readonly CalendarCellMarkerState[]>;
+		onboarding?: boolean;
+		highlightOnboarding?: boolean;
+		loss?: UpcomingLossRecord;
 		showPersonnelRoles?: boolean;
 		onCellClick?: (person: Personnel, date: Date) => void;
 		onMarkerClick?: (date: Date) => void;
 		onPersonClick?: (person: Personnel) => void;
+		onOpenEntry?: (person: Personnel, entry: AvailabilityEntry, anchor: HTMLElement) => void;
+		onOpenOverflow?: (person: Personnel, entryIds: readonly string[], anchor: HTMLElement) => void;
+		onPressDay?: (event: PointerEvent, person: Personnel, row: HTMLElement) => void;
+		onPressEdge?: (event: PointerEvent, person: Personnel, bar: Bar, edge: 'start' | 'end', row: HTMLElement) => void;
 	}
 
 	let {
 		person,
-		personHeader,
-		cells,
-		showStatusText = false,
+		days,
+		layout,
+		selectedEntryId = null,
+		selection = null,
+		markers = NO_MARKERS,
+		onboarding = false,
+		highlightOnboarding = true,
+		loss,
 		showPersonnelRoles = false,
 		onCellClick,
 		onMarkerClick,
-		onPersonClick
+		onPersonClick,
+		onOpenEntry,
+		onOpenOverflow,
+		onPressDay,
+		onPressEdge
 	}: Props = $props();
 
-	function handleCellClick(date: Date) {
-		onCellClick?.(person, date);
+	let rowEl: HTMLDivElement;
+
+	function pressDay(event: PointerEvent) {
+		if ((event.target as Element).closest('[data-slot="date-cell"]')) onPressDay?.(event, person, rowEl);
 	}
 
-	function handlePersonClick() {
-		onPersonClick?.(person);
+	const personLabel = $derived(`${person.rank} ${person.lastName}, ${person.firstName}`);
+	const fitted = $derived(fitMarkers(layout, [...markers.keys()]));
+	const tintCells = $derived(onboarding && highlightOnboarding);
+
+	function cellTitle(index: number, holidayName: string | undefined) {
+		const names = markers.get(index)?.map((marker) => marker.name) ?? [];
+		return [holidayName, ...names].filter(Boolean).join('\n') || undefined;
 	}
 </script>
 
 <div
+	bind:this={rowEl}
+	role="presentation"
+	data-person-id={person.id}
+	onpointerdown={onPressDay && pressDay}
 	class="personnel-row relative grid h-full w-full min-w-[calc(var(--calendar-personnel-column-width)+(var(--calendar-cell-width)*var(--dates-count)))] items-stretch [grid-template-columns:var(--calendar-personnel-column-width)_repeat(var(--dates-count),minmax(var(--calendar-cell-width),1fr))]"
 >
 	<Button
 		variant="cell"
 		size="none"
 		class="sticky left-0 z-[3] h-full justify-start gap-2 border-r border-b border-border bg-card px-2 py-1 text-left sm:px-3"
-		onclick={handlePersonClick}
+		onclick={() => onPersonClick?.(person)}
 	>
 		<span class="min-w-8 shrink-0 font-mono text-xs font-semibold tracking-wider text-primary uppercase sm:min-w-10">
 			{person.rank}
@@ -56,21 +87,18 @@
 				<span class="overflow-hidden text-sm font-semibold text-ellipsis whitespace-nowrap text-foreground"
 					>{person.lastName}, {person.firstName}</span
 				>
-				{#if personHeader?.isOnboarding}
+				{#if onboarding}
 					<span class="size-2 shrink-0 rounded-[2px] bg-primary" title="Active onboarding"></span>
 				{/if}
-				{#if personHeader?.upcomingLossRecord}
+				{#if loss}
 					<span
 						class={[
 							'shrink-0 rounded-md px-1 py-px font-mono text-[10px] leading-tight font-semibold tracking-widest uppercase',
-							personHeader.upcomingLossRecord.triggerType === 'ETS'
-								? 'bg-warning-muted text-warning-foreground'
-								: 'bg-muted text-muted-foreground'
+							loss.triggerType === 'ETS' ? 'bg-warning-muted text-warning-foreground' : 'bg-muted text-muted-foreground'
 						]}
 						data-testid="loss-indicator-{person.id}"
-						title="{personHeader.upcomingLossRecord.triggerType} in {personHeader.upcomingLossRecord
-							.daysRemaining} day{personHeader.upcomingLossRecord.daysRemaining === 1 ? '' : 's'}"
-						>{personHeader.upcomingLossRecord.triggerType === 'ETS' ? 'ETS' : 'PCS'}</span
+						title="{loss.triggerType} in {loss.daysRemaining} day{loss.daysRemaining === 1 ? '' : 's'}"
+						>{loss.triggerType === 'ETS' ? 'ETS' : 'PCS'}</span
 					>
 				{/if}
 			</span>
@@ -83,45 +111,49 @@
 			{/if}
 		</div>
 	</Button>
-	{#each cells as cell, index (cell.dateKey)}
+	{#each days as day, index (day.dateKey)}
 		<DateCell.Root
-			weekend={cell.weekend}
-			today={cell.today}
-			holiday={cell.holiday}
-			holidayName={cell.holidayName}
-			statuses={cell.statuses}
-			markers={cell.markers}
-			{showStatusText}
-			onboarding={cell.onboarding}
-			aria-label={cell.label}
-			onclick={() => handleCellClick(cell.date)}
+			weekend={day.weekend}
+			today={day.today}
+			holiday={day.holiday}
+			title={cellTitle(index, day.holidayName)}
+			onboarding={tintCells}
+			data-day={index}
+			aria-label="{personLabel}, {day.dateLabel}"
+			onclick={() => onCellClick?.(person, day.date)}
 		/>
-		{#if cell.markers.length > 0}
-			{@const [first, ...more] = cell.markers}
-			{@const open = onMarkerClick && (() => onMarkerClick(cell.date))}
+	{/each}
+	<BarTrack
+		layout={fitted.layout}
+		{personLabel}
+		size="month"
+		{selectedEntryId}
+		{selection}
+		markers={fitted.markers}
+		onPressEdge={onPressEdge && ((event, bar, edge) => onPressEdge(event, person, bar, edge, rowEl))}
+		onOpenEntry={onOpenEntry && ((entry, anchor) => onOpenEntry(person, entry, anchor))}
+		onOpenOverflow={onOpenOverflow && ((entryIds, anchor) => onOpenOverflow(person, entryIds, anchor))}
+	>
+		{#snippet marker(index)}
+			{@const [first, ...more] = markers.get(index)!}
+			{@const day = days[index]}
+			{@const label = `${personLabel}, ${day.dateLabel}`}
+			{@const open = onMarkerClick && (() => onMarkerClick(day.date))}
 			{@const action = open ? '. Edit assignments' : ''}
-			<!-- Positioned over the cell so markers are sibling targets of the cell button, never nested in it.
-			     An absolutely placed grid item's auto end line is the row's edge, so the span stays explicit. -->
-			<div
-				class="pointer-events-none absolute inset-0 z-[2] flex min-w-0 items-end justify-end gap-px p-[3px]"
-				style:grid-row="1 / span 1"
-				style:grid-column="{index + 2} / span 1"
-			>
+			<AssignmentCodeChip
+				code={first.shortName}
+				color={first.color}
+				label={`${first.name}, ${label}${action}`}
+				onclick={open}
+			/>
+			{#if more.length > 0}
 				<AssignmentCodeChip
-					code={first.shortName}
-					color={first.color}
-					label={`${first.name}, ${cell.label}${action}`}
+					code={`+${more.length}`}
+					color="var(--muted-foreground)"
+					label={`${more.length} more: ${more.map((item) => item.name).join(', ')}, ${label}${action}`}
 					onclick={open}
 				/>
-				{#if more.length > 0}
-					<AssignmentCodeChip
-						code={`+${more.length}`}
-						color="var(--muted-foreground)"
-						label={`${more.length} more: ${more.map((marker) => marker.name).join(', ')}, ${cell.label}${action}`}
-						onclick={open}
-					/>
-				{/if}
-			</div>
-		{/if}
-	{/each}
+			{/if}
+		{/snippet}
+	</BarTrack>
 </div>

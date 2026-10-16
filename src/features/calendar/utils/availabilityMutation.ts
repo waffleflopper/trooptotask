@@ -1,6 +1,6 @@
 /**
- * Availability mutation — the provider-free rules shared by the Add, Remove, and Import
- * bulk status surfaces.
+ * Availability mutation — the provider-free rules shared by the calendar and the Add, Remove,
+ * and Import bulk status surfaces.
  *
  * This module owns the domain rules those surfaces previously each re-derived:
  * - validating a Daily Assignment Slot date range and counting the days it covers
@@ -8,6 +8,7 @@
  * - classifying which existing Availability Status entries a removal would touch,
  *   split into entries fully inside the range (exact) and entries that extend beyond it (partial)
  * - building the batch of availability records for a bulk add
+ * - judging whether a calendar write whose reply was lost landed anyway
  *
  * It is intentionally pure: no store, no fetch, no `$app`. Callers own selection,
  * provider dispatch, and presentation; this module owns the rules. The interface is the
@@ -128,4 +129,56 @@ export function buildAddRecords(
 		endDate,
 		note
 	}));
+}
+
+export type AvailabilityChange =
+	| { readonly kind: 'create'; readonly record: AvailabilityRecord }
+	| {
+			readonly kind: 'update';
+			readonly entry: AvailabilityEntry;
+			readonly changes: Pick<AvailabilityRecord, 'statusTypeId' | 'startDate' | 'endDate' | 'note'>;
+	  }
+	| { readonly kind: 'remove'; readonly entry: AvailabilityEntry };
+
+export function rereadDatesFor(change: AvailabilityChange): string[] {
+	switch (change.kind) {
+		case 'create':
+			return [change.record.startDate];
+		case 'update':
+			return [...new Set([change.entry.startDate, change.changes.startDate])];
+		case 'remove':
+			return [change.entry.startDate];
+	}
+}
+
+function holds(entry: AvailabilityEntry, values: Omit<AvailabilityRecord, 'personnelId'>): boolean {
+	return (
+		entry.statusTypeId === values.statusTypeId &&
+		entry.startDate === values.startDate &&
+		entry.endDate === values.endDate &&
+		(entry.note ?? null) === values.note
+	);
+}
+
+export function classifyAvailabilityWrite(
+	change: AvailabilityChange,
+	entriesBeforeWrite: readonly AvailabilityEntry[],
+	reread: readonly AvailabilityEntry[]
+): 'saved' | 'not-saved' {
+	switch (change.kind) {
+		case 'create': {
+			const { personnelId, ...values } = change.record;
+			const idsBeforeWrite = new Set(entriesBeforeWrite.map((entry) => entry.id));
+			const landed = reread.some(
+				(entry) => !idsBeforeWrite.has(entry.id) && entry.personnelId === personnelId && holds(entry, values)
+			);
+			return landed ? 'saved' : 'not-saved';
+		}
+		case 'update':
+			return reread.some((entry) => entry.id === change.entry.id && holds(entry, change.changes))
+				? 'saved'
+				: 'not-saved';
+		case 'remove':
+			return reread.some((entry) => entry.id === change.entry.id) ? 'not-saved' : 'saved';
+	}
 }

@@ -3,9 +3,13 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import AvailabilityModal from './AvailabilityModal.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
-import { toastStore } from '$lib/stores/toast.svelte';
 import type { Personnel } from '$features/personnel/contracts';
 import type { AvailabilityEntry, StatusType } from '$features/calendar/contracts';
+import type {
+	AvailabilityEditorRequest,
+	AvailabilityOutcome
+} from '$features/calendar/contexts/CalendarPageContext.svelte';
+import type { AvailabilityChange } from '$features/calendar/utils/availabilityMutation';
 
 afterEach(() => {
 	cleanup();
@@ -22,61 +26,51 @@ const person: Personnel = {
 	clinicRole: '',
 	mos: '11B'
 };
+const statusTypes: StatusType[] = [
+	{ id: 'leave', name: 'Leave', color: '#48bb78', textColor: '#ffffff', shortLabel: null, sortOrder: 0 },
+	{ id: 'tdy', name: 'TDY', color: '#9f7aea', textColor: '#ffffff', shortLabel: null, sortOrder: 1 }
+];
+const existingEntry: AvailabilityEntry = {
+	id: 'entry-1',
+	personnelId: 'person-1',
+	statusTypeId: 'leave',
+	startDate: '2026-04-07',
+	endDate: '2026-04-07',
+	note: null
+};
+const onApril7: AvailabilityEditorRequest = {
+	kind: 'create',
+	person,
+	startDate: '2026-04-07',
+	endDate: '2026-04-07'
+};
 
 function renderModal(
-	date: Date,
+	request: AvailabilityEditorRequest,
 	overrides: {
 		statusTypes?: StatusType[];
 		existingEntries?: AvailabilityEntry[];
-		onAdd?: (data: Omit<AvailabilityEntry, 'id'>) => Promise<AvailabilityEntry | null>;
-		onUpdate?: (
-			id: string,
-			changes: Pick<AvailabilityEntry, 'statusTypeId' | 'startDate' | 'endDate' | 'note'>
-		) => Promise<AvailabilityEntry | null>;
-		onRemove?: (id: string) => Promise<boolean>;
-		onReconcile?: (dates: string[], expectedOrgId: string) => Promise<AvailabilityEntry[] | null>;
+		saving?: boolean;
+		onSave?: (change: AvailabilityChange) => Promise<AvailabilityOutcome>;
 	} = {}
 ) {
-	return render(AvailabilityModal, {
+	const onSave = vi.fn(overrides.onSave ?? (async () => 'saved' as const));
+	const view = render(AvailabilityModal, {
 		props: {
-			orgId: 'org-a',
-			person,
-			date,
-			statusTypes: overrides.statusTypes ?? [],
+			request,
+			statusTypes: overrides.statusTypes ?? statusTypes,
 			existingEntries: overrides.existingEntries ?? [],
-			onAdd: overrides.onAdd ?? vi.fn(async (data: Omit<AvailabilityEntry, 'id'>) => ({ id: 'saved-entry', ...data })),
-			onUpdate:
-				overrides.onUpdate ??
-				vi.fn(
-					async (id: string, changes: Pick<AvailabilityEntry, 'statusTypeId' | 'startDate' | 'endDate' | 'note'>) => ({
-						id,
-						personnelId: person.id,
-						...changes
-					})
-				),
-			onRemove: overrides.onRemove ?? vi.fn().mockResolvedValue(true),
-			onReconcile: overrides.onReconcile ?? vi.fn().mockResolvedValue(overrides.existingEntries ?? []),
+			saving: overrides.saving ?? false,
+			onSave,
 			onClose: vi.fn()
 		}
 	});
+	return { ...view, onSave };
 }
 
-describe('AvailabilityModal — status type select', () => {
-	const statusTypes: StatusType[] = [
-		{ id: 'leave', name: 'Leave', color: '#48bb78', textColor: '#ffffff', shortLabel: null, sortOrder: 0 },
-		{ id: 'tdy', name: 'TDY', color: '#9f7aea', textColor: '#ffffff', shortLabel: null, sortOrder: 1 }
-	];
-
-	it('selects a status type before adding status', async () => {
-		const onAdd = vi.fn().mockResolvedValue({
-			id: 'saved-entry',
-			personnelId: person.id,
-			statusTypeId: 'tdy',
-			startDate: '2026-04-07',
-			endDate: '2026-04-07',
-			note: null
-		});
-		renderModal(new Date(2026, 3, 7), { statusTypes, onAdd });
+describe('AvailabilityModal', () => {
+	it('adds the chosen status for the clicked day', async () => {
+		const { onSave } = renderModal(onApril7);
 
 		await fireEvent.pointerDown(screen.getByRole('button', { name: 'Status Type' }));
 		const tdyOption = within(screen.getByRole('listbox', { name: 'Status Type' })).getByRole('option', { name: 'TDY' });
@@ -84,17 +78,18 @@ describe('AvailabilityModal — status type select', () => {
 		await fireEvent.pointerUp(tdyOption);
 		await fireEvent.click(screen.getByRole('button', { name: 'Add Status' }));
 
-		expect(onAdd).toHaveBeenCalledWith({
-			personnelId: 'person-1',
-			statusTypeId: 'tdy',
-			startDate: '2026-04-07',
-			endDate: '2026-04-07',
-			note: null
+		expect(onSave).toHaveBeenCalledExactlyOnceWith({
+			kind: 'create',
+			record: {
+				personnelId: 'person-1',
+				statusTypeId: 'tdy',
+				startDate: '2026-04-07',
+				endDate: '2026-04-07',
+				note: null
+			}
 		});
 	});
-});
 
-describe('AvailabilityModal — status order', () => {
 	it('lists statuses in saved order, ties by id, whatever order they loaded in', async () => {
 		const status = (id: string, name: string, sortOrder: number): StatusType => ({
 			id,
@@ -108,294 +103,143 @@ describe('AvailabilityModal — status order', () => {
 			[status('c', 'School', 1), status('b', 'Sick', 1), status('d', 'Leave', 0), status('a', 'TDY', 2)],
 			'org-a'
 		);
-		renderModal(new Date(2026, 3, 7), { statusTypes: statusTypesStore.items });
+		renderModal(onApril7, { statusTypes: statusTypesStore.items });
 
 		await fireEvent.pointerDown(screen.getByRole('button', { name: 'Status Type' }));
 		const options = within(screen.getByRole('listbox', { name: 'Status Type' })).getAllByRole('option');
 		expect(options.map((option) => option.textContent?.trim())).toEqual(['Leave', 'Sick', 'School', 'TDY']);
 	});
-});
 
-describe('AvailabilityModal — saved status feedback', () => {
-	const statusTypes: StatusType[] = [
-		{ id: 'leave', name: 'Leave', color: '#48bb78', textColor: '#ffffff', shortLabel: null, sortOrder: 2 }
-	];
-	const existingEntry: AvailabilityEntry = {
-		id: 'entry-1',
-		personnelId: 'person-1',
-		statusTypeId: 'leave',
-		startDate: '2026-04-07',
-		endDate: '2026-04-07',
-		note: null
-	};
+	it('starts from the range a quick add handed over, on the first status', async () => {
+		const { onSave } = renderModal({ ...onApril7, endDate: '2026-04-09' });
 
-	it('keeps the optimistic addition but waits for persistence before announcing success', async () => {
-		const successToast = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
-		let resolveAdd!: (entry: AvailabilityEntry) => void;
-		const onAdd = vi.fn(() => new Promise<AvailabilityEntry>((resolve) => (resolveAdd = resolve)));
-		renderModal(new Date(2026, 3, 7), { statusTypes, onAdd });
-
+		await fireEvent.input(screen.getByLabelText('Note'), { target: { value: 'JRTC prep' } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Add Status' }));
 
-		expect(onAdd).toHaveBeenCalledOnce();
-		expect(screen.getByText('Current Status')).toBeTruthy();
-		expect(successToast).not.toHaveBeenCalled();
-		// happy-dom does not apply a disabled fieldset to its controls' :disabled state.
-		for (const label of ['Start Date *', 'End Date *', 'Note']) {
-			expect(screen.getByLabelText(label).closest('fieldset')?.disabled).toBe(true);
-		}
-		resolveAdd(existingEntry);
-		await waitFor(() => expect(successToast).toHaveBeenCalledWith('Leave added — Apr 7', 5000));
-	});
-
-	it('restores the displayed entry and reports an error when removal is rejected', async () => {
-		const successToast = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
-		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
-		let resolveRemove!: (removed: boolean) => void;
-		const onRemove = vi.fn(() => new Promise<boolean>((resolve) => (resolveRemove = resolve)));
-		renderModal(new Date(2026, 3, 7), { statusTypes, existingEntries: [existingEntry], onRemove });
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Remove status' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
-
-		expect(onRemove).toHaveBeenCalledWith(existingEntry.id);
-		expect(successToast).not.toHaveBeenCalled();
-		resolveRemove(false);
-		await waitFor(() => expect(errorToast).toHaveBeenCalled());
-		expect(screen.getByRole('button', { name: 'Remove status' })).toBeTruthy();
-	});
-
-	it('removes an optimistic addition when the saved write fails', async () => {
-		const successToast = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
-		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
-		const onReconcile = vi.fn().mockResolvedValue([]);
-		renderModal(new Date(2026, 3, 7), {
-			statusTypes,
-			onAdd: vi.fn().mockRejectedValue(new Error('Save failed')),
-			onReconcile
+		expect(onSave).toHaveBeenCalledExactlyOnceWith({
+			kind: 'create',
+			record: {
+				personnelId: 'person-1',
+				statusTypeId: 'leave',
+				startDate: '2026-04-07',
+				endDate: '2026-04-09',
+				note: 'JRTC prep'
+			}
 		});
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Add Status' }));
-
-		await waitFor(() => expect(errorToast).toHaveBeenCalled());
-		expect(successToast).not.toHaveBeenCalled();
-		expect(onReconcile).toHaveBeenCalledWith(['2026-04-07'], 'org-a');
-		expect(screen.queryByText('Current Status')).toBeNull();
 	});
 
-	it('recognizes a saved addition after its response is lost', async () => {
-		const successToast = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
-		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
-		const onReconcile = vi.fn().mockResolvedValue([{ ...existingEntry, id: 'saved-after-timeout' }]);
-		renderModal(new Date(2026, 3, 7), {
-			statusTypes,
-			onAdd: vi.fn().mockRejectedValue(new Error('Response lost')),
-			onReconcile
+	it('opens an entry from its bar ready to update it', async () => {
+		const { onSave } = renderModal(
+			{ kind: 'edit', person, entry: { ...existingEntry, endDate: '2026-04-10' } },
+			{ existingEntries: [existingEntry] }
+		);
+
+		await fireEvent.input(screen.getByLabelText('Note'), { target: { value: 'Block leave' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Update Status' }));
+
+		expect(onSave).toHaveBeenCalledExactlyOnceWith({
+			kind: 'update',
+			entry: { ...existingEntry, endDate: '2026-04-10' },
+			changes: { statusTypeId: 'leave', startDate: '2026-04-07', endDate: '2026-04-10', note: 'Block leave' }
 		});
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Add Status' }));
-
-		await waitFor(() => expect(successToast).toHaveBeenCalledWith('Leave added — Apr 7', 5000));
-		expect(errorToast).not.toHaveBeenCalled();
-		expect(onReconcile).toHaveBeenCalledWith(['2026-04-07'], 'org-a');
 	});
 
-	it('shows an unconfirmed state when both the write and refresh fail', async () => {
-		const successToast = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
-		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
-		renderModal(new Date(2026, 3, 7), {
-			statusTypes,
-			onAdd: vi.fn().mockRejectedValue(new Error('Response lost')),
-			onReconcile: vi.fn().mockRejectedValue(new Error('Refresh unavailable'))
+	it('moves an entry to the days chosen in its date pickers', async () => {
+		const { onSave } = renderModal(
+			{ kind: 'edit', person, entry: existingEntry },
+			{ existingEntries: [existingEntry] }
+		);
+
+		await fireEvent.click(screen.getByRole('button', { name: /Start Date/ }));
+		await fireEvent.click(await screen.findByRole('button', { name: 'Wednesday, April 8, 2026' }));
+		await fireEvent.click(screen.getByRole('button', { name: /End Date/ }));
+		await fireEvent.click(await screen.findByRole('button', { name: 'Friday, April 10, 2026' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Update Status' }));
+
+		expect(onSave).toHaveBeenCalledExactlyOnceWith({
+			kind: 'update',
+			entry: existingEntry,
+			changes: { statusTypeId: 'leave', startDate: '2026-04-08', endDate: '2026-04-10', note: null }
 		});
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Add Status' }));
-
-		await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Saved status could not be confirmed'));
-		expect(screen.getByRole('button', { name: 'Add Status' })).toHaveProperty('disabled', true);
-		expect(errorToast).toHaveBeenCalled();
-		expect(successToast).not.toHaveBeenCalled();
 	});
 
-	it('keeps a stale-access warning inside the open modal without a global toast', async () => {
-		const successToast = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
-		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
-		renderModal(new Date(2026, 3, 7), {
-			statusTypes,
-			onAdd: vi.fn().mockRejectedValue(new Error('Response lost')),
-			onReconcile: vi.fn().mockResolvedValue(null)
-		});
+	it('keeps a refused edit of the same entry ready to retry', async () => {
+		const outcomes: AvailabilityOutcome[] = ['not-saved', 'saved'];
+		const { onSave } = renderModal(
+			{ kind: 'edit', person, entry: existingEntry },
+			{ existingEntries: [existingEntry], onSave: async () => outcomes.shift()! }
+		);
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Add Status' }));
+		await fireEvent.pointerDown(screen.getByRole('button', { name: 'Status Type' }));
+		const tdyOption = within(screen.getByRole('listbox', { name: 'Status Type' })).getByRole('option', { name: 'TDY' });
+		await fireEvent.pointerDown(tdyOption);
+		await fireEvent.pointerUp(tdyOption);
+		await fireEvent.input(screen.getByLabelText('Note'), { target: { value: 'Range day' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Update Status' }));
+		await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+		await fireEvent.click(screen.getByRole('button', { name: 'Update Status' }));
 
-		await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Reload the calendar'));
-		expect(screen.getByRole('button', { name: 'Add Status' })).toHaveProperty('disabled', true);
-		expect(errorToast).not.toHaveBeenCalled();
-		expect(successToast).not.toHaveBeenCalled();
+		const retry = {
+			kind: 'update',
+			entry: existingEntry,
+			changes: { statusTypeId: 'tdy', startDate: '2026-04-07', endDate: '2026-04-07', note: 'Range day' }
+		};
+		expect(onSave.mock.calls).toEqual([[retry], [retry]]);
 	});
 
-	it('does not publish old-scope feedback after the modal closes during reconciliation', async () => {
-		const successToast = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
-		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
-		let resolveReconcile!: (entries: AvailabilityEntry[] | null) => void;
-		const onReconcile = vi.fn(() => new Promise<AvailabilityEntry[] | null>((resolve) => (resolveReconcile = resolve)));
-		const { unmount } = renderModal(new Date(2026, 3, 7), {
-			statusTypes,
-			onAdd: vi.fn().mockRejectedValue(new Error('Response lost')),
-			onReconcile
-		});
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Add Status' }));
-		await waitFor(() => expect(onReconcile).toHaveBeenCalledOnce());
-		unmount();
-		resolveReconcile(null);
-		await new Promise((resolve) => setTimeout(resolve, 0));
-
-		expect(errorToast).not.toHaveBeenCalled();
-		expect(successToast).not.toHaveBeenCalled();
-	});
-
-	it('waits for the replacement write before announcing an edit', async () => {
-		const successToast = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
-		let resolveUpdate!: (entry: AvailabilityEntry) => void;
-		const onUpdate = vi.fn(() => new Promise<AvailabilityEntry>((resolve) => (resolveUpdate = resolve)));
-		const onAdd = vi.fn();
-		const onRemove = vi.fn();
-		renderModal(new Date(2026, 3, 7), {
-			statusTypes,
-			existingEntries: [existingEntry],
-			onRemove,
-			onUpdate,
-			onAdd
-		});
+	it('edits a listed entry of the day', async () => {
+		const { onSave } = renderModal(onApril7, { existingEntries: [existingEntry] });
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Edit status' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Update Status' }));
 
-		await waitFor(() =>
-			expect(onUpdate).toHaveBeenCalledWith(existingEntry.id, {
+		expect(onSave).toHaveBeenCalledExactlyOnceWith({
+			kind: 'update',
+			entry: existingEntry,
+			changes: { statusTypeId: 'leave', startDate: '2026-04-07', endDate: '2026-04-07', note: null }
+		});
+	});
+
+	it('removes a listed entry only after confirmation', async () => {
+		const { onSave } = renderModal(onApril7, { existingEntries: [existingEntry] });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Remove status' }));
+		expect(onSave).not.toHaveBeenCalled();
+		await fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+
+		expect(onSave).toHaveBeenCalledExactlyOnceWith({ kind: 'remove', entry: existingEntry });
+	});
+
+	it('refuses another submission once a save could not be confirmed', async () => {
+		const { onSave } = renderModal(onApril7, { onSave: async () => 'unconfirmed' });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Add Status' }));
+		await screen.findByRole('alert');
+		const add = screen.getByRole('button', { name: 'Add Status' });
+		await fireEvent.click(add);
+
+		expect(add).toHaveProperty('disabled', true);
+		expect(onSave).toHaveBeenCalledTimes(1);
+	});
+
+	it('keeps the form when another change was still saving', async () => {
+		const { onSave } = renderModal(onApril7, { onSave: async () => 'busy' });
+
+		await fireEvent.input(screen.getByLabelText('Note'), { target: { value: 'JRTC prep' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Add Status' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Add Status' }));
+
+		expect(screen.queryByRole('alert')).toBeNull();
+		expect(onSave).toHaveBeenCalledTimes(2);
+		expect(onSave.mock.calls[1]?.[0]).toEqual({
+			kind: 'create',
+			record: {
+				personnelId: 'person-1',
 				statusTypeId: 'leave',
 				startDate: '2026-04-07',
 				endDate: '2026-04-07',
-				note: null
-			})
-		);
-		expect(successToast).not.toHaveBeenCalled();
-		resolveUpdate(existingEntry);
-		await waitFor(() => expect(successToast).toHaveBeenCalledWith('Leave updated — Apr 7', 5000));
-		expect(onAdd).not.toHaveBeenCalled();
-		expect(onRemove).not.toHaveBeenCalled();
-	});
-
-	it('shows one saved status when the bound entries refresh before an edit returns', async () => {
-		const savedEntry = { ...existingEntry, note: 'Saved edit' };
-		const successToast = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
-		let resolveUpdate!: (entry: AvailabilityEntry) => void;
-		const onUpdate = vi.fn(() => new Promise<AvailabilityEntry>((resolve) => (resolveUpdate = resolve)));
-		const view = renderModal(new Date(2026, 3, 7), {
-			statusTypes,
-			existingEntries: [existingEntry],
-			onUpdate
+				note: 'JRTC prep'
+			}
 		});
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Edit status' }));
-		await fireEvent.input(screen.getByLabelText('Note'), { target: { value: savedEntry.note } });
-		await fireEvent.click(screen.getByRole('button', { name: 'Update Status' }));
-		await waitFor(() => expect(onUpdate).toHaveBeenCalledOnce());
-		await view.rerender({ existingEntries: [savedEntry] });
-		resolveUpdate(savedEntry);
-
-		await waitFor(() => expect(successToast).toHaveBeenCalledWith('Leave updated — Apr 7', 5000));
-		expect(screen.getAllByRole('button', { name: 'Edit status' })).toHaveLength(1);
-		expect(screen.getByText('Saved edit')).toBeTruthy();
-	});
-
-	it('does not publish edit feedback after closing while the single update is pending', async () => {
-		const successToast = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
-		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
-		let resolveUpdate!: (entry: AvailabilityEntry) => void;
-		const onUpdate = vi.fn(() => new Promise<AvailabilityEntry>((resolve) => (resolveUpdate = resolve)));
-		const onAdd = vi.fn();
-		const onRemove = vi.fn();
-		const { unmount } = renderModal(new Date(2026, 3, 7), {
-			statusTypes,
-			existingEntries: [existingEntry],
-			onRemove,
-			onUpdate,
-			onAdd
-		});
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Edit status' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Update Status' }));
-		await waitFor(() => expect(onUpdate).toHaveBeenCalledOnce());
-		unmount();
-		resolveUpdate(existingEntry);
-		await new Promise((resolve) => setTimeout(resolve, 0));
-
-		expect(onAdd).not.toHaveBeenCalled();
-		expect(onRemove).not.toHaveBeenCalled();
-		expect(successToast).not.toHaveBeenCalled();
-		expect(errorToast).not.toHaveBeenCalled();
-	});
-
-	it('keeps the edit dialog open while saving the update', async () => {
-		let resolveUpdate!: (entry: AvailabilityEntry) => void;
-		const onUpdate = vi.fn(() => new Promise<AvailabilityEntry>((resolve) => (resolveUpdate = resolve)));
-		renderModal(new Date(2026, 3, 7), {
-			statusTypes,
-			existingEntries: [existingEntry],
-			onUpdate
-		});
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Edit status' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Update Status' }));
-		await waitFor(() => expect(onUpdate).toHaveBeenCalledOnce());
-		expect(screen.queryByRole('button', { name: 'Close' })).toBeNull();
-		expect(screen.getByRole('button', { name: 'Cancel Edit' })).toHaveProperty('disabled', true);
-		await fireEvent.keyDown(document, { key: 'Escape' });
-		expect(screen.getByRole('dialog', { name: 'Set Personnel Status' })).toBeTruthy();
-
-		resolveUpdate(existingEntry);
-	});
-
-	it('restores the previous status when an edit fails', async () => {
-		const successToast = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
-		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
-		const onReconcile = vi.fn().mockResolvedValue([existingEntry]);
-		renderModal(new Date(2026, 3, 7), {
-			statusTypes,
-			existingEntries: [existingEntry],
-			onUpdate: vi.fn().mockRejectedValue(new Error('Save failed')),
-			onReconcile
-		});
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Edit status' }));
-		await fireEvent.input(screen.getByLabelText('Note'), { target: { value: 'Changed' } });
-		await fireEvent.click(screen.getByRole('button', { name: 'Update Status' }));
-
-		await waitFor(() => expect(errorToast).toHaveBeenCalledWith(expect.stringContaining('Could not save status')));
-		expect(successToast).not.toHaveBeenCalled();
-		expect(onReconcile).toHaveBeenCalledWith(['2026-04-07'], 'org-a');
-		expect(screen.getByRole('button', { name: 'Edit status' })).toBeTruthy();
-	});
-
-	it('confirms an edited row by its retained ID when the update response is lost', async () => {
-		const successToast = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
-		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
-		const onReconcile = vi.fn().mockResolvedValue([{ ...existingEntry, note: 'Changed' }]);
-		renderModal(new Date(2026, 3, 7), {
-			statusTypes,
-			existingEntries: [existingEntry],
-			onUpdate: vi.fn().mockRejectedValue(new Error('Response lost')),
-			onReconcile
-		});
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Edit status' }));
-		await fireEvent.input(screen.getByLabelText('Note'), { target: { value: 'Changed' } });
-		await fireEvent.click(screen.getByRole('button', { name: 'Update Status' }));
-
-		await waitFor(() => expect(successToast).toHaveBeenCalledWith('Leave updated — Apr 7', 5000));
-		expect(onReconcile).toHaveBeenCalledWith(['2026-04-07'], 'org-a');
-		expect(errorToast).not.toHaveBeenCalled();
 	});
 });

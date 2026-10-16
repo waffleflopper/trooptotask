@@ -107,6 +107,7 @@ $V network arm-fail 2 training-types     # fail one Training catalog request; tr
 $V network arm-fail 2 availability/batch 2 # second matching batch request fails
 $V network arm-hold 2 availability      # hold a real response after persistence
 $V network arm-hold-dispatch 2 availability # hold a Calendar save or delete before dispatch; release sends it
+$V network arm-drop 2 availability      # persist one create, update or remove, then lose its reply (any method)
 $V network state 2                      # matched requests, statuses, IDs, held state
 $V network release 2
 $V network restore 2                    # also releases a stuck response; a reload already removed the hook (restored:false)
@@ -121,10 +122,13 @@ $V print arm 2                          # observe real beforeprint/afterprint ev
 $V print state 2                        # save AFTER native Print brief click, BEFORE print save
 $V print save 2 'EXACT_LOADED_REPORT_URL' .verification/evidence/verify-trooptotask/RUN/brief.pdf
 $V print restore 2
+$V pointer drag 2 'EXACT_LOADED_URL' '[data-edge="end"]' '[data-person-id="ID"] [data-day="9"]' # real pointer drag by CSS selector
 $V signed-download orgA ROSTER_ID .verification/evidence/verify-trooptotask/RUN/signed.pdf
 $V workbook .verification/evidence/verify-trooptotask/RUN/status-days.xlsx
 $V workbook .verification/evidence/verify-trooptotask/RUN/assignment-load.xlsx 'Assignment Coverage'
 ```
+
+`pointer drag PAGE EXACT_URL FROM TO [STEPS]` presses at the centre of the one element matching `FROM`, moves in `STEPS` (default 10) to the centre of the one element matching `TO`, and releases, all as trusted mouse input through this worker's own browser endpoint. Use it only for pointer-only targets the accessibility tree hides, such as Calendar resize grips; everything else uses native `click` and `drag` by UID. It refuses a page whose native ID and exact URL disagree, a selector matching zero or several elements, and a target outside the viewport. Run `node --test scripts/verification/pointer-drag.test.mjs` for its boundaries.
 
 For print evidence, use a freshly launched owned worker and its already loaded Training Reports page. Arm `print arm PAGE`, click the visible **Print brief** with native controls, then save `print state PAGE` before `print save`. The observer counts real `beforeprint` and `afterprint` events without replacing `window.print`. PDF capture also produces print events, so counts read after capture cannot establish that the button invoked print. Restore the observer afterward; reload or navigation discards it.
 

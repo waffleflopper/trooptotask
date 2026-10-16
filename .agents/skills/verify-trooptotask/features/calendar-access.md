@@ -12,7 +12,7 @@ A member reads only the Calendar people and statuses allowed by their Organizati
 
 ## How to get to it (user POV)
 
-Sign in as a Calendar member and choose `Calendar`. A member's Organization and Group grants determine which Person rows and status cells appear. `calendarLane` has Calendar access without Personnel access; `calendarScoped` has Alpha, while `calendarEmpty` has an empty Group grant. The modal and `Bulk Status` are write entry points for an operator. The owned browser may also inspect authenticated Calendar responses to prove server behavior beyond the visible controls.
+Sign in as a Calendar member and choose `Calendar`. A member's Organization and Group grants determine which Person rows and status bars appear. `calendarLane` has Calendar access without Personnel access; `calendarScoped` has Alpha, while `calendarEmpty` has an empty Group grant. The modal and `Bulk Status` are write entry points for an operator. The owned browser may also inspect authenticated Calendar responses to prove server behavior beyond the visible controls.
 
 ## Driving it with verify:app
 

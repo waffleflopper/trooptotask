@@ -4,8 +4,15 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/sve
 import { tick } from 'svelte';
 import Calendar from './Calendar.svelte';
 import type { Personnel } from '$features/personnel/contracts';
-import type { StatusType, SpecialDay, AssignmentType, DailyAssignment } from '$features/calendar/contracts';
+import type {
+	AvailabilityEntry,
+	StatusType,
+	SpecialDay,
+	AssignmentType,
+	DailyAssignment
+} from '$features/calendar/contracts';
 import type { UpcomingLossRecord } from '$features/personnel/contracts';
+import { buildAvailabilityTracks } from '$features/calendar/utils/availabilityTracks';
 import { buildCalendarLanes, spanTrack, type CalendarLane } from '$features/calendar/utils/calendarLanes';
 import FixtureLaneSegment from '$features/calendar/test-support/FixtureLaneSegment.svelte';
 
@@ -48,7 +55,17 @@ const personnel: Personnel[] = [
 	}
 ];
 
-const statusTypes: StatusType[] = [];
+const statusTypes: StatusType[] = [
+	{ id: 'leave', name: 'Leave', color: '#16a34a', textColor: '#ffffff', shortLabel: 'LV', sortOrder: 0 }
+];
+const smithOnLeave: AvailabilityEntry = {
+	id: 'entry-1',
+	personnelId: 'person-1',
+	statusTypeId: 'leave',
+	startDate: '2026-03-01',
+	endDate: '2026-03-02',
+	note: 'Block leave'
+};
 const specialDays: SpecialDay[] = [];
 
 function makePersonnel(count: number, overrides: Partial<Personnel> = {}): Personnel[] {
@@ -68,6 +85,9 @@ function makePersonnel(count: number, overrides: Partial<Personnel> = {}): Perso
 function renderCalendar(
 	overrides: Partial<{
 		personnelByGroup: { group: string; personnel: Personnel[] }[];
+		availabilityEntries: AvailabilityEntry[];
+		onOpenEntry: (person: Personnel, entry: AvailabilityEntry, anchor: HTMLElement) => void;
+		onOpenOverflow: (person: Personnel, entryIds: readonly string[], anchor: HTMLElement) => void;
 		assignmentTypes: AssignmentType[];
 		assignments: DailyAssignment[];
 		lanes: CalendarLane[];
@@ -81,6 +101,11 @@ function renderCalendar(
 		onPersonClick: (person: Personnel) => void;
 		onNavigateToMonth: (year: number, month: number) => void;
 		upcomingLossMap: Map<string, UpcomingLossRecord>;
+		canEditAvailabilityFor: (person: Personnel) => boolean;
+		popoverEntry: { personId: string; entryId: string } | null;
+		saving: boolean;
+		onQuickAdd: (person: Personnel, startDate: string, endDate: string, anchor: HTMLElement) => void;
+		onResize: (person: Personnel, entry: AvailabilityEntry, startDate: string, endDate: string) => void;
 	}> = {}
 ) {
 	return render(Calendar, {
@@ -90,8 +115,7 @@ function renderCalendar(
 			monthName: 'March',
 			dates: [new Date(2026, 2, 1), new Date(2026, 2, 2)],
 			personnelByGroup: overrides.personnelByGroup ?? [{ group: 'Alpha', personnel }],
-			availabilityEntries: [],
-			statusTypes,
+			tracks: buildAvailabilityTracks(overrides.availabilityEntries ?? [], statusTypes),
 			specialDays: overrides.specialDays ?? specialDays,
 			pinnedGroups: [],
 			assignmentTypes: overrides.assignmentTypes ?? [],
@@ -104,11 +128,18 @@ function renderCalendar(
 			onDateClick: overrides.onDateClick,
 			onCellClick: overrides.onCellClick,
 			onPersonClick: overrides.onPersonClick,
+			onOpenEntry: overrides.onOpenEntry,
+			onOpenOverflow: overrides.onOpenOverflow,
 			onPrevMonth: () => {},
 			onNextMonth: () => {},
 			onGoToToday: () => {},
 			onNavigateToMonth: overrides.onNavigateToMonth,
-			upcomingLossMap: overrides.upcomingLossMap
+			upcomingLossMap: overrides.upcomingLossMap,
+			canEditAvailabilityFor: overrides.canEditAvailabilityFor,
+			popoverEntry: overrides.popoverEntry,
+			saving: overrides.saving,
+			onQuickAdd: overrides.onQuickAdd,
+			onResize: overrides.onResize
 		}
 	});
 }
@@ -169,6 +200,154 @@ describe('Calendar', () => {
 
 		await fireEvent.click(assigned);
 		expect(onCellClick).toHaveBeenCalledWith(expect.objectContaining({ id: 'person-1' }), new Date(2026, 2, 1));
+	});
+
+	it('draws each entry as one bar named by its Person, status, dates and note', async () => {
+		const onOpenEntry = vi.fn();
+		const onCellClick = vi.fn();
+		renderCalendar({ availabilityEntries: [smithOnLeave], onOpenEntry, onCellClick });
+
+		await fireEvent.click(
+			screen.getByRole('button', { name: 'SGT Smith, Alex, Leave, 1 to 2 March 2026, 2 days, Block leave' })
+		);
+
+		expect(onOpenEntry).toHaveBeenCalledWith(
+			expect.objectContaining({ id: 'person-1' }),
+			smithOnLeave,
+			expect.any(HTMLElement)
+		);
+		expect(onCellClick).not.toHaveBeenCalled();
+	});
+
+	it('summarizes entries past the second lane in one button that opens them', async () => {
+		const onOpenOverflow = vi.fn();
+		renderCalendar({
+			availabilityEntries: [
+				smithOnLeave,
+				{ ...smithOnLeave, id: 'entry-2', note: null },
+				{ ...smithOnLeave, id: 'entry-3', startDate: '2026-03-02', note: null }
+			],
+			onOpenOverflow
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'SGT Smith, Alex, 2 more entries, 1 to 2 March 2026' }));
+
+		expect(onOpenOverflow).toHaveBeenCalledWith(
+			expect.objectContaining({ id: 'person-1' }),
+			['entry-2', 'entry-3'],
+			expect.any(HTMLElement)
+		);
+	});
+
+	it('counts the people out each day while their group is collapsed', async () => {
+		const outOn = (date: string) => {
+			const text = screen.queryByText(new RegExp(date))?.textContent;
+			return text ? Number(text.replace(date, '').match(/\d+/)?.[0]) : null;
+		};
+		renderCalendar({ availabilityEntries: [{ ...smithOnLeave, endDate: '2026-03-01' }] });
+		expect(outOn('March 1, 2026')).toBeNull();
+
+		await fireEvent.click(screen.getByRole('button', { name: /Alpha/ }));
+
+		expect(outOn('March 1, 2026')).toBe(1);
+		expect(outOn('March 2, 2026')).toBeNull();
+	});
+
+	it('offers resize grips only on the bars of people the member may manage', () => {
+		const scoped = {
+			availabilityEntries: [smithOnLeave, { ...smithOnLeave, id: 'entry-2', personnelId: 'person-2' }],
+			canEditAvailabilityFor: (person: Personnel) => person.id === 'person-1',
+			onQuickAdd: vi.fn(),
+			onResize: vi.fn()
+		};
+		renderCalendar({ ...scoped, popoverEntry: { personId: 'person-1', entryId: 'entry-1' } });
+		expect(document.querySelector('[data-edge="end"]')).not.toBeNull();
+		cleanup();
+
+		renderCalendar({ ...scoped, popoverEntry: { personId: 'person-2', entryId: 'entry-2' } });
+
+		expect(document.querySelector('[data-edge]')).toBeNull();
+	});
+
+	it('draws no resize grips while a change is still saving', async () => {
+		const { rerender } = renderCalendar({
+			availabilityEntries: [smithOnLeave],
+			popoverEntry: { personId: 'person-1', entryId: 'entry-1' },
+			onQuickAdd: vi.fn(),
+			onResize: vi.fn(),
+			saving: true
+		});
+		expect(document.querySelector('[data-edge]')).toBeNull();
+
+		await rerender({ saving: false });
+
+		expect(document.querySelector('[data-edge="end"]')).not.toBeNull();
+	});
+
+	it('starts no drag while a change is still saving', async () => {
+		const rect = vi
+			.spyOn(Element.prototype, 'getBoundingClientRect')
+			.mockReturnValue(DOMRect.fromRect({ x: 0, y: 0, width: 62, height: 36 }));
+		const onQuickAdd = vi.fn();
+		const pointer = { button: 0, pointerId: 1, pointerType: 'mouse' };
+		const drag = async () => {
+			await fireEvent.pointerDown(screen.getByRole('button', { name: 'SGT Smith, Alex, Sunday, March 1, 2026' }), {
+				...pointer,
+				clientX: 10
+			});
+			await fireEvent.pointerMove(window, { ...pointer, clientX: 50 });
+			await fireEvent.pointerUp(window, { ...pointer, clientX: 50 });
+		};
+		try {
+			const { rerender } = renderCalendar({ canEdit: true, onQuickAdd, saving: true });
+			await drag();
+			expect(onQuickAdd).not.toHaveBeenCalled();
+
+			await rerender({ saving: false });
+			await drag();
+
+			expect(onQuickAdd).toHaveBeenCalledExactlyOnceWith(
+				expect.objectContaining({ id: 'person-1' }),
+				'2026-03-01',
+				'2026-03-02',
+				expect.any(HTMLElement)
+			);
+		} finally {
+			rect.mockRestore();
+		}
+	});
+
+	it('drops a drag on Escape or a cancelled pointer and opens no day editor from the click that ends a drag', async () => {
+		const rect = vi
+			.spyOn(Element.prototype, 'getBoundingClientRect')
+			.mockReturnValue(DOMRect.fromRect({ x: 0, y: 0, width: 62, height: 36 }));
+		const onQuickAdd = vi.fn();
+		const onCellClick = vi.fn();
+		const pointer = { button: 0, pointerId: 1, pointerType: 'mouse' };
+		try {
+			renderCalendar({ canEdit: true, onQuickAdd, onCellClick });
+			const day = screen.getByRole('button', { name: 'SGT Smith, Alex, Sunday, March 1, 2026' });
+
+			await fireEvent.pointerDown(day, { ...pointer, clientX: 10 });
+			await fireEvent.pointerMove(window, { ...pointer, clientX: 50 });
+			await fireEvent.keyDown(window, { key: 'Escape' });
+			await fireEvent.pointerUp(window, { ...pointer, clientX: 50 });
+			await fireEvent.pointerDown(day, { ...pointer, clientX: 10 });
+			await fireEvent.pointerMove(window, { ...pointer, clientX: 50 });
+			await fireEvent.pointerCancel(window, pointer);
+			await fireEvent.pointerUp(window, { ...pointer, clientX: 50 });
+			expect(onQuickAdd).not.toHaveBeenCalled();
+
+			await fireEvent.pointerDown(day, { ...pointer, clientX: 10 });
+			await fireEvent.pointerMove(window, { ...pointer, clientX: 50 });
+			await fireEvent.pointerUp(window, { ...pointer, clientX: 50 });
+			await fireEvent.click(day);
+
+			expect(onQuickAdd).toHaveBeenCalledTimes(1);
+			expect(onCellClick).not.toHaveBeenCalled();
+		} finally {
+			rect.mockRestore();
+		}
 	});
 
 	it('hides personnel roles when role display is disabled', () => {

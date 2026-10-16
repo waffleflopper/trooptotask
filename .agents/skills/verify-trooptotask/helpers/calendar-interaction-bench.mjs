@@ -10,7 +10,8 @@ const execute = promisify(execFile);
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repository = path.resolve(here, '../../../..');
 
-export const BLOCKS = ['search', 'group', 'nav-within', 'nav-past-next', 'nav-past-prev', 'view', 'modal'];
+export const BLOCKS = ['search', 'group', 'nav-within', 'nav-past-next', 'nav-past-prev', 'view', 'modal', 'popover'];
+
 export const INTERACTIONS = {
 	'search-type': 'Type one character into the personnel search',
 	'search-clear': 'Clear the personnel search',
@@ -22,7 +23,8 @@ export const INTERACTIONS = {
 	'prev-past': 'Prev month past the loaded range (range request)',
 	'to-3-month': 'Month to 3-Month',
 	'to-month': '3-Month to Month',
-	'modal-open': 'Open the availability modal from a day cell'
+	'modal-open': 'Open the availability modal from a day cell',
+	'popover-open': 'Open the first status bar popover'
 };
 
 /**
@@ -40,6 +42,7 @@ export async function runBlock(config) {
 		Boolean(element.offsetParent || element.getClientRects().length) &&
 		!element.closest('[aria-hidden="true"]');
 	const all = (selector) => [...document.querySelectorAll(selector)];
+	const STATUS_CELLS_OR_BARS = '.status-cell, .roster-rows [data-slot="status-bar"]';
 	const firstVisible = (selector) => all(selector).find(visible);
 	const buttonNamed = (text) => all('button').find((button) => visible(button) && button.textContent.trim() === text);
 	const labelled = (name) => firstVisible(`[aria-label="${name}"]`);
@@ -64,7 +67,7 @@ export async function runBlock(config) {
 		total: document.getElementsByTagName('*').length,
 		grid: document.querySelectorAll('.virtual-row *').length,
 		dateCells: document.querySelectorAll('[data-slot="date-cell"]').length,
-		statusCells: document.querySelectorAll('.status-cell').length,
+		statusCells: document.querySelectorAll(STATUS_CELLS_OR_BARS).length,
 		virtualRows: document.querySelectorAll('.virtual-row').length
 	});
 
@@ -372,7 +375,7 @@ export async function runBlock(config) {
 					await measure(
 						'to-3-month',
 						() => buttonNamed('3-Month').click(),
-						() => Boolean(longRangeLabel()) && document.querySelectorAll('.status-cell').length > 0,
+						() => Boolean(longRangeLabel()) && document.querySelectorAll(STATUS_CELLS_OR_BARS).length > 0,
 						{
 							detail: () => ({ label: longRangeLabel()?.textContent.trim() })
 						}
@@ -412,6 +415,35 @@ export async function runBlock(config) {
 				);
 				document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
 				await waitFor(() => !dialog(), 'dialog closed');
+			}
+		} else if (block === 'popover') {
+			const bar = () => document.querySelector('[data-slot="bar-track"] button[data-entry-id]');
+			const popovers = () => all('[data-slot="popover-content"][role="dialog"]').filter(visible);
+			if (!bar()) throw new Error('no availability bar on this revision');
+			for (let round = 0; round < rounds; round += 1) {
+				// Only a popover this click opened, for the bar it expanded, proves the interaction.
+				let earlier = [];
+				const opened = () =>
+					bar().getAttribute('aria-expanded') === 'true'
+						? popovers().find((element) => !earlier.includes(element))
+						: undefined;
+				record(
+					await measure(
+						'popover-open',
+						() => {
+							earlier = popovers();
+							bar().click();
+						},
+						() => Boolean(opened()),
+						{ detail: () => ({ title: opened()?.getAttribute('aria-label') }) }
+					),
+					round
+				);
+				const popover = opened();
+				if (popover) {
+					popover.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+					await waitFor(() => !popover.isConnected || !visible(popover), 'popover closed');
+				}
 			}
 		} else throw new Error(`unknown block ${block}`);
 		await reset();

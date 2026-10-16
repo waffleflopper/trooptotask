@@ -1,12 +1,6 @@
 <script lang="ts">
 	import type { Personnel } from '$features/personnel/contracts';
-	import type {
-		AvailabilityEntry,
-		StatusType,
-		SpecialDay,
-		AssignmentType,
-		DailyAssignment
-	} from '$features/calendar/contracts';
+	import type { AvailabilityEntry, SpecialDay, AssignmentType, DailyAssignment } from '$features/calendar/contracts';
 	import type { UpcomingLossRecord } from '$features/personnel/contracts';
 	import type { CalendarLane } from '$features/calendar/utils/calendarLanes';
 	import CalendarHeader from './CalendarHeader.svelte';
@@ -14,7 +8,12 @@
 	import GroupHeader from './GroupHeader.svelte';
 	import * as Empty from '$lib/components/ui/empty';
 	import { Button } from '$lib/components/ui/button';
-	import { buildCalendarRenderState } from '$features/calendar/utils/calendarRenderState';
+	import type { AvailabilityTracks } from '$features/calendar/utils/availabilityTracks';
+	import { dayWindow, fromDayNumber, toDayNumber, type DayNumber } from '$features/calendar/utils/dayNumber';
+	import { layoutBars, type Bar, type LabelPolicy } from '$features/calendar/utils/barLayout';
+	import { gestureRange } from '$features/calendar/utils/calendarGesture';
+	import { CalendarGesture, type GestureCommit } from './calendar-bars/gesture.svelte';
+	import { buildCalendarDays, buildDutyMarkers } from '$features/calendar/utils/calendarRenderState';
 	import { buildVirtualRowLayout, getVisibleVirtualRows } from '$features/calendar/utils/virtualRows';
 	import { SvelteSet } from 'svelte/reactivity';
 
@@ -35,8 +34,7 @@
 		monthName: string;
 		dates: Date[];
 		personnelByGroup: GroupData[];
-		availabilityEntries: AvailabilityEntry[];
-		statusTypes: StatusType[];
+		tracks: AvailabilityTracks;
 		specialDays: SpecialDay[];
 		pinnedGroups: string[];
 		assignmentTypes: AssignmentType[];
@@ -49,7 +47,7 @@
 		showStatusText?: boolean;
 		showPersonnelRoles?: boolean;
 		/** Map of personId → UpcomingLossRecord for per-row loss indicators. */
-		upcomingLossMap?: Map<string, UpcomingLossRecord>;
+		upcomingLossMap?: ReadonlyMap<string, UpcomingLossRecord>;
 		onPrevMonth: () => void;
 		onNextMonth: () => void;
 		onGoToToday: () => void;
@@ -60,6 +58,15 @@
 		onDateClick?: (date: Date) => void;
 		/** Opens the assignments for a marked date. Without it, row markers are not interactive. */
 		onMarkerClick?: (date: Date) => void;
+		onOpenEntry?: (person: Personnel, entry: AvailabilityEntry, anchor: HTMLElement) => void;
+		onOpenOverflow?: (person: Personnel, entryIds: readonly string[], anchor: HTMLElement) => void;
+		canEditAvailabilityFor?: (person: Personnel) => boolean;
+		popoverEntry?: { personId: string; entryId: string } | null;
+		quickAddSelection?: { personId: string; startDate: string; endDate: string } | null;
+		/** A change is settling; no new drag starts until it does. */
+		saving?: boolean;
+		onQuickAdd?: (person: Personnel, startDate: string, endDate: string, anchor: HTMLElement) => void;
+		onResize?: (person: Personnel, entry: AvailabilityEntry, startDate: string, endDate: string) => void;
 		personnelHref?: string;
 	}
 
@@ -69,8 +76,7 @@
 		monthName,
 		dates,
 		personnelByGroup,
-		availabilityEntries,
-		statusTypes,
+		tracks,
 		specialDays,
 		pinnedGroups,
 		assignmentTypes,
@@ -92,6 +98,14 @@
 		onPinToggle,
 		onDateClick,
 		onMarkerClick,
+		onOpenEntry,
+		onOpenOverflow,
+		canEditAvailabilityFor = () => canEdit,
+		popoverEntry = null,
+		quickAddSelection = null,
+		saving = false,
+		onQuickAdd,
+		onResize,
 		personnelHref
 	}: Props = $props();
 
@@ -190,20 +204,91 @@
 		getVisibleVirtualRows(rosterLayout.rows, scrollTop, viewportHeight, rowOverscanPx)
 	);
 
-	const renderState = $derived.by(() =>
-		buildCalendarRenderState({
-			dates,
-			personnelByGroup,
-			availabilityEntries,
-			statusTypes,
-			specialDays,
-			assignmentTypes,
+	const days = $derived(buildCalendarDays(dates, specialDays));
+	const visibleDays = $derived(dayWindow(days[0]?.dateKey ?? '1970-01-01', days.length));
+	const policy: LabelPolicy = $derived({ view: 'month', showStatusText });
+	const markersByPerson = $derived(
+		buildDutyMarkers(
 			assignments,
-			activeOnboardingPersonnelIds,
-			highlightOnboarding,
-			upcomingLossMap
-		})
+			assignmentTypes,
+			days.map((day) => day.dateKey)
+		)
 	);
+	const onboardingIds = $derived(new Set(activeOnboardingPersonnelIds));
+
+	const gesture = new CalendarGesture();
+	const dragEnabled = $derived(canEdit && !!onQuickAdd);
+
+	function dateKeyAt(day: number) {
+		return fromDayNumber(visibleDays.start + day);
+	}
+
+	function pressDay(event: PointerEvent, person: Personnel, row: HTMLElement) {
+		if (saving || !canEditAvailabilityFor(person)) return;
+		const commit: GestureCommit = (effect) => {
+			if (effect.type !== 'quick-add') return;
+			const anchor = row.querySelector<HTMLElement>(`[data-day="${effect.end}"]`) ?? row;
+			onQuickAdd?.(person, dateKeyAt(effect.start), dateKeyAt(effect.end), anchor);
+		};
+		gesture.pressDay(event, person.id, row, days.length, commit);
+	}
+
+	function pressEdge(event: PointerEvent, person: Personnel, bar: Bar, edge: 'start' | 'end', row: HTMLElement) {
+		if (!canEditAvailabilityFor(person)) return;
+		const target = {
+			personId: person.id,
+			entryId: bar.entry.id,
+			edge,
+			start: toDayNumber(bar.entry.startDate) - visibleDays.start,
+			end: toDayNumber(bar.entry.endDate) - visibleDays.start
+		};
+		gesture.pressEdge(event, target, row, days.length, (effect) => {
+			if (effect.type === 'resize') onResize?.(person, bar.entry, dateKeyAt(effect.start), dateKeyAt(effect.end));
+		});
+	}
+
+	function clickCell(person: Personnel, date: Date) {
+		if (!gesture.consumeDragEndClick()) onCellClick?.(person, date);
+	}
+
+	function rowLayout(personId: string) {
+		const state = gesture.state;
+		if (state.kind !== 'resizing' || state.personId !== personId) {
+			return tracks.layout(personId, visibleDays, policy);
+		}
+		const range = gestureRange(state)!;
+		const spans = tracks
+			.spans(personId)
+			.map((span) =>
+				span.entry.id === state.entryId
+					? {
+							...span,
+							start: (visibleDays.start + range.start) as DayNumber,
+							end: (visibleDays.start + range.end) as DayNumber
+						}
+					: span
+			)
+			.sort((a, b) => a.start - b.start || (a.entry.id < b.entry.id ? -1 : 1));
+		return layoutBars(spans, visibleDays, policy);
+	}
+
+	function rowSelection(personId: string) {
+		const state = gesture.state;
+		if (state.kind === 'selecting') return state.personId === personId ? gestureRange(state) : null;
+		if (quickAddSelection?.personId !== personId) return null;
+		return {
+			start: toDayNumber(quickAddSelection.startDate) - visibleDays.start,
+			end: toDayNumber(quickAddSelection.endDate) - visibleDays.start
+		};
+	}
+
+	function groupOutCounts(group: string) {
+		const personnel = personnelByGroup.find((grp) => grp.group === group)?.personnel ?? [];
+		return tracks.outCounts(
+			personnel.map((person) => person.id),
+			visibleDays
+		);
+	}
 </script>
 
 <div
@@ -214,7 +299,7 @@
 		{year}
 		{month}
 		{monthName}
-		headerCells={renderState.headerCells}
+		headerCells={days}
 		{lanes}
 		{onPrevMonth}
 		{onNextMonth}
@@ -251,7 +336,7 @@
 					{#each visibleRosterRows as row (row.key)}
 						<div
 							class={[
-								'virtual-row absolute top-0 left-0 w-full overflow-hidden',
+								'virtual-row absolute top-0 left-0 w-full overflow-clip',
 								row.type === 'person' && 'virtual-row--person',
 								row.type === 'group' && 'virtual-row--group'
 							]}
@@ -263,19 +348,32 @@
 									groupName={row.group}
 									isCollapsed={collapsedGroups.has(row.group)}
 									isPinned={pinnedGroups.includes(row.group)}
+									outCounts={collapsedGroups.has(row.group) ? groupOutCounts(row.group) : undefined}
+									{days}
 									onToggle={() => toggleGroup(row.group)}
 									onPinToggle={() => onPinToggle?.(row.group)}
 								/>
 							{:else}
 								<CalendarRow
 									person={row.person}
-									personHeader={renderState.personHeader(row.person.id)}
-									cells={renderState.personDateCells(row.person.id) ?? []}
-									{showStatusText}
+									{days}
+									layout={rowLayout(row.person.id)}
+									selectedEntryId={popoverEntry?.personId === row.person.id ? popoverEntry.entryId : null}
+									selection={rowSelection(row.person.id)}
+									markers={markersByPerson.get(row.person.id)}
+									onboarding={onboardingIds.has(row.person.id)}
+									{highlightOnboarding}
+									loss={upcomingLossMap?.get(row.person.id)}
 									{showPersonnelRoles}
-									onCellClick={canEdit ? onCellClick : undefined}
+									onCellClick={canEdit ? clickCell : undefined}
 									onMarkerClick={canEditAssignments ? onMarkerClick : undefined}
 									{onPersonClick}
+									{onOpenEntry}
+									{onOpenOverflow}
+									onPressDay={dragEnabled ? pressDay : undefined}
+									onPressEdge={dragEnabled && onResize && !saving && canEditAvailabilityFor(row.person)
+										? pressEdge
+										: undefined}
 								/>
 							{/if}
 						</div>

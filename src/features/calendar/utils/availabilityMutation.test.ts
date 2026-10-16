@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { AvailabilityEntry } from '$features/calendar/contracts';
 import {
+	rereadDatesFor,
 	buildAddRecords,
 	classifyAvailabilityOverlaps,
+	classifyAvailabilityWrite,
 	rangesOverlap,
 	validateDateRange
 } from './availabilityMutation';
@@ -116,5 +118,46 @@ describe('buildAddRecords', () => {
 
 	it('returns an empty batch when no personnel are selected', () => {
 		expect(buildAddRecords([], 's1', '2026-01-01', '2026-01-03', null)).toEqual([]);
+	});
+});
+
+describe('classifyAvailabilityWrite', () => {
+	const saved = entry({ id: 'e1', startDate: '2026-01-05', endDate: '2026-01-07', note: 'Block leave' });
+	const record = { personnelId: 'p1', statusTypeId: 's1', startDate: '2026-01-10', endDate: '2026-01-12', note: null };
+
+	it('counts a create as saved only when a row the client did not know holds the submission', () => {
+		const create = { kind: 'create', record } as const;
+		const twin = entry({ id: 'old', startDate: '2026-01-10', endDate: '2026-01-12' });
+
+		expect(classifyAvailabilityWrite(create, [twin], [twin])).toBe('not-saved');
+		expect(classifyAvailabilityWrite(create, [twin], [twin, { ...twin, id: 'new' }])).toBe('saved');
+	});
+
+	it('counts an update as saved only when the row holds the new values', () => {
+		const update = {
+			kind: 'update',
+			entry: saved,
+			changes: { statusTypeId: 's1', startDate: '2026-01-06', endDate: '2026-01-07', note: 'Block leave' }
+		} as const;
+
+		expect(classifyAvailabilityWrite(update, [saved], [saved])).toBe('not-saved');
+		expect(classifyAvailabilityWrite(update, [saved], [{ ...saved, startDate: '2026-01-06' }])).toBe('saved');
+	});
+
+	it('counts a removal as saved once the row is gone', () => {
+		const remove = { kind: 'remove', entry: saved } as const;
+
+		expect(classifyAvailabilityWrite(remove, [saved], [saved])).toBe('not-saved');
+		expect(classifyAvailabilityWrite(remove, [saved], [])).toBe('saved');
+	});
+
+	it('re-reads the old and new start of a moved entry', () => {
+		expect(
+			rereadDatesFor({
+				kind: 'update',
+				entry: saved,
+				changes: { statusTypeId: 's1', startDate: '2026-02-02', endDate: '2026-02-03', note: null }
+			})
+		).toEqual(['2026-01-05', '2026-02-02']);
 	});
 });

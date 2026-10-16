@@ -314,6 +314,22 @@ async function main() {
 		else note(await evaluate(state, pageId, `() => (${observePrint.toString()})(window, ${JSON.stringify(action)})`));
 		return;
 	}
+	if (command === 'pointer') {
+		const [action, page, expectedUrl, from, to, steps] = args;
+		if (action !== 'drag' || args.length < 5 || args.length > 6)
+			throw new Error('Use pointer drag PAGE EXACT_URL FROM_SELECTOR TO_SELECTOR [STEPS].');
+		note(
+			await run(state, {
+				command: 'pointer-drag',
+				pageId: Number(page),
+				expectedUrl,
+				from,
+				to,
+				...(steps === undefined ? {} : { steps: Number(steps) })
+			})
+		);
+		return;
+	}
 	if (command === 'server-source') {
 		const [action, table, mode, ordinal, holdMs] = args;
 		if (
@@ -2695,7 +2711,13 @@ async function main() {
 				throw new Error('A rejected form result is supported only for platform form actions.');
 			if (
 				action === 'arm-drop' &&
-				!['admin-suspend', 'admin-transfer', 'ict-tasks/batch', 'personnel-ict-completions/batch'].includes(family)
+				![
+					'admin-suspend',
+					'admin-transfer',
+					'availability',
+					'ict-tasks/batch',
+					'personnel-ict-completions/batch'
+				].includes(family)
 			)
 				throw new Error('Lost-response proof requires a documented mutation family.');
 			const mode =
@@ -2735,13 +2757,15 @@ async function main() {
 			const requestMethod =
 				family === 'ict-tasks/order'
 					? 'POST'
-					: heldPersonnelFailure || family === 'assignment-types/lanes' || family === 'status-types/order'
-						? 'PUT'
-						: family === 'user-preferences'
-							? 'PATCH'
-							: shellPart
-								? 'GET'
-								: null;
+					: action === 'arm-drop' && family === 'availability'
+						? 'ANY'
+						: heldPersonnelFailure || family === 'assignment-types/lanes' || family === 'status-types/order'
+							? 'PUT'
+							: family === 'user-preferences'
+								? 'PATCH'
+								: shellPart
+									? 'GET'
+									: null;
 			const install = `(${installNetworkControl.toString()})(window, ${JSON.stringify({ mode, ordinal, suffix, search, failureField, failureStatus: action === 'arm-fail-400' ? 400 : 503, requestTarget, sameOrigin, requestMethod })})`;
 			// Onboarding's HTTP adapter captures fetch at creation, so install before page code.
 			if (family.startsWith('onboarding-') || shellPart) {

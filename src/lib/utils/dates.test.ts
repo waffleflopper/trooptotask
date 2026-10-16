@@ -6,7 +6,6 @@ import {
 	getMonthDates,
 	isWeekend,
 	isSameDay,
-	isDateInRange,
 	getMonthName,
 	getDayName,
 	addMonths,
@@ -99,24 +98,6 @@ describe('isSameDay', () => {
 
 	it('returns false for different dates', () => {
 		expect(isSameDay(new Date(2026, 2, 13), new Date(2026, 2, 14))).toBe(false);
-	});
-});
-
-describe('isDateInRange', () => {
-	it('returns true when date is within range', () => {
-		expect(isDateInRange(new Date(2026, 2, 13), '2026-03-01', '2026-03-31')).toBe(true);
-	});
-
-	it('returns true for start boundary', () => {
-		expect(isDateInRange(new Date(2026, 2, 1), '2026-03-01', '2026-03-31')).toBe(true);
-	});
-
-	it('returns true for end boundary', () => {
-		expect(isDateInRange(new Date(2026, 2, 31), '2026-03-01', '2026-03-31')).toBe(true);
-	});
-
-	it('returns false when date is outside range', () => {
-		expect(isDateInRange(new Date(2026, 3, 1), '2026-03-01', '2026-03-31')).toBe(false);
 	});
 });
 

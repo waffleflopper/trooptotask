@@ -3,6 +3,8 @@
 	import Calendar from '$features/calendar/components/Calendar.svelte';
 	import LongRangeView from '$features/calendar/components/LongRangeView.svelte';
 	import StatusLegend from '$features/calendar/components/StatusLegend.svelte';
+	import CalendarPopover from '$features/calendar/components/CalendarPopover.svelte';
+	import { untrack } from 'svelte';
 	import { WorkspaceToolbar } from '$lib/components/patterns/workspace-toolbar';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
@@ -118,8 +120,23 @@
 		})
 	);
 
+	const barPopover = $derived(ctx.popover?.kind === 'duty' ? null : ctx.popover);
+	const popoverEntry = $derived(
+		ctx.popover?.kind === 'entry' ? { personId: ctx.popover.person.id, entryId: ctx.popover.entryId } : null
+	);
+	const quickAddSelection = $derived(
+		ctx.popover?.kind === 'quick-add'
+			? { personId: ctx.popover.person.id, startDate: ctx.popover.startDate, endDate: ctx.popover.endDate }
+			: null
+	);
+
+	$effect(() => {
+		void [calendarStore.year, calendarStore.month, ctx.viewMode];
+		untrack(() => ctx.closePopover());
+	});
+
 	const dutyPick = $derived.by(() => {
-		const pick = ctx.dutyPick;
+		const pick = ctx.popover?.kind === 'duty' ? ctx.popover : null;
 		const type = pick && dailyAssignmentsStore.types.find((candidate) => candidate.id === pick.typeId);
 		if (!pick || !type || type.archivedAt) return null;
 		const dateKey = formatDate(pick.date);
@@ -148,7 +165,7 @@
 			return await import('$features/calendar/components/DutyPicker.svelte');
 		} catch (error) {
 			if (current()) toastStore.error(error instanceof Error ? error.message : 'Duty picker failed to load');
-			ctx.closeDutyPicker();
+			ctx.closePopover();
 			throw error;
 		}
 	}
@@ -159,7 +176,7 @@
 			return await import('$features/calendar/components/AvailabilityModal.svelte');
 		} catch (error) {
 			if (current()) toastStore.error(error instanceof Error ? error.message : 'Availability editor failed to load');
-			ctx.closeAvailabilityModal();
+			ctx.closeEditor();
 			throw error;
 		}
 	}
@@ -240,12 +257,11 @@
 						startDate={calendarStore.currentDate}
 						onStartDateChange={(date) => calendarStore.goToMonth(date.getFullYear(), date.getMonth())}
 						personnelByGroup={ctx.filteredPBG}
-						availabilityEntries={availabilityStore.items}
-						statusTypes={statusTypesStore.items}
+						tracks={ctx.availabilityTracks}
 						specialDays={specialDaysStore.items}
-						assignmentTypes={dailyAssignmentsStore.types}
-						assignments={dailyAssignmentsStore.assignments}
 						onDateColumnClick={(date) => ctx.navigateToMonth(date)}
+						onOpenEntry={(person, entry, anchor) => ctx.openEntry(person, entry.id, anchor)}
+						onOpenOverflow={(person, entryIds, anchor) => ctx.openOverflow(person, entryIds, anchor)}
 					/>
 				{:else}
 					<Calendar
@@ -254,8 +270,7 @@
 						monthName={calendarStore.monthName}
 						dates={calendarStore.dates}
 						personnelByGroup={ctx.filteredPBG}
-						availabilityEntries={availabilityStore.items}
-						statusTypes={statusTypesStore.items}
+						tracks={ctx.availabilityTracks}
 						specialDays={specialDaysStore.items}
 						pinnedGroups={pinnedGroupsStore.list}
 						assignmentTypes={dailyAssignmentsStore.types}
@@ -278,31 +293,64 @@
 						onPinToggle={(group) => ctx.handlePinToggle(group)}
 						onDateClick={(date) => ctx.handleDateClick(date)}
 						onMarkerClick={(date) => ctx.handleDateClick(date)}
+						onOpenEntry={(person, entry, anchor) => ctx.openEntry(person, entry.id, anchor)}
+						onOpenOverflow={(person, entryIds, anchor) => ctx.openOverflow(person, entryIds, anchor)}
+						canEditAvailabilityFor={(person) => ctx.canManageAvailabilityFor(person)}
+						{popoverEntry}
+						{quickAddSelection}
+						saving={ctx.savingAvailability}
+						onQuickAdd={(person, startDate, endDate, anchor) => ctx.openQuickAdd(person, startDate, endDate, anchor)}
+						onResize={(person, entry, startDate, endDate) =>
+							ctx.saveAvailability({
+								kind: 'update',
+								entry,
+								changes: { statusTypeId: entry.statusTypeId, startDate, endDate, note: entry.note ?? null }
+							})}
 					/>
-					<StatusLegend statusTypes={statusTypesStore.items} />
 				{/if}
+				<StatusLegend statusTypes={statusTypesStore.items} />
 			</section>
 		</div>
 	{/if}
 </div>
 
-{#if ctx.selectedPerson && ctx.selectedDate}
-	{#await loadAvailabilityModal() then { default: AvailabilityModal }}
-		<AvailabilityModal
-			orgId={data.orgId}
-			person={ctx.selectedPerson}
-			date={ctx.selectedDate}
+{#if ctx.editor}
+	{@const request = ctx.editor}
+	{#key request}
+		{#await loadAvailabilityModal() then { default: AvailabilityModal }}
+			<AvailabilityModal
+				{request}
+				statusTypes={statusTypesStore.items}
+				existingEntries={availabilityStore.items}
+				saving={ctx.savingAvailability}
+				onSave={(change) => ctx.saveAvailability(change)}
+				onClose={() => ctx.closeEditor()}
+			/>
+		{:catch}
+			<span class="sr-only">Availability editor failed to load.</span>
+		{/await}
+	{/key}
+{/if}
+
+{#if barPopover}
+	{@const popover = barPopover}
+	{#key popover}
+		<CalendarPopover
+			{popover}
 			statusTypes={statusTypesStore.items}
-			existingEntries={availabilityStore.items}
-			onAdd={(entry) => ctx.handleAddAvailability(entry)}
-			onUpdate={(id, changes) => ctx.handleUpdateAvailability(id, changes)}
-			onRemove={(id) => ctx.handleRemoveAvailability(id)}
-			onReconcile={(dates, expectedOrgId) => ctx.reconcileAvailability(dates, expectedOrgId)}
-			onClose={() => ctx.closeAvailabilityModal()}
+			spans={ctx.availabilityTracks.spans(popover.person.id)}
+			canEdit={ctx.canManageAvailabilityFor(popover.person)}
+			anchorHasResizeGrips={ctx.viewMode !== '3-month' &&
+				!ctx.savingAvailability &&
+				popover.kind === 'entry' &&
+				popover.anchor.dataset.entryId === popover.entryId}
+			saving={ctx.savingAvailability}
+			onSave={(change) => ctx.saveAvailability(change)}
+			onEdit={(request) => ctx.openEditor(request)}
+			onOpenEntry={(entryId) => ctx.openEntry(popover.person, entryId, popover.anchor)}
+			onClose={() => ctx.closePopover()}
 		/>
-	{:catch}
-		<span class="sr-only">Availability editor failed to load.</span>
-	{/await}
+	{/key}
 {/if}
 
 {#if dutyPick}
@@ -315,7 +363,7 @@
 				anchor={dutyPick.anchor}
 				options={dutyPick.options}
 				onAssign={(assigneeId) => dailyAssignmentsStore.setAssignment(dutyPick.dateKey, dutyPick.type.id, assigneeId)}
-				onClose={() => ctx.closeDutyPicker()}
+				onClose={() => ctx.closePopover()}
 			/>
 		{:catch}
 			<span class="sr-only">Duty picker failed to load.</span>

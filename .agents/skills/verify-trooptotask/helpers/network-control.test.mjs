@@ -497,6 +497,31 @@ for (const family of ['ict-tasks/batch', 'personnel-ict-completions/batch']) {
 	});
 }
 
+for (const method of ['POST', 'PUT', 'DELETE']) {
+	test(`Calendar availability loses the reply to one ${method} after real dispatch`, async () => {
+		const suffix = '/org/owned-a/api/availability';
+		let dispatched = 0;
+		const page = {
+			location: { href: 'http://localhost/org/owned-a/calendar' },
+			fetch: async () => {
+				dispatched++;
+				return Response.json({ saved: true });
+			}
+		};
+		installNetworkControl(page, { mode: 'drop-response', ordinal: 1, suffix, requestMethod: 'ANY' });
+		for (const url of ['/org/owned-b/api/availability', `${suffix}/batch`])
+			assert.deepEqual(await (await page.fetch(url, { method })).json(), { saved: true });
+		assert.equal(page.__mapNetwork.calls.length, 0);
+		await assert.rejects(page.fetch(suffix, { method }), TypeError);
+		assert.equal(dispatched, 3);
+		assert.deepEqual(
+			page.__mapNetwork.calls.map(({ method: seen, status, failure }) => ({ method: seen, status, failure })),
+			[{ method, status: 200, failure: 'response' }]
+		);
+		assert.deepEqual(await (await page.fetch(suffix, { method })).json(), { saved: true });
+	});
+}
+
 for (const mode of ['observe', 'hold', 'hold-fail']) {
 	test(`Critical Tasks order ${mode} isolates one owned POST`, async () => {
 		let dispatched = 0;

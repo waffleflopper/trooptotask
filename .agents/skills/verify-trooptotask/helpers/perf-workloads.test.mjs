@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { cleanWorkloads, expandWorkload, workloadMembers, workloads, workloadTables } from './perf-workloads.mjs';
+import { cleanWorkloads, expandWorkload, workloadMembers, workloadTables } from './perf-workloads.mjs';
 
 const owner = { id: '11111111-1111-4111-8111-111111111111', email: 'wide@example.test' };
 const scoped = { id: '22222222-2222-4222-8222-222222222222', email: 'scoped@example.test' };
@@ -13,31 +13,64 @@ test('the same workload and anchor expand to identical rows', () => {
 	assert.notDeepEqual(workloadMembers('large', 'run'), workloadMembers('large', 'other'));
 });
 
-test('row counts follow the workload table', () => {
-	for (const [name, shape] of Object.entries(workloads)) {
+// Robert's 20/100/400 active People, 10% archived per Group (rounded half up), one
+// availability entry per active Person per 30 days over 181 days (6), and one assignment per
+// duty type for each of the 181 days.
+test('each approved workload expands to its specified row counts', () => {
+	const expected = {
+		small: {
+			groups: 2,
+			active: 20,
+			archived: 2,
+			availability: 120,
+			assignments: 362,
+			training: 8,
+			tasks: 10,
+			memberships: 5,
+			onboarding: 4
+		},
+		typical: {
+			groups: 5,
+			active: 100,
+			archived: 10,
+			availability: 600,
+			assignments: 724,
+			training: 15,
+			tasks: 25,
+			memberships: 12,
+			onboarding: 15
+		},
+		large: {
+			groups: 16,
+			active: 400,
+			archived: 48,
+			availability: 2400,
+			assignments: 1086,
+			training: 25,
+			tasks: 40,
+			memberships: 36,
+			onboarding: 60
+		}
+	};
+	for (const [name, counts] of Object.entries(expected)) {
 		const { rows } = expand(name);
-		const active = shape.groups * shape.personnelPerGroup;
-		const archived = shape.groups * Math.round((shape.personnelPerGroup * shape.archivedPercent) / 100);
-		const days = shape.windowDays.past + shape.windowDays.future + 1;
-		const members = Object.values(shape.members).reduce((sum, count) => sum + count, 0);
-		assert.equal(rows.groups.length, shape.groups, name);
-		assert.equal(rows.personnel.filter((person) => person.archived_at === null).length, active, name);
-		assert.equal(rows.personnel.length, active + archived, name);
-		assert.equal(
-			rows.availability_entries.length,
-			active * Math.round((shape.availabilityPerPersonPer30Days * days) / 30),
+		const active = rows.personnel.filter((person) => person.archived_at === null).length;
+		assert.deepEqual(
+			{
+				groups: rows.groups.length,
+				active,
+				archived: rows.personnel.length - active,
+				availability: rows.availability_entries.length,
+				assignments: rows.daily_assignments.length,
+				training: rows.training_types.length,
+				tasks: rows.ict_tasks.length,
+				memberships: rows.organization_memberships.length,
+				onboarding: rows.personnel_onboardings.length
+			},
+			counts,
 			name
 		);
-		assert.equal(rows.daily_assignments.length, shape.assignmentTypes * days, name);
-		assert.equal(rows.training_types.length, shape.trainingTypes, name);
-		assert.equal(rows.ict_tasks.length, shape.criticalTasks, name);
-		assert.equal(rows.organization_memberships.length, 2 + members, name);
-		assert.equal(rows.personnel_onboardings.length, shape.onboardingInProgress + shape.onboardingCompleted, name);
 	}
-	assert.deepEqual(
-		Object.values(workloads).map((shape) => shape.groups * shape.personnelPerGroup),
-		[20, 100, 400]
-	);
 });
 
 test('rows satisfy the unique keys and references the database enforces', () => {

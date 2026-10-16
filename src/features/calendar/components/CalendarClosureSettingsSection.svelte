@@ -271,7 +271,7 @@
 	{/each}
 {/snippet}
 
-<div class={['grid gap-6', canMutate && 'xl:grid-cols-[minmax(0,1fr)_24rem]']}>
+<div class={['grid gap-6', canMutate && 'xl:grid-cols-[minmax(0,1fr)_24rem] xl:grid-rows-[auto_1fr]']}>
 	<div class="flex flex-wrap items-center gap-3 xl:col-start-1 xl:row-start-1">
 		<NativeSelect aria-label="Year" class="w-[6.5rem]" value={filterYear} onchange={handleFilterYearChange}>
 			{#each yearOptions as year (year)}

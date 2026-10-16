@@ -35,6 +35,7 @@
 	const saving = new PendingSave();
 
 	const RANGE_ERRORS = {
+		'missing-date': 'Pick a first and last day.',
 		'end-before-start': 'End date must be on or after the start date.',
 		'too-many-days': `A closure can cover at most ${MAX_CLOSURE_DAYS} days.`
 	} as const;

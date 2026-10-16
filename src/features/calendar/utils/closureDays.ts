@@ -9,7 +9,9 @@ export interface ClosureDraft {
 	skipWeekends: boolean;
 }
 
-export type ClosureDates = { ok: true; dates: string[] } | { ok: false; reason: 'end-before-start' | 'too-many-days' };
+export type ClosureDates =
+	| { ok: true; dates: string[] }
+	| { ok: false; reason: 'missing-date' | 'end-before-start' | 'too-many-days' };
 
 const DAY_MS = 86_400_000;
 
@@ -24,6 +26,8 @@ const isWeekendUtc = (time: number) => {
 export function closureDates({ startDate, endDate, skipWeekends }: ClosureDraft): ClosureDates {
 	const start = toUtc(startDate);
 	const end = toUtc(endDate);
+	// A date picker clears its value when its selected day is clicked again.
+	if (Number.isNaN(start) || Number.isNaN(end)) return { ok: false, reason: 'missing-date' };
 	if (end < start) return { ok: false, reason: 'end-before-start' };
 	const dates: string[] = [];
 	for (let time = start; time <= end; time += DAY_MS) {

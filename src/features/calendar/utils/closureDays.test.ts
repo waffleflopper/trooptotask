@@ -47,7 +47,15 @@ describe('closureDates', () => {
 		});
 	});
 
-	it('rejects an end before the start and more than 366 dates', () => {
+	it('rejects a missing day, an end before the start and more than 366 dates', () => {
+		expect(closureDates({ startDate: '2026-10-09', endDate: '', skipWeekends: true })).toEqual({
+			ok: false,
+			reason: 'missing-date'
+		});
+		expect(closureDates({ startDate: '', endDate: '2026-10-09', skipWeekends: true })).toEqual({
+			ok: false,
+			reason: 'missing-date'
+		});
 		expect(closureDates({ startDate: '2026-10-09', endDate: '2026-10-08', skipWeekends: false })).toEqual({
 			ok: false,
 			reason: 'end-before-start'

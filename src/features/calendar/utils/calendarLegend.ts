@@ -17,7 +17,7 @@ export function legendMark<T>(Mark: Component<{ value: T }>, value: T): LegendMa
 
 export interface LegendEntry {
 	readonly key: string;
-	/** The entry's visible text and accessible name. */
+	/** The entry's visible text. */
 	readonly label: string;
 	readonly mark: LegendMark;
 }

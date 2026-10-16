@@ -187,7 +187,7 @@ function addMonths(date, months) {
  * Every row of one workload, deterministic for a name and anchor day. The anchor is
  * the run's local day, so a later run keeps the same shape relative to "today".
  */
-export function expandWorkload(name, { anchor, owner, scoped, members }) {
+export function expandWorkload(name, { anchor, owner, scoped, scopedLeader, members }) {
 	const shape = workloads[name];
 	if (!shape) throw new Error(`Unknown workload ${name}; use ${Object.keys(workloads).join(', ')}.`);
 	if (!/^\d{4}-\d{2}-\d{2}$/.test(anchor)) throw new Error('Workload anchor must be YYYY-MM-DD.');
@@ -244,6 +244,20 @@ export function expandWorkload(name, { anchor, owner, scoped, members }) {
 			capability_overrides: capabilities(role === 'member' ? 'operate' : 'configure'),
 			access_scope_kind: scope,
 			access_scope_group_ids: scope === 'groups' ? [scopedGroup.id] : []
+		})
+	);
+	// The Group-scoped editor holds personnel configure, so it opens a Person's detail in its Group.
+	// Its ID comes from its own generator, so every other row stays as in workloads seeded before it.
+	rows.organization_memberships.push(
+		inOrganization({
+			id: uuidFrom(random(`t2t-perf-workload:${name}:scoped-leader`)),
+			user_id: scopedLeader.id,
+			email: scopedLeader.email,
+			role: 'member',
+			member_preset: 'editor',
+			capability_overrides: capabilities('configure'),
+			access_scope_kind: 'groups',
+			access_scope_group_ids: [scopedGroup.id]
 		})
 	);
 
@@ -579,9 +593,10 @@ export async function seedWorkload({ client, fixture, name, tag, ownedState, sav
 	if (ownedState.workloads[name]) throw new Error(`Clean the existing ${name} workload before seeding it again.`);
 	const owner = fixture.actors.perfWide;
 	const scoped = fixture.actors.perfScoped;
-	if (!owner || !scoped) throw new Error('This worker predates the performance actors; restart it.');
+	const scopedLeader = fixture.actors.perfScopedLeader;
+	if (!owner || !scoped || !scopedLeader) throw new Error('This worker predates the performance actors; restart it.');
 	const members = workloadMembers(name, tag);
-	const expanded = expandWorkload(name, { anchor: fixture.dates.ui, owner, scoped, members });
+	const expanded = expandWorkload(name, { anchor: fixture.dates.ui, owner, scoped, scopedLeader, members });
 	const { organization, rows } = expanded;
 	ownedState.workloads[name] = {
 		tag,
@@ -631,7 +646,8 @@ export async function seedWorkload({ client, fixture, name, tag, ownedState, sav
 		window: expanded.window,
 		actors: {
 			perfWide: { role: 'owner', scope: 'organization' },
-			perfScoped: { role: 'member', scope: 'groups', group: expanded.scopedGroup.name }
+			perfScoped: { role: 'member', scope: 'groups', group: expanded.scopedGroup.name },
+			perfScopedLeader: { role: 'member', preset: 'editor', scope: 'groups', group: expanded.scopedGroup.name }
 		},
 		sentinels: expanded.sentinels,
 		searchTerms: expanded.searchTerms,

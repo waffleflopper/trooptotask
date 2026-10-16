@@ -27,7 +27,8 @@ const ownerOnly = {
 const detailActors = {
 	perfWide: null,
 	perfScoped:
-		'The detail page needs the personnel configure capability (personnel.readSensitiveRecords); perfScoped is an operator (403).'
+		'The detail page needs the personnel configure capability (personnel.readSensitiveRecords); perfScoped is an operator (403).',
+	perfScopedLeader: null
 };
 const platformOnly = {
 	platformReviewer: null,
@@ -49,6 +50,12 @@ const calendarReady = ({ month }) => ({
 	absentSelector: [skeleton]
 });
 const org = (terms, path = '') => `/org/${terms.organizationId}${path}`;
+// The affected-soldiers detail opens below the briefing from a hot-spot cell; every workload has
+// this Training type, and its Total cell is the widest cell an actor can open.
+const affected = '#training-affected-soldiers';
+const openBriefingCell = { click: { role: 'button', name: 'Total, Workload Training 01:', partial: true } };
+const calendarReportReady = () => [{ name: 'ready', present: ['Run status-day report'], absentSelector: [skeleton] }];
+const runStatusDays = { click: { role: 'button', name: 'Run status-day report' } };
 
 // The roster stays paused for a large wide actor, so its row journeys first narrow the roster
 // to one Person with the search term, as that user would.
@@ -291,6 +298,80 @@ export const journeys = {
 				absentSelector: ['[aria-busy="true"]', skeleton]
 			}
 		]
+	},
+	// Every page of the detail is one request that rebuilds the briefing source on the server.
+	'briefing-detail': {
+		area: 'reports',
+		kind: 'interaction',
+		effect: 'read',
+		actors: both,
+		path: (terms) => org(terms, '/training/reports'),
+		ready: (terms) =>
+			journeys['training-report'].milestones(terms).map((milestone) => ({ ...milestone, name: 'ready' })),
+		trigger: () => openBriefingCell,
+		milestones: () => [
+			{
+				name: 'useful',
+				inside: { [`${affected} [role="status"]`]: ['not ready or lapsing by'] },
+				presentSelector: [`${affected}[aria-busy="false"] table`],
+				absent: ['Loading affected soldiers']
+			}
+		]
+	},
+	'briefing-detail-page': {
+		area: 'reports',
+		kind: 'interaction',
+		effect: 'read',
+		actors: {
+			perfWide: null,
+			perfScoped: 'The scoped Group has at most 25 soldiers, so its widest cell fits on one page and has no Next.'
+		},
+		path: (terms) => org(terms, '/training/reports'),
+		ready: (terms) =>
+			journeys['training-report'].milestones(terms).map((milestone) => ({ ...milestone, name: 'ready' })),
+		prepare: () => [openBriefingCell, { wait: ['Page 1 of'] }],
+		trigger: () => ({
+			click: { role: 'button', name: 'Next', within: { role: 'navigation', name: 'Table pagination' } }
+		}),
+		milestones: () => [
+			{
+				name: 'useful',
+				inside: { [`${affected} nav`]: ['Page 2 of'] },
+				present: ['Rows 26–50 of'],
+				absent: ['Loading page 2'],
+				presentSelector: [`${affected}[aria-busy="false"]`]
+			}
+		]
+	},
+	// The report UI caps no range; the longest preset that holds workload data is the current
+	// calendar year, which is also the Status days default.
+	'calendar-report': {
+		area: 'reports',
+		kind: 'interaction',
+		effect: 'read',
+		actors: both,
+		path: (terms) => org(terms, '/calendar/reports'),
+		ready: calendarReportReady,
+		trigger: () => runStatusDays,
+		milestones: ({ population }) => [
+			{
+				name: 'useful',
+				present: [`${population} personnel`],
+				presentSelector: ['table[aria-label="Status days by person"]'],
+				absent: ['Counting status days']
+			}
+		]
+	},
+	'calendar-report-export': {
+		area: 'reports',
+		kind: 'interaction',
+		effect: 'read',
+		actors: both,
+		path: (terms) => org(terms, '/calendar/reports'),
+		ready: calendarReportReady,
+		prepare: () => [runStatusDays, { wait: ['Export status days'] }],
+		trigger: () => ({ click: { role: 'button', name: 'Export status days' } }),
+		milestones: () => [{ name: 'useful', download: true }]
 	},
 	'members-list': {
 		area: 'lists',

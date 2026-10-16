@@ -25,6 +25,14 @@ test('an actor a journey does not reach is refused with the reason', () => {
 		message: 'personnel-list is not measured as platformReviewer.'
 	});
 	assert.equal(journeyFor('admin-users', 'platformReviewer', 'load'), journeys['admin-users']);
+	assert.equal(journeyFor('personnel-detail', 'perfScopedLeader', 'interaction'), journeys['personnel-detail']);
+	assert.throws(() => journeyFor('personnel-list', 'perfScopedLeader', 'load'), {
+		message: 'personnel-list is not measured as perfScopedLeader.'
+	});
+	assert.throws(() => journeyFor('briefing-detail-page', 'perfScoped', 'interaction'), {
+		message:
+			'briefing-detail-page is not applicable to perfScoped: The scoped Group has at most 25 soldiers, so its widest cell fits on one page and has no Next.'
+	});
 });
 
 test('only Calendar initial, Personnel list and Dashboard are measured cold', () => {

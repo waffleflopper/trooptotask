@@ -827,8 +827,8 @@ async function main() {
 	if (command === 'actor') {
 		const [role, destination = 'calendar', workloadName] = args;
 		const workload = workloadName === undefined ? null : (await saved()).workloads?.[workloadName];
-		if (workloadName !== undefined && (!workload || !['perfWide', 'perfScoped'].includes(role)))
-			throw new Error('Use perfWide or perfScoped with a seeded workload name.');
+		if (workloadName !== undefined && (!workload || !['perfWide', 'perfScoped', 'perfScopedLeader'].includes(role)))
+			throw new Error('Use perfWide, perfScoped or perfScopedLeader with a seeded workload name.');
 		const orgDestinations = [
 			'evals',
 			'personnel',

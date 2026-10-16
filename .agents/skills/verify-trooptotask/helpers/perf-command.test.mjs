@@ -74,7 +74,8 @@ async function traceScenario({ trace, failNavigation = false }) {
 		text: (reply) => reply.text ?? '',
 		evaluate: async (_pageId, source) => {
 			if (source.includes('/auth/login?/login')) return 'redirect';
-			if (source.includes("getEntriesByType('resource')")) return [];
+			if (source.startsWith("() => performance.getEntriesByType('resource')")) return [];
+			if (source.includes('responseEnd ?? 0')) return { end: 9, now: 10 };
 			return { observer: { done: true, milestones: { useful: 5 } }, resources: [], navigation: null, paint: {} };
 		},
 		tool: async (name, input) => {
@@ -197,6 +198,11 @@ test('journey terms carry the actor scope and switch from another seeded workloa
 	assert.deepEqual(scoped.switchFrom, { organizationId: 'typical-org', sentinel: 'Eve, Ed' });
 	assert.deepEqual(journeyTerms({ large: ledger }, 'large', 'perfWide').rosterPaused, true);
 	assert.equal(journeyTerms(seeded, 'small', 'platformReviewer').sentinel, undefined);
+	assert.deepEqual(journeyTerms(seeded, 'small', 'perfScopedLeader').edit, {
+		row: 'Open SPC Baker, Bo',
+		original: '11B',
+		alternate: '42A'
+	});
 });
 
 test('a journey outside the cold set is refused cold before any browser call', async () => {
@@ -225,4 +231,64 @@ test('a journey outside the cold set is refused cold before any browser call', a
 		),
 		{ message: 'training-report is not measured cold: the app sign-in limit leaves it warm only.' }
 	);
+});
+
+test('a streamed document that outlasts the render closes its query window only when it ends', async () => {
+	const repository = await fs.mkdtemp(path.join(os.tmpdir(), 'perf-document-'));
+	const evidenceRoot = path.join(repository, '.verification', 'evidence');
+	const session = path.join(repository, 'session');
+	await fs.mkdir(session, { recursive: true });
+	await fs.writeFile(path.join(session, 'app.log'), '');
+	const events = [];
+	let documentPolls = 0;
+	const ctx = {
+		repository,
+		evidenceRoot,
+		session,
+		doctor: { origin: 'http://127.0.0.1:4000', candidate: 'abc' },
+		ownedState: { workloads: { small: ledger }, perfPages: { 7: 'perfWide' } },
+		isUnderEvidence: async (file, root) => file.startsWith(root + path.sep),
+		text: (reply) => reply.text ?? '',
+		database: async (_name, action) => {
+			events.push(`statements ${action}`);
+			return { statements: [] };
+		},
+		evaluate: async (_pageId, source) => {
+			if (source.startsWith("() => performance.getEntriesByType('resource')")) return [];
+			if (source.includes('responseEnd ?? 0')) {
+				documentPolls++;
+				const ended = documentPolls >= 3;
+				if (ended) events.push('document ended');
+				return { end: ended ? 45598 : 0, now: 2700 + documentPolls };
+			}
+			return {
+				observer: { done: true, milestones: { useful: 2674 } },
+				navigation: {
+					name: 'http://127.0.0.1:4000/org/org/critical-tasks/reports',
+					responseEnd: 0,
+					transferSize: 300,
+					encodedBodySize: 0,
+					decodedBodySize: 0,
+					startTime: 0,
+					responseStart: 2633,
+					domContentLoaded: 0,
+					load: 0,
+					type: 'navigate'
+				},
+				resources: [],
+				paint: {}
+			};
+		},
+		tool: async (name) => (name === 'list_network_requests' ? { structuredContent: { networkRequests: [] } } : {})
+	};
+	const out = path.join(evidenceRoot, 'run');
+	const result = await perfCommand(
+		['load', '7', 'small', 'critical-tasks-report', 'perfWide', '--warmup', '0', '--reps', '1', '--out', out],
+		ctx
+	);
+	assert.deepEqual(events, ['statements reset', 'document ended', 'statements read']);
+	const [sample] = JSON.parse(await fs.readFile(path.join(repository, result.file), 'utf8')).samples;
+	assert.equal(sample.firstUsefulRenderMs, 2674);
+	assert.equal(sample.documentCompleteMs, 45598);
+	assert.equal(sample.documentOpen, false);
 });

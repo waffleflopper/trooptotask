@@ -11,8 +11,9 @@ import {
 
 const owner = { id: '11111111-1111-4111-8111-111111111111', email: 'wide@example.test' };
 const scoped = { id: '22222222-2222-4222-8222-222222222222', email: 'scoped@example.test' };
+const scopedLeader = { id: '33333333-3333-4333-8333-333333333333', email: 'leader@example.test' };
 const expand = (name, anchor = '2026-10-15') =>
-	expandWorkload(name, { anchor, owner, scoped, members: workloadMembers(name, 'run') });
+	expandWorkload(name, { anchor, owner, scoped, scopedLeader, members: workloadMembers(name, 'run') });
 
 test('the same workload and anchor expand to identical rows', () => {
 	assert.deepEqual(expand('typical'), expand('typical'));
@@ -33,7 +34,7 @@ test('each approved workload expands to its specified row counts', () => {
 			assignments: 362,
 			training: 8,
 			tasks: 10,
-			memberships: 5,
+			memberships: 6,
 			onboarding: 4
 		},
 		typical: {
@@ -44,7 +45,7 @@ test('each approved workload expands to its specified row counts', () => {
 			assignments: 724,
 			training: 15,
 			tasks: 25,
-			memberships: 12,
+			memberships: 13,
 			onboarding: 15
 		},
 		large: {
@@ -55,7 +56,7 @@ test('each approved workload expands to its specified row counts', () => {
 			assignments: 1086,
 			training: 25,
 			tasks: 40,
-			memberships: 36,
+			memberships: 37,
 			onboarding: 60
 		}
 	};
@@ -121,6 +122,14 @@ test('rows satisfy the unique keys and references the database enforces', () => 
 	const membership = (userId) => rows.organization_memberships.find((row) => row.user_id === userId);
 	assert.equal(membership(owner.id).access_scope_kind, 'organization');
 	assert.deepEqual(membership(scoped.id).access_scope_group_ids, [scopedGroup.id]);
+	assert.equal(membership(scopedLeader.id).member_preset, 'editor');
+	assert.equal(membership(scopedLeader.id).capability_overrides.personnel, 'configure');
+	assert.deepEqual(membership(scopedLeader.id).access_scope_group_ids, [scopedGroup.id]);
+});
+
+test('adding the scoped editor leaves every row seeded before it unchanged', () => {
+	// The last Person generated in the large workload before the editor membership existed.
+	assert.equal(expand('large').rows.personnel.at(-1).id, '419db40b-45c1-42a3-84e0-ba4b3ead9e45');
 });
 
 test('the anchor moves dates without changing identities', () => {
@@ -307,7 +316,7 @@ test('the import file is a quarter of the active roster, all into the scoped Gro
 test('journey terms count each scope and every membership', () => {
 	const { journeyTerms } = expand('small');
 	assert.deepEqual(journeyTerms.population, { wide: 20, scoped: 10 });
-	assert.equal(journeyTerms.members, 5);
+	assert.equal(journeyTerms.members, 6);
 	assert.deepEqual(journeyTerms.filter, { term: '68W', rows: { wide: 3, scoped: 1 } });
 });
 

@@ -23,7 +23,7 @@ import { workloads, importCsv, removeImported } from './perf-workloads.mjs';
 export const perfHelp = `Performance measurement on seeded workloads (recipe: features/performance.md)
 
 $V seed workload small|typical|large       Seed one synthetic Organization; clean-seeds removes it
-$V actor perfWide|perfScoped DESTINATION WORKLOAD   Sign in to that workload's Organization
+$V actor perfWide|perfScoped|perfScopedLeader DESTINATION WORKLOAD   Sign in to that workload's Organization
 $V actor platformReviewer admin/users      Sign in the platform super-admin for admin-users
 $V perf workloads                          Print the workload table, profiles and protocol
 $V perf load PAGE WORKLOAD JOURNEY ACTOR --out RUN [--mode cold|warm] [--profile NAME] [--warmup N] [--reps N]
@@ -48,8 +48,8 @@ JOURNEY (kind, effect, actors; cold only where marked): ${Object.entries(journey
 				.join('/')}${journey.cold ? ', cold' : ''})`
 	)
 	.join(', ')}
-ACTOR: perfWide (Organization owner), perfScoped (operate, one Group) or platformReviewer (platform
-super-admin). A journey refuses an actor it does not apply to, with the reason. A warm load and an
+ACTOR: perfWide (Organization owner), perfScoped (operator, one Group), perfScopedLeader (editor, the
+same Group) or platformReviewer (platform super-admin). A journey refuses an actor it does not apply to, with the reason. A warm load and an
 interaction require PAGE to be one that the actor command signed in as that ACTOR; a mismatch is rejected.
 Cold loads run only for journeys marked cold; the sign-in limit leaves the rest warm only.
 Profiles: ${Object.keys(profiles).join(', ')}. Defaults: warm and interaction warm-up ${protocol.defaults.warm.warmup}, repetitions ${protocol.defaults.warm.repetitions}; cold warm-up ${protocol.defaults.cold.warmup}, repetitions ${protocol.defaults.cold.repetitions}.
@@ -91,7 +91,7 @@ async function runDirectory(ctx, options) {
 	return out;
 }
 
-const scopes = { perfWide: 'wide', perfScoped: 'scoped', platformReviewer: null };
+const scopes = { perfWide: 'wide', perfScoped: 'scoped', perfScopedLeader: 'scoped', platformReviewer: null };
 
 /** What a journey needs to know about one seeded workload as one actor, all from the seed ledger. */
 export function journeyTerms(seeded, workload, actor) {
@@ -168,8 +168,46 @@ async function emulate(ctx, pageId, profileName, extra = {}) {
 
 const observerScript = (spec) => `(${installSettledObserver.toString()})(window, ${JSON.stringify(spec)});`;
 
-async function sampleOf(ctx, pageId) {
-	return ctx.evaluate(pageId, `() => (${readSettledSample.toString()})(window, 30000)`);
+// One cap for every wait in a sample: the useful render, network idle, the document's end and a
+// preparation step. The daemon allows one DevTools call 45 s, so longer waits poll shorter calls.
+export const capMs = 120_000;
+const pollMs = 20_000;
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function sampleOf(ctx, pageId, cap = capMs) {
+	const begun = Date.now();
+	for (;;) {
+		const wait = Math.max(0, Math.min(pollMs, cap - (Date.now() - begun)));
+		const sample = await ctx.evaluate(pageId, `() => (${readSettledSample.toString()})(window, ${wait})`);
+		if (sample.observer?.done || wait === 0) return sample;
+	}
+}
+
+/**
+ * When the page's own document response ended, in ms from its navigation. A streamed document
+ * can stay open long after the render, and its server work runs until it ends, so a sample
+ * waits for it within the cap and otherwise reports it open at the elapsed time.
+ */
+async function documentEnd(ctx, pageId) {
+	const begun = Date.now();
+	for (;;) {
+		const at = await ctx.evaluate(
+			pageId,
+			`() => ({ end: Math.round(performance.getEntriesByType('navigation')[0]?.responseEnd ?? 0), now: Math.round(performance.now()) })`
+		);
+		if (at.end > 0) return { documentCompleteMs: at.end, documentOpen: false, documentOpenMs: null };
+		if (Date.now() - begun >= capMs) return { documentCompleteMs: null, documentOpen: true, documentOpenMs: at.now };
+		await sleep(200);
+	}
+}
+
+// The server keeps streaming after the browser leaves a document, so the next query window
+// opens only once this one has ended.
+async function documentClosed(ctx, pageId, document) {
+	if (document.documentOpen && (await documentEnd(ctx, pageId)).documentOpen)
+		throw new Error(
+			`The document stayed open past ${(2 * capMs) / 1000} s; a later window would include its statements.`
+		);
 }
 
 async function networkRequests(ctx, pageId, resourceTypes) {
@@ -180,7 +218,6 @@ async function networkRequests(ctx, pageId, resourceTypes) {
 // Idle means no app-origin request is running and the request and entry counts held still for
 // a quiet window, so a reload started by the first render is waited for and recorded.
 const idleQuietMs = 500;
-const idleDeadlineMs = 120_000;
 
 async function drain(ctx, pageId) {
 	const begun = Date.now();
@@ -199,16 +236,20 @@ async function drain(ctx, pageId) {
 		signature = next;
 		const waitedMs = Date.now() - begun;
 		if (!running.length && Date.now() - quietSince >= idleQuietMs) return { idle: true, waitedMs, listed };
-		if (waitedMs > idleDeadlineMs) return { idle: false, waitedMs, running, listed };
-		await new Promise((resolve) => setTimeout(resolve, 200));
+		if (waitedMs > capMs) return { idle: false, waitedMs, running, listed };
+		await sleep(200);
 	}
 }
 
-/** First useful render, then app-origin network idle; the sample is read after both. */
+/**
+ * First useful render, then app-origin network idle; the sample is read after both. The end of
+ * the document comes last and stays out of the settled time.
+ */
 async function settle(ctx, pageId) {
 	const first = await sampleOf(ctx, pageId);
 	const network = await drain(ctx, pageId);
-	return { ...(await sampleOf(ctx, pageId)), useful: first.observer?.done ?? false, network };
+	const sample = await sampleOf(ctx, pageId, 0);
+	return { ...sample, useful: first.observer?.done ?? false, network, document: await documentEnd(ctx, pageId) };
 }
 
 // The app admits 10 sign-in POSTs per IP in a fixed 15-minute window and 60 other requests
@@ -308,7 +349,7 @@ function measured(
 	sample,
 	serverText,
 	statements,
-	{ interaction = false, since = 0, afterRequestId = 0 } = {}
+	{ interaction = false, since = 0, afterRequestId = 0, document = sample.document } = {}
 ) {
 	const observer = sample.observer;
 	const resources = sample.resources.filter((entry) => entry.startTime >= since);
@@ -323,6 +364,7 @@ function measured(
 		firstUsefulRenderMs,
 		settledIncludingReloadsMs:
 			firstUsefulRenderMs === null || !sample.network.idle ? null : Math.max(firstUsefulRenderMs, lastData),
+		...document,
 		networkIdle: sample.network.idle,
 		idleWaitMs: sample.network.waitedMs,
 		stillRunning: sample.network.running ?? [],
@@ -360,6 +402,8 @@ function summarize(samples, interaction) {
 		settledIncludingReloadsMs: field((sample) => sample.settledIncludingReloadsMs),
 		notUseful: samples.filter((sample) => sample.firstUsefulRenderMs === null).length,
 		notIdle: samples.filter((sample) => !sample.networkIdle).length,
+		documentCompleteMs: field((sample) => sample.documentCompleteMs),
+		documentOpen: samples.filter((sample) => sample.documentOpen).length,
 		...(interaction
 			? {}
 			: {
@@ -458,6 +502,8 @@ async function record(ctx, run, out, mode, result, profileName) {
 		settledIncludingReloadsMs: summary.settledIncludingReloadsMs,
 		notUseful: summary.notUseful,
 		notIdle: summary.notIdle,
+		documentCompleteMs: summary.documentCompleteMs,
+		documentOpen: summary.documentOpen,
 		networkRequests: summary.networkRequests,
 		failedRequests: summary.failedRequests,
 		transferBytes: summary.transferBytes
@@ -486,6 +532,7 @@ async function load(ctx, positional, options) {
 				await ctx.tool('navigate_page', { pageId, type: 'url', url: run.url(), initScript });
 				const sample = await settle(ctx, pageId);
 				const statements = await closeStatements(ctx, measure);
+				await documentClosed(ctx, pageId, sample.document);
 				return measured(ctx, run, sample, await appLogFrom(ctx, offset), statements);
 			} finally {
 				if (pageId !== run.pageId) await ctx.tool('close_page', { pageId });
@@ -521,8 +568,9 @@ export function controlUid(snapshot, { role, name, within, partial }) {
 /** Runs one native step from the registry on the page. */
 async function step(ctx, pageId, action) {
 	if (action.wait) {
-		const reply = ctx.text(await ctx.tool('wait_for', { pageId, text: action.wait, timeout: 30000 }));
-		if (reply.includes('Timed out')) throw new Error(`Timed out waiting for ${action.wait.join(' or ')}.`);
+		const begun = Date.now();
+		while (ctx.text(await ctx.tool('wait_for', { pageId, text: action.wait, timeout: pollMs })).includes('Timed out'))
+			if (Date.now() - begun >= capMs) throw new Error(`Timed out waiting for ${action.wait.join(' or ')}.`);
 		return;
 	}
 	if (action.type !== undefined) return ctx.tool('type_text', { pageId, text: action.type });
@@ -566,6 +614,7 @@ async function interaction(ctx, positional, options) {
 			const before = await settle(ctx, run.pageId);
 			if (!before.useful) throw new Error(`${run.journeyName} never reached its ready milestone.`);
 			if (!before.network.idle) throw new Error(`${run.journeyName} never reached network idle before input.`);
+			await documentClosed(ctx, run.pageId, before.document);
 			for (const action of run.journey.prepare?.(run.terms, index) ?? []) await step(ctx, run.pageId, action);
 			const prepared = await drain(ctx, run.pageId);
 			if (!prepared.idle) throw new Error(`${run.journeyName} never reached network idle after its preparation.`);
@@ -584,7 +633,8 @@ async function interaction(ctx, positional, options) {
 			return measured(ctx, run, sample, await appLogFrom(ctx, offset), statements, {
 				interaction: true,
 				since: sample.observer?.startedAt ?? 0,
-				afterRequestId
+				afterRequestId,
+				document: before.document
 			});
 		};
 		const result = await repeat(options, 'warm', once);
@@ -697,6 +747,8 @@ async function summarizeRun(ctx, directory) {
 		notIdle: run.summary.notIdle,
 		firstUsefulRenderMs: run.summary.firstUsefulRenderMs,
 		settledIncludingReloadsMs: run.summary.settledIncludingReloadsMs,
+		documentCompleteMs: run.summary.documentCompleteMs,
+		documentOpen: run.summary.documentOpen,
 		responseStartMs: run.summary.responseStartMs,
 		resourceEntries: run.summary.resourceEntries,
 		networkRequests: run.summary.networkRequests,
@@ -722,8 +774,8 @@ async function summarizeRun(ctx, directory) {
 		}))
 	}));
 	const table = [
-		'| Workload | Actor | Journey | Mode | Profile | n | First useful render ms | Settled incl. reloads ms | TTFB ms | Resource entries | Network requests | Failed | Transfer bytes | JS bytes | Data bytes | Document bytes |',
-		'| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+		'| Workload | Actor | Journey | Mode | Profile | n | First useful render ms | Settled incl. reloads ms | Document complete ms | TTFB ms | Resource entries | Network requests | Failed | Transfer bytes | JS bytes | Data bytes | Document bytes |',
+		'| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
 		...rows
 			.map((row) =>
 				[
@@ -732,9 +784,10 @@ async function summarizeRun(ctx, directory) {
 					row.journey,
 					row.mode,
 					row.profile,
-					`${row.n}${row.notUseful ? ` (${row.notUseful} not useful)` : ''}${row.notIdle ? ` (${row.notIdle} not idle)` : ''}`,
+					`${row.n}${row.notUseful ? ` (${row.notUseful} not useful)` : ''}${row.notIdle ? ` (${row.notIdle} not idle)` : ''}${row.documentOpen ? ` (${row.documentOpen} document open)` : ''}`,
 					range(row.firstUsefulRenderMs),
 					range(row.settledIncludingReloadsMs),
+					range(row.documentCompleteMs),
 					range(row.responseStartMs),
 					range(row.resourceEntries),
 					range(row.networkRequests),

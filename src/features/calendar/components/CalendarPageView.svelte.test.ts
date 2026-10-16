@@ -200,22 +200,58 @@ describe('CalendarPageView', () => {
 		expect(screen.getByRole('button', { name: /September 2026/ })).toBeTruthy();
 	});
 
-	it('keeps the status legend under both views', async () => {
-		mutableAvailabilityStore.loading = false;
+	describe('legend', () => {
 		const mutableStatusTypes = statusTypesStore as unknown as { items: unknown[] };
-		mutableStatusTypes.items = [
-			{ id: 'leave', name: 'Leave', color: '#16a34a', textColor: '#ffffff', shortLabel: null, sortOrder: 0 }
-		];
-		try {
-			const ctx = makeContext(mockData, makeMockOrg());
-			render(CalendarPageView, { props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' } } });
+		const mutableAssignmentTypes = dailyAssignmentsStore as unknown as { types: unknown[] };
 
-			expect(within(screen.getByLabelText('Status color legend')).getByText('Leave')).toBeTruthy();
-			await showView('3-Month');
-			expect(within(screen.getByLabelText('Status color legend')).getByText('Leave')).toBeTruthy();
-		} finally {
-			mutableStatusTypes.items = [];
+		function renderWithLegendData(role: 'admin' | 'member') {
+			mutableAvailabilityStore.loading = false;
+			mutableStatusTypes.items = [
+				{ id: 'leave', name: 'Leave', color: '#16a34a', textColor: '#ffffff', shortLabel: null, sortOrder: 0 }
+			];
+			mutableAssignmentTypes.types = [
+				{
+					id: 'sd',
+					name: 'Staff Duty',
+					shortName: 'SD',
+					assignTo: 'personnel',
+					color: '#2563eb',
+					exemptPersonnelIds: [],
+					showOnCalendar: false,
+					sortOrder: 0
+				}
+			];
+			const ctx = makeContext(mockData, makeMockOrg({ userRole: role }));
+			render(CalendarPageView, { props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' } } });
+			return within(screen.getByRole('group', { name: 'Calendar legend' }));
 		}
+
+		afterEach(() => {
+			mutableStatusTypes.items = [];
+			mutableAssignmentTypes.types = [];
+		});
+
+		it('explains statuses, duty markers and drag-to-add in Month, and only statuses in 3-Month', async () => {
+			const legend = renderWithLegendData('admin');
+
+			expect(within(legend.getByRole('list', { name: 'Statuses' })).getByText('Leave')).toBeTruthy();
+			expect(within(legend.getByRole('list', { name: 'Duty markers' })).getByText('Duty (SD)')).toBeTruthy();
+			expect(legend.getByText('Drag across days to add')).toBeTruthy();
+
+			await showView('3-Month');
+			const quarterLegend = within(screen.getByRole('group', { name: 'Calendar legend' }));
+
+			expect(within(quarterLegend.getByRole('list', { name: 'Statuses' })).getByText('Leave')).toBeTruthy();
+			expect(quarterLegend.queryByRole('list', { name: 'Duty markers' })).toBeNull();
+			expect(quarterLegend.queryByText('Drag across days to add')).toBeNull();
+		});
+
+		it('offers drag-to-add only to people who can add availability', () => {
+			const legend = renderWithLegendData('member');
+
+			expect(legend.getByRole('list', { name: 'Statuses' })).toBeTruthy();
+			expect(legend.queryByText('Drag across days to add')).toBeNull();
+		});
 	});
 
 	it('keeps quarter arrows and picker on the Calendar-owned month across a year boundary', async () => {

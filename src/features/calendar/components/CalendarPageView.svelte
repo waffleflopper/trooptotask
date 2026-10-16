@@ -2,7 +2,7 @@
 	import type { CalendarPageContext } from '$features/calendar/contexts/CalendarPageContext.svelte';
 	import Calendar from '$features/calendar/components/Calendar.svelte';
 	import LongRangeView from '$features/calendar/components/LongRangeView.svelte';
-	import StatusLegend from '$features/calendar/components/StatusLegend.svelte';
+	import CalendarLegend from '$features/calendar/components/calendar-legend/CalendarLegend.svelte';
 	import CalendarPopover from '$features/calendar/components/CalendarPopover.svelte';
 	import CalendarTitleRow from '$features/calendar/components/CalendarTitleRow.svelte';
 	import { untrack } from 'svelte';
@@ -13,6 +13,7 @@
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { buildCalendarToolbar } from '$features/calendar/utils/calendarToolbarItems';
 	import { buildCalendarLanes } from '$features/calendar/utils/calendarLanes';
+	import { DRAG_TO_ADD_HINT, dutyMarkerLegend, statusLegend } from '$features/calendar/utils/calendarLegend';
 	import { dutyPickerOptions } from '$features/calendar/utils/dutyPickerOptions';
 	import { formatDate } from '$lib/utils/dates';
 	import { toastStore } from '$lib/stores/toast.svelte';
@@ -97,6 +98,16 @@
 			onExportExcel: exportExcel,
 			onExportPDF: exportPDF
 		})
+	);
+
+	// 3-Month draws neither duty markers nor drag-to-add, so it explains statuses only.
+	const legend = $derived(
+		ctx.viewMode === 'month'
+			? [
+					statusLegend(statusTypesStore.items, ctx.canManageAvailability ? DRAG_TO_ADD_HINT : undefined),
+					dutyMarkerLegend(dailyAssignmentsStore.types)
+				]
+			: [statusLegend(statusTypesStore.items)]
 	);
 
 	// Built apart from the roster rows so search and Group filter changes do not rebuild lanes.
@@ -308,7 +319,7 @@
 							})}
 					/>
 				{/if}
-				<StatusLegend statusTypes={statusTypesStore.items} />
+				<CalendarLegend sources={legend} />
 			</section>
 		</div>
 	{/if}

@@ -53,7 +53,7 @@ Activation refreshed source observations only; it took no runtime measurement. E
 
 **Surprises.** A 28 s streamed Dashboard summary crashed the preview's Node process at 21:37Z: a session refresh inside the stream called `cookies.set` after the response, through `src/hooks.server.ts:69-71`. An earlier supervisor loss at 19:36Z left no log line, and its cause is not determined. Each recovery ran owned cleanup, restarted the same candidate, reseeded and resumed after the last complete file. The Personnel list shows `Details` to a Group-scoped operator, whose detail page answers 403. The Critical Tasks export pages without an order.
 
-**Archive.** `d01-baseline-20261016.tar.gz` holds the run, the write proof, the diagnostic and the driver and analysis scripts, plus `INVENTORY.sha256`.
+**Archive.** `d01-baseline-20261016.tar.gz` holds 235 payload files, the run, the write proof, the diagnostic, the incident excerpts, the refinement drafts and the driver and analysis scripts, plus `INVENTORY.sha256`. Re-extraction into fresh scratch space matched every hash and the file set. The traces carry the synthetic password only as `<redacted>`, and no token, cookie or other secret is stored.
 
 - URL `ARCHIVE_URL`
 - SHA-256 `ARCHIVE_SHA256`

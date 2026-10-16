@@ -40,7 +40,7 @@ Preconditions: doctor passes; `$V fixture` supplies the Person/status IDs and lo
 
 - A drag starts only on a day no bar covers, since the bar takes the press. Pick an empty day for the first cell; the drag can then extend across bars.
 - Resize grips render only on a selected bar in Month view, and only for a mouse or pen; touch never offers them. Keyboard users change dates through `Edit details`.
-- A quick-add drag that returns to its first day opens no quick-add popover; that press is an ordinary day click and opens `Set Personnel Status`.
+- A drag that crosses into another day and returns to its first day before release still opens quick-add, as a one-day `Add status, <day>` popover (`<Person> · 1 day`); only a press that never leaves its first day is an ordinary day click and opens `Set Personnel Status`.
 - The month grid may give the same accessible name to several day buttons. If so, inspect the visible `.personnel-row` containing `Able, Synthetic` and click its `[data-slot="date-cell"]` button at the selected day index through narrowly scoped `evaluate_script`; then verify the modal's Person and date before saving.
 - Date pickers and status-type options are live UI; snapshot each opened list/dialog before choosing a value.
 - `Cancel Edit` returns to `Add Another Status`; it does not close the whole dialog. Use `Close` to return to the grid.

@@ -441,8 +441,9 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 				internals.commit({ deletedWhere: inSlot(date, assignmentTypeId) });
 				internals.log.resolve(mutationId);
 				return true;
-			} catch {
+			} catch (error) {
 				internals.log.resolve(mutationId);
+				toastStore.error(error instanceof Error ? error.message : 'Failed to remove assignment');
 				return false;
 			}
 		},

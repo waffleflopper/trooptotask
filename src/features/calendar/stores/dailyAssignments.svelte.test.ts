@@ -386,15 +386,17 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 			expect(dailyAssignmentsStore.assignments).toEqual([]);
 		});
 
-		it('should rollback on failure', async () => {
+		it('restores the saved slot and explains why a clear was refused', async () => {
 			const assignment = { id: 'a1', date: '2026-03-20', assignmentTypeId: 'type-1', assigneeId: 'p1' };
 			dailyAssignmentsStore.load([], [assignment], 'org-1');
 
-			vi.stubGlobal('fetch', mockFetch(null, 500));
+			vi.stubGlobal('fetch', mockFetch({ message: 'Calendar access was revoked.' }, 403));
+			const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
 			const result = await dailyAssignmentsStore.removeAssignment('2026-03-20', 'type-1');
 			expect(result).toBe(false);
 			expect(dailyAssignmentsStore.assignments).toEqual([assignment]);
+			expect(errorToast).toHaveBeenCalledWith('Calendar access was revoked.');
 		});
 
 		it('should return false for non-existent assignment', async () => {

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import Ellipsis from '@lucide/svelte/icons/ellipsis';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
@@ -37,6 +38,7 @@
 	let composerSession = $state(0);
 	let composerView = $state<ClosureComposer>();
 	let confirmDiscard = $state(false);
+	let addOpener: HTMLElement | null = null;
 
 	let editClosureOpen = $state(false);
 	let editingSpecialDay = $state<SpecialDay | null>(null);
@@ -76,13 +78,21 @@
 
 	export function openAddDialog() {
 		if (!canMutate || composerOpen) return;
+		addOpener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
 		composerSession++;
 		composerOpen = true;
 	}
 
 	function dismissComposer() {
 		if (composerView?.isDirty()) confirmDiscard = true;
-		else composerOpen = false;
+		else void closeComposer();
+	}
+
+	async function closeComposer() {
+		composerOpen = false;
+		confirmDiscard = false;
+		await tick();
+		addOpener?.focus();
 	}
 
 	function closeEditClosureDialog() {
@@ -231,9 +241,9 @@
 									{#snippet child({ props })}
 										<Button
 											{...props}
-											variant="ghost"
+											variant="cell"
 											size="none"
-											class="group/range w-full justify-start gap-3 rounded-none px-4 py-3 text-left whitespace-normal"
+											class="group/range w-full justify-start gap-3 px-4 py-3 text-left whitespace-normal"
 											aria-label="{row.name}, {dayCount(row.days.length)} from {formatDisplayDate(
 												row.days[0].date
 											)} to {formatDisplayDate(row.days[row.days.length - 1].date)}"
@@ -294,11 +304,7 @@
 		<div class="flex min-w-0 flex-col gap-4 xl:col-start-2 xl:row-span-2 xl:row-start-1">
 			{#if composerOpen}
 				{#key composerSession}
-					<ClosureComposer
-						bind:this={composerView}
-						onClose={() => (composerOpen = false)}
-						onDismiss={dismissComposer}
-					/>
+					<ClosureComposer bind:this={composerView} onClose={closeComposer} onDismiss={dismissComposer} />
 				{/key}
 			{/if}
 			<Card.Root class="flex flex-wrap items-center gap-3 px-4 py-3">
@@ -394,10 +400,7 @@
 		title="Discard changes?"
 		message="This closure is not saved."
 		confirmLabel="Discard"
-		onConfirm={() => {
-			composerOpen = false;
-			confirmDiscard = false;
-		}}
+		onConfirm={closeComposer}
 		onCancel={() => (confirmDiscard = false)}
 	/>
 {/if}

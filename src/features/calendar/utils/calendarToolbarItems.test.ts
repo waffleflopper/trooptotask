@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { ToolbarAction, ToolbarItem } from '$lib/components/patterns/workspace-toolbar';
 import { buildCalendarToolbar, type CalendarToolbarInput } from './calendarToolbarItems';
 
 function makeInput(overrides: Partial<CalendarToolbarInput> = {}): CalendarToolbarInput {
@@ -7,14 +8,12 @@ function makeInput(overrides: Partial<CalendarToolbarInput> = {}): CalendarToolb
 		canManageAvailability: false,
 		canManageAssignments: false,
 		canManageConfig: false,
-		viewMode: 'month',
 		groupOptions: [{ value: '', label: 'Group: All' }],
 		groupFilter: '',
 		showStatusText: false,
 		showPersonnelRoles: false,
 		showOnboardingToggle: false,
 		highlightOnboarding: true,
-		onViewModeChange: vi.fn(),
 		onGroupFilterChange: vi.fn(),
 		onToggleStatusText: vi.fn(),
 		onTogglePersonnelRoles: vi.fn(),
@@ -25,85 +24,62 @@ function makeInput(overrides: Partial<CalendarToolbarInput> = {}): CalendarToolb
 	};
 }
 
+function labels(items: readonly ToolbarItem[] | ToolbarAction['menuItems']): string[] {
+	return (items ?? []).map((item) => item.label);
+}
+
+function display(items: readonly ToolbarItem[]) {
+	const item = items.find((candidate) => candidate.label === 'Display');
+	if (item?.kind !== 'action' || !item.menuItems) throw new Error('Display is a menu');
+	return item.menuItems;
+}
+
 describe('buildCalendarToolbar', () => {
-	it('ranks a calendar admin toolbar with Bulk Status as the primary', () => {
-		const { items, primary } = buildCalendarToolbar(
-			makeInput({
-				canManageAvailability: true,
-				canManageAssignments: true,
-				canManageConfig: true,
-				showOnboardingToggle: true
-			})
+	it('offers Duty planner, Settings and Bulk Status only to people who can use them', () => {
+		const viewer = buildCalendarToolbar(makeInput());
+		const manager = buildCalendarToolbar(
+			makeInput({ canManageAvailability: true, canManageAssignments: true, canManageConfig: true })
 		);
 
-		expect(items.map((item) => item.id)).toEqual([
-			'calendar-view',
-			'group',
-			'show-onboarding',
-			'show-status-text',
-			'show-personnel-roles',
-			'planning',
-			'calendar-reports',
-			'calendar-settings',
-			'export-excel',
-			'print-pdf'
-		]);
-		expect(primary?.label).toBe('Bulk Status');
-		expect(primary?.menuItems?.map((item) => 'href' in item && item.href)).toEqual([
+		expect(labels(viewer.items)).not.toContain('Duty planner');
+		expect(labels(viewer.items)).not.toContain('Settings');
+		expect(viewer.primary).toBeUndefined();
+		expect(labels(manager.items)).toContain('Duty planner');
+		expect(labels(manager.items)).toContain('Settings');
+		expect(manager.primary?.label).toBe('Bulk Status');
+	});
+
+	it('points Duty planner, Reports, Settings and Bulk Status at their Calendar routes', () => {
+		const { items, primary } = buildCalendarToolbar(
+			makeInput({ canManageAvailability: true, canManageAssignments: true, canManageConfig: true })
+		);
+		const hrefOf = (label: string) => items.find((item) => item.label === label);
+
+		expect(hrefOf('Duty planner')).toMatchObject({ href: '/org/1-11-bde/calendar/assignments' });
+		expect(hrefOf('Reports')).toMatchObject({ href: '/org/1-11-bde/calendar/reports' });
+		expect(hrefOf('Settings')).toMatchObject({ href: '/org/1-11-bde/calendar/settings', menuOnly: true });
+		expect(primary?.menuItems?.map((item) => (item.kind === 'action' ? item.href : null))).toEqual([
 			'/org/1-11-bde/calendar/bulk?tab=add',
 			'/org/1-11-bde/calendar/bulk?tab=remove',
 			'/org/1-11-bde/calendar/bulk?tab=import'
 		]);
 	});
 
-	it('points Planning, Reports and Settings at their Calendar routes', () => {
-		const { items } = buildCalendarToolbar(makeInput({ canManageAssignments: true, canManageConfig: true }));
-		const byId = (id: string) => items.find((item) => item.id === id);
-
-		expect(byId('planning')).toMatchObject({
-			label: 'Planning',
-			menuItems: [{ label: 'Assignment Planner', href: '/org/1-11-bde/calendar/assignments' }]
-		});
-		expect(byId('calendar-reports')).toMatchObject({ label: 'Reports', href: '/org/1-11-bde/calendar/reports' });
-		expect(byId('calendar-settings')).toMatchObject({ label: 'Settings', href: '/org/1-11-bde/calendar/settings' });
+	it('lists Show Onboarding in Display only while someone is onboarding', () => {
+		expect(labels(display(buildCalendarToolbar(makeInput()).items))).not.toContain('Show Onboarding');
+		expect(labels(display(buildCalendarToolbar(makeInput({ showOnboardingToggle: true })).items))).toContain(
+			'Show Onboarding'
+		);
 	});
 
-	it('gives a plain viewer Reports, the exports and display toggles, and no primary', () => {
-		const { items, primary } = buildCalendarToolbar(makeInput());
+	it('shows each display preference as pressed or not in the Display menu', () => {
+		const options = display(
+			buildCalendarToolbar(makeInput({ showStatusText: true, showOnboardingToggle: true, highlightOnboarding: false }))
+				.items
+		);
 
-		expect(items.map((item) => item.id)).toEqual([
-			'calendar-view',
-			'group',
-			'show-status-text',
-			'show-personnel-roles',
-			'calendar-reports',
-			'export-excel',
-			'print-pdf'
-		]);
-		expect(primary).toBeUndefined();
-	});
-
-	it('keeps exports and display toggles menu-only, with Show Onboarding on by default', () => {
-		const { items } = buildCalendarToolbar(makeInput({ showOnboardingToggle: true }));
-		const menuOnly = items.filter((item) => 'menuOnly' in item && item.menuOnly).map((item) => item.id);
-
-		expect(menuOnly).toEqual([
-			'show-onboarding',
-			'show-status-text',
-			'show-personnel-roles',
-			'export-excel',
-			'print-pdf'
-		]);
-		expect(items.find((item) => item.id === 'show-onboarding')).toMatchObject({ pressed: true, defaultPressed: true });
-	});
-
-	it('switches the view only to a known calendar view', () => {
-		const onViewModeChange = vi.fn();
-		const view = buildCalendarToolbar(makeInput({ onViewModeChange })).items[0];
-		if (view.kind !== 'view') throw new Error('the first item is the calendar view');
-
-		view.onValueChange('3-month');
-		view.onValueChange('year');
-		expect(onViewModeChange.mock.calls).toEqual([['3-month']]);
+		expect(options.find((item) => item.label === 'Show Status Text')).toMatchObject({ pressed: true });
+		expect(options.find((item) => item.label === 'Show Personnel Roles')).toMatchObject({ pressed: false });
+		expect(options.find((item) => item.label === 'Show Onboarding')).toMatchObject({ pressed: false });
 	});
 });

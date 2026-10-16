@@ -2,38 +2,17 @@
 	import type { CalendarDateHeaderState } from '$features/calendar/utils/calendarRenderState';
 	import type { CalendarLane } from '$features/calendar/utils/calendarLanes';
 	import { Button } from '$lib/components/ui/button';
-	import CalendarNavigation from './CalendarNavigation.svelte';
 	import CalendarLanes from './calendar-lanes/CalendarLanes.svelte';
 
 	interface Props {
-		year: number;
-		month: number;
-		monthName: string;
 		headerCells: readonly CalendarDateHeaderState[];
 		lanes?: readonly CalendarLane[];
-		onPrevMonth: () => void;
-		onNextMonth: () => void;
-		onGoToToday: () => void;
-		onNavigateToMonth?: (year: number, month: number) => void;
 		onDateClick?: (date: Date) => void;
 		scrollLeft?: number;
 		scrollbarWidth?: number;
 	}
 
-	let {
-		year,
-		month,
-		monthName,
-		headerCells,
-		lanes = [],
-		onPrevMonth,
-		onNextMonth,
-		onGoToToday,
-		onNavigateToMonth,
-		onDateClick,
-		scrollLeft = 0,
-		scrollbarWidth = 0
-	}: Props = $props();
+	let { headerCells, lanes = [], onDateClick, scrollLeft = 0, scrollbarWidth = 0 }: Props = $props();
 
 	let dateHeadersEl: HTMLDivElement;
 
@@ -45,17 +24,6 @@
 </script>
 
 <div class="sticky top-0 z-10 bg-card">
-	<CalendarNavigation
-		title={`${monthName} ${year}`}
-		onPrev={onPrevMonth}
-		onNext={onNextMonth}
-		{onGoToToday}
-		titleTestId="calendar-month-label"
-		pickerYear={year}
-		pickerMonth={month}
-		onSelectMonthYear={onNavigateToMonth}
-	/>
-
 	<div class="date-headers overflow-hidden" bind:this={dateHeadersEl} style:padding-right={`${scrollbarWidth}px`}>
 		<div
 			class="grid w-full min-w-[calc(var(--calendar-personnel-column-width)+(var(--calendar-cell-width)*var(--dates-count)))] grid-cols-[var(--calendar-personnel-column-width)_repeat(var(--dates-count),minmax(var(--calendar-cell-width),1fr))]"

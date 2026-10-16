@@ -1,6 +1,6 @@
 import { createClientAccess } from '$lib/access/clientAccess';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import {
 	CalendarPageContext,
 	type CalendarPageData,
@@ -15,6 +15,7 @@ import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { groupsStore } from '$features/personnel';
 import { loadCalendarRange } from '$features/calendar/utils/calendarRangeLoader';
 import type { Personnel } from '$features/personnel/contracts';
+import type { AvailabilityEntry, StatusType } from '$features/calendar/contracts';
 import { endOrganizationLifetime } from '$lib/stores/core';
 import { settles } from '$lib/test-support/settles';
 import { toastStore } from '$lib/stores/toast.svelte';
@@ -245,15 +246,15 @@ describe('CalendarPageContext', () => {
 			expect(ctx.viewMode).toBe('month');
 		});
 
-		it('toggleViewMode switches between month and 3-month', () => {
-			ctx.toggleViewMode();
+		it('setViewMode shows the chosen view', () => {
+			ctx.setViewMode('3-month');
 			expect(ctx.viewMode).toBe('3-month');
-			ctx.toggleViewMode();
+			ctx.setViewMode('month');
 			expect(ctx.viewMode).toBe('month');
 		});
 
 		it('navigateToMonth switches to month view and navigates calendarStore', () => {
-			ctx.toggleViewMode(); // now in 3-month
+			ctx.setViewMode('3-month');
 			expect(ctx.viewMode).toBe('3-month');
 
 			const targetDate = new Date(2026, 5, 15); // June 2026
@@ -836,6 +837,79 @@ describe('CalendarPageContext', () => {
 
 			ctx.setCalendarPersonnelSearch('bob');
 			expect(ctx.filteredPBG).toEqual([{ group: 'Bravo', personnel: [mockPersonnel[1]] }]);
+		});
+	});
+
+	describe('todayAvailability', () => {
+		const TODAY = '2026-10-16';
+		const leave = {
+			id: 'leave',
+			name: 'Leave',
+			color: '#16a34a',
+			textColor: '#ffffff',
+			shortLabel: null,
+			sortOrder: 0
+		} satisfies StatusType;
+		const carol: Personnel = { ...mockPersonnel[0], id: 'p3', firstName: 'Carol', lastName: 'Diaz' };
+		const roster = [...mockPersonnel, carol];
+		const loaded = (rangeStart: string, rangeEnd: string): CalendarPageData => ({
+			...mockData,
+			calendar: { data: { rangeStart, rangeEnd, personnel: roster, allPersonnel: roster } }
+		});
+		const entry = (id: string, personnelId: string, startDate: string, endDate: string): AvailabilityEntry => ({
+			id,
+			personnelId,
+			statusTypeId: 'leave',
+			startDate,
+			endDate,
+			note: null
+		});
+		const stores = { availability: availabilityStore, statusTypes: statusTypesStore } as unknown as {
+			availability: { items: AvailabilityEntry[] };
+			statusTypes: { items: StatusType[] };
+		};
+
+		beforeEach(() => {
+			stores.statusTypes.items = [leave];
+			stores.availability.items = [
+				entry('a', 'p1', '2026-10-10', '2026-10-20'),
+				entry('b', 'p1', '2026-10-16', '2026-10-16'),
+				entry('c', 'p2', '2026-10-15', '2026-10-15')
+			];
+		});
+
+		afterEach(() => {
+			stores.statusTypes.items = [];
+			stores.availability.items = [];
+		});
+
+		it('counts each person out today once and ignores Group filter and search', () => {
+			const today = makeContext(loaded('2026-09-01', '2026-11-30'), org, TODAY);
+
+			expect(today.todayAvailability).toEqual({ date: new Date(2026, 9, 16), available: 2, total: 3 });
+			today.setCalendarGroupFilter('g2');
+			today.setCalendarPersonnelSearch('bob');
+			expect(today.todayAvailability).toEqual({ date: new Date(2026, 9, 16), available: 2, total: 3 });
+		});
+
+		it('counts only the people in the viewer scope', () => {
+			const scoped = makeContext(
+				loaded('2026-09-01', '2026-11-30'),
+				makeMockOrg({ scopeSet: { kind: 'groups', groupIds: ['g1'] } }),
+				TODAY
+			);
+
+			expect(scoped.todayAvailability).toEqual({ date: new Date(2026, 9, 16), available: 1, total: 2 });
+		});
+
+		it('is hidden while the loaded range does not include today', () => {
+			expect(makeContext(loaded('2027-01-01', '2027-03-31'), org, TODAY).todayAvailability).toBeNull();
+			expect(makeContext(mockData, org, TODAY).todayAvailability).toBeNull();
+			expect(makeContext(loaded('2026-10-16', '2026-10-31'), org, TODAY).todayAvailability).toEqual({
+				date: new Date(2026, 9, 16),
+				available: 2,
+				total: 3
+			});
 		});
 	});
 

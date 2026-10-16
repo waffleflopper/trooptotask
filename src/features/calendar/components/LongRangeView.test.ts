@@ -8,7 +8,6 @@ import { buildAvailabilityTracks } from '$features/calendar/utils/availabilityTr
 
 type LongRangeViewProps = {
 	startDate: Date;
-	onStartDateChange: (date: Date) => void;
 	personnelByGroup: { group: string; personnel: Personnel[] }[];
 	availabilityEntries: AvailabilityEntry[];
 	specialDays: SpecialDay[];
@@ -56,7 +55,6 @@ function renderView({ availabilityEntries = [], ...overrides }: Partial<LongRang
 	const view = render(LongRangeView, {
 		props: {
 			startDate: new Date(2026, 2, 1),
-			onStartDateChange: (startDate: Date) => void view.rerender({ startDate }),
 			personnelByGroup: [{ group: 'Alpha', personnel }],
 			tracks: buildAvailabilityTracks(availabilityEntries, statusTypes),
 			specialDays,
@@ -81,21 +79,6 @@ describe('LongRangeView', () => {
 		);
 
 		expect(onDateColumnClick).toHaveBeenCalledWith(new Date(2026, 3, 4));
-	});
-
-	it('opens the picker from the range label and updates the visible quarter start month', async () => {
-		renderView();
-
-		await fireEvent.click(screen.getByTestId('long-range-date-label'));
-
-		expect(screen.getByRole('dialog', { name: 'Month and year picker' })).toBeTruthy();
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Next year' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Jan' }));
-
-		expect(screen.getByTestId('long-range-date-label').textContent).toContain('January 2027');
-		expect(screen.getByTestId('long-range-date-label').textContent).toContain('March 2027');
-		expect(screen.queryByRole('dialog', { name: 'Month and year picker' })).toBeNull();
 	});
 
 	it('shows a distant person’s leave after scrolling the long-range roster', async () => {

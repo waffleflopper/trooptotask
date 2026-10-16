@@ -54,7 +54,7 @@ afterEach(() => {
 	vi.useRealTimers();
 	vi.unstubAllGlobals();
 	vi.clearAllMocks();
-	calendarStore.goToToday();
+	calendarStore.goToMonth(new Date().getFullYear(), new Date().getMonth());
 });
 
 function resizeGrip(bar: HTMLElement, edge: 'start' | 'end'): HTMLElement | null {
@@ -66,7 +66,7 @@ function toolbar(): HTMLElement {
 }
 
 async function showView(name: 'Month' | '3-Month'): Promise<void> {
-	await fireEvent.click(within(toolbar()).getByRole('button', { name }));
+	await fireEvent.click(within(screen.getByRole('group', { name: 'Calendar view' })).getByRole('radio', { name }));
 }
 
 async function openMore(): Promise<HTMLElement> {
@@ -179,9 +179,9 @@ describe('CalendarPageView', () => {
 		render(CalendarPageView, { props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' } } });
 
 		expect(screen.getByRole('button', { name: /December 2026/ })).toBeTruthy();
-		await fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Next month' }));
 		expect(screen.getByRole('button', { name: /January 2027/ })).toBeTruthy();
-		await fireEvent.click(screen.getByRole('button', { name: 'Prev' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Previous month' }));
 		expect(screen.getByRole('button', { name: /December 2026/ })).toBeTruthy();
 	});
 
@@ -225,11 +225,11 @@ describe('CalendarPageView', () => {
 		render(CalendarPageView, { props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' } } });
 
 		await showView('3-Month');
-		await fireEvent.click(screen.getByRole('button', { name: 'Next 3 Months' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Next 3 months' }));
 		await showView('Month');
 		expect(screen.getByRole('button', { name: /March 2027/ })).toBeTruthy();
 		await showView('3-Month');
-		await fireEvent.click(screen.getByRole('button', { name: 'Prev 3 Months' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Previous 3 months' }));
 		await showView('Month');
 		expect(screen.getByRole('button', { name: /December 2026/ })).toBeTruthy();
 		await showView('3-Month');
@@ -565,15 +565,16 @@ describe('CalendarPageView', () => {
 		expect(screen.queryByRole('button', { name: /Alpha/ })).toBeNull();
 	});
 
-	it('marks the shown calendar view as pressed in the toolbar', async () => {
+	it('marks the shown calendar view in the title row, outside the toolbar', async () => {
 		mutableAvailabilityStore.loading = false;
 		const ctx = makeContext(mockData, makeMockOrg());
 		render(CalendarPageView, { props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' } } });
 
-		const view = within(toolbar()).getByRole('group', { name: 'Calendar view' });
-		expect(within(view).getByRole('button', { name: 'Month' }).getAttribute('aria-pressed')).toBe('true');
+		const view = screen.getByRole('group', { name: 'Calendar view' });
+		expect(toolbar().contains(view)).toBe(false);
+		expect(within(view).getByRole('radio', { name: 'Month' }).getAttribute('aria-checked')).toBe('true');
 		await showView('3-Month');
-		expect(within(view).getByRole('button', { name: '3-Month' }).getAttribute('aria-pressed')).toBe('true');
+		expect(within(view).getByRole('radio', { name: '3-Month' }).getAttribute('aria-checked')).toBe('true');
 		expect(screen.getByTestId('long-range-date-label')).toBeTruthy();
 	});
 
@@ -588,43 +589,40 @@ describe('CalendarPageView', () => {
 		expect(within(toolbar()).queryByRole('link', { name: 'Reports' })).toBeNull();
 		expect(within(toolbar()).getByRole('button', { name: 'Bulk Status' }), 'the primary stays on the row').toBeTruthy();
 		const menu = await openMore();
-		expect(within(menu).getByRole('menuitemradio', { name: '3-Month' })).toBeTruthy();
 		expect(within(menu).getByRole('menuitem', { name: 'Group, Group: All' })).toBeTruthy();
-		expect(within(menu).getByRole('menuitem', { name: 'Planning' })).toBeTruthy();
+		expect(within(menu).getByRole('menuitem', { name: 'Duty planner' })).toBeTruthy();
 		expect(within(menu).getByRole('menuitem', { name: 'Reports' })).toBeTruthy();
+		expect(within(menu).getByRole('menuitem', { name: 'Display' })).toBeTruthy();
 		expect(within(menu).getByRole('menuitem', { name: 'Settings' })).toBeTruthy();
 		await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Export to Excel' }));
 		await waitFor(() => expect(exportMocks.exportMonthToExcel).toHaveBeenCalledTimes(1));
 		expect(exportMocks.exportMonthToExcel.mock.calls[0].slice(0, 2)).toEqual([2026, 11]);
 	});
 
-	it('sends Planning, Reports and Settings to their Calendar routes from the row and from More', async () => {
+	it('sends Duty planner, Reports and Settings to their Calendar routes from the row and from More', async () => {
 		mutableAvailabilityStore.loading = false;
 		const { layOut } = stubToolbarWidths();
 		const ctx = makeContext(mockData, makeMockOrg({ userRole: 'owner' }));
 		render(CalendarPageView, { props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' } } });
 		await layOut(4000);
 
+		expect(within(toolbar()).getByRole('link', { name: 'Duty planner' }).getAttribute('href')).toBe(
+			'/org/org1/calendar/assignments'
+		);
 		expect(within(toolbar()).getByRole('link', { name: 'Reports' }).getAttribute('href')).toBe(
 			'/org/org1/calendar/reports'
 		);
-		expect(within(toolbar()).getByRole('link', { name: 'Settings' }).getAttribute('href')).toBe(
-			'/org/org1/calendar/settings'
-		);
+		expect(within(toolbar()).queryByRole('link', { name: 'Settings' }), 'Settings is menu-only').toBeNull();
 		await layOut(1);
 
+		await chooseFromMore('Duty planner');
 		await chooseFromMore('Reports');
 		await chooseFromMore('Settings');
-		const menu = await openMore();
-		const planning = within(menu).getByRole('menuitem', { name: 'Planning' });
-		planning.focus();
-		await fireEvent.keyDown(planning, { key: 'ArrowRight' });
-		await fireEvent.click(await screen.findByRole('menuitem', { name: 'Assignment Planner' }));
 
 		expect(gotoMock.mock.calls.map(([href]) => href)).toEqual([
+			'/org/org1/calendar/assignments',
 			'/org/org1/calendar/reports',
-			'/org/org1/calendar/settings',
-			'/org/org1/calendar/assignments'
+			'/org/org1/calendar/settings'
 		]);
 	});
 
@@ -657,30 +655,32 @@ describe('CalendarPageView', () => {
 		expect(screen.queryByRole('button', { name: 'Bulk Status' })).toBeNull();
 		const menu = await openMore();
 		expect(within(menu).getByRole('menuitem', { name: 'Reports' })).toBeTruthy();
-		expect(within(menu).queryByRole('menuitem', { name: 'Planning' })).toBeNull();
+		expect(within(menu).queryByRole('menuitem', { name: 'Duty planner' })).toBeNull();
 		expect(within(menu).queryByRole('menuitem', { name: 'Settings' })).toBeNull();
 		expect(within(menu).queryByRole('menuitem', { name: 'Bulk Status' })).toBeNull();
 	});
 
-	it('keeps display toggles and exports in More while the row has room', async () => {
+	it('keeps display toggles in Display and exports in More while the row has room', async () => {
 		mutableAvailabilityStore.loading = false;
 		const { layOut } = stubToolbarWidths();
 		const ctx = makeContext(mockData, makeMockOrg());
 		render(CalendarPageView, { props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' } } });
 		await layOut(4000);
 
-		expect(within(toolbar()).getByRole('link', { name: 'Reports' })).toBeTruthy();
-		expect(within(toolbar()).queryByRole('button', { name: 'Show Status Text' })).toBeNull();
-		const menu = await openMore();
-		expect(within(menu).getByRole('menuitem', { name: 'Print / PDF' })).toBeTruthy();
-		await fireEvent.click(within(menu).getByRole('menuitemcheckbox', { name: 'Show Status Text' }));
-		expect(ctx.showStatusText).toBe(true);
-
+		const more = await openMore();
+		expect(within(more).getByRole('menuitem', { name: 'Print / PDF' })).toBeTruthy();
+		expect(within(more).queryByRole('menuitemcheckbox', { name: 'Show Status Text' })).toBeNull();
+		await fireEvent.keyDown(more, { key: 'Escape' });
 		await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
-		const reopened = await openMore();
-		expect(
-			within(reopened).getByRole('menuitemcheckbox', { name: 'Show Status Text' }).getAttribute('aria-checked')
-		).toBe('true');
+
+		const display = within(toolbar()).getByRole('button', { name: 'Display' });
+		display.focus();
+		await fireEvent.keyDown(display, { key: 'Enter' });
+		await fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: 'Show Status Text' }));
+		expect(ctx.showStatusText).toBe(true);
+		expect(screen.getByRole('menuitemcheckbox', { name: 'Show Status Text' }).getAttribute('aria-checked')).toBe(
+			'true'
+		);
 	});
 
 	it('exports the shown quarter from the toolbar in 3-month view', async () => {

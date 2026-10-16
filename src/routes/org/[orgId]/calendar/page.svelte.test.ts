@@ -285,10 +285,10 @@ describe('calendar page', () => {
 		render(WithPreferences, { props: { data: makePageData() } });
 
 		await fireEvent.click(
-			within(screen.getByRole('toolbar', { name: 'Calendar controls' })).getByRole('button', { name: '3-Month' })
+			within(screen.getByRole('group', { name: 'Calendar view' })).getByRole('radio', { name: '3-Month' })
 		);
 		expect(loadCalendarRangeMock).not.toHaveBeenCalled();
-		await fireEvent.click(screen.getByRole('button', { name: 'Next 3 Months' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Next 3 months' }));
 
 		await waitFor(() => {
 			expect(loadCalendarRangeMock).toHaveBeenCalledWith('org-1', {

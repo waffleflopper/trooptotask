@@ -99,7 +99,6 @@ function renderCalendar(
 		onDateClick: (date: Date) => void;
 		onCellClick: (person: Personnel, date: Date) => void;
 		onPersonClick: (person: Personnel) => void;
-		onNavigateToMonth: (year: number, month: number) => void;
 		upcomingLossMap: Map<string, UpcomingLossRecord>;
 		canEditAvailabilityFor: (person: Personnel) => boolean;
 		popoverEntry: { personId: string; entryId: string } | null;
@@ -110,9 +109,6 @@ function renderCalendar(
 ) {
 	return render(Calendar, {
 		props: {
-			year: 2026,
-			month: 2,
-			monthName: 'March',
 			dates: [new Date(2026, 2, 1), new Date(2026, 2, 2)],
 			personnelByGroup: overrides.personnelByGroup ?? [{ group: 'Alpha', personnel }],
 			tracks: buildAvailabilityTracks(overrides.availabilityEntries ?? [], statusTypes),
@@ -130,10 +126,6 @@ function renderCalendar(
 			onPersonClick: overrides.onPersonClick,
 			onOpenEntry: overrides.onOpenEntry,
 			onOpenOverflow: overrides.onOpenOverflow,
-			onPrevMonth: () => {},
-			onNextMonth: () => {},
-			onGoToToday: () => {},
-			onNavigateToMonth: overrides.onNavigateToMonth,
 			upcomingLossMap: overrides.upcomingLossMap,
 			canEditAvailabilityFor: overrides.canEditAvailabilityFor,
 			popoverEntry: overrides.popoverEntry,
@@ -353,23 +345,6 @@ describe('Calendar', () => {
 	it('hides personnel roles when role display is disabled', () => {
 		const { queryByText } = renderCalendar({ showPersonnelRoles: false });
 		expect(queryByText('Medic')).toBeNull();
-	});
-
-	it('opens the month picker from the title and forwards the selected month and year', async () => {
-		const onNavigateToMonth = vi.fn();
-		const { container, getByTestId, getByRole, queryByRole } = renderCalendar({ onNavigateToMonth });
-
-		await fireEvent.click(getByTestId('calendar-month-label'));
-
-		expect(getByRole('dialog', { name: 'Month and year picker' })).toBeTruthy();
-
-		await fireEvent.click(getByRole('button', { name: 'Next year' }));
-		await fireEvent.click(getByRole('button', { name: 'Jan' }));
-		await tick();
-
-		expect(onNavigateToMonth).toHaveBeenCalledWith(2027, 0);
-		expect(queryByRole('dialog', { name: 'Month and year picker' })).toBeNull();
-		expect(container.querySelector('.month-picker-popover')).toBeNull();
 	});
 
 	it('opens a distant person after scrolling the roster', async () => {

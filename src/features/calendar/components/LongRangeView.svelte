@@ -2,7 +2,6 @@
 	import type { Personnel } from '$features/personnel/contracts';
 	import type { AvailabilityEntry, SpecialDay } from '$features/calendar/contracts';
 	import { getMonthDates, getMonthName, addMonths } from '$lib/utils/dates';
-	import CalendarNavigation from './CalendarNavigation.svelte';
 	import BarTrack from './calendar-bars/BarTrack.svelte';
 	import type { AvailabilityTracks } from '$features/calendar/utils/availabilityTracks';
 	import { dayWindow } from '$features/calendar/utils/dayNumber';
@@ -25,7 +24,6 @@
 
 	interface Props {
 		startDate: Date;
-		onStartDateChange: (date: Date) => void;
 		personnelByGroup: GroupData[];
 		tracks: AvailabilityTracks;
 		specialDays: SpecialDay[];
@@ -34,16 +32,8 @@
 		onOpenOverflow?: (person: Personnel, entryIds: readonly string[], anchor: HTMLElement) => void;
 	}
 
-	let {
-		startDate,
-		onStartDateChange,
-		personnelByGroup,
-		tracks,
-		specialDays,
-		onDateColumnClick,
-		onOpenEntry,
-		onOpenOverflow
-	}: Props = $props();
+	let { startDate, personnelByGroup, tracks, specialDays, onDateColumnClick, onOpenEntry, onOpenOverflow }: Props =
+		$props();
 
 	const viewStartDate = $derived(new Date(startDate.getFullYear(), startDate.getMonth(), 1));
 	let scrollAreaEl: HTMLDivElement;
@@ -160,23 +150,6 @@
 
 		return () => observer.disconnect();
 	});
-
-	function prevQuarter() {
-		onStartDateChange(addMonths(viewStartDate, -3));
-	}
-
-	function nextQuarter() {
-		onStartDateChange(addMonths(viewStartDate, 3));
-	}
-
-	function goToToday() {
-		const today = new Date();
-		onStartDateChange(new Date(today.getFullYear(), today.getMonth(), 1));
-	}
-
-	function goToMonth(year: number, month: number) {
-		onStartDateChange(new Date(year, month, 1));
-	}
 </script>
 
 <div
@@ -184,19 +157,6 @@
 	style:--calendar-personnel-column-width={`${PERSONNEL_COLUMN_WIDTH}px`}
 	style:--dates-count={days.length}
 >
-	<CalendarNavigation
-		title={`${months[0].name} ${months[0].year} – ${months[2].name} ${months[2].year}`}
-		onPrev={prevQuarter}
-		onNext={nextQuarter}
-		onGoToToday={goToToday}
-		prevLabel="Prev 3 Months"
-		nextLabel="Next 3 Months"
-		titleTestId="long-range-date-label"
-		pickerYear={viewStartDate.getFullYear()}
-		pickerMonth={viewStartDate.getMonth()}
-		onSelectMonthYear={goToMonth}
-	/>
-
 	<div
 		class="scroll-area flex-1 overflow-auto bg-card [scrollbar-gutter:stable]"
 		bind:this={scrollAreaEl}

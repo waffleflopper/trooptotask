@@ -21,7 +21,7 @@ A member signs in, chooses the Organization and lands on its Dashboard, or opens
 Launch and drive under Node 24 (`mise exec node@24 --`); the adapter refuses newer Node. Set `V="mise exec node@24 -- node .agents/skills/verify-trooptotask/helpers/control.mjs --worker $WORKER"` and `RUN=.verification/evidence/verify-trooptotask/<run>`. `$V perf --help` prints every command.
 
 1. Seed: `$V seed workload small`, then `typical`, then `large`. Record the returned counts and `timingsMs`; they are the seed timings. The returned `actors`, `sentinels` and `searchTerms` are what the observer waits for.
-2. Sign in once per actor: `$V actor perfWide personnel large` and `$V actor perfScoped personnel large`. Each actor is a member of every seeded workload, so the same page drives all three. Keep the returned page IDs.
+2. Sign in once per actor: `$V actor perfWide personnel large` and `$V actor perfScoped personnel large`. Each actor is a member of every seeded workload, so the same page drives all three. Keep the returned page IDs. The control records which actor each page was signed in as; a warm `perf load` or a `perf interaction` rejects a page whose actor differs from the ACTOR argument, so a scoped label cannot record a wide page. Cold samples create their own page for the named actor.
 3. Load: `$V perf load PAGE WORKLOAD personnel-list|dashboard perfWide|perfScoped --mode cold|warm --out $RUN`. Warm defaults are one warm-up and five repetitions, unthrottled; cold defaults are three repetitions. Run warm before cold so the server is warm. Add `--profile slow-cpu` for a 4x CPU slowdown.
 4. Interaction: `$V perf interaction PAGE WORKLOAD personnel-search ACTOR --out $RUN`.
 5. Trace: `$V perf trace PAGE WORKLOAD JOURNEY ACTOR --out $RUN`.

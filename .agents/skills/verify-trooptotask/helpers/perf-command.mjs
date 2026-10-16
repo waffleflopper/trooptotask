@@ -41,7 +41,8 @@ $V perf summarize RUN                      Distribution table over every run fil
 JOURNEY: ${Object.entries(journeys)
 	.map(([name, journey]) => `${name} (${journey.kind})`)
 	.join(', ')}
-ACTOR: perfWide (Organization owner) or perfScoped (operate, one Group)
+ACTOR: perfWide (Organization owner) or perfScoped (operate, one Group). A warm load and an interaction
+require PAGE to be one that the actor command signed in as that ACTOR; a mismatch is rejected.
 Profiles: ${Object.keys(profiles).join(', ')}. Defaults: warm and interaction warm-up ${protocol.defaults.warm.warmup}, repetitions ${protocol.defaults.warm.repetitions}; cold warm-up ${protocol.defaults.cold.warmup}, repetitions ${protocol.defaults.cold.repetitions}.
 RUN and FILE must be under .verification/evidence/verify-trooptotask/.`;
 
@@ -93,6 +94,18 @@ function target(ctx, positional, kind) {
 		url: `${ctx.doctor.origin}/org/${item.organizationId}${journey.path ? `/${journey.path}` : ''}`,
 		context: { sentinel: item.sentinels[scope], searchTerm: item.searchTerms[scope] }
 	};
+}
+
+/**
+ * A warm load or interaction reuses an existing page, so the actor argument alone could label a
+ * sample with an identity the page does not hold. `actor perfWide|perfScoped` journals the actor of
+ * each page it signs in; an actor is a member of every workload, so one page serves them all. Cold
+ * samples create their own page for the named actor and need no entry.
+ */
+export function assertPageBound(perfPages, { pageId, actor }) {
+	const bound = perfPages?.[pageId];
+	if (!bound) throw new Error(`Page ${pageId} was not signed in by the actor command; open it with actor ${actor}.`);
+	if (bound !== actor) throw new Error(`Page ${pageId} is signed in as ${bound}, not ${actor}.`);
 }
 
 async function emulate(ctx, pageId, profileName, extra = {}) {
@@ -381,6 +394,7 @@ async function load(ctx, positional, options) {
 	const run = target(ctx, positional, 'load');
 	const mode = options.mode ?? 'warm';
 	if (!protocol.modes[mode]) throw new Error('Use --mode cold or --mode warm.');
+	if (mode === 'warm') assertPageBound(ctx.ownedState.perfPages, run);
 	const profileName = options.profile ?? 'unthrottled';
 	const milestones = run.journey.milestones(run.context);
 	const initScript = observerScript({ name: run.journeyName, start: 'navigation', milestones });
@@ -417,6 +431,7 @@ function controlUid(snapshot, { role, name }) {
 
 async function interaction(ctx, positional, options) {
 	const run = target(ctx, positional, 'interaction');
+	assertPageBound(ctx.ownedState.perfPages, run);
 	const profileName = options.profile ?? 'unthrottled';
 	const milestones = run.journey.milestones(run.context);
 	const ready = observerScript({

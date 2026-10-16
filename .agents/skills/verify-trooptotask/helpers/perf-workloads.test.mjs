@@ -138,47 +138,85 @@ test('sentinels and search terms belong to each actor scope', () => {
 	assert.equal(active.filter((person) => person.last_name === searchTerms.wide).length, 1);
 });
 
+const organizationId = '33333333-3333-4333-8333-333333333333';
+const userId = '44444444-4444-4444-8444-444444444444';
+const groupId = '55555555-5555-4555-8555-555555555555';
+const auditId = '66666666-6666-4666-8666-666666666666';
+
 const journaled = () => ({
 	workloads: {
-		small: {
-			organizationId: '33333333-3333-4333-8333-333333333333',
-			users: ['44444444-4444-4444-8444-444444444444'],
-			tables: [{ table: 'groups', ids: ['55555555-5555-4555-8555-555555555555'] }]
-		}
+		small: { organizationId, users: [userId], tables: [{ table: 'groups', ids: [groupId] }] }
 	}
 });
 
-// Every row query answers as already removed; only the auth readback varies.
-function provider(readback) {
-	const query = { then: (resolve) => resolve({ error: null, count: 0 }) };
-	for (const method of ['select', 'delete', 'eq', 'in']) query[method] = () => query;
+// An in-memory provider with the schema's delete actions: deleting an Organization cascades its
+// rows, except audit_logs, whose org_id is set to null. `keepAudit` models rows that refuse deletion.
+function provider({ readback = { data: { user: null }, error: null }, keepAudit = false } = {}) {
+	const tables = {
+		groups: [{ id: groupId, organization_id: organizationId }],
+		organizations: [{ id: organizationId }],
+		dashboard_configs: [{ id: 'cfg', org_id: organizationId }],
+		audit_logs: [{ id: auditId, org_id: organizationId }]
+	};
+	const queryOn = (table) => {
+		const filters = [];
+		let deleting = false;
+		let head = false;
+		let window = null;
+		const matches = () => (tables[table] ?? []).filter((row) => filters.every((keep) => keep(row)));
+		const query = {
+			select: (_columns, options = {}) => ((head = options.head === true), query),
+			delete: () => ((deleting = true), query),
+			eq: (column, value) => (filters.push((row) => row[column] === value), query),
+			in: (column, values) => (filters.push((row) => values.includes(row[column])), query),
+			order: () => query,
+			range: (from, to) => ((window = [from, to + 1]), query),
+			then(resolve) {
+				const rows = matches();
+				if (!deleting) {
+					const page = window ? rows.slice(...window) : rows;
+					return resolve(head ? { error: null, count: rows.length } : { error: null, data: page });
+				}
+				if (table === 'audit_logs' && keepAudit) return resolve({ error: null });
+				tables[table] = tables[table].filter((row) => !rows.includes(row));
+				if (table === 'organizations')
+					for (const [other, list] of Object.entries(tables))
+						if (other === 'audit_logs')
+							for (const row of list) row.org_id = rows.some((gone) => gone.id === row.org_id) ? null : row.org_id;
+						else
+							tables[other] = list.filter(
+								(row) => !rows.some((gone) => [row.organization_id, row.org_id].includes(gone.id))
+							);
+				return resolve({ error: null });
+			}
+		};
+		return query;
+	};
 	return {
-		from: () => query,
+		tables,
+		from: queryOn,
 		auth: { admin: { deleteUser: async () => ({ error: null }), getUserById: async () => readback } }
 	};
 }
 
 test('an unavailable account readback fails cleanup and keeps the journal', async () => {
 	const ownedState = journaled();
-	const saved = [];
 	await assert.rejects(
 		cleanWorkloads({
-			client: provider({ data: { user: null }, error: { status: 503, message: 'Service Unavailable' } }),
+			client: provider({ readback: { data: { user: null }, error: { status: 503, message: 'Service Unavailable' } } }),
 			ownedState,
-			save: async (state) => saved.push(structuredClone(state))
+			save: async () => {}
 		}),
 		/user readback failed: Service Unavailable/
 	);
-	assert.deepEqual(ownedState, journaled());
-	assert.deepEqual(saved, []);
+	assert.ok(ownedState.workloads.small);
 });
 
 test('an account the provider reports not found is read back as removed', async () => {
 	const ownedState = journaled();
 	const results = await cleanWorkloads({
 		client: provider({
-			data: { user: null },
-			error: { status: 404, code: 'user_not_found', message: 'User not found' }
+			readback: { data: { user: null }, error: { status: 404, code: 'user_not_found', message: 'User not found' } }
 		}),
 		ownedState,
 		save: async () => {}
@@ -186,4 +224,36 @@ test('an account the provider reports not found is read back as removed', async 
 	assert.equal(results.small.clean, true);
 	assert.deepEqual(results.small.readback.users, { seeded: 1, remaining: 0 });
 	assert.deepEqual(ownedState.workloads, {});
+});
+
+test('an audit row the app wrote is removed by ID and read back, though the Organization delete would orphan it', async () => {
+	const ownedState = journaled();
+	const client = provider();
+	const results = await cleanWorkloads({ client, ownedState, save: async () => {} });
+	assert.equal(results.small.clean, true);
+	assert.deepEqual(results.small.readback['app.audit_logs'], { seeded: 1, remaining: 0 });
+	assert.deepEqual(results.small.readback['app.dashboard_configs'], { seeded: 1, remaining: 0 });
+	assert.deepEqual(client.tables.audit_logs, []);
+	assert.deepEqual(ownedState.workloads, {});
+});
+
+test('an audit row that cannot be removed fails cleanup with its ID and keeps the journal', async () => {
+	const ownedState = journaled();
+	await assert.rejects(
+		cleanWorkloads({ client: provider({ keepAudit: true }), ownedState, save: async () => {} }),
+		new RegExp(`"app.audit_logs":\\{"seeded":1,"remaining":1,"ids":\\["${auditId}"\\]\\}`)
+	);
+	assert.deepEqual(ownedState.workloads.small.appWritten.audit_logs, [auditId]);
+});
+
+test('audit rows journaled by an interrupted run are still removed after their Organization is gone', async () => {
+	const ownedState = journaled();
+	ownedState.workloads.small.appWritten = { audit_logs: [auditId] };
+	const client = provider();
+	client.tables.organizations = [];
+	client.tables.dashboard_configs = [];
+	client.tables.audit_logs[0].org_id = null;
+	const results = await cleanWorkloads({ client, ownedState, save: async () => {} });
+	assert.equal(results.small.clean, true);
+	assert.deepEqual(client.tables.audit_logs, []);
 });

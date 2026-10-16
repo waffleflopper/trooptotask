@@ -560,7 +560,9 @@ export async function seedWorkload({ client, fixture, name, tag, ownedState, sav
 	};
 }
 
-// Rows the app itself may write while a workload is driven; Organization deletion cascades them.
+// Rows the app itself may write while a workload is driven. Organization deletion cascades all
+// of them except audit_logs, whose org_id is ON DELETE SET NULL, so those rows survive it and
+// are removed by ID first.
 const appWrittenTables = [
 	['user_org_preferences', 'organization_id'],
 	['user_pinned_groups', 'organization_id'],
@@ -569,6 +571,7 @@ const appWrittenTables = [
 	['notifications', 'organization_id'],
 	['audit_logs', 'org_id']
 ];
+const survivingTables = ['audit_logs'];
 
 async function count(client, table, column, value) {
 	const { count: total, error } = await client
@@ -579,13 +582,50 @@ async function count(client, table, column, value) {
 	return total;
 }
 
+async function idsFor(client, table, column, value) {
+	const ids = [];
+	for (;;) {
+		const { data, error } = await client
+			.from(table)
+			.select('id')
+			.eq(column, value)
+			.order('id')
+			.range(ids.length, ids.length + 999);
+		if (error) throw new Error(`Disposable provider readback failed on ${table}: ${error.message}`);
+		ids.push(...data.map((row) => row.id));
+		if (data.length < 1000) return ids;
+	}
+}
+
+async function idsRemaining(client, table, ids) {
+	const found = [];
+	for (let offset = 0; offset < ids.length; offset += 200) {
+		const { data, error } = await client
+			.from(table)
+			.select('id')
+			.in('id', ids.slice(offset, offset + 200));
+		if (error) throw new Error(`Disposable provider readback failed on ${table}: ${error.message}`);
+		found.push(...data.map((row) => row.id));
+	}
+	return found;
+}
+
+/** Journals the IDs of app-written rows (merged across interrupted runs) before anything is deleted. */
+async function captureAppWritten(client, item, ownedState, save) {
+	item.appWritten ??= {};
+	for (const [table, column] of appWrittenTables) {
+		const known = new Set(item.appWritten[table] ?? []);
+		for (const id of await idsFor(client, table, column, item.organizationId)) known.add(id);
+		item.appWritten[table] = [...known];
+	}
+	await save(ownedState);
+}
+
 /** Deletes exactly the journaled rows and accounts, then reads every one of them back. */
 export async function cleanWorkloads({ client, ownedState, save }) {
 	const results = {};
 	for (const [name, item] of Object.entries(ownedState.workloads ?? {})) {
-		const appWritten = {};
-		for (const [table, column] of appWrittenTables)
-			appWritten[table] = await count(client, table, column, item.organizationId);
+		await captureAppWritten(client, item, ownedState, save);
 		for (const { table, ids } of [...item.tables].reverse())
 			for (let offset = 0; offset < ids.length; offset += 200) {
 				const { error } = await client
@@ -593,6 +633,14 @@ export async function cleanWorkloads({ client, ownedState, save }) {
 					.delete()
 					.eq('organization_id', item.organizationId)
 					.in('id', ids.slice(offset, offset + 200));
+				if (error) throw new Error(`Disposable provider cleanup failed on ${table}: ${error.message}`);
+			}
+		for (const table of survivingTables)
+			for (let offset = 0; offset < item.appWritten[table].length; offset += 200) {
+				const { error } = await client
+					.from(table)
+					.delete()
+					.in('id', item.appWritten[table].slice(offset, offset + 200));
 				if (error) throw new Error(`Disposable provider cleanup failed on ${table}: ${error.message}`);
 			}
 		const { error } = await client.from('organizations').delete().eq('id', item.organizationId);
@@ -624,11 +672,12 @@ export async function cleanWorkloads({ client, ownedState, save }) {
 			if (data?.user) usersRemaining++;
 		}
 		remaining.users = { seeded: item.users.length, remaining: usersRemaining };
-		const appWrittenAfter = {};
-		for (const [table, column] of appWrittenTables)
-			appWrittenAfter[table] = await count(client, table, column, item.organizationId);
+		for (const [table, ids] of Object.entries(item.appWritten)) {
+			const left = await idsRemaining(client, table, ids);
+			remaining[`app.${table}`] = { seeded: ids.length, remaining: left.length, ...(left.length ? { ids: left } : {}) };
+		}
 		const clean = Object.values(remaining).every((entry) => entry.remaining === 0);
-		results[name] = { organizationId: item.organizationId, clean, readback: remaining, appWritten, appWrittenAfter };
+		results[name] = { organizationId: item.organizationId, clean, readback: remaining };
 		if (!clean) throw new Error(`Workload ${name} cleanup left rows: ${JSON.stringify(remaining)}`);
 		delete ownedState.workloads[name];
 		await save(ownedState);

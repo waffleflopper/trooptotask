@@ -138,7 +138,7 @@ The Web UI Foundation's public [`toastStore`](../src/lib/stores/toast.svelte.ts)
 Public components:
 
 - `Root`: authenticated page content scroller. Props: `density?: 'default' | 'compact'`, `width?: 'full' | 'content' | 'wide'`, `bodyClass?`, `children?`.
-- `Header`: page header. Props: `title`, `subtitle?`, snippets `back` and `meta`.
+- `Header`: page header. Props: `title` (a string, or a snippet rendered inside the `h1` when the title is itself a control), `eyebrow?` (a short uppercase context line above the title), `subtitle?`, snippets `back`, `meta` and `aside`. `aside` holds a page-level summary or the switch for the shown span, right-aligned on the title line; it wraps below the title when narrow.
 - `Tabs`: route-level navigation links. Props: `items?`, `label?`. Items support `label`, `href` (required), `active`, `badge`, `badgeLabel`, `badgeVariant`, and `disabled`. The active link carries `aria-current="page"`; a disabled item renders as non-interactive text. Use `ui/tabs` for in-page views. Each tab shows the app focus ring. When a bare count would be ambiguous, set `badgeLabel` (for example `2 pending requests`); assistive technology then hears that text in place of the badge.
 - `FactGrid`: dense fact layout. Props: `layout?: 'stack' | 'two' | 'three' | 'rail'`, `children?`.
 - `Metric`: compact bordered metric tile. Props: `label`, `value`, `detail?`, `tone?`, `children?`.
@@ -147,7 +147,7 @@ Rules:
 
 - Use `Root` inside the authenticated shell/sidebar inset so page content scrolls inside the shell and the app breadcrumb/header remains outside the route scroller.
 - The shell owns the page's only `main` landmark. `ui/sidebar`'s `Inset` renders a `div`; the Organization shell's `main#main-content` (the skip-link target) and the platform admin layout's `main` wrap page content below their headers. Route content renders a `div` root, never another `main`.
-- Use `Header` for route-local title, subtitle and metadata such as badges and status text. Page commands go in the page's `WorkspaceToolbar`. Do not duplicate the authenticated app breadcrumb bar inside route content.
+- Use `Header` for route-local title, subtitle and metadata such as badges and status text. Page commands go in the page's `WorkspaceToolbar`. Calendar's title row is the `aside` example: today's count and the Month / 3-Month switch, which changes the period the title names. Do not duplicate the authenticated app breadcrumb bar inside route content.
 - Use `Tabs` for route-level Overview/History/Settings style navigation.
 - Use `FactGrid` and `Metric` for dense operational summaries instead of route-local summary wrappers.
 - Routes may configure labels, values, actions, links, disabled/loading state, status badges, and snippets. Routes must not visually retune these primitives with local spacing, radius, color, border, density, or typography overrides unless explicitly approved.

@@ -129,7 +129,7 @@
 				<Field.Legend variant="label">Dates</Field.Legend>
 				<div class="flex flex-wrap items-center gap-2">
 					<DatePicker class="min-w-36 flex-1" aria-label="First day" value={startDate} onValueChange={changeStart} />
-					<ArrowRight class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+					<ArrowRight class="hidden size-4 shrink-0 text-muted-foreground sm:block" aria-hidden="true" />
 					<DatePicker class="min-w-36 flex-1" aria-label="Last day" bind:value={endDate} />
 				</div>
 				{#if dates.ok && dates.dates.length === 0}

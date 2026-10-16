@@ -39,7 +39,7 @@
 </script>
 
 <div
-	class="flex flex-col gap-2 [--calendar-cell-width:1.75rem] [--calendar-personnel-column-width:4.5rem] [--dates-count:7]"
+	class="flex flex-col gap-2 [--calendar-cell-width:1.5rem] [--calendar-personnel-column-width:4.5rem] [--dates-count:7]"
 >
 	{#each weeks as dates (dates[0].getTime())}
 		{@const headerCells = buildCalendarDays(dates, specialDays)}

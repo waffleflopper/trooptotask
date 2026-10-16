@@ -6,6 +6,7 @@ import type {
 	SavedSpecialDay,
 	SavedStatusType
 } from './contracts';
+import { fitsOneDayLabel, normalizeShortLabel } from './utils/oneDayLabel';
 
 type SavedRow = { organization_id?: string; created_at?: string };
 
@@ -14,7 +15,8 @@ export type StatusTypeRow = SavedRow & {
 	name: string;
 	color: string;
 	text_color: string;
-	sort_order?: number | null;
+	short_label: string | null;
+	sort_order: number;
 };
 export type AssignmentTypeRow = SavedRow & {
 	id: string;
@@ -48,7 +50,7 @@ export type AssignmentRow = SavedRow & {
 	assignee_id: string;
 };
 
-export const STATUS_TYPE_FIELDS = 'id, organization_id, name, color, text_color, sort_order, created_at';
+export const STATUS_TYPE_FIELDS = 'id, organization_id, name, color, text_color, short_label, sort_order, created_at';
 export const ASSIGNMENT_TYPE_FIELDS =
 	'id, organization_id, name, short_name, assign_to, color, sort_order, show_on_calendar, exempt_personnel_ids, archived_at, created_at';
 export const SPECIAL_DAY_FIELDS = 'id, organization_id, date, name, type, created_at';
@@ -69,7 +71,8 @@ export function toStatusType(row: StatusTypeRow): SavedStatusType {
 		name: row.name,
 		color: row.color,
 		textColor: row.text_color,
-		...(row.sort_order !== undefined ? { sortOrder: row.sort_order } : {}),
+		shortLabel: row.short_label,
+		sortOrder: row.sort_order,
 		...savedMetadata(row)
 	};
 }
@@ -115,13 +118,28 @@ export function toAssignment(row: AssignmentRow): SavedAssignment {
 	};
 }
 
+// Status type order changes only through statusTypeOrderInput. Create appends at max + 1, so two
+// concurrent creates can tie; every reader orders ties by id.
 export const statusTypeCreateInput = z.object({
 	name: z.string().min(1).max(100),
 	color: z.string().optional(),
 	textColor: z.string().optional(),
-	sortOrder: z.number().int().optional()
+	shortLabel: z
+		.string()
+		.transform(normalizeShortLabel)
+		.refine((label) => label === null || fitsOneDayLabel(label), 'A one-day label has up to 3 characters')
+		.nullable()
+		.optional(),
+	sortOrder: z.never({ error: 'Status type order changes through the order command' }).optional()
 });
 export const statusTypeUpdateInput = statusTypeCreateInput.partial().extend({ id: z.string() });
+// Any database uuid: demo-seeded ids carry no RFC version, and the command's uuid[] parameter enforces the type.
+const statusTypeIds = z
+	.array(z.guid())
+	.refine((ids) => new Set(ids).size === ids.length, 'Each status type appears once');
+export const statusTypeOrderInput = z
+	.object({ statusTypeIds: statusTypeIds, expectedStatusTypeIds: statusTypeIds })
+	.strict();
 const assignmentTypeFields = z.object({
 	name: z.string().min(1).max(100),
 	shortName: z.string(),
@@ -137,7 +155,7 @@ export const assignmentTypeUpdateInput = assignmentTypeFields
 	.partial()
 	.extend({ id: z.string(), showOnCalendar: z.never().optional() });
 const laneTypeIds = z
-	.array(z.string().uuid())
+	.array(z.guid())
 	.refine((ids) => new Set(ids).size === ids.length, 'Each assignment type can be one lane');
 export const calendarLanesInput = z.object({ laneTypeIds: laneTypeIds, expectedLaneTypeIds: laneTypeIds }).strict();
 export const specialDayCreateInput = z.object({

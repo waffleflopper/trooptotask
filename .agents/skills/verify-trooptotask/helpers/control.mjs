@@ -33,6 +33,7 @@ import { seedPersonnelRetention, readRetentionFiles } from './personnel-retentio
 import { seedArtifactRetention } from './artifact-retention.mjs';
 import { seedMaintenance, readMaintenance } from './maintenance-fixtures.mjs';
 import { seedOnboarding } from './onboarding-fixtures.mjs';
+import { buildAvailabilityVolume } from './availability-volume-fixture.mjs';
 import { seedAudit } from './audit-fixtures.mjs';
 import { seedDashboard, seedDashboardCurrency, seedDashboardOverflow } from './dashboard-fixtures.mjs';
 import { seedTrainingPrint, cleanTrainingPrint } from './training-print-fixtures.mjs';
@@ -1695,6 +1696,7 @@ async function main() {
 				'duplicate-able',
 				'overlap',
 				'bulk-501',
+				'availability-volume',
 				'training-pages',
 				'training-print',
 				'roster-pages',
@@ -1738,6 +1740,26 @@ async function main() {
 		const tag = randomUUID().slice(0, 8);
 		if (kind === 'training-print') {
 			note(await seedTrainingPrint({ client, fixture, tag, ownedState, save }));
+			return;
+		}
+		if (kind === 'availability-volume') {
+			const volume = buildAvailabilityVolume({
+				organizationId: org('orgA'),
+				groupIds: [fixture.ids.groupA, fixture.ids.groupB, null],
+				statusTypeIds: [fixture.ids.statusLeave, fixture.ids.statusTraining],
+				anchorDate: fixture.dates.ui,
+				tag
+			});
+			ownedState.seeded.push(
+				{ kind, table: 'personnel', ids: volume.personnel.map((record) => record.id), tag },
+				{ kind, table: 'availability_entries', ids: volume.entries.map((record) => record.id), tag }
+			);
+			await save(ownedState);
+			for (let offset = 0; offset < volume.personnel.length; offset += 100)
+				checked(await client.from('personnel').insert(volume.personnel.slice(offset, offset + 100)));
+			for (let offset = 0; offset < volume.entries.length; offset += 200)
+				checked(await client.from('availability_entries').insert(volume.entries.slice(offset, offset + 200)));
+			note({ kind, tag, anchor: fixture.dates.ui, ...volume.summary });
 			return;
 		}
 		if (kind === 'roster-shared-keys') {
@@ -2429,7 +2451,7 @@ async function main() {
 					if (item.kind === 'personnel-lifecycle') requests = requests.eq('resource_type', 'personnel');
 					checked(await requests);
 				}
-				if (item.kind === 'bulk-501')
+				if (item.kind === 'bulk-501' || (item.kind === 'availability-volume' && item.table === 'personnel'))
 					checked(
 						await client
 							.from('availability_entries')
@@ -2545,6 +2567,7 @@ async function main() {
 					'status-types',
 					'assignment-types',
 					'assignment-types/lanes',
+					'status-types/order',
 					'ict-tasks/order',
 					'ict-tasks/batch',
 					'calendar-reports/status-days',
@@ -2712,7 +2735,7 @@ async function main() {
 			const requestMethod =
 				family === 'ict-tasks/order'
 					? 'POST'
-					: heldPersonnelFailure || family === 'assignment-types/lanes'
+					: heldPersonnelFailure || family === 'assignment-types/lanes' || family === 'status-types/order'
 						? 'PUT'
 						: family === 'user-preferences'
 							? 'PATCH'

@@ -172,16 +172,18 @@
 					</Field.Root>
 				</div>
 				<Field.Root>
-					<Field.Label id="assignment-type-to">Assigned to</Field.Label>
+					<Field.Title id="assignment-type-to">Assigned to</Field.Title>
 					<div>
 						<ToggleGroup.Root
 							type="single"
 							variant="outline"
 							aria-labelledby="assignment-type-to"
-							value={assignTo}
-							onValueChange={(value) => {
-								if (value === 'personnel' || value === 'group') assignTo = value;
-							}}
+							bind:value={
+								() => assignTo,
+								(value) => {
+									if (value === 'personnel' || value === 'group') assignTo = value;
+								}
+							}
 						>
 							<ToggleGroup.Item value="personnel">Person</ToggleGroup.Item>
 							<ToggleGroup.Item value="group">Group</ToggleGroup.Item>

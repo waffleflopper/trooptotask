@@ -34,8 +34,8 @@ const personnel: Personnel[] = [
 ];
 
 const statusTypes: StatusType[] = [
-	{ id: 'leave', name: 'Leave', color: '#166534', textColor: '#ffffff' },
-	{ id: 'training', name: 'Training', color: '#2563eb', textColor: '#ffffff' }
+	{ id: 'leave', name: 'Leave', color: '#166534', textColor: '#ffffff', shortLabel: null, sortOrder: 0 },
+	{ id: 'training', name: 'Training', color: '#2563eb', textColor: '#ffffff', shortLabel: null, sortOrder: 1 }
 ];
 
 afterEach(() => {

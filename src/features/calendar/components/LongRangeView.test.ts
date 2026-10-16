@@ -41,7 +41,9 @@ const statusTypes: StatusType[] = [
 		id: 'leave',
 		name: 'Leave',
 		color: '#2563eb',
-		textColor: '#ffffff'
+		textColor: '#ffffff',
+		shortLabel: null,
+		sortOrder: 0
 	}
 ];
 

@@ -18,7 +18,8 @@ import type { Store, StoreInternals } from '$lib/stores/core';
 import { toastStore } from '$lib/stores/toast.svelte';
 import { assignmentTypesSchema, type AssignmentType, type DailyAssignment } from '$features/calendar/contracts';
 import { assignmentSlotKey } from '$features/calendar/utils/calendarIndexes';
-import { calendarLaneIds, calendarLaneTypes, sameLaneIds } from '$features/calendar/utils/calendarLanes';
+import { calendarLaneIds, calendarLaneTypes } from '$features/calendar/utils/calendarLanes';
+import { sameIdList } from '$features/calendar/utils/idList';
 import { confirmedNotSaved } from './calendarCommandResponse';
 
 export type { AssignmentType } from '$features/calendar/contracts';
@@ -256,7 +257,7 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 					applySavedLanes(sent);
 				} else if (res.ok) {
 					const showsSaved = await savedTypesShown();
-					if (!showsSaved || !sameLaneIds(calendarLaneIds(typesStore.items), sent)) {
+					if (!showsSaved || !sameIdList(calendarLaneIds(typesStore.items), sent)) {
 						return reportLaneOutcome(flight, { status: 'unconfirmed', showsSaved });
 					}
 				} else {
@@ -269,7 +270,7 @@ function enhance(base: Store<DailyAssignment>, internals: StoreInternals<DailyAs
 						message === null ? { status: 'unconfirmed', showsSaved } : { status: 'not-saved', message, showsSaved }
 					);
 				}
-				if (sameLaneIds(laneDesired, sent)) return reportLaneOutcome(flight, { status: 'saved' });
+				if (sameIdList(laneDesired, sent)) return reportLaneOutcome(flight, { status: 'saved' });
 				expected = sent;
 			}
 		} finally {

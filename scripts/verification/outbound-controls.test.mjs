@@ -1156,7 +1156,8 @@ test('other owners keep a synthetic 503 for a lost reply instead of a transport 
 test('Calendar command faults select only their command and distinguish rejection from a lost reply', async () => {
 	for (const [command, rejected, lost] of [
 		['reset_federal_holidays', 'federal-holiday-reset', 'federal-holiday-reset-lost-ack'],
-		['set_calendar_lanes', 'calendar-lanes', 'calendar-lanes-lost-ack']
+		['set_calendar_lanes', 'calendar-lanes', 'calendar-lanes-lost-ack'],
+		['set_status_type_order', 'status-order', 'status-order-lost-ack']
 	]) {
 		const pass = [
 			providerInput('special_days', { method: 'POST', body: '[{"type":"federal-holiday"}]' }),
@@ -1188,7 +1189,8 @@ test('Calendar command faults select only their command and distinguish rejectio
 test('Calendar command holds dispatch the held command only after release', async () => {
 	for (const [name, command] of [
 		['federal-holiday-reset-hold', 'reset_federal_holidays'],
-		['calendar-lanes-hold', 'set_calendar_lanes']
+		['calendar-lanes-hold', 'set_calendar_lanes'],
+		['status-order-hold', 'set_status_type_order']
 	]) {
 		const input = providerInput(`rpc/${command}`, { method: 'POST', body: '{"held":true}' });
 		const order = [];

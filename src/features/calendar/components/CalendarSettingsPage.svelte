@@ -36,7 +36,7 @@
 		{
 			key: 'status',
 			label: 'Status Types',
-			description: 'Personnel availability statuses',
+			description: "Set each status's name, color and one-day label, and drag to set the legend and picker order.",
 			icon: Palette,
 			getCount: () => statusTypesStore.items.length
 		},

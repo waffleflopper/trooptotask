@@ -25,7 +25,9 @@ const leave: StatusType = {
 	id: 'leave',
 	name: 'Leave',
 	color: '#48bb78',
-	textColor: '#ffffff'
+	textColor: '#ffffff',
+	shortLabel: null,
+	sortOrder: 0
 };
 
 function availabilityEntry(overrides: Partial<AvailabilityEntry> = {}): AvailabilityEntry {

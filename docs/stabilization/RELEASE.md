@@ -654,13 +654,13 @@ Triggers, grants and the cancellation timestamp are unchanged. No existing row i
 
 **After release.** Complete one packet late in the evening west of UTC, or early in the morning east of it. Then confirm that History shows the same local day for its start and finish.
 
-**Owner gate cleared by report.** Robert confirmed in the D08 conversation on 2026-10-16 UTC that this migration is applied and live. PR #1701 merged as `ed1f4119f`. The agent has neither inspected nor changed the remote database. Repository CI's database job replays the migration in a disposable database. Existing Vercel push/merge deployment behavior applies; its external settings are uninspected.
+**Owner confirmation recorded after merge.** PR #1701 merged as `ed1f4119f` at 2026-10-16 02:02 UTC. Robert subsequently confirmed in the D08 conversation that this migration is applied and live. The order of the hosted migration application versus the Vercel deployment of `ed1` is not recorded. This confirmation establishes the current owner-reported state; it does not establish that the original pre-merge confirmation rule was met. The agent has neither inspected nor changed the remote database. Repository CI's database job replays the migration in a disposable database. Existing Vercel push/merge deployment behavior applies; its external settings are uninspected.
 
 ## Phase 11 D08 integrated release limits
 
 D08 adds no SQL or hosted configuration. Its application change explains a failed Calendar day-dialog clear and preserves the existing rollback, Organization lifetime and transaction boundaries. The integrated acceptance record does not certify production security or replace the earlier release entries.
 
-Robert confirmed `20261014000500_onboarding_local_completion_day.sql` applied and live in the D08 conversation on 2026-10-16 UTC. The D05 `20261014000400` confirmation is recorded on #1693 above. These are owner reports. No agent inspected or changed the hosted database, and local verification used only owned disposable synthetic projects.
+Robert confirmed `20261014000500_onboarding_local_completion_day.sql` applied and live in the D08 conversation after #1701 merged on 2026-10-16 UTC. Its hosted application-versus-deployment order is not recorded. The D05 `20261014000400` confirmation is recorded on #1693 above. These are owner reports. No agent inspected or changed the hosted database, and local verification used only owned disposable synthetic projects.
 
 The deployment operator still owns these external checks:
 

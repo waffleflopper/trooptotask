@@ -6,7 +6,7 @@ All historical links below pin commit `dbd501301df350ef4e6cebb6bc1238283b24d9c9`
 
 ## 11-VERIFY D08 integrated security and reliability acceptance
 
-**Candidate under review.** Child [#1646](https://github.com/waffleflopper/trooptotask/issues/1646), parent [#1284](https://github.com/waffleflopper/trooptotask/issues/1284), milestone 9. Fetched main `ed1f4119f52250746d566b88395b9f7443d1de76` contains every prerequisite. Commit `a98df63ca08af365f033ad69f5c8f6709387bf5c` adds the one repair found by integrated investigation. Final independent acceptance, CodeRabbit and current-head PR CI remain pending. Closure is conditional on those gates and verified integration. No later phase is activated.
+**Pre-merge candidate.** Child [#1646](https://github.com/waffleflopper/trooptotask/issues/1646), parent [#1284](https://github.com/waffleflopper/trooptotask/issues/1284), milestone 9. Fetched main `ed1f4119f52250746d566b88395b9f7443d1de76` contains every prerequisite. Commit `a98df63ca08af365f033ad69f5c8f6709387bf5c` adds the one repair found by integrated investigation. Independent whole-issue acceptance conditionally accepted head `51fad0e7f`, requiring a release-record timing correction and successful final CI/review. The timing correction is now explicit in RELEASE; the focused rebind and actual final-head checks are recorded on [PR #1704](https://github.com/waffleflopper/trooptotask/pull/1704). Closure remains conditional on those gates and verified integration. No later phase is activated.
 
 The following current acceptance replaces the old candidate-stage handoffs. The [exact pre-consolidation record](https://github.com/waffleflopper/trooptotask/blob/ed1f4119f52250746d566b88395b9f7443d1de76/docs/stabilization/EVIDENCE.md) preserves all Phase 11 original scopes, commands, failed attempts, reviews, native observations, 104 archive URLs and hashes. The summaries below retain their anchors. A past failed or unavailable observation earns no new passing status from this consolidation.
 
@@ -60,11 +60,11 @@ An owned worker ran Node 24.21.0, npm 11.19.0 and Chromium 152.0.7977.82. Its ap
 
 **One reproduced repair.** The Calendar `Daily Assignments` dialog called `removeAssignment`, whose catch restored the optimistic slot but never reported its failure. A native clear received controlled DELETE 503, restored Able and kept the exact saved row, but produced no error. An independently intended store regression failed with zero error calls. Commit `a98df63ca` adds the same error handling as the sibling writers. The final native repeat shows `Synthetic request failure`, restores Able's visible selection, preserves the exact row, keeps it after reload and permits an explicit successful clear. The subsequent reload and provider readback show the temporary slot absent. Both runs preserve stopped recordings, before/action/after captures and owned cleanup. No SQL, authorization, transaction or lifetime code changes.
 
-The data remains the existing date/type slot plus optimistic mutation log. No new result wrapper or state model is needed. The changed regression and the current core/Calendar freshness/lifetime checks pass, six files and 240 tests. Formatting passed. Full final-candidate CI is still required for this application change; previous green main CI does not replace it.
+The data remains the existing date/type slot plus optimistic mutation log. No new result wrapper or state model is needed. The changed regression and the current core/Calendar freshness/lifetime checks pass, six files and 240 tests. Formatting passed. CodeRabbit CLI reviewed all six files against base `ed1f4119f` with zero findings, patch SHA-256 `bdeb25faad6557e3335d6bce39e03c8753d52bcec72760ce385b14915c4d5cdb`. The later #1675 provenance paragraph and ASCII punctuation changes received document checks and independent review. Hosted Codex completed on `51fad0e7f` without findings. Full final-candidate CI remains required; previous green main CI does not replace it.
 
 **Reuse decision.** An independent Opus review read the 337-line post-D09 store diff and D05 r133's expanded observations. D05's later slot-wide deletion and catalog-read changes were already proven in r133. D06 adds error propagation and `updateOrThrow`; it does not change the lifetime, confirmed-change sequence, `commit`, `beginRead`/adoption or slot-write guards. Current tests cover late failed DELETE after A to B and A to B to A with no toast, and slot-wide snapshot replay. D07/D09 observations therefore remain applicable at their original revisions. The only new UI gap was restoring the day-dialog combobox and showing the error, now exercised directly. No complete D07/D09 or full-map native repeat is warranted. This is independent artifact/source review, not independent live execution.
 
-All 104 historical Phase 11 archive hashes match the pre-consolidation record. Fresh safe extraction and internal-inventory verification found no missing, changed or unlisted payload. That proves packaging integrity, not application behavior. The expanded hard cases remain available for independent acceptance. The initial source investigations found no other supported high-impact defect. Their hypotheses and limits remain explicit below.
+All 104 historical Phase 11 archive hashes match the pre-consolidation record. Fresh safe extraction and internal-inventory verification found no missing, changed or unlisted payload. That proves packaging integrity, not application behavior. Independent acceptance examined expanded hard cases, recording frames, exact rows, the complete candidate and current consumers. It independently reran the six focused files with all 240 tests passing. It found no further code repair or justification for a wider manual repeat. Its conditional acceptance and focused rebind belong to the closing PR. The initial source investigations found no other supported high-impact defect. Their hypotheses and limits remain explicit below.
 
 | D08 run                                                                             | Durable archive                                                                                                                            | SHA-256                                                            | Payloads |
 | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ | -------- |
@@ -81,9 +81,9 @@ Download each archive from the evidence prerelease, verify its archive SHA-256, 
 - **Original reports.** #1303/#1383 close through D04; #1554/#1557/#1561 through D06; #1575 through D07. They read back closed with integrated repairs. [#1555](https://github.com/waffleflopper/trooptotask/issues/1555) stays open and owner-deferred pending real scale need. No scale acceptance is claimed.
 - **Unsettled product policy.** [#1664](https://github.com/waffleflopper/trooptotask/issues/1664) owns Personnel operate import versus configure single-create. Both retain Group scope. D08 preserves the current contract and makes no new policy choice.
 - **Source hypotheses.** Remaining setup-claim `40001` guards in [#1694](https://github.com/waffleflopper/trooptotask/issues/1694) have no reproduced retry exposure. The password-attempt case was repaired by #1693. Held row locks/current predicates and the staff-only SQL path explain why the other two are not demonstrated application failures. No unverified hypothesis is reported as repaired. Per-tab cookie accumulation and optional date fallbacks likewise have no reproduced defect in current callers.
-- **Known operational limits.** Best-effort audit/notification delivery is not transactional. Personal pins and Training order are not atomic multiwrite commands. Original D06 limits, including archived-Person edits and Active-page median refresh, remain in its pinned record. Source-only or lower-level-only coverage is not relabelled native. No production security or compliance certification is claimed.
+- **Known operational limits.** D03 also records the content-type-less cross-site request, which carries no SameSite session cookie; the scan opener without `noopener`; two raw provider-error log sites; and absent `.env.production` ignore coverage, with no such file present or tracked. These remain low-impact observations in the exact D03 record, not repaired claims. Best-effort audit/notification delivery is not transactional. Personal pins and Training order are not atomic multiwrite commands. Original D06 limits, including archived-Person edits and Active-page median refresh, remain in its pinned record. Source-only or lower-level-only coverage is not relabelled native. No production security or compliance certification is claimed.
 - **Release owners.** Hosted signup/email-confirmation settings, origin configuration, session/setup secrets, mail/GitHub delivery, rate-limit infrastructure, schedules, migration parity, backups/restore and deployment settings remain explicit [RELEASE](RELEASE.md#phase-11-d08-integrated-release-limits) obligations. No remote database or existing local development data was accessed. D08 adds no migration. Robert's confirmation of `00500` is distinct from independent hosted inspection.
-- **Next gate.** Independent whole-issue acceptance must inspect the complete candidate, integrated consumers and expanded observations. CodeRabbit and current-head CI must finish with consequential findings resolved. Only then may the authorized final PR close #1646 on merge. Parent #1284 and milestone 9 close separately after integrated readback; no child PR closes the parent. Phase 12 #1285 is next and remains unactivated.
+- **Next gate.** Independent acceptance found no code/manual-proof gap. The release timing correction needs a focused acceptance rebind. CodeRabbit and current-head CI must finish with consequential findings resolved. Only then may the authorized final PR close #1646 on merge. Parent #1284 and milestone 9 close separately after integrated readback; no child PR closes the parent. Phase 12 #1285 is next and remains unactivated.
 
 ## 11-01 D01 invitation-origin approvals and setup recovery
 
@@ -101,6 +101,26 @@ Merged through [#1651](https://github.com/waffleflopper/trooptotask/pull/1651) a
 
 Merged through [#1657](https://github.com/waffleflopper/trooptotask/pull/1657), [#1659](https://github.com/waffleflopper/trooptotask/pull/1659), [#1662](https://github.com/waffleflopper/trooptotask/pull/1662) and [#1663](https://github.com/waffleflopper/trooptotask/pull/1663), final `11c760b63`; #1642 is closed. Shared delivery admission, suspension, direct-record authority and Group catalogs now enforce the same current scope. The [exact D04 record](https://github.com/waffleflopper/trooptotask/blob/ed1f4119f52250746d566b88395b9f7443d1de76/docs/stabilization/EVIDENCE.md#11-07-d04-tenant-and-resource-authority) retains baseline/final UI, route, SQL/RLS, privilege and lock-wait evidence. Its old Personnel approval/counseling partial-commit observations were repaired in D05; they are not current failures. #1664 remains the explicit create/import policy question.
 
+### PR 1 governance and membership authority
+
+[Exact historical acceptance and observations](https://github.com/waffleflopper/trooptotask/blob/ed1f4119f52250746d566b88395b9f7443d1de76/docs/stabilization/EVIDENCE.md#pr-1-governance-and-membership-authority).
+
+### PR 2 suspension admission
+
+[Exact historical acceptance and observations](https://github.com/waffleflopper/trooptotask/blob/ed1f4119f52250746d566b88395b9f7443d1de76/docs/stabilization/EVIDENCE.md#pr-2-suspension-admission).
+
+### PR 3 direct feature-record writes
+
+[Exact historical acceptance and observations](https://github.com/waffleflopper/trooptotask/blob/ed1f4119f52250746d566b88395b9f7443d1de76/docs/stabilization/EVIDENCE.md#pr-3-direct-feature-record-writes).
+
+### PR 4 Group catalog scope
+
+[Exact historical acceptance and observations](https://github.com/waffleflopper/trooptotask/blob/ed1f4119f52250746d566b88395b9f7443d1de76/docs/stabilization/EVIDENCE.md#pr-4-group-catalog-scope).
+
+### Issue acceptance
+
+[Exact historical acceptance and observations](https://github.com/waffleflopper/trooptotask/blob/ed1f4119f52250746d566b88395b9f7443d1de76/docs/stabilization/EVIDENCE.md#issue-acceptance).
+
 ## 11-08 D05 recoverable lifecycle mutations and file cleanup
 
 Merged through [#1666](https://github.com/waffleflopper/trooptotask/pull/1666), [#1671](https://github.com/waffleflopper/trooptotask/pull/1671), [#1676](https://github.com/waffleflopper/trooptotask/pull/1676), [#1679](https://github.com/waffleflopper/trooptotask/pull/1679), [#1682](https://github.com/waffleflopper/trooptotask/pull/1682), [#1691](https://github.com/waffleflopper/trooptotask/pull/1691) and [#1693](https://github.com/waffleflopper/trooptotask/pull/1693), final `7405e6715`; #1643 is closed. Owned lifecycle commands, private-file retirement, template/configuration/reorder commands, desired-state announcements, exports and password conflicts retain their recovery contracts. The [exact D05 record](https://github.com/waffleflopper/trooptotask/blob/ed1f4119f52250746d566b88395b9f7443d1de76/docs/stabilization/EVIDENCE.md#11-08-d05-recoverable-lifecycle-mutations-and-file-cleanup) retains all per-seam baselines, rejected reviews, repaired results and 1000-row/provider boundaries. Robert's [recorded 00400 confirmation](https://github.com/waffleflopper/trooptotask/pull/1693#issuecomment-6184033618) clears that historical owner gate. No agent inspected the hosted ledger.
@@ -108,6 +128,18 @@ Merged through [#1666](https://github.com/waffleflopper/trooptotask/pull/1666), 
 ## 11-05a, 11-09 D06 validated inputs, dates and truthful failures
 
 Merged through [#1696](https://github.com/waffleflopper/trooptotask/pull/1696), [#1698](https://github.com/waffleflopper/trooptotask/pull/1698), [#1700](https://github.com/waffleflopper/trooptotask/pull/1700) and [#1701](https://github.com/waffleflopper/trooptotask/pull/1701), final `ed1f4119f`; #1644 is closed. Input validation, public 4xx, retained drafts, import parsing and viewer-local operational dates are repaired. The [exact D06 record](https://github.com/waffleflopper/trooptotask/blob/ed1f4119f52250746d566b88395b9f7443d1de76/docs/stabilization/EVIDENCE.md#11-05a-11-09-d06-validated-inputs-dates-and-truthful-failures) preserves the seven-root-cause census, failed-first observations, final artifacts, independent rejections/acceptance and known limits. Robert confirmed `00500` live in the D08 conversation. D08 repairs the missed clear feedback without changing D06's date/input boundaries.
+
+### PR 2 silent client failures and the loss-warning default
+
+[Exact historical acceptance and observations](https://github.com/waffleflopper/trooptotask/blob/ed1f4119f52250746d566b88395b9f7443d1de76/docs/stabilization/EVIDENCE.md#pr-2-silent-client-failures-and-the-loss-warning-default).
+
+### PR 3 the viewer's day and date-only display
+
+[Exact historical acceptance and observations](https://github.com/waffleflopper/trooptotask/blob/ed1f4119f52250746d566b88395b9f7443d1de76/docs/stabilization/EVIDENCE.md#pr-3-the-viewers-day-and-date-only-display).
+
+### PR 4 Onboarding completion day, remaining gaps and final acceptance
+
+[Exact historical acceptance and observations](https://github.com/waffleflopper/trooptotask/blob/ed1f4119f52250746d566b88395b9f7443d1de76/docs/stabilization/EVIDENCE.md#pr-4-onboarding-completion-day-remaining-gaps-and-final-acceptance).
 
 ## 11-05b D07 scope-safe client state and stale-response recovery
 

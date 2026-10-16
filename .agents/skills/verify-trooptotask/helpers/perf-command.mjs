@@ -1,0 +1,673 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { randomUUID } from 'node:crypto';
+import {
+	profiles,
+	protocol,
+	journeys,
+	installSettledObserver,
+	readSettledSample,
+	groupManifest,
+	distribution,
+	serverTimingPhases,
+	summarizeTrace,
+	redactTrace,
+	parseServerTiming,
+	failedRequests,
+	inFlight,
+	statementTotals
+} from './perf-measure.mjs';
+import { workloads } from './perf-workloads.mjs';
+
+export const perfHelp = `Performance measurement on seeded workloads (recipe: features/performance.md)
+
+$V seed workload small|typical|large       Seed one synthetic Organization; clean-seeds removes it
+$V actor perfWide|perfScoped DESTINATION WORKLOAD   Sign in to that workload's Organization
+$V perf workloads                          Print the workload table, profiles and protocol
+$V perf load PAGE WORKLOAD JOURNEY ACTOR --out RUN [--mode cold|warm] [--profile NAME] [--warmup N] [--reps N]
+                                           Repeated page loads to the first useful render, then to app-origin
+                                           network idle (settled including reloads): resource-entry, network
+                                           request and failure manifest, navigation/paint/LCP (loads only), long tasks,
+                                           server timing lines, and a query window per sample
+$V perf interaction PAGE WORKLOAD JOURNEY ACTOR --out RUN [--profile NAME] [--warmup N] [--reps N]
+                                           Repeated native input to the same two milestones; the query window
+                                           opens after the page is ready and idle, just before the input
+$V perf trace PAGE WORKLOAD JOURNEY ACTOR --out RUN [--profile NAME]
+                                           One cold traced load to network idle; raw trace plus a summary
+$V perf statements reset|read [--top N] [--out FILE]   pg_stat_statements on the owned database
+$V perf explain NAME WORKLOAD wide|scoped [--out FILE] EXPLAIN (ANALYZE, BUFFERS) a named statement as the actor
+$V perf summarize RUN                      Distribution table over every run file below RUN
+
+JOURNEY: ${Object.entries(journeys)
+	.map(([name, journey]) => `${name} (${journey.kind})`)
+	.join(', ')}
+ACTOR: perfWide (Organization owner) or perfScoped (operate, one Group). A warm load and an interaction
+require PAGE to be one that the actor command signed in as that ACTOR; a mismatch is rejected.
+Profiles: ${Object.keys(profiles).join(', ')}. Defaults: warm and interaction warm-up ${protocol.defaults.warm.warmup}, repetitions ${protocol.defaults.warm.repetitions}; cold warm-up ${protocol.defaults.cold.warmup}, repetitions ${protocol.defaults.cold.repetitions}.
+RUN and FILE must be under .verification/evidence/verify-trooptotask/.`;
+
+const actors = { perfWide: 'wide', perfScoped: 'scoped' };
+
+function parse(args) {
+	const positional = [];
+	const options = {};
+	for (let index = 0; index < args.length; index++) {
+		if (args[index].startsWith('--')) options[args[index].slice(2)] = args[++index];
+		else positional.push(args[index]);
+	}
+	return { positional, options };
+}
+
+export function count(value, fallback, label, minimum = 0) {
+	const number = value === undefined ? fallback : Number(value);
+	if (!Number.isSafeInteger(number) || number < minimum || number > 50)
+		throw new Error(`${label} must be ${minimum} to 50.`);
+	return number;
+}
+
+async function writeEvidence(ctx, file, value) {
+	if (!(await ctx.isUnderEvidence(file, ctx.evidenceRoot)))
+		throw new Error(
+			'Performance output must be under .verification/evidence/verify-trooptotask/ without .. or symlinks.'
+		);
+	await fs.mkdir(path.dirname(file), { recursive: true });
+	await fs.writeFile(file, typeof value === 'string' ? value : JSON.stringify(value, null, 2) + '\n');
+	return path.relative(ctx.repository, file);
+}
+
+async function runDirectory(ctx, options) {
+	const out = path.resolve(ctx.repository, options.out ?? '');
+	if (!(await ctx.isUnderEvidence(path.join(out, 'run.json'), ctx.evidenceRoot)))
+		throw new Error(
+			'Performance output must be under .verification/evidence/verify-trooptotask/ without .. or symlinks.'
+		);
+	return out;
+}
+
+function target(ctx, positional, kind) {
+	const [page, workload, journeyName, actor] = positional;
+	const pageId = Number(page);
+	const item = ctx.ownedState.workloads?.[workload];
+	const journey = journeys[journeyName];
+	if (!Number.isSafeInteger(pageId) || pageId < 1) throw new Error('Use the actual page ID.');
+	if (!item) throw new Error(`Workload ${workload} is not seeded; run seed workload ${workload}.`);
+	if (journey?.kind !== kind) throw new Error(`Use a ${kind} journey: ${Object.keys(journeys).join(', ')}.`);
+	if (!actors[actor]) throw new Error('Use perfWide or perfScoped, the actor signed in on that page.');
+	const scope = actors[actor];
+	return {
+		pageId,
+		workload,
+		item,
+		journeyName,
+		journey,
+		actor,
+		url: `${ctx.doctor.origin}/org/${item.organizationId}${journey.path ? `/${journey.path}` : ''}`,
+		context: { sentinel: item.sentinels[scope], searchTerm: item.searchTerms[scope] }
+	};
+}
+
+/**
+ * A warm load or interaction reuses an existing page, so the actor argument alone could label a
+ * sample with an identity the page does not hold. `actor perfWide|perfScoped` journals the actor of
+ * each page it signs in; an actor is a member of every workload, so one page serves them all. Cold
+ * samples create their own page for the named actor and need no entry.
+ */
+export function assertPageBound(perfPages, { pageId, actor }) {
+	const bound = perfPages?.[pageId];
+	if (!bound) throw new Error(`Page ${pageId} was not signed in by the actor command; open it with actor ${actor}.`);
+	if (bound !== actor) throw new Error(`Page ${pageId} is signed in as ${bound}, not ${actor}.`);
+}
+
+async function emulate(ctx, pageId, profileName, extra = {}) {
+	const profile = profiles[profileName];
+	if (!profile) throw new Error(`Use a profile: ${Object.keys(profiles).join(', ')}.`);
+	await ctx.tool('emulate', {
+		pageId,
+		cpuThrottlingRate: profile.cpuThrottlingRate,
+		...(profile.networkConditions ? { networkConditions: profile.networkConditions } : {}),
+		...extra
+	});
+	return profile;
+}
+
+const observerScript = (spec) => `(${installSettledObserver.toString()})(window, ${JSON.stringify(spec)});`;
+
+async function sampleOf(ctx, pageId) {
+	return ctx.evaluate(pageId, `() => (${readSettledSample.toString()})(window, 30000)`);
+}
+
+async function networkRequests(ctx, pageId, resourceTypes) {
+	const reply = await ctx.tool('list_network_requests', { pageId, ...(resourceTypes ? { resourceTypes } : {}) });
+	return reply.structuredContent?.networkRequests ?? [];
+}
+
+// Idle means no app-origin request is running and the request and entry counts held still for
+// a quiet window, so a reload started by the first render is waited for and recorded.
+const idleQuietMs = 500;
+const idleDeadlineMs = 120_000;
+
+async function drain(ctx, pageId) {
+	const begun = Date.now();
+	let signature = null;
+	let quietSince = begun;
+	for (;;) {
+		const listed = await networkRequests(ctx, pageId);
+		const fetches = await networkRequests(ctx, pageId, ['fetch', 'xhr']);
+		const resources = await ctx.evaluate(
+			pageId,
+			`() => performance.getEntriesByType('resource').map((entry) => ({ name: entry.name }))`
+		);
+		const running = inFlight({ listed, fetches, resources }, ctx.doctor.origin);
+		const next = `${listed.length}:${resources.length}:${running.length}`;
+		if (running.length || next !== signature) quietSince = Date.now();
+		signature = next;
+		const waitedMs = Date.now() - begun;
+		if (!running.length && Date.now() - quietSince >= idleQuietMs) return { idle: true, waitedMs, listed };
+		if (waitedMs > idleDeadlineMs) return { idle: false, waitedMs, running, listed };
+		await new Promise((resolve) => setTimeout(resolve, 200));
+	}
+}
+
+/** First useful render, then app-origin network idle; the sample is read after both. */
+async function settle(ctx, pageId) {
+	const first = await sampleOf(ctx, pageId);
+	const network = await drain(ctx, pageId);
+	return { ...(await sampleOf(ctx, pageId)), useful: first.observer?.done ?? false, network };
+}
+
+// The app admits 10 sign-in POSTs per IP in a fixed 15-minute window and 60 other requests
+// per minute (hooks.server.ts), and every sample comes from loopback. Samples start at least
+// 6 s apart, and cold sign-ins stay at 8 in any 15 minutes, leaving room for actor sign-ins.
+const sampleSpacingMs = 6000;
+const signInWindowMs = 15 * 60_000;
+const signInBudget = 8;
+
+async function waitUntil(at) {
+	const wait = at - Date.now();
+	if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+}
+
+async function paceSample(ctx) {
+	const file = path.join(ctx.session, 'perf-pace.json');
+	await waitUntil(Number(await fs.readFile(file, 'utf8').catch(() => '0')) + sampleSpacingMs);
+	await fs.writeFile(file, String(Date.now()), { mode: 0o600 });
+}
+
+async function signInSlot(ctx) {
+	const file = path.join(ctx.session, 'perf-sign-ins.json');
+	const recent = JSON.parse(await fs.readFile(file, 'utf8').catch(() => '[]')).filter(
+		(at) => Date.now() - at < signInWindowMs
+	);
+	if (recent.length >= signInBudget) await waitUntil(recent[recent.length - signInBudget] + signInWindowMs + 1000);
+	await fs.writeFile(file, JSON.stringify([...recent, Date.now()].slice(-signInBudget)), { mode: 0o600 });
+}
+
+// Chrome serves content-hashed /_app/immutable assets from cache on every reload, including a
+// cache-ignoring one, so a cold sample is the first app document in a new browser context. It
+// signs in by posting the login form action from a static image, which runs no app code. The
+// image page's automatic /favicon.ico request is redirected to /auth/login, whose Link headers
+// preload the shared entry CSS and JS, as for any visitor arriving through sign-in.
+async function coldPage(ctx, run, profileName) {
+	await signInSlot(ctx);
+	const created = ctx.text(
+		await ctx.tool('new_page', {
+			url: `${ctx.doctor.origin}/og-image.png`,
+			isolatedContext: `perf-cold-${randomUUID()}`
+		})
+	);
+	const pageId = Number(
+		created
+			.split('\n')
+			.find((line) => line.includes('[selected]'))
+			?.match(/^(\d+):/)?.[1]
+	);
+	if (!Number.isInteger(pageId)) throw new Error('New page ID was not returned.');
+	const { email, password } = ctx.credentials(run.actor);
+	const signedIn = await ctx.evaluate(
+		pageId,
+		`async () => {
+			const body = new FormData();
+			body.set('email', ${JSON.stringify(email)});
+			body.set('password', ${JSON.stringify(password)});
+			const response = await fetch('/auth/login?/login', {
+				method: 'POST',
+				body,
+				headers: { accept: 'application/json', 'x-sveltekit-action': 'true' }
+			});
+			return (await response.json()).type;
+		}`
+	);
+	if (signedIn !== 'redirect') {
+		await ctx.tool('close_page', { pageId });
+		throw new Error(`Cold sign-in returned ${signedIn}, not a redirect; check the app sign-in limit.`);
+	}
+	await emulate(ctx, pageId, profileName);
+	return pageId;
+}
+
+async function appLogFrom(ctx, offset) {
+	const handle = await fs.open(path.join(ctx.session, 'app.log'));
+	try {
+		const { size } = await handle.stat();
+		const buffer = Buffer.alloc(Math.max(0, size - offset));
+		await handle.read(buffer, 0, buffer.length, offset);
+		return buffer.toString('utf8');
+	} finally {
+		await handle.close();
+	}
+}
+
+async function appLogSize(ctx) {
+	return (await fs.stat(path.join(ctx.session, 'app.log'))).size;
+}
+
+function measured(
+	ctx,
+	run,
+	sample,
+	serverText,
+	statements,
+	{ interaction = false, since = 0, afterRequestId = 0 } = {}
+) {
+	const observer = sample.observer;
+	const resources = sample.resources.filter((entry) => entry.startTime >= since);
+	const manifest = groupManifest({ navigation: interaction ? null : sample.navigation, resources }, ctx.doctor.origin);
+	const firstUsefulRenderMs = observer?.milestones?.useful ?? null;
+	const lastData = Math.max(
+		...manifest.entries
+			.filter((entry) => ['data', 'document'].includes(entry.category))
+			.map((entry) => entry.responseEnd - since)
+	);
+	return {
+		firstUsefulRenderMs,
+		settledIncludingReloadsMs:
+			firstUsefulRenderMs === null || !sample.network.idle ? null : Math.max(firstUsefulRenderMs, lastData),
+		networkIdle: sample.network.idle,
+		idleWaitMs: sample.network.waitedMs,
+		stillRunning: sample.network.running ?? [],
+		failedRequests: failedRequests(
+			sample.network.listed.filter((row) => row.requestId > afterRequestId),
+			ctx.doctor.origin
+		),
+		milestones: observer?.milestones ?? {},
+		startEvent: observer?.startEvent ?? null,
+		observerFrames: observer?.frames ?? 0,
+		navigation:
+			interaction || !sample.navigation
+				? null
+				: {
+						type: sample.navigation.type,
+						responseStartMs: sample.navigation.responseStart,
+						domContentLoadedMs: sample.navigation.domContentLoaded,
+						loadMs: sample.navigation.load
+					},
+		paint: interaction ? null : sample.paint,
+		largestContentfulPaintMs: interaction ? null : (observer?.lcp ?? null),
+		longTasks: (observer?.longTasks ?? []).filter((task) => task.start >= since),
+		manifest,
+		serverTiming: parseServerTiming(serverText, run.item.organizationId),
+		statementRows: statements
+	};
+}
+
+function summarize(samples, interaction) {
+	const field = (read) => distribution(samples.map(read));
+	const groups = Object.keys(samples[0]?.manifest.groups ?? {});
+	return {
+		firstUsefulRenderMs: field((sample) => sample.firstUsefulRenderMs),
+		settledIncludingReloadsMs: field((sample) => sample.settledIncludingReloadsMs),
+		notUseful: samples.filter((sample) => sample.firstUsefulRenderMs === null).length,
+		notIdle: samples.filter((sample) => !sample.networkIdle).length,
+		...(interaction
+			? {}
+			: {
+					responseStartMs: field((sample) => sample.navigation?.responseStartMs),
+					domContentLoadedMs: field((sample) => sample.navigation?.domContentLoadedMs),
+					firstContentfulPaintMs: field((sample) => sample.paint?.['first-contentful-paint']),
+					largestContentfulPaintMs: field((sample) => sample.largestContentfulPaintMs)
+				}),
+		longTaskTotalMs: field((sample) => sample.longTasks.reduce((total, task) => total + task.duration, 0)),
+		resourceEntries: field((sample) => sample.manifest.resourceEntries),
+		networkRequests: field((sample) => sample.manifest.networkRequests),
+		cacheHits: field((sample) => sample.manifest.cacheHits),
+		failedRequests: field((sample) => sample.failedRequests.length),
+		transferBytes: field((sample) => sample.manifest.transferSize),
+		groups: Object.fromEntries(
+			groups.map((group) => [
+				group,
+				{
+					resourceEntries: field((sample) => sample.manifest.groups[group].resourceEntries),
+					networkRequests: field((sample) => sample.manifest.groups[group].networkRequests),
+					transferBytes: field((sample) => sample.manifest.groups[group].transferSize),
+					decodedBytes: field((sample) => sample.manifest.groups[group].decodedBodySize)
+				}
+			])
+		),
+		serverTiming: serverTimingPhases(samples)
+	};
+}
+
+// A warm-up sample prepares the page and server; only measured samples open a query window.
+async function repeat(options, mode, once) {
+	const defaults = protocol.defaults[mode] ?? protocol.defaults.warm;
+	const warmup = count(options.warmup, defaults.warmup, '--warmup');
+	const repetitions = count(options.reps, defaults.repetitions, '--reps', 1);
+	for (let index = 0; index < warmup; index++) await once(false);
+	const samples = [];
+	for (let index = 0; index < repetitions; index++) samples.push(await once(true));
+	const statements = statementTotals(samples.map((sample) => sample.statementRows));
+	return {
+		warmup,
+		repetitions,
+		samples: samples.map(({ statementRows, ...sample }) => ({
+			...sample,
+			statementsByRole: statementTotals([statementRows], 0).byRole
+		})),
+		statements
+	};
+}
+
+async function openStatements(ctx, measure) {
+	if (measure) await ctx.database('perf-statements', 'reset');
+}
+
+async function closeStatements(ctx, measure) {
+	return measure ? (await ctx.database('perf-statements', 'read')).statements : [];
+}
+
+async function record(ctx, run, out, mode, result, profileName) {
+	const file = path.join(out, run.workload, run.actor, `${run.journeyName}-${mode}-${profileName}.json`);
+	const summary = summarize(result.samples, mode === 'interaction');
+	const saved = await writeEvidence(ctx, file, {
+		kind: 't2t-perf-run',
+		candidate: ctx.doctor.candidate,
+		origin: ctx.doctor.origin,
+		workload: run.workload,
+		shape: workloads[run.workload],
+		organizationId: run.item.organizationId,
+		actor: run.actor,
+		journey: run.journeyName,
+		mode,
+		profile: { name: profileName, ...profiles[profileName] },
+		warmup: result.warmup,
+		repetitions: result.repetitions,
+		milestones: result.milestones,
+		summary,
+		samples: result.samples,
+		statements: result.statements
+	});
+	return {
+		file: saved,
+		workload: run.workload,
+		actor: run.actor,
+		journey: run.journeyName,
+		mode,
+		profile: profileName,
+		firstUsefulRenderMs: summary.firstUsefulRenderMs,
+		settledIncludingReloadsMs: summary.settledIncludingReloadsMs,
+		notUseful: summary.notUseful,
+		notIdle: summary.notIdle,
+		networkRequests: summary.networkRequests,
+		failedRequests: summary.failedRequests,
+		transferBytes: summary.transferBytes
+	};
+}
+
+async function load(ctx, positional, options) {
+	const run = target(ctx, positional, 'load');
+	const out = await runDirectory(ctx, options);
+	const mode = options.mode ?? 'warm';
+	if (!protocol.modes[mode]) throw new Error('Use --mode cold or --mode warm.');
+	if (mode === 'warm') assertPageBound(ctx.ownedState.perfPages, run);
+	const profileName = options.profile ?? 'unthrottled';
+	const milestones = run.journey.milestones(run.context);
+	const initScript = observerScript({ name: run.journeyName, start: 'navigation', milestones });
+	if (mode === 'warm') await emulate(ctx, run.pageId, profileName);
+	try {
+		const once = async (measure) => {
+			await paceSample(ctx);
+			const pageId = mode === 'cold' ? await coldPage(ctx, run, profileName) : run.pageId;
+			try {
+				await openStatements(ctx, measure);
+				const offset = await appLogSize(ctx);
+				await ctx.tool('navigate_page', { pageId, type: 'url', url: run.url, initScript });
+				const sample = await settle(ctx, pageId);
+				const statements = await closeStatements(ctx, measure);
+				return measured(ctx, run, sample, await appLogFrom(ctx, offset), statements);
+			} finally {
+				if (pageId !== run.pageId) await ctx.tool('close_page', { pageId });
+			}
+		};
+		const result = await repeat(options, mode, once);
+		return record(ctx, run, out, mode, { ...result, milestones }, profileName);
+	} finally {
+		if (mode === 'warm') await emulate(ctx, run.pageId, 'unthrottled');
+	}
+}
+
+// The paused grouped roster repeats the toolbar search inside its notice; the toolbar one
+// comes first in document order in both states.
+function controlUid(snapshot, { role, name }) {
+	const match = snapshot.split('\n').find((line) => line.includes(`${role} ${JSON.stringify(name)}`));
+	if (!match) throw new Error(`No ${role} "${name}" on the page.`);
+	return match.match(/uid=([^\s]+)/)[1];
+}
+
+async function interaction(ctx, positional, options) {
+	const run = target(ctx, positional, 'interaction');
+	const out = await runDirectory(ctx, options);
+	assertPageBound(ctx.ownedState.perfPages, run);
+	const profileName = options.profile ?? 'unthrottled';
+	const milestones = run.journey.milestones(run.context);
+	const ready = observerScript({
+		name: `${run.journeyName}:ready`,
+		start: 'navigation',
+		milestones: run.journey.ready(run.context)
+	});
+	const armed = { name: run.journeyName, start: 'input', milestones };
+	await emulate(ctx, run.pageId, profileName);
+	try {
+		const once = async (measure) => {
+			await paceSample(ctx);
+			await ctx.tool('navigate_page', { pageId: run.pageId, type: 'url', url: run.url, initScript: ready });
+			const before = await settle(ctx, run.pageId);
+			if (!before.useful) throw new Error(`${run.journeyName} never reached its ready milestone.`);
+			if (!before.network.idle) throw new Error(`${run.journeyName} never reached network idle before input.`);
+			await ctx.evaluate(run.pageId, `() => { ${observerScript(armed)} return true; }`);
+			const uid = controlUid(ctx.text(await ctx.tool('take_snapshot', { pageId: run.pageId })), run.journey.control);
+			const afterRequestId = Math.max(0, ...before.network.listed.map((row) => row.requestId));
+			await openStatements(ctx, measure);
+			const offset = await appLogSize(ctx);
+			await ctx.tool('fill', { pageId: run.pageId, uid, value: run.journey.input(run.context) });
+			const sample = await settle(ctx, run.pageId);
+			const statements = await closeStatements(ctx, measure);
+			return measured(ctx, run, sample, await appLogFrom(ctx, offset), statements, {
+				interaction: true,
+				since: sample.observer?.startedAt ?? 0,
+				afterRequestId
+			});
+		};
+		const result = await repeat(options, 'warm', once);
+		return record(ctx, run, out, 'interaction', { ...result, milestones }, profileName);
+	} finally {
+		await emulate(ctx, run.pageId, 'unthrottled');
+	}
+}
+
+async function trace(ctx, positional, options) {
+	const run = target(ctx, positional, 'load');
+	const profileName = options.profile ?? 'unthrottled';
+	const milestones = run.journey.milestones(run.context);
+	const initScript = observerScript({ name: run.journeyName, start: 'navigation', milestones });
+	const base = path.join(
+		await runDirectory(ctx, options),
+		run.workload,
+		run.actor,
+		`${run.journeyName}-trace-${profileName}`
+	);
+	await fs.mkdir(path.dirname(base), { recursive: true });
+	await paceSample(ctx);
+	const pageId = await coldPage(ctx, run, profileName);
+	// V8 keeps the cold sign-in script's source, password included, so the tool writes the raw
+	// trace beside the evidence root, inside the only directory it may write to, and only the
+	// redacted copy reaches the evidence.
+	const rawDirectory = path.join(ctx.repository, '.verification', 'perf-raw');
+	await fs.mkdir(rawDirectory, { recursive: true, mode: 0o700 });
+	const raw = path.join(rawDirectory, `${randomUUID()}.json.gz`);
+	let tracing = false;
+	try {
+		await ctx.tool('performance_start_trace', { pageId, reload: false, autoStop: false });
+		tracing = true;
+		await ctx.tool('navigate_page', { pageId, type: 'url', url: run.url, initScript });
+		const sample = await settle(ctx, pageId);
+		const insights = ctx.text(await ctx.tool('performance_stop_trace', { pageId, filePath: raw }));
+		tracing = false;
+		const trace = redactTrace(await fs.readFile(raw), [ctx.credentials(run.actor).password]);
+		await fs.writeFile(`${base}.json.gz`, trace, { mode: 0o600 });
+		const summary = {
+			kind: 't2t-perf-trace',
+			candidate: ctx.doctor.candidate,
+			workload: run.workload,
+			actor: run.actor,
+			journey: run.journeyName,
+			mode: 'cold',
+			profile: { name: profileName, ...profiles[profileName] },
+			firstUsefulRenderMs: sample.observer?.milestones?.useful ?? null,
+			networkIdle: sample.network.idle,
+			failedRequests: failedRequests(sample.network.listed, ctx.doctor.origin),
+			trace: summarizeTrace(trace)
+		};
+		await writeEvidence(ctx, `${base}.insights.txt`, insights.replaceAll(ctx.doctor.origin, '<origin>'));
+		await writeEvidence(ctx, `${base}.summary.json`, summary);
+		return {
+			...summary,
+			files: [`${base}.json.gz`, `${base}.summary.json`, `${base}.insights.txt`].map((file) =>
+				path.relative(ctx.repository, file)
+			)
+		};
+	} finally {
+		// A trace left running would block the next one; stopping also leaves a raw file to remove.
+		if (tracing) await ctx.tool('performance_stop_trace', { pageId, filePath: raw }).catch(() => {});
+		await fs.rm(raw, { force: true });
+		await ctx.tool('close_page', { pageId });
+	}
+}
+
+async function files(directory) {
+	const entries = await fs.readdir(directory, { withFileTypes: true });
+	const nested = await Promise.all(
+		entries.map((entry) => {
+			const full = path.join(directory, entry.name);
+			return entry.isDirectory() ? files(full) : entry.name.endsWith('.json') ? [full] : [];
+		})
+	);
+	return nested.flat();
+}
+
+const range = (value) => (value?.n ? `${value.median} (${value.min}–${value.max})` : 'not measured');
+
+async function summarizeRun(ctx, directory) {
+	const root = path.resolve(ctx.repository, directory ?? '');
+	if (!(await ctx.isUnderEvidence(path.join(root, 'summary.json'), ctx.evidenceRoot)))
+		throw new Error('RUN must be under .verification/evidence/verify-trooptotask/.');
+	const runs = [];
+	const traces = [];
+	for (const file of (await files(root)).toSorted()) {
+		const value = JSON.parse(await fs.readFile(file, 'utf8'));
+		if (value.kind === 't2t-perf-run') runs.push(value);
+		if (value.kind === 't2t-perf-trace') traces.push(value);
+	}
+	const rows = runs.map((run) => ({
+		workload: run.workload,
+		actor: run.actor,
+		journey: run.journey,
+		mode: run.mode,
+		profile: run.profile.name,
+		n: run.repetitions,
+		notUseful: run.summary.notUseful,
+		notIdle: run.summary.notIdle,
+		firstUsefulRenderMs: run.summary.firstUsefulRenderMs,
+		settledIncludingReloadsMs: run.summary.settledIncludingReloadsMs,
+		responseStartMs: run.summary.responseStartMs,
+		resourceEntries: run.summary.resourceEntries,
+		networkRequests: run.summary.networkRequests,
+		failedRequests: run.summary.failedRequests,
+		failures: [
+			...new Set(run.samples.flatMap((sample) => sample.failedRequests.map((row) => `${row.status} ${row.path}`)))
+		],
+		transferBytes: run.summary.transferBytes,
+		jsTransferBytes: run.summary.groups.js?.transferBytes,
+		dataTransferBytes: run.summary.groups.data?.transferBytes,
+		documentTransferBytes: run.summary.groups.document?.transferBytes,
+		serverTiming: run.summary.serverTiming,
+		statementsByRole: run.statements.byRole,
+		topStatementsByCalls: run.statements.byCalls.slice(0, 3).map(({ role, calls, callsPerWindow, mean_ms, query }) => ({
+			role,
+			calls,
+			callsPerSample: callsPerWindow.median,
+			mean_ms,
+			query: query.slice(0, 120)
+		}))
+	}));
+	const table = [
+		'| Workload | Actor | Journey | Mode | Profile | n | First useful render ms | Settled incl. reloads ms | TTFB ms | Resource entries | Network requests | Failed | Transfer bytes | JS bytes | Data bytes | Document bytes |',
+		'| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+		...rows
+			.map((row) =>
+				[
+					row.workload,
+					row.actor,
+					row.journey,
+					row.mode,
+					row.profile,
+					`${row.n}${row.notUseful ? ` (${row.notUseful} not useful)` : ''}${row.notIdle ? ` (${row.notIdle} not idle)` : ''}`,
+					range(row.firstUsefulRenderMs),
+					range(row.settledIncludingReloadsMs),
+					range(row.responseStartMs),
+					range(row.resourceEntries),
+					range(row.networkRequests),
+					range(row.failedRequests),
+					range(row.transferBytes),
+					range(row.jsTransferBytes),
+					range(row.dataTransferBytes),
+					range(row.documentTransferBytes)
+				].join(' | ')
+			)
+			.map((line) => `| ${line} |`)
+	].join('\n');
+	const traceTable = [
+		'| Workload | Actor | Journey | Profile | First useful render ms | Network idle | FCP ms | LCP ms | Main-thread busy ms | Scripting ms | Long tasks (total ms) |',
+		'| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+		...traces.map(
+			(item) =>
+				`| ${item.workload} | ${item.actor} | ${item.journey} | ${item.profile.name} | ${item.firstUsefulRenderMs} | ${item.networkIdle} | ${item.trace.firstContentfulPaintMs} | ${item.trace.largestContentfulPaintMs} | ${item.trace.mainThreadBusyMs} | ${item.trace.scriptingMs} | ${item.trace.longTasks?.count} (${item.trace.longTasks?.totalMs}) |`
+		)
+	].join('\n');
+	await writeEvidence(ctx, path.join(root, 'summary.json'), { runs: rows, traces });
+	await writeEvidence(ctx, path.join(root, 'summary.md'), `${table}\n\n${traceTable}\n`);
+	return { runs: rows.length, traces: traces.length, files: ['summary.json', 'summary.md'] };
+}
+
+export async function perfCommand(args, ctx) {
+	const [action, ...rest] = args;
+	const { positional, options } = parse(rest);
+	if (!action || action === '--help' || action === 'help') return { help: perfHelp };
+	if (action === 'workloads') return { workloads, profiles, protocol };
+	if (action === 'load') return load(ctx, positional, options);
+	if (action === 'interaction') return interaction(ctx, positional, options);
+	if (action === 'trace') return trace(ctx, positional, options);
+	if (action === 'summarize') return summarizeRun(ctx, positional[0]);
+	if (action === 'statements') {
+		const reply = await ctx.database('perf-statements', positional[0]);
+		const result =
+			positional[0] === 'read' ? statementTotals([reply.statements], count(options.top, 20, '--top')) : reply;
+		if (options.out) result.file = await writeEvidence(ctx, path.resolve(ctx.repository, options.out), result);
+		return result;
+	}
+	if (action === 'explain') {
+		const result = await ctx.database('perf-explain', ...positional.slice(0, 3));
+		if (options.out) result.file = await writeEvidence(ctx, path.resolve(ctx.repository, options.out), result);
+		return result;
+	}
+	throw new Error(perfHelp);
+}

@@ -229,7 +229,10 @@ export async function seed(session) {
 		platformReviewer: { organization: null },
 		platformSupport: { organization: null },
 		platformBilling: { organization: null },
-		platformInactive: { organization: null }
+		platformInactive: { organization: null },
+		// Memberships come from `seed workload`, one per seeded performance Organization.
+		perfWide: { organization: null },
+		perfScoped: { organization: null }
 	};
 	const deletionActors = {
 		deletionRequester: { organization: 'orgA', role: 'member', scope: 'organization', level: 'operate' },

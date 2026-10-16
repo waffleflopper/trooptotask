@@ -73,6 +73,8 @@ import {
 	deleteAfterUploadOverlap
 } from './organization-upload-overlap.mjs';
 import { selectAllSupabaseRows } from '../../../../src/lib/server/supabasePagination.server.ts';
+import { seedWorkload, cleanWorkloads } from './perf-workloads.mjs';
+import { perfCommand, perfHelp } from './perf-command.mjs';
 
 const argv = process.argv.slice(2);
 const workerIndex = argv.indexOf('--worker');
@@ -276,7 +278,28 @@ async function deletionReviewFailure(action, requestId) {
 	return result;
 }
 
+async function perfDatabase(command, ...values) {
+	let stdout;
+	try {
+		({ stdout } = await promisify(execFile)(
+			'python3',
+			[path.join(repository, 'scripts/verification/environment.py'), command, session, ...values],
+			{ maxBuffer: 16 * 1024 * 1024 }
+		));
+	} catch (error) {
+		const reply = error.stdout ? JSON.parse(error.stdout) : null;
+		throw new Error(reply?.message ?? 'Owned performance database control blocked.');
+	}
+	const result = JSON.parse(stdout);
+	if (result.status !== 'PASS') throw new Error(result.message ?? 'Owned performance database control did not pass.');
+	return result;
+}
+
 async function main() {
+	if (command === 'perf' && [undefined, 'help', '--help'].includes(args[0])) {
+		process.stdout.write(perfHelp + '\n');
+		return;
+	}
 	const { state, doctor } = await owned();
 	const fixture = await readJSON(path.join(session, 'fixtures.json'));
 	const org = (key) => {
@@ -802,7 +825,10 @@ async function main() {
 		return;
 	}
 	if (command === 'actor') {
-		const [role, destination = 'calendar'] = args;
+		const [role, destination = 'calendar', workloadName] = args;
+		const workload = workloadName === undefined ? null : (await saved()).workloads?.[workloadName];
+		if (workloadName !== undefined && (!workload || !['perfWide', 'perfScoped'].includes(role)))
+			throw new Error('Use perfWide or perfScoped with a seeded workload name.');
 		const orgDestinations = [
 			'evals',
 			'personnel',
@@ -842,7 +868,7 @@ async function main() {
 				'admin/organizations',
 				'admin/access-requests'
 			].includes(destination) ||
-			(fixture.actors[role].organization === null && orgDestinations.includes(destination)) ||
+			(fixture.actors[role].organization === null && !workload && orgDestinations.includes(destination)) ||
 			((destination === 'admin' || destination.startsWith('admin/')) &&
 				![
 					'platformReviewer',
@@ -858,6 +884,7 @@ async function main() {
 		)
 			throw new Error('Unknown synthetic actor or destination.');
 		const targetOrg = fixture.actors[role].organization ?? null;
+		const orgSegment = workload ? workload.organizationId : targetOrg ? org(targetOrg) : null;
 		const destinationPath =
 			destination === 'admin' || destination.startsWith('admin/')
 				? `/${destination}`
@@ -866,8 +893,8 @@ async function main() {
 					: destination === 'org/new'
 						? '/org/new'
 						: destination === 'home'
-							? `/org/${org(targetOrg)}`
-							: `/org/${org(targetOrg)}/${destination}`;
+							? `/org/${orgSegment}`
+							: `/org/${orgSegment}/${destination}`;
 		let readyText =
 			destination === 'admin/audit'
 				? [
@@ -940,6 +967,7 @@ async function main() {
 			!['admin/audit', 'admin/feedback', 'admin/announcements'].includes(destination)
 		)
 			readyText = ['Users', 'Organizations', 'Access Requests', 'Forbidden', 'Access denied', '403'];
+		if (workload) readyText = [workload.name, 'Access restricted', 'Access Restricted'];
 		readyText = [...readyText, 'Account Suspended', 'Verify your code'];
 		const url = `${doctor.origin}/auth/login?next=${encodeURIComponent(destinationPath)}`;
 		const browserContext = `map-${role}-${randomUUID()}`;
@@ -979,11 +1007,16 @@ async function main() {
 		if (text(arrival).includes('Timed out')) throw new Error('Destination did not become ready.');
 		const landed = await evaluate(state, pageId, '() => location.pathname');
 		const page = text(await tool(state, 'take_snapshot', { pageId }));
+		if (workload) {
+			const owned = await saved();
+			owned.perfPages = { ...owned.perfPages, [pageId]: role };
+			await save(owned);
+		}
 		note({
 			role,
 			pageId,
 			browserContext,
-			orgId: targetOrg ? org(targetOrg) : null,
+			orgId: orgSegment,
 			path: landed,
 			access: page.includes("You don't have permission to view this page") ? 'denied' : 'not-assessed',
 			origin: doctor.origin
@@ -1729,13 +1762,18 @@ async function main() {
 				'deletion-sources',
 				'account-setup',
 				'roster-shared-keys',
-				'federal-reset-sentinels'
+				'federal-reset-sentinels',
+				'workload'
 			].includes(kind)
 		)
 			throw new Error('Unknown temporary seed.');
 		const client = await provider();
 		const ownedState = await saved();
 		const tag = randomUUID().slice(0, 8);
+		if (kind === 'workload') {
+			note(await seedWorkload({ client, fixture, name: args[1], tag, ownedState, save }));
+			return;
+		}
 		if (kind === 'training-print') {
 			note(await seedTrainingPrint({ client, fixture, tag, ownedState, save }));
 			return;
@@ -2414,6 +2452,7 @@ async function main() {
 		} catch (error) {
 			platformError = error;
 		}
+		const workloadCleanup = await cleanWorkloads({ client, ownedState, save });
 		await cleanTrainingPrint({ client, fixture, ownedState, save });
 		await cleanRosterInserts({ service: client, fixture, ownedState, save });
 		const sharedKeyCleanup = await cleanRosterSharedKeys({ client, fixture, ownedState, save });
@@ -2463,7 +2502,7 @@ async function main() {
 		await save(ownedState);
 		await clearArtifactHttpCache({ session, sessionId: state.id });
 		if (platformError) throw platformError;
-		note({ cleaned: true, artifactHttpSessionsCleared: true, platformCleanup, sharedKeyCleanup });
+		note({ cleaned: true, artifactHttpSessionsCleared: true, platformCleanup, sharedKeyCleanup, workloadCleanup });
 		return;
 	}
 	if (command === 'network') {
@@ -2999,6 +3038,24 @@ async function main() {
 		if (!verdict.ok) process.exitCode = 1;
 		return;
 	}
+	if (command === 'perf') {
+		note(
+			await perfCommand(args, {
+				tool: (name, input) => tool(state, name, input),
+				evaluate: (pageId, source) => evaluate(state, pageId, source),
+				text,
+				doctor,
+				session,
+				repository,
+				evidenceRoot,
+				isUnderEvidence,
+				ownedState: await saved(),
+				credentials: (role) => ({ email: fixture.actors[role].email, password: fixture.actors[role].password }),
+				database: perfDatabase
+			})
+		);
+		return;
+	}
 	if (command === 'workbook') {
 		const target = path.resolve(args[0] ?? '');
 		if (!target.startsWith(evidenceRoot + path.sep))
@@ -3018,7 +3075,7 @@ async function main() {
 		return;
 	}
 	throw new Error(
-		'Use fixture, actor, rows, access-request, auth-link, setup-link, mail, mail-link, fault, mfa-code, session-age, session-count, admission-probe, password, password-commit, settings-request, deletion-request, personnel-archive-batch, deletion-review-failure, audit-training-update, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, artifact-deletion, private-buckets, roster-files, roster-replace, roster-insert, roster-shared-keys, signed-download, calendar-grant, dashboard-access, server-source, seed, clean-seeds, retention, network, busy, export, print, style-probe, style-diff, toolbar-sweep, or workbook.'
+		'Use fixture, actor, rows, access-request, auth-link, setup-link, mail, mail-link, fault, mfa-code, session-age, session-count, admission-probe, password, password-commit, settings-request, deletion-request, personnel-archive-batch, deletion-review-failure, audit-training-update, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, artifact-deletion, private-buckets, roster-files, roster-replace, roster-insert, roster-shared-keys, signed-download, calendar-grant, dashboard-access, server-source, seed, clean-seeds, retention, network, busy, export, print, style-probe, style-diff, toolbar-sweep, perf, or workbook.'
 	);
 }
 

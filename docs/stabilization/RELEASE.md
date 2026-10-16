@@ -628,9 +628,9 @@ Pushes and merges may deploy through the existing Vercel integration. External d
 
 ## Phase 11 D05 final mutation repairs
 
-The final candidate adds [`20261014000400_nonretryable_password_attempt_conflict.sql`](../../supabase/migrations/20261014000400_nonretryable_password_attempt_conflict.sql). It changes a stale password-attempt response from a retryable database error to a non-retryable PostgREST HTTP 409. The application retains its existing `unavailable` mapping and HTTP 503 reconciliation response. It preserves the function signature, permissions, locks, expiry checks and password-write fencing. No stored rows are changed by applying the migration. Isolated fresh replay, populated upgrade and provider checks passed; production application remains unconfirmed.
+The final candidate adds [`20261014000400_nonretryable_password_attempt_conflict.sql`](../../supabase/migrations/20261014000400_nonretryable_password_attempt_conflict.sql). It changes a stale password-attempt response from a retryable database error to a non-retryable PostgREST HTTP 409. The application retains its existing `unavailable` mapping and HTTP 503 reconciliation response. It preserves the function signature, permissions, locks, expiry checks and password-write fencing. No stored rows are changed by applying the migration. Isolated fresh replay, populated upgrade and provider checks passed. Robert confirmed this migration live before the authorized #1693 merge, as recorded in the [owner-confirmation comment](https://github.com/waffleflopper/trooptotask/pull/1693#issuecomment-6184033618). This is an owner report, not independent hosted inspection.
 
-Robert must apply this migration before merge. The agent has neither inspected nor changed the remote database. Announcement desired-state writes, export completion feedback and Calendar refresh reconciliation require no additional schema changes. Existing Vercel push/merge deployment behavior remains relevant; external settings are uninspected. Focused final browser acceptance passed. Current-head CI, hosted review and owner migration confirmation remain pending.
+Robert must apply this migration before merge. The agent has neither inspected nor changed the remote database. Announcement desired-state writes, export completion feedback and Calendar refresh reconciliation require no additional schema changes. Existing Vercel push/merge deployment behavior remains relevant; external settings are uninspected. Focused final browser acceptance passed. Final head `58f87937f` passed application/build and database CI, CodeRabbit approved, and all three review threads were resolved. PR #1693 merged as `7405e6715` after the owner confirmation above.
 
 ## Phase 11 D06 Onboarding local completion day
 
@@ -654,4 +654,20 @@ Triggers, grants and the cancellation timestamp are unchanged. No existing row i
 
 **After release.** Complete one packet late in the evening west of UTC, or early in the morning east of it. Then confirm that History shows the same local day for its start and finish.
 
-**Owner gate.** Robert must apply and confirm this migration live before the PR that contains it merges. The agent has neither inspected nor changed the remote database. Repository CI's database job replays the migration in a disposable database. Existing Vercel push/merge deployment behavior applies; its external settings are uninspected.
+**Owner gate cleared by report.** Robert confirmed in the D08 conversation on 2026-10-16 UTC that this migration is applied and live. PR #1701 merged as `ed1f4119f`. The agent has neither inspected nor changed the remote database. Repository CI's database job replays the migration in a disposable database. Existing Vercel push/merge deployment behavior applies; its external settings are uninspected.
+
+## Phase 11 D08 integrated release limits
+
+D08 adds no SQL or hosted configuration. Its application change explains a failed Calendar day-dialog clear and preserves the existing rollback, Organization lifetime and transaction boundaries. The integrated acceptance record does not certify production security or replace the earlier release entries.
+
+Robert confirmed `20261014000500_onboarding_local_completion_day.sql` applied and live in the D08 conversation on 2026-10-16 UTC. The D05 `20261014000400` confirmation is recorded on #1693 above. These are owner reports. No agent inspected or changed the hosted database, and local verification used only owned disposable synthetic projects.
+
+The deployment operator still owns these external checks:
+
+- Confirm the hosted provider's new-user signup setting remains disabled for reviewed acquisition, and review email-confirmation settings against the supported invitation/account-setup contract. The local provider's test settings are not hosted evidence.
+- Confirm canonical public-origin configuration, setup/session signing secrets, secure-cookie/proxy behavior and provider limit settings. The hook's coarse process-local limiter is not a cross-instance durable limiter; the separate identity acquisition/setup/recovery/password limits retain their database guarantees.
+- Confirm real mail delivery, GitHub Feedback mirroring and the configured cleanup schedules. Local sinks and admitted synthetic job requests do not establish external delivery or scheduler state.
+- Preserve prior migration ordering, app/schema and rollback compatibility, backup/restore and any outstanding file/upload/operator dispositions from the earlier entries. D08 does not backfill historical orphan files or erase unknown data.
+- Inspect Vercel's actual publication/merge triggers and deployment configuration. The repository's ignored-build policy may skip prose-only updates; executable changes may deploy. CI and Vercel repository configuration perform no remote migration.
+
+Phase 12 owns measured performance, including F05/detail-load latency. Phase 13 owns general cleanup/test-quality/UI polish, and Phase 15 owns the separately authorized release handoff. None is activated by D08 acceptance.

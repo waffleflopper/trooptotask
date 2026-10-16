@@ -13,6 +13,7 @@ export type WorkspaceToolbarIcon =
 	| 'plus'
 	| 'printer'
 	| 'settings'
+	| 'sliders'
 	| 'upload'
 	| 'user-plus';
 
@@ -25,7 +26,7 @@ type ItemIdentity = { id: string; label: string; ariaLabel?: string };
 type ActionExecution =
 	| { onclick: () => void; href?: never; menuItems?: never }
 	| { href: string; onclick?: never; menuItems?: never }
-	| { menuItems: ToolbarAction[]; onclick?: never; href?: never };
+	| { menuItems: ToolbarMenuItem[]; onclick?: never; href?: never };
 
 export type ToolbarAction = ItemIdentity & {
 	kind: 'action';
@@ -70,6 +71,11 @@ export type ToolbarToggle = ItemIdentity & {
 	onPressedChange: (pressed: boolean) => void;
 };
 
+/** A display option inside an action's menu: a checkbox item that keeps the menu open and never marks More. */
+export type ToolbarMenuToggle = Omit<ToolbarToggle, 'menuOnly' | 'defaultPressed'>;
+
+export type ToolbarMenuItem = ToolbarAction | ToolbarMenuToggle;
+
 export type ToolbarFilter = ToolbarSelect | ToolbarMultiSelect | ToolbarToggle;
 
 /** `items` is ranked most important first; that order is the only ranking. */
@@ -83,6 +89,8 @@ export type WorkspaceToolbarProps = {
 		placeholder: string;
 		value: string;
 		onValueChange: (value: string) => void;
+		/** Where search sits in the row and keyboard order; defaults to before the filters. */
+		placement?: 'before-filters' | 'after-filters';
 	};
 	primary?: ToolbarAction & { menuOnly?: never };
 };

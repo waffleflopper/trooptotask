@@ -44,6 +44,7 @@ const naturalWidths: Record<string, number> = {
 	planning: 90,
 	import: 100,
 	export: 80,
+	display: 90,
 	add: 100
 };
 
@@ -568,6 +569,68 @@ describe('WorkspaceToolbar', () => {
 		).toEqual(['Assignment Planner', 'Monthly Plan', 'Clear Plan']);
 		await fireEvent.click(within(submenu).getByRole('menuitem', { name: 'Monthly Plan' }));
 		await waitFor(() => expect(output('Runs')).toBe('monthly:0'));
+	});
+
+	it('checks a display option in a row menu and keeps the menu open', async () => {
+		render(DataToolbarTest, { props: { withArchive: false, withDisplayMenu: true } });
+		await layOut(2000);
+
+		const display = within(toolbar()).getByRole('button', { name: 'Display' });
+		display.focus();
+		await fireEvent.keyDown(display, { key: 'Enter' });
+		const option = await screen.findByRole('menuitemcheckbox', { name: 'Compact rows' });
+		expect(option.getAttribute('aria-checked')).toBe('false');
+		await fireEvent.click(option);
+
+		expect(output('Compact value')).toBe('on');
+		expect(screen.getByRole('menuitemcheckbox', { name: 'Compact rows' }).getAttribute('aria-checked')).toBe('true');
+		expect(screen.getAllByRole('menu'), 'the menu stays open').toHaveLength(1);
+	});
+
+	it('checks a display option from a folded menu without marking More', async () => {
+		render(DataToolbarTest, { props: { withArchive: false, withDisplayMenu: true } });
+		await layOut(1000);
+		expect(within(toolbar()).queryByRole('button', { name: 'Display' })).toBeNull();
+
+		await openMore();
+		await openSubmenu('Display');
+		await fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: 'Compact rows' }));
+		expect(output('Compact value')).toBe('on');
+		expect(screen.getAllByRole('menu'), 'More and its submenu stay open').toHaveLength(2);
+
+		await fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'Escape' });
+		await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+		expect(description(moreButton()), 'a display option is not a hidden filter').toBe('');
+	});
+
+	it('lists folded actions in row order before menu-only actions', async () => {
+		render(DataToolbarTest, { props: { withDisplayMenu: true, withSettings: true } });
+		await layOut(900);
+
+		await openMore();
+		const actions = screen.getByRole('group', { name: 'Actions' });
+		expect(
+			within(actions)
+				.getAllByRole('menuitem')
+				.map((item) => item.textContent?.trim())
+		).toEqual(['Display', 'Import', 'Settings', 'Archive']);
+	});
+
+	it('places search after the filters in keyboard order when asked', async () => {
+		const follows = (a: HTMLElement, b: HTMLElement) =>
+			Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+		const { unmount } = render(DataToolbarTest);
+		await layOut(2000);
+		let row = within(toolbar());
+		expect(follows(row.getByRole('searchbox'), row.getByRole('button', { name: 'Group' })), 'search first').toBe(true);
+		unmount();
+
+		render(DataToolbarTest, { props: { searchPlacement: 'after-filters' } });
+		await layOut(2000);
+		row = within(toolbar());
+		const search = row.getByRole('searchbox', { name: 'Search roster' });
+		expect(follows(row.getByRole('button', { name: 'Gaps only' }), search), 'filters first').toBe(true);
+		expect(follows(search, row.getByRole('link', { name: 'Reports' })), 'actions after search').toBe(true);
 	});
 
 	it('cannot run a folded submenu item under a disabled parent', async () => {

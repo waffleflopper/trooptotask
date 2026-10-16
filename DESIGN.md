@@ -269,7 +269,7 @@ Data-heavy work is first-class.
 
 - **DataTable:** Production DataTable surfaces use `ui/data-table`; route code configures columns, filters, search, selection, actions, empty state, pagination, and row behavior.
 - **WorkspaceToolbar:** Use `patterns/workspace-toolbar` for every route toolbar. It owns the one-row structure, labels and visual treatment. It measures its width and folds the least important control into one More menu, actions before filters and filters before views. The primary action, search and More never fold, and search collapses to an icon only after everything else has folded.
-- **PageShell:** Use `patterns/page-shell` for route roots, headers, tabs, fact grids and metrics. Page headers carry the title and metadata; page commands go in the page's toolbar.
+- **PageShell:** Use `patterns/page-shell` for route roots, headers, tabs, fact grids and metrics. Page headers carry the title and metadata, and the header aside carries a page-level summary and the shown span's switch; page commands go in the page's toolbar.
 - **OperationalMatrix:** Training and Critical Tasks matrix surfaces converge on `ui/operational-matrix`, including vertical column headers where needed.
 - **Charts:** Use shadcn chart primitives and shared chart conventions for reports.
 

@@ -58,6 +58,11 @@ export function buildCalendarDays(
 
 export type DutyMarkersByPersonAndDay = ReadonlyMap<string, ReadonlyMap<number, readonly CalendarCellMarkerState[]>>;
 
+/** Whether the grid draws a row marker for this duty type; archived personnel types still do. */
+export function drawsDutyMarker(type: AssignmentType): boolean {
+	return type.assignTo === 'personnel';
+}
+
 export function buildDutyMarkers(
 	assignments: readonly DailyAssignment[],
 	assignmentTypes: readonly AssignmentType[],
@@ -69,7 +74,7 @@ export function buildDutyMarkers(
 	for (const assignment of assignments) {
 		const type = typeById.get(assignment.assignmentTypeId);
 		const day = dayByKey.get(assignment.date);
-		if (!type || type.assignTo !== 'personnel' || day === undefined) continue;
+		if (!type || !drawsDutyMarker(type) || day === undefined) continue;
 		let byDay = byPerson.get(assignment.assigneeId);
 		if (!byDay) {
 			byDay = new Map();

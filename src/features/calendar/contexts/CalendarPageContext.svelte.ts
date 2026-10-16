@@ -7,7 +7,7 @@ import {
 	type AvailabilityChange
 } from '$features/calendar/utils/availabilityMutation';
 import { toastStore } from '$lib/stores/toast.svelte';
-import { formatDate } from '$lib/utils/dates';
+import { formatDate, parseDate } from '$lib/utils/dates';
 import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
@@ -18,7 +18,8 @@ import { groupsStore } from '$features/personnel';
 import { createRosterReadModel } from '$features/personnel/contracts';
 import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
 import { loadCalendarRange } from '$features/calendar/utils/calendarRangeLoader';
-import { rangeCoversSpan } from '$features/calendar/utils/calendarRange';
+import { rangeCoversDate, rangeCoversSpan, type CalendarViewMode } from '$features/calendar/utils/calendarRange';
+import { dayWindow } from '$features/calendar/utils/dayNumber';
 import { indexByPersonId } from '$features/calendar/utils/calendarIndexes';
 import { withinOrganizationLifetime } from '$lib/stores/core';
 import type { CapabilityLevel, ScopeSet } from '$lib/access/memberAccessShape';
@@ -58,6 +59,12 @@ export type AvailabilityEditorRequest =
 
 /** `busy` means another change was still settling, so this one was not sent. `stale` means the Organization or access changed. */
 export type AvailabilityOutcome = 'saved' | 'not-saved' | 'unconfirmed' | 'stale' | 'busy';
+
+export interface TodayAvailability {
+	readonly date: Date;
+	readonly available: number;
+	readonly total: number;
+}
 
 export interface CalendarDisplayPreferences {
 	showStatusText: boolean;
@@ -120,7 +127,7 @@ export class CalendarPageContext {
 	savingAvailability = $state(false);
 
 	// ---- view mode ---------------------------------------------------------
-	viewMode = $state<'month' | '3-month'>('month');
+	viewMode = $state<CalendarViewMode>('month');
 
 	// ---- display prefs -----------------------------------------------------
 	showStatusText = $state(false);
@@ -252,6 +259,17 @@ export class CalendarPageContext {
 		return indexByPersonId(losses);
 	});
 
+	readonly todayAvailability: TodayAvailability | null = $derived.by(() => {
+		const { rangeStart, rangeEnd } = this.#workspaceData ?? {};
+		if (!rangeStart || !rangeEnd || !rangeCoversDate({ rangeStart, rangeEnd })({ date: this.#today })) return null;
+		const people = this.allPersonnelFlat;
+		const [out = 0] = this.availabilityTracks.outCounts(
+			people.map((person) => person.id),
+			dayWindow(this.#today, 1)
+		);
+		return { date: parseDate(this.#today), available: people.length - out, total: people.length };
+	});
+
 	// ---- constructor -------------------------------------------------------
 	constructor(
 		getData: CalendarPageData | (() => CalendarPageData),
@@ -280,8 +298,8 @@ export class CalendarPageContext {
 
 	// ---- handlers ----------------------------------------------------------
 
-	toggleViewMode(): void {
-		this.viewMode = this.viewMode === 'month' ? '3-month' : 'month';
+	setViewMode(view: CalendarViewMode): void {
+		this.viewMode = view;
 	}
 
 	navigateToMonth(date: Date): void {

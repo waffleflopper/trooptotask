@@ -29,9 +29,6 @@
 	}
 
 	interface Props {
-		year: number;
-		month: number;
-		monthName: string;
 		dates: Date[];
 		personnelByGroup: GroupData[];
 		tracks: AvailabilityTracks;
@@ -48,10 +45,6 @@
 		showPersonnelRoles?: boolean;
 		/** Map of personId → UpcomingLossRecord for per-row loss indicators. */
 		upcomingLossMap?: ReadonlyMap<string, UpcomingLossRecord>;
-		onPrevMonth: () => void;
-		onNextMonth: () => void;
-		onGoToToday: () => void;
-		onNavigateToMonth?: (year: number, month: number) => void;
 		onCellClick?: (person: Personnel, date: Date) => void;
 		onPersonClick?: (person: Personnel) => void;
 		onPinToggle?: (group: string) => void;
@@ -71,9 +64,6 @@
 	}
 
 	let {
-		year,
-		month,
-		monthName,
 		dates,
 		personnelByGroup,
 		tracks,
@@ -89,10 +79,6 @@
 		showStatusText = false,
 		showPersonnelRoles = false,
 		upcomingLossMap,
-		onPrevMonth,
-		onNextMonth,
-		onGoToToday,
-		onNavigateToMonth,
 		onCellClick,
 		onPersonClick,
 		onPinToggle,
@@ -292,19 +278,12 @@
 </script>
 
 <div
-	class="calendar flex flex-1 flex-col overflow-hidden rounded-lg border bg-card text-card-foreground [--calendar-cell-width:36px] [--calendar-personnel-column-width:200px] max-[641px]:[--calendar-cell-width:32px] max-[641px]:[--calendar-personnel-column-width:120px] min-[641px]:max-[1025px]:[--calendar-personnel-column-width:160px]"
+	class="calendar flex flex-1 flex-col overflow-hidden rounded-lg border bg-card text-card-foreground [--calendar-cell-width:30px] [--calendar-personnel-column-width:160px] max-[641px]:[--calendar-cell-width:32px] max-[641px]:[--calendar-personnel-column-width:120px]"
 	style:--dates-count={dates.length}
 >
 	<CalendarHeader
-		{year}
-		{month}
-		{monthName}
 		headerCells={days}
 		{lanes}
-		{onPrevMonth}
-		{onNextMonth}
-		{onGoToToday}
-		{onNavigateToMonth}
 		onDateClick={canEditAssignments ? onDateClick : undefined}
 		{scrollLeft}
 		{scrollbarWidth}

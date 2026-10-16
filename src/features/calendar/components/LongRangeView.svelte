@@ -2,7 +2,6 @@
 	import type { Personnel } from '$features/personnel/contracts';
 	import type { AvailabilityEntry, SpecialDay } from '$features/calendar/contracts';
 	import { getMonthDates, getMonthName, addMonths } from '$lib/utils/dates';
-	import CalendarNavigation from './CalendarNavigation.svelte';
 	import BarTrack from './calendar-bars/BarTrack.svelte';
 	import type { AvailabilityTracks } from '$features/calendar/utils/availabilityTracks';
 	import { dayWindow } from '$features/calendar/utils/dayNumber';
@@ -11,7 +10,6 @@
 	import { buildVirtualRowLayout, getVisibleVirtualRows } from '$features/calendar/utils/virtualRows';
 	import { Button } from '$lib/components/ui/button';
 
-	const PERSONNEL_COLUMN_WIDTH = 200;
 	const MIN_DAY_PX = 10;
 	const GROUP_ROW_HEIGHT = 18;
 	const PERSON_ROW_HEIGHT = 30;
@@ -25,7 +23,6 @@
 
 	interface Props {
 		startDate: Date;
-		onStartDateChange: (date: Date) => void;
 		personnelByGroup: GroupData[];
 		tracks: AvailabilityTracks;
 		specialDays: SpecialDay[];
@@ -34,16 +31,8 @@
 		onOpenOverflow?: (person: Personnel, entryIds: readonly string[], anchor: HTMLElement) => void;
 	}
 
-	let {
-		startDate,
-		onStartDateChange,
-		personnelByGroup,
-		tracks,
-		specialDays,
-		onDateColumnClick,
-		onOpenEntry,
-		onOpenOverflow
-	}: Props = $props();
+	let { startDate, personnelByGroup, tracks, specialDays, onDateColumnClick, onOpenEntry, onOpenOverflow }: Props =
+		$props();
 
 	const viewStartDate = $derived(new Date(startDate.getFullYear(), startDate.getMonth(), 1));
 	let scrollAreaEl: HTMLDivElement;
@@ -52,6 +41,8 @@
 	let viewportHeight = $state(DEFAULT_VIEWPORT_HEIGHT);
 	let rosterOffsetTop = $state(0);
 	let scrollAreaWidth = $state(0);
+	let personnelHeaderEl: HTMLDivElement;
+	let personnelColumnWidth = $state(0);
 
 	const months = $derived.by(() => {
 		const result = [];
@@ -74,7 +65,7 @@
 		)
 	);
 	const visibleDays = $derived(dayWindow(days[0].dateKey, days.length));
-	const dayPx = $derived(Math.max(MIN_DAY_PX, Math.floor((scrollAreaWidth - PERSONNEL_COLUMN_WIDTH) / days.length)));
+	const dayPx = $derived(Math.max(MIN_DAY_PX, Math.floor((scrollAreaWidth - personnelColumnWidth) / days.length)));
 	const policy: LabelPolicy = $derived({ view: '3-month', dayPx });
 
 	const rosterRows = $derived.by(() => {
@@ -137,6 +128,7 @@
 		updateScrollMetrics();
 		rosterOffsetTop = getRosterOffsetTop();
 		scrollAreaWidth = scrollAreaEl.clientWidth;
+		personnelColumnWidth = personnelHeaderEl.offsetWidth;
 	}
 
 	function handleScroll() {
@@ -160,43 +152,12 @@
 
 		return () => observer.disconnect();
 	});
-
-	function prevQuarter() {
-		onStartDateChange(addMonths(viewStartDate, -3));
-	}
-
-	function nextQuarter() {
-		onStartDateChange(addMonths(viewStartDate, 3));
-	}
-
-	function goToToday() {
-		const today = new Date();
-		onStartDateChange(new Date(today.getFullYear(), today.getMonth(), 1));
-	}
-
-	function goToMonth(year: number, month: number) {
-		onStartDateChange(new Date(year, month, 1));
-	}
 </script>
 
 <div
-	class="flex flex-1 flex-col overflow-hidden rounded-lg border bg-card text-card-foreground"
-	style:--calendar-personnel-column-width={`${PERSONNEL_COLUMN_WIDTH}px`}
+	class="flex flex-1 flex-col overflow-hidden rounded-lg border bg-card text-card-foreground [--calendar-personnel-column-width:160px] max-[641px]:[--calendar-personnel-column-width:120px]"
 	style:--dates-count={days.length}
 >
-	<CalendarNavigation
-		title={`${months[0].name} ${months[0].year} – ${months[2].name} ${months[2].year}`}
-		onPrev={prevQuarter}
-		onNext={nextQuarter}
-		onGoToToday={goToToday}
-		prevLabel="Prev 3 Months"
-		nextLabel="Next 3 Months"
-		titleTestId="long-range-date-label"
-		pickerYear={viewStartDate.getFullYear()}
-		pickerMonth={viewStartDate.getMonth()}
-		onSelectMonthYear={goToMonth}
-	/>
-
 	<div
 		class="scroll-area flex-1 overflow-auto bg-card [scrollbar-gutter:stable]"
 		bind:this={scrollAreaEl}
@@ -207,6 +168,7 @@
 		>
 			<div class="sticky top-0 z-10 grid [grid-template-columns:var(--long-range-columns)] border-b bg-muted">
 				<div
+					bind:this={personnelHeaderEl}
 					class="sticky left-0 z-20 flex min-h-9 items-center border-r bg-muted px-3 py-2 font-mono text-xs font-semibold tracking-widest text-muted-foreground uppercase"
 				>
 					Personnel

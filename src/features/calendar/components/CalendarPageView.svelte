@@ -2,8 +2,9 @@
 	import type { CalendarPageContext } from '$features/calendar/contexts/CalendarPageContext.svelte';
 	import Calendar from '$features/calendar/components/Calendar.svelte';
 	import LongRangeView from '$features/calendar/components/LongRangeView.svelte';
-	import StatusLegend from '$features/calendar/components/StatusLegend.svelte';
+	import CalendarLegend from '$features/calendar/components/calendar-legend/CalendarLegend.svelte';
 	import CalendarPopover from '$features/calendar/components/CalendarPopover.svelte';
+	import CalendarTitleRow from '$features/calendar/components/CalendarTitleRow.svelte';
 	import { untrack } from 'svelte';
 	import { WorkspaceToolbar } from '$lib/components/patterns/workspace-toolbar';
 	import * as Alert from '$lib/components/ui/alert';
@@ -12,6 +13,7 @@
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { buildCalendarToolbar } from '$features/calendar/utils/calendarToolbarItems';
 	import { buildCalendarLanes } from '$features/calendar/utils/calendarLanes';
+	import { DRAG_TO_ADD_HINT, dutyMarkerLegend, statusLegend } from '$features/calendar/utils/calendarLegend';
 	import { dutyPickerOptions } from '$features/calendar/utils/dutyPickerOptions';
 	import { formatDate } from '$lib/utils/dates';
 	import { toastStore } from '$lib/stores/toast.svelte';
@@ -80,7 +82,6 @@
 			canManageAvailability: ctx.canManageAvailability,
 			canManageAssignments: ctx.canManageAssignments,
 			canManageConfig: ctx.canManageConfig,
-			viewMode: ctx.viewMode,
 			groupOptions: ctx.groupFilterOptions.map((option) => ({
 				value: option.value,
 				label: option.value === '' ? 'Group: All' : `${option.label} (${option.count ?? 0})`
@@ -90,9 +91,6 @@
 			showPersonnelRoles: ctx.showPersonnelRoles,
 			showOnboardingToggle: ctx.activeOnboardingPersonnelIds.length > 0,
 			highlightOnboarding: ctx.highlightOnboarding,
-			onViewModeChange: (mode) => {
-				if (mode !== ctx.viewMode) ctx.toggleViewMode();
-			},
 			onGroupFilterChange: (value) => ctx.setCalendarGroupFilter(value),
 			onToggleStatusText: () => ctx.toggleShowStatusText(),
 			onTogglePersonnelRoles: () => ctx.toggleShowPersonnelRoles(),
@@ -100,6 +98,15 @@
 			onExportExcel: exportExcel,
 			onExportPDF: exportPDF
 		})
+	);
+
+	const legend = $derived(
+		ctx.viewMode === 'month'
+			? [
+					statusLegend(statusTypesStore.items, ctx.canManageAvailability ? DRAG_TO_ADD_HINT : undefined),
+					dutyMarkerLegend(dailyAssignmentsStore.types)
+				]
+			: [statusLegend(statusTypesStore.items)]
 	);
 
 	// Built apart from the roster rows so search and Group filter changes do not rebuild lanes.
@@ -227,6 +234,16 @@
 	{:else}
 		<div class="flex flex-1 overflow-hidden p-3 sm:px-6 sm:pt-4 sm:pb-5">
 			<section class="flex h-full w-full flex-col gap-3 overflow-hidden sm:gap-4">
+				<CalendarTitleRow
+					view={ctx.viewMode}
+					anchor={calendarStore.currentDate}
+					today={ctx.todayAvailability}
+					orgName={data.orgName}
+					personnelCount={ctx.allPersonnelFlat.length}
+					onAnchorChange={(anchor) => calendarStore.goToMonth(anchor.getFullYear(), anchor.getMonth())}
+					onViewChange={(view) => ctx.setViewMode(view)}
+				/>
+
 				<WorkspaceToolbar
 					ariaLabel="Calendar controls"
 					items={toolbar.items}
@@ -235,6 +252,7 @@
 						label: 'Search by name, rank, MOS, role, or group',
 						placeholder: 'Search name, rank, MOS, role, or group...',
 						value: ctx.calendarPersonnelSearch,
+						placement: 'after-filters',
 						onValueChange: (value) => ctx.setCalendarPersonnelSearch(value)
 					}}
 				/>
@@ -255,7 +273,6 @@
 				{#if ctx.viewMode === '3-month'}
 					<LongRangeView
 						startDate={calendarStore.currentDate}
-						onStartDateChange={(date) => calendarStore.goToMonth(date.getFullYear(), date.getMonth())}
 						personnelByGroup={ctx.filteredPBG}
 						tracks={ctx.availabilityTracks}
 						specialDays={specialDaysStore.items}
@@ -265,9 +282,6 @@
 					/>
 				{:else}
 					<Calendar
-						year={calendarStore.year}
-						month={calendarStore.month}
-						monthName={calendarStore.monthName}
 						dates={calendarStore.dates}
 						personnelByGroup={ctx.filteredPBG}
 						tracks={ctx.availabilityTracks}
@@ -284,10 +298,6 @@
 						showPersonnelRoles={ctx.showPersonnelRoles}
 						upcomingLossMap={ctx.upcomingLossMap}
 						personnelHref={`/org/${data.orgUrlSegment ?? data.orgId}/personnel`}
-						onPrevMonth={() => calendarStore.prevMonth()}
-						onNextMonth={() => calendarStore.nextMonth()}
-						onGoToToday={() => calendarStore.goToToday()}
-						onNavigateToMonth={(year, month) => calendarStore.goToMonth(year, month)}
 						onCellClick={(person, date) => ctx.handleCellClick(person, date)}
 						onPersonClick={(person) => ctx.handlePersonClick(person)}
 						onPinToggle={(group) => ctx.handlePinToggle(group)}
@@ -308,7 +318,7 @@
 							})}
 					/>
 				{/if}
-				<StatusLegend statusTypes={statusTypesStore.items} />
+				<CalendarLegend sources={legend} />
 			</section>
 		</div>
 	{/if}

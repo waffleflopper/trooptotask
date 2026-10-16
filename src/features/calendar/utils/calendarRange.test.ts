@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import { formatDate } from '$lib/utils/dates';
 import {
+	calendarPeriod,
 	createInitialCalendarBufferedRange,
 	createVisibleCalendarRange,
 	getCalendarRangeGaps,
+	shiftCalendarPeriod,
 	type CalendarBufferedRange
 } from './calendarRange';
 
@@ -60,5 +63,20 @@ describe('calendarRange', () => {
 				rangeEnd: '2026-05-31'
 			}
 		]);
+	});
+});
+
+describe('calendarPeriod', () => {
+	it('names one month in Month and three months across a year boundary in 3-Month', () => {
+		expect(calendarPeriod(new Date(2026, 10, 18), 'month').title).toBe('November 2026');
+		expect(calendarPeriod(new Date(2026, 10, 18), '3-month').title).toBe('November 2026 – January 2027');
+	});
+
+	it('steps one month in Month and three in 3-Month, landing on the first of the month', () => {
+		const anchor = new Date(2026, 11, 31);
+		expect(formatDate(shiftCalendarPeriod(anchor, 'month', 1))).toBe('2027-01-01');
+		expect(formatDate(shiftCalendarPeriod(anchor, 'month', -1))).toBe('2026-11-01');
+		expect(formatDate(shiftCalendarPeriod(anchor, '3-month', 1))).toBe('2027-03-01');
+		expect(formatDate(shiftCalendarPeriod(new Date(2027, 0, 15), '3-month', -1))).toBe('2026-10-01');
 	});
 });

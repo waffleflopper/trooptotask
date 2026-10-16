@@ -1,4 +1,4 @@
-import { endOfMonth, formatDate, parseDate, startOfMonth } from '$lib/utils/dates';
+import { endOfMonth, formatDate, getMonthName, parseDate, startOfMonth } from '$lib/utils/dates';
 
 export interface CalendarBufferedRange {
 	rangeStart: string;
@@ -6,6 +6,35 @@ export interface CalendarBufferedRange {
 }
 
 export type CalendarViewMode = 'month' | '3-month';
+
+export interface CalendarPeriod {
+	readonly start: Date;
+	readonly months: number;
+	readonly title: string;
+	readonly previousLabel: string;
+	readonly nextLabel: string;
+}
+
+const PERIODS: Record<CalendarViewMode, Pick<CalendarPeriod, 'months' | 'previousLabel' | 'nextLabel'>> = {
+	month: { months: 1, previousLabel: 'Previous month', nextLabel: 'Next month' },
+	'3-month': { months: 3, previousLabel: 'Previous 3 months', nextLabel: 'Next 3 months' }
+};
+
+function monthTitle(date: Date): string {
+	return `${getMonthName(date.getMonth())} ${date.getFullYear()}`;
+}
+
+export function calendarPeriod(anchor: Date, view: CalendarViewMode): CalendarPeriod {
+	const shape = PERIODS[view];
+	const start = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+	const end = new Date(anchor.getFullYear(), anchor.getMonth() + shape.months - 1, 1);
+	const title = shape.months === 1 ? monthTitle(start) : `${monthTitle(start)} – ${monthTitle(end)}`;
+	return { ...shape, start, title };
+}
+
+export function shiftCalendarPeriod(anchor: Date, view: CalendarViewMode, direction: -1 | 1): Date {
+	return new Date(anchor.getFullYear(), anchor.getMonth() + direction * PERIODS[view].months, 1);
+}
 
 export function createInitialCalendarBufferedRange(anchorDate: Date): CalendarBufferedRange {
 	return {

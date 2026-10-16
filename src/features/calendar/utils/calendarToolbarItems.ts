@@ -24,10 +24,6 @@ export interface CalendarToolbarInput {
 	onExportPDF: () => void;
 }
 
-/**
- * Items rank most important first and the row reverses actions, so the row reads
- * Group … Duty planner, Reports, Display, More, Bulk Status. More lists Settings and the exports.
- */
 export function buildCalendarToolbar(input: CalendarToolbarInput): {
 	items: ToolbarItem[];
 	primary: WorkspaceToolbarProps['primary'];

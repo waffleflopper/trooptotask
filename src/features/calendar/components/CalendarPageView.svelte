@@ -100,7 +100,6 @@
 		})
 	);
 
-	// 3-Month draws neither duty markers nor drag-to-add, so it explains statuses only.
 	const legend = $derived(
 		ctx.viewMode === 'month'
 			? [

@@ -10,12 +10,10 @@
 
 	interface Props {
 		view: CalendarViewMode;
-		/** Both views start at this date's month. */
 		anchor: Date;
 		today: TodayAvailability | null;
 		orgName: string;
 		personnelCount: number;
-		/** Receives the first of the month to show. */
 		onAnchorChange: (anchor: Date) => void;
 		onViewChange: (view: CalendarViewMode) => void;
 	}

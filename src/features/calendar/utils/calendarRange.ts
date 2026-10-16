@@ -7,9 +7,7 @@ export interface CalendarBufferedRange {
 
 export type CalendarViewMode = 'month' | '3-month';
 
-/** The span a view shows from its anchor, and how its step buttons are named. */
 export interface CalendarPeriod {
-	/** First day of the first shown month. */
 	readonly start: Date;
 	readonly months: number;
 	readonly title: string;
@@ -34,7 +32,6 @@ export function calendarPeriod(anchor: Date, view: CalendarViewMode): CalendarPe
 	return { ...shape, start, title };
 }
 
-/** The first of the month one period before or after the anchor's month. */
 export function shiftCalendarPeriod(anchor: Date, view: CalendarViewMode, direction: -1 | 1): Date {
 	return new Date(anchor.getFullYear(), anchor.getMonth() + direction * PERIODS[view].months, 1);
 }

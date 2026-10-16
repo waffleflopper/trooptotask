@@ -10,7 +10,6 @@
 		subtitle?: string | Snippet;
 		back?: Snippet;
 		meta?: Snippet;
-		/** A trailing page-level summary on the title line; it wraps below the title when narrow. */
 		aside?: Snippet;
 	};
 

@@ -17,7 +17,7 @@
 			{#if index > 0}
 				<span aria-hidden="true" class="h-4 w-px bg-border"></span>
 			{/if}
-			<ul aria-label={source.label} class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+			<ul aria-label={source.ariaLabel} class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
 				{#each source.entries as entry (entry.key)}
 					<li class="flex items-center gap-1.5">
 						<entry.mark.Mark value={entry.mark.value} />

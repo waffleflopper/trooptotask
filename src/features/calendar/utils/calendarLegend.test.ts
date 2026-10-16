@@ -32,7 +32,7 @@ describe('statusLegend', () => {
 });
 
 describe('dutyMarkerLegend', () => {
-	it('names every active personnel duty in one entry, in sort order', () => {
+	it('names every personnel duty that draws a row marker in one entry, in sort order', () => {
 		const source = dutyMarkerLegend([
 			dutyType({ id: 'cq', shortName: 'CQ', sortOrder: 2, color: '#dc2626' }),
 			dutyType({ id: 'sd', shortName: 'SD', sortOrder: 1, color: '#2563eb' }),
@@ -40,7 +40,7 @@ describe('dutyMarkerLegend', () => {
 			dutyType({ id: 'det', shortName: 'DET', sortOrder: 0, assignTo: 'group' })
 		]);
 
-		expect(source.entries.map((entry) => entry.label)).toEqual(['Duty (SD, CQ)']);
+		expect(source.entries.map((entry) => entry.label)).toEqual(['Duty (OLD, SD, CQ)']);
 	});
 
 	it('has no entry when no duty draws a row marker', () => {

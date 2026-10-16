@@ -18,7 +18,7 @@ import { groupsStore } from '$features/personnel';
 import { createRosterReadModel } from '$features/personnel/contracts';
 import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
 import { loadCalendarRange } from '$features/calendar/utils/calendarRangeLoader';
-import { rangeCoversSpan, type CalendarViewMode } from '$features/calendar/utils/calendarRange';
+import { rangeCoversDate, rangeCoversSpan, type CalendarViewMode } from '$features/calendar/utils/calendarRange';
 import { dayWindow } from '$features/calendar/utils/dayNumber';
 import { indexByPersonId } from '$features/calendar/utils/calendarIndexes';
 import { withinOrganizationLifetime } from '$lib/stores/core';
@@ -259,14 +259,9 @@ export class CalendarPageContext {
 		return indexByPersonId(losses);
 	});
 
-	/**
-	 * Today's count over the scoped active roster, ignoring Group filter and search. A person is out when any
-	 * entry with a known status covers today, the rule collapsed groups count by. Null while the loaded range
-	 * does not include today, so a distant month never shows everyone available.
-	 */
 	readonly todayAvailability: TodayAvailability | null = $derived.by(() => {
 		const { rangeStart, rangeEnd } = this.#workspaceData ?? {};
-		if (!rangeStart || !rangeEnd || this.#today < rangeStart || this.#today > rangeEnd) return null;
+		if (!rangeStart || !rangeEnd || !rangeCoversDate({ rangeStart, rangeEnd })({ date: this.#today })) return null;
 		const people = this.allPersonnelFlat;
 		const [out = 0] = this.availabilityTracks.outCounts(
 			people.map((person) => person.id),

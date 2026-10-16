@@ -23,7 +23,7 @@ const dutyType: AssignmentType = {
 
 const training: LegendSource = {
 	key: 'training',
-	label: 'Training',
+	ariaLabel: 'Training',
 	hint: 'Click a course to open it',
 	entries: [{ key: 'range', label: 'Range day', mark: legendMark(FixtureLegendMark, 'RNG') }]
 };

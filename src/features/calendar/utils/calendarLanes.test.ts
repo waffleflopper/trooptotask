@@ -4,6 +4,7 @@ import type { Personnel } from '$features/personnel/contracts';
 import {
 	buildCalendarLanes,
 	movedTo,
+	plannerColumns,
 	type AssignmentLaneDay,
 	type CalendarLane,
 	type CalendarLaneInput,
@@ -65,6 +66,20 @@ function assignment(date: string, assignmentTypeId: string, assigneeId: string):
 function specialDay(date: string, name: string, kind: SpecialDay['type'] = 'org-closure'): SpecialDay {
 	return { id: `${date}-${name}`, date, name, type: kind };
 }
+
+describe('plannerColumns', () => {
+	it('lists the Calendar lane types in lane order, then the planner-only types, and drops archived ones', () => {
+		const columns = plannerColumns([
+			type({ id: 'runner', name: 'Runner', showOnCalendar: false, sortOrder: 0 }),
+			type({ id: 'sd', name: 'Staff Duty', sortOrder: 1 }),
+			type({ id: 'old', name: 'Old', archivedAt: '2026-01-01T00:00:00.000Z' }),
+			type({ id: 'cq', name: 'CQ', sortOrder: 0 }),
+			type({ id: 'aide', name: 'Aide', showOnCalendar: false, sortOrder: 0 })
+		]);
+
+		expect(columns.map((column) => column.id)).toEqual(['cq', 'sd', 'aide', 'runner']);
+	});
+});
 
 describe('buildCalendarLanes', () => {
 	it('orders shown active types by sort order then id, followed by Days', () => {

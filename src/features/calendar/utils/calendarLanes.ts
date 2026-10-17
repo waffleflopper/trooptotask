@@ -10,10 +10,20 @@ import DaysLaneSegmentView, {
 import { CALENDAR_DATE_LABEL } from '$features/calendar/utils/calendarRenderState';
 import { formatDate } from '$lib/utils/dates';
 
+function bySortOrder(a: AssignmentType, b: AssignmentType): number {
+	return a.sortOrder - b.sortOrder || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+}
+
 export function calendarLaneTypes(types: readonly AssignmentType[]): AssignmentType[] {
-	return types
-		.filter((type) => type.showOnCalendar && !type.archivedAt)
-		.sort((a, b) => a.sortOrder - b.sortOrder || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+	return types.filter((type) => type.showOnCalendar && !type.archivedAt).sort(bySortOrder);
+}
+
+/** The Duty planner's columns: the Calendar's lane types in lane order, then the planner-only types. */
+export function plannerColumns(types: readonly AssignmentType[]): AssignmentType[] {
+	return [
+		...calendarLaneTypes(types),
+		...types.filter((type) => !type.showOnCalendar && !type.archivedAt).sort(bySortOrder)
+	];
 }
 
 export function calendarLaneIds(types: readonly AssignmentType[]): string[] {

@@ -158,6 +158,55 @@ test('a run directory outside the evidence root is rejected before any sample', 
 		await assert.rejects(perfCommand(args, ctx), /Performance output must be under/);
 });
 
+const runFile = (journey, usefulMedian, extra = {}) => ({
+	kind: 't2t-perf-run',
+	workload: 'large',
+	actor: 'perfWide',
+	journey,
+	mode: 'warm',
+	profile: { name: 'unthrottled' },
+	repetitions: 5,
+	summary: {
+		firstUsefulRenderMs: { n: 5, min: usefulMedian, max: usefulMedian, median: usefulMedian },
+		groups: {}
+	},
+	samples: [],
+	statements: { byRole: [], byCalls: [] },
+	...extra
+});
+
+test('a summary excludes superseded runs and its own output, and lists the superseded ones apart', async () => {
+	const repository = await fs.mkdtemp(path.join(os.tmpdir(), 'perf-summary-'));
+	const root = path.join(repository, '.verification', 'evidence', 'run');
+	await fs.mkdir(path.join(root, 'superseded', 'large'), { recursive: true });
+	await fs.mkdir(path.join(root, 'large'), { recursive: true });
+	await fs.writeFile(path.join(root, 'large', 'workbook.json'), JSON.stringify(runFile('workbook-export', 3466)));
+	await fs.writeFile(
+		path.join(root, 'superseded', 'large', 'workbook.json'),
+		JSON.stringify(runFile('workbook-export', 3615))
+	);
+	await fs.writeFile(path.join(root, 'summary.json'), JSON.stringify({ runs: [], traces: [], superseded: [] }));
+	const ctx = {
+		repository,
+		evidenceRoot: path.join(repository, '.verification', 'evidence'),
+		isUnderEvidence: async (file, evidence) => file.startsWith(evidence + path.sep)
+	};
+	const result = await perfCommand(['summarize', path.relative(repository, root)], ctx);
+	assert.deepEqual(result, { runs: 1, traces: 0, superseded: 1, files: ['summary.json', 'summary.md'] });
+	const summary = JSON.parse(await fs.readFile(path.join(root, 'summary.json'), 'utf8'));
+	assert.deepEqual(
+		summary.runs.map((row) => row.firstUsefulRenderMs.median),
+		[3466]
+	);
+	assert.deepEqual(
+		summary.superseded.map((row) => [row.file, row.firstUsefulRenderMs.median]),
+		[[path.join('superseded', 'large', 'workbook.json'), 3615]]
+	);
+	const markdown = await fs.readFile(path.join(root, 'summary.md'), 'utf8');
+	assert.ok(markdown.includes('Superseded runs (diagnostics only'));
+	assert.ok(markdown.includes('3615 (3615–3615)'));
+});
+
 const snapshot = [
 	'uid=1_0 RootWebArea "Personnel"',
 	'  uid=1_1 searchbox "Search by name, rank, MOS, role, or group"',

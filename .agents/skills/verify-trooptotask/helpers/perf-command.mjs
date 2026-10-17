@@ -44,7 +44,8 @@ $V perf prepare                            VACUUM (ANALYZE) every table a worklo
 $V perf tables [--out FILE]                Vacuum, analyze and visibility state of those tables and the plan regime
                                            readback; every run records both before its warm-up and after its last
                                            sample, and refuses to start on an unpinned regime
-$V perf summarize RUN                      Distribution table over every run file below RUN
+$V perf summarize RUN                      Distribution table over every run file below RUN, except superseded/
+                                           (listed apart as diagnostics) and the summary's own output
 
 JOURNEY (kind, effect, actors; cold only where marked): ${Object.entries(journeys)
 	.map(
@@ -768,12 +769,15 @@ async function trace(ctx, positional, options) {
 	}
 }
 
-async function files(directory) {
+// Runs below a `superseded` directory are diagnostics a rerun replaced; `summary.json` is the
+// summary's own output.
+async function files(directory, superseded = false) {
 	const entries = await fs.readdir(directory, { withFileTypes: true });
 	const nested = await Promise.all(
 		entries.map((entry) => {
 			const full = path.join(directory, entry.name);
-			return entry.isDirectory() ? files(full) : entry.name.endsWith('.json') ? [full] : [];
+			if (entry.isDirectory()) return files(full, superseded || entry.name === 'superseded');
+			return entry.name.endsWith('.json') && entry.name !== 'summary.json' ? [{ file: full, superseded }] : [];
 		})
 	);
 	return nested.flat();
@@ -789,10 +793,14 @@ async function summarizeRun(ctx, directory) {
 		throw new Error('RUN must be under .verification/evidence/verify-trooptotask/.');
 	const runs = [];
 	const traces = [];
-	for (const file of (await files(root)).toSorted()) {
+	const replaced = [];
+	for (const { file, superseded } of (await files(root)).toSorted((a, b) => a.file.localeCompare(b.file))) {
 		const value = JSON.parse(await fs.readFile(file, 'utf8'));
-		if (value.kind === 't2t-perf-run') runs.push(value);
-		if (value.kind === 't2t-perf-trace') traces.push(value);
+		if (value.kind === 't2t-perf-run') {
+			if (superseded) replaced.push({ file, run: value });
+			else runs.push(value);
+		}
+		if (value.kind === 't2t-perf-trace' && !superseded) traces.push(value);
 	}
 	const rows = runs.map((run) => ({
 		workload: run.workload,
@@ -890,9 +898,56 @@ async function summarizeRun(ctx, directory) {
 						.join(' | ')} |`
 			)
 	].join('\n');
-	await writeEvidence(ctx, path.join(root, 'summary.json'), { runs: rows, traces });
-	await writeEvidence(ctx, path.join(root, 'summary.md'), `${table}\n\n${categoryTable}\n\n${traceTable}\n`);
-	return { runs: rows.length, traces: traces.length, files: ['summary.json', 'summary.md'] };
+	const superseded = replaced.map(({ file, run }) => ({
+		file: path.relative(root, file),
+		workload: run.workload,
+		actor: run.actor,
+		journey: run.journey,
+		mode: run.mode,
+		n: run.repetitions,
+		firstUsefulRenderMs: run.summary.firstUsefulRenderMs,
+		settledIncludingReloadsMs: run.summary.settledIncludingReloadsMs,
+		documentCompleteMs: run.summary.documentCompleteMs,
+		maintenance: run.tables?.maintenance ?? null
+	}));
+	const supersededTable = superseded.length
+		? [
+				'Superseded runs (diagnostics only; the tables above exclude them)',
+				'',
+				'| File | Workload | Actor | Journey | Mode | n | First useful render ms | Settled incl. reloads ms | Document complete ms | Vacuum or analyze during run |',
+				'| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+				...superseded.map(
+					(row) =>
+						`| ${[
+							row.file,
+							row.workload,
+							row.actor,
+							row.journey,
+							row.mode,
+							row.n,
+							range(row.firstUsefulRenderMs),
+							range(row.settledIncludingReloadsMs),
+							range(row.documentCompleteMs),
+							row.maintenance === null
+								? 'not recorded'
+								: row.maintenance.map(({ table, ...counts }) => `${table} ${JSON.stringify(counts)}`).join('; ') ||
+									'none'
+						].join(' | ')} |`
+				)
+			].join('\n')
+		: '';
+	await writeEvidence(ctx, path.join(root, 'summary.json'), { runs: rows, traces, superseded });
+	await writeEvidence(
+		ctx,
+		path.join(root, 'summary.md'),
+		[table, categoryTable, traceTable, supersededTable].filter(Boolean).join('\n\n') + '\n'
+	);
+	return {
+		runs: rows.length,
+		traces: traces.length,
+		superseded: superseded.length,
+		files: ['summary.json', 'summary.md']
+	};
 }
 
 export async function perfCommand(args, ctx) {

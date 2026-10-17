@@ -90,7 +90,11 @@ export function installSettledObserver(win, spec) {
 		);
 	};
 	const final = spec.milestones.at(-1).name;
-	const frame = (now) => {
+	// A frame's timestamp is the frame's start, which can precede the input event the frame then
+	// handles, so an interaction reads the clock inside the callback: the event's timeStamp and
+	// performance.now() share one timeline and the callback cannot run before the input.
+	const frame = (frameTime) => {
+		const now = spec.start === 'navigation' ? frameTime : win.performance.now();
 		state.frames++;
 		for (const milestone of spec.milestones)
 			if (!(milestone.name in state.milestones) && reached(milestone)) {

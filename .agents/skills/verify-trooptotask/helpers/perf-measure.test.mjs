@@ -418,6 +418,36 @@ test('a milestone waits for its row text, exact row count and download', () => {
 	assert.equal(state.done, true);
 });
 
+test('an interaction milestone is measured on a clock that cannot precede the input', () => {
+	const page = livePage();
+	const listeners = {};
+	page.addEventListener = (type, listener) => (listeners[type] = listener);
+	installSettledObserver(page, {
+		name: 'save',
+		start: 'input',
+		milestones: [{ name: 'useful', present: ['Saved'] }]
+	});
+	page.performance.now = () => 5012;
+	listeners.pointerdown({ timeStamp: 5000, isTrusted: true });
+	page.document.body.textContent = 'Saved';
+	// This frame began 10 ms before the input it handles.
+	page.step(4990);
+	assert.deepEqual(page.__t2tPerfSettled.milestones, { useful: 12 });
+	assert.equal(page.__t2tPerfSettled.startEvent.type, 'pointerdown');
+});
+
+test('a navigation milestone keeps the frame timestamp', () => {
+	const page = livePage();
+	installSettledObserver(page, {
+		name: 'load',
+		start: 'navigation',
+		milestones: [{ name: 'useful', present: ['Saved'] }]
+	});
+	page.document.body.textContent = 'Saved';
+	page.step(240);
+	assert.deepEqual(page.__t2tPerfSettled.milestones, { useful: 240 });
+});
+
 test('milestone text matches across markup whitespace', () => {
 	const page = livePage();
 	installSettledObserver(page, {

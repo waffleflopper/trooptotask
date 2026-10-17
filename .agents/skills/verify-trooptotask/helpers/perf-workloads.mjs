@@ -582,6 +582,14 @@ export function expandWorkload(name, { anchor, owner, scoped, scopedLeader, memb
 }
 
 const rankedLabel = (person) => `${person.rank} ${person.last_name}, ${person.first_name}`;
+// The Duty planner names a date in the browser's en-GB short form, which spells September `Sept`.
+const plannerDate = (date) =>
+	new Date(`${date}T12:00:00Z`).toLocaleDateString('en-GB', {
+		weekday: 'short',
+		day: 'numeric',
+		month: 'short',
+		timeZone: 'UTC'
+	});
 
 /**
  * The fixed targets the write and filter journeys act on, chosen from the expanded rows so
@@ -590,8 +598,6 @@ const rankedLabel = (person) => `${person.rank} ${person.last_name}, ${person.fi
  * scoped actor sees it occupied and may reassign it within that Group.
  */
 function journeyTerms({ anchor, rows, active, scopedPeople, searched }) {
-	const groupOf = (person) => rows.groups.find((group) => group.id === person.group_id).name;
-	const slotLabel = (person) => `${rankedLabel(person)} - ${groupOf(person)}`;
 	const byId = new Map(active.map((person) => [person.id, person]));
 	const personTypes = new Map(
 		rows.assignment_types.filter((type) => type.assign_to === 'personnel').map((type) => [type.id, type])
@@ -617,9 +623,9 @@ function journeyTerms({ anchor, rows, active, scopedPeople, searched }) {
 	});
 	return {
 		assignment: {
-			control: `Select ${personTypes.get(slot.assignment_type_id).name} assignee for ${slot.date}`,
-			original: { label: slotLabel(holder), search: holder.last_name },
-			alternate: { label: slotLabel(alternate), search: alternate.last_name }
+			control: `${personTypes.get(slot.assignment_type_id).name}, ${plannerDate(slot.date)}: `,
+			original: { label: rankedLabel(holder), search: holder.last_name },
+			alternate: { label: rankedLabel(alternate), search: alternate.last_name }
 		},
 		edit: { wide: edit(searched.wide), scoped: edit(searched.scoped) },
 		population: { wide: active.length, scoped: scopedPeople.length },

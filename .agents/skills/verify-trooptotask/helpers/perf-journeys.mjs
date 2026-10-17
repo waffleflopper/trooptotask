@@ -16,8 +16,8 @@
 // snapshot (optionally inside a named row), `type` text into the focused element, `press` a
 // key, `upload` a prepared file, or `wait` for any of some texts.
 //
-// `reset` names the cleanup run after every sample of a write that cannot be toggled, and
-// `limit` names the app rate limit the samples must stay under.
+// `reset` names the cleanup run after every sample that would otherwise leave the next one a
+// different start, and `limit` names the app rate limit the samples must stay under.
 
 const skeleton = '[data-slot="skeleton"]';
 const both = { perfWide: null, perfScoped: null };
@@ -42,12 +42,13 @@ const platformOnly = {
 const roster = ({ sentinel }) => ({ anyPresent: [sentinel, 'personnel are loaded'], absentSelector: [skeleton] });
 const search = { role: 'searchbox', name: 'Search by name, rank, MOS, role, or group' };
 const personRows = '[aria-label^="Open "]';
-// The 3-Month view's virtual rows hold Group bands and People; a Person row has status cells.
-const longRangeRows = '.roster-rows .virtual-row:has(.status-cell)';
+// The 3-Month view's virtual rows hold Group bands and People; only a Person row names its Person.
+const longRangeRows = '.roster-rows [data-person-id]';
+const calendarLoading = ['Loading Calendar data', 'Loading calendar data', 'Loading additional calendar dates'];
 const calendarReady = ({ month }) => ({
 	present: [month.current],
 	presentSelector: ['[data-slot="date-cell"]'],
-	absent: ['Loading Calendar data', 'Loading calendar data'],
+	absent: calendarLoading,
 	absentSelector: [skeleton]
 });
 const org = (terms, path = '') => `/org/${terms.organizationId}${path}`;
@@ -87,14 +88,17 @@ export const journeys = {
 		actors: both,
 		path: (terms) => org(terms, '/calendar'),
 		ready: (terms) => [{ name: 'ready', ...calendarReady(terms) }],
-		prepare: ({ month }) => [{ click: { role: 'button', name: '3-Month' } }, { wait: [month.quarter] }],
-		trigger: () => ({ click: { role: 'button', name: 'Next 3 Months' } }),
+		// The server reads its first window around the anchor the page last wrote to a cookie, so
+		// each sample returns the anchor to today as the next visit expects.
+		reset: 'calendar-today',
+		prepare: ({ month }) => [{ click: { role: 'radio', name: '3-Month' } }, { wait: [month.quarter] }],
+		trigger: () => ({ click: { role: 'button', name: 'Next 3 months' } }),
 		milestones: ({ month }) => [
 			{
 				name: 'useful',
 				present: [month.nextQuarter],
 				presentSelector: [longRangeRows],
-				absent: ['Loading Calendar data', 'Loading calendar data', 'Loading additional calendar dates'],
+				absent: calendarLoading,
 				absentSelector: [skeleton]
 			}
 		]
@@ -106,7 +110,7 @@ export const journeys = {
 		actors: both,
 		path: (terms) => org(terms, '/calendar'),
 		ready: (terms) => [{ name: 'ready', ...calendarReady(terms) }],
-		prepare: ({ month }) => [{ click: { role: 'button', name: '3-Month' } }, { wait: [month.quarter] }],
+		prepare: ({ month }) => [{ click: { role: 'radio', name: '3-Month' } }, { wait: [month.quarter] }],
 		trigger: ({ searchTerm }) => ({ fill: search, value: searchTerm }),
 		milestones: ({ searchTerm }) => [{ name: 'useful', present: [searchTerm], count: { [longRangeRows]: 1 } }]
 	},
@@ -117,16 +121,27 @@ export const journeys = {
 		toggles: true,
 		actors: both,
 		path: (terms) => org(terms, '/calendar/assignments'),
-		ready: () => [{ name: 'ready', present: ['Assignment Planner'], presentSelector: ['[aria-label^="Select "]'] }],
+		ready: () => [
+			{
+				name: 'ready',
+				present: ['Duty planner'],
+				presentSelector: ['[data-duty-slot]'],
+				absent: ['Loading Calendar data', 'Loading assignment planner', 'Loading assignments for this month']
+			}
+		],
+		// The picker filters as the term is typed and Enter picks its first match. The slot's
+		// name starts with its type and date and ends with its holder. The slot shows the holder
+		// before the write returns; the picker closes once it has, so the save is done when both hold.
 		prepare: ({ assignment }, sample) => [
-			{ click: { role: 'button', name: assignment.control } },
+			{ click: { role: 'button', name: assignment.control, partial: true } },
 			{ type: assigned(assignment, sample).search }
 		],
 		trigger: () => ({ press: 'Enter' }),
 		milestones: ({ assignment }, sample) => [
 			{
 				name: 'useful',
-				inside: { [`button[aria-label="${assignment.control}"]`]: [assigned(assignment, sample).label] }
+				presentSelector: [`button[aria-label^="${assignment.control}${assigned(assignment, sample).label}"]`],
+				absentSelector: ['[role="dialog"]']
 			}
 		]
 	},

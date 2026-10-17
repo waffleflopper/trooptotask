@@ -367,6 +367,19 @@ test('the import file is a quarter of the active roster, all into the scoped Gro
 	);
 });
 
+// The names the seeded small workload's Duty planner showed for this slot on 2026-10-17.
+test('the assignment slot is named as the Duty planner names it', () => {
+	assert.deepEqual(expand('small', '2026-10-17').journeyTerms.assignment, {
+		control: 'Staff Duty, Thu 1 Oct: ',
+		original: { label: 'SGT Irwin009, Jordan', search: 'Irwin009' },
+		alternate: { label: '2LT Adams001, Alex', search: 'Adams001' }
+	});
+	assert.match(
+		expand('small', '2026-09-15').journeyTerms.assignment.control,
+		/^[A-Za-z ]+, [A-Z][a-z]{2} \d{1,2} Sept: $/
+	);
+});
+
 test('journey terms count each scope and every membership', () => {
 	const { journeyTerms } = expand('small');
 	assert.deepEqual(journeyTerms.population, { wide: 20, scoped: 10 });

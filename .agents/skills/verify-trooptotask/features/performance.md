@@ -33,22 +33,24 @@ Launch and drive under Node 24 (`mise exec node@24 --`); the adapter refuses new
 
 ### Workload shape
 
-| Workload | Groups x People | Archived | Window | Status / duty / Training types | Critical Tasks | Onboarding active / done | Extra members admin / member |
-| -------- | --------------- | -------- | ------ | ------------------------------ | -------------- | ------------------------ | ---------------------------- |
-| small    | 2 x 10          | 10%      | ±90 d  | 4 / 2 / 8                      | 10             | 2 / 2                    | 1 / 2                        |
-| typical  | 5 x 20          | 10%      | ±90 d  | 6 / 4 / 15                     | 25             | 5 / 10                   | 2 / 8                        |
-| large    | 16 x 25         | 10%      | ±90 d  | 8 / 6 / 25                     | 40             | 20 / 40                  | 4 / 30                       |
+| Workload | Groups x People | Archived | Window | Status / duty (Calendar lanes) / Training types | Critical Tasks | Onboarding active / done | Extra members admin / member |
+| -------- | --------------- | -------- | ------ | ----------------------------------------------- | -------------- | ------------------------ | ---------------------------- |
+| small    | 2 x 10          | 10%      | ±90 d  | 4 / 2 (2) / 8                                   | 10             | 2 / 2                    | 1 / 2                        |
+| typical  | 5 x 20          | 10%      | ±90 d  | 6 / 4 (3) / 15                                  | 25             | 5 / 10                   | 2 / 8                        |
+| large    | 16 x 25         | 10%      | ±90 d  | 8 / 6 (4) / 25                                  | 40             | 20 / 40                  | 4 / 30                       |
 
 Every workload has about one availability entry per Soldier per 30 days, one daily assignment per duty type per day, 85% Training completion, and 60% Critical Task completion with 25% older history. The sizes come from Robert's 20/100/400 Personnel decision. Groups are platoons or sections, so no workload puts one giant Group in front of the roster. The roster carries about a tenth archived history. Members are the unit's leaders and admin staff, not every Soldier. The anchor is the fixture's operational day, so dates move with the run while IDs, names and proportions stay identical.
+
+The Calendar reads a few more rows per Organization. Every status type carries the short label the Calendar shows. The first duty types are Calendar lanes, the duties a unit watches on the month (Staff Duty and CQ, then Runner, then Detail Group), and the others stay planner-only. Every workload has the same 105 special days, because a unit's holidays do not scale with its size: the 11 federal holidays of each year from the anchor year minus 1 to plus 2 (the years the Calendar reads), a training holiday on the Friday beside each Monday or Thursday holiday, and ten weekdays of holiday block leave from 22 December. About 17 of them fall inside the ±90-day window.
 
 ### Journeys
 
 | Journey                  | Page                          | Kind, effect       | Actors           | Timed step and useful render                                                              |
 | ------------------------ | ----------------------------- | ------------------ | ---------------- | ----------------------------------------------------------------------------------------- |
 | `calendar-initial`       | Calendar                      | load, read, cold   | both             | Month label, date cells, no loading text or skeleton                                      |
-| `calendar-range`         | Calendar in 3-Month           | interaction, read  | both             | `Next 3 Months` to the next quarter's label with Person rows                              |
+| `calendar-range`         | Calendar in 3-Month           | interaction, read  | both             | `Next 3 months` to the next quarter's label with Person rows                              |
 | `calendar-search`        | Calendar in 3-Month           | interaction, read  | both             | Search fill to exactly one Person row                                                     |
-| `assignment-save`        | Assignment Planner            | interaction, write | both             | Enter on the picked assignee to the slot showing that Person                              |
+| `assignment-save`        | Duty planner                  | interaction, write | both             | Enter on the picked assignee to the slot showing that Person and the picker closed        |
 | `personnel-list`         | Personnel                     | load, read, cold   | both             | Sentinel row or paused-roster notice, no skeleton                                         |
 | `personnel-search`       | Personnel                     | interaction, read  | both             | Search fill to the term's row with the sentinel gone                                      |
 | `personnel-filter`       | Personnel                     | interaction, read  | both             | Search fill `68W` to exactly the matching row count                                       |
@@ -114,7 +116,9 @@ The Training briefing detail is the affected-soldiers section below the report. 
 - Some labels are styled upper case. The accessibility snapshot shows `READY TODAY` while the document text is `Ready today`; milestones match document text.
 - Native `wait_for` matches one accessibility text node. The import's `5 ready` chip is two nodes and never matches, so a preparation step waits on single-node text such as `5 of 5 selected`.
 - Document text keeps markup indentation, so the members count reads `5`, a newline, tabs and `members`. Milestones collapse whitespace runs to one space before matching.
-- The 3-Month view renders its own virtual rows, not the month grid's. A Person row is a `.roster-rows .virtual-row` with status cells, and it shows the last name only.
+- The 3-Month view renders its own virtual rows, not the month grid's. A Person row is the `[data-person-id]` element inside `.roster-rows`; Group bands have none.
+- The Calendar writes the month it shows to the `ttt-calendar-anchor-date` cookie, and the server reads its first window around that anchor, while the page always opens on the current month. A `calendar-range` sample would leave the next visit a later anchor, so its `calendar-today` reset clicks `Today` and records the cookie it leaves.
+- The Duty planner's slot shows the picked Person before the write returns, and its picker closes only after it does. `assignment-save` waits for both, so its useful render is the confirmed save.
 - The roster dialog's save updates the open roster in place, while the detail page's basic-info save reruns every load on the page. Measure both; they are different costs.
 - A Group-scoped actor importing a file into another Group would import the rows unassigned, so the import file only names the scoped Group.
 - The roster shows `Details` to anyone who may manage the row, but the detail page needs the personnel configure capability. The scoped operator gets 403 there; `perfScopedLeader` measures the Group-scoped detail.

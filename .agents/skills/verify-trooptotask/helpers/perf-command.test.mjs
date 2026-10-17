@@ -41,9 +41,9 @@ const ledger = {
 	searchTerms: { wide: 'Able', scoped: 'Baker' },
 	journeyTerms: {
 		assignment: {
-			control: 'Select CQ assignee for 2026-10-01',
-			original: { label: 'SPC Baker, Bo - Alpha', search: 'Baker' },
-			alternate: { label: '2LT Cole, Cy - Alpha', search: 'Cole' }
+			control: 'CQ, Thu 1 Oct: ',
+			original: { label: 'SPC Baker, Bo', search: 'Baker' },
+			alternate: { label: '2LT Cole, Cy', search: 'Cole' }
 		},
 		edit: {
 			wide: { row: 'Open SPC Able, Alex', original: '68W', alternate: '42A' },

@@ -52,15 +52,15 @@ test('month labels follow the anchor across a year end', () => {
 
 test('write samples alternate so an even sample count ends on the seeded value', () => {
 	const assignment = {
-		control: 'Select CQ assignee for 2026-10-01',
-		original: { label: 'SPC Baker, Bo - Alpha', search: 'Baker' },
-		alternate: { label: '2LT Cole, Cy - Alpha', search: 'Cole' }
+		control: 'CQ, Thu 1 Oct: ',
+		original: { label: 'SPC Baker, Bo', search: 'Baker' },
+		alternate: { label: '2LT Cole, Cy', search: 'Cole' }
 	};
 	const save = journeys['assignment-save'];
 	assert.deepEqual(save.prepare({ assignment }, 0)[1], { type: 'Cole' });
-	assert.deepEqual(save.milestones({ assignment }, 0)[0].inside, {
-		'button[aria-label="Select CQ assignee for 2026-10-01"]': ['2LT Cole, Cy - Alpha']
-	});
+	assert.deepEqual(save.milestones({ assignment }, 0)[0].presentSelector, [
+		'button[aria-label^="CQ, Thu 1 Oct: 2LT Cole, Cy"]'
+	]);
 	assert.deepEqual(save.prepare({ assignment }, 5)[1], { type: 'Baker' });
 	const edit = { row: 'Open SPC Able, Alex', original: '68W', alternate: '42A' };
 	assert.deepEqual(journeys['personnel-detail-edit'].milestones({ edit }, 0)[0].present, ['/ 42A /']);

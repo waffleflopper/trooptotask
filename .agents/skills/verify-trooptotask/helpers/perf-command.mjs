@@ -642,6 +642,16 @@ export async function step(ctx, pageId, action) {
 }
 
 const resetActions = {
+	// `Today` writes the current month back to the anchor cookie; the read shows what the next visit sends.
+	'calendar-today': async (ctx, run) => {
+		await step(ctx, run.pageId, { click: { role: 'button', name: 'Today' } });
+		await step(ctx, run.pageId, { wait: [run.terms.month.quarter] });
+		const cookie = await ctx.evaluate(
+			run.pageId,
+			'() => document.cookie.match(/(?:^|; )ttt-calendar-anchor-date=([^;]*)/)?.[1] ?? null'
+		);
+		return { anchorCookie: cookie };
+	},
 	// The import adds new People every time, so each sample removes them and reads back their absence.
 	'imported-personnel': async (ctx, run) =>
 		removeImported({ client: await ctx.provider(), ownedState: ctx.ownedState, save: ctx.save, workload: run.workload })

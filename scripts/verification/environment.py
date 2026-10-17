@@ -484,6 +484,10 @@ class PerfDatabase(OwnedDatabase):
         return json.loads(output)
 
     def prepare(self):
+        # A backend reports its insert counts to the cumulative statistics up to 10 s after it goes
+        # idle (PGSTAT_IDLE_INTERVAL). Counts that land after the analyze start an autoanalyze about
+        # a minute later, so the seed's counts land first.
+        time.sleep(PERF_STATISTICS_FLUSH_SECONDS)
         self._execute("SET statement_timeout = '300s'", f"VACUUM (ANALYZE) {', '.join(PERF_PREPARED_TABLES)};")
 
     def read_tables(self):
@@ -506,6 +510,7 @@ class PerfDatabase(OwnedDatabase):
 # the Organization and the workload tables in perf-workloads.mjs. `perf-prepare` vacuums and
 # analyzes exactly these after a seed, so planner statistics and visibility do not depend on
 # when autovacuum next runs.
+PERF_STATISTICS_FLUSH_SECONDS = 11
 PERF_PREPARED_TABLES = (
     "auth.users", "auth.identities", "public.organizations", "public.organization_rank_catalog", "public.groups",
     "public.organization_memberships", "public.status_types", "public.assignment_types", "public.training_types",

@@ -1227,7 +1227,7 @@ Exports:
 
 `DataTable` props: `data?: T[]`, `columns?: ColumnDef<T>[]`, `table?: DataTableState<T>`, `initialSortKey?: string`, `initialSortDirection?: SortDirection`, `pageSize?: number`, `groupBy?: GroupDef<T>`, `filterFn?: (row: T, query: string) => boolean`, `ariaLabel?: string`, `emptyMessage?: string`, `emptyLevel?: 2 | 3 | 4` (heading level of the empty message, default `3`), `rowKey?: (row: T, index: number) => string | number`, `onRowClick?: (row: T) => void`, `rowActionLabel?: (row: T) => string`, `disabledRow?: (row: T) => boolean`, `rowDetailVisible?: (row: T) => boolean`, `loading?: boolean`, `loadingRows?: number`, `density?: 'default' | 'dense'`, `compact?: boolean`, `striped?: boolean`, `stickyHeader?: boolean`, `stickyFirstColumn?: boolean`, `maxHeight?: string`, `scrollRegionLabel?: string`
 
-Pass `scrollRegionLabel` when a wide table can scroll sideways. It names the scroll container as a focusable `region` (`Table.Root` takes the same prop) so keyboard users can scroll it.
+Pass `scrollRegionLabel` when a wide table can scroll sideways. It names the scroll container as a focusable `region` (`Table.Root` takes the same prop) so keyboard users can scroll it. `Table.Root` also takes `containerClass`, merged into that scroll container's classes, for a table that scrolls vertically inside its own region, such as the Monthly Assignment Planner's `max-h-[calc(100dvh-15rem)] min-h-64 overflow-y-auto`; `class` still styles the `table` element.
 
 Snippets: `cell?: (row: T, col: ColumnDef<T>)`, `row?: (row: T, cols: ColumnDef<T>[])`, `rowDetail?: (row: T)`, `headerCell?: (col: ColumnDef<T>)`, `groupHeader?: (ctx: GroupHeaderContext)`, `toolbar?: (table: DataTableState<T>)`, `footer?: (table: DataTableState<T>)`
 

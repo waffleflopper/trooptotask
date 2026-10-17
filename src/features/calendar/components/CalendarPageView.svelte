@@ -15,6 +15,7 @@
 	import { buildCalendarLanes } from '$features/calendar/utils/calendarLanes';
 	import { DRAG_TO_ADD_HINT, dutyMarkerLegend, statusLegend } from '$features/calendar/utils/calendarLegend';
 	import { dutyPickerOptions } from '$features/calendar/utils/dutyPickerOptions';
+	import { indexDutyAvailability, indexDutyHistory } from '$features/calendar/utils/dutyReadModel';
 	import { formatDate } from '$lib/utils/dates';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { stillInOrganizationLifetime } from '$lib/stores/core';
@@ -120,7 +121,9 @@
 			groups: groupsStore.items,
 			actions: ctx.canManageAssignments
 				? {
-						openDay: (typeId, date, anchor) => ctx.openDutyPicker(typeId, date, anchor),
+						// An open day offers no picker until its 90-day history has loaded.
+						openDay:
+							rangeStatus === 'ready' ? (typeId, date, anchor) => ctx.openDutyPicker(typeId, date, anchor) : undefined,
 						editDay: (date) => ctx.handleDateClick(date)
 					}
 				: undefined
@@ -142,6 +145,9 @@
 		untrack(() => ctx.closePopover());
 	});
 
+	const dutyHistory = $derived(indexDutyHistory(dailyAssignmentsStore.assignments));
+	const availabilityByPerson = $derived(indexDutyAvailability(availabilityStore.items));
+
 	const dutyPick = $derived.by(() => {
 		const pick = ctx.popover?.kind === 'duty' ? ctx.popover : null;
 		const type = pick && dailyAssignmentsStore.types.find((candidate) => candidate.id === pick.typeId);
@@ -159,8 +165,9 @@
 				dateKey,
 				personnel: ctx.allPersonnelFlat,
 				groups: groupsStore.items,
-				availabilityEntries: availabilityStore.items,
+				availabilityByPerson,
 				statusTypes: statusTypesStore.items,
+				history: dutyHistory,
 				currentAssigneeId: current?.assigneeId
 			})
 		};

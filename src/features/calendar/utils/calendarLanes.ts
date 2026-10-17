@@ -64,7 +64,8 @@ export function spanTrack<T>(Segment: Component<{ value: T }>, segments: readonl
 export type { AssignmentLaneDay, DaysLaneSegment };
 
 export interface CalendarLaneActions {
-	openDay(typeId: string, date: Date, anchor: HTMLElement): void;
+	/** Absent while an open day cannot offer a picker, so it renders no button. */
+	openDay?: (typeId: string, date: Date, anchor: HTMLElement) => void;
 	editDay(date: Date): void;
 }
 
@@ -111,7 +112,8 @@ export function buildCalendarLanes(input: CalendarLaneInput): CalendarLane[] {
 			const assigneeId = assigneeByDayType.get(`${dateKeys[index]}|${type.id}`);
 			const day = { dateLabel: dateLabels[index], typeName: type.name };
 			if (assigneeId === undefined) {
-				return actions ? { ...day, open: (anchor) => actions.openDay(type.id, date, anchor) } : day;
+				const openDay = actions?.openDay;
+				return openDay ? { ...day, open: (anchor) => openDay(type.id, date, anchor) } : day;
 			}
 			const assignee = assigneeLabel(type, assigneeId);
 			return actions ? { ...day, assignee, edit: () => actions.editDay(date) } : { ...day, assignee };

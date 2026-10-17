@@ -10,16 +10,39 @@ afterEach(() => {
 });
 
 const OPTIONS: DutyPickerOption[] = [
-	{ id: 'p-hale', prefix: 'SSG', label: 'Hale, Corey', current: false },
-	{ id: 'p-liang', prefix: 'SPC', label: 'Liang, Wei', unavailable: 'Leave 26 Oct – 3 Nov', current: false },
-	{ id: 'p-ortiz', prefix: 'SPC', label: 'Ortiz, Lucia', current: false }
+	{ kind: 'personnel', id: 'p-hale', prefix: 'SSG', label: 'Hale, Corey', current: false, lastDuty: { kind: 'none' } },
+	{
+		kind: 'personnel',
+		id: 'p-liang',
+		prefix: 'SPC',
+		label: 'Liang, Wei',
+		unavailable: 'Leave 26 Oct – 3 Nov',
+		current: false,
+		lastDuty: { kind: 'previous', date: '2026-09-16', daysSince: 41 }
+	},
+	{
+		kind: 'personnel',
+		id: 'p-ortiz',
+		prefix: 'SPC',
+		label: 'Ortiz, Lucia',
+		current: false,
+		lastDuty: { kind: 'previous', date: '2026-10-26', daysSince: 1 }
+	}
 ];
 
-function renderPicker(props: { assignTo?: 'personnel' | 'group'; options?: DutyPickerOption[] } = {}) {
+function renderPicker(
+	props: {
+		assignTo?: 'personnel' | 'group';
+		options?: DutyPickerOption[];
+		onAssign?: (id: string) => Promise<boolean>;
+		onClear?: () => Promise<boolean>;
+	} = {}
+) {
 	const anchor = document.createElement('button');
 	anchor.textContent = '+';
 	document.body.append(anchor);
-	const onAssign = vi.fn();
+	const onAssign = vi.fn(props.onAssign ?? (async () => true));
+	const onClear = props.onClear && vi.fn(props.onClear);
 	const onClose = vi.fn(() => view.unmount());
 	const view = render(DutyPicker, {
 		props: {
@@ -29,10 +52,11 @@ function renderPicker(props: { assignTo?: 'personnel' | 'group'; options?: DutyP
 			anchor,
 			options: props.options ?? OPTIONS,
 			onAssign,
+			onClear,
 			onClose
 		}
 	});
-	return { anchor, onAssign, onClose };
+	return { anchor, onAssign, onClear, onClose };
 }
 
 describe('DutyPicker', () => {
@@ -45,6 +69,19 @@ describe('DutyPicker', () => {
 		expect(liang.getAttribute('aria-label')).toMatch(/unavailable: Leave 26 Oct – 3 Nov/);
 	});
 
+	it('gives each person an accessible last-duty figure, including none in the window', async () => {
+		renderPicker();
+
+		expect((await screen.findByRole('option', { name: /Liang, Wei/ })).getAttribute('aria-label')).toContain(
+			'last on duty 41 days ago'
+		);
+		expect(screen.getByRole('option', { name: /Hale, Corey/ }).getAttribute('aria-label')).toContain(
+			'no duty in the last 90 days'
+		);
+		expect(screen.getByText('41d')).toBeTruthy();
+		expect(screen.getByText('none in 90d')).toBeTruthy();
+	});
+
 	it('filters by typed text and assigns the chosen person with Enter', async () => {
 		const { onAssign } = renderPicker();
 
@@ -54,16 +91,16 @@ describe('DutyPicker', () => {
 		expect(screen.getByRole('option', { name: /Ortiz, Lucia/ })).toBeTruthy();
 		await fireEvent.keyDown(search, { key: 'Enter' });
 
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 		expect(onAssign).toHaveBeenCalledWith('p-ortiz');
-		expect(screen.queryByRole('dialog')).toBeNull();
 	});
 
 	it('searches Groups for a Group duty', async () => {
 		const { onAssign } = renderPicker({
 			assignTo: 'group',
 			options: [
-				{ id: 'g-alpha', label: 'Alpha', current: false },
-				{ id: 'g-bravo', label: 'Bravo', current: false }
+				{ kind: 'group', id: 'g-alpha', label: 'Alpha', current: false },
+				{ kind: 'group', id: 'g-bravo', label: 'Bravo', current: false }
 			]
 		});
 
@@ -92,5 +129,47 @@ describe('DutyPicker', () => {
 
 		expect(onClose).toHaveBeenCalledTimes(1);
 		await waitFor(() => expect(document.activeElement).toBe(anchor));
+	});
+
+	it('stays open after a failed save and saves on the next try', async () => {
+		const { onAssign, onClose } = renderPicker({
+			onAssign: vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true)
+		});
+
+		await fireEvent.click(await screen.findByRole('option', { name: /Ortiz, Lucia/ }));
+		await waitFor(() => expect(onAssign).toHaveBeenCalledTimes(1));
+		await waitFor(() => expect(screen.getByRole('listbox').getAttribute('aria-busy')).toBe('false'));
+		expect(onClose).not.toHaveBeenCalled();
+		expect(screen.getByRole('dialog')).toBeTruthy();
+
+		await fireEvent.click(screen.getByRole('option', { name: /Ortiz, Lucia/ }));
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+		expect(onAssign).toHaveBeenCalledTimes(2);
+	});
+
+	it('ignores a second choice while a save is still pending', async () => {
+		let settle!: (saved: boolean) => void;
+		const { onAssign } = renderPicker({ onAssign: () => new Promise<boolean>((resolve) => (settle = resolve)) });
+
+		await fireEvent.click(await screen.findByRole('option', { name: /Ortiz, Lucia/ }));
+		await fireEvent.click(screen.getByRole('option', { name: /Hale, Corey/ }));
+		expect(onAssign).toHaveBeenCalledTimes(1);
+		settle(true);
+
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+	});
+
+	it('offers Clear assignment only when the caller can clear, and closes after it succeeds', async () => {
+		const withoutClear = renderPicker();
+		await screen.findByRole('dialog');
+		expect(screen.queryByRole('button', { name: 'Clear assignment' })).toBeNull();
+		withoutClear.onClose();
+		cleanup();
+
+		const { onClear } = renderPicker({ onClear: async () => true });
+		await fireEvent.click(await screen.findByRole('button', { name: 'Clear assignment' }));
+
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+		expect(onClear).toHaveBeenCalledTimes(1);
 	});
 });

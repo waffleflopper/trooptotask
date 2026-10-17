@@ -157,7 +157,7 @@
 	<CalendarPageView
 		{ctx}
 		data={viewData}
-		rangeStatus={rangeCoordinator.loading ? 'loading' : rangeCoordinator.error ? 'error' : 'ready'}
+		rangeStatus={rangeCoordinator.status(calendarReadRange(calendarStore.currentDate, ctx.viewMode))}
 		onRetryRange={() => rangeCoordinator.retryFailedRange()}
 	/>
 {/if}

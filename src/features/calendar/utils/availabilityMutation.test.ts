@@ -5,6 +5,7 @@ import {
 	buildAddRecords,
 	classifyAvailabilityOverlaps,
 	classifyAvailabilityWrite,
+	classifyBulkAddOverlaps,
 	rangesOverlap,
 	validateDateRange
 } from './availabilityMutation';
@@ -159,5 +160,76 @@ describe('classifyAvailabilityWrite', () => {
 				changes: { statusTypeId: 's1', startDate: '2026-02-02', endDate: '2026-02-03', note: null }
 			})
 		).toEqual(['2026-01-05', '2026-02-02']);
+	});
+});
+
+describe('classifyBulkAddOverlaps', () => {
+	const leave = 'leave';
+	const sick = 'sick';
+	const range = { rangeStart: '2026-10-26', rangeEnd: '2026-10-28' };
+	const classify = (entries: AvailabilityEntry[]) => classifyBulkAddOverlaps({ entries, statusTypeId: leave, range });
+
+	it('blocks a person whose same-status entry touches only the last selected day', () => {
+		const touching = entry({ id: 'a', statusTypeId: leave, startDate: '2026-10-28', endDate: '2026-10-31' });
+
+		expect(classify([touching]).get('p1')).toEqual({
+			kind: 'already-on-status',
+			sameStatus: [touching],
+			otherStatus: []
+		});
+	});
+
+	it('blocks a person whose same-status entry touches only the first selected day', () => {
+		const touching = entry({ id: 'a', statusTypeId: leave, startDate: '2026-10-20', endDate: '2026-10-26' });
+
+		expect(classify([touching]).get('p1')?.kind).toBe('already-on-status');
+	});
+
+	it('keeps a person with only another status selectable and lists that entry', () => {
+		const other = entry({ id: 'a', statusTypeId: sick, startDate: '2026-10-26', endDate: '2026-10-26' });
+
+		expect(classify([other]).get('p1')).toEqual({ kind: 'overlap', sameStatus: [], otherStatus: [other] });
+	});
+
+	it('lets the same status win when a person has both kinds, keeping both original ranges', () => {
+		const same = entry({ id: 'a', statusTypeId: leave, startDate: '2026-10-27', endDate: '2026-11-03' });
+		const other = entry({ id: 'b', statusTypeId: sick, startDate: '2026-10-01', endDate: '2026-10-26' });
+
+		expect(classify([other, same]).get('p1')).toEqual({
+			kind: 'already-on-status',
+			sameStatus: [same],
+			otherStatus: [other]
+		});
+	});
+
+	it('treats entries that end the day before or start the day after the range as clear', () => {
+		const before = entry({ id: 'a', statusTypeId: leave, startDate: '2026-10-20', endDate: '2026-10-25' });
+		const after = entry({
+			id: 'b',
+			personnelId: 'p2',
+			statusTypeId: sick,
+			startDate: '2026-10-29',
+			endDate: '2026-10-30'
+		});
+
+		expect(classify([before, after]).size).toBe(0);
+	});
+
+	it('keeps every intersecting entry of each person separate from other people', () => {
+		const first = entry({ id: 'a', statusTypeId: sick, startDate: '2026-10-20', endDate: '2026-10-26' });
+		const second = entry({ id: 'b', statusTypeId: 'tdy', startDate: '2026-10-28', endDate: '2026-10-29' });
+		const other = entry({
+			id: 'c',
+			personnelId: 'p2',
+			statusTypeId: leave,
+			startDate: '2026-10-27',
+			endDate: '2026-10-27'
+		});
+
+		const result = classify([first, second, other]);
+
+		expect(result.get('p1')).toEqual({ kind: 'overlap', sameStatus: [], otherStatus: [first, second] });
+		expect(result.get('p2')?.kind).toBe('already-on-status');
+		expect([...result.keys()].sort()).toEqual(['p1', 'p2']);
 	});
 });

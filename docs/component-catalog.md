@@ -1231,7 +1231,7 @@ Pass `scrollRegionLabel` when a wide table can scroll sideways. It names the scr
 
 Snippets: `cell?: (row: T, col: ColumnDef<T>)`, `row?: (row: T, cols: ColumnDef<T>[])`, `rowDetail?: (row: T)`, `headerCell?: (col: ColumnDef<T>)`, `groupHeader?: (ctx: GroupHeaderContext)`, `toolbar?: (table: DataTableState<T>)`, `footer?: (table: DataTableState<T>)`
 
-`ColumnDef<T>`: `key`, `header`, `value`, `headerAriaLabel?`, `searchValue?`, `compare?`, `searchable?`, `sortable?`, `align?`, `width?`, `rowHeader?`. A `rowHeader` column renders its body cells as `th scope="row"`, so each row is announced by that cell.
+`ColumnDef<T>`: `key`, `header`, `value`, `headerAriaLabel?`, `searchValue?`, `compare?`, `searchable?`, `sortable?`, `align?`, `width?`, `maxWidth?`, `rowHeader?`. A `rowHeader` column renders its body cells as `th scope="row"`, so each row is announced by that cell. Body cells are capped at 20rem and wrap; `maxWidth: 'none'` lifts the cap for a column whose content sets its own width, such as Roster Picker's availability day strip.
 
 `DataTableState<T>` provides: `columns`, `rows`, `allRows`, `groups`, `totalRows`, `totalPages`, `sortKey`, `sortDirection`, `search`, `page`, `pageSize`, `toggleSort()`, `setSearch()`, `setPage()`, `setPageSize()`, `toggleGroup()`, `expandAll()`, `collapseAll()`, `getRowKey()`, `isRowDisabled()`
 

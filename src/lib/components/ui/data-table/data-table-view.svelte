@@ -126,12 +126,13 @@
 		<th
 			scope="row"
 			data-slot="table-cell"
+			data-max-width={column.maxWidth}
 			class={cn('p-2 text-left align-middle font-normal whitespace-nowrap', alignClass)}
 		>
 			{#if cell}{@render cell(row, column)}{:else}{String(column.value(row) ?? '')}{/if}
 		</th>
 	{:else}
-		<Table.Cell class={alignClass}>
+		<Table.Cell class={alignClass} data-max-width={column.maxWidth}>
 			{#if cell}{@render cell(row, column)}{:else}{String(column.value(row) ?? '')}{/if}
 		</Table.Cell>
 	{/if}

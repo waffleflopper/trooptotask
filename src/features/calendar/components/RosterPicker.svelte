@@ -59,7 +59,8 @@
 		value: () => '',
 		searchable: false,
 		sortable: false,
-		align: 'right'
+		align: 'right',
+		maxWidth: 'none'
 	};
 	const tableColumns = $derived(availability ? [...columns, availabilityColumn] : columns);
 
@@ -148,8 +149,7 @@
 	}
 </script>
 
-<!-- The table caps cells at 20rem; the availability strip is as wide as its day window. -->
-<Card.Root class={availability && '[&_[data-slot=table-cell]:last-child]:max-w-none!'}>
+<Card.Root>
 	<Card.Header>
 		<BulkStepHeading eyebrow="Step 2" {tone} title="Who" />
 		<p class="text-sm text-muted-foreground">{selectedCount} of {table.totalRows} selected</p>

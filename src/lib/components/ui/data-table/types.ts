@@ -14,6 +14,8 @@ export interface ColumnDef<T> {
 	sortable?: boolean;
 	align?: 'left' | 'center' | 'right';
 	width?: string;
+	/** `'none'` lifts the default 20rem body-cell cap, for content with its own fixed width. */
+	maxWidth?: 'none';
 	/** Body cells in this column are the row's header (`th scope="row"`). */
 	rowHeader?: boolean;
 }

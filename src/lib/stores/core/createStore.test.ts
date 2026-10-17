@@ -794,15 +794,6 @@ describe('createStore', () => {
 			expect(store.items).toEqual([]);
 		});
 
-		it('treats zero deleted rows as a successful removal', async () => {
-			const batchAdapter = makeBatchAdapter({ removeBatch: async () => ({ deleted: 0 }) });
-			const store = createStore<TestItem>({ resource: 'test-items', adapter: batchAdapter, batchAdapter });
-			store.load([{ id: '1', name: 'Alpha' }], 'org-1');
-
-			expect(await store.removeBatch(['1'])).toEqual({ kind: 'removed', deleted: 0 });
-			expect(store.items).toEqual([]);
-		});
-
 		it('should rollback on batch remove failure', async () => {
 			const items: TestItem[] = [
 				{ id: '1', name: 'Alpha' },

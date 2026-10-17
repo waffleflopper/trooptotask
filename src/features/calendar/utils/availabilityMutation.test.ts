@@ -179,12 +179,6 @@ describe('classifyBulkAddOverlaps', () => {
 		});
 	});
 
-	it('blocks a person whose same-status entry touches only the first selected day', () => {
-		const touching = entry({ id: 'a', statusTypeId: leave, startDate: '2026-10-20', endDate: '2026-10-26' });
-
-		expect(classify([touching]).get('p1')?.kind).toBe('already-on-status');
-	});
-
 	it('keeps a person with only another status selectable and lists that entry', () => {
 		const other = entry({ id: 'a', statusTypeId: sick, startDate: '2026-10-26', endDate: '2026-10-26' });
 

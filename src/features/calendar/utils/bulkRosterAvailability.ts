@@ -34,7 +34,7 @@ export interface BulkRosterAvailability {
 	readonly rows: ReadonlyMap<string, BulkRosterAvailabilityRow>;
 }
 
-export const AVAILABLE_ROW: BulkRosterAvailabilityRow = {
+const AVAILABLE_ROW: BulkRosterAvailabilityRow = {
 	kind: 'available',
 	blocked: false,
 	hint: null,

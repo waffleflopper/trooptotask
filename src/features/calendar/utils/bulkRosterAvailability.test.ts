@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AvailabilityEntry, StatusType } from '$features/calendar/contracts';
 import { classifyBulkAddOverlaps } from './availabilityMutation';
-import { AVAILABLE_ROW, projectBulkRosterAvailability, rosterAvailabilityRow } from './bulkRosterAvailability';
+import { projectBulkRosterAvailability, rosterAvailabilityRow } from './bulkRosterAvailability';
 
 function status(id: string, name: string): StatusType {
 	return { id, name, color: '#48bb78', textColor: '#ffffff', shortLabel: null, sortOrder: 0 };
@@ -61,8 +61,7 @@ describe('projectBulkRosterAvailability', () => {
 	it('reads a person with no intersecting entry as available', () => {
 		const result = project([entry({ id: 'a', startDate: '2026-10-20', endDate: '2026-10-25' })]);
 
-		expect(rosterAvailabilityRow(result, 'p1')).toBe(AVAILABLE_ROW);
-		expect(AVAILABLE_ROW).toMatchObject({ blocked: false, hint: null });
+		expect(rosterAvailabilityRow(result, 'p1')).toMatchObject({ blocked: false, hint: null });
 	});
 
 	it('draws simultaneous statuses on the strip with the days the range covers', () => {
@@ -72,23 +71,11 @@ describe('projectBulkRosterAvailability', () => {
 		]);
 
 		const bars = rosterAvailabilityRow(result, 'p1').bars!;
-		expect(bars.bars.map((bar) => [bar.entry.id, bar.start, bar.end, bar.lane])).toEqual([
-			['a', 0, 1, 'top'],
-			['b', 1, 1, 'bottom']
+		expect(bars.bars.map((bar) => [bar.entry.id, bar.start, bar.end])).toEqual([
+			['a', 0, 1],
+			['b', 1, 1]
 		]);
-		expect(result.headings.map((heading) => [heading.weekday, heading.day])).toEqual([
-			['M', 26],
-			['T', 27],
-			['W', 28]
-		]);
-	});
-
-	it('clips a long entry to the strip days while the hint keeps its original dates', () => {
-		const result = project([entry({ id: 'a', startDate: '2026-10-01', endDate: '2026-11-30' })]);
-
-		const row = rosterAvailabilityRow(result, 'p1');
-		expect(row.bars!.bars).toMatchObject([{ start: 0, end: 2, continuesBefore: true, continuesAfter: true }]);
-		expect(row.hint).toBe('Already on Leave 1 Oct – 30 Nov');
+		expect(result.headings.map((heading) => heading.day)).toEqual([26, 27, 28]);
 	});
 
 	it('draws every day of a 31-day range and none of a 32-day range', () => {

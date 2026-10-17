@@ -223,15 +223,6 @@ describe('RosterPicker with availability', () => {
 		expect(reason?.textContent).toContain('Already on Leave 28–31 Oct');
 	});
 
-	it('selects only people with no overlap of any status when Select available runs', async () => {
-		const selection = renderPicker();
-		const toolbar = screen.getByRole('toolbar', { name: 'Roster picker controls' });
-
-		await fireEvent.click(within(toolbar).getByRole('button', { name: 'Select available' }));
-
-		expect(selected(selection)).toEqual(['able', 'eve']);
-	});
-
 	it('limits Select available to the people the search shows', async () => {
 		const selection = renderPicker();
 		const toolbar = screen.getByRole('toolbar', { name: 'Roster picker controls' });

@@ -19,6 +19,7 @@
 	 * With an `availability` projection the picker also shows each person's existing entries,
 	 * disables the people the projection blocks, and offers "Select available". Every way of
 	 * selecting a person checks eligibility here, because the selection state does not.
+	 * `disabled` freezes the selection, for example while it is being saved.
 	 */
 	interface GroupData {
 		group: string;
@@ -30,9 +31,10 @@
 		selection: DataTableSelectionState<Personnel>;
 		tone?: 'accent' | 'destructive';
 		availability?: BulkRosterAvailability;
+		disabled?: boolean;
 	}
 
-	let { personnelByGroup, selection, tone = 'accent', availability }: Props = $props();
+	let { personnelByGroup, selection, tone = 'accent', availability, disabled = false }: Props = $props();
 
 	const hintIdPrefix = $props.id();
 
@@ -93,6 +95,7 @@
 	}
 
 	function setSelected(person: Personnel, selected?: boolean) {
+		if (disabled) return;
 		const next = selected ?? !selection.isSelected(person, 0);
 		if (next && isBlocked(person)) return;
 		selection.toggleRow(person, 0, next);
@@ -110,14 +113,14 @@
 	}
 
 	function selectNone() {
-		selection.clear();
+		if (!disabled) selection.clear();
 	}
 
 	const toolbarItems = $derived<ToolbarItem[]>([
 		availability
-			? { kind: 'action', id: 'select-available', label: 'Select available', onclick: selectAvailable }
-			: { kind: 'action', id: 'select-shown', label: 'Select shown', onclick: selectShown },
-		{ kind: 'action', id: 'clear', label: 'Clear', onclick: selectNone }
+			? { kind: 'action', id: 'select-available', label: 'Select available', onclick: selectAvailable, disabled }
+			: { kind: 'action', id: 'select-shown', label: 'Select shown', onclick: selectShown, disabled },
+		{ kind: 'action', id: 'clear', label: 'Clear', onclick: selectNone, disabled }
 	]);
 
 	const groupStates = $derived(
@@ -178,7 +181,7 @@
 			<DataTable.SelectionCheckbox
 				checked={group?.state === 'all'}
 				indeterminate={group?.state === 'some'}
-				disabled={group?.enabled.length === 0}
+				disabled={disabled || group?.enabled.length === 0}
 				ariaLabel={`Select ${ctx.label} group`}
 				onCheckedChange={() => toggleGroup(ctx.key)}
 			/>
@@ -199,7 +202,7 @@
 				{@const projected = availability ? rosterAvailabilityRow(availability, row.id) : null}
 				<DataTable.SelectionCheckbox
 					checked={selection.isSelected(row, 0) && !projected?.blocked}
-					disabled={projected?.blocked}
+					disabled={disabled || projected?.blocked}
 					describedBy={projected?.hint ? hintId(row) : undefined}
 					ariaLabel={`Select ${row.rank} ${row.lastName}, ${row.firstName}`}
 					onCheckedChange={(checked) => setSelected(row, checked)}
@@ -212,7 +215,7 @@
 							id={hintId(row)}
 							class={[
 								'min-w-48 max-w-80 text-right font-mono text-[10px] leading-snug tracking-[0.06em] text-balance uppercase',
-								projected.blocked ? 'text-muted-foreground' : 'text-warning-foreground'
+								projected.blocked ? 'text-danger-foreground' : 'text-warning-foreground'
 							]}
 						>
 							{projected.hint}

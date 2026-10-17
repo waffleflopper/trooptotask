@@ -163,6 +163,7 @@
 					variant="outline"
 					class="flex-wrap gap-2 bg-transparent p-0"
 					aria-labelledby="bulk-add-status"
+					disabled={isSubmitting}
 					bind:value={
 						() => statusId,
 						(value) => {
@@ -179,17 +180,24 @@
 				</ToggleGroup.Root>
 			</Field.Root>
 
-			<div class="grid gap-2">
-				<div class="grid grid-cols-[1fr_auto_1fr] items-end gap-2">
-					<Field.Root>
-						<Field.Label for="startDate">Start Date</Field.Label>
-						<DatePicker id="startDate" bind:value={startDate} placeholder="Select start date" />
-					</Field.Root>
-					<ArrowRight class="mb-2.5 size-4 text-muted-foreground" aria-hidden="true" />
-					<Field.Root>
-						<Field.Label for="endDate">End Date</Field.Label>
-						<DatePicker id="endDate" bind:value={endDate} placeholder="Select end date" />
-					</Field.Root>
+			<Field.Set class="gap-2">
+				<Field.Legend variant="label">Dates</Field.Legend>
+				<div class="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+					<DatePicker
+						id="startDate"
+						aria-label="Start date"
+						bind:value={startDate}
+						placeholder="Select start date"
+						disabled={isSubmitting}
+					/>
+					<ArrowRight class="size-4 text-muted-foreground" aria-hidden="true" />
+					<DatePicker
+						id="endDate"
+						aria-label="End date"
+						bind:value={endDate}
+						placeholder="Select end date"
+						disabled={isSubmitting}
+					/>
 				</div>
 				{#if range.dayCount > 0}
 					<p class="text-xs text-muted-foreground">
@@ -197,7 +205,7 @@
 						{range.dayCount === 1 ? 'day' : 'days'}
 					</p>
 				{/if}
-			</div>
+			</Field.Set>
 
 			{#if range.error}
 				<Alert.Root id="date-error" variant="destructive">
@@ -211,6 +219,7 @@
 					id="bulkNote"
 					type="text"
 					bind:value={note}
+					disabled={isSubmitting}
 					maxlength={200}
 					placeholder="Optional note (e.g., JRTC rotation)"
 				/>
@@ -240,13 +249,13 @@
 				</Alert.Description>
 			</Alert.Root>
 		{/if}
-		<RosterPicker {personnelByGroup} {selection} {availability} />
+		<RosterPicker {personnelByGroup} {selection} {availability} disabled={isSubmitting} />
 	</div>
 </div>
 
 <section
 	aria-label="Bulk add summary"
-	class="sticky bottom-4 mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border bg-card p-3 shadow-md"
+	class="sticky bottom-4 mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-chrome-border bg-chrome p-3 text-chrome-text shadow-md"
 >
 	<p class="mr-auto flex min-w-0 flex-wrap items-center gap-2 text-sm" aria-live="polite">
 		{#if selectedStatus}
@@ -256,23 +265,24 @@
 				{batch.length === 1 ? 'person' : 'people'} · {datesLabel}
 			</span>
 		{:else}
-			<span class="text-muted-foreground">No status types are configured.</span>
+			<span class="text-chrome-text-muted">No status types are configured.</span>
 		{/if}
 	</p>
 	{#if overlapping.length > 0}
-		<p class="flex items-center gap-1.5 text-xs text-warning-foreground">
+		<p class="flex items-center gap-1.5 text-xs text-warning">
 			<TriangleAlert class="size-3.5" aria-hidden="true" />
-			{overlapping.length} overlaps existing {overlappedStatusNames}
+			{overlapping.length}
+			{overlapping.length === 1 ? 'person overlaps' : 'people overlap'} existing {overlappedStatusNames}
 		</p>
 	{/if}
 	{#if readStatus === 'loading'}
-		<p class="flex items-center gap-1.5 text-xs text-muted-foreground" role="status">
+		<p class="flex items-center gap-1.5 text-xs text-chrome-text-muted" role="status">
 			<Spinner class="size-3.5" />
 			Checking existing entries…
 		</p>
 	{/if}
-	<Button type="button" variant="outline" disabled={isSubmitting} onclick={() => selection.clear()}>Clear</Button>
-	<Button type="button" disabled={!canSave} onclick={handleSubmit}>
+	<Button type="button" variant="ghost" disabled={isSubmitting} onclick={() => selection.clear()}>Clear</Button>
+	<Button type="button" variant="accent" disabled={!canSave} onclick={handleSubmit}>
 		{#if isSubmitting}
 			<Spinner />
 			Applying...

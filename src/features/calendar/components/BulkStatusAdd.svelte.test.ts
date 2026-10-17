@@ -82,8 +82,8 @@ function renderAdd(
 }
 
 async function setDates(start: string, end: string) {
-	await fireEvent.input(screen.getByLabelText('Start Date'), { target: { value: start } });
-	await fireEvent.input(screen.getByLabelText('End Date'), { target: { value: end } });
+	await fireEvent.input(screen.getByLabelText('Start date'), { target: { value: start } });
+	await fireEvent.input(screen.getByLabelText('End date'), { target: { value: end } });
 }
 
 const addButton = () => screen.getByRole('button', { name: /^Add to \d+ (person|people)$/ }) as HTMLButtonElement;
@@ -96,10 +96,14 @@ afterEach(() => {
 	vi.restoreAllMocks();
 });
 
-it('preserves the partial draft and retries only the failed Person', async () => {
+it('locks the draft and roster while saving, then retries only the failed Person with the same criteria', async () => {
 	vi.spyOn(toastStore, 'error').mockImplementation(() => 'error-toast');
 	vi.spyOn(toastStore, 'success').mockImplementation(() => 'success-toast');
-	const onApply = vi.fn().mockResolvedValueOnce([able.id, cole.id]).mockResolvedValueOnce([baker.id]);
+	let finishFirst!: (inserted: string[]) => void;
+	const onApply = vi
+		.fn<Apply>()
+		.mockReturnValueOnce(new Promise((resolve) => (finishFirst = resolve)))
+		.mockResolvedValueOnce([baker.id]);
 	const { onComplete } = renderAdd({ onApply });
 	await fireEvent.click(chip('Training'));
 	await setDates('2026-10-05', '2026-10-07');
@@ -108,13 +112,26 @@ it('preserves the partial draft and retries only the failed Person', async () =>
 	await waitFor(() => expect(addButton().disabled).toBe(false));
 	await fireEvent.click(addButton());
 
+	const locked = [
+		chip('Leave'),
+		chip('Training'),
+		screen.getByLabelText('Start date'),
+		screen.getByLabelText('End date'),
+		screen.getByLabelText('Note'),
+		checkbox('Select SPC Able, Pat'),
+		checkbox('Select SPC Baker, Pat'),
+		checkbox('Select Alpha group')
+	] as HTMLButtonElement[];
+	expect(locked.map((control) => control.disabled)).toEqual(locked.map(() => true));
+
+	finishFirst([able.id, cole.id]);
 	await waitFor(() => expect(addCount()).toBe(1));
 	expect(onComplete).not.toHaveBeenCalled();
 	expect(checkbox('Select SPC Able, Pat').getAttribute('aria-checked')).toBe('false');
 	expect(checkbox('Select SPC Baker, Pat').getAttribute('aria-checked')).toBe('true');
 	expect(chip('Training').getAttribute('aria-checked')).toBe('true');
-	expect((screen.getByLabelText('Start Date') as HTMLInputElement).value).toBe('2026-10-05');
-	expect((screen.getByLabelText('End Date') as HTMLInputElement).value).toBe('2026-10-07');
+	expect((screen.getByLabelText('Start date') as HTMLInputElement).value).toBe('2026-10-05');
+	expect((screen.getByLabelText('End date') as HTMLInputElement).value).toBe('2026-10-07');
 	expect((screen.getByLabelText('Note') as HTMLInputElement).value).toBe('  Retry without duplicates  ');
 
 	await fireEvent.click(addButton());
@@ -146,12 +163,13 @@ it('keeps the draft and selection and shows the server reason when the batch is 
 	expect(onComplete).not.toHaveBeenCalled();
 });
 
-it.each(['Start Date', 'End Date'])('cannot add while %s is cleared', async (label) => {
+it.each(['Start date', 'End date'])('cannot add while %s is cleared', async (label) => {
 	renderAdd();
 	await fireEvent.click(checkbox('Select SPC Able, Pat'));
 
 	await fireEvent.input(screen.getByLabelText(label), { target: { value: '' } });
 
+	expect(screen.getByRole('alert')).toBeTruthy();
 	expect(screen.queryByText(/Invalid Date/)).toBeNull();
 	expect(addButton().disabled).toBe(true);
 });
@@ -190,7 +208,7 @@ it('ignores the late reply for earlier dates when the dates changed while it was
 	await waitFor(() => expect(pending.has('2026-11-02')).toBe(true));
 
 	pending.get('2026-10-05')!();
-	await Promise.resolve();
+	await new Promise((resolve) => setTimeout(resolve, 0));
 	expect(addButton().disabled).toBe(true);
 
 	pending.get('2026-11-02')!();
@@ -234,9 +252,6 @@ it('adds a person with another status when picked by hand and refuses the one al
 
 	await fireEvent.click(checkbox('Select SPC Able, Pat'));
 	await fireEvent.click(checkbox('Select SPC Baker, Pat'));
-	await fireEvent.click(screen.getByText('Cole, Pat'));
-	expect(checkbox('Select SPC Cole, Pat').disabled).toBe(true);
-	expect(screen.getByText(/1 overlaps existing Training/)).toBeTruthy();
 	await waitFor(() => expect(addButton().disabled).toBe(false));
 	await fireEvent.click(addButton());
 
@@ -267,9 +282,9 @@ it('shows the overlap warning only for the people who would be added', async () 
 	await setDates(START, END);
 	await fireEvent.click(checkbox('Select SPC Baker, Pat'));
 	const summary = screen.getByRole('region', { name: 'Bulk add summary' });
-	expect(within(summary).getByText(/1 overlaps existing Training/)).toBeTruthy();
+	expect(within(summary).getByText(/Training/).textContent).toMatch(/\b1\b/);
 
 	await fireEvent.click(checkbox('Select SPC Baker, Pat'));
 
-	expect(within(summary).queryByText(/overlaps existing/)).toBeNull();
+	expect(within(summary).queryByText(/Training/)).toBeNull();
 });

@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import * as PageShell from '$lib/components/patterns/page-shell';
-	import { WorkspaceToolbar, type ToolbarItem } from '$lib/components/patterns/workspace-toolbar';
+	import { Button } from '$lib/components/ui/button';
+	import * as ToggleGroup from '$lib/components/ui/toggle-group';
+	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import { CalendarRangeCoordinator } from '$features/calendar/contexts/CalendarRangeCoordinator.svelte';
 	import BulkStatusAdd from './BulkStatusAdd.svelte';
 	import BulkStatusRemove from './BulkStatusRemove.svelte';
@@ -61,6 +63,8 @@
 	});
 
 	function switchTab(tab: string) {
+		// A single toggle group emits '' when the pressed item is clicked again.
+		if (!TABS.some((option) => option.value === tab)) return;
 		const url = new URL(page.url);
 		url.searchParams.set('tab', tab);
 		const target = `${url.pathname}${url.search}` as `/org/${string}/calendar/bulk?${string}`;
@@ -78,28 +82,6 @@
 	);
 	const scopedPBG = $derived(rosterView.personnelByGroup);
 	const allPersonnelFlat = $derived(rosterView.flatPersonnel);
-	const toolbarItems = $derived<ToolbarItem[]>([
-		...(canMutate
-			? [
-					{
-						kind: 'view',
-						id: 'bulk-section',
-						label: 'Bulk status sections',
-						options: TABS,
-						value: activeTab,
-						onValueChange: switchTab
-					} satisfies ToolbarItem
-				]
-			: []),
-		{
-			kind: 'action',
-			id: 'calendar',
-			label: 'Back to calendar',
-			icon: 'arrow-left',
-			href: `/org/${orgUrlSegment}/calendar`
-		}
-	]);
-
 	// Add previews read through a coordinator of their own, seeded with what the Calendar workspace already loaded.
 	const rangeCoordinator = new CalendarRangeCoordinator();
 	$effect.pre(() => {
@@ -159,7 +141,22 @@
 <div class="mx-auto flex max-w-[1480px] flex-col gap-4 px-4 py-4 sm:px-6 sm:pb-6">
 	<PageShell.Header eyebrow="Calendar · Bulk status" title="Bulk status">
 		{#snippet aside()}
-			<WorkspaceToolbar ariaLabel="Bulk status controls" items={toolbarItems} />
+			{#if canMutate}
+				<ToggleGroup.Root
+					type="single"
+					size="sm"
+					bind:value={() => activeTab, switchTab}
+					aria-label="Bulk status sections"
+				>
+					{#each TABS as tab (tab.value)}
+						<ToggleGroup.Item value={tab.value}>{tab.label}</ToggleGroup.Item>
+					{/each}
+				</ToggleGroup.Root>
+			{/if}
+			<Button variant="outline" size="sm" href={`/org/${orgUrlSegment}/calendar`}>
+				<ArrowLeftIcon aria-hidden="true" />
+				Back to calendar
+			</Button>
 		{/snippet}
 	</PageShell.Header>
 

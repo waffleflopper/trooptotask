@@ -3,7 +3,6 @@ import { createClientAccess, type ClientAccessFacts } from '$lib/access/clientAc
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, act, within } from '@testing-library/svelte';
-import { stubToolbarWidths } from '$lib/test-support/toolbarWidths';
 import BulkStatusPage from './BulkStatusPage.svelte';
 
 const { gotoMock, loadCalendarRangeMock, mergeCalendarRangeIntoStoresMock, pageMock } = vi.hoisted(() => ({
@@ -124,7 +123,7 @@ describe('BulkStatusPage', () => {
 	it('switches tabs without resetting focus or scroll, and replaces the history entry', async () => {
 		renderPage();
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+		await fireEvent.click(screen.getByRole('radio', { name: 'Remove' }));
 
 		expect(gotoMock).toHaveBeenCalledWith('/org/org-1/calendar/bulk?tab=remove', {
 			replaceState: true,
@@ -139,35 +138,8 @@ describe('BulkStatusPage', () => {
 		renderPage();
 
 		const sections = screen.getByRole('group', { name: 'Bulk status sections' });
-		expect(within(sections).getByRole('button', { name: 'Import CSV' }).getAttribute('aria-pressed')).toBe('true');
-		expect(within(sections).getByRole('button', { name: 'Add' }).getAttribute('aria-pressed')).toBe('false');
-	});
-
-	it('switches sections and opens Calendar from More when the row folds', async () => {
-		const { layOut } = stubToolbarWidths();
-		renderPage();
-		await layOut(1);
-
-		const toolbar = screen.getByRole('toolbar', { name: 'Bulk status controls' });
-		expect(within(toolbar).queryByRole('group', { name: 'Bulk status sections' })).toBeNull();
-		const openMore = async () => {
-			const more = within(toolbar).getByRole('button', { name: 'More Bulk status controls' });
-			more.focus();
-			await fireEvent.keyDown(more, { key: 'Enter' });
-			return screen.findByRole('menu');
-		};
-
-		await fireEvent.click(within(await openMore()).getByRole('menuitemradio', { name: 'Remove' }));
-		expect(gotoMock).toHaveBeenCalledWith('/org/org-1/calendar/bulk?tab=remove', {
-			replaceState: true,
-			noScroll: true,
-			keepFocus: true
-		});
-
-		await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
-		await fireEvent.click(within(await openMore()).getByRole('menuitem', { name: 'Back to calendar' }));
-		await waitFor(() => expect(gotoMock).toHaveBeenLastCalledWith('/org/org-1/calendar'));
-		vi.unstubAllGlobals();
+		expect(within(sections).getByRole('radio', { name: 'Import CSV' }).getAttribute('aria-checked')).toBe('true');
+		expect(within(sections).getByRole('radio', { name: 'Add' }).getAttribute('aria-checked')).toBe('false');
 	});
 
 	it('previews Add dates the Calendar workspace already loaded without another request', async () => {

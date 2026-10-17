@@ -636,7 +636,8 @@ export async function seedWorkload({ client, fixture, name, tag, ownedState, sav
 		});
 	// Planner statistics and visibility of fresh rows otherwise wait for autovacuum, which runs
 	// at an unpredictable time during the first samples.
-	timings.prepare = await timed(prepare);
+	let prepared;
+	timings.prepare = await timed(async () => (prepared = await prepare()));
 	return {
 		workload: name,
 		tag,
@@ -655,6 +656,7 @@ export async function seedWorkload({ client, fixture, name, tag, ownedState, sav
 		sentinels: expanded.sentinels,
 		searchTerms: expanded.searchTerms,
 		journeyTerms: expanded.journeyTerms,
+		planCache: prepared.planCache,
 		timingsMs: { ...timings, total: Object.values(timings).reduce((sum, value) => sum + value, 0) }
 	};
 }

@@ -144,6 +144,7 @@ test('statement totals add each window and keep calls per window', () => {
 		role: 'authenticated',
 		calls: 32,
 		callsPerWindow: { n: 3, min: 10, median: 10, max: 12, samples: [10, 10, 12] },
+		plans: 0,
 		total_ms: 180,
 		mean_ms: 5.625,
 		rows: 320,
@@ -157,8 +158,44 @@ test('statement totals add each window and keep calls per window', () => {
 		]
 	);
 	assert.deepEqual(totals.byRole, [
-		{ role: 'authenticated', calls: 34, statements: 2, total_ms: 960 },
-		{ role: 'supabase_auth_admin', calls: 4, statements: 1, total_ms: 2 }
+		{ role: 'authenticated', calls: 34, plannableCalls: 0, plans: 0, statements: 2, total_ms: 960 },
+		{ role: 'supabase_auth_admin', calls: 4, plannableCalls: 0, plans: 0, statements: 1, total_ms: 2 }
+	]);
+});
+
+test('planning counts show executions that reused a generic plan, and utility statements are not plannable', () => {
+	const window = [
+		{ role: 'authenticated', queryid: '1', calls: 10, plans: 10, total_ms: 9, rows: 10, query: 'SELECT a FROM t' },
+		{
+			role: 'authenticated',
+			queryid: '2',
+			calls: 10,
+			plans: 4,
+			total_ms: 9,
+			rows: 10,
+			query: 'WITH x AS (SELECT 1) SELECT * FROM x'
+		},
+		{
+			role: 'authenticated',
+			queryid: '3',
+			calls: 10,
+			plans: 0,
+			total_ms: 1,
+			rows: 0,
+			query: 'BEGIN ISOLATION LEVEL READ COMMITTED'
+		},
+		{
+			role: 'authenticated',
+			queryid: '4',
+			calls: 20,
+			plans: 0,
+			total_ms: 1,
+			rows: 0,
+			query: 'SET LOCAL ROLE authenticated'
+		}
+	];
+	assert.deepEqual(statementTotals([window]).byRole, [
+		{ role: 'authenticated', calls: 50, plannableCalls: 20, plans: 14, statements: 4, total_ms: 20 }
 	]);
 });
 

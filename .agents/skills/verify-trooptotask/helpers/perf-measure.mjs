@@ -382,6 +382,11 @@ export function serverTimingPhases(samples) {
 	);
 }
 
+// Utility statements (BEGIN, SET, COMMIT) are never planned. Every other execution is planned
+// when a custom plan is used and not when a cached generic plan is, so `plans` below
+// `plannableCalls` means some executions reused a generic plan.
+const plannable = (row) => /^\s*(select|with|insert|update|delete)\b/i.test(row.query);
+
 /**
  * Totals per normalized statement over measured windows, one pg_stat_statements read per
  * sample taken between a reset just before the sample and the end of its network work.
@@ -395,11 +400,13 @@ export function statementTotals(windows, top = 15) {
 				role: row.role,
 				query: row.query,
 				calls: 0,
+				plans: 0,
 				total_ms: 0,
 				rows: 0,
 				perWindow: windows.map(() => 0)
 			};
 			item.calls += row.calls;
+			item.plans += row.plans ?? 0;
 			item.total_ms += row.total_ms;
 			item.rows += row.rows;
 			item.perWindow[index] += row.calls;
@@ -411,6 +418,7 @@ export function statementTotals(windows, top = 15) {
 		role: item.role,
 		calls: item.calls,
 		callsPerWindow: distribution(perWindow),
+		plans: item.plans,
 		total_ms: round(item.total_ms, 2),
 		mean_ms: round(item.total_ms / item.calls, 3),
 		rows: item.rows,
@@ -420,6 +428,8 @@ export function statementTotals(windows, top = 15) {
 		.map(([role, items]) => ({
 			role,
 			calls: items.reduce((total, item) => total + item.calls, 0),
+			plannableCalls: items.filter(plannable).reduce((total, item) => total + item.calls, 0),
+			plans: items.reduce((total, item) => total + item.plans, 0),
 			statements: items.length,
 			total_ms: round(
 				items.reduce((total, item) => total + item.total_ms, 0),

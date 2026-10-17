@@ -7,7 +7,14 @@ import { lastDutyBefore, type DutyAvailabilityIndex, type DutyHistoryIndex, type
 /** Someone or something a duty of this type may be given to, in name order. */
 export type AssigneeChoice =
 	| { readonly kind: 'group'; readonly id: string; readonly label: string }
-	| { readonly kind: 'personnel'; readonly id: string; readonly label: string; readonly prefix: string };
+	| {
+			readonly kind: 'personnel';
+			readonly id: string;
+			readonly label: string;
+			readonly prefix: string;
+			readonly role: string;
+			readonly mos: string;
+	  };
 
 export type DutyPickerOption =
 	| { readonly kind: 'group'; readonly id: string; readonly label: string; readonly current: boolean }
@@ -16,6 +23,8 @@ export type DutyPickerOption =
 			readonly id: string;
 			readonly label: string;
 			readonly prefix: string;
+			readonly role: string;
+			readonly mos: string;
 			readonly current: boolean;
 			/** Every availability entry covering the date, such as "Leave 26 Oct – 3 Nov". */
 			readonly unavailable?: string;
@@ -55,7 +64,9 @@ export function eligibleAssignees(
 			kind: 'personnel',
 			id: person.id,
 			label: `${person.lastName}, ${person.firstName}`,
-			prefix: person.rank
+			prefix: person.rank,
+			role: person.clinicRole,
+			mos: person.mos
 		}));
 }
 

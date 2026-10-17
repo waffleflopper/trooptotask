@@ -385,6 +385,7 @@
 	{#key dutyPick.anchor}
 		{#await loadDutyPicker() then { default: DutyPicker }}
 			<DutyPicker
+				typeId={dutyPick.type.id}
 				typeName={dutyPick.type.name}
 				assignTo={dutyPick.type.assignTo}
 				date={dutyPick.date}

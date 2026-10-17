@@ -4,17 +4,31 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/sv
 import DutyPicker from './DutyPicker.svelte';
 import type { DutyPickerOption } from '$features/calendar/utils/dutyPickerOptions';
 
+vi.mock('$lib/utils/browserStorage', () => ({ getBrowserLocalStorage: () => window.localStorage }));
+
 afterEach(() => {
 	cleanup();
+	window.localStorage.clear();
 	document.body.innerHTML = '';
 });
 
 const OPTIONS: DutyPickerOption[] = [
-	{ kind: 'personnel', id: 'p-hale', prefix: 'SSG', label: 'Hale, Corey', current: false, lastDuty: { kind: 'none' } },
+	{
+		kind: 'personnel',
+		id: 'p-hale',
+		prefix: 'SSG',
+		role: 'Medic',
+		mos: '68W',
+		label: 'Hale, Corey',
+		current: false,
+		lastDuty: { kind: 'none' }
+	},
 	{
 		kind: 'personnel',
 		id: 'p-liang',
 		prefix: 'SPC',
+		role: 'Medic',
+		mos: '68W',
 		label: 'Liang, Wei',
 		unavailable: 'Leave 26 Oct – 3 Nov',
 		current: false,
@@ -24,6 +38,8 @@ const OPTIONS: DutyPickerOption[] = [
 		kind: 'personnel',
 		id: 'p-ortiz',
 		prefix: 'SPC',
+		role: 'Driver',
+		mos: '88M',
 		label: 'Ortiz, Lucia',
 		current: false,
 		lastDuty: { kind: 'previous', date: '2026-10-26', daysSince: 1 }
@@ -32,6 +48,7 @@ const OPTIONS: DutyPickerOption[] = [
 
 function renderPicker(
 	props: {
+		typeId?: string;
 		assignTo?: 'personnel' | 'group';
 		options?: DutyPickerOption[];
 		onAssign?: (id: string) => Promise<boolean>;
@@ -47,6 +64,7 @@ function renderPicker(
 	const onClose = vi.fn(() => view.unmount());
 	const view = render(DutyPicker, {
 		props: {
+			typeId: props.typeId ?? 'type-staff-duty',
 			typeName: 'Staff Duty',
 			assignTo: props.assignTo ?? 'personnel',
 			date: new Date(2026, 9, 27),
@@ -99,6 +117,8 @@ describe('DutyPicker', () => {
 			kind: 'personnel',
 			id,
 			prefix: 'SPC',
+			role: '',
+			mos: '',
 			label,
 			current: false,
 			lastDuty: { kind: 'none' }
@@ -195,5 +215,111 @@ describe('DutyPicker', () => {
 
 		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 		expect(onClear).toHaveBeenCalledTimes(1);
+	});
+
+	describe('filters', () => {
+		const optionNames = () =>
+			screen
+				.getAllByRole('option')
+				.map((option) => option.getAttribute('aria-label')?.split(',').slice(0, 2).join(','));
+
+		async function choose(facet: string, value: string) {
+			const trigger = await screen.findByRole('button', { name: new RegExp(`^Filter by ${facet}`) });
+			await fireEvent.keyDown(trigger, { key: 'Enter' });
+			await fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: value }));
+		}
+
+		it('narrows the list to the chosen rank and keeps the menu open for more choices', async () => {
+			renderPicker();
+
+			await choose('Rank', 'SPC');
+
+			await waitFor(() => expect(optionNames()).toEqual(['SPC Liang, Wei', 'SPC Ortiz, Lucia']));
+			expect(screen.getByRole('menuitemcheckbox', { name: 'SPC' }).getAttribute('aria-checked')).toBe('true');
+			expect(screen.getByRole('menuitemcheckbox', { name: 'SSG' }).getAttribute('aria-checked')).toBe('false');
+			expect(screen.getByRole('button', { name: 'Filter by Rank' }).textContent).toContain('Rank · 1');
+		});
+
+		it('combines facets and says so when nobody is left', async () => {
+			renderPicker();
+
+			await choose('Rank', 'SSG');
+			await choose('Role', 'Driver');
+
+			expect(await screen.findByText('No one matches these filters.')).toBeTruthy();
+			expect(screen.queryAllByRole('option')).toEqual([]);
+		});
+
+		it('keeps the text search for a miss distinct from the filter message', async () => {
+			renderPicker();
+
+			await fireEvent.input(await screen.findByRole('combobox', { name: 'Find person' }), { target: { value: 'zzz' } });
+
+			expect(await screen.findByText('No one matches.')).toBeTruthy();
+		});
+
+		it('clears every filter at once', async () => {
+			renderPicker();
+			await choose('Rank', 'SPC');
+			await waitFor(() => expect(screen.getAllByRole('option')).toHaveLength(2));
+
+			await fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+			await fireEvent.click(await screen.findByRole('button', { name: 'Clear filters' }));
+
+			await waitFor(() => expect(screen.getAllByRole('option')).toHaveLength(3));
+			expect(screen.queryByRole('button', { name: 'Clear filters' })).toBeNull();
+		});
+
+		it('remembers the choice for the same assignment type and not for another', async () => {
+			const first = renderPicker({ typeId: 'type-a' });
+			await choose('Rank', 'SPC');
+			await waitFor(() => expect(screen.getAllByRole('option')).toHaveLength(2));
+			first.onClose();
+			cleanup();
+
+			renderPicker({ typeId: 'type-a' });
+			await screen.findByRole('dialog');
+			expect(optionNames()).toEqual(['SPC Liang, Wei', 'SPC Ortiz, Lucia']);
+			expect(screen.getByRole('button', { name: 'Filter by Rank' }).textContent).toContain('Rank · 1');
+			cleanup();
+
+			renderPicker({ typeId: 'type-b' });
+			await screen.findByRole('dialog');
+			expect(screen.getAllByRole('option')).toHaveLength(3);
+		});
+
+		it('keeps the picker open when a filter choice is pressed, since the menu is drawn outside it', async () => {
+			const { onClose } = renderPicker();
+			const trigger = await screen.findByRole('button', { name: 'Filter by Rank' });
+			await fireEvent.keyDown(trigger, { key: 'Enter' });
+
+			const item = await screen.findByRole('menuitemcheckbox', { name: 'SPC' });
+			await fireEvent.pointerDown(item);
+			await fireEvent.pointerUp(item);
+			await fireEvent.click(item);
+
+			await waitFor(() => expect(screen.getAllByRole('option')).toHaveLength(2));
+			expect(onClose).not.toHaveBeenCalled();
+		});
+
+		it('offers no filters for a Group duty', async () => {
+			renderPicker({ assignTo: 'group', options: [{ kind: 'group', id: 'g-alpha', label: 'Alpha', current: false }] });
+
+			await screen.findByRole('dialog');
+			expect(screen.queryByRole('button', { name: /^Filter by/ })).toBeNull();
+		});
+
+		it('closes only the filter menu on Escape, leaving the picker open', async () => {
+			const { onClose } = renderPicker();
+			const trigger = await screen.findByRole('button', { name: 'Filter by Rank' });
+			await fireEvent.keyDown(trigger, { key: 'Enter' });
+			await screen.findByRole('menu');
+
+			await fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+
+			await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+			expect(onClose).not.toHaveBeenCalled();
+			expect(screen.getByRole('dialog')).toBeTruthy();
+		});
 	});
 });

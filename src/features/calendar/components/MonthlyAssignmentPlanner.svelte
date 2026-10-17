@@ -21,6 +21,7 @@
 	import { assignmentSlotKey, indexAssignmentsBySlot } from '$features/calendar/utils/calendarIndexes';
 	import { plannerColumns } from '$features/calendar/utils/calendarLanes';
 	import { dutyPickerOptions, eligibleAssignees } from '$features/calendar/utils/dutyPickerOptions';
+	import { dutyFairness } from '$features/calendar/utils/dutyFairness';
 	import { findDutyConflicts, indexDutyAvailability, indexDutyHistory } from '$features/calendar/utils/dutyReadModel';
 	import { endOfMonth, formatDate, getMonthName, parseDate } from '$lib/utils/dates';
 	import { Button } from '$lib/components/ui/button';
@@ -29,6 +30,7 @@
 	import AssignmentCodeChip from './AssignmentCodeChip.svelte';
 	import AssignmentConflictsPanel from './AssignmentConflictsPanel.svelte';
 	import AssignmentPlannerColumnMenu from './AssignmentPlannerColumnMenu.svelte';
+	import DutyFairnessPanel from './DutyFairnessPanel.svelte';
 	import DutyPicker from './DutyPicker.svelte';
 
 	interface GroupData {
@@ -76,6 +78,8 @@
 		rangeEnd: formatDate(endOfMonth(monthStart))
 	});
 
+	const todayKey = formatDate(new Date());
+
 	const columns = $derived(plannerColumns(assignmentTypes));
 	const personnel = $derived(personnelByGroup.flatMap((group) => group.personnel));
 	const assignmentsBySlot = $derived(indexAssignmentsBySlot(assignments));
@@ -87,7 +91,7 @@
 	const table = $derived(
 		buildPlannerTable({
 			anchor: monthStart,
-			todayKey: formatDate(new Date()),
+			todayKey,
 			columns,
 			assignmentsBySlot,
 			conflicts,
@@ -96,6 +100,22 @@
 			specialDays,
 			statusTypes
 		})
+	);
+
+	let fairnessTypeId = $state<string | null>(null);
+	const fairnessType = $derived(columns.find((type) => type.id === fairnessTypeId) ?? columns[0]);
+	const fairness = $derived(
+		fairnessType &&
+			dutyFairness({
+				type: fairnessType,
+				month: monthRange,
+				todayKey,
+				personnel,
+				groups,
+				history,
+				availabilityByPerson,
+				statusTypes
+			})
 	);
 
 	type PickerTarget = { typeId: string; dateKey: string; anchor: HTMLElement };
@@ -317,7 +337,16 @@
 			</Table.Root>
 		</div>
 
-		<AssignmentConflictsPanel conflicts={table.conflicts} {busy} onFindReplacement={openPicker} />
+		<div class="grid grid-cols-[minmax(0,1fr)] gap-4">
+			<AssignmentConflictsPanel conflicts={table.conflicts} {busy} onFindReplacement={openPicker} />
+			{#if fairness}
+				<DutyFairnessPanel
+					types={columns}
+					bind:typeId={() => fairness.type.id, (id) => (fairnessTypeId = id)}
+					{fairness}
+				/>
+			{/if}
+		</div>
 	</div>
 {/if}
 

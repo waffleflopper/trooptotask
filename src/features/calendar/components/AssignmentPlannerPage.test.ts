@@ -214,7 +214,7 @@ it('saves a Group duty chosen in a cell or the column menu by the Group id', asy
 	}
 });
 
-it('offers a Group-scoped member only the Groups in their scope', async () => {
+it('offers a Group-scoped member only the Groups in their scope, in the pickers and the fairness panel', async () => {
 	mockOrg = makeOrg({ scopeSet: { kind: 'groups', groupIds: ['group-alpha'] } });
 	calendarStore.goToMonth(2026, 8);
 	const groupType = { ...modType, id: 'group-duty', name: 'Group Duty', shortName: 'GD', assignTo: 'group' as const };
@@ -228,6 +228,13 @@ it('offers a Group-scoped member only the Groups in their scope', async () => {
 	);
 	try {
 		renderPage();
+		const fairness = screen.getByRole('table', { name: 'Group Duty fairness' });
+		expect(
+			within(fairness)
+				.getAllByRole('rowheader')
+				.map((header) => header.textContent!.trim())
+		).toEqual(['Alpha']);
+
 		await fireEvent.click(screen.getByRole('button', { name: /^Assign Group Duty, Tue 1 Sept?/ }));
 
 		expect(await screen.findByRole('option', { name: 'Alpha' })).toBeTruthy();

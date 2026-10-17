@@ -34,6 +34,17 @@ const federalHolidayRows = z
 	)
 	.min(1);
 
+const closureDayRows = z.array(
+	z.object({
+		id: z.string(),
+		organization_id: z.string(),
+		date: z.string(),
+		name: z.string(),
+		type: z.literal('org-closure'),
+		created_at: z.string()
+	})
+);
+
 function holidayKeys(holidays: FederalHolidayDefault[]): string {
 	return JSON.stringify(holidays.map(({ date, name }) => JSON.stringify([date, name])).sort());
 }
@@ -249,14 +260,26 @@ export function createSupabaseCalendarCatalogPersistence(
 			if (result.error) throw new Error((result.error as { message: string }).message);
 			return (result.data ?? []).map(toSpecialDay);
 		},
-		async createSpecialDay(input) {
-			const { data, error } = await client
-				.from('special_days')
-				.insert({ organization_id: orgId, date: input.date, name: input.name, type: input.type })
-				.select(SPECIAL_DAY_FIELDS)
-				.single<SpecialDayRow>();
-			if (error) throw new Error(error.message);
-			return toSpecialDay(data);
+		async addClosureDays(name, dates) {
+			const rows = await calendarCommand(
+				client,
+				'add_closure_days',
+				{ p_organization_id: orgId, p_name: name, p_dates: dates },
+				closureDayRows
+			);
+			const requested = new Set(dates);
+			if (
+				new Set(rows.map(({ id }) => id)).size !== rows.length ||
+				rows.some(
+					(row, index) =>
+						row.organization_id !== orgId ||
+						row.name !== name ||
+						!requested.has(row.date) ||
+						(index > 0 && rows[index - 1].date >= row.date)
+				)
+			)
+				throw new Error('add_closure_days returned an unexpected result');
+			return rows.map(toSpecialDay);
 		},
 		async updateSpecialDay(id, patch) {
 			const { data, error } = await client

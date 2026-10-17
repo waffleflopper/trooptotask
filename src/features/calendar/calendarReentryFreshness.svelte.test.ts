@@ -132,6 +132,12 @@ function serverAcknowledges() {
 			}
 			if (method === 'DELETE') return Response.json({ success: true });
 			if (method === 'PUT') return Response.json(body);
+			if (body.action === 'addClosureDays') {
+				const dates: string[] = body.dates;
+				return Response.json({
+					created: dates.map((date) => ({ id: `saved-${++savedIds}`, name: body.name, date, type: 'org-closure' }))
+				});
+			}
 			return Response.json({ id: `saved-${++savedIds}`, ...body });
 		})
 	);
@@ -198,7 +204,7 @@ describe('Calendar re-entry freshness', () => {
 			endDate: '2026-10-22'
 		});
 		await availabilityStore.update('a1', { note: 'Saved by A' });
-		await specialDaysStore.add({ name: 'Closure by A', date: '2026-10-23', type: 'org-closure' });
+		await specialDaysStore.addClosureDays({ name: 'Closure by A', dates: ['2026-10-23'] });
 		await dailyAssignmentsStore.setAssignment('2026-10-12', 'cq', 'p3');
 
 		snapshot.release({
@@ -380,11 +386,11 @@ describe('Calendar re-entry freshness', () => {
 				if (JSON.parse(String(init.body)).action === 'resetFederalHolidays') {
 					return new Promise<Response>((resolve) => (acknowledgeReset = () => resolve(Response.json([holiday]))));
 				}
-				return Response.json({ id: 'saved-1', ...JSON.parse(String(init.body)) });
+				return Response.json({ created: [closure('saved-1', '2026-10-23')] });
 			})
 		);
 		const reset = specialDaysStore.resetFederalHolidays();
-		await specialDaysStore.add({ name: 'Closure by A', date: '2026-10-23', type: 'org-closure' });
+		await specialDaysStore.addClosureDays({ name: 'Closure by A', dates: ['2026-10-23'] });
 		acknowledgeReset();
 		expect(await reset).toBe('saved');
 

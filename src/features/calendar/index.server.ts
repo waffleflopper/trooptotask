@@ -8,7 +8,7 @@ export {
 export { createAvailabilityBatch, deleteAvailabilityBatch } from './availabilityBatch.server';
 export { createSupabaseCalendarAvailabilityRemovalPort } from './availabilityRemovalPersistence.server';
 export {
-	createSpecialDay,
+	addClosureDays,
 	updateSpecialDay,
 	deleteSpecialDay,
 	resetFederalHolidays

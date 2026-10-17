@@ -50,8 +50,10 @@
 		},
 		{
 			key: 'closures',
-			label: 'Closures',
-			description: 'Holidays & special days',
+			label: 'Holidays & closures',
+			description:
+				'Federal holidays and unit closures such as DONSAs. They shade the date column and appear by name in the Days lane.',
+			addLabel: 'New closure',
 			icon: CalendarOff,
 			getCount: () => specialDaysStore.items.length
 		}
@@ -130,7 +132,13 @@
 						onValueChange: (value) => (searchQuery = value)
 					}}
 					primary={canMutate
-						? { kind: 'action', id: 'add-new', label: 'Add new', icon: 'plus', onclick: openAddForActiveSection }
+						? {
+								kind: 'action',
+								id: 'add-new',
+								label: activeSectionDef.addLabel ?? 'Add new',
+								icon: 'plus',
+								onclick: openAddForActiveSection
+							}
 						: undefined}
 				/>
 			</div>

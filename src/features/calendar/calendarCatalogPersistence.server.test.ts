@@ -333,25 +333,17 @@ describe('Calendar ordinary catalog persistence', () => {
 		expect(
 			(await port.listSpecialDays({ rangeStart: '2026-10-06', rangeEnd: '2026-10-08' })).map(({ id }) => id)
 		).toEqual(['old-holiday', 'closure']);
-		expect(await port.createSpecialDay({ date: '2026-10-09', name: 'Stand down', type: 'org-closure' })).toEqual({
-			id: 'saved-1',
+		expect(await port.updateSpecialDay('closure', { name: 'Updated' })).toEqual({
+			id: 'closure',
 			organization_id: ORG,
 			created_at: TIME,
-			date: '2026-10-09',
-			name: 'Stand down',
-			type: 'org-closure'
-		});
-		expect(await port.updateSpecialDay('saved-1', { name: 'Updated' })).toEqual({
-			id: 'saved-1',
-			organization_id: ORG,
-			created_at: TIME,
-			date: '2026-10-09',
+			date: '2026-10-08',
 			name: 'Updated',
 			type: 'org-closure'
 		});
-		await port.deleteSpecialDay('saved-1');
-		await port.deleteSpecialDay('saved-1');
-		expect(state.rows.special_days.map(({ id }) => id)).toEqual(['closure', 'old-holiday', 'foreign']);
+		await port.deleteSpecialDay('closure');
+		await port.deleteSpecialDay('closure');
+		expect(state.rows.special_days.map(({ id }) => id)).toEqual(['old-holiday', 'foreign']);
 	});
 
 	it.each(['deleteStatusType', 'deleteAssignmentType', 'deleteSpecialDay'] as const)(
@@ -388,6 +380,15 @@ function calendarRpc(reply: () => Response | Promise<Response>) {
 function databaseError(code: string, message: string, status = 400) {
 	return () => Response.json({ code, message, details: null, hint: null }, { status });
 }
+
+const closureRow = (id: string, date: string, name = 'Holiday leave') => ({
+	id,
+	organization_id: COMMAND_ORG,
+	date,
+	name,
+	type: 'org-closure',
+	created_at: TIME
+});
 
 const holidayRow = (id: string, date: string, name: string) => ({
 	id,
@@ -433,6 +434,56 @@ describe('Calendar configuration commands', () => {
 		]);
 	});
 
+	it('adds closure days in one call bound to the Organization and returns the added rows', async () => {
+		const { calls, port } = calendarRpc(() =>
+			Response.json([closureRow('c-1', '2026-12-23'), closureRow('c-2', '2026-12-29')])
+		);
+		await expect(port.addClosureDays('Holiday leave', ['2026-12-29', '2026-12-25', '2026-12-23'])).resolves.toEqual([
+			{
+				id: 'c-1',
+				organization_id: COMMAND_ORG,
+				created_at: TIME,
+				date: '2026-12-23',
+				name: 'Holiday leave',
+				type: 'org-closure'
+			},
+			{
+				id: 'c-2',
+				organization_id: COMMAND_ORG,
+				created_at: TIME,
+				date: '2026-12-29',
+				name: 'Holiday leave',
+				type: 'org-closure'
+			}
+		]);
+		expect(calls).toEqual([
+			{
+				path: '/rest/v1/rpc/add_closure_days',
+				body: {
+					p_organization_id: COMMAND_ORG,
+					p_name: 'Holiday leave',
+					p_dates: ['2026-12-29', '2026-12-25', '2026-12-23']
+				}
+			}
+		]);
+	});
+
+	it('treats added rows that do not match the closure request as an internal error', async () => {
+		const dates = ['2026-12-23', '2026-12-24'];
+		for (const rows of [
+			[{ ...closureRow('c-1', '2026-12-23'), type: 'federal-holiday' }],
+			[{ ...closureRow('c-1', '2026-12-23'), organization_id: 'foreign-org' }],
+			[closureRow('c-1', '2026-12-23', 'Other leave')],
+			[closureRow('c-1', '2026-12-25')],
+			[closureRow('c-1', '2026-12-23'), closureRow('c-1', '2026-12-24')],
+			[closureRow('c-2', '2026-12-24'), closureRow('c-1', '2026-12-23')],
+			[closureRow('c-1', '2026-12-23'), closureRow('c-2', '2026-12-23')]
+		]) {
+			const unexpected = calendarRpc(() => Response.json(rows));
+			await expect(unexpected.port.addClosureDays('Holiday leave', dates)).rejects.not.toHaveProperty('status');
+		}
+	});
+
 	it('saves the Calendar lanes in one call and accepts the empty acknowledgment', async () => {
 		const { calls, port } = calendarRpc(() => new Response(null, { status: 204 }));
 		await expect(port.setCalendarLanes([GROUP, STAFF], [STAFF])).resolves.toBeUndefined();
@@ -475,7 +526,8 @@ describe('Calendar configuration commands', () => {
 		for (const command of [
 			() => port.setCalendarLanes([GROUP], [STAFF]),
 			() => port.setStatusTypeOrder([GROUP, STAFF], [STAFF, GROUP]),
-			() => port.resetFederalHolidays([{ date: '2026-12-25', name: 'Christmas Day' }])
+			() => port.resetFederalHolidays([{ date: '2026-12-25', name: 'Christmas Day' }]),
+			() => port.addClosureDays('Holiday leave', ['2026-12-23'])
 		]) {
 			const failure = await command().then(
 				() => undefined,
@@ -498,6 +550,10 @@ describe('Calendar configuration commands', () => {
 				publicMessage: true
 			});
 			await expect(port.resetFederalHolidays([{ date: '2026-12-25', name: 'Christmas Day' }])).rejects.toMatchObject({
+				status: 503,
+				publicMessage: true
+			});
+			await expect(port.addClosureDays('Holiday leave', ['2026-12-23'])).rejects.toMatchObject({
 				status: 503,
 				publicMessage: true
 			});

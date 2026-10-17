@@ -1,30 +1,31 @@
 /**
- * Calendar special-day operations — create, update, delete, and reset holidays.
+ * Calendar special-day operations — add closure days, update, delete, and reset holidays.
  *
  * Special days mark dates with custom labels on the calendar (training holidays, federal holidays,
  * unit stand-downs, etc.).
  */
-import { specialDayCreateInput, specialDayUpdateInput } from './calendarPersistenceMapping.server';
+import { closureDaysInput, specialDayUpdateInput } from './calendarPersistenceMapping.server';
 import { getDefaultFederalHolidays } from './utils/federalHolidays';
 import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy, type CalendarCatalogPorts } from './calendarPolicy.server';
 import { error } from '@sveltejs/kit';
-import type { SavedFederalHoliday } from './contracts';
+import type { SavedFederalHoliday, SavedSpecialDay } from './contracts';
 import { issueMessage } from '$lib/utils/inputSchemas';
 
 const action = CALENDAR_POLICY_ACTIONS.configureSpecialDays;
 const resource = { kind: 'organization' } as const;
 
-export async function createSpecialDay(ctx: CalendarCatalogPorts, input: Record<string, unknown>) {
-	const parsed = specialDayCreateInput.safeParse(input);
+/** One Special Day per new date; dates that already hold a holiday or closure are skipped. */
+export async function addClosureDays(
+	ctx: CalendarCatalogPorts,
+	input: Record<string, unknown>
+): Promise<{ created: SavedSpecialDay[] }> {
+	const parsed = closureDaysInput.safeParse(input);
 	if (!parsed.success) throw error(400, issueMessage(parsed.error));
 	await requireCalendarPolicy(ctx, action, resource);
-	const row = await ctx.calendarCatalogs.createSpecialDay(parsed.data);
-	ctx.audit.log({
-		action: 'special_day.created',
-		resourceType: 'special_day',
-		resourceId: row.id
-	});
-	return row;
+	const created = await ctx.calendarCatalogs.addClosureDays(parsed.data.name, parsed.data.dates);
+	for (const row of created)
+		ctx.audit.log({ action: 'special_day.created', resourceType: 'special_day', resourceId: row.id });
+	return { created };
 }
 
 export async function updateSpecialDay(ctx: CalendarCatalogPorts, input: Record<string, unknown>) {

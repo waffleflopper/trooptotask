@@ -8,6 +8,7 @@ import type {
 	SavedStatusType
 } from './contracts';
 import { fitsOneDayLabel, normalizeShortLabel } from './utils/oneDayLabel';
+import { MAX_CLOSURE_DAYS } from './utils/closureDays';
 
 type SavedRow = { organization_id?: string; created_at?: string };
 
@@ -160,12 +161,19 @@ const laneTypeIds = z
 	.array(uuidSchema)
 	.refine((ids) => new Set(ids).size === ids.length, 'Each assignment type can be one lane');
 export const calendarLanesInput = z.object({ laneTypeIds: laneTypeIds, expectedLaneTypeIds: laneTypeIds }).strict();
-export const specialDayCreateInput = z.object({
-	date: dateOnlySchema,
-	name: z.string(),
-	type: z.enum(['federal-holiday', 'org-closure'])
+export const specialDayUpdateInput = z
+	.object({ date: dateOnlySchema, name: z.string(), type: z.enum(['federal-holiday', 'org-closure']) })
+	.partial()
+	.extend({ id: uuidSchema });
+export const closureDaysInput = z.object({
+	action: z.literal('addClosureDays'),
+	name: z.string().trim().min(1, 'Name is required').max(120, 'Name must be 120 characters or fewer'),
+	dates: z
+		.array(dateOnlySchema)
+		.min(1, 'Pick at least one date')
+		.max(MAX_CLOSURE_DAYS, `A closure can cover at most ${MAX_CLOSURE_DAYS} days`)
+		.refine((dates) => new Set(dates).size === dates.length, 'Each date appears once')
 });
-export const specialDayUpdateInput = specialDayCreateInput.partial().extend({ id: uuidSchema });
 const DATE_RANGE_MESSAGE = 'End date must be on or after the start date';
 const availabilityFields = z.object({
 	personnelId: uuidSchema,

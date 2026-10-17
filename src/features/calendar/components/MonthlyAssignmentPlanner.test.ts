@@ -256,7 +256,15 @@ describe('MonthlyAssignmentPlanner fairness panel', () => {
 	function rowNames(table: HTMLElement) {
 		return within(table)
 			.getAllByRole('rowheader')
-			.map((header) => header.textContent!.replace(/\s+/g, ' ').trim());
+			.map((header) => {
+				const copy = header.cloneNode(true) as HTMLElement;
+				copy.querySelectorAll('[aria-hidden="true"]').forEach((hidden) => hidden.remove());
+				return copy.textContent!.replace(/\s+/g, ' ').trim();
+			});
+	}
+
+	function chooseType(name: string) {
+		return fireEvent.click(screen.getByRole('radio', { name }));
 	}
 
 	function rowCells(table: HTMLElement, name: RegExp) {
@@ -289,10 +297,12 @@ describe('MonthlyAssignmentPlanner fairness panel', () => {
 			within(table)
 				.getAllByRole('columnheader')
 				.map((header) => header.textContent!.trim())
-		).toEqual(['Name', 'Duties', 'Last duty']);
+		).toEqual(['Longest since last', 'Duties', 'Last']);
 		expect(rowNames(table)).toEqual(['SGT Okafor, Ife', 'SGT Kim, Jae-won']);
-		expect(rowCells(table, /Okafor/)).toEqual(['2', '2 Sept']);
-		expect(rowCells(table, /Kim/)).toEqual(['1', '24 Oct']);
+		expect(rowCells(table, /Okafor/)).toEqual(['2', '45d']);
+		expect(rowCells(table, /Kim/)).toEqual(['1', 'in 7d']);
+		expect(within(table).getByText('45d').getAttribute('title')).toBe('2 Sept');
+		expect(screen.getByText('SSG Hale is exempt.')).toBeTruthy();
 		expect(screen.queryByRole('button', { name: /^Show / })).toBeNull();
 	});
 
@@ -315,8 +325,8 @@ describe('MonthlyAssignmentPlanner fairness panel', () => {
 		expect(rowNames(staffTable())).not.toContain('SPC Kapoor, Pat');
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Show all 12' }));
-		await fireEvent.change(screen.getByRole('combobox', { name: 'Duty type' }), { target: { value: 'type-gd' } });
-		await fireEvent.change(screen.getByRole('combobox', { name: 'Duty type' }), { target: { value: 'type-sd' } });
+		await chooseType('Group Duty');
+		await chooseType('Staff Duty');
 
 		expect(rowNames(staffTable())).not.toContain('SPC Kapoor, Pat');
 		expect(screen.getByRole('button', { name: 'Show all 12' })).toBeTruthy();
@@ -328,15 +338,19 @@ describe('MonthlyAssignmentPlanner fairness panel', () => {
 			assignments: [duty('2026-09-02', 'type-gd', 'g-alpha')]
 		});
 
-		await fireEvent.change(screen.getByRole('combobox', { name: 'Duty type' }), { target: { value: 'type-gd' } });
+		await chooseType('Group Duty');
 
 		const table = screen.getByRole('table', { name: 'Group Duty fairness' });
-		expect(within(table).getAllByRole('columnheader')[0].textContent!.trim()).toBe('Group');
 		expect(rowNames(table)).toEqual(['Bravo', 'Alpha']);
 		expect(screen.queryByRole('table', { name: 'Staff Duty fairness' })).toBeNull();
+		expect(screen.queryByText(/is exempt\./)).toBeNull();
+
+		await fireEvent.click(screen.getByRole('radio', { name: 'Group Duty' }));
+
+		expect(screen.getByRole('table', { name: 'Group Duty fairness' })).toBeTruthy();
 	});
 
-	it('marks a person with leave still ahead as unavailable in words, and ignores leave already over', () => {
+	it('marks a person with leave still ahead as unavailable by status code and in words, and ignores leave already over', () => {
 		vi.useFakeTimers({ toFake: ['Date'], now: new Date(2026, 9, 17) });
 		renderPlanner({
 			availabilityEntries: [
@@ -345,10 +359,12 @@ describe('MonthlyAssignmentPlanner fairness panel', () => {
 			]
 		});
 
-		expect(rowNames(screen.getByRole('table', { name: 'Staff Duty fairness' }))).toEqual([
-			'SGT Kim, Jae-won Unavailable: Leave 20–22 Oct',
-			'SGT Okafor, Ife'
-		]);
+		const table = screen.getByRole('table', { name: 'Staff Duty fairness' });
+
+		expect(rowNames(table)).toEqual(['SGT Kim, Jae-won', 'SGT Okafor, Ife']);
+		expect(within(table).getByText('LEA').getAttribute('title')).toBe('Leave 20–22 Oct');
+		expect(within(table).getByText('Unavailable: Leave 20–22 Oct')).toBeTruthy();
+		expect(within(table).getAllByText(/^Unavailable:/)).toHaveLength(1);
 	});
 
 	it('says so when no one is eligible for the duty', () => {

@@ -1,10 +1,10 @@
 <script lang="ts">
 	import type { AssignmentType } from '$features/calendar/contracts';
-	import type { DutyFairness } from '$features/calendar/utils/dutyFairness';
+	import { DUTY_LOOKBACK_DAYS } from '$features/calendar/utils/calendarRange';
+	import { METER_CELLS, type DutyFairness } from '$features/calendar/utils/dutyFairness';
 	import { Button } from '$lib/components/ui/button';
-	import * as Field from '$lib/components/ui/field';
-	import { NativeSelect } from '$lib/components/ui/native-select';
 	import * as Table from '$lib/components/ui/table';
+	import * as ToggleGroup from '$lib/components/ui/toggle-group';
 
 	interface Props {
 		types: readonly AssignmentType[];
@@ -15,6 +15,8 @@
 	let { types, typeId = $bindable(), fairness }: Props = $props();
 
 	const COLLAPSED_ROWS = 10;
+	const headClass =
+		'h-8 py-0 px-[5px] font-mono text-[9.5px] font-normal tracking-wider text-muted-foreground uppercase';
 
 	const isGroupType = $derived(fairness.type.assignTo === 'group');
 	const listKey = $derived(`${fairness.type.id}:${fairness.window.end}`);
@@ -24,27 +26,40 @@
 	});
 	const hasMore = $derived(fairness.rows.length > COLLAPSED_ROWS);
 	const shownRows = $derived(expanded ? fairness.rows : fairness.rows.slice(0, COLLAPSED_ROWS));
+
+	function chooseType(value: string) {
+		// A single toggle group emits '' when the pressed item is clicked again.
+		if (types.some((type) => type.id === value)) typeId = value;
+	}
 </script>
 
-<section class="rounded-lg border bg-card" aria-labelledby="planner-fairness-title">
-	<header class="grid gap-3 border-b px-4 py-3">
-		<div class="grid gap-1">
-			<h2 id="planner-fairness-title" class="font-mono text-xs font-semibold tracking-widest uppercase">Fairness</h2>
-			<p id="planner-fairness-window" class="text-xs text-muted-foreground">
-				Duties {fairness.window.label}, including this month's plan. Longest since last duty first.
-			</p>
-		</div>
-		<Field.Root>
-			<Field.Label for="planner-fairness-type">Duty type</Field.Label>
-			<NativeSelect id="planner-fairness-type" size="sm" class="w-full" bind:value={typeId}>
-				{#each types as type (type.id)}
-					<option value={type.id}>{type.name}</option>
-				{/each}
-			</NativeSelect>
-		</Field.Root>
+<section class="overflow-clip rounded-lg border bg-card" aria-labelledby="planner-fairness-title">
+	<header class="grid gap-2.5 border-b px-3.5 py-3">
+		<h2
+			id="planner-fairness-title"
+			class="font-mono text-[10.5px] leading-3.5 font-semibold tracking-widest text-muted-foreground uppercase"
+		>
+			Fairness · {DUTY_LOOKBACK_DAYS} days
+		</h2>
+		<p id="planner-fairness-window" class="sr-only">
+			Duties {fairness.window.label}, including this month's plan. Longest since last duty first.
+		</p>
+		<ToggleGroup.Root
+			type="single"
+			size="sm"
+			aria-label="Duty type"
+			class="w-full flex-wrap"
+			bind:value={() => typeId, chooseType}
+		>
+			{#each types as type (type.id)}
+				<ToggleGroup.Item value={type.id} class="grow" aria-label={type.name} title={type.name}>
+					{type.shortName}
+				</ToggleGroup.Item>
+			{/each}
+		</ToggleGroup.Root>
 	</header>
 	{#if fairness.rows.length === 0}
-		<p class="px-4 py-3 text-sm text-muted-foreground">
+		<p class="px-3.5 py-3 text-sm text-muted-foreground">
 			{isGroupType ? 'No groups in your scope.' : 'No one is eligible for this duty.'}
 		</p>
 	{:else}
@@ -56,47 +71,56 @@
 			containerClass="max-h-96 overflow-y-auto"
 		>
 			<Table.Header class="sticky top-0 z-10 bg-card shadow-[0_1px_0_var(--color-border)]">
-				<Table.Row class="bg-muted/40 hover:bg-muted/40">
-					<Table.Head scope="col" class="h-8 px-2 font-mono text-xs tracking-wider uppercase">
-						{isGroupType ? 'Group' : 'Name'}
-					</Table.Head>
-					<Table.Head scope="col" class="h-8 w-16 px-2 text-right font-mono text-xs tracking-wider uppercase">
-						Duties
-					</Table.Head>
-					<Table.Head scope="col" class="h-8 w-24 px-2 font-mono text-xs tracking-wider uppercase">Last duty</Table.Head
-					>
+				<Table.Row class="bg-muted hover:bg-muted">
+					<Table.Head scope="col" class={[headClass, 'pl-3.5']}>Longest since last</Table.Head>
+					<Table.Head scope="col" class={[headClass, 'w-[55px]']}><span class="sr-only">Duties</span></Table.Head>
+					<Table.Head scope="col" class={[headClass, 'w-[68px] pr-3.5 text-right']}>Last</Table.Head>
 				</Table.Row>
 			</Table.Header>
 			<Table.Body>
 				{#each shownRows as row (row.id)}
 					{@const unavailable = row.kind === 'personnel' ? row.unavailable : undefined}
-					<Table.Row>
+					<Table.Row class="h-[38px]">
 						<Table.Head
 							scope="row"
 							class={[
-								'h-auto px-2 py-1.5 font-normal break-words whitespace-normal',
+								'h-auto py-0 pr-1 pl-3.5 font-normal break-words whitespace-normal',
 								unavailable && 'text-muted-foreground'
 							]}
 						>
-							<span class="flex items-baseline gap-1.5">
-								{#if row.kind === 'personnel' && row.prefix}
-									<span class="font-mono text-[10px] font-semibold text-muted-foreground uppercase">{row.prefix}</span>
+							<span class="flex items-baseline gap-[5px]">
+								{#if row.kind === 'personnel'}
+									{#if row.prefix}
+										<span class="font-mono text-[10px] text-muted-foreground uppercase">{row.prefix}</span>
+									{/if}
+									<span class={unavailable ? '' : 'font-medium'} aria-hidden="true">{row.name}</span>
+									<span class="sr-only">{row.label}</span>
+								{:else}
+									<span class="font-medium">{row.label}</span>
 								{/if}
-								<span class={unavailable ? '' : 'font-medium'}>{row.label}</span>
 							</span>
-							{#if unavailable}
-								<span class="block font-mono text-[10px] uppercase">
-									<span class="sr-only">Unavailable:</span>
-									{unavailable}
-								</span>
-							{/if}
 						</Table.Head>
-						<Table.Cell class={['px-2 py-1.5 text-right tabular-nums', unavailable && 'text-muted-foreground']}>
-							{row.count}
+						<Table.Cell class="px-[5px] py-0">
+							<span class="flex gap-[3px]" title="{row.count} {row.count === 1 ? 'duty' : 'duties'}">
+								{#each { length: METER_CELLS }, cell (cell)}
+									<span
+										class={[
+											'size-[9px] shrink-0 rounded-sm',
+											cell < row.meter ? 'bg-destructive' : 'bg-border',
+											unavailable && 'opacity-50'
+										]}
+										aria-hidden="true"
+									></span>
+								{/each}
+							</span>
+							<span class="sr-only">{row.count}</span>
 						</Table.Cell>
-						<Table.Cell class={['px-2 py-1.5 font-mono text-xs', unavailable && 'text-muted-foreground']}>
-							{#if row.lastDuty}
-								<time datetime={row.lastDuty.date}>{row.lastDuty.label}</time>
+						<Table.Cell class="py-0 pr-3.5 pl-[5px] text-right font-mono text-[10px] text-muted-foreground">
+							{#if unavailable}
+								<span title={unavailable.label} aria-hidden="true">{unavailable.code}</span>
+								<span class="sr-only">Unavailable: {unavailable.label}</span>
+							{:else if row.lastDuty}
+								<time datetime={row.lastDuty.date} title={row.lastDuty.dateLabel}>{row.lastDuty.relative}</time>
 							{:else}
 								None
 							{/if}
@@ -112,5 +136,8 @@
 				</Button>
 			</div>
 		{/if}
+	{/if}
+	{#if fairness.exemptNote}
+		<p class="border-t px-3.5 py-2.5 text-[13px] text-muted-foreground">{fairness.exemptNote}</p>
 	{/if}
 </section>

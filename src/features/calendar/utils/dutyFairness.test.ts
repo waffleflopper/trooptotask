@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { AssignmentType, AvailabilityEntry, DailyAssignment } from '$features/calendar/contracts';
+import type { AssignmentType, AvailabilityEntry, DailyAssignment, StatusType } from '$features/calendar/contracts';
 import type { Group, Personnel } from '$features/personnel/contracts';
 import { calendarReadRange } from './calendarRange';
 import { dutyFairness, type DutyFairnessRow } from './dutyFairness';
@@ -41,6 +41,7 @@ function fairness(
 		groups?: Group[];
 		month?: typeof OCTOBER;
 		todayKey?: string;
+		statusTypes?: StatusType[];
 	} = {}
 ) {
 	const { assignments = [], entries = [], ...input } = overrides;
@@ -58,7 +59,11 @@ function fairness(
 }
 
 function unavailable(row: DutyFairnessRow) {
-	return row.kind === 'personnel' ? row.unavailable : undefined;
+	return row.kind === 'personnel' ? row.unavailable?.label : undefined;
+}
+
+function unavailableCode(row: DutyFairnessRow) {
+	return row.kind === 'personnel' ? row.unavailable?.code : undefined;
 }
 
 function ranking(result: ReturnType<typeof fairness>) {
@@ -165,6 +170,85 @@ describe('dutyFairness', () => {
 		]);
 	});
 
+	describe('last duty', () => {
+		const lastDuty = (date: string) =>
+			fairness({ assignments: [duty(date, 'p-avery')] }).rows.find((row) => row.id === 'p-avery')!.lastDuty;
+
+		it('reads Today, days ago or days ahead against today, and keeps the dated label for the tooltip', () => {
+			expect(lastDuty('2026-10-17')).toEqual({ date: '2026-10-17', dateLabel: '17 Oct', relative: 'Today' });
+			expect(lastDuty('2026-09-06')).toEqual({ date: '2026-09-06', dateLabel: '6 Sept', relative: '41d' });
+			expect(lastDuty('2026-10-16')?.relative).toBe('1d');
+			expect(lastDuty('2026-10-24')?.relative).toBe('in 7d');
+		});
+	});
+
+	describe('meter', () => {
+		function meters(counts: number[]) {
+			const people = counts.map((_, index) => person(`p-${index}`, `Name${index}`));
+			const assignments = counts.flatMap((count, index) =>
+				Array.from({ length: count }, (_, day) => duty(`2026-09-${String(day + 1).padStart(2, '0')}`, `p-${index}`))
+			);
+			const result = fairness({ personnel: people, assignments });
+			return new Map(result.rows.map((row) => [row.id, row.meter]));
+		}
+
+		it('fills one cell per duty while the busiest person has no more than four', () => {
+			const byId = meters([0, 2, 4]);
+
+			expect([byId.get('p-0'), byId.get('p-1'), byId.get('p-2')]).toEqual([0, 2, 4]);
+		});
+
+		it('scales to the busiest person beyond four, always filling a cell for any duty', () => {
+			const byId = meters([0, 1, 5, 12]);
+
+			expect([byId.get('p-0'), byId.get('p-1'), byId.get('p-2'), byId.get('p-3')]).toEqual([0, 1, 2, 4]);
+		});
+	});
+
+	describe('exempt note', () => {
+		const crew = [
+			{ ...person('p-moreno', 'Moreno'), rank: '1SG' },
+			{ ...person('p-whitaker', 'Whitaker'), rank: 'SFC' },
+			person('p-avery', 'Avery')
+		];
+
+		it('names one exempt person in the personnel order it is given', () => {
+			const result = fairness({
+				personnel: crew,
+				type: { ...staffDuty, exemptPersonnelIds: ['p-whitaker'] }
+			});
+
+			expect(result.exemptNote).toBe('SFC Whitaker is exempt.');
+		});
+
+		it('joins two with "and"', () => {
+			const result = fairness({
+				personnel: crew,
+				type: { ...staffDuty, exemptPersonnelIds: ['p-whitaker', 'p-moreno'] }
+			});
+
+			expect(result.exemptNote).toBe('1SG Moreno and SFC Whitaker are exempt.');
+		});
+
+		it('is null when no one is exempt, and for a Group type', () => {
+			expect(fairness({ personnel: crew }).exemptNote).toBeNull();
+			expect(
+				fairness({
+					personnel: crew,
+					type: { ...staffDuty, assignTo: 'group', exemptPersonnelIds: ['p-moreno'] }
+				}).exemptNote
+			).toBeNull();
+		});
+	});
+
+	describe('person name', () => {
+		it('is the last name, the planner cell short name', () => {
+			const row = fairness({ personnel: [person('p-avery', 'Avery', 'Pat')] }).rows[0];
+
+			expect(row.kind === 'personnel' && row.name).toBe('Avery');
+		});
+	});
+
 	describe('unavailability', () => {
 		const entries = [
 			away('p-avery', '2026-10-05', '2026-10-17'),
@@ -179,6 +263,28 @@ describe('dutyFairness', () => {
 				['Avery, Pat', 'Leave 5–17 Oct'],
 				['Bell, Pat', 'Leave 30 Oct – 4 Nov'],
 				['Cole, Pat', undefined]
+			]);
+		});
+
+		it('names the first overlapping entry by its stored short label, or by one derived from the status name', () => {
+			const statusTypes = [
+				{ id: 'tdy', name: 'Temporary Duty', color: '#2563eb', textColor: '#fff', shortLabel: 'TDY', sortOrder: 0 },
+				{ id: 'leave', name: 'Leave', color: '#16a34a', textColor: '#fff', shortLabel: null, sortOrder: 1 }
+			];
+			const result = fairness({
+				statusTypes,
+				entries: [
+					{ id: 'e-1', personnelId: 'p-avery', statusTypeId: 'tdy', startDate: '2026-10-20', endDate: '2026-10-21' },
+					{ id: 'e-2', personnelId: 'p-avery', statusTypeId: 'leave', startDate: '2026-10-25', endDate: '2026-10-26' },
+					{ id: 'e-3', personnelId: 'p-bell', statusTypeId: 'leave', startDate: '2026-10-20', endDate: '2026-10-21' },
+					{ id: 'e-4', personnelId: 'p-cole', statusTypeId: 'gone', startDate: '2026-10-20', endDate: '2026-10-21' }
+				]
+			});
+
+			expect(result.rows.map((row) => [row.label, unavailableCode(row)])).toEqual([
+				['Avery, Pat', 'TDY'],
+				['Bell, Pat', 'LEA'],
+				['Cole, Pat', 'UNA']
 			]);
 		});
 

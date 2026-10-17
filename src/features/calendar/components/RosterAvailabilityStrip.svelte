@@ -21,13 +21,11 @@
 <span
 	data-slot="roster-availability-strip"
 	aria-hidden="true"
-	class="grid h-5 shrink-0 grid-rows-2 gap-px"
+	class="day-boxes relative isolate ml-auto grid h-5 shrink-0 grid-rows-2 gap-px"
 	style:grid-template-columns="repeat({days}, minmax(0, 1fr))"
+	style:--days={days}
 	style:width="{days * 1.625}rem"
 >
-	{#each { length: days }, day (day)}
-		<span class="row-span-2 mx-px rounded-[3px] border border-border bg-card" style:grid-column={day + 1}></span>
-	{/each}
 	{#if layout}
 		{#each layout.bars as bar (bar.entry.id)}
 			<StatusBar
@@ -52,3 +50,25 @@
 		{/each}
 	{/if}
 </span>
+
+<style>
+	/* One box per day drawn as a tiled mask, so a row with no entries is a single element. The tile
+	   pitch is the grid's column pitch: (width + 1px of column gap) / days. */
+	.day-boxes::before,
+	.day-boxes::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		z-index: -1;
+		mask-repeat: repeat-x;
+		mask-size: calc((100% + 1px) / var(--days)) 100%;
+	}
+	.day-boxes::before {
+		background: var(--color-border);
+		mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 20' preserveAspectRatio='none'%3E%3Crect x='1' width='23' height='20' rx='3'/%3E%3C/svg%3E");
+	}
+	.day-boxes::after {
+		background: var(--color-card);
+		mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 20' preserveAspectRatio='none'%3E%3Crect x='2' y='1' width='21' height='18' rx='2'/%3E%3C/svg%3E");
+	}
+</style>

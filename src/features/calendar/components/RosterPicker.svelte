@@ -209,22 +209,24 @@
 				/>
 			{:else if col.key === 'availability' && availability}
 				{@const projected = rosterAvailabilityRow(availability, row.id)}
-				<div class="flex items-center justify-end gap-3">
-					{#if projected.hint}
+				{#if projected.hint}
+					<div class="flex items-center justify-end gap-3">
 						<span
 							id={hintId(row)}
 							class={[
-								'min-w-48 max-w-80 text-right font-mono text-[10px] leading-snug tracking-[0.06em] text-balance uppercase',
+								'max-w-80 min-w-48 text-right font-mono text-[10px] leading-snug tracking-[0.06em] text-balance uppercase',
 								projected.blocked ? 'text-danger-foreground' : 'text-warning-foreground'
 							]}
 						>
 							{projected.hint}
 						</span>
-					{/if}
-					{#if availability.window}
-						<RosterAvailabilityStrip days={availability.window.days} layout={projected.bars} />
-					{/if}
-				</div>
+						{#if availability.window}
+							<RosterAvailabilityStrip days={availability.window.days} layout={projected.bars} />
+						{/if}
+					</div>
+				{:else if availability.window}
+					<RosterAvailabilityStrip days={availability.window.days} layout={projected.bars} />
+				{/if}
 			{:else}
 				{String(col.value(row) ?? '')}
 			{/if}

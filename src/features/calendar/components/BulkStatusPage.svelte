@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
+	import * as PageShell from '$lib/components/patterns/page-shell';
 	import { WorkspaceToolbar, type ToolbarItem } from '$lib/components/patterns/workspace-toolbar';
+	import { CalendarRangeCoordinator } from '$features/calendar/contexts/CalendarRangeCoordinator.svelte';
 	import BulkStatusAdd from './BulkStatusAdd.svelte';
 	import BulkStatusRemove from './BulkStatusRemove.svelte';
 	import BulkStatusImport from './BulkStatusImport.svelte';
@@ -49,7 +51,7 @@
 	const TABS: { value: Tab; label: string }[] = [
 		{ value: 'add', label: 'Add' },
 		{ value: 'remove', label: 'Remove' },
-		{ value: 'import', label: 'Import' }
+		{ value: 'import', label: 'Import CSV' }
 	];
 
 	const activeTab = $derived.by<Tab>(() => {
@@ -89,8 +91,23 @@
 					} satisfies ToolbarItem
 				]
 			: []),
-		{ kind: 'action', id: 'calendar', label: 'Calendar', href: `/org/${orgUrlSegment}/calendar` }
+		{
+			kind: 'action',
+			id: 'calendar',
+			label: 'Back to calendar',
+			icon: 'arrow-left',
+			href: `/org/${orgUrlSegment}/calendar`
+		}
 	]);
+
+	// Add previews read through a coordinator of their own, seeded with what the Calendar workspace already loaded.
+	const rangeCoordinator = new CalendarRangeCoordinator();
+	$effect.pre(() => {
+		const { rangeStart, rangeEnd } = data.calendar?.data ?? {};
+		rangeCoordinator.reset();
+		if (rangeStart && rangeEnd) rangeCoordinator.includeBootstrap({ rangeStart, rangeEnd });
+		return () => rangeCoordinator.reset();
+	});
 
 	// Each mounted scope owns its pending range loads, even after A → B → A.
 	let active = true;
@@ -140,6 +157,7 @@
 </script>
 
 <div class="mx-auto flex max-w-[1480px] flex-col gap-4 px-4 py-4 sm:px-6 sm:pb-6">
+	<PageShell.Header eyebrow="Calendar · Bulk status" title="Bulk status" />
 	<WorkspaceToolbar ariaLabel="Bulk status controls" items={toolbarItems} />
 
 	{#if !canMutate}
@@ -153,6 +171,9 @@
 				<BulkStatusAdd
 					personnelByGroup={scopedPBG}
 					statusTypes={statusTypesStore.items}
+					availabilityEntries={availabilityStore.items}
+					orgId={data.orgId}
+					{rangeCoordinator}
 					onApply={handleBulkApply}
 					onComplete={handleComplete}
 				/>

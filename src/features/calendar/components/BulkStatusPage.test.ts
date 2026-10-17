@@ -39,7 +39,7 @@ vi.mock('$app/state', () => ({
 }));
 
 vi.mock('./BulkStatusAdd.svelte', async () => ({
-	default: (await import('$lib/test-stubs/VisibleStub.svelte')).default
+	default: (await import('../test-support/BulkStatusAddRangeStub.svelte')).default
 }));
 
 vi.mock('./BulkStatusRemove.svelte', async () => ({
@@ -69,7 +69,7 @@ vi.mock('$features/personnel', async (importOriginal) => ({
 	pinnedGroupsStore: { list: [] }
 }));
 
-function renderPage(orgId = 'org-1') {
+function renderPage(orgId = 'org-1', loaded?: { rangeStart: string; rangeEnd: string }) {
 	return render(BulkStatusPage, {
 		props: {
 			org,
@@ -77,7 +77,8 @@ function renderPage(orgId = 'org-1') {
 				orgId,
 				orgName: 'Test Unit',
 				personnel: [],
-				allPersonnel: []
+				allPersonnel: [],
+				calendar: loaded ? { data: { ...loaded, personnel: [] } } : undefined
 			}
 		}
 	});
@@ -108,7 +109,7 @@ describe('BulkStatusPage', () => {
 
 		expect(screen.getByText('Access restricted.')).toBeTruthy();
 		expect(screen.queryByRole('group', { name: 'Bulk status sections' })).toBeNull();
-		expect(screen.getByRole('link', { name: 'Calendar' })).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'Back to calendar' })).toBeTruthy();
 	});
 
 	it('allows Calendar operators to use bulk status', () => {
@@ -138,7 +139,7 @@ describe('BulkStatusPage', () => {
 		renderPage();
 
 		const sections = screen.getByRole('group', { name: 'Bulk status sections' });
-		expect(within(sections).getByRole('button', { name: 'Import' }).getAttribute('aria-pressed')).toBe('true');
+		expect(within(sections).getByRole('button', { name: 'Import CSV' }).getAttribute('aria-pressed')).toBe('true');
 		expect(within(sections).getByRole('button', { name: 'Add' }).getAttribute('aria-pressed')).toBe('false');
 	});
 
@@ -164,9 +165,37 @@ describe('BulkStatusPage', () => {
 		});
 
 		await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
-		await fireEvent.click(within(await openMore()).getByRole('menuitem', { name: 'Calendar' }));
+		await fireEvent.click(within(await openMore()).getByRole('menuitem', { name: 'Back to calendar' }));
 		await waitFor(() => expect(gotoMock).toHaveBeenLastCalledWith('/org/org-1/calendar'));
 		vi.unstubAllGlobals();
+	});
+
+	it('previews Add dates the Calendar workspace already loaded without another request', async () => {
+		renderPage('org-1', { rangeStart: '2026-01-01', rangeEnd: '2026-01-31' });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Read covered dates' }));
+
+		expect(screen.getByRole('status').textContent).toContain('covered ready');
+		expect(loadCalendarRangeMock).not.toHaveBeenCalled();
+	});
+
+	it('reads Add dates outside the loaded range with the canonical organization id', async () => {
+		loadCalendarRangeMock.mockResolvedValue({
+			rangeStart: '2026-06-01',
+			rangeEnd: '2026-06-03',
+			availabilityEntries: [],
+			specialDays: [],
+			dailyAssignments: []
+		});
+		renderPage('canonical-org-id', { rangeStart: '2026-01-01', rangeEnd: '2026-01-31' });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Read far dates' }));
+
+		await waitFor(() => expect(screen.getByRole('status').textContent).toContain('far ready'));
+		expect(loadCalendarRangeMock).toHaveBeenCalledExactlyOnceWith('canonical-org-id', {
+			rangeStart: '2026-06-01',
+			rangeEnd: '2026-06-03'
+		});
 	});
 
 	it('loads Remove review ranges with the canonical organization id', async () => {

@@ -9,8 +9,7 @@ import {
 import {
 	beginCalendarRangeRead,
 	loadCalendarRange,
-	mergeCalendarRangeIntoStores,
-	type CalendarRangeRead
+	mergeCalendarRangeIntoStores
 } from '$features/calendar/utils/calendarRangeLoader';
 
 type CalendarBootstrapRangeData = Pick<CalendarBootstrap, 'rangeStart' | 'rangeEnd'>;
@@ -92,9 +91,9 @@ export class CalendarRangeCoordinator {
 		).flatMap(chunkCalendarReadRange);
 
 		if (nextRanges.length === 0) {
-			this.#pendingRangeKey = null;
+			// A late disjoint reply would replace coverage this range relies on.
+			this.cancelInFlightLoads();
 			this.#failedRangeKey = null;
-			this.loading = false;
 			this.error = null;
 			return;
 		}
@@ -118,7 +117,11 @@ export class CalendarRangeCoordinator {
 				return;
 			}
 
-			this.#mergeRangeDataSets(orgId, rangeDataSets, read);
+			for (const rangeData of rangeDataSets) this.#mergeRangeIntoStores(orgId, rangeData, read);
+			this.loadedRange = extendLoadedRange(
+				untrack(() => this.loadedRange),
+				range
+			);
 			this.loading = false;
 			this.#failedRangeKey = null;
 			this.#pendingRangeKey = null;
@@ -157,15 +160,5 @@ export class CalendarRangeCoordinator {
 		};
 		await Promise.all(Array.from({ length: Math.min(MAX_READS_IN_FLIGHT, ranges.length) }, readNext));
 		return results;
-	}
-
-	#mergeRangeDataSets(orgId: string, rangeDataSets: CalendarRangeData[], read: CalendarRangeRead): void {
-		for (const rangeData of rangeDataSets) {
-			this.#mergeRangeIntoStores(orgId, rangeData, read);
-			this.loadedRange = extendLoadedRange(
-				untrack(() => this.loadedRange),
-				rangeData
-			);
-		}
 	}
 }

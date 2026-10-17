@@ -70,7 +70,9 @@
 
 	$effect(() => {
 		void rangeCoordinator.retryToken;
-		if (readRange) void rangeCoordinator.ensureRange(orgId, readRange);
+		if (!readRange) return;
+		void rangeCoordinator.ensureRange(orgId, readRange);
+		return () => rangeCoordinator.cancelInFlightLoads();
 	});
 	const readStatus = $derived(readRange ? rangeCoordinator.status(readRange) : null);
 

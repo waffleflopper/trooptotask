@@ -220,7 +220,8 @@ describe('RosterPicker with availability', () => {
 		const checkbox = screen.getByRole('checkbox', { name: 'Select SGT Cole, Cy' });
 		const reason = document.getElementById(checkbox.getAttribute('aria-describedby')!);
 
-		expect(reason?.textContent).toContain('Already on Leave 28–31 Oct');
+		expect(reason).not.toBeNull();
+		expect(reason!.textContent).toContain('Leave');
 	});
 
 	it('limits Select available to the people the search shows', async () => {

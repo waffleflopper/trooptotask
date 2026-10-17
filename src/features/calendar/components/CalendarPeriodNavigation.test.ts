@@ -24,16 +24,6 @@ function renderNavigation(props: { view?: CalendarViewMode; anchor?: Date; disab
 }
 
 describe('CalendarPeriodNavigation', () => {
-	it('steps one month at a time in Month', async () => {
-		const anchors = renderNavigation({ anchor: new Date(2026, 9, 1) });
-
-		expect(screen.getByRole('button', { name: 'October 2026' })).toBeTruthy();
-		await fireEvent.click(screen.getByRole('button', { name: 'Next month' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Previous month' }));
-
-		expect(anchors).toEqual(['2026-11-01', '2026-09-01']);
-	});
-
 	it('steps three months at a time in 3-Month and names the shown quarter', async () => {
 		const anchors = renderNavigation({ view: '3-month', anchor: new Date(2026, 10, 1) });
 

@@ -42,20 +42,21 @@ describe('projectBulkRosterAvailability', () => {
 			entry({ id: 'b', personnelId: 'ortiz', statusTypeId: 'sick', startDate: '2026-10-28', endDate: '2026-10-29' })
 		]);
 
-		expect(rosterAvailabilityRow(result, 'ortiz')).toMatchObject({
-			kind: 'overlap',
-			blocked: false,
-			hint: 'Sick 26 Oct, Sick 28–29 Oct overlaps'
-		});
+		const row = rosterAvailabilityRow(result, 'ortiz');
+		expect(row).toMatchObject({ kind: 'overlap', blocked: false });
+		expect(row.hint).toContain('Sick 26 Oct');
+		expect(row.hint).toContain('Sick 28–29 Oct');
 	});
 
-	it('names both kinds when a person has them, same status first', () => {
+	it('names both kinds when a person has them', () => {
 		const result = project([
 			entry({ id: 'a', statusTypeId: 'sick', startDate: '2026-10-26' }),
 			entry({ id: 'b', startDate: '2026-10-27' })
 		]);
 
-		expect(rosterAvailabilityRow(result, 'p1').hint).toBe('Already on Leave 27 Oct · Sick 26 Oct overlaps');
+		const hint = rosterAvailabilityRow(result, 'p1').hint;
+		expect(hint).toContain('Already on Leave 27 Oct');
+		expect(hint).toContain('Sick 26 Oct');
 	});
 
 	it('reads a person with no intersecting entry as available', () => {

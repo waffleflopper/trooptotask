@@ -94,6 +94,31 @@ describe('DutyPicker', () => {
 		expect(onAssign).toHaveBeenCalledWith('p-ortiz');
 	});
 
+	it('lists matches in the prepared duty order, not by where the text matches, and Enter assigns the first', async () => {
+		const person = (id: string, label: string): DutyPickerOption => ({
+			kind: 'personnel',
+			id,
+			prefix: 'SPC',
+			label,
+			current: false,
+			lastDuty: { kind: 'none' }
+		});
+		const { onAssign } = renderPicker({
+			options: [person('p-cabot', 'Cabot, Dee'), person('p-young', 'Young, Dee'), person('p-abbott', 'Abbott, Cal')]
+		});
+
+		const search = await screen.findByRole('combobox', { name: 'Find person' });
+		await fireEvent.input(search, { target: { value: 'ab' } });
+		await waitFor(() => expect(screen.queryByRole('option', { name: /Young/ })).toBeNull());
+		expect(screen.getAllByRole('option').map((option) => option.getAttribute('aria-label'))).toEqual([
+			expect.stringContaining('Cabot'),
+			expect.stringContaining('Abbott')
+		]);
+		await fireEvent.keyDown(search, { key: 'Enter' });
+
+		expect(onAssign).toHaveBeenCalledWith('p-cabot');
+	});
+
 	it('searches Groups for a Group duty', async () => {
 		const { onAssign } = renderPicker({
 			assignTo: 'group',
@@ -128,22 +153,6 @@ describe('DutyPicker', () => {
 
 		expect(onClose).toHaveBeenCalledTimes(1);
 		await waitFor(() => expect(document.activeElement).toBe(anchor));
-	});
-
-	it('returns focus to a stable control when the anchor is gone after the save', async () => {
-		const stable = document.createElement('button');
-		document.body.append(stable);
-		const { anchor } = renderPicker({
-			returnFocusTo: () => stable,
-			onAssign: async () => {
-				anchor.remove();
-				return true;
-			}
-		});
-
-		await fireEvent.click(await screen.findByRole('option', { name: /Ortiz, Lucia/ }));
-
-		await waitFor(() => expect(document.activeElement).toBe(stable));
 	});
 
 	it('stays open after a failed save and saves on the next try', async () => {

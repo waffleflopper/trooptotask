@@ -132,7 +132,7 @@ describe('BulkStatusPage', () => {
 		});
 	});
 
-	it('marks the section named by the URL tab as pressed', () => {
+	it('marks the section named by the URL tab as checked', () => {
 		pageMock.url = new URL('http://localhost/org/org-1/calendar/bulk?tab=import');
 
 		renderPage();

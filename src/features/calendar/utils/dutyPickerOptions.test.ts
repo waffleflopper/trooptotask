@@ -122,13 +122,6 @@ describe('dutyPickerOptions', () => {
 });
 
 describe('dutySearchScore', () => {
-	it('scores every match the same, so a match early in the text never outranks the prepared duty order', () => {
-		expect(dutySearchScore('p-1', 'ab', ['Cabot, Dee', 'SPC'])).toBe(
-			dutySearchScore('p-2', 'ab', ['Abbott, Cal', 'SPC'])
-		);
-		expect(dutySearchScore('p-3', 'ab', ['Young, Dee', 'SPC'])).toBe(0);
-	});
-
 	it('matches words in any order across the name and the rank, ignoring case', () => {
 		expect(dutySearchScore('p-1', 'lucia  ORTIZ', ['Ortiz, Lucia', 'SPC'])).toBe(1);
 		expect(dutySearchScore('p-1', 'spc ortiz', ['Ortiz, Lucia', 'SPC'])).toBe(1);

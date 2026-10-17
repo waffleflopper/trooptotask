@@ -245,7 +245,7 @@ it('adds exactly the available people when Select available is used, skipping bo
 	expect(onApply.mock.calls[0].slice(0, 2)).toEqual([[able.id], 'leave']);
 });
 
-it('adds a person with another status when picked by hand and refuses the one already on the status', async () => {
+it('adds a person who overlaps another status when picked by hand', async () => {
 	const onApply = vi.fn().mockResolvedValue([able.id, baker.id]);
 	renderAdd({ onApply });
 	await setDates(START, END);

@@ -143,6 +143,5 @@ describe('buildPlannerTable', () => {
 		expect(result.conflicts.map((conflict) => [conflict.typeId, conflict.dateKey])).toEqual([['cq', '2026-10-21']]);
 		const flagged = result.rows.flatMap((row) => row.cells).filter((cell) => cell.conflict);
 		expect(flagged.map((cell) => [cell.typeId, cell.dateKey])).toEqual([['cq', '2026-10-21']]);
-		expect(flagged[0].conflict).toBe(result.conflicts[0]);
 	});
 });

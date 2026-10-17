@@ -95,7 +95,7 @@ export function dutyPickerOptions(input: DutyPickerInput): DutyPickerOption[] {
 
 /**
  * The picker's Command filter: 1 when every typed word appears in the option's text, else 0.
- * Bits UI re-ranks matches by their score, so a flat score keeps the prepared duty order.
+ * Words match in any order, so "ortiz spc" finds the same person as "spc ortiz".
  */
 export function dutySearchScore(_value: string, search: string, keywords: readonly string[] = []): 1 | 0 {
 	const haystack = keywords.join(' ').toLowerCase();

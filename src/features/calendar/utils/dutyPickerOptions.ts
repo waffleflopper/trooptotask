@@ -1,6 +1,6 @@
 import type { AssignmentType, AvailabilityEntry, StatusType } from '$features/calendar/contracts';
 import type { Group, Personnel } from '$features/personnel/contracts';
-import { parseDate } from '$lib/utils/dates';
+import { availabilityEntryLabel } from './availabilityLabels';
 
 export interface DutyPickerOption {
 	readonly id: string;
@@ -21,8 +21,6 @@ export interface DutyPickerInput {
 	currentAssigneeId?: string;
 }
 
-const SHORT_DATE = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' });
-
 export function dutyPickerOptions(input: DutyPickerInput): DutyPickerOption[] {
 	if (input.type.assignTo === 'group') {
 		return [...input.groups]
@@ -35,8 +33,10 @@ export function dutyPickerOptions(input: DutyPickerInput): DutyPickerOption[] {
 	const covering = new Map<string, string[]>();
 	for (const entry of input.availabilityEntries) {
 		if (entry.startDate > input.dateKey || entry.endDate < input.dateKey) continue;
-		const text = `${statusName.get(entry.statusTypeId) ?? 'Unavailable'} ${dateRange(entry.startDate, entry.endDate)}`;
-		covering.set(entry.personnelId, [...(covering.get(entry.personnelId) ?? []), text]);
+		covering.set(entry.personnelId, [
+			...(covering.get(entry.personnelId) ?? []),
+			availabilityEntryLabel(entry, statusName)
+		]);
 	}
 
 	return input.personnel
@@ -51,11 +51,6 @@ export function dutyPickerOptions(input: DutyPickerInput): DutyPickerOption[] {
 			unavailable: covering.get(person.id)?.join('; '),
 			current: person.id === input.currentAssigneeId
 		}));
-}
-
-function dateRange(start: string, end: string): string {
-	const from = SHORT_DATE.format(parseDate(start));
-	return start === end ? from : `${from} – ${SHORT_DATE.format(parseDate(end))}`;
 }
 
 function compareIds(a: string, b: string): number {

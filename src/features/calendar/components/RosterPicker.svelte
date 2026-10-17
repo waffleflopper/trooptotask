@@ -148,7 +148,8 @@
 	}
 </script>
 
-<Card.Root>
+<!-- The table caps cells at 20rem; the availability strip is as wide as its day window. -->
+<Card.Root class={availability && '[&_[data-slot=table-cell]:last-child]:max-w-none!'}>
 	<Card.Header>
 		<BulkStepHeading eyebrow="Step 2" {tone} title="Who" />
 		<p class="text-sm text-muted-foreground">{selectedCount} of {table.totalRows} selected</p>
@@ -210,7 +211,7 @@
 						<span
 							id={hintId(row)}
 							class={[
-								'font-mono text-[10px] tracking-[0.06em] uppercase',
+								'min-w-48 max-w-80 text-right font-mono text-[10px] leading-snug tracking-[0.06em] text-balance uppercase',
 								projected.blocked ? 'text-muted-foreground' : 'text-warning-foreground'
 							]}
 						>

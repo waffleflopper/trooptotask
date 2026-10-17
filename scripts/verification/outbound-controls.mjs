@@ -35,13 +35,15 @@ export const PROVIDER_FAULTS = Object.freeze({
 	'federal-holiday-reset-hold': [
 		write('POST', '/rest/v1/rpc/reset_federal_holidays', { hold: true, pause: COMMITTED_PAUSE_MS })
 	],
-	'assignment-type-date-header': [write('POST', '/rest/v1/rpc/set_assignment_type_date_header')],
-	'assignment-type-date-header-lost-ack': [
-		write('POST', '/rest/v1/rpc/set_assignment_type_date_header', transportLoss())
-	],
-	'assignment-type-date-header-hold': [
-		write('POST', '/rest/v1/rpc/set_assignment_type_date_header', { hold: true, pause: COMMITTED_PAUSE_MS })
-	],
+	'closure-days': [write('POST', '/rest/v1/rpc/add_closure_days')],
+	'closure-days-lost-ack': [write('POST', '/rest/v1/rpc/add_closure_days', transportLoss())],
+	'closure-days-hold': [write('POST', '/rest/v1/rpc/add_closure_days', { hold: true, pause: COMMITTED_PAUSE_MS })],
+	'calendar-lanes': [write('POST', '/rest/v1/rpc/set_calendar_lanes')],
+	'calendar-lanes-lost-ack': [write('POST', '/rest/v1/rpc/set_calendar_lanes', transportLoss())],
+	'calendar-lanes-hold': [write('POST', '/rest/v1/rpc/set_calendar_lanes', { hold: true, pause: COMMITTED_PAUSE_MS })],
+	'status-order': [write('POST', '/rest/v1/rpc/set_status_type_order')],
+	'status-order-lost-ack': [write('POST', '/rest/v1/rpc/set_status_type_order', transportLoss())],
+	'status-order-hold': [write('POST', '/rest/v1/rpc/set_status_type_order', { hold: true, pause: COMMITTED_PAUSE_MS })],
 	'document-file-remove': [write('DELETE', '/storage/v1/object/personnel-documents')],
 	'document-file-remove-lost-ack': [write('DELETE', '/storage/v1/object/personnel-documents', { afterCommit: true })],
 	'counseling-file-remove': [write('DELETE', '/storage/v1/object/counseling-files')],

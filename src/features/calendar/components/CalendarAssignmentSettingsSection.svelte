@@ -1,20 +1,18 @@
 <script lang="ts">
-	import * as AppDialog from '$lib/components/ui/app-dialog';
-	import { Badge } from '$lib/components/ui/badge';
+	import Ellipsis from '@lucide/svelte/icons/ellipsis';
+	import { rosterStore } from '$features/personnel';
+	import type { AssignmentType } from '$features/calendar/contracts';
+	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
+	import { calendarLaneIds, movedTo } from '$features/calendar/utils/calendarLanes';
+	import AssignmentCodeChip from './AssignmentCodeChip.svelte';
+	import AssignmentTypeDialog from './AssignmentTypeDialog.svelte';
+	import { ReorderGrip, ReorderItem, ReorderList } from '$lib/components/patterns/reorder-list';
 	import { Button } from '$lib/components/ui/button';
 	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
-	import * as Field from '$lib/components/ui/field';
-	import { Input } from '$lib/components/ui/input';
-	import { NativeSelect } from '$lib/components/ui/native-select';
-	import * as RadioGroup from '$lib/components/ui/radio-group';
-	import { Spinner } from '$lib/components/ui/spinner';
-	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
+	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+	import { Switch } from '$lib/components/ui/switch';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { rejectedRequestMessage } from '$lib/stores/core';
-	import type { AssignmentType } from '$features/calendar/contracts';
-	import Pencil from '@lucide/svelte/icons/pencil';
-	import Trash2 from '@lucide/svelte/icons/trash-2';
-	import { PendingSave } from '$lib/utils/pendingSave.svelte';
 
 	type Props = {
 		canMutate: boolean;
@@ -23,356 +21,170 @@
 
 	let { canMutate, searchQuery }: Props = $props();
 
-	// A color input only accepts #rrggbb, and the chosen value is saved as the type's color.
-	const DEFAULT_ASSIGNMENT_COLOR = '#c47f00';
+	let editor = $state<{ type?: AssignmentType } | null>(null);
+	let confirmDelete = $state<AssignmentType | null>(null);
 
-	let addAssignmentOpen = $state(false);
-	let newAssignName = $state('');
-	let newAssignShortName = $state('');
-	let newAssignTo = $state<'personnel' | 'group'>('personnel');
-	let newAssignColor = $state(DEFAULT_ASSIGNMENT_COLOR);
-
-	let editAssignmentOpen = $state(false);
-	let editingAssign = $state<AssignmentType | null>(null);
-	let editAssignName = $state('');
-	let editAssignShortName = $state('');
-	let editAssignTo = $state<'personnel' | 'group'>('personnel');
-	let editAssignColor = $state('');
-
-	let confirmDeleteAssign = $state<AssignmentType | null>(null);
-	const saving = new PendingSave();
-
-	const activeAssignmentTypes = $derived(dailyAssignmentsStore.types.filter((type) => !type.archivedAt));
-	const savedHeaderId = $derived(activeAssignmentTypes.find((t) => t.showInDateHeader)?.id ?? null);
-	const pendingHeaderId = $derived(dailyAssignmentsStore.pendingDateHeaderId);
-	const typeWritesLocked = $derived(pendingHeaderId !== null);
-	const headerChoiceLocked = $derived(dailyAssignmentsStore.typesBusy);
-	const addAssignmentDirty = $derived(
-		newAssignName.trim() !== '' ||
-			newAssignShortName.trim() !== '' ||
-			newAssignTo !== 'personnel' ||
-			newAssignColor !== DEFAULT_ASSIGNMENT_COLOR
+	const types = $derived(dailyAssignmentsStore.types);
+	const laneIds = $derived(dailyAssignmentsStore.pendingLaneIds ?? calendarLaneIds(types));
+	const lanes = $derived(laneIds.flatMap((id) => types.find((type) => type.id === id) ?? []));
+	const plannerOnly = $derived(
+		types
+			.filter((type) => !type.archivedAt && !laneIds.includes(type.id))
+			.sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id))
 	);
-	const editAssignmentDirty = $derived(
-		Boolean(
-			editingAssign &&
-			(editAssignName !== editingAssign.name ||
-				editAssignShortName !== editingAssign.shortName ||
-				editAssignTo !== editingAssign.assignTo ||
-				editAssignColor !== editingAssign.color)
-		)
-	);
-
-	const filteredAssignments = $derived(
-		activeAssignmentTypes.filter((t) => !searchQuery || t.name.toLowerCase().includes(searchQuery.toLowerCase()))
-	);
+	const query = $derived(searchQuery.trim().toLowerCase());
+	const matches = (type: AssignmentType) => !query || type.name.toLowerCase().includes(query);
+	const visibleLanes = $derived(lanes.filter(matches));
+	const visiblePlannerOnly = $derived(plannerOnly.filter(matches));
+	const noMatches = $derived(Boolean(query) && visibleLanes.length === 0 && visiblePlannerOnly.length === 0);
+	// Lane moves fold into one ordered save, so only a details write in progress locks the lane controls.
+	const lanesLocked = $derived(!canMutate || dailyAssignmentsStore.typeWritesBusy);
+	const roster = $derived(rosterStore.items.filter((person) => !person.archivedAt));
 
 	export function openAddDialog() {
 		if (!canMutate) return;
-		addAssignmentOpen = true;
+		editor = {};
 	}
 
-	function resetAddAssignForm() {
-		newAssignName = '';
-		newAssignShortName = '';
-		newAssignTo = 'personnel';
-		newAssignColor = DEFAULT_ASSIGNMENT_COLOR;
+	function setShown(id: string, shown: boolean) {
+		void dailyAssignmentsStore.setCalendarLanes(shown ? [...laneIds, id] : laneIds.filter((laneId) => laneId !== id));
 	}
 
-	function closeAddAssignmentDialog() {
-		resetAddAssignForm();
-		addAssignmentOpen = false;
-	}
-
-	function closeEditAssignmentDialog() {
-		editAssignmentOpen = false;
-		editingAssign = null;
-	}
-
-	function openEditAssign(t: AssignmentType) {
-		editingAssign = t;
-		editAssignName = t.name;
-		editAssignShortName = t.shortName;
-		editAssignTo = t.assignTo;
-		editAssignColor = t.color;
-		editAssignmentOpen = true;
-	}
-
-	function showAssignmentMutationError(message: string, error?: unknown) {
-		toastStore.error(rejectedRequestMessage(error, message));
-	}
-
-	async function addAssignType() {
-		if (!canMutate || typeWritesLocked || !newAssignName.trim() || !newAssignShortName.trim()) return;
+	async function deleteType(type: AssignmentType) {
 		try {
-			const created = await dailyAssignmentsStore.addType({
-				name: newAssignName.trim(),
-				shortName: newAssignShortName.trim().toUpperCase(),
-				assignTo: newAssignTo,
-				color: newAssignColor,
-				exemptPersonnelIds: [],
-				showInDateHeader: false
-			});
-			if (!created) {
-				showAssignmentMutationError('Failed to add assignment type');
+			if (!(await dailyAssignmentsStore.removeType(type.id))) {
+				toastStore.error('Failed to delete assignment type');
 				return;
 			}
 		} catch (error) {
-			showAssignmentMutationError('Failed to add assignment type', error);
+			toastStore.error(rejectedRequestMessage(error, 'Failed to delete assignment type'));
 			return;
 		}
-		resetAddAssignForm();
-		addAssignmentOpen = false;
-	}
-
-	async function saveEditAssign() {
-		if (!canMutate || typeWritesLocked || !editingAssign || !editAssignName.trim() || !editAssignShortName.trim())
-			return;
-		try {
-			const saved = await dailyAssignmentsStore.updateType(editingAssign.id, {
-				name: editAssignName.trim(),
-				shortName: editAssignShortName.trim().toUpperCase(),
-				assignTo: editAssignTo,
-				color: editAssignColor
-			});
-			if (!saved) {
-				showAssignmentMutationError('Failed to save assignment type');
-				return;
-			}
-		} catch (error) {
-			showAssignmentMutationError('Failed to save assignment type', error);
-			return;
-		}
-		editAssignmentOpen = false;
-		editingAssign = null;
-	}
-
-	async function deleteAssignType(t: AssignmentType) {
-		if (!canMutate || typeWritesLocked) return;
-		try {
-			const deleted = await dailyAssignmentsStore.removeType(t.id);
-			if (!deleted) {
-				showAssignmentMutationError('Failed to delete assignment type');
-				return;
-			}
-		} catch (error) {
-			showAssignmentMutationError('Failed to delete assignment type', error);
-			return;
-		}
-		confirmDeleteAssign = null;
-	}
-
-	function chooseDateHeader(id: string) {
-		if (!canMutate || headerChoiceLocked || id === savedHeaderId) return;
-		void dailyAssignmentsStore.setDateHeader(id);
+		confirmDelete = null;
 	}
 </script>
 
-<p class="mb-4 rounded-md border border-border bg-muted/30 px-4 py-3 text-xs text-muted-foreground">
-	Select which assignment type's assignee appears in each calendar date column.
-	{#if savedHeaderId}
-		Currently showing: <strong>{activeAssignmentTypes.find((t) => t.id === savedHeaderId)?.name}</strong>
-	{:else}
-		None selected — no assignee shown in date columns.
-	{/if}
-</p>
-
-<RadioGroup.Root
-	bind:value={() => pendingHeaderId ?? savedHeaderId ?? '', chooseDateHeader}
-	disabled={!canMutate || headerChoiceLocked}
-	aria-label="Assignment type shown in the date header"
-	class="gap-1.5"
->
-	{#each filteredAssignments as type (type.id)}
-		<div
-			class="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-md border border-transparent px-4 py-3 transition-colors hover:border-border hover:bg-muted/40"
-		>
-			{#if canMutate}
-				<div class="flex flex-col items-center gap-0.5">
-					<RadioGroup.Item value={type.id} aria-label="Show {type.name} in date header" />
-					<span
-						class="font-mono text-[9px] font-semibold uppercase tracking-wider text-muted-foreground"
-						aria-hidden="true"
+{#snippet row(type: AssignmentType, shown: boolean)}
+	<AssignmentCodeChip code={type.shortName} color={type.color} size="row" />
+	<div class="flex min-w-32 flex-1 flex-col">
+		<span class="truncate text-sm font-medium">{type.name}</span>
+		<span class="font-mono text-[10px] tracking-wide text-muted-foreground uppercase">
+			{type.assignTo === 'personnel' ? 'Person' : 'Group'}
+		</span>
+	</div>
+	<!-- On a narrow screen the controls wrap below the name instead of squeezing it. -->
+	<div class="ml-auto flex shrink-0 items-center gap-3">
+		<label class="flex items-center gap-2 text-sm text-muted-foreground">
+			{shown ? 'On calendar' : 'Planner only'}
+			<Switch
+				checked={shown}
+				disabled={lanesLocked}
+				aria-label="Show {type.name} on the calendar"
+				onCheckedChange={(checked) => setShown(type.id, checked)}
+			/>
+		</label>
+		{#if canMutate}
+			<DropdownMenu.Root>
+				<DropdownMenu.Trigger>
+					{#snippet child({ props })}
+						<Button {...props} size="icon-sm" variant="ghost" aria-label="More actions for {type.name}">
+							<Ellipsis />
+						</Button>
+					{/snippet}
+				</DropdownMenu.Trigger>
+				<DropdownMenu.Content align="end">
+					<DropdownMenu.Item disabled={dailyAssignmentsStore.typesBusy} onSelect={() => (editor = { type })}
+						>Edit</DropdownMenu.Item
 					>
-						Header
-					</span>
-				</div>
-			{/if}
-			<div class="flex min-w-0 flex-1 basis-32 flex-col gap-0.5 break-words">
-				<span class="text-sm font-medium">{type.name}</span>
-				<span class="text-xs text-muted-foreground">
-					{type.assignTo === 'personnel' ? 'Assigned to person' : 'Assigned to group'}
-				</span>
-			</div>
-			<div class="ml-auto flex shrink-0 items-center gap-2">
-				{#if type.showInDateHeader}
-					<Badge variant="outline">Date header</Badge>
-				{/if}
-				<Badge class="text-white" style="background-color: {type.color}">{type.shortName}</Badge>
-				{#if canMutate}
-					<Button
-						variant="ghost"
-						size="icon-sm"
-						title="Edit {type.name}"
-						aria-label="Edit {type.name}"
-						disabled={typeWritesLocked}
-						onclick={() => openEditAssign(type)}
-					>
-						<Pencil />
-					</Button>
-					<Button
+					<DropdownMenu.Item
 						variant="destructive"
-						size="icon-sm"
-						title="Delete {type.name}"
-						aria-label="Delete {type.name}"
-						disabled={typeWritesLocked}
-						onclick={() => (confirmDeleteAssign = type)}
+						disabled={dailyAssignmentsStore.typesBusy}
+						onSelect={() => (confirmDelete = type)}>Delete</DropdownMenu.Item
 					>
-						<Trash2 />
-					</Button>
-				{/if}
-			</div>
+				</DropdownMenu.Content>
+			</DropdownMenu.Root>
+		{/if}
+	</div>
+{/snippet}
+
+<div class="flex flex-col gap-6">
+	<section class="flex flex-col gap-2" aria-labelledby="calendar-lanes-heading">
+		<div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+			<h4 id="calendar-lanes-heading" class="font-mono text-xs font-semibold tracking-widest uppercase">
+				On the calendar · {lanes.length}
+				{lanes.length === 1 ? 'lane' : 'lanes'}
+			</h4>
+			<p class="text-sm text-muted-foreground">
+				{query ? 'Clear search to reorder.' : 'Drag to reorder. Everyone who can view the calendar sees these lanes.'}
+			</p>
 		</div>
-	{:else}
-		<div class="flex items-center justify-center py-12 text-sm text-muted-foreground">No assignment types found</div>
-	{/each}
-</RadioGroup.Root>
-
-<AppDialog.Root
-	bind:open={addAssignmentOpen}
-	busy={saving.pending}
-	closeBlocked={addAssignmentDirty}
-	onClose={closeAddAssignmentDialog}
->
-	<AppDialog.Content>
-		<AppDialog.Header>
-			<AppDialog.Title>Add Assignment Type</AppDialog.Title>
-			<AppDialog.Description>Create a new duty coverage assignment for daily scheduling.</AppDialog.Description>
-		</AppDialog.Header>
-		<AppDialog.Body class="grid gap-4">
-			<fieldset class="contents" disabled={saving.pending}>
-				<Field.Root>
-					<Field.Label for="add-assign-name">Full name</Field.Label>
-					<Input id="add-assign-name" type="text" placeholder="e.g., Staff Duty" bind:value={newAssignName} />
-				</Field.Root>
-				<div class="flex flex-wrap items-end gap-4">
-					<Field.Root class="w-auto min-w-0 flex-1">
-						<Field.Label for="add-assign-short">Short code</Field.Label>
-						<Input
-							id="add-assign-short"
-							type="text"
-							placeholder="e.g., SD"
-							maxlength={5}
-							class="uppercase"
-							bind:value={newAssignShortName}
-						/>
-					</Field.Root>
-					<Field.Root class="w-auto">
-						<Field.Label for="add-assign-color">Color</Field.Label>
-						<Input id="add-assign-color" type="color" class="w-12 cursor-pointer p-1" bind:value={newAssignColor} />
-					</Field.Root>
-					{#if newAssignShortName.trim()}
-						<Field.Root class="w-auto">
-							<Field.Title>Preview</Field.Title>
-							<Badge class="text-white" style="background-color: {newAssignColor}">
-								{newAssignShortName.trim().toUpperCase()}
-							</Badge>
-						</Field.Root>
-					{/if}
-				</div>
-				<Field.Root>
-					<Field.Label for="add-assign-to">Assign to</Field.Label>
-					<NativeSelect id="add-assign-to" bind:value={newAssignTo}>
-						<option value="personnel">Person</option>
-						<option value="group">Group</option>
-					</NativeSelect>
-				</Field.Root>
-			</fieldset>
-		</AppDialog.Body>
-		<AppDialog.Footer>
-			<Button variant="outline" onclick={closeAddAssignmentDialog} disabled={saving.pending}>Cancel</Button>
-			<Button
-				onclick={() => saving.run(addAssignType)}
-				disabled={saving.pending || typeWritesLocked || !newAssignName.trim() || !newAssignShortName.trim()}
+		{#if visibleLanes.length > 0}
+			<ReorderList
+				entries={lanes.map((type) => ({ id: type.id, label: type.name }))}
+				onmove={(id, toIndex) => dailyAssignmentsStore.setCalendarLanes(movedTo(laneIds, id, toIndex))}
+				aria-labelledby="calendar-lanes-heading"
+				class="divide-y rounded-md border"
 			>
-				{#if saving.pending}<Spinner />{/if}
-				Add Assignment Type
-			</Button>
-		</AppDialog.Footer>
-	</AppDialog.Content>
-</AppDialog.Root>
+				{#each visibleLanes as type (type.id)}
+					<ReorderItem id={type.id} class="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5">
+						{#if query}
+							<span class="size-6 shrink-0"></span>
+						{:else}
+							<ReorderGrip disabled={lanesLocked} />
+						{/if}
+						{@render row(type, true)}
+					</ReorderItem>
+				{/each}
+			</ReorderList>
+		{:else if lanes.length === 0}
+			<p class="rounded-md border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+				No lanes. Turn on an assignment type to show it under the dates.
+			</p>
+		{/if}
+		{#if lanes.length > 3}
+			<p class="text-sm text-muted-foreground">Each lane adds about 26px above the roster.</p>
+		{/if}
+	</section>
 
-<AppDialog.Root
-	bind:open={editAssignmentOpen}
-	busy={saving.pending}
-	closeBlocked={editAssignmentDirty}
-	onClose={closeEditAssignmentDialog}
->
-	<AppDialog.Content>
-		<AppDialog.Header>
-			<AppDialog.Title>Edit Assignment Type</AppDialog.Title>
-			<AppDialog.Description>Update this duty coverage assignment.</AppDialog.Description>
-		</AppDialog.Header>
-		<AppDialog.Body class="grid gap-4">
-			<fieldset class="contents" disabled={saving.pending}>
-				<Field.Root>
-					<Field.Label for="edit-assign-name">Full name</Field.Label>
-					<Input id="edit-assign-name" type="text" bind:value={editAssignName} />
-				</Field.Root>
-				<div class="flex flex-wrap items-end gap-4">
-					<Field.Root class="w-auto min-w-0 flex-1">
-						<Field.Label for="edit-assign-short">Short code</Field.Label>
-						<Input
-							id="edit-assign-short"
-							type="text"
-							maxlength={5}
-							class="uppercase"
-							bind:value={editAssignShortName}
-						/>
-					</Field.Root>
-					<Field.Root class="w-auto">
-						<Field.Label for="edit-assign-color">Color</Field.Label>
-						<Input id="edit-assign-color" type="color" class="w-12 cursor-pointer p-1" bind:value={editAssignColor} />
-					</Field.Root>
-					{#if editAssignShortName.trim()}
-						<Field.Root class="w-auto">
-							<Field.Title>Preview</Field.Title>
-							<Badge class="text-white" style="background-color: {editAssignColor}">
-								{editAssignShortName.trim().toUpperCase()}
-							</Badge>
-						</Field.Root>
-					{/if}
-				</div>
-				<Field.Root>
-					<Field.Label for="edit-assign-to">Assign to</Field.Label>
-					<NativeSelect id="edit-assign-to" bind:value={editAssignTo}>
-						<option value="personnel">Person</option>
-						<option value="group">Group</option>
-					</NativeSelect>
-				</Field.Root>
-			</fieldset>
-		</AppDialog.Body>
-		<AppDialog.Footer>
-			<Button variant="outline" onclick={closeEditAssignmentDialog} disabled={saving.pending}>Cancel</Button>
-			<Button
-				onclick={() => saving.run(saveEditAssign)}
-				disabled={saving.pending || typeWritesLocked || !editAssignName.trim() || !editAssignShortName.trim()}
-			>
-				{#if saving.pending}<Spinner />{/if}
-				Save Changes
-			</Button>
-		</AppDialog.Footer>
-	</AppDialog.Content>
-</AppDialog.Root>
+	<section class="flex flex-col gap-2" aria-labelledby="planner-only-heading">
+		<div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+			<h4 id="planner-only-heading" class="font-mono text-xs font-semibold tracking-widest uppercase">
+				Duty planner only
+			</h4>
+			<p class="text-sm text-muted-foreground">Still assigned and reported. Hidden from the calendar.</p>
+		</div>
+		{#if visiblePlannerOnly.length > 0}
+			<ul class="divide-y rounded-md border" aria-labelledby="planner-only-heading">
+				{#each visiblePlannerOnly as type (type.id)}
+					<li class="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5">
+						<span class="size-6 shrink-0"></span>
+						{@render row(type, false)}
+					</li>
+				{/each}
+			</ul>
+		{:else if plannerOnly.length === 0}
+			<p class="rounded-md border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+				Every assignment type is on the calendar.
+			</p>
+		{/if}
+	</section>
+	{#if noMatches}
+		<p class="text-center text-sm text-muted-foreground">No assignment types found</p>
+	{/if}
+</div>
 
-{#if confirmDeleteAssign}
+{#if editor}
+	<AssignmentTypeDialog type={editor.type} {roster} onClose={() => (editor = null)} />
+{/if}
+
+{#if confirmDelete}
 	<ConfirmDialog
 		title="Delete Assignment Type"
-		message={`Remove "${confirmDeleteAssign.name}"? All assignments using this type will also be removed. This cannot be undone.`}
+		message={`Remove "${confirmDelete.name}"? All assignments using this type will also be removed. This cannot be undone.`}
 		confirmLabel="Delete"
 		onConfirm={() => {
-			if (confirmDeleteAssign) return deleteAssignType(confirmDeleteAssign);
+			if (confirmDelete) return deleteType(confirmDelete);
 		}}
-		onCancel={() => (confirmDeleteAssign = null)}
+		onCancel={() => (confirmDelete = null)}
 	/>
 {/if}

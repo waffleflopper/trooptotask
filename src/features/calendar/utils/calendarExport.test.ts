@@ -90,13 +90,17 @@ function makeOverlappingExportOptions() {
 			id: 'leave',
 			name: 'Leave',
 			color: '#fde68a',
-			textColor: '#111827'
+			textColor: '#111827',
+			shortLabel: null,
+			sortOrder: 0
 		},
 		{
 			id: 'school',
 			name: 'School',
 			color: '#16a34a',
-			textColor: '#ffffff'
+			textColor: '#ffffff',
+			shortLabel: null,
+			sortOrder: 1
 		}
 	];
 	const availabilityEntries: AvailabilityEntry[] = [
@@ -126,7 +130,8 @@ function makeOverlappingExportOptions() {
 			assignTo: 'personnel',
 			color: '#111827',
 			exemptPersonnelIds: [],
-			showInDateHeader: true
+			showOnCalendar: true,
+			sortOrder: 0
 		},
 		{
 			id: 'cq',
@@ -135,7 +140,8 @@ function makeOverlappingExportOptions() {
 			assignTo: 'personnel',
 			color: '#334155',
 			exemptPersonnelIds: [],
-			showInDateHeader: true
+			showOnCalendar: true,
+			sortOrder: 0
 		}
 	];
 	const assignments: DailyAssignment[] = [

@@ -66,6 +66,24 @@ describe('replaceDailyAssignmentSlotsBatch', () => {
 		expect(ctx.audit.events).toEqual([]);
 	});
 
+	it('rejects a date that is not a real calendar day before any port is called', async () => {
+		const ctx = buildContext();
+		ctx.store.findMany = vi.fn(ctx.store.findMany.bind(ctx.store)) as typeof ctx.store.findMany;
+		ctx.store.insertMany = vi.fn(ctx.store.insertMany.bind(ctx.store)) as typeof ctx.store.insertMany;
+		const replace = vi.spyOn(ctx.calendarAssignmentReplacement, 'replace');
+
+		await expect(
+			replaceDailyAssignmentSlotsBatch(ctx, {
+				records: [{ date: '2026-02-30', assignmentTypeId: TYPE_A, assigneeId: PERSON_1 }]
+			})
+		).rejects.toMatchObject({ status: 400 });
+
+		expect(ctx.store.findMany).not.toHaveBeenCalled();
+		expect(ctx.store.insertMany).not.toHaveBeenCalled();
+		expect(replace).not.toHaveBeenCalled();
+		expect(ctx.audit.events).toEqual([]);
+	});
+
 	it('enforces policy scope on assignee IDs', async () => {
 		const ctx = buildContext({
 			auth: {
@@ -153,7 +171,7 @@ describe('replaceDailyAssignmentSlotsBatch', () => {
 				color: '#123456',
 				sort_order: 0,
 				exempt_personnel_ids: [],
-				show_in_date_header: false
+				show_on_calendar: false
 			}
 		]);
 
@@ -190,7 +208,7 @@ describe('replaceDailyAssignmentSlotsBatch', () => {
 				color: '#123456',
 				sort_order: 0,
 				exempt_personnel_ids: [],
-				show_in_date_header: false
+				show_on_calendar: false
 			}
 		]);
 		ctx.store.deleteWhereAny = vi.fn(ctx.store.deleteWhereAny.bind(ctx.store)) as typeof ctx.store.deleteWhereAny;

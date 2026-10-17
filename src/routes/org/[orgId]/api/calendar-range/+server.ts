@@ -1,12 +1,10 @@
-import { fetchCalendarRangeData } from '$features/calendar/index.server';
+import { fetchCalendarRangeData, MAX_CALENDAR_RANGE_DAYS } from '$features/calendar/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { createRequestCalendarRangeContext } from '$lib/server/adapters/requestContexts.server';
 import { parseDate } from '$lib/utils/dates';
 import { dateOnlySchema } from '$lib/utils/inputSchemas';
 import { z } from 'zod';
-
-const MAX_CALENDAR_RANGE_DAYS = 366;
 
 function toUtcDay(value: string): number {
 	const date = parseDate(value);

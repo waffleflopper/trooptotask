@@ -40,7 +40,7 @@ export function installNetworkControl(
 			parsedUrl.pathname !== control.suffix ||
 			(control.mode === 'hold-dispatch' && method === 'GET') ||
 			(search !== null && parsedUrl.search !== search) ||
-			(requiredMethod !== null && method !== requiredMethod)
+			(requiredMethod !== null && requiredMethod !== 'ANY' && method !== requiredMethod)
 		)
 			return original(...input);
 		if ((sameOrigin || requestTarget) && parsedUrl.origin !== new URL(target.location.href).origin)

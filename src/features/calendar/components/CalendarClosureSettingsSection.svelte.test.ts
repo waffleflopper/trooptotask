@@ -8,15 +8,20 @@ import CalendarClosureSettingsSection from './CalendarClosureSettingsSection.sve
 const closure = {
 	id: 'closure-1',
 	name: 'Training Holiday',
-	date: `${new Date().getFullYear()}-07-03`,
+	date: '2026-12-03',
 	type: 'org-closure' as const
 };
 
 describe('CalendarClosureSettingsSection save feedback', () => {
-	beforeEach(() => specialDaysStore.load([{ ...closure }], 'org-1'));
+	beforeEach(() => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date(2026, 9, 14, 12));
+		specialDaysStore.load([{ ...closure }], 'org-1');
+	});
 
 	afterEach(() => {
 		cleanup();
+		vi.useRealTimers();
 		specialDaysStore.load([], 'org-cleanup');
 		vi.unstubAllGlobals();
 		vi.restoreAllMocks();
@@ -30,7 +35,10 @@ describe('CalendarClosureSettingsSection save feedback', () => {
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 		render(CalendarClosureSettingsSection, { props: { canMutate: true, searchQuery: '' } });
 
-		await fireEvent.click(screen.getByRole('button', { name: /^Edit Training Holiday/ }));
+		await fireEvent.keyDown(screen.getByRole('button', { name: /^More actions for Training Holiday,/ }), {
+			key: 'Enter'
+		});
+		await fireEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }));
 		await fireEvent.input(screen.getByLabelText('Name'), { target: { value: 'Unit Holiday' } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
 

@@ -1,5 +1,7 @@
 import type { createInMemoryDataStore } from '$lib/server/adapters/inMemory';
 import { fail } from '$lib/errors';
+import { CALENDAR_CHANGE_NOT_SAVED_MESSAGE } from './calendarCatalogPersistence.server';
+import { sameIdList } from './utils/idList';
 
 type CalendarMemoryStore = Pick<
 	ReturnType<typeof createInMemoryDataStore>,
@@ -25,10 +27,16 @@ import {
 	type StatusTypeRow
 } from './calendarPersistenceMapping.server';
 
+const compareIds = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+
 export function createInMemoryCalendarCatalogPersistence(
 	store: CalendarMemoryStore,
 	orgId: string
 ): CalendarCatalogPersistence {
+	const savedStatusTypes = async () =>
+		(await store.findMany<StatusTypeRow>('status_types', orgId)).sort(
+			(a, b) => a.sort_order - b.sort_order || compareIds(a.id, b.id)
+		);
 	async function updateExisting<T>(table: string, id: string, patch: Record<string, unknown>): Promise<T | null> {
 		if (!(await store.findOne(table, orgId, { id }))) return null;
 		return store.update<T>(table, orgId, id, patch);
@@ -41,22 +49,20 @@ export function createInMemoryCalendarCatalogPersistence(
 
 	return {
 		async listStatusTypes() {
-			return (
-				await store.findMany<StatusTypeRow>('status_types', orgId, undefined, {
-					orderBy: [{ column: 'sort_order', ascending: true }]
-				})
-			).map(toStatusType);
+			return (await savedStatusTypes()).map(toStatusType);
 		},
 		listStatusTypeLabels() {
 			return store.findMany('status_types', orgId, undefined, { select: 'id, name' });
 		},
 		async createStatusType(input) {
+			const saved = await savedStatusTypes();
 			return toStatusType(
 				await store.insert<StatusTypeRow>('status_types', orgId, {
 					name: input.name,
 					color: input.color ?? '#6b7280',
 					text_color: input.textColor ?? '#ffffff',
-					sort_order: input.sortOrder ?? 0
+					short_label: input.shortLabel ?? null,
+					sort_order: Math.max(-1, ...saved.map((type) => type.sort_order)) + 1
 				})
 			);
 		},
@@ -64,17 +70,29 @@ export function createInMemoryCalendarCatalogPersistence(
 			const row = await updateExisting<StatusTypeRow>(
 				'status_types',
 				id,
-				defined({ name: patch.name, color: patch.color, text_color: patch.textColor, sort_order: patch.sortOrder })
+				defined({ name: patch.name, color: patch.color, text_color: patch.textColor, short_label: patch.shortLabel })
 			);
 			return row && toStatusType(row);
 		},
 		deleteStatusType(id) {
 			return deleteExisting('status_types', id);
 		},
+		async setStatusTypeOrder(statusTypeIds, expectedStatusTypeIds) {
+			const saved = (await savedStatusTypes()).map((type) => type.id);
+			if (sameIdList(saved, statusTypeIds)) return;
+			if (!sameIdList(saved, expectedStatusTypeIds)) fail(409, CALENDAR_CHANGE_NOT_SAVED_MESSAGE);
+			if (statusTypeIds.length !== saved.length || saved.some((id) => !statusTypeIds.includes(id)))
+				fail(400, 'Invalid Calendar configuration');
+			for (const [position, id] of statusTypeIds.entries())
+				if (saved[position] !== id) await store.update('status_types', orgId, id, { sort_order: position });
+		},
 		async listAssignmentTypes() {
 			return (
 				await store.findMany<AssignmentTypeRow>('assignment_types', orgId, undefined, {
-					orderBy: [{ column: 'sort_order', ascending: true }]
+					orderBy: [
+						{ column: 'sort_order', ascending: true },
+						{ column: 'id', ascending: true }
+					]
 				})
 			).map(toAssignmentType);
 		},
@@ -97,8 +115,8 @@ export function createInMemoryCalendarCatalogPersistence(
 					short_name: input.shortName,
 					assign_to: input.assignTo,
 					color: input.color ?? '#6b7280',
-					sort_order: input.sortOrder ?? 0,
-					show_in_date_header: false,
+					sort_order: 0,
+					show_on_calendar: false,
 					exempt_personnel_ids: input.exemptPersonnelIds ?? []
 				})
 			);
@@ -112,7 +130,6 @@ export function createInMemoryCalendarCatalogPersistence(
 					short_name: patch.shortName,
 					assign_to: patch.assignTo,
 					color: patch.color,
-					sort_order: patch.sortOrder,
 					exempt_personnel_ids: patch.exemptPersonnelIds
 				})
 			);
@@ -139,8 +156,14 @@ export function createInMemoryCalendarCatalogPersistence(
 				)
 			).map(toSpecialDay);
 		},
-		async createSpecialDay(input) {
-			return toSpecialDay(await store.insert<SpecialDayRow>('special_days', orgId, { ...input }));
+		async addClosureDays(name, dates) {
+			const taken = new Set((await store.findMany<SpecialDayRow>('special_days', orgId)).map((day) => day.date));
+			const rows = await store.insertMany<SpecialDayRow>(
+				'special_days',
+				orgId,
+				dates.filter((date) => !taken.has(date)).map((date) => ({ date, name, type: 'org-closure' }))
+			);
+			return rows.map(toSpecialDay).sort((a, b) => a.date.localeCompare(b.date));
 		},
 		async updateSpecialDay(id, patch) {
 			const row = await updateExisting<SpecialDayRow>('special_days', id, defined({ ...patch }));
@@ -160,14 +183,22 @@ export function createInMemoryCalendarCatalogPersistence(
 				.map((row) => ({ ...toSpecialDay(row), type: 'federal-holiday' as const }))
 				.sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name));
 		},
-		async setDateHeader(assignmentTypeId) {
-			const target = await store.findOne<AssignmentTypeRow>('assignment_types', orgId, { id: assignmentTypeId });
-			if (!target || target.archived_at) fail(404, 'That assignment type is no longer available.');
+		async setCalendarLanes(laneTypeIds, expectedLaneTypeIds) {
 			const types = await store.findMany<AssignmentTypeRow>('assignment_types', orgId);
+			const active = new Set(types.filter((type) => !type.archived_at).map((type) => type.id));
+			if (laneTypeIds.some((id) => !active.has(id))) fail(404, 'That assignment type is no longer available.');
+			const saved = types
+				.filter((type) => type.show_on_calendar && !type.archived_at)
+				.sort((a, b) => a.sort_order - b.sort_order || compareIds(a.id, b.id))
+				.map((type) => type.id);
+			if (sameIdList(saved, laneTypeIds)) return;
+			if (!sameIdList(saved, expectedLaneTypeIds)) fail(409, CALENDAR_CHANGE_NOT_SAVED_MESSAGE);
 			for (const type of types) {
-				const header = type.id === assignmentTypeId;
-				if (type.show_in_date_header !== header)
-					await store.update('assignment_types', orgId, type.id, { show_in_date_header: header });
+				const position = laneTypeIds.indexOf(type.id);
+				if (position >= 0 && (!type.show_on_calendar || type.sort_order !== position))
+					await store.update('assignment_types', orgId, type.id, { show_on_calendar: true, sort_order: position });
+				else if (position < 0 && type.show_on_calendar)
+					await store.update('assignment_types', orgId, type.id, { show_on_calendar: false });
 			}
 		}
 	};

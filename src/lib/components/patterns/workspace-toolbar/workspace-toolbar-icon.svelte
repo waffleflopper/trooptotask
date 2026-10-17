@@ -11,6 +11,7 @@
 	import Plus from '@lucide/svelte/icons/plus';
 	import Printer from '@lucide/svelte/icons/printer';
 	import Settings from '@lucide/svelte/icons/settings';
+	import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
 	import Upload from '@lucide/svelte/icons/upload';
 	import UserPlus from '@lucide/svelte/icons/user-plus';
 	import type { WorkspaceToolbarIcon } from './toolbar-types.js';
@@ -36,6 +37,7 @@
 		plus: Plus,
 		printer: Printer,
 		settings: Settings,
+		sliders: SlidersHorizontal,
 		upload: Upload,
 		'user-plus': UserPlus
 	} satisfies Record<WorkspaceToolbarIcon, unknown>;

@@ -34,6 +34,17 @@ const federalHolidayRows = z
 	)
 	.min(1);
 
+const closureDayRows = z.array(
+	z.object({
+		id: z.string(),
+		organization_id: z.string(),
+		date: z.string(),
+		name: z.string(),
+		type: z.literal('org-closure'),
+		created_at: z.string()
+	})
+);
+
 function holidayKeys(holidays: FederalHolidayDefault[]): string {
 	return JSON.stringify(holidays.map(({ date, name }) => JSON.stringify([date, name])).sort());
 }
@@ -50,7 +61,8 @@ async function calendarCommand<T>(
 		if (error.code === '42501') fail(403, 'You do not have access to configure the Calendar');
 		if (error.code === 'P0002') fail(404, 'That assignment type is no longer available.');
 		if (error.code === '22023' || error.code === '22P02') fail(400, 'Invalid Calendar configuration');
-		if (['40P01', '40001', '55P03', '23505'].includes(error.code)) fail(409, CALENDAR_CHANGE_NOT_SAVED_MESSAGE);
+		if (['CLN01', 'STO01', '40P01', '40001', '55P03', '23505'].includes(error.code))
+			fail(409, CALENDAR_CHANGE_NOT_SAVED_MESSAGE);
 		if (!error.code) fail(503, CALENDAR_CHANGE_UNCONFIRMED_MESSAGE, { publicMessage: true });
 		throw new Error(error.message);
 	}
@@ -94,6 +106,14 @@ export function createSupabaseCalendarCatalogPersistence(
 			return result.data ?? [];
 		},
 		async createStatusType(input) {
+			const last = await client
+				.from('status_types')
+				.select('sort_order')
+				.eq('organization_id', orgId)
+				.order('sort_order', { ascending: false })
+				.limit(1)
+				.maybeSingle<{ sort_order: number }>();
+			if (last.error) throw new Error(last.error.message);
 			const { data, error } = await client
 				.from('status_types')
 				.insert({
@@ -101,7 +121,8 @@ export function createSupabaseCalendarCatalogPersistence(
 					name: input.name,
 					color: input.color ?? '#6b7280',
 					text_color: input.textColor ?? '#ffffff',
-					sort_order: input.sortOrder ?? 0
+					short_label: input.shortLabel ?? null,
+					sort_order: last.data ? last.data.sort_order + 1 : 0
 				})
 				.select(STATUS_TYPE_FIELDS)
 				.single<StatusTypeRow>();
@@ -111,7 +132,12 @@ export function createSupabaseCalendarCatalogPersistence(
 		async updateStatusType(id, patch) {
 			const { data, error } = await client
 				.from('status_types')
-				.update({ name: patch.name, color: patch.color, text_color: patch.textColor, sort_order: patch.sortOrder })
+				.update({
+					name: patch.name,
+					color: patch.color,
+					text_color: patch.textColor,
+					short_label: patch.shortLabel
+				})
 				.eq('organization_id', orgId)
 				.eq('id', id)
 				.select(STATUS_TYPE_FIELDS)
@@ -128,6 +154,18 @@ export function createSupabaseCalendarCatalogPersistence(
 				.select('id');
 			if (error) throw new Error(error.message);
 			return data.length > 0;
+		},
+		async setStatusTypeOrder(statusTypeIds, expectedStatusTypeIds) {
+			await calendarCommand(
+				client,
+				'set_status_type_order',
+				{
+					p_organization_id: orgId,
+					p_status_type_ids: statusTypeIds,
+					p_expected_status_type_ids: expectedStatusTypeIds
+				},
+				z.null()
+			);
 		},
 		async listAssignmentTypes() {
 			const result = await selectAllSupabaseRows<AssignmentTypeRow>(async (from, to) => {
@@ -177,7 +215,6 @@ export function createSupabaseCalendarCatalogPersistence(
 					short_name: input.shortName,
 					assign_to: input.assignTo,
 					color: input.color ?? '#6b7280',
-					sort_order: input.sortOrder ?? 0,
 					exempt_personnel_ids: input.exemptPersonnelIds ?? []
 				})
 				.select(ASSIGNMENT_TYPE_FIELDS)
@@ -193,7 +230,6 @@ export function createSupabaseCalendarCatalogPersistence(
 					short_name: patch.shortName,
 					assign_to: patch.assignTo,
 					color: patch.color,
-					sort_order: patch.sortOrder,
 					exempt_personnel_ids: patch.exemptPersonnelIds
 				})
 				.eq('organization_id', orgId)
@@ -224,14 +260,26 @@ export function createSupabaseCalendarCatalogPersistence(
 			if (result.error) throw new Error((result.error as { message: string }).message);
 			return (result.data ?? []).map(toSpecialDay);
 		},
-		async createSpecialDay(input) {
-			const { data, error } = await client
-				.from('special_days')
-				.insert({ organization_id: orgId, date: input.date, name: input.name, type: input.type })
-				.select(SPECIAL_DAY_FIELDS)
-				.single<SpecialDayRow>();
-			if (error) throw new Error(error.message);
-			return toSpecialDay(data);
+		async addClosureDays(name, dates) {
+			const rows = await calendarCommand(
+				client,
+				'add_closure_days',
+				{ p_organization_id: orgId, p_name: name, p_dates: dates },
+				closureDayRows
+			);
+			const requested = new Set(dates);
+			if (
+				new Set(rows.map(({ id }) => id)).size !== rows.length ||
+				rows.some(
+					(row, index) =>
+						row.organization_id !== orgId ||
+						row.name !== name ||
+						!requested.has(row.date) ||
+						(index > 0 && rows[index - 1].date >= row.date)
+				)
+			)
+				throw new Error('add_closure_days returned an unexpected result');
+			return rows.map(toSpecialDay);
 		},
 		async updateSpecialDay(id, patch) {
 			const { data, error } = await client
@@ -269,11 +317,15 @@ export function createSupabaseCalendarCatalogPersistence(
 				throw new Error('reset_federal_holidays returned an incomplete result');
 			return rows.map((row) => ({ ...toSpecialDay(row), type: row.type }));
 		},
-		async setDateHeader(assignmentTypeId) {
+		async setCalendarLanes(laneTypeIds, expectedLaneTypeIds) {
 			await calendarCommand(
 				client,
-				'set_assignment_type_date_header',
-				{ p_organization_id: orgId, p_assignment_type_id: assignmentTypeId },
+				'set_calendar_lanes',
+				{
+					p_organization_id: orgId,
+					p_lane_type_ids: laneTypeIds,
+					p_expected_lane_type_ids: expectedLaneTypeIds
+				},
 				z.null()
 			);
 		}

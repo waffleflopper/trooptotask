@@ -360,8 +360,8 @@ describe.each([fetchDashboardBootstrap])('%s Calendar independence', (load) => {
 		const ctx = buildCtx();
 		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
 		store.seed('assignment_types', [
-			{ id: 'person-type', organization_id: ORG, name: 'Staff Duty', assign_to: 'personnel' },
-			{ id: 'group-type', organization_id: ORG, name: 'Clinic Coverage', assign_to: 'group' }
+			{ id: 'person-type', organization_id: ORG, name: 'Staff Duty', assign_to: 'personnel', sort_order: 0 },
+			{ id: 'group-type', organization_id: ORG, name: 'Clinic Coverage', assign_to: 'group', sort_order: 1 }
 		]);
 		store.seed('daily_assignments', [
 			{

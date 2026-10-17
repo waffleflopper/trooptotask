@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { createTestContext } from './calendarPersistence.test-support.server';
 import { createStatusType, updateStatusType } from './statusTypeOperations.server';
 import { createAssignmentType } from './assignmentTypeOperations.server';
-import { createSpecialDay } from './specialDayOperations.server';
 import { createAvailability, updateAvailability } from './availabilityOperations.server';
 
 describe('Calendar mutation input boundaries', () => {
@@ -25,14 +24,6 @@ describe('Calendar mutation input boundaries', () => {
 		const ctx = createTestContext();
 		await expect(createAssignmentType(ctx, input)).rejects.toMatchObject({ status: 400 });
 		expect(await ctx.store.findMany('assignment_types', ctx.auth.orgId)).toEqual([]);
-	});
-
-	it('rejects an invalid closure type without saving it', async () => {
-		const ctx = createTestContext();
-		await expect(createSpecialDay(ctx, { date: '2026-10-06', name: 'Closure', type: 'invalid' })).rejects.toMatchObject(
-			{ status: 400 }
-		);
-		expect(await ctx.store.findMany('special_days', ctx.auth.orgId)).toEqual([]);
 	});
 
 	it.each([

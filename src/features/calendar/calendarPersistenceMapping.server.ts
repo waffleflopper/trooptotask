@@ -7,6 +7,8 @@ import type {
 	SavedSpecialDay,
 	SavedStatusType
 } from './contracts';
+import { fitsOneDayLabel, normalizeShortLabel } from './utils/oneDayLabel';
+import { MAX_CLOSURE_DAYS } from './utils/closureDays';
 
 type SavedRow = { organization_id?: string; created_at?: string };
 
@@ -15,7 +17,8 @@ export type StatusTypeRow = SavedRow & {
 	name: string;
 	color: string;
 	text_color: string;
-	sort_order?: number | null;
+	short_label: string | null;
+	sort_order: number;
 };
 export type AssignmentTypeRow = SavedRow & {
 	id: string;
@@ -23,8 +26,8 @@ export type AssignmentTypeRow = SavedRow & {
 	short_name: string;
 	assign_to: 'personnel' | 'group';
 	color: string;
-	sort_order?: number | null;
-	show_in_date_header: boolean;
+	sort_order: number;
+	show_on_calendar: boolean;
 	exempt_personnel_ids: string[] | null;
 	archived_at?: string | null;
 };
@@ -49,9 +52,9 @@ export type AssignmentRow = SavedRow & {
 	assignee_id: string;
 };
 
-export const STATUS_TYPE_FIELDS = 'id, organization_id, name, color, text_color, sort_order, created_at';
+export const STATUS_TYPE_FIELDS = 'id, organization_id, name, color, text_color, short_label, sort_order, created_at';
 export const ASSIGNMENT_TYPE_FIELDS =
-	'id, organization_id, name, short_name, assign_to, color, sort_order, show_in_date_header, exempt_personnel_ids, archived_at, created_at';
+	'id, organization_id, name, short_name, assign_to, color, sort_order, show_on_calendar, exempt_personnel_ids, archived_at, created_at';
 export const SPECIAL_DAY_FIELDS = 'id, organization_id, date, name, type, created_at';
 export const AVAILABILITY_FIELDS =
 	'id, organization_id, personnel_id, status_type_id, start_date, end_date, note, created_at';
@@ -70,7 +73,8 @@ export function toStatusType(row: StatusTypeRow): SavedStatusType {
 		name: row.name,
 		color: row.color,
 		textColor: row.text_color,
-		...(row.sort_order !== undefined ? { sortOrder: row.sort_order } : {}),
+		shortLabel: row.short_label,
+		sortOrder: row.sort_order,
 		...savedMetadata(row)
 	};
 }
@@ -82,9 +86,9 @@ export function toAssignmentType(row: AssignmentTypeRow): SavedAssignmentType {
 		shortName: row.short_name,
 		assignTo: row.assign_to,
 		color: row.color,
-		showInDateHeader: row.show_in_date_header,
+		showOnCalendar: row.show_on_calendar,
+		sortOrder: row.sort_order,
 		exemptPersonnelIds: row.exempt_personnel_ids ?? [],
-		...(row.sort_order !== undefined ? { sortOrder: row.sort_order } : {}),
 		...(row.archived_at !== undefined ? { archivedAt: row.archived_at } : {}),
 		...savedMetadata(row)
 	};
@@ -118,34 +122,58 @@ export function toAssignment(row: AssignmentRow): SavedAssignment {
 
 const catalogName = z.string().min(1, 'Name is required').max(100, 'Name must be 100 characters or fewer');
 
+// Status type order changes only through statusTypeOrderInput. Create appends at max + 1, so two
+// concurrent creates can tie; every reader orders ties by id.
 export const statusTypeCreateInput = z.object({
 	name: catalogName,
 	color: z.string().optional(),
 	textColor: z.string().optional(),
-	sortOrder: z.number().int().optional()
+	shortLabel: z
+		.string()
+		.transform(normalizeShortLabel)
+		.refine((label) => label === null || fitsOneDayLabel(label), 'A one-day label has up to 3 characters')
+		.nullable()
+		.optional(),
+	sortOrder: z.never({ error: 'Status type order changes through the order command' }).optional()
 });
 export const statusTypeUpdateInput = statusTypeCreateInput.partial().extend({ id: uuidSchema });
+const statusTypeIds = z
+	.array(uuidSchema)
+	.refine((ids) => new Set(ids).size === ids.length, 'Each status type appears once');
+export const statusTypeOrderInput = z
+	.object({ statusTypeIds: statusTypeIds, expectedStatusTypeIds: statusTypeIds })
+	.strict();
 const assignmentTypeFields = z.object({
 	name: catalogName,
 	shortName: z.string(),
 	assignTo: z.enum(['personnel', 'group']),
 	color: z.string().optional(),
-	sortOrder: z.number().int().optional(),
-	exemptPersonnelIds: z.array(z.string()).optional()
+	exemptPersonnelIds: z.array(z.string().uuid()).max(500).optional()
 });
+// Calendar visibility and lane order change only through calendarLanesInput.
 export const assignmentTypeCreateInput = assignmentTypeFields.extend({
-	showInDateHeader: z.literal(false).optional()
+	showOnCalendar: z.literal(false).optional()
 });
 export const assignmentTypeUpdateInput = assignmentTypeFields
 	.partial()
-	.extend({ id: uuidSchema, showInDateHeader: z.never().optional() });
-export const assignmentTypeDateHeaderInput = z.object({ assignmentTypeId: z.string().uuid() }).strict();
-export const specialDayCreateInput = z.object({
-	date: dateOnlySchema,
-	name: z.string(),
-	type: z.enum(['federal-holiday', 'org-closure'])
+	.extend({ id: uuidSchema, showOnCalendar: z.never().optional() });
+const laneTypeIds = z
+	.array(uuidSchema)
+	.refine((ids) => new Set(ids).size === ids.length, 'Each assignment type can be one lane');
+export const calendarLanesInput = z.object({ laneTypeIds: laneTypeIds, expectedLaneTypeIds: laneTypeIds }).strict();
+export const specialDayUpdateInput = z
+	.object({ date: dateOnlySchema, name: z.string(), type: z.enum(['federal-holiday', 'org-closure']) })
+	.partial()
+	.extend({ id: uuidSchema });
+export const closureDaysInput = z.object({
+	action: z.literal('addClosureDays'),
+	name: z.string().trim().min(1, 'Name is required').max(120, 'Name must be 120 characters or fewer'),
+	dates: z
+		.array(dateOnlySchema)
+		.min(1, 'Pick at least one date')
+		.max(MAX_CLOSURE_DAYS, `A closure can cover at most ${MAX_CLOSURE_DAYS} days`)
+		.refine((dates) => new Set(dates).size === dates.length, 'Each date appears once')
 });
-export const specialDayUpdateInput = specialDayCreateInput.partial().extend({ id: uuidSchema });
 const DATE_RANGE_MESSAGE = 'End date must be on or after the start date';
 const availabilityFields = z.object({
 	personnelId: uuidSchema,

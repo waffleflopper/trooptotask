@@ -98,7 +98,6 @@ const TEST_SUPPORT =
 
 const CALENDAR_GRID =
 	'Grid geometry, not a skin: Calendar sets the cell and personnel-column widths per breakpoint and the date count from data, and the header, rows, group headers and cells size from them.';
-const COLOR_INPUT_DEFAULT = 'Default value of a native color input, which accepts only `#rrggbb`.';
 const PRINT_TABLE = 'Print layout: a native `table` paginates and repeats its heading row on each printed page.';
 
 /**
@@ -110,10 +109,6 @@ const NATIVE_EXCEPTIONS: Record<string, NativeException> = {
 		covers: { '--calendar-cell-width': 1, '--calendar-personnel-column-width': 1, '--dates-count': 1 },
 		reason: CALENDAR_GRID
 	},
-	'src/features/calendar/components/CalendarAssignmentSettingsSection.svelte': {
-		covers: { '#hex': 1 },
-		reason: COLOR_INPUT_DEFAULT
-	},
 	'src/features/calendar/components/CalendarHeader.svelte': {
 		covers: { '--calendar-cell-width': 3, '--calendar-personnel-column-width': 2, '--dates-count': 2 },
 		reason: CALENDAR_GRID
@@ -122,28 +117,19 @@ const NATIVE_EXCEPTIONS: Record<string, NativeException> = {
 		covers: { '--calendar-cell-width': 2, '--calendar-personnel-column-width': 2, '--dates-count': 2 },
 		reason: CALENDAR_GRID
 	},
-	'src/features/calendar/components/CalendarStatusSettingsSection.svelte': {
-		covers: { '#hex': 2 },
-		reason: COLOR_INPUT_DEFAULT
-	},
 	'src/features/calendar/components/date-cell/date-cell.svelte': {
 		covers: { button: 1, '--calendar-cell-width': 1 },
 		reason:
 			'A month remounts 651+ cells on every navigation, and the `ui/button` wrapper slowed load and navigation; the cell width is the Calendar grid geometry.'
 	},
 	'src/features/calendar/components/GroupHeader.svelte': {
-		covers: { '--calendar-cell-width': 1, '--calendar-personnel-column-width': 3, '--dates-count': 1 },
+		covers: { '--calendar-cell-width': 2, '--calendar-personnel-column-width': 5, '--dates-count': 2 },
 		reason: CALENDAR_GRID
 	},
 	'src/features/calendar/components/LongRangeView.svelte': {
-		covers: {
-			'--calendar-personnel-column-width': 5,
-			'--long-range-col-width': 6,
-			'--long-range-group-row-height': 3,
-			'--long-range-person-row-height': 3
-		},
+		covers: { '--calendar-personnel-column-width': 3, '--dates-count': 2, '--long-range-columns': 4 },
 		reason:
-			'Grid geometry, not a skin: the row heights and column width are the values the row virtualizer positions with.'
+			'Grid geometry, not a skin: the personnel column follows the Calendar breakpoints, and the header, group and person rows share one column template sized from the date count.'
 	},
 	'src/features/training/components/TrainingPrintBrief.svelte': { covers: { table: 1 }, reason: PRINT_TABLE },
 	'src/features/training/components/TrainingPrintDetail.svelte': { covers: { table: 1 }, reason: PRINT_TABLE },

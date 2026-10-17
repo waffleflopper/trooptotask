@@ -4,7 +4,7 @@
 	interface Props {
 		eyebrow: string;
 		title: string;
-		description: string;
+		description?: string;
 		tone?: 'accent' | 'destructive';
 	}
 
@@ -21,5 +21,7 @@
 		{eyebrow}
 	</p>
 	<h2 class="font-heading text-xl leading-tight">{title}</h2>
-	<p class="text-xs text-muted-foreground">{description}</p>
+	{#if description}
+		<p class="text-xs text-muted-foreground">{description}</p>
+	{/if}
 </div>

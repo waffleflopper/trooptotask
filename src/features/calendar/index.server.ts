@@ -8,20 +8,25 @@ export {
 export { createAvailabilityBatch, deleteAvailabilityBatch } from './availabilityBatch.server';
 export { createSupabaseCalendarAvailabilityRemovalPort } from './availabilityRemovalPersistence.server';
 export {
-	createSpecialDay,
+	addClosureDays,
 	updateSpecialDay,
 	deleteSpecialDay,
 	resetFederalHolidays
 } from './specialDayOperations.server';
 export { listSpecialDaysInRange, listSpecialDays } from './specialDayRead.server';
 export { getCalendarOrganizationDefaults } from './organizationDefaults.server';
-export { createStatusType, updateStatusType, deleteStatusType } from './statusTypeOperations.server';
+export {
+	createStatusType,
+	updateStatusType,
+	setStatusTypeOrder,
+	deleteStatusType
+} from './statusTypeOperations.server';
 export { listStatusTypes, listStatusTypeLabels } from './statusTypeRead.server';
 export { createSupabaseStatusTypeNamesReader } from './statusTypeNames.server';
 export {
 	createAssignmentType,
 	updateAssignmentType,
-	setAssignmentTypeDateHeader,
+	setCalendarLanes,
 	deleteAssignmentType
 } from './assignmentTypeOperations.server';
 export { listAssignmentTypes, listAssignmentTypeTargets } from './assignmentTypeRead.server';
@@ -63,7 +68,7 @@ export {
 } from './calendar.types';
 
 export { CALENDAR_ANCHOR_COOKIE, resolveCalendarAnchorDate } from './utils/calendarAnchorDate';
-export { createInitialCalendarBufferedRange } from './utils/calendarRange';
+export { createInitialCalendarBufferedRange, MAX_CALENDAR_RANGE_DAYS } from './utils/calendarRange';
 export { withCalendarTiming } from './calendarTiming.server';
 
 export { createSupabaseCalendarExportReader } from './calendarExportRead.server';

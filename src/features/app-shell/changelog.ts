@@ -7,6 +7,23 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-10-17-new-calendar',
+		date: '2026-10-17',
+		title: 'A New Calendar',
+		items: [
+			'The Calendar has a new design that is easier to read at a glance and quicker to update.',
+			'Leave, appointments and other statuses now show as one bar across their dates instead of a color in every box. A one-day bar shows a short label like APT, and longer bars show the status name and the note. When two entries overlap, both stay visible. The 3-Month view shows the same bars with a label and length, like LEAVE · 9D.',
+			'Drag across a person’s days to add a status, then pick it from the list or press its number key. Click a bar to see its dates and note, edit it or remove it, and drag either end to change its dates.',
+			'Duties now show in lanes right under the dates, and you can put as many duty types on the calendar as you need. Click + on an open day to assign someone. People who have gone longest without that duty are listed first, anyone unavailable that day is dimmed with their status, and people exempt from the duty are left out.',
+			'A Days lane under the duties shows federal holidays and unit closures by name.',
+			'The month, Today and the Month / 3-Month switch now sit beside the title, along with how many people are available today. Duty planner, Reports and Bulk Status are one click away, and display options, settings and exports have their own menus.',
+			'The Duty planner shows the whole month with a column for each duty type. It flags anyone assigned on a day they are unavailable and lists every conflict with a Find replacement button. Quick fill can fill only the open days. A Fairness panel shows who has gone longest without each duty and how many duties each person pulled in the last 90 days, so it is easier to spread duties evenly.',
+			'Bulk Status shows each person’s existing entries while you choose who to add, skips people already on that status and points out overlaps. Removing more than 500 entries at once now works.',
+			'In Calendar settings, choose which duty types appear on the calendar and in what order, and mark people exempt from a duty. Give each status a short one-day label and drag statuses into the order you want. Add a closure over a range of dates in one step, with weekends skipped by default.',
+			'If something looks off or you have an idea for the Calendar, use Feedback in the upper right to let me know.'
+		]
+	},
+	{
 		id: '2026-10-13-onboarding-glow-up',
 		date: '2026-10-13',
 		title: 'Onboarding Got a Glow Up',

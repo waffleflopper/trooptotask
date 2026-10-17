@@ -15,14 +15,15 @@ import {
 	failedRequests,
 	inFlight,
 	statementTotals,
-	statementCategories
+	statementCategories,
+	maintenanceDuring
 } from './perf-measure.mjs';
 import { journeys, journeyFor, monthLabels } from './perf-journeys.mjs';
 import { workloads, importCsv, removeImported } from './perf-workloads.mjs';
 
 export const perfHelp = `Performance measurement on seeded workloads (recipe: features/performance.md)
 
-$V seed workload small|typical|large       Seed one synthetic Organization; clean-seeds removes it
+$V seed workload small|typical|large       Seed one synthetic Organization, then perf prepare; clean-seeds removes it
 $V actor perfWide|perfScoped|perfScopedLeader DESTINATION WORKLOAD   Sign in to that workload's Organization
 $V actor platformReviewer admin/users      Sign in the platform super-admin for admin-users
 $V perf workloads                          Print the workload table, profiles and protocol
@@ -38,6 +39,9 @@ $V perf trace PAGE WORKLOAD JOURNEY ACTOR --out RUN [--profile NAME]
                                            One cold traced load to network idle; raw trace plus a summary
 $V perf statements reset|read [--top N] [--out FILE]   pg_stat_statements on the owned database
 $V perf explain NAME WORKLOAD wide|scoped [--out FILE] EXPLAIN (ANALYZE, BUFFERS) a named statement as the actor
+$V perf prepare                            VACUUM (ANALYZE) every table a workload seed writes; seed workload runs it
+$V perf tables [--out FILE]                Vacuum, analyze and visibility state of those tables; every run records
+                                           it before its warm-up and after its last sample
 $V perf summarize RUN                      Distribution table over every run file below RUN
 
 JOURNEY (kind, effect, actors; cold only where marked): ${Object.entries(journeys)
@@ -448,18 +452,23 @@ function summarize(samples, interaction) {
 }
 
 // A warm-up sample prepares the page and server; only measured samples open a query window.
-async function repeat(options, mode, once) {
+// The workload tables' vacuum and analyze state is read before the warm-up and after the last
+// sample, so a run that autovacuum or autoanalyze crossed says so.
+async function repeat(ctx, options, mode, once) {
 	const defaults = protocol.defaults[mode] ?? protocol.defaults.warm;
 	const warmup = count(options.warmup, defaults.warmup, '--warmup');
 	const repetitions = count(options.reps, defaults.repetitions, '--reps', 1);
+	const before = (await ctx.database('perf-tables')).tables;
 	for (let index = 0; index < warmup; index++) await once(false, index);
 	const samples = [];
 	for (let index = 0; index < repetitions; index++) samples.push(await once(true, warmup + index));
+	const after = (await ctx.database('perf-tables')).tables;
 	const windows = samples.map((sample) => sample.statementRows);
 	const statements = { ...statementTotals(windows), byCategory: statementCategories(windows) };
 	return {
 		warmup,
 		repetitions,
+		tables: { before, after, maintenance: maintenanceDuring(before, after) },
 		samples: samples.map(({ statementRows, ...sample }) => ({
 			...sample,
 			statementsByRole: statementTotals([statementRows], 0).byRole
@@ -496,7 +505,8 @@ async function record(ctx, run, out, mode, result, profileName) {
 		...(result.resets ? { resets: result.resets } : {}),
 		summary,
 		samples: result.samples,
-		statements: result.statements
+		statements: result.statements,
+		tables: result.tables
 	});
 	return {
 		file: saved,
@@ -513,7 +523,8 @@ async function record(ctx, run, out, mode, result, profileName) {
 		documentOpen: summary.documentOpen,
 		networkRequests: summary.networkRequests,
 		failedRequests: summary.failedRequests,
-		transferBytes: summary.transferBytes
+		transferBytes: summary.transferBytes,
+		maintenance: result.tables.maintenance
 	};
 }
 
@@ -545,7 +556,7 @@ async function load(ctx, positional, options) {
 				if (pageId !== run.pageId) await ctx.tool('close_page', { pageId });
 			}
 		};
-		const result = await repeat(options, mode, once);
+		const result = await repeat(ctx, options, mode, once);
 		return record(ctx, run, out, mode, { ...result, milestones }, profileName);
 	} finally {
 		if (mode === 'warm') await emulate(ctx, run.pageId, 'unthrottled');
@@ -639,7 +650,7 @@ async function interaction(ctx, positional, options) {
 				document: before.document
 			});
 		};
-		const result = await repeat(options, 'warm', once);
+		const result = await repeat(ctx, options, 'warm', once);
 		return record(
 			ctx,
 			run,
@@ -767,6 +778,7 @@ async function summarizeRun(ctx, directory) {
 		serverTiming: run.summary.serverTiming,
 		statementsByRole: run.statements.byRole,
 		statementsByCategory: run.statements.byCategory,
+		maintenance: run.tables?.maintenance ?? null,
 		topStatementsByCalls: run.statements.byCalls.slice(0, 3).map(({ role, calls, callsPerWindow, mean_ms, query }) => ({
 			role,
 			calls,
@@ -776,8 +788,8 @@ async function summarizeRun(ctx, directory) {
 		}))
 	}));
 	const table = [
-		'| Workload | Actor | Journey | Mode | Profile | n | First useful render ms | Settled incl. reloads ms | Document complete ms | TTFB ms | Resource entries | Network requests | Failed | Transfer bytes | JS bytes | Data bytes | Document bytes |',
-		'| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+		'| Workload | Actor | Journey | Mode | Profile | n | First useful render ms | Settled incl. reloads ms | Document complete ms | TTFB ms | Resource entries | Network requests | Failed | Transfer bytes | JS bytes | Data bytes | Document bytes | Vacuum or analyze during run |',
+		'| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
 		...rows
 			.map((row) =>
 				[
@@ -797,7 +809,10 @@ async function summarizeRun(ctx, directory) {
 					range(row.transferBytes),
 					range(row.jsTransferBytes),
 					range(row.dataTransferBytes),
-					range(row.documentTransferBytes)
+					range(row.documentTransferBytes),
+					row.maintenance === null
+						? 'not recorded'
+						: row.maintenance.map(({ table, ...counts }) => `${table} ${JSON.stringify(counts)}`).join('; ') || 'none'
 				].join(' | ')
 			)
 			.map((line) => `| ${line} |`)
@@ -844,6 +859,12 @@ export async function perfCommand(args, ctx) {
 		const reply = await ctx.database('perf-statements', positional[0]);
 		const result =
 			positional[0] === 'read' ? statementTotals([reply.statements], count(options.top, 20, '--top')) : reply;
+		if (options.out) result.file = await writeEvidence(ctx, path.resolve(ctx.repository, options.out), result);
+		return result;
+	}
+	if (action === 'prepare') return ctx.database('perf-prepare');
+	if (action === 'tables') {
+		const result = await ctx.database('perf-tables');
 		if (options.out) result.file = await writeEvidence(ctx, path.resolve(ctx.repository, options.out), result);
 		return result;
 	}

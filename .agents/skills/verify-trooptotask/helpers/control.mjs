@@ -1769,7 +1769,17 @@ async function main() {
 		const ownedState = await saved();
 		const tag = randomUUID().slice(0, 8);
 		if (kind === 'workload') {
-			note(await seedWorkload({ client, fixture, name: args[1], tag, ownedState, save }));
+			note(
+				await seedWorkload({
+					client,
+					fixture,
+					name: args[1],
+					tag,
+					ownedState,
+					save,
+					prepare: () => perfDatabase('perf-prepare')
+				})
+			);
 			return;
 		}
 		if (kind === 'training-print') {

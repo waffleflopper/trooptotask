@@ -5,6 +5,7 @@ import contextlib
 import io
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -460,6 +461,18 @@ class PerfStatementsTests(unittest.TestCase):
                 with self.assertRaises(environment.Blocked):
                     environment.perf_statements(Path("/unused"), action)
         owned.assert_not_called()
+
+
+class PerfPrepareTests(unittest.TestCase):
+    def test_prepares_exactly_the_tables_a_workload_seed_writes(self):
+        source = (Path(__file__).resolve().parents[2]
+                  / ".agents/skills/verify-trooptotask/helpers/perf-workloads.mjs").read_text()
+        seeded = re.search(r"export const workloadTables = \[(.*?)\];", source, re.S).group(1)
+        written = {"auth.users", "auth.identities", "public.organizations"} | {
+            f"public.{table}" for table in re.findall(r"'([a-z_]+)'", seeded)}
+        self.assertEqual(len(written), 19)
+        self.assertEqual(set(environment.PERF_PREPARED_TABLES), written)
+        self.assertEqual(len(environment.PERF_PREPARED_TABLES), 19)
 
 
 class PerfExplainTests(unittest.TestCase):

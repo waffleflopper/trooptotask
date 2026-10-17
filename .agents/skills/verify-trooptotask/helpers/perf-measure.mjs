@@ -480,3 +480,22 @@ export function statementCategories(windows) {
 		])
 	);
 }
+
+const maintenanceCounters = ['vacuum_count', 'autovacuum_count', 'analyze_count', 'autoanalyze_count'];
+
+/**
+ * Tables that a vacuum or analyze touched between two `perf-tables` reads, with how many times.
+ * Planner statistics and visibility change when one does, so a run that spans one is not
+ * comparable sample for sample.
+ */
+export function maintenanceDuring(before, after) {
+	const earlier = new Map(before.map((row) => [row.table, row]));
+	return after.flatMap((row) => {
+		const changed = Object.fromEntries(
+			maintenanceCounters
+				.map((counter) => [counter.replace('_count', ''), row[counter] - (earlier.get(row.table)?.[counter] ?? 0)])
+				.filter(([, delta]) => delta > 0)
+		);
+		return Object.keys(changed).length ? [{ table: row.table, ...changed }] : [];
+	});
+}

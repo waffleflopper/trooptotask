@@ -588,7 +588,7 @@ async function timed(work) {
 	return Math.round(performance.now() - started);
 }
 
-export async function seedWorkload({ client, fixture, name, tag, ownedState, save }) {
+export async function seedWorkload({ client, fixture, name, tag, ownedState, save, prepare }) {
 	ownedState.workloads ??= {};
 	if (ownedState.workloads[name]) throw new Error(`Clean the existing ${name} workload before seeding it again.`);
 	const owner = fixture.actors.perfWide;
@@ -634,6 +634,9 @@ export async function seedWorkload({ client, fixture, name, tag, ownedState, sav
 				if (error) throw new Error(`Disposable provider operation failed on ${table}: ${error.message}`);
 			}
 		});
+	// Planner statistics and visibility of fresh rows otherwise wait for autovacuum, which runs
+	// at an unpredictable time during the first samples.
+	timings.prepare = await timed(prepare);
 	return {
 		workload: name,
 		tag,

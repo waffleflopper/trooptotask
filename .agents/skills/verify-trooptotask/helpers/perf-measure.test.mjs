@@ -9,6 +9,7 @@ import {
 	installSettledObserver,
 	statementTotals,
 	statementCategories,
+	maintenanceDuring,
 	statementCategory,
 	parseServerTiming,
 	redactTrace,
@@ -391,4 +392,19 @@ test('milestone text matches across markup whitespace', () => {
 	page.document.body.textContent = '5\n\t\t\tmembers';
 	page.step(100);
 	assert.deepEqual(page.__t2tPerfSettled.milestones, { useful: 100 });
+});
+
+test('maintenanceDuring names only the tables a vacuum or analyze touched between reads', () => {
+	const row = (table, autovacuum_count, autoanalyze_count) => ({
+		table,
+		dead: 3,
+		vacuum_count: 1,
+		autovacuum_count,
+		analyze_count: 1,
+		autoanalyze_count
+	});
+	const before = [row('public.personnel', 0, 0), row('public.personnel_trainings', 2, 1), row('public.groups', 0, 0)];
+	const after = [row('public.personnel', 1, 2), row('public.personnel_trainings', 2, 1), row('public.groups', 0, 0)];
+	assert.deepEqual(maintenanceDuring(before, after), [{ table: 'public.personnel', autovacuum: 1, autoanalyze: 2 }]);
+	assert.deepEqual(maintenanceDuring(after, after), []);
 });

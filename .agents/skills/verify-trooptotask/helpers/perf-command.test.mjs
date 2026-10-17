@@ -250,7 +250,8 @@ test('a slow document keeps its observer and closes its query window only when i
 		ownedState: { workloads: { small: ledger }, perfPages: { 7: 'perfWide' } },
 		isUnderEvidence: async (file, root) => file.startsWith(root + path.sep),
 		text: (reply) => reply.text ?? '',
-		database: async (_name, action) => {
+		database: async (name, action) => {
+			if (name === 'perf-tables') return { tables: [] };
 			events.push(`statements ${action}`);
 			return { statements: [] };
 		},

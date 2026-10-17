@@ -207,10 +207,12 @@ class OwnedDatabase:
         self.container_id = database[0]["Id"]
         self.project = self.state["project"]
 
-    def _execute(self, sql):
+    def _execute(self, *sql):
+        # Each -c runs on its own, outside a transaction block, so VACUUM can follow a SET.
+        commands = [argument for statement in sql for argument in ("-c", statement)]
         return execute(["docker", "exec", "-e", "PGPASSWORD=postgres", self.container_id,
                         "psql", "-X", "-qAt", "-h", "127.0.0.1", "-p", "5432",
-                        "-U", "supabase_admin", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-c", sql],
+                        "-U", "supabase_admin", "-d", "postgres", "-v", "ON_ERROR_STOP=1", *commands],
                        self.workdir, self.environment, suppress_diagnostic=True)
 
     def totp_factor(self, user_id):
@@ -481,6 +483,37 @@ class PerfDatabase(OwnedDatabase):
         """).strip()
         return json.loads(output)
 
+    def prepare(self):
+        self._execute("SET statement_timeout = '300s'", f"VACUUM (ANALYZE) {', '.join(PERF_PREPARED_TABLES)};")
+
+    def read_tables(self):
+        names = ", ".join(f"'{table}'" for table in PERF_PREPARED_TABLES)
+        output = self._execute(f"""
+            SET statement_timeout = '10s';
+            SELECT COALESCE(json_agg(row_to_json(t) ORDER BY t.table), '[]'::json) FROM
+              (SELECT s.schemaname || '.' || s.relname AS table, s.n_live_tup AS live, s.n_dead_tup AS dead,
+                      s.n_mod_since_analyze AS modified_since_analyze, s.n_ins_since_vacuum AS inserted_since_vacuum,
+                      c.relpages AS pages, c.relallvisible AS all_visible_pages,
+                      s.last_vacuum, s.last_autovacuum, s.last_analyze, s.last_autoanalyze,
+                      s.vacuum_count, s.autovacuum_count, s.analyze_count, s.autoanalyze_count
+               FROM pg_stat_user_tables s JOIN pg_class c ON c.oid = s.relid
+               WHERE s.schemaname || '.' || s.relname IN ({names})) AS t;
+        """).strip()
+        return json.loads(output)
+
+
+# Every table `seed workload` writes: the Auth rows the admin API creates for the extra members,
+# the Organization and the workload tables in perf-workloads.mjs. `perf-prepare` vacuums and
+# analyzes exactly these after a seed, so planner statistics and visibility do not depend on
+# when autovacuum next runs.
+PERF_PREPARED_TABLES = (
+    "auth.users", "auth.identities", "public.organizations", "public.organization_rank_catalog", "public.groups",
+    "public.organization_memberships", "public.status_types", "public.assignment_types", "public.training_types",
+    "public.ict_tasks", "public.onboarding_templates", "public.onboarding_template_steps", "public.personnel",
+    "public.availability_entries", "public.daily_assignments", "public.personnel_trainings",
+    "public.personnel_ict_completions", "public.personnel_onboardings", "public.onboarding_step_progress",
+)
+
 
 # Named statements shaped like the app's PostgREST reads, run as the signed-in actor so RLS
 # applies. Parameters come only from the helper's workload ledger and fixture actors.
@@ -513,6 +546,18 @@ def perf_statements(session, action):
         database.reset_statements()
         return {"status": "PASS", "reset": True}
     return {"status": "PASS", "statements": database.read_statements()}
+
+
+def perf_prepare(session):
+    database = PerfDatabase(session)
+    started = time.monotonic()
+    database.prepare()
+    return {"status": "PASS", "tables": list(PERF_PREPARED_TABLES),
+            "durationMs": round((time.monotonic() - started) * 1000)}
+
+
+def perf_tables(session):
+    return {"status": "PASS", "tables": PerfDatabase(session).read_tables()}
 
 
 def perf_explain(session, name, workload, actor):
@@ -653,6 +698,8 @@ def main():
     statements = subcommands.add_parser("perf-statements", help="Reset or read pg_stat_statements on the owned database")
     statements.add_argument("session")
     statements.add_argument("action", choices=("reset", "read"))
+    subcommands.add_parser("perf-prepare", help="VACUUM (ANALYZE) the tables a workload seed writes").add_argument("session")
+    subcommands.add_parser("perf-tables", help="Read vacuum, analyze and visibility state of those tables").add_argument("session")
     explain = subcommands.add_parser("perf-explain", help="EXPLAIN (ANALYZE, BUFFERS) one named statement for a seeded workload")
     explain.add_argument("session")
     explain.add_argument("name")
@@ -669,6 +716,10 @@ def main():
             result = session_age(session, args.user_id, args.hours)
         elif args.command == "perf-statements":
             result = perf_statements(session, args.action)
+        elif args.command == "perf-prepare":
+            result = perf_prepare(session)
+        elif args.command == "perf-tables":
+            result = perf_tables(session)
         elif args.command == "perf-explain":
             result = perf_explain(session, args.name, args.workload, args.actor)
         elif args.command == "deletion-review-failure":

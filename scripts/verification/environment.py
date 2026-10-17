@@ -567,7 +567,8 @@ PERF_PLAN_CACHE_MODE = "force_custom_plan"
 PERF_PLAN_PIN_FILE = "perf-plan-cache.json"
 PERF_PREPARED_TABLES = (
     "auth.users", "auth.identities", "public.organizations", "public.organization_rank_catalog", "public.groups",
-    "public.organization_memberships", "public.status_types", "public.assignment_types", "public.training_types",
+    "public.organization_memberships", "public.status_types", "public.assignment_types", "public.special_days",
+    "public.training_types",
     "public.ict_tasks", "public.onboarding_templates", "public.onboarding_template_steps", "public.personnel",
     "public.availability_entries", "public.daily_assignments", "public.personnel_trainings",
     "public.personnel_ict_completions", "public.personnel_onboardings", "public.onboarding_step_progress",

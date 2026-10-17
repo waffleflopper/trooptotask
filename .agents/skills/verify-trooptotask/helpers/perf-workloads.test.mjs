@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import {
 	cleanWorkloads,
 	expandWorkload,
+	federalHolidays,
 	importCsv,
 	removeImported,
 	workloadMembers,
@@ -130,6 +131,59 @@ test('rows satisfy the unique keys and references the database enforces', () => 
 test('adding the scoped editor leaves every row seeded before it unchanged', () => {
 	// The last Person generated in the large workload before the editor membership existed.
 	assert.equal(expand('large').rows.personnel.at(-1).id, '419db40b-45c1-42a3-84e0-ba4b3ead9e45');
+});
+
+// 2026 observed dates: Independence Day falls on a Saturday and is observed Friday July 3.
+test('federal holidays follow the observed US calendar', () => {
+	assert.deepEqual(
+		federalHolidays(2026).map((day) => day.date),
+		[
+			'2026-01-01',
+			'2026-01-19',
+			'2026-02-16',
+			'2026-05-25',
+			'2026-06-19',
+			'2026-07-03',
+			'2026-09-07',
+			'2026-10-12',
+			'2026-11-11',
+			'2026-11-26',
+			'2026-12-25'
+		]
+	);
+});
+
+// 44 federal holidays over 2025-2028; a training holiday beside each of the 31 that fall on a
+// Monday or Thursday; ten block-leave weekdays from December 22, of which 4, 2, 2 and 2 already
+// hold a holiday. The window around 2026-10-15 holds 17 of them.
+test('every workload has the same Calendar days, lanes on its watched duties and short status labels', () => {
+	for (const [name, lanes] of [
+		['small', ['Staff Duty', 'CQ']],
+		['typical', ['Staff Duty', 'CQ', 'Runner']],
+		['large', ['Staff Duty', 'CQ', 'Runner', 'Detail Group']]
+	]) {
+		const { rows, window } = expand(name);
+		const days = rows.special_days;
+		assert.equal(new Set(days.map((day) => day.date)).size, days.length, name);
+		assert.deepEqual(
+			{
+				federal: days.filter((day) => day.type === 'federal-holiday').length,
+				training: days.filter((day) => day.name === 'Training holiday').length,
+				blockLeave: days.filter((day) => day.name === 'Holiday block leave').length,
+				inWindow: days.filter((day) => day.date >= window.start && day.date <= window.end).length
+			},
+			{ federal: 44, training: 31, blockLeave: 30, inWindow: 17 },
+			name
+		);
+		assert.deepEqual(
+			rows.assignment_types.filter((type) => type.show_on_calendar).map((type) => type.name),
+			lanes
+		);
+		assert.ok(
+			rows.status_types.every((type) => /^[A-Z]{2,3}$/.test(type.short_label)),
+			name
+		);
+	}
 });
 
 test('the anchor moves dates without changing identities', () => {

@@ -8,7 +8,13 @@ import { createHash } from 'node:crypto';
 // - Availability: roughly one leave, TDY, appointment or school entry per Soldier per
 //   month, lasting 1-14 days, over the stated window around the run's anchor day.
 // - Daily assignments: one slot per duty type per day (staff duty, CQ, runner, details);
-//   more duty types as the unit grows.
+//   more duty types as the unit grows. The duties the whole unit watches are Calendar lanes
+//   (`calendarLanes`); range safety and motor pool stay planner-only.
+// - Status types carry the short label a one-day Calendar bar shows.
+// - Special days: an Organization the app creates starts with four years of federal
+//   holidays. Army units add a training holiday beside each Monday or Thursday holiday (a
+//   four-day weekend) and ten weekdays of winter block leave. The calendar does not grow
+//   with the roster, so every workload has the same days.
 // - Training: a unit tracks 8-25 requirement types; most Soldiers are current on most of
 //   them. Critical Tasks are an MOS task list; completions are partial with older history.
 // - Onboarding: a steady trickle of in-processing Soldiers plus finished packets.
@@ -22,6 +28,8 @@ export const workloads = {
 		availabilityPerPersonPer30Days: 1,
 		statusTypes: 4,
 		assignmentTypes: 2,
+		calendarLanes: 2,
+		specialDays: { federalHolidayYears: 4, trainingHolidays: true, blockLeaveWeekdays: 10 },
 		trainingTypes: 8,
 		trainingCompletionPercent: 85,
 		criticalTasks: 10,
@@ -39,6 +47,8 @@ export const workloads = {
 		availabilityPerPersonPer30Days: 1,
 		statusTypes: 6,
 		assignmentTypes: 4,
+		calendarLanes: 3,
+		specialDays: { federalHolidayYears: 4, trainingHolidays: true, blockLeaveWeekdays: 10 },
 		trainingTypes: 15,
 		trainingCompletionPercent: 85,
 		criticalTasks: 25,
@@ -56,6 +66,8 @@ export const workloads = {
 		availabilityPerPersonPer30Days: 1,
 		statusTypes: 8,
 		assignmentTypes: 6,
+		calendarLanes: 4,
+		specialDays: { federalHolidayYears: 4, trainingHolidays: true, blockLeaveWeekdays: 10 },
 		trainingTypes: 25,
 		trainingCompletionPercent: 85,
 		criticalTasks: 40,
@@ -74,6 +86,7 @@ export const workloadTables = [
 	'organization_memberships',
 	'status_types',
 	'assignment_types',
+	'special_days',
 	'training_types',
 	'ict_tasks',
 	'onboarding_templates',
@@ -183,6 +196,62 @@ function addMonths(date, months) {
 	return value.toISOString().slice(0, 10);
 }
 
+const weekday = (date) => new Date(`${date}T00:00:00Z`).getUTCDay();
+const nthWeekday = (year, month, day, n) => {
+	const first = `${year}-${String(month).padStart(2, '0')}-01`;
+	return addDays(first, ((day - weekday(first) + 7) % 7) + (n - 1) * 7);
+};
+const lastWeekday = (year, month, day) => {
+	const last = new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
+	return addDays(last, -((weekday(last) - day + 7) % 7));
+};
+// A Saturday holiday is observed on Friday and a Sunday one on Monday.
+const observed = (date) => addDays(date, { 0: 1, 6: -1 }[weekday(date)] ?? 0);
+
+/** The observed US federal holidays of a year, the rules the app seeds a new Organization with. */
+export function federalHolidays(year) {
+	const fixed = (month, day) => observed(`${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`);
+	return [
+		["New Year's Day", fixed(1, 1)],
+		['Martin Luther King Jr. Day', nthWeekday(year, 1, 1, 3)],
+		['Presidents Day', nthWeekday(year, 2, 1, 3)],
+		['Memorial Day', lastWeekday(year, 5, 1)],
+		['Juneteenth', fixed(6, 19)],
+		['Independence Day', fixed(7, 4)],
+		['Labor Day', nthWeekday(year, 9, 1, 1)],
+		['Columbus Day', nthWeekday(year, 10, 1, 2)],
+		['Veterans Day', fixed(11, 11)],
+		['Thanksgiving Day', nthWeekday(year, 11, 4, 4)],
+		['Christmas Day', fixed(12, 25)]
+	].map(([name, date]) => ({ name, date, type: 'federal-holiday' }));
+}
+
+// The anchor's year starts the window the app gives a new Organization (the year before it
+// through two after). A closure never lands on a day that already holds one, as the app's
+// closure command skips such days.
+function specialDays({ federalHolidayYears, trainingHolidays, blockLeaveWeekdays }, anchor, seed) {
+	const first = Number(anchor.slice(0, 4)) - 1;
+	const years = Array.from({ length: federalHolidayYears }, (_, index) => first + index);
+	const days = years.flatMap(federalHolidays);
+	const taken = new Set(days.map((day) => day.date));
+	const close = (name, date) => {
+		if (taken.has(date)) return;
+		taken.add(date);
+		days.push({ name, date, type: 'org-closure' });
+	};
+	if (trainingHolidays)
+		for (const holiday of days.filter((day) => [1, 4].includes(weekday(day.date))))
+			close('Training holiday', addDays(holiday.date, weekday(holiday.date) === 1 ? -3 : 1));
+	for (const year of years)
+		for (let date = `${year}-12-22`, left = blockLeaveWeekdays; left > 0; date = addDays(date, 1))
+			if (weekday(date) % 6 !== 0) {
+				close('Holiday block leave', date);
+				left -= 1;
+			}
+	const next = random(seed);
+	return days.toSorted((a, b) => a.date.localeCompare(b.date)).map((day) => ({ id: uuidFrom(next), ...day }));
+}
+
 /**
  * Every row of one workload, deterministic for a name and anchor day. The anchor is
  * the run's local day, so a later run keeps the same shape relative to "today".
@@ -262,10 +331,26 @@ export function expandWorkload(name, { anchor, owner, scoped, scopedLeader, memb
 	);
 
 	const palette = ['#166534', '#1d4ed8', '#7c2d12', '#7e22ce', '#0f766e', '#b45309', '#be123c', '#4d7c0f'];
-	rows.status_types = ['Leave', 'TDY', 'Appointment', 'School', 'Sick Call', 'Field', 'Pass', 'Quarters']
+	rows.status_types = [
+		['Leave', 'LV'],
+		['TDY', 'TDY'],
+		['Appointment', 'APT'],
+		['School', 'SCH'],
+		['Sick Call', 'SC'],
+		['Field', 'FLD'],
+		['Pass', 'PS'],
+		['Quarters', 'QTR']
+	]
 		.slice(0, shape.statusTypes)
-		.map((statusName, index) =>
-			inOrganization({ id: id(), name: statusName, color: palette[index], text_color: '#ffffff', sort_order: index })
+		.map(([statusName, shortLabel], index) =>
+			inOrganization({
+				id: id(),
+				name: statusName,
+				short_label: shortLabel,
+				color: palette[index],
+				text_color: '#ffffff',
+				sort_order: index
+			})
 		);
 	rows.assignment_types = [
 		['Staff Duty', 'SD', 'personnel'],
@@ -285,9 +370,12 @@ export function expandWorkload(name, { anchor, owner, scoped, scopedLeader, memb
 				color: palette[index],
 				sort_order: index,
 				exempt_personnel_ids: [],
-				show_on_calendar: index === 0
+				show_on_calendar: index < shape.calendarLanes
 			})
 		);
+	rows.special_days = specialDays(shape.specialDays, anchor, `t2t-perf-workload:${name}:special-days`).map((day) =>
+		inOrganization(day)
+	);
 	rows.training_types = Array.from({ length: shape.trainingTypes }, (_, index) =>
 		inOrganization({
 			id: id(),

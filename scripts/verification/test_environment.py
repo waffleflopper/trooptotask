@@ -511,7 +511,8 @@ class PerfPrepareTests(OwnedProviderBoundary):
             self.psql("SET statement_timeout = '300s'",
                       "VACUUM (ANALYZE) auth.users, auth.identities, public.organizations, "
                       "public.organization_rank_catalog, public.groups, public.organization_memberships, "
-                      "public.status_types, public.assignment_types, public.training_types, public.ict_tasks, "
+                      "public.status_types, public.assignment_types, public.special_days, public.training_types, "
+                      "public.ict_tasks, "
                       "public.onboarding_templates, public.onboarding_template_steps, public.personnel, "
                       "public.availability_entries, public.daily_assignments, public.personnel_trainings, "
                       "public.personnel_ict_completions, public.personnel_onboardings, "

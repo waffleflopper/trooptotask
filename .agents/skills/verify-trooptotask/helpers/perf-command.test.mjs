@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { gunzipSync, gzipSync } from 'node:zlib';
 import { test } from 'node:test';
-import { assertPageBound, controlUid, count, journeyTerms, perfCommand } from './perf-command.mjs';
+import { assertPageBound, controlUid, count, journeyTerms, perfCommand, step } from './perf-command.mjs';
 
 const perfPages = { 3: 'perfWide' };
 
@@ -296,4 +296,10 @@ test('a slow document keeps its observer and closes its query window only when i
 	assert.equal(sample.firstUsefulRenderMs, 2674);
 	assert.equal(sample.documentCompleteMs, 45598);
 	assert.equal(sample.documentOpen, false);
+});
+
+test('a preparation wait is one native wait that may take the whole cap', async () => {
+	const calls = [];
+	await step({ tool: async (name, input) => calls.push([name, input]) }, 7, { wait: ['Page 1 of'] });
+	assert.deepEqual(calls, [['wait_for', { pageId: 7, text: ['Page 1 of'], timeout: 120000 }]]);
 });

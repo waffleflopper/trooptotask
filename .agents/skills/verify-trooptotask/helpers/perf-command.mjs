@@ -169,7 +169,8 @@ async function emulate(ctx, pageId, profileName, extra = {}) {
 const observerScript = (spec) => `(${installSettledObserver.toString()})(window, ${JSON.stringify(spec)});`;
 
 // One cap for every wait in a sample: the useful render, network idle, the document's end and a
-// preparation step. The daemon allows one DevTools call 45 s, so longer waits poll shorter calls.
+// preparation step. The daemon allows a DevTools call 45 s unless the call names a longer timeout;
+// page evaluations cannot, so the settled reads poll shorter calls.
 export const capMs = 120_000;
 const pollMs = 20_000;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -571,14 +572,9 @@ export function controlUid(snapshot, { role, name, within, partial }) {
 	return match.match(/uid=([^\s]+)/)[1];
 }
 
-/** Runs one native step from the registry on the page. */
-async function step(ctx, pageId, action) {
-	if (action.wait) {
-		const begun = Date.now();
-		while (ctx.text(await ctx.tool('wait_for', { pageId, text: action.wait, timeout: pollMs })).includes('Timed out'))
-			if (Date.now() - begun >= capMs) throw new Error(`Timed out waiting for ${action.wait.join(' or ')}.`);
-		return;
-	}
+/** Runs one native step from the registry on the page. A wait may take the whole cap. */
+export async function step(ctx, pageId, action) {
+	if (action.wait) return ctx.tool('wait_for', { pageId, text: action.wait, timeout: capMs });
 	if (action.type !== undefined) return ctx.tool('type_text', { pageId, text: action.type });
 	if (action.press) return ctx.tool('press_key', { pageId, key: action.press });
 	const control = action.click ?? action.fill ?? action.upload;

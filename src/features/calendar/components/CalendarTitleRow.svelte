@@ -28,10 +28,6 @@
 	}
 </script>
 
-{#snippet navigation()}
-	<CalendarPeriodNavigation {view} {anchor} {onAnchorChange} />
-{/snippet}
-
 {#snippet summary()}
 	{#if today}
 		<div class="grid text-right">
@@ -49,6 +45,18 @@
 	</ToggleGroup.Root>
 {/snippet}
 
-<div class="shrink-0">
-	<PageShell.Header {eyebrow} title="Calendar" meta={navigation} aside={summary} />
-</div>
+<CalendarPeriodNavigation {view} {anchor} {onAnchorChange}>
+	{#snippet layout({ monthPicker, previous, next, today })}
+		{#snippet title()}
+			{@render monthPicker({ class: '-mx-2 h-auto px-2 py-0.5 [font:inherit]' })}
+		{/snippet}
+		{#snippet navigation()}
+			<div class="flex items-center gap-1.5">
+				{@render previous()}
+				{@render next()}
+				{@render today()}
+			</div>
+		{/snippet}
+		<PageShell.Header {eyebrow} {title} meta={navigation} aside={summary} />
+	{/snippet}
+</CalendarPeriodNavigation>

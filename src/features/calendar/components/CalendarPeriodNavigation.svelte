@@ -1,8 +1,25 @@
+<script lang="ts" module>
+	import type { Snippet } from 'svelte';
+
+	export interface MonthPickerStyle {
+		variant?: 'ghost' | 'outline';
+		size?: 'default' | 'sm';
+		class?: string;
+	}
+
+	/** The controls a page arranges itself, all sharing one anchor and one picker. */
+	export interface PeriodControls {
+		monthPicker: Snippet<[MonthPickerStyle?]>;
+		previous: Snippet;
+		next: Snippet;
+		today: Snippet;
+	}
+</script>
+
 <script lang="ts">
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import { Button } from '$lib/components/ui/button';
-	import * as ButtonGroup from '$lib/components/ui/button-group';
 	import { calendarPeriod, shiftCalendarPeriod, type CalendarViewMode } from '$features/calendar/utils/calendarRange';
 	import MonthYearPicker from './MonthYearPicker.svelte';
 
@@ -11,14 +28,26 @@
 		anchor: Date;
 		onAnchorChange: (anchor: Date) => void;
 		disabled?: boolean;
+		layout: Snippet<[PeriodControls]>;
 	}
 
-	let { view, anchor, onAnchorChange, disabled = false }: Props = $props();
+	let { view, anchor, onAnchorChange, disabled = false, layout }: Props = $props();
 
 	const period = $derived(calendarPeriod(anchor, view));
 
+	let container = $state<HTMLElement | null>(null);
 	let pickerOpen = $state(false);
 	let pickerTrigger = $state<HTMLElement | null>(null);
+	let pickerPosition = $state({ left: 0, top: 0 });
+
+	function togglePicker() {
+		if (!pickerOpen && container && pickerTrigger) {
+			const box = container.getBoundingClientRect();
+			const trigger = pickerTrigger.getBoundingClientRect();
+			pickerPosition = { left: trigger.left - box.left, top: trigger.bottom - box.top + 8 };
+		}
+		pickerOpen = !pickerOpen;
+	}
 
 	function closePickerToTrigger() {
 		pickerOpen = false;
@@ -36,44 +65,55 @@
 	}
 </script>
 
-<div class="relative flex items-center gap-1.5">
+{#snippet monthPicker(style: MonthPickerStyle = {})}
+	<Button
+		bind:ref={pickerTrigger}
+		variant={style.variant ?? 'ghost'}
+		size={style.size}
+		class={style.class}
+		data-testid={view === 'month' ? 'calendar-month-label' : 'long-range-date-label'}
+		{disabled}
+		aria-expanded={pickerOpen}
+		aria-haspopup="dialog"
+		onmousedown={(event: MouseEvent) => event.stopPropagation()}
+		onclick={togglePicker}
+	>
+		{period.title}
+	</Button>
+{/snippet}
+
+{#snippet previous()}
+	<Button
+		variant="outline"
+		size="icon-sm"
+		{disabled}
+		aria-label={period.previousLabel}
+		onclick={() => onAnchorChange(shiftCalendarPeriod(anchor, view, -1))}
+	>
+		<ChevronLeftIcon aria-hidden="true" />
+	</Button>
+{/snippet}
+
+{#snippet next()}
+	<Button
+		variant="outline"
+		size="icon-sm"
+		{disabled}
+		aria-label={period.nextLabel}
+		onclick={() => onAnchorChange(shiftCalendarPeriod(anchor, view, 1))}
+	>
+		<ChevronRightIcon aria-hidden="true" />
+	</Button>
+{/snippet}
+
+{#snippet today()}
 	<Button variant="outline" size="sm" {disabled} onclick={goToToday}>Today</Button>
-	<ButtonGroup.Root aria-label="Calendar period">
-		<Button
-			variant="outline"
-			size="icon-sm"
-			{disabled}
-			aria-label={period.previousLabel}
-			onclick={() => onAnchorChange(shiftCalendarPeriod(anchor, view, -1))}
-		>
-			<ChevronLeftIcon aria-hidden="true" />
-		</Button>
-		<Button
-			bind:ref={pickerTrigger}
-			variant="outline"
-			size="sm"
-			class="font-display tracking-wide uppercase"
-			data-testid={view === 'month' ? 'calendar-month-label' : 'long-range-date-label'}
-			{disabled}
-			aria-expanded={pickerOpen}
-			aria-haspopup="dialog"
-			onmousedown={(event: MouseEvent) => event.stopPropagation()}
-			onclick={() => (pickerOpen = !pickerOpen)}
-		>
-			{period.title}
-		</Button>
-		<Button
-			variant="outline"
-			size="icon-sm"
-			{disabled}
-			aria-label={period.nextLabel}
-			onclick={() => onAnchorChange(shiftCalendarPeriod(anchor, view, 1))}
-		>
-			<ChevronRightIcon aria-hidden="true" />
-		</Button>
-	</ButtonGroup.Root>
+{/snippet}
+
+<div bind:this={container} class="relative shrink-0">
+	{@render layout({ monthPicker, previous, next, today })}
 	{#if pickerOpen}
-		<div class="absolute top-full left-0 z-50 mt-2">
+		<div class="absolute z-50" style:left="{pickerPosition.left}px" style:top="{pickerPosition.top}px">
 			<MonthYearPicker
 				year={period.start.getFullYear()}
 				month={period.start.getMonth()}

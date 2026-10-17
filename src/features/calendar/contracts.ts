@@ -3,6 +3,9 @@ import type { ClientAffordance } from '$lib/access/clientAccess';
 import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
 import { z } from 'zod';
 
+/** The most records or IDs one availability batch request accepts; the batch RPCs enforce it too. */
+export const AVAILABILITY_BATCH_LIMIT = 500;
+
 /** Live advisory facts supplied by Delivery for Calendar operations. */
 export interface CalendarOperationsPageAccess {
 	readonly orgUrlSegment: string;

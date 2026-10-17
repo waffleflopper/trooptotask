@@ -160,6 +160,68 @@ describe('BulkStatusRemove', () => {
 		expect((screen.getByRole('button', { name: 'Confirm Removal' }) as HTMLButtonElement).disabled).toBe(false);
 	});
 
+	it('keeps the review after a partial removal and retries only the remaining entries', async () => {
+		const success = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
+		const error = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+		const onRemove = vi
+			.fn()
+			.mockResolvedValueOnce({ kind: 'partial', deleted: 2, completedIds: ['availability-1', 'availability-2'] })
+			.mockResolvedValueOnce({ kind: 'removed', deleted: 1 });
+		const onComplete = vi.fn();
+		renderRemove({
+			loadAvailabilityRange: vi
+				.fn()
+				.mockResolvedValue([
+					availabilityEntry({ id: 'availability-1' }),
+					availabilityEntry({ id: 'availability-2' }),
+					availabilityEntry({ id: 'availability-3' })
+				]),
+			onRemove,
+			onComplete
+		});
+
+		await selectPersonAndReview();
+		await confirmRemoval();
+
+		await waitFor(() =>
+			expect(error).toHaveBeenCalledWith('Removed 2 of 3 status entries — 1 remains; confirm again to retry')
+		);
+		expect(onComplete).not.toHaveBeenCalled();
+		expect((screen.getByRole('button', { name: 'Confirm Removal' }) as HTMLButtonElement).disabled).toBe(false);
+
+		await confirmRemoval();
+
+		await waitFor(() => expect(onComplete).toHaveBeenCalledOnce());
+		expect(onRemove).toHaveBeenNthCalledWith(2, ['availability-3']);
+		expect(success).toHaveBeenCalledWith('Removed 3 status entries');
+	});
+
+	it('counts entries another session already removed once across a partial retry', async () => {
+		const success = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
+		vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+		const onRemove = vi
+			.fn()
+			.mockResolvedValueOnce({ kind: 'partial', deleted: 1, completedIds: ['availability-1', 'availability-2'] })
+			.mockResolvedValueOnce({ kind: 'removed', deleted: 1 });
+		renderRemove({
+			loadAvailabilityRange: vi
+				.fn()
+				.mockResolvedValue([
+					availabilityEntry({ id: 'availability-1' }),
+					availabilityEntry({ id: 'availability-2' }),
+					availabilityEntry({ id: 'availability-3' })
+				]),
+			onRemove
+		});
+
+		await selectPersonAndReview();
+		await confirmRemoval();
+		await waitFor(() => expect(onRemove).toHaveBeenCalledTimes(1));
+		await confirmRemoval();
+
+		await waitFor(() => expect(success).toHaveBeenCalledWith('Removed 2 status entries; 1 was already gone'));
+	});
+
 	it('keeps the no-matches state hidden when selected range loading fails', async () => {
 		const loadAvailabilityRange = vi.fn().mockRejectedValue(new Error('boom'));
 

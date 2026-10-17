@@ -41,6 +41,7 @@ function renderPlanner(
 	props: {
 		assignmentTypes?: AssignmentType[];
 		assignments?: DailyAssignment[];
+		personnel?: Personnel[];
 		availabilityEntries?: AvailabilityEntry[];
 		rangeStatus?: 'ready' | 'loading' | 'error';
 		onSetAssignment?: (date: string, typeId: string, assigneeId: string) => Promise<boolean>;
@@ -62,7 +63,7 @@ function renderPlanner(
 			availabilityEntries: props.availabilityEntries ?? [],
 			statusTypes: [{ id: 'leave', name: 'Leave', color: '#0a0', textColor: '#fff', shortLabel: null, sortOrder: 0 }],
 			specialDays: [],
-			personnelByGroup: [{ group: 'Alpha', personnel: [kim, okafor, hale] }],
+			personnelByGroup: [{ group: 'Alpha', personnel: props.personnel ?? [kim, okafor, hale] }],
 			groups: [
 				{ id: 'g-alpha', name: 'Alpha', sortOrder: 0 },
 				{ id: 'g-bravo', name: 'Bravo', sortOrder: 1 }
@@ -238,5 +239,138 @@ describe('MonthlyAssignmentPlanner table', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Retry calendar load' }));
 
 		expect(onRetry).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe('MonthlyAssignmentPlanner fairness panel', () => {
+	const groupDuty: AssignmentType = {
+		...staffDuty,
+		id: 'type-gd',
+		name: 'Group Duty',
+		shortName: 'GD',
+		assignTo: 'group',
+		exemptPersonnelIds: [],
+		sortOrder: 2
+	};
+
+	function rowNames(table: HTMLElement) {
+		return within(table)
+			.getAllByRole('rowheader')
+			.map((header) => {
+				const copy = header.cloneNode(true) as HTMLElement;
+				copy.querySelectorAll('[aria-hidden="true"]').forEach((hidden) => hidden.remove());
+				return copy.textContent!.replace(/\s+/g, ' ').trim();
+			});
+	}
+
+	function chooseType(name: string) {
+		return fireEvent.click(screen.getByRole('radio', { name }));
+	}
+
+	function rowCells(table: HTMLElement, name: RegExp) {
+		const row = within(table)
+			.getAllByRole('row')
+			.find((candidate) => name.test(candidate.textContent ?? ''))!;
+		return within(row)
+			.getAllByRole('cell')
+			.map((cell) => cell.textContent!.trim());
+	}
+
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	it('lists the eligible people as a table, longest since their last duty first, with counts and dates', () => {
+		vi.useFakeTimers({ toFake: ['Date'], now: new Date(2026, 9, 17) });
+		renderPlanner({
+			assignments: [
+				duty('2026-10-24', 'type-sd', 'p-kim'),
+				duty('2026-08-20', 'type-sd', 'p-okafor'),
+				duty('2026-09-02', 'type-sd', 'p-okafor'),
+				duty('2026-09-02', 'type-gd', 'p-kim')
+			]
+		});
+
+		const table = screen.getByRole('table', { name: 'Staff Duty fairness' });
+
+		expect(
+			within(table)
+				.getAllByRole('columnheader')
+				.map((header) => header.textContent!.trim())
+		).toEqual(['Longest since last', 'Duties', 'Last']);
+		expect(rowNames(table)).toEqual(['SGT Okafor, Ife', 'SGT Kim, Jae-won']);
+		expect(rowCells(table, /Okafor/)).toEqual(['2', '45d']);
+		expect(rowCells(table, /Kim/)).toEqual(['1', 'in 7d']);
+		expect(within(table).getByText('45d').getAttribute('title')).toBe('2 Sept');
+		expect(screen.getByText('SSG Hale is exempt.')).toBeTruthy();
+		expect(screen.queryByRole('button', { name: /^Show / })).toBeNull();
+	});
+
+	it('shows the top of a long ranking until asked for everyone, and folds it again when the type changes', async () => {
+		const names = 'Abbott Baker Chen Diaz Evans Frost Garcia Hayes Ito Jones Kapoor Lopez'.split(' ');
+		renderPlanner({
+			assignmentTypes: [staffDuty, groupDuty],
+			personnel: names.map((name) => person(`p-${name}`, 'SPC', name, 'Pat'))
+		});
+		const staffTable = () => screen.getByRole('table', { name: 'Staff Duty fairness' });
+
+		expect(rowNames(staffTable())).not.toContain('SPC Kapoor, Pat');
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Show all 12' }));
+
+		expect(rowNames(staffTable())).toContain('SPC Kapoor, Pat');
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Show fewer' }));
+
+		expect(rowNames(staffTable())).not.toContain('SPC Kapoor, Pat');
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Show all 12' }));
+		await chooseType('Group Duty');
+		await chooseType('Staff Duty');
+
+		expect(rowNames(staffTable())).not.toContain('SPC Kapoor, Pat');
+		expect(screen.getByRole('button', { name: 'Show all 12' })).toBeTruthy();
+	});
+
+	it('ranks the Groups instead when the duty type is switched', async () => {
+		renderPlanner({
+			assignmentTypes: [staffDuty, groupDuty],
+			assignments: [duty('2026-09-02', 'type-gd', 'g-alpha')]
+		});
+
+		await chooseType('Group Duty');
+
+		const table = screen.getByRole('table', { name: 'Group Duty fairness' });
+		expect(rowNames(table)).toEqual(['Bravo', 'Alpha']);
+		expect(screen.queryByRole('table', { name: 'Staff Duty fairness' })).toBeNull();
+		expect(screen.queryByText(/is exempt\./)).toBeNull();
+
+		await fireEvent.click(screen.getByRole('radio', { name: 'Group Duty' }));
+
+		expect(screen.getByRole('table', { name: 'Group Duty fairness' })).toBeTruthy();
+	});
+
+	it('marks a person with leave still ahead as unavailable by status code and in words, and ignores leave already over', () => {
+		vi.useFakeTimers({ toFake: ['Date'], now: new Date(2026, 9, 17) });
+		renderPlanner({
+			availabilityEntries: [
+				{ id: 'e-1', personnelId: 'p-kim', statusTypeId: 'leave', startDate: '2026-10-20', endDate: '2026-10-22' },
+				{ id: 'e-2', personnelId: 'p-okafor', statusTypeId: 'leave', startDate: '2026-10-02', endDate: '2026-10-05' }
+			]
+		});
+
+		const table = screen.getByRole('table', { name: 'Staff Duty fairness' });
+
+		expect(rowNames(table)).toEqual(['SGT Kim, Jae-won', 'SGT Okafor, Ife']);
+		expect(within(table).getByText('LEA').getAttribute('title')).toBe('Leave 20–22 Oct');
+		expect(within(table).getByText('Unavailable: Leave 20–22 Oct')).toBeTruthy();
+		expect(within(table).getAllByText(/^Unavailable:/)).toHaveLength(1);
+	});
+
+	it('says so when no one is eligible for the duty', () => {
+		renderPlanner({ assignmentTypes: [{ ...staffDuty, exemptPersonnelIds: ['p-kim', 'p-okafor', 'p-hale'] }] });
+
+		expect(screen.getByText('No one is eligible for this duty.')).toBeTruthy();
+		expect(screen.queryByRole('table', { name: 'Staff Duty fairness' })).toBeNull();
 	});
 });

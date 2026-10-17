@@ -2,7 +2,7 @@
  * Bulk availability use case — set or clear availability for multiple personnel at once.
  *
  * `createAvailabilityBatch` inserts availability entries for the given personnel IDs
- * within a date range, up to MAX_BATCH_SIZE (500) entries per call.
+ * within a date range, up to AVAILABILITY_BATCH_LIMIT entries per call.
  *
  * Single-record availability uses Calendar-owned operations behind the route.
  */
@@ -15,9 +15,9 @@ import {
 } from './calendarPolicy.server';
 import { availabilityCreateInput } from './calendarPersistenceMapping.server';
 import { isUuid, issueMessage } from '$lib/utils/inputSchemas';
+import { AVAILABILITY_BATCH_LIMIT } from './contracts';
 
 const AUDIT_RESOURCE = 'availability';
-const MAX_BATCH_SIZE = 500;
 
 interface CreateAvailabilityBatchInput {
 	records: Array<{
@@ -39,8 +39,8 @@ export async function createAvailabilityBatch(
 		throw error(400, 'records array is required');
 	}
 
-	if (records.length > MAX_BATCH_SIZE) {
-		throw error(400, `Maximum ${MAX_BATCH_SIZE} records per batch`);
+	if (records.length > AVAILABILITY_BATCH_LIMIT) {
+		throw error(400, `Maximum ${AVAILABILITY_BATCH_LIMIT} records per batch`);
 	}
 
 	for (const [index, record] of records.entries()) {
@@ -85,8 +85,8 @@ export async function deleteAvailabilityBatch(
 		throw error(400, 'ids array is required');
 	}
 
-	if (ids.length > MAX_BATCH_SIZE) {
-		throw error(400, `Maximum ${MAX_BATCH_SIZE} ids per batch`);
+	if (ids.length > AVAILABILITY_BATCH_LIMIT) {
+		throw error(400, `Maximum ${AVAILABILITY_BATCH_LIMIT} ids per batch`);
 	}
 
 	if (!ids.every(isUuid)) throw error(400, 'Invalid ID');

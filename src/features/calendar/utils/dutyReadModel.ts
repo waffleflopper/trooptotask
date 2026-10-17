@@ -2,7 +2,7 @@ import type { AssignmentType, AvailabilityEntry, DailyAssignment } from '$featur
 import { assignmentSlotKey } from './calendarIndexes';
 import type { CalendarBufferedRange } from './calendarRange';
 import { DUTY_LOOKBACK_DAYS } from './calendarRange';
-import { fromDayNumber, toDayNumber, type DayNumber } from './dayNumber';
+import { fromDayNumber, toDayNumber, type DayNumber, type DayWindow } from './dayNumber';
 
 /** Duty days per assignment type and assignee, ascending and without repeats. */
 export type DutyHistoryIndex = ReadonlyMap<string, ReadonlyMap<string, readonly DayNumber[]>>;
@@ -51,6 +51,30 @@ export function lastDutyBefore(input: {
 	const days = input.history.get(input.assignmentTypeId)?.get(input.personnelId);
 	if (!days) return { kind: 'none' };
 	const target = toDayNumber(input.dateKey);
+	const previous = days[lowerBound(days, target) - 1];
+	if (previous === undefined || target - previous > DUTY_LOOKBACK_DAYS) return { kind: 'none' };
+	return { kind: 'previous', date: fromDayNumber(previous), daysSince: target - previous };
+}
+
+export interface DutyTally {
+	readonly count: number;
+	readonly latestDay: DayNumber | null;
+}
+
+export function dutyTallyInWindow(input: {
+	history: DutyHistoryIndex;
+	assignmentTypeId: string;
+	assigneeId: string;
+	window: DayWindow;
+}): DutyTally {
+	const days = input.history.get(input.assignmentTypeId)?.get(input.assigneeId);
+	if (!days) return { count: 0, latestDay: null };
+	const from = lowerBound(days, input.window.start);
+	const to = lowerBound(days, input.window.start + input.window.days);
+	return { count: to - from, latestDay: to > from ? days[to - 1] : null };
+}
+
+function lowerBound(days: readonly DayNumber[], target: number): number {
 	let low = 0;
 	let high = days.length;
 	while (low < high) {
@@ -58,9 +82,7 @@ export function lastDutyBefore(input: {
 		if (days[middle] < target) low = middle + 1;
 		else high = middle;
 	}
-	const previous = days[low - 1];
-	if (previous === undefined || target - previous > DUTY_LOOKBACK_DAYS) return { kind: 'none' };
-	return { kind: 'previous', date: fromDayNumber(previous), daysSince: target - previous };
+	return low;
 }
 
 export function indexDutyAvailability(entries: readonly AvailabilityEntry[]): DutyAvailabilityIndex {

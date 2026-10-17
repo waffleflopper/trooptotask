@@ -671,3 +671,48 @@ The deployment operator still owns these external checks:
 - Inspect Vercel's actual publication/merge triggers and deployment configuration. The repository's ignored-build policy may skip prose-only updates; executable changes may deploy. CI and Vercel repository configuration perform no remote migration.
 
 Phase 12 owns measured performance, including F05/detail-load latency. Phase 13 owns general cleanup/test-quality/UI polish, and Phase 15 owns the separately authorized release handoff. None is activated by D08 acceptance.
+
+## Calendar lanes
+
+The candidate adds [`20261015000100_calendar_lanes.sql`](../../supabase/migrations/20261015000100_calendar_lanes.sql), SHA-256 `09da087c4a6f9c3349815b7b39a97910a5e6b4218765230a35ce9eb37df72abf`, for [#1683](https://github.com/waffleflopper/trooptotask/issues/1683). It lands on the `feat/calendar-redesign` integration branch, and nothing deploys until that branch merges to main. The migration is not yet applied anywhere outside disposable local databases. Its owner-operated migration gate is open. The agent neither inspected nor changed the remote database or hosted ledger.
+
+Applying it replaces the single date header with ordered Calendar lanes:
+
+- It drops `set_assignment_type_date_header` and the `assignment_types_one_header_per_org` index, and renames `assignment_types.show_in_date_header` to `show_on_calendar`.
+- It renumbers `sort_order` from 0 within each Organization. The former header comes first, and every other type keeps its relative `(sort_order, id)` order. An archived type loses `show_on_calendar`.
+- It adds `set_calendar_lanes(p_organization_id, p_lane_type_ids, p_expected_lane_type_ids)`. In one transaction it replaces the Organization's whole ordered lane list, but only when the saved list still equals the expected list. A replay of the saved list returns without change. A stale list raises the custom `CLN01` and changes nothing. PostgREST retries `40001` itself, so the command never raises it. A missing or archived target raises `P0002`.
+
+The command runs as `SECURITY INVOKER` with an empty search path. It takes a transaction advisory lock named for its Organization, locks that Organization's types `FOR NO KEY UPDATE` in id order, and rechecks Calendar configuration authority after the lock and after its final write. EXECUTE is granted to `authenticated` and revoked from `PUBLIC`, `anon` and `service_role`. No table grant or row security policy changes. Daily assignments and exempt ids are unchanged.
+
+The migration and the application release together. The new application reads `show_on_calendar` and calls `set_calendar_lanes`, so it fails without the migration. An old application instance against the migrated database fails its Calendar reads and its header choice, because both name the dropped column or function. Confirm the migration live immediately before the integration branch merges to main.
+
+An application rollback needs a reverse migration that restores the column name, the single-header index and the old function. The reverse is lossy: an Organization with more than one lane must keep one header, and the renumbered `sort_order` stays. After release, confirm through ordinary authorized use that a configurator can turn lanes on and off and reorder them in Calendar Settings, that the Calendar shows those lanes in that order with the Days lane last, and that a role without Calendar configuration receives the denial message. This supersedes the date-header check in the D05 Calendar configuration commands entry above. Repository CI operates disposable local databases and performs no remote migration. External deployment settings are uninspected.
+
+## Calendar status types: one-day label and order
+
+The candidate adds [`20261016000100_status_type_label_and_order.sql`](../../supabase/migrations/20261016000100_status_type_label_and_order.sql), SHA-256 `44bc7d679e33ae39f372d3f5c366a435375f8ee1e3d28056bbf783e01da3d07d`, for [#1684](https://github.com/waffleflopper/trooptotask/issues/1684). It lands on the `feat/calendar-redesign` integration branch, and nothing deploys until that branch merges to main. The migration is not yet applied anywhere outside disposable local databases. Its owner-operated migration gate is open. The agent neither inspected nor changed the remote database or hosted ledger.
+
+Applying it gives status types a saved one-day label and an atomic order command:
+
+- It adds the nullable `status_types.short_label` with a CHECK of 1 to 3 characters. Existing rows keep NULL, which means the Calendar derives the label from the name. No existing value or `sort_order` changes.
+- It adds `set_status_type_order(p_organization_id, p_status_type_ids, p_expected_status_type_ids)`. In one transaction it replaces the Organization's whole status order, but only when the saved order still equals the expected order. A replay of the saved order returns without a write. A stale order, including one that misses a type created or deleted since the client read, raises the custom `STO01` and changes nothing. PostgREST retries `40001` itself, so the command never raises it. An order that is not a full permutation raises `22023`.
+
+The command runs as `SECURITY INVOKER` with an empty search path. It takes a transaction advisory lock named for its Organization, locks that Organization's status types `FOR NO KEY UPDATE` in id order, and rechecks Calendar configuration authority after the lock and after its final write. EXECUTE is granted to `authenticated` and revoked from `PUBLIC`, `anon` and `service_role`. No table grant or row security policy changes. Availability entries are unchanged.
+
+Apply the migration before the application release. The new application reads `short_label` and calls `set_status_type_order`, so every status-type read fails without the migration. An old application instance against the migrated database keeps working: it ignores `short_label` and still writes `sort_order` on create, so its new types can tie, and every reader orders ties by id. Confirm the migration live immediately before the integration branch merges to main.
+
+An application rollback can leave the column and function in place. Dropping them needs a reverse migration and is lossy, because typed one-day labels are lost. After release, confirm through ordinary authorized use that a configurator can set a one-day label and drag the status order in Calendar Settings, that the legend and status pickers follow that order, and that a role without Calendar configuration receives the denial message. Repository CI operates disposable local databases and performs no remote migration. External deployment settings are uninspected.
+
+## Calendar closure date ranges
+
+The candidate adds [`20261016000200_closure_day_ranges.sql`](../../supabase/migrations/20261016000200_closure_day_ranges.sql), SHA-256 `640d1e14f4b3b31638a929ac34a11e98e2ff9c6ab9e7b4e0e2457d2dc929844e`, for [#1686](https://github.com/waffleflopper/trooptotask/issues/1686). It lands on the `feat/calendar-redesign` integration branch, and nothing deploys until that branch merges to main. The migration is not yet applied anywhere outside disposable local databases. Its owner-operated migration gate is open. The agent neither inspected nor changed the remote database or hosted ledger.
+
+Applying it adds one command and changes no table:
+
+- It adds `add_closure_days(p_organization_id, p_name, p_dates)`. In one transaction it inserts one `org-closure` Special Day named `p_name` for each requested date that holds no Special Day for that Organization, and returns the inserted rows in date order. A date that already holds a holiday or closure is skipped, so a retry after a lost reply inserts nothing. A blank or overlong name, an empty, nested or repeated date list, a null date or more than 366 dates raises `22023`.
+
+The command runs as `SECURITY INVOKER` with an empty search path. It takes a transaction advisory lock named for its Organization, so two overlapping ranges serialize and the second skips the first's committed days. It checks Calendar configuration authority before the lock, after the lock and after its insert, and raises `42501` when that authority is missing. EXECUTE is granted to `authenticated` and revoked from `PUBLIC`, `anon` and `service_role`. No table grant, row security policy or `special_days` column changes. The lock serializes only this command. A federal reset or another direct insert can still place a second row on a closure date, as before.
+
+Apply the migration before the application release. The new application saves every closure through `add_closure_days`, so adding a closure fails without the migration, while edit, removal and federal reset keep working. An old application instance against the migrated database keeps working, because it still inserts single closures directly. Confirm the migration live immediately before the integration branch merges to main.
+
+An application rollback can leave the function in place. Dropping it needs a reverse migration that loses no data. After release, confirm through ordinary authorized use that a configurator can add a closure over a weekday range in Calendar Settings, that days already holding a holiday or closure are skipped, that the Calendar's Days lane shows the new days and that a role without Calendar configuration receives the denial message. Repository CI operates disposable local databases and performs no remote migration. External deployment settings are uninspected.

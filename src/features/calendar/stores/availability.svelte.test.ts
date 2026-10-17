@@ -24,26 +24,6 @@ describe('availabilityStore', () => {
 		availabilityStore.load(structuredClone(mockEntries), 'org-1');
 	});
 
-	describe('getByPersonnel', () => {
-		it('should return entries for a person', () => {
-			expect(availabilityStore.getByPersonnel('p1')).toHaveLength(2);
-		});
-	});
-
-	describe('getByDate', () => {
-		it('should return entries covering a date', () => {
-			const result = availabilityStore.getByDate(new Date(2026, 2, 2));
-			expect(result).toHaveLength(2);
-		});
-	});
-
-	describe('getByDateRange', () => {
-		it('should return entries overlapping a date range', () => {
-			const result = availabilityStore.getByDateRange(new Date(2026, 2, 1), new Date(2026, 2, 3));
-			expect(result.length).toBeGreaterThanOrEqual(2);
-		});
-	});
-
 	describe('addBatch', () => {
 		function record(n: number): Omit<AvailabilityEntry, 'id'> {
 			return { personnelId: `p${n}`, statusTypeId: 'st1', startDate: '2026-04-01', endDate: '2026-04-05', note: null };
@@ -147,20 +127,149 @@ describe('availabilityStore', () => {
 	});
 
 	describe('removeBatch', () => {
-		it('should remove multiple entries optimistically', async () => {
-			vi.stubGlobal('fetch', mockFetch({}));
+		it('reports the server count when fewer entries were deleted than requested', async () => {
+			vi.stubGlobal('fetch', mockFetch({ deleted: 1 }));
 
 			const result = await availabilityStore.removeBatch(['1', '3']);
 
-			expect(result).toBe(true);
+			expect(result).toEqual({ kind: 'removed', deleted: 1 });
 			expect(availabilityStore.items).toHaveLength(1);
 		});
-	});
 
-	describe('removeByPersonnelLocal', () => {
-		it('should remove entries for a person locally', () => {
-			availabilityStore.removeByPersonnelLocal('p1');
-			expect(availabilityStore.items).toHaveLength(1);
+		describe('chunking', () => {
+			function loadEntries(count: number) {
+				availabilityStore.load(
+					Array.from({ length: count }, (_, i) => ({ ...mockEntries[0], id: `e${i}` })),
+					'org-1'
+				);
+				return availabilityStore.items.map((entry) => entry.id);
+			}
+
+			function deleteRequests(fetchMock: ReturnType<typeof vi.fn>): string[][] {
+				return fetchMock.mock.calls.map(([, init]) => JSON.parse(init.body as string).ids);
+			}
+
+			function replyingWithCounts(failOnCall?: number) {
+				let call = 0;
+				return vi.fn().mockImplementation((_url: string, init: RequestInit) => {
+					call++;
+					if (call === failOnCall) {
+						return Promise.resolve({
+							ok: false,
+							status: 500,
+							json: () => Promise.resolve({ message: 'Server error' })
+						});
+					}
+					const { ids } = JSON.parse(init.body as string);
+					return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ deleted: ids.length }) });
+				});
+			}
+
+			it('sends 500 IDs in one request', async () => {
+				const ids = loadEntries(500);
+				const fetchMock = replyingWithCounts();
+				vi.stubGlobal('fetch', fetchMock);
+
+				const result = await availabilityStore.removeBatch(ids);
+
+				expect(result).toEqual({ kind: 'removed', deleted: 500 });
+				expect(deleteRequests(fetchMock).map((chunk) => chunk.length)).toEqual([500]);
+				expect(availabilityStore.items).toEqual([]);
+			});
+
+			it('sends 501 IDs as 500 then 1, in review order, and sums the deleted counts', async () => {
+				const ids = loadEntries(501);
+				const fetchMock = replyingWithCounts();
+				vi.stubGlobal('fetch', fetchMock);
+
+				const result = await availabilityStore.removeBatch(ids);
+
+				const requests = deleteRequests(fetchMock);
+				expect(requests.map((chunk) => chunk.length)).toEqual([500, 1]);
+				expect(requests.flat()).toEqual(ids);
+				expect(result).toEqual({ kind: 'removed', deleted: 501 });
+				expect(availabilityStore.items).toEqual([]);
+			});
+
+			it('sends 1,001 IDs as three requests', async () => {
+				const ids = loadEntries(1001);
+				const fetchMock = replyingWithCounts();
+				vi.stubGlobal('fetch', fetchMock);
+
+				await availabilityStore.removeBatch(ids);
+
+				expect(deleteRequests(fetchMock).map((chunk) => chunk.length)).toEqual([500, 500, 1]);
+			});
+
+			it('reports the server count when a chunk deletes fewer rows than it sent', async () => {
+				const ids = loadEntries(501);
+				let call = 0;
+				vi.stubGlobal(
+					'fetch',
+					vi.fn().mockImplementation(() => {
+						call++;
+						return Promise.resolve({
+							ok: true,
+							status: 200,
+							json: () => Promise.resolve({ deleted: call === 1 ? 498 : 0 })
+						});
+					})
+				);
+
+				expect(await availabilityStore.removeBatch(ids)).toEqual({ kind: 'removed', deleted: 498 });
+				expect(availabilityStore.items).toEqual([]);
+			});
+
+			it('stops at the first failed chunk and keeps its entries and the unsent ones', async () => {
+				const ids = loadEntries(1001);
+				const fetchMock = replyingWithCounts(2);
+				vi.stubGlobal('fetch', fetchMock);
+
+				const result = await availabilityStore.removeBatch(ids);
+
+				expect(deleteRequests(fetchMock).map((chunk) => chunk.length)).toEqual([500, 500]);
+				expect(result).toEqual({ kind: 'partial', deleted: 500, completedIds: ids.slice(0, 500) });
+				expect(availabilityStore.items.map((entry) => entry.id)).toEqual(ids.slice(500));
+			});
+
+			it.each(['an Organization switch', 'the Organization shell ending'] as const)(
+				'sends no later chunk after %s',
+				async (departure) => {
+					const ids = loadEntries(501);
+					let release!: (response: unknown) => void;
+					const fetchMock = vi.fn((_url: string, _init?: RequestInit) => new Promise((resolve) => (release = resolve)));
+					vi.stubGlobal('fetch', fetchMock);
+
+					const pending = availabilityStore.removeBatch(ids);
+					if (departure === 'an Organization switch') availabilityStore.load([], 'org-2');
+					else endOrganizationLifetime();
+					release({ ok: true, status: 200, json: () => Promise.resolve({ deleted: 500 }) });
+
+					expect(await settles(pending)).toBe(false);
+					expect(fetchMock).toHaveBeenCalledTimes(1);
+					expect(fetchMock.mock.calls[0][0]).toBe('/org/org-1/api/availability/batch');
+				}
+			);
+		});
+
+		it('treats a server count of zero as a successful removal', async () => {
+			vi.stubGlobal('fetch', mockFetch({ deleted: 0 }));
+
+			expect(await availabilityStore.removeBatch(['1'])).toEqual({ kind: 'removed', deleted: 0 });
+		});
+
+		it('restores the rows when the server refuses the removal', async () => {
+			vi.stubGlobal(
+				'fetch',
+				vi.fn().mockResolvedValue({
+					ok: false,
+					status: 403,
+					json: () => Promise.resolve({ message: 'Not allowed' })
+				})
+			);
+
+			expect(await availabilityStore.removeBatch(['1', '3'])).toEqual({ kind: 'failed' });
+			expect(availabilityStore.items).toEqual(mockEntries);
 		});
 	});
 
@@ -177,6 +286,24 @@ describe('availabilityStore', () => {
 			const result = await availabilityStore.remove('1');
 			expect(result).toBe(true);
 			expect(typeof result).toBe('boolean');
+		});
+	});
+
+	describe('update', () => {
+		it('keeps one edited entry when a range refresh lands before the reply', async () => {
+			const edited = { ...mockEntries[0]!, note: 'Block leave' };
+			let reply!: (response: unknown) => void;
+			vi.stubGlobal(
+				'fetch',
+				vi.fn(() => new Promise((resolve) => (reply = resolve)))
+			);
+			const saving = availabilityStore.update('1', { note: 'Block leave' });
+
+			availabilityStore.load([edited, mockEntries[1]!, mockEntries[2]!], 'org-1');
+			reply({ ok: true, status: 200, json: () => Promise.resolve(edited) });
+
+			expect(await saving).toBe(true);
+			expect(availabilityStore.items.filter((entry) => entry.id === '1')).toEqual([edited]);
 		});
 	});
 });

@@ -1,27 +1,15 @@
 /**
- * Availability store — per-personnel availability entries for the visible calendar range.
- *
- * Extends the base store with a custom `BatchApiAdapter` so that bulk set/clear operations
- * hit the `/api/availability` batch endpoint instead of individual CRUD routes.
- *
- * Key extended methods:
- * - `getByPersonnelAndDate(personnelId, date)` — fast lookup for a single cell
- * - `getByDate(date)` — all entries for a given day
- * - `setBulk(personnelIds, dateRange, statusTypeId)` — batch set for multiple people
- * - `clearBulk(personnelIds, dateRange)` — batch clear
- *
- * Loaded by the calendar page load function and populated from the server response.
+ * Availability store: the entries for the loaded calendar range. Its adapter writes through the
+ * Organization's `api/availability` routes and sends bulk creation and removal to their `batch` route.
  */
 import { buildRequestError, defineStore, stillInOrganizationLifetime } from '$lib/stores/core';
 import type { Store, BatchApiAdapter } from '$lib/stores/core';
-import type { AvailabilityEntry } from '$features/calendar/contracts';
-import { isDateInRange, formatDate } from '$lib/utils/dates';
-import { rangesOverlap } from '$features/calendar/utils/availabilityMutation';
+import { z } from 'zod';
+import { AVAILABILITY_BATCH_LIMIT, type AvailabilityEntry } from '$features/calendar/contracts';
+
+const removalReplySchema = z.object({ deleted: z.number().int().nonnegative() });
 
 let orgIdRef = '';
-
-/** Records per request for chunked batch creation; large imports submit in slices this size. */
-const CREATE_BATCH_CHUNK_SIZE = 500;
 
 function createAvailabilityBatchAdapter(): BatchApiAdapter<AvailabilityEntry> {
 	const headers = { 'Content-Type': 'application/json' };
@@ -58,13 +46,6 @@ function createAvailabilityBatchAdapter(): BatchApiAdapter<AvailabilityEntry> {
 					body: JSON.stringify({ id })
 				});
 
-				if (res.status === 202) {
-					const body = await res.json();
-					if (body.requiresApproval) {
-						return 'approval_required';
-					}
-				}
-
 				if (!res.ok) return 'error';
 				return 'deleted';
 			} catch {
@@ -82,10 +63,10 @@ function createAvailabilityBatchAdapter(): BatchApiAdapter<AvailabilityEntry> {
 			let firstFailure: unknown = null;
 			const organizationId = orgIdRef;
 			const sameLifetime = stillInOrganizationLifetime();
-			for (let i = 0; i < items.length; i += CREATE_BATCH_CHUNK_SIZE) {
+			for (let i = 0; i < items.length; i += AVAILABILITY_BATCH_LIMIT) {
 				// Later chunks belong to the Organization lifetime that started the import.
 				if (!sameLifetime() || orgIdRef !== organizationId) break;
-				const chunk = items.slice(i, i + CREATE_BATCH_CHUNK_SIZE);
+				const chunk = items.slice(i, i + AVAILABILITY_BATCH_LIMIT);
 				try {
 					const res = await fetch(`/org/${organizationId}/api/availability/batch`, {
 						method: 'POST',
@@ -106,13 +87,31 @@ function createAvailabilityBatchAdapter(): BatchApiAdapter<AvailabilityEntry> {
 		},
 
 		async removeBatch(ids) {
-			const res = await fetch(`${url()}/batch`, {
-				method: 'DELETE',
-				headers,
-				body: JSON.stringify({ ids })
-			});
-			if (!res.ok) throw new Error('Failed to delete availability batch');
-			return true;
+			const completedIds: string[] = [];
+			let deleted = 0;
+			let failure: unknown = null;
+			const organizationId = orgIdRef;
+			const sameLifetime = stillInOrganizationLifetime();
+			for (let i = 0; i < ids.length; i += AVAILABILITY_BATCH_LIMIT) {
+				if (!sameLifetime() || orgIdRef !== organizationId) break;
+				const chunk = ids.slice(i, i + AVAILABILITY_BATCH_LIMIT);
+				try {
+					const res = await fetch(`/org/${organizationId}/api/availability/batch`, {
+						method: 'DELETE',
+						headers,
+						body: JSON.stringify({ ids: chunk })
+					});
+					if (!res.ok) throw await buildRequestError(res, 'DELETE', 'availability/batch');
+					deleted += removalReplySchema.parse(await res.json()).deleted;
+					completedIds.push(...chunk);
+				} catch (e) {
+					failure = e;
+					break;
+				}
+			}
+			if (ids.length > 0 && completedIds.length === 0)
+				throw failure ?? new Error('Failed to remove availability batch');
+			return { deleted, completedIds };
 		}
 	};
 }
@@ -122,12 +121,7 @@ const batchAdapter = createAvailabilityBatchAdapter();
 interface AvailabilityExtensions extends Record<string, unknown> {
 	load: (items: AvailabilityEntry[], orgId: string) => void;
 	remove: (id: string) => Promise<boolean>;
-	removeByPersonnelLocal: (personnelId: string) => void;
 	removeByStatusTypeLocal: (statusTypeId: string) => void;
-	getByPersonnel: (personnelId: string) => AvailabilityEntry[];
-	getByPersonnelAndDate: (personnelId: string, date: Date) => AvailabilityEntry[];
-	getByDate: (date: Date) => AvailabilityEntry[];
-	getByDateRange: (startDate: Date, endDate: Date) => AvailabilityEntry[];
 }
 
 function enhance(base: Store<AvailabilityEntry>): AvailabilityExtensions {
@@ -139,22 +133,7 @@ function enhance(base: Store<AvailabilityEntry>): AvailabilityExtensions {
 
 		remove: base.removeBool,
 
-		removeByPersonnelLocal: (personnelId: string) => base.removeLocalWhere((e) => e.personnelId === personnelId),
-
-		removeByStatusTypeLocal: (statusTypeId: string) => base.removeLocalWhere((e) => e.statusTypeId === statusTypeId),
-
-		getByPersonnel: (personnelId: string) => base.filter((e) => e.personnelId === personnelId),
-
-		getByPersonnelAndDate: (personnelId: string, date: Date) =>
-			base.filter((e) => e.personnelId === personnelId && isDateInRange(date, e.startDate, e.endDate)),
-
-		getByDate: (date: Date) => base.filter((e) => isDateInRange(date, e.startDate, e.endDate)),
-
-		getByDateRange(startDate: Date, endDate: Date) {
-			const start = formatDate(startDate);
-			const end = formatDate(endDate);
-			return base.filter((e) => rangesOverlap(e.startDate, e.endDate, start, end));
-		}
+		removeByStatusTypeLocal: (statusTypeId: string) => base.removeLocalWhere((e) => e.statusTypeId === statusTypeId)
 	};
 }
 

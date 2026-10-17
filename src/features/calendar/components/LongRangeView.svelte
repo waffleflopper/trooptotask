@@ -1,22 +1,18 @@
 <script lang="ts">
-	import type { Group } from '$features/personnel/contracts';
 	import type { Personnel } from '$features/personnel/contracts';
-	import type {
-		AvailabilityEntry,
-		StatusType,
-		SpecialDay,
-		AssignmentType,
-		DailyAssignment
-	} from '$features/calendar/contracts';
-	import { formatDate, getMonthDates, getMonthName, addMonths } from '$lib/utils/dates';
-	import CalendarNavigation from './CalendarNavigation.svelte';
-	import { buildCalendarRenderState } from '$features/calendar/utils/calendarRenderState';
+	import type { AvailabilityEntry, SpecialDay } from '$features/calendar/contracts';
+	import { getMonthDates, getMonthName, addMonths } from '$lib/utils/dates';
+	import BarTrack from './calendar-bars/BarTrack.svelte';
+	import type { AvailabilityTracks } from '$features/calendar/utils/availabilityTracks';
+	import { dayWindow } from '$features/calendar/utils/dayNumber';
+	import type { LabelPolicy } from '$features/calendar/utils/barLayout';
+	import { buildCalendarDays } from '$features/calendar/utils/calendarRenderState';
 	import { buildVirtualRowLayout, getVisibleVirtualRows } from '$features/calendar/utils/virtualRows';
 	import { Button } from '$lib/components/ui/button';
 
-	const PERSONNEL_COLUMN_WIDTH = 200;
+	const MIN_DAY_PX = 10;
 	const GROUP_ROW_HEIGHT = 18;
-	const PERSON_ROW_HEIGHT = 22;
+	const PERSON_ROW_HEIGHT = 30;
 	const DEFAULT_VIEWPORT_HEIGHT = 720;
 	const ROW_OVERSCAN_PX = PERSON_ROW_HEIGHT * 8;
 
@@ -27,29 +23,16 @@
 
 	interface Props {
 		startDate: Date;
-		onStartDateChange: (date: Date) => void;
 		personnelByGroup: GroupData[];
-		availabilityEntries: AvailabilityEntry[];
-		statusTypes: StatusType[];
+		tracks: AvailabilityTracks;
 		specialDays: SpecialDay[];
-		assignmentTypes: AssignmentType[];
-		assignments: DailyAssignment[];
-		groups?: readonly Group[];
 		onDateColumnClick?: (date: Date) => void;
+		onOpenEntry?: (person: Personnel, entry: AvailabilityEntry, anchor: HTMLElement) => void;
+		onOpenOverflow?: (person: Personnel, entryIds: readonly string[], anchor: HTMLElement) => void;
 	}
 
-	let {
-		startDate,
-		onStartDateChange,
-		personnelByGroup,
-		availabilityEntries,
-		statusTypes,
-		specialDays,
-		assignmentTypes,
-		assignments,
-		groups = [],
-		onDateColumnClick
-	}: Props = $props();
+	let { startDate, personnelByGroup, tracks, specialDays, onDateColumnClick, onOpenEntry, onOpenOverflow }: Props =
+		$props();
 
 	const viewStartDate = $derived(new Date(startDate.getFullYear(), startDate.getMonth(), 1));
 	let scrollAreaEl: HTMLDivElement;
@@ -57,8 +40,10 @@
 	let scrollTop = $state(0);
 	let viewportHeight = $state(DEFAULT_VIEWPORT_HEIGHT);
 	let rosterOffsetTop = $state(0);
+	let scrollAreaWidth = $state(0);
+	let personnelHeaderEl: HTMLDivElement;
+	let personnelColumnWidth = $state(0);
 
-	// Get 3 months of data
 	const months = $derived.by(() => {
 		const result = [];
 		for (let i = 0; i < 3; i++) {
@@ -73,22 +58,15 @@
 		return result;
 	});
 
-	const visibleDates = $derived.by(() => months.flatMap((month) => month.dates));
-
-	const renderState = $derived.by(() =>
-		buildCalendarRenderState({
-			dates: visibleDates,
-			personnelByGroup,
-			availabilityEntries,
-			statusTypes,
-			specialDays,
-			assignmentTypes,
-			assignments,
-			groups
-		})
+	const days = $derived(
+		buildCalendarDays(
+			months.flatMap((month) => month.dates),
+			specialDays
+		)
 	);
-
-	const visibleDateKeys = $derived(renderState.dateKeys);
+	const visibleDays = $derived(dayWindow(days[0].dateKey, days.length));
+	const dayPx = $derived(Math.max(MIN_DAY_PX, Math.floor((scrollAreaWidth - personnelColumnWidth) / days.length)));
+	const policy: LabelPolicy = $derived({ view: '3-month', dayPx });
 
 	const rosterRows = $derived.by(() => {
 		const rows: (
@@ -124,10 +102,6 @@
 		getVisibleVirtualRows(rosterLayout.rows, scrollTop, viewportHeight, ROW_OVERSCAN_PX, rosterOffsetTop)
 	);
 
-	const rosterWidth = $derived(
-		`calc(var(--calendar-personnel-column-width) + var(--long-range-col-width) * ${visibleDateKeys.length})`
-	);
-
 	function getRosterOffsetTop() {
 		if (!scrollAreaEl || !rosterRowsEl) return 0;
 
@@ -153,18 +127,22 @@
 	function updateLayoutMetrics() {
 		updateScrollMetrics();
 		rosterOffsetTop = getRosterOffsetTop();
+		scrollAreaWidth = scrollAreaEl.clientWidth;
+		personnelColumnWidth = personnelHeaderEl.offsetWidth;
 	}
 
 	function handleScroll() {
 		updateScrollMetrics();
 	}
 
+	// The observer's first callback reads geometry after layout, so mounting the view never forces one.
 	$effect(() => {
 		if (!scrollAreaEl) return;
 
-		updateLayoutMetrics();
-
-		if (typeof ResizeObserver === 'undefined') return;
+		if (typeof ResizeObserver === 'undefined') {
+			updateLayoutMetrics();
+			return;
+		}
 
 		const observer = new ResizeObserver(() => {
 			updateLayoutMetrics();
@@ -174,62 +152,31 @@
 
 		return () => observer.disconnect();
 	});
-
-	function prevQuarter() {
-		onStartDateChange(addMonths(viewStartDate, -3));
-	}
-
-	function nextQuarter() {
-		onStartDateChange(addMonths(viewStartDate, 3));
-	}
-
-	function goToToday() {
-		const today = new Date();
-		onStartDateChange(new Date(today.getFullYear(), today.getMonth(), 1));
-	}
-
-	function goToMonth(year: number, month: number) {
-		onStartDateChange(new Date(year, month, 1));
-	}
 </script>
 
 <div
-	class="flex flex-1 flex-col overflow-hidden rounded-lg border bg-card text-card-foreground [--long-range-col-width:--spacing(6)] max-sm:[--long-range-col-width:--spacing(7)]"
-	style:--calendar-personnel-column-width={`${PERSONNEL_COLUMN_WIDTH}px`}
-	style:--long-range-group-row-height={`${GROUP_ROW_HEIGHT}px`}
-	style:--long-range-person-row-height={`${PERSON_ROW_HEIGHT}px`}
+	class="flex flex-1 flex-col overflow-hidden rounded-lg border bg-card text-card-foreground [--calendar-personnel-column-width:160px] max-[641px]:[--calendar-personnel-column-width:120px]"
+	style:--dates-count={days.length}
 >
-	<CalendarNavigation
-		title={`${months[0].name} ${months[0].year} – ${months[2].name} ${months[2].year}`}
-		onPrev={prevQuarter}
-		onNext={nextQuarter}
-		onGoToToday={goToToday}
-		prevLabel="Prev 3 Months"
-		nextLabel="Next 3 Months"
-		titleTestId="long-range-date-label"
-		pickerYear={viewStartDate.getFullYear()}
-		pickerMonth={viewStartDate.getMonth()}
-		onSelectMonthYear={goToMonth}
-	/>
-
 	<div
 		class="scroll-area flex-1 overflow-auto bg-card [scrollbar-gutter:stable]"
 		bind:this={scrollAreaEl}
 		onscroll={handleScroll}
 	>
-		<div class="flex min-w-max flex-col">
-			<!-- Header Row with Months and Days -->
-			<div class="sticky top-0 z-10 flex border-b bg-muted">
+		<div
+			class="flex min-w-[calc(var(--calendar-personnel-column-width)+10px*var(--dates-count))] flex-col [--long-range-columns:var(--calendar-personnel-column-width)_repeat(var(--dates-count),minmax(10px,1fr))]"
+		>
+			<div class="sticky top-0 z-10 grid [grid-template-columns:var(--long-range-columns)] border-b bg-muted">
 				<div
-					class="sticky left-0 z-20 flex min-h-9 w-[var(--calendar-personnel-column-width)] shrink-0 items-center border-r bg-muted px-3 py-2 font-mono text-xs font-semibold tracking-widest text-muted-foreground uppercase"
+					bind:this={personnelHeaderEl}
+					class="sticky left-0 z-20 flex min-h-9 items-center border-r bg-muted px-3 py-2 font-mono text-xs font-semibold tracking-widest text-muted-foreground uppercase"
 				>
 					Personnel
 				</div>
 				{#each months as month (`${month.year}-${month.month}`)}
 					<div
-						class="flex min-h-9 shrink-0 items-center justify-center border-l px-0 py-2 text-center font-mono text-xs font-semibold tracking-widest text-foreground uppercase first:border-l-0"
-						style:width={`calc(var(--long-range-col-width) * ${month.dates.length})`}
-						style:min-width={`calc(var(--long-range-col-width) * ${month.dates.length})`}
+						class="flex min-h-9 min-w-0 items-center overflow-hidden border-l px-1.5 py-2 font-mono text-xs font-semibold tracking-widest whitespace-nowrap text-foreground uppercase"
+						style:grid-column="span {month.dates.length}"
 					>
 						{month.name}
 						{month.year}
@@ -237,69 +184,65 @@
 				{/each}
 			</div>
 
-			<!-- Day Numbers Row — clickable to jump to that month -->
-			<div class="sticky top-9 z-[9] flex border-b bg-card">
-				<div
-					class="sticky left-0 z-10 min-h-8 w-[var(--calendar-personnel-column-width)] shrink-0 border-r bg-card px-3"
-				></div>
-				{#each months as month (`${month.year}-${month.month}`)}
-					{#each month.dates as date (formatDate(date))}
-						{@const dateKey = formatDate(date)}
-						{@const header = renderState.headerCell(dateKey)}
-						<Button
-							variant="cell"
-							size="none"
-							class={[
-								'h-8 w-[var(--long-range-col-width)] flex-col border-l border-border bg-card text-xs text-muted-foreground max-sm:h-9',
-								header?.weekend && 'bg-muted/55',
-								header?.today && 'z-[1] bg-primary/10 inset-ring inset-ring-primary',
-								header?.specialDay?.type === 'federal-holiday' && 'bg-warning-muted/55'
-							]}
-							aria-label={header?.dateLabel}
-							title={header?.specialDay?.name ?? `Jump to ${month.name} ${month.year}`}
-							onclick={() => onDateColumnClick?.(date)}
-						>
-							<span class="font-mono text-[9px] font-semibold sm:text-xs">{date.getDate()}</span>
-						</Button>
-					{/each}
+			<div class="sticky top-9 z-[9] grid [grid-template-columns:var(--long-range-columns)] border-b bg-card">
+				<div class="sticky left-0 z-10 min-h-8 border-r bg-card px-3"></div>
+				{#each days as day, index (day.dateKey)}
+					{@const month = months.find((item) => item.month === day.date.getMonth())}
+					<Button
+						variant="cell"
+						size="none"
+						class={[
+							'h-8 min-w-0 justify-start overflow-visible bg-card px-0.5 text-muted-foreground max-sm:h-9',
+							day.date.getDay() === 1 && 'border-l border-border',
+							day.weekend && 'bg-muted/55',
+							day.today && 'z-[1] bg-primary/10 inset-ring inset-ring-primary',
+							day.specialDay?.type === 'federal-holiday' && 'bg-warning-muted/55'
+						]}
+						aria-label={day.dateLabel}
+						title={day.specialDay?.name ?? `Jump to ${month?.name} ${month?.year}`}
+						onclick={() => onDateColumnClick?.(day.date)}
+					>
+						{#if day.date.getDay() === 1 || index === 0}
+							<span class="relative z-[2] font-mono text-[9px] font-semibold whitespace-nowrap">{day.dayOfMonth}</span>
+						{/if}
+					</Button>
 				{/each}
 			</div>
 
-			<!-- Personnel Rows (read-only) -->
-			<div
-				class="roster-rows relative min-w-max"
-				bind:this={rosterRowsEl}
-				style:height={`${rosterLayout.totalHeight}px`}
-				style:width={rosterWidth}
-			>
+			<div class="roster-rows relative" bind:this={rosterRowsEl} style:height={`${rosterLayout.totalHeight}px`}>
+				<div class="absolute inset-0 grid [grid-template-columns:var(--long-range-columns)]" aria-hidden="true">
+					<div></div>
+					{#each days as day (day.dateKey)}
+						<div
+							class={[
+								day.date.getDay() === 1 && 'border-l border-border',
+								day.weekend && 'bg-muted/55',
+								day.specialDay?.type === 'federal-holiday' && 'bg-warning-muted/55',
+								day.today && 'bg-primary/10'
+							]}
+						></div>
+					{/each}
+				</div>
 				{#each visibleRosterRows as row (row.key)}
 					<div
-						class="virtual-row absolute top-0 left-0"
+						class="virtual-row absolute top-0 left-0 w-full"
 						style:transform={`translateY(${row.top}px)`}
 						style:height={`${row.height}px`}
 					>
 						{#if row.type === 'group'}
-							<div class="flex h-[var(--long-range-group-row-height)] overflow-clip bg-muted/70">
+							<div class="flex h-full overflow-clip bg-muted">
 								<div
-									class="sticky left-0 z-[2] flex h-[var(--long-range-group-row-height)] w-[var(--calendar-personnel-column-width)] shrink-0 items-center border-r bg-muted/70 px-3 font-mono text-xs font-semibold tracking-widest text-muted-foreground uppercase"
+									class="sticky left-0 z-[2] flex h-full w-[var(--calendar-personnel-column-width)] shrink-0 items-center border-r bg-muted px-3 font-mono text-xs font-semibold tracking-widest text-muted-foreground uppercase"
 								>
 									{row.group}
 								</div>
-								{#each months as month (`${month.year}-${month.month}`)}
-									{#each month.dates as date (formatDate(date))}
-										<div
-											class="h-[var(--long-range-group-row-height)] w-[var(--long-range-col-width)] shrink-0 border-l bg-muted/70"
-										></div>
-									{/each}
-								{/each}
 							</div>
 						{:else}
 							<div
-								class="flex h-[var(--long-range-person-row-height)] overflow-clip border-b hover:[&_.empty-status-cell]:bg-muted"
+								class="relative grid h-full [grid-template-columns:var(--long-range-columns)] border-b"
+								data-person-id={row.person.id}
 							>
-								<div
-									class="sticky left-0 z-[2] flex h-[var(--long-range-person-row-height)] w-[var(--calendar-personnel-column-width)] shrink-0 items-center gap-1 border-r bg-card px-3 text-sm"
-								>
+								<div class="sticky left-0 z-[2] flex h-full items-center gap-1 border-r bg-card px-3 text-sm">
 									<span class="font-mono text-xs font-semibold tracking-wider text-primary uppercase"
 										>{row.person.rank}</span
 									>
@@ -307,42 +250,19 @@
 										>{row.person.lastName}</span
 									>
 								</div>
-								{#each months as month (`${month.year}-${month.month}`)}
-									{#each month.dates as date (formatDate(date))}
-										{@const dateKey = formatDate(date)}
-										{@const cell = renderState.personDateCell(row.person.id, dateKey)}
-										{@const status = cell?.primaryStatus}
-										<div
-											class={[
-												'status-cell relative flex h-[var(--long-range-person-row-height)] w-[var(--long-range-col-width)] shrink-0 items-center justify-center border-l bg-card transition-colors max-sm:h-8',
-												!status && 'empty-status-cell',
-												cell?.weekend && 'bg-muted/55',
-												cell?.today && 'z-[1] inset-ring inset-ring-primary',
-												status && 'border-transparent'
-											]}
-											style:background-color={status?.color}
-											title={cell?.title ?? ''}
-										></div>
-									{/each}
-								{/each}
+								<BarTrack
+									layout={tracks.layout(row.person.id, visibleDays, policy)}
+									personLabel="{row.person.rank} {row.person.lastName}, {row.person.firstName}"
+									size="compact"
+									onOpenEntry={onOpenEntry && ((entry, anchor) => onOpenEntry(row.person, entry, anchor))}
+									onOpenOverflow={onOpenOverflow &&
+										((entryIds, anchor) => onOpenOverflow(row.person, entryIds, anchor))}
+								/>
 							</div>
 						{/if}
 					</div>
 				{/each}
 			</div>
 		</div>
-	</div>
-
-	<div class="hidden shrink-0 flex-wrap items-center gap-2 border-t bg-muted/30 px-4 py-3 text-sm sm:flex sm:px-5">
-		<span class="font-mono text-xs font-semibold tracking-widest text-muted-foreground uppercase">Status:</span>
-		{#each statusTypes as status (status.id)}
-			<span
-				class="flex items-center gap-2 rounded-lg border bg-card px-2 py-1 font-mono text-xs tracking-wider text-muted-foreground uppercase"
-			>
-				<span class="size-2 rounded-[2px] inset-ring inset-ring-foreground/10" style:background-color={status.color}
-				></span>
-				{status.name}
-			</span>
-		{/each}
 	</div>
 </div>

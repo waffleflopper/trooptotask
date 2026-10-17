@@ -203,7 +203,8 @@ describe('Dashboard workspace hydration adapter', () => {
 			assignTo: 'group',
 			color: '#2563eb',
 			exemptPersonnelIds: [],
-			showInDateHeader: false
+			showOnCalendar: false,
+			sortOrder: 0
 		} satisfies AssignmentType;
 		const runnerTeam = { ...chargeOfQuarters, id: 'rt', name: 'Runner Team', shortName: 'RT' };
 		const cqDuty = { id: 'cq-duty', date: today, assignmentTypeId: 'cq', assigneeId: 'g1' };

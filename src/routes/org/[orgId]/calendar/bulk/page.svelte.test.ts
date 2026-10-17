@@ -34,7 +34,10 @@ it('reviews a whole saved overlap through the shell Organization when the route 
 	vi.useFakeTimers({ toFake: ['Date'] });
 	vi.setSystemTime(new Date(2026, 0, 15, 12));
 	const orgId = 'd9b34493-79a0-4284-985d-b54903409955';
-	calendarStatusHydration.load([{ id: 'training', name: 'Training', color: '#2563eb', textColor: '#ffffff' }], orgId);
+	calendarStatusHydration.load(
+		[{ id: 'training', name: 'Training', color: '#2563eb', textColor: '#ffffff', shortLabel: null, sortOrder: 0 }],
+		orgId
+	);
 	calendarAvailabilityHydration.load([], orgId);
 	calendarAssignmentsHydration.load([], [], orgId);
 	const fetchRange = vi.fn(async (url: string) => {

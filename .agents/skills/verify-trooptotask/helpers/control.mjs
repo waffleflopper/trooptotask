@@ -33,6 +33,7 @@ import { seedPersonnelRetention, readRetentionFiles } from './personnel-retentio
 import { seedArtifactRetention } from './artifact-retention.mjs';
 import { seedMaintenance, readMaintenance } from './maintenance-fixtures.mjs';
 import { seedOnboarding } from './onboarding-fixtures.mjs';
+import { buildAvailabilityVolume } from './availability-volume-fixture.mjs';
 import { seedAudit } from './audit-fixtures.mjs';
 import { seedDashboard, seedDashboardCurrency, seedDashboardOverflow } from './dashboard-fixtures.mjs';
 import { seedTrainingPrint, cleanTrainingPrint } from './training-print-fixtures.mjs';
@@ -334,6 +335,22 @@ async function main() {
 				})
 			);
 		else note(await evaluate(state, pageId, `() => (${observePrint.toString()})(window, ${JSON.stringify(action)})`));
+		return;
+	}
+	if (command === 'pointer') {
+		const [action, page, expectedUrl, from, to, steps] = args;
+		if (action !== 'drag' || args.length < 5 || args.length > 6)
+			throw new Error('Use pointer drag PAGE EXACT_URL FROM_SELECTOR TO_SELECTOR [STEPS].');
+		note(
+			await run(state, {
+				command: 'pointer-drag',
+				pageId: Number(page),
+				expectedUrl,
+				from,
+				to,
+				...(steps === undefined ? {} : { steps: Number(steps) })
+			})
+		);
 		return;
 	}
 	if (command === 'server-source') {
@@ -1728,6 +1745,7 @@ async function main() {
 				'duplicate-able',
 				'overlap',
 				'bulk-501',
+				'availability-volume',
 				'training-pages',
 				'training-print',
 				'roster-pages',
@@ -1776,6 +1794,26 @@ async function main() {
 		}
 		if (kind === 'training-print') {
 			note(await seedTrainingPrint({ client, fixture, tag, ownedState, save }));
+			return;
+		}
+		if (kind === 'availability-volume') {
+			const volume = buildAvailabilityVolume({
+				organizationId: org('orgA'),
+				groupIds: [fixture.ids.groupA, fixture.ids.groupB, null],
+				statusTypeIds: [fixture.ids.statusLeave, fixture.ids.statusTraining],
+				anchorDate: fixture.dates.ui,
+				tag
+			});
+			ownedState.seeded.push(
+				{ kind, table: 'personnel', ids: volume.personnel.map((record) => record.id), tag },
+				{ kind, table: 'availability_entries', ids: volume.entries.map((record) => record.id), tag }
+			);
+			await save(ownedState);
+			for (let offset = 0; offset < volume.personnel.length; offset += 100)
+				checked(await client.from('personnel').insert(volume.personnel.slice(offset, offset + 100)));
+			for (let offset = 0; offset < volume.entries.length; offset += 200)
+				checked(await client.from('availability_entries').insert(volume.entries.slice(offset, offset + 200)));
+			note({ kind, tag, anchor: fixture.dates.ui, ...volume.summary });
 			return;
 		}
 		if (kind === 'roster-shared-keys') {
@@ -2468,7 +2506,7 @@ async function main() {
 					if (item.kind === 'personnel-lifecycle') requests = requests.eq('resource_type', 'personnel');
 					checked(await requests);
 				}
-				if (item.kind === 'bulk-501')
+				if (item.kind === 'bulk-501' || (item.kind === 'availability-volume' && item.table === 'personnel'))
 					checked(
 						await client
 							.from('availability_entries')
@@ -2583,7 +2621,8 @@ async function main() {
 					'daily-assignments/batch',
 					'status-types',
 					'assignment-types',
-					'assignment-types/date-header',
+					'assignment-types/lanes',
+					'status-types/order',
 					'ict-tasks/order',
 					'ict-tasks/batch',
 					'calendar-reports/status-days',
@@ -2711,7 +2750,13 @@ async function main() {
 				throw new Error('A rejected form result is supported only for platform form actions.');
 			if (
 				action === 'arm-drop' &&
-				!['admin-suspend', 'admin-transfer', 'ict-tasks/batch', 'personnel-ict-completions/batch'].includes(family)
+				![
+					'admin-suspend',
+					'admin-transfer',
+					'availability',
+					'ict-tasks/batch',
+					'personnel-ict-completions/batch'
+				].includes(family)
 			)
 				throw new Error('Lost-response proof requires a documented mutation family.');
 			const mode =
@@ -2751,13 +2796,15 @@ async function main() {
 			const requestMethod =
 				family === 'ict-tasks/order'
 					? 'POST'
-					: heldPersonnelFailure || family === 'assignment-types/date-header'
-						? 'PUT'
-						: family === 'user-preferences'
-							? 'PATCH'
-							: shellPart
-								? 'GET'
-								: null;
+					: action === 'arm-drop' && family === 'availability'
+						? 'ANY'
+						: heldPersonnelFailure || family === 'assignment-types/lanes' || family === 'status-types/order'
+							? 'PUT'
+							: family === 'user-preferences'
+								? 'PATCH'
+								: shellPart
+									? 'GET'
+									: null;
 			const install = `(${installNetworkControl.toString()})(window, ${JSON.stringify({ mode, ordinal, suffix, search, failureField, failureStatus: action === 'arm-fail-400' ? 400 : 503, requestTarget, sameOrigin, requestMethod })})`;
 			// Onboarding's HTTP adapter captures fetch at creation, so install before page code.
 			if (family.startsWith('onboarding-') || shellPart) {

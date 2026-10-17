@@ -1,16 +1,16 @@
 /**
- * Calendar navigation store — tracks the currently displayed month and exposes navigation.
- *
- * `dates` returns the full array of Date objects for the current month (used to render
- * calendar grid rows). `rangeStart`/`rangeEnd` are ISO strings for the visible window,
- * used as query parameters when fetching availability and assignment data.
- *
- * Navigation: `nextMonth()`, `prevMonth()`, `goToToday()`.
+ * Calendar navigation store: the anchor date whose month both Calendar views start at.
+ * `dates` returns every day of that month for the Month grid.
  */
-import { getMonthDates, addMonths, getMonthName } from '$lib/utils/dates';
+import { getMonthDates } from '$lib/utils/dates';
+
+function firstOfCurrentMonth(): Date {
+	const today = new Date();
+	return new Date(today.getFullYear(), today.getMonth(), 1);
+}
 
 class CalendarStore {
-	#currentDate = $state(new Date());
+	#currentDate = $state(firstOfCurrentMonth());
 
 	get currentDate() {
 		return this.#currentDate;
@@ -24,24 +24,8 @@ class CalendarStore {
 		return this.#currentDate.getMonth();
 	}
 
-	get monthName() {
-		return getMonthName(this.#currentDate.getMonth());
-	}
-
 	get dates() {
 		return getMonthDates(this.#currentDate.getFullYear(), this.#currentDate.getMonth());
-	}
-
-	nextMonth() {
-		this.#currentDate = addMonths(this.#currentDate, 1);
-	}
-
-	prevMonth() {
-		this.#currentDate = addMonths(this.#currentDate, -1);
-	}
-
-	goToToday() {
-		this.#currentDate = new Date();
 	}
 
 	goToMonth(year: number, month: number) {

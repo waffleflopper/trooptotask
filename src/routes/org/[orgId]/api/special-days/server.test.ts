@@ -27,36 +27,63 @@ describe('GET /api/special-days', () => {
 });
 
 describe('POST /api/special-days', () => {
-	it('uses a policy-first route config for special-day creation and reset', () => {
-		expect('permission' in _postConfig).toBe(false);
-		expect(_postConfig.policyAction).toBe(POLICY_ACTION_CATALOG.calendar.configureSpecialDays);
-		expect(_postConfig.policyResource).toEqual({ kind: 'organization' });
-	});
-
-	it('creates a special day through the mixed-action route config', async () => {
+	it('adds one closure per new date, skips taken dates, and audits each added day', async () => {
 		const ctx = createTestContext();
+		const taken = [
+			{
+				id: 'federal',
+				organization_id: 'test-org',
+				date: '2026-12-25',
+				name: 'Christmas Day',
+				type: 'federal-holiday'
+			},
+			{ id: 'closure', organization_id: 'test-org', date: '2026-12-28', name: 'Stand-down', type: 'org-closure' }
+		];
+		ctx.store.seed('special_days', taken);
 
-		const result = await handleUseCaseRequest(
+		const result = (await handleUseCaseRequest(
 			_postConfig,
 			ctx,
-			{
-				date: '2026-02-13',
-				name: 'Training Stand-down',
-				type: 'org-closure'
-			},
+			{ action: 'addClosureDays', name: ' Holiday leave ', dates: ['2026-12-28', '2026-12-24', '2026-12-25'] },
 			() => ctx
-		);
+		)) as { created: Array<{ id: string; date: string; name: string; type: string }> };
 
-		expect(result).toMatchObject({
-			date: '2026-02-13',
-			name: 'Training Stand-down',
-			type: 'org-closure'
-		});
+		expect(result.created).toEqual([
+			expect.objectContaining({ date: '2026-12-24', name: 'Holiday leave', type: 'org-closure' })
+		]);
+		const stored = await ctx.store.findMany('special_days', 'test-org');
+		expect(stored).toHaveLength(3);
+		expect(stored).toEqual(expect.arrayContaining(taken));
+		expect(ctx.audit.events).toEqual([
+			expect.objectContaining({
+				action: 'special_day.created',
+				resourceType: 'special_day',
+				resourceId: result.created[0].id
+			})
+		]);
+	});
 
-		const stored = await ctx.store.findMany('special_days', 'test-org', {
-			type: 'org-closure'
-		});
-		expect(stored).toHaveLength(1);
+	it.each([
+		['a blank name', { action: 'addClosureDays', name: '  ', dates: ['2026-12-24'] }],
+		['no dates', { action: 'addClosureDays', name: 'Leave', dates: [] }],
+		['a repeated date', { action: 'addClosureDays', name: 'Leave', dates: ['2026-12-24', '2026-12-24'] }],
+		[
+			'more than 366 dates',
+			{
+				action: 'addClosureDays',
+				name: 'Leave',
+				dates: Array.from({ length: 367 }, (_, day) => new Date(Date.UTC(2027, 0, day + 1)).toISOString().slice(0, 10))
+			}
+		],
+		['a malformed date', { action: 'addClosureDays', name: 'Leave', dates: ['2026-12-32'] }],
+		['no action', { name: 'Leave', date: '2026-12-24', type: 'org-closure' }]
+	])('rejects %s with 400 and saves nothing', async (_label, input) => {
+		const ctx = createTestContext();
+
+		await expect(handleUseCaseRequest(_postConfig, ctx, input, () => ctx)).rejects.toMatchObject({ status: 400 });
+
+		expect(await ctx.store.findMany('special_days', 'test-org')).toEqual([]);
+		expect(ctx.audit.events).toEqual([]);
 	});
 });
 
@@ -129,7 +156,7 @@ describe('PUT /api/special-days', () => {
 });
 
 describe('special-day configuration policy', () => {
-	it('denies read, edit, delete, and reset to a Calendar operator without changing saved days', async () => {
+	it('denies read, add, edit, delete, and reset to a Calendar operator without changing saved days', async () => {
 		const ctx = createTestContext({
 			auth: {
 				role: 'member',
@@ -154,7 +181,14 @@ describe('special-day configuration policy', () => {
 			() => handleUseCaseRequest(_getConfig, ctx, undefined, () => ctx),
 			() => handleUseCaseRequest(_putConfig, ctx, { id, name: 'Changed' }, () => ctx),
 			() => handleUseCaseRequest(_deleteConfig, ctx, { id }, () => ctx),
-			() => handleUseCaseRequest(_postConfig, ctx, { action: 'resetFederalHolidays' }, () => ctx)
+			() => handleUseCaseRequest(_postConfig, ctx, { action: 'resetFederalHolidays' }, () => ctx),
+			() =>
+				handleUseCaseRequest(
+					_postConfig,
+					ctx,
+					{ action: 'addClosureDays', name: 'Denied leave', dates: ['2026-12-24'] },
+					() => ctx
+				)
 		]) {
 			await expect(run()).rejects.toMatchObject({ status: 403 });
 		}

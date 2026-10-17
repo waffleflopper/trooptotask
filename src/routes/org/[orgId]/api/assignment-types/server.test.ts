@@ -64,7 +64,7 @@ describe('assignment-type route', () => {
 		expect(await ctx.store.findMany('assignment_types', ctx.auth.orgId)).toEqual([]);
 	});
 
-	it('reads the saved catalog and rejects header flags on generic writes', async () => {
+	it('reads the saved catalog and rejects calendar flags on generic writes', async () => {
 		const ctx = createTestContext();
 		ctx.store.seed('assignment_types', [
 			{
@@ -75,26 +75,26 @@ describe('assignment-type route', () => {
 				assign_to: 'personnel',
 				color: '#111111',
 				sort_order: 0,
-				show_in_date_header: true,
+				show_on_calendar: true,
 				exempt_personnel_ids: []
 			}
 		]);
 		expect(await handleUseCaseRequest(_getConfig, ctx, undefined, () => ctx)).toEqual([
-			expect.objectContaining({ id: ID, name: 'Staff', showInDateHeader: true })
+			expect.objectContaining({ id: ID, name: 'Staff', showOnCalendar: true, sortOrder: 0 })
 		]);
 		await expect(
-			handleUseCaseRequest(_putConfig, ctx, { id: ID, showInDateHeader: false }, () => ctx)
+			handleUseCaseRequest(_putConfig, ctx, { id: ID, showOnCalendar: false }, () => ctx)
 		).rejects.toMatchObject({ status: 400 });
 		await expect(
 			handleUseCaseRequest(
 				_postConfig,
 				ctx,
-				{ name: 'Night', shortName: 'N', assignTo: 'group', showInDateHeader: true },
+				{ name: 'Night', shortName: 'N', assignTo: 'group', showOnCalendar: true },
 				() => ctx
 			)
 		).rejects.toMatchObject({ status: 400 });
 		expect(await ctx.store.findMany('assignment_types', ctx.auth.orgId)).toEqual([
-			expect.objectContaining({ id: ID, show_in_date_header: true })
+			expect.objectContaining({ id: ID, show_on_calendar: true })
 		]);
 	});
 });

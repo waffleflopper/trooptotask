@@ -3,7 +3,13 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import { Spinner } from '$lib/components/ui/spinner';
-	import { isFilterActive, type ToolbarAction, type ToolbarFilter, type ToolbarView } from './toolbar-types.js';
+	import {
+		isFilterActive,
+		type ToolbarAction,
+		type ToolbarFilter,
+		type ToolbarMenuItem,
+		type ToolbarView
+	} from './toolbar-types.js';
 	import WorkspaceToolbarIcon from './workspace-toolbar-icon.svelte';
 	import WorkspaceToolbarMenu from './workspace-toolbar-menu.svelte';
 
@@ -83,11 +89,23 @@
 	{/if}
 {/snippet}
 
-{#snippet actionItems(actions: ToolbarAction[], path: string[], blocked: boolean, choose: Choose, run: RunAction)}
-	{@const destructive = actions.filter((action) => action.destructive)}
-	{@const reserveIcon = actions.some((action) => action.icon)}
-	{#each actions.filter((action) => !action.destructive) as action (action.id)}
-		{@render actionItem(action, path, blocked, choose, run, reserveIcon)}
+{#snippet actionItems(items: ToolbarMenuItem[], path: string[], blocked: boolean, choose: Choose, run: RunAction)}
+	{@const destructive = items.filter((item) => item.kind === 'action' && item.destructive) as ToolbarAction[]}
+	{@const reserveIcon = items.some((item) => item.kind === 'action' && item.icon)}
+	{#each items.filter((item) => item.kind === 'toggle' || !item.destructive) as item (item.id)}
+		{#if item.kind === 'toggle'}
+			<DropdownMenu.CheckboxItem
+				checked={item.pressed}
+				disabled={blocked}
+				closeOnSelect={false}
+				aria-label={item.ariaLabel}
+				onCheckedChange={item.onPressedChange}
+			>
+				{item.label}
+			</DropdownMenu.CheckboxItem>
+		{:else}
+			{@render actionItem(item, path, blocked, choose, run, reserveIcon)}
+		{/if}
 	{/each}
 	{#if destructive.length > 0}
 		<DropdownMenu.Separator />

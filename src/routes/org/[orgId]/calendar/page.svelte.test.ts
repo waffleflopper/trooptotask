@@ -80,12 +80,11 @@ vi.mock('$features/personnel', async (importOriginal) => ({
 
 import Page from './+page.svelte';
 
-function makeBootstrap(): CalendarWorkspaceResult {
+function makeBootstrap(range = { rangeStart: '2026-01-01', rangeEnd: '2026-05-31' }): CalendarWorkspaceResult {
 	return {
 		laneKey: 'calendar',
 		data: {
-			rangeStart: '2026-03-01',
-			rangeEnd: '2026-05-31',
+			...range,
 			availabilityEntries: [],
 			specialDays: [],
 			specialDaysRange: { rangeStart: '2025-01-01', rangeEnd: '2028-12-31' },
@@ -133,19 +132,19 @@ function makeBootstrap(): CalendarWorkspaceResult {
 				mode: 'range',
 				snapshotKey: 'availability:1',
 				items: [],
-				range: { rangeStart: '2026-03-01', rangeEnd: '2026-05-31' }
+				range
 			},
 			specialDays: {
 				mode: 'range',
 				snapshotKey: 'special-days:1',
 				items: [],
-				range: { rangeStart: '2026-03-01', rangeEnd: '2026-05-31' }
+				range
 			},
 			calendarAssignments: {
 				mode: 'range',
 				snapshotKey: 'assignments:1',
 				items: { types: [], assignments: [] },
-				range: { rangeStart: '2026-03-01', rangeEnd: '2026-05-31' }
+				range
 			},
 			pinnedGroups: { mode: 'replace', snapshotKey: 'pinned:1', items: [] }
 		}
@@ -176,7 +175,7 @@ const WithPreferences: typeof Page = (anchor, props) => {
 	return {};
 };
 
-function makePageData() {
+function makePageData(range?: { rangeStart: string; rangeEnd: string }) {
 	return {
 		...createReadyAppShellRouteData({
 			orgId: 'org-1',
@@ -184,7 +183,7 @@ function makePageData() {
 			userId: 'user-1'
 		}),
 		calendar: {
-			data: makeBootstrap()
+			data: makeBootstrap(range)
 		}
 	};
 }
@@ -282,13 +281,13 @@ describe('calendar page', () => {
 	it('loads the navigated quarter and persists that month for the next server bootstrap', async () => {
 		calendarStore.goToMonth(2026, 2);
 		document.cookie = `${CALENDAR_ANCHOR_COOKIE}=; Max-Age=0; Path=/`;
-		render(WithPreferences, { props: { data: makePageData() } });
+		render(WithPreferences, { props: { data: makePageData({ rangeStart: '2025-12-01', rangeEnd: '2026-05-31' }) } });
 
 		await fireEvent.click(
-			within(screen.getByRole('toolbar', { name: 'Calendar controls' })).getByRole('button', { name: '3-Month' })
+			within(screen.getByRole('group', { name: 'Calendar view' })).getByRole('radio', { name: '3-Month' })
 		);
 		expect(loadCalendarRangeMock).not.toHaveBeenCalled();
-		await fireEvent.click(screen.getByRole('button', { name: 'Next 3 Months' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Next 3 months' }));
 
 		await waitFor(() => {
 			expect(loadCalendarRangeMock).toHaveBeenCalledWith('org-1', {

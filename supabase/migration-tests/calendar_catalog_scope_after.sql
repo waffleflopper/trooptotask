@@ -24,11 +24,14 @@ SELECT is((SELECT confdeltype::text FROM pg_constraint
   'same-Organization availability still cascades with status deletion');
 
 CREATE TEMP TABLE calendar_catalog_current_rows AS
-SELECT 'status_types'::text AS table_name, id AS row_id, to_jsonb(row_value) AS row_data
+-- The later status label upgrade adds a column that these rows leave NULL.
+SELECT 'status_types'::text AS table_name, id AS row_id, to_jsonb(row_value) - 'short_label' AS row_data
   FROM public.status_types AS row_value
   WHERE id IN ('e5000000-0000-4000-8000-000000000401', 'e5000000-0000-4000-8000-000000000402')
 UNION ALL
-SELECT 'assignment_types', id, to_jsonb(row_value) FROM public.assignment_types AS row_value
+-- The later Calendar lanes upgrade renames the date-header column.
+SELECT 'assignment_types', id, to_jsonb(row_value) - 'show_on_calendar'
+  || jsonb_build_object('show_in_date_header', row_value.show_on_calendar) FROM public.assignment_types AS row_value
   WHERE id = 'e5000000-0000-4000-8000-000000000501'
 UNION ALL
 SELECT 'special_days', id, to_jsonb(row_value) FROM public.special_days AS row_value

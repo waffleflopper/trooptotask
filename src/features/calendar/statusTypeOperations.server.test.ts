@@ -1,8 +1,31 @@
 import { describe, it, expect } from 'vitest';
 import { createWriteWithNotificationsPortsContext } from './calendarPersistence.test-support.server';
-import { createStatusType, updateStatusType, deleteStatusType } from './statusTypeOperations.server';
+import {
+	createStatusType,
+	updateStatusType,
+	deleteStatusType,
+	setStatusTypeOrder
+} from './statusTypeOperations.server';
 
 const ST_ID = '00000000-0000-4000-a000-000000000001';
+const LEAVE = '00000000-0000-4000-a000-000000000011';
+const SICK = '00000000-0000-4000-a000-000000000012';
+const SCHOOL = '00000000-0000-4000-a000-000000000013';
+
+function seedOrdered(ctx: ReturnType<typeof createWriteWithNotificationsPortsContext>) {
+	ctx.store.seed(
+		'status_types',
+		[LEAVE, SICK, SCHOOL].map((id, position) => ({
+			id,
+			organization_id: ctx.auth.orgId,
+			name: id,
+			color: '#00ff00',
+			text_color: '#ffffff',
+			short_label: null,
+			sort_order: position
+		}))
+	);
+}
 
 describe('StatusType CRUD use case', () => {
 	it('creates a status type and audits', async () => {
@@ -11,8 +34,7 @@ describe('StatusType CRUD use case', () => {
 		const result = (await createStatusType(ctx, {
 			name: 'On Leave',
 			color: '#00ff00',
-			textColor: '#000000',
-			sortOrder: 1
+			textColor: '#000000'
 		})) as { name: string };
 
 		expect(result).toMatchObject({ name: 'On Leave' });
@@ -67,13 +89,10 @@ describe('StatusType CRUD use case', () => {
 			createStatusType(ctx, {
 				name: 'On Leave',
 				color: '#00ff00',
-				textColor: '#000000',
-				sortOrder: 1
+				textColor: '#000000'
 			})
-		).rejects.toMatchObject({
-			status: 403,
-			message: 'This action requires Calendar configuration access'
-		});
+		).rejects.toMatchObject({ status: 403 });
+		expect(await ctx.store.findMany('status_types', ctx.auth.orgId)).toEqual([]);
 		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'policy.denied',
 			resourceType: 'calendar',
@@ -84,17 +103,28 @@ describe('StatusType CRUD use case', () => {
 		});
 	});
 
-	it('allows Calendar configure capability without relying on full-editor legacy checks', async () => {
-		const ctx = createWriteWithNotificationsPortsContext();
+	it('allows an ordinary member with only Calendar configure capability', async () => {
+		const ctx = createWriteWithNotificationsPortsContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				canManageMembers: false,
+				capabilityMap: {
+					calendar: 'configure',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				},
+				scopeSet: { kind: 'organization' }
+			}
+		});
 
-		const result = (await createStatusType(ctx, {
-			name: 'TDY',
-			color: '#00ff00',
-			textColor: '#000000',
-			sortOrder: 2
-		})) as { name: string };
+		await createStatusType(ctx, { name: 'TDY', color: '#00ff00', textColor: '#000000' });
 
-		expect(result.name).toBe('TDY');
+		expect(await ctx.store.findMany('status_types', ctx.auth.orgId)).toMatchObject([{ name: 'TDY' }]);
+		expect(ctx.audit.events).toMatchObject([{ action: 'status_type.created' }]);
 	});
 
 	it('does not audit success when status deletion fails', async () => {
@@ -145,6 +175,93 @@ describe('StatusType CRUD use case', () => {
 				message: 'A status type was deleted.'
 			}
 		});
+	});
+
+	it('stores a trimmed uppercase one-day label, clears a stored one when blank, and appends after the highest position', async () => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		const row = (id: string, organization_id: string, short_label: string | null, sort_order: number) => ({
+			id,
+			organization_id,
+			name: id,
+			color: '#00ff00',
+			text_color: '#ffffff',
+			short_label,
+			sort_order
+		});
+		ctx.store.seed('status_types', [
+			row(LEAVE, ctx.auth.orgId, null, 2),
+			row(SICK, ctx.auth.orgId, 'SK', 9),
+			row(SCHOOL, ctx.auth.orgId, null, 9),
+			row(ST_ID, 'other-org', null, 40)
+		]);
+
+		const created = await createStatusType(ctx, { name: 'Medical', shortLabel: ' md ' });
+		await updateStatusType(ctx, { id: SICK, shortLabel: '   ' });
+
+		expect(
+			await ctx.store.findOne('status_types', ctx.auth.orgId, { id: (created as { id: string }).id })
+		).toMatchObject({ short_label: 'MD', sort_order: 10 });
+		expect(await ctx.store.findOne('status_types', ctx.auth.orgId, { id: SICK })).toMatchObject({
+			short_label: null,
+			sort_order: 9
+		});
+	});
+
+	it.each([
+		['a position on create', () => ({ name: 'TDY', sortOrder: 0 })],
+		['a four-character one-day label', () => ({ name: 'TDY', shortLabel: 'ABCD' })]
+	])('rejects %s with 400 before saving', async (_, input) => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		await expect(createStatusType(ctx, input())).rejects.toMatchObject({ status: 400 });
+		expect(await ctx.store.findMany('status_types', ctx.auth.orgId)).toEqual([]);
+		expect(ctx.audit.events).toEqual([]);
+	});
+
+	it('rejects a position on edit with 400 and leaves the order alone', async () => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		seedOrdered(ctx);
+		await expect(updateStatusType(ctx, { id: SCHOOL, sortOrder: 0 })).rejects.toMatchObject({ status: 400 });
+		expect(await ctx.store.findOne('status_types', ctx.auth.orgId, { id: SCHOOL })).toMatchObject({ sort_order: 2 });
+	});
+
+	it('saves a full reorder against the order the editor saw and audits it', async () => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		seedOrdered(ctx);
+		await setStatusTypeOrder(ctx, {
+			statusTypeIds: [SCHOOL, LEAVE, SICK],
+			expectedStatusTypeIds: [LEAVE, SICK, SCHOOL]
+		});
+		const rows = await ctx.store.findMany<{ id: string; sort_order: number }>('status_types', ctx.auth.orgId);
+		expect(Object.fromEntries(rows.map((row) => [row.id, row.sort_order]))).toEqual({
+			[SCHOOL]: 0,
+			[LEAVE]: 1,
+			[SICK]: 2
+		});
+		expect(ctx.audit.events).toMatchObject([
+			{
+				action: 'status_type.reordered',
+				resourceType: 'organization',
+				resourceId: ctx.auth.orgId,
+				details: { statusTypeIds: [SCHOOL, LEAVE, SICK] }
+			}
+		]);
+	});
+
+	it.each([
+		['a stale view with 409', [SCHOOL, LEAVE, SICK], [SICK, LEAVE, SCHOOL], 409],
+		['a partial order with 400', [SCHOOL, LEAVE], [LEAVE, SICK, SCHOOL], 400],
+		['a repeated type with 400', [SCHOOL, SCHOOL, LEAVE], [LEAVE, SICK, SCHOOL], 400]
+	])('answers %s without a change or an audit', async (_, statusTypeIds, expectedStatusTypeIds, status) => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		seedOrdered(ctx);
+		await expect(setStatusTypeOrder(ctx, { statusTypeIds, expectedStatusTypeIds })).rejects.toMatchObject({ status });
+		const rows = await ctx.store.findMany<{ id: string; sort_order: number }>('status_types', ctx.auth.orgId);
+		expect(Object.fromEntries(rows.map((row) => [row.id, row.sort_order]))).toEqual({
+			[LEAVE]: 0,
+			[SICK]: 1,
+			[SCHOOL]: 2
+		});
+		expect(ctx.audit.events).toEqual([]);
 	});
 
 	it('answers 404 for an update to a status type that no longer exists and writes nothing', async () => {

@@ -244,17 +244,18 @@ function createTestCalendarPersistence(
 				createStatusType: unavailableCalendarPersistence,
 				updateStatusType: unavailableCalendarPersistence,
 				deleteStatusType: unavailableCalendarPersistence,
+				setStatusTypeOrder: unavailableCalendarPersistence,
 				listAssignmentTypes: unavailableCalendarPersistence,
 				listAssignmentTypeTargets: unavailableCalendarPersistence,
 				createAssignmentType: unavailableCalendarPersistence,
 				updateAssignmentType: unavailableCalendarPersistence,
 				deleteAssignmentType: unavailableCalendarPersistence,
 				listSpecialDays: unavailableCalendarPersistence,
-				createSpecialDay: unavailableCalendarPersistence,
+				addClosureDays: unavailableCalendarPersistence,
 				updateSpecialDay: unavailableCalendarPersistence,
 				deleteSpecialDay: unavailableCalendarPersistence,
 				resetFederalHolidays: unavailableCalendarPersistence,
-				setDateHeader: unavailableCalendarPersistence
+				setCalendarLanes: unavailableCalendarPersistence
 			} satisfies CalendarCatalogPersistence),
 		calendarAvailability:
 			options?.calendarAvailabilityFactory?.(
@@ -1526,7 +1527,16 @@ export function createTestOrganizationArchiveReaders(rawStore: Pick<FixtureRowSt
 			async listRows(table) {
 				const rows = await rawStore.findMany<Record<string, unknown>>(table, orgId);
 				if (table !== 'status_types') return rows;
-				const fields = new Set(['id', 'organization_id', 'name', 'color', 'text_color', 'sort_order', 'created_at']);
+				const fields = new Set([
+					'id',
+					'organization_id',
+					'name',
+					'color',
+					'text_color',
+					'short_label',
+					'sort_order',
+					'created_at'
+				]);
 				return rows.map((row) => Object.fromEntries(Object.entries(row).filter(([key]) => fields.has(key))));
 			}
 		},

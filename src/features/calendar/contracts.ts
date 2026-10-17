@@ -3,6 +3,9 @@ import type { ClientAffordance } from '$lib/access/clientAccess';
 import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
 import { z } from 'zod';
 
+/** The most records or IDs one availability batch request accepts; the batch RPCs enforce it too. */
+export const AVAILABILITY_BATCH_LIMIT = 500;
+
 /** Live advisory facts supplied by Delivery for Calendar operations. */
 export interface CalendarOperationsPageAccess {
 	readonly orgUrlSegment: string;
@@ -28,6 +31,9 @@ export interface StatusType {
 	name: string;
 	color: string;
 	textColor: string;
+	/** The stored one-day label, 1-3 code points, or null to derive one from the name. */
+	shortLabel: string | null;
+	sortOrder: number;
 }
 
 export interface AvailabilityEntry {
@@ -54,7 +60,8 @@ export interface AssignmentType {
 	color: string;
 	textColor?: string;
 	exemptPersonnelIds: string[];
-	showInDateHeader: boolean;
+	showOnCalendar: boolean;
+	sortOrder: number;
 	archivedAt?: string | null;
 }
 
@@ -67,10 +74,22 @@ export const assignmentTypesSchema = z.array(
 		color: z.string(),
 		textColor: z.string().optional(),
 		exemptPersonnelIds: z.array(z.string()),
-		showInDateHeader: z.boolean(),
+		showOnCalendar: z.boolean(),
+		sortOrder: z.number(),
 		archivedAt: z.string().nullable().optional()
 	})
 ) satisfies z.ZodType<AssignmentType[]>;
+
+export const statusTypesSchema = z.array(
+	z.object({
+		id: z.string(),
+		name: z.string(),
+		color: z.string(),
+		textColor: z.string(),
+		shortLabel: z.string().nullable(),
+		sortOrder: z.number()
+	})
+) satisfies z.ZodType<StatusType[]>;
 
 export const specialDaysSchema = z.array(
 	z.object({
@@ -96,16 +115,11 @@ export interface AssignmentSlotChange {
 
 export type SavedAssignment = DailyAssignment & { organization_id?: string; created_at?: string };
 
-export type SavedStatusType = StatusType & {
-	organization_id?: string;
-	created_at?: string;
-	sortOrder?: number | null;
-};
+export type SavedStatusType = StatusType & { organization_id?: string; created_at?: string };
 
 export type SavedAssignmentType = AssignmentType & {
 	organization_id?: string;
 	created_at?: string;
-	sortOrder?: number | null;
 };
 
 export type SavedSpecialDay = SpecialDay & { organization_id?: string; created_at?: string };
@@ -121,7 +135,7 @@ export interface StatusTypeCreate {
 	name: string;
 	color?: string;
 	textColor?: string;
-	sortOrder?: number;
+	shortLabel?: string | null;
 }
 
 export type StatusTypePatch = Partial<StatusTypeCreate>;
@@ -131,19 +145,12 @@ export interface AssignmentTypeCreate {
 	shortName: string;
 	assignTo: 'personnel' | 'group';
 	color?: string;
-	sortOrder?: number;
 	exemptPersonnelIds?: string[];
 }
 
 export type AssignmentTypePatch = Partial<AssignmentTypeCreate>;
 
-export interface SpecialDayCreate {
-	date: string;
-	name: string;
-	type: 'federal-holiday' | 'org-closure';
-}
-
-export type SpecialDayPatch = Partial<SpecialDayCreate>;
+export type SpecialDayPatch = Partial<Omit<SpecialDay, 'id'>>;
 
 export interface FederalHolidayDefault {
 	date: string;
@@ -168,17 +175,19 @@ export interface CalendarCatalogPersistence {
 	updateStatusType(id: string, patch: StatusTypePatch): Promise<SavedStatusType | null>;
 	/** Resolves whether a row was removed; a missing id is not an error. */
 	deleteStatusType(id: string): Promise<boolean>;
+	setStatusTypeOrder(statusTypeIds: readonly string[], expectedStatusTypeIds: readonly string[]): Promise<void>;
 	listAssignmentTypes(): Promise<SavedAssignmentType[]>;
 	listAssignmentTypeTargets(ids: string[]): Promise<Array<{ id: string; assignTo: 'personnel' | 'group' }>>;
 	createAssignmentType(input: AssignmentTypeCreate): Promise<SavedAssignmentType>;
 	updateAssignmentType(id: string, patch: AssignmentTypePatch): Promise<SavedAssignmentType | null>;
 	deleteAssignmentType(id: string): Promise<boolean>;
 	listSpecialDays(range?: CalendarDateRange): Promise<SavedSpecialDay[]>;
-	createSpecialDay(input: SpecialDayCreate): Promise<SavedSpecialDay>;
+	/** Adds one closure per date, skipping dates that already hold a Special Day; returns the added rows by date. */
+	addClosureDays(name: string, dates: readonly string[]): Promise<SavedSpecialDay[]>;
 	updateSpecialDay(id: string, patch: SpecialDayPatch): Promise<SavedSpecialDay | null>;
 	deleteSpecialDay(id: string): Promise<boolean>;
 	resetFederalHolidays(holidays: FederalHolidayDefault[]): Promise<SavedFederalHoliday[]>;
-	setDateHeader(assignmentTypeId: string): Promise<void>;
+	setCalendarLanes(laneTypeIds: readonly string[], expectedLaneTypeIds: readonly string[]): Promise<void>;
 }
 
 export interface CalendarAvailabilityPersistence extends CalendarAvailabilityRemovalPort {

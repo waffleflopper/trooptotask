@@ -5,6 +5,9 @@
 		withArchive?: boolean;
 		withExport?: boolean;
 		withDisplayOption?: boolean;
+		withDisplayMenu?: boolean;
+		withSettings?: boolean;
+		searchPlacement?: 'before-filters' | 'after-filters';
 		abbreviateViewOptions?: boolean;
 		destructivePrimary?: boolean;
 		initialSearch?: string;
@@ -22,6 +25,9 @@
 		withArchive = true,
 		withExport = false,
 		withDisplayOption = false,
+		withDisplayMenu = false,
+		withSettings = false,
+		searchPlacement,
 		abbreviateViewOptions = false,
 		destructivePrimary = false,
 		initialSearch = '',
@@ -41,6 +47,7 @@
 	let status = $state<string[]>(initialStatus);
 	let gaps = $state(false);
 	let roles = $state(true);
+	let compact = $state(false);
 	// svelte-ignore state_referenced_locally
 	let search = $state(initialSearch);
 	let runs = $state<string[]>([]);
@@ -130,6 +137,28 @@
 		...(withExport
 			? [{ kind: 'action', id: 'export', label: 'Export', onclick: () => log('export') } satisfies ToolbarItem]
 			: []),
+		...(withDisplayMenu
+			? [
+					{
+						kind: 'action',
+						id: 'display',
+						label: 'Display',
+						icon: 'sliders',
+						menuItems: [
+							{
+								kind: 'toggle',
+								id: 'compact',
+								label: 'Compact rows',
+								pressed: compact,
+								onPressedChange: (pressed: boolean) => (compact = pressed)
+							}
+						]
+					} satisfies ToolbarItem
+				]
+			: []),
+		...(withSettings
+			? [{ kind: 'action', id: 'settings', label: 'Settings', menuOnly: true, href: '/settings' } satisfies ToolbarItem]
+			: []),
 		...(withArchive
 			? [
 					{
@@ -152,6 +181,7 @@
 		label: 'Search roster',
 		placeholder: 'Search...',
 		value: search,
+		placement: searchPlacement,
 		onValueChange: (value) => (search = value)
 	}}
 	primary={{
@@ -169,5 +199,6 @@
 <output aria-label="Status value">{status.join(',') || 'none'}</output>
 <output aria-label="Gaps value">{gaps ? 'on' : 'off'}</output>
 <output aria-label="Roles value">{roles ? 'on' : 'off'}</output>
+<output aria-label="Compact value">{compact ? 'on' : 'off'}</output>
 <output aria-label="Search value">{search || 'empty'}</output>
 <output aria-label="Runs">{runs.join(' ') || 'none'}</output>

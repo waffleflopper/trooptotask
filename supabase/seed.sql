@@ -186,7 +186,7 @@ INSERT INTO "public"."organizations" ("id", "name", "created_by", "created_at", 
 -- Data for Name: assignment_types; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-INSERT INTO "public"."assignment_types" ("id", "organization_id", "name", "short_name", "assign_to", "color", "sort_order", "created_at", "exempt_personnel_ids", "show_in_date_header") VALUES
+INSERT INTO "public"."assignment_types" ("id", "organization_id", "name", "short_name", "assign_to", "color", "sort_order", "created_at", "exempt_personnel_ids", "show_on_calendar") VALUES
 	('1b852176-1a92-4279-ab31-73df0f15555d', '58b4ca31-634e-4525-be67-5a5a80c8d6e2', 'PT Leader', 'PT', 'personnel', '#005ec2', 0, '2026-04-13 23:57:49.615674+00', '{}', false);
 
 

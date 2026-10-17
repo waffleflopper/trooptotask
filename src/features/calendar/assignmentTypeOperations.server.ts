@@ -7,8 +7,8 @@ import {
 } from './calendarPolicy.server';
 import {
 	assignmentTypeCreateInput,
-	assignmentTypeDateHeaderInput,
-	assignmentTypeUpdateInput
+	assignmentTypeUpdateInput,
+	calendarLanesInput
 } from './calendarPersistenceMapping.server';
 import { issueMessage } from '$lib/utils/inputSchemas';
 
@@ -39,16 +39,17 @@ export async function updateAssignmentType(ctx: CalendarCatalogPorts, input: Rec
 	return row;
 }
 
-export async function setAssignmentTypeDateHeader(ctx: CalendarCatalogPorts, input: Record<string, unknown>) {
-	const parsed = assignmentTypeDateHeaderInput.safeParse(input);
-	if (!parsed.success) throw error(400, 'Choose an assignment type');
-	const { assignmentTypeId } = parsed.data;
+export async function setCalendarLanes(ctx: CalendarCatalogPorts, input: Record<string, unknown>) {
+	const parsed = calendarLanesInput.safeParse(input);
+	if (!parsed.success) throw error(400, 'Choose the assignment types to show on the calendar');
+	const { laneTypeIds, expectedLaneTypeIds } = parsed.data;
 	await requireCalendarPolicy(ctx, action, resource);
-	await ctx.calendarCatalogs.setDateHeader(assignmentTypeId);
+	await ctx.calendarCatalogs.setCalendarLanes(laneTypeIds, expectedLaneTypeIds);
 	ctx.audit.log({
-		action: 'assignment_type.date_header_set',
-		resourceType: 'assignment_type',
-		resourceId: assignmentTypeId
+		action: 'assignment_type.calendar_lanes_set',
+		resourceType: 'organization',
+		resourceId: ctx.auth.orgId,
+		details: { laneTypeIds }
 	});
 }
 

@@ -36,7 +36,7 @@ export type { CalendarPageData, CalendarPageAccess } from './contexts/CalendarPa
 export { calendarStore } from './stores/calendar.svelte';
 export { dailyAssignmentsStore } from './stores/dailyAssignments.svelte';
 export { buildCalendarAnchorCookie, CALENDAR_ANCHOR_COOKIE } from './utils/calendarAnchorDate';
-export { rangeCoversDate, rangeCoversSpan } from './utils/calendarRange';
+export { calendarReadRange, rangeCoversDate, rangeCoversSpan } from './utils/calendarRange';
 
 // Routed page components are separate public files so each route loads only its own page.
 

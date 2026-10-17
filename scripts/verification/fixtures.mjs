@@ -1036,9 +1036,9 @@ export async function seed(session) {
 				short_name: 'VSD',
 				assign_to: 'personnel',
 				color: '#166534',
-				sort_order: 11,
+				sort_order: 0,
 				exempt_personnel_ids: [ids.personB],
-				show_in_date_header: true
+				show_on_calendar: true
 			},
 			{
 				id: ids.typeGroup,
@@ -1047,9 +1047,9 @@ export async function seed(session) {
 				short_name: 'VGD',
 				assign_to: 'group',
 				color: '#1d4ed8',
-				sort_order: 12,
+				sort_order: 1,
 				exempt_personnel_ids: [],
-				show_in_date_header: false
+				show_on_calendar: true
 			},
 			{
 				id: ids.typeDelete,
@@ -1058,9 +1058,9 @@ export async function seed(session) {
 				short_name: 'VRD',
 				assign_to: 'personnel',
 				color: '#7c2d12',
-				sort_order: 13,
+				sort_order: 2,
 				exempt_personnel_ids: [],
-				show_in_date_header: false
+				show_on_calendar: false
 			},
 			{
 				id: ids.typeArchived,
@@ -1069,9 +1069,9 @@ export async function seed(session) {
 				short_name: 'VAD',
 				assign_to: 'personnel',
 				color: '#525252',
-				sort_order: 14,
+				sort_order: 3,
 				exempt_personnel_ids: [],
-				show_in_date_header: false,
+				show_on_calendar: false,
 				archived_at: '2025-12-31T00:00:00Z'
 			},
 			{
@@ -1081,9 +1081,9 @@ export async function seed(session) {
 				short_name: 'FPD',
 				assign_to: 'personnel',
 				color: '#7e22ce',
-				sort_order: 11,
+				sort_order: 0,
 				exempt_personnel_ids: [],
-				show_in_date_header: false
+				show_on_calendar: false
 			}
 		])
 	);

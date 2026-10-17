@@ -1,5 +1,5 @@
 import {
-	createSpecialDay,
+	addClosureDays,
 	deleteSpecialDay,
 	listSpecialDays,
 	resetFederalHolidays,
@@ -24,10 +24,9 @@ export const _postConfig = {
 	policyAction: POLICY_ACTION_CATALOG.calendar.configureSpecialDays,
 	policyResource: { kind: 'organization' },
 	fn: async (ctx, input) => {
-		if (input.action === 'resetFederalHolidays') {
-			return resetFederalHolidays(ctx);
-		}
-		return createSpecialDay(ctx, input);
+		if (input.action === 'addClosureDays') return addClosureDays(ctx, input);
+		if (input.action === 'resetFederalHolidays') return resetFederalHolidays(ctx);
+		fail(400, 'Unknown special day action');
 	}
 } satisfies RouteConfig<Record<string, unknown>, unknown, ReturnType<typeof createRequestCalendarCatalogContext>>;
 

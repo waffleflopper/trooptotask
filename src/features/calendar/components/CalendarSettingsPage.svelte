@@ -36,21 +36,24 @@
 		{
 			key: 'status',
 			label: 'Status Types',
-			description: 'Personnel availability statuses',
+			description: "Set each status's name, color and one-day label, and drag to set the legend and picker order.",
 			icon: Palette,
 			getCount: () => statusTypesStore.items.length
 		},
 		{
 			key: 'assignments',
 			label: 'Assignment Types',
-			description: 'Duty coverage assignments',
+			description:
+				'Daily duties you fill in the duty planner. Choose which ones appear as lanes under the dates on the calendar, and in what order.',
 			icon: Users,
 			getCount: () => activeAssignmentTypes.length
 		},
 		{
 			key: 'closures',
-			label: 'Closures',
-			description: 'Holidays & special days',
+			label: 'Holidays & closures',
+			description:
+				'Federal holidays and unit closures such as DONSAs. They shade the date column and appear by name in the Days lane.',
+			addLabel: 'New closure',
 			icon: CalendarOff,
 			getCount: () => specialDaysStore.items.length
 		}
@@ -129,7 +132,13 @@
 						onValueChange: (value) => (searchQuery = value)
 					}}
 					primary={canMutate
-						? { kind: 'action', id: 'add-new', label: 'Add new', icon: 'plus', onclick: openAddForActiveSection }
+						? {
+								kind: 'action',
+								id: 'add-new',
+								label: activeSectionDef.addLabel ?? 'Add new',
+								icon: 'plus',
+								onclick: openAddForActiveSection
+							}
 						: undefined}
 				/>
 			</div>

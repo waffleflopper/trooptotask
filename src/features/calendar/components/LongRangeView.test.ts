@@ -3,23 +3,14 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import LongRangeView from './LongRangeView.svelte';
 import type { Personnel } from '$features/personnel/contracts';
-import type {
-	AssignmentType,
-	SpecialDay,
-	StatusType,
-	AvailabilityEntry,
-	DailyAssignment
-} from '$features/calendar/contracts';
+import type { SpecialDay, StatusType, AvailabilityEntry } from '$features/calendar/contracts';
+import { buildAvailabilityTracks } from '$features/calendar/utils/availabilityTracks';
 
 type LongRangeViewProps = {
 	startDate: Date;
-	onStartDateChange: (date: Date) => void;
 	personnelByGroup: { group: string; personnel: Personnel[] }[];
 	availabilityEntries: AvailabilityEntry[];
-	statusTypes: StatusType[];
 	specialDays: SpecialDay[];
-	assignmentTypes: AssignmentType[];
-	assignments: DailyAssignment[];
 	onDateColumnClick?: (date: Date) => void;
 };
 
@@ -41,13 +32,13 @@ const statusTypes: StatusType[] = [
 		id: 'leave',
 		name: 'Leave',
 		color: '#2563eb',
-		textColor: '#ffffff'
+		textColor: '#ffffff',
+		shortLabel: null,
+		sortOrder: 0
 	}
 ];
 
 const specialDays: SpecialDay[] = [];
-const assignmentTypes: AssignmentType[] = [];
-const assignments: DailyAssignment[] = [];
 
 const resizeObserve = vi.fn();
 const resizeDisconnect = vi.fn();
@@ -60,17 +51,13 @@ class MockResizeObserver {
 
 vi.stubGlobal('ResizeObserver', MockResizeObserver);
 
-function renderView(overrides: Partial<LongRangeViewProps> = {}) {
+function renderView({ availabilityEntries = [], ...overrides }: Partial<LongRangeViewProps> = {}) {
 	const view = render(LongRangeView, {
 		props: {
 			startDate: new Date(2026, 2, 1),
-			onStartDateChange: (startDate) => void view.rerender({ startDate }),
 			personnelByGroup: [{ group: 'Alpha', personnel }],
-			availabilityEntries: [],
-			statusTypes,
+			tracks: buildAvailabilityTracks(availabilityEntries, statusTypes),
 			specialDays,
-			assignmentTypes,
-			assignments,
 			...overrides
 		}
 	});
@@ -83,14 +70,6 @@ describe('LongRangeView', () => {
 		vi.clearAllMocks();
 	});
 
-	it('names the shown quarter and keeps the legend without exports of its own', () => {
-		renderView();
-
-		expect(screen.getByTestId('long-range-date-label').textContent).toContain('March 2026');
-		expect(screen.getByText('Leave')).toBeTruthy();
-		expect(screen.queryByRole('button', { name: /Excel|PDF|3-Month/ })).toBeNull();
-	});
-
 	it('names each date column with its full date and jumps to that date', async () => {
 		const onDateColumnClick = vi.fn();
 		renderView({ onDateColumnClick });
@@ -100,21 +79,6 @@ describe('LongRangeView', () => {
 		);
 
 		expect(onDateColumnClick).toHaveBeenCalledWith(new Date(2026, 3, 4));
-	});
-
-	it('opens the picker from the range label and updates the visible quarter start month', async () => {
-		renderView();
-
-		await fireEvent.click(screen.getByTestId('long-range-date-label'));
-
-		expect(screen.getByRole('dialog', { name: 'Month and year picker' })).toBeTruthy();
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Next year' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Jan' }));
-
-		expect(screen.getByTestId('long-range-date-label').textContent).toContain('January 2027');
-		expect(screen.getByTestId('long-range-date-label').textContent).toContain('March 2027');
-		expect(screen.queryByRole('dialog', { name: 'Month and year picker' })).toBeNull();
 	});
 
 	it('shows a distant person’s leave after scrolling the long-range roster', async () => {
@@ -144,7 +108,11 @@ describe('LongRangeView', () => {
 		await waitFor(() => {
 			const personRow = screen.getByText('Person 60').closest('.virtual-row');
 			expect(personRow).toBeTruthy();
-			expect(within(personRow as HTMLElement).getByTitle('Leave')).toBeTruthy();
+			expect(
+				within(personRow as HTMLElement).getByRole('button', {
+					name: 'SGT Person 60, Alex, Leave, 5 March 2026, 1 day'
+				})
+			).toBeTruthy();
 		});
 	});
 });

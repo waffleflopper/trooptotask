@@ -15,7 +15,8 @@ const types: AssignmentType[] = [
 		assignTo: 'personnel',
 		color: '#123456',
 		exemptPersonnelIds: [],
-		showInDateHeader: false
+		showOnCalendar: false,
+		sortOrder: 0
 	},
 	{
 		id: 'group-type',
@@ -24,7 +25,8 @@ const types: AssignmentType[] = [
 		assignTo: 'group',
 		color: '#654321',
 		exemptPersonnelIds: [],
-		showInDateHeader: true
+		showOnCalendar: true,
+		sortOrder: 1
 	}
 ];
 const linked: DailyAssignment = {
@@ -102,12 +104,7 @@ describe('Calendar persisted range preservation', () => {
 		});
 		dailyAssignmentsStore.load(types, [outside], 'org-a');
 		coordinator.includeBootstrap({ rangeStart: '2026-04-01', rangeEnd: '2026-04-30' });
-		const pending = coordinator.loadVisibleRange({
-			orgId: 'org-a',
-			canViewCalendar: true,
-			currentDate: new Date(2026, 2, 1),
-			viewMode: 'month'
-		});
+		const pending = coordinator.ensureRange('org-a', { rangeStart: '2026-03-01', rangeEnd: '2026-03-31' });
 		coordinator.reset();
 		const newOrgSlot = { id: 'org-b-slot', date: '2026-03-15', assignmentTypeId: 'b-type', assigneeId: 'b-person' };
 		const newOrgType = { ...types[0], id: 'b-type' };

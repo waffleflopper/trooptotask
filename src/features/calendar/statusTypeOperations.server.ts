@@ -5,7 +5,11 @@ import {
 	type CalendarCatalogPorts,
 	type CalendarCatalogDeletionPorts
 } from './calendarPolicy.server';
-import { statusTypeCreateInput, statusTypeUpdateInput } from './calendarPersistenceMapping.server';
+import {
+	statusTypeCreateInput,
+	statusTypeOrderInput,
+	statusTypeUpdateInput
+} from './calendarPersistenceMapping.server';
 import { issueMessage } from '$lib/utils/inputSchemas';
 
 const action = CALENDAR_POLICY_ACTIONS.configureStatusTypes;
@@ -33,6 +37,20 @@ export async function updateStatusType(ctx: CalendarCatalogPorts, input: Record<
 	if (!row) throw error(404, 'That status type is no longer available.');
 	ctx.audit.log({ action: 'status_type.updated', resourceType: 'status_type', resourceId: id });
 	return row;
+}
+
+export async function setStatusTypeOrder(ctx: CalendarCatalogPorts, input: Record<string, unknown>) {
+	const parsed = statusTypeOrderInput.safeParse(input);
+	if (!parsed.success) throw error(400, 'Choose every status type once');
+	const { statusTypeIds, expectedStatusTypeIds } = parsed.data;
+	await requireCalendarPolicy(ctx, action, resource);
+	await ctx.calendarCatalogs.setStatusTypeOrder(statusTypeIds, expectedStatusTypeIds);
+	ctx.audit.log({
+		action: 'status_type.reordered',
+		resourceType: 'organization',
+		resourceId: ctx.auth.orgId,
+		details: { statusTypeIds }
+	});
 }
 
 export async function deleteStatusType(ctx: CalendarCatalogDeletionPorts, id: string): Promise<void> {

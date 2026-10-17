@@ -242,13 +242,13 @@ describe('streamCalendarWorkspaceBootstrap', () => {
 		const workspace = await routeData.calendar.data;
 		if ('access' in workspace) throw new Error('Expected an authorized Calendar workspace');
 
-		expect(workspace.data.rangeStart).toBe('2026-04-01');
+		expect(workspace.data.rangeStart).toBe('2026-01-31');
 		expect(workspace.data.rangeEnd).toBe('2026-06-30');
 		await expect(workspace.data.specialDays).resolves.toEqual([
 			expect.objectContaining({ id: 'sd-wide', date: '2025-01-01..2028-12-31' })
 		]);
-		expect(workspace.hydration.calendarAssignments.range).toEqual({ rangeStart: '2026-04-01', rangeEnd: '2026-06-30' });
-		expect(workspace.hydration.availabilityEntries.range).toEqual({ rangeStart: '2026-04-01', rangeEnd: '2026-06-30' });
+		expect(workspace.hydration.calendarAssignments.range).toEqual({ rangeStart: '2026-01-31', rangeEnd: '2026-06-30' });
+		expect(workspace.hydration.availabilityEntries.range).toEqual({ rangeStart: '2026-01-31', rangeEnd: '2026-06-30' });
 		expect(workspace.hydration.confirmedChangesByTab).toEqual({ tab1: 7 });
 	});
 });

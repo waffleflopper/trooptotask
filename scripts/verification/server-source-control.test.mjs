@@ -406,18 +406,18 @@ test('Critical Task catalog failure targets only the A catalog read; completions
 	control.command('restore');
 });
 
-test('Calendar type catalog hold receipts only the exact A read; the header command, B, daily rows and writes stay real', async () => {
+test('Calendar type catalog hold receipts only the exact A read; the lane command, B, daily rows and writes stay real', async () => {
 	const dispatched = [];
 	const provider = deferred();
 	const catalogResponse = new Response('saved type catalog', { status: 200 });
-	const catalog = `${providerUrl}/rest/v1/assignment_types?select=id,name,show_in_date_header&organization_id=eq.${orgA}&order=sort_order.asc&order=id.asc`;
+	const catalog = `${providerUrl}/rest/v1/assignment_types?select=id,name,show_on_calendar&organization_id=eq.${orgA}&order=sort_order.asc&order=id.asc`;
 	const control = controller(async (input, init) => {
 		dispatched.push([String(input), init?.method ?? 'GET']);
 		return String(input) === catalog && !init?.method ? provider.promise : new Response('real');
 	});
 	control.command('arm', { table: 'assignment_types', mode: 'hold' });
 	for (const input of [
-		[`${providerUrl}/rest/v1/rpc/set_assignment_type_date_header`, { method: 'POST' }],
+		[`${providerUrl}/rest/v1/rpc/set_calendar_lanes`, { method: 'POST' }],
 		[catalog.replace(orgA, orgB)],
 		[catalog.replace('/assignment_types?', '/daily_assignments?')],
 		[catalog, { method: 'PATCH' }]

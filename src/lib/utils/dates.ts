@@ -120,11 +120,6 @@ export function isToday(date: Date): boolean {
 	return isSameDay(date, new Date());
 }
 
-export function isDateInRange(date: Date, startDate: string, endDate: string): boolean {
-	const dateStr = formatDate(date);
-	return dateStr >= startDate && dateStr <= endDate;
-}
-
 export function getMonthName(month: number): string {
 	const months = [
 		'January',

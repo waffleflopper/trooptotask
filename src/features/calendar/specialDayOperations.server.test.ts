@@ -1,25 +1,12 @@
 import { afterEach, describe, it, expect, vi } from 'vitest';
 import { createWritePortsContext } from './calendarPersistence.test-support.server';
-import { createSpecialDay, deleteSpecialDay, resetFederalHolidays } from './specialDayOperations.server';
+import { deleteSpecialDay, resetFederalHolidays } from './specialDayOperations.server';
 
 function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
 	return createWritePortsContext(overrides);
 }
 
-describe('SpecialDay CRUD use case', () => {
-	it('creates a special day and audits', async () => {
-		const ctx = buildContext();
-
-		const result = (await createSpecialDay(ctx, {
-			date: '2026-12-25',
-			name: 'Christmas',
-			type: 'org-closure'
-		})) as { name: string; date: string };
-
-		expect(result).toMatchObject({ name: 'Christmas', date: '2026-12-25' });
-		expect(ctx.audit.events[0].action).toBe('special_day.created');
-	});
-
+describe('SpecialDay delete use case', () => {
 	it('deletes a special day and audits', async () => {
 		const ctx = buildContext();
 		ctx.store.seed('special_days', [

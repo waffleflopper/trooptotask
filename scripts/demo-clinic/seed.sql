@@ -250,7 +250,7 @@ SELECT pg_temp.clinic_demo_id('availability-' || p.n), c.organization_id, pg_tem
   c.as_of + (p.n % 15) - 5, c.as_of + (p.n % 15) - 5 + CASE WHEN p.n % 4 = 2 THEN 0 ELSE 2 END,
   'Fictional schedule entry for the clinic demonstration.'
 FROM clinic_demo_people p CROSS JOIN clinic_demo_config c WHERE p.n BETWEEN 17 AND 30;
-INSERT INTO public.assignment_types (id, organization_id, name, short_name, assign_to, color, sort_order, show_in_date_header)
+INSERT INTO public.assignment_types (id, organization_id, name, short_name, assign_to, color, sort_order, show_on_calendar)
 SELECT pg_temp.clinic_demo_id('assignment-' || name), c.organization_id, name || ' (Demo)', short_name, assign_to, color, 100 + n, assign_to='group'
 FROM clinic_demo_config c CROSS JOIN (VALUES
   (1,'Morning Huddle Lead','HUD','personnel','#2563eb'),

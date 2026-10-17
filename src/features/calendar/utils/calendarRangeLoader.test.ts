@@ -16,7 +16,8 @@ const cq = {
 	assignTo: 'personnel' as const,
 	color: '#ef4444',
 	exemptPersonnelIds: [],
-	showInDateHeader: false
+	showOnCalendar: false,
+	sortOrder: 0
 };
 
 function applyRange(data: CalendarRangeData) {

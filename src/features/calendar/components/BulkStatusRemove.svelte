@@ -3,6 +3,7 @@
 	import type { StatusType, AvailabilityEntry } from '$features/calendar/contracts';
 	import { formatDate } from '$lib/utils/dates';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import type { BatchRemovalOutcome } from '$lib/stores/core';
 	import { CalendarStatusBadge } from './calendar-status-badge';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Badge as UiBadge } from '$lib/components/ui/badge';
@@ -19,6 +20,7 @@
 		validateDateRange,
 		type ClassifiedOverlaps
 	} from '$features/calendar/utils/availabilityMutation';
+	import { MAX_CALENDAR_RANGE_DAYS } from '$features/calendar/utils/calendarRange';
 	import BulkStepHeading from './BulkStepHeading.svelte';
 	import RosterPicker from './RosterPicker.svelte';
 	import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
@@ -42,7 +44,7 @@
 		availabilityEntries: AvailabilityEntry[];
 		personnelList: Personnel[];
 		loadAvailabilityRange?: (range: { rangeStart: string; rangeEnd: string }) => Promise<AvailabilityEntry[]>;
-		onRemove: (ids: string[]) => Promise<boolean>;
+		onRemove: (ids: string[]) => Promise<BatchRemovalOutcome>;
 		onComplete: () => void;
 	}
 
@@ -56,7 +58,6 @@
 		onComplete
 	}: Props = $props();
 
-	const MAX_REMOVE_RANGE_DAYS = 366;
 	const todayStr = formatDate(new Date());
 
 	// Selection state
@@ -71,6 +72,8 @@
 	let isLoadingMatches = $state(false);
 	let matchLoadError = $state<string | null>(null);
 	let isSubmitting = $state(false);
+	let entriesInReview = $state(0);
+	let removedAcrossRetries = $state(0);
 
 	const allPersonnel = $derived(personnelByGroup.flatMap((g) => g.personnel));
 	const selection = useDataTableSelection<Personnel>({ rows: () => allPersonnel, rowKey: (p) => p.id });
@@ -78,11 +81,11 @@
 	// ---- Validation ----
 	const range = $derived.by(() => {
 		const validated = validateDateRange(startDate, endDate);
-		if (validated.valid && validated.dayCount > MAX_REMOVE_RANGE_DAYS) {
+		if (validated.valid && validated.dayCount > MAX_CALENDAR_RANGE_DAYS) {
 			return {
 				valid: false,
 				dayCount: validated.dayCount,
-				error: `Remove date range cannot exceed ${MAX_REMOVE_RANGE_DAYS} days`
+				error: `Remove date range cannot exceed ${MAX_CALENDAR_RANGE_DAYS} days`
 			};
 		}
 		return validated;
@@ -133,6 +136,8 @@
 				endDate: criteria.endDate
 			});
 			reviewCriteria = criteria;
+			entriesInReview = matchResult.exact.length + matchResult.partial.length;
+			removedAcrossRetries = 0;
 			step = 'confirm';
 		} catch {
 			matchLoadError = 'Unable to load status entries for the selected date range. Try again.';
@@ -155,11 +160,26 @@
 
 		isSubmitting = true;
 		try {
-			const success = await onRemove(allIds);
-			if (success) {
-				const count = allIds.length;
-				toastStore.success(`Removed ${count} status ${count === 1 ? 'entry' : 'entries'}`);
+			const outcome = await onRemove(allIds);
+			if (outcome.kind === 'removed') {
+				const deleted = removedAcrossRetries + outcome.deleted;
+				const alreadyGone = entriesInReview - deleted;
+				toastStore.success(
+					`Removed ${deleted} status ${deleted === 1 ? 'entry' : 'entries'}` +
+						(alreadyGone > 0 ? `; ${alreadyGone} ${alreadyGone === 1 ? 'was' : 'were'} already gone` : '')
+				);
 				onComplete();
+			} else if (outcome.kind === 'partial') {
+				const completed = new Set(outcome.completedIds);
+				matchResult = {
+					exact: matchResult.exact.filter((e) => !completed.has(e.id)),
+					partial: matchResult.partial.filter((e) => !completed.has(e.id))
+				};
+				removedAcrossRetries += outcome.deleted;
+				const remaining = allIds.length - completed.size;
+				toastStore.error(
+					`Removed ${removedAcrossRetries} of ${entriesInReview} status entries — ${remaining} ${remaining === 1 ? 'remains' : 'remain'}; confirm again to retry`
+				);
 			} else {
 				toastStore.error('Failed to remove status entries');
 			}

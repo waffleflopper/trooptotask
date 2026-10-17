@@ -10,7 +10,10 @@
 		typeName: string;
 		assignTo: AssignmentType['assignTo'];
 		date: Date;
+		/** Where the popup is positioned. */
 		anchor: HTMLElement;
+		/** Where focus lands on close, for an anchor that may be gone by then; defaults to the anchor. */
+		returnFocusTo?: () => HTMLElement | null;
 		options: readonly DutyPickerOption[];
 		onAssign: (assigneeId: string) => Promise<boolean>;
 		/** Offered only for a slot that already has someone. */
@@ -18,7 +21,7 @@
 		onClose: () => void;
 	}
 
-	let { typeName, assignTo, date, anchor, options, onAssign, onClear, onClose }: Props = $props();
+	let { typeName, assignTo, date, anchor, returnFocusTo, options, onAssign, onClear, onClose }: Props = $props();
 
 	const findLabel = $derived(assignTo === 'group' ? 'Find group' : 'Find person');
 
@@ -44,7 +47,8 @@
 
 	function returnFocus(event: Event) {
 		event.preventDefault();
-		if (anchor.isConnected) anchor.focus();
+		const target = returnFocusTo?.() ?? anchor;
+		if (target.isConnected) target.focus();
 	}
 
 	function lastDutyAccessibleText(option: DutyPickerOption): string {

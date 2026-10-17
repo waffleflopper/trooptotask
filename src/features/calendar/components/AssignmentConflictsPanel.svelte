@@ -16,7 +16,10 @@
 	<header class="flex items-center justify-between gap-2 border-b px-4 py-3">
 		<h2
 			id="planner-conflicts-title"
-			class="font-mono text-xs font-semibold tracking-widest text-muted-foreground uppercase"
+			class={[
+				'font-mono text-xs font-semibold tracking-widest uppercase',
+				conflicts.length > 0 ? 'text-destructive-text' : 'text-muted-foreground'
+			]}
 		>
 			Conflicts
 		</h2>

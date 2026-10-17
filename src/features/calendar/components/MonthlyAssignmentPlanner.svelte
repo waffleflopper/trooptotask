@@ -166,6 +166,12 @@
 		if (cleared) clearTypeId = null;
 	}
 
+	function scrollToToday(row: HTMLElement) {
+		const region = row.closest<HTMLElement>('[data-slot=table-container]');
+		const header = region?.querySelector('thead');
+		if (region && header) region.scrollTop = Math.max(0, row.offsetTop - header.offsetHeight - row.offsetHeight * 3);
+	}
+
 	function cellLabel(column: PlannerColumn, row: PlannerRow, cell: PlannerCell): string {
 		const where = `${column.type.name}, ${row.dateLabel}`;
 		if (!cell.assignee) return `Assign ${where}`;
@@ -194,10 +200,14 @@
 {:else}
 	<div class="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
 		<div class="overflow-hidden rounded-lg border bg-card">
-			<Table.Root aria-label="{monthTitle} duty assignments" scrollRegionLabel="{monthTitle} duty assignments">
-				<Table.Header>
+			<Table.Root
+				aria-label="{monthTitle} duty assignments"
+				scrollRegionLabel="{monthTitle} duty assignments"
+				containerClass="max-h-[calc(100dvh-15rem)] min-h-64 overflow-y-auto"
+			>
+				<Table.Header class="sticky top-0 z-10 bg-card shadow-[0_1px_0_var(--color-border)]">
 					<Table.Row class="bg-muted/40 hover:bg-muted/40">
-						<Table.Head scope="col" class="w-28 px-3 font-mono text-xs tracking-widest uppercase">Date</Table.Head>
+						<Table.Head scope="col" class="w-40 px-3 font-mono text-xs tracking-widest uppercase">Date</Table.Head>
 						{#each table.columns as column (column.type.id)}
 							<Table.Head scope="col" class="min-w-44 px-3 py-2">
 								<div class="flex items-center gap-2">
@@ -241,6 +251,7 @@
 								row.past && 'opacity-70 focus-within:opacity-100 hover:opacity-100'
 							]}
 							aria-current={row.today ? 'date' : undefined}
+							{@attach row.today ? scrollToToday : undefined}
 						>
 							<Table.Head scope="row" class="h-auto px-3 py-1.5 font-normal">
 								<div class="flex items-baseline gap-2">
@@ -250,25 +261,27 @@
 									{#if row.today}
 										<span class="font-mono text-[10px] font-semibold tracking-wider text-primary uppercase">Today</span>
 									{/if}
+									{#if row.specialDayName}
+										<span class="max-w-24 truncate text-[11px] text-muted-foreground italic" title={row.specialDayName}>
+											{row.specialDayName}
+										</span>
+									{/if}
 								</div>
-								{#if row.specialDayName}
-									<p class="max-w-24 truncate pl-8 text-[11px] text-muted-foreground italic" title={row.specialDayName}>
-										{row.specialDayName}
-									</p>
-								{/if}
 							</Table.Head>
 							{#each row.cells as cell, index (cell.typeId)}
 								{@const column = table.columns[index]}
-								<Table.Cell class="px-2 py-1">
+								<Table.Cell class={['px-2 py-1', cell.conflict && 'border-l-2 border-l-destructive bg-destructive/10']}>
 									<Button
 										variant={cell.assignee ? 'ghost' : 'outline'}
-										size="sm"
+										size={cell.assignee ? 'sm' : 'xs'}
 										class={[
-											'h-auto min-h-8 w-full justify-start gap-1.5 px-2 py-1 text-left',
-											!cell.assignee && 'border-dashed text-primary',
-											cell.conflict && 'bg-destructive/10 text-destructive-text hover:bg-destructive/15'
+											cell.assignee
+												? 'h-auto min-h-8 w-full justify-start gap-1.5 px-2 py-1 text-left'
+												: 'border-dashed text-primary',
+											cell.conflict && 'text-destructive-text hover:bg-destructive/15'
 										]}
 										disabled={busy}
+										data-duty-slot={assignmentSlotKey(cell.dateKey, cell.typeId)}
 										aria-label={cellLabel(column, row, cell)}
 										onclick={(event) => openPicker(cell.typeId, cell.dateKey, event.currentTarget)}
 									>
@@ -289,7 +302,8 @@
 													<span class="truncate font-medium">{cell.assignee.name}</span>
 												</span>
 												{#if cell.conflict}
-													<span class="truncate font-mono text-[10px] uppercase">{cell.conflict.availabilityLabel}</span
+													<span class="truncate font-mono text-[10px] uppercase"
+														>On {cell.conflict.availabilityLabel}</span
 													>
 												{/if}
 											</span>
@@ -314,6 +328,8 @@
 			assignTo={picker.type.assignTo}
 			date={picker.date}
 			anchor={picker.anchor}
+			returnFocusTo={() =>
+				document.querySelector<HTMLElement>(`[data-duty-slot="${assignmentSlotKey(picker.dateKey, picker.type.id)}"]`)}
 			options={picker.options}
 			onAssign={(assigneeId) => onSetAssignment(picker.dateKey, picker.type.id, assigneeId)}
 			onClear={picker.occupied ? () => onSetAssignment(picker.dateKey, picker.type.id, '') : undefined}

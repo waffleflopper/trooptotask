@@ -2,6 +2,7 @@
 	import * as PageShell from '$lib/components/patterns/page-shell';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import { Button } from '$lib/components/ui/button';
+	import * as ButtonGroup from '$lib/components/ui/button-group';
 	import { CalendarRangeCoordinator } from '../contexts/CalendarRangeCoordinator.svelte';
 	import { calendarReadRange } from '../utils/calendarRange';
 	import { buildCalendarAnchorCookie } from '../utils/calendarAnchorDate';
@@ -80,23 +81,31 @@
 	let batchBusy = $state(false);
 </script>
 
-{#snippet headerControls()}
-	{#if canMutate}
-		<CalendarPeriodNavigation
-			view="month"
-			anchor={calendarStore.currentDate}
-			disabled={batchBusy}
-			onAnchorChange={(anchor) => calendarStore.goToMonth(anchor.getFullYear(), anchor.getMonth())}
-		/>
-	{/if}
-	<Button variant="outline" size="sm" href={`/org/${orgUrlSegment}/calendar`}>
-		<ArrowLeftIcon aria-hidden="true" />
-		Back to calendar
-	</Button>
-{/snippet}
-
 <div class="mx-auto flex max-w-[1600px] flex-col gap-4 px-4 py-4 sm:px-6 sm:pb-6">
-	<PageShell.Header eyebrow="Calendar · Planning" title="Duty planner" aside={headerControls} />
+	<CalendarPeriodNavigation
+		view="month"
+		anchor={calendarStore.currentDate}
+		disabled={batchBusy}
+		onAnchorChange={(anchor) => calendarStore.goToMonth(anchor.getFullYear(), anchor.getMonth())}
+	>
+		{#snippet layout({ monthPicker, previous, next, today })}
+			{#snippet headerControls()}
+				{#if canMutate}
+					{@render today()}
+					<ButtonGroup.Root aria-label="Calendar period">
+						{@render previous()}
+						{@render monthPicker({ variant: 'outline', size: 'sm', class: 'font-display tracking-wide uppercase' })}
+						{@render next()}
+					</ButtonGroup.Root>
+				{/if}
+				<Button variant="outline" size="sm" href={`/org/${orgUrlSegment}/calendar`}>
+					<ArrowLeftIcon aria-hidden="true" />
+					Back to calendar
+				</Button>
+			{/snippet}
+			<PageShell.Header eyebrow="Calendar · Planning" title="Duty planner" aside={headerControls} />
+		{/snippet}
+	</CalendarPeriodNavigation>
 
 	{#if !canMutate}
 		<section class="bg-card text-muted-foreground rounded-lg border px-6 py-8 text-center">

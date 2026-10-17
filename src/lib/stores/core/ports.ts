@@ -8,7 +8,8 @@ export interface ApiAdapter<T extends { id: string }> {
 
 export interface BatchApiAdapter<T extends { id: string }> extends ApiAdapter<T> {
 	createBatch(items: Omit<T, 'id'>[]): Promise<T[]>;
-	removeBatch?(ids: string[]): Promise<boolean>;
+	/** Resolves with how many rows the server actually deleted, which can be fewer than requested. */
+	removeBatch?(ids: string[]): Promise<{ deleted: number }>;
 }
 
 /** A failed store request; `status` lets a form tell a correctable 4xx from a server or transport failure. */

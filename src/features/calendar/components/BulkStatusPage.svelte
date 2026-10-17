@@ -112,8 +112,8 @@
 		return inserted.map((entry) => entry.personnelId);
 	}
 
-	async function handleBulkRemove(ids: string[]): Promise<boolean> {
-		return await availabilityStore.removeBatch(ids);
+	function handleBulkRemove(ids: string[]) {
+		return availabilityStore.removeBatch(ids);
 	}
 
 	async function loadAvailabilityEntriesForRange(range: {

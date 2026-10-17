@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/sv
 import { formatDate } from '$lib/utils/dates';
 import type { Personnel } from '$features/personnel/contracts';
 import type { AvailabilityEntry, StatusType } from '$features/calendar/contracts';
+import { toastStore } from '$lib/stores/toast.svelte';
 import BulkStatusRemove from './BulkStatusRemove.svelte';
 
 vi.mock('$lib/components/ui/date-picker', async () => ({
@@ -97,6 +98,66 @@ describe('BulkStatusRemove', () => {
 			expect(screen.getByText(/exact match will be removed/)).toBeTruthy();
 		});
 		expect(screen.queryByText('No matching status entries were found for the selected criteria.')).toBeNull();
+	});
+
+	async function confirmRemoval() {
+		await waitFor(() => expect(screen.getByRole('button', { name: 'Confirm Removal' })).toBeTruthy());
+		await fireEvent.click(screen.getByRole('button', { name: 'Confirm Removal' }));
+	}
+
+	it('reports the count the server deleted when another session removed one of the matches', async () => {
+		const success = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
+		const onRemove = vi.fn().mockResolvedValue({ kind: 'removed', deleted: 1 });
+		const onComplete = vi.fn();
+		renderRemove({
+			loadAvailabilityRange: vi
+				.fn()
+				.mockResolvedValue([availabilityEntry({ id: 'availability-1' }), availabilityEntry({ id: 'availability-2' })]),
+			onRemove,
+			onComplete
+		});
+
+		await selectPersonAndReview();
+		await confirmRemoval();
+
+		await waitFor(() => expect(onComplete).toHaveBeenCalledOnce());
+		expect(onRemove).toHaveBeenCalledWith(['availability-1', 'availability-2']);
+		expect(success.mock.calls[0][0]).toMatch(/^Removed 1 status entry/);
+	});
+
+	it('treats a removal that deleted nothing as complete and reports zero', async () => {
+		const success = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
+		const error = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+		const onComplete = vi.fn();
+		renderRemove({
+			loadAvailabilityRange: vi.fn().mockResolvedValue([availabilityEntry()]),
+			onRemove: vi.fn().mockResolvedValue({ kind: 'removed', deleted: 0 }),
+			onComplete
+		});
+
+		await selectPersonAndReview();
+		await confirmRemoval();
+
+		await waitFor(() => expect(onComplete).toHaveBeenCalledOnce());
+		expect(success.mock.calls[0][0]).toMatch(/^Removed 0 status entries/);
+		expect(error).not.toHaveBeenCalled();
+	});
+
+	it('reports a failed removal without completing so the review can be retried', async () => {
+		const error = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+		const onComplete = vi.fn();
+		renderRemove({
+			loadAvailabilityRange: vi.fn().mockResolvedValue([availabilityEntry()]),
+			onRemove: vi.fn().mockResolvedValue({ kind: 'failed' }),
+			onComplete
+		});
+
+		await selectPersonAndReview();
+		await confirmRemoval();
+
+		await waitFor(() => expect(error).toHaveBeenCalled());
+		expect(onComplete).not.toHaveBeenCalled();
+		expect((screen.getByRole('button', { name: 'Confirm Removal' }) as HTMLButtonElement).disabled).toBe(false);
 	});
 
 	it('keeps the no-matches state hidden when selected range loading fails', async () => {

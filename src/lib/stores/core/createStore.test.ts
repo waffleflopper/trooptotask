@@ -751,7 +751,7 @@ describe('createStore', () => {
 				update: async (id, data) => ({ id, name: 'default', ...data }) as TestItem,
 				remove: async () => 'deleted',
 				createBatch: async (items) => items.map((d, i) => ({ id: `server-${i}`, ...d }) as TestItem),
-				removeBatch: async () => true,
+				removeBatch: async (ids) => ({ deleted: ids.length }),
 				...overrides
 			};
 		}
@@ -772,8 +772,35 @@ describe('createStore', () => {
 
 			const result = await store.removeBatch(['1', '3']);
 
-			expect(result).toBe(true);
+			expect(result).toEqual({ kind: 'removed', deleted: 2 });
 			expect(store.items).toEqual([{ id: '2', name: 'Bravo' }]);
+		});
+
+		it('reports the adapter count when fewer rows were deleted than requested', async () => {
+			const batchAdapter = makeBatchAdapter({ removeBatch: async () => ({ deleted: 1 }) });
+			const store = createStore<TestItem>({ resource: 'test-items', adapter: batchAdapter, batchAdapter });
+			store.load(
+				[
+					{ id: '1', name: 'Alpha' },
+					{ id: '2', name: 'Bravo' },
+					{ id: '3', name: 'Charlie' }
+				],
+				'org-1'
+			);
+
+			const result = await store.removeBatch(['1', '2', '3']);
+
+			expect(result).toEqual({ kind: 'removed', deleted: 1 });
+			expect(store.items).toEqual([]);
+		});
+
+		it('treats zero deleted rows as a successful removal', async () => {
+			const batchAdapter = makeBatchAdapter({ removeBatch: async () => ({ deleted: 0 }) });
+			const store = createStore<TestItem>({ resource: 'test-items', adapter: batchAdapter, batchAdapter });
+			store.load([{ id: '1', name: 'Alpha' }], 'org-1');
+
+			expect(await store.removeBatch(['1'])).toEqual({ kind: 'removed', deleted: 0 });
+			expect(store.items).toEqual([]);
 		});
 
 		it('should rollback on batch remove failure', async () => {
@@ -795,7 +822,7 @@ describe('createStore', () => {
 
 			const result = await store.removeBatch(['1']);
 
-			expect(result).toBe(false);
+			expect(result).toEqual({ kind: 'failed' });
 			expect(store.items).toHaveLength(2);
 			expect(store.items.find((i) => i.id === '1')).toEqual({ id: '1', name: 'Alpha' });
 			expect(store.items.find((i) => i.id === '2')).toEqual({ id: '2', name: 'Bravo' });
@@ -807,12 +834,14 @@ describe('createStore', () => {
 				{ id: '2', name: 'Bravo' },
 				{ id: '3', name: 'Charlie' }
 			];
-			const store = makeStore();
+			const store = makeStore({
+				adapterOverrides: { remove: async (id) => (id === '3' ? 'error' : 'deleted') }
+			});
 			store.load(items, 'org-1');
 
 			const result = await store.removeBatch(['1', '3']);
 
-			expect(result).toBe(true);
+			expect(result).toEqual({ kind: 'removed', deleted: 1 });
 			expect(store.items).toEqual([{ id: '2', name: 'Bravo' }]);
 		});
 	});

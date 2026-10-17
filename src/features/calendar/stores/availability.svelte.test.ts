@@ -127,13 +127,33 @@ describe('availabilityStore', () => {
 	});
 
 	describe('removeBatch', () => {
-		it('should remove multiple entries optimistically', async () => {
-			vi.stubGlobal('fetch', mockFetch({}));
+		it('reports the server count when fewer entries were deleted than requested', async () => {
+			vi.stubGlobal('fetch', mockFetch({ deleted: 1 }));
 
 			const result = await availabilityStore.removeBatch(['1', '3']);
 
-			expect(result).toBe(true);
+			expect(result).toEqual({ kind: 'removed', deleted: 1 });
 			expect(availabilityStore.items).toHaveLength(1);
+		});
+
+		it('treats a server count of zero as a successful removal', async () => {
+			vi.stubGlobal('fetch', mockFetch({ deleted: 0 }));
+
+			expect(await availabilityStore.removeBatch(['1'])).toEqual({ kind: 'removed', deleted: 0 });
+		});
+
+		it('restores the rows when the server refuses the removal', async () => {
+			vi.stubGlobal(
+				'fetch',
+				vi.fn().mockResolvedValue({
+					ok: false,
+					status: 403,
+					json: () => Promise.resolve({ message: 'Not allowed' })
+				})
+			);
+
+			expect(await availabilityStore.removeBatch(['1', '3'])).toEqual({ kind: 'failed' });
+			expect(availabilityStore.items).toEqual(mockEntries);
 		});
 	});
 

@@ -3,6 +3,7 @@
 	import type { StatusType, AvailabilityEntry } from '$features/calendar/contracts';
 	import { formatDate } from '$lib/utils/dates';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import type { BatchRemovalOutcome } from '$lib/stores/core';
 	import { CalendarStatusBadge } from './calendar-status-badge';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Badge as UiBadge } from '$lib/components/ui/badge';
@@ -19,6 +20,7 @@
 		validateDateRange,
 		type ClassifiedOverlaps
 	} from '$features/calendar/utils/availabilityMutation';
+	import { MAX_CALENDAR_RANGE_DAYS } from '$features/calendar/utils/calendarRange';
 	import BulkStepHeading from './BulkStepHeading.svelte';
 	import RosterPicker from './RosterPicker.svelte';
 	import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
@@ -42,7 +44,7 @@
 		availabilityEntries: AvailabilityEntry[];
 		personnelList: Personnel[];
 		loadAvailabilityRange?: (range: { rangeStart: string; rangeEnd: string }) => Promise<AvailabilityEntry[]>;
-		onRemove: (ids: string[]) => Promise<boolean>;
+		onRemove: (ids: string[]) => Promise<BatchRemovalOutcome>;
 		onComplete: () => void;
 	}
 
@@ -56,7 +58,6 @@
 		onComplete
 	}: Props = $props();
 
-	const MAX_REMOVE_RANGE_DAYS = 366;
 	const todayStr = formatDate(new Date());
 
 	// Selection state
@@ -78,11 +79,11 @@
 	// ---- Validation ----
 	const range = $derived.by(() => {
 		const validated = validateDateRange(startDate, endDate);
-		if (validated.valid && validated.dayCount > MAX_REMOVE_RANGE_DAYS) {
+		if (validated.valid && validated.dayCount > MAX_CALENDAR_RANGE_DAYS) {
 			return {
 				valid: false,
 				dayCount: validated.dayCount,
-				error: `Remove date range cannot exceed ${MAX_REMOVE_RANGE_DAYS} days`
+				error: `Remove date range cannot exceed ${MAX_CALENDAR_RANGE_DAYS} days`
 			};
 		}
 		return validated;
@@ -155,10 +156,14 @@
 
 		isSubmitting = true;
 		try {
-			const success = await onRemove(allIds);
-			if (success) {
-				const count = allIds.length;
-				toastStore.success(`Removed ${count} status ${count === 1 ? 'entry' : 'entries'}`);
+			const outcome = await onRemove(allIds);
+			if (outcome.kind === 'removed') {
+				const { deleted } = outcome;
+				const alreadyGone = allIds.length - deleted;
+				toastStore.success(
+					`Removed ${deleted} status ${deleted === 1 ? 'entry' : 'entries'}` +
+						(alreadyGone > 0 ? `; ${alreadyGone} ${alreadyGone === 1 ? 'was' : 'were'} already gone` : '')
+				);
 				onComplete();
 			} else {
 				toastStore.error('Failed to remove status entries');

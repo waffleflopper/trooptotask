@@ -4,6 +4,7 @@ import type { Personnel } from '$features/personnel/contracts';
 import {
 	buildCalendarLanes,
 	movedTo,
+	plannerColumns,
 	type AssignmentLaneDay,
 	type CalendarLane,
 	type CalendarLaneInput,
@@ -66,6 +67,20 @@ function specialDay(date: string, name: string, kind: SpecialDay['type'] = 'org-
 	return { id: `${date}-${name}`, date, name, type: kind };
 }
 
+describe('plannerColumns', () => {
+	it('lists the Calendar lane types in lane order, then the planner-only types, and drops archived ones', () => {
+		const columns = plannerColumns([
+			type({ id: 'runner', name: 'Runner', showOnCalendar: false, sortOrder: 0 }),
+			type({ id: 'sd', name: 'Staff Duty', sortOrder: 1 }),
+			type({ id: 'old', name: 'Old', archivedAt: '2026-01-01T00:00:00.000Z' }),
+			type({ id: 'cq', name: 'CQ', sortOrder: 0 }),
+			type({ id: 'aide', name: 'Aide', showOnCalendar: false, sortOrder: 0 })
+		]);
+
+		expect(columns.map((column) => column.id)).toEqual(['cq', 'sd', 'aide', 'runner']);
+	});
+});
+
 describe('buildCalendarLanes', () => {
 	it('orders shown active types by sort order then id, followed by Days', () => {
 		const lanes = build({
@@ -101,6 +116,22 @@ describe('buildCalendarLanes', () => {
 		expect(open).toEqual([undefined, undefined, undefined]);
 		expect(days(group)[0].assignee).toEqual({ short: 'Alpha', full: 'Alpha' });
 		expect(duty.detail).toBe('3 open');
+	});
+
+	it('gives an open day an Assign action when the caller can open a picker, and keeps assigned days editable', () => {
+		const assignmentTypes = [type({ id: 'sd', name: 'Staff Duty' })];
+		const assignments = [assignment('2026-10-01', 'sd', 'p-pike')];
+		const opened: string[] = [];
+
+		const [ready] = build({
+			assignmentTypes,
+			assignments,
+			actions: { editDay: () => {}, openDay: (typeId, date) => opened.push(`${typeId}:${date.getDate()}`) }
+		});
+		days(ready)[2].open?.({} as HTMLElement);
+		expect(days(ready).map((day) => !!day.open)).toEqual([false, true, true, true, true]);
+		expect(days(ready)[0].edit).toBeTruthy();
+		expect(opened).toEqual(['sd:3']);
 	});
 
 	it('reports a fully assigned lane as Full', () => {

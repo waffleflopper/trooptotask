@@ -10,10 +10,20 @@ import DaysLaneSegmentView, {
 import { CALENDAR_DATE_LABEL } from '$features/calendar/utils/calendarRenderState';
 import { formatDate } from '$lib/utils/dates';
 
+function bySortOrder(a: AssignmentType, b: AssignmentType): number {
+	return a.sortOrder - b.sortOrder || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+}
+
 export function calendarLaneTypes(types: readonly AssignmentType[]): AssignmentType[] {
-	return types
-		.filter((type) => type.showOnCalendar && !type.archivedAt)
-		.sort((a, b) => a.sortOrder - b.sortOrder || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+	return types.filter((type) => type.showOnCalendar && !type.archivedAt).sort(bySortOrder);
+}
+
+/** The Duty planner's columns: the Calendar's lane types in lane order, then the planner-only types. */
+export function plannerColumns(types: readonly AssignmentType[]): AssignmentType[] {
+	return [
+		...calendarLaneTypes(types),
+		...types.filter((type) => !type.showOnCalendar && !type.archivedAt).sort(bySortOrder)
+	];
 }
 
 export function calendarLaneIds(types: readonly AssignmentType[]): string[] {
@@ -64,7 +74,8 @@ export function spanTrack<T>(Segment: Component<{ value: T }>, segments: readonl
 export type { AssignmentLaneDay, DaysLaneSegment };
 
 export interface CalendarLaneActions {
-	openDay(typeId: string, date: Date, anchor: HTMLElement): void;
+	/** Absent while an open day cannot offer a picker, so it renders no button. */
+	openDay?: (typeId: string, date: Date, anchor: HTMLElement) => void;
 	editDay(date: Date): void;
 }
 
@@ -111,7 +122,8 @@ export function buildCalendarLanes(input: CalendarLaneInput): CalendarLane[] {
 			const assigneeId = assigneeByDayType.get(`${dateKeys[index]}|${type.id}`);
 			const day = { dateLabel: dateLabels[index], typeName: type.name };
 			if (assigneeId === undefined) {
-				return actions ? { ...day, open: (anchor) => actions.openDay(type.id, date, anchor) } : day;
+				const openDay = actions?.openDay;
+				return openDay ? { ...day, open: (anchor) => openDay(type.id, date, anchor) } : day;
 			}
 			const assignee = assigneeLabel(type, assigneeId);
 			return actions ? { ...day, assignee, edit: () => actions.editDay(date) } : { ...day, assignee };

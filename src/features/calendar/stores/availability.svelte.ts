@@ -4,7 +4,10 @@
  */
 import { buildRequestError, defineStore, stillInOrganizationLifetime } from '$lib/stores/core';
 import type { Store, BatchApiAdapter } from '$lib/stores/core';
+import { z } from 'zod';
 import type { AvailabilityEntry } from '$features/calendar/contracts';
+
+const removalReplySchema = z.object({ deleted: z.number().int().nonnegative() });
 
 let orgIdRef = '';
 
@@ -92,8 +95,8 @@ function createAvailabilityBatchAdapter(): BatchApiAdapter<AvailabilityEntry> {
 				headers,
 				body: JSON.stringify({ ids })
 			});
-			if (!res.ok) throw new Error('Failed to delete availability batch');
-			return true;
+			if (!res.ok) throw await buildRequestError(res, 'DELETE', 'availability/batch');
+			return removalReplySchema.parse(await res.json());
 		}
 	};
 }

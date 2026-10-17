@@ -7,6 +7,7 @@
  * - the canonical Availability Status interval-overlap predicate
  * - classifying which existing Availability Status entries a removal would touch,
  *   split into entries fully inside the range (exact) and entries that extend beyond it (partial)
+ * - classifying which people a bulk add would overlap, where an entry of the same status blocks them
  * - building the batch of availability records for a bulk add
  * - judging whether a calendar write whose reply was lost landed anyway
  *
@@ -112,6 +113,49 @@ export function classifyAvailabilityOverlaps(
 	}
 
 	return { exact, partial };
+}
+
+/**
+ * A person's existing entries against a bulk add. `already-on-status` means some entry of the status being
+ * added intersects the range, so adding it would stack a duplicate; the person cannot be selected. `overlap`
+ * means only other statuses intersect, which stacks legitimately. Same status wins when both are present.
+ * A person with no intersecting entry is absent from the classification.
+ */
+export interface BulkAddOverlap {
+	readonly kind: 'overlap' | 'already-on-status';
+	/** Intersecting entries of the status being added; the reason a row is blocked. */
+	readonly sameStatus: readonly AvailabilityEntry[];
+	/** Intersecting entries of other statuses. */
+	readonly otherStatus: readonly AvailabilityEntry[];
+}
+
+export function classifyBulkAddOverlaps(input: {
+	entries: readonly AvailabilityEntry[];
+	statusTypeId: string;
+	range: { rangeStart: string; rangeEnd: string };
+}): ReadonlyMap<string, BulkAddOverlap> {
+	const { entries, statusTypeId, range } = input;
+	const sameStatus = new Map<string, AvailabilityEntry[]>();
+	const otherStatus = new Map<string, AvailabilityEntry[]>();
+
+	for (const entry of entries) {
+		if (!rangesOverlap(entry.startDate, entry.endDate, range.rangeStart, range.rangeEnd)) continue;
+		const bucket = entry.statusTypeId === statusTypeId ? sameStatus : otherStatus;
+		const list = bucket.get(entry.personnelId);
+		if (list) list.push(entry);
+		else bucket.set(entry.personnelId, [entry]);
+	}
+
+	const overlaps = new Map<string, BulkAddOverlap>();
+	for (const personnelId of new Set([...sameStatus.keys(), ...otherStatus.keys()])) {
+		const same = sameStatus.get(personnelId) ?? [];
+		overlaps.set(personnelId, {
+			kind: same.length > 0 ? 'already-on-status' : 'overlap',
+			sameStatus: same,
+			otherStatus: otherStatus.get(personnelId) ?? []
+		});
+	}
+	return overlaps;
 }
 
 /** Build the batch of availability records to apply one status/range to many personnel. */

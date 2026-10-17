@@ -17,7 +17,14 @@ export {
 } from './lifetime';
 
 export { createStore } from './createStore.svelte';
-export type { Store, StoreAdoption, StoreConfig, StoreInternals, StoreRead } from './createStore.svelte';
+export type {
+	BatchRemovalOutcome,
+	Store,
+	StoreAdoption,
+	StoreConfig,
+	StoreInternals,
+	StoreRead
+} from './createStore.svelte';
 
 export { defineStore, tableToResource, buildComparator } from './defineStore.svelte';
 export type { DefineStoreConfig } from './defineStore.svelte';

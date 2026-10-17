@@ -1,6 +1,10 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import { WorkspaceToolbar, type ToolbarItem } from '$lib/components/patterns/workspace-toolbar';
+	import * as PageShell from '$lib/components/patterns/page-shell';
+	import { Button } from '$lib/components/ui/button';
+	import * as ToggleGroup from '$lib/components/ui/toggle-group';
+	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
+	import { CalendarRangeCoordinator } from '$features/calendar/contexts/CalendarRangeCoordinator.svelte';
 	import BulkStatusAdd from './BulkStatusAdd.svelte';
 	import BulkStatusRemove from './BulkStatusRemove.svelte';
 	import BulkStatusImport from './BulkStatusImport.svelte';
@@ -49,7 +53,7 @@
 	const TABS: { value: Tab; label: string }[] = [
 		{ value: 'add', label: 'Add' },
 		{ value: 'remove', label: 'Remove' },
-		{ value: 'import', label: 'Import' }
+		{ value: 'import', label: 'Import CSV' }
 	];
 
 	const activeTab = $derived.by<Tab>(() => {
@@ -59,6 +63,8 @@
 	});
 
 	function switchTab(tab: string) {
+		// A single toggle group emits '' when the pressed item is clicked again.
+		if (!TABS.some((option) => option.value === tab)) return;
 		const url = new URL(page.url);
 		url.searchParams.set('tab', tab);
 		const target = `${url.pathname}${url.search}` as `/org/${string}/calendar/bulk?${string}`;
@@ -76,21 +82,14 @@
 	);
 	const scopedPBG = $derived(rosterView.personnelByGroup);
 	const allPersonnelFlat = $derived(rosterView.flatPersonnel);
-	const toolbarItems = $derived<ToolbarItem[]>([
-		...(canMutate
-			? [
-					{
-						kind: 'view',
-						id: 'bulk-section',
-						label: 'Bulk status sections',
-						options: TABS,
-						value: activeTab,
-						onValueChange: switchTab
-					} satisfies ToolbarItem
-				]
-			: []),
-		{ kind: 'action', id: 'calendar', label: 'Calendar', href: `/org/${orgUrlSegment}/calendar` }
-	]);
+	// Add previews read through a coordinator of their own, seeded with what the Calendar workspace already loaded.
+	const rangeCoordinator = new CalendarRangeCoordinator();
+	$effect.pre(() => {
+		const { rangeStart, rangeEnd } = data.calendar?.data ?? {};
+		rangeCoordinator.reset();
+		if (rangeStart && rangeEnd) rangeCoordinator.includeBootstrap({ rangeStart, rangeEnd });
+		return () => rangeCoordinator.reset();
+	});
 
 	// Each mounted scope owns its pending range loads, even after A → B → A.
 	let active = true;
@@ -112,8 +111,8 @@
 		return inserted.map((entry) => entry.personnelId);
 	}
 
-	async function handleBulkRemove(ids: string[]): Promise<boolean> {
-		return await availabilityStore.removeBatch(ids);
+	function handleBulkRemove(ids: string[]) {
+		return availabilityStore.removeBatch(ids);
 	}
 
 	async function loadAvailabilityEntriesForRange(range: {
@@ -140,7 +139,26 @@
 </script>
 
 <div class="mx-auto flex max-w-[1480px] flex-col gap-4 px-4 py-4 sm:px-6 sm:pb-6">
-	<WorkspaceToolbar ariaLabel="Bulk status controls" items={toolbarItems} />
+	<PageShell.Header eyebrow="Calendar · Bulk status" title="Bulk status">
+		{#snippet aside()}
+			{#if canMutate}
+				<ToggleGroup.Root
+					type="single"
+					size="sm"
+					bind:value={() => activeTab, switchTab}
+					aria-label="Bulk status sections"
+				>
+					{#each TABS as tab (tab.value)}
+						<ToggleGroup.Item value={tab.value}>{tab.label}</ToggleGroup.Item>
+					{/each}
+				</ToggleGroup.Root>
+			{/if}
+			<Button variant="outline" size="sm" href={`/org/${orgUrlSegment}/calendar`}>
+				<ArrowLeftIcon aria-hidden="true" />
+				Back to calendar
+			</Button>
+		{/snippet}
+	</PageShell.Header>
 
 	{#if !canMutate}
 		<section class="bg-card text-muted-foreground rounded-lg border px-6 py-8 text-center sm:px-8 sm:py-12">
@@ -153,6 +171,9 @@
 				<BulkStatusAdd
 					personnelByGroup={scopedPBG}
 					statusTypes={statusTypesStore.items}
+					availabilityEntries={availabilityStore.items}
+					orgId={data.orgId}
+					{rangeCoordinator}
 					onApply={handleBulkApply}
 					onComplete={handleComplete}
 				/>

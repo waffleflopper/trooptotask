@@ -254,6 +254,46 @@ describe('CalendarPageView', () => {
 		});
 	});
 
+	describe('open-day Assign actions', () => {
+		const mutableAssignmentTypes = dailyAssignmentsStore as unknown as { types: unknown[] };
+
+		afterEach(() => {
+			mutableAssignmentTypes.types = [];
+		});
+
+		function renderWithDutyLane(rangeStatus: 'loading' | 'ready') {
+			mutableAvailabilityStore.loading = false;
+			mutableAssignmentTypes.types = [
+				{
+					id: 'sd',
+					name: 'Staff Duty',
+					shortName: 'SD',
+					assignTo: 'personnel',
+					color: '#2563eb',
+					exemptPersonnelIds: [],
+					showOnCalendar: true,
+					sortOrder: 0
+				}
+			];
+			const ctx = makeContext(mockData, makeMockOrg({ userRole: 'admin' }));
+			render(CalendarPageView, {
+				props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' }, rangeStatus }
+			});
+		}
+
+		it('offers no Assign on an open day while the 90-day duty history is still loading', () => {
+			renderWithDutyLane('loading');
+
+			expect(screen.queryAllByRole('button', { name: /^Assign Staff Duty for / })).toEqual([]);
+		});
+
+		it('offers Assign on an open day once the duty history has loaded', () => {
+			renderWithDutyLane('ready');
+
+			expect(screen.getAllByRole('button', { name: /^Assign Staff Duty for / }).length).toBeGreaterThan(0);
+		});
+	});
+
 	it('keeps quarter arrows and picker on the Calendar-owned month across a year boundary', async () => {
 		mutableAvailabilityStore.loading = false;
 		calendarStore.goToMonth(2026, 11);

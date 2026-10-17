@@ -45,6 +45,9 @@ export interface StoreAdoption<T extends { id: string }> {
 	close(): void;
 }
 
+/** `removed` carries the real deleted count, which is zero when the rows were already gone. */
+export type BatchRemovalOutcome = { kind: 'removed'; deleted: number } | { kind: 'failed' };
+
 export interface Store<T extends { id: string }> {
 	readonly items: T[];
 	readonly rawItems: T[];
@@ -66,7 +69,7 @@ export interface Store<T extends { id: string }> {
 	updateOrThrow(id: string, data: Partial<Omit<T, 'id'>>): Promise<boolean>;
 	remove(id: string): Promise<DeleteResult>;
 	removeBool(id: string): Promise<boolean>;
-	removeBatch(ids: string[]): Promise<boolean>;
+	removeBatch(ids: string[]): Promise<BatchRemovalOutcome>;
 	mergeBatchResults(inserted: T[], updated?: T[]): void;
 	getById(id: string): T | undefined;
 	filter(predicate: (item: T) => boolean): T[];
@@ -352,23 +355,25 @@ export function createStoreWithInternals<T extends { id: string }>(
 			return result === 'deleted';
 		},
 
-		async removeBatch(ids: string[]): Promise<boolean> {
+		async removeBatch(ids: string[]): Promise<BatchRemovalOutcome> {
 			const mutationId = crypto.randomUUID();
 			log.push({ type: 'remove-batch', mutationId, targetIds: ids });
 
 			try {
-				await withinOrganization<unknown>(
+				const { deleted } = await withinOrganization(
 					config.batchAdapter?.removeBatch
 						? config.batchAdapter.removeBatch(ids)
-						: Promise.all(ids.map((id) => adapter.remove(id)))
+						: Promise.all(ids.map((id) => adapter.remove(id))).then((results) => ({
+								deleted: results.filter((result) => result === 'deleted').length
+							}))
 				);
 				commit({ deleted: ids });
 				log.resolve(mutationId);
-				return true;
+				return { kind: 'removed', deleted };
 			} catch (e) {
 				config.onError?.('removeBatch', e);
 				log.resolve(mutationId);
-				return false;
+				return { kind: 'failed' };
 			}
 		},
 

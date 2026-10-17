@@ -1,5 +1,6 @@
 export { default as DataTable } from './DataTable.svelte';
 export { default as SelectionCheckbox } from './data-table-selection-checkbox.svelte';
+export { default as SortableHeader } from './data-table-sortable-header.svelte';
 export { default as RowActions } from './data-table-row-actions.svelte';
 export { useDataTable } from './useDataTable.svelte.js';
 export { useDataTableSelection } from './useDataTableSelection.svelte.js';

@@ -4,8 +4,13 @@
  */
 import { getMonthDates } from '$lib/utils/dates';
 
+function firstOfCurrentMonth(): Date {
+	const today = new Date();
+	return new Date(today.getFullYear(), today.getMonth(), 1);
+}
+
 class CalendarStore {
-	#currentDate = $state(new Date());
+	#currentDate = $state(firstOfCurrentMonth());
 
 	get currentDate() {
 		return this.#currentDate;

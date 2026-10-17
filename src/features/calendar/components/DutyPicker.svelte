@@ -139,7 +139,7 @@
 									variant="outline"
 									size="xs"
 									class="font-mono text-[10px] tracking-widest uppercase"
-									aria-label={`Filter by ${facet.label}`}
+									aria-label={`Filter by ${facet.label}${facet.selected.length ? `, ${facet.selected.length} selected` : ''}`}
 								>
 									{facet.label}{facet.selected.length ? ` · ${facet.selected.length}` : ''}
 								</Button>

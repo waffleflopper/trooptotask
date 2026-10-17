@@ -237,7 +237,7 @@ describe('DutyPicker', () => {
 			await waitFor(() => expect(optionNames()).toEqual(['SPC Liang, Wei', 'SPC Ortiz, Lucia']));
 			expect(screen.getByRole('menuitemcheckbox', { name: 'SPC' }).getAttribute('aria-checked')).toBe('true');
 			expect(screen.getByRole('menuitemcheckbox', { name: 'SSG' }).getAttribute('aria-checked')).toBe('false');
-			expect(screen.getByRole('button', { name: 'Filter by Rank' }).textContent).toContain('Rank · 1');
+			expect(screen.getByRole('button', { name: 'Filter by Rank, 1 selected' }).textContent).toContain('Rank · 1');
 		});
 
 		it('combines facets and says so when nobody is left', async () => {
@@ -280,7 +280,7 @@ describe('DutyPicker', () => {
 			renderPicker({ typeId: 'type-a' });
 			await screen.findByRole('dialog');
 			expect(optionNames()).toEqual(['SPC Liang, Wei', 'SPC Ortiz, Lucia']);
-			expect(screen.getByRole('button', { name: 'Filter by Rank' }).textContent).toContain('Rank · 1');
+			expect(screen.getByRole('button', { name: 'Filter by Rank, 1 selected' }).textContent).toContain('Rank · 1');
 			cleanup();
 
 			renderPicker({ typeId: 'type-b' });

@@ -5,14 +5,11 @@
 import { buildRequestError, defineStore, stillInOrganizationLifetime } from '$lib/stores/core';
 import type { Store, BatchApiAdapter } from '$lib/stores/core';
 import { z } from 'zod';
-import type { AvailabilityEntry } from '$features/calendar/contracts';
+import { AVAILABILITY_BATCH_LIMIT, type AvailabilityEntry } from '$features/calendar/contracts';
 
 const removalReplySchema = z.object({ deleted: z.number().int().nonnegative() });
 
 let orgIdRef = '';
-
-/** Records per request for chunked batch creation; large imports submit in slices this size. */
-const CREATE_BATCH_CHUNK_SIZE = 500;
 
 function createAvailabilityBatchAdapter(): BatchApiAdapter<AvailabilityEntry> {
 	const headers = { 'Content-Type': 'application/json' };
@@ -66,10 +63,10 @@ function createAvailabilityBatchAdapter(): BatchApiAdapter<AvailabilityEntry> {
 			let firstFailure: unknown = null;
 			const organizationId = orgIdRef;
 			const sameLifetime = stillInOrganizationLifetime();
-			for (let i = 0; i < items.length; i += CREATE_BATCH_CHUNK_SIZE) {
+			for (let i = 0; i < items.length; i += AVAILABILITY_BATCH_LIMIT) {
 				// Later chunks belong to the Organization lifetime that started the import.
 				if (!sameLifetime() || orgIdRef !== organizationId) break;
-				const chunk = items.slice(i, i + CREATE_BATCH_CHUNK_SIZE);
+				const chunk = items.slice(i, i + AVAILABILITY_BATCH_LIMIT);
 				try {
 					const res = await fetch(`/org/${organizationId}/api/availability/batch`, {
 						method: 'POST',
@@ -90,13 +87,31 @@ function createAvailabilityBatchAdapter(): BatchApiAdapter<AvailabilityEntry> {
 		},
 
 		async removeBatch(ids) {
-			const res = await fetch(`${url()}/batch`, {
-				method: 'DELETE',
-				headers,
-				body: JSON.stringify({ ids })
-			});
-			if (!res.ok) throw await buildRequestError(res, 'DELETE', 'availability/batch');
-			return removalReplySchema.parse(await res.json());
+			const completedIds: string[] = [];
+			let deleted = 0;
+			let failure: unknown = null;
+			const organizationId = orgIdRef;
+			const sameLifetime = stillInOrganizationLifetime();
+			for (let i = 0; i < ids.length; i += AVAILABILITY_BATCH_LIMIT) {
+				if (!sameLifetime() || orgIdRef !== organizationId) break;
+				const chunk = ids.slice(i, i + AVAILABILITY_BATCH_LIMIT);
+				try {
+					const res = await fetch(`/org/${organizationId}/api/availability/batch`, {
+						method: 'DELETE',
+						headers,
+						body: JSON.stringify({ ids: chunk })
+					});
+					if (!res.ok) throw await buildRequestError(res, 'DELETE', 'availability/batch');
+					deleted += removalReplySchema.parse(await res.json()).deleted;
+					completedIds.push(...chunk);
+				} catch (e) {
+					failure = e;
+					break;
+				}
+			}
+			if (ids.length > 0 && completedIds.length === 0)
+				throw failure ?? new Error('Failed to remove availability batch');
+			return { deleted, completedIds };
 		}
 	};
 }

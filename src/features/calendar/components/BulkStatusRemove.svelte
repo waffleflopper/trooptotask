@@ -72,6 +72,8 @@
 	let isLoadingMatches = $state(false);
 	let matchLoadError = $state<string | null>(null);
 	let isSubmitting = $state(false);
+	let entriesInReview = $state(0);
+	let removedAcrossRetries = $state(0);
 
 	const allPersonnel = $derived(personnelByGroup.flatMap((g) => g.personnel));
 	const selection = useDataTableSelection<Personnel>({ rows: () => allPersonnel, rowKey: (p) => p.id });
@@ -134,6 +136,8 @@
 				endDate: criteria.endDate
 			});
 			reviewCriteria = criteria;
+			entriesInReview = matchResult.exact.length + matchResult.partial.length;
+			removedAcrossRetries = 0;
 			step = 'confirm';
 		} catch {
 			matchLoadError = 'Unable to load status entries for the selected date range. Try again.';
@@ -158,13 +162,24 @@
 		try {
 			const outcome = await onRemove(allIds);
 			if (outcome.kind === 'removed') {
-				const { deleted } = outcome;
-				const alreadyGone = allIds.length - deleted;
+				const deleted = removedAcrossRetries + outcome.deleted;
+				const alreadyGone = entriesInReview - deleted;
 				toastStore.success(
 					`Removed ${deleted} status ${deleted === 1 ? 'entry' : 'entries'}` +
 						(alreadyGone > 0 ? `; ${alreadyGone} ${alreadyGone === 1 ? 'was' : 'were'} already gone` : '')
 				);
 				onComplete();
+			} else if (outcome.kind === 'partial') {
+				const completed = new Set(outcome.completedIds);
+				matchResult = {
+					exact: matchResult.exact.filter((e) => !completed.has(e.id)),
+					partial: matchResult.partial.filter((e) => !completed.has(e.id))
+				};
+				removedAcrossRetries += outcome.deleted;
+				const remaining = allIds.length - completed.size;
+				toastStore.error(
+					`Removed ${removedAcrossRetries} of ${entriesInReview} status entries — ${remaining} ${remaining === 1 ? 'remains' : 'remain'}; confirm again to retry`
+				);
 			} else {
 				toastStore.error('Failed to remove status entries');
 			}

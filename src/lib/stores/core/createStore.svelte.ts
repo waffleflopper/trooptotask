@@ -45,8 +45,14 @@ export interface StoreAdoption<T extends { id: string }> {
 	close(): void;
 }
 
-/** `removed` carries the real deleted count, which is zero when the rows were already gone. */
-export type BatchRemovalOutcome = { kind: 'removed'; deleted: number } | { kind: 'failed' };
+/**
+ * `removed` carries the real deleted count, which is zero when the rows were already gone. `partial`
+ * stopped before the last ID: `completedIds` left the store and the rest remain. `failed` removed nothing.
+ */
+export type BatchRemovalOutcome =
+	| { kind: 'removed'; deleted: number }
+	| { kind: 'partial'; deleted: number; completedIds: string[] }
+	| { kind: 'failed' };
 
 export interface Store<T extends { id: string }> {
 	readonly items: T[];
@@ -360,16 +366,19 @@ export function createStoreWithInternals<T extends { id: string }>(
 			log.push({ type: 'remove-batch', mutationId, targetIds: ids });
 
 			try {
-				const { deleted } = await withinOrganization(
+				const { deleted, completedIds } = await withinOrganization(
 					config.batchAdapter?.removeBatch
 						? config.batchAdapter.removeBatch(ids)
 						: Promise.all(ids.map((id) => adapter.remove(id))).then((results) => ({
-								deleted: results.filter((result) => result === 'deleted').length
+								deleted: results.filter((result) => result === 'deleted').length,
+								completedIds: ids
 							}))
 				);
-				commit({ deleted: ids });
+				commit({ deleted: completedIds });
 				log.resolve(mutationId);
-				return { kind: 'removed', deleted };
+				return completedIds.length < ids.length
+					? { kind: 'partial', deleted, completedIds }
+					: { kind: 'removed', deleted };
 			} catch (e) {
 				config.onError?.('removeBatch', e);
 				log.resolve(mutationId);

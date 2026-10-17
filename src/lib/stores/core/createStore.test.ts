@@ -751,7 +751,7 @@ describe('createStore', () => {
 				update: async (id, data) => ({ id, name: 'default', ...data }) as TestItem,
 				remove: async () => 'deleted',
 				createBatch: async (items) => items.map((d, i) => ({ id: `server-${i}`, ...d }) as TestItem),
-				removeBatch: async (ids) => ({ deleted: ids.length }),
+				removeBatch: async (ids) => ({ deleted: ids.length, completedIds: ids }),
 				...overrides
 			};
 		}
@@ -777,7 +777,7 @@ describe('createStore', () => {
 		});
 
 		it('reports the adapter count when fewer rows were deleted than requested', async () => {
-			const batchAdapter = makeBatchAdapter({ removeBatch: async () => ({ deleted: 1 }) });
+			const batchAdapter = makeBatchAdapter({ removeBatch: async (ids) => ({ deleted: 1, completedIds: ids }) });
 			const store = createStore<TestItem>({ resource: 'test-items', adapter: batchAdapter, batchAdapter });
 			store.load(
 				[
@@ -792,6 +792,26 @@ describe('createStore', () => {
 
 			expect(result).toEqual({ kind: 'removed', deleted: 1 });
 			expect(store.items).toEqual([]);
+		});
+
+		it('removes only the completed IDs locally and reports a partial result', async () => {
+			const batchAdapter = makeBatchAdapter({
+				removeBatch: async () => ({ deleted: 2, completedIds: ['1', '2'] })
+			});
+			const store = createStore<TestItem>({ resource: 'test-items', adapter: batchAdapter, batchAdapter });
+			store.load(
+				[
+					{ id: '1', name: 'Alpha' },
+					{ id: '2', name: 'Bravo' },
+					{ id: '3', name: 'Charlie' }
+				],
+				'org-1'
+			);
+
+			const result = await store.removeBatch(['1', '2', '3']);
+
+			expect(result).toEqual({ kind: 'partial', deleted: 2, completedIds: ['1', '2'] });
+			expect(store.items).toEqual([{ id: '3', name: 'Charlie' }]);
 		});
 
 		it('should rollback on batch remove failure', async () => {

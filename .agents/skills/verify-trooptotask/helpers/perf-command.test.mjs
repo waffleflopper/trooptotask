@@ -233,13 +233,14 @@ test('a journey outside the cold set is refused cold before any browser call', a
 	);
 });
 
-test('a streamed document that outlasts the render closes its query window only when it ends', async () => {
+test('a slow document keeps its observer and closes its query window only when it ends', async () => {
 	const repository = await fs.mkdtemp(path.join(os.tmpdir(), 'perf-document-'));
 	const evidenceRoot = path.join(repository, '.verification', 'evidence');
 	const session = path.join(repository, 'session');
 	await fs.mkdir(session, { recursive: true });
 	await fs.writeFile(path.join(session, 'app.log'), '');
 	const events = [];
+	const navigations = [];
 	let documentPolls = 0;
 	const ctx = {
 		repository,
@@ -279,13 +280,17 @@ test('a streamed document that outlasts the render closes its query window only 
 				paint: {}
 			};
 		},
-		tool: async (name) => (name === 'list_network_requests' ? { structuredContent: { networkRequests: [] } } : {})
+		tool: async (name, input) => {
+			if (name === 'navigate_page') navigations.push(input.timeout);
+			return name === 'list_network_requests' ? { structuredContent: { networkRequests: [] } } : {};
+		}
 	};
 	const out = path.join(evidenceRoot, 'run');
 	const result = await perfCommand(
 		['load', '7', 'small', 'critical-tasks-report', 'perfWide', '--warmup', '0', '--reps', '1', '--out', out],
 		ctx
 	);
+	assert.deepEqual(navigations, [120000]);
 	assert.deepEqual(events, ['statements reset', 'document ended', 'statements read']);
 	const [sample] = JSON.parse(await fs.readFile(path.join(repository, result.file), 'utf8')).samples;
 	assert.equal(sample.firstUsefulRenderMs, 2674);

@@ -174,6 +174,12 @@ export const capMs = 120_000;
 const pollMs = 20_000;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// navigate_page registers the observer for the next document only until the call returns, and
+// its default 10 s timeout returns before a slower document commits, which then loads without
+// the observer. One navigation may therefore wait the whole cap; the daemon extends that call.
+const navigate = (ctx, pageId, url, initScript) =>
+	ctx.tool('navigate_page', { pageId, type: 'url', url, initScript, timeout: capMs });
+
 async function sampleOf(ctx, pageId, cap = capMs) {
 	const begun = Date.now();
 	for (;;) {
@@ -529,7 +535,7 @@ async function load(ctx, positional, options) {
 			try {
 				await openStatements(ctx, measure);
 				const offset = await appLogSize(ctx);
-				await ctx.tool('navigate_page', { pageId, type: 'url', url: run.url(), initScript });
+				await navigate(ctx, pageId, run.url(), initScript);
 				const sample = await settle(ctx, pageId);
 				const statements = await closeStatements(ctx, measure);
 				await documentClosed(ctx, pageId, sample.document);
@@ -610,7 +616,7 @@ async function interaction(ctx, positional, options) {
 		const once = async (measure, index) => {
 			const milestones = run.journey.milestones(run.terms, index);
 			await paceSample(ctx);
-			await ctx.tool('navigate_page', { pageId: run.pageId, type: 'url', url: run.url(), initScript: ready });
+			await navigate(ctx, run.pageId, run.url(), ready);
 			const before = await settle(ctx, run.pageId);
 			if (!before.useful) throw new Error(`${run.journeyName} never reached its ready milestone.`);
 			if (!before.network.idle) throw new Error(`${run.journeyName} never reached network idle before input.`);
@@ -675,7 +681,7 @@ async function trace(ctx, positional, options) {
 	try {
 		await ctx.tool('performance_start_trace', { pageId, reload: false, autoStop: false });
 		tracing = true;
-		await ctx.tool('navigate_page', { pageId, type: 'url', url: run.url(), initScript });
+		await navigate(ctx, pageId, run.url(), initScript);
 		const sample = await settle(ctx, pageId);
 		const insights = ctx.text(await ctx.tool('performance_stop_trace', { pageId, filePath: raw }));
 		tracing = false;

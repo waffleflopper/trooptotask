@@ -369,10 +369,10 @@ export function createStoreWithInternals<T extends { id: string }>(
 				const { deleted, completedIds } = await withinOrganization(
 					config.batchAdapter?.removeBatch
 						? config.batchAdapter.removeBatch(ids)
-						: Promise.all(ids.map((id) => adapter.remove(id))).then((results) => ({
-								deleted: results.filter((result) => result === 'deleted').length,
-								completedIds: ids
-							}))
+						: Promise.all(ids.map((id) => adapter.remove(id))).then((results) => {
+								const completedIds = ids.filter((_, index) => results[index] === 'deleted');
+								return { deleted: completedIds.length, completedIds };
+							})
 				);
 				commit({ deleted: completedIds });
 				log.resolve(mutationId);

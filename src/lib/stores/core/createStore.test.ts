@@ -839,7 +839,7 @@ describe('createStore', () => {
 			expect(store.items.find((i) => i.id === '2')).toEqual({ id: '2', name: 'Bravo' });
 		});
 
-		it('should fall back to sequential removes when no batchAdapter.removeBatch', async () => {
+		it('falls back to per-item removes and keeps the items whose request failed', async () => {
 			const items: TestItem[] = [
 				{ id: '1', name: 'Alpha' },
 				{ id: '2', name: 'Bravo' },
@@ -852,8 +852,11 @@ describe('createStore', () => {
 
 			const result = await store.removeBatch(['1', '3']);
 
-			expect(result).toEqual({ kind: 'removed', deleted: 1 });
-			expect(store.items).toEqual([{ id: '2', name: 'Bravo' }]);
+			expect(result).toEqual({ kind: 'partial', deleted: 1, completedIds: ['1'] });
+			expect(store.items).toEqual([
+				{ id: '2', name: 'Bravo' },
+				{ id: '3', name: 'Charlie' }
+			]);
 		});
 	});
 

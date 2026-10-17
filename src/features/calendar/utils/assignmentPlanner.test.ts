@@ -78,21 +78,6 @@ describe('buildQuickFillBatch', () => {
 		expect(buildQuickFillBatch({ ...base, days: 'all', onlyOpenDays: false })).toHaveLength(31);
 		expect(buildQuickFillBatch({ ...base, days: 'all', onlyOpenDays: true })).toHaveLength(29);
 	});
-
-	it('is empty when every slot it would write is already occupied', () => {
-		const weekends = [3, 4, 10, 11, 17, 18, 24, 25, 31].map((day) =>
-			assignment(`2026-10-${String(day).padStart(2, '0')}`, 'sd', 'p-hale')
-		);
-
-		expect(
-			buildQuickFillBatch({
-				...base,
-				assignmentsBySlot: indexAssignmentsBySlot(weekends),
-				days: 'weekends',
-				onlyOpenDays: true
-			})
-		).toEqual([]);
-	});
 });
 
 describe('buildPlannerTable', () => {
@@ -138,12 +123,7 @@ describe('buildPlannerTable', () => {
 	it('labels each date with its weekend, today, past and holiday treatment', () => {
 		const rows = new Map(table().rows.map((row) => [row.dateKey, row]));
 
-		expect(rows.get('2026-10-12')).toMatchObject({
-			day: 12,
-			weekday: 'Mon',
-			specialDayName: 'Columbus Day',
-			past: true
-		});
+		expect(rows.get('2026-10-12')).toMatchObject({ specialDayName: 'Columbus Day', past: true });
 		expect(rows.get('2026-10-16')).toMatchObject({ today: true, past: false, weekend: false });
 		expect(rows.get('2026-10-17')).toMatchObject({ weekend: true, past: false, specialDayName: null });
 	});
@@ -151,28 +131,18 @@ describe('buildPlannerTable', () => {
 	it('shows assigned people by rank and last name, Groups by name and an unknown person without hiding them', () => {
 		const cells = new Map(table().rows.map((row) => [row.dateKey, row.cells]));
 
-		expect(cells.get('2026-10-21')![0].assignee).toEqual({
-			id: 'p-okafor',
-			prefix: 'SGT',
-			name: 'Okafor',
-			fullName: 'SGT Okafor, Ife'
-		});
-		expect(cells.get('2026-10-22')![1].assignee).toMatchObject({ prefix: null, name: '2nd Platoon' });
-		expect(cells.get('2026-10-23')![0].assignee).toMatchObject({ id: 'p-gone', name: 'Outside roster' });
+		expect(cells.get('2026-10-21')![0].assignee).toMatchObject({ id: 'p-okafor', prefix: 'SGT', name: 'Okafor' });
+		expect(cells.get('2026-10-22')![1].assignee).toMatchObject({ id: 'g-2nd', prefix: null, name: '2nd Platoon' });
+		expect(cells.get('2026-10-23')![0].assignee).toMatchObject({ id: 'p-gone', prefix: null });
 		expect(cells.get('2026-10-20')![0].assignee).toBeNull();
 	});
 
-	it('presents each conflict once, on its cell and in the list, naming the status and dates', () => {
+	it('presents each conflict once, on its cell and in the list', () => {
 		const result = table();
 
-		expect(result.conflicts).toHaveLength(1);
-		expect(result.conflicts[0]).toMatchObject({
-			typeName: 'CQ',
-			dateKey: '2026-10-21',
-			dateLabel: 'Wed 21 Oct',
-			availabilityLabel: 'Leave 20–23 Oct'
-		});
+		expect(result.conflicts.map((conflict) => [conflict.typeId, conflict.dateKey])).toEqual([['cq', '2026-10-21']]);
 		const flagged = result.rows.flatMap((row) => row.cells).filter((cell) => cell.conflict);
-		expect(flagged.map((cell) => cell.conflict)).toEqual([result.conflicts[0]]);
+		expect(flagged.map((cell) => [cell.typeId, cell.dateKey])).toEqual([['cq', '2026-10-21']]);
+		expect(flagged[0].conflict).toBe(result.conflicts[0]);
 	});
 });

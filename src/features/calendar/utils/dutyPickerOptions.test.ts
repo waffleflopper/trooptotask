@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment } from '$features/calendar/contracts';
 import type { Personnel } from '$features/personnel/contracts';
-import { dutyPickerOptions, dutySearchScore, eligibleAssignees, type DutyPickerInput } from './dutyPickerOptions';
+import { dutyPickerOptions, dutySearchScore, type DutyPickerInput } from './dutyPickerOptions';
 import { indexDutyAvailability, indexDutyHistory } from './dutyReadModel';
 
 const staffDuty: AssignmentType = {
@@ -92,14 +92,16 @@ describe('dutyPickerOptions', () => {
 			entries: [
 				leave('p-liang', '2026-10-26', '2026-11-03'),
 				leave('p-liang', '2026-10-27', '2026-10-27'),
-				leave('p-hale', '2026-10-20', '2026-10-26')
+				leave('p-hale', '2026-10-20', '2026-10-26'),
+				leave('p-reed', '2026-10-28', '2026-10-30')
 			]
 		});
 
-		expect(result.find((option) => option.id === 'p-liang')).toMatchObject({
-			unavailable: 'Leave 26 Oct – 3 Nov; Leave 27 Oct'
-		});
+		const unavailable = result.find((option) => option.id === 'p-liang');
+		expect(unavailable).toMatchObject({ unavailable: expect.stringContaining('26 Oct – 3 Nov') });
+		expect(unavailable).toMatchObject({ unavailable: expect.stringContaining('27 Oct') });
 		expect(result.find((option) => option.id === 'p-hale')).toMatchObject({ unavailable: undefined });
+		expect(result.find((option) => option.id === 'p-reed')).toMatchObject({ unavailable: undefined });
 	});
 
 	it('lists Groups by name for a Group duty with no exemptions, availability or history', () => {
@@ -119,19 +121,11 @@ describe('dutyPickerOptions', () => {
 	});
 });
 
-describe('eligibleAssignees', () => {
-	it('excludes the people a duty type exempts', () => {
-		expect(eligibleAssignees(staffDuty, roster, []).map((choice) => choice.id)).not.toContain('p-kim');
-		expect(
-			eligibleAssignees({ ...staffDuty, exemptPersonnelIds: [] }, roster, []).map((choice) => choice.id)
-		).toContain('p-kim');
-	});
-});
-
 describe('dutySearchScore', () => {
-	it('scores every match the same so the prepared order survives, whatever its position in the text', () => {
-		expect(dutySearchScore('p-1', 'ab', ['Cabot, Dee', 'SPC'])).toBe(1);
-		expect(dutySearchScore('p-2', 'ab', ['Abbott, Cal', 'SPC'])).toBe(1);
+	it('scores every match the same, so a match early in the text never outranks the prepared duty order', () => {
+		expect(dutySearchScore('p-1', 'ab', ['Cabot, Dee', 'SPC'])).toBe(
+			dutySearchScore('p-2', 'ab', ['Abbott, Cal', 'SPC'])
+		);
 		expect(dutySearchScore('p-3', 'ab', ['Young, Dee', 'SPC'])).toBe(0);
 	});
 

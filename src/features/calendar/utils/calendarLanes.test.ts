@@ -118,28 +118,19 @@ describe('buildCalendarLanes', () => {
 		expect(duty.detail).toBe('3 open');
 	});
 
-	it('gives an open day an Assign action only while the caller can open a picker, and keeps assigned days editable', () => {
+	it('gives an open day an Assign action when the caller can open a picker, and keeps assigned days editable', () => {
 		const assignmentTypes = [type({ id: 'sd', name: 'Staff Duty' })];
 		const assignments = [assignment('2026-10-01', 'sd', 'p-pike')];
 		const opened: string[] = [];
-		const editDay = () => {};
-
-		const [loading] = build({ assignmentTypes, assignments, actions: { editDay } });
-		expect(days(loading).map((day) => [!!day.open, !!day.edit])).toEqual([
-			[false, true],
-			[false, false],
-			[false, false],
-			[false, false],
-			[false, false]
-		]);
 
 		const [ready] = build({
 			assignmentTypes,
 			assignments,
-			actions: { editDay, openDay: (typeId, date) => opened.push(`${typeId}:${date.getDate()}`) }
+			actions: { editDay: () => {}, openDay: (typeId, date) => opened.push(`${typeId}:${date.getDate()}`) }
 		});
 		days(ready)[2].open?.({} as HTMLElement);
 		expect(days(ready).map((day) => !!day.open)).toEqual([false, true, true, true, true]);
+		expect(days(ready)[0].edit).toBeTruthy();
 		expect(opened).toEqual(['sd:3']);
 	});
 

@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment } from '$features/calendar/contracts';
+import { assignmentSlotKey } from './calendarIndexes';
 import { findDutyConflicts, indexDutyAvailability, indexDutyHistory, lastDutyBefore } from './dutyReadModel';
 
 function duty(id: string, date: string, assigneeId: string, assignmentTypeId = 'cq'): DailyAssignment {
@@ -63,21 +64,25 @@ describe('lastDutyBefore', () => {
 		});
 	});
 
-	it('counts civil days across the autumn clock change', () => {
-		expect(lastDuty([duty('a', '2026-10-24', 'p')], 'p', '2026-11-02')).toEqual({
-			kind: 'previous',
-			date: '2026-10-24',
-			daysSince: 9
+	describe('across a daylight-saving change', () => {
+		const originalTimezone = process.env.TZ;
+		afterEach(() => {
+			if (originalTimezone === undefined) delete process.env.TZ;
+			else process.env.TZ = originalTimezone;
 		});
-		expect(lastDuty([duty('a', '2026-03-25', 'p')], 'p', '2026-03-30')).toEqual({
-			kind: 'previous',
-			date: '2026-03-25',
-			daysSince: 5
-		});
-	});
 
-	it('reports none for someone with no duty of that type', () => {
-		expect(lastDuty([duty('a', '2026-10-20', 'other')], 'p', '2026-10-27')).toEqual({ kind: 'none' });
+		it.each([
+			['spring', '2026-03-07', '2026-03-10', 3],
+			['autumn', '2026-10-31', '2026-11-03', 3]
+		])('counts civil days across the %s clock change', (_season, dutyDate, dateKey, daysSince) => {
+			process.env.TZ = 'America/Los_Angeles';
+
+			expect(lastDuty([duty('a', dutyDate, 'p')], 'p', dateKey)).toEqual({
+				kind: 'previous',
+				date: dutyDate,
+				daysSince
+			});
+		});
 	});
 });
 
@@ -106,7 +111,9 @@ describe('findDutyConflicts', () => {
 		);
 
 		expect(result.items.map((conflict) => conflict.assignment.id)).toEqual(['start', 'end']);
-		expect([...result.bySlot.keys()]).toEqual(['2026-10-20::cq', '2026-10-23::sd']);
+		expect(result.bySlot.get(assignmentSlotKey('2026-10-20', 'cq'))?.assignment.id).toBe('start');
+		expect(result.bySlot.get(assignmentSlotKey('2026-10-23', 'sd'))?.assignment.id).toBe('end');
+		expect(result.bySlot.size).toBe(2);
 	});
 
 	it('lists every covering entry and skips Groups, archived types, other months and other people', () => {
@@ -124,7 +131,7 @@ describe('findDutyConflicts', () => {
 
 		expect(result.items.map((conflict) => conflict.assignment.id)).toEqual(['person']);
 		expect(result.items[0].entries.map((covering) => covering.id)).toEqual(['leave-1', 'tdy-1']);
-		expect(result.bySlot.get('2026-10-21::cq')).toBe(result.items[0]);
+		expect(result.bySlot.get(assignmentSlotKey('2026-10-21', 'cq'))?.assignment.id).toBe('person');
 	});
 
 	it('orders by date, then by the order of the assignment types, and keeps an exempt person visible', () => {

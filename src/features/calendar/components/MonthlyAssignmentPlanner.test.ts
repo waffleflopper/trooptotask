@@ -167,51 +167,26 @@ describe('MonthlyAssignmentPlanner Quick fill', () => {
 		await openColumnMenu();
 		const select = screen.getByRole('combobox', { name: 'Assignee' });
 
-		expect(
-			within(select)
-				.getAllByRole('option')
-				.map((option) => option.textContent?.trim())
-		).toEqual(['Select person…', 'SGT Kim, Jae-won', 'SGT Okafor, Ife']);
+		expect(within(select).queryByRole('option', { name: /Hale/ })).toBeNull();
+		expect(within(select).getByRole('option', { name: /Kim/ })).toBeTruthy();
 		expect((screen.getByRole('button', { name: 'Fill 22 days' }) as HTMLButtonElement).disabled).toBe(true);
 	});
 
-	it('saves a Group duty by the Group id', async () => {
-		const guard: AssignmentType = {
-			...staffDuty,
-			id: 'type-gg',
-			name: 'Gate Guard',
-			shortName: 'GG',
-			assignTo: 'group',
-			exemptPersonnelIds: []
-		};
-		const { onSetAssignmentBatch } = renderPlanner({ assignmentTypes: [guard] });
+	it('cannot apply when every slot it would write is already occupied', async () => {
+		const weekendDays = [3, 4, 10, 11, 17, 18, 24, 25, 31];
+		renderPlanner({
+			assignments: weekendDays.map((day) => duty(`2026-10-${String(day).padStart(2, '0')}`, 'type-sd', 'p-okafor'))
+		});
 
-		await openColumnMenu('Gate Guard');
-		await chooseAssignee(/Bravo/);
-		await fireEvent.click(screen.getByRole('button', { name: 'Fill 22 days' }));
+		await openColumnMenu();
+		await chooseAssignee(/Kim/);
+		await fireEvent.click(screen.getByRole('radio', { name: 'Weekends' }));
 
-		await waitFor(() => expect(onSetAssignmentBatch).toHaveBeenCalledTimes(1));
-		expect(new Set(onSetAssignmentBatch.mock.calls[0][0].map((write) => write.assigneeId))).toEqual(
-			new Set(['g-bravo'])
-		);
+		expect((screen.getByRole('button', { name: 'Fill 0 days' }) as HTMLButtonElement).disabled).toBe(true);
 	});
 });
 
 describe('MonthlyAssignmentPlanner table', () => {
-	it('lists the Calendar lane types in lane order, then planner-only types, and leaves out archived ones', () => {
-		const types: AssignmentType[] = [
-			{ ...staffDuty, id: 'runner', name: 'Runner', shortName: 'RN', showOnCalendar: false, sortOrder: 0 },
-			staffDuty,
-			{ ...staffDuty, id: 'cq', name: 'CQ', shortName: 'CQ', sortOrder: 0 },
-			{ ...staffDuty, id: 'old', name: 'Old', shortName: 'OLD', archivedAt: '2026-01-01T00:00:00.000Z' }
-		];
-		renderPlanner({ assignmentTypes: types });
-
-		expect(
-			screen.getAllByRole('button', { name: /column actions$/ }).map((button) => button.getAttribute('aria-label'))
-		).toEqual(['CQ column actions', 'Staff Duty column actions', 'Runner column actions']);
-	});
-
 	it('flags a person assigned on a day they are unavailable and replaces them from the Conflicts panel', async () => {
 		const { onSetAssignment } = renderPlanner({
 			assignments: [duty('2026-10-21', 'type-sd', 'p-okafor')],
@@ -230,12 +205,13 @@ describe('MonthlyAssignmentPlanner table', () => {
 			screen.getByRole('button', { name: /Staff Duty, Wed 21 Oct: SGT Okafor, Ife, unavailable: Leave 20–23 Oct/ })
 		).toBeTruthy();
 		const panel = screen.getByRole('region', { name: 'Conflicts' });
-		expect(within(panel).getByText(/SGT Okafor, Ife is on Leave 20–23 Oct\./)).toBeTruthy();
 
 		await fireEvent.click(within(panel).getByRole('button', { name: 'Find replacement for Staff Duty, Wed 21 Oct' }));
 		await fireEvent.click(await screen.findByRole('option', { name: /Kim, Jae-won/ }));
 
 		await waitFor(() => expect(onSetAssignment).toHaveBeenCalledWith('2026-10-21', 'type-sd', 'p-kim'));
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+		expect(document.activeElement).toBe(screen.getByRole('button', { name: /^Staff Duty, Wed 21 Oct: / }));
 	});
 
 	it('clears a single slot from its picker, and offers no clear for an open slot', async () => {

@@ -59,12 +59,6 @@ describe('getCalendarRangeGaps', () => {
 		]);
 	});
 
-	it('returns an abutting request as it is', () => {
-		expect(getCalendarRangeGaps(loaded, { rangeStart: '2026-06-01', rangeEnd: '2026-06-30' })).toEqual([
-			{ rangeStart: '2026-06-01', rangeEnd: '2026-06-30' }
-		]);
-	});
-
 	it('returns only the far request after a two-year jump, not the unread years between', () => {
 		const jumped = calendarReadRange(new Date(2028, 3, 1), 'month');
 

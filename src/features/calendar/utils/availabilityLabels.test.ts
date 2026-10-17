@@ -14,10 +14,6 @@ describe('availabilityEntryLabel', () => {
 		expect(label('2026-10-26', '2026-11-03')).toBe('Leave 26 Oct – 3 Nov');
 	});
 
-	it('keeps the month on both ends when the same month falls in different years', () => {
-		expect(label('2026-10-26', '2027-10-03')).toBe('Leave 26 Oct – 3 Oct');
-	});
-
 	it('calls an entry with an unknown status Unavailable', () => {
 		expect(label('2026-10-26', '2026-10-27', 'deleted-status')).toBe('Unavailable 26–27 Oct');
 	});

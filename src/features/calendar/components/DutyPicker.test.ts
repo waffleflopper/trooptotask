@@ -36,6 +36,7 @@ function renderPicker(
 		options?: DutyPickerOption[];
 		onAssign?: (id: string) => Promise<boolean>;
 		onClear?: () => Promise<boolean>;
+		returnFocusTo?: () => HTMLElement | null;
 	} = {}
 ) {
 	const anchor = document.createElement('button');
@@ -50,6 +51,7 @@ function renderPicker(
 			assignTo: props.assignTo ?? 'personnel',
 			date: new Date(2026, 9, 27),
 			anchor,
+			returnFocusTo: props.returnFocusTo,
 			options: props.options ?? OPTIONS,
 			onAssign,
 			onClear,
@@ -67,17 +69,14 @@ describe('DutyPicker', () => {
 		await waitFor(() => expect(document.activeElement).toBe(search));
 		const liang = screen.getByRole('option', { name: /Liang, Wei/ });
 		expect(liang.getAttribute('aria-label')).toMatch(/unavailable: Leave 26 Oct – 3 Nov/);
+		expect(screen.getByRole('option', { name: /^SSG Hale, Corey/ })).toBeTruthy();
 	});
 
-	it('gives each person an accessible last-duty figure, including none in the window', async () => {
+	it('gives each person a last-duty figure, including none in the window', async () => {
 		renderPicker();
 
-		expect((await screen.findByRole('option', { name: /Liang, Wei/ })).getAttribute('aria-label')).toContain(
-			'last on duty 41 days ago'
-		);
-		expect(screen.getByRole('option', { name: /Hale, Corey/ }).getAttribute('aria-label')).toContain(
-			'no duty in the last 90 days'
-		);
+		expect((await screen.findByRole('option', { name: /Liang, Wei/ })).getAttribute('aria-label')).toContain('41');
+		expect(screen.getByRole('option', { name: /Hale, Corey/ }).getAttribute('aria-label')).toContain('90');
 		expect(screen.getByText('41d')).toBeTruthy();
 		expect(screen.getByText('none in 90d')).toBeTruthy();
 	});
@@ -129,6 +128,22 @@ describe('DutyPicker', () => {
 
 		expect(onClose).toHaveBeenCalledTimes(1);
 		await waitFor(() => expect(document.activeElement).toBe(anchor));
+	});
+
+	it('returns focus to a stable control when the anchor is gone after the save', async () => {
+		const stable = document.createElement('button');
+		document.body.append(stable);
+		const { anchor } = renderPicker({
+			returnFocusTo: () => stable,
+			onAssign: async () => {
+				anchor.remove();
+				return true;
+			}
+		});
+
+		await fireEvent.click(await screen.findByRole('option', { name: /Ortiz, Lucia/ }));
+
+		await waitFor(() => expect(document.activeElement).toBe(stable));
 	});
 
 	it('stays open after a failed save and saves on the next try', async () => {

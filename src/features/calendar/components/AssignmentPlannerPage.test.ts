@@ -96,7 +96,7 @@ function renderPage(
 			data: {
 				...data,
 				calendar: data.calendar ?? {
-					data: { personnel, allPersonnel: personnel, rangeStart: '2026-08-01', rangeEnd: '2026-10-31' }
+					data: { personnel, allPersonnel: personnel, rangeStart: '2026-06-03', rangeEnd: '2026-10-31' }
 				}
 			}
 		}
@@ -302,7 +302,7 @@ describe('planner visible-month loading', () => {
 		assignmentTypeId: 'type-1',
 		assigneeId: 'person-1'
 	};
-	function response(assignments = [saved], rangeStart = '2026-09-01', rangeEnd = '2026-10-31') {
+	function response(assignments = [saved], rangeStart = '2026-06-03', rangeEnd = '2026-09-30') {
 		return Response.json({
 			rangeStart,
 			rangeEnd,
@@ -408,7 +408,7 @@ describe('planner visible-month loading', () => {
 		dailyAssignmentsStore.load(assignmentTypes, [{ ...saved, id: 'other-org', assigneeId: 'person-2' }], 'org-2');
 		await view.rerender({
 			org: mockOrg,
-			data: { orgId: 'org-2', calendar: { data: { personnel, rangeStart: '2026-09-01', rangeEnd: '2026-09-30' } } }
+			data: { orgId: 'org-2', calendar: { data: { personnel, rangeStart: '2026-06-03', rangeEnd: '2026-09-30' } } }
 		});
 		await act(async () => {
 			resolve(response());

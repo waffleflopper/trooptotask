@@ -1,10 +1,10 @@
 import type { CalendarBootstrap, CalendarRangeData } from '$features/calendar/calendar.types';
 import { untrack } from 'svelte';
 import {
-	createVisibleCalendarRange,
+	chunkCalendarReadRange,
+	extendLoadedRange,
 	getCalendarRangeGaps,
-	type CalendarBufferedRange,
-	type CalendarViewMode
+	type CalendarBufferedRange
 } from '$features/calendar/utils/calendarRange';
 import {
 	beginCalendarRangeRead,
@@ -20,12 +20,9 @@ interface CalendarRangeCoordinatorDeps {
 	mergeRangeIntoStores?: typeof mergeCalendarRangeIntoStores;
 }
 
-interface LoadVisibleRangeInput {
-	orgId: string;
-	canViewCalendar: boolean;
-	currentDate: Date;
-	viewMode: CalendarViewMode;
-}
+export type CalendarRangeStatus = 'ready' | 'loading' | 'error';
+
+const MAX_READS_IN_FLIGHT = 2;
 
 export class CalendarRangeCoordinator {
 	loadedRange = $state<CalendarBufferedRange | null>(null);
@@ -60,22 +57,11 @@ export class CalendarRangeCoordinator {
 	}
 
 	includeBootstrap(bootstrap: CalendarBootstrapRangeData): void {
-		const currentLoadedRange = untrack(() => this.loadedRange);
-
 		if (bootstrap.rangeStart && bootstrap.rangeEnd) {
-			this.loadedRange = currentLoadedRange
-				? {
-						rangeStart:
-							bootstrap.rangeStart < currentLoadedRange.rangeStart
-								? bootstrap.rangeStart
-								: currentLoadedRange.rangeStart,
-						rangeEnd:
-							bootstrap.rangeEnd > currentLoadedRange.rangeEnd ? bootstrap.rangeEnd : currentLoadedRange.rangeEnd
-					}
-				: {
-						rangeStart: bootstrap.rangeStart,
-						rangeEnd: bootstrap.rangeEnd
-					};
+			this.loadedRange = extendLoadedRange(
+				untrack(() => this.loadedRange),
+				{ rangeStart: bootstrap.rangeStart, rangeEnd: bootstrap.rangeEnd }
+			);
 		}
 	}
 
@@ -93,13 +79,17 @@ export class CalendarRangeCoordinator {
 		this.retryToken += 1;
 	}
 
-	async loadVisibleRange(input: LoadVisibleRangeInput): Promise<void> {
-		const loadedRange = untrack(() => this.loadedRange);
-		if (!input.canViewCalendar || !loadedRange) {
-			return;
-		}
+	status(range: CalendarBufferedRange): CalendarRangeStatus {
+		if (getCalendarRangeGaps(this.loadedRange, range).length === 0) return 'ready';
+		return this.error ? 'error' : 'loading';
+	}
 
-		const nextRanges = getCalendarRangeGaps(loadedRange, createVisibleCalendarRange(input.currentDate, input.viewMode));
+	/** Reads whatever part of `range` is not loaded yet. Callers check view capability first. */
+	async ensureRange(orgId: string, range: CalendarBufferedRange): Promise<void> {
+		const nextRanges = getCalendarRangeGaps(
+			untrack(() => this.loadedRange),
+			range
+		).flatMap(chunkCalendarReadRange);
 
 		if (nextRanges.length === 0) {
 			this.#pendingRangeKey = null;
@@ -123,12 +113,12 @@ export class CalendarRangeCoordinator {
 		const read = beginCalendarRangeRead();
 
 		try {
-			const rangeDataSets = await Promise.all(nextRanges.map((range) => this.#loadRange(input.orgId, range)));
+			const rangeDataSets = await this.#readRanges(orgId, nextRanges, requestSerial);
 			if (requestSerial !== this.#requestSerial) {
 				return;
 			}
 
-			this.#mergeRangeDataSets(input.orgId, rangeDataSets, read);
+			this.#mergeRangeDataSets(orgId, rangeDataSets, read);
 			this.loading = false;
 			this.#failedRangeKey = null;
 			this.#pendingRangeKey = null;
@@ -146,19 +136,36 @@ export class CalendarRangeCoordinator {
 		}
 	}
 
+	async #readRanges(
+		orgId: string,
+		ranges: CalendarBufferedRange[],
+		requestSerial: number
+	): Promise<CalendarRangeData[]> {
+		const results: CalendarRangeData[] = [];
+		let next = 0;
+		let failed = false;
+		const readNext = async (): Promise<void> => {
+			while (!failed && next < ranges.length && requestSerial === this.#requestSerial) {
+				const index = next++;
+				try {
+					results[index] = await this.#loadRange(orgId, ranges[index]);
+				} catch (error) {
+					failed = true;
+					throw error;
+				}
+			}
+		};
+		await Promise.all(Array.from({ length: Math.min(MAX_READS_IN_FLIGHT, ranges.length) }, readNext));
+		return results;
+	}
+
 	#mergeRangeDataSets(orgId: string, rangeDataSets: CalendarRangeData[], read: CalendarRangeRead): void {
 		for (const rangeData of rangeDataSets) {
-			const loadedRange = untrack(() => this.loadedRange);
 			this.#mergeRangeIntoStores(orgId, rangeData, read);
-			this.loadedRange = loadedRange
-				? {
-						rangeStart: rangeData.rangeStart < loadedRange.rangeStart ? rangeData.rangeStart : loadedRange.rangeStart,
-						rangeEnd: rangeData.rangeEnd > loadedRange.rangeEnd ? rangeData.rangeEnd : loadedRange.rangeEnd
-					}
-				: {
-						rangeStart: rangeData.rangeStart,
-						rangeEnd: rangeData.rangeEnd
-					};
+			this.loadedRange = extendLoadedRange(
+				untrack(() => this.loadedRange),
+				rangeData
+			);
 		}
 	}
 }

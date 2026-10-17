@@ -23,8 +23,8 @@ const dayNumber = (isoDate) => {
 const isoDate = (day) => new Date(day * DAY).toISOString().slice(0, 10);
 
 /**
- * A deterministic roster and availability history around the anchor month: the Calendar's
- * initial buffered range (previous month through next month) is populated, nothing outside it.
+ * A deterministic roster and availability history around the anchor month: the previous,
+ * current and next month are populated, all inside the Calendar's initial buffered range.
  * Randomness is only the seed; entry and person ids come from `newId`.
  */
 export function buildAvailabilityVolume({

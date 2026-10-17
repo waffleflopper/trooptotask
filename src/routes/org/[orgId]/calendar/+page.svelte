@@ -3,6 +3,7 @@
 	import {
 		buildCalendarAnchorCookie,
 		CalendarPageContext,
+		calendarReadRange,
 		calendarStore,
 		type CalendarPageData,
 		type CalendarWorkspaceResult
@@ -69,16 +70,11 @@
 		const bootstrap = calendarBootstrap?.data;
 		rangeCoordinator.retryToken;
 
-		if (!bootstrap) {
+		if (!bootstrap || !org.hasCapability('calendar', 'view')) {
 			return;
 		}
 
-		void rangeCoordinator.loadVisibleRange({
-			orgId: data.shell.org.id,
-			canViewCalendar: org.hasCapability('calendar', 'view'),
-			currentDate: calendarStore.currentDate,
-			viewMode: ctx.viewMode
-		});
+		void rangeCoordinator.ensureRange(data.shell.org.id, calendarReadRange(calendarStore.currentDate, ctx.viewMode));
 
 		return () => {
 			rangeCoordinator.cancelInFlightLoads();

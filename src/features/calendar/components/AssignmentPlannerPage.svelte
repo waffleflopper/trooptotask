@@ -2,7 +2,7 @@
 	import * as PageShell from '$lib/components/patterns/page-shell';
 	import { WorkspaceToolbar, type ToolbarItem } from '$lib/components/patterns/workspace-toolbar';
 	import { CalendarRangeCoordinator } from '../contexts/CalendarRangeCoordinator.svelte';
-	import { createVisibleCalendarRange, getCalendarRangeGaps } from '../utils/calendarRange';
+	import { calendarReadRange } from '../utils/calendarRange';
 	import { buildCalendarAnchorCookie } from '../utils/calendarAnchorDate';
 	import MonthlyAssignmentPlanner from './MonthlyAssignmentPlanner.svelte';
 	import type { CalendarOperationsPageAccess } from '../contracts';
@@ -50,20 +50,14 @@
 	$effect(() => {
 		workspaceData;
 		rangeCoordinator.retryToken;
-		void rangeCoordinator.loadVisibleRange({
-			orgId: data.orgId,
-			canViewCalendar: canMutate,
-			currentDate: calendarStore.currentDate,
-			viewMode: 'month'
-		});
+		if (!canMutate) return;
+		void rangeCoordinator.ensureRange(data.orgId, calendarReadRange(calendarStore.currentDate, 'month'));
 		return () => rangeCoordinator.cancelInFlightLoads();
 	});
 	const rangeReady = $derived(
 		dailyAssignmentsStore.orgId === data.orgId &&
 			!dailyAssignmentsStore.loading &&
-			rangeCoordinator.loadedRange !== null &&
-			getCalendarRangeGaps(rangeCoordinator.loadedRange, createVisibleCalendarRange(calendarStore.currentDate, 'month'))
-				.length === 0
+			rangeCoordinator.status(calendarReadRange(calendarStore.currentDate, 'month')) === 'ready'
 	);
 	$effect(() => {
 		if (canMutate) document.cookie = buildCalendarAnchorCookie(calendarStore.currentDate);

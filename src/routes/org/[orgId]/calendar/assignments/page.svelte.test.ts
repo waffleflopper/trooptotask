@@ -37,8 +37,8 @@ it('loads the visible month for the shell Organization from a streamed, differen
 	const fetchRange = vi.fn(async (url: string) => {
 		if (!url.startsWith('/org/org-1/api/calendar-range?')) return new Response('', { status: 404 });
 		return Response.json({
-			rangeStart: '2026-09-01',
-			rangeEnd: '2026-10-31',
+			rangeStart: '2026-06-03',
+			rangeEnd: '2026-09-30',
 			availabilityEntries: [],
 			specialDays: [],
 			dailyAssignments: [{ id: 'saved', date: '2026-09-22', assignmentTypeId: 'type-1', assigneeId: 'person-1' }]
@@ -73,7 +73,7 @@ it('loads the visible month for the shell Organization from a streamed, differen
 	expect(
 		(await screen.findByRole('button', { name: 'Select Staff Duty assignee for 2026-09-22' })).textContent
 	).toContain('Smith');
-	expect(fetchRange).toHaveBeenCalledWith('/org/org-1/api/calendar-range?rangeStart=2026-09-01&rangeEnd=2026-10-31');
+	expect(fetchRange).toHaveBeenCalledWith('/org/org-1/api/calendar-range?rangeStart=2026-06-03&rangeEnd=2026-09-30');
 });
 
 it('settles on nothing when the streamed workspace rejects, leaving the load error to the Calendar layout', async () => {

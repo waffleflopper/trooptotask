@@ -39,3 +39,9 @@ export function matchScopeSet(scopeSet: ScopeSet, resource: ScopeSetResource): M
 export function isScopeSetMatchAllowed(match: MatchedScope): boolean {
 	return match.kind !== 'out-of-scope';
 }
+
+export function groupsInScope<T extends { readonly id: string }>(groups: readonly T[], scopeSet: ScopeSet): T[] {
+	return groups.filter((group) =>
+		isScopeSetMatchAllowed(matchScopeSet(scopeSet, { kind: 'group', groupId: group.id }))
+	);
+}

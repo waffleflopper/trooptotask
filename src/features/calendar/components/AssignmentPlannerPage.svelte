@@ -18,6 +18,7 @@
 	import CalendarPeriodNavigation from './CalendarPeriodNavigation.svelte';
 	import { createRosterReadModel } from '$features/personnel/contracts';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+	import { groupsInScope } from '$lib/access/scopeSetAccess';
 	import type { Personnel } from '$features/personnel/contracts';
 	import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
 
@@ -78,6 +79,7 @@
 		}).scoped(org.scopeSet, { status: 'active' })
 	);
 	const scopedPBG = $derived(rosterView.personnelByGroup);
+	const scopedGroups = $derived(groupsInScope(groupsStore.items, org.scopeSet));
 	let batchBusy = $state(false);
 </script>
 
@@ -124,7 +126,7 @@
 			statusTypes={statusTypesStore.items}
 			specialDays={specialDaysStore.items}
 			personnelByGroup={scopedPBG}
-			groups={groupsStore.items}
+			groups={scopedGroups}
 			onSetAssignment={(date, typeId, assigneeId) => dailyAssignmentsStore.setAssignment(date, typeId, assigneeId)}
 			onSetAssignmentBatch={(assignments) => dailyAssignmentsStore.setAssignmentBatch(assignments)}
 		/>

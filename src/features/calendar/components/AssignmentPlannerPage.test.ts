@@ -214,6 +214,29 @@ it('saves a Group duty chosen in a cell or the column menu by the Group id', asy
 	}
 });
 
+it('offers a Group-scoped member only the Groups in their scope', async () => {
+	mockOrg = makeOrg({ scopeSet: { kind: 'groups', groupIds: ['group-alpha'] } });
+	calendarStore.goToMonth(2026, 8);
+	const groupType = { ...modType, id: 'group-duty', name: 'Group Duty', shortName: 'GD', assignTo: 'group' as const };
+	dailyAssignmentsStore.load([groupType], [], 'org-1');
+	groupCatalogHydration.load(
+		[
+			{ id: 'group-alpha', name: 'Alpha', sortOrder: 0 },
+			{ id: 'group-bravo', name: 'Bravo', sortOrder: 1 }
+		],
+		'org-1'
+	);
+	try {
+		renderPage();
+		await fireEvent.click(screen.getByRole('button', { name: /^Assign Group Duty, Tue 1 Sept?/ }));
+
+		expect(await screen.findByRole('option', { name: 'Alpha' })).toBeTruthy();
+		expect(screen.queryByRole('option', { name: 'Bravo' })).toBeNull();
+	} finally {
+		cleanup();
+	}
+});
+
 describe('planner conflicts', () => {
 	it('replaces a person assigned on a day they are unavailable and clears the conflict through the store', async () => {
 		mockOrg = makeOrg();

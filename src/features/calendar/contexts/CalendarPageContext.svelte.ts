@@ -1,4 +1,4 @@
-import type { Personnel } from '$features/personnel/contracts';
+import type { Group, Personnel } from '$features/personnel/contracts';
 import type { AvailabilityEntry } from '$features/calendar/contracts';
 import { buildAvailabilityTracks } from '$features/calendar/utils/availabilityTracks';
 import {
@@ -17,6 +17,7 @@ import { pinnedGroupsStore } from '$features/personnel';
 import { groupsStore } from '$features/personnel';
 import { createRosterReadModel } from '$features/personnel/contracts';
 import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
+import { groupsInScope } from '$lib/access/scopeSetAccess';
 import { loadCalendarRange } from '$features/calendar/utils/calendarRangeLoader';
 import { rangeCoversDate, rangeCoversSpan, type CalendarViewMode } from '$features/calendar/utils/calendarRange';
 import { dayWindow } from '$features/calendar/utils/dayNumber';
@@ -219,6 +220,10 @@ export class CalendarPageContext {
 
 	get allPersonnelFlat(): Personnel[] {
 		return this.#scopedRoster.flatPersonnel;
+	}
+
+	get scopedGroups(): Group[] {
+		return groupsInScope(groupsStore.items, this.#org.scopeSet);
 	}
 
 	get groupFilterOptions(): CalendarRosterFilterOption[] {

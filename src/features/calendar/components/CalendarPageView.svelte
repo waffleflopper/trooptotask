@@ -25,7 +25,6 @@
 	import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
 	import { pinnedGroupsStore } from '$features/personnel';
 	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
-	import { groupsStore } from '$features/personnel';
 
 	interface Props {
 		ctx: CalendarPageContext;
@@ -118,7 +117,7 @@
 			assignments: dailyAssignmentsStore.assignments,
 			specialDays: specialDaysStore.items,
 			personnel: ctx.allPersonnelFlat,
-			groups: groupsStore.items,
+			groups: ctx.scopedGroups,
 			actions: ctx.canManageAssignments
 				? {
 						// An open day offers no picker until its 90-day history has loaded.
@@ -164,7 +163,7 @@
 				type,
 				dateKey,
 				personnel: ctx.allPersonnelFlat,
-				groups: groupsStore.items,
+				groups: ctx.scopedGroups,
 				availabilityByPerson,
 				statusTypes: statusTypesStore.items,
 				history: dutyHistory,
@@ -407,7 +406,7 @@
 			assignmentTypes={dailyAssignmentsStore.types}
 			assignments={dailyAssignmentsStore.assignments}
 			personnelByGroup={ctx.personnelByGroup}
-			groups={groupsStore.items}
+			groups={ctx.scopedGroups}
 			onSetAssignment={(date, typeId, assigneeId) => dailyAssignmentsStore.setAssignment(date, typeId, assigneeId)}
 			onRemoveAssignment={(date, typeId) => dailyAssignmentsStore.removeAssignment(date, typeId)}
 			onClose={() => ctx.closeAssignmentModal()}

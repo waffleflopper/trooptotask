@@ -313,6 +313,27 @@ describe('CalendarPageContext', () => {
 		});
 	});
 
+	describe('scopedGroups', () => {
+		const mutableGroups = groupsStore as unknown as { items: { id: string; name: string; sortOrder: number }[] };
+
+		afterEach(() => {
+			mutableGroups.items = [];
+		});
+
+		it('offers a Group-scoped caller only the Groups in their scope, and an organization caller all of them', () => {
+			mutableGroups.items = [
+				{ id: 'g1', name: 'Alpha', sortOrder: 0 },
+				{ id: 'g2', name: 'Bravo', sortOrder: 1 }
+			];
+
+			const scoped = makeContext(mockData, makeMockOrg({ scopeSet: { kind: 'groups', groupIds: ['g2'] } }));
+			const unscoped = makeContext(mockData, makeMockOrg());
+
+			expect(scoped.scopedGroups.map((group) => group.name)).toEqual(['Bravo']);
+			expect(unscoped.scopedGroups.map((group) => group.name)).toEqual(['Alpha', 'Bravo']);
+		});
+	});
+
 	describe('handlePersonClick', () => {
 		it('opens the editor on today when Calendar operate policy allows availability changes', () => {
 			const operatorCtx = makeContext(mockData, makeMockOrg({ capabilityMap: operateCapabilities }), '2026-03-20');

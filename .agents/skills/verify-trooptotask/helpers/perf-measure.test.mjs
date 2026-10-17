@@ -163,7 +163,7 @@ test('statement totals add each window and keep calls per window', () => {
 	]);
 });
 
-test('planning counts show executions that reused a generic plan, and utility statements are not plannable', () => {
+test('planning counts are totalled per role, and utility statements are not plannable', () => {
 	const window = [
 		{ role: 'authenticated', queryid: '1', calls: 10, plans: 10, total_ms: 9, rows: 10, query: 'SELECT a FROM t' },
 		{

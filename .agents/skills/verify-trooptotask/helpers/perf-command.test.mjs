@@ -285,16 +285,34 @@ test('a contaminated sample is rejected and measured again, and a toggling write
 	assert.equal(result.attempts, 6);
 });
 
-test('a host that keeps contaminating samples stops the run instead of reporting them', async () => {
+test('a host that keeps contaminating samples stops the run, names every rejection and leaves a toggled write as seeded', async () => {
+	const calls = [];
 	await assert.rejects(
 		repeat(
 			{ database: async () => pinnedTables, host: hostWith([false, false, false, false, false, false]) },
-			{ warmup: '0', reps: '1' },
+			{ warmup: '1', reps: '1' },
 			'warm',
-			async () => ({ firstUsefulRenderMs: 1, statementRows: [] })
+			async (measure, index) => {
+				calls.push([measure, index]);
+				return { firstUsefulRenderMs: 1, statementRows: [] };
+			},
+			{ toggles: true }
 		),
-		{ message: '6 samples were contaminated: load 6 above 4.' }
+		{
+			message:
+				'6 samples were contaminated: attempt 1 (load 6 above 4), attempt 2 (load 6 above 4), attempt 3 (load 6 above 4), attempt 4 (load 6 above 4), attempt 5 (load 6 above 4), attempt 6 (load 6 above 4).'
+		}
 	);
+	assert.deepEqual(calls, [
+		[false, 0],
+		[true, 1],
+		[true, 2],
+		[true, 3],
+		[true, 4],
+		[true, 5],
+		[true, 6],
+		[false, 7]
+	]);
 });
 
 test('a run on an unpinned plan regime does not start', async () => {

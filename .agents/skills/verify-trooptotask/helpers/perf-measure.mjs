@@ -383,8 +383,11 @@ export function serverTimingPhases(samples) {
 }
 
 // Utility statements (BEGIN, SET, COMMIT) are never planned. Every other execution is planned
-// when a custom plan is used and not when a cached generic plan is, so `plans` below
-// `plannableCalls` means some executions reused a generic plan.
+// when a custom plan is used and not when a cached generic plan is. PostgREST plans its
+// `set_config` preamble while the session is still `authenticator` and runs it as the request
+// role, so those plans count on an `authenticator` row with no calls. Compare the totals across
+// the request roles and `authenticator`: fewer plans than plannable calls there means some
+// executions reused a generic plan.
 const plannable = (row) => /^\s*(select|with|insert|update|delete)\b/i.test(row.query);
 
 /**

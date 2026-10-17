@@ -460,7 +460,8 @@ function summarize(samples, interaction) {
 // and after the last sample, so a run that autovacuum or autoanalyze crossed says so, and a run
 // on an unpinned regime does not start. Each measured sample starts on a clear host and is
 // watched while it runs; a contaminated one is recorded as rejected and measured again. Write
-// journeys that alternate on the sample index end on an even attempt count, as seeded.
+// journeys that alternate on the sample index end on an even attempt count, as seeded, also when
+// too many rejections stop the run.
 export async function repeat(ctx, options, mode, once, { toggles = false } = {}) {
 	const defaults = protocol.defaults[mode] ?? protocol.defaults.warm;
 	const warmup = count(options.warmup, defaults.warmup, '--warmup');
@@ -485,8 +486,11 @@ export async function repeat(ctx, options, mode, once, { toggles = false } = {})
 		if (host.clean) samples.push({ ...sample, host });
 		else {
 			rejected.push({ attempt: attempt - 1, firstUsefulRenderMs: sample.firstUsefulRenderMs, host });
-			if (rejected.length > maxRejections)
-				throw new Error(`${rejected.length} samples were contaminated: ${host.reasons.join('; ')}.`);
+			if (rejected.length > maxRejections) {
+				if (toggles && attempt % 2) await once(false, attempt++);
+				const reasons = rejected.map((item) => `attempt ${item.attempt} (${item.host.reasons.join('; ')})`);
+				throw new Error(`${rejected.length} samples were contaminated: ${reasons.join(', ')}.`);
+			}
 		}
 	}
 	if (toggles && attempt % 2) await once(false, attempt++);

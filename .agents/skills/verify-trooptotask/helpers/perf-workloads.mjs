@@ -271,7 +271,7 @@ export function expandWorkload(name, { anchor, owner, scoped, members }) {
 				color: palette[index],
 				sort_order: index,
 				exempt_personnel_ids: [],
-				show_in_date_header: index === 0
+				show_on_calendar: index === 0
 			})
 		);
 	rows.training_types = Array.from({ length: shape.trainingTypes }, (_, index) =>

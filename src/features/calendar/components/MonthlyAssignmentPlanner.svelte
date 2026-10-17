@@ -353,6 +353,7 @@
 {#if picker}
 	{#key picker.anchor}
 		<DutyPicker
+			typeId={picker.type.id}
 			typeName={picker.type.name}
 			assignTo={picker.type.assignTo}
 			date={picker.date}

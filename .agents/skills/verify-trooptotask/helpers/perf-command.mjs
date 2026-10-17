@@ -39,9 +39,11 @@ $V perf trace PAGE WORKLOAD JOURNEY ACTOR --out RUN [--profile NAME]
                                            One cold traced load to network idle; raw trace plus a summary
 $V perf statements reset|read [--top N] [--out FILE]   pg_stat_statements on the owned database
 $V perf explain NAME WORKLOAD wide|scoped [--out FILE] EXPLAIN (ANALYZE, BUFFERS) a named statement as the actor
-$V perf prepare                            VACUUM (ANALYZE) every table a workload seed writes; seed workload runs it
-$V perf tables [--out FILE]                Vacuum, analyze and visibility state of those tables; every run records
-                                           it before its warm-up and after its last sample
+$V perf prepare                            VACUUM (ANALYZE) every table a workload seed writes, then pin custom plans
+                                           on every PostgREST connection; seed workload runs it
+$V perf tables [--out FILE]                Vacuum, analyze and visibility state of those tables and the plan regime
+                                           readback; every run records both before its warm-up and after its last
+                                           sample, and refuses to start on an unpinned regime
 $V perf summarize RUN                      Distribution table over every run file below RUN
 
 JOURNEY (kind, effect, actors; cold only where marked): ${Object.entries(journeys)
@@ -454,23 +456,54 @@ function summarize(samples, interaction) {
 }
 
 // A warm-up sample prepares the page and server; only measured samples open a query window.
-// The workload tables' vacuum and analyze state is read before the warm-up and after the last
-// sample, so a run that autovacuum or autoanalyze crossed says so.
-async function repeat(ctx, options, mode, once) {
+// The workload tables' vacuum and analyze state and the plan regime are read before the warm-up
+// and after the last sample, so a run that autovacuum or autoanalyze crossed says so, and a run
+// on an unpinned regime does not start. Each measured sample starts on a clear host and is
+// watched while it runs; a contaminated one is recorded as rejected and measured again. Write
+// journeys that alternate on the sample index end on an even attempt count, as seeded.
+export async function repeat(ctx, options, mode, once, { toggles = false } = {}) {
 	const defaults = protocol.defaults[mode] ?? protocol.defaults.warm;
 	const warmup = count(options.warmup, defaults.warmup, '--warmup');
 	const repetitions = count(options.reps, defaults.repetitions, '--reps', 1);
-	const before = (await ctx.database('perf-tables')).tables;
-	for (let index = 0; index < warmup; index++) await once(false, index);
+	const before = await ctx.database('perf-tables');
+	if (!before.planCache?.pinned)
+		throw new Error('The plan regime is not pinned on every PostgREST connection; run perf prepare.');
+	let attempt = 0;
+	for (; attempt < warmup; attempt++) await once(false, attempt);
 	const samples = [];
-	for (let index = 0; index < repetitions; index++) samples.push(await once(true, warmup + index));
-	const after = (await ctx.database('perf-tables')).tables;
+	const rejected = [];
+	while (samples.length < repetitions) {
+		const waitedMs = await ctx.host.clear();
+		const watch = await ctx.host.watch();
+		let sample;
+		let host;
+		try {
+			sample = await once(true, attempt++);
+		} finally {
+			host = { waitedMs, ...(await watch.stop()) };
+		}
+		if (host.clean) samples.push({ ...sample, host });
+		else {
+			rejected.push({ attempt: attempt - 1, firstUsefulRenderMs: sample.firstUsefulRenderMs, host });
+			if (rejected.length > maxRejections)
+				throw new Error(`${rejected.length} samples were contaminated: ${host.reasons.join('; ')}.`);
+		}
+	}
+	if (toggles && attempt % 2) await once(false, attempt++);
+	const after = await ctx.database('perf-tables');
 	const windows = samples.map((sample) => sample.statementRows);
 	const statements = { ...statementTotals(windows), byCategory: statementCategories(windows) };
 	return {
 		warmup,
 		repetitions,
-		tables: { before, after, maintenance: maintenanceDuring(before, after) },
+		attempts: attempt,
+		rejected,
+		tables: {
+			before: before.tables,
+			after: after.tables,
+			maintenance: maintenanceDuring(before.tables, after.tables),
+			planCache: { before: before.planCache, after: after.planCache }
+		},
 		samples: samples.map(({ statementRows, ...sample }) => ({
 			...sample,
 			statementsByRole: statementTotals([statementRows], 0).byRole
@@ -478,6 +511,8 @@ async function repeat(ctx, options, mode, once) {
 		statements
 	};
 }
+
+const maxRejections = 5;
 
 async function openStatements(ctx, measure) {
 	if (measure) await ctx.database('perf-statements', 'reset');
@@ -503,6 +538,8 @@ async function record(ctx, run, out, mode, result, profileName) {
 		profile: { name: profileName, ...profiles[profileName] },
 		warmup: result.warmup,
 		repetitions: result.repetitions,
+		attempts: result.attempts,
+		rejected: result.rejected,
 		milestones: result.milestones,
 		...(result.resets ? { resets: result.resets } : {}),
 		summary,
@@ -526,7 +563,9 @@ async function record(ctx, run, out, mode, result, profileName) {
 		networkRequests: summary.networkRequests,
 		failedRequests: summary.failedRequests,
 		transferBytes: summary.transferBytes,
-		maintenance: result.tables.maintenance
+		maintenance: result.tables.maintenance,
+		planCache: result.tables.planCache.after.mode,
+		rejected: result.rejected.length
 	};
 }
 
@@ -652,7 +691,7 @@ async function interaction(ctx, positional, options) {
 				document: before.document
 			});
 		};
-		const result = await repeat(ctx, options, 'warm', once);
+		const result = await repeat(ctx, options, 'warm', once, { toggles: run.journey.toggles });
 		return record(
 			ctx,
 			run,
@@ -781,6 +820,8 @@ async function summarizeRun(ctx, directory) {
 		statementsByRole: run.statements.byRole,
 		statementsByCategory: run.statements.byCategory,
 		maintenance: run.tables?.maintenance ?? null,
+		planCache: run.tables?.planCache?.after?.mode ?? 'not recorded',
+		rejected: run.rejected?.length ?? 0,
 		topStatementsByCalls: run.statements.byCalls.slice(0, 3).map(({ role, calls, callsPerWindow, mean_ms, query }) => ({
 			role,
 			calls,
@@ -790,8 +831,8 @@ async function summarizeRun(ctx, directory) {
 		}))
 	}));
 	const table = [
-		'| Workload | Actor | Journey | Mode | Profile | n | First useful render ms | Settled incl. reloads ms | Document complete ms | TTFB ms | Resource entries | Network requests | Failed | Transfer bytes | JS bytes | Data bytes | Document bytes | Vacuum or analyze during run |',
-		'| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+		'| Workload | Actor | Journey | Mode | Profile | n | First useful render ms | Settled incl. reloads ms | Document complete ms | TTFB ms | Resource entries | Network requests | Failed | Transfer bytes | JS bytes | Data bytes | Document bytes | Vacuum or analyze during run | Plan regime | Rejected samples |',
+		'| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
 		...rows
 			.map((row) =>
 				[
@@ -814,7 +855,9 @@ async function summarizeRun(ctx, directory) {
 					range(row.documentTransferBytes),
 					row.maintenance === null
 						? 'not recorded'
-						: row.maintenance.map(({ table, ...counts }) => `${table} ${JSON.stringify(counts)}`).join('; ') || 'none'
+						: row.maintenance.map(({ table, ...counts }) => `${table} ${JSON.stringify(counts)}`).join('; ') || 'none',
+					row.planCache,
+					row.rejected
 				].join(' | ')
 			)
 			.map((line) => `| ${line} |`)

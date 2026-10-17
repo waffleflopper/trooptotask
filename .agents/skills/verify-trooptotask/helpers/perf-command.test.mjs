@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { gunzipSync, gzipSync } from 'node:zlib';
 import { test } from 'node:test';
-import { assertPageBound, controlUid, count, journeyTerms, perfCommand, step } from './perf-command.mjs';
+import { assertPageBound, controlUid, count, journeyTerms, perfCommand, repeat, step } from './perf-command.mjs';
 
 const perfPages = { 3: 'perfWide' };
 
@@ -233,6 +233,82 @@ test('a journey outside the cold set is refused cold before any browser call', a
 	);
 });
 
+const pinnedTables = { tables: [], planCache: { mode: 'force_custom_plan', pinned: true } };
+const quietHost = {
+	clear: async () => 0,
+	watch: async () => ({ stop: async () => ({ clean: true, load1Max: 1, otherCpuPercent: 0, reasons: [] }) })
+};
+
+function hostWith(verdicts) {
+	return {
+		clear: async () => 0,
+		watch: async () => ({
+			stop: async () => {
+				const clean = verdicts.shift();
+				return { clean, load1Max: clean ? 1 : 6, otherCpuPercent: 0, reasons: clean ? [] : ['load 6 above 4'] };
+			}
+		})
+	};
+}
+
+test('a contaminated sample is rejected and measured again, and a toggling write ends on an even attempt', async () => {
+	const calls = [];
+	const result = await repeat(
+		{ database: async () => pinnedTables, host: hostWith([false, false, true, true]) },
+		{ warmup: '1', reps: '2' },
+		'warm',
+		async (measure, index) => {
+			calls.push([measure, index]);
+			return { firstUsefulRenderMs: 100 + index, statementRows: [] };
+		},
+		{ toggles: true }
+	);
+	assert.deepEqual(calls, [
+		[false, 0],
+		[true, 1],
+		[true, 2],
+		[true, 3],
+		[true, 4],
+		[false, 5]
+	]);
+	assert.deepEqual(
+		result.samples.map((sample) => sample.firstUsefulRenderMs),
+		[103, 104]
+	);
+	assert.deepEqual(
+		result.rejected.map((item) => [item.attempt, item.firstUsefulRenderMs, item.host.reasons]),
+		[
+			[1, 101, ['load 6 above 4']],
+			[2, 102, ['load 6 above 4']]
+		]
+	);
+	assert.equal(result.attempts, 6);
+});
+
+test('a host that keeps contaminating samples stops the run instead of reporting them', async () => {
+	await assert.rejects(
+		repeat(
+			{ database: async () => pinnedTables, host: hostWith([false, false, false, false, false, false]) },
+			{ warmup: '0', reps: '1' },
+			'warm',
+			async () => ({ firstUsefulRenderMs: 1, statementRows: [] })
+		),
+		{ message: '6 samples were contaminated: load 6 above 4.' }
+	);
+});
+
+test('a run on an unpinned plan regime does not start', async () => {
+	await assert.rejects(
+		repeat(
+			{ database: async () => ({ tables: [], planCache: { mode: 'auto', pinned: false } }), host: quietHost },
+			{},
+			'warm',
+			async () => assert.fail('no sample on an unpinned regime')
+		),
+		{ message: 'The plan regime is not pinned on every PostgREST connection; run perf prepare.' }
+	);
+});
+
 test('a slow document keeps its observer and closes its query window only when it ends', async () => {
 	const repository = await fs.mkdtemp(path.join(os.tmpdir(), 'perf-document-'));
 	const evidenceRoot = path.join(repository, '.verification', 'evidence');
@@ -251,10 +327,11 @@ test('a slow document keeps its observer and closes its query window only when i
 		isUnderEvidence: async (file, root) => file.startsWith(root + path.sep),
 		text: (reply) => reply.text ?? '',
 		database: async (name, action) => {
-			if (name === 'perf-tables') return { tables: [] };
+			if (name === 'perf-tables') return pinnedTables;
 			events.push(`statements ${action}`);
 			return { statements: [] };
 		},
+		host: quietHost,
 		evaluate: async (_pageId, source) => {
 			if (source.startsWith("() => performance.getEntriesByType('resource')")) return [];
 			if (source.includes('responseEnd ?? 0')) {

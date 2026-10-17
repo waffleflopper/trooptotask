@@ -2,8 +2,9 @@
 // whether it is a load or an input, whether it writes, and the milestones the observer waits
 // for. An interaction opens its page, waits for `ready`, runs the untimed `prepare` steps and
 // times one native `trigger` step to its milestones. `sample` is the 0-based sample index
-// across the warm-up and repetitions; write journeys alternate on it so each sample reverses
-// the one before and an even sample count leaves the workload as seeded.
+// across the warm-up and repetitions, rejected samples included; `toggles` write journeys
+// alternate on it so each sample reverses the one before and an even count leaves the
+// workload as seeded.
 //
 // A milestone is reached on the first animation frame where every `present` text is in the
 // document, at least one `anyPresent` text is, every `absent` text is gone, the first element
@@ -113,6 +114,7 @@ export const journeys = {
 		area: 'calendar',
 		kind: 'interaction',
 		effect: 'write',
+		toggles: true,
 		actors: both,
 		path: (terms) => org(terms, '/calendar/assignments'),
 		ready: () => [{ name: 'ready', present: ['Assignment Planner'], presentSelector: ['[aria-label^="Select "]'] }],
@@ -187,6 +189,7 @@ export const journeys = {
 		area: 'personnel',
 		kind: 'interaction',
 		effect: 'write',
+		toggles: true,
 		actors: both,
 		path: (terms) => org(terms, '/personnel'),
 		ready: (terms) => [{ name: 'ready', ...roster(terms) }],
@@ -211,6 +214,7 @@ export const journeys = {
 		area: 'personnel',
 		kind: 'interaction',
 		effect: 'write',
+		toggles: true,
 		actors: detailActors,
 		path: (terms) => org(terms, '/personnel'),
 		ready: (terms) => [{ name: 'ready', ...roster(terms) }],

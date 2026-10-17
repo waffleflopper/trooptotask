@@ -32,6 +32,7 @@ import { probeAdmission } from './admission-probe.mjs';
 import { seedPersonnelRetention, readRetentionFiles } from './personnel-retention.mjs';
 import { seedArtifactRetention } from './artifact-retention.mjs';
 import { seedMaintenance, readMaintenance } from './maintenance-fixtures.mjs';
+import { hostMonitor } from './perf-host.mjs';
 import { seedOnboarding } from './onboarding-fixtures.mjs';
 import { seedAudit } from './audit-fixtures.mjs';
 import { seedDashboard, seedDashboardCurrency, seedDashboardOverflow } from './dashboard-fixtures.mjs';
@@ -3061,7 +3062,8 @@ async function main() {
 				save,
 				provider,
 				credentials: (role) => ({ email: fixture.actors[role].email, password: fixture.actors[role].password }),
-				database: perfDatabase
+				database: perfDatabase,
+				host: hostMonitor([repository, path.dirname(session)])
 			})
 		);
 		return;

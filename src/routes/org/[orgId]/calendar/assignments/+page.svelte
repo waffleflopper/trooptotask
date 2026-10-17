@@ -53,7 +53,7 @@
 </script>
 
 <svelte:head>
-	<title>Assignment Planner - Troop to Task</title>
+	<title>Duty planner - Troop to Task</title>
 </svelte:head>
 
 {#if loadError}

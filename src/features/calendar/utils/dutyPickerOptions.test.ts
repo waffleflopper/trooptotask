@@ -24,7 +24,7 @@ function leave(personnelId: string, startDate: string, endDate: string): Availab
 }
 
 function duty(id: string, date: string, assigneeId: string, assignmentTypeId = 'sd'): DailyAssignment {
-	return { id, organizationId: 'org', date, assignmentTypeId, assigneeId };
+	return { id, date, assignmentTypeId, assigneeId };
 }
 
 const roster = [

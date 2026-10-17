@@ -3,7 +3,7 @@ import type { AssignmentType, AvailabilityEntry, DailyAssignment } from '$featur
 import { findDutyConflicts, indexDutyAvailability, indexDutyHistory, lastDutyBefore } from './dutyReadModel';
 
 function duty(id: string, date: string, assigneeId: string, assignmentTypeId = 'cq'): DailyAssignment {
-	return { id, organizationId: 'org', date, assignmentTypeId, assigneeId };
+	return { id, date, assignmentTypeId, assigneeId };
 }
 
 function entry(id: string, personnelId: string, startDate: string, endDate: string): AvailabilityEntry {

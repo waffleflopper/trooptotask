@@ -70,9 +70,7 @@ it('loads the visible month for the shell Organization from a streamed, differen
 			}
 		}
 	});
-	expect(
-		(await screen.findByRole('button', { name: 'Select Staff Duty assignee for 2026-09-22' })).textContent
-	).toContain('Smith');
+	expect(await screen.findByRole('button', { name: /^Staff Duty, Tue 22 Sept?: SGT Smith, Alex/ })).toBeTruthy();
 	expect(fetchRange).toHaveBeenCalledWith('/org/org-1/api/calendar-range?rangeStart=2026-06-03&rangeEnd=2026-09-30');
 });
 

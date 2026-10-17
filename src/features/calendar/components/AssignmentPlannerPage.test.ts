@@ -3,22 +3,16 @@ import { createClientAccess, type ClientAccessFacts } from '$lib/access/clientAc
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { fireEvent, render, screen, cleanup, waitFor, act, within } from '@testing-library/svelte';
-import { stubToolbarWidths } from '$lib/test-support/toolbarWidths';
 import AssignmentPlannerPage from './AssignmentPlannerPage.svelte';
 import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
+import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
+import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { groupCatalogHydration } from '$features/personnel';
 import type { CalendarOperationsPageAccess } from '../contracts';
 import type { Personnel } from '$features/personnel/contracts';
 import type { AssignmentType } from '$features/calendar/contracts';
-
-const gotoMock = vi.hoisted(() => vi.fn());
-
-vi.mock('$app/navigation', async (importOriginal) => ({
-	...(await importOriginal<typeof import('$app/navigation')>()),
-	goto: gotoMock
-}));
 
 function makeOrg(overrides: Partial<ClientAccessFacts> = {}) {
 	return {
@@ -115,68 +109,14 @@ describe('AssignmentPlannerPage', () => {
 	afterEach(() => {
 		cleanup();
 		vi.unstubAllGlobals();
-		gotoMock.mockClear();
 	});
 
-	it('names the planner in its page header and links back to Calendar from the toolbar', () => {
+	it('names the planner and links back to Calendar', () => {
 		renderPage();
 
-		expect(screen.getByRole('heading', { level: 1, name: 'Assignment Planner' })).toBeTruthy();
-		expect(screen.getByText('Manual monthly coverage planning')).toBeTruthy();
-		expect(screen.getByRole('toolbar', { name: 'Assignment planner controls' })).toBeTruthy();
+		expect(screen.getByRole('heading', { level: 1, name: 'Duty planner' })).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'Back to calendar' }).getAttribute('href')).toBe('/org/org-1/calendar');
 		expect(screen.queryByRole('link', { name: 'Duty Rosters' })).toBeNull();
-		expect(screen.getByRole('link', { name: 'Calendar' }).getAttribute('href')).toBe('/org/org-1/calendar');
-		expect(screen.getByText('Quick Fill')).toBeTruthy();
-		expect(screen.queryByRole('dialog')).toBeNull();
-	});
-
-	it('opens Calendar from More when the row folds', async () => {
-		const { layOut } = stubToolbarWidths();
-		renderPage();
-		await layOut(1);
-
-		const toolbar = screen.getByRole('toolbar', { name: 'Assignment planner controls' });
-		expect(within(toolbar).queryByRole('link', { name: 'Calendar' })).toBeNull();
-		const more = within(toolbar).getByRole('button', { name: 'More Assignment planner controls' });
-		more.focus();
-		await fireEvent.keyDown(more, { key: 'Enter' });
-		await fireEvent.click(within(await screen.findByRole('menu')).getByRole('menuitem', { name: 'Calendar' }));
-
-		await waitFor(() => expect(gotoMock).toHaveBeenCalledWith('/org/org-1/calendar'));
-	});
-
-	it('shows all personnel in searchable assignment dropdowns regardless of assignment type shortName', async () => {
-		dailyAssignmentsStore.load([modType], [], 'org-1');
-
-		renderPage({
-			orgId: 'org-1',
-			orgName: 'Test Org',
-			personnel,
-			allPersonnel: personnel
-		});
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Select assignment type' }));
-		await fireEvent.click(screen.getByRole('option', { name: 'MOD - Manager on Duty' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Select quick-fill person' }));
-
-		const optionTexts = screen.getAllByRole('option').map((o) => o.textContent?.trim());
-
-		expect(optionTexts).toContain('SGT Smith, Alex - Alpha');
-		expect(optionTexts).toContain('CPT Taylor, Jamie - Alpha');
-	});
-
-	it('does not show a MOD-specific filter hint for any assignment type', () => {
-		dailyAssignmentsStore.load([modType], [], 'org-1');
-
-		renderPage({
-			orgId: 'org-1',
-			orgName: 'Test Org',
-			personnel,
-			allPersonnel: personnel
-		});
-
-		expect(screen.queryByText(/only personnel with MOS/i)).toBeNull();
-		expect(screen.queryByText(/PA or MD/i)).toBeNull();
 	});
 
 	it('shows access restricted when the user cannot manage calendar assignments', () => {
@@ -198,9 +138,7 @@ describe('AssignmentPlannerPage', () => {
 			allPersonnel: personnel
 		});
 
-		expect(screen.getAllByRole('heading', { level: 1 }).map((h) => h.textContent?.trim())).toEqual([
-			'Assignment Planner'
-		]);
+		expect(screen.getAllByRole('heading', { level: 1 }).map((h) => h.textContent?.trim())).toEqual(['Duty planner']);
 		expect(screen.getByRole('heading', { level: 2, name: 'Access restricted.' })).toBeTruthy();
 		expect(screen.getByText(/Calendar operation access is required to manage monthly assignments\./)).toBeTruthy();
 	});
@@ -224,16 +162,16 @@ describe('AssignmentPlannerPage', () => {
 			allPersonnel: personnel
 		});
 
-		expect(screen.getByText('Quick Fill')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Charge of Quarters column actions' })).toBeTruthy();
 		expect(screen.queryByText('Access restricted.')).toBeNull();
 	});
 });
 
-it('offers each Group and assignment type once and saves monthly and quick-fill choices by ID', async () => {
+it('saves a Group duty chosen in a cell or the column menu by the Group id', async () => {
 	mockOrg = makeOrg();
 	calendarStore.goToMonth(2026, 8);
 	const groupType = { ...modType, id: 'group-duty', name: 'Group Duty', shortName: 'GD', assignTo: 'group' as const };
-	dailyAssignmentsStore.load([groupType, modType], [], 'org-1');
+	dailyAssignmentsStore.load([groupType], [], 'org-1');
 	groupCatalogHydration.load(
 		[
 			{ id: 'group-alpha', name: 'Alpha Renamed', sortOrder: 0 },
@@ -256,28 +194,66 @@ it('offers each Group and assignment type once and saves monthly and quick-fill 
 	);
 	try {
 		renderPage();
-		await fireEvent.click(screen.getAllByRole('button', { name: /^Select Group Duty group for/ })[0]);
-		expect(screen.getByRole('option', { name: 'Bravo' })).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: /^Assign Group Duty, Tue 1 Sept?/ }));
+		expect(await screen.findByRole('option', { name: 'Bravo' })).toBeTruthy();
 		await fireEvent.click(screen.getByRole('option', { name: 'Alpha Renamed' }));
+		await waitFor(() => expect(saved).toHaveLength(1));
 		expect(saved[0]).toMatchObject({ assignmentTypeId: 'group-duty', assigneeId: 'group-alpha' });
-		await fireEvent.click(screen.getByRole('button', { name: 'Select assignment type' }));
-		expect(screen.getByRole('option', { name: 'MOD - Manager on Duty' })).toBeTruthy();
-		await fireEvent.click(screen.getByRole('option', { name: 'GD - Group Duty' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Select quick-fill group' }));
-		expect(screen.getByRole('option', { name: 'Bravo' })).toBeTruthy();
-		await fireEvent.click(screen.getByRole('option', { name: 'Alpha Renamed' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Group Duty column actions' }));
+		await fireEvent.change(await screen.findByLabelText('Assignee'), { target: { value: 'group-bravo' } });
+		await fireEvent.click(screen.getByRole('button', { name: /^Fill \d+ days$/ }));
+		await waitFor(() => expect(saved.some((payload) => Array.isArray(payload.records))).toBe(true));
 		const batch = saved.find((payload) => Array.isArray(payload.records));
-		expect(batch?.records).toEqual(
-			expect.arrayContaining([expect.objectContaining({ assigneeId: 'group-alpha', assignmentTypeId: 'group-duty' })])
-		);
-		expect((batch?.records as Array<{ assigneeId: string }>).every((row) => row.assigneeId === 'group-alpha')).toBe(
-			true
-		);
+		const rows = batch?.records as Array<{ assigneeId: string; assignmentTypeId: string }>;
+		expect(rows.length).toBeGreaterThan(0);
+		expect(rows.every((row) => row.assigneeId === 'group-bravo' && row.assignmentTypeId === 'group-duty')).toBe(true);
 	} finally {
 		cleanup();
 		vi.unstubAllGlobals();
 	}
+});
+
+describe('planner conflicts', () => {
+	it('replaces a person assigned on a day they are unavailable and clears the conflict through the store', async () => {
+		mockOrg = makeOrg();
+		calendarStore.goToMonth(2026, 8);
+		dailyAssignmentsStore.load(
+			assignmentTypes,
+			[{ id: 'a-1', date: '2026-09-22', assignmentTypeId: 'type-1', assigneeId: 'person-1' }],
+			'org-1'
+		);
+		statusTypesStore.load(
+			[{ id: 'leave', name: 'Leave', color: '#0a0', textColor: '#fff', shortLabel: null, sortOrder: 0 }],
+			'org-1'
+		);
+		availabilityStore.load(
+			[{ id: 'e-1', personnelId: 'person-1', statusTypeId: 'leave', startDate: '2026-09-21', endDate: '2026-09-23' }],
+			'org-1'
+		);
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (_url, init) => {
+				const payload = JSON.parse(init.body);
+				return Response.json({ id: 'a-1', ...payload });
+			})
+		);
+		try {
+			renderPage();
+			const panel = screen.getByRole('region', { name: /Conflicts/ });
+			await fireEvent.click(
+				await within(panel).findByRole('button', { name: /^Find replacement for Charge of Quarters, Tue 22 Sept?/ })
+			);
+			await fireEvent.click(await screen.findByRole('option', { name: /Taylor, Jamie/ }));
+
+			await waitFor(() => expect(screen.queryByRole('button', { name: /^Find replacement/ })).toBeNull());
+			expect(screen.getByRole('button', { name: /^Charge of Quarters, Tue 22 Sept?: CPT Taylor, Jamie/ })).toBeTruthy();
+		} finally {
+			cleanup();
+			vi.unstubAllGlobals();
+			availabilityStore.load([], 'org-1');
+		}
+	});
 });
 
 describe('planner visible-month loading', () => {
@@ -297,7 +273,6 @@ describe('planner visible-month loading', () => {
 	};
 	const saved = {
 		id: 'saved-september',
-		organizationId: 'org-1',
 		date: '2026-09-22',
 		assignmentTypeId: 'type-1',
 		assigneeId: 'person-1'
@@ -323,17 +298,34 @@ describe('planner visible-month loading', () => {
 			)
 		);
 		renderPage(staleBootstrap);
-		expect(screen.queryByRole('button', { name: 'Select Charge of Quarters assignee for 2026-09-22' })).toBeNull();
-		expect(screen.queryByRole('button', { name: 'Apply' })).toBeNull();
-		expect(screen.queryByRole('button', { name: 'Clear all Charge of Quarters' })).toBeNull();
+		expect(screen.queryByRole('button', { name: /^Assign Charge of Quarters/ })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Charge of Quarters column actions' })).toBeNull();
 		await waitFor(() => expect(resolve).toBeTypeOf('function'));
 		resolve(response());
 		await waitFor(() =>
-			expect(
-				screen.getByRole('button', { name: 'Select Charge of Quarters assignee for 2026-09-22' }).textContent
-			).toContain('Smith')
+			expect(screen.getByRole('button', { name: /^Charge of Quarters, Tue 22 Sept?: SGT Smith, Alex/ })).toBeTruthy()
 		);
 		expect(document.cookie).toContain('ttt-calendar-anchor-date=2026-09-01');
+	});
+	it('keeps the month non-editable until the 90-day lookback before it is loaded', async () => {
+		let resolve!: (value: Response) => void;
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(
+				() =>
+					new Promise<Response>((r) => {
+						resolve = r;
+					})
+			)
+		);
+		renderPage({
+			orgId: 'org-1',
+			calendar: { data: { personnel, rangeStart: '2026-09-01', rangeEnd: '2026-10-31' } }
+		});
+		await waitFor(() => expect(resolve).toBeTypeOf('function'));
+		expect(screen.queryByRole('button', { name: /^Assign Charge of Quarters/ })).toBeNull();
+		resolve(response([], '2026-06-03', '2026-08-31'));
+		expect(await screen.findByRole('button', { name: /^Assign Charge of Quarters, Tue 22 Sept?/ })).toBeTruthy();
 	});
 	it('keeps failed dates non-editable and recovers the saved slot on explicit retry', async () => {
 		vi.stubGlobal(
@@ -345,14 +337,11 @@ describe('planner visible-month loading', () => {
 		);
 		renderPage(staleBootstrap);
 		const retry = await screen.findByRole('button', { name: 'Retry calendar load' });
-		expect(screen.queryByRole('button', { name: 'Apply' })).toBeNull();
-		expect(screen.queryByRole('button', { name: 'Clear all Charge of Quarters' })).toBeNull();
-		expect(screen.queryByRole('button', { name: 'Select Charge of Quarters assignee for 2026-09-22' })).toBeNull();
+		expect(screen.queryByRole('button', { name: /^Assign Charge of Quarters/ })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Charge of Quarters column actions' })).toBeNull();
 		await fireEvent.click(retry);
 		await waitFor(() =>
-			expect(
-				screen.getByRole('button', { name: 'Select Charge of Quarters assignee for 2026-09-22' }).textContent
-			).toContain('Smith')
+			expect(screen.getByRole('button', { name: /^Charge of Quarters, Tue 22 Sept?: SGT Smith, Alex/ })).toBeTruthy()
 		);
 	});
 	it('loads far-month assignments after navigation and ignores a superseded response', async () => {
@@ -370,14 +359,12 @@ describe('planner visible-month loading', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Next month' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Next month' }));
 		await waitFor(() => expect(pending).toHaveLength(1));
-		expect(screen.queryByRole('button', { name: 'Clear all Charge of Quarters' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Charge of Quarters column actions' })).toBeNull();
 		await fireEvent.click(screen.getByRole('button', { name: 'Next month' }));
 		await waitFor(() => expect(pending).toHaveLength(2));
 		pending[1](response([{ ...saved, id: 'saved-december', date: '2026-12-31' }], '2026-11-01', '2026-12-31'));
 		await waitFor(() =>
-			expect(
-				screen.getByRole('button', { name: 'Select Charge of Quarters assignee for 2026-12-31' }).textContent
-			).toContain('Smith')
+			expect(screen.getByRole('button', { name: 'Charge of Quarters, Thu 31 Dec: SGT Smith, Alex' })).toBeTruthy()
 		);
 		await act(async () => {
 			pending[0](
@@ -415,8 +402,6 @@ describe('planner visible-month loading', () => {
 		});
 		expect(dailyAssignmentsStore.orgId).toBe('org-2');
 		expect(dailyAssignmentsStore.assignments.map((row) => row.id)).toEqual(['other-org']);
-		expect(
-			screen.getByRole('button', { name: 'Select Charge of Quarters assignee for 2026-09-22' }).textContent
-		).toContain('Taylor');
+		expect(screen.getByRole('button', { name: /^Charge of Quarters, Tue 22 Sept?: CPT Taylor, Jamie/ })).toBeTruthy();
 	});
 });

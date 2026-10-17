@@ -8,7 +8,7 @@ import { findDutyConflicts, indexDutyAvailability } from './dutyReadModel';
 const october = new Date(2026, 9, 1);
 
 function assignment(date: string, assignmentTypeId: string, assigneeId: string): DailyAssignment {
-	return { id: `${date}-${assignmentTypeId}`, organizationId: 'org', date, assignmentTypeId, assigneeId };
+	return { id: `${date}-${assignmentTypeId}`, date, assignmentTypeId, assigneeId };
 }
 
 function type(id: string, overrides: Partial<AssignmentType> = {}): AssignmentType {

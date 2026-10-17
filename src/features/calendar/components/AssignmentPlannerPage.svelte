@@ -1,6 +1,7 @@
 <script lang="ts">
 	import * as PageShell from '$lib/components/patterns/page-shell';
-	import { WorkspaceToolbar, type ToolbarItem } from '$lib/components/patterns/workspace-toolbar';
+	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
+	import { Button } from '$lib/components/ui/button';
 	import { CalendarRangeCoordinator } from '../contexts/CalendarRangeCoordinator.svelte';
 	import { calendarReadRange } from '../utils/calendarRange';
 	import { buildCalendarAnchorCookie } from '../utils/calendarAnchorDate';
@@ -10,6 +11,10 @@
 	import { groupsStore } from '$features/personnel';
 	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 	import { calendarStore } from '$features/calendar/stores/calendar.svelte';
+	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
+	import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
+	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
+	import CalendarPeriodNavigation from './CalendarPeriodNavigation.svelte';
 	import { createRosterReadModel } from '$features/personnel/contracts';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import type { Personnel } from '$features/personnel/contracts';
@@ -72,14 +77,26 @@
 		}).scoped(org.scopeSet, { status: 'active' })
 	);
 	const scopedPBG = $derived(rosterView.personnelByGroup);
-	const toolbarItems = $derived<ToolbarItem[]>([
-		{ kind: 'action', id: 'calendar', label: 'Calendar', href: `/org/${orgUrlSegment}/calendar` }
-	]);
+	let batchBusy = $state(false);
 </script>
 
+{#snippet headerControls()}
+	{#if canMutate}
+		<CalendarPeriodNavigation
+			view="month"
+			anchor={calendarStore.currentDate}
+			disabled={batchBusy}
+			onAnchorChange={(anchor) => calendarStore.goToMonth(anchor.getFullYear(), anchor.getMonth())}
+		/>
+	{/if}
+	<Button variant="outline" size="sm" href={`/org/${orgUrlSegment}/calendar`}>
+		<ArrowLeftIcon aria-hidden="true" />
+		Back to calendar
+	</Button>
+{/snippet}
+
 <div class="mx-auto flex max-w-[1600px] flex-col gap-4 px-4 py-4 sm:px-6 sm:pb-6">
-	<PageShell.Header title="Assignment Planner" subtitle="Manual monthly coverage planning" />
-	<WorkspaceToolbar ariaLabel="Assignment planner controls" items={toolbarItems} />
+	<PageShell.Header eyebrow="Calendar · Planning" title="Duty planner" aside={headerControls} />
 
 	{#if !canMutate}
 		<section class="bg-card text-muted-foreground rounded-lg border px-6 py-8 text-center">
@@ -88,12 +105,15 @@
 		</section>
 	{:else}
 		<MonthlyAssignmentPlanner
+			bind:busy={batchBusy}
 			currentDate={calendarStore.currentDate}
-			onDateChange={(date) => calendarStore.goToMonth(date.getFullYear(), date.getMonth())}
 			rangeStatus={rangeReady ? 'ready' : rangeCoordinator.error ? 'error' : 'loading'}
 			onRetry={() => rangeCoordinator.retryFailedRange()}
 			assignmentTypes={dailyAssignmentsStore.types}
 			assignments={dailyAssignmentsStore.assignments}
+			availabilityEntries={availabilityStore.items}
+			statusTypes={statusTypesStore.items}
+			specialDays={specialDaysStore.items}
 			personnelByGroup={scopedPBG}
 			groups={groupsStore.items}
 			onSetAssignment={(date, typeId, assigneeId) => dailyAssignmentsStore.setAssignment(date, typeId, assigneeId)}

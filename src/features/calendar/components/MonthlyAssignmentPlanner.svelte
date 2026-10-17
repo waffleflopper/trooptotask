@@ -1,17 +1,35 @@
 <script lang="ts">
-	import type { Group } from '$features/personnel/contracts';
-	import type { Personnel } from '$features/personnel/contracts';
-	import type { AssignmentType, DailyAssignment } from '$features/calendar/contracts';
-	import { formatDate, getMonthDates, getMonthName, isWeekend, addMonths } from '$lib/utils/dates';
-	import { assignmentSlotKey, indexAssignmentsBySlot } from '../utils/calendarIndexes';
-	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
+	import { untrack } from 'svelte';
+	import PlusIcon from '@lucide/svelte/icons/plus';
+	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
+	import type {
+		AssignmentType,
+		AvailabilityEntry,
+		DailyAssignment,
+		SpecialDay,
+		StatusType
+	} from '$features/calendar/contracts';
+	import type { Group, Personnel } from '$features/personnel/contracts';
+	import {
+		buildPlannerTable,
+		buildQuickFillBatch,
+		type AssignmentWrite,
+		type PlannerCell,
+		type PlannerColumn,
+		type PlannerRow
+	} from '$features/calendar/utils/assignmentPlanner';
+	import { assignmentSlotKey, indexAssignmentsBySlot } from '$features/calendar/utils/calendarIndexes';
+	import { plannerColumns } from '$features/calendar/utils/calendarLanes';
+	import { dutyPickerOptions, eligibleAssignees } from '$features/calendar/utils/dutyPickerOptions';
+	import { findDutyConflicts, indexDutyAvailability, indexDutyHistory } from '$features/calendar/utils/dutyReadModel';
+	import { endOfMonth, formatDate, getMonthName, parseDate } from '$lib/utils/dates';
 	import { Button } from '$lib/components/ui/button';
-	import * as Combobox from '$lib/components/ui/combobox';
-	import { NativeSelect } from '$lib/components/ui/native-select';
+	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import * as Table from '$lib/components/ui/table';
-	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
-	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
-	import Trash2Icon from '@lucide/svelte/icons/trash-2';
+	import AssignmentCodeChip from './AssignmentCodeChip.svelte';
+	import AssignmentConflictsPanel from './AssignmentConflictsPanel.svelte';
+	import AssignmentPlannerColumnMenu from './AssignmentPlannerColumnMenu.svelte';
+	import DutyPicker from './DutyPicker.svelte';
 
 	interface GroupData {
 		group: string;
@@ -20,352 +38,298 @@
 
 	interface Props {
 		currentDate: Date;
-		onDateChange: (date: Date) => void;
 		rangeStatus: 'ready' | 'loading' | 'error';
 		onRetry: () => void;
-		assignmentTypes: AssignmentType[];
-		assignments: DailyAssignment[];
-		personnelByGroup: GroupData[];
+		assignmentTypes: readonly AssignmentType[];
+		assignments: readonly DailyAssignment[];
+		availabilityEntries: readonly AvailabilityEntry[];
+		statusTypes: readonly StatusType[];
+		specialDays: readonly SpecialDay[];
+		personnelByGroup: readonly GroupData[];
 		groups: readonly Group[];
 		onSetAssignment: (date: string, typeId: string, assigneeId: string) => Promise<boolean>;
-		onSetAssignmentBatch: (
-			assignments: { date: string; assignmentTypeId: string; assigneeId: string }[]
-		) => Promise<boolean>;
+		onSetAssignmentBatch: (assignments: AssignmentWrite[]) => Promise<boolean>;
+		/** True while a Quick fill or Clear month write is in flight, so the page can hold navigation. */
+		busy?: boolean;
 	}
 
 	let {
 		currentDate,
-		onDateChange,
 		rangeStatus,
 		onRetry,
 		assignmentTypes,
 		assignments,
+		availabilityEntries,
+		statusTypes,
+		specialDays,
 		personnelByGroup,
 		groups,
 		onSetAssignment,
-		onSetAssignmentBatch
+		onSetAssignmentBatch,
+		busy = $bindable(false)
 	}: Props = $props();
 
-	// The page owns navigation and loads this month before exposing assignment slots.
-	const viewDate = $derived(new Date(currentDate));
+	const monthStart = $derived(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1));
+	const monthTitle = $derived(`${getMonthName(monthStart.getMonth())} ${monthStart.getFullYear()}`);
+	const monthRange = $derived({
+		rangeStart: formatDate(monthStart),
+		rangeEnd: formatDate(endOfMonth(monthStart))
+	});
 
-	const year = $derived(viewDate.getFullYear());
-	const month = $derived(viewDate.getMonth());
-	const monthName = $derived(getMonthName(month));
-	const dates = $derived(getMonthDates(year, month));
-	const activeAssignmentTypes = $derived(assignmentTypes.filter((type) => !type.archivedAt));
-
-	const assignmentTypeOptions = $derived(
-		activeAssignmentTypes.map((type) => ({ value: type.id, label: `${type.shortName} - ${type.name}` }))
+	const columns = $derived(plannerColumns(assignmentTypes));
+	const personnel = $derived(personnelByGroup.flatMap((group) => group.personnel));
+	const assignmentsBySlot = $derived(indexAssignmentsBySlot(assignments));
+	const availabilityByPerson = $derived(indexDutyAvailability(availabilityEntries));
+	const history = $derived(indexDutyHistory(assignments));
+	const conflicts = $derived(
+		findDutyConflicts({ assignments, assignmentTypes: columns, availabilityByPerson, range: monthRange })
 	);
-	const personnelOptions = $derived(
-		personnelByGroup.flatMap((grp) =>
-			grp.personnel.map((person) => ({
-				value: person.id,
-				label: `${person.rank} ${person.lastName}, ${person.firstName}${grp.group ? ` - ${grp.group}` : ''}`
-			}))
-		)
+	const table = $derived(
+		buildPlannerTable({
+			anchor: monthStart,
+			todayKey: formatDate(new Date()),
+			columns,
+			assignmentsBySlot,
+			conflicts,
+			personnel,
+			groups,
+			specialDays,
+			statusTypes
+		})
 	);
-	const groupOptions = $derived(groups.map((group) => ({ value: group.id, label: group.name })));
 
-	const assignmentBySlot = $derived(indexAssignmentsBySlot(assignments));
-
-	async function handleChange(date: Date, typeId: string, value: string) {
-		if (rangeStatus !== 'ready') return;
-		const dateStr = formatDate(date);
-		await onSetAssignment(dateStr, typeId, value);
-	}
-
-	function prevMonth() {
-		clearTypeId = null;
-		onDateChange(addMonths(viewDate, -1));
-	}
-
-	function nextMonth() {
-		clearTypeId = null;
-		onDateChange(addMonths(viewDate, 1));
-	}
-
-	function goToCurrentMonth() {
-		clearTypeId = null;
-		onDateChange(new Date());
-	}
-
-	// Quick fill functions
-	let quickFillType = $state('');
-	let quickFillPerson = $state('');
-	let quickFillGroup = $state('');
-	let quickFillDays = $state<'weekdays' | 'weekends' | 'all'>('weekdays');
-	let isApplying = $state(false);
-
-	async function applyQuickFill() {
-		if (rangeStatus !== 'ready' || !quickFillType) return;
-
-		const type = activeAssignmentTypes.find((t) => t.id === quickFillType);
-		if (!type) return;
-
-		const assigneeId = type.assignTo === 'personnel' ? quickFillPerson : quickFillGroup;
-		if (!assigneeId) return;
-
-		isApplying = true;
-		try {
-			const batch = dates
-				.filter((date) => {
-					const weekend = isWeekend(date);
-					return (
-						quickFillDays === 'all' ||
-						(quickFillDays === 'weekdays' && !weekend) ||
-						(quickFillDays === 'weekends' && weekend)
-					);
-				})
-				.map((date) => ({
-					date: formatDate(date),
-					assignmentTypeId: quickFillType,
-					assigneeId
-				}));
-			await onSetAssignmentBatch(batch);
-		} finally {
-			isApplying = false;
-		}
-	}
-
+	type PickerTarget = { typeId: string; dateKey: string; anchor: HTMLElement };
+	let pickerTarget = $state<PickerTarget | null>(null);
 	let clearTypeId = $state<string | null>(null);
 
-	function clearAll(typeId: string) {
-		clearTypeId = typeId;
+	// Changing the month or losing the read window ends whatever was open on the old slots.
+	$effect(() => {
+		void [monthRange.rangeStart, rangeStatus];
+		untrack(() => {
+			pickerTarget = null;
+			clearTypeId = null;
+		});
+	});
+
+	const picker = $derived.by(() => {
+		if (!pickerTarget || rangeStatus !== 'ready') return null;
+		const type = columns.find((candidate) => candidate.id === pickerTarget!.typeId);
+		if (!type) return null;
+		const { dateKey, anchor } = pickerTarget;
+		const current = assignmentsBySlot.get(assignmentSlotKey(dateKey, type.id));
+		return {
+			type,
+			dateKey,
+			anchor,
+			date: parseDate(dateKey),
+			occupied: current !== undefined,
+			options: dutyPickerOptions({
+				type,
+				dateKey,
+				personnel,
+				groups,
+				availabilityByPerson,
+				statusTypes,
+				history,
+				currentAssigneeId: current?.assigneeId
+			})
+		};
+	});
+
+	function openPicker(typeId: string, dateKey: string, anchor: HTMLElement) {
+		if (rangeStatus === 'ready' && !busy) pickerTarget = { typeId, dateKey, anchor };
 	}
 
-	async function doClearAll() {
-		const typeId = clearTypeId;
-		if (rangeStatus !== 'ready' || !typeId) return;
-
-		isApplying = true;
+	async function writeBatch(writes: AssignmentWrite[]): Promise<boolean> {
+		if (rangeStatus !== 'ready' || busy) return false;
+		busy = true;
 		try {
-			const batch = dates.map((date) => ({
-				date: formatDate(date),
-				assignmentTypeId: typeId,
-				assigneeId: ''
-			}));
-			if (await onSetAssignmentBatch(batch)) clearTypeId = null;
+			return await onSetAssignmentBatch(writes);
 		} finally {
-			isApplying = false;
+			busy = false;
 		}
 	}
 
-	const selectedType = $derived(activeAssignmentTypes.find((t) => t.id === quickFillType));
-	const quickFillAssigneeSelected = $derived(
-		selectedType?.assignTo === 'personnel'
-			? !!quickFillPerson
-			: selectedType?.assignTo === 'group'
-				? !!quickFillGroup
-				: false
-	);
+	async function clearMonth() {
+		const type = columns.find((candidate) => candidate.id === clearTypeId);
+		if (!type) return;
+		const cleared = await writeBatch(
+			buildQuickFillBatch({
+				anchor: monthStart,
+				typeId: type.id,
+				assigneeId: '',
+				days: 'all',
+				onlyOpenDays: false,
+				assignmentsBySlot
+			})
+		);
+		if (cleared) clearTypeId = null;
+	}
+
+	function cellLabel(column: PlannerColumn, row: PlannerRow, cell: PlannerCell): string {
+		const where = `${column.type.name}, ${row.dateLabel}`;
+		if (!cell.assignee) return `Assign ${where}`;
+		return `${where}: ${cell.assignee.fullName}${cell.conflict ? `, unavailable: ${cell.conflict.availabilityLabel}` : ''}`;
+	}
 </script>
 
-<div class="bg-card overflow-hidden rounded-lg border">
-	<div class="bg-muted/30 flex items-center justify-between gap-3 border-b px-5 py-4">
-		<div class="inline-flex shrink-0 items-center gap-2">
-			<Button variant="outline" size="icon-sm" onclick={prevMonth} aria-label="Previous month">
-				<ChevronLeftIcon />
-			</Button>
-			<Button variant="outline" size="sm" onclick={goToCurrentMonth}>Today</Button>
-		</div>
-
-		<h3 class="font-display min-w-0 flex-1 truncate text-center text-base font-bold tracking-wide uppercase sm:text-xl">
-			{monthName}
-			{year}
-		</h3>
-
-		<div class="inline-flex shrink-0 justify-end">
-			<Button variant="outline" size="icon-sm" onclick={nextMonth} aria-label="Next month">
-				<ChevronRightIcon />
-			</Button>
-		</div>
-	</div>
-
-	{#if rangeStatus !== 'ready'}
-		<section
-			class="flex items-center justify-between gap-3 px-5 py-4"
-			role="status"
-			aria-live="polite"
-			aria-busy={rangeStatus === 'loading'}
-		>
-			{#if rangeStatus === 'error'}
-				<p>Assignments for this month could not be loaded.</p>
-				<Button variant="outline" size="sm" onclick={onRetry}>Retry calendar load</Button>
-			{:else}
-				<p>Loading assignments for this month...</p>
-			{/if}
-		</section>
-	{:else}
-		<div class="bg-muted/20 border-b px-5 py-4">
-			<h4 class="text-muted-foreground mb-3 font-mono text-xs font-semibold tracking-wide uppercase">Quick Fill</h4>
-			<div class="flex flex-wrap items-center gap-2">
-				<div class="min-w-48 flex-1">
-					<Combobox.Root
-						items={assignmentTypeOptions}
-						bind:value={quickFillType}
-						label="Select assignment type"
-						autoHighlight
-					>
-						<Combobox.Trigger placeholder="Select assignment type..." aria-label="Select assignment type" />
-						<Combobox.Content>
-							<Combobox.Empty>No assignment types found.</Combobox.Empty>
-							<Combobox.List />
-						</Combobox.Content>
-					</Combobox.Root>
-				</div>
-
-				{#if selectedType?.assignTo === 'personnel'}
-					<div class="quick-fill-control">
-						<Combobox.Root
-							items={personnelOptions}
-							bind:value={quickFillPerson}
-							label="Select quick-fill person"
-							autoHighlight
-						>
-							<Combobox.Trigger clearable placeholder="Search personnel..." aria-label="Select quick-fill person" />
-							<Combobox.Content>
-								<Combobox.Search placeholder="Search personnel..." />
-								<Combobox.Empty>No personnel found.</Combobox.Empty>
-								<Combobox.List />
-							</Combobox.Content>
-						</Combobox.Root>
-					</div>
-				{:else if selectedType?.assignTo === 'group'}
-					<div class="quick-fill-control">
-						<Combobox.Root
-							items={groupOptions}
-							bind:value={quickFillGroup}
-							label="Select quick-fill group"
-							autoHighlight
-						>
-							<Combobox.Trigger clearable placeholder="Select group..." aria-label="Select quick-fill group" />
-							<Combobox.Content>
-								<Combobox.Empty>No groups found.</Combobox.Empty>
-								<Combobox.List />
-							</Combobox.Content>
-						</Combobox.Root>
-					</div>
-				{/if}
-
-				<NativeSelect bind:value={quickFillDays} class="w-[150px]" aria-label="Quick Fill days">
-					<option value="weekdays">Weekdays only</option>
-					<option value="weekends">Weekends only</option>
-					<option value="all">All days</option>
-				</NativeSelect>
-
-				<Button
-					size="sm"
-					onclick={applyQuickFill}
-					disabled={!quickFillType || !quickFillAssigneeSelected || isApplying}
-				>
-					{isApplying ? 'Applying...' : 'Apply'}
-				</Button>
-			</div>
-		</div>
-
-		<Table.Root aria-label="{monthName} {year} assignments">
-			<Table.Header>
-				<Table.Row class="bg-muted/40">
-					<Table.Head scope="col" class="w-14 px-3">Date</Table.Head>
-					<Table.Head scope="col" class="w-14 px-3">Day</Table.Head>
-					{#each activeAssignmentTypes as type (type.id)}
-						<Table.Head scope="col" class="min-w-40 px-3">
-							<div class="flex items-center justify-between gap-2">
-								<span
-									class="rounded-md px-1.5 py-0.5 font-mono text-xs font-semibold text-white uppercase"
-									style="background-color: {type.color}">{type.shortName}</span
-								>
-								<Button
-									variant="ghost"
-									size="icon-xs"
-									onclick={() => clearAll(type.id)}
-									disabled={isApplying}
-									title="Clear all {type.name}"
-									aria-label="Clear all {type.name}"
-								>
-									<Trash2Icon />
-								</Button>
-							</div>
-						</Table.Head>
-					{/each}
-				</Table.Row>
-			</Table.Header>
-			<Table.Body>
-				{#each dates as date (formatDate(date))}
-					{@const dateStr = formatDate(date)}
-					{@const weekend = isWeekend(date)}
-					{@const dayName = date.toLocaleDateString('en-US', { weekday: 'short' })}
-					{@const isToday = formatDate(new Date()) === dateStr}
-					<Table.Row class={[weekend && 'bg-muted/30', isToday && 'bg-primary/10']}>
-						<Table.Cell class="px-3">
-							<span class="font-semibold">{date.getDate()}</span>
-						</Table.Cell>
-						<Table.Cell class="px-3">
-							<span class="text-muted-foreground font-mono text-xs uppercase">{dayName}</span>
-						</Table.Cell>
-						{#each activeAssignmentTypes as type (type.id)}
-							{@const assignment = assignmentBySlot.get(assignmentSlotKey(dateStr, type.id))}
-							<Table.Cell class="py-1.5">
-								{#if type.assignTo === 'personnel'}
-									<Combobox.Root
-										items={personnelOptions}
-										value={assignment?.assigneeId ?? ''}
-										label={`Select ${type.name} assignee for ${dateStr}`}
-										onValueChange={(value) =>
-											handleChange(date, type.id, Array.isArray(value) ? (value[0] ?? '') : value)}
-										autoHighlight
-									>
-										<Combobox.Trigger
-											clearable
-											placeholder="-"
-											aria-label={`Select ${type.name} assignee for ${dateStr}`}
-										/>
-										<Combobox.Content>
-											<Combobox.Search placeholder="Search personnel..." />
-											<Combobox.Empty>No personnel found.</Combobox.Empty>
-											<Combobox.List />
-										</Combobox.Content>
-									</Combobox.Root>
-								{:else}
-									<Combobox.Root
-										items={groupOptions}
-										value={assignment?.assigneeId ?? ''}
-										label={`Select ${type.name} group for ${dateStr}`}
-										onValueChange={(value) =>
-											handleChange(date, type.id, Array.isArray(value) ? (value[0] ?? '') : value)}
-										autoHighlight
-									>
-										<Combobox.Trigger
-											clearable
-											placeholder="-"
-											aria-label={`Select ${type.name} group for ${dateStr}`}
-										/>
-										<Combobox.Content>
-											<Combobox.Empty>No groups found.</Combobox.Empty>
-											<Combobox.List />
-										</Combobox.Content>
-									</Combobox.Root>
-								{/if}
-							</Table.Cell>
+{#if rangeStatus !== 'ready'}
+	<section
+		class="flex items-center justify-between gap-3 rounded-lg border bg-card px-5 py-4"
+		role="status"
+		aria-live="polite"
+		aria-busy={rangeStatus === 'loading'}
+	>
+		{#if rangeStatus === 'error'}
+			<p>Assignments for this month could not be loaded.</p>
+			<Button variant="outline" size="sm" onclick={onRetry}>Retry calendar load</Button>
+		{:else}
+			<p>Loading assignments for this month...</p>
+		{/if}
+	</section>
+{:else if table.columns.length === 0}
+	<section class="rounded-lg border bg-card px-5 py-6 text-sm text-muted-foreground">
+		<p>No duty types are set up yet. Add one in Calendar settings to plan its days.</p>
+	</section>
+{:else}
+	<div class="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
+		<div class="overflow-hidden rounded-lg border bg-card">
+			<Table.Root aria-label="{monthTitle} duty assignments" scrollRegionLabel="{monthTitle} duty assignments">
+				<Table.Header>
+					<Table.Row class="bg-muted/40 hover:bg-muted/40">
+						<Table.Head scope="col" class="w-28 px-3 font-mono text-xs tracking-widest uppercase">Date</Table.Head>
+						{#each table.columns as column (column.type.id)}
+							<Table.Head scope="col" class="min-w-44 px-3 py-2">
+								<div class="flex items-center gap-2">
+									<AssignmentCodeChip code={column.type.shortName} color={column.type.color} size="row" />
+									<div class="grid min-w-0 flex-1">
+										<span class="truncate text-sm font-semibold">{column.type.name}</span>
+										<span class="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
+											{column.filledDays} of {column.totalDays} days{column.type.assignTo === 'group'
+												? ' · group'
+												: ''}{column.type.showOnCalendar ? '' : ' · planner only'}
+										</span>
+									</div>
+									<AssignmentPlannerColumnMenu
+										type={column.type}
+										choices={eligibleAssignees(column.type, personnel, groups)}
+										{busy}
+										buildBatch={(assigneeId, days, onlyOpenDays) =>
+											buildQuickFillBatch({
+												anchor: monthStart,
+												typeId: column.type.id,
+												assigneeId,
+												days,
+												onlyOpenDays,
+												assignmentsBySlot
+											})}
+										onApply={writeBatch}
+										onClearMonth={() => (clearTypeId = column.type.id)}
+									/>
+								</div>
+							</Table.Head>
 						{/each}
 					</Table.Row>
-				{/each}
-			</Table.Body>
-		</Table.Root>
+				</Table.Header>
+				<Table.Body>
+					{#each table.rows as row (row.dateKey)}
+						<Table.Row
+							class={[
+								row.weekend && 'bg-muted/50',
+								row.specialDayName && 'bg-warning-muted/60',
+								row.today && 'bg-primary/10 shadow-[inset_3px_0_0_var(--color-primary)]',
+								row.past && 'opacity-70 focus-within:opacity-100 hover:opacity-100'
+							]}
+							aria-current={row.today ? 'date' : undefined}
+						>
+							<Table.Head scope="row" class="h-auto px-3 py-1.5 font-normal">
+								<div class="flex items-baseline gap-2">
+									<span class="w-6 text-lg font-semibold tabular-nums">{row.day}</span>
+									<span class="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">{row.weekday}</span
+									>
+									{#if row.today}
+										<span class="font-mono text-[10px] font-semibold tracking-wider text-primary uppercase">Today</span>
+									{/if}
+								</div>
+								{#if row.specialDayName}
+									<p class="max-w-24 truncate pl-8 text-[11px] text-muted-foreground italic" title={row.specialDayName}>
+										{row.specialDayName}
+									</p>
+								{/if}
+							</Table.Head>
+							{#each row.cells as cell, index (cell.typeId)}
+								{@const column = table.columns[index]}
+								<Table.Cell class="px-2 py-1">
+									<Button
+										variant={cell.assignee ? 'ghost' : 'outline'}
+										size="sm"
+										class={[
+											'h-auto min-h-8 w-full justify-start gap-1.5 px-2 py-1 text-left',
+											!cell.assignee && 'border-dashed text-primary',
+											cell.conflict && 'bg-destructive/10 text-destructive-text hover:bg-destructive/15'
+										]}
+										disabled={busy}
+										aria-label={cellLabel(column, row, cell)}
+										onclick={(event) => openPicker(cell.typeId, cell.dateKey, event.currentTarget)}
+									>
+										{#if !cell.assignee}
+											<PlusIcon aria-hidden="true" />
+											Assign
+										{:else}
+											{#if cell.conflict}
+												<TriangleAlertIcon class="size-3.5 shrink-0" aria-hidden="true" />
+											{/if}
+											<span class="grid min-w-0">
+												<span class="flex items-baseline gap-1.5">
+													{#if cell.assignee.prefix}
+														<span class="font-mono text-[10px] font-semibold text-muted-foreground uppercase"
+															>{cell.assignee.prefix}</span
+														>
+													{/if}
+													<span class="truncate font-medium">{cell.assignee.name}</span>
+												</span>
+												{#if cell.conflict}
+													<span class="truncate font-mono text-[10px] uppercase">{cell.conflict.availabilityLabel}</span
+													>
+												{/if}
+											</span>
+										{/if}
+									</Button>
+								</Table.Cell>
+							{/each}
+						</Table.Row>
+					{/each}
+				</Table.Body>
+			</Table.Root>
+		</div>
 
-		<div class="text-muted-foreground border-t px-5 py-3 text-sm">{dates.length} days in {monthName}</div>
-	{/if}
-</div>
+		<AssignmentConflictsPanel conflicts={table.conflicts} {busy} onFindReplacement={openPicker} />
+	</div>
+{/if}
+
+{#if picker}
+	{#key picker.anchor}
+		<DutyPicker
+			typeName={picker.type.name}
+			assignTo={picker.type.assignTo}
+			date={picker.date}
+			anchor={picker.anchor}
+			options={picker.options}
+			onAssign={(assigneeId) => onSetAssignment(picker.dateKey, picker.type.id, assigneeId)}
+			onClear={picker.occupied ? () => onSetAssignment(picker.dateKey, picker.type.id, '') : undefined}
+			onClose={() => (pickerTarget = null)}
+		/>
+	{/key}
+{/if}
 
 {#if clearTypeId && rangeStatus === 'ready'}
+	{@const clearType = columns.find((type) => type.id === clearTypeId)}
 	<ConfirmDialog
-		title="Clear Assignments"
-		message="Clear all assignments for this type for the entire month?"
-		confirmLabel="Clear All"
+		title="Clear month"
+		message="Clear every {clearType?.name ?? 'duty'} assignment in {monthTitle}?"
+		confirmLabel="Clear month"
 		variant="default"
-		onConfirm={doClearAll}
+		onConfirm={clearMonth}
 		onCancel={() => (clearTypeId = null)}
 	/>
 {/if}

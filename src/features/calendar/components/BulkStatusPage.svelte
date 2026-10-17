@@ -157,8 +157,11 @@
 </script>
 
 <div class="mx-auto flex max-w-[1480px] flex-col gap-4 px-4 py-4 sm:px-6 sm:pb-6">
-	<PageShell.Header eyebrow="Calendar · Bulk status" title="Bulk status" />
-	<WorkspaceToolbar ariaLabel="Bulk status controls" items={toolbarItems} />
+	<PageShell.Header eyebrow="Calendar · Bulk status" title="Bulk status">
+		{#snippet aside()}
+			<WorkspaceToolbar ariaLabel="Bulk status controls" items={toolbarItems} />
+		{/snippet}
+	</PageShell.Header>
 
 	{#if !canMutate}
 		<section class="bg-card text-muted-foreground rounded-lg border px-6 py-8 text-center sm:px-8 sm:py-12">

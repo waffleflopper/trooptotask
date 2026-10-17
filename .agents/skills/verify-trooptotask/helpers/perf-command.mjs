@@ -253,8 +253,10 @@ async function drain(ctx, pageId) {
 }
 
 /**
- * First useful render, then app-origin network idle; the sample is read after both. The end of
- * the document comes last and stays out of the settled time.
+ * First useful render, then app-origin network idle; the sample is read after both. A perf
+ * navigation returns at the load event, so a load's streamed document has ended by then and its
+ * end counts toward settled. The document's own end is waited for last, for interactions and for
+ * a document still open at the cap.
  */
 async function settle(ctx, pageId) {
 	const first = await sampleOf(ctx, pageId);

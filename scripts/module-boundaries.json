@@ -48,6 +48,7 @@
 				"src/hooks.organizationAdmission.test.ts",
 				"src/hooks.server.test.ts",
 				"src/hooks.server.ts",
+				"src/hooks.sessionRefresh.test.ts",
 				"src/hooks.signOut.test.ts",
 				"src/lib/personnelArchiveRequestDelivery.ts",
 				"src/lib/server/adapters/appShellRequestDelivery.test.ts",

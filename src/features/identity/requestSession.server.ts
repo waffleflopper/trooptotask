@@ -20,6 +20,13 @@ const STALE_SUPABASE_AUTH_ERROR_CODES = new Set([
 	'session_expired'
 ]);
 
+// Mirrors auth-js EXPIRY_MARGIN_MS, inside which its next provider call refreshes.
+const AUTH_JS_REFRESH_MARGIN_MS = 90_000;
+// Covers a streamed load, which can call the provider after cookies stop being writable. No
+// maxDuration is configured; 300 s is Vercel's documented default, and the hosted limit is unverified.
+const STREAM_REFRESH_ALLOWANCE_MS = 300_000;
+const SESSION_REFRESH_AHEAD_MS = AUTH_JS_REFRESH_MARGIN_MS + STREAM_REFRESH_ALLOWANCE_MS;
+
 function getAuthErrorCode(error: unknown): string | null {
 	if (!error || typeof error !== 'object' || !('code' in error)) return null;
 	return typeof error.code === 'string' ? error.code : null;
@@ -67,7 +74,7 @@ export async function readIdentitySession({
 	}
 
 	const {
-		data: { session },
+		data: { session: loadedSession },
 		error: sessionError
 	} = await supabase.auth.getSession().catch((error) => {
 		if (isStaleSupabaseAuthError(error)) {
@@ -77,11 +84,28 @@ export async function readIdentitySession({
 		throw error;
 	});
 
-	if (sessionError || !session?.access_token) {
+	if (sessionError || !loadedSession?.access_token) {
 		if (isStaleSupabaseAuthError(sessionError)) {
 			clearSupabaseAuthCookies(cookies, storageKey);
 		}
 		return { status: 'resolved', session: null, user: null };
+	}
+
+	// Rotate now, while the response can still carry the new cookies, rather than inside a stream.
+	let session = loadedSession;
+	if (session.expires_at !== undefined && session.expires_at * 1000 - Date.now() < SESSION_REFRESH_AHEAD_MS) {
+		const { data: refreshedData, error: refreshError } = await supabase.auth.refreshSession().catch((error) => {
+			if (isStaleSupabaseAuthError(error)) {
+				clearSupabaseAuthCookies(cookies, storageKey);
+				return { data: { session: null }, error };
+			}
+			throw error;
+		});
+		if (isStaleSupabaseAuthError(refreshError)) {
+			clearSupabaseAuthCookies(cookies, storageKey);
+			return { status: 'resolved', session: null, user: null };
+		}
+		if (refreshedData.session?.access_token) session = refreshedData.session;
 	}
 
 	const { data: claimsData, error: claimsError } = await supabase.auth

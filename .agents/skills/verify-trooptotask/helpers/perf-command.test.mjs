@@ -66,6 +66,7 @@ async function traceScenario({ trace, failNavigation = false }) {
 		evidenceRoot,
 		session,
 		doctor: { origin: 'http://127.0.0.1:4000', candidate: 'abc' },
+		host: { build: async () => ({ browser: 'Chrome/154.0.8037.97', protocol: '1.3', kernel: '7.2.8-9-omarchy' }) },
 		ownedState: {
 			workloads: { small: ledger }
 		},
@@ -119,6 +120,8 @@ test('a trace is redacted into the evidence and no raw trace survives', async ()
 			.includes(password)
 	);
 	assert.deepEqual(await scenario.rawFiles(), []);
+	const [summary] = (await scenario.listing(scenario.evidenceRoot)).filter((file) => file.endsWith('.summary.json'));
+	assert.equal(JSON.parse(await fs.readFile(summary, 'utf8')).host.browser, 'Chrome/154.0.8037.97');
 });
 
 test('a trace whose redaction fails leaves nothing unredacted under the evidence root', async () => {
@@ -283,7 +286,9 @@ test('a journey outside the cold set is refused cold before any browser call', a
 });
 
 const pinnedTables = { tables: [], planCache: { mode: 'force_custom_plan', pinned: true } };
+const build = { browser: 'Chrome/154.0.8037.97', protocol: '1.3', kernel: '7.2.8-9-omarchy' };
 const quietHost = {
+	build: async () => build,
 	clear: async () => 0,
 	watch: async () => ({ stop: async () => ({ clean: true, load1Max: 1, otherCpuPercent: 0, reasons: [] }) })
 };
@@ -437,7 +442,9 @@ test('a slow document keeps its observer and closes its query window only when i
 	);
 	assert.deepEqual(navigations, [120000]);
 	assert.deepEqual(events, ['statements reset', 'document ended', 'statements read']);
-	const [sample] = JSON.parse(await fs.readFile(path.join(repository, result.file), 'utf8')).samples;
+	const written = JSON.parse(await fs.readFile(path.join(repository, result.file), 'utf8'));
+	assert.deepEqual(written.host, { browser: 'Chrome/154.0.8037.97', protocol: '1.3', kernel: '7.2.8-9-omarchy' });
+	const [sample] = written.samples;
 	assert.equal(sample.firstUsefulRenderMs, 2674);
 	assert.equal(sample.documentCompleteMs, 45598);
 	assert.equal(sample.documentOpen, false);

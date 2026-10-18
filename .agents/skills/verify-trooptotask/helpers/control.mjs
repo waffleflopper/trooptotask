@@ -3110,7 +3110,11 @@ async function main() {
 				provider,
 				credentials: (role) => ({ email: fixture.actors[role].email, password: fixture.actors[role].password }),
 				database: perfDatabase,
-				host: hostMonitor([repository, path.dirname(session)])
+				host: hostMonitor([repository, path.dirname(session)], {
+					// Loaded on use: print capture brings the DevTools client.
+					endpoint: async () =>
+						(await import('../../../../scripts/verification/print-capture.mjs')).ownedPrintEndpoint(state, session)
+				})
 			})
 		);
 		return;

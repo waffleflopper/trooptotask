@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { hostVerdict, isOtherTool } from './perf-host.mjs';
+import { hostBuild, hostVerdict, isOtherTool } from './perf-host.mjs';
 
 const ours = ['/work/t3-ours', '/state/trooptotask-verification/aaaa'];
 
@@ -60,4 +60,17 @@ test('a sample shorter than one tick is judged from its start and end readings',
 			reasons: ["other checkouts' tools at 50% of one core: node vitest run"]
 		}
 	);
+});
+
+test("the host build is the running browser's /json/version on its owned endpoint and the kernel release", async () => {
+	const asked = [];
+	const build = await hostBuild('ws://127.0.0.1:41234/devtools/browser/0b0c4a3e-1d2f-4e5a-8b9c-0d1e2f3a4b5c', {
+		getJson: async (url) => {
+			asked.push(url);
+			return { Browser: 'Chrome/154.0.8037.97', 'Protocol-Version': '1.3', 'V8-Version': '15.4.1' };
+		},
+		release: () => '7.2.8-9-omarchy'
+	});
+	assert.deepEqual(asked, ['http://127.0.0.1:41234/json/version']);
+	assert.deepEqual(build, { browser: 'Chrome/154.0.8037.97', protocol: '1.3', kernel: '7.2.8-9-omarchy' });
 });

@@ -534,6 +534,7 @@ async function record(ctx, run, out, mode, result, profileName) {
 		kind: 't2t-perf-run',
 		candidate: ctx.doctor.candidate,
 		origin: ctx.doctor.origin,
+		host: await ctx.host.build(),
 		workload: run.workload,
 		shape: workloads[run.workload],
 		organizationId: run.item.organizationId,
@@ -753,6 +754,7 @@ async function trace(ctx, positional, options) {
 		const summary = {
 			kind: 't2t-perf-trace',
 			candidate: ctx.doctor.candidate,
+			host: await ctx.host.build(),
 			workload: run.workload,
 			actor: run.actor,
 			journey: run.journeyName,
@@ -843,6 +845,7 @@ async function summarizeRun(ctx, directory) {
 		statementsByCategory: run.statements.byCategory,
 		maintenance: run.tables?.maintenance ?? null,
 		planCache: run.tables?.planCache?.after?.mode ?? 'not recorded',
+		host: run.host ?? 'not recorded',
 		rejected: run.rejected?.length ?? 0,
 		topStatementsByCalls: run.statements.byCalls.slice(0, 3).map(({ role, calls, callsPerWindow, mean_ms, query }) => ({
 			role,

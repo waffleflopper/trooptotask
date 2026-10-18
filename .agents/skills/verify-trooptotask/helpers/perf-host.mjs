@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 
 // A timed sample is contaminated when the host's 1-minute load exceeds 4 at any reading, or
@@ -69,9 +70,29 @@ async function readHost(ours) {
 	return { at: Date.now(), load1, others };
 }
 
-/** Host readings for the timing samples of one checkout and verification state root. */
-export function hostMonitor(ours, limits = hostLimits) {
+// A run compares with another only on the same browser build and kernel. The browser reports
+// its build through Browser.getVersion, which DevTools also serves as /json/version on the
+// owned endpoint; reading the running process catches a package upgrade under a live browser.
+/** The running browser's build and protocol from its DevTools endpoint, and the kernel release. */
+export async function hostBuild(
+	endpoint,
+	{
+		getJson = async (url) => (await fetch(url, { signal: AbortSignal.timeout(5000) })).json(),
+		release = os.release
+	} = {}
+) {
+	const version = await getJson(`http://${new URL(endpoint).host}/json/version`);
+	return { browser: version.Browser, protocol: version['Protocol-Version'], kernel: release() };
+}
+
+/**
+ * Host readings for the timing samples of one checkout and verification state root, and the
+ * build of the host they ran on.
+ */
+export function hostMonitor(ours, { limits = hostLimits, endpoint } = {}) {
 	return {
+		/** The browser build and kernel, read from the owned browser's DevTools endpoint. */
+		build: async () => hostBuild(await endpoint()),
 		/** Waits until a 3 s look at the host is clean; returns how long it waited. */
 		async clear() {
 			const started = Date.now();

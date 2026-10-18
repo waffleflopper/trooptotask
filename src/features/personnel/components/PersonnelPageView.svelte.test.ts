@@ -12,10 +12,10 @@ import { openToolbarMore, stubToolbarWidths } from '$lib/test-support/toolbarWid
 
 const requestArchiveApproval: RequestPersonnelArchiveApproval = async () => false;
 
-const { gotoMock, invalidateAllMock, toastSuccessMock, toastInfoMock, toastErrorMock, toastWarningMock } = vi.hoisted(
+const { gotoMock, invalidateMock, toastSuccessMock, toastInfoMock, toastErrorMock, toastWarningMock } = vi.hoisted(
 	() => ({
 		gotoMock: vi.fn(),
-		invalidateAllMock: vi.fn(),
+		invalidateMock: vi.fn(),
 		toastSuccessMock: vi.fn(),
 		toastInfoMock: vi.fn(),
 		toastErrorMock: vi.fn(),
@@ -25,7 +25,7 @@ const { gotoMock, invalidateAllMock, toastSuccessMock, toastInfoMock, toastError
 
 vi.mock('$app/navigation', () => ({
 	goto: gotoMock,
-	invalidateAll: invalidateAllMock
+	invalidate: invalidateMock
 }));
 
 vi.mock('svelte-sonner', () => ({
@@ -165,6 +165,7 @@ function makeCtx(
 		canManageGroups: false,
 		canViewRoster: true,
 		canManagePersonnelRecord: () => false,
+		canOpenPersonnelDetail: () => false,
 		canArchivePersonnelRecord: () => false,
 		personnelRecordAffordance: () => deniedAffordance(),
 		personnelArchiveAffordance: () => deniedAffordance(),
@@ -230,7 +231,7 @@ describe('PersonnelPageView', () => {
 		pinnedGroupsHydration.load([], 'org-1');
 		vi.stubGlobal('fetch', vi.fn());
 		gotoMock.mockReset();
-		invalidateAllMock.mockReset();
+		invalidateMock.mockReset();
 		toastSuccessMock.mockReset();
 		toastInfoMock.mockReset();
 		toastErrorMock.mockReset();
@@ -300,7 +301,7 @@ describe('PersonnelPageView', () => {
 		expect(screen.getByRole('link', { name: 'Import' }).getAttribute('href')).toBe('/org/org-1/personnel/import');
 	});
 
-	it('keeps creation and group controls hidden for operators who can edit existing personnel', () => {
+	it('keeps creation, group and detail controls hidden for operators who can edit existing personnel', async () => {
 		const ctx = {
 			...makeCtx(),
 			canAddPersonnel: false,
@@ -319,7 +320,9 @@ describe('PersonnelPageView', () => {
 		expect(within(toolbar).queryByRole('button', { name: 'Add Person' })).toBeNull();
 		expect(within(toolbar).queryByRole('link', { name: 'Import' })).toBeNull();
 		expect(screen.getByRole('button', { name: 'Edit' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Details' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Details' })).toBeNull();
+		await fireEvent.click(screen.getByText('Smith, Jane').closest('tr')!);
+		expect(gotoMock).not.toHaveBeenCalled();
 	});
 
 	it('keeps archive access available without create or import permission', async () => {
@@ -662,6 +665,7 @@ describe('PersonnelPageView', () => {
 		const ctx = {
 			...makeCtx(handleEdit),
 			canManagePersonnelRecord: () => true,
+			canOpenPersonnelDetail: () => true,
 			personnelRecordAffordance: () => allowedAffordance()
 		} as unknown as PersonnelPageContext;
 
@@ -728,7 +732,7 @@ describe('PersonnelPageView', () => {
 				body: JSON.stringify({ id: 'person-1' })
 			})
 		);
-		await waitFor(() => expect(invalidateAllMock).toHaveBeenCalled());
+		await waitFor(() => expect(invalidateMock).toHaveBeenCalledWith('app:personnel-data'));
 		expect(screen.queryByText('Smith, Jane')).toBeNull();
 	});
 
@@ -760,7 +764,7 @@ describe('PersonnelPageView', () => {
 				body: JSON.stringify({ ids: ['person-1'] })
 			})
 		);
-		await waitFor(() => expect(invalidateAllMock).toHaveBeenCalled());
+		await waitFor(() => expect(invalidateMock).toHaveBeenCalledWith('app:personnel-data'));
 		expect(screen.queryByText('Smith, Jane')).toBeNull();
 	});
 
@@ -860,7 +864,7 @@ describe('PersonnelPageView', () => {
 		);
 		expect(toastSuccessMock).not.toHaveBeenCalled();
 		expect(toastErrorMock).not.toHaveBeenCalled();
-		expect(invalidateAllMock).toHaveBeenCalled();
+		expect(invalidateMock).toHaveBeenCalledWith('app:personnel-data');
 		expect(screen.getByText('Smith, Jane')).toBeTruthy();
 	});
 
@@ -893,7 +897,7 @@ describe('PersonnelPageView', () => {
 		await waitFor(() => expect(toastErrorMock).toHaveBeenCalled());
 		expect(toastSuccessMock).not.toHaveBeenCalled();
 		expect(toastInfoMock).not.toHaveBeenCalled();
-		expect(invalidateAllMock).not.toHaveBeenCalled();
+		expect(invalidateMock).not.toHaveBeenCalled();
 		expect(screen.getByText('Smith, Jane')).toBeTruthy();
 	});
 
@@ -924,7 +928,7 @@ describe('PersonnelPageView', () => {
 				'true'
 			);
 			expect(screen.getByText('Smith, Jane')).toBeTruthy();
-			expect(invalidateAllMock).not.toHaveBeenCalled();
+			expect(invalidateMock).not.toHaveBeenCalled();
 			expect(toastSuccessMock).not.toHaveBeenCalled();
 			expect(toastInfoMock).not.toHaveBeenCalled();
 			expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -951,13 +955,13 @@ describe('PersonnelPageView', () => {
 				.mockResolvedValueOnce(batchResponse({ archivedIds: [], approvalRequestedIds: ['person-2'], errors: [] }));
 			vi.stubGlobal('fetch', fetchMock);
 			const view = render(PersonnelPageView, { props: { ctx: archiveCtx(), requestArchiveApproval } });
-			invalidateAllMock.mockImplementationOnce(async () => {
+			invalidateMock.mockImplementationOnce(async () => {
 				await view.rerender({ ctx: archiveCtx(), requestArchiveApproval });
 			});
 			await selectBulkPersonnel(['Select SGT Smith, Jane', 'Select SGT Soldier002, Test']);
 			await submitBulkSelection();
 			await waitFor(() => expect(outcome === 'archived' ? toastSuccessMock : toastInfoMock).toHaveBeenCalledTimes(1));
-			await waitFor(() => expect(invalidateAllMock).toHaveBeenCalledTimes(1));
+			await waitFor(() => expect(invalidateMock).toHaveBeenCalledExactlyOnceWith('app:personnel-data'));
 			await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
 			await waitFor(() =>
 				expect(screen.getByRole('button', { name: 'Confirm Archive' })).toHaveProperty('disabled', false)
@@ -995,14 +999,14 @@ describe('PersonnelPageView', () => {
 				.mockResolvedValueOnce(batchResponse({ archivedIds: ['person-1'], approvalRequestedIds: [], errors: [] }));
 			vi.stubGlobal('fetch', fetchMock);
 			const view = render(PersonnelPageView, { props: { ctx: archiveCtx(), requestArchiveApproval } });
-			invalidateAllMock.mockImplementationOnce(async () => {
+			invalidateMock.mockImplementationOnce(async () => {
 				personnelStore.load(outcome === 'approval' ? [makePerson(2)] : [], 'org-1');
 				await view.rerender({ ctx: archiveCtx(), requestArchiveApproval });
 			});
 			await selectBulkPersonnel(['Select SGT Smith, Jane', 'Select SGT Soldier002, Test']);
 			await submitBulkSelection();
 			await waitFor(() => expect(outcome === 'archived' ? toastSuccessMock : toastInfoMock).toHaveBeenCalledTimes(1));
-			await waitFor(() => expect(invalidateAllMock).toHaveBeenCalledTimes(1));
+			await waitFor(() => expect(invalidateMock).toHaveBeenCalledExactlyOnceWith('app:personnel-data'));
 			await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
 			await waitFor(() =>
 				expect(screen.getByRole('button', { name: 'Confirm Archive' })).toHaveProperty('disabled', false)
@@ -1024,7 +1028,7 @@ describe('PersonnelPageView', () => {
 	it('removes acknowledged IDs before refresh and reports readback failure without repeating completed archives', async () => {
 		personnelStore.load([personnel[0], makePerson(2)], 'org-1');
 		const refresh = deferred<void>();
-		invalidateAllMock.mockReturnValueOnce(refresh.promise);
+		invalidateMock.mockReturnValueOnce(refresh.promise);
 		const fetchMock = vi
 			.fn()
 			.mockResolvedValueOnce(
@@ -1039,7 +1043,7 @@ describe('PersonnelPageView', () => {
 		render(PersonnelPageView, { props: { ctx: archiveCtx(), requestArchiveApproval } });
 		await selectBulkPersonnel(['Select SGT Smith, Jane', 'Select SGT Soldier002, Test']);
 		await submitBulkSelection();
-		await waitFor(() => expect(invalidateAllMock).toHaveBeenCalledTimes(1));
+		await waitFor(() => expect(invalidateMock).toHaveBeenCalledExactlyOnceWith('app:personnel-data'));
 		expect(screen.queryByText('Smith, Jane')).toBeNull();
 		const retained = screen.getByRole('checkbox', { name: 'Select SGT Soldier002, Test' });
 		expect(retained.getAttribute('aria-checked')).toBe('true');
@@ -1054,7 +1058,7 @@ describe('PersonnelPageView', () => {
 	});
 
 	it('keeps an acknowledged approval target active and out of selection when refresh fails', async () => {
-		invalidateAllMock.mockRejectedValueOnce(new Error('readback unavailable'));
+		invalidateMock.mockRejectedValueOnce(new Error('readback unavailable'));
 		const fetchMock = vi
 			.fn()
 			.mockResolvedValue(batchResponse({ archivedIds: [], approvalRequestedIds: ['person-1'], errors: [] }));
@@ -1096,7 +1100,7 @@ describe('PersonnelPageView', () => {
 				);
 			// The next event loop turn lets the held continuation finish without a timing assertion.
 			await new Promise((resolve) => setTimeout(resolve, 0));
-			expect(invalidateAllMock).not.toHaveBeenCalled();
+			expect(invalidateMock).not.toHaveBeenCalled();
 			expect(toastSuccessMock).not.toHaveBeenCalled();
 			expect(toastInfoMock).not.toHaveBeenCalled();
 			expect(toastErrorMock).not.toHaveBeenCalled();
@@ -1115,7 +1119,7 @@ describe('PersonnelPageView', () => {
 
 	it('does not report an old refresh failure after the acknowledged operation’s view is disposed', async () => {
 		const refresh = deferred<void>();
-		invalidateAllMock.mockReturnValueOnce(refresh.promise);
+		invalidateMock.mockReturnValueOnce(refresh.promise);
 		const fetchMock = vi
 			.fn()
 			.mockResolvedValue(batchResponse({ archivedIds: [], approvalRequestedIds: ['person-1'], errors: [] }));
@@ -1123,7 +1127,7 @@ describe('PersonnelPageView', () => {
 		const oldView = render(PersonnelPageView, { props: { ctx: archiveCtx(), requestArchiveApproval } });
 		await selectBulkPersonnel(['Select SGT Smith, Jane']);
 		await submitBulkSelection();
-		await waitFor(() => expect(invalidateAllMock).toHaveBeenCalledTimes(1));
+		await waitFor(() => expect(invalidateMock).toHaveBeenCalledExactlyOnceWith('app:personnel-data'));
 		expect(toastInfoMock).toHaveBeenCalledTimes(1);
 		oldView.unmount();
 		personnelStore.load([personnel[0]], 'org-2');
@@ -1133,7 +1137,7 @@ describe('PersonnelPageView', () => {
 		await new Promise((resolve) => setTimeout(resolve, 0));
 		expect(toastWarningMock).not.toHaveBeenCalled();
 		expect(toastErrorMock).not.toHaveBeenCalled();
-		expect(invalidateAllMock).toHaveBeenCalledTimes(1);
+		expect(invalidateMock).toHaveBeenCalledExactlyOnceWith('app:personnel-data');
 		expect(screen.getByRole('checkbox', { name: 'Select SGT Smith, Jane' }).getAttribute('aria-checked')).toBe('true');
 	});
 
@@ -1150,7 +1154,7 @@ describe('PersonnelPageView', () => {
 		await new Promise((resolve) => setTimeout(resolve, 0));
 		expect(personnelStore.getById('person-1')).toBeTruthy();
 		expect(toastSuccessMock).not.toHaveBeenCalled();
-		expect(invalidateAllMock).not.toHaveBeenCalled();
+		expect(invalidateMock).not.toHaveBeenCalled();
 	});
 
 	it('keeps rating scheme controls out of the Personnel roster page', () => {

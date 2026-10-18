@@ -14,14 +14,14 @@ import type { RequestPersonnelArchiveApproval } from '../utils/archivePersonnel'
 
 const requestArchiveApproval: RequestPersonnelArchiveApproval = async () => false;
 
-const { gotoMock, invalidateAllMock } = vi.hoisted(() => ({
+const { gotoMock, invalidateMock } = vi.hoisted(() => ({
 	gotoMock: vi.fn(),
-	invalidateAllMock: vi.fn()
+	invalidateMock: vi.fn()
 }));
 
 vi.mock('$app/navigation', () => ({
 	goto: gotoMock,
-	invalidateAll: invalidateAllMock
+	invalidate: invalidateMock
 }));
 
 import PersonnelDetailPageView from './PersonnelDetailPageView.svelte';
@@ -31,7 +31,7 @@ afterEach(() => {
 	vi.unstubAllGlobals();
 	vi.restoreAllMocks();
 	gotoMock.mockReset();
-	invalidateAllMock.mockReset();
+	invalidateMock.mockReset();
 });
 
 const person: Personnel = {
@@ -468,8 +468,9 @@ describe('PersonnelDetailPageView', () => {
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ id: 'person-1' })
 		});
-		await waitFor(() => expect(invalidateAllMock).toHaveBeenCalled());
-		expect(gotoMock).toHaveBeenCalledWith('/org/org-1/personnel');
+		await waitFor(() =>
+			expect(gotoMock).toHaveBeenCalledWith('/org/org-1/personnel', { invalidate: ['app:personnel-data'] })
+		);
 	});
 
 	it('shows inline errors when quick actions fail', async () => {

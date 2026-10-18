@@ -8,17 +8,17 @@ import type { Personnel } from '../personnel.types';
 import type { RankCatalogEntry } from '$features/personnel/contracts';
 import { openToolbarMore, stubToolbarWidths } from '$lib/test-support/toolbarWidths';
 
-const { beforeNavigateMock, gotoMock, invalidateAllMock, parseFileMock } = vi.hoisted(() => ({
+const { beforeNavigateMock, gotoMock, invalidateMock, parseFileMock } = vi.hoisted(() => ({
 	beforeNavigateMock: vi.fn(),
 	gotoMock: vi.fn(),
-	invalidateAllMock: vi.fn(),
+	invalidateMock: vi.fn(),
 	parseFileMock: vi.fn()
 }));
 
 vi.mock('$app/navigation', () => ({
 	beforeNavigate: beforeNavigateMock,
 	goto: gotoMock,
-	invalidateAll: invalidateAllMock
+	invalidate: invalidateMock
 }));
 
 vi.mock('$lib/utils/csvParser', () => ({
@@ -827,7 +827,7 @@ describe('PersonnelImportPage', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Import checked rows' }));
 		await fireEvent.click(await screen.findByRole('button', { name: 'Upload another file' }));
 
-		expect(invalidateAllMock).toHaveBeenCalled();
+		expect(invalidateMock).toHaveBeenCalledWith('app:personnel-data');
 		expect(screen.getByText('Accepted headers')).toBeInTheDocument();
 	});
 
@@ -850,7 +850,7 @@ describe('PersonnelImportPage', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Import checked rows' }));
 		await fireEvent.click(await screen.findByRole('button', { name: 'Return to Personnel' }));
 
-		expect(gotoMock).toHaveBeenCalledWith('/org/org-1/personnel', { invalidateAll: true });
+		expect(gotoMock).toHaveBeenCalledWith('/org/org-1/personnel', { invalidate: ['app:personnel-data'] });
 	});
 
 	it('disables the import mode with a reason while an import is running', async () => {

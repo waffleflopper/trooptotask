@@ -93,9 +93,9 @@ describe('personnel readiness lanes', () => {
 		const person = await seedPerson(ctx);
 		const listEntries = vi.fn(async () => []);
 		const statusTypes = vi.fn(listStatusTypes);
-		await expect(loadAvailabilityReadinessLane(ctx, person, AS_OF, listEntries, statusTypes)).rejects.toMatchObject(
-			{ status: 403 }
-		);
+		await expect(loadAvailabilityReadinessLane(ctx, person, AS_OF, listEntries, statusTypes)).rejects.toMatchObject({
+			status: 403
+		});
 		expect(listEntries).not.toHaveBeenCalled();
 		expect(statusTypes).not.toHaveBeenCalled();
 	});
@@ -150,7 +150,6 @@ describe('personnel readiness lanes', () => {
 		await seedPerson(ctx, { slug: 'rivera-monica' });
 		await expect(loadPersonnelDetailHeader(ctx, 'rivera-monica')).rejects.toMatchObject({ status: 403 });
 	});
-
 
 	it('propagates a Calendar read failure without replacing it with a healthy lane', async () => {
 		const ctx = createTestContext();

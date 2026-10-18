@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { goto, invalidateAll } from '$app/navigation';
+	import { goto, invalidate } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { pinnedGroupsStore } from '../stores/pinnedGroups.svelte';
@@ -135,7 +135,7 @@
 			toggleArchiveSelection(person.id);
 			return;
 		}
-		if (ctx.canManagePersonnelRecord(person)) openPersonnelDetail(person);
+		if (ctx.canOpenPersonnelDetail(person)) openPersonnelDetail(person);
 	});
 
 	// Pinning reorders the groups and the moved header drops focus; put it back on the pin unless focus moved elsewhere.
@@ -214,7 +214,7 @@
 			const result = await archivePersonnel({ orgId: ctx.orgId, person: archiveTarget, requestArchiveApproval });
 			if (result === 'archived') {
 				locallyArchivedIds.add(archiveTarget.id);
-				await invalidateAll();
+				await invalidate('app:personnel-data');
 			}
 			archiveTarget = null;
 		} finally {
@@ -252,7 +252,7 @@
 			}
 			if (result.archivedIds.length > 0 || result.approvalRequestedIds.length > 0) {
 				try {
-					await invalidateAll();
+					await invalidate('app:personnel-data');
 				} catch {
 					if (isCurrent())
 						toastStore.warning(
@@ -502,6 +502,8 @@
 								<div class="flex items-center justify-end gap-2">
 									{#if !bulkArchiveMode && ctx.canManagePersonnelRecord(row)}
 										<Button type="button" variant="outline" size="sm" onclick={() => ctx.handleEdit(row)}>Edit</Button>
+									{/if}
+									{#if !bulkArchiveMode && ctx.canOpenPersonnelDetail(row)}
 										<Button type="button" variant="secondary" size="sm" onclick={() => openPersonnelDetail(row)}
 											>Details</Button
 										>

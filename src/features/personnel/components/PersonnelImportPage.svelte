@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { beforeNavigate, goto, invalidateAll } from '$app/navigation';
+	import { beforeNavigate, goto, invalidate } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import type {
 		Group,
@@ -398,7 +398,7 @@
 	async function clearFile() {
 		const shouldRefresh = importResult !== null;
 		resetImportState();
-		if (shouldRefresh) await invalidateAll();
+		if (shouldRefresh) await invalidate('app:personnel-data');
 	}
 
 	function useTemplateHeaders() {
@@ -487,7 +487,7 @@
 	}
 
 	async function finishImport() {
-		await goto(resolve(`/org/${orgUrlSegment}/personnel`), { invalidateAll: true });
+		await goto(resolve(`/org/${orgUrlSegment}/personnel`), { invalidate: ['app:personnel-data'] });
 	}
 </script>
 

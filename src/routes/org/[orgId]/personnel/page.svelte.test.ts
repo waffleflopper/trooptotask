@@ -10,7 +10,7 @@ import {
 } from '$features/personnel';
 import type { Personnel, PersonnelWorkspaceResult } from '$features/personnel/contracts';
 
-const navigation = vi.hoisted(() => ({ goto: vi.fn(), invalidateAll: vi.fn() }));
+const navigation = vi.hoisted(() => ({ goto: vi.fn(), invalidate: vi.fn() }));
 const feedback = vi.hoisted(() => ({ success: vi.fn(), info: vi.fn(), error: vi.fn(), warning: vi.fn() }));
 vi.mock('$app/navigation', () => navigation);
 vi.mock('svelte-sonner', () => ({ toast: { ...feedback, dismiss: vi.fn() } }));
@@ -112,7 +112,7 @@ async function settle(promise: Promise<unknown>) {
 
 beforeEach(() => {
 	personnelWorkspaceHydrator.reset();
-	navigation.invalidateAll.mockResolvedValue(undefined);
+	navigation.invalidate.mockResolvedValue(undefined);
 });
 afterEach(() => {
 	cleanup();
@@ -145,13 +145,13 @@ describe('Personnel route archive retry lifetime', () => {
 			});
 			if (bootstrap === 'deferred') firstWorkspace.resolve(workspace('a', [alpha, bravo]));
 			await screen.findByText('Alpha, Test');
-			navigation.invalidateAll.mockImplementationOnce(async () => {
+			navigation.invalidate.mockImplementationOnce(async () => {
 				await view.rerender({ data: routeData('a', nextWorkspace.promise) });
 				await refreshCompleted.promise;
 			});
 			await select(['Select SGT Alpha, Test', 'Select SGT Bravo, Test']);
 			await submit();
-			await waitFor(() => expect(navigation.invalidateAll).toHaveBeenCalledOnce());
+			await waitFor(() => expect(navigation.invalidate).toHaveBeenCalledExactlyOnceWith('app:personnel-data'));
 			const retained = screen.getByRole('checkbox', { name: 'Select SGT Alpha, Test' });
 			expect(retained.getAttribute('aria-checked')).toBe('true');
 			expect(retained).toHaveProperty('disabled', true);
@@ -194,13 +194,13 @@ describe('Personnel route archive retry lifetime', () => {
 			.mockResolvedValueOnce(Response.json({ archivedIds: ['alpha'], approvalRequestedIds: [], errors: [] }));
 		vi.stubGlobal('fetch', send);
 		const view = render(Page, { data: routeData('a', workspace('a', [alpha, bravo])) });
-		navigation.invalidateAll.mockImplementationOnce(async () => {
+		navigation.invalidate.mockImplementationOnce(async () => {
 			await view.rerender({ data: routeData('a', nextWorkspace.promise) });
 			await refreshCompleted.promise;
 		});
 		await select(['Select SGT Alpha, Test', 'Select SGT Bravo, Test']);
 		await submit();
-		await waitFor(() => expect(navigation.invalidateAll).toHaveBeenCalledOnce());
+		await waitFor(() => expect(navigation.invalidate).toHaveBeenCalledExactlyOnceWith('app:personnel-data'));
 		hydrate('a', []);
 		nextWorkspace.resolve(workspace('a', []));
 		await settle(nextWorkspace.promise);
@@ -243,7 +243,7 @@ describe('Personnel route archive retry lifetime', () => {
 			expect(within(currentDialog).getByRole('button', { name: /Archive/ })).toHaveProperty('disabled', true);
 			expect(personnelStore.getById('b-record')).toBeTruthy();
 			for (const port of Object.values(feedback)) expect(port).not.toHaveBeenCalled();
-			expect(navigation.invalidateAll).not.toHaveBeenCalled();
+			expect(navigation.invalidate).not.toHaveBeenCalled();
 			b.resolve(Response.json({ archivedIds: [], approvalRequestedIds: ['b-record'], errors: [] }));
 			await waitFor(() => expect(feedback.info).toHaveBeenCalledOnce());
 			expect(send.mock.calls.map((call) => call[0])).toEqual([
@@ -271,7 +271,7 @@ describe('Personnel route archive retry lifetime', () => {
 		await settle(initialWorkspace.promise);
 		await screen.findByText('Alpha, Test');
 		expect(personnelStore.getById('bravo')).toBeTruthy();
-		navigation.invalidateAll.mockImplementationOnce(async () => {
+		navigation.invalidate.mockImplementationOnce(async () => {
 			await view.rerender({ data: routeData('a', refreshWorkspace.promise) });
 		});
 		await select(['Select SGT Alpha, Test', 'Select SGT Bravo, Test']);
@@ -281,7 +281,7 @@ describe('Personnel route archive retry lifetime', () => {
 		await waitFor(() =>
 			expect(screen.getByRole('button', { name: 'Confirm Archive' })).toHaveProperty('disabled', false)
 		);
-		expect(navigation.invalidateAll).toHaveBeenCalledOnce();
+		expect(navigation.invalidate).toHaveBeenCalledExactlyOnceWith('app:personnel-data');
 		expect(feedback.info).toHaveBeenCalledOnce();
 		refreshWorkspace.reject(new Error('readback connection failed'));
 		const alert = await screen.findByRole('alert');

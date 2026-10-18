@@ -16,7 +16,7 @@ import { settles } from '$lib/test-support/settles';
 
 const requestArchiveApproval: RequestPersonnelArchiveApproval = async () => false;
 
-vi.mock('$app/navigation', () => ({ goto: vi.fn(), invalidateAll: vi.fn() }));
+vi.mock('$app/navigation', () => ({ goto: vi.fn(), invalidate: vi.fn() }));
 
 afterEach(async () => {
 	cleanup();

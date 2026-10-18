@@ -91,6 +91,19 @@ describe('calendar Print/PDF', () => {
 		expect(page).toContain('SCHOOL · 10D');
 	});
 
+	it('shortens a label that no longer fits once a duty day cuts its bar', async () => {
+		const entries = [
+			entry('school-1', 'smith', 'school', '2026-03-01', '2026-03-10'),
+			entry('leave-1', 'smith', 'leave', '2026-03-02', '2026-03-04')
+		];
+		const page = async (assignments: CalendarPrintOptions['assignments']) =>
+			printedPages(await buildMonthCalendarPdf(2026, 2, options({ availabilityEntries: entries, assignments })))[0];
+
+		expect(await page([])).toContain('LEAVE · 3D');
+		const cut = await page([{ id: 'sd-1', date: '2026-03-03', assignmentTypeId: 'staff-duty', assigneeId: 'smith' }]);
+		expect(cut).not.toContain('LEAVE · 3D');
+	});
+
 	it('labels 3-Month bars and names each printed status in a legend', async () => {
 		const doc = await buildQuarterCalendarPdf(
 			new Date(2026, 2, 1),

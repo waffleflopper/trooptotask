@@ -464,7 +464,7 @@
 					<DataTable.DataTable
 						table={activeTable}
 						columns={personnelColumns}
-						onRowClick={handleRowClick}
+						onRowClick={bulkArchiveMode || ctx.canReadPersonnelDetails ? handleRowClick : undefined}
 						rowActionLabel={bulkArchiveMode
 							? (person) => `Select ${person.rank} ${person.lastName}`
 							: getPersonnelRowActionLabel}

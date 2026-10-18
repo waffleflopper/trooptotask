@@ -165,6 +165,7 @@ function makeCtx(
 		canManageGroups: false,
 		canViewRoster: true,
 		canManagePersonnelRecord: () => false,
+		canReadPersonnelDetails: false,
 		canOpenPersonnelDetail: () => false,
 		canArchivePersonnelRecord: () => false,
 		personnelRecordAffordance: () => deniedAffordance(),
@@ -321,7 +322,10 @@ describe('PersonnelPageView', () => {
 		expect(within(toolbar).queryByRole('link', { name: 'Import' })).toBeNull();
 		expect(screen.getByRole('button', { name: 'Edit' })).toBeTruthy();
 		expect(screen.queryByRole('button', { name: 'Details' })).toBeNull();
-		await fireEvent.click(screen.getByText('Smith, Jane').closest('tr')!);
+		const row = screen.getByText('Smith, Jane').closest('tr')!;
+		expect(row.getAttribute('tabindex')).toBeNull();
+		expect(row.getAttribute('aria-label')).toBeNull();
+		await fireEvent.click(row);
 		expect(gotoMock).not.toHaveBeenCalled();
 	});
 
@@ -665,6 +669,7 @@ describe('PersonnelPageView', () => {
 		const ctx = {
 			...makeCtx(handleEdit),
 			canManagePersonnelRecord: () => true,
+			canReadPersonnelDetails: true,
 			canOpenPersonnelDetail: () => true,
 			personnelRecordAffordance: () => allowedAffordance()
 		} as unknown as PersonnelPageContext;

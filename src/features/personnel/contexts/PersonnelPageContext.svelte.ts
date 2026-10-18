@@ -154,14 +154,16 @@ export class PersonnelPageContext {
 		return this.personnelRecordAffordance(person).allowed;
 	}
 
-	/** The detail page admits the header's record access and, unscoped, sensitive-record reading. */
+	/** The detail page requires sensitive-record reading unscoped, so an actor without it can open no record. */
+	get canReadPersonnelDetails(): boolean {
+		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.readSensitiveRecords, {
+			kind: 'unscoped'
+		}).allowed;
+	}
+
+	/** The detail page also admits only records the header lets the actor manage. */
 	canOpenPersonnelDetail(person: Personnel): boolean {
-		return (
-			this.canManagePersonnelRecord(person) &&
-			this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.readSensitiveRecords, {
-				kind: 'unscoped'
-			}).allowed
-		);
+		return this.canReadPersonnelDetails && this.canManagePersonnelRecord(person);
 	}
 
 	personnelArchiveAffordance(person: Personnel): PersonnelAffordance {

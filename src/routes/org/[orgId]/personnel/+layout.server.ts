@@ -1,4 +1,5 @@
 import { listStatusTypes } from '$features/calendar/index.server';
+import { requireActiveOrganization } from '$features/organization/index.server';
 import { PERSONNEL_WORKSPACE_LANE_KEY, type PersonnelWorkspaceRouteData } from '$features/personnel/contracts';
 import { loadPersonnelWorkspace } from '$features/personnel/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -35,7 +36,9 @@ async function streamPersonnelWorkspace({
 export function _createPersonnelLayoutLoad(deps: PersonnelLayoutLoadDeps = {}): LayoutServerLoad {
 	return async (event) => {
 		event.depends('app:org-core', 'app:personnel-data');
-		// parent() would rerun the root and Organization loads on every Personnel refresh. Admission checks status.
+		// parent() would rerun the root and Organization loads on every Personnel refresh. Awaiting the shared
+		// per-request admission instead keeps a suspended or unknown Organization failing as the shell does.
+		await requireActiveOrganization(event.locals, event.params.orgId);
 		return (deps.streamPersonnelWorkspace ?? streamPersonnelWorkspace)(event);
 	};
 }

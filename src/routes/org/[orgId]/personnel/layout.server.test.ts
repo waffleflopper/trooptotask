@@ -43,6 +43,21 @@ vi.mock('$lib/server/adapters/requestContexts.server', async () => {
 	};
 });
 
+vi.mock('$features/organization/index.server', async () => {
+	const actual = await vi.importActual<typeof import('$features/organization/index.server')>(
+		'$features/organization/index.server'
+	);
+	return {
+		...actual,
+		requireActiveOrganization: async (_locals: App.Locals, segment: string) => {
+			const orgId = segment === ORG_SEGMENT ? ORG : segment;
+			if (suspendedOrganizations.has(orgId)) error(403, 'Organization is suspended');
+			if (!requests.has(orgId)) error(404, 'Organization not found');
+			return orgId;
+		}
+	};
+});
+
 import { _createPersonnelLayoutLoad } from './+layout.server';
 
 function granted<T extends object>(workspace: T): Exclude<T, { access: 'restricted' }> {
@@ -219,24 +234,26 @@ describe('Personnel workspace page delivery', () => {
 		expect(event.depends).toHaveBeenCalledWith('app:org-core', 'app:personnel-data');
 	});
 
-	it('streams a suspended Organization as restricted without starting a workspace', async () => {
+	it('fails a suspended Organization with 403 before streaming a workspace', async () => {
 		seededContext();
 		suspendedOrganizations.add(ORG);
-		const route = (await _createPersonnelLayoutLoad()(eventFor())) as PersonnelWorkspaceRouteData;
 
-		await expect(route.personnel.data).resolves.toEqual({ laneKey: 'personnel', access: 'restricted' });
-		expect(acquiredRequests).toEqual([ORG_SEGMENT]);
+		await expect(_createPersonnelLayoutLoad()(eventFor())).rejects.toMatchObject({
+			status: 403,
+			body: { message: 'Organization is suspended' }
+		});
+		expect(acquiredRequests).toEqual([]);
 		expect(createRequestPersonnelWorkspaceContextMock).not.toHaveBeenCalled();
 	});
 
-	it('rejects an unknown Organization with 404 without starting a workspace', async () => {
+	it('fails an unknown Organization with 404 before streaming a workspace', async () => {
 		seededContext();
-		const route = (await _createPersonnelLayoutLoad()(eventFor('unknown-org'))) as PersonnelWorkspaceRouteData;
 
-		await expect(route.personnel.data).rejects.toMatchObject({
+		await expect(_createPersonnelLayoutLoad()(eventFor('unknown-org'))).rejects.toMatchObject({
 			status: 404,
 			body: { message: 'Organization not found' }
 		});
+		expect(acquiredRequests).toEqual([]);
 		expect(createRequestPersonnelWorkspaceContextMock).not.toHaveBeenCalled();
 	});
 });

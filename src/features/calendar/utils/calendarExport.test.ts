@@ -1,35 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import ExcelJS from 'exceljs';
 
-const { mockSave, mockText, mockJsPDF, mockAutoTable } = vi.hoisted(() => {
-	const mockSave = vi.fn();
-	const mockText = vi.fn();
-	const mockSetFontSize = vi.fn();
-	const mockSetFillColor = vi.fn();
-	const mockRect = vi.fn();
-	const mockSetTextColor = vi.fn();
-	const mockJsPDF = vi.fn(function (this: Record<string, unknown>) {
-		this.internal = { pageSize: { getWidth: () => 792 } };
-		this.save = mockSave;
-		this.text = mockText;
-		this.setFontSize = mockSetFontSize;
-		this.setFillColor = mockSetFillColor;
-		this.rect = mockRect;
-		this.setTextColor = mockSetTextColor;
-	});
-	const mockAutoTable = vi.fn();
-	return { mockSave, mockText, mockJsPDF, mockAutoTable };
-});
-
-vi.mock('jspdf', () => ({
-	jsPDF: mockJsPDF
-}));
-
-vi.mock('jspdf-autotable', () => ({
-	default: mockAutoTable
-}));
-
-import { exportMonthToExcel, exportQuarterToExcel, printMonthCalendar, printQuarterCalendar } from './calendarExport';
+import { exportMonthToExcel, exportQuarterToExcel } from './calendarExport';
 import type { Personnel } from '$features/personnel/contracts';
 import type {
 	AssignmentType,
@@ -40,31 +12,6 @@ import type {
 } from '$features/calendar/contracts';
 
 type WorkbookLoadBuffer = Parameters<ExcelJS.Workbook['xlsx']['load']>[0];
-
-function makeExportOptions() {
-	return {
-		personnelByGroup: [
-			{
-				group: 'Alpha',
-				personnel: [
-					{
-						id: '1',
-						rank: 'SGT',
-						lastName: 'Smith',
-						firstName: 'John',
-						groupName: 'Alpha',
-						groupId: 'g1'
-					} as Personnel
-				]
-			}
-		],
-		availabilityEntries: [],
-		statusTypes: [],
-		specialDays: [],
-		assignmentTypes: [],
-		assignments: []
-	};
-}
 
 function makeOverlappingExportOptions() {
 	const personnel = [
@@ -241,135 +188,5 @@ describe('calendar Excel exports', () => {
 		expect(sheet!.getCell('D4').fill).toMatchObject({ fgColor: { argb: 'FFFDE68A' } });
 		expect(sheet!.getCell('B5').value).toBeNull();
 		expect(sheet!.getCell('G2').fill).toMatchObject({ fgColor: { argb: 'FFFEF3C7' } });
-	});
-});
-
-describe('printMonthCalendar', () => {
-	beforeEach(() => {
-		vi.clearAllMocks();
-	});
-
-	it('returns a promise (is async)', async () => {
-		const result = printMonthCalendar(2026, 2, makeExportOptions());
-		expect(result).toBeInstanceOf(Promise);
-		await result;
-	});
-
-	it('creates a jsPDF document and saves it', async () => {
-		await printMonthCalendar(2026, 2, makeExportOptions());
-
-		expect(mockJsPDF).toHaveBeenCalledWith(
-			expect.objectContaining({ orientation: 'landscape', unit: 'pt', format: 'letter' })
-		);
-		expect(mockAutoTable).toHaveBeenCalled();
-		expect(mockSave).toHaveBeenCalledWith(expect.stringContaining('.pdf'));
-	});
-
-	it('includes the month name and year in the title', async () => {
-		await printMonthCalendar(2026, 2, makeExportOptions());
-
-		expect(mockText).toHaveBeenCalledWith('March 2026', expect.any(Number), expect.any(Number), expect.any(Object));
-	});
-
-	it('builds PDF cell content and styles for overlapping availability, assignments, and holidays', async () => {
-		await printMonthCalendar(2026, 2, makeOverlappingExportOptions());
-
-		const tableOptions = mockAutoTable.mock.calls.at(-1)?.[1];
-		expect(tableOptions.body).toEqual(
-			expect.arrayContaining([expect.arrayContaining([expect.stringContaining('SGT Smith'), 'Leave', 'Leave\nSD, CQ'])])
-		);
-		const statusCell = { styles: {} };
-		tableOptions.didParseCell({
-			section: 'body',
-			row: { index: 1 },
-			column: { index: 2 },
-			cell: statusCell
-		});
-		expect(statusCell.styles).toMatchObject({ fillColor: [253, 230, 138], textColor: [17, 24, 39] });
-		const weekendCell = { styles: {} };
-		tableOptions.didParseCell({
-			section: 'body',
-			row: { index: 2 },
-			column: { index: 1 },
-			cell: weekendCell
-		});
-		expect(weekendCell.styles).toMatchObject({ fillColor: [243, 244, 246] });
-		const holidayCell = { styles: {} };
-		tableOptions.didParseCell({
-			section: 'body',
-			row: { index: 2 },
-			column: { index: 6 },
-			cell: holidayCell
-		});
-		expect(holidayCell.styles).toMatchObject({ fillColor: [254, 243, 199] });
-	});
-});
-
-describe('printQuarterCalendar', () => {
-	beforeEach(() => {
-		vi.clearAllMocks();
-	});
-
-	it('returns a promise (is async)', async () => {
-		const result = printQuarterCalendar(new Date(2026, 0, 1), makeExportOptions());
-		expect(result).toBeInstanceOf(Promise);
-		await result;
-	});
-
-	it('creates a jsPDF document and saves it', async () => {
-		await printQuarterCalendar(new Date(2026, 0, 1), makeExportOptions());
-
-		expect(mockJsPDF).toHaveBeenCalledWith(
-			expect.objectContaining({ orientation: 'landscape', unit: 'pt', format: 'letter' })
-		);
-		expect(mockAutoTable).toHaveBeenCalled();
-		expect(mockSave).toHaveBeenCalledWith(expect.stringContaining('.pdf'));
-	});
-
-	it('includes quarter range in the title', async () => {
-		await printQuarterCalendar(new Date(2026, 0, 1), makeExportOptions());
-
-		// Should contain the start and end month names
-		expect(mockText).toHaveBeenCalledWith(
-			expect.stringContaining('January'),
-			expect.any(Number),
-			expect.any(Number),
-			expect.any(Object)
-		);
-	});
-
-	it('keeps compact quarter PDF cells visually styled without listing cell text', async () => {
-		await printQuarterCalendar(new Date(2026, 2, 1), makeOverlappingExportOptions());
-
-		const tableOptions = mockAutoTable.mock.calls.at(-1)?.[1];
-		expect(tableOptions.body).toEqual(
-			expect.arrayContaining([expect.arrayContaining([expect.stringContaining('SGT Smith')])])
-		);
-		expect(tableOptions.body.flat()).not.toContain('SD');
-		expect(tableOptions.body.flat()).not.toContain('Leave');
-		const statusCell = { styles: {} };
-		tableOptions.didParseCell({
-			section: 'body',
-			row: { index: 1 },
-			column: { index: 2 },
-			cell: statusCell
-		});
-		expect(statusCell.styles).toMatchObject({ fillColor: [253, 230, 138], textColor: [17, 24, 39] });
-		const weekendCell = { styles: {} };
-		tableOptions.didParseCell({
-			section: 'body',
-			row: { index: 2 },
-			column: { index: 1 },
-			cell: weekendCell
-		});
-		expect(weekendCell.styles).toMatchObject({ fillColor: [243, 244, 246] });
-		const holidayCell = { styles: {} };
-		tableOptions.didParseCell({
-			section: 'body',
-			row: { index: 2 },
-			column: { index: 6 },
-			cell: holidayCell
-		});
-		expect(holidayCell.styles).toMatchObject({ fillColor: [254, 243, 199] });
 	});
 });

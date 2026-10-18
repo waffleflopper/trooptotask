@@ -60,7 +60,7 @@ interface Sheet {
 	readonly months: readonly MonthBand[];
 	readonly lines: readonly SheetLine[];
 	readonly personnelCount: number;
-	readonly fits: LabelFit;
+	readonly laneFits: LabelFit;
 }
 
 interface Geometry {
@@ -181,8 +181,8 @@ function buildSheet(
 				)
 			: new Map<string, ReadonlyMap<number, readonly CalendarCellMarkerState[]>>();
 	const dayWidth = gridWidth(view) / days.length;
-	const fits = labelFit(doc, geometry.fullLabel);
-	const policy = { view: 'print', dayWidth, fits } as const;
+	const policy = { view: 'print', dayWidth, fits: labelFit(doc, geometry.fullLabel) } as const;
+	const laneFits = labelFit(doc, geometry.laneLabel);
 
 	const lines: SheetLine[] = [];
 	let personnelCount = 0;
@@ -210,14 +210,13 @@ function buildSheet(
 		start += month.dates.length;
 		return band;
 	});
-	return { view, title, days, months: bands, lines, personnelCount, fits };
+	return { view, title, days, months: bands, lines, personnelCount, laneFits };
 }
 
 function gridWidth(view: PrintView): number {
 	return PAGE.width - PAGE.marginX * 2 - GEOMETRY[view].nameWidth;
 }
 
-/** Measures at the full-lane size; a lane bar draws smaller text, so whatever fits here fits there too. */
 function labelFit(doc: jsPDF, size: number): LabelFit {
 	return (text, width, chevrons) => labelWidth(doc, text, size) + BAR_PADDING * 2 + chevrons * CHEVRON <= width - 1.2;
 }
@@ -456,7 +455,7 @@ function drawBar(
 	const pieces = piecesOf(bar);
 	const boxes = pieces.map((piece) => pieceBox(piece, gridLeft, dayWidth));
 	const labeled = widest(boxes);
-	const label = bar.pieces ? pieceLabel(sheet, bar, boxes[labeled].width, labeled, pieces.length) : bar.label;
+	const label = bar.lane === 'full' ? bar.label : laneLabel(sheet, bar, boxes[labeled].width, labeled, pieces.length);
 	pieces.forEach((piece, index) => {
 		const { x, width } = boxes[index];
 		const squareStart = index === 0 && bar.continuesBefore;
@@ -487,11 +486,14 @@ function drawBar(
 	});
 }
 
-/** A bar's label was fitted to its whole span; a cut bar fits it again to the piece that carries it. */
-function pieceLabel(sheet: Sheet, bar: Bar, width: number, index: number, count: number): BarLabel {
+/**
+ * The layout fits labels to a whole span at the full-lane size. A lane bar draws smaller text, and a duty day can cut it,
+ * so its label is fitted again to the piece that carries it.
+ */
+function laneLabel(sheet: Sheet, bar: Bar, width: number, index: number, count: number): BarLabel {
 	const days = toDayNumber(bar.entry.endDate) - toDayNumber(bar.entry.startDate) + 1;
 	const chevrons = Number(index === 0 && bar.continuesBefore) + Number(index === count - 1 && bar.continuesAfter);
-	return fittedLabel(bar.status, days, width + 1.2, chevrons, sheet.fits);
+	return fittedLabel(bar.status, days, width + 1.2, chevrons, sheet.laneFits);
 }
 
 function labelText(label: BarLabel): string {

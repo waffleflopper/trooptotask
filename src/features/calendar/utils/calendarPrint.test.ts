@@ -99,9 +99,13 @@ describe('calendar Print/PDF', () => {
 		const page = async (assignments: CalendarPrintOptions['assignments']) =>
 			printedPages(await buildMonthCalendarPdf(2026, 2, options({ availabilityEntries: entries, assignments })))[0];
 
-		expect(await page([])).toContain('LEAVE · 3D');
+		const whole = await page([]);
 		const cut = await page([{ id: 'sd-1', date: '2026-03-03', assignmentTypeId: 'staff-duty', assigneeId: 'smith' }]);
+		const shortLabels = (runs: string[]) => runs.filter((text) => text === 'LEA').length;
+
+		expect(whole).toContain('LEAVE · 3D');
 		expect(cut).not.toContain('LEAVE · 3D');
+		expect(shortLabels(cut), 'the cut bar keeps its one-day label').toBe(shortLabels(whole) + 1);
 	});
 
 	it('labels 3-Month bars and names each printed status in a legend', async () => {

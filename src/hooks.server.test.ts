@@ -1131,15 +1131,17 @@ describe('server auth hook', () => {
 
 	it('writes provider cookies through the hook with HttpOnly and root scope while retaining secure options', async () => {
 		const harness = await createAuthenticatedHookHarness({ data: false, error: null });
+		harness.resolve.mockImplementation(async () => {
+			harness.getClientOptions().cookies.setAll([
+				{
+					name: 'sb-example-auth-token',
+					value: 'renewed-synthetic-session',
+					options: { path: '/auth', httpOnly: false, secure: true, sameSite: 'lax', maxAge: 3600 }
+				}
+			]);
+			return new Response('ok');
+		});
 		await harness.handle(harness);
-
-		harness.getClientOptions().cookies.setAll([
-			{
-				name: 'sb-example-auth-token',
-				value: 'renewed-synthetic-session',
-				options: { path: '/auth', httpOnly: false, secure: true, sameSite: 'lax', maxAge: 3600 }
-			}
-		]);
 
 		expect(harness.event.cookies.set).toHaveBeenCalledWith('sb-example-auth-token', 'renewed-synthetic-session', {
 			path: '/',

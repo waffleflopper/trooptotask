@@ -39,7 +39,7 @@ export { checkSessionAssurance } from './sessionAssurance.server';
 export { readAccountSuspension } from './accountSuspension.server';
 export { readIdentitySecurity, updateIdentityEmail } from './accountSecurity.server';
 
-export { getAuthCookieOptions } from './authCookies.server';
+export { createAuthCookieWriter } from './authCookies.server';
 export {
 	createSupabaseSensitiveActionAuthorizer,
 	sensitiveActionDecisionAuditDetails,

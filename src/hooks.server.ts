@@ -4,8 +4,7 @@ import { stringify } from 'devalue';
 import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/public';
 import { checkRateLimit } from '$lib/access/rateLimit.server';
 import { auditLog } from '$lib/audit/index.server';
-import { getAuthCookieOptions } from '$features/identity/index.server';
-import { readIdentitySession, readIdentityAdmission } from '$features/identity/index.server';
+import { createAuthCookieWriter, readIdentitySession, readIdentityAdmission } from '$features/identity/index.server';
 import { requireActiveOrganization } from '$features/organization/index.server';
 import '$lib/server/env'; // validate env vars on startup
 
@@ -59,6 +58,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 		}
 	};
 
+	const authCookies = createAuthCookieWriter(event.cookies);
 	event.locals.supabase = createServerClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY, {
 		auth: {
 			userStorage: requestUserStorage
@@ -66,11 +66,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 		cookies: {
 			encode: 'tokens-only',
 			getAll: () => event.cookies.getAll(),
-			setAll: (cookiesToSet) => {
-				cookiesToSet.forEach(({ name, value, options }) => {
-					event.cookies.set(name, value, getAuthCookieOptions(options));
-				});
-			}
+			setAll: authCookies.setAll
 		}
 	});
 
@@ -128,11 +124,16 @@ export const handle: Handle = async ({ event, resolve }) => {
 		await requireActiveOrganization(event.locals, orgSegment);
 	}
 
-	const response = await resolve(event, {
-		filterSerializedResponseHeaders(name) {
-			return name === 'content-range' || name === 'x-supabase-api-version';
-		}
-	});
+	let response: Response;
+	try {
+		response = await resolve(event, {
+			filterSerializedResponseHeaders(name) {
+				return name === 'content-range' || name === 'x-supabase-api-version';
+			}
+		});
+	} finally {
+		authCookies.markResponseGenerated();
+	}
 
 	for (const [header, value] of Object.entries(securityHeaders)) {
 		response.headers.set(header, value);

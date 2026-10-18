@@ -1,15 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$features/calendar/calendarPersistence.test-support.server';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
-import { createReadyAppShellRouteData, createSuspendedAppShellRouteData } from '../appShell.test-support';
+import { error } from '@sveltejs/kit';
 import type { PersonnelWorkspaceRouteData } from '$features/personnel/contracts';
 import type { AdmittedOrganizationRequest } from '$lib/server/adapters/requestContexts.server';
 
-const { requests, acquiredRequests, createRequestPersonnelWorkspaceContextMock } = vi.hoisted(() => ({
-	requests: new Map<string, ReturnType<typeof createTestContext>>(),
-	acquiredRequests: [] as string[],
-	createRequestPersonnelWorkspaceContextMock: vi.fn()
-}));
+const { requests, suspendedOrganizations, acquiredRequests, createRequestPersonnelWorkspaceContextMock } = vi.hoisted(
+	() => ({
+		requests: new Map<string, ReturnType<typeof createTestContext>>(),
+		suspendedOrganizations: new Set<string>(),
+		acquiredRequests: [] as string[],
+		createRequestPersonnelWorkspaceContextMock: vi.fn()
+	})
+);
+
+const ORG = 'test-org';
+const ORG_SEGMENT = 'public-org-name';
 
 vi.mock('$lib/server/adapters/requestContexts.server', async () => {
 	const actual = await vi.importActual<typeof import('$lib/server/adapters/requestContexts.server')>(
@@ -17,10 +23,12 @@ vi.mock('$lib/server/adapters/requestContexts.server', async () => {
 	);
 	return {
 		...actual,
-		buildLayoutRequest: async (_locals: App.Locals, orgId: string) => {
-			acquiredRequests.push(orgId);
+		buildLayoutRequest: async (_locals: App.Locals, segment: string) => {
+			acquiredRequests.push(segment);
+			const orgId = segment === ORG_SEGMENT ? ORG : segment;
+			if (suspendedOrganizations.has(orgId)) error(403, 'Organization is suspended');
 			const ctx = requests.get(orgId);
-			if (!ctx) throw Object.assign(new Error('Organization not admitted'), { status: 403 });
+			if (!ctx) error(404, 'Organization not found');
 			return {
 				auth: ctx.auth,
 				audit: ctx.audit,
@@ -43,18 +51,17 @@ function granted<T extends object>(workspace: T): Exclude<T, { access: 'restrict
 }
 
 type PersonnelLoadEvent = Parameters<ReturnType<typeof _createPersonnelLayoutLoad>>[0];
-const ORG = 'test-org';
 
-function eventFor(suspended = false): PersonnelLoadEvent {
+function eventFor(segment = ORG_SEGMENT): PersonnelLoadEvent {
 	return {
 		locals: {} as App.Locals,
 		cookies: {} as import('@sveltejs/kit').Cookies,
-		url: new URL('https://example.test/org/public-org-name/personnel'),
+		params: { orgId: segment },
+		url: new URL(`https://example.test/org/${segment}/personnel`),
 		depends: vi.fn(),
-		parent: async () =>
-			suspended
-				? createSuspendedAppShellRouteData({ orgId: ORG })
-				: createReadyAppShellRouteData({ orgId: ORG, orgUrlSegment: 'public-org-name' })
+		parent: () => {
+			throw new Error('The Personnel layout must not run ancestor loads');
+		}
 	} as unknown as PersonnelLoadEvent;
 }
 
@@ -103,6 +110,7 @@ function seededContext() {
 beforeEach(() => {
 	vi.clearAllMocks();
 	requests.clear();
+	suspendedOrganizations.clear();
 	acquiredRequests.length = 0;
 	createRequestPersonnelWorkspaceContextMock.mockImplementation(
 		(request: Pick<AdmittedOrganizationRequest, 'auth'>) => {
@@ -201,10 +209,34 @@ describe('Personnel workspace page delivery', () => {
 		expect(createRequestPersonnelWorkspaceContextMock).not.toHaveBeenCalled();
 	});
 
-	it('does not start a workspace for a suspended Organization', async () => {
+	it('admits the Organization from the route segment and registers only its own dependencies', async () => {
 		seededContext();
-		await expect(_createPersonnelLayoutLoad()(eventFor(true))).rejects.toMatchObject({ status: 403 });
-		expect(acquiredRequests).toEqual([]);
+		const event = eventFor();
+		const route = (await _createPersonnelLayoutLoad()(event)) as PersonnelWorkspaceRouteData;
+
+		expect(granted(await route.personnel.data).hydration.orgId).toBe(ORG);
+		expect(acquiredRequests).toEqual([ORG_SEGMENT]);
+		expect(event.depends).toHaveBeenCalledWith('app:org-core', 'app:personnel-data');
+	});
+
+	it('streams a suspended Organization as restricted without starting a workspace', async () => {
+		seededContext();
+		suspendedOrganizations.add(ORG);
+		const route = (await _createPersonnelLayoutLoad()(eventFor())) as PersonnelWorkspaceRouteData;
+
+		await expect(route.personnel.data).resolves.toEqual({ laneKey: 'personnel', access: 'restricted' });
+		expect(acquiredRequests).toEqual([ORG_SEGMENT]);
+		expect(createRequestPersonnelWorkspaceContextMock).not.toHaveBeenCalled();
+	});
+
+	it('rejects an unknown Organization with 404 without starting a workspace', async () => {
+		seededContext();
+		const route = (await _createPersonnelLayoutLoad()(eventFor('unknown-org'))) as PersonnelWorkspaceRouteData;
+
+		await expect(route.personnel.data).rejects.toMatchObject({
+			status: 404,
+			body: { message: 'Organization not found' }
+		});
 		expect(createRequestPersonnelWorkspaceContextMock).not.toHaveBeenCalled();
 	});
 });

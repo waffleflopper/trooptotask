@@ -10,6 +10,53 @@ Activated for planning on 2026-10-15 under #1275 and parent [#1285](https://gith
 
 Activation refreshed source observations only; it took no runtime measurement. Each child records its current owners, at `d8b45a7c3`, as hypotheses. F05 persists under renamed owners (`loadPersonnelWorkspace`, `selectAllSupabaseRows`, Training briefing detail). #1559 and #1572 are source-confirmed, and #1570 is source-confirmed on main. Calendar redesign slices #1692, #1697 and #1699 are on `feat/calendar-redesign`, not main, and that branch replaces most #1570 targets. Exports already load ExcelJS and jsPDF on demand. The verification harness already measures a production build and preview; representative workloads and server/query capture are D01 work.
 
+## 12-02 D03 Personnel roster, detail and mutation refresh cost
+
+**Repaired and measured; ready to close on merge.** Refs [#1707](https://github.com/waffleflopper/trooptotask/issues/1707) with the work for [#1559](https://github.com/waffleflopper/trooptotask/issues/1559) and [#1572](https://github.com/waffleflopper/trooptotask/issues/1572). One PR removes the repeated work D01 confirmed. Search, filter and the large table were below their bound and are unchanged.
+
+- **Duplicate roster read (F05).** `loadPersonnelWorkspace` reads the active roster once. For an Organization-wide actor the scoped reader builds the same query as the removed unscoped read, so `organizationRoster` is deleted from the context.
+- **Detail open.** The detail page and its five child pages resolve the header through one request memo (`src/lib/server/adapters/personnelDetailHeaderLoad.ts`) instead of `await parent()`, which ran the Personnel workspace layout's load for a node the response skipped.
+- **Detail lanes.** The five lanes reuse the resolved Person. Each still requires its own feature action against that Person's Group.
+- **#1559.** Once scope admits a single Person, the availability read filters by that Person alone.
+- **#1572.** List, modal and bulk archive and import invalidate `app:personnel-data`. A basic-info save invalidates the detail header and page keys and patches the roster store; a slug change navigates to the new URL with those keys. Detail archive navigates to the list with `app:personnel-data`. No Personnel mutation changes root or org-shell data, so no broader refresh remains.
+- **Found defect.** The roster shows `Details` and opens the record on row click only for actors holding `personnel.readSensitiveRecords`, the detail page's gate. Operators keep Edit. Serving operators a reduced detail view remains a product option for the owner.
+
+**Before and after, one environment.** Chromium 154.0.8037.97, kernel 7.2.8-9, AMD Ryzen 7 7800X3D, Node 24.22.0, production build on `verify:app` worker 1. Before is main `66c158690` (digest `2cbf71d0…e2d7`, 14:45Z to 16:39Z on 2026-10-18); after is `e5163b6f3` (digest `05a953c8…08d1`, 16:42Z to 18:35Z), whose source differs by the repair only. Workloads small, typical and large, each prepared with the pinned plan regime read back on all 92 cells; warm 1 + 5, cold 3. 46 cells and 226 kept samples per side, 0 rejected. Only the import cells list maintenance on `personnel`. A first before attempt lost its supervisor mid-matrix (the D01 r7 failure); it is kept apart as a diagnostic and the matrix was rerun whole.
+
+| Journey at large (median ms)              | Before    | After     | Budget        | Verdict |
+| ----------------------------------------- | --------- | --------- | ------------- | ------- |
+| List warm useful / settled, scoped        | 174 / 174 | 82 / 135  | ≤ 200 / ≤ 400 | pass    |
+| List warm useful / settled, wide          | 175 / 175 | 171 / 171 | ≤ 200 / ≤ 400 | pass    |
+| List cold settled, wide / scoped          | 337 / 328 | 326 / 278 | ≤ 400         | pass    |
+| Detail useful, wide / scoped Editor       | 76 / 88   | 75 / 80   | ≤ 150         | pass    |
+| Detail edit settled, wide / scoped Editor | 330 / 323 | 234 / 219 | ≤ 450         | pass    |
+| Edit, wide / scoped                       | 194 / 194 | 190 / 192 | ≤ 300         | pass    |
+| Import 100 rows, wide / scoped            | 249 / 133 | 249 / 132 | ≤ 300         | pass    |
+| Filter, wide / scoped                     | 165 / 15  | 164 / 15  | ≤ 200         | pass    |
+| Sidebar navigation settled, scoped        | 149       | 55        | none          |         |
+| Organization switch useful, scoped        | 184       | 92        | none          |         |
+
+Shape, measured in the statement windows and request manifests: one roster read per workspace load for every actor (was two; the scoped actor's discarded 122 ms read is gone); detail open runs no roster, Group or rank-catalog read (two roster reads, 246 ms of database time, before) and no per-lane `findById` (five before); detail edit refreshes with `x-sveltekit-invalidated=00011` (was `11111`) and no `/api/app-shell-chrome`; the scoped Editor's availability read filters `personnel_id = $4` alone. The wide list halved its roster database time (2 × 125 to 1 × 121 ms) without moving wall time, because the two reads ran in parallel (inferred).
+
+**Correctness, baseline and final.** Baseline on main `66c158690` (digest `2cbf71d0…e2d7`) and final on `655f51d7b` (digest `615d846c…b218`), both small workload on Chromium 154.0.8037.97 and kernel 7.2.8-9, worker 1. Unchanged in both: roster, search, sort, Group scope, Organization isolation and the empty roster; detail header, five lanes and six artifact tabs; 404 for foreign Organization, foreign or missing slug and out-of-Group targets; 403 for `viewer`, `scoped` and operate actors; every edit, slug change, archive path (detail, roster, Edit dialog, bulk), import and More info save persisted after reload with `rows` readback. Changed as intended: operate actors see Edit and no `Details`, and a row click no longer navigates (baseline: `Details`, then the 403 page); list archives and the import return refresh `personnel/__data.json` with `0010` (was `1110`); detail edit and slug change refresh with `00011` (was `11111`); detail archive lands on the list with `0010`; `/api/app-shell-chrome` no longer follows any mutation. Lane pending feedback: with `server-source` holding `rating_scheme_entries` or `personnel_ict_completions` (`matches: 1`), the header and other lanes render while only that lane shows its loading state, and it resolves on release. The Phase 10 nine-second gap did not reproduce on either candidate. The scoped Editor's availability lane shows its Person's entry. A final recipe-only commit `50c24e488` followed the last doctor; it changes driving prose, not the app.
+
+**Limits and residuals.**
+
+- `invalidate('app:personnel-data')` reruns the Personnel workspace layout, and the shared `streamReadyFeatureLaneWorkspace` helper (seven feature layouts) awaits `parent()`, so the root and Organization server loads still run on the server for archive and import. The client receives no shell node and requests no shell chrome. D02 measured those statements at 1.8 to 4.2 ms of database time per load and closed as not planned.
+- Group-access lookups outside the lanes remain (extended info, the artifact context, leader notes): wide 3, scoped Editor 7 (12 before), 0.5 to 0.9 ms each. They are independent checks in separate request contexts.
+- One status-types read remains on detail open (two before), from the detail page's own loads.
+- The scoped Editor's detail `header` milestone moved from 69 to 80 ms while `useful` moved earlier: the response now arrives whole. Cause not traced; inside budget.
+- Not verified live: the 202 archive-approval path, restore and permanent delete, an operator's Edit save and import, and `availability_entries` or `personnel_trainings` holds, which the control cannot match.
+- Not measured: p95, a Group past 100 People, server timing (Personnel emits none), production delivery and field networks.
+
+**Archives** on the `evidence` prerelease (re-extract, then `sha256sum -c INVENTORY.sha256` or `inventory.sha256` inside):
+
+- [`1707-d03-baseline.tar.gz`](https://github.com/waffleflopper/trooptotask/releases/download/evidence/1707-d03-baseline.tar.gz) `29131fa9bf8d100937fef45c47a82a5b092fe812aaec236fea5ed4717cc3e088`
+- [`1707-d03-perf-before.tar.gz`](https://github.com/waffleflopper/trooptotask/releases/download/evidence/1707-d03-perf-before.tar.gz) `043c8d03eb3e48bdf83a6bff34c5bc0f262f946d7106b9ace46c0470c38ed8d0`
+- [`1707-d03-perf-after.tar.gz`](https://github.com/waffleflopper/trooptotask/releases/download/evidence/1707-d03-perf-after.tar.gz) `bcf6eb2e2286562352698f2f90b03be56653925f35f31235628d817ef7fcbdb8`
+- [`1707-d03-perf-comparison.tar.gz`](https://github.com/waffleflopper/trooptotask/releases/download/evidence/1707-d03-perf-comparison.tar.gz) `d40175940d45aca0dee28924b31681a79b029715af58f3aeba97b30bf0e9dc82`
+- [`1707-d03-final.tar.gz`](https://github.com/waffleflopper/trooptotask/releases/download/evidence/1707-d03-final.tar.gz) `928709787f7a7a4a64312f9f4e4862acb6cbff581192bfcc8d44570c5bdbef37`
+
 ## 12-BASE D01 baseline
 
 **Baseline recorded on the merged candidate.** Refs [#1705](https://github.com/waffleflopper/trooptotask/issues/1705). PR 2 adds one declarative journey registry (`helpers/perf-journeys.mjs`) covering every #1705 journey, a `perf prepare` control and a host-build record in every run. It changes no application source. The candidate is the merge `9e72f54d8`, whose `src/` equals main `71bb34bd0` (the duty picker filters #1722, GitHub-hosted CI #1732 and Calendar print #1731 on top of the Calendar redesign #1721). **r6** (`d01-baseline-r6-20261017`, main `82df2dfad`) measured every Calendar journey at every workload and actor, and every interaction whose r4 or kept median was under 1000 ms. **r7** (`d01-baseline-r7-20261017`, on the merged candidate) spot-checked the journeys the merge reaches and measured assignment save and sidebar navigation again at every workload and actor, replacing r6's cells (merge check below). **r4** (`d01-baseline-r4-20261017`, main `274939fcb`) keeps the other loads and the large Training-source and Organization export interactions, under the reuse rule below. **r8** (`d01-baseline-r8-20261017`) measured nothing new: it corrects the merge trace and adds the Calendar barrel comparison (merge check below). The classification, hypotheses and limits are in the r8 archive's `analysis/d01-classification.md`, and the per-cell medians and samples in `analysis/cells.json`.

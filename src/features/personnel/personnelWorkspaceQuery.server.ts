@@ -22,7 +22,6 @@ import {
 interface PersonnelWorkspaceQueryContext {
 	auth: PersonnelRosterActor;
 	roster: PersonnelRosterReader;
-	organizationRoster: PersonnelRosterReader;
 	groups: Pick<GroupPersistence, 'listCatalog'>;
 	selfPins: Pick<SelfPinPersistence, 'listNames'>;
 	loadRankCatalog(): Promise<OrganizationRankCatalogEntry[]>;
@@ -56,10 +55,9 @@ export async function loadPersonnelWorkspace(
 	await requireFeaturePolicy(ctx, POLICY_ACTION_CATALOG.personnel.viewRoster, { kind: 'unscoped' }, 'personnel');
 	if (!ctx.personnelAwardAcknowledgement) throw new Error('Personnel award acknowledgement port is required');
 
-	const [personnel, allPersonnel, groups, statusTypes, rankCatalog, pinnedNames, lossWarningWindowDays, acknowledged] =
+	const [personnel, groups, statusTypes, rankCatalog, pinnedNames, lossWarningWindowDays, acknowledged] =
 		await Promise.all([
 			loadRosterPersonnel(ctx, { status: 'active' }),
-			loadRosterPersonnel({ roster: ctx.organizationRoster }, { status: 'active' }),
 			listGroupCatalog(ctx),
 			sources.listStatusTypes(orgId),
 			ctx.loadRankCatalog(),
@@ -69,10 +67,9 @@ export async function loadPersonnelWorkspace(
 		]);
 
 	const pinnedGroups = visiblePinnedGroupNames(pinnedNames, groups);
-	const scopedAllPersonnel = ctx.auth.scopeSet.kind === 'groups' ? personnel : allPersonnel;
 	const data: PersonnelWorkspaceData = {
 		personnel,
-		personnelLookup: toPersonnelLookup(scopedAllPersonnel),
+		personnelLookup: toPersonnelLookup(personnel),
 		groups,
 		statusTypes,
 		rankCatalog,

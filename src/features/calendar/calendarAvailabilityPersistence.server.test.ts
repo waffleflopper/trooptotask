@@ -145,6 +145,25 @@ describe('Calendar ordinary availability persistence', () => {
 		expect(state.requests.every(({ url }) => url.searchParams.get('personnel_id') === 'in.(person-a)')).toBe(true);
 	});
 
+	it('reads only the admitted Person for a Group-scoped single-Person read, and nothing out of scope', async () => {
+		const scopedIds = ['person-a', ...Array.from({ length: 250 }, (_, index) => `scoped-${index}`)];
+		const { client, state } = calendarProvider({
+			availability_entries: [SAVED, { ...SAVED, id: 'entry-scoped', personnel_id: 'scoped-0' }]
+		});
+		const port = persistence(client, {
+			scopeSet: { kind: 'groups', groupIds: ['alpha'] },
+			loadScopedPersonnelIds: async () => scopedIds
+		});
+
+		expect((await port.listOverlapping({ ...RANGE, personnelId: 'person-a' })).map(({ id }) => id)).toEqual([
+			'entry-a'
+		]);
+		expect(state.requests.map(({ url }) => url.searchParams.getAll('personnel_id'))).toEqual([['eq.person-a']]);
+		state.requests.length = 0;
+		expect(await port.listOverlapping({ ...RANGE, personnelId: 'person-b' })).toEqual([]);
+		expect(state.requests).toEqual([]);
+	});
+
 	it('avoids scope lookup for Organization and provider access for explicit empty scopes', async () => {
 		const { client, state } = calendarProvider({ availability_entries: [SAVED] });
 		const lookup = vi.fn(async () => ['person-b']);

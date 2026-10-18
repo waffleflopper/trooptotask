@@ -1,15 +1,11 @@
-import type { PersonnelDetailHeader } from '$features/personnel/contracts';
 import { listPersonnelLeaderNotes } from '$features/personnel/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
+import { loadRequestPersonnelDetailHeader } from '$lib/server/adapters/personnelDetailHeaderLoad';
 import { createRequestPersonnelLeaderNoteContext } from '$lib/server/adapters/requestContexts.server';
 import type { PageServerLoadEvent } from './$types';
 
 type LoadWithContext = typeof loadWithContext;
-
-interface PersonnelDetailParentData {
-	personnelDetailHeader: PersonnelDetailHeader;
-}
 
 export interface PersonnelNotesPageLoadDeps {
 	loadWithContext?: LoadWithContext;
@@ -18,10 +14,11 @@ export interface PersonnelNotesPageLoadDeps {
 export function _createPersonnelNotesPageLoad(deps: PersonnelNotesPageLoadDeps = {}) {
 	const loadWithContextFn = deps.loadWithContext ?? loadWithContext;
 
-	return async ({ params, locals, cookies, parent, depends }: PageServerLoadEvent) => {
+	return async (event: PageServerLoadEvent) => {
+		const { params, locals, cookies, depends } = event;
 		depends('app:personnel-detail-notes');
-		const parentData = (await parent()) as PersonnelDetailParentData;
-		const personnelId = parentData.personnelDetailHeader.person.id;
+		const { person } = await loadRequestPersonnelDetailHeader(event, loadWithContextFn);
+		const personnelId = person.id;
 		const notes = await loadWithContextFn(locals, cookies, params.orgId, {
 			context: createRequestPersonnelLeaderNoteContext,
 			policyAction: POLICY_ACTION_CATALOG.personnel.readSensitiveRecords,

@@ -111,7 +111,6 @@ beforeEach(() => {
 			return {
 				auth: request.auth,
 				roster: ctx.roster,
-				organizationRoster: ctx.organizationRoster,
 				groups: ctx.groups,
 				selfPins: ctx.selfPins,
 				loadRankCatalog: ctx.loadRankCatalog,

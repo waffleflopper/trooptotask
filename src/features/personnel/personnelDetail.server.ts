@@ -16,7 +16,7 @@ import type { Personnel } from './personnel.types';
 interface PersonnelDetailContext {
 	auth: OrganizationAccessGrant;
 	audit: PolicyAuditSink;
-	organizationPersonnel: Pick<PersonnelRecordPersistence, 'findBySlug' | 'findById'>;
+	organizationPersonnel: Pick<PersonnelRecordPersistence, 'findBySlug'>;
 	scope: { requireGroupAccess(personnelId: string): Promise<void> };
 }
 
@@ -38,17 +38,17 @@ export async function loadPersonnelDetailHeader(
 	return { person };
 }
 
-/** Delivery selects the independently required feature action before any lane reads. */
-export async function loadPersonnelForLane(
-	ctx: PersonnelDetailContext,
-	personnelId: string,
+/**
+ * The page resolves the Person and its Group access once through the header; each lane still
+ * requires its own feature action against that Person before it reads.
+ */
+export async function authorizePersonnelLane(
+	ctx: Pick<PersonnelDetailContext, 'auth' | 'audit'>,
+	person: Personnel,
 	action: FeatureLanePolicyAction,
 	resourceType: string
 ): Promise<Personnel> {
-	const person = await ctx.organizationPersonnel.findById(personnelId);
-	if (!person) fail(404, 'Personnel record not found');
-	await ctx.scope.requireGroupAccess(personnelId);
-	await requireFeaturePolicy(ctx, action, policyResourceForGroup(person.groupId), resourceType, personnelId);
+	await requireFeaturePolicy(ctx, action, policyResourceForGroup(person.groupId), resourceType, person.id);
 	return person;
 }
 
@@ -63,8 +63,8 @@ function dateRangeDetail(entry: PersonnelAvailabilityPeriod): string {
 }
 
 export async function loadAvailabilityReadinessLane(
-	ctx: PersonnelDetailContext,
-	personnelId: string,
+	ctx: Pick<PersonnelDetailContext, 'auth' | 'audit'>,
+	person: Personnel,
 	asOf: string | Date | undefined,
 	listEntries: (input: {
 		rangeStart: string;
@@ -74,10 +74,10 @@ export async function loadAvailabilityReadinessLane(
 	}) => Promise<PersonnelAvailabilityPeriod[]>,
 	listStatusTypes: () => Promise<PersonnelCalendarStatusSnapshot[]>
 ): Promise<PersonnelReadinessLane> {
-	await loadPersonnelForLane(ctx, personnelId, POLICY_ACTION_CATALOG.calendar.viewAvailability, 'availability');
+	await authorizePersonnelLane(ctx, person, POLICY_ACTION_CATALOG.calendar.viewAvailability, 'availability');
 	const today = formatDate(asOfDate(asOf));
 	const [entries, statusTypes] = await Promise.all([
-		listEntries({ rangeStart: today, rangeEnd: today, personnelId, orderByEndDate: true }),
+		listEntries({ rangeStart: today, rangeEnd: today, personnelId: person.id, orderByEndDate: true }),
 		listStatusTypes()
 	]);
 	const statusById = new Map(statusTypes.map((status) => [status.id, status]));
@@ -102,12 +102,12 @@ export async function loadAvailabilityReadinessLane(
 
 /** The detail lane intentionally evaluates ETS alone; global loss signals also use DEROS. */
 export async function loadLossTrackingReadinessLane(
-	ctx: PersonnelDetailContext,
-	personnelId: string,
+	ctx: Pick<PersonnelDetailContext, 'auth' | 'audit'>,
+	person: Personnel,
 	asOf: string | Date | undefined,
 	readWarningWindowDays: () => Promise<number | null | undefined>
 ): Promise<PersonnelReadinessLane> {
-	const person = await loadPersonnelForLane(ctx, personnelId, POLICY_ACTION_CATALOG.personnel.viewRoster, 'personnel');
+	await authorizePersonnelLane(ctx, person, POLICY_ACTION_CATALOG.personnel.viewRoster, 'personnel');
 	if (!person.ets) {
 		return {
 			label: 'Loss Tracking',

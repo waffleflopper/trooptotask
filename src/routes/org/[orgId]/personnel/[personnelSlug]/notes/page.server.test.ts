@@ -1,12 +1,15 @@
 import { createTestContext } from '$lib/server/adapters/inMemory';
-import { createPersonnelLeaderNoteDeliveryContext } from '$lib/server/adapters/requestContexts.server';
+import {
+	createPersonnelLeaderNoteDeliveryContext,
+	createRequestPersonnelDetailContext
+} from '$lib/server/adapters/requestContexts.server';
 import { describe, expect, it, vi } from 'vitest';
 import { _createPersonnelNotesPageLoad } from './+page.server';
 
 describe('personnel notes page server load', () => {
-	it('loads the full leader note journal for the layout-resolved Soldier', async () => {
+	it('loads the full leader note journal for the slug-resolved Soldier', async () => {
 		const ctx = createTestContext({ auth: { orgId: 'org-1' } });
-		ctx.store.seed('personnel', [{ id: 'person-1', organization_id: 'org-1', group_id: null }]);
+		ctx.store.seed('personnel', [{ id: 'person-1', organization_id: 'org-1', slug: 'rivera-monica', group_id: null }]);
 		ctx.store.seed(
 			'leader_notes',
 			[
@@ -20,7 +23,9 @@ describe('personnel notes page server load', () => {
 			].map((row) => ({ ...row, organization_id: 'org-1', archived_at: null }))
 		);
 		const loadWithContext = vi.fn(async (_locals, _cookies, _orgId, config) =>
-			config.fn(createPersonnelLeaderNoteDeliveryContext(ctx))
+			config.fn(
+				config.context === createRequestPersonnelDetailContext ? ctx : createPersonnelLeaderNoteDeliveryContext(ctx)
+			)
 		);
 		const load = _createPersonnelNotesPageLoad({ loadWithContext });
 		const depends = vi.fn();
@@ -29,12 +34,7 @@ describe('personnel notes page server load', () => {
 			params: { orgId: 'org-1', personnelSlug: 'rivera-monica' },
 			locals: {} as App.Locals,
 			cookies: {} as never,
-			depends,
-			parent: vi.fn(async () => ({
-				personnelDetailHeader: {
-					person: { id: 'person-1' }
-				}
-			}))
+			depends
 		} as never);
 
 		expect(depends).toHaveBeenCalledWith('app:personnel-detail-notes');

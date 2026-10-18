@@ -1706,7 +1706,6 @@ function createTestPersonnelPersistence(
 		personnel: createInMemoryPersonnelRecordPersistence(store, auth.orgId),
 		organizationPersonnel: createInMemoryPersonnelRecordPersistence(rawStore, auth.orgId),
 		roster: createInMemoryPersonnelRosterReader(store, auth.orgId),
-		organizationRoster: createInMemoryPersonnelRosterReader(rawStore, auth.orgId),
 		groups: createInMemoryGroupPersistence(store, auth.orgId, auth.scopeSet),
 		selfPins: createInMemorySelfPinPersistence(store, auth.orgId, auth.userId),
 		rankCatalog,

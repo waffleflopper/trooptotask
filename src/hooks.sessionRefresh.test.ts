@@ -36,7 +36,7 @@ const user = {
 	user_metadata: {}
 };
 
-async function createProvider(initialTokenLifetimeSeconds: number) {
+async function createProvider(initialTokenLifetimeSeconds: number, { tokenEndpointDown = false } = {}) {
 	const jar = new Map<string, string>();
 	const nowSeconds = () => Math.floor(Date.now() / 1000);
 	const refreshTokens = new Set(['refresh-0']);
@@ -54,6 +54,11 @@ async function createProvider(initialTokenLifetimeSeconds: number) {
 		if (url.pathname === '/auth/v1/token') {
 			const { refresh_token: presented } = (await request.json()) as { refresh_token: string };
 			refreshCalls.push(presented);
+			if (tokenEndpointDown) {
+				// auth-js retries a 503 within a 30 s budget; moving the clock past it ends the retries.
+				vi.setSystemTime(Date.now() + 31_000);
+				return Response.json({ message: 'Provider unavailable' }, { status: 503 });
+			}
 			if (!refreshTokens.delete(presented))
 				return Response.json({ code: 'refresh_token_already_used', message: 'Already used' }, { status: 400 });
 			rotations += 1;
@@ -154,6 +159,19 @@ describe('provider session refresh around the response', () => {
 		expect(provider.refreshCalls).toEqual(['refresh-0']);
 		expect(second.locals.session?.refresh_token).toBe('refresh-1');
 		expect(second.locals.user?.id).toBe(USER_ID);
+	});
+
+	it('keeps the still-valid session when the early refresh fails at the provider', async () => {
+		const provider = await createProvider(REFRESH_MARGIN_SECONDS + 200, { tokenEndpointDown: true });
+		const event = provider.request();
+
+		const response = await handle({ event, resolve: provider.resolve });
+
+		expect(await response.text()).toBe('streaming');
+		expect(provider.refreshCalls).toEqual(['refresh-0']);
+		expect(provider.cookieSets).toEqual([]);
+		expect(event.locals.session?.refresh_token).toBe('refresh-0');
+		expect(event.locals.user?.id).toBe(USER_ID);
 	});
 
 	it('survives a refresh that the provider client makes after the response is generated', async () => {

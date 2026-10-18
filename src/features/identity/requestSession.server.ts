@@ -94,13 +94,10 @@ export async function readIdentitySession({
 	// Rotate now, while the response can still carry the new cookies, rather than inside a stream.
 	let session = loadedSession;
 	if (session.expires_at !== undefined && session.expires_at * 1000 - Date.now() < SESSION_REFRESH_AHEAD_MS) {
-		const { data: refreshedData, error: refreshError } = await supabase.auth.refreshSession().catch((error) => {
-			if (isStaleSupabaseAuthError(error)) {
-				clearSupabaseAuthCookies(cookies, storageKey);
-				return { data: { session: null }, error };
-			}
-			throw error;
-		});
+		// A provider outage keeps the still-valid session; failing the request would turn a blip into an outage.
+		const { data: refreshedData, error: refreshError } = await supabase.auth
+			.refreshSession()
+			.catch((error: unknown) => ({ data: { session: null }, error }));
 		if (isStaleSupabaseAuthError(refreshError)) {
 			clearSupabaseAuthCookies(cookies, storageKey);
 			return { status: 'resolved', session: null, user: null };

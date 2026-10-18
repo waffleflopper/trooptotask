@@ -84,9 +84,9 @@ On either service the pinned `actions/setup-node` supplies Node 24; npm remains 
 
 References: [Depot CI quickstart](https://depot.dev/docs/ci/quickstart), [Depot CI compatibility](https://depot.dev/docs/ci/compatibility).
 
-## Return to Depot CI
+## Return to Depot CI (#1573)
 
-Robert requests the return to Depot’s separate CI service during #1573. The current workflow moves from `.github/workflows/ci.yml` back to `.depot/workflows/ci.yml`. All three jobs retain `depot-ubuntu-24.04`, and Vitest restores two workers for the earlier 8-GB configuration. Current cancellation-safe database receipts, cleanup, pins, checks and type-step heap budget are retained. No database migration or remote database operation is included. Exact-candidate Depot execution and automatic trigger acceptance remain pending.
+This is a historical record. During #1573 Robert returned CI to Depot's separate service, moving the workflow from `.github/workflows/ci.yml` back to `.depot/workflows/ci.yml`. All three jobs used `depot-ubuntu-24.04`, and Vitest restored two workers for the earlier 8-GB configuration. Cancellation-safe database receipts, cleanup, pins, checks and the type-step heap budget carried over unchanged, with no database migration or remote database operation. Depot ran CI from then until its minutes ran out in October 2026, when CI moved to GitHub Actions as described at the top of this page.
 
 ## ARM64 migration acceptance
 
@@ -102,7 +102,7 @@ Observed initial job times are 2m02s selection, 7m09s application and 6m08s data
 
 ## Migration acceptance record
 
-This historical record covers the original Depot migration. The return-to-Depot candidate above requires its own current acceptance. Merged through [PR #1346](https://github.com/waffleflopper/trooptotask/pull/1346) at `0a9e2cfee31dda907d258e209d0ca4818beded45`, incorporating completed D04 commit `91b8bc3cd12354b71c4c8b2e869feed17d79ace5`. The original D04 branch and commits remain intact; [Phase 07 acceptance](stabilization/EVIDENCE.md#phase-07-integrated-phase-check) reconciles that integration separately from this tooling change.
+This historical record covers the original Depot migration. The later moves back to Depot (#1573) and to GitHub Actions are described above. Merged through [PR #1346](https://github.com/waffleflopper/trooptotask/pull/1346) at `0a9e2cfee31dda907d258e209d0ca4818beded45`, incorporating completed D04 commit `91b8bc3cd12354b71c4c8b2e869feed17d79ace5`. The original D04 branch and commits remain intact; [Phase 07 acceptance](stabilization/EVIDENCE.md#phase-07-integrated-phase-check) reconciles that integration separately from this tooling change.
 
 Hosted candidate: [Depot run `56311mzhgj`](https://depot.dev/orgs/rvsvvkd4rp/workflows/m59999npzz), uploaded by `depot ci run --workflow .depot/workflows/ci.yml` against remote base `761349957d913e991339212aa610dc0887afe9db`, cache patch `patch/761349957d91/01cfa382fbbd8ea9`. Runtime/configuration diff SHA-256 is `e9f9df6fa27788b5ae4924d311b8f418328a3b08b0f2466252399c8777de8d54`, reproduced by `git diff --binary 91b8bc3c -- . ':(exclude)*.md' | sha256sum`. This identifies the uncommitted executable candidate independently of subsequent prose receipts.
 

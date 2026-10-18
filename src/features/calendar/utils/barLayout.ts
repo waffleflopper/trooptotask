@@ -154,16 +154,24 @@ export function barLabel(placed: Placed, policy: LabelPolicy): BarLabel {
 		return { kind: 'name-note', name, note };
 	}
 
-	const [fitsWidth, dayWidth] = policy.view === 'print' ? [policy.fits, policy.dayWidth] : [fitsCompact, policy.dayPx];
-	const width = visibleDays * dayWidth;
+	const [fits, dayWidth] = policy.view === 'print' ? [policy.fits, policy.dayWidth] : [fitsCompact, policy.dayPx];
 	const chevrons = Number(placed.continuesBefore) + Number(placed.continuesAfter);
-	const days = spanDays(span);
-	const fits = (text: string, suffix = '') => fitsWidth(text + suffix, width, chevrons);
+	return fittedLabel(span.status, spanDays(span), visibleDays * dayWidth, chevrons, fits);
+}
+
+/** The longest of name with length, one-day label with length, or one-day label alone that fits `width`. */
+export function fittedLabel(
+	status: Pick<StatusType, 'name' | 'shortLabel'>,
+	days: number,
+	width: number,
+	chevrons: number,
+	fits: LabelFit
+): BarLabel {
 	const length = ` · ${days}D`;
-	if (fits(name, length)) return { kind: 'with-length', text: name, days };
-	const short = oneDayLabel(span.status);
-	if (fits(short, length)) return { kind: 'with-length', text: short, days };
-	if (fits(short)) return { kind: 'one-day', text: short };
+	if (fits(status.name + length, width, chevrons)) return { kind: 'with-length', text: status.name, days };
+	const short = oneDayLabel(status);
+	if (fits(short + length, width, chevrons)) return { kind: 'with-length', text: short, days };
+	if (fits(short, width, chevrons)) return { kind: 'one-day', text: short };
 	return { kind: 'none' };
 }
 

@@ -3,7 +3,16 @@ import type { Personnel } from '$features/personnel/contracts';
 import type { StatusType } from '$features/calendar/contracts';
 import { addMonths, getMonthDates, getMonthName } from '$lib/utils/dates';
 import { buildAvailabilityTracks } from './availabilityTracks';
-import { fitMarkers, type Bar, type BarOverflow, type LabelFit, type MarkedDay, type TrackPiece } from './barLayout';
+import {
+	fitMarkers,
+	fittedLabel,
+	type Bar,
+	type BarLabel,
+	type BarOverflow,
+	type LabelFit,
+	type MarkedDay,
+	type TrackPiece
+} from './barLayout';
 import type { CalendarExportOptions } from './calendarExport';
 import {
 	buildCalendarDays,
@@ -11,7 +20,7 @@ import {
 	type CalendarCellMarkerState,
 	type CalendarDateHeaderState
 } from './calendarRenderState';
-import { dayWindow } from './dayNumber';
+import { dayWindow, toDayNumber } from './dayNumber';
 import { oneDayLabel } from './oneDayLabel';
 
 export interface CalendarPrintOptions extends CalendarExportOptions {
@@ -51,6 +60,7 @@ interface Sheet {
 	readonly months: readonly MonthBand[];
 	readonly lines: readonly SheetLine[];
 	readonly personnelCount: number;
+	readonly fits: LabelFit;
 }
 
 interface Geometry {
@@ -171,7 +181,8 @@ function buildSheet(
 				)
 			: new Map<string, ReadonlyMap<number, readonly CalendarCellMarkerState[]>>();
 	const dayWidth = gridWidth(view) / days.length;
-	const policy = { view: 'print', dayWidth, fits: labelFit(doc, geometry.fullLabel) } as const;
+	const fits = labelFit(doc, geometry.fullLabel);
+	const policy = { view: 'print', dayWidth, fits } as const;
 
 	const lines: SheetLine[] = [];
 	let personnelCount = 0;
@@ -199,7 +210,7 @@ function buildSheet(
 		start += month.dates.length;
 		return band;
 	});
-	return { view, title, days, months: bands, lines, personnelCount };
+	return { view, title, days, months: bands, lines, personnelCount, fits };
 }
 
 function gridWidth(view: PrintView): number {
@@ -445,6 +456,7 @@ function drawBar(
 	const pieces = piecesOf(bar);
 	const boxes = pieces.map((piece) => pieceBox(piece, gridLeft, dayWidth));
 	const labeled = widest(boxes);
+	const label = bar.pieces ? pieceLabel(sheet, bar, boxes[labeled].width, labeled, pieces.length) : bar.label;
 	pieces.forEach((piece, index) => {
 		const { x, width } = boxes[index];
 		const squareStart = index === 0 && bar.continuesBefore;
@@ -462,7 +474,7 @@ function drawBar(
 			const tip = x + width - 1.2;
 			doc.triangle(tip, middle, tip - chevron, middle - chevron, tip - chevron, middle + chevron, 'F');
 		}
-		const text = index === labeled ? labelText(bar) : '';
+		const text = index === labeled ? labelText(label) : '';
 		if (!text) return;
 		const size = bar.lane === 'full' ? geometry.fullLabel : geometry.laneLabel;
 		const textLeft = x + BAR_PADDING + (squareStart ? CHEVRON : 0);
@@ -475,15 +487,22 @@ function drawBar(
 	});
 }
 
-function labelText(bar: Bar): string {
-	switch (bar.label.kind) {
+/** A bar's label was fitted to its whole span; a cut bar fits it again to the piece that carries it. */
+function pieceLabel(sheet: Sheet, bar: Bar, width: number, index: number, count: number): BarLabel {
+	const days = toDayNumber(bar.entry.endDate) - toDayNumber(bar.entry.startDate) + 1;
+	const chevrons = Number(index === 0 && bar.continuesBefore) + Number(index === count - 1 && bar.continuesAfter);
+	return fittedLabel(bar.status, days, width + 1.2, chevrons, sheet.fits);
+}
+
+function labelText(label: BarLabel): string {
+	switch (label.kind) {
 		case 'with-length':
-			return `${bar.label.text} · ${bar.label.days}D`;
+			return `${label.text} · ${label.days}D`;
 		case 'one-day':
 		case 'name':
-			return bar.label.text;
+			return label.text;
 		case 'name-note':
-			return bar.label.name;
+			return label.name;
 		case 'none':
 			return '';
 	}

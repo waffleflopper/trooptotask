@@ -11,17 +11,14 @@ import {
 } from '$features/calendar';
 import { createReadyAppShellRouteData } from '../appShell.test-support';
 
-const { exportMonthToExcelMock, loadCalendarRangeMock, mergeCalendarRangeIntoStoresMock, printMonthCalendarMock } =
-	vi.hoisted(() => ({
-		exportMonthToExcelMock: vi.fn(),
-		loadCalendarRangeMock: vi.fn(),
-		mergeCalendarRangeIntoStoresMock: vi.fn(),
-		printMonthCalendarMock: vi.fn()
-	}));
+const { exportMonthToExcelMock, loadCalendarRangeMock, mergeCalendarRangeIntoStoresMock } = vi.hoisted(() => ({
+	exportMonthToExcelMock: vi.fn(),
+	loadCalendarRangeMock: vi.fn(),
+	mergeCalendarRangeIntoStoresMock: vi.fn()
+}));
 
 vi.mock('$features/calendar/utils/calendarExport', () => ({
-	exportMonthToExcel: exportMonthToExcelMock,
-	printMonthCalendar: printMonthCalendarMock
+	exportMonthToExcel: exportMonthToExcelMock
 }));
 
 vi.mock('$features/app-shell', () => ({

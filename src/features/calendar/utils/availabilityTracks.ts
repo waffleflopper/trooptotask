@@ -13,7 +13,14 @@ const NO_SPANS: readonly AvailabilitySpan[] = [];
 const REMEMBERED_LAYOUTS = 4;
 
 function policyKey(policy: LabelPolicy): string {
-	return policy.view === 'month' ? `month:${policy.showStatusText}` : `3-month:${policy.dayPx}`;
+	switch (policy.view) {
+		case 'month':
+			return `month:${policy.showStatusText}`;
+		case '3-month':
+			return `3-month:${policy.dayPx}`;
+		case 'print':
+			return `print:${policy.dayWidth}`;
+	}
 }
 
 export function buildAvailabilityTracks(

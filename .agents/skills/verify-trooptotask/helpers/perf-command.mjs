@@ -580,8 +580,7 @@ async function load(ctx, positional, options) {
 	const out = await runDirectory(ctx, options);
 	const mode = options.mode ?? 'warm';
 	if (!protocol.modes[mode]) throw new Error('Use --mode cold or --mode warm.');
-	if (mode === 'cold' && !run.journey.cold)
-		throw new Error(`${run.journeyName} is not measured cold: the app sign-in limit leaves it warm only.`);
+	if (mode === 'cold') refuseUnlessCold(run);
 	if (mode === 'warm') assertPageBound(ctx.ownedState.perfPages, run);
 	const profileName = options.profile ?? 'unthrottled';
 	const milestones = run.journey.milestones(run.terms);
@@ -721,8 +720,14 @@ async function interaction(ctx, positional, options) {
 	}
 }
 
+function refuseUnlessCold(run) {
+	if (!run.journey.cold)
+		throw new Error(`${run.journeyName} is not measured cold: the app sign-in limit leaves it warm only.`);
+}
+
 async function trace(ctx, positional, options) {
 	const run = target(ctx, positional, 'load');
+	refuseUnlessCold(run);
 	const profileName = options.profile ?? 'unthrottled';
 	const milestones = run.journey.milestones(run.terms);
 	const initScript = observerScript({ name: run.journeyName, start: 'navigation', milestones });

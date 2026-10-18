@@ -13,7 +13,7 @@ export const hostLimits = { load1: 4, otherCpuPercent: 25, tickMs: 2000, clearWa
 // Linux reports process CPU time in USER_HZ, which is 100 on every architecture Node supports.
 const ticksPerSecond = 100;
 const tools =
-	/\b(vite|vitest|svelte-check|svelte-kit|playwright|eslint|prettier|tsc|esbuild|daemon\.mjs|control\.mjs)\b|trooptotask-verification/;
+	/\b(vite|vitest|svelte-check|svelte-kit|playwright|eslint|prettier|tsc|esbuild|daemon\.mjs|control\.mjs|unittest)\b|\bnode\b.*\s--test(?:[\s=]|$)|trooptotask-verification/;
 
 /** True for another checkout's build, test or verification process, given its command line and working directory. */
 export function isOtherTool({ args, cwd }, ours) {

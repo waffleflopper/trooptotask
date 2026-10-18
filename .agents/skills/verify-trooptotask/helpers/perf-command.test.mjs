@@ -257,7 +257,7 @@ test('journey terms carry the actor scope and switch from another seeded workloa
 	});
 });
 
-test('a journey outside the cold set is refused cold before any browser call', async () => {
+test('a journey outside the cold set is refused a cold load or trace before any browser call', async () => {
 	const ctx = {
 		repository: '/repo',
 		evidenceRoot: '/repo/.verification/evidence',
@@ -279,6 +279,13 @@ test('a journey outside the cold set is refused cold before any browser call', a
 				'--out',
 				'/repo/.verification/evidence/run'
 			],
+			ctx
+		),
+		{ message: 'training-report is not measured cold: the app sign-in limit leaves it warm only.' }
+	);
+	await assert.rejects(
+		perfCommand(
+			['trace', '1', 'small', 'training-report', 'perfWide', '--out', '/repo/.verification/evidence/run'],
 			ctx
 		),
 		{ message: 'training-report is not measured cold: the app sign-in limit leaves it warm only.' }

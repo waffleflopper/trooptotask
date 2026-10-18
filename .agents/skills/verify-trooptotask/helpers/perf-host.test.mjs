@@ -13,7 +13,17 @@ test("another checkout's build, test or verification process is other; ours and 
 		[{ args: 'chromium --user-data-dir=/state/trooptotask-verification/aaaa/chrome', cwd: '/' }, false],
 		[{ args: 'node node_modules/.bin/eslint .', cwd: '/work/t3-ours/sub' }, false],
 		[{ args: 'node /work/t3-ours-copy/node_modules/.bin/tsc', cwd: '/work/t3-ours-copy' }, true],
-		[{ args: 'chromium --user-data-dir=/home/me/.config/chromium', cwd: '/home/me' }, false]
+		[{ args: 'chromium --user-data-dir=/home/me/.config/chromium', cwd: '/home/me' }, false],
+		[
+			{
+				args: '/usr/bin/node --test .agents/skills/verify-trooptotask/helpers/perf-host.test.mjs',
+				cwd: '/work/t3-theirs'
+			},
+			true
+		],
+		[{ args: 'python3 -m unittest discover -s scripts/ci -p test_*.py', cwd: '/work/t3-theirs' }, true],
+		[{ args: '/usr/bin/node --test-reporter=spec', cwd: '/work/t3-theirs' }, false],
+		[{ args: 'node --test helpers/perf-host.test.mjs', cwd: '/work/t3-ours' }, false]
 	];
 	assert.deepEqual(
 		cases.map(([process]) => isOtherTool(process, ours)),

@@ -8,7 +8,7 @@
 	import { archivePersonnel, type RequestPersonnelArchiveApproval } from '../utils/archivePersonnel';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { rejectedRequestMessage } from '$lib/stores/core';
-	import { invalidateAll } from '$app/navigation';
+	import { invalidate } from '$app/navigation';
 	import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
 	import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 
@@ -42,7 +42,7 @@
 		}
 		const result = await archivePersonnel({ orgId: ctx.orgId, person, requestArchiveApproval });
 		if (result === 'archived') {
-			await invalidateAll();
+			await invalidate('app:personnel-data');
 		}
 		return result !== 'error';
 	}

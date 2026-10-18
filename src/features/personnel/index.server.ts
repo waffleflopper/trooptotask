@@ -86,7 +86,7 @@ export { loadPersonnelWorkspace } from './personnelWorkspaceQuery.server';
 
 export {
 	loadPersonnelDetailHeader,
-	loadPersonnelForLane,
+	authorizePersonnelLane,
 	loadAvailabilityReadinessLane,
 	loadLossTrackingReadinessLane
 } from './personnelDetail.server';

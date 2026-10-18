@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createQueryWithRawStorePortsContext, createInMemoryDataStore } from '$lib/server/adapters/inMemory';
 import { loadPersonnelWorkspace, type PersonnelWorkspaceSources } from './personnelWorkspaceQuery.server';
-import { createCapabilityMap } from '$lib/access/memberAccessShape';
+import { createCapabilityMap, type ScopeSet } from '$lib/access/memberAccessShape';
 
 function sourcesFor(ctx: ReturnType<typeof createQueryWithRawStorePortsContext>): PersonnelWorkspaceSources {
 	return {
@@ -240,6 +240,31 @@ describe('loadPersonnelWorkspace', () => {
 		expect(result.personnel.map((person) => person.id)).toEqual(['p3', 'p1']);
 		expect(result.personnelLookup.map((person) => person.id)).toEqual(['p3', 'p1']);
 	});
+});
+
+describe('loadPersonnelWorkspace roster reads', () => {
+	it.each<[string, ScopeSet, string[]]>([
+		['an Organization-wide', { kind: 'organization' }, ['p2', 'p1']],
+		['a Group-scoped', { kind: 'groups', groupIds: ['g1'] }, ['p1']]
+	])(
+		'reads the active roster once for %s member and serves the roster and lookup from it',
+		async (_, scopeSet, ids) => {
+			const ctx = createQueryWithRawStorePortsContext({ auth: { scopeSet } });
+			seedPersonnel(ctx.rawStore);
+			let activeRosterReads = 0;
+			const read = ctx.store.findMany.bind(ctx.store);
+			ctx.store.findMany = async (table, orgId, filters, options) => {
+				if (table === 'personnel' && options?.isNull?.archived_at === true) activeRosterReads += 1;
+				return read(table, orgId, filters, options);
+			};
+
+			const { data } = await loadPersonnelWorkspace(ctx, sourcesFor(ctx));
+
+			expect(activeRosterReads).toBe(1);
+			expect(data.personnel.map((person) => person.id)).toEqual(ids);
+			expect(data.personnelLookup.map((person) => person.id)).toEqual(ids);
+		}
+	);
 });
 
 describe('loadPersonnelWorkspace — loss warning window', () => {

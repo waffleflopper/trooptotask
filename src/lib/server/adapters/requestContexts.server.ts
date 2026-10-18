@@ -426,7 +426,6 @@ export function createRequestPersonnelWorkspaceContext(request: AdmittedOrganiza
 	const rankCatalog = createSupabaseRankCatalogPersistence(request.supabase, request.auth.orgId);
 	return {
 		...createRequestPersonnelRosterContext(request),
-		organizationRoster: createSupabasePersonnelRosterReader(request.supabase, request.auth.orgId),
 		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet),
 		selfPins: createSupabaseSelfPinPersistence(request.supabase, request.auth.orgId, request.auth.userId),
 		loadRankCatalog: () => loadOrganizationRankCatalog({ auth: request.auth, rankCatalog: rankCatalog }),
@@ -448,7 +447,7 @@ export function createRequestPersonnelDetailStreamsContext(request: AdmittedOrga
 	return {
 		trainingCompletions: createSupabaseTrainingCompletionPersistence(request.supabase, request.auth.orgId),
 		trainingCatalog: createSupabaseTrainingCatalogPersistence(request.supabase, request.auth.orgId),
-		detail: createRequestPersonnelDetailContext(request),
+		detail: { auth: request.auth, audit: request.audit },
 		organizationSettings,
 		calendar: {
 			...createRequestAvailabilityContext(request),

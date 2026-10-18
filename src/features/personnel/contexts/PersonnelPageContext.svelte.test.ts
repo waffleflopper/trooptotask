@@ -306,6 +306,32 @@ describe('PersonnelPageContext', () => {
 		expect(ctx.canManagePersonnelRecord(makePerson({ groupId: 'bravo' }))).toBe(false);
 	});
 
+	it.each([
+		{ personnel: 'configure' as const, groupIds: ['alpha'], groupId: 'alpha', allowed: true },
+		{ personnel: 'configure' as const, groupIds: ['alpha'], groupId: 'bravo', allowed: false },
+		{ personnel: 'operate' as const, groupIds: ['alpha'], groupId: 'alpha', allowed: false },
+		{ personnel: 'view' as const, groupIds: ['alpha'], groupId: 'alpha', allowed: false }
+	])(
+		'opens Personnel detail only with sensitive-record reading and record access (%j)',
+		({ personnel, groupIds, groupId, allowed }) => {
+			const ctx = new PersonnelPageContext(
+				makeData(),
+				makeModals(),
+				createClientAccess({
+					membershipRole: 'member',
+					capabilityMap: { ...createCapabilityMap('none'), personnel },
+					scopeSet: { kind: 'groups', groupIds }
+				})
+			);
+			expect(ctx.canOpenPersonnelDetail(makePerson({ groupId }))).toBe(allowed);
+		}
+	);
+
+	it('opens unassigned Personnel detail for an Organization-wide configurer', () => {
+		const ctx = new PersonnelPageContext(makeData(), makeModals(), makeOrg());
+		expect(ctx.canOpenPersonnelDetail(makePerson({ groupId: null }))).toBe(true);
+	});
+
 	describe('filtered personnel (search)', () => {
 		it('returns all personnel when searchQuery is empty', () => {
 			const people = [makePerson({ id: 'p1', lastName: 'Smith' }), makePerson({ id: 'p2', lastName: 'Jones' })];

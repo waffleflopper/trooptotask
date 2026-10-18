@@ -72,6 +72,7 @@
 				"src/lib/server/viewerDay.server.test.ts",
 				"src/lib/server/adapters/appShellRouteData.ts",
 				"src/lib/server/adapters/featureLaneWorkspaceLoad.ts",
+				"src/lib/server/adapters/personnelDetailHeaderLoad.ts",
 				"src/lib/server/adapters/streamedWorkspace.test.ts",
 				"src/lib/server/adapters/streamedWorkspace.ts",
 				"src/lib/server/organizationProvisioningDelivery.test.ts",

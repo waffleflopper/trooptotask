@@ -54,7 +54,8 @@ export function createSupabaseCalendarAvailabilityPersistence(
 			}
 			if (allowed?.length === 0 || (allowed && input.personnelId !== undefined && !allowed.includes(input.personnelId)))
 				return [];
-			const chunks = allowed === undefined ? [undefined] : calendarIdChunks(allowed);
+			// Once scope admits a single Person, that Person's own filter bounds the read.
+			const chunks = allowed === undefined || input.personnelId !== undefined ? [undefined] : calendarIdChunks(allowed);
 			const rows: AvailabilityRow[] = [];
 			for (const ids of chunks) {
 				const result = await selectAllSupabaseRows<AvailabilityRow>(async (from, to) => {

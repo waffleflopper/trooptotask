@@ -1,7 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
 import { loadCriticalTasksReadinessLane } from '$features/critical-tasks/index.server';
-import { loadPersonnelForLane } from '$features/personnel/index.server';
+import type { Personnel } from '$features/personnel/contracts';
+import { authorizePersonnelLane } from '$features/personnel/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from './inMemory';
 import { createRequestPersonnelDetailStreamsContext } from './requestContexts.server';
@@ -53,19 +54,6 @@ function request(criticalTasks: 'view' | 'none') {
 				critical_tasks_expiring_soon_warning_days: 60
 			});
 		}
-		if (url.pathname === '/rest/v1/personnel') {
-			expect(url.searchParams.get('organization_id')).toBe(`eq.${ctx.auth.orgId}`);
-			expect(url.searchParams.get('id')).toBe('eq.person-alpha');
-			return Response.json({
-				id: 'person-alpha',
-				organization_id: ctx.auth.orgId,
-				group_id: null,
-				first_name: 'Ann',
-				last_name: 'Alpha',
-				mos: '68W',
-				archived_at: null
-			});
-		}
 		if (url.pathname === '/rest/v1/personnel_ict_completions') {
 			expect(url.searchParams.get('organization_id')).toBe(`eq.${ctx.auth.orgId}`);
 			expect(url.searchParams.get('personnel_id')).toBe('eq.person-alpha');
@@ -97,6 +85,21 @@ function request(criticalTasks: 'view' | 'none') {
 	return { ...ctx, supabase, session: null, providerFetch };
 }
 
+const personAlpha = {
+	id: 'person-alpha',
+	slug: 'alpha-ann',
+	rank: 'SPC',
+	firstName: 'Ann',
+	lastName: 'Alpha',
+	mos: '68W',
+	clinicRole: 'Medic',
+	groupId: null,
+	groupName: '',
+	ets: null,
+	deros: null,
+	archivedAt: null
+} satisfies Personnel;
+
 function loadReadiness(input: ReturnType<typeof request>) {
 	const contexts = createRequestPersonnelDetailStreamsContext(input);
 	return loadCriticalTasksReadinessLane({
@@ -107,9 +110,9 @@ function loadReadiness(input: ReturnType<typeof request>) {
 		personnelId: 'person-alpha',
 		asOf: '2026-03-20',
 		loadAuthorizedPerson: () =>
-			loadPersonnelForLane(
+			authorizePersonnelLane(
 				contexts.detail,
-				'person-alpha',
+				personAlpha,
 				POLICY_ACTION_CATALOG.criticalTasks.viewReadiness,
 				'personnel_ict_completion'
 			)
@@ -128,8 +131,6 @@ describe('Personnel Critical Tasks request composition', () => {
 	it('denies the lane before querying the task library for a Personnel-only member', async () => {
 		const input = request('none');
 		await expect(loadReadiness(input)).rejects.toMatchObject({ status: 403 });
-		expect(input.providerFetch.mock.calls.map(([url]) => new URL(String(url)).pathname)).toEqual([
-			'/rest/v1/personnel'
-		]);
+		expect(input.providerFetch.mock.calls.map(([url]) => new URL(String(url)).pathname)).toEqual([]);
 	});
 });

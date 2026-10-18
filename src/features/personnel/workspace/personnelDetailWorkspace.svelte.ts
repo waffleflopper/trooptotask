@@ -1,4 +1,4 @@
-import { goto, invalidateAll } from '$app/navigation';
+import { goto, invalidate } from '$app/navigation';
 import { resolve } from '$app/paths';
 import {
 	PERSONNEL_FIRST_NAME_REQUIRED_MESSAGE,
@@ -23,6 +23,7 @@ import { buildRequestError, rejectedRequestMessage } from '$lib/stores/core';
 import { downloadBlob } from '$lib/utils/downloadBlob';
 import { filenameFromContentDisposition } from '$lib/utils/workbook';
 import type { Personnel } from '../personnel.types';
+import { personnelStore } from '../stores/personnel.svelte';
 import { SvelteDate } from 'svelte/reactivity';
 import { ArtifactDraft } from './artifactDraft.svelte';
 import {
@@ -35,6 +36,9 @@ import {
 	type FollowUpDraftInput,
 	type LeaderNoteDraftInput
 } from './personnelArtifactDraftSpecs';
+
+/** A basic-info save changes the header and the readiness lanes; the roster is patched from the response. */
+const PERSONNEL_DETAIL_KEYS = ['app:personnel-detail-header', 'app:personnel-detail'] as const;
 
 const NAME_FIELD_ERRORS = new Map<string, 'firstName' | 'lastName'>([
 	[PERSONNEL_FIRST_NAME_REQUIRED_MESSAGE, 'firstName'],
@@ -59,7 +63,7 @@ export type PersonnelDetailWorkspaceInputSource = PersonnelDetailWorkspaceInput 
 export interface PersonnelDetailWorkspaceDeps {
 	fetch?: typeof fetch;
 	goto?: typeof goto;
-	invalidateAll?: typeof invalidateAll;
+	invalidate?: typeof invalidate;
 	resolve?: typeof resolve;
 	archivePersonnel?: typeof archivePersonnel;
 	downloadBlob?: typeof downloadBlob;
@@ -103,7 +107,7 @@ const defaultDeps = {
 	fetch: (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
 		init === undefined ? fetch(input) : fetch(input, init),
 	goto,
-	invalidateAll,
+	invalidate,
 	resolve,
 	archivePersonnel,
 	downloadBlob,
@@ -357,13 +361,17 @@ export class PersonnelDetailWorkspace {
 			const savedPerson = (await response.json()) as Personnel;
 			if (this.#disposed) return;
 			this.updatedPerson = savedPerson;
+			personnelStore.updateLocalWhere(
+				(item) => item.id === savedPerson.id,
+				() => savedPerson
+			);
 			if (savedPerson.slug !== previousSlug) {
 				await this.#deps.goto(this.#deps.resolve(`/org/${this.orgUrlSegment}/personnel/${savedPerson.slug}`), {
 					replaceState: true,
-					invalidateAll: true
+					invalidate: [...PERSONNEL_DETAIL_KEYS]
 				});
 			} else {
-				await this.#deps.invalidateAll();
+				await Promise.all(PERSONNEL_DETAIL_KEYS.map((key) => this.#deps.invalidate(key)));
 			}
 			this.editingBasicInfo = false;
 		} catch (caught) {
@@ -385,9 +393,9 @@ export class PersonnelDetailWorkspace {
 			});
 			if (this.#disposed) return;
 			if (result === 'archived') {
-				await this.#deps.invalidateAll();
-				if (this.#disposed) return;
-				await this.#deps.goto(this.#deps.resolve(`/org/${this.orgUrlSegment}/personnel`));
+				await this.#deps.goto(this.#deps.resolve(`/org/${this.orgUrlSegment}/personnel`), {
+					invalidate: ['app:personnel-data']
+				});
 			} else {
 				this.showArchiveConfirm = false;
 			}

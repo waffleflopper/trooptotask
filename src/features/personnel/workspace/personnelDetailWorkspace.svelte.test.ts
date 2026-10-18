@@ -3,7 +3,7 @@ import { PERSONNEL_LAST_NAME_REQUIRED_MESSAGE, type PersonnelFollowUp } from '$f
 import type { PersonnelDetailStreams } from '$features/personnel/personnel-detail.types';
 import type { Personnel } from '../personnel.types';
 import { personnelStore } from '../stores/personnel.svelte';
-import { createPersonnelDetailWorkspace, type PersonnelDetailWorkspaceInput } from './personnelDetailWorkspace.svelte';
+import { createPersonnelDetailWorkspace } from './personnelDetailWorkspace.svelte';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -177,7 +177,7 @@ describe('PersonnelDetailWorkspace', () => {
 		expect(workspace.mergeUpdatedFollowUps([loaded])).toEqual([loaded]);
 	});
 
-	it('keeps basic info save and slug navigation inside the workspace', async () => {
+	it('lands a slug-changing save on the new URL with fresh detail data and patches the roster', async () => {
 		const savedPerson = {
 			...person,
 			slug: 'rivera-jones-monica',
@@ -189,9 +189,12 @@ describe('PersonnelDetailWorkspace', () => {
 			json: () => Promise.resolve(savedPerson)
 		});
 		const gotoMock = vi.fn();
+		const invalidate = vi.fn();
+		personnelStore.load([person, { ...person, id: 'person-2', slug: 'able-sam', lastName: 'Able' }], 'org-1');
 		const workspace = makeWorkspace({
 			fetch: fetchMock as typeof fetch,
-			goto: gotoMock as unknown as typeof import('$app/navigation').goto
+			goto: gotoMock as unknown as typeof import('$app/navigation').goto,
+			invalidate
 		});
 
 		workspace.startBasicInfoEdit();
@@ -216,10 +219,17 @@ describe('PersonnelDetailWorkspace', () => {
 			})
 		});
 		expect(workspace.currentPerson).toEqual(savedPerson);
-		expect(gotoMock).toHaveBeenCalledWith('/org/org-alpha/personnel/rivera-jones-monica', {
-			replaceState: true,
-			invalidateAll: true
-		});
+		expect(gotoMock.mock.calls).toEqual([
+			[
+				'/org/org-alpha/personnel/rivera-jones-monica',
+				{ replaceState: true, invalidate: ['app:personnel-detail-header', 'app:personnel-detail'] }
+			]
+		]);
+		expect(invalidate).not.toHaveBeenCalled();
+		expect(personnelStore.items.map(({ id, slug, lastName }) => ({ id, slug, lastName }))).toEqual([
+			{ id: 'person-1', slug: 'rivera-jones-monica', lastName: 'Rivera-Jones' },
+			{ id: 'person-2', slug: 'able-sam', lastName: 'Able' }
+		]);
 	});
 
 	it('shows why a basic info save was refused and keeps the edit open', async () => {
@@ -284,59 +294,41 @@ describe('PersonnelDetailWorkspace', () => {
 		expect(workspace.followUps.error).toBe('This follow-up was archived.');
 	});
 
-	it('refreshes Loss Tracking after clearing ETS without changing the personnel URL', async () => {
+	it('clears ETS and refreshes only the detail loads without changing the personnel URL', async () => {
 		const originalPerson = { ...person, ets: '2027-05-02' };
 		const savedPerson = { ...originalPerson, ets: null };
-		let input: PersonnelDetailWorkspaceInput = {
-			orgId: 'org-1',
-			orgUrlSegment: 'org-alpha',
-			person: originalPerson,
-			orgName: 'Test Org',
-			requestArchiveApproval: async () => false,
-			detail: makeDetail({
-				readinessLanes: {
-					...makeDetail().readinessLanes,
-					lossTracking: Promise.resolve({
-						label: 'Loss Tracking',
-						value: 'No loss risk',
-						detail: 'ETS May 2, 2027 is 208 days away.',
-						tone: 'good'
-					})
-				}
-			})
-		};
-		const workspace = createPersonnelDetailWorkspace(() => input, {
-			fetch: async () => Response.json(savedPerson),
-			invalidateAll: async () => {
-				input = {
-					...input,
-					person: savedPerson,
-					detail: makeDetail({
-						readinessLanes: {
-							...makeDetail().readinessLanes,
-							lossTracking: Promise.resolve({
-								label: 'Loss Tracking',
-								value: 'Missing ETS',
-								detail: 'No ETS date is set on the personnel record.',
-								tone: 'bad'
-							})
-						}
-					})
-				};
+		const requestBodies: unknown[] = [];
+		const invalidated: string[] = [];
+		const goto = vi.fn();
+		const workspace = createPersonnelDetailWorkspace(
+			{
+				orgId: 'org-1',
+				orgUrlSegment: 'org-alpha',
+				person: originalPerson,
+				orgName: 'Test Org',
+				requestArchiveApproval: async () => false,
+				detail: makeDetail()
+			},
+			{
+				fetch: async (_url, init) => {
+					requestBodies.push(JSON.parse(String(init?.body)));
+					return Response.json(savedPerson);
+				},
+				invalidate: async (key) => {
+					invalidated.push(String(key));
+				},
+				goto
 			}
-		});
+		);
 
 		workspace.startBasicInfoEdit();
 		workspace.basicInfoEts = '';
 		await workspace.saveBasicInfo();
 
+		expect(requestBodies).toEqual([expect.objectContaining({ ets: null })]);
+		expect(invalidated).toEqual(['app:personnel-detail-header', 'app:personnel-detail']);
+		expect(goto).not.toHaveBeenCalled();
 		expect(workspace.currentPerson.ets).toBeNull();
-		expect(await workspace.detail.readinessLanes.lossTracking).toEqual({
-			label: 'Loss Tracking',
-			value: 'Missing ETS',
-			detail: 'No ETS date is set on the personnel record.',
-			tone: 'bad'
-		});
 		expect(workspace.editingBasicInfo).toBe(false);
 	});
 
@@ -348,7 +340,6 @@ describe('PersonnelDetailWorkspace', () => {
 			vi.stubGlobal('fetch', fetchMock);
 			const requestArchiveApproval = vi.fn().mockResolvedValue(accepted);
 			const goto = vi.fn();
-			const invalidateAll = vi.fn();
 			const workspace = createPersonnelDetailWorkspace(
 				{
 					orgId: 'org-1',
@@ -358,7 +349,7 @@ describe('PersonnelDetailWorkspace', () => {
 					detail: makeDetail(),
 					requestArchiveApproval
 				},
-				{ goto, invalidateAll }
+				{ goto }
 			);
 			workspace.showArchiveConfirm = true;
 			await workspace.confirmArchive();
@@ -379,7 +370,6 @@ describe('PersonnelDetailWorkspace', () => {
 			expect(workspace.showArchiveConfirm).toBe(false);
 			expect(workspace.archiveSubmitting).toBe(false);
 			expect(goto).not.toHaveBeenCalled();
-			expect(invalidateAll).not.toHaveBeenCalled();
 		}
 	);
 
@@ -480,38 +470,15 @@ describe('destroyed Personnel detail workspace effects', () => {
 		expect(goto).not.toHaveBeenCalled();
 	});
 
-	it('does not invalidate or navigate when an admitted archive completes after disposal', async () => {
+	it('does not navigate when an admitted archive completes after disposal', async () => {
 		const result = deferred<'archived'>();
 		const archivePersonnel = vi.fn(() => result.promise);
-		const invalidateAll = vi.fn();
 		const goto = vi.fn();
-		const workspace = makeWorkspace({ archivePersonnel, invalidateAll, goto });
+		const workspace = makeWorkspace({ archivePersonnel, goto });
 		const running = workspace.confirmArchive();
 		expect(archivePersonnel).toHaveBeenCalled();
 		workspace.dispose();
 		result.resolve('archived');
-		await running;
-		expect(invalidateAll).not.toHaveBeenCalled();
-		expect(goto).not.toHaveBeenCalled();
-	});
-
-	it('does not navigate when an admitted archive invalidation finishes after disposal', async () => {
-		const invalidation = deferred<void>();
-		const invalidating = deferred<void>();
-		const invalidateAll = vi.fn(() => {
-			invalidating.resolve();
-			return invalidation.promise;
-		});
-		const goto = vi.fn();
-		const workspace = makeWorkspace({
-			archivePersonnel: vi.fn().mockResolvedValue('archived'),
-			invalidateAll,
-			goto
-		});
-		const running = workspace.confirmArchive();
-		await invalidating.promise;
-		workspace.dispose();
-		invalidation.resolve();
 		await running;
 		expect(goto).not.toHaveBeenCalled();
 	});

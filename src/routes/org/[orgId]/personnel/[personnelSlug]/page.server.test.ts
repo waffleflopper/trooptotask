@@ -10,9 +10,11 @@ function createTestContext(options?: Parameters<typeof createCriticalTasksTestCo
 import {
 	createPersonnelArtifactDeliveryContext,
 	createPersonnelLeaderNoteDeliveryContext,
+	createRequestPersonnelDetailContext,
 	type createRequestPersonnelDetailStreamsContext
 } from '$lib/server/adapters/requestContexts.server';
 import { describe, expect, it, vi } from 'vitest';
+import { _createPersonnelDetailLayoutLoad } from './+layout.server';
 import { _createPersonnelDetailPageLoad } from './+page.server';
 
 const operateAuth = {
@@ -31,7 +33,11 @@ const operateAuth = {
 	scopeSet: { kind: 'organization' }
 } satisfies Parameters<typeof createTestAuthContext>[0];
 
-function detailTestContext(personnelId = 'person-1', auth: Parameters<typeof createTestAuthContext>[0] = {}) {
+function detailTestContext(
+	personnelId = 'person-1',
+	auth: Parameters<typeof createTestAuthContext>[0] = {},
+	groupId: string | null = null
+) {
 	const ctx = createTestContext({
 		ratingSchemeFactory: createInMemoryRatingSchemePersistence,
 		auth: { ...operateAuth, ...auth }
@@ -40,7 +46,8 @@ function detailTestContext(personnelId = 'person-1', auth: Parameters<typeof cre
 		{
 			id: personnelId,
 			organization_id: 'org-1',
-			group_id: null,
+			slug: 'rivera-monica',
+			group_id: groupId,
 			ets: null,
 			archived_at: null
 		}
@@ -65,7 +72,7 @@ function selectedContexts(
 		criticalTaskLibrary: ctx.criticalTaskLibrary,
 		criticalTaskCompletions: ctx.criticalTaskCompletions,
 		ratingScheme: ctx.ratingScheme,
-		detail: { auth: ctx.auth, audit: ctx.audit, organizationPersonnel: ctx.organizationPersonnel, scope: ctx.scope },
+		detail: { auth: ctx.auth, audit: ctx.audit },
 		extendedInfo: {
 			auth: ctx.auth,
 			audit: ctx.audit,
@@ -82,7 +89,26 @@ function selectedContexts(
 const noCookies = { get: () => undefined } as never;
 
 function loadWithSelectedContexts(ctx: ReturnType<typeof createTestContext>) {
-	return vi.fn(async (_locals, _cookies, _orgId, config) => config.fn(selectedContexts(ctx)));
+	return vi.fn(async (_locals, _cookies, _orgId, config) =>
+		config.fn(
+			config.context === createRequestPersonnelDetailContext
+				? { auth: ctx.auth, audit: ctx.audit, organizationPersonnel: ctx.organizationPersonnel, scope: ctx.scope }
+				: selectedContexts(ctx)
+		)
+	);
+}
+
+function detailEvent(overrides: Record<string, unknown> = {}) {
+	return {
+		params: { orgId: 'org-1', personnelSlug: 'rivera-monica' },
+		locals: {} as App.Locals,
+		cookies: noCookies,
+		depends: vi.fn(),
+		parent: () => {
+			throw new Error('The detail page must not run ancestor loads');
+		},
+		...overrides
+	} as never;
 }
 
 describe('personnel detail page server load', () => {
@@ -100,6 +126,7 @@ describe('personnel detail page server load', () => {
 					{
 						id: 'person-1',
 						organization_id: 'org-1',
+						slug: 'person-1',
 						group_id: null,
 						ets: value === 'no-ets' ? null : '2026-05-15',
 						archived_at: null
@@ -117,8 +144,7 @@ describe('personnel detail page server load', () => {
 					params: { orgId: 'org-1', personnelSlug: 'person-1' },
 					locals: {},
 					cookies: noCookies,
-					depends: vi.fn(),
-					parent: async () => ({ personnelDetailHeader: { person: { id: 'person-1' } } })
+					depends: vi.fn()
 				} as never);
 				const lanes = result.personnelDetail.readinessLanes;
 				const settled = Promise.allSettled(Object.values(lanes));
@@ -143,7 +169,14 @@ describe('personnel detail page server load', () => {
 		try {
 			const ctx = createTestContext({ ratingSchemeFactory: createInMemoryRatingSchemePersistence, auth: operateAuth });
 			ctx.rawStore.seed('personnel', [
-				{ id: 'person-1', organization_id: 'org-1', group_id: null, ets: '2026-05-15', archived_at: null }
+				{
+					id: 'person-1',
+					organization_id: 'org-1',
+					slug: 'person-1',
+					group_id: null,
+					ets: '2026-05-15',
+					archived_at: null
+				}
 			]);
 			ctx.organizationSettings.findLossWarningWindowDays = async () => 0;
 			const load = _createPersonnelDetailPageLoad({ loadWithContext: loadWithSelectedContexts(ctx) });
@@ -152,8 +185,7 @@ describe('personnel detail page server load', () => {
 					params: { orgId: 'org-1', personnelSlug: 'person-1' },
 					locals: {} as App.Locals,
 					cookies: { get: (name: string) => (name === 't2t_tz' ? timeZone : undefined) } as never,
-					depends: vi.fn(),
-					parent: async () => ({ personnelDetailHeader: { person: { id: 'person-1' } } })
+					depends: vi.fn()
 				} as never);
 				const lanes = result.personnelDetail.readinessLanes;
 				await Promise.allSettled(Object.values(lanes));
@@ -181,13 +213,7 @@ describe('personnel detail page server load', () => {
 		const findMany = vi.spyOn(ctx.store, 'findMany');
 		const loadWithContext = loadWithSelectedContexts(ctx);
 		const load = _createPersonnelDetailPageLoad({ loadWithContext });
-		const result = await load({
-			params: { orgId: 'org-1', personnelSlug: 'person-1' },
-			locals: {} as App.Locals,
-			cookies: noCookies,
-			depends: vi.fn(),
-			parent: vi.fn(async () => ({ personnelDetailHeader: { person: { id: 'person-1' } } }))
-		} as never);
+		const result = await load(detailEvent());
 
 		const readinessLanes = result.personnelDetail.readinessLanes;
 		const [trainingOutcome] = await Promise.allSettled([readinessLanes.training, ...Object.values(readinessLanes)]);
@@ -215,12 +241,7 @@ describe('personnel detail page server load', () => {
 			params: { orgId: 'org-1', personnelSlug: 'rivera-monica' },
 			locals: {} as App.Locals,
 			cookies: noCookies,
-			depends,
-			parent: vi.fn(async () => ({
-				personnelDetailHeader: {
-					person: { id: 'person-1' }
-				}
-			}))
+			depends
 		} as never);
 
 		await result.personnelDetail.extendedInfo;
@@ -274,12 +295,7 @@ describe('personnel detail page server load', () => {
 			params: { orgId: 'org-1', personnelSlug: 'rivera-monica' },
 			locals: {} as App.Locals,
 			cookies: noCookies,
-			depends: vi.fn(),
-			parent: vi.fn(async () => ({
-				personnelDetailHeader: {
-					person: { id: 'person-1' }
-				}
-			}))
+			depends: vi.fn()
 		} as never);
 
 		await expect(result.personnelDetail.extendedInfo).resolves.toMatchObject({
@@ -294,33 +310,83 @@ describe('personnel detail page server load', () => {
 		});
 	});
 
-	it('uses the parent personnel id for all dashboard streams', async () => {
+	it('uses the slug-resolved personnel id for all dashboard streams without running ancestor loads', async () => {
 		const ctx = detailTestContext('person-9');
 		vi.spyOn(ctx.store, 'findMany');
-		const loadWithContext = loadWithSelectedContexts(ctx);
-		const load = _createPersonnelDetailPageLoad({ loadWithContext });
-		const parent = vi.fn(async () => ({
-			personnelDetailHeader: {
-				person: { id: 'person-9' }
-			}
-		}));
+		const load = _createPersonnelDetailPageLoad({ loadWithContext: loadWithSelectedContexts(ctx) });
 
-		const result = await load({
-			params: { orgId: 'org-1', personnelSlug: 'old-rivera-monica' },
-			locals: {} as App.Locals,
-			cookies: noCookies,
-			depends: vi.fn(),
-			parent
-		} as never);
+		const result = await load(detailEvent());
 
 		await result.personnelDetail.counselingRecords;
-		expect(parent).toHaveBeenCalled();
 		expect(ctx.store.findMany).toHaveBeenCalledWith(
 			'counseling_records',
 			'org-1',
 			{ personnel_id: 'person-9' },
 			expect.any(Object)
 		);
+	});
+
+	it('resolves the Person by slug once for the detail layout, the page and all five lanes in one request', async () => {
+		const ctx = detailTestContext('person-1', { scopeSet: { kind: 'groups', groupIds: ['group-1'] } }, 'group-1');
+		const findBySlug = vi.spyOn(ctx.organizationPersonnel, 'findBySlug');
+		const findById = vi.spyOn(ctx.organizationPersonnel, 'findById');
+		const loadWithContext = loadWithSelectedContexts(ctx);
+		const event = detailEvent();
+
+		const [layout, page] = await Promise.all([
+			_createPersonnelDetailLayoutLoad({ loadWithContext })(event),
+			_createPersonnelDetailPageLoad({ loadWithContext })(event)
+		]);
+		const lanes = page.personnelDetail.readinessLanes;
+		const settled = await Promise.all(Object.values(lanes));
+
+		expect(layout.personnelDetailHeader.person.id).toBe('person-1');
+		expect(settled.map((lane) => lane.value)).toEqual([
+			'Present',
+			'Current',
+			'No tasks',
+			'Not assigned',
+			'Missing ETS'
+		]);
+		expect(findBySlug.mock.calls).toEqual([['rivera-monica']]);
+		expect(findById.mock.calls).toEqual([]);
+	});
+
+	it('computes Loss Tracking from the stored Person on the request after its ETS is cleared', async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date('2026-10-18T12:00:00Z'));
+		try {
+			const ctx = detailTestContext();
+			await ctx.store.update('personnel', 'org-1', 'person-1', { ets: '2027-05-02' });
+			ctx.rawStore.seed('organizations', [{ id: 'org-1', loss_warning_window_days: 90 }]);
+			const load = _createPersonnelDetailPageLoad({ loadWithContext: loadWithSelectedContexts(ctx) });
+			const lossTrackingOnNextRequest = async () => {
+				const lanes = (await load(detailEvent())).personnelDetail.readinessLanes;
+				await Promise.allSettled(Object.values(lanes));
+				return lanes.lossTracking;
+			};
+
+			await expect(lossTrackingOnNextRequest()).resolves.toMatchObject({ value: 'No loss risk', tone: 'good' });
+			await ctx.store.update('personnel', 'org-1', 'person-1', { ets: null });
+			await expect(lossTrackingOnNextRequest()).resolves.toMatchObject({ value: 'Missing ETS', tone: 'bad' });
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it.each<[string, Parameters<typeof createTestAuthContext>[0], string, number]>([
+		['an out-of-Group target', { scopeSet: { kind: 'groups', groupIds: ['other-group'] } }, 'rivera-monica', 403],
+		['an unknown or foreign slug', {}, 'foreign-person', 404]
+	])('denies the page and every lane for %s before any lane read', async (_, auth, slug, status) => {
+		const ctx = detailTestContext('person-1', auth);
+		ctx.rawStore.seed('personnel', [{ id: 'foreign-1', organization_id: 'org-2', slug: 'foreign-person' }]);
+		const findMany = vi.spyOn(ctx.store, 'findMany');
+		const load = _createPersonnelDetailPageLoad({ loadWithContext: loadWithSelectedContexts(ctx) });
+
+		await expect(load(detailEvent({ params: { orgId: 'org-1', personnelSlug: slug } }))).rejects.toMatchObject({
+			status
+		});
+		expect(findMany.mock.calls.map(([table]) => table)).toEqual([]);
 	});
 
 	it('preserves independently settled lanes when the request-bound Calendar read fails', async () => {
@@ -338,8 +404,7 @@ describe('personnel detail page server load', () => {
 			params: { orgId: 'org-1', personnelSlug: 'rivera-monica' },
 			locals: {} as App.Locals,
 			cookies: noCookies,
-			depends: vi.fn(),
-			parent: vi.fn(async () => ({ personnelDetailHeader: { person: { id: 'person-1' } } }))
+			depends: vi.fn()
 		} as never);
 		const lanes = result.personnelDetail.readinessLanes;
 		const [availability, training, criticalTasks, ratingScheme, lossTracking] = await Promise.allSettled([

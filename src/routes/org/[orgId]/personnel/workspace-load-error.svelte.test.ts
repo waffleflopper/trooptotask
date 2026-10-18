@@ -4,7 +4,7 @@ import type { Component } from 'svelte';
 import { afterEach, expect, it, vi } from 'vitest';
 import type { Personnel, PersonnelDetailStreams } from '$features/personnel/contracts';
 
-vi.mock('$app/navigation', () => ({ goto: vi.fn(), invalidateAll: vi.fn() }));
+vi.mock('$app/navigation', () => ({ goto: vi.fn(), invalidate: vi.fn() }));
 vi.mock('$features/app-shell', () => ({
 	getAppShellContext: () => ({
 		orgId: 'org-1',

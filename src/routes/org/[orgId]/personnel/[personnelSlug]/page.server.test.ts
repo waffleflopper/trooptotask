@@ -352,6 +352,28 @@ describe('personnel detail page server load', () => {
 		expect(findById.mock.calls).toEqual([]);
 	});
 
+	it('computes Loss Tracking from the stored Person on the request after its ETS is cleared', async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date('2026-10-18T12:00:00Z'));
+		try {
+			const ctx = detailTestContext();
+			await ctx.store.update('personnel', 'org-1', 'person-1', { ets: '2027-05-02' });
+			ctx.rawStore.seed('organizations', [{ id: 'org-1', loss_warning_window_days: 90 }]);
+			const load = _createPersonnelDetailPageLoad({ loadWithContext: loadWithSelectedContexts(ctx) });
+			const lossTrackingOnNextRequest = async () => {
+				const lanes = (await load(detailEvent())).personnelDetail.readinessLanes;
+				await Promise.allSettled(Object.values(lanes));
+				return lanes.lossTracking;
+			};
+
+			await expect(lossTrackingOnNextRequest()).resolves.toMatchObject({ value: 'No loss risk', tone: 'good' });
+			await ctx.store.update('personnel', 'org-1', 'person-1', { ets: null });
+			await expect(lossTrackingOnNextRequest()).resolves.toMatchObject({ value: 'Missing ETS', tone: 'bad' });
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
 	it.each<[string, Parameters<typeof createTestAuthContext>[0], string, number]>([
 		['an out-of-Group target', { scopeSet: { kind: 'groups', groupIds: ['other-group'] } }, 'rivera-monica', 403],
 		['an unknown or foreign slug', {}, 'foreign-person', 404]

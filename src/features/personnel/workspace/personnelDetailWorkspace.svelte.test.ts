@@ -3,7 +3,7 @@ import { PERSONNEL_LAST_NAME_REQUIRED_MESSAGE, type PersonnelFollowUp } from '$f
 import type { PersonnelDetailStreams } from '$features/personnel/personnel-detail.types';
 import type { Personnel } from '../personnel.types';
 import { personnelStore } from '../stores/personnel.svelte';
-import { createPersonnelDetailWorkspace, type PersonnelDetailWorkspaceInput } from './personnelDetailWorkspace.svelte';
+import { createPersonnelDetailWorkspace } from './personnelDetailWorkspace.svelte';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -294,62 +294,41 @@ describe('PersonnelDetailWorkspace', () => {
 		expect(workspace.followUps.error).toBe('This follow-up was archived.');
 	});
 
-	it('refreshes Loss Tracking after clearing ETS without changing the personnel URL', async () => {
+	it('clears ETS and refreshes only the detail loads without changing the personnel URL', async () => {
 		const originalPerson = { ...person, ets: '2027-05-02' };
 		const savedPerson = { ...originalPerson, ets: null };
-		let input: PersonnelDetailWorkspaceInput = {
-			orgId: 'org-1',
-			orgUrlSegment: 'org-alpha',
-			person: originalPerson,
-			orgName: 'Test Org',
-			requestArchiveApproval: async () => false,
-			detail: makeDetail({
-				readinessLanes: {
-					...makeDetail().readinessLanes,
-					lossTracking: Promise.resolve({
-						label: 'Loss Tracking',
-						value: 'No loss risk',
-						detail: 'ETS May 2, 2027 is 208 days away.',
-						tone: 'good'
-					})
-				}
-			})
-		};
+		const requestBodies: unknown[] = [];
 		const invalidated: string[] = [];
-		const workspace = createPersonnelDetailWorkspace(() => input, {
-			fetch: async () => Response.json(savedPerson),
-			invalidate: async (key) => {
-				invalidated.push(String(key));
-				input = {
-					...input,
-					person: savedPerson,
-					detail: makeDetail({
-						readinessLanes: {
-							...makeDetail().readinessLanes,
-							lossTracking: Promise.resolve({
-								label: 'Loss Tracking',
-								value: 'Missing ETS',
-								detail: 'No ETS date is set on the personnel record.',
-								tone: 'bad'
-							})
-						}
-					})
-				};
+		const goto = vi.fn();
+		const workspace = createPersonnelDetailWorkspace(
+			{
+				orgId: 'org-1',
+				orgUrlSegment: 'org-alpha',
+				person: originalPerson,
+				orgName: 'Test Org',
+				requestArchiveApproval: async () => false,
+				detail: makeDetail()
+			},
+			{
+				fetch: async (_url, init) => {
+					requestBodies.push(JSON.parse(String(init?.body)));
+					return Response.json(savedPerson);
+				},
+				invalidate: async (key) => {
+					invalidated.push(String(key));
+				},
+				goto
 			}
-		});
+		);
 
 		workspace.startBasicInfoEdit();
 		workspace.basicInfoEts = '';
 		await workspace.saveBasicInfo();
 
+		expect(requestBodies).toEqual([expect.objectContaining({ ets: null })]);
 		expect(invalidated).toEqual(['app:personnel-detail-header', 'app:personnel-detail']);
+		expect(goto).not.toHaveBeenCalled();
 		expect(workspace.currentPerson.ets).toBeNull();
-		expect(await workspace.detail.readinessLanes.lossTracking).toEqual({
-			label: 'Loss Tracking',
-			value: 'Missing ETS',
-			detail: 'No ETS date is set on the personnel record.',
-			tone: 'bad'
-		});
 		expect(workspace.editingBasicInfo).toBe(false);
 	});
 

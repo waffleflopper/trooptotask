@@ -32,6 +32,7 @@ import { probeAdmission } from './admission-probe.mjs';
 import { seedPersonnelRetention, readRetentionFiles } from './personnel-retention.mjs';
 import { seedArtifactRetention } from './artifact-retention.mjs';
 import { seedMaintenance, readMaintenance } from './maintenance-fixtures.mjs';
+import { hostMonitor } from './perf-host.mjs';
 import { seedOnboarding } from './onboarding-fixtures.mjs';
 import { buildAvailabilityVolume } from './availability-volume-fixture.mjs';
 import { seedAudit } from './audit-fixtures.mjs';
@@ -844,8 +845,8 @@ async function main() {
 	if (command === 'actor') {
 		const [role, destination = 'calendar', workloadName] = args;
 		const workload = workloadName === undefined ? null : (await saved()).workloads?.[workloadName];
-		if (workloadName !== undefined && (!workload || !['perfWide', 'perfScoped'].includes(role)))
-			throw new Error('Use perfWide or perfScoped with a seeded workload name.');
+		if (workloadName !== undefined && (!workload || !['perfWide', 'perfScoped', 'perfScopedLeader'].includes(role)))
+			throw new Error('Use perfWide, perfScoped or perfScopedLeader with a seeded workload name.');
 		const orgDestinations = [
 			'evals',
 			'personnel',
@@ -1024,11 +1025,9 @@ async function main() {
 		if (text(arrival).includes('Timed out')) throw new Error('Destination did not become ready.');
 		const landed = await evaluate(state, pageId, '() => location.pathname');
 		const page = text(await tool(state, 'take_snapshot', { pageId }));
-		if (workload) {
-			const owned = await saved();
-			owned.perfPages = { ...owned.perfPages, [pageId]: role };
-			await save(owned);
-		}
+		const owned = await saved();
+		owned.perfPages = { ...owned.perfPages, [pageId]: role };
+		await save(owned);
 		note({
 			role,
 			pageId,
@@ -1789,7 +1788,17 @@ async function main() {
 		const ownedState = await saved();
 		const tag = randomUUID().slice(0, 8);
 		if (kind === 'workload') {
-			note(await seedWorkload({ client, fixture, name: args[1], tag, ownedState, save }));
+			note(
+				await seedWorkload({
+					client,
+					fixture,
+					name: args[1],
+					tag,
+					ownedState,
+					save,
+					prepare: () => perfDatabase('perf-prepare')
+				})
+			);
 			return;
 		}
 		if (kind === 'training-print') {
@@ -3097,8 +3106,15 @@ async function main() {
 				evidenceRoot,
 				isUnderEvidence,
 				ownedState: await saved(),
+				save,
+				provider,
 				credentials: (role) => ({ email: fixture.actors[role].email, password: fixture.actors[role].password }),
-				database: perfDatabase
+				database: perfDatabase,
+				host: hostMonitor([repository, path.dirname(session)], {
+					// Loaded on use: print capture brings the DevTools client.
+					endpoint: async () =>
+						(await import('../../../../scripts/verification/print-capture.mjs')).ownedPrintEndpoint(state, session)
+				})
 			})
 		);
 		return;

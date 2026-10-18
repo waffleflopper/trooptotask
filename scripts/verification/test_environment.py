@@ -301,7 +301,9 @@ class ReviewFailureOwnershipTests(unittest.TestCase):
         self.assertTrue(self.call("restore")["restored"])
 
 
-class ReviewFailureProcessBoundaryTests(unittest.TestCase):
+class OwnedProviderBoundary(unittest.TestCase):
+    """An owned provider session whose process boundary records every command."""
+
     def setUp(self):
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
@@ -326,6 +328,8 @@ class ReviewFailureProcessBoundaryTests(unittest.TestCase):
         environment.save(self.session / "environment.json", self.state)
         self.commands = []
 
+
+class ReviewFailureProcessBoundaryTests(OwnedProviderBoundary):
     def process(self, command, _directory, _environment, **_kwargs):
         self.commands.append(command)
         if command[:2] == ["docker", "ps"]:
@@ -460,6 +464,87 @@ class PerfStatementsTests(unittest.TestCase):
                 with self.assertRaises(environment.Blocked):
                     environment.perf_statements(Path("/unused"), action)
         owned.assert_not_called()
+
+
+class PerfPrepareTests(OwnedProviderBoundary):
+    pinned_at = "2026-10-17 10:37:40.708848+00"
+    reading = {"configured": "force_custom_plan", "trackPlanning": "on", "connections": 1, "connectionsBeforePin": 0}
+
+    def process(self, command, _directory, _environment, **kwargs):
+        self.commands.append(command)
+        if command[:2] == ["docker", "ps"]:
+            return "\n".join(item["Id"] for item in self.records)
+        if command[:2] == ["docker", "inspect"]:
+            return json.dumps(self.records)
+        if command[:2] == ["docker", "restart"]:
+            return command[2] + "\n"
+        if command[:2] == ["docker", "logs"]:
+            self.assertEqual(kwargs, {"stream": "stderr"})
+            return "Schema cache loaded in 0.4 milliseconds\n"
+        sql = command[-1]
+        if "clock_timestamp" in sql:
+            return f"t\n{self.pinned_at}\n"
+        if "pg_db_role_setting" in sql:
+            return json.dumps(self.reading)
+        if "current_setting('plan_cache_mode')" in sql:
+            return "authenticated force_custom_plan\n"
+        if "pg_stat_user_tables" in sql:
+            return json.dumps([{"table": "public.personnel", "live": 400}])
+        return ""
+
+    def prepare(self):
+        with patch.object(environment, "execute", side_effect=self.process), \
+                patch.object(environment.time, "sleep") as sleep, patch.object(environment.time, "time", return_value=1792208400.7):
+            result = environment.perf_prepare(self.session)
+        return result, [command for command in self.commands if command[:2] != ["docker", "ps"]
+                        and command[:2] != ["docker", "inspect"]], sleep
+
+    def psql(self, *statements, user="supabase_admin"):
+        return ["docker", "exec", "-e", "PGPASSWORD=postgres", DATABASE_ID, "psql", "-X", "-qAt", "-h", "127.0.0.1",
+                "-p", "5432", "-U", user, "-d", "postgres", "-v", "ON_ERROR_STOP=1",
+                *[argument for statement in statements for argument in ("-c", statement)]]
+
+    def test_analyzes_the_seeded_tables_then_pins_custom_plans_on_restarted_postgrest_connections(self):
+        result, commands, sleep = self.prepare()
+        rest = "2" * 64
+        self.assertEqual(commands[:4], [
+            self.psql("SET statement_timeout = '300s'",
+                      "VACUUM (ANALYZE) auth.users, auth.identities, public.organizations, "
+                      "public.organization_rank_catalog, public.groups, public.organization_memberships, "
+                      "public.status_types, public.assignment_types, public.special_days, public.training_types, "
+                      "public.ict_tasks, "
+                      "public.onboarding_templates, public.onboarding_template_steps, public.personnel, "
+                      "public.availability_entries, public.daily_assignments, public.personnel_trainings, "
+                      "public.personnel_ict_completions, public.personnel_onboardings, "
+                      "public.onboarding_step_progress;"),
+            self.psql("ALTER SYSTEM SET pg_stat_statements.track_planning = on;", "SELECT pg_reload_conf();",
+                      "ALTER ROLE authenticator SET plan_cache_mode = force_custom_plan;", "SELECT clock_timestamp();"),
+            ["docker", "restart", rest],
+            ["docker", "logs", "--since", "1792208400", rest],
+        ])
+        self.assertIn(f"backend_start < '{self.pinned_at}'::timestamptz", commands[4][-1])
+        self.assertEqual(commands[5], self.psql(
+            "SELECT set_config('role', 'authenticated', true) || ' ' || current_setting('plan_cache_mode');",
+            user="authenticator"))
+        self.assertEqual(len(commands), 6)
+        self.assertEqual(sleep.call_args_list[0].args, (11,))
+        self.assertEqual(result["planCache"], {
+            "mode": "force_custom_plan", "pinned": True, "pinnedAt": self.pinned_at, "configured": "force_custom_plan",
+            "trackPlanning": "on", "connections": 1, "connectionsBeforePin": 0,
+            "probe": "authenticated force_custom_plan"})
+        self.assertEqual(environment.private_json(self.session / "perf-plan-cache.json"),
+                         {"mode": "force_custom_plan", "pinnedAt": self.pinned_at})
+
+    def test_a_postgrest_connection_opened_before_the_pin_leaves_the_regime_unpinned(self):
+        self.reading = {**self.reading, "connections": 3, "connectionsBeforePin": 1}
+        result, _commands, _sleep = self.prepare()
+        self.assertFalse(result["planCache"]["pinned"])
+
+    def test_tables_read_before_any_prepare_report_an_unknown_unpinned_regime(self):
+        with patch.object(environment, "execute", side_effect=self.process):
+            result = environment.perf_tables(self.session)
+        self.assertEqual(result, {"status": "PASS", "tables": [{"table": "public.personnel", "live": 400}],
+                                  "planCache": {"mode": "unknown", "pinned": False}})
 
 
 class PerfExplainTests(unittest.TestCase):

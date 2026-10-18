@@ -48,7 +48,7 @@ def load_database(repository):
     return module
 
 
-def execute(command, directory, environment, *, suppress_diagnostic=False):
+def execute(command, directory, environment, *, suppress_diagnostic=False, stream="stdout"):
     result = subprocess.run(command, cwd=directory, env=environment, capture_output=True, text=True)
     if result.returncode:
         # The controlled psql command contains no provider tokens. Other outputs
@@ -56,7 +56,7 @@ def execute(command, directory, environment, *, suppress_diagnostic=False):
         diagnostic = result.stderr[-4000:] if command[:2] == ["docker", "exec"] and not suppress_diagnostic else "Credential-bearing provider output suppressed."
         save(directory / "last-error.json", {"operation": command[:2], "exit": result.returncode, "diagnostic": diagnostic})
         raise Blocked(f"{command[0]} {command[1]} failed (exit {result.returncode}); inspect private provider/last-error.json, then retry cleanup.")
-    return result.stdout
+    return getattr(result, stream)
 
 
 def digest(path):
@@ -206,11 +206,14 @@ class OwnedDatabase:
             raise Blocked("The original owned database container is unavailable; refusing this control.")
         self.container_id = database[0]["Id"]
         self.project = self.state["project"]
+        self.records = records
 
-    def _execute(self, sql):
+    def _execute(self, *sql, user="supabase_admin"):
+        # Each -c runs on its own, outside a transaction block, so VACUUM can follow a SET.
+        commands = [argument for statement in sql for argument in ("-c", statement)]
         return execute(["docker", "exec", "-e", "PGPASSWORD=postgres", self.container_id,
                         "psql", "-X", "-qAt", "-h", "127.0.0.1", "-p", "5432",
-                        "-U", "supabase_admin", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-c", sql],
+                        "-U", user, "-d", "postgres", "-v", "ON_ERROR_STOP=1", *commands],
                        self.workdir, self.environment, suppress_diagnostic=True)
 
     def totp_factor(self, user_id):
@@ -459,7 +462,7 @@ class PerfDatabase(OwnedDatabase):
         output = self._execute("""
             SET statement_timeout = '10s';
             SELECT COALESCE(json_agg(row_to_json(s)), '[]'::json) FROM
-              (SELECT userid::regrole::text AS role, queryid::text AS queryid, calls,
+              (SELECT userid::regrole::text AS role, queryid::text AS queryid, calls, plans,
                       round(total_exec_time::numeric, 3) AS total_ms, rows,
                       left(regexp_replace(query, '\\s+', ' ', 'g'), 600) AS query
                FROM extensions.pg_stat_statements
@@ -480,6 +483,96 @@ class PerfDatabase(OwnedDatabase):
             EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) {statement};
         """).strip()
         return json.loads(output)
+
+    def prepare(self):
+        # A backend reports its insert counts to the cumulative statistics up to 10 s after it goes
+        # idle (PGSTAT_IDLE_INTERVAL). Counts that land after the analyze start an autoanalyze about
+        # a minute later, so the seed's counts land first.
+        time.sleep(PERF_STATISTICS_FLUSH_SECONDS)
+        self._execute("SET statement_timeout = '300s'", f"VACUUM (ANALYZE) {', '.join(PERF_PREPARED_TABLES)};")
+        return self.pin_plan_cache()
+
+    def pin_plan_cache(self):
+        """Every PostgREST connection plans each execution for its own parameters.
+
+        PostgREST runs parameterized prepared statements on pooled connections, and in the default
+        `auto` mode PostgreSQL may move a statement to a generic plan after five executions on one
+        connection, by cost estimate. Which plan a sample got would depend on its connection's
+        history. A role setting applies at login, so PostgREST restarts to open every connection
+        after it.
+        """
+        # Planning counts per statement show in every sample window that each execution was planned.
+        pinned_at = self._execute("ALTER SYSTEM SET pg_stat_statements.track_planning = on;", "SELECT pg_reload_conf();",
+                                  f"ALTER ROLE authenticator SET plan_cache_mode = {PERF_PLAN_CACHE_MODE};",
+                                  "SELECT clock_timestamp();").strip().splitlines()[-1]
+        rest = self._container("rest")
+        restarted = int(time.time())
+        execute(["docker", "restart", rest], self.workdir, self.environment)
+        deadline = time.monotonic() + 60
+        while "Schema cache loaded in" not in execute(["docker", "logs", "--since", str(restarted), rest],
+                                                      self.workdir, self.environment, stream="stderr"):
+            if time.monotonic() > deadline:
+                raise Blocked("PostgREST did not load its schema cache within 60 s of its restart.")
+            time.sleep(0.5)
+        return pinned_at
+
+    def read_plan_cache(self, pinned_at):
+        reading = json.loads(self._execute(f"""
+            SET statement_timeout = '10s';
+            SELECT json_build_object(
+              'configured', (SELECT split_part(setting, '=', 2) FROM pg_db_role_setting s
+                             JOIN pg_roles r ON r.oid = s.setrole, unnest(s.setconfig) AS setting
+                             WHERE r.rolname = 'authenticator' AND s.setdatabase = 0
+                               AND setting LIKE 'plan_cache_mode=%'),
+              'trackPlanning', current_setting('pg_stat_statements.track_planning'),
+              'connections', count(*),
+              'connectionsBeforePin', count(*) FILTER (WHERE backend_start < '{canonical_timestamp(pinned_at)}'::timestamptz))
+            FROM pg_stat_activity WHERE usename = 'authenticator' AND application_name LIKE 'PostgREST%';
+        """).strip())
+        # A new login through PostgREST's role, switched to the request role as PostgREST does.
+        reading["probe"] = self._execute(
+            "SELECT set_config('role', 'authenticated', true) || ' ' || current_setting('plan_cache_mode');",
+            user="authenticator").strip()
+        return reading
+
+    def _container(self, service):
+        name = f"/supabase_{service}_{self.project}"
+        record = [item for item in self.records if item["Name"] == name and item["State"]["Running"]]
+        if len(record) != 1 or record[0]["Id"] not in self.state.get("container_ids", []):
+            raise Blocked(f"The original owned {service} container is unavailable; refusing this control.")
+        return record[0]["Id"]
+
+    def read_tables(self):
+        names = ", ".join(f"'{table}'" for table in PERF_PREPARED_TABLES)
+        output = self._execute(f"""
+            SET statement_timeout = '10s';
+            SELECT COALESCE(json_agg(row_to_json(t) ORDER BY t.table), '[]'::json) FROM
+              (SELECT s.schemaname || '.' || s.relname AS table, s.n_live_tup AS live, s.n_dead_tup AS dead,
+                      s.n_mod_since_analyze AS modified_since_analyze, s.n_ins_since_vacuum AS inserted_since_vacuum,
+                      c.relpages AS pages, c.relallvisible AS all_visible_pages,
+                      s.last_vacuum, s.last_autovacuum, s.last_analyze, s.last_autoanalyze,
+                      s.vacuum_count, s.autovacuum_count, s.analyze_count, s.autoanalyze_count
+               FROM pg_stat_user_tables s JOIN pg_class c ON c.oid = s.relid
+               WHERE s.schemaname || '.' || s.relname IN ({names})) AS t;
+        """).strip()
+        return json.loads(output)
+
+
+# Every table `seed workload` writes: the Auth rows the admin API creates for the extra members,
+# the Organization and the workload tables in perf-workloads.mjs. `perf-prepare` vacuums and
+# analyzes exactly these after a seed, so planner statistics and visibility do not depend on
+# when autovacuum next runs.
+PERF_STATISTICS_FLUSH_SECONDS = 11
+PERF_PLAN_CACHE_MODE = "force_custom_plan"
+PERF_PLAN_PIN_FILE = "perf-plan-cache.json"
+PERF_PREPARED_TABLES = (
+    "auth.users", "auth.identities", "public.organizations", "public.organization_rank_catalog", "public.groups",
+    "public.organization_memberships", "public.status_types", "public.assignment_types", "public.special_days",
+    "public.training_types",
+    "public.ict_tasks", "public.onboarding_templates", "public.onboarding_template_steps", "public.personnel",
+    "public.availability_entries", "public.daily_assignments", "public.personnel_trainings",
+    "public.personnel_ict_completions", "public.personnel_onboardings", "public.onboarding_step_progress",
+)
 
 
 # Named statements shaped like the app's PostgREST reads, run as the signed-in actor so RLS
@@ -513,6 +606,39 @@ def perf_statements(session, action):
         database.reset_statements()
         return {"status": "PASS", "reset": True}
     return {"status": "PASS", "statements": database.read_statements()}
+
+
+def perf_prepare(session):
+    database = PerfDatabase(session)
+    started = time.monotonic()
+    pinned_at = database.prepare()
+    save(session / PERF_PLAN_PIN_FILE, {"mode": PERF_PLAN_CACHE_MODE, "pinnedAt": pinned_at})
+    return {"status": "PASS", "tables": list(PERF_PREPARED_TABLES),
+            "durationMs": round((time.monotonic() - started) * 1000),
+            "planCache": plan_cache_state(database.read_plan_cache(pinned_at), pinned_at)}
+
+
+def plan_cache_state(reading, pinned_at):
+    """Pinned when the role setting, a fresh login and every PostgREST connection carry the mode."""
+    pinned = (reading["configured"] == PERF_PLAN_CACHE_MODE and reading["trackPlanning"] == "on"
+              and reading["probe"] == f"authenticated {PERF_PLAN_CACHE_MODE}"
+              and reading["connections"] > 0 and reading["connectionsBeforePin"] == 0)
+    return {"mode": reading["configured"] or "auto", "pinned": pinned, "pinnedAt": pinned_at, **reading}
+
+
+def canonical_timestamp(value):
+    if not isinstance(value, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(\.\d{1,6})?[+-]\d{2}", value):
+        raise Blocked("The plan-cache pin has no valid timestamp; run perf prepare.")
+    return value
+
+
+def perf_tables(session):
+    database = PerfDatabase(session)
+    pin = session / PERF_PLAN_PIN_FILE
+    pinned_at = private_json(pin)["pinnedAt"] if pin.exists() else None
+    return {"status": "PASS", "tables": database.read_tables(),
+            "planCache": plan_cache_state(database.read_plan_cache(pinned_at), pinned_at) if pinned_at
+            else {"mode": "unknown", "pinned": False}}
 
 
 def perf_explain(session, name, workload, actor):
@@ -653,6 +779,8 @@ def main():
     statements = subcommands.add_parser("perf-statements", help="Reset or read pg_stat_statements on the owned database")
     statements.add_argument("session")
     statements.add_argument("action", choices=("reset", "read"))
+    subcommands.add_parser("perf-prepare", help="VACUUM (ANALYZE) the tables a workload seed writes").add_argument("session")
+    subcommands.add_parser("perf-tables", help="Read vacuum, analyze and visibility state of those tables").add_argument("session")
     explain = subcommands.add_parser("perf-explain", help="EXPLAIN (ANALYZE, BUFFERS) one named statement for a seeded workload")
     explain.add_argument("session")
     explain.add_argument("name")
@@ -669,6 +797,10 @@ def main():
             result = session_age(session, args.user_id, args.hours)
         elif args.command == "perf-statements":
             result = perf_statements(session, args.action)
+        elif args.command == "perf-prepare":
+            result = perf_prepare(session)
+        elif args.command == "perf-tables":
+            result = perf_tables(session)
         elif args.command == "perf-explain":
             result = perf_explain(session, args.name, args.workload, args.actor)
         elif args.command == "deletion-review-failure":

@@ -26,41 +26,6 @@ export const protocol = {
 	}
 };
 
-// A milestone is reached on the first animation frame where every `present` text is in
-// the document, at least one `anyPresent` text is, every `absent` text is gone and no
-// `absentSelector` matches. The last milestone, `useful`, is the first useful render.
-const skeleton = '[data-slot="skeleton"]';
-// Above 250 People the By Group roster renders a pause notice instead of rows, so for a
-// large Organization-wide actor that notice is the useful roster.
-const roster = ({ sentinel }) => ({
-	anyPresent: [sentinel, 'personnel are loaded'],
-	absentSelector: [skeleton]
-});
-
-export const journeys = {
-	'personnel-list': {
-		kind: 'load',
-		path: 'personnel',
-		milestones: (terms) => [{ name: 'useful', ...roster(terms) }]
-	},
-	dashboard: {
-		kind: 'load',
-		path: '',
-		milestones: () => [
-			{ name: 'pending', presentSelector: [skeleton] },
-			{ name: 'useful', present: ['Upcoming Changes', 'Requires Attention'], absentSelector: [skeleton] }
-		]
-	},
-	'personnel-search': {
-		kind: 'interaction',
-		path: 'personnel',
-		ready: (terms) => [{ name: 'ready', ...roster(terms) }],
-		control: { role: 'searchbox', name: 'Search by name, rank, MOS, role, or group' },
-		input: ({ searchTerm }) => searchTerm,
-		milestones: ({ sentinel, searchTerm }) => [{ name: 'useful', present: [searchTerm], absent: [sentinel] }]
-	}
-};
-
 /** Runs inside the page (as a navigation init script or read-only evaluation). */
 export function installSettledObserver(win, spec) {
 	const key = '__t2tPerfSettled';
@@ -73,9 +38,23 @@ export function installSettledObserver(win, spec) {
 		done: false,
 		frames: 0,
 		longTasks: [],
-		lcp: null
+		lcp: null,
+		download: null
 	};
 	win[key] = state;
+	// An export hands its file to the browser as an object URL; the first one marks the download.
+	if (spec.download) {
+		const original = win.URL.createObjectURL;
+		win.URL.createObjectURL = function (blob) {
+			if (!state.download && state.startedAt !== null)
+				state.download = {
+					at: Math.round(win.performance.now() - state.startedAt),
+					bytes: blob.size,
+					type: blob.type
+				};
+			return original.call(win.URL, blob);
+		};
+	}
 	try {
 		new win.PerformanceObserver((list) => {
 			for (const entry of list.getEntries())
@@ -90,20 +69,32 @@ export function installSettledObserver(win, spec) {
 	} catch {
 		state.observerUnavailable = true;
 	}
+	// Markup indentation survives in textContent ("5\n\t\tmembers"), so whitespace runs compare as one space.
+	const flat = (value) => value.replace(/\s+/g, ' ');
 	const reached = (milestone) => {
 		const doc = win.document;
 		if (!doc.body) return false;
-		const text = doc.body.textContent;
+		const text = flat(doc.body.textContent);
 		return (
 			(milestone.present ?? []).every((value) => text.includes(value)) &&
 			(!milestone.anyPresent || milestone.anyPresent.some((value) => text.includes(value))) &&
 			(milestone.absent ?? []).every((value) => !text.includes(value)) &&
+			Object.entries(milestone.inside ?? {}).every(([selector, values]) => {
+				const scope = doc.querySelector(selector)?.textContent;
+				return scope !== undefined && values.every((value) => flat(scope).includes(value));
+			}) &&
 			(milestone.presentSelector ?? []).every((selector) => doc.querySelector(selector)) &&
-			(milestone.absentSelector ?? []).every((selector) => !doc.querySelector(selector))
+			(milestone.absentSelector ?? []).every((selector) => !doc.querySelector(selector)) &&
+			Object.entries(milestone.count ?? {}).every(([selector, n]) => doc.querySelectorAll(selector).length === n) &&
+			(!milestone.download || state.download !== null)
 		);
 	};
 	const final = spec.milestones.at(-1).name;
-	const frame = (now) => {
+	// A frame's timestamp is the frame's start, which can precede the input event the frame then
+	// handles, so an interaction reads the clock inside the callback: the event's timeStamp and
+	// performance.now() share one timeline and the callback cannot run before the input.
+	const frame = (frameTime) => {
+		const now = spec.start === 'navigation' ? frameTime : win.performance.now();
 		state.frames++;
 		for (const milestone of spec.milestones)
 			if (!(milestone.name in state.milestones) && reached(milestone)) {
@@ -395,6 +386,14 @@ export function serverTimingPhases(samples) {
 	);
 }
 
+// Utility statements (BEGIN, SET, COMMIT) are never planned. Every other execution is planned
+// when a custom plan is used and not when a cached generic plan is. PostgREST plans its
+// `set_config` preamble while the session is still `authenticator` and runs it as the request
+// role, so those plans count on an `authenticator` row with no calls. Compare the totals across
+// the request roles and `authenticator`: fewer plans than plannable calls there means some
+// executions reused a generic plan.
+const plannable = (row) => /^\s*(select|with|insert|update|delete)\b/i.test(row.query);
+
 /**
  * Totals per normalized statement over measured windows, one pg_stat_statements read per
  * sample taken between a reset just before the sample and the end of its network work.
@@ -408,11 +407,13 @@ export function statementTotals(windows, top = 15) {
 				role: row.role,
 				query: row.query,
 				calls: 0,
+				plans: 0,
 				total_ms: 0,
 				rows: 0,
 				perWindow: windows.map(() => 0)
 			};
 			item.calls += row.calls;
+			item.plans += row.plans ?? 0;
 			item.total_ms += row.total_ms;
 			item.rows += row.rows;
 			item.perWindow[index] += row.calls;
@@ -424,6 +425,7 @@ export function statementTotals(windows, top = 15) {
 		role: item.role,
 		calls: item.calls,
 		callsPerWindow: distribution(perWindow),
+		plans: item.plans,
 		total_ms: round(item.total_ms, 2),
 		mean_ms: round(item.total_ms / item.calls, 3),
 		rows: item.rows,
@@ -433,6 +435,8 @@ export function statementTotals(windows, top = 15) {
 		.map(([role, items]) => ({
 			role,
 			calls: items.reduce((total, item) => total + item.calls, 0),
+			plannableCalls: items.filter(plannable).reduce((total, item) => total + item.calls, 0),
+			plans: items.reduce((total, item) => total + item.plans, 0),
 			statements: items.length,
 			total_ms: round(
 				items.reduce((total, item) => total + item.total_ms, 0),
@@ -446,4 +450,69 @@ export function statementTotals(windows, top = 15) {
 		byTotalTime: list.toSorted((a, b) => b.total_ms - a.total_ms).slice(0, top),
 		byCalls: list.toSorted((a, b) => b.calls - a.calls).slice(0, top)
 	};
+}
+
+// Request-path categories for one pg_stat_statements row. Auth reads run as the Auth server's
+// role. PostgREST opens every request with a transaction and a role switch. The session and
+// suspension RPCs, the `organizations` identity and admission reads (both select the ID first)
+// and memberships are the work each request repeats; everything else the app's roles run,
+// including Organization settings columns, is the page's own reads.
+const categoryRules = [
+	['auth', (row) => row.role === 'supabase_auth_admin'],
+	['control', (row) => row.role === 'supabase_admin'],
+	['postgrest', (row) => /^(BEGIN|COMMIT|SET |RESET|select set_config)/i.test(row.query)],
+	['session', (row) => row.query.includes('get_current_session_started_at')],
+	['suspension', (row) => /is_user_suspended|"check_user_id"/.test(row.query)],
+	[
+		'organizations',
+		(row) => /SELECT "public"\."organizations"\."id", "public"\."organizations"\."(suspended_at|name)"/.test(row.query)
+	],
+	['memberships', (row) => row.query.includes('"public"."organization_memberships"')],
+	['page', (row) => ['authenticated', 'authenticator', 'anon', 'service_role'].includes(row.role)]
+];
+
+export function statementCategory(row) {
+	return categoryRules.find(([, matches]) => matches(row))?.[0] ?? 'other';
+}
+
+/** Calls and time per request-path category in each window, as distributions over the windows. */
+export function statementCategories(windows) {
+	const names = [...categoryRules.map(([name]) => name), 'other'];
+	const totals = windows.map((rows) => {
+		const window = Object.fromEntries(names.map((name) => [name, { calls: 0, ms: 0 }]));
+		for (const row of rows) {
+			const bucket = window[statementCategory(row)];
+			bucket.calls += row.calls;
+			bucket.ms += row.total_ms;
+		}
+		return window;
+	});
+	return Object.fromEntries(
+		names.map((name) => [
+			name,
+			{
+				calls: distribution(totals.map((window) => window[name].calls)),
+				ms: distribution(totals.map((window) => Math.round(window[name].ms * 100) / 100))
+			}
+		])
+	);
+}
+
+const maintenanceCounters = ['vacuum_count', 'autovacuum_count', 'analyze_count', 'autoanalyze_count'];
+
+/**
+ * Tables that a vacuum or analyze touched between two `perf-tables` reads, with how many times.
+ * Planner statistics and visibility change when one does, so a run that spans one is not
+ * comparable sample for sample.
+ */
+export function maintenanceDuring(before, after) {
+	const earlier = new Map(before.map((row) => [row.table, row]));
+	return after.flatMap((row) => {
+		const changed = Object.fromEntries(
+			maintenanceCounters
+				.map((counter) => [counter.replace('_count', ''), row[counter] - (earlier.get(row.table)?.[counter] ?? 0)])
+				.filter(([, delta]) => delta > 0)
+		);
+		return Object.keys(changed).length ? [{ table: row.table, ...changed }] : [];
+	});
 }

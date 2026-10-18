@@ -226,6 +226,8 @@ try {
 		[
 			'--import',
 			sourcePreload.href,
+			'--import',
+			pathToFileURL(path.join(copy, 'scripts/verification/preview-streaming.mjs')).href,
 			path.join(copy, 'node_modules/vite/bin/vite.js'),
 			'preview',
 			'--host',
@@ -350,7 +352,8 @@ try {
 									result = await client.listTools();
 									break;
 								case 'tool':
-									result = await call(input.name, input.args);
+									// A tool given its own timeout, such as a slow navigation, keeps it.
+									result = await call(input.name, input.args, Math.max(45000, (input.args?.timeout ?? 0) + 5000));
 									break;
 								case 'login':
 									result = await drive.login(input.role);

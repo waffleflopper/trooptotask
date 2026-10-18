@@ -1,11 +1,20 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { cleanWorkloads, expandWorkload, workloadMembers, workloadTables } from './perf-workloads.mjs';
+import {
+	cleanWorkloads,
+	expandWorkload,
+	federalHolidays,
+	importCsv,
+	removeImported,
+	workloadMembers,
+	workloadTables
+} from './perf-workloads.mjs';
 
 const owner = { id: '11111111-1111-4111-8111-111111111111', email: 'wide@example.test' };
 const scoped = { id: '22222222-2222-4222-8222-222222222222', email: 'scoped@example.test' };
+const scopedLeader = { id: '33333333-3333-4333-8333-333333333333', email: 'leader@example.test' };
 const expand = (name, anchor = '2026-10-15') =>
-	expandWorkload(name, { anchor, owner, scoped, members: workloadMembers(name, 'run') });
+	expandWorkload(name, { anchor, owner, scoped, scopedLeader, members: workloadMembers(name, 'run') });
 
 test('the same workload and anchor expand to identical rows', () => {
 	assert.deepEqual(expand('typical'), expand('typical'));
@@ -26,7 +35,7 @@ test('each approved workload expands to its specified row counts', () => {
 			assignments: 362,
 			training: 8,
 			tasks: 10,
-			memberships: 5,
+			memberships: 6,
 			onboarding: 4
 		},
 		typical: {
@@ -37,7 +46,7 @@ test('each approved workload expands to its specified row counts', () => {
 			assignments: 724,
 			training: 15,
 			tasks: 25,
-			memberships: 12,
+			memberships: 13,
 			onboarding: 15
 		},
 		large: {
@@ -48,7 +57,7 @@ test('each approved workload expands to its specified row counts', () => {
 			assignments: 1086,
 			training: 25,
 			tasks: 40,
-			memberships: 36,
+			memberships: 37,
 			onboarding: 60
 		}
 	};
@@ -114,6 +123,67 @@ test('rows satisfy the unique keys and references the database enforces', () => 
 	const membership = (userId) => rows.organization_memberships.find((row) => row.user_id === userId);
 	assert.equal(membership(owner.id).access_scope_kind, 'organization');
 	assert.deepEqual(membership(scoped.id).access_scope_group_ids, [scopedGroup.id]);
+	assert.equal(membership(scopedLeader.id).member_preset, 'editor');
+	assert.equal(membership(scopedLeader.id).capability_overrides.personnel, 'configure');
+	assert.deepEqual(membership(scopedLeader.id).access_scope_group_ids, [scopedGroup.id]);
+});
+
+test('adding the scoped editor leaves every row seeded before it unchanged', () => {
+	// The last Person generated in the large workload before the editor membership existed.
+	assert.equal(expand('large').rows.personnel.at(-1).id, '419db40b-45c1-42a3-84e0-ba4b3ead9e45');
+});
+
+// 2026 observed dates: Independence Day falls on a Saturday and is observed Friday July 3.
+test('federal holidays follow the observed US calendar', () => {
+	assert.deepEqual(
+		federalHolidays(2026).map((day) => day.date),
+		[
+			'2026-01-01',
+			'2026-01-19',
+			'2026-02-16',
+			'2026-05-25',
+			'2026-06-19',
+			'2026-07-03',
+			'2026-09-07',
+			'2026-10-12',
+			'2026-11-11',
+			'2026-11-26',
+			'2026-12-25'
+		]
+	);
+});
+
+// 44 federal holidays over 2025-2028; a training holiday beside each of the 31 that fall on a
+// Monday or Thursday; ten block-leave weekdays from December 22, of which 4, 2, 2 and 2 already
+// hold a holiday. The window around 2026-10-15 holds 17 of them.
+test('every workload has the same Calendar days, lanes on its watched duties and short status labels', () => {
+	for (const [name, lanes] of [
+		['small', ['Staff Duty', 'CQ']],
+		['typical', ['Staff Duty', 'CQ', 'Runner']],
+		['large', ['Staff Duty', 'CQ', 'Runner', 'Detail Group']]
+	]) {
+		const { rows, window } = expand(name);
+		const days = rows.special_days;
+		assert.equal(new Set(days.map((day) => day.date)).size, days.length, name);
+		assert.deepEqual(
+			{
+				federal: days.filter((day) => day.type === 'federal-holiday').length,
+				training: days.filter((day) => day.name === 'Training holiday').length,
+				blockLeave: days.filter((day) => day.name === 'Holiday block leave').length,
+				inWindow: days.filter((day) => day.date >= window.start && day.date <= window.end).length
+			},
+			{ federal: 44, training: 31, blockLeave: 30, inWindow: 17 },
+			name
+		);
+		assert.deepEqual(
+			rows.assignment_types.filter((type) => type.show_on_calendar).map((type) => type.name),
+			lanes
+		);
+		assert.ok(
+			rows.status_types.every((type) => /^[A-Z]{2,3}$/.test(type.short_label)),
+			name
+		);
+	}
 });
 
 test('the anchor moves dates without changing identities', () => {
@@ -280,4 +350,79 @@ test('one rule reads an absent account in both the delete and the readback', asy
 		}),
 		/user cleanup failed: Boom/
 	);
+});
+
+test('the import file is a quarter of the active roster, all into the scoped Group', () => {
+	assert.deepEqual(
+		['small', 'typical', 'large'].map((name) => importCsv(name, '2026-10-16').rows),
+		[5, 25, 100]
+	);
+	const lines = importCsv('small', '2026-10-16').text.trim().split('\n');
+	assert.equal(lines.length, 6);
+	assert.equal(lines[0], 'Rank,Last Name,First Name,MOS,Duty Role,Group,ETS,PCS / DEROS');
+	assert.ok(lines.slice(1).every((line) => line.split(',')[5] === 'Alpha'));
+	assert.deepEqual(
+		lines.slice(1).map((line) => line.split(',')[1]),
+		['Arrival001', 'Arrival002', 'Arrival003', 'Arrival004', 'Arrival005']
+	);
+});
+
+// The names the seeded small workload's Duty planner showed for this slot on 2026-10-17.
+test('the assignment slot is named as the Duty planner names it', () => {
+	assert.deepEqual(expand('small', '2026-10-17').journeyTerms.assignment, {
+		control: 'Staff Duty, Thu 1 Oct: ',
+		original: { label: 'SGT Irwin009, Jordan', search: 'Irwin009' },
+		alternate: { label: '2LT Adams001, Alex', search: 'Adams001' }
+	});
+	assert.match(
+		expand('small', '2026-09-15').journeyTerms.assignment.control,
+		/^[A-Za-z ]+, [A-Z][a-z]{2} \d{1,2} Sept: $/
+	);
+});
+
+test('journey terms count each scope and every membership', () => {
+	const { journeyTerms } = expand('small');
+	assert.deepEqual(journeyTerms.population, { wide: 20, scoped: 10 });
+	assert.equal(journeyTerms.members, 6);
+	assert.deepEqual(journeyTerms.filter, { term: '68W', rows: { wide: 3, scoped: 1 } });
+});
+
+test('imported People are journaled, removed and read back, and seeded People stay', async () => {
+	const ownedState = journaled();
+	ownedState.workloads.small.tables.push({ table: 'personnel', ids: ['seeded-1'] });
+	const client = provider();
+	client.tables.personnel = ['seeded-1', 'imported-1', 'imported-2'].map((id) => ({
+		id,
+		organization_id: organizationId
+	}));
+	const saves = [];
+	const result = await removeImported({
+		client,
+		ownedState,
+		save: async (state) => saves.push(structuredClone(state)),
+		workload: 'small'
+	});
+	assert.deepEqual(result, { removed: 2 });
+	assert.deepEqual(
+		client.tables.personnel.map((row) => row.id),
+		['seeded-1']
+	);
+	assert.deepEqual(saves[0].workloads.small.appWritten.personnel, ['imported-1', 'imported-2']);
+});
+
+test('an imported Person that survives the delete fails the sample with its ID', async () => {
+	const ownedState = journaled();
+	ownedState.workloads.small.tables.push({ table: 'personnel', ids: [] });
+	const client = provider();
+	client.tables.personnel = [{ id: 'imported-1', organization_id: organizationId }];
+	const stubborn = client.from;
+	client.from = (table) => {
+		const query = stubborn(table);
+		const remove = query.delete;
+		query.delete = () => (remove(), { eq: () => ({ in: async () => ({ error: null }) }) });
+		return query;
+	};
+	await assert.rejects(removeImported({ client, ownedState, save: async () => {}, workload: 'small' }), {
+		message: 'Imported People remain: imported-1'
+	});
 });

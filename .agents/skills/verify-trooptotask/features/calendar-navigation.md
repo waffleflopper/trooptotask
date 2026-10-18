@@ -66,3 +66,4 @@ Preconditions: doctor passes; `$V fixture` supplies fixed September/March record
 - Use `$V fixture` for the fixed dates and today's local date; a current-month screenshot does not establish the September or March records.
 - Arm the range failure before requesting an uncovered range. A cached range may not call the endpoint, so record `network state` before claiming a failure was exercised. Range coverage restarts each time `/calendar` mounts, including a return from another Calendar page.
 - `calendarOperate` is a synthetic fixture role accepted by `login`; it has Calendar access that the ordinary `manager` fixture does not.
+- For load, range change, 3-Month search and assignment save timing at 20/100/400 People, use the [performance recipe](performance.md). The large-grid steps above stay the `bulk-501` volume check.

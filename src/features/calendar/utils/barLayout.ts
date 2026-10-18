@@ -9,9 +9,13 @@ export interface AvailabilitySpan {
 	readonly end: DayNumber;
 }
 
+/** Whether `text` fits a bar `width` wide that also draws `chevrons` continuation marks. */
+export type LabelFit = (text: string, width: number, chevrons: number) => boolean;
+
 export type LabelPolicy =
 	| { readonly view: 'month'; readonly showStatusText: boolean }
-	| { readonly view: '3-month'; readonly dayPx: number };
+	| { readonly view: '3-month'; readonly dayPx: number }
+	| { readonly view: 'print'; readonly dayWidth: number; readonly fits: LabelFit };
 
 export type BarLabel =
 	| { readonly kind: 'none' }
@@ -133,8 +137,8 @@ export function describeSpan(span: AvailabilitySpan): string {
 		.join(', ');
 }
 
-function fitsCompact(chars: number, widthPx: number, chevrons: number): boolean {
-	return chars * GLYPH_PX + PADDING_PX + chevrons * CHEVRON_PX <= widthPx;
+function fitsCompact(text: string, widthPx: number, chevrons: number): boolean {
+	return [...text].length * GLYPH_PX + PADDING_PX + chevrons * CHEVRON_PX <= widthPx;
 }
 
 export function barLabel(placed: Placed, policy: LabelPolicy): BarLabel {
@@ -150,15 +154,24 @@ export function barLabel(placed: Placed, policy: LabelPolicy): BarLabel {
 		return { kind: 'name-note', name, note };
 	}
 
-	const widthPx = visibleDays * policy.dayPx;
+	const [fits, dayWidth] = policy.view === 'print' ? [policy.fits, policy.dayWidth] : [fitsCompact, policy.dayPx];
 	const chevrons = Number(placed.continuesBefore) + Number(placed.continuesAfter);
-	const days = spanDays(span);
-	const fits = (text: string, suffix = '') => fitsCompact([...text].length + suffix.length, widthPx, chevrons);
+	return fittedLabel(span.status, spanDays(span), visibleDays * dayWidth, chevrons, fits);
+}
+
+/** The longest of name with length, one-day label with length, or one-day label alone that fits `width`. */
+export function fittedLabel(
+	status: Pick<StatusType, 'name' | 'shortLabel'>,
+	days: number,
+	width: number,
+	chevrons: number,
+	fits: LabelFit
+): BarLabel {
 	const length = ` · ${days}D`;
-	if (fits(name, length)) return { kind: 'with-length', text: name, days };
-	const short = oneDayLabel(span.status);
-	if (fits(short, length)) return { kind: 'with-length', text: short, days };
-	if (fits(short)) return { kind: 'one-day', text: short };
+	if (fits(status.name + length, width, chevrons)) return { kind: 'with-length', text: status.name, days };
+	const short = oneDayLabel(status);
+	if (fits(short + length, width, chevrons)) return { kind: 'with-length', text: short, days };
+	if (fits(short, width, chevrons)) return { kind: 'one-day', text: short };
 	return { kind: 'none' };
 }
 

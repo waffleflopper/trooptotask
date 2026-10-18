@@ -575,5 +575,5 @@ describe('module boundary declaration', () => {
 		expect(
 			violations.filter((issue) => ['ownership', 'manifest', 'declared-cycle', 'source-graph'].includes(issue.kind))
 		).toEqual([]);
-	}, 15_000);
+	}, 60_000);
 });

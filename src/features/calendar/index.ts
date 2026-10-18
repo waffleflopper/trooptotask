@@ -21,12 +21,7 @@ export {
 
 // Utils
 export { getDefaultFederalHolidays } from './utils/federalHolidays';
-export {
-	exportMonthToExcel,
-	printMonthCalendar,
-	exportQuarterToExcel,
-	printQuarterCalendar
-} from './utils/calendarExport';
+export { exportMonthToExcel, exportQuarterToExcel } from './utils/calendarExport';
 
 // Context
 export { CalendarPageContext } from './contexts/CalendarPageContext.svelte';

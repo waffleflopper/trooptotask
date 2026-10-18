@@ -27,6 +27,7 @@ const exportMocks = vi.hoisted(() => ({
 }));
 
 vi.mock('$features/calendar/utils/calendarExport', () => exportMocks);
+vi.mock('$features/calendar/utils/calendarPrint', () => exportMocks);
 vi.mock('$app/navigation', async (importOriginal) => ({
 	...(await importOriginal<typeof import('$app/navigation')>()),
 	goto: gotoMock

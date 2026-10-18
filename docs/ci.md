@@ -1,14 +1,14 @@
 # Continuous integration
 
-Depot CI runs validation for this private, single-contributor repository. GitHub remains the source and PR host. Each job uses the `depot-ubuntu-24.04` 2-CPU, 8-GB x64 sandbox. `main` intentionally remains unprotected on the current GitHub plan. Missing paid rulesets or branch protection is not a failure or an unfinished project requirement.
+GitHub Actions runs validation for this private, single-contributor repository on GitHub-hosted `ubuntu-24.04` runners. This is temporary: Depot CI minutes ran out in October 2026, and CI returns to Depot once they reset (see [Switching back to Depot](#switching-back-to-depot)). GitHub remains the source and PR host. `main` intentionally remains unprotected on the current GitHub plan. Missing paid rulesets or branch protection is not a failure or an unfinished project requirement.
 
 ## What runs
 
-[The workflow](../.depot/workflows/ci.yml) runs on PRs targeting `main` that carry the `run-ci` label, and on manual dispatch. Merging to `main` starts no run. Feature-branch pushes without a PR do not start duplicate runs. New PR updates cancel superseded runs; manual runs are retained. No deployment or remote database operation is part of CI.
+[The workflow](../.github/workflows/ci.yml) runs on PRs targeting `main` that carry the `run-ci` label, and on manual dispatch. Merging to `main` starts no run. Feature-branch pushes without a PR do not start duplicate runs. New PR updates cancel superseded runs; manual runs are retained. No deployment or remote database operation is part of CI.
 
 PR checks wait until the review bots are done, so rounds of review fixes do not each pay for a full run. Without the label, every job reports skipped. Add `run-ci` once hosted review of the current head returns no actionable findings. Adding it starts a run, and CI then runs on every later push. Before pushing another round of review fixes, remove the label and add it again after that round's review is clean. Adding any other label skips every job and cannot cancel a running check. Robert can add the label from the PR page at any time.
 
-A PR's run tests its merge with `main` as of that run. If `main` moves before the merge, that combination is untested. When an exact `main` commit needs CI evidence, such as a phase check on the integrated candidate, run `depot ci dispatch --repo waffleflopper/trooptotask --workflow ci.yml --ref main`. That run validates everything, including Database contracts.
+A PR's run tests its merge with `main` as of that run. If `main` moves before the merge, that combination is untested. When an exact `main` commit needs CI evidence, such as a phase check on the integrated candidate, run `gh workflow run ci.yml --ref main`. That run validates everything, including Database contracts.
 
 | Job                        | Scope                                                                                                                                                                                                                                                                             |
 | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -18,7 +18,7 @@ A PR's run tests its merge with `main` as of that run. If `main` moves before th
 
 The only lightweight exemption is Markdown under `docs/` and the root README/AGENTS/CLAUDE/CONTEXT files. Unknown paths run application validation. Non-Markdown files under `docs/` remain executable inputs. Database inputs also run application checks, including the test that consumes `supabase/config.toml`. Unchanged SQL is not rerun solely for a UI change.
 
-All three jobs use `depot-ubuntu-24.04`. The two substantial jobs become eligible independently after selection. Existing job timeouts are retained. npm downloads are cached; application dependencies use `npm ci`. Vitest keeps its complete suite with `VITEST_MAX_WORKERS=2`, restoring the earlier Depot worker setting. The Svelte/TypeScript step retains `NODE_OPTIONS=--max-old-space-size=2560` after the recorded automatic-heap failure. There is no browser suite, OS matrix, sharding or coverage quota. Change compute or worker counts only with measured evidence.
+All three jobs use `ubuntu-24.04`. GitHub's runners are slower than Depot's: the application job took about 16½ minutes against Depot's 6½ on the same commit, so the module-boundary test allows 60 seconds. The two substantial jobs become eligible independently after selection. Existing job timeouts are retained. npm downloads are cached; application dependencies use `npm ci`. Vitest keeps its complete suite with `VITEST_MAX_WORKERS=2`, restoring the earlier Depot worker setting. The Svelte/TypeScript step retains `NODE_OPTIONS=--max-old-space-size=2560` after the recorded automatic-heap failure. There is no browser suite, OS matrix, sharding or coverage quota. Change compute or worker counts only with measured evidence.
 
 ## Local work and acceptance
 
@@ -30,7 +30,7 @@ The governance job runs the canonical checker, which fails on any module-boundar
 
 ## Vercel deployment builds
 
-Vercel deployment builds are separate from Depot validation. Vercel deploys only `main` automatically. `git.deploymentEnabled` in [vercel.json](../vercel.json) sets `main` to `true` and every other branch to `false`. The `**` pattern is needed because `*` does not match branch names containing `/`. PR branches get no automatic preview deployment.
+Vercel deployment builds are separate from CI validation. Vercel deploys only `main` automatically. `git.deploymentEnabled` in [vercel.json](../vercel.json) sets `main` to `true` and every other branch to `false`. The `**` pattern is needed because `*` does not match branch names containing `/`. PR branches get no automatic preview deployment.
 
 Previews run only when Robert asks for one. To deploy the pushed head of the current branch as a preview, run this from a checkout where `vercel whoami` succeeds:
 
@@ -52,7 +52,7 @@ Other files still trigger builds, including application source, static assets, d
 
 An empty or unavailable previous SHA triggers a build. Redeploying the exact successful commit also builds, supporting environment-only changes and explicit rebuilds. Other manual redeployments can bypass filtering by clearing **Use project's Ignore Build Step** in Vercel's Redeploy dialog. The command needs no dependencies or repository helper script and fits Vercel's 256-character configuration limit. Its shell variable `sha` holds the previous deployment SHA.
 
-Vercel skips on exit code 0 and builds on exit code 1. The command converts Git errors to exit code 1 so missing history cannot block a deployment. Skipped builds still count toward deployment quotas. Depot continues to validate the complete PR independently, including changes that do not need a deployment. [The Git fixture tests](../scripts/vercel-ignore-build.test.ts) execute the actual configured command and check these decisions.
+Vercel skips on exit code 0 and builds on exit code 1. The command converts Git errors to exit code 1 so missing history cannot block a deployment. Skipped builds still count toward deployment quotas. CI continues to validate the complete PR independently, including changes that do not need a deployment. [The Git fixture tests](../scripts/vercel-ignore-build.test.ts) execute the actual configured command and check these decisions.
 
 Build-machine selection remains a hosted project setting. Compare Basic and Standard on the same commit and environment before changing it. Use completed builds and Vercel's billed CPU minutes, which include container work after the deployment becomes ready. Keep dependency-cache conditions comparable and report repeated runs, costs, and timing ranges. Build-machine changes do not change function memory or runtime settings.
 
@@ -68,9 +68,9 @@ The workflow records each disposable project in a private, credential-free recei
 
 The pinned PostgreSQL image’s known reserved-role denial crash is worked around by disabling `supautils.hint_roles` decoration only in the disposable database. This preserves grants, RLS and expected SQLSTATE denials. Migration regressions run through pinned pg_prove with their relative migration includes intact. Failures remain failures; the existing SQL tests and historical migrations are unchanged. Runner acceptance requires these real container-backed checks to finish successfully; Docker hello-world or image-manifest inspection alone is insufficient.
 
-## Depot CI operation
+## Switching back to Depot
 
-The Depot Code Access connection must be active for this repository. The pinned `actions/setup-node` supplies Node 24; npm remains pinned to 11.12.1, Supabase CLI to 2.101.0 and pg_prove to 3.36. Existing action commit pins are preserved. The workflow uses synthetic app/provider values and disposable database keys, with no production secrets. The unrelated Claude automation stays outside this CI switch.
+Depot CI registers automatic PR/main triggers from `.depot/workflows/ci.yml` on the default branch, and the Depot Code Access connection must be active for this repository. To return once Depot minutes reset, move the workflow back to `.depot/workflows/ci.yml` and set all three jobs to `runs-on: depot-ubuntu-24.04`. Removing it from `.github/workflows/` stops the GitHub run, so the two services never validate the same PR twice.
 
 ```bash
 depot ci run --workflow .depot/workflows/ci.yml
@@ -78,15 +78,15 @@ depot ci run list
 depot ci status <run-id>
 ```
 
-Depot registers automatic PR/main triggers from workflows on the default branch. Before merging a restored workflow, run the exact candidate through `depot ci run --workflow .depot/workflows/ci.yml`. Record the run URL, candidate revision or patch, actual job and step results, and disposable cleanup. After integration, verify the registered automatic trigger. Queued, skipped or unavailable jobs remain unverified. Earlier ARM64 or Depot results do not establish acceptance on the new candidate.
+Before merging the restored workflow, run the exact candidate through `depot ci run --workflow .depot/workflows/ci.yml`. Record the run URL, candidate revision or patch, actual job and step results, and disposable cleanup. After integration, verify the registered automatic trigger. Queued, skipped or unavailable jobs remain unverified.
 
-No repository visibility, paid plan, branch-protection or deployment setting is changed. Vercel remains separate and may deploy on publication or merge; existing release prerequisites still apply.
+On either service the pinned `actions/setup-node` supplies Node 24; npm remains pinned to 11.12.1, Supabase CLI to 2.101.0 and pg_prove to 3.36. Existing action commit pins are preserved. The workflow uses synthetic app/provider values and disposable database keys, with no production secrets. The unrelated Claude automation stays outside this CI switch. No repository visibility, paid plan, branch-protection or deployment setting is changed. Vercel remains separate and may deploy on publication or merge; existing release prerequisites still apply.
 
 References: [Depot CI quickstart](https://depot.dev/docs/ci/quickstart), [Depot CI compatibility](https://depot.dev/docs/ci/compatibility).
 
-## Return to Depot CI
+## Return to Depot CI (#1573)
 
-Robert requests the return to Depot’s separate CI service during #1573. The current workflow moves from `.github/workflows/ci.yml` back to `.depot/workflows/ci.yml`. All three jobs retain `depot-ubuntu-24.04`, and Vitest restores two workers for the earlier 8-GB configuration. Current cancellation-safe database receipts, cleanup, pins, checks and type-step heap budget are retained. No database migration or remote database operation is included. Exact-candidate Depot execution and automatic trigger acceptance remain pending.
+This is a historical record. During #1573 Robert returned CI to Depot's separate service, moving the workflow from `.github/workflows/ci.yml` back to `.depot/workflows/ci.yml`. All three jobs used `depot-ubuntu-24.04`, and Vitest restored two workers for the earlier 8-GB configuration. Cancellation-safe database receipts, cleanup, pins, checks and the type-step heap budget carried over unchanged, with no database migration or remote database operation. Depot ran CI from then until its minutes ran out in October 2026, when CI moved to GitHub Actions as described at the top of this page.
 
 ## ARM64 migration acceptance
 
@@ -102,7 +102,7 @@ Observed initial job times are 2m02s selection, 7m09s application and 6m08s data
 
 ## Migration acceptance record
 
-This historical record covers the original Depot migration. The return-to-Depot candidate above requires its own current acceptance. Merged through [PR #1346](https://github.com/waffleflopper/trooptotask/pull/1346) at `0a9e2cfee31dda907d258e209d0ca4818beded45`, incorporating completed D04 commit `91b8bc3cd12354b71c4c8b2e869feed17d79ace5`. The original D04 branch and commits remain intact; [Phase 07 acceptance](stabilization/EVIDENCE.md#phase-07-integrated-phase-check) reconciles that integration separately from this tooling change.
+This historical record covers the original Depot migration. The later moves back to Depot (#1573) and to GitHub Actions are described above. Merged through [PR #1346](https://github.com/waffleflopper/trooptotask/pull/1346) at `0a9e2cfee31dda907d258e209d0ca4818beded45`, incorporating completed D04 commit `91b8bc3cd12354b71c4c8b2e869feed17d79ace5`. The original D04 branch and commits remain intact; [Phase 07 acceptance](stabilization/EVIDENCE.md#phase-07-integrated-phase-check) reconciles that integration separately from this tooling change.
 
 Hosted candidate: [Depot run `56311mzhgj`](https://depot.dev/orgs/rvsvvkd4rp/workflows/m59999npzz), uploaded by `depot ci run --workflow .depot/workflows/ci.yml` against remote base `761349957d913e991339212aa610dc0887afe9db`, cache patch `patch/761349957d91/01cfa382fbbd8ea9`. Runtime/configuration diff SHA-256 is `e9f9df6fa27788b5ae4924d311b8f418328a3b08b0f2466252399c8777de8d54`, reproduced by `git diff --binary 91b8bc3c -- . ':(exclude)*.md' | sha256sum`. This identifies the uncommitted executable candidate independently of subsequent prose receipts.
 

@@ -68,9 +68,10 @@
 	async function exportPDF(): Promise<void> {
 		const current = stillInOrganizationLifetime();
 		try {
-			const { printMonthCalendar, printQuarterCalendar } = await import('$features/calendar/utils/calendarExport');
-			if (ctx.viewMode === '3-month') await printQuarterCalendar(quarterStart(), getExportData());
-			else await printMonthCalendar(calendarStore.year, calendarStore.month, getExportData());
+			const { printMonthCalendar, printQuarterCalendar } = await import('$features/calendar/utils/calendarPrint');
+			const options = { ...getExportData(), organizationName: data.orgName };
+			if (ctx.viewMode === '3-month') await printQuarterCalendar(quarterStart(), options);
+			else await printMonthCalendar(calendarStore.year, calendarStore.month, options);
 		} catch (err) {
 			if (current()) toastStore.error(err instanceof Error ? err.message : 'PDF export failed');
 		}
@@ -385,6 +386,7 @@
 	{#key dutyPick.anchor}
 		{#await loadDutyPicker() then { default: DutyPicker }}
 			<DutyPicker
+				typeId={dutyPick.type.id}
 				typeName={dutyPick.type.name}
 				assignTo={dutyPick.type.assignTo}
 				date={dutyPick.date}

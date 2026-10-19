@@ -42,7 +42,9 @@ export function uncheckedSources(attention: PersonnelAttention): string[] {
 export function alsoChecked(checked: PersonnelAttention['checked']): string[] {
 	const facts: string[] = [];
 	if (checked.training.state === 'checked' && checked.training.currentCount > 0)
-		facts.push(`${checked.training.currentCount} training items current`);
+		facts.push(
+			`${checked.training.currentCount} training ${checked.training.currentCount === 1 ? 'item' : 'items'} current`
+		);
 	if (checked.criticalTasks.state === 'checked' && checked.criticalTasks.currentCount > 0) {
 		facts.push(
 			`${checked.criticalTasks.currentCount} of ${checked.criticalTasks.applicableCount} critical tasks current`

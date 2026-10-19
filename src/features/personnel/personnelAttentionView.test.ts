@@ -77,4 +77,10 @@ describe('Overview attention', () => {
 			})
 		).toEqual([]);
 	});
+
+	it('counts a single current training item in the singular', () => {
+		expect(alsoChecked({ ...attention.checked, training: { state: 'checked', currentCount: 1 } })).toContain(
+			'1 training item current'
+		);
+	});
 });

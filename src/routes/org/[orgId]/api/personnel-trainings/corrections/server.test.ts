@@ -10,6 +10,7 @@ const EXPIRATION_ONLY_TYPE = '00000000-0000-4000-8000-000000003004';
 const RECORD = '00000000-0000-4000-8000-000000003005';
 const HISTORY = '00000000-0000-4000-8000-000000003006';
 const OTHER_GROUP_RECORD = '00000000-0000-4000-8000-000000003007';
+const EXPIRATION_ONLY_RECORD = '00000000-0000-4000-8000-000000003008';
 
 function seededContext(auth?: Parameters<typeof createTestContext>[0]) {
 	const ctx = createTestContext(auth);
@@ -34,6 +35,16 @@ function seededContext(auth?: Parameters<typeof createTestContext>[0]) {
 			certificate_url: 'https://example.test/cert.pdf',
 			created_at: '2026-03-15T12:00:00.000Z',
 			updated_at: '2026-03-15T12:00:00.000Z'
+		},
+		{
+			id: EXPIRATION_ONLY_RECORD,
+			organization_id: orgId,
+			personnel_id: PERSON,
+			training_type_id: EXPIRATION_ONLY_TYPE,
+			completion_date: '2025-05-01',
+			expiration_date: '2026-05-01',
+			notes: 'Recorded before the type took per-person dates',
+			certificate_url: null
 		},
 		{
 			id: OTHER_GROUP_RECORD,
@@ -129,6 +140,24 @@ describe('PATCH /api/personnel-trainings/corrections', () => {
 				certificateUrl: null,
 				supersededAt: '2026-01-02T00:00:00.000Z'
 			}
+		});
+	});
+
+	it('keeps the completion date an expiration-date-only correction does not send', async () => {
+		const ctx = seededContext(groupOperator);
+
+		const result = await handleUseCaseRequest(
+			_patchConfig,
+			ctx,
+			{ kind: 'current', id: EXPIRATION_ONLY_RECORD, expirationDate: '2026-06-30' },
+			() => ctx
+		);
+
+		expect(result.entry).toMatchObject({
+			id: EXPIRATION_ONLY_RECORD,
+			completionDate: '2025-05-01',
+			expirationDate: '2026-06-30',
+			notes: 'Recorded before the type took per-person dates'
 		});
 	});
 

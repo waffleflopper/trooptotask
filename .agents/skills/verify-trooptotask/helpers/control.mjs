@@ -2954,18 +2954,27 @@ async function main() {
 		const result = await evaluate(
 			state,
 			pageId,
-			`async () => {
-			const blob = window.__mapExport?.blob;
-			if (!blob) return { captured: false };
-			const bytes = new Uint8Array(await blob.arrayBuffer());
-			let binary = '';
-			for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
-			return { captured: true, base64: btoa(binary), filename: window.__mapExport.filename, mimeType: blob.type };
-		}`
+			'() => { const blob = window.__mapExport?.blob; return blob ? { captured: true, size: blob.size, filename: window.__mapExport.filename, mimeType: blob.type } : { captured: false }; }'
 		);
 		if (!result.captured) throw new Error('No workbook Blob was captured.');
+		// One base64 result for a multi-megabyte Organization export crashes Chromium, so read it in slices.
+		const chunks = [];
+		for (let offset = 0; offset < result.size; offset += 1 << 20) {
+			const base64 = await evaluate(
+				state,
+				pageId,
+				`async () => {
+				const bytes = new Uint8Array(await window.__mapExport.blob.slice(${offset}, ${offset + (1 << 20)}).arrayBuffer());
+				let binary = '';
+				for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
+				return btoa(binary);
+			}`
+			);
+			chunks.push(Buffer.from(base64, 'base64'));
+		}
+		const bytes = Buffer.concat(chunks);
+		if (bytes.length !== result.size) throw new Error(`Saved ${bytes.length} of ${result.size} export bytes.`);
 		await fs.mkdir(path.dirname(target), { recursive: true });
-		const bytes = Buffer.from(result.base64, 'base64');
 		await fs.writeFile(target, bytes);
 		note({
 			saved: target,

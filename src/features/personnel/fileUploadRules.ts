@@ -1,5 +1,3 @@
-import { formatFileSize } from './fileLabels';
-
 export const UPLOAD_MAX_BYTES = 10 * 1024 * 1024;
 
 export type UploadKind = 'counseling' | 'document';
@@ -31,8 +29,7 @@ export function checkUploadFile(file: Pick<File, 'name' | 'type' | 'size'>): Upl
 	const type = declaredType(file);
 	if (!type) return { ok: false, message: `${file.name} isn't a PDF, JPG, PNG or HEIC file.` };
 	if (file.size === 0) return { ok: false, message: `${file.name} is empty.` };
-	if (file.size > UPLOAD_MAX_BYTES)
-		return { ok: false, message: `${file.name} is ${formatFileSize(file.size)}. The limit is 10 MB.` };
+	if (file.size > UPLOAD_MAX_BYTES) return { ok: false, message: `${file.name} is over the 10 MB limit.` };
 	return { ok: true, type, kinds: type === 'application/pdf' ? ['counseling', 'document'] : ['document'] };
 }
 

@@ -41,7 +41,7 @@ describe('upload file check', () => {
 		expect(checkUploadFile(file('edge.pdf', 'application/pdf', UPLOAD_MAX_BYTES))).toMatchObject({ ok: true });
 		expect(checkUploadFile(file('big.pdf', 'application/pdf', 12_897_484))).toEqual({
 			ok: false,
-			message: 'big.pdf is 12.3 MB. The limit is 10 MB.'
+			message: 'big.pdf is over the 10 MB limit.'
 		});
 	});
 

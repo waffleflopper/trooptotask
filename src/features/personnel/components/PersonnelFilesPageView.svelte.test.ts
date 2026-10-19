@@ -335,7 +335,7 @@ describe('Files tab upload flow', () => {
 			file: () => new File(['x'], 'notes.txt', { type: 'text/plain' }),
 			message: /notes\.txt isn't a PDF/
 		},
-		{ name: 'an oversize file', file: oversize, message: /big\.pdf is 11\.0 MB\. The limit is 10 MB\./ }
+		{ name: 'an oversize file', file: oversize, message: /big\.pdf is over the 10 MB limit\./ }
 	])('rejects $name beside the dropzone before anything uploads', async ({ file, message }) => {
 		mount();
 		await screen.findByText('Counseling c1');

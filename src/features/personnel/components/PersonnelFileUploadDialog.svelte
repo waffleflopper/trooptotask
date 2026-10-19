@@ -38,6 +38,7 @@
 	});
 	const documents = new ArtifactDraft(documentDraftSpec, { context, fetch: (input, init) => fetch(input, init) });
 	counseling.fields.conductedBy = untrack(() => uploaderLabel) ?? '';
+	let conductedByEdited = false;
 
 	let file = $state<File | null>(null);
 	let kinds = $state<UploadKind[]>(['counseling', 'document']);
@@ -60,6 +61,10 @@
 		const check = checkUploadFile(next);
 		if (!check.ok) {
 			fileError = check.message;
+			file = null;
+			kinds = ['counseling', 'document'];
+			counseling.selectFile(null);
+			documents.selectFile(null);
 			return;
 		}
 		const typed = withDeclaredType(next, check.type);
@@ -75,6 +80,11 @@
 
 	$effect(() => {
 		if (!file) chooseButton?.focus();
+	});
+
+	$effect(() => {
+		const label = uploaderLabel;
+		if (label && !conductedByEdited) counseling.fields.conductedBy = label;
 	});
 
 	function pick(event: Event & { currentTarget: HTMLInputElement }) {
@@ -188,7 +198,12 @@
 						</Field.Root>
 						<Field.Root>
 							<Field.Label for="upload-counseling-by">Conducted by</Field.Label>
-							<Input id="upload-counseling-by" maxlength={120} bind:value={counseling.fields.conductedBy} />
+							<Input
+								id="upload-counseling-by"
+								maxlength={120}
+								bind:value={counseling.fields.conductedBy}
+								oninput={() => (conductedByEdited = true)}
+							/>
 						</Field.Root>
 					{:else if kind === 'document'}
 						<Field.Root data-invalid={documents.fieldError('title') ? true : undefined}>

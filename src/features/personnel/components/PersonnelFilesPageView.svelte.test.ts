@@ -201,6 +201,37 @@ describe('Files tab', () => {
 		expect(within(second).getByText('Uploaded by SSG Miller')).toBeTruthy();
 	});
 
+	it('offers no PDF to open on a counseling that has no stored file', async () => {
+		mount({
+			files: files(
+				Promise.resolve(
+					counselingsRead({
+						records: [makeCounseling('c1', '2026-10-02', { title: 'Legacy counseling', status: 'needs-title' })]
+					})
+				)
+			)
+		});
+
+		const row = (await screen.findByText('Legacy counseling')).closest('article') as HTMLElement;
+
+		expect(within(row).getByText('No file')).toBeTruthy();
+		expect(within(row).queryByRole('button', { name: /PDF/ })).toBeNull();
+	});
+
+	it('counts the last counseling from the newest one that has happened', async () => {
+		mount({
+			files: files(
+				Promise.resolve(
+					counselingsRead({
+						records: [makeCounseling('c1', '2026-12-01'), makeCounseling('c2', '2026-10-09')]
+					})
+				)
+			)
+		});
+
+		expect(await screen.findByRole('heading', { name: 'Last counseled 10 days ago' })).toBeTruthy();
+	});
+
 	it('keeps the other section when one read fails', async () => {
 		mount({ files: files(Promise.reject(new Error('down')), Promise.resolve(documentsRead())) });
 
@@ -280,6 +311,18 @@ describe('Files tab', () => {
 
 		expect(await screen.findByText('Counseling n1')).toBeTruthy();
 		expect(screen.queryByText('December counseling')).toBeNull();
+	});
+
+	it('does not repeat a row when another writer shifted the list before the next page', async () => {
+		fetchMock.mockResolvedValueOnce(
+			json([makeCounseling('c3', '2026-06-01'), makeCounseling('c4', '2025-12-20', { title: 'December counseling' })])
+		);
+		mount();
+
+		await fireEvent.click(await screen.findByRole('button', { name: 'Show 2 older counselings' }));
+
+		expect(await screen.findByText('December counseling')).toBeTruthy();
+		expect(screen.getAllByText('Counseling c3')).toHaveLength(1);
 	});
 
 	it('pages more documents in and counts what is left', async () => {
@@ -379,6 +422,40 @@ describe('Files tab upload flow', () => {
 		expect((body.get('file') as File).name).toBe('da4856-oct.pdf');
 		await waitFor(() => expect(navigation.invalidate).toHaveBeenCalledWith(FILES_KEY));
 		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+	});
+
+	it('fills the conductor once the uploader is known and keeps what the user typed', async () => {
+		const settled = deferred<PersonnelCounselingsRead>();
+		mount({ files: files(settled.promise) });
+		await act(async () =>
+			navigation.afterNavigate[0]({ to: { url: new URL('http://localhost/files?add=counseling') } })
+		);
+		const dialog = await screen.findByRole('dialog');
+		await fireEvent.change(within(dialog).getByLabelText('File'), { target: { files: [pdf()] } });
+		const conductedBy = () => within(dialog).getByLabelText('Conducted by') as HTMLInputElement;
+		expect(conductedBy().value).toBe('');
+
+		await act(async () => settled.resolve(counselingsRead()));
+
+		await waitFor(() => expect(conductedBy().value).toBe('SSG Miller'));
+		await fireEvent.input(conductedBy(), { target: { value: 'SFC Jones' } });
+		expect(conductedBy().value).toBe('SFC Jones');
+	});
+
+	it('forgets the earlier file when a replacement is refused', async () => {
+		mount();
+		await screen.findByText('Counseling c1');
+		await offer(pdf());
+		const dialog = await screen.findByRole('dialog');
+		await fireEvent.click(within(dialog).getByRole('radio', { name: 'Counseling' }));
+		await fireEvent.input(within(dialog).getByLabelText('Title'), { target: { value: 'October counseling' } });
+
+		await fireEvent.change(within(dialog).getByLabelText('File'), { target: { files: [oversize()] } });
+
+		expect(within(dialog).getByText(/big\.pdf is over the 10 MB limit/)).toBeTruthy();
+		expect(within(dialog).queryByText('da4856-oct.pdf')).toBeNull();
+		expect((within(dialog).getByRole('button', { name: 'Upload' }) as HTMLButtonElement).disabled).toBe(true);
+		expect(fetchMock).not.toHaveBeenCalled();
 	});
 
 	it('uploads a dropped image as a document titled from its file name', async () => {

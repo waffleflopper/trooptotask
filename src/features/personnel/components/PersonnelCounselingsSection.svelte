@@ -32,7 +32,7 @@
 	const base = $derived(`/org/${orgId}/api/personnel/${personnelId}/counseling-records`);
 	const more = new MoreRecords<PersonnelCounselingRecord>({
 		endpoint: () => base,
-		shown: () => read.records.length,
+		shown: () => read.records,
 		fetch: (input, init) => fetch(input, init),
 		failureMessage: "Couldn't load older counselings. Try again."
 	});
@@ -40,7 +40,7 @@
 	const records = $derived([...read.records, ...more.records]);
 	const months = $derived(coverageMonths(asOf, read.coveredMonths));
 	const remaining = $derived(Math.max(0, read.total - records.length));
-	const lastConducted = $derived(read.records[0]?.dateConducted ?? null);
+	const lastConducted = $derived(read.records.find((record) => record.dateConducted <= asOf)?.dateConducted ?? null);
 	let openingId = $state('');
 	let archivingId = $state('');
 	let error = $state('');
@@ -130,16 +130,20 @@
 					</p>
 				</div>
 				<div class="col-start-2 flex items-start gap-1.5 sm:col-start-3">
-					<Button
-						variant="outline"
-						size="sm"
-						disabled={openingId === record.id}
-						aria-label={`Open ${record.title} PDF`}
-						onclick={() => open(record)}
-					>
-						<FileTextIcon class="size-3.5" aria-hidden="true" />
-						DA 4856 · PDF
-					</Button>
+					{#if record.status === 'uploaded'}
+						<Button
+							variant="outline"
+							size="sm"
+							disabled={openingId === record.id}
+							aria-label={`Open ${record.title} PDF`}
+							onclick={() => open(record)}
+						>
+							<FileTextIcon class="size-3.5" aria-hidden="true" />
+							DA 4856 · PDF
+						</Button>
+					{:else}
+						<span class="px-2 py-1 text-[13px] text-muted-foreground">No file</span>
+					{/if}
 					{#if canManage}
 						<Button
 							variant="ghost"

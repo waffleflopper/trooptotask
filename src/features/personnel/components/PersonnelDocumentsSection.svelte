@@ -29,7 +29,7 @@
 	const base = $derived(`/org/${orgId}/api/personnel/${personnelId}/documents`);
 	const more = new MoreRecords<PersonnelDocument>({
 		endpoint: () => base,
-		shown: () => read.records.length,
+		shown: () => read.records,
 		fetch: (input, init) => fetch(input, init),
 		failureMessage: "Couldn't load more documents. Try again."
 	});

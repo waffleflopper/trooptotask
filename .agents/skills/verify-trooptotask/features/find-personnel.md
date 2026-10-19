@@ -7,7 +7,7 @@ A member finds a Soldier in the organization roster, switches between group and 
 - `roster-search`: match a person by name and return to the full roster by clearing the query.
 - `roster-views`: switch between `Group` and `A-Z` presentations.
 - `roster-open`: open a matching person's details.
-- `roster-readiness`: a Personnel manager with Calendar view access sees the current saved availability in the person's readiness summary.
+- `roster-readiness`: a Personnel manager with Calendar view access sees the current saved availability in the person's Overview `Next 14 days`.
 - `roster-scope`: a group-scoped member sees only their assigned people and Groups.
 - `roster-organization`: an Organization-scoped reader sees Alpha, Bravo, and unassigned people, but no foreign Person.
 - `roster-group-headers`: in `Group` view each group header has a pin toggle and a collapse toggle, operable by pointer and keyboard; a pin persists for the member and a collapse lasts for the page visit.

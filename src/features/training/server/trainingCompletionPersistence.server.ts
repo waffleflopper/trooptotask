@@ -3,13 +3,17 @@ import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type { TrainingCompletionPersistence } from '../contracts';
 import {
 	TRAINING_COMPLETION_FIELDS,
+	TRAINING_COMPLETION_ENTRY_FIELDS,
 	TRAINING_COMPLETION_HISTORY_FIELDS,
+	TRAINING_COMPLETION_TABLES,
 	toTrainingCompletion,
+	toTrainingCompletionEntryResource,
 	toTrainingCompletionHistoryEntry,
 	trainingCompletionCreateRow,
 	trainingCompletionPatchRow,
 	trainingCompletedRow,
 	type TrainingCompletionRow,
+	type TrainingCompletionEntryRow,
 	type TrainingCompletionHistoryRow
 } from './trainingPersistenceMapping.server';
 
@@ -158,6 +162,31 @@ export function createSupabaseTrainingCompletionPersistence(
 			});
 			if (result.error) throw new Error((result.error as { message: string }).message);
 			return (result.data ?? []).map(toTrainingCompletionHistoryEntry);
+		},
+		async findEntry(kind, id) {
+			const { data, error } = await client
+				.from(TRAINING_COMPLETION_TABLES[kind])
+				.select(TRAINING_COMPLETION_ENTRY_FIELDS)
+				.eq('organization_id', orgId)
+				.eq('id', id)
+				.maybeSingle<TrainingCompletionEntryRow>();
+			if (error) throw new Error(error.message);
+			return data ? toTrainingCompletionEntryResource(data) : null;
+		},
+		async correctEntry(kind, id, fields) {
+			const { data, error } = await client.rpc('correct_training_completion', {
+				p_organization_id: orgId,
+				p_kind: kind,
+				p_id: id,
+				p_completion_date: fields.completionDate,
+				p_expiration_date: fields.expirationDate,
+				p_notes: fields.notes
+			});
+			if (error) throw new Error(error.message);
+			if (data === null) return null;
+			return kind === 'current'
+				? toTrainingCompletion(data as TrainingCompletionRow)
+				: toTrainingCompletionHistoryEntry(data as TrainingCompletionHistoryRow);
 		},
 		async createRecord(input) {
 			const { data, error } = await client

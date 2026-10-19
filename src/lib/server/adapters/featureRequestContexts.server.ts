@@ -16,11 +16,15 @@ import {
 } from '$features/personnel/index.server';
 import {
 	createSupabaseTrainingCatalogPersistence,
+	createSupabaseTrainingCertificateStore,
 	createSupabaseTrainingCompletionPersistence,
 	createSupabaseTrainingOnboardingReferencesPort
 } from '$features/training/index.server';
 import type {
+	correctTrainingCompletion,
 	createTrainingRecord,
+	openTrainingCertificate,
+	recordTrainingCompletion,
 	updateTrainingRecord,
 	deleteTrainingRecord,
 	describeTrainingRecordDeletionRequest,
@@ -103,6 +107,19 @@ export function createRequestTrainingRosterContext(
 			loadOrganizationRankCatalog({ auth: request.auth, rankCatalog: rankCatalog }, { authorization: 'training-view' }),
 		trainingCompletions: createSupabaseTrainingCompletionPersistence(request.supabase, request.auth.orgId),
 		personnelTrainingRoster: createSupabasePersonnelTrainingRosterPort(getAdminClient)
+	};
+}
+
+export function createRequestTrainingCompletionContext(
+	request: AdmittedOrganizationRequest
+): Parameters<typeof recordTrainingCompletion>[0] &
+	Parameters<typeof correctTrainingCompletion>[0] &
+	Parameters<typeof openTrainingCertificate>[0] {
+	return {
+		...createRequestTrainingCatalogContext(request),
+		trainingCompletions: createSupabaseTrainingCompletionPersistence(request.supabase, request.auth.orgId),
+		personnelTrainingRoster: createSupabasePersonnelTrainingRosterPort(getAdminClient),
+		trainingCertificates: createSupabaseTrainingCertificateStore(request.supabase, getAdminClient, request.auth)
 	};
 }
 

@@ -28,6 +28,7 @@ describe('patterns/readiness-items', () => {
 				itemLabel: 'Training type',
 				recordedLabel: 'Completed',
 				rows,
+				currentPreview: 4,
 				emptyMessage: 'Nothing required.',
 				onOpen: (id: string) => opened.push(id)
 			}

@@ -1,0 +1,64 @@
+import { describe, expect, it } from 'vitest';
+import { checkUploadFile, UPLOAD_MAX_BYTES, withDeclaredType } from './fileUploadRules';
+
+const file = (name: string, type: string, size: number) => ({ name, type, size });
+
+describe('upload file check', () => {
+	it('lets a PDF become a counseling or a document', () => {
+		expect(checkUploadFile(file('da4856.pdf', 'application/pdf', 1000))).toEqual({
+			ok: true,
+			type: 'application/pdf',
+			kinds: ['counseling', 'document']
+		});
+	});
+
+	it('lets an image become a document only', () => {
+		for (const [name, type] of [
+			['card.jpg', 'image/jpeg'],
+			['scan.png', 'image/png'],
+			['photo.heic', 'image/heic']
+		])
+			expect(checkUploadFile(file(name, type, 1000))).toMatchObject({ ok: true, kinds: ['document'] });
+	});
+
+	it('reads an untyped HEIC from its extension but not an untyped unknown file', () => {
+		expect(checkUploadFile(file('IMG_0042.HEIC', '', 1000))).toEqual({
+			ok: true,
+			type: 'image/heic',
+			kinds: ['document']
+		});
+		expect(checkUploadFile(file('notes.txt', '', 1000))).toEqual({
+			ok: false,
+			message: "notes.txt isn't a PDF, JPG, PNG or HEIC file."
+		});
+	});
+
+	it('trusts a declared type over a misleading extension', () => {
+		expect(checkUploadFile(file('renamed.pdf', 'text/plain', 1000))).toMatchObject({ ok: false });
+	});
+
+	it('accepts exactly the limit and rejects one byte over, naming the size', () => {
+		expect(checkUploadFile(file('edge.pdf', 'application/pdf', UPLOAD_MAX_BYTES))).toMatchObject({ ok: true });
+		expect(checkUploadFile(file('big.pdf', 'application/pdf', 12_897_484))).toEqual({
+			ok: false,
+			message: 'big.pdf is 12.3 MB. The limit is 10 MB.'
+		});
+	});
+
+	it('rejects an empty file', () => {
+		expect(checkUploadFile(file('empty.pdf', 'application/pdf', 0))).toEqual({
+			ok: false,
+			message: 'empty.pdf is empty.'
+		});
+	});
+});
+
+describe('declared type', () => {
+	it('gives an untyped file the type its extension names and leaves a typed one alone', async () => {
+		const untyped = withDeclaredType(new File(['abc'], 'IMG_1.heic'), 'image/heic');
+		const typed = new File(['abc'], 'a.png', { type: 'image/png' });
+
+		expect([untyped.type, untyped.name, await untyped.text()]).toEqual(['image/heic', 'IMG_1.heic', 'abc']);
+		expect(withDeclaredType(typed, 'image/png')).toBe(typed);
+	});
+});

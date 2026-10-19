@@ -405,7 +405,6 @@ export interface PersonnelWorkspaceRouteData {
 export type {
 	PersonnelDetailHeader,
 	PersonnelDetailLayoutStreams,
-	PersonnelDetailStreams,
 	PersonnelDetailTabCounts,
 	PersonnelFollowUpsPageData,
 	PersonnelCounselingsPageData,

@@ -1,4 +1,3 @@
-
 /** The one-day label limit, counted in code points like PostgreSQL char_length. */
 export const ONE_DAY_LABEL_LENGTH = 3;
 

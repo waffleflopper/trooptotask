@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import type { Component } from 'svelte';
 import { afterEach, expect, it, vi } from 'vitest';
-import type { Personnel, PersonnelDetailStreams } from '$features/personnel/contracts';
+import type { Personnel } from '$features/personnel/contracts';
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn(), invalidate: vi.fn() }));
 vi.mock('$features/app-shell', () => ({
@@ -49,20 +49,15 @@ function rejectedRouteData() {
 		shell: { org: { id: 'org-1', name: 'Unit' } },
 		personnel: { data: rejected },
 		personnelDetailHeader: { person },
-		personnelDetail: {
-			readinessLanes: {
-				availability: pending(),
-				training: pending(),
-				criticalTasks: pending(),
-				ratingScheme: pending(),
-				lossTracking: pending()
-			},
-			extendedInfo: pending(),
-			counselingRecords: pending(),
-			documents: pending(),
-			leaderNotes: pending(),
-			followUps: pending()
-		} as PersonnelDetailStreams
+		asOf: '2026-10-06',
+		overview: {
+			nextDays: pending(),
+			attention: pending(),
+			evaluation: pending(),
+			reach: pending(),
+			lastCounseling: pending(),
+			latestNote: pending()
+		}
 	};
 }
 

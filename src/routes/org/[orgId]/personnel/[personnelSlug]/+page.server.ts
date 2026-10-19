@@ -1,112 +1,100 @@
-import { listAvailabilityEntries, listStatusTypes } from '$features/calendar/index.server';
-import { loadCriticalTasksReadinessLane } from '$features/critical-tasks/index.server';
-import type { Personnel, PersonnelDetailStreams } from '$features/personnel/contracts';
+import { loadPersonnelCalendarWindow } from '$features/calendar/index.server';
+import type { Personnel } from '$features/personnel/contracts';
 import {
-	authorizePersonnelLane,
 	listPersonnelCounselingRecords,
-	listPersonnelDocuments,
-	listPersonnelFollowUps,
 	listPersonnelLeaderNotes,
-	loadAvailabilityReadinessLane,
-	loadLossTrackingReadinessLane,
 	readPersonnelExtendedInfo
 } from '$features/personnel/index.server';
-import { loadRatingSchemeReadinessLane } from '$features/rating-scheme/index.server';
-import { loadTrainingReadinessLane } from '$features/training/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { RequestFailure } from '$lib/errors';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { loadRequestPersonnelDetailHeader } from '$lib/server/adapters/personnelDetailHeaderLoad';
-import { createRequestPersonnelDetailStreamsContext } from '$lib/server/adapters/requestContexts.server';
+import { loadRequestPersonnelReadiness } from '$lib/server/adapters/personnelReadinessLoad';
+import { createRequestPersonnelOverviewContext } from '$lib/server/adapters/requestContexts.server';
+import { keepStreamedRejectionObserved } from '$lib/server/adapters/streamedWorkspace';
 import { viewerToday } from '$lib/server/viewerDay.server';
+import { fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
 import type { PageServerLoadEvent } from './$types';
 
-function createPersonnelDetailStreams(
-	contexts: ReturnType<typeof createRequestPersonnelDetailStreamsContext>,
+const NEXT_DAYS = 14;
+
+/**
+ * A section the viewer may not read hides; any other failure still rejects to its error state.
+ * Streams settle after the request boundary, so their denials arrive as the raw RequestFailure.
+ */
+function hiddenWhenDenied<T>(source: Promise<T>): Promise<T | null> {
+	return source.catch((error: unknown) => {
+		if (error instanceof RequestFailure && error.status === 403) return null;
+		throw error;
+	});
+}
+
+function createOverviewStreams(
+	ctx: ReturnType<typeof createRequestPersonnelOverviewContext>,
 	person: Personnel,
-	readinessAsOf: string
-): PersonnelDetailStreams {
-	const ctx = contexts.detail;
-	const personnelId = person.id;
-	const artifactContext = contexts.artifacts;
-	const extendedInfo = readPersonnelExtendedInfo(contexts.extendedInfo, personnelId);
+	asOf: string
+) {
+	const range = { rangeStart: asOf, rangeEnd: fromDayNumber(toDayNumber(asOf) + NEXT_DAYS - 1) };
 	return {
-		readinessLanes: {
-			availability: loadAvailabilityReadinessLane(
-				ctx,
-				person,
-				readinessAsOf,
-				(input) => listAvailabilityEntries(contexts.calendar, input),
-				() => listStatusTypes(contexts.calendar.calendarCatalogs)
-			),
-			training: loadTrainingReadinessLane({
-				trainingCatalog: contexts.trainingCatalog,
-				trainingCompletions: contexts.trainingCompletions,
-				personnelId,
-				asOf: readinessAsOf,
-				loadAuthorizedPerson: () =>
-					authorizePersonnelLane(ctx, person, POLICY_ACTION_CATALOG.training.viewRecords, 'training_record')
-			}),
-			criticalTasks: loadCriticalTasksReadinessLane({
-				organizationSettings: contexts.organizationSettings,
-				criticalTaskLibrary: contexts.criticalTaskLibrary,
-				criticalTaskCompletions: contexts.criticalTaskCompletions,
-				orgId: ctx.auth.orgId,
-				personnelId,
-				asOf: readinessAsOf,
-				loadAuthorizedPerson: () =>
-					authorizePersonnelLane(
-						ctx,
-						person,
-						POLICY_ACTION_CATALOG.criticalTasks.viewReadiness,
-						'personnel_ict_completion'
-					)
-			}),
-			ratingScheme: loadRatingSchemeReadinessLane({
-				ratingScheme: contexts.ratingScheme,
-				personnelId,
-				loadAuthorizedPerson: () =>
-					authorizePersonnelLane(ctx, person, POLICY_ACTION_CATALOG.ratingScheme.viewEntries, 'rating_scheme_entry')
-			}),
-			lossTracking: loadLossTrackingReadinessLane(ctx, person, readinessAsOf, () =>
-				contexts.loadLossWarningWindowDays()
+		nextDays: keepStreamedRejectionObserved(hiddenWhenDenied(loadPersonnelCalendarWindow(ctx.calendar, person, range))),
+		reach: keepStreamedRejectionObserved(
+			readPersonnelExtendedInfo(ctx.extendedInfo, person.id).then((info) =>
+				info
+					? {
+							phone: info.personalPhone,
+							email: info.personalEmail,
+							emergency: info.emergencyContactName
+								? {
+										name: info.emergencyContactName,
+										relationship: info.emergencyContactRelationship,
+										phone: info.emergencyContactPhone
+									}
+								: null
+						}
+					: null
 			)
-		},
-		// The three owned artifact reads share one request-local authorization context.
-		extendedInfo,
-		counselingRecords: listPersonnelCounselingRecords(artifactContext, personnelId, 5),
-		documents: listPersonnelDocuments(artifactContext, personnelId, 5),
-		leaderNotes: listPersonnelLeaderNotes(contexts.leaderNotes, personnelId, 1),
-		followUps: listPersonnelFollowUps(artifactContext, personnelId)
+		),
+		lastCounseling: keepStreamedRejectionObserved(
+			listPersonnelCounselingRecords(ctx.artifacts, person.id, 1).then((records) => records[0] ?? null)
+		),
+		latestNote: keepStreamedRejectionObserved(
+			listPersonnelLeaderNotes(ctx.leaderNotes, person.id, 1).then((notes) => notes[0] ?? null)
+		)
 	};
 }
 
-type LoadWithContext = typeof loadWithContext;
-
-export interface PersonnelDetailPageLoadDeps {
-	loadWithContext?: LoadWithContext;
+export interface PersonnelOverviewPageLoadDeps {
+	loadWithContext?: typeof loadWithContext;
+	loadReadiness?: typeof loadRequestPersonnelReadiness;
 }
 
-export function _createPersonnelDetailPageLoad(deps: PersonnelDetailPageLoadDeps = {}) {
+export function _createPersonnelOverviewPageLoad(deps: PersonnelOverviewPageLoadDeps = {}) {
 	const loadWithContextFn = deps.loadWithContext ?? loadWithContext;
+	const loadReadiness = deps.loadReadiness ?? loadRequestPersonnelReadiness;
 
 	return async (event: PageServerLoadEvent) => {
 		const { params, locals, cookies, depends } = event;
 		depends('app:personnel-detail');
-		const { orgId } = params;
 		const { person } = await loadRequestPersonnelDetailHeader(event, loadWithContextFn);
-		const readinessAsOf = viewerToday(cookies);
-
-		const personnelDetail = await loadWithContextFn(locals, cookies, orgId, {
-			context: createRequestPersonnelDetailStreamsContext,
-			policyAction: POLICY_ACTION_CATALOG.personnel.readSensitiveRecords,
-			policyResource: { kind: 'unscoped' },
-			fn: async (ctx) => createPersonnelDetailStreams(ctx, person, readinessAsOf)
-		});
-
+		const asOf = viewerToday(cookies);
+		const [readiness, streams] = await Promise.all([
+			loadReadiness(event, person, asOf, loadWithContextFn),
+			loadWithContextFn(locals, cookies, params.orgId, {
+				context: createRequestPersonnelOverviewContext,
+				policyAction: POLICY_ACTION_CATALOG.personnel.readSensitiveRecords,
+				policyResource: { kind: 'unscoped' },
+				fn: async (ctx) => createOverviewStreams(ctx, person, asOf)
+			})
+		]);
 		return {
-			personnelDetail
+			asOf,
+			overview: {
+				...streams,
+				attention: readiness.attention,
+				evaluation: keepStreamedRejectionObserved(hiddenWhenDenied(readiness.evaluation))
+			}
 		};
 	};
 }
 
-export const load = _createPersonnelDetailPageLoad();
+export const load = _createPersonnelOverviewPageLoad();

@@ -14,7 +14,6 @@ export { createSupabaseTrainingCatalogPersistence } from './server/trainingCatal
 export { createSupabaseTrainingCompletionPersistence } from './server/trainingCompletionPersistence.server';
 export { createSupabaseTrainingCertificateStore } from './server/trainingCertificateStore.server';
 export { createSupabaseTrainingTypeNamesReader } from './server/trainingTypeNames.server';
-export { loadTrainingReadinessLane } from './server/personnelTrainingReadiness.server';
 export {
 	createTrainingRecord,
 	recordTrainingCompletion,

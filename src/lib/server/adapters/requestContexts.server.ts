@@ -464,24 +464,16 @@ export function createRequestPersonnelArchivedArtifactsContext(request: Admitted
 	};
 }
 
-export function createRequestPersonnelDetailStreamsContext(request: AdmittedOrganizationRequest) {
-	const organizationSettings = createSupabaseOrganizationSettingsReader(request.supabase);
+export function createRequestPersonnelOverviewContext(request: AdmittedOrganizationRequest) {
 	return {
-		trainingCompletions: createSupabaseTrainingCompletionPersistence(request.supabase, request.auth.orgId),
-		trainingCatalog: createSupabaseTrainingCatalogPersistence(request.supabase, request.auth.orgId),
-		detail: { auth: request.auth, audit: request.audit },
-		organizationSettings,
 		calendar: {
 			...createRequestAvailabilityContext(request),
+			calendarAssignments: createSupabaseCalendarAssignmentReader(request.supabase, request.auth.orgId),
 			calendarCatalogs: createSupabaseCalendarCatalogPersistence(request.supabase, request.auth.orgId)
 		},
-		criticalTaskLibrary: createSupabaseCriticalTaskLibraryPersistence(request.supabase, request.auth.orgId),
-		criticalTaskCompletions: createSupabaseCriticalTaskCompletionPersistence(request.supabase, request.auth.orgId),
-		ratingScheme: createSupabaseRatingSchemePersistence(request.supabase, request.auth.orgId),
 		extendedInfo: createRequestPersonnelExtendedInfoContext(request),
 		artifacts: createRequestPersonnelArtifactsContext(request),
-		leaderNotes: createRequestPersonnelLeaderNoteContext(request),
-		loadLossWarningWindowDays: () => organizationSettings.findLossWarningWindowDays(request.auth.orgId)
+		leaderNotes: createRequestPersonnelLeaderNoteContext(request)
 	};
 }
 

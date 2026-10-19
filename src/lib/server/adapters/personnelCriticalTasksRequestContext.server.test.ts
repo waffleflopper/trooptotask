@@ -1,11 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
-import { loadCriticalTasksReadinessLane } from '$features/critical-tasks/index.server';
+import { loadPersonnelCriticalTaskReadiness } from '$features/critical-tasks/index.server';
 import type { Personnel } from '$features/personnel/contracts';
 import { authorizePersonnelLane } from '$features/personnel/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from './inMemory';
-import { createRequestPersonnelDetailStreamsContext } from './requestContexts.server';
+import { createRequestPersonnelReadinessContext } from './requestContexts.server';
 
 function request(criticalTasks: 'view' | 'none') {
 	const ctx = createTestContext({
@@ -101,13 +101,12 @@ const personAlpha = {
 } satisfies Personnel;
 
 function loadReadiness(input: ReturnType<typeof request>) {
-	const contexts = createRequestPersonnelDetailStreamsContext(input);
-	return loadCriticalTasksReadinessLane({
+	const contexts = createRequestPersonnelReadinessContext(input);
+	return loadPersonnelCriticalTaskReadiness({
 		organizationSettings: contexts.organizationSettings,
 		criticalTaskLibrary: contexts.criticalTaskLibrary,
 		criticalTaskCompletions: contexts.criticalTaskCompletions,
 		orgId: contexts.detail.auth.orgId,
-		personnelId: 'person-alpha',
 		asOf: '2026-03-20',
 		loadAuthorizedPerson: () =>
 			authorizePersonnelLane(
@@ -121,11 +120,10 @@ function loadReadiness(input: ReturnType<typeof request>) {
 
 describe('Personnel Critical Tasks request composition', () => {
 	it('combines the ordinary owned library with dated completions after actual lane admission', async () => {
-		await expect(loadReadiness(request('view'))).resolves.toMatchObject({
-			value: '100%',
-			detail: '1 of 1 applicable ICT tasks ready. No tasks need attention.',
-			tone: 'good'
-		});
+		const readiness = await loadReadiness(request('view'));
+		expect(readiness.items.map((item) => [item.taskId, item.status, item.expirationDate])).toEqual([
+			['task-medic', 'current', '2027-01-15']
+		]);
 	});
 
 	it('denies the lane before querying the task library for a Personnel-only member', async () => {

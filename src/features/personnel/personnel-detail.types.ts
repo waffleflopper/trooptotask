@@ -85,22 +85,9 @@ export interface PersonnelArchivedArtifactsPageData {
 
 export type PersonnelReadinessLaneTone = 'good' | 'watch' | 'bad' | 'info' | 'neutral';
 
-export type PersonnelReadinessLaneKey = 'availability' | 'training' | 'criticalTasks' | 'ratingScheme' | 'lossTracking';
-
 export interface PersonnelReadinessLane {
 	label: string;
 	value: string;
 	detail: string;
 	tone: PersonnelReadinessLaneTone;
-}
-
-export type PersonnelReadinessLaneStreams = Record<PersonnelReadinessLaneKey, Promise<PersonnelReadinessLane>>;
-
-export interface PersonnelDetailStreams {
-	readinessLanes: PersonnelReadinessLaneStreams;
-	extendedInfo: Promise<PersonnelExtendedInfo | null>;
-	counselingRecords: Promise<PersonnelCounselingRecord[]>;
-	documents: Promise<PersonnelDocument[]>;
-	leaderNotes: Promise<PersonnelLeaderNote[]>;
-	followUps: Promise<PersonnelFollowUp[]>;
 }

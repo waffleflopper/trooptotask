@@ -87,9 +87,7 @@ export { loadPersonnelWorkspace } from './personnelWorkspaceQuery.server';
 export {
 	loadPersonnelDetailHeader,
 	authorizePersonnelLane,
-	loadAvailabilityReadinessLane,
 	loadAvailabilityToday,
-	loadLossTrackingReadinessLane,
 	loadPersonnelDetailTabCounts
 } from './personnelDetail.server';
 export { loadPersonnelLossReadiness } from './personnelLossReadiness.server';

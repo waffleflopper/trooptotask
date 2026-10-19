@@ -108,6 +108,7 @@ The Training briefing detail is the affected-soldiers section below the report. 
 - Only Calendar, Dashboard and Training emit `[*-load]` server timing lines. A Personnel sample has none; use its statements and `responseStartMs` for the server side.
 - pg_stat_statements covers the whole owned database for the window, including auth and PostgREST setup statements. Read `byRole` before attributing time to the app.
 - The explain registry is shaped like the app's reads, not copied from them. Use pg_stat_statements for what the app actually ran and explain for why one statement costs what it does.
+- The two Critical Tasks read-model statements (`critical-task-latest-completions`, `critical-task-completion-trend`) call SECURITY DEFINER functions, which PostgreSQL does not inline. Their plan is one Function Scan, so explain gives the function's whole execution time and rows, not its inner plan. One call returns every row; the app pages the latest-completions function 1000 rows at a time and re-runs it per page.
 - Restart recreates fixtures and loses workloads. Reseed and sign in again after every helper edit, because doctor reports `STALE_CANDIDATE` until restart.
 - Local unthrottled numbers show relative cost and request shape, not field latency. Record the host's CPU and load alongside them.
 - There is no network emulation. Chrome refuses network throttling while the daemon's owned-origin URL allowlist is set, and that allowlist stays. Field network latency is not measured here.

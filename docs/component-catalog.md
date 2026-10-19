@@ -175,7 +175,7 @@ Consumers: the Account and Organization settings shells, the person record layou
 </InlineEditRow.Root>
 ```
 
-`InlineEditRow.Trigger` is the neutral text button that opens the editor (`onclick`, bindable `ref`, `struck?` for a finished row). Props: `editing`, `label` (names the open editor), `pending?` (`'save'` or `'archive'` while a command is in flight; it disables Save and Archive so commands cannot overlap), `error?`, `onSave`, `onCancel`, `onArchive?`, snippets `display` and `editor`, and `lead?` for a control that sits before Archive in the footer, such as a due date. The parent returns focus to the control that opened the editor after it closes.
+`InlineEditRow.Trigger` is the neutral text button that opens the editor (`onclick`, `children`, bindable `ref`, `struck?` for a finished row). `InlineEditRow.Root` props: `editing`, `label` (names the open editor), `pending?` (`'save'` or `'archive'` while a command is in flight; it disables Save and Archive so commands cannot overlap), `error?`, `onSave`, `onCancel`, `onArchive?`, snippets `display` and `editor`, and `lead?` for a control that sits before Archive in the footer, such as a due date. The parent returns focus to the control that opened the editor after it closes.
 
 ---
 

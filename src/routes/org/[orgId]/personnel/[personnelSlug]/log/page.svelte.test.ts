@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import Page from './+page.svelte';
 
@@ -64,16 +64,24 @@ describe('Log page when the Soldier changes during a write', () => {
 		await fireEvent.submit(editor);
 
 		await view.rerender({ data: pageData('person-b', 'B follow-up') });
-		await screen.findByRole('button', { name: 'B follow-up' });
-		const draft = screen.getByLabelText('Follow-up title') as HTMLInputElement;
+		await fireEvent.click(await screen.findByRole('button', { name: 'B follow-up' }));
+		const nextEditor = screen.getByRole('form', { name: 'Edit follow-up B follow-up' });
+		const draft = within(nextEditor).getByLabelText('Follow-up title') as HTMLInputElement;
 		await fireEvent.input(draft, { target: { value: 'B unsaved draft' } });
 		held.settle(0, jsonResponse({ title: 'A saved edit' }));
 
 		await waitFor(() => expect(held.requests).toHaveLength(1));
 		expect(held.requests[0]).toBe('/org/org-1/api/personnel/person-a/follow-ups/f-person-a');
-		expect((screen.getByLabelText('Follow-up title') as HTMLInputElement).value).toBe('B unsaved draft');
+		await new Promise((resolve) => setTimeout(resolve));
+		expect(
+			(
+				within(screen.getByRole('form', { name: 'Edit follow-up B follow-up' })).getByLabelText(
+					'Follow-up title'
+				) as HTMLInputElement
+			).value
+		).toBe('B unsaved draft');
 		expect(screen.queryByText('A saved edit')).toBeNull();
-		expect(screen.getByRole('button', { name: 'B follow-up' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'B follow-up' })).toBeNull();
 	});
 
 	it('keeps the next Soldier’s completion pending when the earlier completion finishes', async () => {

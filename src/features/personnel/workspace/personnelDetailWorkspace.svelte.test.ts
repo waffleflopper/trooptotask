@@ -69,7 +69,6 @@ function makeWorkspace(deps: Parameters<typeof createPersonnelDetailWorkspace>[1
 	return createPersonnelDetailWorkspace(
 		{
 			orgId: 'org-1',
-			requestArchiveApproval: async () => false,
 			orgUrlSegment: 'org-alpha',
 			person,
 			orgName: 'Test Org',
@@ -306,7 +305,6 @@ describe('PersonnelDetailWorkspace', () => {
 				orgUrlSegment: 'org-alpha',
 				person: originalPerson,
 				orgName: 'Test Org',
-				requestArchiveApproval: async () => false,
 				detail: makeDetail()
 			},
 			{
@@ -330,66 +328,6 @@ describe('PersonnelDetailWorkspace', () => {
 		expect(goto).not.toHaveBeenCalled();
 		expect(workspace.currentPerson.ets).toBeNull();
 		expect(workspace.editingBasicInfo).toBe(false);
-	});
-
-	it.each([false, true])(
-		'handles an uncached detail archive requiring approval (acknowledged: %s)',
-		async (accepted) => {
-			personnelStore.load([], 'another-org');
-			const fetchMock = vi.fn().mockResolvedValue(Response.json({ requiresApproval: true }, { status: 202 }));
-			vi.stubGlobal('fetch', fetchMock);
-			const requestArchiveApproval = vi.fn().mockResolvedValue(accepted);
-			const goto = vi.fn();
-			const workspace = createPersonnelDetailWorkspace(
-				{
-					orgId: 'org-1',
-					orgUrlSegment: 'org-alpha',
-					person,
-					orgName: 'Test Org',
-					detail: makeDetail(),
-					requestArchiveApproval
-				},
-				{ goto }
-			);
-			workspace.showArchiveConfirm = true;
-			await workspace.confirmArchive();
-			expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/personnel', {
-				method: 'DELETE',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ id: 'person-1' })
-			});
-			expect(requestArchiveApproval).toHaveBeenCalledWith({
-				orgId: 'org-1',
-				personnelId: 'person-1',
-				description: expect.any(String),
-				resourceUrl: '/org/org-1/personnel/rivera-monica'
-			});
-			expect(workspace.currentPerson).toEqual(person);
-			expect(personnelStore.orgId).toBe('another-org');
-			expect(personnelStore.items).toEqual([]);
-			expect(workspace.showArchiveConfirm).toBe(false);
-			expect(workspace.archiveSubmitting).toBe(false);
-			expect(goto).not.toHaveBeenCalled();
-		}
-	);
-
-	it('centralizes personnel export download behavior', async () => {
-		const blob = new Blob(['records']);
-		const fetchMock = vi.fn().mockResolvedValue({
-			ok: true,
-			headers: new Headers({ 'Content-Disposition': 'attachment; filename="rivera-records.xlsx"' }),
-			blob: () => Promise.resolve(blob)
-		});
-		const downloadBlobMock = vi.fn();
-		const workspace = makeWorkspace({
-			fetch: fetchMock as typeof fetch,
-			downloadBlob: downloadBlobMock
-		});
-
-		await workspace.exportPersonnelRecords();
-
-		expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/personnel/person-1/export');
-		expect(downloadBlobMock).toHaveBeenCalledWith(blob, 'rivera-records.xlsx');
 	});
 });
 
@@ -425,31 +363,6 @@ describe('destroyed Personnel detail workspace effects', () => {
 		expect(openDocumentUrl).not.toHaveBeenCalled();
 	});
 
-	it.each(['request', 'body'] as const)('does not download an export after disposal during its %s', async (stage) => {
-		const request = deferred<Response>();
-		const body = deferred<Blob>();
-		const reading = deferred<void>();
-		const response = new Response('records', {
-			headers: { 'Content-Disposition': 'attachment; filename="old-person.xlsx"' }
-		});
-		vi.spyOn(response, 'blob').mockImplementation(() => {
-			reading.resolve();
-			return body.promise;
-		});
-		const downloadBlob = vi.fn();
-		const workspace = makeWorkspace({ fetch: vi.fn(() => request.promise), downloadBlob });
-		const running = workspace.exportPersonnelRecords();
-		if (stage === 'body') {
-			request.resolve(response);
-			await reading.promise;
-		}
-		workspace.dispose();
-		request.resolve(response);
-		body.resolve(new Blob(['records']));
-		await running;
-		expect(downloadBlob).not.toHaveBeenCalled();
-	});
-
 	it('does not navigate for a basic-info save whose body finishes after disposal', async () => {
 		const body = deferred<Personnel>();
 		const reading = deferred<void>();
@@ -466,19 +379,6 @@ describe('destroyed Personnel detail workspace effects', () => {
 		await reading.promise;
 		workspace.dispose();
 		body.resolve({ ...person, slug: 'rivera-jones-monica', lastName: 'Rivera-Jones' });
-		await running;
-		expect(goto).not.toHaveBeenCalled();
-	});
-
-	it('does not navigate when an admitted archive completes after disposal', async () => {
-		const result = deferred<'archived'>();
-		const archivePersonnel = vi.fn(() => result.promise);
-		const goto = vi.fn();
-		const workspace = makeWorkspace({ archivePersonnel, goto });
-		const running = workspace.confirmArchive();
-		expect(archivePersonnel).toHaveBeenCalled();
-		workspace.dispose();
-		result.resolve('archived');
 		await running;
 		expect(goto).not.toHaveBeenCalled();
 	});

@@ -9,7 +9,6 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { Textarea } from '$lib/components/ui/textarea';
-	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import SoldierDataSheetModal from './SoldierDataSheetModal.svelte';
 	import type { PersonnelDetailStreams, PersonnelReadinessLane } from '$features/personnel/personnel-detail.types';
 	import {
@@ -18,12 +17,9 @@
 	} from '$features/personnel/workspace/personnelDetailWorkspace.svelte';
 	import type { Group } from '$features/personnel/contracts';
 	import type { Personnel } from '../personnel.types';
-	import type { RequestPersonnelArchiveApproval } from '../utils/archivePersonnel';
 	import { cn } from '$lib/utils';
 	import { formatDisplayDate } from '$lib/utils/dates';
-	import ArchiveIcon from '@lucide/svelte/icons/archive';
 	import ClipboardListIcon from '@lucide/svelte/icons/clipboard-list';
-	import DownloadIcon from '@lucide/svelte/icons/download';
 	import FileTextIcon from '@lucide/svelte/icons/file-text';
 	import PhoneIcon from '@lucide/svelte/icons/phone';
 	import UserRoundIcon from '@lucide/svelte/icons/user-round';
@@ -35,20 +31,9 @@
 		groups?: Group[];
 		orgName: string;
 		detail: PersonnelDetailStreams;
-		canArchivePersonnel?: boolean;
-		requestArchiveApproval: RequestPersonnelArchiveApproval;
 	}
 
-	let {
-		orgId,
-		orgUrlSegment = orgId,
-		person,
-		groups = [],
-		orgName,
-		detail,
-		canArchivePersonnel = false,
-		requestArchiveApproval
-	}: Props = $props();
+	let { orgId, orgUrlSegment = orgId, person, groups = [], orgName, detail }: Props = $props();
 
 	const workspace = createPersonnelDetailWorkspace(() => ({
 		orgId,
@@ -56,9 +41,7 @@
 		person,
 		groups,
 		orgName,
-		detail,
-		canArchivePersonnel,
-		requestArchiveApproval
+		detail
 	}));
 	onDestroy(workspace.dispose);
 
@@ -100,36 +83,10 @@
 	}
 </script>
 
-<svelte:head>
-	<title>{workspace.displayName} - Personnel</title>
-</svelte:head>
-
 <div class="min-h-full bg-background text-foreground">
 	<section class="flex min-h-full flex-col">
 		<div class="grid gap-5 p-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
 			<section class="space-y-5">
-				<section class="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-card p-4">
-					<div>
-						<h1 class="text-lg font-semibold">{workspace.displayName}</h1>
-						<p class="text-sm text-muted-foreground">Personnel record</p>
-					</div>
-					<Button
-						type="button"
-						variant="outline"
-						size="sm"
-						disabled={workspace.exportSubmitting}
-						onclick={workspace.exportPersonnelRecords}
-					>
-						<DownloadIcon aria-hidden="true" size={16} />
-						{workspace.exportSubmitting ? 'Exporting...' : 'Export records'}
-					</Button>
-				</section>
-				{#if workspace.exportError}
-					<Alert.Root variant="destructive">
-						<Alert.Description>{workspace.exportError}</Alert.Description>
-					</Alert.Root>
-				{/if}
-
 				<section class="grid gap-3 lg:grid-cols-3" aria-label="Readiness summary">
 					{#each workspace.readinessLaneEntries as lane (lane.key)}
 						{#await lane.promise}
@@ -161,7 +118,7 @@
 							</div>
 							<div class="flex items-center gap-2">
 								<Badge variant="warning">{openCount} open</Badge>
-								<Button href={`${workspace.detailBasePath}/follow-ups`} variant="outline" size="sm">Show all</Button>
+								<Button href={`${workspace.detailBasePath}/log`} variant="outline" size="sm">Show all</Button>
 							</div>
 						</div>
 						<form
@@ -235,6 +192,8 @@
 							{/if}
 						</div>
 					</section>
+				{:catch}
+					{@render PanelError('Leader follow-ups')}
 				{/await}
 
 				{#await workspace.detail.counselingRecords}
@@ -248,7 +207,7 @@
 								<h2 class="font-semibold">Recent counseling and uploads</h2>
 							</div>
 							<div class="flex items-center gap-2">
-								<Button href={`${workspace.detailBasePath}/counselings`} variant="outline" size="sm">Show all</Button>
+								<Button href={`${workspace.detailBasePath}/files`} variant="outline" size="sm">Show all</Button>
 							</div>
 						</div>
 						<form class="grid gap-3 border-b p-4" onsubmit={(event) => (event.preventDefault(), submitCounseling())}>
@@ -325,6 +284,8 @@
 							{/each}
 						</div>
 					</section>
+				{:catch}
+					{@render PanelError('Recent counseling and uploads')}
 				{/await}
 
 				{#await workspace.detail.documents}
@@ -337,7 +298,7 @@
 								<FileTextIcon aria-hidden="true" size={18} />
 								<h2 class="font-semibold">Recent documents</h2>
 							</div>
-							<Button href={`${workspace.detailBasePath}/documents`} variant="outline" size="sm">Show all</Button>
+							<Button href={`${workspace.detailBasePath}/files`} variant="outline" size="sm">Show all</Button>
 						</div>
 						<form class="grid gap-3 border-b p-4" onsubmit={(event) => (event.preventDefault(), submitDocument())}>
 							<div class="grid gap-3 md:grid-cols-[1fr_auto]">
@@ -403,6 +364,8 @@
 							{/each}
 						</div>
 					</section>
+				{:catch}
+					{@render PanelError('Recent documents')}
 				{/await}
 			</section>
 
@@ -415,18 +378,6 @@
 						</div>
 						{#if !workspace.editingBasicInfo}
 							<div class="flex items-center gap-2">
-								{#if workspace.canArchivePersonnel}
-									<Button
-										type="button"
-										variant="destructive"
-										size="icon-sm"
-										title={workspace.archiveLabel}
-										aria-label={workspace.archiveLabel}
-										onclick={() => (workspace.showArchiveConfirm = true)}
-									>
-										<ArchiveIcon aria-hidden="true" />
-									</Button>
-								{/if}
 								<Button
 									bind:ref={editBasicInfoButton}
 									type="button"
@@ -530,7 +481,7 @@
 							<UserRoundIcon aria-hidden="true" size={18} />
 							<h2 class="font-semibold">Leader notes</h2>
 						</div>
-						<Button href={`${workspace.detailBasePath}/notes`} variant="outline" size="sm">Show all</Button>
+						<Button href={`${workspace.detailBasePath}/log`} variant="outline" size="sm">Show all</Button>
 					</div>
 					<form class="mt-4 space-y-2" onsubmit={(event) => (event.preventDefault(), workspace.leaderNotes.submit())}>
 						<Field.Root data-invalid={workspace.leaderNotes.fieldError('text') ? true : undefined}>
@@ -580,18 +531,6 @@
 		</div>
 	</section>
 </div>
-
-{#if workspace.showArchiveConfirm}
-	<ConfirmDialog
-		title="Archive Personnel"
-		message={workspace.archiveMessage}
-		confirmLabel="Archive"
-		variant="default"
-		loading={workspace.archiveSubmitting}
-		onConfirm={workspace.confirmArchive}
-		onCancel={() => (workspace.showArchiveConfirm = false)}
-	/>
-{/if}
 
 {#snippet ToneBadge(tone: PersonnelDetailTone, label: string)}
 	<span
@@ -651,5 +590,12 @@
 			<Skeleton class="h-3 w-5/6" />
 			<Skeleton class="h-9 w-24" />
 		</div>
+	</section>
+{/snippet}
+
+{#snippet PanelError(label: string)}
+	<section class="rounded-md border bg-card p-4">
+		<h2 class="font-semibold">{label}</h2>
+		<p class="mt-3 text-sm text-muted-foreground">{label} could not be loaded.</p>
 	</section>
 {/snippet}

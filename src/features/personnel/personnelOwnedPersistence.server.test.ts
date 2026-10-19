@@ -471,6 +471,34 @@ describe('finite Personnel ordinary provider contracts', () => {
 		]);
 		expect(await port.listDocuments('person-a', { archived: false, limit: 0 })).toEqual([]);
 	});
+	it('record counts take open follow-ups and every archived artifact of one Person in one Organization', async () => {
+		const note = { personnel_id: 'person-a', organization_id: 'org-a', author: 'user-a', text: 'Note' };
+		const p = personnelProvider({
+			counseling_records: [
+				{ ...counseling, organization_id: 'org-a' },
+				{ ...counseling, id: 'c-archived', organization_id: 'org-a', archived_at: '2026-10-08' }
+			],
+			personnel_documents: [
+				{ ...document, id: 'd-archived', organization_id: 'org-a', archived_at: '2026-10-08' },
+				{ ...document, id: 'd-foreign', organization_id: 'org-b', archived_at: '2026-10-08' }
+			],
+			personnel_follow_ups: [
+				{ ...followUp, organization_id: 'org-a' },
+				{ ...followUp, id: 'f-other', organization_id: 'org-a', personnel_id: 'person-b' },
+				{ ...followUp, id: 'f-completed', organization_id: 'org-a', status: 'completed' },
+				{ ...followUp, id: 'f-archived', organization_id: 'org-a', status: 'archived', archived_at: '2026-10-08' }
+			],
+			leader_notes: [
+				{ ...note, id: 'n-active', archived_at: null },
+				{ ...note, id: 'n-archived', archived_at: '2026-10-09' }
+			]
+		});
+		const port = createSupabasePersonnelArtifactReadPersistence(p.client, 'org-a');
+		expect(await port.countRecords('person-a')).toEqual({ openFollowUps: 1, archived: 4 });
+		p.state.failure = (request) =>
+			request.table === 'leader_notes' ? { code: '42501', message: 'Notes denied', status: 403 } : null;
+		await expect(port.countRecords('person-a')).rejects.toThrow('Notes denied');
+	});
 	it('leader pages retain microseconds, tied IDs and fill only with older notes', async () => {
 		const note = {
 			personnel_id: 'person-a',

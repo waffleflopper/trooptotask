@@ -128,6 +128,22 @@ describe('SoldierDataSheetModal', () => {
 		expect(onClose).not.toHaveBeenCalled();
 	});
 
+	it('refreshes the record header and the Overview after a save', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => Response.json({}, { status: 200 }))
+		);
+		vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
+		const onClose = vi.fn();
+		render(SoldierDataSheetModal, { props: { orgId: 'org-a', personnelId: 'person-1', initialInfo, onClose } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+		await waitFor(() => expect(onClose).toHaveBeenCalled());
+		expect(invalidate).toHaveBeenCalledWith('app:personnel-detail-header');
+		expect(invalidate).toHaveBeenCalledWith('app:personnel-detail');
+	});
+
 	it('does not close the sheet when its refresh finishes after the Organization shell ends', async () => {
 		let finishRefresh!: () => void;
 		vi.mocked(invalidate).mockImplementationOnce(() => new Promise<void>((resolve) => (finishRefresh = resolve)));

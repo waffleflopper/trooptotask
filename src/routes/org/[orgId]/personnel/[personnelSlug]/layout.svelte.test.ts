@@ -1,21 +1,26 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
+import { cleanup, render, screen, within } from '@testing-library/svelte';
 import { createRawSnippet } from 'svelte';
 import type { Personnel } from '$features/personnel/contracts';
-import { openToolbarMore, stubToolbarWidths } from '$lib/test-support/toolbarWidths';
+import { stubToolbarWidths } from '$lib/test-support/toolbarWidths';
 
 const page = vi.hoisted(() => ({ route: { id: '' } }));
 vi.mock('$app/state', () => ({ page }));
-const { gotoMock } = vi.hoisted(() => ({ gotoMock: vi.fn() }));
-vi.mock('$app/navigation', () => ({ goto: gotoMock }));
+vi.mock('$app/navigation', () => ({ goto: vi.fn(), invalidate: vi.fn() }));
+vi.mock('$features/app-shell', () => ({
+	getAppShellContext: () => ({
+		orgId: 'org-1',
+		orgUrlSegment: 'unit',
+		affordanceForFeatureAction: () => ({ allowed: true })
+	})
+}));
 
 import Layout from './+layout.svelte';
 
 afterEach(() => {
 	cleanup();
 	vi.unstubAllGlobals();
-	gotoMock.mockReset();
 });
 
 const person: Personnel = {
@@ -32,11 +37,13 @@ const person: Personnel = {
 };
 
 function renderAt(routeId: string) {
+	stubToolbarWidths();
 	page.route.id = routeId;
 	return render(Layout, {
 		data: {
-			shell: { kind: 'ready', org: { urlSegment: 'unit', name: 'Unit' } },
-			personnelDetailHeader: { person }
+			personnelDetailHeader: { person, basd: null, dateOfRank: null },
+			personnelDetailLayout: { availabilityToday: Promise.resolve(null), tabCounts: Promise.resolve(null) },
+			today: '2026-06-15'
 		},
 		children: createRawSnippet(() => ({ render: () => '<div></div>' }))
 	});
@@ -44,59 +51,16 @@ function renderAt(routeId: string) {
 
 describe('Personnel detail section navigation', () => {
 	it.each([
-		['/org/[orgId]/personnel/[personnelSlug]', 'Dashboard', '/org/unit/personnel/smith-jane'],
-		['/org/[orgId]/personnel/[personnelSlug]/notes', 'Notes', '/org/unit/personnel/smith-jane/notes']
-	])('marks only the current section link on %s', (routeId, current, href) => {
+		['/org/[orgId]/personnel/[personnelSlug]', '/org/unit/personnel/smith-jane'],
+		['/org/[orgId]/personnel/[personnelSlug]/log', '/org/unit/personnel/smith-jane/log'],
+		['/org/[orgId]/personnel/[personnelSlug]/archived', '/org/unit/personnel/smith-jane/archived']
+	])('marks only the current section link on %s', (routeId, href) => {
 		renderAt(routeId);
 
 		const nav = screen.getByRole('navigation', { name: 'Personnel detail sections' });
-		const links = within(nav).getAllByRole('link');
-		expect(links.map((link) => link.textContent?.trim())).toEqual([
-			'Dashboard',
-			'Follow-ups',
-			'Counselings',
-			'Documents',
-			'Notes',
-			'Archived'
-		]);
-		const marked = links.filter((link) => link.getAttribute('aria-current') === 'page');
-		expect(marked.map((link) => link.textContent?.trim())).toEqual([current]);
-		expect(marked[0].getAttribute('href')).toBe(href);
-	});
-});
-
-describe('Personnel record toolbar', () => {
-	const toolbarName = 'Personnel record controls';
-
-	it('links Roster, Upload PDF and Add note to their pages', () => {
-		renderAt('/org/[orgId]/personnel/[personnelSlug]');
-
-		const row = within(screen.getByRole('toolbar', { name: toolbarName }));
-		expect(row.getByRole('link', { name: 'Roster' }).getAttribute('href')).toBe('/org/unit/personnel');
-		expect(row.getByRole('link', { name: 'Upload PDF' }).getAttribute('href')).toBe(
-			'/org/unit/personnel/smith-jane/documents'
-		);
-		expect(row.getByRole('link', { name: 'Add note' }).getAttribute('href')).toBe(
-			'/org/unit/personnel/smith-jane/notes'
-		);
-	});
-
-	it('opens Roster and Upload PDF from More while Add note stays on the row', async () => {
-		const widths = stubToolbarWidths();
-		renderAt('/org/[orgId]/personnel/[personnelSlug]');
-		await widths.foldAll();
-
-		const row = within(screen.getByRole('toolbar', { name: toolbarName }));
-		expect(row.queryByRole('link', { name: 'Roster' })).toBeNull();
-		expect(row.getByRole('link', { name: 'Add note' })).toBeTruthy();
-
-		let menu = await openToolbarMore(toolbarName);
-		await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Upload PDF' }));
-		await waitFor(() => expect(gotoMock).toHaveBeenCalledWith('/org/unit/personnel/smith-jane/documents'));
-
-		await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
-		menu = await openToolbarMore(toolbarName);
-		await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Roster' }));
-		await waitFor(() => expect(gotoMock).toHaveBeenCalledWith('/org/unit/personnel'));
+		const marked = within(nav)
+			.getAllByRole('link')
+			.filter((link) => link.getAttribute('aria-current') === 'page');
+		expect(marked.map((link) => link.getAttribute('href'))).toEqual([href]);
 	});
 });

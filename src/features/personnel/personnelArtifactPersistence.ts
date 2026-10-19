@@ -47,7 +47,13 @@ export interface LeaderNoteRow {
 	archived_at?: string | null;
 }
 
+export interface PersonnelRecordCounts {
+	openFollowUps: number;
+	archived: number;
+}
+
 export interface PersonnelArtifactReadPersistence {
+	countRecords(personnelId: string): Promise<PersonnelRecordCounts>;
 	listCounselingRecords(
 		personnelId: string,
 		options: { archived: boolean; limit?: number }

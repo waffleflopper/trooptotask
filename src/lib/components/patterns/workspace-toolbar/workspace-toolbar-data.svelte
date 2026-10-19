@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import ListFilter from '@lucide/svelte/icons/list-filter';
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import XIcon from '@lucide/svelte/icons/x';
@@ -318,12 +319,18 @@
 			<WorkspaceToolbarIcon icon={action.icon} />
 		{/if}
 		{action.label}
+		{#if action.menuItems}
+			<ChevronDown aria-hidden="true" />
+		{/if}
 	</Button>
 {/snippet}
 
 {#snippet actionControl(action: ToolbarAction, variant: 'default' | 'outline', live: boolean)}
 	{#if live && action.menuItems}
-		<WorkspaceToolbarMenu label={action.label}>
+		<WorkspaceToolbarMenu
+			label={action.label}
+			contentClass={action.menuItems.some((item) => item.kind === 'action' && item.description) ? 'w-75' : undefined}
+		>
 			{#snippet trigger(props)}
 				{@render actionButton(action, variant, true, props)}
 			{/snippet}

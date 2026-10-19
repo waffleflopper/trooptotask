@@ -618,6 +618,7 @@ function journeyTerms({ anchor, rows, active, scopedPeople, searched }) {
 	const otherMos = (mos) => (mos === '42A' ? '88M' : '42A');
 	const edit = (person) => ({
 		row: `Open ${rankedLabel(person)}`,
+		slug: person.slug,
 		original: person.mos,
 		alternate: otherMos(person.mos)
 	});

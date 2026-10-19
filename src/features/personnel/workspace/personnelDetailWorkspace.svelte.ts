@@ -18,14 +18,12 @@ import type {
 	PersonnelReadinessLaneKey,
 	PersonnelReadinessLaneTone
 } from '$features/personnel/personnel-detail.types';
-import { archivePersonnel, type RequestPersonnelArchiveApproval } from '../utils/archivePersonnel';
 import { buildRequestError, rejectedRequestMessage } from '$lib/stores/core';
-import { downloadBlob } from '$lib/utils/downloadBlob';
-import { filenameFromContentDisposition } from '$lib/utils/workbook';
 import type { Personnel } from '../personnel.types';
 import { personnelStore } from '../stores/personnel.svelte';
 import { SvelteDate } from 'svelte/reactivity';
 import { ArtifactDraft } from './artifactDraft.svelte';
+import { PERSONNEL_DETAIL_COUNTS_KEY } from './detailCounts';
 import {
 	counselingRecordDraftSpec,
 	documentDraftSpec,
@@ -54,8 +52,6 @@ export interface PersonnelDetailWorkspaceInput {
 	groups?: Group[];
 	orgName: string;
 	detail: PersonnelDetailStreams;
-	canArchivePersonnel?: boolean;
-	requestArchiveApproval: RequestPersonnelArchiveApproval;
 }
 
 export type PersonnelDetailWorkspaceInputSource = PersonnelDetailWorkspaceInput | (() => PersonnelDetailWorkspaceInput);
@@ -65,9 +61,6 @@ export interface PersonnelDetailWorkspaceDeps {
 	goto?: typeof goto;
 	invalidate?: typeof invalidate;
 	resolve?: typeof resolve;
-	archivePersonnel?: typeof archivePersonnel;
-	downloadBlob?: typeof downloadBlob;
-	filenameFromContentDisposition?: typeof filenameFromContentDisposition;
 	openDocumentUrl?: (url: string) => void;
 }
 
@@ -109,9 +102,6 @@ const defaultDeps = {
 	goto,
 	invalidate,
 	resolve,
-	archivePersonnel,
-	downloadBlob,
-	filenameFromContentDisposition,
 	openDocumentUrl: (url: string) => {
 		if (typeof window !== 'undefined') {
 			window.open(url, '_blank', 'noopener,noreferrer');
@@ -138,8 +128,6 @@ export class PersonnelDetailWorkspace {
 
 	updatedPerson = $state<Personnel | null>(null);
 	showDataSheet = $state(false);
-	showArchiveConfirm = $state(false);
-	archiveSubmitting = $state(false);
 
 	editingBasicInfo = $state(false);
 	basicInfoRank = $state('');
@@ -157,9 +145,6 @@ export class PersonnelDetailWorkspace {
 
 	togglingFollowUpId = $state('');
 	openingDocumentId = $state('');
-
-	exportSubmitting = $state(false);
-	exportError = $state('');
 
 	constructor(input: PersonnelDetailWorkspaceInputSource, deps: PersonnelDetailWorkspaceDeps = {}) {
 		this.#getInput = typeof input === 'function' ? input : () => input;
@@ -194,16 +179,8 @@ export class PersonnelDetailWorkspace {
 		return this.#input.detail;
 	}
 
-	get canArchivePersonnel(): boolean {
-		return this.#input.canArchivePersonnel ?? false;
-	}
-
 	get currentPerson(): Personnel {
 		return this.updatedPerson ?? this.#input.person;
-	}
-
-	get displayName(): string {
-		return `${this.currentPerson.rank} ${this.currentPerson.lastName}, ${this.currentPerson.firstName}`;
 	}
 
 	get detailBasePath(): string {
@@ -261,14 +238,6 @@ export class PersonnelDetailWorkspace {
 			['ETS', this.currentPerson.ets ? this.formatDate(this.currentPerson.ets) : 'Not set'],
 			['PCS / DEROS', this.currentPerson.deros ? this.formatDate(this.currentPerson.deros) : 'Not set']
 		];
-	}
-
-	get archiveLabel(): string {
-		return `Archive ${this.currentPerson.rank} ${this.currentPerson.lastName}, ${this.currentPerson.firstName}`;
-	}
-
-	get archiveMessage(): string {
-		return `Archive ${this.currentPerson.rank} ${this.currentPerson.lastName}? They will be removed from active rosters, calendars, and reports, but their records remain available in archived personnel.`;
 	}
 
 	toneClass(tone: PersonnelDetailTone): string {
@@ -381,29 +350,6 @@ export class PersonnelDetailWorkspace {
 		}
 	};
 
-	confirmArchive = async (): Promise<void> => {
-		if (this.#disposed || this.archiveSubmitting) return;
-		this.archiveSubmitting = true;
-		try {
-			const result = await this.#deps.archivePersonnel({
-				orgId: this.orgId,
-				person: this.currentPerson,
-				requestArchiveApproval: this.#input.requestArchiveApproval,
-				resourceUrl: `/org/${this.orgId}/personnel/${this.currentPerson.slug ?? this.currentPerson.id}`
-			});
-			if (this.#disposed) return;
-			if (result === 'archived') {
-				await this.#deps.goto(this.#deps.resolve(`/org/${this.orgUrlSegment}/personnel`), {
-					invalidate: ['app:personnel-data']
-				});
-			} else {
-				this.showArchiveConfirm = false;
-			}
-		} finally {
-			this.archiveSubmitting = false;
-		}
-	};
-
 	setFollowUpStatus = async (followUp: PersonnelFollowUp, status: 'open' | 'completed'): Promise<void> => {
 		this.followUps.error = '';
 		this.togglingFollowUpId = followUp.id;
@@ -419,6 +365,7 @@ export class PersonnelDetailWorkspace {
 			if (!response.ok) throw await buildRequestError(response, 'PATCH', 'follow-up');
 			const updated = (await response.json()) as Partial<PersonnelFollowUp>;
 			this.followUps.upsert({ ...followUp, ...updated });
+			void this.#deps.invalidate(PERSONNEL_DETAIL_COUNTS_KEY);
 		} catch (caught) {
 			this.followUps.error = rejectedRequestMessage(caught, 'Unable to update follow-up.');
 		} finally {
@@ -473,30 +420,6 @@ export class PersonnelDetailWorkspace {
 			this.documents.error = caught instanceof Error ? caught.message : 'Unable to open document.';
 		} finally {
 			this.openingDocumentId = '';
-		}
-	};
-
-	exportPersonnelRecords = async (): Promise<void> => {
-		if (this.#disposed || this.exportSubmitting) return;
-		this.exportSubmitting = true;
-		this.exportError = '';
-		try {
-			const response = await this.#deps.fetch(`/org/${this.orgId}/api/personnel/${this.currentPerson.id}/export`);
-			if (this.#disposed) return;
-			if (!response.ok) {
-				throw new Error('Unable to export personnel records.');
-			}
-			const blob = await response.blob();
-			if (this.#disposed) return;
-			const fallbackName = `${this.currentPerson.rank}-${this.currentPerson.lastName}-records.xlsx`;
-			this.#deps.downloadBlob(
-				blob,
-				this.#deps.filenameFromContentDisposition(response.headers.get('Content-Disposition'), fallbackName)
-			);
-		} catch (caught) {
-			this.exportError = caught instanceof Error ? caught.message : 'Unable to export personnel records.';
-		} finally {
-			this.exportSubmitting = false;
 		}
 	};
 }

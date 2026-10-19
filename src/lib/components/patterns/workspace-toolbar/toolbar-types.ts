@@ -6,14 +6,18 @@ export type WorkspaceToolbarIcon =
 	| 'book-open'
 	| 'calendar-days'
 	| 'chart'
+	| 'circle-check'
 	| 'clipboard-check'
 	| 'clipboard-list'
 	| 'download'
 	| 'file-plus'
+	| 'file-text'
+	| 'notebook-pen'
 	| 'plus'
 	| 'printer'
 	| 'settings'
 	| 'sliders'
+	| 'square-check'
 	| 'upload'
 	| 'user-plus';
 
@@ -31,6 +35,8 @@ type ActionExecution =
 export type ToolbarAction = ItemIdentity & {
 	kind: 'action';
 	icon?: WorkspaceToolbarIcon;
+	/** A second line under the label when the action shows in a menu. */
+	description?: string;
 	destructive?: boolean;
 	disabled?: boolean;
 	disabledReason?: string;

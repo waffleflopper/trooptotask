@@ -11,6 +11,7 @@ import {
 	createPersonnelArtifactDeliveryContext,
 	createPersonnelLeaderNoteDeliveryContext,
 	createRequestPersonnelDetailContext,
+	createRequestPersonnelDetailLayoutContext,
 	type createRequestPersonnelDetailStreamsContext
 } from '$lib/server/adapters/requestContexts.server';
 import { describe, expect, it, vi } from 'vitest';
@@ -89,13 +90,25 @@ function selectedContexts(
 const noCookies = { get: () => undefined } as never;
 
 function loadWithSelectedContexts(ctx: ReturnType<typeof createTestContext>) {
-	return vi.fn(async (_locals, _cookies, _orgId, config) =>
-		config.fn(
-			config.context === createRequestPersonnelDetailContext
-				? { auth: ctx.auth, audit: ctx.audit, organizationPersonnel: ctx.organizationPersonnel, scope: ctx.scope }
-				: selectedContexts(ctx)
-		)
-	);
+	return vi.fn(async (_locals, _cookies, _orgId, config) => {
+		if (config.context === createRequestPersonnelDetailContext)
+			return config.fn({
+				auth: ctx.auth,
+				audit: ctx.audit,
+				organizationPersonnel: ctx.organizationPersonnel,
+				personnelSheets: ctx.personnelSheets,
+				scope: ctx.scope
+			});
+		const selected = selectedContexts(ctx);
+		if (config.context === createRequestPersonnelDetailLayoutContext)
+			return config.fn({
+				auth: ctx.auth,
+				audit: ctx.audit,
+				artifactReads: ctx.artifactReads,
+				calendar: selected.calendar
+			});
+		return config.fn(selected);
+	});
 }
 
 function detailEvent(overrides: Record<string, unknown> = {}) {

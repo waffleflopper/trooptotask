@@ -6,6 +6,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import type { PersonnelDocument } from '$features/personnel/contracts';
 	import type { PersonnelDocumentsPageData } from '$features/personnel/personnel-detail.types';
+	import { refreshPersonnelDetailCounts } from '$features/personnel/workspace/detailCounts';
 	import { ArtifactDraft } from '$features/personnel/workspace/artifactDraft.svelte';
 	import { documentDraftSpec } from '$features/personnel/workspace/personnelArtifactDraftSpecs';
 
@@ -81,6 +82,7 @@
 			});
 			if (!response.ok) throw new Error('Unable to archive document.');
 			archivedIds = [...archivedIds, record.id];
+			void refreshPersonnelDetailCounts();
 		} catch (caught) {
 			documents.error = caught instanceof Error ? caught.message : 'Unable to archive document.';
 		} finally {

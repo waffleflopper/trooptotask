@@ -18,6 +18,26 @@ export function createSupabasePersonnelArtifactReadPersistence(
 	orgId: string
 ): PersonnelArtifactReadPersistence {
 	return {
+		async countRecords(personnelId) {
+			const rows = (table: string) =>
+				client
+					.from(table)
+					.select('id', { count: 'exact', head: true })
+					.eq('organization_id', orgId)
+					.eq('personnel_id', personnelId);
+			const counts = await Promise.all([
+				rows('personnel_follow_ups').eq('status', 'open'),
+				rows('personnel_follow_ups').eq('status', 'archived'),
+				rows('counseling_records').not('archived_at', 'is', null),
+				rows('personnel_documents').not('archived_at', 'is', null),
+				rows('leader_notes').not('archived_at', 'is', null)
+			]);
+			const [openFollowUps, ...archived] = counts.map(({ count, error }) => {
+				if (error) throw new Error(error.message);
+				return count ?? 0;
+			});
+			return { openFollowUps, archived: archived.reduce((sum, count) => sum + count, 0) };
+		},
 		async listCounselingRecords(personnelId, { archived, limit }) {
 			const rows: CounselingRecordRow[] = [];
 			if (limit === 0) return rows;

@@ -571,6 +571,19 @@ describe('WorkspaceToolbar', () => {
 		await waitFor(() => expect(output('Runs')).toBe('monthly:0'));
 	});
 
+	it('names a described menu action by its label and announces the description separately', async () => {
+		render(DataToolbarTest, { props: { withArchive: false, describePlanner: true } });
+		await layOut(2000);
+
+		const planning = within(toolbar()).getByRole('button', { name: 'Planning' });
+		planning.focus();
+		await fireEvent.keyDown(planning, { key: 'Enter' });
+		const planner = await screen.findByRole('menuitem', { name: 'Assignment Planner' });
+
+		expect(description(planner)).toBe('Lay out duties for the month');
+		expect(description(screen.getByRole('menuitem', { name: 'Monthly Plan' }))).toBe('');
+	});
+
 	it('checks a display option in a row menu and keeps the menu open', async () => {
 		render(DataToolbarTest, { props: { withArchive: false, withDisplayMenu: true } });
 		await layOut(2000);

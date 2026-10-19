@@ -1,18 +1,28 @@
 <script lang="ts">
+	import type { Component } from 'svelte';
 	import type { HTMLAttributes } from 'svelte/elements';
 	import type { PathnameWithSearchOrHash } from '$app/types';
 	import { resolve } from '$app/paths';
 	import { Badge, type BadgeVariant } from '$lib/components/ui/badge/index.js';
+	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import { cn } from '$lib/utils.js';
+
+	export type RouteTabBadge = {
+		value: string | number;
+		/** Announced in place of the bare value, e.g. `2 pending requests`. */
+		label?: string;
+		variant?: BadgeVariant;
+	};
 
 	export type RouteTabItem = {
 		label: string;
 		href: PathnameWithSearchOrHash;
 		active?: boolean;
-		badge?: string | number;
-		/** Announced in place of the bare badge, e.g. `2 pending requests`. */
-		badgeLabel?: string;
-		badgeVariant?: BadgeVariant;
+		icon?: Component<{ class?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>;
+		/** A streamed badge shows a skeleton while pending; `null` shows no badge. */
+		badge?: RouteTabBadge | Promise<RouteTabBadge | null>;
+		/** Sits apart at the end of the strip, for a secondary section such as Archived. */
+		trailing?: boolean;
 		disabled?: boolean;
 	};
 
@@ -25,6 +35,7 @@
 
 	let scroller = $state<HTMLElement>();
 	const activeIndex = $derived(items.findIndex((item) => item.active));
+	const firstTrailing = $derived(items.find((item) => item.trailing));
 
 	// Scrolls only the tab strip; scrollIntoView could also move the page.
 	$effect(() => {
@@ -38,13 +49,28 @@
 	});
 </script>
 
-{#snippet badge(item: RouteTabItem)}
-	{#if item.badge !== undefined}
-		<Badge variant={item.badgeVariant ?? 'secondary'} aria-hidden={item.badgeLabel ? 'true' : undefined}
-			>{item.badge}</Badge
-		>
-		{#if item.badgeLabel}<span class="sr-only">{item.badgeLabel}</span>{/if}
+{#snippet badgeValue(item: RouteTabItem, badge: RouteTabBadge)}
+	{#if item.trailing}
+		<span aria-hidden={badge.label ? 'true' : undefined}>· {badge.value}</span>
+	{:else}
+		<Badge variant={badge.variant ?? 'secondary'} aria-hidden={badge.label ? 'true' : undefined}>{badge.value}</Badge>
 	{/if}
+	{#if badge.label}<span class="sr-only">{badge.label}</span>{/if}
+{/snippet}
+
+{#snippet content(item: RouteTabItem)}
+	{#if item.icon}
+		<item.icon class="size-4" aria-hidden="true" />
+	{/if}
+	<span>{item.label}</span>
+	{#await item.badge}
+		<Skeleton class="h-5 w-6" aria-hidden="true" />
+		<span class="sr-only">count loading</span>
+	{:then badge}
+		{#if badge}{@render badgeValue(item, badge)}{/if}
+	{:catch}
+		{@render badgeValue(item, { value: '–', label: 'count unavailable', variant: 'outline' })}
+	{/await}
 {/snippet}
 
 <nav data-slot="route-tabs" aria-label={label} class={cn('min-w-0 border-b border-border', className)} {...restProps}>
@@ -54,10 +80,13 @@
 				<span
 					data-slot="route-tab"
 					aria-disabled="true"
-					class="inline-flex h-10 shrink-0 items-center gap-2 border-b-2 border-transparent px-3 text-sm font-medium text-muted-foreground opacity-50"
+					class={cn(
+						'inline-flex h-10 shrink-0 items-center gap-2 border-b-2 border-transparent px-3 text-sm font-medium text-muted-foreground opacity-50',
+						item.trailing && 'gap-1.5 text-xs',
+						item === firstTrailing && 'ml-auto'
+					)}
 				>
-					<span>{item.label}</span>
-					{@render badge(item)}
+					{@render content(item)}
 				</span>
 			{:else}
 				<a
@@ -65,14 +94,15 @@
 					href={resolve(item.href as '/')}
 					aria-current={item.active ? 'page' : undefined}
 					class={cn(
-						'inline-flex h-10 shrink-0 items-center gap-2 rounded-t-md border-b-2 px-3 text-sm font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50',
+						'inline-flex h-10 shrink-0 items-center gap-2 rounded-t-md border-b-2 px-3 text-sm font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset',
+						item.trailing && 'gap-1.5 text-xs',
+						item === firstTrailing && 'ml-auto',
 						item.active
 							? 'border-foreground text-foreground'
 							: 'border-transparent text-muted-foreground hover:border-muted-foreground/40 hover:text-foreground'
 					)}
 				>
-					<span>{item.label}</span>
-					{@render badge(item)}
+					{@render content(item)}
 				</a>
 			{/if}
 		{/each}

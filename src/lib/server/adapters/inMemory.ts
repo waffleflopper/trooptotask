@@ -1585,6 +1585,24 @@ export function createTestDataExportLifecycleWriter(store: FixtureRowStore, orgI
 
 function createTestArtifactReadPersistence(store: FixtureRowStore, orgId: string): PersonnelArtifactReadPersistence {
 	return {
+		async countRecords(personnelId) {
+			const archivedRows = (table: string) =>
+				store.findMany(table, orgId, { personnel_id: personnelId }, { isNull: { archived_at: false } });
+			const [followUps, counselings, documents, notes] = await Promise.all([
+				store.findMany<FollowUpRow>('personnel_follow_ups', orgId, { personnel_id: personnelId }),
+				archivedRows('counseling_records'),
+				archivedRows('personnel_documents'),
+				archivedRows('leader_notes')
+			]);
+			return {
+				openFollowUps: followUps.filter((row) => row.status === 'open').length,
+				archived:
+					followUps.filter((row) => row.status === 'archived').length +
+					counselings.length +
+					documents.length +
+					notes.length
+			};
+		},
 		listCounselingRecords: (personnelId, { archived, limit }) =>
 			store.findMany(
 				'counseling_records',

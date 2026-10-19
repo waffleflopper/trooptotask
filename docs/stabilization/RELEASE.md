@@ -746,6 +746,29 @@ Apply the migration before the application release. Without it the new applicati
 
 An application rollback can leave the table, bucket and commands in place. Dropping them needs a reverse migration that preserves the recorded history and stored certificates. After release, confirm through ordinary authorized use that a Training operator can log a completion with a PDF certificate on a Person's Readiness tab, open the certificate, see the replaced completion in History and correct it, and that a Training configurator can mark an exemptible item exempt while an operator cannot. Repository CI operates disposable local databases and performs no remote migration. External deployment settings are uninspected.
 
+## Personnel Data sheet columns
+
+The candidate adds [`20261019000200_personnel_data_sheet_columns.sql`](../../supabase/migrations/20261019000200_personnel_data_sheet_columns.sql), SHA-256 `88b57418b2f08ccb78f691d08a0b7155a79e407e0f2b501221bd6618b938c417`, for the Personnel detail Data sheet. It lands on the `feat/personnel-details-page` integration branch, and nothing deploys until that branch merges to main. The migration is not yet applied anywhere outside disposable local databases. Its owner-operated migration gate is open. The agent neither inspected nor changed the remote database or hosted ledger.
+
+Applying it adds two nullable columns and changes no existing row, policy or grant:
+
+- It adds `personnel_extended_info.marital_status_date`, the date the current marital status began.
+- It adds `personnel_extended_info.updated_by`, the user id of the member who last saved the sheet. `20261019000500_personnel_extended_info_saver_stamp.sql` later stamps it from the signed-in user.
+
+Apply the migration before the application release. Without it the new application cannot read or save a Data sheet, because each names the columns. An old application instance against the migrated database keeps working and leaves both columns empty. An application rollback can leave the columns in place. Dropping them needs a reverse migration and loses the recorded dates and savers. After release, confirm through ordinary authorized use that saving a Soldier's Data sheet with a marital status date shows that date and the saving member. Repository CI operates disposable local databases and performs no remote migration. External deployment settings are uninspected.
+
+## Personnel Log and Archived attribution
+
+The candidate adds [`20261019000300_personnel_log_attribution.sql`](../../supabase/migrations/20261019000300_personnel_log_attribution.sql), SHA-256 `bd69b1fb517db9510cd3f63e81764172aa33cbe9cb9c4489aa4cc5e6de3c8373`, for the Personnel detail Log and Archived tabs. It lands on the `feat/personnel-details-page` integration branch, and nothing deploys until that branch merges to main. The migration is not yet applied anywhere outside disposable local databases. Its owner-operated migration gate is open. The agent neither inspected nor changed the remote database or hosted ledger.
+
+Applying it adds columns and triggers, and rewrites one timestamp on every existing leader note:
+
+- It adds `personnel_follow_ups.completed_by` and `archived_by`, `counseling_records.archived_by`, `personnel_documents.archived_by` and `leader_notes.archived_by`, each a nullable user id.
+- It adds `leader_notes.updated_at`, sets it to `created_at` on every existing note, and keeps it current with the existing `update_updated_at_column()` trigger.
+- It adds the private trigger functions `organization_private.stamp_archived_by()` and `organization_private.stamp_follow_up_completed_by()`, with EXECUTE revoked from `PUBLIC`, `anon`, `authenticated` and `service_role`. A write by a signed-in user records `auth.uid()` when it archives an item or completes an open follow-up, keeps the recorded actor when an item stays archived or completed, and clears it on restore or reopen. A write without a signed-in user, such as the application's service role, keeps the value it sends.
+
+Apply the migration before the application release. Without it the new application cannot read the Log, Files or Archived tabs or the Overview follow-ups, because each names the new columns. An old application instance against the migrated database keeps working: its writes run as the service role, and reopening a follow-up still clears its completion. An application rollback can leave the columns and triggers in place. Dropping them needs a reverse migration and loses the recorded actors and note edit times. After release, confirm through ordinary authorized use that completing a follow-up shows who completed it, that editing a leader note shows its edit time, and that an archived item on the Archived tab names who archived it. Repository CI operates disposable local databases and performs no remote migration. External deployment settings are uninspected.
+
 ## Counseling conductor
 
 The candidate adds [`20261019000400_counseling_conducted_by.sql`](../../supabase/migrations/20261019000400_counseling_conducted_by.sql), SHA-256 `c217c17a8bad1071cfb577dd2f37a8fc736994a12914c33dd2719bd8dadf5b6b`, for the Personnel detail Files tab. It lands on the `feat/personnel-details-page` integration branch, and nothing deploys until that branch merges to main. The migration is not yet applied anywhere outside disposable local databases. Its owner-operated migration gate is open. The agent neither inspected nor changed the remote database or hosted ledger.

@@ -3,6 +3,7 @@ import type { PersonnelFollowUp, PersonnelFollowUpLifecycleState } from './contr
 import { fail } from '$lib/errors';
 import {
 	canReadSensitivePersonnelArtifacts,
+	contributorLabelsForWriteResponse,
 	contributorLabelsWithStamps,
 	optionalContributorLabel,
 	personnelArtifactWriter,
@@ -84,10 +85,18 @@ export async function createPersonnelFollowUp(
 		resourceId: input.personnelId
 	});
 
-	const labels = await followUpLabels(ctx, [row]);
+	const labels = await followUpWriteLabels(ctx, row);
 	return mapFollowUpRow(row, labels);
 }
 
+function followUpWriteLabels(ctx: PersonnelArtifactsContext, row: FollowUpRow): Promise<Map<string, string>> {
+	return contributorLabelsForWriteResponse(ctx, row.created_by ? [row.created_by] : [], [
+		row.completed_by,
+		row.archived_by
+	]);
+}
+
+/** What a write may say about the follow-up it changed: the row for a reader of sensitive records, else only its state. */
 async function followUpLifecycleResult(
 	ctx: PersonnelArtifactsContext,
 	personnelId: string,
@@ -96,7 +105,7 @@ async function followUpLifecycleResult(
 	if (!(await canReadSensitivePersonnelArtifacts(ctx, personnelId))) {
 		return { id: row.id, status: row.status, archivedAt: row.archived_at ?? null };
 	}
-	return mapFollowUpRow(row, await followUpLabels(ctx, [row]));
+	return mapFollowUpRow(row, await followUpWriteLabels(ctx, row));
 }
 
 export async function setPersonnelFollowUpStatus(
@@ -139,7 +148,7 @@ export async function setPersonnelFollowUpStatus(
 export async function updatePersonnelFollowUp(
 	ctx: PersonnelArtifactsContext,
 	rawInput: unknown
-): Promise<PersonnelFollowUp> {
+): Promise<PersonnelFollowUp | PersonnelFollowUpLifecycleState> {
 	const parsed = personnelFollowUpUpdateSchema.safeParse(rawInput);
 	if (!parsed.success) {
 		fail(400, issueMessage(parsed.error));
@@ -167,8 +176,7 @@ export async function updatePersonnelFollowUp(
 		resourceId: input.personnelId
 	});
 
-	const labels = await followUpLabels(ctx, [row]);
-	return mapFollowUpRow(row, labels);
+	return followUpLifecycleResult(ctx, input.personnelId, row);
 }
 
 export async function archivePersonnelFollowUp(

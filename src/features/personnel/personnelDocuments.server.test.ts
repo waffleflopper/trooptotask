@@ -7,7 +7,8 @@ import {
 	restorePersonnelDocument,
 	createPersonnelDocument,
 	createPersonnelDocumentDownloadUrl,
-	listPersonnelDocuments
+	listPersonnelDocuments,
+	readPersonnelDocuments
 } from './personnelDocuments.server';
 
 const PDF_BYTES = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x37]);
@@ -444,5 +445,55 @@ describe('personnel documents', () => {
 		expect(await ctx.rawStore.findOne('personnel_documents', ctx.auth.orgId, { id: other.id })).toEqual(prior);
 		expect(ctx.storagePort.files).toHaveLength(1);
 		expect(ctx.auditPort.events).toEqual(priorEvents);
+	});
+});
+
+describe('Files tab document read', () => {
+	function seededContext() {
+		const ctx = configureContext();
+		seedPersonnel(ctx);
+		const row = (id: string, createdAt: string, bytes: number, extra = {}) => ({
+			id,
+			organization_id: ctx.auth.orgId,
+			personnel_id: 'person-1',
+			title: `Document ${id}`,
+			file_path: `${ctx.auth.orgId}/personnel/person-1/documents/${id}.pdf`,
+			file_size_bytes: bytes,
+			content_type: 'application/pdf',
+			uploaded_by: 'someone',
+			created_at: createdAt,
+			archived_at: null,
+			...extra
+		});
+		ctx.store.seed('personnel_documents', [
+			row('newest', '2026-10-03T10:00:00Z', 1_000),
+			row('middle', '2026-10-02T10:00:00Z', 2_000),
+			row('oldest', '2026-10-01T10:00:00Z', 4_000),
+			row('archived', '2026-09-01T10:00:00Z', 8_000, { archived_at: '2026-09-02T00:00:00Z' })
+		]);
+		return ctx;
+	}
+
+	it('reads the newest page with the active total and the storage use against the cap', async () => {
+		const ctx = seededContext();
+		ctx.store.seed('organizations', [{ id: ctx.auth.orgId, personnel_document_storage_cap_bytes: 25_000_000 }]);
+
+		const read = await readPersonnelDocuments(testPersonnelArtifactsContext(ctx), {
+			personnelId: 'person-1',
+			limit: 2
+		});
+
+		expect(read.records.map((record) => record.id)).toEqual(['newest', 'middle']);
+		expect(read.total).toBe(3);
+		expect(read.usedBytes).toBe(7_000);
+		expect(read.capBytes).toBe(25_000_000);
+	});
+
+	it('lists the rest from an offset', async () => {
+		const ctx = seededContext();
+
+		const rest = await listPersonnelDocuments(testPersonnelArtifactsContext(ctx), 'person-1', 2, { offset: 2 });
+
+		expect(rest.map((record) => record.id)).toEqual(['oldest']);
 	});
 });

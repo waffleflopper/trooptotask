@@ -1,9 +1,4 @@
-import type {
-	PersonnelCounselingRecord,
-	PersonnelDocument,
-	PersonnelFollowUp,
-	PersonnelArchivedArtifact
-} from './personnelArtifact.types';
+import type { PersonnelFollowUp, PersonnelArchivedArtifact } from './personnelArtifact.types';
 import type { PersonnelLeaderNote } from './personnelLeaderNote.types';
 import type { PersonnelExtendedInfo } from './personnelExtendedInfo.types';
 import type { Personnel } from './personnel.types';
@@ -26,22 +21,6 @@ export interface PersonnelDetailLayoutStreams {
 	readinessBadge: Promise<PersonnelAttention['readinessBadge'] | null>;
 }
 
-export interface PersonnelCounselingsPageData {
-	orgId: string;
-	personnelId: string;
-	title: string;
-	emptyState: string;
-	records: PersonnelCounselingRecord[];
-}
-
-export interface PersonnelDocumentsPageData {
-	orgId: string;
-	personnelId: string;
-	title: string;
-	emptyState: string;
-	records: PersonnelDocument[];
-}
-
 /** The newest notes and how many active notes the Soldier has in all. */
 export interface PersonnelLogNotes {
 	notes: PersonnelLeaderNote[];
@@ -52,11 +31,6 @@ export interface PersonnelLogPageData {
 	/** Open and completed follow-ups. */
 	followUps: Promise<PersonnelFollowUp[]>;
 	notes: Promise<PersonnelLogNotes>;
-}
-
-export interface PersonnelFilesPageData {
-	counselings: PersonnelCounselingsPageData;
-	documents: PersonnelDocumentsPageData;
 }
 
 export interface PersonnelDataSheetPageData {

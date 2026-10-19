@@ -8,12 +8,35 @@ export interface PersonnelCounselingRecord {
 	title: string;
 	summary?: string;
 	status: 'uploaded' | 'needs-title' | 'archived';
+	/** Free text naming the leader who held the session; null when the uploader gave none. */
+	conductedBy: string | null;
 	uploadedBy: string;
 	fileName: string;
 	createdAt: string;
 	archivedAt?: string | null;
 	/** Organization member label; null when archived before attribution or by a Person archive. */
 	archivedBy?: string | null;
+}
+
+/** Counseling coverage and the first page of records; older records page in through the list route. */
+export interface PersonnelCounselingsRead {
+	records: PersonnelCounselingRecord[];
+	/** Active records, whatever the page. */
+	total: number;
+	/** The viewer's uploader label, prefilled as the next record's conductor. */
+	uploaderLabel: string | null;
+	/** `YYYY-MM` of every month in the 12-month window ending at the viewer's day that has a counseling. */
+	coveredMonths: string[];
+	/** The newest conducted date on or before the viewer's day, whatever the page. */
+	lastConductedOn: string | null;
+}
+
+export interface PersonnelDocumentsRead {
+	records: PersonnelDocument[];
+	/** Active documents, whatever the page. */
+	total: number;
+	usedBytes: number;
+	capBytes: number;
 }
 
 export interface PersonnelDocument {

@@ -15,7 +15,7 @@ import { fail } from '$lib/errors';
 
 type ArtifactTable = 'counseling_records' | 'personnel_documents' | 'personnel_follow_ups' | 'leader_notes';
 const COUNSELING_RECORDS_SELECT =
-	'id,personnel_id,date_conducted,title,subject,summary,notes,uploaded_by,file_path,created_at,archived_at,archived_by';
+	'id,personnel_id,date_conducted,title,subject,summary,notes,uploaded_by,conducted_by,file_path,created_at,archived_at,archived_by';
 const PERSONNEL_DOCUMENTS_SELECT =
 	'id,personnel_id,title,file_path,file_size_bytes,content_type,uploaded_by,created_at,archived_at,archived_by';
 const PERSONNEL_FOLLOW_UPS_SELECT =
@@ -160,6 +160,7 @@ export function createSupabasePersonnelArtifactWritePort(
 							subject: input.title,
 							summary: input.summary,
 							notes: input.summary,
+							conducted_by: input.conductedBy,
 							uploaded_by: input.uploadedBy,
 							file_path: input.filePath,
 							status: 'completed',
@@ -374,10 +375,17 @@ export function createSupabasePersonnelArtifactWritePort(
 						bucket,
 						path
 					});
-					const { data, error } = await admin.storage.from(bucket).upload(path, file, { upsert: false });
-					if (error) throw new Error(`Storage upload failed: ${error.message}`);
-					if (data?.path !== path || data.fullPath !== `${bucket}/${path}`)
-						throw new Error('Storage upload was not acknowledged');
+					try {
+						const { data, error } = await admin.storage.from(bucket).upload(path, file, { upsert: false });
+						if (error) throw new Error(`Storage upload failed: ${error.message}`);
+						if (data?.path !== path || data.fullPath !== `${bucket}/${path}`)
+							throw new Error('Storage upload was not acknowledged');
+					} catch (error) {
+						// A failed upload may still have stored bytes; retire the key before releasing the registration.
+						await writer.reconcileFileAttachment(kind, path);
+						await registration.complete();
+						throw error;
+					}
 					return registration;
 				},
 				async deleteArchivedFileArtifact(kind, id, archivedAt) {

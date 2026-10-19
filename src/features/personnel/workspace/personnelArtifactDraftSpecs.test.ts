@@ -29,13 +29,20 @@ describe('personnel artifact draft specs', () => {
 			message: 'Enter a document title.'
 		});
 		expect(
-			counselingRecordDraftSpec.validate({ dateConducted: '2026-05-20', title: 'Monthly', summary: '', file: null })
+			counselingRecordDraftSpec.validate({
+				dateConducted: '2026-05-20',
+				title: 'Monthly',
+				summary: '',
+				conductedBy: '',
+				file: null
+			})
 		).toEqual({ field: 'file', message: 'Choose a signed counseling PDF.' });
 		expect(
 			counselingRecordDraftSpec.validate({
 				dateConducted: '2026-05-20',
 				title: '',
 				summary: '',
+				conductedBy: '',
 				file: new File(['counseling'], 'monthly.pdf')
 			})
 		).toEqual({ field: 'title', message: 'Enter a counseling title.' });
@@ -87,12 +94,13 @@ describe('personnel artifact draft specs', () => {
 		expect((encoded.body as FormData).get('file')).toBe(file);
 	});
 
-	it('encodes counseling uploads as multipart form data and keeps the selected date after reset', () => {
+	it('encodes counseling uploads as multipart form data and keeps the selected date and conductor after reset', () => {
 		const file = new File(['counseling'], 'monthly.pdf', { type: 'application/pdf' });
 		const input = {
 			dateConducted: '2026-05-20',
 			title: ' Monthly counseling ',
 			summary: ' Goals reviewed ',
+			conductedBy: ' SSG Alvarez ',
 			file
 		};
 		const encoded = counselingRecordDraftSpec.encode(input);
@@ -101,11 +109,13 @@ describe('personnel artifact draft specs', () => {
 		expect((encoded.body as FormData).get('dateConducted')).toBe('2026-05-20');
 		expect((encoded.body as FormData).get('title')).toBe('Monthly counseling');
 		expect((encoded.body as FormData).get('summary')).toBe('Goals reviewed');
+		expect((encoded.body as FormData).get('conductedBy')).toBe('SSG Alvarez');
 		expect((encoded.body as FormData).get('file')).toBe(file);
 		expect(counselingRecordDraftSpec.reset?.(input)).toEqual({
 			dateConducted: '2026-05-20',
 			title: '',
 			summary: '',
+			conductedBy: ' SSG Alvarez ',
 			file: null
 		});
 	});

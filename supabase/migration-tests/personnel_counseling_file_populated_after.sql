@@ -21,7 +21,7 @@ SELECT 'public.sign_in_rosters', id, to_jsonb(row_value) FROM public.sign_in_ros
 UNION ALL
 SELECT 'storage.objects', id, to_jsonb(row_value) FROM storage.objects AS row_value WHERE id IN ('e9000000-0000-4000-8000-000000000501','e9000000-0000-4000-8000-000000000502','e9000000-0000-4000-8000-000000000503','e9000000-0000-4000-8000-000000000504','e9000000-0000-4000-8000-000000000505')
 UNION ALL
-SELECT 'public.counseling_records', id, to_jsonb(row_value) - 'archived_by' FROM public.counseling_records AS row_value WHERE organization_id = 'e9000000-0000-4000-8000-000000000101'
+SELECT 'public.counseling_records', id, to_jsonb(row_value) - 'archived_by' - 'conducted_by' FROM public.counseling_records AS row_value WHERE organization_id = 'e9000000-0000-4000-8000-000000000101'
 UNION ALL
 SELECT 'public.leader_notes', id, to_jsonb(row_value) - 'archived_by' - 'updated_at' FROM public.leader_notes AS row_value WHERE organization_id = 'e9000000-0000-4000-8000-000000000101'
 UNION ALL

@@ -67,7 +67,7 @@ INSERT INTO public.deletion_requests (
 CREATE VIEW upgrade_fixture.atomic_personnel_lifecycle_current_rows AS
 SELECT 'personnel'::text AS table_name, id::text AS row_id, to_jsonb(r) AS row_data FROM public.personnel r WHERE id::text LIKE 'f6432000-%'
 UNION ALL SELECT 'personnel_follow_ups', id::text, to_jsonb(r) - 'completed_by' - 'archived_by' FROM public.personnel_follow_ups r WHERE id::text LIKE 'f6432000-%'
-UNION ALL SELECT 'counseling_records', id::text, to_jsonb(r) - 'archived_by' FROM public.counseling_records r WHERE id::text LIKE 'f6432000-%'
+UNION ALL SELECT 'counseling_records', id::text, to_jsonb(r) - 'archived_by' - 'conducted_by' FROM public.counseling_records r WHERE id::text LIKE 'f6432000-%'
 UNION ALL SELECT 'personnel_documents', id::text, to_jsonb(r) - 'archived_by' FROM public.personnel_documents r WHERE id::text LIKE 'f6432000-%'
 UNION ALL SELECT 'leader_notes', id::text, to_jsonb(r) - 'archived_by' - 'updated_at' FROM public.leader_notes r WHERE id::text LIKE 'f6432000-%'
 UNION ALL SELECT 'deletion_requests', id::text, to_jsonb(r) FROM public.deletion_requests r WHERE id::text LIKE 'f6432000-%'

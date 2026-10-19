@@ -4,12 +4,8 @@ import {
 	loadPersonnelDocumentStorageCapBytes,
 	type OrganizationMemberLabelRow
 } from '$features/organization/index.server';
-import type {
-	PersonnelArtifactsContext,
-	CounselingRecordRow,
-	PersonnelDocumentRow,
-	FollowUpRow
-} from './personnelArtifactContext.server';
+import { SENSITIVE_FILE_BUCKET } from '$lib/storage/sensitiveFiles';
+import type { PersonnelArtifactsContext } from './personnelArtifactContext.server';
 
 /** In-memory collaborators for owned operation tests; SDK delivery has separate checks. */
 export function testPersonnelArtifactsContext(ctx: ReturnType<typeof createTestContext>): PersonnelArtifactsContext {
@@ -23,48 +19,14 @@ export function testPersonnelArtifactsContext(ctx: ReturnType<typeof createTestC
 				return (await ctx.rawStore.findOne<{ group_id: string | null }>('personnel', orgId, { id: personnelId }))
 					?.group_id;
 			},
-			listCounselingRecords: (personnelId, { archived, limit, onOrBefore }) =>
-				ctx.store.findMany<CounselingRecordRow>(
-					'counseling_records',
-					orgId,
-					{ personnel_id: personnelId },
-					{
-						orderBy: [
-							{ column: 'date_conducted', ascending: false },
-							{ column: 'created_at', ascending: false }
-						],
-						isNull: { archived_at: !archived },
-						rangeFilters: onOrBefore ? [{ column: 'date_conducted', op: 'lte', value: onOrBefore }] : undefined,
-						limit
-					}
-				),
-			listDocuments: (personnelId, { archived, limit }) =>
-				ctx.store.findMany<PersonnelDocumentRow>(
-					'personnel_documents',
-					orgId,
-					{ personnel_id: personnelId },
-					{ orderBy: [{ column: 'created_at', ascending: false }], isNull: { archived_at: !archived }, limit }
-				),
-			listFollowUps: (personnelId, { archived, limit }) =>
-				ctx.store.findMany<FollowUpRow>(
-					'personnel_follow_ups',
-					orgId,
-					{ personnel_id: personnelId, ...(archived ? { status: 'archived' } : {}) },
-					{
-						orderBy: [
-							{ column: 'status', ascending: false },
-							...(archived ? [{ column: 'archived_at', ascending: false }] : []),
-							{ column: 'created_at', ascending: false }
-						],
-						...(archived ? {} : { notInFilters: { status: ['archived'] } }),
-						limit
-					}
-				),
-			findDocument: (personnelId, documentId) =>
-				ctx.store.findOne<PersonnelDocumentRow>('personnel_documents', orgId, {
-					id: documentId,
-					personnel_id: personnelId
-				})
+			listCounselingRecords: ctx.artifactReads.listCounselingRecords,
+			countActiveCounselingRecords: ctx.artifactReads.countActiveCounselingRecords,
+			listActiveCounselingDates: ctx.artifactReads.listActiveCounselingDates,
+			findCounseling: ctx.artifactReads.findCounseling,
+			listDocuments: ctx.artifactReads.listDocuments,
+			summarizeActiveDocuments: ctx.artifactReads.summarizeActiveDocuments,
+			listFollowUps: ctx.artifactReads.listFollowUps,
+			findDocument: ctx.artifactReads.findDocument
 		},
 		writerFor(personnelId) {
 			if (!ctx.personnelArtifactWrites) throw new Error('Personnel artifact write port is required');
@@ -83,6 +45,8 @@ export function testPersonnelArtifactsContext(ctx: ReturnType<typeof createTestC
 			),
 		documentStorageCapBytes: () => loadPersonnelDocumentStorageCapBytes(ctx.organizationSettings, orgId),
 		createDocumentSignedUrl: (path, expiresInSeconds) =>
-			ctx.storage.createSignedUrl('personnel-documents', path, expiresInSeconds)
+			ctx.storage.createSignedUrl('personnel-documents', path, expiresInSeconds),
+		createCounselingSignedUrl: (path, expiresInSeconds) =>
+			ctx.storage.createSignedUrl(SENSITIVE_FILE_BUCKET, path, expiresInSeconds)
 	};
 }

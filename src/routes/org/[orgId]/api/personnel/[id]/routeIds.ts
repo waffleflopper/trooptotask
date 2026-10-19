@@ -24,3 +24,20 @@ export function routeArtifactIds<TParam extends string>(
 		string
 	>;
 }
+
+export const ARTIFACT_PAGE_SIZE = 25;
+const MAX_ARTIFACT_PAGE_SIZE = 100;
+
+/** Reads `?limit=&offset=`, answering 400 to anything that is not a whole number in range. */
+export function routeArtifactPage(event: Pick<RequestEvent, 'url'>): { limit: number; offset: number } {
+	const whole = (name: string, fallback: number, max: number) => {
+		const raw = event.url.searchParams.get(name);
+		if (raw === null) return fallback;
+		const value = Number(raw);
+		if (!/^\d+$/.test(raw) || value > max) fail(400, `Invalid ${name}`);
+		return value;
+	};
+	const limit = whole('limit', ARTIFACT_PAGE_SIZE, MAX_ARTIFACT_PAGE_SIZE);
+	if (limit < 1) fail(400, 'Invalid limit');
+	return { limit, offset: whole('offset', 0, Number.MAX_SAFE_INTEGER) };
+}

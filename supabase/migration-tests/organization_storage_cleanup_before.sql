@@ -77,7 +77,7 @@ UNION ALL SELECT 'public.personnel', id::text, to_jsonb(row_value)
   FROM public.personnel AS row_value WHERE id::text LIKE 'fa170000-%'
 UNION ALL SELECT 'public.sign_in_rosters', id::text, to_jsonb(row_value)
   FROM public.sign_in_rosters AS row_value WHERE id::text LIKE 'fa170000-%'
-UNION ALL SELECT 'public.counseling_records', id::text, to_jsonb(row_value) - 'archived_by'
+UNION ALL SELECT 'public.counseling_records', id::text, to_jsonb(row_value) - 'archived_by' - 'conducted_by'
   FROM public.counseling_records AS row_value WHERE id::text LIKE 'fa170000-%'
 UNION ALL SELECT 'public.personnel_documents', id::text, to_jsonb(row_value) - 'archived_by'
   FROM public.personnel_documents AS row_value WHERE id::text LIKE 'fa170000-%'

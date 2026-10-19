@@ -84,7 +84,13 @@ describe('ArtifactDraft', () => {
 
 		expect(saved).toBe(false);
 		expect(draft.error).toBe('Date conducted cannot be in the future.');
-		expect(draft.fields).toEqual({ dateConducted: '2099-01-01', title: 'Initial counseling', summary: '', file });
+		expect(draft.fields).toEqual({
+			dateConducted: '2099-01-01',
+			title: 'Initial counseling',
+			summary: '',
+			conductedBy: '',
+			file
+		});
 	});
 
 	it('keeps the fallback for a server failure or a lost connection', async () => {

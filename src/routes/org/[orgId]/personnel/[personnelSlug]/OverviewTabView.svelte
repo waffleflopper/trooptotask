@@ -262,7 +262,7 @@
 						>
 						<span class="text-sm text-muted-foreground">{formatDayMonth(record.dateConducted)}</span>
 					</p>
-					<p class="text-sm">{record.title} · {record.uploadedBy}</p>
+					<p class="text-sm">{record.title} · {record.conductedBy ?? record.uploadedBy}</p>
 				{:else}
 					<p class="text-sm text-muted-foreground">No counseling on record.</p>
 				{/if}

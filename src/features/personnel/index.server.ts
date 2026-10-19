@@ -107,6 +107,8 @@ export type {
 } from './personnelArtifactContext.server';
 export {
 	listPersonnelCounselingRecords,
+	readPersonnelCounselings,
+	createPersonnelCounselingDownloadUrl,
 	readLastPersonnelCounseling,
 	createPersonnelCounselingRecord,
 	archivePersonnelCounselingRecord,
@@ -117,6 +119,7 @@ export {
 export type { PersonnelCounselingRecordInput } from './personnelCounselingRecords.server';
 export {
 	listPersonnelDocuments,
+	readPersonnelDocuments,
 	createPersonnelDocument,
 	createPersonnelDocumentDownloadUrl,
 	archivePersonnelDocument,

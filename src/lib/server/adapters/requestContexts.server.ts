@@ -6,6 +6,7 @@ import {
 	createSupabasePersonnelGovernanceDeletionPort,
 	createSupabasePersonnelLifecycleCommands
 } from '$features/personnel/index.server';
+import { SENSITIVE_FILE_BUCKET } from '$lib/storage/sensitiveFiles';
 import { createSupabaseApprovedRatingSchemeDeletionPort } from '$features/rating-scheme/index.server';
 import { createSupabaseApprovedTrainingDeletionPort } from '$features/training/index.server';
 import { createSupabaseDashboardExportReader } from '$features/dashboard/index.server';
@@ -209,7 +210,11 @@ export function createPersonnelArtifactDeliveryContext(
 				return row?.groupId;
 			},
 			listCounselingRecords: request.artifactReads.listCounselingRecords,
+			countActiveCounselingRecords: request.artifactReads.countActiveCounselingRecords,
+			listActiveCounselingDates: request.artifactReads.listActiveCounselingDates,
+			findCounseling: request.artifactReads.findCounseling,
 			listDocuments: request.artifactReads.listDocuments,
+			summarizeActiveDocuments: request.artifactReads.summarizeActiveDocuments,
 			listFollowUps: request.artifactReads.listFollowUps,
 			findDocument: request.artifactReads.findDocument
 		},
@@ -219,7 +224,9 @@ export function createPersonnelArtifactDeliveryContext(
 		contributorLabels: (userIds) => organizationSettings.findMemberLabels(orgId, userIds),
 		documentStorageCapBytes: () => loadPersonnelDocumentStorageCapBytes(organizationSettings, orgId),
 		createDocumentSignedUrl: (filePath, expiresInSeconds) =>
-			storage.createSignedUrl('personnel-documents', filePath, expiresInSeconds)
+			storage.createSignedUrl('personnel-documents', filePath, expiresInSeconds),
+		createCounselingSignedUrl: (filePath, expiresInSeconds) =>
+			storage.createSignedUrl(SENSITIVE_FILE_BUCKET, filePath, expiresInSeconds)
 	};
 }
 

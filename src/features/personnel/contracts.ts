@@ -416,11 +416,8 @@ export type {
 	PersonnelDetailHeader,
 	PersonnelDetailLayoutStreams,
 	PersonnelDetailTabCounts,
-	PersonnelCounselingsPageData,
-	PersonnelDocumentsPageData,
 	PersonnelLogNotes,
 	PersonnelLogPageData,
-	PersonnelFilesPageData,
 	PersonnelDataSheetPageData,
 	PersonnelArchivedPageData
 } from './personnel-detail.types';
@@ -503,6 +500,8 @@ export const personnelExtendedInfoInputSchema = z.object({
 
 export type {
 	PersonnelCounselingRecord,
+	PersonnelCounselingsRead,
+	PersonnelDocumentsRead,
 	PersonnelDocument,
 	PersonnelFollowUpStatus,
 	PersonnelFollowUp,

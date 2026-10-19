@@ -27,6 +27,7 @@ export interface CounselingRecordDraftInput {
 	dateConducted: string;
 	title: string;
 	summary: string;
+	conductedBy: string;
 	file: File | null;
 }
 
@@ -88,7 +89,7 @@ export const documentDraftSpec: ArtifactDraftSpec<DocumentDraftInput, PersonnelD
 };
 
 export const counselingRecordDraftSpec: ArtifactDraftSpec<CounselingRecordDraftInput, PersonnelCounselingRecord> = {
-	createEmptyInput: () => ({ dateConducted: todayIsoDate(), title: '', summary: '', file: null }),
+	createEmptyInput: () => ({ dateConducted: todayIsoDate(), title: '', summary: '', conductedBy: '', file: null }),
 	endpoint: ({ orgId, personId }) => `/org/${orgId}/api/personnel/${personId}/counseling-records`,
 	validate: (input) => {
 		if (!input.file) return { field: 'file', message: 'Choose a signed counseling PDF.' };
@@ -100,11 +101,18 @@ export const counselingRecordDraftSpec: ArtifactDraftSpec<CounselingRecordDraftI
 		formData.set('dateConducted', input.dateConducted);
 		formData.set('title', input.title.trim());
 		formData.set('summary', input.summary.trim());
+		formData.set('conductedBy', input.conductedBy.trim());
 		formData.set('file', input.file as File);
 		return { body: formData };
 	},
 	errorFallback: 'Unable to upload counseling PDF.',
-	reset: (input) => ({ dateConducted: input.dateConducted, title: '', summary: '', file: null }),
+	reset: (input) => ({
+		dateConducted: input.dateConducted,
+		title: '',
+		summary: '',
+		conductedBy: input.conductedBy,
+		file: null
+	}),
 	selectFile: (input, file) => {
 		input.file = file;
 	}

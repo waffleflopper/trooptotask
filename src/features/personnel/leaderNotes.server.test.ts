@@ -335,3 +335,120 @@ describe('personnel leader notes', () => {
 		});
 	});
 });
+
+describe('leader note write responses', () => {
+	const AUTHOR_USER_ID = '22222222-2222-4222-8222-222222222222';
+	const operateOnly = {
+		role: 'member' as const,
+		isPrivileged: false,
+		capabilityMap: {
+			calendar: 'none' as const,
+			personnel: 'operate' as const,
+			training: 'none' as const,
+			criticalTasks: 'none' as const,
+			onboarding: 'none' as const,
+			ratingScheme: 'none' as const
+		}
+	};
+	const ids = { personnelId: 'person-1', noteId: 'note-1' };
+
+	function seededNote(auth: NonNullable<Parameters<typeof createTestContext>[0]>['auth'] = {}) {
+		const ctx = createTestContext({ auth: { scopeSet: { kind: 'organization' }, ...auth } });
+		seedPersonnel(ctx);
+		ctx.store.seed('organization_memberships', [
+			{ id: 'membership-2', organization_id: ctx.auth.orgId, user_id: AUTHOR_USER_ID, email: 'author@example.com' }
+		]);
+		ctx.store.seed('leader_notes', [
+			{
+				id: 'note-1',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'person-1',
+				author: AUTHOR_USER_ID,
+				text: 'First draft',
+				created_at: '2026-05-01T10:00:00Z',
+				updated_at: '2026-05-01T10:00:00Z'
+			}
+		]);
+		return ctx;
+	}
+
+	function withFailingLookup(ctx: ReturnType<typeof createTestContext>) {
+		return {
+			...testLeaderNoteContext(ctx),
+			contributorLabels: async (): Promise<Map<string, string>> => {
+				throw new Error('label lookup failed');
+			}
+		};
+	}
+
+	it('tells an editor who may read sensitive records who wrote the note and when', async () => {
+		const ctx = seededNote();
+
+		const saved = await updatePersonnelLeaderNote(testLeaderNoteContext(ctx), { ...ids, text: 'Second draft' });
+
+		expect(saved).toMatchObject({
+			id: 'note-1',
+			text: 'Second draft',
+			author: 'author@example.com',
+			createdAt: '2026-05-01T10:00:00Z'
+		});
+	});
+
+	it('tells an editor who may not read sensitive records only that the note was saved', async () => {
+		const ctx = seededNote(operateOnly);
+
+		const saved = await updatePersonnelLeaderNote(testLeaderNoteContext(ctx), { ...ids, text: 'Second draft' });
+
+		expect(saved).toEqual({ id: 'note-1', archivedAt: null });
+		expect(await ctx.store.findOne('leader_notes', ctx.auth.orgId, { id: 'note-1' })).toMatchObject({
+			text: 'Second draft'
+		});
+	});
+
+	it('still reports a saved edit when the access check after the write fails', async () => {
+		const ctx = seededNote();
+		const base = testLeaderNoteContext(ctx);
+		let lookups = 0;
+		const context = {
+			...base,
+			persistence: {
+				...base.persistence,
+				async findPersonnelGroup(personnelId: string) {
+					if (++lookups > 1) throw new Error('group lookup failed');
+					return base.persistence.findPersonnelGroup(personnelId);
+				}
+			}
+		};
+
+		const saved = await updatePersonnelLeaderNote(context, { ...ids, text: 'Second draft' });
+
+		expect(saved).toEqual({ id: 'note-1', archivedAt: null });
+		expect(await ctx.store.findOne('leader_notes', ctx.auth.orgId, { id: 'note-1' })).toMatchObject({
+			text: 'Second draft'
+		});
+	});
+
+	it('still reports a created note, once, without naming its author when the name lookup fails', async () => {
+		const ctx = seededNote();
+
+		const created = await createPersonnelLeaderNote(withFailingLookup(ctx), {
+			personnelId: 'person-1',
+			text: 'Counseled on punctuality.'
+		});
+
+		expect(created).toMatchObject({ text: 'Counseled on punctuality.', author: 'Unknown leader' });
+		const stored = await ctx.store.findMany('leader_notes', ctx.auth.orgId, { personnel_id: 'person-1' });
+		expect(stored).toHaveLength(2);
+	});
+
+	it('still reports an edited note without naming its author when the name lookup fails', async () => {
+		const ctx = seededNote();
+
+		const saved = await updatePersonnelLeaderNote(withFailingLookup(ctx), { ...ids, text: 'Second draft' });
+
+		expect(saved).toMatchObject({ id: 'note-1', text: 'Second draft', author: 'Unknown leader' });
+		expect(await ctx.store.findOne('leader_notes', ctx.auth.orgId, { id: 'note-1' })).toMatchObject({
+			text: 'Second draft'
+		});
+	});
+});

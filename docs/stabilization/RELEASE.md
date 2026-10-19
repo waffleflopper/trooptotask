@@ -746,6 +746,16 @@ Apply the migration before the application release. Without it the new applicati
 
 An application rollback can leave the table, bucket and commands in place. Dropping them needs a reverse migration that preserves the recorded history and stored certificates. After release, confirm through ordinary authorized use that a Training operator can log a completion with a PDF certificate on a Person's Readiness tab, open the certificate, see the replaced completion in History and correct it, and that a Training configurator can mark an exemptible item exempt while an operator cannot. Repository CI operates disposable local databases and performs no remote migration. External deployment settings are uninspected.
 
+## Counseling conductor
+
+The candidate adds [`20261019000400_counseling_conducted_by.sql`](../../supabase/migrations/20261019000400_counseling_conducted_by.sql), SHA-256 `c217c17a8bad1071cfb577dd2f37a8fc736994a12914c33dd2719bd8dadf5b6b`, for the Personnel detail Files tab. It lands on the `feat/personnel-details-page` integration branch, and nothing deploys until that branch merges to main. The migration is not yet applied anywhere outside disposable local databases. Its owner-operated migration gate is open. The agent neither inspected nor changed the remote database or hosted ledger.
+
+Applying it adds one nullable column and changes no existing row, policy or grant:
+
+- It adds `counseling_records.conducted_by`, free text of 1 to 120 characters with no surrounding whitespace, null when the uploader names no one. It records who held the session, which is often not the member who uploaded the file. It is not an attribution column. `uploaded_by` stays the stamped uploader and `conducted_by` is never derived from the signed-in user.
+
+Apply the migration before the application release. Without it the new application cannot read or save counselings, because each names the column. An old application instance against the migrated database keeps working and leaves the column empty. An application rollback can leave the column in place. Dropping it needs a reverse migration and loses the typed conductors. After release, confirm through ordinary authorized use that uploading a counseling on a Person's Files tab saves the typed conductor, that the row shows `Conducted by <name>` and that a row with no conductor shows `Uploaded by <name>`. Repository CI operates disposable local databases and performs no remote migration. External deployment settings are uninspected.
+
 ## Personnel Data sheet saver stamp
 
 The candidate adds [`20261019000500_personnel_extended_info_saver_stamp.sql`](../../supabase/migrations/20261019000500_personnel_extended_info_saver_stamp.sql), SHA-256 `98a3a16fd7ba6785e1bef590ef279115fb46f6a4f97622dbf68ee43217801bee`, for the Personnel detail Data sheet. It lands on the `feat/personnel-details-page` integration branch, and nothing deploys until that branch merges to main. The migration is not yet applied anywhere outside disposable local databases. Its owner-operated migration gate is open. The agent neither inspected nor changed the remote database or hosted ledger.

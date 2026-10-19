@@ -10,7 +10,13 @@ import {
 	type PersonnelArtifactArchiveState,
 	type PersonnelLeaderNote
 } from './contracts';
-import { contributorLabelsWithStamps, optionalContributorLabel } from './personnelArtifactContext.server';
+import {
+	canReadSensitivePersonnelArtifacts,
+	contributorLabelsForWriteResponse,
+	contributorLabelsWithStamps,
+	optionalContributorLabel,
+	UNNAMED_LEADER
+} from './personnelArtifactContext.server';
 import type { ActorStamp } from './personnelArtifactPersistence';
 import { fail } from '$lib/errors';
 import { issueMessage } from '$lib/utils/inputSchemas';
@@ -61,7 +67,7 @@ function mapLeaderNoteRow(row: LeaderNoteRow, labels: Map<string, string> = new 
 	return {
 		id: row.id,
 		personnelId: row.personnel_id,
-		author: row.author ? (labels.get(row.author) ?? row.author) : 'Unknown leader',
+		author: row.author ? (labels.get(row.author) ?? row.author) : UNNAMED_LEADER,
 		text: row.text,
 		createdAt: row.created_at,
 		archivedAt: row.archived_at ?? null,
@@ -76,6 +82,12 @@ async function mapRows(ctx: LeaderNoteContext, rows: LeaderNoteRow[]): Promise<P
 		rows.map((row) => row.archived_by)
 	);
 	return rows.map((row) => mapLeaderNoteRow(row, labels));
+}
+
+/** The note as a reader sees it. The write already committed, so a failed label lookup names no one instead of failing it. */
+async function mapWrittenRow(ctx: LeaderNoteContext, row: LeaderNoteRow): Promise<PersonnelLeaderNote> {
+	const labels = await contributorLabelsForWriteResponse(ctx, row.author ? [row.author] : [], [row.archived_by]);
+	return mapLeaderNoteRow(row, labels);
 }
 
 export async function listPersonnelLeaderNotes(
@@ -124,7 +136,7 @@ export async function createPersonnelLeaderNote(
 		createdAt: new Date().toISOString()
 	});
 	ctx.audit.log({ action: 'personnel.leader_note.created', resourceType: 'personnel', resourceId: input.personnelId });
-	return (await mapRows(ctx, [row]))[0];
+	return mapWrittenRow(ctx, row);
 }
 
 async function loadNote(ctx: LeaderNoteContext, personnelId: string, noteId: string): Promise<LeaderNoteRow> {
@@ -148,10 +160,11 @@ export async function archivePersonnelLeaderNote(
 	return { id: row.id, archivedAt: row.archived_at ?? null };
 }
 
+/** An editor without sensitive reads learns only that the note was saved, not who wrote it or when. */
 export async function updatePersonnelLeaderNote(
 	ctx: LeaderNoteContext,
 	rawInput: unknown
-): Promise<PersonnelLeaderNote> {
+): Promise<PersonnelLeaderNote | PersonnelArtifactArchiveState> {
 	const parsed = personnelLeaderNoteTextSchema.safeParse(rawInput);
 	if (!parsed.success) fail(400, issueMessage(parsed.error));
 	const input = parsed.data;
@@ -159,7 +172,10 @@ export async function updatePersonnelLeaderNote(
 	if (existing.archived_at) fail(409, 'Archived leader notes cannot be edited');
 	const row = await ctx.persistence.setText(input.personnelId, input.noteId, input.text, new Date().toISOString());
 	ctx.audit.log({ action: 'personnel.leader_note.updated', resourceType: 'personnel', resourceId: input.personnelId });
-	return (await mapRows(ctx, [row]))[0];
+	if (!(await canReadSensitivePersonnelArtifacts(ctx, input.personnelId))) {
+		return { id: row.id, archivedAt: row.archived_at ?? null };
+	}
+	return mapWrittenRow(ctx, row);
 }
 
 export async function restorePersonnelLeaderNote(

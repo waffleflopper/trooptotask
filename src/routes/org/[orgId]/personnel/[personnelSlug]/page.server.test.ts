@@ -135,7 +135,7 @@ describe('personnel Overview page server load', () => {
 		});
 		ctx.store.seed('counseling_records', [
 			counseling('september', 'person-9', '2026-09-01'),
-			counseling('october', 'person-9', '2026-10-01'),
+			{ ...counseling('october', 'person-9', '2026-10-01'), conducted_by: 'SSG Hill' },
 			counseling('archived', 'person-9', '2026-10-05', '2026-10-06T00:00:00Z'),
 			counseling('scheduled', 'person-9', '2026-10-25'),
 			counseling('someone-else', 'person-other', '2026-10-10')
@@ -144,7 +144,11 @@ describe('personnel Overview page server load', () => {
 		try {
 			const result = await overviewLoad(ctx)(detailEvent());
 
-			await expect(result.overview.lastCounseling).resolves.toMatchObject({ id: 'october', personnelId: 'person-9' });
+			await expect(result.overview.lastCounseling).resolves.toMatchObject({
+				id: 'october',
+				personnelId: 'person-9',
+				conductedBy: 'SSG Hill'
+			});
 			await expect(result.overview.latestNote).resolves.toBeNull();
 		} finally {
 			vi.useRealTimers();

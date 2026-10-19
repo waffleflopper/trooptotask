@@ -121,7 +121,8 @@ function overview(overrides: Partial<Overview> = {}): Overview {
 			dateConducted: '2026-10-03',
 			title: 'Monthly performance',
 			status: 'uploaded',
-			uploadedBy: 'SSG Alvarez',
+			conductedBy: 'SSG Alvarez',
+			uploadedBy: 'SFC Diaz',
 			fileName: 'monthly.pdf',
 			createdAt: '2026-10-03T15:00:00Z'
 		}),
@@ -182,6 +183,27 @@ describe('Personnel Overview', () => {
 		expect(within(counseled).getByText('3 days ago')).toBeTruthy();
 		expect(within(counseled).getByText('Monthly performance · SSG Alvarez')).toBeTruthy();
 		expect(screen.getByText('“Ready for the board.”')).toBeTruthy();
+	});
+
+	it('names the uploader on the Last counseled card when no conductor was recorded', async () => {
+		renderOverview(
+			overview({
+				lastCounseling: Promise.resolve({
+					id: 'counseling-2',
+					personnelId: 'person-1',
+					dateConducted: '2026-10-03',
+					title: 'Monthly performance',
+					status: 'uploaded',
+					conductedBy: null,
+					uploadedBy: 'SFC Diaz',
+					fileName: 'monthly.pdf',
+					createdAt: '2026-10-03T15:00:00Z'
+				})
+			})
+		);
+
+		const counseled = await screen.findByRole('region', { name: 'Last counseled' });
+		expect(await within(counseled).findByText('Monthly performance · SFC Diaz')).toBeTruthy();
 	});
 
 	it('hides the Calendar and the rating chain when the viewer may not read them', async () => {

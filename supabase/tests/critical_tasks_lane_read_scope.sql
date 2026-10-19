@@ -138,11 +138,13 @@ INSERT INTO public.organization_memberships (
 INSERT INTO public.user_suspensions (user_id, suspended_by, reason) VALUES
 ('b8000000-0000-4000-8000-000000000010', 'b8000000-0000-4000-8000-000000000007', 'Synthetic account suspension');
 
--- The replaced policy's predicate, evaluated as the table owner for the current claims.
+-- The replaced per-row rule (can_view_personnel_ict_completion_record), evaluated
+-- as the table owner for the current claims.
 CREATE FUNCTION pg_temp.replaced_completion_policy_ids() RETURNS SETOF uuid
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
   SELECT c.id FROM public.personnel_ict_completions c
-  WHERE public.can_view_personnel_ict_completion_record(c.organization_id, c.personnel_id);
+  WHERE public.member_access_has_capability(c.organization_id, 'criticalTasks', 'view')
+    AND public.critical_tasks_personnel_scope_matches(c.organization_id, c.personnel_id);
 $$;
 
 CREATE TEMP TABLE completion_read_matrix (actor integer, label text, expected uuid[]);
@@ -177,6 +179,41 @@ BEGIN
 END;
 $$;
 SELECT * FROM pg_temp.completion_read_matrix();
+
+-- Read-model RPCs: the newest active completion per Person and task, and monthly
+-- counts of active completions, for exactly the People each actor may view.
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', 'b8000000-0000-4000-8000-000000000003', true);
+SELECT set_eq($$SELECT id FROM public.latest_active_personnel_ict_completions('b8000000-0000-4000-8000-000000000101')$$,
+              ARRAY['b8000000-0000-4000-8000-000000000502','b8000000-0000-4000-8000-000000000504','b8000000-0000-4000-8000-000000000505']::uuid[],
+              'Organization-wide viewer: latest RPC covers every active Group and unassigned Person');
+SELECT set_eq($$SELECT month, completions FROM public.active_personnel_ict_completion_trend('b8000000-0000-4000-8000-000000000101')$$,
+              $$VALUES ('2026-06', 3), ('2026-07', 1)$$,
+              'Organization-wide viewer: trend counts every active Person');
+SELECT set_config('request.jwt.claim.sub', 'b8000000-0000-4000-8000-000000000001', true);
+SELECT set_eq($$SELECT id FROM public.latest_active_personnel_ict_completions('b8000000-0000-4000-8000-000000000101')$$,
+              ARRAY['b8000000-0000-4000-8000-000000000502']::uuid[],
+              'Group viewer: latest RPC covers only its Group''s active Person');
+SELECT set_eq($$SELECT month, completions FROM public.active_personnel_ict_completion_trend('b8000000-0000-4000-8000-000000000101')$$,
+              $$VALUES ('2026-06', 1), ('2026-07', 1)$$,
+              'Group viewer: trend counts only its Group');
+SELECT set_config('request.jwt.claim.sub', 'b8000000-0000-4000-8000-000000000005', true);
+SELECT is_empty($$SELECT id FROM public.latest_active_personnel_ict_completions('b8000000-0000-4000-8000-000000000101')$$,
+                'member without Critical Tasks view: latest RPC returns nothing');
+SELECT is_empty($$SELECT month FROM public.active_personnel_ict_completion_trend('b8000000-0000-4000-8000-000000000101')$$,
+                'member without Critical Tasks view: trend returns nothing');
+SELECT set_config('request.jwt.claim.sub', 'b8000000-0000-4000-8000-000000000006', true);
+SELECT is_empty($$SELECT id FROM public.latest_active_personnel_ict_completions('b8000000-0000-4000-8000-000000000101')$$,
+                'owner of another Organization: latest RPC returns nothing here');
+SELECT is_empty($$SELECT month FROM public.active_personnel_ict_completion_trend('b8000000-0000-4000-8000-000000000101')$$,
+                'owner of another Organization: trend returns nothing here');
+SELECT set_eq($$SELECT id FROM public.latest_active_personnel_ict_completions('b8000000-0000-4000-8000-000000000102')$$,
+              ARRAY['b8000000-0000-4000-8000-000000000507']::uuid[],
+              'owner of another Organization: latest RPC covers its own Organization');
+SELECT set_eq($$SELECT month, completions FROM public.active_personnel_ict_completion_trend('b8000000-0000-4000-8000-000000000102')$$,
+              $$VALUES ('2026-06', 1)$$,
+              'owner of another Organization: trend counts its own Organization');
+RESET ROLE;
 
 SELECT * FROM finish();
 ROLLBACK;

@@ -4,7 +4,7 @@ import { journeyFor, journeys, monthLabels } from './perf-journeys.mjs';
 
 test('an unknown or wrong-kind journey is refused with the journeys of that kind', () => {
 	const loads =
-		'Use a load journey: calendar-initial, personnel-list, dashboard, training-report, critical-tasks-report, members-list, admin-users.';
+		'Use a load journey: calendar-initial, personnel-list, personnel-detail-direct, dashboard, training-report, critical-tasks-report, members-list, admin-users.';
 	assert.throws(() => journeyFor('calendar-month', 'perfWide', 'load'), { message: loads });
 	assert.throws(() => journeyFor('personnel-search', 'perfWide', 'load'), { message: loads });
 });

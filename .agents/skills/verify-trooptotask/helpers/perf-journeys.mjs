@@ -12,9 +12,9 @@
 // `absentSelector` matches, each `count` selector matches exactly that many elements and, with
 // `download`, the page has created a file download. The last milestone, `useful`, is the first useful render.
 //
-// A step is one native browser action: `click` or `fill` a control named in the accessibility
-// snapshot (optionally inside a named row), `type` text into the focused element, `press` a
-// key, `upload` a prepared file, or `wait` for any of some texts.
+// A step is one native browser action: `click`, `hover` or `fill` a control named in the
+// accessibility snapshot (optionally inside a named row), `type` text into the focused element,
+// `press` a key, `upload` a prepared file, or `wait` for any of some texts.
 //
 // `reset` names the cleanup run after every sample that would otherwise leave the next one a
 // different start, and `limit` names the app rate limit the samples must stay under.
@@ -70,6 +70,28 @@ const openDetail = (terms) => [
 const detailOpen = { presentSelector: ['[aria-label="Readiness summary"]'] };
 // Each pending lane and panel is named "<Lane> loading" until its stream settles.
 const detailSettled = { ...detailOpen, absentSelector: ['[aria-label$=" loading"]', skeleton] };
+const detailPath = (terms) => org(terms, `/personnel/${terms.edit.slug}`);
+// A tab is a route, so its link is current only once that route's data has loaded.
+const detailTab = {
+	role: 'link',
+	name: 'Follow-ups',
+	within: { role: 'navigation', name: 'Personnel detail sections' }
+};
+const detailTabShown = {
+	presentSelector: ['a[aria-current="page"][href$="/follow-ups"]'],
+	absentSelector: ['[aria-label$=" loading"]', skeleton]
+};
+const detailTabSwitch = (hover) => ({
+	area: 'personnel',
+	kind: 'interaction',
+	effect: 'read',
+	actors: detailActors,
+	path: detailPath,
+	ready: () => [{ name: 'ready', ...detailSettled }],
+	prepare: () => (hover ? [{ hover: detailTab }] : []),
+	trigger: () => ({ click: detailTab }),
+	milestones: () => [{ name: 'useful', ...detailTabShown }]
+});
 
 export const journeys = {
 	'calendar-initial': {
@@ -200,6 +222,21 @@ export const journeys = {
 			{ name: 'useful', ...detailSettled }
 		]
 	},
+	// A full document load of a detail URL runs every layout above it, the Personnel workspace included.
+	'personnel-detail-direct': {
+		area: 'personnel',
+		kind: 'load',
+		effect: 'read',
+		actors: detailActors,
+		path: detailPath,
+		milestones: () => [
+			{ name: 'header', ...detailOpen },
+			{ name: 'useful', ...detailSettled }
+		]
+	},
+	'personnel-detail-tab': detailTabSwitch(false),
+	// Hovering a link preloads its route data, so the click usually finds it ready.
+	'personnel-detail-tab-hover': detailTabSwitch(true),
 	'personnel-edit': {
 		area: 'personnel',
 		kind: 'interaction',

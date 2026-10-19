@@ -139,40 +139,60 @@ describe('/api/personnel/[id]/leader-notes', () => {
 		});
 	});
 
-	it('edits the text of a note through PATCH', async () => {
-		const ctx = createTestContext({
-			auth: {
-				capabilityMap: {
-					calendar: 'view',
-					personnel: 'operate',
-					training: 'view',
-					criticalTasks: 'view',
-					onboarding: 'view',
-					ratingScheme: 'view'
-				},
-				scopeSet: { kind: 'organization' }
-			}
-		});
-		seedPersonnel(ctx);
-		ctx.store.seed('leader_notes', [
-			{
-				id: NOTE_ID,
-				organization_id: ctx.auth.orgId,
-				personnel_id: PERSON_ID,
-				author: 'test-user',
-				text: 'Observation',
-				created_at: '2026-05-01T10:00:00Z',
-				archived_at: null
-			}
-		]);
+	describe('editing the text of a note through PATCH', () => {
+		function seededNote(personnel: 'operate' | 'configure') {
+			const ctx = createTestContext({
+				auth: {
+					capabilityMap: {
+						calendar: 'view',
+						personnel,
+						training: 'view',
+						criticalTasks: 'view',
+						onboarding: 'view',
+						ratingScheme: 'view'
+					},
+					scopeSet: { kind: 'organization' }
+				}
+			});
+			seedPersonnel(ctx);
+			ctx.store.seed('leader_notes', [
+				{
+					id: NOTE_ID,
+					organization_id: ctx.auth.orgId,
+					personnel_id: PERSON_ID,
+					author: 'test-user',
+					text: 'Observation',
+					created_at: '2026-05-01T10:00:00Z',
+					archived_at: null
+				}
+			]);
+			return ctx;
+		}
 
-		const edited = await handleUseCaseRequest(
-			_patchConfig,
-			ctx,
-			{ personnelId: PERSON_ID, noteId: NOTE_ID, text: 'Observation, with the date' },
-			() => createPersonnelLeaderNoteDeliveryContext(ctx)
-		);
-		expect(edited).toMatchObject({ id: NOTE_ID, text: 'Observation, with the date' });
+		const edit = (ctx: ReturnType<typeof createTestContext>) =>
+			handleUseCaseRequest(
+				_patchConfig,
+				ctx,
+				{ personnelId: PERSON_ID, noteId: NOTE_ID, text: 'Observation, with the date' },
+				() => createPersonnelLeaderNoteDeliveryContext(ctx)
+			);
+
+		it('returns the saved note to a member who may read notes', async () => {
+			const edited = await edit(seededNote('configure'));
+
+			expect(edited).toMatchObject({ id: NOTE_ID, text: 'Observation, with the date' });
+		});
+
+		it('returns only an acknowledgement to a member who may edit but not read notes', async () => {
+			const ctx = seededNote('operate');
+
+			const edited = await edit(ctx);
+
+			expect(edited).toEqual({ id: NOTE_ID, archivedAt: null });
+			expect(await ctx.store.findOne('leader_notes', ctx.auth.orgId, { id: NOTE_ID })).toMatchObject({
+				text: 'Observation, with the date'
+			});
+		});
 	});
 
 	it('requires Personnel configure capability for sensitive note reads', async () => {

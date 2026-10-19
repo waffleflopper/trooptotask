@@ -20,10 +20,22 @@ function ratingSchemeActor(scopeSet: ReturnType<typeof createTestAuthContext>['s
 	});
 }
 
-function createPersonnelClient(rows: Array<Record<string, unknown>>) {
+function createPersonnelClient(rows: Array<Record<string, unknown>>, selections: string[] = []) {
 	let filtered = rows;
 	const query = {
-		select: () => query,
+		select: (columns: string) => {
+			selections.push(columns);
+			return query;
+		},
+		not: (column: string, operator: string, value: unknown) => {
+			if (operator !== 'is') throw new Error(`Unsupported negated operator ${operator}`);
+			filtered = filtered.filter((row) => row[column] !== value);
+			return query;
+		},
+		is: (column: string, value: unknown) => {
+			filtered = filtered.filter((row) => row[column] === value);
+			return query;
+		},
 		eq: (column: string, value: unknown) => {
 			filtered = filtered.filter((row) => row[column] === value);
 			return query;
@@ -99,6 +111,43 @@ describe('Personnel Rating Scheme roster port', () => {
 
 		await expect(port.listActiveReferences(actor)).rejects.toMatchObject({ status: 403 });
 		expect(rpc).not.toHaveBeenCalled();
+	});
+
+	it('lists archived rated Person IDs across the whole Organization through the rated-person join', async () => {
+		const rows = [
+			{ id: 'active-alpha', organization_id: 'org-1', group_id: 'group-1', archived_at: null },
+			{ id: 'archived-alpha', organization_id: 'org-1', group_id: 'group-1', archived_at: '2026-01-01' },
+			{ id: 'archived-bravo', organization_id: 'org-1', group_id: 'group-2', archived_at: '2026-02-01' },
+			{ id: 'archived-loose', organization_id: 'org-1', group_id: null, archived_at: '2026-03-01' },
+			{ id: 'archived-foreign', organization_id: 'org-2', group_id: 'group-1', archived_at: '2026-01-01' }
+		];
+		const selections: string[] = [];
+		const getAdminClient = createPersonnelClient(rows, selections);
+		const port = createSupabasePersonnelRatingSchemeRosterPort({} as SupabaseClient, getAdminClient);
+
+		await expect(
+			port.listArchivedRatedPersonIds(ratingSchemeActor({ kind: 'groups', groupIds: ['group-1'] }))
+		).resolves.toEqual(['archived-alpha', 'archived-bravo', 'archived-loose']);
+		expect(selections).toEqual(['id, rating_scheme_entries!rating_scheme_entries_rated_person_id_fkey!inner(id)']);
+	});
+
+	it('returns no archived IDs when no one is archived', async () => {
+		const rows = [{ id: 'active-alpha', organization_id: 'org-1', group_id: 'group-1', archived_at: null }];
+		const port = createSupabasePersonnelRatingSchemeRosterPort({} as SupabaseClient, createPersonnelClient(rows));
+		await expect(port.listArchivedRatedPersonIds(ratingSchemeActor())).resolves.toEqual([]);
+	});
+
+	it('denies archived-ID reads without Rating Scheme view before admin access', async () => {
+		const getAdminClient = vi.fn();
+		const port = createSupabasePersonnelRatingSchemeRosterPort(
+			{} as SupabaseClient,
+			getAdminClient as () => SupabaseClient
+		);
+		const actor = ratingSchemeActor();
+		actor.capabilityMap.ratingScheme = 'none';
+		actor.capabilityMap.personnel = 'view';
+		await expect(port.listArchivedRatedPersonIds(actor)).rejects.toMatchObject({ status: 403 });
+		expect(getAdminClient).not.toHaveBeenCalled();
 	});
 
 	it('resolves only same-Organization and in-Group write references, including archived People', async () => {

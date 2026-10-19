@@ -145,5 +145,7 @@ export interface RatingSchemeDuePort {
 }
 
 export { getRatingDueStatus } from './utils/ratingScheme';
+export { isArchivedPerson, toArchivedPersonIds } from './archivedPeople';
+export type { ArchivedPersonIds } from './archivedPeople';
 
 export type { RatingSchemeSupportReader } from './supportReadTypes';

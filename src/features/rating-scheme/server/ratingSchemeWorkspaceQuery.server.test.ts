@@ -20,11 +20,11 @@ const actor = {
 	scopeSet: { kind: 'groups' as const, groupIds: ['alpha'] }
 };
 const person = { id: 'person-alpha', rank: 'SGT', firstName: 'Synthetic', lastName: 'Able' };
-function row(id: string) {
+function row(id: string, ratedPersonId = person.id) {
 	return {
 		id,
 		organization_id: orgId,
-		rated_person_id: person.id,
+		rated_person_id: ratedPersonId,
 		eval_type: 'NCOER',
 		rater_person_id: null,
 		rater_name: 'External rater',
@@ -47,6 +47,7 @@ function context() {
 	const ctx = createTestContext({ auth: actor });
 	ctx.personnelRatingSchemeRoster = {
 		listActiveReferences: vi.fn().mockResolvedValue([person]),
+		listArchivedRatedPersonIds: vi.fn().mockResolvedValue([]),
 		findRatedPersonForWrite: vi.fn(),
 		hasEvaluatorReferences: vi.fn()
 	};
@@ -99,7 +100,7 @@ describe('Rating-owned Evals workspace', () => {
 	it('loads Rating-only references and complete tied-date pages with stable identities', async () => {
 		const ctx = context();
 		const ids = Array.from({ length: 1001 }, (_, i) => `entry-${String(i).padStart(4, '0')}`);
-		const provider = pagedStore(ids.map(row).reverse());
+		const provider = pagedStore(ids.map((id) => row(id)).reverse());
 		const result = await loadRatingSchemeWorkspace({ ...ctx, ratingScheme: provider.ratingScheme });
 		expect(result.personnelLookup).toEqual([person]);
 		expect(result.ratingSchemeEntries.map((entry) => entry.id)).toEqual(ids);
@@ -111,6 +112,29 @@ describe('Rating-owned Evals workspace', () => {
 			notes: 'Saved note'
 		});
 		expect(provider.requests.map((url) => url.searchParams.get('offset'))).toEqual(['0', '1000']);
+	});
+	it('omits entries whose rated Person is archived, matching IDs case-insensitively', async () => {
+		const ctx = context();
+		vi.mocked(ctx.personnelRatingSchemeRoster!.listArchivedRatedPersonIds).mockResolvedValue([
+			'PERSON-ARCHIVED',
+			'person-archived-lower'
+		]);
+		const provider = pagedStore([
+			row('entry-active'),
+			row('entry-archived', 'person-archived'),
+			row('entry-archived-upper', 'PERSON-ARCHIVED-LOWER'),
+			row('entry-other-active', 'person-bravo')
+		]);
+		const result = await loadRatingSchemeWorkspace({ ...ctx, ratingScheme: provider.ratingScheme });
+		expect(result.ratingSchemeEntries.map((entry) => entry.id)).toEqual(['entry-active', 'entry-other-active']);
+		expect(ctx.personnelRatingSchemeRoster?.listArchivedRatedPersonIds).toHaveBeenCalledWith(ctx.auth);
+	});
+	it('rejects an archived-ID provider failure rather than publishing archived entries', async () => {
+		const ctx = context();
+		vi.mocked(ctx.personnelRatingSchemeRoster!.listArchivedRatedPersonIds).mockRejectedValue(
+			new Error('Archived unavailable')
+		);
+		await expect(loadRatingSchemeWorkspace(ctx)).rejects.toThrow('Archived unavailable');
 	});
 	it('rejects a later-page failure rather than publishing a truncated workspace', async () => {
 		const ctx = context();
@@ -134,6 +158,7 @@ describe('Rating-owned Evals workspace', () => {
 		});
 		expect(listWorkspace).not.toHaveBeenCalled();
 		expect(ctx.personnelRatingSchemeRoster?.listActiveReferences).not.toHaveBeenCalled();
+		expect(ctx.personnelRatingSchemeRoster?.listArchivedRatedPersonIds).not.toHaveBeenCalled();
 	});
 	it('propagates a reference-provider failure', async () => {
 		const ctx = context();
@@ -162,11 +187,16 @@ describe('Rating-owned Evals workspace', () => {
 				started.add('references');
 				await wait;
 				return [person];
+			},
+			listArchivedRatedPersonIds: async () => {
+				started.add('archived');
+				await wait;
+				return [];
 			}
 		};
 		const pending = loadRatingSchemeWorkspace({ ...ctx, ratingScheme, personnelRatingSchemeRoster });
 		try {
-			await vi.waitFor(() => expect(started).toEqual(new Set(['entries', 'references'])));
+			await vi.waitFor(() => expect(started).toEqual(new Set(['entries', 'references', 'archived'])));
 		} finally {
 			release();
 		}

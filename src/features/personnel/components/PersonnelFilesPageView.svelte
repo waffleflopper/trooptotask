@@ -14,7 +14,8 @@
 		PersonnelDocumentsRead
 	} from '../contracts';
 	import { storageCaption, storageFraction } from '../fileLabels';
-	import { checkUploadFile, UPLOAD_ACCEPT, uploadIntentFromSearch, type UploadKind } from '../fileUploadRules';
+	import { PDF_OR_PHOTO_ACCEPT } from '$lib/storage/pdfOrPhotoFiles';
+	import { checkUploadFile, uploadIntentFromSearch, type UploadKind } from '../fileUploadRules';
 	import { refreshPersonnelDetailCounts } from '../workspace/detailCounts';
 	import PersonnelCounselingsSection from './PersonnelCounselingsSection.svelte';
 	import PersonnelDocumentsSection from './PersonnelDocumentsSection.svelte';
@@ -195,7 +196,7 @@
 			<Dropzone
 				title="Drop files to upload"
 				hint="PDF, JPG, PNG or HEIC up to 10 MB. You'll pick Counseling or Document next."
-				accept={UPLOAD_ACCEPT}
+				accept={PDF_OR_PHOTO_ACCEPT}
 				error={dropError}
 				onFiles={offer}
 			/>

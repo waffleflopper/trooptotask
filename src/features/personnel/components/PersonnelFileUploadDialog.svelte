@@ -9,7 +9,8 @@
 	import { Textarea } from '$lib/components/ui/textarea';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group';
 	import { fileTypeLabel, formatFileSize } from '../fileLabels';
-	import { checkUploadFile, UPLOAD_ACCEPT, withDeclaredType, type UploadKind } from '../fileUploadRules';
+	import { PDF_OR_PHOTO_ACCEPT, withDeclaredType } from '$lib/storage/pdfOrPhotoFiles';
+	import { checkUploadFile, type UploadKind } from '../fileUploadRules';
 	import { ArtifactDraft, type ArtifactDraftDeps } from '../workspace/artifactDraft.svelte';
 	import { counselingRecordDraftSpec, documentDraftSpec } from '../workspace/personnelArtifactDraftSpecs';
 
@@ -124,7 +125,7 @@
 							type="file"
 							class="sr-only"
 							tabindex="-1"
-							accept={UPLOAD_ACCEPT}
+							accept={PDF_OR_PHOTO_ACCEPT}
 							aria-labelledby="upload-file-label"
 							onchange={pick}
 						/>

@@ -4,7 +4,7 @@ import type { PersonnelArtifactWriter } from '$features/personnel/contracts';
 import type { FileCleanup } from '$features/organization/contracts';
 import { derivePersonnelDocumentTitle } from '$features/personnel/utils/documentTitles';
 import { fail } from '$lib/errors';
-import { hasPdfFileSignature } from '$lib/storage/fileSignatures';
+import { pdfOrPhotoFileProblem, type PdfOrPhotoProblem } from '$lib/storage/pdfOrPhotoFiles';
 import {
 	personnelArtifactWriter,
 	requirePersonnelArtifactAccess,
@@ -15,10 +15,6 @@ import {
 	type PersonnelDocumentRow
 } from './personnelArtifactContext.server';
 import { issueMessage } from '$lib/utils/inputSchemas';
-
-export const MAX_PERSONNEL_DOCUMENT_BYTES = 10 * 1024 * 1024;
-
-const ACCEPTED_DOCUMENT_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/heic', 'image/heif']);
 
 export interface PersonnelDocumentInput {
 	personnelId: string;
@@ -36,49 +32,16 @@ const documentInputSchema = z.object({
 	title: z.string().trim().max(160).optional()
 });
 
-function hasJpegSignature(bytes: Uint8Array): boolean {
-	return bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
-}
-
-function hasPngSignature(bytes: Uint8Array): boolean {
-	return (
-		bytes[0] === 0x89 &&
-		bytes[1] === 0x50 &&
-		bytes[2] === 0x4e &&
-		bytes[3] === 0x47 &&
-		bytes[4] === 0x0d &&
-		bytes[5] === 0x0a &&
-		bytes[6] === 0x1a &&
-		bytes[7] === 0x0a
-	);
-}
-
-function hasHeicSignature(bytes: Uint8Array): boolean {
-	if (bytes.length < 12) return false;
-	const brand = String.fromCharCode(...bytes.slice(8, 12));
-	return ['heic', 'heix', 'hevc', 'hevx', 'mif1', 'msf1'].includes(brand);
-}
-
-function matchesDeclaredType(file: File, bytes: Uint8Array): boolean {
-	if (file.type === 'application/pdf') return hasPdfFileSignature(bytes);
-	if (file.type === 'image/jpeg') return hasJpegSignature(bytes);
-	if (file.type === 'image/png') return hasPngSignature(bytes);
-	if (file.type === 'image/heic' || file.type === 'image/heif') return hasHeicSignature(bytes);
-	return false;
-}
+const DOCUMENT_FILE_PROBLEMS: Record<PdfOrPhotoProblem, [status: number, message: string]> = {
+	type: [400, 'Documents must be PDF, JPEG, PNG, or HEIC files.'],
+	size: [413, 'Documents must be 10MB or smaller.'],
+	contents: [400, 'Document contents must match the uploaded file type.']
+};
 
 async function assertAcceptedDocumentFile(file: File): Promise<void> {
 	if (!(file instanceof File)) fail(400, 'A document file is required.');
-	if (!ACCEPTED_DOCUMENT_TYPES.has(file.type)) {
-		fail(400, 'Documents must be PDF, JPEG, PNG, or HEIC files.');
-	}
-	if (file.size > MAX_PERSONNEL_DOCUMENT_BYTES) {
-		fail(413, 'Documents must be 10MB or smaller.');
-	}
-	const bytes = new Uint8Array(await file.slice(0, 16).arrayBuffer());
-	if (!matchesDeclaredType(file, bytes)) {
-		fail(400, 'Document contents must match the uploaded file type.');
-	}
+	const problem = await pdfOrPhotoFileProblem(file);
+	if (problem) fail(...DOCUMENT_FILE_PROBLEMS[problem]);
 }
 
 function safeFilename(filename: string): string {

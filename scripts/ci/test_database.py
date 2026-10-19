@@ -727,7 +727,8 @@ inspector_port = 8283
             "S3_REGION": "region", "S3_ACCESS_KEY": "secret", "S3_SECRET_KEY": "secret",
             "OPENAI_API_KEY": "secret", "ACCOUNT_SETUP_LINK_SECRET": "secret",
         }
-        with patch.dict(os.environ, {**secrets, "PATH": os.defpath}, clear=True), \
+        settings = {"PATH": os.defpath, "SUPABASE_INTERNAL_IMAGE_REGISTRY": "ghcr.io"}
+        with patch.dict(os.environ, {**secrets, **settings}, clear=True), \
                 contextlib.redirect_stdout(io.StringIO()):
             result = database.run(
                 [sys.executable, "-c", "import json, os; print(json.dumps(dict(os.environ)))"],
@@ -736,6 +737,7 @@ inspector_port = 8283
         inherited = json.loads(result.stdout)
         self.assertTrue(secrets.keys().isdisjoint(inherited))
         self.assertEqual(inherited["PATH"], os.defpath)
+        self.assertEqual(inherited["SUPABASE_INTERNAL_IMAGE_REGISTRY"], "ghcr.io")
 
     def test_remote_docker_host_or_overriding_context_prevents_startup(self):
         for environment in ({"DOCKER_HOST": "tcp://remote.invalid:2376"},

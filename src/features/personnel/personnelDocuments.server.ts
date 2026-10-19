@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { PersonnelArtifactArchiveState, PersonnelDocument } from './contracts';
+import type { PersonnelArtifactArchiveState, PersonnelDocument, PersonnelDocumentsRead } from './contracts';
 import type { PersonnelArtifactWriter } from '$features/personnel/contracts';
 import type { FileCleanup } from '$features/organization/contracts';
 import { derivePersonnelDocumentTitle } from '$features/personnel/utils/documentTitles';
@@ -105,12 +105,36 @@ export async function listPersonnelDocuments(
 	ctx: PersonnelArtifactsContext,
 	personnelId: string,
 	limit?: number,
-	options: { archived?: boolean } = {}
+	options: { archived?: boolean; offset?: number } = {}
 ): Promise<PersonnelDocument[]> {
 	await requirePersonnelArtifactAccess(ctx, personnelId, 'read');
-	const rows = await ctx.persistence.listDocuments(personnelId, { archived: !!options.archived, limit });
+	const rows = await ctx.persistence.listDocuments(personnelId, {
+		archived: !!options.archived,
+		limit,
+		offset: options.offset
+	});
 	const labels = await ctx.contributorLabels(rows.flatMap((row) => (row.uploaded_by ? [row.uploaded_by] : [])));
 	return rows.map((row) => mapDocumentRow(row, labels));
+}
+
+/** The Files tab's first page of documents with the Person's storage use against the Organization's cap. */
+export async function readPersonnelDocuments(
+	ctx: PersonnelArtifactsContext,
+	input: { personnelId: string; limit: number }
+): Promise<PersonnelDocumentsRead> {
+	await requirePersonnelArtifactAccess(ctx, input.personnelId, 'read');
+	const [rows, usage, capBytes] = await Promise.all([
+		ctx.persistence.listDocuments(input.personnelId, { archived: false, limit: input.limit }),
+		ctx.persistence.summarizeActiveDocuments(input.personnelId),
+		ctx.documentStorageCapBytes()
+	]);
+	const labels = await ctx.contributorLabels(rows.flatMap((row) => (row.uploaded_by ? [row.uploaded_by] : [])));
+	return {
+		records: rows.map((row) => mapDocumentRow(row, labels)),
+		total: usage.count,
+		usedBytes: usage.bytes,
+		capBytes
+	};
 }
 
 export async function createPersonnelDocument(

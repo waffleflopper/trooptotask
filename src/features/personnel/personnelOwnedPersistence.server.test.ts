@@ -64,6 +64,7 @@ const counseling = {
 	subject: 'Session',
 	summary: null,
 	notes: null,
+	conducted_by: null,
 	uploaded_by: 'user-a',
 	file_path: 'bound.pdf',
 	created_at: '2026-10-08T12:00:00.123456Z',
@@ -130,6 +131,7 @@ const artifactWrites = [
 				dateConducted: '2026-10-07',
 				title: 'Session',
 				summary: null,
+				conductedBy: null,
 				uploadedBy: 'user-a',
 				filePath: 'bound.pdf',
 				createdAt: '2026-10-08T12:00:00.123456Z'

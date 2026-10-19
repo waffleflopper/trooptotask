@@ -7,6 +7,7 @@ export interface CounselingRecordRow {
 	summary?: string | null;
 	notes?: string | null;
 	uploaded_by?: string | null;
+	conducted_by?: string | null;
 	file_path: string | null;
 	created_at?: string | null;
 	archived_at?: string | null;
@@ -52,13 +53,27 @@ export interface PersonnelRecordCounts {
 	archived: number;
 }
 
+export interface PersonnelDocumentUsage {
+	count: number;
+	bytes: number;
+}
+
 export interface PersonnelArtifactReadPersistence {
 	countRecords(personnelId: string): Promise<PersonnelRecordCounts>;
 	listCounselingRecords(
 		personnelId: string,
-		options: { archived: boolean; limit?: number }
+		options: { archived: boolean; limit?: number; offset?: number }
 	): Promise<CounselingRecordRow[]>;
-	listDocuments(personnelId: string, options: { archived: boolean; limit?: number }): Promise<PersonnelDocumentRow[]>;
+	countActiveCounselingRecords(personnelId: string): Promise<number>;
+	/** Conducted dates of active records on or after `since`, in no particular order. */
+	listActiveCounselingDates(personnelId: string, since: string): Promise<string[]>;
+	findCounseling(personnelId: string, counselingId: string): Promise<CounselingRecordRow | null>;
+	listDocuments(
+		personnelId: string,
+		options: { archived: boolean; limit?: number; offset?: number }
+	): Promise<PersonnelDocumentRow[]>;
+	/** Active documents only: the figure the Person's storage cap counts. */
+	summarizeActiveDocuments(personnelId: string): Promise<PersonnelDocumentUsage>;
 	listFollowUps(personnelId: string, options: { archived: boolean; limit?: number }): Promise<FollowUpRow[]>;
 	findDocument(personnelId: string, documentId: string): Promise<PersonnelDocumentRow | null>;
 	listLeaderNotePage(
@@ -70,6 +85,7 @@ export interface CounselingCreate {
 	dateConducted: string;
 	title: string;
 	summary: string | null;
+	conductedBy: string | null;
 	uploadedBy: string;
 	filePath: string;
 	createdAt: string;

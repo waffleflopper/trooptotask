@@ -1075,6 +1075,7 @@ function createInMemoryPersonnelArtifactWritePort(
 						subject: input.title,
 						summary: input.summary,
 						notes: input.summary,
+						conducted_by: input.conductedBy,
 						uploaded_by: input.uploadedBy,
 						file_path: input.filePath,
 						status: 'completed',
@@ -1589,6 +1590,13 @@ export function createTestDataExportLifecycleWriter(store: FixtureRowStore, orgI
 	};
 }
 
+function pageOptions(limit?: number, offset = 0): Pick<FixtureFindOptions, 'limit' | 'range'> {
+	if (!offset) return { limit };
+	return limit === undefined
+		? { range: { from: offset, to: Number.MAX_SAFE_INTEGER } }
+		: { range: { from: offset, to: offset + limit - 1 } };
+}
+
 function createTestArtifactReadPersistence(store: FixtureRowStore, orgId: string): PersonnelArtifactReadPersistence {
 	return {
 		async countRecords(personnelId) {
@@ -1609,27 +1617,59 @@ function createTestArtifactReadPersistence(store: FixtureRowStore, orgId: string
 					notes.length
 			};
 		},
-		listCounselingRecords: (personnelId, { archived, limit }) =>
+		listCounselingRecords: (personnelId, { archived, limit, offset }) =>
 			store.findMany(
 				'counseling_records',
 				orgId,
 				{ personnel_id: personnelId },
 				{
 					isNull: { archived_at: !archived },
-					limit,
+					...pageOptions(limit, offset),
 					orderBy: [
 						{ column: 'date_conducted', ascending: false },
 						{ column: 'created_at', ascending: false }
 					]
 				}
 			),
-		listDocuments: (personnelId, { archived, limit }) =>
+		countActiveCounselingRecords: async (personnelId) =>
+			(
+				await store.findMany(
+					'counseling_records',
+					orgId,
+					{ personnel_id: personnelId },
+					{ isNull: { archived_at: true } }
+				)
+			).length,
+		listActiveCounselingDates: async (personnelId, since) =>
+			(
+				await store.findMany<CounselingRecordRow>(
+					'counseling_records',
+					orgId,
+					{ personnel_id: personnelId },
+					{ isNull: { archived_at: true }, rangeFilters: [{ column: 'date_conducted', op: 'gte', value: since }] }
+				)
+			).map((row) => row.date_conducted),
+		findCounseling: (personnelId, id) => store.findOne('counseling_records', orgId, { id, personnel_id: personnelId }),
+		listDocuments: (personnelId, { archived, limit, offset }) =>
 			store.findMany(
 				'personnel_documents',
 				orgId,
 				{ personnel_id: personnelId },
-				{ isNull: { archived_at: !archived }, limit, orderBy: [{ column: 'created_at', ascending: false }] }
+				{
+					isNull: { archived_at: !archived },
+					...pageOptions(limit, offset),
+					orderBy: [{ column: 'created_at', ascending: false }]
+				}
 			),
+		summarizeActiveDocuments: async (personnelId) => {
+			const rows = await store.findMany<PersonnelDocumentRow>(
+				'personnel_documents',
+				orgId,
+				{ personnel_id: personnelId },
+				{ isNull: { archived_at: true } }
+			);
+			return { count: rows.length, bytes: rows.reduce((sum, row) => sum + row.file_size_bytes, 0) };
+		},
 		listFollowUps: (personnelId, { archived, limit }) =>
 			store.findMany(
 				'personnel_follow_ups',

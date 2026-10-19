@@ -7,7 +7,7 @@ import type {
 } from './personnelArtifactPersistence';
 import { counselingRow, documentRow, followUpRow, leaderNoteRow } from './personnelArtifactRow.server';
 const COUNSELINGRECORDROW_SELECT =
-	'id,personnel_id,date_conducted,title,subject,summary,notes,uploaded_by,file_path,created_at,archived_at';
+	'id,personnel_id,date_conducted,title,subject,summary,notes,uploaded_by,conducted_by,file_path,created_at,archived_at';
 const PERSONNELDOCUMENTROW_SELECT =
 	'id,personnel_id,title,file_path,file_size_bytes,content_type,uploaded_by,created_at,archived_at';
 const FOLLOWUPROW_SELECT =
@@ -38,10 +38,10 @@ export function createSupabasePersonnelArtifactReadPersistence(
 			});
 			return { openFollowUps, archived: archived.reduce((sum, count) => sum + count, 0) };
 		},
-		async listCounselingRecords(personnelId, { archived, limit }) {
+		async listCounselingRecords(personnelId, { archived, limit, offset = 0 }) {
 			const rows: CounselingRecordRow[] = [];
 			if (limit === 0) return rows;
-			for (let offset = 0; ; offset += 1000) {
+			for (let from = offset; ; from += 1000) {
 				let query = client
 					.from('counseling_records')
 					.select(COUNSELINGRECORDROW_SELECT)
@@ -50,18 +50,57 @@ export function createSupabasePersonnelArtifactReadPersistence(
 				query = archived ? query.not('archived_at', 'is', null) : query.is('archived_at', null);
 				query = query.order('date_conducted', { ascending: false });
 				query = query.order('created_at', { ascending: false });
-				const to = limit === undefined ? offset + 999 : Math.min(offset + 999, limit - 1);
-				const { data, error } = await query.order('id', { ascending: true }).range(offset, to);
+				const to = limit === undefined ? from + 999 : Math.min(from + 999, offset + limit - 1);
+				const { data, error } = await query.order('id', { ascending: true }).range(from, to);
 				if (error) throw new Error(error.message);
 				const page = data ?? [];
 				rows.push(...page.map(counselingRow));
-				if (page.length < to - offset + 1 || (limit !== undefined && rows.length >= limit)) return rows;
+				if (page.length < to - from + 1 || (limit !== undefined && rows.length >= limit)) return rows;
 			}
 		},
-		async listDocuments(personnelId, { archived, limit }) {
+		async countActiveCounselingRecords(personnelId) {
+			const { count, error } = await client
+				.from('counseling_records')
+				.select('id', { count: 'exact', head: true })
+				.eq('organization_id', orgId)
+				.eq('personnel_id', personnelId)
+				.is('archived_at', null);
+			if (error) throw new Error(error.message);
+			return count ?? 0;
+		},
+		async listActiveCounselingDates(personnelId, since) {
+			const dates: string[] = [];
+			for (let from = 0; ; from += 1000) {
+				const { data, error } = await client
+					.from('counseling_records')
+					.select('date_conducted')
+					.eq('organization_id', orgId)
+					.eq('personnel_id', personnelId)
+					.is('archived_at', null)
+					.gte('date_conducted', since)
+					.order('id', { ascending: true })
+					.range(from, from + 999);
+				if (error) throw new Error(error.message);
+				const page = data ?? [];
+				dates.push(...page.map((row) => row.date_conducted as string));
+				if (page.length < 1000) return dates;
+			}
+		},
+		async findCounseling(personnelId, counselingId) {
+			const { data, error } = await client
+				.from('counseling_records')
+				.select(COUNSELINGRECORDROW_SELECT)
+				.eq('organization_id', orgId)
+				.eq('personnel_id', personnelId)
+				.eq('id', counselingId)
+				.maybeSingle();
+			if (error) throw new Error(error.message);
+			return data ? counselingRow(data) : null;
+		},
+		async listDocuments(personnelId, { archived, limit, offset = 0 }) {
 			const rows: PersonnelDocumentRow[] = [];
 			if (limit === 0) return rows;
-			for (let offset = 0; ; offset += 1000) {
+			for (let from = offset; ; from += 1000) {
 				let query = client
 					.from('personnel_documents')
 					.select(PERSONNELDOCUMENTROW_SELECT)
@@ -69,12 +108,31 @@ export function createSupabasePersonnelArtifactReadPersistence(
 					.eq('personnel_id', personnelId);
 				query = archived ? query.not('archived_at', 'is', null) : query.is('archived_at', null);
 				query = query.order('created_at', { ascending: false });
-				const to = limit === undefined ? offset + 999 : Math.min(offset + 999, limit - 1);
-				const { data, error } = await query.order('id', { ascending: true }).range(offset, to);
+				const to = limit === undefined ? from + 999 : Math.min(from + 999, offset + limit - 1);
+				const { data, error } = await query.order('id', { ascending: true }).range(from, to);
 				if (error) throw new Error(error.message);
 				const page = data ?? [];
 				rows.push(...page.map(documentRow));
-				if (page.length < to - offset + 1 || (limit !== undefined && rows.length >= limit)) return rows;
+				if (page.length < to - from + 1 || (limit !== undefined && rows.length >= limit)) return rows;
+			}
+		},
+		async summarizeActiveDocuments(personnelId) {
+			let bytes = 0;
+			let count = 0;
+			for (let from = 0; ; from += 1000) {
+				const { data, error } = await client
+					.from('personnel_documents')
+					.select('file_size_bytes')
+					.eq('organization_id', orgId)
+					.eq('personnel_id', personnelId)
+					.is('archived_at', null)
+					.order('id', { ascending: true })
+					.range(from, from + 999);
+				if (error) throw new Error(error.message);
+				const page = data ?? [];
+				for (const row of page) bytes += row.file_size_bytes ?? 0;
+				count += page.length;
+				if (page.length < 1000) return { count, bytes };
 			}
 		},
 		async listFollowUps(personnelId, { archived, limit }) {

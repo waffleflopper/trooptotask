@@ -89,6 +89,7 @@ function makeCounselingRecord(overrides: Partial<PersonnelCounselingRecord> = {}
 		title: 'Monthly counseling',
 		summary: 'Goals reviewed',
 		status: 'uploaded',
+		conductedBy: null,
 		uploadedBy: 'SSG Miller',
 		fileName: 'monthly-counseling.pdf',
 		createdAt: '2026-06-08T10:00:00.000Z',

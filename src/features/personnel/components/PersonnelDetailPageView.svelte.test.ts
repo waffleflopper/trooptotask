@@ -422,6 +422,7 @@ function dashboardArtifacts(personnelId: string, marker: string) {
 			dateConducted: '2026-06-08',
 			summary: 'Synthetic goals',
 			status: 'uploaded',
+			conductedBy: null,
 			uploadedBy: 'Synthetic leader',
 			fileName: 'counseling.pdf'
 		} satisfies PersonnelCounselingRecord,

@@ -124,6 +124,30 @@ describe('Personnel artifact provider delivery', () => {
 		}
 	);
 
+	it.each(families.slice(0, 2))('reads an offset page of $table rows', async (family) => {
+		const run = fixture(family);
+		const page = await family.list(createPersonnelArtifactDeliveryContext(run.ctx), PERSON, 3, { offset: 2 });
+		expect(page.map((row) => row.id)).toEqual(['artifact-0998', 'artifact-0997', 'artifact-0996']);
+		expect(run.receipts.filter((receipt) => receipt.table === family.table).map((receipt) => receipt.offset)).toEqual([
+			2
+		]);
+	});
+
+	it('sums every active document and lists every counseling date past one provider page', async () => {
+		const documents = fixture(families[1]);
+		await expect(documents.ctx.artifactReads.summarizeActiveDocuments(PERSON)).resolves.toEqual({
+			count: 1001,
+			bytes: 1001 * 3187
+		});
+		const counselings = fixture(families[0]);
+		const dates = await counselings.ctx.artifactReads.listActiveCounselingDates(PERSON, '2025-11-01');
+		expect(dates).toHaveLength(1001);
+		expect(new Set(dates)).toEqual(new Set(['2026-10-01']));
+		expect(
+			counselings.receipts.filter((receipt) => receipt.table === 'counseling_records').map((receipt) => receipt.offset)
+		).toEqual([0, 1000]);
+	});
+
 	it('propagates a later artifact-page failure instead of returning partial history', async () => {
 		const run = fixture(families[1], 'artifact-page');
 		await expect(families[1].list(createPersonnelArtifactDeliveryContext(run.ctx), PERSON)).rejects.toThrow(

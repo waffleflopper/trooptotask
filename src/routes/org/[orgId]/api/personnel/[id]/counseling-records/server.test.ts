@@ -74,11 +74,25 @@ describe('/api/personnel/[id]/counseling-records', () => {
 		});
 	});
 
+	it('reads the page the query asks for and refuses one it cannot parse', async () => {
+		const parse = (query: string) =>
+			_getConfig.parseInput?.({
+				params: { id: PERSON_ID },
+				url: new URL(`http://localhost/records${query}`)
+			} as never);
+
+		await expect(parse('')).resolves.toEqual({ personnelId: PERSON_ID, limit: 25, offset: 0 });
+		await expect(parse('?limit=10&offset=30')).resolves.toEqual({ personnelId: PERSON_ID, limit: 10, offset: 30 });
+		for (const bad of ['?limit=0', '?limit=101', '?limit=-1', '?offset=-5', '?offset=1.5', '?limit=ten'])
+			await expect(parse(bad)).rejects.toMatchObject({ status: 400 });
+	});
+
 	it('derives the Personnel id from the route param for form submissions', async () => {
 		const formData = new FormData();
 		formData.set('dateConducted', '2026-05-01');
 		formData.set('title', 'Route id counseling');
 		formData.set('summary', 'Short summary');
+		formData.set('conductedBy', 'SSG Alvarez');
 		formData.set('file', new File(['%PDF-1.7\nroute upload'], 'route.pdf', { type: 'application/pdf' }));
 
 		await expect(
@@ -89,7 +103,8 @@ describe('/api/personnel/[id]/counseling-records', () => {
 		).resolves.toMatchObject({
 			personnelId: PERSON_ID,
 			title: 'Route id counseling',
-			summary: 'Short summary'
+			summary: 'Short summary',
+			conductedBy: 'SSG Alvarez'
 		});
 	});
 

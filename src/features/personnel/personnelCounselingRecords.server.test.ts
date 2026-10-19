@@ -3,9 +3,11 @@ import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import {
 	archivePersonnelCounselingRecord,
+	createPersonnelCounselingDownloadUrl,
 	createPersonnelCounselingRecord,
 	deletePersonnelCounselingRecord,
 	listPersonnelCounselingRecords,
+	readPersonnelCounselings,
 	restorePersonnelCounselingRecord
 } from './personnelCounselingRecords.server';
 
@@ -319,6 +321,7 @@ describe('personnel counseling records', () => {
 				title: 'Legacy subject',
 				summary: 'Legacy notes',
 				status: 'needs-title',
+				conductedBy: null,
 				uploadedBy: 'Leader upload',
 				fileName: 'legacy.pdf',
 				createdAt: '2020-01-02T00:00:00Z',
@@ -403,5 +406,170 @@ describe('personnel counseling records', () => {
 		expect(await ctx.rawStore.findOne('counseling_records', ctx.auth.orgId, { id: other.id })).toEqual(prior);
 		expect(ctx.storagePort.files).toHaveLength(1);
 		expect(ctx.auditPort.events).toEqual(priorEvents);
+	});
+});
+
+function counselingRow(ctx: ReturnType<typeof createTestContext>, id: string, dateConducted: string, extra = {}) {
+	return {
+		id,
+		organization_id: ctx.auth.orgId,
+		personnel_id: 'person-1',
+		date_conducted: dateConducted,
+		title: `Counseling ${id}`,
+		uploaded_by: LEADER_USER_ID,
+		file_path: `${ctx.auth.orgId}/counseling-records/person-1/${id}.pdf`,
+		created_at: `${dateConducted}T10:00:00Z`,
+		archived_at: null,
+		...extra
+	};
+}
+
+describe('counseling conducted by', () => {
+	const upload = (conductedBy: string | undefined) => {
+		const ctx = configureContext();
+		seedPersonnel(ctx);
+		return createPersonnelCounselingRecord(testPersonnelArtifactsContext(ctx), {
+			personnelId: 'person-1',
+			dateConducted: '2026-10-02',
+			title: 'Monthly counseling',
+			conductedBy,
+			file: new File(VALID_PDF_BYTES, 'monthly.pdf', { type: 'application/pdf' })
+		});
+	};
+
+	it('keeps the trimmed name the uploader gave', async () => {
+		expect((await upload('  SSG Alvarez  ')).conductedBy).toBe('SSG Alvarez');
+	});
+
+	it('records no conductor when the field is blank or absent', async () => {
+		expect((await upload('   ')).conductedBy).toBeNull();
+		expect((await upload(undefined)).conductedBy).toBeNull();
+	});
+
+	it('rejects a name longer than the stored limit before uploading anything', async () => {
+		const ctx = configureContext();
+		seedPersonnel(ctx);
+		await expect(
+			createPersonnelCounselingRecord(testPersonnelArtifactsContext(ctx), {
+				personnelId: 'person-1',
+				dateConducted: '2026-10-02',
+				title: 'Monthly counseling',
+				conductedBy: 'x'.repeat(121),
+				file: new File(VALID_PDF_BYTES, 'monthly.pdf', { type: 'application/pdf' })
+			})
+		).rejects.toMatchObject({ status: 400 });
+		expect(ctx.storagePort.files).toEqual([]);
+	});
+});
+
+describe('Files tab counseling read', () => {
+	function seededContext() {
+		const ctx = configureContext();
+		seedPersonnel(ctx);
+		ctx.store.seed('organization_memberships', [
+			{ id: 'membership-1', organization_id: ctx.auth.orgId, user_id: LEADER_USER_ID, email: 'leader@example.com' }
+		]);
+		ctx.store.seed('counseling_records', [
+			counselingRow(ctx, 'newest', '2026-10-02', { conducted_by: 'SSG Alvarez' }),
+			counselingRow(ctx, 'same-month', '2026-10-01'),
+			counselingRow(ctx, 'august', '2026-08-15'),
+			counselingRow(ctx, 'archived-june', '2026-06-10', { archived_at: '2026-06-11T00:00:00Z' }),
+			counselingRow(ctx, 'too-old', '2025-09-30')
+		]);
+		return ctx;
+	}
+
+	it('reads the newest page with the active total, covered months and the viewer label', async () => {
+		const ctx = seededContext();
+
+		const read = await readPersonnelCounselings(testPersonnelArtifactsContext(ctx), {
+			personnelId: 'person-1',
+			asOf: '2026-10-19',
+			limit: 2
+		});
+
+		expect(read.records.map((record) => [record.id, record.conductedBy])).toEqual([
+			['newest', 'SSG Alvarez'],
+			['same-month', null]
+		]);
+		expect(read.total).toBe(4);
+		expect(read.coveredMonths.sort()).toEqual(['2026-08', '2026-10']);
+		expect(read.uploaderLabel).toBe('leader@example.com');
+	});
+
+	it('lists older records from an offset without repeating the first page', async () => {
+		const ctx = seededContext();
+
+		const older = await listPersonnelCounselingRecords(testPersonnelArtifactsContext(ctx), 'person-1', 2, {
+			offset: 2
+		});
+
+		expect(older.map((record) => record.id)).toEqual(['august', 'too-old']);
+	});
+
+	it('refuses a reader without sensitive record access', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'operate',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		seedPersonnel(ctx);
+
+		await expect(
+			readPersonnelCounselings(testPersonnelArtifactsContext(ctx), {
+				personnelId: 'person-1',
+				asOf: '2026-10-19',
+				limit: 2
+			})
+		).rejects.toMatchObject({ status: 403 });
+	});
+});
+
+describe('counseling download', () => {
+	it('signs a short-lived URL for the counseling bucket', async () => {
+		const ctx = configureContext();
+		seedPersonnel(ctx);
+		const created = await createPersonnelCounselingRecord(testPersonnelArtifactsContext(ctx), {
+			personnelId: 'person-1',
+			dateConducted: '2026-10-02',
+			title: 'Monthly counseling',
+			file: new File(VALID_PDF_BYTES, 'monthly.pdf', { type: 'application/pdf' })
+		});
+
+		const result = await createPersonnelCounselingDownloadUrl(testPersonnelArtifactsContext(ctx), {
+			personnelId: 'person-1',
+			recordId: created.id
+		});
+
+		expect(result.url).toContain('/counseling-files/');
+		expect(result.url).toContain('expires=300');
+	});
+
+	it('answers a record of another Person like a missing one', async () => {
+		const ctx = configureContext();
+		seedPersonnel(ctx);
+		await ctx.store.insert('personnel', ctx.auth.orgId, { id: 'person-2', group_id: null });
+		const other = await createPersonnelCounselingRecord(testPersonnelArtifactsContext(ctx), {
+			personnelId: 'person-2',
+			dateConducted: '2026-10-02',
+			title: 'Other Person',
+			file: new File(VALID_PDF_BYTES, 'signed.pdf', { type: 'application/pdf' })
+		});
+
+		await expect(
+			createPersonnelCounselingDownloadUrl(testPersonnelArtifactsContext(ctx), {
+				personnelId: 'person-1',
+				recordId: other.id
+			})
+		).rejects.toMatchObject({ status: 404 });
 	});
 });

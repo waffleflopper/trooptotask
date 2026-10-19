@@ -169,7 +169,8 @@ describe('Person-bound artifact writes', () => {
 // tests and the actual SQL/RLS/native provider proofs.
 describe('Person-bound registered Storage transport', () => {
 	const kinds = ['document', 'counseling'] as const;
-	function finite(kind: (typeof kinds)[number], fault: 'upload-lost' | 'upload-key') {
+	type Fault = 'stored' | 'rejected' | 'upload-lost' | 'upload-key' | 'reconcile-down';
+	function finite(kind: (typeof kinds)[number], fault: Fault) {
 		const actor = member('operate');
 		const bucket = kind === 'document' ? 'personnel-documents' : 'counseling-files';
 		const path =
@@ -178,9 +179,14 @@ describe('Person-bound registered Storage transport', () => {
 				: `${actor.orgId}/counseling-records/person-1/unique.pdf`;
 		const registrations = new Map<string, Record<string, unknown>>();
 		const files = new Map<string, string>();
+		const retired = new Set<string>();
 		const transport: typeof fetch = async (resource, init) => {
 			const url = new URL(String(resource));
 			if (url.pathname === '/rest/v1/personnel') return Response.json({ group_id: 'alpha' });
+			if (init?.method === 'DELETE' && url.pathname === `/storage/v1/object/${bucket}`) {
+				const prefixes = JSON.parse(String(init.body)).prefixes as string[];
+				return Response.json(prefixes.filter((key) => files.delete(key)).map((name) => ({ name })));
+			}
 			if (url.pathname.includes('/rpc/')) {
 				const args = JSON.parse(String(init?.body)) as Record<string, unknown>;
 				if (url.pathname.endsWith('/register_organization_file_upload')) {
@@ -192,10 +198,18 @@ describe('Person-bound registered Storage transport', () => {
 					if (exact) registrations.delete(String(args.p_upload_id));
 					return Response.json(exact);
 				}
+				if (url.pathname.endsWith('/reconcile_personnel_file_attachment')) {
+					if (fault === 'reconcile-down') return Response.json({ message: 'Provider unavailable' }, { status: 503 });
+					retired.add(String(args.p_object_name));
+					return Response.json(null);
+				}
+				if (url.pathname.endsWith('/complete_organization_file_retirements')) return Response.json(true);
 			}
 			if (init?.method === 'POST' && url.pathname === `/storage/v1/object/${bucket}/${path}`) {
 				if (![...registrations.values()].some((r) => r.p_bucket_id === bucket && r.p_object_name === path))
 					return Response.json({ message: 'Unregistered upload' }, { status: 403 });
+				if (fault === 'rejected' || fault === 'reconcile-down')
+					return Response.json({ message: 'Gateway timeout' }, { status: 504 });
 				files.set(path, await ((init.body as FormData).get('') as File).text());
 				if (fault === 'upload-lost') throw new TypeError('Lost response after byte write');
 				return Response.json({
@@ -203,34 +217,53 @@ describe('Person-bound registered Storage transport', () => {
 					Key: fault === 'upload-key' ? `${bucket}/wrong.pdf` : `${bucket}/${path}`
 				});
 			}
-			throw new Error('Unexpected finite provider operation');
+			throw new Error(`Unexpected finite provider operation ${init?.method} ${url.pathname}`);
 		};
 		const client = createClient('http://artifact-upload.invalid', 'synthetic-key', {
 			auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
 			global: { fetch: transport }
 		});
 		const writer = createSupabasePersonnelArtifactWritePort(client, () => client).forPerson(actor, 'person-1');
-		return { writer, bucket, path, registrations, files };
+		const upload = async () =>
+			(await writer).uploadFile(kind, path, new File(['%PDF-1.7'], 'unique.pdf', { type: 'application/pdf' }));
+		return { upload, path, registrations, files, retired };
 	}
+
 	it.each(kinds)(
-		'retains the %s registration and written bytes after an upload response is lost or has the wrong provider key',
+		'%s upload keeps its registration open for the caller to settle once the record is written',
 		async (kind) => {
-			for (const fault of ['upload-lost', 'upload-key'] as const) {
+			const run = finite(kind, 'stored');
+
+			await run.upload();
+
+			expect(run.registrations.size).toBe(1);
+			expect([...run.files.keys()]).toEqual([run.path]);
+		}
+	);
+
+	it.each(kinds)(
+		'%s upload retires the key, removes stored bytes and settles the registration when the upload fails',
+		async (kind) => {
+			for (const fault of ['rejected', 'upload-lost', 'upload-key'] as const) {
 				const run = finite(kind, fault);
-				await expect(
-					(await run.writer).uploadFile(
-						kind,
-						run.path,
-						new File(['%PDF-1.7'], 'unique.pdf', { type: 'application/pdf' })
-					)
-				).rejects.toThrow();
-				expect([...run.registrations.values()]).toEqual([
-					expect.objectContaining({ p_bucket_id: run.bucket, p_object_name: run.path })
-				]);
-				expect(run.files).toEqual(new Map([[run.path, '%PDF-1.7']]));
+
+				await expect(run.upload()).rejects.toThrow();
+
+				expect(run.registrations.size).toBe(0);
+				expect([...run.retired]).toEqual([run.path]);
+				expect(run.files.size).toBe(0);
 			}
 		}
 	);
+
+	it.each(kinds)('%s upload keeps its registration open when the failed key cannot be retired', async (kind) => {
+		const run = finite(kind, 'reconcile-down');
+
+		await expect(run.upload()).rejects.toThrow();
+
+		expect(run.registrations.size).toBe(1);
+		expect(run.retired.size).toBe(0);
+	});
 });
 
 describe('Person-bound file retirement transport', () => {

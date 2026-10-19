@@ -1,4 +1,9 @@
-import type { CounselingRecordRow, PersonnelDocumentRow, FollowUpRow } from './personnelArtifactPersistence';
+import type {
+	CounselingRecordRow,
+	PersonnelDocumentRow,
+	PersonnelDocumentUsage,
+	FollowUpRow
+} from './personnelArtifactPersistence';
 export type { CounselingRecordRow, PersonnelDocumentRow, FollowUpRow } from './personnelArtifactPersistence';
 import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
@@ -15,9 +20,16 @@ export interface PersonnelArtifactsContext {
 		findPersonnelGroup(personnelId: string): Promise<string | null | undefined>;
 		listCounselingRecords(
 			personnelId: string,
-			options: { archived: boolean; limit?: number }
+			options: { archived: boolean; limit?: number; offset?: number }
 		): Promise<CounselingRecordRow[]>;
-		listDocuments(personnelId: string, options: { archived: boolean; limit?: number }): Promise<PersonnelDocumentRow[]>;
+		countActiveCounselingRecords(personnelId: string): Promise<number>;
+		listActiveCounselingDates(personnelId: string, since: string): Promise<string[]>;
+		findCounseling(personnelId: string, counselingId: string): Promise<CounselingRecordRow | null>;
+		listDocuments(
+			personnelId: string,
+			options: { archived: boolean; limit?: number; offset?: number }
+		): Promise<PersonnelDocumentRow[]>;
+		summarizeActiveDocuments(personnelId: string): Promise<PersonnelDocumentUsage>;
 		listFollowUps(personnelId: string, options: { archived: boolean; limit?: number }): Promise<FollowUpRow[]>;
 		findDocument(personnelId: string, documentId: string): Promise<PersonnelDocumentRow | null>;
 	};
@@ -25,6 +37,7 @@ export interface PersonnelArtifactsContext {
 	contributorLabels(userIds: string[]): Promise<Map<string, string>>;
 	documentStorageCapBytes(): Promise<number>;
 	createDocumentSignedUrl(filePath: string, expiresInSeconds: number): Promise<string>;
+	createCounselingSignedUrl(filePath: string, expiresInSeconds: number): Promise<string>;
 }
 
 // The same request context is shared by the three Dashboard reads. Cache rejection

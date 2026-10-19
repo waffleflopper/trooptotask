@@ -495,6 +495,8 @@ export const personnelExtendedInfoInputSchema = z.object({
 
 export type {
 	PersonnelCounselingRecord,
+	PersonnelCounselingsRead,
+	PersonnelDocumentsRead,
 	PersonnelDocument,
 	PersonnelFollowUpStatus,
 	PersonnelFollowUp,

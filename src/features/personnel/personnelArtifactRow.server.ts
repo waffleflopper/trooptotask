@@ -13,6 +13,7 @@ export const counselingRow = (row: CounselingRecordRow): CounselingRecordRow => 
 	...(row.summary !== undefined ? { summary: row.summary } : {}),
 	...(row.notes !== undefined ? { notes: row.notes } : {}),
 	...(row.uploaded_by !== undefined ? { uploaded_by: row.uploaded_by } : {}),
+	...(row.conducted_by !== undefined ? { conducted_by: row.conducted_by } : {}),
 	file_path: row.file_path,
 	...(row.created_at !== undefined ? { created_at: row.created_at } : {}),
 	...(row.archived_at !== undefined ? { archived_at: row.archived_at } : {})

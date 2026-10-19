@@ -2,7 +2,6 @@
 	import { PersonnelDetailPageView } from '$features/personnel';
 	import type { PersonnelDetailHeader, PersonnelDetailStreams } from '$features/personnel/contracts';
 	import type { PersonnelWorkspaceResult } from '$features/personnel/contracts';
-	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import type { Group } from '$features/personnel/contracts';
 	import { getAppShellContext } from '$features/app-shell';
 	import WorkspaceLoadError from '../../WorkspaceLoadError.svelte';
@@ -14,8 +13,6 @@
 			data: Promise<PersonnelWorkspaceResult>;
 		};
 	}
-
-	import { requestPersonnelArchiveApproval as requestArchiveApproval } from '$lib/personnelArchiveRequestDelivery';
 
 	let { data }: { data: PersonnelLayoutData } = $props();
 
@@ -37,13 +34,6 @@
 	const org = getAppShellContext();
 	const workspaceGroups = $derived(new PersonnelWorkspaceGroups(data.personnel.data));
 	const person = $derived(data.personnelDetailHeader.person);
-	const archiveResource = $derived(
-		person.groupId ? { kind: 'group' as const, groupId: person.groupId } : { kind: 'organization' as const }
-	);
-	const archiveAffordance = $derived(
-		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.manageRecords, archiveResource)
-	);
-	const canArchivePersonnel = $derived(archiveAffordance.allowed);
 </script>
 
 {#if workspaceGroups.error}
@@ -56,7 +46,5 @@
 		groups={workspaceGroups.groups}
 		orgName={org.orgName}
 		detail={data.personnelDetail}
-		{canArchivePersonnel}
-		{requestArchiveApproval}
 	/>
 {/if}

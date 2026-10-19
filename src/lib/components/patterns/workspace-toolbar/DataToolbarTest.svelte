@@ -18,6 +18,7 @@
 		viewDisabledReason?: string;
 		planningDisabled?: boolean;
 		reportsDisabled?: boolean;
+		describePlanner?: boolean;
 		onRun?: (name: string) => void;
 	};
 
@@ -38,6 +39,7 @@
 		viewDisabledReason,
 		planningDisabled = false,
 		reportsDisabled = false,
+		describePlanner = false,
 		onRun
 	}: Props = $props();
 
@@ -119,7 +121,13 @@
 			label: 'Planning',
 			disabled: planningDisabled,
 			menuItems: [
-				{ kind: 'action', id: 'planner', label: 'Assignment Planner', onclick: () => log('planner') },
+				{
+					kind: 'action',
+					id: 'planner',
+					label: 'Assignment Planner',
+					description: describePlanner ? 'Lay out duties for the month' : undefined,
+					onclick: () => log('planner')
+				},
 				{ kind: 'action', id: 'clear', label: 'Clear Plan', destructive: true, onclick: () => log('clear') },
 				{ kind: 'action', id: 'monthly', label: 'Monthly Plan', onclick: () => log('monthly') }
 			]

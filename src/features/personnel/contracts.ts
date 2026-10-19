@@ -409,6 +409,8 @@ export type {
 	PersonnelCounselingsPageData,
 	PersonnelDocumentsPageData,
 	PersonnelNotesPageData,
+	PersonnelLogPageData,
+	PersonnelFilesPageData,
 	PersonnelArchivedArtifactsPageData
 } from './personnel-detail.types';
 export { evaluateUpcomingLosses } from './upcomingLoss';

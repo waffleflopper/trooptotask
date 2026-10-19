@@ -3,7 +3,6 @@
 	import ArchiveIcon from '@lucide/svelte/icons/archive';
 	import { Button } from '$lib/components/ui/button';
 	import * as Table from '$lib/components/ui/table';
-	import { cn } from '$lib/utils';
 	import type { PersonnelDocument, PersonnelDocumentsRead } from '../contracts';
 	import { formatDayMonthYear } from '$lib/utils/dates';
 	import { fileTypeLabel, formatFileSize, viewerDay } from '../fileLabels';
@@ -90,18 +89,18 @@
 
 	<div class="overflow-clip rounded-md border">
 		<Table.Root>
-			<Table.Header class="bg-muted">
-				<Table.Row class="hover:bg-transparent">
-					<Table.Head class={cn('h-auto py-2 pl-3.5', labelClass)}>Title</Table.Head>
-					<Table.Head class={cn('hidden h-auto w-[110px] py-2 pl-4 sm:table-cell', labelClass)}>File</Table.Head>
-					<Table.Head class={cn('hidden h-auto w-[170px] py-2 pl-4 sm:table-cell', labelClass)}>Uploaded</Table.Head>
-					<Table.Head class="h-auto w-24 py-2 pr-3.5 pl-4"><span class="sr-only">Actions</span></Table.Head>
+			<Table.Header>
+				<Table.Row>
+					<Table.Head>Title</Table.Head>
+					<Table.Head class="hidden w-[110px] sm:table-cell">File</Table.Head>
+					<Table.Head class="hidden w-[170px] sm:table-cell">Uploaded</Table.Head>
+					<Table.Head class="w-24"><span class="sr-only">Actions</span></Table.Head>
 				</Table.Row>
 			</Table.Header>
 			<Table.Body>
 				{#each records as record (record.id)}
 					<Table.Row>
-						<Table.Cell class="py-3 pl-3.5 whitespace-normal">
+						<Table.Cell class="whitespace-normal">
 							<span class="block text-[15px] leading-5 font-medium text-foreground">{record.title}</span>
 							<span class="mt-0.5 block text-[13px] leading-[18px] text-muted-foreground sm:hidden">
 								{fileTypeLabel(record.contentType)} · {formatFileSize(record.fileSizeBytes)} · {formatDayMonthYear(
@@ -109,18 +108,17 @@
 								)} · {record.uploadedBy}
 							</span>
 						</Table.Cell>
-						<Table.Cell class="hidden pl-4 font-mono text-xs text-muted-foreground sm:table-cell">
+						<Table.Cell class="hidden sm:table-cell">
 							{fileTypeLabel(record.contentType)} · {formatFileSize(record.fileSizeBytes)}
 						</Table.Cell>
-						<Table.Cell class="hidden pl-4 text-sm text-secondary-foreground sm:table-cell">
+						<Table.Cell class="hidden sm:table-cell">
 							{formatDayMonthYear(viewerDay(record.createdAt, timeZone))} · {record.uploadedBy}
 						</Table.Cell>
-						<Table.Cell class="pr-3.5 pl-4">
+						<Table.Cell>
 							<div class="flex items-center justify-end gap-1">
 								<Button
 									variant="link"
 									size="none"
-									class="text-foreground underline underline-offset-4"
 									disabled={openingId === record.id}
 									aria-label={`Open ${record.title}`}
 									onclick={() => open(record)}
@@ -131,7 +129,6 @@
 									<Button
 										variant="ghost"
 										size="icon-sm"
-										class="text-muted-foreground"
 										disabled={archivingId === record.id}
 										aria-label={`Archive ${record.title}`}
 										onclick={() => archive(record)}
@@ -143,9 +140,9 @@
 						</Table.Cell>
 					</Table.Row>
 				{:else}
-					<Table.Row class="hover:bg-transparent">
-						<Table.Cell colspan={4} class="px-3.5 py-3 text-sm whitespace-normal text-muted-foreground">
-							No documents have been uploaded for this Soldier yet.
+					<Table.Row>
+						<Table.Cell colspan={4} class="whitespace-normal">
+							<span class="text-muted-foreground">No documents have been uploaded for this Soldier yet.</span>
 						</Table.Cell>
 					</Table.Row>
 				{/each}
@@ -154,13 +151,7 @@
 		{#if remaining > 0 || more.error}
 			<div class="flex flex-wrap items-center gap-x-4 gap-y-1 border-t px-3.5 py-2.5 text-sm">
 				{#if remaining > 0}
-					<Button
-						variant="link"
-						size="none"
-						class="font-medium text-foreground underline underline-offset-4"
-						disabled={more.loading}
-						onclick={more.load}
-					>
+					<Button variant="link" size="none" disabled={more.loading} onclick={more.load}>
 						Show {remaining} more
 					</Button>
 				{/if}

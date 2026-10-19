@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createSupabaseDashboardOrgAccessPort } from './dashboardAccessProvider.server';
+import { createShiftingPostgrestClient, pagedIds } from '$lib/test-support/shiftingPostgrest';
 
 type Call = { method: string; args: unknown[] };
 
@@ -285,5 +286,24 @@ describe('createSupabaseDashboardOrgAccessPort', () => {
 				email: 'user@example.com'
 			})
 		).resolves.toEqual({ status: 'blocked', organizationId: 'org-1' });
+	});
+
+	it('lists every pending invitation once when equal creation times shift between pages', async () => {
+		const ids = pagedIds(1001, 'invitation');
+		const supabase = createShiftingPostgrestClient({
+			organization_invitations: ids.map((id) => ({
+				id,
+				organization_id: `org-${id}`,
+				normalized_email: 'invitee@example.com',
+				status: 'pending',
+				expires_at: '2999-01-01T00:00:00.000Z',
+				created_at: '2026-09-18T11:00:00.000Z',
+				organizations: { id: `org-${id}`, name: `Organization ${id}` }
+			}))
+		});
+		const invitations = await createSupabaseDashboardOrgAccessPort({ supabase }).listPendingInvitationsForEmail(
+			'invitee@example.com'
+		);
+		expect(invitations.map((invitation) => invitation.id).toSorted()).toEqual(ids);
 	});
 });

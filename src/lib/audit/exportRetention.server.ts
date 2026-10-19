@@ -10,7 +10,12 @@ export function createSupabaseAuditExportReader(client: SupabaseClient, orgId: s
 	return {
 		async listRows() {
 			const result = await selectAllSupabaseRows<Record<string, unknown>>(async (from, to) => {
-				const { data, error } = await client.from('audit_logs').select('*').eq('org_id', orgId).range(from, to);
+				const { data, error } = await client
+					.from('audit_logs')
+					.select('*')
+					.eq('org_id', orgId)
+					.order('id', { ascending: true })
+					.range(from, to);
 				return { data, error };
 			});
 			if (result.error) throw new Error((result.error as { message?: string }).message ?? 'Audit export read failed');

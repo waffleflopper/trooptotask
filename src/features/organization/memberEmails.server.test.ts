@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
 import { createSupabaseOrganizationMemberEmailsReader } from './memberEmails.server';
+import { createShiftingPostgrestClient, pagedIds } from '$lib/test-support/shiftingPostgrest';
 
 type Row = Record<string, unknown>;
 const ORG = 'org-a';
@@ -40,7 +41,8 @@ function provider(rows: Row[]) {
 					else if (filter.startsWith('in.(') && filter.endsWith(')')) {
 						const values = filter.slice(4, -1).split(',');
 						visible = visible.filter((row) => values.includes(String(row[column])));
-					} else if (!['select', 'offset', 'limit'].includes(column)) throw new Error('Unexpected label predicate');
+					} else if (!['select', 'order', 'offset', 'limit'].includes(column))
+						throw new Error('Unexpected label predicate');
 				}
 				const limit = Math.min(Number(url.searchParams.get('limit') ?? 1000), 1000);
 				const columns = url.searchParams.get('select');
@@ -144,6 +146,21 @@ describe('Organization current member emails with supplied Supabase authority', 
 		state.failFrom = failFrom;
 		await expect(createSupabaseOrganizationMemberEmailsReader(client, ORG)(ids)).rejects.toThrow(
 			'Label rows unavailable'
+		);
+	});
+
+	it('returns every referenced email when physical order shifts between pages', async () => {
+		const userIds = pagedIds(1001, 'user');
+		const client = createShiftingPostgrestClient({
+			organization_memberships: userIds.map((userId, index) => ({
+				id: `membership-${String(1000 - index).padStart(5, '0')}`,
+				organization_id: ORG,
+				user_id: userId,
+				email: `${userId}@example.test`
+			}))
+		});
+		expect(await createSupabaseOrganizationMemberEmailsReader(client, ORG)(userIds)).toEqual(
+			new Map(userIds.map((userId) => [userId, `${userId}@example.test`]))
 		);
 	});
 });

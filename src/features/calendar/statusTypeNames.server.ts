@@ -15,6 +15,7 @@ export function createSupabaseStatusTypeNamesReader(
 				.select('id, name')
 				.eq('organization_id', orgId)
 				.in('id', ids)
+				.order('id', { ascending: true })
 				.range(from, to)
 				.returns<StatusTypeNameRow[]>();
 			return { data, error };

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
 import { createSupabaseIdentityExportReader, type IdentityExportTable } from './organizationExportRead.server';
+import { createShiftingPostgrestClient, pagedIds } from '$lib/test-support/shiftingPostgrest';
 
 type Row = Record<string, unknown>;
 const ORG = 'org-a';
@@ -31,7 +32,10 @@ const cases = [
 ] as const;
 
 function provider(table: IdentityExportTable, saved: Row) {
-	const owned: Row[] = Array.from({ length: 1001 }, (_, index) => ({ ...saved, id: `saved-${index}` }));
+	const owned: Row[] = Array.from({ length: 1001 }, (_, index) => ({
+		...saved,
+		id: `saved-${String(index).padStart(4, '0')}`
+	}));
 	const peer = { ...saved, id: 'peer-row', user_id: 'peer' };
 	const rows: Row[] = [{ ...saved, id: 'foreign-row', organization_id: 'org-b' }, ...owned, peer];
 	const state = { failFrom: null as number | null, userId: USER };
@@ -113,5 +117,12 @@ describe('Identity ordinary Organization export reads', () => {
 			createSupabaseIdentityExportReader(client, ORG).listRows('access_requests' as IdentityExportTable)
 		).rejects.toMatchObject({ status: 400 });
 		expect(fetch).not.toHaveBeenCalled();
+	});
+
+	it.each(cases)('returns each saved $table row once when physical order shifts between pages', async ({ table }) => {
+		const ids = pagedIds(1001);
+		const client = createShiftingPostgrestClient({ [table]: ids.map((id) => ({ id, organization_id: ORG })) });
+		const rows = await createSupabaseIdentityExportReader(client, ORG).listRows(table);
+		expect(rows.map((row) => row.id).toSorted()).toEqual(ids);
 	});
 });

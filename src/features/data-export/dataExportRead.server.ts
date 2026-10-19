@@ -9,7 +9,12 @@ export function createSupabaseDataExportReader(client: SupabaseClient, orgId: st
 	return {
 		async listRows() {
 			const result = await selectAllSupabaseRows<Record<string, unknown>>(async (from, to) => {
-				const { data, error } = await client.from('data_exports').select('*').eq('org_id', orgId).range(from, to);
+				const { data, error } = await client
+					.from('data_exports')
+					.select('*')
+					.eq('org_id', orgId)
+					.order('id', { ascending: true })
+					.range(from, to);
 				return { data, error };
 			});
 			if (result.error) throw new Error((result.error as { message?: string }).message ?? 'Data export read failed');

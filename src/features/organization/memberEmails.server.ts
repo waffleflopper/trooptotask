@@ -15,6 +15,7 @@ export function createSupabaseOrganizationMemberEmailsReader(
 				.select('user_id, email')
 				.eq('organization_id', orgId)
 				.in('user_id', userIds)
+				.order('id', { ascending: true })
 				.range(from, to)
 				.returns<MemberEmailRow[]>();
 			return { data, error };

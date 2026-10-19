@@ -217,6 +217,23 @@ describe('Data sheet read model', () => {
 		};
 		expect(dataSheetReadModel(person, withChildren).dependents).toBe('2 · Avery (7), Blake');
 	});
+
+	it('counts and lists saved children when no dependents count is set', () => {
+		const withChildren = {
+			...info,
+			numberOfDependents: null,
+			children: [
+				{ name: 'Avery', age: 7 },
+				{ name: 'Blake', age: null }
+			]
+		};
+		expect(dataSheetReadModel(person, withChildren).dependents).toBe('2 · Avery (7), Blake');
+	});
+
+	it('keeps the stated count when it differs from the children listed', () => {
+		const withChildren = { ...info, numberOfDependents: 3, children: [{ name: 'Avery', age: 7 }] };
+		expect(dataSheetReadModel(person, withChildren).dependents).toBe('3 · Avery (7)');
+	});
 });
 
 describe('Collapsed section summaries', () => {

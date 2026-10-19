@@ -235,6 +235,16 @@ export function vehicleSummary(values: DataSheetValues): string {
 	);
 }
 
+/** The count when it is set, else the number of saved children; the children are listed whenever there are any. */
+function dependentsLine(count: number | null, children: PersonnelExtendedInfo['children']): string {
+	if (count === null && children.length === 0) return '';
+	const names =
+		children.length === 0
+			? 'no children'
+			: children.map((child) => (child.age == null ? child.name : `${child.name} (${child.age})`)).join(', ');
+	return `${count ?? children.length} · ${names}`;
+}
+
 /** What the read view shows for the saved sheet. Each value is already display text. */
 export function dataSheetReadModel(person: Personnel, info: PersonnelExtendedInfo | null) {
 	const date = (value: string | null | undefined) => (value ? formatSheetDate(value) : '');
@@ -260,14 +270,7 @@ export function dataSheetReadModel(person: Personnel, info: PersonnelExtendedInf
 		emergencyPhone: info?.emergencyContactPhone ?? '',
 		maritalStatus: join([info?.maritalStatus, date(info?.maritalStatusDate)], ' · '),
 		spouse: join([info?.spouseName, info?.spousePhone], ' · '),
-		dependents:
-			info?.numberOfDependents == null
-				? ''
-				: `${info.numberOfDependents} · ${
-						children.length === 0
-							? 'no children'
-							: children.map((child) => (child.age == null ? child.name : `${child.name} (${child.age})`)).join(', ')
-					}`,
+		dependents: dependentsLine(info?.numberOfDependents ?? null, children),
 		vehicle: join([info?.vehicleColor, info?.vehicleMakeModel], ' '),
 		vehiclePlate: info?.vehiclePlate ?? ''
 	};

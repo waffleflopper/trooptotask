@@ -2,8 +2,7 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import type { ComponentProps } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { PersonnelAttention } from '$features/personnel/contracts';
-import { jsonResponse, makeFollowUp, recordingFetch } from '$features/personnel/logFixtures.testHelper';
+import type { PersonnelAttention, PersonnelFollowUp } from '$features/personnel/contracts';
 import type { PersonnelActiveEvaluation } from '$features/rating-scheme/contracts';
 import OverviewTabView from './OverviewTabView.svelte';
 
@@ -53,6 +52,36 @@ const attention: PersonnelAttention = {
 	failed: ['criticalTasks']
 };
 
+function followUp(id: string, title: string, dueDate: string | null): PersonnelFollowUp {
+	return {
+		id,
+		personnelId: 'person-1',
+		title,
+		notes: '',
+		dueDate,
+		status: 'open',
+		createdBy: '1SG Ramos',
+		createdAt: '2026-10-01T12:00:00.000Z',
+		updatedAt: '2026-10-01T12:00:00.000Z',
+		completedAt: null,
+		completedBy: null,
+		archivedAt: null,
+		archivedBy: null
+	};
+}
+
+/** Answers every follow-up PATCH as completed and keeps each request for the test to read. */
+function completingFetch() {
+	const requests: { url: string; method: string; body: unknown }[] = [];
+	vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+		requests.push({ url: String(input), method: init?.method ?? 'GET', body: JSON.parse(String(init?.body)) });
+		return new Response(JSON.stringify({ status: 'completed', completedAt: '2026-10-06T14:00:00.000Z' }), {
+			headers: { 'content-type': 'application/json' }
+		});
+	});
+	return requests;
+}
+
 const evaluation = {
 	entryId: 'entry-1',
 	evalType: 'NCOER',
@@ -75,10 +104,10 @@ function overview(overrides: Partial<Overview> = {}): Overview {
 		}),
 		attention: Promise.resolve(attention),
 		openFollowUps: Promise.resolve([
-			makeFollowUp({ id: 'f-range', title: 'Range card', dueDate: '2026-10-20' }),
-			makeFollowUp({ id: 'f-dental', title: 'Dental readiness', dueDate: '2026-10-02' }),
-			makeFollowUp({ id: 'f-ta50', title: 'TA-50 shortage list', dueDate: null }),
-			makeFollowUp({ id: 'f-pt', title: 'PT test makeup', dueDate: '2026-10-30' })
+			followUp('f-range', 'Range card', '2026-10-20'),
+			followUp('f-dental', 'Dental readiness', '2026-10-02'),
+			followUp('f-ta50', 'TA-50 shortage list', null),
+			followUp('f-pt', 'PT test makeup', '2026-10-30')
 		]),
 		evaluation: Promise.resolve(evaluation),
 		reach: Promise.resolve({
@@ -219,10 +248,7 @@ describe('Personnel Overview', () => {
 	});
 
 	it('completes a follow-up in one click and keeps it in place to reopen', async () => {
-		const recorded = recordingFetch(() =>
-			jsonResponse({ status: 'completed', completedAt: '2026-10-06T14:00:00.000Z' })
-		);
-		vi.stubGlobal('fetch', recorded.fetch);
+		const requests = completingFetch();
 		renderOverview();
 
 		const section = await screen.findByRole('region', { name: 'Open follow-ups' });
@@ -230,7 +256,7 @@ describe('Personnel Overview', () => {
 
 		expect(await within(section).findByText('3 open')).toBeTruthy();
 		expect(within(section).getByRole('checkbox', { name: 'Reopen Dental readiness' })).toBeTruthy();
-		expect(recorded.requests).toEqual([
+		expect(requests).toEqual([
 			{
 				url: '/org/org-id-1/api/personnel/person-1/follow-ups/f-dental',
 				method: 'PATCH',
@@ -240,10 +266,7 @@ describe('Personnel Overview', () => {
 	});
 
 	it('keeps a completion made here when the page receives a new data object holding the same loads', async () => {
-		vi.stubGlobal(
-			'fetch',
-			vi.fn(async () => jsonResponse({ status: 'completed', completedAt: '2026-10-06T14:00:00.000Z' }))
-		);
+		completingFetch();
 		const loads = overview();
 		const view = renderOverview({ ...loads });
 		const section = await screen.findByRole('region', { name: 'Open follow-ups' });

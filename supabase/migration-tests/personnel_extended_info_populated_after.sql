@@ -15,7 +15,7 @@ SELECT 'public.organization_memberships', id, to_jsonb(row_value) FROM public.or
 UNION ALL
 SELECT 'public.personnel', id, to_jsonb(row_value) FROM public.personnel AS row_value WHERE organization_id = 'f6000000-0000-4000-8000-000000000101'
 UNION ALL
-SELECT 'public.personnel_extended_info', id, to_jsonb(row_value) FROM public.personnel_extended_info AS row_value WHERE organization_id = 'f6000000-0000-4000-8000-000000000101';
+SELECT 'public.personnel_extended_info', id, to_jsonb(row_value) - 'marital_status_date' - 'updated_by' FROM public.personnel_extended_info AS row_value WHERE organization_id = 'f6000000-0000-4000-8000-000000000101';
 SELECT is((SELECT count(*)::integer FROM personnel_extended_info_current_rows), 12,
   'all historical Soldier Data Sheet fixture rows remain');
 SELECT results_eq(

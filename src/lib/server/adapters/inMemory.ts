@@ -1745,6 +1745,7 @@ export function createTestContext(
 	const notificationPort = createTestNotificationPort();
 	const storagePort = createTestStoragePort();
 	const sensitiveActionAuthorizer = createTestSensitiveActionAuthorizer(overrides?.sensitiveActionDecision);
+	const organizationSettings = createInMemoryOrganizationSettingsReader(rawStore);
 	const criticalTaskLibrary =
 		overrides?.criticalTaskLibraryFactory?.(rawStore, auth.orgId) ?? unavailableCriticalTaskLibrary();
 	const criticalTaskCompletions =
@@ -1764,7 +1765,8 @@ export function createTestContext(
 		audit: auditPort,
 		calendarAssignmentReplacement: createInMemoryCalendarAssignmentReplacementPort(rawStore),
 		availabilityRemoval: createInMemoryCalendarAvailabilityRemovalPort(rawStore, store, auth.orgId),
-		organizationSettings: createInMemoryOrganizationSettingsReader(rawStore),
+		organizationSettings,
+		contributorLabels: (userIds: string[]) => organizationSettings.findMemberLabels(auth.orgId, userIds),
 		organizationPolicyWrite: createInMemoryOrganizationPolicyWritePort(rawStore),
 		onboardingReconciliation: overrides?.onboardingReconciliation ?? unavailableOnboardingReconciliation(),
 		onboardingNoteAppend: overrides?.onboardingNoteAppend ?? unavailableOnboardingNoteAppend(),

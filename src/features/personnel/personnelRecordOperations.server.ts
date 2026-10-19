@@ -13,7 +13,8 @@ import {
 import { normalizeActivePersonnelRank } from './rankValidation.server';
 import { buildUniquePersonnelSlug, isPersonnelSlugUniqueConstraintError } from './personnelSlug.server';
 import { fail, RequestFailure } from '$lib/errors';
-import { dateOnlySchema, uuidSchema, issueMessage } from '$lib/utils/inputSchemas';
+import { dateOnlySchema, uuidSchema } from '$lib/utils/inputSchemas';
+import { failField, failParse } from './personnelFieldFailure';
 
 interface PersonnelRecordContext {
 	auth: OrganizationAccessGrant;
@@ -40,7 +41,7 @@ const updateInput = createInput.partial().extend({ id: uuidSchema });
 
 function parseInput<T>(schema: z.ZodType<T>, data: unknown): T {
 	const parsed = schema.safeParse(data);
-	if (!parsed.success) fail(400, issueMessage(parsed.error));
+	if (!parsed.success) failParse(parsed.error);
 	return parsed.data;
 }
 
@@ -53,8 +54,8 @@ function rankCodesMatchCanonical(left: string, right: string | undefined): boole
 }
 
 function requireNames(names: { lastName?: string; firstName?: string }): void {
-	if (names.lastName?.trim() === '') fail(400, PERSONNEL_LAST_NAME_REQUIRED_MESSAGE);
-	if (names.firstName?.trim() === '') fail(400, PERSONNEL_FIRST_NAME_REQUIRED_MESSAGE);
+	if (names.lastName?.trim() === '') failField('lastName', PERSONNEL_LAST_NAME_REQUIRED_MESSAGE);
+	if (names.firstName?.trim() === '') failField('firstName', PERSONNEL_FIRST_NAME_REQUIRED_MESSAGE);
 }
 
 async function requireGroupInOrganization(
@@ -63,7 +64,7 @@ async function requireGroupInOrganization(
 ): Promise<void> {
 	if (!groupId) return;
 	const group = await ctx.groups.findReference(groupId);
-	if (!group) fail(404, 'Group not found.');
+	if (!group) fail(404, 'Group not found.', { reason: 'field:groupId' });
 }
 
 export async function createPersonnelRecord(ctx: PersonnelRecordContext, data: Record<string, unknown>) {
@@ -110,9 +111,19 @@ export async function createPersonnelRecord(ctx: PersonnelRecordContext, data: R
 	return row;
 }
 
-export async function updatePersonnelRecord(ctx: PersonnelRecordContext, data: Record<string, unknown>) {
+/** A validated, authorized Person update; applying it is the only write. */
+export interface PreparedPersonnelRecordUpdate {
+	id: string;
+	patch: Omit<z.infer<typeof updateInput>, 'id'> & { slug?: string };
+	currentRecord: NonNullable<Awaited<ReturnType<PersonnelRecordContext['personnel']['findWriteReference']>>>;
+}
+
+export async function preparePersonnelRecordUpdate(
+	ctx: PersonnelRecordContext,
+	data: Record<string, unknown>
+): Promise<PreparedPersonnelRecordUpdate> {
 	const { id, ...editable } = parseInput(updateInput, data);
-	const patch: typeof editable & { slug?: string } = editable;
+	const patch: PreparedPersonnelRecordUpdate['patch'] = editable;
 	const nextGroupId = patch.groupId;
 	const currentRecord = await ctx.personnel.findWriteReference(id);
 
@@ -145,15 +156,9 @@ export async function updatePersonnelRecord(ctx: PersonnelRecordContext, data: R
 			try {
 				patch.rank = await normalizeActivePersonnelRank(ctx, nextRank);
 			} catch (error) {
-				if (
-					error instanceof RequestFailure &&
-					error.status === 400 &&
-					rankCodesMatchCanonical(nextRank, currentRecord?.rank)
-				) {
-					patch.rank = currentRecord?.rank;
-				} else {
-					throw error;
-				}
+				if (!(error instanceof RequestFailure) || error.status !== 400) throw error;
+				if (!rankCodesMatchCanonical(nextRank, currentRecord.rank)) failField('rank', error.message);
+				patch.rank = currentRecord.rank;
 			}
 		}
 	}
@@ -161,7 +166,16 @@ export async function updatePersonnelRecord(ctx: PersonnelRecordContext, data: R
 	if (nextGroupId !== undefined) {
 		patch.groupId = nextGroupId || null;
 	}
-	const shouldRegenerateSlug = patch.lastName !== undefined || patch.firstName !== undefined;
+	return { id, patch, currentRecord };
+}
+
+export async function applyPersonnelRecordUpdate(
+	ctx: PersonnelRecordContext,
+	{ id, patch, currentRecord }: PreparedPersonnelRecordUpdate
+) {
+	const shouldRegenerateSlug =
+		(patch.lastName !== undefined && patch.lastName !== currentRecord.lastName) ||
+		(patch.firstName !== undefined && patch.firstName !== currentRecord.firstName);
 	let row: Personnel | null = null;
 	const rejectedSlugs = new Set<string>();
 	for (let attempt = 1; attempt <= SLUG_RETRY_LIMIT; attempt += 1) {
@@ -169,8 +183,8 @@ export async function updatePersonnelRecord(ctx: PersonnelRecordContext, data: R
 			patch.slug = await buildUniquePersonnelSlug({
 				organizationPersonnel: ctx.organizationPersonnel,
 				excludePersonnelId: id,
-				lastName: (patch.lastName as string | undefined) ?? currentRecord?.lastName ?? '',
-				firstName: (patch.firstName as string | undefined) ?? currentRecord?.firstName ?? '',
+				lastName: (patch.lastName as string | undefined) ?? currentRecord.lastName ?? '',
+				firstName: (patch.firstName as string | undefined) ?? currentRecord.firstName ?? '',
 				rejectedSlugs
 			});
 		}
@@ -195,4 +209,8 @@ export async function updatePersonnelRecord(ctx: PersonnelRecordContext, data: R
 	});
 
 	return row;
+}
+
+export async function updatePersonnelRecord(ctx: PersonnelRecordContext, data: Record<string, unknown>) {
+	return applyPersonnelRecordUpdate(ctx, await preparePersonnelRecordUpdate(ctx, data));
 }

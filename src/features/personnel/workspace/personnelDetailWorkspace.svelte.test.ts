@@ -1,8 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { PERSONNEL_LAST_NAME_REQUIRED_MESSAGE, type PersonnelFollowUp } from '$features/personnel/contracts';
+import type { PersonnelFollowUp } from '$features/personnel/contracts';
 import type { PersonnelDetailStreams } from '$features/personnel/personnel-detail.types';
 import type { Personnel } from '../personnel.types';
-import { personnelStore } from '../stores/personnel.svelte';
 import { createPersonnelDetailWorkspace } from './personnelDetailWorkspace.svelte';
 
 afterEach(() => vi.unstubAllGlobals());
@@ -176,97 +175,6 @@ describe('PersonnelDetailWorkspace', () => {
 		expect(workspace.mergeUpdatedFollowUps([loaded])).toEqual([loaded]);
 	});
 
-	it('lands a slug-changing save on the new URL with fresh detail data and patches the roster', async () => {
-		const savedPerson = {
-			...person,
-			slug: 'rivera-jones-monica',
-			rank: 'SSG',
-			lastName: 'Rivera-Jones'
-		};
-		const fetchMock = vi.fn().mockResolvedValue({
-			ok: true,
-			json: () => Promise.resolve(savedPerson)
-		});
-		const gotoMock = vi.fn();
-		const invalidate = vi.fn();
-		personnelStore.load([person, { ...person, id: 'person-2', slug: 'able-sam', lastName: 'Able' }], 'org-1');
-		const workspace = makeWorkspace({
-			fetch: fetchMock as typeof fetch,
-			goto: gotoMock as unknown as typeof import('$app/navigation').goto,
-			invalidate
-		});
-
-		workspace.startBasicInfoEdit();
-		workspace.basicInfoRank = 'SSG';
-		workspace.basicInfoLastName = 'Rivera-Jones';
-
-		await workspace.saveBasicInfo();
-
-		expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/personnel', {
-			method: 'PUT',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({
-				id: 'person-1',
-				rank: 'SSG',
-				lastName: 'Rivera-Jones',
-				firstName: 'Monica',
-				mos: '68W',
-				clinicRole: 'Medic',
-				groupId: 'group-1',
-				ets: '2026-06-20',
-				deros: null
-			})
-		});
-		expect(workspace.currentPerson).toEqual(savedPerson);
-		expect(gotoMock.mock.calls).toEqual([
-			[
-				'/org/org-alpha/personnel/rivera-jones-monica',
-				{ replaceState: true, invalidate: ['app:personnel-detail-header', 'app:personnel-detail'] }
-			]
-		]);
-		expect(invalidate).not.toHaveBeenCalled();
-		expect(personnelStore.items.map(({ id, slug, lastName }) => ({ id, slug, lastName }))).toEqual([
-			{ id: 'person-1', slug: 'rivera-jones-monica', lastName: 'Rivera-Jones' },
-			{ id: 'person-2', slug: 'able-sam', lastName: 'Able' }
-		]);
-	});
-
-	it('shows why a basic info save was refused and keeps the edit open', async () => {
-		const workspace = makeWorkspace({
-			fetch: vi
-				.fn()
-				.mockResolvedValue(
-					Response.json({ message: 'This person is no longer available.' }, { status: 404 })
-				) as typeof fetch
-		});
-		workspace.startBasicInfoEdit();
-		workspace.basicInfoRank = 'SSG';
-
-		await workspace.saveBasicInfo();
-
-		expect(workspace.basicInfoError).toBe('This person is no longer available.');
-		expect(workspace.basicInfoNameError).toBeNull();
-		expect(workspace.editingBasicInfo).toBe(true);
-		expect(workspace.basicInfoRank).toBe('SSG');
-	});
-
-	it('maps a refused name to its field and keeps the generic message for a server failure', async () => {
-		const fetchMock = vi
-			.fn()
-			.mockResolvedValueOnce(Response.json({ message: PERSONNEL_LAST_NAME_REQUIRED_MESSAGE }, { status: 400 }))
-			.mockResolvedValueOnce(Response.json({ message: 'relation missing' }, { status: 500 }));
-		const workspace = makeWorkspace({ fetch: fetchMock as typeof fetch });
-		workspace.startBasicInfoEdit();
-
-		await workspace.saveBasicInfo();
-		expect(workspace.basicInfoNameError).toEqual({ field: 'lastName', message: PERSONNEL_LAST_NAME_REQUIRED_MESSAGE });
-		expect(workspace.basicInfoError).toBe('');
-
-		await workspace.saveBasicInfo();
-		expect(workspace.basicInfoError).toBe('Unable to update basic info.');
-		expect(workspace.editingBasicInfo).toBe(true);
-	});
-
 	it('shows why a follow-up status update was refused', async () => {
 		const workspace = makeWorkspace({
 			fetch: vi
@@ -291,43 +199,6 @@ describe('PersonnelDetailWorkspace', () => {
 		);
 
 		expect(workspace.followUps.error).toBe('This follow-up was archived.');
-	});
-
-	it('clears ETS and refreshes only the detail loads without changing the personnel URL', async () => {
-		const originalPerson = { ...person, ets: '2027-05-02' };
-		const savedPerson = { ...originalPerson, ets: null };
-		const requestBodies: unknown[] = [];
-		const invalidated: string[] = [];
-		const goto = vi.fn();
-		const workspace = createPersonnelDetailWorkspace(
-			{
-				orgId: 'org-1',
-				orgUrlSegment: 'org-alpha',
-				person: originalPerson,
-				orgName: 'Test Org',
-				detail: makeDetail()
-			},
-			{
-				fetch: async (_url, init) => {
-					requestBodies.push(JSON.parse(String(init?.body)));
-					return Response.json(savedPerson);
-				},
-				invalidate: async (key) => {
-					invalidated.push(String(key));
-				},
-				goto
-			}
-		);
-
-		workspace.startBasicInfoEdit();
-		workspace.basicInfoEts = '';
-		await workspace.saveBasicInfo();
-
-		expect(requestBodies).toEqual([expect.objectContaining({ ets: null })]);
-		expect(invalidated).toEqual(['app:personnel-detail-header', 'app:personnel-detail']);
-		expect(goto).not.toHaveBeenCalled();
-		expect(workspace.currentPerson.ets).toBeNull();
-		expect(workspace.editingBasicInfo).toBe(false);
 	});
 });
 
@@ -361,25 +232,5 @@ describe('destroyed Personnel detail workspace effects', () => {
 		body.resolve({ url: 'https://example.invalid/old-person.pdf' });
 		await running;
 		expect(openDocumentUrl).not.toHaveBeenCalled();
-	});
-
-	it('does not navigate for a basic-info save whose body finishes after disposal', async () => {
-		const body = deferred<Personnel>();
-		const reading = deferred<void>();
-		const response = Response.json(person);
-		vi.spyOn(response, 'json').mockImplementation(() => {
-			reading.resolve();
-			return body.promise;
-		});
-		const goto = vi.fn();
-		const workspace = makeWorkspace({ fetch: vi.fn().mockResolvedValue(response), goto });
-		workspace.startBasicInfoEdit();
-		workspace.basicInfoLastName = 'Rivera-Jones';
-		const running = workspace.saveBasicInfo();
-		await reading.promise;
-		workspace.dispose();
-		body.resolve({ ...person, slug: 'rivera-jones-monica', lastName: 'Rivera-Jones' });
-		await running;
-		expect(goto).not.toHaveBeenCalled();
 	});
 });

@@ -1,16 +1,10 @@
-import { goto, invalidate } from '$app/navigation';
-import { resolve } from '$app/paths';
-import {
-	PERSONNEL_FIRST_NAME_REQUIRED_MESSAGE,
-	PERSONNEL_LAST_NAME_REQUIRED_MESSAGE
-} from '$features/personnel/contracts';
+import { invalidate } from '$app/navigation';
 import type {
 	PersonnelExtendedInfo,
 	PersonnelLeaderNote,
 	PersonnelCounselingRecord,
 	PersonnelDocument,
-	PersonnelFollowUp,
-	Group
+	PersonnelFollowUp
 } from '$features/personnel/contracts';
 import type {
 	PersonnelDetailStreams,
@@ -20,7 +14,6 @@ import type {
 } from '$features/personnel/personnel-detail.types';
 import { buildRequestError, rejectedRequestMessage } from '$lib/stores/core';
 import type { Personnel } from '../personnel.types';
-import { personnelStore } from '../stores/personnel.svelte';
 import { SvelteDate } from 'svelte/reactivity';
 import { ArtifactDraft } from './artifactDraft.svelte';
 import { PERSONNEL_DETAIL_COUNTS_KEY } from './detailCounts';
@@ -35,21 +28,12 @@ import {
 	type LeaderNoteDraftInput
 } from './personnelArtifactDraftSpecs';
 
-/** A basic-info save changes the header and the readiness lanes; the roster is patched from the response. */
-const PERSONNEL_DETAIL_KEYS = ['app:personnel-detail-header', 'app:personnel-detail'] as const;
-
-const NAME_FIELD_ERRORS = new Map<string, 'firstName' | 'lastName'>([
-	[PERSONNEL_FIRST_NAME_REQUIRED_MESSAGE, 'firstName'],
-	[PERSONNEL_LAST_NAME_REQUIRED_MESSAGE, 'lastName']
-]);
-
 export type PersonnelDetailTone = PersonnelReadinessLaneTone;
 
 export interface PersonnelDetailWorkspaceInput {
 	orgId: string;
 	orgUrlSegment?: string;
 	person: Personnel;
-	groups?: Group[];
 	orgName: string;
 	detail: PersonnelDetailStreams;
 }
@@ -58,9 +42,7 @@ export type PersonnelDetailWorkspaceInputSource = PersonnelDetailWorkspaceInput 
 
 export interface PersonnelDetailWorkspaceDeps {
 	fetch?: typeof fetch;
-	goto?: typeof goto;
 	invalidate?: typeof invalidate;
-	resolve?: typeof resolve;
 	openDocumentUrl?: (url: string) => void;
 }
 
@@ -75,6 +57,7 @@ const emptyExtendedInfo: PersonnelExtendedInfo = {
 	basd: '',
 	dateOfRank: '',
 	maritalStatus: '',
+	maritalStatusDate: '',
 	numberOfDependents: null,
 	children: [],
 	civilianEducation: '',
@@ -93,15 +76,15 @@ const emptyExtendedInfo: PersonnelExtendedInfo = {
 	addressCity: '',
 	addressState: '',
 	addressZip: '',
-	address: ''
+	address: '',
+	updatedAt: null,
+	updatedBy: null
 };
 
 const defaultDeps = {
 	fetch: (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
 		init === undefined ? fetch(input) : fetch(input, init),
-	goto,
 	invalidate,
-	resolve,
 	openDocumentUrl: (url: string) => {
 		if (typeof window !== 'undefined') {
 			window.open(url, '_blank', 'noopener,noreferrer');
@@ -125,23 +108,6 @@ export class PersonnelDetailWorkspace {
 	leaderNotes: ArtifactDraft<LeaderNoteDraftInput, PersonnelLeaderNote>;
 	counselingRecords: ArtifactDraft<CounselingRecordDraftInput, PersonnelCounselingRecord>;
 	documents: ArtifactDraft<DocumentDraftInput, PersonnelDocument>;
-
-	updatedPerson = $state<Personnel | null>(null);
-	showDataSheet = $state(false);
-
-	editingBasicInfo = $state(false);
-	basicInfoRank = $state('');
-	basicInfoFirstName = $state('');
-	basicInfoLastName = $state('');
-	basicInfoMos = $state('');
-	basicInfoClinicRole = $state('');
-	basicInfoGroupId = $state('');
-	basicInfoEts = $state('');
-	basicInfoDeros = $state('');
-	basicInfoSaving = $state(false);
-	basicInfoError = $state('');
-	/** A server rejection that names one name field; it renders on that field, not in the form alert. */
-	basicInfoNameError = $state<{ field: 'firstName' | 'lastName'; message: string } | null>(null);
 
 	togglingFollowUpId = $state('');
 	openingDocumentId = $state('');
@@ -180,18 +146,11 @@ export class PersonnelDetailWorkspace {
 	}
 
 	get currentPerson(): Personnel {
-		return this.updatedPerson ?? this.#input.person;
+		return this.#input.person;
 	}
 
 	get detailBasePath(): string {
 		return `/org/${this.orgUrlSegment}/personnel/${this.currentPerson.slug}`;
-	}
-
-	get groupOptions(): Array<{ value: string; label: string }> {
-		return [
-			{ value: '', label: 'No Group Assigned' },
-			...(this.#input.groups ?? []).map((group) => ({ value: group.id, label: group.name || 'Unnamed group' }))
-		];
 	}
 
 	get emptyExtendedInfo(): PersonnelExtendedInfo {
@@ -280,75 +239,6 @@ export class PersonnelDetailWorkspace {
 			return b.createdAt.localeCompare(a.createdAt);
 		});
 	}
-
-	startBasicInfoEdit = (): void => {
-		this.basicInfoRank = this.currentPerson.rank;
-		this.basicInfoFirstName = this.currentPerson.firstName;
-		this.basicInfoLastName = this.currentPerson.lastName;
-		this.basicInfoMos = this.currentPerson.mos;
-		this.basicInfoClinicRole = this.currentPerson.clinicRole;
-		this.basicInfoGroupId = this.currentPerson.groupId ?? '';
-		this.basicInfoEts = this.currentPerson.ets ?? '';
-		this.basicInfoDeros = this.currentPerson.deros ?? '';
-		this.basicInfoError = '';
-		this.basicInfoNameError = null;
-		this.editingBasicInfo = true;
-	};
-
-	saveBasicInfo = async (): Promise<void> => {
-		if (this.#disposed) return;
-		this.basicInfoError = '';
-		this.basicInfoNameError = null;
-		this.basicInfoSaving = true;
-		try {
-			const response = await this.#deps.fetch(`/org/${this.orgId}/api/personnel`, {
-				method: 'PUT',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({
-					id: this.currentPerson.id,
-					rank: this.basicInfoRank.trim(),
-					lastName: this.basicInfoLastName.trim(),
-					firstName: this.basicInfoFirstName.trim(),
-					mos: this.basicInfoMos.trim(),
-					clinicRole: this.basicInfoClinicRole.trim(),
-					groupId: this.basicInfoGroupId || null,
-					ets: this.basicInfoEts || null,
-					deros: this.basicInfoDeros || null
-				})
-			});
-			if (this.#disposed) return;
-			if (!response.ok) {
-				const failure = await buildRequestError(response, 'PUT', 'personnel');
-				const field = NAME_FIELD_ERRORS.get(failure.message);
-				if (field) {
-					this.basicInfoNameError = { field, message: failure.message };
-					return;
-				}
-				throw failure;
-			}
-			const previousSlug = this.currentPerson.slug;
-			const savedPerson = (await response.json()) as Personnel;
-			if (this.#disposed) return;
-			this.updatedPerson = savedPerson;
-			personnelStore.updateLocalWhere(
-				(item) => item.id === savedPerson.id,
-				() => savedPerson
-			);
-			if (savedPerson.slug !== previousSlug) {
-				await this.#deps.goto(this.#deps.resolve(`/org/${this.orgUrlSegment}/personnel/${savedPerson.slug}`), {
-					replaceState: true,
-					invalidate: [...PERSONNEL_DETAIL_KEYS]
-				});
-			} else {
-				await Promise.all(PERSONNEL_DETAIL_KEYS.map((key) => this.#deps.invalidate(key)));
-			}
-			this.editingBasicInfo = false;
-		} catch (caught) {
-			this.basicInfoError = rejectedRequestMessage(caught, 'Unable to update basic info.');
-		} finally {
-			this.basicInfoSaving = false;
-		}
-	};
 
 	setFollowUpStatus = async (followUp: PersonnelFollowUp, status: 'open' | 'completed'): Promise<void> => {
 		this.followUps.error = '';

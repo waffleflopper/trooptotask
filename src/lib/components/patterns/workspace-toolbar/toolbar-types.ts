@@ -90,6 +90,8 @@ export type ToolbarItem = ToolbarView | ToolbarFilter | ToolbarAction;
 export type WorkspaceToolbarProps = {
 	ariaLabel: string;
 	items: ToolbarItem[];
+	/** Drops the bordered card, for a toolbar that sits inside another block such as a page header. */
+	bare?: boolean;
 	search?: {
 		label: string;
 		placeholder: string;

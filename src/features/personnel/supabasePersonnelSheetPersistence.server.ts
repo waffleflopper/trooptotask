@@ -8,7 +8,7 @@ import type {
 	PersonnelSheetExportFacts
 } from './personnelSheetPersistence';
 const SELECT =
-	'id,personnel_id,organization_id,blood_type,basd,date_of_rank,marital_status,number_of_dependents,children,civilian_education,military_education,emergency_contact_name,emergency_contact_relationship,emergency_contact_phone,spouse_name,spouse_phone,vehicle_make_model,vehicle_plate,vehicle_color,personal_email,personal_phone,address_street,address_city,address_state,address_zip,award_tracking_acknowledged_at,created_at,updated_at';
+	'id,personnel_id,organization_id,blood_type,basd,date_of_rank,marital_status,marital_status_date,number_of_dependents,children,civilian_education,military_education,emergency_contact_name,emergency_contact_relationship,emergency_contact_phone,spouse_name,spouse_phone,vehicle_make_model,vehicle_plate,vehicle_color,personal_email,personal_phone,address_street,address_city,address_state,address_zip,award_tracking_acknowledged_at,created_at,updated_at,updated_by';
 function saved(row: SavedPersonnelSheet): SavedPersonnelSheet {
 	return {
 		id: row.id,
@@ -18,6 +18,7 @@ function saved(row: SavedPersonnelSheet): SavedPersonnelSheet {
 		...(row.basd !== undefined ? { basd: row.basd } : {}),
 		...(row.date_of_rank !== undefined ? { date_of_rank: row.date_of_rank } : {}),
 		...(row.marital_status !== undefined ? { marital_status: row.marital_status } : {}),
+		...(row.marital_status_date !== undefined ? { marital_status_date: row.marital_status_date } : {}),
 		...(row.number_of_dependents !== undefined ? { number_of_dependents: row.number_of_dependents } : {}),
 		...(row.children !== undefined ? { children: row.children } : {}),
 		...(row.civilian_education !== undefined ? { civilian_education: row.civilian_education } : {}),
@@ -42,7 +43,8 @@ function saved(row: SavedPersonnelSheet): SavedPersonnelSheet {
 			? { award_tracking_acknowledged_at: row.award_tracking_acknowledged_at }
 			: {}),
 		...(row.created_at !== undefined ? { created_at: row.created_at } : {}),
-		...(row.updated_at !== undefined ? { updated_at: row.updated_at } : {})
+		...(row.updated_at !== undefined ? { updated_at: row.updated_at } : {}),
+		...(row.updated_by !== undefined ? { updated_by: row.updated_by } : {})
 	};
 }
 function editable(input: PersonnelSheetEditableValues): PersonnelSheetEditableValues {
@@ -51,6 +53,7 @@ function editable(input: PersonnelSheetEditableValues): PersonnelSheetEditableVa
 		basd: input.basd,
 		date_of_rank: input.date_of_rank,
 		marital_status: input.marital_status,
+		marital_status_date: input.marital_status_date,
 		number_of_dependents: input.number_of_dependents,
 		children: input.children,
 		civilian_education: input.civilian_education,
@@ -68,7 +71,8 @@ function editable(input: PersonnelSheetEditableValues): PersonnelSheetEditableVa
 		address_street: input.address_street,
 		address_city: input.address_city,
 		address_state: input.address_state,
-		address_zip: input.address_zip
+		address_zip: input.address_zip,
+		updated_by: input.updated_by
 	};
 }
 export function createSupabasePersonnelSheetPersistence(

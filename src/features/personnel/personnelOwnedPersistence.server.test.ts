@@ -32,6 +32,7 @@ const sheet = {
 	basd: '2012-01-02',
 	date_of_rank: '2025-04-05',
 	marital_status: 'Married',
+	marital_status_date: '2018-05-06',
 	number_of_dependents: 2,
 	children: [{ name: 'Alex', age: 7 }],
 	civilian_education: 'BS',
@@ -50,6 +51,7 @@ const sheet = {
 	address_city: 'Test City',
 	address_state: 'AK',
 	address_zip: '99501',
+	updated_by: 'user-a',
 	award_tracking_acknowledged_at: '2026-10-01T10:00:00Z',
 	created_at: '2020-01-01T00:00:00.123456Z',
 	updated_at: null

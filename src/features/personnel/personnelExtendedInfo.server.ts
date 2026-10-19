@@ -11,7 +11,7 @@ import { fail } from '$lib/errors';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { personnelExtendedInfoInputSchema, type PersonnelExtendedInfo } from './contracts';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
-import { issueMessage } from '$lib/utils/inputSchemas';
+import { failParse } from './personnelFieldFailure';
 
 interface PersonnelExtendedInfoContext {
 	auth: OrganizationAccessGrant;
@@ -19,6 +19,7 @@ interface PersonnelExtendedInfoContext {
 	scope: { requireGroupAccess(personnelId: string): Promise<void> };
 	personnel: Pick<PersonnelRecordPersistence, 'findGroupReference'>;
 	personnelSheets: PersonnelSheetPersistence;
+	contributorLabels(userIds: string[]): Promise<Map<string, string>>;
 }
 
 type PersonnelExtendedInfoInput = z.infer<typeof personnelExtendedInfoInputSchema>;
@@ -40,12 +41,25 @@ function toAddress(
 	return [row.address_street, row.address_city, row.address_state, row.address_zip].filter(Boolean).join(', ');
 }
 
-function mapExtendedInfoRow(row: ExtendedInfoRow): PersonnelExtendedInfo {
+async function mapExtendedInfoRow(
+	ctx: Pick<PersonnelExtendedInfoContext, 'contributorLabels'>,
+	row: ExtendedInfoRow,
+	{ labelRequired = true } = {}
+): Promise<PersonnelExtendedInfo> {
+	let labels = new Map<string, string>();
+	if (row.updated_by) {
+		try {
+			labels = await ctx.contributorLabels([row.updated_by]);
+		} catch (error) {
+			if (labelRequired) throw error;
+		}
+	}
 	return {
 		bloodType: row.blood_type ?? '',
 		basd: row.basd ?? '',
 		dateOfRank: row.date_of_rank ?? '',
 		maritalStatus: row.marital_status ?? '',
+		maritalStatusDate: row.marital_status_date ?? '',
 		numberOfDependents: row.number_of_dependents ?? null,
 		children: normalizeChildren(row.children),
 		civilianEducation: row.civilian_education ?? '',
@@ -64,16 +78,19 @@ function mapExtendedInfoRow(row: ExtendedInfoRow): PersonnelExtendedInfo {
 		addressCity: row.address_city ?? '',
 		addressState: row.address_state ?? '',
 		addressZip: row.address_zip ?? '',
-		address: toAddress(row)
+		address: toAddress(row),
+		updatedAt: row.updated_at ?? null,
+		updatedBy: (row.updated_by && labels.get(row.updated_by)) || null
 	};
 }
 
-function toRowData(input: PersonnelExtendedInfoInput): PersonnelSheetEditableValues {
+function toRowData(input: PersonnelExtendedInfoInput, updatedBy: string): PersonnelSheetEditableValues {
 	return {
 		blood_type: input.bloodType || null,
 		basd: input.basd || null,
 		date_of_rank: input.dateOfRank || null,
 		marital_status: input.maritalStatus || null,
+		marital_status_date: input.maritalStatusDate || null,
 		number_of_dependents: input.numberOfDependents,
 		children: input.children,
 		civilian_education: input.civilianEducation || null,
@@ -91,7 +108,8 @@ function toRowData(input: PersonnelExtendedInfoInput): PersonnelSheetEditableVal
 		address_street: input.addressStreet || null,
 		address_city: input.addressCity || null,
 		address_state: input.addressState || null,
-		address_zip: input.addressZip || null
+		address_zip: input.addressZip || null,
+		updated_by: updatedBy
 	};
 }
 
@@ -116,23 +134,31 @@ export async function readPersonnelExtendedInfo(
 	await requirePersonnelOperate(ctx, personnelId);
 	const rows = await ctx.personnelSheets.listSheetsForPerson(personnelId);
 	const row = rows[0];
-	return row ? mapExtendedInfoRow(row) : null;
+	return row ? mapExtendedInfoRow(ctx, row) : null;
 }
 
-export async function updatePersonnelExtendedInfo(
+/** A validated, authorized replacement of one Person's sheet; applying it is the only write. */
+export interface PreparedExtendedInfoUpdate {
+	input: PersonnelExtendedInfoInput;
+}
+
+export async function prepareExtendedInfoUpdate(
 	ctx: PersonnelExtendedInfoContext,
 	rawInput: unknown
-): Promise<PersonnelExtendedInfo> {
+): Promise<PreparedExtendedInfoUpdate> {
 	const parsed = personnelExtendedInfoInputSchema.safeParse(rawInput);
-	if (!parsed.success) {
-		fail(400, issueMessage(parsed.error));
-	}
+	if (!parsed.success) failParse(parsed.error);
 
-	const input = parsed.data;
-	await requirePersonnelOperate(ctx, input.personnelId);
+	await requirePersonnelOperate(ctx, parsed.data.personnelId);
+	return { input: parsed.data };
+}
 
+export async function applyExtendedInfoUpdate(
+	ctx: PersonnelExtendedInfoContext,
+	{ input }: PreparedExtendedInfoUpdate
+): Promise<PersonnelExtendedInfo> {
 	const existing = await ctx.personnelSheets.findSheetForPerson(input.personnelId);
-	const data = toRowData(input);
+	const data = toRowData(input, ctx.auth.userId);
 	const row = existing
 		? await ctx.personnelSheets.replaceEditableSheetFields(existing.id, data)
 		: await ctx.personnelSheets.createSheet(input.personnelId, data);
@@ -143,5 +169,6 @@ export async function updatePersonnelExtendedInfo(
 		resourceId: input.personnelId
 	});
 
-	return mapExtendedInfoRow(row);
+	// The sheet is already written; a missing saver name must not stop the Person write that follows.
+	return mapExtendedInfoRow(ctx, row, { labelRequired: false });
 }

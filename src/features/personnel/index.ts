@@ -22,6 +22,8 @@ export function loadPersonnelModals() {
 export { default as PersonnelPageView } from './components/PersonnelPageView.svelte';
 export { personnelWorkspaceHydrator } from './personnelWorkspaceHydration.svelte';
 export { default as PersonnelDetailPageView } from './components/PersonnelDetailPageView.svelte';
+export { default as PersonnelDataSheetPageView } from './components/PersonnelDataSheetPageView.svelte';
+export { provideDataSheetEditSession } from './workspace/dataSheetEditSession.svelte';
 export { default as PersonnelRecordHeader } from './components/PersonnelRecordHeader.svelte';
 export { default as PersonnelImportPage } from './components/PersonnelImportPage.svelte';
 export { default as PersonnelFollowUpsPageView } from './components/PersonnelFollowUpsPageView.svelte';

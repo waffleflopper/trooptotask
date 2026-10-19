@@ -388,12 +388,21 @@ export function createRequestPersonnelDetailLayoutContext(request: AdmittedOrgan
 }
 
 export function createRequestPersonnelExtendedInfoContext(request: AdmittedOrganizationRequest) {
+	const organizationSettings = createSupabaseOrganizationSettingsReader(request.supabase);
 	return {
 		auth: request.auth,
 		audit: request.audit,
 		personnelSheets: createSupabasePersonnelSheetPersistence(request.supabase, request.auth.orgId),
 		personnel: createSupabasePersonnelRecordPersistence(request.supabase, request.auth.orgId, request.auth.scopeSet),
-		scope: request.scope
+		scope: request.scope,
+		contributorLabels: (userIds: string[]) => organizationSettings.findMemberLabels(request.auth.orgId, userIds)
+	};
+}
+
+export function createRequestPersonnelDataSheetContext(request: AdmittedOrganizationRequest) {
+	return {
+		...createRequestPersonnelRecordContext(request),
+		...createRequestPersonnelExtendedInfoContext(request)
 	};
 }
 

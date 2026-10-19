@@ -94,7 +94,8 @@ export {
 } from './personnelDetail.server';
 export { loadPersonnelLossReadiness } from './personnelLossReadiness.server';
 
-export { readPersonnelExtendedInfo, updatePersonnelExtendedInfo } from './personnelExtendedInfo.server';
+export { readPersonnelExtendedInfo } from './personnelExtendedInfo.server';
+export { savePersonnelDataSheet } from './personnelDataSheet.server';
 export { setPersonnelAwardTrackingAcknowledged } from './awardTracking.server';
 
 export type {

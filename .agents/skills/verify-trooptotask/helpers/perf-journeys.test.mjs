@@ -66,7 +66,7 @@ test('write samples alternate so an even sample count ends on the seeded value',
 	assert.deepEqual(journeys['personnel-detail-edit'].milestones({ edit }, 0)[0].inside, {
 		'[data-slot="page-header"] [data-slot="badge"]': ['42A']
 	});
-	assert.deepEqual(journeys['personnel-detail-edit'].milestones({ edit }, 0)[0].absent, ['Save basic info']);
+	assert.deepEqual(journeys['personnel-detail-edit'].milestones({ edit }, 0)[0].absent, ['Save changes']);
 });
 
 test('the Dashboard navigation waits for the Dashboard, then the roster, for both actors', () => {

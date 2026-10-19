@@ -33,7 +33,7 @@
 	import WorkspaceToolbarMenu from './workspace-toolbar-menu.svelte';
 	import WorkspaceToolbarMore, { actionItems, moreButton } from './workspace-toolbar-more.svelte';
 
-	let { ariaLabel, items, search, primary }: WorkspaceToolbarProps = $props();
+	let { ariaLabel, items, bare = false, search, primary }: WorkspaceToolbarProps = $props();
 	const uid = $props.id();
 
 	type Metrics = {
@@ -521,7 +521,10 @@
 	data-slot="workspace-toolbar"
 	data-toolbar-search={searchMode}
 	data-toolbar-ready={fit ? 'true' : 'false'}
-	class="relative w-full min-w-0 shrink-0 overflow-clip rounded-lg border border-border bg-card p-2 text-card-foreground"
+	class={cn(
+		'relative w-full min-w-0 shrink-0 overflow-clip text-card-foreground',
+		bare ? 'p-1' : 'rounded-lg border border-border bg-card p-2'
+	)}
 >
 	<div
 		bind:this={rowElement}

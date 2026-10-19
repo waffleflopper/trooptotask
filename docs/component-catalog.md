@@ -56,7 +56,7 @@ Read the [UI foundation](#ui-foundation), then the entry for the component being
 | `ui/tooltip`                                                               | `Root`, `Trigger`, `Content`, `Provider`, `Portal`                                                                                                  | App shell header and Personnel import; `ui/sidebar`.                                                                                                                   |
 | [`patterns/brand-wordmark`](#public-marketing-shell)                       | `BrandWordmark`                                                                                                                                     | Public navigation and Identity's AuthShell.                                                                                                                            |
 | [`patterns/bulk-import-workspace`](#patternsbulk-import-workspace)         | See its section                                                                                                                                     | Calendar, Critical Tasks, Personnel and Training imports.                                                                                                              |
-| [`patterns/page-shell`](#patternspage-shell)                               | `Root`, `Header`, `Tabs`, `FactGrid`, `Metric`                                                                                                      | Account, Organization settings, the person record, platform admin and Training Reports.                                                                                |
+| [`patterns/page-shell`](#patternspage-shell)                               | `Root`, `Header`, `Tabs`, `FactGrid`, `Metric`, `FactSection`, `FactRow`                                                                            | Account, Organization settings, the person record, platform admin and Training Reports.                                                                                |
 | [`patterns/readiness-band`](#patternsreadiness-band)                       | `Cell`, `Legend`; `readinessBandTone`                                                                                                               | Critical Tasks and Training reports.                                                                                                                                   |
 | [`patterns/readiness-items`](#patternsreadiness-items)                     | `ReadinessItemTable`, `ReadinessItemTableSkeleton`; `readinessItemStatusVisuals`                                                                    | Personnel Readiness tab training and critical-task tables.                                                                                                             |
 | [`patterns/reorder-list`](#patternsreorder-list)                           | `ReorderList`, `ReorderItem`, `ReorderGrip`                                                                                                         | Onboarding template steps and paperwork stages; Calendar lanes and status types in Calendar settings.                                                                  |
@@ -139,10 +139,12 @@ The Web UI Foundation's public [`toastStore`](../src/lib/stores/toast.svelte.ts)
 Public components:
 
 - `Root`: authenticated page content scroller. Props: `density?: 'default' | 'compact'`, `width?: 'full' | 'content' | 'wide'`, `bodyClass?`, `children?`.
-- `Header`: page header. Props: `title` (a string, or a snippet rendered inside the `h1` when the title is itself a control), `eyebrow?` (a short uppercase context line above the title), `subtitle?` (a string, or a snippet for a meta line of badges and facts; both render in `data-slot="page-header-subtitle"`), snippets `back`, `meta` and `aside`. `aside` holds a page-level summary or the switch for the shown span, right-aligned on the title line; it wraps below the title when narrow.
+- `Header`: page header. Props: `title` (a string, or a snippet rendered inside the `h1` when the title is itself a control), `eyebrow?` (a short uppercase context line above the title), `subtitle?` (a string, or a snippet for a meta line of badges and facts; both render in `data-slot="page-header-subtitle"`), `variant?: 'default' | 'display'` (`display` sets the title large, condensed and uppercase, for the record a page is about, such as the person record), snippets `back`, `meta` and `aside`. `aside` holds a page-level summary or the switch for the shown span, right-aligned on the title line; it wraps below the title when narrow.
 - `Tabs`: route-level navigation links. Props: `items?`, `label?`. Items support `label`, `href` (required), `active`, `icon`, `badge`, `trailing` and `disabled`. A `badge` is `{ value, label?, variant? }` or a promise of one: a pending promise shows a skeleton announced as count loading, `null` shows nothing, and a rejection shows an outline dash announced as count unavailable. `trailing` items align right in smaller text, with the badge as `· N`. The active link carries `aria-current="page"`; a disabled item renders as non-interactive text. Use `ui/tabs` for in-page views. Each tab shows the app focus ring. When a bare count would be ambiguous, set the badge `label` (for example `2 pending requests`); assistive technology then hears that text in place of the value.
 - `FactGrid`: dense fact layout. Props: `layout?: 'stack' | 'two' | 'three' | 'rail'`, `children?`.
 - `Metric`: compact bordered metric tile. Props: `label`, `value`, `detail?`, `tone?`, `children?`.
+- `FactSection`: a titled block of label and value rows. Props: `title`, `summary?`, `open?` (bindable), `children?`. Passing a `summary` makes the section collapsible; the closed section shows the summary beside its title.
+- `FactRow`: one label and value row inside a `FactSection`. Props: `label`, `value?` (an empty value reads "Not set"), `mono?`, `labelFor?`, `changed?`, `hint?`, `error?`, `children?`. Children replace `value` for anything richer, such as the controls of an edit form; `labelFor` then names the control and `changed` marks a field that differs from the saved record.
 
 Rules:
 
@@ -151,9 +153,10 @@ Rules:
 - Use `Header` for route-local title, subtitle and metadata such as badges and status text. Page commands go in the page's `WorkspaceToolbar`. Calendar's title row is the `aside` example: today's count and the Month / 3-Month switch, which changes the period the title names. Do not duplicate the authenticated app breadcrumb bar inside route content.
 - Use `Tabs` for route-level Overview/History/Settings style navigation.
 - Use `FactGrid` and `Metric` for dense operational summaries instead of route-local summary wrappers.
+- Use `FactSection` and `FactRow` for a record's labelled facts, read or edited in place, instead of route-local definition lists.
 - Routes may configure labels, values, actions, links, disabled/loading state, status badges, and snippets. Routes must not visually retune these primitives with local spacing, radius, color, border, density, or typography overrides unless explicitly approved.
 
-Consumers: the Account and Organization settings shells, the person record layout, every platform admin page and Training Reports. Most platform admin pages also use `FactGrid` and `Metric`.
+Consumers: the Account and Organization settings shells, the person record layout and its Data sheet, every platform admin page and Training Reports. Most platform admin pages also use `FactGrid` and `Metric`.
 
 ---
 
@@ -215,6 +218,7 @@ Props: `id?: string`, `value?: string` (bindable ISO `YYYY-MM-DD`), `placeholder
 Props (`WorkspaceToolbarProps`):
 
 - `ariaLabel`: the toolbar name. The More trigger is named `More {ariaLabel}`.
+- `bare?`: drops the bordered card, for a toolbar that sits inside another block such as the person record header.
 - `items: ToolbarItem[]`: views, filters and actions, most important first.
 - `search?`: `label`, `placeholder`, `value`, `onValueChange` and optional `placement`. The search field is pinned. `placement: 'after-filters'` renders it after the filters instead of before them, in both visual and keyboard order; it does not change folding.
 - `primary?`: one pinned `ToolbarAction`. It is always on the row and is never menu only.

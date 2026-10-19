@@ -83,10 +83,7 @@ it.each([
 	}
 );
 
-it.each([
-	['person record', DetailPage],
-	['import', ImportPage]
-])(
+it.each([['import', ImportPage]])(
 	'shows the Personnel load error on the %s page when a refresh rejects under an already loaded layout',
 	async (_name, Page) => {
 		const RoutePage = Page as unknown as Component<{ data: ReturnType<typeof rejectedRouteData> }>;

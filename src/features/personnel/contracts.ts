@@ -413,6 +413,7 @@ export type {
 	PersonnelNotesPageData,
 	PersonnelLogPageData,
 	PersonnelFilesPageData,
+	PersonnelDataSheetPageData,
 	PersonnelArchivedArtifactsPageData
 } from './personnel-detail.types';
 export type {
@@ -430,7 +431,7 @@ export { evaluateUpcomingLosses } from './upcomingLoss';
 export type { UpcomingLossRecord } from './upcomingLoss';
 
 /** Soldier Data Sheet fields shared by its Server read and Web editor. */
-export type { PersonnelExtendedInfo } from './personnelExtendedInfo.types';
+export type { PersonnelDataSheetSaveResult, PersonnelExtendedInfo } from './personnelExtendedInfo.types';
 
 const childSchema = z.object({
 	name: z.string().trim().max(120),
@@ -462,6 +463,7 @@ export const personnelExtendedInfoInputSchema = z.object({
 	basd: dateInputSchema,
 	dateOfRank: dateInputSchema,
 	maritalStatus: z.string().trim().max(80).optional().default(''),
+	maritalStatusDate: dateInputSchema,
 	numberOfDependents: dependentsInputSchema,
 	children: z.array(childSchema).optional().default([]),
 	civilianEducation: z.string().trim().max(500).optional().default(''),

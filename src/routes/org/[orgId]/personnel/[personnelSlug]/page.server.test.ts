@@ -79,7 +79,8 @@ function selectedContexts(
 			audit: ctx.audit,
 			personnelSheets: ctx.personnelSheets,
 			personnel: ctx.personnel,
-			scope: ctx.scope
+			scope: ctx.scope,
+			contributorLabels: ctx.contributorLabels
 		},
 		artifacts: createPersonnelArtifactDeliveryContext(ctx),
 		leaderNotes: createPersonnelLeaderNoteDeliveryContext(ctx),

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { getAppShellContext } from '$features/app-shell';
-	import { PersonnelRecordHeader } from '$features/personnel';
+	import { PersonnelRecordHeader, provideDataSheetEditSession } from '$features/personnel';
 	import type { PersonnelDetailHeader, PersonnelDetailLayoutStreams } from '$features/personnel/contracts';
 	import { requestPersonnelArchiveApproval } from '$lib/personnelArchiveRequestDelivery';
 
@@ -15,6 +15,8 @@
 
 	const org = getAppShellContext();
 	const activeTab = $derived(page.route.id?.replace('/org/[orgId]/personnel/[personnelSlug]', '') ?? '');
+	const dataSheetEdit = provideDataSheetEditSession();
+	const editingDataSheet = $derived(activeTab === '/data-sheet' && page.url.searchParams.get('edit') === '1');
 </script>
 
 <section class="flex min-h-full flex-col bg-background text-foreground">
@@ -28,6 +30,7 @@
 			{activeTab}
 			access={org}
 			requestArchiveApproval={requestPersonnelArchiveApproval}
+			edit={editingDataSheet ? dataSheetEdit : null}
 		/>
 	{/key}
 

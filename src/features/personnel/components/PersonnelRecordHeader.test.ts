@@ -4,6 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PersonnelDetailLayoutStreams, PersonnelDetailTabCounts } from '../contracts';
 import type { Personnel } from '../personnel.types';
 import { openToolbarMore, stubToolbarWidths } from '$lib/test-support/toolbarWidths';
+import { DataSheetDraft } from '../workspace/dataSheetDraft.svelte';
+import { DataSheetEditSession } from '../workspace/dataSheetEditSession.svelte';
 
 const { gotoMock } = vi.hoisted(() => ({ gotoMock: vi.fn() }));
 vi.mock('$app/navigation', () => ({ goto: gotoMock, invalidate: vi.fn() }));
@@ -40,8 +42,15 @@ async function renderHeader({
 		'personnel.exportRecords',
 		'training.recordCompletions'
 	],
-	streams = {}
-}: { allowed?: string[]; streams?: Partial<PersonnelDetailLayoutStreams> } = {}) {
+	streams = {},
+	edit = null,
+	activeTab = ''
+}: {
+	allowed?: string[];
+	streams?: Partial<PersonnelDetailLayoutStreams>;
+	edit?: DataSheetEditSession | null;
+	activeTab?: string;
+} = {}) {
 	const widths = stubToolbarWidths();
 	render(PersonnelRecordHeader, {
 		props: {
@@ -55,7 +64,8 @@ async function renderHeader({
 				...streams
 			},
 			today: '2026-06-15',
-			activeTab: '',
+			activeTab,
+			edit,
 			access: { affordanceForFeatureAction: (action) => ({ allowed: allowed.includes(action.id) }) },
 			requestArchiveApproval: async () => false
 		}
@@ -189,5 +199,57 @@ describe('PersonnelRecordHeader', () => {
 
 		await renderHeader();
 		await waitFor(() => expect(within(tabs()).getByRole('link', { name: 'Readiness' })).toBeTruthy());
+	});
+
+	it('links Edit to the Data sheet with edit open', async () => {
+		await renderHeader();
+
+		expect(screen.getByRole('link', { name: 'Edit' }).getAttribute('href')).toBe(
+			'/org/org-alpha/personnel/rivera-monica/data-sheet?edit=1'
+		);
+	});
+
+	describe('while the Data sheet is open for editing', () => {
+		function openSession() {
+			const draft = new DataSheetDraft({ orgId: 'org-1', person, info: null }, { fetch: vi.fn() });
+			const handlers = { save: vi.fn(), cancel: vi.fn() };
+			const session = new DataSheetEditSession();
+			session.attach(draft, handlers);
+			return { draft, handlers, session };
+		}
+
+		it('replaces the toolbar with the unsaved count, Cancel and Save changes', async () => {
+			const { draft, handlers, session } = openSession();
+			draft.values.mos = '68X';
+			draft.values.personalPhone = '(910) 555-0148';
+			await renderHeader({ edit: session, activeTab: '/data-sheet' });
+
+			expect(screen.getByText('2 unsaved changes')).toBeTruthy();
+			expect(screen.queryByRole('button', { name: 'Add to record' })).toBeNull();
+			expect(screen.queryByRole('link', { name: 'Edit' })).toBeNull();
+
+			await fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+			await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+			expect(handlers.save).toHaveBeenCalledTimes(1);
+			expect(handlers.cancel).toHaveBeenCalledTimes(1);
+		});
+
+		it('keeps Save changes disabled until something changes', async () => {
+			const { session } = openSession();
+			await renderHeader({ edit: session, activeTab: '/data-sheet' });
+
+			expect(screen.getByText('0 unsaved changes')).toBeTruthy();
+			expect((screen.getByRole('button', { name: 'Save changes' }) as HTMLButtonElement).disabled).toBe(true);
+		});
+
+		it('disables every other tab', async () => {
+			const { session } = openSession();
+			await renderHeader({ edit: session, activeTab: '/data-sheet' });
+			const tabs = screen.getByRole('navigation', { name: 'Personnel detail sections' });
+
+			expect(within(tabs).queryByRole('link', { name: 'Overview' })).toBeNull();
+			expect(within(tabs).getByText('Overview').closest('[aria-disabled="true"]')).toBeTruthy();
+			expect(within(tabs).getByRole('link', { name: 'Data sheet' })).toBeTruthy();
+		});
 	});
 });

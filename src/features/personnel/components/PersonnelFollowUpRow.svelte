@@ -84,20 +84,19 @@
 					aria-label={completed ? `Reopen ${row.title}` : `Complete ${row.title}`}
 				/>
 				<div class="grid min-w-0 gap-0.5">
-					{#if completed}
-						<p class="text-muted-foreground line-through">{row.title}</p>
-					{:else}
-						<Button
-							bind:ref={titleButton}
-							type="button"
-							variant="ghost"
-							size="none"
-							class="h-auto min-w-0 justify-start px-0 text-left text-[15px] font-normal whitespace-normal wrap-anywhere hover:bg-transparent hover:underline dark:hover:bg-transparent"
-							onclick={startEdit}
-						>
-							{row.title}
-						</Button>
-					{/if}
+					<Button
+						bind:ref={titleButton}
+						type="button"
+						variant="ghost"
+						size="none"
+						class={cn(
+							'h-auto min-w-0 justify-start px-0 text-left text-[15px] font-normal whitespace-normal wrap-anywhere hover:bg-transparent hover:underline dark:hover:bg-transparent',
+							completed && 'text-muted-foreground line-through'
+						)}
+						onclick={startEdit}
+					>
+						{row.title}
+					</Button>
 					<p class="truncate text-[13px] text-muted-foreground">{detail}</p>
 				</div>
 				{#if completed}

@@ -210,6 +210,19 @@ describe('PersonnelLogPageView inline editing', () => {
 		expect(sentBody(fetchMock)).toEqual({ status: 'archived' });
 	});
 
+	it('archives a completed follow-up from its editor', async () => {
+		const fetchMock = stubFetch(() => jsonResponse({ id: 'f-done', status: 'archived' }));
+		renderLog();
+		await fireEvent.click(await screen.findByRole('button', { name: 'Profile update' }));
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
+
+		await waitFor(() => expect(screen.queryByRole('form')).toBeNull());
+		expect(screen.queryByRole('button', { name: 'Profile update' })).toBeNull();
+		expect(screen.queryByText('Completed · 1')).toBeNull();
+		expect(sentBody(fetchMock)).toEqual({ status: 'archived' });
+	});
+
 	it('edits one row at a time across follow-ups and notes', async () => {
 		renderLog();
 		await fireEvent.click(await screen.findByRole('button', { name: 'Dental readiness' }));

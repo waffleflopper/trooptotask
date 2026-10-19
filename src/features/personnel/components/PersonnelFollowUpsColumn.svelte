@@ -110,7 +110,14 @@
 			{/if}
 		</div>
 		{#each completedShown as row (row.id)}
-			<PersonnelFollowUpRow {row} {today} {list} editing={false} onEdit={() => {}} onStopEditing={() => {}} />
+			<PersonnelFollowUpRow
+				{row}
+				{today}
+				{list}
+				editing={editingKey === keyOf(row.id)}
+				onEdit={() => onEditingKey(keyOf(row.id))}
+				onStopEditing={() => finishEdit(keyOf(row.id))}
+			/>
 		{/each}
 	{/if}
 </div>

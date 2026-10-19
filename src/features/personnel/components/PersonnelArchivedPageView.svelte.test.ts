@@ -176,7 +176,7 @@ describe('PersonnelArchivedPageView', () => {
 		expect(fetchMock.mock.calls[0][1]?.method).toBe('DELETE');
 		const notice = screen.getByRole('status');
 		expect(notice.textContent).toContain('Profile');
-		expect(notice.textContent).toContain('file');
+		expect(notice.textContent).toContain('will be removed');
 	});
 
 	it('leaves the item alone when the confirmation is cancelled', async () => {

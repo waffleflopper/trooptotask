@@ -124,7 +124,16 @@ describe('ArchivedList', () => {
 		expect(requests[0]).toMatchObject({ url: '/org/org-1/api/personnel/person-1/documents/d1', method: 'DELETE' });
 		expect(list.records.map((record) => record.id)).toEqual(['f1', 'n1']);
 		expect(list.notice).toContain('Profile');
-		expect(list.notice).toContain('file');
+		expect(list.notice).toContain('will be removed');
+	});
+
+	it('shows no cleanup notice when the file is already gone', async () => {
+		const { list } = listWith(() => jsonResponse({}));
+
+		await list.remove(document);
+
+		expect(list.records.map((record) => record.id)).toEqual(['f1', 'n1']);
+		expect(list.notice).toBe('');
 	});
 
 	it('keeps a record that failed to delete and returns the error', async () => {

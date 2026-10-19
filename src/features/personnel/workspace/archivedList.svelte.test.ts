@@ -87,6 +87,24 @@ describe('ArchivedList', () => {
 		expect(list.isBusy(note)).toBe(false);
 	});
 
+	it('ignores a second restore of a record whose first is still pending', async () => {
+		let release = () => {};
+		const { list, requests } = listWith(
+			() =>
+				new Promise((resolve) => {
+					release = () => resolve(jsonResponse({}));
+				})
+		);
+
+		const first = list.restore(note);
+		await list.restore(note);
+		release();
+		await first;
+
+		expect(requests).toHaveLength(1);
+		expect(list.isBusy(note)).toBe(false);
+	});
+
 	it('keeps a record that failed to restore and says why', async () => {
 		const { list } = listWith(() => jsonResponse({ message: 'No.' }, 500));
 

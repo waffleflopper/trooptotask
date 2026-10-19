@@ -55,6 +55,7 @@ export class ArchivedList {
 	}
 
 	async restore(record: PersonnelArchivedArtifact): Promise<void> {
+		if (this.isBusy(record)) return;
 		this.error = '';
 		const key = keyOf(record);
 		this.#busyKeys = [...this.#busyKeys, key];
@@ -70,6 +71,7 @@ export class ArchivedList {
 	}
 
 	async remove(record: PersonnelArchivedArtifact): Promise<string | null> {
+		if (this.isBusy(record)) return null;
 		this.error = '';
 		this.notice = '';
 		const key = keyOf(record);

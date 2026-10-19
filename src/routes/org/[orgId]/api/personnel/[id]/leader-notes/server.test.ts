@@ -112,6 +112,7 @@ describe('/api/personnel/[id]/leader-notes', () => {
 		await expect(read(`limit=20&beforeId=${NOTE_ID}`)).rejects.toMatchObject({ status: 400 });
 		await expect(read('limit=500')).rejects.toMatchObject({ status: 400 });
 		await expect(read(`limit=20&beforeCreatedAt=yesterday&beforeId=${NOTE_ID}`)).rejects.toMatchObject({ status: 400 });
+		await expect(read(`limit=20&beforeCreatedAt=1&beforeId=${NOTE_ID}`)).rejects.toMatchObject({ status: 400 });
 		await expect(read('limit=20&beforeCreatedAt=2026-05-01T10:00:00Z&beforeId=abc')).rejects.toMatchObject({
 			status: 400
 		});

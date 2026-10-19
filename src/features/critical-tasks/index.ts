@@ -5,6 +5,7 @@ export { default as IctTaskLibraryPage } from './components/IctTaskLibraryPage.s
 export { default as IctReportsView } from './components/IctReportsView.svelte';
 export { default as IctPersonnelDetailPage } from './components/IctPersonnelDetailPage.svelte';
 export { default as PersonnelCriticalTaskReadinessTable } from './components/PersonnelCriticalTaskReadinessTable.svelte';
+export { default as PersonnelCriticalTaskDrawer } from './components/PersonnelCriticalTaskDrawer.svelte';
 
 export { ictTasksStore } from './stores/ictTasks.svelte';
 export { personnelIctCompletionsStore } from './stores/personnelIctCompletions.svelte';

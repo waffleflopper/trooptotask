@@ -45,3 +45,4 @@ export { default as TrainingTypesPage } from './components/TrainingTypesPage.sve
 export { default as TrainingViewsPage } from './components/TrainingViewsPage.svelte';
 export { default as TrainingReportsPage } from './components/TrainingReportsPage.svelte';
 export { default as PersonnelTrainingReadinessTable } from './components/PersonnelTrainingReadinessTable.svelte';
+export { default as PersonnelTrainingDrawer } from './components/PersonnelTrainingDrawer.svelte';

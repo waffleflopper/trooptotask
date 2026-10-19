@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { formatDayMonthYear } from '$lib/utils/dates';
+	import { formatDayMonth, formatDayMonthYear } from '$lib/utils/dates';
 	import type { PersonnelLossDate, PersonnelLossReadiness } from '../personnelReadiness.types';
 
 	let { loss }: { loss: PersonnelLossReadiness } = $props();
@@ -35,7 +35,7 @@
 	</dl>
 	{#if loss.inWindow}
 		<p class="text-[13px] leading-[18px] text-warning-foreground">
-			Inside the {loss.windowDays}-day loss window since {formatDayMonthYear(loss.inWindow.enteredOn)}
+			Inside the {loss.windowDays}-day loss window since {formatDayMonth(loss.inWindow.enteredOn)}
 		</p>
 	{/if}
 </section>

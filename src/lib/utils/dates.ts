@@ -37,10 +37,15 @@ export function calendarDayDiff(from: Date, to: Date): number {
 
 const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+/** "24 Sep" — day and month for date-only strings (YYYY-MM-DD) when the year is evident */
+export function formatDayMonth(dateOnly: string): string {
+	const [, month, day] = dateOnly.slice(0, 10).split('-');
+	return `${Number(day)} ${SHORT_MONTHS[Number(month) - 1]}`;
+}
+
 /** "24 Sep 2024" — the military day-month-year order for date-only strings (YYYY-MM-DD) */
 export function formatDayMonthYear(dateOnly: string): string {
-	const [year, month, day] = dateOnly.slice(0, 10).split('-');
-	return `${Number(day)} ${SHORT_MONTHS[Number(month) - 1]} ${year}`;
+	return `${formatDayMonth(dateOnly)} ${dateOnly.slice(0, 4)}`;
 }
 
 /** "YYYY-MM-DD" — for form values and API data */

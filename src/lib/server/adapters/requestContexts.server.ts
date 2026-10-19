@@ -253,6 +253,7 @@ export function createPersonnelLeaderNoteDeliveryContext(
 				return row?.groupId;
 			},
 			listPage: request.artifactReads.listLeaderNotePage,
+			countActive: request.artifactReads.countActiveLeaderNotes,
 			async find(personnelId, noteId) {
 				return (await writerFor(personnelId)).findLeaderNote(noteId);
 			},
@@ -263,8 +264,11 @@ export function createPersonnelLeaderNoteDeliveryContext(
 					createdAt: input.createdAt
 				});
 			},
-			async update(personnelId, noteId, archivedAt) {
-				return (await writerFor(personnelId)).setLeaderNoteArchivedAt(noteId, archivedAt);
+			async setArchive(personnelId, noteId, archived) {
+				return (await writerFor(personnelId)).setLeaderNoteArchive(noteId, archived);
+			},
+			async setText(personnelId, noteId, text, updatedAt) {
+				return (await writerFor(personnelId)).setLeaderNoteText(noteId, text, updatedAt);
 			},
 			async delete(personnelId, noteId) {
 				return (await writerFor(personnelId)).deleteLeaderNote(noteId);

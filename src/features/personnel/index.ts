@@ -26,11 +26,10 @@ export { default as PersonnelDataSheetPageView } from './components/PersonnelDat
 export { provideDataSheetEditSession } from './workspace/dataSheetEditSession.svelte';
 export { default as PersonnelRecordHeader } from './components/PersonnelRecordHeader.svelte';
 export { default as PersonnelImportPage } from './components/PersonnelImportPage.svelte';
-export { default as PersonnelFollowUpsPageView } from './components/PersonnelFollowUpsPageView.svelte';
+export { default as PersonnelLogPageView } from './components/PersonnelLogPageView.svelte';
 export { default as PersonnelCounselingsPageView } from './components/PersonnelCounselingsPageView.svelte';
 export { default as PersonnelDocumentsPageView } from './components/PersonnelDocumentsPageView.svelte';
-export { default as PersonnelNotesPageView } from './components/PersonnelNotesPageView.svelte';
-export { default as PersonnelArchivedArtifactsPageView } from './components/PersonnelArchivedArtifactsPageView.svelte';
+export { default as PersonnelArchivedPageView } from './components/PersonnelArchivedPageView.svelte';
 export { default as PersonnelLossBlock } from './components/PersonnelLossBlock.svelte';
 export { readinessDrawerFromSearch, readinessTargetSearch } from './readinessDrawerTarget';
 export type { ReadinessDrawerTarget, ReadinessItemKind } from './readinessDrawerTarget';

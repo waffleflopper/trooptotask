@@ -101,7 +101,7 @@ describe('/api/personnel/[id]/follow-ups', () => {
 		});
 		expect(followUps).toHaveLength(1);
 		expect(archived.status).toBe('archived');
-		expect(restored.status).toBe('open');
+		expect(restored.status).toBe('completed');
 	});
 
 	it('derives the Personnel id from the route param and rejects mismatched bodies', async () => {

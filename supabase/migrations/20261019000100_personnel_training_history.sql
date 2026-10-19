@@ -29,8 +29,10 @@ CREATE INDEX personnel_training_history_type_idx
 
 ALTER TABLE public.personnel_training_history ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view personnel training history if allowed by scoped training"
-  ON public.personnel_training_history FOR SELECT
-  USING (public.can_view_personnel_training_record(organization_id, personnel_id));
+  ON public.personnel_training_history FOR SELECT TO authenticated
+  USING ((organization_id, personnel_id) IN (
+    SELECT v.organization_id, v.personnel_id FROM member_access_private.viewable_personnel('training') v
+  ));
 CREATE POLICY "Users can insert personnel training history if allowed by scoped training"
   ON public.personnel_training_history FOR INSERT
   WITH CHECK (public.can_edit_personnel_training_record_with_type(organization_id, personnel_id, training_type_id));
@@ -170,8 +172,8 @@ CREATE POLICY "Training viewers can read scoped training certificates"
     AND ((storage.foldername(name))[2] = 'personnel')
     AND ((storage.foldername(name))[3] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
     AND ((storage.foldername(name))[4] = 'training-certificates')
-    AND public.can_view_personnel_training_record(
-      ((storage.foldername(name))[1])::uuid, ((storage.foldername(name))[3])::uuid
+    AND (pg_catalog.lower((storage.foldername(name))[1]), pg_catalog.lower((storage.foldername(name))[3])) IN (
+      SELECT v.organization_id::text, v.personnel_id::text FROM member_access_private.viewable_personnel('training') v
     )
   );
 CREATE POLICY "Training operators can add scoped training certificates"

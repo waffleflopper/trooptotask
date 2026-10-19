@@ -306,5 +306,49 @@ SELECT is((SELECT array_agg(concat_ws(' ', completion_date, expiration_date, not
   'a multi-row import keeps each superseded completion once');
 SELECT pg_temp.act_as_fixture();
 
+-- Read matrix. 7 admin with no Training lane, 8 Organization-scoped member with no Training lane.
+INSERT INTO auth.users (id, email)
+SELECT ('f7100000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid, 'training-history-' || n || '@example.test'
+FROM generate_series(7, 8) AS n;
+INSERT INTO public.organization_memberships (
+  organization_id, user_id, role, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids
+) VALUES
+('f7100000-0000-4000-8000-000000000101', 'f7100000-0000-4000-8000-000000000007', 'admin', 'viewer',
+  '{"training":"none"}', 'groups', ARRAY['f7100000-0000-4000-8000-000000000202']::uuid[]),
+('f7100000-0000-4000-8000-000000000101', 'f7100000-0000-4000-8000-000000000008', 'member', 'viewer',
+  '{"training":"none"}', 'organization', ARRAY[]::uuid[]);
+INSERT INTO storage.objects (id, bucket_id, name) VALUES
+('f7100000-0000-4000-8000-000000000705', 'training-certificates', pg_temp.cert('302', 'two.pdf')),
+('f7100000-0000-4000-8000-000000000706', 'training-certificates',
+  'f7100000-0000-4000-8000-000000000102/personnel/f7100000-0000-4000-8000-000000000304/training-certificates/bravo.pdf');
+
+CREATE TEMP TABLE history_read_matrix (actor text, label text, expected uuid[]);
+INSERT INTO history_read_matrix VALUES
+('1', 'owner: every Group', ARRAY['f7100000-0000-4000-8000-000000000301', 'f7100000-0000-4000-8000-000000000302']::uuid[]),
+('7', 'admin: role overrides lane none and Group scope',
+  ARRAY['f7100000-0000-4000-8000-000000000301', 'f7100000-0000-4000-8000-000000000302']::uuid[]),
+('5', 'Organization scope: every Group',
+  ARRAY['f7100000-0000-4000-8000-000000000301', 'f7100000-0000-4000-8000-000000000302']::uuid[]),
+('2', 'Group scope: inside its Group only', ARRAY['f7100000-0000-4000-8000-000000000301']::uuid[]),
+('8', 'lane none: nothing', ARRAY[]::uuid[]),
+('6', 'another Organization''s owner: only its own', ARRAY['f7100000-0000-4000-8000-000000000304']::uuid[]);
+
+CREATE FUNCTION pg_temp.history_read_matrix() RETURNS SETOF text LANGUAGE plpgsql AS $$
+DECLARE
+  item record;
+BEGIN
+  FOR item IN SELECT * FROM history_read_matrix LOOP
+    PERFORM pg_temp.act_as(item.actor);
+    RETURN NEXT set_eq('SELECT DISTINCT personnel_id FROM public.personnel_training_history', item.expected,
+      'history, actor ' || item.actor || ', ' || item.label);
+    RETURN NEXT set_eq($q$SELECT DISTINCT ((storage.foldername(name))[3])::uuid FROM storage.objects
+      WHERE bucket_id = 'training-certificates'$q$, item.expected,
+      'certificates, actor ' || item.actor || ', ' || item.label);
+    PERFORM pg_temp.act_as_fixture();
+  END LOOP;
+END;
+$$;
+SELECT * FROM pg_temp.history_read_matrix();
+
 SELECT * FROM finish();
 ROLLBACK;

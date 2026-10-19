@@ -122,6 +122,10 @@ BEGIN
   IF NOT FOUND THEN
     RAISE EXCEPTION 'This Training type is no longer available' USING ERRCODE = 'P0002';
   END IF;
+  -- Authority revoked while this call waited for the row lock must still deny it.
+  IF public.can_manage_training_configuration(p_organization_id) IS NOT TRUE THEN
+    RAISE EXCEPTION 'Training configuration is not allowed' USING ERRCODE = '42501';
+  END IF;
   IF NOT EXISTS (SELECT 1 FROM public.personnel WHERE organization_id = p_organization_id AND id = p_personnel_id) THEN
     RAISE EXCEPTION 'Personnel not found' USING ERRCODE = 'P0002';
   END IF;

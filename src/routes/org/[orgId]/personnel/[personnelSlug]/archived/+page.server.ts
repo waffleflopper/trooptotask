@@ -2,6 +2,8 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { loadRequestPersonnelDetailHeader } from '$lib/server/adapters/personnelDetailHeaderLoad';
 import { createRequestPersonnelArchivedArtifactsContext } from '$lib/server/adapters/requestContexts.server';
+import { keepStreamedRejectionObserved } from '$lib/server/adapters/streamedWorkspace';
+import type { PersonnelArchivedPageData } from '$features/personnel/contracts';
 import type { PageServerLoadEvent } from './$types';
 
 import { listPersonnelArchivedArtifacts } from '$features/personnel/index.server';
@@ -15,25 +17,19 @@ export interface PersonnelArchivedPageLoadDeps {
 export function _createPersonnelArchivedPageLoad(deps: PersonnelArchivedPageLoadDeps = {}) {
 	const loadWithContextFn = deps.loadWithContext ?? loadWithContext;
 
-	return async (event: PageServerLoadEvent) => {
-		const { params, locals, cookies, depends } = event;
-		depends('app:personnel-detail-archived');
+	return async (event: PageServerLoadEvent): Promise<PersonnelArchivedPageData> => {
+		const { params, locals, cookies } = event;
 		const { person } = await loadRequestPersonnelDetailHeader(event, loadWithContextFn);
-		const personnelId = person.id;
-		const records = await loadWithContextFn(locals, cookies, params.orgId, {
+		return loadWithContextFn(locals, cookies, params.orgId, {
 			context: createRequestPersonnelArchivedArtifactsContext,
 			policyAction: POLICY_ACTION_CATALOG.personnel.readSensitiveRecords,
 			policyResource: { kind: 'unscoped' },
-			fn: (ctx) => listPersonnelArchivedArtifacts(ctx.artifacts, ctx.leaderNotes, personnelId)
+			fn: async (ctx) => ({
+				archived: keepStreamedRejectionObserved(
+					listPersonnelArchivedArtifacts(ctx.artifacts, ctx.leaderNotes, person.id)
+				)
+			})
 		});
-
-		return {
-			orgId: params.orgId,
-			personnelId,
-			title: 'Archived items',
-			emptyState: 'No archived follow-ups, documents, counselings, or notes yet.',
-			records
-		};
 	};
 }
 

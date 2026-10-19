@@ -57,13 +57,15 @@ Read the [UI foundation](#ui-foundation), then the entry for the component being
 | [`patterns/brand-wordmark`](#public-marketing-shell)                       | `BrandWordmark`                                                                                                                                     | Public navigation and Identity's AuthShell.                                                                                                                            |
 | [`patterns/bulk-import-workspace`](#patternsbulk-import-workspace)         | See its section                                                                                                                                     | Calendar, Critical Tasks, Personnel and Training imports.                                                                                                              |
 | [`patterns/calendar-bars`](#patternscalendar-bars) | `StatusBar`, `AvailabilityStrip`; `layoutBars`, `oneDayLabel` | Calendar grid, popovers, legends and roster picker; the person Overview's next 14 days. |
-| [`patterns/page-shell`](#patternspage-shell)                               | `Root`, `Header`, `Tabs`, `FactGrid`, `Metric`, `FactSection`, `FactRow`                                                                            | Account, Organization settings, the person record, platform admin and Training Reports.                                                                                |
+| [`patterns/inline-edit-row`](#patternsinline-edit-row)                     | `Root`                                                                                                                                              | The person record's Log tab: follow-ups and leader notes.                                                                                                              |
+| [`patterns/page-shell`](#patternspage-shell)                               | `Root`, `Header`, `SectionHeader`, `Tabs`, `FactGrid`, `Metric`, `FactSection`, `FactRow`                                                           | Account, Organization settings, the person record, platform admin and Training Reports.                                                                                |
 | [`patterns/readiness-band`](#patternsreadiness-band)                       | `Cell`, `Legend`; `readinessBandTone`                                                                                                               | Critical Tasks and Training reports.                                                                                                                                   |
 | [`patterns/readiness-items`](#patternsreadiness-items)                     | `ReadinessItemTable`, `AttentionList`, their skeletons; `readinessItemStatusVisuals`                                                                    | Personnel Readiness tab tables and the Overview's Needs attention list.                                                                                                             |
 | [`patterns/reorder-list`](#patternsreorder-list)                           | `ReorderList`, `ReorderItem`, `ReorderGrip`                                                                                                         | Onboarding template steps and paperwork stages; Calendar lanes and status types in Calendar settings.                                                                  |
 | [`patterns/report-chart`](#patternsreport-chart)                           | See its section                                                                                                                                     | Critical Tasks reports, Training Reports and the platform admin dashboard.                                                                                             |
 | [`patterns/report-workspace`](#patternsreport-workspace)                   | See its section                                                                                                                                     | Calendar, Critical Tasks and Training reports.                                                                                                                         |
 | [`patterns/requirement-status-badge`](#patternsrequirement-status-badge)   | `RequirementStatusBadge`                                                                                                                            | Critical Tasks and Training status badges.                                                                                                                             |
+| [`patterns/segmented-filter`](#patternssegmented-filter)                   | `Root`                                                                                                                                              | The person record's Archived tab.                                                                                                                                      |
 | [`patterns/type-management-workspace`](#patternstype-management-workspace) | See its section                                                                                                                                     | Training types and views; Onboarding templates.                                                                                                                        |
 | [`patterns/workspace-toolbar`](#patternsworkspace-toolbar)                 | See its section                                                                                                                                     | Authenticated workspace toolbars.                                                                                                                                      |
 
@@ -141,6 +143,7 @@ Public components:
 
 - `Root`: authenticated page content scroller. Props: `density?: 'default' | 'compact'`, `width?: 'full' | 'content' | 'wide'`, `bodyClass?`, `children?`.
 - `Header`: page header. Props: `title` (a string, or a snippet rendered inside the `h1` when the title is itself a control), `eyebrow?` (a short uppercase context line above the title), `subtitle?` (a string, or a snippet for a meta line of badges and facts; both render in `data-slot="page-header-subtitle"`), `variant?: 'default' | 'display'` (`display` sets the title large, condensed and uppercase, for the record a page is about, such as the person record), snippets `back`, `meta` and `aside`. `aside` holds a page-level summary or the switch for the shown span, right-aligned on the title line; it wraps below the title when narrow.
+- `SectionHeader`: the heading of one block on a page. Props: `eyebrow` (short uppercase label), `title` (the headline figure, such as `3 open`), `detail?`, `detailTone?: 'default' | 'destructive'`, `children?` (sits below the headline, such as a filter for the list it introduces).
 - `Tabs`: route-level navigation links. Props: `items?`, `label?`. Items support `label`, `href` (required), `active`, `icon`, `badge`, `trailing` and `disabled`. A `badge` is `{ value, label?, variant? }` or a promise of one: a pending promise shows a skeleton announced as count loading, `null` shows nothing, and a rejection shows an outline dash announced as count unavailable. `trailing` items align right in smaller text, with the badge as `· N`. The active link carries `aria-current="page"`; a disabled item renders as non-interactive text. Use `ui/tabs` for in-page views. Each tab shows the app focus ring. When a bare count would be ambiguous, set the badge `label` (for example `2 pending requests`); assistive technology then hears that text in place of the value.
 - `FactGrid`: dense fact layout. Props: `layout?: 'stack' | 'two' | 'three' | 'rail'`, `children?`.
 - `Metric`: compact bordered metric tile. Props: `label`, `value`, `detail?`, `tone?`, `children?`.
@@ -158,6 +161,28 @@ Rules:
 - Routes may configure labels, values, actions, links, disabled/loading state, status badges, and snippets. Routes must not visually retune these primitives with local spacing, radius, color, border, density, or typography overrides unless explicitly approved.
 
 Consumers: the Account and Organization settings shells, the person record layout and its Data sheet, every platform admin page and Training Reports. Most platform admin pages also use `FactGrid` and `Metric`.
+
+---
+
+## `patterns/inline-edit-row`
+
+`InlineEditRow.Root` swaps a row between its read view and an editor in place. The parent owns `editing`, so a list keeps one row editing at a time. The editor is a form: Enter in a text input saves, Escape cancels, and Archive appears only when `onArchive` is passed, so the read view carries no destructive action.
+
+```svelte
+<InlineEditRow.Root {editing} label="Edit note" {pending} {error} onSave={save} onCancel={stop} onArchive={archive}>
+	{#snippet display()}...{/snippet}
+	{#snippet editor()}...{/snippet}
+	{#snippet lead()}...{/snippet}
+</InlineEditRow.Root>
+```
+
+`InlineEditRow.Trigger` is the neutral text button that opens the editor (`onclick`, `children`, bindable `ref`, `struck?` for a finished row). `InlineEditRow.Root` props: `editing`, `label` (names the open editor), `pending?` (`'save'` or `'archive'` while a command is in flight; it disables Save and Archive so commands cannot overlap), `error?`, `onSave`, `onCancel`, `onArchive?`, snippets `display` and `editor`, and `lead?` for a control that sits before Archive in the footer, such as a due date. The parent returns focus to the control that opened the editor after it closes.
+
+---
+
+## `patterns/segmented-filter`
+
+`SegmentedFilter.Root` is a single-choice filter on `ui/toggle-group`. Pressing the chosen option again keeps it chosen. The group wraps onto a second line when the container is narrower than its options. Props: `options` (`{ value, label, count? }`, rendered `Label · N` when `count` is set), bindable `value`, `label` (names the group).
 
 ---
 

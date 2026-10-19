@@ -7,12 +7,12 @@ import type {
 } from './personnelArtifactPersistence';
 import { counselingRow, documentRow, followUpRow, leaderNoteRow } from './personnelArtifactRow.server';
 const COUNSELINGRECORDROW_SELECT =
-	'id,personnel_id,date_conducted,title,subject,summary,notes,uploaded_by,file_path,created_at,archived_at';
+	'id,personnel_id,date_conducted,title,subject,summary,notes,uploaded_by,file_path,created_at,archived_at,archived_by';
 const PERSONNELDOCUMENTROW_SELECT =
-	'id,personnel_id,title,file_path,file_size_bytes,content_type,uploaded_by,created_at,archived_at';
+	'id,personnel_id,title,file_path,file_size_bytes,content_type,uploaded_by,created_at,archived_at,archived_by';
 const FOLLOWUPROW_SELECT =
-	'id,personnel_id,title,notes,due_date,status,created_by,created_at,updated_at,completed_at,archived_at';
-const LEADERNOTEROW_SELECT = 'id,personnel_id,author,text,created_at,archived_at';
+	'id,personnel_id,title,notes,due_date,status,created_by,created_at,updated_at,completed_at,completed_by,archived_at,archived_by';
+const LEADERNOTEROW_SELECT = 'id,personnel_id,author,text,created_at,updated_at,archived_at,archived_by';
 export function createSupabasePersonnelArtifactReadPersistence(
 	client: SupabaseClient,
 	orgId: string
@@ -109,6 +109,16 @@ export function createSupabasePersonnelArtifactReadPersistence(
 			if (error?.code === 'PGRST116') return null;
 			if (error) throw new Error(error.message);
 			return data ? documentRow(data) : null;
+		},
+		async countActiveLeaderNotes(personnelId) {
+			const { count, error } = await client
+				.from('leader_notes')
+				.select('id', { count: 'exact', head: true })
+				.eq('organization_id', orgId)
+				.eq('personnel_id', personnelId)
+				.is('archived_at', null);
+			if (error) throw new Error(error.message);
+			return count ?? 0;
 		},
 		async listLeaderNotePage(personnelId, { archived, limit, before }) {
 			const base = () => {

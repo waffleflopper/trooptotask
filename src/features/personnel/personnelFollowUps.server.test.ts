@@ -134,6 +134,78 @@ describe('personnel follow-ups', () => {
 		).rejects.toMatchObject({ status: 409 });
 	});
 
+	it('names who completed a follow-up and puts a completed one back as completed after archive', async () => {
+		const ctx = createTestContext({
+			auth: { userId: LEADER_USER_ID, scopeSet: { kind: 'organization' } }
+		});
+		seedPersonnel(ctx);
+		ctx.store.seed('organization_memberships', [
+			{
+				id: 'membership-1',
+				organization_id: ctx.auth.orgId,
+				user_id: LEADER_USER_ID,
+				email: 'leader@example.com'
+			}
+		]);
+		const context = testPersonnelArtifactsContext(ctx);
+		const created = await createPersonnelFollowUp(context, { personnelId: 'person-1', title: 'Counsel on PT' });
+		const ids = { personnelId: 'person-1', followUpId: created.id };
+
+		const completed = await setPersonnelFollowUpStatus(context, { ...ids, status: 'completed' });
+		expect(completed).toMatchObject({ status: 'completed', completedBy: 'leader@example.com' });
+
+		const archived = await archivePersonnelFollowUp(context, ids);
+		expect(archived).toMatchObject({ status: 'archived', archivedBy: 'leader@example.com' });
+		const [listed] = await listPersonnelFollowUps(context, 'person-1', undefined, { archived: true });
+		expect(listed).toMatchObject({ completedBy: 'leader@example.com', archivedBy: 'leader@example.com' });
+
+		const restored = await restorePersonnelFollowUp(context, ids);
+		expect(restored).toMatchObject({ status: 'completed', completedBy: 'leader@example.com', archivedBy: null });
+
+		const reopened = await setPersonnelFollowUpStatus(context, { ...ids, status: 'open' });
+		expect(reopened).toMatchObject({ status: 'open', completedAt: null, completedBy: null });
+	});
+
+	it('shows no name for a completer or archiver it cannot resolve instead of failing the read', async () => {
+		const OTHER_USER_ID = '22222222-2222-4222-8222-222222222222';
+		const ctx = createTestContext({ auth: { userId: LEADER_USER_ID, scopeSet: { kind: 'organization' } } });
+		seedPersonnel(ctx);
+		ctx.store.seed('organization_memberships', [
+			{ id: 'membership-1', organization_id: ctx.auth.orgId, user_id: LEADER_USER_ID, email: 'leader@example.com' }
+		]);
+		ctx.store.seed('personnel_follow_ups', [
+			{
+				id: 'follow-up-1',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'person-1',
+				title: 'Counsel on PT',
+				notes: '',
+				status: 'archived',
+				created_by: LEADER_USER_ID,
+				created_at: '2026-05-01T10:00:00Z',
+				updated_at: '2026-05-01T10:00:00Z',
+				completed_at: '2026-05-02T10:00:00Z',
+				completed_by: OTHER_USER_ID,
+				archived_at: '2026-05-03T10:00:00Z',
+				archived_by: OTHER_USER_ID
+			}
+		]);
+		const resolved = testPersonnelArtifactsContext(ctx);
+
+		const [unknownMember] = await listPersonnelFollowUps(resolved, 'person-1', undefined, { archived: true });
+		expect(unknownMember).toMatchObject({ createdBy: 'leader@example.com', completedBy: null, archivedBy: null });
+
+		const failingLookup = {
+			...resolved,
+			contributorLabels: async (ids: string[]) => {
+				if (ids.includes(OTHER_USER_ID)) throw new Error('label lookup failed');
+				return resolved.contributorLabels(ids);
+			}
+		};
+		const [lookupFailed] = await listPersonnelFollowUps(failingLookup, 'person-1', undefined, { archived: true });
+		expect(lookupFailed).toMatchObject({ createdBy: 'leader@example.com', completedBy: null, archivedBy: null });
+	});
+
 	it('requires Personnel configure capability for reads and operate capability for writes', async () => {
 		const ctx = createTestContext({
 			auth: {
@@ -276,8 +348,7 @@ describe('personnel follow-ups', () => {
 			expect(repeated).toMatchObject({
 				status: 'archived',
 				archivedAt: '2026-10-02T12:00:00.000Z',
-				updatedAt: '2026-10-02T12:00:00.000Z',
-				completedAt: null
+				updatedAt: '2026-10-02T12:00:00.000Z'
 			});
 			expect(ctx.auditPort.events.at(-1)).toMatchObject({ action: 'personnel.follow_up.archived' });
 		} finally {

@@ -87,7 +87,8 @@ function overview(overrides: Partial<Overview> = {}): Overview {
 			author: 'SFC Diaz',
 			text: 'Ready for the board.',
 			createdAt: '2026-10-05T15:00:00Z',
-			archivedAt: null
+			archivedAt: null,
+			archivedBy: null
 		}),
 		...overrides
 	};

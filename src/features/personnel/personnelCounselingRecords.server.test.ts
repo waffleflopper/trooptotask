@@ -322,7 +322,8 @@ describe('personnel counseling records', () => {
 				uploadedBy: 'Leader upload',
 				fileName: 'legacy.pdf',
 				createdAt: '2020-01-02T00:00:00Z',
-				archivedAt: null
+				archivedAt: null,
+				archivedBy: null
 			}
 		]);
 	});

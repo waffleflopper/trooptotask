@@ -62,7 +62,8 @@ describe('personnel files page server load', () => {
 				uploadedBy: 'test-user',
 				fileName: 'monthly.pdf',
 				createdAt: '2026-05-02T10:00:00Z',
-				archivedAt: null
+				archivedAt: null,
+				archivedBy: null
 			}
 		]);
 		expect(result.documents.records).toEqual([
@@ -75,7 +76,8 @@ describe('personnel files page server load', () => {
 				contentType: 'application/pdf',
 				uploadedBy: 'test-user',
 				createdAt: '2026-05-01T10:00:00Z',
-				archivedAt: null
+				archivedAt: null,
+				archivedBy: null
 			}
 		]);
 	});

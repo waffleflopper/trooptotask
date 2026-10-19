@@ -8,6 +8,7 @@ import {
 import { createSupabasePersonnelArtifactReadPersistence } from './supabasePersonnelArtifactReadPersistence.server';
 import { createSupabasePersonnelArtifactWritePort } from './artifactWrites.server';
 import type { PersonnelArtifactWriter } from './contracts';
+import type { ActorStamp } from './personnelArtifactPersistence';
 import { createTestAuthContext } from '$lib/server/adapters/inMemory';
 
 const rank = {
@@ -100,6 +101,7 @@ const note = {
 	author: 'user-a',
 	text: 'Literal note',
 	created_at: '2026-10-08T12:00:00.123456Z',
+	updated_at: '2026-10-08T12:00:00.123456Z',
 	archived_at: null
 };
 
@@ -135,7 +137,7 @@ const artifactWrites = [
 				createdAt: '2026-10-08T12:00:00.123456Z'
 			}),
 		find: (w: PersonnelArtifactWriter, id: string) => w.findCounseling(id),
-		archive: (w: PersonnelArtifactWriter, id: string, at: string | null) => w.setCounselingArchivedAt(id, at),
+		archive: (w: PersonnelArtifactWriter, id: string, by: ActorStamp | null) => w.setCounselingArchive(id, by),
 		remove: null
 	},
 	{
@@ -152,7 +154,7 @@ const artifactWrites = [
 				createdAt: '2026-10-08T12:00:00.123456Z'
 			}),
 		find: (w: PersonnelArtifactWriter, id: string) => w.findDocument(id),
-		archive: (w: PersonnelArtifactWriter, id: string, at: string | null) => w.setDocumentArchivedAt(id, at),
+		archive: (w: PersonnelArtifactWriter, id: string, by: ActorStamp | null) => w.setDocumentArchive(id, by),
 		remove: null
 	},
 	{
@@ -169,8 +171,8 @@ const artifactWrites = [
 				updatedAt: '2026-10-08T12:00:00.123456Z'
 			}),
 		find: (w: PersonnelArtifactWriter, id: string) => w.findFollowUp(id),
-		archive: (w: PersonnelArtifactWriter, id: string, at: string | null) =>
-			w.patchFollowUp(id, { archivedAt: at, updatedAt: '2026-10-08T12:00:00.123456Z' }),
+		archive: (w: PersonnelArtifactWriter, id: string, by: ActorStamp | null) =>
+			w.patchFollowUp(id, { archived: by, updatedAt: '2026-10-08T12:00:00.123456Z' }),
 		remove: (w: PersonnelArtifactWriter, id: string) => w.deleteFollowUp(id)
 	},
 	{
@@ -180,7 +182,7 @@ const artifactWrites = [
 		create: (w: PersonnelArtifactWriter) =>
 			w.createLeaderNote({ author: 'user-a', text: 'Literal note', createdAt: '2026-10-08T12:00:00.123456Z' }),
 		find: (w: PersonnelArtifactWriter, id: string) => w.findLeaderNote(id),
-		archive: (w: PersonnelArtifactWriter, id: string, at: string | null) => w.setLeaderNoteArchivedAt(id, at),
+		archive: (w: PersonnelArtifactWriter, id: string, by: ActorStamp | null) => w.setLeaderNoteArchive(id, by),
 		remove: (w: PersonnelArtifactWriter, id: string) => w.deleteLeaderNote(id)
 	}
 ] as const;
@@ -215,11 +217,12 @@ describe('finite Personnel artifact SDK writes', () => {
 			expect(await c.create(writer)).toEqual(expected);
 			expect(await c.find(writer, 'foreign')).toBeNull();
 			expect(await c.find(writer, 'other-person')).toBeNull();
-			expect(await c.archive(writer, 'saved-1', '2026-10-09T10:00:00Z')).toEqual({
+			expect(await c.archive(writer, 'saved-1', { at: '2026-10-09T10:00:00Z', by: 'user-b' })).toEqual({
 				...expected,
-				archived_at: '2026-10-09T10:00:00Z'
+				archived_at: '2026-10-09T10:00:00Z',
+				archived_by: 'user-b'
 			});
-			expect(await c.archive(writer, 'saved-1', null)).toEqual(expected);
+			expect(await c.archive(writer, 'saved-1', null)).toEqual({ ...expected, archived_by: null });
 			const persisted = service.state.rows[c.table].find((r) => r.id === 'saved-1');
 			expect(persisted).toMatchObject({ organization_id: 'org-a', personnel_id: 'person-a' });
 			expect(service.state.rows[c.table].filter((r) => r.id !== 'saved-1')).toEqual(witnesses);

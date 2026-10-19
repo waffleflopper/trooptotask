@@ -168,9 +168,16 @@ SELECT results_eq($$ SELECT * FROM pg_temp.state(301) $$, $$ VALUES
   ('note', 1, '2030-02-03T04:05:06.789Z', NULL), ('note', 2, '2029-06-01T00:00:00Z', NULL),
   ('person', 0, '2030-02-03T04:05:06.789Z', NULL) $$,
   'every active artifact shares the new event; completed history and independent archives keep their state');
-SELECT is_empty($$ SELECT * FROM pg_temp.changed('initial', ARRAY['archived_at', 'status', 'updated_at'])
+SELECT is_empty($$ SELECT * FROM pg_temp.changed('initial', ARRAY['archived_at', 'archived_by', 'status', 'updated_at'])
   WHERE id IN (SELECT pg_temp.child(f, 301, k) FROM generate_series(1, 4) f, generate_series(1, 3) k) OR id = pg_temp.u(301) $$,
   'archive changes only lifecycle fields: titles, notes, authors, files and dates are unchanged');
+SELECT is(
+  (SELECT array_agg(DISTINCT archived_by) FROM (
+    SELECT archived_by FROM public.personnel_follow_ups WHERE id = pg_temp.child(1, 301, 1)
+    UNION ALL SELECT archived_by FROM public.counseling_records WHERE id = pg_temp.child(2, 301, 1)
+    UNION ALL SELECT archived_by FROM public.personnel_documents WHERE id = pg_temp.child(3, 301, 1)
+    UNION ALL SELECT archived_by FROM public.leader_notes WHERE id = pg_temp.child(4, 301, 1)) AS archived),
+  ARRAY[pg_temp.u(3)::text], 'a Person archive records the acting member on each archived artifact');
 SELECT is_empty($$ SELECT * FROM pg_temp.changed('initial')
   WHERE id NOT IN (SELECT pg_temp.child(f, 301, k) FROM generate_series(1, 4) f, generate_series(1, 3) k) AND id <> pg_temp.u(301)
     OR id IN (pg_temp.child(1, 301, 2), pg_temp.child(1, 301, 3), pg_temp.child(2, 301, 2), pg_temp.child(3, 301, 2), pg_temp.child(4, 301, 2)) $$,

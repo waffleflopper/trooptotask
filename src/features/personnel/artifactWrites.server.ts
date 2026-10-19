@@ -15,12 +15,12 @@ import { fail } from '$lib/errors';
 
 type ArtifactTable = 'counseling_records' | 'personnel_documents' | 'personnel_follow_ups' | 'leader_notes';
 const COUNSELING_RECORDS_SELECT =
-	'id,personnel_id,date_conducted,title,subject,summary,notes,uploaded_by,file_path,created_at,archived_at';
+	'id,personnel_id,date_conducted,title,subject,summary,notes,uploaded_by,file_path,created_at,archived_at,archived_by';
 const PERSONNEL_DOCUMENTS_SELECT =
-	'id,personnel_id,title,file_path,file_size_bytes,content_type,uploaded_by,created_at,archived_at';
+	'id,personnel_id,title,file_path,file_size_bytes,content_type,uploaded_by,created_at,archived_at,archived_by';
 const PERSONNEL_FOLLOW_UPS_SELECT =
-	'id,personnel_id,title,notes,due_date,status,created_by,created_at,updated_at,completed_at,archived_at';
-const LEADER_NOTES_SELECT = 'id,personnel_id,author,text,created_at,archived_at';
+	'id,personnel_id,title,notes,due_date,status,created_by,created_at,updated_at,completed_at,completed_by,archived_at,archived_by';
+const LEADER_NOTES_SELECT = 'id,personnel_id,author,text,created_at,updated_at,archived_at,archived_by';
 const ARTIFACT_TABLES: ReadonlySet<string> = new Set([
 	'personnel_follow_ups',
 	'counseling_records',
@@ -172,10 +172,10 @@ export function createSupabasePersonnelArtifactWritePort(
 					if (error) throw new Error(error.message);
 					return counselingRow(data);
 				},
-				async setCounselingArchivedAt(id, archivedAt) {
+				async setCounselingArchive(id, archived) {
 					const { data, error } = await admin
 						.from('counseling_records')
-						.update({ archived_at: archivedAt })
+						.update({ archived_at: archived?.at ?? null, archived_by: archived?.by ?? null })
 						.eq('organization_id', actor.orgId)
 						.eq('personnel_id', personnelId)
 						.eq('id', id)
@@ -213,10 +213,10 @@ export function createSupabasePersonnelArtifactWritePort(
 					if (error) throw new Error(error.message);
 					return documentRow(data);
 				},
-				async setDocumentArchivedAt(id, archivedAt) {
+				async setDocumentArchive(id, archived) {
 					const { data, error } = await admin
 						.from('personnel_documents')
-						.update({ archived_at: archivedAt })
+						.update({ archived_at: archived?.at ?? null, archived_by: archived?.by ?? null })
 						.eq('organization_id', actor.orgId)
 						.eq('personnel_id', personnelId)
 						.eq('id', id)
@@ -264,8 +264,12 @@ export function createSupabasePersonnelArtifactWritePort(
 							...(input.notes !== undefined ? { notes: input.notes } : {}),
 							...(input.dueDate !== undefined ? { due_date: input.dueDate } : {}),
 							...(input.status !== undefined ? { status: input.status } : {}),
-							...(input.completedAt !== undefined ? { completed_at: input.completedAt } : {}),
-							...(input.archivedAt !== undefined ? { archived_at: input.archivedAt } : {}),
+							...(input.completed !== undefined
+								? { completed_at: input.completed?.at ?? null, completed_by: input.completed?.by ?? null }
+								: {}),
+							...(input.archived !== undefined
+								? { archived_at: input.archived?.at ?? null, archived_by: input.archived?.by ?? null }
+								: {}),
 							updated_at: input.updatedAt
 						})
 						.eq('organization_id', actor.orgId)
@@ -303,6 +307,7 @@ export function createSupabasePersonnelArtifactWritePort(
 							author: input.author,
 							text: input.text,
 							created_at: input.createdAt,
+							updated_at: input.createdAt,
 							organization_id: actor.orgId,
 							personnel_id: personnelId
 						})
@@ -311,10 +316,22 @@ export function createSupabasePersonnelArtifactWritePort(
 					if (error) throw new Error(error.message);
 					return leaderNoteRow(data);
 				},
-				async setLeaderNoteArchivedAt(id, archivedAt) {
+				async setLeaderNoteArchive(id, archived) {
 					const { data, error } = await admin
 						.from('leader_notes')
-						.update({ archived_at: archivedAt })
+						.update({ archived_at: archived?.at ?? null, archived_by: archived?.by ?? null })
+						.eq('organization_id', actor.orgId)
+						.eq('personnel_id', personnelId)
+						.eq('id', id)
+						.select(LEADER_NOTES_SELECT)
+						.single();
+					if (error) throw new Error(error.message);
+					return leaderNoteRow(data);
+				},
+				async setLeaderNoteText(id, text, updatedAt) {
+					const { data, error } = await admin
+						.from('leader_notes')
+						.update({ text, updated_at: updatedAt })
 						.eq('organization_id', actor.orgId)
 						.eq('personnel_id', personnelId)
 						.eq('id', id)

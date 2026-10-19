@@ -16,9 +16,9 @@ INSERT INTO public.counseling_records (id, organization_id, personnel_id, date_c
   ('f6431000-0000-4000-8000-000000000601', 'f6431000-0000-4000-8000-000000000101', 'f6431000-0000-4000-8000-000000000301', '2030-01-01', 'Retained subject', 'Archived counseling', 'fixture', 'f6431000-0000-4000-8000-000000000101/counseling-records/f6431000-0000-4000-8000-000000000301/archived.pdf', '2030-01-01T00:00:00Z');
 
 CREATE VIEW upgrade_fixture.personnel_file_retirement_current_rows AS
-SELECT 'public.personnel_documents'::text AS table_name, id::text AS row_id, to_jsonb(row_value) AS row_data
+SELECT 'public.personnel_documents'::text AS table_name, id::text AS row_id, to_jsonb(row_value) - 'archived_by' AS row_data
   FROM public.personnel_documents AS row_value WHERE id::text LIKE 'f6431000-%'
-UNION ALL SELECT 'public.counseling_records', id::text, to_jsonb(row_value)
+UNION ALL SELECT 'public.counseling_records', id::text, to_jsonb(row_value) - 'archived_by'
   FROM public.counseling_records AS row_value WHERE id::text LIKE 'f6431000-%';
 CREATE TABLE upgrade_fixture.personnel_file_retirement_before_rows AS
   SELECT * FROM upgrade_fixture.personnel_file_retirement_current_rows;

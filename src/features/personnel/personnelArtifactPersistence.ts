@@ -10,6 +10,7 @@ export interface CounselingRecordRow {
 	file_path: string | null;
 	created_at?: string | null;
 	archived_at?: string | null;
+	archived_by?: string | null;
 }
 
 export interface PersonnelDocumentRow {
@@ -22,6 +23,7 @@ export interface PersonnelDocumentRow {
 	uploaded_by: string;
 	created_at?: string | null;
 	archived_at?: string | null;
+	archived_by?: string | null;
 }
 
 export interface FollowUpRow {
@@ -35,7 +37,9 @@ export interface FollowUpRow {
 	created_at: string;
 	updated_at: string;
 	completed_at: string | null;
+	completed_by?: string | null;
 	archived_at?: string | null;
+	archived_by?: string | null;
 }
 
 export interface LeaderNoteRow {
@@ -44,7 +48,9 @@ export interface LeaderNoteRow {
 	author: string;
 	text: string;
 	created_at: string;
+	updated_at?: string;
 	archived_at?: string | null;
+	archived_by?: string | null;
 }
 
 export interface PersonnelRecordCounts {
@@ -65,6 +71,7 @@ export interface PersonnelArtifactReadPersistence {
 		personnelId: string,
 		options: { archived: boolean; limit: number; before?: { createdAt: string; id: string } }
 	): Promise<LeaderNoteRow[]>;
+	countActiveLeaderNotes(personnelId: string): Promise<number>;
 }
 export interface CounselingCreate {
 	dateConducted: string;
@@ -90,13 +97,19 @@ export interface FollowUpCreate {
 	createdAt: string;
 	updatedAt: string;
 }
+/** When and by whom an artifact was completed or archived; `null` clears both. */
+export interface ActorStamp {
+	at: string;
+	by: string;
+}
+
 export interface FollowUpPatch {
 	title?: string;
 	notes?: string | null;
 	dueDate?: string | null;
 	status?: 'open' | 'completed' | 'archived';
-	completedAt?: string | null;
-	archivedAt?: string | null;
+	completed?: ActorStamp | null;
+	archived?: ActorStamp | null;
 	updatedAt: string;
 }
 export interface LeaderNoteCreate {

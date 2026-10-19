@@ -1,10 +1,21 @@
 <script lang="ts">
-	import { PersonnelArchivedArtifactsPageView } from '$features/personnel';
-	import type { PersonnelArchivedArtifactsPageData } from '$features/personnel/contracts';
+	import { getAppShellContext } from '$features/app-shell';
+	import { PersonnelArchivedPageView } from '$features/personnel';
+	import type { PersonnelArchivedPageData, PersonnelDetailHeader } from '$features/personnel/contracts';
 
-	let { data }: { data: PersonnelArchivedArtifactsPageData } = $props();
+	interface PersonnelArchivedData extends PersonnelArchivedPageData {
+		personnelDetailHeader: PersonnelDetailHeader;
+	}
+
+	let { data }: { data: PersonnelArchivedData } = $props();
+
+	const org = getAppShellContext();
 </script>
 
-{#key `${data.orgId}:${data.personnelId}`}
-	<PersonnelArchivedArtifactsPageView {data} />
+{#key data.personnelDetailHeader.person.id}
+	<PersonnelArchivedPageView
+		orgId={org.orgId}
+		personnelId={data.personnelDetailHeader.person.id}
+		data={{ archived: data.archived }}
+	/>
 {/key}

@@ -17,6 +17,7 @@
 	import { rejectedRequestMessage } from '$lib/stores/core';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatDayMonthYear } from '$lib/utils/dates';
+	import { SENSITIVE_FILE_ACCEPT } from '$lib/storage/sensitiveFiles';
 	import { PendingSave } from '$lib/utils/pendingSave.svelte';
 	import {
 		correctTrainingCompletion,
@@ -265,11 +266,11 @@
 								<Input
 									id="training-drawer-certificate"
 									type="file"
-									accept="application/pdf,image/jpeg,image/png"
+									accept={SENSITIVE_FILE_ACCEPT}
 									bind:ref={certificateInput}
 									onchange={pickCertificate}
 								/>
-								<Field.Description>A PDF or photo, up to 10 MB.</Field.Description>
+								<Field.Description>A PDF, up to 10 MB.</Field.Description>
 							</Field.Root>
 						{/if}
 						<Field.Root>

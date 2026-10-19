@@ -10,7 +10,7 @@ export interface TrainingCompletionLog {
 	certificate: File | null;
 }
 
-export interface TrainingCompletionCorrection {
+export interface TrainingCorrectionRequest {
 	kind: 'current' | 'history';
 	id: string;
 	completionDate: string | null;
@@ -32,7 +32,7 @@ export async function logTrainingCompletion(orgId: string, log: TrainingCompleti
 
 export async function correctTrainingCompletion(
 	orgId: string,
-	correction: TrainingCompletionCorrection
+	correction: TrainingCorrectionRequest
 ): Promise<void> {
 	const response = await fetch(`/org/${orgId}/api/personnel-trainings/corrections`, {
 		method: 'PATCH',

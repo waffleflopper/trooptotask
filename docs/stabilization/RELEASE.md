@@ -719,11 +719,11 @@ An application rollback can leave the function in place. Dropping it needs a rev
 
 ## Personnel training history and certificates
 
-The candidate adds [`20261017000100_personnel_training_history.sql`](../../supabase/migrations/20261017000100_personnel_training_history.sql), SHA-256 `5aa31860677f985eec01b8df6bbc9060dfc2350dae2a4989bc61c4a3ff066db7`, for the Personnel detail Readiness tab. It lands on the `feat/personnel-details-page` integration branch, and nothing deploys until that branch merges to main. The migration is not yet applied anywhere outside disposable local databases. Its owner-operated migration gate is open. The agent neither inspected nor changed the remote database or hosted ledger.
+The candidate adds [`20261017000100_personnel_training_history.sql`](../../supabase/migrations/20261017000100_personnel_training_history.sql), SHA-256 `d51effa1b8149c7eaffab8afadfa471eb293a656e352e2ef757e0247b7a7ee0e`, for the Personnel detail Readiness tab. It lands on the `feat/personnel-details-page` integration branch, and nothing deploys until that branch merges to main. The migration is not yet applied anywhere outside disposable local databases. Its owner-operated migration gate is open. The agent neither inspected nor changed the remote database or hosted ledger.
 
 Applying it adds one table, one private bucket and three commands, and changes no existing column:
 
-- It adds `personnel_training_history`. An update that changes a Training record's completion or expiration date copies the replaced completion there. Row security reuses the Training record view, edit and configure checks.
+- It adds `personnel_training_history`. An update that changes a Training record's completion or expiration date copies the replaced completion there, including a never-expiring completion saved without dates. Row security reuses the Training record view, edit and configure checks.
 - It adds `correct_training_completion(p_organization_id, p_kind, p_id, p_completion_date, p_expiration_date, p_notes)`, which edits a current or history completion in place without recording history. It runs as `SECURITY INVOKER`, so row security decides which row the caller may correct.
 - It adds `set_training_exemption(p_organization_id, p_training_type_id, p_personnel_id, p_exempt)`, which adds or removes one Person in `exempt_personnel_ids` under a row lock. It requires Training configuration and a type that allows exemptions.
 - It adds the private `training-certificates` bucket (10 MB) with read and insert policies scoped to the Training record checks. Certificates join the existing registered-upload, retirement and Organization-deletion fences for Personnel files, and a stored certificate key must sit under its own Organization and Person.

@@ -4,7 +4,7 @@ GitHub Actions runs validation for this private, single-contributor repository o
 
 ## What runs
 
-[The workflow](../.github/workflows/ci.yml) runs on PRs targeting `main` that carry the `run-ci` label, and on manual dispatch. Merging to `main` starts no run. Feature-branch pushes without a PR do not start duplicate runs. New PR updates cancel superseded runs; manual runs are retained. No deployment or remote database operation is part of CI.
+[The workflow](../.github/workflows/ci.yml) runs on PRs that target `main` or a `feat/**` integration branch and carry the `run-ci` label, and on manual dispatch. Slice PRs into an integration branch get the same checks as PRs into `main`. Merging to `main` starts no run. Feature-branch pushes without a PR do not start duplicate runs. New PR updates cancel superseded runs; manual runs are retained. No deployment or remote database operation is part of CI.
 
 PR checks wait until the review bots are done, so rounds of review fixes do not each pay for a full run. Without the label, every job reports skipped. Add `run-ci` once hosted review of the current head returns no actionable findings. Adding it starts a run, and CI then runs on every later push. Before pushing another round of review fixes, remove the label and add it again after that round's review is clean. Adding any other label skips every job and cannot cancel a running check. Robert can add the label from the PR page at any time.
 

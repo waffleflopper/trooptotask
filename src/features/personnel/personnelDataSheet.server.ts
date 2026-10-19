@@ -13,7 +13,9 @@ const dataSheetInput = z.object({ basicInfo: fieldValues, extendedInfo: fieldVal
 
 /**
  * Saves a Person's basic info and extended info as one command. Both halves are validated and
- * authorized before either is written, so an invalid half leaves the record untouched.
+ * authorized before either is written, so an invalid half leaves the record untouched. The two writes are
+ * separate provider calls, so a database failure on the Person write after the sheet write leaves the sheet saved.
+ * Saving again converges both.
  */
 export async function savePersonnelDataSheet(
 	ctx: DataSheetContext,

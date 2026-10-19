@@ -12,7 +12,7 @@ A member creates and edits a Soldier's record, imports new People or backfills e
 - `record-access`: view, operate, configure, assigned Group, empty Group scope and foreign Organization requests preserve their distinct permissions and saved data.
 - `record-consumers`: Training, Critical Tasks, Calendar, Onboarding and record exports retain the Person identity and their independent access lanes across record changes.
 - `record-detail-readiness`: one scoped header lookup supplies the same Person ID to all artifact tabs; five independent readiness lanes retain their own permissions and facts.
-- `record-soldier-data-sheet`: save and reload the Data sheet tab's one form, which writes the Person and the sheet together; recover a failed or refused save with both halves unsaved; and preserve unrelated acknowledgement fields.
+- `record-soldier-data-sheet`: save and reload the Data sheet tab's one form, which writes the Person and the sheet together; recover a refused save with both halves unsaved; and preserve unrelated acknowledgement fields.
 - `record-loss-acknowledgement`: distinguish detail ETS readiness from global ETS/DEROS losses, and set or clear the existing acknowledgement through its authenticated endpoint without inventing a Web toggle.
 - `record-retention`: scheduled removal of expired archived parents, complete cascade-file cleanup, retained history, scoped counts and truthful failures.
 - `record-switching`: Organization changes and late save responses cannot mix A's Personnel or write permissions into B.

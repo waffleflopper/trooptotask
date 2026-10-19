@@ -140,7 +140,7 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-<form bind:this={form} class="grid items-start gap-x-16 gap-y-10 lg:grid-cols-2">
+<form bind:this={form} aria-busy={draft.saving || undefined} class="grid items-start gap-x-16 gap-y-10 lg:grid-cols-2">
 	<fieldset class="contents" disabled={draft.saving}>
 		<div class="grid gap-10">
 			<PageShell.FactSection title="Identity">

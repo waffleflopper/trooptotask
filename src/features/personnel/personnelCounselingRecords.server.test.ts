@@ -497,6 +497,21 @@ describe('Files tab counseling read', () => {
 		expect(read.uploaderLabel).toBe('leader@example.com');
 	});
 
+	it('offers no conductor when the member has no name or email on file', async () => {
+		const ctx = seededContext();
+		ctx.store.seed('organization_memberships', [
+			{ id: 'membership-2', organization_id: ctx.auth.orgId, user_id: ctx.auth.userId }
+		]);
+
+		const read = await readPersonnelCounselings(testPersonnelArtifactsContext(ctx), {
+			personnelId: 'person-1',
+			asOf: '2026-10-19',
+			limit: 2
+		});
+
+		expect(read.uploaderLabel).toBeNull();
+	});
+
 	it('lists older records from an offset without repeating the first page', async () => {
 		const ctx = seededContext();
 

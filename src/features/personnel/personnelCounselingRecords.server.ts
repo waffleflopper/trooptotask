@@ -77,6 +77,12 @@ export async function listPersonnelCounselingRecords(
 }
 
 /** The Files tab's first page of counselings with the figures its coverage bar and upload form need. */
+/** A member label that fell back to the bare user id names no one, so it is not offered as a conductor. */
+function nameOf(labels: Map<string, string>, userId: string): string | null {
+	const label = labels.get(userId);
+	return label && label !== userId ? label : null;
+}
+
 export async function readPersonnelCounselings(
 	ctx: PersonnelArtifactsContext,
 	input: { personnelId: string; asOf: string; limit: number }
@@ -94,7 +100,7 @@ export async function readPersonnelCounselings(
 	return {
 		records: rows.map((row) => mapCounselingRow(row, labels)),
 		total,
-		uploaderLabel: labels.get(ctx.actor.userId) ?? null,
+		uploaderLabel: nameOf(labels, ctx.actor.userId),
 		coveredMonths: coveredMonthsOf(dates, input.asOf)
 	};
 }

@@ -7,7 +7,7 @@ import type {
 	SavedSpecialDay,
 	SavedStatusType
 } from './contracts';
-import { fitsOneDayLabel, normalizeShortLabel } from './utils/oneDayLabel';
+import { fitsOneDayLabel, normalizeShortLabel } from '$lib/components/patterns/calendar-bars';
 import { MAX_CLOSURE_DAYS } from './utils/closureDays';
 
 type SavedRow = { organization_id?: string; created_at?: string };

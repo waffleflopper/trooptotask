@@ -1,14 +1,15 @@
 import type { AvailabilityEntry, StatusType } from '$features/calendar/contracts';
-import { layoutBars, type AvailabilitySpan, type BarLayout, type LabelPolicy } from './barLayout';
-import { toDayNumber, type DayWindow } from './dayNumber';
+import { layoutBars, type LabelPolicy } from '$lib/components/patterns/calendar-bars';
+import type { CalendarBarLayout, CalendarSpan } from '$features/calendar/utils/calendarBars';
+import { toDayNumber, type DayWindow } from '$lib/utils/dayNumber';
 
 export interface AvailabilityTracks {
-	spans(personnelId: string): readonly AvailabilitySpan[];
-	layout(personnelId: string, window: DayWindow, policy: LabelPolicy): BarLayout;
+	spans(personnelId: string): readonly CalendarSpan[];
+	layout(personnelId: string, window: DayWindow, policy: LabelPolicy): CalendarBarLayout;
 	outCounts(personnelIds: Iterable<string>, window: DayWindow): readonly number[];
 }
 
-const NO_SPANS: readonly AvailabilitySpan[] = [];
+const NO_SPANS: readonly CalendarSpan[] = [];
 /** Enough for the shown window and its neighbours; older windows are dropped first. */
 const REMEMBERED_LAYOUTS = 4;
 
@@ -20,6 +21,8 @@ function policyKey(policy: LabelPolicy): string {
 			return `3-month:${policy.dayPx}`;
 		case 'print':
 			return `print:${policy.dayWidth}`;
+		case 'strip':
+			return 'strip';
 	}
 }
 
@@ -28,7 +31,7 @@ export function buildAvailabilityTracks(
 	statusTypes: readonly StatusType[]
 ): AvailabilityTracks {
 	const statusById = new Map(statusTypes.map((status) => [status.id, status]));
-	const byPerson = new Map<string, AvailabilitySpan[]>();
+	const byPerson = new Map<string, CalendarSpan[]>();
 	for (const entry of entries) {
 		const status = statusById.get(entry.statusTypeId);
 		if (!status) continue;
@@ -41,13 +44,13 @@ export function buildAvailabilityTracks(
 		spans.sort((a, b) => a.start - b.start || (a.entry.id < b.entry.id ? -1 : a.entry.id > b.entry.id ? 1 : 0));
 	}
 
-	const layouts = new Map<string, Map<string, BarLayout>>();
+	const layouts = new Map<string, Map<string, CalendarBarLayout>>();
 
-	function spans(personnelId: string): readonly AvailabilitySpan[] {
+	function spans(personnelId: string): readonly CalendarSpan[] {
 		return byPerson.get(personnelId) ?? NO_SPANS;
 	}
 
-	function layout(personnelId: string, window: DayWindow, policy: LabelPolicy): BarLayout {
+	function layout(personnelId: string, window: DayWindow, policy: LabelPolicy): CalendarBarLayout {
 		const key = `${window.key}|${policyKey(policy)}`;
 		let byPersonLayout = layouts.get(key);
 		if (!byPersonLayout) {

@@ -6,8 +6,9 @@
 		CalendarPopover
 	} from '$features/calendar/contexts/CalendarPageContext.svelte';
 	import type { AvailabilityChange } from '$features/calendar/utils/availabilityMutation';
-	import { describeSpan, shortRangeLabel, spanDays, type AvailabilitySpan } from '$features/calendar/utils/barLayout';
-	import { toDayNumber } from '$features/calendar/utils/dayNumber';
+	import { describeSpan, shortRangeLabel, spanDays } from '$lib/components/patterns/calendar-bars';
+	import type { CalendarSpan } from '$features/calendar/utils/calendarBars';
+	import { toDayNumber } from '$lib/utils/dayNumber';
 	import { Button } from '$lib/components/ui/button';
 	import * as Popover from '$lib/components/ui/popover';
 
@@ -16,7 +17,7 @@
 	interface Props {
 		popover: BarPopover;
 		statusTypes: readonly StatusType[];
-		spans: readonly AvailabilitySpan[];
+		spans: readonly CalendarSpan[];
 		canEdit: boolean;
 		anchorHasResizeGrips: boolean;
 		saving: boolean;

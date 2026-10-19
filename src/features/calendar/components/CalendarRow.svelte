@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { AvailabilityEntry } from '$features/calendar/contracts';
-	import { fitMarkers, type Bar, type BarLayout } from '$features/calendar/utils/barLayout';
+	import { fitMarkers } from '$lib/components/patterns/calendar-bars';
+	import type { CalendarBar, CalendarBarLayout } from '$features/calendar/utils/calendarBars';
 	import type { CalendarCellMarkerState, CalendarDateHeaderState } from '$features/calendar/utils/calendarRenderState';
 	import type { Personnel, UpcomingLossRecord } from '$features/personnel/contracts';
 	import { Button } from '$lib/components/ui/button';
@@ -13,7 +14,7 @@
 	interface Props {
 		person: Personnel;
 		days: readonly CalendarDateHeaderState[];
-		layout: BarLayout;
+		layout: CalendarBarLayout;
 		selectedEntryId?: string | null;
 		selection?: { start: number; end: number } | null;
 		markers?: ReadonlyMap<number, readonly CalendarCellMarkerState[]>;
@@ -27,7 +28,13 @@
 		onOpenEntry?: (person: Personnel, entry: AvailabilityEntry, anchor: HTMLElement) => void;
 		onOpenOverflow?: (person: Personnel, entryIds: readonly string[], anchor: HTMLElement) => void;
 		onPressDay?: (event: PointerEvent, person: Personnel, row: HTMLElement) => void;
-		onPressEdge?: (event: PointerEvent, person: Personnel, bar: Bar, edge: 'start' | 'end', row: HTMLElement) => void;
+		onPressEdge?: (
+			event: PointerEvent,
+			person: Personnel,
+			bar: CalendarBar,
+			edge: 'start' | 'end',
+			row: HTMLElement
+		) => void;
 	}
 
 	let {

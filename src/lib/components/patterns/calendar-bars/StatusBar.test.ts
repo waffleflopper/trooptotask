@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, render } from '@testing-library/svelte';
-import StatusBar from './StatusBar.svelte';
+import { StatusBar } from '.';
 
 afterEach(cleanup);
 

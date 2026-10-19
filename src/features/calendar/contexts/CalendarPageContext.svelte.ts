@@ -20,7 +20,7 @@ import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEv
 import { groupsInScope } from '$lib/access/scopeSetAccess';
 import { loadCalendarRange } from '$features/calendar/utils/calendarRangeLoader';
 import { rangeCoversDate, rangeCoversSpan, type CalendarViewMode } from '$features/calendar/utils/calendarRange';
-import { dayWindow } from '$features/calendar/utils/dayNumber';
+import { dayWindow } from '$lib/utils/dayNumber';
 import { indexByPersonId } from '$features/calendar/utils/calendarIndexes';
 import { rejectedRequestMessage, StoreRequestError, withinOrganizationLifetime } from '$lib/stores/core';
 import type { CapabilityLevel, ScopeSet } from '$lib/access/memberAccessShape';

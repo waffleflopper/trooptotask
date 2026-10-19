@@ -56,6 +56,7 @@ Read the [UI foundation](#ui-foundation), then the entry for the component being
 | `ui/tooltip`                                                               | `Root`, `Trigger`, `Content`, `Provider`, `Portal`                                                                                                  | App shell header and Personnel import; `ui/sidebar`.                                                                                                                   |
 | [`patterns/brand-wordmark`](#public-marketing-shell)                       | `BrandWordmark`                                                                                                                                     | Public navigation and Identity's AuthShell.                                                                                                                            |
 | [`patterns/bulk-import-workspace`](#patternsbulk-import-workspace)         | See its section                                                                                                                                     | Calendar, Critical Tasks, Personnel and Training imports.                                                                                                              |
+| [`patterns/calendar-bars`](#patternscalendar-bars) | `StatusBar`, `AvailabilityStrip`; `layoutBars`, `oneDayLabel` | Calendar grid, popovers, legends and roster picker; the person Overview's next 14 days. |
 | [`patterns/page-shell`](#patternspage-shell)                               | `Root`, `Header`, `Tabs`, `FactGrid`, `Metric`, `FactSection`, `FactRow`                                                                            | Account, Organization settings, the person record, platform admin and Training Reports.                                                                                |
 | [`patterns/readiness-band`](#patternsreadiness-band)                       | `Cell`, `Legend`; `readinessBandTone`                                                                                                               | Critical Tasks and Training reports.                                                                                                                                   |
 | [`patterns/readiness-items`](#patternsreadiness-items)                     | `ReadinessItemTable`, `ReadinessItemTableSkeleton`; `readinessItemStatusVisuals`                                                                    | Personnel Readiness tab training and critical-task tables.                                                                                                             |
@@ -487,6 +488,10 @@ Rules:
 - `ui/operational-matrix` hosts these cells in Critical Tasks and Training Reports grids; readiness-tier meaning stays in `patterns/readiness-band`, not in the matrix primitive.
 
 ---
+
+## `patterns/calendar-bars`
+
+`patterns/calendar-bars` draws dated spans as bars on a day grid. `layoutBars` places spans in a full lane or split top and bottom lanes and folds the rest into a `+N` overflow; `StatusBar` draws one bar; `AvailabilityStrip` draws a compact roster strip or a regular strip with day headers and dashed Special Day cells. The layout is generic over the entry and status shapes, so Calendar keeps its own types through the aliases in `src/features/calendar/utils/calendarBars.ts`. Strips are drawings; the consumer names every entry in text beside them.
 
 ## `patterns/readiness-items`
 

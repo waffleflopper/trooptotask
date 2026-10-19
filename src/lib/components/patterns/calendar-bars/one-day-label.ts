@@ -1,4 +1,3 @@
-import type { StatusType } from '../contracts';
 
 /** The one-day label limit, counted in code points like PostgreSQL char_length. */
 export const ONE_DAY_LABEL_LENGTH = 3;
@@ -13,7 +12,7 @@ export function suggestOneDayLabel(name: string): string {
 	return leading(leading(alphanumeric, ONE_DAY_LABEL_LENGTH).toUpperCase(), ONE_DAY_LABEL_LENGTH);
 }
 
-export function oneDayLabel(status: Pick<StatusType, 'name' | 'shortLabel'>): string {
+export function oneDayLabel(status: { readonly name: string; readonly shortLabel: string | null }): string {
 	return status.shortLabel ?? suggestOneDayLabel(status.name);
 }
 

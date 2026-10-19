@@ -5,8 +5,7 @@
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 	import { movedTo } from '$features/calendar/utils/calendarLanes';
-	import { oneDayLabel } from '$features/calendar/utils/oneDayLabel';
-	import StatusBar from './calendar-bars/StatusBar.svelte';
+	import { oneDayLabel, StatusBar } from '$lib/components/patterns/calendar-bars';
 	import StatusTypeComposer from './StatusTypeComposer.svelte';
 	import { ReorderGrip, ReorderItem, ReorderList } from '$lib/components/patterns/reorder-list';
 	import { Button } from '$lib/components/ui/button';

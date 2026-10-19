@@ -2,12 +2,11 @@
 	import type { HTMLAttributes } from 'svelte/elements';
 	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
-	import type { StatusType } from '$features/calendar/contracts';
-	import type { BarLabel } from '$features/calendar/utils/barLayout';
+	import type { BarLabel, BarStatus } from './bar-layout';
 	import { cn } from '$lib/utils';
 
 	interface Props extends Omit<HTMLAttributes<HTMLSpanElement>, 'children'> {
-		status: Pick<StatusType, 'color' | 'textColor'>;
+		status: Pick<BarStatus, 'color' | 'textColor'>;
 		label: BarLabel;
 		size?: 'regular' | 'lane' | 'compact';
 		/** The entry starts before the visible days, so the start is square with a chevron. */

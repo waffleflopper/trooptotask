@@ -18,7 +18,7 @@ Choose `Personnel`, open a Person, then choose the `Readiness` tab under the rec
 
 ## Driving it with verify:app
 
-Preparation status: **live-verified** on worker 2 for the S2 candidate; evidence under `.verification/evidence/verify-trooptotask/s2-readiness/`. Step 5 and the regression pass of steps 4, 6 and 7 were live-verified for the S2 fix round under `.verification/evidence/verify-trooptotask/s2-fix-r1/`.
+Preparation status: **live-verified** on worker 2 for the S2 candidate; evidence under `.verification/evidence/verify-trooptotask/s2-readiness/`. Step 5 and the regression pass of steps 4, 6 and 7 were live-verified for the S2 fix round under `.verification/evidence/verify-trooptotask/s2-fix-r1/`. Step 5's cycle change, the certificate open and the regression pass of steps 4, 6 and 7 were live-verified for fix round 2 under `.verification/evidence/verify-trooptotask/s2-fix-r2/`.
 
 Preconditions: owned launch and `doctor` pass; set `V` per the index. `$V actor orgOwner personnel` signs in the owner. Able (`verify-able`, 68W, Alpha) has Required training current, Targeted training missing, Optional training not required, and one of two critical tasks validated, so the badge starts at `2 items need attention`. No seeded training type allows exemption. As the owner, open Training → Types, choose a type, `Edit`, tick `Can be exempted` and `Save`, then confirm with `$V rows training_types orgA`.
 

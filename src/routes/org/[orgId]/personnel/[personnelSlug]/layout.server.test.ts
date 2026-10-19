@@ -102,6 +102,34 @@ describe('personnel detail layout server load', () => {
 		await expect(result.personnelDetailLayout.availabilityToday).resolves.toBeNull();
 	});
 
+	it('keeps a count read that fails before the page renders from crashing the server', async () => {
+		const failure = new Error('count read failed');
+		const ctx = {
+			organizationPersonnel: { findBySlug: vi.fn(async () => makePersonnel()) },
+			personnelSheets: { findSheetForPerson: vi.fn(async () => null) },
+			artifactReads: { countRecords: vi.fn(async () => Promise.reject(failure)) },
+			auth: makeAuth({ capabilityMap: { ...makeAuth().capabilityMap, calendar: 'none', personnel: 'configure' } }),
+			scope: makeScope(),
+			audit: { log: vi.fn() }
+		};
+		const unhandled = vi.fn();
+		process.on('unhandledRejection', unhandled);
+		try {
+			const result = await makeLoad(ctx).load({
+				params: { orgId: 'org-1', personnelSlug: 'rivera-monica' },
+				locals: {} as App.Locals,
+				cookies: { get: () => undefined } as never,
+				depends: vi.fn()
+			} as never);
+			await new Promise((resolve) => setTimeout(resolve, 0));
+
+			expect(unhandled).not.toHaveBeenCalled();
+			await expect(result.personnelDetailLayout.tabCounts).rejects.toBe(failure);
+		} finally {
+			process.off('unhandledRejection', unhandled);
+		}
+	});
+
 	it('hides the tab counts from a viewer who may manage but not read sensitive records', async () => {
 		const ctx = {
 			organizationPersonnel: { findBySlug: vi.fn(async () => makePersonnel()) },

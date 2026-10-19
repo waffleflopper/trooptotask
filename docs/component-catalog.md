@@ -130,7 +130,7 @@ The Web UI Foundation's public [`toastStore`](../src/lib/stores/toast.svelte.ts)
 </CoverageBar>
 ```
 
-Public exports are `CoverageBar` and the `CoverageBarSegment` type. The segments render as a labelled list. Each item speaks its label with `coveredText` or `gapText`, because the fill and the dash are not the only signal. The caption is the child content. Personnel Files derives its twelve segments and caption in `counselingCoverage.ts`.
+Public exports are `CoverageBar` and the `CoverageBarSegment` type. The segments render as a labelled list. Each segment is an image named `<label>: <coveredText or gapText>`, because the fill and the dash are not the only signal. The caption is the child content. Personnel Files derives its twelve segments and caption in `counselingCoverage.ts`.
 
 ---
 

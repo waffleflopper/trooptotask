@@ -476,6 +476,7 @@ describe('Files tab document read', () => {
 
 	it('reads the newest page with the active total and the storage use against the cap', async () => {
 		const ctx = seededContext();
+		ctx.store.seed('organizations', [{ id: ctx.auth.orgId, personnel_document_storage_cap_bytes: 25_000_000 }]);
 
 		const read = await readPersonnelDocuments(testPersonnelArtifactsContext(ctx), {
 			personnelId: 'person-1',
@@ -485,7 +486,7 @@ describe('Files tab document read', () => {
 		expect(read.records.map((record) => record.id)).toEqual(['newest', 'middle']);
 		expect(read.total).toBe(3);
 		expect(read.usedBytes).toBe(7_000);
-		expect(read.capBytes).toBeGreaterThan(read.usedBytes);
+		expect(read.capBytes).toBe(25_000_000);
 	});
 
 	it('lists the rest from an offset', async () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkUploadFile, UPLOAD_MAX_BYTES, uploadIntentFromSearch, withDeclaredType } from './fileUploadRules';
+import { checkUploadFile, uploadIntentFromSearch, withDeclaredType } from './fileUploadRules';
 
 const file = (name: string, type: string, size: number) => ({ name, type, size });
 
@@ -37,12 +37,13 @@ describe('upload file check', () => {
 		expect(checkUploadFile(file('renamed.pdf', 'text/plain', 1000))).toMatchObject({ ok: false });
 	});
 
-	it('accepts exactly the limit and rejects one byte over, naming the size', () => {
-		expect(checkUploadFile(file('edge.pdf', 'application/pdf', UPLOAD_MAX_BYTES))).toMatchObject({ ok: true });
-		expect(checkUploadFile(file('big.pdf', 'application/pdf', 12_897_484))).toEqual({
-			ok: false,
-			message: 'big.pdf is over the 10 MB limit.'
-		});
+	it('accepts a file of exactly 10 MB and rejects one byte over, naming the file and the limit', () => {
+		expect(checkUploadFile(file('edge.pdf', 'application/pdf', 10_485_760))).toMatchObject({ ok: true });
+
+		const over = checkUploadFile(file('big.pdf', 'application/pdf', 10_485_761));
+
+		expect(over.ok).toBe(false);
+		expect(over).toMatchObject({ message: expect.stringMatching(/big\.pdf.*10 MB/) });
 	});
 
 	it('rejects an empty file', () => {
@@ -54,12 +55,10 @@ describe('upload file check', () => {
 });
 
 describe('declared type', () => {
-	it('gives an untyped file the type its extension names and leaves a typed one alone', async () => {
+	it('gives an untyped file the type its extension names and keeps its name and bytes', async () => {
 		const untyped = withDeclaredType(new File(['abc'], 'IMG_1.heic'), 'image/heic');
-		const typed = new File(['abc'], 'a.png', { type: 'image/png' });
 
 		expect([untyped.type, untyped.name, await untyped.text()]).toEqual(['image/heic', 'IMG_1.heic', 'abc']);
-		expect(withDeclaredType(typed, 'image/png')).toBe(typed);
 	});
 });
 

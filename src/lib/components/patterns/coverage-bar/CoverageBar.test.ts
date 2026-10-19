@@ -9,7 +9,7 @@ afterEach(() => {
 });
 
 describe('patterns/coverage-bar', () => {
-	it('tells assistive technology which months are covered and which are gaps, and shows the caption', () => {
+	function mount() {
 		render(CoverageBar, {
 			props: {
 				label: 'Counseling coverage',
@@ -23,14 +23,22 @@ describe('patterns/coverage-bar', () => {
 				children: createRawSnippet(() => ({ render: () => '<span>2 of the last 3 months.</span>' }))
 			}
 		});
+	}
 
-		const items = within(screen.getByRole('list', { name: 'Counseling coverage' })).getAllByRole('listitem');
+	it('names every month in the list with whether it is covered or a gap', () => {
+		mount();
 
-		expect(items.map((item) => item.textContent?.replace(/\s+/g, ' ').trim())).toEqual([
-			'Aug Aug: counseling on record',
-			'Sep Sep: no counseling',
-			'Oct Oct: counseling on record'
-		]);
+		const list = screen.getByRole('list', { name: 'Counseling coverage' });
+
+		expect(within(list).getAllByRole('listitem')).toHaveLength(3);
+		expect(within(list).getByRole('img', { name: 'Aug: counseling on record' })).toBeTruthy();
+		expect(within(list).getByRole('img', { name: 'Sep: no counseling' })).toBeTruthy();
+		expect(within(list).getByRole('img', { name: 'Oct: counseling on record' })).toBeTruthy();
+	});
+
+	it('shows the caption under the bar', () => {
+		mount();
+
 		expect(screen.getByText('2 of the last 3 months.')).toBeTruthy();
 	});
 });

@@ -40,7 +40,8 @@
 						'h-2 rounded-xs',
 						segment.covered ? 'bg-muted-foreground/75' : 'border border-dashed border-warning'
 					)}
-					aria-hidden="true"
+					role="img"
+					aria-label="{segment.label}: {segment.covered ? coveredText : gapText}"
 				></span>
 				<span
 					class={cn(
@@ -51,7 +52,6 @@
 				>
 					{segment.label}
 				</span>
-				<span class="sr-only">{segment.label}: {segment.covered ? coveredText : gapText}</span>
 			</li>
 		{/each}
 	</ul>

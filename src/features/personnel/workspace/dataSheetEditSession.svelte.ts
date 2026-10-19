@@ -2,7 +2,7 @@ import { getContext, setContext } from 'svelte';
 import type { DataSheetDraft } from './dataSheetDraft.svelte';
 
 interface DataSheetEditHandlers {
-	save: () => void;
+	save: () => Promise<void>;
 	cancel: () => void;
 }
 
@@ -21,11 +21,16 @@ export class DataSheetEditSession {
 		return this.#attached?.draft.saving ?? false;
 	}
 
+	/** The failure of the last save that no field owns, shown beside Save. */
+	get formError(): string {
+		return this.#attached?.draft.formError ?? '';
+	}
+
 	get ready(): boolean {
 		return this.#attached !== null;
 	}
 
-	save = (): void => this.#attached?.handlers.save();
+	save = (): Promise<void> => this.#attached?.handlers.save() ?? Promise.resolve();
 
 	cancel = (): void => this.#attached?.handlers.cancel();
 

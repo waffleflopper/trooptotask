@@ -242,6 +242,25 @@ describe('PersonnelRecordHeader', () => {
 			expect(handlers.cancel).toHaveBeenCalledTimes(1);
 		});
 
+		it('shows a failed save beside Save changes, moves focus to it and keeps the edits', async () => {
+			const draft = new DataSheetDraft(
+				{ orgId: 'org-1', person, info: null },
+				{ fetch: vi.fn().mockRejectedValue(new TypeError('Failed to fetch')) }
+			);
+			const session = new DataSheetEditSession();
+			session.attach(draft, { save: async () => void (await draft.save()), cancel: vi.fn() });
+			draft.values.mos = '68X';
+			await renderHeader({ edit: session, activeTab: '/data-sheet' });
+
+			await fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+
+			const summary = await screen.findByRole('alert');
+			expect(summary.textContent?.trim()).toBe('Unable to save the data sheet.');
+			await waitFor(() => expect(document.activeElement).toBe(summary));
+			expect(draft.values.mos).toBe('68X');
+			expect(screen.getByText('1 unsaved change')).toBeTruthy();
+		});
+
 		it('keeps Save changes disabled until something changes', async () => {
 			const { session } = openSession();
 			await renderHeader({ edit: session, activeTab: '/data-sheet' });

@@ -10,6 +10,7 @@ export { importIctTasksBatch } from './server/ictTasksBatch.server';
 export { fetchCriticalTasksBootstrap } from './server/criticalTasksWorkspaceQuery.server';
 export { fetchCriticalTasksSettings } from './server/criticalTasksSettingsRead.server';
 export { loadCriticalTasksReadinessLane } from './server/personnelCriticalTasksReadiness.server';
+export { loadPersonnelCriticalTaskReadiness } from './server/personnelCriticalTaskItems.server';
 export { importIctCompletionsBatch } from './server/ictCompletionsBatch.server';
 export {
 	createPersonnelIctCompletion,

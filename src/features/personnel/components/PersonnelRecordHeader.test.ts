@@ -60,6 +60,7 @@ async function renderHeader({
 			streams: {
 				availabilityToday: Promise.resolve(null),
 				tabCounts: Promise.resolve(null),
+				readinessBadge: Promise.resolve({ count: 0, complete: true }),
 				...streams
 			},
 			today: '2026-06-15',
@@ -174,6 +175,30 @@ describe('PersonnelRecordHeader', () => {
 
 		await waitFor(() => expect(within(tabs).getByRole('link', { name: 'Log 2 open follow-ups' })).toBeTruthy());
 		expect(within(tabs).getByRole('link', { name: 'Archived' })).toBeTruthy();
+	});
+
+	it('badges Readiness with the items that need attention, and never reads a failed check as clear', async () => {
+		await renderHeader({ streams: { readinessBadge: Promise.resolve({ count: 4, complete: true }) } });
+		const tabs = () => screen.getByRole('navigation', { name: 'Personnel detail sections' });
+		await waitFor(() =>
+			expect(within(tabs()).getByRole('link', { name: 'Readiness 4 items need attention' })).toBeTruthy()
+		);
+		cleanup();
+
+		await renderHeader({ streams: { readinessBadge: Promise.resolve({ count: 1, complete: true }) } });
+		await waitFor(() =>
+			expect(within(tabs()).getByRole('link', { name: 'Readiness 1 item needs attention' })).toBeTruthy()
+		);
+		cleanup();
+
+		await renderHeader({ streams: { readinessBadge: Promise.resolve({ count: 0, complete: false }) } });
+		await waitFor(() =>
+			expect(within(tabs()).getByRole('link', { name: 'Readiness not every item could be checked' })).toBeTruthy()
+		);
+		cleanup();
+
+		await renderHeader();
+		await waitFor(() => expect(within(tabs()).getByRole('link', { name: 'Readiness' })).toBeTruthy());
 	});
 
 	it('links Edit to the Data sheet with edit open', async () => {

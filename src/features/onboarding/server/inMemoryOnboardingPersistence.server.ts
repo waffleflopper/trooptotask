@@ -240,6 +240,22 @@ export function createInMemoryOnboardingWorkflowPersistence(
 					}
 				: null;
 		},
+		async findLatestPacketForPersonnel(personnelId) {
+			const rows = await store.findMany<PacketRow>(
+				'personnel_onboardings',
+				orgId,
+				{ personnel_id: personnelId },
+				{
+					select: '*, onboarding_step_progress(*)',
+					orderBy: [
+						{ column: 'started_at', ascending: false },
+						{ column: 'id', ascending: false }
+					]
+				}
+			);
+			const latest = rows.find((row) => row.status !== 'cancelled');
+			return latest ? toPacket(latest) : null;
+		},
 		async listActivePacketIdsForPersonnel(personnelId) {
 			return (
 				await store.findMany<{ id: string }>('personnel_onboardings', orgId, {

@@ -102,6 +102,14 @@ export function createInMemoryPersonnelRecordPersistence(
 			}));
 		},
 		listRankReferences: () => store.findMany('personnel', orgId, undefined, { select: 'rank' }),
+		async findDisplayNamesByIds(ids) {
+			if (!ids.length) return new Map();
+			const rows = await store.findMany<Record<string, unknown>>('personnel', orgId, undefined, {
+				select: 'id, rank, last_name',
+				inFilters: { id: [...new Set(ids)] }
+			});
+			return new Map(rows.map((row) => [row.id as string, `${row.rank} ${row.last_name}`]));
+		},
 		async create(input) {
 			return toPersonnel(await store.insert('personnel', orgId, personnelInsertRow(input, orgId), PERSONNEL_FIELDS));
 		},

@@ -17,7 +17,8 @@ function provider() {
 			'counseling-files',
 			new Set([`${orgA}/root.pdf`, ...caseSiblings, `${orgA}-extra/lookalike.pdf`, foreign, orgA, `${orgA}/`])
 		],
-		['personnel-documents', new Set([`${orgA}/documents/a.pdf`, foreign])]
+		['personnel-documents', new Set([`${orgA}/documents/a.pdf`, foreign])],
+		['training-certificates', new Set([`${orgA}/personnel/p/training-certificates/c/card.pdf`, foreign])]
 	]);
 	const state = {
 		acknowledgement: 'exact',
@@ -113,6 +114,9 @@ describe('Organization destruction ordinary SDK provider', () => {
 		expect(new Set(files.filter((file) => file.bucket === 'personnel-documents').map((file) => file.path))).toEqual(
 			new Set([`${orgA}/documents/a.pdf`, ...documents])
 		);
+		expect(files.filter((file) => file.bucket === 'training-certificates').map((file) => file.path)).toEqual([
+			`${orgA}/personnel/p/training-certificates/c/card.pdf`
+		]);
 		expect(listings.filter((request) => request.bucket === 'personnel-documents')[1].body.cursor).toBe(
 			'opaque/personnel-documents?after=1000+unchanged'
 		);
@@ -121,7 +125,11 @@ describe('Organization destruction ordinary SDK provider', () => {
 	});
 	it('accepts an optional key only when it preserves the same full raw name', async () => {
 		const { port, state } = provider();
-		state.listingReplies = [{ ...page([]), objects: [{ ...object(caseSiblings[1]), key: caseSiblings[1] }] }, page([])];
+		state.listingReplies = [
+			{ ...page([]), objects: [{ ...object(caseSiblings[1]), key: caseSiblings[1] }] },
+			page([]),
+			page([])
+		];
 		expect(await port.discoverFiles(orgA)).toEqual([{ bucket: 'counseling-files', path: caseSiblings[1] }]);
 	});
 	it.each([

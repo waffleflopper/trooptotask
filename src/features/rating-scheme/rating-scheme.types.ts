@@ -109,6 +109,30 @@ export interface RatingSchemeEntry {
 	workflowStatus: WorkflowStatus | null;
 }
 
+export interface EvaluationPhase {
+	/** 0 when no workflow status is tracked yet. */
+	step: 0 | 1 | 2 | 3 | 4 | 5;
+	label: string;
+}
+
+/** The rated Person's newest noncompleted evaluation, with evaluator display names resolved. */
+export interface PersonnelActiveEvaluation {
+	entryId: string;
+	evalType: RatingSchemeEntry['evalType'];
+	reportType: ReportType | null;
+	reportTypeLabel: string | null;
+	periodStart: string;
+	periodEnd: string;
+	daysUntilThru: number;
+	dueStatus: RatingDueStatus;
+	workflowStatus: WorkflowStatus | null;
+	phase: EvaluationPhase;
+	rater: string | null;
+	seniorRater: string | null;
+	intermediateRater: string | null;
+	reviewer: string | null;
+}
+
 export type RatingDueStatus = 'current' | 'due-60' | 'due-30' | 'overdue' | 'completed';
 
 export const RATING_STATUS_COLORS: Record<RatingDueStatus, string> = {

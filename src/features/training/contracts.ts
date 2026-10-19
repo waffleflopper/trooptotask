@@ -1,5 +1,11 @@
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
-import type { PersonnelTraining, TrainingType, TrainingView, TrainingStatus } from './training.types';
+import type {
+	PersonnelTraining,
+	TrainingCompletionHistoryEntry,
+	TrainingType,
+	TrainingView,
+	TrainingStatus
+} from './training.types';
 import type { Personnel } from '$features/personnel/contracts';
 import type { RankCatalogEntry, Group } from '$features/personnel/contracts';
 import type { TrainingStats } from './utils/trainingStatus';
@@ -20,11 +26,22 @@ export type {
 } from './utils/briefingReportInput';
 import type { TrainingBriefingReportInput } from './utils/briefingReportInput';
 
-export type { TrainingType, TrainingView, PersonnelTraining, TrainingStatus } from './training.types';
+export type {
+	TrainingType,
+	TrainingView,
+	PersonnelTraining,
+	TrainingCompletionHistoryEntry,
+	TrainingStatus
+} from './training.types';
 
 /** Matches the `training_types.color` column default and the seeded value, so a type saved without a color renders gray. */
 export const DEFAULT_TRAINING_TYPE_COLOR = '#6b7280';
 export { isTrainingApplicable } from './utils/applicability';
+export type {
+	PersonnelTrainingItem,
+	PersonnelTrainingReadiness,
+	TrainingApplicability
+} from './utils/personnelTrainingItems';
 export type { TrainingStats } from './utils/trainingStatus';
 export type {
 	BriefingBand,
@@ -285,6 +302,8 @@ export interface TrainingCatalogPersistence {
 	findTypeTiming(id: string): Promise<TrainingTypeTiming | null>;
 	listTypeImportReferences(ids: readonly string[]): Promise<TrainingTypeImportReference[]>;
 	findTypeId(id: string): Promise<Pick<TrainingType, 'id'> | null>;
+	/** Adds or removes one Person; repeating either is a no-op. */
+	setPersonExemption(typeId: string, personnelId: string, exempt: boolean): Promise<void>;
 	createType(input: TrainingTypeCreate): Promise<SavedTrainingType>;
 	/** Resolves null when no Training type with this id exists in the Organization. */
 	patchType(id: string, fields: TrainingTypePatch): Promise<SavedTrainingType | null>;
@@ -314,16 +333,36 @@ export type PersonnelTrainingExportFact = Pick<
 	'trainingTypeId' | 'completionDate' | 'expirationDate' | 'notes'
 >;
 
+export type TrainingCompletionKind = 'current' | 'history';
+export type TrainingCompletionEntryResource = Pick<
+	PersonnelTraining,
+	'personnelId' | 'trainingTypeId' | 'completionDate' | 'expirationDate' | 'notes' | 'certificateUrl'
+>;
+export type TrainingCompletionCorrection = Pick<PersonnelTraining, 'completionDate' | 'expirationDate' | 'notes'>;
+export type CorrectedTrainingCompletion = SavedTrainingCompletion | TrainingCompletionHistoryEntry;
+
 export interface TrainingCompletionPersistence {
 	listCompletions(): Promise<SavedTrainingCompletion[]>;
 	findResource(id: string): Promise<TrainingCompletionResource | null>;
-	findPair(personnelId: string, trainingTypeId: string): Promise<Pick<PersonnelTraining, 'id'> | null>;
+	findPair(
+		personnelId: string,
+		trainingTypeId: string
+	): Promise<Pick<PersonnelTraining, 'id' | 'completionDate' | 'expirationDate'> | null>;
 	listPairReferences(
 		personnelIds: readonly string[],
 		trainingTypeIds: readonly string[]
 	): Promise<TrainingCompletionPairReference[]>;
 	listPersonReadinessFacts(personnelId: string): Promise<PersonnelTrainingReadinessFact[]>;
 	listPersonExportFacts(personnelId: string): Promise<PersonnelTrainingExportFact[]>;
+	listPersonCompletions(personnelId: string): Promise<PersonnelTraining[]>;
+	listPersonHistory(personnelId: string): Promise<TrainingCompletionHistoryEntry[]>;
+	findEntry(kind: TrainingCompletionKind, id: string): Promise<TrainingCompletionEntryResource | null>;
+	/** Edits the entry in place without superseding it; null when the caller cannot change it. */
+	correctEntry(
+		kind: TrainingCompletionKind,
+		id: string,
+		fields: TrainingCompletionCorrection
+	): Promise<CorrectedTrainingCompletion | null>;
 	createRecord(input: TrainingCompletionCreate): Promise<SavedTrainingCompletion>;
 	patchRecord(id: string, fields: TrainingCompletionPatch): Promise<SavedTrainingCompletion>;
 	deleteRecord(id: string): Promise<void>;

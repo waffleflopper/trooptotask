@@ -95,6 +95,8 @@ export interface PersonnelRecordPersistence {
 	listSlugCandidates(prefix: string): Promise<Array<{ id: string; slug: string | null }>>;
 	listBackfillCandidates(): Promise<PersonnelDateCandidate[]>;
 	listRankReferences(): Promise<Array<{ rank?: string | null }>>;
+	/** "RANK Last" for each readable Person; unreadable ids are absent. */
+	findDisplayNamesByIds(ids: string[]): Promise<Map<string, string>>;
 	create(input: PersonnelInsert): Promise<Personnel>;
 	createMany(inputs: PersonnelInsert[]): Promise<Personnel[]>;
 	/** Resolves null when the Person is no longer in the Organization. */
@@ -419,6 +421,17 @@ export type {
 	PersonnelDataSheetPageData,
 	PersonnelArchivedPageData
 } from './personnel-detail.types';
+export type {
+	AttentionInput,
+	AttentionItem,
+	AttentionSource,
+	AttentionStatus,
+	AttentionTarget,
+	PersonnelAttention,
+	PersonnelLossReadiness,
+	ReadinessSourceResult
+} from './personnelReadiness.types';
+export { buildPersonnelAttention } from './personnelAttention';
 export { evaluateUpcomingLosses } from './upcomingLoss';
 export type { UpcomingLossRecord } from './upcomingLoss';
 

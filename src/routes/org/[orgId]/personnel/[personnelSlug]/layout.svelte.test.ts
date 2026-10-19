@@ -42,7 +42,11 @@ function renderAt(routeId: string) {
 	return render(Layout, {
 		data: {
 			personnelDetailHeader: { person, basd: null, dateOfRank: null },
-			personnelDetailLayout: { availabilityToday: Promise.resolve(null), tabCounts: Promise.resolve(null) },
+			personnelDetailLayout: {
+				availabilityToday: Promise.resolve(null),
+				tabCounts: Promise.resolve(null),
+				readinessBadge: Promise.resolve({ count: 0, complete: true })
+			},
 			today: '2026-06-15'
 		},
 		children: createRawSnippet(() => ({ render: () => '<div></div>' }))

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import * as PageShell from '$lib/components/patterns/page-shell';
-	import type { RouteTabItem } from '$lib/components/patterns/page-shell';
+	import type { RouteTabBadge, RouteTabItem } from '$lib/components/patterns/page-shell';
 	import {
 		WorkspaceToolbar,
 		type ToolbarAction,
@@ -159,9 +159,32 @@
 			: undefined
 	);
 
+	function readinessTabBadge(badge: Awaited<PersonnelDetailLayoutStreams['readinessBadge']>): RouteTabBadge | null {
+		if (!badge) return null;
+		const { count, complete } = badge;
+		if (!complete) {
+			return {
+				value: count > 0 ? `${count}+` : '–',
+				label: count > 0 ? `${count} or more items need attention` : 'not every item could be checked',
+				variant: 'outline'
+			};
+		}
+		if (!count) return null;
+		return {
+			value: count,
+			label: `${count} ${count === 1 ? 'item needs' : 'items need'} attention`,
+			variant: 'outline'
+		};
+	}
+
 	const sections = $derived<(RouteTabItem & { path: string })[]>([
 		{ path: '', label: 'Overview', href: basePath },
-		{ path: '/readiness', label: 'Readiness', href: `${basePath}/readiness` },
+		{
+			path: '/readiness',
+			label: 'Readiness',
+			href: `${basePath}/readiness`,
+			badge: streams.readinessBadge.then(readinessTabBadge)
+		},
 		{
 			path: '/log',
 			label: 'Log',

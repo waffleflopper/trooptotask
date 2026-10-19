@@ -57,6 +57,7 @@ For durable publication, follow [artifact packaging](../../../../docs/architectu
 - [Find personnel](find-personnel.md): search, roster views, group header pin and collapse, Organization-wide and Alpha-only reads, roster states and record opening.
 - [Personnel record lifecycle](personnel-records-lifecycle.md): create/edit, imports and ETS/DEROS backfill, archive/restore, approval, replay, scope and stable identities.
 - [Personnel artifacts](personnel-artifacts.md): counseling PDFs, documents, follow-ups and leader notes; drafts, sensitive access, archive/restore/removal, exports and retention.
+- [Personnel Readiness tab](personnel-readiness.md): training and critical-task tables, evaluation/loss/onboarding rail, independent source failures, the streamed tab badge, and the drawer that logs with a certificate, corrects, exempts and validates.
 - [Manage groups](manage-groups.md): create, rename, remove, persist, and deny same/foreign Organization writes.
 - [Rank catalog](rank-settings.md): branch packs, custom ranks, edit, order, single and bulk retire/reactivate, remove, filters, failure and denial.
 - [Invalid, stale and conflicting input](invalid-input.md): malformed ids, dates and bodies, missing or foreign targets, duplicate names, truthful deletes and the form messages they produce across Calendar, Personnel, Training, Onboarding, Evals and Critical Tasks.

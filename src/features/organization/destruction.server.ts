@@ -7,7 +7,7 @@ import { sanitizeString, validateUUID } from '$lib/server/validation';
 import { ORGANIZATION_DELETE_ACTION, type SensitiveActionAuthorizer } from '$features/identity/contracts';
 import { sensitiveActionDecisionAuditDetails, throwSensitiveActionFailure } from '$features/identity/index.server';
 
-export type OrganizationCleanupBucket = 'counseling-files' | 'personnel-documents';
+export type OrganizationCleanupBucket = 'counseling-files' | 'personnel-documents' | 'training-certificates';
 export interface OrganizationCleanupFile {
 	bucket: OrganizationCleanupBucket;
 	path: string;
@@ -90,7 +90,7 @@ export async function deleteOrganization(
 	await requireCurrentTarget();
 	// Discover completely before effects, so our own removals cannot change pagination.
 	const files = await providerResult(() => ports.destruction.discoverFiles(orgId));
-	for (const bucket of ['counseling-files', 'personnel-documents'] as const) {
+	for (const bucket of ['counseling-files', 'personnel-documents', 'training-certificates'] as const) {
 		const paths = files.filter((file) => file.bucket === bucket).map((file) => file.path);
 		for (let start = 0; start < paths.length; start += 1000) {
 			// Former owners become admins, whose retained live-parent policies may

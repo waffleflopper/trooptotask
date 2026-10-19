@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 
-type TrainingTable = 'training_types' | 'training_views' | 'personnel_trainings';
+type TrainingTable = 'training_types' | 'training_views' | 'personnel_trainings' | 'personnel_training_history';
 type Row = Record<string, unknown>;
 type ProviderRequest = { table: TrainingTable; method: string; offset: number; url: URL; body: unknown };
 
@@ -9,6 +9,7 @@ export function trainingProvider(initial: Partial<Record<TrainingTable, Row[]>> 
 		training_types: [],
 		training_views: [],
 		personnel_trainings: [],
+		personnel_training_history: [],
 		...structuredClone(initial)
 	};
 	const requests: ProviderRequest[] = [];

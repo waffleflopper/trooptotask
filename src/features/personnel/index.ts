@@ -30,5 +30,8 @@ export { default as PersonnelLogPageView } from './components/PersonnelLogPageVi
 export { default as PersonnelCounselingsPageView } from './components/PersonnelCounselingsPageView.svelte';
 export { default as PersonnelDocumentsPageView } from './components/PersonnelDocumentsPageView.svelte';
 export { default as PersonnelArchivedPageView } from './components/PersonnelArchivedPageView.svelte';
+export { default as PersonnelLossBlock } from './components/PersonnelLossBlock.svelte';
+export { readinessDrawerFromSearch, readinessTargetSearch } from './readinessDrawerTarget';
+export type { ReadinessDrawerTarget, ReadinessItemKind } from './readinessDrawerTarget';
 
 export type { PersonnelPageAccess } from './contracts';

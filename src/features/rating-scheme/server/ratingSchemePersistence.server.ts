@@ -48,15 +48,10 @@ export function createSupabaseRatingSchemePersistence(client: SupabaseClient, or
 				: null;
 		},
 		async listPersonReadiness(personnelId) {
-			const { data, error } = await selectAllSupabaseRows<
-				Pick<
-					RatingSchemeRow,
-					'status' | 'rater_person_id' | 'rater_name' | 'senior_rater_person_id' | 'senior_rater_name'
-				>
-			>(async (from, to) => {
+			const { data, error } = await selectAllSupabaseRows<RatingSchemeRow>(async (from, to) => {
 				return client
 					.from('rating_scheme_entries')
-					.select('status,rater_person_id,rater_name,senior_rater_person_id,senior_rater_name')
+					.select(RATING_SCHEME_SELECT)
 					.eq('organization_id', orgId)
 					.eq('rated_person_id', personnelId)
 					.order('rating_period_end', { ascending: false })
@@ -64,13 +59,7 @@ export function createSupabaseRatingSchemePersistence(client: SupabaseClient, or
 					.range(from, to);
 			});
 			if (error) throw new Error((error as { message?: string }).message ?? 'Supabase query failed');
-			return (data ?? []).map((row) => ({
-				status: row.status,
-				raterPersonId: row.rater_person_id,
-				raterName: row.rater_name,
-				seniorRaterPersonId: row.senior_rater_person_id,
-				seniorRaterName: row.senior_rater_name
-			}));
+			return (data ?? []).map(mapRatingSchemeEntry);
 		},
 		async countEntries() {
 			const { count, error } = await client

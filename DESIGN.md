@@ -292,6 +292,6 @@ Data-heavy work is first-class.
 - **Don't** import legacy wrappers when shadcn/shared replacements exist, including old toolbar, EmptyState, FileUpload, SearchSelect, or spinner wrappers.
 - **Don't** use consumer/startup SaaS aesthetics: pastel gradients, playful illustrations, bouncy animations, or "delightful" empty states.
 - **Don't** use legacy military-software aesthetics: green-on-gray brutalism, tiny system fonts, or modal-first workflows.
-- **Don't** use `#000`, `#fff`, achromatic gray, gradient text, decorative glassmorphism, or colored side-stripe borders.
+- **Don't** use `#000`, `#fff`, achromatic gray, gradient text, decorative glassmorphism, or colored side-stripe borders. One exception: ranked status rows in `patterns/readiness-items` carry a 3px left rule in the row's status color, so a leader scanning a Person's requirements reads severity before the name.
 - **Don't** create route-local alternate versions of buttons, inputs, badges, dialogs, menus, tables, tabs, toolbars, empty states, calendars, or charts.
 - **Don't** solve a shared-component mismatch locally. Report the design-system gap and add a shared component/API extension before production routes consume it.

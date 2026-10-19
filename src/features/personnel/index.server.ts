@@ -95,6 +95,7 @@ export {
 	loadLossTrackingReadinessLane,
 	loadPersonnelDetailTabCounts
 } from './personnelDetail.server';
+export { loadPersonnelLossReadiness } from './personnelLossReadiness.server';
 
 export { readPersonnelExtendedInfo } from './personnelExtendedInfo.server';
 export { savePersonnelDataSheet } from './personnelDataSheet.server';

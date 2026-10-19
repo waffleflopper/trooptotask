@@ -489,6 +489,27 @@ export function createRequestPersonnelDetailStreamsContext(request: AdmittedOrga
 	};
 }
 
+export function createRequestPersonnelReadinessContext(request: AdmittedOrganizationRequest) {
+	const organizationSettings = createSupabaseOrganizationSettingsReader(request.supabase);
+	const personnel = createSupabasePersonnelRecordPersistence(
+		request.supabase,
+		request.auth.orgId,
+		request.auth.scopeSet
+	);
+	return {
+		detail: { auth: request.auth, audit: request.audit },
+		trainingCatalog: createSupabaseTrainingCatalogPersistence(request.supabase, request.auth.orgId),
+		trainingCompletions: createSupabaseTrainingCompletionPersistence(request.supabase, request.auth.orgId),
+		organizationSettings,
+		criticalTaskLibrary: createSupabaseCriticalTaskLibraryPersistence(request.supabase, request.auth.orgId),
+		criticalTaskCompletions: createSupabaseCriticalTaskCompletionPersistence(request.supabase, request.auth.orgId),
+		ratingScheme: createSupabaseRatingSchemePersistence(request.supabase, request.auth.orgId),
+		onboardingWorkflow: createSupabaseOnboardingWorkflowPersistence(request.supabase, request.auth.orgId),
+		findPersonNames: (ids: string[]) => personnel.findDisplayNamesByIds(ids),
+		loadLossWarningWindowDays: () => organizationSettings.findLossWarningWindowDays(request.auth.orgId)
+	};
+}
+
 export function createRequestPersonnelExportContext(request: AdmittedOrganizationRequest) {
 	return {
 		trainingCompletions: createSupabaseTrainingCompletionPersistence(request.supabase, request.auth.orgId),

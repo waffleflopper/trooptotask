@@ -2,6 +2,8 @@ import { z } from 'zod';
 import type { ClientAffordance } from '$lib/access/clientAccess';
 import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
 
+export type { PersonnelCriticalTaskItem, PersonnelCriticalTaskReadiness } from './utils/personnelCriticalTaskItems';
+
 export const ICT_TASK_CODE_EXISTS_MESSAGE = 'Task code already exists in this Organization';
 export const ICT_COMPLETION_EXISTS_MESSAGE = 'This Person already has a completion recorded for this task on that date';
 export const CRITICAL_TASK_WRITE_UNCONFIRMED_MESSAGE =

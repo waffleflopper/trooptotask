@@ -38,7 +38,7 @@ Read the [UI foundation](#ui-foundation), then the entry for the component being
 | [`ui/native-select`](#shared-form-controls)                                | `Root`, `Option`, `OptGroup`                                                                                                                        | Plain form choices in Calendar, Critical Tasks, Personnel import, platform admin, Account Profile and Ranks settings.                                                  |
 | [`ui/operational-matrix`](#uioperational-matrix)                           | See its section                                                                                                                                     | Critical Tasks matrix and readiness table, Training matrix and Training Reports.                                                                                       |
 | `ui/popover`                                                               | `Root`, `Trigger`, `Content`, `Header`, `Title`, `Description`, `Close`, `Portal`                                                                   | Foundation primitive, used by `ui/combobox`, `ui/date-picker`, the Calendar duty picker and the Calendar status bar popover.                                           |
-| `ui/progress`                                                              | `Root`                                                                                                                                              | Critical Tasks reports and Dashboard overview; `BulkImportWorkspace.ProgressState`.                                                                                    |
+| `ui/progress`                                                              | `Root`, `Segmented`                                                                                                                                 | Critical Tasks reports and Dashboard overview; `BulkImportWorkspace.ProgressState`. `Segmented` draws the Personnel evaluation phase.                                  |
 | [`ui/radio-group`](#shared-form-controls)                                  | `Root`, `Item`                                                                                                                                      | Calendar assignment settings, Sign-in rosters, Training types, Onboarding templates and members settings.                                                              |
 | [`ui/select`](#shared-form-controls)                                       | `Root`, `Trigger`, `Content`, `Item`, `Group`, `GroupHeading`, `Label`, `Separator`, scroll buttons, `Portal`                                       | Calendar, Feedback, Onboarding, Organization, Rating Scheme, access requests and members settings; `WorkspaceToolbar` select items.                                    |
 | `ui/separator`                                                             | `Root`                                                                                                                                              | App shell header, Critical Tasks reports, Dashboard overview, Organization and data export settings, platform admin and Ranks settings.                                |
@@ -58,6 +58,7 @@ Read the [UI foundation](#ui-foundation), then the entry for the component being
 | [`patterns/bulk-import-workspace`](#patternsbulk-import-workspace)         | See its section                                                                                                                                     | Calendar, Critical Tasks, Personnel and Training imports.                                                                                                              |
 | [`patterns/page-shell`](#patternspage-shell)                               | `Root`, `Header`, `Tabs`, `FactGrid`, `Metric`, `FactSection`, `FactRow`                                                                            | Account, Organization settings, the person record, platform admin and Training Reports.                                                                                |
 | [`patterns/readiness-band`](#patternsreadiness-band)                       | `Cell`, `Legend`; `readinessBandTone`                                                                                                               | Critical Tasks and Training reports.                                                                                                                                   |
+| [`patterns/readiness-items`](#patternsreadiness-items)                     | `ReadinessItemTable`, `ReadinessItemTableSkeleton`; `readinessItemStatusVisuals`                                                                    | Personnel Readiness tab training and critical-task tables.                                                                                                             |
 | [`patterns/reorder-list`](#patternsreorder-list)                           | `ReorderList`, `ReorderItem`, `ReorderGrip`                                                                                                         | Onboarding template steps and paperwork stages; Calendar lanes and status types in Calendar settings.                                                                  |
 | [`patterns/report-chart`](#patternsreport-chart)                           | See its section                                                                                                                                     | Critical Tasks reports, Training Reports and the platform admin dashboard.                                                                                             |
 | [`patterns/report-workspace`](#patternsreport-workspace)                   | See its section                                                                                                                                     | Calendar, Critical Tasks and Training reports.                                                                                                                         |
@@ -484,6 +485,38 @@ Rules:
 - The pattern presents tiers; it does not calculate them. Each feature computes its tier in one place and passes it in. The `ramp` legend reads `<60%`, `60-69%`, `70-79%`, `80-89%`, `90%+` and not applicable. Never re-derive a tier from a rounded display percent.
 - Routes may pass data, labels, and accessible names. They must not restyle readiness colors, hatching, radius, typography, or density locally.
 - `ui/operational-matrix` hosts these cells in Critical Tasks and Training Reports grids; readiness-tier meaning stays in `patterns/readiness-band`, not in the matrix primitive.
+
+---
+
+## `patterns/readiness-items`
+
+`patterns/readiness-items` lists one Person's dated requirements as leaders triage them: problems first, then a `Current · N` group soonest expiry first, with `Show N more current` past the preview. Status comes from `ReadinessItemStatus` in `src/lib/domain/readinessItem.ts`; features map their items to `ReadinessItemRow` and own the detail line.
+
+```svelte
+<script lang="ts">
+	import { ReadinessItemTable } from '$lib/components/patterns/readiness-items';
+</script>
+
+<ReadinessItemTable
+	eyebrow="Training"
+	note="Expiring still counts as ready"
+	itemLabel="Training type"
+	recordedLabel="Completed"
+	{rows}
+	emptyMessage="No training is required for 68W."
+	onOpen={openDrawer}
+>
+	{#snippet action()}<Button variant="outline" onclick={log}>Log completion</Button>{/snippet}
+	{#snippet footerEnd()}4 not required for 68W · 1 exempt{/snippet}
+</ReadinessItemTable>
+```
+
+Rules:
+
+- Rows arrive ranked by `compareReadinessItems`. The headline counts expiring as ready.
+- Each row is one target. The row's `···` button stretches over the row, so a click anywhere on it and the keyboard both call `onOpen`.
+- Expired and missing rows carry a red left rule, expiring an amber one, and current rows a transparent rule that keeps columns aligned. This is the DESIGN.md exception for ranked status rows; other surfaces keep the no side-stripe rule.
+- `ReadinessItemTableSkeleton` matches the loaded height for a streamed section.
 
 ---
 

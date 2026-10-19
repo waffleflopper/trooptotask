@@ -26,6 +26,8 @@ export interface RatingSchemePageAccess {
 }
 
 export type {
+	EvaluationPhase,
+	PersonnelActiveEvaluation,
 	RatingSchemeEntry,
 	RatingDueStatus,
 	WorkflowStatus,
@@ -41,6 +43,7 @@ export {
 	WORKFLOW_STATUS_COLORS,
 	RATING_STATUS_COLORS
 } from './rating-scheme.types';
+export { EVALUATION_PHASE_COUNT } from './utils/evaluationPhase';
 
 export const RATING_SCHEME_WORKSPACE_LANE_KEY = 'ratingScheme' as const;
 
@@ -85,15 +88,11 @@ export interface RatingSchemeWriteReference {
 	reviewerPersonId: string | null;
 }
 
-export type RatingSchemeReadinessEntry = Pick<
-	RatingSchemeEntry,
-	'status' | 'raterPersonId' | 'raterName' | 'seniorRaterPersonId' | 'seniorRaterName'
->;
-
 export interface RatingSchemePersistence {
 	listWorkspace(): Promise<SavedRatingSchemeEntry[]>;
 	findWriteReference(id: string): Promise<RatingSchemeWriteReference | null>;
-	listPersonReadiness(personnelId: string): Promise<RatingSchemeReadinessEntry[]>;
+	/** The rated Person's entries, newest rating period end first. */
+	listPersonReadiness(personnelId: string): Promise<SavedRatingSchemeEntry[]>;
 	countEntries(): Promise<number>;
 	create(input: RatingSchemeCreateValues): Promise<SavedRatingSchemeEntry>;
 	update(id: string, patch: RatingSchemePatchValues): Promise<SavedRatingSchemeEntry | null>;

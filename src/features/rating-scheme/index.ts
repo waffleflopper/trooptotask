@@ -27,6 +27,7 @@ export { RatingSchemePageContext } from './contexts/RatingSchemePageContext.svel
 export type { RatingSchemePageData } from './contexts/RatingSchemePageContext.svelte';
 export { ratingSchemeWorkspaceHydrator } from './ratingSchemeWorkspaceHydration.svelte';
 export { default as RatingSchemePageView } from './components/RatingSchemePageView.svelte';
+export { default as PersonnelEvaluationCard } from './components/PersonnelEvaluationCard.svelte';
 
 /** Keep the editor deferred while delivery consumes the public Web seam. */
 export function loadRatingSchemeModals() {

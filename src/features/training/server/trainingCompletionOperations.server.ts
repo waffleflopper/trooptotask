@@ -1,6 +1,21 @@
-import { evaluatePolicyDecision, POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
-import { trainingCompletionCreateInput, trainingCompletionUpdateInput } from './trainingPersistenceMapping.server';
+import {
+	evaluatePolicyDecision,
+	POLICY_ACTION_CATALOG,
+	type FeatureLanePolicyAction,
+	type PolicyResource
+} from '$lib/access/policyEvaluator';
+import {
+	trainingCertificateInput,
+	trainingCompletionCorrectionInput,
+	trainingCompletionCreateInput,
+	trainingCompletionUpdateInput
+} from './trainingPersistenceMapping.server';
 import type {
+	TrainingCertificateOpenContext,
+	TrainingCompletionCorrectionContext,
+	TrainingCompletionEntryContext,
+	TrainingCompletionRecordContext,
+	TrainingCompletionRecordInput,
 	TrainingPersonnelWriteAuthority,
 	TrainingRecordCreateContext,
 	TrainingRecordUpdateContext,
@@ -9,11 +24,17 @@ import type {
 } from './trainingCompletionPorts.server';
 import { calculateExpirationDate } from '../utils/trainingStatus';
 import type {
+	CorrectedTrainingCompletion,
 	SavedTrainingCompletion,
+	TrainingCompletionEntryResource,
+	TrainingCompletionKind,
 	TrainingCompletionResource,
 	TrainingCompletionPatch,
-	TrainingCompletionPersistence
+	TrainingCompletionPersistence,
+	TrainingTypeTiming
 } from '../contracts';
+import { isOwnedTrainingCertificate, trainingCertificatePath } from './trainingCertificateStore.server';
+import { validateSensitivePdfFile } from '$lib/storage/sensitiveFiles';
 import type { PersonnelWriteSubject } from '$features/personnel/contracts';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
 import { fail } from '$lib/errors';
@@ -21,6 +42,7 @@ import type { z } from 'zod';
 import { issueMessage } from '$lib/utils/inputSchemas';
 
 const AUDIT_RESOURCE = 'training_record';
+const CERTIFICATE_LINK_SECONDS = 5 * 60;
 
 function parseTrainingRecordInput<T>(schema: z.ZodType<T>, input: unknown): T {
 	const parsed = schema.safeParse(input);
@@ -108,26 +130,33 @@ async function loadTrainingRecordResource(
 	return { record, resource: await policyResourceForTrainingPersonnel(ctx, record.personnelId, recordId) };
 }
 
-export async function createTrainingRecord(
-	ctx: TrainingRecordCreateContext,
-	input: Record<string, unknown>
-): Promise<SavedTrainingCompletion> {
-	const validated = parseTrainingRecordInput(trainingCompletionCreateInput, input);
-	const personnelId = validated.personnelId;
-	const trainingTypeId = validated.trainingTypeId;
-	const completionDate = validated.completionDate ?? null;
+type TrainingCompletionInput = z.infer<typeof trainingCompletionCreateInput>;
 
+async function authorizeTrainingCompletion(
+	ctx: TrainingRecordCreateContext,
+	personnelId: string,
+	trainingTypeId: string
+): Promise<TrainingTypeTiming> {
 	await requireFeaturePolicy(
 		ctx,
 		POLICY_ACTION_CATALOG.training.recordCompletions,
 		await policyResourceForTrainingPersonnel(ctx, personnelId),
 		AUDIT_RESOURCE
 	);
-
 	const trainingType = await ctx.trainingCatalog.findTypeTiming(trainingTypeId);
-
 	if (!trainingType) fail(404, 'Training type not found');
+	return trainingType;
+}
 
+async function writeTrainingCompletion(
+	ctx: TrainingRecordCreateContext,
+	validated: TrainingCompletionInput,
+	trainingType: TrainingTypeTiming,
+	{ keepCertificateOfSameCompletion = false } = {}
+): Promise<SavedTrainingCompletion> {
+	const personnelId = validated.personnelId;
+	const trainingTypeId = validated.trainingTypeId;
+	const completionDate = validated.completionDate ?? null;
 	const isExpirationDateOnly = trainingType.expirationDateOnly ?? false;
 
 	const expirationDate = isExpirationDateOnly
@@ -151,7 +180,13 @@ export async function createTrainingRecord(
 			updates.expirationDate = expirationDate ?? null;
 		}
 		if (validated.notes !== undefined) updates.notes = validated.notes;
-		if (validated.certificateUrl !== undefined) updates.certificateUrl = validated.certificateUrl;
+		// Logging the same dates again without a file keeps that completion's certificate, as no history row takes it.
+		const sameCompletion =
+			(updates.completionDate === undefined || updates.completionDate === existing.completionDate) &&
+			(updates.expirationDate === undefined || updates.expirationDate === existing.expirationDate);
+		if (validated.certificateUrl !== undefined && !(keepCertificateOfSameCompletion && sameCompletion)) {
+			updates.certificateUrl = validated.certificateUrl;
+		}
 		row = await ctx.trainingCompletions.patchRecord(existing.id, updates);
 	} else {
 		row = await ctx.trainingCompletions.createRecord({ personnelId, trainingTypeId, ...fields });
@@ -164,6 +199,122 @@ export async function createTrainingRecord(
 	});
 
 	return row;
+}
+
+export async function createTrainingRecord(
+	ctx: TrainingRecordCreateContext,
+	input: Record<string, unknown>
+): Promise<SavedTrainingCompletion> {
+	const validated = parseTrainingRecordInput(trainingCompletionCreateInput, input);
+	const trainingType = await authorizeTrainingCompletion(ctx, validated.personnelId, validated.trainingTypeId);
+	return writeTrainingCompletion(ctx, validated, trainingType);
+}
+
+/** Records a new completion; the superseded one keeps its notes and certificate in history. */
+export async function recordTrainingCompletion(
+	ctx: TrainingCompletionRecordContext,
+	input: TrainingCompletionRecordInput
+): Promise<SavedTrainingCompletion> {
+	const { certificate, ...fields } = input;
+	const parsed = parseTrainingRecordInput(trainingCompletionCreateInput.omit({ certificateUrl: true }), fields);
+	const validated = { ...parsed, notes: parsed.notes ?? null };
+	if (certificate) {
+		const problem = await validateSensitivePdfFile(certificate);
+		if (problem) fail(400, problem);
+	}
+	const trainingType = await authorizeTrainingCompletion(ctx, validated.personnelId, validated.trainingTypeId);
+	if (!certificate) {
+		return writeTrainingCompletion(ctx, { ...validated, certificateUrl: null }, trainingType, {
+			keepCertificateOfSameCompletion: true
+		});
+	}
+
+	const path = trainingCertificatePath(ctx.auth.orgId, validated.personnelId, certificate.name);
+	const upload = await ctx.trainingCertificates.upload(validated.personnelId, path, certificate);
+	let record: SavedTrainingCompletion;
+	try {
+		record = await writeTrainingCompletion(ctx, { ...validated, certificateUrl: path }, trainingType);
+	} catch (error) {
+		await ctx.trainingCertificates.reconcile(validated.personnelId, path);
+		await upload.complete();
+		throw error;
+	}
+	await upload.complete();
+	return record;
+}
+
+async function loadTrainingCompletionEntry(
+	ctx: TrainingCompletionEntryContext,
+	action: FeatureLanePolicyAction,
+	kind: TrainingCompletionKind,
+	id: string
+): Promise<TrainingCompletionEntryResource> {
+	await requireFeaturePolicy(ctx, action, { kind: 'unscoped' }, AUDIT_RESOURCE, id);
+	const entry = await ctx.trainingCompletions.findEntry(kind, id);
+	if (!entry) {
+		await requireFeaturePolicy(ctx, action, { kind: 'organization' }, AUDIT_RESOURCE, id);
+		fail(404, 'Training record not found');
+	}
+	return entry;
+}
+
+/** Fixes a recorded completion in place, so the mistake leaves no history row. */
+export async function correctTrainingCompletion(
+	ctx: TrainingCompletionCorrectionContext,
+	input: Record<string, unknown>
+): Promise<CorrectedTrainingCompletion> {
+	const { kind, id, completionDate, expirationDate, notes } = parseTrainingRecordInput(
+		trainingCompletionCorrectionInput,
+		input
+	);
+	const action = POLICY_ACTION_CATALOG.training.recordCompletions;
+	const entry = await loadTrainingCompletionEntry(ctx, action, kind, id);
+	await requireFeaturePolicy(
+		ctx,
+		action,
+		await policyResourceForTrainingPersonnel(ctx, entry.personnelId, id),
+		AUDIT_RESOURCE,
+		id
+	);
+	const trainingType = await ctx.trainingCatalog.findTypeTiming(entry.trainingTypeId);
+	if (!trainingType) fail(404, 'Training type not found');
+
+	const correctedCompletionDate = completionDate === undefined ? entry.completionDate : completionDate;
+	const corrected = await ctx.trainingCompletions.correctEntry(kind, id, {
+		completionDate: correctedCompletionDate,
+		expirationDate: trainingType.expirationDateOnly
+			? expirationDate === undefined
+				? entry.expirationDate
+				: expirationDate
+			: calculateExpirationDate(correctedCompletionDate, trainingType.expirationMonths),
+		notes: notes === undefined ? entry.notes : notes
+	});
+	if (!corrected) fail(404, 'Training record not found');
+
+	ctx.audit.log({
+		action: `${AUDIT_RESOURCE}.corrected`,
+		resourceType: AUDIT_RESOURCE,
+		resourceId: id,
+		details: {
+			kind,
+			personnel_id: entry.personnelId,
+			training_type_id: entry.trainingTypeId,
+			completion_date: corrected.completionDate
+		}
+	});
+	return corrected;
+}
+
+export async function openTrainingCertificate(
+	ctx: TrainingCertificateOpenContext,
+	input: Record<string, unknown>
+): Promise<string> {
+	const { kind, id } = parseTrainingRecordInput(trainingCertificateInput, input);
+	const entry = await loadTrainingCompletionEntry(ctx, POLICY_ACTION_CATALOG.training.viewRecords, kind, id);
+	const stored = entry.certificateUrl;
+	if (!stored || !isOwnedTrainingCertificate(ctx.auth.orgId, entry.personnelId, stored))
+		fail(404, 'Certificate not found');
+	return ctx.trainingCertificates.signedUrl(stored, CERTIFICATE_LINK_SECONDS);
 }
 
 export async function updateTrainingRecord(

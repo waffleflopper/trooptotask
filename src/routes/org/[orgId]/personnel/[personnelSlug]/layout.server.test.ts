@@ -47,7 +47,8 @@ function makePersonnel(overrides: Record<string, unknown> = {}) {
 
 function makeLoad(ctx: Record<string, unknown>) {
 	const loadWithContext = vi.fn(async (_locals, _cookies, _orgId, config) => config.fn(ctx));
-	const load = _createPersonnelDetailLayoutLoad({ loadWithContext });
+	const loadReadinessBadge = vi.fn(async () => null);
+	const load = _createPersonnelDetailLayoutLoad({ loadWithContext, loadReadinessBadge });
 	return { load, loadWithContext };
 }
 

@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
 	formatDate,
+	formatDayMonth,
+	formatDayMonthYear,
 	formatToday,
 	parseDate,
 	getMonthDates,
@@ -116,6 +118,14 @@ describe('formatDate', () => {
 
 	it('pads single-digit months and days', () => {
 		expect(formatDate(new Date(2026, 0, 5))).toBe('2026-01-05');
+	});
+});
+
+describe('formatDayMonthYear', () => {
+	it('formats a date-only string day first without shifting the day', () => {
+		expect(formatDayMonthYear('2024-09-24')).toBe('24 Sep 2024');
+		expect(formatDayMonthYear('2026-01-05T00:00:00Z')).toBe('5 Jan 2026');
+		expect(formatDayMonth('2026-09-15')).toBe('15 Sep');
 	});
 });
 

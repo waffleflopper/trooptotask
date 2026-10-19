@@ -29,6 +29,18 @@ export interface PersonnelTraining {
 	certificateUrl: string | null;
 }
 
+/** A completion the Person's current record replaced, kept by the `personnel_trainings` history trigger. */
+export interface TrainingCompletionHistoryEntry {
+	id: string;
+	personnelId: string;
+	trainingTypeId: string;
+	completionDate: string | null;
+	expirationDate: string | null;
+	notes: string | null;
+	certificateUrl: string | null;
+	supersededAt: string;
+}
+
 export interface TrainingView {
 	id: string;
 	name: string;

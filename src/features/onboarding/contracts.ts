@@ -32,7 +32,8 @@ export type {
 	OnboardingStepProgress,
 	OnboardingStepNote,
 	OnboardingStatus,
-	OnboardingBootstrapMode
+	OnboardingBootstrapMode,
+	PersonnelOnboardingSummary
 } from './onboarding.types';
 
 /** Only the active Personnel IDs needed for Calendar's onboarding markers. */

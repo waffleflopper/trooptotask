@@ -1,12 +1,20 @@
 <script lang="ts">
-	import * as Empty from '$lib/components/ui/empty';
+	import { getAppShellContext } from '$features/app-shell';
+	import ReadinessTabView from './ReadinessTabView.svelte';
+
+	let { data } = $props();
+
+	const org = getAppShellContext();
 </script>
 
-<div class="p-6">
-	<Empty.Root>
-		<Empty.Header>
-			<Empty.Title>Readiness</Empty.Title>
-			<Empty.Description>Built in a later slice.</Empty.Description>
-		</Empty.Header>
-	</Empty.Root>
+<div class="px-6 py-8">
+	<!-- Another Person's rows must never stay on screen while this Person's reads are pending. -->
+	{#key data.personnelDetailHeader.person.id}
+		<ReadinessTabView
+			orgId={org.orgId}
+			person={data.personnelDetailHeader.person}
+			readiness={data.readiness}
+			asOf={data.asOf}
+		/>
+	{/key}
 </div>

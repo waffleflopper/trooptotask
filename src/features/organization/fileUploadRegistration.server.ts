@@ -5,7 +5,12 @@ import type { OrganizationFileUploadRegistration } from './contracts';
 /** Called only by an already authorized, resource-bound server uploader. */
 export async function registerOrganizationFileUpload(
 	admin: SupabaseClient,
-	input: { orgId: string; userId: string; bucket: 'counseling-files' | 'personnel-documents'; path: string }
+	input: {
+		orgId: string;
+		userId: string;
+		bucket: 'counseling-files' | 'personnel-documents' | 'training-certificates';
+		path: string;
+	}
 ): Promise<OrganizationFileUploadRegistration> {
 	if (!validateUUID(input.orgId) || !validateUUID(input.userId)) throw new Error('Invalid file upload identity');
 	const args = {

@@ -116,6 +116,7 @@ const tableColumns = {
 	training_types: 'organization_id',
 	training_views: 'organization_id',
 	personnel_trainings: 'organization_id',
+	personnel_training_history: 'organization_id',
 	onboarding_templates: 'organization_id',
 	onboarding_template_steps: 'organization_id',
 	personnel_onboardings: 'organization_id',
@@ -137,6 +138,8 @@ const tableSelect = {
 	training_views: 'id,organization_id,name,column_ids,created_by,created_at,updated_at',
 	personnel_trainings:
 		'id,organization_id,personnel_id,training_type_id,completion_date,expiration_date,notes,certificate_url,created_at,updated_at',
+	personnel_training_history:
+		'id,organization_id,personnel_id,training_type_id,completion_date,expiration_date,notes,certificate_url,superseded_at',
 	onboarding_templates: 'id,organization_id,name,description,created_at',
 	onboarding_template_steps:
 		'id,organization_id,template_id,name,description,step_type,training_type_id,stages,sort_order,created_at',

@@ -44,3 +44,5 @@ export { default as TrainingModals } from './components/TrainingModals.svelte';
 export { default as TrainingTypesPage } from './components/TrainingTypesPage.svelte';
 export { default as TrainingViewsPage } from './components/TrainingViewsPage.svelte';
 export { default as TrainingReportsPage } from './components/TrainingReportsPage.svelte';
+export { default as PersonnelTrainingReadinessTable } from './components/PersonnelTrainingReadinessTable.svelte';
+export { default as PersonnelTrainingDrawer } from './components/PersonnelTrainingDrawer.svelte';

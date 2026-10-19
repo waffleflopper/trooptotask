@@ -65,13 +65,7 @@ export function createInMemoryRatingSchemePersistence(
 						]
 					}
 				)
-			).map((row) => ({
-				status: row.status,
-				raterPersonId: row.rater_person_id,
-				raterName: row.rater_name,
-				seniorRaterPersonId: row.senior_rater_person_id,
-				seniorRaterName: row.senior_rater_name
-			}));
+			).map(mapRatingSchemeEntry);
 		},
 		async countEntries() {
 			const result = await store.findManyWithCount('rating_scheme_entries', orgId, undefined, {

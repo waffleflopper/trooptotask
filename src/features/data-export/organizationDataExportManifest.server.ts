@@ -99,6 +99,13 @@ export const ORGANIZATION_DATA_EXPORT_SECTIONS = [
 	section('specialDays', 'Special Days', 'special_days', 'calendar', 'Calendar'),
 	section('trainingTypes', 'Training Types', 'training_types', 'training', 'Training'),
 	section('personnelTrainings', 'Personnel Trainings', 'personnel_trainings', 'training', 'Training'),
+	section(
+		'personnelTrainingHistory',
+		'Personnel Training History',
+		'personnel_training_history',
+		'training',
+		'Training'
+	),
 	section('trainingViews', 'Training Views', 'training_views', 'training', 'Training'),
 	section('ictTasks', 'Critical Tasks', 'ict_tasks', 'critical-tasks', 'Critical Tasks'),
 	section(
@@ -176,6 +183,20 @@ export const ORGANIZATION_DATA_EXPORT_READABLE_SHEETS: OrganizationDataExportRea
 				expiration_date: training.expiration_date,
 				notes: training.notes,
 				certificate_url: training.certificate_url
+			}))
+	},
+	{
+		name: 'Training History',
+		areaKey: 'training',
+		rows: (sections, labels) =>
+			(sections.personnelTrainingHistory ?? []).map((entry) => ({
+				person: lookup(labels.personnel, entry.personnel_id),
+				training_type: lookup(labels.trainingTypes, entry.training_type_id),
+				completion_date: entry.completion_date,
+				expiration_date: entry.expiration_date,
+				notes: entry.notes,
+				certificate_url: entry.certificate_url,
+				superseded_at: entry.superseded_at
 			}))
 	},
 	{ name: 'Status Types', areaKey: 'calendar', rows: (sections) => sections.statusTypes ?? [] },

@@ -91,6 +91,20 @@ export function createSupabaseOnboardingWorkflowPersistence(
 					}
 				: null;
 		},
+		async findLatestPacketForPersonnel(personnelId) {
+			const { data, error } = await client
+				.from('personnel_onboardings')
+				.select(PACKET_FIELDS)
+				.eq('organization_id', orgId)
+				.eq('personnel_id', personnelId)
+				.in('status', ['in_progress', 'completed'])
+				.order('started_at', { ascending: false })
+				.order('id', { ascending: false })
+				.limit(1)
+				.maybeSingle<PacketRow>();
+			if (error) throw new Error(error.message);
+			return data ? toPacket(data) : null;
+		},
 		async listActivePacketIdsForPersonnel(personnelId) {
 			const result = await selectAllSupabaseRows<{ id: string }>(async (from, to) => {
 				const { data, error } = await client

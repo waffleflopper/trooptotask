@@ -52,3 +52,4 @@ export { createSupabaseOnboardingCatalogPersistence } from './server/onboardingC
 export { createSupabaseOnboardingWorkflowPersistence } from './server/onboardingWorkflowPersistence.server';
 
 export type { OnboardingTemplateWriteContext } from './server/onboardingTemplatePorts.server';
+export { loadPersonnelOnboardingSummary } from './server/personnelOnboardingSummary.server';

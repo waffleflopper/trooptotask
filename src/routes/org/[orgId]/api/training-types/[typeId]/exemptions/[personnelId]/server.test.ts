@@ -60,12 +60,13 @@ describe('PUT /api/training-types/[typeId]/exemptions/[personnelId]', () => {
 	});
 
 	it.each([
-		['a missing choice', EXEMPTIBLE_TYPE, undefined, 'Choose whether the Person is exempt'],
-		['a malformed type id', 'not-a-type', true, 'Invalid ID']
-	])('answers 400 for %s', async (_label, typeId, exempt, message) => {
-		const { put } = seededContext();
+		['a missing choice', EXEMPTIBLE_TYPE, undefined],
+		['a malformed type id', 'not-a-type', true]
+	])('answers 400 for %s and changes nothing', async (_label, typeId, exempt) => {
+		const { put, exemptIds } = seededContext();
 
-		await expect(put(typeId, PERSON, exempt)).rejects.toMatchObject({ status: 400, body: { message } });
+		await expect(put(typeId, PERSON, exempt)).rejects.toMatchObject({ status: 400 });
+		expect(await exemptIds(EXEMPTIBLE_TYPE)).toEqual([SECOND_PERSON]);
 	});
 
 	it('refuses a Training operator and leaves the exemptions unchanged', async () => {

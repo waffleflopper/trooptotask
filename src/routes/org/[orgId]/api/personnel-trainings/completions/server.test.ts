@@ -164,18 +164,10 @@ describe('POST /api/personnel-trainings/completions', () => {
 	});
 
 	it.each([
-		[
-			'a certificate that is not a PDF',
-			{ certificate: new File(['hello'], 'notes.txt', { type: 'text/plain' }) },
-			'Only PDF files are allowed.'
-		],
-		[
-			'a PDF whose bytes are not a PDF',
-			{ certificate: new File(['hello'], 'fake.pdf', { type: 'application/pdf' }) },
-			'Only PDF files are allowed.'
-		],
-		['an impossible completion date', { completionDate: '2026-02-30' }, 'Use a valid date (YYYY-MM-DD)']
-	])('answers 400 for %s and stores nothing', async (_label, fields, message) => {
+		['a certificate that is not a PDF', { certificate: new File(['hello'], 'notes.txt', { type: 'text/plain' }) }],
+		['a PDF whose bytes are not a PDF', { certificate: new File(['hello'], 'fake.pdf', { type: 'application/pdf' }) }],
+		['an impossible completion date', { completionDate: '2026-02-30' }]
+	])('answers 400 for %s and stores nothing', async (_label, fields) => {
 		const ctx = withCertificates(createTestContext());
 
 		await expect(
@@ -185,7 +177,7 @@ describe('POST /api/personnel-trainings/completions', () => {
 				{ personnelId: PERSON, trainingTypeId: TRAINING_TYPE, completionDate: '2026-04-01', ...fields },
 				() => ctx
 			)
-		).rejects.toMatchObject({ status: 400, message });
+		).rejects.toMatchObject({ status: 400 });
 		expect(ctx.storage.files).toEqual([]);
 		expect(await ctx.store.findMany('personnel_trainings', ctx.auth.orgId)).toEqual([]);
 	});

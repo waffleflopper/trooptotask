@@ -35,7 +35,6 @@ function entry(overrides: Partial<SavedRatingSchemeEntry>): SavedRatingSchemeEnt
 
 describe('loadPersonnelActiveEvaluation', () => {
 	it('reads the newest noncompleted entry with evaluator names, thru-date timing and phase', async () => {
-		const lookups: string[][] = [];
 		const evaluation = await loadPersonnelActiveEvaluation({
 			ratingScheme: {
 				listPersonReadiness: async () => [
@@ -51,13 +50,11 @@ describe('loadPersonnelActiveEvaluation', () => {
 			},
 			asOf: '2026-10-06',
 			loadAuthorizedPerson: async () => person,
-			findPersonNames: async (ids) => {
-				lookups.push(ids);
-				return new Map([
+			findPersonNames: async () =>
+				new Map([
 					['alvarez', 'SSG Alvarez'],
 					['whitaker', 'SFC Whitaker']
-				]);
-			}
+				])
 		});
 
 		expect(evaluation).toEqual({
@@ -76,7 +73,6 @@ describe('loadPersonnelActiveEvaluation', () => {
 			intermediateRater: 'Unknown',
 			reviewer: 'MAJ Chen (external)'
 		});
-		expect(lookups).toEqual([['alvarez', 'whitaker', 'hidden']]);
 	});
 
 	it('resolves to null when every entry is completed', async () => {

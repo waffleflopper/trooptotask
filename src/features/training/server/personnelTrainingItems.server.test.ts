@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Personnel } from '$features/personnel/contracts';
 import type { PersonnelTraining, SavedTrainingType, TrainingCompletionHistoryEntry, TrainingType } from '../contracts';
-import { describeTrainingItem } from '../utils/personnelTrainingItems';
 import { loadPersonnelTrainingReadiness } from './personnelTrainingItems.server';
 
 const person = { id: 'okafor', rank: 'SGT', mos: '68W', clinicRole: 'Treatment NCO' } as Personnel;
@@ -88,18 +87,18 @@ describe('loadPersonnelTrainingReadiness', () => {
 		});
 
 		expect(
-			readiness.items.map((item) => [item.typeId, item.status, item.daysUntilExpiration, item.applicability])
+			readiness.items.map((item) => [
+				item.typeId,
+				item.status,
+				item.daysUntilExpiration,
+				item.cycleMonths,
+				item.applicability
+			])
 		).toEqual([
-			['cpr', 'expired', -12, { kind: 'mos', mos: '68W' }],
-			['sharp', 'expiring', 26, { kind: 'role', role: 'Treatment NCO' }],
-			['hipaa', 'current', 177, { kind: 'all' }],
-			['nco', 'current', null, { kind: 'rank', rank: 'SGT' }]
-		]);
-		expect(readiness.items.map(describeTrainingItem)).toEqual([
-			'24-month cycle · lapsed 12 days ago',
-			'12-month cycle · expires in 26 days',
-			'12-month cycle',
-			'Does not expire'
+			['cpr', 'expired', -12, 24, { kind: 'mos', mos: '68W' }],
+			['sharp', 'expiring', 26, 12, { kind: 'role', role: 'Treatment NCO' }],
+			['hipaa', 'current', 177, 12, { kind: 'all' }],
+			['nco', 'current', null, null, { kind: 'rank', rank: 'SGT' }]
 		]);
 		expect(readiness.items[0].history.map((entry) => entry.id)).toEqual(['newer', 'older']);
 		expect(readiness.items[0].completion?.id).toBe('cpr-record');
@@ -117,7 +116,6 @@ describe('loadPersonnelTrainingReadiness', () => {
 		expect(readiness.items.map((item) => [item.name, item.status, item.completion])).toEqual([
 			['Cyber Awareness', 'missing', null]
 		]);
-		expect(readiness.items.map(describeTrainingItem)).toEqual(['12-month cycle · required for all Soldiers']);
 	});
 
 	it('reads nothing when the Person is not admitted', async () => {

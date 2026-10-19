@@ -20,10 +20,31 @@ vi.mock('$app/navigation', () => ({
 
 afterEach(cleanup);
 
-const training: PersonnelTrainingReadiness = {
+const personATraining: PersonnelTrainingReadiness = {
 	personnelId: 'person-1',
 	mos: '68W',
-	items: [],
+	items: [
+		{
+			typeId: 'cpr',
+			name: 'CPR / BLS',
+			status: 'expired',
+			daysUntilExpiration: -12,
+			cycleMonths: 24,
+			expirationDateOnly: false,
+			canBeExempted: false,
+			applicability: { kind: 'all' },
+			completion: {
+				id: 'record-1',
+				personnelId: 'person-1',
+				trainingTypeId: 'cpr',
+				completionDate: '2024-09-24',
+				expirationDate: '2026-09-24',
+				notes: null,
+				certificateUrl: null
+			},
+			history: []
+		}
+	],
 	notRequiredCount: 0,
 	exemptCount: 0
 };
@@ -43,11 +64,11 @@ function data(personId: string, trainingRead: Promise<PersonnelTrainingReadiness
 }
 
 it("drops the previous Person's rows while the next Person's reads are pending", async () => {
-	const view = render(Page, { props: { data: data('person-1', Promise.resolve(training)) } });
-	await screen.findByText('0 of 0 ready');
+	const view = render(Page, { props: { data: data('person-1', Promise.resolve(personATraining)) } });
+	await screen.findByRole('button', { name: 'Open CPR / BLS' });
 
 	await view.rerender({ data: data('person-2', new Promise(() => {})) });
 
-	expect(screen.queryByText('0 of 0 ready')).toBeNull();
+	expect(screen.queryByRole('button', { name: 'Open CPR / BLS' })).toBeNull();
 	expect(screen.getByLabelText('Training', { selector: '[aria-busy="true"]' })).toBeTruthy();
 });

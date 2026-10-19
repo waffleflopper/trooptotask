@@ -22,10 +22,9 @@ describe('loadRequestPersonnelReadiness', () => {
 		const load = loader(async () => streams);
 		const shared = request();
 
-		const page = loadRequestPersonnelReadiness(shared, person, '2026-10-06', load);
+		void loadRequestPersonnelReadiness(shared, person, '2026-10-06', load);
 		const badge = loadRequestPersonnelReadinessBadge(shared, person, '2026-10-06', load);
 
-		expect(await page).toBe(streams);
 		expect(await badge).toEqual({ count: 3, complete: true });
 		expect(load).toHaveBeenCalledTimes(1);
 

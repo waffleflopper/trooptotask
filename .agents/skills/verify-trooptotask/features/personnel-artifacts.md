@@ -97,4 +97,4 @@ D05 requires recoverable file cleanup and preservation of committed uploads. The
 
 ## Viewer day
 
-With a browser zone whose day differs from UTC (see the [skill](../SKILL.md#launch)), add a leader note and attach a document. The Notes page and the Personnel detail Documents card must show the browser day in the `Oct 14, 2026` form, matching the Documents page, not the UTC date of the stored timestamp.
+With a browser zone whose day differs from UTC (see the [skill](../SKILL.md#launch)), add a leader note and attach a document. The Log tab's notes and the Overview Documents card must show the browser day in the `Oct 14, 2026` form, matching the Files tab's documents, not the UTC date of the stored timestamp.

@@ -218,16 +218,6 @@ export function createInMemoryTrainingCompletionPersistence(
 				)
 			).map((row) => ({ id: row.id, personnelId: row.personnel_id, trainingTypeId: row.training_type_id }));
 		},
-		async listPersonReadinessFacts(personnelId) {
-			return (
-				await store.findMany<{ training_type_id: string; expiration_date: string | null }>(
-					'personnel_trainings',
-					orgId,
-					{ personnel_id: personnelId },
-					{ select: 'training_type_id, expiration_date' }
-				)
-			).map((row) => ({ trainingTypeId: row.training_type_id, expirationDate: row.expiration_date }));
-		},
 		async listPersonExportFacts(personnelId) {
 			return (
 				await store.findMany<{

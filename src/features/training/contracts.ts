@@ -327,7 +327,6 @@ export type TrainingCompletedUpsert = Pick<
 };
 export type TrainingCompletionResource = Pick<PersonnelTraining, 'personnelId' | 'trainingTypeId'>;
 export type TrainingCompletionPairReference = Pick<PersonnelTraining, 'id' | 'personnelId' | 'trainingTypeId'>;
-export type PersonnelTrainingReadinessFact = Pick<PersonnelTraining, 'trainingTypeId' | 'expirationDate'>;
 export type PersonnelTrainingExportFact = Pick<
 	PersonnelTraining,
 	'trainingTypeId' | 'completionDate' | 'expirationDate' | 'notes'
@@ -352,7 +351,6 @@ export interface TrainingCompletionPersistence {
 		personnelIds: readonly string[],
 		trainingTypeIds: readonly string[]
 	): Promise<TrainingCompletionPairReference[]>;
-	listPersonReadinessFacts(personnelId: string): Promise<PersonnelTrainingReadinessFact[]>;
 	listPersonExportFacts(personnelId: string): Promise<PersonnelTrainingExportFact[]>;
 	listPersonCompletions(personnelId: string): Promise<PersonnelTraining[]>;
 	listPersonHistory(personnelId: string): Promise<TrainingCompletionHistoryEntry[]>;

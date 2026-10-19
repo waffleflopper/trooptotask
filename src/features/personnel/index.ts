@@ -30,8 +30,8 @@ export { default as PersonnelFilesPageView } from './components/PersonnelFilesPa
 export { default as PersonnelOpenFollowUps } from './components/PersonnelOpenFollowUps.svelte';
 export { default as PersonnelArchivedPageView } from './components/PersonnelArchivedPageView.svelte';
 export { default as PersonnelLossBlock } from './components/PersonnelLossBlock.svelte';
-export { attentionTargetHref, readinessDrawerFromSearch } from './readinessDrawerTarget';
+export { readinessDrawerFromSearch } from './readinessDrawerTarget';
 export { alsoChecked, attentionRows, uncheckedSources } from './personnelAttentionView';
-export type { ReadinessDrawerTarget, ReadinessItemKind } from './readinessDrawerTarget';
+export type { ReadinessDrawerTarget } from './readinessDrawerTarget';
 
 export type { PersonnelPageAccess } from './contracts';

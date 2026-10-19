@@ -26,7 +26,6 @@ export interface RatingSchemePageAccess {
 }
 
 export type {
-	EvaluationPhase,
 	PersonnelActiveEvaluation,
 	RatingSchemeEntry,
 	RatingDueStatus,
@@ -43,7 +42,6 @@ export {
 	WORKFLOW_STATUS_COLORS,
 	RATING_STATUS_COLORS
 } from './rating-scheme.types';
-export { EVALUATION_PHASE_COUNT } from './utils/evaluationPhase';
 
 export const RATING_SCHEME_WORKSPACE_LANE_KEY = 'ratingScheme' as const;
 

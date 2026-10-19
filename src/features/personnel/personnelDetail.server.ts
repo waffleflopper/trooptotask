@@ -11,7 +11,11 @@ import type {
 } from './contracts';
 import type { PersonnelArtifactReadPersistence } from './personnelArtifactPersistence';
 import type { PersonnelSheetPersistence } from './personnelSheetPersistence';
-import type { PersonnelDetailHeader, PersonnelDetailTabCounts, PersonnelReadinessLane } from './personnel-detail.types';
+import type {
+	PersonnelDetailHeader,
+	PersonnelDetailTabCounts,
+	PersonnelAvailabilityToday
+} from './personnel-detail.types';
 import type { Personnel } from './personnel.types';
 
 interface PersonnelDetailContext {
@@ -67,8 +71,9 @@ function dateRangeDetail(entry: PersonnelAvailabilityPeriod): string {
 	return entry.endDate ? `through ${formatDisplayDate(entry.endDate)}` : `since ${formatDisplayDate(entry.startDate)}`;
 }
 
-export async function loadAvailabilityReadinessLane(
-	ctx: Pick<PersonnelDetailContext, 'auth' | 'audit'>,
+/** The header pill hides, rather than fails, for a viewer who cannot see Calendar availability. */
+export async function loadAvailabilityToday(
+	ctx: Pick<PersonnelDetailContext, 'auth'>,
 	person: Personnel,
 	asOf: string | Date | undefined,
 	listEntries: (input: {
@@ -78,44 +83,23 @@ export async function loadAvailabilityReadinessLane(
 		orderByEndDate: true;
 	}) => Promise<PersonnelAvailabilityPeriod[]>,
 	listStatusTypes: () => Promise<PersonnelCalendarStatusSnapshot[]>
-): Promise<PersonnelReadinessLane> {
-	await authorizePersonnelLane(ctx, person, POLICY_ACTION_CATALOG.calendar.viewAvailability, 'availability');
-	const today = formatDate(asOfDate(asOf));
-	const [entries, statusTypes] = await Promise.all([
-		listEntries({ rangeStart: today, rangeEnd: today, personnelId: person.id, orderByEndDate: true }),
-		listStatusTypes()
-	]);
-	const statusById = new Map(statusTypes.map((status) => [status.id, status]));
-	const current = entries[0];
-	if (!current) {
-		return {
-			label: 'Availability',
-			value: 'Present',
-			detail: 'No active Calendar status for today.',
-			tone: 'good'
-		};
-	}
-	const statusName = statusById.get(current.statusTypeId)?.name ?? 'Unavailable';
-	const note = current.note ? ` ${current.note}` : '';
-	return {
-		label: 'Availability',
-		value: statusName,
-		detail: `${statusName} ${dateRangeDetail(current)}.${note}`,
-		tone: 'watch'
-	};
-}
-
-/** The header pill hides, rather than fails, for a viewer who cannot see Calendar availability. */
-export async function loadAvailabilityToday(
-	...lane: Parameters<typeof loadAvailabilityReadinessLane>
-): Promise<PersonnelReadinessLane | null> {
-	const [ctx, person] = lane;
+): Promise<PersonnelAvailabilityToday | null> {
 	const decision = await evaluateFeaturePolicy(
 		{ auth: ctx.auth },
 		POLICY_ACTION_CATALOG.calendar.viewAvailability,
 		policyResourceForGroup(person.groupId)
 	);
-	return decision.allowed ? loadAvailabilityReadinessLane(...lane) : null;
+	if (!decision.allowed) return null;
+	const today = formatDate(asOfDate(asOf));
+	const [entries, statusTypes] = await Promise.all([
+		listEntries({ rangeStart: today, rangeEnd: today, personnelId: person.id, orderByEndDate: true }),
+		listStatusTypes()
+	]);
+	const current = entries[0];
+	if (!current) return { value: 'Present', detail: 'No active Calendar status for today.', tone: 'good' };
+	const statusName = statusTypes.find((status) => status.id === current.statusTypeId)?.name ?? 'Unavailable';
+	const note = current.note ? ` ${current.note}` : '';
+	return { value: statusName, detail: `${statusName} ${dateRangeDetail(current)}.${note}`, tone: 'watch' };
 }
 
 /** Tab badges hide, rather than fail, for a viewer who may manage but not read sensitive records. */

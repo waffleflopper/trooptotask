@@ -422,11 +422,7 @@ export type {
 	PersonnelArchivedPageData
 } from './personnel-detail.types';
 export type {
-	AttentionInput,
 	AttentionItem,
-	AttentionSource,
-	AttentionStatus,
-	AttentionTarget,
 	PersonnelAttention,
 	PersonnelLossReadiness,
 	ReadinessSourceResult

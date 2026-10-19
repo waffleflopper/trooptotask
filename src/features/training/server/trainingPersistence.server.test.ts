@@ -197,7 +197,6 @@ describe('ordinary Training persistence', () => {
 		expect(await completions.listPairReferences(['p1'], ['t1'])).toEqual([
 			{ id: 'r1', personnelId: 'p1', trainingTypeId: 't1' }
 		]);
-		expect(await completions.listPersonReadinessFacts('p1')).toEqual([{ trainingTypeId: 't1', expirationDate: null }]);
 		expect(await completions.listPersonExportFacts('p1')).toEqual([
 			{ trainingTypeId: 't1', completionDate: '2026-01-01', expirationDate: null, notes: 'keep' }
 		]);
@@ -309,54 +308,45 @@ describe('ordinary Training persistence', () => {
 		await expect(completions.createRecord({ personnelId: 'p1', trainingTypeId: 't1' })).rejects.toThrow('Denied');
 	});
 
-	it.each([
-		'types',
-		'views',
-		'labels',
-		'names',
-		'ranks',
-		'imports',
-		'completions',
-		'pairs',
-		'readiness',
-		'export'
-	] as const)('pages tied %s completely under changing provider order and rejects a later error', async (method) => {
-		const ids = Array.from({ length: 1001 }, (_, i) => `row-${String(i).padStart(4, '0')}`);
-		const source = ids.map((id) => ({
-			id,
-			organization_id: ORG,
-			name: `Name ${id}`,
-			sort_order: 1,
-			personnel_id: 'p1',
-			training_type_id: id,
-			applies_to_ranks: [id],
-			expiration_date: null
-		}));
-		const { catalog, completions, state } = ports({
-			training_types: source,
-			training_views: source.map((row) => ({ ...row, name: 'Same name' })),
-			personnel_trainings: source
-		});
-		state.unstablePages = true;
-		const read = () =>
-			({
-				types: async () => (await catalog.listTypes()).map((row) => row.id),
-				views: async () => (await catalog.listViews()).map((row) => row.id),
-				labels: async () => (await catalog.listTypeLabels()).map((row) => row.id),
-				names: () => catalog.listExistingTypeNames(source.map((row) => row.name)),
-				ranks: async () => (await catalog.listRankApplicabilityReferences()).map((row) => row.appliesToRanks),
-				imports: async () => (await catalog.listTypeImportReferences(ids)).map((row) => row.id),
-				completions: async () => (await completions.listCompletions()).map((row) => row.id),
-				pairs: async () => (await completions.listPairReferences(['p1'], ids)).map((row) => row.id),
-				readiness: async () => (await completions.listPersonReadinessFacts('p1')).map((row) => row.trainingTypeId),
-				export: async () => (await completions.listPersonExportFacts('p1')).map((row) => row.trainingTypeId)
-			})[method]();
-		expect(await read()).toEqual(
-			method === 'names' ? ids.map((id) => `Name ${id}`) : method === 'ranks' ? ids.map((id) => [id]) : ids
-		);
-		state.failure = (r) => (r.offset >= 1000 ? { code: '42501', message: 'Late failure', status: 403 } : null);
-		await expect(read()).rejects.toThrow('Late failure');
-	});
+	it.each(['types', 'views', 'labels', 'names', 'ranks', 'imports', 'completions', 'pairs', 'export'] as const)(
+		'pages tied %s completely under changing provider order and rejects a later error',
+		async (method) => {
+			const ids = Array.from({ length: 1001 }, (_, i) => `row-${String(i).padStart(4, '0')}`);
+			const source = ids.map((id) => ({
+				id,
+				organization_id: ORG,
+				name: `Name ${id}`,
+				sort_order: 1,
+				personnel_id: 'p1',
+				training_type_id: id,
+				applies_to_ranks: [id],
+				expiration_date: null
+			}));
+			const { catalog, completions, state } = ports({
+				training_types: source,
+				training_views: source.map((row) => ({ ...row, name: 'Same name' })),
+				personnel_trainings: source
+			});
+			state.unstablePages = true;
+			const read = () =>
+				({
+					types: async () => (await catalog.listTypes()).map((row) => row.id),
+					views: async () => (await catalog.listViews()).map((row) => row.id),
+					labels: async () => (await catalog.listTypeLabels()).map((row) => row.id),
+					names: () => catalog.listExistingTypeNames(source.map((row) => row.name)),
+					ranks: async () => (await catalog.listRankApplicabilityReferences()).map((row) => row.appliesToRanks),
+					imports: async () => (await catalog.listTypeImportReferences(ids)).map((row) => row.id),
+					completions: async () => (await completions.listCompletions()).map((row) => row.id),
+					pairs: async () => (await completions.listPairReferences(['p1'], ids)).map((row) => row.id),
+					export: async () => (await completions.listPersonExportFacts('p1')).map((row) => row.trainingTypeId)
+				})[method]();
+			expect(await read()).toEqual(
+				method === 'names' ? ids.map((id) => `Name ${id}`) : method === 'ranks' ? ids.map((id) => [id]) : ids
+			);
+			state.failure = (r) => (r.offset >= 1000 ? { code: '42501', message: 'Late failure', status: 403 } : null);
+			await expect(read()).rejects.toThrow('Late failure');
+		}
+	);
 
 	it('turns a duplicate type name into a public 409 and a missing patch into null', async () => {
 		const saved = { id: 't1', organization_id: ORG, name: 'Annual' };

@@ -210,13 +210,14 @@ export async function createTrainingRecord(
 	return writeTrainingCompletion(ctx, validated, trainingType);
 }
 
-/** Records a new completion; the superseded one keeps its certificate in history. */
+/** Records a new completion; the superseded one keeps its notes and certificate in history. */
 export async function recordTrainingCompletion(
 	ctx: TrainingCompletionRecordContext,
 	input: TrainingCompletionRecordInput
 ): Promise<SavedTrainingCompletion> {
 	const { certificate, ...fields } = input;
-	const validated = parseTrainingRecordInput(trainingCompletionCreateInput.omit({ certificateUrl: true }), fields);
+	const parsed = parseTrainingRecordInput(trainingCompletionCreateInput.omit({ certificateUrl: true }), fields);
+	const validated = { ...parsed, notes: parsed.notes ?? null };
 	if (certificate) {
 		const problem = await validateSensitivePdfFile(certificate);
 		if (problem) fail(400, problem);

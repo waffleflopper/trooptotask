@@ -11,6 +11,7 @@
 	<!-- Another Person's sections must never stay on screen while this Person's reads are pending. -->
 	{#key data.personnelDetailHeader.person.id}
 		<OverviewTabView
+			orgId={org.orgId}
 			orgUrlSegment={org.orgUrlSegment}
 			person={data.personnelDetailHeader.person}
 			asOf={data.asOf}

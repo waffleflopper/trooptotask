@@ -26,6 +26,7 @@ export { provideDataSheetEditSession } from './workspace/dataSheetEditSession.sv
 export { default as PersonnelRecordHeader } from './components/PersonnelRecordHeader.svelte';
 export { default as PersonnelImportPage } from './components/PersonnelImportPage.svelte';
 export { default as PersonnelLogPageView } from './components/PersonnelLogPageView.svelte';
+export { default as PersonnelOpenFollowUps } from './components/PersonnelOpenFollowUps.svelte';
 export { default as PersonnelCounselingsPageView } from './components/PersonnelCounselingsPageView.svelte';
 export { default as PersonnelDocumentsPageView } from './components/PersonnelDocumentsPageView.svelte';
 export { default as PersonnelArchivedPageView } from './components/PersonnelArchivedPageView.svelte';

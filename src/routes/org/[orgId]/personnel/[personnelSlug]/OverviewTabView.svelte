@@ -1,6 +1,5 @@
 <script lang="ts">
 	import CheckIcon from '@lucide/svelte/icons/check';
-	import type { Snippet } from 'svelte';
 	import {
 		buildCalendarAnchorCookie,
 		PersonnelNextDays,
@@ -11,10 +10,12 @@
 		Personnel,
 		PersonnelAttention,
 		PersonnelCounselingRecord,
+		PersonnelFollowUp,
 		PersonnelLeaderNote
 	} from '$features/personnel/contracts';
-	import { alsoChecked, attentionRows, uncheckedSources } from '$features/personnel';
+	import { alsoChecked, attentionRows, PersonnelOpenFollowUps, uncheckedSources } from '$features/personnel';
 	import type { PersonnelActiveEvaluation } from '$features/rating-scheme/contracts';
+	import * as PageShell from '$lib/components/patterns/page-shell';
 	import { AttentionList, AttentionListSkeleton } from '$lib/components/patterns/readiness-items';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import { formatDayMonth, formatDayOffset, formatDate } from '$lib/utils/dates';
@@ -28,17 +29,20 @@
 	}
 
 	let {
+		orgId,
 		orgUrlSegment,
 		person,
 		asOf,
 		overview
 	}: {
+		orgId: string;
 		orgUrlSegment: string;
-		person: Pick<Personnel, 'slug'>;
+		person: Pick<Personnel, 'id' | 'slug'>;
 		asOf: string;
 		overview: {
 			nextDays: Promise<PersonnelCalendarWindow | null>;
 			attention: Promise<PersonnelAttention>;
+			openFollowUps: Promise<PersonnelFollowUp[]>;
 			evaluation: Promise<PersonnelActiveEvaluation | null>;
 			reach: Promise<PersonnelReach | null>;
 			lastCounseling: Promise<PersonnelCounselingRecord | null>;
@@ -48,6 +52,7 @@
 
 	const nextDays = new StreamedValue(() => overview.nextDays);
 	const attention = new StreamedValue(() => overview.attention);
+	const openFollowUps = new StreamedValue(() => overview.openFollowUps);
 	const evaluation = new StreamedValue(() => overview.evaluation);
 	const reach = new StreamedValue(() => overview.reach);
 	const lastCounseling = new StreamedValue(() => overview.lastCounseling);
@@ -77,16 +82,6 @@
 		document.cookie = buildCalendarAnchorCookie(new Date());
 	}
 </script>
-
-{#snippet sectionHeader(title: string, meta: string | null, link: Snippet)}
-	<header class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-		<div class="flex flex-wrap items-baseline gap-x-2.5">
-			<h2 class="font-heading text-[22px] leading-[26px] font-bold">{title}</h2>
-			{#if meta}<p class="font-mono text-xs text-muted-foreground">{meta}</p>{/if}
-		</div>
-		{@render link()}
-	</header>
-{/snippet}
 
 {#snippet unavailable(what: string)}
 	<p class="rounded-[4px] border border-dashed px-4 py-3 text-sm text-muted-foreground">
@@ -118,7 +113,7 @@
 						onclick={openCalendarToday}>Open in calendar</a
 					>
 				{/snippet}
-				{@render sectionHeader('Next 14 days', null, calendarLink)}
+				<PageShell.SectionHeader size="compact" title="Next 14 days" action={calendarLink} />
 				{#if nextDays.current.state === 'ready' && nextDays.current.value}
 					<PersonnelNextDays calendar={nextDays.current.value} />
 				{:else if nextDays.current.state === 'failed'}
@@ -137,11 +132,14 @@
 				{@const rows = attentionRows(attention.current.value, paths)}
 				{@const unchecked = uncheckedSources(attention.current.value)}
 				{@const checked = alsoChecked(attention.current.value.checked)}
-				{@render sectionHeader(
-					'Needs attention',
-					rows.length > 0 ? `${rows.length} ${rows.length === 1 ? 'item' : 'items'} · most urgent first` : null,
-					readinessLink
-				)}
+				<PageShell.SectionHeader
+					size="compact"
+					title="Needs attention"
+					detail={rows.length > 0
+						? `${rows.length} ${rows.length === 1 ? 'item' : 'items'} · most urgent first`
+						: undefined}
+					action={readinessLink}
+				/>
 				{#if rows.length > 0}
 					<AttentionList {rows} label="Needs attention" />
 				{:else if unchecked.length === 0}
@@ -159,11 +157,44 @@
 					</p>
 				{/if}
 			{:else if attention.current.state === 'failed'}
-				{@render sectionHeader('Needs attention', null, readinessLink)}
+				<PageShell.SectionHeader size="compact" title="Needs attention" action={readinessLink} />
 				{@render unavailable('readiness')}
 			{:else}
-				{@render sectionHeader('Needs attention', null, readinessLink)}
+				<PageShell.SectionHeader size="compact" title="Needs attention" action={readinessLink} />
 				<AttentionListSkeleton />
+			{/if}
+		</section>
+
+		<section class="flex flex-col gap-3" aria-label="Open follow-ups">
+			{#if openFollowUps.current.state === 'ready'}
+				<PersonnelOpenFollowUps
+					{orgId}
+					personnelId={person.id}
+					today={asOf}
+					logHref="{paths.person}/log"
+					initial={openFollowUps.current.value}
+				/>
+			{:else}
+				{#snippet logLink()}
+					<a href="{paths.person}/log" class="text-sm underline underline-offset-2">Open log</a>
+				{/snippet}
+				<PageShell.SectionHeader size="compact" title="Open follow-ups" action={logLink} />
+				{#if openFollowUps.current.state === 'failed'}
+					{@render unavailable('follow-ups')}
+				{:else}
+					<div class="border-t border-border" aria-busy="true" aria-label="Open follow-ups">
+						{#each { length: 3 } as _, index (index)}
+							<div class="flex items-start gap-3 border-b border-border py-3">
+								<Skeleton class="mt-1 size-4.5 shrink-0" />
+								<div class="grid flex-1 gap-2">
+									<Skeleton class="h-4 w-3/5" />
+									<Skeleton class="h-3.5 w-4/5" />
+								</div>
+								<Skeleton class="h-3.5 w-20" />
+							</div>
+						{/each}
+					</div>
+				{/if}
 			{/if}
 		</section>
 	</div>

@@ -1,12 +1,21 @@
 // @vitest-environment happy-dom
-import { cleanup, render, screen, within } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import type { ComponentProps } from 'svelte';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { PersonnelAttention } from '$features/personnel/contracts';
+import { jsonResponse, makeFollowUp, recordingFetch } from '$features/personnel/logFixtures.testHelper';
 import type { PersonnelActiveEvaluation } from '$features/rating-scheme/contracts';
 import OverviewTabView from './OverviewTabView.svelte';
 
-afterEach(cleanup);
+vi.mock('$app/navigation', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$app/navigation')>()),
+	invalidate: vi.fn().mockResolvedValue(undefined)
+}));
+
+afterEach(() => {
+	cleanup();
+	vi.unstubAllGlobals();
+});
 
 type Overview = ComponentProps<typeof OverviewTabView>['overview'];
 
@@ -65,6 +74,12 @@ function overview(overrides: Partial<Overview> = {}): Overview {
 			specialDays: []
 		}),
 		attention: Promise.resolve(attention),
+		openFollowUps: Promise.resolve([
+			makeFollowUp({ id: 'f-range', title: 'Range card', dueDate: '2026-10-20' }),
+			makeFollowUp({ id: 'f-dental', title: 'Dental readiness', dueDate: '2026-10-02' }),
+			makeFollowUp({ id: 'f-ta50', title: 'TA-50 shortage list', dueDate: null }),
+			makeFollowUp({ id: 'f-pt', title: 'PT test makeup', dueDate: '2026-10-30' })
+		]),
 		evaluation: Promise.resolve(evaluation),
 		reach: Promise.resolve({
 			phone: '907-555-0102',
@@ -94,13 +109,18 @@ function overview(overrides: Partial<Overview> = {}): Overview {
 	};
 }
 
-function renderOverview(value: Overview = overview()) {
-	return render(OverviewTabView, {
+function props(value: Overview) {
+	return {
+		orgId: 'org-id-1',
 		orgUrlSegment: 'org-1',
-		person: { slug: 'rivera-monica' },
+		person: { id: 'person-1', slug: 'rivera-monica' },
 		asOf: '2026-10-06',
 		overview: value
-	});
+	};
+}
+
+function renderOverview(value: Overview = overview()) {
+	return render(OverviewTabView, props(value));
 }
 
 const never = () => new Promise<never>(() => {});
@@ -153,6 +173,7 @@ describe('Personnel Overview', () => {
 			overview({
 				nextDays: never(),
 				attention: never(),
+				openFollowUps: never(),
 				evaluation: never(),
 				reach: never(),
 				lastCounseling: never(),
@@ -163,7 +184,7 @@ describe('Personnel Overview', () => {
 		expect(screen.queryByRole('list', { name: 'Needs attention' })).toBeNull();
 		expect(
 			Array.from(document.querySelectorAll('[aria-busy="true"]'), (section) => section.getAttribute('aria-label'))
-		).toEqual(expect.arrayContaining(['Rating chain', 'Reach', 'Last counseled', 'Latest note']));
+		).toEqual(expect.arrayContaining(['Open follow-ups', 'Rating chain', 'Reach', 'Last counseled', 'Latest note']));
 	});
 
 	it('fails a section on its own while the rest of the Overview loads', async () => {
@@ -179,5 +200,60 @@ describe('Personnel Overview', () => {
 		expect(within(screen.getByRole('region', { name: 'Latest note' })).getByText(/Couldn't load/)).toBeTruthy();
 		expect(screen.getByRole('list', { name: 'Needs attention' })).toBeTruthy();
 		expect(screen.getByText('Monthly performance · SSG Alvarez')).toBeTruthy();
+	});
+
+	it('counts open follow-ups and shows the three due soonest', async () => {
+		renderOverview();
+
+		const section = await screen.findByRole('region', { name: 'Open follow-ups' });
+		expect(await within(section).findByText('4 open · 1 overdue')).toBeTruthy();
+		expect(
+			within(section)
+				.getAllByRole('checkbox')
+				.map((box) => box.getAttribute('aria-label'))
+		).toEqual(['Complete Dental readiness', 'Complete Range card', 'Complete PT test makeup']);
+		expect(within(section).getByText('Overdue 4 days')).toBeTruthy();
+		expect(within(section).getByRole('link', { name: 'Open log' }).getAttribute('href')).toBe(
+			'/org/org-1/personnel/rivera-monica/log'
+		);
+	});
+
+	it('completes a follow-up in one click and keeps it in place to reopen', async () => {
+		const recorded = recordingFetch(() =>
+			jsonResponse({ status: 'completed', completedAt: '2026-10-06T14:00:00.000Z' })
+		);
+		vi.stubGlobal('fetch', recorded.fetch);
+		renderOverview();
+
+		const section = await screen.findByRole('region', { name: 'Open follow-ups' });
+		await fireEvent.click(await within(section).findByRole('checkbox', { name: 'Complete Dental readiness' }));
+
+		expect(await within(section).findByText('3 open')).toBeTruthy();
+		expect(within(section).getByRole('checkbox', { name: 'Reopen Dental readiness' })).toBeTruthy();
+		expect(recorded.requests).toEqual([
+			{
+				url: '/org/org-id-1/api/personnel/person-1/follow-ups/f-dental',
+				method: 'PATCH',
+				body: { status: 'completed' }
+			}
+		]);
+	});
+
+	it('keeps a completion made here when the page receives a new data object holding the same loads', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => jsonResponse({ status: 'completed', completedAt: '2026-10-06T14:00:00.000Z' }))
+		);
+		const loads = overview();
+		const view = renderOverview({ ...loads });
+		const section = await screen.findByRole('region', { name: 'Open follow-ups' });
+		await fireEvent.click(await within(section).findByRole('checkbox', { name: 'Complete Dental readiness' }));
+		await within(section).findByText('3 open');
+
+		await view.rerender(props({ ...loads }));
+
+		const refreshed = screen.getByRole('region', { name: 'Open follow-ups' });
+		expect(await within(refreshed).findByText('3 open')).toBeTruthy();
+		expect(within(refreshed).getByRole('checkbox', { name: 'Reopen Dental readiness' })).toBeTruthy();
 	});
 });

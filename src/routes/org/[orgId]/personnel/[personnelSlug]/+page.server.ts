@@ -2,6 +2,7 @@ import { loadPersonnelCalendarWindow } from '$features/calendar/index.server';
 import type { Personnel, PersonnelExtendedInfo } from '$features/personnel/contracts';
 import {
 	listPersonnelCounselingRecords,
+	listPersonnelFollowUps,
 	listPersonnelLeaderNotes,
 	readPersonnelExtendedInfo
 } from '$features/personnel/index.server';
@@ -51,6 +52,9 @@ function createOverviewStreams(
 	const range = { rangeStart: asOf, rangeEnd: fromDayNumber(toDayNumber(asOf) + NEXT_DAYS - 1) };
 	return {
 		nextDays: keepStreamedRejectionObserved(hiddenWhenDenied(loadPersonnelCalendarWindow(ctx.calendar, person, range))),
+		openFollowUps: keepStreamedRejectionObserved(
+			listPersonnelFollowUps(ctx.artifacts, person.id).then((rows) => rows.filter((row) => row.status === 'open'))
+		),
 		reach: keepStreamedRejectionObserved(readPersonnelExtendedInfo(ctx.extendedInfo, person.id).then(reachFrom)),
 		lastCounseling: keepStreamedRejectionObserved(
 			listPersonnelCounselingRecords(ctx.artifacts, person.id, 1).then((records) => records[0] ?? null)

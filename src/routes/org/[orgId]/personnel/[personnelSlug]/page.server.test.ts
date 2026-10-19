@@ -146,6 +146,36 @@ describe('personnel Overview page server load', () => {
 		expect(depends).toHaveBeenCalledWith('app:personnel-detail');
 	});
 
+	it("lists only the Person's open follow-ups", async () => {
+		const ctx = detailTestContext('person-9');
+		const followUp = (id: string, personnelId: string, status: string) => ({
+			id,
+			organization_id: 'org-1',
+			personnel_id: personnelId,
+			title: id,
+			notes: '',
+			status,
+			created_by: null,
+			created_at: '2026-10-01T10:00:00Z',
+			updated_at: '2026-10-01T10:00:00Z',
+			completed_at: status === 'completed' ? '2026-10-02T10:00:00Z' : null,
+			completed_by: null,
+			archived_at: status === 'archived' ? '2026-10-03T10:00:00Z' : null,
+			archived_by: null
+		});
+		ctx.store.seed('personnel_follow_ups', [
+			followUp('open', 'person-9', 'open'),
+			followUp('done', 'person-9', 'completed'),
+			followUp('archived', 'person-9', 'archived'),
+			followUp('someone-else', 'person-other', 'open')
+		]);
+
+		const result = await overviewLoad(ctx)(detailEvent());
+
+		const rows = await result.overview.openFollowUps;
+		expect(rows.map((row) => [row.id, row.status])).toEqual([['open', 'open']]);
+	});
+
 	it('reads the next 14 days from the viewer day in the time zone cookie', async () => {
 		vi.useFakeTimers({ toFake: ['Date'] });
 		vi.setSystemTime(new Date('2026-05-15T02:00:00Z'));
@@ -235,18 +265,21 @@ describe('personnel Overview page server load', () => {
 				throw providerDown;
 			})
 		)(detailEvent());
-		const [nextDays, attention, evaluation, reach, lastCounseling, latestNote] = await Promise.allSettled([
-			result.overview.nextDays,
-			result.overview.attention,
-			result.overview.evaluation,
-			result.overview.reach,
-			result.overview.lastCounseling,
-			result.overview.latestNote
-		]);
+		const [nextDays, attention, evaluation, openFollowUps, reach, lastCounseling, latestNote] =
+			await Promise.allSettled([
+				result.overview.nextDays,
+				result.overview.attention,
+				result.overview.evaluation,
+				result.overview.openFollowUps,
+				result.overview.reach,
+				result.overview.lastCounseling,
+				result.overview.latestNote
+			]);
 
 		expect(nextDays).toMatchObject({ status: 'rejected', reason: { message: 'Calendar read failed' } });
 		expect(evaluation).toEqual({ status: 'rejected', reason: providerDown });
-		expect([attention, reach, lastCounseling, latestNote].map((section) => section.status)).toEqual([
+		expect([attention, openFollowUps, reach, lastCounseling, latestNote].map((section) => section.status)).toEqual([
+			'fulfilled',
 			'fulfilled',
 			'fulfilled',
 			'fulfilled',

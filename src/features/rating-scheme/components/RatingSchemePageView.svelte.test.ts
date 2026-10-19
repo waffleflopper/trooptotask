@@ -112,8 +112,14 @@ describe('RatingSchemePageView', () => {
 		render(RatingSchemePageView, { props: { ctx, personnelLookup } });
 		await tick();
 
-		expect(ctx.editingRatingEntryId).toBe('due-30');
+		expect(modals.isOpen('rating-modal')).toBe(true);
+		expect(modals.payload<{ entry: { id: string } | null }>('rating-modal')?.entry?.id).toBe('due-30');
 		expect(pageState.url.search).toBe('');
+
+		modals.close('rating-modal');
+		await tick();
+
+		expect(modals.isOpen('rating-modal')).toBe(false);
 	});
 
 	it('leaves a linked entry closed for a viewer who cannot edit it', async () => {

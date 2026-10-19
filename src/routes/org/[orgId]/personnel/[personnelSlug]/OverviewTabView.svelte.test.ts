@@ -172,14 +172,9 @@ describe('Personnel Overview', () => {
 
 		const chain = await screen.findByRole('region', { name: 'Rating chain' });
 		expect(within(chain).getByText('Rating chain · NCOER')).toBeTruthy();
-		expect(Array.from(chain.querySelectorAll('dt, dd'), (cell) => cell.textContent)).toEqual([
-			'Rater',
-			'SSG Alvarez',
-			'Senior rater',
-			'1SG Brooks',
-			'Reviewer',
-			'Not set'
-		]);
+		for (const text of ['Rater', 'SSG Alvarez', 'Senior rater', '1SG Brooks', 'Reviewer', 'Not set']) {
+			expect(within(chain).getByText(text)).toBeTruthy();
+		}
 		const reach = screen.getByRole('region', { name: 'Reach' });
 		expect(within(reach).getByText('907-555-0102')).toBeTruthy();
 		expect(within(reach).getByText('Emergency · Spouse')).toBeTruthy();

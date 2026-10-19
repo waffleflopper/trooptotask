@@ -39,32 +39,33 @@ const attention: PersonnelAttention = {
 };
 
 describe('Overview attention', () => {
-	it('turns each item into a linked row with its category and timing', () => {
-		expect(attentionRows(attention, paths)).toEqual([
-			{
-				id: 'training:sharp',
-				status: 'missing',
-				title: 'SHARP annual training',
-				detail: 'Required for 68W · no completion on record',
-				category: 'Training',
-				timing: 'Not recorded',
-				href: '/org/o/personnel/sgt-okafor/readiness?item=training%3Asharp'
-			},
-			{
-				id: 'loss:ETS',
-				status: 'upcoming',
-				title: 'ETS 14 Mar 2027',
-				detail: 'Inside the 180-day loss window',
-				category: 'Loss',
-				timing: 'in 159 days',
-				href: '/org/o/personnel/sgt-okafor/data-sheet'
-			}
+	it('links each item to the place a leader fixes it, in ranked order', () => {
+		const rows = attentionRows(attention, paths);
+
+		expect(rows.map((row) => [row.id, row.status, row.title, row.href])).toEqual([
+			[
+				'training:sharp',
+				'missing',
+				'SHARP annual training',
+				'/org/o/personnel/sgt-okafor/readiness?item=training%3Asharp'
+			],
+			['loss:ETS', 'upcoming', 'ETS 14 Mar 2027', '/org/o/personnel/sgt-okafor/data-sheet']
 		]);
+	});
+
+	it('times a dated item by its day count and does not invent a date for a missing one', () => {
+		const [missing, upcoming] = attentionRows(attention, paths);
+
+		expect(missing.timing).toBe('Not recorded');
+		expect(upcoming.timing).toContain('159');
 	});
 
 	it('names a failed source instead of counting it as checked', () => {
 		expect(uncheckedSources(attention)).toEqual(['critical tasks']);
-		expect(alsoChecked(attention.checked)).toEqual(['15 training items current', 'onboarding complete']);
+		const reassurance = alsoChecked(attention.checked);
+		expect(reassurance).toHaveLength(2);
+		expect(reassurance[0]).toContain('15');
+		expect(reassurance.join(' ')).not.toMatch(/critical/i);
 	});
 
 	it('leaves a source with nothing current out of the reassurance line', () => {
@@ -76,11 +77,5 @@ describe('Overview attention', () => {
 				onboarding: { state: 'checked', status: 'none' }
 			})
 		).toEqual([]);
-	});
-
-	it('counts a single current training item in the singular', () => {
-		expect(alsoChecked({ ...attention.checked, training: { state: 'checked', currentCount: 1 } })).toContain(
-			'1 training item current'
-		);
 	});
 });

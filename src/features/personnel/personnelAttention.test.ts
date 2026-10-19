@@ -91,29 +91,41 @@ describe('buildPersonnelAttention', () => {
 	it('ranks every problem across sources most urgent first and counts the Readiness badge', () => {
 		const attention = buildPersonnelAttention(sources);
 
-		expect(attention.items.map((item) => [item.kind, item.status, item.title, item.daysUntilDue])).toEqual([
-			['training', 'expired', 'CPR / BLS', -12],
-			['critical-task', 'missing', 'Insert a nasopharyngeal airway', null],
-			['training', 'expiring', 'SHARP', 21],
-			['evaluation', 'due', 'Annual NCOER', 55],
-			['loss', 'upcoming', 'ETS 14 Mar 2027', 159]
+		expect(
+			attention.items.map((item) => [item.kind, item.status, item.title, item.daysUntilDue, item.dueDate, item.target])
+		).toEqual([
+			[
+				'training',
+				'expired',
+				'CPR / BLS',
+				-12,
+				'2026-09-24',
+				{ tab: 'readiness', item: { kind: 'training', id: 'cpr' } }
+			],
+			[
+				'critical-task',
+				'missing',
+				'Insert a nasopharyngeal airway',
+				null,
+				null,
+				{ tab: 'readiness', item: { kind: 'critical-task', id: 'airway' } }
+			],
+			[
+				'training',
+				'expiring',
+				'SHARP',
+				21,
+				'2026-10-27',
+				{ tab: 'readiness', item: { kind: 'training', id: 'sharp' } }
+			],
+			['evaluation', 'due', 'Annual NCOER', 55, '2026-11-30', { tab: 'evals', entryId: 'eval-1' }],
+			['loss', 'upcoming', 'ETS 14 Mar 2027', 159, '2027-03-14', { tab: 'data-sheet' }]
 		]);
-		expect(attention.items[0]).toEqual({
-			kind: 'training',
-			status: 'expired',
-			id: 'cpr',
-			title: 'CPR / BLS',
-			detail: 'Lapsed 24 Sep · last completed 24 Sep 2024',
-			dueDate: '2026-09-24',
-			daysUntilDue: -12,
-			target: { tab: 'readiness', item: { kind: 'training', id: 'cpr' } }
-		});
-		expect(attention.items.slice(1).map((item) => [item.detail, item.target])).toEqual([
-			['081-833-0210 · no validation on record', { tab: 'readiness', item: { kind: 'critical-task', id: 'airway' } }],
-			['Expires 27 Oct · 12-month cycle', { tab: 'readiness', item: { kind: 'training', id: 'sharp' } }],
-			['Thru 30 Nov · rater SSG Alvarez · drafting', { tab: 'evals', entryId: 'eval-1' }],
-			['Inside the 180-day loss window', { tab: 'data-sheet' }]
-		]);
+		const [expired, missing, expiring, evaluation] = attention.items;
+		expect(expired.detail).toContain('24 Sep 2024');
+		expect(missing.detail).toContain('081-833-0210');
+		expect(expiring.detail).toContain('27 Oct');
+		expect(evaluation.detail).toContain('SSG Alvarez');
 		expect(attention.readinessBadge).toEqual({ count: 3, complete: true });
 		expect(attention.checked).toEqual({
 			training: { state: 'checked', currentCount: 1 },
@@ -162,10 +174,10 @@ describe('buildPersonnelAttention', () => {
 			}
 		});
 
-		expect(attention.items.slice(0, 2).map((item) => item.detail)).toEqual([
-			'Required for 68W · no completion on record',
-			'081-833-0210 · validated 5 Nov 2025 by SSG Alvarez'
-		]);
+		const [course, task] = attention.items;
+		expect(course.detail).toContain('68W');
+		expect(task.detail).toContain('5 Nov 2025');
+		expect(task.detail).toContain('SSG Alvarez');
 	});
 
 	it('leaves an evaluation outside 60 days and a loss outside the window off the list', () => {

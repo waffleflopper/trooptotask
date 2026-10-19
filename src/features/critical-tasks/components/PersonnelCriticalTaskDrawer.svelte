@@ -187,7 +187,7 @@
 							<DatePicker id="critical-task-drawer-date" bind:value={date} />
 						</Field.Root>
 						{#if preview}
-							<Alert.Root variant={preview.tone === 'current' ? 'success' : 'destructive'}>
+							<Alert.Root variant={preview.tone === 'current' ? 'success' : 'destructive'} role="status">
 								<Alert.Description class="text-current">{preview.text}</Alert.Description>
 							</Alert.Root>
 						{/if}

@@ -185,7 +185,7 @@
 			error = rejectedRequestMessage(caught, 'Unable to mark this exempt. Try again.');
 			return;
 		}
-		toastStore.success(`${personName} is exempt from ${target.name}`, undefined, {
+		toastStore.success(`${personName} is exempt from ${target.name}`, 10_000, {
 			label: 'Undo',
 			onClick: () =>
 				void exempt(target, false).catch((caught) =>
@@ -253,7 +253,7 @@
 							<DatePicker id="training-drawer-date" bind:value={date} />
 						</Field.Root>
 						{#if preview}
-							<Alert.Root variant={preview.tone === 'current' ? 'success' : 'destructive'}>
+							<Alert.Root variant={preview.tone === 'current' ? 'success' : 'destructive'} role="status">
 								<Alert.Description class="text-current">{preview.text}</Alert.Description>
 							</Alert.Root>
 						{/if}

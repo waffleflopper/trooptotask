@@ -120,6 +120,11 @@ describe('/api/personnel/[id]/leader-notes', () => {
 			status: 400
 		});
 		await expect(
+			read(`limit=20&beforeCreatedAt=2026-05-01T10:00:00%2B20:00&beforeId=${NOTE_ID}`)
+		).rejects.toMatchObject({
+			status: 400
+		});
+		await expect(
 			read(`limit=20&beforeCreatedAt=2026-05-01T10:00:00.123456%2B00:00&beforeId=${NOTE_ID}`)
 		).resolves.toEqual({
 			personnelId: PERSON_ID,

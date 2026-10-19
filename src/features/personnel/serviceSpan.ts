@@ -1,6 +1,5 @@
 import { isDateOnly } from '$lib/utils/dates';
 
-/** Whole years and months from a start day to `today`, as "6 yrs 4 mo"; null for a missing or future start. */
 export function formatServiceSpan(start: string | null, today: string): string | null {
 	if (!start || !isDateOnly(start) || start > today) return null;
 	const [startYear, startMonth, startDay] = start.split('-').map(Number);

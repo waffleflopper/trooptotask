@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import * as PageShell from '$lib/components/patterns/page-shell';
-	import type { RouteTabBadge, RouteTabItem } from '$lib/components/patterns/page-shell';
+	import type { RouteTabItem } from '$lib/components/patterns/page-shell';
 	import {
 		WorkspaceToolbar,
 		type ToolbarAction,
@@ -137,38 +137,31 @@
 			: undefined
 	);
 
-	// Derived apart from the active tab so a tab switch keeps the settled badge instead of re-awaiting it.
-	const logBadge = $derived(
-		streams.tabCounts.then((counts): RouteTabBadge | null =>
-			counts?.log ? { value: counts.log, label: `${counts.log} open follow-ups`, variant: 'outline' } : null
-		)
-	);
-	const archivedBadge = $derived(
-		streams.tabCounts.then((counts): RouteTabBadge | null =>
-			counts?.archived ? { value: counts.archived, label: `${counts.archived} archived items` } : null
-		)
-	);
-
-	const tabs = $derived<RouteTabItem[]>([
-		{ label: 'Overview', href: basePath, active: activeTab === '' },
-		{ label: 'Readiness', href: `${basePath}/readiness`, active: activeTab === '/readiness' },
+	const sections = $derived<(RouteTabItem & { path: string })[]>([
+		{ path: '', label: 'Overview', href: basePath },
+		{ path: '/readiness', label: 'Readiness', href: `${basePath}/readiness` },
 		{
+			path: '/log',
 			label: 'Log',
 			href: `${basePath}/log`,
-			active: activeTab === '/log',
-			badge: logBadge
+			badge: streams.tabCounts.then((counts) =>
+				counts?.log ? { value: counts.log, label: `${counts.log} open follow-ups`, variant: 'outline' as const } : null
+			)
 		},
-		{ label: 'Files', href: `${basePath}/files`, active: activeTab === '/files' },
-		{ label: 'Data sheet', href: `${basePath}/data-sheet`, active: activeTab === '/data-sheet' },
+		{ path: '/files', label: 'Files', href: `${basePath}/files` },
+		{ path: '/data-sheet', label: 'Data sheet', href: `${basePath}/data-sheet` },
 		{
+			path: '/archived',
 			label: 'Archived',
 			href: `${basePath}/archived`,
-			active: activeTab === '/archived',
 			icon: ArchiveIcon,
 			trailing: true,
-			badge: archivedBadge
+			badge: streams.tabCounts.then((counts) =>
+				counts?.archived ? { value: counts.archived, label: `${counts.archived} archived items` } : null
+			)
 		}
 	]);
+	const tabs = $derived(sections.map((section) => ({ ...section, active: section.path === activeTab })));
 </script>
 
 <svelte:head>

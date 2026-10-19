@@ -14,13 +14,11 @@ export interface PersonnelDetailHeader {
 	dateOfRank: string | null;
 }
 
-/** Badge counts keyed by the detail tab that shows them. */
 export interface PersonnelDetailTabCounts {
 	log: number;
 	archived: number;
 }
 
-/** Streamed into the detail layout so neither read delays the header. Null hides the item for the viewer. */
 export interface PersonnelDetailLayoutStreams {
 	availabilityToday: Promise<PersonnelReadinessLane | null>;
 	tabCounts: Promise<PersonnelDetailTabCounts | null>;

@@ -1,4 +1,3 @@
-/** Titles for the MOS codes units commonly carry; an unlisted code shows without a title. */
 export const MOS_TITLES: Partial<Record<string, string>> = {
 	'11B': 'Infantryman',
 	'11C': 'Indirect Fire Infantryman',

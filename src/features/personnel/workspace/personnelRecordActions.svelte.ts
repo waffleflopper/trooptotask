@@ -30,7 +30,6 @@ const defaultDeps = {
 	filenameFromContentDisposition
 } satisfies Required<PersonnelRecordActionsDeps>;
 
-/** Export and Archive for the record header, shared by every detail tab. */
 export class PersonnelRecordActions {
 	readonly #input: () => PersonnelRecordActionsInput;
 	readonly #deps: Required<PersonnelRecordActionsDeps>;

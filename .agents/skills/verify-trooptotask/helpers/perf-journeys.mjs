@@ -68,36 +68,33 @@ const openDetail = (terms) => [
 	{ wait: ['Edit basic info'] }
 ];
 const detailTabs = 'nav[aria-label="Personnel detail sections"]';
-// The layout's record header and tabs render before the Overview content streams in.
-const detailOpen = { presentSelector: [detailTabs] };
-// Each pending lane and panel is named "<Lane> loading" until its stream settles; tab badges show skeletons.
+const streamsPending = ['[aria-label$=" loading"]', skeleton];
+const detailHeaderShown = { presentSelector: [detailTabs] };
 const detailSettled = {
 	presentSelector: [detailTabs, '[aria-label="Readiness summary"]'],
-	absentSelector: ['[aria-label$=" loading"]', skeleton]
+	absentSelector: streamsPending
 };
 const detailPath = (terms) => org(terms, `/personnel/${terms.edit.slug}`);
-// A tab is a route, so its link is current only once that route's data has loaded.
-// The Log link's name also carries its open follow-up count.
-const detailTab = {
+const logTabLink = {
 	role: 'link',
 	name: 'Log',
 	partial: true,
 	within: { role: 'navigation', name: 'Personnel detail sections' }
 };
-const detailTabShown = {
+const logRouteCurrent = {
 	presentSelector: ['a[aria-current="page"][href$="/log"]'],
-	absentSelector: ['[aria-label$=" loading"]', skeleton]
+	absentSelector: streamsPending
 };
-const detailTabSwitch = (hover) => ({
+const logTabSwitch = (prepare) => ({
 	area: 'personnel',
 	kind: 'interaction',
 	effect: 'read',
 	actors: detailActors,
 	path: detailPath,
 	ready: () => [{ name: 'ready', ...detailSettled }],
-	prepare: () => (hover ? [{ hover: detailTab }] : []),
-	trigger: () => ({ click: detailTab }),
-	milestones: () => [{ name: 'useful', ...detailTabShown }]
+	prepare: () => prepare,
+	trigger: () => ({ click: logTabLink }),
+	milestones: () => [{ name: 'useful', ...logRouteCurrent }]
 });
 
 export const journeys = {
@@ -225,11 +222,10 @@ export const journeys = {
 		prepare: findPerson,
 		trigger: ({ edit }) => ({ click: { role: 'button', name: 'Details', within: { role: 'row', name: edit.row } } }),
 		milestones: () => [
-			{ name: 'header', ...detailOpen },
+			{ name: 'header', ...detailHeaderShown },
 			{ name: 'useful', ...detailSettled }
 		]
 	},
-	// A full document load of a detail URL runs every layout above it, the Personnel workspace included.
 	'personnel-detail-direct': {
 		area: 'personnel',
 		kind: 'load',
@@ -237,13 +233,12 @@ export const journeys = {
 		actors: detailActors,
 		path: detailPath,
 		milestones: () => [
-			{ name: 'header', ...detailOpen },
+			{ name: 'header', ...detailHeaderShown },
 			{ name: 'useful', ...detailSettled }
 		]
 	},
-	'personnel-detail-tab': detailTabSwitch(false),
-	// Hovering a link preloads its route data, so the click usually finds it ready.
-	'personnel-detail-tab-hover': detailTabSwitch(true),
+	'personnel-detail-tab': logTabSwitch([]),
+	'personnel-detail-tab-hover': logTabSwitch([{ hover: logTabLink }]),
 	'personnel-edit': {
 		area: 'personnel',
 		kind: 'interaction',

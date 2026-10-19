@@ -50,9 +50,6 @@ const ORG_ROUTE_CHILD_BREADCRUMBS: Record<string, Record<string, string>> = {
 	}
 };
 
-/** Nav items whose other child segments are one Person's record, named by the route's breadcrumb label. */
-const PERSON_RECORD_ITEMS = new Set(['critical-tasks', 'personnel']);
-
 const SUPPORT_ROUTE_BREADCRUMBS: Record<string, string> = {
 	settings: 'Settings'
 };
@@ -171,12 +168,16 @@ export function getOrgBreadcrumbs(
 	const childSegment = pathname.slice(itemPath.length + 1).split('/')[0];
 	const childLabel =
 		ORG_ROUTE_CHILD_BREADCRUMBS[activeItem.id]?.[childSegment] ??
-		(PERSON_RECORD_ITEMS.has(activeItem.id) && childSegment ? (routeLeafLabel ?? 'Person') : undefined);
+		(childSegment && personRecordCrumb(activeItem.id, routeLeafLabel));
 	if (childLabel) {
 		breadcrumbs.push({ label: childLabel });
 	}
 
 	return breadcrumbs;
+}
+
+function personRecordCrumb(itemId: string, routeLeafLabel: string | null | undefined): string | undefined {
+	return itemId === 'personnel' || itemId === 'critical-tasks' ? (routeLeafLabel ?? 'Person') : undefined;
 }
 
 function getSupportRouteBreadcrumbs(pathname: string, orgCrumb: OrgBreadcrumb): OrgBreadcrumb[] | null {

@@ -125,7 +125,8 @@ SELECT is((SELECT concat_ws(' ', completion_date, expiration_date, notes, certif
   '2026-01-04 2027-01-04 typo fixed ' || pg_temp.cert('301', 'renewed.pdf'),
   'a correction keeps the certificate');
 SELECT is((public.correct_training_completion('f7100000-0000-4000-8000-000000000101', 'history',
-  (SELECT id FROM public.personnel_training_history WHERE personnel_id = 'f7100000-0000-4000-8000-000000000301'),
+  (SELECT id FROM public.personnel_training_history WHERE personnel_id = 'f7100000-0000-4000-8000-000000000301'
+    AND training_type_id = 'f7100000-0000-4000-8000-000000000401'),
   '2025-01-09', '2026-01-09', 'history fixed')) ->> 'notes', 'history fixed', 'a correction returns the corrected history row');
 SELECT is(pg_temp.history('501'),
   ARRAY['2025-01-09 2026-01-09 history fixed ' || pg_temp.cert('301', 'first.pdf')],
@@ -163,7 +164,7 @@ SELECT throws_ok($$ INSERT INTO public.personnel_training_history (organization_
 WITH removed AS (DELETE FROM public.personnel_training_history RETURNING id)
 SELECT is((SELECT count(*)::integer FROM removed), 0, 'an operator cannot delete history');
 SELECT pg_temp.act_as('5');
-SELECT is((SELECT count(*)::integer FROM public.personnel_training_history), 3,
+SELECT is((SELECT count(*)::integer FROM public.personnel_training_history), 4,
   'an Organization configurator reads every Group''s history but not another Organization''s');
 SELECT pg_temp.act_as('6');
 SELECT is((SELECT array_agg(id::text) FROM public.personnel_training_history), ARRAY['f7100000-0000-4000-8000-000000000602'],

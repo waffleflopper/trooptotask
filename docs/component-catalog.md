@@ -56,6 +56,8 @@ Read the [UI foundation](#ui-foundation), then the entry for the component being
 | `ui/tooltip`                                                               | `Root`, `Trigger`, `Content`, `Provider`, `Portal`                                                                                                  | App shell header and Personnel import; `ui/sidebar`.                                                                                                                   |
 | [`patterns/brand-wordmark`](#public-marketing-shell)                       | `BrandWordmark`                                                                                                                                     | Public navigation and Identity's AuthShell.                                                                                                                            |
 | [`patterns/bulk-import-workspace`](#patternsbulk-import-workspace)         | See its section                                                                                                                                     | Calendar, Critical Tasks, Personnel and Training imports.                                                                                                              |
+| [`patterns/coverage-bar`](#patternscoverage-bar)                           | `CoverageBar`                                                                                                                                       | Personnel Files counseling coverage.                                                                                                                                   |
+| [`patterns/dropzone`](#patternsdropzone)                                   | `Dropzone`                                                                                                                                          | Personnel Files upload.                                                                                                                                                |
 | [`patterns/page-shell`](#patternspage-shell)                               | `Root`, `Header`, `Tabs`, `FactGrid`, `Metric`, `FactSection`, `FactRow`                                                                            | Account, Organization settings, the person record, platform admin and Training Reports.                                                                                |
 | [`patterns/readiness-band`](#patternsreadiness-band)                       | `Cell`, `Legend`; `readinessBandTone`                                                                                                               | Critical Tasks and Training reports.                                                                                                                                   |
 | [`patterns/readiness-items`](#patternsreadiness-items)                     | `ReadinessItemTable`, `ReadinessItemTableSkeleton`; `readinessItemStatusVisuals`                                                                    | Personnel Readiness tab training and critical-task tables.                                                                                                             |
@@ -103,6 +105,54 @@ The Web UI Foundation's public [`toastStore`](../src/lib/stores/toast.svelte.ts)
 ## Password completion continuation
 
 [`PasswordCompletion`](../src/features/identity/PasswordCompletion.svelte), exported by Identity’s web seam, composes the shared auth primitives for Account Security, recovery and invite reconciliation. Loaders expose only the server-persisted attempt state. Unknown outcomes offer a serialized status check; confirmed changes retry revocation alone; fenced failures permit explicit restart. Transport errors and reload never automatically resubmit a password. Fresh MFA uses `PasswordMfaChallenge`, with focus restored to the next action. Confirmed completion advances recovery or invite activation; Account Security offers explicit restart. Unavailable persistence offers status retry. Expired attempts require a fresh session after their original expiry before restart. Password drafts are discarded on confirmation or an unknown mutation outcome.
+
+## `patterns/coverage-bar`
+
+`patterns/coverage-bar` draws a row of labelled segments, one per period, filled when the period is covered and dashed in the warning color when it is a gap. The owner decides what a segment means and writes the caption; the pattern reads segments only, so a month, a week or a quarter all fit.
+
+```svelte
+<script lang="ts">
+	import { CoverageBar } from '$lib/components/patterns/coverage-bar';
+</script>
+
+<CoverageBar
+	segments={[
+		{ key: '2026-09', label: 'Sep', covered: true },
+		{ key: '2026-10', label: 'Oct', covered: false }
+	]}
+	label="Counseling coverage, last 12 months"
+	coveredText="counseling on record"
+	gapText="no counseling"
+>
+	1 of the last 2 months has a counseling on record. Gaps in Oct.
+</CoverageBar>
+```
+
+Public exports are `CoverageBar` and the `CoverageBarSegment` type. The segments render as a labelled list. Each item speaks its label with `coveredText` or `gapText`, because the fill and the dash are not the only signal. The caption is the child content. Personnel Files derives its twelve segments and caption in `counselingCoverage.ts`.
+
+---
+
+## `patterns/dropzone`
+
+`patterns/dropzone` is one labelled drop target around a visually hidden file input, so a click, a keyboard pick and a drag all reach the same handler. It reports every file dropped or picked and decides nothing; the owner checks type and size and shows its message through `error`.
+
+```svelte
+<script lang="ts">
+	import { Dropzone } from '$lib/components/patterns/dropzone';
+</script>
+
+<Dropzone
+	title="Drop files to upload"
+	hint="PDF, JPG, PNG or HEIC up to 10 MB."
+	accept="application/pdf,image/*"
+	error={rejection}
+	onFiles={(files) => offer(files)}
+/>
+```
+
+Props are `title`, `hint`, `accept`, `error`, `disabled`, `onFiles(files: File[])` and a bindable `ref` for the input, so an owner can move focus to it. The input clears after a pick, so the same file can be chosen again. `disabled` ignores drops. Personnel Files checks a dropped file with `checkUploadFile` before it opens the upload dialog.
+
+---
 
 ## `patterns/page-shell`
 
@@ -1039,7 +1089,7 @@ On Dashboard, Training, Onboarding, Calendar, Personnel, Critical Tasks and Eval
 
 ## File Upload Pattern
 
-No shared upload component exists. Upload workflows compose `Field`, `Input type="file"`, `Button`, `Spinner`, `Alert`, and `Progress` as needed, keeping endpoint behavior in the owning feature. Sign-in roster signed scans and Personnel counseling PDFs follow this pattern.
+[`patterns/dropzone`](#patternsdropzone) is the shared drop target and picker. Workflows that choose a file beside other fields still compose `Field`, `Input type="file"`, `Button`, `Spinner`, `Alert`, and `Progress`, keeping endpoint behavior in the owning feature. Sign-in roster signed scans follow that pattern; Personnel Files uses the dropzone and then a dialog.
 
 **States**: empty file input or drop zone, uploading progress, selected-file display, file exists, remove, and error feedback.
 **Endpoint contract** for sign-in roster signed scans, all on `/org/[orgId]/api/sign-in-rosters/[id]/upload`:

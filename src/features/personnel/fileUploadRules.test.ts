@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkUploadFile, UPLOAD_MAX_BYTES, withDeclaredType } from './fileUploadRules';
+import { checkUploadFile, UPLOAD_MAX_BYTES, uploadIntentFromSearch, withDeclaredType } from './fileUploadRules';
 
 const file = (name: string, type: string, size: number) => ({ name, type, size });
 
@@ -60,5 +60,14 @@ describe('declared type', () => {
 
 		expect([untyped.type, untyped.name, await untyped.text()]).toEqual(['image/heic', 'IMG_1.heic', 'abc']);
 		expect(withDeclaredType(typed, 'image/png')).toBe(typed);
+	});
+});
+
+describe('upload intent', () => {
+	it('reads the two kinds from ?add= and ignores anything else', () => {
+		expect(uploadIntentFromSearch(new URLSearchParams('add=counseling'))).toBe('counseling');
+		expect(uploadIntentFromSearch(new URLSearchParams('add=document&x=1'))).toBe('document');
+		expect(uploadIntentFromSearch(new URLSearchParams('add=note'))).toBeNull();
+		expect(uploadIntentFromSearch(new URLSearchParams(''))).toBeNull();
 	});
 });

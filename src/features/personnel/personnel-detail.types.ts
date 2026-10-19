@@ -44,30 +44,9 @@ export interface PersonnelNotesPageData {
 	notes: PersonnelLeaderNote[];
 }
 
-export interface PersonnelCounselingsPageData {
-	orgId: string;
-	personnelId: string;
-	title: string;
-	emptyState: string;
-	records: PersonnelCounselingRecord[];
-}
-
-export interface PersonnelDocumentsPageData {
-	orgId: string;
-	personnelId: string;
-	title: string;
-	emptyState: string;
-	records: PersonnelDocument[];
-}
-
 export interface PersonnelLogPageData {
 	followUps: PersonnelFollowUpsPageData;
 	notes: PersonnelNotesPageData;
-}
-
-export interface PersonnelFilesPageData {
-	counselings: PersonnelCounselingsPageData;
-	documents: PersonnelDocumentsPageData;
 }
 
 export interface PersonnelDataSheetPageData {

@@ -40,3 +40,9 @@ export function checkUploadFile(file: Pick<File, 'name' | 'type' | 'size'>): Upl
 export function withDeclaredType(file: File, type: string): File {
 	return file.type === type ? file : new File([file], file.name, { type, lastModified: file.lastModified });
 }
+
+/** `?add=counseling` or `?add=document` names the kind the upload flow opens with. */
+export function uploadIntentFromSearch(params: URLSearchParams): UploadKind | null {
+	const add = params.get('add');
+	return add === 'counseling' || add === 'document' ? add : null;
+}

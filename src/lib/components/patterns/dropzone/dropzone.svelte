@@ -1,5 +1,6 @@
 <script lang="ts">
 	import UploadIcon from '@lucide/svelte/icons/upload';
+	import { Input } from '$lib/components/ui/input';
 	import { cn } from '$lib/utils.js';
 
 	let {
@@ -72,8 +73,8 @@
 	ondragleave={dragLeave}
 	ondrop={drop}
 >
-	<input
-		bind:this={ref}
+	<Input
+		bind:ref
 		type="file"
 		class="sr-only"
 		{accept}

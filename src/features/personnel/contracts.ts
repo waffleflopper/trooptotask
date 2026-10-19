@@ -408,11 +408,8 @@ export type {
 	PersonnelDetailStreams,
 	PersonnelDetailTabCounts,
 	PersonnelFollowUpsPageData,
-	PersonnelCounselingsPageData,
-	PersonnelDocumentsPageData,
 	PersonnelNotesPageData,
 	PersonnelLogPageData,
-	PersonnelFilesPageData,
 	PersonnelDataSheetPageData,
 	PersonnelArchivedArtifactsPageData
 } from './personnel-detail.types';

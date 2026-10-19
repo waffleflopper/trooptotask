@@ -11,9 +11,8 @@ function jsonResponse(body: unknown) {
 	return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
 }
 
-function pageData(personId: string, title: string) {
-	const person = { id: personId, slug: personId, rank: 'SGT', lastName: personId, firstName: 'Test', archivedAt: null };
-	const followUp = {
+function followUpFor(personId: string, title: string) {
+	return {
 		id: `f-${personId}`,
 		personnelId: personId,
 		title,
@@ -28,6 +27,11 @@ function pageData(personId: string, title: string) {
 		archivedAt: null,
 		archivedBy: null
 	};
+}
+
+function pageData(personId: string, title: string) {
+	const person = { id: personId, slug: personId, rank: 'SGT', lastName: personId, firstName: 'Test', archivedAt: null };
+	const followUp = followUpFor(personId, title);
 	return {
 		personnelDetailHeader: { person },
 		today: '2026-10-19',
@@ -106,5 +110,44 @@ describe('Log page when the Soldier changes during a write', () => {
 			expect((screen.getByRole('checkbox', { name: 'Reopen B follow-up' }) as HTMLButtonElement).disabled).toBe(false)
 		);
 		expect(screen.queryByText('A follow-up')).toBeNull();
+	});
+
+	it('does not show the earlier Soldier’s new follow-up and note on the next Soldier, or disturb the next Soldier’s drafts', async () => {
+		const held = deferredFetch();
+		const view = render(Page, { props: { data: pageData('person-a', 'A follow-up') } });
+		const followUpInput = await screen.findByLabelText('Follow-up title');
+		await fireEvent.input(followUpInput, { target: { value: 'A new follow-up' } });
+		await fireEvent.submit(followUpInput.closest('form') as HTMLFormElement);
+		const composer = screen.getByLabelText('New leader note');
+		await fireEvent.input(composer, { target: { value: 'A new note' } });
+		await fireEvent.submit(composer.closest('form') as HTMLFormElement);
+		await waitFor(() => expect(held.requests).toHaveLength(2));
+
+		await view.rerender({ data: pageData('person-b', 'B follow-up') });
+		await fireEvent.input(await screen.findByLabelText('Follow-up title'), { target: { value: 'B draft follow-up' } });
+		await fireEvent.input(screen.getByLabelText('New leader note'), { target: { value: 'B draft note' } });
+		held.settle(
+			held.requests.indexOf('/org/org-1/api/personnel/person-a/follow-ups'),
+			jsonResponse({ ...followUpFor('person-a', 'A new follow-up'), id: 'f-new-a' })
+		);
+		held.settle(
+			held.requests.indexOf('/org/org-1/api/personnel/person-a/leader-notes'),
+			jsonResponse({
+				id: 'n-new-a',
+				personnelId: 'person-a',
+				author: '1SG Ramos',
+				text: 'A new note',
+				createdAt: '2026-10-19T12:00:00.000Z',
+				archivedAt: null,
+				archivedBy: null
+			})
+		);
+		await new Promise((resolve) => setTimeout(resolve));
+
+		expect(screen.queryByText('A new follow-up')).toBeNull();
+		expect(screen.queryByText('A new note')).toBeNull();
+		expect((screen.getByLabelText('Follow-up title') as HTMLInputElement).value).toBe('B draft follow-up');
+		expect((screen.getByLabelText('New leader note') as HTMLTextAreaElement).value).toBe('B draft note');
+		expect(screen.getByRole('button', { name: 'B follow-up' })).toBeTruthy();
 	});
 });

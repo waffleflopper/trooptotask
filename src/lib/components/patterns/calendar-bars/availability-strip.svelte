@@ -6,7 +6,7 @@
 		date: number;
 		today: boolean;
 		weekend: boolean;
-		/** A Special Day's short label, drawn as a dashed outline under any bar. */
+		/** A Special Day's short label, named in the day header and outlined over any bar. */
 		closure: string | null;
 	}
 </script>
@@ -32,6 +32,7 @@
 <!-- Both sizes are drawings for sighted users; each consumer names every entry in text beside the strip. -->
 {#if props.size === 'regular'}
 	{@const days = props.columns.length}
+	{@const hasClosure = props.columns.some((day) => day.closure)}
 	<div data-slot="availability-strip" aria-hidden="true" class="flex flex-col gap-1.5">
 		<div class="grid gap-x-[3px]" style:grid-template-columns="repeat({days}, minmax(0, 1fr))">
 			{#each props.columns as day (day.key)}
@@ -57,6 +58,11 @@
 					>
 						{day.date}
 					</span>
+					{#if hasClosure}
+						<span class="truncate font-mono text-[10px] leading-3 font-medium tracking-[0.04em] text-muted-foreground">
+							{day.closure ?? ''}
+						</span>
+					{/if}
 				</div>
 			{/each}
 		</div>
@@ -64,16 +70,6 @@
 			class="grid h-[26px] grid-rows-2 gap-x-[3px] gap-y-px"
 			style:grid-template-columns="repeat({days}, minmax(0, 1fr))"
 		>
-			{#each props.columns as day, index (day.key)}
-				{#if day.closure}
-					<span
-						class="flex min-w-0 items-center overflow-clip rounded-[3px] border border-dashed border-muted-foreground/50 px-1.5 font-mono text-[11px] leading-none font-medium tracking-[0.04em] text-muted-foreground"
-						style="grid-column: {index + 1}; grid-row: 1 / 3"
-					>
-						{day.closure}
-					</span>
-				{/if}
-			{/each}
 			{#each props.layout.bars as bar (bar.entry.id)}
 				<StatusBar
 					class="h-full w-full"
@@ -94,6 +90,14 @@
 				>
 					+{overflow.spans.length}
 				</span>
+			{/each}
+			{#each props.columns as day, index (day.key)}
+				{#if day.closure}
+					<span
+						class="pointer-events-none z-10 rounded-[3px] border border-dashed border-white/70 outline-1 outline-dashed outline-foreground/60"
+						style="grid-column: {index + 1}; grid-row: 1 / 3"
+					></span>
+				{/if}
 			{/each}
 		</div>
 	</div>

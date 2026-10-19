@@ -7,6 +7,7 @@ import type { PersonnelExtendedInfo } from '../personnelExtendedInfo.types';
 const { gotoMock, beforeNavigateMock } = vi.hoisted(() => ({ gotoMock: vi.fn(), beforeNavigateMock: vi.fn() }));
 vi.mock('$app/navigation', () => ({ goto: gotoMock, invalidate: vi.fn(), beforeNavigate: beforeNavigateMock }));
 
+import { toastStore } from '$lib/stores/toast.svelte';
 import DataSheetEditorHarness from '../test-support/DataSheetEditorHarness.svelte';
 
 const person: Personnel = {
@@ -158,6 +159,28 @@ describe('PersonnelDataSheetEditor', () => {
 				invalidate: ['app:personnel-detail-header', 'app:personnel-detail-data-sheet']
 			})
 		);
+	});
+
+	it('does not navigate or announce a save that finishes after the editor is gone', async () => {
+		let release: (response: Response) => void = () => {};
+		vi.stubGlobal('fetch', vi.fn().mockReturnValue(new Promise<Response>((resolve) => (release = resolve))));
+		const success = vi.spyOn(toastStore, 'success');
+		renderEditor();
+		await fireEvent.input(screen.getByLabelText('Last name'), { target: { value: 'Rivera-Cole' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+
+		cleanup();
+		release(
+			Response.json({
+				saved: true,
+				person: { ...person, lastName: 'Rivera-Cole', slug: 'rivera-cole-monica' },
+				extendedInfo: info
+			})
+		);
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		expect(gotoMock).not.toHaveBeenCalled();
+		expect(success).not.toHaveBeenCalled();
 	});
 
 	it('asks before Escape discards a changed field, and keeps editing on request', async () => {

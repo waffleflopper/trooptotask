@@ -71,6 +71,7 @@
 	let educationOpen = $state(false);
 	let vehicleOpen = $state(false);
 	let leaving = false;
+	let disposed = false;
 	let discardTarget = $state.raw<{ url: URL; delta?: number } | null>(null);
 	let form: HTMLFormElement | undefined = $state();
 
@@ -102,6 +103,7 @@
 
 	async function save() {
 		const saved = await draft.save();
+		if (disposed) return;
 		if (!saved) {
 			revealRejectedField();
 			await tick();
@@ -126,7 +128,14 @@
 		};
 	});
 
-	onMount(() => session.attach(draft, { save: () => void save(), cancel: requestCancel }));
+	onMount(() => {
+		const detach = session.attach(draft, { save: () => void save(), cancel: requestCancel });
+		return () => {
+			disposed = true;
+			draft.dispose();
+			detach();
+		};
+	});
 
 	function handleKeydown(event: KeyboardEvent) {
 		if (event.key !== 'Escape' || event.defaultPrevented || discardTarget) return;

@@ -36,6 +36,7 @@ export interface SavedDataSheet {
 export class DataSheetDraft {
 	readonly #input: DataSheetDraftInput;
 	readonly #fetch: typeof fetch;
+	#disposed = false;
 
 	values = $state<DataSheetValues>({} as DataSheetValues);
 	saved = $state.raw<DataSheetValues>({} as DataSheetValues);
@@ -53,6 +54,11 @@ export class DataSheetDraft {
 		this.values = dataSheetValues(input.person, input.info);
 	}
 
+	/** Once the editor is gone, a save still in flight finishes on the server but writes nothing here. */
+	dispose = (): void => {
+		this.#disposed = true;
+	};
+
 	isChanged = (field: DataSheetField): boolean => this.changedFields.includes(field);
 
 	errorFor = (field: DataSheetField): string | undefined => {
@@ -61,7 +67,7 @@ export class DataSheetDraft {
 		return fieldKey(this.values[field]) === rejection.value ? rejection.message : undefined;
 	};
 
-	/** Resolves with the saved record, or null when the save was refused or failed. */
+	/** Resolves with the saved record, or null when the save was refused or failed or the draft was disposed. */
 	save = async (): Promise<SavedDataSheet | null> => {
 		if (this.saving || this.changeCount === 0) return null;
 		const { orgId, person } = this.#input;
@@ -75,6 +81,7 @@ export class DataSheetDraft {
 				body: JSON.stringify(dataSheetSavePayload(this.values))
 			});
 			const result = await readSaveResult(response);
+			if (this.#disposed) return null;
 			if (!result) throw await buildRequestError(response, 'PUT', 'personnel');
 			if (!result.saved) {
 				if (isDataSheetField(result.field)) {
@@ -95,6 +102,7 @@ export class DataSheetDraft {
 			this.saved = dataSheetValues(result.person, result.extendedInfo);
 			return { person: result.person, extendedInfo: result.extendedInfo };
 		} catch (caught) {
+			if (this.#disposed) return null;
 			this.formError = rejectedRequestMessage(caught, 'Unable to save the data sheet.');
 			return null;
 		} finally {

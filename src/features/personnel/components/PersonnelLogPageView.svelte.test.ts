@@ -137,8 +137,10 @@ describe('PersonnelLogPageView follow-ups', () => {
 		const input = await screen.findByLabelText('Follow-up title');
 		await fireEvent.submit(input.closest('form')!);
 
-		expect(await screen.findByText('Enter a follow-up title.')).toBeTruthy();
+		const message = await screen.findByText('Enter a follow-up title.');
 		expect(fetchMock).not.toHaveBeenCalled();
+		expect(input.getAttribute('aria-invalid')).toBe('true');
+		expect(input.getAttribute('aria-describedby')).toBe(message.id);
 	});
 });
 
@@ -264,6 +266,19 @@ describe('PersonnelLogPageView leader notes', () => {
 		expect(await screen.findByText('2 notes')).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Volunteered for the detail.' })).toBeTruthy();
 		expect(sentBody(fetchMock)).toEqual({ text: 'Volunteered for the detail.' });
+	});
+
+	it('ties the refusal of an empty note to the composer', async () => {
+		const fetchMock = stubFetch(() => jsonResponse({}));
+		renderLog();
+
+		const composer = await screen.findByPlaceholderText('Write a note about SGT OKAFOR…');
+		await fireEvent.click(screen.getByRole('button', { name: 'Save note' }));
+
+		const message = await screen.findByText('Enter a leader note before saving.');
+		expect(fetchMock).not.toHaveBeenCalled();
+		expect(composer.getAttribute('aria-invalid')).toBe('true');
+		expect(composer.getAttribute('aria-describedby')).toBe(message.id);
 	});
 
 	it('saves edited note text in place', async () => {

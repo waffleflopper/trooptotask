@@ -5,6 +5,7 @@
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
 	import { DatePicker } from '$lib/components/ui/date-picker';
+	import * as Field from '$lib/components/ui/field';
 	import * as InputGroup from '$lib/components/ui/input-group';
 	import type { PersonnelFollowUp } from '../contracts';
 	import { groupFollowUps } from '../logModel';
@@ -62,6 +63,8 @@
 			bind:ref={titleInput}
 			bind:value={list.draft.fields.title}
 			aria-label="Follow-up title"
+			aria-invalid={list.draft.fieldError('title') ? 'true' : undefined}
+			aria-describedby={list.draft.fieldError('title') ? 'follow-up-quick-add-error' : undefined}
 			placeholder="Add a follow-up…"
 		/>
 		<InputGroup.Addon align="inline-end">
@@ -69,7 +72,7 @@
 		</InputGroup.Addon>
 	</InputGroup.Root>
 	{#if list.draft.fieldError('title')}
-		<p role="alert" class="mt-2 text-sm text-destructive-text">{list.draft.fieldError('title')}</p>
+		<Field.Error id="follow-up-quick-add-error" class="mt-2">{list.draft.fieldError('title')}</Field.Error>
 	{/if}
 	{#if list.draft.error}
 		<Alert.Root variant="destructive" class="mt-2"><Alert.Description>{list.draft.error}</Alert.Description></Alert.Root

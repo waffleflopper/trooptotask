@@ -15,6 +15,9 @@ interface LeaderNotePageInput {
 	before?: { createdAt: string; id: string };
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isTimestamp = (value: string) => !Number.isNaN(Date.parse(value));
+
 /** `limit` with `before` (the last note already shown) reads the next older page; neither reads every note. */
 function parseNotePage(event: RequestEvent): LeaderNotePageInput {
 	const { searchParams } = event.url;
@@ -26,6 +29,8 @@ function parseNotePage(event: RequestEvent): LeaderNotePageInput {
 	const limit = Number(limitParam);
 	if (!Number.isInteger(limit) || limit < 1 || limit > MAX_NOTE_PAGE) fail(400, 'Invalid leader note page size');
 	if ((beforeCreatedAt === null) !== (beforeId === null)) fail(400, 'Invalid leader note cursor');
+	if (beforeCreatedAt !== null && beforeId !== null && !(isTimestamp(beforeCreatedAt) && UUID.test(beforeId)))
+		fail(400, 'Invalid leader note cursor');
 	return {
 		personnelId,
 		limit,

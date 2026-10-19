@@ -66,6 +66,27 @@ describe('ArchivedList', () => {
 		expect(invalidate).toHaveBeenCalledWith('app:personnel-detail-counts');
 	});
 
+	it('keeps a row busy until its own request settles, even when another row finishes first', async () => {
+		const release: Record<string, () => void> = {};
+		const { list } = listWith(
+			(request) =>
+				new Promise((resolve) => {
+					release[request.url.split('/').pop()!] = () => resolve(jsonResponse({}));
+				})
+		);
+
+		const first = list.restore(followUp);
+		const second = list.restore(note);
+		release.f1();
+		await first;
+
+		expect(list.isBusy(followUp)).toBe(false);
+		expect(list.isBusy(note)).toBe(true);
+		release.n1();
+		await second;
+		expect(list.isBusy(note)).toBe(false);
+	});
+
 	it('keeps a record that failed to restore and says why', async () => {
 		const { list } = listWith(() => jsonResponse({ message: 'No.' }, 500));
 

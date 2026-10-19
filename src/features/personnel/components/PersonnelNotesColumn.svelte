@@ -3,6 +3,7 @@
 	import * as PageShell from '$lib/components/patterns/page-shell';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
+	import * as Field from '$lib/components/ui/field';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import type { PersonnelLogNotes } from '../contracts';
 	import { LeaderNoteList } from '../workspace/leaderNoteList.svelte';
@@ -48,19 +49,21 @@
 		void list.draft.submit();
 	}}
 >
-	<Textarea
-		bind:ref={composer}
-		bind:value={list.draft.fields.text}
-		rows={2}
-		aria-label="New leader note"
-		placeholder={`Write a note about ${subject}…`}
-	/>
-	<div class="flex items-center justify-between gap-3">
+	<Field.Root data-invalid={list.draft.fieldError('text') ? true : undefined}>
+		<Textarea
+			bind:ref={composer}
+			bind:value={list.draft.fields.text}
+			rows={2}
+			aria-label="New leader note"
+			aria-invalid={list.draft.fieldError('text') ? 'true' : undefined}
+			aria-describedby={list.draft.fieldError('text') ? 'leader-note-quick-add-error' : undefined}
+			placeholder={`Write a note about ${subject}…`}
+		/>
 		{#if list.draft.fieldError('text')}
-			<p role="alert" class="text-sm text-destructive-text">{list.draft.fieldError('text')}</p>
-		{:else}
-			<span></span>
+			<Field.Error id="leader-note-quick-add-error">{list.draft.fieldError('text')}</Field.Error>
 		{/if}
+	</Field.Root>
+	<div class="flex justify-end">
 		<Button type="submit" variant="outline" size="sm" disabled={list.draft.saving}>
 			{list.draft.saving ? 'Saving...' : 'Save note'}
 		</Button>

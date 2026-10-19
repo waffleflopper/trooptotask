@@ -86,6 +86,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261019000200_personnel_data_sheet_columns.sql",
     "20261019000300_personnel_log_attribution.sql",
     "20261019000400_counseling_conducted_by.sql",
+    "20261019000500_personnel_extended_info_saver_stamp.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",

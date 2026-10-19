@@ -1,15 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import type { AvailabilityEntry, StatusType } from '$features/calendar/contracts';
-import { fitMarkers, layoutBars, shortRangeLabel, type AvailabilitySpan, type LabelPolicy } from './barLayout';
-import { dayWindow, toDayNumber } from './dayNumber';
+import {
+	fitMarkers,
+	layoutBars,
+	shortRangeLabel,
+	type AvailabilitySpan,
+	type BarEntry,
+	type BarStatus,
+	type LabelPolicy
+} from './bar-layout';
+import { dayWindow, toDayNumber } from '$lib/utils/dayNumber';
 
-const status = (name: string, shortLabel: string | null = null): StatusType => ({
-	id: name.toLowerCase(),
+const status = (name: string, shortLabel: string | null = null): BarStatus => ({
 	name,
 	color: '#16a34a',
 	textColor: '#ffffff',
-	shortLabel,
-	sortOrder: 0
+	shortLabel
 });
 
 const leave = status('Leave');
@@ -18,8 +23,8 @@ const appointment = status('Appointment', 'APT');
 const tdy = status('TDY');
 const school = status('School');
 
-function span(id: string, kind: StatusType, startDate: string, endDate: string, note: string | null = null) {
-	const entry: AvailabilityEntry = { id, personnelId: 'okafor', statusTypeId: kind.id, startDate, endDate, note };
+function span(id: string, kind: BarStatus, startDate: string, endDate: string, note: string | null = null) {
+	const entry: BarEntry = { id, note };
 	return { entry, status: kind, start: toDayNumber(startDate), end: toDayNumber(endDate) } satisfies AvailabilitySpan;
 }
 

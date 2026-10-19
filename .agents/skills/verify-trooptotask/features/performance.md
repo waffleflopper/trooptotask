@@ -55,8 +55,8 @@ The Calendar reads a few more rows per Organization. Every status type carries t
 | `personnel-search`           | Personnel                     | interaction, read  | both             | Search fill to the term's row with the sentinel gone                                      |
 | `personnel-filter`           | Personnel                     | interaction, read  | both             | Search fill `68W` to exactly the matching row count                                       |
 | `personnel-large-table`      | Personnel A-Z                 | interaction, read  | both             | `Sort by Name` to the descending table                                                    |
-| `personnel-detail`           | Personnel to detail           | interaction, read  | wide, leader     | `Details` to the record tabs (`header`), then the readiness summary with nothing loading  |
-| `personnel-detail-direct`    | Personnel detail URL          | load, read         | wide, leader     | The record tabs (`header`), then the readiness summary with nothing loading               |
+| `personnel-detail`           | Personnel to detail           | interaction, read  | wide, leader     | `Details` to the record tabs (`header`), then `Needs attention` with nothing loading      |
+| `personnel-detail-direct`    | Personnel detail URL          | load, read         | wide, leader     | The record tabs (`header`), then `Needs attention` with nothing loading                   |
 | `personnel-detail-tab`       | Personnel detail tabs         | interaction, read  | wide, leader     | The `Log` tab, unhovered, to that tab current with nothing loading                        |
 | `personnel-detail-tab-hover` | Personnel detail tabs         | interaction, read  | wide, leader     | The same click after a hover has preloaded the tab                                        |
 | `personnel-edit`             | Personnel roster dialog       | interaction, write | both             | `Save Changes` to the row showing the new MOS                                             |

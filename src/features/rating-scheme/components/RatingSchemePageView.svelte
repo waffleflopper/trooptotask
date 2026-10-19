@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { tick } from 'svelte';
+	import { page } from '$app/state';
+	import { replaceState } from '$app/navigation';
 	import type { PersonnelLookup } from '$features/personnel/contracts';
 	import {
 		WORKFLOW_STATUS_OPTIONS,
@@ -79,6 +81,17 @@
 	const ratingSchemeWriteAffordance = $derived(ctx.ratingSchemeWriteAffordance);
 	const showRatingSchemeWriteActions = $derived(ratingSchemeWriteAffordance.visible);
 	const canUseRatingSchemeWriteActions = $derived(ratingSchemeWriteAffordance.allowed);
+	// `?entry=<id>` opens that entry once, as a link from the person page; the param is then dropped so closing stays closed.
+	$effect(() => {
+		const id = page.url.searchParams.get('entry');
+		if (!id) return;
+		const entry = ratingSchemeStore.items.find((item) => item.id === id);
+		if (!entry) return;
+		const url = new URL(page.url);
+		url.searchParams.delete('entry');
+		replaceState(url, page.state);
+		if (canUseRatingSchemeWriteActions) ctx.handleEditRatingEntry(entry);
+	});
 	const ratingStats = $derived(ctx.ratingStats);
 	const ratingShownLabel = $derived(`${ctx.filteredRatingEntries.length} of ${ratingSchemeStore.items.length} shown`);
 	const ratingMetricItems = $derived([

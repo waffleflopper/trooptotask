@@ -27,7 +27,14 @@ export function readinessDrawerFromSearch(search: URLSearchParams): ReadinessDra
 	return isKind(add) ? { kind: add, id: null } : null;
 }
 
-/** The Readiness tab query that opens an attention row's item. */
-export function readinessTargetSearch(target: AttentionTarget): string {
-	return target.item ? `?${new URLSearchParams({ item: `${target.item.kind}:${target.item.id}` })}` : '';
+/** The page an attention row opens, under the Person's detail path and the Organization's path. */
+export function attentionTargetHref(target: AttentionTarget, paths: { person: string; org: string }): string {
+	switch (target.tab) {
+		case 'readiness':
+			return `${paths.person}/readiness?${new URLSearchParams({ item: `${target.item.kind}:${target.item.id}` })}`;
+		case 'evals':
+			return `${paths.org}/evals?${new URLSearchParams({ entry: target.entryId })}`;
+		case 'data-sheet':
+			return `${paths.person}/data-sheet`;
+	}
 }

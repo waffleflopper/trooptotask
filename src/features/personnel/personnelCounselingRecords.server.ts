@@ -88,17 +88,41 @@ function nameOf(labels: Map<string, string>, userId: string): string | null {
 	return label && label !== userId ? label : null;
 }
 
+/** The newest active counseling held on or before `asOf`; a record dated later is not yet "last counseled". */
+async function newestHeldCounseling(
+	ctx: PersonnelArtifactsContext,
+	personnelId: string,
+	asOf: string
+): Promise<CounselingRecordRow | null> {
+	const [row] = await ctx.persistence.listCounselingRecords(personnelId, {
+		archived: false,
+		limit: 1,
+		onOrBefore: asOf
+	});
+	return row ?? null;
+}
+
+export async function readLastPersonnelCounseling(
+	ctx: PersonnelArtifactsContext,
+	input: { personnelId: string; asOf: string }
+): Promise<PersonnelCounselingRecord | null> {
+	await requirePersonnelArtifactAccess(ctx, input.personnelId, 'read');
+	const row = await newestHeldCounseling(ctx, input.personnelId, input.asOf);
+	if (!row) return null;
+	return mapCounselingRow(row, await ctx.contributorLabels(row.uploaded_by ? [row.uploaded_by] : []));
+}
+
 /** The Files tab's first page of counselings with the figures its header, coverage bar and upload form need. */
 export async function readPersonnelCounselings(
 	ctx: PersonnelArtifactsContext,
 	input: { personnelId: string; asOf: string; limit: number }
 ): Promise<PersonnelCounselingsRead> {
 	await requirePersonnelArtifactAccess(ctx, input.personnelId, 'read');
-	const [rows, total, dates, lastConductedOn] = await Promise.all([
+	const [rows, total, dates, lastHeld] = await Promise.all([
 		ctx.persistence.listCounselingRecords(input.personnelId, { archived: false, limit: input.limit }),
 		ctx.persistence.countActiveCounselingRecords(input.personnelId),
 		ctx.persistence.listActiveCounselingDates(input.personnelId, coverageWindowStart(input.asOf)),
-		ctx.persistence.latestActiveCounselingDate(input.personnelId, input.asOf)
+		newestHeldCounseling(ctx, input.personnelId, input.asOf)
 	]);
 	const labels = await ctx.contributorLabels([
 		ctx.actor.userId,
@@ -109,7 +133,7 @@ export async function readPersonnelCounselings(
 		total,
 		uploaderLabel: nameOf(labels, ctx.actor.userId),
 		coveredMonths: coveredMonthsOf(dates, input.asOf),
-		lastConductedOn
+		lastConductedOn: lastHeld?.date_conducted ?? null
 	};
 }
 

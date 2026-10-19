@@ -2,7 +2,7 @@ import type { AssignmentType, AvailabilityEntry, DailyAssignment } from '$featur
 import { assignmentSlotKey } from './calendarIndexes';
 import type { CalendarBufferedRange } from './calendarRange';
 import { DUTY_LOOKBACK_DAYS } from './calendarRange';
-import { fromDayNumber, toDayNumber, type DayNumber, type DayWindow } from './dayNumber';
+import { fromDayNumber, toDayNumber, type DayNumber, type DayWindow } from '$lib/utils/dayNumber';
 
 /** Duty days per assignment type and assignee, ascending and without repeats. */
 export type DutyHistoryIndex = ReadonlyMap<string, ReadonlyMap<string, readonly DayNumber[]>>;

@@ -68,13 +68,11 @@ export interface PersonnelArtifactReadPersistence {
 	countRecords(personnelId: string): Promise<PersonnelRecordCounts>;
 	listCounselingRecords(
 		personnelId: string,
-		options: { archived: boolean; limit?: number; offset?: number }
+		options: { archived: boolean; limit?: number; offset?: number; onOrBefore?: string }
 	): Promise<CounselingRecordRow[]>;
 	countActiveCounselingRecords(personnelId: string): Promise<number>;
 	/** Conducted dates of active records on or after `since`, in no particular order. */
 	listActiveCounselingDates(personnelId: string, since: string): Promise<string[]>;
-	/** The newest conducted date of an active record on or before `through`, or null when there is none. */
-	latestActiveCounselingDate(personnelId: string, through: string): Promise<string | null>;
 	findCounseling(personnelId: string, counselingId: string): Promise<CounselingRecordRow | null>;
 	listDocuments(
 		personnelId: string,

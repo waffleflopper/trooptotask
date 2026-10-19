@@ -203,7 +203,8 @@ export interface CalendarAvailabilityPersistence extends CalendarAvailabilityRem
 }
 
 export interface CalendarAssignmentReader {
-	listRange(range: CalendarDateRange): Promise<SavedAssignment[]>;
+	/** `assigneeIds` narrows the read to those Personnel and Groups. */
+	listRange(range: CalendarDateRange & { assigneeIds?: readonly string[] }): Promise<SavedAssignment[]>;
 	listDayReferences(
 		date: string,
 		assignmentTypeId?: string

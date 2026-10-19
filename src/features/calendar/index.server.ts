@@ -36,6 +36,7 @@ export {
 } from './assignmentTypeRetention.server';
 export { createCalendarSupportReader } from './platformCatalogCounts.server';
 export { listDailyAssignments } from './dailyAssignmentRead.server';
+export { loadPersonnelCalendarWindow } from './personnelCalendarWindow.server';
 export { createSupabaseCalendarAssignmentReplacementPort } from './dailyAssignmentPersistence.server';
 export { createSupabaseCalendarCatalogPersistence } from './calendarCatalogPersistence.server';
 export { createSupabaseCalendarAvailabilityPersistence } from './calendarAvailabilityPersistence.server';

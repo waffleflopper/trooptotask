@@ -3,7 +3,6 @@ import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { POLICY_ACTION_CATALOG, type FeatureLanePolicyAction } from '$lib/access/policyEvaluator';
 import { evaluateFeaturePolicy, policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
 import { fail } from '$lib/errors';
-import { readLossWarningWindowDays } from '$features/organization/contracts';
 import { formatDate, formatDisplayDate, parseDate } from '$lib/utils/dates';
 import type {
 	PersonnelAvailabilityPeriod,
@@ -132,43 +131,4 @@ export async function loadPersonnelDetailTabCounts(
 	if (!decision.allowed) return null;
 	const counts = await ctx.artifactReads.countRecords(person.id);
 	return { log: counts.openFollowUps, archived: counts.archived };
-}
-
-/** The detail lane intentionally evaluates ETS alone; global loss signals also use DEROS. */
-export async function loadLossTrackingReadinessLane(
-	ctx: Pick<PersonnelDetailContext, 'auth' | 'audit'>,
-	person: Personnel,
-	asOf: string | Date | undefined,
-	readWarningWindowDays: () => Promise<number | null | undefined>
-): Promise<PersonnelReadinessLane> {
-	await authorizePersonnelLane(ctx, person, POLICY_ACTION_CATALOG.personnel.viewRoster, 'personnel');
-	if (!person.ets) {
-		return {
-			label: 'Loss Tracking',
-			value: 'Missing ETS',
-			detail: 'No ETS date is set on the personnel record.',
-			tone: 'bad'
-		};
-	}
-	const daysUntilEts = Math.floor((parseDate(person.ets).getTime() - asOfDate(asOf).getTime()) / (24 * 60 * 60 * 1000));
-	const detail =
-		daysUntilEts < 0
-			? `ETS ${formatDisplayDate(person.ets)} was ${Math.abs(daysUntilEts)} days ago.`
-			: `ETS ${formatDisplayDate(person.ets)} is ${daysUntilEts} days away.`;
-	if (daysUntilEts < 0) return { label: 'Loss Tracking', value: 'Action needed', detail, tone: 'bad' };
-	const warningWindowDays = await readLossWarningWindowDays(readWarningWindowDays());
-	if (warningWindowDays === null) {
-		return {
-			label: 'Loss Tracking',
-			value: 'Unavailable',
-			detail: `${detail} Loss warnings could not be loaded. Reload the page to try again.`,
-			tone: 'neutral'
-		};
-	}
-	return {
-		label: 'Loss Tracking',
-		value: daysUntilEts <= warningWindowDays ? 'Action needed' : 'No loss risk',
-		detail,
-		tone: daysUntilEts <= warningWindowDays ? 'watch' : 'good'
-	};
 }

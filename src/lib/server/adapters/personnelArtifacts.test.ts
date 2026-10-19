@@ -160,14 +160,18 @@ describe('Personnel artifact provider delivery', () => {
 		).toEqual([0, 1000]);
 	});
 
-	it('asks the provider for the newest active counseling date on or before the day, one row', async () => {
+	it('asks the provider for the newest active counseling on or before the day, one row', async () => {
 		const run = fixture(families[0]);
-		await expect(run.ctx.artifactReads.latestActiveCounselingDate(PERSON, '2026-10-19')).resolves.toBe('2026-10-01');
+		const rows = await run.ctx.artifactReads.listCounselingRecords(PERSON, {
+			archived: false,
+			limit: 1,
+			onOrBefore: '2026-10-19'
+		});
+		expect(rows.map((row) => row.date_conducted)).toEqual(['2026-10-01']);
 		const [request] = run.receipts.filter((receipt) => receipt.table === 'counseling_records');
-		expect(request.query?.get('select')).toBe('date_conducted');
 		expect(request.query?.get('archived_at')).toBe('is.null');
 		expect(request.query?.get('date_conducted')).toBe('lte.2026-10-19');
-		expect(request.query?.get('order')).toBe('date_conducted.desc');
+		expect(request.query?.get('order')).toMatch(/^date_conducted\.desc/);
 		expect(request.query?.get('limit')).toBe('1');
 	});
 

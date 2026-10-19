@@ -1,16 +1,16 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import type { AvailabilityEntry } from '$features/calendar/contracts';
-	import type { Bar, BarLane, BarLayout, MarkedDay, TrackPiece } from '$features/calendar/utils/barLayout';
-	import StatusBar from './StatusBar.svelte';
+	import { StatusBar, type BarLane, type MarkedDay, type TrackPiece } from '$lib/components/patterns/calendar-bars';
+	import type { CalendarBar, CalendarBarLayout } from '$features/calendar/utils/calendarBars';
 
 	interface Props {
-		layout: BarLayout;
+		layout: CalendarBarLayout;
 		personLabel: string;
 		size: 'month' | 'compact';
 		selectedEntryId?: string | null;
 		selection?: { start: number; end: number } | null;
-		onPressEdge?: (event: PointerEvent, bar: Bar, edge: 'start' | 'end') => void;
+		onPressEdge?: (event: PointerEvent, bar: CalendarBar, edge: 'start' | 'end') => void;
 		onOpenEntry?: (entry: AvailabilityEntry, anchor: HTMLElement) => void;
 		onOpenOverflow?: (entryIds: readonly string[], anchor: HTMLElement) => void;
 		/** Days whose bottom lane holds a marker; `fitMarkers` keeps bars out of their space. */
@@ -49,7 +49,7 @@
 		return piece.yieldsEnd ? `calc(75% / ${piece.end - piece.start + 1} + 1px)` : undefined;
 	}
 
-	function barSize(bar: Bar) {
+	function barSize(bar: CalendarBar) {
 		if (size === 'compact') return 'compact';
 		return bar.lane === 'full' ? 'regular' : 'lane';
 	}

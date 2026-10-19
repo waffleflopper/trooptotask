@@ -6,9 +6,9 @@
 		fitsOneDayLabel,
 		normalizeShortLabel,
 		ONE_DAY_LABEL_LENGTH,
+		StatusBar,
 		suggestOneDayLabel
-	} from '$features/calendar/utils/oneDayLabel';
-	import StatusBar from './calendar-bars/StatusBar.svelte';
+	} from '$lib/components/patterns/calendar-bars';
 	import { Button } from '$lib/components/ui/button';
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';

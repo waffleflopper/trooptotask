@@ -9,8 +9,9 @@
 	import * as Empty from '$lib/components/ui/empty';
 	import { Button } from '$lib/components/ui/button';
 	import type { AvailabilityTracks } from '$features/calendar/utils/availabilityTracks';
-	import { dayWindow, fromDayNumber, toDayNumber, type DayNumber } from '$features/calendar/utils/dayNumber';
-	import { layoutBars, type Bar, type LabelPolicy } from '$features/calendar/utils/barLayout';
+	import { dayWindow, fromDayNumber, toDayNumber, type DayNumber } from '$lib/utils/dayNumber';
+	import { layoutBars, type LabelPolicy } from '$lib/components/patterns/calendar-bars';
+	import type { CalendarBar } from '$features/calendar/utils/calendarBars';
 	import { gestureRange } from '$features/calendar/utils/calendarGesture';
 	import { CalendarGesture, type GestureCommit } from './calendar-bars/gesture.svelte';
 	import { buildCalendarDays, buildDutyMarkers } from '$features/calendar/utils/calendarRenderState';
@@ -219,7 +220,13 @@
 		gesture.pressDay(event, person.id, row, days.length, commit);
 	}
 
-	function pressEdge(event: PointerEvent, person: Personnel, bar: Bar, edge: 'start' | 'end', row: HTMLElement) {
+	function pressEdge(
+		event: PointerEvent,
+		person: Personnel,
+		bar: CalendarBar,
+		edge: 'start' | 'end',
+		row: HTMLElement
+	) {
 		if (!canEditAvailabilityFor(person)) return;
 		const target = {
 			personId: person.id,

@@ -21,16 +21,17 @@ export function loadPersonnelModals() {
 
 export { default as PersonnelPageView } from './components/PersonnelPageView.svelte';
 export { personnelWorkspaceHydrator } from './personnelWorkspaceHydration.svelte';
-export { default as PersonnelDetailPageView } from './components/PersonnelDetailPageView.svelte';
 export { default as PersonnelDataSheetPageView } from './components/PersonnelDataSheetPageView.svelte';
 export { provideDataSheetEditSession } from './workspace/dataSheetEditSession.svelte';
 export { default as PersonnelRecordHeader } from './components/PersonnelRecordHeader.svelte';
 export { default as PersonnelImportPage } from './components/PersonnelImportPage.svelte';
 export { default as PersonnelLogPageView } from './components/PersonnelLogPageView.svelte';
 export { default as PersonnelFilesPageView } from './components/PersonnelFilesPageView.svelte';
+export { default as PersonnelOpenFollowUps } from './components/PersonnelOpenFollowUps.svelte';
 export { default as PersonnelArchivedPageView } from './components/PersonnelArchivedPageView.svelte';
 export { default as PersonnelLossBlock } from './components/PersonnelLossBlock.svelte';
-export { readinessDrawerFromSearch, readinessTargetSearch } from './readinessDrawerTarget';
+export { attentionTargetHref, readinessDrawerFromSearch } from './readinessDrawerTarget';
+export { alsoChecked, attentionRows, uncheckedSources } from './personnelAttentionView';
 export type { ReadinessDrawerTarget, ReadinessItemKind } from './readinessDrawerTarget';
 
 export type { PersonnelPageAccess } from './contracts';

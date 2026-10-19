@@ -461,6 +461,9 @@ describe('finite Personnel ordinary provider contracts', () => {
 		});
 		const port = createSupabasePersonnelArtifactReadPersistence(p.client, 'org-a');
 		expect(await port.listCounselingRecords('person-a', { archived: false, limit: 1 })).toEqual([counseling]);
+		expect(
+			await port.listCounselingRecords('person-a', { archived: false, limit: 1, onOrBefore: '2026-10-06' })
+		).toEqual([{ ...counseling, id: 'c-older', date_conducted: '2026-10-06' }]);
 		expect(await port.listCounselingRecords('person-a', { archived: true })).toEqual([
 			{ ...counseling, id: 'c-archived', archived_at: '2026-10-08' }
 		]);

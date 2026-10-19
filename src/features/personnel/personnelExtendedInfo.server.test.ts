@@ -163,6 +163,20 @@ describe('Soldier Data Sheet read access', () => {
 		});
 	});
 
+	it("still reads the sheet when the saving member's name cannot be looked up", async () => {
+		const ctx = sheetContext();
+		const failingLookup = {
+			...ctx,
+			contributorLabels: async () => {
+				throw new Error('membership lookup unavailable');
+			}
+		};
+		await expect(readPersonnelExtendedInfo(failingLookup, 'person-1')).resolves.toMatchObject({
+			maritalStatusDate: '2019-07-04',
+			updatedBy: null
+		});
+	});
+
 	it('leaves the saving member unnamed when they are no longer in the Organization', async () => {
 		const ctx = sheetContext();
 		await expect(readPersonnelExtendedInfo(ctx, 'person-1')).resolves.toMatchObject({ updatedBy: null });

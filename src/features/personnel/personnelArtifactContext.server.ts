@@ -20,11 +20,10 @@ export interface PersonnelArtifactsContext {
 		findPersonnelGroup(personnelId: string): Promise<string | null | undefined>;
 		listCounselingRecords(
 			personnelId: string,
-			options: { archived: boolean; limit?: number; offset?: number }
+			options: { archived: boolean; limit?: number; offset?: number; onOrBefore?: string }
 		): Promise<CounselingRecordRow[]>;
 		countActiveCounselingRecords(personnelId: string): Promise<number>;
 		listActiveCounselingDates(personnelId: string, since: string): Promise<string[]>;
-		latestActiveCounselingDate(personnelId: string, through: string): Promise<string | null>;
 		findCounseling(personnelId: string, counselingId: string): Promise<CounselingRecordRow | null>;
 		listDocuments(
 			personnelId: string,

@@ -38,7 +38,7 @@ export function createSupabasePersonnelArtifactReadPersistence(
 			});
 			return { openFollowUps, archived: archived.reduce((sum, count) => sum + count, 0) };
 		},
-		async listCounselingRecords(personnelId, { archived, limit, offset = 0 }) {
+		async listCounselingRecords(personnelId, { archived, limit, offset = 0, onOrBefore }) {
 			const rows: CounselingRecordRow[] = [];
 			if (limit === 0) return rows;
 			for (let from = offset; ; from += 1000) {
@@ -48,6 +48,7 @@ export function createSupabasePersonnelArtifactReadPersistence(
 					.eq('organization_id', orgId)
 					.eq('personnel_id', personnelId);
 				query = archived ? query.not('archived_at', 'is', null) : query.is('archived_at', null);
+				if (onOrBefore) query = query.lte('date_conducted', onOrBefore);
 				query = query.order('date_conducted', { ascending: false });
 				query = query.order('created_at', { ascending: false });
 				const to = limit === undefined ? from + 999 : Math.min(from + 999, offset + limit - 1);
@@ -85,19 +86,6 @@ export function createSupabasePersonnelArtifactReadPersistence(
 				dates.push(...page.map((row) => row.date_conducted as string));
 				if (page.length < 1000) return dates;
 			}
-		},
-		async latestActiveCounselingDate(personnelId, through) {
-			const { data, error } = await client
-				.from('counseling_records')
-				.select('date_conducted')
-				.eq('organization_id', orgId)
-				.eq('personnel_id', personnelId)
-				.is('archived_at', null)
-				.lte('date_conducted', through)
-				.order('date_conducted', { ascending: false })
-				.limit(1);
-			if (error) throw new Error(error.message);
-			return (data?.[0]?.date_conducted as string | undefined) ?? null;
 		},
 		async findCounseling(personnelId, counselingId) {
 			const { data, error } = await client

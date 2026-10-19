@@ -79,7 +79,12 @@ import type {
 	PersonnelTrainingRosterPort,
 	PersonnelWriteSubject
 } from '$features/personnel/contracts';
-import type { RatingSchemeDuePort, RatingSchemePersistence } from '$features/rating-scheme/contracts';
+import {
+	isArchivedPerson,
+	toArchivedPersonIds,
+	type RatingSchemeDuePort,
+	type RatingSchemePersistence
+} from '$features/rating-scheme/contracts';
 import type { TrainingOnboardingReferencesPort } from '$features/training/contracts';
 import { createScopedFixtureRows } from './test-support/scopedFixtureRows';
 import { fixtureScopeRules } from './test-support/fixtureScopeRules';
@@ -1257,12 +1262,21 @@ function createInMemoryPersonnelCriticalTasksRosterPort(rawStore: FixtureRowStor
 	};
 }
 
+async function inMemoryArchivedPersonIds(rawStore: FixtureRowStore, orgId: string): Promise<string[]> {
+	const rows = await rawStore.findMany<Row>('personnel', orgId, undefined, { isNull: { archived_at: false } });
+	return rows.map((row) => row.id as string);
+}
+
 function createInMemoryRatingSchemeDuePort(rawStore: FixtureRowStore): RatingSchemeDuePort {
 	return {
 		async listDueEntries(actor) {
 			if (actor.capabilityMap.ratingScheme === 'none') return [];
-			const people = actor.scopeSet.kind === 'groups' ? await inMemoryPersonnelRows(rawStore, actor, 'all') : null;
+			const [people, archivedIds] = await Promise.all([
+				actor.scopeSet.kind === 'groups' ? inMemoryPersonnelRows(rawStore, actor, 'all') : null,
+				inMemoryArchivedPersonIds(rawStore, actor.orgId)
+			]);
 			const rows = await rawStore.findMany<{
+				rated_person_id: string;
 				rating_period_end: string;
 				status: 'active' | 'completed' | 'change-of-rater';
 			}>(
@@ -1271,7 +1285,10 @@ function createInMemoryRatingSchemeDuePort(rawStore: FixtureRowStore): RatingSch
 				undefined,
 				people ? { inFilters: { rated_person_id: people.map((person) => person.id) } } : undefined
 			);
-			return rows.map((row) => ({ ratingPeriodEnd: row.rating_period_end, status: row.status }));
+			const archived = toArchivedPersonIds(archivedIds);
+			return rows
+				.filter((row) => !isArchivedPerson(archived, row.rated_person_id))
+				.map((row) => ({ ratingPeriodEnd: row.rating_period_end, status: row.status }));
 		}
 	};
 }
@@ -1285,6 +1302,9 @@ function createInMemoryPersonnelRatingSchemeRosterPort(rawStore: FixtureRowStore
 				lastName: (row.last_name as string) ?? '',
 				firstName: (row.first_name as string) ?? ''
 			}));
+		},
+		async listArchivedRatedPersonIds(actor) {
+			return inMemoryArchivedPersonIds(rawStore, actor.orgId);
 		},
 		async findRatedPersonForWrite(actor, personnelId) {
 			const rows = await inMemoryPersonnelRows(rawStore, actor, 'all', [personnelId]);
@@ -1633,7 +1653,7 @@ function createTestArtifactReadPersistence(store: FixtureRowStore, orgId: string
 					notes.length
 			};
 		},
-		listCounselingRecords: (personnelId, { archived, limit, offset }) =>
+		listCounselingRecords: (personnelId, { archived, limit, offset, onOrBefore }) =>
 			store.findMany(
 				'counseling_records',
 				orgId,
@@ -1641,6 +1661,7 @@ function createTestArtifactReadPersistence(store: FixtureRowStore, orgId: string
 				{
 					isNull: { archived_at: !archived },
 					...pageOptions(limit, offset),
+					rangeFilters: onOrBefore ? [{ column: 'date_conducted', op: 'lte', value: onOrBefore }] : undefined,
 					orderBy: [
 						{ column: 'date_conducted', ascending: false },
 						{ column: 'created_at', ascending: false }
@@ -1665,20 +1686,6 @@ function createTestArtifactReadPersistence(store: FixtureRowStore, orgId: string
 					{ isNull: { archived_at: true }, rangeFilters: [{ column: 'date_conducted', op: 'gte', value: since }] }
 				)
 			).map((row) => row.date_conducted),
-		latestActiveCounselingDate: async (personnelId, through) => {
-			const rows = await store.findMany<CounselingRecordRow>(
-				'counseling_records',
-				orgId,
-				{ personnel_id: personnelId },
-				{ isNull: { archived_at: true }, rangeFilters: [{ column: 'date_conducted', op: 'lte', value: through }] }
-			);
-			return (
-				rows
-					.map((row) => row.date_conducted)
-					.sort()
-					.at(-1) ?? null
-			);
-		},
 		findCounseling: (personnelId, id) => store.findOne('counseling_records', orgId, { id, personnel_id: personnelId }),
 		listDocuments: (personnelId, { archived, limit, offset }) =>
 			store.findMany(

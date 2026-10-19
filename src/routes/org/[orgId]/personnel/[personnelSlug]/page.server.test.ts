@@ -1,22 +1,17 @@
-import { withTrainingPersistence } from '$features/training/server/trainingPersistence.test-support.server';
+import { describe, expect, it, vi } from 'vitest';
+import { createTestContext } from '$features/calendar/calendarPersistence.test-support.server';
+import { fail } from '$lib/errors';
 import { createTestAuthContext } from '$lib/server/adapters/inMemory';
-import { createTestContext as createCriticalTasksTestContext } from '$features/critical-tasks/server/criticalTasksPersistence.test-support.server';
-import { withCalendarPersistence } from '$features/calendar/calendarPersistence.test-support.server';
-import { createInMemoryRatingSchemePersistence } from '$features/rating-scheme/server/inMemoryRatingSchemePersistence.server';
-
-function createTestContext(options?: Parameters<typeof createCriticalTasksTestContext>[0]) {
-	return createCriticalTasksTestContext(withTrainingPersistence(withCalendarPersistence(options)));
-}
+import type { loadRequestPersonnelReadiness } from '$lib/server/adapters/personnelReadinessLoad';
 import {
 	createPersonnelArtifactDeliveryContext,
 	createPersonnelLeaderNoteDeliveryContext,
 	createRequestPersonnelDetailContext,
 	createRequestPersonnelDetailLayoutContext,
-	type createRequestPersonnelDetailStreamsContext
+	type createRequestPersonnelOverviewContext
 } from '$lib/server/adapters/requestContexts.server';
-import { describe, expect, it, vi } from 'vitest';
 import { _createPersonnelDetailLayoutLoad } from './+layout.server';
-import { _createPersonnelDetailPageLoad } from './+page.server';
+import { _createPersonnelOverviewPageLoad } from './+page.server';
 
 const operateAuth = {
 	orgId: 'org-1',
@@ -39,41 +34,25 @@ function detailTestContext(
 	auth: Parameters<typeof createTestAuthContext>[0] = {},
 	groupId: string | null = null
 ) {
-	const ctx = createTestContext({
-		ratingSchemeFactory: createInMemoryRatingSchemePersistence,
-		auth: { ...operateAuth, ...auth }
-	});
+	const ctx = createTestContext({ auth: { ...operateAuth, ...auth } });
 	ctx.rawStore.seed('personnel', [
-		{
-			id: personnelId,
-			organization_id: 'org-1',
-			slug: 'rivera-monica',
-			group_id: groupId,
-			ets: null,
-			archived_at: null
-		}
+		{ id: personnelId, organization_id: 'org-1', slug: 'rivera-monica', group_id: groupId, archived_at: null }
 	]);
 	return ctx;
 }
 
-function selectedContexts(
-	ctx: ReturnType<typeof createTestContext>
-): ReturnType<typeof createRequestPersonnelDetailStreamsContext> {
+type TestContext = ReturnType<typeof detailTestContext>;
+
+function overviewContext(ctx: TestContext): ReturnType<typeof createRequestPersonnelOverviewContext> {
 	return {
 		calendar: {
 			auth: ctx.auth,
 			audit: ctx.audit,
 			calendarAvailability: ctx.calendarAvailability,
-			calendarCatalogs: ctx.calendarCatalogs,
-			personnelCalendarRoster: ctx.personnelCalendarRoster
+			personnelCalendarRoster: ctx.personnelCalendarRoster,
+			calendarAssignments: ctx.calendarAssignments,
+			calendarCatalogs: ctx.calendarCatalogs
 		},
-		organizationSettings: ctx.organizationSettings,
-		trainingCatalog: ctx.trainingCatalog,
-		trainingCompletions: ctx.trainingCompletions,
-		criticalTaskLibrary: ctx.criticalTaskLibrary,
-		criticalTaskCompletions: ctx.criticalTaskCompletions,
-		ratingScheme: ctx.ratingScheme,
-		detail: { auth: ctx.auth, audit: ctx.audit },
 		extendedInfo: {
 			auth: ctx.auth,
 			audit: ctx.audit,
@@ -83,14 +62,11 @@ function selectedContexts(
 			contributorLabels: ctx.contributorLabels
 		},
 		artifacts: createPersonnelArtifactDeliveryContext(ctx),
-		leaderNotes: createPersonnelLeaderNoteDeliveryContext(ctx),
-		loadLossWarningWindowDays: () => ctx.organizationSettings.findLossWarningWindowDays(ctx.auth.orgId)
+		leaderNotes: createPersonnelLeaderNoteDeliveryContext(ctx)
 	};
 }
 
-const noCookies = { get: () => undefined } as never;
-
-function loadWithSelectedContexts(ctx: ReturnType<typeof createTestContext>) {
+function loadWithSelectedContexts(ctx: TestContext) {
 	return vi.fn(async (_locals, _cookies, _orgId, config) => {
 		if (config.context === createRequestPersonnelDetailContext)
 			return config.fn({
@@ -100,7 +76,7 @@ function loadWithSelectedContexts(ctx: ReturnType<typeof createTestContext>) {
 				personnelSheets: ctx.personnelSheets,
 				scope: ctx.scope
 			});
-		const selected = selectedContexts(ctx);
+		const selected = overviewContext(ctx);
 		if (config.context === createRequestPersonnelDetailLayoutContext)
 			return config.fn({
 				auth: ctx.auth,
@@ -112,11 +88,22 @@ function loadWithSelectedContexts(ctx: ReturnType<typeof createTestContext>) {
 	});
 }
 
+function readiness(evaluation: () => Promise<unknown> = async () => null) {
+	return vi.fn(async () => ({
+		attention: Promise.resolve({ items: [] }),
+		evaluation: evaluation()
+	})) as unknown as typeof loadRequestPersonnelReadiness;
+}
+
+function overviewLoad(ctx: TestContext, loadReadiness = readiness()) {
+	return _createPersonnelOverviewPageLoad({ loadWithContext: loadWithSelectedContexts(ctx), loadReadiness });
+}
+
 function detailEvent(overrides: Record<string, unknown> = {}) {
 	return {
 		params: { orgId: 'org-1', personnelSlug: 'rivera-monica' },
 		locals: {} as App.Locals,
-		cookies: noCookies,
+		cookies: { get: () => undefined },
 		depends: vi.fn(),
 		parent: () => {
 			throw new Error('The detail page must not run ancestor loads');
@@ -125,222 +112,191 @@ function detailEvent(overrides: Record<string, unknown> = {}) {
 	} as never;
 }
 
-describe('personnel detail page server load', () => {
-	it.each([0, null, 'failure', 'no-ets'] as const)(
-		'uses the owned warning scalar lazily and reports a failed read as unavailable (%s)',
-		async (value) => {
-			vi.useFakeTimers({ toFake: ['Date'] });
-			vi.setSystemTime(new Date('2026-05-14T12:00:00Z'));
-			try {
-				const ctx = createTestContext({
-					ratingSchemeFactory: createInMemoryRatingSchemePersistence,
-					auth: { orgId: 'org-1' }
-				});
-				ctx.store.seed('personnel', [
-					{
-						id: 'person-1',
-						organization_id: 'org-1',
-						slug: 'person-1',
-						group_id: null,
-						ets: value === 'no-ets' ? null : '2026-05-15',
-						archived_at: null
-					}
-				]);
-				const window = vi.fn(async () => {
-					if (value === 'failure') throw new Error('Optional settings unavailable');
-					return value === 'no-ets' ? 30 : value;
-				});
-				ctx.organizationSettings.findLossWarningWindowDays = window;
-				const load = _createPersonnelDetailPageLoad({
-					loadWithContext: loadWithSelectedContexts(ctx)
-				});
-				const result = await load({
-					params: { orgId: 'org-1', personnelSlug: 'person-1' },
-					locals: {},
-					cookies: noCookies,
-					depends: vi.fn()
-				} as never);
-				const lanes = result.personnelDetail.readinessLanes;
-				const settled = Promise.allSettled(Object.values(lanes));
-				const expected = {
-					0: { value: 'No loss risk', tone: 'good' },
-					null: { value: 'Action needed', tone: 'watch' },
-					failure: { value: 'Unavailable', tone: 'neutral' },
-					'no-ets': { value: 'Missing ETS', tone: 'bad' }
-				}[String(value)];
-				await expect(lanes.lossTracking).resolves.toMatchObject(expected!);
-				if (value === 'no-ets') expect(window).not.toHaveBeenCalled();
-				await settled;
-			} finally {
-				vi.useRealTimers();
-			}
-		}
-	);
+function settleOverview(overview: Record<string, Promise<unknown>>) {
+	return Promise.allSettled(Object.values(overview));
+}
 
-	it('evaluates readiness on the viewer day from the time zone cookie', async () => {
+describe('personnel Overview page server load', () => {
+	it("shows the slug-resolved Person's latest active counseling held by the viewer's day", async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date('2026-10-19T18:00:00Z'));
+		const ctx = detailTestContext('person-9');
+		const counseling = (id: string, personnelId: string, dateConducted: string, archivedAt: string | null = null) => ({
+			id,
+			organization_id: 'org-1',
+			personnel_id: personnelId,
+			date_conducted: dateConducted,
+			title: id,
+			status: 'uploaded',
+			uploaded_by: 'SSG Alvarez',
+			file_name: `${id}.pdf`,
+			created_at: `${dateConducted}T12:00:00Z`,
+			archived_at: archivedAt
+		});
+		ctx.store.seed('counseling_records', [
+			counseling('september', 'person-9', '2026-09-01'),
+			{ ...counseling('october', 'person-9', '2026-10-01'), conducted_by: 'SSG Hill' },
+			counseling('archived', 'person-9', '2026-10-05', '2026-10-06T00:00:00Z'),
+			counseling('scheduled', 'person-9', '2026-10-25'),
+			counseling('someone-else', 'person-other', '2026-10-10')
+		]);
+
+		try {
+			const result = await overviewLoad(ctx)(detailEvent());
+
+			await expect(result.overview.lastCounseling).resolves.toMatchObject({
+				id: 'october',
+				personnelId: 'person-9',
+				conductedBy: 'SSG Hill'
+			});
+			await expect(result.overview.latestNote).resolves.toBeNull();
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it("lists only the Person's open follow-ups", async () => {
+		const ctx = detailTestContext('person-9');
+		const followUp = (id: string, personnelId: string, status: string) => ({
+			id,
+			organization_id: 'org-1',
+			personnel_id: personnelId,
+			title: id,
+			notes: '',
+			status,
+			created_by: null,
+			created_at: '2026-10-01T10:00:00Z',
+			updated_at: '2026-10-01T10:00:00Z',
+			completed_at: status === 'completed' ? '2026-10-02T10:00:00Z' : null,
+			completed_by: null,
+			archived_at: status === 'archived' ? '2026-10-03T10:00:00Z' : null,
+			archived_by: null
+		});
+		ctx.store.seed('personnel_follow_ups', [
+			followUp('open', 'person-9', 'open'),
+			followUp('done', 'person-9', 'completed'),
+			followUp('archived', 'person-9', 'archived'),
+			followUp('someone-else', 'person-other', 'open')
+		]);
+
+		const result = await overviewLoad(ctx)(detailEvent());
+
+		const rows = await result.overview.openFollowUps;
+		expect(rows.map((row) => [row.id, row.status])).toEqual([['open', 'open']]);
+	});
+
+	it('reads the next 14 days from the viewer day in the time zone cookie', async () => {
 		vi.useFakeTimers({ toFake: ['Date'] });
 		vi.setSystemTime(new Date('2026-05-15T02:00:00Z'));
 		try {
-			const ctx = createTestContext({ ratingSchemeFactory: createInMemoryRatingSchemePersistence, auth: operateAuth });
-			ctx.rawStore.seed('personnel', [
-				{
-					id: 'person-1',
-					organization_id: 'org-1',
-					slug: 'person-1',
-					group_id: null,
-					ets: '2026-05-15',
-					archived_at: null
-				}
-			]);
-			ctx.organizationSettings.findLossWarningWindowDays = async () => 0;
-			const load = _createPersonnelDetailPageLoad({ loadWithContext: loadWithSelectedContexts(ctx) });
-			const lossTrackingFor = async (timeZone: string | undefined) => {
-				const result = await load({
-					params: { orgId: 'org-1', personnelSlug: 'person-1' },
-					locals: {} as App.Locals,
-					cookies: { get: (name: string) => (name === 't2t_tz' ? timeZone : undefined) } as never,
-					depends: vi.fn()
-				} as never);
-				const lanes = result.personnelDetail.readinessLanes;
-				await Promise.allSettled(Object.values(lanes));
-				return lanes.lossTracking;
-			};
+			const ctx = detailTestContext();
+			const cookies = { get: (name: string) => (name === 't2t_tz' ? 'America/New_York' : undefined) };
 
-			await expect(lossTrackingFor('America/New_York')).resolves.toMatchObject({
-				value: 'No loss risk',
-				detail: 'ETS May 15, 2026 is 1 days away.'
-			});
-			await expect(lossTrackingFor(undefined)).resolves.toMatchObject({
-				value: 'Action needed',
-				detail: 'ETS May 15, 2026 is 0 days away.'
+			const result = await overviewLoad(ctx)(detailEvent({ cookies }));
+
+			expect(result.asOf).toBe('2026-05-14');
+			await expect(result.overview.nextDays).resolves.toMatchObject({
+				rangeStart: '2026-05-14',
+				rangeEnd: '2026-05-27',
+				availability: [],
+				assignments: []
 			});
 		} finally {
 			vi.useRealTimers();
 		}
 	});
 
-	it('denies Training readiness before reading its catalog when Training access is absent', async () => {
-		const ctx = detailTestContext('person-1', {
-			capabilityMap: { ...operateAuth.capabilityMap, training: 'none' }
-		});
-		vi.spyOn(ctx.scope, 'requireGroupAccess');
-		const findMany = vi.spyOn(ctx.store, 'findMany');
-		const loadWithContext = loadWithSelectedContexts(ctx);
-		const load = _createPersonnelDetailPageLoad({ loadWithContext });
-		const result = await load(detailEvent());
-
-		const readinessLanes = result.personnelDetail.readinessLanes;
-		const [trainingOutcome] = await Promise.allSettled([readinessLanes.training, ...Object.values(readinessLanes)]);
-		expect(trainingOutcome).toMatchObject({ status: 'rejected', reason: { status: 403 } });
-		expect(ctx.scope.requireGroupAccess).toHaveBeenCalledWith('person-1');
-		const trainingReads = findMany.mock.calls.filter(([table]) =>
-			['training_types', 'personnel_trainings'].includes(table)
-		);
-		expect(trainingReads).toEqual([]);
-	});
-
-	it('loads retained detail streams with Duty storage unavailable for the layout-resolved personnel id', async () => {
-		const ctx = detailTestContext();
-		const read = ctx.store.findMany.bind(ctx.store);
-		vi.spyOn(ctx.store, 'findOne');
-		vi.spyOn(ctx.store, 'findMany').mockImplementation(async (table, ...args) => {
-			if (table.startsWith('duty_')) throw new Error('Duty storage is unavailable');
-			return read(table, ...args);
-		});
-		const loadWithContext = loadWithSelectedContexts(ctx);
-		const load = _createPersonnelDetailPageLoad({ loadWithContext });
-		const depends = vi.fn();
-
-		const result = await load({
-			params: { orgId: 'org-1', personnelSlug: 'rivera-monica' },
-			locals: {} as App.Locals,
-			cookies: noCookies,
-			depends
-		} as never);
-
-		await result.personnelDetail.extendedInfo;
-		await expect(Promise.all(Object.values(result.personnelDetail.readinessLanes))).resolves.toEqual(
-			expect.arrayContaining([expect.objectContaining({ label: 'Availability', value: 'Present', tone: 'good' })])
-		);
-		expect(result.personnelDetail.readinessLanes).not.toHaveProperty('dutyRoster');
-		expect(depends).toHaveBeenCalledWith('app:personnel-detail');
-		expect(ctx.store.findOne).not.toHaveBeenCalledWith('personnel', 'org-1', { slug: 'rivera-monica' }, 'id');
-		expect(ctx.store.findMany).toHaveBeenCalledWith('personnel_extended_info', 'org-1', {
-			personnel_id: 'person-1'
-		});
-	});
-
-	it('streams expanded Soldier Data Sheet fields for the resolved Personnel Slug', async () => {
+	it('reaches the Person through the phone, email and emergency contact on their Data sheet', async () => {
 		const ctx = detailTestContext();
 		ctx.store.seed('personnel_extended_info', [
 			{
 				id: 'info-1',
 				organization_id: 'org-1',
 				personnel_id: 'person-1',
-				blood_type: 'O+',
-				basd: '2020-01-15',
-				date_of_rank: '2024-06-01',
-				marital_status: 'Married',
-				number_of_dependents: 2,
-				children: [{ name: 'Avery', age: 7 }],
-				civilian_education: 'BSN',
-				military_education: ['BLC'],
+				personal_phone: '907-555-0102',
+				personal_email: 'rivera@example.com',
 				emergency_contact_name: 'Jamie Rivera',
 				emergency_contact_relationship: 'Spouse',
-				emergency_contact_phone: '907-555-0100',
-				spouse_name: 'Jamie Rivera',
-				spouse_phone: '907-555-0101',
-				vehicle_make_model: 'Toyota Tacoma',
-				vehicle_plate: 'JBER482',
-				vehicle_color: 'Gray',
-				personal_email: 'rivera@example.com',
-				personal_phone: '907-555-0102',
-				address_street: '1128 Arctic Valley Rd',
-				address_city: 'Anchorage',
-				address_state: 'AK',
-				address_zip: '99505',
-				leader_notes: 'Strong performer'
+				emergency_contact_phone: '907-555-0100'
 			}
 		]);
-		const loadWithContext = loadWithSelectedContexts(ctx);
-		const load = _createPersonnelDetailPageLoad({ loadWithContext });
 
-		const result = await load({
-			params: { orgId: 'org-1', personnelSlug: 'rivera-monica' },
-			locals: {} as App.Locals,
-			cookies: noCookies,
-			depends: vi.fn()
-		} as never);
+		const result = await overviewLoad(ctx)(detailEvent());
 
-		await expect(result.personnelDetail.extendedInfo).resolves.toMatchObject({
-			bloodType: 'O+',
-			basd: '2020-01-15',
-			dateOfRank: '2024-06-01',
-			maritalStatus: 'Married',
-			numberOfDependents: 2,
-			children: [{ name: 'Avery', age: 7 }],
-			civilianEducation: 'BSN',
-			militaryEducation: ['BLC']
+		await expect(result.overview.reach).resolves.toEqual({
+			phone: '907-555-0102',
+			email: 'rivera@example.com',
+			emergency: { name: 'Jamie Rivera', relationship: 'Spouse', phone: '907-555-0100' }
 		});
 	});
 
-	it('uses the slug-resolved personnel id for all dashboard streams without running ancestor loads', async () => {
-		const ctx = detailTestContext('person-9');
-		vi.spyOn(ctx.store, 'findMany');
-		const load = _createPersonnelDetailPageLoad({ loadWithContext: loadWithSelectedContexts(ctx) });
+	it('keeps a saved emergency phone even when the contact has no name', async () => {
+		const ctx = detailTestContext();
+		ctx.store.seed('personnel_extended_info', [
+			{ id: 'info-1', organization_id: 'org-1', personnel_id: 'person-1', emergency_contact_phone: '907-555-0100' }
+		]);
 
-		const result = await load(detailEvent());
+		const result = await overviewLoad(ctx)(detailEvent());
 
-		await result.personnelDetail.counselingRecords;
-		expect(ctx.store.findMany).toHaveBeenCalledWith(
-			'counseling_records',
-			'org-1',
-			{ personnel_id: 'person-9' },
-			expect.any(Object)
-		);
+		await expect(result.overview.reach).resolves.toEqual({
+			phone: '',
+			email: '',
+			emergency: { name: '', relationship: '', phone: '907-555-0100' }
+		});
 	});
 
-	it('resolves the Person by slug once for the detail layout, the page and all five lanes in one request', async () => {
+	it('hides the Calendar and the rating chain from a viewer denied them', async () => {
+		const ctx = detailTestContext('person-1', {
+			capabilityMap: { ...operateAuth.capabilityMap, calendar: 'none' }
+		});
+
+		const result = await overviewLoad(
+			ctx,
+			readiness(async () => fail(403, 'Forbidden'))
+		)(detailEvent());
+
+		await expect(result.overview.nextDays).resolves.toBeNull();
+		await expect(result.overview.evaluation).resolves.toBeNull();
+	});
+
+	it('fails only the section whose read failed', async () => {
+		const ctx = detailTestContext();
+		const read = ctx.store.findMany.bind(ctx.store);
+		vi.spyOn(ctx.store, 'findMany').mockImplementation(async (table, ...args) => {
+			if (table === 'availability_entries') throw new Error('Calendar read failed');
+			return read(table, ...args);
+		});
+		const providerDown = new Error('Rating scheme read failed');
+
+		const result = await overviewLoad(
+			ctx,
+			readiness(async () => {
+				throw providerDown;
+			})
+		)(detailEvent());
+		const [nextDays, attention, evaluation, openFollowUps, reach, lastCounseling, latestNote] =
+			await Promise.allSettled([
+				result.overview.nextDays,
+				result.overview.attention,
+				result.overview.evaluation,
+				result.overview.openFollowUps,
+				result.overview.reach,
+				result.overview.lastCounseling,
+				result.overview.latestNote
+			]);
+
+		expect(nextDays).toMatchObject({ status: 'rejected', reason: { message: 'Calendar read failed' } });
+		expect(evaluation).toEqual({ status: 'rejected', reason: providerDown });
+		expect([attention, openFollowUps, reach, lastCounseling, latestNote].map((section) => section.status)).toEqual([
+			'fulfilled',
+			'fulfilled',
+			'fulfilled',
+			'fulfilled',
+			'fulfilled'
+		]);
+	});
+
+	it('resolves the Person by slug once for the detail layout and the Overview in one request', async () => {
 		const ctx = detailTestContext('person-1', { scopeSet: { kind: 'groups', groupIds: ['group-1'] } }, 'group-1');
 		const findBySlug = vi.spyOn(ctx.organizationPersonnel, 'findBySlug');
 		const findById = vi.spyOn(ctx.organizationPersonnel, 'findById');
@@ -348,90 +304,27 @@ describe('personnel detail page server load', () => {
 		const event = detailEvent();
 
 		const [layout, page] = await Promise.all([
-			_createPersonnelDetailLayoutLoad({ loadWithContext })(event),
-			_createPersonnelDetailPageLoad({ loadWithContext })(event)
+			_createPersonnelDetailLayoutLoad({ loadWithContext, loadReadinessBadge: async () => null })(event),
+			_createPersonnelOverviewPageLoad({ loadWithContext, loadReadiness: readiness() })(event)
 		]);
-		const lanes = page.personnelDetail.readinessLanes;
-		const settled = await Promise.all(Object.values(lanes));
+		await settleOverview(page.overview);
 
 		expect(layout.personnelDetailHeader.person.id).toBe('person-1');
-		expect(settled.map((lane) => lane.value)).toEqual([
-			'Present',
-			'Current',
-			'No tasks',
-			'Not assigned',
-			'Missing ETS'
-		]);
 		expect(findBySlug.mock.calls).toEqual([['rivera-monica']]);
 		expect(findById.mock.calls).toEqual([]);
-	});
-
-	it('computes Loss Tracking from the stored Person on the request after its ETS is cleared', async () => {
-		vi.useFakeTimers({ toFake: ['Date'] });
-		vi.setSystemTime(new Date('2026-10-18T12:00:00Z'));
-		try {
-			const ctx = detailTestContext();
-			await ctx.store.update('personnel', 'org-1', 'person-1', { ets: '2027-05-02' });
-			ctx.rawStore.seed('organizations', [{ id: 'org-1', loss_warning_window_days: 90 }]);
-			const load = _createPersonnelDetailPageLoad({ loadWithContext: loadWithSelectedContexts(ctx) });
-			const lossTrackingOnNextRequest = async () => {
-				const lanes = (await load(detailEvent())).personnelDetail.readinessLanes;
-				await Promise.allSettled(Object.values(lanes));
-				return lanes.lossTracking;
-			};
-
-			await expect(lossTrackingOnNextRequest()).resolves.toMatchObject({ value: 'No loss risk', tone: 'good' });
-			await ctx.store.update('personnel', 'org-1', 'person-1', { ets: null });
-			await expect(lossTrackingOnNextRequest()).resolves.toMatchObject({ value: 'Missing ETS', tone: 'bad' });
-		} finally {
-			vi.useRealTimers();
-		}
 	});
 
 	it.each<[string, Parameters<typeof createTestAuthContext>[0], string, number]>([
 		['an out-of-Group target', { scopeSet: { kind: 'groups', groupIds: ['other-group'] } }, 'rivera-monica', 403],
 		['an unknown or foreign slug', {}, 'foreign-person', 404]
-	])('denies the page and every lane for %s before any lane read', async (_, auth, slug, status) => {
+	])('denies the Overview for %s before any section read', async (_, auth, slug, status) => {
 		const ctx = detailTestContext('person-1', auth);
 		ctx.rawStore.seed('personnel', [{ id: 'foreign-1', organization_id: 'org-2', slug: 'foreign-person' }]);
 		const findMany = vi.spyOn(ctx.store, 'findMany');
-		const load = _createPersonnelDetailPageLoad({ loadWithContext: loadWithSelectedContexts(ctx) });
 
-		await expect(load(detailEvent({ params: { orgId: 'org-1', personnelSlug: slug } }))).rejects.toMatchObject({
-			status
-		});
+		await expect(
+			overviewLoad(ctx)(detailEvent({ params: { orgId: 'org-1', personnelSlug: slug } }))
+		).rejects.toMatchObject({ status });
 		expect(findMany.mock.calls.map(([table]) => table)).toEqual([]);
-	});
-
-	it('preserves independently settled lanes when the request-bound Calendar read fails', async () => {
-		const failure = new Error('Calendar read failed');
-		const ctx = detailTestContext();
-		const read = ctx.store.findMany.bind(ctx.store);
-		vi.spyOn(ctx.store, 'findMany').mockImplementation(async (table, ...args) => {
-			if (table === 'availability_entries') throw failure;
-			return read(table, ...args);
-		});
-		const load = _createPersonnelDetailPageLoad({
-			loadWithContext: loadWithSelectedContexts(ctx)
-		});
-		const result = await load({
-			params: { orgId: 'org-1', personnelSlug: 'rivera-monica' },
-			locals: {} as App.Locals,
-			cookies: noCookies,
-			depends: vi.fn()
-		} as never);
-		const lanes = result.personnelDetail.readinessLanes;
-		const [availability, training, criticalTasks, ratingScheme, lossTracking] = await Promise.allSettled([
-			lanes.availability,
-			lanes.training,
-			lanes.criticalTasks,
-			lanes.ratingScheme,
-			lanes.lossTracking
-		]);
-		expect(availability).toEqual({ status: 'rejected', reason: failure });
-		expect(training).toMatchObject({ status: 'fulfilled', value: { value: 'Current' } });
-		expect(criticalTasks).toMatchObject({ status: 'fulfilled', value: { value: 'No tasks' } });
-		expect(ratingScheme).toMatchObject({ status: 'fulfilled', value: { value: 'Not assigned' } });
-		expect(lossTracking).toMatchObject({ status: 'fulfilled', value: { value: 'Missing ETS' } });
 	});
 });

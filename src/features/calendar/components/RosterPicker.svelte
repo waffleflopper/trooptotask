@@ -8,7 +8,7 @@
 	import { useDataTable, type ColumnDef, type DataTableSelectionState } from '$lib/components/ui/data-table';
 	import { rosterAvailabilityRow, type BulkRosterAvailability } from '$features/calendar/utils/bulkRosterAvailability';
 	import BulkStepHeading from './BulkStepHeading.svelte';
-	import RosterAvailabilityStrip from './RosterAvailabilityStrip.svelte';
+	import { AvailabilityStrip } from '$lib/components/patterns/calendar-bars';
 
 	/**
 	 * Roster Picker — the fixed-purpose grouped multi-select over the Roster used by bulk
@@ -221,11 +221,11 @@
 							{projected.hint}
 						</span>
 						{#if availability.window}
-							<RosterAvailabilityStrip days={availability.window.days} layout={projected.bars} />
+							<AvailabilityStrip days={availability.window.days} layout={projected.bars} />
 						{/if}
 					</div>
 				{:else if availability.window}
-					<RosterAvailabilityStrip days={availability.window.days} layout={projected.bars} />
+					<AvailabilityStrip days={availability.window.days} layout={projected.bars} />
 				{/if}
 			{:else}
 				{String(col.value(row) ?? '')}

@@ -15,10 +15,10 @@
 	import * as ToggleGroup from '$lib/components/ui/toggle-group';
 	import { CalendarRangeCoordinator } from '$features/calendar/contexts/CalendarRangeCoordinator.svelte';
 	import { classifyBulkAddOverlaps, validateDateRange } from '$features/calendar/utils/availabilityMutation';
-	import { layoutBars, shortRangeLabel, type AvailabilitySpan } from '$features/calendar/utils/barLayout';
+	import { layoutBars, shortRangeLabel, StatusBar } from '$lib/components/patterns/calendar-bars';
+	import type { CalendarSpan } from '$features/calendar/utils/calendarBars';
 	import { projectBulkRosterAvailability } from '$features/calendar/utils/bulkRosterAvailability';
-	import { dayWindow, toDayNumber } from '$features/calendar/utils/dayNumber';
-	import StatusBar from './calendar-bars/StatusBar.svelte';
+	import { dayWindow, toDayNumber } from '$lib/utils/dayNumber';
 	import BulkStepHeading from './BulkStepHeading.svelte';
 	import RosterPicker from './RosterPicker.svelte';
 	import { SvelteSet } from 'svelte/reactivity';
@@ -109,7 +109,7 @@
 			endDate,
 			note: note.trim() || null
 		};
-		const span: AvailabilitySpan = { entry, status: selectedStatus, start, end };
+		const span: CalendarSpan = { entry, status: selectedStatus, start, end };
 		const { bars } = layoutBars([span], dayWindow(startDate, end - start + 1), { view: 'month', showStatusText: true });
 		return bars[0] ?? null;
 	});

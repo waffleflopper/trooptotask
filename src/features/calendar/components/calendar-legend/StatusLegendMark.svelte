@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { StatusType } from '$features/calendar/contracts';
-	import StatusBar from '../calendar-bars/StatusBar.svelte';
+	import { StatusBar } from '$lib/components/patterns/calendar-bars';
 
 	let { value }: { value: { status: StatusType; text: string } } = $props();
 </script>

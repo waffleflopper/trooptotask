@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { PersonnelRatingSchemeRosterPort } from '$features/personnel/contracts';
 import type { RatingSchemeDueActor, RatingSchemeDueEntry } from './contracts';
 import { createSupabaseRatingSchemeDuePort } from './ratingSchemeDue.server';
 
@@ -29,7 +30,7 @@ function actor(overrides: Partial<RatingSchemeDueActor> = {}): RatingSchemeDueAc
 	};
 }
 
-function provider(rows: ProviderRow[] = [], failFrom?: number) {
+function provider(rows: ProviderRow[] = [], failFrom?: number, archivedIds: string[] = []) {
 	const selections: string[] = [];
 	const ranges: Array<[number, number]> = [];
 	const ordering: Array<{ column: string; ascending: boolean }> = [];
@@ -58,12 +59,14 @@ function provider(rows: ProviderRow[] = [], failFrom?: number) {
 		};
 		return query;
 	});
+	const listArchivedIds = vi.fn<PersonnelRatingSchemeRosterPort['listArchivedIds']>().mockResolvedValue(archivedIds);
 	return {
 		from,
 		selections,
 		ranges,
 		ordering,
-		port: createSupabaseRatingSchemeDuePort({ from } as unknown as SupabaseClient)
+		listArchivedIds,
+		port: createSupabaseRatingSchemeDuePort({ from } as unknown as SupabaseClient, { listArchivedIds })
 	};
 }
 
@@ -72,12 +75,14 @@ function pageRows(): ProviderRow[] {
 		...Array.from({ length: 1000 }, (_, index) => ({
 			id: `evaluation-${String(index).padStart(4, '0')}`,
 			organization_id: 'org-a',
+			rated_person_id: 'person-a',
 			rating_period_end: '2026-01-01',
 			status: 'active' as const
 		})),
 		{
 			id: 'evaluation-1000',
 			organization_id: 'org-a',
+			rated_person_id: 'person-a',
 			rating_period_end: '2030-12-31',
 			status: 'completed' as const
 		}
@@ -99,18 +104,21 @@ describe('Rating Scheme due projection', () => {
 			{
 				id: 'evaluation-2',
 				organization_id: 'org-a',
+				rated_person_id: 'person-b',
 				rating_period_end: '2026-10-10',
 				status: 'change-of-rater'
 			},
 			{
 				id: 'evaluation-3',
 				organization_id: 'org-a',
+				rated_person_id: 'person-c',
 				rating_period_end: '2026-01-01',
 				status: 'completed'
 			},
 			{
 				id: 'foreign-evaluation',
 				organization_id: 'org-b',
+				rated_person_id: 'person-d',
 				rating_period_end: '2026-08-01',
 				status: 'active'
 			}
@@ -121,26 +129,89 @@ describe('Rating Scheme due projection', () => {
 			{ ratingPeriodEnd: '2026-10-10', status: 'change-of-rater' },
 			{ ratingPeriodEnd: '2026-01-01', status: 'completed' }
 		]);
-		expect(selections).toEqual(['rating_period_end, status']);
+		expect(selections).toEqual(['rated_person_id, rating_period_end, status']);
 		expect(ordering).toEqual([{ column: 'id', ascending: true }]);
+	});
+
+	it('omits evaluations of archived People, matching IDs case-insensitively', async () => {
+		const { port, listArchivedIds } = provider(
+			[
+				{
+					id: 'evaluation-active',
+					organization_id: 'org-a',
+					rated_person_id: 'person-active',
+					rating_period_end: '2026-09-25',
+					status: 'active'
+				},
+				{
+					id: 'evaluation-archived',
+					organization_id: 'org-a',
+					rated_person_id: 'person-archived',
+					rating_period_end: '2026-10-10',
+					status: 'active'
+				},
+				{
+					id: 'evaluation-archived-upper',
+					organization_id: 'org-a',
+					rated_person_id: 'PERSON-ARCHIVED-TWO',
+					rating_period_end: '2026-10-11',
+					status: 'change-of-rater'
+				}
+			],
+			undefined,
+			['PERSON-ARCHIVED', 'person-archived-two']
+		);
+		const reader = actor();
+		await expect(port.listDueEntries(reader)).resolves.toEqual([{ ratingPeriodEnd: '2026-09-25', status: 'active' }]);
+		expect(listArchivedIds).toHaveBeenCalledWith(reader);
+	});
+
+	it('reads entries and archived IDs concurrently', async () => {
+		const { port, from, listArchivedIds } = provider();
+		let release!: () => void;
+		const wait = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		listArchivedIds.mockImplementation(async () => {
+			await wait;
+			return [];
+		});
+		const pending = port.listDueEntries(actor());
+		try {
+			await vi.waitFor(() => {
+				expect(from).toHaveBeenCalledTimes(1);
+				expect(listArchivedIds).toHaveBeenCalledTimes(1);
+			});
+		} finally {
+			release();
+		}
+		await expect(pending).resolves.toEqual([]);
+	});
+
+	it('rejects an archived-ID failure instead of counting archived evaluations', async () => {
+		const { port, listArchivedIds } = provider();
+		listArchivedIds.mockRejectedValue(new Error('Archived unavailable'));
+		await expect(port.listDueEntries(actor())).rejects.toThrow('Archived unavailable');
 	});
 
 	it.each(['none', 'configure'] as const)(
 		'skips the provider without Rating view even with Personnel %s',
 		async (personnel) => {
-			const { port, from } = provider();
+			const { port, from, listArchivedIds } = provider();
 			const reader = actor();
 			await expect(
 				port.listDueEntries({ ...reader, capabilityMap: { ...reader.capabilityMap, personnel, ratingScheme: 'none' } })
 			).resolves.toEqual([]);
 			expect(from).not.toHaveBeenCalled();
+			expect(listArchivedIds).not.toHaveBeenCalled();
 		}
 	);
 
 	it('skips the provider for an empty Group scope', async () => {
-		const { port, from } = provider();
+		const { port, from, listArchivedIds } = provider();
 		await expect(port.listDueEntries(actor({ scopeSet: { kind: 'groups', groupIds: [] } }))).resolves.toEqual([]);
 		expect(from).not.toHaveBeenCalled();
+		expect(listArchivedIds).not.toHaveBeenCalled();
 	});
 
 	it.each(['owner', 'admin'] as const)('retains normalized %s access across the Organization', async (role) => {
@@ -148,6 +219,7 @@ describe('Rating Scheme due projection', () => {
 			{
 				id: 'evaluation-1',
 				organization_id: 'org-a',
+				rated_person_id: 'person-a',
 				rating_period_end: '2026-10-20',
 				status: 'active'
 			}

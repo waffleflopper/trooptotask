@@ -65,7 +65,7 @@ const findPerson = ({ searchTerm }) => [{ fill: search, value: searchTerm }, { w
 const openDetail = (terms) => [
 	...findPerson(terms),
 	{ click: { role: 'button', name: 'Details', within: { role: 'row', name: terms.edit.row } } },
-	{ wait: ['Edit basic info'] }
+	{ wait: ['Add to record'] }
 ];
 const detailTabs = 'nav[aria-label="Personnel detail sections"]';
 const streamsPending = ['[aria-label$=" loading"]', skeleton];
@@ -262,8 +262,9 @@ export const journeys = {
 			}
 		]
 	},
-	// The detail page's basic-info save refreshes every load on the page (invalidateAll), unlike the
-	// roster dialog, which updates the open roster in place.
+	// The detail page's Data sheet save writes the Person and the sheet in one request, then lands on the
+	// Data sheet tab with only the header and that tab's loads refreshed, unlike the roster dialog, which
+	// updates the open roster in place.
 	'personnel-detail-edit': {
 		area: 'personnel',
 		kind: 'interaction',
@@ -274,17 +275,18 @@ export const journeys = {
 		ready: (terms) => [{ name: 'ready', ...roster(terms) }],
 		prepare: (terms, sample) => [
 			...openDetail(terms),
-			{ click: { role: 'button', name: 'Edit basic info' } },
-			{ wait: ['Save basic info'] },
+			{ click: { role: 'link', name: 'Edit' } },
+			{ wait: ['Save changes'] },
 			{ fill: { role: 'textbox', name: 'MOS' }, value: edited(terms.edit, sample) }
 		],
-		trigger: () => ({ click: { role: 'button', name: 'Save basic info' } }),
+		trigger: () => ({ click: { role: 'button', name: 'Save changes' } }),
 		milestones: ({ edit }, sample) => [
 			{
 				name: 'useful',
-				...detailSettled,
+				presentSelector: [detailTabs, '[data-slot="fact-section"]'],
+				absentSelector: streamsPending,
 				inside: { '[data-slot="page-header"] [data-slot="badge"]': [edited(edit, sample)] },
-				absent: ['Save basic info']
+				absent: ['Save changes']
 			}
 		]
 	},

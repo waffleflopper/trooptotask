@@ -10,7 +10,7 @@ A malformed, missing, foreign or conflicting write gets a controlled 4xx with a 
 - `conflicts`: a duplicate Training type, Onboarding template or Group name answers `409` with a message naming the conflict.
 - `deletes`: deleting a missing Calendar status or assignment type still answers `200`, so a retried delete recovers, but records no audit event and sends no administrator notification.
 - `imports`: a malformed Critical Tasks completion import row, or a Training import status other than `completed` or `exempt`, answers `400` and saves nothing. An impossible CSV date such as `2026-02-30` is flagged during review in the Availability, Training and Critical Tasks imports and is not sent.
-- `forms`: these forms show the server's 4xx message and keep the draft: Training type and view; Calendar status type and closure; Personnel roster edit and the detail page's basic info; the follow-up, leader-note, document and counseling add forms; follow-up updates; Group rename; Rating Scheme edit; Onboarding start and packet actions; the Availability edit; and the Critical Tasks defaults. A server or transport failure keeps each form's own text.
+- `forms`: these forms show the server's 4xx message and keep the draft: Training type and view; Calendar status type and closure; Personnel roster edit and the detail page's Data sheet; the follow-up, leader-note, document and counseling add forms; follow-up updates; Group rename; Rating Scheme edit; Onboarding start and packet actions; the Availability edit; and the Critical Tasks defaults. A server or transport failure keeps each form's own text.
 
 ## How to get to it (user POV)
 
@@ -47,7 +47,7 @@ Preconditions: `doctor` passes and `$V fixture` supplies the IDs below. Sign in 
 
 2. **Form messages.** As `trainingConfigure`, open Manage Types → `+ New Type`. The Name field accepts at most 100 characters. Paste a 105-character name through `fill`, then Create. If the browser truncates it, the type saves with 100 characters; delete it visibly. Then create a type named `Verification Required Training`: the form stays open with `A Training type with that name already exists.` and no second row. As `calendarConfigure`, choose `Edit` from `More actions for Verification Leave`, enter a 101-character name in the inline composer and choose `Save changes`. The composer stays open with the draft, the error toast reads `Name must be 100 characters or fewer` and the row is unchanged. As `manager`, rename a Group to `Bravo` from Manage Groups: the message names the duplicate and both Groups keep their names. Capture `$V feedback` and `network arm-observe` state for each save.
 3. **Stale records.** In each case, open the form first, change the record from a second signed-in session, then save. Each save keeps its draft and shows the server's reason:
-   - **Personnel detail basic info.** Use a temporary Person deleted elsewhere (archive, then `api/personnel/permanent`). Save returns `404` and shows `This person is no longer available.`
+   - **Personnel detail Data sheet.** Use a temporary Person deleted elsewhere (archive, then `api/personnel/permanent`). Save changes returns `404` and shows `This person is no longer available.` in the form alert.
    - **Rating Scheme edit.** Delete the entry from the owner's session. A non-owner delete may need approval. Save returns `404` and shows `Rating Scheme entry not found`.
    - **Onboarding start.** Start the same member from another session. Submit returns `409` and shows `Soldier already has an active onboarding`.
 

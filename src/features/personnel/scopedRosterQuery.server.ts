@@ -9,7 +9,7 @@ export async function queryScopedPersonnelRows(
 	getAdminClient: () => SupabaseClient,
 	orgId: string,
 	scopeSet: ScopeSet,
-	options: { select: string; status: 'active' | 'all'; ids?: string[] }
+	options: { select: string; status: 'active' | 'archived' | 'all'; ids?: string[] }
 ): Promise<Record<string, unknown>[]> {
 	if (scopeSet.kind === 'groups' && scopeSet.groupIds.length === 0) return [];
 	if (options.ids && options.ids.length === 0) return [];
@@ -19,6 +19,7 @@ export async function queryScopedPersonnelRows(
 	for (let offset = 0; ; offset += PAGE_SIZE) {
 		let query = client.from('personnel').select(options.select).eq('organization_id', orgId);
 		if (options.status === 'active') query = query.is('archived_at', null);
+		if (options.status === 'archived') query = query.not('archived_at', 'is', null);
 		if (scopeSet.kind === 'groups') query = query.in('group_id', scopeSet.groupIds);
 		if (options.ids) query = query.in('id', options.ids);
 

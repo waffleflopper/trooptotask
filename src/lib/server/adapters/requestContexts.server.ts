@@ -64,6 +64,7 @@ import {
 	createSupabasePersonnelCalendarScopeIds,
 	createSupabasePersonnelCriticalTasksRosterPort,
 	createSupabasePersonnelOrganizationExportPort,
+	createSupabasePersonnelRatingSchemeRosterPort,
 	createSupabasePersonnelTrainingRosterPort,
 	createSupabaseSignInRosterPersonnelLookupPort,
 	findGroupNamesByIds,
@@ -666,7 +667,10 @@ export function createRequestDashboardWorkspaceContext(request: AdmittedOrganiza
 		...createRequestPersonnelRosterContext(request),
 		onboardingWorkflow: createSupabaseOnboardingWorkflowPersistence(request.supabase, request.auth.orgId),
 		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase),
-		ratingSchemeDue: createSupabaseRatingSchemeDuePort(request.supabase),
+		ratingSchemeDue: createSupabaseRatingSchemeDuePort(
+			request.supabase,
+			createSupabasePersonnelRatingSchemeRosterPort(request.supabase, getAdminClient)
+		),
 		personnelAwardAcknowledgement: createSupabasePersonnelAwardAcknowledgementPort(request.supabase)
 	};
 }

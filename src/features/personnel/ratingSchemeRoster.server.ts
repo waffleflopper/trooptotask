@@ -38,6 +38,26 @@ export function createSupabasePersonnelRatingSchemeRosterPort(
 				firstName: row.first_name ?? ''
 			}));
 		},
+		async listArchivedRatedPersonIds(actor) {
+			await requireFeaturePolicy(
+				{ auth: actor },
+				POLICY_ACTION_CATALOG.ratingScheme.readRosterReferences,
+				{ kind: 'unscoped' },
+				'personnel'
+			);
+			// Organization-wide so hiding does not depend on Group scope matching the entry's Person;
+			// the inner join bounds the read to rated People rather than the whole archive.
+			const rows = await queryScopedPersonnelRows(
+				getAdminClient,
+				actor.orgId,
+				{ kind: 'organization' },
+				{
+					select: 'id, rating_scheme_entries!rating_scheme_entries_rated_person_id_fkey!inner(id)',
+					status: 'archived'
+				}
+			);
+			return rows.map((row) => row.id as string);
+		},
 		async findRatedPersonForWrite(actor, personnelId) {
 			await requireFeaturePolicy(
 				{ auth: actor },

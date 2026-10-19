@@ -346,6 +346,50 @@ describe.each([fetchDashboardBootstrap])('%s Rating Scheme projection', (load) =
 		expect(ctx.ratingSchemeDue.listDueEntries).toHaveBeenCalledWith(ctx.auth);
 	});
 
+	it.each([
+		['Organization', { kind: 'organization' as const }],
+		['Group', { kind: 'groups' as const, groupIds: ['g-1'] }]
+	])('leaves archived People out of the in-memory %s-scoped projection', async (_label, scopeSet) => {
+		const ctx = buildCtx({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'view'
+				},
+				scopeSet
+			}
+		});
+		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
+		store.seed('personnel', [
+			{ id: 'p-active', organization_id: ORG, group_id: 'g-1', archived_at: null },
+			{ id: 'p-archived', organization_id: ORG, group_id: 'g-1', archived_at: '2026-10-01T00:00:00Z' }
+		]);
+		store.seed('rating_scheme_entries', [
+			{
+				id: 'e-active',
+				organization_id: ORG,
+				rated_person_id: 'p-active',
+				rating_period_end: '2026-09-25',
+				status: 'active'
+			},
+			{
+				id: 'e-archived',
+				organization_id: ORG,
+				rated_person_id: 'p-archived',
+				rating_period_end: '2026-09-20',
+				status: 'active'
+			}
+		]);
+		const result = await load(ctx);
+		expect(result.ratingSchemeEntries).toEqual([{ ratingPeriodEnd: '2026-09-25', status: 'active' }]);
+	});
+
 	it('surfaces an authorized projection failure instead of reporting zero evaluations', async () => {
 		const ctx = buildCtx();
 		ctx.ratingSchemeDue = { listDueEntries: vi.fn().mockRejectedValue(new Error('Rating provider unavailable')) };

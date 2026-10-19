@@ -13,8 +13,8 @@ INSERT INTO public.organizations (id, name, created_by)
 VALUES ('f8000000-0000-4000-8000-000000000101', 'Data Sheet Columns', 'f8000000-0000-4000-8000-000000000001');
 INSERT INTO public.personnel (id, organization_id, rank, first_name, last_name, slug)
 VALUES ('f8000000-0000-4000-8000-000000000301', 'f8000000-0000-4000-8000-000000000101', 'SGT', 'Data', 'Sheet', 'data-sheet-columns');
-INSERT INTO public.personnel_extended_info (id, organization_id, personnel_id)
-VALUES ('f8000000-0000-4000-8000-000000000401', 'f8000000-0000-4000-8000-000000000101', 'f8000000-0000-4000-8000-000000000301');
+INSERT INTO public.personnel_extended_info (id, organization_id, personnel_id, updated_at)
+VALUES ('f8000000-0000-4000-8000-000000000401', 'f8000000-0000-4000-8000-000000000101', 'f8000000-0000-4000-8000-000000000301', '2000-01-01T00:00:00Z');
 
 SELECT is(
   (SELECT marital_status_date IS NULL AND updated_by IS NULL FROM public.personnel_extended_info
@@ -31,9 +31,9 @@ SELECT is(
            WHERE id = 'f8000000-0000-4000-8000-000000000401') i),
   '{"marital_status_date": "2019-07-04", "updated_by": "f8000000-0000-4000-8000-000000000001"}'::jsonb,
   'both columns round-trip');
-SELECT isnt(
+SELECT cmp_ok(
   (SELECT updated_at FROM public.personnel_extended_info WHERE id = 'f8000000-0000-4000-8000-000000000401'),
-  NULL::timestamptz, 'the save stamps updated_at');
+  '>', '2000-01-01T00:00:00Z'::timestamptz, 'a save moves updated_at past its earlier value');
 
 SELECT * FROM finish();
 ROLLBACK;

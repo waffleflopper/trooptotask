@@ -67,18 +67,25 @@ const openDetail = (terms) => [
 	{ click: { role: 'button', name: 'Details', within: { role: 'row', name: terms.edit.row } } },
 	{ wait: ['Edit basic info'] }
 ];
-const detailOpen = { presentSelector: ['[aria-label="Readiness summary"]'] };
-// Each pending lane and panel is named "<Lane> loading" until its stream settles.
-const detailSettled = { ...detailOpen, absentSelector: ['[aria-label$=" loading"]', skeleton] };
+const detailTabs = 'nav[aria-label="Personnel detail sections"]';
+// The layout's record header and tabs render before the Overview content streams in.
+const detailOpen = { presentSelector: [detailTabs] };
+// Each pending lane and panel is named "<Lane> loading" until its stream settles; tab badges show skeletons.
+const detailSettled = {
+	presentSelector: [detailTabs, '[aria-label="Readiness summary"]'],
+	absentSelector: ['[aria-label$=" loading"]', skeleton]
+};
 const detailPath = (terms) => org(terms, `/personnel/${terms.edit.slug}`);
 // A tab is a route, so its link is current only once that route's data has loaded.
+// The Log link's name also carries its open follow-up count.
 const detailTab = {
 	role: 'link',
-	name: 'Follow-ups',
+	name: 'Log',
+	partial: true,
 	within: { role: 'navigation', name: 'Personnel detail sections' }
 };
 const detailTabShown = {
-	presentSelector: ['a[aria-current="page"][href$="/follow-ups"]'],
+	presentSelector: ['a[aria-current="page"][href$="/log"]'],
 	absentSelector: ['[aria-label$=" loading"]', skeleton]
 };
 const detailTabSwitch = (hover) => ({
@@ -281,8 +288,8 @@ export const journeys = {
 			{
 				name: 'useful',
 				...detailSettled,
-				present: [`/ ${edited(edit, sample)} /`],
-				absent: ['Save basic info', `/ ${edited(edit, sample + 1)} /`]
+				inside: { '[data-slot="page-header"] [data-slot="badge"]': [edited(edit, sample)] },
+				absent: ['Save basic info']
 			}
 		]
 	},

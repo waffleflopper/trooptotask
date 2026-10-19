@@ -55,12 +55,12 @@ The Calendar reads a few more rows per Organization. Every status type carries t
 | `personnel-search`           | Personnel                     | interaction, read  | both             | Search fill to the term's row with the sentinel gone                                      |
 | `personnel-filter`           | Personnel                     | interaction, read  | both             | Search fill `68W` to exactly the matching row count                                       |
 | `personnel-large-table`      | Personnel A-Z                 | interaction, read  | both             | `Sort by Name` to the descending table                                                    |
-| `personnel-detail`           | Personnel to detail           | interaction, read  | wide, leader     | `Details` to the readiness header (`header`), then no lane or panel loading               |
-| `personnel-detail-direct`    | Personnel detail URL          | load, read         | wide, leader     | The readiness header (`header`), then no lane or panel loading                            |
-| `personnel-detail-tab`       | Personnel detail tabs         | interaction, read  | wide, leader     | The `Follow-ups` tab, unhovered, to that tab current with nothing loading                 |
+| `personnel-detail`           | Personnel to detail           | interaction, read  | wide, leader     | `Details` to the record tabs (`header`), then the readiness summary with nothing loading  |
+| `personnel-detail-direct`    | Personnel detail URL          | load, read         | wide, leader     | The record tabs (`header`), then the readiness summary with nothing loading               |
+| `personnel-detail-tab`       | Personnel detail tabs         | interaction, read  | wide, leader     | The `Log` tab, unhovered, to that tab current with nothing loading                        |
 | `personnel-detail-tab-hover` | Personnel detail tabs         | interaction, read  | wide, leader     | The same click after a hover has preloaded the tab                                        |
 | `personnel-edit`             | Personnel roster dialog       | interaction, write | both             | `Save Changes` to the row showing the new MOS                                             |
-| `personnel-detail-edit`      | Personnel detail              | interaction, write | wide, leader     | `Save basic info` to the refreshed page showing the new MOS                               |
+| `personnel-detail-edit`      | Personnel detail              | interaction, write | wide, leader     | `Save basic info` to the refreshed header MOS badge                                       |
 | `personnel-import`           | Personnel import              | interaction, write | both             | `Import checked rows` to `Import complete` with the row count saved                       |
 | `dashboard`                  | Dashboard                     | load, read, cold   | both             | Skeleton (`pending`), deferred summary resolved (`summary`), then panels with no skeleton |
 | `training-report`            | Training Reports              | load, read         | both             | Briefing not busy with the actor's soldier count                                          |

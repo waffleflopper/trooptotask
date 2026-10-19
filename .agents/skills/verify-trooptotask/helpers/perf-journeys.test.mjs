@@ -63,6 +63,8 @@ test('write samples alternate so an even sample count ends on the seeded value',
 	]);
 	assert.deepEqual(save.prepare({ assignment }, 5)[1], { type: 'Baker' });
 	const edit = { row: 'Open SPC Able, Alex', original: '68W', alternate: '42A' };
-	assert.deepEqual(journeys['personnel-detail-edit'].milestones({ edit }, 0)[0].present, ['/ 42A /']);
-	assert.deepEqual(journeys['personnel-detail-edit'].milestones({ edit }, 0)[0].absent, ['Save basic info', '/ 68W /']);
+	assert.deepEqual(journeys['personnel-detail-edit'].milestones({ edit }, 0)[0].inside, {
+		'[data-slot="page-header"] [data-slot="badge"]': ['42A']
+	});
+	assert.deepEqual(journeys['personnel-detail-edit'].milestones({ edit }, 0)[0].absent, ['Save basic info']);
 });

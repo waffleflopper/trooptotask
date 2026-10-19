@@ -311,7 +311,6 @@ export async function openTrainingCertificate(
 	const { kind, id } = parseTrainingRecordInput(trainingCertificateInput, input);
 	const entry = await loadTrainingCompletionEntry(ctx, POLICY_ACTION_CATALOG.training.viewRecords, kind, id);
 	const stored = entry.certificateUrl;
-	if (stored && /^https?:\/\//i.test(stored)) return stored;
 	if (!stored || !isOwnedTrainingCertificate(ctx.auth.orgId, entry.personnelId, stored))
 		fail(404, 'Certificate not found');
 	return ctx.trainingCertificates.signedUrl(stored, CERTIFICATE_LINK_SECONDS);

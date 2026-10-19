@@ -23,7 +23,7 @@
 		correctTrainingCompletion,
 		logTrainingCompletion,
 		setTrainingExemption,
-		trainingCertificateHref
+		trainingCertificateLink
 	} from '../personnelTrainingRequests';
 	import type { PersonnelTraining, TrainingCompletionHistoryEntry } from '../training.types';
 	import type { PersonnelTrainingItem } from '../utils/personnelTrainingItems';
@@ -95,7 +95,7 @@
 							record.expirationDate ? formatDayMonthYear(record.expirationDate) : 'does not expire'
 						}`,
 				detail: record.notes,
-				href: record.certificateUrl ? trainingCertificateHref(orgId, kind, record.id) : null
+				certificate: trainingCertificateLink(orgId, kind, record.id, record.certificateUrl)
 			})
 		)
 	);

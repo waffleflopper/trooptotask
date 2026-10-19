@@ -75,7 +75,7 @@
 				detail: [record.validationMethod, record.validatedBy && `by ${record.validatedBy}`, record.notes]
 					.filter(Boolean)
 					.join(' · '),
-				href: null
+				certificate: null
 			})
 		)
 	);

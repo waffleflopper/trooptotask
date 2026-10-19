@@ -1,3 +1,4 @@
+import type { ReadinessCertificate } from '$lib/components/patterns/readiness-items';
 import { buildRequestError } from '$lib/stores/core';
 
 export interface TrainingCompletionLog {
@@ -53,6 +54,24 @@ export async function setTrainingExemption(
 	if (!response.ok) throw await buildRequestError(response, 'PUT', 'training exemption');
 }
 
-export function trainingCertificateHref(orgId: string, kind: 'current' | 'history', id: string): string {
-	return `/org/${orgId}/api/personnel-trainings/certificate?${new URLSearchParams({ kind, id })}`;
+/** An uploaded certificate opens through the app; a legacy link to another site opens there and names it. */
+export function trainingCertificateLink(
+	orgId: string,
+	kind: 'current' | 'history',
+	id: string,
+	stored: string | null
+): ReadinessCertificate | null {
+	if (!stored) return null;
+	const external = externalUrl(stored);
+	if (external) return { kind: 'external', href: external.href, host: external.host };
+	return { kind: 'stored', href: `/org/${orgId}/api/personnel-trainings/certificate?${new URLSearchParams({ kind, id })}` };
+}
+
+function externalUrl(stored: string): URL | null {
+	if (!/^https?:\/\//i.test(stored)) return null;
+	try {
+		return new URL(stored);
+	} catch {
+		return null;
+	}
 }

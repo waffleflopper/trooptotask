@@ -1,10 +1,15 @@
 <script lang="ts" module>
+	export type ReadinessCertificate =
+		| { kind: 'stored'; href: string }
+		/** A legacy link to another site, named so the reader sees where it leads. */
+		| { kind: 'external'; href: string; host: string };
+
 	export interface ReadinessHistoryEntry {
 		id: string;
 		/** Such as "24 Sep 2024 → 24 Sep 2026". */
 		label: string;
 		detail: string | null;
-		href: string | null;
+		certificate: ReadinessCertificate | null;
 	}
 </script>
 
@@ -43,9 +48,24 @@
 							<span class="block text-muted-foreground">{entry.detail}</span>
 						{/if}
 					</span>
-					{#if entry.href}
-						<a class="text-foreground underline underline-offset-4" href={entry.href} target="_blank" rel="noopener">
+					{#if entry.certificate?.kind === 'stored'}
+						<a
+							class="text-foreground underline underline-offset-4"
+							href={entry.certificate.href}
+							target="_blank"
+							rel="noopener"
+						>
 							Certificate
+						</a>
+					{:else if entry.certificate?.kind === 'external'}
+						<a
+							class="max-w-48 truncate text-foreground underline underline-offset-4"
+							href={entry.certificate.href}
+							title={entry.certificate.href}
+							target="_blank"
+							rel="external noopener noreferrer"
+						>
+							Certificate on {entry.certificate.host}
 						</a>
 					{/if}
 					{#if onEdit}

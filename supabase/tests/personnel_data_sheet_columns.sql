@@ -35,5 +35,24 @@ SELECT cmp_ok(
   (SELECT updated_at FROM public.personnel_extended_info WHERE id = 'f8000000-0000-4000-8000-000000000401'),
   '>', '2000-01-01T00:00:00Z'::timestamptz, 'a save moves updated_at past its earlier value');
 
+INSERT INTO auth.users (id, email) VALUES ('f8000000-0000-4000-8000-000000000002', 'data-sheet-forger@example.test');
+SELECT set_config('request.jwt.claim.sub', 'f8000000-0000-4000-8000-000000000002', true);
+SELECT set_config('request.jwt.claims', '{"sub": "f8000000-0000-4000-8000-000000000002"}', true);
+
+UPDATE public.personnel_extended_info
+SET blood_type = 'O+', updated_by = 'f8000000-0000-4000-8000-000000000001'
+WHERE id = 'f8000000-0000-4000-8000-000000000401';
+SELECT is(
+  (SELECT updated_by FROM public.personnel_extended_info WHERE id = 'f8000000-0000-4000-8000-000000000401'),
+  'f8000000-0000-4000-8000-000000000002', 'a signed-in save records its own user, not the one it sends');
+
+INSERT INTO public.personnel (id, organization_id, rank, first_name, last_name, slug)
+VALUES ('f8000000-0000-4000-8000-000000000302', 'f8000000-0000-4000-8000-000000000101', 'SPC', 'New', 'Sheet', 'data-sheet-new');
+INSERT INTO public.personnel_extended_info (id, organization_id, personnel_id, updated_by)
+VALUES ('f8000000-0000-4000-8000-000000000402', 'f8000000-0000-4000-8000-000000000101', 'f8000000-0000-4000-8000-000000000302', NULL);
+SELECT is(
+  (SELECT updated_by FROM public.personnel_extended_info WHERE id = 'f8000000-0000-4000-8000-000000000402'),
+  'f8000000-0000-4000-8000-000000000002', 'a signed-in first save records its own user');
+
 SELECT * FROM finish();
 ROLLBACK;

@@ -113,6 +113,22 @@ describe('/api/personnel/[id]/leader-notes', () => {
 		await expect(read('limit=500')).rejects.toMatchObject({ status: 400 });
 		await expect(read(`limit=20&beforeCreatedAt=yesterday&beforeId=${NOTE_ID}`)).rejects.toMatchObject({ status: 400 });
 		await expect(read(`limit=20&beforeCreatedAt=1&beforeId=${NOTE_ID}`)).rejects.toMatchObject({ status: 400 });
+		await expect(read(`limit=20&beforeCreatedAt=2026-02-30T10:00:00Z&beforeId=${NOTE_ID}`)).rejects.toMatchObject({
+			status: 400
+		});
+		await expect(read(`limit=20&beforeCreatedAt=2026-05-01T24:00:00Z&beforeId=${NOTE_ID}`)).rejects.toMatchObject({
+			status: 400
+		});
+		await expect(
+			read(`limit=20&beforeCreatedAt=2026-05-01T10:00:00.123456%2B00:00&beforeId=${NOTE_ID}`)
+		).resolves.toEqual({
+			personnelId: PERSON_ID,
+			limit: 20,
+			before: { createdAt: '2026-05-01T10:00:00.123456+00:00', id: NOTE_ID }
+		});
+		await expect(read(`limit=20&beforeCreatedAt=2028-02-29T10:00:00Z&beforeId=${NOTE_ID}`)).resolves.toMatchObject({
+			before: { createdAt: '2028-02-29T10:00:00Z' }
+		});
 		await expect(read('limit=20&beforeCreatedAt=2026-05-01T10:00:00Z&beforeId=abc')).rejects.toMatchObject({
 			status: 400
 		});

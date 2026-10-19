@@ -19,7 +19,7 @@ export {
 	updatePersonnelLeaderNote
 } from './leaderNotes.server';
 export type { LeaderNoteContext, LeaderNoteRow } from './leaderNotes.server';
-export { LEADER_NOTES_FIRST_PAGE } from './leaderNotePaging';
+export { LEADER_NOTES_FIRST_PAGE, isCalendarTimestamp } from './leaderNotePaging';
 export { createSupabasePersonnelTrainingRosterPort } from './trainingRoster.server';
 export { createSupabaseSignInRosterPersonnelLookupPort } from './signInRosterPersonnelLookup.server';
 export type { PersonnelTrainingRosterPort } from './contracts';

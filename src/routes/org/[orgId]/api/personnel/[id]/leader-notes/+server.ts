@@ -1,5 +1,9 @@
 import type { PersonnelLeaderNote, PersonnelLeaderNoteInput } from '$features/personnel/contracts';
-import { createPersonnelLeaderNote, listPersonnelLeaderNotes } from '$features/personnel/index.server';
+import {
+	createPersonnelLeaderNote,
+	isCalendarTimestamp,
+	listPersonnelLeaderNotes
+} from '$features/personnel/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';
 import { handle, readJsonBody, type RouteConfig } from '$lib/server/adapters/httpAdapter';
@@ -16,8 +20,6 @@ interface LeaderNotePageInput {
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const ISO_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
-const isTimestamp = (value: string) => ISO_TIMESTAMP.test(value) && !Number.isNaN(Date.parse(value));
 
 /** `limit` with `before` (the last note already shown) reads the next older page; neither reads every note. */
 function parseNotePage(event: RequestEvent): LeaderNotePageInput {
@@ -30,7 +32,7 @@ function parseNotePage(event: RequestEvent): LeaderNotePageInput {
 	const limit = Number(limitParam);
 	if (!Number.isInteger(limit) || limit < 1 || limit > MAX_NOTE_PAGE) fail(400, 'Invalid leader note page size');
 	if ((beforeCreatedAt === null) !== (beforeId === null)) fail(400, 'Invalid leader note cursor');
-	if (beforeCreatedAt !== null && beforeId !== null && !(isTimestamp(beforeCreatedAt) && UUID.test(beforeId)))
+	if (beforeCreatedAt !== null && beforeId !== null && !(isCalendarTimestamp(beforeCreatedAt) && UUID.test(beforeId)))
 		fail(400, 'Invalid leader note cursor');
 	return {
 		personnelId,

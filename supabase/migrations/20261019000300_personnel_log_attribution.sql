@@ -44,15 +44,26 @@ CREATE FUNCTION organization_private.stamp_follow_up_completed_by() RETURNS trig
 LANGUAGE plpgsql SET search_path = '' AS $$
 DECLARE
   v_actor text := auth.uid()::text;
+  v_keeps_completion boolean := TG_OP = 'UPDATE' AND OLD.status <> 'open' AND OLD.completed_at IS NOT NULL;
 BEGIN
-  -- Archiving keeps the completion, so the completer follows completed_at rather than status.
-  IF NEW.completed_at IS NULL THEN
+  -- status owns the lifecycle: reopening clears the completion, archiving and restoring keep it,
+  -- and only an open (or new) follow-up becomes completed by the caller.
+  IF NEW.status = 'open' THEN
+    NEW.completed_at := NULL;
     NEW.completed_by := NULL;
-  ELSIF v_actor IS NOT NULL THEN
-    NEW.completed_by := CASE
-      WHEN TG_OP = 'UPDATE' AND OLD.completed_at IS NOT NULL THEN OLD.completed_by
-      ELSE v_actor
-    END;
+  ELSIF v_actor IS NULL THEN
+    IF NEW.status = 'completed' THEN
+      NEW.completed_at := COALESCE(NEW.completed_at, now());
+    END IF;
+  ELSIF v_keeps_completion THEN
+    NEW.completed_at := OLD.completed_at;
+    NEW.completed_by := OLD.completed_by;
+  ELSIF NEW.status = 'completed' THEN
+    NEW.completed_at := now();
+    NEW.completed_by := v_actor;
+  ELSE
+    NEW.completed_at := NULL;
+    NEW.completed_by := NULL;
   END IF;
   RETURN NEW;
 END;

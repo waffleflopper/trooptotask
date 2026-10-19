@@ -138,6 +138,34 @@ VALUES ('f9000000-0000-4000-8000-000000000503', 'f9000000-0000-4000-8000-0000000
 SELECT is((SELECT archived_by FROM public.leader_notes WHERE id = 'f9000000-0000-4000-8000-000000000503'),
   NULL, 'an active note inserted with an archiver keeps none');
 
+-- Completion follows status alone: a direct writer sending only a status cannot keep or reuse another member's completion.
+RESET ROLE;
+INSERT INTO public.organization_memberships
+  (organization_id, user_id, role, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids, email)
+VALUES ('f9000000-0000-4000-8000-000000000101', 'f9000000-0000-4000-8000-000000000002',
+  'member', 'viewer', '{"personnel":"configure"}', 'organization', ARRAY[]::uuid[], 'log-bystander@example.test');
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', 'f9000000-0000-4000-8000-000000000002', true);
+SELECT set_config('request.jwt.claims', '{"sub":"f9000000-0000-4000-8000-000000000002","role":"authenticated"}', true);
+UPDATE public.personnel_follow_ups SET status = 'completed' WHERE id = 'f9000000-0000-4000-8000-000000000603';
+SELECT is((SELECT completed_by FROM public.personnel_follow_ups WHERE id = 'f9000000-0000-4000-8000-000000000603'),
+  'f9000000-0000-4000-8000-000000000001', 'a status-only write on a completed follow-up keeps its completer');
+UPDATE public.personnel_follow_ups SET status = 'open' WHERE id = 'f9000000-0000-4000-8000-000000000603';
+SELECT is((SELECT completed_by IS NULL AND completed_at IS NULL FROM public.personnel_follow_ups
+  WHERE id = 'f9000000-0000-4000-8000-000000000603'),
+  true, 'a status-only reopen clears the completion');
+UPDATE public.personnel_follow_ups SET status = 'completed' WHERE id = 'f9000000-0000-4000-8000-000000000603';
+SELECT is((SELECT completed_by FROM public.personnel_follow_ups WHERE id = 'f9000000-0000-4000-8000-000000000603'),
+  'f9000000-0000-4000-8000-000000000002', 'a status-only recompletion records its caller');
+SELECT isnt((SELECT completed_at FROM public.personnel_follow_ups WHERE id = 'f9000000-0000-4000-8000-000000000603'),
+  NULL, 'a status-only recompletion sets the completion time');
+UPDATE public.personnel_follow_ups
+SET status = 'archived', completed_at = now(), completed_by = 'f9000000-0000-4000-8000-000000000002'
+WHERE id = 'f9000000-0000-4000-8000-000000000602';
+SELECT is((SELECT completed_by IS NULL AND completed_at IS NULL FROM public.personnel_follow_ups
+  WHERE id = 'f9000000-0000-4000-8000-000000000602'),
+  true, 'archiving a follow-up that was never completed cannot attach a completion');
+
 -- The server writes with the service role, where there is no caller to stamp, and supplies the actor itself.
 RESET ROLE;
 SELECT set_config('request.jwt.claim.sub', '', true);

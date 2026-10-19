@@ -6,9 +6,12 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
 import {
 	personnelLeaderNoteInputSchema,
+	personnelLeaderNoteTextSchema,
 	type PersonnelArtifactArchiveState,
 	type PersonnelLeaderNote
 } from './contracts';
+import { optionalContributorLabel } from './personnelArtifactContext.server';
+import type { ActorStamp } from './personnelArtifactPersistence';
 import { fail } from '$lib/errors';
 import { issueMessage } from '$lib/utils/inputSchemas';
 
@@ -23,9 +26,11 @@ export interface LeaderNotePersistence {
 		personnelId: string,
 		options: { archived: boolean; limit: number; before?: LeaderNoteCursor }
 	): Promise<LeaderNoteRow[]>;
+	countActive(personnelId: string): Promise<number>;
 	find(personnelId: string, noteId: string): Promise<LeaderNoteRow | null>;
 	insert(input: { personnelId: string; author: string; text: string; createdAt: string }): Promise<LeaderNoteRow>;
-	update(personnelId: string, noteId: string, archivedAt: string | null): Promise<LeaderNoteRow>;
+	setArchive(personnelId: string, noteId: string, archived: ActorStamp | null): Promise<LeaderNoteRow>;
+	setText(personnelId: string, noteId: string, text: string, updatedAt: string): Promise<LeaderNoteRow>;
 	delete(personnelId: string, noteId: string): Promise<void>;
 }
 
@@ -59,12 +64,15 @@ function mapLeaderNoteRow(row: LeaderNoteRow, labels: Map<string, string> = new 
 		author: row.author ? (labels.get(row.author) ?? row.author) : 'Unknown leader',
 		text: row.text,
 		createdAt: row.created_at,
-		archivedAt: row.archived_at ?? null
+		archivedAt: row.archived_at ?? null,
+		archivedBy: optionalContributorLabel(labels, row.archived_by)
 	};
 }
 
 async function mapRows(ctx: LeaderNoteContext, rows: LeaderNoteRow[]): Promise<PersonnelLeaderNote[]> {
-	const labels = await ctx.contributorLabels(rows.map((row) => row.author));
+	const labels = await ctx.contributorLabels(
+		rows.flatMap((row) => [row.author, row.archived_by].filter((id): id is string => !!id))
+	);
 	return rows.map((row) => mapLeaderNoteRow(row, labels));
 }
 
@@ -72,11 +80,11 @@ export async function listPersonnelLeaderNotes(
 	ctx: LeaderNoteContext,
 	personnelId: string,
 	limit?: number,
-	options: { archived?: boolean } = {}
+	options: { archived?: boolean; before?: LeaderNoteCursor } = {}
 ): Promise<PersonnelLeaderNote[]> {
 	await requireAccess(ctx, personnelId, 'read');
 	const notes: PersonnelLeaderNote[] = [];
-	let before: LeaderNoteCursor | undefined;
+	let before = options.before;
 	while (limit === undefined || notes.length < limit) {
 		const pageSize = Math.min(100, limit === undefined ? 100 : limit - notes.length);
 		const rows = await ctx.persistence.listPage(personnelId, {
@@ -92,6 +100,11 @@ export async function listPersonnelLeaderNotes(
 		before = { createdAt: last.created_at, id: last.id };
 	}
 	return notes;
+}
+
+export async function countPersonnelLeaderNotes(ctx: LeaderNoteContext, personnelId: string): Promise<number> {
+	await requireAccess(ctx, personnelId, 'read');
+	return ctx.persistence.countActive(personnelId);
 }
 
 export async function createPersonnelLeaderNote(
@@ -125,9 +138,26 @@ export async function archivePersonnelLeaderNote(
 ): Promise<PersonnelArtifactArchiveState> {
 	const existing = await loadNote(ctx, input.personnelId, input.noteId);
 	if (existing.archived_at) fail(409, 'Leader note is already archived');
-	const row = await ctx.persistence.update(input.personnelId, input.noteId, new Date().toISOString());
+	const row = await ctx.persistence.setArchive(input.personnelId, input.noteId, {
+		at: new Date().toISOString(),
+		by: ctx.actor.userId
+	});
 	ctx.audit.log({ action: 'personnel.leader_note.archived', resourceType: 'personnel', resourceId: input.personnelId });
 	return { id: row.id, archivedAt: row.archived_at ?? null };
+}
+
+export async function updatePersonnelLeaderNote(
+	ctx: LeaderNoteContext,
+	rawInput: unknown
+): Promise<PersonnelLeaderNote> {
+	const parsed = personnelLeaderNoteTextSchema.safeParse(rawInput);
+	if (!parsed.success) fail(400, issueMessage(parsed.error));
+	const input = parsed.data;
+	const existing = await loadNote(ctx, input.personnelId, input.noteId);
+	if (existing.archived_at) fail(409, 'Archived leader notes cannot be edited');
+	const row = await ctx.persistence.setText(input.personnelId, input.noteId, input.text, new Date().toISOString());
+	ctx.audit.log({ action: 'personnel.leader_note.updated', resourceType: 'personnel', resourceId: input.personnelId });
+	return (await mapRows(ctx, [row]))[0];
 }
 
 export async function restorePersonnelLeaderNote(
@@ -135,7 +165,7 @@ export async function restorePersonnelLeaderNote(
 	input: { personnelId: string; noteId: string }
 ): Promise<PersonnelArtifactArchiveState> {
 	await loadNote(ctx, input.personnelId, input.noteId);
-	const row = await ctx.persistence.update(input.personnelId, input.noteId, null);
+	const row = await ctx.persistence.setArchive(input.personnelId, input.noteId, null);
 	ctx.audit.log({ action: 'personnel.leader_note.restored', resourceType: 'personnel', resourceId: input.personnelId });
 	return { id: row.id, archivedAt: row.archived_at ?? null };
 }

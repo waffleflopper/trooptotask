@@ -12,6 +12,8 @@ export interface PersonnelCounselingRecord {
 	fileName: string;
 	createdAt: string;
 	archivedAt?: string | null;
+	/** Organization member label; null when archived before attribution or by a Person archive. */
+	archivedBy?: string | null;
 }
 
 export interface PersonnelDocument {
@@ -24,6 +26,7 @@ export interface PersonnelDocument {
 	uploadedBy: string;
 	createdAt: string;
 	archivedAt?: string | null;
+	archivedBy?: string | null;
 }
 
 export type PersonnelFollowUpStatus = 'open' | 'completed' | 'archived';
@@ -39,7 +42,10 @@ export interface PersonnelFollowUp {
 	createdAt: string;
 	updatedAt: string;
 	completedAt: string | null;
+	/** Organization member label; null while open or completed before attribution. */
+	completedBy: string | null;
 	archivedAt?: string | null;
+	archivedBy?: string | null;
 }
 
 /** Lifecycle writes return only what a manager without sensitive reads may know. */

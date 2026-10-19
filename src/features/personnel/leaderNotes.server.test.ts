@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import {
 	archivePersonnelLeaderNote,
+	countPersonnelLeaderNotes,
 	createPersonnelLeaderNote,
 	deletePersonnelLeaderNote,
 	listPersonnelLeaderNotes,
-	restorePersonnelLeaderNote
+	restorePersonnelLeaderNote,
+	updatePersonnelLeaderNote
 } from './leaderNotes.server';
 import { testLeaderNoteContext } from './leaderNotes.testHelper';
 
@@ -178,6 +180,84 @@ describe('personnel leader notes', () => {
 		await expect(
 			restorePersonnelLeaderNote(notes, { personnelId: 'person-1', noteId: created.id })
 		).resolves.toMatchObject({ archivedAt: null });
+	});
+
+	it('edits a note in place, stamps updated_at, and refuses to edit an archived note', async () => {
+		const ctx = createTestContext();
+		seedPersonnel(ctx);
+		const notes = testLeaderNoteContext(ctx);
+		ctx.store.seed('leader_notes', [
+			{
+				id: 'note-1',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'person-1',
+				author: 'SFC Jones',
+				text: 'First draft',
+				created_at: '2026-05-01T10:00:00Z',
+				updated_at: '2026-05-01T10:00:00Z'
+			}
+		]);
+		const ids = { personnelId: 'person-1', noteId: 'note-1' };
+
+		const edited = await updatePersonnelLeaderNote(notes, { ...ids, text: 'Second draft' });
+		expect(edited).toMatchObject({ id: 'note-1', text: 'Second draft', createdAt: '2026-05-01T10:00:00Z' });
+		const stored = await ctx.store.findOne<Record<string, unknown>>('leader_notes', ctx.auth.orgId, {
+			id: 'note-1'
+		});
+		expect(stored?.text).toBe('Second draft');
+		expect(stored?.updated_at).not.toBe('2026-05-01T10:00:00Z');
+
+		await expect(updatePersonnelLeaderNote(notes, { ...ids, text: '   ' })).rejects.toMatchObject({ status: 400 });
+		await archivePersonnelLeaderNote(notes, ids);
+		await expect(updatePersonnelLeaderNote(notes, { ...ids, text: 'Late edit' })).rejects.toMatchObject({
+			status: 409
+		});
+		await expect(
+			updatePersonnelLeaderNote(notes, { personnelId: 'person-1', noteId: 'missing', text: 'x' })
+		).rejects.toMatchObject({ status: 404 });
+	});
+
+	it('counts only active notes, pages older notes from a cursor, and names who archived', async () => {
+		const ctx = createTestContext({ auth: { userId: LEADER_USER_ID, scopeSet: { kind: 'organization' } } });
+		seedPersonnel(ctx);
+		ctx.store.seed('organization_memberships', [
+			{
+				id: 'membership-1',
+				organization_id: ctx.auth.orgId,
+				user_id: LEADER_USER_ID,
+				email: 'leader@example.com'
+			}
+		]);
+		const note = (id: string, createdAt: string, archivedAt: string | null = null) => ({
+			id,
+			organization_id: ctx.auth.orgId,
+			personnel_id: 'person-1',
+			author: 'SFC Jones',
+			text: `Text ${id}`,
+			created_at: createdAt,
+			archived_at: archivedAt
+		});
+		ctx.store.seed('leader_notes', [
+			note('n1', '2026-01-01T00:00:00Z'),
+			note('n2', '2026-02-01T00:00:00Z'),
+			note('n3', '2026-03-01T00:00:00Z'),
+			note('n4', '2026-04-01T00:00:00Z', '2026-04-02T00:00:00Z')
+		]);
+		const notes = testLeaderNoteContext(ctx);
+
+		await expect(countPersonnelLeaderNotes(notes, 'person-1')).resolves.toBe(3);
+		const firstPage = await listPersonnelLeaderNotes(notes, 'person-1', 2);
+		expect(firstPage.map((n) => n.id)).toEqual(['n3', 'n2']);
+		const olderPage = await listPersonnelLeaderNotes(notes, 'person-1', 2, {
+			before: { createdAt: firstPage[1].createdAt, id: firstPage[1].id }
+		});
+		expect(olderPage.map((n) => n.id)).toEqual(['n1']);
+
+		await archivePersonnelLeaderNote(notes, { personnelId: 'person-1', noteId: 'n3' });
+		const archived = await listPersonnelLeaderNotes(notes, 'person-1', undefined, { archived: true });
+		expect(archived.find((n) => n.id === 'n3')).toMatchObject({ archivedBy: 'leader@example.com' });
+		expect(archived.find((n) => n.id === 'n4')).toMatchObject({ archivedBy: null });
+		await expect(countPersonnelLeaderNotes(notes, 'person-1')).resolves.toBe(2);
 	});
 
 	it('rejects empty notes', async () => {

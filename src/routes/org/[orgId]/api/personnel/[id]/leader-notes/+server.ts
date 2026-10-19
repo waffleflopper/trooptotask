@@ -7,18 +7,42 @@ import { createRequestPersonnelLeaderNoteContext } from '$lib/server/adapters/re
 import type { RequestEvent } from '@sveltejs/kit';
 import { routePersonnelId } from '../routeIds';
 
+const MAX_NOTE_PAGE = 50;
+
+interface LeaderNotePageInput {
+	personnelId: string;
+	limit?: number;
+	before?: { createdAt: string; id: string };
+}
+
+/** `limit` with `before` (the last note already shown) reads the next older page; neither reads every note. */
+function parseNotePage(event: RequestEvent): LeaderNotePageInput {
+	const { searchParams } = event.url;
+	const personnelId = routePersonnelId(event);
+	const limitParam = searchParams.get('limit');
+	const beforeCreatedAt = searchParams.get('beforeCreatedAt');
+	const beforeId = searchParams.get('beforeId');
+	if (limitParam === null && beforeCreatedAt === null && beforeId === null) return { personnelId };
+	const limit = Number(limitParam);
+	if (!Number.isInteger(limit) || limit < 1 || limit > MAX_NOTE_PAGE) fail(400, 'Invalid leader note page size');
+	if ((beforeCreatedAt === null) !== (beforeId === null)) fail(400, 'Invalid leader note cursor');
+	return {
+		personnelId,
+		limit,
+		...(beforeCreatedAt !== null && beforeId !== null ? { before: { createdAt: beforeCreatedAt, id: beforeId } } : {})
+	};
+}
+
 export const _getConfig: RouteConfig<
-	{ personnelId: string },
+	LeaderNotePageInput,
 	PersonnelLeaderNote[],
 	ReturnType<typeof createRequestPersonnelLeaderNoteContext>
 > = {
 	context: createRequestPersonnelLeaderNoteContext,
 	policyAction: POLICY_ACTION_CATALOG.personnel.readSensitiveRecords,
 	policyResource: { kind: 'unscoped' },
-	parseInput: async (event: RequestEvent) => ({
-		personnelId: routePersonnelId(event)
-	}),
-	fn: (ctx, input) => listPersonnelLeaderNotes(ctx, input.personnelId)
+	parseInput: async (event: RequestEvent) => parseNotePage(event),
+	fn: (ctx, input) => listPersonnelLeaderNotes(ctx, input.personnelId, input.limit, { before: input.before })
 };
 
 export const _postConfig: RouteConfig<

@@ -92,6 +92,11 @@ export async function personnelArtifactWriter(
 	return ctx.writerFor(personnelId);
 }
 
+/** The label of the member behind an optional stamp column; null when nobody was recorded. */
+export function optionalContributorLabel(labels: Map<string, string>, value: string | null | undefined): string | null {
+	return value ? (labels.get(value) ?? value) : null;
+}
+
 export function resolveContributorLabel(labels: Map<string, string>, value: string | null | undefined): string {
 	if (!value) return 'Unknown leader';
 	return labels.get(value) ?? value;

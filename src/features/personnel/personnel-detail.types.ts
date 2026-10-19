@@ -24,24 +24,6 @@ export interface PersonnelDetailLayoutStreams {
 	tabCounts: Promise<PersonnelDetailTabCounts | null>;
 }
 
-export type PersonnelArtifactKind = 'follow-up' | 'counseling' | 'document' | 'note';
-
-export interface PersonnelFollowUpsPageData {
-	orgId: string;
-	personnelId: string;
-	title: string;
-	emptyState: string;
-	records: PersonnelFollowUp[];
-}
-
-export interface PersonnelNotesPageData {
-	orgId: string;
-	personnelId: string;
-	title: string;
-	emptyState: string;
-	notes: PersonnelLeaderNote[];
-}
-
 export interface PersonnelCounselingsPageData {
 	orgId: string;
 	personnelId: string;
@@ -58,9 +40,16 @@ export interface PersonnelDocumentsPageData {
 	records: PersonnelDocument[];
 }
 
+/** The newest notes and how many active notes the Soldier has in all. */
+export interface PersonnelLogNotes {
+	notes: PersonnelLeaderNote[];
+	total: number;
+}
+
 export interface PersonnelLogPageData {
-	followUps: PersonnelFollowUpsPageData;
-	notes: PersonnelNotesPageData;
+	/** Open and completed follow-ups. */
+	followUps: Promise<PersonnelFollowUp[]>;
+	notes: Promise<PersonnelLogNotes>;
 }
 
 export interface PersonnelFilesPageData {
@@ -73,12 +62,8 @@ export interface PersonnelDataSheetPageData {
 	dataSheet: Promise<PersonnelExtendedInfo | null>;
 }
 
-export interface PersonnelArchivedArtifactsPageData {
-	orgId: string;
-	personnelId: string;
-	title: string;
-	emptyState: string;
-	records: PersonnelArchivedArtifact[];
+export interface PersonnelArchivedPageData {
+	archived: Promise<PersonnelArchivedArtifact[]>;
 }
 
 export type PersonnelReadinessLaneTone = 'good' | 'watch' | 'bad' | 'info' | 'neutral';

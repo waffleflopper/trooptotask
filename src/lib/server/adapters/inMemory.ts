@@ -1075,8 +1075,11 @@ function createInMemoryPersonnelArtifactWritePort(
 						created_at: input.createdAt
 					});
 				},
-				setCounselingArchivedAt: (id, archivedAt) =>
-					rows.update<CounselingRecordRow>('counseling_records', id, { archived_at: archivedAt }),
+				setCounselingArchive: (id, archived) =>
+					rows.update<CounselingRecordRow>('counseling_records', id, {
+						archived_at: archived?.at ?? null,
+						archived_by: archived?.by ?? null
+					}),
 				findDocument: (id) => rows.find<PersonnelDocumentRow>('personnel_documents', id),
 				async createDocument(input) {
 					await rows.assertAttachable('document', input.filePath);
@@ -1089,8 +1092,11 @@ function createInMemoryPersonnelArtifactWritePort(
 						created_at: input.createdAt
 					});
 				},
-				setDocumentArchivedAt: (id, archivedAt) =>
-					rows.update<PersonnelDocumentRow>('personnel_documents', id, { archived_at: archivedAt }),
+				setDocumentArchive: (id, archived) =>
+					rows.update<PersonnelDocumentRow>('personnel_documents', id, {
+						archived_at: archived?.at ?? null,
+						archived_by: archived?.by ?? null
+					}),
 				findFollowUp: (id) => rows.find<FollowUpRow>('personnel_follow_ups', id),
 				createFollowUp: (input) =>
 					rows.insert<FollowUpRow>('personnel_follow_ups', {
@@ -1108,8 +1114,12 @@ function createInMemoryPersonnelArtifactWritePort(
 						...(input.notes !== undefined ? { notes: input.notes } : {}),
 						...(input.dueDate !== undefined ? { due_date: input.dueDate } : {}),
 						...(input.status !== undefined ? { status: input.status } : {}),
-						...(input.completedAt !== undefined ? { completed_at: input.completedAt } : {}),
-						...(input.archivedAt !== undefined ? { archived_at: input.archivedAt } : {}),
+						...(input.completed !== undefined
+							? { completed_at: input.completed?.at ?? null, completed_by: input.completed?.by ?? null }
+							: {}),
+						...(input.archived !== undefined
+							? { archived_at: input.archived?.at ?? null, archived_by: input.archived?.by ?? null }
+							: {}),
 						updated_at: input.updatedAt
 					}),
 				deleteFollowUp: (id) => rows.delete('personnel_follow_ups', id),
@@ -1118,10 +1128,16 @@ function createInMemoryPersonnelArtifactWritePort(
 					rows.insert<LeaderNoteRow>('leader_notes', {
 						author: input.author,
 						text: input.text,
-						created_at: input.createdAt
+						created_at: input.createdAt,
+						updated_at: input.createdAt
 					}),
-				setLeaderNoteArchivedAt: (id, archivedAt) =>
-					rows.update<LeaderNoteRow>('leader_notes', id, { archived_at: archivedAt }),
+				setLeaderNoteArchive: (id, archived) =>
+					rows.update<LeaderNoteRow>('leader_notes', id, {
+						archived_at: archived?.at ?? null,
+						archived_by: archived?.by ?? null
+					}),
+				setLeaderNoteText: (id, text, updatedAt) =>
+					rows.update<LeaderNoteRow>('leader_notes', id, { text, updated_at: updatedAt }),
 				deleteLeaderNote: (id) => rows.delete('leader_notes', id),
 				sumActiveDocumentBytes: rows.sumActiveDocumentBytes,
 				uploadFile: rows.uploadFile,
@@ -1640,6 +1656,15 @@ function createTestArtifactReadPersistence(store: FixtureRowStore, orgId: string
 				}
 			),
 		findDocument: (personnelId, id) => store.findOne('personnel_documents', orgId, { id, personnel_id: personnelId }),
+		async countActiveLeaderNotes(personnelId) {
+			const rows = await store.findMany(
+				'leader_notes',
+				orgId,
+				{ personnel_id: personnelId },
+				{ isNull: { archived_at: true } }
+			);
+			return rows.length;
+		},
 		async listLeaderNotePage(personnelId, { archived, limit, before }) {
 			const options = {
 				isNull: { archived_at: !archived },

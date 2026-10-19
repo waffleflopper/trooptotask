@@ -3,6 +3,7 @@ import type { PersonnelFollowUp, PersonnelFollowUpLifecycleState } from './contr
 import { fail } from '$lib/errors';
 import {
 	canReadSensitivePersonnelArtifacts,
+	optionalContributorLabel,
 	personnelArtifactWriter,
 	requirePersonnelArtifactAccess,
 	resolveContributorLabel,
@@ -42,8 +43,12 @@ export async function listPersonnelFollowUps(
 ): Promise<PersonnelFollowUp[]> {
 	await requirePersonnelArtifactAccess(ctx, personnelId, 'read');
 	const rows = await ctx.persistence.listFollowUps(personnelId, { archived: !!options.archived, limit });
-	const labels = await ctx.contributorLabels(rows.flatMap((row) => (row.created_by ? [row.created_by] : [])));
+	const labels = await ctx.contributorLabels(followUpMemberIds(rows));
 	return rows.map((row) => mapFollowUpRow(row, labels));
+}
+
+function followUpMemberIds(rows: FollowUpRow[]): string[] {
+	return rows.flatMap((row) => [row.created_by, row.completed_by, row.archived_by].filter((id): id is string => !!id));
 }
 
 export async function createPersonnelFollowUp(
@@ -74,7 +79,7 @@ export async function createPersonnelFollowUp(
 		resourceId: input.personnelId
 	});
 
-	const labels = await ctx.contributorLabels([row.created_by]);
+	const labels = await ctx.contributorLabels(followUpMemberIds([row]));
 	return mapFollowUpRow(row, labels);
 }
 
@@ -86,7 +91,7 @@ async function followUpLifecycleResult(
 	if (!(await canReadSensitivePersonnelArtifacts(ctx, personnelId))) {
 		return { id: row.id, status: row.status, archivedAt: row.archived_at ?? null };
 	}
-	return mapFollowUpRow(row, await ctx.contributorLabels([row.created_by]));
+	return mapFollowUpRow(row, await ctx.contributorLabels(followUpMemberIds([row])));
 }
 
 export async function setPersonnelFollowUpStatus(
@@ -108,10 +113,12 @@ export async function setPersonnelFollowUpStatus(
 	}
 
 	const now = new Date().toISOString();
+	const stamp = { at: now, by: ctx.actor.userId };
+	// Archiving keeps the completion so a restore puts the follow-up back where it was.
 	const row = await writer.patchFollowUp(input.followUpId, {
 		status: input.status,
-		completedAt: input.status === 'completed' ? now : null,
-		archivedAt: input.status === 'archived' ? now : null,
+		...(input.status === 'archived' ? {} : { completed: input.status === 'completed' ? stamp : null }),
+		archived: input.status === 'archived' ? stamp : null,
 		updatedAt: now
 	});
 
@@ -155,7 +162,7 @@ export async function updatePersonnelFollowUp(
 		resourceId: input.personnelId
 	});
 
-	const labels = await ctx.contributorLabels([row.created_by]);
+	const labels = await ctx.contributorLabels(followUpMemberIds([row]));
 	return mapFollowUpRow(row, labels);
 }
 
@@ -188,9 +195,8 @@ export async function restorePersonnelFollowUp(
 	if (current.status !== 'archived') fail(409, 'Only archived follow-ups can be restored');
 
 	const row = await writer.patchFollowUp(input.followUpId, {
-		status: 'open',
-		completedAt: null,
-		archivedAt: null,
+		status: current.completed_at ? 'completed' : 'open',
+		archived: null,
 		updatedAt: new Date().toISOString()
 	});
 	ctx.audit.log({ action: 'personnel.follow_up.restored', resourceType: 'personnel', resourceId: input.personnelId });
@@ -223,6 +229,8 @@ function mapFollowUpRow(row: FollowUpRow, contributorLabels = new Map<string, st
 		createdAt: row.created_at,
 		updatedAt: row.updated_at,
 		completedAt: row.completed_at,
-		archivedAt: row.archived_at ?? null
+		completedBy: optionalContributorLabel(contributorLabels, row.completed_by),
+		archivedAt: row.archived_at ?? null,
+		archivedBy: optionalContributorLabel(contributorLabels, row.archived_by)
 	};
 }

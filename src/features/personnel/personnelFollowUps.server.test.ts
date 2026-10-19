@@ -134,6 +134,38 @@ describe('personnel follow-ups', () => {
 		).rejects.toMatchObject({ status: 409 });
 	});
 
+	it('names who completed a follow-up and puts a completed one back as completed after archive', async () => {
+		const ctx = createTestContext({
+			auth: { userId: LEADER_USER_ID, scopeSet: { kind: 'organization' } }
+		});
+		seedPersonnel(ctx);
+		ctx.store.seed('organization_memberships', [
+			{
+				id: 'membership-1',
+				organization_id: ctx.auth.orgId,
+				user_id: LEADER_USER_ID,
+				email: 'leader@example.com'
+			}
+		]);
+		const context = testPersonnelArtifactsContext(ctx);
+		const created = await createPersonnelFollowUp(context, { personnelId: 'person-1', title: 'Counsel on PT' });
+		const ids = { personnelId: 'person-1', followUpId: created.id };
+
+		const completed = await setPersonnelFollowUpStatus(context, { ...ids, status: 'completed' });
+		expect(completed).toMatchObject({ status: 'completed', completedBy: 'leader@example.com' });
+
+		const archived = await archivePersonnelFollowUp(context, ids);
+		expect(archived).toMatchObject({ status: 'archived', archivedBy: 'leader@example.com' });
+		const [listed] = await listPersonnelFollowUps(context, 'person-1', undefined, { archived: true });
+		expect(listed).toMatchObject({ completedBy: 'leader@example.com', archivedBy: 'leader@example.com' });
+
+		const restored = await restorePersonnelFollowUp(context, ids);
+		expect(restored).toMatchObject({ status: 'completed', completedBy: 'leader@example.com', archivedBy: null });
+
+		const reopened = await setPersonnelFollowUpStatus(context, { ...ids, status: 'open' });
+		expect(reopened).toMatchObject({ status: 'open', completedAt: null, completedBy: null });
+	});
+
 	it('requires Personnel configure capability for reads and operate capability for writes', async () => {
 		const ctx = createTestContext({
 			auth: {
@@ -276,8 +308,7 @@ describe('personnel follow-ups', () => {
 			expect(repeated).toMatchObject({
 				status: 'archived',
 				archivedAt: '2026-10-02T12:00:00.000Z',
-				updatedAt: '2026-10-02T12:00:00.000Z',
-				completedAt: null
+				updatedAt: '2026-10-02T12:00:00.000Z'
 			});
 			expect(ctx.auditPort.events.at(-1)).toMatchObject({ action: 'personnel.follow_up.archived' });
 		} finally {

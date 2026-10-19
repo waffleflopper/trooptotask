@@ -94,7 +94,7 @@
 			{#each props.columns as day, index (day.key)}
 				{#if day.closure}
 					<span
-						class="pointer-events-none z-10 rounded-[3px] border border-dashed border-white/70 outline-1 outline-dashed outline-foreground/60"
+						class="pointer-events-none z-10 rounded-[3px] border border-dashed border-background/70 outline-1 outline-dashed outline-foreground/60"
 						style="grid-column: {index + 1}; grid-row: 1 / 3"
 					></span>
 				{/if}

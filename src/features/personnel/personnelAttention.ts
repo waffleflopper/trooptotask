@@ -1,4 +1,5 @@
 import { isReadinessProblem } from '$lib/domain/readinessItem';
+import { formatDayMonth, formatDayMonthYear } from '$lib/utils/dates';
 import type {
 	AttentionInput,
 	AttentionItem,
@@ -18,6 +19,41 @@ function byUrgency(a: AttentionItem, b: AttentionItem): number {
 	);
 }
 
+type TrainingItem = Extract<AttentionInput['training'], { ok: true }>['value']['items'][number];
+type CriticalTaskItem = Extract<AttentionInput['criticalTasks'], { ok: true }>['value']['items'][number];
+
+function requiredFor(applicability: TrainingItem['applicability']): string {
+	switch (applicability.kind) {
+		case 'all':
+			return 'all Soldiers';
+		case 'mos':
+			return applicability.mos;
+		case 'role':
+			return applicability.role;
+		case 'rank':
+			return applicability.rank;
+	}
+}
+
+function trainingDetail(item: TrainingItem): string {
+	const expires = item.completion?.expirationDate;
+	const completed = item.completion?.completionDate;
+	if (item.status === 'missing') return `Required for ${requiredFor(item.applicability)} · no completion on record`;
+	if (item.status === 'expired' && expires) {
+		return completed
+			? `Lapsed ${formatDayMonth(expires)} · last completed ${formatDayMonthYear(completed)}`
+			: `Lapsed ${formatDayMonth(expires)}`;
+	}
+	const cycle = item.cycleMonths === null ? null : `${item.cycleMonths}-month cycle`;
+	return [expires ? `Expires ${formatDayMonth(expires)}` : null, cycle].filter(Boolean).join(' · ');
+}
+
+function criticalTaskDetail(item: CriticalTaskItem): string {
+	if (!item.latest) return `${item.taskCode} · no validation on record`;
+	const by = item.latest.validatedBy ? ` by ${item.latest.validatedBy}` : '';
+	return `${item.taskCode} · validated ${formatDayMonthYear(item.latest.completedAt)}${by}`;
+}
+
 function trainingItems(input: AttentionInput['training']): AttentionItem[] {
 	if (!input.ok) return [];
 	return input.value.items.flatMap((item) => {
@@ -29,7 +65,7 @@ function trainingItems(input: AttentionInput['training']): AttentionItem[] {
 				status,
 				id: item.typeId,
 				title: item.name,
-				detail: item.cycleMonths === null ? 'Does not expire' : `${item.cycleMonths}-month cycle`,
+				detail: trainingDetail(item),
 				dueDate: item.completion?.expirationDate ?? null,
 				daysUntilDue: item.daysUntilExpiration,
 				target: { tab: 'readiness', item: { kind: 'training', id: item.typeId } }
@@ -49,7 +85,7 @@ function criticalTaskItems(input: AttentionInput['criticalTasks']): AttentionIte
 				status,
 				id: item.taskId,
 				title: item.name,
-				detail: item.taskCode,
+				detail: criticalTaskDetail(item),
 				dueDate: item.expirationDate,
 				daysUntilDue: item.daysUntilExpiration,
 				target: { tab: 'readiness', item: { kind: 'critical-task', id: item.taskId } }
@@ -67,10 +103,16 @@ function evaluationItems(input: AttentionInput['evaluation']): AttentionItem[] {
 			status: 'due',
 			id: entry.entryId,
 			title: [entry.reportTypeLabel, entry.evalType].filter(Boolean).join(' '),
-			detail: entry.phase.label,
+			detail: [
+				`Thru ${formatDayMonth(entry.periodEnd)}`,
+				entry.rater ? `rater ${entry.rater}` : null,
+				entry.phase.label.toLowerCase()
+			]
+				.filter(Boolean)
+				.join(' · '),
 			dueDate: entry.periodEnd,
 			daysUntilDue: entry.daysUntilThru,
-			target: { tab: 'readiness', item: null }
+			target: { tab: 'evals', entryId: entry.entryId }
 		}
 	];
 }
@@ -83,11 +125,11 @@ function lossItems(input: AttentionInput['loss']): AttentionItem[] {
 			kind: 'loss',
 			status: 'upcoming',
 			id: inWindow.trigger,
-			title: inWindow.trigger,
+			title: `${inWindow.trigger} ${formatDayMonthYear(inWindow.date)}`,
 			detail: `Inside the ${windowDays}-day loss window`,
 			dueDate: inWindow.date,
 			daysUntilDue: inWindow.daysRemaining,
-			target: { tab: 'readiness', item: null }
+			target: { tab: 'data-sheet' }
 		}
 	];
 }

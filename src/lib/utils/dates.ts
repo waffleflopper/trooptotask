@@ -18,14 +18,19 @@ export function formatDisplayDateTime(dateStr: string | null): string {
 	});
 }
 
-/** "today", "yesterday", "3 days ago" — counted in local calendar days, so 23:00 viewed at 08:00 is "yesterday" */
+/** "today", "yesterday", "3 days ago", "tomorrow", "in 3 days" for a whole-day offset from today. */
+export function formatDayOffset(days: number): string {
+	if (days === 0) return 'today';
+	if (days === 1) return 'tomorrow';
+	if (days === -1) return 'yesterday';
+	return days > 0 ? `in ${days} days` : `${-days} days ago`;
+}
+
+/** Within a week of today as a day offset, else the date. Counted in local calendar days, so 23:00 viewed at 08:00 is "yesterday" */
 export function formatRelativeDate(dateStr: string): string {
 	const date = new Date(dateStr);
-	const diffDays = calendarDayDiff(date, new Date());
-
-	if (diffDays <= 0) return 'today';
-	if (diffDays === 1) return 'yesterday';
-	if (diffDays < 7) return `${diffDays} days ago`;
+	const diffDays = calendarDayDiff(new Date(), date);
+	if (Math.abs(diffDays) < 7) return formatDayOffset(diffDays);
 	return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 

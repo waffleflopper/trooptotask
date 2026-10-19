@@ -13,7 +13,8 @@ const sources: AttentionInput = {
 					status: 'expired',
 					daysUntilExpiration: -12,
 					cycleMonths: 24,
-					completion: { expirationDate: '2026-09-24' }
+					applicability: { kind: 'all' },
+					completion: { completionDate: '2024-09-24', expirationDate: '2026-09-24' }
 				},
 				{
 					typeId: 'sharp',
@@ -21,7 +22,8 @@ const sources: AttentionInput = {
 					status: 'expiring',
 					daysUntilExpiration: 21,
 					cycleMonths: 12,
-					completion: { expirationDate: '2026-10-27' }
+					applicability: { kind: 'all' },
+					completion: { completionDate: '2025-10-27', expirationDate: '2026-10-27' }
 				},
 				{
 					typeId: 'hipaa',
@@ -29,7 +31,8 @@ const sources: AttentionInput = {
 					status: 'current',
 					daysUntilExpiration: 200,
 					cycleMonths: 12,
-					completion: { expirationDate: '2027-04-24' }
+					applicability: { kind: 'all' },
+					completion: { completionDate: '2026-04-24', expirationDate: '2027-04-24' }
 				}
 			]
 		}
@@ -44,7 +47,8 @@ const sources: AttentionInput = {
 					name: 'Insert a nasopharyngeal airway',
 					status: 'missing',
 					daysUntilExpiration: null,
-					expirationDate: null
+					expirationDate: null,
+					latest: null
 				},
 				{
 					taskId: 'tourniquet',
@@ -52,7 +56,8 @@ const sources: AttentionInput = {
 					name: 'Apply a tourniquet',
 					status: 'current',
 					daysUntilExpiration: 300,
-					expirationDate: '2027-08-14'
+					expirationDate: '2027-08-14',
+					latest: { completedAt: '2025-08-14', validatedBy: 'SSG Alvarez' }
 				}
 			]
 		}
@@ -66,7 +71,8 @@ const sources: AttentionInput = {
 			periodEnd: '2026-11-30',
 			daysUntilThru: 55,
 			dueStatus: 'due-60',
-			phase: { label: 'Drafting' }
+			phase: { label: 'Drafting' },
+			rater: 'SSG Alvarez'
 		}
 	},
 	loss: {
@@ -90,18 +96,24 @@ describe('buildPersonnelAttention', () => {
 			['critical-task', 'missing', 'Insert a nasopharyngeal airway', null],
 			['training', 'expiring', 'SHARP', 21],
 			['evaluation', 'due', 'Annual NCOER', 55],
-			['loss', 'upcoming', 'ETS', 159]
+			['loss', 'upcoming', 'ETS 14 Mar 2027', 159]
 		]);
 		expect(attention.items[0]).toEqual({
 			kind: 'training',
 			status: 'expired',
 			id: 'cpr',
 			title: 'CPR / BLS',
-			detail: '24-month cycle',
+			detail: 'Lapsed 24 Sep · last completed 24 Sep 2024',
 			dueDate: '2026-09-24',
 			daysUntilDue: -12,
 			target: { tab: 'readiness', item: { kind: 'training', id: 'cpr' } }
 		});
+		expect(attention.items.slice(1).map((item) => [item.detail, item.target])).toEqual([
+			['081-833-0210 · no validation on record', { tab: 'readiness', item: { kind: 'critical-task', id: 'airway' } }],
+			['Expires 27 Oct · 12-month cycle', { tab: 'readiness', item: { kind: 'training', id: 'sharp' } }],
+			['Thru 30 Nov · rater SSG Alvarez · drafting', { tab: 'evals', entryId: 'eval-1' }],
+			['Inside the 180-day loss window', { tab: 'data-sheet' }]
+		]);
 		expect(attention.readinessBadge).toEqual({ count: 3, complete: true });
 		expect(attention.checked).toEqual({
 			training: { state: 'checked', currentCount: 1 },
@@ -111,6 +123,49 @@ describe('buildPersonnelAttention', () => {
 			onboarding: { state: 'checked', status: 'complete' }
 		});
 		expect(attention.failed).toEqual([]);
+	});
+
+	it('says who requires a missing course and who last validated an expiring task', () => {
+		const attention = buildPersonnelAttention({
+			...sources,
+			training: {
+				ok: true,
+				value: {
+					items: [
+						{
+							typeId: 'sharp',
+							name: 'SHARP annual training',
+							status: 'missing',
+							daysUntilExpiration: null,
+							cycleMonths: 12,
+							applicability: { kind: 'mos', mos: '68W' },
+							completion: null
+						}
+					]
+				}
+			},
+			criticalTasks: {
+				ok: true,
+				value: {
+					items: [
+						{
+							taskId: 'tourniquet',
+							taskCode: '081-833-0210',
+							name: 'Apply a tourniquet',
+							status: 'expiring',
+							daysUntilExpiration: 30,
+							expirationDate: '2026-11-05',
+							latest: { completedAt: '2025-11-05', validatedBy: 'SSG Alvarez' }
+						}
+					]
+				}
+			}
+		});
+
+		expect(attention.items.slice(0, 2).map((item) => item.detail)).toEqual([
+			'Required for 68W · no completion on record',
+			'081-833-0210 · validated 5 Nov 2025 by SSG Alvarez'
+		]);
 	});
 
 	it('leaves an evaluation outside 60 days and a loss outside the window off the list', () => {
@@ -125,7 +180,8 @@ describe('buildPersonnelAttention', () => {
 					periodEnd: '2027-03-01',
 					daysUntilThru: 136,
 					dueStatus: 'current',
-					phase: { label: 'Drafting' }
+					phase: { label: 'Drafting' },
+					rater: null
 				}
 			},
 			loss: {
@@ -144,7 +200,12 @@ describe('buildPersonnelAttention', () => {
 			onboarding: { ok: false }
 		});
 
-		expect(attention.items.map((item) => item.title)).toEqual(['CPR / BLS', 'SHARP', 'Annual NCOER', 'ETS']);
+		expect(attention.items.map((item) => item.title)).toEqual([
+			'CPR / BLS',
+			'SHARP',
+			'Annual NCOER',
+			'ETS 14 Mar 2027'
+		]);
 		expect(attention.readinessBadge).toEqual({ count: 2, complete: false });
 		expect(attention.checked.criticalTasks).toEqual({ state: 'failed' });
 		expect(attention.checked.onboarding).toEqual({ state: 'failed' });

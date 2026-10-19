@@ -26,7 +26,12 @@ export interface AttentionInput {
 			status: ReadinessItemStatus;
 			daysUntilExpiration: number | null;
 			cycleMonths: number | null;
-			completion: { expirationDate: string | null } | null;
+			applicability:
+				| { kind: 'all' }
+				| { kind: 'mos'; mos: string }
+				| { kind: 'role'; role: string }
+				| { kind: 'rank'; rank: string };
+			completion: { completionDate: string | null; expirationDate: string | null } | null;
 		}>;
 	}>;
 	criticalTasks: ReadinessSourceResult<{
@@ -37,6 +42,7 @@ export interface AttentionInput {
 			status: ReadinessItemStatus;
 			daysUntilExpiration: number | null;
 			expirationDate: string | null;
+			latest: { completedAt: string; validatedBy: string | null } | null;
 		}>;
 	}>;
 	evaluation: ReadinessSourceResult<{
@@ -47,6 +53,7 @@ export interface AttentionInput {
 		daysUntilThru: number;
 		dueStatus: 'current' | 'due-60' | 'due-30' | 'overdue' | 'completed';
 		phase: { label: string };
+		rater: string | null;
 	} | null>;
 	loss: ReadinessSourceResult<PersonnelLossReadiness>;
 	onboarding: ReadinessSourceResult<{ state: 'none' | 'in-progress' | 'complete' }>;
@@ -54,11 +61,11 @@ export interface AttentionInput {
 
 export type AttentionSource = keyof AttentionInput;
 
-/** Where an attention row leads: the Readiness tab, optionally with one item's drawer open. */
-export interface AttentionTarget {
-	tab: 'readiness';
-	item: { kind: 'training' | 'critical-task'; id: string } | null;
-}
+/** Where an attention row leads: an item's Readiness drawer, the Evals entry, or the Data sheet. */
+export type AttentionTarget =
+	| { tab: 'readiness'; item: { kind: 'training' | 'critical-task'; id: string } }
+	| { tab: 'evals'; entryId: string }
+	| { tab: 'data-sheet' };
 
 interface AttentionItemBase {
 	id: string;

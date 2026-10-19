@@ -20,15 +20,20 @@
 	const list = untrack(
 		() => new FollowUpList(initial, { orgId, personnelId, fetch: (input, init) => fetch(input, init) })
 	);
-	// The shown rows are fixed when the section opens, so a row completed here stays in place,
-	// struck through with Reopen, instead of vanishing under the leader's pointer.
-	const shownIds = untrack(() =>
+	// The rows shown when the section opens stay in place, so a row completed here stays struck
+	// through with Reopen instead of vanishing under the leader's pointer. The next open rows fill in below.
+	const pinnedIds = untrack(() =>
 		groupFollowUps(initial, today)
 			.open.slice(0, SHOWN)
 			.map((row) => row.id)
 	);
 	const groups = $derived(groupFollowUps(list.rows, today));
-	const shown = $derived(shownIds.flatMap((id) => list.rows.find((row) => row.id === id) ?? []));
+	const shown = $derived.by(() => {
+		const pinned = pinnedIds.flatMap((id) => list.rows.find((row) => row.id === id) ?? []);
+		const stillOpen = pinned.filter((row) => row.status === 'open').length;
+		const fill = groups.open.filter((row) => !pinnedIds.includes(row.id)).slice(0, SHOWN - stillOpen);
+		return [...pinned, ...fill];
+	});
 	let editingId = $state<string | null>(null);
 </script>
 

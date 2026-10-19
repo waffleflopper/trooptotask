@@ -247,7 +247,7 @@ describe('Personnel Overview', () => {
 		);
 	});
 
-	it('completes a follow-up in one click and keeps it in place to reopen', async () => {
+	it('completes a follow-up in one click, keeps it in place to reopen and shows the next open one below', async () => {
 		const requests = completingFetch();
 		renderOverview();
 
@@ -255,7 +255,16 @@ describe('Personnel Overview', () => {
 		await fireEvent.click(await within(section).findByRole('checkbox', { name: 'Complete Dental readiness' }));
 
 		expect(await within(section).findByText('3 open')).toBeTruthy();
-		expect(within(section).getByRole('checkbox', { name: 'Reopen Dental readiness' })).toBeTruthy();
+		expect(
+			within(section)
+				.getAllByRole('checkbox')
+				.map((box) => box.getAttribute('aria-label'))
+		).toEqual([
+			'Reopen Dental readiness',
+			'Complete Range card',
+			'Complete PT test makeup',
+			'Complete TA-50 shortage list'
+		]);
 		expect(requests).toEqual([
 			{
 				url: '/org/org-id-1/api/personnel/person-1/follow-ups/f-dental',

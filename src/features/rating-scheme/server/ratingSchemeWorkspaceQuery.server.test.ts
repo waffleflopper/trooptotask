@@ -47,7 +47,7 @@ function context() {
 	const ctx = createTestContext({ auth: actor });
 	ctx.personnelRatingSchemeRoster = {
 		listActiveReferences: vi.fn().mockResolvedValue([person]),
-		listArchivedIds: vi.fn().mockResolvedValue([]),
+		listArchivedRatedPersonIds: vi.fn().mockResolvedValue([]),
 		findRatedPersonForWrite: vi.fn(),
 		hasEvaluatorReferences: vi.fn()
 	};
@@ -115,7 +115,7 @@ describe('Rating-owned Evals workspace', () => {
 	});
 	it('omits entries whose rated Person is archived, matching IDs case-insensitively', async () => {
 		const ctx = context();
-		vi.mocked(ctx.personnelRatingSchemeRoster!.listArchivedIds).mockResolvedValue([
+		vi.mocked(ctx.personnelRatingSchemeRoster!.listArchivedRatedPersonIds).mockResolvedValue([
 			'PERSON-ARCHIVED',
 			'person-archived-lower'
 		]);
@@ -127,11 +127,13 @@ describe('Rating-owned Evals workspace', () => {
 		]);
 		const result = await loadRatingSchemeWorkspace({ ...ctx, ratingScheme: provider.ratingScheme });
 		expect(result.ratingSchemeEntries.map((entry) => entry.id)).toEqual(['entry-active', 'entry-other-active']);
-		expect(ctx.personnelRatingSchemeRoster?.listArchivedIds).toHaveBeenCalledWith(ctx.auth);
+		expect(ctx.personnelRatingSchemeRoster?.listArchivedRatedPersonIds).toHaveBeenCalledWith(ctx.auth);
 	});
 	it('rejects an archived-ID provider failure rather than publishing archived entries', async () => {
 		const ctx = context();
-		vi.mocked(ctx.personnelRatingSchemeRoster!.listArchivedIds).mockRejectedValue(new Error('Archived unavailable'));
+		vi.mocked(ctx.personnelRatingSchemeRoster!.listArchivedRatedPersonIds).mockRejectedValue(
+			new Error('Archived unavailable')
+		);
 		await expect(loadRatingSchemeWorkspace(ctx)).rejects.toThrow('Archived unavailable');
 	});
 	it('rejects a later-page failure rather than publishing a truncated workspace', async () => {
@@ -156,7 +158,7 @@ describe('Rating-owned Evals workspace', () => {
 		});
 		expect(listWorkspace).not.toHaveBeenCalled();
 		expect(ctx.personnelRatingSchemeRoster?.listActiveReferences).not.toHaveBeenCalled();
-		expect(ctx.personnelRatingSchemeRoster?.listArchivedIds).not.toHaveBeenCalled();
+		expect(ctx.personnelRatingSchemeRoster?.listArchivedRatedPersonIds).not.toHaveBeenCalled();
 	});
 	it('propagates a reference-provider failure', async () => {
 		const ctx = context();
@@ -186,7 +188,7 @@ describe('Rating-owned Evals workspace', () => {
 				await wait;
 				return [person];
 			},
-			listArchivedIds: async () => {
+			listArchivedRatedPersonIds: async () => {
 				started.add('archived');
 				await wait;
 				return [];

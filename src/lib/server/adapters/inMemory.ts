@@ -1280,7 +1280,7 @@ function createInMemoryPersonnelRatingSchemeRosterPort(rawStore: FixtureRowStore
 				firstName: (row.first_name as string) ?? ''
 			}));
 		},
-		async listArchivedIds(actor) {
+		async listArchivedRatedPersonIds(actor) {
 			return inMemoryArchivedPersonIds(rawStore, actor.orgId);
 		},
 		async findRatedPersonForWrite(actor, personnelId) {

@@ -12,7 +12,7 @@ interface RatingSchemeWorkspaceContext {
 	readonly ratingScheme: Pick<RatingSchemePersistence, 'listWorkspace'>;
 	readonly personnelRatingSchemeRoster?: Pick<
 		PersonnelRatingSchemeRosterPort,
-		'listActiveReferences' | 'listArchivedIds'
+		'listActiveReferences' | 'listArchivedRatedPersonIds'
 	>;
 }
 
@@ -28,7 +28,7 @@ export async function loadRatingSchemeWorkspace(ctx: RatingSchemeWorkspaceContex
 
 	const [personnelLookup, archivedIds, ratingSchemeEntries] = await Promise.all([
 		ctx.personnelRatingSchemeRoster.listActiveReferences(ctx.auth),
-		ctx.personnelRatingSchemeRoster.listArchivedIds(ctx.auth),
+		ctx.personnelRatingSchemeRoster.listArchivedRatedPersonIds(ctx.auth),
 		ctx.ratingScheme.listWorkspace()
 	]);
 	const archived = toArchivedPersonIds(archivedIds);

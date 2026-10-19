@@ -59,14 +59,16 @@ function provider(rows: ProviderRow[] = [], failFrom?: number, archivedIds: stri
 		};
 		return query;
 	});
-	const listArchivedIds = vi.fn<PersonnelRatingSchemeRosterPort['listArchivedIds']>().mockResolvedValue(archivedIds);
+	const listArchivedRatedPersonIds = vi
+		.fn<PersonnelRatingSchemeRosterPort['listArchivedRatedPersonIds']>()
+		.mockResolvedValue(archivedIds);
 	return {
 		from,
 		selections,
 		ranges,
 		ordering,
-		listArchivedIds,
-		port: createSupabaseRatingSchemeDuePort({ from } as unknown as SupabaseClient, { listArchivedIds })
+		listArchivedRatedPersonIds,
+		port: createSupabaseRatingSchemeDuePort({ from } as unknown as SupabaseClient, { listArchivedRatedPersonIds })
 	};
 }
 
@@ -134,7 +136,7 @@ describe('Rating Scheme due projection', () => {
 	});
 
 	it('omits evaluations of archived People, matching IDs case-insensitively', async () => {
-		const { port, listArchivedIds } = provider(
+		const { port, listArchivedRatedPersonIds } = provider(
 			[
 				{
 					id: 'evaluation-active',
@@ -163,16 +165,16 @@ describe('Rating Scheme due projection', () => {
 		);
 		const reader = actor();
 		await expect(port.listDueEntries(reader)).resolves.toEqual([{ ratingPeriodEnd: '2026-09-25', status: 'active' }]);
-		expect(listArchivedIds).toHaveBeenCalledWith(reader);
+		expect(listArchivedRatedPersonIds).toHaveBeenCalledWith(reader);
 	});
 
 	it('reads entries and archived IDs concurrently', async () => {
-		const { port, from, listArchivedIds } = provider();
+		const { port, from, listArchivedRatedPersonIds } = provider();
 		let release!: () => void;
 		const wait = new Promise<void>((resolve) => {
 			release = resolve;
 		});
-		listArchivedIds.mockImplementation(async () => {
+		listArchivedRatedPersonIds.mockImplementation(async () => {
 			await wait;
 			return [];
 		});
@@ -180,7 +182,7 @@ describe('Rating Scheme due projection', () => {
 		try {
 			await vi.waitFor(() => {
 				expect(from).toHaveBeenCalledTimes(1);
-				expect(listArchivedIds).toHaveBeenCalledTimes(1);
+				expect(listArchivedRatedPersonIds).toHaveBeenCalledTimes(1);
 			});
 		} finally {
 			release();
@@ -189,29 +191,29 @@ describe('Rating Scheme due projection', () => {
 	});
 
 	it('rejects an archived-ID failure instead of counting archived evaluations', async () => {
-		const { port, listArchivedIds } = provider();
-		listArchivedIds.mockRejectedValue(new Error('Archived unavailable'));
+		const { port, listArchivedRatedPersonIds } = provider();
+		listArchivedRatedPersonIds.mockRejectedValue(new Error('Archived unavailable'));
 		await expect(port.listDueEntries(actor())).rejects.toThrow('Archived unavailable');
 	});
 
 	it.each(['none', 'configure'] as const)(
 		'skips the provider without Rating view even with Personnel %s',
 		async (personnel) => {
-			const { port, from, listArchivedIds } = provider();
+			const { port, from, listArchivedRatedPersonIds } = provider();
 			const reader = actor();
 			await expect(
 				port.listDueEntries({ ...reader, capabilityMap: { ...reader.capabilityMap, personnel, ratingScheme: 'none' } })
 			).resolves.toEqual([]);
 			expect(from).not.toHaveBeenCalled();
-			expect(listArchivedIds).not.toHaveBeenCalled();
+			expect(listArchivedRatedPersonIds).not.toHaveBeenCalled();
 		}
 	);
 
 	it('skips the provider for an empty Group scope', async () => {
-		const { port, from, listArchivedIds } = provider();
+		const { port, from, listArchivedRatedPersonIds } = provider();
 		await expect(port.listDueEntries(actor({ scopeSet: { kind: 'groups', groupIds: [] } }))).resolves.toEqual([]);
 		expect(from).not.toHaveBeenCalled();
-		expect(listArchivedIds).not.toHaveBeenCalled();
+		expect(listArchivedRatedPersonIds).not.toHaveBeenCalled();
 	});
 
 	it.each(['owner', 'admin'] as const)('retains normalized %s access across the Organization', async (role) => {

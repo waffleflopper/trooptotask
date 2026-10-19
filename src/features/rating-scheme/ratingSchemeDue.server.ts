@@ -15,7 +15,7 @@ interface RatingSchemeDueRow {
 /** The authenticated request client retains Rating Scheme RLS without a Personnel SELECT. */
 export function createSupabaseRatingSchemeDuePort(
 	supabase: SupabaseClient,
-	personnelRoster: Pick<PersonnelRatingSchemeRosterPort, 'listArchivedIds'>
+	personnelRoster: Pick<PersonnelRatingSchemeRosterPort, 'listArchivedRatedPersonIds'>
 ): RatingSchemeDuePort {
 	return {
 		async listDueEntries(actor) {
@@ -34,7 +34,7 @@ export function createSupabaseRatingSchemeDuePort(
 							.order('id', { ascending: true })
 							.range(from, to)
 				),
-				personnelRoster.listArchivedIds(actor)
+				personnelRoster.listArchivedRatedPersonIds(actor)
 			]);
 			if (error) throw new Error((error as { message: string }).message);
 			const archived = toArchivedPersonIds(archivedIds);

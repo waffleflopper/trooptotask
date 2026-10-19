@@ -209,8 +209,8 @@ export interface PersonnelTrainingRosterPort {
 /** Scoped Personnel references for the independently authorized Rating Scheme lane. */
 export interface PersonnelRatingSchemeRosterPort {
 	listActiveReferences(actor: PersonnelRosterActor): Promise<PersonnelLookup[]>;
-	/** IDs only, so Rating can hide archived People's entries without Personnel access. */
-	listArchivedIds(
+	/** Archived People rated in an evaluation, IDs only, so Rating can hide their entries without Personnel access. */
+	listArchivedRatedPersonIds(
 		actor: Pick<PersonnelRosterActor, 'orgId' | 'role' | 'capabilityMap' | 'scopeSet'>
 	): Promise<string[]>;
 	findRatedPersonForWrite(actor: PersonnelRosterActor, personnelId: string): Promise<PersonnelWriteSubject | null>;

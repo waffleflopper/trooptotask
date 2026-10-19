@@ -113,7 +113,7 @@ describe('Personnel Rating Scheme roster port', () => {
 		expect(rpc).not.toHaveBeenCalled();
 	});
 
-	it('lists archived Person IDs across the whole Organization, selecting only ids', async () => {
+	it('lists archived rated Person IDs across the whole Organization through the rated-person join', async () => {
 		const rows = [
 			{ id: 'active-alpha', organization_id: 'org-1', group_id: 'group-1', archived_at: null },
 			{ id: 'archived-alpha', organization_id: 'org-1', group_id: 'group-1', archived_at: '2026-01-01' },
@@ -125,18 +125,16 @@ describe('Personnel Rating Scheme roster port', () => {
 		const getAdminClient = createPersonnelClient(rows, selections);
 		const port = createSupabasePersonnelRatingSchemeRosterPort({} as SupabaseClient, getAdminClient);
 
-		await expect(port.listArchivedIds(ratingSchemeActor({ kind: 'groups', groupIds: ['group-1'] }))).resolves.toEqual([
-			'archived-alpha',
-			'archived-bravo',
-			'archived-loose'
-		]);
-		expect(selections).toEqual(['id']);
+		await expect(
+			port.listArchivedRatedPersonIds(ratingSchemeActor({ kind: 'groups', groupIds: ['group-1'] }))
+		).resolves.toEqual(['archived-alpha', 'archived-bravo', 'archived-loose']);
+		expect(selections).toEqual(['id, rating_scheme_entries!rating_scheme_entries_rated_person_id_fkey!inner(id)']);
 	});
 
 	it('returns no archived IDs when no one is archived', async () => {
 		const rows = [{ id: 'active-alpha', organization_id: 'org-1', group_id: 'group-1', archived_at: null }];
 		const port = createSupabasePersonnelRatingSchemeRosterPort({} as SupabaseClient, createPersonnelClient(rows));
-		await expect(port.listArchivedIds(ratingSchemeActor())).resolves.toEqual([]);
+		await expect(port.listArchivedRatedPersonIds(ratingSchemeActor())).resolves.toEqual([]);
 	});
 
 	it('denies archived-ID reads without Rating Scheme view before admin access', async () => {
@@ -148,7 +146,7 @@ describe('Personnel Rating Scheme roster port', () => {
 		const actor = ratingSchemeActor();
 		actor.capabilityMap.ratingScheme = 'none';
 		actor.capabilityMap.personnel = 'view';
-		await expect(port.listArchivedIds(actor)).rejects.toMatchObject({ status: 403 });
+		await expect(port.listArchivedRatedPersonIds(actor)).rejects.toMatchObject({ status: 403 });
 		expect(getAdminClient).not.toHaveBeenCalled();
 	});
 

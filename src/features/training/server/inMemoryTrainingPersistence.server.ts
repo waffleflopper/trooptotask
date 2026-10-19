@@ -196,13 +196,14 @@ export function createInMemoryTrainingCompletionPersistence(
 			);
 			return row ? { personnelId: row.personnel_id, trainingTypeId: row.training_type_id } : null;
 		},
-		findPair(personnelId, trainingTypeId) {
-			return store.findOne(
+		async findPair(personnelId, trainingTypeId) {
+			const row = await store.findOne<{ id: string; completion_date: string | null; expiration_date: string | null }>(
 				'personnel_trainings',
 				orgId,
 				{ personnel_id: personnelId, training_type_id: trainingTypeId },
-				'id'
+				'id, completion_date, expiration_date'
 			);
+			return row ? { id: row.id, completionDate: row.completion_date, expirationDate: row.expiration_date } : null;
 		},
 		async listPairReferences(personnelIds, trainingTypeIds) {
 			return (

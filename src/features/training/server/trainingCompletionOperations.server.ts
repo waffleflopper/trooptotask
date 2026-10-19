@@ -151,7 +151,8 @@ async function authorizeTrainingCompletion(
 async function writeTrainingCompletion(
 	ctx: TrainingRecordCreateContext,
 	validated: TrainingCompletionInput,
-	trainingType: TrainingTypeTiming
+	trainingType: TrainingTypeTiming,
+	{ keepCertificateOfSameCompletion = false } = {}
 ): Promise<SavedTrainingCompletion> {
 	const personnelId = validated.personnelId;
 	const trainingTypeId = validated.trainingTypeId;
@@ -179,7 +180,13 @@ async function writeTrainingCompletion(
 			updates.expirationDate = expirationDate ?? null;
 		}
 		if (validated.notes !== undefined) updates.notes = validated.notes;
-		if (validated.certificateUrl !== undefined) updates.certificateUrl = validated.certificateUrl;
+		// Logging the same dates again without a file keeps that completion's certificate, as no history row takes it.
+		const sameCompletion =
+			(updates.completionDate === undefined || updates.completionDate === existing.completionDate) &&
+			(updates.expirationDate === undefined || updates.expirationDate === existing.expirationDate);
+		if (validated.certificateUrl !== undefined && !(keepCertificateOfSameCompletion && sameCompletion)) {
+			updates.certificateUrl = validated.certificateUrl;
+		}
 		row = await ctx.trainingCompletions.patchRecord(existing.id, updates);
 	} else {
 		row = await ctx.trainingCompletions.createRecord({ personnelId, trainingTypeId, ...fields });
@@ -215,7 +222,11 @@ export async function recordTrainingCompletion(
 		if (problem) fail(400, problem);
 	}
 	const trainingType = await authorizeTrainingCompletion(ctx, validated.personnelId, validated.trainingTypeId);
-	if (!certificate) return writeTrainingCompletion(ctx, { ...validated, certificateUrl: null }, trainingType);
+	if (!certificate) {
+		return writeTrainingCompletion(ctx, { ...validated, certificateUrl: null }, trainingType, {
+			keepCertificateOfSameCompletion: true
+		});
+	}
 
 	const path = trainingCertificatePath(ctx.auth.orgId, validated.personnelId, certificate.name);
 	const upload = await ctx.trainingCertificates.upload(validated.personnelId, path, certificate);

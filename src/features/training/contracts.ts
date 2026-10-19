@@ -344,7 +344,10 @@ export type CorrectedTrainingCompletion = SavedTrainingCompletion | TrainingComp
 export interface TrainingCompletionPersistence {
 	listCompletions(): Promise<SavedTrainingCompletion[]>;
 	findResource(id: string): Promise<TrainingCompletionResource | null>;
-	findPair(personnelId: string, trainingTypeId: string): Promise<Pick<PersonnelTraining, 'id'> | null>;
+	findPair(
+		personnelId: string,
+		trainingTypeId: string
+	): Promise<Pick<PersonnelTraining, 'id' | 'completionDate' | 'expirationDate'> | null>;
 	listPairReferences(
 		personnelIds: readonly string[],
 		trainingTypeIds: readonly string[]

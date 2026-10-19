@@ -50,14 +50,14 @@ export function createSupabaseTrainingCompletionPersistence(
 		async findPair(personnelId, trainingTypeId) {
 			const { data, error } = await client
 				.from('personnel_trainings')
-				.select('id')
+				.select('id, completion_date, expiration_date')
 				.eq('organization_id', orgId)
 				.eq('personnel_id', personnelId)
 				.eq('training_type_id', trainingTypeId)
-				.single<{ id: string }>();
+				.single<{ id: string; completion_date: string | null; expiration_date: string | null }>();
 			if (error?.code === 'PGRST116') return null;
 			if (error) throw new Error(error.message);
-			return data ? data : null;
+			return data ? { id: data.id, completionDate: data.completion_date, expirationDate: data.expiration_date } : null;
 		},
 		async listPairReferences(personnelIds, trainingTypeIds) {
 			const result = await selectAllSupabaseRows<{ id: string; personnel_id: string; training_type_id: string }>(

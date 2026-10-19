@@ -85,6 +85,35 @@ describe('POST /api/personnel-trainings/completions', () => {
 		});
 	});
 
+	it('keeps the certificate when the same completion is logged again without a file', async () => {
+		const ctx = withCertificates(createTestContext());
+		ctx.store.seed('personnel_trainings', [
+			{
+				id: RECORD,
+				organization_id: ctx.auth.orgId,
+				personnel_id: PERSON,
+				training_type_id: TRAINING_TYPE,
+				completion_date: '2026-04-02',
+				expiration_date: '2028-04-02',
+				notes: null,
+				certificate_url: 'https://example.test/kept.pdf'
+			}
+		]);
+
+		const { record } = await handleUseCaseRequest(
+			_postConfig,
+			ctx,
+			{ personnelId: PERSON, trainingTypeId: TRAINING_TYPE, completionDate: '2026-04-02', notes: 'Card signed' },
+			() => ctx
+		);
+
+		expect(record).toMatchObject({
+			completionDate: '2026-04-02',
+			notes: 'Card signed',
+			certificateUrl: 'https://example.test/kept.pdf'
+		});
+	});
+
 	it('removes the uploaded certificate when the record write fails', async () => {
 		const ctx = withCertificates(
 			createMemoryTestContext({

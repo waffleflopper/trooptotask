@@ -404,11 +404,15 @@ export interface PersonnelWorkspaceRouteData {
 /** Detail delivery shares the parent identity and independent streamed lanes. */
 export type {
 	PersonnelDetailHeader,
+	PersonnelDetailLayoutStreams,
 	PersonnelDetailStreams,
+	PersonnelDetailTabCounts,
 	PersonnelFollowUpsPageData,
 	PersonnelCounselingsPageData,
 	PersonnelDocumentsPageData,
 	PersonnelNotesPageData,
+	PersonnelLogPageData,
+	PersonnelFilesPageData,
 	PersonnelArchivedArtifactsPageData
 } from './personnel-detail.types';
 export type {

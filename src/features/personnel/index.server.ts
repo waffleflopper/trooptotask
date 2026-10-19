@@ -88,7 +88,9 @@ export {
 	loadPersonnelDetailHeader,
 	authorizePersonnelLane,
 	loadAvailabilityReadinessLane,
-	loadLossTrackingReadinessLane
+	loadAvailabilityToday,
+	loadLossTrackingReadinessLane,
+	loadPersonnelDetailTabCounts
 } from './personnelDetail.server';
 export { loadPersonnelLossReadiness } from './personnelLossReadiness.server';
 

@@ -457,6 +457,16 @@ test('a slow document keeps its observer and closes its query window only when i
 	assert.equal(sample.documentOpen, false);
 });
 
+test('a hover step hovers the named control without clicking it', async () => {
+	const calls = [];
+	const ctx = {
+		text: (value) => value,
+		tool: async (name, input) => (calls.push([name, input]), name === 'take_snapshot' ? snapshot : undefined)
+	};
+	await step(ctx, 7, { hover: { role: 'button', name: 'Edit', within: { role: 'row', name: 'Open PVT Cole, Cy' } } });
+	assert.deepEqual(calls.slice(1), [['hover', { pageId: 7, uid: '1_6' }]]);
+});
+
 test('a preparation wait is one native wait that may take the whole cap', async () => {
 	const calls = [];
 	await step({ tool: async (name, input) => calls.push([name, input]) }, 7, { wait: ['Page 1 of'] });

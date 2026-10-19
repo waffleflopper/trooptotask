@@ -1,4 +1,5 @@
 import { buildRequestError, rejectedRequestMessage } from '$lib/stores/core';
+import { refreshPersonnelDetailCounts } from './detailCounts';
 
 export interface ArtifactDraftContext {
 	orgId: string;
@@ -78,6 +79,7 @@ export class ArtifactDraft<TInput extends object, TResult extends { id: string }
 			if (!response.ok) throw await buildRequestError(response, 'POST', this.#spec.endpoint(context));
 			this.upsert(this.#spec.decode ? await this.#spec.decode(response) : ((await response.json()) as TResult));
 			this.fields = this.#spec.reset?.(this.fields) ?? this.#spec.createEmptyInput();
+			void refreshPersonnelDetailCounts();
 			return true;
 		} catch (caught) {
 			this.error = rejectedRequestMessage(caught, this.#spec.errorFallback);

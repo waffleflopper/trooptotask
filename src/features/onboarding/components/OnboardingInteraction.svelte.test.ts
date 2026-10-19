@@ -90,7 +90,7 @@ function mount(rankCatalog: RankCatalogEntry[] = [], rankCatalogUnavailable = fa
 }
 
 function subtitleText() {
-	return document.querySelector('[data-slot="page-header"] p')?.textContent?.replace(/\s+/g, ' ').trim();
+	return document.querySelector('[data-slot="page-header-subtitle"]')?.textContent?.replace(/\s+/g, ' ').trim();
 }
 
 function rows() {

@@ -7,6 +7,7 @@
 	import { Textarea } from '$lib/components/ui/textarea';
 	import type { PersonnelCounselingRecord } from '$features/personnel/contracts';
 	import type { PersonnelCounselingsPageData } from '$features/personnel/personnel-detail.types';
+	import { refreshPersonnelDetailCounts } from '$features/personnel/workspace/detailCounts';
 	import { ArtifactDraft } from '$features/personnel/workspace/artifactDraft.svelte';
 	import { counselingRecordDraftSpec } from '$features/personnel/workspace/personnelArtifactDraftSpecs';
 
@@ -53,6 +54,7 @@
 			);
 			if (!response.ok) throw new Error('Unable to archive counseling record.');
 			archivedIds = [...archivedIds, record.id];
+			void refreshPersonnelDetailCounts();
 		} catch (caught) {
 			counselingRecords.error = caught instanceof Error ? caught.message : 'Unable to archive counseling record.';
 		} finally {

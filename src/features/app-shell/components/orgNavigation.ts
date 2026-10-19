@@ -44,6 +44,9 @@ const ORG_ROUTE_CHILD_BREADCRUMBS: Record<string, Record<string, string>> = {
 	'critical-tasks': {
 		library: 'Library',
 		reports: 'Reports'
+	},
+	personnel: {
+		import: 'Import'
 	}
 };
 
@@ -165,12 +168,16 @@ export function getOrgBreadcrumbs(
 	const childSegment = pathname.slice(itemPath.length + 1).split('/')[0];
 	const childLabel =
 		ORG_ROUTE_CHILD_BREADCRUMBS[activeItem.id]?.[childSegment] ??
-		(activeItem.id === 'critical-tasks' && childSegment ? (routeLeafLabel ?? 'Person') : undefined);
+		(childSegment && personRecordCrumb(activeItem.id, routeLeafLabel));
 	if (childLabel) {
 		breadcrumbs.push({ label: childLabel });
 	}
 
 	return breadcrumbs;
+}
+
+function personRecordCrumb(itemId: string, routeLeafLabel: string | null | undefined): string | undefined {
+	return itemId === 'personnel' || itemId === 'critical-tasks' ? (routeLeafLabel ?? 'Person') : undefined;
 }
 
 function getSupportRouteBreadcrumbs(pathname: string, orgCrumb: OrgBreadcrumb): OrgBreadcrumb[] | null {

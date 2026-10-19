@@ -10,10 +10,6 @@ import type {
 import type { PersonnelDetailStreams } from '$features/personnel/personnel-detail.types';
 import type { Personnel } from '../personnel.types';
 
-import type { RequestPersonnelArchiveApproval } from '../utils/archivePersonnel';
-
-const requestArchiveApproval: RequestPersonnelArchiveApproval = async () => false;
-
 const { gotoMock, invalidateMock } = vi.hoisted(() => ({
 	gotoMock: vi.fn(),
 	invalidateMock: vi.fn()
@@ -96,7 +92,6 @@ describe('PersonnelDetailPageView', () => {
 	it('renders readiness cards from streamed lane data instead of mock values', async () => {
 		render(PersonnelDetailPageView, {
 			props: {
-				requestArchiveApproval,
 				orgId: 'org-1',
 				person,
 				orgName: 'Test Org',
@@ -111,42 +106,9 @@ describe('PersonnelDetailPageView', () => {
 		expect(screen.queryByText('No active leave, pass, quarters, TDY, or other duty conflict today.')).toBeNull();
 	});
 
-	it('exports the current personnel record from the detail page', async () => {
-		const blob = new Blob(['personnel workbook'], {
-			type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-		});
-		const fetchMock = vi.fn().mockResolvedValue({
-			ok: true,
-			headers: new Headers({ 'Content-Disposition': 'attachment; filename="rivera-records.xlsx"' }),
-			blob: () => Promise.resolve(blob)
-		});
-		const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:personnel-export');
-		vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
-		vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
-		vi.stubGlobal('fetch', fetchMock);
-
-		render(PersonnelDetailPageView, {
-			props: {
-				requestArchiveApproval,
-				orgId: 'org-1',
-				person,
-				orgName: 'Test Org',
-				detail: makeDetail()
-			}
-		});
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Export records' }));
-
-		expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/personnel/person-1/export');
-		await waitFor(() => expect(createObjectURL).toHaveBeenCalledWith(blob));
-		const link = document.querySelector('a[download="rivera-records.xlsx"]') as HTMLAnchorElement | null;
-		expect(link).toBeNull();
-	});
-
 	it('renders settled siblings while one readiness lane remains pending', async () => {
 		render(PersonnelDetailPageView, {
 			props: {
-				requestArchiveApproval,
 				orgId: 'org-1',
 				person,
 				orgName: 'Test Org',
@@ -172,7 +134,6 @@ describe('PersonnelDetailPageView', () => {
 		});
 		render(PersonnelDetailPageView, {
 			props: {
-				requestArchiveApproval,
 				orgId: 'org-1',
 				person,
 				orgName: 'Test Org',
@@ -192,7 +153,6 @@ describe('PersonnelDetailPageView', () => {
 	it('shows recent document uploads with upload and show-all actions', async () => {
 		render(PersonnelDetailPageView, {
 			props: {
-				requestArchiveApproval,
 				orgId: 'org-1',
 				person,
 				orgName: 'Test Org',
@@ -217,10 +177,22 @@ describe('PersonnelDetailPageView', () => {
 		expect(screen.getByText('BLS Card')).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Upload' })).toBeTruthy();
 		expect(
-			screen
-				.getAllByRole('link', { name: 'Show all' })
-				.some((link) => link.getAttribute('href')?.endsWith('/documents'))
+			screen.getAllByRole('link', { name: 'Show all' }).some((link) => link.getAttribute('href')?.endsWith('/files'))
 		).toBe(true);
+	});
+
+	it('keeps the dashboard usable when one record stream fails', async () => {
+		render(PersonnelDetailPageView, {
+			props: {
+				orgId: 'org-1',
+				person,
+				orgName: 'Test Org',
+				detail: makeDetail({ documents: Promise.reject(new Error('documents unavailable')) })
+			}
+		});
+
+		expect(await screen.findByText('Recent documents could not be loaded.')).toBeTruthy();
+		expect(screen.getByText('Leader follow-ups')).toBeTruthy();
 	});
 
 	it('completes a dashboard follow-up without reloading the page', async () => {
@@ -244,7 +216,6 @@ describe('PersonnelDetailPageView', () => {
 
 		render(PersonnelDetailPageView, {
 			props: {
-				requestArchiveApproval,
 				orgId: 'org-1',
 				person,
 				orgName: 'Test Org',
@@ -300,7 +271,6 @@ describe('PersonnelDetailPageView', () => {
 
 		render(PersonnelDetailPageView, {
 			props: {
-				requestArchiveApproval,
 				orgId: 'org-1',
 				person,
 				orgName: 'Test Org',
@@ -344,7 +314,6 @@ describe('PersonnelDetailPageView', () => {
 
 		render(PersonnelDetailPageView, {
 			props: {
-				requestArchiveApproval,
 				orgId: 'org-1',
 				person,
 				orgName: 'Test Org',
@@ -373,7 +342,6 @@ describe('PersonnelDetailPageView', () => {
 
 		render(PersonnelDetailPageView, {
 			props: {
-				requestArchiveApproval,
 				orgId: 'org-1',
 				person,
 				orgName: 'Test Org',
@@ -401,7 +369,6 @@ describe('PersonnelDetailPageView', () => {
 				deros: null
 			})
 		});
-		await waitFor(() => expect(document.title).toBe('SSG Rivera-Jones, Monica - Personnel'));
 	});
 
 	it('offers canonical Organization groups when editing basic personnel info', async () => {
@@ -418,7 +385,6 @@ describe('PersonnelDetailPageView', () => {
 
 		render(PersonnelDetailPageView, {
 			props: {
-				requestArchiveApproval,
 				orgId: 'org-1',
 				person,
 				groups: [
@@ -442,44 +408,12 @@ describe('PersonnelDetailPageView', () => {
 		});
 	});
 
-	it('archives the personnel record from the detail page and returns to the roster', async () => {
-		const fetchMock = vi.fn().mockResolvedValue({
-			ok: true,
-			json: () => Promise.resolve({ success: true })
-		});
-		vi.stubGlobal('fetch', fetchMock);
-
-		render(PersonnelDetailPageView, {
-			props: {
-				requestArchiveApproval,
-				orgId: 'org-1',
-				person,
-				orgName: 'Test Org',
-				detail: makeDetail(),
-				canArchivePersonnel: true
-			}
-		});
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Archive SGT Rivera, Monica' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
-
-		expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/personnel', {
-			method: 'DELETE',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ id: 'person-1' })
-		});
-		await waitFor(() =>
-			expect(gotoMock).toHaveBeenCalledWith('/org/org-1/personnel', { invalidate: ['app:personnel-data'] })
-		);
-	});
-
 	it('shows inline errors when quick actions fail', async () => {
 		const fetchMock = vi.fn().mockResolvedValue({ ok: false });
 		vi.stubGlobal('fetch', fetchMock);
 
 		render(PersonnelDetailPageView, {
 			props: {
-				requestArchiveApproval,
 				orgId: 'org-1',
 				person,
 				orgName: 'Test Org',
@@ -514,7 +448,7 @@ describe('PersonnelDetailPageView', () => {
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
 
 		render(PersonnelDetailPageView, {
-			props: { requestArchiveApproval, orgId: 'org-1', person, orgName: 'Test Org', detail: makeDetail() }
+			props: { orgId: 'org-1', person, orgName: 'Test Org', detail: makeDetail() }
 		});
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Edit basic info' }));
@@ -528,7 +462,7 @@ describe('PersonnelDetailPageView', () => {
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(person) }));
 
 		render(PersonnelDetailPageView, {
-			props: { requestArchiveApproval, orgId: 'org-1', person, orgName: 'Test Org', detail: makeDetail() }
+			props: { orgId: 'org-1', person, orgName: 'Test Org', detail: makeDetail() }
 		});
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Edit basic info' }));
@@ -544,7 +478,7 @@ describe('PersonnelDetailPageView', () => {
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
 
 		render(PersonnelDetailPageView, {
-			props: { requestArchiveApproval, orgId: 'org-1', person, orgName: 'Test Org', detail: makeDetail() }
+			props: { orgId: 'org-1', person, orgName: 'Test Org', detail: makeDetail() }
 		});
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Edit basic info' }));
@@ -565,7 +499,7 @@ describe('PersonnelDetailPageView', () => {
 		vi.stubGlobal('fetch', fetchMock);
 
 		render(PersonnelDetailPageView, {
-			props: { requestArchiveApproval, orgId: 'org-1', person, orgName: 'Test Org', detail: makeDetail() }
+			props: { orgId: 'org-1', person, orgName: 'Test Org', detail: makeDetail() }
 		});
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Edit basic info' }));
@@ -672,7 +606,6 @@ function dashboardDetail(personnelId: string, marker: string) {
 
 function dashboardProps(orgId = 'org-1', personId = 'person-1', detail = makeDetail()) {
 	return {
-		requestArchiveApproval,
 		orgId,
 		orgName: 'Synthetic unit',
 		person: { ...person, id: personId, slug: `synthetic-${personId}` },

@@ -112,13 +112,22 @@ describe('personnel readiness lanes', () => {
 		});
 	});
 
-	it('retains the archived parent identity and record fields in the shared header', async () => {
+	it('retains the archived parent identity, record fields and service dates in the shared header', async () => {
 		const ctx = createTestContext();
 		await seedPerson(ctx, {
 			slug: 'rivera-monica',
 			archived_at: '2026-01-02T03:04:05.123456+00:00',
 			groups: { name: 'Alpha' }
 		});
+		ctx.store.seed('personnel_extended_info', [
+			{
+				id: 'sheet-1',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'person-1',
+				basd: '2019-06-11',
+				date_of_rank: '2023-02-01'
+			}
+		]);
 		await expect(loadPersonnelDetailHeader(ctx, 'rivera-monica')).resolves.toEqual({
 			person: {
 				id: 'person-1',
@@ -133,7 +142,18 @@ describe('personnel readiness lanes', () => {
 				ets: '2026-06-20',
 				deros: null,
 				archivedAt: '2026-01-02T03:04:05.123456+00:00'
-			}
+			},
+			basd: '2019-06-11',
+			dateOfRank: '2023-02-01'
+		});
+	});
+
+	it('leaves service dates empty when the Person has no data sheet', async () => {
+		const ctx = createTestContext();
+		await seedPerson(ctx, { slug: 'rivera-monica' });
+		await expect(loadPersonnelDetailHeader(ctx, 'rivera-monica')).resolves.toMatchObject({
+			basd: null,
+			dateOfRank: null
 		});
 	});
 

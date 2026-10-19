@@ -36,9 +36,11 @@
 			</div>
 		{/if}
 	</div>
-	{#if subtitle}
-		<p class="max-w-3xl text-sm text-muted-foreground">
-			{#if typeof subtitle === 'string'}{subtitle}{:else}{@render subtitle()}{/if}
-		</p>
+	{#if typeof subtitle === 'string'}
+		<p data-slot="page-header-subtitle" class="max-w-3xl text-sm text-muted-foreground">{subtitle}</p>
+	{:else if subtitle}
+		<div data-slot="page-header-subtitle" class="max-w-3xl text-sm text-muted-foreground">
+			{@render subtitle()}
+		</div>
 	{/if}
 </header>

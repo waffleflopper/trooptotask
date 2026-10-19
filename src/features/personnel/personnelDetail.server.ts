@@ -1,7 +1,7 @@
 import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { POLICY_ACTION_CATALOG, type FeatureLanePolicyAction } from '$lib/access/policyEvaluator';
-import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
+import { evaluateFeaturePolicy, policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
 import { fail } from '$lib/errors';
 import { readLossWarningWindowDays } from '$features/organization/contracts';
 import { formatDate, formatDisplayDate, parseDate } from '$lib/utils/dates';
@@ -10,13 +10,16 @@ import type {
 	PersonnelCalendarStatusSnapshot,
 	PersonnelRecordPersistence
 } from './contracts';
-import type { PersonnelDetailHeader, PersonnelReadinessLane } from './personnel-detail.types';
+import type { PersonnelArtifactReadPersistence } from './personnelArtifactPersistence';
+import type { PersonnelSheetPersistence } from './personnelSheetPersistence';
+import type { PersonnelDetailHeader, PersonnelDetailTabCounts, PersonnelReadinessLane } from './personnel-detail.types';
 import type { Personnel } from './personnel.types';
 
 interface PersonnelDetailContext {
 	auth: OrganizationAccessGrant;
 	audit: PolicyAuditSink;
 	organizationPersonnel: Pick<PersonnelRecordPersistence, 'findBySlug'>;
+	personnelSheets: Pick<PersonnelSheetPersistence, 'findSheetForPerson'>;
 	scope: { requireGroupAccess(personnelId: string): Promise<void> };
 }
 
@@ -34,8 +37,11 @@ export async function loadPersonnelDetailHeader(
 		'personnel',
 		person.id
 	);
-	await ctx.scope.requireGroupAccess(person.id);
-	return { person };
+	const [, sheet] = await Promise.all([
+		ctx.scope.requireGroupAccess(person.id),
+		ctx.personnelSheets.findSheetForPerson(person.id)
+	]);
+	return { person, basd: sheet?.basd ?? null, dateOfRank: sheet?.date_of_rank ?? null };
 }
 
 /**
@@ -98,6 +104,34 @@ export async function loadAvailabilityReadinessLane(
 		detail: `${statusName} ${dateRangeDetail(current)}.${note}`,
 		tone: 'watch'
 	};
+}
+
+/** The header pill hides, rather than fails, for a viewer who cannot see Calendar availability. */
+export async function loadAvailabilityToday(
+	...lane: Parameters<typeof loadAvailabilityReadinessLane>
+): Promise<PersonnelReadinessLane | null> {
+	const [ctx, person] = lane;
+	const decision = await evaluateFeaturePolicy(
+		{ auth: ctx.auth },
+		POLICY_ACTION_CATALOG.calendar.viewAvailability,
+		policyResourceForGroup(person.groupId)
+	);
+	return decision.allowed ? loadAvailabilityReadinessLane(...lane) : null;
+}
+
+/** Tab badges hide, rather than fail, for a viewer who may manage but not read sensitive records. */
+export async function loadPersonnelDetailTabCounts(
+	ctx: Pick<PersonnelDetailContext, 'auth'> & { artifactReads: Pick<PersonnelArtifactReadPersistence, 'countRecords'> },
+	person: Personnel
+): Promise<PersonnelDetailTabCounts | null> {
+	const decision = await evaluateFeaturePolicy(
+		{ auth: ctx.auth },
+		POLICY_ACTION_CATALOG.personnel.readSensitiveRecords,
+		policyResourceForGroup(person.groupId)
+	);
+	if (!decision.allowed) return null;
+	const counts = await ctx.artifactReads.countRecords(person.id);
+	return { log: counts.openFollowUps, archived: counts.archived };
 }
 
 /** The detail lane intentionally evaluates ETS alone; global loss signals also use DEROS. */

@@ -115,7 +115,7 @@ The Web UI Foundation's public [`toastStore`](../src/lib/stores/toast.svelte.ts)
 
 	const tabs = [
 		{ label: 'Overview', href: '/account/profile', active: true },
-		{ label: 'History', href: '/account/security', badge: 48, badgeLabel: '48 history entries' }
+		{ label: 'History', href: '/account/security', badge: { value: 48, label: '48 history entries' } }
 	];
 </script>
 
@@ -139,8 +139,8 @@ The Web UI Foundation's public [`toastStore`](../src/lib/stores/toast.svelte.ts)
 Public components:
 
 - `Root`: authenticated page content scroller. Props: `density?: 'default' | 'compact'`, `width?: 'full' | 'content' | 'wide'`, `bodyClass?`, `children?`.
-- `Header`: page header. Props: `title` (a string, or a snippet rendered inside the `h1` when the title is itself a control), `eyebrow?` (a short uppercase context line above the title), `subtitle?`, snippets `back`, `meta` and `aside`. `aside` holds a page-level summary or the switch for the shown span, right-aligned on the title line; it wraps below the title when narrow.
-- `Tabs`: route-level navigation links. Props: `items?`, `label?`. Items support `label`, `href` (required), `active`, `badge`, `badgeLabel`, `badgeVariant`, and `disabled`. The active link carries `aria-current="page"`; a disabled item renders as non-interactive text. Use `ui/tabs` for in-page views. Each tab shows the app focus ring. When a bare count would be ambiguous, set `badgeLabel` (for example `2 pending requests`); assistive technology then hears that text in place of the badge.
+- `Header`: page header. Props: `title` (a string, or a snippet rendered inside the `h1` when the title is itself a control), `eyebrow?` (a short uppercase context line above the title), `subtitle?` (a string, or a snippet for a meta line of badges and facts; both render in `data-slot="page-header-subtitle"`), snippets `back`, `meta` and `aside`. `aside` holds a page-level summary or the switch for the shown span, right-aligned on the title line; it wraps below the title when narrow.
+- `Tabs`: route-level navigation links. Props: `items?`, `label?`. Items support `label`, `href` (required), `active`, `icon`, `badge`, `trailing` and `disabled`. A `badge` is `{ value, label?, variant? }` or a promise of one: a pending promise shows a skeleton announced as count loading, `null` shows nothing, and a rejection shows an outline dash announced as count unavailable. `trailing` items align right in smaller text, with the badge as `· N`. The active link carries `aria-current="page"`; a disabled item renders as non-interactive text. Use `ui/tabs` for in-page views. Each tab shows the app focus ring. When a bare count would be ambiguous, set the badge `label` (for example `2 pending requests`); assistive technology then hears that text in place of the value.
 - `FactGrid`: dense fact layout. Props: `layout?: 'stack' | 'two' | 'three' | 'rail'`, `children?`.
 - `Metric`: compact bordered metric tile. Props: `label`, `value`, `detail?`, `tone?`, `children?`.
 
@@ -225,7 +225,7 @@ Item kinds (`toolbar-types.ts`):
 - `select`: one value with a required `defaultValue`. It is active when its value differs from the default.
 - `multiSelect`: several values with optional `defaultValues`. It is active when its set differs from the defaults, in any order.
 - `toggle`: one boolean with optional `defaultPressed`, which defaults to `false`. It is active when `pressed` differs from the default. A `menuOnly` toggle is a display option that always lives in More.
-- `action`: exactly one of `onclick`, `href` or `menuItems`, plus `icon`, `destructive`, `disabled`, `disabledReason`, `loading` and `menuOnly`. `href` navigates with `goto`. `menuItems` hold actions and toggles. Actions nest as submenus; a toggle (`ToolbarMenuToggle`, without `menuOnly` or `defaultPressed`) is a display option shown as a checkbox item that keeps its menu open. A disabled or loading parent blocks its children.
+- `action`: exactly one of `onclick`, `href` or `menuItems`, plus `icon`, `description`, `destructive`, `disabled`, `disabledReason`, `loading` and `menuOnly`. `href` navigates with `goto`. A row button with `menuItems` shows a chevron and opens its menu. `menuItems` hold actions and toggles. A `description` shows as a muted second line in a menu and describes the item without joining its name; a menu with a described item widens to fit. Actions nest as submenus; a toggle (`ToolbarMenuToggle`, without `menuOnly` or `defaultPressed`) is a display option shown as a checkbox item that keeps its menu open. A disabled or loading parent blocks its children.
 
 Every item has a unique `id` and a visible `label`. An optional `ariaLabel` keeps an existing accessible name. A `view` option may also set `ariaLabel`: the row button shows `label` and takes `ariaLabel` as its name, and the More radio item shows `ariaLabel ?? label` (for example `30 D` on the row and `30 days` in the menu).
 

@@ -10,19 +10,21 @@ import type { Personnel } from './personnel.types';
 
 export interface PersonnelDetailHeader {
 	person: Personnel;
+	basd: string | null;
+	dateOfRank: string | null;
 }
 
-export type PersonnelDetailSubpageKey = 'follow-ups' | 'counselings' | 'documents' | 'notes' | 'archived';
+export interface PersonnelDetailTabCounts {
+	log: number;
+	archived: number;
+}
+
+export interface PersonnelDetailLayoutStreams {
+	availabilityToday: Promise<PersonnelReadinessLane | null>;
+	tabCounts: Promise<PersonnelDetailTabCounts | null>;
+}
 
 export type PersonnelArtifactKind = 'follow-up' | 'counseling' | 'document' | 'note';
-
-export interface PersonnelDetailSubpageData {
-	personnelId: string;
-	section: PersonnelDetailSubpageKey;
-	title: string;
-	emptyState: string;
-	records: [];
-}
 
 export interface PersonnelFollowUpsPageData {
 	orgId: string;
@@ -54,6 +56,16 @@ export interface PersonnelDocumentsPageData {
 	title: string;
 	emptyState: string;
 	records: PersonnelDocument[];
+}
+
+export interface PersonnelLogPageData {
+	followUps: PersonnelFollowUpsPageData;
+	notes: PersonnelNotesPageData;
+}
+
+export interface PersonnelFilesPageData {
+	counselings: PersonnelCounselingsPageData;
+	documents: PersonnelDocumentsPageData;
 }
 
 export interface PersonnelArchivedArtifactsPageData {

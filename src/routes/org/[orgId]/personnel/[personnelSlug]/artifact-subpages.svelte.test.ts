@@ -10,12 +10,12 @@ import type {
 	PersonnelCounselingsPageData,
 	PersonnelDocumentsPageData,
 	PersonnelFollowUpsPageData,
-	PersonnelNotesPageData
+	PersonnelNotesPageData,
+	PersonnelLogPageData,
+	PersonnelFilesPageData
 } from '$features/personnel/contracts';
-import FollowUpsPage from './follow-ups/+page.svelte';
-import DocumentsPage from './documents/+page.svelte';
-import CounselingsPage from './counselings/+page.svelte';
-import NotesPage from './notes/+page.svelte';
+import LogPage from './log/+page.svelte';
+import FilesPage from './files/+page.svelte';
 import ArchivedPage from './archived/+page.svelte';
 
 const basePageData = {
@@ -23,6 +23,22 @@ const basePageData = {
 	personnelId: 'person-1',
 	emptyState: 'No artifact records yet'
 };
+
+function logPage(
+	slot: { followUps: PersonnelFollowUpsPageData } | { notes: PersonnelNotesPageData }
+): PersonnelLogPageData {
+	const { orgId, personnelId } = 'followUps' in slot ? slot.followUps : slot.notes;
+	const empty = { orgId, personnelId, title: '', emptyState: 'No companion records' };
+	return { followUps: { ...empty, records: [] }, notes: { ...empty, notes: [] }, ...slot };
+}
+
+function filesPage(
+	slot: { counselings: PersonnelCounselingsPageData } | { documents: PersonnelDocumentsPageData }
+): PersonnelFilesPageData {
+	const { orgId, personnelId } = 'counselings' in slot ? slot.counselings : slot.documents;
+	const empty = { orgId, personnelId, title: '', emptyState: 'No companion records', records: [] };
+	return { counselings: empty, documents: empty, ...slot };
+}
 
 let fetchMock: ReturnType<typeof vi.fn>;
 
@@ -99,7 +115,7 @@ function renderFollowUps(records: PersonnelFollowUp[] = []) {
 		title: 'Follow-Ups',
 		records
 	};
-	return render(FollowUpsPage, { props: { data } });
+	return render(LogPage, { props: { data: logPage({ followUps: data }) } });
 }
 
 function renderDocuments(records: PersonnelDocument[] = []) {
@@ -108,7 +124,7 @@ function renderDocuments(records: PersonnelDocument[] = []) {
 		title: 'Documents',
 		records
 	};
-	return render(DocumentsPage, { props: { data } });
+	return render(FilesPage, { props: { data: filesPage({ documents: data }) } });
 }
 
 function renderCounselings(records: PersonnelCounselingRecord[] = []) {
@@ -117,7 +133,7 @@ function renderCounselings(records: PersonnelCounselingRecord[] = []) {
 		title: 'Counseling Records',
 		records
 	};
-	return render(CounselingsPage, { props: { data } });
+	return render(FilesPage, { props: { data: filesPage({ counselings: data }) } });
 }
 
 function renderNotes(notes: PersonnelLeaderNote[] = []) {
@@ -126,7 +142,7 @@ function renderNotes(notes: PersonnelLeaderNote[] = []) {
 		title: 'Leader Notes',
 		notes
 	};
-	return render(NotesPage, { props: { data } });
+	return render(LogPage, { props: { data: logPage({ notes: data }) } });
 }
 
 describe('personnel artifact subpages', () => {
@@ -378,8 +394,11 @@ function renderFamily(family: ArtifactFamily, context: ArtifactContext, texts: s
 				makeFollowUp({ id: `follow-up-${ctx.personnelId}-${title}`, personnelId: ctx.personnelId, title })
 			)
 		});
-		const view = render(FollowUpsPage, { props: { data: data(context, texts) } });
-		return { rerender: (ctx: ArtifactContext, values: string[]) => view.rerender({ data: data(ctx, values) }) };
+		const view = render(LogPage, { props: { data: logPage({ followUps: data(context, texts) }) } });
+		return {
+			rerender: (ctx: ArtifactContext, values: string[]) =>
+				view.rerender({ data: logPage({ followUps: data(ctx, values) }) })
+		};
 	}
 	if (family.name === 'document') {
 		const data = (ctx: ArtifactContext, values: string[]): PersonnelDocumentsPageData => ({
@@ -389,8 +408,11 @@ function renderFamily(family: ArtifactFamily, context: ArtifactContext, texts: s
 				makeDocument({ id: `document-${ctx.personnelId}-${title}`, personnelId: ctx.personnelId, title })
 			)
 		});
-		const view = render(DocumentsPage, { props: { data: data(context, texts) } });
-		return { rerender: (ctx: ArtifactContext, values: string[]) => view.rerender({ data: data(ctx, values) }) };
+		const view = render(FilesPage, { props: { data: filesPage({ documents: data(context, texts) }) } });
+		return {
+			rerender: (ctx: ArtifactContext, values: string[]) =>
+				view.rerender({ data: filesPage({ documents: data(ctx, values) }) })
+		};
 	}
 	if (family.name === 'counseling') {
 		const data = (ctx: ArtifactContext, values: string[]): PersonnelCounselingsPageData => ({
@@ -400,8 +422,11 @@ function renderFamily(family: ArtifactFamily, context: ArtifactContext, texts: s
 				makeCounselingRecord({ id: `counseling-${ctx.personnelId}-${title}`, personnelId: ctx.personnelId, title })
 			)
 		});
-		const view = render(CounselingsPage, { props: { data: data(context, texts) } });
-		return { rerender: (ctx: ArtifactContext, values: string[]) => view.rerender({ data: data(ctx, values) }) };
+		const view = render(FilesPage, { props: { data: filesPage({ counselings: data(context, texts) }) } });
+		return {
+			rerender: (ctx: ArtifactContext, values: string[]) =>
+				view.rerender({ data: filesPage({ counselings: data(ctx, values) }) })
+		};
 	}
 	const data = (ctx: ArtifactContext, values: string[]): PersonnelNotesPageData => ({
 		...shared,
@@ -410,8 +435,10 @@ function renderFamily(family: ArtifactFamily, context: ArtifactContext, texts: s
 			makeLeaderNote({ id: `note-${ctx.personnelId}-${text}`, personnelId: ctx.personnelId, text })
 		)
 	});
-	const view = render(NotesPage, { props: { data: data(context, texts) } });
-	return { rerender: (ctx: ArtifactContext, values: string[]) => view.rerender({ data: data(ctx, values) }) };
+	const view = render(LogPage, { props: { data: logPage({ notes: data(context, texts) }) } });
+	return {
+		rerender: (ctx: ArtifactContext, values: string[]) => view.rerender({ data: logPage({ notes: data(ctx, values) }) })
+	};
 }
 
 async function selectArtifactFile(label: string, name: string) {

@@ -10,6 +10,7 @@
 	import type { PersonnelFollowUp } from '$features/personnel/contracts';
 	import type { PersonnelFollowUpsPageData } from '$features/personnel/personnel-detail.types';
 	import { ArtifactDraft } from '$features/personnel/workspace/artifactDraft.svelte';
+	import { refreshPersonnelDetailCounts } from '$features/personnel/workspace/detailCounts';
 	import { followUpDraftSpec } from '$features/personnel/workspace/personnelArtifactDraftSpecs';
 
 	let { data }: { data: PersonnelFollowUpsPageData } = $props();
@@ -89,6 +90,7 @@
 			if (!response.ok) throw await buildRequestError(response, 'PATCH', 'follow-up');
 			const updated = (await response.json()) as Partial<PersonnelFollowUp>;
 			followUps.upsert({ ...record, ...updated });
+			void refreshPersonnelDetailCounts();
 			if (status === 'archived') {
 				archivedRecordIds = [...archivedRecordIds, record.id];
 				if (editingId === record.id) resetForm();

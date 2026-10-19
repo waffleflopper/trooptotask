@@ -52,6 +52,7 @@ export function createOrganizationDataExportReads(
 		specialDays: () => archiveReaders.calendar.listRows('special_days'),
 		trainingTypes: () => archiveReaders.training.listRows('training_types'),
 		personnelTrainings: () => archiveReaders.training.listRows('personnel_trainings'),
+		personnelTrainingHistory: () => archiveReaders.training.listRows('personnel_training_history'),
 		trainingViews: () => archiveReaders.training.listRows('training_views'),
 		ictTasks: () => archiveReaders.criticalTasks.listRows('ict_tasks'),
 		personnelIctCompletions: () => archiveReaders.criticalTasks.listRows('personnel_ict_completions'),

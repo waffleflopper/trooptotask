@@ -47,7 +47,8 @@ function makePersonnel(overrides: Record<string, unknown> = {}) {
 
 function makeLoad(ctx: Record<string, unknown>) {
 	const loadWithContext = vi.fn(async (_locals, _cookies, _orgId, config) => config.fn(ctx));
-	const load = _createPersonnelDetailLayoutLoad({ loadWithContext });
+	const loadReadinessBadge = vi.fn(async () => ({ count: 2, complete: true }));
+	const load = _createPersonnelDetailLayoutLoad({ loadWithContext, loadReadinessBadge });
 	return { load, loadWithContext };
 }
 
@@ -100,6 +101,7 @@ describe('personnel detail layout server load', () => {
 		expect(result.breadcrumbLabel).toBe('Rivera, Monica');
 		await expect(result.personnelDetailLayout.tabCounts).resolves.toEqual({ log: 3, archived: 4 });
 		await expect(result.personnelDetailLayout.availabilityToday).resolves.toBeNull();
+		await expect(result.personnelDetailLayout.readinessBadge).resolves.toEqual({ count: 2, complete: true });
 	});
 
 	it('keeps a count read that fails before the page renders from crashing the server', async () => {

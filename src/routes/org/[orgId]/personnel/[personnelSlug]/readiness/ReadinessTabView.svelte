@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { afterNavigate, invalidate, replaceState } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { getAppShellContext } from '$features/app-shell';
 	import type { PersonnelCriticalTaskReadiness } from '$features/critical-tasks/contracts';
@@ -82,15 +83,19 @@
 
 	function close() {
 		drawer = null;
-		const url = new URL(window.location.href);
-		if (!url.searchParams.has('item') && !url.searchParams.has('add')) return;
-		url.searchParams.delete('item');
-		url.searchParams.delete('add');
-		replaceState(url, page.state);
+		const params = [...new URLSearchParams(window.location.search)];
+		const kept = params.filter(([key]) => key !== 'item' && key !== 'add');
+		if (kept.length === params.length) return;
+		const path = resolve('/org/[orgId]/personnel/[personnelSlug]/readiness', {
+			orgId: page.params.orgId ?? orgId,
+			personnelSlug: page.params.personnelSlug ?? person.id
+		});
+		const query = new URLSearchParams(kept).toString();
+		replaceState(query ? `${path}?${query}` : path, page.state);
 	}
 
 	async function refresh() {
-		await Promise.all([invalidate('app:personnel-detail'), invalidate('app:personnel-detail-counts')]);
+		await Promise.all([invalidate('app:personnel-detail-readiness'), invalidate('app:personnel-detail-counts')]);
 	}
 </script>
 

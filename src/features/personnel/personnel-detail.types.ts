@@ -7,6 +7,7 @@ import type {
 import type { PersonnelLeaderNote } from './personnelLeaderNote.types';
 import type { PersonnelExtendedInfo } from './personnelExtendedInfo.types';
 import type { Personnel } from './personnel.types';
+import type { PersonnelAttention } from './personnelReadiness.types';
 
 export interface PersonnelDetailHeader {
 	person: Personnel;
@@ -22,6 +23,7 @@ export interface PersonnelDetailTabCounts {
 export interface PersonnelDetailLayoutStreams {
 	availabilityToday: Promise<PersonnelReadinessLane | null>;
 	tabCounts: Promise<PersonnelDetailTabCounts | null>;
+	readinessBadge: Promise<PersonnelAttention['readinessBadge'] | null>;
 }
 
 export type PersonnelArtifactKind = 'follow-up' | 'counseling' | 'document' | 'note';

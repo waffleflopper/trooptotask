@@ -15,9 +15,10 @@ import { loadPersonnelActiveEvaluation } from '$features/rating-scheme/index.ser
 import type { PersonnelTrainingReadiness } from '$features/training/contracts';
 import { loadPersonnelTrainingReadiness } from '$features/training/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import type { Cookies } from '@sveltejs/kit';
+import { isHttpError, type Cookies } from '@sveltejs/kit';
 import { loadWithContext } from './httpAdapter';
 import { createRequestPersonnelReadinessContext } from './requestContexts.server';
+import { keepStreamedRejectionObserved } from './streamedWorkspace';
 
 export interface PersonnelReadinessStreams {
 	training: Promise<PersonnelTrainingReadiness>;
@@ -114,4 +115,22 @@ export function loadRequestPersonnelReadiness(
 		byPerson.set(key, streams);
 	}
 	return streams;
+}
+
+/** The Readiness tab badge. Null hides it from a viewer who cannot read the Person's sensitive records. */
+export function loadRequestPersonnelReadinessBadge(
+	request: PersonnelReadinessRequest,
+	person: Personnel,
+	asOf: string,
+	loadWithContextFn: typeof loadWithContext = loadWithContext
+): Promise<PersonnelAttention['readinessBadge'] | null> {
+	return keepStreamedRejectionObserved(
+		loadRequestPersonnelReadiness(request, person, asOf, loadWithContextFn).then(
+			(readiness) => readiness.attention.then((attention) => attention.readinessBadge),
+			(error: unknown) => {
+				if (isHttpError(error, 403)) return null;
+				throw error;
+			}
+		)
+	);
 }

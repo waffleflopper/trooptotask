@@ -64,7 +64,10 @@ export function trainingCertificateLink(
 	if (!stored) return null;
 	const external = externalUrl(stored);
 	if (external) return { kind: 'external', href: external.href, host: external.host };
-	return { kind: 'stored', href: `/org/${orgId}/api/personnel-trainings/certificate?${new URLSearchParams({ kind, id })}` };
+	return {
+		kind: 'stored',
+		href: `/org/${orgId}/api/personnel-trainings/certificate?${new URLSearchParams({ kind, id })}`
+	};
 }
 
 function externalUrl(stored: string): URL | null {

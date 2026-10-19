@@ -16,7 +16,7 @@ Members reach the shared form, selection, overlay, menu, tab, toast and loading 
 
 ## How to get to it (user POV)
 
-As a Personnel manager, Edit a roster row for the Personnel form, its Rank and Group comboboxes and its ETS date popover; use Manage Groups for Group creation; use the header Account menu, Toggle theme and Send feedback. An Organization owner opens Settings, Members and Manage role & access for the Manage Access sheet and its Membership Role select. A Critical Tasks operator records a completion and opens Reports; on the matrix toolbar those controls and Import Completions fold into `More Critical Tasks controls` as the page narrows. A Training manager opens Training Reports for the toolbar filters. A platform reviewer opens Admin Feedback for the New, Reviewed and Resolved tabs. Personnel Details shows the artifact navigation.
+As a Personnel manager, Edit a roster row for the Personnel form, its Rank and Group comboboxes and its ETS date popover; use Manage Groups for Group creation; use the header Account menu, Toggle theme and Send feedback. An Organization owner opens Settings, Members and Manage role & access for the Manage Access sheet and its Membership Role select. A Critical Tasks operator records a completion and opens Reports; on the matrix toolbar those controls and Import Completions fold into `More Critical Tasks controls` as the page narrows. A Training manager opens Training Reports for the toolbar filters. A platform reviewer opens Admin Feedback for the New, Reviewed and Resolved tabs. Personnel Details shows the record tabs (`Personnel detail sections`).
 
 ## Driving it with verify:app
 

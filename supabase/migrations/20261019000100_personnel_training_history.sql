@@ -51,15 +51,6 @@ BEGIN
   IF pg_catalog.current_setting('trooptotask.training_correction', true) = 'on' THEN
     RETURN NULL;
   END IF;
-  -- Without either date, only a never-expiring type's row is a completion; a
-  -- dated type's row has not been completed yet and supersedes nothing.
-  IF OLD.completion_date IS NULL AND OLD.expiration_date IS NULL AND NOT EXISTS (
-    SELECT 1 FROM public.training_types
-    WHERE organization_id = OLD.organization_id AND id = OLD.training_type_id
-      AND expiration_months IS NULL AND NOT expiration_date_only
-  ) THEN
-    RETURN NULL;
-  END IF;
   INSERT INTO public.personnel_training_history
     (organization_id, personnel_id, training_type_id, completion_date, expiration_date, notes, certificate_url)
   VALUES

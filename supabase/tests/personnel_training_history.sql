@@ -111,7 +111,7 @@ SELECT is(pg_temp.history('501'),
   ARRAY['2025-01-10 2026-01-10 notes only ' || pg_temp.cert('301', 'first.pdf')],
   'a new completion keeps the superseded dates, notes and certificate');
 UPDATE public.personnel_trainings SET completion_date = '2026-06-01' WHERE id = 'f7100000-0000-4000-8000-000000000502';
-SELECT is(pg_temp.history('502'), ARRAY[]::text[], 'a first completion of a dated record without dates keeps no history');
+SELECT is(pg_temp.history('502'), ARRAY['not yet'], 'a replaced record without dates is kept whatever its type''s cycle');
 UPDATE public.personnel_trainings SET expiration_date = '2027-02-01' WHERE id = 'f7100000-0000-4000-8000-000000000503';
 SELECT is((SELECT count(*)::integer FROM public.personnel_training_history WHERE personnel_id = 'f7100000-0000-4000-8000-000000000302'), 0,
   'an operator outside the Group cannot supersede its record');
@@ -304,6 +304,21 @@ SELECT is((SELECT array_agg(concat_ws(' ', completion_date, expiration_date, not
   FROM public.personnel_training_history WHERE training_type_id = 'f7100000-0000-4000-8000-000000000406'),
   ARRAY['2025-01-01 2026-01-01 Alpha prior', '2025-02-01 2026-02-01 Bravo prior'],
   'a multi-row import keeps each superseded completion once');
+SELECT pg_temp.act_as_fixture();
+
+INSERT INTO public.training_types (id, organization_id, name, expiration_months, can_be_exempted, exempt_personnel_ids) VALUES
+('f7100000-0000-4000-8000-000000000407', 'f7100000-0000-4000-8000-000000000101', 'Later Cycled', NULL, false, '[]');
+INSERT INTO public.personnel_trainings
+  (id, organization_id, personnel_id, training_type_id, completion_date, expiration_date, notes, certificate_url) VALUES
+('f7100000-0000-4000-8000-000000000509', 'f7100000-0000-4000-8000-000000000101', 'f7100000-0000-4000-8000-000000000301',
+  'f7100000-0000-4000-8000-000000000407', NULL, NULL, 'before the cycle', pg_temp.cert('301', 'undated.pdf'));
+UPDATE public.training_types SET expiration_months = 12 WHERE id = 'f7100000-0000-4000-8000-000000000407';
+SELECT pg_temp.act_as('3');
+UPDATE public.personnel_trainings SET completion_date = '2026-10-19', expiration_date = '2027-10-19', notes = NULL,
+  certificate_url = NULL
+  WHERE id = 'f7100000-0000-4000-8000-000000000509';
+SELECT is(pg_temp.history('509'), ARRAY['before the cycle ' || pg_temp.cert('301', 'undated.pdf')],
+  'an undated completion is kept after its type gains a cycle');
 SELECT pg_temp.act_as_fixture();
 
 -- Read matrix. 7 admin with no Training lane, 8 Organization-scoped member with no Training lane.

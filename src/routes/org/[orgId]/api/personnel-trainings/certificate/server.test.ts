@@ -63,16 +63,9 @@ describe('GET /api/personnel-trainings/certificate', () => {
 		});
 	});
 
-	it('redirects a legacy external link to itself', async () => {
-		const ctx = await seededContext('https://example.test/legacy-cert.pdf');
-
-		expect(await open(ctx, { kind: 'current', id: RECORD })).toEqual({
-			status: 303,
-			location: 'https://example.test/legacy-cert.pdf'
-		});
-	});
-
 	it.each([
+		['a legacy link to another site', 'https://example.test/legacy-cert.pdf'],
+		['a protocol-relative link', '//example.test/legacy-cert.pdf'],
 		["another Person's stored path", `test-org/personnel/${OTHER_PERSON}/training-certificates/a/card.pdf`],
 		['free text', 'Card in the orderly room'],
 		['an unsafe path', `test-org/personnel/${PERSON}/training-certificates/../documents/x.pdf`]

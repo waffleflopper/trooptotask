@@ -68,6 +68,11 @@ export interface PersonnelFilesPageData {
 	documents: PersonnelDocumentsPageData;
 }
 
+export interface PersonnelDataSheetPageData {
+	/** Null until the Soldier's sheet is first saved. */
+	dataSheet: Promise<PersonnelExtendedInfo | null>;
+}
+
 export interface PersonnelArchivedArtifactsPageData {
 	orgId: string;
 	personnelId: string;

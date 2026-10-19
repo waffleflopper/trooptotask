@@ -93,7 +93,8 @@ export {
 	loadPersonnelDetailTabCounts
 } from './personnelDetail.server';
 
-export { readPersonnelExtendedInfo, updatePersonnelExtendedInfo } from './personnelExtendedInfo.server';
+export { readPersonnelExtendedInfo } from './personnelExtendedInfo.server';
+export { savePersonnelDataSheet } from './personnelDataSheet.server';
 export { setPersonnelAwardTrackingAcknowledged } from './awardTracking.server';
 
 export type {

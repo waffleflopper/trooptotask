@@ -1,0 +1,39 @@
+-- The Data sheet stores when a marital status began and which member last saved the sheet.
+BEGIN;
+CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
+SELECT no_plan();
+
+SELECT col_type_is('public', 'personnel_extended_info', 'marital_status_date', 'date', 'marital status date is a date');
+SELECT col_is_null('public', 'personnel_extended_info', 'marital_status_date', 'marital status date is optional');
+SELECT col_type_is('public', 'personnel_extended_info', 'updated_by', 'text', 'saving member is stored as text');
+SELECT col_is_null('public', 'personnel_extended_info', 'updated_by', 'saving member is optional for sheets saved before the column existed');
+
+INSERT INTO auth.users (id, email) VALUES ('f8000000-0000-4000-8000-000000000001', 'data-sheet-columns@example.test');
+INSERT INTO public.organizations (id, name, created_by)
+VALUES ('f8000000-0000-4000-8000-000000000101', 'Data Sheet Columns', 'f8000000-0000-4000-8000-000000000001');
+INSERT INTO public.personnel (id, organization_id, rank, first_name, last_name, slug)
+VALUES ('f8000000-0000-4000-8000-000000000301', 'f8000000-0000-4000-8000-000000000101', 'SGT', 'Data', 'Sheet', 'data-sheet-columns');
+INSERT INTO public.personnel_extended_info (id, organization_id, personnel_id)
+VALUES ('f8000000-0000-4000-8000-000000000401', 'f8000000-0000-4000-8000-000000000101', 'f8000000-0000-4000-8000-000000000301');
+
+SELECT is(
+  (SELECT marital_status_date IS NULL AND updated_by IS NULL FROM public.personnel_extended_info
+   WHERE id = 'f8000000-0000-4000-8000-000000000401'),
+  true, 'an existing sheet keeps both columns empty');
+
+UPDATE public.personnel_extended_info
+SET marital_status_date = '2019-07-04', updated_by = 'f8000000-0000-4000-8000-000000000001'
+WHERE id = 'f8000000-0000-4000-8000-000000000401';
+
+SELECT is(
+  (SELECT to_jsonb(i) - ARRAY['id', 'organization_id', 'personnel_id', 'created_at', 'updated_at']
+     FROM (SELECT marital_status_date, updated_by FROM public.personnel_extended_info
+           WHERE id = 'f8000000-0000-4000-8000-000000000401') i),
+  '{"marital_status_date": "2019-07-04", "updated_by": "f8000000-0000-4000-8000-000000000001"}'::jsonb,
+  'both columns round-trip');
+SELECT isnt(
+  (SELECT updated_at FROM public.personnel_extended_info WHERE id = 'f8000000-0000-4000-8000-000000000401'),
+  NULL::timestamptz, 'the save stamps updated_at');
+
+SELECT * FROM finish();
+ROLLBACK;

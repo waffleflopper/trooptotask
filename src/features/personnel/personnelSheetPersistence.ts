@@ -3,6 +3,7 @@ export interface PersonnelSheetEditableValues {
 	basd: string | null;
 	date_of_rank: string | null;
 	marital_status: string | null;
+	marital_status_date: string | null;
 	number_of_dependents: number | null;
 	children: unknown;
 	civilian_education: string | null;
@@ -21,6 +22,8 @@ export interface PersonnelSheetEditableValues {
 	address_city: string | null;
 	address_state: string | null;
 	address_zip: string | null;
+	/** The saving member's user id; readers resolve it to a label. */
+	updated_by: string | null;
 }
 export interface SavedPersonnelSheet extends Partial<PersonnelSheetEditableValues> {
 	id: string;

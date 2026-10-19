@@ -81,6 +81,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261014000500_onboarding_local_completion_day.sql",
     "20261015000100_calendar_lanes.sql",
     "20261016000100_status_type_label_and_order.sql",
+    "20261017000200_personnel_data_sheet_columns.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",

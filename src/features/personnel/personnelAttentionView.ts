@@ -38,11 +38,12 @@ export function uncheckedSources(attention: PersonnelAttention): string[] {
 	return attention.failed.map((source) => SOURCE_NAME[source]);
 }
 
-/** What was checked and found fine, so the list can show problems only. */
+/** What was checked and found fine, so the list can show problems only. A zero count reassures no one. */
 export function alsoChecked(checked: PersonnelAttention['checked']): string[] {
 	const facts: string[] = [];
-	if (checked.training.state === 'checked') facts.push(`${checked.training.currentCount} training items current`);
-	if (checked.criticalTasks.state === 'checked') {
+	if (checked.training.state === 'checked' && checked.training.currentCount > 0)
+		facts.push(`${checked.training.currentCount} training items current`);
+	if (checked.criticalTasks.state === 'checked' && checked.criticalTasks.currentCount > 0) {
 		facts.push(
 			`${checked.criticalTasks.currentCount} of ${checked.criticalTasks.applicableCount} critical tasks current`
 		);

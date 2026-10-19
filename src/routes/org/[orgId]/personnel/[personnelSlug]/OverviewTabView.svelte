@@ -250,7 +250,7 @@
 			{#if latestNote.current.state === 'ready'}
 				{@const note = latestNote.current.value}
 				{#if note}
-					<blockquote class="line-clamp-5 text-[15px] leading-6">“{note.text}”</blockquote>
+					<blockquote class="line-clamp-5 text-[15px] leading-6 italic">“{note.text}”</blockquote>
 					<p class="text-[13px] text-muted-foreground">{note.author} · {localDay(note.createdAt)}</p>
 				{:else}
 					<p class="text-sm text-muted-foreground">No notes yet.</p>

@@ -35,22 +35,22 @@
 			<a
 				href={row.href}
 				class={cn(
-					'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 border-l-[3px] px-3.5 py-3 hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none sm:grid-cols-[84px_minmax(0,1fr)_112px_96px_16px]',
+					'grid grid-cols-[minmax(0,1fr)_auto] text-foreground items-center gap-x-4 gap-y-1 border-l-[3px] px-3.5 py-3 hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none sm:grid-cols-[84px_minmax(0,1fr)_112px_96px_16px]',
 					visual.rule
 				)}
 			>
-				<span class={cn('text-sm font-semibold', visual.text)}>{visual.label}</span>
+				<span class="order-3 col-span-2 flex min-w-0 flex-col gap-0.5 sm:order-2 sm:col-span-1">
+					<span class="text-[15px] leading-5 font-semibold">{row.title}</span>
+					<span class="text-[13px] leading-[18px] text-muted-foreground">{row.detail}</span>
+				</span>
+				<span class={cn('order-1 text-sm font-semibold', visual.text)}>{visual.label}</span>
 				<span
 					class={cn(
-						'font-mono text-xs first-letter:uppercase max-sm:text-right sm:order-4',
+						'order-2 font-mono text-xs first-letter:uppercase max-sm:text-right sm:order-4',
 						row.status === 'upcoming' ? 'text-muted-foreground' : visual.text
 					)}
 				>
 					{row.timing}
-				</span>
-				<span class="col-span-2 flex min-w-0 flex-col gap-0.5 sm:order-2 sm:col-span-1">
-					<span class="text-[15px] leading-5 font-semibold">{row.title}</span>
-					<span class="text-[13px] leading-[18px] text-muted-foreground">{row.detail}</span>
 				</span>
 				<span class="font-mono text-[11px] tracking-[0.08em] text-muted-foreground uppercase max-sm:hidden sm:order-3">
 					{row.category}

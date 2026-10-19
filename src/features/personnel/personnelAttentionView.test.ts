@@ -66,4 +66,15 @@ describe('Overview attention', () => {
 		expect(uncheckedSources(attention)).toEqual(['critical tasks']);
 		expect(alsoChecked(attention.checked)).toEqual(['15 training items current', 'onboarding complete']);
 	});
+
+	it('leaves a source with nothing current out of the reassurance line', () => {
+		expect(
+			alsoChecked({
+				...attention.checked,
+				training: { state: 'checked', currentCount: 0 },
+				criticalTasks: { state: 'checked', currentCount: 0, applicableCount: 1 },
+				onboarding: { state: 'checked', status: 'none' }
+			})
+		).toEqual([]);
+	});
 });

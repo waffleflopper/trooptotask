@@ -82,6 +82,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261015000100_calendar_lanes.sql",
     "20261016000100_status_type_label_and_order.sql",
     "20261017000100_personnel_training_history.sql",
+    "20261018000100_set_based_completion_read_scope.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",
@@ -484,16 +485,21 @@ def prepare_project(repository, workdir, project_id, ports):
     return config
 
 
+# Not a credential. supabase/setup-cli sets it so the CLI pulls its images from
+# GHCR, because the ECR Public default rate-limits shared CI runners.
+INHERITED_SUPABASE_SETTINGS = ("SUPABASE_INTERNAL_IMAGE_REGISTRY",)
+
+
 def clean_environment():
     return {
         key: value for key, value in os.environ.items()
-        if not key.startswith("PG") and not any(
+        if key in INHERITED_SUPABASE_SETTINGS or (not key.startswith("PG") and not any(
             marker in key for marker in (
                 "SUPABASE", "DATABASE", "RESEND", "STRIPE", "E2E", "S3_",
                 "OPENAI_API_KEY", "ACCOUNT_SETUP", "APP_PUBLIC_ORIGIN", "PUBLIC_APP_ORIGIN",
                 "PUBLIC_SITE_URL",
             )
-        )
+        ))
     }
 
 

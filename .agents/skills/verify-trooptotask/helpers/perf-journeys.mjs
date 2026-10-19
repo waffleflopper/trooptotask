@@ -489,6 +489,22 @@ export const journeys = {
 		trigger: () => ({ click: { role: 'link', name: 'Personnel' } }),
 		milestones: (terms) => [{ name: 'useful', ...roster(terms) }]
 	},
+	// The Dashboard renders no in-page link. Its overflow toggles exist only from typical, and the
+	// scoped actor has no Out Today at large, so the control present in every cell is the sidebar.
+	'dashboard-navigation': {
+		area: 'dashboard',
+		kind: 'interaction',
+		effect: 'read',
+		actors: both,
+		path: (terms) => org(terms),
+		ready: () => [{ name: 'ready', present: ['Upcoming Changes', 'Requires Attention'], absentSelector: [skeleton] }],
+		trigger: () => ({ click: { role: 'link', name: 'Personnel' } }),
+		// The Dashboard's own lists already name roster People, so the roster text alone is met
+		// before the route changes; the breadcrumb is what only the Personnel page shows.
+		milestones: (terms) => [
+			{ name: 'useful', ...roster(terms), inside: { 'nav[aria-label="Current section"]': ['Personnel'] } }
+		]
+	},
 	'organization-switch': {
 		area: 'organization',
 		kind: 'interaction',

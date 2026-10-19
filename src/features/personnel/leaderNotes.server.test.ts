@@ -405,6 +405,29 @@ describe('leader note write responses', () => {
 		});
 	});
 
+	it('still reports a saved edit when the access check after the write fails', async () => {
+		const ctx = seededNote();
+		const base = testLeaderNoteContext(ctx);
+		let lookups = 0;
+		const context = {
+			...base,
+			persistence: {
+				...base.persistence,
+				async findPersonnelGroup(personnelId: string) {
+					if (++lookups > 1) throw new Error('group lookup failed');
+					return base.persistence.findPersonnelGroup(personnelId);
+				}
+			}
+		};
+
+		const saved = await updatePersonnelLeaderNote(context, { ...ids, text: 'Second draft' });
+
+		expect(saved).toEqual({ id: 'note-1', archivedAt: null });
+		expect(await ctx.store.findOne('leader_notes', ctx.auth.orgId, { id: 'note-1' })).toMatchObject({
+			text: 'Second draft'
+		});
+	});
+
 	it('still reports a created note, once, without naming its author when the name lookup fails', async () => {
 		const ctx = seededNote();
 

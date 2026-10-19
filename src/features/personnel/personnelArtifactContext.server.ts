@@ -82,7 +82,7 @@ async function requireAccessUncached(
 	await ctx.scope.requireGroupAccess(personnelId);
 }
 
-/** Whether a write may answer with the sensitive record it changed. */
+/** Whether a write may answer with the sensitive record it changed. It runs after the commit, so a failed check answers no. */
 export async function canReadSensitivePersonnelArtifacts(
 	ctx: {
 		actor: OrganizationAccessGrant;
@@ -90,14 +90,18 @@ export async function canReadSensitivePersonnelArtifacts(
 	},
 	personnelId: string
 ): Promise<boolean> {
-	const groupId = await ctx.persistence.findPersonnelGroup(personnelId);
-	if (groupId === undefined) return false;
-	const decision = await evaluateFeaturePolicy(
-		{ auth: ctx.actor },
-		POLICY_ACTION_CATALOG.personnel.readSensitiveRecords,
-		policyResourceForGroup(groupId)
-	);
-	return decision.allowed;
+	try {
+		const groupId = await ctx.persistence.findPersonnelGroup(personnelId);
+		if (groupId === undefined) return false;
+		const decision = await evaluateFeaturePolicy(
+			{ auth: ctx.actor },
+			POLICY_ACTION_CATALOG.personnel.readSensitiveRecords,
+			policyResourceForGroup(groupId)
+		);
+		return decision.allowed;
+	} catch {
+		return false;
+	}
 }
 
 export async function personnelArtifactWriter(

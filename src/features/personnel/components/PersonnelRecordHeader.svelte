@@ -10,6 +10,7 @@
 	} from '$lib/components/patterns/workspace-toolbar';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Badge } from '$lib/components/ui/badge';
+	import { Button } from '$lib/components/ui/button';
 	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import { Separator } from '$lib/components/ui/separator';
 	import { Skeleton } from '$lib/components/ui/skeleton';
@@ -19,6 +20,7 @@
 	import { MOS_TITLES } from '../mosTitles';
 	import { formatServiceSpan } from '../serviceSpan';
 	import type { RequestPersonnelArchiveApproval } from '../utils/archivePersonnel';
+	import type { DataSheetEditSession } from '../workspace/dataSheetEditSession.svelte';
 	import { PersonnelRecordActions } from '../workspace/personnelRecordActions.svelte';
 
 	interface Props {
@@ -30,9 +32,21 @@
 		activeTab: string;
 		access: Pick<PersonnelPageAccess, 'affordanceForFeatureAction'>;
 		requestArchiveApproval: RequestPersonnelArchiveApproval;
+		/** The open Data sheet edit, when there is one. Its actions replace the toolbar and the other tabs dim. */
+		edit?: DataSheetEditSession | null;
 	}
 
-	let { orgId, orgUrlSegment, header, streams, today, activeTab, access, requestArchiveApproval }: Props = $props();
+	let {
+		orgId,
+		orgUrlSegment,
+		header,
+		streams,
+		today,
+		activeTab,
+		access,
+		requestArchiveApproval,
+		edit = null
+	}: Props = $props();
 
 	const person = $derived(header.person);
 	const basePath = $derived(`/org/${orgUrlSegment}/personnel/${person.slug}` as const);
@@ -109,7 +123,9 @@
 	);
 
 	const toolbarItems = $derived<ToolbarItem[]>([
-		{ kind: 'action', id: 'edit', label: 'Edit', href: `${basePath}/data-sheet` },
+		...(canManageRecords
+			? [{ kind: 'action', id: 'edit', label: 'Edit', href: `${basePath}/data-sheet?edit=1` } satisfies ToolbarAction]
+			: []),
 		...(canExportRecords
 			? [
 					{
@@ -167,7 +183,15 @@
 			)
 		}
 	]);
-	const tabs = $derived(sections.map((section) => ({ ...section, active: section.path === activeTab })));
+	const tabs = $derived(
+		sections.map((section) => {
+			const active = section.path === activeTab;
+			return { ...section, active, disabled: edit !== null && !active };
+		})
+	);
+	const unsavedLabel = $derived(
+		edit ? `${edit.changeCount} unsaved ${edit.changeCount === 1 ? 'change' : 'changes'}` : ''
+	);
 </script>
 
 <svelte:head>
@@ -175,7 +199,7 @@
 </svelte:head>
 
 <header class="grid gap-4 px-6 pt-5">
-	<PageShell.Header {eyebrow} {title}>
+	<PageShell.Header {eyebrow} {title} variant="display">
 		{#snippet subtitle()}
 			<div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
 				{#if person.mos}
@@ -190,26 +214,39 @@
 					{/if}
 					<span>{fact}</span>
 				{/each}
-				{#await streams.availabilityToday}
-					<Separator orientation="vertical" class="h-4" />
-					<Skeleton class="h-5 w-24" aria-hidden="true" />
-					<span class="sr-only">Today's availability loading</span>
-				{:then lane}
-					{#if lane}
-						<Separator orientation="vertical" class="h-4" />
-						<Badge variant={lane.tone === 'good' ? 'success' : 'warning'} title={lane.detail}>
-							<span class="size-1.5 rounded-full bg-current" aria-hidden="true"></span>
-							{lane.value} today
-						</Badge>
-					{/if}
-				{:catch}
-					<Separator orientation="vertical" class="h-4" />
-					<span>Today's availability unavailable</span>
-				{/await}
 			</div>
 		{/snippet}
 	</PageShell.Header>
-	<WorkspaceToolbar ariaLabel="Personnel record" items={toolbarItems} {primary} />
+	<div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+		<div class="min-h-8 shrink-0">
+			{#await streams.availabilityToday}
+				<Skeleton class="h-6 w-28" aria-hidden="true" />
+				<span class="sr-only">Today's availability loading</span>
+			{:then lane}
+				{#if lane}
+					<Badge variant={lane.tone === 'good' ? 'success' : 'warning'} title={lane.detail}>
+						<span class="size-1.5 rounded-full bg-current" aria-hidden="true"></span>
+						{lane.value} today
+					</Badge>
+				{/if}
+			{:catch}
+				<span class="text-sm text-muted-foreground">Today's availability unavailable</span>
+			{/await}
+		</div>
+		{#if edit}
+			<div class="flex items-center gap-3">
+				<span class="text-sm text-muted-foreground" aria-live="polite">{unsavedLabel}</span>
+				<Button variant="outline" onclick={edit.cancel} disabled={edit.saving || !edit.ready}>Cancel</Button>
+				<Button onclick={edit.save} disabled={edit.saving || edit.changeCount === 0}>
+					{edit.saving ? 'Saving...' : 'Save changes'}
+				</Button>
+			</div>
+		{:else}
+			<div class="min-w-0 flex-1 basis-80">
+				<WorkspaceToolbar ariaLabel="Personnel record" items={toolbarItems} {primary} bare />
+			</div>
+		{/if}
+	</div>
 	{#if actions.exportError}
 		<Alert.Root variant="destructive">
 			<Alert.Description>{actions.exportError}</Alert.Description>

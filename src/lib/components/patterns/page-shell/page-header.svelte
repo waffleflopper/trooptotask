@@ -7,13 +7,25 @@
 		/** A snippet renders inside the h1, for a title that is itself a control. */
 		title: string | Snippet;
 		eyebrow?: string;
+		/** `display` sets the title large, condensed and uppercase, for the record a page is about. */
+		variant?: 'default' | 'display';
 		subtitle?: string | Snippet;
 		back?: Snippet;
 		meta?: Snippet;
 		aside?: Snippet;
 	};
 
-	let { title, eyebrow, subtitle, back, meta, aside, class: className, ...restProps }: Props = $props();
+	let {
+		title,
+		eyebrow,
+		variant = 'default',
+		subtitle,
+		back,
+		meta,
+		aside,
+		class: className,
+		...restProps
+	}: Props = $props();
 </script>
 
 <header data-slot="page-header" class={cn('grid min-w-0 gap-2', className)} {...restProps}>
@@ -24,7 +36,14 @@
 		{#if back}
 			{@render back()}
 		{/if}
-		<h1 class="min-w-0 font-heading text-2xl font-semibold tracking-tight">
+		<h1
+			class={cn(
+				'min-w-0 font-heading font-semibold',
+				variant === 'display'
+					? 'text-4xl leading-none tracking-[-0.01em] wrap-anywhere uppercase sm:text-5xl'
+					: 'text-2xl tracking-tight'
+			)}
+		>
 			{#if typeof title === 'string'}{title}{:else}{@render title()}{/if}
 		</h1>
 		{#if meta}

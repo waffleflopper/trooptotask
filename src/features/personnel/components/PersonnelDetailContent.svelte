@@ -1,21 +1,18 @@
 <script lang="ts">
-	import { onDestroy, tick } from 'svelte';
+	import { onDestroy } from 'svelte';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
-	import * as Combobox from '$lib/components/ui/combobox';
-	import { DatePicker } from '$lib/components/ui/date-picker';
 	import * as Field from '$lib/components/ui/field';
+	import { DatePicker } from '$lib/components/ui/date-picker';
 	import { Input } from '$lib/components/ui/input';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { Textarea } from '$lib/components/ui/textarea';
-	import SoldierDataSheetModal from './SoldierDataSheetModal.svelte';
 	import type { PersonnelDetailStreams, PersonnelReadinessLane } from '$features/personnel/personnel-detail.types';
 	import {
 		createPersonnelDetailWorkspace,
 		type PersonnelDetailTone
 	} from '$features/personnel/workspace/personnelDetailWorkspace.svelte';
-	import type { Group } from '$features/personnel/contracts';
 	import type { Personnel } from '../personnel.types';
 	import { cn } from '$lib/utils';
 	import { formatDisplayDate } from '$lib/utils/dates';
@@ -28,18 +25,16 @@
 		orgId: string;
 		orgUrlSegment?: string;
 		person: Personnel;
-		groups?: Group[];
 		orgName: string;
 		detail: PersonnelDetailStreams;
 	}
 
-	let { orgId, orgUrlSegment = orgId, person, groups = [], orgName, detail }: Props = $props();
+	let { orgId, orgUrlSegment = orgId, person, orgName, detail }: Props = $props();
 
 	const workspace = createPersonnelDetailWorkspace(() => ({
 		orgId,
 		orgUrlSegment,
 		person,
-		groups,
 		orgName,
 		detail
 	}));
@@ -49,22 +44,6 @@
 	let documentFileInput = $state<HTMLInputElement | null>(null);
 	let counselingFiles = $state<FileList | undefined>();
 	let documentFiles = $state<FileList | undefined>();
-
-	let saveBasicInfoButton = $state<HTMLElement | null>(null);
-	let editBasicInfoButton = $state<HTMLElement | null>(null);
-
-	async function saveBasicInfo(event: SubmitEvent) {
-		event.preventDefault();
-		await workspace.saveBasicInfo();
-		await tick();
-		(workspace.editingBasicInfo ? saveBasicInfoButton : editBasicInfoButton)?.focus();
-	}
-
-	async function cancelBasicInfoEdit() {
-		workspace.editingBasicInfo = false;
-		await tick();
-		editBasicInfoButton?.focus();
-	}
 
 	async function submitCounseling() {
 		if (await workspace.counselingRecords.submit()) {
@@ -376,71 +355,8 @@
 							<UserRoundIcon aria-hidden="true" size={18} />
 							<h2 class="font-semibold">Service details</h2>
 						</div>
-						{#if !workspace.editingBasicInfo}
-							<div class="flex items-center gap-2">
-								<Button
-									bind:ref={editBasicInfoButton}
-									type="button"
-									variant="outline"
-									size="sm"
-									onclick={workspace.startBasicInfoEdit}>Edit basic info</Button
-								>
-							</div>
-						{/if}
 					</div>
-					{#if workspace.editingBasicInfo}
-						<form class="space-y-3 p-4" onsubmit={saveBasicInfo}>
-							<Input bind:value={workspace.basicInfoRank} aria-label="Rank" />
-							<div class="grid gap-3 sm:grid-cols-2">
-								<Field.Root data-invalid={workspace.basicInfoNameError?.field === 'firstName' ? true : undefined}>
-									<Input bind:value={workspace.basicInfoFirstName} aria-label="First name" />
-									{#if workspace.basicInfoNameError?.field === 'firstName'}
-										<Field.Error>{workspace.basicInfoNameError.message}</Field.Error>
-									{/if}
-								</Field.Root>
-								<Field.Root data-invalid={workspace.basicInfoNameError?.field === 'lastName' ? true : undefined}>
-									<Input bind:value={workspace.basicInfoLastName} aria-label="Last name" />
-									{#if workspace.basicInfoNameError?.field === 'lastName'}
-										<Field.Error>{workspace.basicInfoNameError.message}</Field.Error>
-									{/if}
-								</Field.Root>
-							</div>
-							<div class="grid gap-3 sm:grid-cols-2">
-								<Input bind:value={workspace.basicInfoMos} aria-label="MOS" />
-								<Input bind:value={workspace.basicInfoClinicRole} aria-label="Duty role" />
-							</div>
-							<Combobox.Root
-								items={workspace.groupOptions}
-								bind:value={workspace.basicInfoGroupId}
-								label="Group"
-								autoHighlight
-							>
-								<Combobox.Trigger clearable placeholder="No Group Assigned" aria-label="Group" />
-								<Combobox.Content>
-									<Combobox.Search placeholder="Search groups..." />
-									<Combobox.Empty>No groups found.</Combobox.Empty>
-									<Combobox.List />
-								</Combobox.Content>
-							</Combobox.Root>
-							<div class="grid gap-3 sm:grid-cols-2">
-								<DatePicker bind:value={workspace.basicInfoEts} aria-label="ETS" placeholder="ETS" />
-								<DatePicker bind:value={workspace.basicInfoDeros} aria-label="PCS / DEROS" placeholder="PCS / DEROS" />
-							</div>
-							{#if workspace.basicInfoError}
-								<Alert.Root variant="destructive">
-									<Alert.Description>{workspace.basicInfoError}</Alert.Description>
-								</Alert.Root>
-							{/if}
-							<div class="flex justify-end gap-2">
-								<Button type="button" variant="outline" size="sm" onclick={cancelBasicInfoEdit}>Cancel</Button>
-								<Button bind:ref={saveBasicInfoButton} type="submit" size="sm" disabled={workspace.basicInfoSaving}>
-									{workspace.basicInfoSaving ? 'Saving...' : 'Save basic info'}
-								</Button>
-							</div>
-						</form>
-					{:else}
-						{@render FactList(workspace.adminRows)}
-					{/if}
+					{@render FactList(workspace.adminRows)}
 				</section>
 
 				{#await workspace.detail.extendedInfo}
@@ -453,18 +369,9 @@
 								<PhoneIcon aria-hidden="true" size={18} />
 								<h2 class="font-semibold">Extended info</h2>
 							</div>
-							<Button variant="outline" size="sm" onclick={() => (workspace.showDataSheet = true)}>More info</Button>
 						</div>
 						{@render FactList(workspace.getContactRows(extendedInfo))}
 					</section>
-					{#if workspace.showDataSheet}
-						<SoldierDataSheetModal
-							{orgId}
-							personnelId={workspace.currentPerson.id}
-							initialInfo={extendedInfo}
-							onClose={() => (workspace.showDataSheet = false)}
-						/>
-					{/if}
 				{:catch}
 					<section class="rounded-md border bg-card p-4">
 						<div class="flex items-center gap-2">

@@ -54,5 +54,23 @@ SELECT is(
   (SELECT updated_by FROM public.personnel_extended_info WHERE id = 'f8000000-0000-4000-8000-000000000402'),
   'f8000000-0000-4000-8000-000000000002', 'a signed-in first save records its own user');
 
+INSERT INTO auth.users (id, email) VALUES ('f8000000-0000-4000-8000-000000000003', 'award-acknowledger@example.test');
+SELECT set_config('request.jwt.claim.sub', 'f8000000-0000-4000-8000-000000000003', true);
+SELECT set_config('request.jwt.claims', '{"sub": "f8000000-0000-4000-8000-000000000003"}', true);
+
+UPDATE public.personnel_extended_info
+SET award_tracking_acknowledged_at = '2026-10-19T12:00:00Z'
+WHERE id = 'f8000000-0000-4000-8000-000000000401';
+SELECT is(
+  (SELECT updated_by FROM public.personnel_extended_info WHERE id = 'f8000000-0000-4000-8000-000000000401'),
+  'f8000000-0000-4000-8000-000000000002', 'acknowledging an award leaves the Data sheet saver unchanged');
+
+UPDATE public.personnel_extended_info
+SET award_tracking_acknowledged_at = NULL, updated_by = 'f8000000-0000-4000-8000-000000000001'
+WHERE id = 'f8000000-0000-4000-8000-000000000401';
+SELECT is(
+  (SELECT updated_by FROM public.personnel_extended_info WHERE id = 'f8000000-0000-4000-8000-000000000401'),
+  'f8000000-0000-4000-8000-000000000003', 'an acknowledgement that also sends a saver records its own user');
+
 SELECT * FROM finish();
 ROLLBACK;

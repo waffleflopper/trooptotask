@@ -1,6 +1,7 @@
 -- The Log and Archived tabs show who completed a follow-up, who archived an item, and when a note changed.
 -- completed_by and archived_by store the acting member's user id; readers resolve it to a label.
--- Only an archive through the Personnel detail page records archived_by; a Person archive leaves it null.
+-- The database stamps both columns from auth.uid() on the transition, so an API caller cannot forge or keep them.
+-- Server code runs with the service role, where auth.uid() is null, and supplies the value itself.
 BEGIN;
 
 ALTER TABLE public.personnel_follow_ups
@@ -21,5 +22,54 @@ UPDATE public.leader_notes SET updated_at = created_at;
 CREATE TRIGGER update_leader_notes_updated_at
   BEFORE UPDATE ON public.leader_notes
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+CREATE FUNCTION organization_private.stamp_archived_by() RETURNS trigger
+LANGUAGE plpgsql SET search_path = '' AS $$
+DECLARE
+  v_actor text := auth.uid()::text;
+BEGIN
+  IF NEW.archived_at IS NULL THEN
+    NEW.archived_by := NULL;
+  ELSIF v_actor IS NOT NULL THEN
+    NEW.archived_by := CASE
+      WHEN TG_OP = 'UPDATE' AND OLD.archived_at IS NOT NULL THEN OLD.archived_by
+      ELSE v_actor
+    END;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE FUNCTION organization_private.stamp_follow_up_completed_by() RETURNS trigger
+LANGUAGE plpgsql SET search_path = '' AS $$
+DECLARE
+  v_actor text := auth.uid()::text;
+BEGIN
+  -- Archiving keeps the completion, so the completer follows completed_at rather than status.
+  IF NEW.completed_at IS NULL THEN
+    NEW.completed_by := NULL;
+  ELSIF v_actor IS NOT NULL THEN
+    NEW.completed_by := CASE
+      WHEN TG_OP = 'UPDATE' AND OLD.completed_at IS NOT NULL THEN OLD.completed_by
+      ELSE v_actor
+    END;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION organization_private.stamp_archived_by() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION organization_private.stamp_follow_up_completed_by() FROM PUBLIC, anon, authenticated, service_role;
+
+CREATE TRIGGER stamp_archived_by BEFORE INSERT OR UPDATE ON public.personnel_follow_ups
+  FOR EACH ROW EXECUTE FUNCTION organization_private.stamp_archived_by();
+CREATE TRIGGER stamp_archived_by BEFORE INSERT OR UPDATE ON public.counseling_records
+  FOR EACH ROW EXECUTE FUNCTION organization_private.stamp_archived_by();
+CREATE TRIGGER stamp_archived_by BEFORE INSERT OR UPDATE ON public.personnel_documents
+  FOR EACH ROW EXECUTE FUNCTION organization_private.stamp_archived_by();
+CREATE TRIGGER stamp_archived_by BEFORE INSERT OR UPDATE ON public.leader_notes
+  FOR EACH ROW EXECUTE FUNCTION organization_private.stamp_archived_by();
+CREATE TRIGGER stamp_completed_by BEFORE INSERT OR UPDATE ON public.personnel_follow_ups
+  FOR EACH ROW EXECUTE FUNCTION organization_private.stamp_follow_up_completed_by();
 
 COMMIT;

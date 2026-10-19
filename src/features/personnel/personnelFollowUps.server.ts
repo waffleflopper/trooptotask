@@ -3,6 +3,7 @@ import type { PersonnelFollowUp, PersonnelFollowUpLifecycleState } from './contr
 import { fail } from '$lib/errors';
 import {
 	canReadSensitivePersonnelArtifacts,
+	contributorLabelsWithStamps,
 	optionalContributorLabel,
 	personnelArtifactWriter,
 	requirePersonnelArtifactAccess,
@@ -43,12 +44,16 @@ export async function listPersonnelFollowUps(
 ): Promise<PersonnelFollowUp[]> {
 	await requirePersonnelArtifactAccess(ctx, personnelId, 'read');
 	const rows = await ctx.persistence.listFollowUps(personnelId, { archived: !!options.archived, limit });
-	const labels = await ctx.contributorLabels(followUpMemberIds(rows));
+	const labels = await followUpLabels(ctx, rows);
 	return rows.map((row) => mapFollowUpRow(row, labels));
 }
 
-function followUpMemberIds(rows: FollowUpRow[]): string[] {
-	return rows.flatMap((row) => [row.created_by, row.completed_by, row.archived_by].filter((id): id is string => !!id));
+function followUpLabels(ctx: PersonnelArtifactsContext, rows: FollowUpRow[]): Promise<Map<string, string>> {
+	return contributorLabelsWithStamps(
+		ctx,
+		rows.flatMap((row) => (row.created_by ? [row.created_by] : [])),
+		rows.flatMap((row) => [row.completed_by, row.archived_by])
+	);
 }
 
 export async function createPersonnelFollowUp(
@@ -79,7 +84,7 @@ export async function createPersonnelFollowUp(
 		resourceId: input.personnelId
 	});
 
-	const labels = await ctx.contributorLabels(followUpMemberIds([row]));
+	const labels = await followUpLabels(ctx, [row]);
 	return mapFollowUpRow(row, labels);
 }
 
@@ -91,7 +96,7 @@ async function followUpLifecycleResult(
 	if (!(await canReadSensitivePersonnelArtifacts(ctx, personnelId))) {
 		return { id: row.id, status: row.status, archivedAt: row.archived_at ?? null };
 	}
-	return mapFollowUpRow(row, await ctx.contributorLabels(followUpMemberIds([row])));
+	return mapFollowUpRow(row, await followUpLabels(ctx, [row]));
 }
 
 export async function setPersonnelFollowUpStatus(
@@ -162,7 +167,7 @@ export async function updatePersonnelFollowUp(
 		resourceId: input.personnelId
 	});
 
-	const labels = await ctx.contributorLabels(followUpMemberIds([row]));
+	const labels = await followUpLabels(ctx, [row]);
 	return mapFollowUpRow(row, labels);
 }
 

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import {
 	archivePersonnelLeaderNote,
@@ -25,6 +25,10 @@ function seedPersonnel(ctx: ReturnType<typeof createTestContext>, groupId: strin
 		}
 	]);
 }
+
+afterEach(() => {
+	vi.useRealTimers();
+});
 
 describe('personnel leader notes', () => {
 	it('creates and lists leader notes in reverse chronological order', async () => {
@@ -183,6 +187,8 @@ describe('personnel leader notes', () => {
 	});
 
 	it('edits a note in place, stamps updated_at, and refuses to edit an archived note', async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date('2026-06-02T12:00:00.000Z'));
 		const ctx = createTestContext();
 		seedPersonnel(ctx);
 		const notes = testLeaderNoteContext(ctx);
@@ -205,7 +211,8 @@ describe('personnel leader notes', () => {
 			id: 'note-1'
 		});
 		expect(stored?.text).toBe('Second draft');
-		expect(stored?.updated_at).not.toBe('2026-05-01T10:00:00Z');
+		expect(stored?.updated_at).toBe('2026-06-02T12:00:00.000Z');
+		expect(stored?.created_at).toBe('2026-05-01T10:00:00Z');
 
 		await expect(updatePersonnelLeaderNote(notes, { ...ids, text: '   ' })).rejects.toMatchObject({ status: 400 });
 		await archivePersonnelLeaderNote(notes, ids);
@@ -215,6 +222,63 @@ describe('personnel leader notes', () => {
 		await expect(
 			updatePersonnelLeaderNote(notes, { personnelId: 'person-1', noteId: 'missing', text: 'x' })
 		).rejects.toMatchObject({ status: 404 });
+	});
+
+	it('refuses to edit a note without Personnel operate access, outside the Group, or through another Soldier', async () => {
+		const note = (ctx: ReturnType<typeof createTestContext>) => ({
+			id: 'note-1',
+			organization_id: ctx.auth.orgId,
+			personnel_id: 'person-1',
+			author: 'SFC Jones',
+			text: 'First draft',
+			created_at: '2026-05-01T10:00:00Z',
+			updated_at: '2026-05-01T10:00:00Z'
+		});
+		const edit = { personnelId: 'person-1', noteId: 'note-1', text: 'Second draft' };
+		const capabilities = (personnel: 'view' | 'operate') => ({
+			calendar: 'none' as const,
+			personnel,
+			training: 'none' as const,
+			criticalTasks: 'none' as const,
+			onboarding: 'none' as const,
+			ratingScheme: 'none' as const
+		});
+
+		const viewer = createTestContext({
+			auth: { role: 'member', isPrivileged: false, capabilityMap: capabilities('view') }
+		});
+		seedPersonnel(viewer);
+		viewer.store.seed('leader_notes', [note(viewer)]);
+		await expect(updatePersonnelLeaderNote(testLeaderNoteContext(viewer), edit)).rejects.toMatchObject({ status: 403 });
+
+		const outsideGroup = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: capabilities('operate'),
+				scopeSet: { kind: 'groups', groupIds: ['other-group'] }
+			}
+		});
+		seedPersonnel(outsideGroup, 'group-1');
+		outsideGroup.store.seed('leader_notes', [note(outsideGroup)]);
+		await expect(updatePersonnelLeaderNote(testLeaderNoteContext(outsideGroup), edit)).rejects.toMatchObject({
+			status: 403
+		});
+
+		const operator = createTestContext({
+			auth: { role: 'member', isPrivileged: false, capabilityMap: capabilities('operate') }
+		});
+		seedPersonnel(operator);
+		operator.store.seed('personnel', [{ id: 'person-2', organization_id: operator.auth.orgId, group_id: null }]);
+		operator.store.seed('leader_notes', [note(operator)]);
+		await expect(
+			updatePersonnelLeaderNote(testLeaderNoteContext(operator), { ...edit, personnelId: 'person-2' })
+		).rejects.toMatchObject({ status: 404 });
+
+		for (const ctx of [viewer, outsideGroup, operator]) {
+			const stored = await ctx.store.findOne<Record<string, unknown>>('leader_notes', ctx.auth.orgId, { id: 'note-1' });
+			expect(stored?.text).toBe('First draft');
+		}
 	});
 
 	it('counts only active notes, pages older notes from a cursor, and names who archived', async () => {

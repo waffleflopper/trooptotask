@@ -17,6 +17,7 @@ import { buildSensitiveFilePath, validateSensitiveFileSelection } from '$lib/sto
 import {
 	personnelArtifactWriter,
 	requirePersonnelArtifactAccess,
+	contributorLabelsWithStamps,
 	optionalContributorLabel,
 	resolveContributorLabel,
 	type PersonnelArtifactsContext,
@@ -65,8 +66,10 @@ export async function listPersonnelCounselingRecords(
 ): Promise<PersonnelCounselingRecord[]> {
 	await requirePersonnelArtifactAccess(ctx, personnelId, 'read');
 	const rows = await ctx.persistence.listCounselingRecords(personnelId, { archived: !!options.archived, limit });
-	const labels = await ctx.contributorLabels(
-		rows.flatMap((row) => [row.uploaded_by, row.archived_by].filter((id): id is string => !!id))
+	const labels = await contributorLabelsWithStamps(
+		ctx,
+		rows.flatMap((row) => (row.uploaded_by ? [row.uploaded_by] : [])),
+		rows.map((row) => row.archived_by)
 	);
 	return rows.map((row) => mapCounselingRow(row, labels));
 }

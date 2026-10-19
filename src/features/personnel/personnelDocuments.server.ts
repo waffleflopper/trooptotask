@@ -8,6 +8,7 @@ import { hasPdfFileSignature } from '$lib/storage/fileSignatures';
 import {
 	personnelArtifactWriter,
 	requirePersonnelArtifactAccess,
+	contributorLabelsWithStamps,
 	optionalContributorLabel,
 	resolveContributorLabel,
 	type PersonnelArtifactsContext,
@@ -110,8 +111,10 @@ export async function listPersonnelDocuments(
 ): Promise<PersonnelDocument[]> {
 	await requirePersonnelArtifactAccess(ctx, personnelId, 'read');
 	const rows = await ctx.persistence.listDocuments(personnelId, { archived: !!options.archived, limit });
-	const labels = await ctx.contributorLabels(
-		rows.flatMap((row) => [row.uploaded_by, row.archived_by].filter((id): id is string => !!id))
+	const labels = await contributorLabelsWithStamps(
+		ctx,
+		rows.flatMap((row) => (row.uploaded_by ? [row.uploaded_by] : [])),
+		rows.map((row) => row.archived_by)
 	);
 	return rows.map((row) => mapDocumentRow(row, labels));
 }

@@ -92,9 +92,26 @@ export async function personnelArtifactWriter(
 	return ctx.writerFor(personnelId);
 }
 
-/** The label of the member behind an optional stamp column; null when nobody was recorded. */
+/** The label of the member behind a database-stamped column; null when nobody was recorded or the member is unknown. */
 export function optionalContributorLabel(labels: Map<string, string>, value: string | null | undefined): string | null {
-	return value ? (labels.get(value) ?? value) : null;
+	return value ? (labels.get(value) ?? null) : null;
+}
+
+/**
+ * Labels for the members a row names. `people` are required: a failed lookup fails the read. `stamped` are the
+ * database-stamped completer and archiver ids: a failed lookup leaves them unnamed instead of failing the read.
+ */
+export async function contributorLabelsWithStamps(
+	ctx: Pick<PersonnelArtifactsContext, 'contributorLabels'>,
+	people: string[],
+	stamped: Array<string | null | undefined>
+): Promise<Map<string, string>> {
+	const extra = [...new Set(stamped.filter((id): id is string => !!id && !people.includes(id)))];
+	const [labels, extraLabels] = await Promise.all([
+		ctx.contributorLabels(people),
+		extra.length > 0 ? ctx.contributorLabels(extra).catch(() => new Map<string, string>()) : new Map<string, string>()
+	]);
+	return new Map([...extraLabels, ...labels]);
 }
 
 export function resolveContributorLabel(labels: Map<string, string>, value: string | null | undefined): string {

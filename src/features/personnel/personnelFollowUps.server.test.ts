@@ -166,6 +166,46 @@ describe('personnel follow-ups', () => {
 		expect(reopened).toMatchObject({ status: 'open', completedAt: null, completedBy: null });
 	});
 
+	it('shows no name for a completer or archiver it cannot resolve instead of failing the read', async () => {
+		const OTHER_USER_ID = '22222222-2222-4222-8222-222222222222';
+		const ctx = createTestContext({ auth: { userId: LEADER_USER_ID, scopeSet: { kind: 'organization' } } });
+		seedPersonnel(ctx);
+		ctx.store.seed('organization_memberships', [
+			{ id: 'membership-1', organization_id: ctx.auth.orgId, user_id: LEADER_USER_ID, email: 'leader@example.com' }
+		]);
+		ctx.store.seed('personnel_follow_ups', [
+			{
+				id: 'follow-up-1',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'person-1',
+				title: 'Counsel on PT',
+				notes: '',
+				status: 'archived',
+				created_by: LEADER_USER_ID,
+				created_at: '2026-05-01T10:00:00Z',
+				updated_at: '2026-05-01T10:00:00Z',
+				completed_at: '2026-05-02T10:00:00Z',
+				completed_by: OTHER_USER_ID,
+				archived_at: '2026-05-03T10:00:00Z',
+				archived_by: OTHER_USER_ID
+			}
+		]);
+		const resolved = testPersonnelArtifactsContext(ctx);
+
+		const [unknownMember] = await listPersonnelFollowUps(resolved, 'person-1', undefined, { archived: true });
+		expect(unknownMember).toMatchObject({ createdBy: 'leader@example.com', completedBy: null, archivedBy: null });
+
+		const failingLookup = {
+			...resolved,
+			contributorLabels: async (ids: string[]) => {
+				if (ids.includes(OTHER_USER_ID)) throw new Error('label lookup failed');
+				return resolved.contributorLabels(ids);
+			}
+		};
+		const [lookupFailed] = await listPersonnelFollowUps(failingLookup, 'person-1', undefined, { archived: true });
+		expect(lookupFailed).toMatchObject({ createdBy: 'leader@example.com', completedBy: null, archivedBy: null });
+	});
+
 	it('requires Personnel configure capability for reads and operate capability for writes', async () => {
 		const ctx = createTestContext({
 			auth: {

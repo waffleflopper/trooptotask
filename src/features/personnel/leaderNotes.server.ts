@@ -10,7 +10,7 @@ import {
 	type PersonnelArtifactArchiveState,
 	type PersonnelLeaderNote
 } from './contracts';
-import { optionalContributorLabel } from './personnelArtifactContext.server';
+import { contributorLabelsWithStamps, optionalContributorLabel } from './personnelArtifactContext.server';
 import type { ActorStamp } from './personnelArtifactPersistence';
 import { fail } from '$lib/errors';
 import { issueMessage } from '$lib/utils/inputSchemas';
@@ -70,8 +70,10 @@ function mapLeaderNoteRow(row: LeaderNoteRow, labels: Map<string, string> = new 
 }
 
 async function mapRows(ctx: LeaderNoteContext, rows: LeaderNoteRow[]): Promise<PersonnelLeaderNote[]> {
-	const labels = await ctx.contributorLabels(
-		rows.flatMap((row) => [row.author, row.archived_by].filter((id): id is string => !!id))
+	const labels = await contributorLabelsWithStamps(
+		ctx,
+		rows.flatMap((row) => (row.author ? [row.author] : [])),
+		rows.map((row) => row.archived_by)
 	);
 	return rows.map((row) => mapLeaderNoteRow(row, labels));
 }

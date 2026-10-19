@@ -43,11 +43,19 @@ CREATE POLICY "Users can delete personnel training history if allowed by scoped 
   USING (public.can_configure_personnel_training_record(organization_id, personnel_id));
 GRANT ALL ON TABLE public.personnel_training_history TO anon, authenticated, service_role;
 
--- A row without either date was never completed, so it supersedes nothing.
 CREATE FUNCTION public.record_superseded_training_completion() RETURNS trigger
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = '' AS $$
 BEGIN
   IF pg_catalog.current_setting('trooptotask.training_correction', true) = 'on' THEN
+    RETURN NULL;
+  END IF;
+  -- Without either date, only a never-expiring type's row is a completion; a
+  -- dated type's row has not been completed yet and supersedes nothing.
+  IF OLD.completion_date IS NULL AND OLD.expiration_date IS NULL AND NOT EXISTS (
+    SELECT 1 FROM public.training_types
+    WHERE organization_id = OLD.organization_id AND id = OLD.training_type_id
+      AND expiration_months IS NULL AND NOT expiration_date_only
+  ) THEN
     RETURN NULL;
   END IF;
   INSERT INTO public.personnel_training_history
@@ -62,9 +70,8 @@ REVOKE ALL ON FUNCTION public.record_superseded_training_completion() FROM PUBLI
 CREATE TRIGGER record_superseded_training_completion
   AFTER UPDATE OF completion_date, expiration_date ON public.personnel_trainings
   FOR EACH ROW
-  WHEN ((OLD.completion_date IS NOT NULL OR OLD.expiration_date IS NOT NULL)
-    AND (OLD.completion_date IS DISTINCT FROM NEW.completion_date
-      OR OLD.expiration_date IS DISTINCT FROM NEW.expiration_date))
+  WHEN (OLD.completion_date IS DISTINCT FROM NEW.completion_date
+    OR OLD.expiration_date IS DISTINCT FROM NEW.expiration_date)
   EXECUTE FUNCTION public.record_superseded_training_completion();
 
 -- RLS decides which row the caller may correct. The transaction-local flag

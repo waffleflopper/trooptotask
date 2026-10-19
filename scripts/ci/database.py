@@ -483,16 +483,21 @@ def prepare_project(repository, workdir, project_id, ports):
     return config
 
 
+# Not a credential. supabase/setup-cli sets it so the CLI pulls its images from
+# GHCR, because the ECR Public default rate-limits shared CI runners.
+INHERITED_SUPABASE_SETTINGS = ("SUPABASE_INTERNAL_IMAGE_REGISTRY",)
+
+
 def clean_environment():
     return {
         key: value for key, value in os.environ.items()
-        if not key.startswith("PG") and not any(
+        if key in INHERITED_SUPABASE_SETTINGS or (not key.startswith("PG") and not any(
             marker in key for marker in (
                 "SUPABASE", "DATABASE", "RESEND", "STRIPE", "E2E", "S3_",
                 "OPENAI_API_KEY", "ACCOUNT_SETUP", "APP_PUBLIC_ORIGIN", "PUBLIC_APP_ORIGIN",
                 "PUBLIC_SITE_URL",
             )
-        )
+        ))
     }
 
 

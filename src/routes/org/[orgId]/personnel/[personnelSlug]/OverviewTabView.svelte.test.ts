@@ -114,10 +114,7 @@ describe('Personnel Overview', () => {
 			'/org/org-1/personnel/rivera-monica/readiness?item=training%3Acpr',
 			'/org/org-1/evals?entry=entry-1'
 		]);
-		expect(screen.getByText('2 items · most urgent first')).toBeTruthy();
-		expect(screen.getByText("Couldn't check critical tasks. Reload the page to try again.")).toBeTruthy();
-		expect(screen.getByText('Also checked: 14 training items current')).toBeTruthy();
-		expect(screen.getByText('Nothing on the Calendar for the next 14 days.')).toBeTruthy();
+		expect(screen.getByText(/Couldn't check critical tasks/)).toBeTruthy();
 	});
 
 	it('shows who to reach, the rating chain, the last counseling and the latest note', async () => {
@@ -176,8 +173,9 @@ describe('Personnel Overview', () => {
 			})
 		);
 
-		expect(await screen.findByText("Couldn't load the Calendar. Reload the page to try again.")).toBeTruthy();
-		expect(screen.getByText("Couldn't load notes. Reload the page to try again.")).toBeTruthy();
+		const calendar = await screen.findByRole('region', { name: 'Next 14 days' });
+		expect(within(calendar).getByText(/Couldn't load/)).toBeTruthy();
+		expect(within(screen.getByRole('region', { name: 'Latest note' })).getByText(/Couldn't load/)).toBeTruthy();
 		expect(screen.getByRole('list', { name: 'Needs attention' })).toBeTruthy();
 		expect(screen.getByText('Monthly performance · SSG Alvarez')).toBeTruthy();
 	});

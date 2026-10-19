@@ -117,24 +117,33 @@ function settleOverview(overview: Record<string, Promise<unknown>>) {
 }
 
 describe('personnel Overview page server load', () => {
-	it('reads every Overview section for the slug-resolved Person without running ancestor loads', async () => {
+	it("shows the slug-resolved Person's latest active counseling and registers the detail refresh key", async () => {
 		const ctx = detailTestContext('person-9');
-		const findMany = vi.spyOn(ctx.store, 'findMany');
+		const counseling = (id: string, personnelId: string, dateConducted: string, archivedAt: string | null = null) => ({
+			id,
+			organization_id: 'org-1',
+			personnel_id: personnelId,
+			date_conducted: dateConducted,
+			title: id,
+			status: 'uploaded',
+			uploaded_by: 'SSG Alvarez',
+			file_name: `${id}.pdf`,
+			created_at: `${dateConducted}T12:00:00Z`,
+			archived_at: archivedAt
+		});
+		ctx.store.seed('counseling_records', [
+			counseling('september', 'person-9', '2026-09-01'),
+			counseling('october', 'person-9', '2026-10-01'),
+			counseling('archived', 'person-9', '2026-10-05', '2026-10-06T00:00:00Z'),
+			counseling('someone-else', 'person-other', '2026-10-10')
+		]);
 		const depends = vi.fn();
 
 		const result = await overviewLoad(ctx)(detailEvent({ depends }));
-		await settleOverview(result.overview);
 
-		expect(depends).toHaveBeenCalledWith('app:personnel-detail');
-		expect(findMany).toHaveBeenCalledWith(
-			'counseling_records',
-			'org-1',
-			{ personnel_id: 'person-9' },
-			expect.any(Object)
-		);
-		expect(findMany).toHaveBeenCalledWith('personnel_extended_info', 'org-1', { personnel_id: 'person-9' });
-		await expect(result.overview.lastCounseling).resolves.toBeNull();
+		await expect(result.overview.lastCounseling).resolves.toMatchObject({ id: 'october', personnelId: 'person-9' });
 		await expect(result.overview.latestNote).resolves.toBeNull();
+		expect(depends).toHaveBeenCalledWith('app:personnel-detail');
 	});
 
 	it('reads the next 14 days from the viewer day in the time zone cookie', async () => {
@@ -179,6 +188,21 @@ describe('personnel Overview page server load', () => {
 			phone: '907-555-0102',
 			email: 'rivera@example.com',
 			emergency: { name: 'Jamie Rivera', relationship: 'Spouse', phone: '907-555-0100' }
+		});
+	});
+
+	it('keeps a saved emergency phone even when the contact has no name', async () => {
+		const ctx = detailTestContext();
+		ctx.store.seed('personnel_extended_info', [
+			{ id: 'info-1', organization_id: 'org-1', personnel_id: 'person-1', emergency_contact_phone: '907-555-0100' }
+		]);
+
+		const result = await overviewLoad(ctx)(detailEvent());
+
+		await expect(result.overview.reach).resolves.toEqual({
+			phone: '',
+			email: '',
+			emergency: { name: '', relationship: '', phone: '907-555-0100' }
 		});
 	});
 

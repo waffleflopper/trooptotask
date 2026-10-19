@@ -1,5 +1,5 @@
 import { loadPersonnelCalendarWindow } from '$features/calendar/index.server';
-import type { Personnel } from '$features/personnel/contracts';
+import type { Personnel, PersonnelExtendedInfo } from '$features/personnel/contracts';
 import {
 	listPersonnelCounselingRecords,
 	listPersonnelLeaderNotes,
@@ -29,6 +29,20 @@ function hiddenWhenDenied<T>(source: Promise<T>): Promise<T | null> {
 	});
 }
 
+function reachFrom(info: PersonnelExtendedInfo | null) {
+	if (!info) return null;
+	const emergency = {
+		name: info.emergencyContactName,
+		relationship: info.emergencyContactRelationship,
+		phone: info.emergencyContactPhone
+	};
+	return {
+		phone: info.personalPhone,
+		email: info.personalEmail,
+		emergency: emergency.name || emergency.relationship || emergency.phone ? emergency : null
+	};
+}
+
 function createOverviewStreams(
 	ctx: ReturnType<typeof createRequestPersonnelOverviewContext>,
 	person: Personnel,
@@ -37,23 +51,7 @@ function createOverviewStreams(
 	const range = { rangeStart: asOf, rangeEnd: fromDayNumber(toDayNumber(asOf) + NEXT_DAYS - 1) };
 	return {
 		nextDays: keepStreamedRejectionObserved(hiddenWhenDenied(loadPersonnelCalendarWindow(ctx.calendar, person, range))),
-		reach: keepStreamedRejectionObserved(
-			readPersonnelExtendedInfo(ctx.extendedInfo, person.id).then((info) =>
-				info
-					? {
-							phone: info.personalPhone,
-							email: info.personalEmail,
-							emergency: info.emergencyContactName
-								? {
-										name: info.emergencyContactName,
-										relationship: info.emergencyContactRelationship,
-										phone: info.emergencyContactPhone
-									}
-								: null
-						}
-					: null
-			)
-		),
+		reach: keepStreamedRejectionObserved(readPersonnelExtendedInfo(ctx.extendedInfo, person.id).then(reachFrom)),
 		lastCounseling: keepStreamedRejectionObserved(
 			listPersonnelCounselingRecords(ctx.artifacts, person.id, 1).then((records) => records[0] ?? null)
 		),

@@ -186,7 +186,7 @@
 						<p class="text-[13px] text-muted-foreground">
 							Emergency{contact.emergency.relationship ? ` · ${contact.emergency.relationship}` : ''}
 						</p>
-						<p class="text-[15px]">{contact.emergency.name}</p>
+						{#if contact.emergency.name}<p class="text-[15px]">{contact.emergency.name}</p>{/if}
 						{#if contact.emergency.phone}<p class="font-mono text-sm">{contact.emergency.phone}</p>{/if}
 					</div>
 				{/if}

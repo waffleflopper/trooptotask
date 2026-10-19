@@ -67,11 +67,14 @@ The Calendar reads a few more rows per Organization. Every status type carries t
 | `workbook-export`        | Training Reports              | interaction, read  | both             | `Export Excel` to the workbook download                                                   |
 | `organization-export`    | Settings Exports              | interaction, write | perfWide         | `Export JSON` to the download and its success text                                        |
 | `sidebar-navigation`     | Calendar to Personnel         | interaction, read  | both             | Sidebar `Personnel` link to the roster                                                    |
+| `dashboard-navigation`   | Dashboard to Personnel        | interaction, read  | both             | Sidebar `Personnel` link to the roster under the `Personnel` breadcrumb                   |
 | `organization-switch`    | Personnel of another workload | interaction, read  | both             | Switcher item to the destination roster and breadcrumb                                    |
 | `briefing-detail`        | Training Reports              | interaction, read  | both             | `Total, Workload Training 01` cell to the affected-soldiers table, not busy               |
 | `briefing-detail-page`   | Training Reports detail       | interaction, read  | perfWide         | Pager `Next` to `Page 2 of` and `Rows 26–50 of`                                           |
 | `calendar-report`        | Calendar Reports              | interaction, read  | both             | `Run status-day report` (current year) to the table with the actor's personnel count      |
 | `calendar-report-export` | Calendar Reports              | interaction, read  | both             | `Export status days` to the workbook download                                             |
+
+`dashboard-navigation` is the Dashboard's measured input: the Dashboard renders no in-page link and its `+N more` toggles appear only from typical (the scoped actor has no Out Today at large), so the sidebar link is the one control present in every cell. The Dashboard's lists already name roster People, so the roster text alone is met before the route changes; the breadcrumb is what only the Personnel page shows. Its load-to-usable total is the `dashboard` load's `useful` plus this interaction, which starts only after the Dashboard is useful and idle.
 
 `perf --help` lists the registry with each journey's kind, effect and actors. The ordinary page GET of the request path is the `personnel-list` warm load; `sidebar-navigation` is its client navigation.
 

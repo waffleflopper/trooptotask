@@ -23,6 +23,8 @@ function throwTrainingTypeWriteError(error: { code?: string; message: string }):
 	throw new Error(error.message);
 }
 
+const EXEMPTION_ERROR_STATUS: Record<string, number> = { '42501': 403, P0002: 404, '55000': 409 };
+
 export function createSupabaseTrainingCatalogPersistence(
 	client: SupabaseClient,
 	orgId: string
@@ -196,6 +198,18 @@ export function createSupabaseTrainingCatalogPersistence(
 			if (error?.code === 'PGRST116') return null;
 			if (error) throw new Error(error.message);
 			return data ? data : null;
+		},
+		async setPersonExemption(typeId, personnelId, exempt) {
+			const { error } = await client.rpc('set_training_exemption', {
+				p_organization_id: orgId,
+				p_training_type_id: typeId,
+				p_personnel_id: personnelId,
+				p_exempt: exempt
+			});
+			if (!error) return;
+			const status = EXEMPTION_ERROR_STATUS[error.code];
+			if (status) fail(status, error.message);
+			throw new Error(error.message);
 		},
 		async createType(input) {
 			const { data, error } = await client

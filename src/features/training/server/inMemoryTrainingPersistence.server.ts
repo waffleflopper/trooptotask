@@ -4,13 +4,19 @@ type TrainingMemoryStore = Pick<
 	ReturnType<typeof createInMemoryDataStore>,
 	'findOne' | 'findMany' | 'findManyWithCount' | 'insert' | 'update' | 'delete' | 'upsertMany'
 >;
+import type { StoragePort } from '$lib/storage/contracts';
 import type { TrainingCatalogPersistence, TrainingCompletionPersistence } from '../contracts';
+import type { TrainingCertificateStore } from './trainingCompletionPorts.server';
+import { TRAINING_CERTIFICATE_BUCKET } from './trainingCertificateStore.server';
 import {
 	TRAINING_TYPE_NAME_EXISTS_MESSAGE,
 	toTrainingType,
 	toTrainingView,
 	toTrainingCompletion,
+	toTrainingCompletionEntryResource,
 	toTrainingCompletionHistoryEntry,
+	TRAINING_COMPLETION_ENTRY_FIELDS,
+	TRAINING_COMPLETION_TABLES,
 	trainingTypeCreateRow,
 	trainingTypePatchRow,
 	trainingViewCreateRow,
@@ -21,6 +27,7 @@ import {
 	type TrainingTypeRow,
 	type TrainingViewRow,
 	type TrainingCompletionRow,
+	type TrainingCompletionEntryRow,
 	type TrainingCompletionHistoryRow
 } from './trainingPersistenceMapping.server';
 
@@ -118,6 +125,22 @@ export function createInMemoryTrainingCatalogPersistence(
 		},
 		findTypeId(id) {
 			return store.findOne('training_types', orgId, { id }, 'id');
+		},
+		async setPersonExemption(typeId, personnelId, exempt) {
+			const type = await store.findOne<{ can_be_exempted: boolean | null; exempt_personnel_ids: string[] | null }>(
+				'training_types',
+				orgId,
+				{ id: typeId },
+				'can_be_exempted, exempt_personnel_ids'
+			);
+			if (!type) fail(404, 'This Training type is no longer available');
+			if (!(await store.findOne('personnel', orgId, { id: personnelId }))) fail(404, 'Personnel not found');
+			if (exempt && !type.can_be_exempted) fail(409, 'This Training type does not allow exemptions');
+			const ids = type.exempt_personnel_ids ?? [];
+			if (ids.includes(personnelId) === exempt) return;
+			await store.update('training_types', orgId, typeId, {
+				exempt_personnel_ids: exempt ? [...ids, personnelId] : ids.filter((id) => id !== personnelId)
+			});
 		},
 		async createType(input) {
 			if (await store.findOne('training_types', orgId, { name: input.name }))
@@ -236,6 +259,25 @@ export function createInMemoryTrainingCompletionPersistence(
 				})
 			).map(toTrainingCompletionHistoryEntry);
 		},
+		async findEntry(kind, id) {
+			const row = await store.findOne<TrainingCompletionEntryRow>(
+				TRAINING_COMPLETION_TABLES[kind],
+				orgId,
+				{ id },
+				TRAINING_COMPLETION_ENTRY_FIELDS
+			);
+			return row ? toTrainingCompletionEntryResource(row) : null;
+		},
+		async correctEntry(kind, id, fields) {
+			const table = TRAINING_COMPLETION_TABLES[kind];
+			if (!(await store.findOne(table, orgId, { id }))) return null;
+			const row = await store.update<TrainingCompletionRow & TrainingCompletionHistoryRow>(table, orgId, id, {
+				completion_date: fields.completionDate,
+				expiration_date: fields.expirationDate,
+				notes: fields.notes
+			});
+			return kind === 'current' ? toTrainingCompletion(row) : toTrainingCompletionHistoryEntry(row);
+		},
 		async createRecord(input) {
 			return toTrainingCompletion(
 				await store.insert<TrainingCompletionRow>(
@@ -268,5 +310,30 @@ export function createInMemoryTrainingCompletionPersistence(
 				)
 			).map(toTrainingCompletion);
 		}
+	};
+}
+
+export function createInMemoryTrainingCertificateStore(
+	store: TrainingMemoryStore,
+	storage: StoragePort,
+	orgId: string
+): TrainingCertificateStore {
+	return {
+		async upload(_personnelId, path, file) {
+			await storage.upload(TRAINING_CERTIFICATE_BUCKET, path, file);
+			return { async complete() {} };
+		},
+		async reconcile(personnelId, path) {
+			const row = await store.findOne<{ id: string }>(
+				'personnel_trainings',
+				orgId,
+				{ personnel_id: personnelId, certificate_url: path },
+				'id'
+			);
+			if (row) return row.id;
+			await storage.remove(TRAINING_CERTIFICATE_BUCKET, [path]);
+			return null;
+		},
+		signedUrl: (path, expiresInSeconds) => storage.createSignedUrl(TRAINING_CERTIFICATE_BUCKET, path, expiresInSeconds)
 	};
 }

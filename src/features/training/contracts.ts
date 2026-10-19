@@ -302,6 +302,8 @@ export interface TrainingCatalogPersistence {
 	findTypeTiming(id: string): Promise<TrainingTypeTiming | null>;
 	listTypeImportReferences(ids: readonly string[]): Promise<TrainingTypeImportReference[]>;
 	findTypeId(id: string): Promise<Pick<TrainingType, 'id'> | null>;
+	/** Adds or removes one Person; repeating either is a no-op. */
+	setPersonExemption(typeId: string, personnelId: string, exempt: boolean): Promise<void>;
 	createType(input: TrainingTypeCreate): Promise<SavedTrainingType>;
 	/** Resolves null when no Training type with this id exists in the Organization. */
 	patchType(id: string, fields: TrainingTypePatch): Promise<SavedTrainingType | null>;
@@ -331,6 +333,14 @@ export type PersonnelTrainingExportFact = Pick<
 	'trainingTypeId' | 'completionDate' | 'expirationDate' | 'notes'
 >;
 
+export type TrainingCompletionKind = 'current' | 'history';
+export type TrainingCompletionEntryResource = Pick<
+	PersonnelTraining,
+	'personnelId' | 'trainingTypeId' | 'expirationDate' | 'notes' | 'certificateUrl'
+>;
+export type TrainingCompletionCorrection = Pick<PersonnelTraining, 'completionDate' | 'expirationDate' | 'notes'>;
+export type CorrectedTrainingCompletion = SavedTrainingCompletion | TrainingCompletionHistoryEntry;
+
 export interface TrainingCompletionPersistence {
 	listCompletions(): Promise<SavedTrainingCompletion[]>;
 	findResource(id: string): Promise<TrainingCompletionResource | null>;
@@ -343,6 +353,13 @@ export interface TrainingCompletionPersistence {
 	listPersonExportFacts(personnelId: string): Promise<PersonnelTrainingExportFact[]>;
 	listPersonCompletions(personnelId: string): Promise<PersonnelTraining[]>;
 	listPersonHistory(personnelId: string): Promise<TrainingCompletionHistoryEntry[]>;
+	findEntry(kind: TrainingCompletionKind, id: string): Promise<TrainingCompletionEntryResource | null>;
+	/** Edits the entry in place without superseding it; null when the caller cannot change it. */
+	correctEntry(
+		kind: TrainingCompletionKind,
+		id: string,
+		fields: TrainingCompletionCorrection
+	): Promise<CorrectedTrainingCompletion | null>;
 	createRecord(input: TrainingCompletionCreate): Promise<SavedTrainingCompletion>;
 	patchRecord(id: string, fields: TrainingCompletionPatch): Promise<SavedTrainingCompletion>;
 	deleteRecord(id: string): Promise<void>;

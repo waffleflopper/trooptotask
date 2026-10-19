@@ -12,7 +12,9 @@ import {
 	type TrainingCompletionCreate,
 	type TrainingCompletionPatch,
 	type TrainingCompletedUpsert,
-	type TrainingCompletionHistoryEntry
+	type TrainingCompletionHistoryEntry,
+	type TrainingCompletionEntryResource,
+	type TrainingCompletionKind
 } from '../contracts';
 
 export type TrainingTypeRow = {
@@ -148,6 +150,28 @@ export function toTrainingCompletionHistoryEntry(row: TrainingCompletionHistoryR
 	};
 }
 
+export const TRAINING_COMPLETION_TABLES = {
+	current: 'personnel_trainings',
+	history: 'personnel_training_history'
+} as const satisfies Record<TrainingCompletionKind, string>;
+
+export type TrainingCompletionEntryRow = Pick<
+	TrainingCompletionHistoryRow,
+	'personnel_id' | 'training_type_id' | 'expiration_date' | 'notes' | 'certificate_url'
+>;
+export const TRAINING_COMPLETION_ENTRY_FIELDS =
+	'personnel_id, training_type_id, expiration_date, notes, certificate_url';
+
+export function toTrainingCompletionEntryResource(row: TrainingCompletionEntryRow): TrainingCompletionEntryResource {
+	return {
+		personnelId: row.personnel_id,
+		trainingTypeId: row.training_type_id,
+		expirationDate: row.expiration_date,
+		notes: row.notes,
+		certificateUrl: row.certificate_url
+	};
+}
+
 export function trainingTypePatchRow(input: TrainingTypePatch) {
 	return {
 		name: input.name,
@@ -276,6 +300,19 @@ export const trainingCompletionCreateInput = z.object({
 	notes: z.string().nullable().optional(),
 	certificateUrl: z.string().nullable().optional()
 });
+export const trainingCompletionCorrectionInput = z.object({
+	kind: z.enum(['current', 'history']),
+	id: uuidSchema,
+	completionDate: dateOnlySchema.nullable(),
+	expirationDate: dateOnlySchema.nullable().optional(),
+	notes: z.string().nullable().optional()
+});
+export const trainingExemptionInput = z.object({
+	typeId: uuidSchema,
+	personnelId: uuidSchema,
+	exempt: z.boolean('Choose whether the Person is exempt')
+});
+export const trainingCertificateInput = z.object({ kind: z.enum(['current', 'history']), id: uuidSchema });
 export const trainingCompletionUpdateInput = trainingCompletionCreateInput
 	.omit({ personnelId: true, trainingTypeId: true })
 	.extend({ id: uuidSchema });

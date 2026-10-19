@@ -2,7 +2,12 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import { RequestFailure } from '$lib/errors';
 
-const EXPORT_TABLES = ['training_types', 'personnel_trainings', 'training_views'] as const;
+const EXPORT_TABLES = [
+	'training_types',
+	'personnel_trainings',
+	'personnel_training_history',
+	'training_views'
+] as const;
 
 export type TrainingExportTable = (typeof EXPORT_TABLES)[number];
 

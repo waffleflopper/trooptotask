@@ -26,6 +26,7 @@ import type { Personnel } from '../personnel.types';
 import { personnelStore } from '../stores/personnel.svelte';
 import { SvelteDate } from 'svelte/reactivity';
 import { ArtifactDraft } from './artifactDraft.svelte';
+import { PERSONNEL_DETAIL_COUNTS_KEY } from './detailCounts';
 import {
 	counselingRecordDraftSpec,
 	documentDraftSpec,
@@ -419,6 +420,7 @@ export class PersonnelDetailWorkspace {
 			if (!response.ok) throw await buildRequestError(response, 'PATCH', 'follow-up');
 			const updated = (await response.json()) as Partial<PersonnelFollowUp>;
 			this.followUps.upsert({ ...followUp, ...updated });
+			void this.#deps.invalidate(PERSONNEL_DETAIL_COUNTS_KEY);
 		} catch (caught) {
 			this.followUps.error = rejectedRequestMessage(caught, 'Unable to update follow-up.');
 		} finally {

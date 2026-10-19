@@ -36,7 +36,7 @@ function renderAt(routeId: string) {
 	return render(Layout, {
 		data: {
 			shell: { kind: 'ready', org: { urlSegment: 'unit', name: 'Unit' } },
-			personnelDetailHeader: { person }
+			personnelDetailHeader: { person, basd: null, dateOfRank: null }
 		},
 		children: createRawSnippet(() => ({ render: () => '<div></div>' }))
 	});

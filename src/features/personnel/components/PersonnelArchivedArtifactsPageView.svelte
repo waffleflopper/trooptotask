@@ -5,6 +5,7 @@
 	import { ConfirmDialog } from '$lib/components/ui/confirm-dialog';
 	import type { PersonnelArchivedArtifact } from '$features/personnel/contracts';
 	import { focusAfterDialogCloses } from '$lib/components/ui/dialog';
+	import { refreshPersonnelDetailCounts } from '$features/personnel/workspace/detailCounts';
 	import type {
 		PersonnelArchivedArtifactsPageData,
 		PersonnelArtifactKind
@@ -63,6 +64,7 @@
 			});
 			if (!response.ok) throw new Error('Unable to restore archived item.');
 			localRecords = records.filter((item) => item.id !== record.id || item.kind !== record.kind);
+			void refreshPersonnelDetailCounts();
 		} catch (caught) {
 			error = caught instanceof Error ? caught.message : 'Unable to restore archived item.';
 		} finally {
@@ -83,6 +85,7 @@
 			if (body && typeof body === 'object' && 'fileCleanup' in body && body.fileCleanup === 'pending')
 				notice = `Deleted ${titleFor(record)}. Its stored file will be removed automatically.`;
 			localRecords = records.filter((item) => item.id !== record.id || item.kind !== record.kind);
+			void refreshPersonnelDetailCounts();
 			pendingDelete = null;
 			focusAfterDialogCloses(() => {
 				const rows = recordList?.querySelectorAll('article') ?? [];

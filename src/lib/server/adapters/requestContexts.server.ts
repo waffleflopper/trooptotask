@@ -370,7 +370,20 @@ export function createRequestPersonnelDetailContext(request: AdmittedOrganizatio
 		auth: request.auth,
 		audit: request.audit,
 		organizationPersonnel: createSupabasePersonnelRecordPersistence(request.supabase, request.auth.orgId),
+		personnelSheets: createSupabasePersonnelSheetPersistence(request.supabase, request.auth.orgId),
 		scope: request.scope
+	};
+}
+
+export function createRequestPersonnelDetailLayoutContext(request: AdmittedOrganizationRequest) {
+	return {
+		auth: request.auth,
+		audit: request.audit,
+		artifactReads: createSupabasePersonnelArtifactReadPersistence(request.supabase, request.auth.orgId),
+		calendar: {
+			...createRequestAvailabilityContext(request),
+			calendarCatalogs: createSupabaseCalendarCatalogPersistence(request.supabase, request.auth.orgId)
+		}
 	};
 }
 

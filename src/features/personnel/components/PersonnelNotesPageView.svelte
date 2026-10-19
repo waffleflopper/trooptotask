@@ -7,6 +7,7 @@
 	import { formatDisplayDate } from '$lib/utils/dates';
 	import type { PersonnelNotesPageData } from '$features/personnel/personnel-detail.types';
 	import { ArtifactDraft } from '$features/personnel/workspace/artifactDraft.svelte';
+	import { refreshPersonnelDetailCounts } from '$features/personnel/workspace/detailCounts';
 	import { leaderNoteDraftSpec } from '$features/personnel/workspace/personnelArtifactDraftSpecs';
 
 	let { data }: { data: PersonnelNotesPageData } = $props();
@@ -29,6 +30,7 @@
 			});
 			if (!response.ok) throw new Error('Unable to archive leader note.');
 			archivedNoteIds = [...archivedNoteIds, note.id];
+			void refreshPersonnelDetailCounts();
 		} catch (caught) {
 			leaderNotes.error = caught instanceof Error ? caught.message : 'Unable to archive leader note.';
 		} finally {

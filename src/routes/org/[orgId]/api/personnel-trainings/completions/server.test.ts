@@ -85,6 +85,31 @@ describe('POST /api/personnel-trainings/completions', () => {
 		});
 	});
 
+	it('clears the previous note when a new completion is logged without notes', async () => {
+		const ctx = withCertificates(createTestContext());
+		ctx.store.seed('personnel_trainings', [
+			{
+				id: RECORD,
+				organization_id: ctx.auth.orgId,
+				personnel_id: PERSON,
+				training_type_id: TRAINING_TYPE,
+				completion_date: '2026-10-19',
+				expiration_date: '2028-10-19',
+				notes: 'First completion note',
+				certificate_url: null
+			}
+		]);
+
+		const { record } = await handleUseCaseRequest(
+			_postConfig,
+			ctx,
+			{ personnelId: PERSON, trainingTypeId: TRAINING_TYPE, completionDate: '2026-10-18' },
+			() => ctx
+		);
+
+		expect(record).toMatchObject({ id: RECORD, completionDate: '2026-10-18', notes: null });
+	});
+
 	it('keeps the certificate when the same completion is logged again without a file', async () => {
 		const ctx = withCertificates(createTestContext());
 		ctx.store.seed('personnel_trainings', [

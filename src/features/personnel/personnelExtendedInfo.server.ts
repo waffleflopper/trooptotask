@@ -43,9 +43,17 @@ function toAddress(
 
 async function mapExtendedInfoRow(
 	ctx: Pick<PersonnelExtendedInfoContext, 'contributorLabels'>,
-	row: ExtendedInfoRow
+	row: ExtendedInfoRow,
+	{ labelRequired = true } = {}
 ): Promise<PersonnelExtendedInfo> {
-	const labels = row.updated_by ? await ctx.contributorLabels([row.updated_by]) : new Map<string, string>();
+	let labels = new Map<string, string>();
+	if (row.updated_by) {
+		try {
+			labels = await ctx.contributorLabels([row.updated_by]);
+		} catch (error) {
+			if (labelRequired) throw error;
+		}
+	}
 	return {
 		bloodType: row.blood_type ?? '',
 		basd: row.basd ?? '',
@@ -161,5 +169,6 @@ export async function applyExtendedInfoUpdate(
 		resourceId: input.personnelId
 	});
 
-	return mapExtendedInfoRow(ctx, row);
+	// The sheet is already written; a missing saver name must not stop the Person write that follows.
+	return mapExtendedInfoRow(ctx, row, { labelRequired: false });
 }

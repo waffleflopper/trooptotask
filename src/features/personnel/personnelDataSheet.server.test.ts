@@ -379,6 +379,18 @@ describe('Data sheet save', () => {
 		expect(retry).toMatchObject({ saved: true, person: { mos: '68X' }, extendedInfo: { bloodType: 'A-' } });
 	});
 
+	it('saves both halves when the saver name cannot be looked up', async () => {
+		const ctx = buildContext();
+		vi.spyOn(ctx, 'contributorLabels').mockRejectedValueOnce(new Error('controlled label lookup failure'));
+
+		const result = await savedResult(ctx, { basicInfo: { ...basicInfo, mos: '68X' }, extendedInfo });
+
+		expect(result).toMatchObject({ person: { mos: '68X' }, extendedInfo: { bloodType: 'A-', updatedBy: null } });
+		const stored = await storedState(ctx);
+		expect(stored.people[0]).toMatchObject({ mos: '68X' });
+		expect(stored.sheets[0]).toMatchObject({ blood_type: 'A-', updated_by: MEMBER });
+	});
+
 	it('rejects a body without both halves', async () => {
 		const ctx = buildContext();
 		await expect(savePersonnelDataSheet(ctx, PERSON_1, { basicInfo })).rejects.toMatchObject({ status: 400 });

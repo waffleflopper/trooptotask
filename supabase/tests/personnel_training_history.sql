@@ -35,11 +35,13 @@ INSERT INTO public.personnel (id, organization_id, group_id, rank, first_name, l
 ('f7100000-0000-4000-8000-000000000302', 'f7100000-0000-4000-8000-000000000101', 'f7100000-0000-4000-8000-000000000202', 'SPC', 'Blake', 'Two', 'history-two'),
 ('f7100000-0000-4000-8000-000000000303', 'f7100000-0000-4000-8000-000000000101', 'f7100000-0000-4000-8000-000000000201', 'PFC', 'Casey', 'Leaves', 'history-leaves'),
 ('f7100000-0000-4000-8000-000000000304', 'f7100000-0000-4000-8000-000000000102', NULL, 'SSG', 'Drew', 'Bravo', 'history-bravo');
-INSERT INTO public.training_types (id, organization_id, name, can_be_exempted, exempt_personnel_ids) VALUES
-('f7100000-0000-4000-8000-000000000401', 'f7100000-0000-4000-8000-000000000101', 'Weapons', true, '[]'),
-('f7100000-0000-4000-8000-000000000402', 'f7100000-0000-4000-8000-000000000101', 'First Aid', false, '[]'),
-('f7100000-0000-4000-8000-000000000403', 'f7100000-0000-4000-8000-000000000101', 'Retired Type', true, '[]'),
-('f7100000-0000-4000-8000-000000000404', 'f7100000-0000-4000-8000-000000000102', 'Bravo Type', true, '[]');
+INSERT INTO public.training_types (id, organization_id, name, expiration_months, can_be_exempted, exempt_personnel_ids) VALUES
+('f7100000-0000-4000-8000-000000000401', 'f7100000-0000-4000-8000-000000000101', 'Weapons', 12, true, '[]'),
+('f7100000-0000-4000-8000-000000000402', 'f7100000-0000-4000-8000-000000000101', 'First Aid', 12, false, '[]'),
+('f7100000-0000-4000-8000-000000000403', 'f7100000-0000-4000-8000-000000000101', 'Retired Type', 12, true, '[]'),
+('f7100000-0000-4000-8000-000000000404', 'f7100000-0000-4000-8000-000000000102', 'Bravo Type', 12, true, '[]'),
+('f7100000-0000-4000-8000-000000000405', 'f7100000-0000-4000-8000-000000000101', 'Never Expires', NULL, false, '[]'),
+('f7100000-0000-4000-8000-000000000406', 'f7100000-0000-4000-8000-000000000101', 'Annual', 12, false, '[]');
 
 CREATE FUNCTION pg_temp.cert(p_person text, p_name text) RETURNS text LANGUAGE sql AS $$
   SELECT 'f7100000-0000-4000-8000-000000000101/personnel/f7100000-0000-4000-8000-000000000' || p_person
@@ -109,7 +111,7 @@ SELECT is(pg_temp.history('501'),
   ARRAY['2025-01-10 2026-01-10 notes only ' || pg_temp.cert('301', 'first.pdf')],
   'a new completion keeps the superseded dates, notes and certificate');
 UPDATE public.personnel_trainings SET completion_date = '2026-06-01' WHERE id = 'f7100000-0000-4000-8000-000000000502';
-SELECT is(pg_temp.history('502'), ARRAY[]::text[], 'a first completion of a never-completed record keeps no history');
+SELECT is(pg_temp.history('502'), ARRAY[]::text[], 'a first completion of a dated record without dates keeps no history');
 UPDATE public.personnel_trainings SET expiration_date = '2027-02-01' WHERE id = 'f7100000-0000-4000-8000-000000000503';
 SELECT is((SELECT count(*)::integer FROM public.personnel_training_history WHERE personnel_id = 'f7100000-0000-4000-8000-000000000302'), 0,
   'an operator outside the Group cannot supersede its record');
@@ -275,6 +277,33 @@ SELECT throws_ok($$ SELECT public.set_training_exemption('f7100000-0000-4000-800
 SELECT pg_temp.act_as('3');
 SELECT throws_ok($$ SELECT public.set_training_exemption('f7100000-0000-4000-8000-000000000101', 'f7100000-0000-4000-8000-000000000401',
   'f7100000-0000-4000-8000-000000000301', true) $$, '42501', NULL, 'an operator cannot exempt');
+SELECT pg_temp.act_as_fixture();
+
+INSERT INTO public.personnel_trainings
+  (id, organization_id, personnel_id, training_type_id, completion_date, expiration_date, notes) VALUES
+('f7100000-0000-4000-8000-000000000506', 'f7100000-0000-4000-8000-000000000101', 'f7100000-0000-4000-8000-000000000301',
+  'f7100000-0000-4000-8000-000000000405', NULL, NULL, 'undated completion'),
+('f7100000-0000-4000-8000-000000000507', 'f7100000-0000-4000-8000-000000000101', 'f7100000-0000-4000-8000-000000000301',
+  'f7100000-0000-4000-8000-000000000406', '2025-01-01', '2026-01-01', 'Alpha prior'),
+('f7100000-0000-4000-8000-000000000508', 'f7100000-0000-4000-8000-000000000101', 'f7100000-0000-4000-8000-000000000302',
+  'f7100000-0000-4000-8000-000000000406', '2025-02-01', '2026-02-01', 'Bravo prior');
+SELECT pg_temp.act_as('3');
+UPDATE public.personnel_trainings SET completion_date = '2026-10-19', notes = NULL
+  WHERE id = 'f7100000-0000-4000-8000-000000000506';
+SELECT is(pg_temp.history('506'), ARRAY['undated completion'],
+  'a never-expiring completion without dates is kept when a new completion replaces it');
+SELECT pg_temp.act_as('1');
+INSERT INTO public.personnel_trainings (organization_id, personnel_id, training_type_id, completion_date, expiration_date, notes) VALUES
+('f7100000-0000-4000-8000-000000000101', 'f7100000-0000-4000-8000-000000000301', 'f7100000-0000-4000-8000-000000000406',
+  '2026-01-01', '2027-01-01', 'Alpha new'),
+('f7100000-0000-4000-8000-000000000101', 'f7100000-0000-4000-8000-000000000302', 'f7100000-0000-4000-8000-000000000406',
+  '2026-02-01', '2027-02-01', 'Bravo new')
+ON CONFLICT (organization_id, personnel_id, training_type_id) DO UPDATE
+  SET completion_date = EXCLUDED.completion_date, expiration_date = EXCLUDED.expiration_date, notes = EXCLUDED.notes;
+SELECT is((SELECT array_agg(concat_ws(' ', completion_date, expiration_date, notes) ORDER BY completion_date)
+  FROM public.personnel_training_history WHERE training_type_id = 'f7100000-0000-4000-8000-000000000406'),
+  ARRAY['2025-01-01 2026-01-01 Alpha prior', '2025-02-01 2026-02-01 Bravo prior'],
+  'a multi-row import keeps each superseded completion once');
 SELECT pg_temp.act_as_fixture();
 
 SELECT * FROM finish();

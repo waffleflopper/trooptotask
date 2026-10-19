@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { afterNavigate, invalidate, replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -42,6 +43,11 @@
 	let flow = $state<{ id: number; kind: UploadKind | null; file: File | null } | null>(null);
 	let dropError = $state<string | null>(null);
 	let flowCount = 0;
+	let alive = true;
+
+	onDestroy(() => {
+		alive = false;
+	});
 
 	const uploaderLabel = $derived(
 		counselings.current.state === 'ready' ? counselings.current.value.uploaderLabel : null
@@ -91,6 +97,7 @@
 			body: JSON.stringify({ action: 'archive' })
 		});
 		if (!response.ok) throw new Error('Unable to archive.');
+		if (!alive) return;
 		await Promise.all([invalidate('app:personnel-detail-files'), refreshPersonnelDetailCounts()]);
 	}
 
@@ -208,7 +215,6 @@
 					value={Math.round(storageFraction(usedBytes, capBytes) * 100)}
 					max={100}
 					aria-label="Document storage used"
-					class="h-1.5 rounded-[1px]"
 				/>
 			</div>
 		{:else if documents.current.state === 'pending'}

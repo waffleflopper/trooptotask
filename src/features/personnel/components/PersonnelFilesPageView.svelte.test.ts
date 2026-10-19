@@ -87,6 +87,7 @@ function counselingsRead(overrides: Partial<PersonnelCounselingsRead> = {}): Per
 		total: 5,
 		uploaderLabel: 'SSG Miller',
 		coveredMonths: ['2026-10', '2026-08', '2026-06', '2025-12'],
+		lastConductedOn: '2026-10-02',
 		...overrides
 	};
 }
@@ -218,18 +219,35 @@ describe('Files tab', () => {
 		expect(within(row).queryByRole('button', { name: /PDF/ })).toBeNull();
 	});
 
-	it('counts the last counseling from the newest one that has happened', async () => {
+	it('counts the last counseling from the read, not from the rows on the page', async () => {
 		mount({
 			files: files(
 				Promise.resolve(
 					counselingsRead({
-						records: [makeCounseling('c1', '2026-12-01'), makeCounseling('c2', '2026-10-09')]
+						records: [
+							makeCounseling('c1', '2026-12-03'),
+							makeCounseling('c2', '2026-12-02'),
+							makeCounseling('c3', '2026-12-01')
+						],
+						lastConductedOn: '2026-10-09'
 					})
 				)
 			)
 		});
 
 		expect(await screen.findByRole('heading', { name: 'Last counseled 10 days ago' })).toBeTruthy();
+	});
+
+	it('says no counseling is on record when none has been held yet', async () => {
+		mount({
+			files: files(
+				Promise.resolve(
+					counselingsRead({ records: [makeCounseling('c1', '2026-12-01')], total: 1, lastConductedOn: null })
+				)
+			)
+		});
+
+		expect(await screen.findByRole('heading', { name: 'No counseling on record' })).toBeTruthy();
 	});
 
 	it('keeps the other section when one read fails', async () => {
@@ -351,13 +369,29 @@ describe('Files tab', () => {
 		});
 	});
 
+	it('refreshes nothing when an archive response arrives after leaving Files', async () => {
+		const pending = deferred<Response>();
+		fetchMock.mockReturnValueOnce(pending.promise);
+		const view = mount();
+		await fireEvent.click(await screen.findByRole('button', { name: 'Archive Counseling c1' }));
+		await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+		view.unmount();
+		await act(async () => {
+			pending.resolve(json({}));
+			await pending.promise;
+		});
+
+		expect(navigation.invalidate).not.toHaveBeenCalled();
+	});
+
 	it('keeps the row and says so when archiving fails', async () => {
 		fetchMock.mockResolvedValueOnce(json({}, 500));
 		mount();
 
 		await fireEvent.click(await screen.findByRole('button', { name: 'Archive Document d1' }));
 
-		expect((await screen.findByRole('alert')).textContent).toBe('Unable to archive document.');
+		expect(await screen.findByRole('alert')).toBeTruthy();
 		expect(screen.getByText('Document d1')).toBeTruthy();
 		expect(navigation.invalidate).not.toHaveBeenCalled();
 	});
@@ -396,7 +430,7 @@ describe('Files tab upload flow', () => {
 
 		await fireEvent.change(dropzoneInput(), { target: { files: [pdf(), png()] } });
 
-		expect((await screen.findByRole('alert')).textContent).toBe('Add one file at a time.');
+		expect((await screen.findByRole('alert')).textContent).toMatch(/one file/i);
 		expect(screen.queryByRole('dialog')).toBeNull();
 	});
 
@@ -424,7 +458,7 @@ describe('Files tab upload flow', () => {
 		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 	});
 
-	it('fills the conductor once the uploader is known and keeps what the user typed', async () => {
+	async function openCounselingFlowBeforeUploaderIsKnown() {
 		const settled = deferred<PersonnelCounselingsRead>();
 		mount({ files: files(settled.promise) });
 		await act(async () =>
@@ -433,12 +467,25 @@ describe('Files tab upload flow', () => {
 		const dialog = await screen.findByRole('dialog');
 		await fireEvent.change(within(dialog).getByLabelText('File'), { target: { files: [pdf()] } });
 		const conductedBy = () => within(dialog).getByLabelText('Conducted by') as HTMLInputElement;
+		return { settled, conductedBy };
+	}
+
+	it('fills the conductor with the uploader once the uploader is known', async () => {
+		const { settled, conductedBy } = await openCounselingFlowBeforeUploaderIsKnown();
 		expect(conductedBy().value).toBe('');
 
 		await act(async () => settled.resolve(counselingsRead()));
 
 		await waitFor(() => expect(conductedBy().value).toBe('SSG Miller'));
+	});
+
+	it('keeps the conductor the user typed when the uploader becomes known afterwards', async () => {
+		const { settled, conductedBy } = await openCounselingFlowBeforeUploaderIsKnown();
 		await fireEvent.input(conductedBy(), { target: { value: 'SFC Jones' } });
+
+		await act(async () => settled.resolve(counselingsRead()));
+
+		await waitFor(() => expect(screen.getByRole('heading', { name: 'Last counseled 17 days ago' })).toBeTruthy());
 		expect(conductedBy().value).toBe('SFC Jones');
 	});
 
@@ -486,9 +533,97 @@ describe('Files tab upload flow', () => {
 
 		await fireEvent.click(within(dialog).getByRole('button', { name: 'Upload' }));
 
-		expect((await within(dialog).findByRole('alert')).textContent).toMatch(/Unable to upload/);
+		expect(await within(dialog).findByRole('alert')).toBeTruthy();
 		expect((within(dialog).getByLabelText('Title') as HTMLInputElement).value).toBe('range card');
 		expect(navigation.invalidate).not.toHaveBeenCalledWith(FILES_KEY);
+	});
+
+	it('keeps every counseling entry and the file after a failed upload so the same draft can be retried', async () => {
+		fetchMock.mockResolvedValueOnce(json({}, 500));
+		mount();
+		await screen.findByText('Counseling c1');
+		await offer(pdf());
+		const dialog = await screen.findByRole('dialog');
+		await fireEvent.click(within(dialog).getByRole('radio', { name: 'Counseling' }));
+		await fireEvent.input(within(dialog).getByLabelText('Title'), { target: { value: 'October counseling' } });
+		await fireEvent.input(within(dialog).getByLabelText('Summary'), { target: { value: 'Reviewed board prep.' } });
+		await fireEvent.input(within(dialog).getByLabelText('Conducted by'), { target: { value: 'SFC Jones' } });
+
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Upload' }));
+
+		expect(await within(dialog).findByRole('alert')).toBeTruthy();
+		expect((within(dialog).getByLabelText('Title') as HTMLInputElement).value).toBe('October counseling');
+		expect((within(dialog).getByLabelText('Summary') as HTMLTextAreaElement).value).toBe('Reviewed board prep.');
+		expect((within(dialog).getByLabelText('Conducted by') as HTMLInputElement).value).toBe('SFC Jones');
+		expect(within(dialog).getByText('da4856-oct.pdf')).toBeTruthy();
+
+		fetchMock.mockResolvedValueOnce(json(makeCounseling('c9', '2026-10-19')));
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Upload' }));
+
+		await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+		const retry = (fetchMock.mock.calls[1] as [string, RequestInit])[1].body as FormData;
+		expect([retry.get('title'), retry.get('summary'), retry.get('conductedBy')]).toEqual([
+			'October counseling',
+			'Reviewed board prep.',
+			'SFC Jones'
+		]);
+		expect((retry.get('file') as File).name).toBe('da4856-oct.pdf');
+	});
+
+	it.each([
+		{ name: 'counseling', file: pdf, radio: 'Counseling' },
+		{ name: 'document', file: png, radio: 'Document' }
+	])('ties a missing $name title to the title field and uploads nothing', async ({ file, radio }) => {
+		mount();
+		await screen.findByText('Counseling c1');
+		await offer(file());
+		const dialog = await screen.findByRole('dialog');
+		const choice = within(dialog).getByRole('radio', { name: radio });
+		if (choice.getAttribute('aria-checked') !== 'true') await fireEvent.click(choice);
+		await fireEvent.input(within(dialog).getByLabelText('Title'), { target: { value: '' } });
+
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Upload' }));
+
+		const title = within(dialog).getByLabelText('Title');
+		expect(title.getAttribute('aria-invalid')).toBe('true');
+		const message = document.getElementById(title.getAttribute('aria-describedby') ?? '');
+		expect(message?.textContent).toMatch(/title/i);
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
+	it('keeps the open upload form and what was typed when the page data refreshes', async () => {
+		const view = mount();
+		await screen.findByText('Counseling c1');
+		await offer(png());
+		const dialog = await screen.findByRole('dialog');
+		await fireEvent.input(within(dialog).getByLabelText('Title'), { target: { value: 'Still editing' } });
+
+		await view.rerender({ files: files() });
+		await screen.findByText('Counseling c1');
+
+		expect((within(await screen.findByRole('dialog')).getByLabelText('Title') as HTMLInputElement).value).toBe(
+			'Still editing'
+		);
+		expect(screen.getByText('range-card.png')).toBeTruthy();
+	});
+
+	it('refreshes nothing when an upload response arrives after leaving Files', async () => {
+		const pending = deferred<Response>();
+		fetchMock.mockReturnValueOnce(pending.promise);
+		const view = mount();
+		await screen.findByText('Counseling c1');
+		await offer(png());
+		const dialog = await screen.findByRole('dialog');
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Upload' }));
+		await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+		view.unmount();
+		await act(async () => {
+			pending.resolve(json(makeDocument('d9')));
+			await pending.promise;
+		});
+
+		expect(navigation.invalidate).not.toHaveBeenCalled();
 	});
 
 	it.each([

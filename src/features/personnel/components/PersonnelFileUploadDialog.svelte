@@ -10,7 +10,7 @@
 	import * as ToggleGroup from '$lib/components/ui/toggle-group';
 	import { fileTypeLabel, formatFileSize } from '../fileLabels';
 	import { checkUploadFile, UPLOAD_ACCEPT, withDeclaredType, type UploadKind } from '../fileUploadRules';
-	import { ArtifactDraft } from '../workspace/artifactDraft.svelte';
+	import { ArtifactDraft, type ArtifactDraftDeps } from '../workspace/artifactDraft.svelte';
 	import { counselingRecordDraftSpec, documentDraftSpec } from '../workspace/personnelArtifactDraftSpecs';
 
 	let {
@@ -32,11 +32,14 @@
 	} = $props();
 
 	const context = () => ({ orgId, personId: personnelId });
-	const counseling = new ArtifactDraft(counselingRecordDraftSpec, {
+	let alive = true;
+	const draftDeps: ArtifactDraftDeps = {
 		context,
-		fetch: (input, init) => fetch(input, init)
-	});
-	const documents = new ArtifactDraft(documentDraftSpec, { context, fetch: (input, init) => fetch(input, init) });
+		fetch: (input, init) => fetch(input, init),
+		isCurrent: () => alive
+	};
+	const counseling = new ArtifactDraft(counselingRecordDraftSpec, draftDeps);
+	const documents = new ArtifactDraft(documentDraftSpec, draftDeps);
 	counseling.fields.conductedBy = untrack(() => uploaderLabel) ?? '';
 	let conductedByEdited = false;
 
@@ -46,7 +49,6 @@
 	let fileError = $state('');
 	let picker = $state<HTMLInputElement | null>(null);
 	let chooseButton = $state<HTMLButtonElement | null>(null);
-	let alive = true;
 
 	const draft = $derived(kind === 'counseling' ? counseling : kind === 'document' ? documents : null);
 	const canSubmit = $derived(file !== null && draft !== null && !draft.saving);

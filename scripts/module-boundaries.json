@@ -188,6 +188,8 @@
 				"src/lib/utils/mergeById.ts",
 				"src/lib/utils/streamedRouteData.test.ts",
 				"src/lib/utils/streamedRouteData.ts",
+				"src/lib/utils/streamedValue.svelte.test.ts",
+				"src/lib/utils/streamedValue.svelte.ts",
 				"src/lib/utils/streamedWorkspaceHydrator.test.ts",
 				"src/lib/utils/streamedWorkspaceHydrator.ts",
 				"src/lib/utils/workbook.test.ts",

@@ -78,7 +78,9 @@ const extendedInfo = {
 	addressZip: '99501'
 };
 
-function buildContext(options: { groups?: string[]; personnel?: 'view' | 'operate'; withSheet?: boolean } = {}) {
+function buildContext(
+	options: { groups?: string[]; personnel?: 'view' | 'operate'; withSheet?: boolean; slug?: string } = {}
+) {
 	const ctx = createTestContext({
 		auth: {
 			userId: MEMBER,
@@ -121,7 +123,7 @@ function buildContext(options: { groups?: string[]; personnel?: 'view' | 'operat
 		{
 			id: PERSON_1,
 			organization_id: orgId,
-			slug: 'rivera-monica',
+			slug: options.slug ?? 'rivera-monica',
 			rank: 'SGT',
 			last_name: 'Rivera',
 			first_name: 'Monica',
@@ -180,10 +182,11 @@ describe('Data sheet save', () => {
 			address: '100 Main St, Anchorage, AK, 99501',
 			updatedBy: 'Pat Lee'
 		});
-		expect(savedEvents(ctx).map((event) => event.action)).toEqual([
-			'personnel.extended_info.updated',
-			'personnel.updated'
-		]);
+		expect(
+			savedEvents(ctx)
+				.map((event) => event.action)
+				.sort()
+		).toEqual(['personnel.extended_info.updated', 'personnel.updated']);
 	});
 
 	it('replaces every sheet field but keeps the acknowledgement, row identity and creation time', async () => {
@@ -244,6 +247,15 @@ describe('Data sheet save', () => {
 		const ctx = buildContext();
 		const result = await savedResult(ctx, { basicInfo: { ...basicInfo, lastName: 'Rivera-Cruz' }, extendedInfo });
 		expect(result.person.slug).toBe('rivera-cruz-monica');
+	});
+
+	it.each([
+		{ label: 'a collision suffix', slug: 'rivera-monica-2' },
+		{ label: 'a slug made by an earlier naming rule', slug: 'monica-rivera-old-rule' }
+	])('keeps $label when a save leaves the name unchanged', async ({ slug }) => {
+		const ctx = buildContext({ slug });
+		const result = await savedResult(ctx, { basicInfo: { ...basicInfo, mos: '68X' }, extendedInfo });
+		expect(result.person).toMatchObject({ slug, mos: '68X' });
 	});
 
 	it.each([
@@ -346,6 +358,25 @@ describe('Data sheet save', () => {
 			person: { mos: '68X' },
 			extendedInfo: { bloodType: 'A-' }
 		});
+	});
+
+	it('converges on retry when the Person write fails after the sheet was written', async () => {
+		const ctx = buildContext();
+		const update = ctx.store.update.bind(ctx.store);
+		const fault = vi
+			.spyOn(ctx.store, 'update')
+			.mockImplementationOnce(update)
+			.mockRejectedValueOnce(new Error('controlled person write failure'));
+		const submitted = { basicInfo: { ...basicInfo, mos: '68X' }, extendedInfo };
+		await expect(savePersonnelDataSheet(ctx, PERSON_1, submitted)).rejects.toThrow('controlled person write failure');
+		const afterFailure = await storedState(ctx);
+		expect(afterFailure.sheets[0]).toMatchObject({ blood_type: 'A-' });
+		expect(afterFailure.people[0]).toMatchObject({ mos: '68W' });
+		fault.mockRestore();
+
+		const retry = await savePersonnelDataSheet(ctx, PERSON_1, submitted);
+
+		expect(retry).toMatchObject({ saved: true, person: { mos: '68X' }, extendedInfo: { bloodType: 'A-' } });
 	});
 
 	it('rejects a body without both halves', async () => {

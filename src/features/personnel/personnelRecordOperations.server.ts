@@ -173,7 +173,9 @@ export async function applyPersonnelRecordUpdate(
 	ctx: PersonnelRecordContext,
 	{ id, patch, currentRecord }: PreparedPersonnelRecordUpdate
 ) {
-	const shouldRegenerateSlug = patch.lastName !== undefined || patch.firstName !== undefined;
+	const shouldRegenerateSlug =
+		(patch.lastName !== undefined && patch.lastName !== currentRecord.lastName) ||
+		(patch.firstName !== undefined && patch.firstName !== currentRecord.firstName);
 	let row: Personnel | null = null;
 	const rejectedSlugs = new Set<string>();
 	for (let attempt = 1; attempt <= SLUG_RETRY_LIMIT; attempt += 1) {

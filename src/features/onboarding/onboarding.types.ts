@@ -58,4 +58,10 @@ export interface PersonnelOnboarding {
 	templateId: string | null;
 }
 
+/** One Person's latest non-cancelled packet, as the Personnel Readiness tab shows it. */
+export type PersonnelOnboardingSummary =
+	| { state: 'none' }
+	| { state: 'in-progress'; startedAt: string; completedSteps: number; totalSteps: number }
+	| { state: 'complete'; completedAt: string | null; completedSteps: number; totalSteps: number };
+
 export type OnboardingBootstrapMode = 'all' | 'active' | 'history';

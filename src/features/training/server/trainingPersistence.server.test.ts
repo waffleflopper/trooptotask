@@ -159,6 +159,21 @@ describe('ordinary Training persistence', () => {
 					certificate_url: 'saved-url'
 				},
 				{ id: 'foreign-r', organization_id: 'org-b', personnel_id: 'p1', training_type_id: 't1' }
+			],
+			personnel_training_history: [
+				{
+					id: 'h1',
+					organization_id: ORG,
+					personnel_id: 'p1',
+					training_type_id: 't1',
+					completion_date: '2024-01-01',
+					expiration_date: '2025-01-01',
+					notes: null,
+					certificate_url: 'org-a/personnel/p1/training-certificates/old.pdf',
+					superseded_at: TIME
+				},
+				{ id: 'h-other', organization_id: ORG, personnel_id: 'p2', training_type_id: 't1', superseded_at: TIME },
+				{ id: 'h-foreign', organization_id: 'org-b', personnel_id: 'p1', training_type_id: 't1', superseded_at: TIME }
 			]
 		});
 		expect((await catalog.listTypes()).map((row) => row.id)).toEqual(['t0', 't1']);
@@ -181,6 +196,28 @@ describe('ordinary Training persistence', () => {
 		expect(await completions.listPersonReadinessFacts('p1')).toEqual([{ trainingTypeId: 't1', expirationDate: null }]);
 		expect(await completions.listPersonExportFacts('p1')).toEqual([
 			{ trainingTypeId: 't1', completionDate: '2026-01-01', expirationDate: null, notes: 'keep' }
+		]);
+		expect(await completions.listPersonCompletions('p1')).toEqual([
+			expect.objectContaining({
+				id: 'r1',
+				trainingTypeId: 't1',
+				completionDate: '2026-01-01',
+				expirationDate: null,
+				notes: 'keep',
+				certificateUrl: 'saved-url'
+			})
+		]);
+		expect(await completions.listPersonHistory('p1')).toEqual([
+			{
+				id: 'h1',
+				personnelId: 'p1',
+				trainingTypeId: 't1',
+				completionDate: '2024-01-01',
+				expirationDate: '2025-01-01',
+				notes: null,
+				certificateUrl: 'org-a/personnel/p1/training-certificates/old.pdf',
+				supersededAt: TIME
+			}
 		]);
 		const type = await catalog.createType({ name: 'New' });
 		expect(type).toMatchObject({

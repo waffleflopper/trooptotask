@@ -34,3 +34,4 @@ export { fetchDashboardTrainingSummary } from './server/trainingSummaryQuery.ser
 export { createSupabaseTrainingExportReader } from './server/trainingExportRead.server';
 
 export { createTrainingSupportReader } from './server/supportReadProvider.server';
+export { loadPersonnelTrainingReadiness } from './server/personnelTrainingItems.server';

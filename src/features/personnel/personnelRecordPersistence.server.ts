@@ -98,6 +98,11 @@ export function createSupabasePersonnelRecordPersistence(
 		async listRankReferences() {
 			return (await list('rank')).map((row) => ({ rank: row.rank as string | null | undefined }));
 		},
+		async findDisplayNamesByIds(ids) {
+			return new Map(
+				(await list('id, rank, last_name', { ids })).map((row) => [row.id as string, `${row.rank} ${row.last_name}`])
+			);
+		},
 		async create(input) {
 			const { data, error } = await client
 				.from('personnel')

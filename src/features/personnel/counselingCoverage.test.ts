@@ -34,6 +34,10 @@ describe('counseling coverage window', () => {
 		expect(coveredMonthsOf(dates, '2026-10-19')).toEqual(['2026-10', '2025-11']);
 	});
 
+	it('does not count a counseling dated later in the current month', () => {
+		expect(coveredMonthsOf(['2026-10-30'], '2026-10-19')).toEqual([]);
+	});
+
 	it('labels each month and marks the uncovered ones', () => {
 		const months = coverageMonths('2026-10-19', ['2026-10', '2026-09', '2026-08', '2026-05']);
 

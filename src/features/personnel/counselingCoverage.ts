@@ -29,10 +29,11 @@ export function coverageWindowStart(asOf: string): string {
 	return `${coverageWindow(asOf)[0]}-01`;
 }
 
-/** The months of `dates` that fall inside the window ending at `asOf`, as `YYYY-MM` keys. */
+/** The months of `dates` that fall inside the window ending at `asOf`, as `YYYY-MM` keys. A date after `asOf` has not happened yet. */
 export function coveredMonthsOf(dates: readonly string[], asOf: string): string[] {
 	const window = new Set(coverageWindow(asOf));
-	return [...new Set(dates.map((date) => date.slice(0, 7)).filter((key) => window.has(key)))];
+	const keys = dates.filter((date) => date <= asOf).map((date) => date.slice(0, 7));
+	return [...new Set(keys.filter((key) => window.has(key)))];
 }
 
 export function coverageMonths(asOf: string, coveredMonths: readonly string[]): CoverageMonth[] {

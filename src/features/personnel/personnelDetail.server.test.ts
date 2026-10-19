@@ -2,7 +2,7 @@ import { withPersonnelPersistence } from './personnelPersistence.test-support.se
 import { describe, expect, it, vi } from 'vitest';
 import { createTestContext as basecreateTestContext } from '$lib/server/adapters/inMemory';
 
-import { loadAvailabilityReadinessLane, loadPersonnelDetailHeader } from './personnelDetail.server';
+import { loadAvailabilityToday, loadPersonnelDetailHeader } from './personnelDetail.server';
 const createTestContext = (overrides?: Parameters<typeof basecreateTestContext>[0]) =>
 	withPersonnelPersistence(basecreateTestContext(overrides));
 
@@ -29,7 +29,7 @@ async function seedPerson(ctx: ReturnType<typeof createTestContext>, overrides: 
 	return (await ctx.organizationPersonnel.findById('person-1'))!;
 }
 
-describe('personnel readiness lanes', () => {
+describe('personnel detail header reads', () => {
 	it('flags an active Calendar status for attention', async () => {
 		const ctx = createTestContext();
 		const person = await seedPerson(ctx);
@@ -44,10 +44,7 @@ describe('personnel readiness lanes', () => {
 			}
 		]);
 
-		await expect(
-			loadAvailabilityReadinessLane(ctx, person, AS_OF, listEntries, listStatusTypes)
-		).resolves.toMatchObject({
-			label: 'Availability',
+		await expect(loadAvailabilityToday(ctx, person, AS_OF, listEntries, listStatusTypes)).resolves.toEqual({
 			value: 'TDY',
 			detail: 'TDY through May 15, 2026. Range support',
 			tone: 'watch'
@@ -58,9 +55,7 @@ describe('personnel readiness lanes', () => {
 		const ctx = createTestContext();
 		const person = await seedPerson(ctx);
 		const listEntries = vi.fn().mockResolvedValue([]);
-		await expect(
-			loadAvailabilityReadinessLane(ctx, person, AS_OF, listEntries, listStatusTypes)
-		).resolves.toMatchObject({
+		await expect(loadAvailabilityToday(ctx, person, AS_OF, listEntries, listStatusTypes)).resolves.toMatchObject({
 			value: 'Present',
 			tone: 'good'
 		});
@@ -72,7 +67,7 @@ describe('personnel readiness lanes', () => {
 		});
 	});
 
-	it('denies availability without Calendar access before reading Calendar facts', async () => {
+	it('hides availability from a viewer without Calendar access before reading Calendar facts', async () => {
 		const ctx = createTestContext({
 			auth: {
 				role: 'member',
@@ -89,9 +84,7 @@ describe('personnel readiness lanes', () => {
 		const person = await seedPerson(ctx);
 		const listEntries = vi.fn(async () => []);
 		const statusTypes = vi.fn(listStatusTypes);
-		await expect(loadAvailabilityReadinessLane(ctx, person, AS_OF, listEntries, statusTypes)).rejects.toMatchObject({
-			status: 403
-		});
+		await expect(loadAvailabilityToday(ctx, person, AS_OF, listEntries, statusTypes)).resolves.toBeNull();
 		expect(listEntries).not.toHaveBeenCalled();
 		expect(statusTypes).not.toHaveBeenCalled();
 	});
@@ -149,18 +142,18 @@ describe('personnel readiness lanes', () => {
 	it.each([
 		['outside the member Group scope', ['other-group']],
 		['for an empty Group scope', []]
-	])('denies the header %s, so no lane is built', async (_, groupIds) => {
+	])('denies the header %s, so no section is built', async (_, groupIds) => {
 		const ctx = createTestContext({ auth: { role: 'member', scopeSet: { kind: 'groups', groupIds } } });
 		await seedPerson(ctx, { slug: 'rivera-monica' });
 		await expect(loadPersonnelDetailHeader(ctx, 'rivera-monica')).rejects.toMatchObject({ status: 403 });
 	});
 
-	it('propagates a Calendar read failure without replacing it with a healthy lane', async () => {
+	it('propagates a Calendar read failure without replacing it with a healthy status', async () => {
 		const ctx = createTestContext();
 		const person = await seedPerson(ctx);
 		const failure = new Error('Calendar unavailable');
 		await expect(
-			loadAvailabilityReadinessLane(
+			loadAvailabilityToday(
 				ctx,
 				person,
 				AS_OF,
@@ -176,7 +169,7 @@ describe('personnel readiness lanes', () => {
 		const ctx = createTestContext();
 		const person = await seedPerson(ctx);
 		await expect(
-			loadAvailabilityReadinessLane(
+			loadAvailabilityToday(
 				ctx,
 				person,
 				AS_OF,

@@ -8,7 +8,10 @@ const { gotoMock, beforeNavigateMock } = vi.hoisted(() => ({ gotoMock: vi.fn(), 
 vi.mock('$app/navigation', () => ({ goto: gotoMock, invalidate: vi.fn(), beforeNavigate: beforeNavigateMock }));
 
 import { toastStore } from '$lib/stores/toast.svelte';
+import type { PersonnelWorkspaceResult } from '../contracts';
+import type { OrganizationRankCatalogEntry } from '../rankCatalogContracts';
 import DataSheetEditorHarness from '../test-support/DataSheetEditorHarness.svelte';
+import DataSheetPageHarness from '../test-support/DataSheetPageHarness.svelte';
 
 const person: Personnel = {
 	id: 'person-1',
@@ -64,30 +67,27 @@ afterEach(() => {
 	vi.unstubAllGlobals();
 });
 
+const catalogs = {
+	groups: [{ id: 'group-1', name: 'Alpha', sortOrder: 0 }],
+	rankCatalog: [
+		{
+			organizationId: 'org-1',
+			source: 'built-in',
+			code: 'SGT',
+			label: 'Sergeant',
+			service: 'army',
+			category: 'enlisted',
+			payGrade: 'E-5',
+			state: 'active',
+			sortOrder: 0
+		}
+	] satisfies OrganizationRankCatalogEntry[],
+	lossWarningWindowDays: 180
+};
+
 function renderEditor() {
 	render(DataSheetEditorHarness, {
-		props: {
-			orgId: 'org-1',
-			orgUrlSegment: 'org-alpha',
-			person,
-			info,
-			groups: [{ id: 'group-1', name: 'Alpha', sortOrder: 0 }],
-			rankCatalog: [
-				{
-					organizationId: 'org-1',
-					source: 'built-in',
-					code: 'SGT',
-					label: 'Sergeant',
-					service: 'army',
-					category: 'enlisted',
-					payGrade: 'E-5',
-					state: 'active',
-					sortOrder: 0
-				}
-			],
-			lossWarningWindowDays: 180,
-			today: '2026-10-18'
-		}
+		props: { orgId: 'org-1', orgUrlSegment: 'org-alpha', person, info, ...catalogs, today: '2026-10-18' }
 	});
 }
 
@@ -240,5 +240,23 @@ describe('PersonnelDataSheetEditor', () => {
 		});
 
 		expect(cancel).not.toHaveBeenCalled();
+	});
+});
+
+describe('PersonnelDataSheetPageView', () => {
+	it('keeps an open edit when the page receives a new data object holding the same loads', async () => {
+		const loads = {
+			dataSheet: Promise.resolve(info),
+			workspace: Promise.resolve({ data: catalogs } as unknown as PersonnelWorkspaceResult)
+		};
+		const props = { orgId: 'org-1', orgUrlSegment: 'org-alpha', person, today: '2026-10-18', editing: true };
+		const view = render(DataSheetPageHarness, { props: { ...props, ...loads } });
+		const email = (await screen.findByLabelText('Personal email')) as HTMLInputElement;
+		await fireEvent.input(email, { target: { value: 'rivera@example.com' } });
+
+		await view.rerender({ ...props, ...loads });
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		expect((screen.getByLabelText('Personal email') as HTMLInputElement).value).toBe('rivera@example.com');
 	});
 });

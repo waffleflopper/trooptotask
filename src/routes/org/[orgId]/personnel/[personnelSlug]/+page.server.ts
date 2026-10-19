@@ -75,8 +75,7 @@ export function _createPersonnelOverviewPageLoad(deps: PersonnelOverviewPageLoad
 	const loadReadiness = deps.loadReadiness ?? loadRequestPersonnelReadiness;
 
 	return async (event: PageServerLoadEvent) => {
-		const { params, locals, cookies, depends } = event;
-		depends('app:personnel-detail');
+		const { params, locals, cookies } = event;
 		const { person } = await loadRequestPersonnelDetailHeader(event, loadWithContextFn);
 		const asOf = viewerToday(cookies);
 		const [readiness, streams] = await Promise.all([

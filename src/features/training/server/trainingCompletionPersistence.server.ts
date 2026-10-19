@@ -81,26 +81,6 @@ export function createSupabaseTrainingCompletionPersistence(
 				trainingTypeId: row.training_type_id
 			}));
 		},
-		async listPersonReadinessFacts(personnelId) {
-			const result = await selectAllSupabaseRows<{ training_type_id: string; expiration_date: string | null }>(
-				async (from, to) => {
-					const { data, error } = await client
-						.from('personnel_trainings')
-						.select('training_type_id, expiration_date')
-						.eq('organization_id', orgId)
-						.eq('personnel_id', personnelId)
-						.order('id', { ascending: true })
-						.range(from, to)
-						.returns<{ training_type_id: string; expiration_date: string | null }[]>();
-					return { data, error };
-				}
-			);
-			if (result.error) throw new Error((result.error as { message: string }).message);
-			return (result.data ?? []).map((row) => ({
-				trainingTypeId: row.training_type_id,
-				expirationDate: row.expiration_date
-			}));
-		},
 		async listPersonExportFacts(personnelId) {
 			const result = await selectAllSupabaseRows<{
 				training_type_id: string;

@@ -190,7 +190,13 @@
 			label: 'Log',
 			href: `${basePath}/log`,
 			badge: streams.tabCounts.then((counts) =>
-				counts?.log ? { value: counts.log, label: `${counts.log} open follow-ups`, variant: 'outline' as const } : null
+				counts?.log
+					? {
+							value: counts.log,
+							label: `${counts.log} open ${counts.log === 1 ? 'follow-up' : 'follow-ups'}`,
+							variant: 'outline' as const
+						}
+					: null
 			)
 		},
 		{ path: '/files', label: 'Files', href: `${basePath}/files` },
@@ -202,7 +208,9 @@
 			icon: ArchiveIcon,
 			trailing: true,
 			badge: streams.tabCounts.then((counts) =>
-				counts?.archived ? { value: counts.archived, label: `${counts.archived} archived items` } : null
+				counts?.archived
+					? { value: counts.archived, label: `${counts.archived} archived ${counts.archived === 1 ? 'item' : 'items'}` }
+					: null
 			)
 		}
 	]);

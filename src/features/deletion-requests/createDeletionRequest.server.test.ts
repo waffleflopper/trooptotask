@@ -13,7 +13,7 @@ describe('createDeletionRequest', () => {
 		resourceType: 'counseling_record' as const,
 		resourceId: 'rec-1',
 		resourceDescription: 'Counseling session with SGT Smith',
-		resourceUrl: '/org/test-org/personnel/p-1/counselings',
+		resourceUrl: '/org/test-org/personnel/p-1/files',
 		userEmail: 'user@example.com'
 	};
 
@@ -42,7 +42,7 @@ describe('createDeletionRequest', () => {
 			resource_type: 'counseling_record',
 			resource_id: 'rec-1',
 			resource_description: 'Counseling session with SGT Smith',
-			resource_url: '/org/test-org/personnel/p-1/counselings',
+			resource_url: '/org/test-org/personnel/p-1/files',
 			requested_by: 'test-user',
 			requested_by_email: 'user@example.com',
 			status: 'pending'

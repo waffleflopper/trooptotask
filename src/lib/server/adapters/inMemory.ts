@@ -218,7 +218,6 @@ function createTestTrainingPersistence(store: FixtureRowStore, orgId: string, op
 				findResource: unavailable,
 				findPair: unavailable,
 				listPairReferences: unavailable,
-				listPersonReadinessFacts: unavailable,
 				listPersonExportFacts: unavailable,
 				listPersonCompletions: unavailable,
 				listPersonHistory: unavailable,

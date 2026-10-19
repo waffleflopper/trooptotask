@@ -62,11 +62,15 @@ test('write samples alternate so an even sample count ends on the seeded value',
 		'button[aria-label^="CQ, Thu 1 Oct: 2LT Cole, Cy"]'
 	]);
 	assert.deepEqual(save.prepare({ assignment }, 5)[1], { type: 'Baker' });
-	const edit = { row: 'Open SPC Able, Alex', original: '68W', alternate: '42A' };
-	assert.deepEqual(journeys['personnel-detail-edit'].milestones({ edit }, 0)[0].inside, {
-		'[data-slot="page-header"] [data-slot="badge"]': ['42A']
-	});
-	assert.deepEqual(journeys['personnel-detail-edit'].milestones({ edit }, 0)[0].absent, ['Save changes']);
+});
+
+test('each detail edit sample waits for the header to show the MOS it saved', () => {
+	const terms = { searchTerm: 'Able', edit: { row: 'Open SPC Able, Alex', original: '68W', alternate: '42A' } };
+	const detailEdit = journeys['personnel-detail-edit'];
+	const saved = (sample) => detailEdit.prepare(terms, sample).at(-1).value;
+	const shown = (sample) => Object.values(detailEdit.milestones(terms, sample)[0].inside).flat();
+	assert.deepEqual([0, 1, 5].map(saved), ['42A', '68W', '68W']);
+	assert.deepEqual([0, 1, 5].map(shown), [['42A'], ['68W'], ['68W']]);
 });
 
 test('the Dashboard navigation waits for the Dashboard, then the roster, for both actors', () => {

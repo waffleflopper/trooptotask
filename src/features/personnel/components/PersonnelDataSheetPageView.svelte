@@ -20,6 +20,12 @@
 
 	let { orgId, orgUrlSegment, person, today, editing, dataSheet, workspace }: Props = $props();
 
+	// An await block rebuilds when its expression is re-evaluated, even for the same promise. A layout refresh hands
+	// this page new props holding the same loads, so the blocks read deriveds that change only with the promises.
+	const sheet = $derived(dataSheet);
+	const catalogs = $derived(workspace);
+	const editorReads = $derived(Promise.all([sheet, catalogs]));
+
 	const skeletonColumns = [
 		[5, 2],
 		[3, 3, 2]
@@ -55,7 +61,7 @@
 <div class="p-6">
 	<h2 class="sr-only">Data sheet</h2>
 	{#if editing}
-		{#await Promise.all([dataSheet, workspace])}
+		{#await editorReads}
 			{@render skeleton()}
 		{:then [info, loaded]}
 			{#if 'access' in loaded}
@@ -76,7 +82,7 @@
 			{@render failed()}
 		{/await}
 	{:else}
-		{#await dataSheet}
+		{#await sheet}
 			{@render skeleton()}
 		{:then info}
 			<PersonnelDataSheetView {person} {info} />

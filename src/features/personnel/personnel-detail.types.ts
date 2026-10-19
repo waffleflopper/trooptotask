@@ -16,7 +16,7 @@ export interface PersonnelDetailTabCounts {
 }
 
 export interface PersonnelDetailLayoutStreams {
-	availabilityToday: Promise<PersonnelReadinessLane | null>;
+	availabilityToday: Promise<PersonnelAvailabilityToday | null>;
 	tabCounts: Promise<PersonnelDetailTabCounts | null>;
 	readinessBadge: Promise<PersonnelAttention['readinessBadge'] | null>;
 }
@@ -42,11 +42,9 @@ export interface PersonnelArchivedPageData {
 	archived: Promise<PersonnelArchivedArtifact[]>;
 }
 
-export type PersonnelReadinessLaneTone = 'good' | 'watch' | 'bad' | 'info' | 'neutral';
-
-export interface PersonnelReadinessLane {
-	label: string;
+/** Today's Calendar status for the header pill: present, or the status the Person is away on. */
+export interface PersonnelAvailabilityToday {
 	value: string;
 	detail: string;
-	tone: PersonnelReadinessLaneTone;
+	tone: 'good' | 'watch';
 }

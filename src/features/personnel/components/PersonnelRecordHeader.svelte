@@ -42,12 +42,14 @@
 	const recordResource = $derived(
 		person.groupId ? { kind: 'group' as const, groupId: person.groupId } : { kind: 'organization' as const }
 	);
-	const canManageRecords = $derived(
-		access.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.manageRecords, recordResource).allowed
+	const allows = (action: Parameters<typeof access.affordanceForFeatureAction>[0]) =>
+		access.affordanceForFeatureAction(action, recordResource).allowed;
+	const canManageRecords = $derived(allows(POLICY_ACTION_CATALOG.personnel.manageRecords));
+	const canAddReadableRecords = $derived(
+		canManageRecords && allows(POLICY_ACTION_CATALOG.personnel.readSensitiveRecords)
 	);
-	const canRecordTraining = $derived(
-		access.affordanceForFeatureAction(POLICY_ACTION_CATALOG.training.recordCompletions, recordResource).allowed
-	);
+	const canExportRecords = $derived(allows(POLICY_ACTION_CATALOG.personnel.exportRecords));
+	const canRecordTraining = $derived(allows(POLICY_ACTION_CATALOG.training.recordCompletions));
 
 	const eyebrow = $derived([person.groupName, person.clinicRole].filter(Boolean).join(' · ') || undefined);
 	const title = $derived(`${person.rank} ${person.firstName} ${person.lastName}`);
@@ -68,7 +70,7 @@
 					description: 'Something that needs doing, with a due date',
 					icon: 'square-check',
 					href: `${basePath}/log?add=follow-up`,
-					allowed: canManageRecords
+					allowed: canAddReadableRecords
 				},
 				{
 					id: 'add-note',
@@ -76,7 +78,7 @@
 					description: 'An observation. No action needed.',
 					icon: 'notebook-pen',
 					href: `${basePath}/log?add=note`,
-					allowed: canManageRecords
+					allowed: canAddReadableRecords
 				},
 				{
 					id: 'add-counseling',
@@ -84,7 +86,7 @@
 					description: 'DA 4856 PDF with the date conducted',
 					icon: 'file-text',
 					href: `${basePath}/files?add=counseling`,
-					allowed: canManageRecords
+					allowed: canAddReadableRecords
 				},
 				{
 					id: 'add-document',
@@ -92,7 +94,7 @@
 					description: 'Certificate, form, or photo',
 					icon: 'upload',
 					href: `${basePath}/files?add=document`,
-					allowed: canManageRecords
+					allowed: canAddReadableRecords
 				},
 				{
 					id: 'add-training',
@@ -108,15 +110,19 @@
 
 	const toolbarItems = $derived<ToolbarItem[]>([
 		{ kind: 'action', id: 'edit', label: 'Edit', href: `${basePath}/data-sheet` },
-		{
-			kind: 'action',
-			id: 'export-records',
-			label: actions.exporting ? 'Exporting...' : 'Export records',
-			icon: 'download',
-			menuOnly: true,
-			loading: actions.exporting,
-			onclick: actions.exportRecords
-		},
+		...(canExportRecords
+			? [
+					{
+						kind: 'action',
+						id: 'export-records',
+						label: actions.exporting ? 'Exporting...' : 'Export records',
+						icon: 'download',
+						menuOnly: true,
+						loading: actions.exporting,
+						onclick: actions.exportRecords
+					} satisfies ToolbarAction
+				]
+			: []),
 		...(canManageRecords
 			? [
 					{

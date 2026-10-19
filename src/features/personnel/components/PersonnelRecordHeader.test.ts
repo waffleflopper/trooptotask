@@ -34,7 +34,12 @@ afterEach(() => {
 });
 
 async function renderHeader({
-	allowed = ['personnel.manageRecords', 'training.recordCompletions'],
+	allowed = [
+		'personnel.manageRecords',
+		'personnel.readSensitiveRecords',
+		'personnel.exportRecords',
+		'training.recordCompletions'
+	],
 	streams = {}
 }: { allowed?: string[]; streams?: Partial<PersonnelDetailLayoutStreams> } = {}) {
 	const widths = stubToolbarWidths();
@@ -74,7 +79,7 @@ describe('PersonnelRecordHeader', () => {
 	});
 
 	it('offers each record addition only to a viewer allowed to make it', async () => {
-		await renderHeader({ allowed: ['personnel.manageRecords'] });
+		await renderHeader({ allowed: ['personnel.manageRecords', 'personnel.readSensitiveRecords'] });
 
 		const menu = await openAddToRecord();
 		expect(
@@ -85,12 +90,27 @@ describe('PersonnelRecordHeader', () => {
 	});
 
 	it('hides record additions and Archive from a viewer who may not manage records', async () => {
-		await renderHeader({ allowed: [] });
+		await renderHeader({ allowed: ['personnel.exportRecords'] });
 
 		expect(screen.queryByRole('button', { name: 'Add to record' })).toBeNull();
 		const menu = await openToolbarMore('Personnel record');
 		expect(within(menu).queryByRole('menuitem', { name: 'Archive' })).toBeNull();
 		expect(within(menu).getByRole('menuitem', { name: 'Export records' })).toBeTruthy();
+	});
+
+	it('offers an operate-only member only the actions whose destination admits them', async () => {
+		await renderHeader({ allowed: ['personnel.manageRecords', 'training.recordCompletions'] });
+
+		const menu = await openAddToRecord();
+		expect(
+			within(menu)
+				.getAllByRole('menuitem')
+				.map((item) => item.getAttribute('aria-label'))
+		).toEqual(['Training completion']);
+		await fireEvent.keyDown(menu, { key: 'Escape' });
+		const more = await openToolbarMore('Personnel record');
+		expect(within(more).queryByRole('menuitem', { name: 'Export records' })).toBeNull();
+		expect(within(more).getByRole('menuitem', { name: 'Archive' })).toBeTruthy();
 	});
 
 	it('exports the record from the overflow menu', async () => {

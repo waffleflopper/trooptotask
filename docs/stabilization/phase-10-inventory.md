@@ -20,7 +20,7 @@ Each row has a disposition. `complete` has no candidates. `test support` is a ha
 | 10-06      |    30 |                     0 |            0 |                0 |          0 |            0 |         0 |
 | 10-07      |    39 |                     0 |            0 |                0 |          0 |            0 |         0 |
 | 10-08      |    12 |                     0 |            0 |                0 |          0 |            0 |         0 |
-| 10-09      |    79 |                     1 |            0 |                0 |          0 |            2 |         0 |
+| 10-09      |    80 |                     1 |            0 |                0 |          0 |            2 |         0 |
 | foundation |   273 |                     0 |            0 |                0 |          0 |            0 |         0 |
 
 Open rows: 10. Unclassified rows: 0. Unused native exceptions: 0.
@@ -70,7 +70,7 @@ Each family is imported through `$lib/components/<layer>/<family>` (its `index.t
 | `ui/app-dialog`                      |  24 |     2 |      0 |      2 | `10-01`×2, `10-02`×3, `10-03`×4, `10-04`×4, `10-05`×4, `10-06`×3, `10-07`×6, `10-09`×1, `foundation`×1                     |
 | `ui/badge`                           |  32 |    10 |      0 |      4 | `10-02`×6, `10-03`×7, `10-04`×8, `10-05`×4, `10-06`×1, `10-07`×16, `10-09`×4                                               |
 | `ui/breadcrumb`                      |   1 |     0 |      0 |      0 | `10-01`×1                                                                                                                  |
-| `ui/button`                          | 128 |    13 |      4 |     30 | `10-01`×23, `10-02`×16, `10-03`×35, `10-04`×14, `10-05`×13, `10-06`×16, `10-07`×24, `10-08`×4, `10-09`×15, `foundation`×15 |
+| `ui/button`                          | 128 |    13 |      4 |     31 | `10-01`×23, `10-02`×16, `10-03`×35, `10-04`×14, `10-05`×13, `10-06`×16, `10-07`×24, `10-08`×4, `10-09`×16, `foundation`×15 |
 | `ui/button-group`                    |   3 |     0 |      0 |      1 | `10-03`×1, `10-04`×1, `10-05`×1, `10-09`×1                                                                                 |
 | `ui/calendar`                        |   0 |     0 |      0 |      1 | `foundation`×1                                                                                                             |
 | `ui/card`                            |  14 |    10 |      0 |      0 | `10-01`×3, `10-03`×4, `10-04`×1, `10-05`×1, `10-06`×4, `10-07`×11                                                          |
@@ -454,6 +454,7 @@ Each family is imported through `$lib/components/<layer>/<family>` (its `index.t
 | `src/lib/components/patterns/bulk-import-workspace/bulk-import-workspace-root.svelte`      | shared | ·                                                                                                            | ·            |         · | ·          |   · | complete     |
 | `src/lib/components/patterns/bulk-import-workspace/BulkImportStepTest.svelte`              | shared | `ui/button`                                                                                                  | ·            |         · | ·          |   · | test support |
 | `src/lib/components/patterns/bulk-import-workspace/BulkImportWorkspaceTest.svelte`         | shared | `ui/button`, `ui/data-table`                                                                                 | ·            |         · | ·          |   · | test support |
+| `src/lib/components/patterns/inline-edit-row/inline-edit-row-trigger.svelte`               | shared | `ui/button`                                                                                                  | ·            |         · | ·          |   · | complete     |
 | `src/lib/components/patterns/inline-edit-row/inline-edit-row.svelte`                       | shared | `ui/alert`, `ui/button`                                                                                      | ·            |         · | ·          |   · | complete     |
 | `src/lib/components/patterns/page-shell/fact-grid.svelte`                                  | shared | ·                                                                                                            | ·            |         · | ·          |   · | complete     |
 | `src/lib/components/patterns/page-shell/fact-metric.svelte`                                | shared | ·                                                                                                            | ·            |         · | ·          |   · | complete     |

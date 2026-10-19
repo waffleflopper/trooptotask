@@ -82,22 +82,23 @@ export async function listPersonnelCounselingRecords(
 	return rows.map((row) => mapCounselingRow(row, labels));
 }
 
-/** The Files tab's first page of counselings with the figures its coverage bar and upload form need. */
 /** A member label that fell back to the bare user id names no one, so it is not offered as a conductor. */
 function nameOf(labels: Map<string, string>, userId: string): string | null {
 	const label = labels.get(userId);
 	return label && label !== userId ? label : null;
 }
 
+/** The Files tab's first page of counselings with the figures its header, coverage bar and upload form need. */
 export async function readPersonnelCounselings(
 	ctx: PersonnelArtifactsContext,
 	input: { personnelId: string; asOf: string; limit: number }
 ): Promise<PersonnelCounselingsRead> {
 	await requirePersonnelArtifactAccess(ctx, input.personnelId, 'read');
-	const [rows, total, dates] = await Promise.all([
+	const [rows, total, dates, lastConductedOn] = await Promise.all([
 		ctx.persistence.listCounselingRecords(input.personnelId, { archived: false, limit: input.limit }),
 		ctx.persistence.countActiveCounselingRecords(input.personnelId),
-		ctx.persistence.listActiveCounselingDates(input.personnelId, coverageWindowStart(input.asOf))
+		ctx.persistence.listActiveCounselingDates(input.personnelId, coverageWindowStart(input.asOf)),
+		ctx.persistence.latestActiveCounselingDate(input.personnelId, input.asOf)
 	]);
 	const labels = await ctx.contributorLabels([
 		ctx.actor.userId,
@@ -107,7 +108,8 @@ export async function readPersonnelCounselings(
 		records: rows.map((row) => mapCounselingRow(row, labels)),
 		total,
 		uploaderLabel: nameOf(labels, ctx.actor.userId),
-		coveredMonths: coveredMonthsOf(dates, input.asOf)
+		coveredMonths: coveredMonthsOf(dates, input.asOf),
+		lastConductedOn
 	};
 }
 

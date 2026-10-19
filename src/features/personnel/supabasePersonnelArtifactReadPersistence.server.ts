@@ -86,6 +86,19 @@ export function createSupabasePersonnelArtifactReadPersistence(
 				if (page.length < 1000) return dates;
 			}
 		},
+		async latestActiveCounselingDate(personnelId, through) {
+			const { data, error } = await client
+				.from('counseling_records')
+				.select('date_conducted')
+				.eq('organization_id', orgId)
+				.eq('personnel_id', personnelId)
+				.is('archived_at', null)
+				.lte('date_conducted', through)
+				.order('date_conducted', { ascending: false })
+				.limit(1);
+			if (error) throw new Error(error.message);
+			return (data?.[0]?.date_conducted as string | undefined) ?? null;
+		},
 		async findCounseling(personnelId, counselingId) {
 			const { data, error } = await client
 				.from('counseling_records')

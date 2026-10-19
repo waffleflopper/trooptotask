@@ -22,6 +22,7 @@ export function testPersonnelArtifactsContext(ctx: ReturnType<typeof createTestC
 			listCounselingRecords: ctx.artifactReads.listCounselingRecords,
 			countActiveCounselingRecords: ctx.artifactReads.countActiveCounselingRecords,
 			listActiveCounselingDates: ctx.artifactReads.listActiveCounselingDates,
+			latestActiveCounselingDate: ctx.artifactReads.latestActiveCounselingDate,
 			findCounseling: ctx.artifactReads.findCounseling,
 			listDocuments: ctx.artifactReads.listDocuments,
 			summarizeActiveDocuments: ctx.artifactReads.summarizeActiveDocuments,

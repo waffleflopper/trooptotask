@@ -40,7 +40,6 @@
 	const records = $derived([...read.records, ...more.records]);
 	const months = $derived(coverageMonths(asOf, read.coveredMonths));
 	const remaining = $derived(Math.max(0, read.total - records.length));
-	const lastConducted = $derived(read.records.find((record) => record.dateConducted <= asOf)?.dateConducted ?? null);
 	let openingId = $state('');
 	let archivingId = $state('');
 	let error = $state('');
@@ -84,7 +83,7 @@
 			Counselings
 		</p>
 		<h2 id="files-counselings-heading" class="font-heading text-[34px] leading-9 font-bold text-foreground">
-			{lastCounseledLabel(lastConducted, asOf)}
+			{lastCounseledLabel(read.lastConductedOn, asOf)}
 		</h2>
 	</header>
 
@@ -148,7 +147,6 @@
 						<Button
 							variant="ghost"
 							size="icon-sm"
-							class="text-muted-foreground"
 							disabled={archivingId === record.id}
 							aria-label={`Archive ${record.title}`}
 							onclick={() => archive(record)}
@@ -166,13 +164,7 @@
 		{#if remaining > 0 || more.error}
 			<div class="flex flex-wrap items-center gap-x-4 gap-y-1 px-3.5 py-2.5 text-sm">
 				{#if remaining > 0}
-					<Button
-						variant="link"
-						size="none"
-						class="font-medium text-foreground underline underline-offset-4"
-						disabled={more.loading}
-						onclick={more.load}
-					>
+					<Button variant="link" size="none" disabled={more.loading} onclick={more.load}>
 						Show {remaining} older {remaining === 1 ? 'counseling' : 'counselings'}
 					</Button>
 				{/if}

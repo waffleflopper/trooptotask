@@ -24,6 +24,7 @@ export interface PersonnelArtifactsContext {
 		): Promise<CounselingRecordRow[]>;
 		countActiveCounselingRecords(personnelId: string): Promise<number>;
 		listActiveCounselingDates(personnelId: string, since: string): Promise<string[]>;
+		latestActiveCounselingDate(personnelId: string, through: string): Promise<string | null>;
 		findCounseling(personnelId: string, counselingId: string): Promise<CounselingRecordRow | null>;
 		listDocuments(
 			personnelId: string,
@@ -84,7 +85,10 @@ async function requireAccessUncached(
 
 /** Whether a write may answer with the sensitive record it changed. */
 export async function canReadSensitivePersonnelArtifacts(
-	ctx: PersonnelArtifactsContext,
+	ctx: {
+		actor: OrganizationAccessGrant;
+		persistence: { findPersonnelGroup(personnelId: string): Promise<string | null | undefined> };
+	},
 	personnelId: string
 ): Promise<boolean> {
 	const groupId = await ctx.persistence.findPersonnelGroup(personnelId);
@@ -127,7 +131,25 @@ export async function contributorLabelsWithStamps(
 	return new Map([...extraLabels, ...labels]);
 }
 
+export const UNNAMED_LEADER = 'Unknown leader';
+
+/**
+ * Labels for a write response. The write has already committed, so a failed lookup leaves the `people` unnamed
+ * instead of reporting the save as failed and inviting a retry that would duplicate it.
+ */
+export async function contributorLabelsForWriteResponse(
+	ctx: Pick<PersonnelArtifactsContext, 'contributorLabels'>,
+	people: string[],
+	stamped: Array<string | null | undefined> = []
+): Promise<Map<string, string>> {
+	try {
+		return await contributorLabelsWithStamps(ctx, people, stamped);
+	} catch {
+		return new Map(people.map((id) => [id, UNNAMED_LEADER]));
+	}
+}
+
 export function resolveContributorLabel(labels: Map<string, string>, value: string | null | undefined): string {
-	if (!value) return 'Unknown leader';
+	if (!value) return UNNAMED_LEADER;
 	return labels.get(value) ?? value;
 }

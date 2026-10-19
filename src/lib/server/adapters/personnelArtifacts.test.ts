@@ -41,7 +41,14 @@ function fixture(family: (typeof families)[number], failure?: 'artifact-page' | 
 		completed_at: null,
 		archived_at: null
 	}));
-	const receipts: { table: string; urlBytes: number; status: number; offset?: number; ids?: string[] }[] = [];
+	const receipts: {
+		table: string;
+		urlBytes: number;
+		status: number;
+		offset?: number;
+		ids?: string[];
+		query?: URLSearchParams;
+	}[] = [];
 	let labelCalls = 0;
 	const client = createClient('http://artifacts.invalid', 'synthetic-key', {
 		auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
@@ -50,7 +57,12 @@ function fixture(family: (typeof families)[number], failure?: 'artifact-page' | 
 				const url = new URL(String(input));
 				expect(url.origin).toBe('http://artifacts.invalid');
 				const table = url.pathname.split('/').pop()!;
-				const receipt: (typeof receipts)[number] = { table, urlBytes: Buffer.byteLength(url.href), status: 200 };
+				const receipt: (typeof receipts)[number] = {
+					table,
+					urlBytes: Buffer.byteLength(url.href),
+					status: 200,
+					query: url.searchParams
+				};
 				receipts.push(receipt);
 				const reject = (status: number, message: string) => {
 					receipt.status = status;
@@ -146,6 +158,17 @@ describe('Personnel artifact provider delivery', () => {
 		expect(
 			counselings.receipts.filter((receipt) => receipt.table === 'counseling_records').map((receipt) => receipt.offset)
 		).toEqual([0, 1000]);
+	});
+
+	it('asks the provider for the newest active counseling date on or before the day, one row', async () => {
+		const run = fixture(families[0]);
+		await expect(run.ctx.artifactReads.latestActiveCounselingDate(PERSON, '2026-10-19')).resolves.toBe('2026-10-01');
+		const [request] = run.receipts.filter((receipt) => receipt.table === 'counseling_records');
+		expect(request.query?.get('select')).toBe('date_conducted');
+		expect(request.query?.get('archived_at')).toBe('is.null');
+		expect(request.query?.get('date_conducted')).toBe('lte.2026-10-19');
+		expect(request.query?.get('order')).toBe('date_conducted.desc');
+		expect(request.query?.get('limit')).toBe('1');
 	});
 
 	it('propagates a later artifact-page failure instead of returning partial history', async () => {

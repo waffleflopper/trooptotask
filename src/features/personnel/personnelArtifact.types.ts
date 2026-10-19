@@ -27,6 +27,8 @@ export interface PersonnelCounselingsRead {
 	uploaderLabel: string | null;
 	/** `YYYY-MM` of every month in the 12-month window ending at the viewer's day that has a counseling. */
 	coveredMonths: string[];
+	/** The newest conducted date on or before the viewer's day, whatever the page. */
+	lastConductedOn: string | null;
 }
 
 export interface PersonnelDocumentsRead {

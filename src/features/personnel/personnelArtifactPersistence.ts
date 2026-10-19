@@ -73,6 +73,8 @@ export interface PersonnelArtifactReadPersistence {
 	countActiveCounselingRecords(personnelId: string): Promise<number>;
 	/** Conducted dates of active records on or after `since`, in no particular order. */
 	listActiveCounselingDates(personnelId: string, since: string): Promise<string[]>;
+	/** The newest conducted date of an active record on or before `through`, or null when there is none. */
+	latestActiveCounselingDate(personnelId: string, through: string): Promise<string | null>;
 	findCounseling(personnelId: string, counselingId: string): Promise<CounselingRecordRow | null>;
 	listDocuments(
 		personnelId: string,

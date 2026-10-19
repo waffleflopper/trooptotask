@@ -1665,6 +1665,20 @@ function createTestArtifactReadPersistence(store: FixtureRowStore, orgId: string
 					{ isNull: { archived_at: true }, rangeFilters: [{ column: 'date_conducted', op: 'gte', value: since }] }
 				)
 			).map((row) => row.date_conducted),
+		latestActiveCounselingDate: async (personnelId, through) => {
+			const rows = await store.findMany<CounselingRecordRow>(
+				'counseling_records',
+				orgId,
+				{ personnel_id: personnelId },
+				{ isNull: { archived_at: true }, rangeFilters: [{ column: 'date_conducted', op: 'lte', value: through }] }
+			);
+			return (
+				rows
+					.map((row) => row.date_conducted)
+					.sort()
+					.at(-1) ?? null
+			);
+		},
 		findCounseling: (personnelId, id) => store.findOne('counseling_records', orgId, { id, personnel_id: personnelId }),
 		listDocuments: (personnelId, { archived, limit, offset }) =>
 			store.findMany(

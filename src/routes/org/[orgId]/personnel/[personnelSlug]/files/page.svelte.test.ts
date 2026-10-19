@@ -45,7 +45,8 @@ function counselings(title: string): PersonnelCounselingsRead {
 		],
 		total: 1,
 		uploaderLabel: null,
-		coveredMonths: ['2026-10']
+		coveredMonths: ['2026-10'],
+		lastConductedOn: '2026-10-02'
 	};
 }
 

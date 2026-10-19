@@ -211,6 +211,7 @@ export function createPersonnelArtifactDeliveryContext(
 			listCounselingRecords: request.artifactReads.listCounselingRecords,
 			countActiveCounselingRecords: request.artifactReads.countActiveCounselingRecords,
 			listActiveCounselingDates: request.artifactReads.listActiveCounselingDates,
+			latestActiveCounselingDate: request.artifactReads.latestActiveCounselingDate,
 			findCounseling: request.artifactReads.findCounseling,
 			listDocuments: request.artifactReads.listDocuments,
 			summarizeActiveDocuments: request.artifactReads.summarizeActiveDocuments,

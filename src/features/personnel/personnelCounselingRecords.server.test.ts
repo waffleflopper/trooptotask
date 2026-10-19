@@ -495,7 +495,65 @@ describe('Files tab counseling read', () => {
 		]);
 		expect(read.total).toBe(4);
 		expect(read.coveredMonths.sort()).toEqual(['2026-08', '2026-10']);
+		expect(read.lastConductedOn).toBe('2026-10-02');
 		expect(read.uploaderLabel).toBe('leader@example.com');
+	});
+
+	it('names the latest counseling held even when later-dated records fill the first page', async () => {
+		const ctx = seededContext();
+		ctx.store.seed('counseling_records', [
+			counselingRow(ctx, 'later-1', '2026-10-21'),
+			counselingRow(ctx, 'later-2', '2026-10-22'),
+			counselingRow(ctx, 'later-3', '2026-11-03'),
+			counselingRow(ctx, 'archived-later', '2026-10-20', { archived_at: '2026-10-01T00:00:00Z' })
+		]);
+
+		const read = await readPersonnelCounselings(testPersonnelArtifactsContext(ctx), {
+			personnelId: 'person-1',
+			asOf: '2026-10-19',
+			limit: 3
+		});
+
+		expect(read.records.map((record) => record.id)).toEqual(['later-3', 'later-2', 'later-1']);
+		expect(read.lastConductedOn).toBe('2026-10-02');
+		expect(read.coveredMonths.sort()).toEqual(['2026-08', '2026-10']);
+	});
+
+	it('counts a counseling held on the viewer day as the last one', async () => {
+		const ctx = seededContext();
+
+		const read = await readPersonnelCounselings(testPersonnelArtifactsContext(ctx), {
+			personnelId: 'person-1',
+			asOf: '2026-10-02',
+			limit: 2
+		});
+
+		expect(read.lastConductedOn).toBe('2026-10-02');
+	});
+
+	it('names a last counseling that is older than the coverage window', async () => {
+		const ctx = seededContext();
+
+		const read = await readPersonnelCounselings(testPersonnelArtifactsContext(ctx), {
+			personnelId: 'person-1',
+			asOf: '2027-10-19',
+			limit: 2
+		});
+
+		expect(read.lastConductedOn).toBe('2026-10-02');
+		expect(read.coveredMonths).toEqual([]);
+	});
+
+	it('names no last counseling before the first one was held', async () => {
+		const ctx = seededContext();
+
+		const read = await readPersonnelCounselings(testPersonnelArtifactsContext(ctx), {
+			personnelId: 'person-1',
+			asOf: '2025-06-01',
+			limit: 2
+		});
+
+		expect(read.lastConductedOn).toBeNull();
 	});
 
 	it('offers no conductor when the member has no name or email on file', async () => {

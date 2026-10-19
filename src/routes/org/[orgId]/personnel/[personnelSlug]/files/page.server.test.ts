@@ -47,6 +47,7 @@ function run(timeZone = 'UTC') {
 		counseling('c5', '2025-01-05'),
 		counseling('c6', '2026-09-09', '2026-09-10T00:00:00Z')
 	]);
+	ctx.store.seed('organizations', [{ id: 'org-1', personnel_document_storage_cap_bytes: 25_000_000 }]);
 	ctx.store.seed('personnel_documents', [
 		document('d1', 1000),
 		document('d2', 2000),
@@ -70,13 +71,20 @@ function run(timeZone = 'UTC') {
 }
 
 describe('personnel files page server load', () => {
-	it('streams the newest counselings with the active total and the months covered in the last twelve', async () => {
-		const { counselings } = (await run().result()).files;
+	it('streams the newest counselings with the active total, the last one held and the months covered', async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		try {
+			vi.setSystemTime(new Date('2026-10-19T12:00:00Z'));
+			const { counselings } = (await run().result()).files;
 
-		const page = await counselings;
-		expect(page.records.map((record) => record.id)).toEqual(['c1', 'c2', 'c3']);
-		expect(page.total).toBe(5);
-		expect(page.coveredMonths).toEqual(['2026-10', '2026-08', '2026-06', '2025-12']);
+			const page = await counselings;
+			expect(page.records.map((record) => record.id)).toEqual(['c1', 'c2', 'c3']);
+			expect(page.total).toBe(5);
+			expect(page.lastConductedOn).toBe('2026-10-02');
+			expect(page.coveredMonths).toEqual(['2026-10', '2026-08', '2026-06', '2025-12']);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	it('streams the newest documents with the active total, bytes in use and the storage cap', async () => {
@@ -86,7 +94,7 @@ describe('personnel files page server load', () => {
 		expect(page.records).toHaveLength(3);
 		expect(page.total).toBe(4);
 		expect(page.usedBytes).toBe(10000);
-		expect(page.capBytes).toBeGreaterThan(page.usedBytes);
+		expect(page.capBytes).toBe(25_000_000);
 	});
 
 	it('anchors the coverage window on the viewer day rather than the server day', async () => {

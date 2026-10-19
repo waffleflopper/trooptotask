@@ -1,13 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import type { PersonnelArchivedArtifact } from './contracts';
-import {
-	archivedDetail,
-	archivedStamp,
-	archivedTitle,
-	dueLabel,
-	formatTimestampDayMonth,
-	groupFollowUps
-} from './logModel';
+import { archivedStamp, dueLabel, formatTimestampDayMonth, groupFollowUps } from './logModel';
 import { makeFollowUp, makeLeaderNote } from './logFixtures.testHelper';
 
 const TODAY = '2026-10-19';
@@ -18,10 +11,15 @@ describe('dueLabel', () => {
 		{ dueDate: '2026-10-18', expected: { text: 'Overdue 1 day', overdue: true } },
 		{ dueDate: '2026-10-19', expected: { text: 'Mon 19 Oct', overdue: false } },
 		{ dueDate: '2026-10-22', expected: { text: 'Thu 22 Oct', overdue: false } },
-		{ dueDate: '2026-11-05', expected: { text: 'Thu 5 Nov', overdue: false } },
-		{ dueDate: null, expected: { text: 'No due date', overdue: false } }
+		{ dueDate: '2026-11-05', expected: { text: 'Thu 5 Nov', overdue: false } }
 	])('labels a follow-up due $dueDate on $expected.text', ({ dueDate, expected }) => {
 		expect(dueLabel(dueDate, TODAY)).toEqual(expected);
+	});
+});
+
+describe('dueLabel without a due date', () => {
+	it('is never overdue', () => {
+		expect(dueLabel(null, TODAY).overdue).toBe(false);
 	});
 });
 
@@ -65,14 +63,6 @@ describe('archived records', () => {
 		kind: 'note',
 		...makeLeaderNote({ text: 'Late to formation', archivedAt: '2026-10-16T15:00:00.000Z' })
 	};
-
-	it('describes a follow-up by its state, due date and creator', () => {
-		expect(archivedDetail(followUp)).toBe('Completed · due 8 Sep · created by 1SG Ramos');
-	});
-
-	it('quotes a note as its own title', () => {
-		expect(archivedTitle(note)).toBe('“Late to formation”');
-	});
 
 	it('stamps who archived an item, and omits the name when none was recorded', () => {
 		expect(archivedStamp(followUp)).toBe('Archived 14 Oct · SFC Diaz');

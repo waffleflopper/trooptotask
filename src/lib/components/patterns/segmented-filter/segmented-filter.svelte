@@ -19,6 +19,7 @@
 <ToggleGroup.Root
 	type="single"
 	size="sm"
+	class="max-w-full flex-wrap"
 	aria-label={label}
 	bind:value={
 		() => value,

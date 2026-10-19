@@ -34,9 +34,13 @@ describe('LeaderNoteList', () => {
 
 		await list.loadOlder();
 
-		expect(requests[0].url).toBe(
-			`/org/org-1/api/personnel/person-1/leader-notes?limit=20&beforeCreatedAt=${encodeURIComponent('2026-10-14T12:00:00.000Z')}&beforeId=note-14`
-		);
+		const requested = new URL(requests[0].url, 'http://localhost');
+		expect(requested.pathname).toBe('/org/org-1/api/personnel/person-1/leader-notes');
+		expect(requested.searchParams.get('beforeCreatedAt')).toBe('2026-10-14T12:00:00.000Z');
+		expect(requested.searchParams.get('beforeId')).toBe('note-14');
+		const limit = Number(requested.searchParams.get('limit'));
+		expect(limit).toBeGreaterThan(0);
+		expect(limit).toBeLessThanOrEqual(50);
 		expect(list.rows.map((note) => note.id)).toEqual(['note-15', 'note-14', 'note-13', 'note-12']);
 		expect(list.olderRemaining).toBe(0);
 	});

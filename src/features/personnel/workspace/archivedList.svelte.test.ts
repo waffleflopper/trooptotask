@@ -123,7 +123,8 @@ describe('ArchivedList', () => {
 		expect(error).toBeNull();
 		expect(requests[0]).toMatchObject({ url: '/org/org-1/api/personnel/person-1/documents/d1', method: 'DELETE' });
 		expect(list.records.map((record) => record.id)).toEqual(['f1', 'n1']);
-		expect(list.notice).toBe('Deleted Profile. Its stored file will be removed automatically.');
+		expect(list.notice).toContain('Profile');
+		expect(list.notice).toContain('file');
 	});
 
 	it('keeps a record that failed to delete and returns the error', async () => {

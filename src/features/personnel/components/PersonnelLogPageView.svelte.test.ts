@@ -115,7 +115,7 @@ describe('PersonnelLogPageView follow-ups', () => {
 		expect(await screen.findByText('Done 12 Oct · SFC Diaz')).toBeTruthy();
 	});
 
-	it('adds a follow-up when Enter is pressed in the quick-add input', async () => {
+	it('adds a follow-up when the quick-add form is submitted', async () => {
 		const fetchMock = stubFetch(() =>
 			jsonResponse(makeFollowUp({ id: 'f-new', title: 'Update roster', notes: '', dueDate: null }))
 		);
@@ -158,7 +158,7 @@ describe('PersonnelLogPageView inline editing', () => {
 		expect(within(editor).getByRole('button', { name: 'Archive' })).toBeTruthy();
 	});
 
-	it('saves the edit when Enter is pressed in the title', async () => {
+	it('saves the edit when the editor form is submitted', async () => {
 		const fetchMock = stubFetch(() => jsonResponse({ title: 'Dental exam', notes: 'Needs appointment' }));
 		renderLog();
 		await fireEvent.click(await screen.findByRole('button', { name: 'Dental readiness' }));
@@ -197,6 +197,17 @@ describe('PersonnelLogPageView inline editing', () => {
 
 		expect(await within(editor).findByText('This follow-up was archived.')).toBeTruthy();
 		expect((within(editor).getByLabelText('Follow-up title') as HTMLInputElement).value).toBe('Dental exam');
+	});
+
+	it('keeps a generic message when the save fails on the server', async () => {
+		stubFetch(() => jsonResponse({ message: 'relation missing' }, 500));
+		renderLog();
+		await fireEvent.click(await screen.findByRole('button', { name: 'Dental readiness' }));
+
+		await fireEvent.submit(screen.getByRole('form', { name: 'Edit follow-up Dental readiness' }));
+
+		expect(await screen.findByText('Unable to update follow-up.')).toBeTruthy();
+		expect(screen.queryByText('relation missing')).toBeNull();
 	});
 
 	it('archives from the editor and drops the follow-up from the list', async () => {
@@ -251,6 +262,77 @@ describe('PersonnelLogPageView inline editing', () => {
 
 		await screen.findByRole('button', { name: 'Dental exam' });
 		expect(screen.getByRole('form', { name: 'Edit note' })).toBeTruthy();
+	});
+
+	it('keeps a reopened follow-up editor and its draft when the earlier save of that row finishes', async () => {
+		let finishSave: (response: Response) => void = () => {};
+		stubFetch(() => new Promise<Response>((resolve) => (finishSave = resolve)));
+		renderLog();
+		await fireEvent.click(await screen.findByRole('button', { name: 'Dental readiness' }));
+		const first = screen.getByRole('form', { name: 'Edit follow-up Dental readiness' });
+		await fireEvent.input(within(first).getByLabelText('Follow-up title'), { target: { value: 'Dental exam' } });
+		await fireEvent.submit(first);
+		await fireEvent.click(screen.getByRole('button', { name: 'Strong week at the range.' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Dental readiness' }));
+		const reopened = screen.getByRole('form', { name: 'Edit follow-up Dental readiness' });
+		await fireEvent.input(within(reopened).getByLabelText('Follow-up title'), { target: { value: 'Newer draft' } });
+
+		finishSave(jsonResponse({ title: 'Dental exam' }));
+
+		await waitFor(() => expect(screen.queryByRole('form', { name: 'Edit follow-up Dental readiness' })).toBeNull());
+		const survivor = screen.getByRole('form', { name: 'Edit follow-up Dental exam' });
+		expect((within(survivor).getByLabelText('Follow-up title') as HTMLInputElement).value).toBe('Newer draft');
+		expect(document.activeElement).toBe(within(survivor).getByLabelText('Follow-up title'));
+	});
+
+	it('keeps a reopened note editor and its draft when the earlier save of that note finishes', async () => {
+		let finishSave: (response: Response) => void = () => {};
+		stubFetch(() => new Promise<Response>((resolve) => (finishSave = resolve)));
+		renderLog();
+		await fireEvent.click(await screen.findByRole('button', { name: 'Strong week at the range.' }));
+		const first = screen.getByRole('form', { name: 'Edit note' });
+		await fireEvent.input(within(first).getByLabelText('Note text'), { target: { value: 'Excellent week.' } });
+		await fireEvent.submit(first);
+		await fireEvent.click(screen.getByRole('button', { name: 'Dental readiness' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Strong week at the range.' }));
+		const reopened = screen.getByRole('form', { name: 'Edit note' });
+		await fireEvent.input(within(reopened).getByLabelText('Note text'), { target: { value: 'Newer draft' } });
+
+		finishSave(jsonResponse({ text: 'Excellent week.' }));
+
+		await within(reopened).findByRole('button', { name: 'Save' });
+		await new Promise((resolve) => setTimeout(resolve));
+		const survivor = screen.getByRole('form', { name: 'Edit note' });
+		expect((within(survivor).getByLabelText('Note text') as HTMLTextAreaElement).value).toBe('Newer draft');
+	});
+
+	it('disables Archive and Save while a save is pending', async () => {
+		let finishSave: (response: Response) => void = () => {};
+		const fetchMock = stubFetch(() => new Promise<Response>((resolve) => (finishSave = resolve)));
+		renderLog();
+		await fireEvent.click(await screen.findByRole('button', { name: 'Dental readiness' }));
+		const editor = screen.getByRole('form', { name: 'Edit follow-up Dental readiness' });
+		await fireEvent.submit(editor);
+
+		expect((within(editor).getByRole('button', { name: 'Archive' }) as HTMLButtonElement).disabled).toBe(true);
+		expect((within(editor).getByRole('button', { name: 'Saving...' }) as HTMLButtonElement).disabled).toBe(true);
+		await fireEvent.submit(editor);
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+
+		finishSave(jsonResponse({}));
+		await waitFor(() => expect(screen.queryByRole('form')).toBeNull());
+	});
+
+	it('moves focus back to the title after a save closes its editor', async () => {
+		stubFetch(() => jsonResponse({ title: 'Dental exam' }));
+		renderLog();
+		await fireEvent.click(await screen.findByRole('button', { name: 'Dental readiness' }));
+		const editor = screen.getByRole('form', { name: 'Edit follow-up Dental readiness' });
+		await fireEvent.input(within(editor).getByLabelText('Follow-up title'), { target: { value: 'Dental exam' } });
+		await fireEvent.submit(editor);
+
+		const title = await screen.findByRole('button', { name: 'Dental exam' });
+		await waitFor(() => expect(document.activeElement).toBe(title));
 	});
 });
 

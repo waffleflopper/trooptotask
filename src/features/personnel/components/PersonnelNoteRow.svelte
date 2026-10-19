@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import * as InlineEditRow from '$lib/components/patterns/inline-edit-row';
-	import { Button } from '$lib/components/ui/button';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import type { PersonnelLeaderNote } from '../contracts';
 	import { formatTimestampDayMonth, formatTimestampYear } from '../logModel';
@@ -18,31 +17,43 @@
 	let { note, list, editing, onEdit, onStopEditing }: Props = $props();
 
 	let text = $state('');
-	let saving = $state(false);
+	let pending = $state<'save' | 'archive' | null>(null);
+	// A save or archive that finishes after its editor closed or reopened must not close the newer editor.
+	let session = 0;
+	$effect(() => () => session++);
 	let textButton = $state<HTMLElement | null>(null);
 
 	const error = $derived(list.rowErrors[note.id] ?? '');
 
 	function startEdit() {
+		session++;
 		text = note.text;
 		onEdit();
 	}
 
 	async function stopEditing() {
+		session++;
 		onStopEditing();
 		await tick();
 		textButton?.focus();
 	}
 
 	async function save() {
-		saving = true;
+		if (pending) return;
+		const mine = session;
+		pending = 'save';
 		const saved = await list.save(note.id, text);
-		saving = false;
-		if (saved && editing) await stopEditing();
+		pending = null;
+		if (saved && mine === session && editing) await stopEditing();
 	}
 
 	async function archive() {
-		if (await list.archive(note.id)) onStopEditing();
+		if (pending) return;
+		const mine = session;
+		pending = 'archive';
+		const archived = await list.archive(note.id);
+		pending = null;
+		if (archived && mine === session) onStopEditing();
 	}
 
 	const focusOnMount = (node: HTMLElement) => node.focus();
@@ -58,7 +69,7 @@
 			<InlineEditRow.Root
 				{editing}
 				label="Edit note"
-				{saving}
+				{pending}
 				{error}
 				onSave={save}
 				onCancel={stopEditing}
@@ -66,16 +77,9 @@
 			>
 				{#snippet display()}
 					<div class="grid gap-1.5">
-						<Button
-							bind:ref={textButton}
-							type="button"
-							variant="ghost"
-							size="none"
-							class="h-auto min-w-0 justify-start px-0 text-left text-[15px] font-normal whitespace-pre-wrap wrap-anywhere hover:bg-transparent hover:underline dark:hover:bg-transparent"
-							onclick={startEdit}
-						>
+						<InlineEditRow.Trigger bind:ref={textButton} onclick={startEdit}>
 							{note.text}
-						</Button>
+						</InlineEditRow.Trigger>
 						<p class="text-[13px] text-muted-foreground">{note.author}</p>
 						{#if error}
 							<p role="alert" class="text-sm text-destructive-text">{error}</p>

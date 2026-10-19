@@ -7,7 +7,8 @@
 		editing: boolean;
 		/** Names the open editor for assistive technology. */
 		label: string;
-		saving?: boolean;
+		/** The command in flight. It disables every footer action so a second command cannot overlap it. */
+		pending?: 'save' | 'archive' | null;
 		error?: string;
 		onSave: () => void;
 		onCancel: () => void;
@@ -22,7 +23,7 @@
 	let {
 		editing,
 		label,
-		saving = false,
+		pending = null,
 		error = '',
 		onSave,
 		onCancel,
@@ -59,14 +60,21 @@
 			<div class="flex flex-wrap items-center gap-3">
 				{@render lead?.()}
 				{#if onArchive}
-					<Button type="button" variant="link" size="sm" class="text-muted-foreground" onclick={onArchive}>
+					<Button
+						type="button"
+						variant="link"
+						size="sm"
+						class="text-muted-foreground"
+						disabled={pending !== null}
+						onclick={onArchive}
+					>
 						Archive
 					</Button>
 				{/if}
 			</div>
 			<div class="flex gap-2">
 				<Button type="button" variant="outline" size="sm" onclick={onCancel}>Cancel</Button>
-				<Button type="submit" size="sm" disabled={saving}>{saving ? 'Saving...' : 'Save'}</Button>
+				<Button type="submit" size="sm" disabled={pending !== null}>{pending === 'save' ? 'Saving...' : 'Save'}</Button>
 			</div>
 		</div>
 		{#if error}

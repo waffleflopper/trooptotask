@@ -23,7 +23,10 @@
 	let { row, today, list, editing, onEdit, onStopEditing }: Props = $props();
 
 	let edit = $state<FollowUpEdit>({ title: '', notes: '', dueDate: '' });
-	let saving = $state(false);
+	let pending = $state<'save' | 'archive' | null>(null);
+	// A save or archive that finishes after its editor closed or reopened must not close the newer editor.
+	let session = 0;
+	$effect(() => () => session++);
 	let titleButton = $state<HTMLElement | null>(null);
 
 	const completed = $derived(row.status === 'completed');
@@ -40,25 +43,34 @@
 	});
 
 	function startEdit() {
+		session++;
 		edit = { title: row.title, notes: row.notes, dueDate: row.dueDate ?? '' };
 		onEdit();
 	}
 
 	async function stopEditing() {
+		session++;
 		onStopEditing();
 		await tick();
 		titleButton?.focus();
 	}
 
 	async function save() {
-		saving = true;
+		if (pending) return;
+		const mine = session;
+		pending = 'save';
 		const saved = await list.save(row.id, edit);
-		saving = false;
-		if (saved && editing) await stopEditing();
+		pending = null;
+		if (saved && mine === session && editing) await stopEditing();
 	}
 
 	async function archive() {
-		if (await list.archive(row.id)) onStopEditing();
+		if (pending) return;
+		const mine = session;
+		pending = 'archive';
+		const archived = await list.archive(row.id);
+		pending = null;
+		if (archived && mine === session) onStopEditing();
 	}
 
 	const focusOnMount = (node: HTMLElement) => node.focus();
@@ -68,7 +80,7 @@
 	<InlineEditRow.Root
 		{editing}
 		label={`Edit follow-up ${row.title}`}
-		{saving}
+		{pending}
 		{error}
 		onSave={save}
 		onCancel={stopEditing}
@@ -84,19 +96,9 @@
 					aria-label={completed ? `Reopen ${row.title}` : `Complete ${row.title}`}
 				/>
 				<div class="grid min-w-0 gap-0.5">
-					<Button
-						bind:ref={titleButton}
-						type="button"
-						variant="ghost"
-						size="none"
-						class={cn(
-							'h-auto min-w-0 justify-start px-0 text-left text-[15px] font-normal whitespace-normal wrap-anywhere hover:bg-transparent hover:underline dark:hover:bg-transparent',
-							completed && 'text-muted-foreground line-through'
-						)}
-						onclick={startEdit}
-					>
+					<InlineEditRow.Trigger bind:ref={titleButton} struck={completed} onclick={startEdit}>
 						{row.title}
-					</Button>
+					</InlineEditRow.Trigger>
 					<p class="truncate text-[13px] text-muted-foreground">{detail}</p>
 				</div>
 				{#if completed}

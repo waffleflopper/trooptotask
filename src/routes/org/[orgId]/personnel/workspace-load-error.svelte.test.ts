@@ -53,6 +53,7 @@ function rejectedRouteData() {
 		overview: {
 			nextDays: pending(),
 			attention: pending(),
+			openFollowUps: pending(),
 			evaluation: pending(),
 			reach: pending(),
 			lastCounseling: pending(),

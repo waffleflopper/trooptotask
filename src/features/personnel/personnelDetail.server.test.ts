@@ -2,11 +2,7 @@ import { withPersonnelPersistence } from './personnelPersistence.test-support.se
 import { describe, expect, it, vi } from 'vitest';
 import { createTestContext as basecreateTestContext } from '$lib/server/adapters/inMemory';
 
-import {
-	loadAvailabilityReadinessLane,
-	loadLossTrackingReadinessLane,
-	loadPersonnelDetailHeader
-} from './personnelDetail.server';
+import { loadAvailabilityReadinessLane, loadPersonnelDetailHeader } from './personnelDetail.server';
 const createTestContext = (overrides?: Parameters<typeof basecreateTestContext>[0]) =>
 	withPersonnelPersistence(basecreateTestContext(overrides));
 
@@ -100,18 +96,6 @@ describe('personnel readiness lanes', () => {
 		expect(statusTypes).not.toHaveBeenCalled();
 	});
 
-	it('calculates Loss Tracking from the Soldier ETS proximity', async () => {
-		const ctx = createTestContext();
-		const person = await seedPerson(ctx, { ets: '2026-06-20' });
-
-		await expect(loadLossTrackingReadinessLane(ctx, person, AS_OF, async () => null)).resolves.toMatchObject({
-			label: 'Loss Tracking',
-			value: 'Action needed',
-			detail: 'ETS Jun 20, 2026 is 37 days away.',
-			tone: 'watch'
-		});
-	});
-
 	it('retains the archived parent identity, record fields and service dates in the shared header', async () => {
 		const ctx = createTestContext();
 		await seedPerson(ctx, {
@@ -200,91 +184,5 @@ describe('personnel readiness lanes', () => {
 				listStatusTypes
 			)
 		).resolves.toMatchObject({ value: 'Unavailable', tone: 'watch' });
-	});
-
-	it('reports missing ETS without reading settings even when DEROS is imminent', async () => {
-		const ctx = createTestContext();
-		const person = await seedPerson(ctx, { ets: null, deros: '2026-05-15' });
-		const window = vi.fn(async () => 30);
-		await expect(loadLossTrackingReadinessLane(ctx, person, AS_OF, window)).resolves.toMatchObject({
-			value: 'Missing ETS',
-			tone: 'bad'
-		});
-		expect(window).not.toHaveBeenCalled();
-	});
-
-	it.each([
-		{ ets: '2026-05-13', window: 30, value: 'Action needed', tone: 'bad' },
-		{ ets: '2026-05-14', window: 0, value: 'Action needed', tone: 'watch' },
-		{ ets: '2026-05-15', window: 0, value: 'No loss risk', tone: 'good' },
-		{ ets: '2026-06-13', window: 30, value: 'Action needed', tone: 'watch' },
-		{ ets: '2026-06-14', window: 30, value: 'No loss risk', tone: 'good' }
-	])('evaluates ETS $ets with the inclusive $window-day window', async ({ ets, window, value, tone }) => {
-		const ctx = createTestContext();
-		const person = await seedPerson(ctx, { ets, deros: '2026-05-15' });
-		await expect(loadLossTrackingReadinessLane(ctx, person, AS_OF, async () => window)).resolves.toMatchObject({
-			value,
-			tone
-		});
-	});
-
-	it('says loss warnings are unavailable instead of guessing a window when settings fail', async () => {
-		const ctx = createTestContext();
-		const person = await seedPerson(ctx, { ets: '2026-07-14' });
-		await expect(
-			loadLossTrackingReadinessLane(ctx, person, AS_OF, async () => {
-				throw new Error('Settings unavailable');
-			})
-		).resolves.toMatchObject({ value: 'Unavailable', tone: 'neutral' });
-	});
-
-	it('still reports a passed ETS when settings fail', async () => {
-		const ctx = createTestContext();
-		const person = await seedPerson(ctx, { ets: '2026-05-13' });
-		await expect(
-			loadLossTrackingReadinessLane(ctx, person, AS_OF, async () => {
-				throw new Error('Settings unavailable');
-			})
-		).resolves.toMatchObject({ value: 'Action needed', tone: 'bad' });
-	});
-
-	it('does not flag an ETS 61 days out under a stored 60-day window', async () => {
-		const ctx = createTestContext();
-		const person = await seedPerson(ctx, { ets: '2026-07-14' });
-		await expect(loadLossTrackingReadinessLane(ctx, person, AS_OF, async () => 60)).resolves.toMatchObject({
-			value: 'No loss risk',
-			tone: 'good'
-		});
-	});
-
-	it('uses the default window when the setting is absent', async () => {
-		const ctx = createTestContext();
-		const person = await seedPerson(ctx, { ets: '2026-11-10' });
-		await expect(loadLossTrackingReadinessLane(ctx, person, AS_OF, async () => null)).resolves.toMatchObject({
-			value: 'Action needed',
-			tone: 'watch'
-		});
-	});
-
-	it('denies a Personnel loss read before consulting Organization settings', async () => {
-		const ctx = createTestContext({
-			auth: {
-				role: 'member',
-				capabilityMap: {
-					calendar: 'none',
-					personnel: 'none',
-					training: 'none',
-					criticalTasks: 'none',
-					onboarding: 'none',
-					ratingScheme: 'none'
-				}
-			}
-		});
-		const person = await seedPerson(ctx);
-		const settings = vi.fn(async () => 30);
-		await expect(loadLossTrackingReadinessLane(ctx, person, AS_OF, settings)).rejects.toMatchObject({
-			status: 403
-		});
-		expect(settings).not.toHaveBeenCalled();
 	});
 });

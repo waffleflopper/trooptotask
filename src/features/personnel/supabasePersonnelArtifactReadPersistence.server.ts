@@ -38,7 +38,7 @@ export function createSupabasePersonnelArtifactReadPersistence(
 			});
 			return { openFollowUps, archived: archived.reduce((sum, count) => sum + count, 0) };
 		},
-		async listCounselingRecords(personnelId, { archived, limit }) {
+		async listCounselingRecords(personnelId, { archived, limit, onOrBefore }) {
 			const rows: CounselingRecordRow[] = [];
 			if (limit === 0) return rows;
 			for (let offset = 0; ; offset += 1000) {
@@ -48,6 +48,7 @@ export function createSupabasePersonnelArtifactReadPersistence(
 					.eq('organization_id', orgId)
 					.eq('personnel_id', personnelId);
 				query = archived ? query.not('archived_at', 'is', null) : query.is('archived_at', null);
+				if (onOrBefore) query = query.lte('date_conducted', onOrBefore);
 				query = query.order('date_conducted', { ascending: false });
 				query = query.order('created_at', { ascending: false });
 				const to = limit === undefined ? offset + 999 : Math.min(offset + 999, limit - 1);

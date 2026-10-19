@@ -71,7 +71,7 @@ const detailTabs = 'nav[aria-label="Personnel detail sections"]';
 const streamsPending = ['[aria-label$=" loading"]', skeleton];
 const detailHeaderShown = { presentSelector: [detailTabs] };
 const detailSettled = {
-	presentSelector: [detailTabs, '[aria-label="Readiness summary"]'],
+	presentSelector: [detailTabs, 'section[aria-label="Needs attention"]'],
 	absentSelector: streamsPending
 };
 const detailPath = (terms) => org(terms, `/personnel/${terms.edit.slug}`);

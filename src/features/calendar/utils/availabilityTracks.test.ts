@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import type { AvailabilityEntry, StatusType } from '$features/calendar/contracts';
 import { buildAvailabilityTracks } from './availabilityTracks';
-import { dayWindow, fromDayNumber, toDayNumber } from './dayNumber';
+import { dayWindow, fromDayNumber, toDayNumber } from '$lib/utils/dayNumber';
 
 const leave: StatusType = {
 	id: 'leave',

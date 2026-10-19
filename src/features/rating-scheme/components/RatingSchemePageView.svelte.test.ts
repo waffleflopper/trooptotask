@@ -17,6 +17,15 @@ const { exportRatingSchemeMock } = vi.hoisted(() => ({
 	exportRatingSchemeMock: vi.fn(async (_entries: unknown[], _personnel: unknown[]) => undefined)
 }));
 
+const pageState = vi.hoisted(() => ({ url: new URL('http://localhost/org/org-1/evals'), state: {} }));
+
+vi.mock('$app/state', () => ({ page: pageState }));
+vi.mock('$app/navigation', () => ({
+	replaceState: (url: URL) => {
+		pageState.url = new URL(url);
+	}
+}));
+
 vi.mock('$features/rating-scheme/utils/ratingSchemeExport', () => ({
 	exportRatingScheme: exportRatingSchemeMock
 }));
@@ -93,6 +102,33 @@ describe('RatingSchemePageView', () => {
 		cleanup();
 		vi.restoreAllMocks();
 		ratingSchemeStore.load([], 'org-test-reset');
+		pageState.url = new URL('http://localhost/org/org-1/evals');
+	});
+
+	it('opens the entry a person page links to, once', async () => {
+		pageState.url = new URL('http://localhost/org/org-1/evals?entry=due-30');
+		const modals = new ModalRegistry();
+		const ctx = makeContext(modals);
+		render(RatingSchemePageView, { props: { ctx, personnelLookup } });
+		await tick();
+
+		expect(modals.isOpen('rating-modal')).toBe(true);
+		expect(modals.payload<{ entry: { id: string } | null }>('rating-modal')?.entry?.id).toBe('due-30');
+		expect(pageState.url.search).toBe('');
+
+		modals.close('rating-modal');
+		await tick();
+
+		expect(modals.isOpen('rating-modal')).toBe(false);
+	});
+
+	it('leaves a linked entry closed for a viewer who cannot edit it', async () => {
+		pageState.url = new URL('http://localhost/org/org-1/evals?entry=due-30');
+		const modals = new ModalRegistry();
+		render(RatingSchemePageView, { props: { ctx: makeContext(modals, makeOrg('view')), personnelLookup } });
+		await tick();
+
+		expect(modals.isOpen('rating-modal')).toBe(false);
 	});
 
 	it('renders the Evals summary with only overdue, 60d, and 30d stats', () => {

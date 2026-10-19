@@ -4,8 +4,8 @@
 	import { getMonthDates, getMonthName, addMonths } from '$lib/utils/dates';
 	import BarTrack from './calendar-bars/BarTrack.svelte';
 	import type { AvailabilityTracks } from '$features/calendar/utils/availabilityTracks';
-	import { dayWindow } from '$features/calendar/utils/dayNumber';
-	import type { LabelPolicy } from '$features/calendar/utils/barLayout';
+	import { dayWindow } from '$lib/utils/dayNumber';
+	import type { LabelPolicy } from '$lib/components/patterns/calendar-bars';
 	import { buildCalendarDays } from '$features/calendar/utils/calendarRenderState';
 	import { buildVirtualRowLayout, getVisibleVirtualRows } from '$features/calendar/utils/virtualRows';
 	import { Button } from '$lib/components/ui/button';

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fitsOneDayLabel, normalizeShortLabel, oneDayLabel, suggestOneDayLabel } from './oneDayLabel';
+import { fitsOneDayLabel, normalizeShortLabel, oneDayLabel, suggestOneDayLabel } from './one-day-label';
 
 describe('oneDayLabel', () => {
 	it.each([

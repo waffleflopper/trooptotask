@@ -1625,13 +1625,14 @@ function createTestArtifactReadPersistence(store: FixtureRowStore, orgId: string
 					notes.length
 			};
 		},
-		listCounselingRecords: (personnelId, { archived, limit }) =>
+		listCounselingRecords: (personnelId, { archived, limit, onOrBefore }) =>
 			store.findMany(
 				'counseling_records',
 				orgId,
 				{ personnel_id: personnelId },
 				{
 					isNull: { archived_at: !archived },
+					rangeFilters: onOrBefore ? [{ column: 'date_conducted', op: 'lte', value: onOrBefore }] : undefined,
 					limit,
 					orderBy: [
 						{ column: 'date_conducted', ascending: false },

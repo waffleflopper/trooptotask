@@ -23,7 +23,7 @@ export function testPersonnelArtifactsContext(ctx: ReturnType<typeof createTestC
 				return (await ctx.rawStore.findOne<{ group_id: string | null }>('personnel', orgId, { id: personnelId }))
 					?.group_id;
 			},
-			listCounselingRecords: (personnelId, { archived, limit }) =>
+			listCounselingRecords: (personnelId, { archived, limit, onOrBefore }) =>
 				ctx.store.findMany<CounselingRecordRow>(
 					'counseling_records',
 					orgId,
@@ -34,6 +34,7 @@ export function testPersonnelArtifactsContext(ctx: ReturnType<typeof createTestC
 							{ column: 'created_at', ascending: false }
 						],
 						isNull: { archived_at: !archived },
+						rangeFilters: onOrBefore ? [{ column: 'date_conducted', op: 'lte', value: onOrBefore }] : undefined,
 						limit
 					}
 				),

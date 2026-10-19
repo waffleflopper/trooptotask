@@ -90,9 +90,7 @@ export { loadPersonnelWorkspace } from './personnelWorkspaceQuery.server';
 export {
 	loadPersonnelDetailHeader,
 	authorizePersonnelLane,
-	loadAvailabilityReadinessLane,
 	loadAvailabilityToday,
-	loadLossTrackingReadinessLane,
 	loadPersonnelDetailTabCounts
 } from './personnelDetail.server';
 export { loadPersonnelLossReadiness } from './personnelLossReadiness.server';
@@ -109,6 +107,7 @@ export type {
 } from './personnelArtifactContext.server';
 export {
 	listPersonnelCounselingRecords,
+	readLastPersonnelCounseling,
 	createPersonnelCounselingRecord,
 	archivePersonnelCounselingRecord,
 	restorePersonnelCounselingRecord,

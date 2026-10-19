@@ -62,7 +62,7 @@ export interface PersonnelArtifactReadPersistence {
 	countRecords(personnelId: string): Promise<PersonnelRecordCounts>;
 	listCounselingRecords(
 		personnelId: string,
-		options: { archived: boolean; limit?: number }
+		options: { archived: boolean; limit?: number; onOrBefore?: string }
 	): Promise<CounselingRecordRow[]>;
 	listDocuments(personnelId: string, options: { archived: boolean; limit?: number }): Promise<PersonnelDocumentRow[]>;
 	listFollowUps(personnelId: string, options: { archived: boolean; limit?: number }): Promise<FollowUpRow[]>;

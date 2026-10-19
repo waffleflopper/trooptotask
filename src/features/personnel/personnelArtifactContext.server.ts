@@ -15,7 +15,7 @@ export interface PersonnelArtifactsContext {
 		findPersonnelGroup(personnelId: string): Promise<string | null | undefined>;
 		listCounselingRecords(
 			personnelId: string,
-			options: { archived: boolean; limit?: number }
+			options: { archived: boolean; limit?: number; onOrBefore?: string }
 		): Promise<CounselingRecordRow[]>;
 		listDocuments(personnelId: string, options: { archived: boolean; limit?: number }): Promise<PersonnelDocumentRow[]>;
 		listFollowUps(personnelId: string, options: { archived: boolean; limit?: number }): Promise<FollowUpRow[]>;

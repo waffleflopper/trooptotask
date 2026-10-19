@@ -1,8 +1,9 @@
 import type { AvailabilityEntry, StatusType } from '$features/calendar/contracts';
 import { availabilityEntryLabel } from './availabilityLabels';
 import type { BulkAddOverlap } from './availabilityMutation';
-import { layoutBars, type AvailabilitySpan, type BarLayout } from './barLayout';
-import { DAY_MS, dayWindow, toDayNumber, type DayWindow } from './dayNumber';
+import { layoutBars } from '$lib/components/patterns/calendar-bars';
+import type { CalendarBarLayout, CalendarSpan } from '$features/calendar/utils/calendarBars';
+import { DAY_MS, dayWindow, toDayNumber, type DayWindow } from '$lib/utils/dayNumber';
 
 /** Ranges up to this many days draw a day strip per person; longer ranges show only the hint text. */
 export const MAX_STRIP_DAYS = 31;
@@ -23,7 +24,7 @@ export interface BulkRosterAvailabilityRow {
 	/** Names every intersecting entry, same status first; null when the person has none. */
 	readonly hint: string | null;
 	/** The person's bars over `window`; null when the range is too long to draw. */
-	readonly bars: BarLayout | null;
+	readonly bars: CalendarBarLayout | null;
 }
 
 export interface BulkRosterAvailability {
@@ -86,9 +87,9 @@ export function projectBulkRosterAvailability(input: {
 
 	const rows = new Map<string, BulkRosterAvailabilityRow>();
 	for (const [personnelId, overlap] of overlaps) {
-		let bars: BarLayout | null = null;
+		let bars: CalendarBarLayout | null = null;
 		if (window) {
-			const spans: AvailabilitySpan[] = [];
+			const spans: CalendarSpan[] = [];
 			for (const entry of [...overlap.sameStatus, ...overlap.otherStatus]) {
 				const status = statuses.get(entry.statusTypeId);
 				if (status) {

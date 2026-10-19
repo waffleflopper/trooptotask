@@ -6,13 +6,13 @@ import { buildAvailabilityTracks } from './availabilityTracks';
 import {
 	fitMarkers,
 	fittedLabel,
-	type Bar,
+	oneDayLabel,
 	type BarLabel,
-	type BarOverflow,
 	type LabelFit,
 	type MarkedDay,
 	type TrackPiece
-} from './barLayout';
+} from '$lib/components/patterns/calendar-bars';
+import type { CalendarBar, CalendarBarOverflow } from '$features/calendar/utils/calendarBars';
 import type { CalendarExportOptions } from './calendarExport';
 import {
 	buildCalendarDays,
@@ -20,8 +20,7 @@ import {
 	type CalendarCellMarkerState,
 	type CalendarDateHeaderState
 } from './calendarRenderState';
-import { dayWindow, toDayNumber } from './dayNumber';
-import { oneDayLabel } from './oneDayLabel';
+import { dayWindow, toDayNumber } from '$lib/utils/dayNumber';
 
 export interface CalendarPrintOptions extends CalendarExportOptions {
 	organizationName: string;
@@ -33,8 +32,8 @@ type Rgb = readonly [number, number, number];
 interface PersonLine {
 	readonly kind: 'person';
 	readonly person: Personnel;
-	readonly bars: readonly Bar[];
-	readonly overflows: readonly BarOverflow[];
+	readonly bars: readonly CalendarBar[];
+	readonly overflows: readonly CalendarBarOverflow[];
 	readonly markers: readonly MarkedDay[];
 	readonly duties: ReadonlyMap<number, readonly CalendarCellMarkerState[]>;
 }
@@ -412,7 +411,7 @@ function drawPersonRow(
 	}
 }
 
-type LaneBounds = Record<Bar['lane'], { top: number; bottom: number }>;
+type LaneBounds = Record<CalendarBar['lane'], { top: number; bottom: number }>;
 
 function laneBounds(view: PrintView, y: number, height: number): LaneBounds {
 	const inset = GEOMETRY[view].barInset;
@@ -442,7 +441,7 @@ function widest(boxes: readonly { width: number }[]): number {
 function drawBar(
 	doc: jsPDF,
 	sheet: Sheet,
-	bar: Bar,
+	bar: CalendarBar,
 	lane: { top: number; bottom: number },
 	gridLeft: number,
 	dayWidth: number
@@ -490,7 +489,7 @@ function drawBar(
  * The layout fits labels to a whole span at the full-lane size. A lane bar draws smaller text, and a duty day can cut it,
  * so its label is fitted again to the piece that carries it.
  */
-function laneLabel(sheet: Sheet, bar: Bar, width: number, index: number, count: number): BarLabel {
+function laneLabel(sheet: Sheet, bar: CalendarBar, width: number, index: number, count: number): BarLabel {
 	const days = toDayNumber(bar.entry.endDate) - toDayNumber(bar.entry.startDate) + 1;
 	const chevrons = Number(index === 0 && bar.continuesBefore) + Number(index === count - 1 && bar.continuesAfter);
 	return fittedLabel(bar.status, days, width + 1.2, chevrons, sheet.laneFits);
@@ -512,7 +511,7 @@ function labelText(label: BarLabel): string {
 
 function drawOverflow(
 	doc: jsPDF,
-	overflow: BarOverflow,
+	overflow: CalendarBarOverflow,
 	lane: { top: number; bottom: number },
 	gridLeft: number,
 	dayWidth: number

@@ -1,10 +1,23 @@
-import type { AvailabilityEntry, StatusType } from '$features/calendar/contracts';
-import { DAY_MS, type DayNumber, type DayWindow } from './dayNumber';
-import { oneDayLabel } from './oneDayLabel';
+import { DAY_MS, type DayNumber, type DayWindow } from '$lib/utils/dayNumber';
+import { oneDayLabel } from './one-day-label';
 
-export interface AvailabilitySpan {
-	readonly entry: AvailabilityEntry;
-	readonly status: StatusType;
+/** The entry fields a bar reads; callers keep their own entry type through the generics. */
+export interface BarEntry {
+	readonly id: string;
+	readonly note?: string | null;
+}
+
+export interface BarStatus {
+	readonly name: string;
+	/** The stored one-day label, or null to derive one from the name. */
+	readonly shortLabel: string | null;
+	readonly color: string;
+	readonly textColor: string;
+}
+
+export interface AvailabilitySpan<E extends BarEntry = BarEntry, S extends BarStatus = BarStatus> {
+	readonly entry: E;
+	readonly status: S;
 	readonly start: DayNumber;
 	readonly end: DayNumber;
 }
@@ -14,6 +27,8 @@ export type LabelFit = (text: string, width: number, chevrons: number) => boolea
 
 export type LabelPolicy =
 	| { readonly view: 'month'; readonly showStatusText: boolean }
+	/** The status name alone; the strip's legend carries dates and notes. */
+	| { readonly view: 'strip' }
 	| { readonly view: '3-month'; readonly dayPx: number }
 	| { readonly view: 'print'; readonly dayWidth: number; readonly fits: LabelFit };
 
@@ -34,9 +49,9 @@ export interface TrackPiece {
 	readonly yieldsEnd: boolean;
 }
 
-export interface Bar {
-	readonly entry: AvailabilityEntry;
-	readonly status: StatusType;
+export interface Bar<E extends BarEntry = BarEntry, S extends BarStatus = BarStatus> {
+	readonly entry: E;
+	readonly status: S;
 	readonly start: number;
 	readonly end: number;
 	readonly lane: BarLane;
@@ -48,17 +63,17 @@ export interface Bar {
 	readonly pieces?: readonly TrackPiece[];
 }
 
-export interface BarOverflow {
+export interface BarOverflow<E extends BarEntry = BarEntry, S extends BarStatus = BarStatus> {
 	readonly start: number;
 	readonly end: number;
-	readonly spans: readonly AvailabilitySpan[];
+	readonly spans: readonly AvailabilitySpan<E, S>[];
 	readonly description: string;
 	readonly pieces?: readonly TrackPiece[];
 }
 
-export interface BarLayout {
-	readonly bars: readonly Bar[];
-	readonly overflows: readonly BarOverflow[];
+export interface BarLayout<E extends BarEntry = BarEntry, S extends BarStatus = BarStatus> {
+	readonly bars: readonly Bar<E, S>[];
+	readonly overflows: readonly BarOverflow<E, S>[];
 }
 
 const MONTHS = [
@@ -83,8 +98,8 @@ const GLYPH_PX = Math.ceil(LABEL_FONT_PX * MONO_ADVANCE_EM);
 const PADDING_PX = 10;
 const CHEVRON_PX = 8;
 
-interface Placed {
-	readonly span: AvailabilitySpan;
+interface Placed<E extends BarEntry = BarEntry, S extends BarStatus = BarStatus> {
+	readonly span: AvailabilitySpan<E, S>;
 	readonly start: number;
 	readonly end: number;
 	readonly continuesBefore: boolean;
@@ -147,6 +162,7 @@ export function barLabel(placed: Placed, policy: LabelPolicy): BarLabel {
 	const name = span.status.name;
 	const note = span.entry.note?.trim();
 
+	if (policy.view === 'strip') return { kind: 'name', text: name };
 	if (policy.view === 'month') {
 		if (policy.showStatusText) return note ? { kind: 'name-note', name, note } : { kind: 'name', text: name };
 		if (visibleDays === 1) return { kind: 'one-day', text: oneDayLabel(span.status) };
@@ -161,7 +177,7 @@ export function barLabel(placed: Placed, policy: LabelPolicy): BarLabel {
 
 /** The longest of name with length, one-day label with length, or one-day label alone that fits `width`. */
 export function fittedLabel(
-	status: Pick<StatusType, 'name' | 'shortLabel'>,
+	status: Pick<BarStatus, 'name' | 'shortLabel'>,
 	days: number,
 	width: number,
 	chevrons: number,
@@ -175,9 +191,12 @@ export function fittedLabel(
 	return { kind: 'none' };
 }
 
-function place(spans: readonly AvailabilitySpan[], window: DayWindow): Placed[] {
+function place<E extends BarEntry, S extends BarStatus>(
+	spans: readonly AvailabilitySpan<E, S>[],
+	window: DayWindow
+): Placed<E, S>[] {
 	const last = window.days - 1;
-	const placed: Placed[] = [];
+	const placed: Placed<E, S>[] = [];
 	for (const span of spans) {
 		const start = span.start - window.start;
 		const end = span.end - window.start;
@@ -214,7 +233,7 @@ function assignLanes(cluster: readonly Placed[]): number[] {
 	});
 }
 
-function overflowFor(items: readonly Placed[]): BarOverflow {
+function overflowFor<E extends BarEntry, S extends BarStatus>(items: readonly Placed<E, S>[]): BarOverflow<E, S> {
 	const start = Math.min(...items.map((item) => item.start));
 	const end = Math.max(...items.map((item) => item.end));
 	const first = Math.min(...items.map((item) => item.span.start));
@@ -227,11 +246,15 @@ function overflowFor(items: readonly Placed[]): BarOverflow {
 	};
 }
 
-export function layoutBars(spans: readonly AvailabilitySpan[], window: DayWindow, policy: LabelPolicy): BarLayout {
+export function layoutBars<E extends BarEntry, S extends BarStatus>(
+	spans: readonly AvailabilitySpan<E, S>[],
+	window: DayWindow,
+	policy: LabelPolicy
+): BarLayout<E, S> {
 	const placed = place(spans, window);
-	const bars: Bar[] = [];
-	const overflows: BarOverflow[] = [];
-	const bar = (item: Placed, lane: BarLane): Bar => ({
+	const bars: Bar<E, S>[] = [];
+	const overflows: BarOverflow<E, S>[] = [];
+	const bar = (item: Placed<E, S>, lane: BarLane): Bar<E, S> => ({
 		entry: item.span.entry,
 		status: item.span.status,
 		start: item.start,
@@ -262,8 +285,8 @@ export function layoutBars(spans: readonly AvailabilitySpan[], window: DayWindow
 }
 
 /** Splits start-sorted items into runs that share a day, directly or through each other. */
-function overlapGroups(items: readonly Placed[]): Placed[][] {
-	const groups: Placed[][] = [];
+function overlapGroups<T extends Placed<BarEntry, BarStatus>>(items: readonly T[]): T[][] {
+	const groups: T[][] = [];
 	let reach = -Infinity;
 	for (const item of items) {
 		if (item.start > reach) groups.push([]);
@@ -279,8 +302,8 @@ export interface MarkedDay {
 	readonly shared: boolean;
 }
 
-export interface MarkerFit {
-	readonly layout: BarLayout;
+export interface MarkerFit<E extends BarEntry = BarEntry, S extends BarStatus = BarStatus> {
+	readonly layout: BarLayout<E, S>;
 	readonly markers: readonly MarkedDay[];
 }
 
@@ -289,12 +312,15 @@ export interface MarkerFit {
  * A full-height bar across it drops to the top lane. A lower bar or summary already in that lane keeps the
  * first quarter of the day and resumes on the next, because a fixed-height row has no third lane to move to.
  */
-export function fitMarkers(layout: BarLayout, markerDays: readonly number[]): MarkerFit {
+export function fitMarkers<E extends BarEntry, S extends BarStatus>(
+	layout: BarLayout<E, S>,
+	markerDays: readonly number[]
+): MarkerFit<E, S> {
 	if (markerDays.length === 0) return { layout, markers: [] };
 	const days = [...markerDays].sort((a, b) => a - b);
 	const within = (item: { start: number; end: number }) => days.filter((day) => day >= item.start && day <= item.end);
 	const shared = new Set<number>();
-	const cut = <T extends Bar | BarOverflow>(item: T): T => {
+	const cut = <T extends Bar<E, S> | BarOverflow<E, S>>(item: T): T => {
 		const cuts = within(item);
 		if (cuts.length === 0) return item;
 		const pieces: TrackPiece[] = [];
@@ -307,7 +333,7 @@ export function fitMarkers(layout: BarLayout, markerDays: readonly number[]): Ma
 		if (start <= item.end) pieces.push({ start, end: item.end, yieldsEnd: false });
 		return { ...item, pieces };
 	};
-	const bars = layout.bars.map((bar): Bar => {
+	const bars = layout.bars.map((bar): Bar<E, S> => {
 		if (bar.lane === 'bottom') return cut(bar);
 		return bar.lane === 'full' && within(bar).length > 0 ? { ...bar, lane: 'top' } : bar;
 	});

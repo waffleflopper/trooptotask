@@ -3,10 +3,10 @@ import type { Group, Personnel } from '$features/personnel/contracts';
 import { parseDate } from '$lib/utils/dates';
 import { availabilityEntryLabel } from './availabilityLabels';
 import { DUTY_LOOKBACK_DAYS, type CalendarBufferedRange } from './calendarRange';
-import { dayWindow, fromDayNumber, toDayNumber, type DayNumber, type DayWindow } from './dayNumber';
+import { dayWindow, fromDayNumber, toDayNumber, type DayNumber, type DayWindow } from '$lib/utils/dayNumber';
 import { eligibleAssignees, type AssigneeChoice } from './dutyPickerOptions';
 import { dutyTallyInWindow, type DutyAvailabilityIndex, type DutyHistoryIndex } from './dutyReadModel';
-import { oneDayLabel } from './oneDayLabel';
+import { oneDayLabel } from '$lib/components/patterns/calendar-bars';
 
 export const METER_CELLS = 4;
 

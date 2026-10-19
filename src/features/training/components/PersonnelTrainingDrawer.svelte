@@ -152,8 +152,7 @@
 				await correctTrainingCompletion(orgId, {
 					kind: draft.kind,
 					id: draft.id,
-					completionDate: datesExpiration ? null : date,
-					...(datesExpiration ? { expirationDate: date } : {}),
+					...(datesExpiration ? { expirationDate: date } : { completionDate: date }),
 					notes: trimmedNotes
 				});
 			}

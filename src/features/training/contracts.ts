@@ -336,7 +336,7 @@ export type PersonnelTrainingExportFact = Pick<
 export type TrainingCompletionKind = 'current' | 'history';
 export type TrainingCompletionEntryResource = Pick<
 	PersonnelTraining,
-	'personnelId' | 'trainingTypeId' | 'expirationDate' | 'notes' | 'certificateUrl'
+	'personnelId' | 'trainingTypeId' | 'completionDate' | 'expirationDate' | 'notes' | 'certificateUrl'
 >;
 export type TrainingCompletionCorrection = Pick<PersonnelTraining, 'completionDate' | 'expirationDate' | 'notes'>;
 export type CorrectedTrainingCompletion = SavedTrainingCompletion | TrainingCompletionHistoryEntry;

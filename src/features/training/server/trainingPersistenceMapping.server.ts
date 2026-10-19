@@ -157,15 +157,16 @@ export const TRAINING_COMPLETION_TABLES = {
 
 export type TrainingCompletionEntryRow = Pick<
 	TrainingCompletionHistoryRow,
-	'personnel_id' | 'training_type_id' | 'expiration_date' | 'notes' | 'certificate_url'
+	'personnel_id' | 'training_type_id' | 'completion_date' | 'expiration_date' | 'notes' | 'certificate_url'
 >;
 export const TRAINING_COMPLETION_ENTRY_FIELDS =
-	'personnel_id, training_type_id, expiration_date, notes, certificate_url';
+	'personnel_id, training_type_id, completion_date, expiration_date, notes, certificate_url';
 
 export function toTrainingCompletionEntryResource(row: TrainingCompletionEntryRow): TrainingCompletionEntryResource {
 	return {
 		personnelId: row.personnel_id,
 		trainingTypeId: row.training_type_id,
+		completionDate: row.completion_date,
 		expirationDate: row.expiration_date,
 		notes: row.notes,
 		certificateUrl: row.certificate_url
@@ -303,7 +304,7 @@ export const trainingCompletionCreateInput = z.object({
 export const trainingCompletionCorrectionInput = z.object({
 	kind: z.enum(['current', 'history']),
 	id: uuidSchema,
-	completionDate: dateOnlySchema.nullable(),
+	completionDate: dateOnlySchema.nullable().optional(),
 	expirationDate: dateOnlySchema.nullable().optional(),
 	notes: z.string().nullable().optional()
 });

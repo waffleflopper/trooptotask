@@ -14,7 +14,7 @@ export interface TrainingCompletionLog {
 export interface TrainingCorrectionRequest {
 	kind: 'current' | 'history';
 	id: string;
-	completionDate: string | null;
+	completionDate?: string | null;
 	expirationDate?: string | null;
 	notes?: string | null;
 }

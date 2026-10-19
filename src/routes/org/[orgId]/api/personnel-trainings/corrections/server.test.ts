@@ -199,7 +199,6 @@ describe('PATCH /api/personnel-trainings/corrections', () => {
 
 	it.each([
 		['an unknown kind', { kind: 'draft', id: RECORD, completionDate: '2026-01-02' }],
-		['a missing completion date', { kind: 'current', id: RECORD }],
 		['an impossible date', { kind: 'current', id: RECORD, completionDate: '2026-02-30' }]
 	])('answers 400 for %s', async (_label, input) => {
 		const ctx = seededContext();

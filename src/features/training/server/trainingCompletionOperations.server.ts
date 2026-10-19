@@ -279,13 +279,14 @@ export async function correctTrainingCompletion(
 	const trainingType = await ctx.trainingCatalog.findTypeTiming(entry.trainingTypeId);
 	if (!trainingType) fail(404, 'Training type not found');
 
+	const correctedCompletionDate = completionDate === undefined ? entry.completionDate : completionDate;
 	const corrected = await ctx.trainingCompletions.correctEntry(kind, id, {
-		completionDate,
+		completionDate: correctedCompletionDate,
 		expirationDate: trainingType.expirationDateOnly
 			? expirationDate === undefined
 				? entry.expirationDate
 				: expirationDate
-			: calculateExpirationDate(completionDate, trainingType.expirationMonths),
+			: calculateExpirationDate(correctedCompletionDate, trainingType.expirationMonths),
 		notes: notes === undefined ? entry.notes : notes
 	});
 	if (!corrected) fail(404, 'Training record not found');

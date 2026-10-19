@@ -79,6 +79,17 @@ describe('Data sheet changes', () => {
 		expect(changedDataSheetFields(saved, draft)).toEqual([]);
 	});
 
+	it('compares the numbers a number input binds with the saved text', () => {
+		const saved = dataSheetValues(person, { ...info, numberOfDependents: 1, children: [{ name: 'Avery', age: 7 }] });
+		expect(
+			changedDataSheetFields(saved, { ...saved, numberOfDependents: 1, children: [{ name: 'Avery', age: 7 }] })
+		).toEqual([]);
+		expect(
+			changedDataSheetFields(saved, { ...saved, numberOfDependents: 2, children: [{ name: 'Avery', age: 8 }] })
+		).toEqual(['numberOfDependents', 'children']);
+		expect(changedDataSheetFields(saved, { ...saved, numberOfDependents: null })).toEqual(['numberOfDependents']);
+	});
+
 	it('treats a person with no sheet as a blank sheet', () => {
 		const saved = dataSheetValues(person, null);
 		expect(saved.bloodType).toBe('');

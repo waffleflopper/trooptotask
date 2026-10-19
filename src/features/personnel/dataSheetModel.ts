@@ -18,8 +18,9 @@ export interface DataSheetValues {
 	dateOfRank: string;
 	maritalStatus: string;
 	maritalStatusDate: string;
-	numberOfDependents: string;
-	children: { name: string; age: string }[];
+	/** A number input binds a number, or null when empty. */
+	numberOfDependents: DataSheetNumber;
+	children: { name: string; age: DataSheetNumber }[];
 	civilianEducation: string;
 	/** One course per line. */
 	militaryEducation: string;
@@ -38,6 +39,9 @@ export interface DataSheetValues {
 	addressState: string;
 	addressZip: string;
 }
+
+/** What a number input holds: its text before binding, then a number, or null once cleared. */
+type DataSheetNumber = string | number | null;
 
 export type DataSheetField = keyof DataSheetValues;
 
@@ -104,10 +108,17 @@ function courses(text: string): string[] {
 		.filter(Boolean);
 }
 
+function numberText(value: DataSheetNumber): string {
+	return value === null ? '' : String(value).trim();
+}
+
 function childList(children: DataSheetValues['children']) {
 	return children
-		.filter((child) => child.name.trim() !== '' || child.age.trim() !== '')
-		.map((child) => ({ name: child.name.trim(), age: child.age.trim() === '' ? null : Number(child.age) }));
+		.filter((child) => child.name.trim() !== '' || numberText(child.age) !== '')
+		.map((child) => ({
+			name: child.name.trim(),
+			age: numberText(child.age) === '' ? null : Number(child.age)
+		}));
 }
 
 function sameField(field: DataSheetField, saved: DataSheetValues, draft: DataSheetValues): boolean {
@@ -115,6 +126,7 @@ function sameField(field: DataSheetField, saved: DataSheetValues, draft: DataShe
 		return JSON.stringify(childList(saved.children)) === JSON.stringify(childList(draft.children));
 	if (field === 'militaryEducation')
 		return courses(saved.militaryEducation).join('\n') === courses(draft.militaryEducation).join('\n');
+	if (field === 'numberOfDependents') return numberText(saved[field]) === numberText(draft[field]);
 	return (saved[field] as string).trim() === (draft[field] as string).trim();
 }
 
@@ -131,7 +143,7 @@ export interface DataSheetSavePayload {
 export function dataSheetSavePayload(draft: DataSheetValues): DataSheetSavePayload {
 	const basic: Record<string, string> = {};
 	for (const field of BASIC_FIELDS) basic[field] = draft[field].trim();
-	const dependents = draft.numberOfDependents.trim();
+	const dependents = numberText(draft.numberOfDependents);
 	return {
 		basicInfo: { ...basic, groupId: basic.groupId || null, ets: basic.ets || null, deros: basic.deros || null },
 		extendedInfo: {

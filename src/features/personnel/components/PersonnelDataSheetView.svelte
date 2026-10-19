@@ -21,7 +21,7 @@
 			<PageShell.FactRow label="Date of rank" value={sheet.dateOfRank} mono />
 			<PageShell.FactRow label="ETS" value={sheet.ets} mono />
 			<PageShell.FactRow label="PCS / DEROS" value={sheet.deros} mono />
-			<PageShell.FactRow label="Blood type" value={sheet.bloodType} mono />
+			<PageShell.FactRow label="Blood type" value={sheet.bloodType} />
 		</PageShell.FactSection>
 		<PageShell.FactSection title="Education">
 			<PageShell.FactRow label="Civilian" value={sheet.civilianEducation} />

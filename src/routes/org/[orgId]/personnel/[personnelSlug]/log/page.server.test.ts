@@ -9,7 +9,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { _createPersonnelLogPageLoad } from './+page.server';
 
 describe('personnel log page server load', () => {
-	it('loads the full follow-up list and leader note journal for the slug-resolved Soldier', async () => {
+	it('streams the follow-up list and the newest page of notes with the full note count for the slug-resolved Soldier', async () => {
 		const ctx = createTestContext({ auth: { orgId: 'org-1' } });
 		ctx.store.seed('personnel', [{ id: 'person-1', organization_id: 'org-1', slug: 'rivera-monica', group_id: null }]);
 		ctx.store.seed('personnel_follow_ups', [
@@ -28,17 +28,18 @@ describe('personnel log page server load', () => {
 				archived_at: null
 			}
 		]);
-		ctx.store.seed('leader_notes', [
-			{
-				id: 'note-1',
+		ctx.store.seed(
+			'leader_notes',
+			Array.from({ length: 7 }, (_, index) => ({
+				id: `note-${index + 1}`,
 				organization_id: 'org-1',
 				personnel_id: 'person-1',
 				author: 'test-user',
-				text: 'Recent observation',
-				created_at: '2026-05-14T10:00:00Z',
+				text: `Observation ${index + 1}`,
+				created_at: `2026-05-0${index + 1}T10:00:00Z`,
 				archived_at: null
-			}
-		]);
+			}))
+		);
 		const loadWithContext = vi.fn(async (_locals, _cookies, _orgId, config) => {
 			if (config.context === createRequestPersonnelDetailContext) return config.fn(ctx);
 			if (config.context === createRequestPersonnelLeaderNoteContext)
@@ -53,18 +54,17 @@ describe('personnel log page server load', () => {
 			cookies: {} as never
 		} as never);
 
-		expect(result.followUps.records).toMatchObject([
+		await expect(result.followUps).resolves.toMatchObject([
 			{ id: 'follow-up-1', personnelId: 'person-1', title: 'Schedule dental exam', status: 'open' }
 		]);
-		expect(result.notes.notes).toEqual([
-			{
-				id: 'note-1',
-				personnelId: 'person-1',
-				author: 'test-user',
-				text: 'Recent observation',
-				createdAt: '2026-05-14T10:00:00Z',
-				archivedAt: null
-			}
+		const { notes, total } = await result.notes;
+		expect(total).toBe(7);
+		expect(notes.map((note) => note.text)).toEqual([
+			'Observation 7',
+			'Observation 6',
+			'Observation 5',
+			'Observation 4',
+			'Observation 3'
 		]);
 	});
 });

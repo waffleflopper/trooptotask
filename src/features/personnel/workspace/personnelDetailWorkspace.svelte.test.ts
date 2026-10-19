@@ -89,7 +89,8 @@ describe('PersonnelDetailWorkspace', () => {
 			createdBy: 'leader-1',
 			createdAt: '2026-05-01T10:00:00Z',
 			updatedAt: '2026-05-01T10:00:00Z',
-			completedAt: null
+			completedAt: null,
+			completedBy: null
 		};
 		const fetchMock = vi.fn().mockResolvedValue({
 			ok: true,
@@ -127,7 +128,8 @@ describe('PersonnelDetailWorkspace', () => {
 			createdBy: 'leader-1',
 			createdAt: '2026-05-01T10:00:00Z',
 			updatedAt: '2026-05-01T10:00:00Z',
-			completedAt: null
+			completedAt: null,
+			completedBy: null
 		};
 		const updated: PersonnelFollowUp = {
 			...loaded,
@@ -163,7 +165,8 @@ describe('PersonnelDetailWorkspace', () => {
 			createdBy: 'leader-1',
 			createdAt: '2026-05-01T10:00:00Z',
 			updatedAt: '2026-05-01T10:00:00Z',
-			completedAt: null
+			completedAt: null,
+			completedBy: null
 		};
 		const fetchMock = vi.fn().mockResolvedValue({ ok: false });
 		const workspace = makeWorkspace({ fetch: fetchMock as typeof fetch });
@@ -193,7 +196,8 @@ describe('PersonnelDetailWorkspace', () => {
 				createdBy: 'leader-1',
 				createdAt: '2026-05-01T10:00:00Z',
 				updatedAt: '2026-05-01T10:00:00Z',
-				completedAt: null
+				completedAt: null,
+				completedBy: null
 			},
 			'completed'
 		);

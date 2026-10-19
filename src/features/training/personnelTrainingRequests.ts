@@ -30,10 +30,7 @@ export async function logTrainingCompletion(orgId: string, log: TrainingCompleti
 	if (!response.ok) throw await buildRequestError(response, 'POST', 'training completion');
 }
 
-export async function correctTrainingCompletion(
-	orgId: string,
-	correction: TrainingCorrectionRequest
-): Promise<void> {
+export async function correctTrainingCompletion(orgId: string, correction: TrainingCorrectionRequest): Promise<void> {
 	const response = await fetch(`/org/${orgId}/api/personnel-trainings/corrections`, {
 		method: 'PATCH',
 		headers: { 'content-type': 'application/json' },

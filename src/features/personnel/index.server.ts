@@ -107,6 +107,7 @@ export type {
 } from './personnelArtifactContext.server';
 export {
 	listPersonnelCounselingRecords,
+	readLastPersonnelCounseling,
 	createPersonnelCounselingRecord,
 	archivePersonnelCounselingRecord,
 	restorePersonnelCounselingRecord,

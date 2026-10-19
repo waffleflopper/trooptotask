@@ -74,6 +74,21 @@ export async function listPersonnelCounselingRecords(
 	return rows.map((row) => mapCounselingRow(row, labels));
 }
 
+/** The newest counseling held on or before `asOf`; a record dated later is not yet "last counseled". */
+export async function readLastPersonnelCounseling(
+	ctx: PersonnelArtifactsContext,
+	input: { personnelId: string; asOf: string }
+): Promise<PersonnelCounselingRecord | null> {
+	await requirePersonnelArtifactAccess(ctx, input.personnelId, 'read');
+	const [row] = await ctx.persistence.listCounselingRecords(input.personnelId, {
+		archived: false,
+		limit: 1,
+		onOrBefore: input.asOf
+	});
+	if (!row) return null;
+	return mapCounselingRow(row, await ctx.contributorLabels(row.uploaded_by ? [row.uploaded_by] : []));
+}
+
 export async function createPersonnelCounselingRecord(
 	ctx: PersonnelArtifactsContext,
 	rawInput: PersonnelCounselingRecordInput

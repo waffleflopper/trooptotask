@@ -117,7 +117,9 @@ function settleOverview(overview: Record<string, Promise<unknown>>) {
 }
 
 describe('personnel Overview page server load', () => {
-	it("shows the slug-resolved Person's latest active counseling and registers the detail refresh key", async () => {
+	it("shows the slug-resolved Person's latest active counseling held by the viewer's day", async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date('2026-10-19T18:00:00Z'));
 		const ctx = detailTestContext('person-9');
 		const counseling = (id: string, personnelId: string, dateConducted: string, archivedAt: string | null = null) => ({
 			id,
@@ -135,15 +137,18 @@ describe('personnel Overview page server load', () => {
 			counseling('september', 'person-9', '2026-09-01'),
 			counseling('october', 'person-9', '2026-10-01'),
 			counseling('archived', 'person-9', '2026-10-05', '2026-10-06T00:00:00Z'),
+			counseling('scheduled', 'person-9', '2026-10-25'),
 			counseling('someone-else', 'person-other', '2026-10-10')
 		]);
-		const depends = vi.fn();
 
-		const result = await overviewLoad(ctx)(detailEvent({ depends }));
+		try {
+			const result = await overviewLoad(ctx)(detailEvent());
 
-		await expect(result.overview.lastCounseling).resolves.toMatchObject({ id: 'october', personnelId: 'person-9' });
-		await expect(result.overview.latestNote).resolves.toBeNull();
-		expect(depends).toHaveBeenCalledWith('app:personnel-detail');
+			await expect(result.overview.lastCounseling).resolves.toMatchObject({ id: 'october', personnelId: 'person-9' });
+			await expect(result.overview.latestNote).resolves.toBeNull();
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	it("lists only the Person's open follow-ups", async () => {

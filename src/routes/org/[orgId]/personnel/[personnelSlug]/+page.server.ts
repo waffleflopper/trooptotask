@@ -1,7 +1,7 @@
 import { loadPersonnelCalendarWindow } from '$features/calendar/index.server';
 import type { Personnel, PersonnelExtendedInfo } from '$features/personnel/contracts';
 import {
-	listPersonnelCounselingRecords,
+	readLastPersonnelCounseling,
 	listPersonnelFollowUps,
 	listPersonnelLeaderNotes,
 	readPersonnelExtendedInfo
@@ -57,7 +57,7 @@ function createOverviewStreams(
 		),
 		reach: keepStreamedRejectionObserved(readPersonnelExtendedInfo(ctx.extendedInfo, person.id).then(reachFrom)),
 		lastCounseling: keepStreamedRejectionObserved(
-			listPersonnelCounselingRecords(ctx.artifacts, person.id, 1).then((records) => records[0] ?? null)
+			readLastPersonnelCounseling(ctx.artifacts, { personnelId: person.id, asOf })
 		),
 		latestNote: keepStreamedRejectionObserved(
 			listPersonnelLeaderNotes(ctx.leaderNotes, person.id, 1).then((notes) => notes[0] ?? null)

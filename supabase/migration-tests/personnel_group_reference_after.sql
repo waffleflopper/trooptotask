@@ -22,7 +22,7 @@ CREATE TEMP VIEW personnel_group_current_rows AS
   SELECT 'completion', id, to_jsonb(t) FROM public.personnel_trainings t
     WHERE id = 'd1200000-0000-4000-8000-000000000501'
   UNION ALL
-  SELECT 'follow_up', id, to_jsonb(f) FROM public.personnel_follow_ups f
+  SELECT 'follow_up', id, to_jsonb(f) - 'completed_by' - 'archived_by' FROM public.personnel_follow_ups f
     WHERE id = 'd1200000-0000-4000-8000-000000000601';
 SELECT results_eq(
   $$ SELECT table_name, row_id, row_data FROM personnel_group_current_rows ORDER BY table_name, row_id $$,

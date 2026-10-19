@@ -116,6 +116,26 @@ describe('PersonnelDataSheetEditor', () => {
 		expect(gotoMock).not.toHaveBeenCalled();
 	});
 
+	it.each([
+		{ field: 'lastName', label: 'Last name' },
+		{ field: 'spouseName', label: 'Spouse name' },
+		{ field: 'vehiclePlate', label: 'Plate' }
+	])('names the $field message from the input it refuses', async ({ field, label }) => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue(Response.json({ saved: false, field, message: `Fix ${field}.` }, { status: 400 }))
+		);
+		renderEditor();
+		const input = screen.getByLabelText(label) as HTMLInputElement;
+		await fireEvent.input(input, { target: { value: 'x' } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+
+		const message = await screen.findByText(`Fix ${field}.`);
+		expect(input.getAttribute('aria-invalid')).toBe('true');
+		expect(document.getElementById(input.getAttribute('aria-describedby') ?? '')).toBe(message);
+	});
+
 	it('navigates to the saved record after a successful save', async () => {
 		vi.stubGlobal(
 			'fetch',

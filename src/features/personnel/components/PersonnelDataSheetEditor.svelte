@@ -82,8 +82,10 @@
 
 	const changed = (...fields: DataSheetField[]) => fields.some(draft.isChanged);
 	const error = (...fields: DataSheetField[]) => fields.map(draft.errorFor).find(Boolean);
-	const invalid = (field: DataSheetField) => (draft.errorFor(field) ? true : undefined);
-	const describedBy = (id: string, ...fields: DataSheetField[]) => (error(...fields) ? `${id}-error` : undefined);
+	const fieldAria = (field: DataSheetField, rowId: string) =>
+		draft.errorFor(field)
+			? ({ 'aria-invalid': true, 'aria-describedby': `${rowId}-error` } as const)
+			: ({ 'aria-invalid': undefined, 'aria-describedby': undefined } as const);
 
 	async function leave(target: { url: URL; delta?: number }) {
 		leaving = true;
@@ -144,7 +146,13 @@
 			<PageShell.FactSection title="Identity">
 				<PageShell.FactRow label="Rank" labelFor="sheet-rank" changed={changed('rank')} error={error('rank')}>
 					<Combobox.Root items={rankOptions} bind:value={values.rank} label="Rank" autoHighlight>
-						<Combobox.Trigger id="sheet-rank" placeholder="Select rank..." aria-label="Rank" class="w-32" />
+						<Combobox.Trigger
+							id="sheet-rank"
+							placeholder="Select rank..."
+							aria-label="Rank"
+							class="w-32"
+							{...fieldAria('rank', 'sheet-rank')}
+						/>
 						<Combobox.Content>
 							<Combobox.Search placeholder="Select rank..." />
 							<Combobox.Empty>No ranks found.</Combobox.Empty>
@@ -163,20 +171,20 @@
 							id="sheet-first-name"
 							aria-label="First name"
 							autocomplete="off"
-							aria-invalid={invalid('firstName')}
+							{...fieldAria('firstName', 'sheet-first-name')}
 							bind:value={values.firstName}
 						/>
 						<Input
 							id="sheet-last-name"
 							aria-label="Last name"
 							autocomplete="off"
-							aria-invalid={invalid('lastName')}
+							{...fieldAria('lastName', 'sheet-first-name')}
 							bind:value={values.lastName}
 						/>
 					</div>
 				</PageShell.FactRow>
 				<PageShell.FactRow label="MOS" labelFor="sheet-mos" changed={changed('mos')} error={error('mos')}>
-					<Input id="sheet-mos" class="w-32" aria-invalid={invalid('mos')} bind:value={values.mos} />
+					<Input id="sheet-mos" class="w-32" {...fieldAria('mos', 'sheet-mos')} bind:value={values.mos} />
 				</PageShell.FactRow>
 				<PageShell.FactRow
 					label="Duty role"
@@ -184,11 +192,17 @@
 					changed={changed('clinicRole')}
 					error={error('clinicRole')}
 				>
-					<Input id="sheet-duty-role" aria-invalid={invalid('clinicRole')} bind:value={values.clinicRole} />
+					<Input id="sheet-duty-role" {...fieldAria('clinicRole', 'sheet-duty-role')} bind:value={values.clinicRole} />
 				</PageShell.FactRow>
 				<PageShell.FactRow label="Group" labelFor="sheet-group" changed={changed('groupId')} error={error('groupId')}>
 					<Combobox.Root items={groupOptions} bind:value={values.groupId} label="Group" autoHighlight>
-						<Combobox.Trigger id="sheet-group" clearable placeholder="No Group Assigned" aria-label="Group" />
+						<Combobox.Trigger
+							id="sheet-group"
+							clearable
+							placeholder="No Group Assigned"
+							aria-label="Group"
+							{...fieldAria('groupId', 'sheet-group')}
+						/>
 						<Combobox.Content>
 							<Combobox.Search placeholder="Search Groups..." />
 							<Combobox.Empty>No groups found.</Combobox.Empty>
@@ -234,7 +248,12 @@
 					changed={changed('bloodType')}
 					error={error('bloodType')}
 				>
-					<NativeSelect.Root id="sheet-blood-type" class="w-32" bind:value={values.bloodType}>
+					<NativeSelect.Root
+						id="sheet-blood-type"
+						class="w-32"
+						{...fieldAria('bloodType', 'sheet-blood-type')}
+						bind:value={values.bloodType}
+					>
 						<NativeSelect.Option value="">Not set</NativeSelect.Option>
 						{#each bloodTypes as option (option)}
 							<NativeSelect.Option value={option}>{option}</NativeSelect.Option>
@@ -257,8 +276,7 @@
 						type="tel"
 						class="w-56"
 						autocomplete="off"
-						aria-invalid={invalid('personalPhone')}
-						aria-describedby={describedBy('sheet-phone', 'personalPhone')}
+						{...fieldAria('personalPhone', 'sheet-phone')}
 						bind:value={values.personalPhone}
 					/>
 				</PageShell.FactRow>
@@ -272,8 +290,7 @@
 						id="sheet-email"
 						type="email"
 						autocomplete="off"
-						aria-invalid={invalid('personalEmail')}
-						aria-describedby={describedBy('sheet-email', 'personalEmail')}
+						{...fieldAria('personalEmail', 'sheet-email')}
 						bind:value={values.personalEmail}
 					/>
 				</PageShell.FactRow>
@@ -288,26 +305,26 @@
 							id="sheet-street"
 							aria-label="Street"
 							autocomplete="off"
-							aria-invalid={invalid('addressStreet')}
+							{...fieldAria('addressStreet', 'sheet-street')}
 							bind:value={values.addressStreet}
 						/>
 						<div class="grid grid-cols-[minmax(0,1fr)_4.5rem_6rem] gap-2">
 							<Input
 								aria-label="City"
 								autocomplete="off"
-								aria-invalid={invalid('addressCity')}
+								{...fieldAria('addressCity', 'sheet-street')}
 								bind:value={values.addressCity}
 							/>
 							<Input
 								aria-label="State"
 								autocomplete="off"
-								aria-invalid={invalid('addressState')}
+								{...fieldAria('addressState', 'sheet-street')}
 								bind:value={values.addressState}
 							/>
 							<Input
 								aria-label="Zip"
 								autocomplete="off"
-								aria-invalid={invalid('addressZip')}
+								{...fieldAria('addressZip', 'sheet-street')}
 								bind:value={values.addressZip}
 							/>
 						</div>
@@ -327,12 +344,13 @@
 							id="sheet-emergency-name"
 							aria-label="Emergency contact name"
 							autocomplete="off"
-							aria-invalid={invalid('emergencyContactName')}
+							{...fieldAria('emergencyContactName', 'sheet-emergency-name')}
 							bind:value={values.emergencyContactName}
 						/>
 						<NativeSelect.Root
 							aria-label="Relationship"
 							class="w-full"
+							{...fieldAria('emergencyContactRelationship', 'sheet-emergency-name')}
 							bind:value={values.emergencyContactRelationship}
 						>
 							<NativeSelect.Option value="">Relationship</NativeSelect.Option>
@@ -353,8 +371,7 @@
 						type="tel"
 						class="w-56"
 						autocomplete="off"
-						aria-invalid={invalid('emergencyContactPhone')}
-						aria-describedby={describedBy('sheet-emergency-phone', 'emergencyContactPhone')}
+						{...fieldAria('emergencyContactPhone', 'sheet-emergency-phone')}
 						bind:value={values.emergencyContactPhone}
 					/>
 				</PageShell.FactRow>
@@ -365,7 +382,12 @@
 					error={error('maritalStatus', 'maritalStatusDate')}
 				>
 					<div class="flex flex-wrap items-center gap-2">
-						<NativeSelect.Root id="sheet-marital-status" class="w-40" bind:value={values.maritalStatus}>
+						<NativeSelect.Root
+							id="sheet-marital-status"
+							class="w-40"
+							{...fieldAria('maritalStatus', 'sheet-marital-status')}
+							bind:value={values.maritalStatus}
+						>
 							<NativeSelect.Option value="">Not set</NativeSelect.Option>
 							{#each maritalStatuses as option (option)}
 								<NativeSelect.Option value={option}>{option}</NativeSelect.Option>
@@ -379,10 +401,27 @@
 						/>
 					</div>
 				</PageShell.FactRow>
-				<PageShell.FactRow label="Spouse" labelFor="sheet-spouse-name" changed={changed('spouseName', 'spousePhone')}>
+				<PageShell.FactRow
+					label="Spouse"
+					labelFor="sheet-spouse-name"
+					changed={changed('spouseName', 'spousePhone')}
+					error={error('spouseName', 'spousePhone')}
+				>
 					<div class="grid grid-cols-[minmax(0,1fr)_10rem] gap-2">
-						<Input id="sheet-spouse-name" aria-label="Spouse name" autocomplete="off" bind:value={values.spouseName} />
-						<Input type="tel" aria-label="Spouse phone" autocomplete="off" bind:value={values.spousePhone} />
+						<Input
+							id="sheet-spouse-name"
+							aria-label="Spouse name"
+							autocomplete="off"
+							{...fieldAria('spouseName', 'sheet-spouse-name')}
+							bind:value={values.spouseName}
+						/>
+						<Input
+							type="tel"
+							aria-label="Spouse phone"
+							autocomplete="off"
+							{...fieldAria('spousePhone', 'sheet-spouse-name')}
+							bind:value={values.spousePhone}
+						/>
 					</div>
 				</PageShell.FactRow>
 				<PageShell.FactRow
@@ -399,7 +438,7 @@
 								min="0"
 								inputmode="numeric"
 								class="w-20"
-								aria-invalid={invalid('numberOfDependents')}
+								{...fieldAria('numberOfDependents', 'sheet-dependents')}
 								bind:value={values.numberOfDependents}
 							/>
 							<Button type="button" variant="link" class="px-0" onclick={addChild}>
@@ -409,13 +448,19 @@
 						</div>
 						{#each values.children as child, index (index)}
 							<div class="grid grid-cols-[minmax(0,1fr)_5rem_auto] items-center gap-2">
-								<Input aria-label="Child {index + 1} name" autocomplete="off" bind:value={child.name} />
+								<Input
+									aria-label="Child {index + 1} name"
+									autocomplete="off"
+									{...fieldAria('children', 'sheet-dependents')}
+									bind:value={child.name}
+								/>
 								<Input
 									type="number"
 									min="0"
 									inputmode="numeric"
 									aria-label="Child {index + 1} age"
 									placeholder="Age"
+									{...fieldAria('children', 'sheet-dependents')}
 									bind:value={child.age}
 								/>
 								<Button
@@ -443,7 +488,7 @@
 					<Input
 						id="sheet-civilian-education"
 						autocomplete="off"
-						aria-invalid={invalid('civilianEducation')}
+						{...fieldAria('civilianEducation', 'sheet-civilian-education')}
 						bind:value={values.civilianEducation}
 					/>
 				</PageShell.FactRow>
@@ -457,7 +502,7 @@
 					<Textarea
 						id="sheet-military-education"
 						rows={3}
-						aria-invalid={invalid('militaryEducation')}
+						{...fieldAria('militaryEducation', 'sheet-military-education')}
 						bind:value={values.militaryEducation}
 					/>
 				</PageShell.FactRow>
@@ -471,11 +516,17 @@
 					error={error('vehicleColor', 'vehicleMakeModel')}
 				>
 					<div class="grid grid-cols-[8rem_minmax(0,1fr)] gap-2">
-						<Input aria-label="Vehicle color" autocomplete="off" bind:value={values.vehicleColor} />
+						<Input
+							aria-label="Vehicle color"
+							autocomplete="off"
+							{...fieldAria('vehicleColor', 'sheet-vehicle')}
+							bind:value={values.vehicleColor}
+						/>
 						<Input
 							id="sheet-vehicle"
 							aria-label="Vehicle make and model"
 							autocomplete="off"
+							{...fieldAria('vehicleMakeModel', 'sheet-vehicle')}
 							bind:value={values.vehicleMakeModel}
 						/>
 					</div>
@@ -486,7 +537,13 @@
 					changed={changed('vehiclePlate')}
 					error={error('vehiclePlate')}
 				>
-					<Input id="sheet-plate" class="w-44 font-mono" autocomplete="off" bind:value={values.vehiclePlate} />
+					<Input
+						id="sheet-plate"
+						class="w-44 font-mono"
+						autocomplete="off"
+						{...fieldAria('vehiclePlate', 'sheet-plate')}
+						bind:value={values.vehiclePlate}
+					/>
 				</PageShell.FactRow>
 			</PageShell.FactSection>
 

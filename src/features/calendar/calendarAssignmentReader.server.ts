@@ -10,15 +10,14 @@ export function createSupabaseCalendarAssignmentReader(
 	return {
 		async listRange(range) {
 			const result = await selectAllSupabaseRows<AssignmentRow>(async (from, to) => {
-				const { data, error } = await client
+				let query = client
 					.from('daily_assignments')
 					.select(ASSIGNMENT_FIELDS)
 					.eq('organization_id', orgId)
 					.gte('date', range.rangeStart)
-					.lte('date', range.rangeEnd)
-					.order('id', { ascending: true })
-					.range(from, to)
-					.returns<AssignmentRow[]>();
+					.lte('date', range.rangeEnd);
+				if (range.assigneeIds) query = query.in('assignee_id', [...range.assigneeIds]);
+				const { data, error } = await query.order('id', { ascending: true }).range(from, to).returns<AssignmentRow[]>();
 				return { data, error };
 			});
 			if (result.error) throw new Error((result.error as { message: string }).message);

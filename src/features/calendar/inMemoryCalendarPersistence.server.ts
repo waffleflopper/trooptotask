@@ -317,6 +317,7 @@ export function createInMemoryCalendarAssignmentReader(
 		async listRange(range) {
 			return (
 				await store.findMany<AssignmentRow>('daily_assignments', orgId, undefined, {
+					...(range.assigneeIds ? { inFilters: { assignee_id: [...range.assigneeIds] } } : {}),
 					rangeFilters: [
 						{ column: 'date', op: 'gte', value: range.rangeStart },
 						{ column: 'date', op: 'lte', value: range.rangeEnd }

@@ -6,7 +6,8 @@ export type {
 	CalendarBootstrap,
 	CalendarRangeData,
 	CalendarWorkspaceResult,
-	CalendarWorkspaceRestricted
+	CalendarWorkspaceRestricted,
+	PersonnelCalendarWindow
 } from './calendar.types';
 
 // Web reads and workspace hydration for other features
@@ -36,5 +37,7 @@ export { calendarReadRange, rangeCoversDate, rangeCoversSpan } from './utils/cal
 // Routed page components are separate public files so each route loads only its own page.
 
 export { CalendarStatusBadge } from './components/calendar-status-badge';
+export { default as PersonnelNextDays } from './components/PersonnelNextDays.svelte';
+export { default as PersonnelNextDaysSkeleton } from './components/PersonnelNextDaysSkeleton.svelte';
 
 export type { CalendarOperationsPageAccess, CalendarSettingsPageAccess } from './contracts';

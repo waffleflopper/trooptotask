@@ -106,3 +106,13 @@ export interface CalendarWorkspaceRestricted {
 export interface CalendarWorkspaceRouteData {
 	[CALENDAR_WORKSPACE_LANE_KEY]: { data: Promise<CalendarWorkspaceResult | CalendarWorkspaceRestricted> };
 }
+
+/** One Person's Calendar over a date range, with only the catalog rows its entries use. */
+export interface PersonnelCalendarWindow extends CalendarDateRange {
+	availability: AvailabilityEntry[];
+	statusTypes: StatusType[];
+	/** The Person's own slots and their Group's. */
+	assignments: DailyAssignment[];
+	assignmentTypes: AssignmentType[];
+	specialDays: SpecialDay[];
+}

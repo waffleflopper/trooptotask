@@ -72,3 +72,10 @@ export function buildPersonnelCriticalTaskReadiness(input: {
 		expiringSoonWarningDays: settings.expiringSoonWarningDays
 	};
 }
+
+/** The row's secondary line: the task code, then how and by whom the latest validation was done. */
+export function describeCriticalTaskItem(item: PersonnelCriticalTaskItem): string {
+	if (!item.latest) return `${item.taskCode} · not recorded`;
+	const by = item.latest.validatedBy?.trim();
+	return `${item.taskCode} · ${item.latest.validationMethod}${by ? ` by ${by}` : ''}`;
+}

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Personnel } from '$features/personnel/contracts';
 import type { PersonnelTraining, SavedTrainingType, TrainingCompletionHistoryEntry, TrainingType } from '../contracts';
+import { describeTrainingItem } from '../utils/personnelTrainingItems';
 import { loadPersonnelTrainingReadiness } from './personnelTrainingItems.server';
 
 const person = { id: 'okafor', rank: 'SGT', mos: '68W', clinicRole: 'Treatment NCO' } as Personnel;
@@ -94,6 +95,12 @@ describe('loadPersonnelTrainingReadiness', () => {
 			['hipaa', 'current', 177, { kind: 'all' }],
 			['nco', 'current', null, { kind: 'rank', rank: 'SGT' }]
 		]);
+		expect(readiness.items.map(describeTrainingItem)).toEqual([
+			'24-month cycle · lapsed 12 days ago',
+			'12-month cycle · expires in 26 days',
+			'12-month cycle',
+			'Does not expire'
+		]);
 		expect(readiness.items[0].history.map((entry) => entry.id)).toEqual(['newer', 'older']);
 		expect(readiness.items[0].completion?.id).toBe('cpr-record');
 		expect([readiness.mos, readiness.notRequiredCount, readiness.exemptCount]).toEqual(['68W', 2, 1]);
@@ -110,6 +117,7 @@ describe('loadPersonnelTrainingReadiness', () => {
 		expect(readiness.items.map((item) => [item.name, item.status, item.completion])).toEqual([
 			['Cyber Awareness', 'missing', null]
 		]);
+		expect(readiness.items.map(describeTrainingItem)).toEqual(['12-month cycle · required for all Soldiers']);
 	});
 
 	it('reads nothing when the Person is not admitted', async () => {

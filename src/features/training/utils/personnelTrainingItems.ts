@@ -113,3 +113,46 @@ export function buildPersonnelTrainingReadiness(input: {
 		exemptCount
 	};
 }
+
+function requiredFor(applicability: TrainingApplicability): string {
+	switch (applicability.kind) {
+		case 'all':
+			return 'required for all Soldiers';
+		case 'mos':
+			return `required for ${applicability.mos}`;
+		case 'role':
+			return `required for ${applicability.role}`;
+		case 'rank':
+			return `required for ${applicability.rank}`;
+	}
+}
+
+function days(count: number): string {
+	return `${count} ${count === 1 ? 'day' : 'days'}`;
+}
+
+function statusFact(item: PersonnelTrainingItem): string | null {
+	const daysLeft = item.daysUntilExpiration;
+	switch (item.status) {
+		case 'expired':
+			return daysLeft !== null && daysLeft < 0 ? `lapsed ${days(-daysLeft)} ago` : 'lapsed today';
+		case 'missing':
+			return requiredFor(item.applicability);
+		case 'expiring':
+			return daysLeft === null ? null : `expires in ${days(daysLeft)}`;
+		case 'current':
+			return item.completion?.certificateUrl ? 'certificate on file' : null;
+	}
+}
+
+/** The row's secondary line: the cycle, then the one fact a leader acts on for this status. */
+export function describeTrainingItem(item: PersonnelTrainingItem): string {
+	const cycle =
+		item.cycleMonths !== null
+			? `${item.cycleMonths}-month cycle`
+			: item.expirationDateOnly
+				? 'Expires on a set date'
+				: 'Does not expire';
+	const fact = statusFact(item);
+	return fact ? `${cycle} · ${fact}` : cycle;
+}

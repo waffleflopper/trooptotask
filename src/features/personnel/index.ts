@@ -28,5 +28,6 @@ export { default as PersonnelCounselingsPageView } from './components/PersonnelC
 export { default as PersonnelDocumentsPageView } from './components/PersonnelDocumentsPageView.svelte';
 export { default as PersonnelNotesPageView } from './components/PersonnelNotesPageView.svelte';
 export { default as PersonnelArchivedArtifactsPageView } from './components/PersonnelArchivedArtifactsPageView.svelte';
+export { default as PersonnelLossBlock } from './components/PersonnelLossBlock.svelte';
 
 export type { PersonnelPageAccess } from './contracts';

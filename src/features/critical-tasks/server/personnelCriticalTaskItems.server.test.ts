@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Personnel } from '$features/personnel/contracts';
 import type { IctTask, PersonnelIctCompletion } from '../criticalTasks.types';
+import { describeCriticalTaskItem } from '../utils/personnelCriticalTaskItems';
 import { loadPersonnelCriticalTaskReadiness } from './personnelCriticalTaskItems.server';
 
 const person = { id: 'okafor', mos: '68W' } as Personnel;
@@ -69,6 +70,7 @@ describe('loadPersonnelCriticalTaskReadiness', () => {
 		]);
 		expect(readiness.items[1].history.map((entry) => entry.id)).toEqual(['airway-new', 'airway-old']);
 		expect(readiness.items[1].latest?.id).toBe('airway-new');
+		expect(describeCriticalTaskItem(readiness.items[1])).toBe('081-833-0210 · Demonstration by SSG Alvarez');
 		expect(readiness.expiringSoonWarningDays).toBe(30);
 	});
 
@@ -85,5 +87,6 @@ describe('loadPersonnelCriticalTaskReadiness', () => {
 		expect(readiness.items.map((item) => [item.taskCode, item.status, item.latest, item.history])).toEqual([
 			['081-833-0210', 'missing', null, []]
 		]);
+		expect(describeCriticalTaskItem(readiness.items[0])).toBe('081-833-0210 · not recorded');
 	});
 });

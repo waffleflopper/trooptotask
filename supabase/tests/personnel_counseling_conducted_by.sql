@@ -11,9 +11,9 @@ INSERT INTO public.organizations (id, name, created_by)
 VALUES ('f9000000-0000-4000-8000-000000000101', 'Conducted By', 'f9000000-0000-4000-8000-000000000001');
 INSERT INTO public.personnel (id, organization_id, rank, first_name, last_name, slug)
 VALUES ('f9000000-0000-4000-8000-000000000301', 'f9000000-0000-4000-8000-000000000101', 'SGT', 'Conducted', 'By', 'conducted-by');
-INSERT INTO public.counseling_records (id, organization_id, personnel_id, date_conducted, title, uploaded_by, file_path)
+INSERT INTO public.counseling_records (id, organization_id, personnel_id, date_conducted, subject, title, uploaded_by, file_path)
 VALUES ('f9000000-0000-4000-8000-000000000401', 'f9000000-0000-4000-8000-000000000101', 'f9000000-0000-4000-8000-000000000301',
-  '2026-09-12', 'Monthly counseling', 'f9000000-0000-4000-8000-000000000001', 'f9000000-0000-4000-8000-000000000101/counseling-records/f9000000-0000-4000-8000-000000000301/a.pdf');
+  '2026-09-12', 'Monthly counseling', 'Monthly counseling', 'f9000000-0000-4000-8000-000000000001', 'f9000000-0000-4000-8000-000000000101/counseling-records/f9000000-0000-4000-8000-000000000301/a.pdf');
 
 SELECT is((SELECT conducted_by FROM public.counseling_records WHERE id = 'f9000000-0000-4000-8000-000000000401'),
   NULL, 'an existing record keeps conducted by empty');

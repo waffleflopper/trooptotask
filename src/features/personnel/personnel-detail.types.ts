@@ -26,27 +26,16 @@ export interface PersonnelDetailLayoutStreams {
 	readinessBadge: Promise<PersonnelAttention['readinessBadge'] | null>;
 }
 
-export type PersonnelArtifactKind = 'follow-up' | 'counseling' | 'document' | 'note';
-
-export interface PersonnelFollowUpsPageData {
-	orgId: string;
-	personnelId: string;
-	title: string;
-	emptyState: string;
-	records: PersonnelFollowUp[];
-}
-
-export interface PersonnelNotesPageData {
-	orgId: string;
-	personnelId: string;
-	title: string;
-	emptyState: string;
+/** The newest notes and how many active notes the Soldier has in all. */
+export interface PersonnelLogNotes {
 	notes: PersonnelLeaderNote[];
+	total: number;
 }
 
 export interface PersonnelLogPageData {
-	followUps: PersonnelFollowUpsPageData;
-	notes: PersonnelNotesPageData;
+	/** Open and completed follow-ups. */
+	followUps: Promise<PersonnelFollowUp[]>;
+	notes: Promise<PersonnelLogNotes>;
 }
 
 export interface PersonnelDataSheetPageData {
@@ -54,12 +43,8 @@ export interface PersonnelDataSheetPageData {
 	dataSheet: Promise<PersonnelExtendedInfo | null>;
 }
 
-export interface PersonnelArchivedArtifactsPageData {
-	orgId: string;
-	personnelId: string;
-	title: string;
-	emptyState: string;
-	records: PersonnelArchivedArtifact[];
+export interface PersonnelArchivedPageData {
+	archived: Promise<PersonnelArchivedArtifact[]>;
 }
 
 export type PersonnelReadinessLaneTone = 'good' | 'watch' | 'bad' | 'info' | 'neutral';

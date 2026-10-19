@@ -1,4 +1,9 @@
-import { listPersonnelFollowUps, listPersonnelLeaderNotes } from '$features/personnel/index.server';
+import {
+	LEADER_NOTES_FIRST_PAGE,
+	countPersonnelLeaderNotes,
+	listPersonnelFollowUps,
+	listPersonnelLeaderNotes
+} from '$features/personnel/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { loadRequestPersonnelDetailHeader } from '$lib/server/adapters/personnelDetailHeaderLoad';
@@ -6,6 +11,7 @@ import {
 	createRequestPersonnelArtifactsContext,
 	createRequestPersonnelLeaderNoteContext
 } from '$lib/server/adapters/requestContexts.server';
+import { keepStreamedRejectionObserved } from '$lib/server/adapters/streamedWorkspace';
 import type { PersonnelLogPageData } from '$features/personnel/contracts';
 import type { PageServerLoadEvent } from './$types';
 
@@ -21,38 +27,28 @@ export function _createPersonnelLogPageLoad(deps: PersonnelLogPageLoadDeps = {})
 	return async (event: PageServerLoadEvent): Promise<PersonnelLogPageData> => {
 		const { params, locals, cookies } = event;
 		const { person } = await loadRequestPersonnelDetailHeader(event, loadWithContextFn);
-		const personnelId = person.id;
 		const [followUps, notes] = await Promise.all([
 			loadWithContextFn(locals, cookies, params.orgId, {
 				context: createRequestPersonnelArtifactsContext,
 				policyAction: POLICY_ACTION_CATALOG.personnel.readSensitiveRecords,
 				policyResource: { kind: 'unscoped' },
-				fn: (ctx) => listPersonnelFollowUps(ctx, personnelId)
+				fn: async (ctx) => ({ followUps: keepStreamedRejectionObserved(listPersonnelFollowUps(ctx, person.id)) })
 			}),
 			loadWithContextFn(locals, cookies, params.orgId, {
 				context: createRequestPersonnelLeaderNoteContext,
 				policyAction: POLICY_ACTION_CATALOG.personnel.readSensitiveRecords,
 				policyResource: { kind: 'unscoped' },
-				fn: (ctx) => listPersonnelLeaderNotes(ctx, personnelId)
+				fn: async (ctx) => ({
+					notes: keepStreamedRejectionObserved(
+						Promise.all([
+							listPersonnelLeaderNotes(ctx, person.id, LEADER_NOTES_FIRST_PAGE),
+							countPersonnelLeaderNotes(ctx, person.id)
+						]).then(([notes, total]) => ({ notes, total }))
+					)
+				})
 			})
 		]);
-
-		return {
-			followUps: {
-				orgId: params.orgId,
-				personnelId,
-				title: 'Follow-ups',
-				emptyState: 'No follow-ups have been added for this Soldier yet.',
-				records: followUps
-			},
-			notes: {
-				orgId: params.orgId,
-				personnelId,
-				title: 'Notes',
-				emptyState: 'No leader notes have been added for this Soldier yet.',
-				notes
-			}
-		};
+		return { ...followUps, ...notes };
 	};
 }
 

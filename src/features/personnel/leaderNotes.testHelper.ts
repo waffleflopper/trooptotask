@@ -39,6 +39,15 @@ export function testLeaderNoteContext(ctx: ReturnType<typeof createTestContext>)
 					)
 					.slice(0, limit);
 			},
+			countActive: (personnelId) =>
+				ctx.store
+					.findMany<LeaderNoteRow>(
+						'leader_notes',
+						orgId,
+						{ personnel_id: personnelId },
+						{ isNull: { archived_at: true } }
+					)
+					.then((rows) => rows.length),
 			find: async (personnelId, noteId) => (await writerFor(personnelId)).findLeaderNote(noteId),
 			insert: async (input) =>
 				(await writerFor(input.personnelId)).createLeaderNote({
@@ -46,8 +55,10 @@ export function testLeaderNoteContext(ctx: ReturnType<typeof createTestContext>)
 					text: input.text,
 					createdAt: input.createdAt
 				}),
-			update: async (personnelId, noteId, archivedAt) =>
-				(await writerFor(personnelId)).setLeaderNoteArchivedAt(noteId, archivedAt),
+			setArchive: async (personnelId, noteId, archived) =>
+				(await writerFor(personnelId)).setLeaderNoteArchive(noteId, archived),
+			setText: async (personnelId, noteId, text, updatedAt) =>
+				(await writerFor(personnelId)).setLeaderNoteText(noteId, text, updatedAt),
 			delete: async (personnelId, noteId) => (await writerFor(personnelId)).deleteLeaderNote(noteId)
 		},
 		contributorLabels: (userIds) =>

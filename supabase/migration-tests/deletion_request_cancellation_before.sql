@@ -79,7 +79,7 @@ SELECT 'auth.users'::text table_name,id::text row_id,to_jsonb(r) row_data
 UNION ALL SELECT 'organizations',id::text,to_jsonb(r) - 'training_readiness_goal_percent' FROM public.organizations r WHERE id::text LIKE 'd1803000-%'
 UNION ALL SELECT 'memberships',id::text,to_jsonb(r) FROM public.organization_memberships r WHERE organization_id::text LIKE 'd1803000-%'
 UNION ALL SELECT 'personnel',id::text,to_jsonb(r) FROM public.personnel r WHERE id::text LIKE 'd1803000-%'
-UNION ALL SELECT 'counseling_records',id::text,to_jsonb(r) - 'conducted_by' FROM public.counseling_records r WHERE id::text LIKE 'd1803000-%'
+UNION ALL SELECT 'counseling_records',id::text,to_jsonb(r) - 'archived_by' - 'conducted_by' FROM public.counseling_records r WHERE id::text LIKE 'd1803000-%'
 UNION ALL SELECT 'training_types',id::text,to_jsonb(r) FROM public.training_types r WHERE id::text LIKE 'd1803000-%'
 UNION ALL SELECT 'personnel_trainings',id::text,to_jsonb(r) FROM public.personnel_trainings r WHERE id::text LIKE 'd1803000-%'
 UNION ALL SELECT 'rating_scheme_entries',id::text,to_jsonb(r) FROM public.rating_scheme_entries r WHERE id::text LIKE 'd1803000-%'

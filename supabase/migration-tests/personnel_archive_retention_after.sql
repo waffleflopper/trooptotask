@@ -29,9 +29,9 @@ INSERT INTO public.counseling_records (id,organization_id,personnel_id,date_cond
  ('d1602000-0000-4000-8000-000000000496','d1602000-0000-4000-8000-000000000101','d1602000-0000-4000-8000-000000000392','2026-01-01','Free Alpha','Free Alpha','synthetic/free-alpha-counseling.pdf','fixture','2026-01-01Z');
 CREATE TEMP VIEW retention_upgrade_effect_rows AS
  SELECT * FROM retention_upgrade_rows
- UNION ALL SELECT 'document',id,to_jsonb(d) FROM public.personnel_documents d WHERE organization_id IN
+ UNION ALL SELECT 'document',id,to_jsonb(d) - 'archived_by' FROM public.personnel_documents d WHERE organization_id IN
   ('d1602000-0000-4000-8000-000000000101','d1602000-0000-4000-8000-000000000102')
- UNION ALL SELECT 'counseling',id,to_jsonb(c) FROM public.counseling_records c WHERE organization_id IN
+ UNION ALL SELECT 'counseling',id,to_jsonb(c) - 'archived_by' FROM public.counseling_records c WHERE organization_id IN
   ('d1602000-0000-4000-8000-000000000101','d1602000-0000-4000-8000-000000000102');
 CREATE TEMP TABLE retention_upgrade_before AS SELECT * FROM retention_upgrade_effect_rows;
 CREATE FUNCTION pg_temp.retention_legacy_batch_rejected(org_id uuid,ids uuid[]) RETURNS boolean LANGUAGE plpgsql SECURITY INVOKER AS $$

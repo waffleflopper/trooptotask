@@ -8,6 +8,8 @@ import { hasPdfFileSignature } from '$lib/storage/fileSignatures';
 import {
 	personnelArtifactWriter,
 	requirePersonnelArtifactAccess,
+	contributorLabelsWithStamps,
+	optionalContributorLabel,
 	resolveContributorLabel,
 	type PersonnelArtifactsContext,
 	type PersonnelDocumentRow
@@ -113,7 +115,11 @@ export async function listPersonnelDocuments(
 		limit,
 		offset: options.offset
 	});
-	const labels = await ctx.contributorLabels(rows.flatMap((row) => (row.uploaded_by ? [row.uploaded_by] : [])));
+	const labels = await contributorLabelsWithStamps(
+		ctx,
+		rows.flatMap((row) => (row.uploaded_by ? [row.uploaded_by] : [])),
+		rows.map((row) => row.archived_by)
+	);
 	return rows.map((row) => mapDocumentRow(row, labels));
 }
 
@@ -219,7 +225,7 @@ export async function archivePersonnelDocument(
 ): Promise<PersonnelArtifactArchiveState> {
 	const { writer, row: existing } = await loadDocumentForWrite(ctx, input.personnelId, input.documentId);
 	if (existing.archived_at) fail(409, 'Document is already archived');
-	const row = await writer.setDocumentArchivedAt(input.documentId, new Date().toISOString());
+	const row = await writer.setDocumentArchive(input.documentId, { at: new Date().toISOString(), by: ctx.actor.userId });
 	ctx.audit.log({ action: 'personnel.document.archived', resourceType: 'personnel', resourceId: input.personnelId });
 	return { id: row.id, archivedAt: row.archived_at ?? null };
 }
@@ -229,7 +235,7 @@ export async function restorePersonnelDocument(
 	input: { personnelId: string; documentId: string }
 ): Promise<PersonnelArtifactArchiveState> {
 	const { writer } = await loadDocumentForWrite(ctx, input.personnelId, input.documentId);
-	const row = await writer.setDocumentArchivedAt(input.documentId, null);
+	const row = await writer.setDocumentArchive(input.documentId, null);
 	ctx.audit.log({ action: 'personnel.document.restored', resourceType: 'personnel', resourceId: input.personnelId });
 	return { id: row.id, archivedAt: row.archived_at ?? null };
 }
@@ -262,6 +268,7 @@ function mapDocumentRow(row: PersonnelDocumentRow, contributorLabels = new Map<s
 		contentType: row.content_type,
 		uploadedBy: resolveContributorLabel(contributorLabels, row.uploaded_by),
 		createdAt: row.created_at ?? new Date().toISOString(),
-		archivedAt: row.archived_at ?? null
+		archivedAt: row.archived_at ?? null,
+		archivedBy: optionalContributorLabel(contributorLabels, row.archived_by)
 	};
 }

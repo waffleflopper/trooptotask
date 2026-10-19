@@ -84,6 +84,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261018000100_set_based_completion_read_scope.sql",
     "20261019000100_personnel_training_history.sql",
     "20261019000200_personnel_data_sheet_columns.sql",
+    "20261019000300_personnel_log_attribution.sql",
     "20261019000400_counseling_conducted_by.sql",
 )
 STAGED_UPGRADE_FIXTURES = (

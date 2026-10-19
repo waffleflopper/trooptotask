@@ -73,10 +73,12 @@ SELECT b.tbl, b.id, CASE
       AND (b.tbl <> 'follow_up' OR b.row_data ->> 'status' = 'open')
     THEN b.row_data || jsonb_build_object('archived_at', '2030-07-01T00:00:00+00:00')
       || CASE WHEN b.tbl = 'follow_up' THEN jsonb_build_object('status', 'archived') ELSE '{}' END
+      || CASE WHEN b.tbl <> 'personnel' THEN jsonb_build_object('archived_by', pg_temp.u(1)::text) ELSE '{}' END
     WHEN person.n BETWEEN 1 AND 50 AND (b.row_data ->> 'archived_at') IS NULL
       AND (b.tbl <> 'follow_up' OR b.row_data ->> 'status' = 'open')
     THEN b.row_data || jsonb_build_object('archived_at', '2029-05-01T00:00:00.123+00:00')
       || CASE WHEN b.tbl = 'follow_up' THEN jsonb_build_object('status', 'archived') ELSE '{}' END
+      || CASE WHEN b.tbl <> 'personnel' THEN jsonb_build_object('archived_by', pg_temp.u(1)::text) ELSE '{}' END
     ELSE b.row_data END AS row_data
 FROM before_rows b
 CROSS JOIN LATERAL (SELECT right(coalesce(b.row_data ->> 'personnel_id', b.id::text), 12)::integer AS n) AS person;

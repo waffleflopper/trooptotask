@@ -19,6 +19,8 @@ import { buildSensitiveFilePath, validateSensitiveFileSelection } from '$lib/sto
 import {
 	personnelArtifactWriter,
 	requirePersonnelArtifactAccess,
+	contributorLabelsWithStamps,
+	optionalContributorLabel,
 	resolveContributorLabel,
 	type PersonnelArtifactsContext,
 	type CounselingRecordRow
@@ -72,7 +74,11 @@ export async function listPersonnelCounselingRecords(
 		limit,
 		offset: options.offset
 	});
-	const labels = await ctx.contributorLabels(rows.flatMap((row) => (row.uploaded_by ? [row.uploaded_by] : [])));
+	const labels = await contributorLabelsWithStamps(
+		ctx,
+		rows.flatMap((row) => (row.uploaded_by ? [row.uploaded_by] : [])),
+		rows.map((row) => row.archived_by)
+	);
 	return rows.map((row) => mapCounselingRow(row, labels));
 }
 
@@ -190,7 +196,10 @@ export async function archivePersonnelCounselingRecord(
 ): Promise<PersonnelArtifactArchiveState> {
 	const { writer, row: existing } = await loadCounselingForWrite(ctx, input.personnelId, input.recordId);
 	if (existing.archived_at) fail(409, 'Counseling record is already archived');
-	const row = await writer.setCounselingArchivedAt(input.recordId, new Date().toISOString());
+	const row = await writer.setCounselingArchive(input.recordId, {
+		at: new Date().toISOString(),
+		by: ctx.actor.userId
+	});
 	ctx.audit.log({
 		action: 'personnel.counseling_record.archived',
 		resourceType: 'personnel',
@@ -204,7 +213,7 @@ export async function restorePersonnelCounselingRecord(
 	input: { personnelId: string; recordId: string }
 ): Promise<PersonnelArtifactArchiveState> {
 	const { writer } = await loadCounselingForWrite(ctx, input.personnelId, input.recordId);
-	const row = await writer.setCounselingArchivedAt(input.recordId, null);
+	const row = await writer.setCounselingArchive(input.recordId, null);
 	ctx.audit.log({
 		action: 'personnel.counseling_record.restored',
 		resourceType: 'personnel',
@@ -277,6 +286,7 @@ function mapCounselingRow(
 		uploadedBy: resolveContributorLabel(contributorLabels, row.uploaded_by ?? 'Leader upload'),
 		fileName: row.file_path ? fileNameFromPath(row.file_path) : `${row.id}.pdf`,
 		createdAt,
-		archivedAt: row.archived_at ?? null
+		archivedAt: row.archived_at ?? null,
+		archivedBy: optionalContributorLabel(contributorLabels, row.archived_by)
 	};
 }

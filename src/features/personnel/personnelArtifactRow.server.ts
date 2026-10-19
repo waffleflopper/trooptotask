@@ -16,7 +16,8 @@ export const counselingRow = (row: CounselingRecordRow): CounselingRecordRow => 
 	...(row.conducted_by !== undefined ? { conducted_by: row.conducted_by } : {}),
 	file_path: row.file_path,
 	...(row.created_at !== undefined ? { created_at: row.created_at } : {}),
-	...(row.archived_at !== undefined ? { archived_at: row.archived_at } : {})
+	...(row.archived_at !== undefined ? { archived_at: row.archived_at } : {}),
+	...(row.archived_by !== undefined ? { archived_by: row.archived_by } : {})
 });
 export const documentRow = (row: PersonnelDocumentRow): PersonnelDocumentRow => ({
 	id: row.id,
@@ -27,7 +28,8 @@ export const documentRow = (row: PersonnelDocumentRow): PersonnelDocumentRow => 
 	content_type: row.content_type,
 	uploaded_by: row.uploaded_by,
 	...(row.created_at !== undefined ? { created_at: row.created_at } : {}),
-	...(row.archived_at !== undefined ? { archived_at: row.archived_at } : {})
+	...(row.archived_at !== undefined ? { archived_at: row.archived_at } : {}),
+	...(row.archived_by !== undefined ? { archived_by: row.archived_by } : {})
 });
 export const followUpRow = (row: FollowUpRow): FollowUpRow => ({
 	id: row.id,
@@ -40,7 +42,9 @@ export const followUpRow = (row: FollowUpRow): FollowUpRow => ({
 	created_at: row.created_at,
 	updated_at: row.updated_at,
 	completed_at: row.completed_at,
-	...(row.archived_at !== undefined ? { archived_at: row.archived_at } : {})
+	...(row.completed_by !== undefined ? { completed_by: row.completed_by } : {}),
+	...(row.archived_at !== undefined ? { archived_at: row.archived_at } : {}),
+	...(row.archived_by !== undefined ? { archived_by: row.archived_by } : {})
 });
 export const leaderNoteRow = (row: LeaderNoteRow): LeaderNoteRow => ({
 	id: row.id,
@@ -48,5 +52,7 @@ export const leaderNoteRow = (row: LeaderNoteRow): LeaderNoteRow => ({
 	author: row.author,
 	text: row.text,
 	created_at: row.created_at,
-	...(row.archived_at !== undefined ? { archived_at: row.archived_at } : {})
+	...(row.updated_at !== undefined ? { updated_at: row.updated_at } : {}),
+	...(row.archived_at !== undefined ? { archived_at: row.archived_at } : {}),
+	...(row.archived_by !== undefined ? { archived_by: row.archived_by } : {})
 });

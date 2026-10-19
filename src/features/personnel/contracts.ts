@@ -7,7 +7,8 @@ import type {
 	DocumentCreate,
 	FollowUpCreate,
 	FollowUpPatch,
-	LeaderNoteCreate
+	LeaderNoteCreate,
+	ActorStamp
 } from './personnelArtifactPersistence';
 import type { ClientAffordance } from '$lib/access/clientAccess';
 import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
@@ -224,17 +225,18 @@ export interface PersonnelAwardAcknowledgementPort {
 export interface PersonnelArtifactWriter {
 	findCounseling(id: string): Promise<CounselingRecordRow | null>;
 	createCounseling(input: CounselingCreate): Promise<CounselingRecordRow>;
-	setCounselingArchivedAt(id: string, archivedAt: string | null): Promise<CounselingRecordRow>;
+	setCounselingArchive(id: string, archived: ActorStamp | null): Promise<CounselingRecordRow>;
 	findDocument(id: string): Promise<PersonnelDocumentRow | null>;
 	createDocument(input: DocumentCreate): Promise<PersonnelDocumentRow>;
-	setDocumentArchivedAt(id: string, archivedAt: string | null): Promise<PersonnelDocumentRow>;
+	setDocumentArchive(id: string, archived: ActorStamp | null): Promise<PersonnelDocumentRow>;
 	findFollowUp(id: string): Promise<FollowUpRow | null>;
 	createFollowUp(input: FollowUpCreate): Promise<FollowUpRow>;
 	patchFollowUp(id: string, input: FollowUpPatch): Promise<FollowUpRow>;
 	deleteFollowUp(id: string): Promise<void>;
 	findLeaderNote(id: string): Promise<LeaderNoteRow | null>;
 	createLeaderNote(input: LeaderNoteCreate): Promise<LeaderNoteRow>;
-	setLeaderNoteArchivedAt(id: string, archivedAt: string | null): Promise<LeaderNoteRow>;
+	setLeaderNoteArchive(id: string, archived: ActorStamp | null): Promise<LeaderNoteRow>;
+	setLeaderNoteText(id: string, text: string, updatedAt: string): Promise<LeaderNoteRow>;
 	deleteLeaderNote(id: string): Promise<void>;
 	sumActiveDocumentBytes(): Promise<number>;
 	/** The server implementation accepts only a File after runtime validation. */
@@ -340,6 +342,10 @@ export const personnelLeaderNoteInputSchema = z.object({
 
 export type PersonnelLeaderNoteInput = z.infer<typeof personnelLeaderNoteInputSchema>;
 
+export const personnelLeaderNoteTextSchema = personnelLeaderNoteInputSchema.extend({
+	noteId: z.string().min(1)
+});
+
 export { personnelScopeResource } from './personnelScopeResource';
 
 export type {
@@ -407,11 +413,10 @@ export type {
 	PersonnelDetailLayoutStreams,
 	PersonnelDetailStreams,
 	PersonnelDetailTabCounts,
-	PersonnelFollowUpsPageData,
-	PersonnelNotesPageData,
+	PersonnelLogNotes,
 	PersonnelLogPageData,
 	PersonnelDataSheetPageData,
-	PersonnelArchivedArtifactsPageData
+	PersonnelArchivedPageData
 } from './personnel-detail.types';
 export type {
 	AttentionInput,

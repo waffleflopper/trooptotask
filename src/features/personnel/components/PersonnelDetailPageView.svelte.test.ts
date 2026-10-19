@@ -231,7 +231,8 @@ describe('PersonnelDetailPageView', () => {
 							createdBy: 'leader-1',
 							createdAt: '2026-05-01T10:00:00Z',
 							updatedAt: '2026-05-01T10:00:00Z',
-							completedAt: null
+							completedAt: null,
+							completedBy: null
 						}
 					])
 				})
@@ -264,7 +265,8 @@ describe('PersonnelDetailPageView', () => {
 					createdBy: 'leader-1',
 					createdAt: '2026-05-01T10:00:00Z',
 					updatedAt: '2026-05-01T10:00:00Z',
-					completedAt: null
+					completedAt: null,
+					completedBy: null
 				})
 		});
 		vi.stubGlobal('fetch', fetchMock);
@@ -309,7 +311,8 @@ describe('PersonnelDetailPageView', () => {
 			createdBy: 'leader-1',
 			createdAt: `2026-05-0${index + 1}T10:00:00Z`,
 			updatedAt: `2026-05-0${index + 1}T10:00:00Z`,
-			completedAt: null
+			completedAt: null,
+			completedBy: null
 		}));
 
 		render(PersonnelDetailPageView, {
@@ -347,7 +350,8 @@ describe('PersonnelDetailPageView', () => {
 							createdBy: 'leader-1',
 							createdAt: '2026-05-01T10:00:00Z',
 							updatedAt: '2026-05-01T10:00:00Z',
-							completedAt: null
+							completedAt: null,
+							completedBy: null
 						}
 					])
 				})
@@ -393,7 +397,7 @@ const dashboardFamilies = [
 type DashboardFamily = (typeof dashboardFamilies)[number];
 
 function dashboardArtifacts(personnelId: string, marker: string) {
-	const common = { personnelId, createdAt: '2026-06-08T10:00:00.000Z', archivedAt: null };
+	const common = { personnelId, createdAt: '2026-06-08T10:00:00.000Z', archivedAt: null, archivedBy: null };
 	return {
 		followUp: {
 			...common,
@@ -404,7 +408,8 @@ function dashboardArtifacts(personnelId: string, marker: string) {
 			status: 'open',
 			createdBy: 'Synthetic leader',
 			updatedAt: common.createdAt,
-			completedAt: null
+			completedAt: null,
+			completedBy: null
 		} satisfies PersonnelFollowUp,
 		document: {
 			...common,

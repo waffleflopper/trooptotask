@@ -66,3 +66,13 @@ test('write samples alternate so an even sample count ends on the seeded value',
 	assert.deepEqual(journeys['personnel-detail-edit'].milestones({ edit }, 0)[0].present, ['/ 42A /']);
 	assert.deepEqual(journeys['personnel-detail-edit'].milestones({ edit }, 0)[0].absent, ['Save basic info', '/ 68W /']);
 });
+
+test('the Dashboard navigation waits for the Dashboard, then the roster, for both actors', () => {
+	const navigation = journeyFor('dashboard-navigation', 'perfScoped', 'interaction');
+	assert.equal(navigation, journeys['dashboard-navigation']);
+	assert.deepEqual(navigation.trigger(), { click: { role: 'link', name: 'Personnel' } });
+	assert.deepEqual(navigation.ready()[0].present, ['Upcoming Changes', 'Requires Attention']);
+	const [useful] = navigation.milestones({ sentinel: 'Sentinel' });
+	assert.deepEqual(useful.anyPresent, ['Sentinel', 'personnel are loaded']);
+	assert.deepEqual(useful.inside, { 'nav[aria-label="Current section"]': ['Personnel'] });
+});

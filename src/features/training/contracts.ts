@@ -1,5 +1,11 @@
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
-import type { PersonnelTraining, TrainingType, TrainingView, TrainingStatus } from './training.types';
+import type {
+	PersonnelTraining,
+	TrainingCompletionHistoryEntry,
+	TrainingType,
+	TrainingView,
+	TrainingStatus
+} from './training.types';
 import type { Personnel } from '$features/personnel/contracts';
 import type { RankCatalogEntry, Group } from '$features/personnel/contracts';
 import type { TrainingStats } from './utils/trainingStatus';
@@ -20,7 +26,13 @@ export type {
 } from './utils/briefingReportInput';
 import type { TrainingBriefingReportInput } from './utils/briefingReportInput';
 
-export type { TrainingType, TrainingView, PersonnelTraining, TrainingStatus } from './training.types';
+export type {
+	TrainingType,
+	TrainingView,
+	PersonnelTraining,
+	TrainingCompletionHistoryEntry,
+	TrainingStatus
+} from './training.types';
 
 /** Matches the `training_types.color` column default and the seeded value, so a type saved without a color renders gray. */
 export const DEFAULT_TRAINING_TYPE_COLOR = '#6b7280';
@@ -324,6 +336,8 @@ export interface TrainingCompletionPersistence {
 	): Promise<TrainingCompletionPairReference[]>;
 	listPersonReadinessFacts(personnelId: string): Promise<PersonnelTrainingReadinessFact[]>;
 	listPersonExportFacts(personnelId: string): Promise<PersonnelTrainingExportFact[]>;
+	listPersonCompletions(personnelId: string): Promise<PersonnelTraining[]>;
+	listPersonHistory(personnelId: string): Promise<TrainingCompletionHistoryEntry[]>;
 	createRecord(input: TrainingCompletionCreate): Promise<SavedTrainingCompletion>;
 	patchRecord(id: string, fields: TrainingCompletionPatch): Promise<SavedTrainingCompletion>;
 	deleteRecord(id: string): Promise<void>;

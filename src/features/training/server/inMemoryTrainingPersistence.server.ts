@@ -10,6 +10,7 @@ import {
 	toTrainingType,
 	toTrainingView,
 	toTrainingCompletion,
+	toTrainingCompletionHistoryEntry,
 	trainingTypeCreateRow,
 	trainingTypePatchRow,
 	trainingViewCreateRow,
@@ -19,7 +20,8 @@ import {
 	trainingCompletedRow,
 	type TrainingTypeRow,
 	type TrainingViewRow,
-	type TrainingCompletionRow
+	type TrainingCompletionRow,
+	type TrainingCompletionHistoryRow
 } from './trainingPersistenceMapping.server';
 
 export function createInMemoryTrainingCatalogPersistence(
@@ -221,6 +223,18 @@ export function createInMemoryTrainingCompletionPersistence(
 				expirationDate: row.expiration_date,
 				notes: row.notes
 			}));
+		},
+		async listPersonCompletions(personnelId) {
+			return (
+				await store.findMany<TrainingCompletionRow>('personnel_trainings', orgId, { personnel_id: personnelId })
+			).map(toTrainingCompletion);
+		},
+		async listPersonHistory(personnelId) {
+			return (
+				await store.findMany<TrainingCompletionHistoryRow>('personnel_training_history', orgId, {
+					personnel_id: personnelId
+				})
+			).map(toTrainingCompletionHistoryEntry);
 		},
 		async createRecord(input) {
 			return toTrainingCompletion(

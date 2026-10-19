@@ -3,11 +3,14 @@ import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type { TrainingCompletionPersistence } from '../contracts';
 import {
 	TRAINING_COMPLETION_FIELDS,
+	TRAINING_COMPLETION_HISTORY_FIELDS,
 	toTrainingCompletion,
+	toTrainingCompletionHistoryEntry,
 	trainingCompletionCreateRow,
 	trainingCompletionPatchRow,
 	trainingCompletedRow,
-	type TrainingCompletionRow
+	type TrainingCompletionRow,
+	type TrainingCompletionHistoryRow
 } from './trainingPersistenceMapping.server';
 
 export function createSupabaseTrainingCompletionPersistence(
@@ -125,6 +128,36 @@ export function createSupabaseTrainingCompletionPersistence(
 				expirationDate: row.expiration_date,
 				notes: row.notes
 			}));
+		},
+		async listPersonCompletions(personnelId) {
+			const result = await selectAllSupabaseRows<TrainingCompletionRow>(async (from, to) => {
+				const { data, error } = await client
+					.from('personnel_trainings')
+					.select(TRAINING_COMPLETION_FIELDS)
+					.eq('organization_id', orgId)
+					.eq('personnel_id', personnelId)
+					.order('id', { ascending: true })
+					.range(from, to)
+					.returns<TrainingCompletionRow[]>();
+				return { data, error };
+			});
+			if (result.error) throw new Error((result.error as { message: string }).message);
+			return (result.data ?? []).map(toTrainingCompletion);
+		},
+		async listPersonHistory(personnelId) {
+			const result = await selectAllSupabaseRows<TrainingCompletionHistoryRow>(async (from, to) => {
+				const { data, error } = await client
+					.from('personnel_training_history')
+					.select(TRAINING_COMPLETION_HISTORY_FIELDS)
+					.eq('organization_id', orgId)
+					.eq('personnel_id', personnelId)
+					.order('id', { ascending: true })
+					.range(from, to)
+					.returns<TrainingCompletionHistoryRow[]>();
+				return { data, error };
+			});
+			if (result.error) throw new Error((result.error as { message: string }).message);
+			return (result.data ?? []).map(toTrainingCompletionHistoryEntry);
 		},
 		async createRecord(input) {
 			const { data, error } = await client

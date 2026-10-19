@@ -11,7 +11,8 @@ import {
 	type TrainingViewPatch,
 	type TrainingCompletionCreate,
 	type TrainingCompletionPatch,
-	type TrainingCompletedUpsert
+	type TrainingCompletedUpsert,
+	type TrainingCompletionHistoryEntry
 } from '../contracts';
 
 export type TrainingTypeRow = {
@@ -119,6 +120,32 @@ export function toTrainingCompletion(row: TrainingCompletionRow): SavedTrainingC
 		...('created_at' in row ? { created_at: row.created_at } : {}),
 		...('updated_at' in row ? { updated_at: row.updated_at } : {})
 	} as SavedTrainingCompletion;
+}
+
+export type TrainingCompletionHistoryRow = {
+	id: string;
+	personnel_id: string;
+	training_type_id: string;
+	completion_date: string | null;
+	expiration_date: string | null;
+	notes: string | null;
+	certificate_url: string | null;
+	superseded_at: string;
+};
+export const TRAINING_COMPLETION_HISTORY_FIELDS =
+	'id, personnel_id, training_type_id, completion_date, expiration_date, notes, certificate_url, superseded_at';
+
+export function toTrainingCompletionHistoryEntry(row: TrainingCompletionHistoryRow): TrainingCompletionHistoryEntry {
+	return {
+		id: row.id,
+		personnelId: row.personnel_id,
+		trainingTypeId: row.training_type_id,
+		completionDate: row.completion_date,
+		expirationDate: row.expiration_date,
+		notes: row.notes,
+		certificateUrl: row.certificate_url,
+		supersededAt: row.superseded_at
+	};
 }
 
 export function trainingTypePatchRow(input: TrainingTypePatch) {

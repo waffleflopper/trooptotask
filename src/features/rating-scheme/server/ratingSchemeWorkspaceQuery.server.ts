@@ -3,13 +3,17 @@ import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { requireFeaturePolicy } from '$lib/access/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { PersonnelRatingSchemeRosterPort } from '$features/personnel/contracts';
+import { isArchivedPerson, toArchivedPersonIds } from '../archivedPeople';
 import type { RatingSchemePersistence, RatingSchemeWorkspaceData } from '../contracts';
 
 interface RatingSchemeWorkspaceContext {
 	auth: OrganizationAccessGrant;
 	audit?: PolicyAuditSink;
 	readonly ratingScheme: Pick<RatingSchemePersistence, 'listWorkspace'>;
-	readonly personnelRatingSchemeRoster?: Pick<PersonnelRatingSchemeRosterPort, 'listActiveReferences'>;
+	readonly personnelRatingSchemeRoster?: Pick<
+		PersonnelRatingSchemeRosterPort,
+		'listActiveReferences' | 'listArchivedIds'
+	>;
 }
 
 /** Load the complete authorized workspace independently of Personnel's view capability. */
@@ -22,12 +26,14 @@ export async function loadRatingSchemeWorkspace(ctx: RatingSchemeWorkspaceContex
 	);
 	if (!ctx.personnelRatingSchemeRoster) throw new Error('Personnel Rating Scheme roster port is required');
 
-	const [personnelLookup, ratingSchemeEntries] = await Promise.all([
+	const [personnelLookup, archivedIds, ratingSchemeEntries] = await Promise.all([
 		ctx.personnelRatingSchemeRoster.listActiveReferences(ctx.auth),
+		ctx.personnelRatingSchemeRoster.listArchivedIds(ctx.auth),
 		ctx.ratingScheme.listWorkspace()
 	]);
+	const archived = toArchivedPersonIds(archivedIds);
 	return {
 		personnelLookup,
-		ratingSchemeEntries
+		ratingSchemeEntries: ratingSchemeEntries.filter((entry) => !isArchivedPerson(archived, entry.ratedPersonId))
 	};
 }

@@ -1,16 +1,22 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { PersonnelRatingSchemeRosterPort } from '$features/personnel/contracts';
 import { evaluateFeaturePolicy } from '$lib/access/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
+import { isArchivedPerson, toArchivedPersonIds } from './archivedPeople';
 import type { RatingSchemeDueEntry, RatingSchemeDuePort } from './contracts';
 
 interface RatingSchemeDueRow {
+	rated_person_id: string;
 	rating_period_end: string;
 	status: RatingSchemeDueEntry['status'];
 }
 
 /** The authenticated request client retains Rating Scheme RLS without a Personnel SELECT. */
-export function createSupabaseRatingSchemeDuePort(supabase: SupabaseClient): RatingSchemeDuePort {
+export function createSupabaseRatingSchemeDuePort(
+	supabase: SupabaseClient,
+	personnelRoster: Pick<PersonnelRatingSchemeRosterPort, 'listArchivedIds'>
+): RatingSchemeDuePort {
 	return {
 		async listDueEntries(actor) {
 			const decision = await evaluateFeaturePolicy({ auth: actor }, POLICY_ACTION_CATALOG.ratingScheme.viewEntries, {
@@ -18,17 +24,23 @@ export function createSupabaseRatingSchemeDuePort(supabase: SupabaseClient): Rat
 			});
 			if (!decision.allowed || (actor.scopeSet.kind === 'groups' && actor.scopeSet.groupIds.length === 0)) return [];
 
-			const { data, error } = await selectAllSupabaseRows<RatingSchemeDueRow>(
-				async (from, to) =>
-					await supabase
-						.from('rating_scheme_entries')
-						.select('rating_period_end, status')
-						.eq('organization_id', actor.orgId)
-						.order('id', { ascending: true })
-						.range(from, to)
-			);
+			const [{ data, error }, archivedIds] = await Promise.all([
+				selectAllSupabaseRows<RatingSchemeDueRow>(
+					async (from, to) =>
+						await supabase
+							.from('rating_scheme_entries')
+							.select('rated_person_id, rating_period_end, status')
+							.eq('organization_id', actor.orgId)
+							.order('id', { ascending: true })
+							.range(from, to)
+				),
+				personnelRoster.listArchivedIds(actor)
+			]);
 			if (error) throw new Error((error as { message: string }).message);
-			return (data ?? []).map((row) => ({ ratingPeriodEnd: row.rating_period_end, status: row.status }));
+			const archived = toArchivedPersonIds(archivedIds);
+			return (data ?? [])
+				.filter((row) => !isArchivedPerson(archived, row.rated_person_id))
+				.map((row) => ({ ratingPeriodEnd: row.rating_period_end, status: row.status }));
 		}
 	};
 }

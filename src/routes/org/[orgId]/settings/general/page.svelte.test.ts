@@ -146,6 +146,7 @@ describe('General settings unit name', () => {
 
 		expect(sent()).toEqual([]);
 		expect(screen.queryByLabelText('Unit name')).toBeNull();
+		expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Edit unit name' }));
 	});
 
 	it('sends no undo once the unit changes', async () => {

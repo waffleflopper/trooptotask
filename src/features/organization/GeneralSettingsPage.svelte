@@ -73,6 +73,7 @@
 			{ from: organization.name, to: String(formData.get('name') ?? ''), undo }
 		);
 		if (settle) form = null;
+		else if (!undo && !workspace.nameEditing) void focusAfterRender(() => editButton);
 		return settle;
 	}
 

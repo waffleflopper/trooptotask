@@ -2954,23 +2954,28 @@ async function main() {
 		const result = await evaluate(
 			state,
 			pageId,
-			'() => { const blob = window.__mapExport?.blob; return blob ? { captured: true, size: blob.size, filename: window.__mapExport.filename, mimeType: blob.type } : { captured: false }; }'
+			'() => { const blob = window.__mapExport?.blob; if (!blob) return { captured: false }; window.__mapExportSaving = blob; return { captured: true, size: blob.size, filename: window.__mapExport.filename, mimeType: blob.type }; }'
 		);
 		if (!result.captured) throw new Error('No workbook Blob was captured.');
-		// One base64 result for a multi-megabyte Organization export crashes Chromium, so read it in slices.
+		// One base64 result for a multi-megabyte Organization export crashes Chromium, so read it in slices,
+		// all from the Blob pinned above in case another download replaces the capture meanwhile.
 		const chunks = [];
-		for (let offset = 0; offset < result.size; offset += 1 << 20) {
-			const base64 = await evaluate(
-				state,
-				pageId,
-				`async () => {
-				const bytes = new Uint8Array(await window.__mapExport.blob.slice(${offset}, ${offset + (1 << 20)}).arrayBuffer());
-				let binary = '';
-				for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
-				return btoa(binary);
-			}`
-			);
-			chunks.push(Buffer.from(base64, 'base64'));
+		try {
+			for (let offset = 0; offset < result.size; offset += 1 << 20) {
+				const base64 = await evaluate(
+					state,
+					pageId,
+					`async () => {
+					const bytes = new Uint8Array(await window.__mapExportSaving.slice(${offset}, ${offset + (1 << 20)}).arrayBuffer());
+					let binary = '';
+					for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
+					return btoa(binary);
+				}`
+				);
+				chunks.push(Buffer.from(base64, 'base64'));
+			}
+		} finally {
+			await evaluate(state, pageId, '() => delete window.__mapExportSaving');
 		}
 		const bytes = Buffer.concat(chunks);
 		if (bytes.length !== result.size) throw new Error(`Saved ${bytes.length} of ${result.size} export bytes.`);

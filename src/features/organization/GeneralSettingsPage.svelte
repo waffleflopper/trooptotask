@@ -29,7 +29,9 @@
 	let slugSaveButton = $state<HTMLButtonElement | null>(null);
 	let slugResetButton = $state<HTMLButtonElement | null>(null);
 
-	let slugDraft = $derived(organization.urlSlug ?? '');
+	// A name save replaces the organization object; keying on the saved string keeps a typed address draft.
+	const savedSlug = $derived(organization.urlSlug ?? '');
+	let slugDraft = $derived(savedSlug);
 	const slugChanged = $derived(
 		!!organization.urlSlug && normalizeOrganizationUrlSlug(slugDraft) !== organization.urlSlug
 	);

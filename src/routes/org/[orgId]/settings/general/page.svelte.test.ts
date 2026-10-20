@@ -280,6 +280,15 @@ describe('General settings web address', () => {
 		expect(warning()).toBeNull();
 	});
 
+	it('keeps a typed address when a name save reloads the unit', async () => {
+		const view = render(Page, { data: data('a'), form: null, params: { orgId: 'a' } });
+		await fireEvent.input(screen.getByLabelText('Web address'), { target: { value: 'c-co-526' } });
+
+		await view.rerender({ data: data('a'), form: { nameSuccess: true } });
+
+		expect((screen.getByLabelText('Web address') as HTMLInputElement).value).toBe('c-co-526');
+	});
+
 	it('does not warn when the unit has no custom path, since its default address keeps working', async () => {
 		render(Page, { data: data('a', { urlSlug: null }), form: null, params: { orgId: 'a' } });
 

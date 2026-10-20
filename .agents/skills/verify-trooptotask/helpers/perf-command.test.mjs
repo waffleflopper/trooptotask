@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { gunzipSync, gzipSync } from 'node:zlib';
+import { gzipSync } from 'node:zlib';
 import { test } from 'node:test';
 import { assertPageBound, controlUid, count, journeyTerms, perfCommand, repeat, step } from './perf-command.mjs';
 
@@ -61,6 +61,7 @@ async function traceScenario({ trace, failNavigation = false }) {
 	const session = path.join(repository, 'session');
 	await fs.mkdir(session, { recursive: true });
 	const calls = [];
+	const sessions = [];
 	const ctx = {
 		repository,
 		evidenceRoot,
@@ -72,16 +73,18 @@ async function traceScenario({ trace, failNavigation = false }) {
 		},
 		isUnderEvidence: async (file, root) => file.startsWith(root + path.sep),
 		credentials: () => ({ email: 'wide@example.test', password }),
+		sessionPage: async (input) => {
+			sessions.push(input);
+			return { status: 'PASS', pageId: 7, path: input.destination };
+		},
 		text: (reply) => reply.text ?? '',
 		evaluate: async (_pageId, source) => {
-			if (source.includes('/auth/login?/login')) return 'redirect';
 			if (source.startsWith("() => performance.getEntriesByType('resource')")) return [];
 			if (source.includes('responseEnd ?? 0')) return { end: 9, now: 10 };
 			return { observer: { done: true, milestones: { useful: 5 } }, resources: [], navigation: null, paint: {} };
 		},
 		tool: async (name, input) => {
 			calls.push(name);
-			if (name === 'new_page') return { text: '7: http://127.0.0.1:4000/og-image.png [selected]' };
 			if (name === 'navigate_page' && failNavigation) throw new Error('navigation failed');
 			if (name === 'list_network_requests') return { structuredContent: { networkRequests: [] } };
 			if (name === 'performance_stop_trace') {
@@ -103,43 +106,41 @@ async function traceScenario({ trace, failNavigation = false }) {
 		evidenceRoot,
 		session,
 		listing,
-		repository,
-		rawFiles: () => listing(path.join(repository, '.verification', 'perf-raw'))
+		sessions
 	};
 }
 
-test('a trace is redacted into the evidence and no raw trace survives', async () => {
-	const raw = gzipSync(JSON.stringify({ traceEvents: [], source: `password ${password}` }));
-	const scenario = await traceScenario({ trace: raw });
+test('a cold trace signs its page in with a provider session and lands in the evidence beside its summary', async () => {
+	const scenario = await traceScenario({ trace: gzipSync(JSON.stringify({ traceEvents: [] })) });
 	await scenario.run;
-	const written = (await scenario.listing(scenario.evidenceRoot)).filter((file) => file.endsWith('.json.gz'));
-	assert.equal(written.length, 1);
-	assert.ok(
-		!gunzipSync(await fs.readFile(written[0]))
-			.toString()
-			.includes(password)
+	assert.deepEqual(scenario.sessions, [
+		{
+			email: 'wide@example.test',
+			password,
+			destination: '/org/org/personnel',
+			isolatedContext: scenario.sessions[0].isolatedContext
+		}
+	]);
+	assert.match(scenario.sessions[0].isolatedContext, /^perf-cold-[0-9a-f-]{36}$/);
+	const written = (await scenario.listing(scenario.evidenceRoot)).map((file) =>
+		path.relative(scenario.evidenceRoot, file)
 	);
-	assert.deepEqual(await scenario.rawFiles(), []);
-	const [summary] = (await scenario.listing(scenario.evidenceRoot)).filter((file) => file.endsWith('.summary.json'));
+	assert.ok(written.includes('run/small/perfWide/personnel-list-trace-unthrottled.json.gz'));
+	const summary = path.join(scenario.evidenceRoot, 'run/small/perfWide/personnel-list-trace-unthrottled.summary.json');
 	assert.equal(JSON.parse(await fs.readFile(summary, 'utf8')).host.browser, 'Chrome/154.0.8037.97');
 });
 
-test('a trace whose redaction fails leaves nothing unredacted under the evidence root', async () => {
-	const scenario = await traceScenario({ trace: Buffer.from(`not gzip ${password}`) });
-	await assert.rejects(scenario.run);
-	const files = (await scenario.listing(scenario.evidenceRoot)).filter((file) => path.extname(file));
-	assert.deepEqual(files, []);
-	assert.deepEqual(await scenario.rawFiles(), []);
-});
-
-test('a trace that fails after it started is stopped before the page closes', async () => {
+test('a trace that fails after it started is stopped, leaves no partial trace and closes its page', async () => {
 	const scenario = await traceScenario({ trace: Buffer.alloc(0), failNavigation: true });
 	await assert.rejects(scenario.run, /navigation failed/);
 	assert.deepEqual(
 		scenario.calls.filter((name) => ['performance_start_trace', 'performance_stop_trace', 'close_page'].includes(name)),
 		['performance_start_trace', 'performance_stop_trace', 'close_page']
 	);
-	assert.deepEqual(await scenario.rawFiles(), []);
+	assert.deepEqual(
+		(await scenario.listing(scenario.evidenceRoot)).filter((file) => file.endsWith('.json.gz')),
+		[]
+	);
 });
 
 test('a run directory outside the evidence root is rejected before any sample', async () => {
@@ -255,41 +256,6 @@ test('journey terms carry the actor scope and switch from another seeded workloa
 		original: '11B',
 		alternate: '42A'
 	});
-});
-
-test('a journey outside the cold set is refused a cold load or trace before any browser call', async () => {
-	const ctx = {
-		repository: '/repo',
-		evidenceRoot: '/repo/.verification/evidence',
-		isUnderEvidence: async () => true,
-		ownedState: { workloads: { small: ledger } },
-		doctor: { origin: 'http://127.0.0.1:4000' },
-		tool: async () => assert.fail('no browser call for a refused cold run')
-	};
-	await assert.rejects(
-		perfCommand(
-			[
-				'load',
-				'1',
-				'small',
-				'training-report',
-				'perfWide',
-				'--mode',
-				'cold',
-				'--out',
-				'/repo/.verification/evidence/run'
-			],
-			ctx
-		),
-		{ message: 'training-report is not measured cold: the app sign-in limit leaves it warm only.' }
-	);
-	await assert.rejects(
-		perfCommand(
-			['trace', '1', 'small', 'training-report', 'perfWide', '--out', '/repo/.verification/evidence/run'],
-			ctx
-		),
-		{ message: 'training-report is not measured cold: the app sign-in limit leaves it warm only.' }
-	);
 });
 
 const pinnedTables = { tables: [], planCache: { mode: 'force_custom_plan', pinned: true } };

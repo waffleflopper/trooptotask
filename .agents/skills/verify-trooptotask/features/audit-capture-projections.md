@@ -16,7 +16,7 @@ As an Organization owner, open Settings and Logs. Search or sort the table and u
 
 ## Driving it with verify:app
 
-Run `doctor` for the selected owned worker, then `$V fixture`. Reuse `orgOwner` (A owner), `orgAdmin` (A administrator), `orgMember`/`viewer` (A member), `orgSettingsPeer` (B owner), `platformReviewer` (super-admin) and `platformSupport` (support). `$V actor ROLE settings/logs` and `$V actor ROLE admin/audit` use normal sign-in. Ordinary Organization actors can attempt the admin destination to observe denial; no role is elevated by the helper.
+Run `doctor` for the selected owned worker, then `$V fixture`. Reuse `orgOwner` (A owner), `orgAdmin` (A administrator), `orgMember`/`viewer` (A member), `orgSettingsPeer` (B owner), `platformReviewer` (super-admin) and `platformSupport` (support). `$V actor ROLE settings/logs` and `$V actor ROLE admin/audit` sign in with a provider session, which writes no `auth.login_success` event; step 5 uses the form for the sign-in producer. Ordinary Organization actors can attempt the admin destination to observe denial; no role is elevated by the helper.
 
 Capture original A/B audit rows before `$V seed audit`. The seed records 105 recent A events, one old A event, four excluded authentication/rate-limit events and one B sentinel, with every ID saved before insertion. Its returned action/tag/witness IDs identify label, system, legacy actor and foreign-reference cases. `$V rows audit_logs orgA|orgB [id|action VALUE]` supplies separate privileged provider readback. These seeded values are stored-event prerequisites, not producer sanitization or ordinary authorization proof.
 

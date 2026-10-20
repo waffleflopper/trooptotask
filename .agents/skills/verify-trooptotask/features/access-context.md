@@ -19,7 +19,7 @@ Use Personnel and Calendar from Organization navigation. Use the Organization sw
 
 ## Driving it with verify:app
 
-Read [Calendar access](calendar-access.md), [find Personnel](find-personnel.md), [Organization switching](organization-switching.md) and [sign-in](sign-in.md) before driving. Use their existing synthetic actors and ordinary sign-in form. Record doctor, fixture IDs, actor, Organization, request method/path/status, expected IDs and observed body. Capture visible interaction separately from authenticated HTTP probes and privileged fixture readback.
+Read [Calendar access](calendar-access.md), [find Personnel](find-personnel.md), [Organization switching](organization-switching.md) and [sign-in](sign-in.md) before driving. Use their existing synthetic actors and sign-in commands. Record doctor, fixture IDs, actor, Organization, request method/path/status, expected IDs and observed body. Capture visible interaction separately from authenticated HTTP probes and privileged fixture readback.
 
 1. Follow Calendar access's Organization, Alpha and empty-scope read comparisons with `calendarLane`, `calendarScoped` and `calendarEmpty`. Compare exact fixture IDs in both rendered rows and authenticated September 14–16 range responses. A successful empty response needs a nonempty Organization positive control.
 2. Follow find Personnel's Organization and Alpha comparisons with `viewer` and `scoped`. Compare exact page-data Person IDs and visible rows. Preserve the no-Personnel Calendar actor's allowed Calendar read as the independent-lane witness.

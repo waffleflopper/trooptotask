@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { authCookieName, forgedSessions, probeAdmission } from './admission-probe.mjs';
+import { forgedSessions, probeAdmission } from './admission-probe.mjs';
 
 const b64 = (value) => Buffer.from(JSON.stringify(value)).toString('base64url');
 const genuineToken = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ sub: 'user-a', session_id: 's1', email: 'a@example.test' })}.GENUINE-SIGNATURE`;
@@ -36,7 +36,6 @@ test('the probe sends every case to each path with the provider cookie name and 
 		otherUserId: 'user-b',
 		fetch
 	});
-	assert.equal(authCookieName('http://127.0.0.1:56321'), 'sb-127-auth-token');
 	assert.equal(result.results.length, 10);
 	assert.deepEqual(
 		[...new Set(result.results.map((r) => r.case))],

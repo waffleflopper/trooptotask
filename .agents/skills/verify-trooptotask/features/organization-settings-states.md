@@ -197,4 +197,3 @@ Setup, in this order. `$V seed communications` (announcements and inbox rows). `
 - Feedback success writes a real row that no visible control deletes. Use one unique message; owned cleanup disposes it.
 - `What's New` can open a moment after an actor's first arrival and take focus, so a key pressed right after `actor` lands on its `Got it`. Wait for it, choose `Got it`, then start the step.
 - Decline the invitation on `/dashboard?show=all`. On plain `/dashboard`, declining an account's last invitation reloads into the `/org/new` redirect. `Invitation declined.` clears after four seconds; observe the status region from before the press.
-- Repeated `actor` sign-ins can hit the sign-in rate limit (`Too many requests`). Reuse an actor's open page instead of signing in again.

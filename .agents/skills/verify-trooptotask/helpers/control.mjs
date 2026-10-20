@@ -29,6 +29,7 @@ import { readStyleProbe, diffStyleProbes, styleProperties, resolveStyleSelectors
 import { parseSweepArguments, runSweep, toolbarReadSource } from './toolbar-sweep.mjs';
 import { observePrint } from './print-observation.mjs';
 import { probeAdmission } from './admission-probe.mjs';
+import { actorArguments } from '../../../../scripts/verification/provider-session.mjs';
 import { seedPersonnelRetention, readRetentionFiles } from './personnel-retention.mjs';
 import { seedArtifactRetention } from './artifact-retention.mjs';
 import { seedMaintenance, readMaintenance } from './maintenance-fixtures.mjs';
@@ -846,7 +847,8 @@ async function main() {
 		return;
 	}
 	if (command === 'actor') {
-		const [role, destination = 'calendar', workloadName] = args;
+		const { form, args: actorArgs } = actorArguments(args);
+		const [role, destination = 'calendar', workloadName] = actorArgs;
 		const workload = workloadName === undefined ? null : (await saved()).workloads?.[workloadName];
 		if (workloadName !== undefined && (!workload || !['perfWide', 'perfScoped', 'perfScopedLeader'].includes(role)))
 			throw new Error('Use perfWide, perfScoped or perfScopedLeader with a seeded workload name.');
@@ -990,36 +992,49 @@ async function main() {
 			readyText = ['Users', 'Organizations', 'Access Requests', 'Forbidden', 'Access denied', '403'];
 		if (workload) readyText = [workload.name, 'Access restricted', 'Access Restricted'];
 		readyText = [...readyText, 'Account Suspended', 'Verify your code'];
-		const url = `${doctor.origin}/auth/login?next=${encodeURIComponent(destinationPath)}`;
 		const browserContext = `map-${role}-${randomUUID()}`;
-		const created = text(await tool(state, 'new_page', { url, isolatedContext: browserContext }));
-		const pageId = Number(
-			created
+		let pageId;
+		if (form) {
+			const url = `${doctor.origin}/auth/login?next=${encodeURIComponent(destinationPath)}`;
+			const created = text(await tool(state, 'new_page', { url, isolatedContext: browserContext }));
+			pageId = Number(
+				created
+					.split('\n')
+					.find((line) => line.includes('[selected]'))
+					?.match(/^(\d+):/)?.[1]
+			);
+			if (!Number.isInteger(pageId)) throw new Error('New page ID was not returned.');
+			const snapshot = text(await tool(state, 'take_snapshot', { pageId }));
+			const uid = (label) => {
+				const matches = snapshot.split('\n').filter((line) => line.includes(`textbox ${JSON.stringify(label)}`));
+				if (matches.length !== 1) throw new Error(`Expected one ${label} field, found ${matches.length}.`);
+				return matches[0].match(/uid=([^\s]+)/)?.[1];
+			};
+			await tool(state, 'fill_form', {
+				pageId,
+				elements: [
+					{ uid: uid('Email Address'), value: fixture.actors[role].email },
+					{ uid: uid('Password'), value: fixture.actors[role].password }
+				]
+			});
+			const ready = text(await tool(state, 'take_snapshot', { pageId }));
+			const button = ready
 				.split('\n')
-				.find((line) => line.includes('[selected]'))
-				?.match(/^(\d+):/)?.[1]
-		);
-		if (!Number.isInteger(pageId)) throw new Error('New page ID was not returned.');
-		const snapshot = text(await tool(state, 'take_snapshot', { pageId }));
-		const uid = (label) => {
-			const matches = snapshot.split('\n').filter((line) => line.includes(`textbox ${JSON.stringify(label)}`));
-			if (matches.length !== 1) throw new Error(`Expected one ${label} field, found ${matches.length}.`);
-			return matches[0].match(/uid=([^\s]+)/)?.[1];
-		};
-		await tool(state, 'fill_form', {
-			pageId,
-			elements: [
-				{ uid: uid('Email Address'), value: fixture.actors[role].email },
-				{ uid: uid('Password'), value: fixture.actors[role].password }
-			]
-		});
-		const ready = text(await tool(state, 'take_snapshot', { pageId }));
-		const button = ready
-			.split('\n')
-			.find((line) => line.includes('button "Sign In"'))
-			?.match(/uid=([^\s]+)/)?.[1];
-		if (!button) throw new Error('Sign In button was not found.');
-		await tool(state, 'click', { pageId, uid: button });
+				.find((line) => line.includes('button "Sign In"'))
+				?.match(/uid=([^\s]+)/)?.[1];
+			if (!button) throw new Error('Sign In button was not found.');
+			await tool(state, 'click', { pageId, uid: button });
+		} else {
+			const signedIn = await run(state, {
+				command: 'session-page',
+				email: fixture.actors[role].email,
+				password: fixture.actors[role].password,
+				destination: destinationPath,
+				isolatedContext: browserContext
+			});
+			pageId = signedIn.pageId;
+			await tool(state, 'navigate_page', { pageId, type: 'url', url: `${doctor.origin}${signedIn.path}` });
+		}
 		const arrival = await tool(state, 'wait_for', {
 			pageId,
 			text: readyText,
@@ -1035,6 +1050,7 @@ async function main() {
 			role,
 			pageId,
 			browserContext,
+			signIn: form ? 'form' : 'provider-session',
 			orgId: orgSegment,
 			path: landed,
 			access: page.includes("You don't have permission to view this page") ? 'denied' : 'not-assessed',
@@ -3126,6 +3142,7 @@ async function main() {
 				save,
 				provider,
 				credentials: (role) => ({ email: fixture.actors[role].email, password: fixture.actors[role].password }),
+				sessionPage: (input) => run(state, { command: 'session-page', ...input }),
 				database: perfDatabase,
 				host: hostMonitor([repository, path.dirname(session)], {
 					// Loaded on use: print capture brings the DevTools client.

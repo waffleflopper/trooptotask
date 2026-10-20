@@ -20,7 +20,7 @@ Choose `Sign In` from the public header or footer, or follow an authenticated-pa
 Preconditions: doctor passes on the owned worker; use its origin and synthetic roles only. Keep public and signed-in pages in separate contexts.
 
 1. Open the owned origin from `doctor` in a fresh browser context with `tool new_page`; use a fresh snapshot to choose the public `Sign In` link. The form has `Email Address`, `Password`, `Show password`, and `Sign In`; the primary button has `data-testid="login-submit"`.
-2. Run `npm run --silent verify:app -- login manager --worker "$WORKER"`. This fills and submits the visible form with the private synthetic account. Record its returned page ID and organization ID, then take a snapshot. Expect an `/org/<orgId>/personnel` page, `Verification Organization A`, and a `Personnel` navigation link.
+2. Run `$V actor --form manager personnel` (with `V` from the [feature map](README.md)). This fills and submits the visible form with the private synthetic account. Record its returned page ID and organization ID, then take a snapshot. Expect an `/org/<orgId>/personnel` page, `Verification Organization A`, and a `Personnel` navigation link.
 3. In that page's latest snapshot, choose the `Account menu` button and call `tool click` with its UID. Expect a menu with `Account` and `Sign Out` items.
 4. Click the fresh `Sign Out` menuitem UID. Snapshot again: the URL is `/`, the public `Sign In` link returns, and the organization navigation is absent. A fresh login is needed for later feature files.
 5. In a separate public tab, submit an incorrect synthetic password once. Capture the form before and after: it remains usable and says `Email or password is incorrect`; there is no Organization page. Avoid repeated attempts that consume the sign-in rate limit. If the login request fails at the transport boundary, capture the visible retry state and use the form again after recovery.
@@ -31,7 +31,7 @@ Preconditions: doctor passes on the owned worker; use its origin and synthetic r
 
 ## Gotchas
 
-- `login` creates an isolated browser context; a public tab in another context does not share its session.
+- `actor --form` and `login` create an isolated browser context; a public tab in another context does not share its session.
 - Use synthetic roles only. The password stays in private worker state and must not be copied into proof files.
 - Access request and password recovery involve separate delivery and review paths; following their links does not prove completion.
 - A provider outage can return `503` at logout; record that outcome and the recovery link instead of calling it a successful sign-out. The no-session logout page is a separate entry path.

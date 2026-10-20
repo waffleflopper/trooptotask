@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { Blocked, sleep } from './core.mjs';
 
-// Reuse normally signed-in isolated contexts within one owned browser.
+// Reuse signed-in isolated contexts within one owned browser.
 const actorPages = new Map();
 
 export function assertOwnedNavigation(name, args, ownedOrigins) {
@@ -69,7 +69,7 @@ export const textContent = (result) =>
 		.map((item) => item.text)
 		.join('\n') ?? '';
 
-export function driver(call, state, fixture) {
+export function driver(call, state, fixture, sessionPage) {
 	let pageId;
 	async function tool(name, args = {}) {
 		return call(name, { ...(pageId === undefined ? {} : { pageId }), ...args });
@@ -119,24 +119,16 @@ export function driver(call, state, fixture) {
 			}
 			actorPages.delete(cacheKey);
 		}
-		// A new isolated browser context uses normal password sign-in, never injected cookies.
-		const result = textContent(
-			await call('new_page', {
-				url: `${state.origin}/auth/login?next=${target}`,
-				isolatedContext: `verify-${role}-${randomUUID()}`
-			})
-		);
-		pageId = Number(
-			result
-				.split('\n')
-				.find((line) => line.includes('[selected]'))
-				?.match(/^(\d+):/)?.[1]
-		);
-		if (!Number.isInteger(pageId))
-			throw new Blocked('PAGE_ID', 'DevTools did not return a page ID; inspect new_page response.');
-		await tool('fill', { uid: await uid('textbox', 'Email Address'), value: actor.email });
-		await tool('fill', { uid: await uid('textbox', 'Password'), value: actor.password });
-		await tool('click', { uid: await uid('button', 'Sign In') });
+		// A new isolated browser context holds a genuine provider session for the actor, so sign-in
+		// spends none of the app's `/auth/` request budget.
+		const signedIn = await sessionPage({
+			email: actor.email,
+			password: actor.password,
+			destination: target,
+			isolatedContext: `verify-${role}-${randomUUID()}`
+		});
+		pageId = signedIn.pageId;
+		await tool('navigate_page', { type: 'url', url: `${state.origin}${signedIn.path}` });
 		await tool('wait_for', { text: options.readyText ?? ['Able, Synthetic', 'Foreign, Synthetic'], timeout: 20000 });
 		actorPages.set(cacheKey, { pageId, path: target });
 		return { pageId, role, origin: state.origin, orgId };

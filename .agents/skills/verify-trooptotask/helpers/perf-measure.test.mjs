@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { gunzipSync, gzipSync } from 'node:zlib';
+import { gzipSync } from 'node:zlib';
 import { test } from 'node:test';
 import {
 	distribution,
@@ -12,7 +12,6 @@ import {
 	maintenanceDuring,
 	statementCategory,
 	parseServerTiming,
-	redactTrace,
 	serverTimingPhases,
 	summarizeTrace
 } from './perf-measure.mjs';
@@ -278,15 +277,6 @@ test('the trace summary measures the last main-frame navigation only', () => {
 		navigation: null,
 		reason: 'No main-frame navigation in this trace.'
 	});
-});
-
-test('trace redaction removes the sign-in password and keeps the events', () => {
-	const password = 'Synthetic-"quoted"\\-1!';
-	const source = `body.set('password', ${JSON.stringify(password)});`;
-	const events = [{ name: 'ScriptSource', ph: 'X', args: { data: { sourceText: source } } }];
-	const redacted = gunzipSync(redactTrace(gzipSync(JSON.stringify({ traceEvents: events })), [password])).toString();
-	assert.ok(!redacted.includes('Synthetic-'));
-	assert.deepEqual(JSON.parse(redacted).traceEvents[0].args.data.sourceText, `body.set('password', "<redacted>");`);
 });
 
 function pageWindow() {

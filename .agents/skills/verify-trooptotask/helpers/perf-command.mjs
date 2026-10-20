@@ -10,7 +10,6 @@ import {
 	distribution,
 	serverTimingPhases,
 	summarizeTrace,
-	redactTrace,
 	parseServerTiming,
 	failedRequests,
 	inFlight,
@@ -47,18 +46,17 @@ $V perf tables [--out FILE]                Vacuum, analyze and visibility state 
 $V perf summarize RUN                      Distribution table over every run file below RUN, except superseded/
                                            (listed apart as diagnostics) and the summary's own output
 
-JOURNEY (kind, effect, actors; cold only where marked): ${Object.entries(journeys)
+JOURNEY (kind, effect, actors): ${Object.entries(journeys)
 	.map(
 		([name, journey]) =>
 			`${name} (${journey.kind}, ${journey.effect}, ${Object.keys(journey.actors)
 				.filter((actor) => !journey.actors[actor])
-				.join('/')}${journey.cold ? ', cold' : ''})`
+				.join('/')})`
 	)
 	.join(', ')}
 ACTOR: perfWide (Organization owner), perfScoped (operator, one Group), perfScopedLeader (editor, the
 same Group) or platformReviewer (platform super-admin). A journey refuses an actor it does not apply to, with the reason. A warm load and an
 interaction require PAGE to be one that the actor command signed in as that ACTOR; a mismatch is rejected.
-Cold loads run only for journeys marked cold; the sign-in limit leaves the rest warm only.
 Profiles: ${Object.keys(profiles).join(', ')}. Defaults: warm and interaction warm-up ${protocol.defaults.warm.warmup}, repetitions ${protocol.defaults.warm.repetitions}; cold warm-up ${protocol.defaults.cold.warmup}, repetitions ${protocol.defaults.cold.repetitions}.
 RUN and FILE must be under .verification/evidence/verify-trooptotask/.`;
 
@@ -268,13 +266,11 @@ async function settle(ctx, pageId) {
 	return { ...sample, useful: first.observer?.done ?? false, network, document: await documentEnd(ctx, pageId) };
 }
 
-// The app admits 10 sign-in POSTs per IP in a fixed 15-minute window and 60 other requests
-// per minute (hooks.server.ts), and every sample comes from loopback. Samples start at least
-// 6 s apart, and cold sign-ins stay at 8 in any 15 minutes, leaving room for actor sign-ins.
+// The app admits 60 requests per IP per minute outside its narrower rules (hooks.server.ts),
+// and every sample comes from loopback, so samples start at least 6 s apart.
 const sampleSpacingMs = 6000;
 // Organization exports share a separate fixed 10-per-hour window.
 const limits = {
-	signIn: { file: 'perf-sign-ins.json', windowMs: 15 * 60_000, budget: 8 },
 	export: { file: 'perf-exports.json', windowMs: 60 * 60_000, budget: 10 }
 };
 
@@ -301,44 +297,17 @@ async function limitSlot(ctx, name) {
 }
 
 // Chrome serves content-hashed /_app/immutable assets from cache on every reload, including a
-// cache-ignoring one, so a cold sample is the first app document in a new browser context. It
-// signs in by posting the login form action from a static image, which runs no app code. The
-// image page's automatic /favicon.ico request is redirected to /auth/login, whose Link headers
-// preload the shared entry CSS and JS, as for any visitor arriving through sign-in.
+// cache-ignoring one, so a cold sample is the first app document in a new browser context. The
+// context holds the actor's provider session cookie and starts on a static image, which runs no
+// app code. The image page's automatic /favicon.ico request is redirected to /auth/login, whose
+// Link headers preload the shared entry CSS and JS, as for any visitor arriving through sign-in.
 async function coldPage(ctx, run, profileName) {
-	await limitSlot(ctx, 'signIn');
-	const created = ctx.text(
-		await ctx.tool('new_page', {
-			url: `${ctx.doctor.origin}/og-image.png`,
-			isolatedContext: `perf-cold-${randomUUID()}`
-		})
-	);
-	const pageId = Number(
-		created
-			.split('\n')
-			.find((line) => line.includes('[selected]'))
-			?.match(/^(\d+):/)?.[1]
-	);
-	if (!Number.isInteger(pageId)) throw new Error('New page ID was not returned.');
-	const { email, password } = ctx.credentials(run.actor);
-	const signedIn = await ctx.evaluate(
-		pageId,
-		`async () => {
-			const body = new FormData();
-			body.set('email', ${JSON.stringify(email)});
-			body.set('password', ${JSON.stringify(password)});
-			const response = await fetch('/auth/login?/login', {
-				method: 'POST',
-				body,
-				headers: { accept: 'application/json', 'x-sveltekit-action': 'true' }
-			});
-			return (await response.json()).type;
-		}`
-	);
-	if (signedIn !== 'redirect') {
-		await ctx.tool('close_page', { pageId });
-		throw new Error(`Cold sign-in returned ${signedIn}, not a redirect; check the app sign-in limit.`);
-	}
+	const url = new URL(run.url());
+	const { pageId } = await ctx.sessionPage({
+		...ctx.credentials(run.actor),
+		destination: url.pathname + url.search,
+		isolatedContext: `perf-cold-${randomUUID()}`
+	});
 	await emulate(ctx, pageId, profileName);
 	return pageId;
 }
@@ -580,7 +549,6 @@ async function load(ctx, positional, options) {
 	const out = await runDirectory(ctx, options);
 	const mode = options.mode ?? 'warm';
 	if (!protocol.modes[mode]) throw new Error('Use --mode cold or --mode warm.');
-	if (mode === 'cold') refuseUnlessCold(run);
 	if (mode === 'warm') assertPageBound(ctx.ownedState.perfPages, run);
 	const profileName = options.profile ?? 'unthrottled';
 	const milestones = run.journey.milestones(run.terms);
@@ -721,14 +689,8 @@ async function interaction(ctx, positional, options) {
 	}
 }
 
-function refuseUnlessCold(run) {
-	if (!run.journey.cold)
-		throw new Error(`${run.journeyName} is not measured cold: the app sign-in limit leaves it warm only.`);
-}
-
 async function trace(ctx, positional, options) {
 	const run = target(ctx, positional, 'load');
-	refuseUnlessCold(run);
 	const profileName = options.profile ?? 'unthrottled';
 	const milestones = run.journey.milestones(run.terms);
 	const initScript = observerScript({ name: run.journeyName, start: 'navigation', milestones });
@@ -741,22 +703,15 @@ async function trace(ctx, positional, options) {
 	await fs.mkdir(path.dirname(base), { recursive: true });
 	await paceSample(ctx);
 	const pageId = await coldPage(ctx, run, profileName);
-	// V8 keeps the cold sign-in script's source, password included, so the tool writes the raw
-	// trace beside the evidence root, inside the only directory it may write to, and only the
-	// redacted copy reaches the evidence.
-	const rawDirectory = path.join(ctx.repository, '.verification', 'perf-raw');
-	await fs.mkdir(rawDirectory, { recursive: true, mode: 0o700 });
-	const raw = path.join(rawDirectory, `${randomUUID()}.json.gz`);
+	const file = `${base}.json.gz`;
 	let tracing = false;
 	try {
 		await ctx.tool('performance_start_trace', { pageId, reload: false, autoStop: false });
 		tracing = true;
 		await navigate(ctx, pageId, run.url(), initScript);
 		const sample = await settle(ctx, pageId);
-		const insights = ctx.text(await ctx.tool('performance_stop_trace', { pageId, filePath: raw }));
+		const insights = ctx.text(await ctx.tool('performance_stop_trace', { pageId, filePath: file }));
 		tracing = false;
-		const trace = redactTrace(await fs.readFile(raw), [ctx.credentials(run.actor).password]);
-		await fs.writeFile(`${base}.json.gz`, trace, { mode: 0o600 });
 		const summary = {
 			kind: 't2t-perf-trace',
 			candidate: ctx.doctor.candidate,
@@ -769,20 +724,22 @@ async function trace(ctx, positional, options) {
 			firstUsefulRenderMs: sample.observer?.milestones?.useful ?? null,
 			networkIdle: sample.network.idle,
 			failedRequests: failedRequests(sample.network.listed, ctx.doctor.origin),
-			trace: summarizeTrace(trace)
+			trace: summarizeTrace(await fs.readFile(file))
 		};
 		await writeEvidence(ctx, `${base}.insights.txt`, insights.replaceAll(ctx.doctor.origin, '<origin>'));
 		await writeEvidence(ctx, `${base}.summary.json`, summary);
 		return {
 			...summary,
-			files: [`${base}.json.gz`, `${base}.summary.json`, `${base}.insights.txt`].map((file) =>
-				path.relative(ctx.repository, file)
+			files: [file, `${base}.summary.json`, `${base}.insights.txt`].map((written) =>
+				path.relative(ctx.repository, written)
 			)
 		};
 	} finally {
-		// A trace left running would block the next one; stopping also leaves a raw file to remove.
-		if (tracing) await ctx.tool('performance_stop_trace', { pageId, filePath: raw }).catch(() => {});
-		await fs.rm(raw, { force: true });
+		// A trace left running would block the next one; the partial trace it writes is not evidence.
+		if (tracing) {
+			await ctx.tool('performance_stop_trace', { pageId, filePath: file }).catch(() => {});
+			await fs.rm(file, { force: true });
+		}
 		await ctx.tool('close_page', { pageId });
 	}
 }

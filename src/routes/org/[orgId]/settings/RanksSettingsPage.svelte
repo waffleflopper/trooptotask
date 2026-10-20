@@ -168,6 +168,13 @@
 		return openEditor?.kind === 'rank' && openEditor.code === entry.code;
 	}
 
+	// A request that settles after the user opened another editor must leave that editor and its focus alone.
+	function anotherEditorOpen(editor: NonNullable<OpenEditor>): boolean {
+		if (openEditor === null) return false;
+		if (openEditor.kind === 'new' || editor.kind === 'new') return openEditor.kind !== editor.kind;
+		return openEditor.code !== editor.code;
+	}
+
 	function toggleRank(entry: SettingsRankCatalogRow): void {
 		openEditor = isEditing(entry) ? null : { kind: 'rank', code: entry.code };
 	}
@@ -239,8 +246,9 @@
 		};
 	}
 
-	function saveFocus(submitter: () => HTMLElement | null) {
+	function saveFocus(editor: NonNullable<OpenEditor>, submitter: () => HTMLElement | null) {
 		return async (succeeded: boolean, code: string | null) => {
+			if (anotherEditorOpen(editor)) return;
 			if (succeeded) {
 				await closeEditor(code);
 				return;
@@ -313,7 +321,7 @@
 		if (savingAction !== null) return;
 		const focusTarget = rankRowFocusTarget(entry.code);
 		const succeeded = await submitFormAndWait(rowFormId('reactivate', entry.code));
-		if (openEditor && !(openEditor.kind === 'rank' && openEditor.code === entry.code)) return;
+		if (anotherEditorOpen({ kind: 'rank', code: entry.code })) return;
 		if (succeeded) openEditor = null;
 		await tick();
 		restoreFocus([focusTarget()]);
@@ -783,7 +791,9 @@
 						: 'md:grid-cols-[minmax(0,1fr)_8.125rem_7rem_5rem]'
 				]}
 				use:enhance={enhancedForm(key, {
-					focusAfter: saveFocus(() => document.getElementById(`${domId}-save`))
+					focusAfter: saveFocus(isNew ? { kind: 'new' } : { kind: 'rank', code: entry.code }, () =>
+						document.getElementById(`${domId}-save`)
+					)
 				})}
 			>
 				<input type="hidden" name="intent" value={isNew ? 'add' : 'edit'} />

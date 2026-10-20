@@ -674,6 +674,19 @@ describe('confirmations settle with their request', () => {
 		expect((screen.getByLabelText('Label') as HTMLInputElement).value).toBe('Unsaved label');
 	});
 
+	it('leaves another editor opened during a save as the user left it', async () => {
+		const page = renderRankPage([rankA, rankB]);
+
+		await openRank('A-1');
+		submitWith(screen.getByRole('button', { name: 'Save A-1' }));
+		await openRank('B-2');
+		await fireEvent.input(screen.getByLabelText('Label'), { target: { value: 'Unsaved label' } });
+		await page.succeedWith({ active: [rankA, rankB] }, { code: 'A-1' });
+
+		expect(rankToggle('B-2').getAttribute('aria-expanded')).toBe('true');
+		expect((screen.getByLabelText('Label') as HTMLInputElement).value).toBe('Unsaved label');
+	});
+
 	it('runs one rank request at a time', async () => {
 		renderRankPage([rankA], [], [rankPack()]);
 

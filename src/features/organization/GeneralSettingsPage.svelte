@@ -215,7 +215,7 @@
 						aria-describedby={slugDescribedBy}
 						maxlength={ORGANIZATION_SLUG_MAX_LENGTH}
 					/>
-					<InputGroup.Addon>
+					<InputGroup.Addon variant="muted">
 						<InputGroup.Text class="font-mono">{page.url.host}/org/</InputGroup.Text>
 					</InputGroup.Addon>
 				</InputGroup.Root>
@@ -261,7 +261,7 @@
 		label="Calendar"
 		description="Status types, assignment types and holidays live with the calendar, next to where they are used."
 	>
-		<div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+		<div class="flex flex-wrap items-center gap-x-1.5 gap-y-2">
 			{#await settings.calendarCounts}
 				<div class="min-w-0 flex-1">
 					<Skeleton class="h-5 w-72 max-w-full" aria-hidden="true" />
@@ -274,7 +274,7 @@
 					Calendar counts could not be loaded.
 				</p>
 			{/await}
-			<Button variant="link" href={`/org/${organization.urlSegment}/calendar/settings`}>
+			<Button variant="link" class="-mr-2" href={`/org/${organization.urlSegment}/calendar/settings`}>
 				Calendar settings
 				<ArrowUpRight data-icon="inline-end" aria-hidden="true" />
 			</Button>

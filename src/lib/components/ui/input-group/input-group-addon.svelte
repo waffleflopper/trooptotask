@@ -9,14 +9,24 @@
 				'block-start':
 					'px-2.5 pt-2 group-has-[>input]/input-group:pt-2 [.border-b]:pb-2 order-first w-full justify-start',
 				'block-end': 'px-2.5 pb-2 group-has-[>input]/input-group:pb-2 [.border-t]:pt-2 order-last w-full justify-start'
+			},
+			variant: {
+				default: '',
+				muted: 'self-stretch bg-muted px-2.5 border-input'
 			}
 		},
+		compoundVariants: [
+			{ variant: 'muted', align: 'inline-start', class: 'mr-1 rounded-s-[inherit] border-e' },
+			{ variant: 'muted', align: 'inline-end', class: 'ml-1 rounded-e-[inherit] border-s' }
+		],
 		defaultVariants: {
-			align: 'inline-start'
+			align: 'inline-start',
+			variant: 'default'
 		}
 	});
 
 	export type InputGroupAddonAlign = VariantProps<typeof inputGroupAddonVariants>['align'];
+	export type InputGroupAddonVariant = VariantProps<typeof inputGroupAddonVariants>['variant'];
 </script>
 
 <script lang="ts">
@@ -28,9 +38,12 @@
 		class: className,
 		children,
 		align = 'inline-start',
+		variant = 'default',
 		...restProps
 	}: WithElementRef<HTMLAttributes<HTMLDivElement>> & {
 		align?: InputGroupAddonAlign;
+		/** `muted` fills the addon and rules it off, for a fixed prefix such as the host before an editable path. */
+		variant?: InputGroupAddonVariant;
 	} = $props();
 </script>
 
@@ -39,7 +52,7 @@
 	role="group"
 	data-slot="input-group-addon"
 	data-align={align}
-	class={cn(inputGroupAddonVariants({ align }), className)}
+	class={cn(inputGroupAddonVariants({ align, variant }), className)}
 	onclick={(e) => {
 		if ((e.target as HTMLElement).closest('button')) {
 			return;

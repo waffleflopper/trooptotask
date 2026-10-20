@@ -57,6 +57,29 @@ describe('calendarViewCoverage', () => {
 			)
 		).toEqual([]);
 	});
+
+	it('covers viewers behind, on and ahead of the server day when the lookback starts on the server day', () => {
+		const january = new Date(2027, 0, 1);
+		expect(initialCalendarCoverage(january, '2026-10-03')).toEqual({
+			availability: { rangeStart: '2026-10-03', rangeEnd: '2027-02-28' },
+			assignments: { rangeStart: '2026-10-03', rangeEnd: '2027-02-28' }
+		});
+		expect(
+			['2026-10-02', '2026-10-03', '2026-10-04'].map((viewerDay) =>
+				planCalendarRangeReads(
+					initialCalendarCoverage(january, '2026-10-03'),
+					calendarViewCoverage(january, 'month', viewerDay)
+				)
+			)
+		).toEqual([[], [], []]);
+	});
+
+	it('starts availability where the lookback starts for a server day just before or after it', () => {
+		const january = new Date(2027, 0, 1);
+		expect(initialCalendarCoverage(january, '2026-10-02').availability.rangeStart).toBe('2026-10-03');
+		expect(initialCalendarCoverage(january, '2026-10-04').availability.rangeStart).toBe('2026-10-03');
+		expect(initialCalendarCoverage(january, '2026-10-01').availability.rangeStart).toBe('2027-01-01');
+	});
 });
 
 describe('planCalendarRangeReads', () => {

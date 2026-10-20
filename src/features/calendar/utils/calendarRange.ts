@@ -83,13 +83,16 @@ export function calendarViewCoverage(
 /**
  * The bootstrap holds the anchor month's view and the month after it, so Next month needs no read.
  * The server knows only its UTC day, and every viewer's day is within one day of it, so availability
- * also reaches back to the day before for a viewer whose today is still yesterday in UTC.
+ * starts at the earliest of those days that the lookback holds and covers each viewer's today.
  */
 export function initialCalendarCoverage(anchor: Date, serverToday: string): Required<CalendarCoverage> {
+	const firstVisible = formatDate(new Date(anchor.getFullYear(), anchor.getMonth(), 1));
+	const lookbackStart = shiftDate(firstVisible, -DUTY_LOOKBACK_DAYS);
+	const viewerDays = [-1, 0, 1].map((days) => shiftDate(serverToday, days));
 	return coverageThrough(
-		formatDate(new Date(anchor.getFullYear(), anchor.getMonth(), 1)),
+		firstVisible,
 		formatDate(endOfMonth(new Date(anchor.getFullYear(), anchor.getMonth() + 1, 1))),
-		shiftDate(serverToday, -1)
+		viewerDays.find((day) => day >= lookbackStart) ?? firstVisible
 	);
 }
 

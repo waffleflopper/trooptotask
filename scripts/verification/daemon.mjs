@@ -35,6 +35,7 @@ import { driver, assertOwnedNavigation, assertRecordingPath, textContent } from 
 import { openCapturedLink } from './outbound-controls.mjs';
 import { capturePrint } from './print-capture.mjs';
 import { pointerDrag } from './pointer-drag.mjs';
+import { sessionPage } from './provider-session.mjs';
 
 const session = process.argv[2];
 const state = await readJSON(path.join(session, 'session.json'));
@@ -288,7 +289,8 @@ try {
 	if (!state.browserProcess)
 		throw new Blocked('BROWSER_OWNER', 'Cannot establish ownership of the verification browser.');
 	state.phase = 'running';
-	const drive = driver(call, state, fixture);
+	const signedInPage = (input) => sessionPage({ state, session, input, call, provider });
+	const drive = driver(call, state, fixture, signedInPage);
 	let queue = Promise.resolve();
 	server = createServer((req, res) => {
 		if (req.method !== 'POST' || req.headers.authorization !== `Bearer ${state.token}` || req.headers.origin) {
@@ -389,6 +391,9 @@ try {
 									break;
 								case 'pointer-drag':
 									result = await pointerDrag({ state, session, input, call });
+									break;
+								case 'session-page':
+									result = await signedInPage(input);
 									break;
 								default:
 									throw new Blocked('COMMAND', 'Unknown command. Run --help.');

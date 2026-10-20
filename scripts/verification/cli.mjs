@@ -55,7 +55,7 @@ doctor                Prove app/provider ownership and current candidate; report
 restart [--browser-timezone IANA]
                       Cleanup this worker, then launch the current candidate. The browser keeps the
                       previous session's zone unless the flag names another
-login manager|viewer|scoped|foreign   Normal UI login with private synthetic credentials
+login manager|viewer|scoped|foreign   New context signed in with a provider session; no app /auth/ request
 tools                 Native DevTools tool names, descriptions, and JSON argument schemas
 tool NAME '{...}'     Call a native DevTools tool (pageId and snapshot UIDs from its output)
 mcp                   Stdio MCP proxy for the running owned worker; register this project-local command

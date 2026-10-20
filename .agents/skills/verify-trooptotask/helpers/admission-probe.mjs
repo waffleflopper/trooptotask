@@ -1,13 +1,11 @@
+import { authCookieName } from '../../../../scripts/verification/provider-session.mjs';
+
 const PATHS = ['/account/security', '/api/auth/mfa/status'];
 const WITHHELD = '[genuine signature withheld]';
 
 const base64url = (value) =>
 	Buffer.from(typeof value === 'string' ? value : JSON.stringify(value)).toString('base64url');
 const decode = (part) => JSON.parse(Buffer.from(part, 'base64url').toString('utf8'));
-
-export function authCookieName(providerUrl) {
-	return `sb-${new URL(providerUrl).hostname.split('.')[0]}-auth-token`;
-}
 
 function sessionCookie(accessToken, refreshToken, expiresAt) {
 	return `base64-${base64url({

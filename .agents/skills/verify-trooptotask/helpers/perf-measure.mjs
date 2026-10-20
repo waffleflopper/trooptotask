@@ -1,4 +1,4 @@
-import { gunzipSync, gzipSync } from 'node:zlib';
+import { gunzipSync } from 'node:zlib';
 
 // Named emulation profiles. `networkConditions: null` disables network emulation.
 export const profiles = {
@@ -16,10 +16,9 @@ export const profiles = {
 	}
 };
 
-// Every cold sample is a real sign-in under the app's per-IP limit, so cold takes fewer samples;
-// a cold warm-up would warm nothing the next cold sample keeps.
+// A cold warm-up would warm nothing the next cold sample keeps.
 export const protocol = {
-	defaults: { warm: { warmup: 1, repetitions: 5 }, cold: { warmup: 0, repetitions: 3 } },
+	defaults: { warm: { warmup: 1, repetitions: 5 }, cold: { warmup: 0, repetitions: 5 } },
 	modes: {
 		cold: 'First app document in a new browser context signed in without running app code. Only the shared entry assets the sign-in page preloads are cached.',
 		warm: 'Navigation to the journey URL in the signed-in page after the warm-up: new document, HTTP cache kept.'
@@ -276,17 +275,6 @@ function outermost(events, names) {
 		end = event.ts + event.dur;
 	}
 	return total;
-}
-
-// V8 keeps the source of every script evaluated in the page, so a trace taken after the cold
-// sign-in carries the sign-in script with the actor's password in it. That source holds the
-// password as a string literal, and the trace JSON escapes the source again.
-export function redactTrace(gzipped, secrets) {
-	const escape = (value) => JSON.stringify(value).slice(1, -1);
-	let text = gunzipSync(gzipped).toString('utf8');
-	for (const secret of secrets)
-		for (const form of [escape(escape(secret)), escape(secret), secret]) text = text.replaceAll(form, '<redacted>');
-	return gzipSync(text);
 }
 
 /** Compact main-thread summary of a Chrome trace (raw JSON or gzip bytes). Times in ms. */

@@ -35,13 +35,6 @@ test('an actor a journey does not reach is refused with the reason', () => {
 	});
 });
 
-test('only Calendar initial, Personnel list and Dashboard are measured cold', () => {
-	assert.deepEqual(
-		Object.keys(journeys).filter((name) => journeys[name].cold),
-		['calendar-initial', 'personnel-list', 'dashboard']
-	);
-});
-
 test('month labels follow the anchor across a year end', () => {
 	assert.deepEqual(monthLabels('2026-11-20'), {
 		current: 'November 2026',

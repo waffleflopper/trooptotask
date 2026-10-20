@@ -102,7 +102,6 @@ export const journeys = {
 		area: 'calendar',
 		kind: 'load',
 		effect: 'read',
-		cold: true,
 		actors: both,
 		path: (terms) => org(terms, '/calendar'),
 		milestones: (terms) => [{ name: 'useful', ...calendarReady(terms) }]
@@ -175,7 +174,6 @@ export const journeys = {
 		area: 'personnel',
 		kind: 'load',
 		effect: 'read',
-		cold: true,
 		actors: both,
 		path: (terms) => org(terms, '/personnel'),
 		milestones: (terms) => [{ name: 'useful', ...roster(terms) }]
@@ -317,7 +315,6 @@ export const journeys = {
 		area: 'dashboard',
 		kind: 'load',
 		effect: 'read',
-		cold: true,
 		actors: both,
 		path: (terms) => org(terms),
 		// The route shows its own skeleton section until both the streamed bootstrap and the

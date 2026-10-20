@@ -134,71 +134,71 @@ it('accepts a path under an evidence root that is not created yet, but not under
 	}
 });
 
-it('signs a synthetic actor in through the visible login form before returning its page', async () => {
+it('opens a provider-session page for a synthetic actor and navigates it to the destination', async () => {
 	const state = { origin: `http://127.0.0.1:4100/${randomUUID()}` };
 	const fixture = {
 		actors: { manager: { email: 'manager@example.test', password: 'Synthetic-only' } },
 		ids: { orgA: 'organization-a' }
 	};
-	const fields = new Map();
-	let submitted = false;
-	let ready = false;
+	const sessions: Record<string, unknown>[] = [];
+	const sessionPage = async (input: Record<string, unknown>) => {
+		sessions.push(input);
+		return { status: 'PASS', pageId: 7, path: '/org/organization-a/personnel' };
+	};
+	const operations: string[] = [];
 	const call = async (name: string, args: Record<string, unknown>) => {
-		if (name === 'new_page') {
-			expect(args.url).toBe(`${state.origin}/auth/login?next=/org/organization-a/personnel`);
-			return { content: [{ type: 'text', text: '7: Login [selected]' }] };
-		}
 		expect(args.pageId).toBe(7);
-		if (name === 'take_snapshot')
-			return {
-				content: [
-					{
-						type: 'text',
-						text: 'uid=email textbox "Email Address"\nuid=password textbox "Password"\nuid=submit button "Sign In"'
-					}
-				]
-			};
-		if (name === 'fill') fields.set(args.uid, args.value);
-		else if (name === 'click') {
-			expect(args.uid).toBe('submit');
-			submitted = fields.get('email') === 'manager@example.test' && fields.get('password') === 'Synthetic-only';
-		} else if (name === 'wait_for') {
-			if (!submitted) throw new Error('No normal sign-in submitted');
-			ready = true;
-		} else throw new Error(`Unexpected login operation: ${name}`);
+		operations.push(name === 'navigate_page' ? `${name} ${args.url}` : name);
 		return {};
 	};
-	const result = await driver(call, state, fixture).login('manager');
-	expect(ready).toBe(true);
-	expect(result).toMatchObject({ pageId: 7, role: 'manager', orgId: 'organization-a' });
+	const result = await driver(call, state, fixture, sessionPage).login('manager');
+	expect(sessions).toEqual([
+		{
+			email: 'manager@example.test',
+			password: 'Synthetic-only',
+			destination: '/org/organization-a/personnel',
+			isolatedContext: expect.stringMatching(/^verify-manager-/)
+		}
+	]);
+	expect(operations).toEqual([`navigate_page ${state.origin}/org/organization-a/personnel`, 'wait_for']);
+	expect(result).toEqual({ pageId: 7, role: 'manager', origin: state.origin, orgId: 'organization-a' });
 });
 
-it('reports unavailable page control and unknown actors without fabricating a login', async () => {
+it('reports an unknown actor without opening a session', async () => {
 	const fixture = { actors: { manager: { email: 'manager@example.test', password: 'Synthetic-only' } }, ids: {} };
-	const unavailable = async () => ({ content: [{ type: 'text', text: 'No browser page available' }] });
-	const control = driver(unavailable, { origin: `http://127.0.0.1/${randomUUID()}` }, fixture);
-	await expect(control.login('manager')).rejects.toMatchObject({ code: 'PAGE_ID' });
+	const opened: unknown[] = [];
+	const control = driver(
+		async () => ({}),
+		{ origin: `http://127.0.0.1/${randomUUID()}` },
+		fixture,
+		async (input) => {
+			opened.push(input);
+			return { pageId: 1, path: '/' };
+		}
+	);
 	await expect(control.login('absent')).rejects.toMatchObject({ code: 'FIXTURE' });
+	expect(opened).toEqual([]);
 });
 
-it('reuses an admitted page but signs in normally again after logout or a closed page', async () => {
+it('reuses an admitted page but opens a new session after logout or a closed page', async () => {
 	const fixture = {
 		actors: { manager: { email: 'manager@example.test', password: 'Synthetic-only' } },
 		ids: { orgA: 'organization-a' }
 	};
 	const state = { origin: `http://127.0.0.1:4100/${randomUUID()}` };
 	const target = '/org/organization-a/personnel';
-	const pages = new Map<number, { authenticated: boolean; path: string; fields: Map<unknown, unknown> }>();
+	const pages = new Map<number, { authenticated: boolean; path: string }>();
 	let nextPageId = 7;
-	let submittedLogins = 0;
+	let sessions = 0;
+	const sessionPage = async () => {
+		const id = nextPageId++;
+		pages.set(id, { authenticated: true, path: '/og-image.png' });
+		sessions++;
+		return { pageId: id, path: target };
+	};
 	const result = (text: string) => ({ content: [{ type: 'text', text }] });
 	const call = async (name: string, args: Record<string, unknown> = {}) => {
 		if (name === 'list_pages') return result([...pages.keys()].map((id) => `${id}: Owned page`).join('\n'));
-		if (name === 'new_page') {
-			const id = nextPageId++;
-			pages.set(id, { authenticated: false, path: '/auth/login', fields: new Map() });
-			return result(`${id}: Login [selected]`);
-		}
 		const page = pages.get(Number(args.pageId));
 		if (!page) throw new Error('Page was closed');
 		if (name === 'navigate_page') page.path = page.authenticated ? target : '/auth/login';
@@ -206,38 +206,22 @@ it('reuses an admitted page but signs in normally again after logout or a closed
 			const value = runInNewContext(`(${args.function})()`, { location: { pathname: page.path } });
 			return result('```json\n' + JSON.stringify(value) + '\n```');
 		} else if (name === 'take_snapshot')
-			return result(
-				page.authenticated
-					? 'uid=person StaticText "Able, Synthetic"'
-					: 'uid=email textbox "Email Address"\nuid=password textbox "Password"\nuid=submit button "Sign In"'
-			);
-		else if (name === 'fill') page.fields.set(args.uid, args.value);
-		else if (name === 'click') {
-			if (
-				args.uid !== 'submit' ||
-				page.fields.get('email') !== 'manager@example.test' ||
-				page.fields.get('password') !== 'Synthetic-only'
-			)
-				throw new Error('Normal login requires both credentials');
-			page.authenticated = true;
-			page.path = target;
-			submittedLogins++;
-		} else if (name === 'wait_for') {
+			return result(page.authenticated ? 'uid=person StaticText "Able, Synthetic"' : 'uid=submit button "Sign In"');
+		else if (name === 'wait_for') {
 			if (!page.authenticated || page.path !== target) throw new Error('Protected content unavailable');
 		} else throw new Error(`Unexpected browser operation: ${name}`);
 		return result('');
 	};
-	const control = driver(call, state, fixture);
+	const control = driver(call, state, fixture, sessionPage);
 	const initial = await control.login('manager');
 	expect((await control.login('manager')).pageId).toBe(initial.pageId);
-	expect(submittedLogins).toBe(1);
+	expect(sessions).toBe(1);
 	pages.get(initial.pageId)!.authenticated = false;
-	pages.get(initial.pageId)!.path = '/auth/login';
 	const afterLogout = await control.login('manager');
-	expect(pages.get(afterLogout.pageId)?.authenticated).toBe(true);
-	expect(submittedLogins).toBe(2);
+	expect(afterLogout.pageId).toBe(8);
+	expect(sessions).toBe(2);
 	pages.delete(afterLogout.pageId);
 	const afterClose = await control.login('manager');
-	expect(pages.get(afterClose.pageId)?.authenticated).toBe(true);
-	expect(submittedLogins).toBe(3);
+	expect(afterClose.pageId).toBe(9);
+	expect(sessions).toBe(3);
 });

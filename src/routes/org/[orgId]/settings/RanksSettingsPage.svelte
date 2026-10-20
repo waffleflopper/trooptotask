@@ -309,8 +309,14 @@
 		clear();
 	}
 
-	function reactivate(entry: SettingsRankCatalogRow): void {
-		submitFormById(rowFormId('reactivate', entry.code));
+	async function reactivate(entry: SettingsRankCatalogRow) {
+		if (savingAction !== null) return;
+		const focusTarget = rankRowFocusTarget(entry.code);
+		const succeeded = await submitFormAndWait(rowFormId('reactivate', entry.code));
+		if (openEditor && !(openEditor.kind === 'rank' && openEditor.code === entry.code)) return;
+		if (succeeded) openEditor = null;
+		await tick();
+		restoreFocus([focusTarget()]);
 	}
 
 	function rankRowActions(entry: SettingsRankCatalogRow): DataTableRowAction<CatalogRow>[] {
@@ -721,13 +727,7 @@
 			method="POST"
 			action="?/reactivateRank"
 			class="hidden"
-			use:enhance={enhancedForm(`reactivate-${entry.code}`, {
-				focusAfter: async (succeeded) => {
-					if (succeeded) openEditor = null;
-					await tick();
-					restoreFocus([rankRowFocusTarget(entry.code)()]);
-				}
-			})}
+			use:enhance={enhancedForm(`reactivate-${entry.code}`)}
 		>
 			<input type="hidden" name="code" value={entry.code} />
 		</form>

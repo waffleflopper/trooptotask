@@ -650,6 +650,30 @@ describe('confirmations settle with their request', () => {
 		expect(document.activeElement).toBe(rankToggle('B-2'));
 	});
 
+	it('moves focus to the next row when a reactivation leaves the Retired filter', async () => {
+		const page = renderRankPage([], [retiredCopy(rankA), retiredCopy(rankB)]);
+		await fireEvent.click(screen.getByRole('radio', { name: 'Retired' }));
+
+		await openRank('A-1');
+		await fireEvent.click(screen.getByRole('button', { name: 'Reactivate' }));
+		await page.succeedWith({ active: [rankA], retired: [retiredCopy(rankB)] });
+
+		expect(document.activeElement).toBe(rankToggle('B-2'));
+	});
+
+	it('leaves another editor opened during a reactivation as the user left it', async () => {
+		const page = renderRankPage([rankB], [retiredCopy(rankA)]);
+
+		await fireEvent.click(within(catalog()).getByRole('button', { name: /Actions for A-1/ }));
+		await fireEvent.click(await screen.findByRole('menuitem', { name: 'Reactivate' }));
+		await openRank('B-2');
+		await fireEvent.input(screen.getByLabelText('Label'), { target: { value: 'Unsaved label' } });
+		await page.succeedWith({ active: [rankA, rankB], retired: [] });
+
+		expect(rankToggle('B-2').getAttribute('aria-expanded')).toBe('true');
+		expect((screen.getByLabelText('Label') as HTMLInputElement).value).toBe('Unsaved label');
+	});
+
 	it('runs one rank request at a time', async () => {
 		renderRankPage([rankA], [], [rankPack()]);
 

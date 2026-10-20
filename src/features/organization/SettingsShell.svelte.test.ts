@@ -55,6 +55,8 @@ describe('Organization settings navigation', () => {
 		expect(await nav.findByRole('link', { name: 'Members 2 pending invitations' })).toBeInTheDocument();
 		expect(nav.getByRole('link', { name: 'Approvals' })).toBeInTheDocument();
 		expect(nav.getByRole('link', { name: 'Archives' })).toBeInTheDocument();
+		expect(screen.getByRole('status').textContent?.trim()).toBe('');
+		expect(document.querySelector('[aria-busy]')).toBeNull();
 	});
 
 	it('hides Logs and Danger zone from an admin and links with the canonical segment', async () => {
@@ -74,7 +76,7 @@ describe('Organization settings navigation', () => {
 		expect(nav.getByRole('link', { name: 'Members' })).toBeInTheDocument();
 	});
 
-	it('announces the section that is loading and marks the content busy', () => {
+	it('marks the content busy and announces the loading page while a navigation is pending', () => {
 		navigation.navigating.to = { url: new URL('http://localhost/org/alpha/settings/members') };
 		render(SettingsShell, {
 			settingsShell: buildSettingsShell('owner', organization),
@@ -84,7 +86,8 @@ describe('Organization settings navigation', () => {
 			children
 		});
 
-		expect(screen.getByRole('status')).toHaveTextContent('Loading Members...');
-		expect(screen.getByText('Settings content').parentElement).toHaveAttribute('aria-busy', 'true');
+		expect(screen.getByRole('status')).toHaveTextContent(/Members/);
+		expect(screen.getByText('Settings content').closest('[aria-busy="true"]')).not.toBeNull();
+		expect(screen.getByRole('status').closest('[aria-busy="true"]')).not.toBeNull();
 	});
 });

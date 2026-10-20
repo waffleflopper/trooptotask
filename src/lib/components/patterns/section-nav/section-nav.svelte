@@ -58,7 +58,8 @@
 			label: item.label,
 			href: item.href,
 			active: item.active,
-			trailing: item === apart,
+			tag: item.tag,
+			destructive: item === apart,
 			badge: tabCount(item.count)
 		}))
 	);

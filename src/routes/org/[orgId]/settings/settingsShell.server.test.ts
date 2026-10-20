@@ -2,14 +2,34 @@ import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { streamSettingsNavCounts } from './settingsShell.server';
 
-describe('settings nav counts', () => {
-	it('streams the invitation and approval counts', async () => {
-		const ctx = createTestContext({ auth: { orgId: 'org-a' } });
-		ctx.organizationSettings.countPendingInvitations = async (orgId) => (orgId === 'org-a' ? 2 : 0);
-		const counts = streamSettingsNavCounts(ctx, async () => ({ count: 4 }));
+function deferred<T>() {
+	let resolve!: (value: T) => void;
+	const promise = new Promise<T>((r) => (resolve = r));
+	return { promise, resolve };
+}
 
-		await expect(counts.pendingInvitations).resolves.toBe(2);
-		await expect(counts.pendingApprovals).resolves.toBe(4);
+async function settledValue<T>(promise: Promise<T>): Promise<T | 'pending'> {
+	return Promise.race([promise, new Promise<'pending'>((resolve) => setTimeout(() => resolve('pending'), 0))]);
+}
+
+describe('settings nav counts', () => {
+	it('streams each count as its own read settles', async () => {
+		const ctx = createTestContext({ auth: { orgId: 'org-a' } });
+		const invitations = deferred<number>();
+		const approvals = deferred<{ count: number }>();
+		ctx.organizationSettings.countPendingInvitations = (orgId) =>
+			orgId === 'org-a' ? invitations.promise : Promise.resolve(0);
+		const counts = streamSettingsNavCounts(ctx, () => approvals.promise);
+
+		expect(await settledValue(counts.pendingInvitations)).toBe('pending');
+		expect(await settledValue(counts.pendingApprovals)).toBe('pending');
+
+		invitations.resolve(2);
+		expect(await settledValue(counts.pendingInvitations)).toBe(2);
+		expect(await settledValue(counts.pendingApprovals)).toBe('pending');
+
+		approvals.resolve({ count: 4 });
+		expect(await settledValue(counts.pendingApprovals)).toBe(4);
 	});
 
 	it('keeps the invitation count when the approval count fails', async () => {

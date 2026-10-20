@@ -32,7 +32,8 @@ describe('patterns/section-nav SectionNav', () => {
 								count: { value: 0, label: '0 pending requests' }
 							}
 						]
-					}
+					},
+					{ label: 'Records', items: [{ label: 'Logs', href: '/org/alpha/settings/logs', tag: 'Owner' }] }
 				],
 				apart: { label: 'Danger zone', href: '/org/alpha/settings/danger', tag: 'Owner' }
 			}
@@ -47,17 +48,21 @@ describe('patterns/section-nav SectionNav', () => {
 		expect(within(side).getByRole('link', { name: 'General' }).getAttribute('aria-current')).toBe('page');
 		expect(within(side).getByRole('link', { name: 'Members 2 pending invitations' })).toBeTruthy();
 		expect(within(side).getByRole('link', { name: 'Approvals' })).toBeTruthy();
+		expect(within(side).getByRole('link', { name: 'Logs Owner' })).toBeTruthy();
 		expect(within(side).getByRole('link', { name: 'Danger zone Owner' }).closest('[role="group"]')).toBeNull();
 
 		expect(hrefs(tabs)).toEqual([
 			'/org/alpha/settings/general',
 			'/org/alpha/settings/members',
 			'/org/alpha/settings/approvals',
+			'/org/alpha/settings/logs',
 			'/org/alpha/settings/danger'
 		]);
 		expect(within(tabs).getByRole('link', { name: 'General' }).getAttribute('aria-current')).toBe('page');
 		expect(within(tabs).getByRole('link', { name: 'Members 2 pending invitations' })).toBeTruthy();
 		expect(within(tabs).getByRole('link', { name: 'Approvals' })).toBeTruthy();
+		expect(within(tabs).getByRole('link', { name: 'Logs Owner' })).toBeTruthy();
+		expect(within(tabs).getByRole('link', { name: 'Danger zone Owner' })).toBeTruthy();
 	});
 
 	it('announces a streamed count as loading, then its value, or unavailable when it fails', async () => {

@@ -107,6 +107,44 @@ describe('personnel detail layout server load', () => {
 		await expect(result.personnelDetailLayout.availabilityToday).resolves.toBeNull();
 	});
 
+	it("streams the readiness badge for the viewer's day from the time zone cookie", async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date('2026-10-15T02:00:00Z'));
+		try {
+			const ctx = {
+				organizationPersonnel: { findBySlug: vi.fn(async () => makePersonnel()) },
+				personnelSheets: { findSheetForPerson: vi.fn(async () => null) },
+				artifactReads: { countRecords: vi.fn(async () => ({ openFollowUps: 0, archived: 0 })) },
+				auth: makeAuth({ capabilityMap: { ...makeAuth().capabilityMap, calendar: 'none', personnel: 'configure' } }),
+				scope: makeScope(),
+				audit: { log: vi.fn() }
+			};
+			const loadWithContext = vi.fn(async (_locals, _cookies, _orgId, config) => config.fn(ctx));
+			const loadReadinessBadge = vi.fn(async (_event, _person, asOf: string) => ({ label: `as of ${asOf}` }));
+			const depends = vi.fn();
+
+			const result = await _createPersonnelDetailLayoutLoad({
+				loadWithContext,
+				loadReadinessBadge: loadReadinessBadge as never
+			})({
+				params: { orgId: 'org-1', personnelSlug: 'rivera-monica' },
+				locals: {} as App.Locals,
+				cookies: { get: (name: string) => (name === 't2t_tz' ? 'America/New_York' : undefined) } as never,
+				depends
+			} as never);
+
+			expect(depends).toHaveBeenCalledWith(
+				'app:personnel-detail-header',
+				'app:personnel-detail-counts',
+				'app:viewer-day'
+			);
+			expect(result.today).toBe('2026-10-14');
+			await expect(result.personnelDetailLayout.readinessBadge).resolves.toEqual({ label: 'as of 2026-10-14' });
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
 	it('keeps a count read that fails before the page renders from crashing the server', async () => {
 		const failure = new Error('count read failed');
 		const ctx = {

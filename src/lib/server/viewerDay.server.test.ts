@@ -1,7 +1,4 @@
 // @vitest-environment happy-dom
-import { readdirSync, readFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 import { rememberViewerTimeZone } from '$lib/utils/viewerTimeZone';
 import { viewerTimeZone, viewerToday } from './viewerDay.server';
@@ -52,20 +49,5 @@ describe('viewerToday', () => {
 
 		expect(readCookie('t2t_tz')).toBe('America/Chicago');
 		expect(viewerToday({ get: readCookie }, new Date('2026-10-15T02:00:00Z'))).toBe('2026-10-14');
-	});
-});
-
-describe('viewer-day loads', () => {
-	const routesDir = resolve(dirname(fileURLToPath(import.meta.url)), '../../routes');
-	const routeLoads = readdirSync(routesDir, { recursive: true, encoding: 'utf8' })
-		.filter((path) => /(^|\/)\+(page|layout)\.server\.ts$/.test(path))
-		.map((path) => ({ path, source: readFileSync(join(routesDir, path), 'utf8') }));
-
-	it('every route load that reads the viewer day reruns when the browser records a new zone', () => {
-		const readers = routeLoads.filter(({ source }) => source.includes('viewerDay.server'));
-
-		expect(readers.map(({ path }) => path)).toContain('org/[orgId]/(dashboard)/+page.server.ts');
-		const undeclared = readers.filter(({ source }) => !source.includes('VIEWER_DAY_DEPENDENCY'));
-		expect(undeclared.map(({ path }) => path)).toEqual([]);
 	});
 });

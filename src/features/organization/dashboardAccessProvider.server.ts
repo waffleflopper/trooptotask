@@ -47,6 +47,7 @@ export function createSupabaseDashboardOrgAccessPort(locals: Pick<App.Locals, 's
 						.eq('status', 'pending')
 						.gt('expires_at', new Date().toISOString())
 						.order('created_at', { ascending: false })
+						.order('id', { ascending: true })
 						.range(from, to) as unknown as Promise<{
 						data: OrganizationInvitationSummaryRow[] | null;
 						error: unknown;

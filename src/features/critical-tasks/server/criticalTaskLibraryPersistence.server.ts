@@ -33,7 +33,7 @@ export function createSupabaseCriticalTaskLibraryPersistence(
 			let query = client.from('ict_tasks').select(TASK_SELECT).eq('organization_id', orgId);
 			if (!options.includeArchived) query = query.is('archived_at', null);
 			if (options.ids) query = query.in('id', options.ids);
-			if (options.ordered) query = query.order('sort_order').order('task_code');
+			query = options.ordered ? query.order('sort_order').order('task_code') : query.order('id');
 			return query.range(from, to);
 		});
 		if (error) throw new Error((error as { message: string }).message);

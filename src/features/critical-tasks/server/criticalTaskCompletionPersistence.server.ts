@@ -37,7 +37,7 @@ export function createSupabaseCriticalTaskCompletionPersistence(
 		personnelIds?: string[];
 		taskIds?: string[];
 		ids?: string[];
-		order?: 'history' | 'report';
+		order?: 'history';
 	}) {
 		const { data, error } = await selectAllSupabaseRows<SavedPersonnelIctCompletion>(async (from, to) => {
 			let query = client.from('personnel_ict_completions').select(COMPLETION_SELECT).eq('organization_id', orgId);
@@ -45,8 +45,8 @@ export function createSupabaseCriticalTaskCompletionPersistence(
 			if (input.personnelIds) query = query.in('personnel_id', input.personnelIds);
 			if (input.taskIds) query = query.in('ict_task_id', input.taskIds);
 			if (input.ids) query = query.in('id', input.ids);
-			if (input.order === 'history') query = query.order('completed_at', { ascending: false }).order('id');
-			if (input.order === 'report') query = query.order('id');
+			if (input.order === 'history') query = query.order('completed_at', { ascending: false });
+			query = query.order('id');
 			return query.range(from, to);
 		});
 		if (error) throw new Error((error as { message: string }).message);
@@ -74,8 +74,7 @@ export function createSupabaseCriticalTaskCompletionPersistence(
 					pending.push(
 						listRows({
 							personnelIds: people.slice(personIndex, personIndex + 50),
-							taskIds: tasks.slice(taskIndex, taskIndex + 50),
-							order: 'report'
+							taskIds: tasks.slice(taskIndex, taskIndex + 50)
 						})
 					);
 					if (pending.length === 4) {

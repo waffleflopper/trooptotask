@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
 import { createSupabaseAuditExportReader } from './exportRetention.server';
+import { createShiftingPostgrestClient, pagedIds } from '$lib/test-support/shiftingPostgrest';
 
 type Row = Record<string, unknown>;
 const ORG = 'org-a';
@@ -79,10 +80,10 @@ function provider(table: string, saved: Row) {
 
 describe('Audit ordinary Organization archive reads', () => {
 	it.each(cases)(
-		'retains saved $table rows across pages and excludes a foreign Organization',
+		'retains saved $table rows in id order across pages and excludes a foreign Organization',
 		async ({ table, saved }) => {
 			const { client, owned } = provider(table, saved);
-			expect(await createSupabaseAuditExportReader(client, ORG).listRows()).toEqual(owned);
+			expect(await createSupabaseAuditExportReader(client, ORG).listRows()).toEqual(owned.toReversed());
 			expect(await createSupabaseAuditExportReader(client, 'empty-org').listRows()).toEqual([]);
 		}
 	);
@@ -102,5 +103,12 @@ describe('Audit ordinary Organization archive reads', () => {
 		const { client, state } = provider(cases[0].table, cases[0].saved);
 		state.nullData = true;
 		expect(await createSupabaseAuditExportReader(client, ORG).listRows()).toEqual([]);
+	});
+
+	it('returns each saved row once when physical order shifts between pages', async () => {
+		const ids = pagedIds(1001);
+		const client = createShiftingPostgrestClient({ audit_logs: ids.map((id) => ({ id, org_id: ORG })) });
+		const rows = await createSupabaseAuditExportReader(client, ORG).listRows();
+		expect(rows.map((row) => row.id).toSorted()).toEqual(ids);
 	});
 });

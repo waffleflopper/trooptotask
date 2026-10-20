@@ -14,8 +14,8 @@
 		CriticalTasksWorkspaceResult
 	} from '$features/critical-tasks/contracts';
 	import { hydrateStreamedWorkspace } from '$lib/utils/streamedWorkspaceHydrator';
-	import WorkspaceAccessRestricted from '../WorkspaceAccessRestricted.svelte';
-	import WorkspaceLoadError from '../WorkspaceLoadError.svelte';
+	import WorkspaceAccessRestricted from '../../WorkspaceAccessRestricted.svelte';
+	import WorkspaceLoadError from '../../WorkspaceLoadError.svelte';
 
 	let { children, data } = $props();
 	let hydrationError = $state<Error | null>(null);

@@ -76,6 +76,7 @@ export function createSupabasePlatformAuditStore(supabase: SupabaseClient): Plat
 
 			const response = (await matching(AUDIT_LOG_LIST_COLUMNS, { count: 'exact' })
 				.order('timestamp', { ascending: false })
+				.order('id', { ascending: true })
 				.range(input.offset, input.offset + input.limit - 1)) as SupabaseResponse<SupabaseAuditLogRow[]>;
 			if (isRangePastResults(response.error)) {
 				const total = (await matching('id', { count: 'exact', head: true })) as SupabaseResponse<null>;

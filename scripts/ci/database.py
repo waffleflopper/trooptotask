@@ -82,6 +82,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261015000100_calendar_lanes.sql",
     "20261016000100_status_type_label_and_order.sql",
     "20261018000100_set_based_completion_read_scope.sql",
+    "20261019000100_set_based_critical_tasks_read_models.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",

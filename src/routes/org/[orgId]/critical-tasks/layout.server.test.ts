@@ -1,47 +1,24 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createReadyAppShellRouteData, createUrlBlindLayoutEvent } from '../appShell.test-support';
-
-const { streamCriticalTasksWorkspaceBootstrapMock } = vi.hoisted(() => ({
-	streamCriticalTasksWorkspaceBootstrapMock: vi.fn()
-}));
-
-vi.mock('./criticalTasksWorkspace.server', () => ({
-	streamCriticalTasksWorkspaceBootstrap: streamCriticalTasksWorkspaceBootstrapMock
-}));
-
+import { describe, expect, it } from 'vitest';
+import {
+	createReadyAppShellRouteData,
+	createSuspendedAppShellRouteData,
+	createUrlBlindLayoutEvent
+} from '../appShell.test-support';
 import { load } from './+layout.server';
 
-type CriticalTasksLayoutEvent = Parameters<typeof load>[0];
+type CriticalTasksAdmissionEvent = Parameters<typeof load>[0];
 
-const workspace = { criticalTasks: { data: Promise.resolve(null as never) } };
+describe('Critical Tasks admission layout', () => {
+	it('admits a ready Organization without loading workspace data', async () => {
+		const { event, depends } = createUrlBlindLayoutEvent<CriticalTasksAdmissionEvent>(createReadyAppShellRouteData());
 
-describe('Critical Tasks workspace layout', () => {
-	beforeEach(() => {
-		streamCriticalTasksWorkspaceBootstrapMock.mockReset();
-		streamCriticalTasksWorkspaceBootstrapMock.mockResolvedValue(workspace);
+		expect(await load(event)).toEqual({});
+		expect(depends).toHaveBeenCalledWith('app:org-core');
 	});
 
-	it('includes archived tasks for a library configurer without reading the URL', async () => {
-		const { event, depends } = createUrlBlindLayoutEvent<CriticalTasksLayoutEvent>(
-			createReadyAppShellRouteData({ orgId: 'org-1', role: 'member', criticalTasksCapability: 'configure' })
-		);
+	it('keeps Reports and the workspace behind ready-shell admission for a suspended Organization', async () => {
+		const { event } = createUrlBlindLayoutEvent<CriticalTasksAdmissionEvent>(createSuspendedAppShellRouteData());
 
-		expect(await load(event)).toBe(workspace);
-		expect(streamCriticalTasksWorkspaceBootstrapMock).toHaveBeenCalledWith(
-			expect.objectContaining({ orgId: 'org-1', includeArchivedTasks: true })
-		);
-		expect(depends).toHaveBeenCalledWith('app:org-core', 'app:critical-tasks-data');
-	});
-
-	it('omits archived tasks for a member who cannot configure the library', async () => {
-		const { event } = createUrlBlindLayoutEvent<CriticalTasksLayoutEvent>(
-			createReadyAppShellRouteData({ orgId: 'org-1', role: 'member', criticalTasksCapability: 'view' })
-		);
-
-		await load(event);
-
-		expect(streamCriticalTasksWorkspaceBootstrapMock).toHaveBeenCalledWith(
-			expect.objectContaining({ includeArchivedTasks: false })
-		);
+		await expect(load(event)).rejects.toMatchObject({ status: 403 });
 	});
 });

@@ -248,7 +248,7 @@
 	>
 		{#if orgId}
 			<a
-				href={resolve('/org/[orgId]/critical-tasks/[personnelId]', {
+				href={resolve('/org/[orgId]/critical-tasks/(workspace)/[personnelId]', {
 					orgId,
 					personnelId: row.source.person.id
 				})}

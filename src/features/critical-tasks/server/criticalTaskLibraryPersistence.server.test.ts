@@ -10,6 +10,7 @@ import {
 import { isUnconfirmedWrite } from './criticalTaskWriteOutcome.server';
 import { importIctTasksBatch } from './ictTasksBatch.server';
 import { createWritePortsContext } from './criticalTasksPersistence.test-support.server';
+import { createShiftingPostgrestClient, pagedIds } from '$lib/test-support/shiftingPostgrest';
 
 type Row = Record<string, unknown>;
 
@@ -258,7 +259,6 @@ describe('owned Critical Tasks library provider', () => {
 						.map((column) => column.trim())
 				)
 			).toEqual(taskFields);
-		expect(state.requests[2].url.searchParams.has('order')).toBe(false);
 	});
 
 	it('completes 1001 tasks without admitting a foreign or archived tail', async () => {
@@ -290,7 +290,9 @@ describe('owned Critical Tasks library provider', () => {
 		});
 		const candidates = await library.listImportCandidates();
 		expect(candidates).toHaveLength(1002);
-		expect(candidates[1001]).toMatchObject({ id: 'archived-tail', archivedAt: '2026-09-01T00:00:00Z' });
+		expect(candidates).toContainEqual(
+			expect.objectContaining({ id: 'archived-tail', archivedAt: '2026-09-01T00:00:00Z' })
+		);
 	});
 
 	it('returns an empty catalog and rejects reference read failures', async () => {
@@ -897,5 +899,16 @@ describe('task order command', () => {
 		const failure = await port.reorder(changes).catch((error: unknown) => error);
 		expect(failure).toMatchObject({ message: 'internal failure' });
 		expect(failure).not.toHaveProperty('status');
+	});
+});
+
+describe('Critical Tasks library paging', () => {
+	it('returns each import candidate once when physical order shifts between pages', async () => {
+		const ids = pagedIds(1001, 'task');
+		const client = createShiftingPostgrestClient({
+			ict_tasks: ids.map((id, index) => ({ ...saved, id, task_code: `RESP-${index}`, sort_order: index }))
+		});
+		const candidates = await createSupabaseCriticalTaskLibraryPersistence(client, 'org-a').listImportCandidates();
+		expect(candidates.map((task) => task.id).toSorted()).toEqual(ids);
 	});
 });

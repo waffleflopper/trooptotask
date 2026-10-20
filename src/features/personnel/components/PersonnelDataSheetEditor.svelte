@@ -9,7 +9,6 @@
 	import { DatePicker } from '$lib/components/ui/date-picker';
 	import { Input } from '$lib/components/ui/input';
 	import * as NativeSelect from '$lib/components/ui/native-select';
-	import * as Alert from '$lib/components/ui/alert';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import PlusIcon from '@lucide/svelte/icons/plus';
@@ -129,7 +128,7 @@
 	});
 
 	onMount(() => {
-		const detach = session.attach(draft, { save: () => void save(), cancel: requestCancel });
+		const detach = session.attach(draft, { save, cancel: requestCancel });
 		return () => {
 			disposed = true;
 			draft.dispose();
@@ -555,12 +554,6 @@
 					/>
 				</PageShell.FactRow>
 			</PageShell.FactSection>
-
-			{#if draft.formError}
-				<Alert.Root variant="destructive">
-					<Alert.Description>{draft.formError}</Alert.Description>
-				</Alert.Root>
-			{/if}
 		</div>
 	</fieldset>
 </form>

@@ -34,7 +34,7 @@ import type {
 	TrainingTypeTiming
 } from '../contracts';
 import { isOwnedTrainingCertificate, trainingCertificatePath } from './trainingCertificateStore.server';
-import { validateSensitivePdfFile } from '$lib/storage/sensitiveFiles';
+import { pdfOrPhotoFileProblem, type PdfOrPhotoProblem } from '$lib/storage/pdfOrPhotoFiles';
 import type { PersonnelWriteSubject } from '$features/personnel/contracts';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
 import { fail } from '$lib/errors';
@@ -210,6 +210,12 @@ export async function createTrainingRecord(
 	return writeTrainingCompletion(ctx, validated, trainingType);
 }
 
+const CERTIFICATE_FILE_PROBLEMS: Record<PdfOrPhotoProblem, string> = {
+	type: 'A certificate must be a PDF, JPG, PNG or HEIC file.',
+	size: 'A certificate must be under 10 MB.',
+	contents: "The certificate's contents don't match its file type."
+};
+
 /** Records a new completion; the superseded one keeps its notes and certificate in history. */
 export async function recordTrainingCompletion(
 	ctx: TrainingCompletionRecordContext,
@@ -219,8 +225,8 @@ export async function recordTrainingCompletion(
 	const parsed = parseTrainingRecordInput(trainingCompletionCreateInput.omit({ certificateUrl: true }), fields);
 	const validated = { ...parsed, notes: parsed.notes ?? null };
 	if (certificate) {
-		const problem = await validateSensitivePdfFile(certificate);
-		if (problem) fail(400, problem);
+		const problem = await pdfOrPhotoFileProblem(certificate);
+		if (problem) fail(400, CERTIFICATE_FILE_PROBLEMS[problem]);
 	}
 	const trainingType = await authorizeTrainingCompletion(ctx, validated.personnelId, validated.trainingTypeId);
 	if (!certificate) {

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, tick } from 'svelte';
 	import * as PageShell from '$lib/components/patterns/page-shell';
 	import type { RouteTabBadge, RouteTabItem } from '$lib/components/patterns/page-shell';
 	import {
@@ -220,6 +220,17 @@
 			return { ...section, active, disabled: edit !== null && !active };
 		})
 	);
+	let saveError: HTMLElement | null = $state(null);
+
+	async function saveEdit() {
+		const session = edit;
+		if (!session) return;
+		await session.save();
+		if (!session.formError) return;
+		await tick();
+		saveError?.focus();
+	}
+
 	const unsavedLabel = $derived(
 		edit ? `${edit.changeCount} unsaved ${edit.changeCount === 1 ? 'change' : 'changes'}` : ''
 	);
@@ -268,7 +279,7 @@
 			<div class="flex items-center gap-3">
 				<span class="text-sm text-muted-foreground" aria-live="polite">{unsavedLabel}</span>
 				<Button variant="outline" onclick={edit.cancel} disabled={edit.saving || !edit.ready}>Cancel</Button>
-				<Button onclick={edit.save} disabled={edit.saving || edit.changeCount === 0}>
+				<Button onclick={saveEdit} disabled={edit.saving || edit.changeCount === 0}>
 					{edit.saving ? 'Saving...' : 'Save changes'}
 				</Button>
 			</div>
@@ -278,6 +289,11 @@
 			</div>
 		{/if}
 	</div>
+	{#if edit?.formError}
+		<Alert.Root bind:ref={saveError} variant="destructive" tabindex={-1}>
+			<Alert.Description>{edit.formError}</Alert.Description>
+		</Alert.Root>
+	{/if}
 	{#if actions.exportError}
 		<Alert.Root variant="destructive">
 			<Alert.Description>{actions.exportError}</Alert.Description>

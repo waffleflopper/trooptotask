@@ -23,24 +23,21 @@
 	const notes = $derived(data.notes);
 </script>
 
-{#snippet columnSkeleton(rows: number)}
-	<div class="grid gap-3.5" aria-hidden="true">
-		<div class="grid gap-2">
-			<Skeleton class="h-3 w-24" />
-			<Skeleton class="h-9 w-40" />
+<!-- Each column's header, its add form and one row, at their loaded heights. -->
+{#snippet columnSkeleton(form: string)}
+	<div aria-hidden="true">
+		<div class="grid gap-0.5">
+			<Skeleton class="h-4 w-24" />
+			<Skeleton class="h-[46px] w-40" />
 		</div>
-		<Skeleton class="h-11 w-full" />
-		<div class="grid gap-0">
-			{#each { length: rows } as _, index (index)}
-				<div class="flex items-start gap-3 border-b border-border py-3">
-					<Skeleton class="mt-1 size-4.5 shrink-0" />
-					<div class="grid flex-1 gap-2">
-						<Skeleton class="h-4 w-3/5" />
-						<Skeleton class="h-3.5 w-4/5" />
-					</div>
-					<Skeleton class="h-3.5 w-20" />
-				</div>
-			{/each}
+		<Skeleton class={['mt-3.5 w-full', form]} />
+		<div class="mt-2 flex items-start gap-3 border-b border-border py-3">
+			<Skeleton class="mt-1 size-4.5 shrink-0" />
+			<div class="grid flex-1 gap-0.5">
+				<Skeleton class="h-7 w-3/5" />
+				<Skeleton class="h-4 w-4/5" />
+			</div>
+			<Skeleton class="mt-0.5 h-4 w-20" />
 		</div>
 	</div>
 {/snippet}
@@ -56,7 +53,7 @@
 	<div class="grid items-start gap-x-12 gap-y-10 lg:grid-cols-2">
 		<section aria-label="Follow-ups" class="min-w-0">
 			{#await followUps}
-				{@render columnSkeleton(3)}
+				{@render columnSkeleton('h-11')}
 			{:then initial}
 				<PersonnelFollowUpsColumn
 					{orgId}
@@ -73,7 +70,7 @@
 		</section>
 		<section aria-label="Leader notes" class="min-w-0">
 			{#await notes}
-				{@render columnSkeleton(3)}
+				{@render columnSkeleton('h-32')}
 			{:then initial}
 				<PersonnelNotesColumn
 					{orgId}

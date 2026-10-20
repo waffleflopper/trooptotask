@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, type Snippet } from 'svelte';
 	import { afterNavigate, invalidate, replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -14,7 +14,8 @@
 		PersonnelDocumentsRead
 	} from '../contracts';
 	import { storageCaption, storageFraction } from '../fileLabels';
-	import { checkUploadFile, UPLOAD_ACCEPT, uploadIntentFromSearch, type UploadKind } from '../fileUploadRules';
+	import { PDF_OR_PHOTO_ACCEPT } from '$lib/storage/pdfOrPhotoFiles';
+	import { checkUploadFile, uploadIntentFromSearch, type UploadKind } from '../fileUploadRules';
 	import { refreshPersonnelDetailCounts } from '../workspace/detailCounts';
 	import PersonnelCounselingsSection from './PersonnelCounselingsSection.svelte';
 	import PersonnelDocumentsSection from './PersonnelDocumentsSection.svelte';
@@ -118,38 +119,39 @@
 	</section>
 {/snippet}
 
-{#snippet listSkeleton(label: string, bar: boolean)}
+<!-- One record at its loaded row's height, close to the empty state's when there are none. -->
+{#snippet listSkeleton(label: string, row: Snippet)}
 	<section class="flex flex-col gap-4" aria-busy="true" aria-label={label}>
-		<div class="flex flex-col gap-1.5">
+		<div class="flex flex-col gap-0.5">
 			<Skeleton class="h-3.5 w-24" />
 			<Skeleton class="h-9 w-72 max-w-full" />
 		</div>
-		{#if bar}
-			<div class="flex flex-col gap-2">
-				<div class="flex gap-1">
-					{#each { length: 12 }, index (index)}
-						<div class="flex grow basis-0 flex-col gap-1">
-							<Skeleton class="h-2" />
-							<Skeleton class="h-3" />
-						</div>
-					{/each}
-				</div>
-				<Skeleton class="h-[18px] w-80 max-w-full" />
-			</div>
-		{/if}
-		<div class="overflow-clip rounded-md border">
-			{#each { length: 3 }, index (index)}
-				<div class="flex items-center gap-4 border-b p-3.5 last:border-b-0">
-					<Skeleton class="h-9 w-14" />
-					<div class="flex grow flex-col gap-1.5">
-						<Skeleton class="h-5 w-56 max-w-full" />
-						<Skeleton class="h-[18px] w-40 max-w-full" />
-					</div>
-					<Skeleton class="hidden h-[30px] w-28 sm:block" />
-				</div>
-			{/each}
-		</div>
+		<div class="overflow-clip rounded-md border">{@render row()}</div>
 	</section>
+{/snippet}
+
+{#snippet counselingSkeleton()}
+	<div
+		class="grid grid-cols-[4rem_minmax(0,1fr)] gap-x-4 gap-y-3 border-b p-3.5 sm:grid-cols-[4rem_minmax(0,1fr)_auto]"
+	>
+		<Skeleton class="h-[38px] w-14" />
+		<div class="flex flex-col gap-1">
+			<Skeleton class="h-5 w-56 max-w-full" />
+			<Skeleton class="h-[18px] w-40 max-w-full" />
+		</div>
+		<Skeleton class="col-start-2 h-7 w-28 sm:col-start-3" />
+	</div>
+{/snippet}
+
+{#snippet documentSkeleton()}
+	<div class="flex h-[41px] items-center border-b px-2"><Skeleton class="h-4 w-12" /></div>
+	<div class="flex items-center justify-between gap-4 p-2">
+		<div class="flex flex-col gap-0.5">
+			<Skeleton class="h-5 w-56 max-w-full" />
+			<Skeleton class="h-[18px] w-40 max-w-full sm:hidden" />
+		</div>
+		<Skeleton class="h-7 w-16" />
+	</div>
 {/snippet}
 
 <div class="grid gap-12 lg:grid-cols-[minmax(0,1fr)_320px]">
@@ -169,7 +171,7 @@
 		{:else if counselings.current.state === 'failed'}
 			{@render unavailable('Counselings')}
 		{:else}
-			{@render listSkeleton('Counselings', true)}
+			{@render listSkeleton('Counselings', counselingSkeleton)}
 		{/if}
 
 		{#if documents.current.state === 'ready'}
@@ -186,7 +188,7 @@
 		{:else if documents.current.state === 'failed'}
 			{@render unavailable('Documents')}
 		{:else}
-			{@render listSkeleton('Documents', false)}
+			{@render listSkeleton('Documents', documentSkeleton)}
 		{/if}
 	</div>
 
@@ -195,7 +197,7 @@
 			<Dropzone
 				title="Drop files to upload"
 				hint="PDF, JPG, PNG or HEIC up to 10 MB. You'll pick Counseling or Document next."
-				accept={UPLOAD_ACCEPT}
+				accept={PDF_OR_PHOTO_ACCEPT}
 				error={dropError}
 				onFiles={offer}
 			/>

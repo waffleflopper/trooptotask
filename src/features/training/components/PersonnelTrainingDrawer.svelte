@@ -17,7 +17,7 @@
 	import { rejectedRequestMessage } from '$lib/stores/core';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatDayMonthYear } from '$lib/utils/dates';
-	import { SENSITIVE_FILE_ACCEPT } from '$lib/storage/sensitiveFiles';
+	import { PDF_OR_PHOTO_ACCEPT, declaredPdfOrPhotoType, withDeclaredType } from '$lib/storage/pdfOrPhotoFiles';
 	import { PendingSave } from '$lib/utils/pendingSave.svelte';
 	import {
 		correctTrainingCompletion,
@@ -195,7 +195,9 @@
 	}
 
 	function pickCertificate(event: Event) {
-		certificate = (event.currentTarget as HTMLInputElement).files?.[0] ?? null;
+		const file = (event.currentTarget as HTMLInputElement).files?.[0] ?? null;
+		const type = file && declaredPdfOrPhotoType(file);
+		certificate = file && type ? withDeclaredType(file, type) : file;
 	}
 </script>
 
@@ -265,11 +267,11 @@
 								<Input
 									id="training-drawer-certificate"
 									type="file"
-									accept={SENSITIVE_FILE_ACCEPT}
+									accept={PDF_OR_PHOTO_ACCEPT}
 									bind:ref={certificateInput}
 									onchange={pickCertificate}
 								/>
-								<Field.Description>A PDF, up to 10 MB.</Field.Description>
+								<Field.Description>A PDF or photo, up to 10 MB.</Field.Description>
 							</Field.Root>
 						{/if}
 						<Field.Root>

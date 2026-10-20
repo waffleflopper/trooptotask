@@ -230,7 +230,9 @@ describe('Personnel Overview', () => {
 		expect(screen.queryByRole('list', { name: 'Needs attention' })).toBeNull();
 		expect(
 			Array.from(document.querySelectorAll('[aria-busy="true"]'), (section) => section.getAttribute('aria-label'))
-		).toEqual(expect.arrayContaining(['Open follow-ups', 'Rating chain', 'Reach', 'Last counseled', 'Latest note']));
+		).toEqual(expect.arrayContaining(['Open follow-ups', 'Reach', 'Last counseled', 'Latest note']));
+		// The Rating chain card is absent without an active evaluation, so it holds no place while pending.
+		expect(screen.queryByLabelText('Rating chain')).toBeNull();
 	});
 
 	it('fails a section on its own while the rest of the Overview loads', async () => {

@@ -164,8 +164,41 @@ describe('POST /api/personnel-trainings/completions', () => {
 	});
 
 	it.each([
-		['a certificate that is not a PDF', { certificate: new File(['hello'], 'notes.txt', { type: 'text/plain' }) }],
+		['a JPG', 'scan.jpg', 'image/jpeg', [0xff, 0xd8, 0xff, 0xe0]],
+		['a PNG', 'scan.png', 'image/png', [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]],
+		['a HEIC photo', 'scan.heic', 'image/heic', [0, 0, 0, 0x18, 0x66, 0x74, 0x79, 0x70, 0x68, 0x65, 0x69, 0x63]]
+	])('stores %s certificate under the Person with its own type', async (_label, name, type, bytes) => {
+		const ctx = withCertificates(createTestContext());
+
+		const { record } = await handleUseCaseRequest(
+			_postConfig,
+			ctx,
+			{
+				personnelId: PERSON,
+				trainingTypeId: TRAINING_TYPE,
+				completionDate: '2026-04-01',
+				certificate: new File([new Uint8Array(bytes)], name, { type })
+			},
+			() => ctx
+		);
+
+		expect(record.certificateUrl?.endsWith(`/${name}`)).toBe(true);
+		expect(ctx.storage.files.map((file) => [file.path, (file.data as File).type])).toEqual([
+			[record.certificateUrl, type]
+		]);
+	});
+
+	it.each([
+		[
+			'a certificate that is not a PDF or photo',
+			{ certificate: new File(['hello'], 'notes.txt', { type: 'text/plain' }) }
+		],
 		['a PDF whose bytes are not a PDF', { certificate: new File(['hello'], 'fake.pdf', { type: 'application/pdf' }) }],
+		['a PNG whose bytes are a PDF', { certificate: new File(['%PDF-1.7\n'], 'fake.png', { type: 'image/png' }) }],
+		[
+			'a certificate over 10 MB',
+			{ certificate: new File(['%PDF', new Uint8Array(10 * 1024 * 1024)], 'big.pdf', { type: 'application/pdf' }) }
+		],
 		['an impossible completion date', { completionDate: '2026-02-30' }]
 	])('answers 400 for %s and stores nothing', async (_label, fields) => {
 		const ctx = withCertificates(createTestContext());

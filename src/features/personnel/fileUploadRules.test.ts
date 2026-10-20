@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkUploadFile, uploadIntentFromSearch, withDeclaredType } from './fileUploadRules';
+import { checkUploadFile, uploadIntentFromSearch } from './fileUploadRules';
 
 const file = (name: string, type: string, size: number) => ({ name, type, size });
 
@@ -51,14 +51,6 @@ describe('upload file check', () => {
 			ok: false,
 			message: 'empty.pdf is empty.'
 		});
-	});
-});
-
-describe('declared type', () => {
-	it('gives an untyped file the type its extension names and keeps its name and bytes', async () => {
-		const untyped = withDeclaredType(new File(['abc'], 'IMG_1.heic'), 'image/heic');
-
-		expect([untyped.type, untyped.name, await untyped.text()]).toEqual(['image/heic', 'IMG_1.heic', 'abc']);
 	});
 });
 

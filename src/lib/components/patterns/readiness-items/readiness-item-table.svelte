@@ -164,10 +164,12 @@
 			{row.expiresOn ? formatDayMonthYear(row.expiresOn) : '—'}
 		</Table.Cell>
 		<Table.Cell class="pr-3.5 pl-4">
+			<!-- The stretched ::after makes the whole row the button. A pressed translate would make the button
+			     its containing block, shrinking the target between press and release so the click is lost. -->
 			<Button
 				variant="ghost"
 				size="icon-sm"
-				class="text-muted-foreground after:absolute after:inset-0"
+				class="text-muted-foreground after:absolute after:inset-0 active:not-aria-[haspopup]:translate-none"
 				aria-label={`Open ${row.name}`}
 				onclick={() => onOpen(row.id)}
 			>

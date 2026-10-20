@@ -93,14 +93,6 @@
 	<h2 class="font-mono text-[11px] font-medium tracking-[0.08em] text-muted-foreground uppercase">{text}</h2>
 {/snippet}
 
-{#snippet railSkeleton(label: string)}
-	<div class="flex flex-col gap-2" aria-busy="true" aria-label={label}>
-		<Skeleton class="h-3 w-24" />
-		<Skeleton class="h-6 w-40" />
-		<Skeleton class="h-4 w-52" />
-	</div>
-{/snippet}
-
 <div class="grid gap-12 lg:grid-cols-[minmax(0,1fr)_320px]">
 	<div class="flex min-w-0 flex-col gap-9">
 		{#if !(nextDays.current.state === 'ready' && nextDays.current.value === null)}
@@ -162,6 +154,7 @@
 			{:else}
 				<PageShell.SectionHeader size="compact" title="Needs attention" action={readinessLink} />
 				<AttentionListSkeleton />
+				<Skeleton class="h-5 w-72 max-w-full max-sm:h-10" />
 			{/if}
 		</section>
 
@@ -182,17 +175,16 @@
 				{#if openFollowUps.current.state === 'failed'}
 					{@render unavailable('follow-ups')}
 				{:else}
+					<!-- One row at the loaded row's height, close to the empty state's when there are none. -->
 					<div class="border-t border-border" aria-busy="true" aria-label="Open follow-ups">
-						{#each { length: 3 } as _, index (index)}
-							<div class="flex items-start gap-3 border-b border-border py-3">
-								<Skeleton class="mt-1 size-4.5 shrink-0" />
-								<div class="grid flex-1 gap-2">
-									<Skeleton class="h-4 w-3/5" />
-									<Skeleton class="h-3.5 w-4/5" />
-								</div>
-								<Skeleton class="h-3.5 w-20" />
+						<div class="flex items-start gap-3 border-b border-border py-3">
+							<Skeleton class="mt-1 size-4.5 shrink-0" />
+							<div class="grid flex-1 gap-0.5">
+								<Skeleton class="h-7 w-3/5" />
+								<Skeleton class="h-4 w-4/5" />
 							</div>
-						{/each}
+							<Skeleton class="mt-0.5 h-4 w-20" />
+						</div>
 					</div>
 				{/if}
 			{/if}
@@ -231,6 +223,8 @@
 			{/if}
 		</section>
 
+		<!-- No placeholder while pending: the card is absent without an active evaluation, the common case, so a
+		     skeleton would usually vanish and pull the rail up. -->
 		{#if evaluation.current.state === 'ready' && evaluation.current.value}
 			{@const evaluationValue = evaluation.current.value}
 			<section class="flex flex-col gap-3 border-b pb-7" aria-label="Rating chain">
@@ -247,8 +241,6 @@
 				{@render railLabel('Rating chain')}
 				{@render unavailable('the rating chain')}
 			</section>
-		{:else if evaluation.current.state === 'pending'}
-			<div class="border-b pb-7">{@render railSkeleton('Rating chain')}</div>
 		{/if}
 
 		<section class="flex flex-col gap-2 border-b pb-7" aria-label="Last counseled">

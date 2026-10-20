@@ -672,6 +672,7 @@ describe('confirmations settle with their request', () => {
 
 		expect(rankToggle('B-2').getAttribute('aria-expanded')).toBe('true');
 		expect((screen.getByLabelText('Label') as HTMLInputElement).value).toBe('Unsaved label');
+		expect(document.activeElement).toBe(screen.getByLabelText('Label'));
 	});
 
 	it('leaves another editor opened during a save as the user left it', async () => {
@@ -685,6 +686,7 @@ describe('confirmations settle with their request', () => {
 
 		expect(rankToggle('B-2').getAttribute('aria-expanded')).toBe('true');
 		expect((screen.getByLabelText('Label') as HTMLInputElement).value).toBe('Unsaved label');
+		expect(document.activeElement).toBe(screen.getByLabelText('Label'));
 	});
 
 	it('runs one rank request at a time', async () => {

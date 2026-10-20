@@ -79,6 +79,7 @@
 	let branchFilter = $state<RankBranchFilter>('all');
 	let search = $state('');
 	let openEditor = $state<OpenEditor>(null);
+	const EDITOR_FIELDS = 'input:not([type=hidden]):not([readonly]), select, button';
 	let addCustomRankButton = $state<HTMLElement | null>(null);
 	let pendingBulkRankState = $state<PendingBulkRankState | null>(null);
 	let pendingRankRetire = $state<SettingsRankCatalogRow | null>(null);
@@ -168,11 +169,21 @@
 		return openEditor?.kind === 'rank' && openEditor.code === entry.code;
 	}
 
-	// A request that settles after the user opened another editor must leave that editor and its focus alone.
-	function anotherEditorOpen(editor: NonNullable<OpenEditor>): boolean {
+	// A request that settles after the user opened another editor must leave that editor open. SvelteKit's
+	// post-action focus reset leaves focus on the body, so it goes back into that editor unless the user moved it.
+	async function keepAnotherEditor(editor: NonNullable<OpenEditor>): Promise<boolean> {
 		if (openEditor === null) return false;
-		if (openEditor.kind === 'new' || editor.kind === 'new') return openEditor.kind !== editor.kind;
-		return openEditor.code !== editor.code;
+		const same =
+			openEditor.kind === 'new' || editor.kind === 'new'
+				? openEditor.kind === editor.kind
+				: openEditor.code === editor.code;
+		if (same) return false;
+		await tick();
+		if (document.activeElement === document.body) {
+			const id = openEditor.kind === 'new' ? 'new-rank-editor' : `${rankDomId(openEditor.code)}-editor`;
+			document.getElementById(id)?.querySelector<HTMLElement>(EDITOR_FIELDS)?.focus();
+		}
+		return true;
 	}
 
 	function toggleRank(entry: SettingsRankCatalogRow): void {
@@ -196,7 +207,7 @@
 	}
 
 	const editorFocus: Attachment<HTMLElement> = (node) => {
-		node.querySelector<HTMLElement>('input:not([type=hidden]):not([readonly]), select, button')?.focus();
+		node.querySelector<HTMLElement>(EDITOR_FIELDS)?.focus();
 		function onkeydown(event: KeyboardEvent) {
 			if (event.key !== 'Escape' || event.defaultPrevented) return;
 			event.preventDefault();
@@ -248,7 +259,7 @@
 
 	function saveFocus(editor: NonNullable<OpenEditor>, submitter: () => HTMLElement | null) {
 		return async (succeeded: boolean, code: string | null) => {
-			if (anotherEditorOpen(editor)) return;
+			if (await keepAnotherEditor(editor)) return;
 			if (succeeded) {
 				await closeEditor(code);
 				return;
@@ -321,7 +332,7 @@
 		if (savingAction !== null) return;
 		const focusTarget = rankRowFocusTarget(entry.code);
 		const succeeded = await submitFormAndWait(rowFormId('reactivate', entry.code));
-		if (anotherEditorOpen({ kind: 'rank', code: entry.code })) return;
+		if (await keepAnotherEditor({ kind: 'rank', code: entry.code })) return;
 		if (succeeded) openEditor = null;
 		await tick();
 		restoreFocus([focusTarget()]);

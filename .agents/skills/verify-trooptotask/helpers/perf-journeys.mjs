@@ -44,6 +44,7 @@ const search = { role: 'searchbox', name: 'Search by name, rank, MOS, role, or g
 const personRows = '[aria-label^="Open "]';
 // The 3-Month view's virtual rows hold Group bands and People; only a Person row names its Person.
 const longRangeRows = '.roster-rows [data-person-id]';
+const monthRows = '.virtual-row--person';
 const calendarLoading = ['Loading Calendar data', 'Loading calendar data', 'Loading additional calendar dates'];
 const calendarReady = ({ month }) => ({
 	present: [month.current],
@@ -52,6 +53,15 @@ const calendarReady = ({ month }) => ({
 	absentSelector: [skeleton]
 });
 const org = (terms, path = '') => `/org/${terms.organizationId}${path}`;
+const groupFilterActors = {
+	perfWide: null,
+	perfScoped: 'perfScoped sees one Group, so the group filter has nothing to narrow.'
+};
+const openGroupFilterOnBravo = [
+	{ click: { role: 'button', name: 'Calendar group filter' } },
+	{ press: 'ArrowDown' },
+	{ press: 'ArrowDown' }
+];
 // The affected-soldiers detail opens below the briefing from a hot-spot cell; every workload has
 // this Training type, and its Total cell is the widest cell an actor can open.
 const affected = '#training-affected-soldiers';
@@ -138,6 +148,71 @@ export const journeys = {
 		prepare: ({ month }) => [{ click: { role: 'radio', name: '3-Month' } }, { wait: [month.quarter] }],
 		trigger: ({ searchTerm }) => ({ fill: search, value: searchTerm }),
 		milestones: ({ searchTerm }) => [{ name: 'useful', present: [searchTerm], count: { [longRangeRows]: 1 } }]
+	},
+	// Month view opens on the anchor month. The bootstrap holds the month after it, and paging back
+	// reads the earlier month's missing collections.
+	'calendar-month-next': {
+		area: 'calendar',
+		kind: 'interaction',
+		effect: 'read',
+		actors: both,
+		path: (terms) => org(terms, '/calendar'),
+		ready: (terms) => [{ name: 'ready', ...calendarReady(terms) }],
+		reset: 'calendar-today',
+		trigger: () => ({ click: { role: 'button', name: 'Next month' } }),
+		milestones: ({ month }) => [{ name: 'useful', ...calendarReady({ month: { current: month.next } }) }]
+	},
+	'calendar-month-previous': {
+		area: 'calendar',
+		kind: 'interaction',
+		effect: 'read',
+		actors: both,
+		path: (terms) => org(terms, '/calendar'),
+		ready: (terms) => [{ name: 'ready', ...calendarReady(terms) }],
+		reset: 'calendar-today',
+		trigger: () => ({ click: { role: 'button', name: 'Previous month' } }),
+		milestones: ({ month }) => [{ name: 'useful', ...calendarReady({ month: { current: month.previous } }) }]
+	},
+	'calendar-month-search': {
+		area: 'calendar',
+		kind: 'interaction',
+		effect: 'read',
+		actors: both,
+		path: (terms) => org(terms, '/calendar'),
+		ready: (terms) => [{ name: 'ready', ...calendarReady(terms) }],
+		trigger: ({ searchTerm }) => ({ fill: search, value: searchTerm }),
+		milestones: ({ searchTerm }) => [{ name: 'useful', present: [searchTerm], count: { [monthRows]: 1 } }]
+	},
+	// The group filter's options are not in the accessibility snapshot, so the preparation opens it
+	// and moves the highlight from `Group: All` past Alpha to Bravo, and Enter picks it. Bravo is
+	// the second Group in every workload; the first visible band is Alpha's until the filter lands.
+	'calendar-month-group-filter': {
+		area: 'calendar',
+		kind: 'interaction',
+		effect: 'read',
+		actors: groupFilterActors,
+		path: (terms) => org(terms, '/calendar'),
+		ready: (terms) => [{ name: 'ready', ...calendarReady(terms) }],
+		prepare: () => openGroupFilterOnBravo,
+		trigger: () => ({ press: 'Enter' }),
+		milestones: () => [
+			{ name: 'useful', inside: { '.virtual-row--group': ['Bravo'] }, count: { '.virtual-row--group': 1 } }
+		]
+	},
+	'calendar-group-filter': {
+		area: 'calendar',
+		kind: 'interaction',
+		effect: 'read',
+		actors: groupFilterActors,
+		path: (terms) => org(terms, '/calendar'),
+		ready: (terms) => [{ name: 'ready', ...calendarReady(terms) }],
+		prepare: ({ month }) => [
+			{ click: { role: 'radio', name: '3-Month' } },
+			{ wait: [month.quarter] },
+			...openGroupFilterOnBravo
+		],
+		trigger: () => ({ press: 'Enter' }),
+		milestones: () => [{ name: 'useful', inside: { '.roster-rows .virtual-row': ['Bravo'] } }]
 	},
 	'assignment-save': {
 		area: 'calendar',
@@ -532,7 +607,13 @@ const monthName = (year, month) =>
 export function monthLabels(anchor) {
 	const [year, month] = anchor.split('-').map(Number);
 	const span = (first) => `${monthName(year, first)} – ${monthName(year, first + 2)}`;
-	return { current: monthName(year, month - 1), quarter: span(month - 1), nextQuarter: span(month + 2) };
+	return {
+		current: monthName(year, month - 1),
+		previous: monthName(year, month - 2),
+		next: monthName(year, month),
+		quarter: span(month - 1),
+		nextQuarter: span(month + 2)
+	};
 }
 
 /** The KIND journey NAME as ACTOR; an actor that cannot reach it is refused with the reason. */

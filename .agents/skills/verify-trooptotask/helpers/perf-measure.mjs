@@ -38,7 +38,8 @@ export function installSettledObserver(win, spec) {
 		frames: 0,
 		longTasks: [],
 		lcp: null,
-		download: null
+		download: null,
+		renderedAt: null
 	};
 	win[key] = state;
 	// An export hands its file to the browser as an object URL; the first one marks the download.
@@ -89,19 +90,38 @@ export function installSettledObserver(win, spec) {
 		);
 	};
 	const final = spec.milestones.at(-1).name;
-	// A frame's timestamp is the frame's start, which can precede the input event the frame then
-	// handles, so an interaction reads the clock inside the callback: the event's timeStamp and
-	// performance.now() share one timeline and the callback cannot run before the input.
-	const frame = (frameTime) => {
-		const now = spec.start === 'navigation' ? frameTime : win.performance.now();
-		state.frames++;
-		for (const milestone of spec.milestones)
-			if (!(milestone.name in state.milestones) && reached(milestone)) {
-				state.milestones[milestone.name] = Math.round(now - state.startedAt);
-				win.performance.mark(`t2t-perf:${spec.name}:${milestone.name}`);
-			}
-		if (final in state.milestones) state.done = true;
-		else win.requestAnimationFrame(frame);
+	// A re-render after the milestone, such as one an invalidated load's data drives, mutates the
+	// DOM, and the next frame paints it. The loop keeps running after the final milestone until a
+	// newer observer replaces this one, so a later read sees the last such frame.
+	let mutatedAt = null;
+	let paintedFor = null;
+	new win.MutationObserver(() => (mutatedAt = win.performance.now())).observe(win.document, {
+		subtree: true,
+		childList: true,
+		characterData: true,
+		attributes: true
+	});
+	// A frame's timestamp is when the browser began that frame, which can be long before the
+	// callback runs when a task held the main thread, and can precede the input event the frame
+	// then handles. Every milestone therefore reads the clock inside the callback, on the
+	// navigation's timeline (startedAt 0) or the input event's.
+	const frame = () => {
+		if (win[key] !== state) return;
+		const now = win.performance.now();
+		if (!state.done) {
+			state.frames++;
+			for (const milestone of spec.milestones)
+				if (!(milestone.name in state.milestones) && reached(milestone)) {
+					state.milestones[milestone.name] = Math.round(now - state.startedAt);
+					win.performance.mark(`t2t-perf:${spec.name}:${milestone.name}`);
+				}
+			if (final in state.milestones) state.done = true;
+		}
+		if (mutatedAt !== null && mutatedAt >= state.startedAt && mutatedAt !== paintedFor) {
+			paintedFor = mutatedAt;
+			state.renderedAt = Math.round(now - state.startedAt);
+		}
+		win.requestAnimationFrame(frame);
 	};
 	if (spec.start === 'navigation') win.requestAnimationFrame(frame);
 	else

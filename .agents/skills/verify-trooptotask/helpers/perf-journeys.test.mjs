@@ -38,9 +38,12 @@ test('an actor a journey does not reach is refused with the reason', () => {
 test('month labels follow the anchor across a year end', () => {
 	assert.deepEqual(monthLabels('2026-11-20'), {
 		current: 'November 2026',
+		previous: 'October 2026',
+		next: 'December 2026',
 		quarter: 'November 2026 – January 2027',
 		nextQuarter: 'February 2027 – April 2027'
 	});
+	assert.equal(monthLabels('2027-01-05').previous, 'December 2026');
 });
 
 test('write samples alternate so an even sample count ends on the seeded value', () => {

@@ -80,12 +80,16 @@ export function calendarViewCoverage(
 	);
 }
 
-/** The bootstrap holds the anchor month's view and the month after it, so Next month needs no read. */
-export function initialCalendarCoverage(anchor: Date, today: string): Required<CalendarCoverage> {
+/**
+ * The bootstrap holds the anchor month's view and the month after it, so Next month needs no read.
+ * The server knows only its UTC day, and every viewer's day is within one day of it, so availability
+ * also reaches back to the day before for a viewer whose today is still yesterday in UTC.
+ */
+export function initialCalendarCoverage(anchor: Date, serverToday: string): Required<CalendarCoverage> {
 	return coverageThrough(
 		formatDate(new Date(anchor.getFullYear(), anchor.getMonth(), 1)),
 		formatDate(endOfMonth(new Date(anchor.getFullYear(), anchor.getMonth() + 1, 1))),
-		today
+		shiftDate(serverToday, -1)
 	);
 }
 

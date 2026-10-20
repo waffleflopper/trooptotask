@@ -44,6 +44,19 @@ describe('calendarViewCoverage', () => {
 			assignments: { rangeStart: '2026-01-01', rangeEnd: '2026-05-31' }
 		});
 	});
+
+	it('starts availability for a later anchor month on the day before the server day, so a viewer still on yesterday needs no read', () => {
+		expect(initialCalendarCoverage(new Date(2026, 10, 1), '2026-10-21')).toEqual({
+			availability: { rangeStart: '2026-10-20', rangeEnd: '2026-12-31' },
+			assignments: { rangeStart: '2026-08-03', rangeEnd: '2026-12-31' }
+		});
+		expect(
+			planCalendarRangeReads(
+				initialCalendarCoverage(new Date(2026, 10, 1), '2026-10-21'),
+				calendarViewCoverage(new Date(2026, 10, 1), 'month', '2026-10-20')
+			)
+		).toEqual([]);
+	});
 });
 
 describe('planCalendarRangeReads', () => {

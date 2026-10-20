@@ -250,8 +250,9 @@ describe('streamCalendarWorkspaceBootstrap', () => {
 			expect.objectContaining({ id: 'sd-wide', date: '2025-01-01..2028-12-31' })
 		]);
 		expect(workspace.hydration.calendarAssignments.range).toEqual({ rangeStart: '2026-01-31', rangeEnd: '2026-06-30' });
-		// Today, 2026-04-10, falls inside the lookback, so availability reads from today for the title row.
-		expect(workspace.hydration.availabilityEntries.range).toEqual({ rangeStart: '2026-04-10', rangeEnd: '2026-06-30' });
+		// The server day, 2026-04-10, falls inside the lookback, so availability reads from the day before it, the
+		// earliest day a viewer can call today, for the title row.
+		expect(workspace.hydration.availabilityEntries.range).toEqual({ rangeStart: '2026-04-09', rangeEnd: '2026-06-30' });
 		expect(workspace.hydration.confirmedChangesByTab).toEqual({ tab1: 7 });
 	});
 });

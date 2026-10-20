@@ -371,6 +371,16 @@ describe('getActiveOnboardingPersonnelIds', () => {
 
 		expect(await getActiveOnboardingPersonnelIds(ctx)).toEqual(['unassigned']);
 	});
+
+	it('reads no markers while the unit has Onboarding off', async () => {
+		const ctx = { ...buildCtx(), disabledFeatures: ['onboarding' as const] };
+		ctx.store.seed('personnel', [{ id: 'p-1', organization_id: ORG, group_id: null }]);
+		ctx.store.seed('personnel_onboardings', [
+			{ id: 'ob-1', organization_id: ORG, personnel_id: 'p-1', status: 'in_progress' }
+		]);
+
+		expect(await getActiveOnboardingPersonnelIds(ctx)).toEqual([]);
+	});
 });
 
 describe('fetchCalendarBootstrap', () => {

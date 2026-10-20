@@ -7,6 +7,7 @@
  */
 import type { AvailabilityEntry, SpecialDay, AssignmentType, DailyAssignment } from '$features/calendar/contracts';
 import type { CalendarBootstrap, CalendarRangeData } from './calendar.types';
+import type { FeatureKey } from '$lib/access/featureSwitches';
 export type { CalendarBootstrap, CalendarRangeData } from './calendar.types';
 import { listAssignmentTypes } from './assignmentTypeRead.server';
 import { listAvailabilityEntries } from './availabilityRead.server';
@@ -63,8 +64,10 @@ export async function getActiveOnboardingPersonnelIds(ctx: {
 	auth: OrganizationAccessGrant;
 	audit?: AuditPort;
 	onboardingCalendarMarkers?: OnboardingCalendarMarkersPort;
+	disabledFeatures: readonly FeatureKey[];
 }): Promise<string[]> {
 	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.viewAvailability);
+	if (ctx.disabledFeatures.includes('onboarding')) return [];
 	if (!ctx.onboardingCalendarMarkers) throw new Error('Onboarding Calendar marker lookup is unavailable');
 	return ctx.onboardingCalendarMarkers.listActivePersonnelIds(ctx.auth.orgId);
 }

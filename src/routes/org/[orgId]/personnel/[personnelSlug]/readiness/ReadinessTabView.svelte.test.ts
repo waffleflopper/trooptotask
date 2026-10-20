@@ -64,7 +64,11 @@ const criticalTasks: PersonnelCriticalTaskReadiness = {
 	expiringSoonWarningDays: 30
 };
 
-function readiness(overrides: Partial<Record<'training' | 'criticalTasks', Promise<unknown>>> = {}) {
+function readiness(
+	overrides: Partial<
+		Record<'training' | 'criticalTasks' | 'evaluation' | 'loss' | 'onboarding', Promise<unknown> | null>
+	> = {}
+) {
 	return {
 		training: Promise.resolve(training),
 		criticalTasks: Promise.resolve(criticalTasks),
@@ -90,6 +94,33 @@ it('shows a failed source as unchecked while the others load', async () => {
 	expect(await screen.findByText("Couldn't check critical tasks. Reload the page to try again.")).toBeTruthy();
 	expect(screen.getByText('0 of 1 ready')).toBeTruthy();
 	expect(screen.queryByText("Couldn't check training. Reload the page to try again.")).toBeNull();
+});
+
+it('leaves out the blocks of features the unit turned off and the loss window state', async () => {
+	render(ReadinessTabView, {
+		props: {
+			orgId: 'org-1',
+			person,
+			asOf: '2026-10-06',
+			readiness: readiness({
+				training: null,
+				evaluation: null,
+				onboarding: null,
+				loss: Promise.resolve({
+					windowDays: null,
+					ets: { date: '2027-03-14', daysRemaining: 159 },
+					deros: null,
+					inWindow: null
+				})
+			})
+		}
+	});
+
+	expect(await screen.findByText('14 Mar 2027 · 159 days')).toBeTruthy();
+	expect(screen.queryByText(/Couldn't check/)).toBeNull();
+	expect(screen.queryByText(/loss window/)).toBeNull();
+	expect(screen.queryByText('0 of 1 ready')).toBeNull();
+	expect(document.querySelectorAll('[aria-busy="true"]')).toHaveLength(0);
 });
 
 it('keeps the loaded table while a refresh is pending', async () => {

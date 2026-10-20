@@ -27,11 +27,11 @@
 		orgId: string;
 		person: Pick<Personnel, 'id' | 'rank' | 'lastName' | 'groupId'>;
 		readiness: {
-			training: Promise<PersonnelTrainingReadiness>;
-			criticalTasks: Promise<PersonnelCriticalTaskReadiness>;
-			evaluation: Promise<PersonnelActiveEvaluation | null>;
+			training: Promise<PersonnelTrainingReadiness> | null;
+			criticalTasks: Promise<PersonnelCriticalTaskReadiness> | null;
+			evaluation: Promise<PersonnelActiveEvaluation | null> | null;
 			loss: Promise<PersonnelLossReadiness>;
-			onboarding: Promise<PersonnelOnboardingSummary>;
+			onboarding: Promise<PersonnelOnboardingSummary> | null;
 		};
 		asOf: string;
 	} = $props();
@@ -134,7 +134,7 @@
 			/>
 		{:else if training.current.state === 'failed'}
 			{@render unavailable('Training', 'training')}
-		{:else}
+		{:else if training.current.state === 'pending'}
 			<ReadinessItemTableSkeleton label="Training" />
 		{/if}
 
@@ -147,7 +147,7 @@
 			/>
 		{:else if criticalTasks.current.state === 'failed'}
 			{@render unavailable('Critical tasks', 'critical tasks')}
-		{:else}
+		{:else if criticalTasks.current.state === 'pending'}
 			<ReadinessItemTableSkeleton label="Critical tasks" />
 		{/if}
 	</div>
@@ -157,7 +157,7 @@
 			<PersonnelEvaluationCard evaluation={evaluation.current.value} />
 		{:else if evaluation.current.state === 'failed'}
 			{@render unavailable('Evaluation', 'the evaluation')}
-		{:else}
+		{:else if evaluation.current.state === 'pending'}
 			<div class="flex flex-col gap-3.5 rounded-md border bg-muted p-5" aria-busy="true" aria-label="Evaluation">
 				<Skeleton class="h-3.5 w-20" />
 				<Skeleton class="h-5 w-44" />
@@ -176,7 +176,7 @@
 			<PersonnelOnboardingLine summary={onboarding.current.value} />
 		{:else if onboarding.current.state === 'failed'}
 			{@render unavailable('Onboarding', 'onboarding')}
-		{:else}
+		{:else if onboarding.current.state === 'pending'}
 			{@render railSkeleton('Onboarding', 1)}
 		{/if}
 	</aside>

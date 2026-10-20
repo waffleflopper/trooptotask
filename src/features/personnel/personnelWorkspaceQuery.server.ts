@@ -1,5 +1,6 @@
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { requireFeaturePolicy } from '$lib/access/index.server';
+import type { FeatureKey } from '$lib/access/featureSwitches';
 import { readLossWarningWindowDays } from '$features/organization/contracts';
 import type { Personnel, PersonnelLookup } from './personnel.types';
 import type {
@@ -26,6 +27,7 @@ interface PersonnelWorkspaceQueryContext {
 	selfPins: Pick<SelfPinPersistence, 'listNames'>;
 	loadRankCatalog(): Promise<OrganizationRankCatalogEntry[]>;
 	personnelAwardAcknowledgement?: PersonnelAwardAcknowledgementPort;
+	disabledFeatures: readonly FeatureKey[];
 }
 
 /** Delivery supplies adjacent owners' reads using the admitted request context. */
@@ -63,7 +65,9 @@ export async function loadPersonnelWorkspace(
 			ctx.loadRankCatalog(),
 			ctx.auth.userId ? listPinnedGroupNames(ctx) : Promise.resolve([]),
 			readLossWarningWindowDays(sources.loadLossWarningWindowDays(orgId)),
-			ctx.personnelAwardAcknowledgement.listAcknowledgedPersonnelIds(ctx.auth)
+			ctx.disabledFeatures.includes('lossesAndAwards')
+				? []
+				: ctx.personnelAwardAcknowledgement.listAcknowledgedPersonnelIds(ctx.auth)
 		]);
 
 	const pinnedGroups = visiblePinnedGroupNames(pinnedNames, groups);

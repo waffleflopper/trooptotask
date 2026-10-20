@@ -6,6 +6,9 @@ import type { PersonnelExtendedInfo } from '../personnelExtendedInfo.types';
 
 const { gotoMock, beforeNavigateMock } = vi.hoisted(() => ({ gotoMock: vi.fn(), beforeNavigateMock: vi.fn() }));
 vi.mock('$app/navigation', () => ({ goto: gotoMock, invalidate: vi.fn(), beforeNavigate: beforeNavigateMock }));
+vi.mock('$lib/components/ui/date-picker', async () => ({
+	DatePicker: (await import('$features/calendar/test-support/DatePickerInputStub.svelte')).default
+}));
 
 import { toastStore } from '$lib/stores/toast.svelte';
 import type { PersonnelWorkspaceResult } from '../contracts';
@@ -249,7 +252,14 @@ describe('PersonnelDataSheetPageView', () => {
 			dataSheet: Promise.resolve(info),
 			workspace: Promise.resolve({ data: catalogs } as unknown as PersonnelWorkspaceResult)
 		};
-		const props = { orgId: 'org-1', orgUrlSegment: 'org-alpha', person, today: '2026-10-18', editing: true };
+		const props = {
+			orgId: 'org-1',
+			orgUrlSegment: 'org-alpha',
+			person,
+			today: '2026-10-18',
+			editing: true,
+			disabledFeatures: []
+		};
 		const view = render(DataSheetPageHarness, { props: { ...props, ...loads } });
 		const email = (await screen.findByLabelText('Personal email')) as HTMLInputElement;
 		await fireEvent.input(email, { target: { value: 'rivera@example.com' } });
@@ -259,4 +269,30 @@ describe('PersonnelDataSheetPageView', () => {
 
 		expect((screen.getByLabelText('Personal email') as HTMLInputElement).value).toBe('rivera@example.com');
 	});
+
+	it.each([
+		{ disabledFeatures: [], hint: 'Was 14 Mar 2027. Leaves the loss window on save.' },
+		{ disabledFeatures: ['lossesAndAwards' as const], hint: 'Was 14 Mar 2027.' }
+	])(
+		'hints $hint for an ETS moved out of the window with $disabledFeatures off',
+		async ({ disabledFeatures, hint }) => {
+			render(DataSheetPageHarness, {
+				props: {
+					orgId: 'org-1',
+					orgUrlSegment: 'org-alpha',
+					person,
+					today: '2026-10-18',
+					editing: true,
+					disabledFeatures,
+					dataSheet: Promise.resolve(info),
+					workspace: Promise.resolve({ data: catalogs } as unknown as PersonnelWorkspaceResult)
+				}
+			});
+			const ets = (await screen.findByLabelText('ETS')) as HTMLInputElement;
+
+			await fireEvent.input(ets, { target: { value: '2028-01-01' } });
+
+			expect(await screen.findByText(hint)).toBeTruthy();
+		}
+	);
 });

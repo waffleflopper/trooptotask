@@ -475,7 +475,8 @@ export function createRequestPersonnelWorkspaceContext(request: AdmittedOrganiza
 		loadRankCatalog: () => loadOrganizationRankCatalog({ auth: request.auth, rankCatalog: rankCatalog }),
 		calendarCatalogs: createSupabaseCalendarCatalogPersistence(request.supabase, request.auth.orgId),
 		personnelAwardAcknowledgement: createSupabasePersonnelAwardAcknowledgementPort(request.supabase),
-		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase)
+		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase),
+		disabledFeatures: request.disabledFeatures
 	};
 }
 
@@ -516,7 +517,8 @@ export function createRequestPersonnelReadinessContext(request: AdmittedOrganiza
 		ratingScheme: createSupabaseRatingSchemePersistence(request.supabase, request.auth.orgId),
 		onboardingWorkflow: createSupabaseOnboardingWorkflowPersistence(request.supabase, request.auth.orgId),
 		findPersonNames: (ids: string[]) => personnel.findDisplayNamesByIds(ids),
-		loadLossWarningWindowDays: () => organizationSettings.findLossWarningWindowDays(request.auth.orgId)
+		loadLossWarningWindowDays: () => organizationSettings.findLossWarningWindowDays(request.auth.orgId),
+		disabledFeatures: request.disabledFeatures
 	};
 }
 
@@ -597,7 +599,8 @@ export function createRequestCalendarWorkspaceContext(request: AdmittedOrganizat
 	return {
 		...createRequestCalendarRangeContext(request),
 		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase),
-		onboardingCalendarMarkers: createSupabaseOnboardingCalendarMarkersPort(request.supabase)
+		onboardingCalendarMarkers: createSupabaseOnboardingCalendarMarkersPort(request.supabase),
+		disabledFeatures: request.disabledFeatures
 	};
 }
 

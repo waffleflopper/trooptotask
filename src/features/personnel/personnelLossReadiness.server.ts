@@ -16,21 +16,25 @@ function lossDate(date: string | null | undefined, today: string): PersonnelLoss
 	return date ? { date, daysRemaining: calendarDayDiff(parseDate(today), parseDate(date)) } : null;
 }
 
-/** ETS and DEROS against the Organization's loss window, under the same Personnel roster admission as the old lane. */
+/**
+ * ETS and DEROS against the Organization's loss window, under the same Personnel roster admission as the old lane.
+ * A null window reader means the unit turned Losses and awards off, so the dates come back without a window.
+ */
 export async function loadPersonnelLossReadiness(
 	ctx: Parameters<typeof authorizePersonnelLane>[0],
 	person: Personnel,
 	asOf: string,
-	readWarningWindowDays: () => Promise<number | null | undefined>
+	readWarningWindowDays: (() => Promise<number | null | undefined>) | null
 ): Promise<PersonnelLossReadiness> {
 	await authorizePersonnelLane(ctx, person, POLICY_ACTION_CATALOG.personnel.viewRoster, 'personnel');
+	const dates = { ets: lossDate(person.ets, asOf), deros: lossDate(person.deros, asOf) };
+	if (!readWarningWindowDays) return { windowDays: null, ...dates, inWindow: null };
 	const windowDays = await readLossWarningWindowDays(readWarningWindowDays());
 	if (windowDays === null) throw new Error('Loss warning window unavailable');
 	const [nearest] = evaluateUpcomingLosses([person], windowDays, asOf);
 	return {
 		windowDays,
-		ets: lossDate(person.ets, asOf),
-		deros: lossDate(person.deros, asOf),
+		...dates,
 		inWindow: nearest
 			? {
 					trigger: nearest.triggerType,

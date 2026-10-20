@@ -307,6 +307,18 @@ describe('loadPersonnelWorkspace — loss warning window', () => {
 
 		expect(result.awardTrackingAcknowledgedPersonnelIds).toEqual(['p1']);
 	});
+
+	it('reads no award acknowledgements while the unit has Losses and awards off', async () => {
+		const ctx = createQueryWithRawStorePortsContext({ disabledFeatures: ['lossesAndAwards'] });
+		seedPersonnel(ctx.store);
+		ctx.store.seed('personnel_extended_info', [
+			{ id: 'pei-1', organization_id: ORG, personnel_id: 'p1', award_tracking_acknowledged_at: '2026-04-14T00:00:00Z' }
+		]);
+
+		const result = (await loadPersonnelWorkspace(ctx, sourcesFor(ctx))).data;
+
+		expect(result.awardTrackingAcknowledgedPersonnelIds).toEqual([]);
+	});
 });
 
 describe('Personnel workspace isolation and failures', () => {

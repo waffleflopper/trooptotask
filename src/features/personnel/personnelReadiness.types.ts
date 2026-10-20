@@ -7,15 +7,19 @@ export interface PersonnelLossDate {
 }
 
 export interface PersonnelLossReadiness {
-	windowDays: number;
+	/** Null while the unit has Losses and awards off: the dates show with no window state. */
+	windowDays: number | null;
 	ets: PersonnelLossDate | null;
 	deros: PersonnelLossDate | null;
 	/** The nearest loss date inside the Organization's window and the day the Person entered it. */
 	inWindow: { trigger: LossTriggerType; date: string; daysRemaining: number; enteredOn: string } | null;
 }
 
-/** A source's result as the attention builder receives it: a value, or a failed or denied read. */
-export type ReadinessSourceResult<T> = { ok: true; value: T } | { ok: false };
+/**
+ * A source's result as the attention builder receives it: a value, a failed or denied read, or a
+ * feature the unit turned off, which was not read and is not missing.
+ */
+export type ReadinessSourceResult<T> = { ok: true; value: T } | { ok: false; off?: true };
 
 /** The fields the attention builder reads from each feature's item read. Features own the full shapes. */
 export interface AttentionInput {
@@ -83,7 +87,7 @@ export type AttentionItem =
 
 export type AttentionStatus = AttentionItem['status'];
 
-type Checked<T> = ({ state: 'checked' } & T) | { state: 'failed' };
+type Checked<T> = ({ state: 'checked' } & T) | { state: 'failed' } | { state: 'off' };
 
 export interface PersonnelAttention {
 	/** Most urgent first. */

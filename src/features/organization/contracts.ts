@@ -65,8 +65,8 @@ export {
 	readLossWarningWindowDays
 } from './policyConstraints';
 
-export { buildSettingsShell } from './settingsShell';
-export type { SettingsShell, SettingsShellOrganizationSource } from './settingsShell';
+export { buildSettingsShell, SETTINGS_PAGES } from './settingsShell';
+export type { SettingsNavCounts, SettingsShell, SettingsShellOrganizationSource } from './settingsShell';
 export type {
 	OrganizationSupportOrganization,
 	OrganizationSupportPageQuery,

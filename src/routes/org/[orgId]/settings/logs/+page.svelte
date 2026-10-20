@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { SettingsPageHeader } from '$features/organization';
 	import * as DataTable from '$lib/components/ui/data-table/index.js';
 	import { useDataTable, type ColumnDef } from '$lib/components/ui/data-table/index.js';
 	import { WorkspaceToolbar } from '$lib/components/patterns/workspace-toolbar/index.js';
@@ -56,7 +57,14 @@
 		pageSize: 25
 	});
 	const searchTerm = $derived(auditTable.search.trim());
+
+	const unit = $derived(data.settingsShell?.organization.name ?? 'the unit');
 </script>
+
+<SettingsPageHeader
+	page="logs"
+	subtitle={`Every change made in ${unit}, newest first. Kept for accountability, even after the records themselves are deleted.`}
+/>
 
 {#if auditLog}
 	<div class="grid max-w-5xl gap-4">

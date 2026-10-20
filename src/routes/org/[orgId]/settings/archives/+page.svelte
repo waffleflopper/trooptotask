@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { SettingsPageHeader } from '$features/organization';
 	import { invalidateAll } from '$app/navigation';
 	import { page } from '$app/stores';
 	import type { PageProps } from './$types';
@@ -101,7 +102,14 @@
 			exportingPerson = null;
 		}
 	}
+
+	const unit = $derived(data.orgName ?? 'the unit');
 </script>
+
+<SettingsPageHeader
+	page="archives"
+	subtitle={`People who left ${unit}. Their records wait here for ${archivedPersonnelSection.retention.months} months, then delete themselves. Restore anyone who comes back, exactly as they left.`}
+/>
 
 <ArchivedPersonnelSettingsSection
 	section={archivedPersonnelSection}

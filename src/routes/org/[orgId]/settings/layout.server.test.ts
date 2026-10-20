@@ -3,6 +3,7 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createDeletionRequestTestStore } from '$features/deletion-requests/testing.server';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { createReadyAppShellRouteData, createSuspendedAppShellRouteData } from '../appShell.test-support';
+import type { SettingsNavCounts } from '$features/organization/contracts';
 
 const { loadWithContextMock, requestStoreMock } = vi.hoisted(() => ({
 	loadWithContextMock: vi.fn(),
@@ -37,6 +38,7 @@ describe('settings layout server load', () => {
 				locals: {},
 				cookies: {},
 				route: { id: '/org/[orgId]/settings' },
+				untrack: (fn: () => unknown) => fn(),
 				parent: async () =>
 					createReadyAppShellRouteData({
 						orgId: 'org-1',
@@ -69,6 +71,7 @@ describe('settings layout server load', () => {
 				locals: {},
 				cookies: {},
 				route: { id: routeId },
+				untrack: (fn: () => unknown) => fn(),
 				parent: async () =>
 					createSuspendedAppShellRouteData({
 						orgId: '11111111-1111-4111-8111-111111111111',
@@ -114,6 +117,7 @@ describe('settings layout server load', () => {
 			locals: {},
 			cookies: {},
 			route: { id: '/org/[orgId]/settings/general' },
+			untrack: (fn: () => unknown) => fn(),
 			parent: async () =>
 				createReadyAppShellRouteData({
 					orgId: 'org-1',
@@ -144,74 +148,12 @@ describe('settings layout server load', () => {
 					role: 'admin',
 					isOwner: false,
 					canManageMembers: true
-				},
-				tabVisibility: {
-					logs: false
-				},
-				navBadges: {
-					pendingInvitationsCount: 0,
-					archivedPersonnelCount: 0,
-					pendingApprovalsCount: 0
 				}
 			}
 		});
 	});
 
-	it('keeps the logs settings tab visible for owners', async () => {
-		const ctx = createTestContext({
-			auth: {
-				orgId: 'org-1',
-				role: 'owner',
-				isPrivileged: true,
-				capabilityMap: {
-					calendar: 'view',
-					personnel: 'view',
-					training: 'view',
-					criticalTasks: 'view',
-					onboarding: 'view',
-					ratingScheme: 'view'
-				},
-				scopeSet: { kind: 'organization' }
-			}
-		});
-		requestStoreMock.mockReturnValue(createDeletionRequestTestStore(ctx.store));
-		loadWithContextMock.mockImplementationOnce(async (_locals, _cookies, _orgId, config) =>
-			loadWithContextCore(ctx, config, () => ({
-				auth: ctx.auth,
-				audit: ctx.audit,
-				store: ctx.store,
-				roster: ctx.roster,
-				organizationSettings: ctx.organizationSettings
-			}))
-		);
-
-		const result = await load({
-			params: { orgId: 'org-1' },
-			locals: {},
-			cookies: {},
-			route: { id: '/org/[orgId]/settings/general' },
-			parent: async () =>
-				createReadyAppShellRouteData({
-					orgId: 'org-1',
-					orgName: 'Test Org',
-					orgUrlSegment: 'test-org'
-				})
-		} as never);
-
-		expect(result).toMatchObject({
-			settingsShell: {
-				currentMember: {
-					role: 'owner',
-					isOwner: true
-				},
-				tabVisibility: {
-					logs: true
-				}
-			}
-		});
-	});
-
-	it('returns shell badge counts without exposing invitation or archived personnel rows', async () => {
+	it('streams the nav counts without exposing invitation rows', async () => {
 		const ctx = createTestContext({
 			auth: {
 				orgId: 'org-1',
@@ -232,13 +174,6 @@ describe('settings layout server load', () => {
 			{ id: 'invite-1', organization_id: 'org-1', status: 'pending' },
 			{ id: 'invite-2', organization_id: 'org-1', status: 'pending' },
 			{ id: 'invite-accepted', organization_id: 'org-1', status: 'accepted' }
-		]);
-		ctx.store.seed('personnel', [
-			{ id: 'person-1', organization_id: 'org-1', archived_at: '2026-04-01T12:00:00Z' },
-			{ id: 'person-2', organization_id: 'org-1', archived_at: '2026-04-02T12:00:00Z' },
-			{ id: 'person-3', organization_id: 'org-1', archived_at: '2026-04-03T12:00:00Z' },
-			{ id: 'active-person', organization_id: 'org-1', archived_at: null },
-			{ id: 'foreign-archived', organization_id: 'org-2', archived_at: '2026-04-04T12:00:00Z' }
 		]);
 		ctx.store.seed('deletion_requests', [
 			{ id: 'approval-1', organization_id: 'org-1', status: 'pending' },
@@ -261,6 +196,7 @@ describe('settings layout server load', () => {
 			locals: {},
 			cookies: {},
 			route: { id: '/org/[orgId]/settings/general' },
+			untrack: (fn: () => unknown) => fn(),
 			parent: async () =>
 				createReadyAppShellRouteData({
 					orgId: 'org-1',
@@ -269,17 +205,59 @@ describe('settings layout server load', () => {
 				})
 		} as never);
 
-		expect(result).toMatchObject({
-			settingsShell: {
-				navBadges: {
-					pendingInvitationsCount: 2,
-					archivedPersonnelCount: 3,
-					pendingApprovalsCount: 2
-				}
+		const counts = (result as { settingsNavCounts: SettingsNavCounts }).settingsNavCounts;
+		await expect(counts.pendingInvitations).resolves.toBe(2);
+		await expect(counts.pendingApprovals).resolves.toBe(2);
+		expect(result).not.toHaveProperty('settingsShell.invitations');
+	});
+
+	it('returns the shell and the approval count when the invitation count fails', async () => {
+		const ctx = createTestContext({
+			auth: {
+				orgId: 'org-1',
+				role: 'owner',
+				isPrivileged: true,
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'view',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				},
+				scopeSet: { kind: 'organization' }
 			}
 		});
-		expect(result).not.toHaveProperty('settingsShell.invitations');
-		expect(result).not.toHaveProperty('settingsShell.archivedPersonnel');
+		ctx.organizationSettings.countPendingInvitations = async () => {
+			throw new Error('Count unavailable');
+		};
+		requestStoreMock.mockReturnValue(createDeletionRequestTestStore(ctx.store));
+		loadWithContextMock.mockImplementationOnce(async (_locals, _cookies, _orgId, config) =>
+			loadWithContextCore(ctx, config, () => ({
+				auth: ctx.auth,
+				audit: ctx.audit,
+				organizationSettings: ctx.organizationSettings
+			}))
+		);
+
+		const result = await load({
+			params: { orgId: 'org-1' },
+			locals: {},
+			cookies: {},
+			route: { id: '/org/[orgId]/settings/general' },
+			untrack: (fn: () => unknown) => fn(),
+			parent: async () =>
+				createReadyAppShellRouteData({
+					orgId: 'org-1',
+					orgName: 'Test Org',
+					orgUrlSegment: 'test-org'
+				})
+		} as never);
+
+		expect(result).toMatchObject({ settingsShell: { currentMember: { role: 'owner', isOwner: true } } });
+		const counts = (result as { settingsNavCounts: SettingsNavCounts }).settingsNavCounts;
+		await expect(counts.pendingInvitations).rejects.toThrow('Count unavailable');
+		await expect(counts.pendingApprovals).resolves.toBe(0);
 	});
 
 	it('lets policy denials block non-governance members before layout data is returned', async () => {
@@ -316,6 +294,7 @@ describe('settings layout server load', () => {
 				locals: {},
 				cookies: {},
 				route: { id: '/org/[orgId]/settings/general' },
+				untrack: (fn: () => unknown) => fn(),
 				parent: async () => createReadyAppShellRouteData({ orgId: 'org-1', orgName: 'Test Org' })
 			} as never)
 		).rejects.toMatchObject({

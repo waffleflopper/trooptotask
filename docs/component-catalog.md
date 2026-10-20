@@ -67,6 +67,7 @@ Read the [UI foundation](#ui-foundation), then the entry for the component being
 | [`patterns/report-chart`](#patternsreport-chart)                           | See its section                                                                                                                                     | Critical Tasks reports, Training Reports and the platform admin dashboard.                                                                                               |
 | [`patterns/report-workspace`](#patternsreport-workspace)                   | See its section                                                                                                                                     | Calendar, Critical Tasks and Training reports.                                                                                                                           |
 | [`patterns/requirement-status-badge`](#patternsrequirement-status-badge)   | `RequirementStatusBadge`                                                                                                                            | Critical Tasks and Training status badges.                                                                                                                               |
+| [`patterns/section-nav`](#patternssection-nav)                             | `SectionNav`                                                                                                                                        | Organization settings.                                                                                                                                                   |
 | [`patterns/segmented-filter`](#patternssegmented-filter)                   | `Root`                                                                                                                                              | The person record's Archived tab.                                                                                                                                        |
 | [`patterns/type-management-workspace`](#patternstype-management-workspace) | See its section                                                                                                                                     | Training types and views; Onboarding templates.                                                                                                                          |
 | [`patterns/workspace-toolbar`](#patternsworkspace-toolbar)                 | See its section                                                                                                                                     | Authenticated workspace toolbars.                                                                                                                                        |
@@ -210,7 +211,45 @@ Rules:
 - Use `FactSection` and `FactRow` for a record's labelled facts, read or edited in place, instead of route-local definition lists.
 - Routes may configure labels, values, actions, links, disabled/loading state, status badges, and snippets. Routes must not visually retune these primitives with local spacing, radius, color, border, density, or typography overrides unless explicitly approved.
 
-Consumers: the Account and Organization settings shells, the person record layout and its Data sheet, every platform admin page and Training Reports. Most platform admin pages also use `FactGrid` and `Metric`.
+Consumers: the Account and Organization settings shells (Organization settings reaches `Tabs` through `section-nav`), the person record layout and its Data sheet, every platform admin page and Training Reports. Most platform admin pages also use `FactGrid` and `Metric`.
+
+---
+
+## `patterns/section-nav`
+
+`patterns/section-nav` is the vertical secondary nav for an area with several pages, such as Organization settings. It renders labelled groups of links, then one item set apart below a rule in the destructive color. Below `md` it renders the same items through `PageShell.Tabs`, so the owner passes one item list.
+
+```svelte
+<script lang="ts">
+	import { SectionNav } from '$lib/components/patterns/section-nav';
+
+	const groups = [
+		{ label: 'Unit', items: [{ label: 'General', href: '/org/alpha/settings/general', active: true }] },
+		{
+			label: 'Access',
+			items: [
+				{ label: 'Members', href: '/org/alpha/settings/members', count: { value: 2, label: '2 pending invitations' } }
+			]
+		}
+	];
+</script>
+
+<SectionNav
+	label="Unit settings"
+	{groups}
+	apart={{ label: 'Danger zone', href: '/org/alpha/settings/danger', tag: 'Owner' }}
+/>
+```
+
+Props are `label` (the navigation's accessible name), `groups` (`{ label, items }[]`) and `apart?` (one item). An item has `label`, `href`, `active?`, `count?` and `tag?`.
+
+- `count` is `{ value, label }` or a promise of one. It shows as an amber badge, because a count here is something waiting on the reader. Zero shows nothing. A pending promise shows a skeleton announced as count loading, and a rejection shows an outline dash announced as count unavailable. Assistive technology hears `label` in place of the value.
+- `tag` is a short mono label after the link text, such as `Owner`.
+- The active link carries `aria-current="page"`. Each group is a `group` named by its label.
+
+Place it as the first column of a `PageShell.Root` body (`md:grid-cols-[auto_minmax(0,1fr)]`) and the page content in the second. Routes pass items and do not restyle the nav.
+
+Consumers: the Organization settings shell.
 
 ---
 

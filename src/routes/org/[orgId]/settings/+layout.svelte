@@ -7,6 +7,7 @@
 
 <SettingsShell
 	settingsShell={data.settingsShell}
+	navCounts={data.settingsNavCounts}
 	orgUrlSegment={page.params.orgId ?? ''}
 	activePath={page.url.pathname}
 	{children}

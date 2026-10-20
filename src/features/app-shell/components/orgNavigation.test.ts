@@ -229,12 +229,17 @@ describe('getOrgBreadcrumbs', () => {
 		]);
 	});
 
-	it('uses support route breadcrumbs for Settings routes outside primary navigation', () => {
+	it('names Unit settings and the settings page outside primary navigation', () => {
 		const nav = getOrgNavigation('org-1', baseCapabilities);
 
+		expect(getOrgBreadcrumbs('/org/org-1/settings/danger', 'Test Org', nav)).toEqual([
+			{ label: 'Test Org', href: '/org/org-1' },
+			{ label: 'Unit settings', href: '/org/org-1/settings' },
+			{ label: 'Danger zone' }
+		]);
 		expect(getOrgBreadcrumbs('/org/org-1/settings', 'Test Org', nav)).toEqual([
 			{ label: 'Test Org', href: '/org/org-1' },
-			{ label: 'Settings' }
+			{ label: 'Unit settings' }
 		]);
 	});
 });

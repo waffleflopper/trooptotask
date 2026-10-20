@@ -571,20 +571,20 @@ describe('AppShellHeader', () => {
 		expect(screen.getByRole('button', { name: /Account menu/i })).toBeTruthy();
 	});
 
-	it('puts Organization Settings directly above the account item for admins', () => {
+	it('puts Unit settings directly above the account item for admins', () => {
 		renderHeader({ userRole: 'admin' });
 
-		const settingsLink = screen.getByRole('link', { name: 'Organization Settings' });
+		const settingsLink = screen.getByRole('link', { name: 'Unit settings' });
 		const accountButton = screen.getByRole('button', { name: /Account menu/i });
 
 		expect(settingsLink.getAttribute('href')).toBe('/org/org-1/settings');
 		expect(settingsLink.compareDocumentPosition(accountButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 	});
 
-	it('does not expose Organization Settings in the sidebar footer for members', () => {
+	it('does not expose Unit settings in the sidebar footer for members', () => {
 		renderHeader({ userRole: 'member' });
 
-		expect(screen.queryByRole('link', { name: 'Organization Settings' })).toBeNull();
+		expect(screen.queryByRole('link', { name: 'Unit settings' })).toBeNull();
 	});
 
 	it('opens the User Account profile from the account menu', async () => {
@@ -660,7 +660,7 @@ describe('AppShellHeader', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Switch organization' }));
 
-		expect(screen.getByRole('menuitem', { name: 'Organization Settings' })).toBeTruthy();
+		expect(screen.getByRole('menuitem', { name: 'Unit settings' })).toBeTruthy();
 		expect(screen.queryByRole('menuitem', { name: 'Manage Organizations' })).toBeNull();
 	});
 
@@ -669,7 +669,7 @@ describe('AppShellHeader', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Switch organization' }));
 
-		expect(screen.queryByRole('menuitem', { name: 'Organization Settings' })).toBeNull();
+		expect(screen.queryByRole('menuitem', { name: 'Unit settings' })).toBeNull();
 	});
 
 	it('keeps Calendar and Personnel available after Duty Roster retirement', () => {
@@ -710,6 +710,41 @@ describe('AppShellHeader', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Switch organization' }));
 
 		expect(await screen.findByRole('menuitem', { name: 'Manage Organizations' })).toBeTruthy();
+	});
+
+	it('shows a renamed unit in the sidebar trigger and the menu after the switcher has loaded', async () => {
+		vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+			const url = String(input);
+			if (url.includes('part=organization-switcher')) {
+				return {
+					ok: true,
+					json: async () => ({
+						ok: true,
+						organizations: [
+							{ id: 'org-1', name: 'Test Org', role: 'admin', urlSegment: 'org-1' },
+							{ id: 'org-2', name: 'Second Org', role: 'member', urlSegment: 'org-2' }
+						]
+					})
+				} as Response;
+			}
+			return { ok: true, json: async () => ({ ok: true, unreadNotificationCount: 0 }) } as Response;
+		});
+
+		const view = renderHeader();
+		const trigger = screen.getByRole('button', { name: 'Switch organization' });
+		await fireEvent.click(trigger);
+		expect(await screen.findByText('Second Org')).toBeTruthy();
+		await fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+
+		await view.rerender({ orgName: 'Renamed Org' });
+
+		expect(trigger.textContent).toContain('Renamed Org');
+		expect(trigger.textContent).not.toContain('Test Org');
+		await fireEvent.click(trigger);
+		const menu = await screen.findByRole('menu');
+		expect(within(menu).getByText('Renamed Org')).toBeTruthy();
+		expect(within(menu).queryByText('Test Org')).toBeNull();
+		expect(within(menu).getByText('Second Org')).toBeTruthy();
 	});
 
 	it('reloads the deferred notification count when the org route segment changes', async () => {

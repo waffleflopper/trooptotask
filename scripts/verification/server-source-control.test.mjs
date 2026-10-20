@@ -105,6 +105,27 @@ test('dispatches the actual source before holding and releases its unchanged res
 	control.command('restore');
 });
 
+test('fails an A count read and the audit log read by its org_id column', async () => {
+	const dispatched = [];
+	const control = controller(async (...args) => {
+		dispatched.push(args);
+		return new Response('real');
+	});
+	const count = `${providerUrl}/rest/v1/special_days?select=id&organization_id=eq.${orgA}`;
+	control.command('arm', { table: 'special_days', mode: 'fail-hard' });
+	assert.equal(await (await control.fetch(count.replace(orgA, orgB), { method: 'HEAD' })).text(), 'real');
+	assert.equal((await control.fetch(count, { method: 'HEAD' })).status, 500);
+	control.command('restore');
+
+	const audit = `${providerUrl}/rest/v1/audit_logs?select=id&org_id=eq.${orgA}&action=eq.org.renamed`;
+	control.command('arm', { table: 'audit_logs', mode: 'fail-hard' });
+	assert.equal(await (await control.fetch(audit.replace('org_id=', 'organization_id='))).text(), 'real');
+	assert.equal(await (await control.fetch(audit.replace(orgA, orgB))).text(), 'real');
+	assert.equal((await control.fetch(audit)).status, 500);
+	control.command('restore');
+	assert.equal(dispatched.length, 3);
+});
+
 test('Organization setting control leaves profile, membership, partial settings, B and writes untouched', async () => {
 	const dispatched = [];
 	const control = controller(async (...args) => {

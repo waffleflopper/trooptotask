@@ -1,15 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createInMemoryDataStore, createQueryPortsContext } from '$lib/server/adapters/inMemory';
-import { fetchAuditLogs as queryAuditLogs } from './auditLogQuery.server';
+import { fetchAuditLogs as queryAuditLogs, fetchLatestAuditEvent, type AuditLabelReads } from './auditLogQuery.server';
 import type { AuditLogQueryInput } from './contracts';
 import { createInMemoryOrganizationAuditStore } from './inMemoryOrganizationAudit';
 
-function fetchAuditLogs(
-	ctx: ReturnType<typeof createQueryPortsContext>,
-	store: ReturnType<typeof createInMemoryDataStore>,
-	input: AuditLogQueryInput
-) {
-	const orgId = ctx.auth.orgId;
+function labelReads(store: ReturnType<typeof createInMemoryDataStore>, orgId: string): AuditLabelReads {
 	const names = async (table: string, ids: string[]) => {
 		if (!ids.length) return new Map<string, string>();
 		const rows = await store.findMany<Record<string, unknown>>(table, orgId, undefined, { inFilters: { id: ids } });
@@ -22,7 +17,7 @@ function fetchAuditLogs(
 			])
 		);
 	};
-	return queryAuditLogs(orgId, createInMemoryOrganizationAuditStore(store), input, {
+	return {
 		personnelNames: (ids) => names('personnel', ids),
 		trainingTypeNames: (ids) => names('training_types', ids),
 		statusTypeNames: (ids) => names('status_types', ids),
@@ -40,7 +35,16 @@ function fetchAuditLogs(
 					.map((row) => [row.user_id, row.email])
 			);
 		}
-	});
+	};
+}
+
+function fetchAuditLogs(
+	ctx: ReturnType<typeof createQueryPortsContext>,
+	store: ReturnType<typeof createInMemoryDataStore>,
+	input: AuditLogQueryInput
+) {
+	const orgId = ctx.auth.orgId;
+	return queryAuditLogs(orgId, createInMemoryOrganizationAuditStore(store), input, labelReads(store, orgId));
 }
 
 const ORG = 'test-org';
@@ -491,5 +495,72 @@ describe('Audit disclosure and incomplete counts', () => {
 		expect(result.logs).toHaveLength(2);
 		expect(result.totalCount).toBe(0);
 		expect(result.last30DaysCount).toBe(0);
+	});
+});
+
+describe('fetchLatestAuditEvent', () => {
+	const latestRename = (store: ReturnType<typeof createInMemoryDataStore>) =>
+		fetchLatestAuditEvent(ORG, createInMemoryOrganizationAuditStore(store), 'org.renamed', labelReads(store, ORG));
+
+	it('returns the newest entry for the action with its actor', async () => {
+		const store = createInMemoryDataStore();
+		store.seed('organization_memberships', [
+			{ id: 'm1', organization_id: ORG, user_id: 'u1', email: 'first@example.com' },
+			{ id: 'm2', organization_id: ORG, user_id: 'u2', email: 'second@example.com' }
+		]);
+		store.seed('audit_logs', [
+			{
+				id: 'a',
+				org_id: ORG,
+				user_id: 'u1',
+				action: 'org.renamed',
+				details: { name: 'Alpha' },
+				timestamp: '2026-03-01T10:00:00Z'
+			},
+			{
+				id: 'b',
+				org_id: ORG,
+				user_id: 'u2',
+				action: 'org.renamed',
+				details: { name: 'Bravo' },
+				timestamp: '2026-03-14T10:00:00Z'
+			},
+			{
+				id: 'c',
+				org_id: ORG,
+				user_id: 'u1',
+				action: 'org.url_slug_updated',
+				details: null,
+				timestamp: '2026-03-20T10:00:00Z'
+			},
+			{
+				id: 'd',
+				org_id: 'other-org',
+				user_id: 'u1',
+				action: 'org.renamed',
+				details: null,
+				timestamp: '2026-04-01T10:00:00Z'
+			}
+		]);
+
+		const entry = await latestRename(store);
+
+		expect(entry).toMatchObject({ id: 'b', actor: 'second@example.com', createdAt: '2026-03-14T10:00:00Z' });
+	});
+
+	it('returns null when no entry for the action remains', async () => {
+		const store = createInMemoryDataStore();
+		store.seed('audit_logs', [
+			{
+				id: 'c',
+				org_id: ORG,
+				user_id: 'u1',
+				action: 'org.url_slug_updated',
+				details: null,
+				timestamp: '2026-03-20T10:00:00Z'
+			}
+		]);
+
+		expect(await latestRename(store)).toBeNull();
 	});
 });

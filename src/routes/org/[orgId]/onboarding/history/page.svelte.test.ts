@@ -253,7 +253,7 @@ describe('onboarding history page', () => {
 	it('states the real retention and links to settings only for members who may open them', async () => {
 		await renderHistory({ archiveRetentionMonths: 24 });
 		expect(screen.getByText(/Kept 24 months after finishing/)).toBeTruthy();
-		expect(screen.getByRole('link', { name: 'Organization settings' }).getAttribute('href')).toBe(
+		expect(screen.getByRole('link', { name: 'Unit settings' }).getAttribute('href')).toBe(
 			'/org/org-1/settings/policies'
 		);
 
@@ -261,7 +261,7 @@ describe('onboarding history page', () => {
 		shell.canOpenSettings = false;
 		await renderHistory({ archiveRetentionMonths: 1 });
 		expect(screen.getByText(/Kept 1 month after finishing/)).toBeTruthy();
-		expect(screen.queryByRole('link', { name: 'Organization settings' })).toBeNull();
+		expect(screen.queryByRole('link', { name: 'Unit settings' })).toBeNull();
 	});
 
 	it('opens one packet at a time and shows its read-only final packet and notes with authors', async () => {

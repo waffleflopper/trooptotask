@@ -108,15 +108,13 @@
 	const allNavItems = $derived(getOrgNavigation(orgUrlSegment, capabilityMap));
 	const navItems = $derived(allNavItems.filter((item) => item.visible));
 	const breadcrumbs = $derived(getOrgBreadcrumbs(pathname, orgName, allNavItems, routeLeafLabel));
-	const activeOrg = $derived(
-		orgSwitcherOrgs.find((org) => org.id === orgId) ?? {
-			id: orgId,
-			name: orgName,
-			role: userRole,
-			urlSegment: orgUrlSegment
-		}
+	const activeOrg = $derived({
+		...(orgSwitcherOrgs.find((org) => org.id === orgId) ?? { id: orgId, role: userRole, urlSegment: orgUrlSegment }),
+		name: orgName
+	});
+	const visibleOrgs = $derived(
+		orgSwitcherLoaded ? orgSwitcherOrgs.map((org) => (org.id === orgId ? activeOrg : org)) : [activeOrg]
 	);
-	const visibleOrgs = $derived(orgSwitcherLoaded ? orgSwitcherOrgs : [activeOrg]);
 	const isMultiOrg = $derived(orgSwitcherLoaded && orgSwitcherOrgs.length > 1);
 	const normalizedUserRole = $derived(userRole.toLowerCase());
 	const canLeaveOrganization = $derived(normalizedUserRole !== 'owner');
@@ -421,7 +419,7 @@
 									<DropdownMenu.Separator />
 									<DropdownMenu.Item onclick={() => goto(resolve(`/org/${orgUrlSegment}/settings`))}>
 										<Settings />
-										Organization Settings
+										Unit settings
 									</DropdownMenu.Item>
 								{/if}
 								{#if isMultiOrg}
@@ -455,7 +453,7 @@
 							<Sidebar.MenuButton
 								isActive={pathname === `/org/${orgUrlSegment}/settings` ||
 									pathname.startsWith(`/org/${orgUrlSegment}/settings/`)}
-								tooltipContent="Organization Settings"
+								tooltipContent="Unit settings"
 							>
 								{#snippet child({ props })}
 									<a
@@ -464,7 +462,7 @@
 										aria-current={pathname === `/org/${orgUrlSegment}/settings` ? 'page' : undefined}
 									>
 										<Settings />
-										<span>Organization Settings</span>
+										<span>Unit settings</span>
 									</a>
 								{/snippet}
 							</Sidebar.MenuButton>

@@ -35,10 +35,7 @@
 
 <main>
 	<PageShell.Root width="content">
-		<PageShell.Header
-			title="Account"
-			subtitle="Manage your User Profile and sign-in controls outside Organization settings."
-		/>
+		<PageShell.Header title="Account" subtitle="Manage your User Profile and sign-in controls outside Unit settings." />
 		<WorkspaceToolbar
 			ariaLabel="Account controls"
 			items={[{ kind: 'action', id: 'back', label: 'Back', icon: 'arrow-left', onclick: goBack }]}

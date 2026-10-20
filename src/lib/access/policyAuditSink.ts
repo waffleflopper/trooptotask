@@ -7,5 +7,5 @@ export interface PolicyAuditSink {
 		orgId?: string;
 		details?: Record<string, unknown>;
 		severity?: 'info' | 'warning' | 'critical';
-	}): void;
+	}): void | Promise<void>;
 }

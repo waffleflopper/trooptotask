@@ -10,8 +10,11 @@ import {
 	createRequestGroupContext,
 	createRequestNotificationContext,
 	createRequestSensitiveActionContext,
-	createRequestActorContext
+	createRequestActorContext,
+	createRequestOrganizationAuditLogContext,
+	createRequestUnitCountsContext
 } from '$lib/server/adapters/requestContexts.server';
+import { fetchLatestAuditEvent } from '$lib/audit/index.server';
 import { createSupabaseOrganizationSettingsReader } from '$features/organization/index.server';
 import type {
 	loadDangerSettings,
@@ -21,6 +24,7 @@ import type {
 import type { listGroupCatalog } from '$features/personnel/index.server';
 import type { streamSettingsNavCounts } from './settingsShell.server';
 import type { loadArchivesSettings } from './settingsArchives.server';
+import type { GeneralSettingsPorts } from './settingsGeneral.server';
 
 export function createSettingsShellContext(request: AdmittedOrganizationRequest): Parameters<
 	typeof streamSettingsNavCounts
@@ -88,5 +92,16 @@ export function createSettingsRanksContext(request: AdmittedOrganizationRequest)
 		...createRequestRankCatalogContext(request),
 		trainingCatalog: createSupabaseTrainingCatalogPersistence(request.supabase, request.auth.orgId),
 		readSignInRosterRankReferences: createSupabaseSignInRosterRankReferenceReader(request.supabase, request.auth.orgId)
+	};
+}
+
+export function createSettingsGeneralContext(request: AdmittedOrganizationRequest): GeneralSettingsPorts {
+	return {
+		auth: request.auth,
+		...createRequestUnitCountsContext(request),
+		readLatestAuditEvent: (action) => {
+			const { auditStore, auditLabels } = createRequestOrganizationAuditLogContext(request);
+			return fetchLatestAuditEvent(request.auth.orgId, auditStore, action, auditLabels);
+		}
 	};
 }

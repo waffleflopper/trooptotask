@@ -1,20 +1,26 @@
-import type { MembershipRole } from '$lib/access/memberAccessShape';
+import type { UnitCounts } from './unitCounts';
 
-export interface GeneralSettingsOrganizationSource {
+export interface GeneralSettingsOrganization {
 	id: string;
 	name: string | null;
 	urlSlug: string | null;
 	urlSegment: string;
 }
 
-export interface SettingsOrganizationSectionData extends GeneralSettingsOrganizationSource {
-	canUpdateProfile: boolean;
-	canUpdateUrlSlug: boolean;
+export interface LastRenamed {
+	at: string;
+	actor: string | null;
 }
 
+export const CALENDAR_COUNT_KEYS = ['statusTypes', 'assignmentTypes', 'specialDays'] as const;
+
+export type CalendarCounts = UnitCounts<(typeof CALENDAR_COUNT_KEYS)[number]>;
+
 export interface GeneralSettingsData {
-	currentMember: { role: MembershipRole; isOwner: boolean; isAdmin: boolean; canManageMembers: boolean };
-	sections: { organization: SettingsOrganizationSectionData };
+	organization: GeneralSettingsOrganization;
+	/** Null for a member who cannot read the audit log, so the slot stays empty and the read never runs. */
+	lastRenamed: Promise<LastRenamed | null> | null;
+	calendarCounts: Promise<CalendarCounts>;
 }
 
 export type GeneralSettingsActionData = {

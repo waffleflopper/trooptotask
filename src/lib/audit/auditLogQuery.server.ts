@@ -121,3 +121,15 @@ export async function fetchAuditLogs(
 		availableActions
 	};
 }
+
+/** The newest entry for one action, or null once retention has removed every one. */
+export async function fetchLatestAuditEvent(
+	orgId: string,
+	store: OrganizationAuditStore,
+	action: string,
+	labels: AuditLabelReads
+): Promise<AuditLogEntry | null> {
+	const { logs } = await store.listLogs({ orgId, action, offset: 0, limit: 1 });
+	const [entry] = await hydrateAuditLogRows(logs, labels);
+	return entry ?? null;
+}

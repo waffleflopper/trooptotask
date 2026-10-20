@@ -7,7 +7,7 @@
 	import InfoIcon from '@lucide/svelte/icons/info';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 
-	let { onfocusin, onclick, onpointerdown, ...restProps }: SonnerProps = $props();
+	let { onfocusin, onfocusout, onclick, onpointerdown, ...restProps }: SonnerProps = $props();
 
 	let returnFocus: HTMLElement | null = null;
 
@@ -15,6 +15,16 @@
 		onfocusin?.(event);
 		const from = event.relatedTarget;
 		if (from instanceof HTMLElement && !event.currentTarget.contains(from)) returnFocus = from;
+		// Sonner pauses the dismiss timer only while the list is hovered, so a keyboard user would lose an Undo.
+		event.currentTarget.dispatchEvent(new MouseEvent('mouseenter'));
+	}
+
+	function releaseFocusPause(event: FocusEvent & { currentTarget: EventTarget & HTMLOListElement }) {
+		onfocusout?.(event);
+		const to = event.relatedTarget;
+		if (!(to instanceof Node && event.currentTarget.contains(to)) && !event.currentTarget.matches(':hover')) {
+			event.currentTarget.dispatchEvent(new MouseEvent('mouseleave'));
+		}
 	}
 
 	// A modal layer dismisses on any pointerdown outside its content, so touching a toast would close the dialog or
@@ -41,6 +51,7 @@
 	theme={themeStore.current}
 	closeButton
 	onfocusin={rememberReturnFocus}
+	onfocusout={releaseFocusPause}
 	onclick={keepFocusOnDismiss}
 	onpointerdown={keepOverlayOpen}
 	class="toaster group pointer-events-auto"

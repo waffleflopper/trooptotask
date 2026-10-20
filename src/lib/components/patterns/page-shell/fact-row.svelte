@@ -6,6 +6,10 @@
 
 	type Props = Omit<HTMLAttributes<HTMLDivElement>, 'children'> & {
 		label: string;
+		/** `display` sets the label in large condensed type over its `description`, for an editorial settings row. */
+		variant?: 'default' | 'display';
+		/** One sentence under a `display` label on what the row controls or what changing it does. */
+		description?: string;
 		/** The id of the control the label names, so the row reads as a form field. */
 		labelFor?: string;
 		/** A plain value; an empty one reads "Not set". Pass children for anything richer. */
@@ -20,6 +24,8 @@
 
 	let {
 		label,
+		variant = 'default',
+		description,
 		labelFor,
 		value,
 		mono = false,
@@ -32,31 +38,55 @@
 	}: Props = $props();
 </script>
 
+{#snippet labelText()}
+	{#if labelFor}
+		<Label
+			for={labelFor}
+			class={variant === 'display'
+				? 'text-[length:inherit] leading-[inherit] font-[inherit]'
+				: 'text-sm leading-normal font-[inherit]'}>{label}</Label
+		>
+	{:else}
+		{label}
+	{/if}
+	{#if changed}
+		<span class="size-1.5 shrink-0 rounded-full bg-accent" aria-hidden="true"></span>
+		<span class="sr-only">changed</span>
+	{/if}
+{/snippet}
+
 <div
 	data-slot="fact-row"
+	data-variant={variant}
 	class={cn(
-		'grid gap-x-4 gap-y-1.5 border-b border-border py-2.5 sm:grid-cols-[9.5rem_minmax(0,1fr)] sm:items-start',
+		'grid border-b border-border',
+		variant === 'display'
+			? 'gap-x-10 gap-y-3 py-6 last:border-b-0 md:grid-cols-[18.75rem_minmax(0,1fr)]'
+			: 'gap-x-4 gap-y-1.5 py-2.5 sm:grid-cols-[9.5rem_minmax(0,1fr)] sm:items-start',
 		className
 	)}
 	{...restProps}
 >
-	<dt
-		class={cn(
-			'flex min-h-8 items-center gap-1.5 text-sm text-muted-foreground',
-			changed && 'font-semibold text-foreground'
-		)}
-	>
-		{#if labelFor}
-			<Label for={labelFor} class="text-sm leading-normal font-[inherit]">{label}</Label>
-		{:else}
-			{label}
-		{/if}
-		{#if changed}
-			<span class="size-1.5 shrink-0 rounded-full bg-accent" aria-hidden="true"></span>
-			<span class="sr-only">changed</span>
-		{/if}
-	</dt>
-	<dd class="min-w-0 self-center">
+	{#if variant === 'display'}
+		<dt class="grid content-start gap-1">
+			<span class="flex items-center gap-1.5 font-heading text-[22px] leading-6 font-bold text-foreground">
+				{@render labelText()}
+			</span>
+			{#if description}
+				<span class="text-sm text-muted-foreground">{description}</span>
+			{/if}
+		</dt>
+	{:else}
+		<dt
+			class={cn(
+				'flex min-h-8 items-center gap-1.5 text-sm text-muted-foreground',
+				changed && 'font-semibold text-foreground'
+			)}
+		>
+			{@render labelText()}
+		</dt>
+	{/if}
+	<dd class={cn('min-w-0', variant === 'display' ? 'grid content-start gap-2.5' : 'self-center')}>
 		{#if children}
 			{@render children()}
 		{:else if value}

@@ -962,7 +962,7 @@ async function main() {
 												: destination === 'settings/policies'
 													? ['Archive Retention', "You don't have permission to view this page"]
 													: destination === 'settings/general'
-														? ['Organization Profile', "You don't have permission to view this page"]
+														? ['Unit name', "You don't have permission to view this page"]
 														: destination === 'settings/members'
 															? ['Access Management', "You don't have permission to view this page"]
 															: destination === 'settings/exports'

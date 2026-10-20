@@ -29,8 +29,11 @@ export const SERVER_SOURCE_TABLES = Object.freeze([
 	'counseling_records',
 	'personnel_documents',
 	'personnel_extended_info',
-	'deletion_requests'
+	'deletion_requests',
+	'status_types',
+	'audit_logs'
 ]);
+const ORGANIZATION_COLUMN = { organizations: 'id', audit_logs: 'org_id' };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 export function createServerSourceController({ providerUrl, orgId, fetch: originalFetch }) {
@@ -112,12 +115,14 @@ export function createServerSourceController({ providerUrl, orgId, fetch: origin
 			return originalFetch(input, init);
 		}
 		const method = String(init?.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase();
-		const organizations = url.searchParams.getAll(control.table === 'organizations' ? 'id' : 'organization_id');
+		const organizations = url.searchParams.getAll(ORGANIZATION_COLUMN[control.table] ?? 'organization_id');
 		const selection = url.searchParams.getAll('select');
 		const matchesSelection =
 			control.table !== 'organizations' || (selection.length === 1 && LOSS_WINDOW_READS.includes(selection[0]));
+		// Counts are HEAD reads; the narrow Organization setting stays GET only.
+		const readMethod = method === 'GET' || (method === 'HEAD' && control.table !== 'organizations');
 		if (
-			method !== 'GET' ||
+			!readMethod ||
 			url.origin !== origin ||
 			url.username ||
 			url.password ||

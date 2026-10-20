@@ -35,19 +35,21 @@ export interface SettingsPage {
 	/** `null` sets the page apart below the groups, as Danger zone is. */
 	group: (typeof SETTINGS_GROUPS)[number] | null;
 	ownerOnly: boolean;
+	/** `form` pages hold rows of settings; `table` pages hold wide lists and get more room. */
+	width: 'form' | 'table';
 }
 
 /** Every settings page in nav order. Admins do not see owner-only pages; those routes guard themselves. */
 export const SETTINGS_PAGES = {
-	general: { label: 'General', group: 'Unit', ownerOnly: false },
-	policies: { label: 'Policies', group: 'Unit', ownerOnly: false },
-	ranks: { label: 'Ranks', group: 'Unit', ownerOnly: false },
-	members: { label: 'Members', group: 'Access', ownerOnly: false },
-	approvals: { label: 'Approvals', group: 'Access', ownerOnly: false },
-	archives: { label: 'Archives', group: 'Records', ownerOnly: false },
-	exports: { label: 'Exports', group: 'Records', ownerOnly: false },
-	logs: { label: 'Logs', group: 'Records', ownerOnly: true },
-	danger: { label: 'Danger zone', group: null, ownerOnly: true }
+	general: { label: 'General', group: 'Unit', ownerOnly: false, width: 'form' },
+	policies: { label: 'Policies', group: 'Unit', ownerOnly: false, width: 'form' },
+	ranks: { label: 'Ranks', group: 'Unit', ownerOnly: false, width: 'table' },
+	members: { label: 'Members', group: 'Access', ownerOnly: false, width: 'table' },
+	approvals: { label: 'Approvals', group: 'Access', ownerOnly: false, width: 'form' },
+	archives: { label: 'Archives', group: 'Records', ownerOnly: false, width: 'table' },
+	exports: { label: 'Exports', group: 'Records', ownerOnly: false, width: 'form' },
+	logs: { label: 'Logs', group: 'Records', ownerOnly: true, width: 'table' },
+	danger: { label: 'Danger zone', group: null, ownerOnly: true, width: 'form' }
 } as const satisfies Record<string, SettingsPage>;
 
 export type SettingsPageKey = keyof typeof SETTINGS_PAGES;

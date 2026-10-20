@@ -13,15 +13,13 @@
 	let { data, form }: RanksPageProps = $props();
 </script>
 
-<div class="grid max-w-[57rem] gap-7">
-	<SettingsPageHeader
-		page="ranks"
-		subtitle="The rank list behind every picker and import. Retiring a rank hides it from new choices; every record that already uses it stays as written."
-	/>
+<SettingsPageHeader
+	page="ranks"
+	subtitle="The rank list behind every picker and import. Retiring a rank hides it from new choices; every record that already uses it stays as written."
+/>
 
-	{#if data.ranksSettings}
-		<RanksSettingsPage ranksSettings={data.ranksSettings} {form} />
-	{:else}
-		<p class="text-sm text-muted-foreground">Rank catalog settings are not available.</p>
-	{/if}
-</div>
+{#if data.ranksSettings}
+	<RanksSettingsPage ranksSettings={data.ranksSettings} {form} />
+{:else}
+	<p class="text-sm text-muted-foreground">Rank catalog settings are not available.</p>
+{/if}

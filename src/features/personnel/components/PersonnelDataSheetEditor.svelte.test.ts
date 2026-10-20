@@ -271,11 +271,11 @@ describe('PersonnelDataSheetPageView', () => {
 	});
 
 	it.each([
-		{ disabledFeatures: [], hint: 'Was 14 Mar 2027. Leaves the loss window on save.' },
-		{ disabledFeatures: ['lossesAndAwards' as const], hint: 'Was 14 Mar 2027.' }
+		{ disabledFeatures: [], warnsAboutWindow: true },
+		{ disabledFeatures: ['lossesAndAwards' as const], warnsAboutWindow: false }
 	])(
-		'hints $hint for an ETS moved out of the window with $disabledFeatures off',
-		async ({ disabledFeatures, hint }) => {
+		'shows the saved ETS and warns about the loss window: $warnsAboutWindow, with $disabledFeatures off',
+		async ({ disabledFeatures, warnsAboutWindow }) => {
 			render(DataSheetPageHarness, {
 				props: {
 					orgId: 'org-1',
@@ -292,7 +292,8 @@ describe('PersonnelDataSheetPageView', () => {
 
 			await fireEvent.input(ets, { target: { value: '2028-01-01' } });
 
-			expect(await screen.findByText(hint)).toBeTruthy();
+			const hint = await screen.findByText(/14 Mar 2027/);
+			expect(/loss window/.test(hint.textContent ?? '')).toBe(warnsAboutWindow);
 		}
 	);
 });

@@ -1,3 +1,5 @@
+import { untrack } from 'svelte';
+
 export type StreamedState<T> =
 	| { state: 'pending' }
 	| { state: 'ready'; value: T }
@@ -8,6 +10,7 @@ export type StreamedState<T> =
  * Follows a streamed load value. A refresh keeps the last settled result until the new promise
  * settles, so an invalidation does not drop a section back to its skeleton or unmount what it holds.
  * A null source is a value the server chose not to load, such as a feature the unit turned off.
+ * A promise that follows a null source starts from pending, since there is nothing settled to keep.
  */
 export class StreamedValue<T> {
 	current = $state<StreamedState<T>>({ state: 'pending' });
@@ -21,6 +24,7 @@ export class StreamedValue<T> {
 				this.current = { state: 'absent' };
 				return;
 			}
+			if (untrack(() => this.current.state) === 'absent') this.current = { state: 'pending' };
 			let live = true;
 			promise.then(
 				(value) => {

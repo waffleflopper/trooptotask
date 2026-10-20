@@ -372,12 +372,16 @@ describe('getActiveOnboardingPersonnelIds', () => {
 		expect(await getActiveOnboardingPersonnelIds(ctx)).toEqual(['unassigned']);
 	});
 
-	it('reads no markers while the unit has Onboarding off', async () => {
-		const ctx = { ...buildCtx(), disabledFeatures: ['onboarding' as const] };
-		ctx.store.seed('personnel', [{ id: 'p-1', organization_id: ORG, group_id: null }]);
-		ctx.store.seed('personnel_onboardings', [
-			{ id: 'ob-1', organization_id: ORG, personnel_id: 'p-1', status: 'in_progress' }
-		]);
+	it('returns no markers without reading them while the unit has Onboarding off', async () => {
+		const ctx = {
+			...buildCtx(),
+			disabledFeatures: ['onboarding' as const],
+			onboardingCalendarMarkers: {
+				listActivePersonnelIds: async (): Promise<string[]> => {
+					throw new Error('Onboarding markers must not be read while Onboarding is off');
+				}
+			}
+		};
 
 		expect(await getActiveOnboardingPersonnelIds(ctx)).toEqual([]);
 	});

@@ -229,15 +229,15 @@
 					{workspace.slugLoading ? 'Saving...' : 'Update'}
 				</Button>
 			</div>
-			<div class="flex flex-wrap items-center gap-x-3 font-mono text-xs leading-5 text-muted-foreground">
+			<div class="grid justify-items-start font-mono text-xs leading-5 text-muted-foreground">
 				<span id="url-slug-default">Default /org/{organization.id}</span>
 				{#if organization.urlSlug}
-					<span aria-hidden="true">·</span>
 					<Button
 						bind:ref={slugResetButton}
 						type="button"
 						variant="link"
 						size="xs"
+						class="-ml-2"
 						aria-disabled={workspace.slugLoading ? 'true' : undefined}
 						onclick={() => workspace.requestSlugClear()}>Reset to default</Button
 					>

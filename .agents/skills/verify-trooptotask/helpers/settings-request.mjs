@@ -10,7 +10,9 @@ export async function requestSettings(target, { origin, organizationSegment, fam
 			'trainingReadinessGoalPercent',
 			'personnelDocumentStorageCapMb',
 			'criticalTasksDefaultExpirationMonths',
-			'criticalTasksExpiringSoonWarningDays'
+			'criticalTasksExpiringSoonWarningDays',
+			'disabledFeatures',
+			'strengthFloorPercent'
 		],
 		'settings/general/updateName': ['name'],
 		'settings/general/updateSlug': ['urlSlug'],
@@ -22,7 +24,9 @@ export async function requestSettings(target, { origin, organizationSegment, fam
 	if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('Use a JSON object');
 	for (const [key, value] of Object.entries(body)) {
 		if (!fields[family].includes(key)) throw new Error('Unsupported settings field');
-		if (value !== null && !['string', 'number', 'boolean'].includes(typeof value))
+		// Feature switches are the one list field; the server parses each key.
+		const list = key === 'disabledFeatures' && Array.isArray(value) && value.every((item) => typeof item === 'string');
+		if (!list && value !== null && !['string', 'number', 'boolean'].includes(typeof value))
 			throw new Error('Use scalar settings values');
 	}
 	const form = family !== 'organization/settings';

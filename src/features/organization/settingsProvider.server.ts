@@ -7,7 +7,12 @@ import type {
 import { loadOrganizationMemberLabels, type OrganizationMemberLabelRow } from './memberLabels.server';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { OrganizationSettingsReader, OrganizationPolicyWritePort } from './settingsTypes';
+import type {
+	OrganizationSettingsReader,
+	OrganizationPolicyChanges,
+	OrganizationPolicyWritePort
+} from './settingsTypes';
+import { parseDisabledFeatures } from '$lib/access/featureSwitches';
 
 /** The ordinary request client keeps these reads and writes under Organization RLS. */
 export function createSupabaseOrganizationSettingsReader(supabase: SupabaseClient): OrganizationSettingsReader {
@@ -141,7 +146,9 @@ export function createSupabaseOrganizationSettingsReader(supabase: SupabaseClien
 		async findPolicies(orgId) {
 			const { data, error } = await supabase
 				.from('organizations')
-				.select('archive_retention_months, loss_warning_window_days, training_readiness_goal_percent')
+				.select(
+					'archive_retention_months, loss_warning_window_days, training_readiness_goal_percent, strength_floor_percent'
+				)
 				.eq('id', orgId.toLowerCase())
 				.maybeSingle();
 			if (error) throw new Error(error.message);
@@ -149,7 +156,8 @@ export function createSupabaseOrganizationSettingsReader(supabase: SupabaseClien
 				? {
 						archiveRetentionMonths: data.archive_retention_months,
 						lossWarningWindowDays: data.loss_warning_window_days,
-						trainingReadinessGoalPercent: data.training_readiness_goal_percent
+						trainingReadinessGoalPercent: data.training_readiness_goal_percent,
+						strengthFloorPercent: data.strength_floor_percent
 					}
 				: null;
 		},
@@ -179,27 +187,52 @@ export function createSupabaseOrganizationSettingsReader(supabase: SupabaseClien
 
 export function createSupabaseOrganizationPolicyWritePort(supabase: SupabaseClient): OrganizationPolicyWritePort {
 	return {
+		async findFeatureSettings(orgId) {
+			const { data, error } = await supabase
+				.from('organizations')
+				.select('disabled_features, strength_floor_percent')
+				.eq('id', orgId)
+				.maybeSingle();
+			if (error) throw new Error(error.message);
+			return data
+				? {
+						disabledFeatures: parseDisabledFeatures(data.disabled_features),
+						strengthFloorPercent: data.strength_floor_percent
+					}
+				: null;
+		},
 		async updatePolicies(orgId, changes) {
-			const updates: Record<string, number> = {};
-			if (changes.archiveRetentionMonths !== undefined)
-				updates.archive_retention_months = changes.archiveRetentionMonths;
-			if (changes.lossWarningWindowDays !== undefined) updates.loss_warning_window_days = changes.lossWarningWindowDays;
-			if (changes.trainingReadinessGoalPercent !== undefined)
-				updates.training_readiness_goal_percent = changes.trainingReadinessGoalPercent;
-			if (changes.personnelDocumentStorageCapBytes !== undefined)
-				updates.personnel_document_storage_cap_bytes = changes.personnelDocumentStorageCapBytes;
+			const updates = toOrganizationPolicyColumns(changes);
 			const { data, error } = await supabase
 				.from('organizations')
 				.update(updates)
 				.eq('id', orgId)
 				.select(['id', ...Object.keys(updates)].join(', '))
-				.single<{ id: string; [field: string]: string | number | null }>();
+				.single<{ id: string; [field: string]: unknown }>();
 			if (error) return error.message || 'Organization settings update failed';
-			return data?.id === orgId && Object.entries(updates).every(([field, value]) => data[field] === value)
+			return data?.id === orgId && Object.entries(updates).every(([field, value]) => isSameValue(data[field], value))
 				? null
 				: 'Unable to confirm Organization settings update';
 		}
 	};
+}
+
+export function toOrganizationPolicyColumns(changes: OrganizationPolicyChanges): Record<string, number | string[]> {
+	const updates: Record<string, number | string[]> = {};
+	if (changes.archiveRetentionMonths !== undefined) updates.archive_retention_months = changes.archiveRetentionMonths;
+	if (changes.lossWarningWindowDays !== undefined) updates.loss_warning_window_days = changes.lossWarningWindowDays;
+	if (changes.trainingReadinessGoalPercent !== undefined)
+		updates.training_readiness_goal_percent = changes.trainingReadinessGoalPercent;
+	if (changes.personnelDocumentStorageCapBytes !== undefined)
+		updates.personnel_document_storage_cap_bytes = changes.personnelDocumentStorageCapBytes;
+	if (changes.disabledFeatures !== undefined) updates.disabled_features = changes.disabledFeatures;
+	if (changes.strengthFloorPercent !== undefined) updates.strength_floor_percent = changes.strengthFloorPercent;
+	return updates;
+}
+
+function isSameValue(saved: unknown, sent: number | string[]): boolean {
+	if (!Array.isArray(sent)) return saved === sent;
+	return Array.isArray(saved) && saved.length === sent.length && sent.every((item, index) => saved[index] === item);
 }
 
 function mapOrganizationSettingsMembershipRow(

@@ -93,3 +93,21 @@ test('an unowned origin, path traversal, unknown action or unsupported payload s
 	}
 	assert.equal(calls, 0);
 });
+
+test('feature switches submit a list of keys and nothing else may be a list', async () => {
+	let sent;
+	const page = {
+		location: { origin: input.origin },
+		fetch: async (...args) => {
+			sent = args;
+			return Response.json({ success: true });
+		}
+	};
+	const body = { disabledFeatures: ['training', 'lossesAndAwards'], strengthFloorPercent: 70 };
+	const result = await requestSettings(page, { ...input, body });
+	assert.equal(sent[0], '/org/synthetic-a/api/organization/settings');
+	assert.deepEqual(JSON.parse(sent[1].body), body);
+	assert.equal(result.status, 200);
+	await assert.rejects(requestSettings(page, { ...input, body: { disabledFeatures: [7] } }));
+	await assert.rejects(requestSettings(page, { ...input, body: { lossWarningWindowDays: [30] } }));
+});

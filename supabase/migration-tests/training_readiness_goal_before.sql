@@ -19,7 +19,7 @@ INSERT INTO public.organization_memberships(organization_id,user_id,role,member_
   ('f1501000-0000-4000-8000-000000000102','f1501000-0000-4000-8000-000000000004','owner','viewer','organization');
 CREATE VIEW upgrade_fixture.training_readiness_goal_current_rows AS
 SELECT 'auth.users'::text table_name,id::text row_id,to_jsonb(r) row_data FROM auth.users r WHERE id::text LIKE 'f1501000-%'
-UNION ALL SELECT 'organizations',id::text,to_jsonb(r) - 'training_readiness_goal_percent' FROM public.organizations r WHERE id::text LIKE 'f1501000-%'
+UNION ALL SELECT 'organizations',id::text,to_jsonb(r) - 'training_readiness_goal_percent' - 'disabled_features' - 'strength_floor_percent' FROM public.organizations r WHERE id::text LIKE 'f1501000-%'
 UNION ALL SELECT 'memberships',id::text,to_jsonb(r) FROM public.organization_memberships r WHERE organization_id::text LIKE 'f1501000-%';
 CREATE TABLE upgrade_fixture.training_readiness_goal_before_rows AS SELECT * FROM upgrade_fixture.training_readiness_goal_current_rows;
 CREATE TABLE upgrade_fixture.training_readiness_goal_baseline AS

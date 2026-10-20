@@ -191,4 +191,52 @@ describe('Organization policy updates', () => {
 		).toEqual({ success: true });
 		expect(ctx.auditPort.events[1]).toMatchObject({ details: { loss_warning_window_days: 91 } });
 	});
+
+	it('stores feature switches and the strength floor and audits what each replaced', async () => {
+		const ctx = createTestContext();
+		ctx.rawStore.seed('organizations', [
+			{ id: ctx.auth.orgId, disabled_features: ['onboarding'], strength_floor_percent: 80 }
+		]);
+
+		expect(
+			await updateOrganizationSettings(ctx, {
+				disabledFeatures: ['lossesAndAwards', 'training', 'training'],
+				strengthFloorPercent: 65
+			})
+		).toEqual({ success: true });
+
+		expect(await ctx.rawStore.findOne('organizations', ctx.auth.orgId, {})).toMatchObject({
+			disabled_features: ['training', 'lossesAndAwards'],
+			strength_floor_percent: 65
+		});
+		expect(ctx.auditPort.events).toEqual([
+			expect.objectContaining({
+				action: 'organization.settings_updated',
+				details: {
+					previous_disabled_features: ['onboarding'],
+					disabled_features: ['training', 'lossesAndAwards'],
+					previous_strength_floor_percent: 80,
+					strength_floor_percent: 65
+				}
+			})
+		]);
+	});
+
+	it.each([
+		[{ disabledFeatures: ['training', 'dutyRoster'] }, 'field:disabledFeatures'],
+		[{ disabledFeatures: 'training' }, 'field:disabledFeatures'],
+		[{ strengthFloorPercent: 0 }, 'field:strengthFloorPercent'],
+		[{ strengthFloorPercent: 101 }, 'field:strengthFloorPercent'],
+		[{ strengthFloorPercent: 79.5 }, 'field:strengthFloorPercent']
+	])('rejects %j with a field error before any write', async (input, reason) => {
+		const ctx = createTestContext();
+		ctx.rawStore.seed('organizations', [{ id: ctx.auth.orgId, disabled_features: [], strength_floor_percent: 80 }]);
+
+		await expect(updateOrganizationSettings(ctx, input as never)).rejects.toMatchObject({ status: 400, reason });
+		expect(await ctx.rawStore.findOne('organizations', ctx.auth.orgId, {})).toMatchObject({
+			disabled_features: [],
+			strength_floor_percent: 80
+		});
+		expect(ctx.auditPort.events).toEqual([]);
+	});
 });

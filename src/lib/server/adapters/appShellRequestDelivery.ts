@@ -82,6 +82,7 @@ export function createAppShellRequest(
 				userId: actor.userId,
 				userSupabase: config.locals.supabase,
 				orgName: org.name ?? 'Organization',
+				disabledFeatures: org.disabledFeatures,
 				wrapMembershipLoad: (loadMembershipRow) =>
 					getOrLoadRequestMembership(config.locals, actor.userId, org.id, loadMembershipRow)
 			}),

@@ -62,7 +62,8 @@
 			rankCatalog: workspaceData.rankCatalog,
 			personnel: workspaceData.personnel,
 			lossWarningWindowDays: workspaceData.lossWarningWindowDays,
-			awardTrackingAcknowledgedPersonnelIds: workspaceData.awardTrackingAcknowledgedPersonnelIds
+			awardTrackingAcknowledgedPersonnelIds: workspaceData.awardTrackingAcknowledgedPersonnelIds,
+			disabledFeatures: data.shell.kind === 'ready' ? data.shell.org.disabledFeatures : []
 		};
 	}
 

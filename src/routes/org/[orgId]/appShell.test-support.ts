@@ -35,7 +35,8 @@ export function createReadyAppShellRouteData(
 			org: {
 				id: overrides.orgId ?? 'org-1',
 				urlSegment: overrides.orgUrlSegment ?? overrides.orgId ?? 'org-1',
-				name: overrides.orgName ?? 'Test Org'
+				name: overrides.orgName ?? 'Test Org',
+				disabledFeatures: []
 			},
 			user: { id: overrides.userId ?? 'user-1' },
 			member,

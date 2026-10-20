@@ -3,9 +3,11 @@ import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { requireGovernancePolicy } from '$lib/access/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';
+import { isFeatureKey, FEATURE_KEYS, type FeatureKey } from '$lib/access/featureSwitches';
 import {
 	ARCHIVE_RETENTION_CONSTRAINT,
 	LOSS_WARNING_CONSTRAINT,
+	STRENGTH_FLOOR_CONSTRAINT,
 	TRAINING_READINESS_GOAL_CONSTRAINT
 } from './policyConstraints';
 import type {
@@ -28,11 +30,24 @@ function parseWholeNumber(value: unknown, message: string, range: { min: number;
 	return rounded;
 }
 
-function parseInteger(value: unknown, message: string, range: { min: number; max: number }): number | undefined {
+function parseInteger(
+	value: unknown,
+	message: string,
+	range: { min: number; max: number },
+	field?: string
+): number | undefined {
 	if (value === undefined) return undefined;
 	if (typeof value !== 'number' || !Number.isInteger(value) || value < range.min || value > range.max)
-		fail(400, message);
+		fail(400, message, field ? { reason: `field:${field}` } : undefined);
 	return value;
+}
+
+function parseFeatureKeys(value: unknown): FeatureKey[] | undefined {
+	if (value === undefined) return undefined;
+	if (!Array.isArray(value) || !value.every(isFeatureKey)) {
+		fail(400, `Disabled features must be any of ${FEATURE_KEYS.join(', ')}`, { reason: 'field:disabledFeatures' });
+	}
+	return FEATURE_KEYS.filter((key) => value.includes(key));
 }
 
 export async function updateOrganizationSettings(
@@ -58,13 +73,20 @@ export async function updateOrganizationSettings(
 		'Training readiness goal must be a whole number between 1 and 100',
 		TRAINING_READINESS_GOAL_CONSTRAINT
 	);
+	const disabledFeatures = parseFeatureKeys(input.disabledFeatures);
+	const strengthFloorPercent = parseInteger(
+		input.strengthFloorPercent,
+		'Strength floor must be a whole number between 1 and 100',
+		STRENGTH_FLOOR_CONSTRAINT,
+		'strengthFloorPercent'
+	);
 	const capMb = parseWholeNumber(
 		input.personnelDocumentStorageCapMb,
 		'Personnel document storage cap must be between 10 and 1024 MB',
 		{ min: 10, max: 1024 }
 	);
 	const changes: OrganizationPolicyChanges = {};
-	const details: Record<string, number> = {};
+	const details: Record<string, number | FeatureKey[]> = {};
 	if (archiveRetentionMonths !== undefined) {
 		changes.archiveRetentionMonths = archiveRetentionMonths;
 		details.archive_retention_months = archiveRetentionMonths;
@@ -81,8 +103,23 @@ export async function updateOrganizationSettings(
 		changes.personnelDocumentStorageCapBytes = capMb * 1024 * 1024;
 		details.personnel_document_storage_cap_bytes = changes.personnelDocumentStorageCapBytes;
 	}
+	if (disabledFeatures !== undefined) changes.disabledFeatures = disabledFeatures;
+	if (strengthFloorPercent !== undefined) changes.strengthFloorPercent = strengthFloorPercent;
 	if (Object.keys(changes).length === 0) fail(400, 'At least one organization setting must be provided');
-	const message = await ports.organizationPolicyWrite.updatePolicies(ports.auth.orgId.toLowerCase(), changes);
+	const orgId = ports.auth.orgId.toLowerCase();
+	if (disabledFeatures !== undefined || strengthFloorPercent !== undefined) {
+		const previous = await ports.organizationPolicyWrite.findFeatureSettings(orgId);
+		if (!previous) fail(404, 'Organization not found');
+		if (disabledFeatures !== undefined) {
+			details.previous_disabled_features = previous.disabledFeatures;
+			details.disabled_features = disabledFeatures;
+		}
+		if (strengthFloorPercent !== undefined) {
+			details.previous_strength_floor_percent = previous.strengthFloorPercent;
+			details.strength_floor_percent = strengthFloorPercent;
+		}
+	}
+	const message = await ports.organizationPolicyWrite.updatePolicies(orgId, changes);
 	if (message) fail(500, message);
 	ports.audit.log({
 		action: 'organization.settings_updated',

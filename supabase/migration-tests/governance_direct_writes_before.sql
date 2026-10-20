@@ -29,7 +29,7 @@ INSERT INTO public.organization_invitations(
 ('c6421000-0000-4000-8000-000000000502','c6421000-0000-4000-8000-000000000101','governance-upgrade-6@example.test','c6421000-0000-4000-8000-000000000002','pending',now() + interval '7 days','member','editor','{}','organization',ARRAY[]::uuid[],NULL),
 ('c6421000-0000-4000-8000-000000000503','c6421000-0000-4000-8000-000000000101','governance-upgrade-history@example.test','c6421000-0000-4000-8000-000000000001','revoked',now() - interval '1 day','owner','viewer','{}','organization',ARRAY[]::uuid[],'2030-01-02T03:04:05.678Z');
 CREATE VIEW upgrade_fixture.governance_direct_writes_current_rows AS
-SELECT 'organizations'::text table_name,id::text row_id,to_jsonb(r) - 'training_readiness_goal_percent' row_data
+SELECT 'organizations'::text table_name,id::text row_id,to_jsonb(r) - 'training_readiness_goal_percent' - 'disabled_features' - 'strength_floor_percent' row_data
   FROM public.organizations r WHERE id::text LIKE 'c6421000-%'
 UNION ALL SELECT 'memberships',id::text,to_jsonb(r) FROM public.organization_memberships r WHERE id::text LIKE 'c6421000-%'
 UNION ALL SELECT 'invitations',id::text,to_jsonb(r) FROM public.organization_invitations r WHERE id::text LIKE 'c6421000-%';

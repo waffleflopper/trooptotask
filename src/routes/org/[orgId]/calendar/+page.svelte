@@ -94,7 +94,8 @@
 						}
 					}
 				: undefined,
-			activeOnboardingPersonnelIds: calendarBootstrap?.data.activeOnboardingPersonnelIds
+			activeOnboardingPersonnelIds: calendarBootstrap?.data.activeOnboardingPersonnelIds,
+			disabledFeatures: shell?.org.disabledFeatures
 		})
 	);
 	const viewData = $derived.by(() => ({

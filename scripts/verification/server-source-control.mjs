@@ -5,6 +5,12 @@ import * as fs from 'node:fs/promises';
 import path from 'node:path';
 import { createMailSink, createProviderFaultController, providerOrigin } from './outbound-controls.mjs';
 
+// Calendar and Personnel read the loss window alone; the Dashboard reads it with the strength floor in the policy read.
+const LOSS_WINDOW_READS = [
+	'loss_warning_window_days',
+	'archive_retention_months,loss_warning_window_days,training_readiness_goal_percent,strength_floor_percent'
+];
+
 export const SERVER_SOURCE_TABLES = Object.freeze([
 	'personnel_onboardings',
 	'personnel_trainings',
@@ -109,7 +115,7 @@ export function createServerSourceController({ providerUrl, orgId, fetch: origin
 		const organizations = url.searchParams.getAll(control.table === 'organizations' ? 'id' : 'organization_id');
 		const selection = url.searchParams.getAll('select');
 		const matchesSelection =
-			control.table !== 'organizations' || (selection.length === 1 && selection[0] === 'loss_warning_window_days');
+			control.table !== 'organizations' || (selection.length === 1 && LOSS_WINDOW_READS.includes(selection[0]));
 		if (
 			method !== 'GET' ||
 			url.origin !== origin ||

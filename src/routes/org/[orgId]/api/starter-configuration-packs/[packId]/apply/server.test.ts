@@ -55,7 +55,8 @@ function buildRequest(ctx: ReturnType<typeof createTestContext>): AdmittedOrgani
 		audit: ctx.audit,
 		scope: ctx.scope,
 		supabase,
-		session: null
+		session: null,
+		disabledFeatures: []
 	};
 }
 

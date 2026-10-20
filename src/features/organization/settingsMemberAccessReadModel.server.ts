@@ -53,10 +53,13 @@ export function buildSettingsAccessShape(
 	>,
 	membershipRole: MembershipRole
 ): SettingsAccessShape {
-	const projection = projectEffectiveMemberAccess({
-		...row,
-		role: membershipRole
-	} satisfies MemberAccessProjectionRow);
+	// Settings edits the stored levels, which feature switches never change.
+	const projection = projectEffectiveMemberAccess(
+		{ ...row, role: membershipRole } satisfies MemberAccessProjectionRow,
+		{
+			disabledFeatures: []
+		}
+	);
 
 	return buildSettingsAccessShapeFromProjection(projection);
 }

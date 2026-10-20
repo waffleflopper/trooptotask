@@ -14,11 +14,13 @@ function makeCtx(counts: { losses: number; changes: number; out: number }): Dash
 	return {
 		unitReadiness: {
 			availabilityColor: () => 'green',
+			trainingCurrencyColor: () => 'green',
 			availPct: 100,
 			availColor: 'green',
 			trainingColor: 'green',
 			statusEntries: []
 		},
+		isFeatureOn: () => true,
 		trainingGroupDelinquencies: [],
 		dutyForDays: () => [],
 		trainingStats: null,

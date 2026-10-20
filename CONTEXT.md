@@ -88,6 +88,14 @@ _Avoid_: Member Preset
 The allow-or-deny result for a Policy Action after relevant authority, scope, and overlays are considered, with a reason that can explain the result. Server decisions enforce access; client affordances are advisory.
 _Avoid_: Checkbox, hidden button as access enforcement
 
+**Feature switch**:
+A unit-wide setting that turns off Training, Critical Tasks, Evaluations, Onboarding, or Losses and awards for every member, owners included. A disabled feature's Feature Lane projects to `none` with the reason "off for the unit", distinct from no permission. It leaves records and stored member access unchanged, and it is not a security boundary: RLS and SQL capability checks do not read it.
+_Avoid_: Feature flag, which names a release toggle; Capability Level `none`
+
+**Strength floor**:
+The duty strength percent, from 1 to 100 and 80 by default, at or above which a unit's availability reads as healthy. Below it, group and headline availability on the dashboard turn amber.
+_Avoid_: Readiness goal, which applies to Training
+
 ### People and leader records
 
 **Personnel Record**:

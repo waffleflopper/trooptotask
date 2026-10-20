@@ -15,6 +15,7 @@ function fixture(value: number | null | 'missing' | 'failure', missingCount = fa
 		'archive_retention_months',
 		'loss_warning_window_days',
 		'training_readiness_goal_percent',
+		'strength_floor_percent',
 		'personnel_document_storage_cap_bytes'
 	];
 	const rows: { id: string; [field: string]: unknown }[] = [
@@ -104,13 +105,19 @@ describe('Organization runtime settings with the actual SDK', () => {
 		expect(await reader.findPolicies(ORG.toUpperCase())).toEqual({
 			archiveRetentionMonths: 0,
 			lossWarningWindowDays: 0,
-			trainingReadinessGoalPercent: 0
+			trainingReadinessGoalPercent: 0,
+			strengthFloorPercent: 0
 		});
 		expect(await reader.findArchiveRetentionMonths(ORG)).toBe(0);
 		expect(await reader.findLossWarningWindowDays(ORG)).toBe(0);
 		expect(await reader.findStorageCapBytes(ORG)).toBe(0);
 		expect(requests.map((request) => request.select?.split(',').map((column) => column.trim()))).toEqual([
-			['archive_retention_months', 'loss_warning_window_days', 'training_readiness_goal_percent'],
+			[
+				'archive_retention_months',
+				'loss_warning_window_days',
+				'training_readiness_goal_percent',
+				'strength_floor_percent'
+			],
 			['archive_retention_months'],
 			['loss_warning_window_days'],
 			['personnel_document_storage_cap_bytes']

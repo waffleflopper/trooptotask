@@ -53,7 +53,8 @@ const membership: MembershipInfo = {
 };
 
 const orgState: OrgState = {
-	orgName: 'Test Unit'
+	orgName: 'Test Unit',
+	disabledFeatures: []
 };
 
 describe('loadAppShellFirstPaint', () => {
@@ -103,7 +104,7 @@ describe('loadAppShellFirstPaint', () => {
 		expect(result).toEqual({
 			shell: expect.objectContaining({
 				kind: 'ready',
-				org: { id: 'org-1', name: 'Test Unit', urlSegment: 'test-unit' },
+				org: { id: 'org-1', name: 'Test Unit', urlSegment: 'test-unit', disabledFeatures: [] },
 				user: { id: 'user-1' },
 				member: expect.objectContaining({
 					membershipId: 'membership-1',

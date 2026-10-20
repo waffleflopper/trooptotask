@@ -17,10 +17,12 @@ import type { OnboardingCatalogPersistence, OnboardingWorkflowPersistence } from
 import type { TrainingCatalogPersistence, TrainingCompletionPersistence } from '$features/training/contracts';
 import {
 	loadOrganizationMemberLabels,
+	toOrganizationPolicyColumns,
 	type OrganizationMemberLabelRow,
 	type OrganizationUnitCountsPort
 } from '$features/organization/index.server';
-import type { FileCleanup } from '$features/organization/contracts';
+import { parseDisabledFeatures, type FeatureKey } from '$lib/access/featureSwitches';
+import { DEFAULT_STRENGTH_FLOOR_PERCENT, type FileCleanup } from '$features/organization/contracts';
 import {
 	createInMemoryPersonnelRecordPersistence,
 	createInMemoryPersonnelRosterReader,
@@ -123,6 +125,7 @@ type TestContextOptions = {
 	trainingCatalogFactory?: (store: FixtureRowStore, orgId: string) => TrainingCatalogPersistence;
 	trainingCompletionsFactory?: (store: FixtureRowStore, orgId: string) => TrainingCompletionPersistence;
 	auth?: Parameters<typeof createTestAuthContext>[0];
+	disabledFeatures?: FeatureKey[];
 	calendarCatalogsFactory?: (rawStore: FixtureRowStore, orgId: string) => CalendarCatalogPersistence;
 	calendarAvailabilityFactory?: (
 		rawStore: FixtureRowStore,
@@ -1509,17 +1512,19 @@ function createInMemoryOrganizationSettingsReader(store: FixtureRowStore): Organ
 				archive_retention_months?: number | null;
 				loss_warning_window_days?: number | null;
 				training_readiness_goal_percent: number;
+				strength_floor_percent?: number;
 			}>(
 				'organizations',
 				orgId.toLowerCase(),
 				{},
-				'archive_retention_months, loss_warning_window_days, training_readiness_goal_percent'
+				'archive_retention_months, loss_warning_window_days, training_readiness_goal_percent, strength_floor_percent'
 			);
 			return row
 				? {
 						archiveRetentionMonths: row.archive_retention_months,
 						lossWarningWindowDays: row.loss_warning_window_days,
-						trainingReadinessGoalPercent: row.training_readiness_goal_percent
+						trainingReadinessGoalPercent: row.training_readiness_goal_percent,
+						strengthFloorPercent: row.strength_floor_percent ?? DEFAULT_STRENGTH_FLOOR_PERCENT
 					}
 				: null;
 		},
@@ -1570,16 +1575,22 @@ function createInMemoryOrganizationUnitCountsPort(
 
 function createInMemoryOrganizationPolicyWritePort(store: FixtureRowStore): OrganizationPolicyWritePort {
 	return {
+		async findFeatureSettings(orgId) {
+			const row = await store.findOne<{ disabled_features?: unknown; strength_floor_percent?: number }>(
+				'organizations',
+				orgId.toLowerCase(),
+				{},
+				'disabled_features, strength_floor_percent'
+			);
+			return row
+				? {
+						disabledFeatures: parseDisabledFeatures(row.disabled_features),
+						strengthFloorPercent: row.strength_floor_percent ?? DEFAULT_STRENGTH_FLOOR_PERCENT
+					}
+				: null;
+		},
 		async updatePolicies(orgId, changes) {
-			const updates: Record<string, number> = {};
-			if (changes.archiveRetentionMonths !== undefined)
-				updates.archive_retention_months = changes.archiveRetentionMonths;
-			if (changes.lossWarningWindowDays !== undefined) updates.loss_warning_window_days = changes.lossWarningWindowDays;
-			if (changes.trainingReadinessGoalPercent !== undefined)
-				updates.training_readiness_goal_percent = changes.trainingReadinessGoalPercent;
-			if (changes.personnelDocumentStorageCapBytes !== undefined)
-				updates.personnel_document_storage_cap_bytes = changes.personnelDocumentStorageCapBytes;
-			await store.updateById('organizations', orgId, updates);
+			await store.updateById('organizations', orgId, toOrganizationPolicyColumns(changes));
 			return null;
 		}
 	};
@@ -1926,7 +1937,8 @@ export function createTestContext(
 		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore),
 		personnelOnboardingRoster: createInMemoryPersonnelOnboardingRosterPort(rawStore),
 		trainingOnboardingReferences: createInMemoryTrainingOnboardingReferencesPort(rawStore),
-		onboardingCalendarMarkers: createInMemoryOnboardingCalendarMarkersPort(rawStore, auth)
+		onboardingCalendarMarkers: createInMemoryOnboardingCalendarMarkersPort(rawStore, auth),
+		disabledFeatures: overrides?.disabledFeatures ?? []
 	};
 }
 
@@ -2101,6 +2113,7 @@ export function createQueryPortsContext(options?: TestContextOptions) {
 		...createTestPersonnelPersistence(rawStore, store, auth),
 		store,
 		auth,
+		disabledFeatures: options?.disabledFeatures ?? [],
 		organizationSettings: createInMemoryOrganizationSettingsReader(rawStore),
 		criticalTasksReadModel,
 		criticalTaskLibrary,
@@ -2136,6 +2149,7 @@ export function createQueryWithRawStorePortsContext(options?: TestContextOptions
 		store,
 		auth,
 		rawStore,
+		disabledFeatures: options?.disabledFeatures ?? [],
 		organizationSettings: createInMemoryOrganizationSettingsReader(rawStore),
 		criticalTasksReadModel,
 		criticalTaskLibrary,

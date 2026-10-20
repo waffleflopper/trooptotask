@@ -473,7 +473,8 @@ class PerfDatabase(OwnedDatabase):
 
     def explain(self, user_id, statement):
         claims = json.dumps({"sub": user_id, "role": "authenticated"})
-        output = self._execute(f"""
+        # Rolled back, so explaining a write such as the assignment save leaves the workload as seeded.
+        output = self._execute("BEGIN", f"""
             SET LOCAL statement_timeout = '30s';
             DO $$ BEGIN
                 PERFORM set_config('request.jwt.claims', '{claims}', true);
@@ -481,7 +482,7 @@ class PerfDatabase(OwnedDatabase):
             END $$;
             SET LOCAL ROLE authenticated;
             EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) {statement};
-        """).strip()
+        """, "ROLLBACK").strip()
         return json.loads(output)
 
     def prepare(self):
@@ -590,6 +591,10 @@ PERF_STATEMENTS = {
     "critical-task-completion-trend": "SELECT * FROM public.active_personnel_ict_completion_trend({org})",
     "actor-membership": "SELECT * FROM public.organization_memberships WHERE organization_id = {org}"
                         " AND user_id = {user}",
+    # The Duty planner's save of the journey slot to its seeded holder: its authorization check alone,
+    # then the whole RPC. A definer function's inner statements do not appear in its plan.
+    "assignment-replace-check": "SELECT calendar_private.can_replace_daily_assignment_rows({org}, '{{}}'::date[], {slots})",
+    "assignment-replace": "SELECT * FROM public.replace_daily_assignment_slots({org}, '{{}}'::date[], {slots})",
 }
 PERF_ACTORS = {"wide": "perfWide", "scoped": "perfScoped"}
 
@@ -643,6 +648,16 @@ def perf_tables(session):
             else {"mode": "unknown", "pinned": False}}
 
 
+def assignment_slots(item):
+    slot = ((item.get("journeyTerms") or {}).get("assignment") or {}).get("slot")
+    if not isinstance(slot, dict):
+        raise Blocked("This workload was seeded before its assignment slot was recorded; seed it again.")
+    value = json.dumps([{"date": canonical_date(slot.get("date")),
+                         "assignment_type_id": canonical_uuid(slot.get("assignmentTypeId")),
+                         "assignee_id": canonical_uuid(slot.get("holderId"))}])
+    return f"'{value}'::jsonb"
+
+
 def perf_explain(session, name, workload, actor):
     if name not in PERF_STATEMENTS:
         raise Blocked(f"Unknown statement; use one of {', '.join(PERF_STATEMENTS)}.")
@@ -657,7 +672,8 @@ def perf_explain(session, name, workload, actor):
         org=f"'{canonical_uuid(item.get('organizationId'))}'::uuid",
         user=f"'{user_id}'::uuid",
         start=f"'{canonical_date(window.get('start'))}'::date",
-        end=f"'{canonical_date(window.get('end'))}'::date")
+        end=f"'{canonical_date(window.get('end'))}'::date",
+        slots=assignment_slots(item) if "{slots}" in PERF_STATEMENTS[name] else None)
     plan = PerfDatabase(session).explain(user_id, statement)[0]
     return {"status": "PASS", "statement": name, "workload": workload, "actor": actor, "sql": statement,
             "planningMs": plan.get("Planning Time"), "executionMs": plan.get("Execution Time"),

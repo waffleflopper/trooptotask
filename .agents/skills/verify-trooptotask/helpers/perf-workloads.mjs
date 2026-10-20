@@ -626,7 +626,8 @@ function journeyTerms({ anchor, rows, active, scopedPeople, searched }) {
 		assignment: {
 			control: `${personTypes.get(slot.assignment_type_id).name}, ${plannerDate(slot.date)}: `,
 			original: { label: rankedLabel(holder), search: holder.last_name },
-			alternate: { label: rankedLabel(alternate), search: alternate.last_name }
+			alternate: { label: rankedLabel(alternate), search: alternate.last_name },
+			slot: { date: slot.date, assignmentTypeId: slot.assignment_type_id, holderId: holder.id }
 		},
 		edit: { wide: edit(searched.wide), scoped: edit(searched.scoped) },
 		population: { wide: active.length, scoped: scopedPeople.length },

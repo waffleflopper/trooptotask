@@ -372,7 +372,12 @@ test('the assignment slot is named as the Duty planner names it', () => {
 	assert.deepEqual(expand('small', '2026-10-17').journeyTerms.assignment, {
 		control: 'Staff Duty, Thu 1 Oct: ',
 		original: { label: 'SGT Irwin009, Jordan', search: 'Irwin009' },
-		alternate: { label: '2LT Adams001, Alex', search: 'Adams001' }
+		alternate: { label: '2LT Adams001, Alex', search: 'Adams001' },
+		slot: {
+			date: '2026-10-01',
+			assignmentTypeId: 'dcc59b66-5876-400b-9c94-59cbc3780105',
+			holderId: '116fe835-3903-46a0-9d52-81835cf90ab1'
+		}
 	});
 	assert.match(
 		expand('small', '2026-09-15').journeyTerms.assignment.control,

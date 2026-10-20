@@ -2,8 +2,10 @@ import { hasPdfFileSignature } from './fileSignatures';
 
 export const PDF_OR_PHOTO_MAX_BYTES = 10 * 1024 * 1024;
 
+// HEIF is an ISO base media file: an `ftyp` box at bytes 4–7, then the brand at 8–11.
 const hasHeicSignature = (bytes: Uint8Array) =>
 	bytes.length >= 12 &&
+	String.fromCharCode(...bytes.slice(4, 8)) === 'ftyp' &&
 	['heic', 'heix', 'hevc', 'hevx', 'mif1', 'msf1'].includes(String.fromCharCode(...bytes.slice(8, 12)));
 
 /** Each accepted media type and the leading bytes that prove a file really is one. */

@@ -32,8 +32,11 @@ const CLEANUP_RUN_HOUR_UTC = 5;
 
 /**
  * The first daily cleanup run that deletes a record archived at `archivedAt`: the first 05:00 UTC whose
- * `retentionCutoff` is later than it. The cleanup deletes strictly before the cutoff, so a record archived
- * exactly at a run's cutoff waits one more day.
+ * `retentionCutoff` is not earlier than it.
+ *
+ * The cleanup deletes strictly before the cutoff and a run starts a little after 05:00, so a record archived
+ * between 05:00:00 and the real start of that day's run is deleted on that run. The nominal 05:00 comparison
+ * is inclusive to match every archive time but those few seconds, which it dates one day late.
  */
 export function retentionDeletionDate(archivedAt: Date | string, retentionMonths: number): Date {
 	const archived = new Date(archivedAt);
@@ -46,7 +49,7 @@ export function retentionDeletionDate(archivedAt: Date | string, retentionMonths
 	const run = new Date(
 		Date.UTC(archived.getUTCFullYear(), archived.getUTCMonth() + retentionMonths, 1, CLEANUP_RUN_HOUR_UTC)
 	);
-	while (archived.getTime() >= Date.parse(retentionCutoff(run, retentionMonths))) {
+	while (archived.getTime() > Date.parse(retentionCutoff(run, retentionMonths))) {
 		run.setUTCDate(run.getUTCDate() + 1);
 	}
 	return run;

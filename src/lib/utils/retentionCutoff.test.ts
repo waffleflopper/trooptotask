@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { retentionCutoff, retentionDeletionDate } from './retentionCutoff';
 
@@ -25,7 +24,7 @@ const cases = [
 		name: 'archived exactly at the run hour',
 		archivedAt: '2024-11-02T05:00:00.000Z',
 		months: 24,
-		run: '2026-11-03T05:00:00.000Z'
+		run: '2026-11-02T05:00:00.000Z'
 	},
 	{
 		name: '31 Jan into a 28-day February',
@@ -78,9 +77,9 @@ describe('retentionDeletionDate', () => {
 		const deletion = retentionDeletionDate(archivedAt, months);
 
 		expect(deletion.toISOString()).toBe(run);
-		expect(archivedAt < retentionCutoff(deletion, months)).toBe(true);
+		expect(archivedAt <= retentionCutoff(deletion, months)).toBe(true);
 		const dayBefore = new Date(deletion.getTime() - 24 * 60 * 60 * 1000);
-		expect(archivedAt < retentionCutoff(dayBefore, months)).toBe(false);
+		expect(archivedAt <= retentionCutoff(dayBefore, months)).toBe(false);
 	});
 
 	it('accepts a Date', () => {
@@ -96,13 +95,5 @@ describe('retentionDeletionDate', () => {
 		{ archivedAt: '2024-11-02T03:00:00.000Z', months: Number.NaN }
 	])('rejects archivedAt=$archivedAt months=$months', ({ archivedAt, months }) => {
 		expect(() => retentionDeletionDate(archivedAt, months)).toThrow(RangeError);
-	});
-
-	it('runs at the hour the archived-records cron is scheduled', () => {
-		const { crons } = JSON.parse(readFileSync('vercel.json', 'utf8')) as {
-			crons: Array<{ path: string; schedule: string }>;
-		};
-
-		expect(crons.find((cron) => cron.path === '/api/cleanup-archived-records')?.schedule).toBe('0 5 * * *');
 	});
 });

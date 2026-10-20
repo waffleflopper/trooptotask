@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
+import { createInMemoryRatingSchemePersistence } from '$features/rating-scheme/server/inMemoryRatingSchemePersistence.server';
 import { createSupabaseOrganizationUnitCountsPort } from './unitCountsProvider.server';
 import { readUnitCounts } from './unitCounts.server';
 import { UNIT_COUNT_KEYS } from './unitCounts';
@@ -30,7 +31,11 @@ function seed(): Record<string, Row[]> {
 		],
 		organization_memberships: [...rows(3, ORG), ...rows(8, OTHER)],
 		status_types: [...rows(6, ORG), ...rows(8, OTHER)],
-		assignment_types: [...rows(4, ORG), ...rows(8, OTHER)],
+		assignment_types: [
+			...rows(4, ORG, { archived_at: null }),
+			...rows(3, ORG, { archived_at: archivedAt }).map((r) => ({ ...r, id: `${r.id}-archived` })),
+			...rows(8, OTHER, { archived_at: null })
+		],
 		special_days: [...rows(11, ORG), ...rows(8, OTHER)],
 		training_types: [...rows(7, ORG), ...rows(8, OTHER)],
 		personnel_trainings: [...rows(13, ORG), ...rows(8, OTHER)],
@@ -58,17 +63,17 @@ const EXPECTED = {
 	onboardingTemplates: 2
 };
 
-type RatingSchemeFactory = NonNullable<NonNullable<Parameters<typeof createTestContext>[0]>['ratingSchemeFactory']>;
-
-function inMemoryUnit(tables: Record<string, Row[]>) {
+function inMemoryContext(tables: Record<string, Row[]>) {
 	const ctx = createTestContext({
 		auth: { orgId: ORG },
-		ratingSchemeFactory: ((store, orgId) => ({
-			countEntries: async () => (await store.findMany('rating_scheme_entries', orgId)).length
-		})) as RatingSchemeFactory
+		ratingSchemeFactory: createInMemoryRatingSchemePersistence
 	});
 	for (const [table, tableRows] of Object.entries(tables)) ctx.rawStore.seed(table, tableRows);
-	return ctx.unitCounts;
+	return ctx;
+}
+
+function inMemoryUnit(tables: Record<string, Row[]>) {
+	return inMemoryContext(tables).unitCounts;
 }
 
 /** Answers PostgREST count requests from `tables`; `requests` records each one. */
@@ -100,10 +105,10 @@ function supabaseUnit(tables: Record<string, Row[]>) {
 			}
 		}
 	});
-	const ratingScheme = {
-		countEntries: async () => (tables.rating_scheme_entries ?? []).filter((r) => r.organization_id === ORG).length
+	return {
+		requests,
+		port: createSupabaseOrganizationUnitCountsPort(client, ORG, inMemoryContext(tables).ratingScheme)
 	};
-	return { requests, port: createSupabaseOrganizationUnitCountsPort(client, ORG, ratingScheme) };
 }
 
 describe.each([
@@ -145,7 +150,9 @@ describe('Supabase unit counts requests', () => {
 		await readUnitCounts(port, ['members', 'trainingTypes']);
 
 		expect(
-			requests.map(({ method, table, prefer }) => ({ method, table, exact: prefer?.includes('count=exact') }))
+			requests
+				.map(({ method, table, prefer }) => ({ method, table, exact: prefer?.includes('count=exact') }))
+				.sort((a, b) => a.table.localeCompare(b.table))
 		).toEqual([
 			{ method: 'HEAD', table: 'organization_memberships', exact: true },
 			{ method: 'HEAD', table: 'training_types', exact: true }
@@ -172,7 +179,7 @@ describe('Supabase unit counts requests', () => {
 			auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
 			global: { fetch: async () => Response.json({ message: 'permission denied' }, { status: 403 }) }
 		});
-		const port = createSupabaseOrganizationUnitCountsPort(client, ORG, { countEntries: async () => 0 });
+		const port = createSupabaseOrganizationUnitCountsPort(client, ORG, inMemoryContext({}).ratingScheme);
 
 		await expect(readUnitCounts(port, ['members'])).rejects.toThrow();
 	});

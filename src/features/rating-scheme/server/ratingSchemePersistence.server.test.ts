@@ -98,7 +98,7 @@ function provider(initial: Row[] = []) {
 			fetch: async (input, init) => {
 				const request = new Request(input, init);
 				const url = new URL(request.url);
-				const body: unknown = ['GET', 'DELETE'].includes(request.method) ? null : await request.json();
+				const body: unknown = ['GET', 'HEAD', 'DELETE'].includes(request.method) ? null : await request.json();
 				state.requests.push({ url, method: request.method, body, prefer: request.headers.get('prefer') });
 				if (
 					state.requests.length > 40 ||
@@ -123,6 +123,10 @@ function provider(initial: Row[] = []) {
 					return true;
 				});
 				const total = affected.length;
+				if (request.method === 'HEAD') {
+					const exact = request.headers.get('prefer')?.includes('count=exact') && !state.omitCount;
+					return new Response(null, { status: 200, headers: exact ? { 'Content-Range': `*/${total}` } : {} });
+				}
 				if (request.method === 'GET') {
 					const order = url.searchParams.get('order');
 					if (order)
@@ -246,7 +250,7 @@ describe('owned Rating Scheme provider', () => {
 		await expect(ratingScheme.findWriteReference('entry-a')).rejects.toThrow('Rating provider unavailable');
 	});
 
-	it('preserves estimated count with one-row data range, missing count as zero and provider error propagation', async () => {
+	it('counts the unit exactly with a head request, missing count as zero and provider error propagation', async () => {
 		const { ratingScheme, state } = provider([
 			saved,
 			{ ...saved, id: 'second' },
@@ -254,13 +258,12 @@ describe('owned Rating Scheme provider', () => {
 		]);
 		expect(await ratingScheme.countEntries()).toBe(2);
 		const request = state.requests[0];
-		expect(request.prefer).toContain('count=estimated');
+		expect(request.method).toBe('HEAD');
+		expect(request.prefer).toContain('count=exact');
 		expect(request.url.searchParams.get('select')).toBe('id');
-		expect(request.url.searchParams.get('offset')).toBe('0');
-		expect(request.url.searchParams.get('limit')).toBe('1');
 		state.omitCount = true;
 		expect(await ratingScheme.countEntries()).toBe(0);
-		state.rejectMethod = 'GET';
+		state.rejectMethod = 'HEAD';
 		await expect(ratingScheme.countEntries()).rejects.toThrow('Rating provider unavailable');
 	});
 
